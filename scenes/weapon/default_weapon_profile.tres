@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="WeaponProfile" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/weapon/weapon_profile.gd" id="1_weapon_profile"]
+
+[resource]
+script = ExtResource("1_weapon_profile")
+base_reload_seconds = 2.5
+min_reload_seconds = 0.5
+shot_duration = 0.06
+max_range = 400.0
+hit_mask = 1048575
+hit_areas = false
+tracer_lifetime = 0.35
+tracer_color = Color(1, 0.86, 0.45, 0.9)
+tracer_width = 0.045
+tracer_fade_exponent = 2.2

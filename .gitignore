@@ -13,3 +13,6 @@ desktop.ini
 
 *.swp
 *~
+
+# Throwaway verification harnesses
+tools/_scratch/
