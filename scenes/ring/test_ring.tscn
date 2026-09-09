@@ -1,0 +1,374 @@
+[gd_scene load_steps=9 format=3]
+
+[sub_resource type="StandardMaterial3D" id="MatDeck"]
+albedo_color = Color(0.42, 0.42, 0.44, 1.0)
+roughness = 0.95
+metallic = 0.0
+
+[sub_resource type="StandardMaterial3D" id="MatStructure"]
+albedo_color = Color(0.27, 0.27, 0.29, 1.0)
+roughness = 0.95
+metallic = 0.0
+
+[sub_resource type="StandardMaterial3D" id="MatCover"]
+albedo_color = Color(0.58, 0.57, 0.54, 1.0)
+roughness = 0.95
+metallic = 0.0
+
+[sub_resource type="StandardMaterial3D" id="MatStart"]
+albedo_color = Color(0.22, 0.52, 0.28, 1.0)
+roughness = 0.85
+metallic = 0.0
+
+[sub_resource type="StandardMaterial3D" id="MatEnd"]
+albedo_color = Color(0.62, 0.42, 0.14, 1.0)
+roughness = 0.85
+metallic = 0.0
+
+[sub_resource type="ProceduralSkyMaterial" id="SkyMat"]
+sky_top_color = Color(0.28, 0.34, 0.42, 1.0)
+sky_horizon_color = Color(0.58, 0.6, 0.62, 1.0)
+ground_bottom_color = Color(0.16, 0.16, 0.17, 1.0)
+ground_horizon_color = Color(0.4, 0.4, 0.42, 1.0)
+
+[sub_resource type="Sky" id="Sky"]
+sky_material = SubResource("SkyMat")
+
+[sub_resource type="Environment" id="Env"]
+background_mode = 2
+sky = SubResource("Sky")
+ambient_light_source = 3
+ambient_light_energy = 0.6
+tonemap_mode = 2
+
+[node name="TestRing" type="Node3D"]
+editor_description = "PANOPTICON greybox arena. 0.5 m grid throughout. Deck r35-r60 (25 m track), outer wall +8 m, tower room floor at y=15. Runners go counter-clockwise from PrisonerStart (+5 deg) all the way round to PrisonerEnd (-5 deg), 8 m apart across LapDivider."
+
+[node name="Environment" type="Node3D" parent="."]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="Environment"]
+environment = SubResource("Env")
+
+[node name="Sun" type="DirectionalLight3D" parent="Environment"]
+editor_description = "Keyed at -35 deg elevation / -55 deg azimuth so cover casts long, readable shadows across the track instead of pooling under itself."
+transform = Transform3D(0.819152, -0.469846, 0.330366, 0.0, 0.573576, 0.819152, -0.573576, -0.671010, 0.469846, 0.0, 40.0, 0.0)
+light_energy = 1.0
+shadow_enabled = true
+directional_shadow_max_distance = 160.0
+
+[node name="Ring" type="Node3D" parent="."]
+
+[node name="Deck" type="CSGCombiner3D" parent="Ring"]
+editor_description = "The running surface: a true annulus, outer r=60, inner r=35, 25 m wide. Lap length at mid-radius r=47.5 is 298 m -- 37 s at walk 8 m/s, 27 s at sprint 11 m/s, which is the length of one round."
+use_collision = true
+
+[node name="DeckSolid" type="CSGCylinder3D" parent="Ring/Deck"]
+radius = 60.0
+height = 1.0
+sides = 64
+material = SubResource("MatDeck")
+transform = Transform3D(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, -0.5, 0.0)
+
+[node name="DeckHole" type="CSGCylinder3D" parent="Ring/Deck"]
+editor_description = "Subtract: opens the inner void."
+operation = 2
+radius = 35.0
+height = 3.0
+sides = 64
+transform = Transform3D(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, -0.5, 0.0)
+
+[node name="OuterWall" type="CSGCombiner3D" parent="Ring"]
+editor_description = "r=60 to r=62, 8 m tall. Jump apex on the tuned movement profile is 1.11 m, so 8 m is uncrossable by an order of magnitude; it sits entirely outboard of the deck so it can never occlude the tower's view of ground."
+use_collision = true
+
+[node name="WallSolid" type="CSGCylinder3D" parent="Ring/OuterWall"]
+radius = 62.0
+height = 9.0
+sides = 64
+material = SubResource("MatStructure")
+transform = Transform3D(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 3.5, 0.0)
+
+[node name="WallBore" type="CSGCylinder3D" parent="Ring/OuterWall"]
+operation = 2
+radius = 60.0
+height = 11.0
+sides = 64
+transform = Transform3D(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 3.5, 0.0)
+
+[node name="InnerKerb" type="CSGCombiner3D" parent="Ring"]
+editor_description = "Only 0.5 m tall on purpose. The inner boundary has to read as an edge without blocking sight: from the tower eye (y=16.7) the sightline to a 1.7 m target at r=37 is still 2.1 m up as it crosses r=36, so no height under ~2 m here can ever shadow the inner lane. Anything taller would hand runners a free covered lane for the whole lap."
+use_collision = true
+
+[node name="KerbSolid" type="CSGCylinder3D" parent="Ring/InnerKerb"]
+radius = 36.0
+height = 0.5
+sides = 64
+material = SubResource("MatStructure")
+transform = Transform3D(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.25, 0.0)
+
+[node name="KerbBore" type="CSGCylinder3D" parent="Ring/InnerKerb"]
+operation = 2
+radius = 35.0
+height = 2.5
+sides = 64
+transform = Transform3D(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.25, 0.0)
+
+[node name="PitFloor" type="CSGCylinder3D" parent="Ring"]
+editor_description = "Courtyard floor 12 m below the deck. The middle of the map is a drop, not a shortcut, and the tower looks straight down into it so it is no hiding place either."
+use_collision = true
+radius = 35.0
+height = 1.0
+sides = 64
+material = SubResource("MatStructure")
+transform = Transform3D(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, -12.5, 0.0)
+
+[node name="LapDivider" type="CSGBox3D" parent="Ring"]
+editor_description = "Radial wall at 0 deg, r=35 to r=60, 4 m tall -- taller than cover (3 m) so it reads as a boundary and not as something to hide behind. It is edge-on to the tower, so it costs the tower almost no visibility. Start is on its +Z face, End on its -Z."
+use_collision = true
+size = Vector3(25.0, 4.0, 1.0)
+material = SubResource("MatStructure")
+transform = Transform3D(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 47.5, 2.0, 0.0)
+
+[node name="StartEnd" type="Node3D" parent="."]
+editor_description = "Start and end are 8 m apart with only LapDivider between them: a runner travels 298 m in one direction and finishes a few metres behind where they set off."
+
+[node name="StartPad" type="CSGBox3D" parent="StartEnd"]
+editor_description = "Visual decal only -- use_collision is off so this 0.1 m plate is never a step the character controller has to climb."
+size = Vector3(6.0, 0.1, 6.0)
+material = SubResource("MatStart")
+transform = Transform3D(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 47.5, 0.05, 4.0)
+
+[node name="PrisonerStart" type="Marker3D" parent="StartEnd"]
+editor_description = "-Z faces counter-clockwise: the direction of the run."
+transform = Transform3D(-0.99619, 0.0, 0.08716, 0.0, 1.0, 0.0, -0.08716, 0.0, -0.99619, 47.5, 0.0, 4.0)
+
+[node name="EndPad" type="CSGBox3D" parent="StartEnd"]
+editor_description = "Visual decal only, as StartPad."
+size = Vector3(6.0, 0.1, 6.0)
+material = SubResource("MatEnd")
+transform = Transform3D(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 47.5, 0.05, -4.0)
+
+[node name="PrisonerEnd" type="Marker3D" parent="StartEnd"]
+editor_description = "-Z faces counter-clockwise, i.e. the heading a runner arrives on."
+transform = Transform3D(-0.99619, 0.0, -0.08716, 0.0, 1.0, 0.0, 0.08716, 0.0, -0.99619, 47.5, 0.0, -4.0)
+
+[node name="Cover" type="Node3D" parent="."]
+editor_description = "12 pieces, 6.0 x 1.5 x 3.0 m, grouped by radial lane. 3.0 m is the number the geometry demands, not a guess: the tower eye is at y=16.7, so the sightline onto a 1.7 m target 1.5 m behind a piece in the innermost lane (r=41, the steepest look-down angle on the map) passes 2.6 m above the deck. 3.0 m clears that with ~0.4 m to spare and still leaves a 3 m deep hiding pocket. Gaps between pieces are 22-28 deg (18-23 m of open ground) so the decision is when to cross, not how to weave."
+
+[node name="LaneInner" type="Node3D" parent="Cover"]
+editor_description = "Radial lane at r=41.0 m."
+
+[node name="LaneMid" type="Node3D" parent="Cover"]
+editor_description = "Radial lane at r=47.5 m."
+
+[node name="LaneOuter" type="Node3D" parent="Cover"]
+editor_description = "Radial lane at r=54.0 m."
+
+[node name="Cover01_042deg" type="CSGBox3D" parent="Cover/LaneMid"]
+editor_description = "42 deg, r=47.5. 6 m face is tangential to the track, so it presents its full width to the tower."
+use_collision = true
+size = Vector3(6.0, 3.0, 1.5)
+material = SubResource("MatCover")
+transform = Transform3D(0.66913, 0.0, 0.74314, 0.0, 1.0, 0.0, -0.74314, 0.0, 0.66913, 35.5, 1.5, 32.0)
+
+[node name="Cover02_068deg" type="CSGBox3D" parent="Cover/LaneInner"]
+editor_description = "68 deg, r=41.0. 6 m face is tangential to the track, so it presents its full width to the tower."
+use_collision = true
+size = Vector3(6.0, 3.0, 1.5)
+material = SubResource("MatCover")
+transform = Transform3D(0.92718, 0.0, 0.37461, 0.0, 1.0, 0.0, -0.37461, 0.0, 0.92718, 15.5, 1.5, 38.0)
+
+[node name="Cover03_096deg" type="CSGBox3D" parent="Cover/LaneOuter"]
+editor_description = "96 deg, r=54.0. 6 m face is tangential to the track, so it presents its full width to the tower."
+use_collision = true
+size = Vector3(6.0, 3.0, 1.5)
+material = SubResource("MatCover")
+transform = Transform3D(0.99452, 0.0, -0.10453, 0.0, 1.0, 0.0, 0.10453, 0.0, 0.99452, -5.5, 1.5, 53.5)
+
+[node name="Cover04_124deg" type="CSGBox3D" parent="Cover/LaneMid"]
+editor_description = "124 deg, r=47.5. 6 m face is tangential to the track, so it presents its full width to the tower."
+use_collision = true
+size = Vector3(6.0, 3.0, 1.5)
+material = SubResource("MatCover")
+transform = Transform3D(0.82904, 0.0, -0.55919, 0.0, 1.0, 0.0, 0.55919, 0.0, 0.82904, -26.5, 1.5, 39.5)
+
+[node name="Cover05_150deg" type="CSGBox3D" parent="Cover/LaneOuter"]
+editor_description = "150 deg, r=54.0. 6 m face is tangential to the track, so it presents its full width to the tower."
+use_collision = true
+size = Vector3(6.0, 3.0, 1.5)
+material = SubResource("MatCover")
+transform = Transform3D(0.5, 0.0, -0.86603, 0.0, 1.0, 0.0, 0.86603, 0.0, 0.5, -47.0, 1.5, 27.0)
+
+[node name="Cover06_178deg" type="CSGBox3D" parent="Cover/LaneInner"]
+editor_description = "178 deg, r=41.0. 6 m face is tangential to the track, so it presents its full width to the tower."
+use_collision = true
+size = Vector3(6.0, 3.0, 1.5)
+material = SubResource("MatCover")
+transform = Transform3D(0.0349, 0.0, -0.99939, 0.0, 1.0, 0.0, 0.99939, 0.0, 0.0349, -41.0, 1.5, 1.5)
+
+[node name="Cover07_204deg" type="CSGBox3D" parent="Cover/LaneMid"]
+editor_description = "204 deg, r=47.5. 6 m face is tangential to the track, so it presents its full width to the tower."
+use_collision = true
+size = Vector3(6.0, 3.0, 1.5)
+material = SubResource("MatCover")
+transform = Transform3D(-0.40674, 0.0, -0.91355, 0.0, 1.0, 0.0, 0.91355, 0.0, -0.40674, -43.5, 1.5, -19.5)
+
+[node name="Cover08_232deg" type="CSGBox3D" parent="Cover/LaneInner"]
+editor_description = "232 deg, r=41.0. 6 m face is tangential to the track, so it presents its full width to the tower."
+use_collision = true
+size = Vector3(6.0, 3.0, 1.5)
+material = SubResource("MatCover")
+transform = Transform3D(-0.78801, 0.0, -0.61566, 0.0, 1.0, 0.0, 0.61566, 0.0, -0.78801, -25.0, 1.5, -32.5)
+
+[node name="Cover09_258deg" type="CSGBox3D" parent="Cover/LaneOuter"]
+editor_description = "258 deg, r=54.0. 6 m face is tangential to the track, so it presents its full width to the tower."
+use_collision = true
+size = Vector3(6.0, 3.0, 1.5)
+material = SubResource("MatCover")
+transform = Transform3D(-0.97815, 0.0, -0.20791, 0.0, 1.0, 0.0, 0.20791, 0.0, -0.97815, -11.0, 1.5, -53.0)
+
+[node name="Cover10_284deg" type="CSGBox3D" parent="Cover/LaneMid"]
+editor_description = "284 deg, r=47.5. 6 m face is tangential to the track, so it presents its full width to the tower."
+use_collision = true
+size = Vector3(6.0, 3.0, 1.5)
+material = SubResource("MatCover")
+transform = Transform3D(-0.9703, 0.0, 0.24192, 0.0, 1.0, 0.0, -0.24192, 0.0, -0.9703, 11.5, 1.5, -46.0)
+
+[node name="Cover11_306deg" type="CSGBox3D" parent="Cover/LaneInner"]
+editor_description = "306 deg, r=41.0. 6 m face is tangential to the track, so it presents its full width to the tower."
+use_collision = true
+size = Vector3(6.0, 3.0, 1.5)
+material = SubResource("MatCover")
+transform = Transform3D(-0.80902, 0.0, 0.58779, 0.0, 1.0, 0.0, -0.58779, 0.0, -0.80902, 24.0, 1.5, -33.0)
+
+[node name="Cover12_330deg" type="CSGBox3D" parent="Cover/LaneOuter"]
+editor_description = "330 deg, r=54.0. 6 m face is tangential to the track, so it presents its full width to the tower."
+use_collision = true
+size = Vector3(6.0, 3.0, 1.5)
+material = SubResource("MatCover")
+transform = Transform3D(-0.5, 0.0, 0.86603, 0.0, 1.0, 0.0, -0.86603, 0.0, -0.5, 47.0, 1.5, -27.0)
+
+[node name="Tower" type="Node3D" parent="."]
+editor_description = "Central. Room floor at y=15 (spec), eye at y=16.7 standing."
+
+[node name="Shaft" type="CSGCylinder3D" parent="Tower"]
+editor_description = "r=6, rising from the pit floor to the underside of the room. Its top is at y=14, below the y=16.7 eye, so the shaft itself never occludes anything on the ring -- all the occlusion is the room's job, deliberately."
+use_collision = true
+radius = 6.0
+height = 26.0
+sides = 32
+material = SubResource("MatStructure")
+transform = Transform3D(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0)
+
+[node name="Room" type="CSGCombiner3D" parent="Tower"]
+editor_description = "22 x 22 m outer, 20 x 20 m interior, 1 m walls, 4 m ceiling. The design constraint -- no standing position sees the whole ring -- is enforced by the 12 x 12 m solid Core, which always blocks a wide wedge of whatever is directly opposite you, plus four diagonal Fins that cut the corner sightlines from one wall's windows to the next. The result is four distinct stations, one per wall, and you have to walk between them."
+use_collision = true
+
+[node name="Shell" type="CSGBox3D" parent="Tower/Room"]
+editor_description = "Solid 22 x 22 x 6 m block. Everything else in this combiner carves it."
+size = Vector3(22.0, 6.0, 22.0)
+material = SubResource("MatStructure")
+transform = Transform3D(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 17.0, 0.0)
+
+[node name="GalleryXP" type="CSGBox3D" parent="Tower/Room"]
+editor_description = "Subtract: one arm of the 4 m gallery. The Z arms run the full 20 m width so they overlap the X arms at the corners -- overlapping subtractions, never abutting ones, so no sliver survives at the seam."
+operation = 2
+size = Vector3(4.0, 4.0, 20.0)
+transform = Transform3D(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 8.0, 17.0, 0.0)
+
+[node name="GalleryXN" type="CSGBox3D" parent="Tower/Room"]
+editor_description = "Subtract: one arm of the 4 m gallery. The Z arms run the full 20 m width so they overlap the X arms at the corners -- overlapping subtractions, never abutting ones, so no sliver survives at the seam."
+operation = 2
+size = Vector3(4.0, 4.0, 20.0)
+transform = Transform3D(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, -8.0, 17.0, 0.0)
+
+[node name="GalleryZP" type="CSGBox3D" parent="Tower/Room"]
+editor_description = "Subtract: one arm of the 4 m gallery. The Z arms run the full 20 m width so they overlap the X arms at the corners -- overlapping subtractions, never abutting ones, so no sliver survives at the seam."
+operation = 2
+size = Vector3(20.0, 4.0, 4.0)
+transform = Transform3D(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 17.0, 8.0)
+
+[node name="GalleryZN" type="CSGBox3D" parent="Tower/Room"]
+editor_description = "Subtract: one arm of the 4 m gallery. The Z arms run the full 20 m width so they overlap the X arms at the corners -- overlapping subtractions, never abutting ones, so no sliver survives at the seam."
+operation = 2
+size = Vector3(20.0, 4.0, 4.0)
+transform = Transform3D(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 17.0, -8.0)
+
+[node name="_CoreNote" type="Node3D" parent="Tower/Room"]
+editor_description = "Documentation only, no geometry. The 12 x 12 m block left standing in the middle of Shell is the Core. It is what makes watching the whole ring at once impossible: from anywhere in the 4 m gallery it subtends >140 deg of whatever is directly opposite you."
+
+[node name="FinNE" type="CSGBox3D" parent="Tower/Room"]
+editor_description = "Diagonal pier off the Core corner, 1.0 x 3.5 m. Without it you can stand near a corner of the gallery and see out through two walls' windows at once. It stops 2.5 m short of the room corner so the gallery is still a loop you can walk -- sightline_probe.gd flood-fills the floor to prove it."
+size = Vector3(1.0, 5.0, 3.5)
+material = SubResource("MatStructure")
+transform = Transform3D(0.70711, 0.0, 0.70711, 0.0, 1.0, 0.0, -0.70711, 0.0, 0.70711, 7.0, 17.0, 7.0)
+
+[node name="FinSE" type="CSGBox3D" parent="Tower/Room"]
+editor_description = "Diagonal pier off the Core corner, 1.0 x 3.5 m. Without it you can stand near a corner of the gallery and see out through two walls' windows at once. It stops 2.5 m short of the room corner so the gallery is still a loop you can walk -- sightline_probe.gd flood-fills the floor to prove it."
+size = Vector3(1.0, 5.0, 3.5)
+material = SubResource("MatStructure")
+transform = Transform3D(-0.70711, 0.0, 0.70711, 0.0, 1.0, 0.0, -0.70711, 0.0, -0.70711, 7.0, 17.0, -7.0)
+
+[node name="FinSW" type="CSGBox3D" parent="Tower/Room"]
+editor_description = "Diagonal pier off the Core corner, 1.0 x 3.5 m. Without it you can stand near a corner of the gallery and see out through two walls' windows at once. It stops 2.5 m short of the room corner so the gallery is still a loop you can walk -- sightline_probe.gd flood-fills the floor to prove it."
+size = Vector3(1.0, 5.0, 3.5)
+material = SubResource("MatStructure")
+transform = Transform3D(-0.70711, 0.0, -0.70711, 0.0, 1.0, 0.0, 0.70711, 0.0, -0.70711, -7.0, 17.0, -7.0)
+
+[node name="FinNW" type="CSGBox3D" parent="Tower/Room"]
+editor_description = "Diagonal pier off the Core corner, 1.0 x 3.5 m. Without it you can stand near a corner of the gallery and see out through two walls' windows at once. It stops 2.5 m short of the room corner so the gallery is still a loop you can walk -- sightline_probe.gd flood-fills the floor to prove it."
+size = Vector3(1.0, 5.0, 3.5)
+material = SubResource("MatStructure")
+transform = Transform3D(0.70711, 0.0, -0.70711, 0.0, 1.0, 0.0, 0.70711, 0.0, 0.70711, -7.0, 17.0, 7.0)
+
+[node name="WinXPA" type="CSGBox3D" parent="Tower/Room"]
+editor_description = "Subtract: 4.0 x 2.5 m opening. The sill is at floor level (y=15) on purpose -- with a waist-high sill the outer bottom edge clips the look-down angle and the inner ~12 m of track becomes a permanent blind lane. Floor-level sills let a station at the window see all the way in to the kerb."
+operation = 2
+size = Vector3(2.0, 2.5, 4.0)
+transform = Transform3D(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 10.5, 16.25, 5.0)
+
+[node name="WinXPB" type="CSGBox3D" parent="Tower/Room"]
+editor_description = "Subtract: 4.0 x 2.5 m opening. The sill is at floor level (y=15) on purpose -- with a waist-high sill the outer bottom edge clips the look-down angle and the inner ~12 m of track becomes a permanent blind lane. Floor-level sills let a station at the window see all the way in to the kerb."
+operation = 2
+size = Vector3(2.0, 2.5, 4.0)
+transform = Transform3D(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 10.5, 16.25, -5.0)
+
+[node name="WinXNA" type="CSGBox3D" parent="Tower/Room"]
+editor_description = "Subtract: 4.0 x 2.5 m opening. The sill is at floor level (y=15) on purpose -- with a waist-high sill the outer bottom edge clips the look-down angle and the inner ~12 m of track becomes a permanent blind lane. Floor-level sills let a station at the window see all the way in to the kerb."
+operation = 2
+size = Vector3(2.0, 2.5, 4.0)
+transform = Transform3D(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, -10.5, 16.25, 5.0)
+
+[node name="WinXNB" type="CSGBox3D" parent="Tower/Room"]
+editor_description = "Subtract: 4.0 x 2.5 m opening. The sill is at floor level (y=15) on purpose -- with a waist-high sill the outer bottom edge clips the look-down angle and the inner ~12 m of track becomes a permanent blind lane. Floor-level sills let a station at the window see all the way in to the kerb."
+operation = 2
+size = Vector3(2.0, 2.5, 4.0)
+transform = Transform3D(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, -10.5, 16.25, -5.0)
+
+[node name="WinZPA" type="CSGBox3D" parent="Tower/Room"]
+editor_description = "Subtract: 4.0 x 2.5 m opening. The sill is at floor level (y=15) on purpose -- with a waist-high sill the outer bottom edge clips the look-down angle and the inner ~12 m of track becomes a permanent blind lane. Floor-level sills let a station at the window see all the way in to the kerb."
+operation = 2
+size = Vector3(4.0, 2.5, 2.0)
+transform = Transform3D(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 5.0, 16.25, 10.5)
+
+[node name="WinZPB" type="CSGBox3D" parent="Tower/Room"]
+editor_description = "Subtract: 4.0 x 2.5 m opening. The sill is at floor level (y=15) on purpose -- with a waist-high sill the outer bottom edge clips the look-down angle and the inner ~12 m of track becomes a permanent blind lane. Floor-level sills let a station at the window see all the way in to the kerb."
+operation = 2
+size = Vector3(4.0, 2.5, 2.0)
+transform = Transform3D(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, -5.0, 16.25, 10.5)
+
+[node name="WinZNA" type="CSGBox3D" parent="Tower/Room"]
+editor_description = "Subtract: 4.0 x 2.5 m opening. The sill is at floor level (y=15) on purpose -- with a waist-high sill the outer bottom edge clips the look-down angle and the inner ~12 m of track becomes a permanent blind lane. Floor-level sills let a station at the window see all the way in to the kerb."
+operation = 2
+size = Vector3(4.0, 2.5, 2.0)
+transform = Transform3D(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 5.0, 16.25, -10.5)
+
+[node name="WinZNB" type="CSGBox3D" parent="Tower/Room"]
+editor_description = "Subtract: 4.0 x 2.5 m opening. The sill is at floor level (y=15) on purpose -- with a waist-high sill the outer bottom edge clips the look-down angle and the inner ~12 m of track becomes a permanent blind lane. Floor-level sills let a station at the window see all the way in to the kerb."
+operation = 2
+size = Vector3(4.0, 2.5, 2.0)
+transform = Transform3D(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, -5.0, 16.25, -10.5)
+
+[node name="TowerSpawn" type="Marker3D" parent="Tower"]
+editor_description = "Standing on the room floor in the +X gallery, at the first station. Placed off-centre because the centre of the room is solid Core."
+transform = Transform3D(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 8.0, 15.0, 0.0)
