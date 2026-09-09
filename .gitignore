@@ -1,0 +1,15 @@
+# Godot 4+ import cache and editor state. Never commit this.
+.godot/
+
+# Export output
+/export/
+/build/
+/android/
+
+# OS junk
+.DS_Store
+Thumbs.db
+desktop.ini
+
+*.swp
+*~
