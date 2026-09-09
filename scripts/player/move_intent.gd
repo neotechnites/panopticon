@@ -1,0 +1,53 @@
+class_name MoveIntent
+extends RefCounted
+
+## The complete description of what a body is trying to do this tick.
+##
+## This is the seam between INPUT and MOVEMENT. [PlayerController] applies
+## physics to a [MoveIntent] and never reads the keyboard or mouse itself, so a
+## bot drives the identical controller by filling in the identical struct. If
+## you find yourself calling [Input] from the controller, the seam has leaked.
+
+## Desired move direction in the body's local space: x is right, y is forward.
+## Length is clamped to 1.0 by [method normalise]; a shorter vector is a valid
+## partial input (analogue stick, or a bot easing off).
+var move_direction: Vector2 = Vector2.ZERO
+
+## Rotation requested this tick, in radians: x turns (yaw), y pitches. Already
+## scaled by sensitivity -- the controller applies it verbatim.
+var look_delta: Vector2 = Vector2.ZERO
+
+## True on the tick jump was first requested. Edge-triggered; feeds the jump
+## buffer.
+var jump_pressed: bool = false
+
+## True for as long as jump is held. Drives auto bunny hopping.
+var jump_held: bool = false
+
+## True while the body wants to sprint.
+var sprint_held: bool = false
+
+
+## Zero every field. Call before refilling, so a source can never leak a stale
+## edge into the next tick.
+func clear() -> void:
+	move_direction = Vector2.ZERO
+	look_delta = Vector2.ZERO
+	jump_pressed = false
+	jump_held = false
+	sprint_held = false
+
+
+## Clamp [member move_direction] to the unit disc.
+func normalise() -> void:
+	if move_direction.length_squared() > 1.0:
+		move_direction = move_direction.normalized()
+
+
+## Copy another intent's values into this one, without reallocating.
+func copy_from(other: MoveIntent) -> void:
+	move_direction = other.move_direction
+	look_delta = other.look_delta
+	jump_pressed = other.jump_pressed
+	jump_held = other.jump_held
+	sprint_held = other.sprint_held

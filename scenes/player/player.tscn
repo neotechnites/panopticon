@@ -1,0 +1,29 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://scripts/player/player_controller.gd" id="1_controller"]
+[ext_resource type="Script" path="res://scripts/player/human_intent_source.gd" id="2_human_input"]
+[ext_resource type="Resource" path="res://scenes/player/default_movement_profile.tres" id="3_profile"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_body"]
+radius = 0.4
+height = 1.8
+
+[node name="Player" type="CharacterBody3D" node_paths=PackedStringArray("intent_source", "head")]
+script = ExtResource("1_controller")
+profile = ExtResource("3_profile")
+intent_source = NodePath("HumanInput")
+head = NodePath("Head")
+
+[node name="Collision" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
+shape = SubResource("CapsuleShape3D_body")
+
+[node name="Head" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.65, 0)
+
+[node name="Camera" type="Camera3D" parent="Head"]
+current = true
+fov = 100.0
+
+[node name="HumanInput" type="Node" parent="."]
+script = ExtResource("2_human_input")

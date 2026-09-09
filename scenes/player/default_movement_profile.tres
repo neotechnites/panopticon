@@ -1,0 +1,28 @@
+[gd_resource type="Resource" script_class="MovementProfile" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/player/movement_profile.gd" id="1_movement_profile"]
+
+[resource]
+script = ExtResource("1_movement_profile")
+walk_speed = 8.0
+sprint_speed = 11.0
+ground_acceleration = 12.0
+air_acceleration = 12.0
+max_air_speed = 0.8
+friction = 6.0
+friction_stop_speed = 2.5
+friction_speed_epsilon = 0.025
+air_friction = 0.0
+jump_velocity = 7.0
+coyote_time = 0.1
+jump_buffer_time = 0.12
+auto_bunny_hop = true
+gravity = 22.0
+gravity_scale = 1.0
+terminal_velocity = 60.0
+mouse_sensitivity = 0.0022
+pitch_min_degrees = -89.0
+pitch_max_degrees = 89.0
+invert_look_y = false
+max_floor_angle_degrees = 46.0
+floor_snap_length = 0.3
