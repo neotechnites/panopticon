@@ -1,16 +1,63 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://scripts/weapon/rifle.gd" id="1_rifle"]
 [ext_resource type="Script" path="res://scripts/weapon/weapon_input.gd" id="2_weapon_input"]
 [ext_resource type="Resource" path="res://scenes/weapon/default_weapon_profile.tres" id="3_weapon_profile"]
+[ext_resource type="PackedScene" uid="uid://brrytn6tpwbeh" path="res://assets/models/rifle.glb" id="4_rifle_model"]
 
 [node name="Rifle" type="Node3D" node_paths=PackedStringArray("muzzle")]
 script = ExtResource("1_rifle")
 profile = ExtResource("3_weapon_profile")
-muzzle = NodePath("Muzzle")
+muzzle = NodePath("ViewModel/Muzzle")
 
-[node name="Muzzle" type="Marker3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.16, -0.14, -0.45)
+[node name="ViewModel" type="Node3D" parent="."]
+editor_description = "The rifle you can see, and the ONLY node in the game that decides where the guard's hands are.
+
+MatchController._attach_rifle parents this scene's root to the holder's Head with an IDENTITY transform, and Head/Camera is also at identity, so this node's local space IS camera space: (0,0,0) is the eye, -Z is where the guard is looking. Everything below is therefore read directly as \"right, down, forward of the eye\".
+
+TUNABLES (this transform, in the order you will want to touch them):
+  scale     0.75 uniform -- the model is 1.49 m end to end at 1.0, which eats
+                            the frame at a 100 degree fov. Change this first.
+  position  (0.30, -0.24, -0.38) -- right of the bore line, below the eye so you
+                            look DOWN onto the scope, far enough forward that the
+                            recoil pad (local +Z 0.34) clears the 0.05 m near
+                            plane with room to spare. Nearest vertex to camera
+                            sits at about 0.13 m.
+  rotation  (-6, -9, 0) degrees, Godot's YXZ euler -- muzzle nudged down and to
+                            the right. Without it a 100 degree fov foreshortens
+                            the barrel until the brake sits on the crosshair,
+                            which is exactly what the tower must not have. With
+                            it the brake projects to roughly (+0.17, -0.23) in
+                            normalised device coordinates: lower right, crosshair
+                            and the whole ring clear.
+
+The nine-degree yaw costs nothing visually. WeaponProfile.tracer_segment_start is
+12 m, so the drawn streak begins twelve metres down the muzzle-to-impact line and
+never touches the barrel; the barrel's own heading is decoration.
+
+NOT authored here on purpose: recoil, flash, bolt, sway and bob. This node is a
+static prop hung on the camera.
+
+If you hand-edit the twelve floats above rather than dragging the node: they are
+the basis ROWS, not the basis columns. Writing the columns ships the inverse
+rotation, which yaws the barrel back toward the crosshair -- 10.3 degrees off the
+aim axis instead of 24 -- and tests/test_weapon.gd fails on exactly that."
+transform = Transform3D(0.740766, 0.012264, -0.116683, 0, 0.745891, 0.078396, 0.117326, -0.077431, 0.736708, 0.3, -0.24, -0.38)
+
+[node name="Model" parent="ViewModel" instance=ExtResource("4_rifle_model")]
+editor_description = "assets/models/rifle.glb, untouched and at identity: 456 triangles, one flat material, no UVs, no skin, no animation. Instanced rather than inherited so the model stays a pure import -- reimporting it must never silently rewrite a transform the game depends on.
+
+Its own axes are already the ones the game wants: bore on y=0, shot line down local -Z, scope directly above the origin, stock back toward +Z, muzzle at local (0, 0, -1.150). Bounds are x +/-0.12, y -0.29 (bipod feet) to +0.18 (scope top), z -1.15 to +0.34.
+
+Every offset lives on the parent instead of here, so Muzzle below and this mesh are moved by one transform and cannot drift apart."
+
+[node name="Muzzle" type="Marker3D" parent="ViewModel"]
+editor_description = "Where a shot LOOKS like it came from. Rifle.muzzle points here.
+
+A sibling of Model rather than a child of it, at the model's own muzzle coordinate (0, 0, -1.150), so ViewModel's transform carries both: retune the position, rotation or scale above and the tracer origin follows the barrel end automatically, with no second number to remember.
+
+This is NOT where shots go. Rifle._resolve_shot takes its ray origin and direction from aim_source -- the holder's Camera -- so the shot line is the eye's and there is no muzzle-to-crosshair parallax to explain away. Moving this marker moves the tracer and nothing else. tests/test_weapon.gd holds that line down."
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -1.15)
 
 [node name="HumanTrigger" type="Node" parent="." node_paths=PackedStringArray("weapon")]
 script = ExtResource("2_weapon_input")

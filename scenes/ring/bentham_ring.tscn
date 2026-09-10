@@ -50,8 +50,8 @@ ambient_light_source = 3
 ambient_light_energy = 0.6
 tonemap_mode = 2
 
-[node name="TestRing" type="Node3D"]
-editor_description = "PANOPTICON greybox arena. 0.5 m grid throughout. Deck r35-r60 (25 m track), outer wall +8 m, open shooter platform r=8 at the centre with its surface level with the deck at y=0. Runners go counter-clockwise from PrisonerStart (+5 deg) all the way round to PrisonerEnd (-5 deg), 8 m apart across LapDivider. The route is trapped: six red kill-on-contact blocks under Traps and four pits cut through Ring/Deck, all of them flush against the cover bands so the r41.75-r46.75 running channel is exactly as wide as it always was."
+[node name="BenthamRing" type="Node3D"]
+editor_description = "THE BENTHAM RING -- PANOPTICON's arena, named in resources/maps/bentham_ring.tres and reached through MapCatalog. Greybox. 0.5 m grid throughout. Deck r35-r60 (25 m track), outer wall +8 m, open shooter platform r=8 at the centre with its surface level with the deck at y=0. Runners go counter-clockwise from PrisonerStart (+5 deg) all the way round to PrisonerEnd (-5 deg), 8 m apart across LapDivider. The route is trapped: six red kill-on-contact blocks under Traps and four pits cut through Ring/Deck, all of them flush against the cover bands so the r41.75-r46.75 running channel is exactly as wide as it always was."
 
 [node name="Environment" type="Node3D" parent="."]
 

@@ -53,6 +53,11 @@ const DISPLAY_MODE_COUNT: int = 3
 ## Number of entries in [enum VSyncMode]. Same reasoning.
 const VSYNC_MODE_COUNT: int = 3
 
+## What [method DisplayServer.get_name] answers when the game is running inside
+## the editor's embedded Game panel rather than in a window of its own. See
+## [method is_embedded].
+const EMBEDDED_DISPLAY: StringName = &"embedded"
+
 # --- Bus names ----------------------------------------------------------------
 #
 # res://default_bus_layout.tres defines all three: Master, with Effects and Music
@@ -148,6 +153,12 @@ const MIN_ROUNDS_TO_WIN_MATCH: int = 1
 
 ## Ceiling on the saved preference, against the rule's own [code]1..16[/code].
 const MAX_ROUNDS_TO_WIN_MATCH: int = 7
+
+## The map a player who has chosen none plays. Taken from [MapCatalog] rather
+## than spelled out here, for the same reason [constant DEFAULT_GHOSTS_ENABLED]
+## exists: two files holding their own opinion of the default is how the first
+## match a player starts ends up played under something nobody chose.
+const DEFAULT_MAP_ID: StringName = MapCatalog.DEFAULT_ID
 
 ## Matches [code]project.godot[/code]'s [code][display]/window/size[/code]
 ## defaults. They have to agree: [SettingsBoot] bootstraps the store and calls
@@ -278,6 +289,40 @@ var runner_win_condition: MatchRules.RunnerWinCondition = (
 ## [member MatchRules.rounds_to_win_match].
 var rounds_to_win_match: int = DEFAULT_ROUNDS_TO_WIN_MATCH
 
+## The map the match is played in, by [member MapDefinition.id]. Written over
+## [member MatchRules.map_id].
+##
+## Held as an id and not a path so that a settings file survives a scene being
+## moved, and so that a file naming a map that no longer exists resolves to the
+## default in [method clamp_all] rather than starting a match with no arena.
+var map_id: StringName = DEFAULT_MAP_ID
+
+## True when the last window resize [method apply_video] asked for was ignored
+## outright -- the size before the call and the size after it are the same, and
+## neither is the size asked for.
+##
+## [b]Why this is measured rather than assumed.[/b] "Set the size and trust it"
+## is how the resolution list came to look broken: run from the editor's embedded
+## Game panel, [method DisplayServer.window_set_size] returns without doing
+## anything and prints one line into the log, so the choice was received, applied
+## and saved and the window never moved. A display server is allowed to refuse --
+## embedded, a tiling window manager, a size larger than the screen -- and the
+## only honest way to know is to read the size back. A CLAMPED resize does not
+## count: the window moved, just not as far as asked, and telling the player it
+## failed would be a lie.
+##
+## Not saved to disk. It is a fact about the process that is running, not a
+## preference, and it is recomputed on every [method apply_video].
+var window_resize_refused: bool = false
+
+# What was last actually pushed at the DisplayServer, so an apply that changes
+# nothing about the window does not touch the window. See [method apply_video].
+# The sentinels are deliberately impossible values, so the first apply pushes
+# everything.
+var _pushed_display_mode: int = -1
+var _pushed_vsync_mode: int = -1
+var _pushed_resolution: Vector2i = Vector2i.ZERO
+
 
 ## Return every value to its shipped default.
 func reset() -> void:
@@ -298,6 +343,7 @@ func reset() -> void:
 	shooter_win_condition = MatchRules.ShooterWinCondition.TOTAL_CONVERSION
 	runner_win_condition = MatchRules.RunnerWinCondition.FIRST_ARRIVAL
 	rounds_to_win_match = DEFAULT_ROUNDS_TO_WIN_MATCH
+	map_id = DEFAULT_MAP_ID
 
 
 ## Force every value inside its documented range. Called after every read, so
@@ -326,6 +372,11 @@ func clamp_all() -> void:
 	runner_win_condition = clampi(
 		int(runner_win_condition), 0, MatchRules.RunnerWinCondition.size() - 1
 	) as MatchRules.RunnerWinCondition
+	# A map that is not in the catalog is a file written by an older or newer
+	# build, or hand-edited. Falling back to the default is the same bargain
+	# every clamp above makes: the player loses a choice, not the match.
+	if not MapCatalog.has(map_id):
+		map_id = DEFAULT_MAP_ID
 
 
 ## Copy every value out of [param other].
@@ -347,6 +398,7 @@ func copy_from(other: GameSettings) -> void:
 	shooter_win_condition = other.shooter_win_condition
 	runner_win_condition = other.runner_win_condition
 	rounds_to_win_match = other.rounds_to_win_match
+	map_id = other.map_id
 
 
 ## True when every value matches [param other]. Used by the verification harness
@@ -370,6 +422,7 @@ func equals(other: GameSettings) -> bool:
 		and shooter_win_condition == other.shooter_win_condition
 		and runner_win_condition == other.runner_win_condition
 		and rounds_to_win_match == other.rounds_to_win_match
+		and map_id == other.map_id
 	)
 
 
@@ -398,6 +451,9 @@ func write_to(config: ConfigFile) -> void:
 	config.set_value(SECTION_MATCH, "shooter_win_condition", int(shooter_win_condition))
 	config.set_value(SECTION_MATCH, "runner_win_condition", int(runner_win_condition))
 	config.set_value(SECTION_MATCH, "rounds_to_win_match", rounds_to_win_match)
+	# As a String, not a StringName: ConfigFile writes a StringName as &"x",
+	# which is legible but is not what a hand-edited file will contain.
+	config.set_value(SECTION_MATCH, "map_id", String(map_id))
 
 
 ## Read every value out of [param config], substituting the current value --
@@ -435,6 +491,7 @@ func read_from(config: ConfigFile) -> void:
 	rounds_to_win_match = read_int(
 		config, SECTION_MATCH, "rounds_to_win_match", rounds_to_win_match
 	)
+	map_id = read_string_name(config, SECTION_MATCH, "map_id", map_id)
 
 	clamp_all()
 
@@ -456,7 +513,17 @@ func apply_audio() -> void:
 ##
 ## A no-op under the headless display driver, which has no window to set and
 ## whose stubs would otherwise fill test output with noise.
-func apply_video() -> void:
+##
+## [b]It only touches the window when the player changed the window.[/b]
+## [method SettingsStore.apply_all] runs this on EVERY settings change -- a
+## volume slider drag included -- and the version of it that pushed mode and size
+## unconditionally dragged a maximised or hand-resized window back to
+## [member resolution] every time anything at all moved. So the last values
+## actually pushed are remembered and the calls are skipped when nothing here has
+## changed since. [param force] pushes anyway, which is what the video controls
+## do: a player who picks a size off the list means it even if the number is the
+## one already stored.
+func apply_video(force: bool = false) -> void:
 	if is_headless():
 		return
 
@@ -468,22 +535,50 @@ func apply_video() -> void:
 			window_mode = DisplayServer.WINDOW_MODE_FULLSCREEN
 		_:
 			window_mode = DisplayServer.WINDOW_MODE_WINDOWED
-	DisplayServer.window_set_mode(window_mode)
+
+	var mode_is_stale: bool = force or int(display_mode) != _pushed_display_mode
+	if mode_is_stale:
+		DisplayServer.window_set_mode(window_mode)
+		_pushed_display_mode = int(display_mode)
 
 	# Size is only meaningful windowed; setting it against a fullscreen window
 	# is what produces the classic "fullscreen at the wrong resolution" bug.
-	if display_mode == DisplayMode.WINDOWED:
+	# Pushed after the mode for the same reason: leaving either fullscreen mode
+	# restores whatever size the window had before it, so the size has to be set
+	# on the far side of that.
+	if display_mode == DisplayMode.WINDOWED and (mode_is_stale or resolution != _pushed_resolution):
+		var before: Vector2i = DisplayServer.window_get_size()
 		DisplayServer.window_set_size(resolution)
+		var after: Vector2i = DisplayServer.window_get_size()
+		_pushed_resolution = resolution
+		# Refused outright, as opposed to honoured or clamped. See
+		# [member window_resize_refused].
+		window_resize_refused = after == before and after != resolution
 
-	var vsync: DisplayServer.VSyncMode = DisplayServer.VSYNC_ENABLED
-	match vsync_mode:
-		VSyncMode.DISABLED:
-			vsync = DisplayServer.VSYNC_DISABLED
-		VSyncMode.ADAPTIVE:
-			vsync = DisplayServer.VSYNC_ADAPTIVE
-		_:
-			vsync = DisplayServer.VSYNC_ENABLED
-	DisplayServer.window_set_vsync_mode(vsync)
+	if force or int(vsync_mode) != _pushed_vsync_mode:
+		var vsync: DisplayServer.VSyncMode = DisplayServer.VSYNC_ENABLED
+		match vsync_mode:
+			VSyncMode.DISABLED:
+				vsync = DisplayServer.VSYNC_DISABLED
+			VSyncMode.ADAPTIVE:
+				vsync = DisplayServer.VSYNC_ADAPTIVE
+			_:
+				vsync = DisplayServer.VSYNC_ENABLED
+		DisplayServer.window_set_vsync_mode(vsync)
+		_pushed_vsync_mode = int(vsync_mode)
+
+
+## True when the game is running inside the editor's embedded Game panel.
+##
+## Godot 4.4 added that panel and it is on by default. The game it runs is a real
+## process with a real renderer, but its window is a child of the editor's
+## layout: [method DisplayServer.window_set_size] is a hard no-op there that logs
+## [code]Embedded window can't be resized.[/code] and returns. That is not a
+## degraded case worth working around -- there is no window to resize -- it is a
+## case worth SAYING, which is what [member window_resize_refused] and the note
+## on the video tab are for.
+static func is_embedded() -> bool:
+	return DisplayServer.get_name() == EMBEDDED_DISPLAY
 
 
 ## Write look preferences into a live [MovementProfile].
@@ -542,6 +637,7 @@ func apply_to_match_rules(rules: MatchRules) -> void:
 	rules.shooter_win_condition = shooter_win_condition
 	rules.runner_win_condition = runner_win_condition
 	rules.rounds_to_win_match = rounds_to_win_match
+	rules.map_id = map_id
 
 
 ## Write [member field_of_view] into a camera. The scene decides which camera;
@@ -608,6 +704,20 @@ static func read_bool(config: ConfigFile, section: String, key: String, fallback
 	if kind == TYPE_INT:
 		return int(raw) != 0
 	return fallback
+
+
+## Read a [StringName], tolerating a [String] and rejecting anything else. An
+## empty value is rejected too: the caller's fallback is a real id and an empty
+## one would name no map.
+static func read_string_name(
+	config: ConfigFile, section: String, key: String, fallback: StringName
+) -> StringName:
+	var raw: Variant = config.get_value(section, key, fallback)
+	var kind: int = typeof(raw)
+	if kind != TYPE_STRING and kind != TYPE_STRING_NAME:
+		return fallback
+	var value: String = String(raw)
+	return StringName(value) if not value.is_empty() else fallback
 
 
 ## Read an untyped array, rejecting anything else. An absent section or key is

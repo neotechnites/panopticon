@@ -19,7 +19,7 @@ extends Area3D
 ## decided for itself would be a second death path, and the two would drift.
 ##
 ## [b]It finds the match rather than being pointed at it.[/b]
-## [code]scenes/ring/test_ring.tscn[/code] is an ARENA. It is composed into
+## [code]scenes/ring/bentham_ring.tscn[/code] is an ARENA. It is composed into
 ## [code]scenes/match/match.tscn[/code], instanced bare by tests, and loaded by
 ## headless tooling that has no [MatchController] anywhere in it -- so a
 ## [NodePath] typed into the arena would be a path into a scene the arena knows
@@ -32,7 +32,7 @@ extends Area3D
 ## [constant MatchController.GHOST_HAZARD_LAYER] rather than on no layer at all
 ## -- see that constant for why the rifle still cannot find it there. This
 ## volume's own [member Area3D.collision_mask], authored in
-## [code]scenes/ring/test_ring.tscn[/code], is widened to include that bit
+## [code]scenes/ring/bentham_ring.tscn[/code], is widened to include that bit
 ## specifically, so a ghost that falls in is reported exactly as a living
 ## prisoner is. [method MatchController.handle_fall] answers for a ghost by
 ## putting it back at the start -- a ghost is already dead, so a second death
@@ -80,7 +80,7 @@ var _controller: MatchController = null
 ## Sizes the authored shape, then subscribes.
 ##
 ## The node, its place, its child and its collision mask are authored in
-## [code]scenes/ring/test_ring.tscn[/code], where they can be seen and moved. The
+## [code]scenes/ring/bentham_ring.tscn[/code], where they can be seen and moved. The
 ## SIZE is written here from the exports above, so the extent of the volume is a
 ## named number with a reason attached rather than a figure buried in a shape
 ## resource -- and so there is exactly one of it.

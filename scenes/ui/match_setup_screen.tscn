@@ -42,6 +42,31 @@ theme_override_constants/separation = 8
 [node name="Title" type="Label" parent="Frame/Dialog/Padding/Layout"]
 text = "START A MATCH"
 
+[node name="MapRow" type="HBoxContainer" parent="Frame/Dialog/Padding/Layout"]
+theme_override_constants/separation = 8
+editor_description = "The map, above the mode and above the rules, because it is the first thing a player picks and the only one of the three that is a PLACE. It is a row of its own for the same reason the mode picker is: it is not one more rule of the round, and it is not set by choosing a mode -- picking Riot does not move you off the map you chose."
+
+[node name="MapName" type="Label" parent="Frame/Dialog/Padding/Layout/MapRow"]
+size_flags_vertical = 1
+vertical_alignment = 1
+text = "Map"
+
+[node name="MapOption" type="OptionButton" parent="Frame/Dialog/Padding/Layout/MapRow"]
+custom_minimum_size = Vector2(240, 0)
+size_flags_horizontal = 0
+unique_name_in_owner = true
+editor_description = "Empty here on purpose. Filled from MapCatalog.all() by the script, so a second map is a .tres in resources/maps/ and an entry in resources/maps/map_catalog.tres -- data -- and no edit to this file. The game ships one map today and a list of one is the correct thing to show: the choice exists, and it is a choice of one."
+
+[node name="MapSpacer" type="Control" parent="Frame/Dialog/Padding/Layout/MapRow"]
+size_flags_horizontal = 3
+
+[node name="MapSummary" type="Label" parent="Frame/Dialog/Padding/Layout"]
+autowrap_mode = 3
+unique_name_in_owner = true
+editor_description = "What the selected map IS, in one sentence, from MapDefinition.summary. It is what makes a list of one read as a described place rather than as a control that does nothing."
+
+[node name="MapDivider" type="HSeparator" parent="Frame/Dialog/Padding/Layout"]
+
 [node name="PresetRow" type="HBoxContainer" parent="Frame/Dialog/Padding/Layout"]
 theme_override_constants/separation = 8
 editor_description = "The mode picker sits above the rules and outside their grid on purpose: it is not one more rule, it is the thing that sets all of them at once. Picking a mode is the whole interaction for most players; the grid below is the override."

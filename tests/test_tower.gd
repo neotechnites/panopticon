@@ -41,13 +41,13 @@ const EYE_SOURCE_PATHS: Array[String] = [
 	"res://scripts/tower/eye_profile.gd",
 ]
 
-## Radius of Tower/Platform in [code]scenes/ring/test_ring.tscn[/code], and so
+## Radius of Tower/Platform in [code]scenes/ring/bentham_ring.tscn[/code], and so
 ## the furthest from the axis a guard can stand before they fall off it. The box
 ## has to reach past this in every direction or the guard can walk out of their
 ## own cover.
 const PLATFORM_RADIUS: float = 8.0
 
-## Where [code]scenes/ring/test_ring.tscn[/code] puts the guard, and what this
+## Where [code]scenes/ring/bentham_ring.tscn[/code] puts the guard, and what this
 ## file checks the eye did not move.
 const TOWER_SPAWN_POSITION: Vector3 = Vector3(0.0, 0.25, 0.0)
 

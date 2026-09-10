@@ -1,6 +1,6 @@
 [gd_scene load_steps=14 format=3]
 
-[ext_resource type="PackedScene" path="res://scenes/ring/test_ring.tscn" id="1_arena"]
+[ext_resource type="PackedScene" path="res://scenes/ring/bentham_ring.tscn" id="1_arena"]
 [ext_resource type="PackedScene" path="res://scenes/player/player.tscn" id="2_player"]
 [ext_resource type="PackedScene" path="res://scenes/weapon/rifle.tscn" id="3_rifle"]
 [ext_resource type="PackedScene" path="res://scenes/bot/ring_runner.tscn" id="4_runner"]

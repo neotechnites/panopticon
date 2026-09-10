@@ -35,7 +35,7 @@ extends Area3D
 ## box on screen and the volume that kills cannot disagree. Same reasoning as
 ## [KillVolume], which sizes its cylinder from three exported metres for exactly
 ## this reason. Nothing here is built in code: both children are authored in
-## [code]scenes/ring/test_ring.tscn[/code] and this only sizes them.
+## [code]scenes/ring/bentham_ring.tscn[/code] and this only sizes them.
 ##
 ## [b]It is a trigger and nothing else.[/b] Layer 0, so nothing in the game has
 ## to know it is there; mask bits 1 and [constant MatchController.GHOST_HAZARD_LAYER],
@@ -53,12 +53,12 @@ extends Area3D
 ## [constant MatchController.GHOST_HAZARD_LAYER], not on no layer at all -- see
 ## that constant for why the rifle still cannot find it there -- and this node's
 ## [member Area3D.collision_mask] is widened in
-## [code]scenes/ring/test_ring.tscn[/code] to include that bit, exactly as
+## [code]scenes/ring/bentham_ring.tscn[/code] to include that bit, exactly as
 ## [KillVolume]'s is. [method MatchController.handle_fall] puts a ghost that
 ## touches one back at the start rather than killing it again.
 ##
 ## [b]It finds the match rather than being pointed at it[/b], and for the same
-## reason [KillVolume] does: [code]scenes/ring/test_ring.tscn[/code] is an ARENA,
+## reason [KillVolume] does: [code]scenes/ring/bentham_ring.tscn[/code] is an ARENA,
 ## composed into [code]scenes/match/match.tscn[/code], instanced bare by tests,
 ## and loaded by headless tooling with no [MatchController] in it at all. A
 ## [NodePath] typed into the arena would be a path into a scene the arena knows

@@ -20,7 +20,11 @@ extends Node3D
 ## exports, started through [method MatchController.start_match], and read
 ## through its accessors and signals.
 
-const ARENA_SCENE_PATH: String = "res://scenes/ring/test_ring.tscn"
+## Last resort only. The arena a sweep runs is the one
+## [member MatchRules.map_id] names, resolved through [MapCatalog], so that a
+## sweep and a played match are measuring the same ground; this constant is what
+## is left if the catalog itself cannot be read.
+const ARENA_SCENE_PATH: String = "res://scenes/ring/bentham_ring.tscn"
 const RUNNER_SCENE_PATH: String = "res://scenes/bot/ring_runner.tscn"
 const RIFLE_SCENE_PATH: String = "res://scenes/weapon/rifle.tscn"
 
@@ -41,7 +45,7 @@ var _runners: Node3D = null
 func build(rules: MatchRules) -> void:
 	name = "BotMatchWorld"
 
-	_arena = (load(ARENA_SCENE_PATH) as PackedScene).instantiate() as Node3D
+	_arena = (load(resolve_arena_path(rules)) as PackedScene).instantiate() as Node3D
 	_arena.name = "Arena"
 	add_child(_arena)
 
@@ -72,6 +76,18 @@ func build(rules: MatchRules) -> void:
 	add_child(_controller)
 
 	silence_local_input(self)
+
+
+## The arena scene [param rules] names, or [constant ARENA_SCENE_PATH] if the
+## catalog cannot answer.
+##
+## Static so a sweep spec can be checked against the maps that exist before a
+## single match is run, and so this file holds no second opinion about which
+## arena a rule set means.
+static func resolve_arena_path(rules: MatchRules) -> String:
+	var id: StringName = rules.map_id if rules != null else &""
+	var path: String = MapCatalog.scene_path_for(id)
+	return path if not path.is_empty() else ARENA_SCENE_PATH
 
 
 ## The controller running this world. The harness's entire view of the match.

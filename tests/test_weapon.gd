@@ -20,6 +20,22 @@ const TARGET_HALF_DEPTH: float = 0.5
 ## boundary the weapon has already reached.
 const NUDGE: float = 0.001
 
+## The barrel end the tracer leaves from, in the model's own coordinates.
+##
+## Taken from tools/modelling/rifle_build.py, which puts the tip of the muzzle
+## brake at MUZZLE_Y = 1.150 along Blender's forward axis -- Godot local -Z.
+const MODEL_MUZZLE: Vector3 = Vector3(0.0, 0.0, -1.150)
+
+## How far off the aim axis the barrel end must sit, in degrees, seen from the
+## eye. A view model in the lower corner is normal; one whose muzzle creeps onto
+## the crosshair blinds the tower, which sits in a mirrored box for the express
+## purpose of seeing the whole ring. This is the floor on "get out of the way".
+const MIN_OFF_AXIS_DEGREES: float = 12.0
+
+## The camera's near plane, from Camera3D's default. Nothing in the view model
+## may cross it or the guard looks through a sliced-open receiver.
+const NEAR_PLANE: float = 0.05
+
 var _rifle: Rifle
 var _profile: WeaponProfile
 var _target: StaticBody3D
@@ -206,6 +222,140 @@ func test_a_runtime_reload_change_takes_effect() -> void:
 		_rifle.reload_seconds, _profile.base_reload_seconds, 1e-6,
 		"reset_reload_to_base undoes progression so it cannot leak across rounds",
 	)
+
+
+# --- The view model -----------------------------------------------------------
+
+## The muzzle marker is the model's barrel end, not a number somebody typed.
+##
+## It is a sibling of the mesh under the same ViewModel transform and carries the
+## model's own muzzle coordinate, so retuning where the rifle is held moves the
+## tracer origin with it. Break that and the tracer starts in mid-air next to the
+## gun, which is precisely the bug the marker exists to prevent.
+func test_the_muzzle_marker_sits_at_the_model_s_barrel_end() -> void:
+	var view_model: Node3D = _rifle.get_node_or_null(^"ViewModel") as Node3D
+	assert_not_null(view_model, "scenes/weapon/rifle.tscn must carry a ViewModel node")
+
+	var muzzle: Node3D = _rifle.muzzle
+	assert_not_null(muzzle, "Rifle.muzzle must still resolve after the mesh was attached")
+	assert_same(
+		muzzle.get_parent(), view_model,
+		"the muzzle rides the ViewModel transform, so it cannot drift from the barrel",
+	)
+	assert_vec3_almost_eq(
+		muzzle.position, MODEL_MUZZLE, 1e-4,
+		"the muzzle marker is at the model's own barrel end, in the model's coordinates",
+	)
+
+	var mesh: MeshInstance3D = _find_mesh(view_model)
+	assert_not_null(mesh, "the ViewModel must actually contain the imported rifle mesh")
+	assert_true(mesh.visible, "the view model is drawn, or the guard is holding nothing")
+
+
+## The view model stays out of the guard's way, and out of the near plane.
+##
+## Both numbers are framing, which cannot be judged headless -- but the two
+## failure modes that matter are arithmetic and can be: geometry behind the near
+## plane (the receiver sliced open across the screen) and a barrel end that has
+## crept back onto the crosshair.
+func test_the_view_model_clears_the_crosshair_and_the_near_plane() -> void:
+	var view_model: Node3D = _rifle.get_node_or_null(^"ViewModel") as Node3D
+	assert_not_null(view_model, "scenes/weapon/rifle.tscn must carry a ViewModel node")
+
+	# The rifle root is at identity and its aim source is itself, so local space
+	# here is exactly what camera space is in a match: the origin is the eye and
+	# -Z is the shot line.
+	var mesh: MeshInstance3D = _find_mesh(view_model)
+	assert_not_null(mesh, "the ViewModel must actually contain the imported rifle mesh")
+	var box: AABB = mesh.global_transform * mesh.get_aabb()
+	assert_lt(
+		box.end.z, -NEAR_PLANE,
+		"every vertex of the view model sits in front of the camera's near plane",
+	)
+
+	var to_muzzle: Vector3 = _rifle.to_local(_rifle.muzzle.global_position)
+	assert_gt(
+		rad_to_deg(to_muzzle.angle_to(Vector3.FORWARD)), MIN_OFF_AXIS_DEGREES,
+		"the barrel end sits well off the aim axis, so it never covers the crosshair",
+	)
+	assert_gt(to_muzzle.x, 0.0, "the rifle is held to the right of the bore line")
+	assert_lt(to_muzzle.y, 0.0, "and below the eye, so the guard looks down onto the scope")
+
+
+## Hanging a mesh on the rifle did not move a single shot.
+##
+## The ray is the eye's on purpose -- no parallax between the crosshair and where
+## the round goes -- and the muzzle only decides where the visible streak starts.
+## This test is the guarantee that the two never got confused: the muzzle is more
+## than a metre from the eye, and the shot still starts at the eye and lands dead
+## ahead.
+func test_the_view_model_does_not_move_the_shot_line() -> void:
+	var offset: float = _rifle.muzzle.global_position.distance_to(_rifle.global_position)
+	assert_gt(offset, 1.0, "the muzzle is out at the barrel end, a long way from the aim source")
+
+	assert_true(_rifle.try_fire(), "a READY rifle must take the shot")
+	assert_vec3_almost_eq(
+		_last_shot_origin, Vector3.ZERO, 0.001,
+		"the ray still starts at the aim source and not at the barrel",
+	)
+	assert_vec3_almost_eq(
+		_last_hit_position,
+		Vector3(0.0, 0.0, -(TARGET_DISTANCE - TARGET_HALF_DEPTH)),
+		0.01,
+		"and still lands where it did before the mesh existed",
+	)
+
+
+## The mesh belongs to the rifle, so it changes hands with the seat.
+##
+## MatchController._attach_rifle reparents this whole scene onto the new holder's
+## head and resets its transform. Anything the view model needs has to survive
+## that, which is why the mesh and the muzzle are children of the rifle rather
+## than nodes the tower's body owns.
+func test_the_view_model_survives_a_seat_change() -> void:
+	var muzzle_before: Node3D = _rifle.muzzle
+	var mesh_before: MeshInstance3D = _find_mesh(_rifle)
+	assert_not_null(mesh_before, "the rifle carries its own mesh before the seat changes")
+	# In the RIFLE's frame, so a seat that faces a different way does not read as
+	# the view model having moved.
+	var offset_before: Vector3 = _rifle.to_local(muzzle_before.global_position)
+
+	# Exactly what MatchController._attach_rifle does, minus the participant.
+	var seat: Node3D = Node3D.new()
+	seat.name = "NewSeat"
+	add_child(seat)
+	seat.global_transform = Transform3D(
+		Basis(Vector3.UP, deg_to_rad(140.0)), Vector3(7.0, 1.65, -3.0)
+	)
+	var previous: Node = _rifle.get_parent()
+	previous.remove_child(_rifle)
+	seat.add_child(_rifle)
+	_rifle.transform = Transform3D.IDENTITY
+
+	assert_same(_rifle.muzzle, muzzle_before, "the muzzle node is the same node after the move")
+	assert_true(_rifle.muzzle.is_inside_tree(), "and it is still in the tree")
+	assert_same(_find_mesh(_rifle), mesh_before, "the mesh moved with the rifle")
+	assert_true(mesh_before.is_inside_tree(), "and is still in the tree")
+
+	assert_vec3_almost_eq(
+		_rifle.to_local(_rifle.muzzle.global_position), offset_before, 1e-4,
+		"the barrel end sits at the same offset from the new holder's eye",
+	)
+
+
+## First [MeshInstance3D] anywhere under [param root], or null.
+##
+## Found by type rather than by path: the mesh's name comes from inside
+## assets/models/rifle.glb, and a reimport is allowed to change it.
+func _find_mesh(root: Node) -> MeshInstance3D:
+	for child: Node in root.get_children():
+		var found: MeshInstance3D = child as MeshInstance3D
+		if found != null:
+			return found
+		var deeper: MeshInstance3D = _find_mesh(child)
+		if deeper != null:
+			return deeper
+	return null
 
 
 # --- Signal capture -----------------------------------------------------------
