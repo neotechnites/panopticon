@@ -1,4 +1,4 @@
-[gd_scene load_steps=9 format=3]
+[gd_scene load_steps=10 format=3]
 
 [ext_resource type="Script" path="res://scripts/player/player_controller.gd" id="1_controller"]
 [ext_resource type="Script" path="res://scripts/player/human_intent_source.gd" id="2_human_input"]
@@ -6,6 +6,7 @@
 [ext_resource type="Script" path="res://scripts/optics/weapon_optic.gd" id="4_optic"]
 [ext_resource type="Script" path="res://scripts/optics/zoom_input.gd" id="5_zoom_input"]
 [ext_resource type="Resource" path="res://scripts/optics/default_zoom_profile.tres" id="6_zoom_profile"]
+[ext_resource type="PackedScene" path="res://scenes/player/prisoner_avatar.tscn" id="7_avatar"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_body"]
 radius = 0.4
@@ -38,8 +39,11 @@ script = ExtResource("2_human_input")
 optic = NodePath("../Optic")
 
 [node name="BodyMesh" type="MeshInstance3D" parent="."]
-editor_description = "Greybox body. Mesh matches the Collision capsule exactly (radius 0.4, height 1.8, origin y=0.9) so what you see is what you can hit. Sits alone on visual layer 2, which the owner's own Camera clears from its cull_mask: the body renders for every other viewpoint but never from the inside. scenes/bot/ring_runner.tscn moves its copy to visual layer 3 so AI bodies stay visible to players."
+editor_description = "The greybox body, kept and hidden. Its mesh still matches the Collision capsule exactly (radius 0.4, height 1.8, origin y=0.9), which is what makes it worth keeping: switch visible back on in the editor and you are looking at the hittable volume, next to the Avatar that is drawn instead of it, and any drift between the model and the capsule is on screen. It is NOT deleted, because scenes/bot/ring_runner.tscn and scenes/bot/tower_shooter.tscn address inherited nodes of this scene by ordinal index and removing a child re-points every index after it.
+
+Nothing renders it any more. Avatar below is the visible prisoner, it carries the same visual-layer rule this node used to, and MatchController tints it rather than this."
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
+visible = false
 layers = 2
 mesh = SubResource("CapsuleMesh_body")
 
@@ -53,3 +57,11 @@ profile = ExtResource("6_zoom_profile")
 editor_description = "The only node in this scene that reads the zoom button. Separate from Optic so a bot drives the identical WeaponOptic methods with no input layer at all."
 script = ExtResource("5_zoom_input")
 optic = NodePath("../Optic")
+
+[node name="Avatar" parent="." node_paths=PackedStringArray("body") instance=ExtResource("7_avatar")]
+editor_description = "The prisoner you can see. A visual child of the capsule and nothing else: physics, the rifle's raycast and the kill volume all still work on Collision, and deleting this node leaves a fully playable game made of invisible bodies.
+
+Appended LAST on purpose. scenes/bot/ring_runner.tscn and scenes/bot/tower_shooter.tscn inherit this scene and address its children by ordinal index -- appending is safe, inserting silently re-points every override in both files -- which is why this sits after ZoomInput rather than next to BodyMesh where it belongs by subject.
+
+visual_layers is left at the script's default of 2, the owner-hidden layer that every Camera3D in the game clears from its cull_mask, so the human never sees the inside of their own skull: their eye is at 1.65 m and this model's head is around it. The two AI scenes that inherit this one raise it to layer 3, exactly as they used to do to BodyMesh. body points at the CharacterBody3D so the run cycle can be driven from the speed it is actually moving at."
+body = NodePath("..")

@@ -387,12 +387,17 @@ enum ShotModel {
 ## in the air for longer and more runners get a chance to see it. Drop it and
 ## only a runner already looking that way learns anything. At 0.0 no tracer is
 ## built, exactly as if [member tracer_enabled] were off.
-@export_range(0.0, 5.0, 0.01) var tracer_lifetime: float = 0.35
+##
+## It was 0.35 s, and with [member tracer_fade_exponent] at 2.2 on top of it the
+## line was under half brightness a tenth of a second in -- gone before a runner
+## who was not already staring at it could turn their head. A tell nobody has
+## time to read is not a tell.
+@export_range(0.0, 5.0, 0.01) var tracer_lifetime: float = 0.8
 
 ## Tracer colour. The alpha channel is the tracer's brightness at the instant of
 ## the shot, before the fade begins, and is scaled by
 ## [member tracer_brightness].
-@export var tracer_color: Color = Color(1.0, 0.86, 0.45, 0.9)
+@export var tracer_color: Color = Color(1.0, 0.72, 0.24, 1.0)
 
 ## Multiplier on the tracer's starting alpha. 1.0 -- no change -- by default.
 ##
@@ -407,11 +412,26 @@ enum ShotModel {
 ## the tracer is built as geometry precisely so that this number survives the
 ## GL Compatibility renderer, where hardware line width is pinned to one pixel
 ## and a [code]PRIMITIVE_LINES[/code] tracer would ignore this field entirely.
-@export_range(0.001, 1.0, 0.001) var tracer_width: float = 0.045
+##
+## [b]It is not a calibre and it must not be set like one.[/b] It was 0.045 m --
+## a plausible round -- and that is why prisoners never saw a shot. Real
+## thickness means the tracer shrinks with distance, and the observers this
+## mechanic is for stand on a deck 35 to 60 m from the tower: at 1600x900 and
+## the player's 100 degree field of view that is about 515 px per radian, so
+## 0.045 m subtended 0.45 px at ring mid-radius. Under one pixel is not "thin",
+## it is a line the rasteriser is entitled to drop entirely, and it did. Divide
+## the width by the distance and multiply by 515 to get pixels; keep the answer
+## at three or more across the whole deck, which 0.3 m does (3.3 px at 47.5 m,
+## 2.6 px at the outer wall).
+@export_range(0.001, 2.0, 0.001) var tracer_width: float = 0.3
 
 ## Shape of the tracer's fade. 1.0 is linear; higher values dim fast then linger
 ## faintly, which reads as a hot round cooling rather than a light switch.
-@export_range(0.1, 8.0, 0.1) var tracer_fade_exponent: float = 2.2
+##
+## Keep it near linear. It multiplies with [member tracer_lifetime] rather than
+## adding to it: at 2.2 the line spent most of its life too faint to read, so
+## the lifetime on the tin was roughly triple the lifetime a prisoner got.
+@export_range(0.1, 8.0, 0.1) var tracer_fade_exponent: float = 1.6
 
 ## Metres of the shot line the tracer actually draws, measured from
 ## [member tracer_segment_start]. 0.0 means the whole of it, which is shipped.
@@ -428,8 +448,21 @@ enum ShotModel {
 ## Metres from the muzzle at which the drawn segment begins. 0.0 -- at the
 ## barrel -- by default.
 ##
-## Inert while [member tracer_segment_length] is 0.0, because the whole line is
-## drawn regardless.
+## It applies whatever [member tracer_segment_length] is: with the length at 0.0
+## the streak still starts here and then runs to the end of the shot. (This
+## comment used to claim the field was inert in that case. It never was.)
+##
+## Two jobs, and the second one is not optional at the widths this tracer has to
+## be drawn at. The first is the informational one above -- move the streak away
+## from the muzzle and it stops giving the shooter's position away as precisely.
+## The second is that the shooter is standing at the muzzle: [member tracer_width]
+## is a real world thickness, so 0.3 m of it starting 0.45 m in front of the
+## guard's eye is a blob across a third of their screen. Starting the streak
+## outside the eye box costs a prisoner nothing -- that stretch is behind an
+## opaque wall from every seat on the deck anyway -- and it lets the round read
+## as leaving the eye instead of leaving the lens. The shipped profiles set
+## 12 m, which clears the 18 m box. This class default stays at the barrel
+## because a profile has no idea what arena it is being fired in.
 @export_range(0.0, 500.0, 0.1, "or_greater") var tracer_segment_start: float = 0.0
 
 

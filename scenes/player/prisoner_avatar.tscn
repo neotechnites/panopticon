@@ -1,0 +1,15 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="PackedScene" uid="uid://cela3gwsdh1ws" path="res://assets/models/runner.glb" id="1_model"]
+[ext_resource type="Script" path="res://scripts/player/prisoner_avatar.gd" id="2_avatar"]
+
+[node name="Avatar" node_paths=PackedStringArray("mesh", "animation") instance=ExtResource("1_model")]
+editor_description = "What a prisoner looks like: the imported runner.glb -- 544 triangles, one material, a 16-joint skin and one 20-frame Run cycle -- wrapped so the rest of the game can hang it on a body and forget it is a glTF. Instanced rather than inherited into scenes/player/player.tscn so that the model, its scale and its facing are decided ONCE, here, instead of in every scene that wants a person.
+
+The half turn on this node is that decision. The model's toes point towards +Z and PlayerController drives the body along -Z, so this transform is the only thing standing between the game and four prisoners moonwalking round the ring. It is on the root rather than on the Armature so that anything ever parented into this subtree -- a held item, a name tag -- inherits the same facing.
+
+Nothing here is parameterised except through the exports on the script: which visual layer to draw on and which material to wear. Both are authored by the scene that instances this one, because they are the two things that differ between the human, an AI runner and the guard."
+transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, 0, 0, 0)
+script = ExtResource("2_avatar")
+mesh = NodePath("Armature/Skeleton3D/Runner")
+animation = NodePath("AnimationPlayer")

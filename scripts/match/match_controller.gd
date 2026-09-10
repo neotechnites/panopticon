@@ -250,14 +250,22 @@ const PEN_SPACING_METRES: float = 4.0
 const DEFAULT_GHOST_PROFILE_PATH: String = "res://resources/rules/default_ghost_profile.tres"
 
 ## Where a ghost body's mesh takes its colour from. The whole of "a ghost looks
-## different": one flat material swapped onto the same capsule, and swapped back
+## different": one flat material swapped onto the same body, and swapped back
 ## when the ghost becomes living again. There is no ghost model and there is not
-## going to be one.
+## going to be one -- a ghost is a prisoner in a different colour, which is why
+## this stayed one material swap when prisoners stopped being capsules.
 const GHOST_MATERIAL_PATH: String = "res://scenes/bot/ghost_body_material.tres"
 
-## The name of the mesh a body's colour is read off and written to. Both
-## [code]scenes/player/player.tscn[/code] and the runner scene that inherits it
-## call it this.
+## The node holding the humanoid a body is seen as. Every body in the game comes
+## from [code]scenes/player/player.tscn[/code], which calls it this.
+const BODY_AVATAR_NAME: StringName = &"Avatar"
+
+## The name of the greybox capsule mesh, painted when a body has no [PrisonerAvatar].
+##
+## Kept as a fallback rather than deleted: this is the only thing in the match
+## that reaches into a body to change how it looks, and a body assembled without
+## the model -- a test fixture, a stripped harness scene -- should still be able
+## to show which of its participants are ghosts.
 const BODY_MESH_NAME: StringName = &"BodyMesh"
 
 ## The [ShooterProfile] an AI in the tower plays on when [MatchRules] names
@@ -1219,16 +1227,31 @@ func _ghost_material() -> Material:
 ## Paint [param participant]'s body mesh, remembering the authored material the
 ## first time so it can be put back exactly.
 func _tint_body(participant: MatchParticipant, material: Material) -> void:
-	var body: PlayerController = participant.body
-	if body == null:
-		return
-	var mesh: MeshInstance3D = body.get_node_or_null(NodePath(BODY_MESH_NAME)) as MeshInstance3D
+	var mesh: MeshInstance3D = _body_mesh_of(participant.body)
 	if mesh == null:
 		return
 	if not participant.home_material_read:
 		participant.home_body_material = mesh.material_override
 		participant.home_material_read = true
 	mesh.material_override = material
+
+
+## The one mesh that IS [param body] on screen, and so the one whose colour says
+## living or ghost.
+##
+## The humanoid under [constant BODY_AVATAR_NAME] when there is one, which is
+## every body the shipped scenes build; the greybox capsule otherwise. Asking the
+## avatar for its mesh rather than walking the subtree is deliberate -- the
+## imported model is a Skeleton3D with a skinned child, and a search for "the
+## MeshInstance3D" would start returning the wrong one the day anything else is
+## hung on a prisoner.
+func _body_mesh_of(body: PlayerController) -> MeshInstance3D:
+	if body == null:
+		return null
+	var avatar: PrisonerAvatar = body.get_node_or_null(NodePath(BODY_AVATAR_NAME)) as PrisonerAvatar
+	if avatar != null and avatar.mesh != null:
+		return avatar.mesh
+	return body.get_node_or_null(NodePath(BODY_MESH_NAME)) as MeshInstance3D
 
 
 # --- Participants -------------------------------------------------------------

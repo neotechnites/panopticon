@@ -46,11 +46,24 @@ const CONFIG_PATH: String = "user://settings.cfg"
 ## Schema version, written to [code][meta]/version[/code]. A file whose version
 ## is newer than this was written by a newer build and is not read: a downgrade
 ## silently reinterpreting fields it does not understand is worse than a reset.
-const CONFIG_VERSION: int = 2
+const CONFIG_VERSION: int = 3
 
 ## The first version whose [code]ghosts_enabled[/code] key means what the player
 ## chose. See [method load_from_disk].
 const GHOSTS_CHOSEN_FROM_VERSION: int = 2
+
+## The first version whose saved [code]slide[/code] binding means what the
+## player chose. See [method load_from_disk].
+##
+## Slide's shipped default moved from Control to Shift+Z: Control+Space is a
+## symbolic hotkey macOS reserves for itself ("Select the previous input
+## source"), so a slide bound to Control silently never fires the moment a
+## second input source exists -- see [code]tests/test_keybind_defaults.gd[/code].
+## Exactly like [constant GHOSTS_CHOSEN_FROM_VERSION], a file older than this
+## records what slide happened to be bound to under the old default rather than
+## a choice about the new one, so it is discarded in favour of the current
+## shipped key; a version 3+ file's slide binding is believed whatever it says.
+const SLIDE_CHOSEN_FROM_VERSION: int = 3
 
 const SECTION_META: String = "meta"
 
@@ -131,6 +144,14 @@ func load_from_disk() -> bool:
 		# version 1 file is taken to have expressed no preference about ghosts.
 		settings.ghosts_enabled = GameSettings.DEFAULT_GHOSTS_ENABLED
 	keybinds.read_from(config)
+	if version < SLIDE_CHOSEN_FROM_VERSION:
+		# A file this old can only hold the key slide shipped on before this
+		# version -- Control on every machine, since the shipped default is what
+		# KeybindMap.read_from falls back to for a slot the file never
+		# mentions -- and macOS eats Control+Space before the game ever sees it.
+		# Discard it and keep the shipped default rather than honour a binding
+		# that was never a choice. See [constant SLIDE_CHOSEN_FROM_VERSION].
+		keybinds.reset_action(PlayerActions.SLIDE)
 	loaded_from_disk = true
 	return true
 

@@ -248,6 +248,53 @@ func test_a_rebind_round_trips_through_the_settings_file() -> void:
 	read.erase_file()
 
 
+## A pre-migration slide binding does not survive into this build.
+##
+## Slide's shipped default moved from Control to Shift+Z -- Control+Space is a
+## symbolic hotkey macOS reserves for itself, see
+## tests/test_keybind_defaults.gd -- and [constant SettingsStore.SLIDE_CHOSEN_FROM_VERSION]
+## exists so a file written under the old default hands back the new key rather
+## than the stale one. This is the round trip a returning player actually takes:
+## boot with an old file on disk and get the new default; rebind after that and
+## the rebind sticks.
+func test_a_pre_migration_slide_binding_is_replaced_by_the_new_default() -> void:
+	var path: String = "user://test_settings_ui_slide_migration.cfg"
+
+	var old_file: ConfigFile = ConfigFile.new()
+	old_file.set_value(SettingsStore.SECTION_META, "version", 2)
+	old_file.set_value(KeybindMap.SECTION_KEYBINDS, String(PlayerActions.SLIDE), [
+		{KeybindMap.KEY_FIELD_TYPE: KeybindMap.TYPE_KEY, KeybindMap.KEY_FIELD_CODE: KEY_CTRL},
+		{},
+	])
+	assert_eq_int(int(old_file.save(path)), int(OK), "the version 2 file is written")
+
+	var store: SettingsStore = SettingsStore.new()
+	store.config_path = path
+	store.bootstrap()
+
+	assert_eq_int(
+		int(store.keybinds.get_binding(PlayerActions.SLIDE, 0).get(KeybindMap.KEY_FIELD_CODE, 0)),
+		int(KEY_SHIFT),
+		"the stale Control binding is discarded for the shipped Shift key",
+	)
+
+	# A file this build writes is believed, Ctrl included: rebinding to it after
+	# this version is a choice, not a leftover default.
+	store.keybinds.set_binding(PlayerActions.SLIDE, 0, {
+		KeybindMap.KEY_FIELD_TYPE: KeybindMap.TYPE_KEY,
+		KeybindMap.KEY_FIELD_CODE: KEY_CTRL,
+	})
+	assert_eq_int(store.save_to_disk(), OK, "the current file is written")
+	assert_true(store.load_from_disk(), "the current file is readable")
+	assert_eq_int(
+		int(store.keybinds.get_binding(PlayerActions.SLIDE, 0).get(KeybindMap.KEY_FIELD_CODE, 0)),
+		int(KEY_CTRL),
+		"a chosen rebind survives the round trip",
+	)
+
+	store.erase_file()
+
+
 ## Clicking a slot and pressing a key rebinds that slot, and only that slot.
 ##
 ## Every button in the table is wired by the script to a cell the scene

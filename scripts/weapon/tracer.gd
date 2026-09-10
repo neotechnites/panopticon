@@ -180,19 +180,30 @@ func _add_quad(mesh_out: ImmediateMesh, axis: Vector3, half_width: Vector3) -> v
 	mesh_out.surface_add_vertex(far_a)
 
 
-## Unshaded, additive, unculled, depth-write off.
+## Unshaded, alpha-blended, unculled, depth-write off.
 ##
 ## Unshaded because a tracer is a light source, not a lit surface, and a lit one
-## would go black in the ring's shadowed cover. Additive so it reads as hot
-## against both the pale deck and the dark tower. Depth-write off so overlapping
-## tracers and the fading tail do not punch holes in one another. All four are
+## would go black in the ring's shadowed cover. Unculled because the two crossed
+## quads must look identical from both sides. Depth-write off so overlapping
+## tracers and the fading tail do not punch holes in one another. All of it is
 ## supported by the GL Compatibility renderer, which is the constraint that
 ## rules out most of the fancier options.
+##
+## [b]It was additive, and additive is why nobody could see it.[/b] Ryan, playing
+## a prisoner on 2026-09-10: [i]"how about the tracer for the sniper? i dont see
+## that as a prisoner."[/i] Additive blending adds to what is already on screen,
+## and what is already on screen out on the ring is a pale deck under a filmic
+## tonemap -- the sum clips to the white it was already nearly at, so the tracer
+## contributed nothing at exactly the distance the mechanic depends on. Alpha
+## blending REPLACES instead of adding, so a saturated round reads as itself on
+## the pale deck, against the sky and over the near-white face of the eye alike,
+## which no additive colour can do. The cost is that it no longer blooms; the
+## brightness that bought is worth less than being seen at all.
 func _build_material() -> StandardMaterial3D:
 	var material: StandardMaterial3D = StandardMaterial3D.new()
 	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	material.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	material.blend_mode = BaseMaterial3D.BLEND_MODE_MIX
 	material.cull_mode = BaseMaterial3D.CULL_DISABLED
 	material.no_depth_test = false
 	material.disable_receive_shadows = true

@@ -112,7 +112,13 @@ const DEFAULT_TOWER_SEAT_INDEX: int = 0
 ## exists only so a corrupt file cannot put an absurd number into the config.
 const MAX_TOWER_SEAT_INDEX: int = 31
 
-const DEFAULT_RESOLUTION: Vector2i = Vector2i(1280, 720)
+## Matches [code]project.godot[/code]'s [code][display]/window/size[/code]
+## defaults. They have to agree: [SettingsBoot] bootstraps the store and calls
+## [method apply_video] before the player has opened the settings screen even
+## once, on the first frame of the main menu, and a mismatch here would have
+## that first [method apply_video] shrink the window project.godot just opened
+## back down to whatever smaller size this constant named.
+const DEFAULT_RESOLUTION: Vector2i = Vector2i(1600, 900)
 const MIN_RESOLUTION: Vector2i = Vector2i(640, 360)
 const MAX_RESOLUTION: Vector2i = Vector2i(7680, 4320)
 

@@ -17,10 +17,12 @@ current = false
 [node name="HumanInput" parent="." index="2"]
 capture_mouse_on_ready = false
 
-[node name="BodyMesh" parent="." index="3"]
-editor_description = "Moved off the owner-hidden visual layer 2 onto visual layer 3, because a runner is never the local viewpoint and must stay visible to every player camera. Material is the one shared runner_body_material.tres, unshaded orange so the capsule reads against the grey ring boxes at range."
-layers = 4
-material_override = ExtResource("5_runner_material")
+[node name="Avatar" parent="." index="6"]
+editor_description = "Moved off the owner-hidden visual layer 2 onto visual layer 3, because a runner is never the local viewpoint and must stay visible to every player camera. This is the same override this scene used to make on BodyMesh, moved to the node that is now the visible one; BodyMesh itself is hidden in the base scene and no longer worth pointing at.
+
+body_material is the one shared runner_body_material.tres, unshaded orange so a prisoner reads against the grey ring boxes at range. It is set here rather than baked into the model because MatchController swaps this exact field for ghost_body_material.tres to mark a ghost and puts this back afterwards -- see MatchController._tint_body. The model ships flat grey, which is what the human and the guard wear."
+visual_layers = 4
+body_material = ExtResource("5_runner_material")
 
 [node name="ZoomInput" parent="." index="5"]
 editor_description = "Disabled. ZoomInput is inherited from the player scene and reads the local device, so on a runner it drives that runner's optic from whoever is holding the human's zoom button. Harmless today because a runner camera never renders, but bots take the tower seat by design, and a bot shooter whose zoom is driven by a human's mouse would be a genuinely confusing bug to find later."

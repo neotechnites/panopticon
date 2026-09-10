@@ -204,10 +204,17 @@ signal projectile_launched(origin: Vector3, direction: Vector3, speed: float)
 ## blank and every shot is a self-hit.
 @export var shooter_body: CollisionObject3D
 
-## Where tracers are parented. Leave unset and they parent to this node, which
-## is fine because [Tracer] is top-level and so ignores the rifle's motion.
-## Set it to a long-lived world node if tracers must outlive their shooter --
-## a shot fired at the moment the tower dies should still give away its position.
+## Where tracers and rounds in flight are parented.
+##
+## Leave it unset and [method _world_parent] falls back to the running scene's
+## root, and only to this node when there is no scene at all -- because the
+## rifle does NOT stay put. The seat is a role: [MatchController] reparents this
+## one rifle onto whoever holds the tower, which takes it out of the tree and
+## puts it back in the same frame, and anything hanging off it goes with it.
+## [Tracer] is top-level so it would not MOVE, but it would still be pulled out
+## of the world mid-flight and, if the shooter is ever freed, freed with them --
+## and a shot fired at the moment the tower dies must still give its position
+## away. Set it explicitly to pin tracers to a specific world node.
 @export var tracer_parent: Node3D
 
 ## Property name a [MatchRules] may carry to hand the round its own weapon.
@@ -710,8 +717,23 @@ func _spawn_tracer(from: Vector3, to: Vector3) -> void:
 	# arm with the tracer off allocates nothing at all.
 	if not profile.draws_tracer():
 		return
-	var parent: Node = tracer_parent if tracer_parent != null else self
-	Tracer.spawn(parent, from, to, profile)
+	Tracer.spawn(_world_parent(), from, to, profile)
+
+
+## The node tracers and rounds in flight are hung off: [member tracer_parent]
+## when one is set, otherwise the running scene's root, otherwise this node.
+##
+## The fallback is the whole point. A tracer parented to the rifle dies the
+## moment the rifle does and is yanked out of the tree every time the seat
+## changes hands; the scene root outlives both. `self` remains as the last
+## resort so a unit test that builds a bare rifle under no scene still draws.
+func _world_parent() -> Node:
+	if tracer_parent != null:
+		return tracer_parent
+	var tree: SceneTree = get_tree()
+	if tree != null and is_instance_valid(tree.current_scene) and tree.current_scene != self:
+		return tree.current_scene
+	return self
 
 
 # --- State machine ------------------------------------------------------------
@@ -818,7 +840,7 @@ func _report(round_shot: WeaponProjectile) -> void:
 
 ## Put a round in the air along the line the shot actually took.
 func _launch(origin: Vector3, direction: Vector3, travel_range: float, charge: float) -> void:
-	var parent: Node = tracer_parent if tracer_parent != null else self
+	var parent: Node = _world_parent()
 	var exclude: Array[RID] = []
 	if shooter_body != null:
 		exclude.append(shooter_body.get_rid())
