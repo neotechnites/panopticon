@@ -17,7 +17,7 @@ editor_description = "Empty by design. MatchController spawns three runners into
 
 [node name="Player" parent="." instance=ExtResource("2_player")]
 editor_description = "The tower. Placed on the TowerSpawn marker here as well as by MatchController: the transform saved in the scene is what the editor shows and what the first physics tick sees, and the controller's placement is what a restart uses."
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 15, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
 
 [node name="Rifle" parent="Player/Head" node_paths=PackedStringArray("aim_source", "shooter_body", "tracer_parent") instance=ExtResource("3_rifle")]
 editor_description = "Parented to the head, not the body, so the barrel follows the pitch. The shot line is the camera's, though: aim_source is the Camera3D, so the round goes exactly where the crosshair is with no muzzle parallax to explain. shooter_body excludes the player's own capsule from the ray, without which every shot is a point-blank self-hit."
