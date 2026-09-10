@@ -272,6 +272,19 @@ static func rules_to_dictionary(rules: MatchRules) -> Dictionary:
 			continue
 
 		var value: Variant = rules.get(key)
+		# typeof first: `as Resource` on an int or a bool is an invalid cast and
+		# raises, rather than yielding null the way it does for a mismatched
+		# object -- and a rules table is mostly numbers.
+		var nested: Resource = value as Resource if typeof(value) == TYPE_OBJECT else null
+		if nested != null:
+			# A rule that IS a resource -- the ghost tuning, the weapon, the
+			# runner difficulty -- carries its numbers one level down, and a
+			# result file that recorded only "an object was set here" would be a
+			# swept parameter nobody could read back. One level, not a walk: a
+			# resource that pointed at itself would otherwise write until the
+			# disk filled.
+			out[key] = _resource_to_dictionary(nested)
+			continue
 		if typeof(value) == TYPE_PACKED_FLOAT32_ARRAY:
 			# JSON has one number type and no packed arrays. Widening here keeps
 			# the file readable by anything that reads JSON, which is the point
@@ -288,6 +301,28 @@ static func rules_to_dictionary(rules: MatchRules) -> Dictionary:
 		if int(entry.get("hint", 0)) == PROPERTY_HINT_ENUM:
 			out["%s_name" % key] = _enum_name(hint, int(value))
 
+	return out
+
+
+## One resource's own exported values, flat, for a result file. Objects nested
+## inside it are written as their resource path, which is enough to find them and
+## short enough to read.
+static func _resource_to_dictionary(resource: Resource) -> Dictionary:
+	var out: Dictionary = {"resource_path": resource.resource_path}
+	for entry: Dictionary in resource.get_property_list():
+		var usage: int = int(entry.get("usage", 0))
+		if (usage & PROPERTY_USAGE_SCRIPT_VARIABLE) == 0:
+			continue
+		if (usage & PROPERTY_USAGE_STORAGE) == 0:
+			continue
+		var key: String = String(entry.get("name", ""))
+		if key.is_empty() or key.begins_with("_"):
+			continue
+		var value: Variant = resource.get(key)
+		var deeper: Resource = value as Resource if typeof(value) == TYPE_OBJECT else null
+		out[key] = deeper.resource_path if deeper != null else value
+		if int(entry.get("hint", 0)) == PROPERTY_HINT_ENUM:
+			out["%s_name" % key] = _enum_name(String(entry.get("hint_string", "")), int(value))
 	return out
 
 

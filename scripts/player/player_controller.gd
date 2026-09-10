@@ -72,6 +72,20 @@ signal slide_ended()
 ## air strafing steerable by the mouse.
 @export var head: Node3D
 
+## Multiplier on the target ground speed this body is driven at. 1.0 is the
+## [MovementProfile]'s own pace and is what every living body runs on.
+##
+## It scales the WISH SPEED and nothing else, so a body running at 1.25 is
+## accelerated by the same Quake routine, held by the same friction and capped
+## by the same air-strafe rule as one running at 1.0 -- it is only asking to go
+## somewhere faster. It is deliberately not a field on [MovementProfile]: the
+## profile describes what a body IS, and this is a state the match puts a body
+## into and takes back off it.
+##
+## [MatchController] is the only thing that writes it, for a ghost. See
+## [member GhostProfile.speed_multiplier].
+var speed_scale: float = 1.0
+
 ## Set every tick, either from [member intent_source] or by an outside caller
 ## via [method set_intent].
 var _intent: MoveIntent = MoveIntent.new()
@@ -103,6 +117,22 @@ var _slide_cooldown_timer: float = 0.0
 
 ## Time left in which a slide press made in the air still counts on landing.
 var _slide_buffer_timer: float = 0.0
+
+## Last tick's [member MoveIntent.slide_pressed], so the buffer is filled by the
+## rising edge and never by the level.
+##
+## [member MoveIntent.slide_pressed] is documented as an edge and every shipped
+## [IntentSource] consumes it as one, but [method set_intent] hands this node
+## whatever the caller last wrote: a replay, a harness or a peer that fills one
+## struct and reuses it delivers a press that stays true for as long as the
+## button is down. Read as a level, that press refills the buffer on every tick
+## and so defeats the zeroing in [method _begin_slide] -- a held key would
+## re-open a slide the instant [member MovementProfile.slide_cooldown] lapsed,
+## and the player would be locked into a chain of slides they never asked for,
+## steering at [member MovementProfile.slide_acceleration] until the speed floor
+## finally broke the chain. Latching here means the rule holds however careful
+## the source is: one press, one slide, and re-pressing is how you slide again.
+var _was_slide_pressed: bool = false
 
 ## The head's authored local height, captured once so the slide crouch is an
 ## offset from the scene's value rather than a number this file invents.
@@ -169,7 +199,9 @@ func _physics_process(delta: float) -> void:
 	# vector, so that the accelerate routines stay dimensionally correct.
 	var wish_vector: Vector3 = _get_wish_vector()
 	var wish_direction: Vector3 = wish_vector.normalized()
-	var wish_speed: float = profile.get_ground_speed(_intent.sprint_held) * wish_vector.length()
+	var wish_speed: float = (
+		profile.get_ground_speed(_intent.sprint_held) * wish_vector.length() * speed_scale
+	)
 
 	if _sliding:
 		# --- Slide phase ---
@@ -304,7 +336,9 @@ func _try_jump(on_floor: bool) -> bool:
 # obeys are:
 #
 #   ENTER  on the floor, above slide_min_entry_speed, off cooldown, with a
-#          slide press inside the buffer window.
+#          fresh slide press inside the buffer window. Fresh, not held: holding
+#          the key through a slide-hop does not re-open a slide on landing, and
+#          the player re-presses to slide again.
 #   REWARD one boost along the current heading, up to slide_boost_speed_cap and
 #          never downwards -- a body already faster than the cap keeps its speed
 #          and is simply not paid again.
@@ -318,10 +352,15 @@ func _try_jump(on_floor: bool) -> bool:
 # carries air-strafe speed through a landing rather than a thing that resets it.
 
 func _tick_slide_timers(delta: float) -> void:
-	if _intent.slide_pressed:
+	# The rising edge fills the buffer; holding the key only lets it run down.
+	# See _was_slide_pressed. A press made in the air is unaffected -- it fills
+	# the buffer where it happened and still opens the slide on landing, which is
+	# the whole reason slide_buffer_time exists.
+	if _intent.slide_pressed and not _was_slide_pressed:
 		_slide_buffer_timer = profile.slide_buffer_time
 	else:
 		_slide_buffer_timer = maxf(_slide_buffer_timer - delta, 0.0)
+	_was_slide_pressed = _intent.slide_pressed
 	_slide_cooldown_timer = maxf(_slide_cooldown_timer - delta, 0.0)
 
 

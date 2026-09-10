@@ -1,11 +1,29 @@
 class_name KeybindPanel
-extends Control
+extends MarginContainer
 
 ## The rebinding UI: one row per action, two binding slots each, plus the
 ## capture overlay.
 ##
 ## Greybox by instruction -- default theme, no colours, no icons. Every control
-## here is a stock [Button] or [Label].
+## here is a stock [Button] or [Label], and all of them are authored in
+## [code]scenes/ui/keybind_panel.tscn[/code]. This file binds them to the store
+## and to the capture; it does not build them.
+##
+## [b]The table is a [GridContainer].[/b] It replaced nine independent
+## [HBoxContainer] rows, each of which reserved the same guessed pixel width for
+## its name column. That arrangement only looked like a table while every label
+## happened to fit inside the guess: the moment one did not -- a longer action
+## name, a translation, a theme whose font measures wider -- that row's columns
+## slid out of step with the other eight and the list read as garbage. A grid
+## shares one set of column widths across every row, so the columns cannot
+## disagree.
+##
+## [b]The rows are authored, not generated.[/b] Nine rows in the scene, in the
+## order a player reads them: movement, then jump/sprint/crouch, then fire/aim.
+## Walking the [InputMap] instead would list Godot's own [code]ui_*[/code]
+## actions in hash order, which is neither the project's input list nor an order
+## anybody chose. [method _ready] checks the scene against
+## [constant KeybindMap.ACTIONS] so the two cannot drift apart in silence.
 ##
 ## [b]The capture.[/b] Pressing a slot button arms a capture and raises a
 ## full-rect overlay. From that moment this node reads [method Node._input],
@@ -33,13 +51,22 @@ signal binding_changed()
 ## Escape while one is in flight.
 signal capture_state_changed(capturing: bool)
 
-const _ACTION_COLUMN_WIDTH: float = 160.0
-const _SLOT_COLUMN_WIDTH: float = 150.0
+## Suffixes on the four cells that make up one authored row. An action's cells
+## are named for the action in PascalCase -- [code]move_forward[/code] becomes
+## [code]MoveForwardName[/code], [code]MoveForwardSlot1[/code] and so on -- which
+## is what lets [constant KeybindMap.ACTIONS] address the scene without a second
+## list of node names to keep in step with it.
+const _NAME_SUFFIX: String = "Name"
+const _SLOT_SUFFIX: String = "Slot"
+const _RESET_SUFFIX: String = "Reset"
+
+@onready var _table: GridContainer = $Layout/Scroll/Table
+@onready var _status_label: Label = $Layout/Footer/Status
+@onready var _reset_all_button: Button = $Layout/Footer/ResetAll
+@onready var _overlay: PanelContainer = $CaptureOverlay
+@onready var _overlay_label: Label = $CaptureOverlay/CaptureLabel
 
 var _store: SettingsStore = null
-var _status_label: Label = null
-var _overlay: PanelContainer = null
-var _overlay_label: Label = null
 
 ## Action -> Array of [Button], one per slot, in slot order.
 var _slot_buttons: Dictionary[StringName, Array] = {}
@@ -54,7 +81,8 @@ var _swallow_mouse_release: bool = false
 
 func _ready() -> void:
 	_store = SettingsStore.instance()
-	_build()
+	_bind_rows()
+	_reset_all_button.pressed.connect(_on_reset_all_pressed)
 	refresh()
 
 
@@ -81,6 +109,24 @@ func refresh() -> void:
 func cancel_capture() -> void:
 	if is_capturing():
 		_end_capture("Rebind cancelled.")
+
+
+## The actions this panel shows, in the order the scene lays them out.
+##
+## Read off the authored rows rather than restated, so a test that asks what the
+## player will see is answering from the scene itself.
+func get_displayed_actions() -> Array[StringName]:
+	var shown: Array[StringName] = []
+	for action: StringName in KeybindMap.ACTIONS:
+		if _slot_buttons.has(action):
+			shown.append(action)
+	return shown
+
+
+## The label the scene puts in the name column for [param action].
+func get_row_name(action: StringName) -> String:
+	var label: Label = _table.get_node_or_null(_row_prefix(action) + _NAME_SUFFIX) as Label
+	return label.text if label != null else ""
 
 
 func _input(event: InputEvent) -> void:
@@ -150,91 +196,38 @@ func _input(event: InputEvent) -> void:
 		})
 
 
-# --- Construction -------------------------------------------------------------
+# --- Wiring -------------------------------------------------------------------
 
-func _build() -> void:
-	var layout: VBoxContainer = VBoxContainer.new()
-	layout.set_anchors_preset(Control.PRESET_FULL_RECT)
-	layout.offset_right = 0.0
-	layout.offset_bottom = 0.0
-	add_child(layout)
-
-	var hint: Label = Label.new()
-	hint.text = "Two bindings per action. Escape cancels a rebind, Backspace clears the slot."
-	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	layout.add_child(hint)
-
-	var scroll: ScrollContainer = ScrollContainer.new()
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	layout.add_child(scroll)
-
-	var rows: VBoxContainer = VBoxContainer.new()
-	rows.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.add_child(rows)
-
+## Connect the authored cells to the actions they belong to.
+##
+## An action whose row is missing from the scene is a hard error rather than a
+## quietly skipped line: it means somebody added an action and did not add the
+## row, and the player would simply never be offered the binding.
+func _bind_rows() -> void:
 	for action: StringName in KeybindMap.ACTIONS:
-		rows.add_child(_build_row(action))
+		var prefix: String = _row_prefix(action)
+		var name_label: Label = _table.get_node_or_null(prefix + _NAME_SUFFIX) as Label
+		var reset: Button = _table.get_node_or_null(prefix + _RESET_SUFFIX) as Button
+		if name_label == null or reset == null:
+			push_error("keybind_panel.tscn has no row for action '%s' (expected %s* cells)" % [action, prefix])
+			continue
 
-	var footer: HBoxContainer = HBoxContainer.new()
-	layout.add_child(footer)
+		var buttons: Array = []
+		for slot: int in range(KeybindMap.MAX_BINDINGS):
+			var button: Button = _table.get_node_or_null("%s%s%d" % [prefix, _SLOT_SUFFIX, slot + 1]) as Button
+			if button == null:
+				push_error("keybind_panel.tscn has no slot %d for action '%s'" % [slot + 1, action])
+				continue
+			button.pressed.connect(_on_slot_pressed.bind(action, slot))
+			buttons.append(button)
 
-	var reset_all: Button = Button.new()
-	reset_all.text = "Reset All Bindings"
-	reset_all.pressed.connect(_on_reset_all_pressed)
-	footer.add_child(reset_all)
-
-	_status_label = Label.new()
-	_status_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	footer.add_child(_status_label)
-
-	_build_overlay()
-
-
-func _build_row(action: StringName) -> HBoxContainer:
-	var row: HBoxContainer = HBoxContainer.new()
-
-	var name_label: Label = Label.new()
-	name_label.text = KeybindMap.display_name(action)
-	name_label.custom_minimum_size = Vector2(_ACTION_COLUMN_WIDTH, 0.0)
-	row.add_child(name_label)
-
-	var buttons: Array = []
-	for slot: int in range(KeybindMap.MAX_BINDINGS):
-		var button: Button = Button.new()
-		button.custom_minimum_size = Vector2(_SLOT_COLUMN_WIDTH, 0.0)
-		button.clip_text = true
-		button.tooltip_text = "Rebind %s (slot %d)" % [KeybindMap.display_name(action), slot + 1]
-		button.pressed.connect(_on_slot_pressed.bind(action, slot))
-		row.add_child(button)
-		buttons.append(button)
-	_slot_buttons[action] = buttons
-
-	var reset: Button = Button.new()
-	reset.text = "Reset"
-	reset.pressed.connect(_on_reset_action_pressed.bind(action))
-	row.add_child(reset)
-
-	return row
+		reset.pressed.connect(_on_reset_action_pressed.bind(action))
+		_slot_buttons[action] = buttons
 
 
-func _build_overlay() -> void:
-	_overlay = PanelContainer.new()
-	_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_overlay.offset_right = 0.0
-	_overlay.offset_bottom = 0.0
-	# STOP, so a click that misses this node's own _input still cannot reach a
-	# control underneath while a capture is armed.
-	_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
-	_overlay.visible = false
-	add_child(_overlay)
-
-	_overlay_label = Label.new()
-	_overlay_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_overlay_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_overlay_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_overlay.add_child(_overlay_label)
+## The node-name prefix the scene uses for [param action]'s four cells.
+static func _row_prefix(action: StringName) -> String:
+	return String(action).to_pascal_case()
 
 
 # --- Capture ------------------------------------------------------------------

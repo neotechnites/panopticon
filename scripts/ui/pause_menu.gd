@@ -51,6 +51,13 @@ signal quit_requested()
 ## mouse released but before the scene change is requested.
 signal main_menu_requested()
 
+## The settings screen, loaded rather than constructed.
+##
+## Its layout lives in the scene, so [code]SettingsScreen.new()[/code] would
+## hand back a bare [Control] with none of its controls in it.
+const SETTINGS_SCREEN_SCENE: PackedScene = preload("res://scenes/ui/settings_screen.tscn")
+
+
 ## The action that toggles the menu. Left as an export so a scene can move it
 ## without touching this file.
 @export var toggle_action: StringName = &"ui_cancel"
@@ -193,7 +200,7 @@ func _build() -> void:
 	_add_button(column, "Main Menu", return_to_main_menu)
 	_add_button(column, "Quit", _quit)
 
-	_settings_screen = SettingsScreen.new()
+	_settings_screen = SETTINGS_SCREEN_SCENE.instantiate()
 	_settings_screen.visible = false
 	_settings_screen.closed.connect(_close_settings)
 	_root.add_child(_settings_screen)

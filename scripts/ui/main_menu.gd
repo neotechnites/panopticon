@@ -10,11 +10,9 @@ extends Control
 ## is replaced wholesale by a designed scene calling the same three methods.
 ##
 ## [b]It reuses the settings screen, it does not have one of its own.[/b]
-## [method _build] constructs a [SettingsScreen], exactly as [PauseMenu] does,
-## so the screen the player sees from the menu and the screen they see mid-match
-## are the same class talking to the same [SettingsStore]. Loading
-## [code]scenes/ui/settings_screen.tscn[/code] here instead would work today and
-## drift tomorrow.
+## [method _build] instantiates [code]scenes/ui/settings_screen.tscn[/code],
+## exactly as [PauseMenu] does, so the screen the player sees from the menu and
+## the screen they see mid-match are one scene talking to one [SettingsStore].
 ##
 ## [b]Scenes are named by path, never by [PackedScene].[/b] The menu starts the
 ## match and [PauseMenu] comes back to the menu, so exporting a [PackedScene] at
@@ -34,6 +32,13 @@ signal play_requested()
 ## Emitted when the player chooses Quit, immediately before the tree quits, for
 ## anything that must flush first.
 signal quit_requested()
+
+## The settings screen, loaded rather than constructed.
+##
+## Its layout lives in the scene, so [code]SettingsScreen.new()[/code] would
+## hand back a bare [Control] with none of its controls in it.
+const SETTINGS_SCREEN_SCENE: PackedScene = preload("res://scenes/ui/settings_screen.tscn")
+
 
 ## The scene [method play] switches to. A path rather than a [PackedScene]; see
 ## the note on cycles above.
@@ -139,7 +144,7 @@ func _build() -> void:
 	_add_button(column, "Settings", open_settings)
 	_add_button(column, "Quit", quit)
 
-	_settings_screen = SettingsScreen.new()
+	_settings_screen = SETTINGS_SCREEN_SCENE.instantiate()
 	_settings_screen.name = "SettingsScreen"
 	_settings_screen.visible = false
 	_settings_screen.closed.connect(_close_settings)

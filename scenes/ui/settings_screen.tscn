@@ -1,6 +1,7 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://scripts/ui/settings_screen.gd" id="1_settings_screen"]
+[ext_resource type="PackedScene" path="res://scenes/ui/keybind_panel.tscn" id="2_keybind_panel"]
 
 [node name="SettingsScreen" type="Control"]
 process_mode = 3
@@ -9,5 +10,232 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-editor_description = "The settings screen on its own, for a main menu or a standalone test. PauseMenu does NOT load this scene -- it constructs a SettingsScreen directly -- so the two cannot drift apart at load time. Both talk to the same SettingsStore."
+mouse_filter = 0
+editor_description = "Every setting the player can change, on four tabs, laid out here rather than in code. MainMenu and PauseMenu both instantiate THIS scene, so there is one settings screen and it cannot drift into two. Its only dependency is the SettingsStore, which the script fetches for itself."
 script = ExtResource("1_settings_screen")
+
+[node name="Frame" type="MarginContainer" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 24
+theme_override_constants/margin_top = 24
+theme_override_constants/margin_right = 24
+theme_override_constants/margin_bottom = 24
+
+[node name="Dialog" type="PanelContainer" parent="Frame"]
+custom_minimum_size = Vector2(640, 560)
+size_flags_horizontal = 4
+size_flags_vertical = 4
+editor_description = "A centred dialog of a deliberate size, not an edge-to-edge sheet. On a 1080p screen a full-width panel strands a 500px table in an acre of empty grey; shrink-centre keeps the controls together and reads the same at every resolution. It grows if a tab's contents need more than the minimum and never shrinks below them, and the minimum is sized to fit inside the smallest resolution the video tab offers (1280x720) with its margins."
+
+[node name="Padding" type="MarginContainer" parent="Frame/Dialog"]
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 12
+
+[node name="Layout" type="VBoxContainer" parent="Frame/Dialog/Padding"]
+theme_override_constants/separation = 8
+
+[node name="Title" type="Label" parent="Frame/Dialog/Padding/Layout"]
+text = "SETTINGS"
+
+[node name="Tabs" type="TabContainer" parent="Frame/Dialog/Padding/Layout"]
+size_flags_vertical = 3
+editor_description = "Tab titles come from the child node names, so the order the tabs appear in is the order they are authored in here."
+
+[node name="Game" type="VBoxContainer" parent="Frame/Dialog/Padding/Layout/Tabs"]
+theme_override_constants/separation = 8
+
+[node name="Grid" type="GridContainer" parent="Frame/Dialog/Padding/Layout/Tabs/Game"]
+theme_override_constants/h_separation = 8
+theme_override_constants/v_separation = 4
+columns = 3
+editor_description = "Three shared columns -- name, control, readout -- so every row on the tab lines up by construction rather than by each row guessing the same magic pixel width."
+
+[node name="SensitivityName" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Game/Grid"]
+size_flags_vertical = 1
+vertical_alignment = 1
+text = "Mouse Sensitivity"
+
+[node name="SensitivitySlider" type="HSlider" parent="Frame/Dialog/Padding/Layout/Tabs/Game/Grid"]
+custom_minimum_size = Vector2(220, 0)
+size_flags_horizontal = 3
+size_flags_vertical = 1
+unique_name_in_owner = true
+
+[node name="SensitivityValue" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Game/Grid"]
+custom_minimum_size = Vector2(72, 0)
+size_flags_vertical = 1
+unique_name_in_owner = true
+vertical_alignment = 1
+horizontal_alignment = 2
+
+[node name="InvertName" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Game/Grid"]
+size_flags_vertical = 1
+vertical_alignment = 1
+text = "Invert Look Y"
+
+[node name="InvertCheck" type="CheckBox" parent="Frame/Dialog/Padding/Layout/Tabs/Game/Grid"]
+size_flags_horizontal = 0
+unique_name_in_owner = true
+
+[node name="InvertSpacer" type="Control" parent="Frame/Dialog/Padding/Layout/Tabs/Game/Grid"]
+
+[node name="FovName" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Game/Grid"]
+size_flags_vertical = 1
+vertical_alignment = 1
+text = "Field of View"
+
+[node name="FovSlider" type="HSlider" parent="Frame/Dialog/Padding/Layout/Tabs/Game/Grid"]
+custom_minimum_size = Vector2(220, 0)
+size_flags_horizontal = 3
+size_flags_vertical = 1
+unique_name_in_owner = true
+
+[node name="FovValue" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Game/Grid"]
+custom_minimum_size = Vector2(72, 0)
+size_flags_vertical = 1
+unique_name_in_owner = true
+vertical_alignment = 1
+horizontal_alignment = 2
+
+[node name="Note" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Game"]
+autowrap_mode = 3
+text = "Sensitivity and invert-Y are written into the active MovementProfile; field of view into the player camera."
+
+[node name="Audio" type="VBoxContainer" parent="Frame/Dialog/Padding/Layout/Tabs"]
+theme_override_constants/separation = 8
+
+[node name="Grid" type="GridContainer" parent="Frame/Dialog/Padding/Layout/Tabs/Audio"]
+theme_override_constants/h_separation = 8
+theme_override_constants/v_separation = 4
+columns = 3
+editor_description = "Three shared columns -- name, control, readout -- so every row on the tab lines up by construction rather than by each row guessing the same magic pixel width."
+
+[node name="MasterName" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Audio/Grid"]
+size_flags_vertical = 1
+vertical_alignment = 1
+text = "Master"
+
+[node name="MasterSlider" type="HSlider" parent="Frame/Dialog/Padding/Layout/Tabs/Audio/Grid"]
+custom_minimum_size = Vector2(220, 0)
+size_flags_horizontal = 3
+size_flags_vertical = 1
+unique_name_in_owner = true
+
+[node name="MasterValue" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Audio/Grid"]
+custom_minimum_size = Vector2(72, 0)
+size_flags_vertical = 1
+unique_name_in_owner = true
+vertical_alignment = 1
+horizontal_alignment = 2
+
+[node name="EffectsName" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Audio/Grid"]
+size_flags_vertical = 1
+vertical_alignment = 1
+text = "Effects"
+
+[node name="EffectsSlider" type="HSlider" parent="Frame/Dialog/Padding/Layout/Tabs/Audio/Grid"]
+custom_minimum_size = Vector2(220, 0)
+size_flags_horizontal = 3
+size_flags_vertical = 1
+unique_name_in_owner = true
+
+[node name="EffectsValue" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Audio/Grid"]
+custom_minimum_size = Vector2(72, 0)
+size_flags_vertical = 1
+unique_name_in_owner = true
+vertical_alignment = 1
+horizontal_alignment = 2
+
+[node name="MusicName" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Audio/Grid"]
+size_flags_vertical = 1
+vertical_alignment = 1
+text = "Music"
+
+[node name="MusicSlider" type="HSlider" parent="Frame/Dialog/Padding/Layout/Tabs/Audio/Grid"]
+custom_minimum_size = Vector2(220, 0)
+size_flags_horizontal = 3
+size_flags_vertical = 1
+unique_name_in_owner = true
+
+[node name="MusicValue" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Audio/Grid"]
+custom_minimum_size = Vector2(72, 0)
+size_flags_vertical = 1
+unique_name_in_owner = true
+vertical_alignment = 1
+horizontal_alignment = 2
+
+[node name="Note" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Audio"]
+unique_name_in_owner = true
+autowrap_mode = 3
+editor_description = "Filled in, and shown, only when the project is missing an audio bus one of these sliders drives. Silence is the normal state."
+
+[node name="Video" type="VBoxContainer" parent="Frame/Dialog/Padding/Layout/Tabs"]
+theme_override_constants/separation = 8
+
+[node name="Grid" type="GridContainer" parent="Frame/Dialog/Padding/Layout/Tabs/Video"]
+theme_override_constants/h_separation = 8
+theme_override_constants/v_separation = 4
+columns = 3
+editor_description = "Three shared columns -- name, control, readout -- so every row on the tab lines up by construction rather than by each row guessing the same magic pixel width."
+
+[node name="DisplayModeName" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Video/Grid"]
+size_flags_vertical = 1
+vertical_alignment = 1
+text = "Display Mode"
+
+[node name="DisplayModeOption" type="OptionButton" parent="Frame/Dialog/Padding/Layout/Tabs/Video/Grid"]
+custom_minimum_size = Vector2(220, 0)
+size_flags_horizontal = 3
+unique_name_in_owner = true
+
+[node name="DisplayModeSpacer" type="Control" parent="Frame/Dialog/Padding/Layout/Tabs/Video/Grid"]
+
+[node name="ResolutionName" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Video/Grid"]
+size_flags_vertical = 1
+vertical_alignment = 1
+text = "Resolution"
+
+[node name="ResolutionOption" type="OptionButton" parent="Frame/Dialog/Padding/Layout/Tabs/Video/Grid"]
+custom_minimum_size = Vector2(220, 0)
+size_flags_horizontal = 3
+unique_name_in_owner = true
+
+[node name="ResolutionSpacer" type="Control" parent="Frame/Dialog/Padding/Layout/Tabs/Video/Grid"]
+
+[node name="VsyncName" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Video/Grid"]
+size_flags_vertical = 1
+vertical_alignment = 1
+text = "V-Sync"
+
+[node name="VsyncOption" type="OptionButton" parent="Frame/Dialog/Padding/Layout/Tabs/Video/Grid"]
+custom_minimum_size = Vector2(220, 0)
+size_flags_horizontal = 3
+unique_name_in_owner = true
+
+[node name="VsyncSpacer" type="Control" parent="Frame/Dialog/Padding/Layout/Tabs/Video/Grid"]
+
+[node name="Note" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Video"]
+autowrap_mode = 3
+text = "Resolution applies to the window; in either fullscreen mode the display's own resolution is used."
+
+[node name="Controls" type="MarginContainer" parent="Frame/Dialog/Padding/Layout/Tabs"]
+
+[node name="KeybindPanel" parent="Frame/Dialog/Padding/Layout/Tabs/Controls" instance=ExtResource("2_keybind_panel")]
+unique_name_in_owner = true
+
+[node name="Footer" type="HBoxContainer" parent="Frame/Dialog/Padding/Layout"]
+
+[node name="Back" type="Button" parent="Frame/Dialog/Padding/Layout/Footer"]
+text = "Back"
+
+[node name="Spacer" type="Control" parent="Frame/Dialog/Padding/Layout/Footer"]
+size_flags_horizontal = 3
+
+[node name="ResetAll" type="Button" parent="Frame/Dialog/Padding/Layout/Footer"]
+text = "Reset All Settings"

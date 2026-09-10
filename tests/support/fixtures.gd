@@ -22,6 +22,9 @@ const RIFLE_SCENE_PATH: String = "res://scenes/weapon/rifle.tscn"
 const ARENA_SCENE_PATH: String = "res://scenes/ring/test_ring.tscn"
 const MATCH_SCENE_PATH: String = "res://scenes/match/match.tscn"
 
+const MATCH_RULES_PATH: String = "res://resources/rules/default_match_rules.tres"
+const GHOST_PROFILE_PATH: String = "res://resources/rules/default_ghost_profile.tres"
+
 const MOVEMENT_PROFILE_PATH: String = "res://scenes/player/default_movement_profile.tres"
 const WEAPON_PROFILE_PATH: String = "res://scenes/weapon/default_weapon_profile.tres"
 const BOT_PROFILE_PATH: String = "res://scenes/bot/default_bot_profile.tres"
@@ -52,6 +55,25 @@ static func weapon_profile() -> WeaponProfile:
 static func bot_profile() -> BotProfile:
 	var profile: BotProfile = load(BOT_PROFILE_PATH) as BotProfile
 	return profile.duplicate() as BotProfile
+
+
+## A private copy of the shipped match rules, with a private copy of the shipped
+## ghost profile hung off it.
+##
+## Both copies matter. The [code].tres[/code] files are one instance each for the
+## whole process, and the ghost tests turn ghosts ON -- writing that into the
+## shared rules would hand every later test in the same process a game with
+## ghosts in it, including the tests in other files that assert a shot prisoner
+## is parked.
+static func match_rules() -> MatchRules:
+	var rules: MatchRules = (load(MATCH_RULES_PATH) as MatchRules).duplicate() as MatchRules
+	rules.ghost_profile = ghost_profile()
+	return rules
+
+
+## A private copy of the shipped ghost profile.
+static func ghost_profile() -> GhostProfile:
+	return (load(GHOST_PROFILE_PATH) as GhostProfile).duplicate() as GhostProfile
 
 
 # --- Bodies -------------------------------------------------------------------

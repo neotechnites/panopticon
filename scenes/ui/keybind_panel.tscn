@@ -1,0 +1,246 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/keybind_panel.gd" id="1_keybind_panel"]
+
+[node name="KeybindPanel" type="MarginContainer"]
+editor_description = "The rebinding table. A MarginContainer rather than a bare Control so its minimum size propagates: the settings panel can then reserve room for the table instead of crushing it, and the overlay still covers the whole panel because a MarginContainer lays every child out to fill its rect."
+script = ExtResource("1_keybind_panel")
+
+[node name="Layout" type="VBoxContainer" parent="."]
+theme_override_constants/separation = 8
+
+[node name="Hint" type="Label" parent="Layout"]
+autowrap_mode = 3
+text = "Two bindings per action. Escape cancels a rebind, Backspace clears the slot."
+
+[node name="Scroll" type="ScrollContainer" parent="Layout"]
+custom_minimum_size = Vector2(0, 336)
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+editor_description = "Horizontal scrolling is off because the table is built to fit the panel width; only a long list needs to scroll, and only downwards. The minimum height is what asks the dialog for enough room to show all nine rows at the shipped theme, so the list does not arrive already scrolled by one row. Nothing lines up because of this number -- the grid owns the columns -- so a larger font simply scrolls instead of breaking the table."
+
+[node name="Table" type="GridContainer" parent="Layout/Scroll"]
+size_flags_horizontal = 3
+theme_override_constants/h_separation = 8
+theme_override_constants/v_separation = 4
+columns = 4
+editor_description = "One GridContainer, not nine HBoxContainers. A grid shares its column widths across every row, so the name, the two slots and Reset stay in line whatever the bindings are called and whatever the theme font measures. Nine authored rows in the order the player reads them -- movement, then jump/sprint/crouch, then fire/aim -- which is also what stops Godot's own ui_* actions from ever appearing here."
+
+[node name="MoveForwardName" type="Label" parent="Layout/Scroll/Table"]
+size_flags_horizontal = 3
+size_flags_vertical = 1
+vertical_alignment = 1
+text = "Move Forward"
+
+[node name="MoveForwardSlot1" type="Button" parent="Layout/Scroll/Table"]
+custom_minimum_size = Vector2(128, 0)
+size_flags_horizontal = 3
+tooltip_text = "Rebind Move Forward (slot 1)"
+text = "Unbound"
+
+[node name="MoveForwardSlot2" type="Button" parent="Layout/Scroll/Table"]
+custom_minimum_size = Vector2(128, 0)
+size_flags_horizontal = 3
+tooltip_text = "Rebind Move Forward (slot 2)"
+text = "Unbound"
+
+[node name="MoveForwardReset" type="Button" parent="Layout/Scroll/Table"]
+tooltip_text = "Restore the shipped bindings for Move Forward"
+text = "Reset"
+
+[node name="MoveBackName" type="Label" parent="Layout/Scroll/Table"]
+size_flags_horizontal = 3
+size_flags_vertical = 1
+vertical_alignment = 1
+text = "Move Back"
+
+[node name="MoveBackSlot1" type="Button" parent="Layout/Scroll/Table"]
+custom_minimum_size = Vector2(128, 0)
+size_flags_horizontal = 3
+tooltip_text = "Rebind Move Back (slot 1)"
+text = "Unbound"
+
+[node name="MoveBackSlot2" type="Button" parent="Layout/Scroll/Table"]
+custom_minimum_size = Vector2(128, 0)
+size_flags_horizontal = 3
+tooltip_text = "Rebind Move Back (slot 2)"
+text = "Unbound"
+
+[node name="MoveBackReset" type="Button" parent="Layout/Scroll/Table"]
+tooltip_text = "Restore the shipped bindings for Move Back"
+text = "Reset"
+
+[node name="MoveLeftName" type="Label" parent="Layout/Scroll/Table"]
+size_flags_horizontal = 3
+size_flags_vertical = 1
+vertical_alignment = 1
+text = "Move Left"
+
+[node name="MoveLeftSlot1" type="Button" parent="Layout/Scroll/Table"]
+custom_minimum_size = Vector2(128, 0)
+size_flags_horizontal = 3
+tooltip_text = "Rebind Move Left (slot 1)"
+text = "Unbound"
+
+[node name="MoveLeftSlot2" type="Button" parent="Layout/Scroll/Table"]
+custom_minimum_size = Vector2(128, 0)
+size_flags_horizontal = 3
+tooltip_text = "Rebind Move Left (slot 2)"
+text = "Unbound"
+
+[node name="MoveLeftReset" type="Button" parent="Layout/Scroll/Table"]
+tooltip_text = "Restore the shipped bindings for Move Left"
+text = "Reset"
+
+[node name="MoveRightName" type="Label" parent="Layout/Scroll/Table"]
+size_flags_horizontal = 3
+size_flags_vertical = 1
+vertical_alignment = 1
+text = "Move Right"
+
+[node name="MoveRightSlot1" type="Button" parent="Layout/Scroll/Table"]
+custom_minimum_size = Vector2(128, 0)
+size_flags_horizontal = 3
+tooltip_text = "Rebind Move Right (slot 1)"
+text = "Unbound"
+
+[node name="MoveRightSlot2" type="Button" parent="Layout/Scroll/Table"]
+custom_minimum_size = Vector2(128, 0)
+size_flags_horizontal = 3
+tooltip_text = "Rebind Move Right (slot 2)"
+text = "Unbound"
+
+[node name="MoveRightReset" type="Button" parent="Layout/Scroll/Table"]
+tooltip_text = "Restore the shipped bindings for Move Right"
+text = "Reset"
+
+[node name="JumpName" type="Label" parent="Layout/Scroll/Table"]
+size_flags_horizontal = 3
+size_flags_vertical = 1
+vertical_alignment = 1
+text = "Jump"
+
+[node name="JumpSlot1" type="Button" parent="Layout/Scroll/Table"]
+custom_minimum_size = Vector2(128, 0)
+size_flags_horizontal = 3
+tooltip_text = "Rebind Jump (slot 1)"
+text = "Unbound"
+
+[node name="JumpSlot2" type="Button" parent="Layout/Scroll/Table"]
+custom_minimum_size = Vector2(128, 0)
+size_flags_horizontal = 3
+tooltip_text = "Rebind Jump (slot 2)"
+text = "Unbound"
+
+[node name="JumpReset" type="Button" parent="Layout/Scroll/Table"]
+tooltip_text = "Restore the shipped bindings for Jump"
+text = "Reset"
+
+[node name="SprintName" type="Label" parent="Layout/Scroll/Table"]
+size_flags_horizontal = 3
+size_flags_vertical = 1
+vertical_alignment = 1
+text = "Sprint"
+
+[node name="SprintSlot1" type="Button" parent="Layout/Scroll/Table"]
+custom_minimum_size = Vector2(128, 0)
+size_flags_horizontal = 3
+tooltip_text = "Rebind Sprint (slot 1)"
+text = "Unbound"
+
+[node name="SprintSlot2" type="Button" parent="Layout/Scroll/Table"]
+custom_minimum_size = Vector2(128, 0)
+size_flags_horizontal = 3
+tooltip_text = "Rebind Sprint (slot 2)"
+text = "Unbound"
+
+[node name="SprintReset" type="Button" parent="Layout/Scroll/Table"]
+tooltip_text = "Restore the shipped bindings for Sprint"
+text = "Reset"
+
+[node name="SlideName" type="Label" parent="Layout/Scroll/Table"]
+size_flags_horizontal = 3
+size_flags_vertical = 1
+vertical_alignment = 1
+text = "Crouch / Slide"
+
+[node name="SlideSlot1" type="Button" parent="Layout/Scroll/Table"]
+custom_minimum_size = Vector2(128, 0)
+size_flags_horizontal = 3
+tooltip_text = "Rebind Crouch / Slide (slot 1)"
+text = "Unbound"
+
+[node name="SlideSlot2" type="Button" parent="Layout/Scroll/Table"]
+custom_minimum_size = Vector2(128, 0)
+size_flags_horizontal = 3
+tooltip_text = "Rebind Crouch / Slide (slot 2)"
+text = "Unbound"
+
+[node name="SlideReset" type="Button" parent="Layout/Scroll/Table"]
+tooltip_text = "Restore the shipped bindings for Crouch / Slide"
+text = "Reset"
+
+[node name="FireName" type="Label" parent="Layout/Scroll/Table"]
+size_flags_horizontal = 3
+size_flags_vertical = 1
+vertical_alignment = 1
+text = "Fire"
+
+[node name="FireSlot1" type="Button" parent="Layout/Scroll/Table"]
+custom_minimum_size = Vector2(128, 0)
+size_flags_horizontal = 3
+tooltip_text = "Rebind Fire (slot 1)"
+text = "Unbound"
+
+[node name="FireSlot2" type="Button" parent="Layout/Scroll/Table"]
+custom_minimum_size = Vector2(128, 0)
+size_flags_horizontal = 3
+tooltip_text = "Rebind Fire (slot 2)"
+text = "Unbound"
+
+[node name="FireReset" type="Button" parent="Layout/Scroll/Table"]
+tooltip_text = "Restore the shipped bindings for Fire"
+text = "Reset"
+
+[node name="ZoomName" type="Label" parent="Layout/Scroll/Table"]
+size_flags_horizontal = 3
+size_flags_vertical = 1
+vertical_alignment = 1
+text = "Aim / Zoom"
+
+[node name="ZoomSlot1" type="Button" parent="Layout/Scroll/Table"]
+custom_minimum_size = Vector2(128, 0)
+size_flags_horizontal = 3
+tooltip_text = "Rebind Aim / Zoom (slot 1)"
+text = "Unbound"
+
+[node name="ZoomSlot2" type="Button" parent="Layout/Scroll/Table"]
+custom_minimum_size = Vector2(128, 0)
+size_flags_horizontal = 3
+tooltip_text = "Rebind Aim / Zoom (slot 2)"
+text = "Unbound"
+
+[node name="ZoomReset" type="Button" parent="Layout/Scroll/Table"]
+tooltip_text = "Restore the shipped bindings for Aim / Zoom"
+text = "Reset"
+
+[node name="Footer" type="HBoxContainer" parent="Layout"]
+
+[node name="ResetAll" type="Button" parent="Layout/Footer"]
+text = "Reset All Bindings"
+
+[node name="Status" type="Label" parent="Layout/Footer"]
+size_flags_horizontal = 3
+size_flags_vertical = 1
+vertical_alignment = 1
+autowrap_mode = 3
+
+[node name="CaptureOverlay" type="PanelContainer" parent="."]
+visible = false
+mouse_filter = 0
+editor_description = "Raised while a capture is armed. mouse_filter STOP so a click that misses the panel's own _input still cannot reach the button underneath -- which, since the player just clicked a rebind slot, would be the row they were editing."
+
+[node name="CaptureLabel" type="Label" parent="CaptureOverlay"]
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 3

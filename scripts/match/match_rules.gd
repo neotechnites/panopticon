@@ -113,11 +113,12 @@ enum ArrivalTiebreak {
 
 ## What a prisoner becomes when the rifle takes their last life.
 ##
-## Today they are simply removed and there is nothing left to be. The other
-## members are the shapes the answer might take and are provisional names for
-## provisional ideas; none is implemented.
+## [constant NONE] and [constant CATCH_AND_SWAP] are implemented; the two in
+## between are provisional names for provisional ideas and are not.
 enum GhostBehaviour {
-	## The body is freed and the prisoner is out of the round. Today's rule.
+	## The body is parked out of the world and the prisoner is out of the round.
+	## The rule the match shipped with, and still the control case every claim
+	## about ghosts is compared against.
 	NONE,
 	## The prisoner stays in the world as a non-interacting observer. OPEN
 	## QUESTION -- whether a dead prisoner watching is atmosphere or dead time.
@@ -128,6 +129,17 @@ enum GhostBehaviour {
 	## QUESTION, and the one that most changes what a shot is worth. NOT
 	## IMPLEMENTED.
 	CONTINUE_LAP,
+	## [b]CANON.[/b] The prisoner becomes a ghost: faster than the living,
+	## unshootable, and chasing. Reaching a living prisoner takes their spot --
+	## the caught player becomes the ghost and the ghost becomes living. A swap,
+	## not a revive and not a kill, so the number of living prisoners is
+	## unchanged by it and only the rifle ever lowers that number.
+	##
+	## This is the author's answer to the no-sit-out constraint: a shot player
+	## never watches, they change role and immediately have something to do.
+	## Every number it is made of lives in [GhostProfile]; see
+	## [member ghost_profile].
+	CATCH_AND_SWAP,
 }
 
 # --- The prisoners ------------------------------------------------------------
@@ -422,26 +434,37 @@ enum GhostBehaviour {
 
 # --- Ghosts -------------------------------------------------------------------
 
-## What becomes of a prisoner the rifle finishes. [b]DEFERRED[/b], default
-## [constant GhostBehaviour.NONE] = removed outright, which is today's behaviour.
+## What becomes of a prisoner the rifle finishes. [b]LIVE[/b], default
+## [constant GhostBehaviour.NONE] = parked out of the world, which is the rule
+## the match shipped with.
 ##
 ## The whole ghost design hangs off this one value, and while it is
-## [constant GhostBehaviour.NONE] the two fields below are inert by definition.
-## See [enum GhostBehaviour] for what the alternatives would mean.
+## [constant GhostBehaviour.NONE] [member ghost_profile] is inert by definition.
+## [constant GhostBehaviour.CATCH_AND_SWAP] is the canon mechanic; see
+## [enum GhostBehaviour].
+##
+## [b]It is not the default, and that is deliberate.[/b] Every bot number this
+## project has ever measured was measured without ghosts, and a mechanic
+## switched on by default would silently reprice all of them. Turn it on in a
+## sweep arm and compare.
 @export var ghost_behaviour: GhostBehaviour = GhostBehaviour.NONE
 
-## Multiplier on a ghost's movement speed. [b]DEFERRED[/b], inert while
-## [member ghost_behaviour] is [constant GhostBehaviour.NONE]. 1.0 = a ghost
-## moves exactly as it did alive, which is the neutral assumption rather than a
-## decision -- whether death should cost or grant pace is an OPEN QUESTION.
-@export_range(0.0, 4.0, 0.05, "or_greater") var ghost_speed_multiplier: float = 1.0
-
-## Whether the rifle can hit a ghost. [b]DEFERRED[/b], inert while
-## [member ghost_behaviour] is [constant GhostBehaviour.NONE]. False = shots pass
-## through, so ghosts cannot soak the tower's one shot. OPEN QUESTION: shootable
-## ghosts turn a corpse into cover, which is either a good mechanic or a
-## griefing tool and only measurement will say which.
-@export var ghosts_shootable: bool = false
+## Every number a ghost is made of: pace, catch radius, grace, and whether a
+## catch carries lap progress. [b]LIVE[/b] under
+## [constant GhostBehaviour.CATCH_AND_SWAP], inert otherwise.
+##
+## Null means "no match opinion" and the round falls back to the shipped profile
+## at [constant MatchController.DEFAULT_GHOST_PROFILE_PATH], exactly as
+## [member ai_shooter_profile] falls back to the shipped shooter. A JSON sweep
+## spec, which can only write strings, may instead set the metadata key
+## [code]ghost_profile[/code] to a resource path -- see
+## [method GhostProfile.resolve].
+##
+## The seam is the usual one. WHETHER a shot prisoner becomes a ghost is a rule
+## of the round and lives above; WHAT a ghost is once it exists is a bundle of
+## design numbers and lives in its own resource, so one file is what a sweep
+## varies.
+@export var ghost_profile: GhostProfile
 
 # --- Guard vision -------------------------------------------------------------
 
@@ -632,6 +655,24 @@ func get_ai_shooter_seed_for(index: int) -> int:
 	return ai_shooter_aim_seed + maxi(index, 0) + 1
 
 
+## True when a shot prisoner becomes a ghost rather than leaving the round.
+##
+## The one place the enum comparison lives, so no caller grows a second idea of
+## what "ghosts are on" means.
+func has_ghosts() -> bool:
+	return ghost_behaviour == GhostBehaviour.CATCH_AND_SWAP
+
+
+## True when [member ghost_behaviour] is one the round actually implements. A
+## round configured with an unimplemented one still runs -- the prisoner is
+## simply parked, as under [constant GhostBehaviour.NONE] -- and says so once.
+func is_ghost_behaviour_implemented() -> bool:
+	return (
+		ghost_behaviour == GhostBehaviour.NONE
+		or ghost_behaviour == GhostBehaviour.CATCH_AND_SWAP
+	)
+
+
 ## True when [member shooter_win_condition] is one the round actually implements.
 ## A round configured with an unimplemented condition still runs -- it just
 ## cannot be won by the shooter -- and says so once, loudly.
@@ -665,6 +706,11 @@ func validate() -> PackedStringArray:
 		problems.append(
 			"open_with_race needs %d lanes for %d participants but lane_radii has %d; racers would share a lane."
 			% [get_participant_count(), get_participant_count(), lane_radii.size()]
+		)
+	if not is_ghost_behaviour_implemented():
+		problems.append(
+			"ghost_behaviour is %s, which is declared but not implemented; a shot prisoner will simply be parked."
+			% String(GhostBehaviour.keys()[ghost_behaviour])
 		)
 	if reload_reduction_per_turn <= 0.0:
 		# Not broken, but worth saying out loud: this is the only rule that
