@@ -1,0 +1,9 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/pause_menu.gd" id="1_pause_menu"]
+
+[node name="PauseMenu" type="CanvasLayer"]
+process_mode = 3
+layer = 128
+editor_description = "Drop-in pause menu. Add it as a child of any scene root and nothing else: it owns Escape, pauses the tree, releases and restores the captured mouse, and carries the settings screen inside it. Set movement_profile and camera if the scene has a player, so mouse sensitivity, invert-Y and field of view land somewhere; leave them empty for a menu scene."
+script = ExtResource("1_pause_menu")
