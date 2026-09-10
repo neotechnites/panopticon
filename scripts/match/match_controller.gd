@@ -3,26 +3,41 @@ extends Node
 
 ## The round: three runners, one rifle, one outcome.
 ##
-## Every rule of the round lives here and nowhere else. The rifle reports what
-## it struck and stays ignorant of what that means; [RingRunner] reports that it
-## finished its lap and stays ignorant of what that costs; the player's body
-## knows nothing about any of it. This node is the only place that turns those
-## reports into a win or a loss, which is what lets the round rules be changed --
-## two hits to remove, a timer, a survivor count -- without touching a single
-## file under [code]scripts/player[/code], [code]scripts/weapon[/code] or
+## Every rule of the round is ENFORCED here and nowhere else, and DECIDED in
+## [MatchRules]. The rifle reports what it struck and stays ignorant of what
+## that means; [RingRunner] reports that it finished its lap and stays ignorant
+## of what that costs; the player's body knows nothing about any of it. This
+## node is the only place that turns those reports into a win or a loss, which
+## is what lets the round rules be changed -- two hits to remove, a timer, a
+## survivor count -- without touching a single file under
+## [code]scripts/player[/code], [code]scripts/weapon[/code] or
 ## [code]scripts/bot[/code].
 ##
 ## [b]The rules, in full[/b]
 ##
-## - A runner hit by the rifle is removed from the round. One hit is terminal;
-##   there is no health, so there is no damage number to carry anywhere.
-## - All three removed: the player WINS.
+## Those rules are no longer written in this file. They live in [MatchRules],
+## an exported resource, because the project settles design questions by
+## sweeping rule variants through headless matches and a rule spelled out in
+## code is a question that can never be asked. This node is now the machinery
+## that ENFORCES a rule set, not the place the rules are decided. With the
+## shipped [code]resources/rules/default_match_rules.tres[/code] the round is:
+##
+## - A runner hit by the rifle loses one of [member MatchRules.prisoner_lives]
+##   lives, which is 1, so one hit is terminal; there is no health bar because
+##   there is no health, only lives that default to one.
+## - All three removed: the player WINS
+##   ([constant MatchRules.ShooterWinCondition.TOTAL_CONVERSION]).
 ## - Any one runner reaches the end: the player LOSES, immediately, even with
-##   the other two still alive. The tower has to stop all of them, which is the
-##   asymmetry the whole game is built on.
+##   the other two still alive
+##   ([constant MatchRules.RunnerWinCondition.FIRST_ARRIVAL]). The tower has to
+##   stop all of them, which is the asymmetry the whole game is built on.
 ## - The round resolves exactly once. Everything that could resolve it is
 ##   guarded on [method is_resolved], and resolution freezes the survivors so a
 ##   loss cannot be followed a second later by a second loss.
+##
+## With no rules resource assigned the round runs on a default-constructed
+## [MatchRules], which is the same thing: the defaults reproduce today's game
+## exactly, so a scene that predates the resource still plays correctly.
 
 ## What the round has come to. Exhaustive.
 enum Outcome {
@@ -45,14 +60,14 @@ signal round_started()
 ## Emitted when a runner leaves the round, carrying how many are still running.
 signal runner_removed(remaining: int)
 
-## Lane radii for the runners, one per runner, in metres.
+## Every design parameter of the round: how many runners, on which lanes, at
+## what pace, with what reload, and what counts as a win or a loss.
 ##
-## These are the three usable channels on a 25 m deck. Cover sits at r=41, 47.5
-## and 54 and occupies roughly +/-0.9 m about each; a runner does not path
-## around anything, so a radius inside a cover band walks a 0.4 m capsule into a
-## box and stands there for the rest of the round. 38.5 / 44.5 / 51.0 are the
-## clear channels, and they are 6.5 m apart so the runners never touch.
-@export var lane_radii: PackedFloat32Array = PackedFloat32Array([38.5, 44.5, 51.0])
+## Leave it unset and the round runs on a default-constructed [MatchRules]
+## (see [method get_rules]), whose values reproduce today's game exactly. A
+## sweep assigns a variant here and changes nothing else -- that is the entire
+## point of the resource.
+@export var rules: MatchRules
 
 ## The arena instance. Its origin is the ring axis and the markers are found
 ## under it by the three paths below.
@@ -109,6 +124,49 @@ var _brain_by_body: Dictionary[int, RingRunner] = {}
 ## once-only guard shows up here as a number greater than the rounds played.
 var _resolve_count: int = 0
 
+## Lives left, by brain instance id. Seeded from
+## [member MatchRules.prisoner_lives] at spawn. At the default of 1 this is a
+## dictionary of ones and every hit removes, which is the historical behaviour.
+var _lives_by_brain: Dictionary[int, int] = {}
+
+## Runners that have reached the end this round. Only meaningful under
+## [constant MatchRules.RunnerWinCondition.ALL_ARRIVALS]; under first-arrival the
+## round is already over by the time the second entry could be added. An arrived
+## runner stays in [member _live] -- it is still in the round, it has simply
+## finished -- so this is the list that says how many of them are done.
+var _arrived: Array[RingRunner] = []
+
+## Runners the rifle has removed this round. Kept as its own counter rather than
+## derived as total-minus-live, because a spawn that failed also shrinks the live
+## list and a shutout count must not credit the shooter for it. Nothing reads it
+## yet beyond [method get_runners_removed]; it is what
+## [constant MatchRules.ShooterWinCondition.SHUTOUT_COUNT] will be measured
+## against.
+var _removed_count: int = 0
+
+## Used to keep the unimplemented-win-condition complaint to one line per round
+## instead of one per frame.
+var _warned_unimplemented_rules: bool = false
+
+## Backing store for the rules used when [member rules] is unset. Built on
+## demand, never shared, so a caller that retunes it cannot reach into another
+## controller's round.
+var _fallback_rules: MatchRules
+
+
+## The rule set actually in force, never null.
+##
+## Falls back to a default-constructed [MatchRules] when [member rules] is unset,
+## because the defaults ARE the shipped design: a scene built before the resource
+## existed plays identically without one. Every read of a rule goes through here
+## so there is exactly one place that decides what "no rules assigned" means.
+func get_rules() -> MatchRules:
+	if rules != null:
+		return rules
+	if _fallback_rules == null:
+		_fallback_rules = MatchRules.new()
+	return _fallback_rules
+
 
 func _ready() -> void:
 	if arena == null or rifle == null or runner_scene == null or runner_container == null:
@@ -139,8 +197,19 @@ func _unhandled_input(event: InputEvent) -> void:
 func start_round() -> void:
 	_clear_runners()
 	_outcome = Outcome.IN_PROGRESS
+	_removed_count = 0
+	_warned_unimplemented_rules = false
+
+	var active: MatchRules = get_rules()
+	for problem: String in active.validate():
+		push_warning("MatchRules: %s" % problem)
 
 	if rifle != null:
+		# The match's reload is a rule of the round, so the rifle is handed the
+		# rule set rather than being told a number: it re-reads on every reset
+		# and a sweep that swaps the resource mid-session is picked up without a
+		# second call site remembering to push the value across.
+		rifle.rules = active
 		rifle.reset_reload_to_base()
 		rifle.tick(FORCE_READY_SECONDS)
 
@@ -177,7 +246,7 @@ func get_runners_remaining() -> int:
 
 
 func get_runners_total() -> int:
-	return lane_radii.size()
+	return maxi(get_rules().prisoner_count, 0)
 
 
 ## How many rounds this controller has ever resolved. One per round played, and
@@ -221,6 +290,9 @@ func remove_runner(runner: RingRunner) -> bool:
 		return false
 
 	_live.remove_at(index)
+	_lives_by_brain.erase(runner.get_instance_id())
+	_arrived.erase(runner)
+	_removed_count += 1
 	var body: PlayerController = runner.controller
 	if body != null:
 		_brain_by_body.erase(body.get_instance_id())
@@ -229,13 +301,45 @@ func remove_runner(runner: RingRunner) -> bool:
 	runner.set_physics_process(false)
 	# The brain is a child of the body, so freeing the body takes both, and it
 	# takes the collider with them -- a removed runner cannot be shot again.
+	# MatchRules.ghost_behaviour is the field that will one day make this a
+	# branch; while it is NONE, removal is a free() and nothing survives.
 	if body != null:
 		body.queue_free()
 
 	runner_removed.emit(_live.size())
-	if _live.is_empty():
-		_resolve(Outcome.WIN)
+	_check_shooter_win()
 	return true
+
+
+## Land one rifle hit on [param runner], spending a life. Returns true if that
+## hit took the runner out of the round.
+##
+## The one place [member MatchRules.prisoner_lives] is spent. At the default of 1
+## this is exactly the old behaviour -- first hit removes -- and above 1 the
+## runner simply keeps going, with no hit reaction and no recovery, because
+## neither is designed. See [member MatchRules.prisoner_lives].
+func apply_hit(runner: RingRunner) -> bool:
+	if runner == null or is_resolved() or not _live.has(runner):
+		return false
+	var id: int = runner.get_instance_id()
+	var lives: int = (_lives_by_brain[id] if _lives_by_brain.has(id) else 1) - 1
+	_lives_by_brain[id] = lives
+	if lives > 0:
+		return false
+	return remove_runner(runner)
+
+
+## Lives [param runner] has left, or 0 if it is not in the round.
+func get_lives_left(runner: RingRunner) -> int:
+	if runner == null:
+		return 0
+	var id: int = runner.get_instance_id()
+	return _lives_by_brain[id] if _lives_by_brain.has(id) else 0
+
+
+## Runners the rifle has taken out of the round so far.
+func get_runners_removed() -> int:
+	return _removed_count
 
 
 # --- Round wiring -------------------------------------------------------------
@@ -251,8 +355,10 @@ func _spawn_runners() -> void:
 	var start_point: Vector3 = start_marker.global_position
 	var end_point: Vector3 = end_marker.global_position
 
-	for index: int in lane_radii.size():
-		var radius: float = lane_radii[index]
+	var active: MatchRules = get_rules()
+	var radii: PackedFloat32Array = active.get_lane_radii()
+	for index: int in radii.size():
+		var radius: float = radii[index]
 		var body: PlayerController = runner_scene.instantiate() as PlayerController
 		if body == null:
 			push_error("MatchController's runner scene does not have a PlayerController at its root.")
@@ -281,8 +387,14 @@ func _spawn_runners() -> void:
 		profile.lane_radius = radius
 		brain.profile = profile
 
+		# The brain reads pace from the rules and geometry from its profile. The
+		# split is the seam: "walk or sprint" is a rule of the round, "how hard
+		# does it steer" is tuning of the brain.
+		brain.rules = active
+
 		brain.reached_end.connect(_on_runner_reached_end.bind(brain))
 		_brain_by_body[body.get_instance_id()] = brain
+		_lives_by_brain[brain.get_instance_id()] = maxi(active.prisoner_lives, 1)
 		_live.append(brain)
 		brain.configure(centre, start_point, end_point)
 
@@ -305,6 +417,8 @@ func _clear_runners() -> void:
 			body.queue_free()
 	_live.clear()
 	_brain_by_body.clear()
+	_lives_by_brain.clear()
+	_arrived.clear()
 
 
 func _on_target_hit(collider: Node3D, _hit_position: Vector3, _hit_normal: Vector3) -> void:
@@ -315,13 +429,48 @@ func _on_target_hit(collider: Node3D, _hit_position: Vector3, _hit_normal: Vecto
 		# The shot hit the world. A miss costs the same reload either way, which
 		# is the rifle's business and not this node's.
 		return
-	remove_runner(runner)
+	apply_hit(runner)
 
 
-func _on_runner_reached_end(_elapsed_seconds: float, _path_length: float, _runner: RingRunner) -> void:
+func _on_runner_reached_end(_elapsed_seconds: float, _path_length: float, runner: RingRunner) -> void:
 	if is_resolved():
 		return
-	_resolve(Outcome.LOSS)
+	if not _arrived.has(runner):
+		_arrived.append(runner)
+
+	match get_rules().runner_win_condition:
+		MatchRules.RunnerWinCondition.FIRST_ARRIVAL:
+			_resolve(Outcome.LOSS)
+		MatchRules.RunnerWinCondition.ALL_ARRIVALS:
+			# Every runner still in the round has to make it. A runner the rifle
+			# removed is not "still in the round", so shooting one shortens the
+			# list the prisoners must complete -- which is the honest reading of
+			# the rule and, incidentally, the reason it is worth measuring.
+			if not _live.is_empty() and _arrived.size() >= _live.size():
+				_resolve(Outcome.LOSS)
+
+
+## Resolve a WIN if [member MatchRules.shooter_win_condition] has been met.
+##
+## Called after every removal. Only total conversion is implemented; the other
+## conditions deliberately never fire and complain once per round rather than
+## falling back on total conversion, because a sweep that quietly measured a
+## different rule than the one it selected is the worst outcome available here.
+func _check_shooter_win() -> void:
+	if is_resolved():
+		return
+	var active: MatchRules = get_rules()
+	match active.shooter_win_condition:
+		MatchRules.ShooterWinCondition.TOTAL_CONVERSION:
+			if _live.is_empty():
+				_resolve(Outcome.WIN)
+		_:
+			if not _warned_unimplemented_rules:
+				_warned_unimplemented_rules = true
+				push_warning(
+					"MatchController: shooter_win_condition %s is not implemented; this round cannot be won."
+					% String(MatchRules.ShooterWinCondition.keys()[active.shooter_win_condition])
+				)
 
 
 func _resolve(outcome: Outcome) -> void:
