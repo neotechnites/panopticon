@@ -48,7 +48,7 @@ enum ShotModel {
 ## Seconds of enforced downtime after a shot, at the start of a match.
 ##
 ## The single most important number in PANOPTICON. At 8 m/s (see
-## [member MovementProfile.walk_speed]) a runner covers roughly
+## [member MovementProfile.ground_speed]) a runner covers roughly
 ## [code]base_reload_seconds * 8[/code] metres of ring between shots, so this
 ## value is really "how many metres of forgiveness a runner is granted for
 ## being seen".
@@ -147,7 +147,7 @@ enum ShotModel {
 ## Metres per second a round travels. Inert under [constant ShotModel.HITSCAN].
 ##
 ## The number to think in is arena crossings: at 120 m/s a shot across a 120 m
-## ring lands in a second, which at [member MovementProfile.walk_speed] is eight
+## ring lands in a second, which at [member MovementProfile.ground_speed] is eight
 ## metres of lead. Raise it and the model converges on hitscan; lower it and
 ## leading becomes the entire skill.
 @export_range(5.0, 2000.0, 1.0, "or_greater") var projectile_speed: float = 120.0
@@ -235,7 +235,7 @@ enum ShotModel {
 @export_range(0.0, 15.0, 0.01, "or_greater") var moving_spread_degrees: float = 0.0
 
 ## The speed, m/s, at which [member moving_spread_degrees] is fully applied.
-## Defaults to [member MovementProfile.walk_speed], so a walking shooter pays
+## Defaults to [member MovementProfile.ground_speed], so a walking shooter pays
 ## the whole movement penalty and a creeping one pays a fraction of it.
 ##
 ## Inert while [member moving_spread_degrees] is 0.0.

@@ -76,14 +76,6 @@ extends Resource
 ## measured rather than argued, and it is not the shipped answer.
 @export var shootable: bool = false
 
-## Whether a chasing ghost holds sprint.
-##
-## Compounds with [member speed_multiplier] rather than replacing it: sprint is
-## the same button a living prisoner holds, and the multiplier scales whatever
-## speed that produces. On by default because a ghost that ambled would never
-## close on a sprinting prisoner however large the multiplier was made.
-@export var chase_holds_sprint: bool = true
-
 
 ## The ghost profile a match should use, after [MatchRules] has had its say.
 ##

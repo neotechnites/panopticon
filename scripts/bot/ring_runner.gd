@@ -57,7 +57,7 @@ extends Node
 ## measuring a system no player ever touches, which would make every bot match
 ## this project ever runs worthless as evidence. This is the hard rule of the
 ## file, and it survived the rewrite unchanged: the cover runner strafes and
-## sprints through exactly the same seam the baseline walks through.
+## crosses through exactly the same seam the baseline runs through.
 ##
 ## [b]The third mode: the chase[/b]
 ##
@@ -134,7 +134,7 @@ enum State {
 	## fresh every tick against a threshold that falls as patience runs out.
 	EVALUATE,
 	## Committed to a piece of open ground. Facing the destination, which means
-	## it cannot see the tower until it arrives -- the price of the sprint.
+	## it cannot see the tower until it arrives -- the price of the crossing.
 	CROSS,
 	## Just arrived, or just gave up on a crossing. Stopping, re-planning.
 	RECOVER,
@@ -161,15 +161,13 @@ enum State {
 
 ## The round's design parameters, when a match supplies them.
 ##
-## Two things are read: [member MatchRules.bot_speed_mode] overrides
-## [member BotProfile.speed_mode], and the runner difficulty is resolved from it.
-## That is the seam -- "walk or sprint" and "how good are the prisoners" are
-## rules of the ROUND and every prisoner in a match obeys the same ones, whereas
-## gain, yaw ceiling, lookahead and arrival tolerance are tuning of this one
-## brain and stay in [member profile].
+## What is read is the runner difficulty, resolved from it. That is the seam --
+## "how good are the prisoners" is a rule of the ROUND and every prisoner in a
+## match obeys the same one, whereas gain, yaw ceiling, lookahead and arrival
+## tolerance are tuning of this one brain and stay in [member profile].
 ##
-## Null is normal and means "no match opinion": the profile's own speed mode and
-## the scene's own [member runner_profile] are used, which is what a runner
+## Null is normal and means "no match opinion": the scene's own
+## [member runner_profile] is used, which is what a runner
 ## dropped into a test scene sees. [MatchController] assigns this at spawn.
 @export var rules: MatchRules
 
@@ -210,11 +208,6 @@ var _chasing: bool = false
 ## answer to "who is alive", so the ghost cannot chase a body the round has
 ## already taken out of play.
 var _chase_group: StringName = &""
-
-## Whether the chase holds sprint, resolved once in [method begin_chase] rather
-## than per tick: [method GhostProfile.resolve] walks a property list and the
-## answer cannot change inside a chase.
-var _chase_sprint: bool = false
 
 ## Whether a guard was on the ring last tick, so the brain can notice one
 ## arriving. [MatchController] arms the tower brain after the runners are placed,
@@ -359,7 +352,6 @@ func _arm(
 	_finish_arc = wrapf((end_angle - start_angle) * TRAVEL_SIGN, 0.0, TAU)
 
 	_chasing = false
-	_chase_sprint = false
 	_previous_angle = anchor_angle
 	_previous_position = controller.global_position
 	_travelled_arc = travelled_arc
@@ -419,8 +411,6 @@ func begin_chase(target_group: StringName) -> void:
 	_chase_group = target_group
 	_chasing = true
 	_state = State.RUNNING
-	var ghost: GhostProfile = GhostProfile.resolve(rules, null)
-	_chase_sprint = ghost.chase_holds_sprint if ghost != null else wants_sprint()
 	input.command.clear()
 	set_physics_process(true)
 
@@ -625,12 +615,10 @@ func _tick_chase(delta: float) -> void:
 		# between placements. Stand still rather than wander: the match is about
 		# to resolve or re-place this body either way.
 		input.command.move_direction = Vector2.ZERO
-		input.command.sprint_held = false
 		return
 
 	_face(quarry.global_position, delta)
 	_drive_towards(quarry.global_position, 0.0)
-	input.command.sprint_held = _chase_sprint
 
 
 ## The closest body in [member _chase_group], horizontally, excluding this
@@ -678,7 +666,6 @@ func _run_baseline(remaining_arc: float, delta: float) -> void:
 	# steering quality rather than of speed and distance, which is the one thing
 	# this baseline exists to report cleanly.
 	input.command.move_direction = Vector2(0.0, 1.0)
-	input.command.sprint_held = wants_sprint()
 
 
 # --- The cover game -----------------------------------------------------------
@@ -687,7 +674,7 @@ func _run_baseline(remaining_arc: float, delta: float) -> void:
 ##
 ## Entered on arrival at cover, on giving up a crossing, and on a guard taking
 ## the tower. It is a real state rather than a function call because a body that
-## has just sprinted 20 m is still carrying 11 m/s, and deciding to hold while
+## has just crossed 20 m is still carrying 11 m/s, and deciding to hold while
 ## sliding past the box you meant to hold is how a runner ends up back in the
 ## open having done nothing.
 func _tick_recover(remaining_arc: float, delta: float) -> void:
@@ -743,7 +730,7 @@ func _tick_evaluate(remaining_arc: float, delta: float) -> void:
 ## Committed. Facing the destination and running at it.
 ##
 ## Nothing reconsiders in here, and that is the design. Turning to look at the
-## tower halfway across would cost the sprint its direction, and a prisoner who
+## tower halfway across would cost the crossing its direction, and a prisoner who
 ## changes its mind in the middle of the open ground is a prisoner standing in
 ## the open ground. The commitment is what makes the decision in EVALUATE worth
 ## making well.
@@ -751,7 +738,6 @@ func _tick_cross(_remaining_arc: float, delta: float) -> void:
 	_cross_seconds += delta
 	_face(_anchor, delta)
 	_drive_towards(_anchor, 0.0)
-	input.command.sprint_held = _play.sprint_while_crossing or wants_sprint()
 
 	# Arriving is not the same as being behind it. The tolerance lets a runner
 	# stop up to a metre and a half short, which on the leading edge of a shadow
@@ -954,7 +940,6 @@ func _watch_and_hold(delta: float) -> void:
 		_drive_towards(_anchor, _play.cover_arrival_tolerance * HOLD_DEADZONE)
 	else:
 		input.command.move_direction = Vector2.ZERO
-	input.command.sprint_held = false
 
 
 ## Turn towards [param point] at this tick's allowed rate.
@@ -1007,15 +992,7 @@ func _drive_towards(point: Vector3, deadzone: float) -> void:
 func _crossing_speed() -> float:
 	if controller.profile == null:
 		return 1.0
-	return controller.profile.get_ground_speed(_play.sprint_while_crossing or wants_sprint())
-
-
-## Whether to hold sprint on the track: the match's rule when there is one, the
-## profile's mode otherwise. One place, so no caller grows its own idea of it.
-func wants_sprint() -> bool:
-	if rules != null:
-		return rules.wants_sprint()
-	return profile.wants_sprint()
+	return controller.profile.ground_speed
 
 
 func _finish() -> void:

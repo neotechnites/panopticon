@@ -67,7 +67,6 @@ func poll(_delta: float) -> MoveIntent:
 	)
 	_intent.jump_pressed = Input.is_action_just_pressed(PlayerActions.JUMP)
 	_intent.jump_held = Input.is_action_pressed(PlayerActions.JUMP)
-	_intent.sprint_held = Input.is_action_pressed(PlayerActions.SPRINT)
 	_intent.slide_pressed = Input.is_action_just_pressed(PlayerActions.SLIDE)
 	_intent.slide_held = Input.is_action_pressed(PlayerActions.SLIDE)
 	# Dimensionless, and the delta is already in radians, so the order of the

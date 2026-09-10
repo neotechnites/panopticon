@@ -267,14 +267,6 @@ enum Behaviour {
 ## here. Beyond it, only patience moves the runner.
 @export_range(1.0, 400.0, 1.0) var max_crossing_metres: float = 60.0
 
-## Whether the runner sprints while crossing open ground.
-##
-## Separate from [member BotProfile.speed_mode] on purpose: the round's rule
-## decides the pace of the LAP, and this decides whether a prisoner spends its
-## breath on the exposed part of it. Walking a crossing is a real and losing
-## strategy, which is why it is a setting rather than an assumption.
-@export var sprint_while_crossing: bool = true
-
 # --- Finding cover ------------------------------------------------------------
 #
 # None of these name a position. The runner probes the world it is standing in
@@ -337,8 +329,7 @@ enum Behaviour {
 # --- Derived values -----------------------------------------------------------
 
 ## True when this profile builds the cover-playing prisoner. One place, so no
-## caller grows its own idea of what the mode means -- the same rule
-## [method BotProfile.wants_sprint] follows.
+## caller grows its own idea of what the mode means.
 func plays_cover() -> bool:
 	return behaviour == Behaviour.COVER
 

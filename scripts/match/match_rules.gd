@@ -176,19 +176,6 @@ enum GhostBehaviour {
 ## like.
 @export_range(1, 10, 1, "or_greater") var prisoner_lives: int = 1
 
-## Walk or sprint, for every prisoner in the round. [b]LIVE.[/b]
-##
-## Deliberately a mode rather than a speed: the actual m/s live in
-## [MovementProfile] and are shared with the human, so bot telemetry keeps
-## describing the game humans play. This overrides
-## [member BotProfile.speed_mode] whenever a match supplies rules, because pace
-## is a rule of the round, not a property of one brain.
-##
-## OPEN QUESTION, and a large one: a sprinting prisoner crosses a reload's worth
-## of ring in 11 m/s * reload metres instead of 8, which is the difference
-## between the tower denying ground and merely occupying it.
-@export var bot_speed_mode: BotProfile.SpeedMode = BotProfile.SpeedMode.WALK
-
 # --- The rifle ----------------------------------------------------------------
 
 ## The whole gun, as data. [b]LIVE when set, null = the weapon keeps its own.[/b]
@@ -510,13 +497,6 @@ static func get_participant_name(index: int, has_human: bool) -> String:
 	if has_human and index == 0:
 		return "You"
 	return "Runner %d" % index
-
-
-## True when the prisoners should hold sprint. Keeps the enum comparison in one
-## place, exactly as [method BotProfile.wants_sprint] does, so no caller grows
-## its own idea of what SPRINT means.
-func wants_sprint() -> bool:
-	return bot_speed_mode == BotProfile.SpeedMode.SPRINT
 
 
 ## The reload these rules ask for, given what the weapon would do on its own.

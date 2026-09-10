@@ -8,8 +8,8 @@ extends RefCounted
 ## [b]Physical keycodes, everywhere.[/b] Every keyboard binding is stored and
 ## matched by [member InputEventKey.physical_keycode] -- the position of the key
 ## on the board -- and never by [member InputEventKey.keycode], the letter
-## printed on it. On AZERTY the WASD block is at ZQSD and on QWERTZ the sprint
-## row moves; bind by letter and those players get defaults that are not merely
+## printed on it. On AZERTY the WASD block is at ZQSD and on QWERTZ the Z and Y
+## keys swap; bind by letter and those players get defaults that are not merely
 ## unfamiliar but physically impossible to hold together. Bind by position and
 ## every layout gets the same shape under the same fingers. The existing
 ## bindings in project.godot are already physical (see [PlayerActions]); this
@@ -57,7 +57,6 @@ const ACTIONS: Array[StringName] = [
 	PlayerActions.MOVE_LEFT,
 	PlayerActions.MOVE_RIGHT,
 	PlayerActions.JUMP,
-	PlayerActions.SPRINT,
 	PlayerActions.SLIDE,
 	WeaponActions.FIRE,
 	ZOOM,
@@ -423,8 +422,6 @@ static func display_name(action: StringName) -> String:
 			return "Move Right"
 		PlayerActions.JUMP:
 			return "Jump"
-		PlayerActions.SPRINT:
-			return "Sprint"
 		PlayerActions.SLIDE:
 			return "Crouch / Slide"
 		WeaponActions.FIRE:

@@ -39,18 +39,23 @@ extends TestCase
 ##
 ## Shift is deliberately absent and [b]must[/b] stay absent: it is a shift-level
 ## modifier rather than a chord prefix, no OS builds Shift+key shortcuts out of
-## it by default, and sprint has shipped on it since the beginning. Adding it
-## here would fail a binding that has never caused anyone a problem.
+## it by default, and it carried sprint from the beginning without ever causing
+## anyone a problem. Adding it here would fail slide, which the author moved onto
+## it ("make shift crouch then not c") after retiring sprint.
 const RESERVED_MODIFIERS: Array[Key] = [KEY_CTRL, KEY_META, KEY_ALT]
 
 ## What the project must ship for slide, in slot order.
 ##
-## C first, because it is the one a player's hand finds and the one the project
-## already carried as an alternate. Z second, so the action keeps the two slots
+## Shift first, by the author's ruling: [i]"make shift crouch then not c"[/i].
+## Z second, so the action keeps the two slots
 ## [constant KeybindMap.MAX_BINDINGS] gives every other action. Written as
 ## literal physical keycodes rather than read from [PlayerActions], because
 ## [PlayerActions] is half of what is under test.
-const EXPECTED_SLIDE: Array[Key] = [KEY_C, KEY_Z]
+##
+## Shift was sprint's key. Sprint is gone -- [i]"for now we dont need sprint"[/i]
+## -- so nothing contends for it, and the rule this file exists to enforce is
+## untouched: Shift is not a modifier any OS builds chords from.
+const EXPECTED_SLIDE: Array[Key] = [KEY_SHIFT, KEY_Z]
 
 ## Jump's shipped binding. Pinned because it is the other half of the chord that
 ## broke: moving jump onto a reserved modifier would reopen the same hole from
@@ -103,11 +108,29 @@ func test_no_default_binds_an_os_reserved_modifier() -> void:
 				)
 
 
-## Slide ships on C and Z, in that order.
-func test_slide_defaults_to_c_then_z() -> void:
+## Slide ships on Shift and Z, in that order.
+func test_slide_defaults_to_shift_then_z() -> void:
 	assert_eq_string(
 		_shipped_codes(&"slide"), _key_names(EXPECTED_SLIDE),
-		"slide must ship on C then Z",
+		"slide must ship on Shift then Z",
+	)
+
+
+## Slide's first slot is Shift, and it is not C any more.
+##
+## The ruling was two things -- put crouch on Shift, and take it off C -- so both
+## halves are asserted. The second half is the one a merge could quietly undo by
+## restoring C as the alternate, which would pass the slot-order test above only
+## if it also removed Z.
+func test_slide_no_longer_ships_on_c() -> void:
+	var shipped: String = _shipped_codes(&"slide")
+	assert_eq_string(
+		shipped.split(", ")[0], OS.get_keycode_string(KEY_SHIFT),
+		"slide's primary key must be Shift",
+	)
+	assert_false(
+		shipped.split(", ").has(OS.get_keycode_string(KEY_C)),
+		"slide must not ship on C: the author took it off C",
 	)
 
 
@@ -156,7 +179,7 @@ func test_the_code_fallback_matches_the_shipped_bindings() -> void:
 	)
 
 
-## A player who rebinds slide and then resets gets C back, not Control.
+## A player who rebinds slide and then resets gets Shift back, not Control.
 ##
 ## [KeybindMap] snapshots its defaults off the live [InputMap], so a wrong
 ## shipped binding and a wrong reset are the same defect seen twice. This is the

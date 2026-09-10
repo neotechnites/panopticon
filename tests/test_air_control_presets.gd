@@ -288,7 +288,6 @@ func test_a_live_swap_leaves_the_body_moving() -> void:
 
 	var input: BotIntentSource = TestFixtures.bot_input_of(body)
 	input.command.move_direction = Vector2(0.0, 1.0)
-	input.command.sprint_held = true
 	await step_ticks(WARM_UP_TICKS)
 
 	var before: Vector3 = body.velocity
@@ -320,7 +319,6 @@ func _measure_held_hop_turn(profile: MovementProfile) -> Dictionary:
 
 	var input: BotIntentSource = TestFixtures.bot_input_of(body)
 	input.command.move_direction = Vector2(0.0, 1.0)
-	input.command.sprint_held = true
 	await step_ticks(WARM_UP_TICKS)
 
 	input.command.jump_pressed = true

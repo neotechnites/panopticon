@@ -15,10 +15,15 @@ const MOVE_BACK: StringName = &"move_back"
 const MOVE_LEFT: StringName = &"move_left"
 const MOVE_RIGHT: StringName = &"move_right"
 const JUMP: StringName = &"jump"
-const SPRINT: StringName = &"sprint"
 
 ## Crouch/slide. Held, not tapped: releasing it ends a slide early, which is the
 ## only way a player has to leave one on their own terms.
+##
+## [b]Shift, by the author's ruling[/b] ("make shift crouch then not c"). Shift
+## is safe to default to where Control is not: it is a shift-level modifier
+## rather than a chord prefix, and no desktop OS builds its own shortcuts out of
+## it. It was sprint's key until the same author retired sprint ("for now we
+## dont need sprint"), which is what left it free.
 ##
 ## [b]Not Control, on purpose.[/b] Control is the genre's usual crouch key and
 ## this project shipped it until it was found to break the slide-jump on macOS.
@@ -39,17 +44,16 @@ const DEADZONE: float = 0.2
 
 
 ## Register any of the movement actions that the project has not already
-## defined, with WASD / Space / Shift / C defaults.
+## defined, with WASD / Space / Shift defaults.
 static func ensure_registered() -> void:
 	_ensure(MOVE_FORWARD, [KEY_W, KEY_UP])
 	_ensure(MOVE_BACK, [KEY_S, KEY_DOWN])
 	_ensure(MOVE_LEFT, [KEY_A, KEY_LEFT])
 	_ensure(MOVE_RIGHT, [KEY_D, KEY_RIGHT])
 	_ensure(JUMP, [KEY_SPACE])
-	_ensure(SPRINT, [KEY_SHIFT])
 	# Must stay in step with project.godot; test_keybind_defaults.gd pins them
 	# to each other so the fallback cannot drift back to Control.
-	_ensure(SLIDE, [KEY_C, KEY_Z])
+	_ensure(SLIDE, [KEY_SHIFT, KEY_Z])
 
 
 static func _ensure(action: StringName, physical_keycodes: Array[int]) -> void:

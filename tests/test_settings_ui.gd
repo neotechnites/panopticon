@@ -42,7 +42,6 @@ const EXPECTED_ACTIONS: Array[StringName] = [
 	&"move_left",
 	&"move_right",
 	&"jump",
-	&"sprint",
 	&"slide",
 	&"fire",
 	&"zoom",
@@ -92,7 +91,7 @@ func after_each() -> void:
 
 # --- What the tab offers ------------------------------------------------------
 
-## Exactly the game's nine actions, in the authored order, and nothing else.
+## Exactly the game's own actions, in the authored order, and nothing else.
 ##
 ## The failure this pins is walking the [InputMap] instead of an authored list.
 ## [InputMap] iteration is unordered and includes Godot's built-in
@@ -229,7 +228,7 @@ func test_a_rebind_round_trips_through_the_settings_file() -> void:
 		KeybindMap.KEY_FIELD_TYPE: KeybindMap.TYPE_KEY,
 		KeybindMap.KEY_FIELD_CODE: KEY_G,
 	})
-	written.keybinds.clear_binding(&"sprint", 0)
+	written.keybinds.clear_binding(&"slide", 0)
 	assert_eq_int(written.save_to_disk(), OK, "the settings file is written")
 
 	var read: SettingsStore = SettingsStore.new()
@@ -242,7 +241,7 @@ func test_a_rebind_round_trips_through_the_settings_file() -> void:
 		"the rebound key survives the round trip",
 	)
 	assert_true(
-		read.keybinds.get_binding(&"sprint", 0).is_empty(),
+		read.keybinds.get_binding(&"slide", 0).is_empty(),
 		"a slot the player cleared on purpose stays cleared rather than reverting to its default",
 	)
 
@@ -275,7 +274,7 @@ func test_pressing_a_slot_and_then_a_key_rebinds_that_slot() -> void:
 		"the row it belongs to is untouched",
 	)
 	assert_eq_string(
-		(_cell(&"sprint", 2) as Button).text, "Unbound",
+		(_cell(&"fire", 2) as Button).text, "Unbound",
 		"no other row's slot was written",
 	)
 

@@ -27,7 +27,6 @@ func _make_intent() -> MoveIntent:
 	intent.look_delta = Vector2(0.125, -0.0625)
 	intent.jump_pressed = true
 	intent.jump_held = false
-	intent.sprint_held = true
 	intent.slide_pressed = false
 	intent.slide_held = true
 	return intent
@@ -57,7 +56,6 @@ func test_an_intent_survives_the_round_trip() -> void:
 	assert_vec2_eq(got.look_delta, sent.look_delta, "look delta")
 	assert_true(got.jump_pressed, "jump_pressed")
 	assert_false(got.jump_held, "jump_held")
-	assert_true(got.sprint_held, "sprint_held")
 	assert_false(got.slide_pressed, "slide_pressed")
 	assert_true(got.slide_held, "slide_held")
 

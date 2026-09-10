@@ -9,17 +9,17 @@ extends MarginContainer
 ## [code]scenes/ui/keybind_panel.tscn[/code]. This file binds them to the store
 ## and to the capture; it does not build them.
 ##
-## [b]The table is a [GridContainer].[/b] It replaced nine independent
+## [b]The table is a [GridContainer].[/b] It replaced eight independent
 ## [HBoxContainer] rows, each of which reserved the same guessed pixel width for
 ## its name column. That arrangement only looked like a table while every label
 ## happened to fit inside the guess: the moment one did not -- a longer action
 ## name, a translation, a theme whose font measures wider -- that row's columns
-## slid out of step with the other eight and the list read as garbage. A grid
+## slid out of step with the rest and the list read as garbage. A grid
 ## shares one set of column widths across every row, so the columns cannot
 ## disagree.
 ##
-## [b]The rows are authored, not generated.[/b] Nine rows in the scene, in the
-## order a player reads them: movement, then jump/sprint/crouch, then fire/aim.
+## [b]The rows are authored, not generated.[/b] One row per action in the scene,
+## in the order a player reads them: movement, then jump/crouch, then fire/aim.
 ## Walking the [InputMap] instead would list Godot's own [code]ui_*[/code]
 ## actions in hash order, which is neither the project's input list nor an order
 ## anybody chose. [method _ready] checks the scene against
