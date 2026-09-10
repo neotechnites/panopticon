@@ -12,6 +12,7 @@ config_version=5
 
 config/name="Panopticon"
 config/description="A 3D first-person asymmetrical multiplayer game. One player occupies the tower at the centre; the others run the ring."
+run/main_scene="res://scenes/match/match.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 config/icon="res://icon.svg"
 
