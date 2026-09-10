@@ -133,7 +133,14 @@ enum GhostBehaviour {
 ##
 ## Whether prisoners should be free to choose or change lanes is an OPEN
 ## QUESTION; today the lane is assigned and held for the whole lap.
-@export var lane_radii: PackedFloat32Array = PackedFloat32Array([38.5, 44.5, 51.0])
+##
+## This is a POOL, not a roster. A round takes the first [member prisoner_count]
+## entries, so the three-runner round is unchanged by the fourth radius below;
+## the fourth exists because the opening race puts EVERY participant on the ring
+## at once and a match has [method get_participant_count] of them. 57.5 is the
+## fourth clear channel: the outer cover lane sweeps 53.1-54.9 and the wall is at
+## r=60, so 57.5 is 2.6 m clear of cover and 2.5 m clear of the wall.
+@export var lane_radii: PackedFloat32Array = PackedFloat32Array([38.5, 44.5, 51.0, 57.5])
 
 ## Hits a prisoner absorbs before leaving the round. [b]LIVE[/b], default 1.
 ##
@@ -180,13 +187,21 @@ enum GhostBehaviour {
 ## a match rule may retune the gun, not redesign it into an automatic.
 @export_range(0.0, 15.0, 0.05, "or_greater") var base_reload_seconds: float = 2.5
 
-## Seconds the reload shortens by for each consecutive turn spent as shooter.
-## [b]DEFERRED[/b], default 0.0 = no escalation, which is today's behaviour.
+## Seconds the reload shortens by for each turn a player has spent in the tower.
+## [b]LIVE[/b], and the match's terminator. Default 0.0 = no escalation, which is
+## what the game did before turns existed.
 ##
 ## The designed shape of "the tower gets better the longer you hold it": a player
-## who keeps the tower across turns is rewarded with a faster clock, which is
-## also a pressure valve against a stalemate. Nothing reads this yet because
-## turns do not exist yet -- there is one round and one shooter.
+## who keeps taking the tower is rewarded with a faster clock, which is also the
+## only thing that stops a match between two evenly matched players running
+## forever. [MatchController] reads it through
+## [method get_reload_seconds_for_turn] on every seat change; which turns count
+## is [member turn_count_resets_on_seat_loss]'s business.
+##
+## The shipped [code]resources/rules/default_match_rules.tres[/code] sets this to
+## a real value, because with 0.0 there is no terminator and the match has no
+## guaranteed end. The code default stays 0.0 so a rule set built in isolation
+## reproduces the pre-turn behaviour exactly.
 ##
 ## OPEN QUESTION on two axes at once: the per-turn step, and whether the
 ## escalation should be linear at all rather than, say, halving toward the floor.
@@ -239,6 +254,80 @@ enum GhostBehaviour {
 ## the timer land together.
 @export_range(0.0, 1800.0, 1.0, "or_greater") var round_time_limit_seconds: float = 0.0
 
+# --- The match ----------------------------------------------------------------
+#
+# A match is many rounds and produces exactly one winner. One player holds the
+# tower; everyone else runs. A runner who reaches the end takes the tower and
+# the round starts again from the beginning. Reaching the end never wins the
+# match -- it wins the SEAT. The match is won by holding the seat through a
+# round, and the reload escalation above is what guarantees that eventually
+# happens.
+
+## Open the match with a seatless race for the tower. [b]LIVE[/b], default true.
+##
+## With it on, the match begins with NO shooter: every participant runs the ring
+## and the first to reach the end takes the tower. It is the design's answer to
+## "who shoots first", and it is deliberately not a coin toss -- the seat is won
+## by running, on the shipped map, with the shipped movement.
+##
+## Off, the match opens with the first participant already in the tower on turn
+## one, which is what the game did before the race existed and what a harness
+## measuring a single round wants.
+@export var open_with_race: bool = true
+
+## Rounds a player must win AS THE SHOOTER to win the match. [b]LIVE[/b],
+## default 1 = the shipped design: hold the tower through one round and it is
+## over.
+##
+## Above 1 the shooter keeps the seat after a won round and starts another,
+## which makes the tower a thing to defend repeatedly rather than once. OPEN
+## QUESTION; 1 is the decided answer today.
+@export_range(1, 16, 1, "or_greater") var rounds_to_win_match: int = 1
+
+## Whether a player's tower-turn count falls back to zero when they lose the
+## seat. [b]LIVE[/b], default false = the count never resets.
+##
+## This is the "consecutive" in [member reload_reduction_per_turn], written down
+## because the word has two readings and they produce different games:
+##
+## - [b]false (shipped)[/b] -- a player's turns accumulate for the whole match.
+##   Turn three is turn three whether or not somebody else held the tower in
+##   between. This is the reading the design's terminator REQUIRES: "a weak
+##   shooter who keeps regaining the seat eventually becomes strong enough to
+##   close it out" is only true if regaining the seat is progress.
+## - [b]true[/b] -- losing the seat wipes the count and a returning shooter
+##   starts again on the base reload. Under this reading two evenly matched
+##   players can trade the tower forever, so the match has no terminator at all.
+##   It is here to be measured, not to be shipped.
+@export var turn_count_resets_on_seat_loss: bool = false
+
+## How close to the finish, in metres of arc, counts as having reached the end.
+## [b]LIVE.[/b]
+##
+## Every participant is judged by this one number, human and AI alike, which is
+## what makes the opening race a race rather than two different tests run side by
+## side. The default matches [member BotProfile.arrival_tolerance] on the shipped
+## bot profile, so a baseline runner scores on the same tick it stops.
+@export_range(0.1, 10.0, 0.1, "or_greater") var lap_arrival_tolerance: float = 1.5
+
+## Stagger the race's starting angles so every lane is the same length.
+## [b]DEFERRED[/b], default false = every racer starts on the start pad, which is
+## where runners have always started.
+##
+## The problem it addresses is real: at r=38.5 a lap is 235 m and at r=57.5 it is
+## 351 m, so a racer's lane is worth up to a third of the race. The reason it is
+## off by default is that the fix is only a fix for a runner that stays in its
+## lane. A lane is a spawn position, not a rail -- only the baseline [RingRunner]
+## holds a radius, and a human handed the outer lane would simply cut inside and
+## keep the shorter arc as a gift. Equal ARC from a shared start pad is the
+## honest rule for bodies that may run anywhere; equal LENGTH is the honest rule
+## for bodies on rails. The game has both, so this is a question to measure.
+##
+## When true, each racer starts at the angle that leaves them
+## [code](full lap arc) * (smallest lane radius)[/code] metres of their own lane
+## to run, so the outer lanes start further round.
+@export var equalise_race_lane_distance: bool = false
+
 # --- Ghosts -------------------------------------------------------------------
 
 ## What becomes of a prisoner the rifle finishes. [b]DEFERRED[/b], default
@@ -286,6 +375,52 @@ enum GhostBehaviour {
 ## stops on.
 @export var guard_sightlines_unobstructed: bool = false
 
+# --- The AI in the tower ------------------------------------------------------
+
+## The [ShooterProfile] an AI participant plays the tower on. [b]LIVE[/b],
+## default null = no match opinion, and [MatchController] falls back to the
+## shipped profile at [constant MatchController.DEFAULT_SHOOTER_PROFILE_PATH].
+##
+## This is the match's GUARD DIFFICULTY dial, and it belongs here for exactly
+## the reason every other rule does: "how good is the tower" is a design
+## question this project settles by sweeping it, and a difficulty baked into a
+## scene is a question that can never be asked.
+##
+## The seam is the usual one. What is inside the profile -- reaction time, aim
+## error, confidence threshold -- is COMPONENT tuning of the brain, exactly as
+## [BotProfile] is for a runner. What is a rule of the MATCH is which profile
+## the tower is played on, which is this field.
+##
+## The resource is never mutated: [MatchController] duplicates it per
+## participant, so a sweep that varies the seed cannot retune the shared .tres
+## for whatever runs next in the same process.
+@export var ai_shooter_profile: ShooterProfile
+
+## Per-participant difficulty, indexed by [member MatchParticipant.index].
+## [b]LIVE[/b], default empty = every AI plays the tower on
+## [member ai_shooter_profile].
+##
+## An entry that is null, and any index past the end, falls back to
+## [member ai_shooter_profile]. Index 0 is the human when a match has one and a
+## human never reads a shooter profile, so slot 0 is simply unused there -- the
+## index stays the participant's own rather than becoming a second, shifted one
+## that has to be corrected at every call site.
+##
+## The point is asymmetric matches. Measuring what a change to the guard is
+## worth needs the guards to DIFFER within one match; a single profile can only
+## produce a field where every tower plays identically and the sole remaining
+## variable is who happened to reach the end first.
+@export var ai_shooter_profiles: Array[ShooterProfile] = []
+
+## Seed for the AI shooters' aim error. [b]LIVE[/b], default 0 = seed from
+## entropy, exactly as [member ShooterProfile.aim_random_seed] reads it.
+##
+## Non-zero makes a match replayable: participant [code]i[/code] is given
+## [code]seed + i + 1[/code], so the bots miss in different directions while the
+## whole match still replays identically from one number. It is written into the
+## per-participant COPY of the profile, never into the profile itself.
+@export var ai_shooter_aim_seed: int = 0
+
 
 # --- Derived values -----------------------------------------------------------
 
@@ -304,12 +439,33 @@ func get_lane_radius(index: int) -> float:
 
 
 ## Exactly [member prisoner_count] radii, padded from the last entry if the list
-## is short. What a spawner should iterate.
+## is short. What a round's spawner should iterate.
 func get_lane_radii() -> PackedFloat32Array:
+	return get_lane_radii_for(prisoner_count)
+
+
+## Exactly [param count] radii, padded from the last entry if the pool is short.
+##
+## The opening race puts every participant on the ring at once, which is one more
+## body than a round has, so the number of lanes wanted is not always
+## [member prisoner_count]. Padding repeats the last radius, which is a visible
+## misconfiguration rather than an invented lane -- see [method get_lane_radius].
+func get_lane_radii_for(count: int) -> PackedFloat32Array:
 	var radii: PackedFloat32Array = PackedFloat32Array()
-	for index: int in prisoner_count:
+	for index: int in maxi(count, 0):
 		radii.append(get_lane_radius(index))
 	return radii
+
+
+## How many players a match has: one in the tower and [member prisoner_count] on
+## the ring.
+##
+## Derived rather than exported, because a round with fewer runners than
+## [member prisoner_count] is a different round, and a match that cannot field
+## one is not a match. The human is one of these when a match has a human; the
+## rest are AI.
+func get_participant_count() -> int:
+	return maxi(prisoner_count, 1) + 1
 
 
 ## True when the prisoners should hold sprint. Keeps the enum comparison in one
@@ -339,17 +495,40 @@ func get_reload_floor_seconds(weapon_floor: float) -> float:
 	return maxf(reload_floor_seconds, weapon_floor)
 
 
-## Reload duration on the [param turn_index]-th consecutive turn as shooter,
-## zero-based, floored.
+## Reload duration on the [param turn_index]-th turn in the tower, zero-based,
+## floored.
 ##
-## The linear reading of [member reload_reduction_per_turn]. Nothing calls this
-## yet -- turns do not exist -- and it is provided so that the escalation rule is
-## a function a sweep can call and a graph can be drawn from, rather than an idea
-## in a comment. See [member reload_reduction_per_turn] for what is still open.
+## The linear reading of [member reload_reduction_per_turn].
+## [method MatchController.take_seat] calls it on every seat change with the new
+## holder's own turn count minus one, so turn one is always the base reload.
+## Which turns are counted is [member turn_count_resets_on_seat_loss]'s business,
+## not this function's. See [member reload_reduction_per_turn] for what is still
+## open.
 func get_reload_seconds_for_turn(turn_index: int, weapon_base: float, weapon_floor: float) -> float:
 	var base: float = get_base_reload_seconds(weapon_base)
 	var reduced: float = base - reload_reduction_per_turn * float(maxi(turn_index, 0))
 	return maxf(reduced, get_reload_floor_seconds(weapon_floor))
+
+
+## The [ShooterProfile] participant [param index] plays the tower on, or null
+## when these rules have no opinion and the caller should fall back to its own
+## default. See [member ai_shooter_profiles].
+func get_ai_shooter_profile_for(index: int) -> ShooterProfile:
+	if index >= 0 and index < ai_shooter_profiles.size() and ai_shooter_profiles[index] != null:
+		return ai_shooter_profiles[index]
+	return ai_shooter_profile
+
+
+## The aim-error seed participant [param index] draws with, or 0 for entropy.
+##
+## Derived from one number rather than exported per participant so that a whole
+## match replays from a single [member ai_shooter_aim_seed], and so that two
+## bots in the same match never share a seed and therefore never miss in
+## lockstep.
+func get_ai_shooter_seed_for(index: int) -> int:
+	if ai_shooter_aim_seed == 0:
+		return 0
+	return ai_shooter_aim_seed + maxi(index, 0) + 1
 
 
 ## True when [member shooter_win_condition] is one the round actually implements.
@@ -379,4 +558,17 @@ func validate() -> PackedStringArray:
 		problems.append("shooter_win_condition is SHUTOUT_COUNT but shutout_count is unset.")
 	if shooter_win_condition == ShooterWinCondition.HOLD_DURATION and hold_duration_seconds <= 0.0:
 		problems.append("shooter_win_condition is HOLD_DURATION but hold_duration_seconds is unset.")
+	if open_with_race and lane_radii.size() < get_participant_count():
+		# Padding would put two racers on one radius, and the race for the tower
+		# is the one moment every participant is on the ring at once.
+		problems.append(
+			"open_with_race needs %d lanes for %d participants but lane_radii has %d; racers would share a lane."
+			% [get_participant_count(), get_participant_count(), lane_radii.size()]
+		)
+	if reload_reduction_per_turn <= 0.0:
+		# Not broken, but worth saying out loud: this is the only rule that
+		# guarantees a match ends.
+		problems.append(
+			"reload_reduction_per_turn is 0.0; the tower never gets faster, so a match has no terminator."
+		)
 	return problems

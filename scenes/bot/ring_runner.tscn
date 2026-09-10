@@ -6,8 +6,8 @@
 [ext_resource type="Resource" path="res://scenes/bot/default_bot_profile.tres" id="4_bot_profile"]
 [ext_resource type="Material" path="res://scenes/bot/runner_body_material.tres" id="5_runner_material"]
 
-[node name="Player" node_paths=PackedStringArray("intent_source") instance=ExtResource("1_body")]
-editor_description = "A prisoner body driven by AI. Inherits scenes/player/player.tscn on purpose: the bot must run on the same capsule, the same head height and the same MovementProfile a human gets, or bot telemetry stops describing the shipped game."
+[node name="Player" groups=["prisoners"] node_paths=PackedStringArray("intent_source") instance=ExtResource("1_body")]
+editor_description = "A prisoner body driven by AI. Inherits scenes/player/player.tscn on purpose: the bot must run on the same capsule, the same head height and the same MovementProfile a human gets, or bot telemetry stops describing the shipped game. It is in the \"prisoners\" group so TowerShooter has a candidate list to search; membership grants nothing on its own -- the shooter still has to have the body inside its camera frustum and clear on a raycast before it may read where the body is."
 intent_source = NodePath("BotInput")
 
 [node name="Camera" parent="Head" index="0"]

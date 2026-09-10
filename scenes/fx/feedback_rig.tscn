@@ -1,0 +1,60 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://scripts/fx/camera_kick.gd" id="1_camera_kick"]
+[ext_resource type="Script" path="res://scripts/fx/weapon_feel.gd" id="2_weapon_feel"]
+[ext_resource type="Script" path="res://scripts/fx/hit_confirm.gd" id="3_hit_confirm"]
+[ext_resource type="Script" path="res://scripts/fx/hit_reaction.gd" id="4_hit_reaction"]
+[ext_resource type="Resource" path="res://scenes/fx/default_feedback_profile.tres" id="5_feedback_profile"]
+
+[node name="FeedbackRig" type="CanvasLayer"]
+layer = 2
+editor_description = "The whole hit-and-kill feedback layer, wired to itself and waiting to be pointed at a body. Strictly additive: it subscribes to signals Rifle already emits and to a query MatchController already exposes, changes no gameplay file, and deleting this node leaves the game exactly as it was.
+
+Four exports are left blank on purpose, because only the scene it is attached to knows the answers:
+  CameraKick.camera      -> the seat holder's Camera3D, normally Player/Head/Camera.
+  WeaponFeel.rifle       -> the Rifle node. A node reference, so it survives MatchController reparenting the rifle onto a new seat holder.
+  HitConfirm.rifle       -> the same Rifle.
+  HitConfirm.controller  -> the MatchController. WITHOUT IT EVERY WALL READS AS A KILL; see the class docs.
+  HitReaction.rifle      -> the same Rifle.
+  HitReaction.body       -> this rig's own CharacterBody3D, so it reacts to its own hits and to nobody else's.
+
+Everything else is already connected: all three effect nodes share the one CameraKick, because recoil, being shot and confirming a kill all want the camera and the last writer of a frame would otherwise win.
+
+Layer 2 puts it above the match HUD on layer 1 and below the pause menu on layer 128, so a hitmarker draws over the crosshair and a menu draws over both.
+
+Inert with no display server. The bot harness runs thousands of matches without a viewport and pays nothing for any of this: every node checks DisplayServer at _ready, switches its process off and connects no signals. Set headless_inert = false on a node only in a test that needs the logic to actually run headless."
+
+[node name="CameraKick" type="Node" parent="."]
+editor_description = "The one node allowed to move the camera for feedback. Writes the camera's LOCAL transform only -- never its fov, which WeaponOptic owns and which would treat any outside write as a new un-zoomed base and permanently corrupt the zoom."
+script = ExtResource("1_camera_kick")
+profile = ExtResource("5_feedback_profile")
+
+[node name="WeaponFeel" type="Node" parent="." node_paths=PackedStringArray("camera_kick")]
+editor_description = "Recoil on Rifle.fired. Warns at startup if the kick could still be running when the weapon comes off reload, which is the one way the aim guarantee can be broken by tuning."
+script = ExtResource("2_weapon_feel")
+camera_kick = NodePath("../CameraKick")
+profile = ExtResource("5_feedback_profile")
+
+[node name="HitConfirm" type="Control" parent="." node_paths=PackedStringArray("camera_kick")]
+editor_description = "Did I hit. Four bright diagonal ticks for a person, two dim flat dashes for a wall or a miss."
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("3_hit_confirm")
+camera_kick = NodePath("../CameraKick")
+profile = ExtResource("5_feedback_profile")
+
+[node name="HitReaction" type="Control" parent="." node_paths=PackedStringArray("camera_kick")]
+editor_description = "I was hit. A held white frame and a camera whip, both finished inside a third of a second. Last child so the flash covers the hitmarker."
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("4_hit_reaction")
+camera_kick = NodePath("../CameraKick")
+profile = ExtResource("5_feedback_profile")

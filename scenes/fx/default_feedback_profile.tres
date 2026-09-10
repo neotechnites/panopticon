@@ -1,0 +1,46 @@
+[gd_resource type="Resource" script_class="FeedbackProfile" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/fx/feedback_profile.gd" id="1_feedback_profile"]
+
+[resource]
+script = ExtResource("1_feedback_profile")
+enabled = true
+hit_confirm_enabled = true
+hitmarker_seconds = 0.26
+hitmarker_color = Color(1, 1, 1, 1)
+hitmarker_gap_pixels = 7.0
+hitmarker_spread_pixels = 9.0
+hitmarker_length_pixels = 11.0
+hitmarker_width_pixels = 3.0
+hitmarker_fade_exponent = 2.0
+miss_mark_enabled = true
+miss_mark_seconds = 0.14
+miss_mark_color = Color(0.62, 0.62, 0.62, 0.75)
+miss_mark_gap_pixels = 15.0
+miss_mark_length_pixels = 6.0
+miss_mark_width_pixels = 2.0
+miss_mark_fade_exponent = 1.6
+confirm_punch_enabled = true
+confirm_punch_metres = 0.045
+confirm_punch_seconds = 0.09
+hit_reaction_enabled = true
+flash_color = Color(1, 1, 1, 0.85)
+flash_hold_seconds = 0.03
+flash_seconds = 0.11
+flash_fade_exponent = 2.2
+impact_shake_enabled = true
+impact_pitch_degrees = 7.0
+impact_yaw_degrees = 9.0
+impact_roll_degrees = 6.5
+impact_frequency_hz = 11.0
+impact_recover_seconds = 0.28
+impact_fade_exponent = 2.5
+impact_punch_metres = 0.07
+weapon_recoil_enabled = true
+recoil_pitch_degrees = 1.7
+recoil_yaw_degrees = 0.45
+recoil_roll_degrees = 0.85
+recoil_punch_metres = 0.05
+recoil_attack_seconds = 0.02
+recoil_recover_seconds = 0.3
+recoil_fade_exponent = 2.0
