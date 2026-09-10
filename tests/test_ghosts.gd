@@ -48,6 +48,22 @@ const SPEED_TICKS: int = 120
 ## by a kilometre; see the test for why that is load-bearing.
 const TEST_FLOOR_Y: float = 1000.0
 
+## How close two angles about the ring axis must be to count as the same bearing.
+## The placement is arithmetic off one marker, so this is float noise.
+const START_ANGLE_TOLERANCE: float = 1e-3
+
+## The body capsule is 0.8 m across, so two bodies whose centres are further
+## apart than this are not inside one another.
+const BODY_WIDTH_METRES: float = 0.8
+
+## How far from the start a prisoner must have run before it is shot, for "it was
+## moved back" to be a claim about anything.
+const CLEAR_OF_THE_START_METRES: float = 5.0
+
+## The running surface: the inner kerb is at r=36 and the outer wall at r=60.
+const DECK_INNER_RADIUS: float = 36.0
+const DECK_OUTER_RADIUS: float = 60.0
+
 ## Fraction of the ghost's speed advantage the measurement must actually show.
 ## The comparison is of two identical bodies under identical intent, so the only
 ## difference is the scale; the slack is for the acceleration ramp, not for a
@@ -129,6 +145,13 @@ func test_a_shot_prisoner_becomes_a_ghost() -> void:
 	assert_eq_int(roster.size(), _rules.get_participant_count(), "nobody left the match")
 	assert_true(roster.has(victim), "the ghost is still on the roster")
 
+	# The placement settles like every other one in this file. A ghost is put
+	# back on the START LINE, which is a kinematic body being sent most of a lap,
+	# so it spends two physics frames off its collision before it is woken --
+	# see MatchController._place_ghost_at_start and _hold_body. Everything below
+	# is therefore asserted about a ghost that has landed.
+	await step_ticks(SETTLE_TICKS)
+
 	# And still in the WORLD -- this is the assertion that separates a ghost
 	# from the park a converted runner gets.
 	assert_gt(
@@ -157,6 +180,83 @@ func test_a_shot_prisoner_becomes_a_ghost() -> void:
 
 	# The round is still live: three prisoners minus one is not an empty ring.
 	assert_false(_controller.is_resolved(), "one ghost does not resolve the round")
+
+
+## A prisoner shot anywhere on the ring is put back on the start line, in a place
+## of their own.
+##
+## Canon, in the author's words: [i]"a ghost shold be placed back at the start"[/i].
+##
+## The second half of that sentence is the hard half. The field is dealt sideways
+## across the WIDTH of the track at one angle -- see
+## [method MatchController._start_place_for] -- so "the start" is a line with
+## bodies standing on it, and a ghost dropped on the marker itself would be
+## dropped inside somebody. Both halves are asserted: the ghosts stand at the
+## start line's own bearing, on the deck, and no ghost is inside any other body
+## in the match. Two prisoners are shot rather than one, because one ghost cannot
+## demonstrate that two of them are dealt apart.
+func test_a_ghost_is_put_back_on_the_start_line() -> void:
+	# Run the field well clear of the start first, or "it was moved back" is a
+	# claim about a body that had not gone anywhere.
+	await step_ticks(RUNNING_TICKS)
+
+	var arena: Node3D = _match.get_node("Arena") as Node3D
+	var centre: Vector3 = arena.global_position
+	var start_point: Vector3 = (
+		arena.get_node(TestFixtures.START_MARKER_PATH) as Marker3D
+	).global_position
+	var start_angle: float = _angle_about(centre, start_point)
+
+	var first: MatchParticipant = _controller.get_live_participants()[0]
+	var fell_at: Vector3 = first.body.global_position
+	assert_gt(
+		_flat(fell_at - start_point), CLEAR_OF_THE_START_METRES,
+		"the prisoner is shot well away from the start line",
+	)
+	assert_true(_controller.apply_hit(first), "the prisoner is shot")
+
+	var second: MatchParticipant = _controller.get_live_participants()[0]
+	assert_true(_controller.apply_hit(second), "and so is a second one")
+
+	assert_gt(
+		_flat(first.body.global_position - fell_at), CLEAR_OF_THE_START_METRES,
+		"the ghost did not stay where it fell",
+	)
+
+	for ghost: MatchParticipant in [first, second]:
+		var here: Vector3 = ghost.body.global_position
+		assert_almost_eq(
+			absf(wrapf(_angle_about(centre, here) - start_angle, -PI, PI)), 0.0,
+			START_ANGLE_TOLERANCE,
+			"%s stands at the start line's own bearing" % ghost.display_name,
+		)
+		assert_between(
+			_flat(here - centre), DECK_INNER_RADIUS, DECK_OUTER_RADIUS,
+			"%s stands on the deck and not off the edge of it" % ghost.display_name,
+		)
+
+	# Nobody is inside anybody. Every other participant is checked, not just the
+	# other ghost: the round's runners were dealt out of a field one smaller and
+	# their places interleave with these, which is the whole reason a ghost is
+	# dealt against the full roster.
+	for ghost: MatchParticipant in [first, second]:
+		for other: MatchParticipant in _controller.get_participants():
+			if other == ghost:
+				continue
+			assert_gt(
+				_flat(ghost.body.global_position - other.body.global_position),
+				BODY_WIDTH_METRES,
+				"%s is not standing inside %s" % [ghost.display_name, other.display_name],
+			)
+
+	# And it is still a ghost when the placement has woken, rather than a body
+	# that was quietly put back in the round.
+	await step_ticks(SETTLE_TICKS)
+	assert_eq_int(_controller.get_ghosts_remaining(), 2, "both are still ghosts")
+	assert_eq_int(
+		_controller.get_runners_remaining(), _rules.prisoner_count - 2,
+		"and neither is counted as a prisoner",
+	)
 
 
 # --- Not being shot -----------------------------------------------------------
@@ -195,6 +295,14 @@ func test_a_ghost_cannot_be_hit_by_the_rifle() -> void:
 	assert_eq_int(
 		victim.body.collision_layer, 0,
 		"a ghost is on no physics layer, so nothing can find it",
+	)
+	# The mask is the authored one, but only once the start-line placement has
+	# been woken: a ghost is held off collision entirely for the two frames it
+	# takes the physics server to catch up with where it was put.
+	await step_ticks(SETTLE_TICKS)
+	assert_eq_int(
+		victim.body.collision_layer, 0,
+		"and is still on no layer once the placement has woken",
 	)
 	assert_eq_int(
 		victim.body.collision_mask, control.body.collision_mask,
@@ -539,6 +647,11 @@ func _hit_mask() -> int:
 
 func _flat(delta: Vector3) -> float:
 	return Vector2(delta.x, delta.z).length()
+
+
+## Bearing of [param point] about the ring axis at [param centre].
+func _angle_about(centre: Vector3, point: Vector3) -> float:
+	return atan2(point.z - centre.z, point.x - centre.x)
 
 
 func _on_round_resolved(outcome: MatchController.Outcome) -> void:

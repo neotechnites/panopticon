@@ -128,6 +128,15 @@ var is_ghost: bool = false
 ## straight back, sixty times a second, forever.
 var ghost_grace_remaining: float = 0.0
 
+## Physics frames this participant's body must stay inert before the match gives
+## it back its collision, counting down.
+##
+## Non-zero only while a ghost is being put back on the start line -- see
+## [method MatchController._place_ghost_at_start]. Every other placement in a
+## match happens when a round is armed and is woken by the controller's own
+## settle; a ghost is made in the middle of one and needs a clock of its own.
+var ghost_settle_frames: int = 0
+
 ## The body mesh's material as authored, kept so that a ghost's colour can be
 ## taken back off exactly rather than approximately. Null until the first time
 ## this participant is tinted.

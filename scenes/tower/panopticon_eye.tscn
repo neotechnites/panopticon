@@ -6,33 +6,34 @@
 [sub_resource type="StandardMaterial3D" id="MatFace"]
 resource_local_to_scene = true
 shading_mode = 0
-uv1_scale = Vector3(3.0, 2.0, 1.0)
+uv1_scale = Vector3(12.0, 2.0, 1.0)
 
 [sub_resource type="BoxMesh" id="MeshBox"]
-size = Vector3(8.0, 8.0, 8.0)
+size = Vector3(18.0, 4.5, 18.0)
 
 [node name="PanopticonEye" type="Node3D"]
-editor_description = "THE EYE. One box, 8 m on a side, floating over the centre of the yard with a picture of an eye on every face. There is no tower and no ball. There was a 31 m socket with lids, a brow and a crown, and after that a lit red sphere with a black band round it; both were removed as art nobody asked for, on 2026-09-10, when Ryan asked for the third time for something simpler: 'i dont want the cylinder, all i want is a one way mirror, it can be the simple jpg of an eye four times in a box if needed.' Git has all of it.
+editor_description = "THE EYE. One box, 18 m across and 4.5 m tall, standing on the tower platform with the guard inside it and a picture of an eye repeated along every face. There is no tower and no ball. There was a 31 m socket with lids, a brow and a crown; then a lit red sphere with a black band; then this same box floating 16.7 m overhead. All of it was art nobody asked for. Ryan: 'i dont want the cylinder, all i want is a one way mirror, it can be the simple jpg of an eye four times in a box if needed', and then 'the eye box is right but should be at eye level, and be a one way mirror to cover the shooter.' Git has the rest.
 
-WHY IT IS AT y=16.7. Because the ring was already built for it. The Cover and InnerKerb heights in scenes/ring/test_ring.tscn are both derived, in their own editor_descriptions, from a tower eye at y=16.7. The guard's actual camera is at y=1.9. Those two numbers disagree and the disagreement is Ryan's to settle -- it is NOT resolved here, and the box's centre stays at 16.7 so that nothing silently drifts while it is open.
+IT IS A ONE-WAY MIRROR, LITERALLY. The box is a closed surface with every triangle facing outward, drawn backface-culled. From the ring every face is front-facing: an opaque wall with an eye on it and no guard behind it. From inside, where the guard is and where nobody else ever is, every face is back-facing and thrown away before it is shaded -- so the guard sees the whole ring through it with no tint, no seam and no pixel lost. That is the same mechanism the old socket drum used; only the scale is new.
 
-IT CANNOT POINT ANYWHERE. A box has four distinguishable sides, which the old ball did not, so this is no longer true of the shape and has to be true of the surface instead: there is ONE material and ONE texture, and PanopticonEye.UV_TILING spreads it over Godot's three-by-two box UV atlas so that every face gets a full upright copy rather than a sixth of the picture. Same image, same way up, all four bearings. The box carries no rotation, nothing rotates it, and nothing here animates at all. See scripts/tower/panopticon_eye.gd and tests/test_tower.gd.
+WHY IT IS AT y=1.9. Because that is the guard's eye: they spawn at y=0.25 and their head is 1.65 m above their feet. The box is centred there, so its pupils are level with the guard inside it and with every prisoner on the deck outside it. The eye used to float at 16.7 m while the guard sat at 1.9; that disagreement was open all night and Ryan settled it on 2026-09-10 in this direction -- the eye comes down to the guard.
 
-IT IS UNSHADED. Deliberately. Under a lit material the arena sun would put a highlight on one face and leave another dim, and a face brighter than its neighbours is a difference between sides -- a tell arrived at by lighting rather than by anybody meaning it.
+IT COVERS THE SHOOTER. 18 m across over an 8 m platform leaves a metre of margin at the rim in every direction, and the top at y=4.15 clears the guard's crown at the apex of a jump (y=3.16) by about a metre. The underside at y=-0.35 is below the platform surface, so there is no gap to see under.
 
-IT IS NOT IN THE GUARD'S WAY. Nothing here exists below y=12.7, and the guard's camera tops out at y=3.0 including the jump apex. Verified on a screen, not assumed: across 31 renders from the guard's eye (all four bearings, pitch -35 to +40 deg, the platform edge, the jump apex) the box stands in front of 0 pixels of arena.
+IT CANNOT BE READ FOR A BEARING. A box has four distinguishable sides, so unlike the old ball this is not true of its shape and is instead true of its surface: one material, one texture, and PanopticonEye.uv_tiling_for spread over the BoxMesh UV atlas so every face draws the same upright copies of the same picture at the same size. Unshaded, so the sun cannot brighten one side over another. Unrotated, and nothing rotates it. See scripts/tower/panopticon_eye.gd and tests/test_tower.gd.
 
-NO COLLISION, ANYWHERE. The eye is scenery. The guard's rifle raycast passes straight through it.
-
-WHAT WENT WITH THE TOWER. The old socket wall was r=8.5 and hid the guard from the ring. It is gone, so the guard now stands on an open platform in plain sight. The box is opaque and unreadable, but it does not conceal the guard's body. Whether anything should is a ruling Ryan has not made."
+NO COLLISION, ANYWHERE. The guard is not trapped by their own cover and their rifle shoots straight through it."
 script = ExtResource("1_eye")
 face_material = SubResource("MatFace")
+box_path = NodePath("Box")
 profile = ExtResource("2_eye_profile")
 
 [node name="Box" type="MeshInstance3D" parent="."]
-editor_description = "An 8 m cube centred on the axis at y=16.7, so its underside is at 12.7 and its lid at 20.7. Big enough to read as an eye from the far side of the ring 95 m away, where a face is still about five degrees across, and small enough that it takes far less of the yard's cross-map sightline than the tower did. EyeProfile.size_scale is the knob.
+editor_description = "18 x 4.5 x 18 m, centred on the axis at y=1.9, so it spans y=-0.35 to y=4.15 and x,z=-9 to +9. Square in plan, which matters: an oblong would have a broad side and a narrow one, and a prisoner who could tell which they were standing in front of would know something about the tower.
 
-It is a single BoxMesh rather than four quads on purpose. Four separate planes would give per-face control nobody wants and would leave the box open top and bottom -- and a prisoner 35 m out looks UP at the eye, so an open underside would show them a band of sky through it, which is exactly what a one-way mirror must not do. One closed box is fewer parts and is opaque from every angle."
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 16.7, 0)
+Four eyes to a face, because a face four times wider than it is tall would otherwise stretch one eye four times wider than it is high, and a stretched eye does not read as an eye. The count is derived from the proportions in PanopticonEye.uv_tiling_for, not typed in.
+
+It is a single BoxMesh rather than four quads on purpose. Four planes would give per-face control nobody wants and would leave the box open at the top and bottom -- and an open box is not opaque, which is the whole job. One closed box is fewer parts and is a one-way mirror from every angle."
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.9, 0)
 mesh = SubResource("MeshBox")
 surface_material_override/0 = SubResource("MatFace")

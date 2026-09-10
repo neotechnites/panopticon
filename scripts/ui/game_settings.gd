@@ -93,6 +93,25 @@ const MAX_FIELD_OF_VIEW: float = 120.0
 ## before the default flipped has to be told what the new answer is.
 const DEFAULT_GHOSTS_ENABLED: bool = true
 
+## The shipped game opens with a race, so the skip is off. Named for the same
+## reason [constant DEFAULT_GHOSTS_ENABLED] is: [member MatchRules.open_with_race]
+## defaults to true and the two must agree, or the first match a player starts is
+## played under a rule nobody chose.
+const DEFAULT_SKIP_OPENING_RACE: bool = false
+
+## Seat 0, which is the human whenever a match has one. Agrees with
+## [member MatchRules.opening_seat_index] for the same reason as above.
+const DEFAULT_TOWER_SEAT_INDEX: int = 0
+
+## Highest seat index this file will believe off disk.
+##
+## Matches the top of [member MatchRules.opening_seat_index]'s exported range.
+## The real ceiling is how many participants a match has, which depends on
+## [member MatchRules.prisoner_count] and is therefore not knowable here; the
+## match clamps the value against its own roster when it reads it. This clamp
+## exists only so a corrupt file cannot put an absurd number into the config.
+const MAX_TOWER_SEAT_INDEX: int = 31
+
 const DEFAULT_RESOLUTION: Vector2i = Vector2i(1280, 720)
 const MIN_RESOLUTION: Vector2i = Vector2i(640, 360)
 const MAX_RESOLUTION: Vector2i = Vector2i(7680, 4320)
@@ -156,6 +175,26 @@ var field_of_view: float = DEFAULT_FIELD_OF_VIEW
 ## a rule set nobody chose.
 var ghosts_enabled: bool = DEFAULT_GHOSTS_ENABLED
 
+## Skip the opening race and hand the tower straight to [member tower_seat_index].
+## Default false, which is the race the shipped game opens with.
+##
+## [b]Why a player-facing setting for this.[/b] Every match opens with a lap of
+## the ring that decides who shoots first, and somebody testing a change to
+## anything else has to run that lap before they can try it. This turns the race
+## off, and it lives beside the ghost toggle for the same reason that one does:
+## it is a rule of the match, it is written over [MatchRules] on the way in, and
+## a player cannot open a text editor to change a rule file.
+var skip_opening_race: bool = DEFAULT_SKIP_OPENING_RACE
+
+## Which seat gets the tower when the race is skipped. 0 is the player; every
+## higher index is a bot, numbered the way [method MatchRules.get_participant_name]
+## numbers it and the way the HUD reports it.
+##
+## Read only when [member skip_opening_race] is on, and clamped against the
+## match's actual roster by [MatchController] -- see
+## [member MatchRules.opening_seat_index].
+var tower_seat_index: int = DEFAULT_TOWER_SEAT_INDEX
+
 
 ## Return every value to its shipped default.
 func reset() -> void:
@@ -169,6 +208,8 @@ func reset() -> void:
 	vsync_mode = VSyncMode.ENABLED
 	field_of_view = DEFAULT_FIELD_OF_VIEW
 	ghosts_enabled = DEFAULT_GHOSTS_ENABLED
+	skip_opening_race = DEFAULT_SKIP_OPENING_RACE
+	tower_seat_index = DEFAULT_TOWER_SEAT_INDEX
 
 
 ## Force every value inside its documented range. Called after every read, so
@@ -182,6 +223,7 @@ func clamp_all() -> void:
 	resolution = resolution.clamp(MIN_RESOLUTION, MAX_RESOLUTION)
 	display_mode = clampi(int(display_mode), 0, DISPLAY_MODE_COUNT - 1) as DisplayMode
 	vsync_mode = clampi(int(vsync_mode), 0, VSYNC_MODE_COUNT - 1) as VSyncMode
+	tower_seat_index = clampi(tower_seat_index, 0, MAX_TOWER_SEAT_INDEX)
 
 
 ## Copy every value out of [param other].
@@ -196,6 +238,8 @@ func copy_from(other: GameSettings) -> void:
 	vsync_mode = other.vsync_mode
 	field_of_view = other.field_of_view
 	ghosts_enabled = other.ghosts_enabled
+	skip_opening_race = other.skip_opening_race
+	tower_seat_index = other.tower_seat_index
 
 
 ## True when every value matches [param other]. Used by the verification harness
@@ -212,6 +256,8 @@ func equals(other: GameSettings) -> bool:
 		and vsync_mode == other.vsync_mode
 		and is_equal_approx(field_of_view, other.field_of_view)
 		and ghosts_enabled == other.ghosts_enabled
+		and skip_opening_race == other.skip_opening_race
+		and tower_seat_index == other.tower_seat_index
 	)
 
 
@@ -233,6 +279,8 @@ func write_to(config: ConfigFile) -> void:
 	config.set_value(SECTION_VIDEO, "field_of_view", field_of_view)
 
 	config.set_value(SECTION_MATCH, "ghosts_enabled", ghosts_enabled)
+	config.set_value(SECTION_MATCH, "skip_opening_race", skip_opening_race)
+	config.set_value(SECTION_MATCH, "tower_seat_index", tower_seat_index)
 
 
 ## Read every value out of [param config], substituting the current value --
@@ -255,6 +303,10 @@ func read_from(config: ConfigFile) -> void:
 	field_of_view = read_float(config, SECTION_VIDEO, "field_of_view", field_of_view)
 
 	ghosts_enabled = read_bool(config, SECTION_MATCH, "ghosts_enabled", ghosts_enabled)
+	skip_opening_race = read_bool(
+		config, SECTION_MATCH, "skip_opening_race", skip_opening_race
+	)
+	tower_seat_index = read_int(config, SECTION_MATCH, "tower_seat_index", tower_seat_index)
 
 	clamp_all()
 
@@ -320,13 +372,15 @@ func apply_to_movement_profile(profile: MovementProfile) -> void:
 
 ## Write the match preferences into a live [MatchRules].
 ##
-## Today that is one field. It is written UNCONDITIONALLY in both directions --
-## on as [constant MatchRules.GhostBehaviour.CATCH_AND_SWAP], off as
-## [constant MatchRules.GhostBehaviour.NONE] -- rather than only when the player
-## has ghosts on, because the rules resource is one shared instance for the whole
-## process: a one-way write would leave a match started after the toggle was
-## turned off still running the mechanic, which is the classic settings bug that
-## looks like it works because the first test of it is always "turn it on".
+## Every one of them is written UNCONDITIONALLY in both directions -- ghosts on
+## as [constant MatchRules.GhostBehaviour.CATCH_AND_SWAP] and off as
+## [constant MatchRules.GhostBehaviour.NONE], the race skipped as
+## [member MatchRules.open_with_race] false and not skipped as true -- rather
+## than only when the player has the thing switched on, because the rules
+## resource is one shared instance for the whole process: a one-way write would
+## leave a match started after a toggle was turned off still playing it, which is
+## the classic settings bug that looks like it works because the first test of it
+## is always "turn it on".
 ##
 ## Idempotent, so calling it again on every [signal SettingsStore.applied] is
 ## correct and cheap -- exactly as [method apply_to_movement_profile] is.
@@ -343,6 +397,11 @@ func apply_to_match_rules(rules: MatchRules) -> void:
 		if ghosts_enabled
 		else MatchRules.GhostBehaviour.NONE
 	)
+	rules.open_with_race = not skip_opening_race
+	# Written whether or not the race is skipped, so that turning the skip back on
+	# uses the seat the player last chose rather than whatever the resource was
+	# left holding.
+	rules.opening_seat_index = tower_seat_index
 
 
 ## Write [member field_of_view] into a camera. The scene decides which camera;

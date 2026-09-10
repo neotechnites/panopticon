@@ -82,11 +82,12 @@ extends Node
 ## [b]Ghosts: the third role[/b]
 ##
 ## Under [constant MatchRules.GhostBehaviour.CATCH_AND_SWAP] a shot prisoner is
-## not removed. They become a GHOST -- faster than the living, unshootable, and
-## chasing. Reaching a living prisoner takes their spot: the caught player
-## becomes the ghost, the ghost becomes living, and the round carries on with
-## the same number of prisoners running it. That is the whole mechanic, and it
-## exists to satisfy one constraint the author stated plainly: nobody sits out.
+## not removed. They are put back on the START LINE as a GHOST -- faster than the
+## living, unshootable, and chasing. Reaching a living prisoner takes their spot:
+## the caught player becomes the ghost, the ghost becomes living, and the round
+## carries on with the same number of prisoners running it. That is the whole
+## mechanic, and it exists to satisfy one constraint the author stated plainly:
+## nobody sits out.
 ##
 ## Three properties of the swap are load-bearing and are enforced here:
 ##
@@ -100,6 +101,9 @@ extends Node
 ##   Nothing about the catch is a bot-only path.
 ## - [b]The catch is ruled here.[/b] Not in the brain -- a brain that called its
 ##   own catch would be a catch only bots could make.
+## - [b]A ghost is made at the start, never where it fell.[/b] The author's
+##   ruling, and it is a placement onto a line several bodies may be standing on:
+##   see [method _place_ghost_at_start] for the one thing that makes it safe.
 ##
 ## [b]Not implemented, deliberately[/b]
 ##
@@ -403,6 +407,7 @@ func _physics_process(delta: float) -> void:
 		_settle_frames -= 1
 		if _settle_frames == 0:
 			_wake_bodies()
+	_wake_settled_ghosts()
 	_tick_ghosts(delta)
 
 
@@ -465,16 +470,28 @@ func start_match() -> void:
 	if active.open_with_race and _participants.size() > 1:
 		start_race()
 	else:
-		# No race: the first participant opens the match in the tower on turn
-		# one, which is what a single-round harness wants and what the game did
-		# before the race existed.
-		take_seat(_participants[0])
+		# No race: the seat the rules name opens the match in the tower on turn
+		# one, which is what a single-round harness wants, what the game did
+		# before the race existed, and what the Match tab's race skip selects.
+		# Everything after this line is the round the race would have armed.
+		take_seat(_participants[_opening_seat()])
 		start_round()
 
 
 ## Alias for [method start_match], for callers that read better this way.
 func restart() -> void:
 	start_match()
+
+
+## Which participant opens a match that skips the race, clamped into the roster.
+##
+## [member MatchRules.opening_seat_index] is a saved player preference by the
+## time it gets here, and a preference outlives the [member MatchRules.prisoner_count]
+## it was chosen against. Naming a seat this match does not have therefore hands
+## the tower to the nearest one that exists rather than crashing on the index --
+## a player who dropped the prisoner count still gets a game.
+func _opening_seat() -> int:
+	return clampi(get_rules().opening_seat_index, 0, _participants.size() - 1)
 
 
 ## Arm the opening race: no shooter, every participant on the ring.
@@ -780,6 +797,99 @@ func apply_hit(participant: MatchParticipant) -> bool:
 	return convert_participant(participant)
 
 
+## Rule on [param participant] having fallen out of the arena. Returns true if
+## the match did something about it.
+##
+## The one place a fall becomes a match event, so that the volume under the
+## arena -- see [KillVolume] -- knows about geometry and nothing about roles.
+## What happens depends entirely on what the faller was doing, and none of the
+## three answers is a new rule:
+##
+## [codeblock]
+## a prisoner -> convert_participant(): the rifle's own ending
+## a ghost    -> put back on the start line: where a ghost is made
+## the guard  -> put back on the tower: where the seat holder stands
+## a racer    -> put back on the start line, lap and all: where the race put them
+## [/codeblock]
+##
+## A prisoner goes through [method convert_participant] and no other door, which
+## is what keeps a fall and a shot the same death: under the shipped rules both
+## produce a ghost, on the start line, with the same grace, and under
+## [constant MatchRules.GhostBehaviour.NONE] both park the body. A fall is a
+## conversion rather than a hit because it is not survivable -- spending one of
+## [member MatchRules.prisoner_lives] would leave a prisoner with lives to spare
+## standing at the bottom of the pit, falling forever.
+##
+## A ghost is already out of the round; there is nothing left to take off it, and
+## it has exactly one placement, so it gets that one. (An [Area3D] cannot
+## currently see a ghost at all -- a ghost is on no collision layer, which is the
+## whole of "cannot be shot" -- so this arm is reached only if something else
+## reports the fall. It is written because the answer should not depend on that.)
+##
+## [b]The guard is put back, unharmed, and that is a decision awaiting a
+## ruling.[/b] The tower stands on an 8 m platform with a 12 m drop around it, so
+## the seat holder can walk off it, and a guard at the bottom of the pit is a
+## round that cannot be won and cannot be lost. Killing them would need a rule
+## nobody has written -- what an empty tower means, who gets it, whether the
+## round survives it -- and inventing one here would make it permanent by
+## accident. Putting them back on their own spawn invents nothing.
+##
+## A faller during the OPENING RACE is put back on the start line with their lap
+## reset, for the same reason and by the same reasoning: there is no shooter, so
+## there is nothing for a conversion to mean, and a racer stuck in the pit is a
+## race that never finishes and therefore a match that never begins. The
+## placement is the one [method start_race] already made them.
+func handle_fall(participant: MatchParticipant) -> bool:
+	if participant == null or is_resolved():
+		return false
+	match _phase:
+		Phase.RACE:
+			return _restart_race_lap(participant)
+		Phase.ROUND:
+			if participant.is_shooter:
+				return _return_seat_holder_to_tower()
+			if participant.is_ghost:
+				_place_ghost_at_start(participant)
+				return true
+			return convert_participant(participant)
+		_:
+			return false
+
+
+## Put a racer back on their own place on the start line, lap reset.
+##
+## Their own place: the race deals every participant out of the full field, so a
+## racer's lane is [member MatchParticipant.index] of
+## [method get_participants], which is exactly what
+## [method _place_runners] gave them when the race was armed.
+func _restart_race_lap(participant: MatchParticipant) -> bool:
+	if participant.body == null or not participant.is_running or not _geometry_ready:
+		return false
+	_place_on_track(participant, _start_place_for(participant.index, _participants.size()))
+	_settle_frames = SETTLE_PHYSICS_FRAMES
+	return true
+
+
+## Stand the seat holder back up on the tower without touching the round.
+##
+## No turn is counted, no round resolves, the reload is not retuned and the rifle
+## does not move -- it is already in their hands. This is a recovery from a fall,
+## not a seat change, and it is deliberately the ONLY thing about the match that
+## changes.
+##
+## It arms the round's settle, so the placement is woken by
+## [method _wake_bodies] exactly as the one [method start_round] makes is. A bot
+## guard therefore comes back scanning rather than still tracking whatever it saw
+## on the way down, which is the honest state for a body that has just been
+## somewhere else.
+func _return_seat_holder_to_tower() -> bool:
+	if _seat == null or _seat.body == null or not _geometry_ready:
+		return false
+	_place_in_tower(_seat)
+	_settle_frames = SETTLE_PHYSICS_FRAMES
+	return true
+
+
 # --- Ghosts -------------------------------------------------------------------
 
 ## Tick every ghost's grace clock and rule on any catch that has happened.
@@ -835,11 +945,13 @@ func _catchable_from(ghost: MatchParticipant, radius: float) -> MatchParticipant
 
 ## The catch: [param ghost] takes [param caught]'s spot, and they trade roles.
 ##
-## [b]Their spot, literally.[/b] The incoming prisoner inherits the arc the
-## caught one had run, so a catch changes WHO is alive and nothing else. It is
-## the plain reading of the canon sentence, and there is no switch on it: the
-## alternative would have to be justified by something the prisoners jointly
-## own, and they own nothing jointly -- there is no side for a catch to cost.
+## [b]Their spot, literally.[/b] The incoming prisoner stands where the caught
+## one stood and inherits the arc they had run, so a catch changes WHO is alive
+## and nothing else. It is the plain reading of the canon sentence, and there is
+## no switch on it: the alternative would have to be justified by something the
+## prisoners jointly own, and they own nothing jointly -- there is no side for a
+## catch to cost. The prisoner who was caught does not stay beside them: they are
+## a ghost now, and a ghost starts at the start. See [method _make_ghost].
 ##
 ## [b]It is a swap and it conserves the count.[/b] One living prisoner goes in
 ## and one comes out, so [method get_runners_remaining] is the same on both
@@ -868,16 +980,18 @@ func _swap_with_ghost(ghost: MatchParticipant, caught: MatchParticipant) -> void
 	ghost_caught.emit(ghost, caught)
 
 
-## Turn [param participant] into a ghost, where they stand.
+## Turn [param participant] into a ghost, and put them back on the start line.
 ##
-## Not a park and not a placement: the body is not moved, because a ghost picks
-## up from where the prisoner fell. What changes is what the body IS -- out of
+## Not a park: the body stays in the world. What changes is what it IS -- out of
 ## the target group, off the physics layer the rifle's ray reads, onto the ghost
-## colour, faster, and driven by the chase instead of the lap.
+## colour, faster, driven by the chase instead of the lap -- and WHERE it is,
+## which is the start, on the author's ruling: [i]"a ghost shold be placed back
+## at the start"[/i]. A ghost no longer picks up from where the prisoner fell.
 ##
 ## Called on the tick the rifle finishes a prisoner and on the tick a ghost
-## catches one. Both routes set the grace clock, because both leave a body
-## standing next to somebody it could otherwise take instantly.
+## catches one. Both routes set the grace clock. It survives the move to the
+## start line rather than being made redundant by it: the grace is what stops a
+## swap oscillating, and it has to hold whether or not the placement happened.
 func _make_ghost(participant: MatchParticipant) -> void:
 	var profile: GhostProfile = get_ghost_profile()
 	var body: PlayerController = participant.body
@@ -895,21 +1009,98 @@ func _make_ghost(participant: MatchParticipant) -> void:
 
 	body.remove_from_group(RUNNER_GROUP)
 	body.visible = true
-	# The whole of "cannot be shot": off every physics layer, so the rifle's ray
-	# passes through and an AI shooter's line-of-sight test finds nothing there.
-	# The MASK is left alone, so a ghost still stands on the deck and still
-	# cannot walk through the ring's cover -- it is unhittable, not incorporeal.
-	body.collision_layer = participant.home_collision_layer if profile.shootable else 0
-	body.collision_mask = participant.home_collision_mask
-	body.set_physics_process(true)
 	body.speed_scale = maxf(profile.speed_multiplier, 0.0)
 	_tint_body(participant, _ghost_material())
+	# Collision and motion come back in [method _wake_ghost], two physics frames
+	# from now, because the body is about to be moved the length of the ring.
+	_place_ghost_at_start(participant)
 
 	if participant.brain != null:
 		participant.brain.rules = get_rules()
 		participant.brain.begin_chase(RUNNER_GROUP)
 
 	runner_ghosted.emit(participant)
+
+
+## Put a freshly made ghost down on the start line, in its own place on it.
+##
+## [b]Which place is the whole of the problem.[/b] The field is dealt sideways
+## across the width of the track at one start angle -- see
+## [method _start_place_for] -- so "the start" is a LINE with several bodies
+## standing on it, and dropping a ghost on the marker itself would drop it inside
+## whoever is there. So a ghost is dealt out of the same line by the same
+## function, against the FULL roster rather than against the round's runners.
+##
+## That one difference is what makes the placement safe, and it is arithmetic
+## rather than luck. A round deals [code]N-1[/code] runners and this deals a
+## ghost out of [code]N[/code], so every ghost lane falls exactly half a spacing
+## from every runner lane, whatever N is; two ghosts are a full spacing apart
+## because no two participants share an index; and a participant's lane is the
+## same one every time they are ghosted, so a ghost made twice in a round lands
+## twice in the same clear place. The opening race is the one arming that deals
+## out of N as well, and no ghost can exist during it.
+##
+## The move itself goes through [method _hold_body] like every other placement in
+## this file. It has to: this is a kinematic body being sent up to a lap's worth
+## of ring with a live capsule, which is precisely the trap that method
+## documents. It is woken by [method _wake_settled_ghosts].
+func _place_ghost_at_start(participant: MatchParticipant) -> void:
+	var body: PlayerController = participant.body
+	if body == null or not _geometry_ready:
+		return
+	_hold_body(participant)
+	var place: Vector3 = _start_place_for(participant.index, _participants.size())
+	body.global_position = place
+	# Facing down the track, exactly as a prisoner placed on the line is. A human
+	# ghost dropped facing the wall would spend its first second turning round,
+	# and a ghost's first second is the one in which the field is still nearby.
+	body.rotation = Vector3(0.0, _heading_of(_track_tangent(_angle_of(place))), 0.0)
+	participant.ghost_settle_frames = SETTLE_PHYSICS_FRAMES
+
+
+## Give ghosts placed on the start line their collision and their motion back,
+## once the physics server has caught up with where they were put.
+##
+## [b]Ghosts settle on their own clock, and that is deliberate.[/b] Re-arming
+## [member _settle_frames] would be the obvious reuse and it would be wrong: that
+## counter ends in [method _wake_bodies], which ends in
+## [method _arm_tower_brain], which reconfigures the shooter in the tower -- so a
+## bot guard would forget the prisoner it was tracking every time it hit one. A
+## ghost is made in the MIDDLE of a round; nothing about the round is restarting.
+func _wake_settled_ghosts() -> void:
+	for participant: MatchParticipant in _participants:
+		if participant.ghost_settle_frames <= 0:
+			continue
+		participant.ghost_settle_frames -= 1
+		if participant.ghost_settle_frames > 0:
+			continue
+		if participant.is_ghost:
+			_wake_ghost(participant)
+		elif participant.is_shooter or participant.is_running:
+			# The ghost stopped being one inside its own settle -- a catch, on
+			# the tick after it was made. Somebody has to give the body back its
+			# collision or it plays the rest of the round as a spectator, and
+			# whoever put it back in the round did not hold it.
+			_wake_body(participant)
+
+
+## The collision a GHOST wakes up with, which is not the collision it was
+## authored with.
+##
+## Off every physics layer, so the rifle's ray passes through and an AI shooter's
+## line-of-sight test finds nothing there -- that is the whole of "cannot be
+## shot", and [member GhostProfile.shootable] is the switch that measures the
+## other answer. The MASK is the authored one, so a ghost still stands on the
+## deck and still cannot walk through the ring's cover: it is unhittable, not
+## incorporeal.
+func _wake_ghost(participant: MatchParticipant) -> void:
+	var body: PlayerController = participant.body
+	if body == null:
+		return
+	var profile: GhostProfile = get_ghost_profile()
+	body.collision_layer = participant.home_collision_layer if profile.shootable else 0
+	body.collision_mask = participant.home_collision_mask
+	body.set_physics_process(true)
 
 
 ## Take the ghost back off [param participant]: their colour, their pace, their
@@ -1035,7 +1226,7 @@ func _build_participants() -> void:
 func _make_human_participant() -> MatchParticipant:
 	var participant: MatchParticipant = MatchParticipant.new()
 	participant.kind = MatchParticipant.Kind.HUMAN
-	participant.display_name = "You"
+	participant.display_name = MatchRules.get_participant_name(0, true)
 	participant.body = player
 	participant.home_collision_layer = player.collision_layer
 	participant.home_collision_mask = player.collision_mask
@@ -1077,7 +1268,9 @@ func _make_ai_participant(slot: int) -> MatchParticipant:
 
 	var participant: MatchParticipant = MatchParticipant.new()
 	participant.kind = MatchParticipant.Kind.AI
-	participant.display_name = "Runner %d" % slot
+	# Named through the rules so the seat the Match tab offered and the seat the
+	# HUD reports are the same string. See [method MatchRules.get_participant_name].
+	participant.display_name = MatchRules.get_participant_name(slot, player != null)
 	participant.body = body
 	participant.brain = brain
 	participant.home_collision_layer = body.collision_layer
@@ -1299,6 +1492,10 @@ func _hold_body(participant: MatchParticipant) -> void:
 	body.collision_layer = 0
 	body.collision_mask = 0
 	body.set_physics_process(false)
+	# Whoever is holding the body now owns waking it. A ghost settle still
+	# running would otherwise hand this body its GHOST collision back two frames
+	# into a round that has just placed it as a prisoner.
+	participant.ghost_settle_frames = 0
 
 
 ## Give every placed body its collision and its motion back. Converted runners
@@ -1307,11 +1504,18 @@ func _wake_bodies() -> void:
 	for participant: MatchParticipant in _participants:
 		if not (participant.is_shooter or participant.is_running):
 			continue
-		var body: PlayerController = participant.body
-		body.collision_layer = participant.home_collision_layer
-		body.collision_mask = participant.home_collision_mask
-		body.set_physics_process(true)
+		_wake_body(participant)
 	_arm_tower_brain()
+
+
+## One body's authored collision and motion, back on.
+func _wake_body(participant: MatchParticipant) -> void:
+	var body: PlayerController = participant.body
+	if body == null:
+		return
+	body.collision_layer = participant.home_collision_layer
+	body.collision_mask = participant.home_collision_mask
+	body.set_physics_process(true)
 
 
 ## Put a converted runner's body out of the world: hidden, uncollidable, stopped

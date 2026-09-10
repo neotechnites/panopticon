@@ -306,10 +306,28 @@ enum GhostBehaviour {
 ## "who shoots first", and it is deliberately not a coin toss -- the seat is won
 ## by running, on the shipped map, with the shipped movement.
 ##
-## Off, the match opens with the first participant already in the tower on turn
-## one, which is what the game did before the race existed and what a harness
-## measuring a single round wants.
+## Off, the match opens with [member opening_seat_index] already in the tower on
+## turn one, which is what the game did before the race existed, what a harness
+## measuring a single round wants, and what the Match tab's race skip selects for
+## a player who is testing something and will not run the lap first.
 @export var open_with_race: bool = true
+
+## Who is already in the tower when a match does not open with a race.
+## [b]LIVE[/b], default 0 = the first participant, which is the human whenever
+## there is one.
+##
+## Read only while [member open_with_race] is false, and read exactly once, by
+## [method MatchController.start_match]. It grants the seat the same way the race
+## does -- the same [method MatchController.take_seat], the same turn one, the
+## same reload, the same round armed after it -- so a match that skipped the race
+## is a match whose race was won instantly by the named seat, and not a second
+## kind of match.
+##
+## An index this match has no participant for is clamped rather than refused: the
+## seat count depends on [member prisoner_count], the value can outlive a change
+## to it, and a saved preference naming a bot who no longer exists should hand
+## the tower to somebody rather than stop the game.
+@export_range(0, 31, 1, "or_greater") var opening_seat_index: int = 0
 
 ## Rounds a player must win AS THE SHOOTER to win the match. [b]LIVE[/b],
 ## default 1 = the shipped design: hold the tower through one round and it is
@@ -474,6 +492,24 @@ enum GhostBehaviour {
 ## rest are AI.
 func get_participant_count() -> int:
 	return maxi(prisoner_count, 1) + 1
+
+
+## What the participant in seat [param index] is called, given whether the match
+## has a human in it at all.
+##
+## Static, and here rather than in [MatchController], because a seat has to be
+## NAMEABLE before a match exists: the Match tab offers the player a seat to hand
+## the tower to while the only thing in the tree is a menu. The controller builds
+## its roster from this, so the name on the settings screen and the name in the
+## HUD are one string and cannot drift into two.
+##
+## Seat 0 is the human whenever there is one -- [MatchController] gives the human
+## the first slot -- and every other seat is an AI, numbered by its own index so
+## that "Runner 2" means the same body to the screen, the HUD and the log.
+static func get_participant_name(index: int, has_human: bool) -> String:
+	if has_human and index == 0:
+		return "You"
+	return "Runner %d" % index
 
 
 ## True when the prisoners should hold sprint. Keeps the enum comparison in one

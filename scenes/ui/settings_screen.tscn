@@ -69,10 +69,41 @@ text = "Catch and swap"
 
 [node name="GhostsSpacer" type="Control" parent="Frame/Dialog/Padding/Layout/Tabs/Match/Grid"]
 
+[node name="RaceName" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Match/Grid"]
+size_flags_vertical = 1
+vertical_alignment = 1
+text = "Opening Race"
+
+[node name="SkipRaceCheck" type="CheckBox" parent="Frame/Dialog/Padding/Layout/Tabs/Match/Grid"]
+size_flags_horizontal = 0
+unique_name_in_owner = true
+text = "Skip it"
+
+[node name="RaceSpacer" type="Control" parent="Frame/Dialog/Padding/Layout/Tabs/Match/Grid"]
+
+[node name="SeatName" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Match/Grid"]
+size_flags_vertical = 1
+vertical_alignment = 1
+text = "Tower Goes To"
+
+[node name="TowerSeatOption" type="OptionButton" parent="Frame/Dialog/Padding/Layout/Tabs/Match/Grid"]
+custom_minimum_size = Vector2(220, 0)
+size_flags_horizontal = 0
+size_flags_vertical = 1
+unique_name_in_owner = true
+editor_description = "Empty here on purpose. The seats are filled in by SettingsScreen._fill_choices from the shipped match rules, exactly as the display-mode and resolution lists are filled from their enums: a list typed into this scene would fall out of step with prisoner_count the first time anybody changed it. It is greyed out while the race is not being skipped, because there is nothing to hand the tower to when the tower is being raced for."
+
+[node name="SeatSpacer" type="Control" parent="Frame/Dialog/Padding/Layout/Tabs/Match/Grid"]
+
 [node name="GhostsNote" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Match"]
 autowrap_mode = 3
 editor_description = "What the mechanic is, for a player who has not met it. Nothing more: this is a description, not a disclaimer."
 text = "A shot prisoner returns as a ghost: faster, unshootable, and chasing. Catching a living prisoner takes their place, and their distance round the ring with it."
+
+[node name="RaceNote" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Match"]
+autowrap_mode = 3
+editor_description = "What skipping costs and what it does not, for a player deciding whether to. The second sentence is the one that matters: the round a skip produces is the round a race would have produced, so a skipped match is still the game."
+text = "A match normally opens with a race for the tower: everybody runs the ring and the first to the end takes it. Skip it and the tower is handed to the seat above instead, on turn one, with everybody else already running -- the same round the race would have started."
 
 [node name="Game" type="VBoxContainer" parent="Frame/Dialog/Padding/Layout/Tabs"]
 theme_override_constants/separation = 8
