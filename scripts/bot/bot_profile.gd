@@ -12,15 +12,6 @@ extends Resource
 ##
 ## Units are metres, seconds and radians unless a field name says otherwise.
 
-## How hard the runner is trying. This is a mode rather than a speed in m/s
-## because the actual speeds live in [MovementProfile] -- the bot must not get
-## its own private top speed, or bot telemetry would stop describing the game
-## humans play.
-enum SpeedMode {
-	WALK, ## Sprint released. 8 m/s on the tuned profile.
-	SPRINT, ## Sprint held. 11 m/s on the tuned profile.
-}
-
 # --- The track -----------------------------------------------------------------
 
 ## Distance from the arena centre that the runner steers back to and tries to
@@ -42,10 +33,6 @@ enum SpeedMode {
 ## bands. The other honest choices are ~38.5 (inboard of everything, outboard of
 ## the 0.5 m kerb at r=36) and ~51.0 (between middle and outer).
 @export_range(36.0, 60.0, 0.1) var track_radius: float = 44.5
-
-## Walk or sprint. The only speed knob, on purpose: everything else about pace
-## is [MovementProfile]'s business.
-@export var speed_mode: SpeedMode = SpeedMode.WALK
 
 # --- Steering ------------------------------------------------------------------
 
@@ -90,8 +77,3 @@ enum SpeedMode {
 ## [RingRunner].
 @export_range(0.1, 10.0, 0.1) var arrival_tolerance: float = 1.5
 
-
-## True when the runner should hold sprint. Keeps the enum comparison in one
-## place so callers never grow their own idea of what SPRINT means.
-func wants_sprint() -> bool:
-	return speed_mode == SpeedMode.SPRINT

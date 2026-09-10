@@ -24,7 +24,7 @@ size_flags_horizontal = 3
 theme_override_constants/h_separation = 8
 theme_override_constants/v_separation = 4
 columns = 4
-editor_description = "One GridContainer, not nine HBoxContainers. A grid shares its column widths across every row, so the name, the two slots and Reset stay in line whatever the bindings are called and whatever the theme font measures. Nine authored rows in the order the player reads them -- movement, then jump/sprint/crouch, then fire/aim -- which is also what stops Godot's own ui_* actions from ever appearing here."
+editor_description = "One GridContainer, not nine HBoxContainers. A grid shares its column widths across every row, so the name, the two slots and Reset stay in line whatever the bindings are called and whatever the theme font measures. One authored row per action, in the order the player reads them -- movement, then jump/crouch, then fire/aim -- which is also what stops Godot's own ui_* actions from ever appearing here."
 
 [node name="MoveForwardName" type="Label" parent="Layout/Scroll/Table"]
 size_flags_horizontal = 3
@@ -134,28 +134,6 @@ text = "Unbound"
 
 [node name="JumpReset" type="Button" parent="Layout/Scroll/Table"]
 tooltip_text = "Restore the shipped bindings for Jump"
-text = "Reset"
-
-[node name="SprintName" type="Label" parent="Layout/Scroll/Table"]
-size_flags_horizontal = 3
-size_flags_vertical = 1
-vertical_alignment = 1
-text = "Sprint"
-
-[node name="SprintSlot1" type="Button" parent="Layout/Scroll/Table"]
-custom_minimum_size = Vector2(128, 0)
-size_flags_horizontal = 3
-tooltip_text = "Rebind Sprint (slot 1)"
-text = "Unbound"
-
-[node name="SprintSlot2" type="Button" parent="Layout/Scroll/Table"]
-custom_minimum_size = Vector2(128, 0)
-size_flags_horizontal = 3
-tooltip_text = "Rebind Sprint (slot 2)"
-text = "Unbound"
-
-[node name="SprintReset" type="Button" parent="Layout/Scroll/Table"]
-tooltip_text = "Restore the shipped bindings for Sprint"
 text = "Reset"
 
 [node name="SlideName" type="Label" parent="Layout/Scroll/Table"]

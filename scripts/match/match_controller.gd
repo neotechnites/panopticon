@@ -165,7 +165,9 @@ signal round_resolved(outcome: Outcome)
 ## match stops here: nothing resolves afterwards.
 signal match_won(participant: MatchParticipant)
 
-## Emitted when a runner is converted, carrying how many are still running.
+## Emitted when a runner leaves the field, carrying how many are still running.
+## Both endings fire it: a prisoner converted in a round, and a racer who falls
+## out of the opening race.
 signal runner_removed(remaining: int)
 
 ## Emitted when a participant becomes a ghost, by either route: the rifle
@@ -325,7 +327,7 @@ var _round_runner_count: int = 0
 ## once-only guard shows up here as a number greater than the rounds played.
 var _resolve_count: int = 0
 
-## Runners the rifle has converted in the current round.
+## Runners out of the current round or race: converted by the rifle, or fallen.
 var _removed_count: int = 0
 
 ## Keeps the unimplemented-win-condition complaint to one line per round instead
@@ -665,7 +667,7 @@ func get_resolve_count() -> int:
 	return _resolve_count
 
 
-## Runners the rifle has converted in the current round.
+## Runners out of the current round or race: converted by the rifle, or fallen.
 func get_runners_removed() -> int:
 	return _removed_count
 
@@ -809,7 +811,7 @@ func apply_hit(participant: MatchParticipant) -> bool:
 ## a prisoner -> convert_participant(): the rifle's own ending
 ## a ghost    -> put back on the start line: where a ghost is made
 ## the guard  -> put back on the tower: where the seat holder stands
-## a racer    -> put back on the start line, lap and all: where the race put them
+## a racer    -> OUT, and if that was the last one, the match restarts
 ## [/codeblock]
 ##
 ## A prisoner goes through [method convert_participant] and no other door, which
@@ -834,17 +836,18 @@ func apply_hit(participant: MatchParticipant) -> bool:
 ## round survives it -- and inventing one here would make it permanent by
 ## accident. Putting them back on their own spawn invents nothing.
 ##
-## A faller during the OPENING RACE is put back on the start line with their lap
-## reset, for the same reason and by the same reasoning: there is no shooter, so
-## there is nothing for a conversion to mean, and a racer stuck in the pit is a
-## race that never finishes and therefore a match that never begins. The
-## placement is the one [method start_race] already made them.
+## [b]A faller during the OPENING RACE is out[/b], by the author's ruling:
+## [i]"if a racer falls durring the opening race they can be out. if everyone
+## goes out, the match restarts."[/i] Not respawned, and not turned into a ghost
+## -- there is no shooter during the race, so a conversion would mean nothing.
+## See [method _fall_out_of_race] for what OUT is made of and
+## [method _restart_after_an_empty_race] for the other half of the ruling.
 func handle_fall(participant: MatchParticipant) -> bool:
 	if participant == null or is_resolved():
 		return false
 	match _phase:
 		Phase.RACE:
-			return _restart_race_lap(participant)
+			return _fall_out_of_race(participant)
 		Phase.ROUND:
 			if participant.is_shooter:
 				return _return_seat_holder_to_tower()
@@ -856,18 +859,60 @@ func handle_fall(participant: MatchParticipant) -> bool:
 			return false
 
 
-## Put a racer back on their own place on the start line, lap reset.
+## Take a racer out of the opening race for good.
 ##
-## Their own place: the race deals every participant out of the full field, so a
-## racer's lane is [member MatchParticipant.index] of
-## [method get_participants], which is exactly what
-## [method _place_runners] gave them when the race was armed.
-func _restart_race_lap(participant: MatchParticipant) -> bool:
-	if participant.body == null or not participant.is_running or not _geometry_ready:
+## OUT is [method _park_body] and nothing else: the body is hidden, stripped of
+## its collision, stopped, taken out of [constant RUNNER_GROUP] and buried in the
+## pen, its brain is silenced and its lap tracker is stopped. That is the same
+## ending a converted prisoner gets under
+## [constant MatchRules.GhostBehaviour.NONE], reached through the same method,
+## which is what keeps a fall from becoming a second death path.
+##
+## What it costs them, concretely: [member MatchParticipant.is_running] goes
+## false, so they are gone from [method get_live_participants] and from
+## [method get_runners_remaining], and [method _on_participant_arrived] refuses
+## them -- a racer who is out cannot cross the line and cannot take the tower.
+## They are out of the RACE and not out of the MATCH: they are still in
+## [method get_participants], and [method start_round] puts every non-seat
+## participant back on the track, so the racer who fell runs the first round as a
+## prisoner like everybody else.
+##
+## No ghost is made whatever [member MatchRules.ghost_behaviour] says. A ghost
+## exists to chase prisoners for a shooter, and the race has no shooter and no
+## prisoners; a ghost armed here would be a chaser hunting the field of a race it
+## was just removed from.
+func _fall_out_of_race(participant: MatchParticipant) -> bool:
+	if participant.body == null or not participant.is_running:
 		return false
-	_place_on_track(participant, _start_place_for(participant.index, _participants.size()))
-	_settle_frames = SETTLE_PHYSICS_FRAMES
+
+	participant.is_running = false
+	participant.lives = 0
+	_park_body(participant)
+	_removed_count += 1
+
+	runner_removed.emit(get_runners_remaining())
+	_restart_after_an_empty_race()
 	return true
+
+
+## The second half of the ruling: an empty race restarts the match.
+##
+## [i]"if everyone goes out, the match restarts."[/i] With every racer in the pen
+## there is nobody left to reach the end, so the race can never be scored, the
+## tower can never be granted and the match would sit in
+## [constant Phase.RACE] forever. [method start_match] is the restart -- the same
+## one the pause menu offers -- so the field comes back on the line, the lap
+## counters are fresh and the race is armed again from the top.
+##
+## Restarting from inside a fall is safe for the same reason
+## [method _on_participant_arrived] may arm a round from inside a lap: the
+## roster is unchanged, so [method _build_participants] is a no-op and no body is
+## freed or instanced here. Everything else is placement, which is what
+## [constant SETTLE_PHYSICS_FRAMES] exists for.
+func _restart_after_an_empty_race() -> void:
+	if _phase != Phase.RACE or get_runners_remaining() > 0:
+		return
+	restart()
 
 
 ## Stand the seat holder back up on the tower without touching the round.

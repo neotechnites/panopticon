@@ -194,9 +194,7 @@ func _physics_process(delta: float) -> void:
 	# vector, so that the accelerate routines stay dimensionally correct.
 	var wish_vector: Vector3 = _get_wish_vector()
 	var wish_direction: Vector3 = wish_vector.normalized()
-	var wish_speed: float = (
-		profile.get_ground_speed(_intent.sprint_held) * wish_vector.length() * speed_scale
-	)
+	var wish_speed: float = profile.ground_speed * wish_vector.length() * speed_scale
 
 	if _sliding:
 		# --- Slide phase ---
@@ -566,9 +564,9 @@ func _accelerate(wish_direction: Vector3, wish_speed: float, acceleration: float
 ##    started with. Speed accumulates every tick you keep the angle, without
 ##    limit, and is only lost on touching the ground.
 ##
-## Sprinting deliberately does not raise the cap, matching sv_maxairspeed being
-## an absolute in every engine in this family: the air is where skill decides
-## your speed, not the sprint key.
+## The ground speed deliberately does not raise the cap, matching sv_maxairspeed
+## being an absolute in every engine in this family: the air is where skill
+## decides your speed, not the movement keys.
 func _air_accelerate(wish_direction: Vector3, wish_speed: float, delta: float) -> void:
 	var capped_wish_speed: float = minf(wish_speed, profile.max_air_speed)
 	var speed_along_wish: float = velocity.dot(wish_direction)

@@ -24,11 +24,17 @@ extends Resource
 
 # --- Ground speed -------------------------------------------------------------
 
-## Target horizontal speed while walking. (Quake/HL sv_maxspeed, 320 u/s.)
-@export_range(0.0, 40.0, 0.1, "or_greater") var walk_speed: float = 8.0
-
-## Target horizontal speed while sprint is held.
-@export_range(0.0, 40.0, 0.1, "or_greater") var sprint_speed: float = 11.0
+## Target horizontal speed on the ground. The only ground speed there is.
+##
+## There were two -- a walk at 8.0 and a sprint at 11.0 held on Shift -- until
+## the author retired sprint ("for now we dont need sprint"). The number kept is
+## the SPRINT one, deliberately: dropping the input must not make the game
+## slower than the pace it was actually played and tuned at, and 11 m/s is what
+## a player holding Shift and every bot crossing open ground was already doing.
+## (Quake/HL sv_maxspeed is 320 u/s -> 8.13 m/s; this is above it, and the
+## strafe model does not care -- the air cap is [member max_air_speed] and is
+## independent of this.)
+@export_range(0.0, 40.0, 0.1, "or_greater") var ground_speed: float = 11.0
 
 # --- Acceleration -------------------------------------------------------------
 
@@ -111,13 +117,13 @@ extends Resource
 # player converts a run into the speed that air strafing then compounds. The
 # numbers below are chosen so that
 #
-#   sprint (11) -> slide entry boost -> slide_boost_speed_cap (14)
+#   ground_speed (11) -> slide entry boost -> slide_boost_speed_cap (14)
 #
 # is the fastest a player can go without ever leaving the ground, and everything
 # past 14 m/s has to be earned in the air. That division is deliberate: the
 # floor of the skill curve is a keypress, the ceiling is a technique.
 
-## Slowest a body may be moving and still open a slide. Above walk pace on
+## Slowest a body may be moving and still open a slide. Under the ground speed on
 ## purpose -- a slide is something you do out of a run, not a way to start
 ## moving, and a standing slide would be a free dodge with no commitment.
 @export_range(0.0, 30.0, 0.1, "or_greater") var slide_min_entry_speed: float = 7.0
@@ -222,11 +228,6 @@ extends Resource
 ## Effective gravity, after the sweep multiplier.
 func get_effective_gravity() -> float:
 	return gravity * gravity_scale
-
-
-## Target ground speed for the given sprint state.
-func get_ground_speed(sprinting: bool) -> float:
-	return sprint_speed if sprinting else walk_speed
 
 
 ## Height a jump from level ground reaches, in metres. Derived, not tuned:

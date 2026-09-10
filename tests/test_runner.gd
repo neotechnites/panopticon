@@ -12,7 +12,7 @@ extends TestCase
 ## Simulated seconds a lap is allowed to take before the test gives up.
 ##
 ## The track is r=44.5, so the ~350 degree lap is about 272 m; at
-## [member MovementProfile.walk_speed] that is 34 s, plus the second or so the
+## [member MovementProfile.ground_speed] that is 25 s, plus the second or so the
 ## body spends accelerating up to it. Sixty is generous without being a licence
 ## for a runner that has ground to a halt against something.
 const LAP_BUDGET_SECONDS: float = 60.0
@@ -88,10 +88,10 @@ func test_a_runner_completes_a_lap() -> void:
 		"the measured path should be close to the track's own arc (%.1f m)" % lap_arc,
 	)
 
-	# Sanity on the pace: the body cannot beat walk speed on the ground, and a
-	# lap far slower than that means it spent the round stuck on something.
-	var fastest_possible: float = _finished_path / _profile_walk_speed()
-	assert_ge(_finished_elapsed, fastest_possible, "a lap cannot be run faster than walk speed")
+	# Sanity on the pace: the body cannot beat the ground speed, and a lap far
+	# slower than that means it spent the round stuck on something.
+	var fastest_possible: float = _finished_path / _body.profile.ground_speed
+	assert_ge(_finished_elapsed, fastest_possible, "a lap cannot be run faster than the ground speed")
 	assert_lt(_finished_elapsed, fastest_possible * 1.5, "the runner should not be stalling")
 
 	# It must finish where the lap ends, not wherever the arc counter happened
@@ -183,8 +183,3 @@ func _radius_of(point: Vector3) -> float:
 	var centre: Vector3 = _arena.global_position
 	return Vector2(point.x - centre.x, point.z - centre.z).length()
 
-
-## The ground speed the runner's body is actually capable of, read from the
-## movement profile the shipped player scene carries rather than restated here.
-func _profile_walk_speed() -> float:
-	return _body.profile.get_ground_speed(_profile.wants_sprint())

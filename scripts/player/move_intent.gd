@@ -24,9 +24,6 @@ var jump_pressed: bool = false
 ## True for as long as jump is held. Drives auto bunny hopping.
 var jump_held: bool = false
 
-## True while the body wants to sprint.
-var sprint_held: bool = false
-
 ## True on the tick slide was first requested. Edge-triggered; feeds the slide
 ## buffer, so a press made just before touchdown still opens a slide on landing.
 ##
@@ -48,7 +45,6 @@ func clear() -> void:
 	look_delta = Vector2.ZERO
 	jump_pressed = false
 	jump_held = false
-	sprint_held = false
 	slide_pressed = false
 	slide_held = false
 
@@ -65,6 +61,5 @@ func copy_from(other: MoveIntent) -> void:
 	look_delta = other.look_delta
 	jump_pressed = other.jump_pressed
 	jump_held = other.jump_held
-	sprint_held = other.sprint_held
 	slide_pressed = other.slide_pressed
 	slide_held = other.slide_held

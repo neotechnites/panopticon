@@ -305,7 +305,6 @@ func _physics_process(delta: float) -> void:
 	# phase -- friction, floor snap, the lot -- exactly as it does for a human
 	# who is standing still.
 	input.command.move_direction = Vector2.ZERO
-	input.command.sprint_held = false
 
 	var target: PlayerController = _choose_target(_visible_targets())
 	if target == null:

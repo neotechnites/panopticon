@@ -47,10 +47,6 @@ const SPAWN_TOLERANCE_METRES: float = 0.5
 ## How close two angles about the ring axis must be to count as the same bearing.
 const START_ANGLE_TOLERANCE: float = 1e-3
 
-## The same, for a racer measured after the placement has woken and they have run
-## for a few ticks. At the track radius this is about a metre of ground.
-const RACE_ANGLE_TOLERANCE: float = 0.03
-
 var _match: Node3D
 var _controller: MatchController
 var _rules: MatchRules
@@ -69,6 +65,10 @@ var _ghosted_at: Array[Vector3] = []
 
 var _resolutions: int = 0
 
+## Races armed since before_each finished wiring. The only way to tell a restart
+## from a race that simply never ended: the phase reads RACE either way.
+var _races_started: int = 0
+
 
 func before_each() -> void:
 	_match = TestFixtures.make_match()
@@ -83,6 +83,7 @@ func before_each() -> void:
 
 	_controller.runner_ghosted.connect(_on_runner_ghosted)
 	_controller.round_resolved.connect(_on_round_resolved)
+	_controller.race_started.connect(_on_race_started)
 
 	var arena: Node3D = _match.get_node("Arena") as Node3D
 	_centre = arena.global_position
@@ -270,50 +271,119 @@ func test_the_guard_who_falls_in_is_put_back_on_the_tower() -> void:
 
 # --- The opening race ---------------------------------------------------------
 
-## A racer who falls in is put back on the start line with their lap reset.
+## A racer who falls in is OUT of the race.
 ##
-## [b]Also a decision made in the absence of a ruling.[/b] During the race there
-## is no shooter, so there is nothing for a conversion to mean and no ghost for
-## anybody to become -- and a racer left at the bottom of the courtyard is a race
-## that never finishes and therefore a match that never begins. So they get the
-## placement [method MatchController.start_race] already gave them, and pay for
-## the fall in the only currency the race has, which is the lap.
-func test_a_racer_who_falls_in_is_put_back_on_the_start_line() -> void:
+## The author's ruling: [i]"if a racer falls durring the opening race they can be
+## out."[/i] It replaced a respawn an agent had invented. OUT is the same parking
+## a converted prisoner gets under
+## [constant MatchRules.GhostBehaviour.NONE] -- body out of the world, brain
+## stopped, tracker stopped -- and it is NOT a ghost: the race has no shooter, so
+## there is nothing for a ghost to chase and nothing for a conversion to mean.
+##
+## What the rest of the field does is the other half of the claim, and it is
+## asserted here too: one racer falling costs one racer, the race stays on, and
+## the tower stays empty until somebody still running crosses the line.
+func test_a_racer_who_falls_in_is_out_of_the_race() -> void:
 	# Back to the top of the match: before_each handed the tower over to get a
 	# round, and this is the one test that wants the race.
 	_controller.start_match()
 	await step_ticks(SETTLE_TICKS)
 	assert_eq_string(_controller.get_phase_name(), "RACE", "the match is racing")
 
-	# A bot, because the human's body has nobody at the keyboard to drive it and a
-	# racer who never left the line has no lap to lose.
+	# A bot, because the human's body has nobody at the keyboard to drive it.
 	var racer: MatchParticipant = _first_bot_racer()
 	assert_not_null(racer, "the race has a bot in it")
 	if racer == null:
 		return
-	assert_gt(racer.tracker.get_progress(), 0.0, "the racer has a lap to lose")
+	var field: int = _controller.get_participants().size()
+	assert_gt(field, 1, "there is a field to be removed from")
 
 	_put_in_the_courtyard(racer)
 	await step_ticks(FALL_TICKS)
 
-	assert_eq_string(_controller.get_phase_name(), "RACE", "the race is still on")
-	assert_true(racer.is_running, "the racer is still racing")
+	assert_false(racer.is_running, "the racer is out")
 	assert_false(racer.is_ghost, "there is no shooter, so there is no ghost to become")
-	assert_null(_controller.get_seat_participant(), "and still nobody in the tower")
-	assert_gt(
+	assert_false(racer.body.visible, "their body is out of the world")
+	assert_eq_int(racer.body.collision_layer, 0, "and cannot be touched")
+	assert_false(racer.body.is_physics_processing(), "or move")
+	assert_false(
+		racer.body.is_in_group(MatchController.RUNNER_GROUP),
+		"and is not a runner any more",
+	)
+	assert_lt(
 		racer.body.global_position.y, PIT_FLOOR_Y,
-		"they are not left standing at the bottom of the courtyard",
+		"they are parked in the pen, not standing at the bottom of the courtyard",
 	)
-	assert_almost_eq(
-		absf(wrapf(_angle_about(racer.body.global_position) - _angle_about(_start_point), -PI, PI)),
-		0.0, RACE_ANGLE_TOLERANCE,
-		"they are back at the start line",
+
+	assert_eq_string(_controller.get_phase_name(), "RACE", "the race is still on")
+	assert_eq_int(
+		_controller.get_runners_remaining(), field - 1,
+		"and it cost exactly the one racer",
 	)
-	assert_almost_eq(racer.tracker.get_progress(), 0.0, 0.05, "with the lap to run again")
+	assert_null(_controller.get_seat_participant(), "with still nobody in the tower")
+
+
+## An out racer cannot cross the line, so they cannot take the tower.
+##
+## The arrival seam is where OUT has to bite or it is only cosmetic: the race is
+## scored first-past-the-post through
+## [signal MatchLapTracker.lap_finished], and a parked racer whose tracker still
+## reported would win a race from the bottom of the pen.
+func test_a_racer_who_is_out_cannot_take_the_tower() -> void:
+	_controller.start_match()
+	await step_ticks(SETTLE_TICKS)
+
+	var racer: MatchParticipant = _first_bot_racer()
+	assert_not_null(racer, "the race has a bot in it")
+	if racer == null:
+		return
+
+	_put_in_the_courtyard(racer)
+	await step_ticks(FALL_TICKS)
+	assert_false(racer.is_running, "the racer is out")
+
+	# Fired by hand: the tracker has been stopped, which is the point -- this is
+	# the loudest possible version of the report it can no longer make.
+	racer.tracker.lap_finished.emit(30.0, 240.0)
+	await step_ticks(2)
+
+	assert_eq_string(_controller.get_phase_name(), "RACE", "the race is still on")
+	assert_null(_controller.get_seat_participant(), "and the tower is still empty")
+
+
+## Every racer out means the match restarts.
+##
+## The rest of the author's ruling: [i]"if everyone goes out, the match
+## restarts."[/i] With the whole field parked nobody can ever reach the end, so
+## the race is unscoreable and the match would sit in it forever. The restart is
+## counted off [signal MatchController.race_started] rather than inferred from
+## the phase, because the phase is RACE both before and after and only the
+## signal tells the two apart.
+func test_the_match_restarts_when_every_racer_falls_out() -> void:
+	_controller.start_match()
+	await step_ticks(SETTLE_TICKS)
+	assert_eq_int(_races_started, 1, "one race has been armed")
+
+	_put_the_whole_field_in_the_courtyard()
+	await step_ticks(FALL_TICKS)
+
+	assert_eq_int(_races_started, 2, "the match restarted the moment the field emptied")
+	assert_eq_string(_controller.get_phase_name(), "RACE", "into another race")
 	assert_eq_int(
 		_controller.get_runners_remaining(), _controller.get_participants().size(),
-		"and the whole field is still in the race",
+		"with the whole field back on the line",
 	)
+	assert_null(_controller.get_seat_participant(), "and nobody in the tower")
+	for participant: MatchParticipant in _controller.get_participants():
+		assert_true(participant.body.visible, "%s is back in the world" % participant.display_name)
+		assert_gt(
+			participant.body.global_position.y, PIT_FLOOR_Y,
+			"%s is out of the pen" % participant.display_name,
+		)
+		assert_almost_eq(
+			participant.tracker.get_progress(), 0.0, 0.05,
+			"%s has the whole lap to run again" % participant.display_name,
+		)
 
 
 # --- Helpers ------------------------------------------------------------------
@@ -329,6 +399,20 @@ func test_a_racer_who_falls_in_is_put_back_on_the_start_line() -> void:
 func _put_in_the_courtyard(participant: MatchParticipant) -> void:
 	participant.body.velocity = Vector3.ZERO
 	participant.body.global_position = _centre + Vector3(0.0, DROP_HEIGHT_METRES, 0.0)
+
+
+## Put every participant in the courtyard at once, spread out.
+##
+## Spread, because [method _put_in_the_courtyard]'s licence to teleport is that
+## the courtyard is empty -- stacking the field in one cubic metre is exactly the
+## depenetration trap that licence depends on not happening. Two metres apart is
+## clear of the capsules and still deep inside a volume 35 m across.
+func _put_the_whole_field_in_the_courtyard() -> void:
+	for participant: MatchParticipant in _controller.get_participants():
+		participant.body.velocity = Vector3.ZERO
+		participant.body.global_position = _centre + Vector3(
+			float(participant.index) * 2.0, DROP_HEIGHT_METRES, 0.0
+		)
 
 
 ## The first participant in the race who is actually running under its own power.
@@ -364,3 +448,7 @@ func _on_runner_ghosted(participant: MatchParticipant) -> void:
 
 func _on_round_resolved(_outcome: MatchController.Outcome) -> void:
 	_resolutions += 1
+
+
+func _on_race_started() -> void:
+	_races_started += 1

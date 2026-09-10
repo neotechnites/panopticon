@@ -269,8 +269,7 @@ func get_aim_tolerance_radians() -> float:
 
 
 ## True when the bot should reach for the scope. One place, so no caller grows
-## its own idea of what "uses the optic" means -- the same rule
-## [method BotProfile.wants_sprint] follows.
+## its own idea of what "uses the optic" means.
 func wants_optic() -> bool:
 	return use_optic
 

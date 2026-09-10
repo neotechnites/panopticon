@@ -159,7 +159,7 @@ func test_ground_friction_brings_the_body_to_rest() -> void:
 
 	# Released controls, a running shove, and nothing but friction to answer it.
 	_input.command.clear()
-	_body.velocity = Vector3(_profile.walk_speed, 0.0, 0.0)
+	_body.velocity = Vector3(_profile.ground_speed, 0.0, 0.0)
 	var launch_speed: float = _body.get_horizontal_speed()
 	await step_ticks(1)
 	assert_lt(
@@ -429,13 +429,12 @@ func _run_up() -> MoveIntent:
 
 	var intent: MoveIntent = MoveIntent.new()
 	intent.move_direction = Vector2(0.0, 1.0)
-	intent.sprint_held = true
 	await _drive(intent, 110)
 
 	assert_true(_body.is_on_floor(), "the run-up should leave the body on the floor")
 	assert_almost_eq(
-		_body.get_horizontal_speed(), _profile.sprint_speed, 0.01,
-		"the run-up should reach sprint speed",
+		_body.get_horizontal_speed(), _profile.ground_speed, 0.01,
+		"the run-up should reach the ground speed",
 	)
 	return intent
 

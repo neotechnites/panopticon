@@ -14,7 +14,7 @@ extends Control
 ##   eye while both hands are busy.
 ## - [b]A rail with a peak marker[/b], because the eye reads a position on a
 ##   line far faster than it reads a changing number, and because the peak is
-##   what a run is scored on. Walk, sprint and the slide's boost ceiling are
+##   what a run is scored on. The ground speed and the slide's thresholds are
 ##   ticked onto the rail from [MovementProfile], so the live speed is always
 ##   shown against the thresholds that produced it rather than against nothing.
 ## - [b]The hop ledger[/b]: the speed the last jump left the ground with and the
@@ -109,14 +109,13 @@ func _process(delta: float) -> void:
 # --- Rail ---------------------------------------------------------------------
 
 ## Put a tick and a caption on the rail at every speed the profile names, so the
-## live bar is read against walk, sprint and the slide's ceiling rather than
+## live bar is read against the ground speed and the slide's ceiling rather than
 ## against an unlabelled scale.
 func _build_rail_ticks() -> void:
 	if rail == null or body.profile == null:
 		return
 	var profile: MovementProfile = body.profile
-	_add_tick(profile.walk_speed, "walk")
-	_add_tick(profile.sprint_speed, "sprint")
+	_add_tick(profile.ground_speed, "ground")
 	_add_tick(profile.slide_min_entry_speed, "slide from")
 	_add_tick(profile.slide_boost_speed_cap, "slide cap")
 
@@ -157,11 +156,11 @@ func _lay_out_rail(speed: float) -> void:
 		)
 
 
-## Green under sprint, amber to the slide ceiling, hot above it -- the three
-## regimes the movement actually has.
+## Green up to the ground speed, amber to the slide ceiling, hot above it -- the
+## three regimes the movement actually has.
 func _speed_colour(speed: float) -> Color:
 	var profile: MovementProfile = body.profile
-	if profile == null or speed <= profile.sprint_speed:
+	if profile == null or speed <= profile.ground_speed:
 		return Color(0.36, 0.72, 0.44, 1.0)
 	if speed <= profile.slide_boost_speed_cap:
 		return Color(0.86, 0.70, 0.26, 1.0)
@@ -187,7 +186,7 @@ func _describe_detail() -> String:
 		hop = "hop     left %.2f  -->  landed %.2f  (%+.2f)" % [
 			_launch_speed, _landing_speed, _landing_speed - _launch_speed,
 		]
-	return "%s\nkeys    WASD move / Shift sprint / Space jump (hold to bunny hop) / Ctrl slide\npeak    resets after %.1f s standing still" % [
+	return "%s\nkeys    WASD move / Space jump (hold to bunny hop) / Shift slide\npeak    resets after %.1f s standing still" % [
 		hop, peak_reset_idle_seconds,
 	]
 

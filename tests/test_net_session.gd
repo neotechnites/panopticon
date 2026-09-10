@@ -379,13 +379,13 @@ func test_a_clients_intent_drives_its_body_through_the_same_seam_a_bot_uses() ->
 	if bot_source == null:
 		return
 	bot_source.command.move_direction = Vector2(0.0, 1.0)
-	bot_source.command.sprint_held = true
+	bot_source.command.jump_held = true
 
 	var arrived: bool = await NetFixtures.poll_until(
 		self,
 		func() -> bool:
 			var source: RemoteIntentSource = host_link.get_remote_source()
-			return source != null and source.last_tick >= 0 and source.command.sprint_held
+			return source != null and source.last_tick >= 0 and source.command.jump_held
 	)
 	assert_true(arrived, "the client's intent reached the authority")
 	assert_almost_eq(

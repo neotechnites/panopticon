@@ -27,7 +27,6 @@ watched_confidence_penalty = 0.8
 path_samples = 12
 free_crossing_metres = 8.0
 max_crossing_metres = 60.0
-sprint_while_crossing = true
 cover_search_arc_degrees = 75.0
 cover_search_steps = 28
 cover_search_radial_span = 22.0
