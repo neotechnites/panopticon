@@ -29,6 +29,11 @@ var sprint_held: bool = false
 
 ## True on the tick slide was first requested. Edge-triggered; feeds the slide
 ## buffer, so a press made just before touchdown still opens a slide on landing.
+##
+## [PlayerController] latches the rising edge itself rather than trusting this
+## field to be one tick wide, so a source that reports the button as a level --
+## a reused struct handed to [method PlayerController.set_intent], say -- opens
+## exactly one slide per press like every other source.
 var slide_pressed: bool = false
 
 ## True for as long as slide is held. A slide ends early when this goes false,

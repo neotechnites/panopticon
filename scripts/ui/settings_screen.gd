@@ -1,24 +1,27 @@
 class_name SettingsScreen
 extends Control
 
-## Every setting the player can change, on four tabs, built entirely in code.
+## Every setting the player can change, on four tabs.
 ##
-## Built in code rather than laid out in a [code].tscn[/code] on purpose. There
-## is no art direction yet, the instruction is maximum simplicity, and a scene
-## file full of hand-placed default-themed controls is a merge conflict that
-## nobody can read a diff of. When the game has a visual identity this file is
-## where the theme goes, or it is replaced wholesale by a designed scene talking
-## to the same [SettingsStore]. Nothing outside this file knows how it looks.
+## The layout lives in [code]scenes/ui/settings_screen.tscn[/code] and this file
+## drives data into it. It used to build the whole screen in code, on the theory
+## that a scene full of default-themed controls was an unreadable diff. The
+## trade was worse than it looked: nothing was laid out where a person could see
+## it, every column width was a number guessed twice in two different functions,
+## and the result only lined up as long as the guesses held. Structure in the
+## scene, values in the script; when the game gets a visual identity the scene is
+## where the theme goes and nothing here has to change.
+##
+## [b]Instantiate the scene -- do not construct this class.[/b] [MainMenu] and
+## [PauseMenu] both load the scene, so there is one settings screen rather than
+## two that can disagree. [code]SettingsScreen.new()[/code] would hand back a
+## bare [Control] with none of its controls.
 ##
 ## [b]Apply live, save on close.[/b] Every control writes its value into the
 ## store and applies it the moment it moves, so a volume slider is audible while
 ## dragging and a resolution change is visible immediately. The file is written
 ## once, on [method close] -- except for rebinds, which [KeybindPanel] saves
 ## itself because they are rare and losing one is maddening.
-##
-## Drop it anywhere: as a child of [PauseMenu], as the root of
-## [code]scenes/ui/settings_screen.tscn[/code] for a main menu, or into a test.
-## Its only dependency is the store, which it fetches for itself.
 
 ## Emitted when the player leaves the screen, after the file is written.
 signal closed()
@@ -27,26 +30,27 @@ signal closed()
 ## back from Escape while a rebind is in flight.
 signal capture_state_changed(capturing: bool)
 
+@onready var _keybind_panel: KeybindPanel = %KeybindPanel
+
+@onready var _sensitivity_slider: HSlider = %SensitivitySlider
+@onready var _sensitivity_value: Label = %SensitivityValue
+@onready var _invert_check: CheckBox = %InvertCheck
+@onready var _fov_slider: HSlider = %FovSlider
+@onready var _fov_value: Label = %FovValue
+
+@onready var _master_slider: HSlider = %MasterSlider
+@onready var _master_value: Label = %MasterValue
+@onready var _effects_slider: HSlider = %EffectsSlider
+@onready var _effects_value: Label = %EffectsValue
+@onready var _music_slider: HSlider = %MusicSlider
+@onready var _music_value: Label = %MusicValue
+
+@onready var _display_mode_option: OptionButton = %DisplayModeOption
+@onready var _resolution_option: OptionButton = %ResolutionOption
+@onready var _vsync_option: OptionButton = %VsyncOption
+@onready var _audio_note: Label = %Note
+
 var _store: SettingsStore = null
-var _keybind_panel: KeybindPanel = null
-
-var _sensitivity_slider: HSlider = null
-var _sensitivity_value: Label = null
-var _invert_check: CheckBox = null
-var _fov_slider: HSlider = null
-var _fov_value: Label = null
-
-var _master_slider: HSlider = null
-var _master_value: Label = null
-var _effects_slider: HSlider = null
-var _effects_value: Label = null
-var _music_slider: HSlider = null
-var _music_value: Label = null
-
-var _display_mode_option: OptionButton = null
-var _resolution_option: OptionButton = null
-var _vsync_option: OptionButton = null
-var _audio_note: Label = null
 
 ## Set while the controls are being written from the store, so the change
 ## signals they emit do not bounce straight back into the store.
@@ -55,9 +59,9 @@ var _syncing: bool = false
 
 func _ready() -> void:
 	_store = SettingsStore.instance()
-	set_anchors_preset(Control.PRESET_FULL_RECT)
-	mouse_filter = Control.MOUSE_FILTER_STOP
-	_build()
+	_configure_ranges()
+	_fill_choices()
+	_connect_controls()
 	refresh()
 
 
@@ -99,190 +103,59 @@ func refresh() -> void:
 		_keybind_panel.refresh()
 
 
-# --- Construction -------------------------------------------------------------
+# --- Wiring -------------------------------------------------------------------
 
-func _build() -> void:
-	var margin: MarginContainer = MarginContainer.new()
-	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
-	margin.offset_right = 0.0
-	margin.offset_bottom = 0.0
-	margin.add_theme_constant_override(&"margin_left", 24)
-	margin.add_theme_constant_override(&"margin_right", 24)
-	margin.add_theme_constant_override(&"margin_top", 24)
-	margin.add_theme_constant_override(&"margin_bottom", 24)
-	add_child(margin)
-
-	var panel: PanelContainer = PanelContainer.new()
-	margin.add_child(panel)
-
-	var inner: MarginContainer = MarginContainer.new()
-	inner.add_theme_constant_override(&"margin_left", 12)
-	inner.add_theme_constant_override(&"margin_right", 12)
-	inner.add_theme_constant_override(&"margin_top", 12)
-	inner.add_theme_constant_override(&"margin_bottom", 12)
-	panel.add_child(inner)
-
-	var layout: VBoxContainer = VBoxContainer.new()
-	inner.add_child(layout)
-
-	var title: Label = Label.new()
-	title.text = "SETTINGS"
-	layout.add_child(title)
-
-	var tabs: TabContainer = TabContainer.new()
-	tabs.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	layout.add_child(tabs)
-
-	tabs.add_child(_build_game_tab())
-	tabs.add_child(_build_audio_tab())
-	tabs.add_child(_build_video_tab())
-	tabs.add_child(_build_controls_tab())
-
-	var footer: HBoxContainer = HBoxContainer.new()
-	layout.add_child(footer)
-
-	var back: Button = Button.new()
-	back.text = "Back"
-	back.pressed.connect(close)
-	footer.add_child(back)
-
-	var spacer: Control = Control.new()
-	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	footer.add_child(spacer)
-
-	var reset: Button = Button.new()
-	reset.text = "Reset All Settings"
-	reset.pressed.connect(_on_reset_all_pressed)
-	footer.add_child(reset)
-
-
-func _build_game_tab() -> Control:
-	var tab: VBoxContainer = VBoxContainer.new()
-	tab.name = "Game"
-
-	_sensitivity_slider = HSlider.new()
+## Slider bounds come from [GameSettings], not from the scene, so the range the
+## player can drag to and the range [method GameSettings.clamp_all] enforces are
+## the same numbers rather than two copies that can drift.
+func _configure_ranges() -> void:
 	_sensitivity_slider.min_value = GameSettings.MIN_MOUSE_SENSITIVITY
 	_sensitivity_slider.max_value = GameSettings.MAX_MOUSE_SENSITIVITY
 	_sensitivity_slider.step = 0.0001
-	_sensitivity_slider.value_changed.connect(_on_sensitivity_changed)
-	_sensitivity_value = Label.new()
-	tab.add_child(_labelled_row("Mouse Sensitivity", _sensitivity_slider, _sensitivity_value))
 
-	_invert_check = CheckBox.new()
-	_invert_check.text = "Invert Y"
-	_invert_check.toggled.connect(_on_invert_toggled)
-	tab.add_child(_invert_check)
-
-	_fov_slider = HSlider.new()
 	_fov_slider.min_value = GameSettings.MIN_FIELD_OF_VIEW
 	_fov_slider.max_value = GameSettings.MAX_FIELD_OF_VIEW
 	_fov_slider.step = 1.0
-	_fov_slider.value_changed.connect(_on_fov_changed)
-	_fov_value = Label.new()
-	tab.add_child(_labelled_row("Field of View", _fov_slider, _fov_value))
 
-	var note: Label = Label.new()
-	note.text = "Sensitivity and invert-Y are written into the active MovementProfile; field of view into the player camera."
-	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	tab.add_child(note)
-
-	return tab
+	for slider: HSlider in [_master_slider, _effects_slider, _music_slider]:
+		slider.min_value = 0.0
+		slider.max_value = 1.0
+		slider.step = 0.01
 
 
-func _build_audio_tab() -> Control:
-	var tab: VBoxContainer = VBoxContainer.new()
-	tab.name = "Audio"
-
-	_master_slider = _make_volume_slider(_on_master_changed)
-	_master_value = Label.new()
-	tab.add_child(_labelled_row("Master", _master_slider, _master_value))
-
-	_effects_slider = _make_volume_slider(_on_effects_changed)
-	_effects_value = Label.new()
-	tab.add_child(_labelled_row("Effects", _effects_slider, _effects_value))
-
-	_music_slider = _make_volume_slider(_on_music_changed)
-	_music_value = Label.new()
-	tab.add_child(_labelled_row("Music", _music_slider, _music_value))
-
-	_audio_note = Label.new()
-	_audio_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	tab.add_child(_audio_note)
-	_update_audio_note()
-
-	return tab
-
-
-func _build_video_tab() -> Control:
-	var tab: VBoxContainer = VBoxContainer.new()
-	tab.name = "Video"
-
-	_display_mode_option = OptionButton.new()
+## Option lists are data, so they are filled from the enums and the shipped
+## choice list rather than typed into the scene where they could fall out of
+## step with the values they select.
+func _fill_choices() -> void:
+	_display_mode_option.clear()
 	_display_mode_option.add_item("Windowed", int(GameSettings.DisplayMode.WINDOWED))
 	_display_mode_option.add_item("Fullscreen", int(GameSettings.DisplayMode.FULLSCREEN))
 	_display_mode_option.add_item("Borderless Fullscreen", int(GameSettings.DisplayMode.BORDERLESS))
-	_display_mode_option.item_selected.connect(_on_display_mode_selected)
-	tab.add_child(_labelled_row("Display Mode", _display_mode_option, null))
 
-	_resolution_option = OptionButton.new()
+	_resolution_option.clear()
 	for choice: Vector2i in GameSettings.RESOLUTION_CHOICES:
 		_resolution_option.add_item("%d x %d" % [choice.x, choice.y])
-	_resolution_option.item_selected.connect(_on_resolution_selected)
-	tab.add_child(_labelled_row("Resolution", _resolution_option, null))
 
-	_vsync_option = OptionButton.new()
+	_vsync_option.clear()
 	_vsync_option.add_item("Off", int(GameSettings.VSyncMode.DISABLED))
 	_vsync_option.add_item("On", int(GameSettings.VSyncMode.ENABLED))
 	_vsync_option.add_item("Adaptive", int(GameSettings.VSyncMode.ADAPTIVE))
+
+
+func _connect_controls() -> void:
+	_sensitivity_slider.value_changed.connect(_on_sensitivity_changed)
+	_invert_check.toggled.connect(_on_invert_toggled)
+	_fov_slider.value_changed.connect(_on_fov_changed)
+	_master_slider.value_changed.connect(_on_master_changed)
+	_effects_slider.value_changed.connect(_on_effects_changed)
+	_music_slider.value_changed.connect(_on_music_changed)
+	_display_mode_option.item_selected.connect(_on_display_mode_selected)
+	_resolution_option.item_selected.connect(_on_resolution_selected)
 	_vsync_option.item_selected.connect(_on_vsync_selected)
-	tab.add_child(_labelled_row("V-Sync", _vsync_option, null))
-
-	var note: Label = Label.new()
-	note.text = "Resolution applies to the window; in either fullscreen mode the display's own resolution is used."
-	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	tab.add_child(note)
-
-	return tab
-
-
-func _build_controls_tab() -> Control:
-	var tab: MarginContainer = MarginContainer.new()
-	tab.name = "Controls"
-	_keybind_panel = KeybindPanel.new()
-	_keybind_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_keybind_panel.capture_state_changed.connect(_on_capture_state_changed)
-	tab.add_child(_keybind_panel)
-	return tab
 
-
-func _make_volume_slider(handler: Callable) -> HSlider:
-	var slider: HSlider = HSlider.new()
-	slider.min_value = 0.0
-	slider.max_value = 1.0
-	slider.step = 0.01
-	slider.value_changed.connect(handler)
-	return slider
-
-
-## A label, a control that expands, and an optional right-hand readout.
-func _labelled_row(text: String, control: Control, value: Label) -> HBoxContainer:
-	var row: HBoxContainer = HBoxContainer.new()
-
-	var label: Label = Label.new()
-	label.text = text
-	label.custom_minimum_size = Vector2(160.0, 0.0)
-	row.add_child(label)
-
-	control.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	control.custom_minimum_size = Vector2(220.0, 0.0)
-	row.add_child(control)
-
-	if value != null:
-		value.custom_minimum_size = Vector2(90.0, 0.0)
-		value.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-		row.add_child(value)
-
-	return row
+	($Frame/Dialog/Padding/Layout/Footer/Back as Button).pressed.connect(close)
+	($Frame/Dialog/Padding/Layout/Footer/ResetAll as Button).pressed.connect(_on_reset_all_pressed)
 
 
 # --- Handlers -----------------------------------------------------------------

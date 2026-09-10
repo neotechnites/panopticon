@@ -39,6 +39,16 @@ var _round_losses: int = 0
 var _seat_changes: int = 0
 var _conversions: int = 0
 
+## Participants turned into ghosts, by either route: shot by the rifle, or caught
+## by another ghost. Zero on every ghostless match, which is what makes it safe
+## to leave in the schema unconditionally.
+var _ghosts_made: int = 0
+
+## Ghost swaps: a ghost reaching a living prisoner and taking their spot. The one
+## number the whole mechanic is about -- a ghost round with no catches in it is a
+## round where the speed advantage was not enough.
+var _ghost_catches: int = 0
+
 var _shots_fired: int = 0
 var _shots_hit_participant: int = 0
 var _shots_hit_world: int = 0
@@ -78,6 +88,8 @@ func install(controller: MatchController, rifle: Rifle) -> void:
 	controller.seat_changed.connect(_on_seat_changed)
 	controller.round_resolved.connect(_on_round_resolved)
 	controller.runner_removed.connect(_on_runner_removed)
+	controller.runner_ghosted.connect(_on_runner_ghosted)
+	controller.ghost_caught.connect(_on_ghost_caught)
 	controller.match_won.connect(_on_match_won)
 
 	rifle.fired.connect(_on_fired)
@@ -176,6 +188,18 @@ func _on_runner_removed(_remaining: int) -> void:
 	# The rifle's hit handler has already credited the shot. What is recorded
 	# here is the conversion, which under prisoner_lives > 1 is not the same
 	# event and must not be counted from the shot.
+
+
+func _on_runner_ghosted(_participant: MatchParticipant) -> void:
+	_ghosts_made += 1
+
+
+## A ghost took a living prisoner's spot. Counted, and deliberately NOT counted
+## as a conversion: a catch conserves the number of living prisoners and only the
+## rifle lowers it, so folding the two together would make a ghost match look
+## like a shooter who never missed.
+func _on_ghost_caught(_ghost: MatchParticipant, _caught: MatchParticipant) -> void:
+	_ghost_catches += 1
 
 
 func _on_match_won(participant: MatchParticipant) -> void:
@@ -287,6 +311,10 @@ func to_dictionary(sim_hz: int) -> Dictionary:
 			"hit_rate": get_hit_rate(),
 		},
 		"conversions": _conversions,
+		"ghosts": {
+			"made": _ghosts_made,
+			"catches": _ghost_catches,
+		},
 		"participants": participants,
 	}
 

@@ -109,6 +109,28 @@ func stop() -> void:
 	set_physics_process(false)
 
 
+## Take over [param source]'s lap: its arc, its clock and its path length.
+##
+## For the ghost swap, and only for it. A ghost that catches a living prisoner
+## "takes their spot", and the spot includes the distance already run -- so the
+## tracker that is about to start counting for the incoming prisoner is seeded
+## with what the outgoing one had, instead of starting them at the pad.
+##
+## Call it AFTER [method begin], which anchors the accumulator on the body where
+## it actually is: this writes the totals and leaves that anchor alone, so the
+## next tick differences against the right position and the arc it adds is the
+## incoming body's own.
+##
+## See [member GhostProfile.catch_transfers_progress] for what turning this off
+## means, and why it is a rule rather than a constant.
+func adopt_progress(source: MatchLapTracker) -> void:
+	if source == null:
+		return
+	_travelled_arc = source._travelled_arc
+	_elapsed_seconds = source._elapsed_seconds
+	_path_length = source._path_length
+
+
 func is_counting() -> bool:
 	return is_physics_processing()
 
@@ -122,6 +144,14 @@ func get_progress() -> float:
 	if _finish_arc <= 0.0:
 		return 0.0
 	return clampf(_travelled_arc / _finish_arc, 0.0, 1.0)
+
+
+## Arc swept so far, in radians. The raw accumulator behind
+## [method get_progress], handed over so a ghost swap can carry a lap from one
+## body's tracker to another's and to the incoming body's [RingRunner], which
+## keeps an accumulator of its own for steering.
+func get_travelled_arc() -> float:
+	return _travelled_arc
 
 
 func get_elapsed_seconds() -> float:

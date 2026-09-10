@@ -1,4 +1,6 @@
-[gd_scene load_steps=9 format=3]
+[gd_scene load_steps=10 format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/tower/panopticon_eye.tscn" id="1_eye"]
 
 [sub_resource type="StandardMaterial3D" id="MatDeck"]
 albedo_color = Color(0.42, 0.42, 0.44, 1.0)
@@ -263,3 +265,10 @@ transform = Transform3D(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, -0.5, 
 [node name="TowerSpawn" type="Marker3D" parent="Tower"]
 editor_description = "Centre of the platform, standing 0.25 m above its top surface. The clearance is deliberate: spawning a capsule with its feet exactly on the collision plane overlaps the slab, and depenetration launches the body across the arena."
 transform = Transform3D(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.25, 0.0)
+
+[node name="Eye" parent="Tower" instance=ExtResource("1_eye")]
+editor_description = "The tower as the prisoners see it: a thirty-metre one-way mirror standing on the platform, centred on the platform's own axis at the arena origin, with its aperture at y=16.7 -- the tower eye height the Cover and InnerKerb notes above were already computed against. Purely additive -- it has no collision and no script that touches the match, so deleting this node leaves the arena exactly as it was before it existed, and TowerSpawn above is untouched.
+
+It does NOT occlude the tower's view of the ring. The guard spawns inside it, every material on it is backface-culled, and no part of it but the socket wall exists below y=12.5 anyway; its shadow reaches r=32 and so falls in the courtyard rather than on the deck; see scenes/tower/panopticon_eye.tscn for the seal and scripts/tower/panopticon_eye.gd for why the guard's aim must never reach it.
+
+It DOES occlude the prisoners' view of each other across the middle of the map, which the open platform did not. That is the intended read -- there is a tower in the middle of a prison yard -- but it is a change to what a runner on the far side can see, and it is the one thing this node changes about the game."

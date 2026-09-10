@@ -1,0 +1,148 @@
+[gd_scene load_steps=13 format=3]
+
+[ext_resource type="Script" path="res://scripts/tower/panopticon_eye.gd" id="1_eye"]
+[ext_resource type="Resource" path="res://scenes/tower/default_eye_profile.tres" id="2_eye_profile"]
+
+[sub_resource type="StandardMaterial3D" id="MatShell"]
+resource_local_to_scene = true
+albedo_color = Color(0.17, 0.17, 0.19, 1.0)
+metallic = 0.0
+roughness = 0.85
+
+[sub_resource type="StandardMaterial3D" id="MatIris"]
+resource_local_to_scene = true
+albedo_color = Color(0.07, 0.1, 0.14, 1.0)
+metallic = 0.95
+roughness = 0.16
+emission_enabled = true
+emission = Color(0.55, 0.72, 0.85, 1.0)
+emission_energy_multiplier = 0.55
+
+[sub_resource type="StandardMaterial3D" id="MatPupil"]
+resource_local_to_scene = true
+albedo_color = Color(0.02, 0.02, 0.025, 1.0)
+metallic = 1.0
+roughness = 0.05
+
+[sub_resource type="CylinderMesh" id="MeshSocket"]
+top_radius = 8.5
+bottom_radius = 8.5
+height = 15.0
+radial_segments = 64
+rings = 1
+cap_top = false
+cap_bottom = true
+
+[sub_resource type="CylinderMesh" id="MeshLowerLid"]
+top_radius = 9.6
+bottom_radius = 8.5
+height = 2.7
+radial_segments = 64
+rings = 1
+cap_top = false
+cap_bottom = false
+
+[sub_resource type="CylinderMesh" id="MeshIrisLower"]
+top_radius = 8.6
+bottom_radius = 8.2
+height = 4.2
+radial_segments = 64
+rings = 1
+cap_top = false
+cap_bottom = false
+
+[sub_resource type="CylinderMesh" id="MeshIrisUpper"]
+top_radius = 8.2
+bottom_radius = 8.6
+height = 4.7
+radial_segments = 64
+rings = 1
+cap_top = false
+cap_bottom = false
+
+[sub_resource type="CylinderMesh" id="MeshPupil"]
+top_radius = 8.68
+bottom_radius = 8.68
+height = 1.5
+radial_segments = 64
+rings = 1
+cap_top = false
+cap_bottom = false
+
+[sub_resource type="CylinderMesh" id="MeshUpperLid"]
+top_radius = 8.5
+bottom_radius = 10.8
+height = 3.2
+radial_segments = 64
+rings = 1
+cap_top = false
+cap_bottom = false
+
+[sub_resource type="CylinderMesh" id="MeshCrown"]
+top_radius = 0.0
+bottom_radius = 8.5
+height = 8.6
+radial_segments = 64
+rings = 1
+cap_top = false
+cap_bottom = false
+
+[node name="PanopticonEye" type="Node3D"]
+editor_description = "THE EYE. A solid of revolution about the tower's own axis, standing on Tower/Platform with its base at deck level and its point 30 m up. Every piece below is a cylinder or a cone with no rotation and no offset from the axis, and that is the design: a shape with no distinguishable side cannot betray which way the guard is looking. See scripts/tower/panopticon_eye.gd for the rule this enforces and tests/test_tower.gd for the assertions that keep it enforced.
+
+WHY THE APERTURE IS AT y=16.7. Because the ring was already built for it. The cover heights and the inner kerb height in scenes/ring/test_ring.tscn are both derived, in their own editor_descriptions, from a tower eye at y=16.7 -- that was the sightline the greybox was cut against before there was anything there to look through. This puts the eye where the arena already assumed it was.
+
+THE SEAL. The shell is a closed outward-facing surface that encloses the guard, and every radius below is chosen so that no gap in it ever exposes the interior. Reading the silhouette from the ground up: Socket is a straight wall at r=8.5 from y=-1 to y=14; LowerLid flares 8.5 -> 9.6 between y=12.5 and y=15.2, overlapping the socket for 1.5 m; the slot is the 3 m of open air between the two lid rims at y=15.2 and y=18.2; UpperLid closes back from a 10.8 brow at y=18.2 to 8.5 at y=21.4; Crown tapers 8.5 -> 0 from y=21.4 to y=30.0. Behind the slot, recessed 1 to 2 m, the Iris cones bulge 8.2 -> 8.6 -> 8.2 across y=12.5 to y=21.4, so their open top and bottom rims are hidden inside the socket and the crown. Move any radius and check the piece above and below it still covers what it used to; the tuning knob that is safe to turn is EyeProfile.size_scale, which moves all of them together.
+
+WHY NOTHING STARTS BELOW y=12.5. Only the socket wall exists below the lower lid, and that is ten metres clear of the highest a guard can get: they stand at y=0.25, their camera sits at y=1.9, and the tuned jump apex adds 1.11 m. So no surface of the eye is ever between the guard and the ring, at any height they can reach, even before backface culling is considered.
+
+SHADOW. The shell casts one, which is why a thirty-metre tower does not look like it is floating. At this scene's sun elevation it reaches about r=32 and therefore lands entirely in the courtyard: the running deck starts at r=35 and is never darkened by it. What it does darken is the platform under the guard's own feet, which is a guard standing in their own shade and tells a prisoner nothing. Turn cast_shadow off on the seven surfaces below if it is ever unwanted.
+
+NO COLLISION, ANYWHERE. The eye is scenery. The guard's own rifle raycast passes through it, and the guard is held inside it by geometry alone: the socket is r=8.5 and the platform they stand on is r=8.0, so the platform's edge is inside the wall and stepping past it is a fall into the courtyard, not a walk out of the tower."
+script = ExtResource("1_eye")
+shell_material = SubResource("MatShell")
+iris_material = SubResource("MatIris")
+pupil_material = SubResource("MatPupil")
+profile = ExtResource("2_eye_profile")
+
+[node name="Socket" type="MeshInstance3D" parent="."]
+editor_description = "The drum the eye sits in: a straight wall at r=8.5 from y=-1 to y=14. Its bottom is level with the underside of the tower platform so the two read as one casting. Capped underneath because the courtyard floor is 12 m below and a prisoner who falls in looks up at this; open on top because the lid and the iris cover it. This is the only part of the eye the guard is ever level with, and at r=8.5 it stands half a metre outboard of the r=8.0 platform, which is what keeps them inside it without a collision shape."
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 6.5, 0)
+mesh = SubResource("MeshSocket")
+surface_material_override/0 = SubResource("MatShell")
+
+[node name="LowerLid" type="MeshInstance3D" parent="."]
+editor_description = "Flares 8.5 -> 9.6 over y=12.5 to y=15.2. Deliberately the lighter of the two lids: a prisoner is fifteen metres below the aperture and looks up into it, so a heavy lower lid would hide the iris under the pupil and the eye would read as a visor. This one is cut back until a strip of iris still shows beneath the pupil from standing height on the deck."
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 13.85, 0)
+mesh = SubResource("MeshLowerLid")
+surface_material_override/0 = SubResource("MatShell")
+
+[node name="IrisLower" type="MeshInstance3D" parent="."]
+editor_description = "Lower half of the eyeball's bulge: 8.2 at y=12.5 out to 8.6 at y=16.7. The taper exists so the sun's highlight bands across the middle of the aperture instead of washing the whole of it, which is most of what sells the surface as glass on a renderer with no screen-space reflection."
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 14.6, 0)
+mesh = SubResource("MeshIrisLower")
+surface_material_override/0 = SubResource("MatIris")
+
+[node name="IrisUpper" type="MeshInstance3D" parent="."]
+editor_description = "Upper half of the bulge: 8.6 at y=16.7 back to 8.2 at y=21.4, where the crown takes over and hides its open rim."
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 19.05, 0)
+mesh = SubResource("MeshIrisUpper")
+surface_material_override/0 = SubResource("MatIris")
+
+[node name="Pupil" type="MeshInstance3D" parent="."]
+editor_description = "A black band 1.5 m tall standing about 0.1 m proud of the iris at the widest point of the bulge, centred on the aperture at y=16.7. It runs the full 360 degrees on purpose: every prisoner on the ring, wherever they are, sees the pupil dead centre on themselves and none of them can tell whether that means anything. That is the game."
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 16.7, 0)
+mesh = SubResource("MeshPupil")
+surface_material_override/0 = SubResource("MatPupil")
+
+[node name="UpperLid" type="MeshInstance3D" parent="."]
+editor_description = "The brow. Comes out to 10.8 at y=18.2 -- 2.3 m proud of the iris behind it -- and closes back to 8.5 by y=21.4, where the crown meets it flush. Heavier than LowerLid on purpose: seen from the deck the overhang throws the top of the aperture into shadow, which is what makes a lit ring read as a hooded eye looking down rather than as a lamp."
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 19.8, 0)
+mesh = SubResource("MeshUpperLid")
+surface_material_override/0 = SubResource("MatShell")
+
+[node name="Crown" type="MeshInstance3D" parent="."]
+editor_description = "8.5 -> 0 over 8.6 m, finishing at y=30.0. It exists for the silhouette: a tower that comes to a point reads as a watchtower from the far side of the ring, 95 m away, where the whole thing is still eighteen degrees tall and is comfortably the most legible object on the map."
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 25.7, 0)
+mesh = SubResource("MeshCrown")
+surface_material_override/0 = SubResource("MatShell")

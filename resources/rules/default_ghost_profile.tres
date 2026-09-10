@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="GhostProfile" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/match/ghost_profile.gd" id="1_ghost_profile"]
+
+[resource]
+script = ExtResource("1_ghost_profile")
+speed_multiplier = 1.25
+catch_radius_metres = 1.8
+catch_grace_seconds = 1.5
+shootable = false
+chase_holds_sprint = true
+catch_transfers_progress = true

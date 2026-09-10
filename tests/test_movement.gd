@@ -230,3 +230,230 @@ func _launch_airborne() -> void:
 	_body.velocity = Vector3(0.0, 0.0, -LAUNCH_SPEED)
 	_input.command.clear()
 	await step_ticks(1)
+
+
+# --- Sliding ------------------------------------------------------------------
+#
+# Every slide test below drives the body through [method PlayerController.set_intent]
+# rather than through the [BotIntentSource] the rest of this file uses, because
+# the button state under test is one the bot source cannot express. Its poll()
+# consumes slide_pressed, so it can only ever deliver a one-tick edge; a reused
+# struct handed to set_intent -- the documented way a replay or a peer drives
+# this body -- delivers the press as a LEVEL that stays true while the key is
+# down. Holding a key is the case that broke, so holding a key is what these
+# simulate. A source that does consume the edge is a strictly easier case and is
+# covered by every other test that slides.
+
+## How long a fresh press is held for, in ticks. Longer than one so the tests
+## exercise a held button rather than a source that happens to be well behaved.
+const SLIDE_PRESS_TICKS: int = 4
+
+## Grounded ticks a steering measurement runs for after touchdown.
+##
+## At [member MovementProfile.ground_acceleration] a body has essentially turned
+## to face its wish direction inside this window; at
+## [member MovementProfile.slide_acceleration], which is a quarter of it and
+## fights almost no friction, it has managed about a third of the turn. The
+## threshold the test asserts sits in the gap.
+const STEER_TICKS: int = 15
+
+
+## Holding the slide key through a slide-hop must not re-open a slide on landing.
+##
+## The bug this pins: the slide buffer used to be refilled from the LEVEL of
+## slide_pressed, so a held key re-armed it on every tick and defeated the
+## zeroing [method PlayerController._begin_slide] does to spend a press. Jumping
+## out of a slide starts the cooldown, the cooldown is shorter than the hop, and
+## the landing tick therefore found a full buffer and opened another slide --
+## and another, for as long as the key was down.
+func test_a_held_slide_does_not_reopen_on_landing() -> void:
+	var intent: MoveIntent = await _slide_hop_with_key_held()
+
+	# Ride out the landing and a good while past it. slide_cooldown is 0.25 s,
+	# so anything that was going to re-arm has had several chances by now.
+	var slid_again: bool = false
+	for _tick: int in 60:
+		await _drive(intent, 1)
+		slid_again = slid_again or _body.is_sliding()
+
+	assert_true(_body.is_on_floor(), "the hop should have landed within 60 ticks")
+	assert_false(slid_again, "a held slide key must not re-open a slide after the hop")
+
+
+## Releasing and pressing again does open another slide. The fix must cost the
+## player nothing except the re-press.
+func test_a_fresh_press_after_landing_opens_another_slide() -> void:
+	var intent: MoveIntent = await _slide_hop_with_key_held()
+	await _land(intent)
+
+	# Off the key for a tick, which is what makes the next press an edge.
+	intent.slide_pressed = false
+	intent.slide_held = false
+	await _drive(intent, 1)
+	assert_false(_body.is_sliding(), "releasing the key must leave the body out of a slide")
+	assert_ge(
+		_body.get_horizontal_speed(), _profile.slide_min_entry_speed,
+		"the body must still be fast enough to be allowed a second slide",
+	)
+
+	intent.slide_pressed = true
+	intent.slide_held = true
+	await _drive(intent, 1)
+	assert_true(_body.is_sliding(), "a fresh press after landing must open a second slide")
+
+
+## A press made in the air still opens the slide on landing.
+##
+## This is what [member MovementProfile.slide_buffer_time] is for and the fix
+## must not take it away: the press happens with nothing underfoot, the buffer
+## carries it, and the slide opens on the touchdown tick without the player
+## having to hit the frame.
+func test_a_slide_press_in_the_air_fires_on_landing() -> void:
+	var intent: MoveIntent = await _run_up()
+
+	intent.jump_pressed = true
+	await _drive(intent, 1)
+	intent.jump_pressed = false
+	await _drive(intent, 4)
+	assert_false(_body.is_on_floor(), "the body should be airborne after the jump")
+
+	# Ride the arc down to within half the buffer window of touchdown before
+	# pressing. Pressing at the apex would expire long before the body arrived
+	# and would test slide_buffer_time's timeout rather than the buffer itself.
+	await _fall_to_within(intent, _profile.slide_buffer_time * 0.5)
+	assert_false(_body.is_on_floor(), "the press must be made in the air, not on the ground")
+
+	intent.slide_pressed = true
+	intent.slide_held = true
+	await _drive(intent, 1)
+	assert_false(_body.is_sliding(), "an airborne press buffers; it does not slide in mid-air")
+
+	await _land(intent)
+	# _land stops on the tick the floor is first reported; the slide opens on the
+	# next one, because _try_begin_slide reads the floor state the last move left.
+	await _drive(intent, 1)
+	assert_true(_body.is_sliding(), "the buffered press must open the slide on landing")
+
+
+## After a slide-hop with the key still held, the body steers on the ground.
+##
+## The one that speaks to what the bug felt like. The assertion is on the
+## direction of the velocity, not on [method PlayerController.is_sliding]: a
+## player who has landed, turned the mouse and is holding forward expects to go
+## where he is looking, and if a slide has silently re-opened underneath him he
+## goes on travelling the way he entered it -- steering at a quarter of ground
+## acceleration against almost no friction -- until he is slow enough to drop out
+## of the chain.
+func test_after_a_slide_hop_the_body_steers_at_ground_acceleration() -> void:
+	var intent: MoveIntent = await _slide_hop_with_key_held()
+
+	# Turn a quarter circle while airborne, then let go of the mouse. What
+	# follows is the body reconciling its velocity with its facing, and nothing
+	# else moving the target.
+	intent.look_delta = Vector2(PI * 0.5, 0.0)
+	await _drive(intent, 1)
+	intent.look_delta = Vector2.ZERO
+
+	await _land(intent)
+	var landing_heading: Vector2 = _heading()
+	await _drive(intent, STEER_TICKS)
+
+	assert_true(_body.is_on_floor(), "the steering measurement must happen on the ground")
+	var facing: Vector2 = Vector2(
+		-_body.global_transform.basis.z.x, -_body.global_transform.basis.z.z
+	).normalized()
+	# cos 60 degrees. Ground acceleration closes almost the whole quarter circle
+	# in STEER_TICKS; a slide manages roughly a third of it, well short of this.
+	assert_gt(
+		_heading().dot(facing), 0.5,
+		"%d grounded ticks must swing the velocity most of the way to the facing" % STEER_TICKS,
+	)
+	assert_lt(
+		_heading().dot(landing_heading), cos(deg_to_rad(45.0)),
+		"the heading must actually have left the one the body landed on",
+	)
+
+
+# --- Slide helpers ------------------------------------------------------------
+
+## Horizontal direction of travel, as a unit vector in the XZ plane.
+func _heading() -> Vector2:
+	return Vector2(_body.velocity.x, _body.velocity.z).normalized()
+
+
+## Hand [param intent] to the body and step [param ticks] physics ticks,
+## re-supplying it each tick exactly as a caller driving the body by hand does.
+func _drive(intent: MoveIntent, ticks: int) -> void:
+	for _tick: int in ticks:
+		_body.set_intent(intent)
+		await step_ticks(1)
+
+
+## Step a falling body until it is [param seconds] from touchdown.
+##
+## The estimate is height over descent rate, which is conservative because the
+## body is still accelerating: it always stops the body a little closer than
+## asked, never further. Expressing the wait this way rather than as a height
+## keeps the test tied to [member MovementProfile.slide_buffer_time] instead of
+## to the shape of a jump arc that tuning is free to change.
+func _fall_to_within(intent: MoveIntent, seconds: float) -> void:
+	for _tick: int in int(SIM_HZ * 2.0):
+		if _body.is_on_floor():
+			return
+		if _body.velocity.y < 0.0 and _body.global_position.y / -_body.velocity.y <= seconds:
+			return
+		await _drive(intent, 1)
+
+
+## Step until the body is on the floor, or give up after a second of simulated
+## time so a test that will never land fails on its assertions rather than by
+## running out the suite's timeout.
+func _land(intent: MoveIntent) -> void:
+	for _tick: int in int(SIM_HZ):
+		if _body.is_on_floor():
+			return
+		await _drive(intent, 1)
+
+
+## Put the body on a floor and sprint it up to full ground speed, driving it by
+## hand. Returns the intent struct the caller should keep feeding it.
+##
+## The [BotIntentSource] the fixture wires up is detached first: these tests are
+## about what the controller does with a press that a source has NOT reduced to
+## an edge, and a source that consumes the edge cannot produce one.
+func _run_up() -> MoveIntent:
+	_body.intent_source = null
+	add_child(TestFixtures.make_floor(0.0))
+	_body.global_position = Vector3(0.0, 0.5, 0.0)
+	_body.rotation = Vector3.ZERO
+
+	var intent: MoveIntent = MoveIntent.new()
+	intent.move_direction = Vector2(0.0, 1.0)
+	intent.sprint_held = true
+	await _drive(intent, 110)
+
+	assert_true(_body.is_on_floor(), "the run-up should leave the body on the floor")
+	assert_almost_eq(
+		_body.get_horizontal_speed(), _profile.sprint_speed, 0.01,
+		"the run-up should reach sprint speed",
+	)
+	return intent
+
+
+## Run up, open a slide, and jump straight out of it with the slide key still
+## down. Leaves the body airborne on the tick after the hop.
+func _slide_hop_with_key_held() -> MoveIntent:
+	var intent: MoveIntent = await _run_up()
+
+	intent.slide_pressed = true
+	intent.slide_held = true
+	await _drive(intent, SLIDE_PRESS_TICKS)
+	assert_true(_body.is_sliding(), "the first press must open a slide")
+
+	# Hop out of it. The key stays down throughout -- that is the whole point.
+	intent.jump_pressed = true
+	await _drive(intent, 1)
+	intent.jump_pressed = false
+	assert_false(_body.is_sliding(), "jumping must close the slide")
+	assert_false(_body.is_on_floor(), "the hop must leave the ground")
+	return intent

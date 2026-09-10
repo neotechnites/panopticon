@@ -59,6 +59,18 @@ extends Node
 ## file, and it survived the rewrite unchanged: the cover runner strafes and
 ## sprints through exactly the same seam the baseline walks through.
 ##
+## [b]The third mode: the chase[/b]
+##
+## A prisoner the rifle finishes becomes a GHOST under
+## [constant MatchRules.GhostBehaviour.CATCH_AND_SWAP], and a ghost has no lap to
+## run. [method begin_chase] switches this brain out of the lap entirely and into
+## pure pursuit of the nearest living prisoner; [method end_chase] switches it
+## back off when the ghost takes a spot, the round resolves, or the match does.
+## It writes the same [MoveIntent] through the same [BotIntentSource], because
+## the human's ghost is the human's keyboard through that same seam and a chase
+## only bots could run would be a chase nobody could measure. Whether a catch has
+## happened is not decided here -- see [method MatchController._tick_ghosts].
+##
 ## [b]Why the finish is judged on arc, not on distance to the marker[/b]
 ##
 ## [code]PrisonerEnd[/code] is a single point at r=47.5. Runners are spread
@@ -190,6 +202,20 @@ var _cover: RunnerCoverFinder = RunnerCoverFinder.new()
 
 var _state: State = State.RUNNING
 
+## True while this brain is a GHOST hunting the living instead of running a lap.
+## See [method begin_chase].
+var _chasing: bool = false
+
+## The scene-tree group a chasing ghost draws its quarry from. The match's own
+## answer to "who is alive", so the ghost cannot chase a body the round has
+## already taken out of play.
+var _chase_group: StringName = &""
+
+## Whether the chase holds sprint, resolved once in [method begin_chase] rather
+## than per tick: [method GhostProfile.resolve] walks a property list and the
+## answer cannot change inside a chase.
+var _chase_sprint: bool = false
+
 ## Whether a guard was on the ring last tick, so the brain can notice one
 ## arriving. [MatchController] arms the tower brain after the runners are placed,
 ## so the first seconds of every round are genuinely guardless.
@@ -261,6 +287,67 @@ func configure(arena_centre: Vector3, start_point: Vector3, end_point: Vector3) 
 	if controller == null or input == null or profile == null:
 		return
 
+	var start_angle: float = _angle_of_about(arena_centre, start_point)
+	controller.global_position = arena_centre + Vector3(
+		cos(start_angle), 0.0, sin(start_angle)
+	) * profile.lane_radius
+	controller.velocity = Vector3.ZERO
+	# Face straight down the lane. A runner spawned facing the wall would spend
+	# its first second turning around, and that second would land in the lap
+	# time as if it were running.
+	controller.rotation = Vector3(0.0, _heading_of(_lane_tangent(start_angle)), 0.0)
+
+	# The anchor is handed over rather than re-derived from the body. It is the
+	# angle the body was just placed at, and atan2 of the sine and cosine of an
+	# angle is that angle only to within an ULP or two -- close enough to be
+	# invisible and not close enough to be worth introducing into a code path
+	# that used to be exact.
+	_arm(arena_centre, start_point, end_point, 0.0, start_angle)
+
+
+## Start running from WHERE THE BODY ALREADY IS, [param travelled_arc] radians
+## into the lap. The body is not moved and not turned.
+##
+## For the ghost swap: a ghost that catches a living prisoner takes their spot
+## and starts running the ring from the ground it is standing on. Calling
+## [method configure] there would teleport the new prisoner back to the start
+## pad, which is not a swap -- and, worse, is a kinematic body being moved 300 m
+## with its collision live. See [method MatchController._hold_body] for what
+## that costs.
+func resume(
+	arena_centre: Vector3, start_point: Vector3, end_point: Vector3, travelled_arc: float
+) -> void:
+	if controller == null or input == null or profile == null:
+		return
+	# The chase's standing orders are dropped here and not in [method _arm]: a
+	# lap that is being ARMED has always kept whatever was in the command, and
+	# the tick that follows overwrites it anyway. Clearing it there too would be
+	# a change to the ghostless round for no reason.
+	input.command.clear()
+	_arm(
+		arena_centre,
+		start_point,
+		end_point,
+		travelled_arc,
+		_angle_of_about(arena_centre, controller.global_position),
+	)
+
+
+## Everything [method configure] and [method resume] share: the lap geometry, the
+## accumulators, the resolved difficulty and a clean state machine.
+##
+## [param anchor_angle] is the angle the arc accumulator differences its first
+## tick against -- the lane's start angle after a configure, and the angle the
+## body is standing at after a resume. It is a parameter rather than a
+## measurement so that the configure path is arithmetically the code it was
+## before the chase existed.
+func _arm(
+	arena_centre: Vector3,
+	start_point: Vector3,
+	end_point: Vector3,
+	travelled_arc: float,
+	anchor_angle: float,
+) -> void:
 	_centre = arena_centre
 	var start_angle: float = _angle_of(start_point)
 	var end_angle: float = _angle_of(end_point)
@@ -269,16 +356,11 @@ func configure(arena_centre: Vector3, start_point: Vector3, end_point: Vector3) 
 	# behind us, which for these two markers is exactly the lap.
 	_finish_arc = wrapf((end_angle - start_angle) * TRAVEL_SIGN, 0.0, TAU)
 
-	controller.global_position = _point_on_lane(start_angle)
-	controller.velocity = Vector3.ZERO
-	# Face straight down the lane. A runner spawned facing the wall would spend
-	# its first second turning around, and that second would land in the lap
-	# time as if it were running.
-	controller.rotation = Vector3(0.0, _heading_of(_lane_tangent(start_angle)), 0.0)
-
-	_previous_angle = start_angle
+	_chasing = false
+	_chase_sprint = false
+	_previous_angle = anchor_angle
 	_previous_position = controller.global_position
-	_travelled_arc = 0.0
+	_travelled_arc = travelled_arc
 	_elapsed_seconds = 0.0
 	_path_length = 0.0
 
@@ -310,6 +392,59 @@ func configure(arena_centre: Vector3, start_point: Vector3, end_point: Vector3) 
 	_seconds_exposed = 0.0
 
 	set_physics_process(true)
+
+
+# --- The chase ----------------------------------------------------------------
+
+## Stop running the ring and start hunting the nearest body in
+## [param target_group].
+##
+## [b]This is the ghost's whole brain, and it is deliberately the dumbest thing
+## that could work.[/b] A ghost has no lap, no cover game and no opinion about
+## the guard -- it cannot be shot, so nothing it could hide from can reach it.
+## What it has is one job: close on a living prisoner. So it steers at the
+## nearest one exactly the way the baseline steers at the next point on its
+## lane, through the same [MoveIntent], into the same [PlayerController].
+##
+## [b]It does not decide anything.[/b] Whether the ghost has actually CAUGHT
+## anybody is [MatchController]'s ruling, made off the catch radius in
+## [GhostProfile], for the human and the bot alike -- exactly as this brain
+## reports a finished lap and rules nothing about what it is worth. A brain that
+## called the catch would be a catch only bots could make.
+func begin_chase(target_group: StringName) -> void:
+	if controller == null or input == null or profile == null:
+		return
+	_chase_group = target_group
+	_chasing = true
+	_state = State.RUNNING
+	var ghost: GhostProfile = GhostProfile.resolve(rules, null)
+	_chase_sprint = ghost.chase_holds_sprint if ghost != null else wants_sprint()
+	input.command.clear()
+	set_physics_process(true)
+
+
+## Stop chasing and drop the controls. Called when a ghost becomes living again,
+## when the round ends, and when the match does.
+func end_chase() -> void:
+	if not _chasing:
+		return
+	_chasing = false
+	input.command.clear()
+	set_physics_process(false)
+
+
+## True while this brain is hunting rather than running the ring.
+func is_chasing() -> bool:
+	return _chasing
+
+
+## The body this ghost is currently closing on, or null when there is nobody in
+## the group to chase. Exposed so a headless check can prove the chase is aimed
+## at somebody rather than merely moving.
+func get_chase_target() -> Node3D:
+	if not _chasing or controller == null:
+		return null
+	return _nearest_in_group()
 
 
 # --- Readouts -----------------------------------------------------------------
@@ -406,6 +541,10 @@ func get_last_exposed_metres() -> float:
 # --- The loop -----------------------------------------------------------------
 
 func _physics_process(delta: float) -> void:
+	if _chasing:
+		_tick_chase(delta)
+		return
+
 	var position: Vector3 = controller.global_position
 
 	_elapsed_seconds += delta
@@ -467,6 +606,53 @@ func _physics_process(delta: float) -> void:
 		_:
 			_set_state(State.RECOVER)
 			_tick_recover(remaining_arc, delta)
+
+
+## Steer at the nearest living prisoner, flat out.
+##
+## No lookahead, no interception lead, no throttle on heading error. All three
+## are tempting and all three would make the catch a function of how well this
+## brain was tuned rather than of the one number the mechanic is actually about,
+## which is how much faster a ghost is than the living. Pure pursuit is the
+## honest instrument: give it a speed advantage and it closes, take the advantage
+## away and it never does.
+func _tick_chase(delta: float) -> void:
+	var quarry: Node3D = _nearest_in_group()
+	if quarry == null:
+		# Nobody left to chase -- every prisoner is a ghost, or the round is
+		# between placements. Stand still rather than wander: the match is about
+		# to resolve or re-place this body either way.
+		input.command.move_direction = Vector2.ZERO
+		input.command.sprint_held = false
+		return
+
+	_face(quarry.global_position, delta)
+	_drive_towards(quarry.global_position, 0.0)
+	input.command.sprint_held = _chase_sprint
+
+
+## The closest body in [member _chase_group], horizontally, excluding this
+## brain's own. Null when the group is empty.
+##
+## The group is read fresh every tick rather than cached, because membership is
+## exactly what a swap changes: the prisoner this ghost just caught leaves it in
+## the same frame, and a cached quarry would be chased for a tick after they
+## stopped being one.
+func _nearest_in_group() -> Node3D:
+	if _chase_group == StringName(""):
+		return null
+	var here: Vector3 = controller.global_position
+	var best: Node3D = null
+	var best_distance: float = 0.0
+	for node: Node in controller.get_tree().get_nodes_in_group(_chase_group):
+		var body: Node3D = node as Node3D
+		if body == null or body == controller:
+			continue
+		var distance: float = _flat_distance(here, body.global_position)
+		if best == null or distance < best_distance:
+			best = body
+			best_distance = distance
+	return best
 
 
 # --- The baseline -------------------------------------------------------------
@@ -852,6 +1038,13 @@ func _set_state(next: State) -> void:
 ## Angle of a world point about the arena axis, in radians.
 func _angle_of(point: Vector3) -> float:
 	return atan2(point.z - _centre.z, point.x - _centre.x)
+
+
+## The same angle, about a centre that has not been stored yet. [method configure]
+## places the body before [method _arm] caches [member _centre], and placing it
+## needs the angle.
+func _angle_of_about(centre: Vector3, point: Vector3) -> float:
+	return atan2(point.z - centre.z, point.x - centre.x)
 
 
 ## The point on this runner's lane at the given angle, at deck height.

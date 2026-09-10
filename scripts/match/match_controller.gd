@@ -79,9 +79,32 @@ extends Node
 ## [member MatchRules.turn_count_resets_on_seat_loss] defaults to false -- see
 ## that field for the two readings of "consecutive" and why this one is shipped.
 ##
+## [b]Ghosts: the third side[/b]
+##
+## Under [constant MatchRules.GhostBehaviour.CATCH_AND_SWAP] a shot prisoner is
+## not removed. They become a GHOST -- faster than the living, unshootable, and
+## chasing. Reaching a living prisoner takes their spot: the caught player
+## becomes the ghost, the ghost becomes living, and the round carries on with
+## the same number of prisoners running it. That is the whole mechanic, and it
+## exists to satisfy one constraint the author stated plainly: nobody sits out.
+##
+## Three properties of the swap are load-bearing and are enforced here:
+##
+## - [b]A catch is not a conversion.[/b] It moves the living/ghost line, it does
+##   not move it downwards. [method get_runners_remaining] is unchanged by a
+##   catch, so [constant MatchRules.ShooterWinCondition.TOTAL_CONVERSION] still
+##   means what it meant: only the RIFLE can empty the ring.
+## - [b]A ghost drives the same seam.[/b] Its body is the same
+##   [PlayerController], written to through the same [MoveIntent]. The bot's
+##   ghost is a [RingRunner] in chase mode; the human's ghost is the keyboard.
+##   Nothing about the catch is a bot-only path.
+## - [b]The catch is ruled here.[/b] Not in the brain -- a brain that called its
+##   own catch would be a catch only bots could make.
+##
 ## [b]Not implemented, deliberately[/b]
 ##
-## Ghosts ([member MatchRules.ghost_behaviour]), lives beyond
+## [constant MatchRules.GhostBehaviour.SPECTATOR] and
+## [constant MatchRules.GhostBehaviour.CONTINUE_LAP], lives beyond
 ## [member MatchRules.prisoner_lives], and every shooter win condition except
 ## [constant MatchRules.ShooterWinCondition.TOTAL_CONVERSION]. Those are deferred
 ## design questions and inventing answers to them here would make the answers
@@ -140,6 +163,15 @@ signal match_won(participant: MatchParticipant)
 
 ## Emitted when a runner is converted, carrying how many are still running.
 signal runner_removed(remaining: int)
+
+## Emitted when a participant becomes a ghost, by either route: the rifle
+## finished them, or another ghost caught them.
+signal runner_ghosted(participant: MatchParticipant)
+
+## Emitted on the tick a ghost takes a living prisoner's spot. [param ghost] is
+## the participant who WAS the ghost and is now running; [param caught] is the
+## prisoner who is now the ghost. The swap has already happened when it fires.
+signal ghost_caught(ghost: MatchParticipant, caught: MatchParticipant)
 
 ## Every design parameter of the match: how many players, on which lanes, at what
 ## pace, with what reload escalation, and what counts as a win.
@@ -204,6 +236,23 @@ const PEN_DEPTH_METRES: float = -100.0
 ## Horizontal spacing between parked bodies, so two of them are not stacked in
 ## the same cubic metre even though neither can collide.
 const PEN_SPACING_METRES: float = 4.0
+
+## The [GhostProfile] a round runs on when [MatchRules] names none. The same
+## resource [code]resources/rules/default_match_rules.tres[/code] points at, so
+## a match assembled in code plays the ghost the shipped rules were written for
+## rather than a second, quietly different default.
+const DEFAULT_GHOST_PROFILE_PATH: String = "res://resources/rules/default_ghost_profile.tres"
+
+## Where a ghost body's mesh takes its colour from. The whole of "a ghost looks
+## different": one flat material swapped onto the same capsule, and swapped back
+## when the ghost becomes living again. There is no ghost model and there is not
+## going to be one.
+const GHOST_MATERIAL_PATH: String = "res://scenes/bot/ghost_body_material.tres"
+
+## The name of the mesh a body's colour is read off and written to. Both
+## [code]scenes/player/player.tscn[/code] and the runner scene that inherits it
+## call it this.
+const BODY_MESH_NAME: StringName = &"BodyMesh"
 
 ## The [ShooterProfile] an AI in the tower plays on when [MatchRules] names
 ## none. The same resource [code]scenes/bot/tower_shooter.tscn[/code] ships
@@ -284,6 +333,21 @@ var _warned_unimplemented_rules: bool = false
 ## controller's match.
 var _fallback_rules: MatchRules
 
+## The ghost tuning in force, resolved once per arming rather than per tick:
+## [method GhostProfile.resolve] walks a property list and the answer cannot
+## change inside a round. Cleared by [method start_match] and
+## [method start_round] so a retuned rule set is picked up.
+var _ghost_profile: GhostProfile = null
+
+## The shipped ghost tuning, loaded once and used when [MatchRules] names none.
+var _default_ghost_profile: GhostProfile = null
+
+## Ghost swaps this controller has performed. A readout, nothing branches on it.
+var _catch_count: int = 0
+
+## The ghost body colour, loaded on first use.
+var _ghost_material_cache: Material = null
+
 # Arena geometry, cached at match start. The arena does not move.
 var _centre: Vector3 = Vector3.ZERO
 var _start_point: Vector3 = Vector3.ZERO
@@ -301,6 +365,28 @@ func get_rules() -> MatchRules:
 	return _fallback_rules
 
 
+## The ghost tuning actually in force, never null.
+##
+## [MatchRules] names one, a JSON sweep spec names one through metadata, or the
+## shipped default is used -- see [method GhostProfile.resolve] and
+## [constant DEFAULT_GHOST_PROFILE_PATH]. Never null, because every caller of it
+## is on a path where a ghost already exists and there is no sensible way to
+## abandon one halfway.
+func get_ghost_profile() -> GhostProfile:
+	if _ghost_profile != null:
+		return _ghost_profile
+	if _default_ghost_profile == null:
+		_default_ghost_profile = load(DEFAULT_GHOST_PROFILE_PATH) as GhostProfile
+		if _default_ghost_profile == null:
+			push_warning(
+				"MatchController cannot load %s; ghosts will run on GhostProfile's own defaults."
+				% DEFAULT_GHOST_PROFILE_PATH
+			)
+			_default_ghost_profile = GhostProfile.new()
+	_ghost_profile = GhostProfile.resolve(get_rules(), _default_ghost_profile)
+	return _ghost_profile
+
+
 func _ready() -> void:
 	if arena == null or rifle == null or runner_scene == null or runner_container == null:
 		push_error("MatchController is missing an arena, a rifle, a runner scene or a container; no match will run.")
@@ -312,12 +398,12 @@ func _ready() -> void:
 
 ## Wakes the bodies the last arming placed, once the physics server has caught
 ## up with where they were put. Does nothing on every other frame.
-func _physics_process(_delta: float) -> void:
-	if _settle_frames <= 0:
-		return
-	_settle_frames -= 1
-	if _settle_frames == 0:
-		_wake_bodies()
+func _physics_process(delta: float) -> void:
+	if _settle_frames > 0:
+		_settle_frames -= 1
+		if _settle_frames == 0:
+			_wake_bodies()
+	_tick_ghosts(delta)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -348,6 +434,10 @@ func start_match() -> void:
 		push_warning("MatchRules: %s" % problem)
 
 	_cache_geometry()
+	# Re-resolved from the rule set in force NOW, exactly as the tower brains
+	# below are rebuilt from it.
+	_ghost_profile = null
+	_catch_count = 0
 	# Before the roster is rebuilt, while the old participants are still here to
 	# be read. See the method: difficulty is drawn when a brain is BUILT.
 	_release_tower_brains()
@@ -361,6 +451,7 @@ func start_match() -> void:
 		participant.rounds_won = 0
 		participant.is_shooter = false
 		participant.is_running = false
+		_unmake_ghost(participant)
 	_seat = null
 	_winner = null
 	_round_number = 0
@@ -429,6 +520,10 @@ func start_round() -> void:
 	_outcome = Outcome.IN_PROGRESS
 	_removed_count = 0
 	_warned_unimplemented_rules = false
+	# A round is armed on the rules in force now, and the ghost tuning is one of
+	# them. Cleared rather than re-resolved, so the walk is paid for only if a
+	# prisoner is actually shot.
+	_ghost_profile = null
 
 	# Every body about to be placed goes inert until the physics server has
 	# caught up. See [method _hold_body]: without it, a seat change drags both
@@ -558,6 +653,29 @@ func get_runners_removed() -> int:
 	return _removed_count
 
 
+## The participants who are ghosts right now, as a copy.
+func get_ghost_participants() -> Array[MatchParticipant]:
+	var ghosts: Array[MatchParticipant] = []
+	for participant: MatchParticipant in _participants:
+		if participant.is_ghost:
+			ghosts.append(participant)
+	return ghosts
+
+
+## How many participants are ghosts right now.
+func get_ghosts_remaining() -> int:
+	var count: int = 0
+	for participant: MatchParticipant in _participants:
+		if participant.is_ghost:
+			count += 1
+	return count
+
+
+## Ghost swaps this controller has performed since the match started.
+func get_catch_count() -> int:
+	return _catch_count
+
+
 ## The participants still running, as a copy.
 func get_live_participants() -> Array[MatchParticipant]:
 	var live: Array[MatchParticipant] = []
@@ -617,6 +735,12 @@ func resolve_runner(collider: Node3D) -> RingRunner:
 ## Refuses once the round is resolved, which is half of the once-only guarantee:
 ## a shot fired in the same frame as an arrival cannot turn a lost seat into a
 ## won round.
+##
+## What "out of the round" MEANS is [member MatchRules.ghost_behaviour]'s to
+## decide, and it is the only thing that branches here: parked out of the world,
+## or turned into a ghost. Either way the participant stops running, the count
+## of runners falls by one, and the shooter's win condition is checked -- which
+## is what keeps a ghost round winnable on exactly the terms a ghostless one is.
 func convert_participant(participant: MatchParticipant) -> bool:
 	if participant == null or is_resolved() or _phase != Phase.ROUND:
 		return false
@@ -625,7 +749,10 @@ func convert_participant(participant: MatchParticipant) -> bool:
 
 	participant.is_running = false
 	participant.lives = 0
-	_park_body(participant)
+	if get_rules().has_ghosts():
+		_make_ghost(participant)
+	else:
+		_park_body(participant)
 	_removed_count += 1
 
 	runner_removed.emit(get_runners_remaining())
@@ -651,6 +778,223 @@ func apply_hit(participant: MatchParticipant) -> bool:
 	if participant.lives > 0:
 		return false
 	return convert_participant(participant)
+
+
+# --- Ghosts -------------------------------------------------------------------
+
+## Tick every ghost's grace clock and rule on any catch that has happened.
+##
+## Run from [method _physics_process] rather than from the brains, once per tick,
+## over participants rather than over nodes -- so the human's ghost catches on
+## exactly the terms a bot's does and there is one place a catch can happen.
+##
+## The check is a distance, and only a distance. It is deliberately not a shape
+## query, an area or a signal off the body: those would make the catch a
+## consequence of the collision solver, and a ghost is a solid capsule that
+## cannot occupy a prisoner's space, so contact is not something it can reliably
+## achieve. See [member GhostProfile.catch_radius_metres].
+func _tick_ghosts(delta: float) -> void:
+	if _phase != Phase.ROUND or is_resolved() or not get_rules().has_ghosts():
+		return
+
+	var profile: GhostProfile = get_ghost_profile()
+	for ghost: MatchParticipant in _participants:
+		if not ghost.is_ghost:
+			continue
+		if ghost.ghost_grace_remaining > 0.0:
+			ghost.ghost_grace_remaining = maxf(ghost.ghost_grace_remaining - delta, 0.0)
+			continue
+		var caught: MatchParticipant = _catchable_from(ghost, profile.catch_radius_metres)
+		if caught != null:
+			_swap_with_ghost(ghost, caught)
+
+
+## The nearest living prisoner within [param radius] metres of [param ghost],
+## horizontally, or null.
+##
+## Horizontal because the deck is flat and the tower is not: a ghost standing
+## under the stand is not about to catch the shooter, and the shooter is not a
+## candidate anyway -- only [member MatchParticipant.is_running] participants are.
+func _catchable_from(ghost: MatchParticipant, radius: float) -> MatchParticipant:
+	if ghost.body == null:
+		return null
+	var here: Vector3 = ghost.body.global_position
+	var best: MatchParticipant = null
+	var best_distance: float = 0.0
+	for other: MatchParticipant in _participants:
+		if not other.is_running or other.body == null:
+			continue
+		var distance: float = _flat_distance(here, other.body.global_position)
+		if distance > radius:
+			continue
+		if best == null or distance < best_distance:
+			best = other
+			best_distance = distance
+	return best
+
+
+## The catch: [param ghost] takes [param caught]'s spot, and they trade roles.
+##
+## [b]It is a swap and it conserves the count.[/b] One living prisoner goes in
+## and one comes out, so [method get_runners_remaining] is the same on both
+## sides of this call and the shooter's win condition cannot be moved by it. It
+## is not a conversion, so [signal runner_removed] does not fire and
+## [member _removed_count] does not move -- those mean "the rifle took somebody
+## out", and nothing here involves the rifle.
+##
+## The order matters. The caught prisoner is made a ghost FIRST, which takes
+## them out of [constant RUNNER_GROUP], before the incoming prisoner joins it --
+## so no tick ever sees both of them as legitimate targets, and the guard cannot
+## be handed a fourth prisoner for one frame.
+func _swap_with_ghost(ghost: MatchParticipant, caught: MatchParticipant) -> void:
+	var profile: GhostProfile = get_ghost_profile()
+	# Read before the tracker is stopped and the lane is handed over: the caught
+	# prisoner's spot is what the ghost is taking, and their arc is part of it.
+	var carried_arc: float = caught.tracker.get_travelled_arc()
+	var carried_lane: float = caught.lane_radius
+	var source: MatchLapTracker = caught.tracker
+
+	caught.is_running = false
+	_make_ghost(caught)
+
+	_unmake_ghost(ghost)
+	ghost.lane_radius = carried_lane
+	if profile.catch_transfers_progress:
+		_start_running_in_place(ghost, carried_arc, source)
+	else:
+		# The other reading of the mechanic: the spot is a place on the ring, not
+		# a distance already run, and the prisoners as a side lose the lap the
+		# caught player had. See GhostProfile.catch_transfers_progress -- this is
+		# the ghost HINDER answer and it is not the shipped one.
+		_start_running_in_place(ghost, 0.0, null)
+
+	_catch_count += 1
+	ghost_caught.emit(ghost, caught)
+
+
+## Turn [param participant] into a ghost, where they stand.
+##
+## Not a park and not a placement: the body is not moved, because a ghost picks
+## up from where the prisoner fell. What changes is what the body IS -- out of
+## the target group, off the physics layer the rifle's ray reads, onto the ghost
+## colour, faster, and driven by the chase instead of the lap.
+##
+## Called on the tick the rifle finishes a prisoner and on the tick a ghost
+## catches one. Both routes set the grace clock, because both leave a body
+## standing next to somebody it could otherwise take instantly.
+func _make_ghost(participant: MatchParticipant) -> void:
+	var profile: GhostProfile = get_ghost_profile()
+	var body: PlayerController = participant.body
+	if body == null:
+		return
+
+	participant.is_ghost = true
+	participant.is_shooter = false
+	participant.is_running = false
+	participant.ghost_grace_remaining = maxf(profile.catch_grace_seconds, 0.0)
+
+	participant.tracker.stop()
+	_silence_brain(participant)
+	_silence_tower_brain(participant)
+
+	body.remove_from_group(RUNNER_GROUP)
+	body.visible = true
+	# The whole of "cannot be shot": off every physics layer, so the rifle's ray
+	# passes through and an AI shooter's line-of-sight test finds nothing there.
+	# The MASK is left alone, so a ghost still stands on the deck and still
+	# cannot walk through the ring's cover -- it is unhittable, not incorporeal.
+	body.collision_layer = participant.home_collision_layer if profile.shootable else 0
+	body.collision_mask = participant.home_collision_mask
+	body.set_physics_process(true)
+	body.speed_scale = maxf(profile.speed_multiplier, 0.0)
+	_tint_body(participant, _ghost_material())
+
+	if participant.brain != null:
+		participant.brain.rules = get_rules()
+		participant.brain.begin_chase(RUNNER_GROUP)
+
+	runner_ghosted.emit(participant)
+
+
+## Take the ghost back off [param participant]: their colour, their pace, their
+## collision and their brain. Idempotent, and silent on anybody who is not one.
+func _unmake_ghost(participant: MatchParticipant) -> void:
+	if not participant.is_ghost:
+		return
+	participant.is_ghost = false
+	participant.ghost_grace_remaining = 0.0
+
+	var body: PlayerController = participant.body
+	if body != null:
+		body.speed_scale = 1.0
+		body.collision_layer = participant.home_collision_layer
+		body.collision_mask = participant.home_collision_mask
+		_tint_body(participant, participant.home_body_material)
+
+	if participant.brain != null:
+		participant.brain.end_chase()
+
+
+## Put [param participant] back in the round WITHOUT moving their body, holding
+## [param travelled_arc] radians of lap.
+##
+## The other half of the catch. [method _place_on_lane] cannot be used: it writes
+## a position, and on a woken body that is motion rather than a teleport -- see
+## [method _hold_body] for what a 300 m one costs. A prisoner who has just taken
+## somebody's spot is standing in it already.
+func _start_running_in_place(
+	participant: MatchParticipant, travelled_arc: float, source: MatchLapTracker
+) -> void:
+	var active: MatchRules = get_rules()
+	var body: PlayerController = participant.body
+	if body == null:
+		return
+
+	participant.is_shooter = false
+	participant.is_running = true
+	participant.lives = maxi(active.prisoner_lives, 1)
+
+	body.add_to_group(RUNNER_GROUP)
+	participant.tracker.begin(
+		body, _centre, _start_point, _end_point, active.lap_arrival_tolerance
+	)
+	if source != null:
+		participant.tracker.adopt_progress(source)
+
+	if participant.brain != null:
+		participant.brain.profile.lane_radius = participant.lane_radius
+		participant.brain.rules = active
+		participant.brain.resume(_centre, _start_point, _end_point, travelled_arc)
+
+
+## The material a ghost body wears, loaded once. Null is survivable -- a ghost
+## that is the wrong colour still plays correctly -- so this warns rather than
+## refusing to make one.
+func _ghost_material() -> Material:
+	if _ghost_material_cache != null:
+		return _ghost_material_cache
+	_ghost_material_cache = load(GHOST_MATERIAL_PATH) as Material
+	if _ghost_material_cache == null:
+		push_warning(
+			"MatchController cannot load %s; ghosts will be the colour they already are."
+			% GHOST_MATERIAL_PATH
+		)
+	return _ghost_material_cache
+
+
+## Paint [param participant]'s body mesh, remembering the authored material the
+## first time so it can be put back exactly.
+func _tint_body(participant: MatchParticipant, material: Material) -> void:
+	var body: PlayerController = participant.body
+	if body == null:
+		return
+	var mesh: MeshInstance3D = body.get_node_or_null(NodePath(BODY_MESH_NAME)) as MeshInstance3D
+	if mesh == null:
+		return
+	if not participant.home_material_read:
+		participant.home_body_material = mesh.material_override
+		participant.home_material_read = true
+	mesh.material_override = material
 
 
 # --- Participants -------------------------------------------------------------
@@ -891,6 +1235,11 @@ func _place_on_lane(participant: MatchParticipant, radius: float, start_angle: f
 	participant.lives = maxi(active.prisoner_lives, 1)
 
 	var body: PlayerController = participant.body
+	# A round restart brings every ghost back as a living prisoner: the colour,
+	# the pace, the collision and the chase all come off BEFORE the placement, so
+	# _hold_body has the authored layers to switch off and _wake_bodies has them
+	# to put back.
+	_unmake_ghost(participant)
 	_hold_body(participant)
 	# A body on a lane runs; it does not play the tower. The outgoing shooter
 	# arrives here on every seat change with its tower brain still loaded.
@@ -922,6 +1271,9 @@ func _place_in_tower(participant: MatchParticipant) -> void:
 	participant.lane_radius = 0.0
 
 	var body: PlayerController = participant.body
+	# A ghost can take the tower: they were a prisoner when the seat changed
+	# hands, and the round restarts around them like anybody else.
+	_unmake_ghost(participant)
 	_hold_body(participant)
 	body.global_position = _tower_point
 	body.velocity = Vector3.ZERO
@@ -989,6 +1341,7 @@ func _wake_bodies() -> void:
 ## and buried. See [constant PEN_DEPTH_METRES].
 func _park_body(participant: MatchParticipant) -> void:
 	var body: PlayerController = participant.body
+	_unmake_ghost(participant)
 	participant.tracker.stop()
 	_silence_brain(participant)
 	_silence_tower_brain(participant)
@@ -1017,6 +1370,14 @@ func _silence_brain(participant: MatchParticipant) -> void:
 	participant.brain.set_physics_process(false)
 	if participant.brain.input != null:
 		participant.brain.input.command.clear()
+
+
+## Stop a ghost's chase and drop the controls it was holding. Silent on a
+## participant who is not chasing, and on the human, who has no brain to stop --
+## a human ghost stops because the body it drives has been stopped.
+func _end_chase(participant: MatchParticipant) -> void:
+	if participant.brain != null:
+		participant.brain.end_chase()
 
 
 # --- The tower's brain --------------------------------------------------------
@@ -1427,8 +1788,14 @@ func _resolve(outcome: Outcome) -> void:
 ## the honest picture of a round that is over.
 func _freeze_runners() -> void:
 	for participant: MatchParticipant in _participants:
-		if participant.is_running:
+		if participant.is_running or participant.is_ghost:
+			# A ghost is stopped with the runners, and for the same reason: a
+			# chase that carried on past the resolution would catch somebody in a
+			# round that is already over, and the guard in [method _tick_ghosts]
+			# would swallow it -- but a ring still moving is not the honest
+			# picture of a round that is decided.
 			_silence_brain(participant)
+			_end_chase(participant)
 			participant.tracker.stop()
 			participant.body.velocity = Vector3.ZERO
 
@@ -1441,6 +1808,7 @@ func _freeze_everyone() -> void:
 	for participant: MatchParticipant in _participants:
 		_silence_brain(participant)
 		_silence_tower_brain(participant)
+		_end_chase(participant)
 		participant.tracker.stop()
 		participant.body.velocity = Vector3.ZERO
 		participant.body.set_physics_process(false)
@@ -1464,6 +1832,12 @@ func _lane_tangent(angle: float) -> Vector3:
 ## [param direction]. Forward is -Z, hence the double negation.
 func _heading_of(direction: Vector3) -> float:
 	return atan2(-direction.x, -direction.z)
+
+
+## Horizontal distance between two world points. The deck is flat and the tower
+## is not: a ghost standing under the stand is not next to the shooter.
+func _flat_distance(from: Vector3, to: Vector3) -> float:
+	return Vector2(to.x - from.x, to.z - from.z).length()
 
 
 func _shortest_radius(radii: PackedFloat32Array) -> float:

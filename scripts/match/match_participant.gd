@@ -114,6 +114,34 @@ var lane_radius: float = 0.0
 var home_collision_layer: int = 1
 var home_collision_mask: int = 1
 
+## True while this participant is a GHOST: shot out of the round under
+## [constant MatchRules.GhostBehaviour.CATCH_AND_SWAP], faster than the living,
+## unshootable, and chasing a living prisoner to take their spot.
+##
+## Mutually exclusive with [member is_running] and [member is_shooter] -- a
+## ghost is not a legitimate target and cannot arrive, so nothing that counts
+## runners counts them. It is a THIRD role rather than a flag on the second,
+## which is what makes a round three-sided.
+var is_ghost: bool = false
+
+## Seconds this ghost must wait before it may catch anybody, counting down.
+##
+## Set from [member GhostProfile.catch_grace_seconds] on the tick a participant
+## becomes a ghost, by either route. Without it a swap oscillates: the new ghost
+## is left standing inside the new prisoner's catch radius and takes them
+## straight back, sixty times a second, forever.
+var ghost_grace_remaining: float = 0.0
+
+## The body mesh's material as authored, kept so that a ghost's colour can be
+## taken back off exactly rather than approximately. Null until the first time
+## this participant is tinted.
+var home_body_material: Material = null
+
+## Whether [member home_body_material] has been read off the body yet. A
+## separate flag because the authored material may legitimately BE null, and
+## restoring null is then the correct thing to do rather than a no-op.
+var home_material_read: bool = false
+
 
 func is_human() -> bool:
 	return kind == Kind.HUMAN
@@ -130,6 +158,8 @@ func get_role_name() -> String:
 		return "TOWER"
 	if is_running:
 		return "RUNNING"
+	if is_ghost:
+		return "GHOST"
 	return "CONVERTED"
 
 
