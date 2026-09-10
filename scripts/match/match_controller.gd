@@ -259,7 +259,7 @@ const PEN_SPACING_METRES: float = 4.0
 ## What changes is that [KillVolume] and [TrapVolume] widen their OWN
 ## [member CollisionObject3D.collision_mask] to include this one bit
 ## specifically -- see the masks authored in
-## [code]scenes/ring/test_ring.tscn[/code] -- so a hazard that has to see a
+## [code]scenes/ring/bentham_ring.tscn[/code] -- so a hazard that has to see a
 ## ghost can, while nothing that merely shares the rifle's default mask finds
 ## one by accident.
 const GHOST_HAZARD_LAYER: int = 1 << 20
@@ -423,6 +423,7 @@ func get_ghost_profile() -> GhostProfile:
 
 
 func _ready() -> void:
+	_install_chosen_map()
 	if arena == null or rifle == null or runner_scene == null or runner_container == null:
 		push_error("MatchController is missing an arena, a rifle, a runner scene or a container; no match will run.")
 		return
@@ -449,6 +450,75 @@ func _unhandled_input(event: InputEvent) -> void:
 	if key.physical_keycode == RESTART_KEY:
 		start_match()
 		get_viewport().set_input_as_handled()
+
+
+# --- The map ------------------------------------------------------------------
+
+## The arena scene the rules in force name. Empty when they name no map at all.
+func get_map_scene_path() -> String:
+	return MapCatalog.scene_path_for(get_rules().map_id)
+
+
+## Put the map [member MatchRules.map_id] names into the scene, replacing the
+## arena the scene was authored with if it is a different one.
+##
+## [b]Why the controller and not the match scene.[/b] The player chooses a map on
+## the setup screen, that choice reaches [MatchRules] through the one path every
+## other rule takes -- [method GameSettings.apply_to_match_rules], called by the
+## [SettingsBoot] node in [code]scenes/match/match.tscn[/code] -- and this is the
+## node that reads the rules. Loading the arena anywhere else would be a second
+## path for one setting, which is exactly the thing the setup screen's header
+## forbids.
+##
+## [b]It runs before anything is measured.[/b] From [method Node._ready], ahead
+## of [method start_match], so [method _cache_geometry] reads the markers of the
+## arena actually standing. The node keeps the name and the slot of the one it
+## replaces, so [code]../Arena[/code] typed anywhere else still resolves.
+##
+## [b]Three cases where it deliberately does nothing.[/b] No arena at all (the
+## caller is about to be told); an empty [member MatchRules.map_id]; and an arena
+## whose [member Node.scene_file_path] is empty -- a world assembled in code, by
+## a test or by a harness, which placed the arena it meant to place and is not
+## this method's to overrule.
+func _install_chosen_map() -> void:
+	if arena == null or arena.scene_file_path.is_empty():
+		return
+	var wanted: String = get_map_scene_path()
+	if wanted.is_empty() or wanted == arena.scene_file_path:
+		return
+
+	var packed: PackedScene = load(wanted) as PackedScene
+	var replacement: Node3D = null
+	if packed != null:
+		replacement = packed.instantiate() as Node3D
+	if replacement == null:
+		push_error(
+			"MatchController cannot load the map %s; the arena the scene was authored with stands."
+			% wanted
+		)
+		return
+
+	var parent: Node = arena.get_parent()
+	if parent == null:
+		replacement.free()
+		return
+
+	var slot: int = arena.get_index()
+	var arena_name: StringName = arena.name
+	var placement: Transform3D = arena.transform
+	var replaced: Node3D = arena
+
+	# Out of the tree BEFORE the replacement goes in, so the name is free and
+	# Godot does not quietly rename the new arena to Arena2 -- which every
+	# NodePath in the match scene points away from.
+	parent.remove_child(replaced)
+	replaced.queue_free()
+
+	replacement.name = arena_name
+	replacement.transform = placement
+	parent.add_child(replacement)
+	parent.move_child(replacement, slot)
+	arena = replacement
 
 
 # --- The match ----------------------------------------------------------------

@@ -19,7 +19,7 @@ extends RefCounted
 const PLAYER_SCENE_PATH: String = "res://scenes/player/player.tscn"
 const RUNNER_SCENE_PATH: String = "res://scenes/bot/ring_runner.tscn"
 const RIFLE_SCENE_PATH: String = "res://scenes/weapon/rifle.tscn"
-const ARENA_SCENE_PATH: String = "res://scenes/ring/test_ring.tscn"
+const ARENA_SCENE_PATH: String = "res://scenes/ring/bentham_ring.tscn"
 const MATCH_SCENE_PATH: String = "res://scenes/match/match.tscn"
 
 const MATCH_RULES_PATH: String = "res://resources/rules/default_match_rules.tres"
@@ -29,7 +29,7 @@ const MOVEMENT_PROFILE_PATH: String = "res://scenes/player/default_movement_prof
 const WEAPON_PROFILE_PATH: String = "res://scenes/weapon/default_weapon_profile.tres"
 const BOT_PROFILE_PATH: String = "res://scenes/bot/default_bot_profile.tres"
 
-## Node paths into [code]scenes/ring/test_ring.tscn[/code]. The same defaults
+## Node paths into [code]scenes/ring/bentham_ring.tscn[/code]. The same defaults
 ## [MatchController] exports, restated here so a test can find the markers
 ## without owning a [MatchController].
 const START_MARKER_PATH: NodePath = ^"StartEnd/PrisonerStart"

@@ -47,6 +47,17 @@ extends Control
 ## not into a copy of them. [code]tests/test_match_setup.gd[/code] asserts that
 ## by identity.
 
+## [b]The map is chosen here too, and it is not a rule of the round.[/b] It is
+## the first control on the screen, it is read from [MapCatalog] rather than
+## typed into the scene, and it is deliberately NOT part of a preset: choosing
+## Riot changes six rules and leaves you standing where you chose to stand. It
+## travels the identical path everything else on this screen does, ending on
+## [member MatchRules.map_id], which [MatchController] reads to decide what arena
+## to instance. There is one map today; a list of one is still a choice, and the
+## second map is a [code].tres[/code] in [code]resources/maps/[/code] with no
+## edit to this file.
+
+
 ## Emitted when the player presses Start, after the settings file is written. The
 ## owner changes the scene; this node does not, so it works as a child that is
 ## toggled and as a scene that is freed.
@@ -78,11 +89,22 @@ enum Opening {
 ## picked a particular bot on the settings screen's Match tab keeps that bot.
 const FIRST_BOT_SEAT_INDEX: int = 1
 
+## Shown in the map picker when [MapCatalog] returns nothing at all -- a broken
+## install, not a state the game can be played in. Present so the row reads as a
+## failure rather than as an empty control that swallows clicks.
+const NO_MAPS_TITLE: String = "No maps found"
+
+## Item id of that entry, and never a valid map index.
+const NO_MAPS_ID: int = -1
+
 ## Shown in the mode picker when the rules match no named preset.
 const CUSTOM_TITLE: String = "Custom"
 
 ## Item id of that entry. Negative so it can never collide with a preset index.
 const CUSTOM_ID: int = -1
+
+@onready var _map_option: OptionButton = %MapOption
+@onready var _map_summary: Label = %MapSummary
 
 @onready var _preset_option: OptionButton = %PresetOption
 @onready var _preset_badge: Label = %PresetBadge
@@ -132,6 +154,7 @@ func refresh() -> void:
 	_syncing = true
 
 	var settings: GameSettings = _store.settings
+	_map_option.selected = _index_of(_map_option, MapCatalog.index_of(settings.map_id))
 	_prisoner_count_spin.value = float(settings.prisoner_count)
 	_opening_option.selected = _index_of(_opening_option, int(_opening_of(settings)))
 	_lives_option.selected = _index_of(_lives_option, settings.prisoner_lives)
@@ -197,6 +220,22 @@ func _configure_ranges() -> void:
 ## clamp bounds -- rather than typed into the scene, where it would fall out of
 ## step the first time one of them changed.
 func _fill_choices() -> void:
+	_map_option.clear()
+	var maps: Array[MapDefinition] = MapCatalog.all()
+	# map_index, not index: the preset loop below already owns that name in this
+	# function, which is why every loop here is named after what it counts.
+	for map_index: int in maps.size():
+		var map: MapDefinition = maps[map_index]
+		if map == null:
+			continue
+		# The catalog position is the item id, exactly as the mode picker uses
+		# the preset position: the MEANING of the entry is which map it is, and
+		# reading a list position back would break the day one is inserted.
+		_map_option.add_item(map.title, map_index)
+	if _map_option.item_count == 0:
+		_map_option.add_item(NO_MAPS_TITLE, NO_MAPS_ID)
+		_map_option.set_item_disabled(0, true)
+
 	_preset_option.clear()
 	var presets: Array[MatchPresets.Preset] = MatchPresets.all()
 	for index: int in presets.size():
@@ -238,6 +277,7 @@ func _fill_choices() -> void:
 
 
 func _connect_controls() -> void:
+	_map_option.item_selected.connect(_on_map_selected)
 	_preset_option.item_selected.connect(_on_preset_selected)
 	_prisoner_count_spin.value_changed.connect(_on_prisoner_count_changed)
 	_opening_option.item_selected.connect(_on_opening_selected)
@@ -253,6 +293,19 @@ func _connect_controls() -> void:
 
 
 # --- Handlers -----------------------------------------------------------------
+
+## Choose the map. Writes an id and not a path: see [member GameSettings.map_id].
+func _on_map_selected(index: int) -> void:
+	if _syncing:
+		return
+	var id: int = _map_option.get_item_id(index)
+	var maps: Array[MapDefinition] = MapCatalog.all()
+	if id < 0 or id >= maps.size() or maps[id] == null:
+		return
+	_store.settings.map_id = maps[id].id
+	# _after_change() redraws the map summary with everything else.
+	_after_change()
+
 
 ## Set every curated rule at once from a named mode, then redraw. The player can
 ## still override any of them afterwards, at which point the picker reads Custom.
@@ -362,9 +415,25 @@ func _after_change() -> void:
 # --- Readouts -----------------------------------------------------------------
 
 func _update_derived() -> void:
+	_update_map_display()
 	_update_preset_display()
 	_update_readouts()
 	_update_note()
+
+
+## Say what the chosen map is. With one map this line is the whole reason the
+## row does not read as a dead control.
+func _update_map_display() -> void:
+	var map: MapDefinition = MapCatalog.by_id(_store.settings.map_id)
+	if map == null:
+		# clamp_all() puts an unknown id back to the default, so this is only
+		# reachable with no catalog at all.
+		_map_summary.text = (
+			"No map could be loaded. The game cannot start a match until "
+			+ "%s names one." % MapCatalog.CATALOG_PATH
+		)
+		return
+	_map_summary.text = map.summary
 
 
 ## Show which named mode the current rules are, or Custom.

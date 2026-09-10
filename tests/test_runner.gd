@@ -5,7 +5,7 @@ extends TestCase
 ## The greybox ring is instanced rather than stood in for by a flat plate. The
 ## runner's finish condition is arc travelled about the arena axis, and the track
 ## it holds is chosen to thread between the cover bands, so both are statements
-## about [code]scenes/ring/test_ring.tscn[/code]'s actual geometry. A test on a
+## about [code]scenes/ring/bentham_ring.tscn[/code]'s actual geometry. A test on a
 ## featureless floor would keep passing after somebody moved a band of cover into
 ## the runner's channel.
 

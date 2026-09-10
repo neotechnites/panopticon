@@ -120,6 +120,24 @@ enum GhostBehaviour {
 	CATCH_AND_SWAP,
 }
 
+# --- The map ------------------------------------------------------------------
+
+## Which arena the round is played in, by [member MapDefinition.id]. [b]LIVE.[/b]
+##
+## The map is a rule of the round by the test this file's header sets: change it
+## and you are playing a different game. It is named rather than pointed at --
+## a [StringName] and not a [PackedScene] -- for three reasons. A resource path
+## in here would put the arena in the load graph of every rules variant the sweep
+## writes; the id is what a settings file can legibly hold across a rename of the
+## scene; and [MapCatalog] is then the single list of what exists, instead of
+## every rules resource carrying its own opinion.
+##
+## An id naming no map falls back to [method MapCatalog.default_map] rather than
+## failing -- see [method MapCatalog.scene_path_for] -- because the callers are a
+## running match and an unattended sweep. An EMPTY id means "whatever arena the
+## scene was authored with", which is what lets a bespoke test world stand.
+@export var map_id: StringName = MapCatalog.DEFAULT_ID
+
 # --- The prisoners ------------------------------------------------------------
 
 ## How many prisoners run the round. [b]LIVE.[/b]
@@ -591,6 +609,11 @@ func validate() -> PackedStringArray:
 		problems.append("prisoner_count is %d; a round needs at least one prisoner." % prisoner_count)
 	if track_radius <= 0.0:
 		problems.append("track_radius is %.1f; there is nowhere to put a prisoner." % track_radius)
+	if not String(map_id).is_empty() and not MapCatalog.has(map_id):
+		problems.append(
+			"map_id is %s, which is in no catalog; the match will fall back to %s."
+			% [map_id, MapCatalog.DEFAULT_ID]
+		)
 	if not is_shooter_win_condition_implemented():
 		problems.append(
 			"shooter_win_condition is %s, which is declared but not implemented; the shooter cannot win this round."

@@ -43,6 +43,14 @@ const MATCH_RULES_PATH: String = "res://resources/rules/default_match_rules.tres
 ## empty and the player is never left unable to choose.
 const FALLBACK_SEAT_COUNT: int = 2
 
+## What the video tab says when the window is doing as it is told. The other two
+## strings it can say live in [method _video_note_text]; all three are here
+## rather than in the scene because which one is true is a runtime question.
+const RESOLUTION_NOTE: String = (
+	"Resolution applies to the window; in either fullscreen mode the display's own "
+	+ "resolution is used."
+)
+
 @onready var _keybind_panel: KeybindPanel = %KeybindPanel
 
 @onready var _ghosts_check: CheckBox = %GhostsCheck
@@ -66,6 +74,7 @@ const FALLBACK_SEAT_COUNT: int = 2
 @onready var _resolution_option: OptionButton = %ResolutionOption
 @onready var _vsync_option: OptionButton = %VsyncOption
 @onready var _audio_note: Label = %Note
+@onready var _video_note: Label = %VideoNote
 
 var _store: SettingsStore = null
 
@@ -125,6 +134,7 @@ func refresh() -> void:
 	_update_value_labels()
 	_update_seat_availability()
 	_update_audio_note()
+	_update_video_note()
 	if _keybind_panel != null:
 		_keybind_panel.refresh()
 
@@ -280,27 +290,33 @@ func _on_music_changed(value: float) -> void:
 	_after_change()
 
 
+## Forced, like the resolution below it: [method GameSettings.apply_video] leaves
+## the window alone unless the values changed, and the player using this control
+## is the case where it must not.
 func _on_display_mode_selected(index: int) -> void:
 	if _syncing:
 		return
 	_store.settings.display_mode = index as GameSettings.DisplayMode
-	_after_change()
+	_after_change(true)
 
 
 func _on_vsync_selected(index: int) -> void:
 	if _syncing:
 		return
 	_store.settings.vsync_mode = index as GameSettings.VSyncMode
-	_after_change()
+	_after_change(true)
 
 
+## Forced. An [OptionButton] emits this for the entry that was already selected,
+## and a player picking 1920x1080 again after dragging the window somewhere else
+## means "put it back", not "do nothing".
 func _on_resolution_selected(index: int) -> void:
 	if _syncing:
 		return
 	if index < 0 or index >= GameSettings.RESOLUTION_CHOICES.size():
 		return
 	_store.settings.resolution = GameSettings.RESOLUTION_CHOICES[index]
-	_after_change()
+	_after_change(true)
 
 
 func _on_capture_state_changed(capturing: bool) -> void:
@@ -315,11 +331,15 @@ func _on_reset_all_pressed() -> void:
 
 
 ## Clamp, apply and redraw the readouts. Not saved -- [method close] does that.
-func _after_change() -> void:
+##
+## [param force_video] reaches [method GameSettings.apply_video] and is set only
+## by the three controls on the video tab; see the note there.
+func _after_change(force_video: bool = false) -> void:
 	_store.settings.clamp_all()
-	_store.apply_all()
+	_store.apply_all(force_video)
 	_update_value_labels()
 	_update_seat_availability()
+	_update_video_note()
 
 
 func _update_value_labels() -> void:
@@ -394,6 +414,37 @@ func _update_audio_note() -> void:
 	var note: String = _missing_bus_note()
 	_audio_note.text = note
 	_audio_note.visible = not note.is_empty()
+
+
+## What the video tab says under the three controls.
+##
+## [b]Why this is not one fixed sentence.[/b] It was, and the sentence was a lie
+## in the one case that mattered: run from the editor's embedded Game panel,
+## [method DisplayServer.window_set_size] does nothing at all and logs a single
+## line the player never sees, so the resolution list looked broken -- the choice
+## was taken, applied and saved, and the window did not move. A resolution
+## control that cannot resize anything has to say so on the screen it is on,
+## which is the only place the person using it is looking.
+func _update_video_note() -> void:
+	if _video_note == null:
+		return
+	_video_note.text = _video_note_text()
+
+
+## The note, chosen off what actually happened rather than off what should have.
+func _video_note_text() -> String:
+	if _store.settings.window_resize_refused:
+		if GameSettings.is_embedded():
+			return (
+				"The window did not resize: this build is running inside the editor's "
+				+ "embedded Game window, which cannot be resized. Turn off Game > Embed "
+				+ "Game Window in the editor and run again. The choice is saved either way."
+			)
+		return (
+			"The window did not resize: this display server refused the size. "
+			+ "The choice is saved and will be tried again next time the game starts."
+		)
+	return RESOLUTION_NOTE
 
 
 ## Names the buses the project does not define, or an empty string when all

@@ -315,6 +315,65 @@ func test_the_controls_drive_the_store() -> void:
 	)
 
 
+## The map picker offers the maps that exist and writes the choice into the
+## store.
+##
+## One map ships today, so this asserts the SHAPE -- one row per catalog entry,
+## selecting a row writes that map's id -- rather than a number. A list of one is
+## the correct thing to show and it must not read as broken: the row is enabled,
+## it names the map, and the summary beside it says what the map is.
+func test_the_map_picker_offers_every_map_and_writes_the_choice() -> void:
+	var store: SettingsStore = SettingsStore.instance()
+	store.settings.reset()
+	var screen: MatchSetupScreen = _open_screen()
+
+	var option: OptionButton = screen.get_node("%MapOption") as OptionButton
+	var summary: Label = screen.get_node("%MapSummary") as Label
+	assert_not_null(option, "the screen has a map picker")
+	assert_not_null(summary, "and a line saying what the map is")
+	if option == null or summary == null:
+		return
+
+	var maps: Array[MapDefinition] = MapCatalog.all()
+	assert_eq_int(option.item_count, maps.size(), "one row per map in the catalog")
+	assert_gt(float(option.item_count), 0.0, "and there is at least one")
+	if maps.is_empty():
+		return
+
+	for index: int in option.item_count:
+		assert_false(option.is_item_disabled(index), "every map offered can be chosen")
+		assert_eq_string(
+			option.get_item_text(index), maps[index].title, "the row names the map"
+		)
+
+	# Selecting the last entry -- which is the only entry today -- writes that
+	# map's id and nothing else's.
+	var last: int = option.item_count - 1
+	option.select(last)
+	option.item_selected.emit(last)
+	assert_eq_string(
+		String(store.settings.map_id), String(maps[last].id), "the picker wrote the map"
+	)
+	assert_eq_string(summary.text, maps[last].summary, "and the screen says what it is")
+
+
+## Choosing a mode does not move the player off the map they chose. A map is a
+## place, not a rule of the round, and no preset names one.
+##
+## Asserted against the preset's own property list rather than by watching a
+## value, because with one map in the catalog a preset that DID write the map
+## would write the same map and the watch would pass.
+func test_no_preset_names_a_map() -> void:
+	var settings: GameSettings = GameSettings.new()
+	var chosen: StringName = settings.map_id
+	for preset: MatchPresets.Preset in MatchPresets.all():
+		assert_false(_has_property(preset, "map_id"), "%s names no map" % preset.id)
+		preset.apply_to(settings)
+		assert_eq_string(
+			String(settings.map_id), String(chosen), "%s left the map alone" % preset.id
+		)
+
+
 ## The tower win conditions the round does not implement are shown and cannot be
 ## chosen. Shown because the design space is worth seeing; not chosen because
 ## they produce a round the tower cannot win.
@@ -420,6 +479,18 @@ func test_the_setup_choice_reaches_the_rules_the_match_runs() -> void:
 		shipped.get_participant_count(), 7, "and the roster the controller builds grew with it"
 	)
 
+	# The map takes the same door. Written verbatim -- an id the catalog does
+	# not know is not corrected here, because correcting it is
+	# GameSettings.clamp_all()'s job and doing it twice would hide the day this
+	# link stopped working.
+	store.settings.map_id = &"a_map_only_this_test_names"
+	store.settings.apply_to_match_rules(controller.rules)
+	assert_eq_string(
+		String(shipped.map_id),
+		"a_map_only_this_test_names",
+		"the chosen map landed on the match's rules",
+	)
+
 	match_root.free()
 
 
@@ -437,6 +508,14 @@ func _open_screen() -> MatchSetupScreen:
 
 static func _shipped_rules() -> MatchRules:
 	return load(MATCH_RULES_PATH) as MatchRules
+
+
+## True when [param object] carries a property called [param property_name].
+static func _has_property(object: Object, property_name: String) -> bool:
+	for property: Dictionary in object.get_property_list():
+		if String(property.get("name", "")) == property_name:
+			return true
+	return false
 
 
 ## The entry of [param option] whose item id is [param id], or -1.
@@ -457,3 +536,4 @@ static func _copy_exposed_rules(from: MatchRules, to: MatchRules) -> void:
 	to.ghost_behaviour = from.ghost_behaviour
 	to.open_with_race = from.open_with_race
 	to.opening_seat_index = from.opening_seat_index
+	to.map_id = from.map_id

@@ -346,6 +346,80 @@ func _press(keycode: Key) -> void:
 	_panel._input(event)
 
 
+# --- The video tab ------------------------------------------------------------
+#
+# These exist because of a bug report that read "changing the resolution did not
+# change the size of the screen". The control was wired correctly and the choice
+# was saved correctly; the game was running inside the editor's embedded Game
+# window, where DisplayServer.window_set_size does nothing at all and prints one
+# line into a log the player never reads. Nothing on the screen said so, so a
+# working control was indistinguishable from a broken one.
+
+## Picking a size writes it into the store and it survives a restart.
+##
+## The restart is a second [SettingsStore] reading the same file, which is
+## exactly what the next launch does -- see [method SettingsStore.load_from_disk].
+func test_a_chosen_resolution_survives_a_restart() -> void:
+	var chosen: Vector2i = GameSettings.RESOLUTION_CHOICES[2]
+	var option: OptionButton = _screen.get_node("%ResolutionOption") as OptionButton
+
+	option.selected = 2
+	option.item_selected.emit(2)
+
+	assert_true(
+		_screen._store.settings.resolution == chosen,
+		"picking '%s' put %s in the store, not %s" % [
+			option.get_item_text(2), chosen, _screen._store.settings.resolution,
+		],
+	)
+
+	_screen.close()
+
+	var restarted: SettingsStore = SettingsStore.new()
+	restarted.config_path = SCRATCH_CONFIG
+	assert_true(restarted.load_from_disk(), "the settings file the screen wrote is readable")
+	assert_true(
+		restarted.settings.resolution == chosen,
+		"a restart reads back %s, not %s" % [chosen, restarted.settings.resolution],
+	)
+
+
+## The note under the resolution control says the window refused, when it did.
+##
+## [member GameSettings.window_resize_refused] is set by measuring -- the size
+## before the call and after it, against the size asked for -- so this test sets
+## the measured outcome directly rather than trying to summon a display server
+## that refuses, which no headless suite can do.
+func test_the_video_note_says_so_when_the_window_refuses_to_resize() -> void:
+	var note: Label = _screen.get_node("%VideoNote") as Label
+
+	_screen._store.settings.window_resize_refused = false
+	_screen.refresh()
+	assert_eq_string(
+		note.text, SettingsScreen.RESOLUTION_NOTE,
+		"with the window obeying, the note is the ordinary explanation",
+	)
+
+	_screen._store.settings.window_resize_refused = true
+	_screen.refresh()
+	assert_true(
+		note.text.contains("did not resize"),
+		"with the window refusing, the note says so; it says '%s'" % note.text,
+	)
+	assert_true(
+		note.text.contains("saved"),
+		"and it says the choice was kept, because it was; it says '%s'" % note.text,
+	)
+
+
+# The other half of the same bug -- apply_video() dragging a maximised window
+# back to the stored resolution every time an unrelated setting moved -- is not
+# asserted here. It cannot be: apply_video() is a no-op with no display server,
+# so a headless test of it would pass whatever the code did. It was measured
+# instead, against a real window on real hardware; see the probe results in the
+# session that made this change.
+
+
 # --- Fixtures -----------------------------------------------------------------
 
 ## Instantiate the shipped scene, show the Controls tab, and let it settle.

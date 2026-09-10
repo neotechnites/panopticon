@@ -169,9 +169,15 @@ func save_to_disk() -> Error:
 
 
 ## Push everything at the engine: audio buses, window, [InputMap].
-func apply_all() -> void:
+##
+## [param force_video] is passed straight to [method GameSettings.apply_video].
+## Leave it false for a change that is not about the window -- that is what stops
+## a volume slider from resizing a window the player had sized themselves -- and
+## set it when the player has just used the display mode or resolution control,
+## or has reset everything.
+func apply_all(force_video: bool = false) -> void:
 	settings.apply_audio()
-	settings.apply_video()
+	settings.apply_video(force_video)
 	keybinds.apply_to_input_map()
 	applied.emit()
 
@@ -181,7 +187,9 @@ func apply_all() -> void:
 func reset_all() -> void:
 	settings.reset()
 	keybinds.reset_to_defaults()
-	apply_all()
+	# Forced: the window is part of "everything", and a reset that leaves a
+	# hand-resized window where it was has not reset everything.
+	apply_all(true)
 	save_to_disk()
 
 

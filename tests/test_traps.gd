@@ -47,7 +47,7 @@ const START_ANGLE_TOLERANCE: float = 1e-3
 ##
 ## The body is a 0.4 m capsule, so this is five body radii of room either way --
 ## far more than the baseline's steering error, and the number the placement in
-## [code]scenes/ring/test_ring.tscn[/code] was chosen against (the tightest
+## [code]scenes/ring/bentham_ring.tscn[/code] was chosen against (the tightest
 ## hazard there leaves 2.25 m). It is deliberately not derived from the cover
 ## bands: the point of the check is to fail loudly if somebody moves a trap onto
 ## the line, not to track whatever the cover happens to do.

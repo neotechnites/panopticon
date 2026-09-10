@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="MapCatalog" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/maps/map_catalog.gd" id="1_map_catalog"]
+[ext_resource type="Script" path="res://scripts/maps/map_definition.gd" id="2_map_definition"]
+[ext_resource type="Resource" path="res://resources/maps/bentham_ring.tres" id="3_bentham_ring"]
+
+[resource]
+script = ExtResource("1_map_catalog")
+maps = Array[ExtResource("2_map_definition")]([ExtResource("3_bentham_ring")])

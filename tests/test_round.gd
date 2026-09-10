@@ -52,7 +52,7 @@ const TRACK_TOLERANCE_METRES: float = 4.0
 ## them; the trap this bounds lifts bodies to y=8 as they slide out to the wall.
 const HEIGHT_TOLERANCE_METRES: float = 0.5
 
-## The running surface, from [code]scenes/ring/test_ring.tscn[/code]: an annulus
+## The running surface, from [code]scenes/ring/bentham_ring.tscn[/code]: an annulus
 ## with the inner kerb at r=36 and the outer wall at r=60.
 const DECK_INNER_RADIUS: float = 36.0
 const DECK_OUTER_RADIUS: float = 60.0
