@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="ZoomProfile" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/optics/zoom_profile.gd" id="1_zoom_profile"]
+
+[resource]
+script = ExtResource("1_zoom_profile")
+zoom_factor = 0.45
+transition_seconds = 0.25
+sensitivity_compensation = 1.0
+activation = 0
