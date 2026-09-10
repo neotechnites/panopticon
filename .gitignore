@@ -16,3 +16,7 @@ desktop.ini
 
 # Throwaway verification harnesses
 tools/_scratch/
+
+# Godot writes this at the root with local absolute paths the moment the
+# export dialog is opened. CI generates its own from tools/ci/.
+export_presets.cfg

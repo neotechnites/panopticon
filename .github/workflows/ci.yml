@@ -1,0 +1,209 @@
+--- # PANOPTICON continuous integration.
+#
+# Four things happen here, in this order, and each one is a gate on the next:
+#
+#   1. IMPORT the project, so the global class_name cache exists. Nothing that
+#      loads a script works without it (see tools/audit_warnings.gd).
+#   2. AUDIT every script against the project's own warnings, promoted to errors.
+#   3. RUN the test suite. It exits non-zero on any failure; that exit code is
+#      what fails the job.
+#   4. EXPORT a Windows build and upload it.
+#
+# Step 4 is not decoration. Windows is the ship platform, and an export pipeline
+# that has never run is a novel operation to perform for the first time under
+# deadline, on the day of a Steam upload. Exercising it on every push means the
+# first real release is the hundredth export, not the first.
+#
+# The engine version is read from .godot-version and used everywhere. It is not
+# repeated in this file: a workflow pinning 4.7.2 while the repo has moved to
+# 4.8 produces a green build of a project nobody is developing.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# A new push to a branch cancels the run still going for the previous one.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Audit, test and export
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      # --- Engine version -----------------------------------------------------
+      #
+      # .godot-version holds the full engine string, e.g.
+      #   4.7.2.stable.official.ed1daf0bf
+      # from which three forms are needed:
+      #   version  4.7.2          -- the numeric part
+      #   tag      4.7.2-stable   -- the GitHub release tag and the file names
+      #   dir      4.7.2.stable   -- the export-templates directory name
+      - name: Read the engine version from .godot-version
+        id: engine
+        run: |
+          set -euo pipefail
+          raw="$(tr -d '[:space:]' < .godot-version)"
+          version="$(sed -E 's/^([0-9]+(\.[0-9]+)*)\.([A-Za-z0-9]+).*$/\1/' <<< "$raw")"
+          channel="$(sed -E 's/^([0-9]+(\.[0-9]+)*)\.([A-Za-z0-9]+).*$/\3/' <<< "$raw")"
+          if [[ -z "$version" || -z "$channel" || "$version" == "$raw" ]]; then
+            echo "::error file=.godot-version::Could not parse an engine version out of '$raw'"
+            exit 1
+          fi
+          echo "version=$version"            >> "$GITHUB_OUTPUT"
+          echo "tag=$version-$channel"       >> "$GITHUB_OUTPUT"
+          echo "dir=$version.$channel"       >> "$GITHUB_OUTPUT"
+          echo "Building against Godot $version-$channel"
+
+      # --- Engine and export templates ---------------------------------------
+      #
+      # Both come from the official release assets and are cached together under
+      # one key, because they must always be the same version as each other:
+      # exporting with mismatched templates fails in ways that read as project
+      # bugs.
+      - name: Restore cached engine and export templates
+        id: engine-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/godot-bin
+            ~/.local/share/godot/export_templates
+          key: godot-${{ steps.engine.outputs.tag }}-linux
+
+      - name: Download the engine and export templates
+        if: steps.engine-cache.outputs.cache-hit != 'true'
+        env:
+          TAG: ${{ steps.engine.outputs.tag }}
+          TEMPLATES_DIR: ${{ steps.engine.outputs.dir }}
+        run: |
+          set -euo pipefail
+          base="https://github.com/godotengine/godot/releases/download/${TAG}"
+
+          # Headless-capable editor binary. The standard (non-".mono") build
+          # runs with --headless on a runner with no display.
+          curl --fail --location --silent --show-error \
+            --output /tmp/godot.zip \
+            "${base}/Godot_v${TAG}_linux.x86_64.zip"
+          mkdir -p ~/godot-bin
+          unzip -q -o /tmp/godot.zip -d /tmp/godot-unpacked
+          # Found rather than named: the binary inside the archive has carried
+          # slightly different names across releases, and a hard-coded one turns
+          # an engine bump into a mystery failure three steps later.
+          binary="$(find /tmp/godot-unpacked -maxdepth 2 -type f -name 'Godot_v*_linux.x86_64' | head -n 1)"
+          if [[ -z "$binary" ]]; then
+            echo "::error::No Linux binary found inside Godot_v${TAG}_linux.x86_64.zip"
+            ls -R /tmp/godot-unpacked
+            exit 1
+          fi
+          mv "$binary" ~/godot-bin/godot
+          chmod +x ~/godot-bin/godot
+
+          # Export templates. The .tpz is a zip whose contents live under
+          # templates/; Godot expects them at
+          # ~/.local/share/godot/export_templates/<version>.<channel>/
+          curl --fail --location --silent --show-error \
+            --output /tmp/templates.tpz \
+            "${base}/Godot_v${TAG}_export_templates.tpz"
+          unzip -q -o /tmp/templates.tpz -d /tmp/templates
+          mkdir -p ~/.local/share/godot/export_templates
+          rm -rf ~/.local/share/godot/export_templates/${TEMPLATES_DIR}
+          mv /tmp/templates/templates ~/.local/share/godot/export_templates/${TEMPLATES_DIR}
+
+      - name: Put the engine on PATH and confirm its version
+        env:
+          EXPECTED: ${{ steps.engine.outputs.tag }}
+        run: |
+          set -euo pipefail
+          echo "$HOME/godot-bin" >> "$GITHUB_PATH"
+          reported="$("$HOME/godot-bin/godot" --version | tr -d '[:space:]')"
+          echo "Engine reports: $reported"
+          # The reported string is like 4.7.2.stable.official.ed1daf0bf; the
+          # dotted form of the tag must be a prefix of it.
+          if [[ "$reported" != "${EXPECTED/-/.}"* ]]; then
+            echo "::error::Engine is $reported but .godot-version asks for $EXPECTED"
+            exit 1
+          fi
+          ls ~/.local/share/godot/export_templates/${{ steps.engine.outputs.dir }}/windows_release_x86_64.exe
+
+      # --- Import -------------------------------------------------------------
+      #
+      # Everything downstream depends on this. A project that has not been
+      # imported has no .godot/global_script_class_cache.cfg, so every
+      # class_name in the codebase resolves to an unknown type and both the
+      # audit and the test suite fail with hundreds of meaningless errors. The
+      # cache file is checked for explicitly rather than trusting the exit code,
+      # because `--import` returns 0 in cases where it has done nothing useful.
+      - name: Import the project
+        run: |
+          set -euo pipefail
+          cache=.godot/global_script_class_cache.cfg
+          count() { grep -c '"class":' "$cache" 2>/dev/null || echo 0; }
+
+          godot --headless --path . --import
+          if [[ "$(count)" -eq 0 ]]; then
+            echo "::warning::First import produced an empty class cache; retrying"
+            godot --headless --path . --import
+          fi
+          # An EMPTY cache is the dangerous state, not a missing one: every
+          # class_name then resolves to an unknown type and the two steps below
+          # fail with hundreds of errors that say nothing about the code. Insist
+          # on real entries.
+          if [[ "$(count)" -eq 0 ]]; then
+            echo "::error::Import produced no global class_name entries. Nothing downstream can work."
+            exit 1
+          fi
+          echo "Class cache holds $(count) global classes."
+
+      # --- Audit --------------------------------------------------------------
+      - name: Audit GDScript warnings
+        run: godot --headless --path . --script res://tools/audit_warnings.gd
+
+      # --- Test ---------------------------------------------------------------
+      #
+      # The runner supervises a child engine and already fails on a non-zero
+      # child exit, on any failed check, and on any GDScript runtime error in
+      # the transcript. Nothing extra is needed here beyond letting its exit
+      # code through, which `set -e` (the default for run:) does.
+      - name: Run the test suite
+        run: godot --headless --path . --script res://tools/run_tests.gd
+
+      # --- Export -------------------------------------------------------------
+      #
+      # export_presets.cfg is generated here rather than committed: it is a file
+      # the Godot editor rewrites on every visit to the export dialog, and it
+      # collects local absolute paths. tools/ci/export_presets.windows.cfg is
+      # the reviewed source of truth. See its header.
+      - name: Export a Windows build
+        run: |
+          set -euo pipefail
+          cp tools/ci/export_presets.windows.cfg export_presets.cfg
+          mkdir -p build/windows
+          # --export-release, not --export-debug: this is the artifact shape
+          # that would go to Steam.
+          godot --headless --path . --export-release "Windows Desktop" build/windows/panopticon.exe
+          # Godot's exporter has been known to report failures and still exit 0,
+          # so the artifact itself is the check.
+          test -s build/windows/panopticon.exe
+          test -s build/windows/panopticon.pck
+          ls -la build/windows
+
+      - name: Upload the Windows build
+        uses: actions/upload-artifact@v4
+        with:
+          name: panopticon-windows-${{ github.sha }}
+          path: build/windows/
+          if-no-files-found: error
+          retention-days: 14
