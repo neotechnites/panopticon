@@ -1,0 +1,208 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/match_setup_screen.gd" id="1_match_setup_screen"]
+
+[node name="MatchSetupScreen" type="Control"]
+process_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 0
+editor_description = "The rules of the round the player picks on the way IN to a match, laid out here rather than in code. Every control on it writes into the one SettingsStore and reaches the match through the SettingsBoot node in scenes/match/match.tscn, which writes them over the same default_match_rules.tres instance MatchController exports -- there is no second path and this screen must never grow one. Structure lives in this file and values live in scripts/ui/match_setup_screen.gd, exactly as scenes/ui/settings_screen.tscn splits them."
+script = ExtResource("1_match_setup_screen")
+
+[node name="Frame" type="MarginContainer" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 24
+theme_override_constants/margin_top = 24
+theme_override_constants/margin_right = 24
+theme_override_constants/margin_bottom = 24
+
+[node name="Dialog" type="PanelContainer" parent="Frame"]
+custom_minimum_size = Vector2(640, 560)
+size_flags_horizontal = 4
+size_flags_vertical = 4
+editor_description = "Centred at a deliberate size, the same shape and the same minimum as the settings dialog, so the two screens the player moves between do not jump. The minimum fits inside 1280x720 with its margins."
+
+[node name="Padding" type="MarginContainer" parent="Frame/Dialog"]
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 12
+
+[node name="Layout" type="VBoxContainer" parent="Frame/Dialog/Padding"]
+theme_override_constants/separation = 8
+
+[node name="Title" type="Label" parent="Frame/Dialog/Padding/Layout"]
+text = "START A MATCH"
+
+[node name="PresetRow" type="HBoxContainer" parent="Frame/Dialog/Padding/Layout"]
+theme_override_constants/separation = 8
+editor_description = "The mode picker sits above the rules and outside their grid on purpose: it is not one more rule, it is the thing that sets all of them at once. Picking a mode is the whole interaction for most players; the grid below is the override."
+
+[node name="PresetName" type="Label" parent="Frame/Dialog/Padding/Layout/PresetRow"]
+size_flags_vertical = 1
+vertical_alignment = 1
+text = "Mode"
+
+[node name="PresetOption" type="OptionButton" parent="Frame/Dialog/Padding/Layout/PresetRow"]
+custom_minimum_size = Vector2(240, 0)
+size_flags_horizontal = 0
+unique_name_in_owner = true
+editor_description = "Empty here on purpose. Filled from MatchPresets.all() by the script, plus a trailing Custom entry, so adding a mode is one entry in scripts/ui/match_presets.gd and no edit to this file. Canon is first because it is the default."
+
+[node name="PresetBadge" type="Label" parent="Frame/Dialog/Padding/Layout/PresetRow"]
+size_flags_vertical = 1
+vertical_alignment = 1
+unique_name_in_owner = true
+editor_description = "Says CANON while the rules on this screen are the canon rules, and says so nowhere else. Text is set by the script; a badge typed in here would be a lie the moment anything was overridden."
+
+[node name="PresetSpacer" type="Control" parent="Frame/Dialog/Padding/Layout/PresetRow"]
+size_flags_horizontal = 3
+
+[node name="PresetSummary" type="Label" parent="Frame/Dialog/Padding/Layout"]
+autowrap_mode = 3
+unique_name_in_owner = true
+editor_description = "What the selected mode IS, in one sentence, from MatchPresets.Preset.summary. A description, not a disclaimer."
+
+[node name="Divider" type="HSeparator" parent="Frame/Dialog/Padding/Layout"]
+
+[node name="RulesHeading" type="Label" parent="Frame/Dialog/Padding/Layout"]
+text = "Rules"
+
+[node name="Grid" type="GridContainer" parent="Frame/Dialog/Padding/Layout"]
+theme_override_constants/h_separation = 8
+theme_override_constants/v_separation = 4
+columns = 3
+editor_description = "Three shared columns -- name, control, readout -- so every row lines up by construction rather than by each row guessing the same magic pixel width. Same layout rule as every grid on the settings screen."
+
+[node name="PrisonersName" type="Label" parent="Frame/Dialog/Padding/Layout/Grid"]
+size_flags_vertical = 1
+vertical_alignment = 1
+text = "Prisoners"
+
+[node name="PrisonerCountSpin" type="SpinBox" parent="Frame/Dialog/Padding/Layout/Grid"]
+custom_minimum_size = Vector2(240, 0)
+size_flags_horizontal = 0
+unique_name_in_owner = true
+editor_description = "Range set by the script from GameSettings.MIN_PRISONER_COUNT and MAX_PRISONER_COUNT, so what this box can be dragged to and what a loaded settings file is clamped to are the same two numbers rather than two copies that can drift."
+
+[node name="PrisonersReadout" type="Label" parent="Frame/Dialog/Padding/Layout/Grid"]
+size_flags_vertical = 1
+vertical_alignment = 1
+unique_name_in_owner = true
+
+[node name="OpeningName" type="Label" parent="Frame/Dialog/Padding/Layout/Grid"]
+size_flags_vertical = 1
+vertical_alignment = 1
+text = "Opening"
+
+[node name="OpeningOption" type="OptionButton" parent="Frame/Dialog/Padding/Layout/Grid"]
+custom_minimum_size = Vector2(240, 0)
+size_flags_horizontal = 0
+unique_name_in_owner = true
+editor_description = "One control over two rules. Race for the tower is MatchRules.open_with_race; the other two skip the race and hand the tower to seat 0 (you, the guard) or to a bot (you, on the ring). Filled by the script."
+
+[node name="OpeningReadout" type="Label" parent="Frame/Dialog/Padding/Layout/Grid"]
+size_flags_vertical = 1
+vertical_alignment = 1
+unique_name_in_owner = true
+
+[node name="LivesName" type="Label" parent="Frame/Dialog/Padding/Layout/Grid"]
+size_flags_vertical = 1
+vertical_alignment = 1
+text = "Hits to Convert"
+
+[node name="LivesOption" type="OptionButton" parent="Frame/Dialog/Padding/Layout/Grid"]
+custom_minimum_size = Vector2(240, 0)
+size_flags_horizontal = 0
+unique_name_in_owner = true
+
+[node name="LivesSpacer" type="Control" parent="Frame/Dialog/Padding/Layout/Grid"]
+
+[node name="GhostsName" type="Label" parent="Frame/Dialog/Padding/Layout/Grid"]
+size_flags_vertical = 1
+vertical_alignment = 1
+text = "Ghosts"
+
+[node name="GhostsCheck" type="CheckBox" parent="Frame/Dialog/Padding/Layout/Grid"]
+size_flags_horizontal = 0
+unique_name_in_owner = true
+text = "Catch and swap"
+
+[node name="GhostsSpacer" type="Control" parent="Frame/Dialog/Padding/Layout/Grid"]
+
+[node name="ShooterWinName" type="Label" parent="Frame/Dialog/Padding/Layout/Grid"]
+size_flags_vertical = 1
+vertical_alignment = 1
+text = "Tower Wins By"
+
+[node name="ShooterWinOption" type="OptionButton" parent="Frame/Dialog/Padding/Layout/Grid"]
+custom_minimum_size = Vector2(240, 0)
+size_flags_horizontal = 0
+unique_name_in_owner = true
+editor_description = "Filled from MatchRules.ShooterWinCondition, with the members the round does not implement present but disabled. Shown rather than hidden because the design space is worth seeing; disabled rather than selectable because choosing one produces a round the tower cannot win."
+
+[node name="ShooterWinSpacer" type="Control" parent="Frame/Dialog/Padding/Layout/Grid"]
+
+[node name="RunnerWinName" type="Label" parent="Frame/Dialog/Padding/Layout/Grid"]
+size_flags_vertical = 1
+vertical_alignment = 1
+text = "Prisoners Win By"
+
+[node name="RunnerWinOption" type="OptionButton" parent="Frame/Dialog/Padding/Layout/Grid"]
+custom_minimum_size = Vector2(240, 0)
+size_flags_horizontal = 0
+unique_name_in_owner = true
+editor_description = "Both members of MatchRules.RunnerWinCondition are implemented, so unlike the tower's list every entry here is selectable."
+
+[node name="RunnerWinSpacer" type="Control" parent="Frame/Dialog/Padding/Layout/Grid"]
+
+[node name="RoundsName" type="Label" parent="Frame/Dialog/Padding/Layout/Grid"]
+size_flags_vertical = 1
+vertical_alignment = 1
+text = "Rounds To Win"
+
+[node name="RoundsSpin" type="SpinBox" parent="Frame/Dialog/Padding/Layout/Grid"]
+custom_minimum_size = Vector2(240, 0)
+size_flags_horizontal = 0
+unique_name_in_owner = true
+
+[node name="RoundsReadout" type="Label" parent="Frame/Dialog/Padding/Layout/Grid"]
+size_flags_vertical = 1
+vertical_alignment = 1
+unique_name_in_owner = true
+
+[node name="Note" type="Label" parent="Frame/Dialog/Padding/Layout"]
+autowrap_mode = 3
+unique_name_in_owner = true
+editor_description = "Composed by the script and hidden when it has nothing to say. It carries only things that are TRUE of the chosen rules and would otherwise surprise the player -- a survived hit having no feedback yet, for instance -- and never an opinion about whether a mode is a good idea."
+
+[node name="Filler" type="Control" parent="Frame/Dialog/Padding/Layout"]
+size_flags_vertical = 3
+editor_description = "Pushes the footer to the bottom so the Start button sits in the same place whether the note is showing or not."
+
+[node name="Footer" type="HBoxContainer" parent="Frame/Dialog/Padding/Layout"]
+theme_override_constants/separation = 8
+
+[node name="Back" type="Button" parent="Frame/Dialog/Padding/Layout/Footer"]
+unique_name_in_owner = true
+text = "Back"
+
+[node name="FooterSpacer" type="Control" parent="Frame/Dialog/Padding/Layout/Footer"]
+size_flags_horizontal = 3
+
+[node name="RestoreCanon" type="Button" parent="Frame/Dialog/Padding/Layout/Footer"]
+unique_name_in_owner = true
+text = "Restore Canon"
+
+[node name="Start" type="Button" parent="Frame/Dialog/Padding/Layout/Footer"]
+custom_minimum_size = Vector2(160, 0)
+unique_name_in_owner = true
+text = "Start Match"

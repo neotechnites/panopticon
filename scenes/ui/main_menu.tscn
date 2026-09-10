@@ -1,9 +1,11 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=7 format=3]
 
 [ext_resource type="Script" path="res://scripts/ui/main_menu.gd" id="1_main_menu"]
 [ext_resource type="Script" path="res://scripts/ui/settings_boot.gd" id="2_settings_boot"]
 [ext_resource type="Resource" path="res://scenes/player/default_movement_profile.tres" id="3_movement_profile"]
 [ext_resource type="PackedScene" path="res://scenes/audio/game_audio.tscn" id="4_game_audio"]
+[ext_resource type="PackedScene" path="res://scenes/ui/match_setup_screen.tscn" id="5_match_setup"]
+[ext_resource type="PackedScene" path="res://scenes/ui/settings_screen.tscn" id="6_settings_screen"]
 
 [node name="MainMenu" type="Control"]
 process_mode = 3
@@ -12,13 +14,62 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-editor_description = "The game's entry point: run/main_scene points here. Play, Settings and Quit, in default-themed controls built by scripts/ui/main_menu.gd -- there is deliberately nothing laid out in this file, so restyling is a code change in one place rather than a scene diff. The settings screen is the SAME SettingsScreen class the pause menu builds, not a second copy of the UI. Neither the match nor the pause menu is referenced as a PackedScene here: they are named by path and loaded on demand, because main menu -> match -> pause menu -> main menu would otherwise be a cycle in the resource graph."
+editor_description = "The game's entry point: run/main_scene points here. Play, Settings and Quit, and the two screens they lead to, all laid out in this file -- scripts/ui/main_menu.gd binds them and navigates between them and builds nothing. It used to build the lot in code; structure belongs in the scene, exactly as scenes/ui/settings_screen.tscn keeps it. Play leads to the MatchSetupScreen, which is where the rules of the round are chosen, and its Start button is what changes to the match. Neither the match nor the pause menu is referenced as a PackedScene here: they are named by path and loaded on demand, because main menu -> match -> pause menu -> main menu would otherwise be a cycle in the resource graph. The two screens below ARE instanced, and safely: neither of them names the main menu."
 script = ExtResource("1_main_menu")
 
 [node name="SettingsBoot" type="Node" parent="."]
-editor_description = "Applies the saved settings before the player has pressed anything, which is the only place it CAN happen: the match's own player does not exist yet when its sensitivity is chosen. movement_profile is the same default_movement_profile.tres instance scenes/player/player.tscn exports -- Godot hands back one cached object per resource path and this one is not local_to_scene -- so a sensitivity change made in this menu is already written into the profile the body reads the moment the match loads. camera is deliberately unset: there is no camera in a menu, and the match's own PauseMenu carries the field-of-view across for the same reason."
+editor_description = "Applies the player's saved settings before the player has pressed anything, which is the only place it CAN happen: the match's own player does not exist yet when its sensitivity is chosen. movement_profile is the same default_movement_profile.tres instance scenes/player/player.tscn exports -- Godot hands back one cached object per resource path and this one is not local_to_scene -- so a sensitivity change made in this menu is already written into the profile the body reads the moment the match loads. camera is deliberately unset: there is no camera in a menu, and the match's own PauseMenu carries the field-of-view across for the same reason. match_rules is deliberately unset too: the match rules a player picks on the setup screen are written into the rules by the SettingsBoot in scenes/match/match.tscn, on the way in, and two boots writing the same resource is one more place for them to disagree."
 script = ExtResource("2_settings_boot")
 movement_profile = ExtResource("3_movement_profile")
 
 [node name="GameAudio" parent="." instance=ExtResource("4_game_audio")]
-editor_description = "The same scenes/audio/game_audio.tscn the match instances, so the menu makes noise through one system rather than a second copy of it. Its UIAudio listener is what earns its place here: it watches SceneTree.node_added rather than walking the tree once, because every control in this menu is built in code by scripts/ui/main_menu.gd and the settings screen is created and destroyed on demand. Its MatchAudio listener searches this scene root, finds no Rifle and no MatchController, and is silent -- an absent rifle and an absent match are deliberate no-ops there, not errors. Needs no node paths of any kind."
+editor_description = "The same scenes/audio/game_audio.tscn the match instances, so the menu makes noise through one system rather than a second copy of it. Its UIAudio listener watches SceneTree.node_added AND does one deferred sweep of the subtree it is in, which is what catches the buttons authored below -- they are already in the tree by the time this node is ready. Its MatchAudio listener searches this scene root, finds no Rifle and no MatchController, and is silent -- an absent rifle and an absent match are deliberate no-ops there, not errors. Needs no node paths of any kind."
+
+[node name="MainPanel" type="PanelContainer" parent="."]
+unique_name_in_owner = true
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Padding" type="MarginContainer" parent="MainPanel"]
+theme_override_constants/margin_left = 24
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 24
+theme_override_constants/margin_bottom = 16
+
+[node name="Column" type="VBoxContainer" parent="MainPanel/Padding"]
+theme_override_constants/separation = 8
+
+[node name="Title" type="Label" parent="MainPanel/Padding/Column"]
+horizontal_alignment = 1
+text = "PANOPTICON"
+
+[node name="Play" type="Button" parent="MainPanel/Padding/Column"]
+custom_minimum_size = Vector2(220, 0)
+unique_name_in_owner = true
+text = "Play"
+editor_description = "Opens the match setup screen rather than starting a match. The rules of the round are a choice and the player makes it here, on the way in; the setup screen's own Start button is what changes scene."
+
+[node name="Settings" type="Button" parent="MainPanel/Padding/Column"]
+custom_minimum_size = Vector2(220, 0)
+unique_name_in_owner = true
+text = "Settings"
+
+[node name="Quit" type="Button" parent="MainPanel/Padding/Column"]
+custom_minimum_size = Vector2(220, 0)
+unique_name_in_owner = true
+text = "Quit"
+
+[node name="MatchSetupScreen" parent="." instance=ExtResource("5_match_setup")]
+unique_name_in_owner = true
+visible = false
+editor_description = "Hidden until Play. The same scene and the same SettingsStore whichever way it is reached, for the reason the settings screen is shared between this menu and the pause menu: two copies of a screen are two screens that can disagree."
+
+[node name="SettingsScreen" parent="." instance=ExtResource("6_settings_screen")]
+unique_name_in_owner = true
+visible = false
+editor_description = "The SAME SettingsScreen class the pause menu instantiates, not a second copy of the UI. Hidden until Settings."
