@@ -14,6 +14,8 @@ Four exports are left blank on purpose, because only the scene it is attached to
   CameraKick.camera      -> the seat holder's Camera3D, normally Player/Head/Camera.
   WeaponFeel.rifle       -> the Rifle node. A node reference, so it survives MatchController reparenting the rifle onto a new seat holder.
   HitConfirm.rifle       -> the same Rifle.
+  HitConfirm.owner_body  -> this rig's own CharacterBody3D. WITHOUT IT AN AI SEAT HOLDER'S SHOTS RAISE THIS PLAYER'S HITMARKER: there is one rifle and everybody hears it.
+  WeaponFeel.owner_body  -> the same body, for the same reason.
   HitConfirm.controller  -> the MatchController. WITHOUT IT EVERY WALL READS AS A KILL; see the class docs.
   HitReaction.rifle      -> the same Rifle.
   HitReaction.body       -> this rig's own CharacterBody3D, so it reacts to its own hits and to nobody else's.
