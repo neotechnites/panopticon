@@ -31,6 +31,25 @@ extends NetTransport
 ## random outbound socket for it.
 const DEFAULT_PORT: int = 27960
 
+## ENet channels to open on the socket, at both ends.
+##
+## [b]This must be set, and the default of zero is a trap.[/b] An ENet peer
+## created with no explicit channel count opens only the three Godot uses for
+## its own transfer modes, and every packet an [code]@rpc[/code] sends on a
+## custom channel is then dropped by the sender with
+## [code]Unable to send packet on channel N, max channels: 0[/code] on stderr
+## and no failure anywhere a script can see. The session connects, the lobby
+## replicates on channel 0, and movement silently never arrives -- which reads
+## as a bug in the replication code rather than as a socket that was never
+## opened wide enough.
+##
+## Godot numbers a custom channel [code]n[/code] as ENet channel
+## [code]n + 2[/code], after the three it reserves, so the count is
+## [constant NetTransport.MAX_RPC_CHANNEL] + 3. Host and client must agree: a
+## mismatch is a connection that establishes and then loses packets in one
+## direction only.
+const ENET_CHANNEL_COUNT: int = NetTransport.MAX_RPC_CHANNEL + 3
+
 ## The peer currently installed on the multiplayer API, or null when offline.
 var _peer: ENetMultiplayerPeer = null
 
@@ -51,7 +70,7 @@ func host(port: int, max_players: int = MAX_PLAYERS) -> Error:
 	var peer: ENetMultiplayerPeer = ENetMultiplayerPeer.new()
 	# create_server() counts clients, not players: the listen server is not one
 	# of its own clients.
-	var error: Error = peer.create_server(port, players - 1)
+	var error: Error = peer.create_server(port, players - 1, ENET_CHANNEL_COUNT)
 	if error != OK:
 		push_error("ENetTransport could not host on port %d: %s" % [port, error_string(error)])
 		_set_state(ConnectionState.FAILED)
@@ -68,7 +87,7 @@ func join(address: String, port: int) -> Error:
 	leave()
 
 	var peer: ENetMultiplayerPeer = ENetMultiplayerPeer.new()
-	var error: Error = peer.create_client(address, port)
+	var error: Error = peer.create_client(address, port, ENET_CHANNEL_COUNT)
 	if error != OK:
 		push_error("ENetTransport could not reach %s:%d: %s" % [address, port, error_string(error)])
 		_set_state(ConnectionState.FAILED)
@@ -85,19 +104,34 @@ func join(address: String, port: int) -> Error:
 
 
 func leave() -> void:
-	_unbind()
-	if _peer != null:
-		_peer.close()
-		_peer = null
-	if multiplayer != null and multiplayer.multiplayer_peer != null:
-		multiplayer.multiplayer_peer = null
+	_teardown()
 	_set_state(ConnectionState.OFFLINE)
+
+
+func abort() -> void:
+	# Overridden rather than inherited so that a timed-out join passes through
+	# exactly one state change. The base class's leave()-then-fail would emit
+	# OFFLINE first, and NetSession turns OFFLINE into session_ended(false) --
+	# a clean shutdown, reported a frame before the failure that actually
+	# happened.
+	_teardown()
+	_set_state(ConnectionState.FAILED)
 
 
 func get_local_peer_id() -> int:
 	if multiplayer == null or multiplayer.multiplayer_peer == null:
 		return 0
 	return multiplayer.get_unique_id()
+
+
+func kick_peer(peer_id: int) -> void:
+	if _peer == null or get_connection_state() != ConnectionState.HOSTING:
+		return
+	# now = false: the queued disconnect lets ENet deliver the packets already
+	# in flight and gives the far end a real disconnect rather than a silence
+	# it has to time out. peer_disconnected arrives from the API as usual, so
+	# the roster unwinds down the same path a voluntary leave does.
+	_peer.disconnect_peer(peer_id, false)
 
 
 func _exit_tree() -> void:
@@ -107,6 +141,18 @@ func _exit_tree() -> void:
 
 
 # --- Multiplayer API handlers -------------------------------------------------
+
+## Release the socket and the API, without deciding what state that leaves the
+## transport in. Every path out of a live session goes through here; only the
+## caller knows whether what happened was a shutdown or a failure.
+func _teardown() -> void:
+	_unbind()
+	if _peer != null:
+		_peer.close()
+		_peer = null
+	if multiplayer != null and multiplayer.multiplayer_peer != null:
+		multiplayer.multiplayer_peer = null
+
 
 func _bind() -> void:
 	if _bound or multiplayer == null:
@@ -146,12 +192,7 @@ func _on_connected_to_server() -> void:
 func _on_connection_failed() -> void:
 	# FAILED rather than OFFLINE, so is_authority() stays false: a client that
 	# could not reach the host is not a host.
-	_unbind()
-	if _peer != null:
-		_peer.close()
-		_peer = null
-	if multiplayer != null:
-		multiplayer.multiplayer_peer = null
+	_teardown()
 	_set_state(ConnectionState.FAILED)
 
 
@@ -160,11 +201,6 @@ func _on_server_disconnected() -> void:
 	# migration: promoting a client would mean handing it a world it never
 	# simulated, and no amount of state transfer makes the round it interrupts
 	# fair. The match ends.
-	_unbind()
-	if _peer != null:
-		_peer.close()
-		_peer = null
-	if multiplayer != null:
-		multiplayer.multiplayer_peer = null
+	_teardown()
 	_set_state(ConnectionState.FAILED)
 	peer_disconnected.emit(AUTHORITY_PEER_ID)

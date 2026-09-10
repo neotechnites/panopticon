@@ -1,0 +1,15 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/net/player_net_link.gd" id="1_link"]
+[ext_resource type="Script" path="res://scripts/net/remote_intent_source.gd" id="2_remote_intent"]
+
+[node name="PlayerNetLink" type="Node" node_paths=PackedStringArray("remote_source")]
+editor_description = "One seat's body on the wire. Add one as a child of a PlayerController, point 'controller' at that body and 'session'/'replicator' at the session, and set 'seat_index' to the LobbySeat this body is. Set 'owner_peer_id' to the peer allowed to drive it, or leave it 0 for a bot or for this machine's own body. RPCs resolve by node path, so this node must sit at the same path on every peer -- name the parent after the seat, not after the player."
+script = ExtResource("1_link")
+seat_index = 0
+owner_peer_id = 0
+remote_source = NodePath("RemoteIntent")
+
+[node name="RemoteIntent" type="Node" parent="."]
+editor_description = "Fills a MoveIntent from the network instead of from a device, so the authority runs a remote player's body through the identical PlayerController physics. Idle unless a client owns this seat."
+script = ExtResource("2_remote_intent")

@@ -82,6 +82,15 @@ enum ConnectionState {
 ## whoever currently holds the tower -- see the class docs.
 const AUTHORITY_PEER_ID: int = 1
 
+## Highest custom [code]@rpc[/code] channel this project uses.
+##
+## Channel 0 is the default one, and everything rare and reliable rides it --
+## the lobby roster. The two per-tick streams get channels of their own so that
+## a burst of one cannot delay the other: intent on 1, world snapshots on 2. A
+## backend has to open enough channels to carry them, and see
+## [constant ENetTransport.ENET_CHANNEL_COUNT] for the trap in doing that.
+const MAX_RPC_CHANNEL: int = 2
+
 ## Hard cap on players in one session, authority included.
 ##
 ## Matches run 1v1 to 1v7 and are tuned for 1v1-1v3. Small lobbies are a design
@@ -124,6 +133,31 @@ func leave() -> void:
 ## This machine's peer id, or 0 when there is no session.
 func get_local_peer_id() -> int:
 	return 0
+
+
+## Disconnect one peer, leaving the session up. Authority only; callers are
+## expected to have checked, and a backend that cannot do it may do nothing.
+##
+## There is exactly one caller today -- [NetLobby], for a peer that connected
+## with nowhere to sit -- and deliberately no kick vote, no ban list and no
+## reason on the wire. The peer sees the host go away, which is the whole truth
+## in a game where the host IS the server.
+func kick_peer(_peer_id: int) -> void:
+	pass
+
+
+## Tear the session down and land in [constant ConnectionState.FAILED] rather
+## than [constant ConnectionState.OFFLINE].
+##
+## The difference matters and is the reason this is not just [method leave]:
+## OFFLINE is authoritative -- it is what single player and the headless
+## harness run in -- so a join that timed out and cleaned up with [method leave]
+## would promote the machine that failed to connect into the authority over its
+## own empty world. Used by [NetSession] when a connection attempt runs out of
+## time.
+func abort() -> void:
+	leave()
+	_set_state(ConnectionState.FAILED)
 
 
 ## True when this machine simulates the match.
