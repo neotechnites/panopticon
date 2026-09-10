@@ -6,5 +6,5 @@
 script = ExtResource("1_map_definition")
 id = &"bentham_ring"
 title = "The Bentham Ring"
-summary = "The original ring. A 25-metre deck circling the tower, cover in three bands, four pits cut clean through the floor and six kill blocks set flush against the lanes. One start line, one finish, and the eye in the middle can see all of it."
+summary = "Three decks stacked outward and upward around the tower, and you have to lap all three. Cover in bands on every level, twelve pits cut clean through the floors, kill blocks flush against every lane, and one ramp up off each level, behind cover. The eye in the middle now stands above all of it and can see every deck."
 scene_path = "res://scenes/ring/bentham_ring.tscn"

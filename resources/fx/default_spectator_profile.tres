@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="SpectatorProfile" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/fx/spectator_profile.gd" id="1_spectator_profile"]
+
+[resource]
+script = ExtResource("1_spectator_profile")
+enabled = true
+enter_delay_seconds = 0.35
+death_radius_metres = 5.5
+death_height_metres = 2.8
+death_focus_height_metres = 1.1
+death_orbit_degrees_per_second = 16.0
+overlook_radius_metres = 78.0
+overlook_height_metres = 46.0
+overlook_focus_height_metres = 2.0
+overlook_orbit_degrees_per_second = 5.0
+free_look_enabled = true
+look_sensitivity = 0.0035
+pitch_min_degrees = -12.0
+pitch_max_degrees = 72.0
+start_pitch_degrees = 0.0
+field_of_view_degrees = 75.0

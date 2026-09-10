@@ -146,6 +146,34 @@ const MIN_PRISONER_LIVES: int = 1
 ## smallest range in which that is still legible rather than the whole rule.
 const MAX_PRISONER_LIVES: int = 3
 
+## Prisoners the tower must convert under
+## [constant MatchRules.ShooterWinCondition.SHUTOUT_COUNT].
+##
+## [MatchRules] ships this at 0 = unset and refuses to guess, because a sweep
+## that quietly played total conversion under another name would be measuring a
+## rule it did not select -- see [member MatchRules.shutout_count]. A PLAYER
+## cannot be handed that refusal: they pick the mode off a menu, and a mode that
+## does nothing is not a mode. So the preference carries a real number, and 2 of
+## the shipped 3 prisoners is the smallest one that is not total conversion in
+## disguise. Whether it is the RIGHT number is the open question the rule states,
+## and a sweep answers it in [MatchRules], not here.
+const DEFAULT_SHUTOUT_COUNT: int = 2
+const MIN_SHUTOUT_COUNT: int = 1
+
+## Seconds the tower must hold out under
+## [constant MatchRules.ShooterWinCondition.HOLD_DURATION]. Real for the same
+## reason [constant DEFAULT_SHUTOUT_COUNT] is.
+##
+## A lap of the shipped ring is roughly 35 seconds, so a siege longer than that
+## is one the first arrival always beats: 30 is inside a lap on purpose, and is
+## the least surprising reading of "shorter than the round it replaces". It is a
+## starting point for a sweep and not a design answer.
+const DEFAULT_HOLD_DURATION_SECONDS: float = 30.0
+const MIN_HOLD_DURATION_SECONDS: float = 5.0
+
+## Ceiling on the saved preference, against the rule's own [code]0..600[/code].
+const MAX_HOLD_DURATION_SECONDS: float = 600.0
+
 ## Rounds a player must win from the tower to win the match. Agrees with
 ## [member MatchRules.rounds_to_win_match].
 const DEFAULT_ROUNDS_TO_WIN_MATCH: int = 1
@@ -159,6 +187,13 @@ const MAX_ROUNDS_TO_WIN_MATCH: int = 7
 ## exists: two files holding their own opinion of the default is how the first
 ## match a player starts ends up played under something nobody chose.
 const DEFAULT_MAP_ID: StringName = MapCatalog.DEFAULT_ID
+
+## The air-control preset a player who has never chosen gets. Taken from
+## [AirControlCatalog] rather than spelled out here, for [constant
+## DEFAULT_MAP_ID]'s reason: two files holding their own opinion of the default
+## is how the first match a player starts ends up played under something nobody
+## chose. It is Committed -- the tuning the game shipped with.
+const DEFAULT_AIR_CONTROL_ID: StringName = AirControlCatalog.DEFAULT_ID
 
 ## Matches [code]project.godot[/code]'s [code][display]/window/size[/code]
 ## defaults. They have to agree: [SettingsBoot] bootstraps the store and calls
@@ -269,14 +304,32 @@ var prisoner_lives: int = DEFAULT_PRISONER_LIVES
 ## What the shooter must do to win. Written over
 ## [member MatchRules.shooter_win_condition].
 ##
-## Only [constant MatchRules.ShooterWinCondition.TOTAL_CONVERSION] is
-## implemented. The setting screen offers the others greyed out rather than
-## hiding them -- the design space is worth seeing -- so in practice nothing but
-## the implemented one ever gets in here; the clamp in [method clamp_all] is
-## against a hand-edited file, not against the screen.
+## All three members are implemented, so all three are a real choice and the
+## setup screen offers all three live. The clamp in [method clamp_all] is against
+## a hand-edited file naming a member this build does not have, not against the
+## screen.
 var shooter_win_condition: MatchRules.ShooterWinCondition = (
 	MatchRules.ShooterWinCondition.TOTAL_CONVERSION
 )
+
+## Prisoners the tower must convert under
+## [constant MatchRules.ShooterWinCondition.SHUTOUT_COUNT]. Written over
+## [member MatchRules.shutout_count].
+##
+## Written whether or not that condition is the one chosen, exactly as every
+## other rule here is: the rules resource is one shared instance for the whole
+## process, so a number only written when its mode is selected leaves a match
+## started after a change back playing the last one. Clamped never to exceed
+## [member prisoner_count] -- a shutout of more prisoners than the round has is a
+## round that cannot be won, and the player who lowered the prisoner count did
+## not ask for that.
+var shutout_count: int = DEFAULT_SHUTOUT_COUNT
+
+## Seconds the tower must hold out under
+## [constant MatchRules.ShooterWinCondition.HOLD_DURATION]. Written over
+## [member MatchRules.hold_duration_seconds], unconditionally, for the reason
+## above.
+var hold_duration_seconds: float = DEFAULT_HOLD_DURATION_SECONDS
 
 ## What the prisoners must do to win. Written over
 ## [member MatchRules.runner_win_condition]. Both members are implemented, so
@@ -296,6 +349,16 @@ var rounds_to_win_match: int = DEFAULT_ROUNDS_TO_WIN_MATCH
 ## moved, and so that a file naming a map that no longer exists resolves to the
 ## default in [method clamp_all] rather than starting a match with no arena.
 var map_id: StringName = DEFAULT_MAP_ID
+
+## How the body handles off the ground, by [member AirControlPreset.id].
+## Written over [member MatchRules.air_control_id], which [MatchController]
+## reads to build the [MovementProfile] every body in the match runs.
+##
+## An id and not a profile, for [member map_id]'s reasons: a settings file can
+## hold a name, the catalog is the one list of what exists, and a file naming a
+## preset that no longer exists resolves to the default in [method clamp_all]
+## rather than starting a match with a body that cannot move.
+var air_control_id: StringName = DEFAULT_AIR_CONTROL_ID
 
 ## True when the last window resize [method apply_video] asked for was ignored
 ## outright -- the size before the call and the size after it are the same, and
@@ -341,9 +404,12 @@ func reset() -> void:
 	prisoner_count = DEFAULT_PRISONER_COUNT
 	prisoner_lives = DEFAULT_PRISONER_LIVES
 	shooter_win_condition = MatchRules.ShooterWinCondition.TOTAL_CONVERSION
+	shutout_count = DEFAULT_SHUTOUT_COUNT
+	hold_duration_seconds = DEFAULT_HOLD_DURATION_SECONDS
 	runner_win_condition = MatchRules.RunnerWinCondition.FIRST_ARRIVAL
 	rounds_to_win_match = DEFAULT_ROUNDS_TO_WIN_MATCH
 	map_id = DEFAULT_MAP_ID
+	air_control_id = DEFAULT_AIR_CONTROL_ID
 
 
 ## Force every value inside its documented range. Called after every read, so
@@ -372,11 +438,22 @@ func clamp_all() -> void:
 	runner_win_condition = clampi(
 		int(runner_win_condition), 0, MatchRules.RunnerWinCondition.size() - 1
 	) as MatchRules.RunnerWinCondition
+	# Bounded by the field it is counted against, so lowering the prisoner count
+	# can never leave a shutout nobody can reach. Same bargain as every clamp
+	# here: the player loses a choice, not the match.
+	shutout_count = clampi(shutout_count, MIN_SHUTOUT_COUNT, prisoner_count)
+	hold_duration_seconds = clampf(
+		hold_duration_seconds, MIN_HOLD_DURATION_SECONDS, MAX_HOLD_DURATION_SECONDS
+	)
 	# A map that is not in the catalog is a file written by an older or newer
 	# build, or hand-edited. Falling back to the default is the same bargain
 	# every clamp above makes: the player loses a choice, not the match.
 	if not MapCatalog.has(map_id):
 		map_id = DEFAULT_MAP_ID
+	# Same bargain for the air control: an id from another build puts the player
+	# back on the shipped tuning rather than on no tuning at all.
+	if not AirControlCatalog.has(air_control_id):
+		air_control_id = DEFAULT_AIR_CONTROL_ID
 
 
 ## Copy every value out of [param other].
@@ -396,9 +473,12 @@ func copy_from(other: GameSettings) -> void:
 	prisoner_count = other.prisoner_count
 	prisoner_lives = other.prisoner_lives
 	shooter_win_condition = other.shooter_win_condition
+	shutout_count = other.shutout_count
+	hold_duration_seconds = other.hold_duration_seconds
 	runner_win_condition = other.runner_win_condition
 	rounds_to_win_match = other.rounds_to_win_match
 	map_id = other.map_id
+	air_control_id = other.air_control_id
 
 
 ## True when every value matches [param other]. Used by the verification harness
@@ -420,9 +500,12 @@ func equals(other: GameSettings) -> bool:
 		and prisoner_count == other.prisoner_count
 		and prisoner_lives == other.prisoner_lives
 		and shooter_win_condition == other.shooter_win_condition
+		and shutout_count == other.shutout_count
+		and is_equal_approx(hold_duration_seconds, other.hold_duration_seconds)
 		and runner_win_condition == other.runner_win_condition
 		and rounds_to_win_match == other.rounds_to_win_match
 		and map_id == other.map_id
+		and air_control_id == other.air_control_id
 	)
 
 
@@ -449,11 +532,14 @@ func write_to(config: ConfigFile) -> void:
 	config.set_value(SECTION_MATCH, "prisoner_count", prisoner_count)
 	config.set_value(SECTION_MATCH, "prisoner_lives", prisoner_lives)
 	config.set_value(SECTION_MATCH, "shooter_win_condition", int(shooter_win_condition))
+	config.set_value(SECTION_MATCH, "shutout_count", shutout_count)
+	config.set_value(SECTION_MATCH, "hold_duration_seconds", hold_duration_seconds)
 	config.set_value(SECTION_MATCH, "runner_win_condition", int(runner_win_condition))
 	config.set_value(SECTION_MATCH, "rounds_to_win_match", rounds_to_win_match)
 	# As a String, not a StringName: ConfigFile writes a StringName as &"x",
 	# which is legible but is not what a hand-edited file will contain.
 	config.set_value(SECTION_MATCH, "map_id", String(map_id))
+	config.set_value(SECTION_MATCH, "air_control_id", String(air_control_id))
 
 
 ## Read every value out of [param config], substituting the current value --
@@ -485,6 +571,10 @@ func read_from(config: ConfigFile) -> void:
 	shooter_win_condition = read_int(
 		config, SECTION_MATCH, "shooter_win_condition", int(shooter_win_condition)
 	) as MatchRules.ShooterWinCondition
+	shutout_count = read_int(config, SECTION_MATCH, "shutout_count", shutout_count)
+	hold_duration_seconds = read_float(
+		config, SECTION_MATCH, "hold_duration_seconds", hold_duration_seconds
+	)
 	runner_win_condition = read_int(
 		config, SECTION_MATCH, "runner_win_condition", int(runner_win_condition)
 	) as MatchRules.RunnerWinCondition
@@ -492,6 +582,9 @@ func read_from(config: ConfigFile) -> void:
 		config, SECTION_MATCH, "rounds_to_win_match", rounds_to_win_match
 	)
 	map_id = read_string_name(config, SECTION_MATCH, "map_id", map_id)
+	air_control_id = read_string_name(
+		config, SECTION_MATCH, "air_control_id", air_control_id
+	)
 
 	clamp_all()
 
@@ -635,9 +728,18 @@ func apply_to_match_rules(rules: MatchRules) -> void:
 	rules.prisoner_count = prisoner_count
 	rules.prisoner_lives = prisoner_lives
 	rules.shooter_win_condition = shooter_win_condition
+	# Both numbers are written whatever condition is chosen, so that switching to
+	# SHUTOUT_COUNT or HOLD_DURATION never lands on the 0 = unset the rules
+	# resource ships with -- which is a round the tower cannot win.
+	rules.shutout_count = shutout_count
+	rules.hold_duration_seconds = hold_duration_seconds
 	rules.runner_win_condition = runner_win_condition
 	rules.rounds_to_win_match = rounds_to_win_match
 	rules.map_id = map_id
+	# The air control takes the same door as the map, and for the same reason it
+	# is written verbatim: correcting an unknown id is clamp_all()'s job, and
+	# doing it twice would hide the day this link stopped working.
+	rules.air_control_id = air_control_id
 
 
 ## Write [member field_of_view] into a camera. The scene decides which camera;

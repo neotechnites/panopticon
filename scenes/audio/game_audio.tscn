@@ -1,12 +1,14 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=7 format=3]
 
 [ext_resource type="Script" path="res://scripts/audio/audio_director.gd" id="1_director"]
 [ext_resource type="Resource" path="res://scenes/audio/placeholder_bank.tres" id="2_bank"]
 [ext_resource type="Script" path="res://scripts/audio/match_audio_listener.gd" id="3_match_listener"]
 [ext_resource type="Script" path="res://scripts/audio/ui_audio_listener.gd" id="4_ui_listener"]
+[ext_resource type="Script" path="res://scripts/audio/movement_audio_listener.gd" id="5_movement_listener"]
+[ext_resource type="Resource" path="res://scenes/audio/default_movement_audio_tuning.tres" id="6_movement_tuning"]
 
 [node name="GameAudio" type="Node"]
-editor_description = "The whole audio system, as one node. Instance it once per scene that should make noise -- scenes/match/match.tscn and scenes/ui/main_menu.tscn are the two -- and nothing else in that scene changes. The root IS the AudioDirector: it registers itself statically on entering the tree, so AudioDirector.post_event() from anywhere reaches it, and a scene without this node is a scene with no audio rather than a scene with broken audio. That is what lets tools/harness/ run thousands of headless matches for free; under the default Activation.AUTO the director also switches itself off in any headless run, so leaving it in a scene the harness loads costs nothing either. Child order does not matter: both listeners subscribe in _enter_tree, which Godot runs across the whole subtree before it runs any _ready, so nothing emitted during MatchController's start_match() is missed."
+editor_description = "The whole audio system, as one node. Instance it once per scene that should make noise -- scenes/match/match.tscn and scenes/ui/main_menu.tscn are the two -- and nothing else in that scene changes. The root IS the AudioDirector: it registers itself statically on entering the tree, so AudioDirector.post_event() from anywhere reaches it, and a scene without this node is a scene with no audio rather than a scene with broken audio. That is what lets tools/harness/ run thousands of headless matches for free; under the default Activation.AUTO the director also switches itself off in any headless run, so leaving it in a scene the harness loads costs nothing either. Child order does not matter: every listener subscribes in _enter_tree, which Godot runs across the whole subtree before it runs any _ready, so nothing emitted during MatchController's start_match() is missed."
 script = ExtResource("1_director")
 bank = ExtResource("2_bank")
 
@@ -19,3 +21,9 @@ director = NodePath("..")
 editor_description = "Subscribes to every BaseButton in the scene, plus PauseMenu.opened/closed and SettingsScreen.closed. It watches SceneTree.node_added rather than walking once, because every menu in this project builds its controls in code and the settings screen is created and destroyed on demand."
 script = ExtResource("4_ui_listener")
 director = NodePath("..")
+
+[node name="MovementAudio" type="Node" parent="." node_paths=PackedStringArray("director")]
+editor_description = "Subscribes to every PlayerController in the scene -- the human, every bot, and a ghost -- and turns footsteps, jumps, landings and slides into positional AudioEvents. Like UIAudio it watches SceneTree.node_added as well as sweeping once, because MatchController spawns AI bodies into Runners at runtime, after this node's own _ready. In a scene with no bodies (the main menu) this node finds nothing and is silent."
+script = ExtResource("5_movement_listener")
+director = NodePath("..")
+tuning = ExtResource("6_movement_tuning")

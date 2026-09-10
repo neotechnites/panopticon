@@ -1,0 +1,34 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/tower/watching_eye.gd" id="1_watching_eye"]
+[ext_resource type="Resource" path="res://scenes/tower/default_watching_eye_profile.tres" id="2_watching_eye_profile"]
+[ext_resource type="PackedScene" uid="uid://bjneo4jla4ta2" path="res://assets/models/eye.glb" id="3_eye_model"]
+
+[node name="WatchingEye" type="Node3D"]
+editor_description = "THE EYE THAT FOLLOWS YOU. assets/models/eye.glb -- a ball with a glowing red iris and a black pupil -- floating in the gap between the top of the eye box (y=4.15) and the light over the tower (KeyLight, y=20), turned so that its pupil points at whoever is looking at it. NOT measured against TowerLight: that node overwrites its height from TowerLightProfile.height_metres, currently 2.2, which puts the omni glow inside the eye box, so it is nothing to hang below. Ryan, 2026-09-10: 'take that eye model you made, and stick it between the box of eyes, and the light source, and have the view of each player other than the shooter, look like the eye is always following it.'
+
+PER-VIEWER, AND THAT IS FREE. WatchingEye orients toward Viewport.get_camera_3d() every process frame. A viewport's current camera is already a per-viewer quantity -- every client runs its own scene tree with its own camera -- so the one line resolves to a different player on every machine and the eye watches all of them at once. The orientation is never sent anywhere: there is no state to replicate and nothing for a netcode pass to unpick. The known limit, written down rather than solved: two live cameras in ONE viewport (split screen) would need a view-space pupil shader instead, because one node cannot hold two orientations.
+
+IT CANNOT LEAK THE GUARD'S AIM. The orientation is a pure function of one input -- the POSITION of your own camera. Not its direction. There is no reference in scripts/tower/watching_eye.gd to the guard, a rifle, a seat, MatchController or a network peer, and tests/test_watching_eye.gd reads the source and asserts it. So the bearing carries exactly zero bits about anybody but the observer, who already knew where they were standing. It points at you when the guard is aiming at you, when the guard is aiming at the far rail, and when the guard has walked off the platform.
+
+THE GUARD IS EXCLUDED BY GEOMETRY, NOT BY ASKING. If the local camera is inside the tower's own column of space (r<=9 m, y=-4..24 in the tower's frame) the eye stops watching and rests looking straight up at the light. That is answered from the viewer's own coordinates alone -- no match state, no seat lookup, and automatically right for anyone who is ever up there. A prisoner who fell into the courtyard 12.5 m down is still watched, because the column has a floor.
+
+IT RIDES THE TOWER. The node places itself at (0, WatchingEyeProfile.height_metres, 0) in its PARENT's space on ready -- the same way TowerLight does -- and never reads or writes a world coordinate. Parented under Tower, it follows the tower wherever the tower goes. It assumes the tower node's local origin is the platform surface, which is what TowerSpawn, TowerLight and Eye already assume.
+
+NO COLLISION AND NO SHADOW. Nothing here is on the rifle's hit mask and every mesh is taken off shadow casting on ready, so it cannot drop a turning patch of darkness on the deck.
+
+NUMBERS ARE ON scenes/tower/default_watching_eye_profile.tres: radius, height, track rate, and the excluded column. UNVERIFIED: nobody has seen this running -- Godot must not be launched on Ryan's Mac."
+script = ExtResource("1_watching_eye")
+gaze_path = NodePath("Gaze")
+model_path = NodePath("Gaze/Model")
+profile = ExtResource("2_watching_eye_profile")
+
+[node name="Gaze" type="Node3D" parent="."]
+editor_description = "The only thing that turns. It is a separate node from the rig root on purpose: the root's basis is the TOWER's basis, unrotated and unscaled, and WatchingEye.gaze_direction_for inverts it to measure where a viewer is relative to the tower axis. If the root turned, that measurement would turn with it. Whatever is authored here is overwritten on the first frame."
+
+[node name="Model" parent="Gaze" instance=ExtResource("3_eye_model")]
+editor_description = "assets/models/eye.glb, committed since it was made and referenced by nothing until now. Authored as a unit sphere -- the sclera spans -1..+1 on every axis -- so WatchingEyeProfile.radius_metres is applied here as a uniform scale and is literally the radius in metres.
+
+THE GAZE AXIS IS +Z, NOT -Z. The glTF puts the iris at z=0.798 and the pupil disc at z=1.054, which is the opposite of Godot's conventional forward. That is why WatchingEye builds its own basis rather than calling look_at, which would point the back of the eyeball at the viewer -- a mistake that reads as a deliberate design decision from the ring and is invisible in a diff.
+
+The scale lives on this node rather than on Gaze or the root: a scaled root would make the metre-denominated column test in WatchingEye.is_on_the_tower mean something other than metres, and a scale on Gaze would be wiped every frame by the basis the script writes there."

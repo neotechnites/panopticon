@@ -456,3 +456,293 @@ func _slide_hop_with_key_held() -> MoveIntent:
 	assert_false(_body.is_sliding(), "jumping must close the slide")
 	assert_false(_body.is_on_floor(), "the hop must leave the ground")
 	return intent
+
+
+# --- Crouching ----------------------------------------------------------------
+#
+# The slide key's second meaning, by the author's ruling: "you shoudl slide when
+# moving forward and crouching. otherwise just crouch. just like strafftatt".
+#
+# Two facts have to hold at once and they pull in opposite directions. A slide is
+# EDGE-triggered -- a held key must not re-arm the buffer, or slide-hopping
+# breaks -- and a crouch is inherently a HELD state. The controller reconciles
+# them by having the two states read different fields of the same button:
+# slide_pressed is the edge and belongs to the slide, slide_held is the level and
+# is all the crouch ever looks at. Every test below is either one side of that
+# split or the seam between them.
+#
+# Like the slide tests above, these drive the body through set_intent rather than
+# a BotIntentSource, because a held key is the case under test and poll()
+# consumes the edge.
+
+## Ticks allowed for the head to finish its exponential settle into a stance.
+## A second of simulated time; at crouch_camera_settle_rate the remaining error
+## after that is about six parts in a million.
+const SETTLE_TICKS: int = 60
+
+
+## A press with no speed behind it used to do nothing at all. Now it crouches.
+func test_a_press_while_slow_and_stationary_crouches() -> void:
+	var intent: MoveIntent = await _stand_on_floor()
+	assert_lt(
+		_body.get_horizontal_speed(), _profile.slide_min_entry_speed,
+		"the body must be too slow to be allowed a slide, or this proves nothing",
+	)
+
+	intent.slide_pressed = true
+	intent.slide_held = true
+	await _drive(intent, 1)
+
+	assert_false(_body.is_sliding(), "a standing press must not open a slide")
+	assert_true(_body.is_crouching(), "a standing press must crouch instead of doing nothing")
+
+
+## The unchanged half of the ruling: moving forward, fast enough, still slides.
+func test_a_press_while_fast_and_moving_forward_still_slides() -> void:
+	var intent: MoveIntent = await _run_up()
+
+	intent.slide_pressed = true
+	intent.slide_held = true
+	await _drive(intent, 1)
+
+	assert_true(_body.is_sliding(), "a fast forward press must still open a slide")
+	assert_false(_body.is_crouching(), "a slide is not a crouch; the two states are exclusive")
+
+
+## Fast, but not forward. The discriminator is the wish direction, so a body
+## travelling at full pace with a pure strafe held gets the crouch.
+##
+## This is the test that pins WHICH question the controller asks. Reading the
+## velocity's alignment with the facing instead of the intent would pass a body
+## still travelling forwards, and the difference shows up the first time a player
+## flicks the mouse mid-run.
+func test_a_fast_press_with_no_forward_intent_crouches() -> void:
+	var intent: MoveIntent = await _run_up()
+	assert_ge(
+		_body.get_horizontal_speed(), _profile.slide_min_entry_speed,
+		"the body must be fast enough for speed not to be what refuses the slide",
+	)
+
+	intent.move_direction = Vector2(1.0, 0.0)
+	intent.slide_pressed = true
+	intent.slide_held = true
+	await _drive(intent, 1)
+
+	assert_false(_body.is_sliding(), "a sideways press must not open a slide however fast the body is")
+	assert_true(_body.is_crouching(), "it must crouch instead")
+
+
+## A crouch is held, not timed. It outlasts slide_max_duration by a wide margin
+## and ends on the key, which is the structural difference between the two
+## states.
+func test_a_crouch_is_held_and_released_rather_than_timed() -> void:
+	var intent: MoveIntent = await _stand_on_floor()
+	intent.slide_pressed = true
+	intent.slide_held = true
+	await _drive(intent, 1)
+	assert_true(_body.is_crouching(), "the press must have opened the crouch")
+
+	# The press edge goes down, exactly as a device would report it after the
+	# first tick. Only the held level is left holding the stance up.
+	intent.slide_pressed = false
+	var held_ticks: int = int(_profile.slide_max_duration * SIM_HZ * 3.0)
+	var dropped: bool = false
+	for _tick: int in held_ticks:
+		await _drive(intent, 1)
+		dropped = dropped or not _body.is_crouching()
+
+	assert_false(
+		dropped,
+		"a crouch must survive %d ticks -- three times slide_max_duration -- without a timer ending it" % held_ticks,
+	)
+
+	intent.slide_held = false
+	await _drive(intent, 1)
+	assert_false(_body.is_crouching(), "releasing the key must end the crouch")
+
+
+## The part that makes this a combat mechanic rather than a camera trick: the
+## capsule the guard shoots at really does come down, and so does the eye, and
+## the feet stay exactly where they were.
+func test_a_crouch_lowers_the_collision_capsule_and_the_eye() -> void:
+	var intent: MoveIntent = await _stand_on_floor()
+
+	var standing_height: float = _body.get_stance_height()
+	var standing_eye: float = _body.get_eye_height()
+	var standing_foot: float = _body.collision.position.y - standing_height * 0.5
+	assert_gt(standing_height, 0.0, "the fixture body must have a capsule to shrink")
+
+	intent.slide_pressed = true
+	intent.slide_held = true
+	await _drive(intent, 1)
+	intent.slide_pressed = false
+	await _drive(intent, SETTLE_TICKS)
+
+	assert_true(_body.is_crouching(), "the body must still be crouched at the measurement")
+	assert_almost_eq(
+		_body.get_stance_height(), _profile.crouch_height, 0.001,
+		"the collision capsule must stand at the profile's crouch height",
+	)
+	assert_lt(
+		_body.get_stance_height(), standing_height,
+		"the crouched capsule must be shorter than the standing one",
+	)
+	assert_almost_eq(
+		_body.get_eye_height(), standing_eye - _profile.crouch_camera_drop, 0.01,
+		"the eye must settle a full crouch_camera_drop below the standing height",
+	)
+	assert_almost_eq(
+		_body.collision.position.y - _body.get_stance_height() * 0.5, standing_foot, 0.001,
+		"only the crown may move: the bottom of the capsule must stay on the floor",
+	)
+
+	intent.slide_held = false
+	await _drive(intent, SETTLE_TICKS)
+	assert_almost_eq(
+		_body.get_stance_height(), standing_height, 0.001,
+		"releasing must restore the authored capsule height",
+	)
+	assert_almost_eq(
+		_body.get_eye_height(), standing_eye, 0.01,
+		"releasing must bring the eye back up",
+	)
+
+
+## Crouched ground movement is slower than standing ground movement, and it is
+## slower than the slide's own entry threshold -- so a crouch can never walk
+## itself up into slide range and the two states cannot blur together.
+func test_a_crouched_body_moves_slower_than_a_standing_one() -> void:
+	var intent: MoveIntent = await _stand_on_floor()
+	intent.move_direction = Vector2(0.0, 1.0)
+	intent.slide_pressed = true
+	intent.slide_held = true
+	await _drive(intent, 1)
+	intent.slide_pressed = false
+	await _drive(intent, 120)
+
+	assert_true(_body.is_crouching(), "the body must still be crouched at the measurement")
+	assert_almost_eq(
+		_body.get_horizontal_speed(), _profile.crouch_speed, 0.05,
+		"a crouched body must settle at crouch_speed",
+	)
+	assert_lt(
+		_body.get_horizontal_speed(), _profile.ground_speed,
+		"a crouch must be slower than standing",
+	)
+	assert_lt(
+		_profile.crouch_speed, _profile.slide_min_entry_speed,
+		"crouch_speed must sit below the slide's entry threshold",
+	)
+
+
+## A slide that runs out under a still-held key hands the body to the crouch
+## rather than popping the prisoner upright in the open. The fall-through in
+## both directions is what makes one key feel like one mechanic.
+func test_a_slide_that_ends_under_a_held_key_becomes_a_crouch() -> void:
+	var intent: MoveIntent = await _run_up()
+	intent.slide_pressed = true
+	intent.slide_held = true
+	await _drive(intent, 1)
+	intent.slide_pressed = false
+	assert_true(_body.is_sliding(), "the run-up press must have opened a slide")
+
+	# Two full slide_max_durations, so the slide has certainly ended however it
+	# ended -- the timer, or the speed floor.
+	for _tick: int in int(_profile.slide_max_duration * SIM_HZ * 2.0):
+		await _drive(intent, 1)
+
+	assert_false(_body.is_sliding(), "the slide must have ended on its own by now")
+	assert_true(_body.is_on_floor(), "the measurement must happen on the ground")
+	assert_true(_body.is_crouching(), "the still-held key must leave the body crouched")
+
+
+## Slide-hopping, with the key held down the whole way, is exactly what it was.
+##
+## The single test for the edge-versus-held reconciliation. The press opens one
+## slide and one only; the hop carries the boost; the held key does NOT re-arm
+## the buffer and so does NOT re-open a slide on landing -- and the same held key
+## does put the body into a crouch the moment it is back on the floor, which is
+## the new behaviour arriving without displacing any of the old.
+func test_slide_hopping_still_works_with_the_key_held() -> void:
+	var intent: MoveIntent = await _slide_hop_with_key_held()
+
+	assert_gt(
+		_body.get_horizontal_speed(), _profile.ground_speed,
+		"the hop must leave the ground carrying the slide's entry boost",
+	)
+	assert_false(_body.is_crouching(), "a crouch is a ground stance; the air must never carry one")
+
+	await _land(intent)
+	await _drive(intent, 1)
+
+	assert_false(_body.is_sliding(), "a held key must still not re-open a slide on landing")
+	assert_true(_body.is_crouching(), "the same held key must leave the landed body crouched")
+
+
+## Releasing under something too low to stand up in leaves the body crouched
+## rather than growing the capsule into the geometry. It stands the moment there
+## is room, and not before.
+func test_a_crouch_will_not_stand_up_into_a_ceiling() -> void:
+	var intent: MoveIntent = await _stand_on_floor()
+	var standing_height: float = _body.get_stance_height()
+
+	intent.slide_pressed = true
+	intent.slide_held = true
+	await _drive(intent, 1)
+	intent.slide_pressed = false
+	assert_true(_body.is_crouching(), "the body must be crouched before the ceiling arrives")
+
+	# Added AFTER the crouch, so the body is never inside it: the underside sits
+	# between the crouched crown and the standing one, which is the only band in
+	# which this test says anything.
+	var crouched_top: float = _body.collision.position.y + _body.get_stance_height() * 0.5
+	var ceiling: StaticBody3D = TestFixtures.make_box_body(
+		Vector3(8.0, 1.0, 8.0), Vector3(0.0, crouched_top + 0.2 + 0.5, 0.0), "Ceiling"
+	)
+	add_child(ceiling)
+	await _drive(intent, 2)
+	assert_true(_body.is_crouching(), "the ceiling must not have disturbed the crouch")
+
+	intent.slide_held = false
+	await _drive(intent, 10)
+	assert_true(
+		_body.is_crouching(),
+		"a released crouch with no headroom must stay crouched rather than clip into the ceiling",
+	)
+	assert_almost_eq(
+		_body.get_stance_height(), _profile.crouch_height, 0.001,
+		"and the capsule must still be the crouched one",
+	)
+
+	# remove_child, not queue_free: freeing is deferred to the end of an idle
+	# frame and this suite counts in physics frames, of which several can pass
+	# between two idle ones. Removing the node leaves the physics space on the
+	# spot, which is the event the test is actually waiting for.
+	remove_child(ceiling)
+	ceiling.queue_free()
+	await _drive(intent, 4)
+	assert_false(_body.is_crouching(), "with the ceiling gone the body must stand back up")
+	assert_almost_eq(
+		_body.get_stance_height(), standing_height, 0.001,
+		"the capsule must be back to its authored height",
+	)
+
+
+# --- Crouch helpers -----------------------------------------------------------
+
+## Put the body on a floor and let it settle, driving it by hand. The standing
+## counterpart to [method _run_up]; returns the intent struct the caller keeps
+## feeding it.
+func _stand_on_floor() -> MoveIntent:
+	_body.intent_source = null
+	add_child(TestFixtures.make_floor(0.0))
+	_body.global_position = Vector3(0.0, 0.5, 0.0)
+	_body.rotation = Vector3.ZERO
+
+	var intent: MoveIntent = MoveIntent.new()
+	await _drive(intent, 30)
+
+	assert_true(_body.is_on_floor(), "the body should have settled onto the floor")
+	assert_lt(_body.get_horizontal_speed(), 0.01, "the body should be standing still")
+	return intent
+

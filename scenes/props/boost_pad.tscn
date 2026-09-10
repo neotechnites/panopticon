@@ -1,0 +1,42 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/match/boost_pad.gd" id="1_boost_pad"]
+
+[sub_resource type="StandardMaterial3D" id="MatBoostPlate"]
+resource_name = "BoostPlate"
+shading_mode = 0
+albedo_color = Color(0.1, 0.65, 0.95, 1.0)
+
+[sub_resource type="StandardMaterial3D" id="MatBoostChevron"]
+resource_name = "BoostChevron"
+shading_mode = 0
+albedo_color = Color(0.95, 0.95, 0.3, 1.0)
+
+[node name="BoostPad" type="Area3D"]
+editor_description = "A reusable prop -- the Halo-style 45 degree boost pad. Drop this scene into a map, at floor height, facing the way it should launch (rotate the node; do not need to offset it vertically, it lifts its own geometry to sit on the floor -- see scripts/match/boost_pad.gd). It is not wired to MatchController and never will be: this is a movement toy, not a hazard, and it is placed in no map by the change that added it.\n\nmask 1048577 = bit 0 (the layer a living player body stands on) + bit 20 (MatchController.GHOST_HAZARD_LAYER, the layer a ghost's body stands on), so both are launched -- this is baked into the prop itself rather than left for each map to rewire, because nothing places this scene automatically the way TrapVolume's arena wiring does."
+collision_layer = 0
+collision_mask = 1048577
+monitorable = false
+script = ExtResource("1_boost_pad")
+footprint_metres = Vector3(3.0, 1.0, 3.0)
+launch_speed = 18.0
+launch_angle_degrees = 45.0
+
+[node name="Shape" type="CollisionShape3D" parent="."]
+editor_description = "Deliberately empty. BoostPad._build_shape writes a BoxShape3D over it on ready from footprint_metres, and lifts it so its bottom face sits at this node's own origin."
+
+[node name="Plate" type="CSGBox3D" parent="."]
+editor_description = "The pad you see. Sized by BoostPad from footprint_metres' X and Z (so the footprint you see matches the footprint that launches you) and a small fixed thickness (so it reads as a flat panel, not a slab). No collision of its own -- it is floor decal, not an obstacle."
+material = SubResource("MatBoostPlate")
+
+[node name="Chevrons" type="Node3D" parent="."]
+editor_description = "Three narrowing stripes pointing the way the pad launches (local -Z). Purely decorative; BoostPad._size_the_chevrons sizes and places them off the plate on ready."
+
+[node name="Chevron0" type="CSGBox3D" parent="Chevrons"]
+material = SubResource("MatBoostChevron")
+
+[node name="Chevron1" type="CSGBox3D" parent="Chevrons"]
+material = SubResource("MatBoostChevron")
+
+[node name="Chevron2" type="CSGBox3D" parent="Chevrons"]
+material = SubResource("MatBoostChevron")

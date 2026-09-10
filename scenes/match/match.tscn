@@ -1,4 +1,4 @@
-[gd_scene load_steps=14 format=3]
+[gd_scene load_steps=23 format=3]
 
 [ext_resource type="PackedScene" path="res://scenes/ring/bentham_ring.tscn" id="1_arena"]
 [ext_resource type="PackedScene" path="res://scenes/player/player.tscn" id="2_player"]
@@ -7,12 +7,21 @@
 [ext_resource type="Script" path="res://scripts/match/match_controller.gd" id="5_controller"]
 [ext_resource type="Script" path="res://scripts/match/match_hud.gd" id="6_hud"]
 [ext_resource type="Resource" path="res://resources/rules/default_match_rules.tres" id="7_rules"]
+[ext_resource type="Resource" path="res://resources/rules/default_runner_palette.tres" id="14_palette"]
 [ext_resource type="PackedScene" path="res://scenes/ui/pause_menu.tscn" id="8_pause_menu"]
 [ext_resource type="Resource" path="res://scenes/player/default_movement_profile.tres" id="9_movement_profile"]
 [ext_resource type="PackedScene" path="res://scenes/fx/feedback_rig.tscn" id="10_feedback_rig"]
 [ext_resource type="PackedScene" path="res://scenes/audio/game_audio.tscn" id="11_game_audio"]
 [ext_resource type="Script" path="res://scripts/ui/settings_boot.gd" id="12_settings_boot"]
 [ext_resource type="PackedScene" path="res://scenes/ui/match_result_screen.tscn" id="13_result_screen"]
+[ext_resource type="Script" path="res://scripts/fx/spectator_view.gd" id="15_spectator"]
+[ext_resource type="Resource" path="res://resources/fx/default_spectator_profile.tres" id="16_spectator_profile"]
+[ext_resource type="Script" path="res://scripts/ui/death_screen.gd" id="17_death_screen"]
+[ext_resource type="Script" path="res://scripts/camera/seat_handover_view.gd" id="18_handover"]
+[ext_resource type="Resource" path="res://resources/camera/default_seat_handover_profile.tres" id="19_handover_profile"]
+[ext_resource type="Resource" path="res://resources/rules/default_match_announcement.tres" id="20_announcements"]
+[ext_resource type="Resource" path="res://resources/rules/default_match_readout.tres" id="21_readout"]
+[ext_resource type="PackedScene" path="res://scenes/ui/round_transition_screen.tscn" id="22_round_transition"]
 
 [node name="Match" type="Node3D"]
 editor_description = "A whole match. Arena, one human body, three AI bodies, one rifle, and MatchController enforcing the match described by resources/rules/default_match_rules.tres: an opening race with no shooter, then rounds, with the tower passing to whoever reaches the end and the match going to whoever holds it through a round. Nothing under scenes/player, scenes/weapon, scenes/bot or scenes/ring is modified here -- they are composed."
@@ -40,6 +49,7 @@ tracer_parent = NodePath("../../..")
 [node name="MatchController" type="Node" parent="." node_paths=PackedStringArray("arena", "player", "rifle", "runner_container")]
 script = ExtResource("5_controller")
 rules = ExtResource("7_rules")
+palette = ExtResource("14_palette")
 arena = NodePath("../Arena")
 player = NodePath("../Player")
 rifle = NodePath("../Player/Head/Rifle")
@@ -48,7 +58,7 @@ runner_scene = ExtResource("4_runner")
 
 [node name="HUD" type="CanvasLayer" parent="."]
 
-[node name="Root" type="Control" parent="HUD" node_paths=PackedStringArray("controller", "rifle", "status_label", "match_label", "outcome_label")]
+[node name="Root" type="Control" parent="HUD" node_paths=PackedStringArray("controller", "rifle", "readout_panel", "role_label", "primary_label", "objective_label", "context_label", "hint_label", "outcome_label", "handover_panel", "handover_title", "handover_detail")]
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
@@ -58,23 +68,92 @@ mouse_filter = 2
 script = ExtResource("6_hud")
 controller = NodePath("../../MatchController")
 rifle = NodePath("../../Player/Head/Rifle")
-status_label = NodePath("Status")
-match_label = NodePath("Match")
+readout_panel = NodePath("Readout")
+role_label = NodePath("Readout/Lines/Role")
+primary_label = NodePath("Readout/Lines/Primary")
+objective_label = NodePath("Readout/Lines/Objective")
+context_label = NodePath("Readout/Lines/Context")
+hint_label = NodePath("Hint")
 outcome_label = NodePath("Outcome")
+handover_panel = NodePath("Handover")
+handover_title = NodePath("Handover/Layout/Title")
+handover_detail = NodePath("Handover/Layout/Detail")
+announcements = ExtResource("20_announcements")
+readout = ExtResource("21_readout")
 
-[node name="Status" type="Label" parent="HUD/Root"]
+[node name="Readout" type="Control" parent="HUD/Root"]
 offset_left = 12.0
-offset_top = 8.0
-offset_right = 720.0
-offset_bottom = 32.0
+offset_top = 10.0
+offset_right = 404.0
+offset_bottom = 138.0
+mouse_filter = 2
+editor_description = "What the player needs to know, and only that. Four lines whose CONTENT depends on the role the human is playing -- tower, prisoner, ghost, or watching -- because the two sides of this game do not share a single interesting number. scripts/match/match_hud.gd writes four strings and four colours off resources/rules/default_match_readout.tres and nothing else; every node under here is authored in this file. Top-left at 392x128 on purpose: it clears the crosshair, the ring band and the horizon at every supported resolution, which matters because the guard is shooting 0.4 m targets at 35-60 m and the prisoner is reading cover at a run. Hidden by MatchHud whenever the match has no human participant, which is every headless bot sweep. mouse_filter IGNORE, like every other node in this HUD."
 
-[node name="Match" type="Label" parent="HUD/Root"]
-editor_description = "The match, as opposed to the round: phase, who holds the tower, and every participant's turn count. Multi-line and unstyled on purpose -- the seat is a role that passes between players including AI, and a player out on the track has no other way to tell who they are running from or how fast that player's reload has become."
+[node name="Backdrop" type="ColorRect" parent="HUD/Root/Readout"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0, 0, 0, 0.42)
+editor_description = "The arena is lit by ONE red light above the tower and is deliberately dark, so this readout is drawn over black concrete, red-lit concrete, a lit tower and the sky depending on where the player is standing. Text alone is illegible over at least two of those. Translucent rather than opaque so the deck is still visible through it, and pure black rather than tinted so it darkens the red light instead of joining it."
+
+[node name="Lines" type="VBoxContainer" parent="HUD/Root/Readout"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 10.0
+offset_top = 6.0
+offset_right = -10.0
+offset_bottom = -6.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/separation = 2
+
+[node name="Role" type="Label" parent="HUD/Root/Readout/Lines"]
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.9)
+theme_override_constants/outline_size = 6
+theme_override_font_sizes/font_size = 18
+text = "TOWER  ·  TURN 2"
+editor_description = "What you ARE. Placeholder text for the editor; MatchHud overwrites it every frame. The seat holder's turn count rides on this line rather than below it because the reload shortens with every turn, so the turn number IS how dangerous this tower is."
+
+[node name="Primary" type="Label" parent="HUD/Root/Readout/Lines"]
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.9)
+theme_override_constants/outline_size = 7
+theme_override_font_sizes/font_size = 40
+text = "RELOAD 1.8"
+editor_description = "The one number the role lives on, at a size that can be read in peripheral vision without looking away from the ring: the reload countdown in the tower, the metres left on the ring, the orders as a ghost. Its COLOUR is written by MatchHud off MatchReadoutProfile -- amber reloading, green ready, cyan as a ghost -- and never red, because red is the only light in this arena and a red reload countdown would vanish into the deck."
+
+[node name="Objective" type="Label" parent="HUD/Root/Readout/Lines"]
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.9)
+theme_override_constants/outline_size = 6
+theme_override_font_sizes/font_size = 16
+text = "PRISONERS 2 / 3  ·  CONVERT THEM ALL"
+editor_description = "How many prisoners are still alive, and what the rules IN PLAY say winning is. Both halves are read off the live MatchRules rather than assumed: the runners' half changes under ALL_ARRIVALS, and a shooter win condition MatchRules declares but does not implement says so instead of being described as the one that is."
+
+[node name="Context" type="Label" parent="HUD/Root/Readout/Lines"]
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.9)
+theme_override_constants/outline_size = 6
+theme_override_font_sizes/font_size = 14
+text = "TOWER Runner 2  ·  TURN 2  ·  2.3S RELOAD"
+editor_description = "Dim, and last, because it is true rather than urgent. A runner gets the tower: who is in it, on which turn, and how LONG their silence between shots lasts -- deliberately not how much of it is left, which is the guard's number and nobody else's. The seat holder gets match progress instead."
+
+[node name="Hint" type="Label" parent="HUD/Root"]
+anchor_top = 1.0
+anchor_bottom = 1.0
 offset_left = 12.0
-offset_top = 36.0
-offset_right = 720.0
-offset_bottom = 180.0
-vertical_alignment = 0
+offset_top = -28.0
+offset_right = 280.0
+offset_bottom = -6.0
+grow_vertical = 0
+mouse_filter = 2
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.9)
+theme_override_constants/outline_size = 5
+theme_override_font_sizes/font_size = 13
+text = "[R] restart match"
+editor_description = "The restart key, which is a development affordance and is dressed as one: bottom-left, 13 px and dim, where it is findable and is not competing with the reload. MatchReadoutProfile.show_restart_hint takes it off entirely."
 
 [node name="Outcome" type="Label" parent="HUD/Root"]
 anchor_left = 0.5
@@ -88,6 +167,52 @@ offset_bottom = -24.0
 grow_horizontal = 2
 grow_vertical = 2
 horizontal_alignment = 1
+
+[node name="Handover" type="Control" parent="HUD/Root"]
+visible = false
+anchor_left = 0.5
+anchor_top = 0.28
+anchor_right = 0.5
+anchor_bottom = 0.28
+offset_left = -300.0
+offset_right = 300.0
+offset_bottom = 92.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+editor_description = "The tower changing hands, announced. Raised by scripts/match/match_hud.gd on MatchController.seat_changed, held for MatchAnnouncementProfile.handover_seconds and faded out; the script only sets visible, modulate and two strings, and every node under here is authored in this file. Hidden as authored because MatchHud takes it down in _ready anyway and a banner that flashed on the first frame of every match would be worse than one the editor shows folded. Placed at 28% of the screen height rather than at the centre: it clears the role readout above it at every supported resolution, and it leaves the crosshair, the ring and the horizon unobscured, which is the whole point of announcing a seat change to somebody who is at that moment being put back on the start line. mouse_filter IGNORE, like every other node in this HUD."
+
+[node name="Backdrop" type="ColorRect" parent="HUD/Root/Handover"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0, 0, 0, 0.55)
+editor_description = "Unstyled and deliberately dark: the banner is read against the deck, the sky and a lit tower depending on where the player is standing when the seat changes, and white text alone is illegible over at least one of them. Alpha rather than opaque so the arena is still visible through it."
+
+[node name="Layout" type="VBoxContainer" parent="HUD/Root/Handover"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+alignment = 1
+theme_override_constants/separation = 2
+
+[node name="Title" type="Label" parent="HUD/Root/Handover/Layout"]
+theme_override_font_sizes/font_size = 34
+text = "RUNNER 2 TAKES THE TOWER"
+horizontal_alignment = 1
+editor_description = "Who took it, in one line, big enough to read without looking away from the ring. The text authored here is the placeholder the editor shows; MatchHud overwrites it from the participant every time the seat changes, and phrases the human's own line as YOU TAKE THE TOWER rather than the broken \"You takes\"."
+
+[node name="Detail" type="Label" parent="HUD/Root/Handover/Layout"]
+theme_override_font_sizes/font_size = 16
+text = "TURN 2"
+horizontal_alignment = 1
+editor_description = "Which turn in the tower this is for them, which is the number that matters: the reload shortens with every turn a player takes, so a third turn is a materially more dangerous tower than a first one and the runners are entitled to know."
 
 [node name="Crosshair" type="Label" parent="HUD/Root"]
 anchor_left = 0.5
@@ -104,7 +229,7 @@ text = "+"
 horizontal_alignment = 1
 
 [node name="FeedbackRig" parent="." instance=ExtResource("10_feedback_rig")]
-editor_description = "The hit-and-kill feedback layer, pointed at the human. Purely additive: every node here subscribes to signals Rifle and MatchController already emit, no gameplay script is touched, and deleting this node leaves the match exactly as it was. On CanvasLayer 2 it draws above the HUD (layer 1) and below PauseMenu (layer 128), so a hitmarker covers the crosshair and a menu covers both. It is placed BEFORE PauseMenu in child order so PauseMenu stays the last child, which is what gives the menu first refusal on GUI input; the two Controls in here are mouse_filter IGNORE anyway. Inert with no display server -- each node checks DisplayServer at _ready, connects nothing and stops processing -- so tools/harness/ pays nothing for it. The six exports the rig deliberately ships blank are filled in on the four child nodes below, and each one is listed in that node's own node_paths header: a NodePath export that is NOT named there resolves to null at load with no error at all, which is exactly how PauseMenu.camera was silently broken once already."
+editor_description = "The hit-and-kill feedback layer, pointed at the human. Purely additive: every node here subscribes to signals Rifle and MatchController already emit, no gameplay script is touched, and deleting this node leaves the match exactly as it was. On CanvasLayer 2 it draws above the HUD (layer 1) and below PauseMenu (layer 128), so a hitmarker covers the crosshair and a menu covers both. It is placed BEFORE PauseMenu in child order so PauseMenu stays the last child, which is what gives the menu first refusal on GUI input; the two Controls in here are mouse_filter IGNORE anyway. Inert with no display server -- each node checks DisplayServer at _ready, connects nothing and stops processing -- so tools/harness/ pays nothing for it. The eight exports the rig deliberately ships blank are filled in on the five child nodes below, and each one is listed in that node's own node_paths header: a NodePath export that is NOT named there resolves to null at load with no error at all, which is exactly how PauseMenu.camera was silently broken once already."
 
 [node name="CameraKick" parent="FeedbackRig" index="0" node_paths=PackedStringArray("camera")]
 editor_description = "The human camera is the one the feedback moves. An AI seat holder has its own Camera3D and its own eyes; this rig speaks only for the player looking at the screen."
@@ -126,13 +251,58 @@ editor_description = "body is the human's capsule, and it is the opposite test t
 rifle = NodePath("../../Player/Head/Rifle")
 body = NodePath("../../Player")
 
+[node name="CatchReaction" parent="FeedbackRig" index="4" node_paths=PackedStringArray("controller", "body")]
+editor_description = "Both exports are load-bearing and for opposite reasons. controller is the event AND the identity: MatchController.ghost_caught is the only announcement a catch makes, and MatchController.get_runner_palette() is where the other player's colour comes from -- the colour is how you know WHO, since there is no text on this. body is the filter: a catch has two participants, bots catch and are caught constantly, and without this every bot-on-bot swap in the round would paint the human's screen. With it a catch neither of whose sides is this body costs one pointer comparison and returns."
+controller = NodePath("../../MatchController")
+body = NodePath("../../Player")
+
 [node name="GameAudio" parent="." instance=ExtResource("11_game_audio")]
 editor_description = "The whole audio system for the match, as one node. The root IS the AudioDirector and registers itself statically on entering the tree, so AudioDirector.post_event() from anywhere reaches it. Nothing is wired by NodePath on purpose: its MatchAudio listener searches the running scene root for the Rifle and the MatchController, because MatchController reparents the rifle onto whoever holds the tower and a path typed into this file would go stale on the first seat change. Subscription happens in _enter_tree, which Godot runs across the whole subtree before any _ready, so the match_started and race_started that MatchController.start_match() emits from its own _ready are heard wherever this node sits in child order. Under the default Activation.AUTO the director switches itself off in a headless run, so the bot harness pays nothing for it either."
+
+[node name="SpectatorView" type="Node3D" parent="." node_paths=PackedStringArray("controller", "camera", "player_camera", "human_input")]
+editor_description = "What a dead player looks at. The three second respawn hold freezes the body -- MatchController._hold_body switches its physics off -- and the human camera is a child of that body, so without this node the player sits inside a statue unable even to turn their head, which is exactly what Ryan objected to. This node carries its OWN Camera3D and makes it current while MatchController.get_spectating_state() says the human is dead: orbiting the body for the three second hold, and up on the overlook watching the ring for a racer who fell during the opening race and is out for the rest of it. It never touches the player's camera -- WeaponOptic owns that camera's fov, FxCameraKick owns its local transform and PauseMenu writes the display FOV into it -- it only makes it current again on the way out. human_input is load-bearing and is a bug fix, not politeness: HumanIntentSource banks mouse motion in pixels and drains it when PlayerController polls, and a held body is not polling, so three seconds of banked mouse would land on the aim in one frame the instant the body woke. Muting it drops the bank and hands the mouse to this camera instead. Inert with no display server. Strictly additive: it subscribes to nothing, and deleting it leaves the match exactly as it was."
+script = ExtResource("15_spectator")
+controller = NodePath("../MatchController")
+camera = NodePath("Camera")
+player_camera = NodePath("../Player/Head/Camera")
+human_input = NodePath("../Player/HumanInput")
+profile = ExtResource("16_spectator_profile")
+
+[node name="Camera" type="Camera3D" parent="SpectatorView"]
+editor_description = "The spectator's own camera, deliberately NOT current in the scene as authored -- the player's camera is, and this one is switched in only while somebody is dead. Its fov is set from SpectatorProfile at _ready rather than borrowed from the player camera, which may be zoomed down a rifle scope at the moment its owner is shot."
+current = false
+fov = 75.0
+
+[node name="SeatHandover" type="Node3D" parent="." node_paths=PackedStringArray("controller", "camera", "player_camera", "human_input", "optic")]
+editor_description = "The tower changing hands, as the player experiences it. A seat change is MatchController.start_round() writing a new global_position onto every body on one tick, and the human camera is a child of one of those bodies, so the biggest moment in the match used to arrive as a single-frame teleport that said nothing. This node holds the view still for a beat at the pose the player was in, then flies its OWN camera to wherever the player camera has ended up, arcing over the deck so the flight does not skim through the ring cover. It never writes the player camera -- WeaponOptic owns that camera's fov, FxCameraKick owns its local transform and PauseMenu writes the display FOV into it -- only its `current` flag, which it sets back on the way out. human_input is the same banked-mouse fix FxSpectatorView documents: a body being placed is held inert and not polling, so a second of unmuted mouse would land on the aim in one frame the instant it woke. optic is what stops a player who lost the tower mid-shot starting their next lap looking down a scope. FxSpectatorView outranks this node: it does not arm while the human is dead and stands down on the frame they die. Inert with no display server, so bot sweeps pay nothing. Strictly additive -- it subscribes to signals MatchController already emits, is subscribed to by nothing, and deleting it restores the instant cut."
+script = ExtResource("18_handover")
+controller = NodePath("../MatchController")
+camera = NodePath("Camera")
+player_camera = NodePath("../Player/Head/Camera")
+human_input = NodePath("../Player/HumanInput")
+optic = NodePath("../Player/Optic")
+profile = ExtResource("19_handover_profile")
+
+[node name="Camera" type="Camera3D" parent="SeatHandover"]
+editor_description = "The handover's own camera, deliberately NOT current as authored. It is switched in for about a second when the seat changes hands and switched straight back out. Its fov is written every frame of the flight from the player camera's own value plus SeatHandoverProfile.fov_surge_degrees, so the player's display-FOV setting survives the trip."
+current = false
+
+[node name="DeathScreen" type="CanvasLayer" parent="." node_paths=PackedStringArray("controller")]
+editor_description = "The legible half of being dead: DOWN plus a live countdown of MatchController.get_respawn_hold_remaining(), or OUT OF THE RACE with no number because a race has no deadline anybody can compute. On layer 3 it draws above the HUD (1) and the feedback rig (2) and far below PauseMenu (128), so a player can still pause while dead. Built in code like every other menu here, polls rather than subscribing, and inert with no display server."
+script = ExtResource("17_death_screen")
+controller = NodePath("../MatchController")
+
+[node name="RoundTransition" parent="." node_paths=PackedStringArray("controller", "pause_menu") instance=ExtResource("22_round_transition")]
+editor_description = "The card between two rounds. Ryan: \"maybe lets have a transition screen each round that shows the map or something\". A round used to end and the next one begin on the same tick -- MatchController.start_round() writes a new global_position onto every body in the match -- so the biggest structural moment in a match arrived as a teleport with nothing said. This node raises a card on MatchController.round_started showing the round number, the map, who holds the tower and on what turn, and how many prisoners are on the ring, over a LIVE overhead render of the arena drawn by a Camera3D inside its own SubViewport. That subviewport is the whole reason this is safe: a camera in a SubViewport is current in that viewport and nowhere else, so this node never touches Camera3D.current on the main viewport and is never ranked against FxSpectatorView or SeatHandover. It pauses the tree for the card\'s length so no bot runs a metre of the new round while the player reads it, and it only ever unpauses a pause it set itself -- never while PauseMenu is open, which is the objection ResultScreen\'s own header raises against pausing. Skippable by any key after a fifth of a second, never shown headless (so the bot harness and the test suite cross a round boundary with no delay at all), and a no-op in a match with no human in it. Durations live on default_match_announcement.tres alongside the handover banner and the win beat, because they are one pacing decision; round_card_seconds = 0 takes the card off entirely. Placed BEFORE ResultScreen and PauseMenu in child order for the same reason ResultScreen is: PauseMenu must stay the last child to keep first refusal on GUI input, and layer 32 draws under both of them anyway."
+controller = NodePath("../MatchController")
+pause_menu = NodePath("../PauseMenu")
+announcements = ExtResource("20_announcements")
 
 [node name="ResultScreen" parent="." node_paths=PackedStringArray("controller", "pause_menu") instance=ExtResource("13_result_screen")]
 editor_description = "The end of the match, told to the player. MatchController already knew who had won and froze the world; until this node existed it told nobody, and a second match meant relaunching the game. It listens for match_won, reads the winner and every number off the controller -- it keeps no score of its own -- and offers Play Again (MatchController.restart(), the same call the R key makes, so no scene is reloaded and no state is rebuilt that a reset already reaches) and Main Menu. pause_menu is named so the main-menu teardown is PauseMenu's one implementation rather than a second copy of the same four steps; it is also how the screen knows to take the mouse back when a pause menu closed over the top of it and restored the match's captured mouse. Placed BEFORE PauseMenu in child order deliberately: PauseMenu must stay the last child to keep first refusal on GUI input, and its layer 128 draws over this screen's 64 either way."
 controller = NodePath("../MatchController")
 pause_menu = NodePath("../PauseMenu")
+announcements = ExtResource("20_announcements")
 
 [node name="PauseMenu" parent="." node_paths=PackedStringArray("camera") instance=ExtResource("8_pause_menu")]
 editor_description = "Escape, and everything behind it. Last child of the root and on CanvasLayer 128, so it draws over the HUD (layer 1) and is offered GUI input before it; the HUD cannot swallow a click meant for a menu button because HUD/Root is mouse_filter 2 and its Labels ignore the mouse anyway. movement_profile is the SAME .tres instance Player uses for its own profile export -- Godot returns one cached object per resource path and this one is not local_to_scene -- so mouse sensitivity and invert-Y written by the settings screen land on the profile the body actually reads; point it anywhere else and the setting appears to save and does nothing. camera is named in node_paths in the header above: without that entry the NodePath resolves to null at load with no error, and the display-FOV setting silently stops working."

@@ -64,6 +64,16 @@ const CLEAR_OF_THE_START_METRES: float = 5.0
 const DECK_INNER_RADIUS: float = 36.0
 const DECK_OUTER_RADIUS: float = 60.0
 
+## Ticks a respawn hold is polled for before a test gives up on it. A second
+## clear of the shipped three, so a hold that never expires fails as a hold and
+## not as a timeout somebody has to go and read.
+const HOLD_BUDGET_TICKS: int = 240
+
+## Ticks of slack allowed on a measured three second hold. A clock stepped in
+## whole physics frames cannot land on a designer's number exactly, and the
+## claim under test is "three seconds", not "180 frames".
+const HOLD_TOLERANCE_TICKS: float = 3.0
+
 ## Fraction of the ghost's speed advantage the measurement must actually show.
 ## The comparison is of two identical bodies under identical intent, so the only
 ## difference is the scale; the slack is for the acceleration ramp, not for a
@@ -80,6 +90,7 @@ var _human: MatchParticipant
 var _resolutions: int = 0
 var _last_outcome: int = -1
 var _ghosted: Array[MatchParticipant] = []
+var _respawned: Array[MatchParticipant] = []
 var _catches: int = 0
 var _last_catch_ghost: MatchParticipant
 var _last_catch_caught: MatchParticipant
@@ -100,6 +111,7 @@ func before_each() -> void:
 
 	_controller.round_resolved.connect(_on_round_resolved)
 	_controller.runner_ghosted.connect(_on_runner_ghosted)
+	_controller.ghost_respawned.connect(_on_ghost_respawned)
 	_controller.ghost_caught.connect(_on_ghost_caught)
 
 	_participants = _controller.get_participants()
@@ -145,9 +157,22 @@ func test_a_shot_prisoner_becomes_a_ghost() -> void:
 	assert_eq_int(roster.size(), _rules.get_participant_count(), "nobody left the match")
 	assert_true(roster.has(victim), "the ghost is still on the roster")
 
-	# The placement settles like every other one in this file. A ghost is put
+	# THE PLACEMENT WAITS, and the body is inert while it does. This assertion
+	# used to read "a ghost's body is still being stepped" immediately, and the
+	# respawn hold made that false for three seconds: a held body has its physics
+	# switched off so it cannot fall, act or be shot. What still has to be true --
+	# and is asserted below -- is that it steps again once it LANDS. A ghost that
+	# never got its physics back could not chase anything, which is the whole
+	# mechanic.
+	assert_false(
+		victim.body.is_physics_processing(),
+		"a held body is not stepped -- it cannot fall, act or be moved",
+	)
+	await _await_respawn(victim)
+
+	# And the placement settles like every other one in this file. A ghost is put
 	# back on the START LINE, which is a kinematic body being sent most of a lap,
-	# so it spends two physics frames off its collision before it is woken --
+	# so it spends two more physics frames off its collision before it is woken --
 	# see MatchController._place_ghost_at_start and _hold_body. Everything below
 	# is therefore asserted about a ghost that has landed.
 	await step_ticks(SETTLE_TICKS)
@@ -159,7 +184,10 @@ func test_a_shot_prisoner_becomes_a_ghost() -> void:
 		"a ghost is not buried in the pen",
 	)
 	assert_true(victim.body.visible, "a ghost is visible")
-	assert_true(victim.body.is_physics_processing(), "a ghost's body is still being stepped")
+	assert_true(
+		victim.body.is_physics_processing(),
+		"and once it has landed a ghost's body is being stepped again",
+	)
 	assert_false(
 		victim.body.is_in_group(MatchController.RUNNER_GROUP),
 		"a ghost is not a legitimate target",
@@ -217,6 +245,18 @@ func test_a_ghost_is_put_back_on_the_start_line() -> void:
 
 	var second: MatchParticipant = _controller.get_live_participants()[0]
 	assert_true(_controller.apply_hit(second), "and so is a second one")
+
+	# THE PLACEMENT WAITS. For [member GhostProfile.respawn_delay_seconds] the
+	# body stands frozen at the spot the rifle found it, and only then is it
+	# moved -- so this is asserted on both sides of the hold. See
+	# [code]test_a_killed_prisoner_waits_before_it_is_put_back[/code] for the
+	# clock itself; here it is only got out of the way.
+	assert_vec3_almost_eq(
+		first.body.global_position, fell_at, 1e-3,
+		"the instant it is shot the ghost is still standing where it fell",
+	)
+	await _await_respawn(first)
+	await _await_respawn(second)
 
 	assert_gt(
 		_flat(first.body.global_position - fell_at), CLEAR_OF_THE_START_METRES,
@@ -280,6 +320,17 @@ func test_a_ghost_cannot_be_hit_by_the_rifle() -> void:
 	assert_false(_controller.apply_hit(victim), "the match refuses a second hit on a ghost")
 	assert_false(_controller.convert_participant(victim), "a ghost cannot be converted again")
 	assert_eq_int(_controller.get_ghosts_remaining(), 1, "the refused hit made nothing happen")
+	assert_eq_int(
+		victim.body.collision_layer, 0,
+		"and it is off every layer from the tick it was shot, all through its respawn hold",
+	)
+
+	# The world checks are made on the far side of the respawn hold, where the
+	# ghost is standing in its own dealt lane on the start line. Fired at the
+	# spot it was SHOT they would prove nothing: that spot is in the middle of
+	# the running field, and a ray through it can cross a prisoner who merely
+	# happened to be alongside.
+	await _await_respawn(victim)
 
 	# The world: the ray the rifle actually shoots passes through.
 	var mask: int = _hit_mask()
@@ -352,6 +403,9 @@ func test_a_ghost_catching_a_prisoner_swaps_their_roles() -> void:
 
 	var victim: MatchParticipant = _controller.get_live_participants()[0]
 	assert_true(_controller.apply_hit(victim), "a prisoner is shot to make the ghost")
+	# A held ghost cannot catch anybody -- that is asserted on its own below --
+	# so the respawn is run out first and the CATCH is what this test measures.
+	await _await_respawn(victim)
 
 	var quarry: MatchParticipant = _controller.get_live_participants()[0]
 	assert_gt(quarry.tracker.get_progress(), 0.0, "the quarry has a lap worth taking")
@@ -361,7 +415,11 @@ func test_a_ghost_catching_a_prisoner_swaps_their_roles() -> void:
 	var ghosts_before: int = _controller.get_ghosts_remaining()
 
 	_put_ghost_on(victim, quarry, true)
-	await step_ticks(2)
+	# Long enough for the placement settle to expire and the ghost to be woken:
+	# a ghost inside its settle is skipped by MatchController._tick_ghosts, so
+	# the catch cannot land until the body is back in the world. Derived from the
+	# controller's own constant rather than a magic 2.
+	await step_ticks(MatchController.SETTLE_PHYSICS_FRAMES + 2)
 
 	# The trade.
 	assert_eq_int(_catches, 1, "ghost_caught is announced once")
@@ -436,7 +494,18 @@ func test_a_ghost_catching_a_prisoner_swaps_their_roles() -> void:
 func test_the_catch_grace_expires_and_the_catch_then_happens() -> void:
 	var victim: MatchParticipant = _controller.get_live_participants()[0]
 	assert_true(_controller.apply_hit(victim), "a prisoner is shot to make the ghost")
+	await _await_respawn(victim)
 	var quarry: MatchParticipant = _controller.get_live_participants()[0]
+
+	# The grace is untouched by the respawn hold it just sat through: a held
+	# ghost is skipped by [method MatchController._tick_ghosts] entirely, so its
+	# catch clock starts when it is put back and not when it died. Spending the
+	# grace on three seconds of standing still would leave a ghost able to catch
+	# on the frame it lands.
+	assert_almost_eq(
+		victim.ghost_grace_remaining, _ghost_rules.catch_grace_seconds, 1e-3,
+		"the respawn hold did not spend the catch grace",
+	)
 
 	# The freshly shot ghost is on its grace and may not catch anybody yet.
 	_put_ghost_on(victim, quarry, false)
@@ -605,6 +674,368 @@ func test_a_ghost_counts_for_nothing_until_it_catches() -> void:
 	assert_eq_int(_controller.get_resolve_count(), 0, "and cannot resolve the round")
 
 
+# --- The respawn hold ---------------------------------------------------------
+
+## Death waits. The author's ruling: [i]"add a 3 second respawn timer. weather
+## youre alive or already a ghost."[/i]
+##
+## Measured, in ticks, off the match's own clock rather than asserted off the
+## resource -- a delay that the controller read and then never served would pass
+## a resource check and fail a player.
+func test_a_killed_prisoner_waits_before_it_is_put_back() -> void:
+	# Run the field clear of the start, or "it had not been moved yet" is a claim
+	# about a body standing where it would end up anyway.
+	await step_ticks(RUNNING_TICKS)
+
+	var victim: MatchParticipant = _controller.get_live_participants()[0]
+	var fell_at: Vector3 = victim.body.global_position
+	assert_true(_controller.apply_hit(victim), "the prisoner is shot")
+
+	assert_true(_controller.is_awaiting_respawn(victim), "the hold is armed on the tick of death")
+	assert_almost_eq(
+		_controller.get_respawn_hold_remaining(victim),
+		_ghost_rules.respawn_delay_seconds, 1e-6,
+		"and armed at its full length",
+	)
+	assert_eq_int(_respawned.size(), 0, "nothing has been put back yet")
+
+	var waited_ticks: int = 0
+	for _tick: int in HOLD_BUDGET_TICKS:
+		await step_ticks(1)
+		waited_ticks += 1
+		if not _controller.is_awaiting_respawn(victim):
+			break
+		# Frozen, for every frame of it. Asserted inside the loop rather than at
+		# the ends, because a body that drifted and came back would pass a check
+		# made only at the ends.
+		if victim.body.global_position.distance_to(fell_at) > 1e-3:
+			fail("the held body moved %.3f m at tick %d" % [
+				victim.body.global_position.distance_to(fell_at), waited_ticks,
+			])
+			break
+
+	assert_false(_controller.is_awaiting_respawn(victim), "the hold ran out within the budget")
+	assert_almost_eq(
+		float(waited_ticks) * SIM_DELTA, _ghost_rules.respawn_delay_seconds,
+		HOLD_TOLERANCE_TICKS * SIM_DELTA,
+		"the hold is the profile's own duration, and the shipped one is three seconds",
+	)
+	assert_eq_int(_respawned.size(), 1, "ghost_respawned is announced once, at the end of it")
+	if _respawned.size() == 1:
+		assert_same(_respawned[0], victim, "for the participant who was held")
+
+	# And the placement it was waiting for actually happened.
+	var arena: Node3D = _match.get_node("Arena") as Node3D
+	var centre: Vector3 = arena.global_position
+	var start_point: Vector3 = (
+		arena.get_node(TestFixtures.START_MARKER_PATH) as Marker3D
+	).global_position
+	assert_almost_eq(
+		absf(wrapf(
+			_angle_about(centre, victim.body.global_position)
+			- _angle_about(centre, start_point),
+			-PI, PI,
+		)),
+		0.0, START_ANGLE_TOLERANCE,
+		"and when it ended they were put down at the start line's own bearing",
+	)
+
+
+## The shipped ruling is three seconds, and it is a number in a resource.
+func test_the_shipped_hold_is_three_seconds_and_lives_on_the_profile() -> void:
+	var shipped: GhostProfile = load(TestFixtures.GHOST_PROFILE_PATH) as GhostProfile
+	if not assert_not_null(shipped, "the shipped ghost profile loads"):
+		return
+	assert_almost_eq(
+		shipped.respawn_delay_seconds, 3.0, 1e-6,
+		"the shipped respawn hold is the three seconds the author asked for",
+	)
+	assert_almost_eq(
+		GhostProfile.new().respawn_delay_seconds, 3.0, 1e-6,
+		"and a profile built from nothing gets the same default, not a zero",
+	)
+
+
+## What the body may do while it waits: nothing at all.
+##
+## Four separate refusals, because each is a different code path that could
+## independently start saying yes: it cannot be shot, cannot be converted again,
+## cannot fall, and cannot be moved by anything -- its own brain included.
+func test_the_held_body_can_do_nothing_at_all() -> void:
+	await step_ticks(RUNNING_TICKS)
+
+	var victim: MatchParticipant = _controller.get_live_participants()[0]
+	var fell_at: Vector3 = victim.body.global_position
+	assert_true(_controller.apply_hit(victim), "the prisoner is shot")
+	assert_true(_controller.is_awaiting_respawn(victim), "and is being held")
+
+	var mask: int = _hit_mask()
+	assert_gt(float(mask), 0.0, "the weapon profile has a hit mask to test against")
+
+	# Sampled through the middle of the hold rather than once, so a body that
+	# became solid again halfway through cannot hide between two checks.
+	for _tick: int in int(_ghost_rules.respawn_delay_seconds * SIM_HZ * 0.5):
+		await step_ticks(1)
+		if not _controller.is_awaiting_respawn(victim):
+			fail("the hold ended early")
+			break
+		# NOT SHOOTABLE: off every collision layer, so the rifle's own ray
+		# cannot find it.
+		if victim.body.collision_layer != 0:
+			fail("the held body was back on collision layer %d" % victim.body.collision_layer)
+			break
+		# NOT ACTING and NOT FALLING: its physics is switched off, so no intent
+		# from any brain and no gravity reaches it.
+		if victim.body.is_physics_processing():
+			fail("the held body was being stepped")
+			break
+		if victim.body.velocity.length() > 1e-6:
+			fail("the held body was carrying velocity %v" % victim.body.velocity)
+			break
+
+	assert_true(_controller.is_awaiting_respawn(victim), "still held halfway through")
+	assert_vec3_almost_eq(
+		victim.body.global_position, fell_at, 1e-3,
+		"and has not fallen, drifted or been walked anywhere",
+	)
+	assert_null(
+		_participant_struck_at(victim.body.global_position, mask),
+		"the rifle's own ray finds nobody where the held body is standing",
+	)
+
+	# NOT A TARGET, and not killable twice.
+	assert_false(
+		victim.body.is_in_group(MatchController.RUNNER_GROUP),
+		"a held body is not in the group the tower shoots at",
+	)
+	assert_false(_controller.apply_hit(victim), "a second hit on a held body is refused")
+	assert_false(
+		_controller.convert_participant(victim), "and so is a second conversion"
+	)
+	assert_eq_int(_ghosted.size(), 1, "the death was announced exactly once")
+
+
+## NOT CATCHABLE, and it cannot catch either.
+##
+## The catch is the one thing a ghost can do that changes the round, so a ghost
+## that could do it from inside its own respawn hold would be taking somebody's
+## spot from a body that is not in the world yet. It is put on a prisoner with
+## its grace already spent -- which is every condition a catch needs except
+## being placed -- and nothing happens.
+func test_a_held_ghost_can_neither_catch_nor_be_caught() -> void:
+	await step_ticks(RUNNING_TICKS)
+
+	var victim: MatchParticipant = _controller.get_live_participants()[0]
+	assert_true(_controller.apply_hit(victim), "a prisoner is shot to make the ghost")
+	assert_true(_controller.is_awaiting_respawn(victim), "and is being held")
+
+	var quarry: MatchParticipant = _controller.get_live_participants()[0]
+	_put_ghost_on(victim, quarry, true)
+	assert_almost_eq(victim.ghost_grace_remaining, 0.0, 1e-6, "with no grace left to stop it")
+
+	await step_ticks(int(_ghost_rules.respawn_delay_seconds * SIM_HZ * 0.5))
+
+	assert_true(_controller.is_awaiting_respawn(victim), "the hold is still running")
+	assert_eq_int(_catches, 0, "and a held ghost standing on a prisoner catches nobody")
+	assert_eq_int(_controller.get_catch_count(), 0, "the match counted no catch")
+
+	# The other direction is structural: a catch only ever names a RUNNING
+	# participant, and a held body is not one.
+	assert_false(victim.is_running, "a held body is not a legitimate quarry")
+
+
+## A ghost a hazard returns to the start waits exactly as long. [i]"weather youre
+## alive or already a ghost."[/i]
+##
+## The fall is the second route into the one door -- see
+## [method MatchController.handle_fall] -- and this is the half of the ruling
+## that is easy to miss, because a ghost was never alive to be killed.
+func test_a_ghost_returned_by_a_hazard_waits_too() -> void:
+	var victim: MatchParticipant = _controller.get_live_participants()[0]
+	assert_true(_controller.apply_hit(victim), "a prisoner is shot to make a ghost")
+	await _await_respawn(victim)
+	await step_ticks(SETTLE_TICKS)
+	assert_true(victim.is_ghost, "the victim is a settled, woken ghost")
+	assert_false(_controller.is_awaiting_respawn(victim), "with its first hold spent")
+
+	var respawns_before: int = _respawned.size()
+	var deaths_before: int = _ghosted.size()
+	var fell_at: Vector3 = victim.body.global_position
+
+	assert_true(_controller.handle_fall(victim), "the hazard answers for the ghost")
+
+	assert_true(
+		_controller.is_awaiting_respawn(victim),
+		"a ghost put back by a hazard is held, exactly as a fresh kill is",
+	)
+	assert_almost_eq(
+		_controller.get_respawn_hold_remaining(victim),
+		_ghost_rules.respawn_delay_seconds, 1e-6,
+		"for the same full three seconds",
+	)
+	assert_eq_int(
+		_ghosted.size(), deaths_before,
+		"and it is not announced as a second death -- it was already a ghost",
+	)
+	assert_false(victim.body.is_physics_processing(), "the body is inert while it waits")
+	assert_eq_int(victim.body.collision_layer, 0, "and off every layer, hazards included")
+	assert_vec3_almost_eq(
+		victim.body.global_position, fell_at, 1e-3, "and has not been moved yet",
+	)
+
+	await _await_respawn(victim)
+	assert_eq_int(
+		_respawned.size(), respawns_before + 1,
+		"and once the hold ran out it was put back",
+	)
+	assert_true(victim.is_ghost, "still a ghost -- a hazard cannot kill one twice")
+
+
+## A bot is held exactly as long as the human, because nothing in the hold reads
+## which they are.
+##
+## The tower is handed to a BOT first, through the same lap-finished seam
+## [method before_each] uses to hand it to the human, so that the human is a
+## prisoner and can be shot at all.
+func test_a_bot_and_a_human_are_held_for_the_same_time() -> void:
+	var bot_seat: MatchParticipant = _controller.get_live_participants()[0]
+	bot_seat.tracker.lap_finished.emit(30.0, 240.0)
+	await step_ticks(SETTLE_TICKS)
+
+	if not assert_same(_controller.get_seat_participant(), bot_seat, "a bot holds the tower"):
+		return
+	if not assert_true(_human.is_running, "and the human is a prisoner who can be shot"):
+		return
+
+	var bot: MatchParticipant = null
+	for candidate: MatchParticipant in _controller.get_live_participants():
+		if not candidate.is_human():
+			bot = candidate
+			break
+	if not assert_not_null(bot, "there is a bot prisoner to compare against"):
+		return
+
+	assert_true(_controller.apply_hit(_human), "the human is shot")
+	assert_true(_controller.apply_hit(bot), "and so is a bot, on the same tick")
+
+	assert_almost_eq(
+		_controller.get_respawn_hold_remaining(_human),
+		_controller.get_respawn_hold_remaining(bot), 1e-6,
+		"both are held for exactly the same time",
+	)
+
+	# And both come back, in the same frame, through the same door.
+	await _await_respawn(_human)
+	assert_false(_controller.is_awaiting_respawn(bot), "the bot's hold ended on the same tick")
+	assert_eq_int(_respawned.size(), 2, "both were put back")
+
+
+## Zero turns the hold off and restores the instant placement, which is what a
+## headless sweep that cannot afford three seconds of dead air per conversion
+## sets.
+func test_a_zero_delay_places_the_ghost_immediately() -> void:
+	await step_ticks(RUNNING_TICKS)
+	_ghost_rules.respawn_delay_seconds = 0.0
+
+	var victim: MatchParticipant = _controller.get_live_participants()[0]
+	var fell_at: Vector3 = victim.body.global_position
+	assert_true(_controller.apply_hit(victim), "the prisoner is shot")
+
+	assert_false(_controller.is_awaiting_respawn(victim), "nothing is being held")
+	assert_eq_int(_respawned.size(), 1, "the placement happened on the tick of death")
+	assert_gt(
+		_flat(victim.body.global_position - fell_at), CLEAR_OF_THE_START_METRES,
+		"and the ghost is no longer where it fell",
+	)
+
+
+# --- Which way a ghost runs ---------------------------------------------------
+
+## A ghost chases DOWN THE TRACK, even when the field is past the halfway point.
+##
+## [b]The bug this pins, in the author's words:[/b] [i]"the bots go the wrong way
+## when the person in first is past the halfway point and they are ghosts."[/i]
+##
+## A ghost is dealt back onto the start line and the field it is hunting is
+## somewhere round the ring in front of it. The chase used to steer at the
+## quarry's body -- a straight line -- and a straight line to anybody more than
+## half a lap ahead points BACKWARDS along the course and through the pit in the
+## middle of the deck, so the ghost turned round and ran against the direction of
+## play into the inner kerb. The arc is the distance a ghost can actually cover,
+## so the arc is what it steers on now: see [method RingRunner._chase_aim_point].
+##
+## The quarries are parked deliberately past halfway, at bearings chosen to be
+## clear of the cover bands and the traps, and the assertion is about the sign of
+## the ghost's own progress round the ring. Nothing here measures a catch: at
+## most of a lap away there is no catch to measure, which is exactly the
+## situation the bug lived in.
+func test_a_ghost_past_halfway_still_chases_the_way_the_lap_runs() -> void:
+	var centre: Vector3 = (_match.get_node("Arena") as Node3D).global_position
+
+	var victim: MatchParticipant = _controller.get_live_participants()[0]
+	assert_true(_controller.apply_hit(victim), "a prisoner is shot and becomes a ghost")
+	await _await_respawn(victim)
+	await step_ticks(SETTLE_TICKS)
+	if not assert_true(victim.brain != null and victim.brain.is_chasing(), "the ghost is chasing"):
+		return
+
+	# The rest of the field, parked well past the halfway point. Bearings on the
+	# clear channel at r=44.5 and away from Cover07_204deg, Trap04_218deg and
+	# Cover08_232deg, so nothing here is standing inside the map.
+	var bearings: Array[float] = [deg_to_rad(200.0), deg_to_rad(245.0)]
+	var quarries: Array[MatchParticipant] = _controller.get_live_participants()
+	for index: int in quarries.size():
+		var quarry: MatchParticipant = quarries[index]
+		if quarry.brain != null:
+			quarry.brain.set_physics_process(false)
+		quarry.body.set_physics_process(false)
+		quarry.body.velocity = Vector3.ZERO
+		var bearing: float = bearings[index % bearings.size()]
+		# On the first gallery's deck: the ring is lifted, so the arena centre is
+		# no longer the height a prisoner stands at.
+		var route: RingRoute = _controller.get_route()
+		var deck: float = centre.y if route == null else route.deck_height(0)
+		quarry.body.global_position = Vector3(
+			centre.x + cos(bearing) * _controller.get_rules().track_radius,
+			deck + 1.0,
+			centre.z + sin(bearing) * _controller.get_rules().track_radius,
+		)
+
+	# The straight line to either of them now runs backwards round the ring and
+	# across the pit; the arc to either runs forwards. Which the ghost takes is
+	# the whole test.
+	var opened_at: float = _angle_about(centre, victim.body.global_position)
+	if assert_not_null(victim.brain.get_chase_target(), "the chase is aimed at a living prisoner"):
+		var aim_point: Vector3 = victim.brain.get_chase_aim_point()
+		var aim_arc: float = wrapf(
+			(_angle_about(centre, aim_point) - opened_at) * RingRunner.TRAVEL_SIGN, -PI, PI
+		)
+		assert_gt(aim_arc, 0.0, "the ghost steers at a point AHEAD of it, the way the lap runs")
+		var aim_radius: float = Vector2(aim_point.x - centre.x, aim_point.z - centre.z).length()
+		assert_between(
+			aim_radius, DECK_INNER_RADIUS, DECK_OUTER_RADIUS,
+			"and at a point on the deck, not across the pit in the middle of it",
+		)
+
+	await step_ticks(RUNNING_TICKS)
+
+	var travelled: float = wrapf(
+		(_angle_about(centre, victim.body.global_position) - opened_at) * RingRunner.TRAVEL_SIGN,
+		-PI, PI,
+	)
+	assert_gt(
+		travelled, 0.0,
+		"a ghost with the field past halfway must still run the way the lap runs, not back down it",
+	)
+	# A metre and a half of arc in a second and a half is a walk, not float
+	# noise on a body standing still against the kerb -- which is what the bug
+	# actually looked like from outside.
+	assert_gt(
+		travelled * _controller.get_rules().track_radius, 1.5,
+		"and it must actually be running, not grinding along the inner kerb",
+	)
+
+
 # --- Helpers ------------------------------------------------------------------
 
 ## Put [param ghost] where a chase would have taken it: in [param quarry]'s own
@@ -643,23 +1074,54 @@ func _put_ghost_on(
 		ghost.ghost_grace_remaining = 0.0
 
 
+## Wait out [param participant]'s respawn hold and return on the tick it expires
+## -- which is the tick [method MatchController._finish_respawn] wrote the new
+## position and before the placement's own two-frame settle has woken anything.
+##
+## Polled rather than slept for a flat [member GhostProfile.respawn_delay_seconds]
+## so that a test which retunes the delay, or turns it off, needs no second edit.
+func _await_respawn(participant: MatchParticipant) -> void:
+	for _tick: int in HOLD_BUDGET_TICKS:
+		if not _controller.is_awaiting_respawn(participant):
+			return
+		await step_ticks(1)
+
+
 ## The participant a rifle-mask ray through [param point] strikes, or null.
 ##
-## Fired horizontally through the point from four metres out, which crosses the
-## body capsule at chest height whatever direction it happens to be facing.
+## Fired horizontally through the point from four metres out, at chest height,
+## which crosses the body capsule whatever direction it happens to be facing.
+##
+## [b]Eight bearings rather than one.[/b] A single fixed line was enough while
+## the prisoners ran the track in the open, and stopped being enough the moment
+## they started playing the cover game in front of a human guard: a living
+## prisoner tucked against a cover box has that box between it and one bearing
+## in four, and a ray that hit the box read as "nobody is here" -- which is the
+## exact opposite of what a POSITIVE control is for. Any bearing that reaches
+## the body is proof the body is shootable; only a point that is unreachable
+## from all eight is reported as empty, which makes the negative assertions --
+## the ones about the ghost -- strictly harder to pass than they were.
 func _participant_struck_at(point: Vector3, mask: int) -> MatchParticipant:
 	var space: PhysicsDirectSpaceState3D = _controller.get_viewport().world_3d.direct_space_state
 	var chest: Vector3 = point + Vector3(0.0, 0.9, 0.0)
-	var query: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(
-		chest + Vector3(0.0, 0.0, 4.0), chest + Vector3(0.0, 0.0, -4.0)
-	)
-	query.collision_mask = mask
-	query.collide_with_areas = false
-	query.collide_with_bodies = true
-	var hit: Dictionary = space.intersect_ray(query)
-	if hit.is_empty():
-		return null
-	return _controller.resolve_participant(hit.get("collider") as Node3D)
+	for step: int in 8:
+		var bearing: float = TAU * float(step) / 8.0
+		var reach: Vector3 = Vector3(cos(bearing), 0.0, sin(bearing)) * 4.0
+		var query: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(
+			chest + reach, chest - reach
+		)
+		query.collision_mask = mask
+		query.collide_with_areas = false
+		query.collide_with_bodies = true
+		var hit: Dictionary = space.intersect_ray(query)
+		if hit.is_empty():
+			continue
+		var struck: MatchParticipant = _controller.resolve_participant(
+			hit.get("collider") as Node3D
+		)
+		if struck != null:
+			return struck
+	return null
 
 
 ## The hit mask the match's own rifle shoots on, read off the live weapon rather
@@ -687,6 +1149,10 @@ func _on_round_resolved(outcome: MatchController.Outcome) -> void:
 
 func _on_runner_ghosted(participant: MatchParticipant) -> void:
 	_ghosted.append(participant)
+
+
+func _on_ghost_respawned(participant: MatchParticipant) -> void:
+	_respawned.append(participant)
 
 
 func _on_ghost_caught(ghost: MatchParticipant, caught: MatchParticipant) -> void:
