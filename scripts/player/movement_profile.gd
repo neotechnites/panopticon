@@ -104,6 +104,96 @@ extends Resource
 ## Maximum fall speed.
 @export_range(0.0, 200.0, 1.0, "or_greater") var terminal_velocity: float = 60.0
 
+# --- Slide --------------------------------------------------------------------
+#
+# The slide is a third movement state beside ground and air, with its own
+# friction and its own acceleration, and it is the game's on-ramp: it is how a
+# player converts a run into the speed that air strafing then compounds. The
+# numbers below are chosen so that
+#
+#   sprint (11) -> slide entry boost -> slide_boost_speed_cap (14)
+#
+# is the fastest a player can go without ever leaving the ground, and everything
+# past 14 m/s has to be earned in the air. That division is deliberate: the
+# floor of the skill curve is a keypress, the ceiling is a technique.
+
+## Slowest a body may be moving and still open a slide. Above walk pace on
+## purpose -- a slide is something you do out of a run, not a way to start
+## moving, and a standing slide would be a free dodge with no commitment.
+@export_range(0.0, 30.0, 0.1, "or_greater") var slide_min_entry_speed: float = 7.0
+
+## Speed added along the current heading when a slide opens. The reward for
+## timing an entry, and the reason a slide feels like a launch rather than a
+## crouch.
+@export_range(0.0, 20.0, 0.1, "or_greater") var slide_entry_boost: float = 3.0
+
+## Ceiling the entry boost may raise a body to. [b]Not a speed cap[/b]: a body
+## already faster than this keeps every metre per second it arrived with, it
+## simply gets no boost. This is the single number that decides how much speed
+## is available for free, so it is the first knob to reach for if slide-hopping
+## outruns the shooter.
+@export_range(0.0, 40.0, 0.1, "or_greater") var slide_boost_speed_cap: float = 14.0
+
+## Friction while sliding, in the same units as [member friction]. Roughly a
+## twentieth of standing friction: a slide is slippery, which is what makes it
+## worth entering, and the small non-zero value is what stops a slide from being
+## a permanent state.
+@export_range(0.0, 30.0, 0.01, "or_greater") var slide_friction: float = 0.25
+
+## Acceleration coefficient for steering during a slide, in the same units as
+## [member ground_acceleration]. Fed to the ordinary Quake accelerate routine
+## with the ordinary ground wish speed, so a slide steers by the same rule the
+## ground does, only weakly.
+##
+## Note what that combination cannot do: because the wish speed is the full
+## ground speed rather than [member max_air_speed], the acceleration is
+## rate-limited rather than saturated, which is what keeps a slide's outcome
+## identical at any physics tick rate -- and it means a slide can never gain
+## speed the way an air strafe does, because acceleration stops entirely once
+## velocity along the wish direction reaches walk pace.
+@export_range(0.0, 60.0, 0.1, "or_greater") var slide_acceleration: float = 3.0
+
+## Downhill acceleration while sliding, in m/s^2 at a vertical face. The
+## controller scales it by the floor's own gradient, so setting it equal to
+## [member gravity] makes a slide down a ramp behave like a body on a
+## frictionless slope. Lower it to make hills less rewarding; zero disables
+## slope assist entirely.
+@export_range(0.0, 100.0, 0.1, "or_greater") var slide_slope_acceleration: float = 22.0
+
+## Longest a single slide may last. A slide ends on its own even at full speed,
+## so it is a burst and never a stance.
+@export_range(0.0, 5.0, 0.01, "or_greater") var slide_max_duration: float = 1.0
+
+## Speed at which a slide ends itself. Without this a slide bleeds down to a
+## crawl and leaves the player lying on the floor with no speed and no control.
+@export_range(0.0, 20.0, 0.1, "or_greater") var slide_exit_speed: float = 5.0
+
+## Dead time after a slide ends before another may open. Stops a slide from
+## being re-triggered on the tick it closed, which would make the entry boost a
+## per-tick income rather than a per-slide reward.
+@export_range(0.0, 2.0, 0.005) var slide_cooldown: float = 0.25
+
+## How long a slide press is remembered while airborne, so a press made just
+## before touchdown opens the slide on the landing tick. The same courtesy
+## [member jump_buffer_time] extends to jumping, and the thing that makes a
+## slide-hop chain reachable by a human instead of frame-perfect.
+@export_range(0.0, 0.5, 0.005) var slide_buffer_time: float = 0.12
+
+## When true, releasing the slide button ends the slide. Turn it off for a
+## fire-and-forget slide that always runs its full course.
+@export var slide_requires_hold: bool = true
+
+## How far the head drops while sliding, in metres. Cosmetic: the collision
+## capsule does [b]not[/b] shrink, so a slide never makes a body harder to hit
+## and never has to solve standing up under a low ceiling. See
+## [method PlayerController._settle_head].
+@export_range(0.0, 1.5, 0.01) var slide_camera_drop: float = 0.45
+
+## Rate the head moves to and from the slide crouch, per second. Applied as an
+## exponential approach, so the settle takes the same wall-clock time at any
+## tick rate.
+@export_range(0.1, 60.0, 0.1, "or_greater") var slide_camera_settle_rate: float = 14.0
+
 # --- Look ---------------------------------------------------------------------
 
 ## Radians of rotation per pixel of mouse motion.
@@ -137,3 +227,21 @@ func get_effective_gravity() -> float:
 ## Target ground speed for the given sprint state.
 func get_ground_speed(sprinting: bool) -> float:
 	return sprint_speed if sprinting else walk_speed
+
+
+## Height a jump from level ground reaches, in metres. Derived, not tuned:
+## [code]v^2 / 2g[/code]. Level geometry is authored against it, and it is the
+## number that says which of the playground's blocks are reachable.
+func get_jump_apex_height() -> float:
+	var effective_gravity: float = get_effective_gravity()
+	if effective_gravity <= 0.0:
+		return 0.0
+	return (jump_velocity * jump_velocity) / (2.0 * effective_gravity)
+
+
+## Seconds between leaving level ground and landing back on it.
+func get_jump_air_time() -> float:
+	var effective_gravity: float = get_effective_gravity()
+	if effective_gravity <= 0.0:
+		return 0.0
+	return (2.0 * jump_velocity) / effective_gravity
