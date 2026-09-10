@@ -485,6 +485,15 @@ enum GhostBehaviour {
 ##
 ## The resource is never mutated: [MatchController] duplicates it per
 ## participant, so a sweep that varies the seed cannot retune the shared .tres
+## The prisoners' difficulty, as [member ai_shooter_profile] is the guard's.
+## [b]LIVE.[/b] Null = each runner keeps whatever profile its scene assigned.
+##
+## RunnerProfile.resolve() already looks for this property, so setting it here is
+## all a sweep needs to vary how well the prisoners play. Presets ship in
+## scenes/bot/: baseline (the old straight-line lap, kept as the control case),
+## default, patient and reckless.
+@export var ai_runner_profile: RunnerProfile
+
 ## for whatever runs next in the same process.
 @export var ai_shooter_profile: ShooterProfile
 
