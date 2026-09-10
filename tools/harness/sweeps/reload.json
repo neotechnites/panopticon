@@ -1,0 +1,16 @@
+{
+  "base_rules": "res://resources/rules/default_match_rules.tres",
+  "notes": "Is the rifle's opening reload what makes the tower unbeatable, or is it the sightlines? Two arms, one field apart.",
+  "variants": [
+    {
+      "name": "reload_2_5",
+      "notes": "shipped default: 2.5 s base reload, shrinking 0.25 s a turn to a 1.0 s floor",
+      "overrides": {}
+    },
+    {
+      "name": "reload_6_0",
+      "notes": "a rifle slow enough that a runner should be able to cross the open ground between shots",
+      "overrides": {"base_reload_seconds": 6.0}
+    }
+  ]
+}

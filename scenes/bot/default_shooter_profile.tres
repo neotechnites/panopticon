@@ -1,0 +1,29 @@
+[gd_resource type="Resource" script_class="ShooterProfile" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/bot/shooter_profile.gd" id="1_shooter_profile"]
+
+[resource]
+script = ExtResource("1_shooter_profile")
+scan_yaw_rate = 1.2
+scan_sweep_degrees = 360.0
+scan_pitch_degrees = -1.0
+view_aspect = 1.7778
+fallback_fov_degrees = 100.0
+fov_margin = 0.9
+reaction_seconds = 0.45
+target_aim_height = 0.9
+target_lead_seconds = 0.14
+tracking_gain = 7.0
+max_yaw_rate = 3.5
+max_pitch_rate = 2.5
+aim_error_degrees = 1.1
+aim_error_resample_seconds = 0.35
+aim_random_seed = 0
+aim_tolerance_degrees = 2.0
+max_comfortable_track_rate = 1.2
+confident_range = 55.0
+max_engagement_range = 120.0
+shot_confidence_threshold = 0.6
+use_optic = true
+optic_min_distance = 25.0
+optic_centre_fraction = 0.6

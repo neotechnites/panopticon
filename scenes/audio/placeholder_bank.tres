@@ -1,0 +1,168 @@
+[gd_resource type="Resource" script_class="AudioBank" format=3]
+
+[ext_resource type="Script" path="res://scripts/audio/audio_cue.gd" id="1_fpjg4"]
+[ext_resource type="AudioStream" path="res://assets/audio/placeholder_weapon_rifle_fired.wav" id="2_e5tap"]
+[ext_resource type="AudioStream" path="res://assets/audio/placeholder_weapon_rifle_hit.wav" id="3_qf5in"]
+[ext_resource type="AudioStream" path="res://assets/audio/placeholder_weapon_rifle_missed.wav" id="4_kk077"]
+[ext_resource type="AudioStream" path="res://assets/audio/placeholder_weapon_rifle_reload_started.wav" id="5_w34be"]
+[ext_resource type="AudioStream" path="res://assets/audio/placeholder_weapon_rifle_reload_finished.wav" id="6_u0bni"]
+[ext_resource type="AudioStream" path="res://assets/audio/placeholder_match_started.wav" id="7_lgj7q"]
+[ext_resource type="AudioStream" path="res://assets/audio/placeholder_match_race_started.wav" id="8_fx8av"]
+[ext_resource type="AudioStream" path="res://assets/audio/placeholder_match_round_started.wav" id="9_8mcly"]
+[ext_resource type="AudioStream" path="res://assets/audio/placeholder_match_seat_changed.wav" id="10_3n7lw"]
+[ext_resource type="AudioStream" path="res://assets/audio/placeholder_match_round_resolved.wav" id="11_nhvxt"]
+[ext_resource type="AudioStream" path="res://assets/audio/placeholder_match_runner_converted.wav" id="12_kupoy"]
+[ext_resource type="AudioStream" path="res://assets/audio/placeholder_match_won.wav" id="13_y2vxs"]
+[ext_resource type="AudioStream" path="res://assets/audio/placeholder_ui_click.wav" id="14_4s2f8"]
+[ext_resource type="AudioStream" path="res://assets/audio/placeholder_ui_focus.wav" id="15_t10fy"]
+[ext_resource type="AudioStream" path="res://assets/audio/placeholder_ui_back.wav" id="16_bj6l4"]
+[ext_resource type="AudioStream" path="res://assets/audio/placeholder_ui_menu_opened.wav" id="17_sk6ov"]
+[ext_resource type="AudioStream" path="res://assets/audio/placeholder_ui_menu_closed.wav" id="18_f3avj"]
+[ext_resource type="Script" path="res://scripts/audio/audio_bank.gd" id="19_b5lrq"]
+
+[sub_resource type="Resource" id="Resource_1x1x0"]
+resource_name = "weapon.rifle.fired"
+script = ExtResource("1_fpjg4")
+event = &"weapon.rifle.fired"
+stream = ExtResource("2_e5tap")
+volume_db = -8.0
+pitch_jitter = 0.03
+positional = true
+max_distance = 250.0
+unit_size = 30.0
+
+[sub_resource type="Resource" id="Resource_1prkm"]
+resource_name = "weapon.rifle.hit"
+script = ExtResource("1_fpjg4")
+event = &"weapon.rifle.hit"
+stream = ExtResource("3_qf5in")
+volume_db = -11.0
+pitch_jitter = 0.05
+positional = true
+max_distance = 140.0
+unit_size = 16.0
+
+[sub_resource type="Resource" id="Resource_0uvv6"]
+resource_name = "weapon.rifle.missed"
+script = ExtResource("1_fpjg4")
+event = &"weapon.rifle.missed"
+stream = ExtResource("4_kk077")
+volume_db = -15.0
+pitch_jitter = 0.08
+positional = true
+max_distance = 100.0
+unit_size = 12.0
+
+[sub_resource type="Resource" id="Resource_o1jvp"]
+resource_name = "weapon.rifle.reload_started"
+script = ExtResource("1_fpjg4")
+event = &"weapon.rifle.reload_started"
+stream = ExtResource("5_w34be")
+volume_db = -17.0
+
+[sub_resource type="Resource" id="Resource_sevpf"]
+resource_name = "weapon.rifle.reload_finished"
+script = ExtResource("1_fpjg4")
+event = &"weapon.rifle.reload_finished"
+stream = ExtResource("6_u0bni")
+volume_db = -12.0
+
+[sub_resource type="Resource" id="Resource_v2in6"]
+resource_name = "match.started"
+script = ExtResource("1_fpjg4")
+event = &"match.started"
+stream = ExtResource("7_lgj7q")
+volume_db = -15.0
+
+[sub_resource type="Resource" id="Resource_64ytq"]
+resource_name = "match.race_started"
+script = ExtResource("1_fpjg4")
+event = &"match.race_started"
+stream = ExtResource("8_fx8av")
+volume_db = -15.0
+
+[sub_resource type="Resource" id="Resource_t71ie"]
+resource_name = "match.round_started"
+script = ExtResource("1_fpjg4")
+event = &"match.round_started"
+stream = ExtResource("9_8mcly")
+volume_db = -15.0
+
+[sub_resource type="Resource" id="Resource_juw30"]
+resource_name = "match.seat_changed"
+script = ExtResource("1_fpjg4")
+event = &"match.seat_changed"
+stream = ExtResource("10_3n7lw")
+volume_db = -15.0
+
+[sub_resource type="Resource" id="Resource_10p4l"]
+resource_name = "match.round_resolved"
+script = ExtResource("1_fpjg4")
+event = &"match.round_resolved"
+stream = ExtResource("11_nhvxt")
+volume_db = -15.0
+
+[sub_resource type="Resource" id="Resource_bnrmu"]
+resource_name = "match.runner_converted"
+script = ExtResource("1_fpjg4")
+event = &"match.runner_converted"
+stream = ExtResource("12_kupoy")
+volume_db = -15.0
+
+[sub_resource type="Resource" id="Resource_ne0xl"]
+resource_name = "match.won"
+script = ExtResource("1_fpjg4")
+event = &"match.won"
+stream = ExtResource("13_y2vxs")
+volume_db = -11.0
+
+[sub_resource type="Resource" id="Resource_r8htj"]
+resource_name = "ui.click"
+script = ExtResource("1_fpjg4")
+event = &"ui.click"
+stream = ExtResource("14_4s2f8")
+volume_db = -20.0
+min_retrigger_seconds = 0.04
+
+[sub_resource type="Resource" id="Resource_i80r1"]
+resource_name = "ui.focus"
+script = ExtResource("1_fpjg4")
+event = &"ui.focus"
+stream = ExtResource("15_t10fy")
+volume_db = -26.0
+min_retrigger_seconds = 0.08
+
+[sub_resource type="Resource" id="Resource_sato2"]
+resource_name = "ui.back"
+script = ExtResource("1_fpjg4")
+event = &"ui.back"
+stream = ExtResource("16_bj6l4")
+volume_db = -20.0
+min_retrigger_seconds = 0.04
+
+[sub_resource type="Resource" id="Resource_6dq35"]
+resource_name = "ui.menu_opened"
+script = ExtResource("1_fpjg4")
+event = &"ui.menu_opened"
+stream = ExtResource("17_sk6ov")
+volume_db = -20.0
+min_retrigger_seconds = 0.04
+
+[sub_resource type="Resource" id="Resource_4t8dr"]
+resource_name = "ui.menu_closed"
+script = ExtResource("1_fpjg4")
+event = &"ui.menu_closed"
+stream = ExtResource("18_f3avj")
+volume_db = -20.0
+min_retrigger_seconds = 0.04
+
+[sub_resource type="Resource" id="Resource_nlssw"]
+resource_name = "music.match_theme"
+script = ExtResource("1_fpjg4")
+event = &"music.match_theme"
+bus = &"Music"
+volume_db = -12.0
+
+[resource]
+script = ExtResource("19_b5lrq")
+cues = Array[ExtResource("1_fpjg4")]([SubResource("Resource_1x1x0"), SubResource("Resource_1prkm"), SubResource("Resource_0uvv6"), SubResource("Resource_o1jvp"), SubResource("Resource_sevpf"), SubResource("Resource_v2in6"), SubResource("Resource_64ytq"), SubResource("Resource_t71ie"), SubResource("Resource_juw30"), SubResource("Resource_10p4l"), SubResource("Resource_bnrmu"), SubResource("Resource_ne0xl"), SubResource("Resource_r8htj"), SubResource("Resource_i80r1"), SubResource("Resource_sato2"), SubResource("Resource_6dq35"), SubResource("Resource_4t8dr"), SubResource("Resource_nlssw")])

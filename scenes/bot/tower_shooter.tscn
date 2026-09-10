@@ -1,0 +1,48 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/player/player.tscn" id="1_body"]
+[ext_resource type="PackedScene" path="res://scenes/weapon/rifle.tscn" id="2_rifle"]
+[ext_resource type="Script" path="res://scripts/player/bot_intent_source.gd" id="3_bot_input"]
+[ext_resource type="Script" path="res://scripts/bot/tower_shooter.gd" id="4_brain"]
+[ext_resource type="Resource" path="res://scenes/bot/default_shooter_profile.tres" id="5_shooter_profile"]
+
+[node name="Player" node_paths=PackedStringArray("intent_source") instance=ExtResource("1_body")]
+editor_description = "The tower, driven by AI. Inherits scenes/player/player.tscn and instances scenes/weapon/rifle.tscn on purpose: the bot must stand on the same capsule, look through the same camera, obey the same MovementProfile and fire the same Rifle a human gets, or shooter telemetry stops describing the shipped game. Nothing under scripts/player, scripts/weapon or scripts/optics is modified to support it -- the brain only writes a MoveIntent and calls try_fire. INHERITED OVERRIDES BELOW ARE ADDRESSED BY ORDINAL INDEX: appending a node to scenes/player/player.tscn is safe, INSERTING one silently re-points every index= line in this file at the wrong node."
+intent_source = NodePath("BotInput")
+
+[node name="Camera" parent="Head" index="0"]
+editor_description = "Not current: an AI shooter must never steal the viewport from the human. It is still a live Camera3D, and that matters -- TowerShooter reads its fov every tick to decide what the bot can see, and WeaponOptic drives that same field, so the zoom narrows the bot's attention exactly as it narrows a player's."
+current = false
+
+[node name="HumanInput" parent="." index="2"]
+editor_description = "Inert. The root's intent_source points at BotInput instead, so this node's poll() is never called; capture_mouse_on_ready is cleared so an AI body cannot grab the cursor as a side effect of spawning."
+capture_mouse_on_ready = false
+
+[node name="BodyMesh" parent="." index="3"]
+editor_description = "Moved off the owner-hidden visual layer 2 onto visual layer 3, for the same reason scenes/bot/ring_runner.tscn does it: every player camera clears layer 2 from its cull_mask, so an AI body left there is invisible to everyone in the match rather than only to itself."
+layers = 4
+
+[node name="ZoomInput" parent="." index="5"]
+editor_description = "Disabled. ZoomInput is inherited from the player scene and reads the local device, so on a bot it would drive this optic from whoever is holding the human's zoom button -- and this bot genuinely uses its optic, so that is not a harmless bug here, it is a bot whose field of view is controlled by its opponent."
+process_mode = 4
+
+[node name="Rifle" parent="Head" node_paths=PackedStringArray("aim_source", "shooter_body") instance=ExtResource("2_rifle")]
+editor_description = "Parented to the head, not the body, so the barrel follows the pitch; the shot line is the camera's, because aim_source is the Camera3D and TowerShooter checks line of sight from that same node -- perception and the shot must be the same line or a measured hit rate means nothing. shooter_body excludes this bot's own capsule, without which every shot is a point-blank self-hit."
+aim_source = NodePath("../Camera")
+shooter_body = NodePath("../..")
+
+[node name="HumanTrigger" parent="Head/Rifle" index="1"]
+editor_description = "Disabled, exactly as ZoomInput above. WeaponInput polls the local fire button, so left running it would let a human's mouse spend the bot's one shot and hand the bot's reload to its opponent."
+process_mode = 4
+
+[node name="BotInput" type="Node" parent="."]
+script = ExtResource("3_bot_input")
+
+[node name="Brain" type="Node" parent="." node_paths=PackedStringArray("controller", "input", "rifle", "optic", "camera")]
+script = ExtResource("4_brain")
+controller = NodePath("..")
+input = NodePath("../BotInput")
+rifle = NodePath("../Head/Rifle")
+optic = NodePath("../Optic")
+camera = NodePath("../Head/Camera")
+profile = ExtResource("5_shooter_profile")

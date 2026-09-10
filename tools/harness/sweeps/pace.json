@@ -1,0 +1,16 @@
+{
+  "base_rules": "res://resources/rules/default_match_rules.tres",
+  "notes": "Does letting the prisoners sprint change who takes the tower, or only how fast they lose it?",
+  "variants": [
+    {
+      "name": "walk",
+      "notes": "shipped default: prisoners walk the ring",
+      "overrides": {"bot_speed_mode": 0}
+    },
+    {
+      "name": "sprint",
+      "notes": "prisoners hold sprint for the whole lap",
+      "overrides": {"bot_speed_mode": 1}
+    }
+  ]
+}

@@ -11,19 +11,19 @@
 [ext_resource type="Resource" path="res://scenes/player/default_movement_profile.tres" id="9_movement_profile"]
 
 [node name="Match" type="Node3D"]
-editor_description = "The first playable round. Arena, one human in the tower with a rifle, three runners on the clear lanes, and MatchController enforcing the round described by resources/rules/default_match_rules.tres. Nothing under scenes/player, scenes/weapon, scenes/bot or scenes/ring is modified here -- they are composed."
+editor_description = "A whole match. Arena, one human body, three AI bodies, one rifle, and MatchController enforcing the match described by resources/rules/default_match_rules.tres: an opening race with no shooter, then rounds, with the tower passing to whoever reaches the end and the match going to whoever holds it through a round. Nothing under scenes/player, scenes/weapon, scenes/bot or scenes/ring is modified here -- they are composed."
 
 [node name="Arena" parent="." instance=ExtResource("1_arena")]
 
 [node name="Runners" type="Node3D" parent="."]
-editor_description = "Empty by design. MatchController spawns three runners into it on every round and sweeps it on restart, so nothing of a finished round survives into the next one."
+editor_description = "Empty by design. MatchController spawns the AI participants into it when a match starts, and they live for the whole match -- a converted runner is parked out of the world, not freed, because the round restarts the moment the seat changes and they are back on the ring in the same frame. Sweeping this between rounds would destroy the identities the turn counts are attached to."
 
 [node name="Player" parent="." instance=ExtResource("2_player")]
-editor_description = "The tower. Placed on the TowerSpawn marker here as well as by MatchController: the transform saved in the scene is what the editor shows and what the first physics tick sees, and the controller's placement is what a restart uses."
+editor_description = "The human's body -- one participant among four, not \"the shooter\". MatchController puts it on the TowerSpawn marker or on a lane depending on whether the human holds the seat that round, and the match opens with a race in which it is on a lane like everybody else. The transform saved here is what the editor shows and what the first physics tick sees."
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
 
 [node name="Rifle" parent="Player/Head" node_paths=PackedStringArray("aim_source", "shooter_body", "tracer_parent") instance=ExtResource("3_rifle")]
-editor_description = "Parented to the head, not the body, so the barrel follows the pitch. The shot line is the camera's, though: aim_source is the Camera3D, so the round goes exactly where the crosshair is with no muzzle parallax to explain. shooter_body excludes the player's own capsule from the ray, without which every shot is a point-blank self-hit."
+editor_description = "Authored on the human's head, but it does not stay there: the rifle belongs to whoever holds the tower, and MatchController reparents it onto the seat holder's Head and repoints aim_source and shooter_body at that body. It is stowed on the controller itself during the opening race, when the tower is nobody's. The exports here are the starting values and what the editor shows. The shot line is the eye's, so the round goes exactly where the crosshair is with no muzzle parallax to explain; shooter_body excludes the holder's own capsule, without which every shot is a point-blank self-hit."
 aim_source = NodePath("../Camera")
 shooter_body = NodePath("../..")
 tracer_parent = NodePath("../../..")
@@ -39,7 +39,7 @@ runner_scene = ExtResource("4_runner")
 
 [node name="HUD" type="CanvasLayer" parent="."]
 
-[node name="Root" type="Control" parent="HUD" node_paths=PackedStringArray("controller", "rifle", "status_label", "outcome_label")]
+[node name="Root" type="Control" parent="HUD" node_paths=PackedStringArray("controller", "rifle", "status_label", "match_label", "outcome_label")]
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
@@ -50,13 +50,22 @@ script = ExtResource("6_hud")
 controller = NodePath("../../MatchController")
 rifle = NodePath("../../Player/Head/Rifle")
 status_label = NodePath("Status")
+match_label = NodePath("Match")
 outcome_label = NodePath("Outcome")
 
 [node name="Status" type="Label" parent="HUD/Root"]
 offset_left = 12.0
 offset_top = 8.0
-offset_right = 512.0
+offset_right = 720.0
 offset_bottom = 32.0
+
+[node name="Match" type="Label" parent="HUD/Root"]
+editor_description = "The match, as opposed to the round: phase, who holds the tower, and every participant's turn count. Multi-line and unstyled on purpose -- the seat is a role that passes between players including AI, and a player standing on a lane has no other way to tell who they are running from or how fast that player's reload has become."
+offset_left = 12.0
+offset_top = 36.0
+offset_right = 720.0
+offset_bottom = 180.0
+vertical_alignment = 0
 
 [node name="Outcome" type="Label" parent="HUD/Root"]
 anchor_left = 0.5
