@@ -12,6 +12,16 @@ extends Node
 ## real weapon.
 ##
 ## Mirrors [HumanIntentSource]'s role on the movement side.
+##
+## [b]Charged shots[/b]
+##
+## When [member WeaponProfile.charge_enabled] is on, the trigger means "hold to
+## aim, release to fire" instead of "fire". This node still makes no decision
+## about it: it reports press and release to the weapon and the weapon decides
+## what a press and a release are worth. Which design is in play is a fact about
+## the [WeaponProfile], never about the input, which is what keeps a bot calling
+## [method Rifle.try_fire] and a human holding a mouse button playing the same
+## weapon.
 
 ## The weapon this device drives.
 @export var weapon: Rifle
@@ -53,6 +63,9 @@ func _process(_delta: float) -> void:
 		# The cursor is loose, so the player is in a menu or has released the
 		# window. Clicks there are not shots.
 		return
+	if _is_charged_weapon():
+		_drive_charge()
+		return
 	var wants_fire: bool = (
 		Input.is_action_pressed(WeaponActions.FIRE)
 		if allow_held_fire
@@ -65,5 +78,31 @@ func _process(_delta: float) -> void:
 ## Enable or disable reading this device. A disabled source simply stops asking
 ## the rifle to fire; it does not touch the rifle's state, so a reload in
 ## progress continues to run out.
+##
+## A hold in progress IS dropped, because the trigger is about to stop being
+## read and a charge that kept building while nobody was pressing anything would
+## be a shot the player never took.
 func set_active(active: bool) -> void:
 	set_process(active and weapon != null)
+	if not active and weapon != null:
+		weapon.cancel_charge()
+
+
+## Whether the weapon in hand charges rather than fires on press. A fact about
+## the profile, read every frame because a sweep can hand the same rifle a
+## different profile between rounds.
+func _is_charged_weapon() -> bool:
+	return weapon.profile != null and weapon.profile.charge_enabled
+
+
+## Press starts the hold, release takes the shot.
+##
+## [member allow_held_fire] is deliberately ignored here. Its whole purpose is
+## to spare the player a reaction test on the frame the reload ends, and a
+## charged weapon has no such frame: the trigger is already down, the charge is
+## already building, and the shot goes when the player decides it goes.
+func _drive_charge() -> void:
+	if Input.is_action_just_pressed(WeaponActions.FIRE):
+		weapon.begin_charge()
+	elif Input.is_action_just_released(WeaponActions.FIRE):
+		weapon.release_charge()

@@ -34,6 +34,26 @@ extends MeshInstance3D
 ## moment of the shot and does not ride along with the shooter's camera as it
 ## keeps turning. A tracer that followed the muzzle would betray nothing, which
 ## would defeat the entire purpose above.
+##
+## [b]What is tunable, and why[/b]
+##
+## Because the tracer is a mechanic, all four of its properties are design
+## questions rather than art direction, and every one is a field on
+## [WeaponProfile]:
+##
+## - [member WeaponProfile.tracer_lifetime] -- how LONG the tell can be read,
+##   which decides how many runners get a chance to see it.
+## - [member WeaponProfile.tracer_brightness] and
+##   [member WeaponProfile.tracer_width] -- how FAR away it can be read.
+## - [member WeaponProfile.tracer_segment_length] and
+##   [member WeaponProfile.tracer_segment_start] -- WHICH of the tower's two
+##   secrets a shot spends. The full line gives away both the shooter's position
+##   (by back-projection) and where it was aiming; a short segment at the muzzle
+##   gives away only the first, and a short segment out at the impact only the
+##   second.
+## - [member WeaponProfile.tracer_enabled] -- whether the tower pays anything at
+##   all. Off is not a graphics option; it is the control arm of the experiment
+##   that says what the tracer is worth.
 
 ## Seconds since the shot. Drives the fade.
 var _age: float = 0.0
@@ -56,6 +76,34 @@ static func spawn(parent: Node, from: Vector3, to: Vector3, profile: WeaponProfi
 	return tracer
 
 
+## Where the drawn streak begins, given the true shot line
+## [param from] -> [param to].
+##
+## [member WeaponProfile.tracer_segment_start] metres along the line from the
+## muzzle, and the muzzle itself by default. Static so a headless check can ask
+## what a profile would draw without building the geometry to find out.
+static func start_of(from: Vector3, to: Vector3, profile: WeaponProfile) -> Vector3:
+	var axis: Vector3 = to - from
+	var length: float = axis.length()
+	if length <= 0.0 or profile.tracer_segment_start <= 0.0:
+		return from
+	return from + axis / length * minf(profile.tracer_segment_start, length)
+
+
+## The vector the streak actually spans, given the true shot line
+## [param from] -> [param to].
+##
+## The whole remaining line when [member WeaponProfile.tracer_segment_length] is
+## 0.0 -- which is shipped -- and that many metres of it otherwise.
+static func segment_of(from: Vector3, to: Vector3, profile: WeaponProfile) -> Vector3:
+	var start: Vector3 = start_of(from, to, profile)
+	var axis: Vector3 = to - start
+	var length: float = axis.length()
+	if length <= 0.0 or profile.tracer_segment_length <= 0.0:
+		return axis
+	return axis / length * minf(profile.tracer_segment_length, length)
+
+
 ## Build the geometry and the material. Called by [method spawn] before the node
 ## enters the tree, so the first rendered frame already shows the full-brightness
 ## tracer rather than an untextured white one.
@@ -63,14 +111,21 @@ func configure(from: Vector3, to: Vector3, profile: WeaponProfile) -> void:
 	_lifetime = profile.tracer_lifetime
 	_fade_exponent = profile.tracer_fade_exponent
 	_color = profile.tracer_color
+	# Brightness is a separate scalar from the colour so a sweep, which sets
+	# numbers out of a JSON spec and has no way to express a Color, can still
+	# dim the tell across arms.
+	_color.a = profile.get_tracer_alpha()
+
+	var span: Vector3 = segment_of(from, to, profile)
+	var start: Vector3 = start_of(from, to, profile)
 
 	# top_level before the transform: the tracer is a world-space fact about
 	# where a shot went, not a child of whatever was holding the rifle.
 	top_level = true
 	cast_shadow = SHADOW_CASTING_SETTING_OFF
-	global_transform = Transform3D(Basis.IDENTITY, from)
+	global_transform = Transform3D(Basis.IDENTITY, start)
 
-	mesh = _build_ribbon(to - from, profile.tracer_width)
+	mesh = _build_ribbon(span, profile.tracer_width)
 	_material = _build_material()
 	material_override = _material
 	_apply_fade()
