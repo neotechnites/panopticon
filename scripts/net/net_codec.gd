@@ -39,6 +39,8 @@ const STATE_SIZE: int = 41
 const _FLAG_JUMP_PRESSED: int = 1 << 0
 const _FLAG_JUMP_HELD: int = 1 << 1
 const _FLAG_SPRINT_HELD: int = 1 << 2
+const _FLAG_SLIDE_PRESSED: int = 1 << 3
+const _FLAG_SLIDE_HELD: int = 1 << 4
 const _FLAG_ON_FLOOR: int = 1 << 0
 
 ## Ticks are unsigned 32-bit on the wire and wrap there.
@@ -59,6 +61,10 @@ static func pack_intent(tick: int, intent: MoveIntent) -> PackedByteArray:
 		flags |= _FLAG_JUMP_HELD
 	if intent.sprint_held:
 		flags |= _FLAG_SPRINT_HELD
+	if intent.slide_pressed:
+		flags |= _FLAG_SLIDE_PRESSED
+	if intent.slide_held:
+		flags |= _FLAG_SLIDE_HELD
 	buffer.put_u8(flags)
 	return buffer.data_array
 
@@ -90,6 +96,8 @@ static func unpack_intent(payload: PackedByteArray, out: MoveIntent) -> int:
 	out.jump_pressed = (flags & _FLAG_JUMP_PRESSED) != 0
 	out.jump_held = (flags & _FLAG_JUMP_HELD) != 0
 	out.sprint_held = (flags & _FLAG_SPRINT_HELD) != 0
+	out.slide_pressed = (flags & _FLAG_SLIDE_PRESSED) != 0
+	out.slide_held = (flags & _FLAG_SLIDE_HELD) != 0
 	out.normalise()
 	return tick
 
