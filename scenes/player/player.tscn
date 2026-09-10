@@ -1,8 +1,11 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=9 format=3]
 
 [ext_resource type="Script" path="res://scripts/player/player_controller.gd" id="1_controller"]
 [ext_resource type="Script" path="res://scripts/player/human_intent_source.gd" id="2_human_input"]
 [ext_resource type="Resource" path="res://scenes/player/default_movement_profile.tres" id="3_profile"]
+[ext_resource type="Script" path="res://scripts/optics/weapon_optic.gd" id="4_optic"]
+[ext_resource type="Script" path="res://scripts/optics/zoom_input.gd" id="5_zoom_input"]
+[ext_resource type="Resource" path="res://scripts/optics/default_zoom_profile.tres" id="6_zoom_profile"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_body"]
 radius = 0.4
@@ -30,11 +33,23 @@ current = true
 cull_mask = 1048573
 fov = 100.0
 
-[node name="HumanInput" type="Node" parent="."]
+[node name="HumanInput" type="Node" parent="." node_paths=PackedStringArray("optic")]
 script = ExtResource("2_human_input")
+optic = NodePath("../Optic")
 
 [node name="BodyMesh" type="MeshInstance3D" parent="."]
 editor_description = "Greybox body. Mesh matches the Collision capsule exactly (radius 0.4, height 1.8, origin y=0.9) so what you see is what you can hit. Sits alone on visual layer 2, which the owner's own Camera clears from its cull_mask: the body renders for every other viewpoint but never from the inside. scenes/bot/ring_runner.tscn moves its copy to visual layer 3 so AI bodies stay visible to players."
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
 layers = 2
 mesh = SubResource("CapsuleMesh_body")
+
+[node name="Optic" type="Node" parent="." node_paths=PackedStringArray("camera")]
+editor_description = "Drives Head/Camera's fov and publishes the aim-sensitivity multiplier HumanInput consumes. Strictly additive: it owns nothing but that one field, and removing it leaves the body working. Appears on scenes/bot/ring_runner.tscn too, which inherits this scene; there it is inert, since nothing ever calls zoom_in on a runner."
+script = ExtResource("4_optic")
+camera = NodePath("../Head/Camera")
+profile = ExtResource("6_zoom_profile")
+
+[node name="ZoomInput" type="Node" parent="." node_paths=PackedStringArray("optic")]
+editor_description = "The only node in this scene that reads the zoom button. Separate from Optic so a bot drives the identical WeaponOptic methods with no input layer at all."
+script = ExtResource("5_zoom_input")
+optic = NodePath("../Optic")

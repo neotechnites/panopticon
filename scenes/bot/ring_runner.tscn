@@ -21,6 +21,10 @@ editor_description = "Moved off the owner-hidden visual layer 2 onto visual laye
 layers = 4
 material_override = ExtResource("5_runner_material")
 
+[node name="ZoomInput" parent="." index="5"]
+editor_description = "Disabled. ZoomInput is inherited from the player scene and reads the local device, so on a runner it drives that runner's optic from whoever is holding the human's zoom button. Harmless today because a runner camera never renders, but bots take the tower seat by design, and a bot shooter whose zoom is driven by a human's mouse would be a genuinely confusing bug to find later."
+process_mode = 4
+
 [node name="BotInput" type="Node" parent="."]
 script = ExtResource("2_bot_input")
 
