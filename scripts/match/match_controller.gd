@@ -340,6 +340,9 @@ func start_match() -> void:
 		push_warning("MatchRules: %s" % problem)
 
 	_cache_geometry()
+	# Before the roster is rebuilt, while the old participants are still here to
+	# be read. See the method: difficulty is drawn when a brain is BUILT.
+	_release_tower_brains()
 	_build_participants()
 	if _participants.is_empty():
 		push_error("MatchController has no participants; there is nobody to play a match.")
@@ -1002,6 +1005,14 @@ func _arm_tower_brain() -> void:
 	shooter.target_group = RUNNER_GROUP
 	shooter.camera = body.get_node_or_null(^"Head/Camera") as Camera3D
 	shooter.optic = body.get_node_or_null(^"Optic") as WeaponOptic
+	# The profile is deliberately NOT reassigned here. [TowerShooter] draws its
+	# aim RNG from the profile in _ready, so writing one now would retune the
+	# shooter without re-drawing its seed -- a difficulty that is half the new
+	# setting and half the old one, which is the worst of the three states. A
+	# rule set that has genuinely changed is picked up by
+	# [method _release_tower_brains] at the next [method start_match]. Leaving
+	# it alone also means a brain somebody else built and tuned -- the headless
+	# harness seeds its own -- is driven rather than quietly overridden.
 	# Where the body ALREADY is, never where it ought to be. configure() writes
 	# global_position, and on a woken body that is motion, not a teleport -- see
 	# [method _hold_body] for what that costs. Passing the current position
@@ -1134,6 +1145,30 @@ func _shooter_profile_for(participant: MatchParticipant) -> ShooterProfile:
 	if seed_value != 0:
 		copy.aim_random_seed = seed_value
 	return copy
+
+
+## Throw away the tower brains a previous match built, so the next one is played
+## on the rules in force NOW.
+##
+## Difficulty is drawn once, when a brain is built: see the comment in
+## [method _arm_tower_brain] for why a live brain cannot simply be handed a new
+## [ShooterProfile]. Rebuilding is therefore the only way a swept [MatchRules]
+## reaches a controller that has already played a match, and it costs one [Node]
+## per AI participant per match.
+##
+## Removed from the tree as well as freed, so that a brain queued for deletion
+## cannot still be found by [method _find_tower_brain] on the same frame.
+func _release_tower_brains() -> void:
+	for participant: MatchParticipant in _participants:
+		var shooter: TowerShooter = _find_tower_brain(participant)
+		participant.tower_brain = null
+		if shooter == null:
+			continue
+		shooter.set_physics_process(false)
+		var parent: Node = shooter.get_parent()
+		if parent != null:
+			parent.remove_child(shooter)
+		shooter.queue_free()
 
 
 # --- The rifle ----------------------------------------------------------------
