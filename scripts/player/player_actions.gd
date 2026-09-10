@@ -19,6 +19,19 @@ const SPRINT: StringName = &"sprint"
 
 ## Crouch/slide. Held, not tapped: releasing it ends a slide early, which is the
 ## only way a player has to leave one on their own terms.
+##
+## [b]Not Control, on purpose.[/b] Control is the genre's usual crouch key and
+## this project shipped it until it was found to break the slide-jump on macOS.
+## Control+Space is a live macOS system shortcut ("Select the previous input
+## source", symbolic hotkey 60, on by default whenever more than one input
+## source is installed) and Ctrl+Space is likewise the default input-method
+## toggle under IBus and fcitx on Linux. The WindowServer claims the chord
+## before any application sees it, so the [b]Space[/b] press is swallowed while
+## Control is held: the slide opens and the jump out of it never arrives. The
+## key does reach Godot on its own, which is what makes the failure look like a
+## movement bug rather than a binding one. A default the OS eats is not a
+## default, so the shipped bindings avoid the chord entirely and a player who
+## wants Control can bind it themselves through [KeybindMap].
 const SLIDE: StringName = &"slide"
 
 ## Matches Godot's default action deadzone.
@@ -26,7 +39,7 @@ const DEADZONE: float = 0.2
 
 
 ## Register any of the movement actions that the project has not already
-## defined, with WASD / Space / Shift defaults.
+## defined, with WASD / Space / Shift / C defaults.
 static func ensure_registered() -> void:
 	_ensure(MOVE_FORWARD, [KEY_W, KEY_UP])
 	_ensure(MOVE_BACK, [KEY_S, KEY_DOWN])
@@ -34,7 +47,9 @@ static func ensure_registered() -> void:
 	_ensure(MOVE_RIGHT, [KEY_D, KEY_RIGHT])
 	_ensure(JUMP, [KEY_SPACE])
 	_ensure(SPRINT, [KEY_SHIFT])
-	_ensure(SLIDE, [KEY_CTRL, KEY_C])
+	# Must stay in step with project.godot; test_keybind_defaults.gd pins them
+	# to each other so the fallback cannot drift back to Control.
+	_ensure(SLIDE, [KEY_C, KEY_Z])
 
 
 static func _ensure(action: StringName, physical_keycodes: Array[int]) -> void:

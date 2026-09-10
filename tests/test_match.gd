@@ -53,6 +53,15 @@ const PARKED_DEPTH_METRES: float = -50.0
 ## ladder stops there.
 const LADDER_SWAPS: int = 16
 
+## The seat the race-skip tests hand the tower to. Deliberately a BOT and
+## deliberately not the first participant: "give it to myself or a bot" is the
+## requirement, and a skip that only ever worked for seat 0 would pass a test
+## written against seat 0.
+const SKIP_SEAT_INDEX: int = 2
+
+## An opening seat no match has. Names a bot in a field of a thousand.
+const ABSURD_SEAT_INDEX: int = 999
+
 ## Tolerance on a reload read back off the live rifle, in seconds. The values are
 ## sums of exported floats, not measurements, so this is float noise and nothing
 ## else.
@@ -368,6 +377,89 @@ func test_the_reload_shortens_across_turns_and_stops_at_the_floor() -> void:
 	)
 
 
+# --- Skipping the race --------------------------------------------------------
+
+## Skipping the race arms exactly the round the race would have armed.
+##
+## [b]The whole value of the skip is that it produces no difference.[/b] It
+## exists because somebody testing a change to anything else should not have to
+## run a lap of the ring first -- so what it must hand back is the match they
+## would have had by running it and winning, and not a second kind of match that
+## is nearly the same. A skip that produced a subtly different round would be
+## worse than no skip, because every measurement taken through it would be a
+## measurement of something nobody plays.
+##
+## So the match is armed both ways -- skipped, and raced and then won by the same
+## seat -- and the same description is read off it each time and compared as one
+## string. The description is taken before a single physics frame on purpose:
+## placement is arithmetic and deterministic, and a tick of bot steering
+## afterwards is not.
+func test_skipping_the_race_arms_the_round_a_race_would_have() -> void:
+	# A private copy. The shipped .tres is one instance for the whole process and
+	# a test that retuned it would hand every later test a different game.
+	var rules: MatchRules = TestFixtures.match_rules()
+	assert_true(rules.open_with_race, "the shipped rules open with a race")
+	rules.open_with_race = false
+	rules.opening_seat_index = SKIP_SEAT_INDEX
+	_controller.rules = rules
+	_controller.start_match()
+
+	var seat: MatchParticipant = _controller.get_seat_participant()
+	assert_not_null(seat, "somebody is in the tower the moment a skipped match starts")
+	if seat == null:
+		return
+	assert_eq_int(seat.index, SKIP_SEAT_INDEX, "and it is the seat the rules named")
+	assert_false(seat.is_human(), "which is a bot, so the skip is not a human-only path")
+	assert_eq_string(_controller.get_phase_name(), "ROUND", "the match is in a round, not a race")
+	assert_eq_int(_controller.get_round_number(), 1, "and it is the first one")
+	assert_eq_int(seat.turns_in_tower, 1, "the seat holder is on turn one")
+	assert_almost_eq(
+		_horizontal_distance(seat.body.global_position, _tower_spawn), 0.0,
+		SPAWN_TOLERANCE_METRES, "standing on the tower",
+	)
+	assert_same(_rifle.get_parent(), seat.body.head, "with the rifle in their hands")
+	assert_eq_int(
+		_controller.get_runners_remaining(), _controller.get_rules().prisoner_count,
+		"and every other participant out on the track",
+	)
+	var skipped: PackedStringArray = _describe_round()
+
+	# Now the same rules with the race back on, won by the same seat.
+	rules.open_with_race = true
+	_controller.start_match()
+	assert_eq_string(_controller.get_phase_name(), "RACE", "the race is back")
+	_win_the_race_for(_participants[SKIP_SEAT_INDEX])
+
+	var raced: PackedStringArray = _describe_round()
+	assert_eq_string(
+		"\n".join(skipped), "\n".join(raced),
+		"a skipped round is the round a race would have produced",
+	)
+
+
+## An opening seat the match has no participant for still starts a match.
+##
+## The value is a saved player preference by the time the match reads it, and a
+## preference outlives the prisoner count it was chosen against. Dropping the
+## count must not leave the game unable to start.
+func test_a_skipped_race_clamps_a_seat_the_match_does_not_have() -> void:
+	var rules: MatchRules = TestFixtures.match_rules()
+	rules.open_with_race = false
+	rules.opening_seat_index = ABSURD_SEAT_INDEX
+	_controller.rules = rules
+	_controller.start_match()
+
+	var seat: MatchParticipant = _controller.get_seat_participant()
+	assert_not_null(seat, "a match with an impossible seat still has somebody in the tower")
+	if seat == null:
+		return
+	assert_eq_int(
+		seat.index, _controller.get_participants().size() - 1,
+		"clamped to the last seat the match actually has",
+	)
+	assert_eq_string(_controller.get_phase_name(), "ROUND", "and the round is armed")
+
+
 # --- Helpers ------------------------------------------------------------------
 
 ## Hand the tower to [param participant] through the tracker seam.
@@ -401,3 +493,43 @@ func _radius_of(point: Vector3) -> float:
 
 func _horizontal_distance(a: Vector3, b: Vector3) -> float:
 	return Vector2(a.x - b.x, a.z - b.z).length()
+
+
+## Everything about the round that has just been armed, as readable lines.
+##
+## Positions are in it on purpose: "the same round" has to mean the bodies are in
+## the same places and the rifle is in the same hands, not merely that the
+## counters read alike. Compared as one joined string so a difference names
+## itself in the failure message instead of being reported as "false".
+func _describe_round() -> PackedStringArray:
+	var lines: PackedStringArray = PackedStringArray()
+	lines.append("phase=%s outcome=%s" % [
+		_controller.get_phase_name(), _controller.get_outcome_name(),
+	])
+	lines.append("round=%d resolves=%d" % [
+		_controller.get_round_number(), _controller.get_resolve_count(),
+	])
+	lines.append("runners=%d/%d removed=%d" % [
+		_controller.get_runners_remaining(),
+		_controller.get_runners_total(),
+		_controller.get_runners_removed(),
+	])
+	lines.append("reload=%.4f" % _controller.get_current_reload_seconds())
+	lines.append("rifle=%s aim=%s" % [
+		_rifle.get_parent().get_path(),
+		"none" if _rifle.aim_source == null else _rifle.aim_source.get_path(),
+	])
+	for participant: MatchParticipant in _controller.get_participants():
+		lines.append("%s role=%s turns=%d lives=%d target=%s at=%s" % [
+			participant.display_name,
+			participant.get_role_name(),
+			participant.turns_in_tower,
+			participant.lives,
+			participant.body.is_in_group(MatchController.RUNNER_GROUP),
+			_describe_point(participant.body.global_position),
+		])
+	return lines
+
+
+func _describe_point(point: Vector3) -> String:
+	return "(%.3f, %.3f, %.3f)" % [point.x, point.y, point.z]

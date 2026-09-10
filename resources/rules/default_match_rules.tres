@@ -19,6 +19,7 @@ hold_duration_seconds = 0.0
 runner_win_condition = 0
 round_time_limit_seconds = 0.0
 open_with_race = true
+opening_seat_index = 0
 rounds_to_win_match = 1
 turn_count_resets_on_seat_loss = false
 lap_arrival_tolerance = 1.5

@@ -1,32 +1,35 @@
 extends TestCase
 
-## [PanopticonEye]: the promise that the eye tells the prisoners nothing.
+## [PanopticonEye]: the promise that the eye hides the guard and tells the
+## prisoners nothing.
 ##
-## The eye is scenery -- since 2026-09-10 it is one box, 8 m on a side, with a
-## picture of an eye on every face, the tower and then the red ball that stood
-## here having both been removed as art nobody asked for. Most of what could be
-## tested about it is a screenshot and belongs on a person's monitor. What is
-## here instead are the properties that make it a [b]one-way[/b] eye, because
-## those are exactly the ones that can be destroyed by a plausible-looking edit
-## and will not raise anything when they are:
+## Since 2026-09-10 the eye is one box, 18 m across and 4.5 m tall, standing on
+## the tower platform with the guard inside it and a picture of an eye repeated
+## along every face. Most of what could be tested about it is a screenshot and
+## belongs on a person's monitor. What is here instead are the properties that
+## make it a [b]one-way[/b] mirror, because those are exactly the ones that can be
+## destroyed by a plausible-looking edit and will not raise anything when they
+## are:
 ##
+## - the whole mechanism is backface culling. Reverse it and the box turns inside
+##   out: the guard is walled in and the ring sees straight through to them. That
+##   is one enum away at all times and looks fine in a diff;
+## - the box only hides the guard while it still encloses the platform they walk
+##   on and still stands over their head at the top of a jump. Shrink it and the
+##   cover silently stops covering;
 ## - the old eye was a solid of revolution, so it could not have a front. A box
-##   can. Every one of its sides must therefore carry the same picture the same
-##   way up, from one material and one texture, or the box acquires a bearing;
+##   can. Every side must carry the same picture the same way up and the same
+##   size, from one material and one texture, or the box acquires a bearing;
 ## - a mesh nudged off the axis, rotated, or made oblong gives it a bearing too;
 ## - a line of code that reads the camera, the rifle, the seat or the match hands
 ##   the prisoners the one thing the game is built on withholding;
-## - a material set to transparent, front-face-culled, or shaded, lets a prisoner
-##   see into the eye or lets the sun tell one of its sides from another;
 ## - a collision shape added "so runners cannot clip it" puts the eye on the
-##   rifle's hit mask and the guard starts shooting their own tower;
-## - anything that reaches down into the volume the guard moves through puts a
-##   surface between them and the ring.
+##   rifle's hit mask, walls the guard into their own cover, and makes the guard
+##   shoot the inside of it.
 ##
 ## None of those would fail any other test in this suite, and none of them looks
 ## wrong in a diff. So they are asserted here. See the class documentation of
-## [PanopticonEye] for the design ruling this defends
-## ([code]panopticon.open.guard_vision[/code], resolved 2026-09-09).
+## [PanopticonEye] for the design rulings this defends.
 
 const EYE_SCENE_PATH: String = "res://scenes/tower/panopticon_eye.tscn"
 
@@ -39,27 +42,32 @@ const EYE_SOURCE_PATHS: Array[String] = [
 ]
 
 ## Radius of Tower/Platform in [code]scenes/ring/test_ring.tscn[/code], and so
-## the furthest from the axis a guard can stand before they fall off it.
+## the furthest from the axis a guard can stand before they fall off it. The box
+## has to reach past this in every direction or the guard can walk out of their
+## own cover.
 const PLATFORM_RADIUS: float = 8.0
-
-## Highest a guard's camera can reach above the platform: they spawn at y=0.25,
-## their head sits 1.65 m above their feet, and the tuned jump apex is 1.11 m.
-## Rounded up, generously.
-const GUARD_REACH_Y: float = 3.0
 
 ## Where [code]scenes/ring/test_ring.tscn[/code] puts the guard, and what this
 ## file checks the eye did not move.
 const TOWER_SPAWN_POSITION: Vector3 = Vector3(0.0, 0.25, 0.0)
 
-## Height of the middle of the box above the deck.
+## The guard's eye, and so the height of the middle of the box.
 ##
-## This number is load-bearing in a place that has nothing to do with the eye:
-## the Cover and InnerKerb heights in [code]scenes/ring/test_ring.tscn[/code] are
-## both derived, in their own editor_descriptions, from "the tower eye at
-## y=16.7". The guard's actual camera is at y=1.9, which does not agree with it,
-## and that disagreement is unresolved and Ryan's to settle. It is pinned here so
-## that nothing drifts silently while it is open.
-const APERTURE_Y: float = 16.7
+## They spawn at y=0.25 and [code]scenes/player/player.tscn[/code] puts Head
+## 1.65 m above their feet. This is the number the eye was brought down to on
+## 2026-09-10: it used to float at y=16.7 while the guard sat here, and Ryan
+## settled that disagreement in this direction.
+const GUARD_EYE_Y: float = 1.9
+
+## The top of the guard's head at the apex of a jump: the capsule is 1.8 m tall
+## with its feet at the body origin, they spawn 0.25 m up, and the tuned apex is
+## 1.11 m. The box has to be taller than this or a jumping guard's scalp appears
+## over the top of their own cover.
+const GUARD_CROWN_Y: float = 3.16
+
+## The top surface of Tower/Platform. The box's underside must be at or below it,
+## or there is a gap along the bottom for the ring to look through.
+const PLATFORM_TOP_Y: float = 0.0
 
 var _eye: PanopticonEye
 
@@ -97,23 +105,109 @@ func _world_bounds_of(surface: MeshInstance3D) -> AABB:
 	return surface.global_transform * surface.mesh.get_aabb()
 
 
+# --- The one-way mirror -------------------------------------------------------
+
+## The mechanism, asserted directly.
+##
+## Everything about this eye rests on one enum. The box is a closed surface with
+## its triangles facing outward: drawn [constant BaseMaterial3D.CULL_BACK] the
+## ring sees an opaque wall and the guard, who is inside, sees every face thrown
+## away before it is shaded. Drawn [constant BaseMaterial3D.CULL_FRONT] it is
+## exactly backwards -- the guard is boxed into a black room and the prisoners
+## look straight through the walls at them. That is the whole mechanic inverted
+## by one line in the inspector, and nothing else in the suite would notice.
+##
+## So: the material culls back faces, and the guard's eye is genuinely inside the
+## box rather than merely near it, because culling only hides the surface from
+## somebody who is actually within the solid.
+func test_the_guard_is_inside_the_mirror_and_sees_out_of_it() -> void:
+	var surfaces: Array[MeshInstance3D] = _surfaces_of(_eye)
+	if not assert_eq_int(surfaces.size(), 1, "the eye should be one closed box"):
+		return
+
+	for surface: MeshInstance3D in surfaces:
+		var material: StandardMaterial3D = surface.get_surface_override_material(0) as StandardMaterial3D
+		if not assert_not_null(material, "%s should have a material" % surface.name):
+			continue
+		assert_eq_int(material.cull_mode, BaseMaterial3D.CULL_BACK,
+			"%s must cull BACK faces: FRONT walls the guard in and shows the ring straight through" % surface.name)
+
+	var bounds: AABB = _world_bounds_of(surfaces[0])
+	var guard_eye: Vector3 = Vector3(TOWER_SPAWN_POSITION.x, GUARD_EYE_Y, TOWER_SPAWN_POSITION.z)
+	assert_true(bounds.has_point(guard_eye),
+		"the guard's eye at y=%.2f should be inside the box, or culling hides nothing from them" % GUARD_EYE_Y)
+
+
+## The cover actually covers, at every size the profile allows.
+##
+## The box hides the guard only while it still encloses the ground they can walk
+## on and still stands over their head. Both of those stop being true quietly if
+## the box shrinks, and a guard whose scalp shows over their own cover, or who
+## can stroll out through the side of it, has lost the entire premise without
+## anything erroring.
+##
+## The footprint is checked against the platform's radius rather than its
+## diameter deliberately: the platform is a disc and the box is a square around
+## it, so it is the half-width that has to clear r=8 -- in every direction, which
+## is why the plan has to be square as well as big.
+func test_the_box_covers_the_shooter() -> void:
+	var bounds: Vector2 = _size_scale_range()
+	assert_gt(bounds.x, 0.0, "size_scale should expose a range")
+
+	for size_scale: float in [bounds.x, 1.0, bounds.y]:
+		var profile: EyeProfile = EyeProfile.new()
+		profile.size_scale = size_scale
+		profile.eye_texture = _eye.profile.eye_texture
+		var eye: PanopticonEye = _make_eye()
+		eye.profile = profile
+		add_child(eye)
+
+		assert_almost_eq(eye.scale.x, size_scale, 0.0001, "the rig should take the profile's size")
+
+		for surface: MeshInstance3D in _surfaces_of(eye):
+			var box: AABB = _world_bounds_of(surface)
+			assert_ge(0.5 * box.size.x, PLATFORM_RADIUS,
+				"at size_scale %.2f the box reaches only %.2f m from the axis in X; the guard can walk out of cover at %.2f" % [
+					size_scale, 0.5 * box.size.x, PLATFORM_RADIUS,
+				])
+			assert_ge(0.5 * box.size.z, PLATFORM_RADIUS,
+				"at size_scale %.2f the box reaches only %.2f m from the axis in Z" % [
+					size_scale, 0.5 * box.size.z,
+				])
+			assert_gt(box.position.y + box.size.y, GUARD_CROWN_Y,
+				"at size_scale %.2f the box tops out at y=%.2f, under a jumping guard's crown" % [
+					size_scale, box.position.y + box.size.y,
+				])
+			assert_le(box.position.y, PLATFORM_TOP_Y,
+				"at size_scale %.2f the box's underside is at y=%.2f, leaving a gap to see under" % [
+					size_scale, box.position.y,
+				])
+
+
+func _size_scale_range() -> Vector2:
+	for property: Dictionary in EyeProfile.new().get_property_list():
+		if String(property["name"]) == "size_scale":
+			var bounds: PackedStringArray = String(property["hint_string"]).split(",")
+			if bounds.size() >= 2:
+				return Vector2(bounds[0].to_float(), bounds[1].to_float())
+	return Vector2.ZERO
+
+
 # --- The form cannot point anywhere -------------------------------------------
 
-## The structural half of the no-leak promise, part one: the box has no long
-## side, no tilt and no offset.
+## The box has no long side, no tilt and no offset.
 ##
 ## The eye used to be a sphere and a cylinder -- solids of revolution, identical
 ## from every bearing, incapable of indicating a direction whatever a later
 ## [method Node._process] did to them. Ryan asked for a box instead, so that
-## particular argument is gone and the geometry has to earn the same result a
-## different way: one closed box, square in plan, sitting on the tower's own axis
-## with no rotation on it. Square in plan matters as much as unrotated does -- an
-## oblong has a broad side and a narrow side, and a prisoner who can tell which
-## one they are standing in front of knows something about the tower's layout.
+## argument is gone and the geometry has to earn the same result another way: one
+## closed box, square in plan, on the tower's own axis, unrotated. Square in plan
+## matters as much as unrotated does -- an oblong has a broad side and a narrow
+## side, and a prisoner who can tell which one they are standing in front of
+## knows something about the tower's layout.
 func test_the_form_is_a_box_with_no_readable_side() -> void:
 	var surfaces: Array[MeshInstance3D] = _surfaces_of(_eye)
-	assert_eq_int(surfaces.size(), 1, "the eye should be one box, and nothing else")
-	if surfaces.is_empty():
+	if not assert_eq_int(surfaces.size(), 1, "the eye should be one box, and nothing else"):
 		return
 
 	var face: MeshInstance3D = surfaces[0]
@@ -136,16 +230,16 @@ func test_the_form_is_a_box_with_no_readable_side() -> void:
 		"the box should be scaled equally in X and Z, or it is oblong after all")
 
 
-## The structural half, part two: every side is the same picture, the same way
-## up.
+## Every side is the same picture, the same way up, at the same size.
 ##
 ## This is the assertion that replaces "it is a solid of revolution", and it is
 ## the load-bearing one. [BoxMesh] lays its six faces out as a three-by-two UV
 ## atlas, so a texture applied naively puts a [i]different sixth of the image[/i]
 ## on each face -- six sides that are all different, which is the exact opposite
 ## of what is wanted and looks perfectly reasonable in the inspector.
-## [constant PanopticonEye.UV_TILING] scales UV1 by that atlas shape so each cell
-## maps back onto the whole texture and every face draws a full upright copy.
+## [method PanopticonEye.uv_tiling_for] scales UV1 by that atlas shape, times the
+## face's own aspect, so each cell maps onto whole upright copies of the picture
+## and every copy comes out square.
 ##
 ## One material and one texture for the whole box is the other half: two
 ## materials could be tuned apart, and a second texture is a second picture.
@@ -156,9 +250,9 @@ func test_every_side_carries_the_same_picture() -> void:
 		assert_eq_int(surface.mesh.get_surface_count(), 1,
 			"%s should be one surface, or its faces can be given different materials" % surface.name)
 		for index: int in surface.mesh.get_surface_count():
-			var material: Material = surface.get_surface_override_material(index)
-			if not materials.has(material):
-				materials.append(material)
+			var found: Material = surface.get_surface_override_material(index)
+			if not materials.has(found):
+				materials.append(found)
 
 	assert_eq_int(materials.size(), 1,
 		"the whole eye should draw with exactly one material, or its sides can drift apart")
@@ -170,12 +264,31 @@ func test_every_side_carries_the_same_picture() -> void:
 		return
 
 	assert_not_null(material.albedo_texture, "the box should carry the eye picture on it")
-	assert_vec3_almost_eq(material.uv1_scale, PanopticonEye.UV_TILING, 0.0001,
+	var box: BoxMesh = surfaces[0].mesh as BoxMesh
+	assert_vec3_almost_eq(material.uv1_scale, PanopticonEye.uv_tiling_for(box.size), 0.0001,
 		"UV1 must be scaled by the box atlas, or each face shows a different sixth of the picture")
 	assert_vec3_almost_eq(material.uv1_offset, Vector3.ZERO, 0.0001,
-		"a UV offset would slide the picture off centre by a different amount on each face")
+		"a UV offset would slide the picture along by a different amount on each face")
 	assert_true(material.texture_repeat,
-		"the tiled UVs need repeat, or five of the six faces clamp to a smear of one edge")
+		"the tiled UVs need repeat, or all but one copy clamps to a smear of one edge")
+
+
+## The picture comes out square on the vertical faces, at any proportions.
+##
+## The tiling exists so that a face four times wider than it is tall shows four
+## eyes rather than one eye stretched four times wide. That is a property of the
+## arithmetic, not of the numbers currently in the scene, so it is asserted
+## against the arithmetic: for a range of box shapes, one repeat of the picture
+## must be as wide on the wall as it is high.
+func test_the_picture_never_comes_out_stretched() -> void:
+	for shape: Vector3 in [Vector3(18.0, 4.5, 18.0), Vector3(8.0, 8.0, 8.0), Vector3(30.0, 3.0, 30.0)]:
+		var tiling: Vector3 = PanopticonEye.uv_tiling_for(shape)
+		# Repeats across a vertical face, and up it. UV_ATLAS is how much of the
+		# texture one face spans before any scaling.
+		var across: float = tiling.x / PanopticonEye.UV_ATLAS.x
+		var up: float = tiling.y / PanopticonEye.UV_ATLAS.y
+		assert_almost_eq(shape.x / across, shape.y / up, 0.0001,
+			"on an %.1f x %.1f face one copy of the picture should be square" % [shape.x, shape.y])
 
 
 ## The eye has no way of knowing where the guard is looking, because it has no
@@ -212,9 +325,8 @@ func test_the_eye_cannot_see_the_guard() -> void:
 				"%s mentions '%s' in code: the eye must not be able to refer to the guard" % [path, word])
 
 
-## The behavioural half. Nothing in the eye moves, ever -- not the rig, not the
-## box -- so a prisoner watching it for a whole round sees the same silhouette
-## they saw at spawn.
+## Nothing in the eye moves, ever -- not the rig, not the box -- so a prisoner
+## watching it for a whole round sees the same wall they saw at spawn.
 func test_nothing_in_the_eye_ever_moves() -> void:
 	var surfaces: Array[MeshInstance3D] = _surfaces_of(_eye)
 	var before: Array[Transform3D] = []
@@ -233,99 +345,43 @@ func test_nothing_in_the_eye_ever_moves() -> void:
 		)
 
 
-# --- The eye is one-way -------------------------------------------------------
-
-## Opaque, unshaded, and culled the right way round.
+## Opaque, unshaded, and depth-tested.
 ##
-## Transparency would let a prisoner see into the eye. Reversed or disabled
-## culling draws the inside of the box as well as the outside, and no depth test
-## draws it over the whole ring from anywhere on the map. Shading is the one that
-## is specific to a box: the arena's sun would put a highlight on whichever face
-## it favours and leave the opposite one dim, so the four sides would stop
-## matching -- a tell arrived at by lighting rather than by anybody meaning it,
-## and one that changes through the day.
-func test_the_eye_is_opaque_unshaded_and_culled_the_right_way_round() -> void:
+## Transparency would let a prisoner see the guard through their own cover, which
+## is the failure the whole node exists to prevent. Shading is the one that is
+## specific to a box: the arena's sun would put a highlight on whichever face it
+## favours and leave the opposite one dim, so the four sides would stop matching
+## -- a tell arrived at by lighting rather than by anybody meaning it, and one
+## that changes through the day. No depth test draws the box over the whole ring
+## from anywhere on the map. Culling has its own test above.
+func test_the_eye_is_opaque_and_unshaded() -> void:
 	for surface: MeshInstance3D in _surfaces_of(_eye):
 		var material: StandardMaterial3D = surface.get_surface_override_material(0) as StandardMaterial3D
 		if not assert_not_null(material, "%s should have a material" % surface.name):
 			continue
 		assert_eq_int(material.shading_mode, BaseMaterial3D.SHADING_MODE_UNSHADED,
 			"%s must be unshaded, or the sun tells one side of the box from another" % surface.name)
-		assert_eq_int(material.cull_mode, BaseMaterial3D.CULL_BACK,
-			"%s must be backface-culled, or the eye draws its own inside" % surface.name)
 		assert_eq_int(material.transparency, BaseMaterial3D.TRANSPARENCY_DISABLED,
-			"%s must be opaque, or prisoners can see into the eye" % surface.name)
+			"%s must be opaque, or prisoners can see the guard through it" % surface.name)
 		assert_almost_eq(material.albedo_color.a, 1.0, 0.0001,
-			"%s must be fully opaque, or prisoners can see into the eye" % surface.name)
+			"%s must be fully opaque, or prisoners can see the guard through it" % surface.name)
 		assert_false(material.no_depth_test,
 			"%s must depth-test, or it draws over the ring" % surface.name)
-
-
-## No surface of the eye is ever between the guard and the ring.
-##
-## The old tower proved this with a seal -- a shell the guard stood inside, kept
-## invisible to them by backface culling. There is no shell any more, so the
-## property is proved the blunt way instead: the whole box is above everywhere
-## the guard's camera can get, by metres, at every size the profile allows. There
-## is nothing to cull, because there is nothing there.
-func test_the_eye_is_entirely_above_the_guard() -> void:
-	var bounds: Vector2 = _size_scale_range()
-	assert_gt(bounds.x, 0.0, "size_scale should expose a range")
-
-	for size_scale: float in [bounds.x, 1.0, bounds.y]:
-		var profile: EyeProfile = EyeProfile.new()
-		profile.size_scale = size_scale
-		# The picture is irrelevant to clearance, but a blank one warns, and a
-		# suite that prints warnings it means to print teaches people to skim.
-		profile.eye_texture = _eye.profile.eye_texture
-		var eye: PanopticonEye = _make_eye()
-		eye.profile = profile
-		add_child(eye)
-
-		assert_almost_eq(eye.scale.x, size_scale, 0.0001, "the rig should take the profile's size")
-
-		for surface: MeshInstance3D in _surfaces_of(eye):
-			var lowest: float = _world_bounds_of(surface).position.y
-			assert_gt(lowest, GUARD_REACH_Y,
-				"at size_scale %.2f, %s reaches down to y=%.2f, into the guard's volume" % [
-					size_scale, surface.name, lowest,
-				])
-
-
-## What the eye sits over, it does not sit on: it is clear of the platform's
-## whole footprint in height, so a guard walking to the rail cannot touch it and
-## a guard looking outward cannot have it in frame.
-func test_the_eye_clears_the_platform_it_floats_over() -> void:
-	for surface: MeshInstance3D in _surfaces_of(_eye):
-		var bounds: AABB = _world_bounds_of(surface)
-		assert_gt(bounds.position.y, GUARD_REACH_Y,
-			"%s should be above the guard entirely" % surface.name)
-		assert_le(0.5 * bounds.size.x, PLATFORM_RADIUS,
-			"%s should not overhang the platform it floats over" % surface.name)
-
-
-func _size_scale_range() -> Vector2:
-	for property: Dictionary in EyeProfile.new().get_property_list():
-		if String(property["name"]) == "size_scale":
-			var bounds: PackedStringArray = String(property["hint_string"]).split(",")
-			if bounds.size() >= 2:
-				return Vector2(bounds[0].to_float(), bounds[1].to_float())
-	return Vector2.ZERO
 
 
 # --- Scenery, not a mechanic --------------------------------------------------
 
 ## The eye has no gameplay and must not acquire any by accident.
 ##
-## A collision shape is the way it would happen: the rifle raycasts against the
-## world, so the moment the eye has a body the guard's own shots stop at it.
-## There is no reason for it to be solid -- it floats twelve metres over
-## everybody's head -- so there is nothing here that could be hit, lit, aimed or
-## looked through.
+## A collision shape is the way it would happen, and now that the box is wrapped
+## round the guard it would do three separate kinds of damage at once: the rifle
+## raycasts against the world, so the guard's own shots would stop dead on the
+## inside of their cover; the guard would be sealed into an 18 m room they cannot
+## leave; and runners would collide with a wall that is supposed to be scenery.
 func test_the_eye_is_inert() -> void:
 	for node: Node in _descendants_of(_eye):
 		assert_null(node as CollisionObject3D,
-			"%s: the eye must have no physics body, or the guard shoots their own tower" % node.name)
+			"%s: the eye must have no physics body, or the guard shoots and is trapped by their own cover" % node.name)
 		assert_null(node as CollisionShape3D, "%s: the eye must have no collision shape" % node.name)
 		assert_null(node as Camera3D, "%s: the eye must not own a viewpoint" % node.name)
 		assert_null(node as Light3D,
@@ -361,8 +417,8 @@ func test_the_profile_reaches_the_rendered_material() -> void:
 
 	var material: StandardMaterial3D = box.get_surface_override_material(0) as StandardMaterial3D
 	assert_same(material.albedo_texture, picture, "the picture should come from the profile")
-	assert_vec3_almost_eq(material.uv1_scale, PanopticonEye.UV_TILING, 0.0001,
-		"the script should lay the picture over every face, whatever the scene was saved with")
+	assert_vec3_almost_eq(material.uv1_scale, PanopticonEye.uv_tiling_for((box.mesh as BoxMesh).size), 0.0001,
+		"the script should re-derive the tiling from the box, whatever the scene was saved with")
 
 
 ## Two eyes in one world do not share a material, so tuning one cannot reach the
@@ -376,9 +432,9 @@ func test_each_eye_owns_its_own_material() -> void:
 
 # --- Where it stands ----------------------------------------------------------
 
-## The eye is over the tower in the arena, on the tower's own axis, with its
-## middle at the height the rest of the ring was cut against -- and it did not
-## disturb the spawn marker [MatchController] puts the guard on.
+## The eye is on the tower in the arena, on the tower's own axis, centred at the
+## guard's eye height, with the guard's spawn inside it -- and it did not disturb
+## the marker [MatchController] puts the guard on.
 func test_the_eye_stands_on_the_tower_in_the_arena() -> void:
 	var arena: Node3D = TestFixtures.make_arena()
 	add_child(arena)
@@ -392,13 +448,15 @@ func test_the_eye_stands_on_the_tower_in_the_arena() -> void:
 	var box: MeshInstance3D = eye.get_node_or_null(^"Box") as MeshInstance3D
 	if not assert_not_null(box, "the eye should carry a Box"):
 		return
-	assert_almost_eq(box.global_position.y, APERTURE_Y, 0.0001,
-		"the box should stay at the eye height Cover and InnerKerb were derived from")
+	assert_almost_eq(box.global_position.y, GUARD_EYE_Y, 0.0001,
+		"the box should be centred on the guard's own eye height")
 
 	var spawn: Marker3D = arena.get_node_or_null(TestFixtures.TOWER_SPAWN_PATH) as Marker3D
 	if not assert_not_null(spawn, "TowerSpawn should still resolve"):
 		return
 	assert_vec3_almost_eq(spawn.global_position, TOWER_SPAWN_POSITION, 0.0001,
 		"the eye must not have moved the guard's spawn")
-	assert_lt(Vector2(spawn.global_position.x, spawn.global_position.z).length(), PLATFORM_RADIUS,
-		"the guard should spawn on the platform")
+
+	var bounds: AABB = _world_bounds_of(box)
+	assert_true(bounds.has_point(spawn.global_position + Vector3.UP * 1.65),
+		"the guard spawns with their eye inside the box, or the cover is not over them")

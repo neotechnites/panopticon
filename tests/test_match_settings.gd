@@ -38,14 +38,22 @@ const SETTINGS_SCREEN_PATH: String = "res://scenes/ui/settings_screen.tscn"
 ## Where the shared store is pointed while this file runs.
 const SCRATCH_CONFIG: String = "user://test_match_settings.cfg"
 
+## The seat the race-skip tests hand the tower to. A bot, and not the first
+## participant: "give it to myself or a bot" is the requirement.
+const SKIP_SEAT_INDEX: int = 2
+
 var _real_config_path: String = ""
 var _real_ghosts_enabled: bool = false
+var _real_skip_opening_race: bool = false
+var _real_tower_seat_index: int = 0
 
 
 func before_each() -> void:
 	var store: SettingsStore = SettingsStore.instance()
 	_real_config_path = store.config_path
 	_real_ghosts_enabled = store.settings.ghosts_enabled
+	_real_skip_opening_race = store.settings.skip_opening_race
+	_real_tower_seat_index = store.settings.tower_seat_index
 	store.config_path = SCRATCH_CONFIG
 
 
@@ -54,6 +62,8 @@ func after_each() -> void:
 	store.erase_file()
 	store.config_path = _real_config_path
 	store.settings.ghosts_enabled = _real_ghosts_enabled
+	store.settings.skip_opening_race = _real_skip_opening_race
+	store.settings.tower_seat_index = _real_tower_seat_index
 
 
 # --- The preference itself ----------------------------------------------------
@@ -158,6 +168,83 @@ func test_a_pre_ghost_settings_file_does_not_force_ghosts_off() -> void:
 	assert_false(store.settings.ghosts_enabled, "a chosen off survives the round trip")
 
 
+# --- The race skip ------------------------------------------------------------
+
+## The shipped game still opens with a race, and both sides say so.
+func test_the_race_skip_is_off_by_default_in_both_places() -> void:
+	var settings: GameSettings = GameSettings.new()
+	assert_false(settings.skip_opening_race, "a fresh GameSettings runs the race")
+	assert_eq_int(settings.tower_seat_index, 0, "and would hand the tower to the player")
+
+	var rules: MatchRules = TestFixtures.match_rules()
+	assert_true(rules.open_with_race, "the shipped rules open with a race")
+	assert_eq_int(rules.opening_seat_index, 0, "on the same seat")
+
+
+## The preference writes the rules, in both directions, and the seat survives
+## being switched off.
+##
+## Both directions for the same reason the ghost toggle needs them: the rules
+## resource is one shared instance for the process, so a one-way write leaves a
+## match started after the skip was cleared still skipping.
+func test_the_race_skip_writes_the_rules_both_ways() -> void:
+	var settings: GameSettings = GameSettings.new()
+	var rules: MatchRules = TestFixtures.match_rules()
+
+	settings.skip_opening_race = true
+	settings.tower_seat_index = SKIP_SEAT_INDEX
+	settings.apply_to_match_rules(rules)
+	assert_false(rules.open_with_race, "the skip turns the race off")
+	assert_eq_int(rules.opening_seat_index, SKIP_SEAT_INDEX, "and names who gets the tower")
+
+	settings.skip_opening_race = false
+	settings.apply_to_match_rules(rules)
+	assert_true(rules.open_with_race, "clearing the skip puts the race back")
+	assert_eq_int(
+		rules.opening_seat_index, SKIP_SEAT_INDEX,
+		"and the seat the player chose is still there for the next time they skip",
+	)
+
+
+## Both values survive the file, and a file that has never heard of them is not a
+## failure.
+func test_the_race_skip_round_trips_through_the_config_file() -> void:
+	var written: GameSettings = GameSettings.new()
+	written.skip_opening_race = true
+	written.tower_seat_index = SKIP_SEAT_INDEX
+
+	var config: ConfigFile = ConfigFile.new()
+	written.write_to(config)
+
+	var read: GameSettings = GameSettings.new()
+	read.read_from(config)
+	assert_true(read.skip_opening_race, "the skip comes back off disk")
+	assert_eq_int(read.tower_seat_index, SKIP_SEAT_INDEX, "and so does the seat")
+	assert_true(read.equals(written), "and nothing else was lost round-tripping it")
+
+	# A settings file written before these keys existed: the value already in
+	# hand is the fallback, exactly as every other reader here behaves.
+	var older: GameSettings = GameSettings.new()
+	older.skip_opening_race = true
+	older.tower_seat_index = SKIP_SEAT_INDEX
+	older.read_from(ConfigFile.new())
+	assert_true(older.skip_opening_race, "a file with no skip key changes nothing")
+	assert_eq_int(older.tower_seat_index, SKIP_SEAT_INDEX, "and none of the seat")
+
+	# A file holding nonsense does not reach the match holding nonsense.
+	var wild: GameSettings = GameSettings.new()
+	wild.tower_seat_index = -5
+	wild.clamp_all()
+	assert_eq_int(wild.tower_seat_index, 0, "a corrupt seat index clamps to the player")
+
+	var reset: GameSettings = GameSettings.new()
+	reset.skip_opening_race = true
+	reset.tower_seat_index = SKIP_SEAT_INDEX
+	reset.reset()
+	assert_false(reset.skip_opening_race, "reset puts the race back")
+	assert_eq_int(reset.tower_seat_index, 0, "and the tower back to the player")
+
+
 # --- The screen ---------------------------------------------------------------
 
 ## The checkbox exists, shows the stored value, and writes it back.
@@ -187,6 +274,70 @@ func test_the_match_tab_toggle_drives_the_store() -> void:
 	store.settings.ghosts_enabled = true
 	screen.refresh()
 	assert_true(check.button_pressed, "reopening the screen shows ghosts on")
+
+
+## The race-skip controls exist, show the stored values, and write them back.
+##
+## Asserted against the authored scene rather than controls built here: the
+## screen's structure lives in [code].tscn[/code] on purpose, and a test that
+## made its own CheckBox would pass while the tab was empty.
+func test_the_match_tab_race_skip_drives_the_store() -> void:
+	var store: SettingsStore = SettingsStore.instance()
+	store.settings.skip_opening_race = false
+	store.settings.tower_seat_index = 0
+
+	var screen: SettingsScreen = _open_screen()
+	var check: CheckBox = screen.get_node_or_null(^"%SkipRaceCheck") as CheckBox
+	var seats: OptionButton = screen.get_node_or_null(^"%TowerSeatOption") as OptionButton
+	assert_not_null(check, "the Match tab has a race-skip checkbox")
+	assert_not_null(seats, "and a list of seats to hand the tower to")
+	if check == null or seats == null:
+		return
+
+	assert_false(check.button_pressed, "it opens showing the race being run")
+	assert_true(seats.disabled, "and the seat list dead, because there is nothing to hand")
+
+	# One entry per seat the match will actually have, named the way the HUD
+	# names it.
+	var rules: MatchRules = TestFixtures.match_rules()
+	assert_eq_int(
+		seats.item_count, rules.get_participant_count(),
+		"the list offers exactly the seats a match has",
+	)
+	assert_eq_string(
+		seats.get_item_text(0), MatchRules.get_participant_name(0, true),
+		"the player is the first seat",
+	)
+	assert_eq_string(
+		seats.get_item_text(SKIP_SEAT_INDEX),
+		MatchRules.get_participant_name(SKIP_SEAT_INDEX, true),
+		"and the bots are named as the match names them",
+	)
+
+	# button_pressed = true does not emit toggled; the player's click does.
+	check.button_pressed = true
+	check.toggled.emit(true)
+	assert_true(store.settings.skip_opening_race, "ticking it turns the skip on in the store")
+	assert_false(seats.disabled, "and wakes the seat list up")
+
+	seats.selected = SKIP_SEAT_INDEX
+	seats.item_selected.emit(SKIP_SEAT_INDEX)
+	assert_eq_int(
+		store.settings.tower_seat_index, SKIP_SEAT_INDEX,
+		"choosing a bot writes that seat into the store",
+	)
+
+	check.button_pressed = false
+	check.toggled.emit(false)
+	assert_false(store.settings.skip_opening_race, "clearing it runs the race again")
+	assert_true(seats.disabled, "and the seat list goes dead with it")
+
+	# And they mirror values they did not set themselves.
+	store.settings.skip_opening_race = true
+	store.settings.tower_seat_index = 1
+	screen.refresh()
+	assert_true(check.button_pressed, "reopening the screen shows the stored skip")
+	assert_eq_int(seats.get_selected_id(), 1, "and the stored seat")
 
 
 ## The toggle is captioned, so a player meeting the mechanic knows what it is.

@@ -30,9 +30,24 @@ signal closed()
 ## back from Escape while a rebind is in flight.
 signal capture_state_changed(capturing: bool)
 
+## The rules a match started from this menu is played under.
+##
+## Read, never written: the Match tab has to offer exactly the seats that match
+## will have, and how many there are is [member MatchRules.prisoner_count]'s
+## answer rather than a number typed into this screen. Naming the file here is
+## the same wiring [SettingsBoot] does from the match scene, from the other end.
+const MATCH_RULES_PATH: String = "res://resources/rules/default_match_rules.tres"
+
+## Seats offered when the shipped rules cannot be read at all. One tower and one
+## prisoner is the smallest thing that is still a match, so the list is never
+## empty and the player is never left unable to choose.
+const FALLBACK_SEAT_COUNT: int = 2
+
 @onready var _keybind_panel: KeybindPanel = %KeybindPanel
 
 @onready var _ghosts_check: CheckBox = %GhostsCheck
+@onready var _skip_race_check: CheckBox = %SkipRaceCheck
+@onready var _tower_seat_option: OptionButton = %TowerSeatOption
 
 @onready var _sensitivity_slider: HSlider = %SensitivitySlider
 @onready var _sensitivity_value: Label = %SensitivityValue
@@ -88,6 +103,8 @@ func refresh() -> void:
 
 	var settings: GameSettings = _store.settings
 	_ghosts_check.button_pressed = settings.ghosts_enabled
+	_skip_race_check.button_pressed = settings.skip_opening_race
+	_tower_seat_option.selected = _seat_index(settings.tower_seat_index)
 	_sensitivity_slider.value = settings.mouse_sensitivity
 	_invert_check.button_pressed = settings.invert_look_y
 	_fov_slider.value = settings.field_of_view
@@ -101,6 +118,7 @@ func refresh() -> void:
 	_syncing = false
 
 	_update_value_labels()
+	_update_seat_availability()
 	_update_audio_note()
 	if _keybind_panel != null:
 		_keybind_panel.refresh()
@@ -139,6 +157,13 @@ func _fill_choices() -> void:
 	for choice: Vector2i in GameSettings.RESOLUTION_CHOICES:
 		_resolution_option.add_item("%d x %d" % [choice.x, choice.y])
 
+	_tower_seat_option.clear()
+	for seat: int in _seat_count():
+		# Named through the rules, so the seat this list offers and the seat the
+		# match HUD reports are one string. See
+		# [method MatchRules.get_participant_name].
+		_tower_seat_option.add_item(MatchRules.get_participant_name(seat, true), seat)
+
 	_vsync_option.clear()
 	_vsync_option.add_item("Off", int(GameSettings.VSyncMode.DISABLED))
 	_vsync_option.add_item("On", int(GameSettings.VSyncMode.ENABLED))
@@ -147,6 +172,8 @@ func _fill_choices() -> void:
 
 func _connect_controls() -> void:
 	_ghosts_check.toggled.connect(_on_ghosts_toggled)
+	_skip_race_check.toggled.connect(_on_skip_race_toggled)
+	_tower_seat_option.item_selected.connect(_on_tower_seat_selected)
 	_sensitivity_slider.value_changed.connect(_on_sensitivity_changed)
 	_invert_check.toggled.connect(_on_invert_toggled)
 	_fov_slider.value_changed.connect(_on_fov_changed)
@@ -173,6 +200,25 @@ func _on_ghosts_toggled(pressed: bool) -> void:
 	if _syncing:
 		return
 	_store.settings.ghosts_enabled = pressed
+	_after_change()
+
+
+## Like the ghost toggle, this is a rule of the match rather than presentation,
+## so it does not reach anything until a match is started: SettingsBoot in
+## scenes/match/match.tscn writes it into the MatchRules on the way in.
+func _on_skip_race_toggled(pressed: bool) -> void:
+	if _syncing:
+		return
+	_store.settings.skip_opening_race = pressed
+	_after_change()
+
+
+func _on_tower_seat_selected(index: int) -> void:
+	if _syncing:
+		return
+	if index < 0:
+		return
+	_store.settings.tower_seat_index = _tower_seat_option.get_item_id(index)
 	_after_change()
 
 
@@ -257,6 +303,7 @@ func _after_change() -> void:
 	_store.settings.clamp_all()
 	_store.apply_all()
 	_update_value_labels()
+	_update_seat_availability()
 
 
 func _update_value_labels() -> void:
@@ -274,6 +321,38 @@ static func _percent(value: float) -> String:
 func _resolution_index(resolution: Vector2i) -> int:
 	var index: int = GameSettings.RESOLUTION_CHOICES.find(resolution)
 	return index if index >= 0 else 0
+
+
+## There is nothing to hand the tower to while the tower is being raced for, so
+## the seat list is greyed out rather than left live and ignored.
+func _update_seat_availability() -> void:
+	_tower_seat_option.disabled = not _store.settings.skip_opening_race
+
+
+## How many seats a match started from this menu has.
+##
+## Off the shipped rules, so a change to [member MatchRules.prisoner_count]
+## changes what this screen offers with no edit here.
+func _seat_count() -> int:
+	var rules: MatchRules = load(MATCH_RULES_PATH) as MatchRules
+	if rules == null:
+		push_warning(
+			"SettingsScreen cannot read %s; the seat list is a guess." % MATCH_RULES_PATH
+		)
+		return FALLBACK_SEAT_COUNT
+	return rules.get_participant_count()
+
+
+## Which entry of the seat list holds [param seat], or the first one.
+##
+## A saved preference can name a seat the current rules no longer have -- the
+## prisoner count is free to change under it -- and the match clamps the same way
+## when it reads it. See [member MatchRules.opening_seat_index].
+func _seat_index(seat: int) -> int:
+	for index: int in _tower_seat_option.item_count:
+		if _tower_seat_option.get_item_id(index) == seat:
+			return index
+	return 0
 
 
 ## Show the caveat only when it is true.
