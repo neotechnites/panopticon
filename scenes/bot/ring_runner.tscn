@@ -1,9 +1,10 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=6 format=3]
 
 [ext_resource type="PackedScene" path="res://scenes/player/player.tscn" id="1_body"]
 [ext_resource type="Script" path="res://scripts/player/bot_intent_source.gd" id="2_bot_input"]
 [ext_resource type="Script" path="res://scripts/bot/ring_runner.gd" id="3_brain"]
 [ext_resource type="Resource" path="res://scenes/bot/default_bot_profile.tres" id="4_bot_profile"]
+[ext_resource type="Material" path="res://scenes/bot/runner_body_material.tres" id="5_runner_material"]
 
 [node name="Player" node_paths=PackedStringArray("intent_source") instance=ExtResource("1_body")]
 editor_description = "A prisoner body driven by AI. Inherits scenes/player/player.tscn on purpose: the bot must run on the same capsule, the same head height and the same MovementProfile a human gets, or bot telemetry stops describing the shipped game."
@@ -14,6 +15,11 @@ current = false
 
 [node name="HumanInput" parent="." index="2"]
 capture_mouse_on_ready = false
+
+[node name="BodyMesh" parent="." index="3"]
+editor_description = "Moved off the owner-hidden visual layer 2 onto visual layer 3, because a runner is never the local viewpoint and must stay visible to every player camera. Material is the one shared runner_body_material.tres, unshaded orange so the capsule reads against the grey ring boxes at range."
+layers = 4
+material_override = ExtResource("5_runner_material")
 
 [node name="BotInput" type="Node" parent="."]
 script = ExtResource("2_bot_input")

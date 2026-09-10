@@ -1,10 +1,14 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=6 format=3]
 
 [ext_resource type="Script" path="res://scripts/player/player_controller.gd" id="1_controller"]
 [ext_resource type="Script" path="res://scripts/player/human_intent_source.gd" id="2_human_input"]
 [ext_resource type="Resource" path="res://scenes/player/default_movement_profile.tres" id="3_profile"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_body"]
+radius = 0.4
+height = 1.8
+
+[sub_resource type="CapsuleMesh" id="CapsuleMesh_body"]
 radius = 0.4
 height = 1.8
 
@@ -23,7 +27,14 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.65, 0)
 
 [node name="Camera" type="Camera3D" parent="Head"]
 current = true
+cull_mask = 1048573
 fov = 100.0
 
 [node name="HumanInput" type="Node" parent="."]
 script = ExtResource("2_human_input")
+
+[node name="BodyMesh" type="MeshInstance3D" parent="."]
+editor_description = "Greybox body. Mesh matches the Collision capsule exactly (radius 0.4, height 1.8, origin y=0.9) so what you see is what you can hit. Sits alone on visual layer 2, which the owner's own Camera clears from its cull_mask: the body renders for every other viewpoint but never from the inside. scenes/bot/ring_runner.tscn moves its copy to visual layer 3 so AI bodies stay visible to players."
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
+layers = 2
+mesh = SubResource("CapsuleMesh_body")
