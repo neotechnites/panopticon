@@ -48,6 +48,16 @@ signal jumped()
 ## arrived with (m/s, positive). Fall damage and landing audio use it.
 signal landed(impact_speed: float)
 
+## Emitted on the tick a slide opens, carrying the horizontal speed the body has
+## [b]after[/b] the entry boost -- the number a slide's dust, camera dip and
+## audio should be scaled by.
+signal slide_started(entry_speed: float)
+
+## Emitted on the tick a slide closes, however it closed: the timer ran out, the
+## speed floor was hit, the key was released, the body left the floor, or the
+## player jumped out of it.
+signal slide_ended()
+
 ## Tunables. Without one the body cannot move and says so rather than falling
 ## back on invented numbers.
 @export var profile: MovementProfile
@@ -81,6 +91,26 @@ var _fall_speed: float = 0.0
 
 var _was_on_floor: bool = true
 
+## True while the slide state owns the movement. See [method _update_slide].
+var _sliding: bool = false
+
+## Seconds the current slide has been open, against
+## [member MovementProfile.slide_max_duration].
+var _slide_timer: float = 0.0
+
+## Dead time left before another slide may open.
+var _slide_cooldown_timer: float = 0.0
+
+## Time left in which a slide press made in the air still counts on landing.
+var _slide_buffer_timer: float = 0.0
+
+## The head's authored local height, captured once so the slide crouch is an
+## offset from the scene's value rather than a number this file invents.
+var _head_base_y: float = 0.0
+
+## Current crouch offset applied to the head, in metres (negative is down).
+var _head_offset: float = 0.0
+
 
 func _ready() -> void:
 	if profile == null:
@@ -91,6 +121,9 @@ func _ready() -> void:
 	floor_max_angle = deg_to_rad(profile.max_floor_angle_degrees)
 	floor_snap_length = profile.floor_snap_length
 	floor_stop_on_slope = true
+
+	if head != null:
+		_head_base_y = head.position.y
 
 	if intent_source != null:
 		intent_source.configure(profile)
@@ -109,13 +142,22 @@ func _physics_process(delta: float) -> void:
 
 	var on_floor: bool = is_on_floor()
 	_tick_jump_timers(on_floor, delta)
+	_tick_slide_timers(delta)
 
 	if on_floor:
 		# Gravity accumulated while falling is spent; keep it and every landing
 		# would drag the body downhill and confuse the floor snap.
 		velocity.y = 0.0
 
+	# Slide OPENS before the jump, and deliberately so: a slide opened on this
+	# tick can be jumped out of on this same tick, which is what makes "slide,
+	# then hop out of it" one motion rather than two. The entry boost is already
+	# in the velocity by the time _try_jump runs, so the hop carries it. A slide
+	# CLOSES after the move instead -- see _update_slide_exit.
+	_try_begin_slide(on_floor)
+
 	if _try_jump(on_floor):
+		_end_slide()
 		# A jump makes the rest of this tick an air tick. This is not a detail:
 		# skipping ground friction on the launch frame is precisely what lets a
 		# bunny hop keep the speed it arrived with. Apply friction first and the
@@ -129,11 +171,17 @@ func _physics_process(delta: float) -> void:
 	var wish_direction: Vector3 = wish_vector.normalized()
 	var wish_speed: float = profile.get_ground_speed(_intent.sprint_held) * wish_vector.length()
 
-	if on_floor:
+	if _sliding:
+		# --- Slide phase ---
+		# The third branch the ground and air cases always had room for. Same
+		# three primitives, different numbers: a fraction of standing friction,
+		# a weak version of ground acceleration for steering, and gravity's pull
+		# along whatever the body is lying on.
+		_apply_friction(profile.slide_friction, delta)
+		_accelerate(wish_direction, wish_speed, profile.slide_acceleration, delta)
+		_apply_slope_assist(delta)
+	elif on_floor:
 		# --- Ground phase ---
-		# A future slide state belongs here, as a third branch alongside ground
-		# and air with its own friction and acceleration numbers from the
-		# profile. Nothing above needs to change to add it. Not implemented.
 		_apply_friction(profile.friction, delta)
 		_accelerate(wish_direction, wish_speed, profile.ground_acceleration, delta)
 	else:
@@ -142,8 +190,10 @@ func _physics_process(delta: float) -> void:
 		_air_accelerate(wish_direction, wish_speed, delta)
 		_apply_gravity(delta)
 
+	_settle_head(delta)
 	move_and_slide()
 	_update_floor_state()
+	_update_slide_exit(delta)
 
 
 ## Supply intent from outside. Use it when [member intent_source] is unset --
@@ -158,6 +208,25 @@ func set_intent(intent: MoveIntent) -> void:
 ## scores against.
 func get_horizontal_speed() -> float:
 	return Vector2(velocity.x, velocity.z).length()
+
+
+## True while the body is in the slide state.
+func is_sliding() -> bool:
+	return _sliding
+
+
+## Seconds the current slide has left before it times out; 0.0 when not sliding.
+## The other two ways a slide can end -- the speed floor and the released key --
+## are not clocks and are not reported here.
+func get_slide_time_remaining() -> float:
+	if not _sliding:
+		return 0.0
+	return maxf(profile.slide_max_duration - _slide_timer, 0.0)
+
+
+## Seconds until another slide may be opened; 0.0 when one may be opened now.
+func get_slide_cooldown_remaining() -> float:
+	return _slide_cooldown_timer
 
 
 # --- Look ---------------------------------------------------------------------
@@ -226,6 +295,165 @@ func _try_jump(on_floor: bool) -> bool:
 	_jump_buffer_timer = 0.0
 	jumped.emit()
 	return true
+
+
+# --- Sliding ------------------------------------------------------------------
+#
+# The slide is the game's third movement state and its only deliberate source of
+# free speed. Everything about it is a number in [MovementProfile]; the rules it
+# obeys are:
+#
+#   ENTER  on the floor, above slide_min_entry_speed, off cooldown, with a
+#          slide press inside the buffer window.
+#   REWARD one boost along the current heading, up to slide_boost_speed_cap and
+#          never downwards -- a body already faster than the cap keeps its speed
+#          and is simply not paid again.
+#   HOLD   slide_friction instead of friction, weak ground acceleration for
+#          steering, and gravity's tangential pull on a slope.
+#   END    on the timer, on the speed floor, on releasing the key, on leaving
+#          the floor, or on jumping out of it -- and then a cooldown.
+#
+# The state deliberately owns no velocity clamp of its own. A slide never takes
+# speed away except through friction, which is what lets it be the way a player
+# carries air-strafe speed through a landing rather than a thing that resets it.
+
+func _tick_slide_timers(delta: float) -> void:
+	if _intent.slide_pressed:
+		_slide_buffer_timer = profile.slide_buffer_time
+	else:
+		_slide_buffer_timer = maxf(_slide_buffer_timer - delta, 0.0)
+	_slide_cooldown_timer = maxf(_slide_cooldown_timer - delta, 0.0)
+
+
+## Open a slide if this tick may open one. Runs before the jump and before any
+## acceleration is applied.
+func _try_begin_slide(on_floor: bool) -> void:
+	if _sliding:
+		return
+	if not on_floor or _slide_cooldown_timer > 0.0 or _slide_buffer_timer <= 0.0:
+		return
+	if get_horizontal_speed() < profile.slide_min_entry_speed:
+		return
+	_begin_slide()
+
+
+## Close the slide if this tick was its last. Runs [b]after[/b] the move.
+##
+## Closing after the move rather than before it is the whole reason the slide's
+## outcome does not depend on the physics tick rate. Test the conditions first
+## and the tick that finds one true is a tick the body spends under standing
+## friction, not slide friction -- a single tick that costs
+## [code]friction * delta[/code] of speed, which is 10% at 60 Hz and 20% at
+## 30 Hz. The same slide then ends 12% faster on a slower machine. Closing here
+## means a slide is always a whole number of slide-friction ticks and the tick
+## after it is an ordinary ground tick.
+##
+## It also reads a fresher [method CharacterBody3D.is_on_floor] than the value
+## the top of the tick had, which is what catches a slide off the end of a
+## ledge on the tick it actually leaves.
+func _update_slide_exit(delta: float) -> void:
+	if not _sliding:
+		return
+	_slide_timer += delta
+
+	if not is_on_floor():
+		# Slid off an edge. Ending it here rather than letting it run in the air
+		# is what stops a slide from being a flight mode with no gravity branch.
+		_end_slide()
+	elif profile.slide_requires_hold and not _intent.slide_held:
+		_end_slide()
+	elif _slide_timer + delta * 0.5 >= profile.slide_max_duration:
+		# Half a tick of slack, so the deadline rounds to the nearest tick
+		# instead of always overshooting it. Without it a duration that is not a
+		# whole multiple of the tick length buys an extra tick at one rate and
+		# not at another, and the two rates part company by that tick's friction.
+		_end_slide()
+	elif get_horizontal_speed() < profile.slide_exit_speed:
+		_end_slide()
+
+
+func _begin_slide() -> void:
+	_sliding = true
+	_slide_timer = 0.0
+	# Spent, so a single press cannot open a second slide the moment this one's
+	# cooldown expires.
+	_slide_buffer_timer = 0.0
+	_apply_slide_boost()
+	slide_started.emit(get_horizontal_speed())
+
+
+## Scale horizontal velocity up by [member MovementProfile.slide_entry_boost],
+## but never past [member MovementProfile.slide_boost_speed_cap] and never
+## downwards.
+##
+## The direction is untouched: a slide is a commitment to the heading you
+## entered on, and rotating the velocity here would make it a free turn as well
+## as free speed.
+func _apply_slide_boost() -> void:
+	var speed: float = get_horizontal_speed()
+	if speed <= 0.0:
+		return
+	# maxf against the current speed is what makes the cap a ceiling on the
+	# reward rather than a cap on the body: arrive at 20 m/s off an air strafe
+	# and you keep all 20.
+	var ceiling: float = maxf(speed, profile.slide_boost_speed_cap)
+	var boosted: float = minf(speed + profile.slide_entry_boost, ceiling)
+	var scale: float = boosted / speed
+	velocity.x *= scale
+	velocity.z *= scale
+
+
+func _end_slide() -> void:
+	if not _sliding:
+		return
+	_sliding = false
+	_slide_timer = 0.0
+	_slide_cooldown_timer = profile.slide_cooldown
+	slide_ended.emit()
+
+
+## Gravity's pull along the floor, applied only while sliding.
+##
+## The floor normal's horizontal part points downhill and has length sin(theta);
+## multiplying by the normal's own y component (cos(theta)) gives the horizontal
+## component of a frictionless body's acceleration on that slope. So with
+## [member MovementProfile.slide_slope_acceleration] set equal to
+## [member MovementProfile.gravity], a slide down a ramp accelerates exactly as
+## a body on a frictionless plane would, minus slide friction.
+##
+## It is signed, not one-way: sliding uphill is slowed by the same term.
+func _apply_slope_assist(delta: float) -> void:
+	if profile.slide_slope_acceleration <= 0.0 or not is_on_floor():
+		return
+	var normal: Vector3 = get_floor_normal()
+	var downhill: Vector3 = Vector3(normal.x, 0.0, normal.z)
+	if downhill.length_squared() <= 0.0:
+		return
+	velocity += downhill * (profile.slide_slope_acceleration * normal.y * delta)
+
+
+## Move the head towards or away from the slide crouch.
+##
+## [b]Cosmetic only.[/b] The collision capsule is not resized, so a slide never
+## shrinks the target a shooter is aiming at, and there is no "cannot stand up
+## under this ceiling" case to solve. That is a balance decision as much as a
+## simplicity one: a slide already buys speed, and buying a smaller hitbox with
+## the same key would make the runner harder to hit at the exact moment they are
+## hardest to lead.
+##
+## The approach is exponential rather than a linear lerp so the settle takes the
+## same wall-clock time at any physics tick rate.
+func _settle_head(delta: float) -> void:
+	if head == null:
+		return
+	var target: float = -profile.slide_camera_drop if _sliding else 0.0
+	if profile.slide_camera_settle_rate <= 0.0:
+		_head_offset = target
+	else:
+		_head_offset = lerpf(
+			_head_offset, target, 1.0 - exp(-profile.slide_camera_settle_rate * delta)
+		)
+	head.position.y = _head_base_y + _head_offset
 
 
 # --- Quake movement primitives ------------------------------------------------

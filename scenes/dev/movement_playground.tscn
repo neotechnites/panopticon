@@ -1,0 +1,504 @@
+[gd_scene load_steps=8 format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/player/player.tscn" id="1_player"]
+[ext_resource type="Script" path="res://scripts/player/movement_readout.gd" id="2_readout"]
+
+[sub_resource type="StandardMaterial3D" id="MatGround"]
+albedo_color = Color(0.34, 0.35, 0.37, 1.0)
+roughness = 0.95
+
+[sub_resource type="StandardMaterial3D" id="MatBlock"]
+albedo_color = Color(0.56, 0.55, 0.52, 1.0)
+roughness = 0.95
+
+[sub_resource type="StandardMaterial3D" id="MatRamp"]
+albedo_color = Color(0.46, 0.40, 0.30, 1.0)
+roughness = 0.95
+
+[sub_resource type="StandardMaterial3D" id="MatMark"]
+albedo_color = Color(0.22, 0.55, 0.30, 1.0)
+roughness = 0.85
+
+[sub_resource type="ProceduralSkyMaterial" id="SkyMat"]
+sky_top_color = Color(0.28, 0.34, 0.42, 1.0)
+sky_horizon_color = Color(0.58, 0.6, 0.62, 1.0)
+ground_bottom_color = Color(0.16, 0.16, 0.17, 1.0)
+ground_horizon_color = Color(0.4, 0.4, 0.42, 1.0)
+
+[sub_resource type="Sky" id="Sky"]
+sky_material = SubResource("SkyMat")
+
+[sub_resource type="Environment" id="Env"]
+background_mode = 2
+sky = SubResource("Sky")
+ambient_light_source = 3
+ambient_light_energy = 0.6
+tonemap_mode = 2
+
+[node name="MovementPlayground" type="Node3D"]
+editor_description = "Dev scene. Not part of any match: a flat plain, a marked 160 m straight, a jumpable staircase, a gap gauntlet with the gaps labelled in metres, two ramps, and a MovementReadout showing live and peak horizontal speed. Everything is greybox and every dimension is derived from scenes/player/default_movement_profile.tres -- jump apex 1.11 m and air time 0.636 s -- so what the geometry asks for is exactly what the profile can pay."
+
+[node name="Environment" type="Node3D" parent="."]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="Environment"]
+environment = SubResource("Env")
+
+[node name="Sun" type="DirectionalLight3D" parent="Environment"]
+transform = Transform3D(0.819152, -0.469846, 0.330366, 0.0, 0.573576, 0.819152, -0.573576, -0.67101, 0.469846, 0.0, 60.0, 0.0)
+light_energy = 1.0
+shadow_enabled = true
+directional_shadow_max_distance = 200.0
+
+[node name="Ground" type="CSGBox3D" parent="."]
+editor_description = "400 m square. Deliberately far larger than anything on it: a body chaining hops leaves the useful area in a few seconds, and running out of floor mid-measurement reads as a movement bug."
+use_collision = true
+size = Vector3(400.0, 2.0, 400.0)
+material = SubResource("MatGround")
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, -0, 1, 0, -1, 0)
+
+[node name="Straight" type="Node3D" parent="."]
+editor_description = "160 m of clear ground running -Z from spawn, which is the direction the player faces on load. Cross-stripes every 20 m and posts every 10 m: the posts are what give speed a texture -- a number alone does not tell you whether 22 m/s looks fast."
+
+[node name="Mark020m" type="CSGBox3D" parent="Straight"]
+use_collision = false
+size = Vector3(14.0, 0.06, 0.5)
+material = SubResource("MatMark")
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, -0, 1, 0, 0.03, -20)
+
+[node name="Label020m" type="Label3D" parent="Straight"]
+text = "20 m"
+font_size = 64
+pixel_size = 0.02
+billboard = 1
+outline_size = 16
+modulate = Color(0.86, 0.9, 0.86, 1.0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, -0, 1, 9, 2.2, -20)
+
+[node name="Mark040m" type="CSGBox3D" parent="Straight"]
+use_collision = false
+size = Vector3(14.0, 0.06, 0.5)
+material = SubResource("MatMark")
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, -0, 1, 0, 0.03, -40)
+
+[node name="Label040m" type="Label3D" parent="Straight"]
+text = "40 m"
+font_size = 64
+pixel_size = 0.02
+billboard = 1
+outline_size = 16
+modulate = Color(0.86, 0.9, 0.86, 1.0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, -0, 1, 9, 2.2, -40)
+
+[node name="Mark060m" type="CSGBox3D" parent="Straight"]
+use_collision = false
+size = Vector3(14.0, 0.06, 0.5)
+material = SubResource("MatMark")
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, -0, 1, 0, 0.03, -60)
+
+[node name="Label060m" type="Label3D" parent="Straight"]
+text = "60 m"
+font_size = 64
+pixel_size = 0.02
+billboard = 1
+outline_size = 16
+modulate = Color(0.86, 0.9, 0.86, 1.0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, -0, 1, 9, 2.2, -60)
+
+[node name="Mark080m" type="CSGBox3D" parent="Straight"]
+use_collision = false
+size = Vector3(14.0, 0.06, 0.5)
+material = SubResource("MatMark")
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, -0, 1, 0, 0.03, -80)
+
+[node name="Label080m" type="Label3D" parent="Straight"]
+text = "80 m"
+font_size = 64
+pixel_size = 0.02
+billboard = 1
+outline_size = 16
+modulate = Color(0.86, 0.9, 0.86, 1.0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, -0, 1, 9, 2.2, -80)
+
+[node name="Mark100m" type="CSGBox3D" parent="Straight"]
+use_collision = false
+size = Vector3(14.0, 0.06, 0.5)
+material = SubResource("MatMark")
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, -0, 1, 0, 0.03, -100)
+
+[node name="Label100m" type="Label3D" parent="Straight"]
+text = "100 m"
+font_size = 64
+pixel_size = 0.02
+billboard = 1
+outline_size = 16
+modulate = Color(0.86, 0.9, 0.86, 1.0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, -0, 1, 9, 2.2, -100)
+
+[node name="Mark120m" type="CSGBox3D" parent="Straight"]
+use_collision = false
+size = Vector3(14.0, 0.06, 0.5)
+material = SubResource("MatMark")
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, -0, 1, 0, 0.03, -120)
+
+[node name="Label120m" type="Label3D" parent="Straight"]
+text = "120 m"
+font_size = 64
+pixel_size = 0.02
+billboard = 1
+outline_size = 16
+modulate = Color(0.86, 0.9, 0.86, 1.0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, -0, 1, 9, 2.2, -120)
+
+[node name="Mark140m" type="CSGBox3D" parent="Straight"]
+use_collision = false
+size = Vector3(14.0, 0.06, 0.5)
+material = SubResource("MatMark")
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, -0, 1, 0, 0.03, -140)
+
+[node name="Label140m" type="Label3D" parent="Straight"]
+text = "140 m"
+font_size = 64
+pixel_size = 0.02
+billboard = 1
+outline_size = 16
+modulate = Color(0.86, 0.9, 0.86, 1.0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, -0, 1, 9, 2.2, -140)
+
+[node name="Mark160m" type="CSGBox3D" parent="Straight"]
+use_collision = false
+size = Vector3(14.0, 0.06, 0.5)
+material = SubResource("MatMark")
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, -0, 1, 0, 0.03, -160)
+
+[node name="Label160m" type="Label3D" parent="Straight"]
+text = "160 m"
+font_size = 64
+pixel_size = 0.02
+billboard = 1
+outline_size = 16
+modulate = Color(0.86, 0.9, 0.86, 1.0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, -0, 1, 9, 2.2, -160)
+
+[node name="Post010m" type="CSGBox3D" parent="Straight"]
+use_collision = false
+size = Vector3(0.35, 3.0, 0.35)
+material = SubResource("MatBlock")
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, -0, 1, -8, 1.5, -10)
+
+[node name="Post020m" type="CSGBox3D" parent="Straight"]
+use_collision = false
+size = Vector3(0.35, 3.0, 0.35)
+material = SubResource("MatBlock")
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, -0, 1, -8, 1.5, -20)
+
+[node name="Post030m" type="CSGBox3D" parent="Straight"]
+use_collision = false
+size = Vector3(0.35, 3.0, 0.35)
+material = SubResource("MatBlock")
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, -0, 1, -8, 1.5, -30)
+
+[node name="Post040m" type="CSGBox3D" parent="Straight"]
+use_collision = false
+size = Vector3(0.35, 3.0, 0.35)
+material = SubResource("MatBlock")
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, -0, 1, -8, 1.5, -40)
+
+[node name="Post050m" type="CSGBox3D" parent="Straight"]
+use_collision = false
+size = Vector3(0.35, 3.0, 0.35)
+material = SubResource("MatBlock")
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, -0, 1, -8, 1.5, -50)
+
+[node name="Post060m" type="CSGBox3D" parent="Straight"]
+use_collision = false
+size = Vector3(0.35, 3.0, 0.35)
+material = SubResource("MatBlock")
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, -0, 1, -8, 1.5, -60)
+
+[node name="Post070m" type="CSGBox3D" parent="Straight"]
+use_collision = false
+size = Vector3(0.35, 3.0, 0.35)
+material = SubResource("MatBlock")
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, -0, 1, -8, 1.5, -70)
+
+[node name="Post080m" type="CSGBox3D" parent="Straight"]
+use_collision = false
+size = Vector3(0.35, 3.0, 0.35)
+material = SubResource("MatBlock")
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, -0, 1, -8, 1.5, -80)
+
+[node name="Post090m" type="CSGBox3D" parent="Straight"]
+use_collision = false
+size = Vector3(0.35, 3.0, 0.35)
+material = SubResource("MatBlock")
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, -0, 1, -8, 1.5, -90)
+
+[node name="Post100m" type="CSGBox3D" parent="Straight"]
+use_collision = false
+size = Vector3(0.35, 3.0, 0.35)
+material = SubResource("MatBlock")
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, -0, 1, -8, 1.5, -100)
+
+[node name="Post110m" type="CSGBox3D" parent="Straight"]
+use_collision = false
+size = Vector3(0.35, 3.0, 0.35)
+material = SubResource("MatBlock")
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, -0, 1, -8, 1.5, -110)
+
+[node name="Post120m" type="CSGBox3D" parent="Straight"]
+use_collision = false
+size = Vector3(0.35, 3.0, 0.35)
+material = SubResource("MatBlock")
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, -0, 1, -8, 1.5, -120)
+
+[node name="Post130m" type="CSGBox3D" parent="Straight"]
+use_collision = false
+size = Vector3(0.35, 3.0, 0.35)
+material = SubResource("MatBlock")
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, -0, 1, -8, 1.5, -130)
+
+[node name="Post140m" type="CSGBox3D" parent="Straight"]
+use_collision = false
+size = Vector3(0.35, 3.0, 0.35)
+material = SubResource("MatBlock")
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, -0, 1, -8, 1.5, -140)
+
+[node name="Post150m" type="CSGBox3D" parent="Straight"]
+use_collision = false
+size = Vector3(0.35, 3.0, 0.35)
+material = SubResource("MatBlock")
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, -0, 1, -8, 1.5, -150)
+
+[node name="Post160m" type="CSGBox3D" parent="Straight"]
+use_collision = false
+size = Vector3(0.35, 3.0, 0.35)
+material = SubResource("MatBlock")
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, -0, 1, -8, 1.5, -160)
+
+[node name="Staircase" type="Node3D" parent="."]
+editor_description = "Five 6 m platforms, each 0.9 m above the last. The step is 0.9 and not 1.2 because the profile's jump apex is 1.11 m: 0.9 is a step every player can make from a standstill, and the top of the stair is 4.1 m, which nothing but the stair reaches."
+
+[node name="Step1_0.5m" type="CSGBox3D" parent="Staircase"]
+use_collision = true
+size = Vector3(6.0, 0.50, 6.0)
+material = SubResource("MatBlock")
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, -0, 1, 20, 0.25, -10)
+
+[node name="Step2_1.4m" type="CSGBox3D" parent="Staircase"]
+use_collision = true
+size = Vector3(6.0, 1.40, 6.0)
+material = SubResource("MatBlock")
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, -0, 1, 20, 0.7, -18)
+
+[node name="Step3_2.3m" type="CSGBox3D" parent="Staircase"]
+use_collision = true
+size = Vector3(6.0, 2.30, 6.0)
+material = SubResource("MatBlock")
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, -0, 1, 20, 1.15, -26)
+
+[node name="Step4_3.2m" type="CSGBox3D" parent="Staircase"]
+use_collision = true
+size = Vector3(6.0, 3.20, 6.0)
+material = SubResource("MatBlock")
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, -0, 1, 20, 1.6, -34)
+
+[node name="Step5_4.1m" type="CSGBox3D" parent="Staircase"]
+use_collision = true
+size = Vector3(6.0, 4.10, 6.0)
+material = SubResource("MatBlock")
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, -0, 1, 20, 2.05, -42)
+
+[node name="GapGauntlet" type="Node3D" parent="."]
+editor_description = "Six 5 m pads at a constant 1 m, with the gaps between them widening 6, 8, 10, 12, 14 m. Air time off level ground is 0.636 s at the shipped profile, so each gap is a speed gate: 6 m needs 9.4 m/s, 8 m needs 12.6, 10 m needs 15.7, 12 m needs 18.9 and 14 m needs 22.0. Clearing one tells the player what they are doing in units they can feel, which no readout can."
+
+[node name="Pad1" type="CSGBox3D" parent="GapGauntlet"]
+use_collision = true
+size = Vector3(5.0, 1.0, 5.0)
+material = SubResource("MatBlock")
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, -0, 1, 46, 0.5, -10)
+
+[node name="Pad2" type="CSGBox3D" parent="GapGauntlet"]
+use_collision = true
+size = Vector3(5.0, 1.0, 5.0)
+material = SubResource("MatBlock")
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, -0, 1, 46, 0.5, -21)
+
+[node name="Pad3" type="CSGBox3D" parent="GapGauntlet"]
+use_collision = true
+size = Vector3(5.0, 1.0, 5.0)
+material = SubResource("MatBlock")
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, -0, 1, 46, 0.5, -34)
+
+[node name="Pad4" type="CSGBox3D" parent="GapGauntlet"]
+use_collision = true
+size = Vector3(5.0, 1.0, 5.0)
+material = SubResource("MatBlock")
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, -0, 1, 46, 0.5, -49)
+
+[node name="Pad5" type="CSGBox3D" parent="GapGauntlet"]
+use_collision = true
+size = Vector3(5.0, 1.0, 5.0)
+material = SubResource("MatBlock")
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, -0, 1, 46, 0.5, -66)
+
+[node name="Pad6" type="CSGBox3D" parent="GapGauntlet"]
+use_collision = true
+size = Vector3(5.0, 1.0, 5.0)
+material = SubResource("MatBlock")
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, -0, 1, 46, 0.5, -85)
+
+[node name="Gap6m" type="Label3D" parent="GapGauntlet"]
+text = "6 m\n9.4 m/s"
+font_size = 56
+pixel_size = 0.02
+billboard = 1
+outline_size = 16
+modulate = Color(0.95, 0.82, 0.55, 1.0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, -0, 1, 51.5, 2.6, -15.5)
+
+[node name="Gap8m" type="Label3D" parent="GapGauntlet"]
+text = "8 m\n12.6 m/s"
+font_size = 56
+pixel_size = 0.02
+billboard = 1
+outline_size = 16
+modulate = Color(0.95, 0.82, 0.55, 1.0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, -0, 1, 51.5, 2.6, -27.5)
+
+[node name="Gap10m" type="Label3D" parent="GapGauntlet"]
+text = "10 m\n15.7 m/s"
+font_size = 56
+pixel_size = 0.02
+billboard = 1
+outline_size = 16
+modulate = Color(0.95, 0.82, 0.55, 1.0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, -0, 1, 51.5, 2.6, -41.5)
+
+[node name="Gap12m" type="Label3D" parent="GapGauntlet"]
+text = "12 m\n18.9 m/s"
+font_size = 56
+pixel_size = 0.02
+billboard = 1
+outline_size = 16
+modulate = Color(0.95, 0.82, 0.55, 1.0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, -0, 1, 51.5, 2.6, -57.5)
+
+[node name="Gap14m" type="Label3D" parent="GapGauntlet"]
+text = "14 m\n22.0 m/s"
+font_size = 56
+pixel_size = 0.02
+billboard = 1
+outline_size = 16
+modulate = Color(0.95, 0.82, 0.55, 1.0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, -0, 1, 51.5, 2.6, -75.5)
+
+[node name="Ramps" type="Node3D" parent="."]
+editor_description = "Two slopes, both under the 46 deg walk limit so they are floor and not wall. Sliding down one is where MovementProfile.slide_slope_acceleration is felt: set equal to gravity, a slide down the 30 deg ramp accelerates like a body on a frictionless plane. Each low end is sunk 5 cm so the join with the ground is a step down, never a lip to catch on."
+
+[node name="RampGentle15" type="CSGBox3D" parent="Ramps"]
+editor_description = "15 deg, 36 m of run, rising 9.65 m towards -Z."
+use_collision = true
+size = Vector3(16.00, 1.0, 37.270)
+material = SubResource("MatRamp")
+transform = Transform3D(1, 0, 0, 0, 0.965926, 0.258819, 0, -0.258819, 0.965926, -32, 4.25545, -24)
+
+[node name="RampSteep30" type="CSGBox3D" parent="Ramps"]
+editor_description = "30 deg, 22 m of run, rising 12.70 m towards -Z."
+use_collision = true
+size = Vector3(14.00, 1.0, 25.403)
+material = SubResource("MatRamp")
+transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, -58, 5.7235, -17)
+
+[node name="Player" parent="." instance=ExtResource("1_player")]
+editor_description = "The shipped body and the shipped MovementProfile, unmodified. The point of the scene is to judge what the game actually does, so anything retuned here would be a lie."
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, -0, 1, 0, 0.2, 0)
+
+[node name="HUD" type="CanvasLayer" parent="."]
+
+[node name="Root" type="Control" parent="HUD" node_paths=PackedStringArray("body", "speed_label", "peak_label", "state_label", "detail_label", "rail", "rail_fill", "rail_peak")]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("2_readout")
+body = NodePath("../../Player")
+speed_label = NodePath("Panel/Speed")
+peak_label = NodePath("Panel/Peak")
+state_label = NodePath("Panel/State")
+detail_label = NodePath("Panel/Detail")
+rail = NodePath("Panel/Rail")
+rail_fill = NodePath("Panel/Rail/Fill")
+rail_peak = NodePath("Panel/Rail/Peak")
+
+[node name="Panel" type="ColorRect" parent="HUD/Root"]
+editor_description = "Backing plate. Dark and translucent so the readout stays legible over the sky, the ground and a white marker post alike."
+mouse_filter = 2
+color = Color(0.04, 0.05, 0.06, 0.55)
+offset_left = 16.0
+offset_top = 16.0
+offset_right = 736.0
+offset_bottom = 312.0
+
+[node name="Speed" type="Label" parent="HUD/Root/Panel"]
+mouse_filter = 2
+offset_left = 20.0
+offset_top = 10.0
+offset_right = 420.0
+offset_bottom = 100.0
+theme_override_font_sizes/font_size = 64
+theme_override_colors/font_color = Color(0.96, 0.97, 1.0, 1.0)
+text = "0.00 m/s"
+
+[node name="Peak" type="Label" parent="HUD/Root/Panel"]
+mouse_filter = 2
+offset_left = 430.0
+offset_top = 44.0
+offset_right = 700.0
+offset_bottom = 84.0
+horizontal_alignment = 2
+theme_override_font_sizes/font_size = 30
+theme_override_colors/font_color = Color(0.95, 0.72, 0.4, 1.0)
+text = "peak 0.00"
+
+[node name="State" type="Label" parent="HUD/Root/Panel"]
+mouse_filter = 2
+offset_left = 20.0
+offset_top = 104.0
+offset_right = 700.0
+offset_bottom = 134.0
+theme_override_font_sizes/font_size = 22
+theme_override_colors/font_color = Color(0.78, 0.86, 0.95, 1.0)
+text = "GROUND"
+
+[node name="Rail" type="ColorRect" parent="HUD/Root/Panel"]
+editor_description = "640 px wide, and MovementReadout.rail_full_speed metres per second across. The threshold ticks under it are built at runtime from the body's own MovementProfile, so the scale can never drift out of step with the numbers being judged."
+mouse_filter = 2
+color = Color(1.0, 1.0, 1.0, 0.12)
+offset_left = 20.0
+offset_top = 148.0
+offset_right = 660.0
+offset_bottom = 172.0
+
+[node name="Fill" type="ColorRect" parent="HUD/Root/Panel/Rail"]
+mouse_filter = 2
+offset_right = 0.0
+offset_bottom = 24.0
+
+[node name="Peak" type="ColorRect" parent="HUD/Root/Panel/Rail"]
+mouse_filter = 2
+color = Color(0.95, 0.72, 0.4, 1.0)
+offset_right = 4.0
+offset_bottom = 36.0
+
+[node name="Detail" type="Label" parent="HUD/Root/Panel"]
+mouse_filter = 2
+offset_left = 20.0
+offset_top = 208.0
+offset_right = 710.0
+offset_bottom = 300.0
+theme_override_font_sizes/font_size = 17
+theme_override_colors/font_color = Color(0.72, 0.76, 0.82, 1.0)
+vertical_alignment = 0
+

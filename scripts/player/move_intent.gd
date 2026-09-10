@@ -27,6 +27,14 @@ var jump_held: bool = false
 ## True while the body wants to sprint.
 var sprint_held: bool = false
 
+## True on the tick slide was first requested. Edge-triggered; feeds the slide
+## buffer, so a press made just before touchdown still opens a slide on landing.
+var slide_pressed: bool = false
+
+## True for as long as slide is held. A slide ends early when this goes false,
+## unless [member MovementProfile.slide_requires_hold] is off.
+var slide_held: bool = false
+
 
 ## Zero every field. Call before refilling, so a source can never leak a stale
 ## edge into the next tick.
@@ -36,6 +44,8 @@ func clear() -> void:
 	jump_pressed = false
 	jump_held = false
 	sprint_held = false
+	slide_pressed = false
+	slide_held = false
 
 
 ## Clamp [member move_direction] to the unit disc.
@@ -51,3 +61,5 @@ func copy_from(other: MoveIntent) -> void:
 	jump_pressed = other.jump_pressed
 	jump_held = other.jump_held
 	sprint_held = other.sprint_held
+	slide_pressed = other.slide_pressed
+	slide_held = other.slide_held

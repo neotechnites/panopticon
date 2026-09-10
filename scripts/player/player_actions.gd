@@ -17,6 +17,10 @@ const MOVE_RIGHT: StringName = &"move_right"
 const JUMP: StringName = &"jump"
 const SPRINT: StringName = &"sprint"
 
+## Crouch/slide. Held, not tapped: releasing it ends a slide early, which is the
+## only way a player has to leave one on their own terms.
+const SLIDE: StringName = &"slide"
+
 ## Matches Godot's default action deadzone.
 const DEADZONE: float = 0.2
 
@@ -30,6 +34,7 @@ static func ensure_registered() -> void:
 	_ensure(MOVE_RIGHT, [KEY_D, KEY_RIGHT])
 	_ensure(JUMP, [KEY_SPACE])
 	_ensure(SPRINT, [KEY_SHIFT])
+	_ensure(SLIDE, [KEY_CTRL, KEY_C])
 
 
 static func _ensure(action: StringName, physical_keycodes: Array[int]) -> void:
