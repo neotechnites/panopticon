@@ -5,15 +5,13 @@
 [resource]
 script = ExtResource("1_eye_profile")
 size_scale = 1.0
-shell_color = Color(0.17, 0.17, 0.19, 1)
-shell_roughness = 0.85
-iris_color = Color(0.07, 0.1, 0.14, 1)
-iris_metallic = 0.95
-iris_roughness = 0.16
-iris_glow = Color(0.55, 0.72, 0.85, 1)
-iris_glow_energy = 0.55
+iris_color = Color(0.36, 0.04, 0.04, 1)
+iris_metallic = 0.1
+iris_roughness = 0.4
+iris_glow = Color(1.0, 0.11, 0.07, 1)
+iris_glow_energy = 1.0
 pupil_color = Color(0.02, 0.02, 0.025, 1)
-pupil_metallic = 1.0
-pupil_roughness = 0.05
+pupil_metallic = 0.0
+pupil_roughness = 0.35
 pulse_hz = 0.09
 pulse_depth = 0.28

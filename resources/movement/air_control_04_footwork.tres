@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="AirControlPreset" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/player/air_control_preset.gd" id="1_preset"]
+[ext_resource type="Resource" path="res://scenes/player/default_movement_profile.tres" id="2_base"]
+
+[resource]
+script = ExtResource("1_preset")
+base = ExtResource("2_base")
+display_name = "Footwork"
+feel = "Nothing about flight changes at all: holding jump simply stops re-launching you, so a hop lands, your feet get a grip for a moment, and the turn happens on the floor where it always could -- tap the key and the full Quake hop chain is still there, untouched."
+max_air_speed = 0.8
+air_acceleration = 12.0
+air_friction = 0.0
+auto_bunny_hop = false

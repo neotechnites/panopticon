@@ -1,7 +1,7 @@
 class_name SettingsScreen
 extends Control
 
-## Every setting the player can change, on four tabs.
+## Every setting the player can change, on five tabs.
 ##
 ## The layout lives in [code]scenes/ui/settings_screen.tscn[/code] and this file
 ## drives data into it. It used to build the whole screen in code, on the theory
@@ -31,6 +31,8 @@ signal closed()
 signal capture_state_changed(capturing: bool)
 
 @onready var _keybind_panel: KeybindPanel = %KeybindPanel
+
+@onready var _ghosts_check: CheckBox = %GhostsCheck
 
 @onready var _sensitivity_slider: HSlider = %SensitivitySlider
 @onready var _sensitivity_value: Label = %SensitivityValue
@@ -85,6 +87,7 @@ func refresh() -> void:
 	_syncing = true
 
 	var settings: GameSettings = _store.settings
+	_ghosts_check.button_pressed = settings.ghosts_enabled
 	_sensitivity_slider.value = settings.mouse_sensitivity
 	_invert_check.button_pressed = settings.invert_look_y
 	_fov_slider.value = settings.field_of_view
@@ -143,6 +146,7 @@ func _fill_choices() -> void:
 
 
 func _connect_controls() -> void:
+	_ghosts_check.toggled.connect(_on_ghosts_toggled)
 	_sensitivity_slider.value_changed.connect(_on_sensitivity_changed)
 	_invert_check.toggled.connect(_on_invert_toggled)
 	_fov_slider.value_changed.connect(_on_fov_changed)
@@ -159,6 +163,18 @@ func _connect_controls() -> void:
 
 
 # --- Handlers -----------------------------------------------------------------
+
+## Ghosts are a rule of the round, so unlike every other control on this screen
+## the value does not reach anything until a match is started: SettingsBoot in
+## scenes/match/match.tscn writes it into the MatchRules on the way in. Applying
+## it here anyway costs nothing and keeps this handler the same shape as the
+## rest -- and the store is what the match will read either way.
+func _on_ghosts_toggled(pressed: bool) -> void:
+	if _syncing:
+		return
+	_store.settings.ghosts_enabled = pressed
+	_after_change()
+
 
 func _on_sensitivity_changed(value: float) -> void:
 	if _syncing:

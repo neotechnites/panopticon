@@ -1,4 +1,4 @@
-[gd_scene load_steps=12 format=3]
+[gd_scene load_steps=13 format=3]
 
 [ext_resource type="PackedScene" path="res://scenes/ring/test_ring.tscn" id="1_arena"]
 [ext_resource type="PackedScene" path="res://scenes/player/player.tscn" id="2_player"]
@@ -11,9 +11,15 @@
 [ext_resource type="Resource" path="res://scenes/player/default_movement_profile.tres" id="9_movement_profile"]
 [ext_resource type="PackedScene" path="res://scenes/fx/feedback_rig.tscn" id="10_feedback_rig"]
 [ext_resource type="PackedScene" path="res://scenes/audio/game_audio.tscn" id="11_game_audio"]
+[ext_resource type="Script" path="res://scripts/ui/settings_boot.gd" id="12_settings_boot"]
 
 [node name="Match" type="Node3D"]
 editor_description = "A whole match. Arena, one human body, three AI bodies, one rifle, and MatchController enforcing the match described by resources/rules/default_match_rules.tres: an opening race with no shooter, then rounds, with the tower passing to whoever reaches the end and the match going to whoever holds it through a round. Nothing under scenes/player, scenes/weapon, scenes/bot or scenes/ring is modified here -- they are composed."
+
+[node name="SettingsBoot" type="Node" parent="."]
+editor_description = "Applies the player's saved settings to this match before anything reads them. Every _enter_tree in a scene runs before any _ready, so this writes the rules while MatchController is still waiting to arm its first round. match_rules is the SAME resources/rules/default_match_rules.tres instance MatchController exports -- Godot returns one cached object per resource path -- so the ghost toggle on the settings screen lands on the rules this match is actually played under; point it at a second copy and the toggle saves and does nothing. movement_profile and camera are deliberately unset: PauseMenu in this scene already carries both, and two nodes writing the same two fields is one more place for them to disagree."
+script = ExtResource("12_settings_boot")
+match_rules = ExtResource("7_rules")
 
 [node name="Arena" parent="." instance=ExtResource("1_arena")]
 

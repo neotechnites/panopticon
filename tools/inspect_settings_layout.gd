@@ -40,8 +40,10 @@ const DEFAULT_SIZES: Array[Vector2i] = [
 	Vector2i(1920, 1080),
 ]
 
-## Index of the Controls tab in the authored [TabContainer].
-const CONTROLS_TAB: int = 3
+## Index of the Controls tab in the authored [TabContainer]. Fourth of five:
+## Match, Game, Audio, Video, Controls, in the order they are authored in
+## scenes/ui/settings_screen.tscn.
+const CONTROLS_TAB: int = 4
 
 ## Cells per keybind row: name, slot 1, slot 2, reset.
 const COLUMNS: int = 4
