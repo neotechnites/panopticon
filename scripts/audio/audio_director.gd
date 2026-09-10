@@ -194,11 +194,15 @@ func _exit_tree() -> void:
 		_instance = null
 
 
-## Reclaims spent voices. Runs only while enabled and only while something is
-## sounding, so an idle or disabled director costs one boolean per frame.
+## Reclaims spent voices, and switches itself off once nothing is sounding.
+##
+## The pool is kept across the silence -- reallocating a handful of player nodes
+## every time the ring goes quiet would be churn for nothing -- but the per-frame
+## tick is not: a director that has played one sound and gone quiet costs the
+## same as one that has never played anything. [method _play] turns it back on.
 func _process(_delta: float) -> void:
 	_reclaim()
-	if _voices.is_empty():
+	if get_active_voice_count() == 0:
 		set_process(false)
 
 

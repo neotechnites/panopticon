@@ -66,13 +66,20 @@ var _rifle: Rifle = null
 var _controller: MatchController = null
 
 
-func _ready() -> void:
-	# Deferred because MatchController builds participants and MatchHUD wires
-	# itself in their own _ready, and a listener that resolves during the same
-	# pass can see a half-assembled scene. One frame late costs nothing: the
-	# earliest sound in a match is match_started, which cannot be emitted before
-	# start_match() runs on the first physics tick.
-	_connect_all.call_deferred()
+## Subscribes in [method Node._enter_tree], not [method Node._ready], and the
+## difference is a bug.
+##
+## [MatchController.start_match] is called from that controller's own
+## [code]_ready[/code], and it emits [signal MatchController.match_started] and
+## [signal MatchController.race_started] before it returns. Godot runs every
+## [code]_enter_tree[/code] in a subtree before it runs any [code]_ready[/code]
+## in it, so subscribing here catches those two; subscribing in [code]_ready[/code]
+## catches them only if this node happens to sit before the controller in the
+## scene's child order, and deferring the subscription misses them always. The
+## whole subtree is already constructed by the time any [code]_enter_tree[/code]
+## fires, so discovery has everything to find.
+func _enter_tree() -> void:
+	_connect_all()
 
 
 func _exit_tree() -> void:
