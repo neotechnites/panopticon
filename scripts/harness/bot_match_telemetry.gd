@@ -272,7 +272,6 @@ func finalise() -> void:
 			continue
 		tally.turns_in_tower = participant.turns_in_tower
 		tally.rounds_won = participant.rounds_won
-		tally.lane_radius = participant.lane_radius
 
 
 func get_hit_rate() -> float:

@@ -25,9 +25,9 @@ extends Node
 ##
 ## Progress is the angle swept about the arena axis, accumulated tick by tick so
 ## it keeps counting past a wrap instead of jumping. That makes it independent of
-## the radius the body chooses to run at, which matters because a lane is a spawn
-## position rather than a rail: a human will cut to the inside kerb and must
-## still have to cover the whole ring to score.
+## the radius the body chooses to run at, which matters because the track is
+## where the bodies are put down rather than a rail: a human will cut to the
+## inside kerb and must still have to cover the whole ring to score.
 
 ## Emitted once, on the tick the lap completes. Carries the same telemetry
 ## [signal RingRunner.reached_end] does, so a listener can be written against
@@ -59,7 +59,7 @@ var _finished: bool = false
 
 func _ready() -> void:
 	# Dormant until begin(). A tracker that started counting on _ready would
-	# accumulate the arc of a body being teleported onto its lane.
+	# accumulate the arc of a body being teleported onto the start line.
 	set_physics_process(false)
 
 
@@ -120,9 +120,6 @@ func stop() -> void:
 ## it actually is: this writes the totals and leaves that anchor alone, so the
 ## next tick differences against the right position and the arc it adds is the
 ## incoming body's own.
-##
-## See [member GhostProfile.catch_transfers_progress] for what turning this off
-## means, and why it is a rule rather than a constant.
 func adopt_progress(source: MatchLapTracker) -> void:
 	if source == null:
 		return
@@ -158,11 +155,8 @@ func get_travelled_arc() -> float:
 ## the lap this tracker is scoring, as [method begin] worked it out.
 ##
 ## Exposed so a test can ask what a runner is actually being judged against
-## rather than assuming it. That stopped being obvious the moment the finish
-## became per-lane -- under
-## [constant MatchRules.LaneEqualisation.STAGGER_FINISH] each lane finishes at
-## its own angle, and a tracker armed with the arena's marker instead of the
-## lane's finish would score the outer lanes against a line they never reach.
+## rather than assuming it, rather than recomputing the arc from the markers and
+## asserting against its own arithmetic.
 func get_finish_arc() -> float:
 	return _finish_arc
 

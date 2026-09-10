@@ -73,14 +73,14 @@ extends Node
 ##
 ## [b]Why the finish is judged on arc, not on distance to the marker[/b]
 ##
-## [code]PrisonerEnd[/code] is a single point at r=47.5. Runners are spread
-## across the 25 m deck so they do not overlap, and one holding r=38.5 sweeps
-## past that marker 9 m away. A radius test against the marker would simply
-## never fire for it; the runner would walk on into the 4 m LapDivider wall at
-## 0 degrees and grind against it until the harness timed out. Arc travelled is
-## the only finish condition that means the same thing in every lane -- and the
-## cover runner leaves its lane by design, which makes arc the only workable
-## measure rather than merely the fairest one.
+## [code]PrisonerEnd[/code] is a single point at r=47.5, and a runner holding the
+## track at r=44.5 sweeps past it 3 m away. A radius test against the marker
+## would fire late, or not at all for a body that had drifted; the runner would
+## walk on into the 4 m LapDivider wall at 0 degrees and grind against it until
+## the harness timed out. Arc travelled means the same thing wherever across the
+## deck the body happens to be -- and the cover runner leaves the track by
+## design, which makes arc the only workable measure rather than merely the
+## fairest one.
 
 ## Emitted once, on the tick the lap is complete. Carries the runner's own
 ## telemetry because it is already integrating both for the steering and it
@@ -147,8 +147,8 @@ enum State {
 ## The seam through which intent reaches [member controller].
 @export var input: BotIntentSource
 
-## Lane and steering tunables. Without one the runner refuses to run rather than
-## inventing a lane.
+## Track and steering tunables. Without one the runner refuses to run rather
+## than inventing a track.
 @export var profile: BotProfile
 
 ## Difficulty, and the choice of which prisoner this is.
@@ -225,7 +225,7 @@ var _had_threat: bool = false
 var _anchor: Vector3 = Vector3.ZERO
 var _has_anchor: bool = false
 
-## Whether the current anchor is real cover the finder proved, or the lane-ahead
+## Whether the current anchor is real cover the finder proved, or the track-ahead
 ## fallback taken when the map has none within reach. A crossing to cover is not
 ## over until the body is actually hidden; a crossing to open ground is over when
 ## it arrives, because it will never be hidden and pressing on would walk the
@@ -269,17 +269,21 @@ func _ready() -> void:
 		set_physics_process(false)
 		return
 
-	# Nothing to do until configure() has placed the body on its lane.
+	# Nothing to do until configure() has placed the body on the track.
 	set_physics_process(false)
 
 
-## Place the runner on its lane and start it.
+## Put the runner down at [param start_point] and start it.
 ##
-## [param arena_centre] is the ring's axis at deck height; [param start_point]
-## and [param end_point] are the world positions of the PrisonerStart and
-## PrisonerEnd markers. Only their angles about the centre are used -- the
-## radius comes from [member BotProfile.lane_radius], which is what lets several
-## runners share one pair of markers without overlapping.
+## [param arena_centre] is the ring's axis at deck height; [param start_point] is
+## where the body is placed, and [param end_point] is the world position of the
+## PrisonerEnd marker, of which only the angle about the centre is used.
+##
+## The body is placed AT the start point rather than at
+## [member BotProfile.track_radius] on the start point's angle, because a whole
+## field starts on one line and the caller is the only thing that knows where
+## along that line this one stands. The runner steers back onto the track from
+## wherever it was put down.
 ##
 ## Call it after the runner is in the scene tree: it writes
 ## [member Node3D.global_position].
@@ -288,20 +292,18 @@ func configure(arena_centre: Vector3, start_point: Vector3, end_point: Vector3) 
 		return
 
 	var start_angle: float = _angle_of_about(arena_centre, start_point)
-	controller.global_position = arena_centre + Vector3(
-		cos(start_angle), 0.0, sin(start_angle)
-	) * profile.lane_radius
+	controller.global_position = start_point
 	controller.velocity = Vector3.ZERO
-	# Face straight down the lane. A runner spawned facing the wall would spend
+	# Face straight down the track. A runner spawned facing the wall would spend
 	# its first second turning around, and that second would land in the lap
 	# time as if it were running.
-	controller.rotation = Vector3(0.0, _heading_of(_lane_tangent(start_angle)), 0.0)
+	controller.rotation = Vector3(0.0, _heading_of(_track_tangent(start_angle)), 0.0)
 
 	# The anchor is handed over rather than re-derived from the body. It is the
-	# angle the body was just placed at, and atan2 of the sine and cosine of an
-	# angle is that angle only to within an ULP or two -- close enough to be
-	# invisible and not close enough to be worth introducing into a code path
-	# that used to be exact.
+	# angle the body was just placed at -- the lateral offset along the start
+	# line is radial and does not move it -- and atan2 of the sine and cosine of
+	# an angle is that angle only to within an ULP or two, which is not worth
+	# introducing into a code path that used to be exact.
 	_arm(arena_centre, start_point, end_point, 0.0, start_angle)
 
 
@@ -337,7 +339,7 @@ func resume(
 ## accumulators, the resolved difficulty and a clean state machine.
 ##
 ## [param anchor_angle] is the angle the arc accumulator differences its first
-## tick against -- the lane's start angle after a configure, and the angle the
+## tick against -- the start line's angle after a configure, and the angle the
 ## body is standing at after a resume. It is a parameter rather than a
 ## measurement so that the configure path is arithmetically the code it was
 ## before the chase existed.
@@ -403,8 +405,8 @@ func _arm(
 ## that could work.[/b] A ghost has no lap, no cover game and no opinion about
 ## the guard -- it cannot be shot, so nothing it could hide from can reach it.
 ## What it has is one job: close on a living prisoner. So it steers at the
-## nearest one exactly the way the baseline steers at the next point on its
-## lane, through the same [MoveIntent], into the same [PlayerController].
+## nearest one exactly the way the baseline steers at the next point on the
+## track, through the same [MoveIntent], into the same [PlayerController].
 ##
 ## [b]It does not decide anything.[/b] Whether the ghost has actually CAUGHT
 ## anybody is [MatchController]'s ruling, made off the catch radius in
@@ -455,7 +457,7 @@ func get_elapsed_seconds() -> float:
 
 
 ## Metres actually walked, measured in the horizontal plane. Compare it against
-## the lane circumference to see how much the steering cost.
+## the track's circumference to see how much the steering cost.
 func get_path_length() -> float:
 	return _path_length
 
@@ -498,7 +500,7 @@ func get_crossings() -> int:
 	return _crossings
 
 
-## Of those, how many had real cover on the far side rather than the lane-ahead
+## Of those, how many had real cover on the far side rather than the track-ahead
 ## fallback. A runner whose crossings are mostly fallbacks is a runner on a map
 ## the search cannot read, and it will behave almost exactly like the baseline.
 func get_crossings_to_cover() -> int:
@@ -563,7 +565,7 @@ func _physics_process(delta: float) -> void:
 	_previous_angle = angle
 
 	var remaining_arc: float = _finish_arc - _travelled_arc
-	if remaining_arc * profile.lane_radius <= profile.arrival_tolerance:
+	if remaining_arc * profile.track_radius <= profile.arrival_tolerance:
 		_finish()
 		return
 
@@ -583,7 +585,7 @@ func _physics_process(delta: float) -> void:
 		return
 
 	if not _had_threat:
-		# A guard has just taken the tower. Stop running the lane and start
+		# A guard has just taken the tower. Stop running the track and start
 		# playing: RECOVER is the state that re-plans from wherever the body is.
 		_had_threat = true
 		_has_anchor = false
@@ -666,10 +668,10 @@ func _nearest_in_group() -> Node3D:
 func _run_baseline(remaining_arc: float, delta: float) -> void:
 	# Never aim past the finish, or the last few metres are run at an angle.
 	var lookahead_arc: float = minf(
-		profile.lookahead_distance / profile.lane_radius,
+		profile.lookahead_distance / profile.track_radius,
 		remaining_arc,
 	)
-	_face(_point_on_lane(_previous_angle + TRAVEL_SIGN * lookahead_arc), delta)
+	_face(_point_on_track(_previous_angle + TRAVEL_SIGN * lookahead_arc), delta)
 
 	# Full forward, every tick, unconditionally. Throttling on heading error
 	# would be a second control loop and would make lap time a function of
@@ -907,7 +909,7 @@ func _measure_exposure(target: Vector3) -> float:
 
 
 ## Where to go next: the cover the last search found, or -- when the map has none
-## within reach -- the far end of the search arc on this runner's own lane.
+## within reach -- the far end of the search arc on the track itself.
 ##
 ## The fallback is not a failure mode, it is the last stretch of every lap. The
 ## finish line stands in the open by design, and a prisoner that refused to cross
@@ -916,7 +918,7 @@ func _next_target(remaining_arc: float) -> Vector3:
 	if _cover.has_result():
 		return _cover.get_position()
 	var arc: float = minf(_play.get_cover_search_arc_radians(), maxf(remaining_arc, 0.0))
-	return _point_on_lane(_previous_angle + TRAVEL_SIGN * arc)
+	return _point_on_track(_previous_angle + TRAVEL_SIGN * arc)
 
 
 ## Ask the world where the next piece of cover is. See [RunnerCoverFinder]: it
@@ -932,7 +934,7 @@ func _search_cover(remaining_arc: float) -> void:
 		controller.global_position,
 		_centre,
 		TRAVEL_SIGN,
-		profile.lane_radius,
+		profile.track_radius,
 		remaining_arc,
 	)
 
@@ -1008,7 +1010,7 @@ func _crossing_speed() -> float:
 	return controller.profile.get_ground_speed(_play.sprint_while_crossing or wants_sprint())
 
 
-## Whether to hold sprint on the lane: the match's rule when there is one, the
+## Whether to hold sprint on the track: the match's rule when there is one, the
 ## profile's mode otherwise. One place, so no caller grows its own idea of it.
 func wants_sprint() -> bool:
 	if rules != null:
@@ -1047,13 +1049,13 @@ func _angle_of_about(centre: Vector3, point: Vector3) -> float:
 	return atan2(point.z - centre.z, point.x - centre.x)
 
 
-## The point on this runner's lane at the given angle, at deck height.
-func _point_on_lane(angle: float) -> Vector3:
-	return _centre + Vector3(cos(angle), 0.0, sin(angle)) * profile.lane_radius
+## The point on the track at the given angle, at deck height.
+func _point_on_track(angle: float) -> Vector3:
+	return _centre + Vector3(cos(angle), 0.0, sin(angle)) * profile.track_radius
 
 
-## Unit tangent to the lane at the given angle, pointing the way the lap runs.
-func _lane_tangent(angle: float) -> Vector3:
+## Unit tangent to the track at the given angle, pointing the way the lap runs.
+func _track_tangent(angle: float) -> Vector3:
 	return Vector3(-sin(angle), 0.0, cos(angle)) * TRAVEL_SIGN
 
 

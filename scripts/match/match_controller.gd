@@ -47,8 +47,8 @@ extends Node
 ## head, your lap tracker stops, your lap-running brain (if you are AI) is
 ## switched off, your TOWER brain (if you are AI) is switched on, and your turn
 ## count goes up. It works identically for the human and for a bot, which is the
-## requirement -- when a bot takes the tower the human is put on a lane and runs
-## like everybody else.
+## requirement -- when a bot takes the tower the human is put on the track and
+## runs like everybody else.
 ##
 ## [b]Two brains, one of them running[/b]
 ##
@@ -56,7 +56,7 @@ extends Node
 ## exactly one of them, decided by where the match has just put its body:
 ##
 ## [codeblock]
-## on a lane  -> RingRunner runs,   TowerShooter down
+## on the track -> RingRunner runs,   TowerShooter down
 ## in the tower -> TowerShooter runs, RingRunner down
 ## converted, or during the race -> neither
 ## human, anywhere -> neither; the keyboard drives it
@@ -79,7 +79,7 @@ extends Node
 ## [member MatchRules.turn_count_resets_on_seat_loss] defaults to false -- see
 ## that field for the two readings of "consecutive" and why this one is shipped.
 ##
-## [b]Ghosts: the third side[/b]
+## [b]Ghosts: the third role[/b]
 ##
 ## Under [constant MatchRules.GhostBehaviour.CATCH_AND_SWAP] a shot prisoner is
 ## not removed. They become a GHOST -- faster than the living, unshootable, and
@@ -142,7 +142,7 @@ signal match_started(participant_count: int)
 signal race_started()
 
 ## Emitted when a round is armed, after the shooter is on the tower and the
-## runners are on their lanes. A seat change emits it again, because a seat
+## prisoners are on the start line. A seat change emits it again, because a seat
 ## change restarts the round.
 signal round_started()
 
@@ -173,7 +173,7 @@ signal runner_ghosted(participant: MatchParticipant)
 ## prisoner who is now the ghost. The swap has already happened when it fires.
 signal ghost_caught(ghost: MatchParticipant, caught: MatchParticipant)
 
-## Every design parameter of the match: how many players, on which lanes, at what
+## Every design parameter of the match: how many players, on what track, at what
 ## pace, with what reload escalation, and what counts as a win.
 ##
 ## Leave it unset and the match runs on a default-constructed [MatchRules] (see
@@ -185,7 +185,7 @@ signal ghost_caught(ghost: MatchParticipant, caught: MatchParticipant)
 @export var arena: Node3D
 
 ## The human's body. One participant is built around it, and it is put on the
-## tower or on a lane exactly like any other participant's.
+## tower or on the track exactly like any other participant's.
 ##
 ## May be null: a match with no human is every participant AI, which is what a
 ## headless sweep runs.
@@ -278,8 +278,8 @@ const SETTLE_PHYSICS_FRAMES: int = 2
 ## Scene-tree group holding exactly the bodies that are RUNNING right now.
 ##
 ## The match's answer to "who is a legitimate target". Membership is maintained
-## by placement: joined when a participant is put on a lane, left when they take
-## the tower or are converted. It is a group rather than a list because the thing
+## by placement: joined when a participant is put on the track, left when they
+## take the tower or are converted. It is a group rather than a list because the thing
 ## that needs it is an AI in the tower, which must be able to find its targets
 ## without a reference to this node -- the same way a human finds them, by
 ## looking at the ring.
@@ -296,8 +296,8 @@ var _phase: Phase = Phase.IDLE
 var _outcome: Outcome = Outcome.IN_PROGRESS
 
 ## Everyone in the match, in a fixed order. Index 0 is the human when there is
-## one. The order is the lane assignment and the race's tiebreaker, which is what
-## keeps both deterministic rather than a draw.
+## one. The order is where they stand on the start line and the race's
+## tiebreaker, which is what keeps both deterministic rather than a draw.
 var _participants: Array[MatchParticipant] = []
 
 ## Who holds the tower. Null during the opening race, and only then.
@@ -494,7 +494,7 @@ func start_race() -> void:
 
 	_settle_frames = SETTLE_PHYSICS_FRAMES
 	var racers: Array[MatchParticipant] = _participants.duplicate()
-	_place_runners(racers, true)
+	_place_runners(racers)
 	race_started.emit()
 
 
@@ -538,7 +538,7 @@ func start_round() -> void:
 	for participant: MatchParticipant in _participants:
 		if participant != _seat:
 			runners.append(participant)
-	_place_runners(runners, false)
+	_place_runners(runners)
 	_place_in_tower(_seat)
 
 	round_started.emit()
@@ -835,6 +835,12 @@ func _catchable_from(ghost: MatchParticipant, radius: float) -> MatchParticipant
 
 ## The catch: [param ghost] takes [param caught]'s spot, and they trade roles.
 ##
+## [b]Their spot, literally.[/b] The incoming prisoner inherits the arc the
+## caught one had run, so a catch changes WHO is alive and nothing else. It is
+## the plain reading of the canon sentence, and there is no switch on it: the
+## alternative would have to be justified by something the prisoners jointly
+## own, and they own nothing jointly -- there is no side for a catch to cost.
+##
 ## [b]It is a swap and it conserves the count.[/b] One living prisoner goes in
 ## and one comes out, so [method get_runners_remaining] is the same on both
 ## sides of this call and the shooter's win condition cannot be moved by it. It
@@ -847,33 +853,16 @@ func _catchable_from(ghost: MatchParticipant, radius: float) -> MatchParticipant
 ## so no tick ever sees both of them as legitimate targets, and the guard cannot
 ## be handed a fourth prisoner for one frame.
 func _swap_with_ghost(ghost: MatchParticipant, caught: MatchParticipant) -> void:
-	var profile: GhostProfile = get_ghost_profile()
-	# Read before the tracker is stopped and the lane is handed over: the caught
-	# prisoner's spot is what the ghost is taking, and their arc is part of it.
+	# Read before the tracker is stopped: the caught prisoner's spot is what the
+	# ghost is taking, and how far round the ring they had got IS the spot.
 	var carried_arc: float = caught.tracker.get_travelled_arc()
-	var carried_lane: float = caught.lane_radius
-	# The lane and the line it finishes at are one thing. They are the same
-	# point for every participant in a round today -- only the opening race
-	# moves a finish, and the race has no shooter and therefore no ghosts -- but
-	# carrying the radius without the finish would be a swap that half happened,
-	# and the day a round is equalised it would be a silent scoring bug.
-	var carried_finish: Vector3 = _lane_end_of(caught)
 	var source: MatchLapTracker = caught.tracker
 
 	caught.is_running = false
 	_make_ghost(caught)
 
 	_unmake_ghost(ghost)
-	ghost.lane_radius = carried_lane
-	ghost.lane_end_point = carried_finish
-	if profile.catch_transfers_progress:
-		_start_running_in_place(ghost, carried_arc, source)
-	else:
-		# The other reading of the mechanic: the spot is a place on the ring, not
-		# a distance already run, and the prisoners as a side lose the lap the
-		# caught player had. See GhostProfile.catch_transfers_progress -- this is
-		# the ghost HINDER answer and it is not the shipped one.
-		_start_running_in_place(ghost, 0.0, null)
+	_start_running_in_place(ghost, carried_arc, source)
 
 	_catch_count += 1
 	ghost_caught.emit(ghost, caught)
@@ -945,7 +934,7 @@ func _unmake_ghost(participant: MatchParticipant) -> void:
 ## Put [param participant] back in the round WITHOUT moving their body, holding
 ## [param travelled_arc] radians of lap.
 ##
-## The other half of the catch. [method _place_on_lane] cannot be used: it writes
+## The other half of the catch. [method _place_on_track] cannot be used: it writes
 ## a position, and on a woken body that is motion rather than a teleport -- see
 ## [method _hold_body] for what a 300 m one costs. A prisoner who has just taken
 ## somebody's spot is standing in it already.
@@ -962,22 +951,18 @@ func _start_running_in_place(
 	participant.lives = maxi(active.prisoner_lives, 1)
 
 	body.add_to_group(RUNNER_GROUP)
-	# The spot the ghost is taking includes the line it finishes at. Under
-	# MatchRules.LaneEqualisation.STAGGER_FINISH that line belongs to the lane,
-	# and the lane came off the caught prisoner a moment ago -- so the carried
-	# arc and the arc it is measured against are the same lane's, which is what
-	# makes adopt_progress mean anything.
-	var lane_end: Vector3 = _lane_end_of(participant)
+	# One track, so the carried arc and the arc it is now measured against are
+	# the same track's, which is what makes adopt_progress mean anything.
 	participant.tracker.begin(
-		body, _centre, _start_point, lane_end, active.lap_arrival_tolerance
+		body, _centre, _start_point, _end_point, active.lap_arrival_tolerance
 	)
 	if source != null:
 		participant.tracker.adopt_progress(source)
 
 	if participant.brain != null:
-		participant.brain.profile.lane_radius = participant.lane_radius
+		participant.brain.profile.track_radius = active.track_radius
 		participant.brain.rules = active
-		participant.brain.resume(_centre, _start_point, lane_end, travelled_arc)
+		participant.brain.resume(_centre, _start_point, _end_point, travelled_arc)
 
 
 ## The material a ghost body wears, loaded once. Null is survivable -- a ghost
@@ -1033,10 +1018,9 @@ func _build_participants() -> void:
 	if player != null:
 		_participants.append(_make_human_participant())
 
-	var pool: PackedFloat32Array = get_rules().get_lane_radii_for(wanted)
 	while _participants.size() < wanted:
 		var slot: int = _participants.size()
-		var ai: MatchParticipant = _make_ai_participant(slot, pool[slot])
+		var ai: MatchParticipant = _make_ai_participant(slot)
 		if ai == null:
 			break
 		_participants.append(ai)
@@ -1062,20 +1046,21 @@ func _make_human_participant() -> MatchParticipant:
 
 ## Instance one AI body, place it, and wire a brain and a tracker to it.
 ##
-## [param spawn_radius] is only where the body is put down before it enters the
-## tree; the lane it actually runs is assigned per round. Placing it at all is
-## the point: a body added to the tree is registered by the physics server at the
-## position it holds AT THAT MOMENT, and a body added at the scene default sits
-## at the origin -- which is the tower spawn. Three capsules materialising inside
-## the shooter threw them across the arena once already.
-func _make_ai_participant(slot: int, spawn_radius: float) -> MatchParticipant:
+## Where it is put down here is only a holding position; the round decides where
+## it actually starts. Putting it somewhere at all is the point: a body added to
+## the tree is registered by the physics server at the position it holds AT THAT
+## MOMENT, and a body added at the scene default sits at the origin -- which is
+## the tower spawn. Three capsules materialising inside the shooter threw them
+## across the arena once already, so each one is dealt its own place on the start
+## line before it ever enters the tree.
+func _make_ai_participant(slot: int) -> MatchParticipant:
 	var body: PlayerController = runner_scene.instantiate() as PlayerController
 	if body == null:
 		push_error("MatchController's runner scene does not have a PlayerController at its root.")
 		return null
 
 	body.name = "Runner_%d" % slot
-	body.position = runner_container.to_local(_point_on_lane(spawn_radius, _angle_of(_start_point)))
+	body.position = runner_container.to_local(_start_place_for(slot, get_rules().get_participant_count()))
 	runner_container.add_child(body)
 
 	var brain: RingRunner = _find_brain(body)
@@ -1084,9 +1069,9 @@ func _make_ai_participant(slot: int, spawn_radius: float) -> MatchParticipant:
 		body.queue_free()
 		return null
 
-	# Duplicate the profile: the scene's is a shared resource, and writing a lane
-	# radius into it would retune every runner ever spawned from it, including
-	# the ones already running.
+	# Duplicate the profile: the scene's is a shared resource, and writing the
+	# match's track radius into it would retune every runner ever spawned from
+	# it, including the ones already running.
 	var profile: BotProfile = brain.profile.duplicate() as BotProfile
 	brain.profile = profile
 
@@ -1155,64 +1140,27 @@ func _cache_geometry() -> void:
 	_geometry_ready = true
 
 
-## Put every participant in [param runners] on a lane and start them running.
+## Put every participant in [param runners] on the start line and start them
+## running.
 ##
-## Lanes are handed out in match order, which is deterministic: the opening race
-## decides the tower, and a race decided by a draw would be exactly the thing the
-## design forbids. A lane is a spawn position, not a rail -- only the baseline
-## [RingRunner] holds a radius, and scoring is by arc, so a human is free to cut
-## to the inside kerb and still owes the whole ring.
+## [b]One track.[/b] Everybody runs the same circle, from the same line, to the
+## same marker. There is nothing here to equalise and no handicap to compensate
+## for: the opening race is first past the post and a round is a chase, and both
+## are scored off the same arc against the same finish.
 ##
-## [b]Equalisation moves one END of the race, never both.[/b] A lane's arc is
-## fixed by [method MatchRules.get_equalised_lane_length]; which end is moved to
-## produce it is [method MatchRules.get_lane_equalisation], and the two answers
-## are computed here in one loop so a lane can never end up with a staggered
-## start AND a staggered finish. Only the opening race is equalised: a round is
-## a chase with a rifle in it rather than a footrace, and repricing every round
-## measurement this project has taken is not a side effect a start-line fix is
-## allowed to have.
-func _place_runners(runners: Array[MatchParticipant], is_race: bool) -> void:
+## The one thing that separates two bodies is where they stand ON the line. Two
+## capsules cannot start in the same cubic metre -- the depenetration solver
+## resolves that by throwing both of them out of the arena, which this project
+## has already paid for twice -- so the field is dealt out sideways across the
+## width of the track and closes up again the moment it is moving. See
+## [method _start_place_for].
+func _place_runners(runners: Array[MatchParticipant]) -> void:
 	_round_runner_count = runners.size()
 	if not _geometry_ready:
 		return
 
-	var active: MatchRules = get_rules()
-	var radii: PackedFloat32Array = active.get_lane_radii_for(runners.size())
-	var mode: MatchRules.LaneEqualisation = (
-		active.get_lane_equalisation() if is_race else MatchRules.LaneEqualisation.NONE
-	)
-	var start_angle: float = _angle_of(_start_point)
-	var end_angle: float = _angle_of(_end_point)
-	var full_arc: float = wrapf((end_angle - start_angle) * RingRunner.TRAVEL_SIGN, 0.0, TAU)
-	var equal_length: float = MatchRules.get_equalised_lane_length(radii, full_arc)
-
 	for index: int in runners.size():
-		var participant: MatchParticipant = runners[index]
-		var radius: float = radii[index]
-		# The arc this lane must sweep, in radians. Under both stagger modes it
-		# is the arc that spends `equal_length` metres AT THIS RADIUS, which is
-		# the whole of "every racer owes the same distance".
-		var lane_arc: float = full_arc
-		if mode != MatchRules.LaneEqualisation.NONE and radius > 0.0:
-			lane_arc = equal_length / radius
-
-		var lane_start: float = start_angle
-		var lane_end: float = end_angle
-		match mode:
-			MatchRules.LaneEqualisation.STAGGER_START:
-				# The finish does not move; the outer lanes begin further round.
-				# The start line is therefore not a line, which is correct and
-				# which is exactly what a player standing on it objects to.
-				lane_start = end_angle - RingRunner.TRAVEL_SIGN * lane_arc
-			MatchRules.LaneEqualisation.STAGGER_FINISH:
-				# The start does not move: one common line, everybody alongside
-				# everybody. The outer lanes finish short of the end pad instead,
-				# each at the angle that makes its own arc the same LENGTH.
-				lane_end = start_angle + RingRunner.TRAVEL_SIGN * lane_arc
-			_:
-				pass
-
-		_place_on_lane(participant, radius, lane_start, _point_on_lane(radius, lane_end))
+		_place_on_track(runners[index], _start_place_for(index, runners.size()))
 
 	_order_the_scoring(runners)
 
@@ -1227,62 +1175,37 @@ func _place_runners(runners: Array[MatchParticipant], is_race: bool) -> void:
 ## restarts the round -- so within one tick the first tracker to be processed
 ## takes everything and the rest are re-armed before they can report. That is
 ## sound: an arrival IS immediate, and a match must not sit on a decision for a
-## frame. It does mean the tie is settled by the processing order rather than by
-## a rule, and until [member MatchRules.equalise_race_lane_distance] equalised
-## the lanes the tie could not arise, so nobody had to name it.
+## frame. It does mean the tie would otherwise be settled by whatever order the
+## physics server happens to hold the trackers in, which is a decision nobody
+## made and which can change when an unrelated node is added to the scene.
 ##
-## Now it arises every race: four identical bodies owing the same distance finish
-## together to the tick. So the order is set here, deliberately, in one place,
-## from [member MatchRules.arrival_tiebreak] -- seat order, which is what the
-## unstated behaviour already was, or a lot. Nothing about the race changes: a
-## racer who arrives on an EARLIER tick is scored on that tick and wins outright
-## whatever the order says. Only a dead heat reads it.
+## A dead heat is the normal case, not a freak one: everybody runs one track
+## from one line, so a field of identical bots crosses together to the tick. So
+## the order is set here, deliberately, in one place, and it is match order --
+## the lowest [member MatchParticipant.index] takes the seat, which is what the
+## match already did without saying so. Nothing about the race changes: a racer
+## who arrives on an EARLIER tick is scored on that tick and wins outright. Only
+## a dead heat reads this.
 func _order_the_scoring(runners: Array[MatchParticipant]) -> void:
-	var order: PackedInt32Array = PackedInt32Array()
-	for index: int in runners.size():
-		order.append(index)
-
-	if get_rules().arrival_tiebreak == MatchRules.ArrivalTiebreak.DRAW_LOT:
-		var rng: RandomNumberGenerator = RandomNumberGenerator.new()
-		var lot_seed: int = get_rules().arrival_tiebreak_seed
-		if lot_seed != 0:
-			rng.seed = lot_seed
-		else:
-			rng.randomize()
-		# Fisher-Yates, so every ordering is equally likely and no participant
-		# can be favoured by the shuffle itself.
-		for index: int in range(order.size() - 1, 0, -1):
-			var swap: int = rng.randi_range(0, index)
-			var held: int = order[index]
-			order[index] = order[swap]
-			order[swap] = held
-
-	for rank: int in order.size():
-		var participant: MatchParticipant = runners[order[rank]]
+	for rank: int in runners.size():
+		var participant: MatchParticipant = runners[rank]
 		if participant.tracker != null:
 			participant.tracker.process_physics_priority = TRACKER_PRIORITY_BASE + rank
 
 
-## Put one participant on one lane, running from [param start_angle] to
-## [param end_point].
+## Put one participant down at [param start_point] and start them running the
+## track.
 ##
-## [b]The finish is a parameter, not [member _end_point].[/b] Under
-## [constant MatchRules.LaneEqualisation.STAGGER_FINISH] each lane finishes at
-## its own angle, so "the end" is a property of the lane rather than of the
-## arena. Both things that judge an arrival -- [MatchLapTracker] for the score
-## and [RingRunner] for the brain's own stopping point -- are handed the SAME
-## point here, which is what keeps the arrival test honest: a runner is scored
-## against the line their brain is running at, and there is no second opinion
-## about where their race ends. Both read only its ANGLE, so a caller may pass
-## the arena's marker or a point of its own devising on the lane.
-func _place_on_lane(
-	participant: MatchParticipant, radius: float, start_angle: float, end_point: Vector3
-) -> void:
+## [param start_point] is the exact world position the body is placed at, which
+## is its own place on the start line rather than the arena's marker. Everything
+## that then judges the run -- [MatchLapTracker] for the score and [RingRunner]
+## for the brain's own stopping point -- is given the same start and the same
+## arena end marker, so a prisoner is scored against the line their brain is
+## running at and there is no second opinion about where their run ends. Both
+## read only the ANGLES, and the lateral offset does not change an angle.
+func _place_on_track(participant: MatchParticipant, start_point: Vector3) -> void:
 	var active: MatchRules = get_rules()
-	var start_point: Vector3 = _point_on_lane(radius, start_angle)
 
-	participant.lane_radius = radius
-	participant.lane_end_point = end_point
 	participant.is_shooter = false
 	participant.is_running = true
 	participant.lives = maxi(active.prisoner_lives, 1)
@@ -1294,26 +1217,28 @@ func _place_on_lane(
 	# to put back.
 	_unmake_ghost(participant)
 	_hold_body(participant)
-	# A body on a lane runs; it does not play the tower. The outgoing shooter
+	# A body on the track runs; it does not play the tower. The outgoing shooter
 	# arrives here on every seat change with its tower brain still loaded.
 	_silence_tower_brain(participant)
 	if participant.brain != null:
 		# The brain reads pace from the rules and geometry from its profile. The
 		# split is the seam: "walk or sprint" is a rule of the round, "how hard
 		# does it steer" is tuning of the brain. configure() places the body.
-		participant.brain.profile.lane_radius = radius
+		participant.brain.profile.track_radius = active.track_radius
 		participant.brain.rules = active
-		participant.brain.configure(_centre, start_point, end_point)
+		participant.brain.configure(_centre, start_point, _end_point)
 	else:
 		body.global_position = start_point
 		body.velocity = Vector3.ZERO
-		# Face down the lane. A human teleported to the start line facing the
+		# Face down the track. A human teleported to the start line facing the
 		# outer wall would spend their first second turning round, and that
 		# second is part of the race.
-		body.rotation = Vector3(0.0, _heading_of(_lane_tangent(start_angle)), 0.0)
+		body.rotation = Vector3(
+			0.0, _heading_of(_track_tangent(_angle_of(start_point))), 0.0
+		)
 
 	body.add_to_group(RUNNER_GROUP)
-	participant.tracker.begin(body, _centre, start_point, end_point, active.lap_arrival_tolerance)
+	participant.tracker.begin(body, _centre, start_point, _end_point, active.lap_arrival_tolerance)
 
 
 func _place_in_tower(participant: MatchParticipant) -> void:
@@ -1321,11 +1246,6 @@ func _place_in_tower(participant: MatchParticipant) -> void:
 		return
 	participant.is_shooter = true
 	participant.is_running = false
-	participant.lane_radius = 0.0
-	# The seat has no lane and therefore no finish. Cleared rather than left
-	# stale so a participant who is put back on the ring next round cannot be
-	# scored against the line they were running at two rounds ago.
-	participant.lane_end_point = Vector3.ZERO
 
 	var body: PlayerController = participant.body
 	# A ghost can take the tower: they were a prisoner when the seat changed
@@ -1360,7 +1280,7 @@ func _place_in_tower(participant: MatchParticipant) -> void:
 ## the server treats the change as MOTION from the transform it last flushed to
 ## the new one, and a kinematic body that moves CARRIES whatever is standing at
 ## the start of that motion. Measured, with the tower at the origin: the outgoing
-## shooter is sent to its lane, picks up the incoming shooter who has just been
+## shooter is sent to the track, picks up the incoming shooter who has just been
 ## put on the tower, and deposits it 38 m away on top of itself; both then slide
 ## off the deck and out to the wall at r=59, gaining height the whole way, while
 ## the node graph insists the shooter is standing on the tower. Ordering the two
@@ -1474,7 +1394,7 @@ func _arm_tower_brain() -> void:
 	# body's head and repointed its aim source at this body's eye; the camera
 	# whose frustum decides what the bot can see and the optic that narrows it
 	# are this body's too. A brain left pointing at the previous holder's head
-	# would search the ring from a node standing on a lane.
+	# would search the ring from a node standing on the track.
 	shooter.rifle = rifle
 	shooter.rules = get_rules()
 	shooter.target_group = RUNNER_GROUP
@@ -1767,7 +1687,7 @@ func _on_participant_arrived(
 
 
 ## A runner scored: the round is over, the seat changes hands, and the round
-## starts again from the beginning. The outgoing shooter is put on a lane by
+## starts again from the beginning. The outgoing shooter is put on the track by
 ## [method start_round] like everybody else.
 func _score_and_restart(scorer: MatchParticipant) -> void:
 	_resolve(Outcome.LOSS)
@@ -1877,32 +1797,37 @@ func _angle_of(point: Vector3) -> float:
 	return atan2(point.z - _centre.z, point.x - _centre.x)
 
 
-func _point_on_lane(radius: float, angle: float) -> Vector3:
+func _point_on_track(radius: float, angle: float) -> Vector3:
 	return _centre + Vector3(cos(angle), 0.0, sin(angle)) * radius
 
 
-func _lane_tangent(angle: float) -> Vector3:
+func _track_tangent(angle: float) -> Vector3:
 	return Vector3(-sin(angle), 0.0, cos(angle)) * RingRunner.TRAVEL_SIGN
+
+
+## Where body number [param index] of a field of [param count] stands on the
+## start line.
+##
+## Across the width of the track, never on a track of its own: every one of
+## these is at the start marker's own angle and they differ only in how far out
+## along that line they stand, so every body owes the same arc from the same
+## angle to the same finish. Once they are moving they steer back to
+## [member MatchRules.track_radius] and share the space.
+##
+## The spread is centred on the track, so the middle of the field is on it and
+## adding a body widens the line symmetrically instead of pushing everybody
+## outward towards the wall.
+func _start_place_for(index: int, count: int) -> Vector3:
+	var active: MatchRules = get_rules()
+	var middle: float = float(maxi(count, 1) - 1) * 0.5
+	var offset: float = (float(index) - middle) * active.start_line_spacing_metres
+	return _point_on_track(active.track_radius + offset, _angle_of(_start_point))
 
 
 ## Body yaw, in radians, that points the controller's forward axis along
 ## [param direction]. Forward is -Z, hence the double negation.
 func _heading_of(direction: Vector3) -> float:
 	return atan2(-direction.x, -direction.z)
-
-
-## The world point [param participant] is running at, falling back to the arena's
-## own end marker.
-##
-## The fallback is what makes every mode that does NOT move the finish -- which
-## is every mode outside the opening race -- a no-op here rather than a special
-## case: a participant placed by [method _place_on_lane] always has one, and one
-## who has never been placed is sent at the marker, which is where they would
-## have been sent before per-lane finishes existed.
-func _lane_end_of(participant: MatchParticipant) -> Vector3:
-	if participant == null or participant.lane_end_point.is_equal_approx(Vector3.ZERO):
-		return _end_point
-	return participant.lane_end_point
 
 
 ## Horizontal distance between two world points. The deck is flat and the tower

@@ -39,10 +39,13 @@ const RUNNING_TICKS: int = 60
 ## room for the settle onto the platform and nothing else.
 const SPAWN_TOLERANCE_METRES: float = 0.5
 
-## How far off its assigned lane radius a placed runner may be. A runner that has
-## been walking for a second is still steering to its own radius; the trap this
-## bounds drags it to r=59, which is 20 m off the inner lane.
-const LANE_TOLERANCE_METRES: float = 2.0
+## How far off the track a placed prisoner may be.
+##
+## The start line is dealt out across the width of the track, so a body that has
+## only just been put down is legitimately up to half the line's width off it and
+## a body that has been walking for a second has steered most of that back. The
+## trap this bounds drags a body to r=59, which is 14.5 m off the track.
+const TRACK_TOLERANCE_METRES: float = 4.0
 
 ## How far a standing body's feet may be from the surface it was put on. The deck
 ## and the tower platform are both at y=0 and the spawn markers sit 0.25 m above
@@ -57,9 +60,15 @@ const DECK_OUTER_RADIUS: float = 60.0
 ## Radius of the tower platform. A body further out than this is off the stand.
 const TOWER_PLATFORM_RADIUS: float = 8.0
 
-## Two runners closer together than this are effectively in the same lane. The
-## body capsule is 0.8 m across, so anything under a metre is contact.
-const MIN_LANE_SEPARATION_METRES: float = 1.0
+## Two bodies closer together than this on the start line are effectively in the
+## same place. The body capsule is 0.8 m across, so anything under a metre is
+## contact.
+const MIN_START_SEPARATION_METRES: float = 1.0
+
+## How far off the start marker's angle a freshly placed body may be, in radians.
+## The spread along the line is radial, so it does not move an angle at all and
+## this is float slop rather than a real bound.
+const START_ANGLE_TOLERANCE_RADIANS: float = 1e-3
 
 var _match: Node3D
 var _controller: MatchController
@@ -114,15 +123,15 @@ func before_each() -> void:
 
 # --- Arming -------------------------------------------------------------------
 
-## A round arms with one runner per lane, live, and unresolved -- and with the
+## A round arms with every prisoner running, live, and unresolved -- and with the
 ## seat holder in the tower rather than on the ring.
-func test_a_round_starts_with_a_runner_on_every_lane() -> void:
+func test_a_round_starts_with_every_prisoner_on_the_track() -> void:
 	assert_eq_int(int(_controller.get_phase()), int(MatchController.Phase.ROUND), "the race is over and a round is on")
 	assert_eq_int(_controller.get_round_number(), 1, "this is the first round of the match")
 	assert_same(_controller.get_seat_participant(), _human, "the race winner holds the tower")
 	assert_eq_int(
 		_controller.get_runners_remaining(), _controller.get_runners_total(),
-		"every lane should have produced a runner",
+		"every prisoner armed is still running",
 	)
 	assert_eq_int(
 		_controller.get_runners_total(), _controller.get_rules().prisoner_count,
@@ -138,25 +147,56 @@ func test_a_round_starts_with_a_runner_on_every_lane() -> void:
 		"the shooter is not in the runner group",
 	)
 
-	# Each runner is out on the deck and in a lane of its own, rather than piled
-	# up at the origin or sharing a radius. The deck is the annulus r=36..60 and
-	# the runners do not path around anything, so two of them on the same radius
-	# would spend the round shouldering each other.
+	# Every runner is out on the deck, on the shared track, and shootable. The
+	# deck is the annulus r=36..60.
 	var runners: Array[RingRunner] = _controller.get_live_runners()
-	var radii: PackedFloat32Array = PackedFloat32Array()
 	for index: int in runners.size():
-		var radius: float = _radius_of(runners[index].controller.global_position)
-		assert_between(radius, DECK_INNER_RADIUS, DECK_OUTER_RADIUS, "runner %d is on the deck" % index)
+		var place: Vector3 = runners[index].controller.global_position
+		assert_between(_radius_of(place), DECK_INNER_RADIUS, DECK_OUTER_RADIUS, "runner %d is on the deck" % index)
+		assert_almost_eq(
+			_radius_of(place), _controller.get_rules().track_radius, TRACK_TOLERANCE_METRES,
+			"runner %d is on the track" % index,
+		)
 		assert_true(
 			runners[index].controller.is_in_group(MatchController.RUNNER_GROUP),
 			"runner %d is a legitimate target" % index,
 		)
-		radii.append(radius)
-	for index: int in radii.size():
-		for other: int in range(index + 1, radii.size()):
+
+
+## Everybody starts on ONE line, and nobody starts inside anybody else.
+##
+## The two halves are the whole of the placement rule. One line: every body is at
+## the start marker's own angle, so they all owe the same arc to the same finish
+## and the opening race is first past the post rather than a draw made before
+## anybody moves. Not inside one another: two capsules placed in the same cubic
+## metre are separated by the depenetration solver, which throws both of them
+## across the arena -- a trap this project has already paid for twice.
+##
+## Measured on the frame the round is armed. A second later they have steered
+## back onto the shared track and are legitimately shoulder to shoulder, which is
+## the design and not a fault.
+func test_the_field_is_dealt_out_along_one_start_line() -> void:
+	_controller.start_round()
+
+	var placed: Array[MatchParticipant] = _controller.get_live_participants()
+	assert_gt(float(placed.size()), 1.0, "there is more than one body to separate")
+
+	var line_angle: float = _angle_of(_start_point)
+	for participant: MatchParticipant in placed:
+		assert_almost_eq(
+			absf(wrapf(_angle_of(participant.body.global_position) - line_angle, -PI, PI)),
+			0.0, START_ANGLE_TOLERANCE_RADIANS,
+			"%s starts on the one line" % participant.display_name,
+		)
+	for index: int in placed.size():
+		for other: int in range(index + 1, placed.size()):
 			assert_gt(
-				absf(radii[index] - radii[other]), MIN_LANE_SEPARATION_METRES,
-				"runners %d and %d must not share a lane" % [index, other],
+				_horizontal_distance(
+					placed[index].body.global_position, placed[other].body.global_position
+				),
+				MIN_START_SEPARATION_METRES,
+				"%s and %s do not start inside one another"
+				% [placed[index].display_name, placed[other].display_name],
 			)
 
 
@@ -222,7 +262,7 @@ func test_all_runners_removed_wins_the_match() -> void:
 ## it is the tower changing hands. The round the shooter was playing is over --
 ## resolved [constant MatchController.Outcome.LOSS], once -- and the next one
 ## begins immediately with the scorer in the tower, the outgoing shooter on a
-## lane, and nobody's progress carried over.
+## track, and nobody's progress carried over.
 func test_one_arrival_takes_the_seat_and_restarts_the_round() -> void:
 	var runners: Array[MatchParticipant] = _controller.get_live_participants()
 	assert_gt(float(runners.size()), 1.0, "the seat change needs survivors to be interesting")
@@ -276,11 +316,12 @@ func test_one_arrival_takes_the_seat_and_restarts_the_round() -> void:
 			"%s starts the restarted round with no progress" % participant.display_name,
 		)
 		assert_false(participant.tracker.has_finished(), "%s has not finished" % participant.display_name)
-		assert_vec3_almost_eq(
-			participant.body.global_position,
-			_point_on_lane(participant.lane_radius, _angle_of(_start_point)),
-			SPAWN_TOLERANCE_METRES,
-			"%s is back on the start line of its lane" % participant.display_name,
+		assert_almost_eq(
+			absf(wrapf(
+				_angle_of(participant.body.global_position) - _angle_of(_start_point), -PI, PI
+			)),
+			0.0, START_ANGLE_TOLERANCE_RADIANS,
+			"%s is back on the start line" % participant.display_name,
 		)
 
 	# And the restarted round really is running, rather than a frozen tableau of
@@ -341,14 +382,14 @@ func test_a_round_resolves_exactly_once() -> void:
 ##
 ## [b]The bug.[/b] [MatchController] instanced each runner and added it to the
 ## tree at the scene's default transform -- the origin -- and only then placed it
-## on its lane. The physics server registers a body where it is on the tick it
+## on the track. The physics server registers a body where it is on the tick it
 ## enters the tree, and the tower spawn [i]is[/i] the origin, so three 0.8 m
 ## capsules materialised inside the shooter's own capsule. Depenetration resolved
 ## the overlap the only way it could and threw the shooter out to the arena's
 ## outer wall, 59 m away, before the runners had moved anywhere.
 ##
 ## [b]Why it needs a test and not a comment.[/b] It is invisible after the fact:
-## by the time anything could look, the runners are correctly on their lanes and
+## by the time anything could look, the runners are correctly placed and
 ## a shape query at the tower finds nothing wrong. The only evidence is where the
 ## shooter ended up. It survived one fix attempt because the ejection is not
 ## instantaneous -- it takes a few ticks -- so a check made on the spawn frame saw
@@ -420,7 +461,7 @@ func test_spawning_runners_does_not_displace_the_player() -> void:
 ## the server treats the change as MOTION from the transform it last flushed to
 ## the new one, and a kinematic body that moves CARRIES whatever is standing at
 ## the start of that motion. Measured, with the tower at the origin: the outgoing
-## shooter is sent to its lane, picks up the incoming shooter who has just been
+## shooter is sent to the track, picks up the incoming shooter who has just been
 ## put on the tower, and deposits it 38 m away on top of itself; both then slide
 ## off the deck and out to the wall at r=59, gaining height the whole way, while
 ## the node graph insists the shooter is standing on the tower. Reordering the
@@ -446,7 +487,7 @@ func test_spawning_runners_does_not_displace_the_player() -> void:
 ## tower spawn a second later. The incoming shooter is asserted within 0.5 m of
 ## that spawn, so the measured reproduction trips it by 75x and the shipped bug
 ## by 118x; the height bound of 0.5 m trips on the bug's 7.75 m by 15x, and the
-## outgoing shooter's 2.0 m lane bound on its 20.5 m by 10x.
+## outgoing shooter's 4.0 m track bound on its 20.5 m by 5x.
 func test_a_seat_change_does_not_drag_the_bodies_off_the_tower() -> void:
 	assert_true(_human.is_shooter, "the human opens this test in the tower")
 
@@ -456,14 +497,14 @@ func test_a_seat_change_does_not_drag_the_bodies_off_the_tower() -> void:
 	assert_same(_controller.get_seat_participant(), challenger, "the challenger took the tower")
 	await step_ticks(SETTLE_TICKS)
 	_assert_on_the_tower(challenger, "the incoming shooter")
-	_assert_on_a_lane(_human, "the outgoing shooter")
+	_assert_on_the_track(_human, "the outgoing shooter")
 
 	# --- and takes it straight back, which is the same trap mirrored ---
 	_human.tracker.lap_finished.emit(12.0, 96.0)
 	assert_same(_controller.get_seat_participant(), _human, "the human took the tower back")
 	await step_ticks(SETTLE_TICKS)
 	_assert_on_the_tower(_human, "the returning shooter")
-	_assert_on_a_lane(challenger, "the shooter who lost the seat")
+	_assert_on_the_track(challenger, "the shooter who lost the seat")
 
 	# Nobody was left behind out at the wall. Every body in the match is either on
 	# the tower, on the ring, or parked out of the world on purpose -- and none of
@@ -480,7 +521,7 @@ func test_a_seat_change_does_not_drag_the_bodies_off_the_tower() -> void:
 # --- Helpers ------------------------------------------------------------------
 
 ## The tower is 8 m across and the deck starts at 36 m, so "on the tower" and "on
-## a lane" cannot be confused for one another however the fix is rewritten.
+## the track" cannot be confused for one another however the fix is rewritten.
 func _assert_on_the_tower(participant: MatchParticipant, who: String) -> void:
 	var position: Vector3 = participant.body.global_position
 	assert_lt(
@@ -494,14 +535,14 @@ func _assert_on_the_tower(participant: MatchParticipant, who: String) -> void:
 	assert_true(participant.body.is_on_floor(), "%s is on the platform, not in the air" % who)
 
 
-func _assert_on_a_lane(participant: MatchParticipant, who: String) -> void:
+func _assert_on_the_track(participant: MatchParticipant, who: String) -> void:
 	var position: Vector3 = participant.body.global_position
 	var radius: float = _radius_of(position)
 	assert_gt(radius, TOWER_PLATFORM_RADIUS, "%s is off the tower platform (at %v)" % [who, position])
 	assert_between(radius, DECK_INNER_RADIUS, DECK_OUTER_RADIUS, "%s is out on the deck" % who)
 	assert_almost_eq(
-		radius, participant.lane_radius, LANE_TOLERANCE_METRES,
-		"%s is on the lane it was given" % who,
+		radius, _controller.get_rules().track_radius, TRACK_TOLERANCE_METRES,
+		"%s is on the track" % who,
 	)
 	assert_almost_eq(
 		position.y, _start_point.y, HEIGHT_TOLERANCE_METRES,
@@ -557,6 +598,3 @@ func _horizontal_distance(a: Vector3, b: Vector3) -> float:
 func _angle_of(point: Vector3) -> float:
 	return atan2(point.z - _centre.z, point.x - _centre.x)
 
-
-func _point_on_lane(radius: float, angle: float) -> Vector3:
-	return _centre + Vector3(cos(angle), 0.0, sin(angle)) * radius

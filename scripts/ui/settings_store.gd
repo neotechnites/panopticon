@@ -46,7 +46,11 @@ const CONFIG_PATH: String = "user://settings.cfg"
 ## Schema version, written to [code][meta]/version[/code]. A file whose version
 ## is newer than this was written by a newer build and is not read: a downgrade
 ## silently reinterpreting fields it does not understand is worse than a reset.
-const CONFIG_VERSION: int = 1
+const CONFIG_VERSION: int = 2
+
+## The first version whose [code]ghosts_enabled[/code] key means what the player
+## chose. See [method load_from_disk].
+const GHOSTS_CHOSEN_FROM_VERSION: int = 2
 
 const SECTION_META: String = "meta"
 
@@ -118,6 +122,14 @@ func load_from_disk() -> bool:
 		return false
 
 	settings.read_from(config)
+	if version < GHOSTS_CHOSEN_FROM_VERSION:
+		# Version 1 wrote ghosts_enabled=false into every file it saved, because
+		# off was the default then and this file records values rather than
+		# choices. Reading it back now would leave a returning player with ghosts
+		# off while the rules resource they play has them on -- the two defaults
+		# disagreeing is exactly the bug the toggle exists to prevent. So a
+		# version 1 file is taken to have expressed no preference about ghosts.
+		settings.ghosts_enabled = GameSettings.DEFAULT_GHOSTS_ENABLED
 	keybinds.read_from(config)
 	loaded_from_disk = true
 	return true

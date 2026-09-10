@@ -12,9 +12,10 @@ extends Resource
 ## role with something to do the instant it happens.
 ##
 ## The catch is the whole mechanic. A ghost closes on a living prisoner and
-## takes their spot: the caught player becomes the ghost, the ghost becomes
-## living. It is a SWAP -- not a revive, not a kill, and not a score. The count
-## of living prisoners is unchanged by a catch, which is what keeps the
+## takes their spot -- literally, down to how far round the ring that prisoner
+## had got: the caught player becomes the ghost, the ghost becomes living and
+## inherits the lap. It is a SWAP -- not a revive, not a kill, and not a score.
+## The count of living prisoners is unchanged by a catch, which is what keeps the
 ## shooter's win condition meaningful: only the rifle ever lowers it.
 ##
 ## [b]Which resource does a number belong in?[/b]
@@ -32,15 +33,13 @@ extends Resource
 ## How much faster a ghost moves than the living, as a multiplier on the ground
 ## speed its [MovementProfile] would otherwise give it.
 ##
-## "Faster than the living" is canon; how much faster is not, and it is the
-## single most important number in the mechanic -- it decides whether a catch is
-## a certainty (in which case the round is a formality) or a chase (in which case
-## it is a game). 1.25 is a starting guess, not a measured answer: at the shipped
-## walk speed of 8 m/s it closes a 10 m gap in five seconds of straight running,
-## which is long enough to be a chase and short enough that a ghost is never
-## simply out of the round.
+## "Faster than the living" is canon, and how much faster is the author's
+## ruling: the shipped [code]resources/rules/default_ghost_profile.tres[/code]
+## runs at 3.0. The code default below is the older 1.25 and is left alone
+## deliberately -- a profile constructed from nothing is the neutral control a
+## harness compares against, and the file the game is played on is the ruling.
 ##
-## [b]Sweep this first.[/b] It is applied through
+## It is applied through
 ## [member PlayerController.speed_scale], so it scales the wish speed the same
 ## Quake accelerate routine a human is driven through reads -- a ghost is not
 ## running on different physics, only on a different target speed.
@@ -84,27 +83,6 @@ extends Resource
 ## speed that produces. On by default because a ghost that ambled would never
 ## close on a sprinting prisoner however large the multiplier was made.
 @export var chase_holds_sprint: bool = true
-
-## Whether a swap carries the caught prisoner's lap progress to the ghost who
-## took their spot.
-##
-## [b]This is the ghost HINDER / ghost HELP question in its smallest form, and it
-## is NOT ruled.[/b] It is exposed rather than baked in because the two readings
-## produce different games:
-##
-## - [b]true[/b] (shipped) -- "takes their spot" is read literally: the spot
-##   includes the distance already run. A catch changes WHO is alive and nothing
-##   else, so the prisoners as a side lose nothing and gain nothing, and the ring
-##   keeps advancing towards the finish. Neutral.
-## - [b]false[/b] -- the ghost starts the caught player's spot from its own,
-##   lower progress. A catch then costs the prisoners the lap the caught player
-##   had run, which makes a ghost a HINDRANCE to the side it used to be on.
-##
-## True is the default because it is the plain reading of the canon sentence and
-## because it is the one that cannot deadlock a round: with progress conserved,
-## a pair of prisoners trading roles still walks the lap between them. See
-## [method MatchController.get_ghost_profile] and the report that shipped this.
-@export var catch_transfers_progress: bool = true
 
 
 ## The ghost profile a match should use, after [MatchRules] has had its say.

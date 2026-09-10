@@ -49,7 +49,7 @@ editor_description = "Tab titles come from the child node names, so the order th
 
 [node name="Match" type="VBoxContainer" parent="Frame/Dialog/Padding/Layout/Tabs"]
 theme_override_constants/separation = 8
-editor_description = "Rules of the round the player is allowed to choose, as opposed to presentation. First tab because it is the one thing on this screen you change on the way IN to a match rather than during one. Everything here is written over the MatchRules the match runs with by the SettingsBoot node in scenes/match/match.tscn; the shipped .tres keeps its measured defaults."
+editor_description = "Rules of the round the player is allowed to choose, as opposed to presentation. First tab because it is the one thing on this screen you change on the way IN to a match rather than during one. Everything here is written over the MatchRules the match runs with by the SettingsBoot node in scenes/match/match.tscn, and the defaults on both sides agree."
 
 [node name="Grid" type="GridContainer" parent="Frame/Dialog/Padding/Layout/Tabs/Match"]
 theme_override_constants/h_separation = 8
@@ -71,8 +71,8 @@ text = "Catch and swap"
 
 [node name="GhostsNote" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Match"]
 autowrap_mode = 3
-editor_description = "A measured warning, not a disclaimer. With ghosts on and the shipped runner, 17 of 30 headless matches hit the 600-second ceiling against 0 of 30 with them off: ghosts defeat the runner's anti-stalemate impatience ramp. The deadlock is a known open question with candidate fixes awaiting a decision -- until it is decided, a player who switches this on is owed the warning rather than a round that never ends."
-text = "A shot prisoner returns as a ghost: faster, unshootable, and chasing. Catching a living prisoner swaps their places. Measured: rounds may not end -- 17 of 30 test matches ran to the 600-second ceiling with ghosts on, against 0 of 30 with them off."
+editor_description = "What the mechanic is, for a player who has not met it. Nothing more: this is a description, not a disclaimer."
+text = "A shot prisoner returns as a ghost: faster, unshootable, and chasing. Catching a living prisoner takes their place, and their distance round the ring with it."
 
 [node name="Game" type="VBoxContainer" parent="Frame/Dialog/Padding/Layout/Tabs"]
 theme_override_constants/separation = 8

@@ -38,8 +38,8 @@ enum Kind {
 }
 
 ## Position in [method MatchController.get_participants]. Stable for the whole
-## match, and the tiebreaker that keeps lane assignment deterministic rather
-## than a draw.
+## match, and the tiebreaker that keeps a dead heat on the start line and at the
+## finish deterministic rather than a draw.
 var index: int = 0
 
 ## What the HUD calls this participant.
@@ -57,7 +57,7 @@ var body: PlayerController = null
 ## already and it is sitting at the keyboard.
 ##
 ## Switched off while this participant holds the seat -- a shooter does not run
-## laps -- and reconfigured onto a lane at the start of every round. See
+## laps -- and reconfigured onto the track at the start of every round. See
 ## [member tower_brain] for what drives the body instead.
 var brain: RingRunner = null
 
@@ -69,7 +69,7 @@ var brain: RingRunner = null
 ## one of them is switched on at a time: [RingRunner] while they run the ring,
 ## [TowerShooter] while they hold the seat, neither while they are converted or
 ## while the opening race decides who the shooter is. Which one is running is
-## the ONLY difference between a bot on a lane and the same bot in the tower --
+## the ONLY difference between a bot on the track and the same bot in the tower --
 ## the body, the head, the camera and the optic are the same ones either way,
 ## which is what makes the seat a role rather than a scene.
 var tower_brain: TowerShooter = null
@@ -103,26 +103,6 @@ var is_running: bool = false
 ## Reseeded at the start of every round.
 var lives: int = 1
 
-## Metres from the arena axis of the lane this participant was placed on for the
-## current round. A spawn position, not a rail: only the baseline [RingRunner]
-## actually holds a radius.
-var lane_radius: float = 0.0
-
-## The world point this participant's lap FINISHES at, as
-## [method MatchController._place_on_lane] set it. [constant Vector3.ZERO] while
-## they hold the seat or have never been placed.
-##
-## The finish is per-participant because it is per-lane: under
-## [constant MatchRules.LaneEqualisation.STAGGER_FINISH] every racer starts on
-## one common line and each lane's finish is moved to the angle that makes that
-## lane the same LENGTH as the innermost one. Under every other mode this is
-## simply the arena's end marker and nothing behaves differently.
-##
-## Only its ANGLE is ever read -- by [MatchLapTracker], which scores the arrival,
-## and by [RingRunner], which stops the brain -- so it is the lane's finish point
-## rather than a marker's position, and the two agree by construction.
-var lane_end_point: Vector3 = Vector3.ZERO
-
 ## The body's collision layer and mask as authored, kept so that parking a
 ## converted runner out of the world can be undone exactly rather than
 ## approximately.
@@ -135,8 +115,9 @@ var home_collision_mask: int = 1
 ##
 ## Mutually exclusive with [member is_running] and [member is_shooter] -- a
 ## ghost is not a legitimate target and cannot arrive, so nothing that counts
-## runners counts them. It is a THIRD role rather than a flag on the second,
-## which is what makes a round three-sided.
+## runners counts them. It is a THIRD role rather than a flag on the second: a
+## round has a tower, prisoners and ghosts in it, and every one of them plays for
+## themselves.
 var is_ghost: bool = false
 
 ## Seconds this ghost must wait before it may catch anybody, counting down.

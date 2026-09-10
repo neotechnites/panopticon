@@ -1,63 +1,38 @@
-[gd_scene load_steps=7 format=3]
+[gd_scene load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://scripts/tower/panopticon_eye.gd" id="1_eye"]
 [ext_resource type="Resource" path="res://scenes/tower/default_eye_profile.tres" id="2_eye_profile"]
 
-[sub_resource type="StandardMaterial3D" id="MatIris"]
+[sub_resource type="StandardMaterial3D" id="MatFace"]
 resource_local_to_scene = true
-albedo_color = Color(0.36, 0.04, 0.04, 1.0)
-metallic = 0.1
-roughness = 0.4
-emission_enabled = true
-emission = Color(1.0, 0.11, 0.07, 1.0)
-emission_energy_multiplier = 1.0
+shading_mode = 0
+uv1_scale = Vector3(3.0, 2.0, 1.0)
 
-[sub_resource type="StandardMaterial3D" id="MatPupil"]
-resource_local_to_scene = true
-albedo_color = Color(0.02, 0.02, 0.025, 1.0)
-metallic = 0.0
-roughness = 0.35
-
-[sub_resource type="SphereMesh" id="MeshEyeball"]
-radius = 4.0
-height = 8.0
-radial_segments = 32
-rings = 16
-
-[sub_resource type="CylinderMesh" id="MeshPupil"]
-top_radius = 4.06
-bottom_radius = 4.06
-height = 0.9
-radial_segments = 32
-rings = 1
-cap_top = false
-cap_bottom = false
+[sub_resource type="BoxMesh" id="MeshBox"]
+size = Vector3(8.0, 8.0, 8.0)
 
 [node name="PanopticonEye" type="Node3D"]
-editor_description = "THE EYE. Two primitives: a red ball and a black band round its middle, floating over the centre of the yard. There is no tower. There was one -- a 31 m socket, lids, brow and crown -- and it was removed on 2026-09-10 because it was art nobody asked for; git has it if it is ever wanted.
+editor_description = "THE EYE. One box, 8 m on a side, floating over the centre of the yard with a picture of an eye on every face. There is no tower and no ball. There was a 31 m socket with lids, a brow and a crown, and after that a lit red sphere with a black band round it; both were removed as art nobody asked for, on 2026-09-10, when Ryan asked for the third time for something simpler: 'i dont want the cylinder, all i want is a one way mirror, it can be the simple jpg of an eye four times in a box if needed.' Git has all of it.
 
-WHY IT IS AT y=16.7. Because the ring was already built for it. The Cover and InnerKerb heights in scenes/ring/test_ring.tscn are both derived, in their own editor_descriptions, from a tower eye at y=16.7. The guard's actual camera is at y=1.9. Those two numbers disagree and the disagreement is Ryan's to settle -- it is NOT resolved here, and the pupil stays at 16.7 so that nothing silently drifts while it is open.
+WHY IT IS AT y=16.7. Because the ring was already built for it. The Cover and InnerKerb heights in scenes/ring/test_ring.tscn are both derived, in their own editor_descriptions, from a tower eye at y=16.7. The guard's actual camera is at y=1.9. Those two numbers disagree and the disagreement is Ryan's to settle -- it is NOT resolved here, and the box's centre stays at 16.7 so that nothing silently drifts while it is open.
 
-IT CANNOT POINT ANYWHERE. Both meshes are solids of revolution about the tower's own vertical axis, unrotated and unoffset, and the pupil is a full 360-degree band. There is no bearing from which this looks different, so there is no arrangement of it that could betray where the guard is looking. See scripts/tower/panopticon_eye.gd and tests/test_tower.gd.
+IT CANNOT POINT ANYWHERE. A box has four distinguishable sides, which the old ball did not, so this is no longer true of the shape and has to be true of the surface instead: there is ONE material and ONE texture, and PanopticonEye.UV_TILING spreads it over Godot's three-by-two box UV atlas so that every face gets a full upright copy rather than a sixth of the picture. Same image, same way up, all four bearings. The box carries no rotation, nothing rotates it, and nothing here animates at all. See scripts/tower/panopticon_eye.gd and tests/test_tower.gd.
 
-IT IS NOT IN THE GUARD'S WAY. Nothing here exists below y=12.7, and the guard's camera tops out at y=3.0 including the jump apex, so the eye's lowest rim is 48 deg above the horizon from anywhere the guard can stand -- and the ring is at or below the horizon. Verified on a screen, not assumed: across 31 renders from the guard's eye (all four bearings, pitch -35 to +40 deg, the platform edge, the jump apex) the eye stands in front of 0 pixels of arena. It enters frame at all only above +37 deg of elevation on the axis or +11 deg at the platform edge, and there it is against sky. Its shadow reaches r=25.1 on the pit floor and 0 pixels of the r=35 deck.
+IT IS UNSHADED. Deliberately. Under a lit material the arena sun would put a highlight on one face and leave another dim, and a face brighter than its neighbours is a difference between sides -- a tell arrived at by lighting rather than by anybody meaning it.
+
+IT IS NOT IN THE GUARD'S WAY. Nothing here exists below y=12.7, and the guard's camera tops out at y=3.0 including the jump apex. Verified on a screen, not assumed: across 31 renders from the guard's eye (all four bearings, pitch -35 to +40 deg, the platform edge, the jump apex) the box stands in front of 0 pixels of arena.
 
 NO COLLISION, ANYWHERE. The eye is scenery. The guard's rifle raycast passes straight through it.
 
-WHAT WENT WITH THE TOWER. The old socket wall was r=8.5 and hid the guard from the ring. It is gone, so the guard now stands on an open platform in plain sight -- which is where the arena was before the tower was built. If prisoners should not be able to read the guard's body, that is a ruling to make and one cylinder to restore."
+WHAT WENT WITH THE TOWER. The old socket wall was r=8.5 and hid the guard from the ring. It is gone, so the guard now stands on an open platform in plain sight. The box is opaque and unreadable, but it does not conceal the guard's body. Whether anything should is a ruling Ryan has not made."
 script = ExtResource("1_eye")
-iris_material = SubResource("MatIris")
-pupil_material = SubResource("MatPupil")
+face_material = SubResource("MatFace")
 profile = ExtResource("2_eye_profile")
 
-[node name="Eyeball" type="MeshInstance3D" parent="."]
-editor_description = "r=4 m, centred on the axis at y=16.7. Big enough to read as an eye from the far side of the ring 95 m away, where it is still about five degrees across, and small enough that it takes far less of the yard's cross-map sightline than the tower did. EyeProfile.size_scale is the knob."
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 16.7, 0)
-mesh = SubResource("MeshEyeball")
-surface_material_override/0 = SubResource("MatIris")
+[node name="Box" type="MeshInstance3D" parent="."]
+editor_description = "An 8 m cube centred on the axis at y=16.7, so its underside is at 12.7 and its lid at 20.7. Big enough to read as an eye from the far side of the ring 95 m away, where a face is still about five degrees across, and small enough that it takes far less of the yard's cross-map sightline than the tower did. EyeProfile.size_scale is the knob.
 
-[node name="Pupil" type="MeshInstance3D" parent="."]
-editor_description = "A black band 0.9 m tall standing 0.06 m proud of the ball at its equator. It runs the full 360 degrees on purpose: every prisoner on the ring, wherever they are, sees the pupil dead centre on themselves and none of them can tell whether that means anything. That is the game, and it is the only reason this second mesh exists -- without it the eye is a lamp."
+It is a single BoxMesh rather than four quads on purpose. Four separate planes would give per-face control nobody wants and would leave the box open top and bottom -- and a prisoner 35 m out looks UP at the eye, so an open underside would show them a band of sky through it, which is exactly what a one-way mirror must not do. One closed box is fewer parts and is opaque from every angle."
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 16.7, 0)
-mesh = SubResource("MeshPupil")
-surface_material_override/0 = SubResource("MatPupil")
+mesh = SubResource("MeshBox")
+surface_material_override/0 = SubResource("MatFace")

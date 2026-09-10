@@ -89,65 +89,6 @@ enum RunnerWinCondition {
 	ALL_ARRIVALS,
 }
 
-## Who takes the tower when two runners reach the end on the same tick.
-##
-## Both are implemented. The rule exists because
-## [member equalise_race_lane_distance] creates the dead heat it settles: once
-## every racer owes the same number of metres, a field of identical bodies
-## finishes together to the physics tick, measured, and something has to decide
-## it. Before the lanes were equalised the question could not arise, which is
-## why it was never asked.
-enum ArrivalTiebreak {
-	## The tie goes to the lowest [member MatchParticipant.index]. Today's rule,
-	## and what the match did implicitly before this was written down: nothing
-	## is drawn, nothing is random, and the same seat wins every dead heat.
-	SEAT_ORDER,
-	## The tie is drawn by lot, once per placement, from
-	## [member arrival_tiebreak_seed]. A dead heat is a race in which nobody won,
-	## so there is nothing left to reward; a lot at least spreads the seat across
-	## the field instead of parking it on seat zero. It is NOT the race being
-	## decided by chance -- a racer who arrives on an earlier tick still wins
-	## outright, whatever the lot said.
-	DRAW_LOT,
-}
-
-## HOW the opening race makes every lane the same number of metres.
-##
-## The ring is concentric lanes and an outer lane is physically longer, so a
-## field started on one line and finished on one line is decided by the lane
-## draw rather than by running -- measured, and recorded as
-## [code]panopticon.finding.race_decided_by_lane[/code]. Equal metres is
-## therefore not optional; WHERE the equalising happens is the live question, and
-## it is this enum rather than a second boolean because the two answers are
-## mutually exclusive and a pair of booleans can express a state that is not.
-##
-## Whether to equalise at all remains [member equalise_race_lane_distance]; this
-## says how. See [method get_lane_equalisation] for how the two resolve.
-enum LaneEqualisation {
-	## Do not equalise. Every racer starts on the start pad and finishes at the
-	## end marker, so the lane IS the race. The control case, and the only mode
-	## in which the finding above can be reproduced.
-	NONE,
-	## Move the START. Each racer begins at the angle that leaves them the
-	## innermost lane's metres to run, the way a running track staggers its
-	## starts; the finish does not move. Correct, measured, and the rule the
-	## match shipped with -- but the start line is visibly not a line, which is
-	## what a player standing on it sees and complains about.
-	STAGGER_START,
-	## [b]DEFAULT.[/b] Move the FINISH. Every racer begins on the common start
-	## line -- one line, visibly aligned, everyone alongside everyone -- and each
-	## lane's finish sits at the angle that makes that lane's arc the same length
-	## as the innermost lane's. The outer lanes stop short of the end pad, which
-	## the player is not standing on when the race begins and therefore is not
-	## looking at.
-	##
-	## It costs exactly what [constant STAGGER_START] costs and no more: it is
-	## still equal LENGTH rather than equal ARC, so it is still only honest for a
-	## body that stays in its lane. See [member equalise_race_lane_distance] for
-	## why that is acceptable given who is actually on the ring.
-	STAGGER_FINISH,
-}
-
 ## What a prisoner becomes when the rifle takes their last life.
 ##
 ## [constant NONE] and [constant CATCH_AND_SWAP] are implemented; the two in
@@ -161,7 +102,7 @@ enum GhostBehaviour {
 	## QUESTION -- whether a dead prisoner watching is atmosphere or dead time.
 	## NOT IMPLEMENTED.
 	SPECTATOR,
-	## The prisoner keeps running their lane in a ghost state, still able to
+	## The prisoner keeps running the track in a ghost state, still able to
 	## reach the end, possibly counting for something less than an arrival. OPEN
 	## QUESTION, and the one that most changes what a shot is worth. NOT
 	## IMPLEMENTED.
@@ -189,29 +130,37 @@ enum GhostBehaviour {
 ## relationship between count, reload and lap time is precisely the sort of thing
 ## this project exists to measure rather than argue about.
 ##
-## Radii come from [member lane_radii]; see [method get_lane_radius] for what
-## happens when the count outruns the list.
+## They all run the same track; see [member track_radius].
 @export_range(1, 32, 1, "or_greater") var prisoner_count: int = 3
 
-## The lane each prisoner holds, in metres from the arena centre. [b]LIVE.[/b]
+## The one track every prisoner runs, in metres from the arena centre.
+## [b]LIVE.[/b]
 ##
-## Not free numbers. The deck is an annulus from r=35 to r=60 and cover sits in
-## three radial lanes centred on r=41, r=47.5 and r=54, each piece sweeping a
-## band of roughly +/-0.9 m about its lane. A [RingRunner] does not path around
-## anything, so a radius inside a cover band walks a 0.4 m capsule into a box and
-## stands there for the rest of the round. 38.5 / 44.5 / 51.0 are the clear
-## channels, and they are 6.5 m apart so the runners never touch.
+## There is one track and everybody is on it. A prisoner is not on a side and is
+## not racing a handicap: same start, same path, same finish, and the only thing
+## that separates two of them is how fast they cover it.
 ##
-## Whether prisoners should be free to choose or change lanes is an OPEN
-## QUESTION; today the lane is assigned and held for the whole lap.
+## Not a free number. The deck is an annulus from r=35 to r=60 and cover sits in
+## three radial bands centred on r=41, r=47.5 and r=54, each piece sweeping
+## roughly +/-0.9 m about its band. A [RingRunner] does not path around anything,
+## so a track radius inside a cover band walks a 0.4 m capsule into a box and
+## stands there for the rest of the round. 44.5 is the clear channel between the
+## inner and middle bands, and it is what [member BotProfile.track_radius] ships
+## at.
+@export_range(36.0, 60.0, 0.1) var track_radius: float = 44.5
+
+## Metres between neighbouring bodies across the WIDTH of the track at the start
+## line. [b]LIVE.[/b]
 ##
-## This is a POOL, not a roster. A round takes the first [member prisoner_count]
-## entries, so the three-runner round is unchanged by the fourth radius below;
-## the fourth exists because the opening race puts EVERY participant on the ring
-## at once and a match has [method get_participant_count] of them. 57.5 is the
-## fourth clear channel: the outer cover lane sweeps 53.1-54.9 and the wall is at
-## r=60, so 57.5 is 2.6 m clear of cover and 2.5 m clear of the wall.
-@export var lane_radii: PackedFloat32Array = PackedFloat32Array([38.5, 44.5, 51.0, 57.5])
+## Everyone starts on one line, and two capsules cannot start in the same cubic
+## metre: the depenetration solver resolves that by throwing both of them across
+## the arena, which is a bug this project has already paid for twice. So the
+## field is dealt out sideways along the start line -- across the track, never
+## onto a track of its own -- and closes up again the moment they are running.
+##
+## The body capsule is 0.8 m across. 2.0 m is a body and a half of clearance,
+## which is enough to place four of them inside a 6 m spread on a 25 m deck.
+@export_range(1.0, 10.0, 0.1) var start_line_spacing_metres: float = 2.0
 
 ## Hits a prisoner absorbs before leaving the round. [b]LIVE[/b], default 1.
 ##
@@ -397,97 +346,6 @@ enum GhostBehaviour {
 ## bot profile, so a baseline runner scores on the same tick it stops.
 @export_range(0.1, 10.0, 0.1, "or_greater") var lap_arrival_tolerance: float = 1.5
 
-## Make every lane of the opening race the same number of metres.
-## [b]LIVE[/b], default true.
-##
-## The master switch. [member lane_equalisation] says HOW, and off is off
-## whatever it says -- see [method get_lane_equalisation].
-##
-## [b]The bug it fixes, measured[/b]
-##
-## Off, every racer starts on the start pad and runs a full lap of their own
-## lane, so the lane IS the race. On the shipped radii the four laps are 235.43,
-## 272.12, 311.87 and 351.62 m; walked at one pace they finish 29.35, 33.93,
-## 38.90 and 43.87 simulated seconds in, and the inside lane wins by 4.6 s over
-## the next lane and by 14.5 s over the outside. Twenty headless bot matches
-## returned twenty wins for the racer on r=38.5. The opening race exists to
-## decide the first shooter by running rather than by chance, and a race the
-## inside lane always wins is worse than chance: it is decided before anybody
-## moves, and the tower goes to a seat position rather than to a player.
-##
-## On, every racer is left [code](full lap arc) * (smallest lane radius)[/code]
-## metres of their own lane to run. Measured on the shipped radii: 235.43 m each,
-## and all four bots cross on the same physics tick.
-##
-## [b]Where the equalising happens is [member lane_equalisation].[/b] Under
-## [constant LaneEqualisation.STAGGER_START] the starts move and the finish does
-## not, the way a running track staggers its starts; under the default
-## [constant LaneEqualisation.STAGGER_FINISH] the starts are one common line and
-## each lane's finish moves instead. Both leave every racer the same 235.43 m,
-## both still run one direction the whole way, and the innermost lane -- the one
-## the human holds -- runs the identical arc either way.
-##
-## [b]What it costs, and why it is on anyway[/b]
-##
-## The stagger is only honest for a body that stays in its lane. A lane is a
-## spawn position, not a rail: only the baseline [RingRunner] holds a radius, and
-## a FREE body handed a staggered outer start can cut to the inner kerb and keep
-## the short arc as a gift. Measured at r=36: the r=57.5 start is 147.4 m from
-## the finish that way against the r=38.5 start's 220.1 m. Equal ARC from a
-## shared pad is the honest rule for bodies that may run anywhere; equal LENGTH
-## is the honest rule for bodies on rails.
-##
-## It is on because of who is actually on the ring. [MatchController] fields one
-## human at most, in participant slot 0, which takes [member lane_radii] entry 0;
-## with the shipped ascending radii that is the smallest radius, the largest arc,
-## no stagger at all and the least on offer for leaving the lane. Every staggered
-## lane is a railed bot. The day a second human can race -- or the day
-## [member lane_radii] is authored in any order but ascending -- this rule is
-## exploitable and the question has to be measured again, which is what the
-## switch is for.
-@export var equalise_race_lane_distance: bool = true
-
-## Where the opening race's equalising happens. [b]LIVE[/b], default
-## [constant LaneEqualisation.STAGGER_FINISH] = one common start line, and each
-## lane's finish moved to make the arcs equal.
-##
-## Inert while [member equalise_race_lane_distance] is false, exactly as
-## [member arrival_tiebreak_seed] is inert under
-## [constant ArrivalTiebreak.SEAT_ORDER]. A rule set written before this field
-## existed has no entry for it and therefore loads the default, which is the
-## intended upgrade: [constant LaneEqualisation.STAGGER_START] is kept, and can
-## be selected, because it is the behaviour every measurement before this change
-## was taken under and deleting it would put that evidence beyond reach.
-@export var lane_equalisation: LaneEqualisation = LaneEqualisation.STAGGER_FINISH
-
-## Who takes the tower when two runners reach the end on the same tick.
-## [b]LIVE[/b], default [constant ArrivalTiebreak.SEAT_ORDER] = the lowest
-## participant index, which is what the match already did without saying so.
-##
-## [member equalise_race_lane_distance] is what makes this a live question: with
-## every racer owing the same distance, a field of identical bots finishes
-## together to the tick -- measured, four for four -- and the seat then falls to
-## whoever is scored first, which is seat zero, every time. That is a smaller
-## unfairness than the one the stagger removed and it is not the same one; no
-## amount of running changes it.
-##
-## [constant ArrivalTiebreak.DRAW_LOT] is the alternative, and the only way the
-## harness can show that the four lanes really are equal: identical bots dead-
-## heat, so an even spread of the tower across the field is the evidence, and
-## seat order can only ever produce a clean sweep for seat zero. It is not the
-## default because a lot is chance and the first shooter is not supposed to be
-## decided by chance -- but a dead heat is a race nobody won, so there is nothing
-## left to reward.
-@export var arrival_tiebreak: ArrivalTiebreak = ArrivalTiebreak.SEAT_ORDER
-
-## Seed for [constant ArrivalTiebreak.DRAW_LOT]. [b]LIVE[/b], default 0 = seed
-## from entropy, exactly as [member ai_shooter_aim_seed] reads it.
-##
-## Non-zero makes the lot replayable, which a sweep comparing two rule sets wants
-## and a sweep measuring the spread of the seat does not. Inert under
-## [constant ArrivalTiebreak.SEAT_ORDER], which draws nothing.
-@export var arrival_tiebreak_seed: int = 0
-
 # --- Ghosts -------------------------------------------------------------------
 
 ## What becomes of a prisoner the rifle finishes. [b]LIVE[/b], default
@@ -499,10 +357,12 @@ enum GhostBehaviour {
 ## [constant GhostBehaviour.CATCH_AND_SWAP] is the canon mechanic; see
 ## [enum GhostBehaviour].
 ##
-## [b]It is not the default, and that is deliberate.[/b] Every bot number this
-## project has ever measured was measured without ghosts, and a mechanic
-## switched on by default would silently reprice all of them. Turn it on in a
-## sweep arm and compare.
+## The CODE default here is [constant GhostBehaviour.NONE] and the SHIPPED
+## default in [code]resources/rules/default_match_rules.tres[/code] is
+## [constant GhostBehaviour.CATCH_AND_SWAP]. That is not an oversight: a rule set
+## built from nothing is the control case a harness compares against, and the
+## rule set the game is played on is the author's ruling. A sweep arm that wants
+## the mechanic asks for it; a player gets it.
 @export var ghost_behaviour: GhostBehaviour = GhostBehaviour.NONE
 
 ## Every number a ghost is made of: pace, catch radius, grace, and whether a
@@ -563,18 +423,19 @@ enum GhostBehaviour {
 ## the tower is played on, which is this field.
 ##
 ## The resource is never mutated: [MatchController] duplicates it per
-## participant, so a sweep that varies the seed cannot retune the shared .tres
-## The prisoners' difficulty, as [member ai_shooter_profile] is the guard's.
-## [b]LIVE.[/b] Null = each runner keeps whatever profile its scene assigned.
-##
-## RunnerProfile.resolve() already looks for this property, so setting it here is
-## all a sweep needs to vary how well the prisoners play. Presets ship in
-## scenes/bot/: baseline (the old straight-line lap, kept as the control case),
-## default, patient and reckless.
-@export var ai_runner_profile: RunnerProfile
-
-## for whatever runs next in the same process.
+## participant, so a sweep that varies the seed cannot retune the shared
+## [code].tres[/code] for whatever runs next in the same process.
 @export var ai_shooter_profile: ShooterProfile
+
+## The [RunnerProfile] an AI prisoner runs on, as [member ai_shooter_profile] is
+## the guard's. [b]LIVE.[/b] Null = each runner keeps whatever profile its scene
+## assigned.
+##
+## [method RunnerProfile.resolve] already looks for this property, so setting it
+## here is all a sweep needs to vary how well a prisoner plays. Presets ship in
+## [code]scenes/bot/[/code]: baseline (the old straight-line lap, kept as the
+## control case), default, patient and reckless.
+@export var ai_runner_profile: RunnerProfile
 
 ## Per-participant difficulty, indexed by [member MatchParticipant.index].
 ## [b]LIVE[/b], default empty = every AI plays the tower on
@@ -603,74 +464,6 @@ enum GhostBehaviour {
 
 
 # --- Derived values -----------------------------------------------------------
-
-## Lane radius for prisoner [param index], in metres.
-##
-## When [member prisoner_count] exceeds [member lane_radii], the last radius is
-## reused rather than wrapping or inventing a spacing: two capsules on the same
-## lane is an obvious, visible misconfiguration, whereas a silently invented
-## radius could land inside a cover band and produce a round that looks fine and
-## measures nothing. Returns 0.0 only if the list is empty, which
-## [method validate] reports.
-func get_lane_radius(index: int) -> float:
-	if lane_radii.is_empty():
-		return 0.0
-	return lane_radii[clampi(index, 0, lane_radii.size() - 1)]
-
-
-## Exactly [member prisoner_count] radii, padded from the last entry if the list
-## is short. What a round's spawner should iterate.
-func get_lane_radii() -> PackedFloat32Array:
-	return get_lane_radii_for(prisoner_count)
-
-
-## Exactly [param count] radii, padded from the last entry if the pool is short.
-##
-## The opening race puts every participant on the ring at once, which is one more
-## body than a round has, so the number of lanes wanted is not always
-## [member prisoner_count]. Padding repeats the last radius, which is a visible
-## misconfiguration rather than an invented lane -- see [method get_lane_radius].
-func get_lane_radii_for(count: int) -> PackedFloat32Array:
-	var radii: PackedFloat32Array = PackedFloat32Array()
-	for index: int in maxi(count, 0):
-		radii.append(get_lane_radius(index))
-	return radii
-
-
-## The lane equalisation actually in force: the mode, or
-## [constant LaneEqualisation.NONE] when the master switch is off.
-##
-## The one place the two fields are combined, so no caller grows a second idea
-## of what "equalised" means. [member equalise_race_lane_distance] is the older
-## field and it is not demoted to a legacy alias: off still means off, which is
-## how every rule set that turned equalising off to reproduce
-## [code]panopticon.finding.race_decided_by_lane[/code] keeps working unchanged.
-func get_lane_equalisation() -> LaneEqualisation:
-	if not equalise_race_lane_distance:
-		return LaneEqualisation.NONE
-	return lane_equalisation
-
-
-## Metres of lane every racer owes when [param radii] are equalised: the full lap
-## of the SHORTEST lane.
-##
-## The shortest is the reference under both stagger modes, so the race is the
-## same length whichever one is chosen and telemetry taken under one is
-## comparable with telemetry taken under the other. [param full_lap_arc] is the
-## start-to-finish arc in radians, which the arena's markers decide and this
-## resource does not know.
-static func get_equalised_lane_length(radii: PackedFloat32Array, full_lap_arc: float) -> float:
-	return full_lap_arc * get_shortest_radius(radii)
-
-
-## The smallest entry in [param radii], or 0.0 when there are none.
-static func get_shortest_radius(radii: PackedFloat32Array) -> float:
-	var shortest: float = 0.0
-	for index: int in radii.size():
-		if index == 0 or radii[index] < shortest:
-			shortest = radii[index]
-	return shortest
-
 
 ## How many players a match has: one in the tower and [member prisoner_count] on
 ## the ring.
@@ -780,8 +573,8 @@ func validate() -> PackedStringArray:
 	var problems: PackedStringArray = PackedStringArray()
 	if prisoner_count < 1:
 		problems.append("prisoner_count is %d; a round needs at least one prisoner." % prisoner_count)
-	if lane_radii.is_empty():
-		problems.append("lane_radii is empty; there is nowhere to put a prisoner.")
+	if track_radius <= 0.0:
+		problems.append("track_radius is %.1f; there is nowhere to put a prisoner." % track_radius)
 	if not is_shooter_win_condition_implemented():
 		problems.append(
 			"shooter_win_condition is %s, which is declared but not implemented; the shooter cannot win this round."
@@ -791,13 +584,6 @@ func validate() -> PackedStringArray:
 		problems.append("shooter_win_condition is SHUTOUT_COUNT but shutout_count is unset.")
 	if shooter_win_condition == ShooterWinCondition.HOLD_DURATION and hold_duration_seconds <= 0.0:
 		problems.append("shooter_win_condition is HOLD_DURATION but hold_duration_seconds is unset.")
-	if open_with_race and lane_radii.size() < get_participant_count():
-		# Padding would put two racers on one radius, and the race for the tower
-		# is the one moment every participant is on the ring at once.
-		problems.append(
-			"open_with_race needs %d lanes for %d participants but lane_radii has %d; racers would share a lane."
-			% [get_participant_count(), get_participant_count(), lane_radii.size()]
-		)
 	if not is_ghost_behaviour_implemented():
 		problems.append(
 			"ghost_behaviour is %s, which is declared but not implemented; a shot prisoner will simply be parked."

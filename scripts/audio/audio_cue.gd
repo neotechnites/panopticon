@@ -61,7 +61,7 @@ extends Resource
 
 ## Metres at which a positional cue is inaudible. The ring is roughly 120 m
 ## across, so the default deliberately exceeds it: a shot fired from the tower
-## must be audible to a runner on the far lane, or the shot stops being a
+## must be audible to a runner on the far side of the ring, or the shot stops being a
 ## broadcast and the design stops working.
 @export_range(1.0, 1000.0, 1.0) var max_distance: float = 200.0
 

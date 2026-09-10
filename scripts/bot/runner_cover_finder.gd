@@ -4,7 +4,7 @@ extends RefCounted
 ## Where a prisoner could stand and not be shot, found by asking the world.
 ##
 ## [b]Nothing in this file knows anything about the arena.[/b] No cover
-## positions, no lane radii, no piece count, no scene paths. It probes the map it
+## positions, no track radius, no piece count, no scene paths. It probes the map it
 ## is standing in with real raycasts and reports what it finds, so a second map
 ## with cover somewhere else needs no second version of this file and no new
 ## numbers in [RunnerProfile]. That is a hard requirement rather than good taste:
@@ -70,11 +70,11 @@ var _probes: int = 0
 ##
 ## [param centre] is the arena axis at deck height and [param travel_sign] the
 ## direction of the lap, both as [RingRunner] holds them.
-## [param lane_radius] is the radius the runner would rather be on, and is used
+## [param track_radius] is the radius the runner would rather be on, and is used
 ## ONLY to break ties. The band that is actually probed is centred on where the
 ## runner is standing NOW, which is not the same thing once it has taken cover
-## twice: a prisoner assigned the inner lane and currently tucked behind an outer
-## box would otherwise sweep a band of deck eleven metres away from itself, find
+## twice: a prisoner tucked behind a box on the far side of the deck from the
+## track would otherwise sweep a band eleven metres away from itself, find
 ## nothing, and fall back to sprinting down the open track -- which is the exact
 ## failure this whole file exists to remove, and it cost a measured round of
 ## debugging to see.
@@ -90,7 +90,7 @@ func search(
 	from_position: Vector3,
 	centre: Vector3,
 	travel_sign: float,
-	lane_radius: float,
+	track_radius: float,
 	limit_arc: float,
 ) -> bool:
 	_found = false
@@ -110,8 +110,8 @@ func search(
 		return false
 
 	var steps: int = maxi(profile.cover_search_steps, 1)
-	var min_arc: float = profile.cover_min_advance_metres / maxf(lane_radius, 0.001)
-	var depth_arc: float = profile.cover_depth_metres / maxf(lane_radius, 0.001)
+	var min_arc: float = profile.cover_min_advance_metres / maxf(track_radius, 0.001)
+	var depth_arc: float = profile.cover_depth_metres / maxf(track_radius, 0.001)
 
 	for step: int in range(1, steps + 1):
 		var step_arc: float = arc * float(step) / float(steps)
@@ -133,7 +133,7 @@ func search(
 				continue
 			if not _is_standable(space, profile, point, from_position.y):
 				continue
-			var deviation: float = absf(radius - lane_radius)
+			var deviation: float = absf(radius - track_radius)
 			if deviation < best_deviation:
 				best_deviation = deviation
 				best = point

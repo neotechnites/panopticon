@@ -3,15 +3,15 @@ extends TestCase
 ## [RingRunner]: the baseline prisoner, on the real arena.
 ##
 ## The greybox ring is instanced rather than stood in for by a flat plate. The
-## runner's finish condition is arc travelled about the arena axis and its lane
-## is chosen to thread between the cover bands, so both are statements about
-## [code]scenes/ring/test_ring.tscn[/code]'s actual geometry. A test on a
-## featureless floor would keep passing after somebody moved a cover lane into
+## runner's finish condition is arc travelled about the arena axis, and the track
+## it holds is chosen to thread between the cover bands, so both are statements
+## about [code]scenes/ring/test_ring.tscn[/code]'s actual geometry. A test on a
+## featureless floor would keep passing after somebody moved a band of cover into
 ## the runner's channel.
 
 ## Simulated seconds a lap is allowed to take before the test gives up.
 ##
-## The default lane is r=44.5, so the ~350 degree lap is about 272 m; at
+## The track is r=44.5, so the ~350 degree lap is about 272 m; at
 ## [member MovementProfile.walk_speed] that is 34 s, plus the second or so the
 ## body spends accelerating up to it. Sixty is generous without being a licence
 ## for a runner that has ground to a halt against something.
@@ -58,7 +58,7 @@ func before_each() -> void:
 
 # --- The lap ------------------------------------------------------------------
 
-## A runner walks its lane all the way round and reports that it arrived.
+## A runner walks the track all the way round and reports that it arrived.
 func test_a_runner_completes_a_lap() -> void:
 	await _run_until_finished(LAP_BUDGET_SECONDS)
 
@@ -69,21 +69,23 @@ func test_a_runner_completes_a_lap() -> void:
 
 	# Not exactly 1.0: the finish fires with up to
 	# BotProfile.arrival_tolerance metres of arc still outstanding, which on a
-	# lane this size is about half a percent. Deriving the slack from the profile
+	# track this size is about half a percent. Deriving the slack from the profile
 	# rather than hard-coding 0.99 means retuning the tolerance retunes the test.
-	var slack: float = _profile.arrival_tolerance / (TAU * _profile.lane_radius)
+	var slack: float = _profile.arrival_tolerance / (TAU * _profile.track_radius)
 	assert_between(
 		_brain.get_progress(), 1.0 - slack * 1.2, 1.0,
 		"a finished lap is complete to within the profile's arrival tolerance",
 	)
 
-	# The lane is a circle, so the shortest possible path is its arc. Anything
-	# much longer is the steerer hunting about the lane, which is the failure
-	# mode a raised BotProfile.steering_gain produces.
-	var lap_arc: float = _brain.get_progress() * TAU * _profile.lane_radius
+	# The track is a circle, so the shortest possible path is its arc. Anything
+	# much longer is the steerer hunting about it, which is the failure mode a
+	# raised BotProfile.steering_gain produces. The runner is put down on the
+	# start marker at r=47.5 and steers in to the track, so a few metres of the
+	# slack above the arc are that correction and not the steering.
+	var lap_arc: float = _brain.get_progress() * TAU * _profile.track_radius
 	assert_between(
 		_finished_path, lap_arc * 0.95, lap_arc * 1.15,
-		"the measured path should be close to the lane's own arc (%.1f m)" % lap_arc,
+		"the measured path should be close to the track's own arc (%.1f m)" % lap_arc,
 	)
 
 	# Sanity on the pace: the body cannot beat walk speed on the ground, and a
@@ -93,10 +95,10 @@ func test_a_runner_completes_a_lap() -> void:
 	assert_lt(_finished_elapsed, fastest_possible * 1.5, "the runner should not be stalling")
 
 	# It must finish where the lap ends, not wherever the arc counter happened
-	# to tick over: still on its own lane radius, and back by the divider.
+	# to tick over: still on the track, and back by the divider.
 	assert_almost_eq(
-		_radius_of(_body.global_position), _profile.lane_radius, 2.0,
-		"the runner holds its lane radius all the way to the finish",
+		_radius_of(_body.global_position), _profile.track_radius, 2.0,
+		"the runner holds the track radius all the way to the finish",
 	)
 
 
