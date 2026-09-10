@@ -134,6 +134,15 @@ func react(world_direction: Vector3) -> void:
 	queue_redraw()
 
 
+## Cut the reaction short. For a round reset, so a flash cannot survive into a
+## round it does not describe.
+func clear() -> void:
+	if _age < 0.0:
+		return
+	_age = -1.0
+	queue_redraw()
+
+
 ## Alpha of the full-screen flash right now: full through the hold and falling
 ## afterwards, 0.0 when spent. Exposed so a headless check can assert the
 ## reaction ran and finished without a viewport to look at.

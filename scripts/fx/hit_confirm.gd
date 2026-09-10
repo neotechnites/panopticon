@@ -69,6 +69,17 @@ signal shot_classified(mark: Mark)
 ## class description for what null means.
 @export var controller: MatchController
 
+## This rig's own body, when it has one. There is exactly ONE rifle in a match and
+## it is reparented onto whoever holds the tower, so every listener in the game
+## hears every shot -- including the shots an AI seat holder takes. Set this to
+## the body this rig belongs to and a mark is raised only while
+## [member Rifle.shooter_body] is that body, which is precisely
+## [MatchController]'s own record of who is holding the weapon.
+##
+## Leave it null and every shot by anyone counts, which is right for a weapon
+## test scene with one shooter in it and wrong for a match.
+@export var owner_body: CollisionObject3D
+
 ## Tunables.
 @export var profile: FeedbackProfile
 
@@ -152,6 +163,22 @@ func show_mark(mark: Mark) -> void:
 		camera_kick.confirm()
 	shot_classified.emit(mark)
 	queue_redraw()
+
+
+## Take whatever is on screen down immediately. For a round reset or a seat
+## change, so a mark cannot survive into a round it does not describe.
+func clear() -> void:
+	if _mark == Mark.NONE:
+		return
+	_mark = Mark.NONE
+	_age = 0.0
+	queue_redraw()
+
+
+## True when the shot that just happened was this rig's own. See
+## [member owner_body].
+func is_holding_the_rifle() -> bool:
+	return owner_body == null or (rifle != null and rifle.shooter_body == owner_body)
 
 
 ## The mark currently on screen, or [constant Mark.NONE].
@@ -239,10 +266,14 @@ func _draw_miss_mark(centre: Vector2) -> void:
 # --- Signals ------------------------------------------------------------------
 
 func _on_target_hit(collider: Node3D, _hit_position: Vector3, _hit_normal: Vector3) -> void:
+	if not is_holding_the_rifle():
+		return
 	show_mark(_classify(collider))
 
 
 func _on_missed(_end_point: Vector3) -> void:
+	if not is_holding_the_rifle():
+		return
 	show_mark(Mark.MISS)
 
 

@@ -46,6 +46,17 @@ extends Node
 ## the honest degradation: there is no second place to put recoil.
 @export var camera_kick: FxCameraKick
 
+## This rig's own body, when it has one. There is exactly ONE rifle in a match and
+## it is reparented onto whoever holds the tower, so every listener in the game
+## hears every shot -- including the shots an AI seat holder takes. Set this to
+## the body this rig belongs to and the rifle kicks this camera only while
+## [member Rifle.shooter_body] is that body, which is precisely
+## [MatchController]'s own record of who is holding the weapon.
+##
+## Leave it null and every shot by anyone counts, which is right for a weapon
+## test scene with one shooter in it and wrong for a match.
+@export var owner_body: CollisionObject3D
+
 ## Tunables.
 @export var profile: FeedbackProfile
 
@@ -87,6 +98,12 @@ func kick() -> void:
 	camera_kick.fire_recoil(recoil_scale)
 
 
+## True when the shot that just happened was this rig's own. See
+## [member owner_body].
+func is_holding_the_rifle() -> bool:
+	return owner_body == null or (rifle != null and rifle.shooter_body == owner_body)
+
+
 func is_inert() -> bool:
 	return _inert
 
@@ -94,6 +111,8 @@ func is_inert() -> bool:
 # --- Signals ------------------------------------------------------------------
 
 func _on_fired(_origin: Vector3, _end_point: Vector3) -> void:
+	if not is_holding_the_rifle():
+		return
 	kick()
 
 
