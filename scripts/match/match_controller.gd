@@ -258,6 +258,14 @@ func _spawn_runners() -> void:
 			push_error("MatchController's runner scene does not have a PlayerController at its root.")
 			return
 		body.name = "Runner_r%.1f" % radius
+		# Place the body BEFORE it enters the tree. A runner added at its scene
+		# default sits at the origin, and the physics server registers it there
+		# for one tick before configure() moves it. The tower spawn is also the
+		# origin, so three capsules materialise inside the shooter and
+		# depenetration launches them across the arena to the outer wall.
+		# configure() sets the exact lane position immediately after; this only
+		# has to be somewhere that is not on top of another body.
+		body.position = start_point
 		runner_container.add_child(body)
 
 		var brain: RingRunner = _find_brain(body)

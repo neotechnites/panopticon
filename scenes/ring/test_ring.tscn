@@ -261,5 +261,5 @@ material = SubResource("MatStructure")
 transform = Transform3D(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, -0.5, 0.0)
 
 [node name="TowerSpawn" type="Marker3D" parent="Tower"]
-editor_description = "Centre of the platform, standing on its top surface at y=0.0. Referenced as Tower/TowerSpawn by MatchController."
-transform = Transform3D(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0)
+editor_description = "Centre of the platform, standing 0.25 m above its top surface. The clearance is deliberate: spawning a capsule with its feet exactly on the collision plane overlaps the slab, and depenetration launches the body across the arena."
+transform = Transform3D(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.25, 0.0)
