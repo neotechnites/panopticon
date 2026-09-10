@@ -17,15 +17,16 @@ extends Node
 ##   SettingsScreen.closed     -> ui.back
 ## [/codeblock]
 ##
-## [b]Why it watches [signal SceneTree.node_added] instead of walking once.[/b]
-## Every menu in this project builds its own controls in code -- see
-## [method MainMenu._build] and [method SettingsScreen._build] -- and Godot runs
-## a child's [method Node._ready] before its parent's, so a listener parented
-## under a menu is ready before that menu has created a single button. Worse,
-## the settings screen is constructed and destroyed on demand, so a one-shot
-## walk would go stale the first time it is opened. Subscribing to the tree
-## itself is the only version that catches all of it, costs two casts per node
-## added, and needs no bookkeeping: a signal to a freed node disconnects itself.
+## [b]Why it watches [signal SceneTree.node_added] AND sweeps once.[/b] Neither
+## alone catches every menu in this project. [MainMenu] and [MatchSetupScreen]
+## author their controls in the scene file, so those buttons are already in the
+## tree before this node is ready and a listener that only subscribed would miss
+## every one of them -- that is what the deferred sweep in
+## [method Node._enter_tree] is for. [PauseMenu] still builds its controls in its
+## own [method Node._ready], which runs after a child's, and screens are shown,
+## hidden and sometimes freed on demand -- that is what the subscription is for.
+## Between them nothing is missed, it costs two casts per node added, and it
+## needs no bookkeeping: a signal to a freed node disconnects itself.
 ##
 ## [b]ui.focus is rate limited, not debounced by this file.[/b] A mouse dragged
 ## down a column of buttons emits [signal Control.mouse_entered] once per

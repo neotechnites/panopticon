@@ -1,0 +1,94 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/match_result_screen.gd" id="1_match_result_screen"]
+
+[node name="MatchResultScreen" type="CanvasLayer"]
+process_mode = 3
+layer = 64
+editor_description = "What the player is told when a match ends: who won, in what role, and the two ways out -- Play Again and Main Menu. Drop it into a match scene and set controller (and pause_menu, if the scene has one). The layout is authored HERE and scripts/ui/match_result_screen.gd only writes text into the %-named nodes; nothing about this screen is built in code. Layer 64 puts it over the HUD (layer 1) and the feedback rig (layer 2) and under PauseMenu (layer 128), so Escape still reaches a menu that draws on top of it. process_mode ALWAYS because PauseMenu can be opened over this screen and a result screen whose buttons died behind a menu the player just closed is indistinguishable from a hung game. It does not pause the tree: a won match is already frozen by MatchController, and pausing on top of that would hand PauseMenu a paused tree it did not pause and does not know to unpause."
+script = ExtResource("1_match_result_screen")
+
+[node name="Root" type="Control" parent="."]
+unique_name_in_owner = true
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 0
+editor_description = "STOP across the whole viewport, and that is load-bearing rather than tidy. HumanIntentSource re-captures the mouse on any mouse button that reaches _unhandled_input, so a click that fell through this Control would take the cursor away on the way to pressing Play Again. A Control that stops the event never lets it get there. Visibility is toggled on this node rather than on the CanvasLayer so the layer itself stays in the tree and keeps its signal connections."
+
+[node name="Dim" type="ColorRect" parent="Root"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0, 0, 0, 0.65)
+editor_description = "The frozen match is still being drawn behind this screen and a result read over a lit arena is hard to read at all. IGNORE, not STOP: the Control above already stops everything, and a second stopper would only be a second thing to get wrong."
+
+[node name="Frame" type="MarginContainer" parent="Root"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 24
+theme_override_constants/margin_top = 24
+theme_override_constants/margin_right = 24
+theme_override_constants/margin_bottom = 24
+
+[node name="Dialog" type="PanelContainer" parent="Root/Frame"]
+custom_minimum_size = Vector2(520, 0)
+size_flags_horizontal = 4
+size_flags_vertical = 4
+editor_description = "A centred dialog of a deliberate width, shrink-centred so it grows for a longer verdict and never spreads edge to edge. 520 fits inside 1280x720 -- the smallest resolution GameSettings offers -- with the frame's margins to spare."
+
+[node name="Padding" type="MarginContainer" parent="Root/Frame/Dialog"]
+theme_override_constants/margin_left = 24
+theme_override_constants/margin_top = 20
+theme_override_constants/margin_right = 24
+theme_override_constants/margin_bottom = 20
+
+[node name="Layout" type="VBoxContainer" parent="Root/Frame/Dialog/Padding"]
+theme_override_constants/separation = 12
+
+[node name="Verdict" type="Label" parent="Root/Frame/Dialog/Padding/Layout"]
+unique_name_in_owner = true
+theme_override_font_sizes/font_size = 40
+text = "MATCH OVER"
+horizontal_alignment = 1
+editor_description = "One word, from the human's point of view: VICTORY, DEFEAT, or MATCH OVER when the match had no human in it at all. The text authored here is the placeholder the editor shows; the script overwrites it from the controller every time the screen is shown."
+
+[node name="Headline" type="Label" parent="Root/Frame/Dialog/Padding/Layout"]
+unique_name_in_owner = true
+theme_override_font_sizes/font_size = 18
+text = "Who won, and in what role."
+horizontal_alignment = 1
+autowrap_mode = 3
+editor_description = "Who won and in what role, in a sentence or two: held the tower and cleared the ring, or was a prisoner. Autowrapped, because a participant name is not a fixed width."
+
+[node name="Divider" type="HSeparator" parent="Root/Frame/Dialog/Padding/Layout"]
+
+[node name="Detail" type="Label" parent="Root/Frame/Dialog/Padding/Layout"]
+unique_name_in_owner = true
+text = "The match's own numbers."
+horizontal_alignment = 1
+editor_description = "The match's numbers, every one of them read back off MatchController rather than tallied here: the tower holder's turn and rounds held, rounds played, prisoners cleared out of the field, and ghost swaps when the rules have ghosts in them."
+
+[node name="Buttons" type="HBoxContainer" parent="Root/Frame/Dialog/Padding/Layout"]
+theme_override_constants/separation = 12
+alignment = 1
+
+[node name="PlayAgainButton" type="Button" parent="Root/Frame/Dialog/Padding/Layout/Buttons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(200, 40)
+text = "Play Again"
+editor_description = "Calls MatchController.restart() -- the same call the R key and an all-racers-out fall already make -- rather than reloading the scene. Focused the moment the screen appears, so the keyboard can answer it."
+
+[node name="MainMenuButton" type="Button" parent="Root/Frame/Dialog/Padding/Layout/Buttons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(200, 40)
+text = "Main Menu"
+editor_description = "Hands off to PauseMenu.return_to_main_menu() when the scene has a pause menu, so the teardown order -- save settings, unpause, release the mouse, then change scene -- lives in one place instead of two."

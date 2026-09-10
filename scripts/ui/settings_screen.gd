@@ -99,6 +99,11 @@ func close() -> void:
 
 ## Pull every control's value from the store.
 func refresh() -> void:
+	# Before anything is read out of it: how many seats a match has depends on
+	# MatchRules.prisoner_count, which is a saved preference the match setup
+	# screen owns and can have changed since this screen was built.
+	_fill_seat_choices()
+
 	_syncing = true
 
 	var settings: GameSettings = _store.settings
@@ -157,17 +162,28 @@ func _fill_choices() -> void:
 	for choice: Vector2i in GameSettings.RESOLUTION_CHOICES:
 		_resolution_option.add_item("%d x %d" % [choice.x, choice.y])
 
+	_fill_seat_choices()
+
+	_vsync_option.clear()
+	_vsync_option.add_item("Off", int(GameSettings.VSyncMode.DISABLED))
+	_vsync_option.add_item("On", int(GameSettings.VSyncMode.ENABLED))
+	_vsync_option.add_item("Adaptive", int(GameSettings.VSyncMode.ADAPTIVE))
+
+
+## Offer exactly the seats the match the player is about to start will have.
+##
+## Rebuilt rather than filled once, because [member GameSettings.prisoner_count]
+## is a preference the match setup screen can change while this screen is sitting
+## hidden in the same menu.
+func _fill_seat_choices() -> void:
+	var selected: int = _store.settings.tower_seat_index
 	_tower_seat_option.clear()
 	for seat: int in _seat_count():
 		# Named through the rules, so the seat this list offers and the seat the
 		# match HUD reports are one string. See
 		# [method MatchRules.get_participant_name].
 		_tower_seat_option.add_item(MatchRules.get_participant_name(seat, true), seat)
-
-	_vsync_option.clear()
-	_vsync_option.add_item("Off", int(GameSettings.VSyncMode.DISABLED))
-	_vsync_option.add_item("On", int(GameSettings.VSyncMode.ENABLED))
-	_vsync_option.add_item("Adaptive", int(GameSettings.VSyncMode.ADAPTIVE))
+	_tower_seat_option.selected = _seat_index(selected)
 
 
 func _connect_controls() -> void:
@@ -340,7 +356,16 @@ func _seat_count() -> int:
 			"SettingsScreen cannot read %s; the seat list is a guess." % MATCH_RULES_PATH
 		)
 		return FALLBACK_SEAT_COUNT
-	return rules.get_participant_count()
+	# On a COPY, with the player's own preferences written over it -- the same
+	# write SettingsBoot performs on the way into a match. The file's own
+	# prisoner_count is only the shipped answer; the player may have chosen
+	# another on the match setup screen, and offering the seats of a match nobody
+	# is about to start is worse than not offering seats at all. The copy is what
+	# keeps this a question rather than an edit: the real resource is one cached
+	# instance for the whole process and this screen has no business writing it.
+	var preview: MatchRules = rules.duplicate() as MatchRules
+	_store.settings.apply_to_match_rules(preview)
+	return preview.get_participant_count()
 
 
 ## Which entry of the seat list holds [param seat], or the first one.

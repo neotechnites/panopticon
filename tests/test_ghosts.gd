@@ -294,19 +294,45 @@ func test_a_ghost_cannot_be_hit_by_the_rifle() -> void:
 	)
 	assert_eq_int(
 		victim.body.collision_layer, 0,
-		"a ghost is on no physics layer, so nothing can find it",
+		"a ghost is held off every layer while its placement settles",
 	)
 	# The mask is the authored one, but only once the start-line placement has
 	# been woken: a ghost is held off collision entirely for the two frames it
 	# takes the physics server to catch up with where it was put.
-	await step_ticks(SETTLE_TICKS)
+	#
+	# Polled tick by tick, and stopped the instant it wakes, rather than a flat
+	# SETTLE_TICKS wait: a woken ghost's brain resumes its chase immediately,
+	# and a straight second of that (SETTLE_TICKS is 60) is more than enough
+	# ground for it to close on the living prisoner it is chasing -- which
+	# would put the RAY below through a body the ghost was merely standing
+	# near, and prove nothing about the ghost at all. Stopping the moment
+	# [method PlayerController.is_physics_processing] turns true reads the
+	# position [method MatchController._wake_ghost] just woke it at, before
+	# a single further tick of motion.
+	for _tick: int in SETTLE_TICKS:
+		await step_ticks(1)
+		if victim.body.is_physics_processing():
+			break
+	assert_true(victim.body.is_physics_processing(), "the ghost's placement woke within the budget")
 	assert_eq_int(
-		victim.body.collision_layer, 0,
-		"and is still on no layer once the placement has woken",
+		victim.body.collision_layer, MatchController.GHOST_HAZARD_LAYER,
+		"once woken a ghost stands on the hazard layer, not on its own",
+	)
+	assert_eq_int(
+		victim.body.collision_layer & mask, 0,
+		"and that layer is outside the rifle's own hit mask -- still unshootable",
 	)
 	assert_eq_int(
 		victim.body.collision_mask, control.body.collision_mask,
 		"a ghost still collides with the world it walks on",
+	)
+
+	# The rule still holds once the ghost is actually standing on
+	# GHOST_HAZARD_LAYER rather than on nothing: the first ray, above, only
+	# proved layer 0 is unshootable, which is trivially true of any mask.
+	assert_null(
+		_participant_struck_at(victim.body.global_position, mask),
+		"a ray through the WOKEN ghost, on its real hazard layer, still finds nobody",
 	)
 
 

@@ -112,6 +112,43 @@ const DEFAULT_TOWER_SEAT_INDEX: int = 0
 ## exists only so a corrupt file cannot put an absurd number into the config.
 const MAX_TOWER_SEAT_INDEX: int = 31
 
+## How many prisoners a match started from this menu puts on the ring. Agrees
+## with [member MatchRules.prisoner_count] and with the shipped
+## [code]resources/rules/default_match_rules.tres[/code], for the same reason
+## [constant DEFAULT_GHOSTS_ENABLED] agrees with the ghost rule: a preference
+## that disagrees with the rule it overwrites means the first match a player
+## starts is played under a rule set nobody chose.
+const DEFAULT_PRISONER_COUNT: int = 3
+const MIN_PRISONER_COUNT: int = 1
+
+## The largest field the SAVED PREFERENCE may name.
+##
+## [member MatchRules.prisoner_count] is exported as [code]1..32, or_greater[/code]
+## and a sweep may still ask for any of it -- this bound is on the preference, not
+## on the rule. Eight is the most the start line has been measured at: the field
+## is dealt out sideways across a 25 m deck at
+## [member MatchRules.start_line_spacing_metres], and a number large enough to
+## run off the end of that line is a spawn bug, not a game mode.
+const MAX_PRISONER_COUNT: int = 8
+
+## Hits a prisoner absorbs. Agrees with [member MatchRules.prisoner_lives].
+const DEFAULT_PRISONER_LIVES: int = 1
+const MIN_PRISONER_LIVES: int = 1
+
+## The most lives the SAVED PREFERENCE may name, against the rule's own
+## [code]1..10[/code]. A survived hit has no hit reaction, no stagger and no
+## recovery -- see [member MatchRules.prisoner_lives] -- so the screen offers the
+## smallest range in which that is still legible rather than the whole rule.
+const MAX_PRISONER_LIVES: int = 3
+
+## Rounds a player must win from the tower to win the match. Agrees with
+## [member MatchRules.rounds_to_win_match].
+const DEFAULT_ROUNDS_TO_WIN_MATCH: int = 1
+const MIN_ROUNDS_TO_WIN_MATCH: int = 1
+
+## Ceiling on the saved preference, against the rule's own [code]1..16[/code].
+const MAX_ROUNDS_TO_WIN_MATCH: int = 7
+
 ## Matches [code]project.godot[/code]'s [code][display]/window/size[/code]
 ## defaults. They have to agree: [SettingsBoot] bootstraps the store and calls
 ## [method apply_video] before the player has opened the settings screen even
@@ -201,6 +238,46 @@ var skip_opening_race: bool = DEFAULT_SKIP_OPENING_RACE
 ## [member MatchRules.opening_seat_index].
 var tower_seat_index: int = DEFAULT_TOWER_SEAT_INDEX
 
+## How many prisoners run the round, written over
+## [member MatchRules.prisoner_count] at match start.
+##
+## [b]Why this is a preference at all.[/b] Same argument as the ghost toggle
+## above: it is a rule of the round, it is the crudest difficulty dial the game
+## has, and a player cannot open a text editor to change a rule file. Everything
+## from here down to [member rounds_to_win_match] is on the match setup screen
+## for that reason and reaches the match by exactly the same door --
+## [method apply_to_match_rules], called by the [SettingsBoot] node in
+## [code]scenes/match/match.tscn[/code], on the one cached [MatchRules] the
+## [MatchController] in that scene runs.
+var prisoner_count: int = DEFAULT_PRISONER_COUNT
+
+## Hits a prisoner absorbs before leaving the round. Written over
+## [member MatchRules.prisoner_lives].
+var prisoner_lives: int = DEFAULT_PRISONER_LIVES
+
+## What the shooter must do to win. Written over
+## [member MatchRules.shooter_win_condition].
+##
+## Only [constant MatchRules.ShooterWinCondition.TOTAL_CONVERSION] is
+## implemented. The setting screen offers the others greyed out rather than
+## hiding them -- the design space is worth seeing -- so in practice nothing but
+## the implemented one ever gets in here; the clamp in [method clamp_all] is
+## against a hand-edited file, not against the screen.
+var shooter_win_condition: MatchRules.ShooterWinCondition = (
+	MatchRules.ShooterWinCondition.TOTAL_CONVERSION
+)
+
+## What the prisoners must do to win. Written over
+## [member MatchRules.runner_win_condition]. Both members are implemented, so
+## this one is a real choice.
+var runner_win_condition: MatchRules.RunnerWinCondition = (
+	MatchRules.RunnerWinCondition.FIRST_ARRIVAL
+)
+
+## Rounds a player must win from the tower to win the match. Written over
+## [member MatchRules.rounds_to_win_match].
+var rounds_to_win_match: int = DEFAULT_ROUNDS_TO_WIN_MATCH
+
 
 ## Return every value to its shipped default.
 func reset() -> void:
@@ -216,6 +293,11 @@ func reset() -> void:
 	ghosts_enabled = DEFAULT_GHOSTS_ENABLED
 	skip_opening_race = DEFAULT_SKIP_OPENING_RACE
 	tower_seat_index = DEFAULT_TOWER_SEAT_INDEX
+	prisoner_count = DEFAULT_PRISONER_COUNT
+	prisoner_lives = DEFAULT_PRISONER_LIVES
+	shooter_win_condition = MatchRules.ShooterWinCondition.TOTAL_CONVERSION
+	runner_win_condition = MatchRules.RunnerWinCondition.FIRST_ARRIVAL
+	rounds_to_win_match = DEFAULT_ROUNDS_TO_WIN_MATCH
 
 
 ## Force every value inside its documented range. Called after every read, so
@@ -230,6 +312,20 @@ func clamp_all() -> void:
 	display_mode = clampi(int(display_mode), 0, DISPLAY_MODE_COUNT - 1) as DisplayMode
 	vsync_mode = clampi(int(vsync_mode), 0, VSYNC_MODE_COUNT - 1) as VSyncMode
 	tower_seat_index = clampi(tower_seat_index, 0, MAX_TOWER_SEAT_INDEX)
+	prisoner_count = clampi(prisoner_count, MIN_PRISONER_COUNT, MAX_PRISONER_COUNT)
+	prisoner_lives = clampi(prisoner_lives, MIN_PRISONER_LIVES, MAX_PRISONER_LIVES)
+	rounds_to_win_match = clampi(
+		rounds_to_win_match, MIN_ROUNDS_TO_WIN_MATCH, MAX_ROUNDS_TO_WIN_MATCH
+	)
+	# Sized off the enums themselves rather than off a count restated here: these
+	# live in another file, and a member added there without this one noticing
+	# must widen the clamp, not be silently rejected.
+	shooter_win_condition = clampi(
+		int(shooter_win_condition), 0, MatchRules.ShooterWinCondition.size() - 1
+	) as MatchRules.ShooterWinCondition
+	runner_win_condition = clampi(
+		int(runner_win_condition), 0, MatchRules.RunnerWinCondition.size() - 1
+	) as MatchRules.RunnerWinCondition
 
 
 ## Copy every value out of [param other].
@@ -246,6 +342,11 @@ func copy_from(other: GameSettings) -> void:
 	ghosts_enabled = other.ghosts_enabled
 	skip_opening_race = other.skip_opening_race
 	tower_seat_index = other.tower_seat_index
+	prisoner_count = other.prisoner_count
+	prisoner_lives = other.prisoner_lives
+	shooter_win_condition = other.shooter_win_condition
+	runner_win_condition = other.runner_win_condition
+	rounds_to_win_match = other.rounds_to_win_match
 
 
 ## True when every value matches [param other]. Used by the verification harness
@@ -264,6 +365,11 @@ func equals(other: GameSettings) -> bool:
 		and ghosts_enabled == other.ghosts_enabled
 		and skip_opening_race == other.skip_opening_race
 		and tower_seat_index == other.tower_seat_index
+		and prisoner_count == other.prisoner_count
+		and prisoner_lives == other.prisoner_lives
+		and shooter_win_condition == other.shooter_win_condition
+		and runner_win_condition == other.runner_win_condition
+		and rounds_to_win_match == other.rounds_to_win_match
 	)
 
 
@@ -287,6 +393,11 @@ func write_to(config: ConfigFile) -> void:
 	config.set_value(SECTION_MATCH, "ghosts_enabled", ghosts_enabled)
 	config.set_value(SECTION_MATCH, "skip_opening_race", skip_opening_race)
 	config.set_value(SECTION_MATCH, "tower_seat_index", tower_seat_index)
+	config.set_value(SECTION_MATCH, "prisoner_count", prisoner_count)
+	config.set_value(SECTION_MATCH, "prisoner_lives", prisoner_lives)
+	config.set_value(SECTION_MATCH, "shooter_win_condition", int(shooter_win_condition))
+	config.set_value(SECTION_MATCH, "runner_win_condition", int(runner_win_condition))
+	config.set_value(SECTION_MATCH, "rounds_to_win_match", rounds_to_win_match)
 
 
 ## Read every value out of [param config], substituting the current value --
@@ -313,6 +424,17 @@ func read_from(config: ConfigFile) -> void:
 		config, SECTION_MATCH, "skip_opening_race", skip_opening_race
 	)
 	tower_seat_index = read_int(config, SECTION_MATCH, "tower_seat_index", tower_seat_index)
+	prisoner_count = read_int(config, SECTION_MATCH, "prisoner_count", prisoner_count)
+	prisoner_lives = read_int(config, SECTION_MATCH, "prisoner_lives", prisoner_lives)
+	shooter_win_condition = read_int(
+		config, SECTION_MATCH, "shooter_win_condition", int(shooter_win_condition)
+	) as MatchRules.ShooterWinCondition
+	runner_win_condition = read_int(
+		config, SECTION_MATCH, "runner_win_condition", int(runner_win_condition)
+	) as MatchRules.RunnerWinCondition
+	rounds_to_win_match = read_int(
+		config, SECTION_MATCH, "rounds_to_win_match", rounds_to_win_match
+	)
 
 	clamp_all()
 
@@ -391,10 +513,13 @@ func apply_to_movement_profile(profile: MovementProfile) -> void:
 ## Idempotent, so calling it again on every [signal SettingsStore.applied] is
 ## correct and cheap -- exactly as [method apply_to_movement_profile] is.
 ##
-## It writes [member MatchRules.ghost_behaviour] and nothing else. Ghost TUNING
-## -- pace, catch radius, grace -- is [GhostProfile] and is not a player
-## preference; a player who wants to retune the mechanic is sweeping it, not
-## playing it.
+## It writes the RULES a player chose and nothing else. The line between the two
+## is the same one [MatchRules] draws in its own header: what the round IS is a
+## rule and can be chosen; what a component is made of is tuning and cannot.
+## Ghost TUNING -- pace, catch radius, grace -- is [GhostProfile]; the rifle's
+## reload curve, the track radius, the arrival tolerance and the AI profiles are
+## the same kind of number. A player who wants to retune those is sweeping the
+## game, not playing it, and none of them are on the setup screen.
 func apply_to_match_rules(rules: MatchRules) -> void:
 	if rules == null:
 		return
@@ -408,6 +533,15 @@ func apply_to_match_rules(rules: MatchRules) -> void:
 	# uses the seat the player last chose rather than whatever the resource was
 	# left holding.
 	rules.opening_seat_index = tower_seat_index
+	# Every one of these is written unconditionally too, and for the reason given
+	# above: the rules resource is one shared instance for the whole process, so
+	# a value only written when it is non-default leaves a match started after a
+	# change back still playing the old one.
+	rules.prisoner_count = prisoner_count
+	rules.prisoner_lives = prisoner_lives
+	rules.shooter_win_condition = shooter_win_condition
+	rules.runner_win_condition = runner_win_condition
+	rules.rounds_to_win_match = rounds_to_win_match
 
 
 ## Write [member field_of_view] into a camera. The scene decides which camera;

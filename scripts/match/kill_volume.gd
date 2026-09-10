@@ -27,12 +27,16 @@ extends Area3D
 ## of the running scene once, on ready, and is a silent no-op when there is no
 ## match to tell.
 ##
-## [b]It cannot see a ghost.[/b] An [Area3D] detects a body through
-## [member CollisionObject3D.collision_layer], and a ghost is on no layer at all
-## -- that is the whole of "cannot be shot". A ghost that fell in would therefore
-## not be reported. [method MatchController.handle_fall] answers for one anyway,
-## because the answer should not depend on this detail of how unshootable is
-## implemented.
+## [b]It can see a ghost, deliberately.[/b] An [Area3D] detects a body through
+## [member CollisionObject3D.collision_layer], and a ghost stands on
+## [constant MatchController.GHOST_HAZARD_LAYER] rather than on no layer at all
+## -- see that constant for why the rifle still cannot find it there. This
+## volume's own [member Area3D.collision_mask], authored in
+## [code]scenes/ring/test_ring.tscn[/code], is widened to include that bit
+## specifically, so a ghost that falls in is reported exactly as a living
+## prisoner is. [method MatchController.handle_fall] answers for a ghost by
+## putting it back at the start -- a ghost is already dead, so a second death
+## cannot be taken off it.
 
 ## The match to report falls to. Leave unset and, with [member auto_discover] on,
 ## the first [MatchController] in the running scene is used.

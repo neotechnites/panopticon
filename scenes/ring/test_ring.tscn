@@ -1,7 +1,8 @@
-[gd_scene load_steps=11 format=3]
+[gd_scene load_steps=13 format=3]
 
 [ext_resource type="PackedScene" path="res://scenes/tower/panopticon_eye.tscn" id="1_eye"]
 [ext_resource type="Script" path="res://scripts/match/kill_volume.gd" id="2_kill_volume"]
+[ext_resource type="Script" path="res://scripts/match/trap_volume.gd" id="3_trap_volume"]
 
 [sub_resource type="StandardMaterial3D" id="MatDeck"]
 albedo_color = Color(0.42, 0.42, 0.44, 1.0)
@@ -17,6 +18,11 @@ metallic = 0.0
 albedo_color = Color(0.58, 0.57, 0.54, 1.0)
 roughness = 0.95
 metallic = 0.0
+
+[sub_resource type="StandardMaterial3D" id="MatTrap"]
+resource_name = "Trap"
+shading_mode = 0
+albedo_color = Color(0.86, 0.06, 0.06, 1.0)
 
 [sub_resource type="StandardMaterial3D" id="MatStart"]
 albedo_color = Color(0.22, 0.52, 0.28, 1.0)
@@ -45,7 +51,7 @@ ambient_light_energy = 0.6
 tonemap_mode = 2
 
 [node name="TestRing" type="Node3D"]
-editor_description = "PANOPTICON greybox arena. 0.5 m grid throughout. Deck r35-r60 (25 m track), outer wall +8 m, open shooter platform r=8 at the centre with its surface level with the deck at y=0. Runners go counter-clockwise from PrisonerStart (+5 deg) all the way round to PrisonerEnd (-5 deg), 8 m apart across LapDivider."
+editor_description = "PANOPTICON greybox arena. 0.5 m grid throughout. Deck r35-r60 (25 m track), outer wall +8 m, open shooter platform r=8 at the centre with its surface level with the deck at y=0. Runners go counter-clockwise from PrisonerStart (+5 deg) all the way round to PrisonerEnd (-5 deg), 8 m apart across LapDivider. The route is trapped: six red kill-on-contact blocks under Traps and four pits cut through Ring/Deck, all of them flush against the cover bands so the r41.75-r46.75 running channel is exactly as wide as it always was."
 
 [node name="Environment" type="Node3D" parent="."]
 
@@ -62,7 +68,7 @@ directional_shadow_max_distance = 160.0
 [node name="Ring" type="Node3D" parent="."]
 
 [node name="Deck" type="CSGCombiner3D" parent="Ring"]
-editor_description = "The running surface: a true annulus, outer r=60, inner r=35, 25 m wide. Lap length at mid-radius r=47.5 is 298 m -- 37 s at walk 8 m/s, 27 s at sprint 11 m/s, which is the length of one round."
+editor_description = "The running surface: a true annulus, outer r=60, inner r=35, 25 m wide, with four pits cut through it (the Pit* subtractions below). Lap length at mid-radius r=47.5 is 298 m -- 37 s at walk 8 m/s, 27 s at sprint 11 m/s, which is the length of one round."
 use_collision = true
 
 [node name="DeckSolid" type="CSGCylinder3D" parent="Ring/Deck"]
@@ -79,6 +85,38 @@ radius = 35.0
 height = 3.0
 sides = 64
 transform = Transform3D(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, -0.5, 0.0)
+
+[node name="Pit01_082deg" type="CSGCylinder3D" parent="Ring/Deck" groups=["deck_pits"]]
+editor_description = "82 deg, r=49.25, 5 m across. Cut into the OUTER shoulder of the track. Its inner lip lands at r=46.75, which is exactly where the LaneMid cover band already begins, so the runners' clear channel (r41.75-r46.75) is not narrowed by one centimetre; what changes is that wandering outboard HERE is a fall rather than a detour. Nothing is under it -- the deck slab is the only floor outboard of r=35 -- so a body that drops through keeps going until KillBox has it."
+operation = 2
+radius = 2.5
+height = 3.0
+sides = 24
+transform = Transform3D(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 6.85428, -0.5, 48.7707)
+
+[node name="Pit02_137deg" type="CSGCylinder3D" parent="Ring/Deck" groups=["deck_pits"]]
+editor_description = "137 deg, r=39.25, 5 m across. Cut into the INNER shoulder. Its outer lip lands at r=41.75, exactly where the LaneInner cover band already ends, so the channel is untouched. It leaves a 0.75 m ledge between the hole and InnerKerb: that is a ledge, and it is meant to read as one."
+operation = 2
+radius = 2.5
+height = 3.0
+sides = 24
+transform = Transform3D(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, -28.70563, -0.5, 26.76844)
+
+[node name="Pit03_191deg" type="CSGCylinder3D" parent="Ring/Deck" groups=["deck_pits"]]
+editor_description = "191 deg, r=49.25. Outer shoulder, as Pit01."
+operation = 2
+radius = 2.5
+height = 3.0
+sides = 24
+transform = Transform3D(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, -48.34514, -0.5, -9.39734)
+
+[node name="Pit04_245deg" type="CSGCylinder3D" parent="Ring/Deck" groups=["deck_pits"]]
+editor_description = "245 deg, r=39.25. Inner shoulder, as Pit02."
+operation = 2
+radius = 2.5
+height = 3.0
+sides = 24
+transform = Transform3D(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, -16.58777, -0.5, -35.57258)
 
 [node name="OuterWall" type="CSGCombiner3D" parent="Ring"]
 editor_description = "r=60 to r=62, 8 m tall. Jump apex on the tuned movement profile is 1.11 m, so 8 m is uncrossable by an order of magnitude; it sits entirely outboard of the deck so it can never occlude the tower's view of ground."
@@ -133,14 +171,15 @@ material = SubResource("MatStructure")
 transform = Transform3D(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 47.5, 2.0, 0.0)
 
 [node name="KillBox" type="Area3D" parent="."]
-editor_description = "The kill box under the arena. Everything that walks in PANOPTICON walks on one of two surfaces, the deck annulus (r35-r60) and the guard's platform (r8), and both of them are at y=0 with a twelve metre hole between them -- so the courtyard is the only place anybody can fall, and this is it.\n\nIt is a trigger and nothing else: no collision of its own (layer 0, so nothing has to know it is here), monitorable off, and a mask of 1 because that is the layer scenes/player/player.tscn puts a body on. The rifle cannot hit it -- default_weapon_profile.tres shoots with hit_areas off -- and a CharacterBody3D cannot stand on it.\n\nWHAT IT DOES IS NOT DECIDED HERE. scripts/match/kill_volume.gd resolves whatever entered it to a participant and hands it to MatchController.handle_fall(), which is the same node that already decides what a rifle hit means. The extent is on the script as three exported metres -- radius, how far under the deck the roof sits, how deep it goes -- and the child below is sized from them on ready, so the shape and the reasoning cannot disagree.\n\nPurely additive: no script here touches the arena, and deleting this node leaves the courtyard exactly as it was, a pit you can stand at the bottom of."
+editor_description = "The kill box under the arena. Everything that walks in PANOPTICON walks on one of two surfaces, the deck annulus (r35-r60) and the guard's platform (r8), both at y=0 with a twelve metre hole between them -- and, since the deck was given pits, with four more holes cut straight through the deck itself. This is what is under all of it.\n\nRADIUS 62, NOT 35, AND THAT IS THE WHOLE OF THE PIT MECHANIC. The courtyard is only r=35; the pits are at r=39.25 and r=49.25, outboard of it. A volume that stopped at r=35 would let a prisoner drop through a pit and fall forever, alive, past the bottom of the world -- the exact failure this node was built to end, reintroduced by a hole in the floor. So the roof now spans the arena out to the outer wall at r=62. Nothing is lost by that: the deck slab's underside is y=-1, this volume's roof is y=-3, and there is no walkable surface anywhere between them. The pits do not need a catcher of their own, and there is still exactly one place a fall is answered.\n\nIt is a trigger and nothing else: no collision of its own (layer 0, so nothing has to know it is here), monitorable off, and a mask of 1048577 (bit 0, the layer scenes/player/player.tscn puts a living body on, plus bit 20, MatchController.GHOST_HAZARD_LAYER, the layer a ghost stands on) so both a living prisoner and a ghost are seen falling in. The rifle cannot hit it -- default_weapon_profile.tres shoots with hit_areas off -- and a CharacterBody3D cannot stand on it.\n\nWHAT IT DOES IS NOT DECIDED HERE. scripts/match/kill_volume.gd resolves whatever entered it to a participant and hands it to MatchController.handle_fall(), which is the same node that already decides what a rifle hit means, and the same call the red traps make. The extent is on the script as three exported metres -- radius, how far under the deck the roof sits, how deep it goes -- and the child below is sized from them on ready, so the shape and the reasoning cannot disagree.\n\nPurely additive: no script here touches the arena, and deleting this node leaves the courtyard exactly as it was, a pit you can stand at the bottom of -- and the four deck pits a hole you fall through forever, which is why it is not deleted."
 collision_layer = 0
-collision_mask = 1
+collision_mask = 1048577
 monitorable = false
 script = ExtResource("2_kill_volume")
+radius_metres = 62.0
 
 [node name="Shape" type="CollisionShape3D" parent="KillBox"]
-editor_description = "Deliberately empty. KillVolume._build_shape writes a CylinderShape3D over it on ready, from the exports on the parent, and places it hanging from the roof depth -- with the shipped numbers that is r=35 spanning y=-3 to y=-27, which starts below anything a jump can reach from either walking surface and ends well under the courtyard floor at -12.5 without going near the pen a converted body is parked in at -100."
+editor_description = "Deliberately empty. KillVolume._build_shape writes a CylinderShape3D over it on ready, from the exports on the parent, and places it hanging from the roof depth -- with the shipped numbers that is r=62 spanning y=-3 to y=-27, which starts below anything a jump can reach from either walking surface and ends well under the courtyard floor at -12.5 without going near the pen a converted body is parked in at -100."
 
 [node name="StartEnd" type="Node3D" parent="."]
 editor_description = "Start and end are 8 m apart with only LapDivider between them: a runner travels 298 m in one direction and finishes a few metres behind where they set off."
@@ -260,6 +299,105 @@ use_collision = true
 size = Vector3(6.0, 3.0, 1.5)
 material = SubResource("MatCover")
 transform = Transform3D(-0.5, 0.0, 0.86603, 0.0, 1.0, 0.0, -0.86603, 0.0, -0.5, 47.0, 1.5, -27.0)
+
+[node name="Traps" type="Node3D" parent="."]
+editor_description = "Six red blocks that kill on contact, and the other half of the treachery the four Ring/Deck pits are. Read them together: at ten places round the lap the deck is now lethal a couple of metres off the racing line, six of them standing up in red and four of them holes in the floor.\n\nTHE RACING LINE IS NOT NARROWED. MatchRules.track_radius is 44.5 and the shipped RingRunner baseline has NO obstacle avoidance whatsoever -- it faces a point on the r=44.5 circle four metres ahead and holds full forward, for the whole lap. Anything standing on that circle would stop a bot dead and break the game. So every trap and every pit is placed flush against a boundary the arena ALREADY had: the inner ones stop at r=41.75 where the LaneInner cover band ends, the outer ones start at r=46.75 where the LaneMid cover band begins. The clear channel is r41.75-r46.75 exactly as it was before this node existed, and the bot still runs down the middle of it with 2.75 m of room inboard and 2.25 m outboard.\n\nANGLES. Runners go counter-clockwise from the start line at +4.8 deg. The first trap is at 56 deg, which is fifty degrees -- about forty metres -- of clear track for the field to converge out of the start line (where it is dealt across r41.5-r47.5) onto r=44.5 before anything can kill it. After that they alternate inner/outer roughly every thirty degrees and none is within eleven degrees of a cover piece, so no trap and no piece of cover ever fight for the same ground. The last thirty-seven degrees into the finish are clear.\n\nWHAT A TRAP DOES IS NOT DECIDED HERE, exactly as for KillBox: scripts/match/trap_volume.gd hands the body to MatchController.handle_fall(), which for a running prisoner in a round is MatchController.convert_participant() -- the same door the rifle kills through. Touching red and being shot are the same death. Each trap's mask is 1048577 (bit 0 plus bit 20, MatchController.GHOST_HAZARD_LAYER), so a ghost that wanders onto one is seen too -- handle_fall answers for it by placing it back at the start, since a ghost is already dead and cannot be killed a second time.\n\nPurely additive: the blocks carry no collision, so they are not cover, they occlude nothing, and the tower's sightlines are the ones that were tuned. Deleting this node leaves the arena exactly as it was."
+
+[node name="Trap01_056deg" type="Area3D" parent="Traps"]
+editor_description = "056 deg. Hugs the INNER shoulder at r=40.75, so it spans r39.75-r41.75 and stops dead on r=41.75 -- the radius the LaneInner cover band already ends at. The runners' clear channel r41.75-r46.75 is untouched.\n\nThe box is 5 m along the track, 2.2 m tall and 2 m deep. 2.2 m is the number that matters: the tuned MovementProfile jumps 1.11 m, so this cannot be hopped and has to be gone around."
+collision_layer = 0
+collision_mask = 1048577
+monitorable = false
+transform = Transform3D(0.82904, 0, 0.55919, 0, 1, 0, -0.55919, 0, 0.82904, 22.78711, 1.1, 33.78328)
+script = ExtResource("3_trap_volume")
+size_metres = Vector3(5.0, 2.2, 2.0)
+
+[node name="Shape" type="CollisionShape3D" parent="Traps/Trap01_056deg"]
+editor_description = "Deliberately empty. TrapVolume._build_shape writes a BoxShape3D over it on ready from size_metres on the parent."
+
+[node name="Block" type="CSGBox3D" parent="Traps/Trap01_056deg"]
+editor_description = "The red you see. use_collision is off on purpose -- a solid block would be new cover for the prisoners and a new occluder for the tower, and would give the avoidance-free runner brain something to grind against. It is sized by TrapVolume from the same size_metres the detection shape is, so the red and the kill cannot disagree."
+material = SubResource("MatTrap")
+
+[node name="Trap02_110deg" type="Area3D" parent="Traps"]
+editor_description = "110 deg. Hugs the OUTER shoulder at r=47.75, so it spans r46.75-r48.75 and starts dead on r=46.75 -- the radius the LaneMid cover band already begins at. The runners' clear channel r41.75-r46.75 is untouched.\n\nThe box is 5 m along the track, 2.2 m tall and 2 m deep. 2.2 m is the number that matters: the tuned MovementProfile jumps 1.11 m, so this cannot be hopped and has to be gone around."
+collision_layer = 0
+collision_mask = 1048577
+monitorable = false
+transform = Transform3D(0.93969, 0, -0.34202, 0, 1, 0, 0.34202, 0, 0.93969, -16.33146, 1.1, 44.87032)
+script = ExtResource("3_trap_volume")
+size_metres = Vector3(5.0, 2.2, 2.0)
+
+[node name="Shape" type="CollisionShape3D" parent="Traps/Trap02_110deg"]
+editor_description = "Deliberately empty. TrapVolume._build_shape writes a BoxShape3D over it on ready from size_metres on the parent."
+
+[node name="Block" type="CSGBox3D" parent="Traps/Trap02_110deg"]
+editor_description = "The red you see. use_collision is off on purpose -- a solid block would be new cover for the prisoners and a new occluder for the tower, and would give the avoidance-free runner brain something to grind against. It is sized by TrapVolume from the same size_metres the detection shape is, so the red and the kill cannot disagree."
+material = SubResource("MatTrap")
+
+[node name="Trap03_164deg" type="Area3D" parent="Traps"]
+editor_description = "164 deg. Hugs the INNER shoulder at r=40.75, so it spans r39.75-r41.75 and stops dead on r=41.75 -- the radius the LaneInner cover band already ends at. The runners' clear channel r41.75-r46.75 is untouched.\n\nThe box is 5 m along the track, 2.2 m tall and 2 m deep. 2.2 m is the number that matters: the tuned MovementProfile jumps 1.11 m, so this cannot be hopped and has to be gone around."
+collision_layer = 0
+collision_mask = 1048577
+monitorable = false
+transform = Transform3D(0.27564, 0, -0.96126, 0, 1, 0, 0.96126, 0, 0.27564, -39.17141, 1.1, 11.23222)
+script = ExtResource("3_trap_volume")
+size_metres = Vector3(5.0, 2.2, 2.0)
+
+[node name="Shape" type="CollisionShape3D" parent="Traps/Trap03_164deg"]
+editor_description = "Deliberately empty. TrapVolume._build_shape writes a BoxShape3D over it on ready from size_metres on the parent."
+
+[node name="Block" type="CSGBox3D" parent="Traps/Trap03_164deg"]
+editor_description = "The red you see. use_collision is off on purpose -- a solid block would be new cover for the prisoners and a new occluder for the tower, and would give the avoidance-free runner brain something to grind against. It is sized by TrapVolume from the same size_metres the detection shape is, so the red and the kill cannot disagree."
+material = SubResource("MatTrap")
+
+[node name="Trap04_218deg" type="Area3D" parent="Traps"]
+editor_description = "218 deg. Hugs the OUTER shoulder at r=47.75, so it spans r46.75-r48.75 and starts dead on r=46.75 -- the radius the LaneMid cover band already begins at. The runners' clear channel r41.75-r46.75 is untouched.\n\nThe box is 5 m along the track, 2.2 m tall and 2 m deep. 2.2 m is the number that matters: the tuned MovementProfile jumps 1.11 m, so this cannot be hopped and has to be gone around."
+collision_layer = 0
+collision_mask = 1048577
+monitorable = false
+transform = Transform3D(-0.61566, 0, -0.78801, 0, 1, 0, 0.78801, 0, -0.61566, -37.62751, 1.1, -29.39784)
+script = ExtResource("3_trap_volume")
+size_metres = Vector3(5.0, 2.2, 2.0)
+
+[node name="Shape" type="CollisionShape3D" parent="Traps/Trap04_218deg"]
+editor_description = "Deliberately empty. TrapVolume._build_shape writes a BoxShape3D over it on ready from size_metres on the parent."
+
+[node name="Block" type="CSGBox3D" parent="Traps/Trap04_218deg"]
+editor_description = "The red you see. use_collision is off on purpose -- a solid block would be new cover for the prisoners and a new occluder for the tower, and would give the avoidance-free runner brain something to grind against. It is sized by TrapVolume from the same size_metres the detection shape is, so the red and the kill cannot disagree."
+material = SubResource("MatTrap")
+
+[node name="Trap05_271deg" type="Area3D" parent="Traps"]
+editor_description = "271 deg. Hugs the INNER shoulder at r=40.75, so it spans r39.75-r41.75 and stops dead on r=41.75 -- the radius the LaneInner cover band already ends at. The runners' clear channel r41.75-r46.75 is untouched.\n\nThe box is 5 m along the track, 2.2 m tall and 2 m deep. 2.2 m is the number that matters: the tuned MovementProfile jumps 1.11 m, so this cannot be hopped and has to be gone around."
+collision_layer = 0
+collision_mask = 1048577
+monitorable = false
+transform = Transform3D(-0.99985, 0, 0.01745, 0, 1, 0, -0.01745, 0, -0.99985, 0.71119, 1.1, -40.74379)
+script = ExtResource("3_trap_volume")
+size_metres = Vector3(5.0, 2.2, 2.0)
+
+[node name="Shape" type="CollisionShape3D" parent="Traps/Trap05_271deg"]
+editor_description = "Deliberately empty. TrapVolume._build_shape writes a BoxShape3D over it on ready from size_metres on the parent."
+
+[node name="Block" type="CSGBox3D" parent="Traps/Trap05_271deg"]
+editor_description = "The red you see. use_collision is off on purpose -- a solid block would be new cover for the prisoners and a new occluder for the tower, and would give the avoidance-free runner brain something to grind against. It is sized by TrapVolume from the same size_metres the detection shape is, so the red and the kill cannot disagree."
+material = SubResource("MatTrap")
+
+[node name="Trap06_318deg" type="Area3D" parent="Traps"]
+editor_description = "318 deg. Hugs the OUTER shoulder at r=47.75, so it spans r46.75-r48.75 and starts dead on r=46.75 -- the radius the LaneMid cover band already begins at. The runners' clear channel r41.75-r46.75 is untouched.\n\nThe box is 5 m along the track, 2.2 m tall and 2 m deep. 2.2 m is the number that matters: the tuned MovementProfile jumps 1.11 m, so this cannot be hopped and has to be gone around."
+collision_layer = 0
+collision_mask = 1048577
+monitorable = false
+transform = Transform3D(-0.66913, 0, 0.74314, 0, 1, 0, -0.74314, 0, -0.66913, 35.48517, 1.1, -31.95099)
+script = ExtResource("3_trap_volume")
+size_metres = Vector3(5.0, 2.2, 2.0)
+
+[node name="Shape" type="CollisionShape3D" parent="Traps/Trap06_318deg"]
+editor_description = "Deliberately empty. TrapVolume._build_shape writes a BoxShape3D over it on ready from size_metres on the parent."
+
+[node name="Block" type="CSGBox3D" parent="Traps/Trap06_318deg"]
+editor_description = "The red you see. use_collision is off on purpose -- a solid block would be new cover for the prisoners and a new occluder for the tower, and would give the avoidance-free runner brain something to grind against. It is sized by TrapVolume from the same size_metres the detection shape is, so the red and the kill cannot disagree."
+material = SubResource("MatTrap")
 
 [node name="Tower" type="Node3D" parent="."]
 editor_description = "The shooter's stand. One open circular platform in the middle of the ring -- no shaft, no room, no walls, no roof, no railings. Nothing here occludes anything, so from the platform the shooter can see the entire ring by turning on the spot. PLATFORM HEIGHT: the walking surface is the top of Platform, set by Platform's transform Y. It is currently at y=0.0, dead level with the ring deck, so shooter and runners stand on one plane and look across at each other. To raise or lower the stand, change the Y in Platform's transform (-0.5 puts the 1 m thick slab's top at 0.0) and move TowerSpawn's Y to match."

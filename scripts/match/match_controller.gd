@@ -243,6 +243,27 @@ const PEN_DEPTH_METRES: float = -100.0
 ## the same cubic metre even though neither can collide.
 const PEN_SPACING_METRES: float = 4.0
 
+## The collision layer a ghost stands on instead of its own, whenever
+## [member GhostProfile.shootable] is off.
+##
+## Bit 20 (value [code]1 << 20[/code]), chosen deliberately against
+## [member WeaponProfile.hit_mask]'s shipped default of [code]0xFFFFF[/code] --
+## bits 0 through 19, which is every layer the rifle's raycast, the tower bot's
+## line-of-sight probe ([code]tower_shooter.gd[/code]) and the runner's own
+## perception raycast ([code]runner_perception.gd[/code]) all test, because all
+## three read [member Rifle.profile]'s [member WeaponProfile.hit_mask] rather
+## than inventing a mask of their own. Bit 20 sits outside every one of them, so
+## a ghost placed on it is exactly as unshootable as a ghost on no layer at all
+## was.
+##
+## What changes is that [KillVolume] and [TrapVolume] widen their OWN
+## [member CollisionObject3D.collision_mask] to include this one bit
+## specifically -- see the masks authored in
+## [code]scenes/ring/test_ring.tscn[/code] -- so a hazard that has to see a
+## ghost can, while nothing that merely shares the rifle's default mask finds
+## one by accident.
+const GHOST_HAZARD_LAYER: int = 1 << 20
+
 ## The [GhostProfile] a round runs on when [MatchRules] names none. The same
 ## resource [code]resources/rules/default_match_rules.tres[/code] points at, so
 ## a match assembled in code plays the ghost the shipped rules were written for
@@ -831,10 +852,10 @@ func apply_hit(participant: MatchParticipant) -> bool:
 ## standing at the bottom of the pit, falling forever.
 ##
 ## A ghost is already out of the round; there is nothing left to take off it, and
-## it has exactly one placement, so it gets that one. (An [Area3D] cannot
-## currently see a ghost at all -- a ghost is on no collision layer, which is the
-## whole of "cannot be shot" -- so this arm is reached only if something else
-## reports the fall. It is written because the answer should not depend on that.)
+## it has exactly one placement, so it gets that one. An [Area3D] whose mask
+## includes [constant GHOST_HAZARD_LAYER] -- [KillVolume] and [TrapVolume] both
+## do -- sees a ghost exactly as it sees a living prisoner, so this arm is
+## reached in the ordinary course of play, not only in principle.
 ##
 ## [b]The guard is put back, unharmed, and that is a decision awaiting a
 ## ruling.[/b] The tower stands on an 8 m platform with a 12 m drop around it, so
@@ -1140,18 +1161,24 @@ func _wake_settled_ghosts() -> void:
 ## The collision a GHOST wakes up with, which is not the collision it was
 ## authored with.
 ##
-## Off every physics layer, so the rifle's ray passes through and an AI shooter's
-## line-of-sight test finds nothing there -- that is the whole of "cannot be
-## shot", and [member GhostProfile.shootable] is the switch that measures the
-## other answer. The MASK is the authored one, so a ghost still stands on the
-## deck and still cannot walk through the ring's cover: it is unhittable, not
-## incorporeal.
+## [constant GHOST_HAZARD_LAYER] rather than the body's own layer, so the
+## rifle's ray -- and every other query run on [member WeaponProfile.hit_mask]
+## -- passes through exactly as if the ghost were on no layer at all, while a
+## hazard [Area3D] whose mask has been widened to include that one bit
+## ([KillVolume], [TrapVolume]) still finds it. [member GhostProfile.shootable]
+## is the switch that measures the other answer: a shootable ghost goes back on
+## its own home layer, where the rifle -- and every hazard, which already
+## watches that layer -- can find it. The MASK is the authored one either way,
+## so a ghost still stands on the deck and still cannot walk through the ring's
+## cover: it is unhittable, not incorporeal.
 func _wake_ghost(participant: MatchParticipant) -> void:
 	var body: PlayerController = participant.body
 	if body == null:
 		return
 	var profile: GhostProfile = get_ghost_profile()
-	body.collision_layer = participant.home_collision_layer if profile.shootable else 0
+	body.collision_layer = (
+		participant.home_collision_layer if profile.shootable else GHOST_HAZARD_LAYER
+	)
 	body.collision_mask = participant.home_collision_mask
 	body.set_physics_process(true)
 

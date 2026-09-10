@@ -269,6 +269,89 @@ func test_the_guard_who_falls_in_is_put_back_on_the_tower() -> void:
 	assert_true(seat.body.is_physics_processing(), "the guard is back on their feet")
 
 
+# --- A ghost --------------------------------------------------------------------
+
+## A ghost that falls in is returned to the start, not lost.
+##
+## The author's ruling: [i]"yeah, put them back at the start, even if they hit
+## the trap"[/i]. A ghost is already dead, so a hazard cannot kill it again --
+## [method MatchController.handle_fall] answers for one by calling the exact
+## same [method MatchController._place_ghost_at_start] a shot prisoner is put
+## through in [method MatchController._make_ghost]. There is one door, whichever
+## way a ghost arrives at it.
+##
+## The volume can only see this fall at all because a settled ghost now stands
+## on [constant MatchController.GHOST_HAZARD_LAYER] rather than on no layer --
+## see that constant, and [code]test_ghosts.gd[/code]'s
+## [code]test_a_ghost_cannot_be_hit_by_the_rifle[/code] for the other half of
+## the claim: that layer is still invisible to the rifle.
+func test_a_ghost_who_falls_in_is_returned_to_the_start() -> void:
+	var victim: MatchParticipant = _controller.get_live_participants()[0]
+	assert_true(_controller.apply_hit(victim), "a prisoner is shot to make a ghost")
+	await step_ticks(SETTLE_TICKS)
+	assert_true(victim.is_ghost, "the victim is a settled ghost")
+	assert_eq_int(
+		victim.body.collision_layer, MatchController.GHOST_HAZARD_LAYER,
+		"and stands on the layer the kill volume's mask has been widened to watch",
+	)
+	var ghosts_before: int = _controller.get_ghosts_remaining()
+	var ghosted_before: int = _ghosted.size()
+
+	_put_in_the_courtyard(victim)
+
+	# Captured the instant the volume answers the fall, not after the whole
+	# budget below. MatchController._place_ghost_at_start holds the body off
+	# physics (_hold_body sets is_physics_processing() false) in the same call
+	# that writes the new position, so the first tick that reads false is the
+	# tick the placement itself just wrote, before the ghost's chase brain --
+	# which resumes the moment the placement wakes, two ticks later -- has
+	# carried it anywhere. Reading the position only after the full wait would
+	# instead read wherever the chase had gotten to by then, which is what
+	# broke this assertion the first time it was written.
+	var returned_at: Vector3 = victim.body.global_position
+	for _tick: int in FALL_TICKS:
+		await step_ticks(1)
+		if not victim.body.is_physics_processing():
+			returned_at = victim.body.global_position
+			break
+
+	# Let the rest of the placement's own settle play out before checking that
+	# it woke -- a separate concern from where it was put.
+	await step_ticks(FALL_TICKS)
+
+	assert_true(victim.is_ghost, "the ghost is still a ghost -- not lost, not un-ghosted")
+	assert_false(victim.is_running, "and still not a prisoner")
+	assert_eq_int(
+		_controller.get_ghosts_remaining(), ghosts_before,
+		"the volume neither removed the ghost nor made a second one",
+	)
+	assert_eq_int(
+		_ghosted.size(), ghosted_before,
+		"runner_ghosted is not announced again -- this is not a second death",
+	)
+	assert_eq_int(
+		_controller.get_runners_removed(), 1,
+		"still exactly the one conversion the rifle made",
+	)
+	assert_eq_int(_resolutions, 0, "and the round has not resolved")
+
+	# Back on the start line, exactly where a ghost is always put.
+	assert_gt(
+		returned_at.y, PIT_FLOOR_Y,
+		"the ghost was not left standing at the bottom of the courtyard",
+	)
+	assert_almost_eq(
+		absf(wrapf(_angle_about(returned_at) - _angle_about(_start_point), -PI, PI)),
+		0.0, START_ANGLE_TOLERANCE,
+		"they were put down at the start line's own bearing",
+	)
+	assert_true(victim.body.is_physics_processing(), "the ghost's body is being stepped again")
+	assert_eq_int(
+		victim.body.collision_layer, MatchController.GHOST_HAZARD_LAYER,
+		"and is back on the hazard layer once this placement has woken too",
+	)
+
+
 # --- The opening race ---------------------------------------------------------
 
 ## A racer who falls in is OUT of the race.
