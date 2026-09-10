@@ -94,6 +94,7 @@ func refresh() -> void:
 	_syncing = false
 
 	_update_value_labels()
+	_update_audio_note()
 	if _keybind_panel != null:
 		_keybind_panel.refresh()
 
@@ -206,8 +207,8 @@ func _build_audio_tab() -> Control:
 
 	_audio_note = Label.new()
 	_audio_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_audio_note.text = _missing_bus_note()
 	tab.add_child(_audio_note)
+	_update_audio_note()
 
 	return tab
 
@@ -386,13 +387,29 @@ func _resolution_index(resolution: Vector2i) -> int:
 	return index if index >= 0 else 0
 
 
-## Names the buses the project has not defined yet, so a slider that currently
-## does nothing says so instead of looking broken.
+## Show the caveat only when it is true.
+##
+## It used to be permanent, because the project shipped no bus layout and two of
+## these three sliders drove nothing. res://default_bus_layout.tres now defines
+## Master, Effects and Music, so the normal state is silence -- an explanation of
+## a problem that no longer exists is worse than no explanation. The check itself
+## stays: if that file is ever deleted or renamed the sliders go quiet again,
+## and this is the only place the player would find out.
+func _update_audio_note() -> void:
+	if _audio_note == null:
+		return
+	var note: String = _missing_bus_note()
+	_audio_note.text = note
+	_audio_note.visible = not note.is_empty()
+
+
+## Names the buses the project does not define, or an empty string when all
+## three are present.
 static func _missing_bus_note() -> String:
 	var missing: PackedStringArray = PackedStringArray()
 	for bus_name: StringName in [GameSettings.MASTER_BUS, GameSettings.EFFECTS_BUS, GameSettings.MUSIC_BUS]:
 		if AudioServer.get_bus_index(bus_name) < 0:
 			missing.append(String(bus_name))
 	if missing.is_empty():
-		return "All three buses are present."
-	return "No audio bus named %s yet; that slider is saved but has nothing to drive until the bus layout adds it." % ", ".join(missing)
+		return ""
+	return "No audio bus named %s; that slider is saved but drives nothing until res://default_bus_layout.tres defines it." % ", ".join(missing)

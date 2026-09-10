@@ -21,6 +21,17 @@ extends CanvasLayer
 ## one, and a match that had the mouse captured gets it captured again --
 ## without this file knowing which case it is in.
 ##
+## [b]Leaving for the menu is a teardown, not a scene change.[/b]
+## [method return_to_main_menu] unpauses the tree and frees the mouse
+## [i]before[/i] asking for the new scene. Both matter and both are easy to
+## forget: a scene loaded into a paused tree arrives with every node's
+## [member Node.process_mode] inherited from a paused root and its buttons dead,
+## and a mouse left in [constant Input.MOUSE_MODE_CAPTURED] leaves the player
+## with no cursor to click them with. Together they are the classic frozen menu.
+## The match itself is freed by [method SceneTree.change_scene_to_file], which
+## releases the whole previous scene -- this node included -- at the end of the
+## frame.
+##
 ## [b]Pausing does the rest of the work.[/b] [member Node.process_mode] is
 ## [constant Node.PROCESS_MODE_ALWAYS] here and inherited everywhere else, so
 ## while [member SceneTree.paused] is true the player, the weapon and the bots
@@ -36,6 +47,10 @@ signal closed()
 ## anything that must flush first.
 signal quit_requested()
 
+## Emitted when the player chooses Main Menu, after the tree is unpaused and the
+## mouse released but before the scene change is requested.
+signal main_menu_requested()
+
 ## The action that toggles the menu. Left as an export so a scene can move it
 ## without touching this file.
 @export var toggle_action: StringName = &"ui_cancel"
@@ -49,6 +64,13 @@ signal quit_requested()
 
 ## Optional. When set, the saved field of view is written into this camera.
 @export var camera: Camera3D
+
+## The scene [method return_to_main_menu] switches to. A path rather than a
+## [PackedScene] on purpose: the menu names the match and the match carries this
+## node, so a [PackedScene] export here would close the resource graph into a
+## cycle -- main menu, match, pause menu, main menu. A path has no such edge and
+## is resolved only when the player asks.
+@export_file("*.tscn") var main_menu_scene_path: String = "res://scenes/ui/main_menu.tscn"
 
 var _store: SettingsStore = null
 var _root: Control = null
@@ -168,6 +190,7 @@ func _build() -> void:
 
 	_resume_button = _add_button(column, "Resume", close)
 	_add_button(column, "Settings", _open_settings)
+	_add_button(column, "Main Menu", return_to_main_menu)
 	_add_button(column, "Quit", _quit)
 
 	_settings_screen = SettingsScreen.new()
@@ -210,6 +233,47 @@ func _close_settings() -> void:
 	_settings_screen.visible = false
 	_store.save_to_disk()
 	_show_main()
+
+
+## Tear the match down and go back to the main menu.
+##
+## The order is the whole point:
+## [codeblock]
+##   1. write the settings file   -- the match is about to stop existing
+##   2. unpause the tree          -- or the menu loads into a paused tree
+##   3. release the mouse         -- or the menu loads with no cursor
+##   4. change scene              -- frees the match at the end of the frame
+## [/codeblock]
+## The mouse is forced visible rather than restored to
+## [member _mouse_mode_before_open], because that value is whatever the match
+## was using -- normally [constant Input.MOUSE_MODE_CAPTURED] -- and a menu is
+## not a match. [method close] is not reused for the same reason.
+func return_to_main_menu() -> void:
+	if main_menu_scene_path.is_empty():
+		push_error("PauseMenu has no main_menu_scene_path; staying in the match.")
+		return
+
+	if _settings_screen != null and _settings_screen.visible:
+		# Leaving by this route must still write the file.
+		_settings_screen.close()
+		_settings_screen.visible = false
+	_store.save_to_disk()
+
+	_is_open = false
+	_apply_visibility(false)
+
+	var tree: SceneTree = get_tree()
+	tree.paused = false
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	closed.emit()
+	main_menu_requested.emit()
+
+	var error: Error = tree.change_scene_to_file(main_menu_scene_path)
+	if error != OK:
+		# The tree is already unpaused and the mouse already free, so the player
+		# is left standing in the match with a working cursor rather than in a
+		# half-torn-down state.
+		push_error("PauseMenu could not load %s: %s" % [main_menu_scene_path, error_string(error)])
 
 
 func _quit() -> void:

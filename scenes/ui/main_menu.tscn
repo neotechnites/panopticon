@@ -1,0 +1,20 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/main_menu.gd" id="1_main_menu"]
+[ext_resource type="Script" path="res://scripts/ui/settings_boot.gd" id="2_settings_boot"]
+[ext_resource type="Resource" path="res://scenes/player/default_movement_profile.tres" id="3_movement_profile"]
+
+[node name="MainMenu" type="Control"]
+process_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+editor_description = "The game's entry point: run/main_scene points here. Play, Settings and Quit, in default-themed controls built by scripts/ui/main_menu.gd -- there is deliberately nothing laid out in this file, so restyling is a code change in one place rather than a scene diff. The settings screen is the SAME SettingsScreen class the pause menu builds, not a second copy of the UI. Neither the match nor the pause menu is referenced as a PackedScene here: they are named by path and loaded on demand, because main menu -> match -> pause menu -> main menu would otherwise be a cycle in the resource graph."
+script = ExtResource("1_main_menu")
+
+[node name="SettingsBoot" type="Node" parent="."]
+editor_description = "Applies the saved settings before the player has pressed anything, which is the only place it CAN happen: the match's own player does not exist yet when its sensitivity is chosen. movement_profile is the same default_movement_profile.tres instance scenes/player/player.tscn exports -- Godot hands back one cached object per resource path and this one is not local_to_scene -- so a sensitivity change made in this menu is already written into the profile the body reads the moment the match loads. camera is deliberately unset: there is no camera in a menu, and the match's own PauseMenu carries the field-of-view across for the same reason."
+script = ExtResource("2_settings_boot")
+movement_profile = ExtResource("3_movement_profile")
