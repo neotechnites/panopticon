@@ -55,10 +55,11 @@ const VSYNC_MODE_COUNT: int = 3
 
 # --- Bus names ----------------------------------------------------------------
 #
-# Resolved by name at apply time and skipped when absent, because the project
-# currently ships no bus layout at all and therefore has only Master. Adding
-# Effects and Music later is a change to the bus layout and nothing else -- no
-# code here moves.
+# res://default_bus_layout.tres defines all three: Master, with Effects and Music
+# routed into it. They are still resolved by name at apply time and skipped when
+# absent, so this code is correct against a project that has lost or not yet
+# added the layout -- adding or removing a bus is a change to that file and
+# nothing else.
 
 const MASTER_BUS: StringName = &"Master"
 const EFFECTS_BUS: StringName = &"Effects"
