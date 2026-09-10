@@ -1,0 +1,21 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://scripts/audio/audio_director.gd" id="1_director"]
+[ext_resource type="Resource" path="res://scenes/audio/placeholder_bank.tres" id="2_bank"]
+[ext_resource type="Script" path="res://scripts/audio/match_audio_listener.gd" id="3_match_listener"]
+[ext_resource type="Script" path="res://scripts/audio/ui_audio_listener.gd" id="4_ui_listener"]
+
+[node name="GameAudio" type="Node"]
+editor_description = "The whole audio system, as one node. Instance it once per scene that should make noise -- scenes/match/match.tscn and scenes/ui/main_menu.tscn are the two -- and nothing else in that scene changes. The root IS the AudioDirector: it registers itself statically on entering the tree, so AudioDirector.post_event() from anywhere reaches it, and a scene without this node is a scene with no audio rather than a scene with broken audio. That is what lets tools/harness/ run thousands of headless matches for free; under the default Activation.AUTO the director also switches itself off in any headless run, so leaving it in a scene the harness loads costs nothing either. Child order does not matter: both listeners subscribe in _enter_tree, which Godot runs across the whole subtree before it runs any _ready, so nothing emitted during MatchController's start_match() is missed."
+script = ExtResource("1_director")
+bank = ExtResource("2_bank")
+
+[node name="MatchAudio" type="Node" parent="." node_paths=PackedStringArray("director")]
+editor_description = "Subscribes to Rifle and MatchController and turns their signals into AudioEvents names. Both are found by searching the scene root, so nothing is wired by NodePath -- which matters because MatchController reparents the rifle onto whoever holds the tower and a path typed in here would go stale on the first seat change. In a scene with no rifle and no match (the main menu) this node finds nothing and is silent."
+script = ExtResource("3_match_listener")
+director = NodePath("..")
+
+[node name="UIAudio" type="Node" parent="." node_paths=PackedStringArray("director")]
+editor_description = "Subscribes to every BaseButton in the scene, plus PauseMenu.opened/closed and SettingsScreen.closed. It watches SceneTree.node_added rather than walking once, because every menu in this project builds its controls in code and the settings screen is created and destroyed on demand."
+script = ExtResource("4_ui_listener")
+director = NodePath("..")

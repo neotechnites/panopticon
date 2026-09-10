@@ -55,15 +55,19 @@ extends Node
 var _root: Node = null
 
 
-func _ready() -> void:
+## Subscribes in [method Node._enter_tree] so that controls a menu builds in its
+## own [method Node._ready] are caught by [signal SceneTree.node_added] rather
+## than missed. The deferred sweep behind it is the safety net for controls that
+## were already in the tree when this node arrived.
+func _enter_tree() -> void:
 	_root = root
 	if _root == null:
 		_root = _default_search_root()
 	if _root == null:
 		return
-	get_tree().node_added.connect(_on_node_added)
-	# Deferred: anything the surrounding menu builds in its own _ready has not
-	# been built yet at this point. See the class docs.
+	var tree: SceneTree = get_tree()
+	if not tree.node_added.is_connected(_on_node_added):
+		tree.node_added.connect(_on_node_added)
 	_wire_subtree.call_deferred(_root)
 
 
