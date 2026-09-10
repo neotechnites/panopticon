@@ -18,9 +18,11 @@ current = false
 editor_description = "Inert. The root's intent_source points at BotInput instead, so this node's poll() is never called; capture_mouse_on_ready is cleared so an AI body cannot grab the cursor as a side effect of spawning."
 capture_mouse_on_ready = false
 
-[node name="BodyMesh" parent="." index="3"]
-editor_description = "Moved off the owner-hidden visual layer 2 onto visual layer 3, for the same reason scenes/bot/ring_runner.tscn does it: every player camera clears layer 2 from its cull_mask, so an AI body left there is invisible to everyone in the match rather than only to itself."
-layers = 4
+[node name="Avatar" parent="." index="6"]
+editor_description = "Moved off the owner-hidden visual layer 2 onto visual layer 3, for the same reason scenes/bot/ring_runner.tscn does it: every player camera clears layer 2 from its cull_mask, so an AI body left there is invisible to everyone in the match rather than only to itself. This is the override this scene used to make on BodyMesh, moved to the node that is now the visible one.
+
+The guard wears the SAME humanoid every prisoner does, and deliberately keeps no material_override, so it stands in the model's own flat grey rather than a runner's orange. Nobody can currently see it -- the seat is inside a one-way mirror box -- but the tower is a role that passes between players and this body is the same PlayerController a human drives, so making the guard the one participant with no form would be a special case waiting to become a bug the first time anything is allowed to look in."
+visual_layers = 4
 
 [node name="ZoomInput" parent="." index="5"]
 editor_description = "Disabled. ZoomInput is inherited from the player scene and reads the local device, so on a bot it would drive this optic from whoever is holding the human's zoom button -- and this bot genuinely uses its optic, so that is not a harmless bug here, it is a bot whose field of view is controlled by its opponent."
