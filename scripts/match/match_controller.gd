@@ -211,6 +211,14 @@ const PEN_SPACING_METRES: float = 4.0
 ## was tuned as rather than a second, quietly different default.
 const DEFAULT_SHOOTER_PROFILE_PATH: String = "res://scenes/bot/default_shooter_profile.tres"
 
+## Physics priority given to the first-scored lap tracker; the rest count up from
+## it. See [method _order_the_scoring].
+##
+## Positive, and deliberately so: a body ticks at the default priority of 0, and
+## every tracker must sample AFTER every body has moved or one racer would be
+## scored a tick stale.
+const TRACKER_PRIORITY_BASE: int = 1
+
 ## Physics frames a freshly placed body spends inert before it is woken.
 ##
 ## Two rather than one because a seat change can be raised from inside a physics
@@ -817,11 +825,60 @@ func _place_runners(runners: Array[MatchParticipant], is_race: bool) -> void:
 		var start_angle: float = _angle_of(_start_point)
 		if equalise and radius > 0.0:
 			# Every racer is left the same number of METRES of their own lane,
-			# so the outer lanes start further round. See
-			# MatchRules.equalise_race_lane_distance for why this is off by
-			# default.
+			# so the outer lanes start further round. The finish does not move:
+			# the arc runs backwards from the shared end marker, so the race is
+			# still one direction into one end pad. See
+			# MatchRules.equalise_race_lane_distance.
 			start_angle = end_angle - RingRunner.TRAVEL_SIGN * (full_arc * shortest / radius)
 		_place_on_lane(participant, radius, start_angle)
+
+	_order_the_scoring(runners)
+
+
+## Decide, before anybody runs, who takes the tower if two of them arrive on the
+## same physics tick.
+##
+## [b]Why this is needed at all[/b]
+##
+## Arrival is resolved the instant it happens -- [signal MatchLapTracker.lap_finished]
+## goes straight to [method _on_participant_arrived], which grants the seat and
+## restarts the round -- so within one tick the first tracker to be processed
+## takes everything and the rest are re-armed before they can report. That is
+## sound: an arrival IS immediate, and a match must not sit on a decision for a
+## frame. It does mean the tie is settled by the processing order rather than by
+## a rule, and until [member MatchRules.equalise_race_lane_distance] equalised
+## the lanes the tie could not arise, so nobody had to name it.
+##
+## Now it arises every race: four identical bodies owing the same distance finish
+## together to the tick. So the order is set here, deliberately, in one place,
+## from [member MatchRules.arrival_tiebreak] -- seat order, which is what the
+## unstated behaviour already was, or a lot. Nothing about the race changes: a
+## racer who arrives on an EARLIER tick is scored on that tick and wins outright
+## whatever the order says. Only a dead heat reads it.
+func _order_the_scoring(runners: Array[MatchParticipant]) -> void:
+	var order: PackedInt32Array = PackedInt32Array()
+	for index: int in runners.size():
+		order.append(index)
+
+	if get_rules().arrival_tiebreak == MatchRules.ArrivalTiebreak.DRAW_LOT:
+		var rng: RandomNumberGenerator = RandomNumberGenerator.new()
+		var lot_seed: int = get_rules().arrival_tiebreak_seed
+		if lot_seed != 0:
+			rng.seed = lot_seed
+		else:
+			rng.randomize()
+		# Fisher-Yates, so every ordering is equally likely and no participant
+		# can be favoured by the shuffle itself.
+		for index: int in range(order.size() - 1, 0, -1):
+			var swap: int = rng.randi_range(0, index)
+			var held: int = order[index]
+			order[index] = order[swap]
+			order[swap] = held
+
+	for rank: int in order.size():
+		var participant: MatchParticipant = runners[order[rank]]
+		if participant.tracker != null:
+			participant.tracker.process_physics_priority = TRACKER_PRIORITY_BASE + rank
 
 
 func _place_on_lane(participant: MatchParticipant, radius: float, start_angle: float) -> void:
