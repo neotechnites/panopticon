@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="NetSettings" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/net/net_settings.gd" id="1_net_settings"]
+
+[resource]
+script = ExtResource("1_net_settings")
+port = 27960
+max_players = 8
+snapshot_hz = 30
+interpolate_remote_bodies = true
+stale_intent_ticks = 12
+max_look_delta_radians = 3.14159
+connect_timeout_seconds = 5.0
+max_name_bytes = 24
+fill_vacated_seats_with_bots = true

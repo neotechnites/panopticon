@@ -36,7 +36,12 @@ extends IntentSource
 ## Twelve ticks is 200 ms at 60 Hz: long enough to ride out a burst of loss on
 ## a bad connection, short enough that a disconnect is over before anyone can
 ## use it.
-@export var stale_after_ticks: int = 12
+##
+## Overwritten from [member NetSettings.stale_intent_ticks] by [PlayerNetLink]
+## the first time a client's packet arrives, so the shipped number lives with
+## the other network numbers. The default here is what a source used outside a
+## session -- a test, a replay -- gets.
+@export_range(2, 120, 1) var stale_after_ticks: int = 12
 
 ## The most recent intent received, held between packets.
 var command: MoveIntent = MoveIntent.new()

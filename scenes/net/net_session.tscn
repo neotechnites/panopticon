@@ -1,13 +1,29 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=6 format=3]
 
 [ext_resource type="Script" path="res://scripts/net/net_session.gd" id="1_session"]
 [ext_resource type="Script" path="res://scripts/net/enet_transport.gd" id="2_enet"]
+[ext_resource type="Resource" path="res://resources/net/default_net_settings.tres" id="3_settings"]
+[ext_resource type="Script" path="res://scripts/net/net_lobby.gd" id="4_lobby"]
+[ext_resource type="Script" path="res://scripts/net/net_replicator.gd" id="5_replicator"]
 
-[node name="NetSession" type="Node" node_paths=PackedStringArray("transport")]
-editor_description = "The session, with the development backend fitted. Drop one of these into a scene that needs networking and call host() or join() on it. Swapping to a Steam backend when one exists is replacing the child node and repointing 'transport' -- nothing above this scene names a transport type. Note that RPCs resolve by node path, so this node must sit at the same path on every peer."
+[node name="NetSession" type="Node" node_paths=PackedStringArray("transport", "lobby", "replicator")]
+editor_description = "The session, with the development backend fitted: a socket, a seat table and a snapshot pump. Drop one of these into a scene that needs networking and call host() or join() on it. Swapping to a Steam backend when one exists is replacing the child node and repointing 'transport' -- nothing above this scene names a transport type. Note that RPCs resolve by node path, so this node must sit at the same path on every peer."
 script = ExtResource("1_session")
 transport = NodePath("ENetTransport")
+settings = ExtResource("3_settings")
+lobby = NodePath("NetLobby")
+replicator = NodePath("NetReplicator")
 
 [node name="ENetTransport" type="Node" parent="."]
 editor_description = "Raw UDP. Runs with no Steam client present at all, which is what the headless bot harness and CI depend on."
 script = ExtResource("2_enet")
+
+[node name="NetLobby" type="Node" parent="." node_paths=PackedStringArray("session")]
+editor_description = "Who is playing, in which seat, and whether the match may start. The host owns the seat table; a client's copy is a mirror of it and every change a client wants is a request. No UI -- that is scenes/ui/'s job."
+script = ExtResource("4_lobby")
+session = NodePath("..")
+
+[node name="NetReplicator" type="Node" parent="." node_paths=PackedStringArray("session")]
+editor_description = "One world snapshot down from the authority, at NetSettings.snapshot_hz, describing every registered body. Bodies register themselves through their PlayerNetLink; nothing here needs wiring per match."
+script = ExtResource("5_replicator")
+session = NodePath("..")
