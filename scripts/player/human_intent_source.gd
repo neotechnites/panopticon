@@ -11,6 +11,18 @@ extends IntentSource
 ## own the cursor themselves (menus, spectator views, replay viewers).
 @export var capture_mouse_on_ready: bool = true
 
+## The optic whose zoom this device's aim must be compensated for, if the body
+## has one. Optional: a null optic reads as a multiplier of 1.0, so a body
+## without an optic behaves exactly as it did before there was one.
+##
+## It is consumed HERE, in the one place a device's look delta is built, and
+## deliberately not in [method PlayerController._apply_look]. The multiplier is
+## a property of the DEVICE's mapping, not of the body: a [BotIntentSource]'s
+## look delta is computed from a world-space aim target and must not be scaled
+## at all, and scaling in the controller would scale both. See
+## [member WeaponOptic.sensitivity_multiplier].
+@export var optic: WeaponOptic
+
 ## Mouse motion since the last poll, in pixels. Accumulated rather than applied
 ## immediately because mouse events arrive at the display refresh rate while
 ## movement runs on the physics tick; applying per event would couple aim speed
@@ -56,7 +68,12 @@ func poll(_delta: float) -> MoveIntent:
 	_intent.jump_pressed = Input.is_action_just_pressed(PlayerActions.JUMP)
 	_intent.jump_held = Input.is_action_pressed(PlayerActions.JUMP)
 	_intent.sprint_held = Input.is_action_pressed(PlayerActions.SPRINT)
-	_intent.look_delta = _look_pixels * profile.mouse_sensitivity
+	# Dimensionless, and the delta is already in radians, so the order of the
+	# two scalars does not matter. Null optic == 1.0: see the export above.
+	var aim_scale: float = profile.mouse_sensitivity
+	if optic != null:
+		aim_scale *= optic.sensitivity_multiplier
+	_intent.look_delta = _look_pixels * aim_scale
 	_look_pixels = Vector2.ZERO
 	return _intent
 
