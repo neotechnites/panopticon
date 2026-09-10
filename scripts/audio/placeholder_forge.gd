@@ -205,7 +205,7 @@ func _make_cue(event: StringName) -> AudioCue:
 		AudioEvents.RIFLE_FIRED:
 			# Loud, far-carrying and pitch-varied: this is the broadcast the
 			# whole design hangs on. 250 m of range against a ~120 m ring means
-			# a runner on the far lane still hears it clearly.
+			# a runner on the far side of the ring still hears it clearly.
 			cue.volume_db = -8.0
 			cue.max_distance = 250.0
 			cue.unit_size = 30.0

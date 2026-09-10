@@ -119,8 +119,8 @@ static func _has_field(rules: MatchRules, field: String) -> bool:
 ## Bring [param incoming] to the type [param current] already has.
 ##
 ## JSON has exactly one number type, so every integer rule -- prisoner_count,
-## an enum, rounds_to_win_match -- arrives as a float, and a packed lane array
-## arrives as a generic array. Converting explicitly rather than trusting
+## an enum, rounds_to_win_match -- arrives as a float, and a packed array arrives
+## as a generic array. Converting explicitly rather than trusting
 ## [method Object.set] keeps a spec file honest about what it set.
 static func _coerce(current: Variant, incoming: Variant) -> Variant:
 	match typeof(current):

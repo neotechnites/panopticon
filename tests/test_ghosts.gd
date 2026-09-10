@@ -11,14 +11,11 @@ extends TestCase
 ##
 ## [b]Everything here runs the real match scene[/b]
 ##
-## [code]scenes/match/match.tscn[/code] on a private copy of the shipped rules
-## with [member MatchRules.ghost_behaviour] switched to
-## [constant MatchRules.GhostBehaviour.CATCH_AND_SWAP] and nothing else changed.
-## The copy is the point: ghosts are OFF in the shipped rules, deliberately, and
-## a test that wrote them into the shared [code].tres[/code] would silently turn
-## them on for every later test in the same process -- including the ones in
-## [code]test_round.gd[/code] that assert a shot prisoner is parked out of the
-## world.
+## [code]scenes/match/match.tscn[/code] on a private copy of the shipped rules,
+## which already play [constant MatchRules.GhostBehaviour.CATCH_AND_SWAP]. The
+## copy is still the point: the shipped [code].tres[/code] is one instance for
+## the whole process, and a test that retuned it would hand every later test in
+## the same process a different game.
 ##
 ## [b]Why a catch is forced rather than run[/b]
 ##
@@ -75,11 +72,11 @@ var _last_catch_caught: MatchParticipant
 func before_each() -> void:
 	_match = TestFixtures.make_match()
 
-	# Ghosts on, before the instance enters the tree: MatchController arms the
-	# match from _ready and the rule set has to be the one it arms on.
+	# The rules are handed over before the instance enters the tree:
+	# MatchController arms the match from _ready and the rule set has to be the
+	# one it arms on.
 	_controller = _match.get_node("MatchController") as MatchController
 	_rules = TestFixtures.match_rules()
-	_rules.ghost_behaviour = MatchRules.GhostBehaviour.CATCH_AND_SWAP
 	_ghost_rules = _rules.ghost_profile
 	_controller.rules = _rules
 
@@ -225,7 +222,6 @@ func test_a_ghost_catching_a_prisoner_swaps_their_roles() -> void:
 	var quarry: MatchParticipant = _controller.get_live_participants()[0]
 	assert_gt(quarry.tracker.get_progress(), 0.0, "the quarry has a lap worth taking")
 	var carried_progress: float = quarry.tracker.get_progress()
-	var quarry_lane: float = quarry.lane_radius
 
 	var living_before: int = _controller.get_runners_remaining()
 	var ghosts_before: int = _controller.get_ghosts_remaining()
@@ -258,7 +254,7 @@ func test_a_ghost_catching_a_prisoner_swaps_their_roles() -> void:
 		"a catch is not a conversion; only the rifle's one hit counts",
 	)
 
-	# The spot really was taken: the lane, the lap, and the target group.
+	# The spot really was taken: the lap, and the target group.
 	assert_true(
 		victim.body.is_in_group(MatchController.RUNNER_GROUP),
 		"the incoming prisoner is a legitimate target",
@@ -266,14 +262,6 @@ func test_a_ghost_catching_a_prisoner_swaps_their_roles() -> void:
 	assert_false(
 		quarry.body.is_in_group(MatchController.RUNNER_GROUP),
 		"the outgoing prisoner is not",
-	)
-	assert_almost_eq(
-		victim.lane_radius, quarry_lane, 1e-6,
-		"the incoming prisoner runs the lane they took",
-	)
-	assert_true(
-		_ghost_rules.catch_transfers_progress,
-		"this test is written against the shipped transferring swap",
 	)
 	assert_almost_eq(
 		victim.tracker.get_progress(), carried_progress, 0.02,
@@ -485,8 +473,15 @@ func test_a_ghost_counts_for_nothing_until_it_catches() -> void:
 
 # --- Helpers ------------------------------------------------------------------
 
-## Put [param ghost] where a chase would have taken it: inside
-## [param quarry]'s catch radius.
+## Put [param ghost] where a chase would have taken it: in [param quarry]'s own
+## spot.
+##
+## [b]In the spot, not merely within the catch radius.[/b] Every prisoner runs
+## one track, so a second into a round the field is running together and a body
+## placed a fraction of the catch radius off the quarry may well be nearer to
+## somebody else -- and [method MatchController._catchable_from] rules on the
+## NEAREST living prisoner, which is the mechanic. Standing on the quarry's own
+## spot is the only placement that names the quarry unambiguously.
 ##
 ## Safe to do by hand precisely because a ghost is already off every collision
 ## layer and mask-wise cannot carry anything -- moving a body with collision live
@@ -509,9 +504,7 @@ func _put_ghost_on(
 	ghost.body.velocity = Vector3.ZERO
 	quarry.body.velocity = Vector3.ZERO
 	ghost.body.collision_mask = 0
-	ghost.body.global_position = quarry.body.global_position + Vector3(
-		_ghost_rules.catch_radius_metres * 0.25, 0.0, 0.0
-	)
+	ghost.body.global_position = quarry.body.global_position
 	if spend_grace:
 		ghost.ghost_grace_remaining = 0.0
 

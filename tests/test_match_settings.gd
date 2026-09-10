@@ -5,16 +5,13 @@ extends TestCase
 ##
 ## [b]The defect this pins[/b]
 ##
-## Ghosts shipped behind [member MatchRules.ghost_behaviour], defaulting to
-## [constant MatchRules.GhostBehaviour.NONE], written into
-## [code]resources/rules/default_match_rules.tres[/code]. That default is
-## deliberate and stays: every bot number this project has measured was measured
-## without ghosts, and turning them on in the resource would silently reprice all
-## of it. The consequence was that the mechanic could not be reached without a
-## text editor, which is not a way to ship a mechanic.
+## Ghosts live behind [member MatchRules.ghost_behaviour] in
+## [code]resources/rules/default_match_rules.tres[/code], and a player cannot
+## open a text editor to change a rule file. So it is also a PREFERENCE, written
+## OVER the rules on the way into a match, and the two defaults must agree or the
+## first frame of the game is played under a rule set nobody chose.
 ##
-## So it is a PREFERENCE that is written OVER the rules on the way into a match,
-## and the chain has four links, each of which is asserted below:
+## The chain has four links, each of which is asserted below:
 ##
 ## [codeblock]
 ##   Match tab checkbox  -> GameSettings.ghosts_enabled     (the screen)
@@ -32,9 +29,9 @@ extends TestCase
 ## [method SettingsStore.instance] is a process-wide singleton and the settings
 ## file is the one belonging to whoever is running the suite. Every test here
 ## redirects it to a scratch file and restores both the file and
-## [member GameSettings.ghosts_enabled] afterwards -- a test that left ghosts on
-## in the singleton would hand every later test in the same process a different
-## game.
+## [member GameSettings.ghosts_enabled] afterwards -- a test that left the
+## preference flipped in the singleton would hand every later test in the same
+## process a different game.
 
 const SETTINGS_SCREEN_PATH: String = "res://scenes/ui/settings_screen.tscn"
 
@@ -61,21 +58,21 @@ func after_each() -> void:
 
 # --- The preference itself ----------------------------------------------------
 
-## Off by default, because the shipped rules are.
+## On by default, because the shipped rules are.
 ##
 ## The two defaults have to agree or the first frame of the game is played under
 ## a rule set nobody chose.
-func test_ghosts_are_off_by_default_in_both_places() -> void:
+func test_ghosts_are_on_by_default_in_both_places() -> void:
 	var settings: GameSettings = GameSettings.new()
-	assert_false(settings.ghosts_enabled, "a fresh GameSettings has ghosts off")
+	assert_true(settings.ghosts_enabled, "a fresh GameSettings has ghosts on")
 
 	var rules: MatchRules = TestFixtures.match_rules()
 	assert_eq_int(
 		int(rules.ghost_behaviour),
-		int(MatchRules.GhostBehaviour.NONE),
-		"the shipped rules still have ghosts off",
+		int(MatchRules.GhostBehaviour.CATCH_AND_SWAP),
+		"the shipped rules play the canon mechanic",
 	)
-	assert_false(rules.has_ghosts(), "and the match agrees they are off")
+	assert_true(rules.has_ghosts(), "and the match agrees they are on")
 
 
 ## The preference writes the rule, in both directions.
@@ -111,27 +108,54 @@ func test_the_preference_writes_the_rule_both_ways() -> void:
 ## It survives the file, and a file that has never heard of it is not a failure.
 func test_the_preference_round_trips_through_the_config_file() -> void:
 	var written: GameSettings = GameSettings.new()
-	written.ghosts_enabled = true
+	written.ghosts_enabled = false
 
 	var config: ConfigFile = ConfigFile.new()
 	written.write_to(config)
 
 	var read: GameSettings = GameSettings.new()
 	read.read_from(config)
-	assert_true(read.ghosts_enabled, "ghosts_enabled comes back off disk")
+	assert_false(read.ghosts_enabled, "ghosts_enabled comes back off disk")
 	assert_true(read.equals(written), "and nothing else was lost round-tripping it")
 
 	var older: GameSettings = GameSettings.new()
-	older.ghosts_enabled = true
+	older.ghosts_enabled = false
 	# A settings file written before this key existed: the value already in hand
 	# is the fallback, exactly as every other reader here behaves.
 	older.read_from(ConfigFile.new())
-	assert_true(older.ghosts_enabled, "a file with no ghosts key changes nothing")
+	assert_false(older.ghosts_enabled, "a file with no ghosts key changes nothing")
 
 	var reset: GameSettings = GameSettings.new()
-	reset.ghosts_enabled = true
+	reset.ghosts_enabled = false
 	reset.reset()
-	assert_false(reset.ghosts_enabled, "reset puts ghosts back to off")
+	assert_true(reset.ghosts_enabled, "reset puts ghosts back on")
+
+
+## A settings file written before ghosts became the default does not leave a
+## returning player with them off.
+##
+## Version 1 wrote [code]ghosts_enabled=false[/code] into every file it saved,
+## because that was the default then and the file records VALUES, not choices.
+## Read back literally, it would put the player's preference and the rules
+## resource on opposite sides -- which is the one thing this file exists to stop.
+## So a version 1 file is taken to have expressed no preference about ghosts, and
+## a version 2 file is believed whatever it says.
+func test_a_pre_ghost_settings_file_does_not_force_ghosts_off() -> void:
+	var store: SettingsStore = SettingsStore.instance()
+
+	var old_file: ConfigFile = ConfigFile.new()
+	old_file.set_value(SettingsStore.SECTION_META, "version", 1)
+	old_file.set_value(GameSettings.SECTION_MATCH, "ghosts_enabled", false)
+	assert_eq_int(int(old_file.save(SCRATCH_CONFIG)), int(OK), "the version 1 file is written")
+
+	assert_true(store.load_from_disk(), "the version 1 file is readable")
+	assert_true(store.settings.ghosts_enabled, "its stale ghosts_enabled=false is not obeyed")
+
+	# A file this build wrote is believed, off included.
+	store.settings.ghosts_enabled = false
+	assert_eq_int(int(store.save_to_disk()), int(OK), "the current file is written")
+	assert_true(store.load_from_disk(), "the current file is readable")
+	assert_false(store.settings.ghosts_enabled, "a chosen off survives the round trip")
 
 
 # --- The screen ---------------------------------------------------------------
@@ -165,14 +189,8 @@ func test_the_match_tab_toggle_drives_the_store() -> void:
 	assert_true(check.button_pressed, "reopening the screen shows ghosts on")
 
 
-## The player is warned, in the UI, that a round may not end.
-##
-## Measured, not decorative: with ghosts on and the shipped cover runner, 17 of
-## 30 headless matches hit the 600-second ceiling against 0 of 30 without. The
-## deadlock is a known open question with candidate fixes awaiting a decision;
-## until it is decided, sitting a player in a round that cannot end without
-## telling them is the part that is not acceptable.
-func test_the_ghost_toggle_carries_its_measured_warning() -> void:
+## The toggle is captioned, so a player meeting the mechanic knows what it is.
+func test_the_ghost_toggle_says_what_the_mechanic_is() -> void:
 	var screen: SettingsScreen = _open_screen()
 	var note: Label = screen.get_node_or_null(
 		^"Frame/Dialog/Padding/Layout/Tabs/Match/GhostsNote"
@@ -182,8 +200,8 @@ func test_the_ghost_toggle_carries_its_measured_warning() -> void:
 		return
 	assert_true(note.visible, "the note is shown, not hidden behind something")
 	assert_true(
-		note.text.to_lower().contains("may not end"),
-		"the note says rounds may not end -- got \"%s\"" % note.text,
+		note.text.to_lower().contains("ghost"),
+		"the note describes the mechanic -- got \"%s\"" % note.text,
 	)
 	assert_true(
 		note.autowrap_mode != TextServer.AUTOWRAP_OFF,
@@ -202,21 +220,21 @@ func test_the_ghost_toggle_carries_its_measured_warning() -> void:
 ## test in the process a game with ghosts in it.
 func test_settings_boot_writes_the_preference_into_the_rules() -> void:
 	var store: SettingsStore = SettingsStore.instance()
-	store.settings.ghosts_enabled = true
+	store.settings.ghosts_enabled = false
 
 	var rules: MatchRules = TestFixtures.match_rules()
-	assert_false(rules.has_ghosts(), "the rules start with ghosts off")
+	assert_true(rules.has_ghosts(), "the shipped rules start with ghosts on")
 
 	var boot: SettingsBoot = SettingsBoot.new()
 	boot.name = "SettingsBoot"
 	boot.match_rules = rules
 	add_child(boot)
-	assert_true(rules.has_ghosts(), "entering the tree turned ghosts on")
+	assert_false(rules.has_ghosts(), "entering the tree turned ghosts off")
 
 	# And it keeps tracking: the store applies, the rules follow.
-	store.settings.ghosts_enabled = false
+	store.settings.ghosts_enabled = true
 	store.apply_all()
-	assert_false(rules.has_ghosts(), "applying the store turned them off again")
+	assert_true(rules.has_ghosts(), "applying the store turned them on again")
 
 
 ## The match scene points that node at the SAME rules object the controller runs.

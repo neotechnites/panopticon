@@ -194,7 +194,7 @@ extends Resource
 ## confidence is halved. The bot's opinion of how hard a crossing target is.
 ##
 ## A runner at 8 m/s and r=44 crosses the tower's view at about 0.18 rad/s and a
-## sprinter on the inner lane at about 0.29, so the default costs a walking
+## sprinter cutting inside at about 0.29, so the default costs a walking
 ## target roughly 15 percent of the shot's confidence and a sprinting one
 ## roughly 20. Lower it to model a shooter who will not take a moving shot at
 ## all.

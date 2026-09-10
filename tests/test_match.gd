@@ -6,7 +6,7 @@ extends TestCase
 ## shooter at all and everybody runs the ring; whoever reaches the end takes the
 ## tower. After that it is rounds without a clock, and reaching the end never
 ## wins one -- it wins the SEAT, and the round starts again from the beginning
-## with the outgoing shooter out on a lane. Only holding the tower through a
+## with the outgoing shooter out on the track. Only holding the tower through a
 ## round wins the match. Each turn in the tower shortens that player's reload,
 ## which is the only reason a match is guaranteed to end at all.
 ##
@@ -135,17 +135,22 @@ func test_the_match_opens_with_a_race_and_no_shooter() -> void:
 	assert_null(_rifle.aim_source, "the stowed rifle is aimed by nobody")
 	assert_false(_trigger.is_processing(), "the human's trigger is dead while the tower is empty")
 
-	# The bodies are out on the ring, each on a lane of its own.
-	var radii: PackedFloat32Array = PackedFloat32Array()
+	# The whole field is out on the deck, dealt out along one start line rather
+	# than piled into one another. Measured here, before anybody has moved: the
+	# spread is a property of the placement and a second of running closes it.
+	var places: Array[Vector3] = []
 	for participant: MatchParticipant in _participants:
-		var radius: float = _radius_of(participant.body.global_position)
-		assert_between(radius, DECK_INNER_RADIUS, DECK_OUTER_RADIUS, "%s is on the deck" % participant.display_name)
-		radii.append(radius)
-	for index: int in radii.size():
-		for other: int in range(index + 1, radii.size()):
+		var place: Vector3 = participant.body.global_position
+		assert_between(
+			_radius_of(place), DECK_INNER_RADIUS, DECK_OUTER_RADIUS,
+			"%s is on the deck" % participant.display_name,
+		)
+		places.append(place)
+	for index: int in places.size():
+		for other: int in range(index + 1, places.size()):
 			assert_gt(
-				absf(radii[index] - radii[other]), 1.0,
-				"racers %d and %d must not share a lane" % [index, other],
+				_horizontal_distance(places[index], places[other]), 1.0,
+				"racers %d and %d do not start inside one another" % [index, other],
 			)
 
 	# And it is a real race, measured by running. A second in, everybody's clock
@@ -217,7 +222,7 @@ func test_the_race_winner_takes_the_tower() -> void:
 ## The tower can be held by an AI while the human runs, on identical terms.
 ##
 ## This is the requirement the whole participant abstraction exists for. When a
-## bot wins the race the human is put on a lane and runs like everybody else, the
+## bot wins the race the human is put on the track and runs like everybody else, the
 ## rifle goes to the bot's head, the mouse cannot fire it, and the bot's own
 ## lap-running brain is switched off because a shooter does not run laps. The bot
 ## then converts the field -- the human included, through the same call and the
@@ -256,12 +261,20 @@ func test_the_seat_can_be_held_by_an_ai_while_the_human_runs() -> void:
 	# The bot shoots the human off the ring exactly as a human would shoot a bot.
 	assert_true(_controller.convert_participant(_human), "the AI in the tower converts the human")
 	assert_false(_human.is_running, "the converted human is out of the round")
-	assert_false(_human.body.visible, "a converted body is out of the world")
 	assert_false(
 		_human.body.is_in_group(MatchController.RUNNER_GROUP),
 		"a converted body is no longer a target",
 	)
-	assert_lt(_human.body.global_position.y, PARKED_DEPTH_METRES, "a converted body is parked under the pit")
+	# The shipped rules play GhostBehaviour.CATCH_AND_SWAP, so "out of the round"
+	# is a change of role rather than a removal: the body stays in the world and
+	# keeps being stepped. What it stops being is a RUNNER, which is what the
+	# shooter's win condition counts. Under GhostBehaviour.NONE the same call
+	# parks the body under the pit instead; that branch is test_ghosts.gd's.
+	assert_true(_human.is_ghost, "a converted prisoner becomes a ghost")
+	assert_gt(
+		_human.body.global_position.y, PARKED_DEPTH_METRES,
+		"a ghost is still in the world, not parked under the pit",
+	)
 
 	for participant: MatchParticipant in _controller.get_live_participants():
 		assert_true(_controller.convert_participant(participant), "the AI converts %s" % participant.display_name)

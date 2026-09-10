@@ -49,8 +49,6 @@ var times_converted: int = 0
 ## somebody. Counted from seat grants that were not the opening race.
 var laps_finished: int = 0
 
-## The lane they were last placed on, in metres of radius. 0.0 while in tower.
-var lane_radius: float = 0.0
 
 
 ## Fraction of this participant's shots that struck a body, or 0.0 if they never
@@ -77,5 +75,4 @@ func to_dictionary(sim_hz: int) -> Dictionary:
 		"hit_rate": get_hit_rate(),
 		"times_converted": times_converted,
 		"laps_finished": laps_finished,
-		"lane_radius": lane_radius,
 	}

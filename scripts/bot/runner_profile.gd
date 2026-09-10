@@ -291,15 +291,16 @@ enum Behaviour {
 ## which is about 2 m of track and comfortably finer than the 6 m cover pieces.
 @export_range(2, 128, 1) var cover_search_steps: int = 28
 
-## How wide a band of radii the runner probes, in metres, centred on its own lane.
+## How wide a band of radii the runner probes, in metres, centred on the track.
 ##
-## The deck is 25 m across and cover sits in radial lanes, so a prisoner that
-## only ever probed its own radius could not use two thirds of the map. This is
-## how far it is willing to leave its lane to get behind something.
+## The deck is 25 m across and cover sits in three radial bands, so a prisoner
+## that only ever probed the track's own radius could not use two thirds of the
+## map. This is how far it is willing to leave the track to get behind
+## something.
 @export_range(0.0, 60.0, 0.5) var cover_search_radial_span: float = 22.0
 
 ## How many radii that band is cut into. Odd values keep one sample exactly on
-## the runner's own lane.
+## the track.
 @export_range(1, 33, 2) var cover_search_radial_steps: int = 9
 
 ## How far into a cover shadow, in metres of arc, a candidate must still be

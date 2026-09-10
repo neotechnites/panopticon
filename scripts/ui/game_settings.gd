@@ -87,6 +87,12 @@ const DEFAULT_FIELD_OF_VIEW: float = 100.0
 const MIN_FIELD_OF_VIEW: float = 60.0
 const MAX_FIELD_OF_VIEW: float = 120.0
 
+## Ghosts are on for the matches this player starts, which is what the shipped
+## [code]resources/rules/default_match_rules.tres[/code] plays. Named rather than
+## written inline because [SettingsStore] needs it too: a settings file written
+## before the default flipped has to be told what the new answer is.
+const DEFAULT_GHOSTS_ENABLED: bool = true
+
 const DEFAULT_RESOLUTION: Vector2i = Vector2i(1280, 720)
 const MIN_RESOLUTION: Vector2i = Vector2i(640, 360)
 const MAX_RESOLUTION: Vector2i = Vector2i(7680, 4320)
@@ -138,19 +144,17 @@ var vsync_mode: VSyncMode = VSyncMode.ENABLED
 ## [method apply_to_camera]; this object never goes looking for a camera itself.
 var field_of_view: float = DEFAULT_FIELD_OF_VIEW
 
-## Turn the ghost mechanic on for the matches this player starts. Default false,
-## which is [constant MatchRules.GhostBehaviour.NONE] and the rule the game
-## ships with.
+## Turn the ghost mechanic on for the matches this player starts. Default true,
+## which is [constant MatchRules.GhostBehaviour.CATCH_AND_SWAP] and what the
+## shipped rules resource plays.
 ##
-## [b]Why a preference rather than a rule file.[/b] Ghosts are a [MatchRules]
-## field and the .tres keeps its shipped default deliberately: every bot number
-## this project has measured was measured without them, and a mechanic switched
-## on in the resource would silently reprice all of it. But a player cannot open
-## a text editor to try a mechanic, so the choice is a preference that is written
-## OVER the rules at match start -- see [method apply_to_match_rules]. The
-## measured default is untouched; what changes is what this player's own match
-## is played under.
-var ghosts_enabled: bool = false
+## [b]Why a preference rather than only a rule file.[/b] Ghosts are a
+## [MatchRules] field, and a player cannot open a text editor to turn a mechanic
+## off. So the choice is a preference written OVER the rules at match start --
+## see [method apply_to_match_rules] -- and the two defaults are kept in step
+## deliberately: they must agree, or the first frame of the game is played under
+## a rule set nobody chose.
+var ghosts_enabled: bool = DEFAULT_GHOSTS_ENABLED
 
 
 ## Return every value to its shipped default.
@@ -164,7 +168,7 @@ func reset() -> void:
 	resolution = DEFAULT_RESOLUTION
 	vsync_mode = VSyncMode.ENABLED
 	field_of_view = DEFAULT_FIELD_OF_VIEW
-	ghosts_enabled = false
+	ghosts_enabled = DEFAULT_GHOSTS_ENABLED
 
 
 ## Force every value inside its documented range. Called after every read, so

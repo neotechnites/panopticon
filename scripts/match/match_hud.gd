@@ -14,7 +14,7 @@ extends Control
 ## - The runner count. A converted runner vanishes at 40 m, often behind cover,
 ##   and the player frequently cannot see whether the shot landed.
 ## - Who holds the tower, and on what turn. The seat is a role that passes
-##   between players, including to AI, and the human standing on a lane needs to
+##   between players, including to AI, and the human out on the track needs to
 ##   know both that they are running and who they are running from.
 ##
 ## Reads state rather than mirroring it: everything countable is polled from

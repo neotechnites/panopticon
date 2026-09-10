@@ -86,7 +86,6 @@ rifle has no hit rate).
 | `shots_fired`, `shots_hit`, `hit_rate` | this player's shooting, all of it taken from the tower — there is one rifle and it belongs to the seat |
 | `times_converted` | times the rifle took them out of a round |
 | `laps_finished` | laps completed, each of which took the tower off somebody |
-| `lane_radius` | the lane they were last placed on; `0.0` while in the tower |
 
 ---
 

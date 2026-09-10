@@ -4,7 +4,7 @@
 
 [resource]
 script = ExtResource("1_bot_profile")
-lane_radius = 44.5
+track_radius = 44.5
 speed_mode = 0
 steering_gain = 6.0
 max_yaw_rate = 4.0
