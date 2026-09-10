@@ -1,0 +1,25 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/player/player.tscn" id="1_body"]
+[ext_resource type="Script" path="res://scripts/player/bot_intent_source.gd" id="2_bot_input"]
+[ext_resource type="Script" path="res://scripts/bot/ring_runner.gd" id="3_brain"]
+[ext_resource type="Resource" path="res://scenes/bot/default_bot_profile.tres" id="4_bot_profile"]
+
+[node name="Player" node_paths=PackedStringArray("intent_source") instance=ExtResource("1_body")]
+editor_description = "A prisoner body driven by AI. Inherits scenes/player/player.tscn on purpose: the bot must run on the same capsule, the same head height and the same MovementProfile a human gets, or bot telemetry stops describing the shipped game."
+intent_source = NodePath("BotInput")
+
+[node name="Camera" parent="Head" index="0"]
+current = false
+
+[node name="HumanInput" parent="." index="2"]
+capture_mouse_on_ready = false
+
+[node name="BotInput" type="Node" parent="."]
+script = ExtResource("2_bot_input")
+
+[node name="Brain" type="Node" parent="." node_paths=PackedStringArray("controller", "input")]
+script = ExtResource("3_brain")
+controller = NodePath("..")
+input = NodePath("../BotInput")
+profile = ExtResource("4_bot_profile")
