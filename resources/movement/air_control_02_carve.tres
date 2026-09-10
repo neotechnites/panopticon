@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="AirControlPreset" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/player/air_control_preset.gd" id="1_preset"]
+[ext_resource type="Resource" path="res://scenes/player/default_movement_profile.tres" id="2_base"]
+
+[resource]
+script = ExtResource("1_preset")
+base = ExtResource("2_base")
+display_name = "Carve"
+feel = "The air still carries you, but you can lean a jump into a turn instead of riding it out, and a clean strafe pays MORE speed than it does today rather than less -- technique is rewarded harder, it is just no longer the only way to point somewhere else."
+max_air_speed = 11.0
+air_acceleration = 16.0
+air_friction = 1.5
+auto_bunny_hop = true

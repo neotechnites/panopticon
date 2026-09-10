@@ -19,6 +19,19 @@ extends Node
 ## The player's camera, for the saved field of view. Optional.
 @export var camera: Camera3D
 
+## The [MatchRules] the scene's match is about to be played under, for the
+## preferences that are rules rather than presentation -- today, whether ghosts
+## are on. Optional; leave it unset in scenes that start no match.
+##
+## Point it at the SAME resource the [MatchController] in the scene exports, not
+## at a second copy: Godot hands back one cached object per resource path, so
+## naming res://resources/rules/default_match_rules.tres in both places is one
+## object and the setting lands on the rules the match actually runs. Point it
+## anywhere else and the toggle appears to save and does nothing -- the identical
+## trap [member movement_profile] carries, and the reason both are named in the
+## scene rather than looked up here.
+@export var match_rules: MatchRules
+
 
 func _enter_tree() -> void:
 	var store: SettingsStore = SettingsStore.instance()
@@ -30,3 +43,4 @@ func _on_settings_applied() -> void:
 	var store: SettingsStore = SettingsStore.instance()
 	store.settings.apply_to_movement_profile(movement_profile)
 	store.settings.apply_to_camera(camera)
+	store.settings.apply_to_match_rules(match_rules)

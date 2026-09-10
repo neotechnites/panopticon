@@ -1,7 +1,12 @@
-[gd_scene load_steps=8 format=3]
+[gd_scene load_steps=14 format=3]
 
 [ext_resource type="PackedScene" path="res://scenes/player/player.tscn" id="1_player"]
 [ext_resource type="Script" path="res://scripts/player/movement_readout.gd" id="2_readout"]
+[ext_resource type="Script" path="res://scripts/player/air_control_switcher.gd" id="3_switcher"]
+[ext_resource type="Resource" path="res://resources/movement/air_control_01_committed.tres" id="4_committed"]
+[ext_resource type="Resource" path="res://resources/movement/air_control_02_carve.tres" id="5_carve"]
+[ext_resource type="Resource" path="res://resources/movement/air_control_03_kite.tres" id="6_kite"]
+[ext_resource type="Resource" path="res://resources/movement/air_control_04_footwork.tres" id="7_footwork"]
 
 [sub_resource type="StandardMaterial3D" id="MatGround"]
 albedo_color = Color(0.34, 0.35, 0.37, 1.0)
@@ -410,7 +415,7 @@ material = SubResource("MatRamp")
 transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, -58, 5.7235, -17)
 
 [node name="Player" parent="." instance=ExtResource("1_player")]
-editor_description = "The shipped body and the shipped MovementProfile, unmodified. The point of the scene is to judge what the game actually does, so anything retuned here would be a lie."
+editor_description = "The shipped body. It opens on the shipped MovementProfile -- HUD/AirControl selects preset 1, which is the default's own numbers -- so the scene still starts by showing what the game actually does. Press the cycle key and it becomes a body under a candidate tuning instead; the panel says which."
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, -0, 1, 0, 0.2, 0)
 
 [node name="HUD" type="CanvasLayer" parent="."]
@@ -502,3 +507,41 @@ theme_override_font_sizes/font_size = 17
 theme_override_colors/font_color = Color(0.72, 0.76, 0.82, 1.0)
 vertical_alignment = 0
 
+[node name="AirPanel" type="ColorRect" parent="HUD/Root"]
+editor_description = "The air-control preset in force. Separate from the readout's panel because it answers a different question: the readout says what the body is doing, this says which rules it is doing it under, and reading the second off the first is exactly the confusion the panel exists to remove."
+mouse_filter = 2
+color = Color(0.05, 0.04, 0.07, 0.62)
+offset_left = 16.0
+offset_top = 324.0
+offset_right = 736.0
+offset_bottom = 470.0
+
+[node name="Name" type="Label" parent="HUD/Root/AirPanel"]
+mouse_filter = 2
+offset_left = 20.0
+offset_top = 10.0
+offset_right = 700.0
+offset_bottom = 52.0
+theme_override_font_sizes/font_size = 30
+theme_override_colors/font_color = Color(0.72, 0.86, 1.0, 1.0)
+text = "air control"
+
+[node name="Feel" type="Label" parent="HUD/Root/AirPanel"]
+editor_description = "Wrapped, and given the height of four lines plus the numbers, because the sentence is the point: the preset names describe sensations and the sentence is what says which sensation."
+mouse_filter = 2
+autowrap_mode = 3
+offset_left = 20.0
+offset_top = 56.0
+offset_right = 700.0
+offset_bottom = 138.0
+theme_override_font_sizes/font_size = 17
+theme_override_colors/font_color = Color(0.78, 0.8, 0.86, 1.0)
+vertical_alignment = 0
+
+[node name="AirControl" type="Node" parent="HUD/Root" node_paths=PackedStringArray("body", "name_label", "feel_label")]
+editor_description = "Cycles the air-control presets under one key. Dev only: it swaps a MovementProfile on the body and touches nothing else, so the body's IntentSource -- human or bot -- is unaffected and a headless sweep drives the same select() with no input at all."
+script = ExtResource("3_switcher")
+body = NodePath("../../../Player")
+name_label = NodePath("../AirPanel/Name")
+feel_label = NodePath("../AirPanel/Feel")
+presets = Array[AirControlPreset]([ExtResource("4_committed"), ExtResource("5_carve"), ExtResource("6_kite"), ExtResource("7_footwork")])

@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="AirControlPreset" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/player/air_control_preset.gd" id="1_preset"]
+[ext_resource type="Resource" path="res://scenes/player/default_movement_profile.tres" id="2_base"]
+
+[resource]
+script = ExtResource("1_preset")
+base = ExtResource("2_base")
+display_name = "Committed"
+feel = "You leave the ground committed to the heading you left with, and the mouse only bends it as fast as a strafe can, which is the Quake bargain: turning is a technique, not a key. This is what the game ships today, unchanged."
+max_air_speed = 0.8
+air_acceleration = 12.0
+air_friction = 0.0
+auto_bunny_hop = true

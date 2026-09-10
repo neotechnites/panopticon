@@ -154,6 +154,19 @@ func get_travelled_arc() -> float:
 	return _travelled_arc
 
 
+## Radians from the start angle to the finish angle, in the direction of travel:
+## the lap this tracker is scoring, as [method begin] worked it out.
+##
+## Exposed so a test can ask what a runner is actually being judged against
+## rather than assuming it. That stopped being obvious the moment the finish
+## became per-lane -- under
+## [constant MatchRules.LaneEqualisation.STAGGER_FINISH] each lane finishes at
+## its own angle, and a tracker armed with the arena's marker instead of the
+## lane's finish would score the outer lanes against a line they never reach.
+func get_finish_arc() -> float:
+	return _finish_arc
+
+
 func get_elapsed_seconds() -> float:
 	return _elapsed_seconds
 

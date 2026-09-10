@@ -148,15 +148,10 @@ func _ready() -> void:
 		set_physics_process(false)
 		return
 
-	floor_max_angle = deg_to_rad(profile.max_floor_angle_degrees)
-	floor_snap_length = profile.floor_snap_length
-	floor_stop_on_slope = true
-
 	if head != null:
 		_head_base_y = head.position.y
 
-	if intent_source != null:
-		intent_source.configure(profile)
+	_adopt_profile()
 
 
 func _physics_process(delta: float) -> void:
@@ -233,6 +228,44 @@ func _physics_process(delta: float) -> void:
 ## before the physics tick that should act on it.
 func set_intent(intent: MoveIntent) -> void:
 	_intent.copy_from(intent)
+
+
+## Swap the tunables this body moves under, mid-session and mid-stride.
+##
+## Assigning [member profile] alone is not enough and is the trap this method
+## exists to close: three things are read out of the profile exactly once, at
+## ready -- the floor angle, the floor snap length, and whatever the
+## [IntentSource] took from [method IntentSource.configure] (mouse sensitivity,
+## today). A raw assignment leaves all three describing the profile that was
+## replaced, so a body handed a new profile keeps the old one's walkable slope
+## and the old one's aim speed while obeying the new one's physics. Nothing
+## errors; the body simply behaves like neither profile.
+##
+## Velocity, the slide state and the jump timers are deliberately left alone: a
+## swap made in mid-air must not teleport, stop or re-launch the body, or the
+## profiles being compared cannot be compared back to back.
+##
+## [b]Not part of the game.[/b] Nothing in a match calls this; it exists so a
+## dev scene can put two tunings under the same hands a second apart, and so a
+## headless sweep can drive one body through a list of profiles without
+## rebuilding the world between them.
+func set_profile(new_profile: MovementProfile) -> void:
+	if new_profile == null:
+		push_error("PlayerController.set_profile was handed null; keeping the current profile.")
+		return
+	profile = new_profile
+	_adopt_profile()
+
+
+## Push the profile's values into the things that cache them. Called at ready
+## and by [method set_profile]; see there for why it is not inlined.
+func _adopt_profile() -> void:
+	floor_max_angle = deg_to_rad(profile.max_floor_angle_degrees)
+	floor_snap_length = profile.floor_snap_length
+	floor_stop_on_slope = true
+
+	if intent_source != null:
+		intent_source.configure(profile)
 
 
 ## Horizontal speed in m/s. The number that matters for strafe telemetry: air

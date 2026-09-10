@@ -109,6 +109,7 @@ const RESOLUTION_CHOICES: Array[Vector2i] = [
 const SECTION_INPUT: String = "input"
 const SECTION_AUDIO: String = "audio"
 const SECTION_VIDEO: String = "video"
+const SECTION_MATCH: String = "match"
 
 # --- Values -------------------------------------------------------------------
 
@@ -137,6 +138,20 @@ var vsync_mode: VSyncMode = VSyncMode.ENABLED
 ## [method apply_to_camera]; this object never goes looking for a camera itself.
 var field_of_view: float = DEFAULT_FIELD_OF_VIEW
 
+## Turn the ghost mechanic on for the matches this player starts. Default false,
+## which is [constant MatchRules.GhostBehaviour.NONE] and the rule the game
+## ships with.
+##
+## [b]Why a preference rather than a rule file.[/b] Ghosts are a [MatchRules]
+## field and the .tres keeps its shipped default deliberately: every bot number
+## this project has measured was measured without them, and a mechanic switched
+## on in the resource would silently reprice all of it. But a player cannot open
+## a text editor to try a mechanic, so the choice is a preference that is written
+## OVER the rules at match start -- see [method apply_to_match_rules]. The
+## measured default is untouched; what changes is what this player's own match
+## is played under.
+var ghosts_enabled: bool = false
+
 
 ## Return every value to its shipped default.
 func reset() -> void:
@@ -149,6 +164,7 @@ func reset() -> void:
 	resolution = DEFAULT_RESOLUTION
 	vsync_mode = VSyncMode.ENABLED
 	field_of_view = DEFAULT_FIELD_OF_VIEW
+	ghosts_enabled = false
 
 
 ## Force every value inside its documented range. Called after every read, so
@@ -175,6 +191,7 @@ func copy_from(other: GameSettings) -> void:
 	resolution = other.resolution
 	vsync_mode = other.vsync_mode
 	field_of_view = other.field_of_view
+	ghosts_enabled = other.ghosts_enabled
 
 
 ## True when every value matches [param other]. Used by the verification harness
@@ -190,6 +207,7 @@ func equals(other: GameSettings) -> bool:
 		and resolution == other.resolution
 		and vsync_mode == other.vsync_mode
 		and is_equal_approx(field_of_view, other.field_of_view)
+		and ghosts_enabled == other.ghosts_enabled
 	)
 
 
@@ -210,6 +228,8 @@ func write_to(config: ConfigFile) -> void:
 	config.set_value(SECTION_VIDEO, "vsync_mode", int(vsync_mode))
 	config.set_value(SECTION_VIDEO, "field_of_view", field_of_view)
 
+	config.set_value(SECTION_MATCH, "ghosts_enabled", ghosts_enabled)
+
 
 ## Read every value out of [param config], substituting the current value --
 ## which the caller has normally just reset to the default -- for anything
@@ -229,6 +249,8 @@ func read_from(config: ConfigFile) -> void:
 	)
 	vsync_mode = read_int(config, SECTION_VIDEO, "vsync_mode", int(vsync_mode)) as VSyncMode
 	field_of_view = read_float(config, SECTION_VIDEO, "field_of_view", field_of_view)
+
+	ghosts_enabled = read_bool(config, SECTION_MATCH, "ghosts_enabled", ghosts_enabled)
 
 	clamp_all()
 
@@ -290,6 +312,33 @@ func apply_to_movement_profile(profile: MovementProfile) -> void:
 		return
 	profile.mouse_sensitivity = mouse_sensitivity
 	profile.invert_look_y = invert_look_y
+
+
+## Write the match preferences into a live [MatchRules].
+##
+## Today that is one field. It is written UNCONDITIONALLY in both directions --
+## on as [constant MatchRules.GhostBehaviour.CATCH_AND_SWAP], off as
+## [constant MatchRules.GhostBehaviour.NONE] -- rather than only when the player
+## has ghosts on, because the rules resource is one shared instance for the whole
+## process: a one-way write would leave a match started after the toggle was
+## turned off still running the mechanic, which is the classic settings bug that
+## looks like it works because the first test of it is always "turn it on".
+##
+## Idempotent, so calling it again on every [signal SettingsStore.applied] is
+## correct and cheap -- exactly as [method apply_to_movement_profile] is.
+##
+## It writes [member MatchRules.ghost_behaviour] and nothing else. Ghost TUNING
+## -- pace, catch radius, grace -- is [GhostProfile] and is not a player
+## preference; a player who wants to retune the mechanic is sweeping it, not
+## playing it.
+func apply_to_match_rules(rules: MatchRules) -> void:
+	if rules == null:
+		return
+	rules.ghost_behaviour = (
+		MatchRules.GhostBehaviour.CATCH_AND_SWAP
+		if ghosts_enabled
+		else MatchRules.GhostBehaviour.NONE
+	)
 
 
 ## Write [member field_of_view] into a camera. The scene decides which camera;

@@ -48,8 +48,10 @@ const EXPECTED_ACTIONS: Array[StringName] = [
 	&"zoom",
 ]
 
-## Index of the Controls tab in the authored [TabContainer].
-const CONTROLS_TAB: int = 3
+## Index of the Controls tab in the authored [TabContainer]. Fourth of five:
+## Match, Game, Audio, Video, Controls, in the order they are authored in
+## scenes/ui/settings_screen.tscn.
+const CONTROLS_TAB: int = 4
 
 ## Frames to let a container settle. Godot sorts containers on a deferred call,
 ## and a tab that has just been revealed has not been laid out yet -- reading

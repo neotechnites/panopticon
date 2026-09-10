@@ -108,6 +108,21 @@ var lives: int = 1
 ## actually holds a radius.
 var lane_radius: float = 0.0
 
+## The world point this participant's lap FINISHES at, as
+## [method MatchController._place_on_lane] set it. [constant Vector3.ZERO] while
+## they hold the seat or have never been placed.
+##
+## The finish is per-participant because it is per-lane: under
+## [constant MatchRules.LaneEqualisation.STAGGER_FINISH] every racer starts on
+## one common line and each lane's finish is moved to the angle that makes that
+## lane the same LENGTH as the innermost one. Under every other mode this is
+## simply the arena's end marker and nothing behaves differently.
+##
+## Only its ANGLE is ever read -- by [MatchLapTracker], which scores the arrival,
+## and by [RingRunner], which stops the brain -- so it is the lane's finish point
+## rather than a marker's position, and the two agree by construction.
+var lane_end_point: Vector3 = Vector3.ZERO
+
 ## The body's collision layer and mask as authored, kept so that parking a
 ## converted runner out of the world can be undone exactly rather than
 ## approximately.

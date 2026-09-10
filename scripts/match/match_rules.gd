@@ -111,6 +111,43 @@ enum ArrivalTiebreak {
 	DRAW_LOT,
 }
 
+## HOW the opening race makes every lane the same number of metres.
+##
+## The ring is concentric lanes and an outer lane is physically longer, so a
+## field started on one line and finished on one line is decided by the lane
+## draw rather than by running -- measured, and recorded as
+## [code]panopticon.finding.race_decided_by_lane[/code]. Equal metres is
+## therefore not optional; WHERE the equalising happens is the live question, and
+## it is this enum rather than a second boolean because the two answers are
+## mutually exclusive and a pair of booleans can express a state that is not.
+##
+## Whether to equalise at all remains [member equalise_race_lane_distance]; this
+## says how. See [method get_lane_equalisation] for how the two resolve.
+enum LaneEqualisation {
+	## Do not equalise. Every racer starts on the start pad and finishes at the
+	## end marker, so the lane IS the race. The control case, and the only mode
+	## in which the finding above can be reproduced.
+	NONE,
+	## Move the START. Each racer begins at the angle that leaves them the
+	## innermost lane's metres to run, the way a running track staggers its
+	## starts; the finish does not move. Correct, measured, and the rule the
+	## match shipped with -- but the start line is visibly not a line, which is
+	## what a player standing on it sees and complains about.
+	STAGGER_START,
+	## [b]DEFAULT.[/b] Move the FINISH. Every racer begins on the common start
+	## line -- one line, visibly aligned, everyone alongside everyone -- and each
+	## lane's finish sits at the angle that makes that lane's arc the same length
+	## as the innermost lane's. The outer lanes stop short of the end pad, which
+	## the player is not standing on when the race begins and therefore is not
+	## looking at.
+	##
+	## It costs exactly what [constant STAGGER_START] costs and no more: it is
+	## still equal LENGTH rather than equal ARC, so it is still only honest for a
+	## body that stays in its lane. See [member equalise_race_lane_distance] for
+	## why that is acceptable given who is actually on the ring.
+	STAGGER_FINISH,
+}
+
 ## What a prisoner becomes when the rifle takes their last life.
 ##
 ## [constant NONE] and [constant CATCH_AND_SWAP] are implemented; the two in
@@ -360,8 +397,11 @@ enum GhostBehaviour {
 ## bot profile, so a baseline runner scores on the same tick it stops.
 @export_range(0.1, 10.0, 0.1, "or_greater") var lap_arrival_tolerance: float = 1.5
 
-## Stagger the race's starting angles so every lane is the same length.
+## Make every lane of the opening race the same number of metres.
 ## [b]LIVE[/b], default true.
+##
+## The master switch. [member lane_equalisation] says HOW, and off is off
+## whatever it says -- see [method get_lane_equalisation].
 ##
 ## [b]The bug it fixes, measured[/b]
 ##
@@ -375,14 +415,17 @@ enum GhostBehaviour {
 ## inside lane always wins is worse than chance: it is decided before anybody
 ## moves, and the tower goes to a seat position rather than to a player.
 ##
-## On, each racer starts at the angle that leaves them
-## [code](full lap arc) * (smallest lane radius)[/code] metres of their own lane
-## to run -- the way a running track staggers its starts -- so the outer lanes
-## begin further round. Measured on the shipped radii: 235.43 m each, and all
-## four bots cross on the same physics tick. The finish does not move; every
-## racer still runs one direction the whole way into the same end pad behind the
-## LapDivider, and the innermost lane, which is the one the human holds, still
-## starts on the start pad and still arrives just behind where it set off.
+## On, every racer is left [code](full lap arc) * (smallest lane radius)[/code]
+## metres of their own lane to run. Measured on the shipped radii: 235.43 m each,
+## and all four bots cross on the same physics tick.
+##
+## [b]Where the equalising happens is [member lane_equalisation].[/b] Under
+## [constant LaneEqualisation.STAGGER_START] the starts move and the finish does
+## not, the way a running track staggers its starts; under the default
+## [constant LaneEqualisation.STAGGER_FINISH] the starts are one common line and
+## each lane's finish moves instead. Both leave every racer the same 235.43 m,
+## both still run one direction the whole way, and the innermost lane -- the one
+## the human holds -- runs the identical arc either way.
 ##
 ## [b]What it costs, and why it is on anyway[/b]
 ##
@@ -403,6 +446,19 @@ enum GhostBehaviour {
 ## exploitable and the question has to be measured again, which is what the
 ## switch is for.
 @export var equalise_race_lane_distance: bool = true
+
+## Where the opening race's equalising happens. [b]LIVE[/b], default
+## [constant LaneEqualisation.STAGGER_FINISH] = one common start line, and each
+## lane's finish moved to make the arcs equal.
+##
+## Inert while [member equalise_race_lane_distance] is false, exactly as
+## [member arrival_tiebreak_seed] is inert under
+## [constant ArrivalTiebreak.SEAT_ORDER]. A rule set written before this field
+## existed has no entry for it and therefore loads the default, which is the
+## intended upgrade: [constant LaneEqualisation.STAGGER_START] is kept, and can
+## be selected, because it is the behaviour every measurement before this change
+## was taken under and deleting it would put that evidence beyond reach.
+@export var lane_equalisation: LaneEqualisation = LaneEqualisation.STAGGER_FINISH
 
 ## Who takes the tower when two runners reach the end on the same tick.
 ## [b]LIVE[/b], default [constant ArrivalTiebreak.SEAT_ORDER] = the lowest
@@ -579,6 +635,41 @@ func get_lane_radii_for(count: int) -> PackedFloat32Array:
 	for index: int in maxi(count, 0):
 		radii.append(get_lane_radius(index))
 	return radii
+
+
+## The lane equalisation actually in force: the mode, or
+## [constant LaneEqualisation.NONE] when the master switch is off.
+##
+## The one place the two fields are combined, so no caller grows a second idea
+## of what "equalised" means. [member equalise_race_lane_distance] is the older
+## field and it is not demoted to a legacy alias: off still means off, which is
+## how every rule set that turned equalising off to reproduce
+## [code]panopticon.finding.race_decided_by_lane[/code] keeps working unchanged.
+func get_lane_equalisation() -> LaneEqualisation:
+	if not equalise_race_lane_distance:
+		return LaneEqualisation.NONE
+	return lane_equalisation
+
+
+## Metres of lane every racer owes when [param radii] are equalised: the full lap
+## of the SHORTEST lane.
+##
+## The shortest is the reference under both stagger modes, so the race is the
+## same length whichever one is chosen and telemetry taken under one is
+## comparable with telemetry taken under the other. [param full_lap_arc] is the
+## start-to-finish arc in radians, which the arena's markers decide and this
+## resource does not know.
+static func get_equalised_lane_length(radii: PackedFloat32Array, full_lap_arc: float) -> float:
+	return full_lap_arc * get_shortest_radius(radii)
+
+
+## The smallest entry in [param radii], or 0.0 when there are none.
+static func get_shortest_radius(radii: PackedFloat32Array) -> float:
+	var shortest: float = 0.0
+	for index: int in radii.size():
+		if index == 0 or radii[index] < shortest:
+			shortest = radii[index]
+	return shortest
 
 
 ## How many players a match has: one in the tower and [member prisoner_count] on

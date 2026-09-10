@@ -852,6 +852,12 @@ func _swap_with_ghost(ghost: MatchParticipant, caught: MatchParticipant) -> void
 	# prisoner's spot is what the ghost is taking, and their arc is part of it.
 	var carried_arc: float = caught.tracker.get_travelled_arc()
 	var carried_lane: float = caught.lane_radius
+	# The lane and the line it finishes at are one thing. They are the same
+	# point for every participant in a round today -- only the opening race
+	# moves a finish, and the race has no shooter and therefore no ghosts -- but
+	# carrying the radius without the finish would be a swap that half happened,
+	# and the day a round is equalised it would be a silent scoring bug.
+	var carried_finish: Vector3 = _lane_end_of(caught)
 	var source: MatchLapTracker = caught.tracker
 
 	caught.is_running = false
@@ -859,6 +865,7 @@ func _swap_with_ghost(ghost: MatchParticipant, caught: MatchParticipant) -> void
 
 	_unmake_ghost(ghost)
 	ghost.lane_radius = carried_lane
+	ghost.lane_end_point = carried_finish
 	if profile.catch_transfers_progress:
 		_start_running_in_place(ghost, carried_arc, source)
 	else:
@@ -955,8 +962,14 @@ func _start_running_in_place(
 	participant.lives = maxi(active.prisoner_lives, 1)
 
 	body.add_to_group(RUNNER_GROUP)
+	# The spot the ghost is taking includes the line it finishes at. Under
+	# MatchRules.LaneEqualisation.STAGGER_FINISH that line belongs to the lane,
+	# and the lane came off the caught prisoner a moment ago -- so the carried
+	# arc and the arc it is measured against are the same lane's, which is what
+	# makes adopt_progress mean anything.
+	var lane_end: Vector3 = _lane_end_of(participant)
 	participant.tracker.begin(
-		body, _centre, _start_point, _end_point, active.lap_arrival_tolerance
+		body, _centre, _start_point, lane_end, active.lap_arrival_tolerance
 	)
 	if source != null:
 		participant.tracker.adopt_progress(source)
@@ -964,7 +977,7 @@ func _start_running_in_place(
 	if participant.brain != null:
 		participant.brain.profile.lane_radius = participant.lane_radius
 		participant.brain.rules = active
-		participant.brain.resume(_centre, _start_point, _end_point, travelled_arc)
+		participant.brain.resume(_centre, _start_point, lane_end, travelled_arc)
 
 
 ## The material a ghost body wears, loaded once. Null is survivable -- a ghost
@@ -1149,6 +1162,15 @@ func _cache_geometry() -> void:
 ## design forbids. A lane is a spawn position, not a rail -- only the baseline
 ## [RingRunner] holds a radius, and scoring is by arc, so a human is free to cut
 ## to the inside kerb and still owes the whole ring.
+##
+## [b]Equalisation moves one END of the race, never both.[/b] A lane's arc is
+## fixed by [method MatchRules.get_equalised_lane_length]; which end is moved to
+## produce it is [method MatchRules.get_lane_equalisation], and the two answers
+## are computed here in one loop so a lane can never end up with a staggered
+## start AND a staggered finish. Only the opening race is equalised: a round is
+## a chase with a rifle in it rather than a footrace, and repricing every round
+## measurement this project has taken is not a side effect a start-line fix is
+## allowed to have.
 func _place_runners(runners: Array[MatchParticipant], is_race: bool) -> void:
 	_round_runner_count = runners.size()
 	if not _geometry_ready:
@@ -1156,25 +1178,41 @@ func _place_runners(runners: Array[MatchParticipant], is_race: bool) -> void:
 
 	var active: MatchRules = get_rules()
 	var radii: PackedFloat32Array = active.get_lane_radii_for(runners.size())
-	var equalise: bool = is_race and active.equalise_race_lane_distance
-	var shortest: float = _shortest_radius(radii)
-	var end_angle: float = _angle_of(_end_point)
-	var full_arc: float = wrapf(
-		(end_angle - _angle_of(_start_point)) * RingRunner.TRAVEL_SIGN, 0.0, TAU
+	var mode: MatchRules.LaneEqualisation = (
+		active.get_lane_equalisation() if is_race else MatchRules.LaneEqualisation.NONE
 	)
+	var start_angle: float = _angle_of(_start_point)
+	var end_angle: float = _angle_of(_end_point)
+	var full_arc: float = wrapf((end_angle - start_angle) * RingRunner.TRAVEL_SIGN, 0.0, TAU)
+	var equal_length: float = MatchRules.get_equalised_lane_length(radii, full_arc)
 
 	for index: int in runners.size():
 		var participant: MatchParticipant = runners[index]
 		var radius: float = radii[index]
-		var start_angle: float = _angle_of(_start_point)
-		if equalise and radius > 0.0:
-			# Every racer is left the same number of METRES of their own lane,
-			# so the outer lanes start further round. The finish does not move:
-			# the arc runs backwards from the shared end marker, so the race is
-			# still one direction into one end pad. See
-			# MatchRules.equalise_race_lane_distance.
-			start_angle = end_angle - RingRunner.TRAVEL_SIGN * (full_arc * shortest / radius)
-		_place_on_lane(participant, radius, start_angle)
+		# The arc this lane must sweep, in radians. Under both stagger modes it
+		# is the arc that spends `equal_length` metres AT THIS RADIUS, which is
+		# the whole of "every racer owes the same distance".
+		var lane_arc: float = full_arc
+		if mode != MatchRules.LaneEqualisation.NONE and radius > 0.0:
+			lane_arc = equal_length / radius
+
+		var lane_start: float = start_angle
+		var lane_end: float = end_angle
+		match mode:
+			MatchRules.LaneEqualisation.STAGGER_START:
+				# The finish does not move; the outer lanes begin further round.
+				# The start line is therefore not a line, which is correct and
+				# which is exactly what a player standing on it objects to.
+				lane_start = end_angle - RingRunner.TRAVEL_SIGN * lane_arc
+			MatchRules.LaneEqualisation.STAGGER_FINISH:
+				# The start does not move: one common line, everybody alongside
+				# everybody. The outer lanes finish short of the end pad instead,
+				# each at the angle that makes its own arc the same LENGTH.
+				lane_end = start_angle + RingRunner.TRAVEL_SIGN * lane_arc
+			_:
+				pass
+
+		_place_on_lane(participant, radius, lane_start, _point_on_lane(radius, lane_end))
 
 	_order_the_scoring(runners)
 
@@ -1225,11 +1263,26 @@ func _order_the_scoring(runners: Array[MatchParticipant]) -> void:
 			participant.tracker.process_physics_priority = TRACKER_PRIORITY_BASE + rank
 
 
-func _place_on_lane(participant: MatchParticipant, radius: float, start_angle: float) -> void:
+## Put one participant on one lane, running from [param start_angle] to
+## [param end_point].
+##
+## [b]The finish is a parameter, not [member _end_point].[/b] Under
+## [constant MatchRules.LaneEqualisation.STAGGER_FINISH] each lane finishes at
+## its own angle, so "the end" is a property of the lane rather than of the
+## arena. Both things that judge an arrival -- [MatchLapTracker] for the score
+## and [RingRunner] for the brain's own stopping point -- are handed the SAME
+## point here, which is what keeps the arrival test honest: a runner is scored
+## against the line their brain is running at, and there is no second opinion
+## about where their race ends. Both read only its ANGLE, so a caller may pass
+## the arena's marker or a point of its own devising on the lane.
+func _place_on_lane(
+	participant: MatchParticipant, radius: float, start_angle: float, end_point: Vector3
+) -> void:
 	var active: MatchRules = get_rules()
 	var start_point: Vector3 = _point_on_lane(radius, start_angle)
 
 	participant.lane_radius = radius
+	participant.lane_end_point = end_point
 	participant.is_shooter = false
 	participant.is_running = true
 	participant.lives = maxi(active.prisoner_lives, 1)
@@ -1250,7 +1303,7 @@ func _place_on_lane(participant: MatchParticipant, radius: float, start_angle: f
 		# does it steer" is tuning of the brain. configure() places the body.
 		participant.brain.profile.lane_radius = radius
 		participant.brain.rules = active
-		participant.brain.configure(_centre, start_point, _end_point)
+		participant.brain.configure(_centre, start_point, end_point)
 	else:
 		body.global_position = start_point
 		body.velocity = Vector3.ZERO
@@ -1260,7 +1313,7 @@ func _place_on_lane(participant: MatchParticipant, radius: float, start_angle: f
 		body.rotation = Vector3(0.0, _heading_of(_lane_tangent(start_angle)), 0.0)
 
 	body.add_to_group(RUNNER_GROUP)
-	participant.tracker.begin(body, _centre, start_point, _end_point, active.lap_arrival_tolerance)
+	participant.tracker.begin(body, _centre, start_point, end_point, active.lap_arrival_tolerance)
 
 
 func _place_in_tower(participant: MatchParticipant) -> void:
@@ -1269,6 +1322,10 @@ func _place_in_tower(participant: MatchParticipant) -> void:
 	participant.is_shooter = true
 	participant.is_running = false
 	participant.lane_radius = 0.0
+	# The seat has no lane and therefore no finish. Cleared rather than left
+	# stale so a participant who is put back on the ring next round cannot be
+	# scored against the line they were running at two rounds ago.
+	participant.lane_end_point = Vector3.ZERO
 
 	var body: PlayerController = participant.body
 	# A ghost can take the tower: they were a prisoner when the seat changed
@@ -1834,15 +1891,21 @@ func _heading_of(direction: Vector3) -> float:
 	return atan2(-direction.x, -direction.z)
 
 
+## The world point [param participant] is running at, falling back to the arena's
+## own end marker.
+##
+## The fallback is what makes every mode that does NOT move the finish -- which
+## is every mode outside the opening race -- a no-op here rather than a special
+## case: a participant placed by [method _place_on_lane] always has one, and one
+## who has never been placed is sent at the marker, which is where they would
+## have been sent before per-lane finishes existed.
+func _lane_end_of(participant: MatchParticipant) -> Vector3:
+	if participant == null or participant.lane_end_point.is_equal_approx(Vector3.ZERO):
+		return _end_point
+	return participant.lane_end_point
+
+
 ## Horizontal distance between two world points. The deck is flat and the tower
 ## is not: a ghost standing under the stand is not next to the shooter.
 func _flat_distance(from: Vector3, to: Vector3) -> float:
 	return Vector2(to.x - from.x, to.z - from.z).length()
-
-
-func _shortest_radius(radii: PackedFloat32Array) -> float:
-	var shortest: float = 0.0
-	for index: int in radii.size():
-		if index == 0 or radii[index] < shortest:
-			shortest = radii[index]
-	return shortest
