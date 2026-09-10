@@ -17,8 +17,8 @@ extends IntentSource
 ## [PlayerNetLink].
 ##
 ## Edge semantics match [BotIntentSource]: [method poll] consumes the one-tick
-## fields, so a jump that arrived in one packet fires on one tick and not
-## forever after. Sustained fields persist, which is what makes the source
+## fields, so a jump or a slide that arrived in one packet fires on one tick
+## and not forever after. Sustained fields persist, which is what makes the source
 ## survive the packet loss it is guaranteed to see -- a dropped packet means
 ## the body keeps walking the way it was walking, which is right, rather than
 ## stopping dead for one tick, which reads as a stutter and is wrong.
@@ -82,6 +82,7 @@ func poll(_delta: float) -> MoveIntent:
 	_intent.copy_from(command)
 	# Consume the edges. Everything else stands until the next packet.
 	command.jump_pressed = false
+	command.slide_pressed = false
 	command.look_delta = Vector2.ZERO
 	return _intent
 
