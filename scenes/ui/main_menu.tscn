@@ -1,8 +1,9 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://scripts/ui/main_menu.gd" id="1_main_menu"]
 [ext_resource type="Script" path="res://scripts/ui/settings_boot.gd" id="2_settings_boot"]
 [ext_resource type="Resource" path="res://scenes/player/default_movement_profile.tres" id="3_movement_profile"]
+[ext_resource type="PackedScene" path="res://scenes/audio/game_audio.tscn" id="4_game_audio"]
 
 [node name="MainMenu" type="Control"]
 process_mode = 3
@@ -18,3 +19,6 @@ script = ExtResource("1_main_menu")
 editor_description = "Applies the saved settings before the player has pressed anything, which is the only place it CAN happen: the match's own player does not exist yet when its sensitivity is chosen. movement_profile is the same default_movement_profile.tres instance scenes/player/player.tscn exports -- Godot hands back one cached object per resource path and this one is not local_to_scene -- so a sensitivity change made in this menu is already written into the profile the body reads the moment the match loads. camera is deliberately unset: there is no camera in a menu, and the match's own PauseMenu carries the field-of-view across for the same reason."
 script = ExtResource("2_settings_boot")
 movement_profile = ExtResource("3_movement_profile")
+
+[node name="GameAudio" parent="." instance=ExtResource("4_game_audio")]
+editor_description = "The same scenes/audio/game_audio.tscn the match instances, so the menu makes noise through one system rather than a second copy of it. Its UIAudio listener is what earns its place here: it watches SceneTree.node_added rather than walking the tree once, because every control in this menu is built in code by scripts/ui/main_menu.gd and the settings screen is created and destroyed on demand. Its MatchAudio listener searches this scene root, finds no Rifle and no MatchController, and is silent -- an absent rifle and an absent match are deliberate no-ops there, not errors. Needs no node paths of any kind."
