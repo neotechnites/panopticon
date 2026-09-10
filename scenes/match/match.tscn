@@ -1,4 +1,4 @@
-[gd_scene load_steps=8 format=3]
+[gd_scene load_steps=10 format=3]
 
 [ext_resource type="PackedScene" path="res://scenes/ring/test_ring.tscn" id="1_arena"]
 [ext_resource type="PackedScene" path="res://scenes/player/player.tscn" id="2_player"]
@@ -7,6 +7,8 @@
 [ext_resource type="Script" path="res://scripts/match/match_controller.gd" id="5_controller"]
 [ext_resource type="Script" path="res://scripts/match/match_hud.gd" id="6_hud"]
 [ext_resource type="Resource" path="res://resources/rules/default_match_rules.tres" id="7_rules"]
+[ext_resource type="PackedScene" path="res://scenes/ui/pause_menu.tscn" id="8_pause_menu"]
+[ext_resource type="Resource" path="res://scenes/player/default_movement_profile.tres" id="9_movement_profile"]
 
 [node name="Match" type="Node3D"]
 editor_description = "The first playable round. Arena, one human in the tower with a rifle, three runners on the clear lanes, and MatchController enforcing the round described by resources/rules/default_match_rules.tres. Nothing under scenes/player, scenes/weapon, scenes/bot or scenes/ring is modified here -- they are composed."
@@ -82,3 +84,8 @@ grow_horizontal = 2
 grow_vertical = 2
 text = "+"
 horizontal_alignment = 1
+
+[node name="PauseMenu" parent="." node_paths=PackedStringArray("camera") instance=ExtResource("8_pause_menu")]
+editor_description = "Escape, and everything behind it. Last child of the root and on CanvasLayer 128, so it draws over the HUD (layer 1) and is offered GUI input before it; the HUD cannot swallow a click meant for a menu button because HUD/Root is mouse_filter 2 and its Labels ignore the mouse anyway. movement_profile is the SAME .tres instance Player uses for its own profile export -- Godot returns one cached object per resource path and this one is not local_to_scene -- so mouse sensitivity and invert-Y written by the settings screen land on the profile the body actually reads; point it anywhere else and the setting appears to save and does nothing. camera is named in node_paths in the header above: without that entry the NodePath resolves to null at load with no error, and the display-FOV setting silently stops working."
+movement_profile = ExtResource("9_movement_profile")
+camera = NodePath("../Player/Head/Camera")

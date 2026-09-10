@@ -36,6 +36,17 @@ extends RefCounted
 ## binding and rebinding one does not silently destroy the other.
 const MAX_BINDINGS: int = 2
 
+## The zoom action, named by string rather than taken from [code]OpticsActions[/code].
+##
+## Deliberate. [code]scripts/optics[/code] is another domain, and this file
+## already reaches into [PlayerActions] and [WeaponActions] because those are the
+## player's own input layer; adding a third import would make the settings screen
+## fail to compile the day the optic is removed or refactored, for the sake of
+## one string that is fixed by project.godot anyway. An action name IS the
+## contract between domains -- it is what the [InputMap] is keyed by -- so
+## quoting it is the loosest coupling available, not a shortcut.
+const ZOOM: StringName = &"zoom"
+
 ## Every action the settings screen will let the player rebind, in the order it
 ## displays them. Matches the project's action list; [PlayerActions] and
 ## [WeaponActions] own their names and this list quotes them rather than
@@ -48,6 +59,7 @@ const ACTIONS: Array[StringName] = [
 	PlayerActions.JUMP,
 	PlayerActions.SPRINT,
 	WeaponActions.FIRE,
+	ZOOM,
 ]
 
 ## ConfigFile section the bindings are written to.
@@ -89,6 +101,15 @@ var _bindings: Dictionary[StringName, Array] = {}
 static func ensure_actions_registered() -> void:
 	PlayerActions.ensure_registered()
 	WeaponActions.ensure_registered()
+	# Zoom's fallback is spelled out here rather than delegated, for the same
+	# reason its name is: see [constant ZOOM]. Right mouse button, matching what
+	# project.godot declares and what the optic's own fallback would register,
+	# so whichever of the three runs first the result is identical.
+	if not InputMap.has_action(ZOOM):
+		InputMap.add_action(ZOOM, PlayerActions.DEADZONE)
+		var event: InputEventMouseButton = InputEventMouseButton.new()
+		event.button_index = MOUSE_BUTTON_RIGHT
+		InputMap.action_add_event(ZOOM, event)
 
 
 ## Snapshot the live [InputMap] as the default binding set.
@@ -405,6 +426,8 @@ static func display_name(action: StringName) -> String:
 			return "Sprint"
 		WeaponActions.FIRE:
 			return "Fire"
+		ZOOM:
+			return "Aim / Zoom"
 	return String(action).capitalize()
 
 

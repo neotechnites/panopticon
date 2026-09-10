@@ -78,7 +78,11 @@ const DEFAULT_MOUSE_SENSITIVITY: float = 0.0022
 const MIN_MOUSE_SENSITIVITY: float = 0.0001
 const MAX_MOUSE_SENSITIVITY: float = 0.02
 
-const DEFAULT_FIELD_OF_VIEW: float = 75.0
+## Matches the FOV that scenes/player/player.tscn ships its Camera3D at, for
+## the same reason [constant DEFAULT_MOUSE_SENSITIVITY] matches the movement
+## profile's: a player who never opens the settings screen must get exactly the
+## value the scene was tuned at, not a number this file invented.
+const DEFAULT_FIELD_OF_VIEW: float = 100.0
 const MIN_FIELD_OF_VIEW: float = 60.0
 const MAX_FIELD_OF_VIEW: float = 120.0
 
