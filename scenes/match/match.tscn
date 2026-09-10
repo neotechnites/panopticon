@@ -1,4 +1,4 @@
-[gd_scene load_steps=7 format=3]
+[gd_scene load_steps=8 format=3]
 
 [ext_resource type="PackedScene" path="res://scenes/ring/test_ring.tscn" id="1_arena"]
 [ext_resource type="PackedScene" path="res://scenes/player/player.tscn" id="2_player"]
@@ -6,9 +6,10 @@
 [ext_resource type="PackedScene" path="res://scenes/bot/ring_runner.tscn" id="4_runner"]
 [ext_resource type="Script" path="res://scripts/match/match_controller.gd" id="5_controller"]
 [ext_resource type="Script" path="res://scripts/match/match_hud.gd" id="6_hud"]
+[ext_resource type="Resource" path="res://resources/rules/default_match_rules.tres" id="7_rules"]
 
 [node name="Match" type="Node3D"]
-editor_description = "The first playable round. Arena, one human in the tower with a rifle, three runners on the clear lanes, and MatchController holding every rule of the round. Nothing under scenes/player, scenes/weapon, scenes/bot or scenes/ring is modified here -- they are composed."
+editor_description = "The first playable round. Arena, one human in the tower with a rifle, three runners on the clear lanes, and MatchController enforcing the round described by resources/rules/default_match_rules.tres. Nothing under scenes/player, scenes/weapon, scenes/bot or scenes/ring is modified here -- they are composed."
 
 [node name="Arena" parent="." instance=ExtResource("1_arena")]
 
@@ -27,7 +28,7 @@ tracer_parent = NodePath("../../..")
 
 [node name="MatchController" type="Node" parent="." node_paths=PackedStringArray("arena", "player", "rifle", "runner_container")]
 script = ExtResource("5_controller")
-lane_radii = PackedFloat32Array(38.5, 44.5, 51)
+rules = ExtResource("7_rules")
 arena = NodePath("../Arena")
 player = NodePath("../Player")
 rifle = NodePath("../Player/Head/Rifle")

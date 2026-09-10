@@ -63,6 +63,19 @@ const TRAVEL_SIGN: float = 1.0
 ## Tunables. Without one the runner refuses to run rather than inventing a lane.
 @export var profile: BotProfile
 
+## The round's design parameters, when a match supplies them.
+##
+## Only the pace is read: [member MatchRules.bot_speed_mode] overrides
+## [member BotProfile.speed_mode]. That is the seam -- "walk or sprint" is a rule
+## of the round and every prisoner in a match obeys the same one, whereas gain,
+## yaw ceiling, lookahead and arrival tolerance are tuning of this one brain and
+## stay in [member profile].
+##
+## Null is normal and means "no match opinion": the profile's own speed mode is
+## used, which is what a runner dropped into a test scene sees.
+## [MatchController] assigns this at spawn.
+@export var rules: MatchRules
+
 ## Arena centre, at deck height. Set by [method configure].
 var _centre: Vector3 = Vector3.ZERO
 
@@ -219,7 +232,15 @@ func _steer(remaining_arc: float, delta: float) -> void:
 	# steering quality rather than of speed and distance, which is the one thing
 	# this baseline exists to report cleanly.
 	input.command.move_direction = Vector2(0.0, 1.0)
-	input.command.sprint_held = profile.wants_sprint()
+	input.command.sprint_held = wants_sprint()
+
+
+## Whether to hold sprint this tick: the match's rule when there is one, the
+## profile's mode otherwise. One place, so no caller grows its own idea of it.
+func wants_sprint() -> bool:
+	if rules != null:
+		return rules.wants_sprint()
+	return profile.wants_sprint()
 
 
 func _finish() -> void:

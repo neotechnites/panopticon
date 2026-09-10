@@ -89,7 +89,26 @@ signal reload_duration_changed(duration: float)
 
 ## Tunables. Without one the rifle cannot fire and says so rather than falling
 ## back on invented numbers.
+##
+## This is the weapon-INTRINSIC half of the rifle's numbers: range, hit mask,
+## tracer look, the committed firing window, and the hard floor the reload may
+## never go below. What the weapon IS. The match's opinion of how long the tower
+## should be silent lives in [member rules] instead, and wins.
 @export var profile: WeaponProfile
+
+## The round's design parameters, when a match supplies them.
+##
+## Only the reload is read: [member MatchRules.base_reload_seconds] replaces the
+## profile's starting value, and [member MatchRules.reload_floor_seconds] can
+## tighten the profile's floor but never loosen it. The reload is a rule of the
+## round rather than a property of the gun -- it is the clock the whole match
+## runs on and it has to be sweepable per match -- so it is the one number a
+## [MatchRules] is allowed to reach in and set.
+##
+## Null is normal and means "no match opinion": the profile's own values are
+## used, which is what a rifle in a test scene or in the editor sees.
+## [MatchController] assigns this at the start of every round.
+@export var rules: MatchRules
 
 ## Where the ray starts and which way it points: its -Z axis is the shot line.
 ##
@@ -131,23 +150,25 @@ var _reload_seconds: float = 0.0
 
 ## The live reload duration, in seconds.
 ##
-## Starts at [member WeaponProfile.base_reload_seconds] and is meant to be
+## Starts at [method get_base_reload_seconds] and is meant to be
 ## written at runtime: the design calls for the rifle to get faster as a match
 ## progresses, so this is a property with a signal rather than a constant read
-## out of the profile. The profile's value is the starting point, never the
-## current truth. Writes are clamped to
-## [member WeaponProfile.min_reload_seconds].
+## out of the profile. [method get_base_reload_seconds] is the starting point,
+## never the current truth.
 ##
 ## Changing it mid-reload takes effect on that same reload, because the reload
 ## is tracked as elapsed time compared against this value rather than as a
 ## countdown seeded at the start. Shortening the reload below the time already
 ## served completes it immediately, which is the behaviour a progression rule
 ## wants: "reloads are 1.2 s now" should mean now, not next shot.
+##
+## Writes are clamped to [method get_reload_floor_seconds], which is the weapon's
+## own floor raised by the match's if the match asked for a tighter one.
 var reload_seconds: float:
 	get:
 		return _reload_seconds
 	set(value):
-		var clamped: float = profile.clamp_reload_seconds(value) if profile != null else maxf(value, 0.0)
+		var clamped: float = maxf(value, get_reload_floor_seconds())
 		if is_equal_approx(clamped, _reload_seconds):
 			return
 		_reload_seconds = clamped
@@ -161,7 +182,7 @@ func _ready() -> void:
 		return
 	# A duration assigned before the node entered the tree is honoured but
 	# re-clamped, since the floor was unknown without a profile.
-	reload_seconds = _reload_seconds if _reload_seconds > 0.0 else profile.base_reload_seconds
+	reload_seconds = _reload_seconds if _reload_seconds > 0.0 else get_base_reload_seconds()
 
 
 ## The clock runs on the physics tick, not the render tick, so the reload is the
@@ -255,12 +276,34 @@ func get_reload_progress() -> float:
 	return clampf(_state_elapsed / _reload_seconds, 0.0, 1.0)
 
 
-## Restore the reload to the profile's starting value. For a match reset, so
-## progression cannot leak across rounds.
+## Restore the reload to its starting value. For a match reset, so progression
+## cannot leak across rounds.
 func reset_reload_to_base() -> void:
 	if profile == null:
 		return
-	reload_seconds = profile.base_reload_seconds
+	reload_seconds = get_base_reload_seconds()
+
+
+## The reload this weapon starts a round on: the match's value when a
+## [MatchRules] is assigned and has an opinion, otherwise the profile's own.
+func get_base_reload_seconds() -> float:
+	if profile == null:
+		return 0.0
+	if rules == null:
+		return profile.base_reload_seconds
+	return rules.get_base_reload_seconds(profile.base_reload_seconds)
+
+
+## The floor [member reload_seconds] is clamped to: the higher of the weapon's
+## own [member WeaponProfile.min_reload_seconds] and the match's
+## [member MatchRules.reload_floor_seconds]. A match rule may tighten the bound,
+## never drill through it -- the weapon's floor is a guarantee that the rifle
+## stays single-shot rather than becoming an automatic by sweep.
+func get_reload_floor_seconds() -> float:
+	var weapon_floor: float = profile.min_reload_seconds if profile != null else 0.0
+	if rules == null:
+		return weapon_floor
+	return rules.get_reload_floor_seconds(weapon_floor)
 
 
 # --- Shot resolution ----------------------------------------------------------
