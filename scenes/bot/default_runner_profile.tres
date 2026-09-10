@@ -1,0 +1,39 @@
+[gd_resource type="Resource" script_class="RunnerProfile" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/bot/runner_profile.gd" id="1_runner_profile"]
+
+[resource]
+script = ExtResource("1_runner_profile")
+behaviour = 1
+view_fov_degrees = 100.0
+view_aspect = 1.7778
+fov_margin = 0.9
+eye_height = 1.6
+cover_test_height = 0.9
+reaction_seconds = 0.35
+attention_cone_degrees = 30.0
+attention_read_error_degrees = 14.0
+attention_resample_seconds = 0.4
+threat_memory_seconds = 1.5
+tracer_alarm_metres = 6.0
+perception_seed = 0
+assumed_reload_seconds = 2.5
+reload_read_accuracy = 0.75
+reload_safety_margin = 0.35
+min_hold_seconds = 0.4
+max_hold_seconds = 12.0
+break_confidence_threshold = 0.55
+watched_confidence_penalty = 0.2
+path_samples = 12
+free_crossing_metres = 8.0
+max_crossing_metres = 60.0
+sprint_while_crossing = true
+cover_search_arc_degrees = 75.0
+cover_search_steps = 28
+cover_search_radial_span = 22.0
+cover_search_radial_steps = 9
+cover_depth_metres = 2.5
+cover_min_advance_metres = 5.0
+cover_arrival_tolerance = 1.5
+cover_max_step_height = 1.0
+cross_timeout_multiple = 2.5

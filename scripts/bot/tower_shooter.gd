@@ -212,6 +212,14 @@ var _shots_taken: int = 0
 
 
 func _ready() -> void:
+	# Joined BEFORE the configuration check, and never left: this is how a
+	# RingRunner finds out there is a guard on the ring at all, and a brain that
+	# refused to play still occupies the seat as far as everyone else is
+	# concerned. Membership grants nothing -- see RunnerPerception._find_threat,
+	# which additionally requires the brain to be processing, because
+	# MatchController stands old tower brains DOWN rather than deleting them.
+	add_to_group(RunnerPerception.SHOOTER_GROUP)
+
 	# Fail loudly and stand still. A half-configured shooter that turns and
 	# fires at nothing is far harder to diagnose than one that never starts.
 	if controller == null or input == null or rifle == null or profile == null:
