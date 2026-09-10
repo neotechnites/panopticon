@@ -89,6 +89,28 @@ enum RunnerWinCondition {
 	ALL_ARRIVALS,
 }
 
+## Who takes the tower when two runners reach the end on the same tick.
+##
+## Both are implemented. The rule exists because
+## [member equalise_race_lane_distance] creates the dead heat it settles: once
+## every racer owes the same number of metres, a field of identical bodies
+## finishes together to the physics tick, measured, and something has to decide
+## it. Before the lanes were equalised the question could not arise, which is
+## why it was never asked.
+enum ArrivalTiebreak {
+	## The tie goes to the lowest [member MatchParticipant.index]. Today's rule,
+	## and what the match did implicitly before this was written down: nothing
+	## is drawn, nothing is random, and the same seat wins every dead heat.
+	SEAT_ORDER,
+	## The tie is drawn by lot, once per placement, from
+	## [member arrival_tiebreak_seed]. A dead heat is a race in which nobody won,
+	## so there is nothing left to reward; a lot at least spreads the seat across
+	## the field instead of parking it on seat zero. It is NOT the race being
+	## decided by chance -- a racer who arrives on an earlier tick still wins
+	## outright, whatever the lot said.
+	DRAW_LOT,
+}
+
 ## What a prisoner becomes when the rifle takes their last life.
 ##
 ## Today they are simply removed and there is nothing left to be. The other
@@ -311,22 +333,76 @@ enum GhostBehaviour {
 @export_range(0.1, 10.0, 0.1, "or_greater") var lap_arrival_tolerance: float = 1.5
 
 ## Stagger the race's starting angles so every lane is the same length.
-## [b]DEFERRED[/b], default false = every racer starts on the start pad, which is
-## where runners have always started.
+## [b]LIVE[/b], default true.
 ##
-## The problem it addresses is real: at r=38.5 a lap is 235 m and at r=57.5 it is
-## 351 m, so a racer's lane is worth up to a third of the race. The reason it is
-## off by default is that the fix is only a fix for a runner that stays in its
-## lane. A lane is a spawn position, not a rail -- only the baseline [RingRunner]
-## holds a radius, and a human handed the outer lane would simply cut inside and
-## keep the shorter arc as a gift. Equal ARC from a shared start pad is the
-## honest rule for bodies that may run anywhere; equal LENGTH is the honest rule
-## for bodies on rails. The game has both, so this is a question to measure.
+## [b]The bug it fixes, measured[/b]
 ##
-## When true, each racer starts at the angle that leaves them
+## Off, every racer starts on the start pad and runs a full lap of their own
+## lane, so the lane IS the race. On the shipped radii the four laps are 235.43,
+## 272.12, 311.87 and 351.62 m; walked at one pace they finish 29.35, 33.93,
+## 38.90 and 43.87 simulated seconds in, and the inside lane wins by 4.6 s over
+## the next lane and by 14.5 s over the outside. Twenty headless bot matches
+## returned twenty wins for the racer on r=38.5. The opening race exists to
+## decide the first shooter by running rather than by chance, and a race the
+## inside lane always wins is worse than chance: it is decided before anybody
+## moves, and the tower goes to a seat position rather than to a player.
+##
+## On, each racer starts at the angle that leaves them
 ## [code](full lap arc) * (smallest lane radius)[/code] metres of their own lane
-## to run, so the outer lanes start further round.
-@export var equalise_race_lane_distance: bool = false
+## to run -- the way a running track staggers its starts -- so the outer lanes
+## begin further round. Measured on the shipped radii: 235.43 m each, and all
+## four bots cross on the same physics tick. The finish does not move; every
+## racer still runs one direction the whole way into the same end pad behind the
+## LapDivider, and the innermost lane, which is the one the human holds, still
+## starts on the start pad and still arrives just behind where it set off.
+##
+## [b]What it costs, and why it is on anyway[/b]
+##
+## The stagger is only honest for a body that stays in its lane. A lane is a
+## spawn position, not a rail: only the baseline [RingRunner] holds a radius, and
+## a FREE body handed a staggered outer start can cut to the inner kerb and keep
+## the short arc as a gift. Measured at r=36: the r=57.5 start is 147.4 m from
+## the finish that way against the r=38.5 start's 220.1 m. Equal ARC from a
+## shared pad is the honest rule for bodies that may run anywhere; equal LENGTH
+## is the honest rule for bodies on rails.
+##
+## It is on because of who is actually on the ring. [MatchController] fields one
+## human at most, in participant slot 0, which takes [member lane_radii] entry 0;
+## with the shipped ascending radii that is the smallest radius, the largest arc,
+## no stagger at all and the least on offer for leaving the lane. Every staggered
+## lane is a railed bot. The day a second human can race -- or the day
+## [member lane_radii] is authored in any order but ascending -- this rule is
+## exploitable and the question has to be measured again, which is what the
+## switch is for.
+@export var equalise_race_lane_distance: bool = true
+
+## Who takes the tower when two runners reach the end on the same tick.
+## [b]LIVE[/b], default [constant ArrivalTiebreak.SEAT_ORDER] = the lowest
+## participant index, which is what the match already did without saying so.
+##
+## [member equalise_race_lane_distance] is what makes this a live question: with
+## every racer owing the same distance, a field of identical bots finishes
+## together to the tick -- measured, four for four -- and the seat then falls to
+## whoever is scored first, which is seat zero, every time. That is a smaller
+## unfairness than the one the stagger removed and it is not the same one; no
+## amount of running changes it.
+##
+## [constant ArrivalTiebreak.DRAW_LOT] is the alternative, and the only way the
+## harness can show that the four lanes really are equal: identical bots dead-
+## heat, so an even spread of the tower across the field is the evidence, and
+## seat order can only ever produce a clean sweep for seat zero. It is not the
+## default because a lot is chance and the first shooter is not supposed to be
+## decided by chance -- but a dead heat is a race nobody won, so there is nothing
+## left to reward.
+@export var arrival_tiebreak: ArrivalTiebreak = ArrivalTiebreak.SEAT_ORDER
+
+## Seed for [constant ArrivalTiebreak.DRAW_LOT]. [b]LIVE[/b], default 0 = seed
+## from entropy, exactly as [member ai_shooter_aim_seed] reads it.
+##
+## Non-zero makes the lot replayable, which a sweep comparing two rule sets wants
+## and a sweep measuring the spread of the seat does not. Inert under
+## [constant ArrivalTiebreak.SEAT_ORDER], which draws nothing.
+@export var arrival_tiebreak_seed: int = 0
 
 # --- Ghosts -------------------------------------------------------------------
 
