@@ -193,6 +193,22 @@ enum GhostBehaviour {
 
 # --- The rifle ----------------------------------------------------------------
 
+## The whole gun, as data. [b]LIVE when set, null = the weapon keeps its own.[/b]
+##
+## Point this at a [WeaponProfile] and a sweep arm gets the entire rifle by
+## swapping one resource: hitscan or projectile, spread, tracer behaviour, the
+## shape of the reload, a charged shot. Presets live in [code]scenes/weapon/[/code].
+##
+## [Rifle] adopts it INTO [member Rifle.profile] rather than holding it alongside,
+## so [code]rifle.profile[/code] stays the single answer that [MatchController],
+## [TowerShooter] and the feedback rig all read. Left null the weapon keeps
+## whatever its scene assigned, which is exactly today's behaviour.
+##
+## Note the seam with [member base_reload_seconds] below: the match owns the
+## reload DURATION and its floor, the weapon profile owns the gun's SHAPE. A
+## profile swapped in here does not seize the clock the match runs on.
+@export var weapon_profile: WeaponProfile
+
 ## Seconds of enforced silence after a shot, at the start of the round.
 ## [b]LIVE.[/b]
 ##
