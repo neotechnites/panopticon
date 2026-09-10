@@ -1,4 +1,4 @@
-[gd_scene load_steps=10 format=3]
+[gd_scene load_steps=12 format=3]
 
 [ext_resource type="PackedScene" path="res://scenes/ring/test_ring.tscn" id="1_arena"]
 [ext_resource type="PackedScene" path="res://scenes/player/player.tscn" id="2_player"]
@@ -9,6 +9,8 @@
 [ext_resource type="Resource" path="res://resources/rules/default_match_rules.tres" id="7_rules"]
 [ext_resource type="PackedScene" path="res://scenes/ui/pause_menu.tscn" id="8_pause_menu"]
 [ext_resource type="Resource" path="res://scenes/player/default_movement_profile.tres" id="9_movement_profile"]
+[ext_resource type="PackedScene" path="res://scenes/fx/feedback_rig.tscn" id="10_feedback_rig"]
+[ext_resource type="PackedScene" path="res://scenes/audio/game_audio.tscn" id="11_game_audio"]
 
 [node name="Match" type="Node3D"]
 editor_description = "A whole match. Arena, one human body, three AI bodies, one rifle, and MatchController enforcing the match described by resources/rules/default_match_rules.tres: an opening race with no shooter, then rounds, with the tower passing to whoever reaches the end and the match going to whoever holds it through a round. Nothing under scenes/player, scenes/weapon, scenes/bot or scenes/ring is modified here -- they are composed."
@@ -93,6 +95,32 @@ grow_horizontal = 2
 grow_vertical = 2
 text = "+"
 horizontal_alignment = 1
+
+[node name="FeedbackRig" parent="." instance=ExtResource("10_feedback_rig")]
+editor_description = "The hit-and-kill feedback layer, pointed at the human. Purely additive: every node here subscribes to signals Rifle and MatchController already emit, no gameplay script is touched, and deleting this node leaves the match exactly as it was. On CanvasLayer 2 it draws above the HUD (layer 1) and below PauseMenu (layer 128), so a hitmarker covers the crosshair and a menu covers both. It is placed BEFORE PauseMenu in child order so PauseMenu stays the last child, which is what gives the menu first refusal on GUI input; the two Controls in here are mouse_filter IGNORE anyway. Inert with no display server -- each node checks DisplayServer at _ready, connects nothing and stops processing -- so tools/harness/ pays nothing for it. The six exports the rig deliberately ships blank are filled in on the four child nodes below, and each one is listed in that node's own node_paths header: a NodePath export that is NOT named there resolves to null at load with no error at all, which is exactly how PauseMenu.camera was silently broken once already."
+
+[node name="CameraKick" parent="FeedbackRig" index="0" node_paths=PackedStringArray("camera")]
+editor_description = "The human camera is the one the feedback moves. An AI seat holder has its own Camera3D and its own eyes; this rig speaks only for the player looking at the screen."
+camera = NodePath("../../Player/Head/Camera")
+
+[node name="WeaponFeel" parent="FeedbackRig" index="1" node_paths=PackedStringArray("rifle", "owner_body")]
+editor_description = "owner_body is load-bearing. There is ONE rifle in this match and MatchController reparents it onto whoever takes the tower, so Rifle.fired reaches this node whether the human pulled the trigger or a bot did. Without the owner check an AI seat holder's shot kicks the human's camera."
+rifle = NodePath("../../Player/Head/Rifle")
+owner_body = NodePath("../../Player")
+
+[node name="HitConfirm" parent="FeedbackRig" index="2" node_paths=PackedStringArray("rifle", "controller", "owner_body")]
+editor_description = "Both extra exports are load-bearing. controller is what tells a person from a pillar: Rifle.target_hit fires for the deck, the cover and the tower wall as readily as for a runner, and with controller left null resolve_participant is never consulted and every wall reads as a kill. owner_body is what keeps the marker on the right screen, for the same one-rifle reason as WeaponFeel above."
+rifle = NodePath("../../Player/Head/Rifle")
+controller = NodePath("../../MatchController")
+owner_body = NodePath("../../Player")
+
+[node name="HitReaction" parent="FeedbackRig" index="3" node_paths=PackedStringArray("rifle", "body")]
+editor_description = "body is the human's capsule, and it is the opposite test to owner_body above: this node fires when the human is the one who was SHOT, not the one who fired, so it compares the reported collider against this body and ignores every hit on anybody else."
+rifle = NodePath("../../Player/Head/Rifle")
+body = NodePath("../../Player")
+
+[node name="GameAudio" parent="." instance=ExtResource("11_game_audio")]
+editor_description = "The whole audio system for the match, as one node. The root IS the AudioDirector and registers itself statically on entering the tree, so AudioDirector.post_event() from anywhere reaches it. Nothing is wired by NodePath on purpose: its MatchAudio listener searches the running scene root for the Rifle and the MatchController, because MatchController reparents the rifle onto whoever holds the tower and a path typed into this file would go stale on the first seat change. Subscription happens in _enter_tree, which Godot runs across the whole subtree before any _ready, so the match_started and race_started that MatchController.start_match() emits from its own _ready are heard wherever this node sits in child order. Under the default Activation.AUTO the director switches itself off in a headless run, so the bot harness pays nothing for it either."
 
 [node name="PauseMenu" parent="." node_paths=PackedStringArray("camera") instance=ExtResource("8_pause_menu")]
 editor_description = "Escape, and everything behind it. Last child of the root and on CanvasLayer 128, so it draws over the HUD (layer 1) and is offered GUI input before it; the HUD cannot swallow a click meant for a menu button because HUD/Root is mouse_filter 2 and its Labels ignore the mouse anyway. movement_profile is the SAME .tres instance Player uses for its own profile export -- Godot returns one cached object per resource path and this one is not local_to_scene -- so mouse sensitivity and invert-Y written by the settings screen land on the profile the body actually reads; point it anywhere else and the setting appears to save and does nothing. camera is named in node_paths in the header above: without that entry the NodePath resolves to null at load with no error, and the display-FOV setting silently stops working."
