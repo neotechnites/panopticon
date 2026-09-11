@@ -15,15 +15,20 @@ const TRAVEL_SIGN: float = 1.0
 const SETTLED_SPEED: float = 0.35
 const EVALUATE_SEARCH_SECONDS: float = 0.35
 const HOLD_DEADZONE: float = 0.6
+## Seconds of holding cover, with no shot heard all round, before the runner
+## commits to the next cover or the finish regardless of confidence. Stops a
+## silent guard (a human holding the tower but not firing) from being read as
+## an eternal reload window.
+const HOLD_FORCE_SECONDS: float = 4.0
 const RAMP_ARRIVAL_METRES: float = 4.0
 ## Lane waypoints are laid every this many degrees from start to finish.
 const WAYPOINT_STEP_DEGREES: float = 15.0
 const WAYPOINT_ARRIVAL_METRES: float = 2.5
 const FINISH_OVERSHOOT_DEGREES: float = 4.0
 ## Metres past the finish gate the last waypoint sits, so the body passes clean through it.
-const GATE_THROUGH_METRES: float = 1.5
+const GATE_THROUGH_METRES: float = 2.5
 ## The gate waypoint is only passed by getting this close to it: a 4 m gate cannot be cut round.
-const GATE_ARRIVAL_METRES: float = 1.0
+const GATE_ARRIVAL_METRES: float = 0.5
 const FINISH_GATE_GROUP: StringName = &"finish_gate"
 const PATH_POINT_METRES: float = 1.0
 const PATH_MAX_DRIFT_METRES: float = 3.0
@@ -321,7 +326,13 @@ func _build_waypoints() -> void:
 			if gate_arc >= _finish_arc - step and gate_arc <= _finish_arc + PI * 0.5:
 				radius = maxf(_radius_of(gate.global_position), 1.0)
 				_gate_wp = _waypoints.size()
-				_waypoints.append(_point_on_level(_entry_angle + TRAVEL_SIGN * gate_arc, radius))
+				# The gate's own centre, not a point reconstructed from angle and
+				# radius: the two agree only if the gate sits exactly on the
+				# mathematical circle, and a miss there is a miss on the one
+				# waypoint that has to land inside a 1 m-thick box.
+				var gate_point: Vector3 = gate.global_position
+				gate_point.y = _point_on_level(_entry_angle + TRAVEL_SIGN * gate_arc, radius).y
+				_waypoints.append(gate_point)
 				_waypoint_arcs.append(gate_arc)
 				last_arc = gate_arc + GATE_THROUGH_METRES / radius
 		_waypoints.append(_point_on_level(_entry_angle + TRAVEL_SIGN * last_arc, radius))
@@ -494,15 +505,21 @@ func _physics_process(delta: float) -> void:
 	_travelled_arc += wrapf((angle - _previous_angle) * TRAVEL_SIGN, -PI, PI)
 	_previous_angle = angle
 
-	var remaining_arc: float = _finish_arc - _travelled_arc
-	var swept: bool = (_end_arc - _travelled_arc) * _lane_radius() <= profile.arrival_tolerance
+	# The cover game's own idea of "how far is left": _end_arc, not _finish_arc.
+	# The gate can sit up to 90 degrees past the route's raw finish angle (see
+	# _build_waypoints), and a runner who has swept _finish_arc but not yet the
+	# gate was finding remaining_arc already at or below zero -- which collapsed
+	# the route-ahead fallback in _choose_target to a point at its own position
+	# and locked it into an endless RECOVER/CROSS loop going nowhere.
+	var remaining_arc: float = _end_arc - _travelled_arc
+	var swept: bool = remaining_arc * _lane_radius() <= profile.arrival_tolerance
 
 	if _route.has_level_above(_level):
 		if _route.is_standing_on(_level + 1, position.y):
 			_climb_to_the_next_level()
 			return
 	elif swept:
-		_finish()
+		_finish(delta)
 		return
 
 	_advance_waypoints()
@@ -853,6 +870,10 @@ func _tick_evaluate(remaining_arc: float, delta: float) -> void:
 		_plan_and_cross(remaining_arc, delta)
 		return
 
+	if _hold_seconds >= HOLD_FORCE_SECONDS and _perception.get_shots_heard() == 0:
+		_plan_and_cross(remaining_arc, delta)
+		return
+
 	_search_countdown -= delta
 	if _search_countdown <= 0.0 or not _has_target:
 		_search_countdown = EVALUATE_SEARCH_SECONDS
@@ -1041,8 +1062,10 @@ func _begin_cross(target: Vector3, is_cover: bool, path: PackedVector3Array) -> 
 func _plan_and_cross(remaining_arc: float, delta: float) -> void:
 	_choose_target(remaining_arc)
 	if not _has_target:
-		if not _has_anchor:
-			_run_route(delta)
+		# No cover and no reachable ground ahead this tick: keep the lap moving
+		# on the waypoint route rather than freezing on a stale anchor. This is
+		# the last leg to the finish's only guarantee of actually being taken.
+		_run_route(delta)
 		return
 	_last_confidence = 0.0
 	_last_threshold = 0.0
@@ -1173,16 +1196,18 @@ func _crossing_speed() -> float:
 	return controller.profile.ground_speed
 
 
-## Report the lap once. With a gate on the map, keep running back through it until the
-## match silences this brain, so a body that slipped past the gate box still gets scored.
-func _finish() -> void:
+## Report the lap once. With a gate on the map, keep WALKING at it until the
+## match silences this brain, so a body that slipped past the gate box still
+## gets scored -- aiming without moving left a body that had merely swept the
+## finish ARC standing short of the box forever, never overlapping it.
+func _finish(delta: float) -> void:
 	if not _reported_end:
 		_reported_end = true
 		reached_end.emit(_elapsed_seconds, _path_length)
 	if _gate_wp >= 0:
 		_wp = _gate_wp
 		_wp_checked = _wp
-		_aim_agent(_current_waypoint(), true)
+		_run_route(delta)
 		return
 	set_physics_process(false)
 	input.command.clear()
