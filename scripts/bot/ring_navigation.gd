@@ -5,6 +5,9 @@ extends NavigationRegion3D
 ## [TrapVolume] carved out. One per level root; see [method ensure].
 
 const NODE_NAME: StringName = &"RingNavigation"
+## Every baked region joins this group, so [PhaseGate] can ask for a rebake
+## without a [NodePath] to it.
+const GROUP: StringName = &"ring_navigation"
 const AGENT_RADIUS: float = 0.75
 ## Whole cell_height multiples: the baker rounds them anyway and warns otherwise.
 const AGENT_HEIGHT: float = 2.0
@@ -30,6 +33,13 @@ const STATIC_COLLIDER_MASK: int = 1
 var _polygons: int = 0
 var _bake_ms: int = 0
 var _synced: bool = false
+
+## The arguments of the last [method bake_from] call, kept so [method
+## phase_geometry_changed] can repeat it.
+var _bake_root: Node = null
+var _bake_bounds: AABB = AABB()
+var _bake_route: RingRoute = null
+var _bake_centre: Vector3 = Vector3.ZERO
 
 ## Regions by level-root instance id; the tree cannot be asked while the root is still readying.
 static var _by_root: Dictionary = {}
@@ -70,10 +80,26 @@ static func level_root_of(node: Node) -> Node:
 	return best
 
 
+func _ready() -> void:
+	add_to_group(GROUP)
+
+
+## Re-bakes with the arguments of the last [method bake_from] call. [PhaseGate]
+## asks for this, deferred, once gated geometry has finished swapping.
+func phase_geometry_changed() -> void:
+	if _bake_root != null:
+		bake_from(_bake_root, _bake_bounds, _bake_route, _bake_centre)
+
+
 ## Parse [param root]'s static colliders, carve traps and deck edges, bake synchronously.
 func bake_from(
 	root: Node, bounds: AABB = AABB(), route: RingRoute = null, centre: Vector3 = Vector3.ZERO
 ) -> void:
+	_bake_root = root
+	_bake_bounds = bounds
+	_bake_route = route
+	_bake_centre = centre
+	_synced = false
 	var started: int = Time.get_ticks_msec()
 	var into_root: Transform3D = Transform3D.IDENTITY
 	var root_3d: Node3D = root as Node3D
