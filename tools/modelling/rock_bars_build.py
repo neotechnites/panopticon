@@ -2,12 +2,12 @@
 
 Low-poly PS1 hell rock, flat shaded, the tower's atlas. 10.6 m wide, 8.5 m
 tall: a rock sill, a rock lintel, and between them one slab of the same stone
-with 17 vertical slots cut through it -- the stone left between the slots is
-the bars, 0.2-0.3 m, one surface with the sill and lintel; no slot is wider
-than 0.38 m, so you see straight through and a body cannot pass. Same style
-as map_base's cells. ORIGIN IS THE BASE CENTRE: z=0 is the ground. The
-screen spans Blender X (Godot X), thickness along Blender Y (Godot Z).
-Blender +Z -> Godot +Y, +X -> +X, +Y -> -Z.
+with 17 tall hand-cut slots through it -- wavy-edged, unequal, some tapering,
+none wider than 0.38 m at any height -- the stone left between them is the
+bars, one surface with the sill and lintel. Same slot language as map_base's
+cells. ORIGIN IS THE BASE CENTRE: z=0 is the ground. The screen spans Blender
+X (Godot X), thickness along Blender Y (Godot Z). Blender +Z -> Godot +Y,
++X -> +X, +Y -> -Z.
 
 Contract: one mesh "RockBars" (one surface, one UV set), plus "RockBarsCollision"
 -- one box per bar plus the sill and lintel, shipped as a `-colonly` node.
@@ -35,8 +35,12 @@ COLLIDER_NAME = "RockBarsCollision-colonly"
 HALF_W   = 5.3          # 10.6 m wide
 HEIGHT   = 8.5
 SLOTS    = 17
-SLOT_W   = (0.33, 0.38) # never wider than a body
-BAR_W    = (0.20, 0.30) # the stone left between slots; scaled to fill the width
+SLOT_HW  = (0.09, 0.135) # slot half width; with lean and wave no opening passes 0.38
+SLOT_LEAN = 0.03
+SLOT_WAVE = 0.025
+BAR_W    = (0.15, 0.30) # stone between slot lanes, scaled to fill the width
+SIDE_M   = 0.30         # stone at the slab's ends
+NL       = 9            # screen levels: 0 sill .. NL-1 lintel
 SLAB_HD  = 0.15         # screen half thickness: 0.3 m of stone
 SILL_H   = 0.45
 LINTEL_H = 0.5
@@ -367,54 +371,142 @@ def _beam(m, z0, z1, top, bottom):
     m.quad(p[3], p[0], p[4], p[7], (-1, 0, 0), ZONE_SHADE)
 
 
+def _taper(kind, u):
+    if kind == "up":
+        return 1.0 - 0.45 * u
+    if kind == "down":
+        return 0.55 + 0.45 * u
+    if kind == "mid":
+        return 0.65 + 0.35 * math.sin(math.pi * u)
+    return 1.0
+
+
 def _layout(r):
-    """[(x0, x1)] of the slots, left to right; bars fill what is left."""
-    slots = [SLOT_W[0] + r.f() * (SLOT_W[1] - SLOT_W[0]) for _ in range(SLOTS)]
-    bars = [BAR_W[0] + r.f() * (BAR_W[1] - BAR_W[0]) for _ in range(SLOTS + 1)]
-    k = (2.0 * HALF_W - sum(slots)) / sum(bars)
-    out, x = [], -HALF_W
-    for i in range(SLOTS):
-        x += bars[i] * k
-        out.append((x, x + slots[i]))
-        x += slots[i]
-    return out
+    """Levels and slots: each slot a lane and a wavy left/right edge per level
+    (held at its foot/head outside its span). Bars are scaled so the lanes
+    fill exactly 10.6 m."""
+    h = HEIGHT - LINTEL_H - SILL_H
+    y1, y2 = 0.2, h - 0.25
+    step = (y2 - y1) / (NL - 3)
+    levels = [0.0, y1] + [y1 + step * (i + 1) + r.sf() * 0.08 * step for i in range(NL - 4)] + [y2, h]
+    spec = []
+    for k in range(SLOTS):
+        hw = SLOT_HW[0] + r.f() * (SLOT_HW[1] - SLOT_HW[0])
+        lean = r.sf() * SLOT_LEAN
+        spec.append((hw, lean, r.pick(["none", "up", "up", "down", "mid"]),
+                     1 if r.f() < 0.8 else 2, NL - 2 if r.f() < 0.75 else NL - 3,
+                     BAR_W[0] + r.f() * (BAR_W[1] - BAR_W[0])))
+    lanes = [2.0 * hw + abs(lean) + 2.0 * SLOT_WAVE for hw, lean, _, _, _, _ in spec]
+    scale = (2.0 * HALF_W - 2.0 * SIDE_M - sum(lanes)) / sum(sp[5] for sp in spec[:-1])
+    x = -HALF_W + SIDE_M
+    slots = []
+    for k, (hw, lean, kind, b, t, bar) in enumerate(spec):
+        lane = lanes[k]
+        mid = x + 0.5 * lane
+        L, R = [0.0] * NL, [0.0] * NL
+        for j in range(b, t + 1):
+            u = (j - b) / float(t - b)
+            c = mid + lean * (u - 0.5) + r.sf() * SLOT_WAVE
+            hwj = hw * _taper(kind, u) * (1.0 + r.sf() * 0.1)
+            L[j], R[j] = max(x, c - hwj), min(x + lane, c + hwj)
+        for j in range(NL):
+            if j < b:
+                L[j], R[j] = L[b], R[b]
+            elif j > t:
+                L[j], R[j] = L[t], R[t]
+        slots.append({"L": L, "R": R, "b": b, "t": t})
+        x += lane + (bar * scale if k < SLOTS - 1 else 0.0)
+    return slots, levels
 
 
-def _screen(m, slots):
-    """The slab between sill and lintel, slots cut through: bars front and
-    back, a reveal on each slot side, the slab's two ends."""
-    z0, z1 = SILL_H, HEIGHT - LINTEL_H
-    y0, y1 = -SLAB_HD, SLAB_HD
-    edges = [-HALF_W] + [e for sl in slots for e in sl] + [HALF_W]
-    for i in range(0, len(edges), 2):                 # bars: between slots
-        xa, xb = edges[i], edges[i + 1]
-        for y, want in ((y0, (0, -1, 0)), (y1, (0, 1, 0))):
-            m.quad(m.v((xa, y, z0)), m.v((xb, y, z0)), m.v((xb, y, z1)), m.v((xa, y, z1)),
-                   want, ZONE_ROCK)
-    for xa, xb in slots:                              # reveals: the carved sides
-        for x, want in ((xa, (1, 0, 0)), (xb, (-1, 0, 0))):
-            m.quad(m.v((x, y0, z0)), m.v((x, y1, z0)), m.v((x, y1, z1)), m.v((x, y0, z1)),
-                   want, ZONE_SHADE)
-    for x, want in ((-HALF_W, (-1, 0, 0)), (HALF_W, (1, 0, 0))):
-        m.quad(m.v((x, y0, z0)), m.v((x, y1, z0)), m.v((x, y1, z1)), m.v((x, y0, z1)),
-               want, ZONE_SHADE)
+def _zipper(m, outer, inner, want, zone):
+    """Triangulate the ring between two loops of (angle, id) sorted about a
+    common centre: len(outer)+len(inner) tris."""
+    no, ni = len(outer), len(inner)
+    i = j = 0
+    for _ in range(no + ni):
+        oa = outer[(i + 1) % no][0] + 2.0 * math.pi * ((i + 1) // no)
+        ia = inner[(j + 1) % ni][0] + 2.0 * math.pi * ((j + 1) // ni)
+        if i < no and (j >= ni or oa <= ia):
+            m.tri(outer[i % no][1], outer[(i + 1) % no][1], inner[j % ni][1], want, zone)
+            i += 1
+        else:
+            m.tri(inner[j % ni][1], inner[(j + 1) % ni][1], outer[i % no][1], want, zone)
+            j += 1
+
+
+def _screen(m, slots, levels):
+    """The slab between sill and lintel with the slots cut through: bars and
+    frame on the front and back faces, a reveal round every slot."""
+    z0 = SILL_H
+    n = len(slots)
+    sv = {}
+
+    def S(x, y, side):
+        key = (round(x, 6), round(y, 6), side)
+        if key not in sv:
+            sv[key] = m.v((x, SLAB_HD * side, z0 + y))
+        return sv[key]
+
+    h = levels[-1]
+    for side, want in ((-1, (0, -1, 0)), (1, (0, 1, 0))):
+        for j in range(1, NL - 2):
+            y0, y1 = levels[j], levels[j + 1]
+            for k, sl in enumerate(slots):
+                if not (sl["b"] <= j < sl["t"]):
+                    m.quad(S(sl["L"][j], y0, side), S(sl["R"][j], y0, side),
+                           S(sl["R"][j + 1], y1, side), S(sl["L"][j + 1], y1, side), want, ZONE_ROCK)
+                if k < n - 1:
+                    nx = slots[k + 1]
+                    m.quad(S(sl["R"][j], y0, side), S(nx["L"][j], y0, side),
+                           S(nx["L"][j + 1], y1, side), S(sl["R"][j + 1], y1, side), want, ZONE_ROCK)
+        loop = []
+        for sl in slots:
+            loop += [(sl["L"][1], levels[1]), (sl["R"][1], levels[1])]
+        loop += [(slots[-1]["R"][j], levels[j]) for j in range(2, NL - 2)]
+        for sl in reversed(slots):
+            loop += [(sl["R"][NL - 2], levels[NL - 2]), (sl["L"][NL - 2], levels[NL - 2])]
+        loop += [(slots[0]["L"][j], levels[j]) for j in range(NL - 3, 1, -1)]
+        outer = [((-HALF_W, 0.0), S(-HALF_W, 0.0, side)), ((HALF_W, 0.0), S(HALF_W, 0.0, side)),
+                 ((HALF_W, h), S(HALF_W, h, side)), ((-HALF_W, h), S(-HALF_W, h, side))]
+        inner = [(p, S(p[0], p[1], side)) for p in loop]
+
+        def by_angle(pts):
+            out = [(math.atan2(p[1] - 0.5 * h, p[0]), i) for p, i in pts]
+            out.sort()
+            return out
+
+        _zipper(m, by_angle(outer), by_angle(inner), want, ZONE_ROCK)
+    for sl in slots:                              # reveals: the carved sides
+        b, t = sl["b"], sl["t"]
+        ring = [(sl["L"][b], levels[b]), (sl["R"][b], levels[b])]
+        ring += [(sl["R"][j], levels[j]) for j in range(b + 1, t + 1)]
+        ring += [(sl["L"][j], levels[j]) for j in range(t, b, -1)]
+        c = (0.5 * (sl["L"][b] + sl["R"][b]), 0.5 * (levels[b] + levels[t]))
+        for i in range(len(ring)):
+            (xa, ya), (xb, yb) = ring[i], ring[(i + 1) % len(ring)]
+            want = (c[0] - 0.5 * (xa + xb), 0.0, c[1] - 0.5 * (ya + yb))
+            m.quad(S(xa, ya, -1), S(xb, yb, -1), S(xb, yb, 1), S(xa, ya, 1), want, ZONE_SHADE)
+    for x, want in ((-HALF_W, (-1, 0, 0)), (HALF_W, (1, 0, 0))):   # the slab's ends
+        m.quad(S(x, 0.0, -1), S(x, 0.0, 1), S(x, h, 1), S(x, h, -1), want, ZONE_SHADE)
 
 
 def _grate(r):
     m = _Mesh()
     _beam(m, 0.0, SILL_H, top=True, bottom=False)
     _beam(m, HEIGHT - LINTEL_H, HEIGHT, top=False, bottom=True)
-    slots = _layout(r)
-    _screen(m, slots)
+    slots, levels = _layout(r)
+    _screen(m, slots, levels)
     return m, slots
 
 
 def _collider(slots):
-    """One box per bar (the stone between slots), plus the sill and the lintel."""
+    """One box per bar: the stone between one slot's widest reach and the
+    next slot's, plus the sill and the lintel."""
     c = _Mesh()
     c.box((-HALF_W, -BEAM_HD, 0.0), (HALF_W, BEAM_HD, SILL_H), ZONE_ROCK)
     c.box((-HALF_W, -BEAM_HD, HEIGHT - LINTEL_H), (HALF_W, BEAM_HD, HEIGHT), ZONE_ROCK)
-    edges = [-HALF_W] + [e for sl in slots for e in sl] + [HALF_W]
+    edges = [-HALF_W] + [e for sl in slots for e in (min(sl["L"]), max(sl["R"]))] + [HALF_W]
     for i in range(0, len(edges), 2):
         c.box((edges[i], -SLAB_HD, SILL_H), (edges[i + 1], SLAB_HD, HEIGHT - LINTEL_H), ZONE_ROCK)
     return c
@@ -439,7 +531,7 @@ def build():
     rock, slots = _grate(_Rng(SEED))
     objects = _finish(rock, _collider(slots))
     print("MDL STATS width=%.2f height=%.2f slots=%d widest_gap=%.3f"
-          % (2.0 * HALF_W, HEIGHT, SLOTS, max(b - a for a, b in slots)))
+          % (2.0 * HALF_W, HEIGHT, SLOTS, max(max(sl["R"]) - min(sl["L"]) for sl in slots)))
     return objects
 
 
