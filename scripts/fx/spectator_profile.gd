@@ -80,19 +80,40 @@ extends Resource
 
 # --- The overlook: watching the race you are out of ---------------------------
 
-## How far from the ring axis the overlook sits, in metres. The deck's outer
-## wall is at r=60, so the shipped value stands outside the arena looking in.
+## How far from the ring axis the overlook sits, in metres. Unused now that the
+## overlook lives in the pit below the deck; kept so an old save does not lose
+## a tuned number. See [member overlook_orbit_radius_metres].
 @export_range(1.0, 400.0, 1.0) var overlook_radius_metres: float = 78.0
 
-## How high above the deck the overlook sits, in metres.
+## How high above the deck the overlook sits, in metres. Unused, see
+## [member overlook_radius_metres].
 @export_range(1.0, 400.0, 1.0) var overlook_height_metres: float = 46.0
 
 ## How high above the deck the overlook looks. Zero is the deck itself.
-@export_range(-50.0, 50.0, 0.5) var overlook_focus_height_metres: float = 2.0
+@export_range(-50.0, 50.0, 0.5) var overlook_focus_height_metres: float = 0.5
 
 ## How fast the overlook drifts round the arena, in degrees per second. Slower
 ## than the death view: this one may be held for the length of a race.
 @export_range(-180.0, 180.0, 0.5) var overlook_orbit_degrees_per_second: float = 5.0
+
+## How far out from the ring axis the overlook orbits, in metres -- the open
+## void between the tower and the deck, not outside the ring's rock.
+@export_range(1.0, 100.0, 0.5) var overlook_orbit_radius_metres: float = 34.0
+
+## How far above the deck the overlook orbits, in metres.
+@export_range(-50.0, 50.0, 0.5) var overlook_orbit_height_metres: float = 3.0
+
+## How far out from the ring axis the overlook looks, in metres -- out on the
+## deck itself, so runners are seen through the gallery's open inner side.
+@export_range(1.0, 400.0, 1.0) var overlook_focus_radius_metres: float = 52.0
+
+## The pit is open only between the tower and the deck's inner wall. The
+## overlook's orbit radius and height are always clamped into this band,
+## whatever the two fields above are tuned to.
+@export_range(0.0, 200.0, 0.1) var overlook_min_radius_metres: float = 20.0
+@export_range(0.0, 200.0, 0.1) var overlook_max_radius_metres: float = 40.0
+@export_range(-100.0, 200.0, 0.1) var overlook_min_height_metres: float = 25.0
+@export_range(-100.0, 200.0, 0.1) var overlook_max_height_metres: float = 30.0
 
 # --- Free look ----------------------------------------------------------------
 
