@@ -1,4 +1,4 @@
-# Building the Windows executable
+# Building the Windows and macOS executables
 
 First produced 2026-09-10 from commit `f0efb32`. This records what actually
 works, not what ought to.
@@ -122,3 +122,44 @@ session the game reports a real device and exits 0:
 
 **The renderer is GL Compatibility and that is deliberate**, pinned for
 install-base reach. Do not change it.
+
+## Building the macOS app
+
+Export templates go at
+`~/Library/Application Support/Godot/export_templates/4.7.2.stable/`, fetched
+the same way as the Windows ones above.
+
+The preset is `tools/ci/export_presets.macos.cfg`, copied into place as
+`export_presets.cfg` immediately before exporting, same rule as Windows.
+
+    cp tools/ci/export_presets.macos.cfg export_presets.cfg
+    godot --headless --path . --import
+    mkdir -p build/panopticon-mac
+    godot --headless --path . --export-release "macOS" build/panopticon-mac/Panopticon.app
+
+The preset builds a **universal binary** (x86_64 + arm64) with **ad-hoc code
+signing** (`codesign/codesign=1`, built-in `/usr/bin/codesign`, no Xcode or
+`rcodesign` needed) and **no notarisation**. Ad-hoc signing is not optional:
+an unsigned arm64 binary will not execute on Apple Silicon at all.
+
+A universal export also requires ETC2/ASTC texture import enabled in project
+settings (`rendering/textures/vram_compression/import_etc2_astc=true`) or the
+exporter refuses to build for arm64.
+
+Verify with `lipo -info` and `codesign -dv`:
+
+    lipo -info build/panopticon-mac/Panopticon.app/Contents/MacOS/Panopticon
+    codesign -dv --verbose=2 build/panopticon-mac/Panopticon.app
+
+**Never run the exported app with a window on the Mac that built it** — same
+keyboard-stealing problem as the editor. Verify headless instead:
+
+    build/panopticon-mac/Panopticon.app/Contents/MacOS/Panopticon --headless --verbose --quit-after 60
+
+Look for `Completed load for: 'res://scenes/ui/main_menu.tscn'` and exit code 0.
+
+**Friends opening the app will hit Gatekeeper.** It is ad-hoc signed, not
+notarised, so macOS blocks the first launch ("cannot be opened because the
+developer cannot be verified"). Tell them: right-click (or Control-click) the
+app and choose **Open**, then confirm in the dialog. This is only needed the
+first time.
