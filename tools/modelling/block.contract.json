@@ -1,0 +1,6 @@
+{
+  "_comment": "block: a squarish carved rock platform, 2.4 x 2.4 m x 0.7 m, origin at base centre. One textured material (the tower's 128x128 hell-rock atlas + emissive), one UV set. BlockCollision is a plain flat box the full top size, shipped as a `-colonly` node; Godot turns it into a StaticBody3D + CollisionShape3D and drops its mesh, so `surfaces` stays 1 and `max_tris` counts only what is drawn.",
+  "node_paths": ["Block", "BlockCollision", "BlockCollision/CollisionShape3D"],
+  "surfaces": 1,
+  "max_tris": 60
+}
