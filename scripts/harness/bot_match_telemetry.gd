@@ -39,6 +39,11 @@ var _round_losses: int = 0
 var _seat_changes: int = 0
 var _conversions: int = 0
 
+## Conversions that were a hazard entry on the same tick, not a rifle hit.
+var _hazard_deaths: int = 0
+var _removed_tick: int = -1
+var _hazard_attributed: Dictionary = {}
+
 ## Participants turned into ghosts, by either route: shot by the rifle, or caught
 ## by another ghost. Zero on every ghostless match, which is what makes it safe
 ## to leave in the schema unconditionally.
@@ -95,6 +100,32 @@ func install(controller: MatchController, rifle: Rifle) -> void:
 	rifle.fired.connect(_on_fired)
 	rifle.target_hit.connect(_on_target_hit)
 	rifle.missed.connect(_on_missed)
+	_connect_hazards(controller.arena)
+
+
+func _connect_hazards(node: Node) -> void:
+	if node == null:
+		return
+	if node is TrapVolume or node is KillVolume:
+		(node as Area3D).body_entered.connect(_on_hazard_entered)
+	for child: Node in node.get_children():
+		_connect_hazards(child)
+
+
+## Runs after the hazard's own handler: a removal on this tick was the hazard's doing.
+func _on_hazard_entered(body: Node3D) -> void:
+	if _removed_tick != _ticks:
+		return
+	var participant: MatchParticipant = _controller.resolve_participant(body)
+	if participant == null or participant.is_shooter:
+		return
+	if int(_hazard_attributed.get(participant.index, -1)) == _ticks:
+		return
+	_hazard_attributed[participant.index] = _ticks
+	_hazard_deaths += 1
+	var tally: BotParticipantTally = _tallies.get(participant.index, null)
+	if tally != null:
+		tally.hazard_deaths += 1
 
 
 func _physics_process(_delta: float) -> void:
@@ -185,6 +216,7 @@ func _on_round_resolved(outcome: MatchController.Outcome) -> void:
 
 func _on_runner_removed(_remaining: int) -> void:
 	_conversions += 1
+	_removed_tick = _ticks
 	# The rifle's hit handler has already credited the shot. What is recorded
 	# here is the conversion, which under prisoner_lives > 1 is not the same
 	# event and must not be counted from the shot.
@@ -212,6 +244,10 @@ func _on_match_won(participant: MatchParticipant) -> void:
 	var tally: BotParticipantTally = _tallies.get(participant.index, null)
 	if tally != null:
 		tally.rounds_won = participant.rounds_won
+	for other: MatchParticipant in _controller.get_participants():
+		var entry: BotParticipantTally = _tallies.get(other.index, null)
+		if entry != null and other.tracker != null:
+			entry.final_progress = other.tracker.get_progress()
 
 
 func _close_seat() -> void:
@@ -310,6 +346,7 @@ func to_dictionary(sim_hz: int) -> Dictionary:
 			"hit_rate": get_hit_rate(),
 		},
 		"conversions": _conversions,
+		"hazard_deaths": _hazard_deaths,
 		"ghosts": {
 			"made": _ghosts_made,
 			"catches": _ghost_catches,
