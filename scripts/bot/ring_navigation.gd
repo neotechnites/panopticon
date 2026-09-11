@@ -17,7 +17,7 @@ const CELL_HEIGHT: float = 0.25
 ## against the inner band's raw edge at r ~50.1) that a runner's own steering
 ## overshoot walked it straight into the lava. 1.1 keeps the lane open while
 ## pushing the funnel's corner-cut clear of the raw hazard box.
-const HAZARD_INFLATION_METRES: float = 1.1
+const HAZARD_INFLATION_METRES: float = 0.8
 const HAZARD_VERTICAL_MARGIN_METRES: float = 1.0
 ## Deck edges are carved this far inboard of a level's authored inner/outer radius.
 const EDGE_MARGIN_METRES: float = 1.0
