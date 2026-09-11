@@ -32,7 +32,6 @@ crush. Regenerate with `python3 tools/audio/fetch_sfx.py`.
 | `catch_taken.wav` | [850721](https://freesound.org/s/850721/) | Metal Trash Impact | loganzsound | [CC0 1.0](http://creativecommons.org/publicdomain/zero/1.0/) | 2026-09-11 |
 | `lava_death.wav` | [708646](https://freesound.org/s/708646/) | OBJBrn-INT_Cotton Burning_Khensani_OwSFX | Khensi | [CC0 1.0](http://creativecommons.org/publicdomain/zero/1.0/) | 2026-09-11 |
 | `boost_pad.wav` | [571278](https://freesound.org/s/571278/) | wroef_lucht.wav | gecop | [CC0 1.0](http://creativecommons.org/publicdomain/zero/1.0/) | 2026-09-11 |
-| `portal_drone.wav` | [865221](https://freesound.org/s/865221/) | Strange Transmission | microman502 | [CC0 1.0](http://creativecommons.org/publicdomain/zero/1.0/) | 2026-09-11 |
 | `ui_click.wav` | [825193](https://freesound.org/s/825193/) | Mouse Click | planet_jvk | [CC0 1.0](http://creativecommons.org/publicdomain/zero/1.0/) | 2026-09-11 |
 | `ui_focus.wav` | [662319](https://freesound.org/s/662319/) | Pen Click_ metal.wav | ARodLRU2018 | [CC0 1.0](http://creativecommons.org/publicdomain/zero/1.0/) | 2026-09-11 |
 | `ui_back.wav` | [842431](https://freesound.org/s/842431/) | Switch-041 | Moulaythami | [CC0 1.0](http://creativecommons.org/publicdomain/zero/1.0/) | 2026-09-11 |
