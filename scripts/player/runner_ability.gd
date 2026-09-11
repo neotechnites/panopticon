@@ -66,7 +66,9 @@ func _physics_process(delta: float) -> void:
 		if _remaining <= 0.0 or released:
 			_end()
 		return
-	if intent.ability_pressed:
+	if intent.ability_slot > 0:
+		activate(intent.ability_slot as MatchRules.RunnerAbility)
+	elif intent.ability_pressed:
 		activate()
 
 
@@ -80,12 +82,14 @@ func arm(match_rules: MatchRules, controller: MatchController) -> void:
 
 ## Start the selected power. False when none is selected, one is running, or
 ## the cooldown has not run out.
-func activate() -> bool:
+func activate(which: MatchRules.RunnerAbility = MatchRules.RunnerAbility.NONE) -> bool:
 	if rules == null or body == null or _active != MatchRules.RunnerAbility.NONE or _cooldown > 0.0:
 		return false
-	if rules.runner_ability == MatchRules.RunnerAbility.NONE:
+	if which == MatchRules.RunnerAbility.NONE:
+		which = rules.runner_ability
+	if which == MatchRules.RunnerAbility.NONE:
 		return false
-	_active = rules.runner_ability
+	_active = which
 	_remaining = maxf(rules.ability_duration_seconds, 0.0)
 	match _active:
 		MatchRules.RunnerAbility.BUBBLE_SHIELD:
