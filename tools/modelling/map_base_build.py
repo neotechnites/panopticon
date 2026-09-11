@@ -107,8 +107,8 @@ ZONE_GLOW   = (0.5, 0.0, 1.0, 0.25)   # cell interiors: painted over the unused
                                       # tower zones, so those stay byte-identical
 
 # ---- prison cells: stone screens cut into the pit faces ---------------------
-# A cell is a rectangular mouth cut through the wall, a reveal stepping back
-# to a flat stone SCREEN, and a plain glowing box behind. The screen carries
+# A cell is an arched mouth cut through the wall, a reveal stepping back to a
+# flat stone SCREEN, and a plain glowing arch-section box behind. The screen carries
 # 5..9 tall wavy SLOTS (8-12 verts each, no two alike); the stone between them
 # is the bars. Positions come from seeded dart throwing on the wall in
 # (arc, height); the mouth is cut into whichever facets it overlaps and every
@@ -125,7 +125,7 @@ LINTEL      = (0.30, 0.60)
 NL          = 7               # screen levels: 0 sill foot .. NL-1 lintel head
 SCREEN_BACK = 0.15            # screen behind the deepest point of the mouth edge
 BOX_EPS     = 0.03            # box outline past the screen edge, hidden behind it
-CELL_DEPTH  = (2.0, 3.0)
+CELL_DEPTH  = (4.0, 6.0)
 CELL_RHO    = 0.0068          # cells per m^2: 60 % of v2's pit density
 PIT_CLEAR   = 3.5             # no cell top nearer the deck than this
 UNIFORM_TOP = COURTYARD_Z + (RIM_Z - COURTYARD_Z) / 3.0   # uniform density to here
@@ -597,16 +597,16 @@ class _Wall(object):
     def add_xz(self, c, z):
         self.xz.setdefault(c % self.ncol, set()).add(round(z, 6))
 
-    def clear(self, ta, tb, za, zb):
-        """True if the rectangle sits inside the face with no facet boundary
-        within EDGE_CLEAR of its edges."""
-        if za < self.rows[0] + 0.5 or zb > self.rows[-1] - 0.5:
+    def clear(self, ts, zs):
+        """True if the cut lines sit inside the face with no facet boundary
+        within EDGE_CLEAR of any of them."""
+        if min(zs) < self.rows[0] + 0.5 or max(zs) > self.rows[-1] - 0.5:
             return False
-        for t in (ta, tb):
+        for t in ts:
             tn = self._norm(t)
             if any(abs(c - tn) * INNER_R < EDGE_CLEAR for c in self.cols):
                 return False
-        for z in (za, zb):
+        for z in zs:
             if any(abs(rz - z) < EDGE_CLEAR for rz in self.rows):
                 return False
         return True
@@ -735,6 +735,26 @@ def _taper(kind, u):
     return 1.0
 
 
+ARCH_SPRING, ARCH_SHOULDER = 0.55, (0.22, 0.88)   # v1's arch: spring height, shoulder (x, y)
+
+
+def _arch(w, h):
+    """The mouth outline, counter-clockwise from the bottom-left."""
+    sx, sy = ARCH_SHOULDER
+    return [(0.0, 0.0), (w, 0.0), (w, ARCH_SPRING * h), ((1 - sx) * w, sy * h), (0.5 * w, h),
+            (sx * w, sy * h), (0.0, ARCH_SPRING * h)]
+
+
+def _arch_y(w, h, x):
+    """Height of the arch at x, along its upper chain."""
+    chain = [_arch(w, h)[i] for i in (6, 5, 4, 3, 2)]
+    x = min(max(x, 0.0), w)
+    for (xa, ya), (xb, yb) in zip(chain, chain[1:]):
+        if xa <= x <= xb:
+            return ya + (yb - ya) * (x - xa) / (xb - xa)
+    return chain[-1][1]
+
+
 def _layout(r, h):
     """The screen: levels, slot lanes, and each slot's wavy left/right edge
     per level (held at its foot/head outside its own span). Returns the
@@ -789,7 +809,9 @@ def _place_cells(r, pit_wall, shaft):
             return False
         wall = pit_wall if z < DECK_Z else shaft
         ta = (s - 0.5 * w) / INNER_R
-        if not wall.clear(ta, ta + w / INNER_R, z - 0.5 * h, z + 0.5 * h):
+        tb = ta + w / INNER_R
+        za = z - 0.5 * h
+        if not wall.clear((ta, tb, 0.5 * (ta + tb)), (za, za + ARCH_SPRING * h, za + h)):
             return False
         gap = _gap_field(s, z)
         for c in cells:
@@ -826,20 +848,47 @@ def _place_cells(r, pit_wall, shaft):
 
 
 def _carve(m, wall, c):
-    """Cut the mouth, step back to the screen, cut the slots, build the box."""
+    """Cut the arched mouth, step back to the screen, cut the slots, build
+    the arch-section box behind."""
     Wm, Hm = c["w"], c["h"]
     za = c["z"] - 0.5 * Hm
     zb = za + Hm
     ta = wall._norm((c["s"] - 0.5 * Wm) / INNER_R)
     tb = ta + Wm / INNER_R
-    wall.hole(ta, tb, za, zb)
     tc = 0.5 * (ta + tb)
     out = (math.cos(tc), math.sin(tc), 0.0)
     xs = (-math.sin(tc), math.cos(tc), 0.0)
-    tl, zl = wall.tbreaks(ta, tb), wall.zbreaks(za, zb)
-    edge = [(t, za) for t in tl] + [(t, zb) for t in tl] + [(ta, z) for z in zl] + [(tb, z) for z in zl]
-    pts = [wall.P(t, z) for t, z in edge]
-    cw = tuple(sum(p[k] for p in pts) / len(pts) for k in range(3))
+    want = (-out[0], -out[1], 0.0)
+
+    def T(x):
+        return ta + (tb - ta) * x / Wm
+
+    def Z(y):
+        return za + y
+
+    arch = _arch(Wm, Hm)
+    zsp, tap = Z(arch[2][1]), T(arch[4][0])
+    # ---- the wall: three rectangles out, two spandrels back in -----------
+    wall.hole(ta, tb, za, zsp)
+    wall.hole(ta, tap, zsp, zb)
+    wall.hole(tap, tb, zsp, zb)
+    lsh, rsh = (T(arch[5][0]), Z(arch[5][1])), (T(arch[3][0]), Z(arch[3][1]))
+    left = [(ta, z) for z in wall.zbreaks(zsp, zb)] + [(t, zb) for t in wall.tbreaks(ta, tap)[1:]]
+    right = [(t, zb) for t in wall.tbreaks(tap, tb)] + \
+        [(tb, z) for z in reversed(wall.zbreaks(zsp, zb)[:-1])]
+    for chain, sh in ((left, lsh), (right, rsh)):
+        ids = [wall.W(t, z) for t, z in chain]
+        shid = wall.W(*sh)
+        for i in range(len(ids) - 1):
+            m.tri(shid, ids[i], ids[i + 1], want, ZONE_ROCK)
+
+    # ---- the mouth outline on the wall, with the facet crossings ------------
+    rim = [(ta, za)] + [(t, za) for t in wall.tbreaks(ta, tb)[1:]] \
+        + [(tb, z) for z in wall.zbreaks(za, zsp)[1:]] + [rsh, (tap, zb), lsh] \
+        + [(ta, z) for z in reversed(wall.zbreaks(za, zsp)[1:])]
+    pts = [wall.P(t, z) for t, z in rim]
+    box = [wall.P(ta, za), wall.P(tb, za), wall.P(tb, zb), wall.P(ta, zb)]   # centred, unlike the rim
+    cw = tuple(sum(p[k] for p in box) / 4.0 for k in range(3))
     D = max(_dot(_sub(p, cw), out) for p in pts) + SCREEN_BACK
     s0 = _v3(_v3(_v3(cw, out, D), xs, -0.5 * Wm), UP, -0.5 * Hm)
     sv = {}
@@ -850,59 +899,69 @@ def _carve(m, wall, c):
             sv[key] = m.v(_v3(_v3(s0, xs, x), UP, y))
         return sv[key]
 
-    def X(t):
-        return (t - ta) / (tb - ta) * Wm
+    def XY(t, z):
+        return (t - ta) / (tb - ta) * Wm, z - za
+
+    def inward(p, q):
+        """Toward the mouth centre, in the screen plane."""
+        mx, my = 0.5 * (p[0] + q[0]), 0.5 * (p[1] + q[1])
+        dx, dy = 0.5 * Wm - mx, 0.5 * Hm - my
+        return _v3((0.0, 0.0, dy), xs, dx)
 
     # ---- reveals: the wall's mouth edge back to the screen edge -------------
-    for i in range(len(tl) - 1):
-        m.quad(wall.W(tl[i], za), wall.W(tl[i + 1], za), S(X(tl[i + 1]), 0.0), S(X(tl[i]), 0.0),
-               UP, ZONE_ROCK)
-        m.quad(wall.W(tl[i], zb), wall.W(tl[i + 1], zb), S(X(tl[i + 1]), Hm), S(X(tl[i]), Hm),
-               DOWN, ZONE_SHADE)
-    for j in range(len(zl) - 1):
-        y0, y1 = zl[j] - za, zl[j + 1] - za
-        m.quad(wall.W(ta, zl[j]), wall.W(ta, zl[j + 1]), S(0.0, y1), S(0.0, y0), xs, ZONE_SHADE)
-        m.quad(wall.W(tb, zl[j]), wall.W(tb, zl[j + 1]), S(Wm, y1), S(Wm, y0),
-               (-xs[0], -xs[1], 0.0), ZONE_SHADE)
+    rim2 = [XY(t, z) for t, z in rim]
+    for i in range(len(rim)):
+        j = (i + 1) % len(rim)
+        m.quad(wall.W(*rim[i]), wall.W(*rim[j]), S(*rim2[j]), S(*rim2[i]),
+               inward(rim2[i], rim2[j]), ZONE_SHADE if rim2[i][1] > 0.0 or rim2[j][1] > 0.0 else ZONE_ROCK)
     outer = [((k[0], k[1]), i) for k, i in sv.items()]
 
-    # ---- the screen: bars between slots, then the frame round them all -------
-    want = (-out[0], -out[1], 0.0)
+    # ---- the screen: levels scale to the arch, so slot tops follow it -------
     slots, lv = c["slots"], c["levels"]
+    lintel = Hm - lv[NL - 2]
+
+    def Y(j, x):
+        top = _arch_y(Wm, Hm, x) - lintel
+        return lv[1] + (lv[j] - lv[1]) * (top - lv[1]) / (lv[NL - 2] - lv[1])
+
+    def P(x, j):
+        return S(x, Y(j, x))
+
     n = len(slots)
     for j in range(1, NL - 2):
-        y0, y1 = lv[j], lv[j + 1]
         for k, sl in enumerate(slots):
             if not (sl["b"] <= j < sl["t"]):
-                m.quad(S(sl["L"][j], y0), S(sl["R"][j], y0), S(sl["R"][j + 1], y1),
-                       S(sl["L"][j + 1], y1), want, ZONE_ROCK)
+                m.quad(P(sl["L"][j], j), P(sl["R"][j], j), P(sl["R"][j + 1], j + 1),
+                       P(sl["L"][j + 1], j + 1), want, ZONE_ROCK)
             if k < n - 1:
                 nx = slots[k + 1]
-                m.quad(S(sl["R"][j], y0), S(nx["L"][j], y0), S(nx["L"][j + 1], y1),
-                       S(sl["R"][j + 1], y1), want, ZONE_ROCK)
+                m.quad(P(sl["R"][j], j), P(nx["L"][j], j), P(nx["L"][j + 1], j + 1),
+                       P(sl["R"][j + 1], j + 1), want, ZONE_ROCK)
     first, last = slots[0], slots[-1]
     loop = []
     for sl in slots:
-        loop += [(sl["L"][1], lv[1]), (sl["R"][1], lv[1])]
-    loop += [(last["R"][j], lv[j]) for j in range(2, NL - 2)]
+        loop += [(sl["L"][1], 1), (sl["R"][1], 1)]
+    loop += [(last["R"][j], j) for j in range(2, NL - 2)]
     for sl in reversed(slots):
-        loop += [(sl["R"][NL - 2], lv[NL - 2]), (sl["L"][NL - 2], lv[NL - 2])]
-    loop += [(first["L"][j], lv[j]) for j in range(NL - 3, 1, -1)]
-    inner = [(p, S(p[0], p[1])) for p in loop]
+        loop += [(sl["R"][NL - 2], NL - 2), (sl["L"][NL - 2], NL - 2)]
+    loop += [(first["L"][j], j) for j in range(NL - 3, 1, -1)]
+    inner = [((x, Y(j, x)), P(x, j)) for x, j in loop]
     centre = (0.5 * Wm, 0.5 * Hm)
     _zipper(m, _by_angle(outer, centre), _by_angle(inner, centre), want, ZONE_ROCK)
 
-    # ---- the box: five flat glowing faces behind the screen -----------------
-    e, d = BOX_EPS, c["depth"]
-    f00 = _v3(_v3(s0, xs, -e), UP, -e)
-    F = [m.v(f00), m.v(_v3(f00, xs, Wm + 2 * e)),
-         m.v(_v3(_v3(f00, xs, Wm + 2 * e), UP, Hm + 2 * e)), m.v(_v3(f00, UP, Hm + 2 * e))]
-    B = [m.v(_v3(m.verts[i], out, d)) for i in F]
-    m.quad(F[0], F[1], B[1], B[0], UP, ZONE_GLOW)
-    m.quad(F[3], F[2], B[2], B[3], DOWN, ZONE_GLOW)
-    m.quad(F[0], F[3], B[3], B[0], xs, ZONE_GLOW)
-    m.quad(F[1], F[2], B[2], B[1], (-xs[0], -xs[1], 0.0), ZONE_GLOW)
-    m.quad(B[0], B[1], B[2], B[3], want, ZONE_GLOW)
+    # ---- the box: an arch-section prism of flat glowing faces ---------------
+    d = c["depth"]
+    F, B = [], []
+    for x, y in arch:
+        dx, dy = x - centre[0], y - centre[1]
+        k = 1.0 + BOX_EPS / max(math.hypot(dx, dy), 1e-6)
+        f = _v3(_v3(s0, xs, centre[0] + dx * k), UP, centre[1] + dy * k)
+        F.append(m.v(f))
+        B.append(m.v(_v3(f, out, d)))
+    for i in range(len(arch)):
+        j = (i + 1) % len(arch)
+        m.quad(F[i], F[j], B[j], B[i], inward(arch[i], arch[j]), ZONE_GLOW)
+    m.fan(B, want, ZONE_GLOW)
     CELLS.append((cw, out, Wm, Hm))
 
 
