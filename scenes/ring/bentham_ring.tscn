@@ -777,8 +777,8 @@ script = ExtResource("5_ring_route")
 editor_description = "Level 1: deck y=23.0, r44.0-r60.0, lane r=52.0, 5 deg to 335 deg = 330 deg of lap, 299 m. Its exit is the finish of the whole route."
 script = ExtResource("6_ring_level")
 deck_height = 23.0000
-inner_radius = 44.0000
-outer_radius = 60.0000
+inner_radius = 46.7000
+outer_radius = 57.3000
 lane_radius = 52.0000
 entry_angle_degrees = 5.0000
 exit_angle_degrees = 335.0000
