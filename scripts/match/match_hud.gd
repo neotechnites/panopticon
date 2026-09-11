@@ -420,6 +420,9 @@ func _ghost_terms() -> String:
 ## over. Everybody else gets the tower: who is in it, on which turn, and how long
 ## their silence between shots lasts.
 func _context_text(role: Role) -> String:
+	var boost_text: String = _speed_boost_text()
+	if boost_text != "":
+		return boost_text
 	var tuning: MatchReadoutProfile = _readout()
 	var rules: MatchRules = controller.get_rules()
 	if role == Role.GUARD:
@@ -437,6 +440,18 @@ func _context_text(role: Role) -> String:
 			tuning.reload_length_suffix,
 		],
 	]))
+
+
+## Line four's override while the human's own body is under a
+## [method PlayerController.apply_speed_boost]. Empty when it is not.
+func _speed_boost_text() -> String:
+	var human: MatchParticipant = controller.get_human_participant()
+	if human == null or human.body == null:
+		return ""
+	var remaining: float = human.body.get_speed_boost_remaining()
+	if remaining <= 0.0:
+		return ""
+	return "SPEED x%d — %.1fs" % [int(human.body.get_speed_boost_multiplier()), remaining]
 
 
 func _write(label: Label, text: String, colour: Color) -> void:

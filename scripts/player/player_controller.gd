@@ -64,6 +64,10 @@ signal slide_ended()
 ## up, or the body left the floor.
 signal crouch_changed(crouching: bool)
 
+## Emitted whenever a timed speed boost (see [method apply_speed_boost]) ticks
+## or ends. [param remaining] is seconds left, 0.0 on the tick it ends.
+signal speed_boost_changed(remaining: float)
+
 ## Tunables. Without one the body cannot move and says so rather than falling
 ## back on invented numbers.
 @export var profile: MovementProfile
@@ -119,6 +123,13 @@ var _has_pending_launch: bool = false
 
 ## Time left in which a jump press made in the air still counts on landing.
 var _jump_buffer_timer: float = 0.0
+
+## Multiplier a timed speed boost (a race power-up) applies to ground max
+## speed and ground acceleration while [member _speed_boost_timer] is running.
+## 1.0 outside one; scaled in at the point of use in [method _physics_process],
+## never written into [member profile].
+var _speed_boost_multiplier: float = 1.0
+var _speed_boost_timer: float = 0.0
 
 ## Downward speed on the last airborne tick, reported by [signal landed].
 var _fall_speed: float = 0.0
@@ -217,6 +228,7 @@ func _physics_process(delta: float) -> void:
 	var on_floor: bool = is_on_floor()
 	_tick_jump_timers(on_floor, delta)
 	_tick_slide_timers(delta)
+	_tick_speed_boost(delta)
 
 	if on_floor:
 		# Gravity accumulated while falling is spent; keep it and every landing
@@ -267,8 +279,17 @@ func _physics_process(delta: float) -> void:
 		_apply_slope_assist(delta)
 	elif on_floor:
 		# --- Ground phase ---
+		# A speed boost scales ground max speed and ground acceleration HERE,
+		# at the point of use -- profile.ground_acceleration itself is never
+		# touched, so a boost cannot bleed into the slide or air phases, which
+		# read wish_speed and the profile unscaled.
 		_apply_friction(profile.friction, delta)
-		_accelerate(wish_direction, wish_speed, profile.ground_acceleration, delta)
+		_accelerate(
+			wish_direction,
+			wish_speed * _speed_boost_multiplier,
+			profile.ground_acceleration * _speed_boost_multiplier,
+			delta,
+		)
 	else:
 		# --- Air phase ---
 		_apply_friction(profile.air_friction, delta)
@@ -336,6 +357,33 @@ func _adopt_profile() -> void:
 ## scores against.
 func get_horizontal_speed() -> float:
 	return Vector2(velocity.x, velocity.z).length()
+
+
+## Start (or refresh) a timed ground-speed boost -- a race power-up. Ground max
+## speed and ground acceleration run at [param multiplier] for [param seconds].
+func apply_speed_boost(multiplier: float, seconds: float) -> void:
+	_speed_boost_multiplier = multiplier
+	_speed_boost_timer = seconds
+	speed_boost_changed.emit(_speed_boost_timer)
+
+
+## Seconds left on the current speed boost; 0.0 when none is active.
+func get_speed_boost_remaining() -> float:
+	return _speed_boost_timer
+
+
+## The multiplier a speed boost is applying; 1.0 when none is active.
+func get_speed_boost_multiplier() -> float:
+	return _speed_boost_multiplier if _speed_boost_timer > 0.0 else 1.0
+
+
+func _tick_speed_boost(delta: float) -> void:
+	if _speed_boost_timer <= 0.0:
+		return
+	_speed_boost_timer = maxf(_speed_boost_timer - delta, 0.0)
+	speed_boost_changed.emit(_speed_boost_timer)
+	if _speed_boost_timer <= 0.0:
+		_speed_boost_multiplier = 1.0
 
 
 ## True while the body is in the slide state.

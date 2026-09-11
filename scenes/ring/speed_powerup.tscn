@@ -1,0 +1,18 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/match/speed_powerup.gd" id="1_speed_powerup"]
+[ext_resource type="PackedScene" path="res://assets/models/speed_orb.glb" id="2_speed_orb"]
+
+[node name="SpeedPowerup" type="Area3D" node_paths=PackedStringArray("orb")]
+editor_description = "Race-only pickup: 300% speed for 7 seconds. Drag-in/Ctrl+D/move -- the orb hovers, spins and bobs on its own."
+collision_layer = 0
+collision_mask = 1048577
+monitorable = false
+script = ExtResource("1_speed_powerup")
+orb = NodePath("Model")
+
+[node name="Shape" type="CollisionShape3D" parent="."]
+editor_description = "Deliberately empty. SpeedPowerup._build_shape writes a BoxShape3D over it on ready from size_metres."
+
+[node name="Model" parent="." instance=ExtResource("2_speed_orb")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.2, 0)
