@@ -342,6 +342,9 @@ var runner_win_condition: MatchRules.RunnerWinCondition = (
 ## [member MatchRules.rounds_to_win_match].
 var rounds_to_win_match: int = DEFAULT_ROUNDS_TO_WIN_MATCH
 
+## The power every prisoner carries. Written over [member MatchRules.runner_ability].
+var runner_ability: MatchRules.RunnerAbility = MatchRules.RunnerAbility.NONE
+
 ## The map the match is played in, by [member MapDefinition.id]. Written over
 ## [member MatchRules.map_id].
 ##
@@ -406,6 +409,7 @@ func reset() -> void:
 	hold_duration_seconds = DEFAULT_HOLD_DURATION_SECONDS
 	runner_win_condition = MatchRules.RunnerWinCondition.FIRST_ARRIVAL
 	rounds_to_win_match = DEFAULT_ROUNDS_TO_WIN_MATCH
+	runner_ability = MatchRules.RunnerAbility.NONE
 	map_id = DEFAULT_MAP_ID
 	player_name = default_player_name()
 	join_address = DEFAULT_JOIN_ADDRESS
@@ -438,6 +442,9 @@ func clamp_all() -> void:
 	runner_win_condition = clampi(
 		int(runner_win_condition), 0, MatchRules.RunnerWinCondition.size() - 1
 	) as MatchRules.RunnerWinCondition
+	runner_ability = clampi(
+		int(runner_ability), 0, MatchRules.RunnerAbility.size() - 1
+	) as MatchRules.RunnerAbility
 	# Bounded by the field it is counted against, so lowering the prisoner count
 	# can never leave a shutout nobody can reach. Same bargain as every clamp
 	# here: the player loses a choice, not the match.
@@ -481,6 +488,7 @@ func copy_from(other: GameSettings) -> void:
 	hold_duration_seconds = other.hold_duration_seconds
 	runner_win_condition = other.runner_win_condition
 	rounds_to_win_match = other.rounds_to_win_match
+	runner_ability = other.runner_ability
 	map_id = other.map_id
 	player_name = other.player_name
 	join_address = other.join_address
@@ -511,6 +519,7 @@ func equals(other: GameSettings) -> bool:
 		and is_equal_approx(hold_duration_seconds, other.hold_duration_seconds)
 		and runner_win_condition == other.runner_win_condition
 		and rounds_to_win_match == other.rounds_to_win_match
+		and runner_ability == other.runner_ability
 		and map_id == other.map_id
 		and player_name == other.player_name
 		and join_address == other.join_address
@@ -546,6 +555,7 @@ func write_to(config: ConfigFile) -> void:
 	config.set_value(SECTION_MATCH, "hold_duration_seconds", hold_duration_seconds)
 	config.set_value(SECTION_MATCH, "runner_win_condition", int(runner_win_condition))
 	config.set_value(SECTION_MATCH, "rounds_to_win_match", rounds_to_win_match)
+	config.set_value(SECTION_MATCH, "runner_ability", int(runner_ability))
 	# As a String, not a StringName: ConfigFile writes a StringName as &"x",
 	# which is legible but is not what a hand-edited file will contain.
 	config.set_value(SECTION_MATCH, "map_id", String(map_id))
@@ -595,6 +605,9 @@ func read_from(config: ConfigFile) -> void:
 	rounds_to_win_match = read_int(
 		config, SECTION_MATCH, "rounds_to_win_match", rounds_to_win_match
 	)
+	runner_ability = read_int(
+		config, SECTION_MATCH, "runner_ability", int(runner_ability)
+	) as MatchRules.RunnerAbility
 	map_id = read_string_name(config, SECTION_MATCH, "map_id", map_id)
 
 	player_name = String(read_string_name(config, SECTION_NET, "player_name", player_name))
@@ -751,6 +764,7 @@ func apply_to_match_rules(rules: MatchRules) -> void:
 	rules.hold_duration_seconds = hold_duration_seconds
 	rules.runner_win_condition = runner_win_condition
 	rules.rounds_to_win_match = rounds_to_win_match
+	rules.runner_ability = runner_ability
 	rules.map_id = map_id
 	# Air control is not written here. It is no longer a player preference --
 	# see [AirControlCatalog] -- so [member MatchRules.air_control_id] is left at

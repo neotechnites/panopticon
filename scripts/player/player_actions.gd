@@ -48,6 +48,10 @@ const JUMP: StringName = &"jump"
 ## wants Control can bind it themselves through [KeybindMap].
 const SLIDE: StringName = &"slide"
 
+## The runner's power: Q, or the left shoulder button on a pad.
+const ABILITY: StringName = &"ability"
+const ABILITY_PAD_BUTTON: JoyButton = JOY_BUTTON_LEFT_SHOULDER
+
 ## Matches Godot's default action deadzone.
 const DEADZONE: float = 0.2
 
@@ -63,6 +67,11 @@ static func ensure_registered() -> void:
 	# Must stay in step with project.godot; test_keybind_defaults.gd pins them
 	# to each other so the fallback cannot drift back to Control.
 	_ensure(SLIDE, [KEY_SHIFT, KEY_Z])
+	if not InputMap.has_action(ABILITY):
+		_ensure(ABILITY, [KEY_Q])
+		var pad: InputEventJoypadButton = InputEventJoypadButton.new()
+		pad.button_index = ABILITY_PAD_BUTTON
+		InputMap.action_add_event(ABILITY, pad)
 
 
 static func _ensure(action: StringName, physical_keycodes: Array[int]) -> void:

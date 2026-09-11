@@ -1293,6 +1293,9 @@ func convert_participant(participant: MatchParticipant) -> bool:
 
 	participant.is_running = false
 	participant.lives = 0
+	var ability: RunnerPower = RunnerPower.of(participant.body)
+	if ability != null:
+		ability.cancel()
 	if get_rules().has_ghosts():
 		_make_ghost(participant)
 	else:
@@ -1321,6 +1324,9 @@ func apply_hit(participant: MatchParticipant) -> bool:
 	if participant == null or is_resolved() or not participant.is_running:
 		return false
 	if _refuses_local_decision():
+		return false
+	var ability: RunnerPower = RunnerPower.of(participant.body)
+	if ability != null and ability.is_hit_immune():
 		return false
 	participant.lives -= 1
 	if participant.lives > 0:
@@ -2226,6 +2232,9 @@ func _place_on_track(participant: MatchParticipant, start_point: Vector3) -> voi
 	# ghost and is still wearing _guard_material() from _place_in_tower.
 	_tint_body(participant, participant.home_body_material)
 	_hold_body(participant)
+	var ability: RunnerPower = RunnerPower.of(body)
+	if ability != null:
+		ability.arm(active, self)
 	# A body on the track runs; it does not play the tower. The outgoing shooter
 	# arrives here on every seat change with its tower brain still loaded.
 	_silence_tower_brain(participant)
@@ -2307,6 +2316,9 @@ func _place_in_tower(participant: MatchParticipant) -> void:
 ## physics is deferred, and only by two frames.
 func _hold_body(participant: MatchParticipant) -> void:
 	var body: PlayerController = participant.body
+	var ability: RunnerPower = RunnerPower.of(body)
+	if ability != null:
+		ability.cancel()
 	body.visible = true
 	body.velocity = Vector3.ZERO
 	body.collision_layer = 0
@@ -2737,8 +2749,8 @@ func _on_target_hit(collider: Node3D, _hit_position: Vector3, _hit_normal: Vecto
 		return
 	var participant: MatchParticipant = resolve_participant(collider)
 	if participant == null:
-		# The shot hit the world. A miss costs the same reload either way, which
-		# is the rifle's business and not this node's.
+		# The world, or a hologram: a decoy shatters and converts nobody.
+		RunnerPower.shatter(RunnerPower.decoy_of(collider))
 		return
 	apply_hit(participant)
 

@@ -380,8 +380,19 @@ func _visible_targets() -> Array[PlayerController]:
 			continue
 		if not _has_line_of_sight(body):
 			continue
+		if not _is_discernible(body):
+			continue
 		found.append(body)
 	return found
+
+
+## False for a camouflaged runner beyond [constant RunnerPower.CAMO_VISIBLE_RANGE].
+## Holograms carry no camo and sit in the group, so they pass like any runner.
+func _is_discernible(body: PlayerController) -> bool:
+	var ability: RunnerPower = RunnerPower.of(body)
+	if ability == null or not ability.is_camouflaged():
+		return true
+	return _eye_position().distance_to(_aim_point(body)) <= RunnerPower.CAMO_VISIBLE_RANGE
 
 
 ## The most central of the candidates, or null when there are none.

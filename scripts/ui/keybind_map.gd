@@ -58,6 +58,7 @@ const ACTIONS: Array[StringName] = [
 	PlayerActions.MOVE_RIGHT,
 	PlayerActions.JUMP,
 	PlayerActions.SLIDE,
+	PlayerActions.ABILITY,
 	WeaponActions.FIRE,
 	ZOOM,
 ]
@@ -424,6 +425,8 @@ static func display_name(action: StringName) -> String:
 			return "Jump"
 		PlayerActions.SLIDE:
 			return "Crouch / Slide"
+		PlayerActions.ABILITY:
+			return "Ability"
 		WeaponActions.FIRE:
 			return "Fire"
 		ZOOM:

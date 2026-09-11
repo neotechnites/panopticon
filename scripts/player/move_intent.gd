@@ -41,6 +41,10 @@ var slide_held: bool = false
 var fire_pressed: bool = false
 var fire_held: bool = false
 
+## The runner's power. Edge on the press; the level lets Armor Lock end on release.
+var ability_pressed: bool = false
+var ability_held: bool = false
+
 
 ## Zero every field. Call before refilling, so a source can never leak a stale
 ## edge into the next tick.
@@ -53,6 +57,8 @@ func clear() -> void:
 	slide_held = false
 	fire_pressed = false
 	fire_held = false
+	ability_pressed = false
+	ability_held = false
 
 
 ## Clamp [member move_direction] to the unit disc.
@@ -71,3 +77,5 @@ func copy_from(other: MoveIntent) -> void:
 	slide_held = other.slide_held
 	fire_pressed = other.fire_pressed
 	fire_held = other.fire_held
+	ability_pressed = other.ability_pressed
+	ability_held = other.ability_held
