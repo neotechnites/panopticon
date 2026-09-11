@@ -24,7 +24,7 @@ crush. Regenerate with `python3 tools/audio/fetch_sfx.py`.
 | `footstep_2.wav` | [868548](https://freesound.org/s/868548/) | Footsteps on Old Concrete Slabs | SiriusS19YT | [CC0 1.0](http://creativecommons.org/publicdomain/zero/1.0/) | 2026-09-11 |
 | `footstep_3.wav` | [868548](https://freesound.org/s/868548/) | Footsteps on Old Concrete Slabs | SiriusS19YT | [CC0 1.0](http://creativecommons.org/publicdomain/zero/1.0/) | 2026-09-11 |
 | `footstep_4.wav` | [868548](https://freesound.org/s/868548/) | Footsteps on Old Concrete Slabs | SiriusS19YT | [CC0 1.0](http://creativecommons.org/publicdomain/zero/1.0/) | 2026-09-11 |
-| `jump.wav` | [743232](https://freesound.org/s/743232/) | Carving Stone | qubodup | [CC0 1.0](http://creativecommons.org/publicdomain/zero/1.0/) | 2026-09-11 |
+| `jump.wav` | [667283](https://freesound.org/s/667283/) | Stone Scrape 2 | alegemaate | [CC0 1.0](http://creativecommons.org/publicdomain/zero/1.0/) | 2026-09-11 |
 | `land.wav` | [685204](https://freesound.org/s/685204/) | BodyHit1.wav | Shakedown_M | [CC0 1.0](http://creativecommons.org/publicdomain/zero/1.0/) | 2026-09-11 |
 | `slide_start.wav` | [819656](https://freesound.org/s/819656/) | Human jumping down to gravel w/ impact | DeqstersLab | [CC0 1.0](http://creativecommons.org/publicdomain/zero/1.0/) | 2026-09-11 |
 | `slide_end.wav` | [828864](https://freesound.org/s/828864/) | gravel scrape | wjb_88 | [CC0 1.0](http://creativecommons.org/publicdomain/zero/1.0/) | 2026-09-11 |
