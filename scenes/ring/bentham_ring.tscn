@@ -1,7 +1,6 @@
 [gd_scene format=3 uid="uid://wq5uwdinc1wv"]
 
 [ext_resource type="Script" uid="uid://bafv02t70cxx3" path="res://scripts/match/kill_volume.gd" id="1_kill_volume"]
-[ext_resource type="Script" uid="uid://bqujt25fif0uv" path="res://scripts/match/trap_volume.gd" id="2_trap_volume"]
 [ext_resource type="Script" uid="uid://ouidse6tuvnq" path="res://scripts/ring/tower_light.gd" id="3_tower_light"]
 [ext_resource type="Resource" uid="uid://ckxvuihvhgxu5" path="res://scenes/ring/default_tower_light_profile.tres" id="4_tower_light_profile"]
 [ext_resource type="Script" uid="uid://c567e7nxnq0i" path="res://scripts/ring/ring_route.gd" id="5_ring_route"]
@@ -14,9 +13,8 @@
 [ext_resource type="PackedScene" uid="uid://cmmh0fdwp3rjb" path="res://assets/models/slab.glb" id="13_slab"]
 [ext_resource type="PackedScene" uid="uid://c8ejv8vfb00fy" path="res://assets/models/rock_wall.glb" id="14_rock_wall"]
 [ext_resource type="PackedScene" uid="uid://emmcd6tjqn53" path="res://assets/models/boulder.glb" id="15_boulder"]
-[ext_resource type="PackedScene" uid="uid://b0lqxmqax1rbx" path="res://assets/models/lava_tile.glb" id="16_lava_tile"]
-[ext_resource type="PackedScene" uid="uid://q0btrxb6dcla" path="res://assets/models/demon_pad.glb" id="17_demon_pad"]
-[ext_resource type="Script" uid="uid://yhqfmlgdyomt" path="res://scripts/match/boost_pad.gd" id="18_boost_pad"]
+[ext_resource type="PackedScene" path="res://scenes/ring/lava_tile.tscn" id="16_lava_tile"]
+[ext_resource type="PackedScene" path="res://scenes/ring/demon_pad.tscn" id="17_demon_pad"]
 [ext_resource type="PackedScene" path="res://scenes/ring/portal.tscn" id="19_portal"]
 [ext_resource type="PackedScene" uid="uid://bc7si5v1kq5n8" path="res://assets/models/rock_bars.glb" id="20_rock_bars"]
 [ext_resource type="PackedScene" path="res://scenes/ring/torch.tscn" id="21_torch"]
@@ -290,36 +288,6 @@ transform = Transform3D(0.871428, 0, -0.490524, 0, 1, 0, 0.490524, 0, 0.871428, 
 [node name="Tile_22" parent="Sections/S2_LavaShelf/Lava" unique_id=2127391941 instance=ExtResource("16_lava_tile")]
 transform = Transform3D(0.83748, 0, -0.546467, 0, 1, 0, 0.546467, 0, 0.83748, -32.0367, 22.9951, 49.0973)
 
-[node name="Trap_00" type="Area3D" parent="Sections/S2_LavaShelf/Lava" unique_id=1730647583]
-transform = Transform3D(0.999048, 0, 0.0436194, 0, 1, 0, -0.0436194, 0, 0.999048, 2.49721, 23.2, 57.1955)
-collision_layer = 0
-collision_mask = 1048577
-monitorable = false
-script = ExtResource("2_trap_volume")
-size_metres = Vector3(15.488, 1, 6)
-
-[node name="Shape" type="CollisionShape3D" parent="Sections/S2_LavaShelf/Lava/Trap_00" unique_id=577091992]
-
-[node name="Trap_01" type="Area3D" parent="Sections/S2_LavaShelf/Lava" unique_id=1801839376]
-transform = Transform3D(0.976296, 0, -0.21644, 0, 1, 0, 0.21644, 0, 0.976296, -12.3912, 23.2, 55.8929)
-collision_layer = 0
-collision_mask = 1048577
-monitorable = false
-script = ExtResource("2_trap_volume")
-size_metres = Vector3(15.488, 1, 6)
-
-[node name="Shape" type="CollisionShape3D" parent="Sections/S2_LavaShelf/Lava/Trap_01" unique_id=757922570]
-
-[node name="Trap_02" type="Area3D" parent="Sections/S2_LavaShelf/Lava" unique_id=1665998902]
-transform = Transform3D(0.887011, 0, -0.461749, 0, 1, 0, 0.461749, 0, 0.887011, -26.4351, 23.2, 50.7814)
-collision_layer = 0
-collision_mask = 1048577
-monitorable = false
-script = ExtResource("2_trap_volume")
-size_metres = Vector3(15.488, 1, 6)
-
-[node name="Shape" type="CollisionShape3D" parent="Sections/S2_LavaShelf/Lava/Trap_02" unique_id=2076967142]
-
 [node name="Boulder_084deg" parent="Sections/S2_LavaShelf" unique_id=278123300 instance=ExtResource("15_boulder")]
 transform = Transform3D(0.994522, 0, 0.104528, 0, 1, 0, -0.104528, 0, 0.994522, 5.95812, 23, 56.6877)
 
@@ -398,36 +366,6 @@ transform = Transform3D(-0.154083, 0, -0.988058, 0, 1, 0, 0.988058, 0, -0.154083
 
 [node name="Tile_10" parent="Sections/S3_Split/Lava" unique_id=1238522040 instance=ExtResource("16_lava_tile")]
 transform = Transform3D(-0.224178, 0, -0.974548, 0, 1, 0, 0.974548, 0, -0.224178, -56.5238, 22.9951, -13.0023)
-
-[node name="Trap_00" type="Area3D" parent="Sections/S3_Split/Lava" unique_id=795951217]
-transform = Transform3D(0.382683, 0, -0.92388, 0, 1, 0, 0.92388, 0, 0.382683, -53.585, 23.2, 22.1956)
-collision_layer = 0
-collision_mask = 1048577
-monitorable = false
-script = ExtResource("2_trap_volume")
-size_metres = Vector3(15.6844, 1, 4.5)
-
-[node name="Shape" type="CollisionShape3D" parent="Sections/S3_Split/Lava/Trap_00" unique_id=225300798]
-
-[node name="Trap_01" type="Area3D" parent="Sections/S3_Split/Lava" unique_id=504486373]
-transform = Transform3D(0.130526, 0, -0.991445, 0, 1, 0, 0.991445, 0, 0.130526, -57.5038, 23.2, 7.57052)
-collision_layer = 0
-collision_mask = 1048577
-monitorable = false
-script = ExtResource("2_trap_volume")
-size_metres = Vector3(15.6844, 1, 4.5)
-
-[node name="Shape" type="CollisionShape3D" parent="Sections/S3_Split/Lava/Trap_01" unique_id=528315217]
-
-[node name="Trap_02" type="Area3D" parent="Sections/S3_Split/Lava" unique_id=1726122094]
-transform = Transform3D(-0.130526, 0, -0.991445, 0, 1, 0, 0.991445, 0, -0.130526, -57.5038, 23.2, -7.57052)
-collision_layer = 0
-collision_mask = 1048577
-monitorable = false
-script = ExtResource("2_trap_volume")
-size_metres = Vector3(15.6844, 1, 4.5)
-
-[node name="Shape" type="CollisionShape3D" parent="Sections/S3_Split/Lava/Trap_02" unique_id=1713021846]
 
 [node name="Boulder_153deg" parent="Sections/S3_Split" unique_id=1130318556 instance=ExtResource("15_boulder")]
 transform = Transform3D(0.45399, 0, -0.891007, 0, 1, 0, 0.891007, 0, 0.45399, -51.6784, 23, 26.3314)
@@ -511,26 +449,6 @@ transform = Transform3D(-0.976296, 0, -0.21644, 0, 1, 0, 0.21644, 0, -0.976296, 
 [node name="Tile_17" parent="Sections/S4_DemonRun/LavaInner" unique_id=1106387669 instance=ExtResource("16_lava_tile")]
 transform = Transform3D(-0.991445, 0, -0.130526, 0, 1, 0, 0.130526, 0, -0.991445, -6.23263, 22.9951, -47.3415)
 
-[node name="Trap_00" type="Area3D" parent="Sections/S4_DemonRun/LavaInner" unique_id=2077570974]
-transform = Transform3D(-0.779884, 0, -0.625923, 0, 1, 0, 0.625923, 0, -0.779884, -29.1054, 23.2, -36.2646)
-collision_layer = 0
-collision_mask = 1048577
-monitorable = false
-script = ExtResource("2_trap_volume")
-size_metres = Vector3(18.7605, 1, 5.5)
-
-[node name="Shape" type="CollisionShape3D" parent="Sections/S4_DemonRun/LavaInner/Trap_00" unique_id=1698111623]
-
-[node name="Trap_01" type="Area3D" parent="Sections/S4_DemonRun/LavaInner" unique_id=1010718231]
-transform = Transform3D(-0.96005, 0, -0.279829, 0, 1, 0, 0.279829, 0, -0.96005, -13.012, 23.2, -44.6423)
-collision_layer = 0
-collision_mask = 1048577
-monitorable = false
-script = ExtResource("2_trap_volume")
-size_metres = Vector3(18.7605, 1, 5.5)
-
-[node name="Shape" type="CollisionShape3D" parent="Sections/S4_DemonRun/LavaInner/Trap_01" unique_id=199038092]
-
 [node name="LavaOuter" type="Node3D" parent="Sections/S4_DemonRun" unique_id=844750261]
 
 [node name="Tile_00" parent="Sections/S4_DemonRun/LavaOuter" unique_id=913422247 instance=ExtResource("16_lava_tile")]
@@ -602,71 +520,14 @@ transform = Transform3D(-0.982855, 0, -0.18438, 0, 1, 0, 0.18438, 0, -0.982855, 
 [node name="Tile_22" parent="Sections/S4_DemonRun/LavaOuter" unique_id=1457952166 instance=ExtResource("16_lava_tile")]
 transform = Transform3D(-0.99281, 0, -0.119704, 0, 1, 0, 0.119704, 0, -0.99281, -7.03259, 22.9951, -58.3276)
 
-[node name="Trap_00" type="Area3D" parent="Sections/S4_DemonRun/LavaOuter" unique_id=270962907]
-transform = Transform3D(-0.737277, 0, -0.67559, 0, 1, 0, 0.67559, 0, -0.737277, -38.8464, 23.2, -42.3934)
-collision_layer = 0
-collision_mask = 1048577
-monitorable = false
-script = ExtResource("2_trap_volume")
-size_metres = Vector3(15.5535, 1, 5.5)
-
-[node name="Shape" type="CollisionShape3D" parent="Sections/S4_DemonRun/LavaOuter/Trap_00" unique_id=1998312927]
-
-[node name="Trap_01" type="Area3D" parent="Sections/S4_DemonRun/LavaOuter" unique_id=1775486494]
-transform = Transform3D(-0.887011, 0, -0.461749, 0, 1, 0, 0.461749, 0, -0.887011, -26.5505, 23.2, -51.0031)
-collision_layer = 0
-collision_mask = 1048577
-monitorable = false
-script = ExtResource("2_trap_volume")
-size_metres = Vector3(15.5535, 1, 5.5)
-
-[node name="Shape" type="CollisionShape3D" parent="Sections/S4_DemonRun/LavaOuter/Trap_01" unique_id=1775530380]
-
-[node name="Trap_02" type="Area3D" parent="Sections/S4_DemonRun/LavaOuter" unique_id=1566520902]
-transform = Transform3D(-0.976296, 0, -0.21644, 0, 1, 0, 0.21644, 0, -0.976296, -12.4453, 23.2, -56.137)
-collision_layer = 0
-collision_mask = 1048577
-monitorable = false
-script = ExtResource("2_trap_volume")
-size_metres = Vector3(15.5535, 1, 5.5)
-
-[node name="Shape" type="CollisionShape3D" parent="Sections/S4_DemonRun/LavaOuter/Trap_02" unique_id=455348591]
-
-[node name="DemonPad_222deg" type="Area3D" parent="Sections/S4_DemonRun" unique_id=1266622845]
+[node name="DemonPad_222deg" parent="Sections/S4_DemonRun" unique_id=1266622845 instance=ExtResource("17_demon_pad")]
 transform = Transform3D(0.743145, 0, -0.669131, 0, 1, 0, 0.669131, 0, 0.743145, -38.6435, 23, -34.7948)
-collision_layer = 0
-collision_mask = 1048577
-monitorable = false
-script = ExtResource("18_boost_pad")
-footprint_metres = Vector3(2.5, 1, 2.5)
 
-[node name="Shape" type="CollisionShape3D" parent="Sections/S4_DemonRun/DemonPad_222deg" unique_id=1497261160]
-
-[node name="Model" parent="Sections/S4_DemonRun/DemonPad_222deg" unique_id=667069734 instance=ExtResource("17_demon_pad")]
-
-[node name="DemonPad_240deg" type="Area3D" parent="Sections/S4_DemonRun" unique_id=817359166]
+[node name="DemonPad_240deg" parent="Sections/S4_DemonRun" unique_id=817359166 instance=ExtResource("17_demon_pad")]
 transform = Transform3D(0.5, 0, -0.866025, 0, 1, 0, 0.866025, 0, 0.5, -26, 23, -45.0333)
-collision_layer = 0
-collision_mask = 1048577
-monitorable = false
-script = ExtResource("18_boost_pad")
-footprint_metres = Vector3(2.5, 1, 2.5)
 
-[node name="Shape" type="CollisionShape3D" parent="Sections/S4_DemonRun/DemonPad_240deg" unique_id=1084408686]
-
-[node name="Model" parent="Sections/S4_DemonRun/DemonPad_240deg" unique_id=413463534 instance=ExtResource("17_demon_pad")]
-
-[node name="DemonPad_258deg" type="Area3D" parent="Sections/S4_DemonRun" unique_id=1860394146]
+[node name="DemonPad_258deg" parent="Sections/S4_DemonRun" unique_id=1860394146 instance=ExtResource("17_demon_pad")]
 transform = Transform3D(0.207912, 0, -0.978148, 0, 1, 0, 0.978148, 0, 0.207912, -10.8114, 23, -50.8637)
-collision_layer = 0
-collision_mask = 1048577
-monitorable = false
-script = ExtResource("18_boost_pad")
-footprint_metres = Vector3(2.5, 1, 2.5)
-
-[node name="Shape" type="CollisionShape3D" parent="Sections/S4_DemonRun/DemonPad_258deg" unique_id=1563380849]
-
-[node name="Model" parent="Sections/S4_DemonRun/DemonPad_258deg" unique_id=1905484642 instance=ExtResource("17_demon_pad")]
 
 [node name="Slab_231deg" parent="Sections/S4_DemonRun" unique_id=1147548988 instance=ExtResource("13_slab")]
 transform = Transform3D(-0.777146, 0, -0.62932, 0, 1, 0, 0.62932, 0, -0.777146, -32.7247, 23, -40.4116)
