@@ -42,7 +42,7 @@ extends RefCounted
 ## game will never reach.
 
 ## Bytes in a packed intent: u32 tick, 4 floats, 1 flag byte.
-const INTENT_SIZE: int = 21
+const INTENT_SIZE: int = 22
 
 ## Bytes of snapshot header: u32 tick, u8 body count.
 const SNAPSHOT_HEADER_SIZE: int = 5
@@ -104,6 +104,7 @@ static func pack_intent(tick: int, intent: MoveIntent) -> PackedByteArray:
 	if intent.ability_held:
 		flags |= _FLAG_ABILITY_HELD
 	buffer.put_u8(flags)
+	buffer.put_u8(clampi(intent.ability_slot, 0, 4))
 	return buffer.data_array
 
 
@@ -124,6 +125,7 @@ static func unpack_intent(payload: PackedByteArray, out: MoveIntent) -> int:
 	var look_x: float = buffer.get_float()
 	var look_y: float = buffer.get_float()
 	var flags: int = buffer.get_u8()
+	var slot: int = buffer.get_u8()
 	# NaN and infinity survive a float round-trip and poison a physics body on
 	# contact, so they are rejected here rather than clamped: there is no
 	# sensible value to substitute, and a peer sending them is not playing.
@@ -139,6 +141,7 @@ static func unpack_intent(payload: PackedByteArray, out: MoveIntent) -> int:
 	out.fire_held = (flags & _FLAG_FIRE_HELD) != 0
 	out.ability_pressed = (flags & _FLAG_ABILITY_PRESSED) != 0
 	out.ability_held = (flags & _FLAG_ABILITY_HELD) != 0
+	out.ability_slot = clampi(slot, 0, 4)
 	out.normalise()
 	return tick
 
