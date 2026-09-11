@@ -1,4 +1,4 @@
-[gd_scene load_steps=23 format=3]
+[gd_scene load_steps=28 format=3]
 
 [ext_resource type="Script" path="res://scripts/match/kill_volume.gd" id="1_kill_volume"]
 [ext_resource type="Script" path="res://scripts/match/trap_volume.gd" id="2_trap_volume"]
@@ -10,7 +10,13 @@
 [ext_resource type="PackedScene" path="res://assets/models/tower.glb" id="8_tower_model"]
 [ext_resource type="Resource" path="res://scenes/ring/floating_watching_eye_profile.tres" id="9_watcher_profile"]
 [ext_resource type="PackedScene" path="res://assets/models/map_base.glb" id="10_map_base_model"]
-[ext_resource type="Texture2D" path="res://assets/models/tower_tower_rock_albedo.png" id="11_rock_albedo"]
+[ext_resource type="PackedScene" path="res://assets/models/spire.glb" id="12_spire"]
+[ext_resource type="PackedScene" path="res://assets/models/slab.glb" id="13_slab"]
+[ext_resource type="PackedScene" path="res://assets/models/rock_wall.glb" id="14_rock_wall"]
+[ext_resource type="PackedScene" path="res://assets/models/boulder.glb" id="15_boulder"]
+[ext_resource type="PackedScene" path="res://assets/models/lava_tile.glb" id="16_lava_tile"]
+[ext_resource type="PackedScene" path="res://assets/models/demon_pad.glb" id="17_demon_pad"]
+[ext_resource type="Script" path="res://scripts/match/boost_pad.gd" id="18_boost_pad"]
 
 [sub_resource type="StandardMaterial3D" id="MatDeck"]
 albedo_color = Color(0.42, 0.42, 0.44, 1.0)
@@ -41,11 +47,6 @@ metallic = 0.0
 albedo_color = Color(0.62, 0.42, 0.14, 1.0)
 roughness = 0.85
 metallic = 0.0
-
-[sub_resource type="StandardMaterial3D" id="MatRock"]
-albedo_texture = ExtResource("11_rock_albedo")
-uv1_triplanar = true
-roughness = 0.95
 
 [sub_resource type="StandardMaterial3D" id="MatTrap"]
 resource_name = "Trap"
@@ -78,69 +79,6 @@ editor_description = "THE BENTHAM RING, one level, built on assets/models/map_ba
 environment = SubResource("Env")
 
 [node name="Ring" type="Node3D" parent="."]
-
-[node name="Pits" type="Node3D" parent="Ring"]
-editor_description = "Same bearings and bands as the shaft pits used to be. Triggers now, not cut holes -- the deck is baked into map_base.glb and this cannot cut it."
-
-[node name="Pit_080deg" type="Area3D" parent="Ring/Pits" groups=["deck_pits"]]
-editor_description = "80 deg, r=47.00: falls a body through to the kill volume on contact, same as the shaft pits did."
-collision_layer = 0
-collision_mask = 1048577
-monitorable = false
-transform = Transform3D(1, 0, 0, 0, 1, 0, -0, 0, 1, 8.56507, 23, 46.213)
-script = ExtResource("2_trap_volume")
-size_metres = Vector3(5.0000, 3.0, 5.0000)
-
-[node name="Shape" type="CollisionShape3D" parent="Ring/Pits/Pit_080deg"]
-editor_description = "Deliberately empty. TrapVolume._build_shape writes a BoxShape3D over it on ready from size_metres on the parent."
-
-[node name="Pit_130deg" type="Area3D" parent="Ring/Pits" groups=["deck_pits"]]
-editor_description = "130 deg, r=57.00: falls a body through to the kill volume on contact, same as the shaft pits did."
-collision_layer = 0
-collision_mask = 1048577
-monitorable = false
-transform = Transform3D(1, 0, 0, 0, 1, 0, -0, 0, 1, -36.2565, 23, 43.9826)
-script = ExtResource("2_trap_volume")
-size_metres = Vector3(5.0000, 3.0, 5.0000)
-
-[node name="Shape" type="CollisionShape3D" parent="Ring/Pits/Pit_130deg"]
-editor_description = "Deliberately empty. TrapVolume._build_shape writes a BoxShape3D over it on ready from size_metres on the parent."
-
-[node name="Pit_180deg" type="Area3D" parent="Ring/Pits" groups=["deck_pits"]]
-editor_description = "180 deg, r=47.00: falls a body through to the kill volume on contact, same as the shaft pits did."
-collision_layer = 0
-collision_mask = 1048577
-monitorable = false
-transform = Transform3D(1, 0, 0, 0, 1, 0, -0, 0, 1, -46.9982, 23, 0.410147)
-script = ExtResource("2_trap_volume")
-size_metres = Vector3(5.0000, 3.0, 5.0000)
-
-[node name="Shape" type="CollisionShape3D" parent="Ring/Pits/Pit_180deg"]
-editor_description = "Deliberately empty. TrapVolume._build_shape writes a BoxShape3D over it on ready from size_metres on the parent."
-
-[node name="Pit_230deg" type="Area3D" parent="Ring/Pits" groups=["deck_pits"]]
-editor_description = "230 deg, r=57.00: falls a body through to the kill volume on contact, same as the shaft pits did."
-collision_layer = 0
-collision_mask = 1048577
-monitorable = false
-transform = Transform3D(1, 0, 0, 0, 1, 0, -0, 0, 1, -37.0185, 23, -43.3431)
-script = ExtResource("2_trap_volume")
-size_metres = Vector3(5.0000, 3.0, 5.0000)
-
-[node name="Shape" type="CollisionShape3D" parent="Ring/Pits/Pit_230deg"]
-editor_description = "Deliberately empty. TrapVolume._build_shape writes a BoxShape3D over it on ready from size_metres on the parent."
-
-[node name="Pit_280deg" type="Area3D" parent="Ring/Pits" groups=["deck_pits"]]
-editor_description = "280 deg, r=47.00: falls a body through to the kill volume on contact, same as the shaft pits did."
-collision_layer = 0
-collision_mask = 1048577
-monitorable = false
-transform = Transform3D(1, 0, 0, 0, 1, 0, -0, 0, 1, 7.75724, 23, -46.3554)
-script = ExtResource("2_trap_volume")
-size_metres = Vector3(5.0000, 3.0, 5.0000)
-
-[node name="Shape" type="CollisionShape3D" parent="Ring/Pits/Pit_280deg"]
-editor_description = "Deliberately empty. TrapVolume._build_shape writes a BoxShape3D over it on ready from size_metres on the parent."
 
 [node name="MapBase" parent="." instance=ExtResource("10_map_base_model")]
 editor_description = "assets/models/map_base.glb: the one deck -- annulus, pit wall down to the courtyard, outer wall up to the rim. Ships its own collision (MapBaseCollision-colonly), so nothing here duplicates it."
@@ -280,178 +218,556 @@ transform = Transform3D(-0.422618, 0, 0.906308, 0, 1, 0, -0.906308, 0, -0.422618
 editor_description = "335.0 deg on the level's racing line, y=23.0. This is the end of the whole route, not the end of a lap: reaching it is what takes the tower."
 transform = Transform3D(-0.906308, 0, -0.422618, 0, 1, 0, 0.422618, 0, -0.906308, 47.128, 23, -21.9761)
 
-[node name="StartFinishWall" type="CSGBox3D" parent="."]
-editor_description = "Blocks the 30 deg gap between finish (335 deg) and start (5 deg) -- without it a runner can walk backwards through it from start to finish."
-use_collision = true
-size = Vector3(16.0000, 8.5000, 1.0)
-material = SubResource("MatRock")
-transform = Transform3D(0.984808, 0, 0.173648, 0, 1, 0, -0.173648, 0, 0.984808, 51.21, 27.25, -9.02971)
+[node name="StartFinishWall0" parent="." instance=ExtResource("14_rock_wall")]
+transform = Transform3D(0.984808, 0, 0.173648, 0, 2.83333, 0, -0.173648, 0, 0.984808, 47.2708, 23, -8.33511)
 
-[node name="Cover" type="Node3D" parent="."]
-editor_description = "Cover on the one deck, two radial bands at r=47 and r=57 -- one either side of the racing line, which is what a 16 m deck has room for. Height 3.0 m: far above the 1.11 m jump, so it cannot be hopped, and tuned to the guard's 3 degree look down from the tower so a piece's shadow stays a few metres, not a corridor."
+[node name="StartFinishWall1" parent="." instance=ExtResource("14_rock_wall")]
+transform = Transform3D(0.984808, 0, 0.173648, 0, 2.83333, 0, -0.173648, 0, 0.984808, 55.1492, 23, -9.7243)
 
-[node name="Level1" type="Node3D" parent="Cover"]
-editor_description = "Cover on the deck: 11 pieces, 6.0 x 3.0 x 1.5 m, faces tangential so each presents its full width to the tower."
+[node name="Sections" type="Node3D" parent="."]
+editor_description = "Map 1 sections, docs/MAP1_SECTIONS.md."
 
-[node name="Cover_042deg" type="CSGBox3D" parent="Cover/Level1"]
-editor_description = "42 deg, r=47.0 on level 1. The 6 m face is tangential to the track."
-use_collision = true
-size = Vector3(6.0, 3.0000, 1.5)
-material = SubResource("MatCover")
-transform = Transform3D(0.669131, 0, 0.743145, 0, 1, 0, -0.743145, 0, 0.669131, 34.9278, 24.5, 31.4491)
+[node name="Pocket_010deg" parent="Sections" instance=ExtResource("13_slab")]
+transform = Transform3D(0.173648, 0, 0.984808, 0, 1, 0, -0.984808, 0, 0.173648, 51.21, 23, 9.02971)
 
-[node name="Cover_067deg" type="CSGBox3D" parent="Cover/Level1"]
-editor_description = "67 deg, r=57.0 on level 1. The 6 m face is tangential to the track."
-use_collision = true
-size = Vector3(6.0, 3.0000, 1.5)
-material = SubResource("MatCover")
-transform = Transform3D(0.920505, 0, 0.390731, 0, 1, 0, -0.390731, 0, 0.920505, 22.2717, 24.5, 52.4688)
+[node name="Pocket_068deg" parent="Sections" instance=ExtResource("13_slab")]
+transform = Transform3D(0.927184, 0, 0.374607, 0, 1, 0, -0.374607, 0, 0.927184, 19.4795, 23, 48.2136)
 
-[node name="Cover_092deg" type="CSGBox3D" parent="Cover/Level1"]
-editor_description = "92 deg, r=47.0 on level 1. The 6 m face is tangential to the track."
-use_collision = true
-size = Vector3(6.0, 3.0000, 1.5)
-material = SubResource("MatCover")
-transform = Transform3D(0.999391, 0, -0.0348995, 0, 1, 0, 0.0348995, 0, 0.999391, -1.64028, 24.5, 46.9714)
+[node name="Pocket_138deg" parent="Sections" instance=ExtResource("13_slab")]
+transform = Transform3D(0.669131, 0, -0.743145, 0, 1, 0, 0.743145, 0, 0.669131, -38.6435, 23, 34.7948)
 
-[node name="Cover_117deg" type="CSGBox3D" parent="Cover/Level1"]
-editor_description = "117 deg, r=57.0 on level 1. The 6 m face is tangential to the track."
-use_collision = true
-size = Vector3(6.0, 3.0000, 1.5)
-material = SubResource("MatCover")
-transform = Transform3D(0.891007, 0, -0.45399, 0, 1, 0, 0.45399, 0, 0.891007, -25.8775, 24.5, 50.7874)
+[node name="Pocket_208deg" parent="Sections" instance=ExtResource("13_slab")]
+transform = Transform3D(-0.469472, 0, -0.882948, 0, 1, 0, 0.882948, 0, -0.469472, -45.9133, 23, -24.4125)
 
-[node name="Cover_142deg" type="CSGBox3D" parent="Cover/Level1"]
-editor_description = "142 deg, r=47.0 on level 1. The 6 m face is tangential to the track."
-use_collision = true
-size = Vector3(6.0, 3.0000, 1.5)
-material = SubResource("MatCover")
-transform = Transform3D(0.615661, 0, -0.788011, 0, 1, 0, 0.788011, 0, 0.615661, -37.0365, 24.5, 28.9361)
+[node name="Pocket_278deg" parent="Sections" instance=ExtResource("13_slab")]
+transform = Transform3D(-0.990268, 0, 0.139173, 0, 1, 0, -0.139173, 0, -0.990268, 7.237, 23, -51.4939)
 
-[node name="Cover_167deg" type="CSGBox3D" parent="Cover/Level1"]
-editor_description = "167 deg, r=57.0 on level 1. The 6 m face is tangential to the track."
-use_collision = true
-size = Vector3(6.0, 3.0000, 1.5)
-material = SubResource("MatCover")
-transform = Transform3D(0.224951, 0, -0.97437, 0, 1, 0, 0.97437, 0, 0.224951, -55.5391, 24.5, 12.8222)
+[node name="S1_Spires" type="Node3D" parent="Sections"]
 
-[node name="Cover_192deg" type="CSGBox3D" parent="Cover/Level1"]
-editor_description = "192 deg, r=47.0 on level 1. The 6 m face is tangential to the track."
-use_collision = true
-size = Vector3(6.0, 3.0000, 1.5)
-material = SubResource("MatCover")
-transform = Transform3D(-0.207912, 0, -0.978148, 0, 1, 0, 0.978148, 0, -0.207912, -45.9729, 24.5, -9.77185)
+[node name="Spire_020deg" parent="Sections/S1_Spires" instance=ExtResource("12_spire")]
+transform = Transform3D(0.34202, 0, 0.939693, 0, 1, 0, -0.939693, 0, 0.34202, 45.1052, 23, 16.417)
 
-[node name="Cover_217deg" type="CSGBox3D" parent="Cover/Level1"]
-editor_description = "217 deg, r=57.0 on level 1. The 6 m face is tangential to the track."
-use_collision = true
-size = Vector3(6.0, 3.0000, 1.5)
-material = SubResource("MatCover")
-transform = Transform3D(-0.601815, 0, -0.798636, 0, 1, 0, 0.798636, 0, -0.601815, -45.5222, 24.5, -34.3035)
+[node name="Spire_025deg" parent="Sections/S1_Spires" instance=ExtResource("12_spire")]
+transform = Transform3D(0.422618, 0, 0.906308, 0, 1, 0, -0.906308, 0, 0.422618, 50.7532, 23, 23.6666)
 
-[node name="Cover_242deg" type="CSGBox3D" parent="Cover/Level1"]
-editor_description = "242 deg, r=47.0 on level 1. The 6 m face is tangential to the track."
-use_collision = true
-size = Vector3(6.0, 3.0000, 1.5)
-material = SubResource("MatCover")
-transform = Transform3D(-0.882948, 0, -0.469472, 0, 1, 0, 0.469472, 0, -0.882948, -22.0652, 24.5, -41.4985)
+[node name="Spire_030deg" parent="Sections/S1_Spires" instance=ExtResource("12_spire")]
+transform = Transform3D(0.5, 0, 0.866025, 0, 1, 0, -0.866025, 0, 0.5, 45.0333, 23, 26)
 
-[node name="Cover_267deg" type="CSGBox3D" parent="Cover/Level1"]
-editor_description = "267 deg, r=57.0 on level 1. The 6 m face is tangential to the track."
-use_collision = true
-size = Vector3(6.0, 3.0000, 1.5)
-material = SubResource("MatCover")
-transform = Transform3D(-0.99863, 0, -0.052336, 0, 1, 0, 0.052336, 0, -0.99863, -2.98315, 24.5, -56.9219)
+[node name="Spire_035deg" parent="Sections/S1_Spires" instance=ExtResource("12_spire")]
+transform = Transform3D(0.573576, 0, 0.819152, 0, 1, 0, -0.819152, 0, 0.573576, 39.3193, 23, 27.5317)
 
-[node name="Cover_292deg" type="CSGBox3D" parent="Cover/Level1"]
-editor_description = "292 deg, r=47.0 on level 1. The 6 m face is tangential to the track."
-use_collision = true
-size = Vector3(6.0, 3.0000, 1.5)
-material = SubResource("MatCover")
-transform = Transform3D(-0.927184, 0, 0.374607, 0, 1, 0, -0.374607, 0, -0.927184, 17.6065, 24.5, -43.5776)
+[node name="Spire_040deg" parent="Sections/S1_Spires" instance=ExtResource("12_spire")]
+transform = Transform3D(0.642788, 0, 0.766044, 0, 1, 0, -0.766044, 0, 0.642788, 42.8985, 23, 35.9961)
 
-[node name="Traps" type="Node3D" parent="."]
-editor_description = "Red blocks that kill on contact. Read them with Ring/Pits: eleven places on the route are lethal a couple of metres off the racing line, six standing up in red and five fall triggers.\n\nNO RACING LINE IS NARROWED. The shipped RingRunner baseline has no obstacle avoidance: it faces a point on the lane circle a few metres ahead and holds full forward. So every trap and pit is flush against a shoulder the cover band already ends at, and the clear channel is r49.50-r54.50. No trap is within eleven degrees of a piece of cover.\n\nWHAT A TRAP DOES IS NOT DECIDED HERE: scripts/match/trap_volume.gd hands the body to MatchController.handle_fall(). Touching red and being shot are the same death. The blocks carry no collision, so they are not cover and they occlude nothing."
+[node name="Spire_045deg" parent="Sections/S1_Spires" instance=ExtResource("12_spire")]
+transform = Transform3D(0.707107, 0, 0.707107, 0, 1, 0, -0.707107, 0, 0.707107, 36.7696, 23, 36.7696)
 
-[node name="Trap_L1_054deg" type="Area3D" parent="Traps"]
-editor_description = "54 deg on level 1, r=48.50, so it spans r47.50-r49.50 and stops dead on the shoulder the cover band already ends at. The clear channel r49.50-r54.50 is untouched. 2.2 m tall: the tuned MovementProfile jumps 1.11 m, so it cannot be hopped and has to be gone around."
+[node name="Spire_050deg" parent="Sections/S1_Spires" instance=ExtResource("12_spire")]
+transform = Transform3D(0.766044, 0, 0.642788, 0, 1, 0, -0.642788, 0, 0.766044, 30.8538, 23, 36.7701)
+
+[node name="Spire_055deg" parent="Sections/S1_Spires" instance=ExtResource("12_spire")]
+transform = Transform3D(0.819152, 0, 0.573576, 0, 1, 0, -0.573576, 0, 0.819152, 32.1203, 23, 45.8725)
+
+[node name="Spire_058deg" parent="Sections/S1_Spires" instance=ExtResource("12_spire")]
+transform = Transform3D(0.848048, 0, 0.529919, 0, 1, 0, -0.529919, 0, 0.848048, 27.5558, 23, 44.0985)
+
+[node name="S2_LavaShelf" type="Node3D" parent="Sections"]
+
+[node name="RockWall_086deg" parent="Sections/S2_LavaShelf" instance=ExtResource("14_rock_wall")]
+transform = Transform3D(0.997086, 0, 0.076284, 0, 0.43, 0, -0.076284, 0, 0.997086, 4.08119, 23, 53.3441)
+
+[node name="RockWall_097deg" parent="Sections/S2_LavaShelf" instance=ExtResource("14_rock_wall")]
+transform = Transform3D(0.99281, 0, -0.119704, 0, 0.43, 0, 0.119704, 0, 0.99281, -6.40415, 23, 53.1153)
+
+[node name="RockWall_108deg" parent="Sections/S2_LavaShelf" instance=ExtResource("14_rock_wall")]
+transform = Transform3D(0.95038, 0, -0.311091, 0, 0.43, 0, 0.311091, 0, 0.95038, -16.6434, 23, 50.8453)
+
+[node name="RockWall_119deg" parent="Sections/S2_LavaShelf" instance=ExtResource("14_rock_wall")]
+transform = Transform3D(0.871428, 0, -0.490524, 0, 0.43, 0, 0.490524, 0, 0.871428, -26.243, 23, 46.6214)
+
+[node name="Lava" type="Node3D" parent="Sections/S2_LavaShelf"]
+
+[node name="Tile_00" parent="Sections/S2_LavaShelf/Lava" instance=ExtResource("16_lava_tile")]
+transform = Transform3D(0.990378, 0, 0.138387, 0, 1, 0, -0.138387, 0, 0.990378, 7.7324, 22.9951, 55.3374)
+
+[node name="Tile_01" parent="Sections/S2_LavaShelf/Lava" instance=ExtResource("16_lava_tile")]
+transform = Transform3D(0.997727, 0, 0.0673821, 0, 1, 0, -0.0673821, 0, 0.997727, 3.76497, 22.9951, 55.748)
+
+[node name="Tile_02" parent="Sections/S2_LavaShelf/Lava" instance=ExtResource("16_lava_tile")]
+transform = Transform3D(0.999992, 0, -0.00396665, 0, 1, 0, 0.00396665, 0, 0.999992, -0.221636, 22.9951, 55.8746)
+
+[node name="Tile_03" parent="Sections/S2_LavaShelf/Lava" instance=ExtResource("16_lava_tile")]
+transform = Transform3D(0.997161, 0, -0.0752952, 0, 1, 0, 0.0752952, 0, 0.997161, -4.20712, 22.9951, 55.7164)
+
+[node name="Tile_04" parent="Sections/S2_LavaShelf/Lava" instance=ExtResource("16_lava_tile")]
+transform = Transform3D(0.989249, 0, -0.14624, 0, 1, 0, 0.14624, 0, 0.989249, -8.17116, 22.9951, 55.2743)
+
+[node name="Tile_05" parent="Sections/S2_LavaShelf/Lava" instance=ExtResource("16_lava_tile")]
+transform = Transform3D(0.976296, 0, -0.21644, 0, 1, 0, 0.21644, 0, 0.976296, -12.0936, 22.9951, 54.5505)
+
+[node name="Tile_06" parent="Sections/S2_LavaShelf/Lava" instance=ExtResource("16_lava_tile")]
+transform = Transform3D(0.958368, 0, -0.285536, 0, 1, 0, 0.285536, 0, 0.958368, -15.9543, 22.9951, 53.5488)
+
+[node name="Tile_07" parent="Sections/S2_LavaShelf/Lava" instance=ExtResource("16_lava_tile")]
+transform = Transform3D(0.935556, 0, -0.353178, 0, 1, 0, 0.353178, 0, 0.935556, -19.7338, 22.9951, 52.2742)
+
+[node name="Tile_08" parent="Sections/S2_LavaShelf/Lava" instance=ExtResource("16_lava_tile")]
+transform = Transform3D(0.907977, 0, -0.41902, 0, 1, 0, 0.41902, 0, 0.907977, -23.4127, 22.9951, 50.7332)
+
+[node name="Tile_09" parent="Sections/S2_LavaShelf/Lava" instance=ExtResource("16_lava_tile")]
+transform = Transform3D(0.875771, 0, -0.482727, 0, 1, 0, 0.482727, 0, 0.875771, -26.9724, 22.9951, 48.9337)
+
+[node name="Tile_10" parent="Sections/S2_LavaShelf/Lava" instance=ExtResource("16_lava_tile")]
+transform = Transform3D(0.839102, 0, -0.543974, 0, 1, 0, 0.543974, 0, 0.839102, -30.3945, 22.9951, 46.8848)
+
+[node name="Tile_11" parent="Sections/S2_LavaShelf/Lava" instance=ExtResource("16_lava_tile")]
+transform = Transform3D(0.989962, 0, 0.141333, 0, 1, 0, -0.141333, 0, 0.989962, 8.28566, 22.9951, 58.0365)
+
+[node name="Tile_12" parent="Sections/S2_LavaShelf/Lava" instance=ExtResource("16_lava_tile")]
+transform = Transform3D(0.997086, 0, 0.076284, 0, 1, 0, -0.076284, 0, 0.997086, 4.47215, 22.9951, 58.4542)
+
+[node name="Tile_13" parent="Sections/S2_LavaShelf/Lava" instance=ExtResource("16_lava_tile")]
+transform = Transform3D(0.999941, 0, 0.0109081, 0, 1, 0, -0.0109081, 0, 0.999941, 0.639487, 22.9951, 58.6215)
+
+[node name="Tile_14" parent="Sections/S2_LavaShelf/Lava" instance=ExtResource("16_lava_tile")]
+transform = Transform3D(0.998513, 0, -0.0545145, 0, 1, 0, 0.0545145, 0, 0.998513, -3.19591, 22.9951, 58.5378)
+
+[node name="Tile_15" parent="Sections/S2_LavaShelf/Lava" instance=ExtResource("16_lava_tile")]
+transform = Transform3D(0.99281, 0, -0.119704, 0, 1, 0, 0.119704, 0, 0.99281, -7.01763, 22.9951, 58.2035)
+
+[node name="Tile_16" parent="Sections/S2_LavaShelf/Lava" instance=ExtResource("16_lava_tile")]
+transform = Transform3D(0.982855, 0, -0.18438, 0, 1, 0, 0.18438, 0, 0.982855, -10.8093, 22.9951, 57.6199)
+
+[node name="Tile_17" parent="Sections/S2_LavaShelf/Lava" instance=ExtResource("16_lava_tile")]
+transform = Transform3D(0.968692, 0, -0.248267, 0, 1, 0, 0.248267, 0, 0.968692, -14.5547, 22.9951, 56.7895)
+
+[node name="Tile_18" parent="Sections/S2_LavaShelf/Lava" instance=ExtResource("16_lava_tile")]
+transform = Transform3D(0.95038, 0, -0.311091, 0, 1, 0, 0.311091, 0, 0.95038, -18.2377, 22.9951, 55.716)
+
+[node name="Tile_19" parent="Sections/S2_LavaShelf/Lava" instance=ExtResource("16_lava_tile")]
+transform = Transform3D(0.927999, 0, -0.372583, 0, 1, 0, 0.372583, 0, 0.927999, -21.8427, 22.9951, 54.4039)
+
+[node name="Tile_20" parent="Sections/S2_LavaShelf/Lava" instance=ExtResource("16_lava_tile")]
+transform = Transform3D(0.901644, 0, -0.432479, 0, 1, 0, 0.432479, 0, 0.901644, -25.3541, 22.9951, 52.8589)
+
+[node name="Tile_21" parent="Sections/S2_LavaShelf/Lava" instance=ExtResource("16_lava_tile")]
+transform = Transform3D(0.871428, 0, -0.490524, 0, 1, 0, 0.490524, 0, 0.871428, -28.7569, 22.9951, 51.0875)
+
+[node name="Tile_22" parent="Sections/S2_LavaShelf/Lava" instance=ExtResource("16_lava_tile")]
+transform = Transform3D(0.83748, 0, -0.546467, 0, 1, 0, 0.546467, 0, 0.83748, -32.0367, 22.9951, 49.0973)
+
+[node name="Trap_00" type="Area3D" parent="Sections/S2_LavaShelf/Lava"]
 collision_layer = 0
 collision_mask = 1048577
 monitorable = false
-transform = Transform3D(0.814116, 0, 0.580703, 0, 1, 0, -0.580703, 0, 0.814116, 28.1641, 24.1, 39.4846)
+transform = Transform3D(0.999048, 0, 0.0436194, 0, 1, 0, -0.0436194, 0, 0.999048, 2.49721, 23.2, 57.1955)
 script = ExtResource("2_trap_volume")
-size_metres = Vector3(5.0, 2.2, 2.0)
+size_metres = Vector3(15.4880, 1.0, 6.0000)
 
-[node name="Shape" type="CollisionShape3D" parent="Traps/Trap_L1_054deg"]
-editor_description = "Deliberately empty. TrapVolume._build_shape writes a BoxShape3D over it on ready from size_metres on the parent."
+[node name="Shape" type="CollisionShape3D" parent="Sections/S2_LavaShelf/Lava/Trap_00"]
 
-[node name="Block" type="CSGBox3D" parent="Traps/Trap_L1_054deg"]
-editor_description = "The red you see. use_collision is off on purpose -- a solid block would be new cover, a new occluder, and something the avoidance-free runner brain could grind against."
-material = SubResource("MatTrap")
-
-[node name="Trap_L1_104deg" type="Area3D" parent="Traps"]
-editor_description = "104 deg on level 1, r=55.50, so it spans r54.50-r56.50 and stops dead on the shoulder the cover band already ends at. The clear channel r49.50-r54.50 is untouched. 2.2 m tall: the tuned MovementProfile jumps 1.11 m, so it cannot be hopped and has to be gone around."
+[node name="Trap_01" type="Area3D" parent="Sections/S2_LavaShelf/Lava"]
 collision_layer = 0
 collision_mask = 1048577
 monitorable = false
-transform = Transform3D(0.968148, 0, -0.25038, 0, 1, 0, 0.25038, 0, 0.968148, -13.8961, 24.1, 53.7322)
+transform = Transform3D(0.976296, 0, -0.21644, 0, 1, 0, 0.21644, 0, 0.976296, -12.3912, 23.2, 55.8929)
 script = ExtResource("2_trap_volume")
-size_metres = Vector3(5.0, 2.2, 2.0)
+size_metres = Vector3(15.4880, 1.0, 6.0000)
 
-[node name="Shape" type="CollisionShape3D" parent="Traps/Trap_L1_104deg"]
-editor_description = "Deliberately empty. TrapVolume._build_shape writes a BoxShape3D over it on ready from size_metres on the parent."
+[node name="Shape" type="CollisionShape3D" parent="Sections/S2_LavaShelf/Lava/Trap_01"]
 
-[node name="Block" type="CSGBox3D" parent="Traps/Trap_L1_104deg"]
-editor_description = "The red you see. use_collision is off on purpose -- a solid block would be new cover, a new occluder, and something the avoidance-free runner brain could grind against."
-material = SubResource("MatTrap")
-
-[node name="Trap_L1_154deg" type="Area3D" parent="Traps"]
-editor_description = "154 deg on level 1, r=48.50, so it spans r47.50-r49.50 and stops dead on the shoulder the cover band already ends at. The clear channel r49.50-r54.50 is untouched. 2.2 m tall: the tuned MovementProfile jumps 1.11 m, so it cannot be hopped and has to be gone around."
+[node name="Trap_02" type="Area3D" parent="Sections/S2_LavaShelf/Lava"]
 collision_layer = 0
 collision_mask = 1048577
 monitorable = false
-transform = Transform3D(0.430511, 0, -0.902585, 0, 1, 0, 0.902585, 0, 0.430511, -43.7754, 24.1, 20.8798)
+transform = Transform3D(0.887011, 0, -0.461749, 0, 1, 0, 0.461749, 0, 0.887011, -26.4351, 23.2, 50.7814)
 script = ExtResource("2_trap_volume")
-size_metres = Vector3(5.0, 2.2, 2.0)
+size_metres = Vector3(15.4880, 1.0, 6.0000)
 
-[node name="Shape" type="CollisionShape3D" parent="Traps/Trap_L1_154deg"]
-editor_description = "Deliberately empty. TrapVolume._build_shape writes a BoxShape3D over it on ready from size_metres on the parent."
+[node name="Shape" type="CollisionShape3D" parent="Sections/S2_LavaShelf/Lava/Trap_02"]
 
-[node name="Block" type="CSGBox3D" parent="Traps/Trap_L1_154deg"]
-editor_description = "The red you see. use_collision is off on purpose -- a solid block would be new cover, a new occluder, and something the avoidance-free runner brain could grind against."
-material = SubResource("MatTrap")
+[node name="Boulder_084deg" parent="Sections/S2_LavaShelf" instance=ExtResource("15_boulder")]
+transform = Transform3D(0.994522, 0, 0.104528, 0, 1, 0, -0.104528, 0, 0.994522, 5.95812, 23, 56.6877)
 
-[node name="Trap_L1_204deg" type="Area3D" parent="Traps"]
-editor_description = "204 deg on level 1, r=55.50, so it spans r54.50-r56.50 and stops dead on the shoulder the cover band already ends at. The clear channel r49.50-r54.50 is untouched. 2.2 m tall: the tuned MovementProfile jumps 1.11 m, so it cannot be hopped and has to be gone around."
+[node name="Boulder_090deg" parent="Sections/S2_LavaShelf" instance=ExtResource("15_boulder")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, -0, 0, 1, 3.49024e-15, 23, 57)
+
+[node name="Boulder_096deg" parent="Sections/S2_LavaShelf" instance=ExtResource("15_boulder")]
+transform = Transform3D(0.994522, 0, -0.104528, 0, 1, 0, 0.104528, 0, 0.994522, -5.95812, 23, 56.6877)
+
+[node name="Boulder_102deg" parent="Sections/S2_LavaShelf" instance=ExtResource("15_boulder")]
+transform = Transform3D(0.978148, 0, -0.207912, 0, 1, 0, 0.207912, 0, 0.978148, -11.851, 23, 55.7544)
+
+[node name="Boulder_108deg" parent="Sections/S2_LavaShelf" instance=ExtResource("15_boulder")]
+transform = Transform3D(0.951057, 0, -0.309017, 0, 1, 0, 0.309017, 0, 0.951057, -17.614, 23, 54.2102)
+
+[node name="Boulder_114deg" parent="Sections/S2_LavaShelf" instance=ExtResource("15_boulder")]
+transform = Transform3D(0.913545, 0, -0.406737, 0, 1, 0, 0.406737, 0, 0.913545, -23.184, 23, 52.0721)
+
+[node name="Boulder_120deg" parent="Sections/S2_LavaShelf" instance=ExtResource("15_boulder")]
+transform = Transform3D(0.866025, 0, -0.5, 0, 1, 0, 0.5, 0, 0.866025, -28.5, 23, 49.3634)
+
+[node name="Spire_095deg" parent="Sections/S2_LavaShelf" instance=ExtResource("12_spire")]
+transform = Transform3D(0.996195, 0, -0.0871557, 0, 1, 0, 0.0871557, 0, 0.996195, -4.09632, 23, 46.8212)
+
+[node name="Spire_112deg" parent="Sections/S2_LavaShelf" instance=ExtResource("12_spire")]
+transform = Transform3D(0.927184, 0, -0.374607, 0, 1, 0, 0.374607, 0, 0.927184, -17.6065, 23, 43.5776)
+
+[node name="S3_Split" type="Node3D" parent="Sections"]
+
+[node name="RockWall_153deg" parent="Sections/S3_Split" instance=ExtResource("14_rock_wall")]
+transform = Transform3D(0.455545, 0, -0.890213, 0, 1, 0, 0.890213, 0, 0.455545, -48.9617, 23, 25.055)
+
+[node name="RockWall_163deg" parent="Sections/S3_Split" instance=ExtResource("14_rock_wall")]
+transform = Transform3D(0.297375, 0, -0.954761, 0, 1, 0, 0.954761, 0, 0.297375, -52.5118, 23, 16.3556)
+
+[node name="RockWall_172deg" parent="Sections/S3_Split" instance=ExtResource("14_rock_wall")]
+transform = Transform3D(0.130526, 0, -0.991445, 0, 1, 0, 0.991445, 0, 0.130526, -54.5295, 23, 7.17894)
+
+[node name="RockWall_182deg" parent="Sections/S3_Split" instance=ExtResource("14_rock_wall")]
+transform = Transform3D(-0.0401318, 0, -0.999194, 0, 1, 0, 0.999194, 0, -0.0401318, -54.9557, 23, -2.20725)
+
+[node name="RockWall_192deg" parent="Sections/S3_Split" instance=ExtResource("14_rock_wall")]
+transform = Transform3D(-0.209619, 0, -0.977783, 0, 1, 0, 0.977783, 0, -0.209619, -53.7781, 23, -11.529)
+
+[node name="Lava" type="Node3D" parent="Sections/S3_Split"]
+
+[node name="Tile_00" parent="Sections/S3_Split/Lava" instance=ExtResource("16_lava_tile")]
+transform = Transform3D(0.468771, 0, -0.88332, 0, 1, 0, 0.88332, 0, 0.468771, -51.2325, 22.9951, 27.1887)
+
+[node name="Tile_01" parent="Sections/S3_Split/Lava" instance=ExtResource("16_lava_tile")]
+transform = Transform3D(0.404561, 0, -0.914511, 0, 1, 0, 0.914511, 0, 0.404561, -53.0416, 22.9951, 23.4646)
+
+[node name="Tile_02" parent="Sections/S3_Split/Lava" instance=ExtResource("16_lava_tile")]
+transform = Transform3D(0.33829, 0, -0.941042, 0, 1, 0, 0.941042, 0, 0.33829, -54.5804, 22.9951, 19.6208)
+
+[node name="Tile_03" parent="Sections/S3_Split/Lava" instance=ExtResource("16_lava_tile")]
+transform = Transform3D(0.270295, 0, -0.962778, 0, 1, 0, 0.962778, 0, 0.270295, -55.8411, 22.9951, 15.6771)
+
+[node name="Tile_04" parent="Sections/S3_Split/Lava" instance=ExtResource("16_lava_tile")]
+transform = Transform3D(0.200922, 0, -0.979607, 0, 1, 0, 0.979607, 0, 0.200922, -56.8172, 22.9951, 11.6535)
+
+[node name="Tile_05" parent="Sections/S3_Split/Lava" instance=ExtResource("16_lava_tile")]
+transform = Transform3D(0.130526, 0, -0.991445, 0, 1, 0, 0.991445, 0, 0.130526, -57.5038, 22.9951, 7.57052)
+
+[node name="Tile_06" parent="Sections/S3_Split/Lava" instance=ExtResource("16_lava_tile")]
+transform = Transform3D(0.0594648, 0, -0.99823, 0, 1, 0, 0.99823, 0, 0.0594648, -57.8974, 22.9951, 3.44896)
+
+[node name="Tile_07" parent="Sections/S3_Split/Lava" instance=ExtResource("16_lava_tile")]
+transform = Transform3D(-0.0118997, 0, -0.999929, 0, 1, 0, 0.999929, 0, -0.0118997, -57.9959, 22.9951, -0.690182)
+
+[node name="Tile_08" parent="Sections/S3_Split/Lava" instance=ExtResource("16_lava_tile")]
+transform = Transform3D(-0.0832035, 0, -0.996533, 0, 1, 0, 0.996533, 0, -0.0832035, -57.7989, 22.9951, -4.8258)
+
+[node name="Tile_09" parent="Sections/S3_Split/Lava" instance=ExtResource("16_lava_tile")]
+transform = Transform3D(-0.154083, 0, -0.988058, 0, 1, 0, 0.988058, 0, -0.154083, -57.3074, 22.9951, -8.93683)
+
+[node name="Tile_10" parent="Sections/S3_Split/Lava" instance=ExtResource("16_lava_tile")]
+transform = Transform3D(-0.224178, 0, -0.974548, 0, 1, 0, 0.974548, 0, -0.224178, -56.5238, 22.9951, -13.0023)
+
+[node name="Trap_00" type="Area3D" parent="Sections/S3_Split/Lava"]
 collision_layer = 0
 collision_mask = 1048577
 monitorable = false
-transform = Transform3D(-0.414693, 0, -0.909961, 0, 1, 0, 0.909961, 0, -0.414693, -50.5029, 24.1, -23.0155)
+transform = Transform3D(0.382683, 0, -0.92388, 0, 1, 0, 0.92388, 0, 0.382683, -53.585, 23.2, 22.1956)
 script = ExtResource("2_trap_volume")
-size_metres = Vector3(5.0, 2.2, 2.0)
+size_metres = Vector3(15.6844, 1.0, 4.5000)
 
-[node name="Shape" type="CollisionShape3D" parent="Traps/Trap_L1_204deg"]
-editor_description = "Deliberately empty. TrapVolume._build_shape writes a BoxShape3D over it on ready from size_metres on the parent."
+[node name="Shape" type="CollisionShape3D" parent="Sections/S3_Split/Lava/Trap_00"]
 
-[node name="Block" type="CSGBox3D" parent="Traps/Trap_L1_204deg"]
-editor_description = "The red you see. use_collision is off on purpose -- a solid block would be new cover, a new occluder, and something the avoidance-free runner brain could grind against."
-material = SubResource("MatTrap")
-
-[node name="Trap_L1_254deg" type="Area3D" parent="Traps"]
-editor_description = "254 deg on level 1, r=48.50, so it spans r47.50-r49.50 and stops dead on the shoulder the cover band already ends at. The clear channel r49.50-r54.50 is untouched. 2.2 m tall: the tuned MovementProfile jumps 1.11 m, so it cannot be hopped and has to be gone around."
+[node name="Trap_01" type="Area3D" parent="Sections/S3_Split/Lava"]
 collision_layer = 0
 collision_mask = 1048577
 monitorable = false
-transform = Transform3D(-0.96363, 0, -0.267238, 0, 1, 0, 0.267238, 0, -0.96363, -12.9611, 24.1, -46.7361)
+transform = Transform3D(0.130526, 0, -0.991445, 0, 1, 0, 0.991445, 0, 0.130526, -57.5038, 23.2, 7.57052)
 script = ExtResource("2_trap_volume")
-size_metres = Vector3(5.0, 2.2, 2.0)
+size_metres = Vector3(15.6844, 1.0, 4.5000)
 
-[node name="Shape" type="CollisionShape3D" parent="Traps/Trap_L1_254deg"]
-editor_description = "Deliberately empty. TrapVolume._build_shape writes a BoxShape3D over it on ready from size_metres on the parent."
+[node name="Shape" type="CollisionShape3D" parent="Sections/S3_Split/Lava/Trap_01"]
 
-[node name="Block" type="CSGBox3D" parent="Traps/Trap_L1_254deg"]
-editor_description = "The red you see. use_collision is off on purpose -- a solid block would be new cover, a new occluder, and something the avoidance-free runner brain could grind against."
-material = SubResource("MatTrap")
+[node name="Trap_02" type="Area3D" parent="Sections/S3_Split/Lava"]
+collision_layer = 0
+collision_mask = 1048577
+monitorable = false
+transform = Transform3D(-0.130526, 0, -0.991445, 0, 1, 0, 0.991445, 0, -0.130526, -57.5038, 23.2, -7.57052)
+script = ExtResource("2_trap_volume")
+size_metres = Vector3(15.6844, 1.0, 4.5000)
+
+[node name="Shape" type="CollisionShape3D" parent="Sections/S3_Split/Lava/Trap_02"]
+
+[node name="Boulder_153deg" parent="Sections/S3_Split" instance=ExtResource("15_boulder")]
+transform = Transform3D(0.45399, 0, -0.891007, 0, 1, 0, 0.891007, 0, 0.45399, -51.6784, 23, 26.3314)
+
+[node name="Boulder_158deg" parent="Sections/S3_Split" instance=ExtResource("15_boulder")]
+transform = Transform3D(0.374607, 0, -0.927184, 0, 1, 0, 0.927184, 0, 0.374607, -53.7767, 23, 21.7272)
+
+[node name="Boulder_163deg" parent="Sections/S3_Split" instance=ExtResource("15_boulder")]
+transform = Transform3D(0.292372, 0, -0.956305, 0, 1, 0, 0.956305, 0, 0.292372, -55.4657, 23, 16.9576)
+
+[node name="Boulder_169deg" parent="Sections/S3_Split" instance=ExtResource("15_boulder")]
+transform = Transform3D(0.190809, 0, -0.981627, 0, 1, 0, 0.981627, 0, 0.190809, -56.9344, 23, 11.0669)
+
+[node name="Boulder_175deg" parent="Sections/S3_Split" instance=ExtResource("15_boulder")]
+transform = Transform3D(0.0871557, 0, -0.996195, 0, 1, 0, 0.996195, 0, 0.0871557, -57.7793, 23, 5.05503)
+
+[node name="Boulder_181deg" parent="Sections/S3_Split" instance=ExtResource("15_boulder")]
+transform = Transform3D(-0.0174524, 0, -0.999848, 0, 1, 0, 0.999848, 0, -0.0174524, -57.9912, 23, -1.01224)
+
+[node name="Boulder_187deg" parent="Sections/S3_Split" instance=ExtResource("15_boulder")]
+transform = Transform3D(-0.121869, 0, -0.992546, 0, 1, 0, 0.992546, 0, -0.121869, -57.5677, 23, -7.06842)
+
+[node name="Boulder_193deg" parent="Sections/S3_Split" instance=ExtResource("15_boulder")]
+transform = Transform3D(-0.224951, 0, -0.97437, 0, 1, 0, 0.97437, 0, -0.224951, -56.5135, 23, -13.0472)
+
+[node name="S4_DemonRun" type="Node3D" parent="Sections"]
+
+[node name="LavaInner" type="Node3D" parent="Sections/S4_DemonRun"]
+
+[node name="Tile_00" parent="Sections/S4_DemonRun/LavaInner" instance=ExtResource("16_lava_tile")]
+transform = Transform3D(-0.67559, 0, -0.737277, 0, 1, 0, 0.737277, 0, -0.67559, -33.3618, 22.9951, -30.5705)
+
+[node name="Tile_01" parent="Sections/S4_DemonRun/LavaInner" instance=ExtResource("16_lava_tile")]
+transform = Transform3D(-0.737277, 0, -0.67559, 0, 1, 0, 0.67559, 0, -0.737277, -30.5705, 22.9951, -33.3618)
+
+[node name="Tile_02" parent="Sections/S4_DemonRun/LavaInner" instance=ExtResource("16_lava_tile")]
+transform = Transform3D(-0.793353, 0, -0.608761, 0, 1, 0, 0.608761, 0, -0.793353, -27.5465, 22.9951, -35.8992)
+
+[node name="Tile_03" parent="Sections/S4_DemonRun/LavaInner" instance=ExtResource("16_lava_tile")]
+transform = Transform3D(-0.843391, 0, -0.5373, 0, 1, 0, 0.5373, 0, -0.843391, -24.3128, 22.9951, -38.1635)
+
+[node name="Tile_04" parent="Sections/S4_DemonRun/LavaInner" instance=ExtResource("16_lava_tile")]
+transform = Transform3D(-0.887011, 0, -0.461749, 0, 1, 0, 0.461749, 0, -0.887011, -20.8941, 22.9951, -40.1372)
+
+[node name="Tile_05" parent="Sections/S4_DemonRun/LavaInner" instance=ExtResource("16_lava_tile")]
+transform = Transform3D(-0.92388, 0, -0.382683, 0, 1, 0, 0.382683, 0, -0.92388, -17.3164, 22.9951, -41.8055)
+
+[node name="Tile_06" parent="Sections/S4_DemonRun/LavaInner" instance=ExtResource("16_lava_tile")]
+transform = Transform3D(-0.953717, 0, -0.300706, 0, 1, 0, 0.300706, 0, -0.953717, -13.6069, 22.9951, -43.1557)
+
+[node name="Tile_07" parent="Sections/S4_DemonRun/LavaInner" instance=ExtResource("16_lava_tile")]
+transform = Transform3D(-0.976296, 0, -0.21644, 0, 1, 0, 0.21644, 0, -0.976296, -9.79389, 22.9951, -44.1774)
+
+[node name="Tile_08" parent="Sections/S4_DemonRun/LavaInner" instance=ExtResource("16_lava_tile")]
+transform = Transform3D(-0.991445, 0, -0.130526, 0, 1, 0, 0.130526, 0, -0.991445, -5.90631, 22.9951, -44.8629)
+
+[node name="Tile_09" parent="Sections/S4_DemonRun/LavaInner" instance=ExtResource("16_lava_tile")]
+transform = Transform3D(-0.67559, 0, -0.737277, 0, 1, 0, 0.737277, 0, -0.67559, -35.205, 22.9951, -32.2594)
+
+[node name="Tile_10" parent="Sections/S4_DemonRun/LavaInner" instance=ExtResource("16_lava_tile")]
+transform = Transform3D(-0.737277, 0, -0.67559, 0, 1, 0, 0.67559, 0, -0.737277, -32.2594, 22.9951, -35.205)
+
+[node name="Tile_11" parent="Sections/S4_DemonRun/LavaInner" instance=ExtResource("16_lava_tile")]
+transform = Transform3D(-0.793353, 0, -0.608761, 0, 1, 0, 0.608761, 0, -0.793353, -29.0684, 22.9951, -37.8826)
+
+[node name="Tile_12" parent="Sections/S4_DemonRun/LavaInner" instance=ExtResource("16_lava_tile")]
+transform = Transform3D(-0.843391, 0, -0.5373, 0, 1, 0, 0.5373, 0, -0.843391, -25.6561, 22.9951, -40.2719)
+
+[node name="Tile_13" parent="Sections/S4_DemonRun/LavaInner" instance=ExtResource("16_lava_tile")]
+transform = Transform3D(-0.887011, 0, -0.461749, 0, 1, 0, 0.461749, 0, -0.887011, -22.0485, 22.9951, -42.3548)
+
+[node name="Tile_14" parent="Sections/S4_DemonRun/LavaInner" instance=ExtResource("16_lava_tile")]
+transform = Transform3D(-0.92388, 0, -0.382683, 0, 1, 0, 0.382683, 0, -0.92388, -18.2731, 22.9951, -44.1152)
+
+[node name="Tile_15" parent="Sections/S4_DemonRun/LavaInner" instance=ExtResource("16_lava_tile")]
+transform = Transform3D(-0.953717, 0, -0.300706, 0, 1, 0, 0.300706, 0, -0.953717, -14.3587, 22.9951, -45.54)
+
+[node name="Tile_16" parent="Sections/S4_DemonRun/LavaInner" instance=ExtResource("16_lava_tile")]
+transform = Transform3D(-0.976296, 0, -0.21644, 0, 1, 0, 0.21644, 0, -0.976296, -10.335, 22.9951, -46.6181)
+
+[node name="Tile_17" parent="Sections/S4_DemonRun/LavaInner" instance=ExtResource("16_lava_tile")]
+transform = Transform3D(-0.991445, 0, -0.130526, 0, 1, 0, 0.130526, 0, -0.991445, -6.23263, 22.9951, -47.3415)
+
+[node name="Trap_00" type="Area3D" parent="Sections/S4_DemonRun/LavaInner"]
+collision_layer = 0
+collision_mask = 1048577
+monitorable = false
+transform = Transform3D(-0.779884, 0, -0.625923, 0, 1, 0, 0.625923, 0, -0.779884, -29.1054, 23.2, -36.2646)
+script = ExtResource("2_trap_volume")
+size_metres = Vector3(18.7605, 1.0, 5.5000)
+
+[node name="Shape" type="CollisionShape3D" parent="Sections/S4_DemonRun/LavaInner/Trap_00"]
+
+[node name="Trap_01" type="Area3D" parent="Sections/S4_DemonRun/LavaInner"]
+collision_layer = 0
+collision_mask = 1048577
+monitorable = false
+transform = Transform3D(-0.96005, 0, -0.279829, 0, 1, 0, 0.279829, 0, -0.96005, -13.012, 23.2, -44.6423)
+script = ExtResource("2_trap_volume")
+size_metres = Vector3(18.7605, 1.0, 5.5000)
+
+[node name="Shape" type="CollisionShape3D" parent="Sections/S4_DemonRun/LavaInner/Trap_01"]
+
+[node name="LavaOuter" type="Node3D" parent="Sections/S4_DemonRun"]
+
+[node name="Tile_00" parent="Sections/S4_DemonRun/LavaOuter" instance=ExtResource("16_lava_tile")]
+transform = Transform3D(-0.66972, 0, -0.742614, 0, 1, 0, 0.742614, 0, -0.66972, -41.772, 22.9951, -37.6717)
+
+[node name="Tile_01" parent="Sections/S4_DemonRun/LavaOuter" instance=ExtResource("16_lava_tile")]
+transform = Transform3D(-0.720991, 0, -0.692944, 0, 1, 0, 0.692944, 0, -0.720991, -38.9781, 22.9951, -40.5557)
+
+[node name="Tile_02" parent="Sections/S4_DemonRun/LavaOuter" instance=ExtResource("16_lava_tile")]
+transform = Transform3D(-0.768588, 0, -0.639744, 0, 1, 0, 0.639744, 0, -0.768588, -35.9856, 22.9951, -43.2331)
+
+[node name="Tile_03" parent="Sections/S4_DemonRun/LavaOuter" instance=ExtResource("16_lava_tile")]
+transform = Transform3D(-0.812269, 0, -0.583283, 0, 1, 0, 0.583283, 0, -0.812269, -32.8097, 22.9951, -45.6901)
+
+[node name="Tile_04" parent="Sections/S4_DemonRun/LavaOuter" instance=ExtResource("16_lava_tile")]
+transform = Transform3D(-0.85181, 0, -0.523851, 0, 1, 0, 0.523851, 0, -0.85181, -29.4666, 22.9951, -47.9143)
+
+[node name="Tile_05" parent="Sections/S4_DemonRun/LavaOuter" instance=ExtResource("16_lava_tile")]
+transform = Transform3D(-0.887011, 0, -0.461749, 0, 1, 0, 0.461749, 0, -0.887011, -25.9734, 22.9951, -49.8944)
+
+[node name="Tile_06" parent="Sections/S4_DemonRun/LavaOuter" instance=ExtResource("16_lava_tile")]
+transform = Transform3D(-0.917692, 0, -0.397294, 0, 1, 0, 0.397294, 0, -0.917692, -22.3478, 22.9951, -51.6202)
+
+[node name="Tile_07" parent="Sections/S4_DemonRun/LavaOuter" instance=ExtResource("16_lava_tile")]
+transform = Transform3D(-0.943696, 0, -0.330814, 0, 1, 0, 0.330814, 0, -0.943696, -18.6083, 22.9951, -53.0829)
+
+[node name="Tile_08" parent="Sections/S4_DemonRun/LavaOuter" instance=ExtResource("16_lava_tile")]
+transform = Transform3D(-0.964892, 0, -0.262648, 0, 1, 0, 0.262648, 0, -0.964892, -14.774, 22.9951, -54.2752)
+
+[node name="Tile_09" parent="Sections/S4_DemonRun/LavaOuter" instance=ExtResource("16_lava_tile")]
+transform = Transform3D(-0.98117, 0, -0.193145, 0, 1, 0, 0.193145, 0, -0.98117, -10.8644, 22.9951, -55.1908)
+
+[node name="Tile_10" parent="Sections/S4_DemonRun/LavaOuter" instance=ExtResource("16_lava_tile")]
+transform = Transform3D(-0.992449, 0, -0.122657, 0, 1, 0, 0.122657, 0, -0.992449, -6.89944, 22.9951, -55.8253)
+
+[node name="Tile_11" parent="Sections/S4_DemonRun/LavaOuter" instance=ExtResource("16_lava_tile")]
+transform = Transform3D(-0.667508, 0, -0.744603, 0, 1, 0, 0.744603, 0, -0.667508, -43.7454, 22.9951, -39.2161)
+
+[node name="Tile_12" parent="Sections/S4_DemonRun/LavaOuter" instance=ExtResource("16_lava_tile")]
+transform = Transform3D(-0.714778, 0, -0.699352, 0, 1, 0, 0.699352, 0, -0.714778, -41.0869, 22.9951, -41.9932)
+
+[node name="Tile_13" parent="Sections/S4_DemonRun/LavaOuter" instance=ExtResource("16_lava_tile")]
+transform = Transform3D(-0.758987, 0, -0.651105, 0, 1, 0, 0.651105, 0, -0.758987, -38.2524, 22.9951, -44.5905)
+
+[node name="Tile_14" parent="Sections/S4_DemonRun/LavaOuter" instance=ExtResource("16_lava_tile")]
+transform = Transform3D(-0.799947, 0, -0.600071, 0, 1, 0, 0.600071, 0, -0.799947, -35.2542, 22.9951, -46.9969)
+
+[node name="Tile_15" parent="Sections/S4_DemonRun/LavaOuter" instance=ExtResource("16_lava_tile")]
+transform = Transform3D(-0.83748, 0, -0.546467, 0, 1, 0, 0.546467, 0, -0.83748, -32.105, 22.9951, -49.202)
+
+[node name="Tile_16" parent="Sections/S4_DemonRun/LavaOuter" instance=ExtResource("16_lava_tile")]
+transform = Transform3D(-0.871428, 0, -0.490524, 0, 1, 0, 0.490524, 0, -0.871428, -28.8183, 22.9951, -51.1964)
+
+[node name="Tile_17" parent="Sections/S4_DemonRun/LavaOuter" instance=ExtResource("16_lava_tile")]
+transform = Transform3D(-0.901644, 0, -0.432479, 0, 1, 0, 0.432479, 0, -0.901644, -25.4082, 22.9951, -52.9716)
+
+[node name="Tile_18" parent="Sections/S4_DemonRun/LavaOuter" instance=ExtResource("16_lava_tile")]
+transform = Transform3D(-0.927999, 0, -0.372583, 0, 1, 0, 0.372583, 0, -0.927999, -21.8892, 22.9951, -54.5199)
+
+[node name="Tile_19" parent="Sections/S4_DemonRun/LavaOuter" instance=ExtResource("16_lava_tile")]
+transform = Transform3D(-0.95038, 0, -0.311091, 0, 1, 0, 0.311091, 0, -0.95038, -18.2766, 22.9951, -55.8348)
+
+[node name="Tile_20" parent="Sections/S4_DemonRun/LavaOuter" instance=ExtResource("16_lava_tile")]
+transform = Transform3D(-0.968692, 0, -0.248267, 0, 1, 0, 0.248267, 0, -0.968692, -14.5857, 22.9951, -56.9106)
+
+[node name="Tile_21" parent="Sections/S4_DemonRun/LavaOuter" instance=ExtResource("16_lava_tile")]
+transform = Transform3D(-0.982855, 0, -0.18438, 0, 1, 0, 0.18438, 0, -0.982855, -10.8323, 22.9951, -57.7427)
+
+[node name="Tile_22" parent="Sections/S4_DemonRun/LavaOuter" instance=ExtResource("16_lava_tile")]
+transform = Transform3D(-0.99281, 0, -0.119704, 0, 1, 0, 0.119704, 0, -0.99281, -7.03259, 22.9951, -58.3276)
+
+[node name="Trap_00" type="Area3D" parent="Sections/S4_DemonRun/LavaOuter"]
+collision_layer = 0
+collision_mask = 1048577
+monitorable = false
+transform = Transform3D(-0.737277, 0, -0.67559, 0, 1, 0, 0.67559, 0, -0.737277, -38.8464, 23.2, -42.3934)
+script = ExtResource("2_trap_volume")
+size_metres = Vector3(15.5535, 1.0, 5.5000)
+
+[node name="Shape" type="CollisionShape3D" parent="Sections/S4_DemonRun/LavaOuter/Trap_00"]
+
+[node name="Trap_01" type="Area3D" parent="Sections/S4_DemonRun/LavaOuter"]
+collision_layer = 0
+collision_mask = 1048577
+monitorable = false
+transform = Transform3D(-0.887011, 0, -0.461749, 0, 1, 0, 0.461749, 0, -0.887011, -26.5505, 23.2, -51.0031)
+script = ExtResource("2_trap_volume")
+size_metres = Vector3(15.5535, 1.0, 5.5000)
+
+[node name="Shape" type="CollisionShape3D" parent="Sections/S4_DemonRun/LavaOuter/Trap_01"]
+
+[node name="Trap_02" type="Area3D" parent="Sections/S4_DemonRun/LavaOuter"]
+collision_layer = 0
+collision_mask = 1048577
+monitorable = false
+transform = Transform3D(-0.976296, 0, -0.21644, 0, 1, 0, 0.21644, 0, -0.976296, -12.4453, 23.2, -56.137)
+script = ExtResource("2_trap_volume")
+size_metres = Vector3(15.5535, 1.0, 5.5000)
+
+[node name="Shape" type="CollisionShape3D" parent="Sections/S4_DemonRun/LavaOuter/Trap_02"]
+
+[node name="DemonPad_222deg" type="Area3D" parent="Sections/S4_DemonRun"]
+collision_layer = 0
+collision_mask = 1048577
+monitorable = false
+transform = Transform3D(0.743145, 0, -0.669131, 0, 1, 0, 0.669131, 0, 0.743145, -38.6435, 23, -34.7948)
+script = ExtResource("18_boost_pad")
+footprint_metres = Vector3(2.5, 1.0, 2.5)
+launch_speed = 18.0
+launch_angle_degrees = 45.0
+
+[node name="Shape" type="CollisionShape3D" parent="Sections/S4_DemonRun/DemonPad_222deg"]
+
+[node name="Model" parent="Sections/S4_DemonRun/DemonPad_222deg" instance=ExtResource("17_demon_pad")]
+
+[node name="DemonPad_240deg" type="Area3D" parent="Sections/S4_DemonRun"]
+collision_layer = 0
+collision_mask = 1048577
+monitorable = false
+transform = Transform3D(0.5, 0, -0.866025, 0, 1, 0, 0.866025, 0, 0.5, -26, 23, -45.0333)
+script = ExtResource("18_boost_pad")
+footprint_metres = Vector3(2.5, 1.0, 2.5)
+launch_speed = 18.0
+launch_angle_degrees = 45.0
+
+[node name="Shape" type="CollisionShape3D" parent="Sections/S4_DemonRun/DemonPad_240deg"]
+
+[node name="Model" parent="Sections/S4_DemonRun/DemonPad_240deg" instance=ExtResource("17_demon_pad")]
+
+[node name="DemonPad_258deg" type="Area3D" parent="Sections/S4_DemonRun"]
+collision_layer = 0
+collision_mask = 1048577
+monitorable = false
+transform = Transform3D(0.207912, 0, -0.978148, 0, 1, 0, 0.978148, 0, 0.207912, -10.8114, 23, -50.8637)
+script = ExtResource("18_boost_pad")
+footprint_metres = Vector3(2.5, 1.0, 2.5)
+launch_speed = 18.0
+launch_angle_degrees = 45.0
+
+[node name="Shape" type="CollisionShape3D" parent="Sections/S4_DemonRun/DemonPad_258deg"]
+
+[node name="Model" parent="Sections/S4_DemonRun/DemonPad_258deg" instance=ExtResource("17_demon_pad")]
+
+[node name="Slab_231deg" parent="Sections/S4_DemonRun" instance=ExtResource("13_slab")]
+transform = Transform3D(-0.777146, 0, -0.62932, 0, 1, 0, 0.62932, 0, -0.777146, -32.7247, 23, -40.4116)
+
+[node name="Slab_249deg" parent="Sections/S4_DemonRun" instance=ExtResource("13_slab")]
+transform = Transform3D(-0.93358, 0, -0.358368, 0, 1, 0, 0.358368, 0, -0.93358, -18.6351, 23, -48.5462)
+
+[node name="S5_WallRun" type="Node3D" parent="Sections"]
+
+[node name="RockWall_292deg" parent="Sections/S5_WallRun" instance=ExtResource("14_rock_wall")]
+transform = Transform3D(-0.927184, 0, 0.374607, 0, 1, 0, -0.374607, 0, -0.927184, 18.3557, 23, -45.432)
+
+[node name="RockWall_304deg" parent="Sections/S5_WallRun" instance=ExtResource("14_rock_wall")]
+transform = Transform3D(-0.829038, 0, 0.559193, 0, 1, 0, -0.559193, 0, -0.829038, 27.4005, 23, -40.6228)
+
+[node name="RockWall_316deg" parent="Sections/S5_WallRun" instance=ExtResource("14_rock_wall")]
+transform = Transform3D(-0.694658, 0, 0.71934, 0, 1, 0, -0.71934, 0, -0.694658, 35.2477, 23, -34.0383)
+
+[node name="RockWall_328deg" parent="Sections/S5_WallRun" instance=ExtResource("14_rock_wall")]
+transform = Transform3D(-0.529919, 0, 0.848048, 0, 1, 0, -0.848048, 0, -0.529919, 41.5544, 23, -25.966)
+
+[node name="Slab_295deg" parent="Sections/S5_WallRun" instance=ExtResource("13_slab")]
+transform = Transform3D(-0.906308, 0, 0.422618, 0, 1, 0, -0.422618, 0, -0.906308, 24.0892, 23, -51.6595)
+
+[node name="Slab_307deg" parent="Sections/S5_WallRun" instance=ExtResource("13_slab")]
+transform = Transform3D(-0.798636, 0, 0.601815, 0, 1, 0, -0.601815, 0, -0.798636, 34.3035, 23, -45.5222)
+
+[node name="Slab_319deg" parent="Sections/S5_WallRun" instance=ExtResource("13_slab")]
+transform = Transform3D(-0.656059, 0, 0.75471, 0, 1, 0, -0.75471, 0, -0.656059, 43.0184, 23, -37.3954)
 
 [node name="Route" type="Node3D" parent="."]
 editor_description = "WHAT PROGRESS IS: the arc swept so far on the one lap, taken at the lane radius. IT IS DATA, AND IT LIVES ON THE MAP. The deck height, radial band, lane radius, entry angle and exit angle are here, and MatchLapTracker, RingRunner, the HUD and the round card all read them from here rather than from a second copy."

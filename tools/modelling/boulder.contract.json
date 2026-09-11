@@ -1,0 +1,6 @@
+{
+  "_comment": "Boulder platform: 2.0 m dia x 1.2 m, origin at base centre. One textured material (128x128 hell-rock atlas + emissive), one UV set. BoulderCollision rides in the .glb as a `-colonly` node (flat-topped 8-sided frustum); its mesh is discarded on import so surfaces stays 1 and max_tris counts only what is drawn.",
+  "node_paths": ["Boulder", "BoulderCollision", "BoulderCollision/CollisionShape3D"],
+  "surfaces": 1,
+  "max_tris": 120
+}

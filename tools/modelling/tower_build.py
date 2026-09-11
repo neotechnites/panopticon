@@ -479,17 +479,6 @@ def build_texture():
     return images[0], images[1]
 
 
-def save_texture(img, out_dir):
-    path = os.path.join(out_dir, img.name + ".png")
-    img.filepath_raw = path
-    img.file_format = "PNG"
-    img.save()
-    img.filepath = path
-    img.pack()                      # so the .glb carries it too
-    print("MDL TEXTURE %s (%dx%d)" % (path, TEX_SIZE, TEX_SIZE))
-    return path
-
-
 def rock_material(name, albedo, emissive):
     mat = bpy.data.materials.new(name)
     mat.use_nodes = True
@@ -1107,9 +1096,8 @@ def build():
     OPEN_BEARING = 0.0                   # chamber vertex 0 is an opening
 
     albedo, emissive = build_texture()
-    out_dir = mdl._spec_from_argv().get("out_dir", ".")
-    save_texture(albedo, out_dir)
-    save_texture(emissive, out_dir)
+    mdl.save_texture(albedo)
+    mdl.save_texture(emissive)
 
     parts = []
     for k, (mesh, name) in enumerate(((col, "column"), (cham, "chamber"))):
@@ -1118,7 +1106,7 @@ def build():
         parts.append(ob)
 
     ob = mdl.join(parts, OBJECT_NAME)
-    mdl.finish(ob, rock_material("TowerRock", albedo, emissive), strip_uvs=False)
+    mdl.finish(ob, rock_material("HellRock", albedo, emissive), strip_uvs=False)
 
     # The collider rides in the same .glb. Godot's glTF importer reads the
     # suffix off the NODE NAME: `-colonly` turns the mesh into a StaticBody3D

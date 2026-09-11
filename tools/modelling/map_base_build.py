@@ -264,17 +264,6 @@ def build_texture():
     return images[0], images[1]
 
 
-def save_texture(img, out_dir):
-    path = os.path.join(out_dir, img.name + ".png")
-    img.filepath_raw = path
-    img.file_format = "PNG"
-    img.save()
-    img.filepath = path
-    img.pack()
-    print("MDL TEXTURE %s (%dx%d)" % (path, TEX_SIZE, TEX_SIZE))
-    return path
-
-
 def rock_material(name, albedo, emissive):
     mat = bpy.data.materials.new(name)
     mat.use_nodes = True
@@ -615,13 +604,12 @@ def build():
     coll = _collider(ang)
 
     albedo, emissive = build_texture()
-    out_dir = mdl._spec_from_argv().get("out_dir", ".")
-    save_texture(albedo, out_dir)
-    save_texture(emissive, out_dir)
+    mdl.save_texture(albedo)
+    mdl.save_texture(emissive)
 
     ob = rock.object(OBJECT_NAME)
     unwrap(ob, rock.zones)
-    mdl.finish(ob, rock_material("MapBaseRock", albedo, emissive), strip_uvs=False)
+    mdl.finish(ob, rock_material("HellRock", albedo, emissive), strip_uvs=False)
 
     coll_ob = coll.object(COLLIDER_NAME)
     coll_ob.hide_render = True
