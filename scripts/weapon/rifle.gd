@@ -695,6 +695,24 @@ func _resolve_shot(charge: float) -> void:
 		missed.emit(end_point)
 
 
+## Cosmetic replay of a shot the authority took: tracer, [signal fired] and the
+## reload cycle, with no ray and no hit. For clients in a networked match.
+func show_remote_shot(origin: Vector3, end_point: Vector3, reload: float) -> void:
+	if profile == null:
+		return
+	var muzzle_node: Node3D = muzzle if muzzle != null else (aim_source if aim_source != null else self)
+	if reload > 0.0:
+		reload_seconds = reload
+	_spawn_tracer(muzzle_node.global_position, end_point)
+	fired.emit(origin, end_point)
+	_set_state(State.FIRING)
+
+
+## Cosmetic replay of a hit the authority scored. See [method show_remote_shot].
+func show_remote_hit(collider: Node3D, at: Vector3, normal: Vector3) -> void:
+	target_hit.emit(collider, at, normal)
+
+
 func _cast(from: Vector3, to: Vector3) -> Dictionary:
 	var space: PhysicsDirectSpaceState3D = get_world_3d().direct_space_state
 	if space == null:

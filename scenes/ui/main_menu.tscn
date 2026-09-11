@@ -6,7 +6,7 @@
 [ext_resource type="PackedScene" path="res://scenes/audio/game_audio.tscn" id="4_game_audio"]
 [ext_resource type="PackedScene" path="res://scenes/ui/match_setup_screen.tscn" id="5_match_setup"]
 [ext_resource type="PackedScene" path="res://scenes/ui/settings_screen.tscn" id="6_settings_screen"]
-[ext_resource type="PackedScene" path="res://scenes/ui/host_placeholder_screen.tscn" id="7_host_screen"]
+[ext_resource type="PackedScene" path="res://scenes/ui/multiplayer_screen.tscn" id="7_multiplayer_screen"]
 [ext_resource type="PackedScene" uid="uid://cwyjwhfotqv73" path="res://assets/models/tower.glb" id="8_tower_model"]
 [ext_resource type="PackedScene" path="res://scenes/tower/watching_eye.tscn" id="9_watching_eye"]
 [ext_resource type="Resource" path="res://scenes/ui/menu_watching_eye_profile.tres" id="10_watcher_profile"]
@@ -29,7 +29,7 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 theme = ExtResource("12_theme")
-editor_description = "The game's entry point: run/main_scene points here. World is the 3D backdrop -- the tower, its watching eye and an orbiting camera -- and UI is the Play/Host/Settings/Quit list drawn over it. scripts/ui/main_menu.gd binds and navigates; it builds nothing. Play leads to MatchSetupScreen; Host is a placeholder until the net lobby UI exists; Settings and the match/pause menu are named by path rather than instanced, for the same cycle reason documented there before."
+editor_description = "The game's entry point; UI is the Play/Multiplayer/Settings/Quit list over a 3D backdrop, and scripts/ui/main_menu.gd only binds and navigates."
 script = ExtResource("1_main_menu")
 
 [node name="SettingsBoot" type="Node" parent="."]
@@ -105,11 +105,10 @@ alignment = 0
 text = "Play"
 editor_description = "Opens the match setup screen rather than starting a match. The setup screen's own Start button is what changes scene."
 
-[node name="Host" type="Button" parent="UI/MenuList"]
+[node name="Multiplayer" type="Button" parent="UI/MenuList"]
 unique_name_in_owner = true
 alignment = 0
-text = "Host"
-editor_description = "Opens HostPlaceholderScreen. No net lobby UI exists yet."
+text = "Multiplayer"
 
 [node name="Settings" type="Button" parent="UI/MenuList"]
 unique_name_in_owner = true
@@ -125,7 +124,7 @@ text = "Quit"
 unique_name_in_owner = true
 visible = false
 
-[node name="HostScreen" parent="." instance=ExtResource("7_host_screen")]
+[node name="MultiplayerScreen" parent="." instance=ExtResource("7_multiplayer_screen")]
 unique_name_in_owner = true
 visible = false
 

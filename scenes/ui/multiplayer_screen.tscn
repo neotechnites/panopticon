@@ -1,0 +1,210 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/multiplayer_screen.gd" id="1_multiplayer_screen"]
+[ext_resource type="Theme" path="res://scenes/ui/panopticon_menu_theme.tres" id="2_theme"]
+
+[node name="MultiplayerScreen" type="Control"]
+process_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 0
+theme = ExtResource("2_theme")
+editor_description = "Host or join a networked match and wait in the lobby; scripts/ui/multiplayer_screen.gd owns the values."
+script = ExtResource("1_multiplayer_screen")
+
+[node name="Frame" type="MarginContainer" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 24
+theme_override_constants/margin_top = 24
+theme_override_constants/margin_right = 24
+theme_override_constants/margin_bottom = 24
+
+[node name="Dialog" type="PanelContainer" parent="Frame"]
+custom_minimum_size = Vector2(760, 560)
+size_flags_horizontal = 4
+size_flags_vertical = 4
+
+[node name="Padding" type="MarginContainer" parent="Frame/Dialog"]
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 12
+
+[node name="Layout" type="VBoxContainer" parent="Frame/Dialog/Padding"]
+theme_override_constants/separation = 8
+
+[node name="Title" type="Label" parent="Frame/Dialog/Padding/Layout"]
+text = "MULTIPLAYER"
+
+[node name="NameRow" type="HBoxContainer" parent="Frame/Dialog/Padding/Layout"]
+theme_override_constants/separation = 8
+
+[node name="NameLabel" type="Label" parent="Frame/Dialog/Padding/Layout/NameRow"]
+vertical_alignment = 1
+text = "Your name"
+
+[node name="NameEdit" type="LineEdit" parent="Frame/Dialog/Padding/Layout/NameRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(240, 0)
+placeholder_text = "Name"
+
+[node name="Status" type="Label" parent="Frame/Dialog/Padding/Layout"]
+unique_name_in_owner = true
+autowrap_mode = 3
+
+[node name="ConnectPanels" type="HBoxContainer" parent="Frame/Dialog/Padding/Layout"]
+unique_name_in_owner = true
+size_flags_vertical = 3
+theme_override_constants/separation = 16
+
+[node name="HostPanel" type="VBoxContainer" parent="Frame/Dialog/Padding/Layout/ConnectPanels"]
+unique_name_in_owner = true
+size_flags_horizontal = 3
+theme_override_constants/separation = 8
+
+[node name="HostTitle" type="Label" parent="Frame/Dialog/Padding/Layout/ConnectPanels/HostPanel"]
+text = "HOST"
+
+[node name="PortRow" type="HBoxContainer" parent="Frame/Dialog/Padding/Layout/ConnectPanels/HostPanel"]
+theme_override_constants/separation = 8
+
+[node name="PortLabel" type="Label" parent="Frame/Dialog/Padding/Layout/ConnectPanels/HostPanel/PortRow"]
+vertical_alignment = 1
+text = "Port"
+
+[node name="HostPortSpin" type="SpinBox" parent="Frame/Dialog/Padding/Layout/ConnectPanels/HostPanel/PortRow"]
+unique_name_in_owner = true
+min_value = 1024.0
+max_value = 65535.0
+value = 27960.0
+
+[node name="AddressLabel" type="Label" parent="Frame/Dialog/Padding/Layout/ConnectPanels/HostPanel"]
+autowrap_mode = 3
+text = "Give a friend one of these addresses:"
+
+[node name="AddressField" type="TextEdit" parent="Frame/Dialog/Padding/Layout/ConnectPanels/HostPanel"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 160)
+size_flags_vertical = 3
+editable = false
+context_menu_enabled = false
+scroll_fit_content_height = true
+
+[node name="StartHosting" type="Button" parent="Frame/Dialog/Padding/Layout/ConnectPanels/HostPanel"]
+unique_name_in_owner = true
+text = "Start hosting"
+
+[node name="Divider" type="VSeparator" parent="Frame/Dialog/Padding/Layout/ConnectPanels"]
+
+[node name="JoinPanel" type="VBoxContainer" parent="Frame/Dialog/Padding/Layout/ConnectPanels"]
+unique_name_in_owner = true
+size_flags_horizontal = 3
+theme_override_constants/separation = 8
+
+[node name="JoinTitle" type="Label" parent="Frame/Dialog/Padding/Layout/ConnectPanels/JoinPanel"]
+text = "JOIN"
+
+[node name="AddressRow" type="HBoxContainer" parent="Frame/Dialog/Padding/Layout/ConnectPanels/JoinPanel"]
+theme_override_constants/separation = 8
+
+[node name="AddressLabel" type="Label" parent="Frame/Dialog/Padding/Layout/ConnectPanels/JoinPanel/AddressRow"]
+vertical_alignment = 1
+text = "Address"
+
+[node name="JoinAddressEdit" type="LineEdit" parent="Frame/Dialog/Padding/Layout/ConnectPanels/JoinPanel/AddressRow"]
+unique_name_in_owner = true
+size_flags_horizontal = 3
+placeholder_text = "100.x.x.x or 192.168.x.x"
+
+[node name="PortRow" type="HBoxContainer" parent="Frame/Dialog/Padding/Layout/ConnectPanels/JoinPanel"]
+theme_override_constants/separation = 8
+
+[node name="PortLabel" type="Label" parent="Frame/Dialog/Padding/Layout/ConnectPanels/JoinPanel/PortRow"]
+vertical_alignment = 1
+text = "Port"
+
+[node name="JoinPortSpin" type="SpinBox" parent="Frame/Dialog/Padding/Layout/ConnectPanels/JoinPanel/PortRow"]
+unique_name_in_owner = true
+min_value = 1024.0
+max_value = 65535.0
+value = 27960.0
+
+[node name="JoinSpacer" type="Control" parent="Frame/Dialog/Padding/Layout/ConnectPanels/JoinPanel"]
+size_flags_vertical = 3
+
+[node name="Join" type="Button" parent="Frame/Dialog/Padding/Layout/ConnectPanels/JoinPanel"]
+unique_name_in_owner = true
+text = "Join"
+
+[node name="LobbyPanel" type="VBoxContainer" parent="Frame/Dialog/Padding/Layout"]
+unique_name_in_owner = true
+visible = false
+size_flags_vertical = 3
+theme_override_constants/separation = 8
+
+[node name="LobbyTitle" type="Label" parent="Frame/Dialog/Padding/Layout/LobbyPanel"]
+unique_name_in_owner = true
+text = "LOBBY"
+
+[node name="PlayerList" type="VBoxContainer" parent="Frame/Dialog/Padding/Layout/LobbyPanel"]
+unique_name_in_owner = true
+size_flags_vertical = 3
+theme_override_constants/separation = 2
+
+[node name="RulesDivider" type="HSeparator" parent="Frame/Dialog/Padding/Layout/LobbyPanel"]
+
+[node name="RulesRow" type="HBoxContainer" parent="Frame/Dialog/Padding/Layout/LobbyPanel"]
+theme_override_constants/separation = 8
+
+[node name="PresetLabel" type="Label" parent="Frame/Dialog/Padding/Layout/LobbyPanel/RulesRow"]
+vertical_alignment = 1
+text = "Mode"
+
+[node name="PresetOption" type="OptionButton" parent="Frame/Dialog/Padding/Layout/LobbyPanel/RulesRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(200, 0)
+
+[node name="PrisonersLabel" type="Label" parent="Frame/Dialog/Padding/Layout/LobbyPanel/RulesRow"]
+vertical_alignment = 1
+text = "Prisoners"
+
+[node name="PrisonerCountSpin" type="SpinBox" parent="Frame/Dialog/Padding/Layout/LobbyPanel/RulesRow"]
+unique_name_in_owner = true
+min_value = 1.0
+max_value = 8.0
+value = 3.0
+
+[node name="RulesSummary" type="Label" parent="Frame/Dialog/Padding/Layout/LobbyPanel"]
+unique_name_in_owner = true
+autowrap_mode = 3
+
+[node name="ButtonRow" type="HBoxContainer" parent="Frame/Dialog/Padding/Layout/LobbyPanel"]
+theme_override_constants/separation = 16
+
+[node name="ReadyToggle" type="CheckButton" parent="Frame/Dialog/Padding/Layout/LobbyPanel/ButtonRow"]
+unique_name_in_owner = true
+text = "Ready"
+
+[node name="StartMatch" type="Button" parent="Frame/Dialog/Padding/Layout/LobbyPanel/ButtonRow"]
+unique_name_in_owner = true
+disabled = true
+text = "Start match"
+
+[node name="ButtonSpacer" type="Control" parent="Frame/Dialog/Padding/Layout/LobbyPanel/ButtonRow"]
+size_flags_horizontal = 3
+
+[node name="Leave" type="Button" parent="Frame/Dialog/Padding/Layout/LobbyPanel/ButtonRow"]
+unique_name_in_owner = true
+text = "Leave"
+
+[node name="Back" type="Button" parent="Frame/Dialog/Padding/Layout"]
+unique_name_in_owner = true
+size_flags_horizontal = 4
+text = "Back"

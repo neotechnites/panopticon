@@ -188,6 +188,11 @@ const MAX_ROUNDS_TO_WIN_MATCH: int = 7
 ## match a player starts ends up played under something nobody chose.
 const DEFAULT_MAP_ID: StringName = MapCatalog.DEFAULT_ID
 
+const DEFAULT_JOIN_ADDRESS: String = "127.0.0.1"
+const MIN_NET_PORT: int = 1024
+const MAX_NET_PORT: int = 65535
+const MAX_PLAYER_NAME_LENGTH: int = 24
+
 ## Matches [code]project.godot[/code]'s [code][display]/window/size[/code]
 ## defaults. They have to agree: [SettingsBoot] bootstraps the store and calls
 ## [method apply_video] before the player has opened the settings screen even
@@ -217,6 +222,7 @@ const SECTION_INPUT: String = "input"
 const SECTION_AUDIO: String = "audio"
 const SECTION_VIDEO: String = "video"
 const SECTION_MATCH: String = "match"
+const SECTION_NET: String = "net"
 
 # --- Values -------------------------------------------------------------------
 
@@ -344,6 +350,13 @@ var rounds_to_win_match: int = DEFAULT_ROUNDS_TO_WIN_MATCH
 ## default in [method clamp_all] rather than starting a match with no arena.
 var map_id: StringName = DEFAULT_MAP_ID
 
+## Name shown to other players. Defaults to the OS username.
+var player_name: String = default_player_name()
+
+var join_address: String = DEFAULT_JOIN_ADDRESS
+
+var join_port: int = 27960
+
 ## True when the last window resize [method apply_video] asked for was ignored
 ## outright -- the size before the call and the size after it are the same, and
 ## neither is the size asked for.
@@ -394,6 +407,9 @@ func reset() -> void:
 	runner_win_condition = MatchRules.RunnerWinCondition.FIRST_ARRIVAL
 	rounds_to_win_match = DEFAULT_ROUNDS_TO_WIN_MATCH
 	map_id = DEFAULT_MAP_ID
+	player_name = default_player_name()
+	join_address = DEFAULT_JOIN_ADDRESS
+	join_port = 27960
 
 
 ## Force every value inside its documented range. Called after every read, so
@@ -434,6 +450,13 @@ func clamp_all() -> void:
 	# every clamp above makes: the player loses a choice, not the match.
 	if not MapCatalog.has(map_id):
 		map_id = DEFAULT_MAP_ID
+	player_name = player_name.strip_edges().left(MAX_PLAYER_NAME_LENGTH)
+	if player_name.is_empty():
+		player_name = default_player_name()
+	join_address = join_address.strip_edges()
+	if join_address.is_empty():
+		join_address = DEFAULT_JOIN_ADDRESS
+	join_port = clampi(join_port, MIN_NET_PORT, MAX_NET_PORT)
 
 
 ## Copy every value out of [param other].
@@ -459,6 +482,9 @@ func copy_from(other: GameSettings) -> void:
 	runner_win_condition = other.runner_win_condition
 	rounds_to_win_match = other.rounds_to_win_match
 	map_id = other.map_id
+	player_name = other.player_name
+	join_address = other.join_address
+	join_port = other.join_port
 
 
 ## True when every value matches [param other]. Used by the verification harness
@@ -486,6 +512,9 @@ func equals(other: GameSettings) -> bool:
 		and runner_win_condition == other.runner_win_condition
 		and rounds_to_win_match == other.rounds_to_win_match
 		and map_id == other.map_id
+		and player_name == other.player_name
+		and join_address == other.join_address
+		and join_port == other.join_port
 	)
 
 
@@ -520,6 +549,10 @@ func write_to(config: ConfigFile) -> void:
 	# As a String, not a StringName: ConfigFile writes a StringName as &"x",
 	# which is legible but is not what a hand-edited file will contain.
 	config.set_value(SECTION_MATCH, "map_id", String(map_id))
+
+	config.set_value(SECTION_NET, "player_name", player_name)
+	config.set_value(SECTION_NET, "join_address", join_address)
+	config.set_value(SECTION_NET, "join_port", join_port)
 
 
 ## Read every value out of [param config], substituting the current value --
@@ -563,6 +596,10 @@ func read_from(config: ConfigFile) -> void:
 		config, SECTION_MATCH, "rounds_to_win_match", rounds_to_win_match
 	)
 	map_id = read_string_name(config, SECTION_MATCH, "map_id", map_id)
+
+	player_name = String(read_string_name(config, SECTION_NET, "player_name", player_name))
+	join_address = String(read_string_name(config, SECTION_NET, "join_address", join_address))
+	join_port = read_int(config, SECTION_NET, "join_port", join_port)
 
 	clamp_all()
 
@@ -789,6 +826,15 @@ static func read_bool(config: ConfigFile, section: String, key: String, fallback
 ## Read a [StringName], tolerating a [String] and rejecting anything else. An
 ## empty value is rejected too: the caller's fallback is a real id and an empty
 ## one would name no map.
+## The OS username, or "Player" when the environment does not say.
+static func default_player_name() -> String:
+	for key: String in ["USER", "USERNAME", "LOGNAME"]:
+		var found: String = OS.get_environment(key).strip_edges()
+		if not found.is_empty():
+			return found.left(MAX_PLAYER_NAME_LENGTH)
+	return "Player"
+
+
 static func read_string_name(
 	config: ConfigFile, section: String, key: String, fallback: StringName
 ) -> StringName:

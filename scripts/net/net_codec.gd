@@ -327,3 +327,68 @@ static func tick_delta(earlier: int, later: int) -> int:
 	if difference >= (TICK_MODULUS >> 1):
 		return difference - TICK_MODULUS
 	return difference
+
+
+# --- Match rules --------------------------------------------------------------
+
+## Exported scalar fields of [MatchRules] (int, float, bool, String,
+## StringName). Resource-typed exports stay local: both builds ship them.
+static func rules_field_names(rules: MatchRules) -> PackedStringArray:
+	var names: PackedStringArray = PackedStringArray()
+	for entry: Dictionary in rules.get_property_list():
+		var usage: int = int(entry.get("usage", 0))
+		if (usage & PROPERTY_USAGE_SCRIPT_VARIABLE) == 0 or (usage & PROPERTY_USAGE_STORAGE) == 0:
+			continue
+		var kind: int = int(entry.get("type", TYPE_NIL))
+		if kind in [TYPE_INT, TYPE_FLOAT, TYPE_BOOL, TYPE_STRING, TYPE_STRING_NAME]:
+			names.append(String(entry.get("name", "")))
+	return names
+
+
+## Every scalar export of [param rules] as bytes. Reliable-channel sized, not
+## per-tick sized.
+static func pack_rules(rules: MatchRules) -> PackedByteArray:
+	var fields: Dictionary = {}
+	for field: String in rules_field_names(rules):
+		var value: Variant = rules.get(field)
+		fields[field] = String(value) if typeof(value) == TYPE_STRING_NAME else value
+	return var_to_bytes(fields)
+
+
+## Decode [method pack_rules] output onto [param out]. Unknown or mistyped
+## fields are dropped; false when the payload is not a rules dictionary.
+static func unpack_rules(payload: PackedByteArray, out: MatchRules) -> bool:
+	var decoded: Variant = bytes_to_var(payload)
+	if typeof(decoded) != TYPE_DICTIONARY:
+		return false
+	var fields: Dictionary = decoded
+	for field: String in rules_field_names(out):
+		if not fields.has(field):
+			continue
+		var current: Variant = out.get(field)
+		var value: Variant = fields[field]
+		match typeof(current):
+			TYPE_INT:
+				if typeof(value) == TYPE_INT:
+					out.set(field, value)
+			TYPE_FLOAT:
+				if (typeof(value) == TYPE_FLOAT or typeof(value) == TYPE_INT) and is_finite(float(value)):
+					out.set(field, float(value))
+			TYPE_BOOL:
+				if typeof(value) == TYPE_BOOL:
+					out.set(field, value)
+			TYPE_STRING:
+				if typeof(value) == TYPE_STRING:
+					out.set(field, value)
+			TYPE_STRING_NAME:
+				if typeof(value) == TYPE_STRING or typeof(value) == TYPE_STRING_NAME:
+					out.set(field, StringName(String(value)))
+	return true
+
+
+## Copy every scalar export from one rules object onto another.
+static func copy_rules(from: MatchRules, to: MatchRules) -> void:
+	if from == null or to == null or from == to:
+		return
+	for field: String in rules_field_names(from):
+		to.set(field, from.get(field))

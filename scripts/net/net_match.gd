@@ -161,6 +161,11 @@ func _subscribe_server() -> void:
 			rpc(&"_ev_ghost_caught", ghost.index, caught.index)
 	)
 	_lobby.seat_occupancy_changed.connect(_on_seat_occupancy_changed)
+	var rifle: Rifle = controller.rifle
+	if rifle != null:
+		rifle.fired.connect(func(origin: Vector3, end_point: Vector3) -> void:
+			rpc(&"_ev_rifle_fired", origin, end_point, rifle.reload_seconds))
+		rifle.target_hit.connect(_on_rifle_hit)
 
 
 func _start_now() -> void:
@@ -217,6 +222,11 @@ func _on_match_won(participant: MatchParticipant) -> void:
 	rpc(&"_ev_match_won", participant.index)
 	var seat: LobbySeat = _lobby.get_occupied_seats()[participant.index] if participant.index < _lobby.get_occupant_count() else null
 	_lobby.conclude_match(seat.index if seat != null else -1)
+
+
+func _on_rifle_hit(collider: Node3D, at: Vector3, normal: Vector3) -> void:
+	var participant: MatchParticipant = controller.resolve_participant(collider)
+	rpc(&"_ev_rifle_hit", participant.index if participant != null else -1, at, normal)
 
 
 func _on_seat_occupancy_changed(seat_index: int, occupancy: LobbySeat.Occupancy) -> void:
@@ -300,6 +310,22 @@ func _ev_ghost_respawned(index: int) -> void:
 func _ev_ghost_caught(ghost_index: int, caught_index: int) -> void:
 	if not is_authority():
 		controller.net_ghost_caught(ghost_index, caught_index)
+
+
+@rpc("authority", "reliable", "call_remote", 0)
+func _ev_rifle_fired(origin: Vector3, end_point: Vector3, reload: float) -> void:
+	if not is_authority() and controller.rifle != null:
+		controller.rifle.show_remote_shot(origin, end_point, reload)
+
+
+@rpc("authority", "reliable", "call_remote", 0)
+func _ev_rifle_hit(index: int, at: Vector3, normal: Vector3) -> void:
+	if is_authority() or controller.rifle == null:
+		return
+	var participants: Array[MatchParticipant] = controller.get_participants()
+	var participant: MatchParticipant = participants[index] if index >= 0 and index < participants.size() else null
+	var body: Node3D = participant.body if participant != null else null
+	controller.rifle.show_remote_hit(body, at, normal)
 
 
 @rpc("authority", "reliable", "call_remote", 0)

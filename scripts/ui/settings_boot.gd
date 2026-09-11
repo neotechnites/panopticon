@@ -43,4 +43,18 @@ func _on_settings_applied() -> void:
 	var store: SettingsStore = SettingsStore.instance()
 	store.settings.apply_to_movement_profile(movement_profile)
 	store.settings.apply_to_camera(camera)
-	store.settings.apply_to_match_rules(match_rules)
+	var hosted: MatchRules = _host_rules()
+	if hosted != null:
+		NetCodec.copy_rules(hosted, match_rules)
+	else:
+		store.settings.apply_to_match_rules(match_rules)
+
+
+## The host's rules when this machine is a client in a networked lobby, else null.
+func _host_rules() -> MatchRules:
+	if match_rules == null or not is_inside_tree():
+		return null
+	var session: NetSession = get_tree().root.get_node_or_null(^"NetSession") as NetSession
+	if session == null or not session.is_established() or session.is_authority() or session.lobby == null:
+		return null
+	return session.lobby.get_rules()
