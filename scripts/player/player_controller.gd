@@ -113,6 +113,9 @@ var _pitch: float = 0.0
 
 ## Time left in which a jump is still allowed after leaving the ground.
 var _coyote_timer: float = 0.0
+## Velocity a boost pad asked for, applied on the next physics tick. See launch().
+var _pending_launch: Vector3 = Vector3.ZERO
+var _has_pending_launch: bool = false
 
 ## Time left in which a jump press made in the air still counts on landing.
 var _jump_buffer_timer: float = 0.0
@@ -219,6 +222,13 @@ func _physics_process(delta: float) -> void:
 		# Gravity accumulated while falling is spent; keep it and every landing
 		# would drag the body downhill and confuse the floor snap.
 		velocity.y = 0.0
+
+	# A launch (boost pad) is applied HERE, after the floor zeroing, for the same
+	# reason a jump is: written any earlier it is wiped on this line.
+	if _has_pending_launch:
+		velocity = _pending_launch
+		_has_pending_launch = false
+		_coyote_timer = 0.0
 
 	# Slide OPENS before the jump, and deliberately so: a slide opened on this
 	# tick can be jumped out of on this same tick, which is what makes "slide,
@@ -424,6 +434,12 @@ func _tick_jump_timers(on_floor: bool, delta: float) -> void:
 
 
 ## Returns true if the body left the ground this tick.
+## Throw the body at [param velocity_vector] on the next tick, surviving floor contact.
+func launch(velocity_vector: Vector3) -> void:
+	_pending_launch = velocity_vector
+	_has_pending_launch = true
+
+
 func _try_jump(on_floor: bool) -> bool:
 	if not on_floor and _coyote_timer <= 0.0:
 		return false

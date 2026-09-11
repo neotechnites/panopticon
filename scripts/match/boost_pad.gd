@@ -235,7 +235,7 @@ func _on_body_entered(body: Node3D) -> void:
 		# Something that is not a player touched it. This node has no opinion
 		# on what that is or what should happen to it -- see the class doc.
 		return
-	player.velocity = _launch_direction() * launch_speed
+	player.launch(_launch_direction() * launch_speed)
 
 
 ## The unit vector a body leaves along: this node's own forward, tilted
