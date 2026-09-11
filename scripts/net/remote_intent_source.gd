@@ -55,6 +55,9 @@ var _ticks_since_packet: int = 0
 ## True once staleness has zeroed the command, so it is only zeroed once.
 var _stale: bool = false
 
+## A trigger press that arrived and has not been taken by the rifle yet.
+var _fire_latched: bool = false
+
 
 ## Take a decoded packet. Returns false if it is older than one already
 ## applied, which is how out-of-order UDP delivery is discarded -- an unreliable
@@ -65,6 +68,8 @@ func accept(tick: int, intent: MoveIntent) -> bool:
 		return false
 	last_tick = tick
 	command.copy_from(intent)
+	if intent.fire_pressed:
+		_fire_latched = true
 	_ticks_since_packet = 0
 	_stale = false
 	return true
@@ -89,12 +94,25 @@ func poll(_delta: float) -> MoveIntent:
 	command.jump_pressed = false
 	command.slide_pressed = false
 	command.look_delta = Vector2.ZERO
+	command.fire_pressed = false
 	return _intent
+
+
+## The pending trigger press, consumed.
+func take_fire() -> bool:
+	var pressed: bool = _fire_latched
+	_fire_latched = false
+	return pressed
+
+
+func is_fire_held() -> bool:
+	return command.fire_held and not _stale
 
 
 ## Forget everything received. For a peer leaving, or a round restarting.
 func reset() -> void:
 	command.clear()
+	_fire_latched = false
 	last_tick = -1
 	_ticks_since_packet = 0
 	_stale = false

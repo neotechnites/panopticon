@@ -1,4 +1,4 @@
-[gd_scene load_steps=23 format=3]
+[gd_scene load_steps=24 format=3]
 
 [ext_resource type="PackedScene" path="res://scenes/ring/bentham_ring.tscn" id="1_arena"]
 [ext_resource type="PackedScene" path="res://scenes/player/player.tscn" id="2_player"]
@@ -22,6 +22,7 @@
 [ext_resource type="Resource" path="res://resources/rules/default_match_announcement.tres" id="20_announcements"]
 [ext_resource type="Resource" path="res://resources/rules/default_match_readout.tres" id="21_readout"]
 [ext_resource type="PackedScene" path="res://scenes/ui/round_transition_screen.tscn" id="22_round_transition"]
+[ext_resource type="Script" path="res://scripts/net/net_match.gd" id="23_net_match"]
 
 [node name="Match" type="Node3D"]
 editor_description = "A whole match. Arena, one human body, three AI bodies, one rifle, and MatchController enforcing the match described by resources/rules/default_match_rules.tres: an opening race with no shooter, then rounds, with the tower passing to whoever reaches the end and the match going to whoever holds it through a round. Nothing under scenes/player, scenes/weapon, scenes/bot or scenes/ring is modified here -- they are composed."
@@ -45,6 +46,14 @@ editor_description = "Authored on the human's head, but it does not stay there: 
 aim_source = NodePath("../Camera")
 shooter_body = NodePath("../..")
 tracer_parent = NodePath("../../..")
+
+[node name="NetMatch" type="Node" parent="." node_paths=PackedStringArray("controller", "player", "runner_container")]
+editor_description = "Bridges /root/NetSession's roster to the MatchController; idle in a solo match."
+script = ExtResource("23_net_match")
+controller = NodePath("../MatchController")
+player = NodePath("../Player")
+runner_container = NodePath("../Runners")
+runner_scene = ExtResource("4_runner")
 
 [node name="MatchController" type="Node" parent="." node_paths=PackedStringArray("arena", "player", "rifle", "runner_container")]
 script = ExtResource("5_controller")
