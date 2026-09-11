@@ -334,15 +334,22 @@ class _Mesh(object):
         for i in range(1, len(ring) - 1):
             self.tri(ring[0], ring[i], ring[i + 1], want, zone)
 
-    def band(self, lo, hi, ang, inward, zone_fn):
-        """Quads between two rings; zone_fn(i) picks the atlas zone per side."""
+    def band(self, lo, hi, ang, inward, zone_fn, nu=1, nv=1):
+        """Quads between two rings; zone_fn(i) picks the atlas zone per side.
+
+        nu/nv grid each side's quad (bilinear on its own four corners, no new
+        jitter) so no facet outgrows the atlas texel budget.
+        """
         n = len(lo)
         for i in range(n):
             j = (i + 1) % n
             am = 0.5 * (ang[i] + ang[i] + 2.0 * math.pi / n)
             w = (math.cos(am), math.sin(am), 0.0)
             want = (-w[0], -w[1], 0.0) if inward else w
-            self.quad(lo[i], lo[j], hi[j], hi[i], want, zone_fn(i))
+            if nu > 1 or nv > 1:
+                _grid(self, lo[i], lo[j], hi[j], hi[i], want, zone_fn(i), nu, nv)
+            else:
+                self.quad(lo[i], lo[j], hi[j], hi[i], want, zone_fn(i))
 
     def object(self, name):
         return mdl.mesh(name, self.verts, self.faces)
@@ -369,6 +376,74 @@ def _ring(m, ang, radius, z):
     """radius(i), z(i) -> vertex ids for one ring."""
     return [m.v((radius(i) * math.cos(ang[i]), radius(i) * math.sin(ang[i]), z(i)))
             for i in range(SIDES)]
+
+
+# ---- subdivision: same silhouette, smaller texel budget per facet ---------
+# The bug this fixes: a face got ONE UV window regardless of its size, so the
+# deck's 10 m+ facets stretched the same texel count the tower spends on a
+# 4-6 m facet across more than twice the world space. ANG_SUB gives every
+# side's arc a <=3 m facet at the outer wall; _nv does the same per gap.
+#
+# Only where a runner stands close -- deck, ceiling, outer wall, and the pit
+# wall from the deck edge down to the courtyard -- earns that 3 m grid. The
+# shaft above the ceiling (300 m to the rim) and the courtyard floor are 20 m+
+# from anything anyone stands on, so they get a coarse FAR_CAP band instead:
+# same fix in kind, a tenth the triangles.
+ANG_SUB = 4
+FAR_CAP = 25.0
+
+
+def _nv(gap, cap=3.0):
+    """Sub-bands needed to keep a gap of this size under ~`cap` metres."""
+    return max(1, int(math.ceil(abs(gap) / cap)))
+
+
+def _grid(m, a, b, c, d, want, zone, nu, nv):
+    """Subdivide the coarse quad a-b-c-d into nu x nv sub-quads by bilinear
+    interpolation of its four existing corners. No new jitter, no reshaping:
+    same corners, more triangles, so each one fits the atlas texel budget.
+    """
+    pa, pb, pc, pd = m.verts[a], m.verts[b], m.verts[c], m.verts[d]
+
+    def pt(u, v):
+        return tuple((1 - u) * (1 - v) * pa[k] + u * (1 - v) * pb[k]
+                      + u * v * pc[k] + (1 - u) * v * pd[k] for k in range(3))
+
+    corners = {(0, 0): a, (nu, 0): b, (nu, nv): c, (0, nv): d}
+    ids = [[corners[(iu, iv)] if (iu, iv) in corners
+            else m.v(pt(iu / float(nu), iv / float(nv)))
+            for iu in range(nu + 1)] for iv in range(nv + 1)]
+    for iv in range(nv):
+        for iu in range(nu):
+            m.quad(ids[iv][iu], ids[iv][iu + 1], ids[iv + 1][iu + 1], ids[iv + 1][iu],
+                   want, zone)
+
+
+def _disc(m, rim, center_pt, levels, ang_sub, want, zone):
+    """A flat-ish disc from a jagged rim ring down to a true centre point, in
+    concentric bands of constant radial step -- not one giant pie slice fan.
+    The rim's own jag survives, scaled toward the centre; nothing reshaped.
+    """
+    n = len(rim)
+    rings = [rim]
+    for s in range(1, levels):
+        frac = 1.0 - s / float(levels)
+        rings.append([m.v(tuple(center_pt[k] + (m.verts[rim[i]][k] - center_pt[k]) * frac
+                                 for k in range(3)))
+                      for i in range(n)])
+    for s in range(levels - 1):
+        for i in range(n):
+            j = (i + 1) % n
+            _grid(m, rings[s][i], rings[s][j], rings[s + 1][j], rings[s + 1][i],
+                  want, zone, ang_sub, 1)
+    cid = m.v(center_pt)
+    last = rings[-1]
+    for i in range(n):
+        j = (i + 1) % n
+        m.tri(cid, last[i], last[j], want, zone)
+
+
+COURTYARD_LEVELS = _nv(INNER_R, cap=FAR_CAP)
 
 
 # =============================================================================
@@ -403,10 +478,13 @@ def _rock(r):
         return zone
 
     for k in range(npit - 1):
-        m.band(pit[k], pit[k + 1], ang, True, pit_zone(k))
+        m.band(pit[k], pit[k + 1], ang, True, pit_zone(k),
+               nu=ANG_SUB, nv=_nv(pit_z[k] - pit_z[k + 1]))
 
-    # ---- courtyard floor: the tower's foot lands on it ---------------------
-    m.fan(pit[npit - 1], UP, ZONE_SHADE)
+    # ---- courtyard floor: the tower's foot lands on it ----------------------
+    # Nobody ever stands on it (the KillVolume converts anything that falls
+    # this far); coarse FAR_CAP bands, no angular split.
+    _disc(m, pit[npit - 1], (0.0, 0.0, COURTYARD_Z), COURTYARD_LEVELS, 1, UP, ZONE_SHADE)
 
     # ---- outer wall: deck up to the gallery ceiling ------------------------
     wall_z = [DECK_Z] + WALL_RINGS_Z + [CEIL_Z]
@@ -428,18 +506,20 @@ def _rock(r):
         return zone
 
     for k in range(nwall - 1):
-        m.band(wall[k], wall[k + 1], ang, True, wall_zone(k))
+        m.band(wall[k], wall[k + 1], ang, True, wall_zone(k),
+               nu=ANG_SUB, nv=_nv(wall_z[k + 1] - wall_z[k]))
 
     # ---- the deck: one flat dressed-stone annulus, lip to wall foot --------
-    # Two radial strips, not one: a 16 m face would stretch the atlas to half
-    # the tower's texel density. Same ROCK zone as the walls and the tower.
-    mid = _ring(m, ang, lambda i: 0.5 * (INNER_R + OUTER_R), lambda i: DECK_Z)
-    for lo, hi in ((pit[0], mid), (mid, wall[0])):
-        for i in range(SIDES):
-            j = (i + 1) % SIDES
-            m.quad(lo[i], lo[j], hi[j], hi[i], UP, ZONE_ROCK)
+    # Gridded to the same <=3 m facet cap as the walls, so the atlas sits at
+    # the tower's texel density instead of stretched over one huge face.
+    # Same ROCK zone as the walls and the tower.
+    deck_nv = _nv(OUTER_R - INNER_R)
+    for i in range(SIDES):
+        j = (i + 1) % SIDES
+        _grid(m, pit[0][i], pit[0][j], wall[0][j], wall[0][i], UP, ZONE_ROCK,
+              ANG_SUB, deck_nv)
 
-    # ---- upper pit wall: ceiling lip up to the rim -------------------------
+    # ---- upper pit wall: ceiling lip up to the rim, 300 m nobody stands near -
     up_z = [CEIL_Z] + UPPER_RINGS_Z + [RIM_Z]
     nup = len(up_z)
     ubias = _held(r, nup, PIT_JAG, one_sided=True)
@@ -459,13 +539,16 @@ def _rock(r):
         return zone
 
     for k in range(nup - 1):
-        m.band(upper[k], upper[k + 1], ang, True, upper_zone(k))
+        m.band(upper[k], upper[k + 1], ang, True, upper_zone(k),
+               nu=1, nv=_nv(up_z[k + 1] - up_z[k], cap=FAR_CAP))
 
     # ---- the ceiling: flat, faces DOWN, flush with the lip -----------------
+    # Same ROCK zone and grid as the deck it mirrors -- exterior rock seen
+    # from below, not the dark interior zone.
     for i in range(SIDES):
         j = (i + 1) % SIDES
-        m.quad(upper[0][i], upper[0][j], wall[nwall - 1][j], wall[nwall - 1][i],
-               (0.0, 0.0, -1.0), ZONE_SHADE)
+        _grid(m, upper[0][i], upper[0][j], wall[nwall - 1][j], wall[nwall - 1][i],
+              (0.0, 0.0, -1.0), ZONE_ROCK, ANG_SUB, deck_nv)
 
     # ---- hell's ground above the rim ---------------------------------------
     prev = upper[nup - 1]
@@ -507,7 +590,10 @@ def _collider(ang):
 # =============================================================================
 
 def unwrap(ob, zones, seed=0):
-    """As the tower's, but the scale drops on big faces so nothing smears."""
+    """Identical to tower_build.py's unwrap: fixed UV_SCALE texel density, no
+    per-face scale reduction. Every face here is now <=3 m, so nothing needs
+    the density dropped to fit -- that drop was the washed-out-grey bug.
+    """
     me = ob.data
     uvl = me.uv_layers.new(name="UVMap")
     r = _Rng(TEX_SEED + seed * 7919 + len(me.polygons))
@@ -523,15 +609,13 @@ def unwrap(ob, zones, seed=0):
         cos = [me.vertices[me.loops[li].vertex_index].co for li in poly.loop_indices]
         mi = min(co[ii] for co in cos)
         mj = min(co[jj] for co in cos)
-        ext = max(max(co[ii] for co in cos) - mi, max(co[jj] for co in cos) - mj, 1e-6)
-        sc = min(UV_SCALE, 0.98 / ext)
-        w = (max(co[ii] for co in cos) - mi) * sc
-        h = (max(co[jj] for co in cos) - mj) * sc
+        w = min((max(co[ii] for co in cos) - mi) * UV_SCALE, 1.0)
+        h = min((max(co[jj] for co in cos) - mj) * UV_SCALE, 1.0)
         ou = r.f() * (1.0 - w)
         ov = r.f() * (1.0 - h)
         for li, co in zip(poly.loop_indices, cos):
-            s = min(ou + (co[ii] - mi) * sc, 1.0)
-            t = min(ov + (co[jj] - mj) * sc, 1.0)
+            s = min(ou + (co[ii] - mi) * UV_SCALE, 1.0)
+            t = min(ov + (co[jj] - mj) * UV_SCALE, 1.0)
             if fu < 0.0:
                 s = 1.0 - s
             if fv < 0.0:
