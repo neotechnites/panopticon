@@ -26,8 +26,9 @@ this reads as the rock the tower was cut from.
     tools/modelling/model look  map_base --cam 35,30,40
     tools/modelling/model build map_base --cam 35,30,40
 
-Two hand-placed shots come back with every run: map_base_runner.png (eye on
-the deck) and map_base_guard.png (from the void's centre at deck height).
+Hand-placed shots come back with every run: runner (eye on the deck), guard
+(void centre at deck height), shaft (courtyard looking up), cell and mouth
+(one cell, angled and straight on).
 """
 
 import math
@@ -106,27 +107,33 @@ ZONE_GLOW   = (0.5, 0.0, 1.0, 0.25)   # cell interiors: painted over the unused
                                       # tower zones, so those stay byte-identical
 
 # ---- prison cells: stone screens cut into the pit faces ---------------------
-# A cell is 4..7 vertical SLOTS cut through the wall surface; the stone left
-# between them is the bars, one surface with the sill and lintel. Behind the
-# screen is a plain glowing box. Positions come from seeded dart throwing on
-# the wall in (arc, height), not from the facet grid; a cell is cut into
-# whichever facets it overlaps (T-junctions land on straight facet edges).
+# A cell is a rectangular mouth cut through the wall, a reveal stepping back
+# to a flat stone SCREEN, and a plain glowing box behind. The screen carries
+# 5..9 tall wavy SLOTS (8-12 verts each, no two alike); the stone between them
+# is the bars. Positions come from seeded dart throwing on the wall in
+# (arc, height); the mouth is cut into whichever facets it overlaps and every
+# seam shares vertices (facets with extra edge vertices are fanned).
 CELL_SEED   = 4420917
-CELL_H      = (2.0, 5.0)      # mouth height, metres
-SLOT_W      = (0.35, 0.50)
-BAR_W       = (0.20, 0.30)
-ARCH_DROP   = 0.32            # outer slots this fraction shorter: a pointed arch
+CELL_H      = (2.5, 5.5)      # mouth height, metres
+SLOT_HW     = (0.10, 0.22)    # slot half width: 0.2..0.44 m openings
+SLOT_LEAN   = 0.12            # metres, head vs foot
+SLOT_WAVE   = 0.05            # per-level edge jitter
+BAR_W       = (0.15, 0.30)    # stone left between slot lanes
+SIDE_M      = (0.25, 0.40)    # stone left at the screen's sides
+SILL        = (0.25, 0.45)
+LINTEL      = (0.30, 0.60)
+NL          = 7               # screen levels: 0 sill foot .. NL-1 lintel head
+SCREEN_BACK = 0.15            # screen behind the deepest point of the mouth edge
+BOX_EPS     = 0.03            # box outline past the screen edge, hidden behind it
 CELL_DEPTH  = (2.0, 3.0)
-REVEAL      = 0.25            # carved slot side depth on near cells
-NEAR_Z      = 60.0            # below: slot reveals; above: plain cuts
-N_PIT       = 105             # cells deck -> courtyard
-N_SHAFT     = 78              # cells ceiling -> rim
-SHAFT_FALL  = 95.0            # e-folding height of the shaft density
+CELL_RHO    = 0.0068          # cells per m^2: 60 % of v2's pit density
+PIT_CLEAR   = 3.5             # no cell top nearer the deck than this
+UNIFORM_TOP = COURTYARD_Z + (RIM_Z - COURTYARD_Z) / 3.0   # uniform density to here
+TAIL_L      = 40.0            # e-folding height of the thinning above it
 CELL_ZTOP   = RIM_Z - 20.0
+EDGE_CLEAR  = 0.2             # mouth edges keep this far from facet boundaries
 GAP_MIN, GAP_MAX = 0.4, 3.6   # spacing field: tight clusters .. empty stretches
-PIT_SUB, PIT_CAP     = 2, 7.0
-SHAFT_SUB, SHAFT_CAP = 1, 25.0
-SHAFT_NEAR_Z = 105.0
+PIT_SUB, PIT_CAP = 2, 7.0
 
 CELLS = []                    # (centre, out, width, height) for the renders
 
@@ -444,10 +451,11 @@ def _nv(gap, cap=3.0):
     return max(1, int(math.ceil(abs(gap) / cap)))
 
 
-def _grid(m, a, b, c, d, want, zone, nu, nv):
+def _grid(m, a, b, c, d, want, zone, nu, nv, edge_ab=None):
     """Subdivide the coarse quad a-b-c-d into nu x nv sub-quads by bilinear
     interpolation of its four existing corners. No new jitter, no reshaping:
     same corners, more triangles, so each one fits the atlas texel budget.
+    edge_ab: nu+1 existing vertex ids along a->b, shared with a neighbour.
     """
     pa, pb, pc, pd = m.verts[a], m.verts[b], m.verts[c], m.verts[d]
 
@@ -459,6 +467,8 @@ def _grid(m, a, b, c, d, want, zone, nu, nv):
     ids = [[corners[(iu, iv)] if (iu, iv) in corners
             else m.v(pt(iu / float(nu), iv / float(nv)))
             for iu in range(nu + 1)] for iv in range(nv + 1)]
+    if edge_ab is not None:
+        ids[0] = list(edge_ab)
     for iv in range(nv):
         for iu in range(nu):
             m.quad(ids[iv][iu], ids[iv][iu + 1], ids[iv + 1][iu + 1], ids[iv + 1][iu],
@@ -466,7 +476,7 @@ def _grid(m, a, b, c, d, want, zone, nu, nv):
 
 
 # =============================================================================
-# PIT FACES -- a (theta, z) grid of bilinear facets; cells are cut into it
+# PIT FACES -- a (theta, z) grid of bilinear facets; cell mouths are cut into it
 # =============================================================================
 
 def _v3(p, q, s=1.0):
@@ -486,17 +496,42 @@ def _breaks(vals, lo, hi):
     return [lo] + [v for v in vals if lo < v < hi] + [hi]
 
 
+def _bisect(a, x):
+    lo, hi = 0, len(a)
+    while lo < hi:
+        mid = (lo + hi) // 2
+        if x < a[mid]:
+            hi = mid
+        else:
+            lo = mid + 1
+    return lo
+
+
+def _bisect_left(a, x):
+    lo, hi = 0, len(a)
+    while lo < hi:
+        mid = (lo + hi) // 2
+        if a[mid] < x:
+            lo = mid + 1
+        else:
+            hi = mid
+    return lo
+
+
 TWO_PI = 2.0 * math.pi
 DOWN = (0.0, 0.0, -1.0)
+EPS = 1e-9
 
 
 class _Wall(object):
-    """One pit face between ascending rings. W(theta, z) is a point on the
-    coarse bilinear side-quads, so anything cut into a facet lies on it."""
+    """One pit face between ascending level rings. W(theta, z) is a point on
+    the coarse bilinear side-quads, so anything cut into a facet lies on it.
+    Facets are emitted as polygons carrying every vertex a neighbour or a
+    mouth put on their edges, fanned from a centre point: no T-junctions."""
 
     def __init__(self, m, ang, ring_z, rings, nu, cap, zone_fn):
         self.m, self.ang, self.ring_z, self.rings = m, ang, ring_z, rings
-        self.zone_fn = zone_fn
+        self.zone_fn, self.nu = zone_fn, nu
         n = len(ang)
         self.a0 = ang[0]
         self.cols = []
@@ -505,6 +540,7 @@ class _Wall(object):
             b = ang[i + 1] if i + 1 < n else ang[0] + TWO_PI
             self.cols += [a + (b - a) * su / nu for su in range(nu)]
         self.cols.append(ang[0] + TWO_PI)
+        self.ncol = len(self.cols) - 1
         self.cols_ext = self.cols + [c + TWO_PI for c in self.cols[1:]]
         self.rows = []
         for k in range(len(ring_z) - 1):
@@ -515,7 +551,9 @@ class _Wall(object):
         for k, ids in enumerate(rings):
             for i in range(n):
                 self.nodes[(round(ang[i], 6), round(ring_z[k], 6))] = ids[i]
-        self.holes = {}
+        self.holes = {}     # (ci, ri) -> [(ta, tb, za, zb)] clipped to the facet
+        self.xt = {}        # row boundary -> extra thetas on it
+        self.xz = {}        # column boundary -> extra zs on it
 
     def _norm(self, t):
         return self.a0 + (t - self.a0) % TWO_PI
@@ -553,6 +591,26 @@ class _Wall(object):
     def zbreaks(self, za, zb):
         return _breaks(self.rows, za, zb)
 
+    def add_xt(self, r, t):
+        self.xt.setdefault(r, set()).add(round(self._norm(t), 6))
+
+    def add_xz(self, c, z):
+        self.xz.setdefault(c % self.ncol, set()).add(round(z, 6))
+
+    def clear(self, ta, tb, za, zb):
+        """True if the rectangle sits inside the face with no facet boundary
+        within EDGE_CLEAR of its edges."""
+        if za < self.rows[0] + 0.5 or zb > self.rows[-1] - 0.5:
+            return False
+        for t in (ta, tb):
+            tn = self._norm(t)
+            if any(abs(c - tn) * INNER_R < EDGE_CLEAR for c in self.cols):
+                return False
+        for z in (za, zb):
+            if any(abs(rz - z) < EDGE_CLEAR for rz in self.rows):
+                return False
+        return True
+
     def hole(self, ta, tb, za, zb):
         """Cut the (theta, z) rectangle out of every facet it overlaps."""
         w = tb - ta
@@ -564,73 +622,100 @@ class _Wall(object):
             pieces = [(ta, top), (self.a0, self.a0 + (tb - top))]
         for pa, pb in pieces:
             c0 = max(0, _bisect(self.cols, pa) - 1)
-            c1 = min(len(self.cols) - 2, _bisect_left(self.cols, pb) - 1)
+            c1 = min(self.ncol - 1, _bisect_left(self.cols, pb) - 1)
             r0 = max(0, _bisect(self.rows, za) - 1)
             r1 = min(len(self.rows) - 2, _bisect_left(self.rows, zb) - 1)
             for ci in range(c0, c1 + 1):
                 for ri in range(r0, r1 + 1):
-                    self.holes.setdefault((ci, ri), []).append(
-                        (max(pa, self.cols[ci]), min(pb, self.cols[ci + 1]),
-                         max(za, self.rows[ri]), min(zb, self.rows[ri + 1])))
+                    piece = (max(pa, self.cols[ci]), min(pb, self.cols[ci + 1]),
+                             max(za, self.rows[ri]), min(zb, self.rows[ri + 1]))
+                    self.holes.setdefault((ci, ri), []).append(piece)
+                    for z in (piece[2], piece[3]):
+                        if self.rows[ri] + EPS < z < self.rows[ri + 1] - EPS:
+                            self.add_xz(ci, z)
+                            self.add_xz(ci + 1, z)
 
     def emit(self):
-        nu = (len(self.cols) - 1) // len(self.ang)
-        for ci in range(len(self.cols) - 1):
+        for ci in range(self.ncol):
             am = 0.5 * (self.cols[ci] + self.cols[ci + 1])
             want = (-math.cos(am), -math.sin(am), 0.0)
-            side = ci // nu
+            side = ci // self.nu
             for ri in range(len(self.rows) - 1):
                 k = max(0, min(len(self.ring_z) - 2, _bisect(self.ring_z, self.rows[ri]) - 1))
                 zone = self.zone_fn(k, side)
-                t0, t1, z0, z1 = self.cols[ci], self.cols[ci + 1], self.rows[ri], self.rows[ri + 1]
-                holes = self.holes.get((ci, ri))
-                if not holes:
-                    self.rect(t0, t1, z0, z1, want, zone)
-                    continue
-                ts = sorted(set([t0, t1] + [h[0] for h in holes] + [h[1] for h in holes]))
-                zs = sorted(set([z0, z1] + [h[2] for h in holes] + [h[3] for h in holes]))
+                t0, t1 = self.cols[ci], self.cols[ci + 1]
+                holes = self.holes.get((ci, ri), [])
+                zs = sorted(set([self.rows[ri], self.rows[ri + 1]]
+                                + [h[2] for h in holes] + [h[3] for h in holes]))
                 for j in range(len(zs) - 1):
-                    zm = 0.5 * (zs[j] + zs[j + 1])
-                    run = None
-                    for i in range(len(ts) - 1):
-                        tm = 0.5 * (ts[i] + ts[i + 1])
-                        if any(h[0] <= tm <= h[1] and h[2] <= zm <= h[3] for h in holes):
-                            if run:
-                                self.rect(run[0], run[1], zs[j], zs[j + 1], want, zone)
-                            run = None
-                        else:
-                            run = (run[0] if run else ts[i], ts[i + 1])
-                    if run:
-                        self.rect(run[0], run[1], zs[j], zs[j + 1], want, zone)
+                    za, zb = zs[j], zs[j + 1]
+                    zm = 0.5 * (za + zb)
+                    present = sorted((h[0], h[1]) for h in holes if h[2] <= zm <= h[3])
+                    x = t0
+                    spans = []
+                    for ha, hb in present:
+                        if ha - x > EPS:
+                            spans.append((x, ha))
+                        x = hb
+                    if t1 - x > EPS:
+                        spans.append((x, t1))
+                    for ta, tb in spans:
+                        self._poly(ci, ri, ta, tb, za, zb, holes, want, zone)
 
-    def rect(self, ta, tb, za, zb, want, zone):
-        self.m.quad(self.W(ta, za), self.W(tb, za), self.W(tb, zb), self.W(ta, zb), want, zone)
+    def _poly(self, ci, ri, ta, tb, za, zb, holes, want, zone):
+        """One stone rectangle of a facet, with every vertex that sits on its
+        edges: a quad when there are none, else a fan from its centre."""
+        t0, t1, z0, z1 = self.cols[ci], self.cols[ci + 1], self.rows[ri], self.rows[ri + 1]
+        bot, top, left, right = {ta, tb}, {ta, tb}, set(), set()
+        if abs(za - z0) < EPS:
+            bot |= set(t for t in self.xt.get(ri, ()) if ta < t < tb)
+        if abs(zb - z1) < EPS:
+            top |= set(t for t in self.xt.get(ri + 1, ()) if ta < t < tb)
+        for h in holes:
+            if abs(h[3] - za) < EPS:
+                bot |= set(t for t in (h[0], h[1]) if ta < t < tb)
+            if abs(h[2] - zb) < EPS:
+                top |= set(t for t in (h[0], h[1]) if ta < t < tb)
+        if abs(ta - t0) < EPS:
+            left = set(z for z in self.xz.get(ci % self.ncol, ()) if za < z < zb)
+        if abs(tb - t1) < EPS:
+            right = set(z for z in self.xz.get((ci + 1) % self.ncol, ()) if za < z < zb)
+        pts = [(t, za) for t in sorted(bot)] + [(tb, z) for z in sorted(right)] \
+            + [(t, zb) for t in sorted(top, reverse=True)] + [(ta, z) for z in sorted(left, reverse=True)]
+        ids = [self.W(t, z) for t, z in pts]
+        if len(ids) == 4:
+            self.m.quad(ids[0], ids[1], ids[2], ids[3], want, zone)
+            return
+        c = self.W(0.5 * (ta + tb), 0.5 * (za + zb))
+        for i in range(len(ids)):
+            self.m.tri(c, ids[i], ids[(i + 1) % len(ids)], want, zone)
 
 
-def _bisect(a, x):
-    lo, hi = 0, len(a)
-    while lo < hi:
-        mid = (lo + hi) // 2
-        if x < a[mid]:
-            hi = mid
+def _zipper(m, outer, inner, want, zone):
+    """Triangulate the ring between two loops, each a list of (angle, id)
+    sorted by angle about a common centre: len(outer)+len(inner) tris."""
+    no, ni = len(outer), len(inner)
+    i = j = 0
+    for _ in range(no + ni):
+        oa = outer[(i + 1) % no][0] + TWO_PI * ((i + 1) // no)
+        ia = inner[(j + 1) % ni][0] + TWO_PI * ((j + 1) // ni)
+        if i < no and (j >= ni or oa <= ia):
+            m.tri(outer[i % no][1], outer[(i + 1) % no][1], inner[j % ni][1], want, zone)
+            i += 1
         else:
-            lo = mid + 1
-    return lo
+            m.tri(inner[j % ni][1], inner[(j + 1) % ni][1], outer[i % no][1], want, zone)
+            j += 1
 
 
-def _bisect_left(a, x):
-    lo, hi = 0, len(a)
-    while lo < hi:
-        mid = (lo + hi) // 2
-        if a[mid] < x:
-            lo = mid + 1
-        else:
-            hi = mid
-    return lo
+def _by_angle(pts, centre):
+    """[(angle, id)] about centre, ascending, for [((x, y), id)]."""
+    out = [(math.atan2(p[1] - centre[1], p[0] - centre[0]), i) for p, i in pts]
+    out.sort()
+    return out
 
 
 # =============================================================================
-# CELLS -- placement, then the cut, the reveals and the glowing box
+# CELLS -- placement, the screen layout, then the cut, reveals, screen and box
 # =============================================================================
 
 def _gap_field(s, z):
@@ -640,21 +725,71 @@ def _gap_field(s, z):
     return GAP_MIN + (GAP_MAX - GAP_MIN) * min(1.0, max(0.0, n))
 
 
-def _place_cells(r):
-    """Seeded dart throwing in (arc, z) on the pit faces; returns cell dicts."""
+def _taper(kind, u):
+    if kind == "up":
+        return 1.0 - 0.45 * u
+    if kind == "down":
+        return 0.55 + 0.45 * u
+    if kind == "mid":
+        return 0.65 + 0.35 * math.sin(math.pi * u)
+    return 1.0
+
+
+def _layout(r, h):
+    """The screen: levels, slot lanes, and each slot's wavy left/right edge
+    per level (held at its foot/head outside its own span). Returns the
+    slots, the levels and the screen width."""
+    n = max(5, min(9, int(round(5 + 4.0 * (h - CELL_H[0]) / (CELL_H[1] - CELL_H[0]) + r.sf() * 0.8))))
+    y1 = SILL[0] + r.f() * (SILL[1] - SILL[0])
+    y2 = h - (LINTEL[0] + r.f() * (LINTEL[1] - LINTEL[0]))
+    step = (y2 - y1) / (NL - 3)
+    levels = [0.0, y1] + [y1 + step * (i + 1) + r.sf() * 0.08 * step for i in range(NL - 4)] + [y2, h]
+    x = SIDE_M[0] + r.f() * (SIDE_M[1] - SIDE_M[0])
+    slots = []
+    for k in range(n):
+        hw = SLOT_HW[0] + r.f() * (SLOT_HW[1] - SLOT_HW[0])
+        lean = r.sf() * SLOT_LEAN
+        kind = r.pick(["none", "up", "up", "down", "mid"])
+        lane = 2.0 * hw + abs(lean) + 2.0 * SLOT_WAVE
+        b = 1 if r.f() < 0.8 else 2
+        t = NL - 2 if r.f() < 0.75 else NL - 3
+        mid = x + 0.5 * lane
+        L, R = [0.0] * NL, [0.0] * NL
+        for j in range(b, t + 1):
+            u = (j - b) / float(t - b)
+            c = mid + lean * (u - 0.5) + r.sf() * SLOT_WAVE
+            hwj = hw * _taper(kind, u) * (1.0 + r.sf() * 0.15)
+            L[j], R[j] = max(x, c - hwj), min(x + lane, c + hwj)
+            if R[j] - L[j] < 0.10:
+                L[j], R[j] = c - 0.05, c + 0.05
+        for j in range(NL):
+            if j < b:
+                L[j], R[j] = L[b], R[b]
+            elif j > t:
+                L[j], R[j] = L[t], R[t]
+        slots.append({"L": L, "R": R, "b": b, "t": t})
+        x += lane + (BAR_W[0] + r.f() * (BAR_W[1] - BAR_W[0]) if k < n - 1 else 0.0)
+    w = x + SIDE_M[0] + r.f() * (SIDE_M[1] - SIDE_M[0])
+    return slots, levels, w
+
+
+def _place_cells(r, pit_wall, shaft):
+    """Seeded dart throwing in (arc, z): uniform density from the courtyard
+    up to UNIFORM_TOP, thinning above; a clear band under the gallery."""
     circ = TWO_PI * INNER_R
     cells = []
 
     def throw(z_of):
         h = CELL_H[0] + (CELL_H[1] - CELL_H[0]) * r.f() ** 0.9
-        n = max(4, min(7, int(round(2.2 + 0.9 * h + r.sf() * 0.6))))
-        slots = [SLOT_W[0] + r.f() * (SLOT_W[1] - SLOT_W[0]) for _ in range(n)]
-        bars = [BAR_W[0] + r.f() * (BAR_W[1] - BAR_W[0]) for _ in range(n - 1)]
-        w = sum(slots) + sum(bars)
+        slots, levels, w = _layout(r, h)
         s = r.f() * circ
         z = z_of(h)
         depth = CELL_DEPTH[0] + r.f() * (CELL_DEPTH[1] - CELL_DEPTH[0])
         if z is None:
+            return False
+        wall = pit_wall if z < DECK_Z else shaft
+        ta = (s - 0.5 * w) / INNER_R
+        if not wall.clear(ta, ta + w / INNER_R, z - 0.5 * h, z + 0.5 * h):
             return False
         gap = _gap_field(s, z)
         for c in cells:
@@ -662,112 +797,134 @@ def _place_cells(r):
             ds = min(ds, circ - ds)
             if ds < 0.5 * (w + c["w"]) + gap and abs(z - c["z"]) < 0.5 * (h + c["h"]) + gap:
                 return False
-        cells.append({"s": s, "z": z, "w": w, "h": h, "slots": slots, "bars": bars,
+        cells.append({"s": s, "z": z, "w": w, "h": h, "slots": slots, "levels": levels,
                       "depth": depth})
         return True
 
-    def pit_z(h):
-        lo, hi = COURTYARD_Z + 1.5 + 0.5 * h, DECK_Z - 0.8 - 0.5 * h
-        return lo + r.f() * (hi - lo)
+    pit_lo, pit_hi = COURTYARD_Z + 1.5, DECK_Z - PIT_CLEAR
+    uni_lo, uni_hi = CEIL_Z + 1.0, UNIFORM_TOP
 
-    def shaft_z(h):
-        z = CEIL_Z + 0.8 + 0.5 * h - SHAFT_FALL * math.log(1.0 - r.f() * 0.999)
+    def pit_z(h):
+        return pit_lo + 0.5 * h + r.f() * (pit_hi - pit_lo - h)
+
+    def uni_z(h):
+        return uni_lo + 0.5 * h + r.f() * (uni_hi - uni_lo - h)
+
+    def tail_z(h):
+        z = uni_hi + 0.5 * h - TAIL_L * math.log(1.0 - r.f() * 0.999)
         return z if z + 0.5 * h < CELL_ZTOP else None
 
-    for want, z_of in ((N_PIT, pit_z), (N_SHAFT, shaft_z)):
+    n_pit = int(round(CELL_RHO * circ * (pit_hi - pit_lo)))
+    n_uni = int(round(CELL_RHO * circ * (uni_hi - uni_lo)))
+    n_tail = int(round(CELL_RHO * circ * TAIL_L * (1.0 - math.exp(-(CELL_ZTOP - uni_hi) / TAIL_L))))
+    for want, z_of in ((n_pit, pit_z), (n_uni, uni_z), (n_tail, tail_z)):
         got = tries = 0
-        while got < want and tries < 6000:
+        while got < want and tries < 8000:
             tries += 1
             got += throw(z_of)
     return cells
 
 
-def _slots(wall, c):
-    """[(ta, tb, ztop)] and the sill z for a cell, in wall (theta, z)."""
-    n = len(c["slots"])
-    z0 = c["z"] - 0.5 * c["h"]
-    t = wall._norm((c["s"] - 0.5 * c["w"]) / INNER_R)
-    out = []
-    for k in range(n):
-        x = (k - 0.5 * (n - 1)) / max(0.5 * (n - 1), 1e-9)
-        top = z0 + c["h"] * (1.0 - ARCH_DROP * x * x)
-        out.append((t, t + c["slots"][k] / INNER_R, top))
-        t += c["slots"][k] / INNER_R
-        if k < n - 1:
-            t += c["bars"][k] / INNER_R
-    return out, z0
-
-
 def _carve(m, wall, c):
-    """Cut the slots, then build the reveals and the glowing box behind."""
-    slots, z0 = _slots(wall, c)
-    for ta, tb, zt in slots:
-        wall.hole(ta, tb, z0, zt)
-    ta, tb = slots[0][0], slots[-1][1]
-    zt = max(sl[2] for sl in slots)
+    """Cut the mouth, step back to the screen, cut the slots, build the box."""
+    Wm, Hm = c["w"], c["h"]
+    za = c["z"] - 0.5 * Hm
+    zb = za + Hm
+    ta = wall._norm((c["s"] - 0.5 * Wm) / INNER_R)
+    tb = ta + Wm / INNER_R
+    wall.hole(ta, tb, za, zb)
     tc = 0.5 * (ta + tb)
     out = (math.cos(tc), math.sin(tc), 0.0)
-    pc = wall.P(tc, 0.5 * (z0 + zt))
-    d = c["depth"]
+    xs = (-math.sin(tc), math.cos(tc), 0.0)
+    tl, zl = wall.tbreaks(ta, tb), wall.zbreaks(za, zb)
+    edge = [(t, za) for t in tl] + [(t, zb) for t in tl] + [(ta, z) for z in zl] + [(tb, z) for z in zl]
+    pts = [wall.P(t, z) for t, z in edge]
+    cw = tuple(sum(p[k] for p in pts) / len(pts) for k in range(3))
+    D = max(_dot(_sub(p, cw), out) for p in pts) + SCREEN_BACK
+    s0 = _v3(_v3(_v3(cw, out, D), xs, -0.5 * Wm), UP, -0.5 * Hm)
+    sv = {}
 
-    def back(t, z):
-        p = wall.P(t, z)
-        return m.v(_v3(p, out, d + _dot(_sub(pc, p), out)))
+    def S(x, y):
+        key = (round(x, 6), round(y, 6))
+        if key not in sv:
+            sv[key] = m.v(_v3(_v3(s0, xs, x), UP, y))
+        return sv[key]
 
-    tl, zl = wall.tbreaks(ta, tb), wall.zbreaks(z0, zt)
+    def X(t):
+        return (t - ta) / (tb - ta) * Wm
+
+    # ---- reveals: the wall's mouth edge back to the screen edge -------------
     for i in range(len(tl) - 1):
-        m.quad(wall.W(tl[i], z0), wall.W(tl[i + 1], z0), back(tl[i + 1], z0), back(tl[i], z0),
-               UP, ZONE_GLOW)
-        m.quad(wall.W(tl[i], zt), wall.W(tl[i + 1], zt), back(tl[i + 1], zt), back(tl[i], zt),
-               DOWN, ZONE_GLOW)
-    for t, sgn in ((ta, 1.0), (tb, -1.0)):
-        side = (-math.sin(t) * sgn, math.cos(t) * sgn, 0.0)
-        for j in range(len(zl) - 1):
-            m.quad(wall.W(t, zl[j]), wall.W(t, zl[j + 1]), back(t, zl[j + 1]), back(t, zl[j]),
-                   side, ZONE_GLOW)
-    bk = [[back(t, z) for t in tl] for z in zl]
+        m.quad(wall.W(tl[i], za), wall.W(tl[i + 1], za), S(X(tl[i + 1]), 0.0), S(X(tl[i]), 0.0),
+               UP, ZONE_ROCK)
+        m.quad(wall.W(tl[i], zb), wall.W(tl[i + 1], zb), S(X(tl[i + 1]), Hm), S(X(tl[i]), Hm),
+               DOWN, ZONE_SHADE)
     for j in range(len(zl) - 1):
-        for i in range(len(tl) - 1):
-            m.quad(bk[j][i], bk[j][i + 1], bk[j + 1][i + 1], bk[j + 1][i],
-                   (-out[0], -out[1], 0.0), ZONE_GLOW)
+        y0, y1 = zl[j] - za, zl[j + 1] - za
+        m.quad(wall.W(ta, zl[j]), wall.W(ta, zl[j + 1]), S(0.0, y1), S(0.0, y0), xs, ZONE_SHADE)
+        m.quad(wall.W(tb, zl[j]), wall.W(tb, zl[j + 1]), S(Wm, y1), S(Wm, y0),
+               (-xs[0], -xs[1], 0.0), ZONE_SHADE)
+    outer = [((k[0], k[1]), i) for k, i in sv.items()]
 
-    if c["z"] < NEAR_Z:
-        for sa, sb, st in slots:
-            zl = wall.zbreaks(z0, st)
-            for t, sgn in ((sa, 1.0), (sb, -1.0)):
-                side = (-math.sin(t) * sgn, math.cos(t) * sgn, 0.0)
-                for j in range(len(zl) - 1):
-                    p0, p1 = wall.P(t, zl[j]), wall.P(t, zl[j + 1])
-                    m.quad(wall.W(t, zl[j]), wall.W(t, zl[j + 1]),
-                           m.v(_v3(p1, out, REVEAL)), m.v(_v3(p0, out, REVEAL)), side, ZONE_SHADE)
-    CELLS.append((pc, out, c["w"], c["h"]))
+    # ---- the screen: bars between slots, then the frame round them all -------
+    want = (-out[0], -out[1], 0.0)
+    slots, lv = c["slots"], c["levels"]
+    n = len(slots)
+    for j in range(1, NL - 2):
+        y0, y1 = lv[j], lv[j + 1]
+        for k, sl in enumerate(slots):
+            if not (sl["b"] <= j < sl["t"]):
+                m.quad(S(sl["L"][j], y0), S(sl["R"][j], y0), S(sl["R"][j + 1], y1),
+                       S(sl["L"][j + 1], y1), want, ZONE_ROCK)
+            if k < n - 1:
+                nx = slots[k + 1]
+                m.quad(S(sl["R"][j], y0), S(nx["L"][j], y0), S(nx["L"][j + 1], y1),
+                       S(sl["R"][j + 1], y1), want, ZONE_ROCK)
+    first, last = slots[0], slots[-1]
+    loop = []
+    for sl in slots:
+        loop += [(sl["L"][1], lv[1]), (sl["R"][1], lv[1])]
+    loop += [(last["R"][j], lv[j]) for j in range(2, NL - 2)]
+    for sl in reversed(slots):
+        loop += [(sl["R"][NL - 2], lv[NL - 2]), (sl["L"][NL - 2], lv[NL - 2])]
+    loop += [(first["L"][j], lv[j]) for j in range(NL - 3, 1, -1)]
+    inner = [(p, S(p[0], p[1])) for p in loop]
+    centre = (0.5 * Wm, 0.5 * Hm)
+    _zipper(m, _by_angle(outer, centre), _by_angle(inner, centre), want, ZONE_ROCK)
+
+    # ---- the box: five flat glowing faces behind the screen -----------------
+    e, d = BOX_EPS, c["depth"]
+    f00 = _v3(_v3(s0, xs, -e), UP, -e)
+    F = [m.v(f00), m.v(_v3(f00, xs, Wm + 2 * e)),
+         m.v(_v3(_v3(f00, xs, Wm + 2 * e), UP, Hm + 2 * e)), m.v(_v3(f00, UP, Hm + 2 * e))]
+    B = [m.v(_v3(m.verts[i], out, d)) for i in F]
+    m.quad(F[0], F[1], B[1], B[0], UP, ZONE_GLOW)
+    m.quad(F[3], F[2], B[2], B[3], DOWN, ZONE_GLOW)
+    m.quad(F[0], F[3], B[3], B[0], xs, ZONE_GLOW)
+    m.quad(F[1], F[2], B[2], B[1], (-xs[0], -xs[1], 0.0), ZONE_GLOW)
+    m.quad(B[0], B[1], B[2], B[3], want, ZONE_GLOW)
+    CELLS.append((cw, out, Wm, Hm))
 
 
-def _disc(m, rim, center_pt, levels, ang_sub, want, zone):
-    """A flat-ish disc from a jagged rim ring down to a true centre point, in
-    concentric bands of constant radial step -- not one giant pie slice fan.
-    The rim's own jag survives, scaled toward the centre; nothing reshaped.
-    """
-    n = len(rim)
-    rings = [rim]
-    for s in range(1, levels):
-        frac = 1.0 - s / float(levels)
-        rings.append([m.v(tuple(center_pt[k] + (m.verts[rim[i]][k] - center_pt[k]) * frac
-                                 for k in range(3)))
-                      for i in range(n)])
-    for s in range(levels - 1):
-        for i in range(n):
-            j = (i + 1) % n
-            _grid(m, rings[s][i], rings[s][j], rings[s + 1][j], rings[s + 1][i],
-                  want, zone, ang_sub, 1)
-    cid = m.v(center_pt)
-    last = rings[-1]
+def _disc(m, wall, z, want, zone):
+    """A flat-ish disc under a wall's foot ring: one band from the wall's own
+    rim vertices (all of them, so the seam is shared) to a half-radius ring,
+    then a fan to the true centre."""
+    n = len(wall.ang)
+    nu = wall.nu
+    inner = [m.v(tuple(0.5 * (m.verts[wall.rings[0][i]][k] + (0.0, 0.0, z)[k]) for k in range(3)))
+             for i in range(n)]
     for i in range(n):
         j = (i + 1) % n
-        m.tri(cid, last[i], last[j], want, zone)
+        rim = [wall.W(wall.cols[i * nu + su], z) for su in range(nu + 1)]
+        for su in range(nu):
+            m.tri(inner[i], rim[su], rim[su + 1], want, zone)
+        m.tri(inner[i], rim[nu], inner[j], want, zone)
+    cid = m.v((0.0, 0.0, z))
+    for i in range(n):
+        m.tri(cid, inner[i], inner[(i + 1) % n], want, zone)
 
 
-COURTYARD_LEVELS = _nv(INNER_R, cap=FAR_CAP)
 
 
 # =============================================================================
@@ -779,8 +936,8 @@ def _rock(r):
     ang = [2.0 * math.pi * (i + r.sf() * ANG_JAG) / SIDES for i in range(SIDES)]
 
     # ---- pit wall: courtyard up to the deck lip. Rings are level (their
-    # radius steps, like cleaved rock) so a cell's slots are rectangles in
-    # (theta, z) and cut cleanly across facet boundaries.
+    # radius steps, like cleaved rock) so a cell mouth is a rectangle in
+    # (theta, z) and cuts cleanly across facet boundaries.
     pit_z = [COURTYARD_Z] + sorted(PIT_RINGS_Z) + [DECK_Z]
     npit = len(pit_z)
     pbias = _held(r, npit, PIT_JAG, one_sided=False)
@@ -800,9 +957,7 @@ def _rock(r):
     pit_wall = _Wall(m, ang, pit_z, pit, PIT_SUB, PIT_CAP, pit_zone)
 
     # ---- courtyard floor: the tower's foot lands on it ----------------------
-    # Nobody ever stands on it (the KillVolume converts anything that falls
-    # this far); coarse FAR_CAP bands, no angular split.
-    _disc(m, pit[0], (0.0, 0.0, COURTYARD_Z), COURTYARD_LEVELS, 1, UP, ZONE_SHADE)
+    _disc(m, pit_wall, COURTYARD_Z, UP, ZONE_SHADE)
 
     # ---- outer wall: deck up to the gallery ceiling ------------------------
     wall_z = [DECK_Z] + WALL_RINGS_Z + [CEIL_Z]
@@ -827,13 +982,6 @@ def _rock(r):
         m.band(wall[k], wall[k + 1], ang, True, wall_zone(k),
                nu=ANG_SUB, nv=_nv(wall_z[k + 1] - wall_z[k]))
 
-    # ---- the deck: one flat dressed-stone annulus, lip to wall foot --------
-    deck_nv = _nv(OUTER_R - INNER_R)
-    lip = pit[npit - 1]
-    for i in range(SIDES):
-        j = (i + 1) % SIDES
-        _grid(m, lip[i], lip[j], wall[0][j], wall[0][i], UP, ZONE_ROCK, ANG_SUB, deck_nv)
-
     # ---- upper pit wall: ceiling lip up to the rim ---------------------------
     up_z = [CEIL_Z] + UPPER_RINGS_Z + [RIM_Z]
     nup = len(up_z)
@@ -850,31 +998,28 @@ def _rock(r):
         b = 0.5 * (ubias[i][k] + ubias[i][k + 1])
         return ZONE_SHADE if b > SHADE_T * PIT_JAG else ZONE_ROCK
 
-    near_z = [z for z in up_z if z <= SHAFT_NEAR_Z]
-    far_z = [z for z in up_z if z >= SHAFT_NEAR_Z]
-    kn = len(near_z)
-    shaft_near = _Wall(m, ang, near_z, upper[:kn], SHAFT_SUB, SHAFT_CAP, upper_zone)
-    shaft_far = _Wall(m, ang, far_z, upper[kn - 1:], 1, FAR_CAP,
-                      lambda k, i: upper_zone(k + kn - 1, i))
+    shaft = _Wall(m, ang, up_z, upper, 1, FAR_CAP, upper_zone)
 
-    # ---- the cells ------------------------------------------------------------
-    for c in _place_cells(_Rng(CELL_SEED)):
-        z = c["z"]
-        if z < DECK_Z:
-            _carve(m, pit_wall, c)
-        elif z < SHAFT_NEAR_Z:
-            _carve(m, shaft_near, c)
-        else:
-            _carve(m, shaft_far, c)
-    pit_wall.emit()
-    shaft_near.emit()
-    shaft_far.emit()
-
-    # ---- the ceiling: flat, faces DOWN, flush with the lip -----------------
+    # ---- deck and ceiling: flat annuli sharing the lips' vertices ------------
+    deck_nv = _nv(OUTER_R - INNER_R)
     for i in range(SIDES):
         j = (i + 1) % SIDES
+        a = ang[i]
+        b = ang[i + 1] if i + 1 < SIDES else ang[0] + TWO_PI
+        ts = [a + (b - a) * su / ANG_SUB for su in range(ANG_SUB + 1)]
+        for t in ts[1:-1]:
+            pit_wall.add_xt(len(pit_wall.rows) - 1, t)
+            shaft.add_xt(0, t)
+        _grid(m, pit[npit - 1][i], pit[npit - 1][j], wall[0][j], wall[0][i], UP, ZONE_ROCK,
+              ANG_SUB, deck_nv, edge_ab=[pit_wall.W(t, DECK_Z) for t in ts])
         _grid(m, upper[0][i], upper[0][j], wall[nwall - 1][j], wall[nwall - 1][i],
-              (0.0, 0.0, -1.0), ZONE_ROCK, ANG_SUB, deck_nv)
+              (0.0, 0.0, -1.0), ZONE_ROCK, ANG_SUB, deck_nv, edge_ab=[shaft.W(t, CEIL_Z) for t in ts])
+
+    # ---- the cells, then the faces they were cut from -------------------------
+    for c in _place_cells(_Rng(CELL_SEED), pit_wall, shaft):
+        _carve(m, pit_wall if c["z"] < DECK_Z else shaft, c)
+    pit_wall.emit()
+    shaft.emit()
 
     # ---- hell's ground above the rim ---------------------------------------
     prev = upper[nup - 1]
@@ -1004,8 +1149,9 @@ def _deck_render(spec, objects):
     if CELLS:
         cm, out, w, h = max([c for c in CELLS if c[0][2] < DECK_Z] or CELLS,
                             key=lambda c: c[3])
-        eye = _v3(_v3(cm, out, -2.2 * h), UP, 0.35 * h)
+        eye = _v3(_v3(_v3(cm, out, -2.2 * h), UP, 0.35 * h), (-out[1], out[0], 0.0), 0.6 * h)
         shot("cell", eye, cm, 35.0, (1000, 800))
+        shot("mouth", _v3(cm, out, -1.7 * h), cm, 40.0, (1000, 800))
 
     for ob in (cam, target, key):
         bpy.data.objects.remove(ob, do_unlink=True)
@@ -1031,8 +1177,9 @@ def build():
     coll_ob.hide_render = True
     print("MDL STATS visual_tris=%d collision_tris=%d"
           % (len(ob.data.polygons), len(coll_ob.data.polygons)))
-    print("MDL STATS cells=%d pit=%d above200=%d top=%.0f"
+    print("MDL STATS cells=%d pit=%d pit_top=%.1f uniform_to=%.0f above200=%d top=%.0f"
           % (len(CELLS), sum(1 for c in CELLS if c[0][2] < DECK_Z),
+             max(c[0][2] + 0.5 * c[3] for c in CELLS if c[0][2] < DECK_Z), UNIFORM_TOP,
              sum(1 for c in CELLS if c[0][2] > 200.0), max(c[0][2] for c in CELLS)))
     print("MDL STATS deck r=%.1f..%.1f y=%.2f courtyard_y=%.2f ceiling_y=%.2f rim_y=%.1f ground_r=%.0f"
           % (INNER_R, OUTER_R, DECK_Z, COURTYARD_Z, CEIL_Z, RIM_Z, GROUND_RINGS[-1][0]))

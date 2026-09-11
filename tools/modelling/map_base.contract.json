@@ -6,5 +6,5 @@
     "MapBaseCollision/CollisionShape3D"
   ],
   "surfaces": 1,
-  "max_tris": 20000
+  "max_tris": 48000
 }
