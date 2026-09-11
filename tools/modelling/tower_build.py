@@ -23,23 +23,14 @@ And then, after a rebuild that took that last note as licence to redesign:
 "the design of the tower was perfect, go back, and simply make the part that
 looks like the watch tower functional. you changed it massivly."
 
-THAT LAST NOTE IS THE MOST IMPORTANT LINE IN THIS FILE
--------------------------------------------------------
-THE EXTERIOR IS SIGNED OFF AND IS NOT A DESIGN PROBLEM ANY MORE. Every number
-in RING_PROFILE and CH_PROFILE, CH_OPEN_DEPTH, CH_PIER_PROUD, the seeds, and
-the RNG draw order in `_column` and `_chamber` reproduce the approved model
-exactly. The interior was CARVED OUT of that building; the building was not
-redesigned around the interior. If a future change makes the outside look
-different, it is wrong, however much better it looks.
-
-Two mistakes are worth stating so they are not made a third time:
-  * A rebuild that "improved" the chamber -- eleven splayed embrasures, a 12 m
-    interior, thinner walls, a new roof -- was a different building and was
-    thrown away. Functionality is added INSIDE the approved envelope.
-  * Every jitter array is a walk of a seeded LCG, so its values depend on how
-    many rings it walks and in what order the draws happen. JITTER_RINGS
-    exists solely to freeze the column's walk at its old length. Do not tidy
-    it away, and do not reorder the draws in either builder.
+WHAT IS FROZEN
+--------------
+The COLUMN (RING_PROFILE, `_column`, its RNG walk, JITTER_RINGS) reproduces
+the approved silhouette exactly and is not to be retuned. The DRUM was re-cut
+after Ryan played it: "the columns look like columns holding up a top, not a
+structure carved directly out of the rock". Its envelope (height, radius,
+eight openings, RM_RIN) is kept; its surface is one mass with holes cut in
+it, not piers under a lintel.
 
 WHAT WAS ADDED, AND NOTHING ELSE WAS
 -------------------------------------
@@ -48,10 +39,7 @@ WHAT WAS ADDED, AND NOTHING ELSE WAS
   * The eight recesses opened right THROUGH the wall. Each was a V-shaped
     notch between two piers; the outer faces either side of it are now cut
     back to their midpoints and the notch's bottom is a genuine void, with
-    reveal faces lining the 0.4 m of stone left at the throat. From outside
-    the notch still reads as a dark slot in the same place at the same size --
-    it was already the darkest thing on the model -- and the ember faces
-    flanking it are untouched.
+    reveal faces lining the stone left at the throat (never under THROAT_MIN).
 
 INSIDE-FACING GEOMETRY -- THE THING THAT BREAKS IF YOU ARE CASUAL ABOUT IT
 --------------------------------------------------------------------------
@@ -189,7 +177,7 @@ DRIFT       = 1.30     # a column whose rings are all concentric reads as
 DRIFT_FADE  = 0.70     # turned however much its radius varies -- the swells
                        # have to be ONE-SIDED to read as rock
 
-# ---- THE DRUM -- SIGNED OFF, DO NOT RETUNE ---------------------------------
+# ---- THE DRUM ---------------------------------------------------------------
 # Sixteen sides; eight openings alternating with eight piers. The plinth flares
 # out from inside the neck in a fifth of the height a first pass took, so the
 # underside is a flat soffit rather than a bulge -- the bulge was what made the
@@ -211,13 +199,24 @@ CH_PROFILE = [
 ]
 CH_OPEN_RINGS = (4, 5)   # indices into CH_PROFILE: springing .. head
 CH_OPEN_DEPTH = 0.120    # opening vertices pull IN by this fraction of radius
-CH_PIER_PROUD = 0.028    # pier vertices push OUT, so the step is ~3.1 m. The
-                         # two together make the wall a sixteen-point zigzag:
-                         # eight outward piers and eight inward notches, and
-                         # every face is a ramp between one of each. There is
-                         # no flat "window" panel and there never was -- which
-                         # is exactly why hollowing it needs the half-face cut
-                         # in `_chamber` rather than deleting faces.
+CH_PIER_PROUD = 0.028    # pier vertices push OUT. The two make the wall a
+                         # sixteen-point zigzag of ramps, no flat panel, which
+                         # is why hollowing it needs the face cut in `_chamber`.
+OPEN_TAPER = {-2: 0.20, -1: 0.55, 0: 1.0, 1: 0.55, 2: 0.20}
+                         # how much of that zigzag each ring carries, by its
+                         # distance from the open band: the piers flare into
+                         # the sill and lintel instead of standing on them.
+OPEN_ZVAR  = 0.40        # each opening's sill and head rise or fall by up to this
+CUT_VAR    = 0.10        # each jamb's RM_CUT varies by this
+CUT_LEAN   = 0.06        # ...and its top cut differs from its bottom by this
+CUT_ZVAR   = 0.20        # each cut point's own rise or fall
+JAMB_KINK  = 0.09        # a mid-jamb vertex steps this fraction of the ramp
+                         # in or out: the hole's edge is a broken line
+LIP_RINGS  = (7, 8)      # the brow: ragged, not a cornice
+LIP_JAG    = 0.090
+Z_FOLD     = 0.35        # z jitter never exceeds this fraction of the gap to
+                         # the next ring, so no ring folds through another
+THROAT_MIN = 0.30        # stone left between room and notch, minimum
 CH_JAG     = 0.050       # dressed stone is nearly true. NOT exactly true: at
 CH_ZJAG    = 0.70        # zero this is CAD and a thousand years have not
 CH_ANG_JAG = 0.35        # happened to it.
@@ -589,6 +588,10 @@ class _Mesh(object):
     def tri(self, a, b, c, want, zone):
         self._emit([a, b, c], want, zone)
 
+    def fan(self, idx, want, zone):
+        for k in range(1, len(idx) - 1):
+            self._emit([idx[0], idx[k], idx[k + 1]], want, zone)
+
     def object(self, name):
         return mdl.mesh(name, self.verts, self.faces)
 
@@ -603,26 +606,31 @@ BAR_H     = 1.25   # solid parapet: stone from the floor up to the waist
 BAR_TOP   = 1.05   # above the room floor -- lowered per Ryan's note, no longer
                    # above the guard's 1.11 m jump
 BAR_EDGE_JAG = 0.03   # top edge jitter -- a hand-dressed line, not a wobble
+BAR_BITE  = 0.15   # each end runs this far past its jamb into the pier
+BAR_SINK  = 0.60   # the visual bar starts this far below the floor, buried
+                   # under the ragged throat sill, so nothing shows beneath it
 
 
-def _bar(m, ang0, span, z0, z1, depth, zone_outer, zone_inner, r=None):
-    """The parapet across one opening: the wall itself continuing up, from
-    RM_RIN (flush with the room wall) out to the notch's own outer face
-    (flush with the opening's sill), not a bar in front of either.
+def _bar(m, a0, a1, z0, z1, depth, zone_outer, zone_inner, r=None):
+    """The parapet across one opening: RM_RIN out to `depth`, its ends BAR_BITE
+    past the jambs along the opening's chord so both are buried in pier stone.
 
-    zone_outer is the throat-facing skin, zone_inner everything else. With
-    an `_Rng` passed as `r`, the top edge gets a small BAR_EDGE_JAG rise/fall
-    plus the drum's own CH_JAG depth jitter, so it is not a CAD line without
-    wobbling the guard's sightline; omitted (the collider) it stays a flat
-    box of the same footprint.
+    With an `_Rng` as `r` the top edge takes BAR_EDGE_JAG and CH_JAG; without
+    (the collider) it is a flat box of the same footprint.
     """
-    a0, a1 = ang0, ang0 + span
-    out = _radial(a0, a1)
-    left = (RM_RIN * math.cos(a0), RM_RIN * math.sin(a0))
-    right = (RM_RIN * math.cos(a1), RM_RIN * math.sin(a1))
+    span = (a1 - a0) % (2.0 * math.pi)
+    out = _radial(a0, a0 + span)
+    l = (RM_RIN * math.cos(a0), RM_RIN * math.sin(a0))
+    rt = (RM_RIN * math.cos(a1), RM_RIN * math.sin(a1))
+    tx, ty = rt[0] - l[0], rt[1] - l[1]
+    tl = math.hypot(tx, ty)
+    tx, ty = tx / tl, ty / tl
+    left = (l[0] - tx * BAR_BITE, l[1] - ty * BAR_BITE)
+    right = (rt[0] + tx * BAR_BITE, rt[1] + ty * BAR_BITE)
 
     def pt(p, d, z):
-        return (p[0] + out[0] * d, p[1] + out[1] * d, z)
+        a = math.atan2(p[1], p[0])       # each end goes out on its OWN radial
+        return (p[0] + math.cos(a) * d, p[1] + math.sin(a) * d, z)
 
     def top_z():
         return z1 + r.sf() * BAR_EDGE_JAG if r else z1
@@ -640,10 +648,6 @@ def _bar(m, ang0, span, z0, z1, depth, zone_outer, zone_inner, r=None):
     m.quad(lo0, lo1, ro1, ro0, (out[0], out[1], 0.0), zone_outer)    # throat-facing
     m.quad(li1, ri1, ro1, lo1, (0.0, 0.0, 1.0), zone_inner)          # top
     m.quad(li0, lo0, ro0, ri0, (0.0, 0.0, -1.0), zone_inner)         # bottom
-
-    tx, ty = right[0] - left[0], right[1] - left[1]
-    tl = math.hypot(tx, ty)
-    tx, ty = tx / tl, ty / tl
     m.quad(li0, li1, lo1, lo0, (-tx, -ty, 0.0), zone_inner)          # left end
     m.quad(ri0, ro0, ro1, ri1, (tx, ty, 0.0), zone_inner)            # right end
 
@@ -757,13 +761,8 @@ def _column(r):
 def _chamber(r):
     n = CH_RINGS
     k0, k1 = CH_OPEN_RINGS
-    # Per-pier angular width: each of the 8 piers (odd i) draws its own
-    # +/-PIER_WIDTH_VAR factor, mean-centred to exactly 1.0 so the ring still
-    # sums to a full circle at the SAME total the uniform layout used -- the
-    # openings either side of a pier absorb its width without moving the
-    # average clear width. The two segments flanking a pier vertex both carry
-    # its factor, since each is half notch-void, half pier-stone (see the
-    # RM_CUT comment below): widen the pier and both segments grow with it.
+    # Per-pier angular width, mean-centred so the ring still closes at the
+    # same total. Both segments flanking a pier vertex carry its factor.
     npier = CH_SIDES // 2
     pier_w = [1.0 + r.sf() * PIER_WIDTH_VAR for _ in range(npier)]
     mean_w = sum(pier_w) / npier
@@ -777,69 +776,87 @@ def _chamber(r):
         acc += seg_w[i]
     ang = [base_ang[i] + r.sf() * CH_ANG_JAG * (2.0 * math.pi / CH_SIDES)
            for i in range(CH_SIDES)]
-    # Pier faces (odd i) read hand-cut: PIER_JAG/PIER_ZJAG are stronger than
-    # the notches' own CH_JAG/CH_ZJAG, so no two piers dress the same.
-    jit = [[r.sf() * (PIER_JAG if i % 2 else CH_JAG) for _ in range(n)]
-           for i in range(CH_SIDES)]
-    zj = [[0.0 if k in (0, n - 1) else
-           r.sf() * (PIER_ZJAG if i % 2 else CH_ZJAG) for k in range(n)]
-          for i in range(CH_SIDES)]
+    jit = [[r.sf() * (LIP_JAG if k in LIP_RINGS else PIER_JAG if i % 2 else CH_JAG)
+            for k in range(n)] for i in range(CH_SIDES)]
+    zs = [height_of(t) for t, _ in CH_PROFILE]
 
-    # Alternate vertices are openings. Only the rings between sill and lintel
-    # are touched, so those two courses stay true circles.
+    def zamp(i, k):
+        if k in (0, n - 1) or (i % 2 == 0 and k in (k0, k1)):
+            return 0.0           # notch vertices on the open rings take OPEN_ZVAR
+        cap = Z_FOLD * min(zs[k] - zs[k - 1], zs[k + 1] - zs[k])
+        return min(PIER_ZJAG if i % 2 else CH_ZJAG, cap)
+    zj = [[r.sf() * zamp(i, k) for k in range(n)] for i in range(CH_SIDES)]
+    # Per opening: sill and head rise/fall. Per jamb (one per face of the open
+    # band): where the cut falls, its lean, its own z, and the mid-height kink.
+    sill_dz = [r.sf() * OPEN_ZVAR for _ in range(npier)]
+    head_dz = [r.sf() * OPEN_ZVAR for _ in range(npier)]
+    u_lo = [RM_CUT + r.sf() * CUT_VAR for _ in range(CH_SIDES)]
+    u_hi = [min(0.92, max(0.50, u_lo[i] + r.sf() * CUT_LEAN)) for i in range(CH_SIDES)]
+    cut_dz = [(r.sf() * CUT_ZVAR, r.sf() * CUT_ZVAR) for _ in range(CH_SIDES)]
+    kink = [(0.5 + r.sf() * 0.12, r.sf() * JAMB_KINK) for _ in range(CH_SIDES)]
+
     def offset(i, k):
-        if not (k0 <= k <= k1):
-            return 0.0
-        return CH_OPEN_DEPTH if i % 2 == 0 else -CH_PIER_PROUD
+        f = OPEN_TAPER.get(k - k0 if k <= k0 else k - k1, 0.0)
+        return f * (CH_OPEN_DEPTH if i % 2 == 0 else -CH_PIER_PROUD)
 
     m = _Mesh()
     rings = []
     for k, (t, rp) in enumerate(CH_PROFILE):
-        z = height_of(t)
         row = []
         for i in range(CH_SIDES):
             rr = rp * (1.0 + jit[i][k] - offset(i, k))
-            row.append(m.v((rr * math.cos(ang[i]), rr * math.sin(ang[i]),
-                            z + zj[i][k])))
+            z = zs[k] + zj[i][k]
+            if i % 2 == 0 and k in (k0, k1):
+                rr = max(rr, RM_RIN + THROAT_MIN)
+                z += sill_dz[i // 2] if k == k0 else head_dz[i // 2]
+            row.append(m.v((rr * math.cos(ang[i]), rr * math.sin(ang[i]), z)))
         rings.append(row)
 
-    # ---- outer skin --------------------------------------------------------
-    # Identical to the approved model everywhere except the one band that holds
-    # the openings, where each ramp face is cut back to its midpoint so the
-    # bottom of every notch becomes a void. The half that survives is the half
-    # against the pier, which is the half you actually see; the half removed
-    # was the deepest, darkest part of the notch and now reads as the hole it
-    # always looked like.
+    # ---- the jambs -----------------------------------------------------------
+    # Each face of the open band is a ramp with a notch at one end and a pier
+    # at the other; it is cut u of the way along FROM THE NOTCH (u for an even
+    # face, 1 - u for an odd one, where the notch is at the far end). The cut
+    # is three vertices -- bottom, kinked middle, top -- shared by the
+    # surviving pier face, the reveal, and the sill and lintel faces below and
+    # above, so the hole's edge is one broken line with nothing behind it.
     cut = {}
+    for i in range(CH_SIDES):
+        j = (i + 1) % CH_SIDES
+        even = i % 2 == 0
+        lo = m.lerp(rings[k0][i], rings[k0][j], u_lo[i] if even else 1.0 - u_lo[i])
+        hi = m.lerp(rings[k1][i], rings[k1][j], u_hi[i] if even else 1.0 - u_hi[i])
+        for vid, dz in ((lo, cut_dz[i][0]), (hi, cut_dz[i][1])):
+            x, y, z = m.verts[vid]
+            m.verts[vid] = (x, y, z + dz)
+        a, b = m.verts[lo], m.verts[hi]
+        p0, p1 = m.verts[rings[k0][i]], m.verts[rings[k0][j]]
+        q0, q1 = m.verts[rings[k1][i]], m.verts[rings[k1][j]]
+        hf, kk = kink[i]
+        mid = m.v(tuple(a[c] + (b[c] - a[c]) * hf
+                        + 0.5 * ((p1[c] - p0[c]) + (q1[c] - q0[c])) * kk
+                        for c in range(3)))
+        cut[i] = (lo, mid, hi)
+
+    # ---- outer skin ----------------------------------------------------------
     for k in range(n - 1):
-        band_is_open = (k0 <= k and k + 1 <= k1)
         for i in range(CH_SIDES):
             j = (i + 1) % CH_SIDES
-            zone = ZONE_EMBER if (i % 2 == 0 and band_is_open) else ZONE_CARVE
-            # ang[j] can wrap past 2*pi at the seam (i=CH_SIDES-1); go via the
-            # positive delta rather than averaging ang[i] with a small ang[j].
+            even = i % 2 == 0
+            # ang[j] can wrap past 2*pi at the seam; go via the positive delta.
             want = _radial(ang[i], ang[i] + (ang[j] - ang[i]) % (2.0 * math.pi))
-            if not band_is_open:
-                m.quad(rings[k][i], rings[k][j], rings[k + 1][j], rings[k + 1][i],
-                       want, zone)
-                continue
-            # Exactly one end of this face is a notch vertex and the other is
-            # a pier. Cut RM_CUT of the way ALONG THE FACE FROM THE NOTCH --
-            # which is RM_CUT for an even face and 1 - RM_CUT for an odd one,
-            # because the notch is at the far end there. Getting that
-            # asymmetry wrong is silent and expensive: keeping RM_CUT from the
-            # wrong end leaves RM_CUT + (1 - RM_CUT) of face removed either
-            # side of every notch, so the breach is exactly one side wide
-            # WHATEVER RM_CUT is set to, and turning the dial changes nothing
-            # in the render. That is what happened on the first hollowing.
-            u = RM_CUT if i % 2 == 0 else 1.0 - RM_CUT
-            lo = m.lerp(rings[k][i], rings[k][j], u)
-            hi = m.lerp(rings[k + 1][i], rings[k + 1][j], u)
-            cut[i] = (lo, hi)
-            if i % 2 == 0:               # vertex i is the notch, j is the pier
-                m.quad(lo, rings[k][j], rings[k + 1][j], hi, want, zone)
-            else:                        # vertex i is the pier, j is the notch
-                m.quad(rings[k][i], lo, hi, rings[k + 1][i], want, zone)
+            a, b, c, d = rings[k][i], rings[k][j], rings[k + 1][j], rings[k + 1][i]
+            if k == k0:
+                lo, mid, hi = cut[i]
+                if even:                      # i is the notch, j the pier
+                    m.fan([mid, lo, b, c, hi], want, ZONE_EMBER)
+                else:                         # i is the pier, j the notch
+                    m.fan([mid, hi, d, a, lo], want, ZONE_CARVE)
+            elif k == k0 - 1:                 # sill: the cut sits on its top edge
+                m.fan([cut[i][0], d, a, b, c], want, ZONE_CARVE)
+            elif k == k1:                     # lintel: ...on its bottom edge
+                m.fan([cut[i][2], b, c, d, a], want, ZONE_CARVE)
+            else:
+                m.quad(a, b, c, d, want, ZONE_CARVE)
 
     # ---- caps --------------------------------------------------------------
     top, bot = rings[n - 1], rings[0]
@@ -848,22 +865,15 @@ def _chamber(r):
         m.tri(bot[0], bot[i], bot[i + 1], (0.0, 0.0, -1.0), ZONE_SHADE)
 
     # ---- inner shell -------------------------------------------------------
-    # ITS VERTICES SIT ON THE CUT BEARINGS, not on a regular polygon. That is
-    # what keeps the throat honest at any RM_CUT: the reveal then runs straight
-    # out along a radius instead of splaying one way or the other, and the
-    # opening is the same width inside as out. An earlier version used a plain
-    # sixteen-gon at the midpoint angles, which was exactly right at RM_CUT =
-    # 0.50 and wrong everywhere else -- widen the piers' gaps past that and the
-    # throat starts CONVERGING inward, which quietly narrows the guard's field
-    # of fire while looking fine from outside.
+    # Its vertices sit on the cut bearings, so each reveal runs straight out
+    # along a radius and an opening is the same width inside as out.
     iang = []
     for i in range(0, CH_SIDES, 2):
         for vid in (cut[(i - 1) % CH_SIDES][0], cut[i][0]):
             x, y, _z = m.verts[vid]
             iang.append(math.atan2(y, x))
-    # Index 2k is the left edge of notch 2k and 2k+1 its right edge, so the
-    # span between an even index and the next is a HOLE and the span between an
-    # odd index and the next is a PIER.
+    # Index 2k is the left edge of notch 2k and 2k+1 its right edge: the span
+    # from an even index is a HOLE, from an odd index a PIER.
     nin = len(iang)
     levels = [0.0, height_of(CH_PROFILE[k0][0]), height_of(CH_PROFILE[k1][0]),
               ROOM_CEIL]
@@ -886,14 +896,12 @@ def _chamber(r):
               ZONE_SHADE)               # ceiling
 
     # ---- the throats -------------------------------------------------------
-    # The stone left between the inner shell's hole and the outer notch. Five
-    # sided top and bottom -- the outer rim is a V through the notch vertex,
-    # the inner rim a straight chord -- so each is fanned into three triangles,
-    # and the two jambs are quads.
+    # The stone between the inner hole and the outer notch: a V-rimmed sill
+    # and head fanned into three triangles each, and a kinked reveal per jamb.
     for k, i in enumerate(range(0, CH_SIDES, 2)):
-        cl_lo, cl_hi = cut[(i - 1) % CH_SIDES]     # cut point on the left ramp
-        cr_lo, cr_hi = cut[i]                      # ...and on the right ramp
-        p_lo, p_hi = rings[k0][i], rings[k1][i]    # the notch vertex itself
+        cl_lo, cl_mid, cl_hi = cut[(i - 1) % CH_SIDES]   # left ramp
+        cr_lo, cr_mid, cr_hi = cut[i]                    # right ramp
+        p_lo, p_hi = rings[k0][i], rings[k1][i]          # the notch vertex
         il_lo, ir_lo = inner[1][2 * k], inner[1][2 * k + 1]
         il_hi, ir_hi = inner[2][2 * k], inner[2][2 * k + 1]
         for (il, ir, cl, cr, pv, want) in (
@@ -903,21 +911,19 @@ def _chamber(r):
             m.tri(il, cr, pv, want, ZONE_SHADE)
             m.tri(il, pv, cl, want, ZONE_SHADE)
         a_l, a_r = iang[2 * k], iang[2 * k + 1]
-        m.quad(il_lo, il_hi, cl_hi, cl_lo,
-               (-math.sin(a_l), math.cos(a_l), 0.0), ZONE_SHADE)
-        m.quad(ir_lo, ir_hi, cr_hi, cr_lo,
-               (math.sin(a_r), -math.cos(a_r), 0.0), ZONE_SHADE)
+        m.fan([cl_mid, cl_lo, il_lo, il_hi, cl_hi],
+              (-math.sin(a_l), math.cos(a_l), 0.0), ZONE_SHADE)
+        m.fan([cr_mid, cr_lo, ir_lo, ir_hi, cr_hi],
+              (math.sin(a_r), -math.cos(a_r), 0.0), ZONE_SHADE)
 
     # ---- waist bars ----------------------------------------------------
-    # The wall itself, carried up across each opening's clear width to the
-    # waist, not a bar hung in front of it: same depth as the throat, from
-    # RM_RIN out to the notch's outer face. Stone, not a wall put up.
+    # The wall carried up across each opening to the waist, from RM_RIN out
+    # to the throat, sunk under the ragged sill and bitten into both piers.
     floor_z = levels[1]
     throat = CH_PROFILE[k0][1] * (1.0 - CH_OPEN_DEPTH) - RM_RIN
     for p in range(0, nin, 2):
-        span = (iang[p + 1] - iang[p]) % (2.0 * math.pi)
-        _bar(m, iang[p], span, floor_z, floor_z + BAR_TOP, throat,
-             ZONE_CARVE, ZONE_SHADE, r)
+        _bar(m, iang[p], iang[p + 1], floor_z - BAR_SINK, floor_z + BAR_TOP,
+             throat, ZONE_CARVE, ZONE_SHADE, r)
 
     hole = (iang[1] - iang[0]) % (2.0 * math.pi)
     pier = (iang[2] - iang[1]) % (2.0 * math.pi)
@@ -949,9 +955,8 @@ def _collider(iang, sill_z, depth):
         leave cleanly -- an invisible pane any taller would eat the bullet the
         player just watched leave the barrel, which is the bug this is meant
         to prevent, not cause.
-      * ONE WAIST-BAR BOX PER OPENING, matching the visible one in `_chamber`,
-        so the guard cannot walk or jump (1.11 m) through the gap the kerb
-        leaves open above it.
+      * ONE WAIST-BAR BOX PER OPENING, the visible one's footprint, bitten
+        BAR_BITE into each pier so there is no gap at a jamb.
 
     NO COLLISION BELOW THE ROOM AND NONE ON THE COLUMN, deliberately. Nothing
     ever walks there: bentham_ring.tscn's KillVolume roof is at y = -3 and
@@ -978,8 +983,7 @@ def _collider(iang, sill_z, depth):
         c.quad(floor[p], floor[q], hq, hp,
                _radial(a, a + (b - a) % (2.0 * math.pi), inward=True), ZONE_SHADE)
     for p in range(0, n, 2):
-        span = (iang[p + 1] - iang[p]) % (2.0 * math.pi)
-        _bar(c, iang[p], span, sill_z, sill_z + BAR_TOP, depth,
+        _bar(c, iang[p], iang[p + 1], sill_z, sill_z + BAR_TOP, depth,
              ZONE_SHADE, ZONE_SHADE)
     return c
 
