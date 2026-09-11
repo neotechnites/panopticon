@@ -235,6 +235,7 @@ EOF
 set W=$JOB_W
 del /q "%W%\\verify.done" 2>nul
 rmdir /s /q "%W%\\verify\\.godot" 2>nul
+del /q "%W%\\verify\\*.import" "%W%\\verify\\*.png" 2>nul
 copy /y "%W%\\out\\${NAME}.glb" "%W%\\verify\\model.glb" >nul
 "$GODOT" --headless --path "%W%\\verify" --import > "%W%\\verify.log" 2>&1
 "$GODOT" --headless --path "%W%\\verify" --script res://verify_glb.gd >> "%W%\\verify.log" 2>&1
