@@ -509,7 +509,7 @@ enum RunnerAbility {
 @export var runner_ability: RunnerAbility = RunnerAbility.NONE
 
 ## Seconds after a power ends before it can be used again.
-@export_range(0.0, 120.0, 0.5, "or_greater") var ability_cooldown_seconds: float = 20.0
+@export_range(0.0, 120.0, 0.5, "or_greater") var ability_cooldown_seconds: float = 0.0
 
 ## Seconds a power lasts once used.
 @export_range(0.5, 60.0, 0.5, "or_greater") var ability_duration_seconds: float = 5.0
