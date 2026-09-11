@@ -1,10 +1,11 @@
-"""rock_bars -- a grate of vertical rock bars filling a gallery cross-section.
+"""rock_bars -- a grate of thin carved rock columns filling a gallery cross-section.
 
 Low-poly PS1 hell rock, flat shaded, the tower's atlas. 10.6 m wide, 8.5 m
-tall: a rock sill, a rock lintel, and 8 ragged bars ~0.35 m thick with ~0.87 m
-gaps -- you see straight through it. ORIGIN IS THE BASE CENTRE: z=0 is the
-ground. Bars span Blender X (Godot X), thickness along Blender Y (Godot Z).
-Blender +Z -> Godot +Y, +X -> +X, +Y -> -Z.
+tall: a rock sill, a rock lintel, and 17 smooth tapered columns 0.24-0.30 m
+thick, unevenly spaced and never quite plumb, no gap wider than 0.38 m -- you
+see straight through it, a body cannot. Same style as map_base's cell bars.
+ORIGIN IS THE BASE CENTRE: z=0 is the ground. Bars span Blender X (Godot X),
+thickness along Blender Y (Godot Z). Blender +Z -> Godot +Y, +X -> +X, +Y -> -Z.
 
 Contract: one mesh "RockBars" (one surface, one UV set), plus "RockBarsCollision"
 -- one box per bar plus the sill and lintel, shipped as a `-colonly` node.
@@ -31,20 +32,19 @@ COLLIDER_NAME = "RockBarsCollision-colonly"
 
 HALF_W   = 5.3          # 10.6 m wide
 HEIGHT   = 8.5
-BAR_HT   = 0.175        # half thickness: 0.35 m bars
-BARS     = 14           # gaps = (10.6 - 14 * 0.35) / 15 = 0.38 m: a body cannot pass
+BARS     = 17
+BAR_R    = (0.12, 0.15) # column radius: 0.24-0.30 m thick
+MAX_GAP  = 0.38         # a body cannot pass, at any height
+SIDES    = 5            # smooth carved column: no jag, no knobs
 SILL_H   = 0.45
 LINTEL_H = 0.5
 BEAM_HD  = 0.25         # sill/lintel half depth: proud of the bars
 OVERLAP  = 0.08         # bars run this far into the sill and lintel
-KINK_Z   = (0.38, 0.62) # the mid ring sits in this band of the bar's height
-KINK     = 0.10         # metres, mid-ring drift: a bar is never plumb
-JAG      = 0.18         # per-vertex radial, fraction of BAR_HT
-ANG_JAG  = 0.22         # per bar, held for the whole height: edges stay vertical
-
-SHADE_BIAS  = -0.06
-EMBER_BIAS  = -0.13
-EMBER_TOP_T = 0.45      # no clefts above this: the heat is below
+MID_Z    = (0.42, 0.60) # the waist ring sits in this band of the bar's height
+FLARE    = (1.12, 0.92, 1.22)   # radius factors: foot, waist, head -- a slight lip
+POS_JAG  = 0.03         # metres, column spacing jitter
+LEAN     = 0.035        # metres, head offset: a column is never plumb
+WAIST_KINK = 0.03       # metres, waist offset
 
 SEED = 7130951
 TEX_ALBEDO   = "rock_bars_albedo"
@@ -316,29 +316,6 @@ class _Mesh(object):
         return mdl.mesh(name, self.verts, self.faces)
 
 
-def _held(r, nsides, nrings, jag, run):
-    """Per-side bias held for runs of rings: it steps, like cleaved rock."""
-    out = [[0.0] * nrings for _ in range(nsides)]
-    for i in range(nsides):
-        k = 0
-        while k < nrings:
-            n = r.i(*run)
-            v = r.sf() * jag
-            for kk in range(k, min(k + n, nrings)):
-                out[i][kk] = v
-            k += n
-    return out
-
-
-def _zone_of(bias, low_band):
-    """Recessed facets go dark; deeply recessed ones low down split open."""
-    if bias < EMBER_BIAS and low_band:
-        return ZONE_EMBER
-    if bias < SHADE_BIAS:
-        return ZONE_SHADE
-    return ZONE_ROCK
-
-
 # =============================================================================
 # UV -- per-face planar projection into a random window of its zone
 # =============================================================================
@@ -394,54 +371,88 @@ def _beam(m, z0, z1, top, bottom):
     m.quad(p[3], p[0], p[4], p[7], (-1, 0, 0), ZONE_SHADE)
 
 
-def _bar_x(i):
-    gap = (2.0 * HALF_W - BARS * 2.0 * BAR_HT) / (BARS + 1)
-    return -HALF_W + gap + BAR_HT + i * (gap + 2.0 * BAR_HT)
+def _columns(r):
+    """Per column: rings [(z, x, radius) foot, waist, head], gaps <= MAX_GAP."""
+    z0, z1 = SILL_H - OVERLAP, HEIGHT - LINTEL_H + OVERLAP
+    rad = [BAR_R[0] + r.f() * (BAR_R[1] - BAR_R[0]) for _ in range(BARS)]
+    gap = (2.0 * HALF_W - 2.0 * sum(rad)) / (BARS + 1)
+    cols = []
+    x = -HALF_W + gap
+    for k in range(BARS):
+        cx = x + rad[k] + r.sf() * POS_JAG
+        zm = z0 + (z1 - z0) * (MID_Z[0] + r.f() * (MID_Z[1] - MID_Z[0]))
+        cols.append([[z0, cx, rad[k] * FLARE[0]],
+                     [zm, cx + r.sf() * WAIST_KINK, rad[k] * FLARE[1]],
+                     [z1, cx + r.sf() * LEAN, rad[k] * FLARE[2]]])
+        x += 2.0 * rad[k] + gap
+
+    def at(col, z):
+        (za, xa, ra), (zb, xb, rb), (zc, xc, rc) = col
+        if z <= zb:
+            t = (z - za) / (zb - za)
+            return xa + (xb - xa) * t, ra + (rb - ra) * t
+        t = (z - zb) / (zc - zb)
+        return xb + (xc - xb) * t, rb + (rc - rb) * t
+
+    walls = [[[z0, -HALF_W, 0.0], [0.5 * (z0 + z1), -HALF_W, 0.0], [z1, -HALF_W, 0.0]]] + cols \
+        + [[[z0, HALF_W, 0.0], [0.5 * (z0 + z1), HALF_W, 0.0], [z1, HALF_W, 0.0]]]
+    levels = [z0 + (z1 - z0) * i / 8.0 for i in range(9)]
+    for _ in range(40):                       # pull neighbours together where too wide
+        worst = 0.0
+        for k in range(len(walls) - 1):
+            for z in levels:
+                xa, ra = at(walls[k], z)
+                xb, rb = at(walls[k + 1], z)
+                e = (xb - rb) - (xa + ra) - MAX_GAP
+                if e > worst:
+                    worst = e
+                if e > 0.0:
+                    for col, s in ((walls[k], 0.5), (walls[k + 1], -0.5)):
+                        if col[0][2] == 0.0:
+                            continue          # the wall does not move
+                        ring = min(col, key=lambda rg: abs(rg[0] - z))
+                        ring[1] += s * e * 1.05
+        if worst <= 1e-4:
+            break
+    return cols, worst + MAX_GAP
 
 
-def _bar(m, r, cx, z0, z1):
-    """A 4-sided ragged column with one kinked mid ring: 16 tris."""
-    angs = [math.pi / 4.0 + i * math.pi / 2.0 + r.sf() * ANG_JAG for i in range(4)]
-    zm = z0 + (z1 - z0) * (KINK_Z[0] + r.f() * (KINK_Z[1] - KINK_Z[0]))
-    kx, ky = r.sf() * KINK, r.sf() * KINK
-    rad = BAR_HT * math.sqrt(2.0)                 # corner radius of a 0.35 m square
-    rings, biases = [], []
-    for (z, ox, oy) in ((z0, 0.0, 0.0), (zm, kx, ky), (z1, 0.0, 0.0)):
-        ring, bias = [], []
-        for a in angs:
-            b = r.sf() * JAG
-            bias.append(b)
-            rr = rad * (1.0 + b)
-            ring.append(m.v((cx + ox + rr * math.cos(a), oy + rr * math.sin(a), z)))
-        rings.append(ring)
-        biases.append(bias)
-    for k in range(2):
-        low = (k == 0) and (KINK_Z[0] < EMBER_TOP_T)
-        for i in range(4):
-            j = (i + 1) % 4
-            mid = 0.5 * (angs[i] + angs[j] + (2.0 * math.pi if j == 0 else 0.0))
-            b = 0.25 * (biases[k][i] + biases[k][j] + biases[k + 1][i] + biases[k + 1][j])
+def _column(m, r, col):
+    """A smooth SIDES-gon column through three rings: SIDES * 4 tris."""
+    t0 = r.f() * 2.0 * math.pi
+    rings = []
+    for z, cx, rad in col:
+        rings.append([m.v((cx + rad * math.cos(t0 + 2.0 * math.pi * i / SIDES),
+                           rad * math.sin(t0 + 2.0 * math.pi * i / SIDES), z))
+                      for i in range(SIDES)])
+    for k in range(len(rings) - 1):
+        for i in range(SIDES):
+            j = (i + 1) % SIDES
+            t = t0 + 2.0 * math.pi * (i + 0.5) / SIDES
             m.quad(rings[k][i], rings[k][j], rings[k + 1][j], rings[k + 1][i],
-                   (math.cos(mid), math.sin(mid), 0.0), _zone_of(b, low))
+                   (math.cos(t), math.sin(t), 0.0), ZONE_ROCK)
 
 
 def _grate(r):
     m = _Mesh()
     _beam(m, 0.0, SILL_H, top=True, bottom=False)
     _beam(m, HEIGHT - LINTEL_H, HEIGHT, top=False, bottom=True)
-    for i in range(BARS):
-        _bar(m, r, _bar_x(i), SILL_H - OVERLAP, HEIGHT - LINTEL_H + OVERLAP)
-    return m
+    cols, widest = _columns(r)
+    for col in cols:
+        _column(m, r, col)
+    return m, cols, widest
 
 
-def _collider():
-    """One box per bar, plus the sill and the lintel: 120 tris."""
+def _collider(cols):
+    """One box per column (its full lean), plus the sill and the lintel."""
     c = _Mesh()
     c.box((-HALF_W, -BEAM_HD, 0.0), (HALF_W, BEAM_HD, SILL_H), ZONE_ROCK)
     c.box((-HALF_W, -BEAM_HD, HEIGHT - LINTEL_H), (HALF_W, BEAM_HD, HEIGHT), ZONE_ROCK)
-    for i in range(BARS):
-        x = _bar_x(i)
-        c.box((x - BAR_HT, -BAR_HT, SILL_H), (x + BAR_HT, BAR_HT, HEIGHT - LINTEL_H), ZONE_ROCK)
+    for col in cols:
+        x0 = min(x - rad for _, x, rad in col)
+        x1 = max(x + rad for _, x, rad in col)
+        rm = max(rad for _, _, rad in col)
+        c.box((x0, -rm, SILL_H), (x1, rm, HEIGHT - LINTEL_H), ZONE_ROCK)
     return c
 
 
@@ -461,9 +472,10 @@ def _finish(rock, coll):
 
 
 def build():
-    objects = _finish(_grate(_Rng(SEED)), _collider())
-    print("MDL STATS width=%.2f height=%.2f bars=%d gap=%.3f"
-          % (2.0 * HALF_W, HEIGHT, BARS, _bar_x(1) - _bar_x(0) - 2.0 * BAR_HT))
+    rock, cols, widest = _grate(_Rng(SEED))
+    objects = _finish(rock, _collider(cols))
+    print("MDL STATS width=%.2f height=%.2f bars=%d widest_gap=%.3f"
+          % (2.0 * HALF_W, HEIGHT, BARS, widest))
     return objects
 
 
