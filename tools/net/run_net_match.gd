@@ -2,14 +2,18 @@ extends SceneTree
 
 ## Headless server or client for a localhost net match. Logs phases, seats,
 ## positions and errors to --log. Run one --role=server and N --role=client.
+## --screen=true goes through the real MultiplayerScreen instead of the lobby API.
 
 const MATCH_SCENE: String = "res://scenes/match/match.tscn"
 const SESSION_SCENE: String = "res://scenes/net/net_session.tscn"
+const SCREEN_SCENE: String = "res://scenes/ui/multiplayer_screen.tscn"
 ## Positions are logged once per this many authority ticks, on every process.
 const SAMPLE_TICKS: int = 120
 
 var _o: Dictionary = {}
 var _session: NetSession = null
+var _screen: MultiplayerScreen = null
+var _rules_set: bool = false
 var _lobby: NetLobby = null
 var _log: FileAccess = null
 var _match: Node = null
@@ -28,6 +32,7 @@ func _initialize() -> void:
 	_o = BotHarness.parse_arguments({
 		"role": "server", "address": "127.0.0.1", "port": 27960, "seconds": 90.0,
 		"log": "", "seats": 6, "tower": 1, "name": "", "humans": 3, "fire-every": 0.0,
+		"screen": false, "preset": "classic",
 	})
 	Engine.max_fps = 60
 	_started_ms = Time.get_ticks_msec()
@@ -38,10 +43,18 @@ func _initialize() -> void:
 
 ## Runs on the first frame: the tree has a MultiplayerAPI only once it is live.
 func _boot() -> void:
-	_session = (load(SESSION_SCENE) as PackedScene).instantiate() as NetSession
-	_session.name = "NetSession"
-	root.add_child(_session)
+	if _use_screen():
+		SettingsStore.instance().config_path = "user://net_harness_settings.cfg"
+		_screen = (load(SCREEN_SCENE) as PackedScene).instantiate() as MultiplayerScreen
+		root.add_child(_screen)
+		current_scene = _screen
+		_session = _screen.ensure_session()
+	else:
+		_session = (load(SESSION_SCENE) as PackedScene).instantiate() as NetSession
+		_session.name = "NetSession"
+		root.add_child(_session)
 	_lobby = _session.lobby
+	_lobby.rules_changed.connect(_on_rules_changed)
 	_lobby.phase_changed.connect(func(phase: NetLobby.Phase) -> void:
 		_line("LOBBY phase=%s" % String(NetLobby.Phase.keys()[phase])))
 	_lobby.roster_changed.connect(_on_roster_changed)
@@ -52,12 +65,22 @@ func _boot() -> void:
 		if not _finished:
 			_finish("session ended"))
 	var port: int = int(_o.get("port", 27960))
-	if _is_server():
+	var address: String = String(_o.get("address", "127.0.0.1"))
+	if _use_screen():
+		_screen.set_player_name(_display_name())
+		if _is_server():
+			_screen.set_host_port(port)
+			_line("HOST port=%d result=%s" % [port, error_string(_screen.start_hosting())])
+			_line("ADDRESSES " + " | ".join(MultiplayerScreen.local_addresses()))
+		else:
+			_screen.set_join_target(address, port)
+			_line("JOIN port=%d result=%s" % [port, error_string(_screen.join_game())])
+	elif _is_server():
 		var error: Error = _session.host(port)
 		_line("HOST port=%d result=%s" % [port, error_string(error)])
 		_lobby.open(_display_name())
 	else:
-		var error: Error = _session.join(String(_o.get("address", "127.0.0.1")), port)
+		var error: Error = _session.join(address, port)
 		_line("JOIN port=%d result=%s" % [port, error_string(error)])
 
 
@@ -70,6 +93,8 @@ func _process(_delta: float) -> bool:
 	var elapsed: float = _seconds()
 	if _is_server() and not _launched and _lobby.get_phase() == NetLobby.Phase.GATHERING:
 		_drive_lobby()
+	if _launched and _match == null and current_scene != null and current_scene.has_node("MatchController"):
+		_hook_match(current_scene)
 	if _match_ms >= 0:
 		var in_match: float = float(Time.get_ticks_msec() - _match_ms) / 1000.0
 		var bucket: int = _tick() / SAMPLE_TICKS
@@ -94,6 +119,20 @@ func _is_server() -> bool:
 	return String(_o.get("role", "server")) == "server"
 
 
+func _use_screen() -> bool:
+	return bool(_o.get("screen", false))
+
+
+func _on_rules_changed() -> void:
+	var rules: MatchRules = _lobby.get_rules()
+	if rules == null:
+		return
+	_line("RULES prisoners=%d ghosts=%s race=%s lives=%d rounds=%d runner_win=%d reload=%.2f" % [
+		rules.prisoner_count, str(rules.has_ghosts()), str(rules.open_with_race), rules.prisoner_lives,
+		rules.rounds_to_win_match, int(rules.runner_win_condition), rules.base_reload_seconds,
+	])
+
+
 func _display_name() -> String:
 	var wanted: String = String(_o.get("name", ""))
 	return wanted if not wanted.is_empty() else ("Host" if _is_server() else "Client%d" % (Time.get_ticks_msec() % 100))
@@ -107,6 +146,9 @@ func _on_roster_changed() -> void:
 	if seat == null:
 		return
 	_readied = true
+	if _use_screen():
+		_screen.set_ready(true)
+		return
 	_lobby.set_display_name(seat.index, _display_name())
 	_lobby.set_ready(seat.index, true)
 
@@ -121,6 +163,21 @@ func _humans() -> int:
 
 func _drive_lobby() -> void:
 	if _humans() < int(_o.get("humans", 3)):
+		return
+	if _use_screen():
+		if not _rules_set:
+			_rules_set = true
+			_screen.select_preset(StringName(String(_o.get("preset", "classic"))))
+			# The opening is a GameSettings choice the preset resets; --tower overrides it.
+			var tower: int = int(_o.get("tower", 1))
+			var settings: GameSettings = SettingsStore.instance().settings
+			settings.skip_opening_race = tower >= 0
+			settings.tower_seat_index = maxi(tower, 0)
+			_screen.set_prisoner_count(int(_o.get("seats", 6)) - 1)
+			_line("RULES set prisoners=%d preset=%s" % [int(_o.get("seats", 6)) - 1, String(_o.get("preset", "classic"))])
+		_screen.set_ready(true)
+		if _screen.can_start():
+			_line("START result=%s" % str(_screen.start_match()))
 		return
 	if _lobby.get_occupant_count() < int(_o.get("seats", 6)):
 		_lobby.fill_with_bots(int(_o.get("seats", 6)))
@@ -139,11 +196,21 @@ func _on_launching() -> void:
 		return
 	_launched = true
 	_line("LAUNCH local_seat=%d" % _lobby.get_local_seat_index())
+	if _use_screen():
+		return
 	_match = (load(MATCH_SCENE) as PackedScene).instantiate()
 	root.add_child(_match)
 	current_scene = _match
+	_hook_match(_match)
+
+
+func _hook_match(match_scene: Node) -> void:
+	_match = match_scene
 	_controller = _match.get_node("MatchController") as MatchController
 	_net_match = _match.get_node("NetMatch") as NetMatch
+	var rules: MatchRules = _controller.get_rules()
+	_line("MATCH rules prisoners=%d ghosts=%s race=%s map=%s" % [
+		rules.prisoner_count, str(rules.has_ghosts()), str(rules.open_with_race), String(rules.map_id)])
 	_hook_controller()
 	_net_match.match_bound.connect(func(authority: bool) -> void:
 		_match_ms = Time.get_ticks_msec()

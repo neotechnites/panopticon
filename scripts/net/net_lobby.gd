@@ -64,6 +64,9 @@ signal seat_vacated(seat_index: int, peer_id: int)
 ## the match layer waits on.
 signal match_launching()
 
+## The host's match rules arrived or changed. See [method get_rules].
+signal rules_changed()
+
 ## A peer connected and could not be seated. [param reason] is a readable line
 ## for a log or a disconnect message.
 signal join_refused(peer_id: int, reason: String)
@@ -104,6 +107,10 @@ var seats: Array[LobbySeat] = []
 
 var _phase: Phase = Phase.IDLE
 
+## The host's [MatchRules], on every machine. Set by the host through
+## [method set_rules]; null until it has.
+var _rules: MatchRules = null
+
 ## This machine's own seat, or -1 when it has none. Machine-local and never
 ## replicated: every peer works its own out of the roster it receives.
 var _local_seat_index: int = -1
@@ -139,6 +146,11 @@ func get_local_seat() -> LobbySeat:
 
 func get_local_seat_index() -> int:
 	return _local_seat_index
+
+
+## The host's rules, or null before the host has published any.
+func get_rules() -> MatchRules:
+	return _rules
 
 
 func get_seat(seat_index: int) -> LobbySeat:
@@ -264,6 +276,23 @@ func open(local_display_name: String) -> bool:
 
 	_set_phase(Phase.GATHERING)
 	_publish()
+	for peer_id: int in session.get_peer_ids():
+		if peer_id != NetTransport.AUTHORITY_PEER_ID:
+			_send_rules_to(peer_id)
+	return true
+
+
+## Publish the host's rules to every machine. Authority only; a copy is kept,
+## so the caller may go on editing [param source].
+func set_rules(source: MatchRules) -> bool:
+	if not _is_authority() or source == null:
+		return false
+	if _rules == null:
+		_rules = MatchRules.new()
+	NetCodec.copy_rules(source, _rules)
+	rules_changed.emit()
+	if session.is_established() and session.get_peer_count() > 1:
+		rpc(&"_receive_rules", NetCodec.pack_rules(_rules))
 	return true
 
 
@@ -273,6 +302,7 @@ func open(local_display_name: String) -> bool:
 func close() -> void:
 	_reset_seats()
 	_local_seat_index = -1
+	_rules = null
 	_set_phase(Phase.IDLE)
 	roster_changed.emit()
 
@@ -513,6 +543,7 @@ func _on_peer_joined(peer_id: int) -> void:
 		session.kick_peer(peer_id)
 		return
 	_publish()
+	_send_rules_to(peer_id)
 
 
 func _on_peer_left(peer_id: int) -> void:
@@ -575,6 +606,18 @@ func _receive_roster(payload: PackedByteArray) -> void:
 		phase_changed.emit(_phase)
 		if _phase == Phase.LAUNCHING:
 			match_launching.emit()
+
+
+## Authority to one client or everyone: the rules the match will run under.
+@rpc("authority", "reliable", "call_remote", 0)
+func _receive_rules(payload: PackedByteArray) -> void:
+	if _is_authority():
+		return
+	var decoded: MatchRules = _rules if _rules != null else MatchRules.new()
+	if not NetCodec.unpack_rules(payload, decoded):
+		return
+	_rules = decoded
+	rules_changed.emit()
 
 
 ## Client to authority: ready or un-ready my seat.
@@ -691,6 +734,12 @@ func _relearn_local_seat() -> void:
 			_local_seat_index = seat.index
 			return
 	_local_seat_index = -1
+
+
+func _send_rules_to(peer_id: int) -> void:
+	if _rules == null or not session.is_established():
+		return
+	rpc_id(peer_id, &"_receive_rules", NetCodec.pack_rules(_rules))
 
 
 func _set_phase(phase: Phase) -> void:

@@ -134,7 +134,8 @@ func open() -> void:
 	_is_open = true
 	_mouse_mode_before_open = Input.mouse_mode
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-	get_tree().paused = true
+	if not _is_networked():
+		get_tree().paused = true
 	_apply_visibility(true)
 	_show_main()
 	opened.emit()
@@ -155,6 +156,12 @@ func close() -> void:
 
 
 ## Open the menu if it is closed, close it if it is open.
+## True inside a networked match, where the world keeps running under the menu.
+func _is_networked() -> bool:
+	var session: NetSession = get_tree().root.get_node_or_null(^"NetSession") as NetSession
+	return session != null and session.is_established()
+
+
 func toggle() -> void:
 	if _is_open:
 		close()

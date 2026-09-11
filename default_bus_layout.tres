@@ -1,4 +1,4 @@
-[gd_resource type="AudioBusLayout" load_steps=3 format=3]
+[gd_resource type="AudioBusLayout" format=3 uid="uid://svp8whkdkunr"]
 
 [sub_resource type="AudioEffectDistortion" id="SfxCrushBits"]
 resource_name = "SfxCrushBits"
@@ -9,30 +9,7 @@ drive = 0.57
 resource_name = "SfxCrushRate"
 cutoff_hz = 8000.0
 
-; PANOPTICON's audio buses.
-;
-; Picked up automatically: "audio/buses/default_bus_layout" already defaults to
-; res://default_bus_layout.tres, so this file needs no project.godot entry. The
-; engine loads it before the first scene, which is why GameSettings can resolve
-; the buses by name at apply time and find them there.
-;
-; Master is written out explicitly even though the engine would default it,
-; because a bus layout is read by people as configuration and a file that lists
-; two of three buses reads like a mistake.
-;
-; Effects and Music both send to Master, so the Master slider scales the other
-; two rather than competing with them. SFX carries every sound cue and sends to
-; Effects, so the Effects slider still scales it. SFX carries the two "PS1
-; crush" effects (8-bit lo-fi + 8 kHz low-pass), off until GameSettings.sfx_crush
-; enables them via AudioDirector.set_crush.
-
 [resource]
-bus/0/name = &"Master"
-bus/0/solo = false
-bus/0/mute = false
-bus/0/bypass_fx = false
-bus/0/volume_db = 0.0
-bus/0/send = &"Master"
 bus/1/name = &"Effects"
 bus/1/solo = false
 bus/1/mute = false
