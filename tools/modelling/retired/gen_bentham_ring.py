@@ -1,3 +1,5 @@
+# RETIRED 2026-09-10. scenes/ring/bentham_ring.tscn is hand-edited by Ryan in the Godot editor.
+# Running this OVERWRITES his work. Kept for the three-level ring concept only.
 #!/usr/bin/env python3
 """Emit scenes/ring/bentham_ring.tscn: the three-level Bentham Ring.
 
