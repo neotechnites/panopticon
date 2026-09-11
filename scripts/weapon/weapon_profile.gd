@@ -182,6 +182,58 @@ enum ShotModel {
 ## round in a play session.
 @export_range(0.0, 1.0, 0.005) var projectile_visual_radius: float = 0.0
 
+# --- Recoil --------------------------------------------------------------------
+#
+# VIEW-MODEL ONLY. This group moves [code]Rifle/ViewModel[/code] -- the mesh and
+# the muzzle hung off it, together, since the muzzle is parented to exactly that
+# transform -- and nothing else. It never touches [member Rifle.aim_source], so
+# it cannot be the thing that decides where a shot goes; see
+# [method Rifle._resolve_shot], which reads the aim source and nothing about the
+# view model. A camera-facing kick is a different, already-existing system --
+# [FxWeaponFeel] and [FxCameraKick], wired through [FeedbackProfile] -- and this
+# group does not replace or duplicate it.
+
+@export_group("Recoil")
+
+## How far the view model is shoved back along its own local axis (towards the
+## eye) at the peak of the kick, in metres. 0.0 -- together with
+## [member recoil_kick_pitch_degrees] at 0.0 -- is off: the shipped rifle does
+## not kick at all, and a profile that wants a dead-still rifle only has to leave
+## both at zero rather than find a separate switch.
+##
+## Keep this well under the view model's own near-plane clearance: the rest
+## transform in [code]scenes/weapon/rifle.tscn[/code] holds its nearest vertex
+## about 0.13 m from the camera against a 0.05 m near plane, so a kick distance
+## anywhere near that 0.08 m margin will punch the stock through the near plane
+## at the peak of the kick. This default leaves comfortable room.
+@export_range(0.0, 0.5, 0.001, "or_greater") var recoil_kick_distance: float = 0.035
+
+## How far the muzzle rises at the peak of the kick, degrees, rotating about the
+## view model's own local right axis. Inert while this and
+## [member recoil_kick_distance] are both 0.0.
+@export_range(0.0, 45.0, 0.1, "or_greater") var recoil_kick_pitch_degrees: float = 10.0
+
+## Seconds from the trigger to the peak of the kick. Short and sharp on purpose
+## -- the impulse of a shot breaking is instant even on a heavy rifle -- while
+## [member recoil_recover_seconds] is where the weight actually reads.
+@export_range(0.0, 0.5, 0.005) var recoil_kick_seconds: float = 0.05
+
+## Seconds from the peak back to exactly the authored rest transform.
+##
+## This is the number that makes a .50 calibre rifle feel heavy rather than
+## light: raise it and the muzzle settles slowly under its own weight instead of
+## snapping back. [member recoil_kick_seconds] plus this should stay well clear
+## of [method get_cycle_seconds] (at the weapon's floor reload) or a kick still
+## in flight would be visible the instant the weapon is ready again -- not a
+## correctness problem, since the shot line never moves, but it would read as
+## the rifle still recovering from a shot that has already been fired again.
+@export_range(0.01, 3.0, 0.01) var recoil_recover_seconds: float = 0.38
+
+## Shape of the return from the peak. Above 1.0 the muzzle falls fast and then
+## settles the rest of the way, which is what a heavy barrel actually does under
+## its own weight rather than a spring snapping it back at a constant rate.
+@export_range(0.1, 8.0, 0.1) var recoil_fade_exponent: float = 2.0
+
 # --- Hitscan ------------------------------------------------------------------
 
 @export_group("Shot line")
@@ -501,6 +553,22 @@ func get_windup_seconds(reload_seconds: float) -> float:
 ## [member shot_model], so a third model later has one place to be added.
 func is_projectile() -> bool:
 	return shot_model == ShotModel.PROJECTILE
+
+
+# --- Recoil ---------------------------------------------------------------------
+
+## True when there is any kick to play at all. The gate a recoil player should
+## check before doing anything, so a zeroed profile costs nothing and a rifle
+## with no recoil is expressed by leaving both fields at 0.0 rather than by a
+## separate switch.
+func has_recoil() -> bool:
+	return recoil_kick_distance > 0.0 or recoil_kick_pitch_degrees > 0.0
+
+
+## Total wall-clock length of one recoil kick, attack included: the time from
+## the trigger until the view model is back on its authored rest transform.
+func get_recoil_duration() -> float:
+	return recoil_kick_seconds + recoil_recover_seconds
 
 
 # --- Accuracy -----------------------------------------------------------------

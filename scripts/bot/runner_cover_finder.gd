@@ -32,6 +32,21 @@ extends RefCounted
 ##    cover box -- a point that really is hidden from the tower and really is
 ##    unreachable -- and the pit in the middle of the ring, without either being
 ##    named.
+## 4. [b]Is there floor all the way there?[/b] The same downward ray, repeated
+##    every [constant PATH_STEP_METRES] along the straight line the runner would
+##    actually walk. See [method path_is_walkable].
+##
+## [b]The fourth probe is a bug fix, and it is worth saying which one.[/b] For a
+## long time this file asked only whether the DESTINATION had a floor, and the
+## crossing itself was never checked. That is fine on a solid deck and fatal on
+## one with holes in it: a runner would find real cover on the far side of a
+## pit, price the crossing on exposure alone, commit, and walk straight into the
+## hole -- the observed failure being a cover runner that falls out of the world
+## on a map whose cover is perfectly reachable by going round. Three levels and
+## twelve pits made that certain rather than likely, so the path is now probed
+## as well as the endpoint, and a candidate you cannot walk to in a straight
+## line is not a candidate. [RingRunner] applies the same test to its open-ground
+## fallback, which this file never sees.
 ##
 ## [b]Nearest, not furthest[/b]
 ##
@@ -47,9 +62,25 @@ extends RefCounted
 ## through.
 const FLOOR_MASK: int = 0xFFFFF
 
-## How far above and below a candidate the floor probe reaches, in metres. Deep
-## enough to find the pit and be sure it is a pit.
+## How far BELOW a candidate the floor probe reaches, in metres. Deep enough to
+## find the pit and be sure it is a pit.
+##
+## There is no matching number for how far ABOVE it starts, and that is the
+## point: see [method _floor_within_a_step].
 const FLOOR_PROBE_METRES: float = 20.0
+
+## How far above a candidate the floor probe STARTS, over and above the step the
+## runner is allowed to take. Just enough to be clear of the surface it is
+## looking for and nothing like enough to reach a ceiling.
+const FLOOR_PROBE_LIFT_METRES: float = 0.25
+
+## How far apart the floor probes along a crossing path stand, in metres.
+##
+## The narrowest hazard on the shipped arena is a five metre pit, so a metre and
+## a half guarantees at least two samples inside any of them. Finer costs
+## raycasts on a search that already runs a few dozen; coarser can step over a
+## hole.
+const PATH_STEP_METRES: float = 1.5
 
 ## The spot the last search settled on, in world space and at deck height.
 var _position: Vector3 = Vector3.ZERO
@@ -133,6 +164,9 @@ func search(
 				continue
 			if not _is_standable(space, profile, point, from_position.y):
 				continue
+			# Reachable, not merely standable. See probe 4 in the class docs.
+			if not path_is_walkable(space, profile, from_position, point):
+				continue
 			var deviation: float = absf(radius - track_radius)
 			if deviation < best_deviation:
 				best_deviation = deviation
@@ -168,7 +202,94 @@ func get_probe_count() -> int:
 	return _probes
 
 
+## True when there is floor within one step of [param from]'s height at every
+## sample along the straight line from [param from] to [param to].
+##
+## Static, and it takes no arena and no route, because it is asked by
+## [RingRunner] about its own open-ground fallback as well as by
+## [method search] about a piece of cover. One test, one answer, one place a
+## crossing is ruled reachable.
+##
+## The endpoints are not sampled: [param from] is where the body is standing, so
+## it has a floor by definition, and [param to] has already been probed by
+## whoever proposed it.
+static func path_is_walkable(
+	space: PhysicsDirectSpaceState3D,
+	profile: RunnerProfile,
+	from: Vector3,
+	to: Vector3,
+) -> bool:
+	if space == null or profile == null:
+		return true
+	var distance: float = Vector2(to.x - from.x, to.z - from.z).length()
+	if distance <= PATH_STEP_METRES:
+		return true
+	var samples: int = int(ceil(distance / PATH_STEP_METRES))
+	for index: int in samples:
+		var fraction: float = (float(index) + 0.5) / float(samples)
+		if not _floor_within_a_step(space, profile, from.lerp(to, fraction), from.y):
+			return false
+	return true
+
+
+## The furthest point along that line the runner can still walk to, pulled back
+## one sample from wherever the floor gave out.
+##
+## What a runner does when the only way forward is over a hole: it stops at the
+## edge of it, which is a place to stand and re-plan from, rather than at the
+## bottom of it.
+static func last_walkable_point(
+	space: PhysicsDirectSpaceState3D,
+	profile: RunnerProfile,
+	from: Vector3,
+	to: Vector3,
+) -> Vector3:
+	if space == null or profile == null:
+		return to
+	var distance: float = Vector2(to.x - from.x, to.z - from.z).length()
+	if distance <= PATH_STEP_METRES:
+		return to
+	var samples: int = int(ceil(distance / PATH_STEP_METRES))
+	var safe: Vector3 = from
+	for index: int in samples:
+		var fraction: float = (float(index) + 0.5) / float(samples)
+		var point: Vector3 = from.lerp(to, fraction)
+		if not _floor_within_a_step(space, profile, point, from.y):
+			return safe
+		safe = point
+	return to
+
+
 # --- Probes -------------------------------------------------------------------
+
+## True when a downward ray at [param point] finds a floor within
+## [member RunnerProfile.cover_max_step_height] of [param feet_y].
+## [b]It starts JUST above the step, not twenty metres up, and that is the whole
+## of it.[/b] The arena has three decks stacked directly over one another, so
+## every square metre of the bottom two galleries has a ceiling eight and a half
+## metres overhead. A probe dropped from twenty metres up hits that ceiling
+## first, reads back a "floor" eight metres above the runner's feet, and rejects
+## it -- which rejected every candidate and every crossing on the lower two
+## levels, froze the whole cover game on the spot, and looked exactly like a bot
+## that had decided to stand still. The ray now starts one step above the point
+## it is asking about, so there is nothing overhead for it to find.
+static func _floor_within_a_step(
+	space: PhysicsDirectSpaceState3D, profile: RunnerProfile, point: Vector3, feet_y: float
+) -> bool:
+	var lift: float = maxf(profile.cover_max_step_height, 0.0) + FLOOR_PROBE_LIFT_METRES
+	var query: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(
+		Vector3(point.x, feet_y + lift, point.z),
+		Vector3(point.x, feet_y - FLOOR_PROBE_METRES, point.z),
+	)
+	query.collision_mask = FLOOR_MASK
+	query.collide_with_areas = false
+	query.collide_with_bodies = true
+
+	var hit: Dictionary = space.intersect_ray(query)
+	if hit.is_empty():
+		return false
+	var floor_point: Vector3 = hit.get("position", Vector3.ZERO)
+	return absf(floor_point.y - feet_y) <= profile.cover_max_step_height
 
 ## True when a shot from the tower could not reach a body standing at
 ## [param point].
@@ -184,19 +305,7 @@ func _is_hidden(
 func _is_standable(
 	space: PhysicsDirectSpaceState3D, profile: RunnerProfile, point: Vector3, feet_y: float
 ) -> bool:
-	var query: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(
-		point + Vector3.UP * FLOOR_PROBE_METRES,
-		point + Vector3.DOWN * FLOOR_PROBE_METRES,
-	)
-	query.collision_mask = FLOOR_MASK
-	query.collide_with_areas = false
-	query.collide_with_bodies = true
-
-	var hit: Dictionary = space.intersect_ray(query)
-	if hit.is_empty():
-		return false
-	var floor_point: Vector3 = hit.get("position", Vector3.ZERO)
-	return absf(floor_point.y - feet_y) <= profile.cover_max_step_height
+	return _floor_within_a_step(space, profile, point, feet_y)
 
 
 ## The radii to probe: a band of [member RunnerProfile.cover_search_radial_span]

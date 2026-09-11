@@ -126,7 +126,31 @@ var is_ghost: bool = false
 ## becomes a ghost, by either route. Without it a swap oscillates: the new ghost
 ## is left standing inside the new prisoner's catch radius and takes them
 ## straight back, sixty times a second, forever.
+##
+## [b]It is SET then and it starts RUNNING when the body lands[/b], which are not
+## the same tick. [method MatchController._tick_ghosts] skips a ghost that is
+## still on its respawn hold or still inside its placement settle, so the clock
+## starts when the body is back in the world. Ticking it any earlier would spend
+## grace on a frozen body and leave a freshly landed ghost catchable sooner than
+## the number says -- which is exactly one physics tick of difference, and
+## exactly the kind of thing that is never noticed until it oscillates.
 var ghost_grace_remaining: float = 0.0
+
+## Seconds this participant's body must stand frozen where it died before the
+## match puts it back on the start line, counting down.
+##
+## Set from [member GhostProfile.respawn_delay_seconds] on the tick a
+## participant is killed, by any of the four routes that can kill one -- shot,
+## trapped, fallen, or a ghost a hazard has to return. Non-zero means the body
+## is being held by [method MatchController._hold_body] and has not yet been
+## moved: it is off every collision layer, is not being stepped, and
+## [method MatchController._tick_ghosts] skips it, so it can neither catch nor
+## be caught nor be shot nor fall while this is running.
+##
+## Cleared by [method MatchController._hold_body], so any other placement --
+## a round arming, a seat change, a catch -- cancels a pending respawn rather
+## than letting it fire into a round that has moved on.
+var respawn_hold_remaining: float = 0.0
 
 ## Physics frames this participant's body must stay inert before the match gives
 ## it back its collision, counting down.
@@ -137,9 +161,12 @@ var ghost_grace_remaining: float = 0.0
 ## settle; a ghost is made in the middle of one and needs a clock of its own.
 var ghost_settle_frames: int = 0
 
-## The body mesh's material as authored, kept so that a ghost's colour can be
-## taken back off exactly rather than approximately. Null until the first time
-## this participant is tinted.
+## This participant's own body colour for the whole match: the [RunnerPalette]
+## entry [method MatchController._assign_runner_color] deals it at [member index],
+## painted on before anything else touches the body. Everything that is not this
+## participant's own colour -- a ghost's translucency, the guard's grey -- is a
+## temporary repaint, and this is what [method MatchController._tint_body] takes
+## it back to. Null until the participant has been assigned one.
 var home_body_material: Material = null
 
 ## Whether [member home_body_material] has been read off the body yet. A

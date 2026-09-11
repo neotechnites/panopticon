@@ -47,6 +47,10 @@ const SPAWN_TOLERANCE_METRES: float = 0.5
 ## How close two angles about the ring axis must be to count as the same bearing.
 const START_ANGLE_TOLERANCE: float = 1e-3
 
+## Ticks a respawn hold is polled for before a test gives up on it. A second
+## clear of the shipped three -- see [member GhostProfile.respawn_delay_seconds].
+const HOLD_BUDGET_TICKS: int = 240
+
 var _match: Node3D
 var _controller: MatchController
 var _rules: MatchRules
@@ -62,6 +66,14 @@ var _ghosted: Array[MatchParticipant] = []
 ## rather than from the body afterwards, because a ghost is chasing from the
 ## moment it is placed and the claim under test is about the PLACEMENT.
 var _ghosted_at: Array[Vector3] = []
+
+## Where each ghost was actually PUT DOWN. Separate from the two above because a
+## death and a placement are no longer the same tick: every death is held for
+## [member GhostProfile.respawn_delay_seconds] where it happened, and only then
+## is the body moved. Read off [signal MatchController.ghost_respawned], which
+## fires on the tick of the placement and before anything has moved since.
+var _respawned: Array[MatchParticipant] = []
+var _respawned_at: Array[Vector3] = []
 
 var _resolutions: int = 0
 
@@ -82,6 +94,7 @@ func before_each() -> void:
 	add_child(_match)
 
 	_controller.runner_ghosted.connect(_on_runner_ghosted)
+	_controller.ghost_respawned.connect(_on_ghost_respawned)
 	_controller.round_resolved.connect(_on_round_resolved)
 	_controller.race_started.connect(_on_race_started)
 
@@ -195,15 +208,30 @@ func test_a_prisoner_who_falls_in_becomes_a_ghost() -> void:
 	assert_same(_ghosted[0], victim, "for the prisoner who fell")
 	assert_eq_int(_resolutions, 0, "one fall does not resolve the round")
 
+	# The placement WAITS. A fall is held for
+	# [member GhostProfile.respawn_delay_seconds] like every other death, and
+	# what the hold has to guarantee here is that the body does not go on
+	# falling while it waits: it is off every layer and is not being stepped, so
+	# it hangs exactly where the volume found it.
+	assert_true(_controller.is_awaiting_respawn(victim), "the faller is held before it is moved")
+	assert_false(victim.body.is_physics_processing(), "and is not being stepped, so it cannot fall")
+	var held_at: Vector3 = victim.body.global_position
+	await step_ticks(FALL_TICKS)
+	assert_vec3_almost_eq(
+		victim.body.global_position, held_at, 1e-3,
+		"a held body does not go on falling down the courtyard",
+	)
+	await _await_respawn(victim)
+
 	# Out of the pit and back on the start line, which is where a ghost is made.
 	assert_gt(
 		victim.body.global_position.y, PIT_FLOOR_Y,
 		"the faller is not left standing at the bottom of the courtyard",
 	)
-	assert_eq_int(_ghosted_at.size(), 1, "the placement was recorded")
-	if _ghosted_at.size() == 1:
+	assert_eq_int(_respawned_at.size(), 1, "the placement was recorded")
+	if _respawned_at.size() == 1:
 		assert_almost_eq(
-			absf(wrapf(_angle_about(_ghosted_at[0]) - _angle_about(_start_point), -PI, PI)),
+			absf(wrapf(_angle_about(_respawned_at[0]) - _angle_about(_start_point), -PI, PI)),
 			0.0, START_ANGLE_TOLERANCE,
 			"they were put down at the start line's own bearing",
 		)
@@ -211,6 +239,7 @@ func test_a_prisoner_who_falls_in_becomes_a_ghost() -> void:
 		victim.body.is_in_group(MatchController.RUNNER_GROUP),
 		"and are not a legitimate target",
 	)
+	await step_ticks(FALL_TICKS)
 	assert_true(victim.body.is_physics_processing(), "the ghost's body is being stepped again")
 
 
@@ -288,6 +317,7 @@ func test_the_guard_who_falls_in_is_put_back_on_the_tower() -> void:
 func test_a_ghost_who_falls_in_is_returned_to_the_start() -> void:
 	var victim: MatchParticipant = _controller.get_live_participants()[0]
 	assert_true(_controller.apply_hit(victim), "a prisoner is shot to make a ghost")
+	await _await_respawn(victim)
 	await step_ticks(SETTLE_TICKS)
 	assert_true(victim.is_ghost, "the victim is a settled ghost")
 	assert_eq_int(
@@ -297,23 +327,23 @@ func test_a_ghost_who_falls_in_is_returned_to_the_start() -> void:
 	var ghosts_before: int = _controller.get_ghosts_remaining()
 	var ghosted_before: int = _ghosted.size()
 
+	var respawns_before: int = _respawned_at.size()
 	_put_in_the_courtyard(victim)
 
-	# Captured the instant the volume answers the fall, not after the whole
-	# budget below. MatchController._place_ghost_at_start holds the body off
-	# physics (_hold_body sets is_physics_processing() false) in the same call
-	# that writes the new position, so the first tick that reads false is the
-	# tick the placement itself just wrote, before the ghost's chase brain --
-	# which resumes the moment the placement wakes, two ticks later -- has
-	# carried it anywhere. Reading the position only after the full wait would
-	# instead read wherever the chase had gotten to by then, which is what
-	# broke this assertion the first time it was written.
-	var returned_at: Vector3 = victim.body.global_position
-	for _tick: int in FALL_TICKS:
-		await step_ticks(1)
-		if not victim.body.is_physics_processing():
-			returned_at = victim.body.global_position
-			break
+	# A ghost a hazard catches is held exactly as long as a prisoner the rifle
+	# kills -- [i]"weather youre alive or already a ghost"[/i] -- so the wait is
+	# run out and the position is read off the signal that fires on the tick of
+	# the placement itself. Reading the body afterwards would instead read
+	# wherever the chase brain had carried it, which is what broke this
+	# assertion the first time it was written.
+	await step_ticks(FALL_TICKS)
+	await _await_respawn(victim)
+	if not assert_gt(
+		float(_respawned_at.size()), float(respawns_before),
+		"the volume put the ghost back",
+	):
+		return
+	var returned_at: Vector3 = _respawned_at[_respawned_at.size() - 1]
 
 	# Let the rest of the placement's own settle play out before checking that
 	# it woke -- a separate concern from where it was put.
@@ -527,6 +557,21 @@ func _flat_distance(from: Vector3, to: Vector3) -> float:
 func _on_runner_ghosted(participant: MatchParticipant) -> void:
 	_ghosted.append(participant)
 	_ghosted_at.append(participant.body.global_position)
+
+
+func _on_ghost_respawned(participant: MatchParticipant) -> void:
+	_respawned.append(participant)
+	_respawned_at.append(participant.body.global_position)
+
+
+## Wait out [param participant]'s respawn hold, returning on the tick it expires.
+## Polled rather than slept for a flat duration, so retuning the delay needs no
+## edit here.
+func _await_respawn(participant: MatchParticipant) -> void:
+	for _tick: int in HOLD_BUDGET_TICKS:
+		if not _controller.is_awaiting_respawn(participant):
+			return
+		await step_ticks(1)
 
 
 func _on_round_resolved(_outcome: MatchController.Outcome) -> void:

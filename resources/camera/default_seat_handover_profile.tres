@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="SeatHandoverProfile" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/camera/seat_handover_profile.gd" id="1_handover_profile"]
+
+[resource]
+script = ExtResource("1_handover_profile")
+enabled = true
+fly_to_tower = false
+fly_to_ring = false
+hold_seconds = 0.18
+to_tower_seconds = 0.85
+to_ring_seconds = 0.55
+arc_height_metres = 6.0
+smoothing = 1.0
+fov_surge_degrees = 8.0
+minimum_travel_metres = 2.0
+reset_zoom_on_handover = true

@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="MovementAudioTuning" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/audio/movement_audio_tuning.gd" id="1_movement_audio_tuning"]
+
+[resource]
+script = ExtResource("1_movement_audio_tuning")
+footstep_stride_metres = 1.6
+footstep_min_speed = 0.6
+landing_min_impact_speed = 1.5
+landing_full_impact_speed = 9.0
+landing_gain_min_db = -8.0
+landing_gain_max_db = 0.0
+ghosts_make_movement_sound = true

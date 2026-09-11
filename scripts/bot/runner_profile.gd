@@ -325,6 +325,85 @@ enum Behaviour {
 ## walking at a spot it will never reach. This is the only thing that notices.
 @export_range(1.0, 10.0, 0.1) var cross_timeout_multiple: float = 2.5
 
+# --- Sliding --------------------------------------------------------------
+
+## Metres of open ground a crossing must have before the runner bothers sliding
+## across it. Judged once, at the moment the crossing is committed to -- see
+## [method RingRunner._begin_cross] -- because CROSS faces the destination and
+## the runner cannot read the tower again until it arrives, so that is the only
+## tick with anything left to decide.
+##
+## A slide trades weak steering and a lower profile for a burst of speed. That
+## is worth it on essentially any real crossing -- the floor here exists only to
+## keep a shuffle of a few centimetres along the inside of the runner's own
+## cover, where [method RingRunner._measure_exposure] returns something above
+## zero purely from sampling and floor noise, from reading as a "crossing" at
+## all. It is deliberately low: this is meant to fire on most real crossings a
+## match sees, not to be a second risk gate sitting on top of the cover game's
+## own -- that belongs to [member break_confidence_threshold] and the rest of
+## the patience knobs above, not to this one.
+@export_range(0.0, 60.0, 0.1) var slide_min_exposed_metres: float = 1.0
+
+# --- Jumping ------------------------------------------------------------------
+#
+# Two triggers, and neither of them is a die roll. See [method
+# RingRunner._maybe_jump] for the whole argument; the short of it is that a hop
+# costs steering authority and buys two things -- the ground's friction is not
+# applied on the tick a body leaves it, and a body in the air is not on the line
+# a rifle led along the floor -- so the runner hops exactly where those are worth
+# having, and nowhere else.
+#
+# Every field here is read only by the cover-playing prisoner. The BASELINE lap
+# never jumps, deliberately: it is the control case this whole resource exists to
+# be measured against, and a control that changes is not one.
+
+## Whether this prisoner may jump at all.
+##
+## The A/B switch, and the reason it is a field rather than a constant: "does
+## hopping across open ground actually help a prisoner live" is a question for a
+## sweep to answer by running the same profile twice, not for this file to assume
+## either way.
+@export var jump_enabled: bool = true
+
+## Seconds between hops, however either of them was triggered.
+##
+## What stops a runner from bunny-hopping the lap. [member
+## MovementProfile.auto_bunny_hop] is on, so a HELD jump re-launches on the
+## landing tick and a body can chain hops with about four ticks of floor in every
+## hundred and eighty -- fast, but with air control instead of ground
+## acceleration for the whole crossing, and with no floor under it long enough
+## for [method PlayerController._try_begin_slide] to ever open a slide. This
+## brain therefore never holds jump; it presses, once, and this is the wait
+## before it may press again. Roughly twice a hop's 0.64 s hang time, so a hopping
+## runner spends about a third of its crossing airborne rather than all of it.
+@export_range(0.0, 10.0, 0.05) var jump_cooldown_seconds: float = 1.2
+
+## Metres of crossing that must still be left before the runner will hop to carry
+## speed.
+##
+## The approach is not the place for it. A hop is 0.64 s of weak steering, and
+## spending it on the last few metres means arriving past the cover rather than
+## behind it -- which on a crossing is the one mistake that leaves a prisoner
+## standing in the open having done everything else right. It is also the gate
+## that keeps an airborne body away from the far end of a path this brain has
+## never checked for floor.
+@export_range(0.0, 60.0, 0.5) var jump_min_remaining_metres: float = 6.0
+
+## Horizontal speed, in m/s, under which a runner that is pressed against
+## something and still asking to move counts as stuck.
+##
+## Comfortably under [member MovementProfile.crouch_speed] so that walking, in
+## any stance, is never mistaken for being blocked.
+@export_range(0.0, 20.0, 0.05) var jump_blocked_speed: float = 1.5
+
+## How long that has to stay true before the runner tries hopping over whatever
+## it is.
+##
+## Not one tick: a body leaving cover is genuinely near zero for a moment, and a
+## body that clips a corner at speed is stopped for a moment. This is the wait
+## that tells a snag from a stop.
+@export_range(0.0, 5.0, 0.05) var jump_blocked_seconds: float = 0.35
+
 
 # --- Derived values -----------------------------------------------------------
 

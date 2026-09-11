@@ -58,6 +58,12 @@ signal slide_started(entry_speed: float)
 ## player jumped out of it.
 signal slide_ended()
 
+## Emitted on the tick the body drops into the crouch stance, and on the tick it
+## stands back up. Carries the state rather than being two signals, because a
+## crouch has no "how it ended" to report the way a slide does -- the key went
+## up, or the body left the floor.
+signal crouch_changed(crouching: bool)
+
 ## Tunables. Without one the body cannot move and says so rather than falling
 ## back on invented numbers.
 @export var profile: MovementProfile
@@ -71,6 +77,17 @@ signal slide_ended()
 ## direction always follows where the player is aiming, which is what makes
 ## air strafing steerable by the mouse.
 @export var head: Node3D
+
+## The capsule the crouch shrinks. Optional, and the one export whose absence is
+## not an error: a body without it still crouches -- the head still drops, the
+## speed still falls -- it simply never gets smaller, which is the behaviour
+## every body in the game had before the crouch existed.
+##
+## It is named rather than searched for so a scene that means to have a shrinking
+## crouch says so. See [method _apply_stance] for what is done to it, and
+## [method _has_headroom_to_stand] for the check that keeps standing up from
+## pushing the capsule through a ceiling.
+@export var collision: CollisionShape3D
 
 ## Multiplier on the target ground speed this body is driven at. 1.0 is the
 ## [MovementProfile]'s own pace and is what every living body runs on.
@@ -141,6 +158,34 @@ var _head_base_y: float = 0.0
 ## Current crouch offset applied to the head, in metres (negative is down).
 var _head_offset: float = 0.0
 
+## True while the body is held in the crouch stance. See [method _update_crouch].
+var _crouching: bool = false
+
+## The capsule's authored height, captured once so the crouch is a change to the
+## scene's value rather than to a number this file invents. Zero when there is no
+## [member collision] to measure.
+var _standing_height: float = 0.0
+
+## The capsule's radius, which the crouch never changes. It is the floor the
+## crouch height is clamped against (Godot will not hold a capsule shorter than
+## twice its radius) and the radius the headroom probe is built at.
+var _capsule_radius: float = 0.0
+
+## The [member collision] node's authored local height. The crouch moves the node
+## DOWN by half the height it removes, which is what keeps the bottom of the
+## capsule -- the part that stands on the floor -- exactly where it was.
+var _collision_base_y: float = 0.0
+
+## This body's own copy of the capsule, so resizing it crouches THIS prisoner and
+## not every prisoner in the match. See [method _ready].
+var _capsule: CapsuleShape3D = null
+
+## The shape and the query the headroom check reuses, built once on first use.
+## Allocating a [PhysicsShapeQueryParameters3D] per tick would put the one part
+## of the movement that runs a space query on the allocator's critical path.
+var _headroom_shape: CapsuleShape3D = null
+var _headroom_query: PhysicsShapeQueryParameters3D = null
+
 
 func _ready() -> void:
 	if profile == null:
@@ -151,6 +196,7 @@ func _ready() -> void:
 	if head != null:
 		_head_base_y = head.position.y
 
+	_capture_capsule()
 	_adopt_profile()
 
 
@@ -189,12 +235,16 @@ func _physics_process(delta: float) -> void:
 		# technique dies.
 		on_floor = false
 
+	# After the slide and after the jump, both of which outrank it: a tick that
+	# opened a slide or left the ground is not a tick spent crouching.
+	_update_crouch(on_floor)
+
 	# Quake splits the request into a unit direction and a scalar target speed;
 	# a part-pressed stick is a proportionally lower target, not a shorter
 	# vector, so that the accelerate routines stay dimensionally correct.
 	var wish_vector: Vector3 = _get_wish_vector()
 	var wish_direction: Vector3 = wish_vector.normalized()
-	var wish_speed: float = profile.ground_speed * wish_vector.length() * speed_scale
+	var wish_speed: float = _target_speed(on_floor) * wish_vector.length() * speed_scale
 
 	if _sliding:
 		# --- Slide phase ---
@@ -265,6 +315,11 @@ func _adopt_profile() -> void:
 	if intent_source != null:
 		intent_source.configure(profile)
 
+	# The capsule is sized from the profile too, and a body mid-crouch when the
+	# swap happens must end the tick at the NEW profile's crouch height rather
+	# than at the height the retired profile asked for.
+	_apply_stance()
+
 
 ## Horizontal speed in m/s. The number that matters for strafe telemetry: air
 ## strafing raises it without bound, so it is the readout a movement sweep
@@ -290,6 +345,35 @@ func get_slide_time_remaining() -> float:
 ## Seconds until another slide may be opened; 0.0 when one may be opened now.
 func get_slide_cooldown_remaining() -> float:
 	return _slide_cooldown_timer
+
+
+## True while the body is held in the crouch stance.
+##
+## Deliberately has no companion clock: unlike [method get_slide_time_remaining]
+## there is nothing to count down. A crouch lasts exactly as long as the key.
+func is_crouching() -> bool:
+	return _crouching
+
+
+## The collision capsule's current height in metres -- the standing height, or
+## [member MovementProfile.crouch_height] while crouched. 0.0 when this body has
+## no [member collision] to measure.
+##
+## This is the number the guard is really shooting at, so it is exposed rather
+## than left for a caller to dig out of the shape.
+func get_stance_height() -> float:
+	if _capsule == null:
+		return 0.0
+	return _capsule.height
+
+
+## The head's current local height, crouch and slide offsets included. The eye
+## position a spectator camera or a test should read, rather than reaching into
+## [member head] and having to know about [member _head_base_y].
+func get_eye_height() -> float:
+	if head == null:
+		return 0.0
+	return head.position.y
 
 
 # --- Look ---------------------------------------------------------------------
@@ -366,10 +450,13 @@ func _try_jump(on_floor: bool) -> bool:
 # free speed. Everything about it is a number in [MovementProfile]; the rules it
 # obeys are:
 #
-#   ENTER  on the floor, above slide_min_entry_speed, off cooldown, with a
-#          fresh slide press inside the buffer window. Fresh, not held: holding
-#          the key through a slide-hop does not re-open a slide on landing, and
-#          the player re-presses to slide again.
+#   ENTER  on the floor, above slide_min_entry_speed, MOVING FORWARD (see
+#          _press_asks_for_a_slide), off cooldown, with a fresh slide press
+#          inside the buffer window. Fresh, not held: holding the key through a
+#          slide-hop does not re-open a slide on landing, and the player
+#          re-presses to slide again. A press that fails the speed or the
+#          forward test is not an error -- it is a crouch, which is the same
+#          key's other meaning. See the Crouching section below.
 #   REWARD one boost along the current heading, up to slide_boost_speed_cap and
 #          never downwards -- a body already faster than the cap keeps its speed
 #          and is simply not paid again.
@@ -397,14 +484,43 @@ func _tick_slide_timers(delta: float) -> void:
 
 ## Open a slide if this tick may open one. Runs before the jump and before any
 ## acceleration is applied.
+##
+## A press that gets this far and fails [method _press_asks_for_a_slide] is not
+## wasted and is not an error: it falls through to the crouch, which is the other
+## half of what this key now means. The buffer is deliberately NOT spent on the
+## way past, so a press made in the air while turning still opens the slide on
+## the tick the body is finally pointing where it is going.
 func _try_begin_slide(on_floor: bool) -> void:
 	if _sliding:
 		return
 	if not on_floor or _slide_cooldown_timer > 0.0 or _slide_buffer_timer <= 0.0:
 		return
-	if get_horizontal_speed() < profile.slide_min_entry_speed:
+	if not _press_asks_for_a_slide():
 		return
 	_begin_slide()
+
+
+## Which of the slide key's two meanings this press carries: true for the slide,
+## false for the crouch.
+##
+## [b]The author's rule, in two lines of code[/b] ("you shoudl slide when moving
+## forward and crouching. otherwise just crouch"). Moving: horizontal speed at or
+## above [member MovementProfile.slide_min_entry_speed], the threshold a slide
+## always had. Forward: the wish direction's forward component at or above
+## [member MovementProfile.slide_min_forward_intent].
+##
+## [b]Why the intent and not the velocity.[/b] The discriminator reads
+## [MoveIntent] and the body's own speed and nothing else, so it is identical for
+## a hand on a keyboard, a [BotIntentSource] and a [RemoteIntentSource] replaying
+## a peer's commands -- there is no branch anywhere that asks what kind of thing
+## is driving. Reading the velocity's alignment with the facing instead would
+## make the answer depend on which way the mouse had been turned since, so a
+## player who flicks the view while running would get a crouch out of a key they
+## pressed to slide.
+func _press_asks_for_a_slide() -> bool:
+	if get_horizontal_speed() < profile.slide_min_entry_speed:
+		return false
+	return _intent.move_direction.y >= profile.slide_min_forward_intent
 
 
 ## Close the slide if this tick was its last. Runs [b]after[/b] the move.
@@ -502,27 +618,222 @@ func _apply_slope_assist(delta: float) -> void:
 	velocity += downhill * (profile.slide_slope_acceleration * normal.y * delta)
 
 
-## Move the head towards or away from the slide crouch.
+# --- Crouching ----------------------------------------------------------------
+#
+# The slide key's other meaning, and structurally the opposite of the slide in
+# every respect except the button it shares.
+#
+#   SLIDE   edge-triggered, buffered, boosted, timed, on a cooldown.
+#   CROUCH  level-driven, unbuffered, unpaid, untimed, on nothing.
+#
+# [b]How those two live on one key.[/b] They read DIFFERENT FIELDS of it.
+# [member MoveIntent.slide_pressed] is the edge and it belongs to the slide
+# alone -- [method _tick_slide_timers] still latches its rising edge, still fills
+# the buffer from it and never from the level, so holding the key through a
+# slide-hop still cannot re-open a slide on landing and slide-hopping is exactly
+# the technique it was. [member MoveIntent.slide_held] is the level and it is all
+# the crouch ever looks at: no buffer to arm, no edge to spend, no cooldown to
+# clear. A key held down is therefore a crouch by construction and a slide only
+# on the tick it went down, which is the only arrangement in which "held" and
+# "edge-triggered" are both true of the same button and neither is a special
+# case of the other.
+#
+# The fall-through is the whole feel of it: a press that asks for a slide and is
+# refused -- too slow, or not going forward -- is not swallowed, it simply lands
+# on the crouch. And a slide that ends under a still-held key drops into a crouch
+# on the next tick rather than popping the prisoner upright in the open.
+
+## Decide this tick's stance. Runs after [method _try_begin_slide] and after
+## [method _try_jump], both of which outrank it.
 ##
-## [b]Cosmetic only.[/b] The collision capsule is not resized, so a slide never
-## shrinks the target a shooter is aiming at, and there is no "cannot stand up
-## under this ceiling" case to solve. That is a balance decision as much as a
-## simplicity one: a slide already buys speed, and buying a smaller hitbox with
-## the same key would make the runner harder to hit at the exact moment they are
-## hardest to lead.
+## The one thing that can hold a crouch against the player's will is geometry:
+## see [method _has_headroom_to_stand]. A crouch that cannot be left is left
+## crouched, every tick, until there is room -- which is what stops a body from
+## growing back into a ceiling.
+func _update_crouch(on_floor: bool) -> void:
+	# Airborne is not a stance. Leaving the crouch out of the air keeps the air
+	# phase bit-for-bit what it was -- same wish speed, same capsule, same
+	# saturation against max_air_speed -- so nothing about air strafing or
+	# slide-hopping can be changed by a key that happens to still be down.
+	var wants: bool = _intent.slide_held and not _sliding and on_floor
+	if not wants and _crouching and not _has_headroom_to_stand():
+		return
+	_set_crouched(wants)
+
+
+func _set_crouched(crouching: bool) -> void:
+	if crouching == _crouching:
+		return
+	_crouching = crouching
+	_apply_stance()
+	crouch_changed.emit(_crouching)
+
+
+## The target speed the ground phase accelerates towards.
+##
+## [param on_floor] rather than [member _crouching] alone, so the speed penalty
+## is a property of crouched GROUND movement. A body still crouched in the air --
+## which only happens when a ceiling refused to let it stand -- flies on the
+## standing number, because the alternative is a wish speed that silently changes
+## the air-acceleration rate mid-flight.
+func _target_speed(on_floor: bool) -> float:
+	if _crouching and on_floor:
+		return profile.crouch_speed
+	return profile.ground_speed
+
+
+## Read the authored capsule once, and take a private copy of it.
+##
+## [b]The copy is not optional.[/b] A [SubResource] written inside a
+## [PackedScene] is one object shared by every instance of that scene, so
+## resizing the shape on the node would crouch all four prisoners and the guard
+## together, from whichever one of them pressed the key. Duplicating here makes
+## the capsule this body's own.
+func _capture_capsule() -> void:
+	if collision == null:
+		return
+	var authored: CapsuleShape3D = collision.shape as CapsuleShape3D
+	if authored == null:
+		# Not an error: a body shaped out of something else still crouches, it
+		# just does not shrink. Said out loud so it is not mistaken for one.
+		push_warning("PlayerController's collision shape is not a CapsuleShape3D; the crouch will not shrink it.")
+		return
+	_capsule = authored.duplicate() as CapsuleShape3D
+	collision.shape = _capsule
+	_standing_height = _capsule.height
+	_capsule_radius = _capsule.radius
+	_collision_base_y = collision.position.y
+
+
+## The height the capsule takes while crouched, clamped to what a capsule can
+## actually be: Godot holds a capsule to at least twice its radius, and clamping
+## here rather than letting the physics server do it silently means a profile
+## that asks for the impossible gets the nearest legal body instead of a body
+## whose height does not match its own tunables.
+func _crouched_capsule_height() -> float:
+	return clampf(profile.crouch_height, _capsule_radius * 2.0, _standing_height)
+
+
+## Resize the capsule to the current stance.
+##
+## The height changes in one step, not over a settle: an interpolated collision
+## volume is a body that is briefly neither size, and the shooter would be
+## leading a hitbox that is a different height on his machine than on the
+## runner's. The HEAD eases (see [method _settle_head]) because that is a camera
+## and nobody is hit by it.
+##
+## Only the TOP moves. The node is dropped by half the height removed, so the
+## bottom of the capsule -- the part standing on the floor -- does not move, the
+## body cannot be pushed through the ground by crouching, and standing back up
+## can only ever grow upwards, into the space [method _has_headroom_to_stand] has
+## already been asked about.
+func _apply_stance() -> void:
+	if _capsule == null:
+		return
+	var height: float = _crouched_capsule_height() if _crouching else _standing_height
+	_capsule.height = height
+	collision.position.y = _collision_base_y - (_standing_height - height) * 0.5
+
+
+## Is there room above the crouched capsule for the standing one?
+##
+## The probe is a capsule of the body's own radius that spans from inside the
+## crouched volume up to exactly where the standing capsule's crown would be --
+## height [code](standing - crouched) + 2 * radius[/code], centred so its top cap
+## coincides with the standing cap. Two properties make that the right shape:
+##
+## 1. It is a strict subset of the standing capsule, so it can never report a
+##    ceiling the body would have fitted under.
+## 2. Its bottom sits well inside the crouched capsule, which is space the body
+##    already occupies and is therefore known to be clear -- so it never touches
+##    the floor the body is standing on. Probing with the standing capsule itself
+##    would have its foot on the ground and report "blocked" every single tick.
+##
+## Returns true -- stand up -- when there is nothing to query against, which is
+## the honest answer for a body that is not in a world yet rather than a body
+## trapped by a space that does not exist.
+func _has_headroom_to_stand() -> bool:
+	if _capsule == null:
+		return true
+	var world: World3D = get_world_3d()
+	if world == null:
+		return true
+	var crouched: float = _crouched_capsule_height()
+	var gained: float = _standing_height - crouched
+	if gained <= 0.0:
+		return true
+
+	if _headroom_shape == null:
+		_headroom_shape = CapsuleShape3D.new()
+	_headroom_shape.radius = _capsule_radius
+	_headroom_shape.height = gained + _capsule_radius * 2.0
+
+	if _headroom_query == null:
+		_headroom_query = PhysicsShapeQueryParameters3D.new()
+		_headroom_query.shape = _headroom_shape
+		_headroom_query.collide_with_bodies = true
+		_headroom_query.collide_with_areas = false
+		# Zero, not the character controller's safe margin: this is a question
+		# about whether a volume is empty, and a margin would answer a slightly
+		# larger question and refuse tight gaps the body does in fact fit.
+		_headroom_query.margin = 0.0
+		# Typed, and built once: the exclusion has to be this body or the query
+		# trivially hits the very capsule it is asking about, and an untyped
+		# array literal will not assign to an Array[RID] property.
+		var exclusions: Array[RID] = [get_rid()]
+		_headroom_query.exclude = exclusions
+	# Refreshed every call, because a body is free to change which layers it
+	# collides with between one crouch and the next.
+	_headroom_query.collision_mask = collision_mask
+	# Identity basis, not the body's: only yaw ever turns this body, a capsule is
+	# a solid of revolution about its own Y, and taking the basis verbatim would
+	# tip the probe over the day something ever tilts the body.
+	var standing_top: float = _collision_base_y + _standing_height * 0.5
+	_headroom_query.transform = Transform3D(
+		Basis.IDENTITY,
+		global_position + Vector3.UP * (standing_top - _headroom_shape.height * 0.5),
+	)
+
+	# One hit is all the answer needs; asking for more is asking the physics
+	# server to sort a list nobody reads.
+	return world.direct_space_state.intersect_shape(_headroom_query, 1).is_empty()
+
+
+## Move the head towards or away from the low stance -- the slide's, or the
+## crouch's.
+##
+## [b]The slide's drop is still cosmetic.[/b] A slide does not resize the capsule
+## and never has: it already buys speed, and buying a smaller hitbox with the
+## same key would make the runner harder to hit at the exact moment they are
+## hardest to lead. [b]The crouch's is not.[/b] There the capsule really does come
+## down (see [method _apply_stance]) and this drop is what keeps the eye inside
+## the volume a shooter can hit, so a crouched player cannot see over cover their
+## silhouette is hidden behind.
+##
+## The two states have their own drop and their own rate, and the slide outranks
+## the crouch on the tick both are somehow true, because a slide is the more
+## specific thing.
 ##
 ## The approach is exponential rather than a linear lerp so the settle takes the
 ## same wall-clock time at any physics tick rate.
 func _settle_head(delta: float) -> void:
 	if head == null:
 		return
-	var target: float = -profile.slide_camera_drop if _sliding else 0.0
-	if profile.slide_camera_settle_rate <= 0.0:
+	# The slide's rate is the snap INTO a slide and belongs to the slide alone;
+	# everything else -- dropping into a crouch, and rising out of either state --
+	# uses the crouch's gentler rate, because standing back up is not an event.
+	var target: float = 0.0
+	var rate: float = profile.crouch_camera_settle_rate
+	if _sliding:
+		target = -profile.slide_camera_drop
+		rate = profile.slide_camera_settle_rate
+	elif _crouching:
+		target = -profile.crouch_camera_drop
+
+	if rate <= 0.0:
 		_head_offset = target
 	else:
-		_head_offset = lerpf(
-			_head_offset, target, 1.0 - exp(-profile.slide_camera_settle_rate * delta)
-		)
+		_head_offset = lerpf(_head_offset, target, 1.0 - exp(-rate * delta))
 	head.position.y = _head_base_y + _head_offset
 
 

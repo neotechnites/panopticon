@@ -43,11 +43,22 @@ extends Node
 ## frame a menu opens.
 @export var capture_mouse_on_ready: bool = false
 
+## Whether this device is currently being read. Mirrors what
+## [method set_active] was last told, rather than being re-derived from
+## [method Node.is_processing], so it stays the honest answer even for a node
+## that has been paused for some unrelated reason.
+##
+## True by default, matching a freshly loaded node's own processing state: a
+## bare [code]scenes/weapon/rifle.tscn[/code] with no match controller around
+## it is a human's rifle.
+var _active: bool = true
+
 
 func _ready() -> void:
 	WeaponActions.ensure_registered()
 	if weapon == null:
 		push_error("WeaponInput has no Rifle to drive; input will be ignored.")
+		_active = false
 		set_process(false)
 		return
 	if capture_mouse_on_ready:
@@ -83,9 +94,29 @@ func _process(_delta: float) -> void:
 ## read and a charge that kept building while nobody was pressing anything would
 ## be a shot the player never took.
 func set_active(active: bool) -> void:
-	set_process(active and weapon != null)
+	_active = active and weapon != null
+	set_process(_active)
 	if not active and weapon != null:
 		weapon.cancel_charge()
+
+
+## True while the HUMAN is the one holding this weapon.
+##
+## [method MatchController._attach_rifle] switches this on for a human holder
+## and off for a bot one, and [method MatchController._stow_rifle] switches it
+## off when nobody has the rifle at all -- so this is already the game's own
+## answer to "is the person at this keyboard in the tower", and anything that
+## needs to know reads it here rather than inventing a second flag that could
+## disagree with it. [ScopeVignette] is the first such reader.
+##
+## [b]It checks [method Node.can_process] as well as its own flag[/b], because
+## there are two ways this node gets switched off and only one of them comes
+## through [method set_active]: [code]scenes/bot/tower_shooter.tscn[/code]
+## silences its own copy with [member Node.process_mode] DISABLED instead, so
+## that a human's mouse can never spend a bot's one shot. Reading only the flag
+## would report that bot's rifle as human-held.
+func is_active() -> bool:
+	return _active and can_process()
 
 
 ## Whether the weapon in hand charges rather than fires on press. A fact about

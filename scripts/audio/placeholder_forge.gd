@@ -36,7 +36,7 @@ extends SceneTree
 ## makes swapping in the real thing a drag-and-drop rather than a code change.
 
 ## 22 kHz mono is deliberately mediocre. These are placeholders and the file
-## size is the point: seventeen of them live in version control.
+## size is the point: over twenty of them live in version control.
 const SAMPLE_RATE: int = 22050
 
 ## Where the .wav files go. Named so that a directory listing says what they are.
@@ -231,6 +231,57 @@ func _make_cue(event: StringName) -> AudioCue:
 		AudioEvents.MATCH_STARTED, AudioEvents.RACE_STARTED, AudioEvents.ROUND_STARTED, \
 		AudioEvents.SEAT_CHANGED, AudioEvents.ROUND_RESOLVED, AudioEvents.RUNNER_CONVERTED:
 			cue.volume_db = -15.0
+		AudioEvents.MOVEMENT_FOOTSTEP:
+			# Frequent and close: a footstep only matters within earshot, and the
+			# whole design leans on it never outshouting the rifle it is meant to
+			# warn you is coming. See MovementAudioTuning for the pacing that
+			# decides how often this is even posted.
+			cue.volume_db = -22.0
+			cue.max_distance = 30.0
+			cue.unit_size = 6.0
+			cue.pitch_jitter = 0.08
+			cue.min_retrigger_seconds = 0.05
+		AudioEvents.MOVEMENT_JUMP:
+			cue.volume_db = -18.0
+			cue.max_distance = 40.0
+			cue.unit_size = 10.0
+			cue.pitch_jitter = 0.04
+		AudioEvents.MOVEMENT_LAND:
+			# Louder than a footstep and carries further -- a landing is a single
+			# event, not sixty of them a minute -- and its actual level on any
+			# given play is this trim plus whatever MovementAudioListener added
+			# through AudioDirector.post_at_gain for the impact speed.
+			cue.volume_db = -16.0
+			cue.max_distance = 45.0
+			cue.unit_size = 10.0
+			cue.pitch_jitter = 0.05
+		AudioEvents.MOVEMENT_SLIDE_START, AudioEvents.MOVEMENT_SLIDE_END:
+			cue.volume_db = -18.0
+			cue.max_distance = 40.0
+			cue.unit_size = 9.0
+			cue.pitch_jitter = 0.04
+		AudioEvents.PLAYER_HIT_TAKEN:
+			# The loudest cue in the bank. It is one player's own death and it
+			# only ever plays on the machine it happened to.
+			cue.volume_db = -2.0
+			# Pitched well down. The placeholder behind it is the bright rifle
+			# tick, and the victim's cue has to be the heavy low end of a blow.
+			cue.pitch_scale = 0.45
+			cue.pitch_jitter = 0.02
+		AudioEvents.PLAYER_CATCH_MADE:
+			# The ghost's own reward, on the ghost's own machine. Under the
+			# victim's cue below and under PLAYER_HIT_TAKEN: it is good news,
+			# and good news does not have to shout.
+			cue.volume_db = -6.0
+			cue.pitch_jitter = 0.03
+		AudioEvents.PLAYER_CATCH_TAKEN:
+			# As loud as PLAYER_HIT_TAKEN, because it is the same thing -- one
+			# player's own death, on the machine it happened to. Pitched a
+			# little higher than the shot's 0.45 so the two deaths are tellable
+			# apart with the eyes shut, which is the whole point of having two.
+			cue.volume_db = -2.0
+			cue.pitch_scale = 0.60
+			cue.pitch_jitter = 0.02
 		AudioEvents.UI_CLICK:
 			cue.volume_db = -20.0
 			cue.min_retrigger_seconds = 0.04
@@ -288,6 +339,48 @@ func _render(event: StringName) -> PackedFloat32Array:
 			return _sequence(PackedFloat32Array([880.0, 440.0]), 0.06, 0.9, true, 2.6)
 		AudioEvents.MATCH_WON:
 			return _sequence(PackedFloat32Array([523.0, 659.0, 784.0, 1046.0]), 0.10, 1.0, true, 1.4)
+		AudioEvents.MOVEMENT_FOOTSTEP:
+			# A short low tap: a noise transient over a soft thump, deliberately
+			# the quietest and shortest thing in the bank -- this one posts far
+			# more often than anything else here.
+			return _mix(_noise(0.03, 0.4, 6.0), _tone(160.0, 0.03, 0.35, false, 6.0))
+		AudioEvents.MOVEMENT_JUMP:
+			# A quick upward chirp: the launch.
+			return _sweep(300.0, 620.0, 0.07, 0.6, 2.5, true)
+		AudioEvents.MOVEMENT_LAND:
+			# A thud: noise over a fast downward sweep, heavier than a footstep
+			# and pitched lower than RIFLE_HIT so the two are never confused at a
+			# glance -- er, an earful.
+			return _mix(_noise(0.05, 0.7, 4.0), _sweep(220.0, 70.0, 0.09, 0.75, 3.0, false))
+		AudioEvents.MOVEMENT_SLIDE_START:
+			# A whoosh dropping in pitch: the boost taking hold.
+			return _mix(_noise(0.14, 0.5, 2.0), _sweep(500.0, 200.0, 0.14, 0.45, 2.0, false))
+		AudioEvents.MOVEMENT_SLIDE_END:
+			# A short scuff: friction catching up.
+			return _mix(_noise(0.05, 0.45, 5.0), _tone(150.0, 0.04, 0.35, false, 5.0))
+		AudioEvents.PLAYER_HIT_TAKEN:
+			# The victim's own hit: a thud, not a tick. Low, loud, and over --
+			# the audible half of the baseball to the side of the head that
+			# FxHitReaction draws. Deliberately unlike RIFLE_HIT, which is the
+			# bright confirmation the SHOOTER is listening for.
+			return _mix(_noise(0.07, 0.9, 4.0), _sweep(260.0, 60.0, 0.14, 1.0, 2.6, false))
+		AudioEvents.PLAYER_CATCH_MADE:
+			# A climb, and the only one of these that goes up: the ghost has
+			# just stopped being a ghost. Two rising steps over a soft body, so
+			# it reads as a gain rather than as a rifle's confirmation tick.
+			return _mix(
+				_sequence(PackedFloat32Array([330.0, 660.0]), 0.09, 0.85, false, 1.8),
+				_sweep(180.0, 420.0, 0.18, 0.5, 1.6, false),
+			)
+		AudioEvents.PLAYER_CATCH_TAKEN:
+			# A drag, not a thud. PLAYER_HIT_TAKEN is a transient that is over
+			# before it has finished arriving; this one is longer, falls further
+			# and keeps going after it has landed, which is the audible half of
+			# a frame closing in rather than a frame flashing.
+			return _mix(
+				_noise(0.20, 0.55, 1.8),
+				_sweep(200.0, 45.0, 0.30, 1.0, 1.4, false),
+			)
 		AudioEvents.UI_CLICK:
 			return _tone(1000.0, 0.035, 0.7, true, 3.5)
 		AudioEvents.UI_FOCUS:

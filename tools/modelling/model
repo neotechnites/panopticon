@@ -1,0 +1,362 @@
+#!/usr/bin/env bash
+#
+# model -- the PANOPTICON 3D modelling pipeline, driven from the Mac.
+#
+#   Author on the Mac.  Build on the PC.  Look at it on the Mac.
+#
+# One command ships a build script to the Windows box, renders it with EEVEE on
+# the GPU, proves the .glb imports into Godot with no errors and no warnings,
+# and drops the model into assets/models/ and the pictures onto the Desktop.
+#
+#   tools/modelling/model build runner
+#   tools/modelling/model build runner --views front,side,threequarter,hero
+#   tools/modelling/model build runner --cam 200,35 --cam 15,-10,35 --res 1400x1400
+#   tools/modelling/model build runner --frame 6 --turntable 8
+#   tools/modelling/model look   runner --cam 120,25        # renders only, no install
+#   tools/modelling/model look   runner --rest               # rest pose, to debug a rig
+#   tools/modelling/model verify runner                     # re-check the shipped .glb
+#   tools/modelling/model views                             # list the named views
+#   tools/modelling/model open                              # reveal the renders in Finder
+#
+# See docs/MODELLING.md. The short version of what bit us:
+#   * EEVEE cannot run over plain ssh. It goes through a scheduled task created
+#     /it so that it lands in the logged-on console session and finds the GPU.
+#   * Never run Godot on the Mac; it steals the keyboard. Verification is on
+#     the PC, and it is a real check, not an assumption.
+#
+set -euo pipefail
+
+REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+HERE="$REPO/tools/modelling"
+
+PC_ALIAS="panopticon-pc"
+PC_SCP="ddd@100.114.41.16"
+PC_KEY="$HOME/.ssh/panopticon_pc_ed25519"
+PC_WORK='C:/Users/ddd/panopticon-modelling'
+PC_WORK_W='C:\Users\ddd\panopticon-modelling'
+# Every model gets its own job directory, its own copy of the library and its
+# own scheduled-task name. Several agents share this repo and this PC, and a
+# single shared build.log / build.done / task name means one agent's run
+# silently eats another's -- which presents as "blender failed" on a script
+# that is perfectly fine.
+BLENDER='C:\tools\blender\blender.exe'
+GODOT='C:\tools\godot\godot.exe'
+
+MODELS="$REPO/assets/models"
+RENDERS="$HOME/Desktop/panopticon-renders"
+
+die() { printf 'model: %s\n' "$*" >&2; exit 1; }
+say() { printf '\033[1m==> %s\033[0m\n' "$*"; }
+
+pc()      { ssh -o ConnectTimeout=20 "$PC_ALIAS" "$@"; }
+push()    { scp -q -i "$PC_KEY" "$1" "$PC_SCP:$2"; }
+pull()    { scp -q -i "$PC_KEY" "$PC_SCP:$1" "$2"; }
+
+# -----------------------------------------------------------------------------
+# argument parsing
+# -----------------------------------------------------------------------------
+CMD="${1:-help}"; shift || true
+
+VIEWS=""
+CAMS=()
+RES=""
+ENGINE="eevee"
+SAMPLES=""
+FRAME=""
+TURNTABLE=0
+MARGIN=""
+DO_VERIFY=1
+DO_INSTALL=1
+DO_GLB=1
+KEEP=0
+TIMEOUT=900
+REST=0
+LIGHT=""
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --views)      VIEWS="$2"; shift 2 ;;
+    --cam)        CAMS+=("$2"); shift 2 ;;
+    --res)        RES="$2"; shift 2 ;;
+    --engine)     ENGINE="$2"; shift 2 ;;
+    --cpu)        ENGINE="cycles"; shift ;;
+    --rest)       REST=1; shift ;;
+    --light)      LIGHT="$2"; shift 2 ;;
+    --gpu)        ENGINE="eevee"; shift ;;
+    --samples)    SAMPLES="$2"; shift 2 ;;
+    --frame)      FRAME="$2"; shift 2 ;;
+    --turntable)  TURNTABLE="$2"; shift 2 ;;
+    --margin)     MARGIN="$2"; shift 2 ;;
+    --timeout)    TIMEOUT="$2"; shift 2 ;;
+    --no-verify)  DO_VERIFY=0; shift ;;
+    --no-install) DO_INSTALL=0; shift ;;
+    --keep)       KEEP=1; shift ;;
+    -h|--help)    CMD=help; shift ;;
+    -*)           die "unknown option $1" ;;
+    *)            NAME="${NAME:-$1}"; shift ;;
+  esac
+done
+NAME="${NAME:-}"
+
+JOB="$PC_WORK/jobs/$NAME"
+JOB_W="$PC_WORK_W\\jobs\\$NAME"
+TASK="PanopticonModelling_${NAME:-none}"
+
+# -----------------------------------------------------------------------------
+# helpers
+# -----------------------------------------------------------------------------
+
+json_spec() {
+  # $1 = out_dir on the PC (windows path, forward slashes)
+  python3 - "$1" <<PY
+import json, sys
+spec = {
+    "engine": "$ENGINE",
+    "out_dir": sys.argv[1],
+    "glb": bool($DO_GLB),
+    "turntable": int("$TURNTABLE"),
+}
+views = "$VIEWS"
+if views:
+    spec["views"] = [v.strip() for v in views.split(",") if v.strip()]
+elif "${#CAMS[@]}" != "0" or int("$TURNTABLE"):
+    spec["views"] = []
+cams = """$(printf '%s\n' "${CAMS[@]+"${CAMS[@]}"}")""".split()
+if cams:
+    spec["cams"] = [[float(x) for x in c.split(",")] for c in cams if c]
+res = "$RES"
+if res:
+    w, h = res.lower().split("x")
+    spec["resolution"] = [int(w), int(h)]
+if "$SAMPLES":
+    spec["samples"] = int("$SAMPLES")
+if "$MARGIN":
+    spec["margin"] = float("$MARGIN")
+if "$FRAME" != "":
+    spec["frame"] = int("$FRAME")
+if "$REST" == "1":
+    spec["pose"] = "rest"
+if "$LIGHT":
+    spec["key_energy"] = float("$LIGHT")
+print(json.dumps(spec, indent=1))
+PY
+}
+
+ensure_workdir() {
+  pc "New-Item -ItemType Directory -Force -Path '$JOB_W','$JOB_W\\out','$JOB_W\\verify' | Out-Null; 'ready'" >/dev/null
+}
+
+# Runs a batch file on the PC. $1 = basename (no .bat), $2 = "interactive"|"direct"
+run_bat() {
+  local stem="$1" mode="$2" flag=""
+  [ "$mode" = "direct" ] && flag="-Direct"
+  pc "powershell -NoProfile -ExecutionPolicy Bypass -File '$JOB_W\\pcrun.ps1' -Bat '$JOB_W\\$stem.bat' -TaskName '$TASK' -TimeoutSec $TIMEOUT $flag"
+}
+
+# -----------------------------------------------------------------------------
+# stages
+# -----------------------------------------------------------------------------
+
+stage_ship() {
+  local script="$HERE/${NAME}_build.py"
+  [ -f "$script" ] || die "no build script at tools/modelling/${NAME}_build.py
+       Author one first -- that file IS the model. A model whose script lives
+       in a scratchpad is a model you cannot change (see docs/MODELLING.md)."
+  ensure_workdir
+  # Clear this model's previous output, or stage_fetch drags back renders from
+  # a view set you are no longer asking for and you compare against a stale png.
+  # -Path, not -LiteralPath: LiteralPath treats the * as part of the filename
+  # and silently deletes nothing, which is exactly the stale-render trap.
+  pc "Remove-Item -Path '$JOB_W\\out\\${NAME}_*.png' -ErrorAction SilentlyContinue" >/dev/null
+  push "$HERE/lib/mdl.py"        "$JOB/mdl.py"
+  push "$HERE/lib/pcrun.ps1"     "$JOB/pcrun.ps1"
+  push "$script"                 "$JOB/${NAME}_build.py"
+  json_spec "$JOB/out" > "$TMP/spec.json"
+  push "$TMP/spec.json"          "$JOB/spec.json"
+}
+
+stage_blender() {
+  # Blender exits 0 after a Python traceback in -b -P, so the exit code alone
+  # will happily report success for a script that never built anything. The
+  # "MDL DONE" marker is written by mdl.main as its last act; require it.
+  cat > "$TMP/build.bat" <<EOF
+@echo off
+set W=$JOB_W
+del /q "%W%\\build.done" 2>nul
+cd /d "%W%"
+"$BLENDER" -b -noaudio -P "%W%\\${NAME}_build.py" -- --spec "%W%\\spec.json" > "%W%\\build.log" 2>&1
+set RC=%ERRORLEVEL%
+findstr /c:"MDL DONE" "%W%\\build.log" >nul || set RC=1
+echo %RC% > "%W%\\build.done"
+EOF
+  push "$TMP/build.bat" "$JOB/build.bat"
+
+  local mode="interactive"
+  [ "$ENGINE" = "cycles" ] && mode="direct"
+
+  say "blender ($ENGINE, $mode session)"
+  local t0 t1
+  t0=$(date +%s)
+  if ! run_bat build "$mode" > "$TMP/build.out" 2>&1; then
+    grep -E 'MDL|Error|EXCEPTION|Traceback|^  File|PCRUN' "$TMP/build.out" | tail -40 >&2 || true
+    die "blender failed. Full log: ssh $PC_ALIAS \"type $JOB_W\\build.log\""
+  fi
+  t1=$(date +%s)
+  BLENDER_SECS=$((t1 - t0))
+  grep -E '^MDL (STATS|EXPORT|RENDER|DONE|note)' "$TMP/build.out" || true
+}
+
+stage_verify() {
+  say "godot import check"
+  # A fresh scratch project every time. Godot prints an import's complaints
+  # exactly once; reusing .godot/ makes the second run of a broken model green.
+  cat > "$TMP/project.godot" <<'EOF'
+config_version=5
+
+[application]
+config/name="modelling-verify"
+config/features=PackedStringArray("4.7", "GL Compatibility")
+
+[debug]
+gdscript/warnings/untyped_declaration=1
+gdscript/warnings/unsafe_property_access=1
+gdscript/warnings/unsafe_method_access=1
+EOF
+  push "$TMP/project.godot"        "$JOB/verify/project.godot"
+  push "$HERE/lib/verify_glb.gd"   "$JOB/verify/verify_glb.gd"
+  if [ -f "$HERE/${NAME}.contract.json" ]; then
+    push "$HERE/${NAME}.contract.json" "$JOB/verify/contract.json"
+  else
+    pc "Remove-Item -LiteralPath '$JOB_W\\verify\\contract.json' -ErrorAction SilentlyContinue" >/dev/null
+  fi
+
+  cat > "$TMP/verify.bat" <<EOF
+@echo off
+set W=$JOB_W
+del /q "%W%\\verify.done" 2>nul
+rmdir /s /q "%W%\\verify\\.godot" 2>nul
+copy /y "%W%\\out\\${NAME}.glb" "%W%\\verify\\model.glb" >nul
+"$GODOT" --headless --path "%W%\\verify" --import > "%W%\\verify.log" 2>&1
+"$GODOT" --headless --path "%W%\\verify" --script res://verify_glb.gd >> "%W%\\verify.log" 2>&1
+echo %ERRORLEVEL% > "%W%\\verify.done"
+EOF
+  push "$TMP/verify.bat" "$JOB/verify.bat"
+
+  if ! run_bat verify direct > "$TMP/verify.out" 2>&1; then
+    grep -E 'VERIFY|ERROR|WARNING|PCRUN' "$TMP/verify.out" | tail -40 >&2 || true
+    die "godot verification FAILED -- the model was not installed"
+  fi
+
+  # Zero errors AND zero warnings is the bar. Godot's importer is happy to
+  # warn about a lost skin and still exit 0.
+  local bad
+  bad=$(grep -cE '^(ERROR|WARNING|SCRIPT ERROR|USER ERROR)' "$TMP/verify.out" || true)
+  if [ "${bad:-0}" -gt 0 ]; then
+    grep -E '^(ERROR|WARNING|SCRIPT ERROR|USER ERROR)' -A2 "$TMP/verify.out" >&2
+    die "$bad error/warning line(s) during import -- the model was not installed"
+  fi
+  grep -E '^VERIFY' "$TMP/verify.out" || true
+}
+
+stage_fetch() {
+  mkdir -p "$RENDERS"
+  local listing
+  listing=$(pc "Get-ChildItem '$JOB_W\\out' -Filter '${NAME}*' | Select-Object -ExpandProperty Name")
+  local got=0
+  while IFS= read -r f; do
+    f="${f%$'\r'}"
+    [ -n "$f" ] || continue
+    case "$f" in
+      *.png)
+        pull "$JOB/out/$f" "$RENDERS/$f"
+        if [ "$KEEP" = "1" ]; then
+          mkdir -p "$RENDERS/archive"
+          cp "$RENDERS/$f" "$RENDERS/archive/${f%.png}_$(date +%Y%m%d-%H%M%S).png"
+        fi
+        got=$((got + 1))
+        ;;
+      *.glb)
+        pull "$JOB/out/$f" "$TMP/$f"
+        ;;
+      *.stats.json)
+        pull "$JOB/out/$f" "$TMP/$f"
+        ;;
+    esac
+  done <<< "$listing"
+  say "$got render(s) -> $RENDERS"
+}
+
+stage_install() {
+  [ -f "$TMP/${NAME}.glb" ] || die "no ${NAME}.glb came back from the PC"
+  mkdir -p "$MODELS"
+  cp "$TMP/${NAME}.glb" "$MODELS/${NAME}.glb"
+  say "assets/models/${NAME}.glb ($(wc -c < "$MODELS/${NAME}.glb" | tr -d ' ') bytes)"
+  if [ -f "$MODELS/${NAME}.glb.import" ]; then
+    echo "    (${NAME}.glb.import kept -- it carries the uid the scenes reference)"
+  fi
+}
+
+# -----------------------------------------------------------------------------
+# commands
+# -----------------------------------------------------------------------------
+
+TMP="$(mktemp -d "${TMPDIR:-/tmp}/panopticon-model.XXXXXX")"
+trap 'rm -rf "$TMP"' EXIT
+
+case "$CMD" in
+
+  build|look)
+    [ -n "$NAME" ] || die "usage: model $CMD <name> [options]"
+    if [ "$CMD" = "look" ]; then DO_INSTALL=0; DO_VERIFY=0; fi
+    START=$(date +%s)
+    stage_ship
+    stage_blender
+    if [ "$DO_VERIFY" = "1" ]; then stage_verify; fi
+    stage_fetch
+    if [ "$DO_INSTALL" = "1" ]; then stage_install; fi
+    say "$CMD $NAME complete in $(( $(date +%s) - START ))s (blender ${BLENDER_SECS}s)"
+    ;;
+
+  verify)
+    [ -n "$NAME" ] || die "usage: model verify <name>"
+    [ -f "$MODELS/${NAME}.glb" ] || die "no assets/models/${NAME}.glb"
+    ensure_workdir
+    push "$HERE/lib/pcrun.ps1" "$JOB/pcrun.ps1"
+    push "$MODELS/${NAME}.glb" "$JOB/out/${NAME}.glb"
+    stage_verify
+    ;;
+
+  views)
+    python3 - <<PY
+import re, sys
+src = open("$HERE/lib/mdl.py").read()
+block = re.search(r"^VIEWS = \{(.*?)^\}", src, re.S | re.M).group(1)
+print("named views (azimuth, elevation, lens mm) -- azimuth is measured from")
+print("the model's own front, whichever way the build script authored it:\n")
+for line in block.strip().splitlines():
+    print("   " + line.strip().rstrip(","))
+print("""
+   --cam AZ,EL[,LENS]   any angle you like, repeatable
+   --turntable N        N shots evenly around the model""")
+PY
+    ;;
+
+  open)
+    open "$RENDERS"
+    ;;
+
+  doctor)
+    say "pc reachable?"
+    pc "'ok: ' + \$env:COMPUTERNAME" || die "cannot ssh $PC_ALIAS"
+    say "console session (EEVEE needs one)"
+    pc "query session" || true
+    say "blender"
+    pc "(Get-Item '$BLENDER').VersionInfo.ProductVersion; (Get-Item '$BLENDER').Length"
+    say "godot"
+    pc "& '$GODOT' --headless --version"
+    ;;
+
+  help|*)
+    sed -n "3,26p" "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+    ;;
+esac

@@ -1,0 +1,118 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/round_transition_screen.gd" id="1_round_transition"]
+
+[node name="RoundTransitionScreen" type="CanvasLayer"]
+process_mode = 3
+layer = 32
+editor_description = "The card between two rounds. Drop it into a match scene and set controller (and pause_menu, if the scene has one). The layout is authored HERE and scripts/ui/round_transition_screen.gd only writes text into the %-named nodes and points the map camera; nothing about this screen is built in code. Layer 32 puts it over the HUD (1), the feedback rig (2) and the death screen (3) and under MatchResultScreen (64) and PauseMenu (128), so a won match and a pause menu both draw on top of a card. process_mode ALWAYS because the card PAUSES the tree for its own length -- that is what stops three bots running a second and a half of the new round while the player reads it -- and a card that stopped counting inside the pause it set would leave the match frozen with nothing on screen to explain it. It only ever unpauses a pause it set itself, and not while PauseMenu is open."
+script = ExtResource("1_round_transition")
+
+[node name="Root" type="Control" parent="."]
+unique_name_in_owner = true
+visible = false
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 0
+editor_description = "STOP across the whole viewport, for the reason MatchResultScreen's Root gives: HumanIntentSource re-captures the mouse on any mouse button that reaches _unhandled_input, and a click meant to skip the card must not also grab the cursor on its way past. Visibility is toggled on this node rather than on the CanvasLayer so the layer stays in the tree and keeps its signal connections, and modulate on this node is what the fade writes."
+
+[node name="Dim" type="ColorRect" parent="Root"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0, 0, 0, 0.88)
+editor_description = "Nearly opaque, and that is the difference between this and the win beat's band. The beat is drawn over a frozen arena worth looking at; this card is drawn over a round that has just teleported every body in the match, which is exactly the thing the card exists so the player does not have to watch. Not fully opaque, so the arena is still faintly there and the card reads as being in the match rather than in front of it."
+
+[node name="Frame" type="MarginContainer" parent="Root"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 64
+theme_override_constants/margin_top = 40
+theme_override_constants/margin_right = 64
+theme_override_constants/margin_bottom = 32
+
+[node name="Layout" type="VBoxContainer" parent="Root/Frame"]
+mouse_filter = 2
+theme_override_constants/separation = 10
+
+[node name="Round" type="Label" parent="Root/Frame/Layout"]
+unique_name_in_owner = true
+mouse_filter = 2
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.9)
+theme_override_constants/outline_size = 8
+theme_override_font_sizes/font_size = 56
+text = "ROUND 3"
+horizontal_alignment = 1
+editor_description = "Which round is about to be played. The one number the card exists to say, at a size that is read rather than looked at. The text authored here is the placeholder the editor shows; the script overwrites it from MatchController.get_round_number() every time the card is raised."
+
+[node name="MapName" type="Label" parent="Root/Frame/Layout"]
+unique_name_in_owner = true
+modulate = Color(1, 1, 1, 0.7)
+mouse_filter = 2
+theme_override_font_sizes/font_size = 18
+text = "BENTHAM RING"
+horizontal_alignment = 1
+editor_description = "The map's own title, read off MapCatalog by MatchRules.map_id -- never the scene path and never a guess. Blank when the rules name a map the catalog does not have, which is a quiet line rather than a lie."
+
+[node name="MapView" type="SubViewportContainer" parent="Root/Frame/Layout"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 180)
+size_flags_horizontal = 3
+size_flags_vertical = 3
+mouse_filter = 2
+stretch = true
+editor_description = "\"Shows the map\", meant literally: a live render of the arena this match is being played in, from outside the ring and above it. stretch resizes the SubViewport below to whatever the card's middle is, so the shot fills the space at the player's own resolution. mouse_filter IGNORE and the viewport does not handle input locally -- there is nothing in here to click, and the Root above is what answers a click anyway."
+
+[node name="MapViewport" type="SubViewport" parent="Root/Frame/Layout/MapView"]
+unique_name_in_owner = true
+handle_input_locally = false
+size = Vector2i(320, 180)
+render_target_update_mode = 0
+editor_description = "own_world_3d is deliberately OFF: with it off this viewport inherits the root viewport's World3D, which IS the match, so the camera below renders the real arena with the real tower light and nothing about the map is modelled twice. render_target_update_mode is DISABLED as authored and is switched to ALWAYS by the script only while a card is up -- a second viewport rendering the arena every frame of a live match, behind an invisible card, is a frame cost for nothing. The authored 320x180 is only a floor; SubViewportContainer.stretch resizes it."
+
+[node name="MapCamera" type="Camera3D" parent="Root/Frame/Layout/MapView/MapViewport"]
+unique_name_in_owner = true
+fov = 55.0
+editor_description = "The card's own camera, and the reason this screen is safe to add at all. A Camera3D inside a SubViewport is current in THAT viewport and nowhere else, so this node never touches Camera3D.current on the main viewport and never has to be ranked against FxSpectatorView or SeatHandoverView -- the two nodes that already argue over it, and whose rank has been got wrong on this project once before. Its transform is written by the script from the arena's own position and MatchRules.track_radius each time a card is raised, so a bigger ring frames itself; the numbers that shape it are exports on the RoundTransitionScreen node above."
+
+[node name="Facts" type="HBoxContainer" parent="Root/Frame/Layout"]
+mouse_filter = 2
+theme_override_constants/separation = 48
+alignment = 1
+
+[node name="Tower" type="Label" parent="Root/Frame/Layout/Facts"]
+unique_name_in_owner = true
+mouse_filter = 2
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.9)
+theme_override_constants/outline_size = 6
+theme_override_font_sizes/font_size = 20
+text = "TOWER  RUNNER 2  ·  TURN 2"
+editor_description = "Who is in the tower for the round about to be played, and on which of their turns -- the turn is the load-bearing half, because the reload shortens with every turn a player takes and a third turn is a materially more dangerous tower than a first. Read off MatchController.get_seat_participant(); the human's own display name is \"You\"."
+
+[node name="Prisoners" type="Label" parent="Root/Frame/Layout/Facts"]
+unique_name_in_owner = true
+mouse_filter = 2
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.9)
+theme_override_constants/outline_size = 6
+theme_override_font_sizes/font_size = 20
+text = "PRISONERS  3"
+editor_description = "How many prisoners are on the ring for this round, read back off MatchController.get_runners_remaining(). Not a tally kept here: the card invents no number, exactly as MatchResultScreen invents no score."
+
+[node name="Hint" type="Label" parent="Root/Frame/Layout"]
+unique_name_in_owner = true
+visible = false
+modulate = Color(1, 1, 1, 0.55)
+mouse_filter = 2
+theme_override_font_sizes/font_size = 13
+text = "PRESS ANY KEY TO SKIP"
+horizontal_alignment = 1
+editor_description = "Shown only once the card will actually answer a key -- MatchAnnouncementProfile.round_card_skip_lockout_seconds after it appears -- so the prompt is never a lie. The lockout exists because a round ends with a shot or with a runner crossing the line, and a player holding fire would otherwise skip the card with the input that ended the round and never see it. Hidden as authored, because the script decides."

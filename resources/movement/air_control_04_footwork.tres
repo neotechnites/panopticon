@@ -6,6 +6,7 @@
 [resource]
 script = ExtResource("1_preset")
 base = ExtResource("2_base")
+id = &"footwork"
 display_name = "Footwork"
 feel = "Nothing about flight changes at all: holding jump simply stops re-launching you, so a hop lands, your feet get a grip for a moment, and the turn happens on the floor where it always could -- tap the key and the full Quake hop chain is still there, untouched."
 max_air_speed = 0.8

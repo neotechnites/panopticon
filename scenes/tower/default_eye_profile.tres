@@ -1,9 +1,0 @@
-[gd_resource type="Resource" script_class="EyeProfile" load_steps=3 format=3]
-
-[ext_resource type="Script" path="res://scripts/tower/eye_profile.gd" id="1_eye_profile"]
-[ext_resource type="Texture2D" path="res://assets/textures/eye_face.png" id="2_eye_face"]
-
-[resource]
-script = ExtResource("1_eye_profile")
-eye_texture = ExtResource("2_eye_face")
-size_scale = 1.0

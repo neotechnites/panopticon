@@ -6,6 +6,7 @@
 [resource]
 script = ExtResource("1_preset")
 base = ExtResource("2_base")
+id = &"kite"
 display_name = "Kite"
 feel = "You go where you point, in the air exactly as on the ground, because the air now drags almost as hard as the floor does -- the strafe still works but it barely pays, so speed has to come from the slide and from the run-up rather than from the mouse."
 max_air_speed = 11.0

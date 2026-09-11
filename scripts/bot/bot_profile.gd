@@ -21,18 +21,22 @@ extends Resource
 ## [member MatchRules.track_radius] here on every placement -- so this is not
 ## "which of them is this one", it is where the track is.
 ##
-## The deck is an annulus from r=35 to r=60 and cover sits in three radial bands
-## centred on r=41, r=47.5 and r=54. Each piece is 6 m tangential by 1.5 m
+## Every deck of the shipped arena is an annulus from r=44 to r=60 with cover in
+## two radial bands at r=47 and r=57. Each piece is 6 m tangential by 1.5 m
 ## radial, so its corners sweep roughly +/-0.9 m about its band: the occupied
-## bands are ~[40.4, 41.9], ~[46.8, 48.3] and ~[53.3, 54.8]. This runner does not
-## use cover and does not path around it, so a track radius inside one of those
-## bands walks a 0.4 m capsule straight into a box and stops there for the rest
-## of the round.
+## bands are ~[46.1, 47.9] and ~[56.1, 57.9]. This runner does not path around
+## anything, so a track radius inside one of those bands walks a 0.4 m capsule
+## straight into a box and stops there for the rest of the round.
 ##
-## The default sits in the clear channel between the inner and middle cover
-## bands. The other honest choices are ~38.5 (inboard of everything, outboard of
-## the 0.5 m kerb at r=36) and ~51.0 (between middle and outer).
-@export_range(36.0, 60.0, 0.1) var track_radius: float = 44.5
+## The default sits in the clear channel between the two bands, which every trap
+## and pit shaft is also placed clear of.
+##
+## [b]It is no longer "where the track is" on a map with levels.[/b] Three decks
+## means three lanes, and [RingRunner] reads them off the [RingRoute] level by
+## level. What is left here is the lane a runner uses when it is armed with no
+## route at all -- a flat map, or a test fixture -- and the tie-break the cover
+## search prefers.
+@export_range(20.0, 200.0, 0.1) var track_radius: float = 52.0
 
 # --- Steering ------------------------------------------------------------------
 

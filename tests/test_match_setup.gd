@@ -374,10 +374,13 @@ func test_no_preset_names_a_map() -> void:
 		)
 
 
-## The tower win conditions the round does not implement are shown and cannot be
-## chosen. Shown because the design space is worth seeing; not chosen because
-## they produce a round the tower cannot win.
-func test_unimplemented_win_conditions_are_offered_but_disabled() -> void:
+## Every tower win condition is shown, and each is selectable exactly when the
+## round implements it. All three are implemented today, so all three are live;
+## the assertion is written against
+## [method MatchRules.is_shooter_win_condition_implemented] rather than against a
+## list of names, so the day a fourth is declared it is greyed out without this
+## test being touched.
+func test_win_conditions_are_selectable_exactly_when_implemented() -> void:
 	var screen: MatchSetupScreen = _open_screen()
 	var option: OptionButton = screen.get_node("%ShooterWinOption") as OptionButton
 	assert_not_null(option, "the screen has a tower win condition")
@@ -531,9 +534,12 @@ static func _copy_exposed_rules(from: MatchRules, to: MatchRules) -> void:
 	to.prisoner_count = from.prisoner_count
 	to.prisoner_lives = from.prisoner_lives
 	to.shooter_win_condition = from.shooter_win_condition
+	to.shutout_count = from.shutout_count
+	to.hold_duration_seconds = from.hold_duration_seconds
 	to.runner_win_condition = from.runner_win_condition
 	to.rounds_to_win_match = from.rounds_to_win_match
 	to.ghost_behaviour = from.ghost_behaviour
 	to.open_with_race = from.open_with_race
 	to.opening_seat_index = from.opening_seat_index
 	to.map_id = from.map_id
+	to.air_control_id = from.air_control_id

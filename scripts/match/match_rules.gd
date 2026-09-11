@@ -54,24 +54,40 @@ extends Resource
 
 ## How the shooter wins.
 ##
-## Only [constant ShooterWinCondition.TOTAL_CONVERSION] is implemented; the
-## others are the alternatives already known to be worth measuring, named now so
-## that a sweep can be pointed at them the day they are built. Selecting an
-## unimplemented condition warns and produces a round the shooter cannot win --
-## it does not silently fall back on total conversion, because a sweep that
-## quietly measured the wrong rule is worse than one that refuses to run.
+## All three are implemented and all three are selectable. They are genuinely
+## different rules and none of them falls back on another: a round played under
+## one is never quietly decided by the terms of a second, because a sweep that
+## measured the wrong rule is worse than one that refuses to run. That refusal
+## is still here for a member added to this enum LATER --
+## [method is_shooter_win_condition_implemented] names the three by hand, so a
+## fourth is unwinnable and loudly warned about until somebody builds it.
 enum ShooterWinCondition {
 	## Remove every prisoner. Today's rule, and the one the arena was built for:
 	## the tower must stop all of them, the runners need only one through.
 	TOTAL_CONVERSION,
 	## Remove at least [member shutout_count] prisoners, arrivals notwithstanding.
 	## A softer, scored win. OPEN QUESTION -- whether a partial win is a win at
-	## all, and at what count, is exactly what a sweep should answer. NOT
-	## IMPLEMENTED.
+	## all, and at what count, is exactly what a sweep should answer; the count
+	## itself is [member shutout_count] and this file chooses none.
+	##
+	## Counted PER ROUND, over the removals of the round being played, because a
+	## seat change restarts the round and no progress carries across one -- see
+	## [MatchController]'s header. "Arrivals notwithstanding" is what separates
+	## it from [constant ShooterWinCondition.TOTAL_CONVERSION]: the tower is not
+	## asked to stop everybody, only to take [member shutout_count] of them, and
+	## whoever got through in the meantime does not undo that.
 	SHUTOUT_COUNT,
 	## Survive [member hold_duration_seconds] without a prisoner arriving. Turns
 	## the round from an elimination into a siege. OPEN QUESTION, and the one
-	## most likely to change how the ring should be laid out. NOT IMPLEMENTED.
+	## most likely to change how the ring should be laid out.
+	##
+	## The clock is the ROUND's, started when the round is armed and restarted
+	## with it, so "without a prisoner arriving" needs no separate test: an
+	## arrival that satisfies [member runner_win_condition] resolves the round
+	## before the hold can expire, and one that does not satisfy it has not
+	## taken the tower and does not stop the clock. Removing every prisoner is
+	## NOT a second way to win under this condition -- the tower still has to
+	## hold out the time.
 	HOLD_DURATION,
 }
 
@@ -138,6 +154,31 @@ enum GhostBehaviour {
 ## scene was authored with", which is what lets a bespoke test world stand.
 @export var map_id: StringName = MapCatalog.DEFAULT_ID
 
+# --- How a body moves ---------------------------------------------------------
+
+## Which air-control preset every body in the match runs, by
+## [member AirControlPreset.id]. [b]LIVE.[/b]
+##
+## [b]Why this is here at all, given the seam in this file's header.[/b] A
+## [MovementProfile] is COMPONENT tuning and stays that way -- nothing on this
+## resource carries a walk speed or a slide boost, and nothing should. What is a
+## rule of the MATCH is WHICH profile the bodies run, exactly as
+## [member ai_shooter_profile] is a rule about which shooter brain plays rather
+## than about what a shooter brain is made of. The four presets differ ONLY in
+## air control ([AirControlPreset] holds that by construction), so naming one
+## here can never smuggle a retune of anything else in with it.
+##
+## [b]It applies to every body, human and bot alike.[/b] That is the point: a
+## preset felt against opponents that move differently is not the preset being
+## felt. See [method MatchController.get_air_control_profile].
+##
+## An id naming no preset falls back to [method AirControlCatalog.default_preset]
+## rather than failing -- see [method AirControlCatalog.profile_for] -- because
+## the callers are a running match and an unattended sweep. An EMPTY id means
+## "whatever profile each body's scene carries", which is [member map_id]'s
+## empty case exactly: it is what lets a bespoke harness world stand.
+@export var air_control_id: StringName = AirControlCatalog.DEFAULT_ID
+
 # --- The prisoners ------------------------------------------------------------
 
 ## How many prisoners run the round. [b]LIVE.[/b]
@@ -158,14 +199,19 @@ enum GhostBehaviour {
 ## not racing a handicap: same start, same path, same finish, and the only thing
 ## that separates two of them is how fast they cover it.
 ##
-## Not a free number. The deck is an annulus from r=35 to r=60 and cover sits in
-## three radial bands centred on r=41, r=47.5 and r=54, each piece sweeping
-## roughly +/-0.9 m about its band. A [RingRunner] does not path around anything,
+## Not a free number. Every deck of the shipped arena is an annulus from r=44 to
+## r=60 with cover in two radial bands at r=47 and r=57, each piece sweeping
+## roughly +/-0.9 m about its band, and every trap and pit shaft flush against
+## the shoulder those bands end at. A [RingRunner] does not path around anything,
 ## so a track radius inside a cover band walks a 0.4 m capsule into a box and
-## stands there for the rest of the round. 44.5 is the clear channel between the
-## inner and middle bands, and it is what [member BotProfile.track_radius] ships
-## at.
-@export_range(36.0, 60.0, 0.1) var track_radius: float = 44.5
+## stands there for the rest of the round. 52.0 is the clear channel between the
+## two bands, and it is what [member BotProfile.track_radius] ships at.
+##
+## [b]On a map with a [RingRoute] this is the FALLBACK, not the track.[/b] The
+## arena says where each of its levels' lanes are and [MatchController] reads
+## them from there; this is what a flat map with no route of its own is run on,
+## and what the round card frames itself against when there is nothing better.
+@export_range(20.0, 200.0, 0.1) var track_radius: float = 52.0
 
 ## Metres between neighbouring bodies across the WIDTH of the track at the start
 ## line. [b]LIVE.[/b]
@@ -262,21 +308,35 @@ enum GhostBehaviour {
 
 # --- Winning and losing -------------------------------------------------------
 
-## What the shooter must do to win. [b]LIVE[/b] for
-## [constant ShooterWinCondition.TOTAL_CONVERSION], which is today's rule; the
-## other members are declared but unimplemented and produce an unwinnable round
-## plus a warning. See [enum ShooterWinCondition].
+## What the shooter must do to win. [b]LIVE[/b], all three members implemented.
+## Default [constant ShooterWinCondition.TOTAL_CONVERSION] is today's rule and
+## the shipped one. See [enum ShooterWinCondition].
 @export var shooter_win_condition: ShooterWinCondition = ShooterWinCondition.TOTAL_CONVERSION
 
 ## Prisoners the shooter must remove under
-## [constant ShooterWinCondition.SHUTOUT_COUNT]. [b]DEFERRED[/b], inert while the
-## win condition is total conversion. 0 means "unset", which is honest: no count
-## has been chosen, and choosing one is what a sweep is for.
+## [constant ShooterWinCondition.SHUTOUT_COUNT]. [b]LIVE[/b] under that
+## condition, inert under every other. 0 means "unset", which is honest: no
+## count has been chosen, and choosing one is what a sweep is for.
+##
+## An unset count is NOT read as [member prisoner_count]. A round asked for a
+## shutout of nobody cannot be won and says so through [method validate], for
+## the reason [enum ShooterWinCondition] gives: silently playing total
+## conversion under a SHUTOUT_COUNT label would be the sweep measuring a rule it
+## did not select. A count above [member prisoner_count] is unwinnable for the
+## opposite reason and is reported the same way -- only the rifle lowers the
+## living count, and it can lower it [member prisoner_count] times at most.
 @export_range(0, 32, 1, "or_greater") var shutout_count: int = 0
 
 ## Seconds the shooter must hold out under
-## [constant ShooterWinCondition.HOLD_DURATION]. [b]DEFERRED[/b], inert while the
-## win condition is total conversion. 0.0 means unset.
+## [constant ShooterWinCondition.HOLD_DURATION]. [b]LIVE[/b] under that
+## condition, inert under every other. 0.0 means unset, and an unset hold cannot
+## be won -- see [member shutout_count] for why an unset number is refused
+## rather than guessed at.
+##
+## Measured from the tick the round is armed and restarted with the round, so it
+## is a per-round siege timer and not a match clock. Distinct from
+## [member round_time_limit_seconds], which is still deferred: this one resolves
+## to a shooter WIN, which is an outcome the match already has.
 @export_range(0.0, 600.0, 1.0, "or_greater") var hold_duration_seconds: float = 0.0
 
 ## What the prisoners must do to win. [b]LIVE[/b], both members implemented.
@@ -594,8 +654,19 @@ func is_ghost_behaviour_implemented() -> bool:
 ## True when [member shooter_win_condition] is one the round actually implements.
 ## A round configured with an unimplemented condition still runs -- it just
 ## cannot be won by the shooter -- and says so once, loudly.
+##
+## All three members are implemented today, so this is true for every value the
+## enum currently holds. It is written as a list of the three rather than as
+## [code]true[/code] deliberately: a member added to [enum ShooterWinCondition]
+## tomorrow is unimplemented until somebody teaches
+## [method MatchController._check_shooter_win] about it, and this is what makes
+## that day a warning instead of a round that quietly never ends.
 func is_shooter_win_condition_implemented() -> bool:
-	return shooter_win_condition == ShooterWinCondition.TOTAL_CONVERSION
+	return (
+		shooter_win_condition == ShooterWinCondition.TOTAL_CONVERSION
+		or shooter_win_condition == ShooterWinCondition.SHUTOUT_COUNT
+		or shooter_win_condition == ShooterWinCondition.HOLD_DURATION
+	)
 
 
 ## Problems with this rule set, as human-readable lines. Empty means usable.
@@ -614,15 +685,36 @@ func validate() -> PackedStringArray:
 			"map_id is %s, which is in no catalog; the match will fall back to %s."
 			% [map_id, MapCatalog.DEFAULT_ID]
 		)
+	if not String(air_control_id).is_empty() and not AirControlCatalog.has(air_control_id):
+		problems.append(
+			"air_control_id is %s, which is in no catalog; every body will fall back to %s."
+			% [air_control_id, AirControlCatalog.DEFAULT_ID]
+		)
 	if not is_shooter_win_condition_implemented():
 		problems.append(
 			"shooter_win_condition is %s, which is declared but not implemented; the shooter cannot win this round."
 			% String(ShooterWinCondition.keys()[shooter_win_condition])
 		)
 	if shooter_win_condition == ShooterWinCondition.SHUTOUT_COUNT and shutout_count <= 0:
-		problems.append("shooter_win_condition is SHUTOUT_COUNT but shutout_count is unset.")
+		problems.append(
+			"shooter_win_condition is SHUTOUT_COUNT but shutout_count is unset; the shooter cannot win this round."
+		)
+	if (
+		shooter_win_condition == ShooterWinCondition.SHUTOUT_COUNT
+		and shutout_count > maxi(prisoner_count, 1)
+	):
+		# Only the rifle lowers the living count and a round arms exactly
+		# prisoner_count runners, so a shutout of more than that is a number no
+		# round can reach -- with or without ghosts, since a catch is a swap and
+		# not a conversion.
+		problems.append(
+			"shooter_win_condition is SHUTOUT_COUNT with shutout_count %d, which is more prisoners than the %d a round has; the shooter cannot win this round."
+			% [shutout_count, maxi(prisoner_count, 1)]
+		)
 	if shooter_win_condition == ShooterWinCondition.HOLD_DURATION and hold_duration_seconds <= 0.0:
-		problems.append("shooter_win_condition is HOLD_DURATION but hold_duration_seconds is unset.")
+		problems.append(
+			"shooter_win_condition is HOLD_DURATION but hold_duration_seconds is unset; the shooter cannot win this round."
+		)
 	if not is_ghost_behaviour_implemented():
 		problems.append(
 			"ghost_behaviour is %s, which is declared but not implemented; a shot prisoner will simply be parked."

@@ -174,6 +174,13 @@ static func post_event_at(event: StringName, world_position: Vector3) -> bool:
 	return _instance.post_at(event, world_position)
 
 
+## Static form of [method post_at_gain].
+static func post_event_at_gain(event: StringName, world_position: Vector3, gain_db: float) -> bool:
+	if _instance == null:
+		return false
+	return _instance.post_at_gain(event, world_position, gain_db)
+
+
 # --- Lifecycle ----------------------------------------------------------------
 
 func _enter_tree() -> void:
@@ -219,7 +226,16 @@ func post_at(event: StringName, world_position: Vector3) -> bool:
 	return _play(event, true, world_position)
 
 
-func _play(event: StringName, have_position: bool, world_position: Vector3) -> bool:
+## Like [method post_at], but [param gain_db] is added to the cue's own
+## [member AudioCue.volume_db] for this one play. For a caller that has a
+## magnitude to express -- [MovementAudioListener] uses it to make a heavy
+## landing louder than a light one off the same [constant AudioEvents.MOVEMENT_LAND]
+## cue, rather than needing one cue per impact tier.
+func post_at_gain(event: StringName, world_position: Vector3, gain_db: float) -> bool:
+	return _play(event, true, world_position, gain_db)
+
+
+func _play(event: StringName, have_position: bool, world_position: Vector3, gain_db: float = 0.0) -> bool:
 	if not _enabled:
 		return false
 	if bank == null:
@@ -242,7 +258,7 @@ func _play(event: StringName, have_position: bool, world_position: Vector3) -> b
 		return false
 
 	var pitch: float = cue.roll_pitch()
-	voice.configure(cue, _resolve_bus(cue.bus), pitch)
+	voice.configure(cue, _resolve_bus(cue.bus), pitch, gain_db)
 	if positional:
 		voice.set_world_position(world_position)
 	voice.start(event, cue.voice_seconds(pitch))
@@ -465,6 +481,26 @@ func get_active_bus(index: int) -> StringName:
 			return &""
 		seen += 1
 	return &""
+
+
+## The configured [code]volume_db[/code] of a sounding voice -- the cue's own
+## trim plus whatever [method post_at_gain] added -- or 0.0 if [param index] is
+## not a sounding voice. Index is into the sounding voices, in pool order, same
+## as [method get_active_bus]. For a check that wants to see a gain-scaled post
+## actually land on the node.
+func get_active_volume_db(index: int) -> float:
+	var seen: int = 0
+	for voice: AudioVoice in _voices:
+		if not voice.active:
+			continue
+		if seen == index:
+			if voice.spatial != null:
+				return voice.spatial.volume_db
+			if voice.flat != null:
+				return voice.flat.volume_db
+			return 0.0
+		seen += 1
+	return 0.0
 
 
 ## Clear the same-frame and retrigger history. For a check that wants to post

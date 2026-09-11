@@ -16,13 +16,19 @@ height = 1.8
 radius = 0.4
 height = 1.8
 
-[node name="Player" type="CharacterBody3D" node_paths=PackedStringArray("intent_source", "head")]
+[node name="Player" type="CharacterBody3D" node_paths=PackedStringArray("intent_source", "head", "collision")]
 script = ExtResource("1_controller")
 profile = ExtResource("3_profile")
 intent_source = NodePath("HumanInput")
 head = NodePath("Head")
+collision = NodePath("Collision")
 
 [node name="Collision" type="CollisionShape3D" parent="."]
+editor_description = "The hittable volume, and the ONLY thing in this scene the rifle, the kill volume and the physics agree on. Authored standing: radius 0.4, height 1.8, origin at y=0.9, so the capsule spans 0 to 1.8 with its feet at the body's origin.
+
+PlayerController resizes it. Crouching drops the height to MovementProfile.crouch_height and drops this node by half the height removed, so the FEET stay put and only the crown comes down -- the point of a crouch being that the guard shoots at a silhouette. The controller takes a private duplicate of the shape at _ready, because a SubResource in a PackedScene is one object shared by every instance of it and resizing the authored one would crouch the whole match at once.
+
+Height and origin here are the standing values the controller reads once and returns to; change them and the crouch changes with them."
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
 shape = SubResource("CapsuleShape3D_body")
 

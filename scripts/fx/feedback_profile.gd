@@ -175,7 +175,48 @@ extends Resource
 @export_range(0.1, 8.0, 0.1) var impact_fade_exponent: float = 2.5
 
 ## How far the camera is shoved along the shot's own direction of travel.
+##
+## The shove is the channel that carries WHERE IT CAME FROM, because unlike the
+## whip it does not oscillate: the view goes one way, the way the bullet was
+## going, and comes back. Push this and the hit reads as a blow with a direction
+## rather than as a screen shake.
 @export_range(0.0, 1.0, 0.005) var impact_punch_metres: float = 0.07
+
+## The HIT STOP: the world stops for a moment on the frame you are hit.
+##
+## [b]The single biggest thing available for selling an impact, and the single
+## most dangerous knob in this file.[/b] It is [member Engine.time_scale], which
+## is global -- it slows the bodies, the weapon, the whole match, not just the
+## camera -- so everything about it is written to be brief, absolute and
+## self-cancelling:
+##
+## [codeblock]
+## - it is restored on a REAL-TIME deadline, never a scaled one, so a slowed
+##   engine cannot stretch its own recovery;
+## - it multiplies whatever time scale was already in force and restores exactly
+##   that, so a harness or a test running the engine fast is not trampled;
+## - FxHitReaction ends it in _exit_tree() and in clear(), so no scene change,
+##   round reset or freed node can leave the game running at a tenth speed.
+## [/codeblock]
+##
+## It is the ONE exception to "the reaction is camera only", and it is an
+## exception in the honest direction: it does not steer the body, add velocity,
+## or move the shot line -- it slows everything equally for a fraction of a
+## frame's worth of wall clock, which no player can act inside.
+##
+## Off in code and ON in the shipped profile. A profile constructed from nothing
+## is the neutral control a harness compares against, and a headless sweep must
+## never have its clock written to by feedback nobody is watching.
+@export var hit_stop_enabled: bool = false
+
+## How long the world is slowed for, in REAL seconds. Under a tenth: any longer
+## and it stops reading as an impact and starts reading as a frame drop.
+@export_range(0.0, 0.5, 0.005) var hit_stop_seconds: float = 0.07
+
+## What the time scale is multiplied by for that moment. Deliberately not zero:
+## a hard freeze reads as a hitch in the game, where a very slow world reads as
+## a blow that knocked the wind out of you.
+@export_range(0.02, 1.0, 0.01) var hit_stop_scale: float = 0.12
 
 # --- 3. Shooter: weapon feel --------------------------------------------------
 

@@ -19,6 +19,11 @@
 [ext_resource type="AudioStream" path="res://assets/audio/placeholder_ui_menu_opened.wav" id="17_sk6ov"]
 [ext_resource type="AudioStream" path="res://assets/audio/placeholder_ui_menu_closed.wav" id="18_f3avj"]
 [ext_resource type="Script" path="res://scripts/audio/audio_bank.gd" id="19_b5lrq"]
+[ext_resource type="AudioStream" path="res://assets/audio/placeholder_movement_footstep.wav" id="20_mvfoot"]
+[ext_resource type="AudioStream" path="res://assets/audio/placeholder_movement_jump.wav" id="21_mvjump"]
+[ext_resource type="AudioStream" path="res://assets/audio/placeholder_movement_land.wav" id="22_mvland"]
+[ext_resource type="AudioStream" path="res://assets/audio/placeholder_movement_slide_start.wav" id="23_mvslst"]
+[ext_resource type="AudioStream" path="res://assets/audio/placeholder_movement_slide_end.wav" id="24_mvslen"]
 
 [sub_resource type="Resource" id="Resource_1x1x0"]
 resource_name = "weapon.rifle.fired"
@@ -116,6 +121,89 @@ event = &"match.won"
 stream = ExtResource("13_y2vxs")
 volume_db = -11.0
 
+[sub_resource type="Resource" id="Resource_mvfoot"]
+resource_name = "movement.footstep"
+script = ExtResource("1_fpjg4")
+event = &"movement.footstep"
+stream = ExtResource("20_mvfoot")
+volume_db = -22.0
+pitch_jitter = 0.08
+positional = true
+max_distance = 30.0
+unit_size = 6.0
+min_retrigger_seconds = 0.05
+
+[sub_resource type="Resource" id="Resource_mvjump"]
+resource_name = "movement.jump"
+script = ExtResource("1_fpjg4")
+event = &"movement.jump"
+stream = ExtResource("21_mvjump")
+volume_db = -18.0
+pitch_jitter = 0.04
+positional = true
+max_distance = 40.0
+unit_size = 10.0
+
+[sub_resource type="Resource" id="Resource_mvland"]
+resource_name = "movement.land"
+script = ExtResource("1_fpjg4")
+event = &"movement.land"
+stream = ExtResource("22_mvland")
+volume_db = -16.0
+pitch_jitter = 0.05
+positional = true
+max_distance = 45.0
+unit_size = 10.0
+
+[sub_resource type="Resource" id="Resource_mvslst"]
+resource_name = "movement.slide_start"
+script = ExtResource("1_fpjg4")
+event = &"movement.slide_start"
+stream = ExtResource("23_mvslst")
+volume_db = -18.0
+pitch_jitter = 0.04
+positional = true
+max_distance = 40.0
+unit_size = 9.0
+
+[sub_resource type="Resource" id="Resource_mvslen"]
+resource_name = "movement.slide_end"
+script = ExtResource("1_fpjg4")
+event = &"movement.slide_end"
+stream = ExtResource("24_mvslen")
+volume_db = -18.0
+pitch_jitter = 0.04
+positional = true
+max_distance = 40.0
+unit_size = 9.0
+
+[sub_resource type="Resource" id="Resource_hittaken"]
+resource_name = "player.hit_taken"
+script = ExtResource("1_fpjg4")
+event = &"player.hit_taken"
+stream = ExtResource("3_qf5in")
+volume_db = -2.0
+pitch_scale = 0.45
+pitch_jitter = 0.02
+
+[sub_resource type="Resource" id="Resource_catchmade"]
+resource_name = "player.catch_made"
+script = ExtResource("1_fpjg4")
+event = &"player.catch_made"
+stream = ExtResource("6_u0bni")
+volume_db = -6.0
+pitch_scale = 0.8
+pitch_jitter = 0.03
+
+[sub_resource type="Resource" id="Resource_catchtaken"]
+resource_name = "player.catch_taken"
+script = ExtResource("1_fpjg4")
+event = &"player.catch_taken"
+stream = ExtResource("4_kk077")
+volume_db = -2.0
+pitch_scale = 0.6
+pitch_jitter = 0.02
+
 [sub_resource type="Resource" id="Resource_r8htj"]
 resource_name = "ui.click"
 script = ExtResource("1_fpjg4")
@@ -165,4 +253,4 @@ volume_db = -12.0
 
 [resource]
 script = ExtResource("19_b5lrq")
-cues = Array[ExtResource("1_fpjg4")]([SubResource("Resource_1x1x0"), SubResource("Resource_1prkm"), SubResource("Resource_0uvv6"), SubResource("Resource_o1jvp"), SubResource("Resource_sevpf"), SubResource("Resource_v2in6"), SubResource("Resource_64ytq"), SubResource("Resource_t71ie"), SubResource("Resource_juw30"), SubResource("Resource_10p4l"), SubResource("Resource_bnrmu"), SubResource("Resource_ne0xl"), SubResource("Resource_r8htj"), SubResource("Resource_i80r1"), SubResource("Resource_sato2"), SubResource("Resource_6dq35"), SubResource("Resource_4t8dr"), SubResource("Resource_nlssw")])
+cues = Array[ExtResource("1_fpjg4")]([SubResource("Resource_1x1x0"), SubResource("Resource_1prkm"), SubResource("Resource_0uvv6"), SubResource("Resource_o1jvp"), SubResource("Resource_sevpf"), SubResource("Resource_v2in6"), SubResource("Resource_64ytq"), SubResource("Resource_t71ie"), SubResource("Resource_juw30"), SubResource("Resource_10p4l"), SubResource("Resource_bnrmu"), SubResource("Resource_ne0xl"), SubResource("Resource_mvfoot"), SubResource("Resource_mvjump"), SubResource("Resource_mvland"), SubResource("Resource_mvslst"), SubResource("Resource_mvslen"), SubResource("Resource_hittaken"), SubResource("Resource_catchmade"), SubResource("Resource_catchtaken"), SubResource("Resource_r8htj"), SubResource("Resource_i80r1"), SubResource("Resource_sato2"), SubResource("Resource_6dq35"), SubResource("Resource_4t8dr"), SubResource("Resource_nlssw")])

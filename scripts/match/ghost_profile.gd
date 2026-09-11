@@ -69,6 +69,39 @@ extends Resource
 ## by the rifle, or caught by another ghost.
 @export_range(0.0, 10.0, 0.1, "or_greater") var catch_grace_seconds: float = 1.5
 
+## Seconds a killed participant is held, inert, where they died, before the
+## match puts them back on the start line.
+##
+## The author's ruling: [i]"add a 3 second respawn timer. weather youre alive or
+## already a ghost."[/i] Both halves matter. It is a hold on DEATH, not on
+## becoming a ghost, so it is served identically by the three ways a body can
+## die -- shot by the rifle, walked into a trap, fallen off the deck -- and by
+## the fourth case, a ghost a hazard has to return to the start, which was never
+## alive to begin with.
+##
+## [b]The hold happens where you died, not where you respawn.[/b] The placement
+## is what waits: for these seconds the body stands frozen at the spot the shot,
+## the trap or the pit found it, and only then is it moved. That is a deliberate
+## reading of "before you are placed back at the start" and it is also the more
+## useful one -- the last thing a converted prisoner sees is the place and the
+## angle they were taken from, rather than a start line they are about to be
+## standing on anyway.
+##
+## [b]What the body may do while it waits: nothing.[/b] See
+## [method MatchController._place_ghost_at_start]. It is put through
+## [method MatchController._hold_body], which is the same inertness every
+## placement in a match uses -- off every collision layer and mask, velocity
+## zeroed, [method Node.set_physics_process] false -- so it cannot be shot,
+## cannot be caught, cannot trip a hazard, cannot fall, and cannot be moved by
+## any intent from a keyboard or from a bot brain. [method
+## MatchController._tick_ghosts] skips it outright, so its own catch clock does
+## not run either.
+##
+## Zero turns the hold off entirely and restores the instant placement this
+## match had before the timer existed, which is what a headless sweep that does
+## not want three seconds of dead air per conversion should set.
+@export_range(0.0, 10.0, 0.1, "or_greater") var respawn_delay_seconds: float = 3.0
+
 ## Whether the rifle can hit a ghost. Canon says it cannot, so false.
 ##
 ## True turns a ghost into a body that soaks the tower's one shot, which is

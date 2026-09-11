@@ -6,6 +6,7 @@
 [resource]
 script = ExtResource("1_preset")
 base = ExtResource("2_base")
+id = &"committed"
 display_name = "Committed"
 feel = "You leave the ground committed to the heading you left with, and the mouse only bends it as fast as a strafe can, which is the Quake bargain: turning is a technique, not a key. This is what the game ships today, unchanged."
 max_air_speed = 0.8

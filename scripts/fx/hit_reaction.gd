@@ -74,6 +74,17 @@ const HEADLESS_DISPLAY: String = "headless"
 var _age: float = -1.0
 var _inert: bool = false
 
+## Hit stop. See [member FeedbackProfile.hit_stop_enabled] for why every field
+## here is absolute rather than relative.
+##
+## [member _hit_stop_base_scale] is whatever [member Engine.time_scale] was
+## BEFORE this component touched it, so the restore is exact even when a harness
+## is driving the engine fast; the deadline is in real microseconds, so a slowed
+## engine cannot stretch its own recovery.
+var _hit_stop_active: bool = false
+var _hit_stop_base_scale: float = 1.0
+var _hit_stop_until_usec: int = 0
+
 
 func _ready() -> void:
 	if headless_inert and DisplayServer.get_name() == HEADLESS_DISPLAY:
@@ -104,8 +115,18 @@ func _process(delta: float) -> void:
 	tick(delta)
 
 
+## Never leave the engine slowed behind us. A scene change, a freed match or a
+## node removed mid-reaction all land here.
+func _exit_tree() -> void:
+	end_hit_stop()
+
+
 ## Advance the flash by [param delta] seconds. Public so a harness may step it.
 func tick(delta: float) -> void:
+	# Before the early return: the hit stop outlives the flash whenever
+	# [member FeedbackProfile.hit_stop_seconds] does, and a global time scale
+	# that nobody is left ticking is the worst bug in this file.
+	_tick_hit_stop()
 	if _age < 0.0:
 		return
 	_age += delta
@@ -128,6 +149,7 @@ func react(world_direction: Vector3) -> void:
 	# Restart rather than blend. A second hit inside a tenth of a second is a
 	# second discontinuity, and averaging two of those produces neither.
 	_age = 0.0
+	_begin_hit_stop()
 	if camera_kick != null:
 		camera_kick.strike(world_direction)
 	struck.emit(world_direction)
@@ -137,6 +159,7 @@ func react(world_direction: Vector3) -> void:
 ## Cut the reaction short. For a round reset, so a flash cannot survive into a
 ## round it does not describe.
 func clear() -> void:
+	end_hit_stop()
 	if _age < 0.0:
 		return
 	_age = -1.0
@@ -163,6 +186,52 @@ func get_flash_alpha() -> float:
 ## True while the reaction is playing.
 func is_reacting() -> bool:
 	return _age >= 0.0
+
+
+## True while the world is slowed by this component.
+func is_hit_stopped() -> bool:
+	return _hit_stop_active
+
+
+## The time scale this component will put back when the hit stop ends.
+func get_hit_stop_base_scale() -> float:
+	return _hit_stop_base_scale
+
+
+## Slow the world for [member FeedbackProfile.hit_stop_seconds] of REAL time.
+##
+## Restarting an already-running stop only pushes the deadline out; the base
+## scale is captured once, on the first one, so two hits in quick succession
+## cannot compound into a permanent slowdown.
+func _begin_hit_stop() -> void:
+	if profile == null or not profile.hit_stop_enabled or profile.hit_stop_seconds <= 0.0:
+		return
+	if not _hit_stop_active:
+		_hit_stop_base_scale = Engine.time_scale
+		_hit_stop_active = true
+	_hit_stop_until_usec = (
+		Time.get_ticks_usec() + int(profile.hit_stop_seconds * 1_000_000.0)
+	)
+	Engine.time_scale = _hit_stop_base_scale * clampf(profile.hit_stop_scale, 0.02, 1.0)
+
+
+## Real time, deliberately. A deadline measured in scaled seconds would itself be
+## slowed by the very thing it is timing.
+func _tick_hit_stop() -> void:
+	if not _hit_stop_active:
+		return
+	if Time.get_ticks_usec() >= _hit_stop_until_usec:
+		end_hit_stop()
+
+
+## Give the world its clock back, now. Public because a test must be able to end
+## one deterministically rather than sleeping on a wall clock, and because
+## anything that tears this node down has to be able to.
+func end_hit_stop() -> void:
+	if not _hit_stop_active:
+		return
+	_hit_stop_active = false
+	Engine.time_scale = _hit_stop_base_scale
 
 
 ## Seconds since the hit landed, or -1.0 when nothing is playing.

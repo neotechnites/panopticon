@@ -61,6 +61,11 @@ const FLOOR_MASK: int = 0xFFFFF
 ## bottom of the kill volume, so "nothing hit" means nothing at all.
 const PROBE_DEPTH_METRES: float = 40.0
 
+## Ticks a respawn hold is polled for before a test gives up on it. A second
+## clear of the shipped three -- see [member GhostProfile.respawn_delay_seconds].
+const HOLD_BUDGET_TICKS: int = 240
+
+
 var _match: Node3D
 var _arena: Node3D
 var _controller: MatchController
@@ -71,6 +76,15 @@ var _start_point: Vector3 = Vector3.ZERO
 
 var _ghosted: Array[MatchParticipant] = []
 var _ghosted_at: Array[Vector3] = []
+
+## Where each ghost was actually PUT DOWN, and when. Separate from the two above
+## because a death and a placement are no longer the same tick: every death is
+## held for [member GhostProfile.respawn_delay_seconds] where it happened, and
+## only then is the body moved to the start line. Read off
+## [signal MatchController.ghost_respawned], which fires on the tick of the
+## placement and before the chase brain has carried the body anywhere.
+var _respawned: Array[MatchParticipant] = []
+var _respawned_at: Array[Vector3] = []
 
 
 func before_each() -> void:
@@ -86,6 +100,7 @@ func before_each() -> void:
 	add_child(_match)
 
 	_controller.runner_ghosted.connect(_on_runner_ghosted)
+	_controller.ghost_respawned.connect(_on_ghost_respawned)
 
 	_arena = _match.get_node("Arena") as Node3D
 	_centre = _arena.global_position
@@ -193,13 +208,23 @@ func test_a_prisoner_who_touches_a_trap_becomes_a_ghost() -> void:
 	if _ghosted.size() == 1:
 		assert_same(_ghosted[0], victim, "for the prisoner who touched it")
 
+	# The placement WAITS. A trap death is held where it happened for
+	# [member GhostProfile.respawn_delay_seconds] like every other death, so the
+	# body is still standing on the red when the death is announced.
+	assert_eq_int(_ghosted_at.size(), 1, "the death was recorded")
+	assert_true(
+		_controller.is_awaiting_respawn(victim),
+		"and the body is held on the trap rather than moved immediately",
+	)
+	await _await_respawn(victim)
+
 	# Back on the start line, which is where a conversion puts a ghost -- and the
 	# proof that the trap went through convert_participant rather than doing
 	# something of its own that merely looked like it.
-	assert_eq_int(_ghosted_at.size(), 1, "the placement was recorded")
-	if _ghosted_at.size() == 1:
+	assert_eq_int(_respawned_at.size(), 1, "the placement was recorded")
+	if _respawned_at.size() == 1:
 		assert_almost_eq(
-			absf(wrapf(_angle_about(_ghosted_at[0]) - _angle_about(_start_point), -PI, PI)),
+			absf(wrapf(_angle_about(_respawned_at[0]) - _angle_about(_start_point), -PI, PI)),
 			0.0, START_ANGLE_TOLERANCE,
 			"they were put down at the start line's own bearing",
 		)
@@ -225,6 +250,7 @@ func test_a_ghost_who_touches_a_trap_is_returned_to_the_start() -> void:
 
 	var victim: MatchParticipant = _controller.get_live_participants()[0]
 	assert_true(_controller.apply_hit(victim), "a prisoner is shot to make a ghost")
+	await _await_respawn(victim)
 	await step_ticks(SETTLE_TICKS)
 	assert_true(victim.is_ghost, "the victim is a settled ghost")
 	assert_eq_int(
@@ -234,22 +260,23 @@ func test_a_ghost_who_touches_a_trap_is_returned_to_the_start() -> void:
 	var ghosts_before: int = _controller.get_ghosts_remaining()
 	var ghosted_before: int = _ghosted.size()
 
+	var respawns_before: int = _respawned_at.size()
 	_put_on_the_trap(victim, traps[0])
 
-	# Captured the instant the trap answers the contact, not after the whole
-	# budget below. MatchController._place_ghost_at_start holds the body off
-	# physics (_hold_body sets is_physics_processing() false) in the same call
-	# that writes the new position, so the first tick that reads false is the
-	# tick the placement itself just wrote, before the ghost's chase brain --
-	# which resumes the moment the placement wakes, two ticks later -- has
-	# carried it anywhere. Reading the position only after the full wait would
-	# instead read wherever the chase had gotten to by then.
-	var returned_at: Vector3 = victim.body.global_position
-	for _tick: int in CONTACT_TICKS:
-		await step_ticks(1)
-		if not victim.body.is_physics_processing():
-			returned_at = victim.body.global_position
-			break
+	# A ghost a hazard catches is held exactly as long as a prisoner the rifle
+	# kills -- [i]"weather youre alive or already a ghost"[/i] -- so the wait is
+	# run out and the position is read off the signal that fires on the tick of
+	# the placement itself. Reading the body afterwards would instead read
+	# wherever the chase brain had carried it, which is what broke this
+	# assertion the first time it was written.
+	await step_ticks(CONTACT_TICKS)
+	await _await_respawn(victim)
+	if not assert_gt(
+		float(_respawned_at.size()), float(respawns_before),
+		"the trap put the ghost back",
+	):
+		return
+	var returned_at: Vector3 = _respawned_at[_respawned_at.size() - 1]
 
 	# Let the rest of the placement's own settle play out before checking that
 	# it woke -- a separate concern from where it was put.
@@ -353,7 +380,7 @@ func test_a_racer_who_drops_through_a_pit_is_out() -> void:
 
 	var over: Vector3 = pits[0].global_position
 	victim.body.velocity = Vector3.ZERO
-	victim.body.global_position = Vector3(over.x, 0.5, over.z)
+	victim.body.global_position = Vector3(over.x, _deck_y() + 0.5, over.z)
 	await step_ticks(FALL_TICKS)
 
 	assert_false(victim.is_running, "the racer is out")
@@ -372,34 +399,68 @@ func test_a_racer_who_drops_through_a_pit_is_out() -> void:
 ## Nothing lethal stands on the line the shipped runner brain holds.
 ##
 ## [b]This is the check that keeps the game playable.[/b] [RingRunner]'s baseline
-## faces a point on the [member MatchRules.track_radius] circle and holds full
-## forward with no avoidance of any kind, for the whole lap, and the opening race
-## is nothing but that baseline four times over. A trap or a pit anywhere near
-## r=44.5 is a race that can never be finished.
+## faces a point on its level's lane circle and holds full forward with no
+## avoidance of any kind, for the whole lap, and the opening race is nothing but
+## that baseline four times over. A trap or a pit on a lane is a race that can
+## never be finished.
+##
+## [b]It asks the ROUTE which lanes exist rather than being told.[/b] There are
+## three of them now, at three radii, and a hazard is only allowed to be clear of
+## the one lane it happens to share a deck with -- an inner trap on level three
+## is at r=77.5, which would read as "clear" against level one's r=44.5 while
+## sitting on top of level three's runners. So every hazard is matched to the
+## level whose deck it stands on, by height, and judged against that level's
+## lane. A fourth level added to the map is covered by this test without a line
+## being changed here.
 func test_every_trap_and_pit_leaves_the_racing_line_clear() -> void:
-	var inner: float = _rules.track_radius - TRACK_CLEARANCE_METRES
-	var outer: float = _rules.track_radius + TRACK_CLEARANCE_METRES
+	var route: RingRoute = _controller.get_route()
+	if not assert_not_null(route, "the arena should carry a route to check the lanes of"):
+		return
 
 	for trap: TrapVolume in _traps():
+		var level: RingLevel = _level_under(route, trap.global_position.y)
+		var inner: float = level.lane_radius - TRACK_CLEARANCE_METRES
+		var outer: float = level.lane_radius + TRACK_CLEARANCE_METRES
 		var band: Vector2 = _radial_band_of_box(trap.global_transform, trap.size_metres)
 		assert_true(
 			band.y <= inner or band.x >= outer,
-			"%s (r%.2f-r%.2f) is clear of the racing line r%.2f-r%.2f"
-			% [trap.name, band.x, band.y, inner, outer],
+			"%s (r%.2f-r%.2f) is clear of %s's racing line r%.2f-r%.2f"
+			% [trap.name, band.x, band.y, level.name, inner, outer],
 		)
 
 	for pit: Node3D in _pits():
 		var hole: CSGCylinder3D = pit as CSGCylinder3D
 		if hole == null:
 			continue
+		# A pit is a subtraction, so its own Y is the middle of the drum it is
+		# cut through rather than the deck it opens in. The deck is the one whose
+		# radial band it falls inside.
 		var reach: float = _flat_distance(pit.global_position, _centre)
+		var level: RingLevel = _level_around(route, reach)
+		var inner: float = level.lane_radius - TRACK_CLEARANCE_METRES
+		var outer: float = level.lane_radius + TRACK_CLEARANCE_METRES
 		var low: float = reach - hole.radius
 		var high: float = reach + hole.radius
 		assert_true(
 			high <= inner or low >= outer,
-			"%s (r%.2f-r%.2f) is clear of the racing line r%.2f-r%.2f"
-			% [pit.name, low, high, inner, outer],
+			"%s (r%.2f-r%.2f) is clear of %s's racing line r%.2f-r%.2f"
+			% [pit.name, low, high, level.name, inner, outer],
 		)
+
+
+## The level whose deck a thing standing at [param height] is on.
+func _level_under(route: RingRoute, height: float) -> RingLevel:
+	return route.level_at(route.level_for_height(height))
+
+
+## The level whose radial band [param radius] falls in.
+func _level_around(route: RingRoute, radius: float) -> RingLevel:
+	var found: RingLevel = route.level_at(0)
+	for index: int in route.level_count():
+		var level: RingLevel = route.level_at(index)
+		if radius >= level.inner_radius - 0.001 and radius <= level.outer_radius + 0.001:
+			found = level
+	return found
 
 
 # --- Helpers ------------------------------------------------------------------
@@ -451,7 +512,7 @@ func _block_of(trap: TrapVolume) -> CSGBox3D:
 func _put_on_the_trap(participant: MatchParticipant, trap: TrapVolume) -> void:
 	var where: Vector3 = trap.global_position
 	participant.body.velocity = Vector3.ZERO
-	participant.body.global_position = Vector3(where.x, 0.05, where.z)
+	participant.body.global_position = Vector3(where.x, _deck_y() + 0.05, where.z)
 
 
 ## What a body standing at [param point] would land on, or null for nothing at
@@ -460,8 +521,11 @@ func _probe_floor_under(point: Vector3) -> Object:
 	var space: PhysicsDirectSpaceState3D = _arena.get_world_3d().direct_space_state
 	if space == null:
 		return null
-	var from: Vector3 = Vector3(point.x, 0.5, point.z)
-	var to: Vector3 = Vector3(point.x, 0.5 - PROBE_DEPTH_METRES, point.z)
+	# From just above the point ITSELF, not from y=0.5: the galleries are stacked,
+	# so a probe dropped from a fixed height finds the ceiling of the deck it was
+	# asking about, or nothing at all.
+	var from: Vector3 = Vector3(point.x, point.y + 0.5, point.z)
+	var to: Vector3 = Vector3(point.x, point.y + 0.5 - PROBE_DEPTH_METRES, point.z)
 	var query: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(
 		from, to, FLOOR_MASK
 	)
@@ -469,6 +533,13 @@ func _probe_floor_under(point: Vector3) -> Object:
 	if not hit.has("collider"):
 		return null
 	return hit.get("collider") as Object
+
+
+## The walking surface of the first gallery, which is where every body this file
+## drops onto the deck belongs. Zero on a map with no route.
+func _deck_y() -> float:
+	var route: RingRoute = _controller.get_route()
+	return _centre.y if route == null else route.deck_height(0)
 
 
 ## The band of radii about the ring axis a horizontal box occupies.
@@ -495,7 +566,14 @@ func _radial_band_of_box(where: Transform3D, size: Vector3) -> Vector2:
 
 
 func _point_on_track(radius: float, angle: float) -> Vector3:
-	return _centre + Vector3(cos(angle), 0.0, sin(angle)) * radius
+	# On the FIRST level's deck. The arena is three galleries stacked at one
+	# radius now, so a point on the racing line is not a point until it says
+	# which deck it is on.
+	var route: RingRoute = _controller.get_route()
+	var height: float = _centre.y if route == null else route.deck_height(0)
+	return Vector3(
+		_centre.x + cos(angle) * radius, height, _centre.z + sin(angle) * radius
+	)
 
 
 func _angle_about(point: Vector3) -> float:
@@ -516,3 +594,21 @@ func _walk(root: Node) -> Array[Node]:
 func _on_runner_ghosted(participant: MatchParticipant) -> void:
 	_ghosted.append(participant)
 	_ghosted_at.append(participant.body.global_position)
+
+
+func _on_ghost_respawned(participant: MatchParticipant) -> void:
+	_respawned.append(participant)
+	_respawned_at.append(participant.body.global_position)
+
+## Wait out [param participant]'s respawn hold, returning on the tick it expires.
+##
+## Every death in a match is held before the body is moved, so a test that
+## asserts about the PLACEMENT has to get the hold out of the way first. Polled
+## rather than slept for a flat duration, so retuning the delay needs no edit
+## here.
+func _await_respawn(participant: MatchParticipant) -> void:
+	for _tick: int in HOLD_BUDGET_TICKS:
+		if not _controller.is_awaiting_respawn(participant):
+			return
+		await step_ticks(1)
+

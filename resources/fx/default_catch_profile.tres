@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="CatchProfile" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/fx/catch_profile.gd" id="1_catch_profile"]
+
+[resource]
+script = ExtResource("1_catch_profile")
+enabled = true
+caught_enabled = true
+caught_close_seconds = 0.16
+caught_hold_seconds = 0.34
+caught_fade_seconds = 0.5
+caught_thickness_fraction = 0.13
+caught_alpha = 0.8
+caught_close_exponent = 0.55
+caught_fade_exponent = 2.0
+caught_whip_scale = 0.5
+caught_drag_scale = 2.2
+take_enabled = true
+take_open_seconds = 0.3
+take_thickness_fraction = 0.085
+take_alpha = 0.55
+take_open_exponent = 1.6
+take_punch_scale = 2.6

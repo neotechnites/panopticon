@@ -123,6 +123,19 @@ extends Resource
 # past 14 m/s has to be earned in the air. That division is deliberate: the
 # floor of the skill curve is a keypress, the ceiling is a technique.
 
+## Smallest forward component of [member MoveIntent.move_direction] that still
+## reads as "moving forward" for the purpose of opening a slide. Dimensionless:
+## the intent is a unit-disc vector whose y is forward.
+##
+## [b]This is the discriminator between the two things the slide key does.[/b]
+## Above it, with enough speed, the key opens a slide; below it -- or too slow --
+## the same key holds a crouch. 0.5 is the cosine of 60 degrees, so W alone
+## (1.0) and any W+strafe diagonal (0.707) both still slide, while a pure
+## sideways or backwards run does not. It is read off [MoveIntent] and nothing
+## else, which is what makes a bot's and a network peer's slide open on exactly
+## the same condition a hand on the keyboard does.
+@export_range(0.0, 1.0, 0.01) var slide_min_forward_intent: float = 0.5
+
 ## Slowest a body may be moving and still open a slide. Under the ground speed on
 ## purpose -- a slide is something you do out of a run, not a way to start
 ## moving, and a standing slide would be a free dodge with no commitment.
@@ -190,15 +203,62 @@ extends Resource
 @export var slide_requires_hold: bool = true
 
 ## How far the head drops while sliding, in metres. Cosmetic: the collision
-## capsule does [b]not[/b] shrink, so a slide never makes a body harder to hit
-## and never has to solve standing up under a low ceiling. See
-## [method PlayerController._settle_head].
+## capsule does [b]not[/b] shrink, so a slide never makes a body harder to hit.
+## That is still true now that the CROUCH does shrink it (see
+## [member crouch_height]) and is the deliberate difference between the two
+## halves of the same key: a slide buys speed, a crouch buys cover, and neither
+## buys both. See [method PlayerController._settle_head].
 @export_range(0.0, 1.5, 0.01) var slide_camera_drop: float = 0.45
 
 ## Rate the head moves to and from the slide crouch, per second. Applied as an
 ## exponential approach, so the settle takes the same wall-clock time at any
 ## tick rate.
 @export_range(0.1, 60.0, 0.1, "or_greater") var slide_camera_settle_rate: float = 14.0
+
+# --- Crouch -------------------------------------------------------------------
+#
+# The other half of the slide key, and the one that is a STANCE rather than a
+# burst. Where a slide is edge-triggered, timed, boosted and on a cooldown, a
+# crouch is none of those: it is held, it lasts exactly as long as the key does,
+# it pays nothing and it costs speed.
+#
+# It is also the only thing in the movement kit that changes how big a body IS.
+# The guard shoots at a silhouette, so a crouched prisoner is a smaller target
+# and can shrink behind cover the kit previously had no answer for -- which
+# makes these four numbers combat tuning as much as movement tuning.
+
+## Height of the collision capsule while crouched, in metres, against a standing
+## 1.8 (see [code]scenes/player/player.tscn[/code]). The bottom of the capsule
+## stays where it is and the TOP comes down, so a crouched body keeps standing
+## on the same floor while presenting two thirds of the silhouette.
+##
+## Two thirds is the point of the number: it is a real reduction in what a
+## shooter can hit without being so extreme that a crouched prisoner reads as a
+## different object. Godot clamps a capsule to at least twice its radius (0.8
+## here), and [PlayerController] clamps to that as well rather than letting a
+## sweep author a body the physics server will silently resize.
+@export_range(0.2, 3.0, 0.01) var crouch_height: float = 1.2
+
+## Target horizontal speed while crouched on the ground, replacing
+## [member ground_speed]. Under half of it: a crouch buys a smaller silhouette
+## and pays for it in the one currency this game is denominated in.
+##
+## Kept below [member slide_min_entry_speed] on purpose, so a crouch can never
+## walk itself up into slide range -- the two states cannot blur into each other
+## no matter how long the key is held.
+@export_range(0.0, 40.0, 0.1, "or_greater") var crouch_speed: float = 5.0
+
+## How far the head drops while crouched, in metres. Unlike
+## [member slide_camera_drop] this one has a capsule behind it: 0.55 puts a
+## 1.65 m eye at 1.10 m, just under the 1.2 m the crouched capsule tops out at,
+## so what the player sees over is what the shooter can hit.
+@export_range(0.0, 1.5, 0.01) var crouch_camera_drop: float = 0.55
+
+## Rate the head moves to and from the crouch, per second, applied as the same
+## exponential approach [member slide_camera_settle_rate] uses. Slower than the
+## slide's, because dropping into a stance is a movement and a slide is an
+## impact.
+@export_range(0.1, 60.0, 0.1, "or_greater") var crouch_camera_settle_rate: float = 12.0
 
 # --- Look ---------------------------------------------------------------------
 

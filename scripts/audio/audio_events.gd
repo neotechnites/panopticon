@@ -83,6 +83,98 @@ const RUNNER_CONVERTED: StringName = &"match.runner_converted"
 ## [signal MatchController.match_won]. The last sound of a match.
 const MATCH_WON: StringName = &"match.won"
 
+# --- Movement -------------------------------------------------------------------
+#
+# All five come from scripts/audio/movement_audio_listener.gd, which watches
+# every PlayerController in the scene -- the human, every bot, and a ghost --
+# rather than one authored body, because a match can spawn and reparent bodies
+# at runtime (see MovementAudioListener's own header). All five are positional:
+# the whole reason they exist is so a runner can hear somebody else's feet,
+# jump, landing or slide, at a place in the world -- see the design note on
+# [constant POSITIONAL] and PANOPTICON.md's brief for this system: "you cannot
+# hear anyone else -- no approaching footsteps, no ghost closing on you, no
+# slide going past."
+#
+# FOOTSTEP is paced by distance travelled, not by a timer -- see
+# [member MovementAudioTuning.footstep_stride_metres] -- so a sprint posts more
+# often than a walk and a slide (which does not accumulate stride distance at
+# all) never machine-guns them. JUMP and the two SLIDE events are one-shots off
+# [signal PlayerController.jumped], [signal PlayerController.slide_started] and
+# [signal PlayerController.slide_ended]. LAND is the one that scales: posted
+# through [method AudioDirector.post_at_gain] with a gain derived from
+# [signal PlayerController.landed]'s impact speed, so a step down and a fall off
+# a ledge are not the same volume.
+
+## A body's foot struck the ground while running.
+const MOVEMENT_FOOTSTEP: StringName = &"movement.footstep"
+
+## [signal PlayerController.jumped].
+const MOVEMENT_JUMP: StringName = &"movement.jump"
+
+## [signal PlayerController.landed]. Gain-scaled by impact speed; see
+## [method AudioDirector.post_at_gain].
+const MOVEMENT_LAND: StringName = &"movement.land"
+
+## [signal PlayerController.slide_started].
+const MOVEMENT_SLIDE_START: StringName = &"movement.slide_start"
+
+## [signal PlayerController.slide_ended].
+const MOVEMENT_SLIDE_END: StringName = &"movement.slide_end"
+
+# --- The victim ---------------------------------------------------------------
+
+## [signal FxHitReaction.struck]: THIS player was hit.
+##
+## Not [constant RIFLE_HIT], and the difference is the whole reason it exists.
+## [constant RIFLE_HIT] is the impact as the WORLD hears it -- positional, at the
+## point struck, quiet at range, and posted for every hit anybody lands on
+## anybody. This one is posted only on the body the local player is looking out
+## of, and it is the sound of it happening to you.
+##
+## NOT positional, deliberately. The listener is inside the head that was hit;
+## there is no distance to attenuate and no direction to pan, and a 3D source
+## placed at a listener's own position is numerically unstable besides. The
+## direction is carried by the camera whip, which is the channel that can
+## actually express it -- see [FxHitReaction].
+##
+## Wired by [MatchAudioListener], which finds the [FxHitReaction] in the scene
+## the same way it finds the rifle. The reaction is inert with no display
+## server, so a headless sweep never posts this.
+const PLAYER_HIT_TAKEN: StringName = &"player.hit_taken"
+
+# --- The catch ----------------------------------------------------------------
+#
+# The two halves of one event, posted on two different machines. Both come from
+# [FxCatchReaction], which is the node that already had to work out which side
+# of a catch the local player was on; MatchAudioListener subscribes to it the
+# same way it subscribes to FxHitReaction, and MatchController is untouched.
+#
+# NEITHER IS POSITIONAL, for the same reason PLAYER_HIT_TAKEN is not: a catch
+# happens at arm's length, so the listener is standing inside the sound, and a
+# 3D source at zero distance is numerically unstable as well as pointless.
+#
+# A catch between two bots posts NOTHING. FxCatchReaction returns before it
+# emits either signal when neither participant is the local body, so a round in
+# which the bots swap spots twenty times is exactly as quiet as one in which
+# they do not.
+
+## [signal FxCatchReaction.catch_made]: THIS player's ghost took somebody's spot.
+##
+## The ghost's reward and the only good news a ghost can generate, so it is
+## pitched and shaped as an ASCENT. Deliberately not [constant RIFLE_HIT]: that
+## is the tower's confirmation, heard by whoever is holding the rifle, and a
+## catch is the one kill in PANOPTICON that the rifle had nothing to do with.
+const PLAYER_CATCH_MADE: StringName = &"player.catch_made"
+
+## [signal FxCatchReaction.catch_taken]: THIS player was caught and is a ghost.
+##
+## A death, and it must not be mistaken for the other one. [constant
+## PLAYER_HIT_TAKEN] is a bright transient pitched down into a thud -- a blow
+## landing from range. This is dull, low and dragged, because being caught is
+## something arriving at contact and taking hold, and the player has to be able
+## to tell which of the two just happened without looking at anything.
+const PLAYER_CATCH_TAKEN: StringName = &"player.catch_taken"
+
 # --- UI -----------------------------------------------------------------------
 #
 # Wired by UIAudioListener, which walks a Control subtree and subscribes to
@@ -135,6 +227,14 @@ const ALL: Array[StringName] = [
 	ROUND_RESOLVED,
 	RUNNER_CONVERTED,
 	MATCH_WON,
+	MOVEMENT_FOOTSTEP,
+	MOVEMENT_JUMP,
+	MOVEMENT_LAND,
+	MOVEMENT_SLIDE_START,
+	MOVEMENT_SLIDE_END,
+	PLAYER_HIT_TAKEN,
+	PLAYER_CATCH_MADE,
+	PLAYER_CATCH_TAKEN,
 	UI_CLICK,
 	UI_FOCUS,
 	UI_BACK,
@@ -152,6 +252,11 @@ const POSITIONAL: Array[StringName] = [
 	RIFLE_FIRED,
 	RIFLE_HIT,
 	RIFLE_MISSED,
+	MOVEMENT_FOOTSTEP,
+	MOVEMENT_JUMP,
+	MOVEMENT_LAND,
+	MOVEMENT_SLIDE_START,
+	MOVEMENT_SLIDE_END,
 ]
 
 

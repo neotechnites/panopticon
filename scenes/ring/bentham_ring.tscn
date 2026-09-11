@@ -1,8 +1,16 @@
-[gd_scene load_steps=13 format=3]
+[gd_scene load_steps=23 format=3]
 
-[ext_resource type="PackedScene" path="res://scenes/tower/panopticon_eye.tscn" id="1_eye"]
-[ext_resource type="Script" path="res://scripts/match/kill_volume.gd" id="2_kill_volume"]
-[ext_resource type="Script" path="res://scripts/match/trap_volume.gd" id="3_trap_volume"]
+[ext_resource type="Script" path="res://scripts/match/kill_volume.gd" id="1_kill_volume"]
+[ext_resource type="Script" path="res://scripts/match/trap_volume.gd" id="2_trap_volume"]
+[ext_resource type="Script" path="res://scripts/ring/tower_light.gd" id="3_tower_light"]
+[ext_resource type="Resource" path="res://scenes/ring/default_tower_light_profile.tres" id="4_tower_light_profile"]
+[ext_resource type="Script" path="res://scripts/ring/ring_route.gd" id="5_ring_route"]
+[ext_resource type="Script" path="res://scripts/ring/ring_level.gd" id="6_ring_level"]
+[ext_resource type="PackedScene" path="res://scenes/tower/watching_eye.tscn" id="7_watching_eye"]
+[ext_resource type="PackedScene" path="res://assets/models/tower.glb" id="8_tower_model"]
+[ext_resource type="Resource" path="res://scenes/ring/floating_watching_eye_profile.tres" id="9_watcher_profile"]
+[ext_resource type="PackedScene" path="res://assets/models/map_base.glb" id="10_map_base_model"]
+[ext_resource type="Texture2D" path="res://assets/models/tower_tower_rock_albedo.png" id="11_rock_albedo"]
 
 [sub_resource type="StandardMaterial3D" id="MatDeck"]
 albedo_color = Color(0.42, 0.42, 0.44, 1.0)
@@ -19,10 +27,10 @@ albedo_color = Color(0.58, 0.57, 0.54, 1.0)
 roughness = 0.95
 metallic = 0.0
 
-[sub_resource type="StandardMaterial3D" id="MatTrap"]
-resource_name = "Trap"
-shading_mode = 0
-albedo_color = Color(0.86, 0.06, 0.06, 1.0)
+[sub_resource type="StandardMaterial3D" id="MatRamp"]
+albedo_color = Color(0.5, 0.48, 0.4, 1.0)
+roughness = 0.9
+metallic = 0.0
 
 [sub_resource type="StandardMaterial3D" id="MatStart"]
 albedo_color = Color(0.22, 0.52, 0.28, 1.0)
@@ -34,11 +42,21 @@ albedo_color = Color(0.62, 0.42, 0.14, 1.0)
 roughness = 0.85
 metallic = 0.0
 
+[sub_resource type="StandardMaterial3D" id="MatRock"]
+albedo_texture = ExtResource("11_rock_albedo")
+uv1_triplanar = true
+roughness = 0.95
+
+[sub_resource type="StandardMaterial3D" id="MatTrap"]
+resource_name = "Trap"
+shading_mode = 0
+albedo_color = Color(0.86, 0.06, 0.06, 1.0)
+
 [sub_resource type="ProceduralSkyMaterial" id="SkyMat"]
-sky_top_color = Color(0.28, 0.34, 0.42, 1.0)
-sky_horizon_color = Color(0.58, 0.6, 0.62, 1.0)
-ground_bottom_color = Color(0.16, 0.16, 0.17, 1.0)
-ground_horizon_color = Color(0.4, 0.4, 0.42, 1.0)
+sky_top_color = Color(0.05, 0.03, 0.04, 1.0)
+sky_horizon_color = Color(0.14, 0.06, 0.06, 1.0)
+ground_bottom_color = Color(0.02, 0.02, 0.02, 1.0)
+ground_horizon_color = Color(0.08, 0.04, 0.04, 1.0)
 
 [sub_resource type="Sky" id="Sky"]
 sky_material = SubResource("SkyMat")
@@ -47,373 +65,440 @@ sky_material = SubResource("SkyMat")
 background_mode = 2
 sky = SubResource("Sky")
 ambient_light_source = 3
-ambient_light_energy = 0.6
+ambient_light_color = Color(0.5, 0.2, 0.16, 1.0)
+ambient_light_energy = 0.7
 tonemap_mode = 2
 
 [node name="BenthamRing" type="Node3D"]
-editor_description = "THE BENTHAM RING -- PANOPTICON's arena, named in resources/maps/bentham_ring.tres and reached through MapCatalog. Greybox. 0.5 m grid throughout. Deck r35-r60 (25 m track), outer wall +8 m, open shooter platform r=8 at the centre with its surface level with the deck at y=0. Runners go counter-clockwise from PrisonerStart (+5 deg) all the way round to PrisonerEnd (-5 deg), 8 m apart across LapDivider. The route is trapped: six red kill-on-contact blocks under Traps and four pits cut through Ring/Deck, all of them flush against the cover bands so the r41.75-r46.75 running channel is exactly as wide as it always was."
+editor_description = "THE BENTHAM RING, one level, built on assets/models/map_base.glb -- deck annulus r=44 to r=60 at y=23.0, pit wall down to the courtyard at y=-11.0, outer wall up to the rim. The model ships its own collision, so this generator adds no deck CSG, walls, ramps or trench for it: only the tower, cover, traps, pits, lights and markers.\n\nA prisoner runs one 330 deg lap at r=52, about 299 m, and reaches the end pad, which takes the tower.\n\nThe three-level stack this replaces is still in tools/modelling/gen_bentham_ring.py, selected by setting LEVELS = 3."
 
 [node name="Environment" type="Node3D" parent="."]
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="Environment"]
 environment = SubResource("Env")
 
-[node name="Sun" type="DirectionalLight3D" parent="Environment"]
-editor_description = "Keyed at -35 deg elevation / -55 deg azimuth so cover casts long, readable shadows across the track instead of pooling under itself."
-transform = Transform3D(0.819152, -0.469846, 0.330366, 0.0, 0.573576, 0.819152, -0.573576, -0.671010, 0.469846, 0.0, 40.0, 0.0)
-light_energy = 1.0
-shadow_enabled = true
-directional_shadow_max_distance = 160.0
-
 [node name="Ring" type="Node3D" parent="."]
 
-[node name="Deck" type="CSGCombiner3D" parent="Ring"]
-editor_description = "The running surface: a true annulus, outer r=60, inner r=35, 25 m wide, with four pits cut through it (the Pit* subtractions below). Lap length at mid-radius r=47.5 is 298 m -- 37 s at walk 8 m/s, 27 s at sprint 11 m/s, which is the length of one round."
-use_collision = true
+[node name="Pits" type="Node3D" parent="Ring"]
+editor_description = "Same bearings and bands as the shaft pits used to be. Triggers now, not cut holes -- the deck is baked into map_base.glb and this cannot cut it."
 
-[node name="DeckSolid" type="CSGCylinder3D" parent="Ring/Deck"]
-radius = 60.0
-height = 1.0
-sides = 64
-material = SubResource("MatDeck")
-transform = Transform3D(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, -0.5, 0.0)
-
-[node name="DeckHole" type="CSGCylinder3D" parent="Ring/Deck"]
-editor_description = "Subtract: opens the inner void."
-operation = 2
-radius = 35.0
-height = 3.0
-sides = 64
-transform = Transform3D(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, -0.5, 0.0)
-
-[node name="Pit01_082deg" type="CSGCylinder3D" parent="Ring/Deck" groups=["deck_pits"]]
-editor_description = "82 deg, r=49.25, 5 m across. Cut into the OUTER shoulder of the track. Its inner lip lands at r=46.75, which is exactly where the LaneMid cover band already begins, so the runners' clear channel (r41.75-r46.75) is not narrowed by one centimetre; what changes is that wandering outboard HERE is a fall rather than a detour. Nothing is under it -- the deck slab is the only floor outboard of r=35 -- so a body that drops through keeps going until KillBox has it."
-operation = 2
-radius = 2.5
-height = 3.0
-sides = 24
-transform = Transform3D(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 6.85428, -0.5, 48.7707)
-
-[node name="Pit02_137deg" type="CSGCylinder3D" parent="Ring/Deck" groups=["deck_pits"]]
-editor_description = "137 deg, r=39.25, 5 m across. Cut into the INNER shoulder. Its outer lip lands at r=41.75, exactly where the LaneInner cover band already ends, so the channel is untouched. It leaves a 0.75 m ledge between the hole and InnerKerb: that is a ledge, and it is meant to read as one."
-operation = 2
-radius = 2.5
-height = 3.0
-sides = 24
-transform = Transform3D(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, -28.70563, -0.5, 26.76844)
-
-[node name="Pit03_191deg" type="CSGCylinder3D" parent="Ring/Deck" groups=["deck_pits"]]
-editor_description = "191 deg, r=49.25. Outer shoulder, as Pit01."
-operation = 2
-radius = 2.5
-height = 3.0
-sides = 24
-transform = Transform3D(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, -48.34514, -0.5, -9.39734)
-
-[node name="Pit04_245deg" type="CSGCylinder3D" parent="Ring/Deck" groups=["deck_pits"]]
-editor_description = "245 deg, r=39.25. Inner shoulder, as Pit02."
-operation = 2
-radius = 2.5
-height = 3.0
-sides = 24
-transform = Transform3D(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, -16.58777, -0.5, -35.57258)
-
-[node name="OuterWall" type="CSGCombiner3D" parent="Ring"]
-editor_description = "r=60 to r=62, 8 m tall. Jump apex on the tuned movement profile is 1.11 m, so 8 m is uncrossable by an order of magnitude; it sits entirely outboard of the deck so it can never occlude the tower's view of ground."
-use_collision = true
-
-[node name="WallSolid" type="CSGCylinder3D" parent="Ring/OuterWall"]
-radius = 62.0
-height = 9.0
-sides = 64
-material = SubResource("MatStructure")
-transform = Transform3D(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 3.5, 0.0)
-
-[node name="WallBore" type="CSGCylinder3D" parent="Ring/OuterWall"]
-operation = 2
-radius = 60.0
-height = 11.0
-sides = 64
-transform = Transform3D(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 3.5, 0.0)
-
-[node name="InnerKerb" type="CSGCombiner3D" parent="Ring"]
-editor_description = "Only 0.5 m tall on purpose. The inner boundary has to read as an edge without blocking sight: from the tower eye (y=16.7) the sightline to a 1.7 m target at r=37 is still 2.1 m up as it crosses r=36, so no height under ~2 m here can ever shadow the inner lane. Anything taller would hand runners a free covered lane for the whole lap."
-use_collision = true
-
-[node name="KerbSolid" type="CSGCylinder3D" parent="Ring/InnerKerb"]
-radius = 36.0
-height = 0.5
-sides = 64
-material = SubResource("MatStructure")
-transform = Transform3D(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.25, 0.0)
-
-[node name="KerbBore" type="CSGCylinder3D" parent="Ring/InnerKerb"]
-operation = 2
-radius = 35.0
-height = 2.5
-sides = 64
-transform = Transform3D(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.25, 0.0)
-
-[node name="PitFloor" type="CSGCylinder3D" parent="Ring"]
-editor_description = "Courtyard floor 12 m below the deck. The middle of the map is a drop, not a shortcut, and the tower looks straight down into it so it is no hiding place either."
-use_collision = true
-radius = 35.0
-height = 1.0
-sides = 64
-material = SubResource("MatStructure")
-transform = Transform3D(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, -12.5, 0.0)
-
-[node name="LapDivider" type="CSGBox3D" parent="Ring"]
-editor_description = "Radial wall at 0 deg, r=35 to r=60, 4 m tall -- taller than cover (3 m) so it reads as a boundary and not as something to hide behind. It is edge-on to the tower, so it costs the tower almost no visibility. Start is on its +Z face, End on its -Z."
-use_collision = true
-size = Vector3(25.0, 4.0, 1.0)
-material = SubResource("MatStructure")
-transform = Transform3D(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 47.5, 2.0, 0.0)
-
-[node name="KillBox" type="Area3D" parent="."]
-editor_description = "The kill box under the arena. Everything that walks in PANOPTICON walks on one of two surfaces, the deck annulus (r35-r60) and the guard's platform (r8), both at y=0 with a twelve metre hole between them -- and, since the deck was given pits, with four more holes cut straight through the deck itself. This is what is under all of it.\n\nRADIUS 62, NOT 35, AND THAT IS THE WHOLE OF THE PIT MECHANIC. The courtyard is only r=35; the pits are at r=39.25 and r=49.25, outboard of it. A volume that stopped at r=35 would let a prisoner drop through a pit and fall forever, alive, past the bottom of the world -- the exact failure this node was built to end, reintroduced by a hole in the floor. So the roof now spans the arena out to the outer wall at r=62. Nothing is lost by that: the deck slab's underside is y=-1, this volume's roof is y=-3, and there is no walkable surface anywhere between them. The pits do not need a catcher of their own, and there is still exactly one place a fall is answered.\n\nIt is a trigger and nothing else: no collision of its own (layer 0, so nothing has to know it is here), monitorable off, and a mask of 1048577 (bit 0, the layer scenes/player/player.tscn puts a living body on, plus bit 20, MatchController.GHOST_HAZARD_LAYER, the layer a ghost stands on) so both a living prisoner and a ghost are seen falling in. The rifle cannot hit it -- default_weapon_profile.tres shoots with hit_areas off -- and a CharacterBody3D cannot stand on it.\n\nWHAT IT DOES IS NOT DECIDED HERE. scripts/match/kill_volume.gd resolves whatever entered it to a participant and hands it to MatchController.handle_fall(), which is the same node that already decides what a rifle hit means, and the same call the red traps make. The extent is on the script as three exported metres -- radius, how far under the deck the roof sits, how deep it goes -- and the child below is sized from them on ready, so the shape and the reasoning cannot disagree.\n\nPurely additive: no script here touches the arena, and deleting this node leaves the courtyard exactly as it was, a pit you can stand at the bottom of -- and the four deck pits a hole you fall through forever, which is why it is not deleted."
+[node name="Pit_080deg" type="Area3D" parent="Ring/Pits" groups=["deck_pits"]]
+editor_description = "80 deg, r=47.00: falls a body through to the kill volume on contact, same as the shaft pits did."
 collision_layer = 0
 collision_mask = 1048577
 monitorable = false
-script = ExtResource("2_kill_volume")
-radius_metres = 62.0
+transform = Transform3D(1, 0, 0, 0, 1, 0, -0, 0, 1, 8.56507, 23, 46.213)
+script = ExtResource("2_trap_volume")
+size_metres = Vector3(5.0000, 3.0, 5.0000)
+
+[node name="Shape" type="CollisionShape3D" parent="Ring/Pits/Pit_080deg"]
+editor_description = "Deliberately empty. TrapVolume._build_shape writes a BoxShape3D over it on ready from size_metres on the parent."
+
+[node name="Pit_130deg" type="Area3D" parent="Ring/Pits" groups=["deck_pits"]]
+editor_description = "130 deg, r=57.00: falls a body through to the kill volume on contact, same as the shaft pits did."
+collision_layer = 0
+collision_mask = 1048577
+monitorable = false
+transform = Transform3D(1, 0, 0, 0, 1, 0, -0, 0, 1, -36.2565, 23, 43.9826)
+script = ExtResource("2_trap_volume")
+size_metres = Vector3(5.0000, 3.0, 5.0000)
+
+[node name="Shape" type="CollisionShape3D" parent="Ring/Pits/Pit_130deg"]
+editor_description = "Deliberately empty. TrapVolume._build_shape writes a BoxShape3D over it on ready from size_metres on the parent."
+
+[node name="Pit_180deg" type="Area3D" parent="Ring/Pits" groups=["deck_pits"]]
+editor_description = "180 deg, r=47.00: falls a body through to the kill volume on contact, same as the shaft pits did."
+collision_layer = 0
+collision_mask = 1048577
+monitorable = false
+transform = Transform3D(1, 0, 0, 0, 1, 0, -0, 0, 1, -46.9982, 23, 0.410147)
+script = ExtResource("2_trap_volume")
+size_metres = Vector3(5.0000, 3.0, 5.0000)
+
+[node name="Shape" type="CollisionShape3D" parent="Ring/Pits/Pit_180deg"]
+editor_description = "Deliberately empty. TrapVolume._build_shape writes a BoxShape3D over it on ready from size_metres on the parent."
+
+[node name="Pit_230deg" type="Area3D" parent="Ring/Pits" groups=["deck_pits"]]
+editor_description = "230 deg, r=57.00: falls a body through to the kill volume on contact, same as the shaft pits did."
+collision_layer = 0
+collision_mask = 1048577
+monitorable = false
+transform = Transform3D(1, 0, 0, 0, 1, 0, -0, 0, 1, -37.0185, 23, -43.3431)
+script = ExtResource("2_trap_volume")
+size_metres = Vector3(5.0000, 3.0, 5.0000)
+
+[node name="Shape" type="CollisionShape3D" parent="Ring/Pits/Pit_230deg"]
+editor_description = "Deliberately empty. TrapVolume._build_shape writes a BoxShape3D over it on ready from size_metres on the parent."
+
+[node name="Pit_280deg" type="Area3D" parent="Ring/Pits" groups=["deck_pits"]]
+editor_description = "280 deg, r=47.00: falls a body through to the kill volume on contact, same as the shaft pits did."
+collision_layer = 0
+collision_mask = 1048577
+monitorable = false
+transform = Transform3D(1, 0, 0, 0, 1, 0, -0, 0, 1, 7.75724, 23, -46.3554)
+script = ExtResource("2_trap_volume")
+size_metres = Vector3(5.0000, 3.0, 5.0000)
+
+[node name="Shape" type="CollisionShape3D" parent="Ring/Pits/Pit_280deg"]
+editor_description = "Deliberately empty. TrapVolume._build_shape writes a BoxShape3D over it on ready from size_metres on the parent."
+
+[node name="MapBase" parent="." instance=ExtResource("10_map_base_model")]
+editor_description = "assets/models/map_base.glb: the one deck -- annulus, pit wall down to the courtyard, outer wall up to the rim. Ships its own collision (MapBaseCollision-colonly), so nothing here duplicates it."
+
+[node name="GalleryLights" type="Node3D" parent="Ring"]
+editor_description = "Under the rock ceiling, which KeyLight cannot reach through. Twelve omnis at r=52.0, 30 deg apart, matching KeyLight and TowerLightProfile's colour."
+
+[node name="Gallery1_000deg" type="OmniLight3D" parent="Ring/GalleryLights"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, -0, 0, 1, 52, 30.5, 0)
+light_color = Color(1.0, 0.44, 0.34, 1.0)
+light_energy = 9.00
+omni_range = 60.00
+omni_attenuation = 0.7
+shadow_enabled = false
+
+[node name="Gallery1_030deg" type="OmniLight3D" parent="Ring/GalleryLights"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, -0, 0, 1, 45.0333, 30.5, 26)
+light_color = Color(1.0, 0.44, 0.34, 1.0)
+light_energy = 9.00
+omni_range = 60.00
+omni_attenuation = 0.7
+shadow_enabled = false
+
+[node name="Gallery1_060deg" type="OmniLight3D" parent="Ring/GalleryLights"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, -0, 0, 1, 26, 30.5, 45.0333)
+light_color = Color(1.0, 0.44, 0.34, 1.0)
+light_energy = 9.00
+omni_range = 60.00
+omni_attenuation = 0.7
+shadow_enabled = false
+
+[node name="Gallery1_090deg" type="OmniLight3D" parent="Ring/GalleryLights"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, -0, 0, 1, 3.18408e-15, 30.5, 52)
+light_color = Color(1.0, 0.44, 0.34, 1.0)
+light_energy = 9.00
+omni_range = 60.00
+omni_attenuation = 0.7
+shadow_enabled = false
+
+[node name="Gallery1_120deg" type="OmniLight3D" parent="Ring/GalleryLights"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, -0, 0, 1, -26, 30.5, 45.0333)
+light_color = Color(1.0, 0.44, 0.34, 1.0)
+light_energy = 9.00
+omni_range = 60.00
+omni_attenuation = 0.7
+shadow_enabled = false
+
+[node name="Gallery1_150deg" type="OmniLight3D" parent="Ring/GalleryLights"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, -0, 0, 1, -45.0333, 30.5, 26)
+light_color = Color(1.0, 0.44, 0.34, 1.0)
+light_energy = 9.00
+omni_range = 60.00
+omni_attenuation = 0.7
+shadow_enabled = false
+
+[node name="Gallery1_180deg" type="OmniLight3D" parent="Ring/GalleryLights"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, -0, 0, 1, -52, 30.5, 6.36816e-15)
+light_color = Color(1.0, 0.44, 0.34, 1.0)
+light_energy = 9.00
+omni_range = 60.00
+omni_attenuation = 0.7
+shadow_enabled = false
+
+[node name="Gallery1_210deg" type="OmniLight3D" parent="Ring/GalleryLights"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, -0, 0, 1, -45.0333, 30.5, -26)
+light_color = Color(1.0, 0.44, 0.34, 1.0)
+light_energy = 9.00
+omni_range = 60.00
+omni_attenuation = 0.7
+shadow_enabled = false
+
+[node name="Gallery1_240deg" type="OmniLight3D" parent="Ring/GalleryLights"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, -0, 0, 1, -26, 30.5, -45.0333)
+light_color = Color(1.0, 0.44, 0.34, 1.0)
+light_energy = 9.00
+omni_range = 60.00
+omni_attenuation = 0.7
+shadow_enabled = false
+
+[node name="Gallery1_270deg" type="OmniLight3D" parent="Ring/GalleryLights"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, -0, 0, 1, -9.55225e-15, 30.5, -52)
+light_color = Color(1.0, 0.44, 0.34, 1.0)
+light_energy = 9.00
+omni_range = 60.00
+omni_attenuation = 0.7
+shadow_enabled = false
+
+[node name="Gallery1_300deg" type="OmniLight3D" parent="Ring/GalleryLights"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, -0, 0, 1, 26, 30.5, -45.0333)
+light_color = Color(1.0, 0.44, 0.34, 1.0)
+light_energy = 9.00
+omni_range = 60.00
+omni_attenuation = 0.7
+shadow_enabled = false
+
+[node name="Gallery1_330deg" type="OmniLight3D" parent="Ring/GalleryLights"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, -0, 0, 1, 45.0333, 30.5, -26)
+light_color = Color(1.0, 0.44, 0.34, 1.0)
+light_energy = 9.00
+omni_range = 60.00
+omni_attenuation = 0.7
+shadow_enabled = false
+
+[node name="KillBox" type="Area3D" parent="."]
+editor_description = "The kill box under the one-level ring. Roof at y=-8.0 -- raised from the deeper roof this used to have so a body falling off the outer rim is caught before it lands on rock and gets stuck, rather than only one that falls all the way past the courtyard.\n\nIt is a trigger and nothing else: no collision of its own, monitorable off, mask 1048577 (bit 0, a living body's layer, plus bit 20, MatchController.GHOST_HAZARD_LAYER) so a ghost is seen falling too.\n\nWHAT IT DOES IS NOT DECIDED HERE. scripts/match/kill_volume.gd resolves whatever entered to a participant and hands it to MatchController.handle_fall() -- the same door the rifle, the pit triggers and the red traps kill through."
+collision_layer = 0
+collision_mask = 1048577
+monitorable = false
+script = ExtResource("1_kill_volume")
+radius_metres = 62.0000
+roof_depth_metres = 8.0000
+depth_metres = 34.0000
 
 [node name="Shape" type="CollisionShape3D" parent="KillBox"]
-editor_description = "Deliberately empty. KillVolume._build_shape writes a CylinderShape3D over it on ready, from the exports on the parent, and places it hanging from the roof depth -- with the shipped numbers that is r=62 spanning y=-3 to y=-27, which starts below anything a jump can reach from either walking surface and ends well under the courtyard floor at -12.5 without going near the pen a converted body is parked in at -100."
+editor_description = "Deliberately empty. KillVolume._build_shape writes a CylinderShape3D over it on ready, from the exports on the parent."
 
 [node name="StartEnd" type="Node3D" parent="."]
-editor_description = "Start and end are 8 m apart with only LapDivider between them: a runner travels 298 m in one direction and finishes a few metres behind where they set off."
+editor_description = "One level, one lap: start and finish are both on the deck at y=23.0, 30 deg apart around the ring -- the gap is the old ramp bay, unused now."
 
 [node name="StartPad" type="CSGBox3D" parent="StartEnd"]
 editor_description = "Visual decal only -- use_collision is off so this 0.1 m plate is never a step the character controller has to climb."
 size = Vector3(6.0, 0.1, 6.0)
 material = SubResource("MatStart")
-transform = Transform3D(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 47.5, 0.05, 4.0)
+transform = Transform3D(0.0871557, 0, 0.996195, 0, 1, 0, -0.996195, 0, 0.0871557, 51.8021, 23.05, 4.5321)
 
 [node name="PrisonerStart" type="Marker3D" parent="StartEnd"]
-editor_description = "-Z faces counter-clockwise: the direction of the run."
-transform = Transform3D(-0.99619, 0.0, 0.08716, 0.0, 1.0, 0.0, -0.08716, 0.0, -0.99619, 47.5, 0.0, 4.0)
+editor_description = "5.0 deg on level one's racing line, y=23.0. Its ANGLE is what places the field -- MatchController deals them sideways across the width of the track from here -- but its HEIGHT is load-bearing too, and was the one number missed when the ring was lifted to put its top deck at the guard's eye: a marker left on the old datum is a start line nine metres under the floor, and every body dealt onto it falls out of the world before it has taken a step."
+transform = Transform3D(-0.996195, 0, 0.0871557, 0, 1, 0, -0.0871557, 0, -0.996195, 51.8021, 23, 4.5321)
 
 [node name="EndPad" type="CSGBox3D" parent="StartEnd"]
-editor_description = "Visual decal only, as StartPad."
+editor_description = "Visual decal only, as StartPad. It is on the same deck as the start."
 size = Vector3(6.0, 0.1, 6.0)
 material = SubResource("MatEnd")
-transform = Transform3D(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 47.5, 0.05, -4.0)
+transform = Transform3D(-0.422618, 0, 0.906308, 0, 1, 0, -0.906308, 0, -0.422618, 47.128, 23.05, -21.9761)
 
 [node name="PrisonerEnd" type="Marker3D" parent="StartEnd"]
-editor_description = "-Z faces counter-clockwise, i.e. the heading a runner arrives on."
-transform = Transform3D(-0.99619, 0.0, -0.08716, 0.0, 1.0, 0.0, 0.08716, 0.0, -0.99619, 47.5, 0.0, -4.0)
+editor_description = "335.0 deg on the level's racing line, y=23.0. This is the end of the whole route, not the end of a lap: reaching it is what takes the tower."
+transform = Transform3D(-0.906308, 0, -0.422618, 0, 1, 0, 0.422618, 0, -0.906308, 47.128, 23, -21.9761)
+
+[node name="StartFinishWall" type="CSGBox3D" parent="."]
+editor_description = "Blocks the 30 deg gap between finish (335 deg) and start (5 deg) -- without it a runner can walk backwards through it from start to finish."
+use_collision = true
+size = Vector3(16.0000, 8.5000, 1.0)
+material = SubResource("MatRock")
+transform = Transform3D(0.984808, 0, 0.173648, 0, 1, 0, -0.173648, 0, 0.984808, 51.21, 27.25, -9.02971)
 
 [node name="Cover" type="Node3D" parent="."]
-editor_description = "12 pieces, 6.0 x 1.5 x 3.0 m, grouped by radial lane. 3.0 m is the number the geometry demands, not a guess: the tower eye is at y=16.7, so the sightline onto a 1.7 m target 1.5 m behind a piece in the innermost lane (r=41, the steepest look-down angle on the map) passes 2.6 m above the deck. 3.0 m clears that with ~0.4 m to spare and still leaves a 3 m deep hiding pocket. Gaps between pieces are 22-28 deg (18-23 m of open ground) so the decision is when to cross, not how to weave."
+editor_description = "Cover on the one deck, two radial bands at r=47 and r=57 -- one either side of the racing line, which is what a 16 m deck has room for. Height 3.0 m: far above the 1.11 m jump, so it cannot be hopped, and tuned to the guard's 3 degree look down from the tower so a piece's shadow stays a few metres, not a corridor."
 
-[node name="LaneInner" type="Node3D" parent="Cover"]
-editor_description = "Radial lane at r=41.0 m."
+[node name="Level1" type="Node3D" parent="Cover"]
+editor_description = "Cover on the deck: 11 pieces, 6.0 x 3.0 x 1.5 m, faces tangential so each presents its full width to the tower."
 
-[node name="LaneMid" type="Node3D" parent="Cover"]
-editor_description = "Radial lane at r=47.5 m."
-
-[node name="LaneOuter" type="Node3D" parent="Cover"]
-editor_description = "Radial lane at r=54.0 m."
-
-[node name="Cover01_042deg" type="CSGBox3D" parent="Cover/LaneMid"]
-editor_description = "42 deg, r=47.5. 6 m face is tangential to the track, so it presents its full width to the tower."
+[node name="Cover_042deg" type="CSGBox3D" parent="Cover/Level1"]
+editor_description = "42 deg, r=47.0 on level 1. The 6 m face is tangential to the track."
 use_collision = true
-size = Vector3(6.0, 3.0, 1.5)
+size = Vector3(6.0, 3.0000, 1.5)
 material = SubResource("MatCover")
-transform = Transform3D(0.66913, 0.0, 0.74314, 0.0, 1.0, 0.0, -0.74314, 0.0, 0.66913, 35.5, 1.5, 32.0)
+transform = Transform3D(0.669131, 0, 0.743145, 0, 1, 0, -0.743145, 0, 0.669131, 34.9278, 24.5, 31.4491)
 
-[node name="Cover02_068deg" type="CSGBox3D" parent="Cover/LaneInner"]
-editor_description = "68 deg, r=41.0. 6 m face is tangential to the track, so it presents its full width to the tower."
+[node name="Cover_067deg" type="CSGBox3D" parent="Cover/Level1"]
+editor_description = "67 deg, r=57.0 on level 1. The 6 m face is tangential to the track."
 use_collision = true
-size = Vector3(6.0, 3.0, 1.5)
+size = Vector3(6.0, 3.0000, 1.5)
 material = SubResource("MatCover")
-transform = Transform3D(0.92718, 0.0, 0.37461, 0.0, 1.0, 0.0, -0.37461, 0.0, 0.92718, 15.5, 1.5, 38.0)
+transform = Transform3D(0.920505, 0, 0.390731, 0, 1, 0, -0.390731, 0, 0.920505, 22.2717, 24.5, 52.4688)
 
-[node name="Cover03_096deg" type="CSGBox3D" parent="Cover/LaneOuter"]
-editor_description = "96 deg, r=54.0. 6 m face is tangential to the track, so it presents its full width to the tower."
+[node name="Cover_092deg" type="CSGBox3D" parent="Cover/Level1"]
+editor_description = "92 deg, r=47.0 on level 1. The 6 m face is tangential to the track."
 use_collision = true
-size = Vector3(6.0, 3.0, 1.5)
+size = Vector3(6.0, 3.0000, 1.5)
 material = SubResource("MatCover")
-transform = Transform3D(0.99452, 0.0, -0.10453, 0.0, 1.0, 0.0, 0.10453, 0.0, 0.99452, -5.5, 1.5, 53.5)
+transform = Transform3D(0.999391, 0, -0.0348995, 0, 1, 0, 0.0348995, 0, 0.999391, -1.64028, 24.5, 46.9714)
 
-[node name="Cover04_124deg" type="CSGBox3D" parent="Cover/LaneMid"]
-editor_description = "124 deg, r=47.5. 6 m face is tangential to the track, so it presents its full width to the tower."
+[node name="Cover_117deg" type="CSGBox3D" parent="Cover/Level1"]
+editor_description = "117 deg, r=57.0 on level 1. The 6 m face is tangential to the track."
 use_collision = true
-size = Vector3(6.0, 3.0, 1.5)
+size = Vector3(6.0, 3.0000, 1.5)
 material = SubResource("MatCover")
-transform = Transform3D(0.82904, 0.0, -0.55919, 0.0, 1.0, 0.0, 0.55919, 0.0, 0.82904, -26.5, 1.5, 39.5)
+transform = Transform3D(0.891007, 0, -0.45399, 0, 1, 0, 0.45399, 0, 0.891007, -25.8775, 24.5, 50.7874)
 
-[node name="Cover05_150deg" type="CSGBox3D" parent="Cover/LaneOuter"]
-editor_description = "150 deg, r=54.0. 6 m face is tangential to the track, so it presents its full width to the tower."
+[node name="Cover_142deg" type="CSGBox3D" parent="Cover/Level1"]
+editor_description = "142 deg, r=47.0 on level 1. The 6 m face is tangential to the track."
 use_collision = true
-size = Vector3(6.0, 3.0, 1.5)
+size = Vector3(6.0, 3.0000, 1.5)
 material = SubResource("MatCover")
-transform = Transform3D(0.5, 0.0, -0.86603, 0.0, 1.0, 0.0, 0.86603, 0.0, 0.5, -47.0, 1.5, 27.0)
+transform = Transform3D(0.615661, 0, -0.788011, 0, 1, 0, 0.788011, 0, 0.615661, -37.0365, 24.5, 28.9361)
 
-[node name="Cover06_178deg" type="CSGBox3D" parent="Cover/LaneInner"]
-editor_description = "178 deg, r=41.0. 6 m face is tangential to the track, so it presents its full width to the tower."
+[node name="Cover_167deg" type="CSGBox3D" parent="Cover/Level1"]
+editor_description = "167 deg, r=57.0 on level 1. The 6 m face is tangential to the track."
 use_collision = true
-size = Vector3(6.0, 3.0, 1.5)
+size = Vector3(6.0, 3.0000, 1.5)
 material = SubResource("MatCover")
-transform = Transform3D(0.0349, 0.0, -0.99939, 0.0, 1.0, 0.0, 0.99939, 0.0, 0.0349, -41.0, 1.5, 1.5)
+transform = Transform3D(0.224951, 0, -0.97437, 0, 1, 0, 0.97437, 0, 0.224951, -55.5391, 24.5, 12.8222)
 
-[node name="Cover07_204deg" type="CSGBox3D" parent="Cover/LaneMid"]
-editor_description = "204 deg, r=47.5. 6 m face is tangential to the track, so it presents its full width to the tower."
+[node name="Cover_192deg" type="CSGBox3D" parent="Cover/Level1"]
+editor_description = "192 deg, r=47.0 on level 1. The 6 m face is tangential to the track."
 use_collision = true
-size = Vector3(6.0, 3.0, 1.5)
+size = Vector3(6.0, 3.0000, 1.5)
 material = SubResource("MatCover")
-transform = Transform3D(-0.40674, 0.0, -0.91355, 0.0, 1.0, 0.0, 0.91355, 0.0, -0.40674, -43.5, 1.5, -19.5)
+transform = Transform3D(-0.207912, 0, -0.978148, 0, 1, 0, 0.978148, 0, -0.207912, -45.9729, 24.5, -9.77185)
 
-[node name="Cover08_232deg" type="CSGBox3D" parent="Cover/LaneInner"]
-editor_description = "232 deg, r=41.0. 6 m face is tangential to the track, so it presents its full width to the tower."
+[node name="Cover_217deg" type="CSGBox3D" parent="Cover/Level1"]
+editor_description = "217 deg, r=57.0 on level 1. The 6 m face is tangential to the track."
 use_collision = true
-size = Vector3(6.0, 3.0, 1.5)
+size = Vector3(6.0, 3.0000, 1.5)
 material = SubResource("MatCover")
-transform = Transform3D(-0.78801, 0.0, -0.61566, 0.0, 1.0, 0.0, 0.61566, 0.0, -0.78801, -25.0, 1.5, -32.5)
+transform = Transform3D(-0.601815, 0, -0.798636, 0, 1, 0, 0.798636, 0, -0.601815, -45.5222, 24.5, -34.3035)
 
-[node name="Cover09_258deg" type="CSGBox3D" parent="Cover/LaneOuter"]
-editor_description = "258 deg, r=54.0. 6 m face is tangential to the track, so it presents its full width to the tower."
+[node name="Cover_242deg" type="CSGBox3D" parent="Cover/Level1"]
+editor_description = "242 deg, r=47.0 on level 1. The 6 m face is tangential to the track."
 use_collision = true
-size = Vector3(6.0, 3.0, 1.5)
+size = Vector3(6.0, 3.0000, 1.5)
 material = SubResource("MatCover")
-transform = Transform3D(-0.97815, 0.0, -0.20791, 0.0, 1.0, 0.0, 0.20791, 0.0, -0.97815, -11.0, 1.5, -53.0)
+transform = Transform3D(-0.882948, 0, -0.469472, 0, 1, 0, 0.469472, 0, -0.882948, -22.0652, 24.5, -41.4985)
 
-[node name="Cover10_284deg" type="CSGBox3D" parent="Cover/LaneMid"]
-editor_description = "284 deg, r=47.5. 6 m face is tangential to the track, so it presents its full width to the tower."
+[node name="Cover_267deg" type="CSGBox3D" parent="Cover/Level1"]
+editor_description = "267 deg, r=57.0 on level 1. The 6 m face is tangential to the track."
 use_collision = true
-size = Vector3(6.0, 3.0, 1.5)
+size = Vector3(6.0, 3.0000, 1.5)
 material = SubResource("MatCover")
-transform = Transform3D(-0.9703, 0.0, 0.24192, 0.0, 1.0, 0.0, -0.24192, 0.0, -0.9703, 11.5, 1.5, -46.0)
+transform = Transform3D(-0.99863, 0, -0.052336, 0, 1, 0, 0.052336, 0, -0.99863, -2.98315, 24.5, -56.9219)
 
-[node name="Cover11_306deg" type="CSGBox3D" parent="Cover/LaneInner"]
-editor_description = "306 deg, r=41.0. 6 m face is tangential to the track, so it presents its full width to the tower."
+[node name="Cover_292deg" type="CSGBox3D" parent="Cover/Level1"]
+editor_description = "292 deg, r=47.0 on level 1. The 6 m face is tangential to the track."
 use_collision = true
-size = Vector3(6.0, 3.0, 1.5)
+size = Vector3(6.0, 3.0000, 1.5)
 material = SubResource("MatCover")
-transform = Transform3D(-0.80902, 0.0, 0.58779, 0.0, 1.0, 0.0, -0.58779, 0.0, -0.80902, 24.0, 1.5, -33.0)
-
-[node name="Cover12_330deg" type="CSGBox3D" parent="Cover/LaneOuter"]
-editor_description = "330 deg, r=54.0. 6 m face is tangential to the track, so it presents its full width to the tower."
-use_collision = true
-size = Vector3(6.0, 3.0, 1.5)
-material = SubResource("MatCover")
-transform = Transform3D(-0.5, 0.0, 0.86603, 0.0, 1.0, 0.0, -0.86603, 0.0, -0.5, 47.0, 1.5, -27.0)
+transform = Transform3D(-0.927184, 0, 0.374607, 0, 1, 0, -0.374607, 0, -0.927184, 17.6065, 24.5, -43.5776)
 
 [node name="Traps" type="Node3D" parent="."]
-editor_description = "Six red blocks that kill on contact, and the other half of the treachery the four Ring/Deck pits are. Read them together: at ten places round the lap the deck is now lethal a couple of metres off the racing line, six of them standing up in red and four of them holes in the floor.\n\nTHE RACING LINE IS NOT NARROWED. MatchRules.track_radius is 44.5 and the shipped RingRunner baseline has NO obstacle avoidance whatsoever -- it faces a point on the r=44.5 circle four metres ahead and holds full forward, for the whole lap. Anything standing on that circle would stop a bot dead and break the game. So every trap and every pit is placed flush against a boundary the arena ALREADY had: the inner ones stop at r=41.75 where the LaneInner cover band ends, the outer ones start at r=46.75 where the LaneMid cover band begins. The clear channel is r41.75-r46.75 exactly as it was before this node existed, and the bot still runs down the middle of it with 2.75 m of room inboard and 2.25 m outboard.\n\nANGLES. Runners go counter-clockwise from the start line at +4.8 deg. The first trap is at 56 deg, which is fifty degrees -- about forty metres -- of clear track for the field to converge out of the start line (where it is dealt across r41.5-r47.5) onto r=44.5 before anything can kill it. After that they alternate inner/outer roughly every thirty degrees and none is within eleven degrees of a cover piece, so no trap and no piece of cover ever fight for the same ground. The last thirty-seven degrees into the finish are clear.\n\nWHAT A TRAP DOES IS NOT DECIDED HERE, exactly as for KillBox: scripts/match/trap_volume.gd hands the body to MatchController.handle_fall(), which for a running prisoner in a round is MatchController.convert_participant() -- the same door the rifle kills through. Touching red and being shot are the same death. Each trap's mask is 1048577 (bit 0 plus bit 20, MatchController.GHOST_HAZARD_LAYER), so a ghost that wanders onto one is seen too -- handle_fall answers for it by placing it back at the start, since a ghost is already dead and cannot be killed a second time.\n\nPurely additive: the blocks carry no collision, so they are not cover, they occlude nothing, and the tower's sightlines are the ones that were tuned. Deleting this node leaves the arena exactly as it was."
+editor_description = "Red blocks that kill on contact. Read them with Ring/Pits: eleven places on the route are lethal a couple of metres off the racing line, six standing up in red and five fall triggers.\n\nNO RACING LINE IS NARROWED. The shipped RingRunner baseline has no obstacle avoidance: it faces a point on the lane circle a few metres ahead and holds full forward. So every trap and pit is flush against a shoulder the cover band already ends at, and the clear channel is r49.50-r54.50. No trap is within eleven degrees of a piece of cover.\n\nWHAT A TRAP DOES IS NOT DECIDED HERE: scripts/match/trap_volume.gd hands the body to MatchController.handle_fall(). Touching red and being shot are the same death. The blocks carry no collision, so they are not cover and they occlude nothing."
 
-[node name="Trap01_056deg" type="Area3D" parent="Traps"]
-editor_description = "056 deg. Hugs the INNER shoulder at r=40.75, so it spans r39.75-r41.75 and stops dead on r=41.75 -- the radius the LaneInner cover band already ends at. The runners' clear channel r41.75-r46.75 is untouched.\n\nThe box is 5 m along the track, 2.2 m tall and 2 m deep. 2.2 m is the number that matters: the tuned MovementProfile jumps 1.11 m, so this cannot be hopped and has to be gone around."
+[node name="Trap_L1_054deg" type="Area3D" parent="Traps"]
+editor_description = "54 deg on level 1, r=48.50, so it spans r47.50-r49.50 and stops dead on the shoulder the cover band already ends at. The clear channel r49.50-r54.50 is untouched. 2.2 m tall: the tuned MovementProfile jumps 1.11 m, so it cannot be hopped and has to be gone around."
 collision_layer = 0
 collision_mask = 1048577
 monitorable = false
-transform = Transform3D(0.82904, 0, 0.55919, 0, 1, 0, -0.55919, 0, 0.82904, 22.78711, 1.1, 33.78328)
-script = ExtResource("3_trap_volume")
+transform = Transform3D(0.814116, 0, 0.580703, 0, 1, 0, -0.580703, 0, 0.814116, 28.1641, 24.1, 39.4846)
+script = ExtResource("2_trap_volume")
 size_metres = Vector3(5.0, 2.2, 2.0)
 
-[node name="Shape" type="CollisionShape3D" parent="Traps/Trap01_056deg"]
+[node name="Shape" type="CollisionShape3D" parent="Traps/Trap_L1_054deg"]
 editor_description = "Deliberately empty. TrapVolume._build_shape writes a BoxShape3D over it on ready from size_metres on the parent."
 
-[node name="Block" type="CSGBox3D" parent="Traps/Trap01_056deg"]
-editor_description = "The red you see. use_collision is off on purpose -- a solid block would be new cover for the prisoners and a new occluder for the tower, and would give the avoidance-free runner brain something to grind against. It is sized by TrapVolume from the same size_metres the detection shape is, so the red and the kill cannot disagree."
+[node name="Block" type="CSGBox3D" parent="Traps/Trap_L1_054deg"]
+editor_description = "The red you see. use_collision is off on purpose -- a solid block would be new cover, a new occluder, and something the avoidance-free runner brain could grind against."
 material = SubResource("MatTrap")
 
-[node name="Trap02_110deg" type="Area3D" parent="Traps"]
-editor_description = "110 deg. Hugs the OUTER shoulder at r=47.75, so it spans r46.75-r48.75 and starts dead on r=46.75 -- the radius the LaneMid cover band already begins at. The runners' clear channel r41.75-r46.75 is untouched.\n\nThe box is 5 m along the track, 2.2 m tall and 2 m deep. 2.2 m is the number that matters: the tuned MovementProfile jumps 1.11 m, so this cannot be hopped and has to be gone around."
+[node name="Trap_L1_104deg" type="Area3D" parent="Traps"]
+editor_description = "104 deg on level 1, r=55.50, so it spans r54.50-r56.50 and stops dead on the shoulder the cover band already ends at. The clear channel r49.50-r54.50 is untouched. 2.2 m tall: the tuned MovementProfile jumps 1.11 m, so it cannot be hopped and has to be gone around."
 collision_layer = 0
 collision_mask = 1048577
 monitorable = false
-transform = Transform3D(0.93969, 0, -0.34202, 0, 1, 0, 0.34202, 0, 0.93969, -16.33146, 1.1, 44.87032)
-script = ExtResource("3_trap_volume")
+transform = Transform3D(0.968148, 0, -0.25038, 0, 1, 0, 0.25038, 0, 0.968148, -13.8961, 24.1, 53.7322)
+script = ExtResource("2_trap_volume")
 size_metres = Vector3(5.0, 2.2, 2.0)
 
-[node name="Shape" type="CollisionShape3D" parent="Traps/Trap02_110deg"]
+[node name="Shape" type="CollisionShape3D" parent="Traps/Trap_L1_104deg"]
 editor_description = "Deliberately empty. TrapVolume._build_shape writes a BoxShape3D over it on ready from size_metres on the parent."
 
-[node name="Block" type="CSGBox3D" parent="Traps/Trap02_110deg"]
-editor_description = "The red you see. use_collision is off on purpose -- a solid block would be new cover for the prisoners and a new occluder for the tower, and would give the avoidance-free runner brain something to grind against. It is sized by TrapVolume from the same size_metres the detection shape is, so the red and the kill cannot disagree."
+[node name="Block" type="CSGBox3D" parent="Traps/Trap_L1_104deg"]
+editor_description = "The red you see. use_collision is off on purpose -- a solid block would be new cover, a new occluder, and something the avoidance-free runner brain could grind against."
 material = SubResource("MatTrap")
 
-[node name="Trap03_164deg" type="Area3D" parent="Traps"]
-editor_description = "164 deg. Hugs the INNER shoulder at r=40.75, so it spans r39.75-r41.75 and stops dead on r=41.75 -- the radius the LaneInner cover band already ends at. The runners' clear channel r41.75-r46.75 is untouched.\n\nThe box is 5 m along the track, 2.2 m tall and 2 m deep. 2.2 m is the number that matters: the tuned MovementProfile jumps 1.11 m, so this cannot be hopped and has to be gone around."
+[node name="Trap_L1_154deg" type="Area3D" parent="Traps"]
+editor_description = "154 deg on level 1, r=48.50, so it spans r47.50-r49.50 and stops dead on the shoulder the cover band already ends at. The clear channel r49.50-r54.50 is untouched. 2.2 m tall: the tuned MovementProfile jumps 1.11 m, so it cannot be hopped and has to be gone around."
 collision_layer = 0
 collision_mask = 1048577
 monitorable = false
-transform = Transform3D(0.27564, 0, -0.96126, 0, 1, 0, 0.96126, 0, 0.27564, -39.17141, 1.1, 11.23222)
-script = ExtResource("3_trap_volume")
+transform = Transform3D(0.430511, 0, -0.902585, 0, 1, 0, 0.902585, 0, 0.430511, -43.7754, 24.1, 20.8798)
+script = ExtResource("2_trap_volume")
 size_metres = Vector3(5.0, 2.2, 2.0)
 
-[node name="Shape" type="CollisionShape3D" parent="Traps/Trap03_164deg"]
+[node name="Shape" type="CollisionShape3D" parent="Traps/Trap_L1_154deg"]
 editor_description = "Deliberately empty. TrapVolume._build_shape writes a BoxShape3D over it on ready from size_metres on the parent."
 
-[node name="Block" type="CSGBox3D" parent="Traps/Trap03_164deg"]
-editor_description = "The red you see. use_collision is off on purpose -- a solid block would be new cover for the prisoners and a new occluder for the tower, and would give the avoidance-free runner brain something to grind against. It is sized by TrapVolume from the same size_metres the detection shape is, so the red and the kill cannot disagree."
+[node name="Block" type="CSGBox3D" parent="Traps/Trap_L1_154deg"]
+editor_description = "The red you see. use_collision is off on purpose -- a solid block would be new cover, a new occluder, and something the avoidance-free runner brain could grind against."
 material = SubResource("MatTrap")
 
-[node name="Trap04_218deg" type="Area3D" parent="Traps"]
-editor_description = "218 deg. Hugs the OUTER shoulder at r=47.75, so it spans r46.75-r48.75 and starts dead on r=46.75 -- the radius the LaneMid cover band already begins at. The runners' clear channel r41.75-r46.75 is untouched.\n\nThe box is 5 m along the track, 2.2 m tall and 2 m deep. 2.2 m is the number that matters: the tuned MovementProfile jumps 1.11 m, so this cannot be hopped and has to be gone around."
+[node name="Trap_L1_204deg" type="Area3D" parent="Traps"]
+editor_description = "204 deg on level 1, r=55.50, so it spans r54.50-r56.50 and stops dead on the shoulder the cover band already ends at. The clear channel r49.50-r54.50 is untouched. 2.2 m tall: the tuned MovementProfile jumps 1.11 m, so it cannot be hopped and has to be gone around."
 collision_layer = 0
 collision_mask = 1048577
 monitorable = false
-transform = Transform3D(-0.61566, 0, -0.78801, 0, 1, 0, 0.78801, 0, -0.61566, -37.62751, 1.1, -29.39784)
-script = ExtResource("3_trap_volume")
+transform = Transform3D(-0.414693, 0, -0.909961, 0, 1, 0, 0.909961, 0, -0.414693, -50.5029, 24.1, -23.0155)
+script = ExtResource("2_trap_volume")
 size_metres = Vector3(5.0, 2.2, 2.0)
 
-[node name="Shape" type="CollisionShape3D" parent="Traps/Trap04_218deg"]
+[node name="Shape" type="CollisionShape3D" parent="Traps/Trap_L1_204deg"]
 editor_description = "Deliberately empty. TrapVolume._build_shape writes a BoxShape3D over it on ready from size_metres on the parent."
 
-[node name="Block" type="CSGBox3D" parent="Traps/Trap04_218deg"]
-editor_description = "The red you see. use_collision is off on purpose -- a solid block would be new cover for the prisoners and a new occluder for the tower, and would give the avoidance-free runner brain something to grind against. It is sized by TrapVolume from the same size_metres the detection shape is, so the red and the kill cannot disagree."
+[node name="Block" type="CSGBox3D" parent="Traps/Trap_L1_204deg"]
+editor_description = "The red you see. use_collision is off on purpose -- a solid block would be new cover, a new occluder, and something the avoidance-free runner brain could grind against."
 material = SubResource("MatTrap")
 
-[node name="Trap05_271deg" type="Area3D" parent="Traps"]
-editor_description = "271 deg. Hugs the INNER shoulder at r=40.75, so it spans r39.75-r41.75 and stops dead on r=41.75 -- the radius the LaneInner cover band already ends at. The runners' clear channel r41.75-r46.75 is untouched.\n\nThe box is 5 m along the track, 2.2 m tall and 2 m deep. 2.2 m is the number that matters: the tuned MovementProfile jumps 1.11 m, so this cannot be hopped and has to be gone around."
+[node name="Trap_L1_254deg" type="Area3D" parent="Traps"]
+editor_description = "254 deg on level 1, r=48.50, so it spans r47.50-r49.50 and stops dead on the shoulder the cover band already ends at. The clear channel r49.50-r54.50 is untouched. 2.2 m tall: the tuned MovementProfile jumps 1.11 m, so it cannot be hopped and has to be gone around."
 collision_layer = 0
 collision_mask = 1048577
 monitorable = false
-transform = Transform3D(-0.99985, 0, 0.01745, 0, 1, 0, -0.01745, 0, -0.99985, 0.71119, 1.1, -40.74379)
-script = ExtResource("3_trap_volume")
+transform = Transform3D(-0.96363, 0, -0.267238, 0, 1, 0, 0.267238, 0, -0.96363, -12.9611, 24.1, -46.7361)
+script = ExtResource("2_trap_volume")
 size_metres = Vector3(5.0, 2.2, 2.0)
 
-[node name="Shape" type="CollisionShape3D" parent="Traps/Trap05_271deg"]
+[node name="Shape" type="CollisionShape3D" parent="Traps/Trap_L1_254deg"]
 editor_description = "Deliberately empty. TrapVolume._build_shape writes a BoxShape3D over it on ready from size_metres on the parent."
 
-[node name="Block" type="CSGBox3D" parent="Traps/Trap05_271deg"]
-editor_description = "The red you see. use_collision is off on purpose -- a solid block would be new cover for the prisoners and a new occluder for the tower, and would give the avoidance-free runner brain something to grind against. It is sized by TrapVolume from the same size_metres the detection shape is, so the red and the kill cannot disagree."
+[node name="Block" type="CSGBox3D" parent="Traps/Trap_L1_254deg"]
+editor_description = "The red you see. use_collision is off on purpose -- a solid block would be new cover, a new occluder, and something the avoidance-free runner brain could grind against."
 material = SubResource("MatTrap")
 
-[node name="Trap06_318deg" type="Area3D" parent="Traps"]
-editor_description = "318 deg. Hugs the OUTER shoulder at r=47.75, so it spans r46.75-r48.75 and starts dead on r=46.75 -- the radius the LaneMid cover band already begins at. The runners' clear channel r41.75-r46.75 is untouched.\n\nThe box is 5 m along the track, 2.2 m tall and 2 m deep. 2.2 m is the number that matters: the tuned MovementProfile jumps 1.11 m, so this cannot be hopped and has to be gone around."
-collision_layer = 0
-collision_mask = 1048577
-monitorable = false
-transform = Transform3D(-0.66913, 0, 0.74314, 0, 1, 0, -0.74314, 0, -0.66913, 35.48517, 1.1, -31.95099)
-script = ExtResource("3_trap_volume")
-size_metres = Vector3(5.0, 2.2, 2.0)
+[node name="Route" type="Node3D" parent="."]
+editor_description = "WHAT PROGRESS IS: the arc swept so far on the one lap, taken at the lane radius. IT IS DATA, AND IT LIVES ON THE MAP. The deck height, radial band, lane radius, entry angle and exit angle are here, and MatchLapTracker, RingRunner, the HUD and the round card all read them from here rather than from a second copy."
+script = ExtResource("5_ring_route")
 
-[node name="Shape" type="CollisionShape3D" parent="Traps/Trap06_318deg"]
-editor_description = "Deliberately empty. TrapVolume._build_shape writes a BoxShape3D over it on ready from size_metres on the parent."
-
-[node name="Block" type="CSGBox3D" parent="Traps/Trap06_318deg"]
-editor_description = "The red you see. use_collision is off on purpose -- a solid block would be new cover for the prisoners and a new occluder for the tower, and would give the avoidance-free runner brain something to grind against. It is sized by TrapVolume from the same size_metres the detection shape is, so the red and the kill cannot disagree."
-material = SubResource("MatTrap")
+[node name="Level1" type="Node3D" parent="Route"]
+editor_description = "Level 1: deck y=23.0, r44.0-r60.0, lane r=52.0, 5 deg to 335 deg = 330 deg of lap, 299 m. Its exit is the finish of the whole route."
+script = ExtResource("6_ring_level")
+deck_height = 23.0000
+inner_radius = 44.0000
+outer_radius = 60.0000
+lane_radius = 52.0000
+entry_angle_degrees = 5.0000
+exit_angle_degrees = 335.0000
+ramp_foot_radius = 0.0000
+ramp_landing_radius = 0.0000
 
 [node name="Tower" type="Node3D" parent="."]
-editor_description = "The shooter's stand. One open circular platform in the middle of the ring -- no shaft, no room, no walls, no roof, no railings. Nothing here occludes anything, so from the platform the shooter can see the entire ring by turning on the spot. PLATFORM HEIGHT: the walking surface is the top of Platform, set by Platform's transform Y. It is currently at y=0.0, dead level with the ring deck, so shooter and runners stand on one plane and look across at each other. To raise or lower the stand, change the Y in Platform's transform (-0.5 puts the 1 m thick slab's top at 0.0) and move TowerSpawn's Y to match."
+editor_description = "The tower, and its origin is the FLOOR OF THE GUARD ROOM at y=25.35. That is the model's own datum: assets/models/tower.glb hangs its rock 36.4 m below this point and carries the top of its drum 9.6 m above it, so the model drops in at identity and TowerSpawn, the lights and the Watcher all hang off the same floor.\n\nTHE GUARD IS INSIDE IT NOW. A hollow chamber 10.2 m across with eight openings.\n\nTHE DECK IS AT THE GUARD'S EYE. Ryan: \"raise the top one to eye level.\" The eye is this floor plus 1.65 m = y=27.00, and the deck's walking surface is exactly there, so the guard looks flat along the whole ring."
+transform = Transform3D(1, 0, 0, 0, 1, 0, -0, 0, 1, 0, 25.35, 0)
 
-[node name="Platform" type="CSGCylinder3D" parent="Tower"]
-editor_description = "r=8 m, 1 m thick, top surface at y=0.0 -- the same slab thickness and the same top height as the ring deck. Small enough to read as a stage to stand on rather than a floor. It is entirely below eye level, so it cannot block the sightline to any part of the ring."
-use_collision = true
-radius = 8.0
-height = 1.0
-sides = 64
-material = SubResource("MatStructure")
-transform = Transform3D(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, -0.5, 0.0)
+[node name="Rock" parent="Tower" instance=ExtResource("8_tower_model")]
+editor_description = "assets/models/tower.glb: the column, the drum and the hollow chamber, one mesh. It carries its OWN collision (a -colonly shape in the glTF), so the guard stands on the model's floor and is stopped by the model's stone -- there is no second, invisible copy of either in this scene, and nothing here can drift out of agreement with what you can see.\n\nIts origin is the floor of the guard room, which is why it drops in at identity: see the Tower node above."
 
 [node name="TowerSpawn" type="Marker3D" parent="Tower"]
-editor_description = "Centre of the platform, standing 0.25 m above its top surface. The clearance is deliberate: spawning a capsule with its feet exactly on the collision plane overlaps the slab, and depenetration launches the body across the arena."
-transform = Transform3D(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.25, 0.0)
+editor_description = "On the chamber floor, 0.25 m up. The clearance is deliberate: spawning a capsule with its feet exactly on the collision plane overlaps it, and depenetration launches the body across the arena. The model's origin IS this floor, so this is origin + 0.25 and nothing else."
+transform = Transform3D(1, 0, 0, 0, 1, 0, -0, 0, 1, 0, 0.25, 0)
 
-[node name="Eye" parent="Tower" instance=ExtResource("1_eye")]
-editor_description = "The eye the prisoners are watched by, and the cover the guard is watched from: a box 18 m across and 4.5 m tall standing on the platform with the guard inside it, an eye repeated along every face, centred at y=1.9 -- the guard's own eye height. There is no tower under it and no ball. There was a 31 m socket, then a lit red sphere with a black band, then this same box floating at 16.7 m; all of it was removed as art nobody asked for. Git has it.\n\nIT IS A ONE-WAY MIRROR, LITERALLY. Every triangle faces outward and the material culls back faces. From the deck it is an opaque wall with an eye on it. From inside -- where the guard is, and where nobody else ever is -- every face is back-facing and discarded before it is shaded, so the guard sees the whole ring through it with no tint and no pixel lost. Same mechanism the old socket drum used; only the scale is new. Reversing the cull mode inverts the entire mechanic, so tests/test_tower.gd asserts it.\n\nIT COVERS THE SHOOTER. 18 m across an 8 m platform leaves a metre of margin at the rim in every direction; the top at y=4.15 clears a jumping guard's crown at y=3.16; the underside at y=-0.35 is below the platform surface, so there is no gap to see under. Prisoners cannot see the guard's body and cannot read where the guard is aiming.\n\nIT CANNOT BE READ FOR A BEARING. One material, one texture, and PanopticonEye.uv_tiling_for spread over the BoxMesh UV atlas so every face draws the same upright copies of the same picture at the same size -- four to a face, since a face four times wider than it is tall would otherwise stretch one eye four times wide. Unshaded, so the sun cannot brighten one side over another. Unrotated, and nothing rotates it.\n\nPurely additive -- no collision, and no script that touches the match -- so deleting this node leaves the arena as it was, TowerSpawn above is untouched, the guard is not trapped by their own cover and the rifle shoots straight through it.\n\nNOTE FOR WHOEVER RE-CUTS THE RING: the Cover and InnerKerb editor_descriptions above still derive their heights from a tower eye at y=16.7. That eye is now at y=1.9 and those derivations are stale. Not fixed here -- re-cutting the ring is Ryan's call."
+[node name="KeyLight" type="DirectionalLight3D" parent="Tower"]
+editor_description = "THE MAIN LIGHT. A DirectionalLight3D has no range falloff at all, so it cannot fail to reach the deck at any radius. Angled 15 degrees off vertical so it still throws long outward-raking shadows off cover instead of flat noon light. Reddish, matching TowerLightProfile.color so the arena stays one mood.\n\nIts local transform is unchanged by the tower's rise; a directional light has no position, so moving its parent changes nothing about it."
+transform = Transform3D(1, 0, 0, 0, 0.258819, 0.965926, 0, -0.965926, 0.258819, 0, 20, 0)
+light_color = Color(1.0, 0.36, 0.28, 1.0)
+light_energy = 3.4
+shadow_enabled = true
+
+[node name="TowerLight" type="OmniLight3D" parent="Tower"]
+editor_description = "LOCAL GLOW ONLY, not the arena's main light -- see KeyLight. A small hot point above the platform so the tower still visibly reads as a light source up close. Colour, energy, range, attenuation and height are TowerLightProfile fields applied by TowerLight.gd at ready; the light_* properties here are placeholders for the editor view. It rides the tower's rise, which is the point."
+transform = Transform3D(1, 0, 0, 0, 1, 0, -0, 0, 1, 0, 10, 0)
+light_color = Color(0.9, 0.14, 0.08, 1.0)
+light_energy = 30.0
+omni_range = 25.0
+omni_attenuation = 1.0
+shadow_enabled = true
+omni_shadow_mode = 1
+script = ExtResource("3_tower_light")
+profile = ExtResource("4_tower_light_profile")
+
+[node name="Watcher" parent="Tower" instance=ExtResource("7_watching_eye")]
+editor_description = "THE EYE THAT FOLLOWS YOU. assets/models/eye.glb -- a 5 m ball with a glowing iris -- hanging over the guard's stand and turned so its pupil points at whoever is looking at it. Ryan played it and kept it.\n\nHEIGHT: WatchingEyeProfile.height_metres is 7.2, and it did not need retuning. The node places itself at (0, height, 0) in THIS NODE'S space, and the tower's local frame is exactly what it was -- the whole rise is the Tower transform. So the ball still floats 7.2 m above the platform surface: world y=39.35, spanning y=36.85 to y=41.85, which is 1.9 m clear of the guard's crown below it and far under KeyLight above it. It is the only thing in the tower's space between the guard and the light now that the box of eyes is gone, and at that height it is in clear sky from the deck.\n\nIT LEAKS NOTHING. It orients toward the local Viewport's own camera, so on every client it resolves to that client's player and every prisoner sees the pupil on themselves. The orientation is a pure function of the POSITION of the local camera -- not its direction, not the guard, not the seat, not the rifle -- so it carries zero bits about anybody except the person reading it. A camera inside the tower's own column is not watched at all.\n\nNOT EDITED HERE. scenes/tower/ and scripts/tower/ belong to the eye; this scene owns the instance and its parent, and nothing else."
+profile = ExtResource("9_watcher_profile")

@@ -5,10 +5,26 @@ extends Node
 ## settled by feeling two answers ten seconds apart instead of by editing a
 ## resource, restarting, and trying to remember what the last one felt like.
 ##
-## [b]Dev only.[/b] Nothing in a match instances this. It lives beside
-## [MovementReadout] in [code]scenes/dev/movement_playground.tscn[/code] and,
-## like the readout, draws no conclusions -- it swaps a resource and prints the
-## name of what is now selected.
+## [b]Dev only, and still the right tool.[/b] Nothing in a match instances this.
+## It lives beside [MovementReadout] in
+## [code]scenes/dev/movement_playground.tscn[/code] and, like the readout, draws
+## no conclusions -- it swaps a resource and prints the name of what is now
+## selected.
+##
+## [b]It is not made redundant by the picker on the match setup screen.[/b] The
+## two answer different questions and neither replaces the other. The picker
+## chooses the preset a MATCH is played under, by name, once, before the round
+## starts -- see [member MatchRules.air_control_id] -- because a preset has to be
+## playable against opponents to be judged at all. This key changes the tuning
+## under a body that is already moving, mid-flight, with the velocity and the
+## slide preserved, which is the only way to feel two answers ten seconds apart.
+## A menu cannot do that, and a mid-air swap is not something to hand a player.
+##
+## [b]The two lists are separate on purpose.[/b] [member presets] is authored in
+## the playground scene; the match reads [AirControlCatalog]. A dev scene is
+## allowed to offer a candidate that is not shipped, and the shipped set is not
+## the playground's to define. The cost is that adding a preset for BOTH means
+## two entries -- the catalog resource and this scene's array.
 ##
 ## [b]The intent seam is not touched.[/b] This node reads a key, but it is not
 ## an [IntentSource] and it never writes a [MoveIntent]: it calls

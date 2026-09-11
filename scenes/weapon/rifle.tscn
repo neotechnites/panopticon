@@ -1,9 +1,12 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=8 format=3]
 
 [ext_resource type="Script" path="res://scripts/weapon/rifle.gd" id="1_rifle"]
 [ext_resource type="Script" path="res://scripts/weapon/weapon_input.gd" id="2_weapon_input"]
 [ext_resource type="Resource" path="res://scenes/weapon/default_weapon_profile.tres" id="3_weapon_profile"]
 [ext_resource type="PackedScene" uid="uid://brrytn6tpwbeh" path="res://assets/models/rifle.glb" id="4_rifle_model"]
+[ext_resource type="Script" path="res://scripts/weapon/rifle_recoil.gd" id="5_rifle_recoil"]
+[ext_resource type="Script" path="res://scripts/weapon/rifle_ads.gd" id="6_rifle_ads"]
+[ext_resource type="PackedScene" path="res://scenes/fx/scope_vignette.tscn" id="7_scope_vignette"]
 
 [node name="Rifle" type="Node3D" node_paths=PackedStringArray("muzzle")]
 script = ExtResource("1_rifle")
@@ -35,8 +38,12 @@ The nine-degree yaw costs nothing visually. WeaponProfile.tracer_segment_start i
 12 m, so the drawn streak begins twelve metres down the muzzle-to-impact line and
 never touches the barrel; the barrel's own heading is decoration.
 
-NOT authored here on purpose: recoil, flash, bolt, sway and bob. This node is a
-static prop hung on the camera.
+This transform is the HIP pose -- the rest state at the bottom of both systems
+hung off it below. Ads/RifleAds blends this node between here and its own
+aimed pose as WeaponOptic zooms, and Recoil/RifleRecoil kicks it on Rifle.fired
+and decays it back to exactly wherever Ads currently has it -- hip, aimed, or
+mid-transition between the two. Edit the hip numbers here as always; edit the
+aimed pose on Ads. Flash, bolt, sway and bob are still NOT authored here.
 
 If you hand-edit the twelve floats above rather than dragging the node: they are
 the basis ROWS, not the basis columns. Writing the columns ships the inverse
@@ -62,3 +69,20 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -1.15)
 [node name="HumanTrigger" type="Node" parent="." node_paths=PackedStringArray("weapon")]
 script = ExtResource("2_weapon_input")
 weapon = NodePath("..")
+
+[node name="Recoil" type="Node" parent="." node_paths=PackedStringArray("rifle", "view_model", "pose_source")]
+editor_description = "Kicks ViewModel on Rifle.fired and settles it back onto wherever Ads currently has it -- hip, aimed, or mid-transition, via pose_source. Listens to the signal, never Input, so a bot-driven guard's shot kicks the model exactly as a human's does. Every number is on WeaponProfile's Recoil group (Rifle.profile), not here -- see scripts/weapon/rifle_recoil.gd."
+script = ExtResource("5_rifle_recoil")
+rifle = NodePath("..")
+view_model = NodePath("../ViewModel")
+pose_source = NodePath("../Ads")
+
+[node name="Ads" type="Node" parent="." node_paths=PackedStringArray("view_model")]
+editor_description = "Blends ViewModel between its authored hip pose above and its own aimed pose as WeaponOptic zooms in and out -- the same progress value the FOV change itself uses, read off optic rather than clocked separately, so the raise and the zoom arrive together. optic is wired at runtime by MatchController._attach_rifle, the same way aim_source is, because the optic lives on the holder's Head and this scene is reparented onto whichever head holds the tower. Does not write ViewModel itself -- Recoil above is the sole writer, via pose_source -- so a shot fired while aimed recoils from the aimed pose and the two never fight over the node on the same frame. The aimed pose is exported on this node's own Aimed Pose group, not authored here as a transform, so it can be nudged in the inspector the same way the hip pose is nudged above. Appended LAST: scenes/bot/tower_shooter.tscn addresses this scene's children by ordinal index and inserting a node ahead of this one would silently re-point HumanTrigger's override."
+script = ExtResource("6_rifle_ads")
+view_model = NodePath("../ViewModel")
+
+[node name="ScopeVignette" parent="." node_paths=PackedStringArray("ads", "trigger") instance=ExtResource("7_scope_vignette")]
+editor_description = "The optic, drawn on the screen instead of modelled on the gun. A dark border closes in around a clear centre as the raise finishes, which -- with the field of view already narrowed -- is the whole of the scope: the scope on the model stays the solid brick tools/modelling/rifle_build.py makes it, because Ryan settled that it does not need to be see through.\n\nWired to the two siblings above and nothing else. Ads answers what the transition is doing, so the border runs on the same progress the raised pose and the FOV do and cannot drift from them; HumanTrigger answers whether the HUMAN is holding this rifle, which is the gate that keeps the vignette off a prisoner's, a spectator's, a ghost's and a bot-held tower's screen. MatchController needs no new line for either.\n\nAppended LAST, after Ads, for the reason Ads records above: scenes/bot/tower_shooter.tscn addresses this scene's children by ordinal index (HumanTrigger is 1) and INSERTING a node would silently re-point that override. Writes nothing but its own overlay -- no camera, no FOV, no ViewModel transform -- so deleting it leaves the aim, the zoom and the shot line exactly as they are."
+ads = NodePath("../Ads")
+trigger = NodePath("../HumanTrigger")

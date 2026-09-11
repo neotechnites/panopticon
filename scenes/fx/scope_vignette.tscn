@@ -1,0 +1,36 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/optics/scope_vignette.gd" id="1_scope_vignette"]
+[ext_resource type="Shader" path="res://scenes/fx/scope_vignette.gdshader" id="2_scope_shader"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_scope_vignette"]
+shader = ExtResource("2_scope_shader")
+shader_parameter/amount = 0.0
+shader_parameter/opacity = 1.0
+shader_parameter/clear_fraction = 0.46
+shader_parameter/softness = 0.3
+shader_parameter/aspect = 1.7777778
+shader_parameter/tint = Color(0, 0, 0, 1)
+
+[node name="ScopeVignette" type="CanvasLayer" node_paths=PackedStringArray("overlay")]
+editor_description = "The optic, as a picture on the screen instead of a lens on the model.
+
+Instanced into scenes/weapon/rifle.tscn, so it travels with the rifle onto whichever head holds the tower and needs no wiring from MatchController at all -- it asks the Ads node beside it for the transition it is already running, and asks HumanTrigger beside it whether the HUMAN is the one holding this rifle. A bot in the tower runs every line of scripts/optics/scope_vignette.gd and draws nothing, because that second answer is false.
+
+layer 0 puts it UNDER the match HUD (layer 1) and under FeedbackRig (layer 2), so the crosshair, the readout and a hitmarker all stay legible on top of the dark border rather than being swallowed by it.
+
+Every number is on ZoomProfile's Scope vignette group -- scripts/optics/default_zoom_profile.tres -- not here. What IS here is the shader material and the full-rect Control it draws on: this file exists so that no part of the overlay is built out of nodes constructed in code."
+layer = 0
+script = ExtResource("1_scope_vignette")
+overlay = NodePath("Glass")
+
+[node name="Glass" type="ColorRect" parent="."]
+editor_description = "The whole screen, painted by scenes/fx/scope_vignette.gdshader. mouse_filter IGNORE so it can never eat a click meant for the pause menu, and hidden outright whenever the vignette's amount is zero, so hipfire pays nothing for it."
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+material = SubResource("ShaderMaterial_scope_vignette")
+color = Color(1, 1, 1, 1)
