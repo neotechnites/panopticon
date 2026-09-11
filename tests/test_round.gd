@@ -52,6 +52,10 @@ const TRACK_TOLERANCE_METRES: float = 4.0
 ## them; the trap this bounds lifts bodies to y=8 as they slide out to the wall.
 const HEIGHT_TOLERANCE_METRES: float = 0.5
 
+## How high a body can be over the deck and still be ON it: the tuned
+## MovementProfile's jump apex, which a runner's brain may be part way through.
+const JUMP_APEX_METRES: float = 1.11
+
 ## The running surface, from [code]scenes/ring/bentham_ring.tscn[/code]: an annulus
 ## with the inner kerb at r=36 and the outer wall at r=60.
 const DECK_INNER_RADIUS: float = 36.0
@@ -149,7 +153,27 @@ func test_a_round_starts_with_every_prisoner_on_the_track() -> void:
 
 	# Every runner is out on the deck, on the shared track, and shootable. The
 	# deck is the annulus r=36..60.
+	#
+	# [b]Re-armed with the brains stood down, and that is the point of the
+	# assertion.[/b] This is a claim about the PLACEMENT, not about how the
+	# prisoners then play: a cover-playing prisoner leaves the track on purpose
+	# the moment it believes a guard is watching, and with a human in the tower
+	# it now rightly does -- so a second of steering puts it against a cover
+	# band, four metres or more off the track, and the assertion below stopped
+	# measuring the trap it was written for. Standing the brains down for the
+	# settle leaves exactly what this test is about: bodies put down on the line
+	# and a physics server catching up with them, which is where the trap lives
+	# -- it dragged a body to r=59 while nothing was steering it at all.
+	_controller.start_round()
 	var runners: Array[RingRunner] = _controller.get_live_runners()
+	for runner: RingRunner in runners:
+		runner.set_physics_process(false)
+		# The intent seam holds its last command until something writes another,
+		# so a brain switched off mid-stride would leave the body walking on the
+		# strength of it. Letting go of the keys is what stopping actually is.
+		runner.input.command.clear()
+	await step_ticks(SETTLE_TICKS)
+
 	for index: int in runners.size():
 		var place: Vector3 = runners[index].controller.global_position
 		assert_between(_radius_of(place), DECK_INNER_RADIUS, DECK_OUTER_RADIUS, "runner %d is on the deck" % index)
@@ -518,6 +542,77 @@ func test_a_seat_change_does_not_drag_the_bodies_off_the_tower() -> void:
 		)
 
 
+## The prisoners can see that the HUMAN is in the tower.
+##
+## [b]The bug this pins, in the author's words:[/b] [i]"the bots dont slide when
+## im sniper."[/i] The slide was the symptom; the cause was the whole cover game.
+##
+## A prisoner finds the guard through [RunnerPerception], which used to look for
+## one thing only: a [TowerShooter] node that was running. A human guard has no
+## such node -- [method MatchController._arm_tower_brain] stands every brain down
+## when the seat holder is the human -- so a human's round read to every bot on
+## the ring as a round with nobody in the tower at all. They fell back to the
+## baseline lap, which holds no cover, makes no crossings and therefore never
+## slides, and they did it in front of a live rifle.
+##
+## So the match announces the SEAT rather than the brain -- see
+## [constant MatchController.GUARD_GROUP] -- and this asserts the announcement
+## and what the prisoners make of it. It is deliberately not a test about
+## sliding: a slide is a decision several states downstream of this one, and it
+## is pinned where it belongs, in [code]test_runner.gd[/code].
+func test_the_prisoners_can_see_a_human_in_the_tower() -> void:
+	assert_true(_human.is_shooter, "the human holds the seat for this test")
+	assert_true(
+		_human.body.is_in_group(MatchController.GUARD_GROUP),
+		"the body in the tower is announced as the guard, human or not",
+	)
+
+	var runners: Array[RingRunner] = _controller.get_live_runners()
+	assert_gt(runners.size(), 0, "there are prisoners on the ring to do the seeing")
+	for index: int in runners.size():
+		var perception: RunnerPerception = runners[index].get_perception()
+		if not assert_true(perception.has_threat(), "runner %d knows there is a guard" % index):
+			continue
+		assert_same(
+			perception.get_threat_body(), _human.body,
+			"runner %d has found the human, not some other body" % index,
+		)
+		if runners[index].is_playing_cover():
+			# RUNNING is the state a cover runner sits in while it believes the
+			# ring has no guard. Leaving it is the whole behavioural consequence
+			# of the fix, and every state the brain can be in instead -- RECOVER,
+			# HOLD, EVALUATE, CROSS -- is the cover game being played.
+			assert_false(
+				runners[index].get_state() == RingRunner.State.RUNNING,
+				"runner %d has stopped running the baseline lap and started playing the guard" % index,
+			)
+
+
+## And nobody is announced during the opening race, which has no shooter at all.
+##
+## The other half of [constant MatchController.GUARD_GROUP]: a group that named
+## the last round's holder through a race would have the field hiding from an
+## empty tower, and the race is the one part of the match that is meant to be a
+## flat sprint.
+func test_nobody_holds_the_tower_during_the_opening_race() -> void:
+	_controller.start_race()
+	await step_ticks(SETTLE_TICKS)
+
+	assert_eq_int(
+		int(_controller.get_phase()), int(MatchController.Phase.RACE), "the race is on",
+	)
+	for participant: MatchParticipant in _controller.get_participants():
+		assert_false(
+			participant.body.is_in_group(MatchController.GUARD_GROUP),
+			"%s is not the guard during a race nobody is shooting in" % participant.display_name,
+		)
+	for runner: RingRunner in _controller.get_live_runners():
+		assert_false(
+			runner.get_perception().has_threat(),
+			"a racer has nobody to hide from",
+		)
+
+
 # --- Helpers ------------------------------------------------------------------
 
 ## The tower is 8 m across and the deck starts at 36 m, so "on the tower" and "on
@@ -544,8 +639,20 @@ func _assert_on_the_track(participant: MatchParticipant, who: String) -> void:
 		radius, _controller.get_rules().track_radius, TRACK_TOLERANCE_METRES,
 		"%s is on the track" % who,
 	)
-	assert_almost_eq(
-		position.y, _start_point.y, HEIGHT_TOLERANCE_METRES,
+	# The route's own first gallery, not the marker cached at setup: the ring is
+	# lifted so its top deck is level with the guard's eye, and "deck height" is
+	# a number the map owns.
+	#
+	# The tolerance allows a JUMP APEX as well as a settle. A prisoner is a live
+	# body with a brain that hops -- see RingRunner._maybe_jump -- and this
+	# assertion is "on the deck, not on the tower and not down the pit", not
+	# "both feet on the floor at the instant we happened to look".
+	var route: RingRoute = _controller.get_route()
+	var deck: float = _start_point.y if route == null else route.deck_height(0)
+	assert_between(
+		position.y,
+		deck - HEIGHT_TOLERANCE_METRES,
+		deck + HEIGHT_TOLERANCE_METRES + JUMP_APEX_METRES,
 		"%s is at deck height" % who,
 	)
 

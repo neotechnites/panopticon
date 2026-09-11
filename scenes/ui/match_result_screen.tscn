@@ -8,6 +8,69 @@ layer = 64
 editor_description = "What the player is told when a match ends: who won, in what role, and the two ways out -- Play Again and Main Menu. Drop it into a match scene and set controller (and pause_menu, if the scene has one). The layout is authored HERE and scripts/ui/match_result_screen.gd only writes text into the %-named nodes; nothing about this screen is built in code. Layer 64 puts it over the HUD (layer 1) and the feedback rig (layer 2) and under PauseMenu (layer 128), so Escape still reaches a menu that draws on top of it. process_mode ALWAYS because PauseMenu can be opened over this screen and a result screen whose buttons died behind a menu the player just closed is indistinguishable from a hung game. It does not pause the tree: a won match is already frozen by MatchController, and pausing on top of that would hand PauseMenu a paused tree it did not pause and does not know to unpause."
 script = ExtResource("1_match_result_screen")
 
+[node name="Beat" type="Control" parent="."]
+unique_name_in_owner = true
+visible = false
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+editor_description = "The moment between the last prisoner being converted and the dialog. Raised by scripts/ui/match_result_screen.gd on MatchController.match_won, held for MatchAnnouncementProfile.win_beat_seconds, faded out, and then -- and only then -- the dialog below appears. Any key, click or pad button skips it after a fifth of a second, which is why there is nothing here to press. A SIBLING of Root rather than a child of it, deliberately: Root is the dialog, its visibility is what is_showing() reports and what every test asserts on, and burying the beat inside it would make a match that is being announced indistinguishable from a match that is asking to be replayed. mouse_filter IGNORE, unlike Root: the mouse is still captured during the beat, the match is frozen behind it, and there is nothing here that a click could hit. Never runs headless -- see _beat_seconds() -- so the harness and the suite reach the dialog on the frame the match is won."
+
+[node name="Band" type="Control" parent="Beat"]
+anchor_right = 1.0
+anchor_top = 0.22
+anchor_bottom = 0.22
+offset_bottom = 168.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+editor_description = "A band across the screen rather than a full-screen dim, and that is the whole difference between a beat and a dialog: the arena is frozen behind this, the winner is standing in it, and covering the ring over would throw away the only thing there is to look at. Sits above centre so it clears the crosshair and leaves the deck visible below it."
+
+[node name="Backdrop" type="ColorRect" parent="Beat/Band"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0, 0, 0, 0.55)
+
+[node name="Layout" type="VBoxContainer" parent="Beat/Band"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+alignment = 1
+theme_override_constants/separation = 8
+
+[node name="BeatVerdict" type="Label" parent="Beat/Band/Layout"]
+unique_name_in_owner = true
+theme_override_font_sizes/font_size = 72
+text = "VICTORY"
+horizontal_alignment = 1
+editor_description = "The same word the dialog will lead with, written by the same _verdict_text() the dialog uses -- VICTORY, DEFEAT, or MATCH OVER for a match with no human in it. The text authored here is the placeholder the editor shows."
+
+[node name="BeatHeadline" type="Label" parent="Beat/Band/Layout"]
+unique_name_in_owner = true
+theme_override_font_sizes/font_size = 20
+text = "Who won, and in what role."
+horizontal_alignment = 1
+autowrap_mode = 3
+editor_description = "Who won and in what role, from the same _headline_text() the dialog uses. One source for the sentence, so the beat can never say something the dialog contradicts a moment later."
+
+[node name="BeatHint" type="Label" parent="Beat/Band/Layout"]
+unique_name_in_owner = true
+modulate = Color(1, 1, 1, 0.55)
+theme_override_font_sizes/font_size = 13
+text = "PRESS ANY KEY"
+horizontal_alignment = 1
+editor_description = "Shown only once the beat will actually answer a key -- MatchAnnouncementProfile.win_beat_skip_lockout_seconds after it appears -- so the prompt is never a lie. The lockout exists because a match is won by a shot and a player mashing the trigger at the last runner would otherwise skip the beat with the press that ended the match."
+
 [node name="Root" type="Control" parent="."]
 unique_name_in_owner = true
 anchors_preset = 15

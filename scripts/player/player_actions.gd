@@ -16,8 +16,17 @@ const MOVE_LEFT: StringName = &"move_left"
 const MOVE_RIGHT: StringName = &"move_right"
 const JUMP: StringName = &"jump"
 
-## Crouch/slide. Held, not tapped: releasing it ends a slide early, which is the
-## only way a player has to leave one on their own terms.
+## Crouch/slide -- one key, two states, which is why the keybind row has always
+## been labelled with both and is now literally true.
+##
+## Held, not tapped, and doubly so. The PRESS is what opens a slide, if the body
+## is moving forward fast enough to be allowed one; releasing ends that slide
+## early, which is the only way a player has to leave one on their own terms.
+## The HOLD is what keeps a crouch, which is what the same key does in every
+## other circumstance and which lasts exactly as long as the key is down. The
+## two are told apart in [method PlayerController._press_asks_for_a_slide], on
+## speed and forward intent alone -- nothing here, and nothing that reads a
+## device, gets a say.
 ##
 ## [b]Shift, by the author's ruling[/b] ("make shift crouch then not c"). Shift
 ## is safe to default to where Control is not: it is a shift-level modifier

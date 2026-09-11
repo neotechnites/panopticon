@@ -1,10 +1,12 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=8 format=3]
 
 [ext_resource type="Script" path="res://scripts/fx/camera_kick.gd" id="1_camera_kick"]
 [ext_resource type="Script" path="res://scripts/fx/weapon_feel.gd" id="2_weapon_feel"]
 [ext_resource type="Script" path="res://scripts/fx/hit_confirm.gd" id="3_hit_confirm"]
 [ext_resource type="Script" path="res://scripts/fx/hit_reaction.gd" id="4_hit_reaction"]
-[ext_resource type="Resource" path="res://scenes/fx/default_feedback_profile.tres" id="5_feedback_profile"]
+[ext_resource type="Script" path="res://scripts/fx/catch_reaction.gd" id="5_catch_reaction"]
+[ext_resource type="Resource" path="res://scenes/fx/default_feedback_profile.tres" id="6_feedback_profile"]
+[ext_resource type="Resource" path="res://resources/fx/default_catch_profile.tres" id="7_catch_profile"]
 
 [node name="FeedbackRig" type="CanvasLayer"]
 layer = 2
@@ -19,8 +21,10 @@ Four exports are left blank on purpose, because only the scene it is attached to
   HitConfirm.controller  -> the MatchController. WITHOUT IT EVERY WALL READS AS A KILL; see the class docs.
   HitReaction.rifle      -> the same Rifle.
   HitReaction.body       -> this rig's own CharacterBody3D, so it reacts to its own hits and to nobody else's.
+  CatchReaction.controller -> the MatchController, whose ghost_caught signal IS the event and whose RunnerPalette is where the colour comes from. WITHOUT IT THE CATCH IS SILENT AGAIN.
+  CatchReaction.body     -> the same body once more. A catch has two participants and neither of them is necessarily this player: WITHOUT IT EVERY BOT-ON-BOT CATCH PAINTS THIS PLAYER'S SCREEN.
 
-Everything else is already connected: all three effect nodes share the one CameraKick, because recoil, being shot and confirming a kill all want the camera and the last writer of a frame would otherwise win.
+Everything else is already connected: all four effect nodes share the one CameraKick, because recoil, being shot and confirming a kill all want the camera and the last writer of a frame would otherwise win.
 
 Layer 2 puts it above the match HUD on layer 1 and below the pause menu on layer 128, so a hitmarker draws over the crosshair and a menu draws over both.
 
@@ -29,13 +33,13 @@ Inert with no display server. The bot harness runs thousands of matches without 
 [node name="CameraKick" type="Node" parent="."]
 editor_description = "The one node allowed to move the camera for feedback. Writes the camera's LOCAL transform only -- never its fov, which WeaponOptic owns and which would treat any outside write as a new un-zoomed base and permanently corrupt the zoom."
 script = ExtResource("1_camera_kick")
-profile = ExtResource("5_feedback_profile")
+profile = ExtResource("6_feedback_profile")
 
 [node name="WeaponFeel" type="Node" parent="." node_paths=PackedStringArray("camera_kick")]
 editor_description = "Recoil on Rifle.fired. Warns at startup if the kick could still be running when the weapon comes off reload, which is the one way the aim guarantee can be broken by tuning."
 script = ExtResource("2_weapon_feel")
 camera_kick = NodePath("../CameraKick")
-profile = ExtResource("5_feedback_profile")
+profile = ExtResource("6_feedback_profile")
 
 [node name="HitConfirm" type="Control" parent="." node_paths=PackedStringArray("camera_kick")]
 editor_description = "Did I hit. Four bright diagonal ticks for a person, two dim flat dashes for a wall or a miss."
@@ -47,7 +51,7 @@ grow_vertical = 2
 mouse_filter = 2
 script = ExtResource("3_hit_confirm")
 camera_kick = NodePath("../CameraKick")
-profile = ExtResource("5_feedback_profile")
+profile = ExtResource("6_feedback_profile")
 
 [node name="HitReaction" type="Control" parent="." node_paths=PackedStringArray("camera_kick")]
 editor_description = "I was hit. A held white frame and a camera whip, both finished inside a third of a second. Last child so the flash covers the hitmarker."
@@ -59,4 +63,16 @@ grow_vertical = 2
 mouse_filter = 2
 script = ExtResource("4_hit_reaction")
 camera_kick = NodePath("../CameraKick")
-profile = ExtResource("5_feedback_profile")
+profile = ExtResource("6_feedback_profile")
+
+[node name="CatchReaction" type="Control" parent="." node_paths=PackedStringArray("camera_kick")]
+editor_description = "The catch, from whichever side of it this player was on: a burst of the caught prisoner's colour for the ghost who took the spot, a frame of the ghost's colour closing in for the prisoner who lost it, and NOTHING AT ALL for the bot-on-bot catches that make up most of a round. Its numbers are on their own CatchProfile rather than on the FeedbackProfile the other three share, because being shot is tuned to a tenth of a second and a catch has to stay legible across the cut to the spectator camera -- the camera RIG is shared, the numbers are not. Last child so the catch frame draws over the hitmarker and over the shot flash; the two can never be up at once anyway, since a catch does not go through the rifle."
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("5_catch_reaction")
+camera_kick = NodePath("../CameraKick")
+profile = ExtResource("7_catch_profile")

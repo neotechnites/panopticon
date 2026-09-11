@@ -84,11 +84,17 @@ func ensure_kind(parent: Node, want_positional: bool) -> void:
 ##
 ## [param bus_index] is resolved by the director, not here, so a missing bus is
 ## reported once by the thing that owns the mixing rather than once per voice.
-func configure(cue: AudioCue, bus_name: StringName, pitch: float) -> void:
+##
+## [param gain_db] is added on top of [member AudioCue.volume_db] and defaults to
+## 0.0 -- no change. It exists for [method AudioDirector.post_at_gain]: a caller
+## that has a magnitude to express for THIS ONE play (an impact speed, a charge
+## level) and does not want a family of near-duplicate cues in the bank just to
+## express it.
+func configure(cue: AudioCue, bus_name: StringName, pitch: float, gain_db: float = 0.0) -> void:
 	if spatial != null:
 		spatial.stream = cue.stream
 		spatial.bus = bus_name
-		spatial.volume_db = cue.volume_db
+		spatial.volume_db = cue.volume_db + gain_db
 		spatial.pitch_scale = pitch
 		spatial.max_distance = cue.max_distance
 		spatial.unit_size = cue.unit_size
@@ -98,7 +104,7 @@ func configure(cue: AudioCue, bus_name: StringName, pitch: float) -> void:
 	if flat != null:
 		flat.stream = cue.stream
 		flat.bus = bus_name
-		flat.volume_db = cue.volume_db
+		flat.volume_db = cue.volume_db + gain_db
 		flat.pitch_scale = pitch
 
 

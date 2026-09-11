@@ -140,12 +140,17 @@ func _process(delta: float) -> void:
 ## match deterministically or to run a zoom sweep far faster than real time.
 ## [method _process] is only a caller of this. Mirrors [method Rifle.tick].
 ##
-## The interpolation is a constant RATE towards the target -- delta divided by
-## the transition time -- and never a fixed fraction of the remaining distance
-## per frame. A fractional lerp is an exponential whose speed is the framerate's
-## opinion: the same zoom would take longer on a slower machine and never
-## actually arrive. This form arrives, in exactly
-## [member ZoomProfile.transition_seconds], at any framerate.
+## The CLOCK is a constant RATE towards the target -- delta divided by the
+## transition time for the direction being travelled -- and never a fixed
+## fraction of the remaining distance per frame. A fractional lerp is an
+## exponential whose speed is the framerate's opinion: the same zoom would take
+## longer on a slower machine and never actually arrive. This form arrives, in
+## exactly [member ZoomProfile.zoom_in_seconds] or
+## [member ZoomProfile.zoom_out_seconds], at any framerate.
+##
+## The EASING is separate and sits between that clock and the FOV -- see
+## [method _shape]. Keeping the two apart is what lets the transition be shaped
+## without any of the above becoming untrue.
 func tick(delta: float) -> void:
 	if profile == null or camera == null:
 		return
@@ -153,11 +158,8 @@ func tick(delta: float) -> void:
 	_sync_base_fov()
 
 	if not is_equal_approx(_progress, _target):
-		var step: float = (
-			1.0
-			if profile.transition_seconds <= 0.0
-			else delta / profile.transition_seconds
-		)
+		var seconds: float = transition_seconds_for_direction(_target > 0.0)
+		var step: float = 1.0 if seconds <= 0.0 else delta / seconds
 		_progress = move_toward(_progress, _target, step)
 		if is_equal_approx(_progress, _target):
 			_progress = _target
@@ -218,14 +220,39 @@ func is_transitioning() -> bool:
 	return not is_equal_approx(_progress, _target)
 
 
-## Transition state from 0.0 (hipfire) to 1.0 (full zoom).
+## Transition state from 0.0 (hipfire) to 1.0 (full zoom), before easing.
+##
+## This is the LINEAR clock: it moves at a constant rate and reaches the target
+## in exactly the direction's transition time. What the camera is actually shown
+## is this value put through [member ZoomProfile.transition_smoothing] -- see
+## [method get_shaped_progress] -- so the two agree only at the ends. Anything
+## asking "how far through the transition is this" wants this one; anything
+## asking "how zoomed does it LOOK" wants the shaped one.
 func get_zoom_progress() -> float:
 	return _progress
 
 
+## [method get_zoom_progress] eased, which is the fraction of the way to the
+## zoomed FOV the camera is actually being shown right now.
+func get_shaped_progress() -> float:
+	return _shape(_progress)
+
+
+## How long a transition in [param zooming_in]'s direction takes, in seconds.
+##
+## Coming out is its own, shorter number: see
+## [member ZoomProfile.zoom_out_seconds]. Public because a bot planning around
+## the scope, and a test asserting the asymmetry, both want it without reaching
+## into the profile and re-deriving which field applies.
+func transition_seconds_for_direction(zooming_in: bool) -> float:
+	if profile == null:
+		return 0.0
+	return profile.zoom_in_seconds if zooming_in else profile.zoom_out_seconds
+
+
 ## The field of view the optic is currently asking the camera for, in degrees.
 func get_current_fov() -> float:
-	return lerpf(base_fov, get_zoomed_fov(), _progress)
+	return lerpf(base_fov, get_zoomed_fov(), _shape(_progress))
 
 
 ## The field of view at full zoom, in degrees: the live base scaled by
@@ -287,6 +314,24 @@ func _apply() -> void:
 
 	if changed:
 		fov_changed.emit(_applied_fov, multiplier)
+
+
+## Ease the linear transition clock.
+##
+## Smoothstep, blended against the identity by
+## [member ZoomProfile.transition_smoothing]. Deliberately a pure function of
+## [member _progress] with no memory of direction: the shaped value is therefore
+## continuous when the player reverses mid-transition, which is the single most
+## common thing anybody does with a hold-to-aim button. A curve that differed by
+## direction would make the FOV jump on every feather -- see the profile field.
+func _shape(t: float) -> float:
+	if profile == null:
+		return t
+	var smoothing: float = clampf(profile.transition_smoothing, 0.0, 1.0)
+	if smoothing <= 0.0:
+		return t
+	var eased: float = t * t * (3.0 - 2.0 * t)
+	return lerpf(t, eased, smoothing)
 
 
 ## The ratio of visible field, raised to the compensation exponent.

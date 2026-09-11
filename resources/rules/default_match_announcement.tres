@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="MatchAnnouncementProfile" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/match/match_announcement_profile.gd" id="1_match_announcement"]
+
+[resource]
+script = ExtResource("1_match_announcement")
+enabled = true
+handover_enabled = true
+handover_seconds = 2.6
+handover_fade_seconds = 0.7
+round_card_enabled = true
+round_card_seconds = 1.6
+round_card_fade_seconds = 0.35
+round_card_skip_lockout_seconds = 0.2
+win_beat_enabled = true
+win_beat_seconds = 2.4
+win_beat_fade_seconds = 0.5
+win_beat_skip_lockout_seconds = 0.2

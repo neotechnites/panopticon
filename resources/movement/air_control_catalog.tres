@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="AirControlCatalog" load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://scripts/player/air_control_catalog.gd" id="1_air_control_catalog"]
+[ext_resource type="Script" path="res://scripts/player/air_control_preset.gd" id="2_air_control_preset"]
+[ext_resource type="Resource" path="res://resources/movement/air_control_01_committed.tres" id="3_committed"]
+[ext_resource type="Resource" path="res://resources/movement/air_control_02_carve.tres" id="4_carve"]
+[ext_resource type="Resource" path="res://resources/movement/air_control_03_kite.tres" id="5_kite"]
+[ext_resource type="Resource" path="res://resources/movement/air_control_04_footwork.tres" id="6_footwork"]
+
+[resource]
+script = ExtResource("1_air_control_catalog")
+presets = Array[ExtResource("2_air_control_preset")]([ExtResource("3_committed"), ExtResource("4_carve"), ExtResource("5_kite"), ExtResource("6_footwork")])

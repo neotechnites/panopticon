@@ -49,6 +49,24 @@ extends RefCounted
 ## the guard without the match having to introduce them.
 const SHOOTER_GROUP: StringName = &"tower_shooters"
 
+## Group holding the BODY that is in the tower this round, whoever is driving it.
+##
+## [b]Why a second way of finding the guard.[/b] [constant SHOOTER_GROUP] finds
+## an AI guard, because an AI guard IS a [TowerShooter] node and a running one is
+## proof somebody is playing the tower. A human guard has no such node -- see
+## [method MatchController._arm_tower_brain], which stands every brain down when
+## the seat holder is the human -- so a runner that looked only for shooters
+## found nothing, believed the ring had no guard at all, and fell back to the
+## baseline lap for the whole round. Every consequence of the cover game went
+## with it: no holds, no crossings, and so no slides, which is how the bug was
+## noticed.
+##
+## That was the panopticon's own premise inverted. Which of the two kinds of
+## thing is in the tower is exactly what a prisoner cannot see and must not
+## branch on, so the match publishes the seat itself and this file reads THAT.
+## [MatchController] is the only writer; see [constant MatchController.GUARD_GROUP].
+const GUARD_GROUP: StringName = &"tower_guard"
+
 ## Seconds between sweeps for a live shooter. The seat changes at most once a
 ## round, so this is far more often than it needs to be and still costs nothing.
 const RESCAN_SECONDS: float = 0.5
@@ -237,13 +255,25 @@ func get_shots_heard() -> int:
 
 # --- Finding the guard --------------------------------------------------------
 
-## Sweep for a [TowerShooter] that is actually driving a body.
+## Sweep for whoever is playing the tower: a [TowerShooter] that is actually
+## driving a body, or -- when the guard is a human, who has no such brain -- the
+## body the match has put in [constant GUARD_GROUP].
 ##
-## By GROUP and by whether it is processing, never by asking the match. A brain
-## that has been stood down still exists on the body that used to hold the seat
-## -- [method MatchController._silence_tower_brain] switches it off rather than
+## The AI sweep runs first and is unchanged: by GROUP and by whether it is
+## processing, never by asking the match. A brain that has been stood down still
+## exists on the body that used to hold the seat --
+## [method MatchController._silence_tower_brain] switches it off rather than
 ## deleting it -- and a runner that treated a silenced brain as a guard would
-## hide from nobody for a whole round.
+## hide from nobody for a whole round. The seat sweep is the fallback rather
+## than the primary for the same reason in reverse: a live [TowerShooter] is
+## proof that somebody is driving, and a scene with no [MatchController] in it --
+## a test fixture, the headless harness -- publishes no seat but does stand up a
+## shooter.
+##
+## What comes out is the same two references either way, so nothing downstream
+## of here can tell a human guard from an AI one. That is the point: a prisoner
+## reads a body in the tower and the report of a rifle, and both kinds of guard
+## have exactly those.
 func _find_threat() -> void:
 	if _body == null or not _body.is_inside_tree():
 		return
@@ -260,12 +290,41 @@ func _find_threat() -> void:
 		found_rifle = shooter.rifle
 		break
 
+	if found == null:
+		for node: Node in _body.get_tree().get_nodes_in_group(GUARD_GROUP):
+			var guard: PlayerController = node as PlayerController
+			if guard == null or guard == _body:
+				continue
+			found = guard
+			found_rifle = _rifle_carried_by(guard)
+			break
+
 	if found == _threat and found_rifle == _rifle:
 		return
 
 	_forget_threat()
 	_threat = found
 	_listen_to(found_rifle)
+
+
+## The rifle in [param guard]'s hands, or null.
+##
+## Found on the body rather than taken from the match, because the rifle really
+## is on the body: [method MatchController._attach_rifle] reparents the one rifle
+## onto the holder's head on every seat change. Searching for it is what keeps
+## this file free of any reference to the match, which is what lets a runner in a
+## bare test scene work at all.
+##
+## The reference is used for exactly one thing -- connecting to
+## [signal Rifle.fired], the sound of the shot. No state on it is read; see
+## [method _on_shot_heard].
+func _rifle_carried_by(guard: PlayerController) -> Rifle:
+	var head: Node3D = guard.head if guard.head != null else guard
+	for child: Node in head.get_children():
+		var weapon: Rifle = child as Rifle
+		if weapon != null:
+			return weapon
+	return null
 
 
 func _forget_threat() -> void:

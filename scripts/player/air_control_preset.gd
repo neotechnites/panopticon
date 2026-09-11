@@ -43,6 +43,14 @@ extends Resource
 ## replaces the whole air branch with ground acceleration. The presets on disk
 ## are built from that finding rather than from taste.
 
+## Stable identity, and the one field that may never be renamed casually.
+##
+## It is what a settings file holds and what [member MatchRules.air_control_id]
+## names -- see [AirControlCatalog] -- so a preset renamed out from under a saved
+## choice silently puts the player back on the default. The display name is free
+## to change; this is not.
+@export var id: StringName = &""
+
 ## What this preset is called on screen. Named for the sensation, not the
 ## numbers -- the point of the set is to be chosen between by feel.
 @export var display_name: String = ""
@@ -93,3 +101,21 @@ func describe_numbers() -> String:
 	return "air cap %.1f  accel %.0f  drag %.2f  auto-hop %s" % [
 		max_air_speed, air_acceleration, air_friction, "on" if auto_bunny_hop else "off",
 	]
+
+
+## Everything wrong with this entry, in words, or an empty array. Mirrors
+## [method MapDefinition.validate]: the catalog and the tests ask, nothing
+## asserts.
+func validate() -> PackedStringArray:
+	var problems: PackedStringArray = PackedStringArray()
+	if String(id).is_empty():
+		problems.append(
+			"an air control preset has no id; nothing can name it in a settings file."
+		)
+	if display_name.is_empty():
+		problems.append("air control %s has no display name; the picker would show a blank row." % id)
+	if feel.is_empty():
+		problems.append("air control %s does not say what it feels like." % id)
+	if base == null:
+		problems.append("air control %s has no base MovementProfile; it cannot build one." % id)
+	return problems

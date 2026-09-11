@@ -105,14 +105,34 @@ extends Node
 ##   ruling, and it is a placement onto a line several bodies may be standing on:
 ##   see [method _place_ghost_at_start] for the one thing that makes it safe.
 ##
+## [b]The three ways the tower wins[/b]
+##
+## All of [enum MatchRules.ShooterWinCondition] is implemented, and all three
+## reach the same door -- [method _resolve] with [constant Outcome.WIN], then
+## [method _award_round_to_shooter]. There is no second win path:
+##
+## [codeblock]
+## TOTAL_CONVERSION -> get_runners_remaining() == 0
+## SHUTOUT_COUNT    -> get_runners_removed() >= rules.shutout_count, THIS round
+## HOLD_DURATION    -> the round has been alive rules.hold_duration_seconds
+## [/codeblock]
+##
+## The first two are checked where a runner leaves the round and nowhere else
+## ([method _check_shooter_win], called from [method convert_participant]); the
+## third is a clock ticked in [method _physics_process] by [method _tick_hold].
+## None of them falls back on another, so a round played under one is never
+## decided on the terms of a second: under SHUTOUT_COUNT an empty ring wins only
+## because emptying it removed enough prisoners to satisfy the count, and under
+## HOLD_DURATION an empty ring wins nothing at all until the clock runs out.
+##
 ## [b]Not implemented, deliberately[/b]
 ##
 ## [constant MatchRules.GhostBehaviour.SPECTATOR] and
 ## [constant MatchRules.GhostBehaviour.CONTINUE_LAP], lives beyond
-## [member MatchRules.prisoner_lives], and every shooter win condition except
-## [constant MatchRules.ShooterWinCondition.TOTAL_CONVERSION]. Those are deferred
-## design questions and inventing answers to them here would make the answers
-## permanent by accident.
+## [member MatchRules.prisoner_lives], and
+## [member MatchRules.round_time_limit_seconds]. Those are deferred design
+## questions and inventing answers to them here would make the answers permanent
+## by accident.
 
 ## Where a match is, exhaustively.
 enum Phase {
@@ -174,6 +194,20 @@ signal runner_removed(remaining: int)
 ## finished them, or another ghost caught them.
 signal runner_ghosted(participant: MatchParticipant)
 
+## Emitted on the tick a killed participant's respawn hold expires and the match
+## has just put their body down on the start line.
+##
+## The other end of [member GhostProfile.respawn_delay_seconds]:
+## [signal runner_ghosted] fires when somebody DIES, this fires when they are
+## PUT BACK, and between the two is the hold. Both fire even when the hold is
+## zero, in that case on the same tick.
+##
+## Carries the participant, and is emitted after the position and the facing
+## have been written but before the placement's two-frame settle has woken the
+## body -- so a listener reads exactly where the match put them, with nothing
+## having moved since.
+signal ghost_respawned(participant: MatchParticipant)
+
 ## Emitted on the tick a ghost takes a living prisoner's spot. [param ghost] is
 ## the participant who WAS the ghost and is now running; [param caught] is the
 ## prisoner who is now the ghost. The swap has already happened when it fires.
@@ -197,6 +231,13 @@ signal ghost_caught(ghost: MatchParticipant, caught: MatchParticipant)
 ## headless sweep runs.
 @export var player: PlayerController
 
+## The colours this match paints its bodies with -- one per runner seat, plus
+## the guard's own. Leave it unset and the match runs on the shipped
+## [code]resources/rules/default_runner_palette.tres[/code] (see [method
+## get_runner_palette]), exactly the way [member rules] falls back to a default
+## [MatchRules]. Ryan's to edit; nothing in this script names a colour directly.
+@export var palette: RunnerPalette
+
 ## The tower's rifle. Reparented to whoever holds the seat, and stowed on this
 ## node while the opening race runs -- during the race the rifle is nobody's.
 @export var rifle: Rifle
@@ -212,6 +253,17 @@ signal ghost_caught(ghost: MatchParticipant, caught: MatchParticipant)
 @export var start_marker_path: NodePath = ^"StartEnd/PrisonerStart"
 @export var end_marker_path: NodePath = ^"StartEnd/PrisonerEnd"
 @export var spawn_marker_path: NodePath = ^"Tower/TowerSpawn"
+
+## Where the arena keeps its [RingRoute]: the levels a prisoner must lap, in
+## order, and the ramps between them.
+##
+## Optional, and its absence is a supported map rather than a fault. An arena
+## with no route node gets [method RingRoute.flat] built from
+## [member MatchRules.track_radius] and the two markers -- one level, one lap,
+## exactly the run the ring had before it had levels -- so everything that
+## measures the route reads a route and only a route, and a flat second map
+## needs no second code path anywhere.
+@export var route_path: NodePath = ^"Route"
 
 ## Arm the match from [method Node._ready]. Off for a harness that wants to place
 ## things itself before the clock starts.
@@ -270,12 +322,11 @@ const GHOST_HAZARD_LAYER: int = 1 << 20
 ## rather than a second, quietly different default.
 const DEFAULT_GHOST_PROFILE_PATH: String = "res://resources/rules/default_ghost_profile.tres"
 
-## Where a ghost body's mesh takes its colour from. The whole of "a ghost looks
-## different": one flat material swapped onto the same body, and swapped back
-## when the ghost becomes living again. There is no ghost model and there is not
-## going to be one -- a ghost is a prisoner in a different colour, which is why
-## this stayed one material swap when prisoners stopped being capsules.
-const GHOST_MATERIAL_PATH: String = "res://scenes/bot/ghost_body_material.tres"
+## The [RunnerPalette] a match paints its bodies from when [member palette]
+## names none. The same one companion resources point at, for the same reason
+## [constant DEFAULT_GHOST_PROFILE_PATH] exists: a scene assembled in code gets
+## the palette the game ships rather than a second, quietly different default.
+const DEFAULT_PALETTE_PATH: String = "res://resources/rules/default_runner_palette.tres"
 
 ## The node holding the humanoid a body is seen as. Every body in the game comes
 ## from [code]scenes/player/player.tscn[/code], which calls it this.
@@ -324,6 +375,28 @@ const SETTLE_PHYSICS_FRAMES: int = 2
 ## on exactly the terms a human holding the seat shoots at bots.
 const RUNNER_GROUP: StringName = &"prisoners"
 
+## Scene-tree group holding exactly the body that is IN THE TOWER right now, or
+## nothing at all during the opening race.
+##
+## The mirror of [constant RUNNER_GROUP], and it exists for the mirror reason.
+## That one is how a guard finds the prisoners without a reference to this node;
+## this one is how a prisoner finds the guard -- see [RunnerPerception], which
+## reads it and nothing else about the match.
+##
+## [b]It is not a list of humans.[/b] Whoever holds the seat is in it, human or
+## AI, exactly as whoever is running is in [constant RUNNER_GROUP]. The bug it
+## was added for is what happens when the two kinds are told apart: a prisoner
+## could only ever find an AI guard, because an AI guard is a [TowerShooter] node
+## and a human guard is a person, so a round with the human in the tower read to
+## every bot on the ring as a round with NOBODY in the tower. They ran the
+## baseline lap past a rifle they never believed in. Announcing the seat rather
+## than the brain is what makes "there is a guard" a fact about the round instead
+## of a fact about what kind of thing took it.
+##
+## Maintained from [method _arm_tower_brain], which is already the last word on
+## who is driving which body.
+const GUARD_GROUP: StringName = &"tower_guard"
+
 ## Physics frames left before the bodies placed by the last arming are woken.
 var _settle_frames: int = 0
 
@@ -359,9 +432,19 @@ var _resolve_count: int = 0
 ## Runners out of the current round or race: converted by the rifle, or fallen.
 var _removed_count: int = 0
 
-## Keeps the unimplemented-win-condition complaint to one line per round instead
-## of one per frame.
+## Keeps the unwinnable-rules complaint to one line per round instead of one per
+## frame. Both complaints share it: a win condition this node does not implement,
+## and one it does implement that has been handed a number it cannot be won with.
 var _warned_unimplemented_rules: bool = false
+
+## Seconds of siege left in this round under
+## [constant MatchRules.ShooterWinCondition.HOLD_DURATION].
+##
+## Armed by [method start_round] from [member MatchRules.hold_duration_seconds]
+## and by nothing else, so it restarts with the round exactly as runner progress
+## does -- a seat change is a new siege, not a continuation of the last one. It
+## is 0.0 under every other win condition and is then never read.
+var _hold_remaining: float = 0.0
 
 ## Backing store for the rules used when [member rules] is unset. Built on
 ## demand, never shared, so a caller that retunes it cannot reach into another
@@ -380,14 +463,38 @@ var _default_ghost_profile: GhostProfile = null
 ## Ghost swaps this controller has performed. A readout, nothing branches on it.
 var _catch_count: int = 0
 
-## The ghost body colour, loaded on first use.
-var _ghost_material_cache: Material = null
+## The shipped default palette, loaded on first use when [member palette] names
+## none. See [method get_runner_palette].
+var _default_palette: RunnerPalette = null
+
+## Painted runner materials, one per [member MatchParticipant.index], built
+## lazily and kept for the life of the match -- an index always names the same
+## participant, so nothing here is ever invalidated.
+var _runner_material_cache: Dictionary[int, Material] = {}
+
+## The same participants' ghost-translucent materials, same cache discipline
+## as [member _runner_material_cache].
+var _ghost_material_cache: Dictionary[int, Material] = {}
+
+## The one material the tower seat wears, built once: unlike a runner's colour
+## it does not vary by who is sitting in the seat.
+var _guard_material_cache: Material = null
 
 # Arena geometry, cached at match start. The arena does not move.
 var _centre: Vector3 = Vector3.ZERO
 var _start_point: Vector3 = Vector3.ZERO
 var _end_point: Vector3 = Vector3.ZERO
 var _tower_point: Vector3 = Vector3.ZERO
+
+## The route the field is running. Never null once [method _cache_geometry] has
+## succeeded: either the arena's own, or a flat one built here and parented to
+## this controller so it lives and dies with the match.
+var _route: RingRoute = null
+
+## True when [member _route] is the fallback this node made, and therefore this
+## node's to free when the map changes.
+var _route_is_ours: bool = false
+
 var _geometry_ready: bool = false
 
 
@@ -439,8 +546,25 @@ func _physics_process(delta: float) -> void:
 		_settle_frames -= 1
 		if _settle_frames == 0:
 			_wake_bodies()
+	# ORDER IS LOAD-BEARING, and it is worth a sentence each.
+	#
+	# _wake_settled_ghosts runs BEFORE _tick_respawn_holds so that a settle armed
+	# by a respawn finishing on THIS tick is not decremented on the same tick it
+	# was armed. Run the other way round it is: the placement writes
+	# SETTLE_PHYSICS_FRAMES and the very next line takes one straight back off,
+	# so the body wakes a frame early and the physics-server handshake
+	# [method _hold_body] documents is one frame short of what it asks for.
+	#
+	# _tick_ghosts runs LAST so that a ghost placed this tick is skipped by it --
+	# it now has a settle running, and a ghost inside its settle is not in the
+	# world yet. See that method.
 	_wake_settled_ghosts()
+	_tick_respawn_holds(delta)
 	_tick_ghosts(delta)
+	# LAST, and after the ghosts: the hold is the only win condition decided by
+	# a clock rather than by an event, and a round it ends is a round in which
+	# everything else that was going to happen this tick has already happened.
+	_tick_hold(delta)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -551,6 +675,9 @@ func start_match() -> void:
 	if _participants.is_empty():
 		push_error("MatchController has no participants; there is nobody to play a match.")
 		return
+	# Every body in this match, human and bots alike, on the air control the
+	# player chose. See [method _apply_air_control].
+	_apply_air_control()
 
 	for participant: MatchParticipant in _participants:
 		participant.turns_in_tower = 0
@@ -565,6 +692,7 @@ func start_match() -> void:
 	_removed_count = 0
 	_outcome = Outcome.IN_PROGRESS
 	_warned_unimplemented_rules = false
+	_hold_remaining = 0.0
 
 	match_started.emit(_participants.size())
 
@@ -603,12 +731,19 @@ func start_race() -> void:
 	_phase = Phase.RACE
 	_outcome = Outcome.IN_PROGRESS
 	_removed_count = 0
+	# The race has no shooter, so it has no siege to run down.
+	_hold_remaining = 0.0
 	_seat = null
 	_stow_rifle()
 	# "No shooter" has to be true of the BRAINS as well as of the rifle, and
 	# true immediately rather than two frames from now, or the racer who held
 	# the tower last shoots the field while everybody runs.
 	_silence_all_tower_brains()
+	# And true of what the PRISONERS can read, on the same tick and for the same
+	# reason: _seat is already null above, so this empties the group. A racer who
+	# still believed the last round's holder was up there would play the cover
+	# game through a race nobody is shooting in. See [constant GUARD_GROUP].
+	_publish_the_seat()
 
 	_settle_frames = SETTLE_PHYSICS_FRAMES
 	var racers: Array[MatchParticipant] = _participants.duplicate()
@@ -638,6 +773,11 @@ func start_round() -> void:
 	_outcome = Outcome.IN_PROGRESS
 	_removed_count = 0
 	_warned_unimplemented_rules = false
+	# The siege clock is armed with the round and from the rules in force now,
+	# which is what makes a seat change start a fresh hold rather than hand the
+	# incoming shooter the outgoing one's leftovers. Zero under every other win
+	# condition, and [method _tick_hold] reads the condition before the clock.
+	_hold_remaining = maxf(get_rules().hold_duration_seconds, 0.0)
 	# A round is armed on the rules in force now, and the ghost tuning is one of
 	# them. Cleared rather than re-resolved, so the walk is paid for only if a
 	# prisoner is actually shot.
@@ -651,6 +791,11 @@ func start_round() -> void:
 	# from a stand the physics server has not caught up with yet is aiming from
 	# the wrong place.
 	_silence_all_tower_brains()
+	# Announced with the arming and not left until the bodies wake, so that no
+	# tick of the new round reads the LAST round's holder as the guard. See
+	# [constant GUARD_GROUP]; [method _arm_tower_brain] says it again on the wake
+	# because that is where a seat can also change.
+	_publish_the_seat()
 	_settle_frames = SETTLE_PHYSICS_FRAMES
 	var runners: Array[MatchParticipant] = []
 	for participant: MatchParticipant in _participants:
@@ -767,8 +912,26 @@ func get_resolve_count() -> int:
 
 
 ## Runners out of the current round or race: converted by the rifle, or fallen.
+##
+## Also the shutout tally: under
+## [constant MatchRules.ShooterWinCondition.SHUTOUT_COUNT] the round is won when
+## this reaches [member MatchRules.shutout_count].
 func get_runners_removed() -> int:
 	return _removed_count
+
+
+## Seconds of siege left in this round, or 0.0 when no siege is running.
+##
+## Non-zero only under [constant MatchRules.ShooterWinCondition.HOLD_DURATION]
+## and only inside a live round. A readout, exactly as
+## [method get_runners_removed] is: nothing branches on it but the clock in
+## [method _tick_hold] itself.
+func get_hold_remaining_seconds() -> float:
+	if _phase != Phase.ROUND:
+		return 0.0
+	if get_rules().shooter_win_condition != MatchRules.ShooterWinCondition.HOLD_DURATION:
+		return 0.0
+	return maxf(_hold_remaining, 0.0)
 
 
 ## The participants who are ghosts right now, as a copy.
@@ -789,9 +952,112 @@ func get_ghosts_remaining() -> int:
 	return count
 
 
+## Why a participant is watching rather than playing right now.
+##
+## The match already knew all of this; until there was something to show the
+## player it simply never had to say it. Read every frame by [FxSpectatorView]
+## and by [MatchDeathScreen], both of which are strictly additive and neither of
+## which the match knows exists.
+enum Spectating {
+	## Playing: on the ring, in the tower, or racing.
+	NONE,
+	## Dead and on the clock. [method get_respawn_hold_remaining] says how long
+	## is left, and the body is frozen at the spot it died.
+	RESPAWNING,
+	## Out, with no clock: a racer who fell during the opening race and is out
+	## for the rest of it, or a converted prisoner in a ghostless round. Both
+	## end when the next round is armed, and neither can be counted down to.
+	ELIMINATED,
+}
+
+
+## The human's participant, or null in a match with no human in it.
+##
+## [method _build_participants] puts the human at index 0 when there is one, but
+## that is an implementation detail of the start line and not a promise; this
+## asks.
+func get_human_participant() -> MatchParticipant:
+	for participant: MatchParticipant in _participants:
+		if participant.is_human():
+			return participant
+	return null
+
+
+## What [param participant] is watching, and why.
+##
+## Deliberately a QUERY and not a signal. A view that polls this is correct on
+## the frame it is switched on, correct after a restart, and correct for a
+## participant it was pointed at halfway through a hold -- where a view built on
+## an edge would have missed the edge and shown the wrong thing until the next
+## death.
+func get_spectating_state(participant: MatchParticipant) -> Spectating:
+	if participant == null or is_match_over():
+		return Spectating.NONE
+	if participant.respawn_hold_remaining > 0.0:
+		return Spectating.RESPAWNING
+	if participant.is_shooter or participant.is_running or participant.is_ghost:
+		return Spectating.NONE
+	match _phase:
+		Phase.RACE:
+			# The author's ruling: a racer who falls is out for the rest of the
+			# race. That can be a long time, and it is the case that most needs
+			# something to look at. See [method _fall_out_of_race].
+			return Spectating.ELIMINATED
+		Phase.ROUND:
+			# A converted prisoner with no ghost to become -- ghost_behaviour
+			# NONE. Under the shipped rules this arm is unreachable, because a
+			# conversion always makes a ghost.
+			return Spectating.ELIMINATED
+		_:
+			return Spectating.NONE
+
+
+## True while [param participant] has no body to play and should be shown
+## something else.
+func is_spectating(participant: MatchParticipant) -> bool:
+	return get_spectating_state(participant) != Spectating.NONE
+
+
+## Seconds [param participant] still has to wait before the match puts them back
+## on the start line, or 0.0 when nothing is waiting.
+##
+## The readout for a HUD counting a respawn down, and the seam a test asserts the
+## three seconds against without reaching into a participant. See
+## [member GhostProfile.respawn_delay_seconds].
+func get_respawn_hold_remaining(participant: MatchParticipant) -> float:
+	if participant == null:
+		return 0.0
+	return participant.respawn_hold_remaining
+
+
+## True while [param participant]'s body is frozen where it died, waiting to be
+## put back. It is on no collision layer, is not being stepped, and is skipped by
+## [method _tick_ghosts] for as long as this is true.
+func is_awaiting_respawn(participant: MatchParticipant) -> bool:
+	return get_respawn_hold_remaining(participant) > 0.0
+
+
 ## Ghost swaps this controller has performed since the match started.
 func get_catch_count() -> int:
 	return _catch_count
+
+
+## The colour [param participant]'s body is wearing right now, straight off the
+## mesh's live [member GeometryInstance3D.material_override]. A test seam --
+## the same value a camera parked at 35-60 m would read off the deck -- rather
+## than a duplicate of the palette lookup, so it is honest about a ghost's
+## alpha and about the guard's temporary repaint, neither of which is in
+## [member MatchParticipant.home_body_material].
+func get_body_color(participant: MatchParticipant) -> Color:
+	if participant == null:
+		return Color.BLACK
+	var mesh: MeshInstance3D = _body_mesh_of(participant.body)
+	var material: StandardMaterial3D = (
+		mesh.material_override as StandardMaterial3D if mesh != null else null
+	)
+	if material == null:
+		return Color.BLACK
+	return material.albedo_color
 
 
 ## The participants still running, as a copy.
@@ -1055,6 +1321,20 @@ func _tick_ghosts(delta: float) -> void:
 	for ghost: MatchParticipant in _participants:
 		if not ghost.is_ghost:
 			continue
+		if ghost.respawn_hold_remaining > 0.0 or ghost.ghost_settle_frames > 0:
+			# NOT IN THE WORLD YET, by either of the two ways a ghost can not be:
+			# held where it died and not yet moved, or moved and waiting out the
+			# placement settle that gives it back its collision. In both it is on
+			# no collision layer and is not being stepped.
+			#
+			# It may not catch, and -- the part that is easy to get wrong by one
+			# tick -- its catch grace does not run either. The grace exists to
+			# stop a swap oscillating in the moment AFTER a ghost lands, so a
+			# grace spent while the body was still frozen is grace spent on
+			# nothing, and a freshly landed ghost would be catchable sooner than
+			# the number in [member GhostProfile.catch_grace_seconds] says. The
+			# clock starts when the body does.
+			continue
 		if ghost.ghost_grace_remaining > 0.0:
 			ghost.ghost_grace_remaining = maxf(ghost.ghost_grace_remaining - delta, 0.0)
 			continue
@@ -1154,11 +1434,18 @@ func _make_ghost(participant: MatchParticipant) -> void:
 	body.remove_from_group(RUNNER_GROUP)
 	body.visible = true
 	body.speed_scale = maxf(profile.speed_multiplier, 0.0)
-	_tint_body(participant, _ghost_material())
-	# Collision and motion come back in [method _wake_ghost], two physics frames
-	# from now, because the body is about to be moved the length of the ring.
+	_tint_body(participant, _ghost_material_for(participant))
+	# Inert NOW; moved to the start line after
+	# [member GhostProfile.respawn_delay_seconds]; collision and motion back
+	# two physics frames after that. See [method _place_ghost_at_start].
 	_place_ghost_at_start(participant)
 
+	# Armed immediately even when a respawn hold is running, and harmlessly so:
+	# a brain writes nothing but a [MoveIntent] through [BotIntentSource], and a
+	# held body's [method Node._physics_process] is off, so nobody reads it. The
+	# alternative -- deferring the chase to the end of the hold -- would leave
+	# [method RingRunner.is_chasing] lying about a participant who is
+	# unambiguously a ghost for those three seconds.
 	if participant.brain != null:
 		participant.brain.rules = get_rules()
 		participant.brain.begin_chase(RUNNER_GROUP)
@@ -1188,10 +1475,67 @@ func _make_ghost(participant: MatchParticipant) -> void:
 ## this file. It has to: this is a kinematic body being sent up to a lap's worth
 ## of ring with a live capsule, which is precisely the trap that method
 ## documents. It is woken by [method _wake_settled_ghosts].
+##
+## [b]The placement WAITS.[/b] [member GhostProfile.respawn_delay_seconds] --
+## three seconds on the shipped profile -- is served here, and it is the one
+## place it is served, so every route into this method gets it: shot, trapped,
+## fallen, or a ghost a hazard is returning. The body is made inert FIRST and
+## moved AFTERWARDS, which is the whole of what makes the wait safe. See
+## [method _tick_respawn_holds] for the clock and [method _finish_respawn] for
+## the placement it eventually performs.
 func _place_ghost_at_start(participant: MatchParticipant) -> void:
 	var body: PlayerController = participant.body
 	if body == null or not _geometry_ready:
 		return
+	# Inert before anything else, and before the delay is even read. Whatever
+	# killed this body, it stops being a thing in the world on THIS tick and not
+	# three seconds from now: off every layer and mask, velocity zeroed, not
+	# stepped. See [method _hold_body] -- it also clears any respawn hold, so the
+	# assignment below is the only one in force.
+	_hold_body(participant)
+	var delay: float = maxf(get_ghost_profile().respawn_delay_seconds, 0.0)
+	if delay > 0.0:
+		participant.respawn_hold_remaining = delay
+		return
+	_finish_respawn(participant)
+
+
+## Run the respawn clock down, and place whoever it has finished with.
+##
+## A seconds clock rather than a frame count, unlike
+## [member MatchParticipant.ghost_settle_frames], because this is a DESIGN
+## duration a designer typed into a resource and it must be three seconds at any
+## framerate, where the settle is a physics-server handshake and is correctly
+## counted in the server's own frames.
+##
+## Held bodies are not stepped, so nothing about them can change while this
+## runs; the only thing that can end a hold early is another placement, which
+## clears it through [method _hold_body].
+func _tick_respawn_holds(delta: float) -> void:
+	for participant: MatchParticipant in _participants:
+		if participant.respawn_hold_remaining <= 0.0:
+			continue
+		participant.respawn_hold_remaining = maxf(
+			participant.respawn_hold_remaining - delta, 0.0
+		)
+		if participant.respawn_hold_remaining <= 0.0:
+			_finish_respawn(participant)
+
+
+## Put a held body down on the start line, in its own place on it, and arm its
+## settle. The second half of [method _place_ghost_at_start], separated only by
+## the wait.
+func _finish_respawn(participant: MatchParticipant) -> void:
+	participant.respawn_hold_remaining = 0.0
+	var body: PlayerController = participant.body
+	if body == null or not _geometry_ready:
+		return
+	# Re-asserted rather than assumed. The hold above already did this and
+	# nothing steps a held body, but this is the one method that MOVES a live
+	# capsule the length of the ring and [method _hold_body] is what makes that
+	# legal; a future caller that reaches it by another route must not be able to
+	# skip it. It is idempotent, and it clears the hold flag this method has
+	# already cleared.
 	_hold_body(participant)
 	var place: Vector3 = _start_place_for(participant.index, _participants.size())
 	body.global_position = place
@@ -1200,6 +1544,7 @@ func _place_ghost_at_start(participant: MatchParticipant) -> void:
 	# and a ghost's first second is the one in which the field is still nearby.
 	body.rotation = Vector3(0.0, _heading_of(_track_tangent(_angle_of(place))), 0.0)
 	participant.ghost_settle_frames = SETTLE_PHYSICS_FRAMES
+	ghost_respawned.emit(participant)
 
 
 ## Give ghosts placed on the start line their collision and their motion back,
@@ -1260,6 +1605,9 @@ func _unmake_ghost(participant: MatchParticipant) -> void:
 		return
 	participant.is_ghost = false
 	participant.ghost_grace_remaining = 0.0
+	# Somebody has put this participant back in the round; a respawn that fired
+	# afterwards would drag a living prisoner to the start line.
+	participant.respawn_hold_remaining = 0.0
 
 	var body: PlayerController = participant.body
 	if body != null:
@@ -1292,33 +1640,98 @@ func _start_running_in_place(
 	participant.lives = maxi(active.prisoner_lives, 1)
 
 	body.add_to_group(RUNNER_GROUP)
-	# One track, so the carried arc and the arc it is now measured against are
-	# the same track's, which is what makes adopt_progress mean anything.
-	participant.tracker.begin(
-		body, _centre, _start_point, _end_point, active.lap_arrival_tolerance
-	)
+	# One route, so the carried arc and the arc it is now measured against are
+	# the same level's, which is what makes adopt_progress mean anything. The
+	# LEVEL is read off the outgoing tracker for the same reason the arc is: a
+	# prisoner caught on the top deck is replaced on the top deck, and a swap
+	# that reset them to the bottom lap would hand the ghost a spot nobody had.
+	var carried_level: int = 0 if source == null else source.get_level()
+	participant.tracker.begin(body, _centre, _route, active.lap_arrival_tolerance)
 	if source != null:
 		participant.tracker.adopt_progress(source)
 
 	if participant.brain != null:
-		participant.brain.profile.track_radius = active.track_radius
+		participant.brain.profile.track_radius = _route.lane_radius(carried_level)
 		participant.brain.rules = active
-		participant.brain.resume(_centre, _start_point, _end_point, travelled_arc)
-
-
-## The material a ghost body wears, loaded once. Null is survivable -- a ghost
-## that is the wrong colour still plays correctly -- so this warns rather than
-## refusing to make one.
-func _ghost_material() -> Material:
-	if _ghost_material_cache != null:
-		return _ghost_material_cache
-	_ghost_material_cache = load(GHOST_MATERIAL_PATH) as Material
-	if _ghost_material_cache == null:
-		push_warning(
-			"MatchController cannot load %s; ghosts will be the colour they already are."
-			% GHOST_MATERIAL_PATH
+		participant.brain.resume(
+			_centre, _start_point, _end_point, travelled_arc, _route, carried_level
 		)
-	return _ghost_material_cache
+
+
+## The palette this match paints its bodies from: [member palette] when the
+## scene names one, the shipped default otherwise, loaded once. Never null --
+## a [RunnerPalette] constructed from nothing still has [member
+## RunnerPalette.guard_color] to fall back on.
+func get_runner_palette() -> RunnerPalette:
+	if palette != null:
+		return palette
+	if _default_palette == null:
+		_default_palette = load(DEFAULT_PALETTE_PATH) as RunnerPalette
+		if _default_palette == null:
+			push_warning(
+				"MatchController cannot load %s; every body will wear the guard colour."
+				% DEFAULT_PALETTE_PATH
+			)
+			_default_palette = RunnerPalette.new()
+	return _default_palette
+
+
+## [param participant]'s own distinct, stable colour for the whole match. Built
+## once from [method RunnerPalette.color_for_index] and cached by index -- an
+## index always names the same participant for the life of a match, so the
+## same body is never repainted a different shade of itself.
+func _runner_material_for(participant: MatchParticipant) -> Material:
+	if _runner_material_cache.has(participant.index):
+		return _runner_material_cache[participant.index]
+	var material := StandardMaterial3D.new()
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.albedo_color = get_runner_palette().color_for_index(participant.index)
+	_runner_material_cache[participant.index] = material
+	return material
+
+
+## [param participant]'s SAME colour, translucent -- a ghost reads as who it is
+## and as a ghost in the same glance rather than one flat colour meaning both.
+## [member RunnerPalette.ghost_alpha] is the "slightly" in "slightly
+## translucent": alpha comes off the colour; the colour itself never does.
+func _ghost_material_for(participant: MatchParticipant) -> Material:
+	if _ghost_material_cache.has(participant.index):
+		return _ghost_material_cache[participant.index]
+	var runner_palette: RunnerPalette = get_runner_palette()
+	var runner_color: Color = runner_palette.color_for_index(participant.index)
+	var material := StandardMaterial3D.new()
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	material.albedo_color = Color(runner_color.r, runner_color.g, runner_color.b, runner_palette.ghost_alpha)
+	_ghost_material_cache[participant.index] = material
+	return material
+
+
+## The one material the tower seat wears, distinct from every runner colour so
+## the guard reads as a role rather than as whichever runner happens to be
+## sitting there. Built once: this does not vary by participant.
+func _guard_material() -> Material:
+	if _guard_material_cache != null:
+		return _guard_material_cache
+	var material := StandardMaterial3D.new()
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.albedo_color = get_runner_palette().guard_color
+	_guard_material_cache = material
+	return material
+
+
+## Give [param participant] its own colour for the whole match and paint it on
+## now, before anything else has touched the body. Sets [member
+## MatchParticipant.home_body_material] directly rather than letting [method
+## _tint_body] lazily capture whatever the scene shipped with -- the assigned
+## colour IS this participant's home look from here on, not the flat material
+## [code]scenes/bot/ring_runner.tscn[/code] or [code]scenes/player/player.tscn[/code]
+## happens to author.
+func _assign_runner_color(participant: MatchParticipant) -> void:
+	var material: Material = _runner_material_for(participant)
+	participant.home_body_material = material
+	participant.home_material_read = true
+	_tint_body(participant, material)
 
 
 ## Paint [param participant]'s body mesh, remembering the authored material the
@@ -1386,6 +1799,7 @@ func _build_participants() -> void:
 		participant.index = index
 		if participant.body != null:
 			_participant_by_body_id[participant.body.get_instance_id()] = participant
+			_assign_runner_color(participant)
 
 
 func _make_human_participant() -> MatchParticipant:
@@ -1495,7 +1909,49 @@ func _cache_geometry() -> void:
 	_start_point = start_marker.global_position
 	_end_point = end_marker.global_position
 	_tower_point = spawn_marker.global_position
+	_cache_route()
 	_geometry_ready = true
+
+
+## Find the arena's [RingRoute], or build the flat one that stands in for it.
+##
+## The fallback is not a degraded mode. A map with one deck IS a route with one
+## level on it, and building it here rather than branching at every call site is
+## what keeps [MatchLapTracker], [RingRunner] and [MatchHUD] free of any opinion
+## about how many decks an arena has.
+func _cache_route() -> void:
+	if _route_is_ours and _route != null and is_instance_valid(_route):
+		_route.queue_free()
+	_route = null
+	_route_is_ours = false
+
+	var authored: RingRoute = arena.get_node_or_null(route_path) as RingRoute
+	if authored != null and authored.level_count() > 0:
+		_route = authored
+		var problems: PackedStringArray = authored.validate()
+		if not problems.is_empty():
+			# Reported, not refused: a route with a complaint against it still
+			# runs, and a match that would not start because a level's inner
+			# radius was a centimetre out would be worse than the complaint.
+			push_warning(
+				"MatchController: the arena's route is not sound -- %s" % ", ".join(problems)
+			)
+		return
+
+	_route = RingRoute.flat(
+		get_rules().track_radius, _centre, _start_point, _end_point
+	)
+	_route_is_ours = true
+	add_child(_route)
+
+
+## The route the match is being run on. Null before the geometry is cached.
+##
+## Exposed because the HUD counts metres off it, the round card frames the arena
+## off it, and a test asks it what the field is actually being scored against
+## rather than reconstructing the arithmetic.
+func get_route() -> RingRoute:
+	return _route
 
 
 ## Put every participant in [param runners] on the start line and start them
@@ -1574,6 +2030,10 @@ func _place_on_track(participant: MatchParticipant, start_point: Vector3) -> voi
 	# _hold_body has the authored layers to switch off and _wake_bodies has them
 	# to put back.
 	_unmake_ghost(participant)
+	# Back to this participant's own colour. A no-op for a body _unmake_ghost
+	# just repainted; load-bearing for the outgoing shooter, who was never a
+	# ghost and is still wearing _guard_material() from _place_in_tower.
+	_tint_body(participant, participant.home_body_material)
 	_hold_body(participant)
 	# A body on the track runs; it does not play the tower. The outgoing shooter
 	# arrives here on every seat change with its tower brain still loaded.
@@ -1582,9 +2042,9 @@ func _place_on_track(participant: MatchParticipant, start_point: Vector3) -> voi
 		# The brain reads pace from the rules and geometry from its profile. The
 		# split is the seam: "walk or sprint" is a rule of the round, "how hard
 		# does it steer" is tuning of the brain. configure() places the body.
-		participant.brain.profile.track_radius = active.track_radius
+		participant.brain.profile.track_radius = _route.lane_radius(0)
 		participant.brain.rules = active
-		participant.brain.configure(_centre, start_point, _end_point)
+		participant.brain.configure(_centre, start_point, _end_point, _route)
 	else:
 		body.global_position = start_point
 		body.velocity = Vector3.ZERO
@@ -1596,7 +2056,7 @@ func _place_on_track(participant: MatchParticipant, start_point: Vector3) -> voi
 		)
 
 	body.add_to_group(RUNNER_GROUP)
-	participant.tracker.begin(body, _centre, start_point, _end_point, active.lap_arrival_tolerance)
+	participant.tracker.begin(body, _centre, _route, active.lap_arrival_tolerance)
 
 
 func _place_in_tower(participant: MatchParticipant) -> void:
@@ -1609,6 +2069,10 @@ func _place_in_tower(participant: MatchParticipant) -> void:
 	# A ghost can take the tower: they were a prisoner when the seat changed
 	# hands, and the round restarts around them like anybody else.
 	_unmake_ghost(participant)
+	# The guard's own colour, distinct from every runner's -- see
+	# RunnerPalette.guard_color -- so the seat reads as a role and not as
+	# whichever runner happens to be sitting in it.
+	_tint_body(participant, _guard_material())
 	_hold_body(participant)
 	body.global_position = _tower_point
 	body.velocity = Vector3.ZERO
@@ -1661,6 +2125,12 @@ func _hold_body(participant: MatchParticipant) -> void:
 	# running would otherwise hand this body its GHOST collision back two frames
 	# into a round that has just placed it as a prisoner.
 	participant.ghost_settle_frames = 0
+	# And a respawn hold still running would otherwise teleport this body to the
+	# start line seconds into a round that has already put it somewhere else.
+	# [method _place_ghost_at_start] and [method _finish_respawn] both call this
+	# BEFORE they set their own clocks, so cancelling here is free for them and
+	# correct for every other placement in the file.
+	participant.respawn_hold_remaining = 0.0
 
 
 ## Give every placed body its collision and its motion back. Converted runners
@@ -1687,6 +2157,8 @@ func _wake_body(participant: MatchParticipant) -> void:
 ## and buried. See [constant PEN_DEPTH_METRES].
 func _park_body(participant: MatchParticipant) -> void:
 	var body: PlayerController = participant.body
+	# A body being buried is not coming back to the start line.
+	participant.respawn_hold_remaining = 0.0
 	_unmake_ghost(participant)
 	participant.tracker.stop()
 	_silence_brain(participant)
@@ -1747,6 +2219,10 @@ func _end_chase(participant: MatchParticipant) -> void:
 ## shakes between them.
 func _arm_tower_brain() -> void:
 	_silence_all_tower_brains()
+	# BEFORE the early return below, and that is the whole point of it: the
+	# human's round takes that return, and the prisoners still have to be told
+	# there is somebody up there. See [constant GUARD_GROUP].
+	_publish_the_seat()
 	if _phase != Phase.ROUND or _seat == null or _seat.is_human():
 		# The opening race has no shooter, and a human in the tower is driven by
 		# the human. Either way every brain stays down: an AI that fought the
@@ -1801,6 +2277,26 @@ func _silence_tower_brain(participant: MatchParticipant) -> void:
 func _silence_all_tower_brains() -> void:
 	for participant: MatchParticipant in _participants:
 		_silence_tower_brain(participant)
+
+
+## Say who is in the tower, in the one place a prisoner can read it: put the seat
+## holder's body in [constant GUARD_GROUP] and take everybody else out.
+##
+## Rebuilt rather than patched on the way past, because the states this has to be
+## right in are the ones where a seat CHANGED -- the outgoing holder is still
+## carrying yesterday's membership and there is no other tick on which to take it
+## off them. It is called on every arming, so the walk is paid once a round.
+##
+## Empty during the opening race, and that is not an oversight: the race has no
+## shooter, and [RunnerPerception] falling back to the baseline lap when it finds
+## no guard is what keeps the race a race.
+func _publish_the_seat() -> void:
+	for participant: MatchParticipant in _participants:
+		if participant.body != null and participant.body.is_in_group(GUARD_GROUP):
+			participant.body.remove_from_group(GUARD_GROUP)
+	if _phase != Phase.ROUND or _seat == null or _seat.body == null:
+		return
+	_seat.body.add_to_group(GUARD_GROUP)
 
 
 ## The tower brain already on [param participant]'s body, or null.
@@ -1961,6 +2457,14 @@ func _attach_rifle(participant: MatchParticipant) -> void:
 	rifle.aim_source = camera if camera != null else head
 	rifle.shooter_body = body
 	rifle.rules = get_rules()
+
+	# Ads lives on the rifle, but the optic that drives it lives on whoever's
+	# head the rifle just moved onto -- the same reason aim_source is rewired
+	# above rather than wired once in the scene.
+	var ads: RifleAds = rifle.get_node_or_null(^"Ads") as RifleAds
+	if ads != null:
+		ads.optic = body.get_node_or_null(^"Optic") as WeaponOptic
+
 	_set_human_trigger(participant.is_human())
 
 
@@ -1976,6 +2480,9 @@ func _stow_rifle() -> void:
 		add_child(rifle)
 	rifle.aim_source = null
 	rifle.shooter_body = null
+	var ads: RifleAds = rifle.get_node_or_null(^"Ads") as RifleAds
+	if ads != null:
+		ads.optic = null
 	_set_human_trigger(false)
 
 
@@ -2071,12 +2578,20 @@ func _all_running_have_finished() -> bool:
 	return true
 
 
-## Resolve a WIN if [member MatchRules.shooter_win_condition] has been met.
+## Resolve a WIN if [member MatchRules.shooter_win_condition] has been met by a
+## runner having just left the round.
 ##
-## Only total conversion is implemented; the other conditions deliberately never
-## fire and complain once per round rather than falling back on total conversion,
-## because a sweep that quietly measured a different rule than the one it
-## selected is the worst outcome available here.
+## Called from [method convert_participant] and from nowhere else, so it answers
+## the two EVENT-driven conditions. The third,
+## [constant MatchRules.ShooterWinCondition.HOLD_DURATION], is a clock and is
+## answered by [method _tick_hold]; it is named here with an empty arm rather
+## than left to the default, because falling through to the default would print
+## "not implemented" about a condition that is.
+##
+## No condition falls back on another. A member added to the enum later lands in
+## the default arm, complains once per round, and produces a round the shooter
+## cannot win -- which is the loud failure [MatchRules] asks for, and better than
+## a sweep quietly measuring a different rule than the one it selected.
 func _check_shooter_win() -> void:
 	if is_resolved():
 		return
@@ -2086,13 +2601,80 @@ func _check_shooter_win() -> void:
 			if get_runners_remaining() == 0:
 				_resolve(Outcome.WIN)
 				_award_round_to_shooter()
+		MatchRules.ShooterWinCondition.SHUTOUT_COUNT:
+			# Removals of THIS round: _removed_count is re-zeroed by
+			# [method start_round], so a shutout is never assembled out of the
+			# leavings of the rounds before a seat change.
+			#
+			# An unset count is refused rather than read as "all of them". See
+			# [member MatchRules.shutout_count]: guessing here would play total
+			# conversion under another name.
+			if active.shutout_count <= 0:
+				_warn_unwinnable("shutout_count is unset")
+				return
+			if _removed_count >= active.shutout_count:
+				_resolve(Outcome.WIN)
+				_award_round_to_shooter()
+		MatchRules.ShooterWinCondition.HOLD_DURATION:
+			# Deliberately nothing. Clearing the ring is not a hold, and making
+			# it one here would be total conversion wearing the siege's name.
+			pass
 		_:
-			if not _warned_unimplemented_rules:
-				_warned_unimplemented_rules = true
-				push_warning(
-					"MatchController: shooter_win_condition %s is not implemented; this round cannot be won."
-					% String(MatchRules.ShooterWinCondition.keys()[active.shooter_win_condition])
-				)
+			_warn_unwinnable(
+				"shooter_win_condition %s is not implemented"
+				% String(MatchRules.ShooterWinCondition.keys()[active.shooter_win_condition])
+			)
+
+
+## Run the siege clock down and resolve a WIN when it reaches zero.
+##
+## The one place [constant MatchRules.ShooterWinCondition.HOLD_DURATION] is
+## decided. It ends the round through the same [method _resolve] and
+## [method _award_round_to_shooter] every other win goes through, so a hold win
+## counts a round, escalates a turn and ends a match on exactly the terms a
+## conversion win does.
+##
+## What it does NOT do is test for an arrival. It does not have to: under
+## [constant MatchRules.RunnerWinCondition.FIRST_ARRIVAL] an arrival has already
+## resolved the round LOSS and restarted it with a fresh clock before this can
+## fire, and under [constant MatchRules.RunnerWinCondition.ALL_ARRIVALS] a
+## prisoner who reached the end without the rest of the field has not taken the
+## tower and so has not broken the siege. Adding a separate arrival test would be
+## inventing a third interaction between two rules that already compose.
+func _tick_hold(delta: float) -> void:
+	if _phase != Phase.ROUND or is_resolved():
+		return
+	var active: MatchRules = get_rules()
+	if active.shooter_win_condition != MatchRules.ShooterWinCondition.HOLD_DURATION:
+		return
+	if active.hold_duration_seconds <= 0.0:
+		# Unset, and refused for the same reason an unset shutout count is: a
+		# hold of no seconds would be won on the tick the round armed, which is
+		# not a siege, it is a bug that looks like one.
+		_warn_unwinnable("hold_duration_seconds is unset")
+		return
+	if _hold_remaining <= 0.0:
+		# Armed by a round that started before the rules named this condition.
+		# Arm it now rather than winning instantly on a clock nobody set.
+		_hold_remaining = active.hold_duration_seconds
+		return
+	_hold_remaining = maxf(_hold_remaining - delta, 0.0)
+	if _hold_remaining > 0.0:
+		return
+	_resolve(Outcome.WIN)
+	_award_round_to_shooter()
+
+
+## Say once per round that these rules cannot be won from the tower.
+##
+## One line per round, not one per frame: [method _check_shooter_win] is called
+## on every conversion and [method _tick_hold] on every physics tick, and the
+## complaint is about the rule set rather than about the moment.
+func _warn_unwinnable(reason: String) -> void:
+	if _warned_unimplemented_rules:
+		return
+	_warned_unimplemented_rules = true
+	push_warning("MatchController: %s; this round cannot be won from the tower." % reason)
 
 
 ## The shooter held the tower through a round. That, and only that, wins a match.
@@ -2143,6 +2725,9 @@ func _freeze_runners() -> void:
 			_silence_brain(participant)
 			_end_chase(participant)
 			participant.tracker.stop()
+			# A respawn hold that outlived the round would drop its body on the
+			# start line of a round that is already decided.
+			participant.respawn_hold_remaining = 0.0
 			participant.body.velocity = Vector3.ZERO
 
 
@@ -2156,6 +2741,7 @@ func _freeze_everyone() -> void:
 		_silence_tower_brain(participant)
 		_end_chase(participant)
 		participant.tracker.stop()
+		participant.respawn_hold_remaining = 0.0
 		participant.body.velocity = Vector3.ZERO
 		participant.body.set_physics_process(false)
 
@@ -2190,7 +2776,14 @@ func _start_place_for(index: int, count: int) -> Vector3:
 	var active: MatchRules = get_rules()
 	var middle: float = float(maxi(count, 1) - 1) * 0.5
 	var offset: float = (float(index) - middle) * active.start_line_spacing_metres
-	return _point_on_track(active.track_radius + offset, _angle_of(_start_point))
+	# The FIRST level's lane, and its deck. Everybody starts at the bottom: the
+	# levels above are somewhere a prisoner earns, not somewhere the match deals
+	# them.
+	var place: Vector3 = _point_on_track(
+		_route.lane_radius(0) + offset, _angle_of(_start_point)
+	)
+	place.y = _route.deck_height(0)
+	return place
 
 
 ## Body yaw, in radians, that points the controller's forward axis along
@@ -2203,3 +2796,75 @@ func _heading_of(direction: Vector3) -> float:
 ## is not: a ghost standing under the stand is not next to the shooter.
 func _flat_distance(from: Vector3, to: Vector3) -> float:
 	return Vector2(to.x - from.x, to.z - from.z).length()
+
+
+# --- Air control --------------------------------------------------------------
+
+## The [MovementProfile] every body in this match is running, built from
+## [member MatchRules.air_control_id]. Null until a match has been armed.
+##
+## One object shared by the whole field, deliberately: the presets exist to be
+## judged, and a preset felt against opponents that move differently is not the
+## preset being felt.
+var _air_control_profile: MovementProfile = null
+
+
+## The profile the bodies in this match are running. Null before the first
+## [method start_match]; the seam a test asserts the chosen preset by.
+func get_air_control_profile() -> MovementProfile:
+	return _air_control_profile
+
+
+## Put the chosen air control on every body in the roster.
+##
+## [b]Where the choice comes from.[/b] The one path every other choice on the
+## setup screen takes -- [method GameSettings.apply_to_match_rules], called by
+## the [SettingsBoot] node in [code]scenes/match/match.tscn[/code] -- ending on
+## [member MatchRules.air_control_id]. This node reads the rules, so this is
+## where it lands, exactly as [method _install_chosen_map] reads the map.
+##
+## [b]Why [method PlayerController.set_profile] and not an assignment.[/b] The
+## walkable slope, the floor snap length and the [IntentSource]'s own copy are
+## all read ONCE, at ready. Assigning [member PlayerController.profile] would
+## leave a body obeying one profile's physics with another profile's slope, and
+## it would look exactly like a physics bug.
+##
+## [b]Why the look settings are written into it.[/b]
+## [method AirControlCatalog.profile_for] hands back a private duplicate of
+## [code]scenes/player/default_movement_profile.tres[/code] -- it must, or a
+## menu would retune the shipped game -- and mouse sensitivity and invert-Y live
+## on that profile. [PauseMenu] writes them into the SHIPPED instance on every
+## [signal SettingsStore.applied], which the bodies are no longer holding, so
+## this node follows that signal and writes them into the profile they ARE
+## holding. Without it the sensitivity slider would move nothing mid-match.
+func _apply_air_control() -> void:
+	var wanted: StringName = get_rules().air_control_id
+	# An empty id is a rule set that has no opinion -- a bespoke harness world --
+	# and every body keeps the profile its own scene carries. The same empty case
+	# [method _install_chosen_map] honours for the arena.
+	if String(wanted).is_empty():
+		return
+	var profile: MovementProfile = AirControlCatalog.profile_for(wanted)
+	if profile == null:
+		push_warning(
+			"MatchController could not build the air control %s; every body keeps the profile its scene carries."
+			% wanted
+		)
+		return
+	_air_control_profile = profile
+
+	var store: SettingsStore = SettingsStore.instance()
+	if not store.applied.is_connected(_on_look_settings_applied):
+		store.applied.connect(_on_look_settings_applied)
+	_on_look_settings_applied()
+
+	for participant: MatchParticipant in _participants:
+		if participant.body != null:
+			participant.body.set_profile(profile)
+
+
+## Keep the look preferences on the live profile in step with the store. See
+## [method _apply_air_control].
+func _on_look_settings_applied() -> void:
+	if _air_control_profile != null:
+		SettingsStore.instance().settings.apply_to_movement_profile(_air_control_profile)

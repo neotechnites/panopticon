@@ -1,0 +1,6 @@
+{
+  "_comment": "scenes/weapon/rifle.tscn instances this .glb at identity and its editor_description pins the numbers: one textured material (128x128 hell atlas + emissive), one UV set, no skin, no animation.",
+  "node_paths": ["Rifle"],
+  "surfaces": 1,
+  "max_tris": 470
+}

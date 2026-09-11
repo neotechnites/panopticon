@@ -7,5 +7,6 @@ script = ExtResource("1_ghost_profile")
 speed_multiplier = 3.0
 catch_radius_metres = 1.8
 catch_grace_seconds = 1.5
+respawn_delay_seconds = 3.0
 shootable = false
 chase_holds_sprint = true

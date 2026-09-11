@@ -4,7 +4,13 @@
 
 [resource]
 script = ExtResource("1_zoom_profile")
-zoom_factor = 0.45
-transition_seconds = 0.25
+zoom_factor = 0.2
+zoom_in_seconds = 0.5
+zoom_out_seconds = 0.25
+transition_smoothing = 1.0
 sensitivity_compensation = 1.0
+vignette_opacity = 1.0
+vignette_clear_fraction = 0.46
+vignette_softness = 0.015
+vignette_onset = 0.55
 activation = 0

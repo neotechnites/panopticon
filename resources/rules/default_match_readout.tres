@@ -1,0 +1,41 @@
+[gd_resource type="Resource" script_class="MatchReadoutProfile" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/match/match_readout_profile.gd" id="1_match_readout"]
+
+[resource]
+script = ExtResource("1_match_readout")
+enabled = true
+guard_role = "TOWER"
+prisoner_role = "PRISONER"
+ghost_role = "GHOST"
+spectator_role = "WATCHING"
+turn_word = "TURN"
+ready_text = "READY"
+reload_word = "RELOAD"
+reload_decimals = 1
+distance_suffix = "M TO THE END"
+arrived_text = "AT THE END"
+no_distance_text = "--"
+ghost_orders = "CATCH A PRISONER"
+ghost_take_place_text = "TAKE THEIR PLACE"
+ghost_speed_suffix = "x FASTER"
+ghost_unshootable_text = "CANNOT BE SHOT"
+prisoners_word = "PRISONERS"
+total_conversion_objective = "CONVERT THEM ALL"
+unwinnable_objective = "THIS TOWER CANNOT WIN THE ROUND"
+first_arrival_objective = "FIRST TO THE END TAKES THE TOWER"
+all_arrivals_objective = "ALL OF YOU MUST REACH THE END"
+race_objective = "RACE FOR THE TOWER"
+final_round_text = "HOLD THIS ROUND TO WIN THE MATCH"
+round_wins_word = "ROUND WINS"
+empty_tower_text = "TOWER EMPTY"
+reload_length_suffix = "S RELOAD"
+separator = "  ·  "
+show_restart_hint = true
+restart_hint = "[R] restart match"
+ready_color = Color(0.72, 1, 0.78, 1)
+reloading_color = Color(1, 0.78, 0.32, 1)
+prisoner_color = Color(0.94, 0.96, 1, 1)
+ghost_color = Color(0.55, 0.94, 1, 1)
+neutral_color = Color(0.96, 0.96, 0.96, 1)
+dim_color = Color(0.74, 0.76, 0.8, 1)

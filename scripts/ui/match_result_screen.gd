@@ -41,6 +41,32 @@ extends CanvasLayer
 ## anything once the match is resolved. Pausing on top of that would only give
 ## [PauseMenu] a paused tree it did not pause and does not know to unpause.
 ##
+## [b]The beat before the dialog.[/b] A match used to end by a dialog box
+## appearing. [signal MatchController.match_won] now raises a short banner over
+## the frozen arena -- the verdict and who won, nothing to press -- and only when
+## it has run does the dialog appear. It is worth spelling out what it is not:
+## it is not a pause (the match was already frozen), it does not delay
+## [signal MatchController.match_won], it decides nothing, and
+## [member MatchAnnouncementProfile.win_beat_enabled] turns it off. The dialog
+## that follows is byte for byte the one that was there before.
+##
+## Three things keep it from becoming a tax on the person testing this game
+## hundreds of times a day:
+## [codeblock]
+##   any key, click or pad button  -> skipped, dialog now
+##   headless                      -> never runs at all
+##   win_beat_seconds              -> a number in a .tres, not in this file
+## [/codeblock]
+## The headless case is the one with teeth. [method GameSettings.is_headless]
+## gates it, so tools/harness/ and the whole test suite reach [method show_result]
+## on the same frame [signal MatchController.match_won] fires, exactly as they
+## did before this existed -- there is no wait to sit through in a run with no
+## screen to sit in front of, and no test has to learn about a timer.
+##
+## The beat's sound is [constant AudioEvents.MATCH_WON], which
+## [MatchAudioListener] already posts off the same signal. This file posts
+## nothing; a second post would double-trigger the cue.
+##
 ## [b]The mouse.[/b] Opening records [member Input.mouse_mode] and forces it
 ## visible, because a player who cannot see a cursor cannot press Play Again;
 ## Play Again puts back exactly what was there, so the next match starts with the
@@ -80,14 +106,39 @@ signal main_menu_requested()
 ## close the resource graph into a cycle.
 @export_file("*.tscn") var main_menu_scene_path: String = "res://scenes/ui/main_menu.tscn"
 
+## How long the beat holds and how it fades. Shared with [MatchHud], which uses
+## the same resource for the handover banner, because the two are one pacing
+## decision. Unset falls back on the defaults written in
+## [MatchAnnouncementProfile] itself.
+@export var announcements: MatchAnnouncementProfile
+
 @onready var _root: Control = %Root
 @onready var _verdict_label: Label = %Verdict
 @onready var _headline_label: Label = %Headline
 @onready var _detail_label: Label = %Detail
 @onready var _play_again_button: Button = %PlayAgainButton
 @onready var _main_menu_button: Button = %MainMenuButton
+@onready var _beat: Control = %Beat
+@onready var _beat_verdict_label: Label = %BeatVerdict
+@onready var _beat_headline_label: Label = %BeatHeadline
+@onready var _beat_hint_label: Label = %BeatHint
 
 var _is_showing: bool = false
+
+## Seconds of beat left to run. Zero means no beat is on screen, and is the one
+## flag every other method here tests.
+var _beat_remaining: float = 0.0
+
+## What [member _beat_remaining] started at, so the fade keeps its shape.
+var _beat_total: float = 0.0
+
+## Seconds the beat has been up, which is what the skip lockout is measured
+## against. Counted separately from the remainder so that editing the profile
+## mid-beat cannot make a beat retroactively skippable.
+var _beat_elapsed: float = 0.0
+
+## Used when [member announcements] is unset, built once and kept.
+var _fallback_announcements: MatchAnnouncementProfile = null
 
 ## Mouse mode in force before the screen appeared, restored by Play Again.
 var _mouse_mode_before_show: Input.MouseMode = Input.MOUSE_MODE_CAPTURED
@@ -101,6 +152,7 @@ func _ready() -> void:
 	_play_again_button.pressed.connect(play_again)
 	_main_menu_button.pressed.connect(return_to_main_menu)
 	_apply_visibility(false)
+	_cancel_beat()
 
 	if controller == null:
 		push_error("MatchResultScreen has no MatchController; a finished match will say nothing.")
@@ -133,6 +185,9 @@ func is_showing() -> bool:
 func show_result() -> void:
 	if controller == null:
 		return
+	# A caller who wants the dialog now gets the dialog now. The beat exists to
+	# delay this method, never to outlive it.
+	_cancel_beat()
 	refresh()
 	if not _is_showing:
 		_is_showing = true
@@ -144,6 +199,10 @@ func show_result() -> void:
 
 ## Take the screen down without touching the match or the mouse.
 func hide_result() -> void:
+	# Unconditional, and above the guard: the R key can restart a match while
+	# the beat is still running, at which point the screen is not showing and
+	# there is still a banner to take down.
+	_cancel_beat()
 	if not _is_showing:
 		return
 	_is_showing = false
@@ -283,10 +342,160 @@ func _human_participant() -> MatchParticipant:
 	return null
 
 
+# --- The beat -----------------------------------------------------------------
+
+## The public way to end a match on screen: hold the beat, then show the dialog.
+##
+## [method show_result] remains the way to skip straight to the dialog, and every
+## existing caller of it -- a test, a screen wired to an already-finished match,
+## the skip -- still gets exactly that.
+func begin_result() -> void:
+	if controller == null:
+		return
+	var seconds: float = _beat_seconds()
+	if seconds <= 0.0:
+		show_result()
+		return
+	_start_beat(seconds)
+
+
+## True while the beat is on screen. The dialog is not up yet and
+## [method is_showing] is still false.
+func is_beating() -> bool:
+	return _beat_remaining > 0.0
+
+
+## End the beat early and show the dialog now. What the skip calls, and safe to
+## call when no beat is running.
+func skip_beat() -> void:
+	if not is_beating():
+		return
+	show_result()
+
+
+## How long the beat should run for, or 0.0 for no beat at all.
+##
+## Headless is 0.0 unconditionally and that is the load-bearing line in this
+## file: the bot harness and the test suite must reach the dialog on the frame
+## the match is won, with no timer to advance and nothing to wait for.
+func _beat_seconds() -> float:
+	if GameSettings.is_headless():
+		return 0.0
+	return _announcements().get_win_beat_seconds()
+
+
+func _start_beat(seconds: float) -> void:
+	if _beat == null:
+		show_result()
+		return
+	var winner: MatchParticipant = controller.get_match_winner()
+	var human: MatchParticipant = _human_participant()
+	# The same two sentences the dialog will use, from the same two methods. The
+	# beat is the result arriving early, not a second opinion about it.
+	if _beat_verdict_label != null:
+		_beat_verdict_label.text = _verdict_text(winner, human)
+	if _beat_headline_label != null:
+		_beat_headline_label.text = _headline_text(winner, human)
+	if _beat_hint_label != null:
+		# Offered only once the beat can actually be skipped, so the prompt is
+		# never a lie.
+		_beat_hint_label.visible = _skip_lockout_seconds() <= 0.0
+
+	_beat_total = seconds
+	_beat_remaining = seconds
+	_beat_elapsed = 0.0
+	_beat.modulate.a = 1.0
+	_beat.visible = true
+	set_process(true)
+	# Input is only listened for while there is a beat to skip, so this node
+	# costs a live match nothing at all.
+	set_process_input(true)
+
+
+func _process(delta: float) -> void:
+	if not is_beating():
+		set_process(false)
+		return
+	_beat_elapsed += delta
+	_beat_remaining -= delta
+	if _beat_hint_label != null and not _beat_hint_label.visible \
+			and _beat_elapsed >= _skip_lockout_seconds():
+		_beat_hint_label.visible = true
+	if _beat_remaining <= 0.0:
+		show_result()
+		return
+	if _beat == null:
+		return
+	var fade: float = MatchAnnouncementProfile.fade_within(
+		_announcements().win_beat_fade_seconds, _beat_total
+	)
+	if fade > 0.0 and _beat_remaining < fade:
+		_beat.modulate.a = clampf(_beat_remaining / fade, 0.0, 1.0)
+
+
+## Any key, any click, any pad button.
+##
+## [method Node._input] rather than [method Node._unhandled_input], and rather
+## than an action: the beat has to answer a key nobody bound, and the dialog it
+## is standing in front of is reached by every other input path there is. The
+## event is marked handled so the press that skipped the beat does not also press
+## Play Again, open the pause menu, or re-capture the mouse on its way past.
+func _input(event: InputEvent) -> void:
+	if not is_beating():
+		return
+	if _beat_elapsed < _skip_lockout_seconds():
+		return
+	if not _is_skip(event):
+		return
+	get_viewport().set_input_as_handled()
+	skip_beat()
+
+
+func _is_skip(event: InputEvent) -> bool:
+	var key: InputEventKey = event as InputEventKey
+	if key != null:
+		return key.pressed and not key.echo
+	var button: InputEventMouseButton = event as InputEventMouseButton
+	if button != null:
+		return button.pressed
+	var pad: InputEventJoypadButton = event as InputEventJoypadButton
+	if pad != null:
+		return pad.pressed
+	var touch: InputEventScreenTouch = event as InputEventScreenTouch
+	if touch != null:
+		return touch.pressed
+	return false
+
+
+func _skip_lockout_seconds() -> float:
+	return maxf(_announcements().win_beat_skip_lockout_seconds, 0.0)
+
+
+## Take the beat down at once. Safe at any time and safe twice.
+func _cancel_beat() -> void:
+	_beat_remaining = 0.0
+	_beat_total = 0.0
+	_beat_elapsed = 0.0
+	set_process(false)
+	set_process_input(false)
+	if _beat != null:
+		_beat.modulate.a = 1.0
+		_beat.visible = false
+
+
+## The tuning, whether or not the scene supplied any.
+func _announcements() -> MatchAnnouncementProfile:
+	if announcements != null:
+		return announcements
+	if _fallback_announcements == null:
+		_fallback_announcements = MatchAnnouncementProfile.new()
+	return _fallback_announcements
+
+
 # --- Wiring -------------------------------------------------------------------
 
 func _on_match_won(_participant: MatchParticipant) -> void:
-	show_result()
+	begin_result()
 
 
 ## A match has begun, so the last one's result is stale. This is the only thing

@@ -172,6 +172,11 @@ func _speed_colour(speed: float) -> Color:
 func _describe_state() -> String:
 	if body.is_sliding():
 		return "SLIDE   %.2f s left" % body.get_slide_time_remaining()
+	if body.is_crouching():
+		# No clock, on purpose: a crouch has nothing to count down. The height is
+		# the number worth showing instead, because it is the one the guard is
+		# aiming at.
+		return "CROUCH  %.2f m tall" % body.get_stance_height()
 	if body.is_on_floor():
 		var cooldown: float = body.get_slide_cooldown_remaining()
 		if cooldown > 0.0:
@@ -186,7 +191,7 @@ func _describe_detail() -> String:
 		hop = "hop     left %.2f  -->  landed %.2f  (%+.2f)" % [
 			_launch_speed, _landing_speed, _landing_speed - _launch_speed,
 		]
-	return "%s\nkeys    WASD move / Space jump (hold to bunny hop) / Shift slide\npeak    resets after %.1f s standing still" % [
+	return "%s\nkeys    WASD move / Space jump (hold to bunny hop) / Shift slide when fast+forward, else crouch\npeak    resets after %.1f s standing still" % [
 		hop, peak_reset_idle_seconds,
 	]
 

@@ -26,6 +26,9 @@ extends Node
 ##   MatchController.round_resolved   -> match.round_resolved
 ##   MatchController.runner_removed   -> match.runner_converted
 ##   MatchController.match_won        -> match.won
+##   FxHitReaction.struck             -> player.hit_taken
+##   FxCatchReaction.catch_made       -> player.catch_made
+##   FxCatchReaction.catch_taken      -> player.catch_taken
 ## [/codeblock]
 ##
 ## [b]Why the rifle is looked up and not just exported.[/b] The rifle is
@@ -52,6 +55,24 @@ extends Node
 ## first [MatchController] under [member search_root] is used.
 @export var controller: MatchController = null
 
+## The local player's hit reaction, for [constant AudioEvents.PLAYER_HIT_TAKEN].
+## Leave unset and, with [member auto_discover] on, the first [FxHitReaction]
+## under [member search_root] is used -- which is the right one, because a scene
+## has exactly one of them and it belongs to the body this machine is looking out
+## of. Absent, this listener simply never posts that event.
+@export var hit_reaction: FxHitReaction = null
+
+## The local player's catch reaction, for [constant AudioEvents.PLAYER_CATCH_MADE]
+## and [constant AudioEvents.PLAYER_CATCH_TAKEN]. Found the same way, for the
+## same reason, and absent the same way: this listener simply never posts them.
+##
+## Deliberately NOT wired off [signal MatchController.ghost_caught] directly.
+## That signal fires for every catch in the round including the bots' own, and
+## the question "was that catch mine, and which side of it was I on" is already
+## answered once, by [FxCatchReaction]. Asking it twice is two places to get it
+## wrong.
+@export var catch_reaction: FxCatchReaction = null
+
 ## Where discovery starts. Defaults to the root of the scene this node is in --
 ## see [method _default_search_root] -- so the listener finds the match whether
 ## it is a direct child of the match root or nested inside an instanced audio
@@ -64,6 +85,8 @@ extends Node
 
 var _rifle: Rifle = null
 var _controller: MatchController = null
+var _hit_reaction: FxHitReaction = null
+var _catch_reaction: FxCatchReaction = null
 
 
 ## Subscribes in [method Node._enter_tree], not [method Node._ready], and the
@@ -96,6 +119,11 @@ func _connect_all() -> void:
 		_bind(_rifle.missed, _on_missed)
 		_bind(_rifle.reload_started, _on_reload_started)
 		_bind(_rifle.reload_finished, _on_reload_finished)
+	if _hit_reaction != null:
+		_bind(_hit_reaction.struck, _on_struck)
+	if _catch_reaction != null:
+		_bind(_catch_reaction.catch_made, _on_catch_made)
+		_bind(_catch_reaction.catch_taken, _on_catch_taken)
 	if _controller != null:
 		_bind(_controller.match_started, _on_match_started)
 		_bind(_controller.race_started, _on_race_started)
@@ -113,6 +141,11 @@ func _disconnect_all() -> void:
 		_unbind(_rifle.missed, _on_missed)
 		_unbind(_rifle.reload_started, _on_reload_started)
 		_unbind(_rifle.reload_finished, _on_reload_finished)
+	if _hit_reaction != null and is_instance_valid(_hit_reaction):
+		_unbind(_hit_reaction.struck, _on_struck)
+	if _catch_reaction != null and is_instance_valid(_catch_reaction):
+		_unbind(_catch_reaction.catch_made, _on_catch_made)
+		_unbind(_catch_reaction.catch_taken, _on_catch_taken)
 	if _controller != null and is_instance_valid(_controller):
 		_unbind(_controller.match_started, _on_match_started)
 		_unbind(_controller.race_started, _on_race_started)
@@ -123,6 +156,8 @@ func _disconnect_all() -> void:
 		_unbind(_controller.match_won, _on_match_won)
 	_rifle = null
 	_controller = null
+	_hit_reaction = null
+	_catch_reaction = null
 
 
 func _bind(source: Signal, handler: Callable) -> void:
@@ -138,6 +173,8 @@ func _unbind(source: Signal, handler: Callable) -> void:
 func _resolve() -> void:
 	_rifle = rifle
 	_controller = controller
+	_hit_reaction = hit_reaction
+	_catch_reaction = catch_reaction
 	if not auto_discover:
 		return
 	var root: Node = search_root
@@ -149,6 +186,10 @@ func _resolve() -> void:
 		_rifle = _find_rifle(root)
 	if _controller == null:
 		_controller = _find_controller(root)
+	if _hit_reaction == null:
+		_hit_reaction = _find_hit_reaction(root)
+	if _catch_reaction == null:
+		_catch_reaction = _find_catch_reaction(root)
 
 
 ## The highest ancestor below the [SceneTree]'s root window -- in practice the
@@ -185,6 +226,28 @@ func _find_controller(node: Node) -> MatchController:
 		return here
 	for child: Node in node.get_children():
 		var found: MatchController = _find_controller(child)
+		if found != null:
+			return found
+	return null
+
+
+func _find_hit_reaction(node: Node) -> FxHitReaction:
+	var here: FxHitReaction = node as FxHitReaction
+	if here != null:
+		return here
+	for child: Node in node.get_children():
+		var found: FxHitReaction = _find_hit_reaction(child)
+		if found != null:
+			return found
+	return null
+
+
+func _find_catch_reaction(node: Node) -> FxCatchReaction:
+	var here: FxCatchReaction = node as FxCatchReaction
+	if here != null:
+		return here
+	for child: Node in node.get_children():
+		var found: FxCatchReaction = _find_catch_reaction(child)
 		if found != null:
 			return found
 	return null
@@ -268,3 +331,31 @@ func _on_runner_removed(_remaining: int) -> void:
 
 func _on_match_won(_participant: MatchParticipant) -> void:
 	_post(AudioEvents.MATCH_WON)
+
+
+# --- The victim ---------------------------------------------------------------
+
+## Flat, not positional. See [constant AudioEvents.PLAYER_HIT_TAKEN]: the
+## listener is inside the head that was hit, so there is no distance to
+## attenuate and no direction to pan. The direction the shot was travelling is
+## carried by the camera whip, and is deliberately dropped here.
+func _on_struck(_world_direction: Vector3) -> void:
+	_post(AudioEvents.PLAYER_HIT_TAKEN)
+
+
+# --- The catch ----------------------------------------------------------------
+
+## Flat, not positional, and the colour is deliberately dropped. See
+## [constant AudioEvents.PLAYER_CATCH_MADE]: a catch happens at arm's length, so
+## the listener is standing inside the sound. WHO it was is carried by the frame
+## FxCatchReaction draws in that player's own palette colour, which is the
+## channel that can actually express it.
+func _on_catch_made(_caught_color: Color) -> void:
+	_post(AudioEvents.PLAYER_CATCH_MADE)
+
+
+## The other half, and the one that has to be unmistakable against
+## [constant AudioEvents.PLAYER_HIT_TAKEN]: both are this player dying, and only
+## the sound and the colour say which death it was.
+func _on_catch_taken(_ghost_color: Color) -> void:
+	_post(AudioEvents.PLAYER_CATCH_TAKEN)
