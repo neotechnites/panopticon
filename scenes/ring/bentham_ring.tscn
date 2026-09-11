@@ -47,10 +47,13 @@ shading_mode = 0
 albedo_color = Color(0.86, 0.06, 0.06, 1.0)
 
 [sub_resource type="ProceduralSkyMaterial" id="SkyMat"]
-sky_top_color = Color(0.05, 0.03, 0.04, 1.0)
-sky_horizon_color = Color(0.14, 0.06, 0.06, 1.0)
-ground_bottom_color = Color(0.02, 0.02, 0.02, 1.0)
-ground_horizon_color = Color(0.08, 0.04, 0.04, 1.0)
+sky_top_color = Color(1.0, 0.62, 0.22, 1)
+sky_horizon_color = Color(1.0, 0.36, 0.10, 1)
+sky_curve = 0.25
+sky_energy_multiplier = 2.5
+ground_bottom_color = Color(0.25, 0.05, 0.03, 1)
+ground_horizon_color = Color(0.9, 0.3, 0.1, 1)
+sun_angle_max = 0.0
 
 [sub_resource type="Sky" id="Sky"]
 sky_material = SubResource("SkyMat")
@@ -760,12 +763,12 @@ directional_shadow_mode = 0
 directional_shadow_max_distance = 180.
 
 [node name="HellFlood" type="OmniLight3D" parent="Tower"]
-light_color = Color(1, 0.55, 0.35, 1)
-light_energy = 1.6
+light_color = Color(1, 0.6, 0.3, 1)
+light_energy = 4.0
 shadow_enabled = false
-omni_range = 420.0
-omni_attenuation = 0.35
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 140, 0)0
+omni_range = 700.0
+omni_attenuation = 0.6
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 300, 0)
 
 [node name="TowerLight" type="OmniLight3D" parent="Tower"]
 editor_description = "LOCAL GLOW ONLY, not the arena's main light -- see KeyLight. A small hot point above the platform so the tower still visibly reads as a light source up close. Colour, energy, range, attenuation and height are TowerLightProfile fields applied by TowerLight.gd at ready; the light_* properties here are placeholders for the editor view. It rides the tower's rise, which is the point."
