@@ -237,7 +237,7 @@ func _activate(state: MatchController.Spectating) -> void:
 	var was_active: bool = _active
 	_state = state
 	if not was_active:
-		_drift_degrees = 0.0
+		_drift_degrees = _initial_bearing_degrees(state)
 		_look_yaw = 0.0
 		_look_pitch = deg_to_rad(profile.start_pitch_degrees)
 		_active = true
@@ -246,6 +246,27 @@ func _activate(state: MatchController.Spectating) -> void:
 	camera.current = true
 	if not was_active:
 		spectating_changed.emit(true)
+
+
+## Where the drift starts. The fall spot's own bearing for ELIMINATED, so the
+## first frame looks out from where the racer actually went over rather than a
+## fixed angle that may face the void; zero -- meaning "wherever the tuned
+## angle points" -- for every other state.
+func _initial_bearing_degrees(state: MatchController.Spectating) -> float:
+	if state != MatchController.Spectating.ELIMINATED:
+		return 0.0
+	var participant: MatchParticipant = controller.get_human_participant()
+	if participant == null:
+		return 0.0
+	var centre: Vector3 = (
+		controller.arena.global_position if controller.arena != null else Vector3.ZERO
+	)
+	var offset: Vector2 = Vector2(
+		participant.death_position.x - centre.x, participant.death_position.z - centre.z
+	)
+	if offset.length_squared() < 1e-6:
+		return 0.0
+	return rad_to_deg(atan2(offset.y, offset.x))
 
 
 func _deactivate() -> void:
@@ -296,6 +317,16 @@ func _place(_delta: float) -> void:
 ## are clamped into the pit's own band -- see
 ## [member SpectatorProfile.overlook_min_radius_metres] -- so this never sits
 ## in the rock the way the old outside-the-ring orbit now would.
+## Height of the deck above the arena origin; the overlook numbers are deck-relative.
+func _deck_y() -> float:
+	if controller == null or not controller.has_method("get_route"):
+		return 0.0
+	var route: RingRoute = controller.get_route()
+	if route == null or route.level_count() <= 0:
+		return 0.0
+	return route.deck_height(route.last_index())
+
+
 func _place_overlook() -> void:
 	var centre: Vector3 = (
 		controller.arena.global_position if controller.arena != null else Vector3.ZERO
@@ -307,7 +338,7 @@ func _place_overlook() -> void:
 		profile.overlook_max_radius_metres,
 	)
 	var cam_height: float = clampf(
-		centre.y + profile.overlook_orbit_height_metres,
+		centre.y + _deck_y() + profile.overlook_orbit_height_metres,
 		profile.overlook_min_height_metres,
 		profile.overlook_max_height_metres,
 	)
@@ -321,24 +352,28 @@ func _place_overlook() -> void:
 		camera.look_at(focus, Vector3.UP)
 
 
-## The death shot: a fixed over-the-shoulder cut on the held body, built
-## outward from the body instead of from an orbit arm, then clamped onto the
-## gallery's own radius and height band -- see
+## The death shot: a fixed over-the-shoulder cut on the spot the body died at,
+## built outward from that spot instead of from an orbit arm, then clamped onto
+## the gallery's own radius and height band -- see
 ## [member SpectatorProfile.death_gallery_min_radius_metres] -- so it is never
-## in the rock, even for a body the kill volume caught out over the void.
+## in the rock, even for a death the kill volume caught out over the void.
+##
+## Anchored on [member MatchParticipant.death_position] and
+## [member MatchParticipant.death_facing] rather than the body's live
+## transform: the body itself may already be parked a hundred metres down or
+## waiting on the start line by the time this runs, and the shot has to stay on
+## the spot the player was actually taken from for the whole hold.
 func _place_death_shot() -> void:
 	var centre: Vector3 = (
 		controller.arena.global_position if controller.arena != null else Vector3.ZERO
 	)
 	var participant: MatchParticipant = controller.get_human_participant()
-	var body_pos: Vector3 = centre
-	var facing: Vector3 = Vector3.FORWARD
-	if participant != null and participant.body != null:
-		body_pos = participant.body.global_position
-		var forward: Vector3 = -participant.body.global_transform.basis.z
-		forward.y = 0.0
-		if forward.length_squared() > 1e-6:
-			facing = forward.normalized()
+	var body_pos: Vector3 = participant.death_position if participant != null else centre
+	var facing: Vector3 = (
+		participant.death_facing if participant != null else Vector3.FORWARD
+	)
+	if facing.length_squared() < 1e-6:
+		facing = Vector3.FORWARD
 
 	var behind: Vector2 = (
 		Vector2(body_pos.x, body_pos.z)
@@ -380,14 +415,14 @@ func _focus_point() -> Vector3:
 		var bearing: float = deg_to_rad(_drift_degrees) + _look_yaw
 		return arena_centre + Vector3(
 			cos(bearing) * profile.overlook_focus_radius_metres,
-			profile.overlook_focus_height_metres,
+			_deck_y() + profile.overlook_focus_height_metres,
 			sin(bearing) * profile.overlook_focus_radius_metres,
 		)
 
 	var participant: MatchParticipant = controller.get_human_participant()
-	if participant == null or participant.body == null:
+	if participant == null:
 		return arena_centre + Vector3(0.0, profile.overlook_focus_height_metres, 0.0)
-	return participant.body.global_position + Vector3(
+	return participant.death_position + Vector3(
 		0.0, profile.death_focus_height_metres, 0.0
 	)
 

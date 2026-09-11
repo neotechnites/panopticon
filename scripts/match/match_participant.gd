@@ -174,6 +174,14 @@ var home_body_material: Material = null
 ## restoring null is then the correct thing to do rather than a no-op.
 var home_material_read: bool = false
 
+## Where and which way the body was standing the instant it was last killed --
+## shot, trapped, or fallen. Snapshotted by [method MatchController._park_body]
+## and [method MatchController._place_ghost_at_start] before either moves the
+## body, so [FxSpectatorView] has a fixed spot to anchor on rather than reading
+## a body that may already be parked or back on the start line.
+var death_position: Vector3 = Vector3.ZERO
+var death_facing: Vector3 = Vector3.FORWARD
+
 
 func is_human() -> bool:
 	return kind == Kind.HUMAN
