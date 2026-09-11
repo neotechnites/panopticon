@@ -1,0 +1,12 @@
+{
+  "_comment": "husk_a, the strung: a from-scratch stringy husk on the runner's rig (same bone names, rest pose and Run clip) so it can be swapped for runner.glb. Checked on the PC by lib/verify_glb.gd after every build.",
+  "node_paths": ["Armature/Skeleton3D/HuskA", "AnimationPlayer"],
+  "animations": ["Run"],
+  "bones": ["Hips", "Spine", "Neck", "Head",
+            "UpperArm.L", "LowerArm.L", "Hand.L",
+            "UpperArm.R", "LowerArm.R", "Hand.R",
+            "Thigh.L", "Shin.L", "Foot.L",
+            "Thigh.R", "Shin.R", "Foot.R"],
+  "surfaces": 1,
+  "max_tris": 800
+}
