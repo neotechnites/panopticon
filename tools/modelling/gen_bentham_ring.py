@@ -120,6 +120,33 @@ PIT_INNER_R = 47.0
 PIT_OUTER_R = 57.0
 PIT_HOLE_R = 2.5
 
+# --- map 1 sections, docs/MAP1_SECTIONS.md -- LEVELS == 1 only ---------------
+LAVA_TOP_ABOVE_DECK = 0.31   # lava_tile top sits deck + this
+LAVA_TILE_MODEL_H = 0.3149   # assets/models/lava_tile.glb mesh height
+LAVA_TILE_GRID_M = 4.0       # tile grid spacing, radially and along the arc
+LAVA_TRAP_SEGMENT_M = 15.0   # arc length per TrapVolume box chained over a field
+
+MAP1_SPIRES = [(20, 48), (25, 56), (30, 52), (35, 48), (40, 56), (45, 52),
+               (50, 48), (55, 56), (58, 52)]
+MAP1_POCKETS = [10.0, 68.0, 138.0, 208.0, 278.0]
+
+MAP1_S2_WALL = dict(radius=53.5, start_deg=80.0, end_deg=125.0, count=4, scale_y=0.43)
+MAP1_S2_LAVA = dict(r_in=54.5, r_out=60.0, a0=80.0, a1=125.0)
+MAP1_S2_BOULDERS = [(a, 57.0) for a in (84, 90, 96, 102, 108, 114, 120)]
+MAP1_S2_SPIRES = [(95, 47), (112, 47)]
+
+MAP1_S3_WALL = dict(radius=55.0, start_deg=148.0, end_deg=197.0, count=5, scale_y=None)
+MAP1_S3_LAVA = dict(r_in=56.0, r_out=60.0, a0=150.0, a1=195.0)
+MAP1_S3_BOULDERS = [(a, 58.0) for a in (153, 158, 163, 169, 175, 181, 187, 193)]
+
+MAP1_S4_LAVA_INNER = dict(r_in=44.0, r_out=49.0, a0=220.0, a1=265.0)
+MAP1_S4_LAVA_OUTER = dict(r_in=55.0, r_out=60.0, a0=220.0, a1=265.0)
+MAP1_S4_PADS = [222.0, 240.0, 258.0]
+MAP1_S4_SLABS = [231.0, 249.0]
+
+MAP1_S5_WALLS = [(288.0, 296.0), (300.0, 308.0), (312.0, 320.0), (324.0, 332.0)]
+MAP1_S5_SLABS = [295.0, 307.0, 319.0]
+
 # Both ramps are centred on the gallery's own mid-radius, so a full-width ramp
 # lands wall to wall at each end. They no longer need separating by radius --
 # that was to stop the lower ramp's trench opening under the upper one's foot,
@@ -216,6 +243,18 @@ def exit_deg():
     return (ENTRY_DEG + LAP_DEGREES) % 360.0
 
 
+def scaled_y(basis, factor):
+    """[func tangential] or [func facing_down_track]'s basis with local Y scaled.
+
+    Both are pure yaw, so the Y column is always (0,1,0) at flat indices 3-5;
+    scaling those three in place lands on the same single entry a proper
+    column-scale would.
+    """
+    return (basis[0], basis[1], basis[2],
+            basis[3] * factor, basis[4] * factor, basis[5] * factor,
+            basis[6], basis[7], basis[8])
+
+
 def ramp_frame(level):
     """Foot, top, pitch, length and inboard normal of the ramp off `level`."""
     radius = RAMP_RADII[level]
@@ -274,7 +313,94 @@ def trench_span(level):
 lines = []
 W = lines.append
 
-W('[gd_scene load_steps=%d format=3]' % (23 if LEVELS == 1 else 20))
+
+def emit_model(parent, name, ext_id, angle, radius, scale_y=None):
+    """One PackedScene instance, base at deck_y(0), yawed tangential to the ring."""
+    x, z = pt(angle, radius)
+    basis = tangential(angle)
+    if scale_y is not None:
+        basis = scaled_y(basis, scale_y)
+    W('[node name="%s" parent="%s" instance=ExtResource("%s")]' % (name, parent, ext_id))
+    W('transform = %s' % t3(basis, (x, deck_y(0), z)))
+    W('')
+
+
+def emit_wall_chain(parent, prefix, ext_id, radius, start_deg, end_deg, count, scale_y=None):
+    """`count` rock_wall copies chained end to end across [start_deg, end_deg]."""
+    span = end_deg - start_deg
+    for index in range(count):
+        angle = start_deg + span * (index + 0.5) / count
+        emit_model(parent, "%s_%03ddeg" % (prefix, int(round(angle))), ext_id, angle, radius,
+                   scale_y=scale_y)
+
+
+def emit_lava_field(parent, prefix, lava_ext_id, trap_ext_id, r_in, r_out, a0, a1):
+    """A lava_tile grid on a 4 m polar grid, plus a few TrapVolume boxes over it."""
+    top = deck_y(0)
+    tile_y = top + LAVA_TOP_ABOVE_DECK - LAVA_TILE_MODEL_H
+    band = r_out - r_in
+    span = a1 - a0
+    rings = max(1, int(math.ceil(band / LAVA_TILE_GRID_M)))
+    ring_h = band / rings
+    W('[node name="%s" type="Node3D" parent="%s"]' % (prefix, parent))
+    W('')
+    node_path = "%s/%s" % (parent, prefix)
+    index = 0
+    for ring in range(rings):
+        radius = r_in + ring_h * (ring + 0.5)
+        arc_len = math.radians(span) * radius
+        cols = max(1, int(round(arc_len / LAVA_TILE_GRID_M)))
+        for col in range(cols):
+            angle = a0 + span * (col + 0.5) / cols
+            x, z = pt(angle, radius)
+            W('[node name="Tile_%02d" parent="%s" instance=ExtResource("%s")]'
+              % (index, node_path, lava_ext_id))
+            W('transform = %s' % t3(tangential(angle), (x, tile_y, z)))
+            W('')
+            index += 1
+    mid_r = (r_in + r_out) * 0.5
+    boxes = max(1, int(round(math.radians(span) * mid_r / LAVA_TRAP_SEGMENT_M)))
+    for box in range(boxes):
+        angle = a0 + span * (box + 0.5) / boxes
+        x, z = pt(angle, mid_r)
+        seg_len = math.radians(span / boxes) * mid_r + 0.5
+        name = "Trap_%02d" % box
+        W('[node name="%s" type="Area3D" parent="%s"]' % (name, node_path))
+        W('collision_layer = 0')
+        W('collision_mask = 1048577')
+        W('monitorable = false')
+        W('transform = %s' % t3(tangential(angle), (x, top + 0.2, z)))
+        W('script = ExtResource("%s")' % trap_ext_id)
+        W('size_metres = Vector3(%.4f, 1.0, %.4f)' % (seg_len, band + 0.5))
+        W('')
+        W('[node name="Shape" type="CollisionShape3D" parent="%s/%s"]' % (node_path, name))
+        W('')
+
+
+def emit_boost_pad(parent, angle, radius, script_ext_id, model_ext_id):
+    """BoostPad Area3D (scripts/match/boost_pad.gd) launching forward along the run,
+    with the demon_pad model as its visual child."""
+    top = deck_y(0)
+    x, z = pt(angle, radius)
+    name = "DemonPad_%03ddeg" % int(round(angle))
+    node_path = "%s/%s" % (parent, name)
+    W('[node name="%s" type="Area3D" parent="%s"]' % (name, parent))
+    W('collision_layer = 0')
+    W('collision_mask = 1048577')
+    W('monitorable = false')
+    W('transform = %s' % t3(facing_down_track(angle), (x, top, z)))
+    W('script = ExtResource("%s")' % script_ext_id)
+    W('footprint_metres = Vector3(2.5, 1.0, 2.5)')
+    W('launch_speed = 18.0')
+    W('launch_angle_degrees = 45.0')
+    W('')
+    W('[node name="Shape" type="CollisionShape3D" parent="%s"]' % node_path)
+    W('')
+    W('[node name="Model" parent="%s" instance=ExtResource("%s")]' % (node_path, model_ext_id))
+    W('')
+
+
+W('[gd_scene load_steps=%d format=3]' % (28 if LEVELS == 1 else 20))
 W('')
 W('[ext_resource type="Script" path="res://scripts/match/kill_volume.gd" id="1_kill_volume"]')
 W('[ext_resource type="Script" path="res://scripts/match/trap_volume.gd" id="2_trap_volume"]')
@@ -287,7 +413,13 @@ W('[ext_resource type="PackedScene" path="res://assets/models/tower.glb" id="8_t
 W('[ext_resource type="Resource" path="res://scenes/ring/floating_watching_eye_profile.tres" id="9_watcher_profile"]')
 if LEVELS == 1:
     W('[ext_resource type="PackedScene" path="res://assets/models/map_base.glb" id="10_map_base_model"]')
-    W('[ext_resource type="Texture2D" path="res://assets/models/tower_tower_rock_albedo.png" id="11_rock_albedo"]')
+    W('[ext_resource type="PackedScene" path="res://assets/models/spire.glb" id="12_spire"]')
+    W('[ext_resource type="PackedScene" path="res://assets/models/slab.glb" id="13_slab"]')
+    W('[ext_resource type="PackedScene" path="res://assets/models/rock_wall.glb" id="14_rock_wall"]')
+    W('[ext_resource type="PackedScene" path="res://assets/models/boulder.glb" id="15_boulder"]')
+    W('[ext_resource type="PackedScene" path="res://assets/models/lava_tile.glb" id="16_lava_tile"]')
+    W('[ext_resource type="PackedScene" path="res://assets/models/demon_pad.glb" id="17_demon_pad"]')
+    W('[ext_resource type="Script" path="res://scripts/match/boost_pad.gd" id="18_boost_pad"]')
 W('')
 for name, colour, rough in [("MatDeck", "0.42, 0.42, 0.44, 1.0", 0.95),
                             ("MatStructure", "0.27, 0.27, 0.29, 1.0", 0.95),
@@ -299,12 +431,6 @@ for name, colour, rough in [("MatDeck", "0.42, 0.42, 0.44, 1.0", 0.95),
     W('albedo_color = Color(%s)' % colour)
     W('roughness = %s' % rough)
     W('metallic = 0.0')
-    W('')
-if LEVELS == 1:
-    W('[sub_resource type="StandardMaterial3D" id="MatRock"]')
-    W('albedo_texture = ExtResource("11_rock_albedo")')
-    W('uv1_triplanar = true')
-    W('roughness = 0.95')
     W('')
 W('[sub_resource type="StandardMaterial3D" id="MatTrap"]')
 W('resource_name = "Trap"')
@@ -373,31 +499,7 @@ W('')
 
 if LEVELS == 1:
     # No deck CSG: assets/models/map_base.glb is the deck, ships its own mesh
-    # and collision. Pits keep their bearings and bands but become fall
-    # triggers -- there is no CSG slab left to cut a hole through.
-    top = deck_y(0)
-    W('[node name="Pits" type="Node3D" parent="Ring"]')
-    W('editor_description = "Same bearings and bands as the shaft pits used to be. Triggers now, '
-      'not cut holes -- the deck is baked into map_base.glb and this cannot cut it."')
-    W('')
-    for index, angle in enumerate(PIT_ANGLES):
-        radius = PIT_INNER_R if index % 2 == 0 else PIT_OUTER_R
-        x, z = pt(angle, radius)
-        name = "Pit_%03ddeg" % int(round(angle))
-        W('[node name="%s" type="Area3D" parent="Ring/Pits" groups=["deck_pits"]]' % name)
-        W('editor_description = %s' % repr_desc(
-            "%.0f deg, r=%.2f: falls a body through to the kill volume on contact, same as the "
-            "shaft pits did." % (angle, radius)))
-        W('collision_layer = 0')
-        W('collision_mask = 1048577')
-        W('monitorable = false')
-        W('transform = %s' % t3(yaw(0.0), (x, top, z)))
-        W('script = ExtResource("2_trap_volume")')
-        W('size_metres = Vector3(%.4f, 3.0, %.4f)' % (PIT_HOLE_R * 2.0, PIT_HOLE_R * 2.0))
-        W('')
-        W('[node name="Shape" type="CollisionShape3D" parent="Ring/Pits/%s"]' % name)
-        W('editor_description = "Deliberately empty. TrapVolume._build_shape writes a BoxShape3D over it on ready from size_metres on the parent."')
-        W('')
+    # and collision. No pits on map 1 -- docs/MAP1_SECTIONS.md has none.
     W('[node name="MapBase" parent="." instance=ExtResource("10_map_base_model")]')
     W('editor_description = "assets/models/map_base.glb: the one deck -- annulus, pit wall down '
       'to the courtyard, outer wall up to the rim. Ships its own collision (MapBaseCollision-'
@@ -819,30 +921,72 @@ W('')
 if LEVELS == 1:
     gap_deg = 360.0 - LAP_DEGREES
     gap_mid = (exit_deg() + ENTRY_DEG + 360.0) * 0.5 % 360.0
-    wx, wz = pt(gap_mid, (INNER_R + OUTER_R) * 0.5)
-    wall_h = ceiling_gap
-    W('[node name="StartFinishWall" type="CSGBox3D" parent="."]')
-    W('editor_description = %s' % repr_desc(
-        "Blocks the %.0f deg gap between finish (%.0f deg) and start (%.0f deg) -- without it a "
-        "runner can walk backwards through it from start to finish."
-        % (gap_deg, exit_deg(), ENTRY_DEG)))
-    W('use_collision = true')
-    W('size = Vector3(%.4f, %.4f, 1.0)' % (OUTER_R - INNER_R, wall_h))
-    W('material = SubResource("MatRock")')
-    W('transform = %s' % t3(tangential(gap_mid + 90.0), (wx, deck_y(0) + wall_h * 0.5, wz)))
-    W('')
+    # Two rock_wall segments (8 m each) laid radially across the 16 m deck,
+    # scaled up to the ceiling. Without it a runner walks backwards through the gap.
+    basis = scaled_y(tangential(gap_mid + 90.0), ceiling_gap / 3.0)
+    for index, radius in enumerate((INNER_R + 4.0, INNER_R + 12.0)):
+        wx, wz = pt(gap_mid, radius)
+        W('[node name="StartFinishWall%d" parent="." instance=ExtResource("14_rock_wall")]' % index)
+        W('transform = %s' % t3(basis, (wx, deck_y(0), wz)))
+        W('')
 
-# --- cover -------------------------------------------------------------------
-W('[node name="Cover" type="Node3D" parent="."]')
 if LEVELS == 1:
-    W('editor_description = %s' % repr_desc(
-        "Cover on the one deck, two radial bands at r=%.0f and r=%.0f -- one either side of the "
-        "racing line, which is what a %.0f m deck has room for. Height %.1f m: far above the "
-        "1.11 m jump, so it cannot be hopped, and tuned to the guard's %.0f degree look down from "
-        "the tower so a piece's shadow stays a few metres, not a corridor."
-        % (COVER_INNER_R, COVER_OUTER_R, OUTER_R - INNER_R, COVER_HEIGHTS[0],
-           math.degrees(math.atan2(EYE_Y - deck_y(0) - CHEST, LANE_R)))))
+    # --- map 1 sections, docs/MAP1_SECTIONS.md ----------------------------
+    # Cover, walls and hazards are PackedScene instances of the glb models,
+    # each carrying its own baked collision (a "-colonly" mesh -> StaticBody3D
+    # on the default physics layer). RunnerCoverFinder never reads a group or
+    # a layer of its own -- it raycasts the physics world directly, on
+    # FLOOR_MASK / the rifle's hit_mask (both 0xFFFFF, default layer 1
+    # included) -- so an instance needs no tagging to register as cover.
+    W('[node name="Sections" type="Node3D" parent="."]')
+    W('editor_description = "Map 1 sections, docs/MAP1_SECTIONS.md."')
+    W('')
+    for angle in MAP1_POCKETS:
+        emit_model("Sections", "Pocket_%03ddeg" % int(round(angle)), "13_slab", angle, LANE_R)
+
+    W('[node name="S1_Spires" type="Node3D" parent="Sections"]')
+    W('')
+    for angle, radius in MAP1_SPIRES:
+        emit_model("Sections/S1_Spires", "Spire_%03ddeg" % angle, "12_spire", angle, radius)
+
+    W('[node name="S2_LavaShelf" type="Node3D" parent="Sections"]')
+    W('')
+    emit_wall_chain("Sections/S2_LavaShelf", "RockWall", "14_rock_wall", **MAP1_S2_WALL)
+    emit_lava_field("Sections/S2_LavaShelf", "Lava", "16_lava_tile", "2_trap_volume", **MAP1_S2_LAVA)
+    for angle, radius in MAP1_S2_BOULDERS:
+        emit_model("Sections/S2_LavaShelf", "Boulder_%03ddeg" % angle, "15_boulder", angle, radius)
+    for angle, radius in MAP1_S2_SPIRES:
+        emit_model("Sections/S2_LavaShelf", "Spire_%03ddeg" % angle, "12_spire", angle, radius)
+
+    W('[node name="S3_Split" type="Node3D" parent="Sections"]')
+    W('')
+    emit_wall_chain("Sections/S3_Split", "RockWall", "14_rock_wall", **MAP1_S3_WALL)
+    emit_lava_field("Sections/S3_Split", "Lava", "16_lava_tile", "2_trap_volume", **MAP1_S3_LAVA)
+    for angle, radius in MAP1_S3_BOULDERS:
+        emit_model("Sections/S3_Split", "Boulder_%03ddeg" % angle, "15_boulder", angle, radius)
+
+    W('[node name="S4_DemonRun" type="Node3D" parent="Sections"]')
+    W('')
+    emit_lava_field("Sections/S4_DemonRun", "LavaInner", "16_lava_tile", "2_trap_volume",
+                     **MAP1_S4_LAVA_INNER)
+    emit_lava_field("Sections/S4_DemonRun", "LavaOuter", "16_lava_tile", "2_trap_volume",
+                     **MAP1_S4_LAVA_OUTER)
+    for angle in MAP1_S4_PADS:
+        emit_boost_pad("Sections/S4_DemonRun", angle, LANE_R, "18_boost_pad", "17_demon_pad")
+    for angle in MAP1_S4_SLABS:
+        emit_model("Sections/S4_DemonRun", "Slab_%03ddeg" % int(angle), "13_slab", angle, LANE_R)
+
+    W('[node name="S5_WallRun" type="Node3D" parent="Sections"]')
+    W('')
+    for start, end in MAP1_S5_WALLS:
+        mid = (start + end) * 0.5
+        emit_model("Sections/S5_WallRun", "RockWall_%03ddeg" % int(round(mid)),
+                   "14_rock_wall", mid, 49.0)
+    for angle in MAP1_S5_SLABS:
+        emit_model("Sections/S5_WallRun", "Slab_%03ddeg" % int(angle), "13_slab", angle, 57.0)
 else:
+    # --- cover -----------------------------------------------------------
+    W('[node name="Cover" type="Node3D" parent="."]')
     W('editor_description = %s' % repr_desc(
         "Cover on all three levels, grouped by level, two radial bands per level at r=%.0f and "
         "r=%.0f -- one either side of the racing line, which is what a %.0f m deck has room for.\n\n"
@@ -859,47 +1003,29 @@ else:
            EYE_Y - deck_y(LEVEL_COUNT - 1),
            math.degrees(math.atan2(EYE_Y - deck_y(LEVEL_COUNT - 1) - CHEST, LANE_R)),
            COVER_HEIGHTS[0], COVER_HEIGHTS[1], COVER_HEIGHTS[2])))
-W('')
-for level in range(LEVEL_COUNT):
-    top = deck_y(level)
-    height = COVER_HEIGHTS[level]
-    W('[node name="Level%d" type="Node3D" parent="Cover"]' % (level + 1))
-    if LEVELS == 1:
-        W('editor_description = "Cover on the deck: %d pieces, 6.0 x %.1f x 1.5 m, faces tangential so each presents its full width to the tower."'
-          % (len(COVER_ANGLES), height))
-    else:
+    W('')
+    for level in range(LEVEL_COUNT):
+        top = deck_y(level)
+        height = COVER_HEIGHTS[level]
+        W('[node name="Level%d" type="Node3D" parent="Cover"]' % (level + 1))
         W('editor_description = "Cover on level %d: %d pieces, 6.0 x %.1f x 1.5 m, faces tangential so each presents its full width to the tower. Rotated off the level below so a climb is not the same lap again."'
           % (level + 1, len(COVER_ANGLES), height))
-    W('')
-    for index, angle in enumerate(COVER_ANGLES):
-        radius = band(index, level, COVER_INNER_R, COVER_OUTER_R)
-        x, z = pt(angle, radius)
-        W('[node name="Cover_%03ddeg" type="CSGBox3D" parent="Cover/Level%d"]'
-          % (int(round(angle)), level + 1))
-        W('editor_description = "%.0f deg, r=%.1f on level %d. The 6 m face is tangential to the track."'
-          % (angle, radius, level + 1))
-        W('use_collision = true')
-        W('size = Vector3(6.0, %.4f, 1.5)' % height)
-        W('material = SubResource("MatCover")')
-        W('transform = %s' % t3(tangential(angle), (x, top + height * 0.5, z)))
         W('')
+        for index, angle in enumerate(COVER_ANGLES):
+            radius = band(index, level, COVER_INNER_R, COVER_OUTER_R)
+            x, z = pt(angle, radius)
+            W('[node name="Cover_%03ddeg" type="CSGBox3D" parent="Cover/Level%d"]'
+              % (int(round(angle)), level + 1))
+            W('editor_description = "%.0f deg, r=%.1f on level %d. The 6 m face is tangential to the track."'
+              % (angle, radius, level + 1))
+            W('use_collision = true')
+            W('size = Vector3(6.0, %.4f, 1.5)' % height)
+            W('material = SubResource("MatCover")')
+            W('transform = %s' % t3(tangential(angle), (x, top + height * 0.5, z)))
+            W('')
 
-# --- traps -------------------------------------------------------------------
-W('[node name="Traps" type="Node3D" parent="."]')
-if LEVELS == 1:
-    W('editor_description = %s' % repr_desc(
-        "Red blocks that kill on contact. Read them with Ring/Pits: eleven places on the route "
-        "are lethal a couple of metres off the racing line, six standing up in red and five fall "
-        "triggers.\n\n"
-        "NO RACING LINE IS NARROWED. The shipped RingRunner baseline has no obstacle avoidance: it "
-        "faces a point on the lane circle a few metres ahead and holds full forward. So every "
-        "trap and pit is flush against a shoulder the cover band already ends at, and the clear "
-        "channel is r%.2f-r%.2f. No trap is within eleven degrees of a piece of cover.\n\n"
-        "WHAT A TRAP DOES IS NOT DECIDED HERE: scripts/match/trap_volume.gd hands the body to "
-        "MatchController.handle_fall(). Touching red and being shot are the same death. The blocks "
-        "carry no collision, so they are not cover and they occlude nothing."
-        % (LANE_R - CLEAR_CHANNEL, LANE_R + CLEAR_CHANNEL)))
-else:
+    # --- traps -------------------------------------------------------------
+    W('[node name="Traps" type="Node3D" parent="."]')
     W('editor_description = %s' % repr_desc(
         "Red blocks that kill on contact, on every level -- hazards live across the levels and not "
         "only on the bottom one. Read them with the pit shafts: at eighteen places on the route the "
@@ -917,35 +1043,35 @@ else:
         "MatchController.handle_fall(). Touching red and being shot are the same death. The blocks "
         "carry no collision, so they are not cover and they occlude nothing."
         % (LANE_R - CLEAR_CHANNEL, LANE_R + CLEAR_CHANNEL)))
-W('')
-for level in range(LEVEL_COUNT):
-    top = deck_y(level)
-    for index, angle in enumerate(TRAP_ANGLES):
-        radius = band(index, level, TRAP_INNER_R, TRAP_OUTER_R)
-        x, z = pt(angle, radius)
-        name = "Trap_L%d_%03ddeg" % (level + 1, int(round(angle)))
-        W('[node name="%s" type="Area3D" parent="Traps"]' % name)
-        W('editor_description = %s' % repr_desc(
-            "%.0f deg on level %d, r=%.2f, so it spans r%.2f-r%.2f and stops dead on the "
-            "shoulder the cover band already ends at. The clear channel r%.2f-r%.2f is "
-            "untouched. 2.2 m tall: the tuned MovementProfile jumps 1.11 m, so it cannot be "
-            "hopped and has to be gone around."
-            % (angle, level + 1, radius, radius - 1.0, radius + 1.0,
-               LANE_R - CLEAR_CHANNEL, LANE_R + CLEAR_CHANNEL)))
-        W('collision_layer = 0')
-        W('collision_mask = 1048577')
-        W('monitorable = false')
-        W('transform = %s' % t3(tangential(angle), (x, top + 1.1, z)))
-        W('script = ExtResource("2_trap_volume")')
-        W('size_metres = Vector3(5.0, 2.2, 2.0)')
-        W('')
-        W('[node name="Shape" type="CollisionShape3D" parent="Traps/%s"]' % name)
-        W('editor_description = "Deliberately empty. TrapVolume._build_shape writes a BoxShape3D over it on ready from size_metres on the parent."')
-        W('')
-        W('[node name="Block" type="CSGBox3D" parent="Traps/%s"]' % name)
-        W('editor_description = "The red you see. use_collision is off on purpose -- a solid block would be new cover, a new occluder, and something the avoidance-free runner brain could grind against."')
-        W('material = SubResource("MatTrap")')
-        W('')
+    W('')
+    for level in range(LEVEL_COUNT):
+        top = deck_y(level)
+        for index, angle in enumerate(TRAP_ANGLES):
+            radius = band(index, level, TRAP_INNER_R, TRAP_OUTER_R)
+            x, z = pt(angle, radius)
+            name = "Trap_L%d_%03ddeg" % (level + 1, int(round(angle)))
+            W('[node name="%s" type="Area3D" parent="Traps"]' % name)
+            W('editor_description = %s' % repr_desc(
+                "%.0f deg on level %d, r=%.2f, so it spans r%.2f-r%.2f and stops dead on the "
+                "shoulder the cover band already ends at. The clear channel r%.2f-r%.2f is "
+                "untouched. 2.2 m tall: the tuned MovementProfile jumps 1.11 m, so it cannot be "
+                "hopped and has to be gone around."
+                % (angle, level + 1, radius, radius - 1.0, radius + 1.0,
+                   LANE_R - CLEAR_CHANNEL, LANE_R + CLEAR_CHANNEL)))
+            W('collision_layer = 0')
+            W('collision_mask = 1048577')
+            W('monitorable = false')
+            W('transform = %s' % t3(tangential(angle), (x, top + 1.1, z)))
+            W('script = ExtResource("2_trap_volume")')
+            W('size_metres = Vector3(5.0, 2.2, 2.0)')
+            W('')
+            W('[node name="Shape" type="CollisionShape3D" parent="Traps/%s"]' % name)
+            W('editor_description = "Deliberately empty. TrapVolume._build_shape writes a BoxShape3D over it on ready from size_metres on the parent."')
+            W('')
+            W('[node name="Block" type="CSGBox3D" parent="Traps/%s"]' % name)
+            W('editor_description = "The red you see. use_collision is off on purpose -- a solid block would be new cover, a new occluder, and something the avoidance-free runner brain could grind against."')
+            W('material = SubResource("MatTrap")')
+            W('')
 
 # --- the route ---------------------------------------------------------------
 W('[node name="Route" type="Node3D" parent="."]')

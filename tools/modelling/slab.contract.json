@@ -1,0 +1,6 @@
+{
+  "_comment": "slab: a reusable map element. Origin at the base centre, y=0 is the ground. One textured material (the tower's 128x128 atlas + emissive), one UV set, no skin, no animation. SlabCollision is the purpose-built convex collider shipped as a `-colonly` node; Godot turns it into a StaticBody3D + ConcavePolygonShape3D and drops its mesh, so `surfaces` stays 1 and `max_tris` counts only what is drawn.",
+  "node_paths": ["Slab", "SlabCollision", "SlabCollision/CollisionShape3D"],
+  "surfaces": 1,
+  "max_tris": 120
+}

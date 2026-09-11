@@ -1,0 +1,6 @@
+{
+  "_comment": "Lava tile: 4 x 4 m x 0.3 m slab, origin at base centre, edges flat at +-2.0 so tiles grid cleanly. One textured material (128x128 atlas, lava quarter strongly emissive), one UV set. Deliberately NO collision node: the scene lays a TrapVolume kill trigger over it.",
+  "node_paths": ["LavaTile"],
+  "surfaces": 1,
+  "max_tris": 120
+}

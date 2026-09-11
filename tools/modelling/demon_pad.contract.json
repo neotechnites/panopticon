@@ -1,0 +1,6 @@
+{
+  "_comment": "Demon pad: 2.5 m dia x 0.15 m boost disc, origin at base centre, sigil points +Y in Blender = -Z in Godot. One textured material (128x128 atlas, sigil quarter emissive), one UV set. DemonPadCollision rides in the .glb as a `-colonly` thin 8-sided cylinder; its mesh is discarded on import so surfaces stays 1.",
+  "node_paths": ["DemonPad", "DemonPadCollision", "DemonPadCollision/CollisionShape3D"],
+  "surfaces": 1,
+  "max_tris": 120
+}
