@@ -1,16 +1,11 @@
-[gd_resource type="Resource" script_class="ZoomProfile" load_steps=2 format=3]
+[gd_resource type="Resource" script_class="ZoomProfile" format=3 uid="uid://kn47q0cbdov"]
 
-[ext_resource type="Script" path="res://scripts/optics/zoom_profile.gd" id="1_zoom_profile"]
+[ext_resource type="Script" uid="uid://v8nheddon2ga" path="res://scripts/optics/zoom_profile.gd" id="1_zoom_profile"]
 
 [resource]
 script = ExtResource("1_zoom_profile")
 zoom_factor = 0.2
 zoom_in_seconds = 0.5
 zoom_out_seconds = 0.25
-transition_smoothing = 1.0
-sensitivity_compensation = 1.0
 vignette_opacity = 1.0
-vignette_clear_fraction = 0.46
 vignette_softness = 0.015
-vignette_onset = 0.55
-activation = 0

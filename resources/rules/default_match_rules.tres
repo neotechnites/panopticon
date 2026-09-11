@@ -1,31 +1,12 @@
-[gd_resource type="Resource" script_class="MatchRules" load_steps=3 format=3]
+[gd_resource type="Resource" script_class="MatchRules" format=3 uid="uid://bj5exdieh1krn"]
 
-[ext_resource type="Script" path="res://scripts/match/match_rules.gd" id="1_match_rules"]
+[ext_resource type="Script" uid="uid://wocooilioq2s" path="res://scripts/bot/shooter_profile.gd" id="1_lmd8e"]
+[ext_resource type="Script" uid="uid://bnmbel11j4v7p" path="res://scripts/match/match_rules.gd" id="1_match_rules"]
 [ext_resource type="Resource" path="res://resources/rules/default_ghost_profile.tres" id="2_ghost_profile"]
 
 [resource]
 script = ExtResource("1_match_rules")
-map_id = &"bentham_ring"
-air_control_id = &"committed"
-prisoner_count = 3
-track_radius = 52.0
-start_line_spacing_metres = 2.0
-prisoner_lives = 1
-bot_speed_mode = 0
-base_reload_seconds = 2.5
 reload_reduction_per_turn = 0.25
 reload_floor_seconds = 1.0
-shooter_win_condition = 0
-shutout_count = 0
-hold_duration_seconds = 0.0
-runner_win_condition = 0
-round_time_limit_seconds = 0.0
-open_with_race = true
-opening_seat_index = 0
-rounds_to_win_match = 1
-turn_count_resets_on_seat_loss = false
-lap_arrival_tolerance = 1.5
 ghost_behaviour = 3
 ghost_profile = ExtResource("2_ghost_profile")
-guard_fov_degrees = 360.0
-guard_sightlines_unobstructed = false
