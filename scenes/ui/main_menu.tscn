@@ -57,6 +57,7 @@ light_energy = 18.0
 shadow_enabled = false
 omni_range = 140.0
 omni_attenuation = 0.9
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.5, 0)
 
 [node name="Rim" type="DirectionalLight3D" parent="World"]
 light_color = Color(0.9, 0.25, 0.15, 1)
