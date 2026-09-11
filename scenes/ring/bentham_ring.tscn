@@ -59,8 +59,8 @@ sky_material = SubResource("SkyMat")
 background_mode = 2
 sky = SubResource("Sky")
 ambient_light_source = 3
-ambient_light_color = Color(0.35, 0.12, 0.10, 1.0)
-ambient_light_energy = 0.25
+ambient_light_color = Color(0.62, 0.30, 0.22, 1)
+ambient_light_energy = 0.75
 tonemap_mode = 2
 
 [node name="BenthamRing" type="Node3D"]
@@ -174,7 +174,7 @@ transform = Transform3D(0.965926, 0, 0.258819, 0, 1, 0, -0.258819, 0, 0.965926, 
 
 [node name="RockBars" parent="." instance=ExtResource("20_rock_bars")]
 editor_description = "Bars across the lane at 350 deg, in the gap between finish and start, so the finish is visible from the start. Local X (10.6 m) runs radially, local Z is tangential."
-transform = Transform3D(0.984808, 0, 0.173648, 0, 1, 0, -0.173648, 0, 0.984808, 51.91, 23, -9.0297)
+transform = Transform3D(1.28025, 0, 0.173648, 0, 1, 0, -0.225742, 0, 0.984808, 51.91, 23, -9.0297)
 
 [node name="Sections" type="Node3D" parent="."]
 editor_description = "Map 1 sections, docs/MAP1_SECTIONS.md."
@@ -752,12 +752,20 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, -0, 0, 1, 0, 0.25, 0)
 editor_description = "Fire from the hole above, angled 20 degrees off vertical (about 70 deg below horizontal) into the pit rather than the flat noon light of an office."
 transform = Transform3D(1, 0, 0, 0, 0.34202, 0.939693, 0, -0.939693, 0.34202, 0, 20, 0)
 light_color = Color(1.0, 0.45, 0.15, 1.0)
-light_energy = 2.0
-shadow_enabled = true
+light_energy = 0.0
+shadow_enabled = false
 shadow_bias = 0.08
 shadow_normal_bias = 2.0
 directional_shadow_mode = 0
-directional_shadow_max_distance = 180.0
+directional_shadow_max_distance = 180.
+
+[node name="HellFlood" type="OmniLight3D" parent="Tower"]
+light_color = Color(1, 0.55, 0.35, 1)
+light_energy = 1.6
+shadow_enabled = false
+omni_range = 420.0
+omni_attenuation = 0.35
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 140, 0)0
 
 [node name="TowerLight" type="OmniLight3D" parent="Tower"]
 editor_description = "LOCAL GLOW ONLY, not the arena's main light -- see KeyLight. A small hot point above the platform so the tower still visibly reads as a light source up close. Colour, energy, range, attenuation and height are TowerLightProfile fields applied by TowerLight.gd at ready; the light_* properties here are placeholders for the editor view. It rides the tower's rise, which is the point."
