@@ -47,12 +47,12 @@ shading_mode = 0
 albedo_color = Color(0.86, 0.06, 0.06, 1.0)
 
 [sub_resource type="ProceduralSkyMaterial" id="SkyMat"]
-sky_top_color = Color(1.0, 0.32, 0.06, 1)
-sky_horizon_color = Color(1.0, 0.18, 0.03, 1)
+sky_top_color = Color(0.85, 0.12, 0.03, 1)
+sky_horizon_color = Color(0.75, 0.08, 0.02, 1)
 sky_curve = 0.25
-sky_energy_multiplier = 2.0
+sky_energy_multiplier = 1.4
 ground_bottom_color = Color(0.25, 0.05, 0.03, 1)
-ground_horizon_color = Color(0.8, 0.12, 0.02, 1)
+ground_horizon_color = Color(0.6, 0.06, 0.02, 1)
 sun_angle_max = 0.0
 
 [sub_resource type="Sky" id="Sky"]
@@ -63,7 +63,7 @@ background_mode = 2
 sky = SubResource("Sky")
 ambient_light_source = 3
 ambient_light_color = Color(0.70, 0.16, 0.08, 1)
-ambient_light_energy = 0.75
+ambient_light_energy = 0.64
 tonemap_mode = 1
 
 [node name="BenthamRing" type="Node3D"]
@@ -763,8 +763,8 @@ directional_shadow_mode = 0
 directional_shadow_max_distance = 180.
 
 [node name="HellFlood" type="OmniLight3D" parent="Tower"]
-light_color = Color(1.0, 0.36, 0.08, 1)
-light_energy = 4.0
+light_color = Color(1.0, 0.28, 0.06, 1)
+light_energy = 3.4
 shadow_enabled = false
 omni_range = 700.0
 omni_attenuation = 0.6
