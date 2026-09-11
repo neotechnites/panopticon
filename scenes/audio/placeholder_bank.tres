@@ -27,7 +27,6 @@
 [ext_resource type="AudioStream" path="res://assets/audio/sfx/clean/catch_taken.wav" id="catch_taken"]
 [ext_resource type="AudioStream" path="res://assets/audio/sfx/clean/lava_death.wav" id="lava_death"]
 [ext_resource type="AudioStream" path="res://assets/audio/sfx/clean/boost_pad.wav" id="boost_pad"]
-[ext_resource type="AudioStream" path="res://assets/audio/sfx/clean/portal_drone.wav" id="portal_drone"]
 [ext_resource type="AudioStream" path="res://assets/audio/sfx/clean/ui_click.wav" id="ui_click"]
 [ext_resource type="AudioStream" path="res://assets/audio/sfx/clean/ui_focus.wav" id="ui_focus"]
 [ext_resource type="AudioStream" path="res://assets/audio/sfx/clean/ui_back.wav" id="ui_back"]
@@ -268,7 +267,6 @@ unit_size = 12.0
 resource_name = "hazard.portal"
 script = ExtResource("cue")
 event = &"hazard.portal"
-stream = ExtResource("portal_drone")
 bus = &"SFX"
 volume_db = -12.0
 positional = true
