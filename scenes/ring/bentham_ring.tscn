@@ -47,12 +47,12 @@ shading_mode = 0
 albedo_color = Color(0.86, 0.06, 0.06, 1.0)
 
 [sub_resource type="ProceduralSkyMaterial" id="SkyMat"]
-sky_top_color = Color(1.0, 0.62, 0.22, 1)
-sky_horizon_color = Color(1.0, 0.36, 0.10, 1)
+sky_top_color = Color(1.0, 0.32, 0.06, 1)
+sky_horizon_color = Color(1.0, 0.18, 0.03, 1)
 sky_curve = 0.25
-sky_energy_multiplier = 2.5
+sky_energy_multiplier = 2.0
 ground_bottom_color = Color(0.25, 0.05, 0.03, 1)
-ground_horizon_color = Color(0.9, 0.3, 0.1, 1)
+ground_horizon_color = Color(0.8, 0.12, 0.02, 1)
 sun_angle_max = 0.0
 
 [sub_resource type="Sky" id="Sky"]
@@ -62,9 +62,9 @@ sky_material = SubResource("SkyMat")
 background_mode = 2
 sky = SubResource("Sky")
 ambient_light_source = 3
-ambient_light_color = Color(0.62, 0.30, 0.22, 1)
+ambient_light_color = Color(0.70, 0.16, 0.08, 1)
 ambient_light_energy = 0.75
-tonemap_mode = 2
+tonemap_mode = 1
 
 [node name="BenthamRing" type="Node3D"]
 editor_description = "THE BENTHAM RING, one level, built on assets/models/map_base.glb -- deck annulus r=44 to r=60 at y=23.0, pit wall down to the courtyard at y=-11.0, outer wall up to the rim. The model ships its own collision, so this generator adds no deck CSG, walls, ramps or trench for it: only the tower, cover, traps, pits, lights and markers.\n\nA prisoner runs one 330 deg lap at r=52, about 299 m, and reaches the end pad, which takes the tower.\n\nThe three-level stack this replaces is still in tools/modelling/gen_bentham_ring.py, selected by setting LEVELS = 3."
@@ -763,7 +763,7 @@ directional_shadow_mode = 0
 directional_shadow_max_distance = 180.
 
 [node name="HellFlood" type="OmniLight3D" parent="Tower"]
-light_color = Color(1, 0.6, 0.3, 1)
+light_color = Color(1.0, 0.36, 0.08, 1)
 light_energy = 4.0
 shadow_enabled = false
 omni_range = 700.0
