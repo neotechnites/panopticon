@@ -26,7 +26,7 @@ OBJECT_NAME = "Boulder"
 COLLIDER_NAME = "BoulderCollision-colonly"
 
 SIDES = 8
-HEIGHT = 1.0
+HEIGHT = 0.7
 RADIUS = 1.3                      # 2.6 m diameter: a platform you can land on
 PROFILE = [(0.00, 0.80), (0.40, 1.00), (0.85, 1.02), (1.00, 1.00)]   # (t, r/RADIUS): flat-topped, no taper
 R_MAX = 1.36                      # after jitter: 2.0 m across the 8-gon's flats, near enough
