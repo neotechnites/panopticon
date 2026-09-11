@@ -1,0 +1,6 @@
+{
+  "_comment": "torch: a wall sconce. Origin at the centre of the bracket's back face; the wall is local z=0 and the torch projects along local +Z into the room. One textured material (the tower's 128x128 atlas, ember quarter repainted as an emissive flame), one UV set, no skin, no animation, NO collision node.",
+  "node_paths": ["Torch"],
+  "surfaces": 1,
+  "max_tris": 160
+}

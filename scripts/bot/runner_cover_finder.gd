@@ -35,6 +35,9 @@ extends RefCounted
 ## 4. [b]Is there floor all the way there?[/b] The same downward ray, repeated
 ##    every [constant PATH_STEP_METRES] along the straight line the runner would
 ##    actually walk. See [method path_is_walkable].
+## 5. [b]Is it a hazard?[/b] A candidate inside a [TrapVolume] box, or reached by
+##    a straight line that crosses one, is rejected. See [method collect_hazards]
+##    and [method segment_crosses_hazard]; nothing here names a map's hazards.
 ##
 ## [b]The fourth probe is a bug fix, and it is worth saying which one.[/b] For a
 ## long time this file asked only whether the DESTINATION had a floor, and the
@@ -82,6 +85,12 @@ const FLOOR_PROBE_LIFT_METRES: float = 0.25
 ## hole.
 const PATH_STEP_METRES: float = 1.5
 
+## Margin added to a hazard box for the runner's own capsule, in metres.
+const HAZARD_MARGIN_METRES: float = 0.8
+
+## Spacing of hazard samples along a crossing, in metres.
+const HAZARD_STEP_METRES: float = 0.5
+
 ## The spot the last search settled on, in world space and at deck height.
 var _position: Vector3 = Vector3.ZERO
 
@@ -113,6 +122,9 @@ var _probes: int = 0
 ## [param limit_arc] caps the sweep at the arc the runner has left to run, so the
 ## search never proposes cover past the finish line.
 ##
+## [param hazards] is [method collect_hazards]'s output. Empty (the default)
+## means no hazard rejection at all, which is right for a map with none.
+##
 ## Returns true when something was found; [method get_position] then holds it.
 func search(
 	perception: RunnerPerception,
@@ -123,6 +135,7 @@ func search(
 	travel_sign: float,
 	track_radius: float,
 	limit_arc: float,
+	hazards: Array[Dictionary] = [],
 ) -> bool:
 	_found = false
 	_position = Vector3.ZERO
@@ -155,6 +168,11 @@ func search(
 		for radius: float in _radii(profile, from_radius):
 			var point: Vector3 = _point_at(centre, angle, radius, from_position.y)
 			_probes += 1
+			# Cheapest rejection first. See probe 5 in the class docs.
+			if point_in_hazard(hazards, point):
+				continue
+			if segment_crosses_hazard(hazards, from_position, point):
+				continue
 			if not _is_hidden(perception, profile, point, threat_eye):
 				continue
 			var deeper: Vector3 = _point_at(
@@ -258,6 +276,56 @@ static func last_walkable_point(
 			return safe
 		safe = point
 	return to
+
+
+# --- Hazards --------------------------------------------------------------
+
+## Every [TrapVolume] under [param root], as an inverse transform and
+## inflated half-extents in its own local space. [KillVolume] and anything
+## else is ignored, and nothing here is told where a hazard is in advance.
+static func collect_hazards(root: Node) -> Array[Dictionary]:
+	var hazards: Array[Dictionary] = []
+	_collect_hazards(root, hazards)
+	return hazards
+
+
+static func _collect_hazards(node: Node, hazards: Array[Dictionary]) -> void:
+	if node == null:
+		return
+	var trap: TrapVolume = node as TrapVolume
+	if trap != null:
+		hazards.append({
+			"inverse": trap.global_transform.affine_inverse(),
+			"half": trap.size_metres * 0.5 + Vector3.ONE * HAZARD_MARGIN_METRES,
+		})
+	for child: Node in node.get_children():
+		_collect_hazards(child, hazards)
+
+
+## True when [param point] lies inside any box in [param hazards].
+static func point_in_hazard(hazards: Array[Dictionary], point: Vector3) -> bool:
+	for hazard: Dictionary in hazards:
+		var local: Vector3 = (hazard["inverse"] as Transform3D) * point
+		var half: Vector3 = hazard["half"]
+		if absf(local.x) <= half.x and absf(local.y) <= half.y and absf(local.z) <= half.z:
+			return true
+	return false
+
+
+## True when the straight line from [param from] to [param to], sampled every
+## [constant HAZARD_STEP_METRES], passes through any box in [param hazards].
+static func segment_crosses_hazard(
+	hazards: Array[Dictionary], from: Vector3, to: Vector3
+) -> bool:
+	if hazards.is_empty():
+		return false
+	var distance: float = from.distance_to(to)
+	var samples: int = maxi(int(ceil(distance / HAZARD_STEP_METRES)), 1)
+	for index: int in range(samples + 1):
+		var fraction: float = float(index) / float(samples)
+		if point_in_hazard(hazards, from.lerp(to, fraction)):
+			return true
+	return false
 
 
 # --- Probes -------------------------------------------------------------------

@@ -13,18 +13,15 @@ extends Resource
 ## [b]Why the presets needed a catalog at all.[/b] They were authored for the
 ## movement playground, where the set on offer is typed into
 ## [code]scenes/dev/movement_playground.tscn[/code] and cycled with a key. That
-## is the right shape for a dev scene and the wrong shape for a menu: a player
-## picks a preset before a match, the choice has to survive a settings file, and
-## a settings file can hold a NAME but not a scene's array. So the presets are
-## named -- see [member AirControlPreset.id] -- and this is the one list of what
-## exists.
+## is the right shape for a dev scene. A settings file can hold a NAME but not a
+## scene's array, so the presets are named -- see [member AirControlPreset.id]
+## -- and this is the one list of what exists, independent of any menu.
 ##
-## [b]Who reads it.[/b]
+## [b]Who reads it.[/b] There is no picker any more: Carve is [constant
+## DEFAULT_ID], and that is the end of the question.
 ## [codeblock]
-##   AirControlCatalog  ->  the picker on the match setup screen  (what exists)
-##                      ->  GameSettings.air_control_id           (what was chosen)
-##                      ->  MatchRules.air_control_id             (what the match runs)
-##                      ->  MatchController                       (what every body runs)
+##   AirControlCatalog  ->  MatchRules.air_control_id  (what the match runs, at its own default)
+##                      ->  MatchController             (what every body runs)
 ## [/codeblock]
 ## Note the direction, which is [MapCatalog]'s: nothing here reaches into a
 ## match. A preset is named, and the thing that needs a [MovementProfile] asks
@@ -32,25 +29,25 @@ extends Resource
 ##
 ## [b]Adding a preset is data[/b] -- a [code].tres[/code] in
 ## [code]resources/movement/[/code] and an entry in the catalog below, with no
-## edit to the setup screen, to [MatchController] or to [GameSettings]. The
-## playground's own list is separate and stays that way: it is a scene's
-## authored array, and a dev scene is allowed to offer a set that is not the
-## shipped one.
+## edit to [MatchController]. The playground's own list is separate and stays
+## that way: it is a scene's authored array, and a dev scene is allowed to offer
+## a set that is not the shipped one.
 
 ## The shipped list. Not a hard-coded preset -- a hard-coded FILE, which is the
 ## one piece of this that cannot itself be data.
 const CATALOG_PATH: String = "res://resources/movement/air_control_catalog.tres"
 
-## The preset a player who has chosen nothing plays, and the fallback for a
-## settings file or a rules resource naming a preset that no longer exists.
+## The preset every match runs, and the only one a player reaches -- there is no
+## picker any more; see [MatchSetupScreen]. Also the fallback for a rules
+## resource naming a preset that no longer exists.
 ##
-## Committed, which is the tuning the game shipped with:
-## [code]tests/test_air_control_presets.gd[/code] holds it identical to
-## [code]scenes/player/default_movement_profile.tres[/code], and
-## [code]tests/test_air_control_choice.gd[/code] holds this constant pointed at
-## it. Ryan has not chosen between the four yet, so the game must not choose for
-## him -- a default that quietly moved to Carve would ship a different game.
-const DEFAULT_ID: StringName = &"committed"
+## Carve. Committed was the tuning the game shipped with, and
+## [code]tests/test_air_control_presets.gd[/code] still holds IT identical to
+## [code]scenes/player/default_movement_profile.tres[/code] -- that fact is
+## about [code]air_control_01_committed.tres[/code], not about this constant,
+## and does not move when this does. The other three presets stay on disk and
+## in the movement playground, unplayed but not deleted.
+const DEFAULT_ID: StringName = &"carve"
 
 ## Every preset, in the order the picker shows them.
 @export var presets: Array[AirControlPreset] = []
