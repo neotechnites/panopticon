@@ -17,7 +17,7 @@
 [ext_resource type="PackedScene" path="res://assets/models/lava_tile.glb" id="16_lava_tile"]
 [ext_resource type="PackedScene" path="res://assets/models/demon_pad.glb" id="17_demon_pad"]
 [ext_resource type="Script" path="res://scripts/match/boost_pad.gd" id="18_boost_pad"]
-[ext_resource type="PackedScene" path="res://assets/models/portal.glb" id="19_portal"]
+[ext_resource type="PackedScene" path="res://scenes/ring/portal.tscn" id="19_portal"]
 [ext_resource type="PackedScene" path="res://assets/models/rock_bars.glb" id="20_rock_bars"]
 [ext_resource type="PackedScene" path="res://scenes/ring/torch.tscn" id="21_torch"]
 
@@ -165,12 +165,12 @@ editor_description = "5.0 deg on level one's racing line, y=23.0. Its ANGLE is w
 transform = Transform3D(-0.996195, 0, 0.0871557, 0, 1, 0, -0.0871557, 0, -0.996195, 51.8021, 23, 4.5321)
 
 [node name="PrisonerEnd" type="Marker3D" parent="StartEnd"]
-editor_description = "335.0 deg on the level's racing line, y=23.0. This is the end of the whole route, not the end of a lap: reaching it is what takes the tower."
-transform = Transform3D(-0.906308, 0, -0.422618, 0, 1, 0, 0.422618, 0, -0.906308, 47.128, 23, -21.9761)
+editor_description = "345.0 deg on the level's racing line, y=23.0, matching the portal's own transform. This is the end of the whole route, not the end of a lap: reaching it is what takes the tower."
+transform = Transform3D(0.965926, 0, 0.258819, 0, 1, 0, -0.258819, 0, 0.965926, 50.2281, 23, -13.4586)
 
 [node name="Portal" parent="StartEnd" instance=ExtResource("19_portal")]
-editor_description = "The finish. A runner passes through the disc along the run direction: local Z is the pass-through axis, local X the 4.5 m span across the lane."
-transform = Transform3D(0.906308, 0, 0.422618, 0, 1, 0, -0.422618, 0, 0.906308, 47.128, 23, -21.9761)
+editor_description = "The finish, further back toward the bars at 345 deg. A runner passes through the disc along the run direction: local Z is the pass-through axis, local X the 4.5 m span across the lane."
+transform = Transform3D(0.965926, 0, 0.258819, 0, 1, 0, -0.258819, 0, 0.965926, 50.2281, 23, -13.4586)
 
 [node name="RockBars" parent="." instance=ExtResource("20_rock_bars")]
 editor_description = "Bars across the lane at 350 deg, in the gap between finish and start, so the finish is visible from the start. Local X (10.6 m) runs radially, local Z is tangential."
