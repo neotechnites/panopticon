@@ -1,35 +1,6 @@
-[gd_resource type="Resource" script_class="SpectatorProfile" load_steps=2 format=3]
+[gd_resource type="Resource" script_class="SpectatorProfile" format=3 uid="uid://d05b6qivii1gr"]
 
-[ext_resource type="Script" path="res://scripts/fx/spectator_profile.gd" id="1_spectator_profile"]
+[ext_resource type="Script" uid="uid://dnlmuno67264a" path="res://scripts/fx/spectator_profile.gd" id="1_spectator_profile"]
 
 [resource]
 script = ExtResource("1_spectator_profile")
-enabled = true
-enter_delay_seconds = 0.35
-death_radius_metres = 5.5
-death_height_metres = 2.8
-death_focus_height_metres = 1.1
-death_orbit_degrees_per_second = 16.0
-death_over_shoulder_distance_metres = 2.5
-death_over_shoulder_height_metres = 1.8
-death_gallery_min_radius_metres = 48.0
-death_gallery_max_radius_metres = 56.0
-death_gallery_min_height_metres = 24.5
-death_gallery_max_height_metres = 30.0
-overlook_radius_metres = 78.0
-overlook_height_metres = 46.0
-overlook_focus_height_metres = 0.5
-overlook_orbit_degrees_per_second = 5.0
-overlook_orbit_radius_metres = 34.0
-overlook_orbit_height_metres = 3.0
-overlook_focus_radius_metres = 52.0
-overlook_min_radius_metres = 20.0
-overlook_max_radius_metres = 40.0
-overlook_min_height_metres = 25.0
-overlook_max_height_metres = 30.0
-free_look_enabled = true
-look_sensitivity = 0.0035
-pitch_min_degrees = -12.0
-pitch_max_degrees = 72.0
-start_pitch_degrees = 0.0
-field_of_view_degrees = 75.0

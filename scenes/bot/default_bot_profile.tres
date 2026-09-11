@@ -1,11 +1,6 @@
-[gd_resource type="Resource" script_class="BotProfile" load_steps=2 format=3]
+[gd_resource type="Resource" script_class="BotProfile" format=3 uid="uid://br86suasoef3w"]
 
-[ext_resource type="Script" path="res://scripts/bot/bot_profile.gd" id="1_bot_profile"]
+[ext_resource type="Script" uid="uid://bkjn6edmogbh2" path="res://scripts/bot/bot_profile.gd" id="1_bot_profile"]
 
 [resource]
 script = ExtResource("1_bot_profile")
-track_radius = 52.0
-steering_gain = 6.0
-max_yaw_rate = 4.0
-lookahead_distance = 4.0
-arrival_tolerance = 1.5
