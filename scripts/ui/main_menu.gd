@@ -10,10 +10,11 @@ extends Control
 ## size was a number guessed twice -- and this file now follows it: structure in
 ## [code]scenes/ui/main_menu.tscn[/code], binding and navigation here.
 ##
-## [b]It owns three views and shows exactly one.[/b]
+## [b]It owns four views and shows exactly one.[/b]
 ## [codeblock]
-##   MainPanel          Play / Settings / Quit
+##   MainPanel          Play / Host / Settings / Quit
 ##   MatchSetupScreen   Play  -> the rules of the round, then Start
+##   HostScreen         Host  -> placeholder; no net lobby UI exists yet
 ##   SettingsScreen     Settings -> the same screen the pause menu opens
 ## [/codeblock]
 ## Play does NOT start a match. It opens [MatchSetupScreen], whose Start button
@@ -49,11 +50,13 @@ signal quit_requested()
 ## so Escape means the same thing everywhere.
 @export var back_action: StringName = &"ui_cancel"
 
-@onready var _main_panel: PanelContainer = %MainPanel
+@onready var _main_panel: Control = %MenuList
 @onready var _play_button: Button = %Play
+@onready var _host_button: Button = %Host
 @onready var _settings_button: Button = %Settings
 @onready var _quit_button: Button = %Quit
 @onready var _setup_screen: MatchSetupScreen = %MatchSetupScreen
+@onready var _host_screen: HostPlaceholderScreen = %HostScreen
 @onready var _settings_screen: SettingsScreen = %SettingsScreen
 
 var _store: SettingsStore = null
@@ -71,11 +74,13 @@ func _ready() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
 	_play_button.pressed.connect(open_match_setup)
+	_host_button.pressed.connect(open_host)
 	_settings_button.pressed.connect(open_settings)
 	_quit_button.pressed.connect(quit)
 
 	_setup_screen.start_requested.connect(play)
 	_setup_screen.closed.connect(_close_match_setup)
+	_host_screen.closed.connect(_close_host)
 	_settings_screen.closed.connect(_close_settings)
 
 	_show_main()
@@ -94,6 +99,10 @@ func _input(event: InputEvent) -> void:
 	if _setup_screen.visible:
 		get_viewport().set_input_as_handled()
 		_close_match_setup()
+		return
+	if _host_screen.visible:
+		get_viewport().set_input_as_handled()
+		_close_host()
 
 
 # --- Actions ------------------------------------------------------------------
@@ -102,6 +111,7 @@ func _input(event: InputEvent) -> void:
 func open_match_setup() -> void:
 	_main_panel.visible = false
 	_settings_screen.visible = false
+	_host_screen.visible = false
 	_setup_screen.refresh()
 	_setup_screen.visible = true
 	_setup_screen.focus_start()
@@ -130,8 +140,18 @@ func play() -> void:
 func open_settings() -> void:
 	_main_panel.visible = false
 	_setup_screen.visible = false
+	_host_screen.visible = false
 	_settings_screen.refresh()
 	_settings_screen.visible = true
+
+
+## Show the Host placeholder screen. What the Host button does.
+func open_host() -> void:
+	_main_panel.visible = false
+	_setup_screen.visible = false
+	_settings_screen.visible = false
+	_host_screen.visible = true
+	_host_screen.focus_start()
 
 
 ## Write the settings file and exit.
@@ -151,11 +171,17 @@ func is_showing_match_setup() -> bool:
 	return _setup_screen.visible
 
 
+## True while the Host placeholder screen is up.
+func is_showing_host() -> bool:
+	return _host_screen.visible
+
+
 # --- Navigation ---------------------------------------------------------------
 
 func _show_main() -> void:
 	_setup_screen.visible = false
 	_settings_screen.visible = false
+	_host_screen.visible = false
 	_main_panel.visible = true
 	_play_button.grab_focus()
 
@@ -177,4 +203,12 @@ func _close_match_setup() -> void:
 		return
 	_setup_screen.visible = false
 	_store.save_to_disk()
+	_show_main()
+
+
+## No settings to save; the placeholder has none.
+func _close_host() -> void:
+	if not _host_screen.visible:
+		return
+	_host_screen.visible = false
 	_show_main()
