@@ -12,7 +12,12 @@ const AGENT_MAX_CLIMB: float = 0.5
 const AGENT_MAX_SLOPE_DEGREES: float = 40.0
 const CELL_SIZE: float = 0.25
 const CELL_HEIGHT: float = 0.25
-const HAZARD_INFLATION_METRES: float = 0.6
+## Widened from 0.6: the demon-run stretch's lava bands leave only ~6 m of clear
+## lane, and the baked path there funnelled a corner tight enough (r ~50.4,
+## against the inner band's raw edge at r ~50.1) that a runner's own steering
+## overshoot walked it straight into the lava. 1.1 keeps the lane open while
+## pushing the funnel's corner-cut clear of the raw hazard box.
+const HAZARD_INFLATION_METRES: float = 1.1
 const HAZARD_VERTICAL_MARGIN_METRES: float = 1.0
 ## Deck edges are carved this far inboard of a level's authored inner/outer radius.
 const EDGE_MARGIN_METRES: float = 1.0
