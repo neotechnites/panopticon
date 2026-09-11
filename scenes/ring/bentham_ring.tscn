@@ -18,6 +18,7 @@
 [ext_resource type="PackedScene" path="res://scenes/ring/torch.tscn" id="21_torch"]
 [ext_resource type="PackedScene" path="res://scenes/ring/lava_tile.tscn" id="22_lava_tile_scene"]
 [ext_resource type="PackedScene" path="res://scenes/ring/demon_pad.tscn" id="23_demon_pad_scene"]
+[ext_resource type="PackedScene" path="res://scenes/ring/speed_powerup.tscn" id="24_speed_powerup_scene"]
 
 [sub_resource type="ProceduralSkyMaterial" id="SkyMat"]
 sky_top_color = Color(0.54, 0.110700026, 0.054000016, 1)
@@ -352,6 +353,10 @@ transform = Transform3D(3.0658362, 0, -0.7328331, 0, 1.8605616, 0, 1.2386792, 0,
 
 [node name="RockWall_153deg2" parent="Sections/S3_Split" unique_id=435760959 instance=ExtResource("14_rock_wall")]
 transform = Transform3D(-0.07944784, 0.0026787363, -3.089263, 0.014537797, 3.09025, 0.0023057105, 3.0892308, -0.014473695, -0.079459436, 46.51744, 23.132805, 3.6760964)
+
+[node name="SpeedPowerup_196deg" parent="Sections/S3_Split" instance=ExtResource("24_speed_powerup_scene")]
+editor_description = "End of the Split's covered outer (lava) lane, bearing 196 deg. Placeholder position -- Ryan will move it."
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -55.753178, 23, -15.986967)
 
 [node name="Lava" type="Node3D" parent="Sections/S3_Split" unique_id=607742211]
 

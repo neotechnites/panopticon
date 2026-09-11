@@ -1,0 +1,6 @@
+{
+  "_comment": "speed_orb: fist-sized ember/soul orb pickup, a faceted icosahedron (20 tris) so the shell reads as cracked plates, origin at centre. One textured material (64x64 atlas: bright emissive ember core, dark non-emissive crack lines), one UV set. NO collision -- the pickup script owns its own trigger volume.",
+  "node_paths": ["SpeedOrb"],
+  "surfaces": 1,
+  "max_tris": 80
+}
