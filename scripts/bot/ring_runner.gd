@@ -27,6 +27,8 @@ const WAYPOINT_ARRIVAL_METRES: float = 2.5
 const FINISH_OVERSHOOT_DEGREES: float = 4.0
 ## Metres past the finish gate the last waypoint sits, so the body passes clean through it.
 const GATE_THROUGH_METRES: float = 2.5
+## A nav corner behind the body by more than this, measured forward from entry, is refused. See [method _next_path_point].
+const BACKWARD_ARC_TOLERANCE_DEGREES: float = 3.0
 ## The gate waypoint is only passed by getting this close to it: a 4 m gate cannot be cut round.
 const GATE_ARRIVAL_METRES: float = 0.5
 const FINISH_GATE_GROUP: StringName = &"finish_gate"
@@ -743,14 +745,31 @@ func _agent_live() -> bool:
 
 
 ## The next point to steer at: the path's next corner, or the target itself without a mesh.
+##
+## A corner behind [member _travelled_arc] (measured FORWARD from
+## [member _entry_angle], never as the shortest signed angle) is never
+## followed: a navmesh query that returns the "short way" through an
+## un-carved gap -- the RockBars corridor is the shipped case -- would
+## otherwise walk the body straight backward into it. Refused corners fall
+## back to a short forward step along the lane instead.
 func _next_path_point() -> Vector3:
 	if not _has_agent_target:
 		return controller.global_position
-	if not _agent_live():
-		return _agent_target
-	if _agent.is_navigation_finished():
-		return _agent_target
-	return _agent.get_next_path_position()
+	var next: Vector3 = _agent_target
+	if _agent_live() and not _agent.is_navigation_finished():
+		next = _agent.get_next_path_position()
+	if _waypoint_is_ramp(_wp):
+		return next
+	if _forward_arc_of(next) < _travelled_arc - deg_to_rad(BACKWARD_ARC_TOLERANCE_DEGREES):
+		return _point_on_track(_previous_angle + TRAVEL_SIGN * deg_to_rad(BACKWARD_ARC_TOLERANCE_DEGREES))
+	return next
+
+
+## [param point]'s arc from [member _entry_angle], wrapped forward into
+## [code][0, TAU)[/code] -- never the shortest signed angle, which is exactly
+## what would call the RockBars side of the gap "closer" than the gate.
+func _forward_arc_of(point: Vector3) -> float:
+	return wrapf((_angle_of(point) - _entry_angle) * TRAVEL_SIGN, 0.0, TAU)
 
 
 ## Turn to the next path point and move at it, slowing as the turn gets sharper.
