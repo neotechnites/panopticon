@@ -63,11 +63,11 @@ DECK_Z = 23.0           # world y of the deck surface (tower room floor is 25.35
 COURTYARD_Z = -11.05    # TOWER_FLOOR_Y + TOWER_MODEL_FOOT (gen_bentham_ring.py)
 CEIL_H = 8.5            # the gallery is a CUTOUT: rock ceiling this far over the deck
 CEIL_Z = DECK_Z + CEIL_H
-RIM_Z = 95.0            # the pit wall carries on above the ceiling to here
+RIM_Z = 330.0            # the pit wall carries on above the ceiling to here
 
 PIT_RINGS_Z = [17.0, 6.0, -4.0]          # intermediate pit-wall rings, deck -> courtyard
 WALL_RINGS_Z = [DECK_Z + 4.0]            # intermediate outer-wall ring, deck -> ceiling
-UPPER_RINGS_Z = [42.0, 53.0, 64.0, 75.0, 85.0]   # ceiling -> rim, ~11 m bands
+UPPER_RINGS_Z = [45.0, 75.0, 105.0, 135.0, 165.0, 195.0, 225.0, 255.0, 285.0, 310.0]   # ceiling -> rim, ~11 m bands
 GROUND_RINGS = [(56.0, 97.5), (74.0, 101.5)]   # (radius, z): a crater lip, not a plate
 
 ANG_JAG  = 0.30         # per side, held for every ring: vertical edges stay vertical
