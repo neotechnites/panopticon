@@ -27,7 +27,7 @@ COLLIDER_NAME = "DemonPadCollision-colonly"
 
 SIDES = 12
 RADIUS = 1.25                     # 2.5 m diameter
-THICK = 0.15
+THICK = 0.04                      # flush with the floor: walk onto it, no lip
 COLL_SIDES = 8
 
 TEX_SIZE = 128
