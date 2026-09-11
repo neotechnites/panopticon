@@ -107,6 +107,10 @@ signal speed_boost_changed(remaining: float)
 ## [member GhostProfile.speed_multiplier].
 var speed_scale: float = 1.0
 
+## True while Armor Lock holds the body: no movement, no turning, this tick's
+## intent still readable through [method get_intent].
+var movement_locked: bool = false
+
 ## Set every tick, either from [member intent_source] or by an outside caller
 ## via [method set_intent].
 var _intent: MoveIntent = MoveIntent.new()
@@ -219,6 +223,10 @@ func _physics_process(delta: float) -> void:
 		_intent.copy_from(intent_source.poll(delta))
 	_intent.normalise()
 
+	if movement_locked:
+		velocity = Vector3.ZERO
+		return
+
 	# Aim first, so this tick's wish direction reflects this tick's facing.
 	# Quake's PM_UpdateViewAngles runs ahead of the move for the same reason:
 	# a strafe turn must take effect on the frame the mouse moved, or the whole
@@ -307,6 +315,11 @@ func _physics_process(delta: float) -> void:
 ## before the physics tick that should act on it.
 func set_intent(intent: MoveIntent) -> void:
 	_intent.copy_from(intent)
+
+
+## The intent this tick was driven by. Owned by the controller; read, do not keep.
+func get_intent() -> MoveIntent:
+	return _intent
 
 
 ## Swap the tunables this body moves under, mid-session and mid-stride.
@@ -987,7 +1000,20 @@ func _apply_gravity(delta: float) -> void:
 func _update_floor_state() -> void:
 	var on_floor: bool = is_on_floor()
 	if on_floor and not _was_on_floor:
+		_apply_landing_speed_scale()
 		landed.emit(_fall_speed)
 	elif not on_floor:
 		_fall_speed = maxf(-velocity.y, 0.0)
 	_was_on_floor = on_floor
+
+
+## Scale horizontal speed on touchdown: a full stop with no input, a mild
+## carry with a direction held, untouched when a bunny hop is about to fire.
+func _apply_landing_speed_scale() -> void:
+	var jump_queued: bool = _jump_buffer_timer > 0.0 or (profile.auto_bunny_hop and _intent.jump_held)
+	if jump_queued:
+		return
+	var moving: bool = _intent.move_direction.length() >= 0.2
+	var factor: float = profile.landing_carry_factor if moving else profile.landing_stop_factor
+	velocity.x *= factor
+	velocity.z *= factor

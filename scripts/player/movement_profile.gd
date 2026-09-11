@@ -96,6 +96,14 @@ extends Resource
 ## When false, jump must be released and re-pressed.
 @export var auto_bunny_hop: bool = true
 
+## Horizontal-speed multiplier applied on touchdown when no movement
+## direction is held and no jump is buffered/held. Sticks the landing.
+@export_range(0.0, 1.0, 0.01) var landing_stop_factor: float = 0.25
+
+## Horizontal-speed multiplier applied on touchdown when a movement direction
+## is held. Milder than [member landing_stop_factor] so input still carries speed.
+@export_range(0.0, 1.0, 0.01) var landing_carry_factor: float = 0.85
+
 # --- Gravity ------------------------------------------------------------------
 
 ## Base downward acceleration (Quake/HL sv_gravity, 800 u/s^2 -> 20.3 m/s^2;
