@@ -105,6 +105,13 @@ var _found: bool = false
 ## have no cover on it.
 var _probes: int = 0
 
+## Resumable search state: the step to probe next and the pose it was started from.
+const RESUME_MOVE_METRES: float = 3.0
+var _step: int = 1
+var _complete: bool = true
+var _key_from: Vector3 = Vector3.ZERO
+var _key_eye: Vector3 = Vector3.ZERO
+
 
 ## Sweep the ring ahead of [param from_position] for the next piece of cover.
 ##
@@ -136,13 +143,26 @@ func search(
 	track_radius: float,
 	limit_arc: float,
 	hazards: Array[Dictionary] = [],
+	budget: int = 0,
 ) -> bool:
-	_found = false
-	_position = Vector3.ZERO
-	_arc_gain = 0.0
-	_probes = 0
 	if perception == null or profile == null or space == null:
+		_complete = true
 		return false
+	var since: int = Time.get_ticks_usec()
+	var eye: Vector3 = perception.get_threat_eye()
+	var resume: bool = budget > 0 and not _complete \
+		and from_position.distance_to(_key_from) <= RESUME_MOVE_METRES \
+		and eye.distance_to(_key_eye) <= 1.0
+	if not resume:
+		_found = false
+		_position = Vector3.ZERO
+		_arc_gain = 0.0
+		_probes = 0
+		_step = 1
+		_complete = false
+		_key_from = from_position
+		_key_eye = eye
+	from_position = _key_from
 
 	var threat_eye: Vector3 = perception.get_threat_eye()
 	var from_angle: float = _angle_of(from_position, centre)
@@ -151,16 +171,25 @@ func search(
 	).length()
 	var arc: float = minf(profile.get_cover_search_arc_radians(), maxf(limit_arc, 0.0))
 	if arc <= 0.0:
+		_complete = true
 		return false
 
 	var steps: int = maxi(profile.cover_search_steps, 1)
 	var min_arc: float = profile.cover_min_advance_metres / maxf(track_radius, 0.001)
 	var depth_arc: float = profile.cover_depth_metres / maxf(track_radius, 0.001)
 
-	for step: int in range(1, steps + 1):
+	var probed: int = 0
+	while _step <= steps:
+		var step: int = _step
+		_step += 1
 		var step_arc: float = arc * float(step) / float(steps)
 		if step_arc < min_arc:
 			continue
+		if budget > 0 and probed >= budget:
+			_step = step
+			RingNavigation.charge("cover", since)
+			return false
+		probed += maxi(profile.cover_search_radial_steps, 1)
 		var angle: float = from_angle + travel_sign * step_arc
 		var best: Vector3 = Vector3.ZERO
 		var best_deviation: float = INF
@@ -194,9 +223,17 @@ func search(
 			_position = best
 			_arc_gain = step_arc
 			_found = true
+			_complete = true
+			RingNavigation.charge("cover", since)
 			return true
-
+	_complete = true
+	RingNavigation.charge("cover", since)
 	return false
+
+
+## False while a budgeted search still has steps to probe.
+func is_complete() -> bool:
+	return _complete
 
 
 ## Where the runner should go, valid only when the last [method search] returned
@@ -294,9 +331,12 @@ static func _collect_hazards(node: Node, hazards: Array[Dictionary]) -> void:
 		return
 	var trap: TrapVolume = node as TrapVolume
 	if trap != null:
+		var half: Vector3 = trap.size_metres * 0.5 + Vector3.ONE * HAZARD_MARGIN_METRES
 		hazards.append({
 			"inverse": trap.global_transform.affine_inverse(),
-			"half": trap.size_metres * 0.5 + Vector3.ONE * HAZARD_MARGIN_METRES,
+			"half": half,
+			"centre": trap.global_position,
+			"reach_squared": half.length_squared(),
 		})
 	for child: Node in node.get_children():
 		_collect_hazards(child, hazards)
@@ -305,6 +345,8 @@ static func _collect_hazards(node: Node, hazards: Array[Dictionary]) -> void:
 ## True when [param point] lies inside any box in [param hazards].
 static func point_in_hazard(hazards: Array[Dictionary], point: Vector3) -> bool:
 	for hazard: Dictionary in hazards:
+		if point.distance_squared_to(hazard["centre"]) > float(hazard["reach_squared"]):
+			continue
 		var local: Vector3 = (hazard["inverse"] as Transform3D) * point
 		var half: Vector3 = hazard["half"]
 		if absf(local.x) <= half.x and absf(local.y) <= half.y and absf(local.z) <= half.z:

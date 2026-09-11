@@ -123,6 +123,9 @@ func _find_shape_holder() -> CollisionShape3D:
 
 func _on_body_entered(body: Node3D) -> void:
 	if _controller == null:
+		# A controller added after this node was ready is found on first use.
+		_controller = _resolve_controller()
+	if _controller == null:
 		return
 	var participant: MatchParticipant = _controller.resolve_participant(body)
 	if participant == null:

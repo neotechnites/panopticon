@@ -47,6 +47,18 @@ const ALIGNED_RADIANS: float = 0.05
 const MIN_THROTTLE: float = 0.3
 const JUMP_LOOK_METRES: float = 6.0
 const UNSTICK_LOOK_METRES: float = 3.0
+const FLY_LAUNCH_SPEED: float = 3.0
+const FLY_MAX_SECONDS: float = 6.0
+const LINK_AIM_MEMORY_SECONDS: float = 3.0
+const FLY_AIM_METRES: float = 30.0
+const FLY_GAIN_METRES: float = 4.0
+const FLY_SETTLED_METRES: float = 0.3
+const LINK_NOTICE_METRES: float = 16.0
+const OFF_MESH_WAYPOINT_METRES: float = 2.5
+const COVER_PROBE_BUDGET: int = 27
+const PAD_SIDE_METRES: float = 1.8
+const PAD_RUNUP_METRES: float = 6.0
+const PAD_TURN_METRES: float = 0.6
 
 ## What the runner is doing.
 enum State {
@@ -119,6 +131,14 @@ var _cross_slide_held: bool = false
 var _cross_slide_open: bool = false
 var _cross_slide_seconds: float = 0.0
 var _jump_cooldown: float = 0.0
+var _flying: bool = false
+var _fly_seconds: float = 0.0
+var _fly_aim: Vector3 = Vector3.ZERO
+var _link_aim: Vector3 = Vector3.ZERO
+var _link_aim_age: float = INF
+var _link_entry: Vector3 = Vector3.ZERO
+var _link_side: float = 0.0
+var _link_staged: bool = false
 var _blocked_seconds: float = 0.0
 var _search_countdown: float = 0.0
 
@@ -222,8 +242,10 @@ func _arm(
 	_hazards = RunnerCoverFinder.collect_hazards(controller.get_tree().root)
 
 	_nav = RingNavigation.ensure(
-		RingNavigation.level_root_of(controller), _bake_bounds(), _route, _centre
+		RingNavigation.level_root_of(controller), _bake_bounds(), _route, _centre, controller.profile
 	)
+	if _nav != null:
+		_hazards.append_array(_nav.dead_pad_hazards())
 	_ensure_agent()
 	_has_agent_target = false
 	_build_waypoints()
@@ -293,7 +315,109 @@ func _ensure_agent() -> void:
 	_agent.path_desired_distance = PATH_POINT_METRES
 	_agent.target_desired_distance = PATH_POINT_METRES
 	_agent.path_max_distance = PATH_MAX_DRIFT_METRES
+	_agent.link_reached.connect(_on_link_reached)
 	controller.add_child(_agent)
+
+
+## A pad link within LINK_NOTICE_METRES on the agent's path: remember its exit as the flight aim.
+func _note_link_ahead() -> void:
+	var result: NavigationPathQueryResult3D = _agent.get_current_navigation_result()
+	var types: PackedInt32Array = result.path_types
+	var path: PackedVector3Array = result.path
+	var index: int = _agent.get_current_navigation_path_index()
+	for i: int in range(maxi(index - 1, 0), types.size() - 1):
+		if types[i] != NavigationPathQueryResult3D.PATH_SEGMENT_TYPE_LINK:
+			continue
+		if _flat_distance(controller.global_position, path[i]) <= LINK_NOTICE_METRES:
+			if _link_aim_age > LINK_AIM_MEMORY_SECONDS:
+				_link_side = 0.0
+				_link_staged = false
+			_link_entry = path[i]
+			_link_aim = path[i + 1]
+			_link_aim_age = 0.0
+		return
+
+
+## Enter a pad from beside its axis so it fires near its centre, not at its back edge: full range.
+## Run up parallel to the axis PAD_SIDE_METRES aside, turn in PAD_TURN_METRES before the centre.
+## Vector3.INF when there is nothing to stage (no fresh link, already flying, at or past the centre).
+func _pad_approach_point() -> Vector3:
+	if _flying or _link_aim_age > LINK_AIM_MEMORY_SECONDS:
+		return Vector3.INF
+	var direction: Vector3 = Vector3(_link_aim.x - _link_entry.x, 0.0, _link_aim.z - _link_entry.z)
+	if direction.length() < 0.5:
+		return Vector3.INF
+	direction = direction.normalized()
+	var across: Vector3 = Vector3(-direction.z, 0.0, direction.x)
+	var here: Vector3 = controller.global_position
+	var offset: Vector3 = Vector3(here.x - _link_entry.x, 0.0, here.z - _link_entry.z)
+	var along: float = offset.dot(direction)
+	if along > -0.2:
+		return Vector3.INF
+	if _link_side == 0.0:
+		var outer: Vector3 = _link_entry + across * PAD_SIDE_METRES
+		var inner: Vector3 = _link_entry - across * PAD_SIDE_METRES
+		var room_outer: float = _flat_distance(_nav.snap(outer), outer) if _nav_ready() else 0.0
+		var room_inner: float = _flat_distance(_nav.snap(inner), inner) if _nav_ready() else 0.0
+		_link_side = 1.0 if room_outer <= room_inner else -1.0
+	var aside: Vector3 = across * _link_side * PAD_SIDE_METRES
+	if along < -PAD_RUNUP_METRES - 1.0:
+		return _link_entry - direction * PAD_RUNUP_METRES + aside
+	if along < -PAD_TURN_METRES:
+		return _link_entry - direction * PAD_TURN_METRES + aside
+	return _link_entry + direction * 1.0
+
+
+func _on_link_reached(details: Dictionary) -> void:
+	_link_aim = details.get("link_exit_position", controller.global_position)
+	_link_aim_age = 0.0
+
+
+## Airborne after a pad: steer along the flight, no re-path until landing. True while flying.
+func _tick_flight(delta: float) -> bool:
+	_link_aim_age += delta
+	var on_floor: bool = controller.is_on_floor()
+	if not _flying:
+		if on_floor or controller.velocity.y < FLY_LAUNCH_SPEED:
+			return false
+		_flying = true
+		_fly_seconds = 0.0
+		var flat: Vector3 = Vector3(controller.velocity.x, 0.0, controller.velocity.z)
+		_fly_aim = controller.global_position + flat.normalized() * FLY_AIM_METRES \
+			if flat.length() > 0.1 else controller.global_position
+		if _link_aim_age <= LINK_AIM_MEMORY_SECONDS:
+			_fly_aim = _link_aim
+		_release_slide()
+	_fly_seconds += delta
+	if on_floor or _fly_seconds > FLY_MAX_SECONDS:
+		_flying = false
+		_link_aim_age = INF
+		_link_staged = false
+		_link_side = 0.0
+		if _has_agent_target:
+			_aim_agent(_agent_raw_target, true)
+		_reset_stuck()
+		return false
+	_face(_fly_aim, delta)
+	_steer_flight()
+	return true
+
+
+## Strafe so the ballistic landing point meets the flight aim. Air control does the rest.
+func _steer_flight() -> void:
+	var here: Vector3 = controller.global_position
+	var velocity: Vector3 = controller.velocity
+	var gravity: float = controller.profile.get_effective_gravity() if controller.profile != null else 22.0
+	var drop: float = here.y - _fly_aim.y
+	var remaining: float = (velocity.y + sqrt(maxf(velocity.y * velocity.y + 2.0 * gravity * drop, 0.0))) / maxf(gravity, 0.1)
+	var predicted: Vector3 = here + Vector3(velocity.x, 0.0, velocity.z) * remaining
+	var error: Vector3 = Vector3(_fly_aim.x - predicted.x, 0.0, _fly_aim.z - predicted.z)
+	# Full push always: air speed only holds at the cap under a full wish. Blend in the correction.
+	var forward: Vector3 = Vector3(velocity.x, 0.0, velocity.z).normalized()
+	var wish: Vector3 = forward + error / FLY_GAIN_METRES
+	if wish.length() < 0.05:
+		wish = forward
+	_drive_towards(here + wish.normalized() * 5.0, 0.0)
 
 
 ## Lane points every [constant WAYPOINT_STEP_DEGREES] to the finish, then the ramp if there is one.
@@ -492,7 +616,8 @@ func get_navigation() -> RingNavigation:
 
 func _physics_process(delta: float) -> void:
 	if _chasing:
-		_tick_chase(delta)
+		if not _tick_flight(delta):
+			_tick_chase(delta)
 		return
 
 	var position: Vector3 = controller.global_position
@@ -515,6 +640,8 @@ func _physics_process(delta: float) -> void:
 	# and locked it into an endless RECOVER/CROSS loop going nowhere.
 	var remaining_arc: float = _end_arc - _travelled_arc
 	var swept: bool = remaining_arc * _lane_radius() <= profile.arrival_tolerance
+	if _tick_flight(delta):
+		return
 
 	if _route.has_level_above(_level):
 		if _route.is_standing_on(_level + 1, position.y):
@@ -682,12 +809,17 @@ func _advance_waypoints() -> void:
 		_wp += 1
 		_stuck_failures = 0
 	if _nav_ready() and _wp != _wp_checked:
-		while _wp < last and _waypoint_is_a_detour(here, _waypoints[_wp]):
+		while _wp < last and (_waypoint_off_mesh(_waypoints[_wp]) or _waypoint_is_a_detour(here, _waypoints[_wp])):
 			_wp += 1
 		_wp_checked = _wp
 
 
 ## True when the mesh path to [param point] is missing or far longer than the straight line.
+## A waypoint over carved ground (lava, a pit) has no mesh under it; the route skips it.
+func _waypoint_off_mesh(point: Vector3) -> bool:
+	return _flat_distance(_nav.snap(point), point) > OFF_MESH_WAYPOINT_METRES
+
+
 func _waypoint_is_a_detour(here: Vector3, point: Vector3) -> bool:
 	var path: PackedVector3Array = _nav.find_path(here, _nav.snap(point))
 	if path.is_empty():
@@ -758,6 +890,10 @@ func _next_path_point() -> Vector3:
 	var next: Vector3 = _agent_target
 	if _agent_live() and not _agent.is_navigation_finished():
 		next = _agent.get_next_path_position()
+		_note_link_ahead()
+		var staged: Vector3 = _pad_approach_point()
+		if is_finite(staged.x):
+			return staged
 	if _waypoint_is_ramp(_wp):
 		return next
 	if _forward_arc_of(next) < _travelled_arc - deg_to_rad(BACKWARD_ARC_TOLERANCE_DEGREES):
@@ -1106,6 +1242,8 @@ func _choose_target(remaining_arc: float) -> void:
 			_target_path = path
 			_has_target = true
 
+	if not _has_target and not _cover.is_complete():
+		return
 	if not _has_target:
 		var arc: float = minf(_play.get_cover_search_arc_radians(), maxf(remaining_arc, 0.0))
 		var ahead: Vector3 = _point_on_track(_previous_angle + TRAVEL_SIGN * arc)
@@ -1166,6 +1304,7 @@ func _search_cover(remaining_arc: float) -> void:
 		_lane_radius(),
 		remaining_arc,
 		_hazards,
+		COVER_PROBE_BUDGET,
 	)
 
 

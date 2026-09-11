@@ -243,6 +243,11 @@ func _on_body_entered(body: Node3D) -> void:
 ## are normalised individually before combining, so a pad instanced with any
 ## accidental non-uniform scale still launches along a true unit direction
 ## rather than a distorted one.
+## The velocity a body leaves this pad with, in world space.
+func get_launch_velocity() -> Vector3:
+	return _launch_direction() * launch_speed
+
+
 func _launch_direction() -> Vector3:
 	var forward: Vector3 = -global_transform.basis.z.normalized()
 	var up: Vector3 = global_transform.basis.y.normalized()

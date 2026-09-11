@@ -557,7 +557,6 @@ func _ready() -> void:
 ## Wakes the bodies the last arming placed, once the physics server has caught
 ## up with where they were put. Does nothing on every other frame.
 func _physics_process(delta: float) -> void:
-	BotMatchRunner.trace_add("MC tick %s" % get_parent().name)  # DEBUGSOAK
 	if _mirror:
 		return
 	if _settle_frames > 0:
