@@ -1652,6 +1652,7 @@ func _place_ghost_at_start(participant: MatchParticipant) -> void:
 	var body: PlayerController = participant.body
 	if body == null or not _geometry_ready:
 		return
+	_snapshot_death(participant)
 	# Inert before anything else, and before the delay is even read. Whatever
 	# killed this body, it stops being a thing in the world on THIS tick and not
 	# three seconds from now: off every layer and mask, velocity zeroed, not
@@ -2343,10 +2344,30 @@ func _wake_body(participant: MatchParticipant) -> void:
 	body.set_physics_process(not _mirror)
 
 
+## Snapshot where [param participant]'s body is standing and which way it is
+## facing, for [FxSpectatorView] to anchor its shot on.
+##
+## Read before [method _park_body] buries the body or [method
+## _place_ghost_at_start] holds it -- both move or freeze the body afterwards,
+## and the camera needs the spot it actually died at, not wherever the match
+## puts it next.
+func _snapshot_death(participant: MatchParticipant) -> void:
+	var body: PlayerController = participant.body
+	if body == null:
+		return
+	participant.death_position = body.global_position
+	var forward: Vector3 = -body.global_transform.basis.z
+	forward.y = 0.0
+	participant.death_facing = (
+		forward.normalized() if forward.length_squared() > 1e-6 else Vector3.FORWARD
+	)
+
+
 ## Put a converted runner's body out of the world: hidden, uncollidable, stopped
 ## and buried. See [constant PEN_DEPTH_METRES].
 func _park_body(participant: MatchParticipant) -> void:
 	var body: PlayerController = participant.body
+	_snapshot_death(participant)
 	# A body being buried is not coming back to the start line.
 	participant.respawn_hold_remaining = 0.0
 	_unmake_ghost(participant)
