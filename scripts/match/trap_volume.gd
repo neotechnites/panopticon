@@ -91,7 +91,23 @@ extends Area3D
 ## enough to hop would be a timing puzzle, and a timing puzzle is fancy.
 @export var size_metres: Vector3 = Vector3(5.0, 2.2, 2.0)
 
+## When true, a body only converts once its FEET ([code]global_position.y[/code])
+## are at or below this node's own Y plus 0.05 m, for [member grace_seconds]
+## running -- overlapping the box from the side does not count. Off by default;
+## [code]scenes/ring/lava_tile.tscn[/code] turns it on and places this node's
+## own origin at the lava surface so that Y is the surface height.
+@export var feet_only: bool = false
+
+## Seconds the feet must stay in before [member feet_only] converts the body.
+@export_range(0.0, 2.0, 0.005) var grace_seconds: float = 0.15
+
+## Tolerance below the surface a body's feet may sit at and still count as in.
+const _FEET_DEPTH: float = 0.05
+
 var _controller: MatchController = null
+
+## Per-body seconds spent with feet in, [member feet_only] only.
+var _feet_timers: Dictionary = {}
 
 
 func _ready() -> void:
@@ -99,6 +115,28 @@ func _ready() -> void:
 	_size_the_block()
 	_controller = _resolve_controller()
 	body_entered.connect(_on_body_entered)
+	if feet_only:
+		body_exited.connect(_on_body_exited)
+		set_process(true)
+	else:
+		set_process(false)
+
+
+## Feet-depth check, run every frame while [member feet_only] is on.
+func _process(delta: float) -> void:
+	for body: Node3D in get_overlapping_bodies():
+		if body.global_position.y <= global_transform.origin.y + _FEET_DEPTH:
+			var elapsed: float = _feet_timers.get(body, 0.0) + delta
+			_feet_timers[body] = elapsed
+			if elapsed >= grace_seconds:
+				_feet_timers.erase(body)
+				_convert(body)
+		else:
+			_feet_timers.erase(body)
+
+
+func _on_body_exited(body: Node3D) -> void:
+	_feet_timers.erase(body)
 
 
 # --- Geometry -----------------------------------------------------------------
@@ -151,6 +189,13 @@ func _find_block() -> CSGBox3D:
 
 
 func _on_body_entered(body: Node3D) -> void:
+	if feet_only:
+		# Depth and grace are decided per-frame in _process instead.
+		return
+	_convert(body)
+
+
+func _convert(body: Node3D) -> void:
 	if _controller == null:
 		# A controller added after this node was ready is found on first use.
 		_controller = _resolve_controller()
