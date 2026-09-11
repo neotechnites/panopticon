@@ -175,6 +175,20 @@ const PLAYER_CATCH_MADE: StringName = &"player.catch_made"
 ## to tell which of the two just happened without looking at anything.
 const PLAYER_CATCH_TAKEN: StringName = &"player.catch_taken"
 
+# --- Hazards ------------------------------------------------------------------
+#
+# Cues exist in the bank for these; nothing posts them yet. KillVolume,
+# TrapVolume, BoostPad and the portal emit no signal a listener could adapt.
+
+## The local player died in lava or a trap. Non-positional.
+const HAZARD_LAVA_DEATH: StringName = &"hazard.lava_death"
+
+## A body hit a boost pad. Positional, at the pad.
+const HAZARD_BOOST_PAD: StringName = &"hazard.boost_pad"
+
+## The portal's looping drone. Positional, at the portal.
+const HAZARD_PORTAL: StringName = &"hazard.portal"
+
 # --- UI -----------------------------------------------------------------------
 #
 # Wired by UIAudioListener, which walks a Control subtree and subscribes to
@@ -235,6 +249,9 @@ const ALL: Array[StringName] = [
 	PLAYER_HIT_TAKEN,
 	PLAYER_CATCH_MADE,
 	PLAYER_CATCH_TAKEN,
+	HAZARD_LAVA_DEATH,
+	HAZARD_BOOST_PAD,
+	HAZARD_PORTAL,
 	UI_CLICK,
 	UI_FOCUS,
 	UI_BACK,
@@ -257,6 +274,8 @@ const POSITIONAL: Array[StringName] = [
 	MOVEMENT_LAND,
 	MOVEMENT_SLIDE_START,
 	MOVEMENT_SLIDE_END,
+	HAZARD_BOOST_PAD,
+	HAZARD_PORTAL,
 ]
 
 

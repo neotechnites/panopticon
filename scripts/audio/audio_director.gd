@@ -101,6 +101,10 @@ const SILENCE_FLAG: String = "--no-audio"
 ## director with no bank is legal and silent.
 @export var bank: AudioBank = null
 
+## Optional pre-crushed twin of [member bank], served while [method set_crush] is
+## on. game_audio.tscn wires the 22.05 kHz 8-bit twin; the SFX bus effects add the rest.
+@export var crushed_bank: AudioBank = null
+
 ## When this director is allowed to play. See [enum Activation].
 ##
 ## The setter defers to [method _enter_tree] while the node is outside the tree:
@@ -126,6 +130,7 @@ const SILENCE_FLAG: String = "--no-audio"
 ## The director that static posts reach. Null when no director is in the tree,
 ## which is the normal state of a bot-harness run.
 static var _instance: AudioDirector = null
+static var _crush: bool = false
 
 var _voices: Array[AudioVoice] = []
 var _enabled: bool = false
@@ -216,6 +221,39 @@ func _process(_delta: float) -> void:
 # --- Posting ------------------------------------------------------------------
 
 ## Play [param event] flat. See [method post_event].
+## Enable every effect on the SFX bus (the PS1 crush) and, where a director
+## has a [member crushed_bank], serve that instead of [member bank].
+static func set_crush(on: bool) -> void:
+	_crush = on
+	var bus: int = AudioServer.get_bus_index(&"SFX")
+	if bus < 0:
+		return
+	for i in AudioServer.get_bus_effect_count(bus):
+		AudioServer.set_bus_effect_enabled(bus, i, on)
+
+
+## True when every effect on the SFX bus is enabled (and there is at least one).
+static func is_bus_crushed() -> bool:
+	var bus: int = AudioServer.get_bus_index(&"SFX")
+	if bus < 0 or AudioServer.get_bus_effect_count(bus) == 0:
+		return false
+	for i in AudioServer.get_bus_effect_count(bus):
+		if not AudioServer.is_bus_effect_enabled(bus, i):
+			return false
+	return true
+
+
+static func is_crush() -> bool:
+	return _crush
+
+
+## The bank posts are served from right now.
+func active_bank() -> AudioBank:
+	if _crush and crushed_bank != null:
+		return crushed_bank
+	return bank
+
+
 func post(event: StringName) -> bool:
 	return _play(event, false, Vector3.ZERO)
 
@@ -238,10 +276,11 @@ func post_at_gain(event: StringName, world_position: Vector3, gain_db: float) ->
 func _play(event: StringName, have_position: bool, world_position: Vector3, gain_db: float = 0.0) -> bool:
 	if not _enabled:
 		return false
-	if bank == null:
+	var active: AudioBank = active_bank()
+	if active == null:
 		return false
 
-	var cue: AudioCue = bank.get_cue(event)
+	var cue: AudioCue = active.get_cue(event)
 	if cue == null:
 		_report_unmapped(event)
 		return false

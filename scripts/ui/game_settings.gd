@@ -231,6 +231,7 @@ var invert_look_y: bool = false
 var master_volume: float = 1.0
 var effects_volume: float = 1.0
 var music_volume: float = 1.0
+var sfx_crush: bool = false
 
 var display_mode: DisplayMode = DisplayMode.WINDOWED
 
@@ -377,6 +378,7 @@ func reset() -> void:
 	master_volume = 1.0
 	effects_volume = 1.0
 	music_volume = 1.0
+	sfx_crush = false
 	display_mode = DisplayMode.WINDOWED
 	resolution = DEFAULT_RESOLUTION
 	vsync_mode = VSyncMode.ENABLED
@@ -441,6 +443,7 @@ func copy_from(other: GameSettings) -> void:
 	master_volume = other.master_volume
 	effects_volume = other.effects_volume
 	music_volume = other.music_volume
+	sfx_crush = other.sfx_crush
 	display_mode = other.display_mode
 	resolution = other.resolution
 	vsync_mode = other.vsync_mode
@@ -467,6 +470,7 @@ func equals(other: GameSettings) -> bool:
 		and is_equal_approx(master_volume, other.master_volume)
 		and is_equal_approx(effects_volume, other.effects_volume)
 		and is_equal_approx(music_volume, other.music_volume)
+		and sfx_crush == other.sfx_crush
 		and display_mode == other.display_mode
 		and resolution == other.resolution
 		and vsync_mode == other.vsync_mode
@@ -495,6 +499,7 @@ func write_to(config: ConfigFile) -> void:
 	config.set_value(SECTION_AUDIO, "master_volume", master_volume)
 	config.set_value(SECTION_AUDIO, "effects_volume", effects_volume)
 	config.set_value(SECTION_AUDIO, "music_volume", music_volume)
+	config.set_value(SECTION_AUDIO, "sfx_crush", sfx_crush)
 
 	config.set_value(SECTION_VIDEO, "display_mode", int(display_mode))
 	config.set_value(SECTION_VIDEO, "resolution_width", resolution.x)
@@ -527,6 +532,7 @@ func read_from(config: ConfigFile) -> void:
 	master_volume = read_float(config, SECTION_AUDIO, "master_volume", master_volume)
 	effects_volume = read_float(config, SECTION_AUDIO, "effects_volume", effects_volume)
 	music_volume = read_float(config, SECTION_AUDIO, "music_volume", music_volume)
+	sfx_crush = read_bool(config, SECTION_AUDIO, "sfx_crush", sfx_crush)
 
 	display_mode = read_int(config, SECTION_VIDEO, "display_mode", int(display_mode)) as DisplayMode
 	resolution = Vector2i(
@@ -572,6 +578,7 @@ func apply_audio() -> void:
 	_apply_bus(MASTER_BUS, master_volume)
 	_apply_bus(EFFECTS_BUS, effects_volume)
 	_apply_bus(MUSIC_BUS, music_volume)
+	AudioDirector.set_crush(sfx_crush)
 
 
 ## Push window mode, size and vsync at [DisplayServer].

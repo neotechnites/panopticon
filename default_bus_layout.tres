@@ -1,4 +1,13 @@
-[gd_resource type="AudioBusLayout" format=3]
+[gd_resource type="AudioBusLayout" load_steps=3 format=3]
+
+[sub_resource type="AudioEffectDistortion" id="SfxCrushBits"]
+resource_name = "SfxCrushBits"
+mode = 2
+drive = 0.57
+
+[sub_resource type="AudioEffectLowPassFilter" id="SfxCrushRate"]
+resource_name = "SfxCrushRate"
+cutoff_hz = 8000.0
 
 ; PANOPTICON's audio buses.
 ;
@@ -12,7 +21,10 @@
 ; two of three buses reads like a mistake.
 ;
 ; Effects and Music both send to Master, so the Master slider scales the other
-; two rather than competing with them.
+; two rather than competing with them. SFX carries every sound cue and sends to
+; Effects, so the Effects slider still scales it. SFX carries the two "PS1
+; crush" effects (8-bit lo-fi + 8 kHz low-pass), off until GameSettings.sfx_crush
+; enables them via AudioDirector.set_crush.
 
 [resource]
 bus/0/name = &"Master"
@@ -33,3 +45,13 @@ bus/2/mute = false
 bus/2/bypass_fx = false
 bus/2/volume_db = 0.0
 bus/2/send = &"Master"
+bus/3/name = &"SFX"
+bus/3/solo = false
+bus/3/mute = false
+bus/3/bypass_fx = false
+bus/3/volume_db = 0.0
+bus/3/send = &"Effects"
+bus/3/effect/0/effect = SubResource("SfxCrushBits")
+bus/3/effect/0/enabled = false
+bus/3/effect/1/effect = SubResource("SfxCrushRate")
+bus/3/effect/1/enabled = false

@@ -228,6 +228,18 @@ unique_name_in_owner = true
 vertical_alignment = 1
 horizontal_alignment = 2
 
+[node name="CrushName" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Audio/Grid"]
+size_flags_vertical = 1
+vertical_alignment = 1
+text = "PS1 crush"
+
+[node name="CrushCheck" type="CheckBox" parent="Frame/Dialog/Padding/Layout/Tabs/Audio/Grid"]
+size_flags_horizontal = 0
+unique_name_in_owner = true
+text = "8-bit, low rate"
+
+[node name="CrushSpacer" type="Control" parent="Frame/Dialog/Padding/Layout/Tabs/Audio/Grid"]
+
 [node name="Note" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Audio"]
 unique_name_in_owner = true
 autowrap_mode = 3

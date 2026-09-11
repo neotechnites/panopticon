@@ -292,6 +292,7 @@ stage_install() {
   mkdir -p "$MODELS"
   cp "$TMP/${NAME}.glb" "$MODELS/${NAME}.glb"
   say "assets/models/${NAME}.glb ($(wc -c < "$MODELS/${NAME}.glb" | tr -d ' ') bytes)"
+  "$REPO/tools/fix_glb_imports.sh"
   if [ -f "$MODELS/${NAME}.glb.import" ]; then
     echo "    (${NAME}.glb.import kept -- it carries the uid the scenes reference)"
   fi

@@ -1,0 +1,430 @@
+{
+ "rifle_fired": [
+  {
+   "out": "rifle_fired",
+   "id": 740071,
+   "name": "Daisy Powerline 880 blank shot 2",
+   "author": "FOSSarts",
+   "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+   "src": "rifle_fired_740071.ogg",
+   "duration": 2.51733,
+   "rating": 5.0,
+   "downloads": 29,
+   "retrieved": "2026-09-11"
+  }
+ ],
+ "rifle_hit": [
+  {
+   "out": "rifle_hit",
+   "id": 626405,
+   "name": "Heavy, wet impact.wav",
+   "author": "puppetmaster685719",
+   "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+   "src": "rifle_hit_626405.ogg",
+   "duration": 0.541667,
+   "rating": 4.9,
+   "downloads": 985,
+   "retrieved": "2026-09-11"
+  }
+ ],
+ "rifle_missed": [
+  {
+   "out": "rifle_missed",
+   "id": 394182,
+   "name": "Ricochet 1.wav",
+   "author": "saturdaysoundguy",
+   "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+   "src": "rifle_missed_394182.ogg",
+   "duration": 0.493333,
+   "rating": 5.0,
+   "downloads": 169,
+   "retrieved": "2026-09-11"
+  }
+ ],
+ "rifle_reload_started": [
+  {
+   "out": "rifle_reload_started",
+   "id": 674742,
+   "name": "AK-47 Assault Rifle being unloaded and reloaded",
+   "author": "ser\u00f8ut\u014dnin--depriv\u0259d",
+   "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+   "src": "rifle_reload_started_674742.ogg",
+   "duration": 1.5746,
+   "rating": 4.9375,
+   "downloads": 1747,
+   "retrieved": "2026-09-11"
+  }
+ ],
+ "rifle_reload_finished": [
+  {
+   "out": "rifle_reload_finished",
+   "id": 855580,
+   "name": "Pushing 50 Cal BMG Round into Magazine",
+   "author": "qubodup",
+   "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+   "src": "rifle_reload_finished_855580.ogg",
+   "duration": 0.325979,
+   "rating": 5.0,
+   "downloads": 35,
+   "retrieved": "2026-09-11"
+  }
+ ],
+ "match_started": [
+  {
+   "out": "match_started",
+   "id": 802361,
+   "name": "Toms Misc Perc Hits and Rhythms-012.wav",
+   "author": "CVLTIV8R",
+   "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+   "src": "match_started_802361.ogg",
+   "duration": 3.92898,
+   "rating": 5.0,
+   "downloads": 6,
+   "retrieved": "2026-09-11"
+  }
+ ],
+ "race_started": [
+  {
+   "out": "race_started",
+   "id": 273305,
+   "name": "Whistle.mp3",
+   "author": "ZvinbergsA",
+   "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+   "src": "race_started_273305.ogg",
+   "duration": 1.42474,
+   "rating": 4.454545454545454,
+   "downloads": 494,
+   "retrieved": "2026-09-11"
+  }
+ ],
+ "round_started": [
+  {
+   "out": "round_started",
+   "id": 791480,
+   "name": "Bell 05 OS",
+   "author": "Sadiquecat",
+   "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+   "src": "round_started_791480.ogg",
+   "duration": 2.29198,
+   "rating": 5.0,
+   "downloads": 26,
+   "retrieved": "2026-09-11"
+  }
+ ],
+ "seat_changed": [
+  {
+   "out": "seat_changed",
+   "id": 278205,
+   "name": "Switch Flip #1",
+   "author": "IanStarGem",
+   "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+   "src": "seat_changed_278205.ogg",
+   "duration": 0.975635,
+   "rating": 4.8,
+   "downloads": 3331,
+   "retrieved": "2026-09-11"
+  }
+ ],
+ "round_resolved": [
+  {
+   "out": "round_resolved",
+   "id": 802382,
+   "name": "Mid low Tom Sonor Force 3007-004.wav",
+   "author": "CVLTIV8R",
+   "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+   "src": "round_resolved_802382.ogg",
+   "duration": 3.92503,
+   "rating": 5.0,
+   "downloads": 8,
+   "retrieved": "2026-09-11"
+  }
+ ],
+ "runner_converted": [
+  {
+   "out": "runner_converted",
+   "id": 632487,
+   "name": "Closing a steel padlock shackle (Take A)",
+   "author": "ani_music",
+   "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+   "src": "runner_converted_632487.ogg",
+   "duration": 0.586644,
+   "rating": 5.0,
+   "downloads": 117,
+   "retrieved": "2026-09-11"
+  }
+ ],
+ "match_won": [
+  {
+   "out": "match_won",
+   "id": 763947,
+   "name": "CRWDCheer_Short Affirmative Cheer_ShaneVincent_GSC24_BIN-AmbeoVR.wav",
+   "author": "ShangusBurger",
+   "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+   "src": "match_won_763947.ogg",
+   "duration": 2.92879,
+   "rating": 5.0,
+   "downloads": 117,
+   "retrieved": "2026-09-11"
+  }
+ ],
+ "footstep": [
+  {
+   "out": "footstep_1",
+   "id": 778495,
+   "name": "Cloth_And_Shoes_On_Concrete_17",
+   "author": "BlondPanda",
+   "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+   "src": "footstep_778495.ogg",
+   "duration": 0.545396,
+   "rating": 5.0,
+   "downloads": 24,
+   "retrieved": "2026-09-11"
+  },
+  {
+   "out": "footstep_2",
+   "id": 483976,
+   "name": "Ceramic Floor Socks Light Footstep 1_3",
+   "author": "Joao_Janz",
+   "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+   "src": "footstep_483976.ogg",
+   "duration": 0.731167,
+   "rating": 5.0,
+   "downloads": 45,
+   "retrieved": "2026-09-11"
+  },
+  {
+   "out": "footstep_3",
+   "id": 565480,
+   "name": "Footstep Wood/Concrete Chamber Echo 01",
+   "author": "Jakegwizdak",
+   "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+   "src": "footstep_565480.ogg",
+   "duration": 0.357188,
+   "rating": 5.0,
+   "downloads": 71,
+   "retrieved": "2026-09-11"
+  },
+  {
+   "out": "footstep_4",
+   "id": 627911,
+   "name": "03-Footstep.ogg",
+   "author": "MikeFozzy98",
+   "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+   "src": "footstep_627911.ogg",
+   "duration": 0.316708,
+   "rating": 5.0,
+   "downloads": 73,
+   "retrieved": "2026-09-11"
+  }
+ ],
+ "jump": [
+  {
+   "out": "jump",
+   "id": 808215,
+   "name": "jump_grunt_02",
+   "author": "arther1974",
+   "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+   "src": "jump_808215.ogg",
+   "duration": 0.350354,
+   "rating": 5.0,
+   "downloads": 182,
+   "retrieved": "2026-09-11"
+  }
+ ],
+ "land": [
+  {
+   "out": "land",
+   "id": 422754,
+   "name": "Landing_Stone_2.wav",
+   "author": "KieranKeegan",
+   "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+   "src": "land_422754.ogg",
+   "duration": 0.240363,
+   "rating": 4.888888888888889,
+   "downloads": 392,
+   "retrieved": "2026-09-11"
+  }
+ ],
+ "slide_start": [
+  {
+   "out": "slide_start",
+   "id": 584322,
+   "name": "Abrupt stopping on gravel road.wav",
+   "author": "Vendarro",
+   "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+   "src": "slide_start_584322.ogg",
+   "duration": 2.35681,
+   "rating": 5.0,
+   "downloads": 564,
+   "retrieved": "2026-09-11"
+  }
+ ],
+ "hit_taken": [
+  {
+   "out": "hit_taken",
+   "id": 800870,
+   "name": "Soldier-DeathHit",
+   "author": "TyrantTim",
+   "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+   "src": "hit_taken_800870.ogg",
+   "duration": 1.05651,
+   "rating": 4.9,
+   "downloads": 160,
+   "retrieved": "2026-09-11"
+  }
+ ],
+ "catch_made": [
+  {
+   "out": "catch_made",
+   "id": 789038,
+   "name": "Fabric_Foley_1",
+   "author": "Mediasaur",
+   "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+   "src": "catch_made_789038.ogg",
+   "duration": 0.478625,
+   "rating": 5.0,
+   "downloads": 917,
+   "retrieved": "2026-09-11"
+  }
+ ],
+ "catch_taken": [
+  {
+   "out": "catch_taken",
+   "id": 850721,
+   "name": "Metal Trash Impact",
+   "author": "loganzsound",
+   "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+   "src": "catch_taken_850721.ogg",
+   "duration": 1.41133,
+   "rating": 5.0,
+   "downloads": 9,
+   "retrieved": "2026-09-11"
+  }
+ ],
+ "lava_death": [
+  {
+   "out": "lava_death",
+   "id": 708646,
+   "name": "OBJBrn-INT_Cotton Burning_Khensani_OwSFX",
+   "author": "Khensi",
+   "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+   "src": "lava_death_708646.ogg",
+   "duration": 2.5,
+   "rating": 5.0,
+   "downloads": 52,
+   "retrieved": "2026-09-11"
+  }
+ ],
+ "boost_pad": [
+  {
+   "out": "boost_pad",
+   "id": 571278,
+   "name": "wroef_lucht.wav",
+   "author": "gecop",
+   "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+   "src": "boost_pad_571278.ogg",
+   "duration": 2.11877,
+   "rating": 5.0,
+   "downloads": 82,
+   "retrieved": "2026-09-11"
+  }
+ ],
+ "portal_drone": [
+  {
+   "out": "portal_drone",
+   "id": 865221,
+   "name": "Strange Transmission",
+   "author": "microman502",
+   "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+   "src": "portal_drone_865221.ogg",
+   "duration": 5.46447,
+   "rating": 5.0,
+   "downloads": 17,
+   "retrieved": "2026-09-11"
+  }
+ ],
+ "ui_click": [
+  {
+   "out": "ui_click",
+   "id": 825193,
+   "name": "Mouse Click",
+   "author": "planet_jvk",
+   "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+   "src": "ui_click_825193.ogg",
+   "duration": 0.487188,
+   "rating": 5.0,
+   "downloads": 174,
+   "retrieved": "2026-09-11"
+  }
+ ],
+ "ui_focus": [
+  {
+   "out": "ui_focus",
+   "id": 662319,
+   "name": "Pen Click_ metal.wav",
+   "author": "ARodLRU2018",
+   "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+   "src": "ui_focus_662319.ogg",
+   "duration": 0.340542,
+   "rating": 5.0,
+   "downloads": 80,
+   "retrieved": "2026-09-11"
+  }
+ ],
+ "ui_back": [
+  {
+   "out": "ui_back",
+   "id": 842431,
+   "name": "Switch-041",
+   "author": "Moulaythami",
+   "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+   "src": "ui_back_842431.ogg",
+   "duration": 0.346958,
+   "rating": 5.0,
+   "downloads": 6,
+   "retrieved": "2026-09-11"
+  }
+ ],
+ "ui_menu_opened": [
+  {
+   "out": "ui_menu_opened",
+   "id": 828144,
+   "name": "pooldooropen2.wav",
+   "author": "Mihacappy",
+   "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+   "src": "ui_menu_opened_828144.ogg",
+   "duration": 1.08058,
+   "rating": 5.0,
+   "downloads": 8,
+   "retrieved": "2026-09-11"
+  }
+ ],
+ "ui_menu_closed": [
+  {
+   "out": "ui_menu_closed",
+   "id": 842379,
+   "name": "entrance_close1.wav",
+   "author": "Mihacappy",
+   "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+   "src": "ui_menu_closed_842379.ogg",
+   "duration": 1.42475,
+   "rating": 5.0,
+   "downloads": 6,
+   "retrieved": "2026-09-11"
+  }
+ ],
+ "slide_end": [
+  {
+   "out": "slide_end",
+   "id": 149302,
+   "name": "DeLisa Foley scrape 01.wav",
+   "author": "pushkin",
+   "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+   "src": "slide_end_149302.ogg",
+   "duration": 1.92658,
+   "rating": 5.0,
+   "downloads": 384,
+   "retrieved": "2026-09-11"
+  }
+ ]
+}

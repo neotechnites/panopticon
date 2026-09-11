@@ -1,256 +1,332 @@
-[gd_resource type="Resource" script_class="AudioBank" format=3 uid="uid://bkju4pxmvbgxk"]
+[gd_resource type="Resource" script_class="AudioBank" load_steps=64 format=3 uid="uid://bkju4pxmvbgxk"]
 
-[ext_resource type="Script" uid="uid://cuymaealujaar" path="res://scripts/audio/audio_cue.gd" id="1_fpjg4"]
-[ext_resource type="AudioStream" uid="uid://c4ptnkag6lnmx" path="res://assets/audio/placeholder_weapon_rifle_fired.wav" id="2_e5tap"]
-[ext_resource type="AudioStream" uid="uid://bhodjclbxwueb" path="res://assets/audio/placeholder_weapon_rifle_hit.wav" id="3_qf5in"]
-[ext_resource type="AudioStream" uid="uid://dgcgret07ob1e" path="res://assets/audio/placeholder_weapon_rifle_missed.wav" id="4_kk077"]
-[ext_resource type="AudioStream" uid="uid://bqo61tpo2cini" path="res://assets/audio/placeholder_weapon_rifle_reload_started.wav" id="5_w34be"]
-[ext_resource type="AudioStream" uid="uid://nx74omvtl1ff" path="res://assets/audio/placeholder_weapon_rifle_reload_finished.wav" id="6_u0bni"]
-[ext_resource type="AudioStream" uid="uid://wbv1nbhk0ye2" path="res://assets/audio/placeholder_match_started.wav" id="7_lgj7q"]
-[ext_resource type="AudioStream" uid="uid://ik5861dnkcar" path="res://assets/audio/placeholder_match_race_started.wav" id="8_fx8av"]
-[ext_resource type="AudioStream" uid="uid://blr20rnxrgkcu" path="res://assets/audio/placeholder_match_round_started.wav" id="9_8mcly"]
-[ext_resource type="AudioStream" uid="uid://dubmmdsmssync" path="res://assets/audio/placeholder_match_seat_changed.wav" id="10_3n7lw"]
-[ext_resource type="AudioStream" uid="uid://c3vrgjvacjvrp" path="res://assets/audio/placeholder_match_round_resolved.wav" id="11_nhvxt"]
-[ext_resource type="AudioStream" uid="uid://cj4tgnle3uuh7" path="res://assets/audio/placeholder_match_runner_converted.wav" id="12_kupoy"]
-[ext_resource type="AudioStream" uid="uid://bi3cy3llanpsg" path="res://assets/audio/placeholder_match_won.wav" id="13_y2vxs"]
-[ext_resource type="AudioStream" uid="uid://bja74xyaodno2" path="res://assets/audio/placeholder_ui_click.wav" id="14_4s2f8"]
-[ext_resource type="AudioStream" uid="uid://dn6hx4khjtl1e" path="res://assets/audio/placeholder_ui_focus.wav" id="15_t10fy"]
-[ext_resource type="AudioStream" uid="uid://c5lxboiq1emip" path="res://assets/audio/placeholder_ui_back.wav" id="16_bj6l4"]
-[ext_resource type="AudioStream" uid="uid://o4e6hgje67my" path="res://assets/audio/placeholder_ui_menu_opened.wav" id="17_sk6ov"]
-[ext_resource type="AudioStream" uid="uid://gpdw7r1m4efq" path="res://assets/audio/placeholder_ui_menu_closed.wav" id="18_f3avj"]
-[ext_resource type="Script" uid="uid://dgxuwgj0xq31x" path="res://scripts/audio/audio_bank.gd" id="19_b5lrq"]
-[ext_resource type="AudioStream" uid="uid://glyy6w7jrhxr" path="res://assets/audio/placeholder_movement_footstep.wav" id="20_mvfoot"]
-[ext_resource type="AudioStream" uid="uid://ddkewc6e8r2an" path="res://assets/audio/placeholder_movement_jump.wav" id="21_mvjump"]
-[ext_resource type="AudioStream" uid="uid://cr37kydelf03w" path="res://assets/audio/placeholder_movement_land.wav" id="22_mvland"]
-[ext_resource type="AudioStream" uid="uid://53xr54h6db5x" path="res://assets/audio/placeholder_movement_slide_start.wav" id="23_mvslst"]
-[ext_resource type="AudioStream" uid="uid://dov0p30cllq6c" path="res://assets/audio/placeholder_movement_slide_end.wav" id="24_mvslen"]
+[ext_resource type="Script" uid="uid://cuymaealujaar" path="res://scripts/audio/audio_cue.gd" id="cue"]
+[ext_resource type="Script" uid="uid://dgxuwgj0xq31x" path="res://scripts/audio/audio_bank.gd" id="bank"]
+[ext_resource type="AudioStream" path="res://assets/audio/sfx/clean/rifle_fired.wav" id="rifle_fired"]
+[ext_resource type="AudioStream" path="res://assets/audio/sfx/clean/rifle_hit.wav" id="rifle_hit"]
+[ext_resource type="AudioStream" path="res://assets/audio/sfx/clean/rifle_missed.wav" id="rifle_missed"]
+[ext_resource type="AudioStream" path="res://assets/audio/sfx/clean/rifle_reload_started.wav" id="rifle_reload_started"]
+[ext_resource type="AudioStream" path="res://assets/audio/sfx/clean/rifle_reload_finished.wav" id="rifle_reload_finished"]
+[ext_resource type="AudioStream" path="res://assets/audio/sfx/clean/match_started.wav" id="match_started"]
+[ext_resource type="AudioStream" path="res://assets/audio/sfx/clean/race_started.wav" id="race_started"]
+[ext_resource type="AudioStream" path="res://assets/audio/sfx/clean/round_started.wav" id="round_started"]
+[ext_resource type="AudioStream" path="res://assets/audio/sfx/clean/seat_changed.wav" id="seat_changed"]
+[ext_resource type="AudioStream" path="res://assets/audio/sfx/clean/round_resolved.wav" id="round_resolved"]
+[ext_resource type="AudioStream" path="res://assets/audio/sfx/clean/runner_converted.wav" id="runner_converted"]
+[ext_resource type="AudioStream" path="res://assets/audio/sfx/clean/match_won.wav" id="match_won"]
+[ext_resource type="AudioStream" path="res://assets/audio/sfx/clean/footstep_1.wav" id="footstep_1"]
+[ext_resource type="AudioStream" path="res://assets/audio/sfx/clean/footstep_2.wav" id="footstep_2"]
+[ext_resource type="AudioStream" path="res://assets/audio/sfx/clean/footstep_3.wav" id="footstep_3"]
+[ext_resource type="AudioStream" path="res://assets/audio/sfx/clean/footstep_4.wav" id="footstep_4"]
+[ext_resource type="AudioStream" path="res://assets/audio/sfx/clean/jump.wav" id="jump"]
+[ext_resource type="AudioStream" path="res://assets/audio/sfx/clean/land.wav" id="land"]
+[ext_resource type="AudioStream" path="res://assets/audio/sfx/clean/slide_start.wav" id="slide_start"]
+[ext_resource type="AudioStream" path="res://assets/audio/sfx/clean/slide_end.wav" id="slide_end"]
+[ext_resource type="AudioStream" path="res://assets/audio/sfx/clean/hit_taken.wav" id="hit_taken"]
+[ext_resource type="AudioStream" path="res://assets/audio/sfx/clean/catch_made.wav" id="catch_made"]
+[ext_resource type="AudioStream" path="res://assets/audio/sfx/clean/catch_taken.wav" id="catch_taken"]
+[ext_resource type="AudioStream" path="res://assets/audio/sfx/clean/lava_death.wav" id="lava_death"]
+[ext_resource type="AudioStream" path="res://assets/audio/sfx/clean/boost_pad.wav" id="boost_pad"]
+[ext_resource type="AudioStream" path="res://assets/audio/sfx/clean/portal_drone.wav" id="portal_drone"]
+[ext_resource type="AudioStream" path="res://assets/audio/sfx/clean/ui_click.wav" id="ui_click"]
+[ext_resource type="AudioStream" path="res://assets/audio/sfx/clean/ui_focus.wav" id="ui_focus"]
+[ext_resource type="AudioStream" path="res://assets/audio/sfx/clean/ui_back.wav" id="ui_back"]
+[ext_resource type="AudioStream" path="res://assets/audio/sfx/clean/ui_menu_opened.wav" id="ui_menu_opened"]
+[ext_resource type="AudioStream" path="res://assets/audio/sfx/clean/ui_menu_closed.wav" id="ui_menu_closed"]
 
-[sub_resource type="Resource" id="Resource_1x1x0"]
+[sub_resource type="Resource" id="Cue_weapon_rifle_fired"]
 resource_name = "weapon.rifle.fired"
-script = ExtResource("1_fpjg4")
+script = ExtResource("cue")
 event = &"weapon.rifle.fired"
-stream = ExtResource("2_e5tap")
-volume_db = -8.0
+stream = ExtResource("rifle_fired")
+bus = &"SFX"
+volume_db = -3.0
 pitch_jitter = 0.03
 positional = true
 max_distance = 250.0
 unit_size = 30.0
 
-[sub_resource type="Resource" id="Resource_1prkm"]
+[sub_resource type="Resource" id="Cue_weapon_rifle_hit"]
 resource_name = "weapon.rifle.hit"
-script = ExtResource("1_fpjg4")
+script = ExtResource("cue")
 event = &"weapon.rifle.hit"
-stream = ExtResource("3_qf5in")
-volume_db = -11.0
+stream = ExtResource("rifle_hit")
+bus = &"SFX"
+volume_db = -6.0
 pitch_jitter = 0.05
 positional = true
 max_distance = 140.0
 unit_size = 16.0
 
-[sub_resource type="Resource" id="Resource_0uvv6"]
+[sub_resource type="Resource" id="Cue_weapon_rifle_missed"]
 resource_name = "weapon.rifle.missed"
-script = ExtResource("1_fpjg4")
+script = ExtResource("cue")
 event = &"weapon.rifle.missed"
-stream = ExtResource("4_kk077")
-volume_db = -15.0
+stream = ExtResource("rifle_missed")
+bus = &"SFX"
+volume_db = -10.0
 pitch_jitter = 0.08
 positional = true
 max_distance = 100.0
 unit_size = 12.0
 
-[sub_resource type="Resource" id="Resource_o1jvp"]
+[sub_resource type="Resource" id="Cue_weapon_rifle_reload_started"]
 resource_name = "weapon.rifle.reload_started"
-script = ExtResource("1_fpjg4")
+script = ExtResource("cue")
 event = &"weapon.rifle.reload_started"
-stream = ExtResource("5_w34be")
-volume_db = -17.0
+stream = ExtResource("rifle_reload_started")
+bus = &"SFX"
+volume_db = -10.0
+pitch_jitter = 0.03
 
-[sub_resource type="Resource" id="Resource_sevpf"]
+[sub_resource type="Resource" id="Cue_weapon_rifle_reload_finished"]
 resource_name = "weapon.rifle.reload_finished"
-script = ExtResource("1_fpjg4")
+script = ExtResource("cue")
 event = &"weapon.rifle.reload_finished"
-stream = ExtResource("6_u0bni")
-volume_db = -12.0
+stream = ExtResource("rifle_reload_finished")
+bus = &"SFX"
+volume_db = -6.0
+pitch_jitter = 0.03
 
-[sub_resource type="Resource" id="Resource_v2in6"]
+[sub_resource type="Resource" id="Cue_match_started"]
 resource_name = "match.started"
-script = ExtResource("1_fpjg4")
+script = ExtResource("cue")
 event = &"match.started"
-stream = ExtResource("7_lgj7q")
-volume_db = -15.0
+stream = ExtResource("match_started")
+bus = &"SFX"
+volume_db = -9.0
 
-[sub_resource type="Resource" id="Resource_64ytq"]
+[sub_resource type="Resource" id="Cue_match_race_started"]
 resource_name = "match.race_started"
-script = ExtResource("1_fpjg4")
+script = ExtResource("cue")
 event = &"match.race_started"
-stream = ExtResource("8_fx8av")
-volume_db = -15.0
+stream = ExtResource("race_started")
+bus = &"SFX"
+volume_db = -9.0
 
-[sub_resource type="Resource" id="Resource_t71ie"]
+[sub_resource type="Resource" id="Cue_match_round_started"]
 resource_name = "match.round_started"
-script = ExtResource("1_fpjg4")
+script = ExtResource("cue")
 event = &"match.round_started"
-stream = ExtResource("9_8mcly")
-volume_db = -15.0
+stream = ExtResource("round_started")
+bus = &"SFX"
+volume_db = -9.0
 
-[sub_resource type="Resource" id="Resource_juw30"]
+[sub_resource type="Resource" id="Cue_match_seat_changed"]
 resource_name = "match.seat_changed"
-script = ExtResource("1_fpjg4")
+script = ExtResource("cue")
 event = &"match.seat_changed"
-stream = ExtResource("10_3n7lw")
-volume_db = -15.0
+stream = ExtResource("seat_changed")
+bus = &"SFX"
+volume_db = -9.0
 
-[sub_resource type="Resource" id="Resource_10p4l"]
+[sub_resource type="Resource" id="Cue_match_round_resolved"]
 resource_name = "match.round_resolved"
-script = ExtResource("1_fpjg4")
+script = ExtResource("cue")
 event = &"match.round_resolved"
-stream = ExtResource("11_nhvxt")
-volume_db = -15.0
+stream = ExtResource("round_resolved")
+bus = &"SFX"
+volume_db = -9.0
 
-[sub_resource type="Resource" id="Resource_bnrmu"]
+[sub_resource type="Resource" id="Cue_match_runner_converted"]
 resource_name = "match.runner_converted"
-script = ExtResource("1_fpjg4")
+script = ExtResource("cue")
 event = &"match.runner_converted"
-stream = ExtResource("12_kupoy")
-volume_db = -15.0
+stream = ExtResource("runner_converted")
+bus = &"SFX"
+volume_db = -9.0
 
-[sub_resource type="Resource" id="Resource_ne0xl"]
+[sub_resource type="Resource" id="Cue_match_won"]
 resource_name = "match.won"
-script = ExtResource("1_fpjg4")
+script = ExtResource("cue")
 event = &"match.won"
-stream = ExtResource("13_y2vxs")
-volume_db = -11.0
+stream = ExtResource("match_won")
+bus = &"SFX"
+volume_db = -6.0
 
-[sub_resource type="Resource" id="Resource_mvfoot"]
+[sub_resource type="AudioStreamRandomizer" id="Rnd_Cue_movement_footstep"]
+streams_count = 4
+stream_0/stream = ExtResource("footstep_1")
+stream_0/weight = 1.0
+stream_1/stream = ExtResource("footstep_2")
+stream_1/weight = 1.0
+stream_2/stream = ExtResource("footstep_3")
+stream_2/weight = 1.0
+stream_3/stream = ExtResource("footstep_4")
+stream_3/weight = 1.0
+
+[sub_resource type="Resource" id="Cue_movement_footstep"]
 resource_name = "movement.footstep"
-script = ExtResource("1_fpjg4")
+script = ExtResource("cue")
 event = &"movement.footstep"
-stream = ExtResource("20_mvfoot")
-volume_db = -22.0
-pitch_jitter = 0.08
+stream = SubResource("Rnd_Cue_movement_footstep")
+bus = &"SFX"
+volume_db = -14.0
+pitch_jitter = 0.06
 positional = true
 max_distance = 30.0
 unit_size = 6.0
 min_retrigger_seconds = 0.05
 
-[sub_resource type="Resource" id="Resource_mvjump"]
+[sub_resource type="Resource" id="Cue_movement_jump"]
 resource_name = "movement.jump"
-script = ExtResource("1_fpjg4")
+script = ExtResource("cue")
 event = &"movement.jump"
-stream = ExtResource("21_mvjump")
-volume_db = -18.0
+stream = ExtResource("jump")
+bus = &"SFX"
+volume_db = -12.0
 pitch_jitter = 0.04
 positional = true
 max_distance = 40.0
 unit_size = 10.0
 
-[sub_resource type="Resource" id="Resource_mvland"]
+[sub_resource type="Resource" id="Cue_movement_land"]
 resource_name = "movement.land"
-script = ExtResource("1_fpjg4")
+script = ExtResource("cue")
 event = &"movement.land"
-stream = ExtResource("22_mvland")
-volume_db = -16.0
+stream = ExtResource("land")
+bus = &"SFX"
+volume_db = -10.0
 pitch_jitter = 0.05
 positional = true
 max_distance = 45.0
 unit_size = 10.0
 
-[sub_resource type="Resource" id="Resource_mvslst"]
+[sub_resource type="Resource" id="Cue_movement_slide_start"]
 resource_name = "movement.slide_start"
-script = ExtResource("1_fpjg4")
+script = ExtResource("cue")
 event = &"movement.slide_start"
-stream = ExtResource("23_mvslst")
-volume_db = -18.0
+stream = ExtResource("slide_start")
+bus = &"SFX"
+volume_db = -12.0
 pitch_jitter = 0.04
 positional = true
 max_distance = 40.0
 unit_size = 9.0
 
-[sub_resource type="Resource" id="Resource_mvslen"]
+[sub_resource type="Resource" id="Cue_movement_slide_end"]
 resource_name = "movement.slide_end"
-script = ExtResource("1_fpjg4")
+script = ExtResource("cue")
 event = &"movement.slide_end"
-stream = ExtResource("24_mvslen")
-volume_db = -18.0
+stream = ExtResource("slide_end")
+bus = &"SFX"
+volume_db = -12.0
 pitch_jitter = 0.04
 positional = true
 max_distance = 40.0
 unit_size = 9.0
 
-[sub_resource type="Resource" id="Resource_hittaken"]
+[sub_resource type="Resource" id="Cue_player_hit_taken"]
 resource_name = "player.hit_taken"
-script = ExtResource("1_fpjg4")
+script = ExtResource("cue")
 event = &"player.hit_taken"
-stream = ExtResource("3_qf5in")
+stream = ExtResource("hit_taken")
+bus = &"SFX"
 volume_db = -2.0
-pitch_scale = 0.45
 pitch_jitter = 0.02
 
-[sub_resource type="Resource" id="Resource_catchmade"]
+[sub_resource type="Resource" id="Cue_player_catch_made"]
 resource_name = "player.catch_made"
-script = ExtResource("1_fpjg4")
+script = ExtResource("cue")
 event = &"player.catch_made"
-stream = ExtResource("6_u0bni")
-volume_db = -6.0
-pitch_scale = 0.8
+stream = ExtResource("catch_made")
+bus = &"SFX"
+volume_db = -4.0
 pitch_jitter = 0.03
 
-[sub_resource type="Resource" id="Resource_catchtaken"]
+[sub_resource type="Resource" id="Cue_player_catch_taken"]
 resource_name = "player.catch_taken"
-script = ExtResource("1_fpjg4")
+script = ExtResource("cue")
 event = &"player.catch_taken"
-stream = ExtResource("4_kk077")
+stream = ExtResource("catch_taken")
+bus = &"SFX"
 volume_db = -2.0
-pitch_scale = 0.6
 pitch_jitter = 0.02
 
-[sub_resource type="Resource" id="Resource_r8htj"]
+[sub_resource type="Resource" id="Cue_hazard_lava_death"]
+resource_name = "hazard.lava_death"
+script = ExtResource("cue")
+event = &"hazard.lava_death"
+stream = ExtResource("lava_death")
+bus = &"SFX"
+volume_db = -4.0
+pitch_jitter = 0.03
+
+[sub_resource type="Resource" id="Cue_hazard_boost_pad"]
+resource_name = "hazard.boost_pad"
+script = ExtResource("cue")
+event = &"hazard.boost_pad"
+stream = ExtResource("boost_pad")
+bus = &"SFX"
+volume_db = -8.0
+pitch_jitter = 0.04
+positional = true
+max_distance = 60.0
+unit_size = 12.0
+
+[sub_resource type="Resource" id="Cue_hazard_portal"]
+resource_name = "hazard.portal"
+script = ExtResource("cue")
+event = &"hazard.portal"
+stream = ExtResource("portal_drone")
+bus = &"SFX"
+volume_db = -12.0
+positional = true
+max_distance = 50.0
+unit_size = 8.0
+
+[sub_resource type="Resource" id="Cue_ui_click"]
 resource_name = "ui.click"
-script = ExtResource("1_fpjg4")
+script = ExtResource("cue")
 event = &"ui.click"
-stream = ExtResource("14_4s2f8")
-volume_db = -20.0
+stream = ExtResource("ui_click")
+bus = &"SFX"
+volume_db = -14.0
 min_retrigger_seconds = 0.04
 
-[sub_resource type="Resource" id="Resource_i80r1"]
+[sub_resource type="Resource" id="Cue_ui_focus"]
 resource_name = "ui.focus"
-script = ExtResource("1_fpjg4")
+script = ExtResource("cue")
 event = &"ui.focus"
-stream = ExtResource("15_t10fy")
-volume_db = -26.0
+stream = ExtResource("ui_focus")
+bus = &"SFX"
+volume_db = -20.0
 min_retrigger_seconds = 0.08
 
-[sub_resource type="Resource" id="Resource_sato2"]
+[sub_resource type="Resource" id="Cue_ui_back"]
 resource_name = "ui.back"
-script = ExtResource("1_fpjg4")
+script = ExtResource("cue")
 event = &"ui.back"
-stream = ExtResource("16_bj6l4")
-volume_db = -20.0
+stream = ExtResource("ui_back")
+bus = &"SFX"
+volume_db = -14.0
 min_retrigger_seconds = 0.04
 
-[sub_resource type="Resource" id="Resource_6dq35"]
+[sub_resource type="Resource" id="Cue_ui_menu_opened"]
 resource_name = "ui.menu_opened"
-script = ExtResource("1_fpjg4")
+script = ExtResource("cue")
 event = &"ui.menu_opened"
-stream = ExtResource("17_sk6ov")
-volume_db = -20.0
+stream = ExtResource("ui_menu_opened")
+bus = &"SFX"
+volume_db = -14.0
 min_retrigger_seconds = 0.04
 
-[sub_resource type="Resource" id="Resource_4t8dr"]
+[sub_resource type="Resource" id="Cue_ui_menu_closed"]
 resource_name = "ui.menu_closed"
-script = ExtResource("1_fpjg4")
+script = ExtResource("cue")
 event = &"ui.menu_closed"
-stream = ExtResource("18_f3avj")
-volume_db = -20.0
+stream = ExtResource("ui_menu_closed")
+bus = &"SFX"
+volume_db = -14.0
 min_retrigger_seconds = 0.04
 
-[sub_resource type="Resource" id="Resource_nlssw"]
+[sub_resource type="Resource" id="Cue_music_match_theme"]
 resource_name = "music.match_theme"
-script = ExtResource("1_fpjg4")
+script = ExtResource("cue")
 event = &"music.match_theme"
 bus = &"Music"
 volume_db = -12.0
 
 [resource]
-script = ExtResource("19_b5lrq")
-cues = Array[ExtResource("1_fpjg4")]([SubResource("Resource_1x1x0"), SubResource("Resource_1prkm"), SubResource("Resource_0uvv6"), SubResource("Resource_o1jvp"), SubResource("Resource_sevpf"), SubResource("Resource_v2in6"), SubResource("Resource_64ytq"), SubResource("Resource_t71ie"), SubResource("Resource_juw30"), SubResource("Resource_10p4l"), SubResource("Resource_bnrmu"), SubResource("Resource_ne0xl"), SubResource("Resource_mvfoot"), SubResource("Resource_mvjump"), SubResource("Resource_mvland"), SubResource("Resource_mvslst"), SubResource("Resource_mvslen"), SubResource("Resource_hittaken"), SubResource("Resource_catchmade"), SubResource("Resource_catchtaken"), SubResource("Resource_r8htj"), SubResource("Resource_i80r1"), SubResource("Resource_sato2"), SubResource("Resource_6dq35"), SubResource("Resource_4t8dr"), SubResource("Resource_nlssw")])
+script = ExtResource("bank")
+cues = Array[ExtResource("cue")]([SubResource("Cue_weapon_rifle_fired"), SubResource("Cue_weapon_rifle_hit"), SubResource("Cue_weapon_rifle_missed"), SubResource("Cue_weapon_rifle_reload_started"), SubResource("Cue_weapon_rifle_reload_finished"), SubResource("Cue_match_started"), SubResource("Cue_match_race_started"), SubResource("Cue_match_round_started"), SubResource("Cue_match_seat_changed"), SubResource("Cue_match_round_resolved"), SubResource("Cue_match_runner_converted"), SubResource("Cue_match_won"), SubResource("Cue_movement_footstep"), SubResource("Cue_movement_jump"), SubResource("Cue_movement_land"), SubResource("Cue_movement_slide_start"), SubResource("Cue_movement_slide_end"), SubResource("Cue_player_hit_taken"), SubResource("Cue_player_catch_made"), SubResource("Cue_player_catch_taken"), SubResource("Cue_hazard_lava_death"), SubResource("Cue_hazard_boost_pad"), SubResource("Cue_hazard_portal"), SubResource("Cue_ui_click"), SubResource("Cue_ui_focus"), SubResource("Cue_ui_back"), SubResource("Cue_ui_menu_opened"), SubResource("Cue_ui_menu_closed"), SubResource("Cue_music_match_theme")])
