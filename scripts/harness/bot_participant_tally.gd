@@ -55,6 +55,26 @@ var hazard_deaths: int = 0
 ## Lap fraction the tracker held when the match ended.
 var final_progress: float = 0.0
 
+## Of hazard_deaths, those from a KillVolume (fell off) and from a TrapVolume (lava).
+var falls: int = 0
+var lava_deaths: int = 0
+
+## Windows of 3 s in which the body moved under 1 m while running in the open.
+var stalls: int = 0
+var max_stall_seconds: float = 0.0
+
+## Longest unbroken HOLD/EVALUATE spell, in seconds.
+var max_hold_seconds: float = 0.0
+
+## Times a boost pad launched this body.
+var pad_launches: int = 0
+
+## Still a live runner when the harness stopped watching.
+var running_at_end: bool = false
+
+## Seconds from each round start to this shooter's first shot, one per seat.
+var first_shot_seconds: Array[float] = []
+
 
 
 ## Fraction of this participant's shots that struck a body, or 0.0 if they never
@@ -83,4 +103,12 @@ func to_dictionary(sim_hz: int) -> Dictionary:
 		"laps_finished": laps_finished,
 		"hazard_deaths": hazard_deaths,
 		"final_progress": final_progress,
+		"falls": falls,
+		"lava_deaths": lava_deaths,
+		"stalls": stalls,
+		"max_stall_seconds": max_stall_seconds,
+		"max_hold_seconds": max_hold_seconds,
+		"running_at_end": running_at_end,
+		"pad_launches": pad_launches,
+		"first_shot_seconds": first_shot_seconds,
 	}
