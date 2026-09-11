@@ -79,6 +79,12 @@ var _material: ShaderMaterial = null
 ## The last amount pushed at the shader, so a still frame writes nothing.
 var _applied: float = -1.0
 
+## True while the scope is HELD: the trigger went inactive mid-aim (a shot or
+## the match resolved while the human was looking through the scope), so the
+## screen is frozen at [member _applied] instead of snapping to
+## [method compute_amount]'s now-zero answer. See [method tick].
+var _held: bool = false
+
 ## The aspect ratio those uniforms were written for. Tracked alongside the
 ## amount because the player can resize the window while fully aimed -- the
 ## amount would not change on that frame, and a ring that never re-read the
@@ -126,8 +132,23 @@ func _process(_delta: float) -> void:
 ## [method RifleRecoil.tick] offer: a test can [code]set_process(false)[/code],
 ## drive the optic with fixed deltas and call this to see what the screen would
 ## have shown, with no real clock anywhere.
+##
+## [b]The hold[/b]: if the trigger drops while aim progress is still above
+## zero -- a resolving shot, a won match -- [method compute_amount] would
+## already answer 0 this same frame. Rather than write that, the screen is
+## latched at [member _applied] until the trigger comes back or
+## [method RifleAds.get_aim_progress] itself reaches 0, i.e. the optic actually
+## zooms out. A null [member trigger] never enters the hold.
 func tick() -> void:
-	var amount: float = compute_amount()
+	var progress: float = 0.0 if ads == null else ads.get_aim_progress()
+
+	if _held:
+		if (trigger == null or trigger.is_active()) or progress <= 0.0:
+			_held = false
+	elif trigger != null and not trigger.is_active() and progress > 0.0:
+		_held = true
+
+	var amount: float = _applied if _held else compute_amount()
 	_apply(amount)
 	_show_or_hide_the_model(amount)
 
@@ -220,3 +241,4 @@ func _hide_overlay() -> void:
 		ads.view_model.visible = true
 	_applied = 0.0
 	_applied_aspect = -1.0
+	_held = false
