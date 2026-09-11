@@ -32,6 +32,7 @@ extends SceneTree
 ## worse than no report.
 
 const BANK_PATH: String = "res://scenes/audio/placeholder_bank.tres"
+const CRUSHED_BANK_PATH: String = "res://scenes/audio/crushed_bank.tres"
 const EXIT_OK: int = 0
 const EXIT_FAILED: int = 1
 
@@ -79,7 +80,8 @@ func _run() -> void:
 
 	_check_no_director()
 	var bank: AudioBank = _check_bank()
-	_check_placeholders(bank)
+	_check_streams(bank, "clean")
+	_check_crushed(bank)
 	_check_buses(bank)
 	_check_resolution(bank)
 	_check_missing_and_silent(bank)
@@ -115,8 +117,8 @@ func _check_bank() -> AudioBank:
 	return bank
 
 
-func _check_placeholders(bank: AudioBank) -> void:
-	_section("the placeholder .wav files are real AudioStreams")
+func _check_streams(bank: AudioBank, label: String) -> void:
+	_section("the %s sfx .wav files are real AudioStreams" % label)
 	var loaded: int = 0
 	var total_seconds: float = 0.0
 	for event: StringName in AudioEvents.ALL:
@@ -126,14 +128,67 @@ func _check_placeholders(bank: AudioBank) -> void:
 		if cue == null or cue.stream == null:
 			_ok("%s has a stream" % event, false)
 			continue
-		var wav: AudioStreamWAV = cue.stream as AudioStreamWAV
-		if wav == null or wav.get_length() <= 0.0:
+		var seconds: float = _stream_seconds(cue.stream)
+		if seconds <= 0.0:
 			_ok("%s is an AudioStreamWAV with length" % event, false)
 			continue
 		loaded += 1
-		total_seconds += wav.get_length()
-	_ok("%d/%d placeholders loaded, %.2fs total" % [loaded, AudioEvents.ALL.size() - 1, total_seconds],
+		total_seconds += seconds
+	_ok("%d/%d sfx loaded, %.2fs total" % [loaded, AudioEvents.ALL.size() - 1, total_seconds],
 		loaded == AudioEvents.ALL.size() - 1)
+
+
+## Length of a WAV, or of every WAV inside an AudioStreamRandomizer; 0.0 otherwise.
+func _stream_seconds(stream: AudioStream) -> float:
+	var wav: AudioStreamWAV = stream as AudioStreamWAV
+	if wav != null:
+		return wav.get_length()
+	var rnd: AudioStreamRandomizer = stream as AudioStreamRandomizer
+	if rnd == null or rnd.streams_count == 0:
+		return 0.0
+	var total: float = 0.0
+	for i: int in rnd.streams_count:
+		var inner: float = _stream_seconds(rnd.get_stream(i))
+		if inner <= 0.0:
+			return 0.0
+		total += inner
+	return total
+
+
+func _check_crushed(bank: AudioBank) -> void:
+	_section("the crushed bank mirrors the clean one and the toggle swaps to it")
+	var crushed: AudioBank = load(CRUSHED_BANK_PATH) as AudioBank
+	_ok("%s loads as an AudioBank" % CRUSHED_BANK_PATH, crushed != null)
+	if crushed == null:
+		return
+	_ok("same event list as the clean bank", crushed.event_names() == bank.event_names())
+	_check_streams(crushed, "crushed")
+	var portal: AudioStreamWAV = bank.get_cue(AudioEvents.HAZARD_PORTAL).stream as AudioStreamWAV
+	_ok("hazard.portal loops", portal != null and portal.loop_mode == AudioStreamWAV.LOOP_FORWARD)
+	var director: AudioDirector = _make_director(bank, 64)
+	director.crushed_bank = crushed
+	_ok("crush is off by default", not AudioDirector.is_crush() and director.active_bank() == bank)
+	_ok("SFX bus effects are off by default", not AudioDirector.is_bus_crushed())
+	AudioDirector.set_crush(true)
+	_ok("set_crush(true) serves the crushed bank", director.active_bank() == crushed)
+	_ok("set_crush(true) enables the SFX bus effects", AudioDirector.is_bus_crushed())
+	_ok("every crushed key plays", _play_every_key(director) == AudioEvents.ALL.size() - 1)
+	AudioDirector.set_crush(false)
+	_ok("set_crush(false) serves the clean bank", director.active_bank() == bank)
+	_ok("set_crush(false) disables the SFX bus effects", not AudioDirector.is_bus_crushed())
+	_ok("every clean key plays", _play_every_key(director) == AudioEvents.ALL.size() - 1)
+	_drop(director)
+
+
+func _play_every_key(director: AudioDirector) -> int:
+	var played: int = 0
+	for event: StringName in AudioEvents.ALL:
+		if event == AudioEvents.MUSIC_MATCH_THEME:
+			continue
+		director.clear_rate_limits()
+		if director.post_at(event, Vector3(1.0, 2.0, 3.0)):
+			played += 1
+	return played
 
 
 func _check_buses(bank: AudioBank) -> void:
@@ -141,6 +196,7 @@ func _check_buses(bank: AudioBank) -> void:
 	_ok("Master exists", AudioServer.get_bus_index(&"Master") >= 0)
 	_ok("Effects exists", AudioServer.get_bus_index(&"Effects") >= 0)
 	_ok("Music exists", AudioServer.get_bus_index(&"Music") >= 0)
+	_ok("SFX exists", AudioServer.get_bus_index(&"SFX") >= 0)
 	var music: AudioCue = bank.get_cue(AudioEvents.MUSIC_MATCH_THEME)
 	_ok("music.match_theme is routed to Music", music != null and music.bus == &"Music")
 
@@ -153,13 +209,13 @@ func _check_resolution(bank: AudioBank) -> void:
 	var cue: AudioCue = bank.get_cue(AudioEvents.RIFLE_FIRED)
 	_ok("bank maps weapon.rifle.fired", cue != null)
 	_ok("...to a stream", cue != null and cue.stream != null)
-	_ok("...whose path is a placeholder", cue != null and cue.stream != null
-		and cue.stream.resource_path.contains("placeholder_weapon_rifle_fired"))
-	_ok("...on the Effects bus", cue != null and cue.bus == &"Effects")
+	_ok("...whose path is the clean sfx", cue != null and cue.stream != null
+		and cue.stream.resource_path.contains("sfx/clean/rifle_fired"))
+	_ok("...on the SFX bus", cue != null and cue.bus == &"SFX")
 
 	var played: bool = director.post_at(AudioEvents.RIFLE_FIRED, Vector3(10.0, 2.0, -30.0))
 	_ok("posting it starts a voice", played)
-	_ok("the voice is on Effects", director.get_active_bus(0) == &"Effects")
+	_ok("the voice is on SFX", director.get_active_bus(0) == &"SFX")
 
 	_section("an event with nothing behind it is a silent no-op")
 	_ok("an unmapped name returns false", not director.post(&"weapon.rifle.does_not_exist"))

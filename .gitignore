@@ -24,3 +24,4 @@ export_presets.cfg
 # Harness run output — results are ingested into the pod DB, not versioned.
 tools/harness/runs/
 __pycache__/
+.venv/

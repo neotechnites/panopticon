@@ -69,6 +69,7 @@ const RESOLUTION_NOTE: String = (
 @onready var _effects_value: Label = %EffectsValue
 @onready var _music_slider: HSlider = %MusicSlider
 @onready var _music_value: Label = %MusicValue
+@onready var _crush_check: CheckBox = %CrushCheck
 
 @onready var _display_mode_option: OptionButton = %DisplayModeOption
 @onready var _resolution_option: OptionButton = %ResolutionOption
@@ -125,6 +126,7 @@ func refresh() -> void:
 	_master_slider.value = settings.master_volume
 	_effects_slider.value = settings.effects_volume
 	_music_slider.value = settings.music_volume
+	_crush_check.button_pressed = settings.sfx_crush
 	_display_mode_option.selected = int(settings.display_mode)
 	_vsync_option.selected = int(settings.vsync_mode)
 	_resolution_option.selected = _resolution_index(settings.resolution)
@@ -206,6 +208,7 @@ func _connect_controls() -> void:
 	_master_slider.value_changed.connect(_on_master_changed)
 	_effects_slider.value_changed.connect(_on_effects_changed)
 	_music_slider.value_changed.connect(_on_music_changed)
+	_crush_check.toggled.connect(_on_crush_toggled)
 	_display_mode_option.item_selected.connect(_on_display_mode_selected)
 	_resolution_option.item_selected.connect(_on_resolution_selected)
 	_vsync_option.item_selected.connect(_on_vsync_selected)
@@ -287,6 +290,13 @@ func _on_music_changed(value: float) -> void:
 	if _syncing:
 		return
 	_store.settings.music_volume = value
+	_after_change()
+
+
+func _on_crush_toggled(pressed: bool) -> void:
+	if _syncing:
+		return
+	_store.settings.sfx_crush = pressed
 	_after_change()
 
 
