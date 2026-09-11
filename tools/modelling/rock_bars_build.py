@@ -1,11 +1,13 @@
-"""rock_bars -- a grate of thin carved rock columns filling a gallery cross-section.
+"""rock_bars -- a carved stone screen filling a gallery cross-section.
 
 Low-poly PS1 hell rock, flat shaded, the tower's atlas. 10.6 m wide, 8.5 m
-tall: a rock sill, a rock lintel, and 17 smooth tapered columns 0.24-0.30 m
-thick, unevenly spaced and never quite plumb, no gap wider than 0.38 m -- you
-see straight through it, a body cannot. Same style as map_base's cell bars.
-ORIGIN IS THE BASE CENTRE: z=0 is the ground. Bars span Blender X (Godot X),
-thickness along Blender Y (Godot Z). Blender +Z -> Godot +Y, +X -> +X, +Y -> -Z.
+tall: a rock sill, a rock lintel, and between them one slab of the same stone
+with 17 vertical slots cut through it -- the stone left between the slots is
+the bars, 0.2-0.3 m, one surface with the sill and lintel; no slot is wider
+than 0.38 m, so you see straight through and a body cannot pass. Same style
+as map_base's cells. ORIGIN IS THE BASE CENTRE: z=0 is the ground. The
+screen spans Blender X (Godot X), thickness along Blender Y (Godot Z).
+Blender +Z -> Godot +Y, +X -> +X, +Y -> -Z.
 
 Contract: one mesh "RockBars" (one surface, one UV set), plus "RockBarsCollision"
 -- one box per bar plus the sill and lintel, shipped as a `-colonly` node.
@@ -32,19 +34,13 @@ COLLIDER_NAME = "RockBarsCollision-colonly"
 
 HALF_W   = 5.3          # 10.6 m wide
 HEIGHT   = 8.5
-BARS     = 17
-BAR_R    = (0.12, 0.15) # column radius: 0.24-0.30 m thick
-MAX_GAP  = 0.38         # a body cannot pass, at any height
-SIDES    = 5            # smooth carved column: no jag, no knobs
+SLOTS    = 17
+SLOT_W   = (0.33, 0.38) # never wider than a body
+BAR_W    = (0.20, 0.30) # the stone left between slots; scaled to fill the width
+SLAB_HD  = 0.15         # screen half thickness: 0.3 m of stone
 SILL_H   = 0.45
 LINTEL_H = 0.5
-BEAM_HD  = 0.25         # sill/lintel half depth: proud of the bars
-OVERLAP  = 0.08         # bars run this far into the sill and lintel
-MID_Z    = (0.42, 0.60) # the waist ring sits in this band of the bar's height
-FLARE    = (1.12, 0.92, 1.22)   # radius factors: foot, waist, head -- a slight lip
-POS_JAG  = 0.03         # metres, column spacing jitter
-LEAN     = 0.035        # metres, head offset: a column is never plumb
-WAIST_KINK = 0.03       # metres, waist offset
+BEAM_HD  = 0.25         # sill/lintel half depth: proud of the screen
 
 SEED = 7130951
 TEX_ALBEDO   = "rock_bars_albedo"
@@ -371,88 +367,56 @@ def _beam(m, z0, z1, top, bottom):
     m.quad(p[3], p[0], p[4], p[7], (-1, 0, 0), ZONE_SHADE)
 
 
-def _columns(r):
-    """Per column: rings [(z, x, radius) foot, waist, head], gaps <= MAX_GAP."""
-    z0, z1 = SILL_H - OVERLAP, HEIGHT - LINTEL_H + OVERLAP
-    rad = [BAR_R[0] + r.f() * (BAR_R[1] - BAR_R[0]) for _ in range(BARS)]
-    gap = (2.0 * HALF_W - 2.0 * sum(rad)) / (BARS + 1)
-    cols = []
-    x = -HALF_W + gap
-    for k in range(BARS):
-        cx = x + rad[k] + r.sf() * POS_JAG
-        zm = z0 + (z1 - z0) * (MID_Z[0] + r.f() * (MID_Z[1] - MID_Z[0]))
-        cols.append([[z0, cx, rad[k] * FLARE[0]],
-                     [zm, cx + r.sf() * WAIST_KINK, rad[k] * FLARE[1]],
-                     [z1, cx + r.sf() * LEAN, rad[k] * FLARE[2]]])
-        x += 2.0 * rad[k] + gap
-
-    def at(col, z):
-        (za, xa, ra), (zb, xb, rb), (zc, xc, rc) = col
-        if z <= zb:
-            t = (z - za) / (zb - za)
-            return xa + (xb - xa) * t, ra + (rb - ra) * t
-        t = (z - zb) / (zc - zb)
-        return xb + (xc - xb) * t, rb + (rc - rb) * t
-
-    walls = [[[z0, -HALF_W, 0.0], [0.5 * (z0 + z1), -HALF_W, 0.0], [z1, -HALF_W, 0.0]]] + cols \
-        + [[[z0, HALF_W, 0.0], [0.5 * (z0 + z1), HALF_W, 0.0], [z1, HALF_W, 0.0]]]
-    levels = [z0 + (z1 - z0) * i / 8.0 for i in range(9)]
-    for _ in range(40):                       # pull neighbours together where too wide
-        worst = 0.0
-        for k in range(len(walls) - 1):
-            for z in levels:
-                xa, ra = at(walls[k], z)
-                xb, rb = at(walls[k + 1], z)
-                e = (xb - rb) - (xa + ra) - MAX_GAP
-                if e > worst:
-                    worst = e
-                if e > 0.0:
-                    for col, s in ((walls[k], 0.5), (walls[k + 1], -0.5)):
-                        if col[0][2] == 0.0:
-                            continue          # the wall does not move
-                        ring = min(col, key=lambda rg: abs(rg[0] - z))
-                        ring[1] += s * e * 1.05
-        if worst <= 1e-4:
-            break
-    return cols, worst + MAX_GAP
+def _layout(r):
+    """[(x0, x1)] of the slots, left to right; bars fill what is left."""
+    slots = [SLOT_W[0] + r.f() * (SLOT_W[1] - SLOT_W[0]) for _ in range(SLOTS)]
+    bars = [BAR_W[0] + r.f() * (BAR_W[1] - BAR_W[0]) for _ in range(SLOTS + 1)]
+    k = (2.0 * HALF_W - sum(slots)) / sum(bars)
+    out, x = [], -HALF_W
+    for i in range(SLOTS):
+        x += bars[i] * k
+        out.append((x, x + slots[i]))
+        x += slots[i]
+    return out
 
 
-def _column(m, r, col):
-    """A smooth SIDES-gon column through three rings: SIDES * 4 tris."""
-    t0 = r.f() * 2.0 * math.pi
-    rings = []
-    for z, cx, rad in col:
-        rings.append([m.v((cx + rad * math.cos(t0 + 2.0 * math.pi * i / SIDES),
-                           rad * math.sin(t0 + 2.0 * math.pi * i / SIDES), z))
-                      for i in range(SIDES)])
-    for k in range(len(rings) - 1):
-        for i in range(SIDES):
-            j = (i + 1) % SIDES
-            t = t0 + 2.0 * math.pi * (i + 0.5) / SIDES
-            m.quad(rings[k][i], rings[k][j], rings[k + 1][j], rings[k + 1][i],
-                   (math.cos(t), math.sin(t), 0.0), ZONE_ROCK)
+def _screen(m, slots):
+    """The slab between sill and lintel, slots cut through: bars front and
+    back, a reveal on each slot side, the slab's two ends."""
+    z0, z1 = SILL_H, HEIGHT - LINTEL_H
+    y0, y1 = -SLAB_HD, SLAB_HD
+    edges = [-HALF_W] + [e for sl in slots for e in sl] + [HALF_W]
+    for i in range(0, len(edges), 2):                 # bars: between slots
+        xa, xb = edges[i], edges[i + 1]
+        for y, want in ((y0, (0, -1, 0)), (y1, (0, 1, 0))):
+            m.quad(m.v((xa, y, z0)), m.v((xb, y, z0)), m.v((xb, y, z1)), m.v((xa, y, z1)),
+                   want, ZONE_ROCK)
+    for xa, xb in slots:                              # reveals: the carved sides
+        for x, want in ((xa, (1, 0, 0)), (xb, (-1, 0, 0))):
+            m.quad(m.v((x, y0, z0)), m.v((x, y1, z0)), m.v((x, y1, z1)), m.v((x, y0, z1)),
+                   want, ZONE_SHADE)
+    for x, want in ((-HALF_W, (-1, 0, 0)), (HALF_W, (1, 0, 0))):
+        m.quad(m.v((x, y0, z0)), m.v((x, y1, z0)), m.v((x, y1, z1)), m.v((x, y0, z1)),
+               want, ZONE_SHADE)
 
 
 def _grate(r):
     m = _Mesh()
     _beam(m, 0.0, SILL_H, top=True, bottom=False)
     _beam(m, HEIGHT - LINTEL_H, HEIGHT, top=False, bottom=True)
-    cols, widest = _columns(r)
-    for col in cols:
-        _column(m, r, col)
-    return m, cols, widest
+    slots = _layout(r)
+    _screen(m, slots)
+    return m, slots
 
 
-def _collider(cols):
-    """One box per column (its full lean), plus the sill and the lintel."""
+def _collider(slots):
+    """One box per bar (the stone between slots), plus the sill and the lintel."""
     c = _Mesh()
     c.box((-HALF_W, -BEAM_HD, 0.0), (HALF_W, BEAM_HD, SILL_H), ZONE_ROCK)
     c.box((-HALF_W, -BEAM_HD, HEIGHT - LINTEL_H), (HALF_W, BEAM_HD, HEIGHT), ZONE_ROCK)
-    for col in cols:
-        x0 = min(x - rad for _, x, rad in col)
-        x1 = max(x + rad for _, x, rad in col)
-        rm = max(rad for _, _, rad in col)
-        c.box((x0, -rm, SILL_H), (x1, rm, HEIGHT - LINTEL_H), ZONE_ROCK)
+    edges = [-HALF_W] + [e for sl in slots for e in sl] + [HALF_W]
+    for i in range(0, len(edges), 2):
+        c.box((edges[i], -SLAB_HD, SILL_H), (edges[i + 1], SLAB_HD, HEIGHT - LINTEL_H), ZONE_ROCK)
     return c
 
 
@@ -472,10 +436,10 @@ def _finish(rock, coll):
 
 
 def build():
-    rock, cols, widest = _grate(_Rng(SEED))
-    objects = _finish(rock, _collider(cols))
-    print("MDL STATS width=%.2f height=%.2f bars=%d widest_gap=%.3f"
-          % (2.0 * HALF_W, HEIGHT, BARS, widest))
+    rock, slots = _grate(_Rng(SEED))
+    objects = _finish(rock, _collider(slots))
+    print("MDL STATS width=%.2f height=%.2f slots=%d widest_gap=%.3f"
+          % (2.0 * HALF_W, HEIGHT, SLOTS, max(b - a for a, b in slots)))
     return objects
 
 
