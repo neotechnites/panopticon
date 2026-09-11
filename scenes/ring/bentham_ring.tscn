@@ -19,6 +19,7 @@
 [ext_resource type="PackedScene" path="res://scenes/ring/lava_tile.tscn" id="22_lava_tile_scene"]
 [ext_resource type="PackedScene" path="res://scenes/ring/demon_pad.tscn" id="23_demon_pad_scene"]
 [ext_resource type="PackedScene" path="res://scenes/ring/speed_powerup.tscn" id="24_speed_powerup_scene"]
+[ext_resource type="PackedScene" uid="uid://dmyewylgsm55h" path="res://assets/models/block.glb" id="25_block"]
 
 [sub_resource type="ProceduralSkyMaterial" id="SkyMat"]
 sky_top_color = Color(0.54, 0.110700026, 0.054000016, 1)
@@ -158,6 +159,10 @@ editor_description = "Bars across the lane at 350 deg, in the gap between finish
 transform = Transform3D(1.28025, 0, 0.173648, 0, 1, 0, -0.225742, 0, 0.984808, 51.91, 23, -9.0297)
 
 [node name="Sections" type="Node3D" parent="." unique_id=1418060375]
+
+[node name="Block" parent="Sections" instance=ExtResource("25_block")]
+editor_description = "Square rock platform parked above the tower for Ryan to copy."
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 36, 0)
 editor_description = "Map 1 sections, docs/MAP1_SECTIONS.md."
 
 [node name="Pocket_010deg" parent="Sections" unique_id=1859918900 instance=ExtResource("13_slab")]
