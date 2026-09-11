@@ -12,7 +12,7 @@ extends Camera3D
 @export var tower_path: NodePath = ^"../Tower"
 
 ## Horizontal distance from the tower axis, in metres.
-@export_range(1.0, 200.0, 0.1) var orbit_radius_metres: float = 34.0
+@export_range(1.0, 200.0, 0.1) var orbit_radius_metres: float = 50.0
 
 ## Camera height above the tower's local origin, in metres. About the drum's
 ## mid-height, per the mock-up.
@@ -24,10 +24,10 @@ extends Camera3D
 
 ## How far the look-anchor is pushed off the tower axis, in metres, so the
 ## tower lands right of centre instead of dead centre.
-@export_range(0.0, 60.0, 0.1) var lateral_offset_metres: float = 16.0
+@export_range(0.0, 60.0, 0.1) var lateral_offset_metres: float = 11.0
 
 ## Orbit speed. Slow on purpose -- this is a held shot, not a flythrough.
-@export_range(0.0, 45.0, 0.1) var degrees_per_second: float = 4.0
+@export_range(0.0, 45.0, 0.1) var degrees_per_second: float = 7.0
 
 @export var start_angle_degrees: float = 0.0
 

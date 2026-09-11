@@ -17,8 +17,8 @@
 background_mode = 1
 background_color = Color(0.035, 0.008, 0.008, 1)
 ambient_light_source = 2
-ambient_light_color = Color(0.55, 0.1, 0.06, 1)
-ambient_light_energy = 0.55
+ambient_light_color = Color(0.80, 0.14, 0.08, 1)
+ambient_light_energy = 0.85
 tonemap_mode = 1
 
 [node name="MainMenu" type="Control"]
@@ -44,11 +44,14 @@ editor_description = "The 3D backdrop: tower.glb and its watching eye, standing 
 [node name="Environment" type="WorldEnvironment" parent="World"]
 environment = SubResource("Env_menu")
 
-[node name="KeyLight" type="DirectionalLight3D" parent="World"]
-rotation_degrees = Vector3(-35, 35, 0)
-light_color = Color(1, 0.55, 0.28, 1)
-light_energy = 1.3
-shadow_enabled = true
+[node name="TowerSpot" type="SpotLight3D" parent="World"]
+light_color = Color(1, 0.42, 0.22, 1)
+light_energy = 7.0
+shadow_enabled = false
+spot_range = 70.0
+spot_angle = 32.0
+spot_attenuation = 0.8
+transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, 0, 42, 0)
 
 [node name="Tower" type="Node3D" parent="World"]
 
