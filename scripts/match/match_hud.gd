@@ -423,6 +423,10 @@ func _context_text(role: Role) -> String:
 	var boost_text: String = _speed_boost_text()
 	if boost_text != "":
 		return boost_text
+	if role == Role.PRISONER:
+		var ability_text: String = _ability_text()
+		if ability_text != "":
+			return ability_text
 	var tuning: MatchReadoutProfile = _readout()
 	var rules: MatchRules = controller.get_rules()
 	if role == Role.GUARD:
@@ -452,6 +456,23 @@ func _speed_boost_text() -> String:
 	if remaining <= 0.0:
 		return ""
 	return "SPEED x%d — %.1fs" % [int(human.body.get_speed_boost_multiplier()), remaining]
+
+
+## Line four for a prisoner carrying a power: its name and where it is in its cycle.
+func _ability_text() -> String:
+	var human: MatchParticipant = controller.get_human_participant()
+	var rules: MatchRules = controller.get_rules()
+	if human == null or rules.runner_ability == MatchRules.RunnerAbility.NONE:
+		return ""
+	var ability: RunnerPower = RunnerPower.of(human.body)
+	if ability == null:
+		return ""
+	var title: String = MatchRules.runner_ability_title(rules.runner_ability).to_upper()
+	if ability.is_active():
+		return "%s — %.1fs" % [title, ability.get_remaining()]
+	if ability.get_cooldown_remaining() > 0.0:
+		return "%s — READY IN %.0fs" % [title, ability.get_cooldown_remaining()]
+	return "%s — READY" % title
 
 
 func _write(label: Label, text: String, colour: Color) -> void:

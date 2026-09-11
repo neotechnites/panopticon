@@ -158,6 +158,28 @@ text = "Unbound"
 tooltip_text = "Restore the shipped bindings for Crouch / Slide"
 text = "Reset"
 
+[node name="AbilityName" type="Label" parent="Layout/Scroll/Table"]
+size_flags_horizontal = 3
+size_flags_vertical = 1
+vertical_alignment = 1
+text = "Ability"
+
+[node name="AbilitySlot1" type="Button" parent="Layout/Scroll/Table"]
+custom_minimum_size = Vector2(128, 0)
+size_flags_horizontal = 3
+tooltip_text = "Rebind Ability (slot 1)"
+text = "Unbound"
+
+[node name="AbilitySlot2" type="Button" parent="Layout/Scroll/Table"]
+custom_minimum_size = Vector2(128, 0)
+size_flags_horizontal = 3
+tooltip_text = "Rebind Ability (slot 2)"
+text = "Unbound"
+
+[node name="AbilityReset" type="Button" parent="Layout/Scroll/Table"]
+tooltip_text = "Restore the shipped bindings for Ability"
+text = "Reset"
+
 [node name="FireName" type="Label" parent="Layout/Scroll/Table"]
 size_flags_horizontal = 3
 size_flags_vertical = 1

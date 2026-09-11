@@ -136,6 +136,20 @@ enum GhostBehaviour {
 	CATCH_AND_SWAP,
 }
 
+## The one-shot power every prisoner carries. [b]LIVE[/b], default NONE.
+enum RunnerAbility {
+	## No power. Today's game.
+	NONE,
+	## A static translucent sphere the rifle hits instead of anyone inside.
+	BUBBLE_SHIELD,
+	## A decoy body that runs straight ahead; hitting it converts nobody.
+	HOLOGRAM,
+	## The body freezes and ignores hits; released early by letting go.
+	ARMOR_LOCK,
+	## The body goes near-transparent; the AI guard sees it only within 25 m.
+	ACTIVE_CAMO,
+}
+
 # --- The map ------------------------------------------------------------------
 
 ## Which arena the round is played in, by [member MapDefinition.id]. [b]LIVE.[/b]
@@ -489,6 +503,17 @@ enum GhostBehaviour {
 ## stops on.
 @export var guard_sightlines_unobstructed: bool = false
 
+# --- Runner powers ------------------------------------------------------------
+
+## Which power every prisoner carries, if any. See [enum RunnerAbility].
+@export var runner_ability: RunnerAbility = RunnerAbility.NONE
+
+## Seconds after a power ends before it can be used again.
+@export_range(0.0, 120.0, 0.5, "or_greater") var ability_cooldown_seconds: float = 20.0
+
+## Seconds a power lasts once used.
+@export_range(0.5, 60.0, 0.5, "or_greater") var ability_duration_seconds: float = 5.0
+
 # --- The AI in the tower ------------------------------------------------------
 
 ## The [ShooterProfile] an AI participant plays the tower on. [b]LIVE[/b],
@@ -631,6 +656,22 @@ func get_ai_shooter_seed_for(index: int) -> int:
 	if ai_shooter_aim_seed == 0:
 		return 0
 	return ai_shooter_aim_seed + maxi(index, 0) + 1
+
+
+## Display name of a [enum RunnerAbility] member.
+static func runner_ability_title(value: int) -> String:
+	match value:
+		RunnerAbility.NONE:
+			return "None"
+		RunnerAbility.BUBBLE_SHIELD:
+			return "Bubble Shield"
+		RunnerAbility.HOLOGRAM:
+			return "Hologram"
+		RunnerAbility.ARMOR_LOCK:
+			return "Armor Lock"
+		RunnerAbility.ACTIVE_CAMO:
+			return "Active Camo"
+	return String(RunnerAbility.keys()[value])
 
 
 ## True when a shot prisoner becomes a ghost rather than leaving the round.

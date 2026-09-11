@@ -1,4 +1,4 @@
-[gd_scene load_steps=10 format=3]
+[gd_scene load_steps=11 format=3]
 
 [ext_resource type="Script" path="res://scripts/player/player_controller.gd" id="1_controller"]
 [ext_resource type="Script" path="res://scripts/player/human_intent_source.gd" id="2_human_input"]
@@ -7,6 +7,7 @@
 [ext_resource type="Script" path="res://scripts/optics/zoom_input.gd" id="5_zoom_input"]
 [ext_resource type="Resource" path="res://scripts/optics/default_zoom_profile.tres" id="6_zoom_profile"]
 [ext_resource type="PackedScene" path="res://scenes/player/prisoner_avatar.tscn" id="7_avatar"]
+[ext_resource type="Script" path="res://scripts/player/runner_ability.gd" id="8_ability"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_body"]
 radius = 0.4
@@ -70,4 +71,9 @@ editor_description = "The prisoner you can see. A visual child of the capsule an
 Appended LAST on purpose. scenes/bot/ring_runner.tscn and scenes/bot/tower_shooter.tscn inherit this scene and address its children by ordinal index -- appending is safe, inserting silently re-points every override in both files -- which is why this sits after ZoomInput rather than next to BodyMesh where it belongs by subject.
 
 visual_layers is left at the script's default of 2, the owner-hidden layer that every Camera3D in the game clears from its cull_mask, so the human never sees the inside of their own skull: their eye is at 1.65 m and this model's head is around it. The two AI scenes that inherit this one raise it to layer 3, exactly as they used to do to BodyMesh. body points at the CharacterBody3D so the run cycle can be driven from the speed it is actually moving at."
+body = NodePath("..")
+
+[node name="Ability" type="Node" parent="." node_paths=PackedStringArray("body")]
+editor_description = "The runner's one-shot power (MatchRules.runner_ability); inert until MatchController arms it on the track."
+script = ExtResource("8_ability")
 body = NodePath("..")

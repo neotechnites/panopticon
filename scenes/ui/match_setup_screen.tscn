@@ -189,6 +189,19 @@ editor_description = "Both members of MatchRules.RunnerWinCondition are implemen
 
 [node name="RunnerWinSpacer" type="Control" parent="Frame/Dialog/Padding/Layout/Grid"]
 
+[node name="AbilityName" type="Label" parent="Frame/Dialog/Padding/Layout/Grid"]
+size_flags_vertical = 1
+vertical_alignment = 1
+text = "Prisoner Power"
+
+[node name="AbilityOption" type="OptionButton" parent="Frame/Dialog/Padding/Layout/Grid"]
+custom_minimum_size = Vector2(240, 0)
+size_flags_horizontal = 0
+unique_name_in_owner = true
+editor_description = "Filled from MatchRules.RunnerAbility; None is the default."
+
+[node name="AbilitySpacer" type="Control" parent="Frame/Dialog/Padding/Layout/Grid"]
+
 [node name="RoundsName" type="Label" parent="Frame/Dialog/Padding/Layout/Grid"]
 size_flags_vertical = 1
 vertical_alignment = 1

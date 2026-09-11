@@ -68,6 +68,8 @@ const _FLAG_SLIDE_PRESSED: int = 1 << 3
 const _FLAG_SLIDE_HELD: int = 1 << 4
 const _FLAG_FIRE_PRESSED: int = 1 << 2
 const _FLAG_FIRE_HELD: int = 1 << 5
+const _FLAG_ABILITY_PRESSED: int = 1 << 6
+const _FLAG_ABILITY_HELD: int = 1 << 7
 const _FLAG_ON_FLOOR: int = 1 << 0
 const _FLAG_SEAT_READY: int = 1 << 0
 
@@ -97,6 +99,10 @@ static func pack_intent(tick: int, intent: MoveIntent) -> PackedByteArray:
 		flags |= _FLAG_FIRE_PRESSED
 	if intent.fire_held:
 		flags |= _FLAG_FIRE_HELD
+	if intent.ability_pressed:
+		flags |= _FLAG_ABILITY_PRESSED
+	if intent.ability_held:
+		flags |= _FLAG_ABILITY_HELD
 	buffer.put_u8(flags)
 	return buffer.data_array
 
@@ -131,6 +137,8 @@ static func unpack_intent(payload: PackedByteArray, out: MoveIntent) -> int:
 	out.slide_held = (flags & _FLAG_SLIDE_HELD) != 0
 	out.fire_pressed = (flags & _FLAG_FIRE_PRESSED) != 0
 	out.fire_held = (flags & _FLAG_FIRE_HELD) != 0
+	out.ability_pressed = (flags & _FLAG_ABILITY_PRESSED) != 0
+	out.ability_held = (flags & _FLAG_ABILITY_HELD) != 0
 	out.normalise()
 	return tick
 
