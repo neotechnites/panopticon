@@ -1,0 +1,29 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="PackedScene" path="res://assets/models/portal.glb" id="1_portal_model"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_gate"]
+size = Vector3(4.0, 3.6, 1.0)
+
+[node name="Portal" type="Node3D"]
+editor_description = "The finish portal: model, glow and the win gate. Instanced into scenes/ring/bentham_ring.tscn at the finish bearing."
+
+[node name="PortalModel" parent="." instance=ExtResource("1_portal_model")]
+
+[node name="Glow" type="OmniLight3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.0, 0)
+light_color = Color(1.0, 0.3, 0.05, 1.0)
+light_energy = 5.0
+omni_range = 16.0
+shadow_enabled = false
+
+[node name="Gate" type="Area3D" parent="." groups=["finish_gate"]]
+editor_description = "The disc opening. A body has to overlap this to finish, not just cross the portal's angle -- see MatchLapTracker."
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.8, 0)
+collision_layer = 0
+collision_mask = 1048577
+monitoring = true
+monitorable = false
+
+[node name="Shape" type="CollisionShape3D" parent="Gate"]
+shape = SubResource("BoxShape3D_gate")

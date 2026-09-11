@@ -74,6 +74,10 @@ var _arrival_tolerance: float = 1.5
 
 var _finished: bool = false
 
+## The finish gate, if the arena has one. Found once in [method begin]; null
+## leaves arrival an angle test, unchanged from before gates existed.
+var _gate: Area3D = null
+
 
 func _ready() -> void:
 	# Dormant until begin(). A tracker that started counting on _ready would
@@ -103,6 +107,7 @@ func begin(
 	_elapsed_seconds = 0.0
 	_path_length = 0.0
 	_finished = false
+	_gate = _find_finish_gate()
 	if body == null or _route == null or _route.level_count() <= 0:
 		set_physics_process(false)
 		return
@@ -241,7 +246,7 @@ func _physics_process(delta: float) -> void:
 			_bank_a_level(angle)
 		return
 
-	if swept:
+	if swept and (_gate == null or _gate.overlaps_body(body)):
 		_finish()
 
 
@@ -268,3 +273,11 @@ func _finish() -> void:
 ## Angle of a world point about the arena axis, in radians.
 func _angle_of(point: Vector3) -> float:
 	return atan2(point.z - _centre.z, point.x - _centre.x)
+
+
+## The scene's finish gate, or null if it has none.
+func _find_finish_gate() -> Area3D:
+	if not is_inside_tree():
+		return null
+	var gates: Array = get_tree().get_nodes_in_group("finish_gate")
+	return gates[0] as Area3D if not gates.is_empty() else null
