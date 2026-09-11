@@ -246,7 +246,8 @@ func _physics_process(delta: float) -> void:
 			_bank_a_level(angle)
 		return
 
-	if swept and (_gate == null or _gate.overlaps_body(body)):
+	# With a finish gate in the scene, standing in it IS the win. No checkpoints.
+	if (_gate != null and _gate.overlaps_body(body)) or (_gate == null and swept):
 		_finish()
 
 
