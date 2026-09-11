@@ -57,8 +57,8 @@ COLLIDER_NAME = "MapBaseCollision-colonly"
 
 SIDES = 32              # 32 x 22 bands-ish; ~11.8 m facets at the outer wall
 
-INNER_R = 44.0          # deck inner edge: the lip of the void
-OUTER_R = 60.0          # deck outer edge: foot of the outer wall
+INNER_R = 46.7          # deck inner edge: the lip of the void
+OUTER_R = 57.3          # deck outer edge: foot of the outer wall
 DECK_Z = 23.0           # world y of the deck surface (tower room floor is 25.35)
 COURTYARD_Z = -11.05    # TOWER_FLOOR_Y + TOWER_MODEL_FOOT (gen_bentham_ring.py)
 CEIL_H = 8.5            # the gallery is a CUTOUT: rock ceiling this far over the deck
