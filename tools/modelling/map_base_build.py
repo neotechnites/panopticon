@@ -41,7 +41,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)) + os.sep + "lib")
 
 import mdl  # noqa: E402
 
-# The model spans y = -11 .. +104; mdl's ground plane would sit under the
+# The model spans y = -11 .. +330; mdl's ground plane would sit under the
 # courtyard and black out any low camera. Same override as the tower.
 mdl.DEFAULTS["ground"] = False
 mdl.DEFAULTS["world_grey"] = 0.30
@@ -101,6 +101,39 @@ ZONE_ROCK   = (0.0, 0.5, 0.5, 1.0)
 ZONE_SHADE  = (0.5, 0.5, 1.0, 1.0)
 ZONE_CARVE  = (0.5, 0.0, 1.0, 0.5)
 ZONE_EMBER  = (0.0, 0.0, 0.5, 0.5)
+ZONE_GLOW   = (0.5, 0.0, 1.0, 0.25)   # cell interiors: painted over the unused
+                                      # lower half of CARVE, after the four
+                                      # tower zones, so those stay byte-identical
+
+# ---- prison cells: arched recesses with thin carved columns across the mouth
+# Cells live on the vertical pit faces only (deck -> courtyard, and the shaft
+# above the gallery ceiling). One cell at most per wall facet, so the facet's
+# own four corners frame it and no T-junctions are made.
+CELL_SEED   = 4420917
+CELL_H      = (2.5, 4.5)      # mouth height, metres
+CELL_ASPECT = (0.60, 0.85)    # width / height
+CELL_W      = (2.0, 3.5)
+CELL_DEPTH  = (2.0, 3.0)
+CELL_TAPER  = 0.65            # back wall scale vs the mouth
+CELL_MX     = 0.6             # rock left between the mouth and the facet edge
+CELL_MY     = 0.6
+LIP_OUT     = 0.45            # the drip shelf under the mouth
+LIP_DROP    = 0.10
+LIP_UNDER   = 0.45
+BAR_PITCH   = 0.55            # nominal column spacing -> 4..7 columns
+BAR_R       = (0.09, 0.14)    # 0.18..0.28 m thick
+BAR_LEAN    = 0.06
+BAR_FLARE   = 1.25            # top ring / bottom ring radius
+BAR_SINK    = 0.6             # column axis this many radii behind the mouth plane
+NEAR_Z      = 60.0            # below: 7-point arch, 5-sided columns; above: 5 / 4
+CELL_RHO_PIT   = 0.0095       # cells per m^2, deck -> courtyard
+CELL_RHO_SHAFT = 0.0075       # ... at the ceiling, decaying up the shaft
+CELL_FALL      = 40.0         # e-folding height of that decay
+PIT_SUB, PIT_CAP     = 2, 7.0     # pit wall facets ~4.6 x 5-7 m: a cell fits one
+SHAFT_SUB, SHAFT_CAP = 2, 8.0     # same for the shaft below SHAFT_NEAR_Z
+SHAFT_NEAR_Z = 105.0
+
+CELLS = []                    # (centre, normal, up, width, height) for the renders
 
 FACING_YAW = 0.0
 
@@ -246,6 +279,23 @@ def _paint_ember(c, r, box):
         c.rect(x, y, x + 2, y + 2, (236, 92, 18), (194, 54, 5))
 
 
+def _paint_glow(c, r, box):
+    """The Nightosphere backlight: every texel emits red-orange."""
+    x0, y0, x1, y1 = box
+    shades = [(214, 44, 8), (196, 34, 6), (232, 60, 14), (178, 28, 6)]
+    for y in range(y0, y1):
+        for x in range(x0, x1):
+            s = r.pick(shades)
+            c.put(x, y, s, s)
+    for _ in range(14):                       # dim vertical streaks: figures in the dark
+        x, w = r.i(x0, x1 - 3), r.i(1, 2)
+        yy, h = r.i(y0, y1 - 6), r.i(4, 10)
+        c.rect(x, yy, x + w, min(y1, yy + h), (128, 18, 4), (104, 12, 2))
+    for _ in range(12):
+        x, y = r.i(x0, x1 - 2), r.i(y0, y1 - 2)
+        c.rect(x, y, x + 2, y + 2, (255, 128, 34), (255, 128, 34))
+
+
 def build_texture():
     """Paint the atlas; returns (albedo_image, emissive_image)."""
     c = _Canvas(TEX_SIZE)
@@ -254,6 +304,7 @@ def build_texture():
     _paint_shade(c, r, _rect_of(ZONE_SHADE, TEX_SIZE))
     _paint_carve(c, r, _rect_of(ZONE_CARVE, TEX_SIZE))
     _paint_ember(c, r, _rect_of(ZONE_EMBER, TEX_SIZE))
+    _paint_glow(c, r, _rect_of(ZONE_GLOW, TEX_SIZE))
     images = []
     for name, buf in ((TEX_ALBEDO, c.alb), (TEX_EMISSIVE, c.emi)):
         img = bpy.data.images.new(name, TEX_SIZE, TEX_SIZE, alpha=False)
@@ -334,11 +385,12 @@ class _Mesh(object):
         for i in range(1, len(ring) - 1):
             self.tri(ring[0], ring[i], ring[i + 1], want, zone)
 
-    def band(self, lo, hi, ang, inward, zone_fn, nu=1, nv=1):
+    def band(self, lo, hi, ang, inward, zone_fn, nu=1, nv=1, cell_fn=None):
         """Quads between two rings; zone_fn(i) picks the atlas zone per side.
 
         nu/nv grid each side's quad (bilinear on its own four corners, no new
-        jitter) so no facet outgrows the atlas texel budget.
+        jitter) so no facet outgrows the atlas texel budget. cell_fn, if given,
+        may claim a facet and carve a cell into it instead of the plain quad.
         """
         n = len(lo)
         for i in range(n):
@@ -346,10 +398,7 @@ class _Mesh(object):
             am = 0.5 * (ang[i] + ang[i] + 2.0 * math.pi / n)
             w = (math.cos(am), math.sin(am), 0.0)
             want = (-w[0], -w[1], 0.0) if inward else w
-            if nu > 1 or nv > 1:
-                _grid(self, lo[i], lo[j], hi[j], hi[i], want, zone_fn(i), nu, nv)
-            else:
-                self.quad(lo[i], lo[j], hi[j], hi[i], want, zone_fn(i))
+            _grid(self, lo[i], lo[j], hi[j], hi[i], want, zone_fn(i), nu, nv, cell_fn)
 
     def object(self, name):
         return mdl.mesh(name, self.verts, self.faces)
@@ -398,7 +447,7 @@ def _nv(gap, cap=3.0):
     return max(1, int(math.ceil(abs(gap) / cap)))
 
 
-def _grid(m, a, b, c, d, want, zone, nu, nv):
+def _grid(m, a, b, c, d, want, zone, nu, nv, cell_fn=None):
     """Subdivide the coarse quad a-b-c-d into nu x nv sub-quads by bilinear
     interpolation of its four existing corners. No new jitter, no reshaping:
     same corners, more triangles, so each one fits the atlas texel budget.
@@ -415,8 +464,174 @@ def _grid(m, a, b, c, d, want, zone, nu, nv):
             for iu in range(nu + 1)] for iv in range(nv + 1)]
     for iv in range(nv):
         for iu in range(nu):
-            m.quad(ids[iv][iu], ids[iv][iu + 1], ids[iv + 1][iu + 1], ids[iv + 1][iu],
-                   want, zone)
+            q = (ids[iv][iu], ids[iv][iu + 1], ids[iv + 1][iu + 1], ids[iv + 1][iu])
+            if cell_fn is not None and cell_fn(m, q, want, zone):
+                continue
+            m.quad(q[0], q[1], q[2], q[3], want, zone)
+
+
+# =============================================================================
+# CELLS -- an arched recess carved into one wall facet, a drip lip under the
+# mouth, thin smooth columns sill to arch. Interior faces are ZONE_GLOW. No
+# collision: nothing here touches _collider.
+# =============================================================================
+
+def _v3(p, q, s=1.0):
+    return (p[0] + q[0] * s, p[1] + q[1] * s, p[2] + q[2] * s)
+
+
+def _sub(p, q):
+    return (p[0] - q[0], p[1] - q[1], p[2] - q[2])
+
+
+def _dot(p, q):
+    return p[0] * q[0] + p[1] * q[1] + p[2] * q[2]
+
+
+def _cross(p, q):
+    return (p[1] * q[2] - p[2] * q[1], p[2] * q[0] - p[0] * q[2], p[0] * q[1] - p[1] * q[0])
+
+
+def _norm(p):
+    l = math.sqrt(_dot(p, p)) or 1.0
+    return (p[0] / l, p[1] / l, p[2] / l)
+
+
+def _zipper(m, outer, inner, want, zone):
+    """Triangulate the ring between two loops, each a list of (angle, id)
+    sorted by angle about a common centre: len(outer)+len(inner) tris."""
+    no, ni = len(outer), len(inner)
+    i = j = 0
+    for _ in range(no + ni):
+        oa = outer[(i + 1) % no][0] + 2.0 * math.pi * ((i + 1) // no)
+        ia = inner[(j + 1) % ni][0] + 2.0 * math.pi * ((j + 1) // ni)
+        if i < no and (j >= ni or oa <= ia):
+            m.tri(outer[i % no][1], outer[(i + 1) % no][1], inner[j % ni][1], want, zone)
+            i += 1
+        else:
+            m.tri(inner[j % ni][1], inner[(j + 1) % ni][1], outer[i % no][1], want, zone)
+            j += 1
+
+
+def _sorted_loop(pts, centre):
+    """[(angle, id)] about centre, ascending, for a list of ((x, y), id)."""
+    out = [(math.atan2(p[1] - centre[1], p[0] - centre[0]), i) for p, i in pts]
+    out.sort()
+    return out
+
+
+def _cell_density(z):
+    if z < DECK_Z:
+        return CELL_RHO_PIT
+    return CELL_RHO_SHAFT * math.exp(-(z - CEIL_Z) / CELL_FALL)
+
+
+def _cell(m, r, q, want, zone):
+    """Roll for a cell on facet q=(bl, br, tr, tl); carve it and return True."""
+    a, b, c, d = q
+    if m.verts[d][2] < m.verts[a][2]:          # band emitted top ring first
+        a, b, c, d = d, c, b, a
+    pa, pb, pc, pd = m.verts[a], m.verts[b], m.verts[c], m.verts[d]
+    W = math.sqrt(_dot(_sub(pb, pa), _sub(pb, pa)))
+    H = math.sqrt(_dot(_sub(pd, pa), _sub(pd, pa)))
+    zmid = 0.25 * (pa[2] + pb[2] + pc[2] + pd[2])
+    if r.f() >= _cell_density(zmid) * W * H:
+        return False
+    if W < 2.0 * CELL_MX + CELL_W[0] or H < 2.0 * CELL_MY + CELL_H[0]:
+        return False
+
+    def pt(u, v):
+        return tuple((1 - u) * (1 - v) * pa[k] + u * (1 - v) * pb[k]
+                      + u * v * pc[k] + (1 - u) * v * pd[k] for k in range(3))
+
+    U = _norm(_sub(pb, pa))
+    V = _norm(_sub(pd, pa))
+    N = _norm(_cross(U, V))
+    if _dot(N, want) < 0.0:
+        N = (-N[0], -N[1], -N[2])
+
+    h = min(CELL_H[0] + r.f() * (CELL_H[1] - CELL_H[0]), H - 2.0 * CELL_MY)
+    w = h * (CELL_ASPECT[0] + r.f() * (CELL_ASPECT[1] - CELL_ASPECT[0]))
+    w = min(max(w, CELL_W[0]), CELL_W[1], W - 2.0 * CELL_MX)
+    depth = CELL_DEPTH[0] + r.f() * (CELL_DEPTH[1] - CELL_DEPTH[0])
+    x0 = CELL_MX + r.f() * (W - 2.0 * CELL_MX - w)          # metres along U
+    y0 = CELL_MY + r.f() * (H - 2.0 * CELL_MY - h)          # metres along V
+    near = zmid < NEAR_Z
+    sides = 5 if near else 4
+    if near:
+        arch = [(0.0, 0.0), (w, 0.0), (w, 0.55 * h), (0.78 * w, 0.88 * h), (0.5 * w, h),
+                (0.22 * w, 0.88 * h), (0.0, 0.55 * h)]
+    else:
+        arch = [(0.0, 0.0), (w, 0.0), (w, 0.6 * h), (0.5 * w, h), (0.0, 0.6 * h)]
+
+    def mouth(x, y):
+        return pt((x0 + x) / W, (y0 + y) / H)
+
+    P = [m.v(mouth(x, y)) for x, y in arch]
+    centre = (x0 + 0.5 * w, y0 + 0.5 * h)
+    outer = _sorted_loop([((0.0, 0.0), a), ((W, 0.0), b), ((W, H), c), ((0.0, H), d)], centre)
+    inner = _sorted_loop([((x0 + x, y0 + y), i) for (x, y), i in zip(arch, P)], centre)
+    _zipper(m, outer, inner, want, zone)
+
+    # ---- the recess: side walls to a smaller back wall, all glowing --------
+    cm = mouth(0.5 * w, 0.5 * h)
+    cb = _v3(cm, N, -depth)
+    B = [m.v(_v3(cb, _sub(m.verts[p], cm), CELL_TAPER)) for p in P]
+    n = len(P)
+    for k in range(n):
+        j = (k + 1) % n
+        mid = tuple(0.5 * (m.verts[P[k]][t] + m.verts[P[j]][t]) for t in range(3))
+        m.quad(P[k], P[j], B[j], B[k], _sub(cm, mid), ZONE_GLOW)
+    m.fan(B, N, ZONE_GLOW)
+
+    # ---- the drip lip under the sill ----------------------------------------
+    bl, br = m.verts[P[0]], m.verts[P[1]]
+    fl = m.v(_v3(_v3(bl, N, LIP_OUT), V, -LIP_DROP))
+    fr = m.v(_v3(_v3(br, N, LIP_OUT), V, -LIP_DROP))
+    wl = m.v(_v3(bl, V, -LIP_UNDER))
+    wr = m.v(_v3(br, V, -LIP_UNDER))
+    m.quad(P[0], P[1], fr, fl, V, ZONE_ROCK)
+    m.quad(fl, fr, wr, wl, _v3(N, V, -1.0), ZONE_ROCK)
+    m.tri(P[0], fl, wl, (-U[0], -U[1], -U[2]), ZONE_ROCK)
+    m.tri(P[1], fr, wr, U, ZONE_ROCK)
+
+    # ---- the columns: sill to arch, uneven, a slight lean, flared at the top -
+    nb = max(4, min(7, int(round(w / BAR_PITCH))))
+    pitch = w / (nb + 1)
+    for k in range(nb):
+        rb = BAR_R[0] + r.f() * (BAR_R[1] - BAR_R[0])
+        x = (k + 1) * pitch + r.sf() * 0.22 * pitch
+        x = min(max(x, rb + 0.05), w - rb - 0.05)
+        xt = min(max(x + r.sf() * BAR_LEAN, rb + 0.05), w - rb - 0.05)
+        yt = h
+        for s in range(1, n):                       # the arch, sill edge skipped
+            (xa, ya), (xb, yb) = arch[s], arch[(s + 1) % n]
+            if min(xa, xb) <= xt <= max(xa, xb) and xa != xb:
+                yt = ya + (yb - ya) * (xt - xa) / (xb - xa)
+                break
+        bot = _v3(mouth(x, 0.0), N, -BAR_SINK * rb)
+        top = _v3(mouth(xt, yt), N, -BAR_SINK * rb)
+        A = _norm(_sub(top, bot))
+        bot = _v3(bot, A, -0.05)
+        top = _v3(top, A, 0.05)
+        e1 = _norm(_v3(N, A, -_dot(N, A)))
+        e2 = _cross(A, e1)
+        t0 = r.f() * 2.0 * math.pi
+        rings = []
+        for cen, rad in ((bot, rb * 0.95), (top, rb * BAR_FLARE)):
+            ring = []
+            for i in range(sides):
+                t = t0 + 2.0 * math.pi * i / sides
+                ring.append(m.v(_v3(_v3(cen, e1, rad * math.cos(t)), e2, rad * math.sin(t))))
+            rings.append(ring)
+        for i in range(sides):
+            j = (i + 1) % sides
+            t = t0 + 2.0 * math.pi * (i + 0.5) / sides
+            out = _v3(_v3((0.0, 0.0, 0.0), e1, math.cos(t)), e2, math.sin(t))
+            m.quad(rings[0][i], rings[0][j], rings[1][j], rings[1][i], out, ZONE_ROCK)
+
+    CELLS.append((cm, N, V, w, h))
+    return True
 
 
 def _disc(m, rim, center_pt, levels, ang_sub, want, zone):
@@ -477,9 +692,11 @@ def _rock(r):
             return ZONE_ROCK
         return zone
 
+    cr = _Rng(CELL_SEED)
+    cell_fn = lambda mm, q, want, zone: _cell(mm, cr, q, want, zone)   # noqa: E731
     for k in range(npit - 1):
         m.band(pit[k], pit[k + 1], ang, True, pit_zone(k),
-               nu=ANG_SUB, nv=_nv(pit_z[k] - pit_z[k + 1]))
+               nu=PIT_SUB, nv=_nv(pit_z[k] - pit_z[k + 1], cap=PIT_CAP), cell_fn=cell_fn)
 
     # ---- courtyard floor: the tower's foot lands on it ----------------------
     # Nobody ever stands on it (the KillVolume converts anything that falls
@@ -539,8 +756,12 @@ def _rock(r):
         return zone
 
     for k in range(nup - 1):
-        m.band(upper[k], upper[k + 1], ang, True, upper_zone(k),
-               nu=1, nv=_nv(up_z[k + 1] - up_z[k], cap=FAR_CAP))
+        if up_z[k] < SHAFT_NEAR_Z:
+            m.band(upper[k], upper[k + 1], ang, True, upper_zone(k),
+                   nu=SHAFT_SUB, nv=_nv(up_z[k + 1] - up_z[k], cap=SHAFT_CAP), cell_fn=cell_fn)
+        else:
+            m.band(upper[k], upper[k + 1], ang, True, upper_zone(k),
+                   nu=1, nv=_nv(up_z[k + 1] - up_z[k], cap=FAR_CAP), cell_fn=cell_fn)
 
     # ---- the ceiling: flat, faces DOWN, flush with the lip -----------------
     # Same ROCK zone and grid as the deck it mirrors -- exterior rock seen
@@ -674,6 +895,12 @@ def _deck_render(spec, objects):
     shot("runner", (lane, 0.0, DECK_Z + EYE_H), (38.0, 46.0, DECK_Z + 3.0),
          24.0, (1200, 750))
     shot("guard", (0.0, 0.0, DECK_Z), (lane, 30.0, DECK_Z - 4.0), 24.0, (1200, 750))
+    shot("shaft", (0.0, -10.0, COURTYARD_Z + EYE_H), (0.0, 26.0, 160.0), 16.0, (900, 1200))
+    if CELLS:
+        cm, n, v, w, h = max([c for c in CELLS if c[0][2] < DECK_Z] or CELLS,
+                             key=lambda c: c[4])
+        eye = _v3(_v3(cm, n, 2.2 * h), v, 0.35 * h)
+        shot("cell", eye, cm, 35.0, (1000, 800))
 
     for ob in (cam, target, key):
         bpy.data.objects.remove(ob, do_unlink=True)
@@ -699,6 +926,9 @@ def build():
     coll_ob.hide_render = True
     print("MDL STATS visual_tris=%d collision_tris=%d"
           % (len(ob.data.polygons), len(coll_ob.data.polygons)))
+    print("MDL STATS cells=%d near=%d pit=%d"
+          % (len(CELLS), sum(1 for c in CELLS if c[0][2] < NEAR_Z),
+             sum(1 for c in CELLS if c[0][2] < DECK_Z)))
     print("MDL STATS deck r=%.1f..%.1f y=%.2f courtyard_y=%.2f ceiling_y=%.2f rim_y=%.1f ground_r=%.0f"
           % (INNER_R, OUTER_R, DECK_Z, COURTYARD_Z, CEIL_Z, RIM_Z, GROUND_RINGS[-1][0]))
     return [ob, coll_ob]
