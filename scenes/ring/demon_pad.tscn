@@ -1,0 +1,16 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" uid="uid://yhqfmlgdyomt" path="res://scripts/match/boost_pad.gd" id="1_boost_pad"]
+[ext_resource type="PackedScene" uid="uid://q0btrxb6dcla" path="res://assets/models/demon_pad.glb" id="2_demon_pad"]
+
+[node name="DemonPad" type="Area3D"]
+editor_description = "The demon boost pad, drag-in/Ctrl+D/rotate to aim (launches local -Z)/move/scale."
+collision_layer = 0
+collision_mask = 1048577
+monitorable = false
+script = ExtResource("1_boost_pad")
+footprint_metres = Vector3(2.5, 1, 2.5)
+
+[node name="Shape" type="CollisionShape3D" parent="."]
+
+[node name="Model" parent="." instance=ExtResource("2_demon_pad")]
