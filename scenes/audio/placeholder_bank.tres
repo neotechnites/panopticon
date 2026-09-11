@@ -1,37 +1,37 @@
-[gd_resource type="Resource" script_class="AudioBank" load_steps=64 format=3 uid="uid://bkju4pxmvbgxk"]
+[gd_resource type="Resource" script_class="AudioBank" format=3 uid="uid://bkju4pxmvbgxk"]
 
-[ext_resource type="Script" uid="uid://cuymaealujaar" path="res://scripts/audio/audio_cue.gd" id="cue"]
 [ext_resource type="Script" uid="uid://dgxuwgj0xq31x" path="res://scripts/audio/audio_bank.gd" id="bank"]
-[ext_resource type="AudioStream" path="res://assets/audio/sfx/clean/rifle_fired.wav" id="rifle_fired"]
-[ext_resource type="AudioStream" path="res://assets/audio/sfx/clean/rifle_hit.wav" id="rifle_hit"]
-[ext_resource type="AudioStream" path="res://assets/audio/sfx/clean/rifle_missed.wav" id="rifle_missed"]
-[ext_resource type="AudioStream" path="res://assets/audio/sfx/clean/rifle_reload_started.wav" id="rifle_reload_started"]
-[ext_resource type="AudioStream" path="res://assets/audio/sfx/clean/rifle_reload_finished.wav" id="rifle_reload_finished"]
-[ext_resource type="AudioStream" path="res://assets/audio/sfx/clean/match_started.wav" id="match_started"]
-[ext_resource type="AudioStream" path="res://assets/audio/sfx/clean/race_started.wav" id="race_started"]
-[ext_resource type="AudioStream" path="res://assets/audio/sfx/clean/round_started.wav" id="round_started"]
-[ext_resource type="AudioStream" path="res://assets/audio/sfx/clean/seat_changed.wav" id="seat_changed"]
-[ext_resource type="AudioStream" path="res://assets/audio/sfx/clean/round_resolved.wav" id="round_resolved"]
-[ext_resource type="AudioStream" path="res://assets/audio/sfx/clean/runner_converted.wav" id="runner_converted"]
-[ext_resource type="AudioStream" path="res://assets/audio/sfx/clean/match_won.wav" id="match_won"]
-[ext_resource type="AudioStream" path="res://assets/audio/sfx/clean/footstep_1.wav" id="footstep_1"]
-[ext_resource type="AudioStream" path="res://assets/audio/sfx/clean/footstep_2.wav" id="footstep_2"]
-[ext_resource type="AudioStream" path="res://assets/audio/sfx/clean/footstep_3.wav" id="footstep_3"]
-[ext_resource type="AudioStream" path="res://assets/audio/sfx/clean/footstep_4.wav" id="footstep_4"]
-[ext_resource type="AudioStream" path="res://assets/audio/sfx/clean/jump.wav" id="jump"]
-[ext_resource type="AudioStream" path="res://assets/audio/sfx/clean/land.wav" id="land"]
-[ext_resource type="AudioStream" path="res://assets/audio/sfx/clean/slide_start.wav" id="slide_start"]
-[ext_resource type="AudioStream" path="res://assets/audio/sfx/clean/slide_end.wav" id="slide_end"]
-[ext_resource type="AudioStream" path="res://assets/audio/sfx/clean/hit_taken.wav" id="hit_taken"]
-[ext_resource type="AudioStream" path="res://assets/audio/sfx/clean/catch_made.wav" id="catch_made"]
-[ext_resource type="AudioStream" path="res://assets/audio/sfx/clean/catch_taken.wav" id="catch_taken"]
-[ext_resource type="AudioStream" path="res://assets/audio/sfx/clean/lava_death.wav" id="lava_death"]
-[ext_resource type="AudioStream" path="res://assets/audio/sfx/clean/boost_pad.wav" id="boost_pad"]
-[ext_resource type="AudioStream" path="res://assets/audio/sfx/clean/ui_click.wav" id="ui_click"]
-[ext_resource type="AudioStream" path="res://assets/audio/sfx/clean/ui_focus.wav" id="ui_focus"]
-[ext_resource type="AudioStream" path="res://assets/audio/sfx/clean/ui_back.wav" id="ui_back"]
-[ext_resource type="AudioStream" path="res://assets/audio/sfx/clean/ui_menu_opened.wav" id="ui_menu_opened"]
-[ext_resource type="AudioStream" path="res://assets/audio/sfx/clean/ui_menu_closed.wav" id="ui_menu_closed"]
+[ext_resource type="AudioStream" uid="uid://dc5ermgjoempk" path="res://assets/audio/sfx/clean/boost_pad.wav" id="boost_pad"]
+[ext_resource type="AudioStream" uid="uid://beeunjsq8bgh7" path="res://assets/audio/sfx/clean/catch_made.wav" id="catch_made"]
+[ext_resource type="AudioStream" uid="uid://dbvh85nsjlcai" path="res://assets/audio/sfx/clean/catch_taken.wav" id="catch_taken"]
+[ext_resource type="Script" uid="uid://cuymaealujaar" path="res://scripts/audio/audio_cue.gd" id="cue"]
+[ext_resource type="AudioStream" uid="uid://dmce2ceckasiu" path="res://assets/audio/sfx/clean/footstep_1.wav" id="footstep_1"]
+[ext_resource type="AudioStream" uid="uid://bs6ostbiudfah" path="res://assets/audio/sfx/clean/footstep_2.wav" id="footstep_2"]
+[ext_resource type="AudioStream" uid="uid://dnxyioiy7udl6" path="res://assets/audio/sfx/clean/footstep_3.wav" id="footstep_3"]
+[ext_resource type="AudioStream" uid="uid://brcd8mvx8fvqk" path="res://assets/audio/sfx/clean/footstep_4.wav" id="footstep_4"]
+[ext_resource type="AudioStream" uid="uid://dj461usx47rv0" path="res://assets/audio/sfx/clean/hit_taken.wav" id="hit_taken"]
+[ext_resource type="AudioStream" uid="uid://de6tfjh7nvfk3" path="res://assets/audio/sfx/clean/jump.wav" id="jump"]
+[ext_resource type="AudioStream" uid="uid://fhe37b3ir4f3" path="res://assets/audio/sfx/clean/land.wav" id="land"]
+[ext_resource type="AudioStream" uid="uid://wuhcmdcrt15j" path="res://assets/audio/sfx/clean/lava_death.wav" id="lava_death"]
+[ext_resource type="AudioStream" uid="uid://oiim38fka7tp" path="res://assets/audio/sfx/clean/match_started.wav" id="match_started"]
+[ext_resource type="AudioStream" uid="uid://whmsn8x4gwbf" path="res://assets/audio/sfx/clean/match_won.wav" id="match_won"]
+[ext_resource type="AudioStream" uid="uid://01ouuoom2w3m" path="res://assets/audio/sfx/clean/race_started.wav" id="race_started"]
+[ext_resource type="AudioStream" uid="uid://bjrevmrnigj3l" path="res://assets/audio/sfx/clean/rifle_fired.wav" id="rifle_fired"]
+[ext_resource type="AudioStream" uid="uid://c8f7s6or8xv02" path="res://assets/audio/sfx/clean/rifle_hit.wav" id="rifle_hit"]
+[ext_resource type="AudioStream" uid="uid://dvi3eh1bwuqmn" path="res://assets/audio/sfx/clean/rifle_missed.wav" id="rifle_missed"]
+[ext_resource type="AudioStream" uid="uid://b2pbif853tgc6" path="res://assets/audio/sfx/clean/rifle_reload_finished.wav" id="rifle_reload_finished"]
+[ext_resource type="AudioStream" uid="uid://blae8ydja808p" path="res://assets/audio/sfx/clean/rifle_reload_started.wav" id="rifle_reload_started"]
+[ext_resource type="AudioStream" uid="uid://cr1t100f7jgyv" path="res://assets/audio/sfx/clean/round_resolved.wav" id="round_resolved"]
+[ext_resource type="AudioStream" uid="uid://bo0goh6fkuq0a" path="res://assets/audio/sfx/clean/round_started.wav" id="round_started"]
+[ext_resource type="AudioStream" uid="uid://bcik35sri3545" path="res://assets/audio/sfx/clean/runner_converted.wav" id="runner_converted"]
+[ext_resource type="AudioStream" uid="uid://8bgt07qjmg0p" path="res://assets/audio/sfx/clean/seat_changed.wav" id="seat_changed"]
+[ext_resource type="AudioStream" uid="uid://bxd1yak5kswqi" path="res://assets/audio/sfx/clean/slide_end.wav" id="slide_end"]
+[ext_resource type="AudioStream" uid="uid://dafu8o3rlsfw2" path="res://assets/audio/sfx/clean/slide_start.wav" id="slide_start"]
+[ext_resource type="AudioStream" uid="uid://c03u62ig56gq6" path="res://assets/audio/sfx/clean/ui_back.wav" id="ui_back"]
+[ext_resource type="AudioStream" uid="uid://dxlbwxbmewgf7" path="res://assets/audio/sfx/clean/ui_click.wav" id="ui_click"]
+[ext_resource type="AudioStream" uid="uid://du64sg7nv185c" path="res://assets/audio/sfx/clean/ui_focus.wav" id="ui_focus"]
+[ext_resource type="AudioStream" uid="uid://cylkjv2trve3s" path="res://assets/audio/sfx/clean/ui_menu_closed.wav" id="ui_menu_closed"]
+[ext_resource type="AudioStream" uid="uid://byysssrk5jpcw" path="res://assets/audio/sfx/clean/ui_menu_opened.wav" id="ui_menu_opened"]
 
 [sub_resource type="Resource" id="Cue_weapon_rifle_fired"]
 resource_name = "weapon.rifle.fired"
@@ -146,13 +146,9 @@ volume_db = -6.0
 [sub_resource type="AudioStreamRandomizer" id="Rnd_Cue_movement_footstep"]
 streams_count = 4
 stream_0/stream = ExtResource("footstep_1")
-stream_0/weight = 1.0
 stream_1/stream = ExtResource("footstep_2")
-stream_1/weight = 1.0
 stream_2/stream = ExtResource("footstep_3")
-stream_2/weight = 1.0
 stream_3/stream = ExtResource("footstep_4")
-stream_3/weight = 1.0
 
 [sub_resource type="Resource" id="Cue_movement_footstep"]
 resource_name = "movement.footstep"
@@ -160,7 +156,6 @@ script = ExtResource("cue")
 event = &"movement.footstep"
 stream = SubResource("Rnd_Cue_movement_footstep")
 bus = &"SFX"
-volume_db = -14.0
 pitch_jitter = 0.06
 positional = true
 max_distance = 30.0
@@ -279,7 +274,6 @@ script = ExtResource("cue")
 event = &"ui.click"
 stream = ExtResource("ui_click")
 bus = &"SFX"
-volume_db = -14.0
 min_retrigger_seconds = 0.04
 
 [sub_resource type="Resource" id="Cue_ui_focus"]
@@ -297,7 +291,6 @@ script = ExtResource("cue")
 event = &"ui.back"
 stream = ExtResource("ui_back")
 bus = &"SFX"
-volume_db = -14.0
 min_retrigger_seconds = 0.04
 
 [sub_resource type="Resource" id="Cue_ui_menu_opened"]
@@ -306,7 +299,6 @@ script = ExtResource("cue")
 event = &"ui.menu_opened"
 stream = ExtResource("ui_menu_opened")
 bus = &"SFX"
-volume_db = -14.0
 min_retrigger_seconds = 0.04
 
 [sub_resource type="Resource" id="Cue_ui_menu_closed"]
@@ -315,7 +307,6 @@ script = ExtResource("cue")
 event = &"ui.menu_closed"
 stream = ExtResource("ui_menu_closed")
 bus = &"SFX"
-volume_db = -14.0
 min_retrigger_seconds = 0.04
 
 [sub_resource type="Resource" id="Cue_music_match_theme"]
