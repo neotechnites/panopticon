@@ -90,8 +90,9 @@ func bake_from(
 	mesh.agent_height = AGENT_HEIGHT
 	mesh.agent_max_climb = AGENT_MAX_CLIMB
 	mesh.agent_max_slope = AGENT_MAX_SLOPE_DEGREES
-	if bounds.has_volume():
-		mesh.filter_baking_aabb = into_root * bounds
+	## No filter_baking_aabb: it was clipping deck-adjacent colliders at the
+	## Demon Run and skewing Recast's voxelization into a choke there. The
+	## static-collider mask already keeps the parsed set small; bake stayed fast.
 
 	var source: NavigationMeshSourceGeometryData3D = NavigationMeshSourceGeometryData3D.new()
 	NavigationServer3D.parse_source_geometry_data(mesh, source, root)
