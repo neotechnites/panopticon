@@ -32,7 +32,7 @@ COLLIDER_NAME = "RockBarsCollision-colonly"
 HALF_W   = 5.3          # 10.6 m wide
 HEIGHT   = 8.5
 BAR_HT   = 0.175        # half thickness: 0.35 m bars
-BARS     = 8            # gaps = (10.6 - 8 * 0.35) / 9 = 0.87 m, the ends included
+BARS     = 14           # gaps = (10.6 - 14 * 0.35) / 15 = 0.38 m: a body cannot pass
 SILL_H   = 0.45
 LINTEL_H = 0.5
 BEAM_HD  = 0.25         # sill/lintel half depth: proud of the bars

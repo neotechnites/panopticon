@@ -754,6 +754,10 @@ transform = Transform3D(1, 0, 0, 0, 0.34202, 0.939693, 0, -0.939693, 0.34202, 0,
 light_color = Color(1.0, 0.45, 0.15, 1.0)
 light_energy = 2.0
 shadow_enabled = true
+shadow_bias = 0.08
+shadow_normal_bias = 2.0
+directional_shadow_mode = 0
+directional_shadow_max_distance = 180.0
 
 [node name="TowerLight" type="OmniLight3D" parent="Tower"]
 editor_description = "LOCAL GLOW ONLY, not the arena's main light -- see KeyLight. A small hot point above the platform so the tower still visibly reads as a light source up close. Colour, energy, range, attenuation and height are TowerLightProfile fields applied by TowerLight.gd at ready; the light_* properties here are placeholders for the editor view. It rides the tower's rise, which is the point."
