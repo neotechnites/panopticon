@@ -291,31 +291,33 @@ func _place(_delta: float) -> void:
 		_place_death_shot()
 
 
-## The overlook: spherical about the arena, so the whole thing is three
-## numbers -- a bearing, an elevation and a radius -- and the player's mouse
-## moves two of them. No collision test: a hundred-metre orbit that refused to
-## clip through the ring would need a sweep test every frame for a view that
-## can run the length of a race.
+## The overlook: an orbit in the open pit between the tower and the deck,
+## looking outward through the gallery's open inner side. Radius and height
+## are clamped into the pit's own band -- see
+## [member SpectatorProfile.overlook_min_radius_metres] -- so this never sits
+## in the rock the way the old outside-the-ring orbit now would.
 func _place_overlook() -> void:
-	var focus: Vector3 = _focus_point()
-	var arm: Vector2 = Vector2(profile.overlook_radius_metres, profile.overlook_height_metres)
-	var elevation: float = arm.angle() + _look_pitch
-	elevation = clampf(
-		elevation, deg_to_rad(profile.pitch_min_degrees), deg_to_rad(profile.pitch_max_degrees)
+	var centre: Vector3 = (
+		controller.arena.global_position if controller.arena != null else Vector3.ZERO
 	)
-	var distance: float = arm.length()
 	var bearing: float = deg_to_rad(_drift_degrees) + _look_yaw
-
-	var offset: Vector3 = Vector3(
-		cos(bearing) * cos(elevation) * distance,
-		sin(elevation) * distance,
-		sin(bearing) * cos(elevation) * distance,
+	var cam_radius: float = clampf(
+		profile.overlook_orbit_radius_metres,
+		profile.overlook_min_radius_metres,
+		profile.overlook_max_radius_metres,
 	)
-	camera.global_position = focus + offset
-	# look_at refuses a zero-length aim and prints an error rather than throwing;
-	# the guard is cheap and the case is reachable if somebody tunes the radius
-	# and the height both to zero.
-	if offset.length_squared() > 1e-6:
+	var cam_height: float = clampf(
+		centre.y + profile.overlook_orbit_height_metres,
+		profile.overlook_min_height_metres,
+		profile.overlook_max_height_metres,
+	)
+	camera.global_position = Vector3(
+		centre.x + cos(bearing) * cam_radius,
+		cam_height,
+		centre.z + sin(bearing) * cam_radius,
+	)
+	var focus: Vector3 = _focus_point()
+	if camera.global_position.distance_squared_to(focus) > 1e-6:
 		camera.look_at(focus, Vector3.UP)
 
 
@@ -365,15 +367,22 @@ func _place_death_shot() -> void:
 ## What the camera is looking at.
 ##
 ## The body while it is being held -- it is frozen exactly where it died, which
-## is the whole reason that view is worth showing. The ARENA once the player is
-## eliminated, because an eliminated racer's body has been parked a hundred
-## metres under the deck and there is nothing down there to watch.
+## is the whole reason that view is worth showing. A point out on the DECK,
+## in the direction the overlook is currently orbiting, once the player is
+## eliminated -- an eliminated racer's body has been parked a hundred metres
+## under the deck and there is nothing down there to watch, so the overlook
+## looks past the pit and out through the gallery's open inner side instead.
 func _focus_point() -> Vector3:
 	var arena_centre: Vector3 = (
 		controller.arena.global_position if controller.arena != null else Vector3.ZERO
 	)
 	if _state == MatchController.Spectating.ELIMINATED:
-		return arena_centre + Vector3(0.0, profile.overlook_focus_height_metres, 0.0)
+		var bearing: float = deg_to_rad(_drift_degrees) + _look_yaw
+		return arena_centre + Vector3(
+			cos(bearing) * profile.overlook_focus_radius_metres,
+			profile.overlook_focus_height_metres,
+			sin(bearing) * profile.overlook_focus_radius_metres,
+		)
 
 	var participant: MatchParticipant = controller.get_human_participant()
 	if participant == null or participant.body == null:
