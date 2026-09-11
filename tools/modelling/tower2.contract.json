@@ -1,0 +1,6 @@
+{
+  "_comment": "tower2: the tower rebuilt as ONE MASS -- a hoodoo whose head is hollowed into the guard's room, eight ragged holes through its wall. Same datum as tower.glb: ORIGIN IS THE ROOM'S FLOOR, TowerSpawn lands 0.25 m above it; the rock hangs down to about y=-37 and the crown is at +8.4. One textured material (128x128 HellRock atlas + emissive), one UV set, no skin, no animation. Tower2Collision is the purpose-built collider that rides in the .glb as a `-colonly` node (floor disc, one quad per pier, a kerb per opening); Godot turns it into a StaticBody3D + ConcavePolygonShape3D and discards its mesh, so `surfaces` stays 1 and `max_tris` counts only what is drawn.",
+  "node_paths": ["Tower2Rock", "Tower2Collision", "Tower2Collision/CollisionShape3D"],
+  "surfaces": 1,
+  "max_tris": 1200
+}
