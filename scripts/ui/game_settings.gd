@@ -188,13 +188,6 @@ const MAX_ROUNDS_TO_WIN_MATCH: int = 7
 ## match a player starts ends up played under something nobody chose.
 const DEFAULT_MAP_ID: StringName = MapCatalog.DEFAULT_ID
 
-## The air-control preset a player who has never chosen gets. Taken from
-## [AirControlCatalog] rather than spelled out here, for [constant
-## DEFAULT_MAP_ID]'s reason: two files holding their own opinion of the default
-## is how the first match a player starts ends up played under something nobody
-## chose. It is Committed -- the tuning the game shipped with.
-const DEFAULT_AIR_CONTROL_ID: StringName = AirControlCatalog.DEFAULT_ID
-
 ## Matches [code]project.godot[/code]'s [code][display]/window/size[/code]
 ## defaults. They have to agree: [SettingsBoot] bootstraps the store and calls
 ## [method apply_video] before the player has opened the settings screen even
@@ -350,16 +343,6 @@ var rounds_to_win_match: int = DEFAULT_ROUNDS_TO_WIN_MATCH
 ## default in [method clamp_all] rather than starting a match with no arena.
 var map_id: StringName = DEFAULT_MAP_ID
 
-## How the body handles off the ground, by [member AirControlPreset.id].
-## Written over [member MatchRules.air_control_id], which [MatchController]
-## reads to build the [MovementProfile] every body in the match runs.
-##
-## An id and not a profile, for [member map_id]'s reasons: a settings file can
-## hold a name, the catalog is the one list of what exists, and a file naming a
-## preset that no longer exists resolves to the default in [method clamp_all]
-## rather than starting a match with a body that cannot move.
-var air_control_id: StringName = DEFAULT_AIR_CONTROL_ID
-
 ## True when the last window resize [method apply_video] asked for was ignored
 ## outright -- the size before the call and the size after it are the same, and
 ## neither is the size asked for.
@@ -409,7 +392,6 @@ func reset() -> void:
 	runner_win_condition = MatchRules.RunnerWinCondition.FIRST_ARRIVAL
 	rounds_to_win_match = DEFAULT_ROUNDS_TO_WIN_MATCH
 	map_id = DEFAULT_MAP_ID
-	air_control_id = DEFAULT_AIR_CONTROL_ID
 
 
 ## Force every value inside its documented range. Called after every read, so
@@ -450,10 +432,6 @@ func clamp_all() -> void:
 	# every clamp above makes: the player loses a choice, not the match.
 	if not MapCatalog.has(map_id):
 		map_id = DEFAULT_MAP_ID
-	# Same bargain for the air control: an id from another build puts the player
-	# back on the shipped tuning rather than on no tuning at all.
-	if not AirControlCatalog.has(air_control_id):
-		air_control_id = DEFAULT_AIR_CONTROL_ID
 
 
 ## Copy every value out of [param other].
@@ -478,7 +456,6 @@ func copy_from(other: GameSettings) -> void:
 	runner_win_condition = other.runner_win_condition
 	rounds_to_win_match = other.rounds_to_win_match
 	map_id = other.map_id
-	air_control_id = other.air_control_id
 
 
 ## True when every value matches [param other]. Used by the verification harness
@@ -505,7 +482,6 @@ func equals(other: GameSettings) -> bool:
 		and runner_win_condition == other.runner_win_condition
 		and rounds_to_win_match == other.rounds_to_win_match
 		and map_id == other.map_id
-		and air_control_id == other.air_control_id
 	)
 
 
@@ -539,7 +515,6 @@ func write_to(config: ConfigFile) -> void:
 	# As a String, not a StringName: ConfigFile writes a StringName as &"x",
 	# which is legible but is not what a hand-edited file will contain.
 	config.set_value(SECTION_MATCH, "map_id", String(map_id))
-	config.set_value(SECTION_MATCH, "air_control_id", String(air_control_id))
 
 
 ## Read every value out of [param config], substituting the current value --
@@ -582,9 +557,6 @@ func read_from(config: ConfigFile) -> void:
 		config, SECTION_MATCH, "rounds_to_win_match", rounds_to_win_match
 	)
 	map_id = read_string_name(config, SECTION_MATCH, "map_id", map_id)
-	air_control_id = read_string_name(
-		config, SECTION_MATCH, "air_control_id", air_control_id
-	)
 
 	clamp_all()
 
@@ -736,10 +708,9 @@ func apply_to_match_rules(rules: MatchRules) -> void:
 	rules.runner_win_condition = runner_win_condition
 	rules.rounds_to_win_match = rounds_to_win_match
 	rules.map_id = map_id
-	# The air control takes the same door as the map, and for the same reason it
-	# is written verbatim: correcting an unknown id is clamp_all()'s job, and
-	# doing it twice would hide the day this link stopped working.
-	rules.air_control_id = air_control_id
+	# Air control is not written here. It is no longer a player preference --
+	# see [AirControlCatalog] -- so [member MatchRules.air_control_id] is left at
+	# its own default and every match runs it.
 
 
 ## Write [member field_of_view] into a camera. The scene decides which camera;

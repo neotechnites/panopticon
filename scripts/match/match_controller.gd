@@ -675,8 +675,8 @@ func start_match() -> void:
 	if _participants.is_empty():
 		push_error("MatchController has no participants; there is nobody to play a match.")
 		return
-	# Every body in this match, human and bots alike, on the air control the
-	# player chose. See [method _apply_air_control].
+	# Every body in this match, human and bots alike, on the shipped air
+	# control. See [method _apply_air_control].
 	_apply_air_control()
 
 	for participant: MatchParticipant in _participants:
@@ -2815,13 +2815,13 @@ func get_air_control_profile() -> MovementProfile:
 	return _air_control_profile
 
 
-## Put the chosen air control on every body in the roster.
+## Put the shipped air control on every body in the roster.
 ##
-## [b]Where the choice comes from.[/b] The one path every other choice on the
-## setup screen takes -- [method GameSettings.apply_to_match_rules], called by
-## the [SettingsBoot] node in [code]scenes/match/match.tscn[/code] -- ending on
-## [member MatchRules.air_control_id]. This node reads the rules, so this is
-## where it lands, exactly as [method _install_chosen_map] reads the map.
+## [b]Where it comes from.[/b] [member MatchRules.air_control_id] is not written
+## by anything any more -- there is no picker, see [AirControlCatalog] -- so it
+## sits at its own default, [constant AirControlCatalog.DEFAULT_ID]. This node
+## reads the rules, so this is where that default lands, exactly as
+## [method _install_chosen_map] reads the map.
 ##
 ## [b]Why [method PlayerController.set_profile] and not an assignment.[/b] The
 ## walkable slope, the floor snap length and the [IntentSource]'s own copy are

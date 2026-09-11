@@ -46,22 +46,36 @@ extends Resource
 ## "after the hit has finished".
 @export_range(0.0, 1.5, 0.01) var enter_delay_seconds: float = 0.35
 
-## How far the camera sits from the body, in metres.
+## How far the camera sits from the body, in metres. Unused since the gallery
+## reframe below replaced the orbit; kept so an old save does not lose a tuned
+## number.
 @export_range(1.0, 40.0, 0.1) var death_radius_metres: float = 5.5
 
-## How far above the body's feet the camera sits, in metres.
+## How far above the body's feet the camera sits, in metres. Unused, see
+## [member death_radius_metres].
 @export_range(0.0, 40.0, 0.1) var death_height_metres: float = 2.8
 
-## How high up the body the camera looks, in metres. Roughly head height, so the
-## body sits in the frame rather than at the bottom of it.
+## How high up the body the camera looks, in metres. Roughly chest height, so
+## the body sits in the frame rather than at the bottom of it.
 @export_range(0.0, 5.0, 0.05) var death_focus_height_metres: float = 1.1
 
-## How fast the camera drifts round the body, in degrees per second.
-##
-## Non-zero on purpose and small. A perfectly static third-person shot of a
-## motionless body reads as the game having frozen, which is the exact
-## impression this view exists to prevent; a slow drift says the game is running
-## and you are simply not in it.
+## How far behind the body, opposite the way it was facing, the camera sits --
+## the over-the-shoulder distance, in metres.
+@export_range(0.0, 10.0, 0.1) var death_over_shoulder_distance_metres: float = 2.5
+
+## How far above the gallery deck the camera sits, in metres.
+@export_range(0.0, 10.0, 0.1) var death_over_shoulder_height_metres: float = 1.8
+
+## The gallery is a ring of rock: any camera outside this radius band or the
+## height band below is inside solid wall or ceiling. The death shot is always
+## clamped into both, whatever the body is doing.
+@export_range(0.0, 200.0, 0.1) var death_gallery_min_radius_metres: float = 48.0
+@export_range(0.0, 200.0, 0.1) var death_gallery_max_radius_metres: float = 56.0
+@export_range(-100.0, 200.0, 0.1) var death_gallery_min_height_metres: float = 24.5
+@export_range(-100.0, 200.0, 0.1) var death_gallery_max_height_metres: float = 30.0
+
+## How fast the camera drifts round the body, in degrees per second. Unused,
+## see [member death_radius_metres] -- the gallery shot is a fixed cut.
 @export_range(-180.0, 180.0, 0.5) var death_orbit_degrees_per_second: float = 16.0
 
 # --- The overlook: watching the race you are out of ---------------------------

@@ -1,4 +1,4 @@
-[gd_scene load_steps=28 format=3]
+[gd_scene load_steps=29 format=3]
 
 [ext_resource type="Script" path="res://scripts/match/kill_volume.gd" id="1_kill_volume"]
 [ext_resource type="Script" path="res://scripts/match/trap_volume.gd" id="2_trap_volume"]
@@ -17,6 +17,9 @@
 [ext_resource type="PackedScene" path="res://assets/models/lava_tile.glb" id="16_lava_tile"]
 [ext_resource type="PackedScene" path="res://assets/models/demon_pad.glb" id="17_demon_pad"]
 [ext_resource type="Script" path="res://scripts/match/boost_pad.gd" id="18_boost_pad"]
+[ext_resource type="PackedScene" path="res://assets/models/portal.glb" id="19_portal"]
+[ext_resource type="PackedScene" path="res://assets/models/rock_bars.glb" id="20_rock_bars"]
+[ext_resource type="PackedScene" path="res://scenes/ring/torch.tscn" id="21_torch"]
 
 [sub_resource type="StandardMaterial3D" id="MatDeck"]
 albedo_color = Color(0.42, 0.42, 0.44, 1.0)
@@ -38,16 +41,6 @@ albedo_color = Color(0.5, 0.48, 0.4, 1.0)
 roughness = 0.9
 metallic = 0.0
 
-[sub_resource type="StandardMaterial3D" id="MatStart"]
-albedo_color = Color(0.22, 0.52, 0.28, 1.0)
-roughness = 0.85
-metallic = 0.0
-
-[sub_resource type="StandardMaterial3D" id="MatEnd"]
-albedo_color = Color(0.62, 0.42, 0.14, 1.0)
-roughness = 0.85
-metallic = 0.0
-
 [sub_resource type="StandardMaterial3D" id="MatTrap"]
 resource_name = "Trap"
 shading_mode = 0
@@ -66,8 +59,8 @@ sky_material = SubResource("SkyMat")
 background_mode = 2
 sky = SubResource("Sky")
 ambient_light_source = 3
-ambient_light_color = Color(0.5, 0.2, 0.16, 1.0)
-ambient_light_energy = 0.7
+ambient_light_color = Color(0.35, 0.12, 0.10, 1.0)
+ambient_light_energy = 0.25
 tonemap_mode = 2
 
 [node name="BenthamRing" type="Node3D"]
@@ -83,103 +76,72 @@ environment = SubResource("Env")
 [node name="MapBase" parent="." instance=ExtResource("10_map_base_model")]
 editor_description = "assets/models/map_base.glb: the one deck -- annulus, pit wall down to the courtyard, outer wall up to the rim. Ships its own collision (MapBaseCollision-colonly), so nothing here duplicates it."
 
-[node name="GalleryLights" type="Node3D" parent="Ring"]
-editor_description = "Under the rock ceiling, which KeyLight cannot reach through. Twelve omnis at r=52.0, 30 deg apart, matching KeyLight and TowerLightProfile's colour."
+[node name="Torches" type="Node3D" parent="Ring"]
 
-[node name="Gallery1_000deg" type="OmniLight3D" parent="Ring/GalleryLights"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, -0, 0, 1, 52, 30.5, 0)
-light_color = Color(1.0, 0.44, 0.34, 1.0)
-light_energy = 9.00
-omni_range = 60.00
-omni_attenuation = 0.7
+[node name="Torch_015deg" parent="Ring/Torches" instance=ExtResource("21_torch")]
+transform = Transform3D(-0.258819, 0, -0.965926, 0, 1, 0, 0.965926, 0, -0.258819, 55.2993, 25.2, 14.8174)
+
+[node name="Torch_045deg" parent="Ring/Torches" instance=ExtResource("21_torch")]
+transform = Transform3D(-0.707107, 0, -0.707107, 0, 1, 0, 0.707107, 0, -0.707107, 40.4819, 25.2, 40.4819)
+
+[node name="Torch_075deg" parent="Ring/Torches" instance=ExtResource("21_torch")]
+transform = Transform3D(-0.965926, 0, -0.258819, 0, 1, 0, 0.258819, 0, -0.965926, 14.8174, 25.2, 55.2993)
+
+[node name="Torch_105deg" parent="Ring/Torches" instance=ExtResource("21_torch")]
+transform = Transform3D(-0.965926, 0, 0.258819, 0, 1, 0, -0.258819, 0, -0.965926, -14.8174, 25.2, 55.2993)
+
+[node name="Torch_135deg" parent="Ring/Torches" instance=ExtResource("21_torch")]
+transform = Transform3D(-0.707107, 0, 0.707107, 0, 1, 0, -0.707107, 0, -0.707107, -40.4819, 25.2, 40.4819)
+
+[node name="Torch_165deg" parent="Ring/Torches" instance=ExtResource("21_torch")]
+transform = Transform3D(-0.258819, 0, 0.965926, 0, 1, 0, -0.965926, 0, -0.258819, -55.2993, 25.2, 14.8174)
+
+[node name="Torch_195deg" parent="Ring/Torches" instance=ExtResource("21_torch")]
+transform = Transform3D(0.258819, 0, 0.965926, 0, 1, 0, -0.965926, 0, 0.258819, -55.2993, 25.2, -14.8174)
+
+[node name="Torch_225deg" parent="Ring/Torches" instance=ExtResource("21_torch")]
+transform = Transform3D(0.707107, 0, 0.707107, 0, 1, 0, -0.707107, 0, 0.707107, -40.4819, 25.2, -40.4819)
+
+[node name="Torch_255deg" parent="Ring/Torches" instance=ExtResource("21_torch")]
+transform = Transform3D(0.965926, 0, 0.258819, 0, 1, 0, -0.258819, 0, 0.965926, -14.8174, 25.2, -55.2993)
+
+[node name="Torch_285deg" parent="Ring/Torches" instance=ExtResource("21_torch")]
+transform = Transform3D(0.965926, 0, -0.258819, 0, 1, 0, 0.258819, 0, 0.965926, 14.8174, 25.2, -55.2993)
+
+[node name="Torch_315deg" parent="Ring/Torches" instance=ExtResource("21_torch")]
+transform = Transform3D(0.707107, 0, -0.707107, 0, 1, 0, 0.707107, 0, 0.707107, 40.4819, 25.2, -40.4819)
+
+[node name="Torch_345deg" parent="Ring/Torches" instance=ExtResource("21_torch")]
+transform = Transform3D(0.258819, 0, -0.965926, 0, 1, 0, 0.965926, 0, 0.258819, 55.2993, 25.2, -14.8174)
+
+[node name="LavaGlow" type="Node3D" parent="Ring"]
+
+[node name="S2_LavaShelf" type="OmniLight3D" parent="Ring/LavaGlow"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, -0, 0, 1, -11.2549, 24.5, 50.7674)
+light_color = Color(1.0, 0.35, 0.05, 1.0)
+light_energy = 3.0
+omni_range = 12.0
 shadow_enabled = false
 
-[node name="Gallery1_030deg" type="OmniLight3D" parent="Ring/GalleryLights"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, -0, 0, 1, 45.0333, 30.5, 26)
-light_color = Color(1.0, 0.44, 0.34, 1.0)
-light_energy = 9.00
-omni_range = 60.00
-omni_attenuation = 0.7
+[node name="S3_Split" type="OmniLight3D" parent="Ring/LavaGlow"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, -0, 0, 1, -51.5551, 24.5, 6.78736)
+light_color = Color(1.0, 0.35, 0.05, 1.0)
+light_energy = 3.0
+omni_range = 12.0
 shadow_enabled = false
 
-[node name="Gallery1_060deg" type="OmniLight3D" parent="Ring/GalleryLights"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, -0, 0, 1, 26, 30.5, 45.0333)
-light_color = Color(1.0, 0.44, 0.34, 1.0)
-light_energy = 9.00
-omni_range = 60.00
-omni_attenuation = 0.7
+[node name="S4_DemonRun_Inner" type="OmniLight3D" parent="Ring/LavaGlow"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, -0, 0, 1, -24.0109, 24.5, -46.1246)
+light_color = Color(1.0, 0.35, 0.05, 1.0)
+light_energy = 3.0
+omni_range = 12.0
 shadow_enabled = false
 
-[node name="Gallery1_090deg" type="OmniLight3D" parent="Ring/GalleryLights"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, -0, 0, 1, 3.18408e-15, 30.5, 52)
-light_color = Color(1.0, 0.44, 0.34, 1.0)
-light_energy = 9.00
-omni_range = 60.00
-omni_attenuation = 0.7
-shadow_enabled = false
-
-[node name="Gallery1_120deg" type="OmniLight3D" parent="Ring/GalleryLights"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, -0, 0, 1, -26, 30.5, 45.0333)
-light_color = Color(1.0, 0.44, 0.34, 1.0)
-light_energy = 9.00
-omni_range = 60.00
-omni_attenuation = 0.7
-shadow_enabled = false
-
-[node name="Gallery1_150deg" type="OmniLight3D" parent="Ring/GalleryLights"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, -0, 0, 1, -45.0333, 30.5, 26)
-light_color = Color(1.0, 0.44, 0.34, 1.0)
-light_energy = 9.00
-omni_range = 60.00
-omni_attenuation = 0.7
-shadow_enabled = false
-
-[node name="Gallery1_180deg" type="OmniLight3D" parent="Ring/GalleryLights"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, -0, 0, 1, -52, 30.5, 6.36816e-15)
-light_color = Color(1.0, 0.44, 0.34, 1.0)
-light_energy = 9.00
-omni_range = 60.00
-omni_attenuation = 0.7
-shadow_enabled = false
-
-[node name="Gallery1_210deg" type="OmniLight3D" parent="Ring/GalleryLights"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, -0, 0, 1, -45.0333, 30.5, -26)
-light_color = Color(1.0, 0.44, 0.34, 1.0)
-light_energy = 9.00
-omni_range = 60.00
-omni_attenuation = 0.7
-shadow_enabled = false
-
-[node name="Gallery1_240deg" type="OmniLight3D" parent="Ring/GalleryLights"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, -0, 0, 1, -26, 30.5, -45.0333)
-light_color = Color(1.0, 0.44, 0.34, 1.0)
-light_energy = 9.00
-omni_range = 60.00
-omni_attenuation = 0.7
-shadow_enabled = false
-
-[node name="Gallery1_270deg" type="OmniLight3D" parent="Ring/GalleryLights"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, -0, 0, 1, -9.55225e-15, 30.5, -52)
-light_color = Color(1.0, 0.44, 0.34, 1.0)
-light_energy = 9.00
-omni_range = 60.00
-omni_attenuation = 0.7
-shadow_enabled = false
-
-[node name="Gallery1_300deg" type="OmniLight3D" parent="Ring/GalleryLights"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, -0, 0, 1, 26, 30.5, -45.0333)
-light_color = Color(1.0, 0.44, 0.34, 1.0)
-light_energy = 9.00
-omni_range = 60.00
-omni_attenuation = 0.7
-shadow_enabled = false
-
-[node name="Gallery1_330deg" type="OmniLight3D" parent="Ring/GalleryLights"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, -0, 0, 1, 45.0333, 30.5, -26)
-light_color = Color(1.0, 0.44, 0.34, 1.0)
-light_energy = 9.00
-omni_range = 60.00
-omni_attenuation = 0.7
+[node name="S4_DemonRun_Outer" type="OmniLight3D" parent="Ring/LavaGlow"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, -0, 0, 1, -24.0109, 24.5, -46.1246)
+light_color = Color(1.0, 0.35, 0.05, 1.0)
+light_energy = 3.0
+omni_range = 12.0
 shadow_enabled = false
 
 [node name="KillBox" type="Area3D" parent="."]
@@ -198,31 +160,21 @@ editor_description = "Deliberately empty. KillVolume._build_shape writes a Cylin
 [node name="StartEnd" type="Node3D" parent="."]
 editor_description = "One level, one lap: start and finish are both on the deck at y=23.0, 30 deg apart around the ring -- the gap is the old ramp bay, unused now."
 
-[node name="StartPad" type="CSGBox3D" parent="StartEnd"]
-editor_description = "Visual decal only -- use_collision is off so this 0.1 m plate is never a step the character controller has to climb."
-size = Vector3(6.0, 0.1, 6.0)
-material = SubResource("MatStart")
-transform = Transform3D(0.0871557, 0, 0.996195, 0, 1, 0, -0.996195, 0, 0.0871557, 51.8021, 23.05, 4.5321)
-
 [node name="PrisonerStart" type="Marker3D" parent="StartEnd"]
 editor_description = "5.0 deg on level one's racing line, y=23.0. Its ANGLE is what places the field -- MatchController deals them sideways across the width of the track from here -- but its HEIGHT is load-bearing too, and was the one number missed when the ring was lifted to put its top deck at the guard's eye: a marker left on the old datum is a start line nine metres under the floor, and every body dealt onto it falls out of the world before it has taken a step."
 transform = Transform3D(-0.996195, 0, 0.0871557, 0, 1, 0, -0.0871557, 0, -0.996195, 51.8021, 23, 4.5321)
-
-[node name="EndPad" type="CSGBox3D" parent="StartEnd"]
-editor_description = "Visual decal only, as StartPad. It is on the same deck as the start."
-size = Vector3(6.0, 0.1, 6.0)
-material = SubResource("MatEnd")
-transform = Transform3D(-0.422618, 0, 0.906308, 0, 1, 0, -0.906308, 0, -0.422618, 47.128, 23.05, -21.9761)
 
 [node name="PrisonerEnd" type="Marker3D" parent="StartEnd"]
 editor_description = "335.0 deg on the level's racing line, y=23.0. This is the end of the whole route, not the end of a lap: reaching it is what takes the tower."
 transform = Transform3D(-0.906308, 0, -0.422618, 0, 1, 0, 0.422618, 0, -0.906308, 47.128, 23, -21.9761)
 
-[node name="StartFinishWall0" parent="." instance=ExtResource("14_rock_wall")]
-transform = Transform3D(0.984808, 0, 0.173648, 0, 2.83333, 0, -0.173648, 0, 0.984808, 47.2708, 23, -8.33511)
+[node name="Portal" parent="StartEnd" instance=ExtResource("19_portal")]
+editor_description = "The finish. A runner passes through the disc along the run direction: local Z is the pass-through axis, local X the 4.5 m span across the lane."
+transform = Transform3D(0.906308, 0, 0.422618, 0, 1, 0, -0.422618, 0, 0.906308, 47.128, 23, -21.9761)
 
-[node name="StartFinishWall1" parent="." instance=ExtResource("14_rock_wall")]
-transform = Transform3D(0.984808, 0, 0.173648, 0, 2.83333, 0, -0.173648, 0, 0.984808, 55.1492, 23, -9.7243)
+[node name="RockBars" parent="." instance=ExtResource("20_rock_bars")]
+editor_description = "Bars across the lane at 350 deg, in the gap between finish and start, so the finish is visible from the start. Local X (10.6 m) runs radially, local Z is tangential."
+transform = Transform3D(0.984808, 0, 0.173648, 0, 1, 0, -0.173648, 0, 0.984808, 51.91, 23, -9.0297)
 
 [node name="Sections" type="Node3D" parent="."]
 editor_description = "Map 1 sections, docs/MAP1_SECTIONS.md."
@@ -797,10 +749,10 @@ editor_description = "On the chamber floor, 0.25 m up. The clearance is delibera
 transform = Transform3D(1, 0, 0, 0, 1, 0, -0, 0, 1, 0, 0.25, 0)
 
 [node name="KeyLight" type="DirectionalLight3D" parent="Tower"]
-editor_description = "THE MAIN LIGHT. A DirectionalLight3D has no range falloff at all, so it cannot fail to reach the deck at any radius. Angled 15 degrees off vertical so it still throws long outward-raking shadows off cover instead of flat noon light. Reddish, matching TowerLightProfile.color so the arena stays one mood.\n\nIts local transform is unchanged by the tower's rise; a directional light has no position, so moving its parent changes nothing about it."
-transform = Transform3D(1, 0, 0, 0, 0.258819, 0.965926, 0, -0.965926, 0.258819, 0, 20, 0)
-light_color = Color(1.0, 0.36, 0.28, 1.0)
-light_energy = 3.4
+editor_description = "Fire from the hole above, angled 20 degrees off vertical (about 70 deg below horizontal) into the pit rather than the flat noon light of an office."
+transform = Transform3D(1, 0, 0, 0, 0.34202, 0.939693, 0, -0.939693, 0.34202, 0, 20, 0)
+light_color = Color(1.0, 0.45, 0.15, 1.0)
+light_energy = 2.0
 shadow_enabled = true
 
 [node name="TowerLight" type="OmniLight3D" parent="Tower"]

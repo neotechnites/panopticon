@@ -265,6 +265,10 @@ var _play: RunnerProfile = null
 var _perception: RunnerPerception = RunnerPerception.new()
 var _cover: RunnerCoverFinder = RunnerCoverFinder.new()
 
+## Every [TrapVolume] box on the map, collected once per [method _arm]. See
+## [method RunnerCoverFinder.collect_hazards]; nothing here names a map's traps.
+var _hazards: Array[Dictionary] = []
+
 var _state: State = State.RUNNING
 
 ## True while this brain is a GHOST hunting the living instead of running a lap.
@@ -496,6 +500,7 @@ func _arm(
 	# cannot change inside a round.
 	_play = RunnerProfile.resolve(rules, runner_profile)
 	_perception.configure(controller, _play, rules)
+	_hazards = RunnerCoverFinder.collect_hazards(controller.get_tree().root)
 
 	_state = State.RUNNING
 	_had_threat = false
@@ -1070,7 +1075,7 @@ func _tick_recover(remaining_arc: float, delta: float) -> void:
 	if _perception.is_exposed():
 		# Standing still where the rifle can reach is the one thing a prisoner
 		# must never do. Re-plan and go, whatever the confidence says.
-		_plan_and_cross(remaining_arc)
+		_plan_and_cross(remaining_arc, delta)
 		return
 
 	if controller.get_horizontal_speed() > SETTLED_SPEED:
@@ -1087,7 +1092,7 @@ func _tick_hold(remaining_arc: float, delta: float) -> void:
 	_hold_seconds += delta
 
 	if _perception.is_exposed():
-		_plan_and_cross(remaining_arc)
+		_plan_and_cross(remaining_arc, delta)
 		return
 
 	if _hold_seconds >= _play.min_hold_seconds:
@@ -1100,7 +1105,7 @@ func _tick_evaluate(remaining_arc: float, delta: float) -> void:
 	_hold_seconds += delta
 
 	if _perception.is_exposed():
-		_plan_and_cross(remaining_arc)
+		_plan_and_cross(remaining_arc, delta)
 		return
 
 	_search_countdown -= delta
@@ -1110,7 +1115,9 @@ func _tick_evaluate(remaining_arc: float, delta: float) -> void:
 
 	_last_confidence = _crossing_confidence()
 	_last_threshold = _break_threshold()
-	if _last_confidence >= _last_threshold:
+	# A crossing into a hazard is refused outright, confidence or no: this
+	# holds the cover it already has rather than commit.
+	if _last_confidence >= _last_threshold and _crossing_is_safe(_target):
 		_begin_cross(_target, _target_is_cover)
 
 
@@ -1527,11 +1534,26 @@ func _begin_cross(target: Vector3, is_cover: bool) -> void:
 
 ## Re-plan from wherever the body is and go, without asking the confidence.
 ## Used only where standing still is not an option: in the open.
-func _plan_and_cross(remaining_arc: float) -> void:
+##
+## A target that can only be reached through a hazard is refused even here:
+## it holds whatever cover it has ([member _has_anchor]), or -- with none --
+## keeps running the lane rather than launch itself at a trap.
+func _plan_and_cross(remaining_arc: float, delta: float) -> void:
 	_choose_target(remaining_arc)
+	if not _crossing_is_safe(_target):
+		if not _has_anchor:
+			_run_baseline(remaining_arc, delta)
+		return
 	_last_confidence = 0.0
 	_last_threshold = 0.0
 	_begin_cross(_target, _target_is_cover)
+
+
+## True when the straight line from here to [param target] crosses no hazard.
+func _crossing_is_safe(target: Vector3) -> bool:
+	return not RunnerCoverFinder.segment_crosses_hazard(
+		_hazards, controller.global_position, target
+	)
 
 
 ## Run a search, settle on a destination, and price the open ground on the way.
@@ -1700,6 +1722,7 @@ func _search_cover(remaining_arc: float) -> void:
 		TRAVEL_SIGN,
 		_lane_radius(),
 		remaining_arc,
+		_hazards,
 	)
 
 

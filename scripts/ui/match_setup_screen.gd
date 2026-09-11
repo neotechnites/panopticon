@@ -47,15 +47,12 @@ extends Control
 ## not into a copy of them. [code]tests/test_match_setup.gd[/code] asserts that
 ## by identity.
 
-## [b]The air control is chosen here too.[/b] Four named presets --
-## Committed, Carve, Kite, Footwork -- differing ONLY in how much the mouse
-## steers a body that is off the ground. They were reachable in the movement
-## playground and nowhere else, which meant they could be measured and not
-## played. The row travels the identical path the map does, ending on
-## [member MatchRules.air_control_id], which [MatchController] reads to build the
-## one [MovementProfile] every body in the match runs -- the human and the bots
-## alike. Committed is the shipped tuning and stays the default; the picker names
-## it as such and chooses nothing on the player's behalf.
+## [b]Air control is not a choice on this screen.[/b] It used to be, when the
+## four presets in [code]resources/movement/[/code] were still an open question --
+## see [AirControlCatalog] -- but Carve is now the shipped tuning and every body
+## in every match runs it, via [member MatchRules.air_control_id]'s own default.
+## The other three presets stay on disk, playable back to back in the movement
+## playground, and are not offered here.
 ##
 ## [b]The map is chosen here too, and it is not a rule of the round.[/b] It is
 ## the first control on the screen, it is read from [MapCatalog] rather than
@@ -107,18 +104,6 @@ const NO_MAPS_TITLE: String = "No maps found"
 ## Item id of that entry, and never a valid map index.
 const NO_MAPS_ID: int = -1
 
-## Shown in the air control picker when [AirControlCatalog] returns nothing at
-## all -- a broken install, in which every body falls back to the shipped tuning.
-const NO_AIR_CONTROL_TITLE: String = "No air control presets found"
-
-## Item id of that entry, and never a valid preset index.
-const NO_AIR_CONTROL_ID: int = -1
-
-## Suffix on the picker row for the preset the game ships with, so that which one
-## is the default is legible BEFORE it is selected. The mode picker marks canon
-## the same way and for the same reason.
-const DEFAULT_SUFFIX: String = " (the default)"
-
 ## Shown in the mode picker when the rules match no named preset.
 const CUSTOM_TITLE: String = "Custom"
 
@@ -127,9 +112,6 @@ const CUSTOM_ID: int = -1
 
 @onready var _map_option: OptionButton = %MapOption
 @onready var _map_summary: Label = %MapSummary
-
-@onready var _air_control_option: OptionButton = %AirControlOption
-@onready var _air_control_summary: Label = %AirControlSummary
 
 @onready var _preset_option: OptionButton = %PresetOption
 @onready var _preset_badge: Label = %PresetBadge
@@ -180,9 +162,6 @@ func refresh() -> void:
 
 	var settings: GameSettings = _store.settings
 	_map_option.selected = _index_of(_map_option, MapCatalog.index_of(settings.map_id))
-	_air_control_option.selected = _index_of(
-		_air_control_option, AirControlCatalog.index_of(settings.air_control_id)
-	)
 	_prisoner_count_spin.value = float(settings.prisoner_count)
 	_opening_option.selected = _index_of(_opening_option, int(_opening_of(settings)))
 	_lives_option.selected = _index_of(_lives_option, settings.prisoner_lives)
@@ -264,21 +243,6 @@ func _fill_choices() -> void:
 		_map_option.add_item(NO_MAPS_TITLE, NO_MAPS_ID)
 		_map_option.set_item_disabled(0, true)
 
-	_air_control_option.clear()
-	var air_presets: Array[AirControlPreset] = AirControlCatalog.all()
-	for air_index: int in air_presets.size():
-		var air: AirControlPreset = air_presets[air_index]
-		if air == null:
-			continue
-		var air_title: String = air.display_name
-		if air.id == AirControlCatalog.DEFAULT_ID:
-			air_title += DEFAULT_SUFFIX
-		# The catalog position is the item id, as everywhere else on this screen.
-		_air_control_option.add_item(air_title, air_index)
-	if _air_control_option.item_count == 0:
-		_air_control_option.add_item(NO_AIR_CONTROL_TITLE, NO_AIR_CONTROL_ID)
-		_air_control_option.set_item_disabled(0, true)
-
 	_preset_option.clear()
 	var presets: Array[MatchPresets.Preset] = MatchPresets.all()
 	for index: int in presets.size():
@@ -321,7 +285,6 @@ func _fill_choices() -> void:
 
 func _connect_controls() -> void:
 	_map_option.item_selected.connect(_on_map_selected)
-	_air_control_option.item_selected.connect(_on_air_control_selected)
 	_preset_option.item_selected.connect(_on_preset_selected)
 	_prisoner_count_spin.value_changed.connect(_on_prisoner_count_changed)
 	_opening_option.item_selected.connect(_on_opening_selected)
@@ -348,20 +311,6 @@ func _on_map_selected(index: int) -> void:
 		return
 	_store.settings.map_id = maps[id].id
 	# _after_change() redraws the map summary with everything else.
-	_after_change()
-
-
-## Choose the air control. Writes an id and not a profile: see
-## [member GameSettings.air_control_id].
-func _on_air_control_selected(index: int) -> void:
-	if _syncing:
-		return
-	var id: int = _air_control_option.get_item_id(index)
-	var presets: Array[AirControlPreset] = AirControlCatalog.all()
-	if id < 0 or id >= presets.size() or presets[id] == null:
-		return
-	_store.settings.air_control_id = presets[id].id
-	# _after_change() redraws the feel line with everything else.
 	_after_change()
 
 
@@ -474,7 +423,6 @@ func _after_change() -> void:
 
 func _update_derived() -> void:
 	_update_map_display()
-	_update_air_control_display()
 	_update_preset_display()
 	_update_readouts()
 	_update_note()
@@ -493,25 +441,6 @@ func _update_map_display() -> void:
 		)
 		return
 	_map_summary.text = map.summary
-
-
-## Say what the chosen air control FEELS like, in the preset's own words.
-##
-## The name and the sentence, never the four numbers. The presets are a choice
-## made by feel -- that is the whole reason they are named -- and an air-strafe
-## cap is not something a player can weigh. The numbers are in the movement
-## playground's readout, where they are being measured.
-func _update_air_control_display() -> void:
-	var preset: AirControlPreset = AirControlCatalog.by_id(_store.settings.air_control_id)
-	if preset == null:
-		# clamp_all() puts an unknown id back to the default, so this is only
-		# reachable with no catalog at all.
-		_air_control_summary.text = (
-			"No air control preset could be loaded. Every body will run the tuning "
-			+ "the game ships with until %s names one." % AirControlCatalog.CATALOG_PATH
-		)
-		return
-	_air_control_summary.text = preset.feel
 
 
 ## Show which named mode the current rules are, or Custom.

@@ -223,6 +223,12 @@ CH_ZJAG    = 0.70        # zero this is CAD and a thousand years have not
 CH_ANG_JAG = 0.35        # happened to it.
 CH_SEED    = 4410207
 
+PIER_WIDTH_VAR = 0.30   # each pier's angular width varies +/- this fraction,
+                         # mean-centred over the 8 so the openings absorb the
+                         # difference without shrinking the average clear width.
+PIER_JAG   = 0.100       # pier faces read hand-cut: stronger than CH_JAG/
+PIER_ZJAG  = 1.05        # CH_ZJAG above, radial and vertical.
+
 # ---- THE INTERIOR -- the only new geometry ---------------------------------
 # Carved out of the drum above. Nothing here may push the outer surface around.
 RM_RIN        = 7.00   # interior radius -> a 10.2 m room. It has to clear the
@@ -594,7 +600,9 @@ def _radial(ang_a, ang_b, inward=False):
 
 
 BAR_H     = 1.25   # solid parapet: stone from the floor up to the waist
-BAR_TOP   = 1.25   # above the room floor -- clears the guard's 1.11 m jump
+BAR_TOP   = 1.05   # above the room floor -- lowered per Ryan's note, no longer
+                   # above the guard's 1.11 m jump
+BAR_EDGE_JAG = 0.03   # top edge jitter -- a hand-dressed line, not a wobble
 
 
 def _bar(m, ang0, span, z0, z1, depth, zone_outer, zone_inner, r=None):
@@ -603,8 +611,9 @@ def _bar(m, ang0, span, z0, z1, depth, zone_outer, zone_inner, r=None):
     (flush with the opening's sill), not a bar in front of either.
 
     zone_outer is the throat-facing skin, zone_inner everything else. With
-    an `_Rng` passed as `r`, the top edge gets the drum's own CH_JAG/CH_ZJAG
-    jitter so it is not a CAD line; omitted (the collider) it stays a flat
+    an `_Rng` passed as `r`, the top edge gets a small BAR_EDGE_JAG rise/fall
+    plus the drum's own CH_JAG depth jitter, so it is not a CAD line without
+    wobbling the guard's sightline; omitted (the collider) it stays a flat
     box of the same footprint.
     """
     a0, a1 = ang0, ang0 + span
@@ -616,7 +625,7 @@ def _bar(m, ang0, span, z0, z1, depth, zone_outer, zone_inner, r=None):
         return (p[0] + out[0] * d, p[1] + out[1] * d, z)
 
     def top_z():
-        return z1 + r.sf() * CH_ZJAG if r else z1
+        return z1 + r.sf() * BAR_EDGE_JAG if r else z1
 
     def top_depth():
         return depth * (1.0 + r.sf() * CH_JAG) if r else depth
@@ -748,13 +757,33 @@ def _column(r):
 def _chamber(r):
     n = CH_RINGS
     k0, k1 = CH_OPEN_RINGS
-    # FROZEN DRAW ORDER, exactly as the approved model. Three arrays, in this
-    # sequence, sized by these loops.
-    ang = [2.0 * math.pi * (i + r.sf() * CH_ANG_JAG) / CH_SIDES
+    # Per-pier angular width: each of the 8 piers (odd i) draws its own
+    # +/-PIER_WIDTH_VAR factor, mean-centred to exactly 1.0 so the ring still
+    # sums to a full circle at the SAME total the uniform layout used -- the
+    # openings either side of a pier absorb its width without moving the
+    # average clear width. The two segments flanking a pier vertex both carry
+    # its factor, since each is half notch-void, half pier-stone (see the
+    # RM_CUT comment below): widen the pier and both segments grow with it.
+    npier = CH_SIDES // 2
+    pier_w = [1.0 + r.sf() * PIER_WIDTH_VAR for _ in range(npier)]
+    mean_w = sum(pier_w) / npier
+    pier_w = [w - mean_w + 1.0 for w in pier_w]
+    seg_w = [pier_w[i // 2] for i in range(CH_SIDES)]
+    total_w = sum(seg_w)
+    acc = 0.0
+    base_ang = []
+    for i in range(CH_SIDES):
+        base_ang.append(2.0 * math.pi * acc / total_w)
+        acc += seg_w[i]
+    ang = [base_ang[i] + r.sf() * CH_ANG_JAG * (2.0 * math.pi / CH_SIDES)
            for i in range(CH_SIDES)]
-    jit = [[r.sf() * CH_JAG for _ in range(n)] for _ in range(CH_SIDES)]
-    zj = [[0.0 if k in (0, n - 1) else r.sf() * CH_ZJAG for k in range(n)]
-          for _ in range(CH_SIDES)]
+    # Pier faces (odd i) read hand-cut: PIER_JAG/PIER_ZJAG are stronger than
+    # the notches' own CH_JAG/CH_ZJAG, so no two piers dress the same.
+    jit = [[r.sf() * (PIER_JAG if i % 2 else CH_JAG) for _ in range(n)]
+           for i in range(CH_SIDES)]
+    zj = [[0.0 if k in (0, n - 1) else
+           r.sf() * (PIER_ZJAG if i % 2 else CH_ZJAG) for k in range(n)]
+          for i in range(CH_SIDES)]
 
     # Alternate vertices are openings. Only the rings between sill and lintel
     # are touched, so those two courses stay true circles.
@@ -774,8 +803,6 @@ def _chamber(r):
                             z + zj[i][k])))
         rings.append(row)
 
-    step = 2.0 * math.pi / CH_SIDES
-
     # ---- outer skin --------------------------------------------------------
     # Identical to the approved model everywhere except the one band that holds
     # the openings, where each ramp face is cut back to its midpoint so the
@@ -789,7 +816,9 @@ def _chamber(r):
         for i in range(CH_SIDES):
             j = (i + 1) % CH_SIDES
             zone = ZONE_EMBER if (i % 2 == 0 and band_is_open) else ZONE_CARVE
-            want = _radial(ang[i], ang[i] + step)
+            # ang[j] can wrap past 2*pi at the seam (i=CH_SIDES-1); go via the
+            # positive delta rather than averaging ang[i] with a small ang[j].
+            want = _radial(ang[i], ang[i] + (ang[j] - ang[i]) % (2.0 * math.pi))
             if not band_is_open:
                 m.quad(rings[k][i], rings[k][j], rings[k + 1][j], rings[k + 1][i],
                        want, zone)

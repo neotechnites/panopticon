@@ -30,7 +30,7 @@ extends Node3D
 ## [b]Two views, because there are two kinds of dead[/b]
 ##
 ## [codeblock]
-## RESPAWNING  -> orbit the body you just lost, close and low.
+## RESPAWNING  -> a fixed over-the-shoulder cut on the body you just lost.
 ##                Three seconds. You see where you were taken from.
 ## ELIMINATED  -> the overlook: high, outside the ring, watching the race
 ##                finish. A racer who fell is out for the rest of the race, so
@@ -284,30 +284,21 @@ func _drift_rate() -> float:
 
 
 ## Where the camera goes and where it points, this frame.
-##
-## Spherical about the focus point, so the whole thing is three numbers -- a
-## bearing, an elevation and a radius -- and the player's mouse moves two of
-## them. There is no collision test on the result: a spectator camera that
-## refused to clip through the ring's cover would need a sweep test every frame
-## and would still be wrong at the poles, and clipping for three seconds is a
-## smaller problem than a camera that lurches.
 func _place(_delta: float) -> void:
-	var focus: Vector3 = _focus_point()
-	var radius: float = (
-		profile.overlook_radius_metres
-		if _state == MatchController.Spectating.ELIMINATED
-		else profile.death_radius_metres
-	)
-	var height: float = (
-		profile.overlook_height_metres
-		if _state == MatchController.Spectating.ELIMINATED
-		else profile.death_height_metres
-	)
+	if _state == MatchController.Spectating.ELIMINATED:
+		_place_overlook()
+	else:
+		_place_death_shot()
 
-	# The configured radius and height ARE an elevation; the player's pitch is
-	# applied on top of it as a rotation of that arm, so the shipped numbers
-	# stay the framing they were tuned as.
-	var arm: Vector2 = Vector2(radius, height)
+
+## The overlook: spherical about the arena, so the whole thing is three
+## numbers -- a bearing, an elevation and a radius -- and the player's mouse
+## moves two of them. No collision test: a hundred-metre orbit that refused to
+## clip through the ring would need a sweep test every frame for a view that
+## can run the length of a race.
+func _place_overlook() -> void:
+	var focus: Vector3 = _focus_point()
+	var arm: Vector2 = Vector2(profile.overlook_radius_metres, profile.overlook_height_metres)
 	var elevation: float = arm.angle() + _look_pitch
 	elevation = clampf(
 		elevation, deg_to_rad(profile.pitch_min_degrees), deg_to_rad(profile.pitch_max_degrees)
@@ -325,6 +316,49 @@ func _place(_delta: float) -> void:
 	# the guard is cheap and the case is reachable if somebody tunes the radius
 	# and the height both to zero.
 	if offset.length_squared() > 1e-6:
+		camera.look_at(focus, Vector3.UP)
+
+
+## The death shot: a fixed over-the-shoulder cut on the held body, built
+## outward from the body instead of from an orbit arm, then clamped onto the
+## gallery's own radius and height band -- see
+## [member SpectatorProfile.death_gallery_min_radius_metres] -- so it is never
+## in the rock, even for a body the kill volume caught out over the void.
+func _place_death_shot() -> void:
+	var centre: Vector3 = (
+		controller.arena.global_position if controller.arena != null else Vector3.ZERO
+	)
+	var participant: MatchParticipant = controller.get_human_participant()
+	var body_pos: Vector3 = centre
+	var facing: Vector3 = Vector3.FORWARD
+	if participant != null and participant.body != null:
+		body_pos = participant.body.global_position
+		var forward: Vector3 = -participant.body.global_transform.basis.z
+		forward.y = 0.0
+		if forward.length_squared() > 1e-6:
+			facing = forward.normalized()
+
+	var behind: Vector2 = (
+		Vector2(body_pos.x, body_pos.z)
+		- Vector2(facing.x, facing.z) * profile.death_over_shoulder_distance_metres
+	)
+	var radial: Vector2 = behind - Vector2(centre.x, centre.z)
+	if radial.length_squared() < 1e-6:
+		radial = Vector2(1.0, 0.0)
+	radial = radial.normalized() * clampf(
+		radial.length(),
+		profile.death_gallery_min_radius_metres,
+		profile.death_gallery_max_radius_metres,
+	)
+	var height: float = clampf(
+		centre.y + profile.death_over_shoulder_height_metres,
+		profile.death_gallery_min_height_metres,
+		profile.death_gallery_max_height_metres,
+	)
+	camera.global_position = Vector3(centre.x + radial.x, height, centre.z + radial.y)
+
+	var focus: Vector3 = _focus_point()
+	if camera.global_position.distance_squared_to(focus) > 1e-6:
 		camera.look_at(focus, Vector3.UP)
 
 
