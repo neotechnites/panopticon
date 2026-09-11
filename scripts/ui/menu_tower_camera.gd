@@ -20,7 +20,7 @@ extends Camera3D
 
 ## Height of the look-anchor above the tower's local origin, in metres. Above
 ## [member orbit_height_metres] so the camera pitches slightly upward.
-@export_range(-20.0, 60.0, 0.1) var look_height_metres: float = -8.0
+@export_range(-20.0, 60.0, 0.1) var look_height_metres: float = -7.0
 
 ## How far the look-anchor is pushed off the tower axis, in metres, so the
 ## tower lands right of centre instead of dead centre.
