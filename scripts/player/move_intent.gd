@@ -37,6 +37,10 @@ var slide_pressed: bool = false
 ## unless [member MovementProfile.slide_requires_hold] is off.
 var slide_held: bool = false
 
+## Trigger. Ignored by movement; the net layer carries it to the rifle.
+var fire_pressed: bool = false
+var fire_held: bool = false
+
 
 ## Zero every field. Call before refilling, so a source can never leak a stale
 ## edge into the next tick.
@@ -47,6 +51,8 @@ func clear() -> void:
 	jump_held = false
 	slide_pressed = false
 	slide_held = false
+	fire_pressed = false
+	fire_held = false
 
 
 ## Clamp [member move_direction] to the unit disc.
@@ -63,3 +69,5 @@ func copy_from(other: MoveIntent) -> void:
 	jump_held = other.jump_held
 	slide_pressed = other.slide_pressed
 	slide_held = other.slide_held
+	fire_pressed = other.fire_pressed
+	fire_held = other.fire_held

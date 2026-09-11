@@ -165,6 +165,11 @@ func get_tick() -> int:
 	return _tick
 
 
+## The authority tick of the newest snapshot a client has applied, or -1.
+func get_latest_tick() -> int:
+	return _latest.tick if _have_latest else -1
+
+
 # --- Sending ------------------------------------------------------------------
 
 func _physics_process(delta: float) -> void:

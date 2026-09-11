@@ -528,7 +528,8 @@ func _on_peer_left(peer_id: int) -> void:
 		seat.index = seat_index
 		seat_occupancy_changed.emit(seat_index, seat.occupancy)
 		seat_vacated.emit(seat_index, peer_id)
-		_publish()
+		# Deferred: the leaving peer's ENet link is mid-teardown inside this signal.
+		_publish.call_deferred()
 		return
 
 	# Mid-match. The body exists, other bodies are racing it, and deleting it
@@ -540,7 +541,7 @@ func _on_peer_left(peer_id: int) -> void:
 	seat.is_ready = true
 	seat_occupancy_changed.emit(seat_index, seat.occupancy)
 	seat_vacated.emit(seat_index, peer_id)
-	_publish()
+	_publish.call_deferred()
 
 
 func _on_session_ended(_failed: bool) -> void:

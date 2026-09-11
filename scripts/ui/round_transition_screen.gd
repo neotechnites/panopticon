@@ -492,6 +492,10 @@ func _hold(on: bool) -> void:
 	if on:
 		if _holding or not hold_match or is_inert():
 			return
+		if controller != null and controller.is_networked():
+			# A networked tree is never paused: the server holds the bodies instead.
+			controller.hold_start_for(_total)
+			return
 		var tree_in: SceneTree = get_tree()
 		if tree_in == null:
 			return

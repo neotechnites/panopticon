@@ -190,6 +190,9 @@ signal match_won(participant: MatchParticipant)
 ## out of the opening race.
 signal runner_removed(remaining: int)
 
+## A participant left the running set: converted in a round, or out of the race.
+signal participant_converted(participant: MatchParticipant)
+
 ## Emitted when a participant becomes a ghost, by either route: the rifle
 ## finished them, or another ghost caught them.
 signal runner_ghosted(participant: MatchParticipant)
@@ -497,6 +500,18 @@ var _route_is_ours: bool = false
 
 var _geometry_ready: bool = false
 
+## Seat-indexed bodies handed in by the net layer; empty means solo (player + bots).
+var _net_bodies: Array[PlayerController] = []
+var _net_kinds: Array[MatchParticipant.Kind] = []
+var _net_names: PackedStringArray = PackedStringArray()
+
+## Index of this machine's own participant. 0 solo and on the host.
+var _local_index: int = 0
+
+## True on a client: nothing here decides; net_* methods apply what the server decided.
+var _mirror: bool = false
+var _applying: bool = false
+
 
 ## The rule set actually in force, never null.
 func get_rules() -> MatchRules:
@@ -542,6 +557,9 @@ func _ready() -> void:
 ## Wakes the bodies the last arming placed, once the physics server has caught
 ## up with where they were put. Does nothing on every other frame.
 func _physics_process(delta: float) -> void:
+	BotMatchRunner.trace_add("MC tick %s" % get_parent().name)  # DEBUGSOAK
+	if _mirror:
+		return
 	if _settle_frames > 0:
 		_settle_frames -= 1
 		if _settle_frames == 0:
@@ -571,7 +589,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	var key: InputEventKey = event as InputEventKey
 	if key == null or not key.pressed or key.echo:
 		return
-	if key.physical_keycode == RESTART_KEY:
+	if key.physical_keycode == RESTART_KEY and not _mirror:
 		start_match()
 		get_viewport().set_input_as_handled()
 
@@ -695,6 +713,8 @@ func start_match() -> void:
 	_hold_remaining = 0.0
 
 	match_started.emit(_participants.size())
+	if _mirror:
+		return
 
 	if active.open_with_race and _participants.size() > 1:
 		start_race()
@@ -977,10 +997,149 @@ enum Spectating {
 ## that is an implementation detail of the start line and not a promise; this
 ## asks.
 func get_human_participant() -> MatchParticipant:
+	if _local_index >= 0 and _local_index < _participants.size():
+		var local: MatchParticipant = _participants[_local_index]
+		if local.is_human():
+			return local
 	for participant: MatchParticipant in _participants:
 		if participant.is_human():
 			return participant
 	return null
+
+
+## Hand in seat-indexed bodies from the net layer. [param mirror] makes this a client.
+func configure_net(
+	bodies: Array[PlayerController],
+	kinds: Array[MatchParticipant.Kind],
+	names: PackedStringArray,
+	local_index: int,
+	mirror: bool,
+) -> void:
+	_net_bodies = bodies.duplicate()
+	_net_kinds = kinds.duplicate()
+	_net_names = names.duplicate()
+	_local_index = local_index
+	_mirror = mirror
+	get_rules().prisoner_count = maxi(bodies.size() - 1, 1)
+
+
+func is_networked() -> bool:
+	return not _net_bodies.is_empty()
+
+
+func is_mirror() -> bool:
+	return _mirror
+
+
+## Keep the bodies the last arming placed held for [param seconds] more.
+func hold_start_for(seconds: float) -> void:
+	if _mirror or seconds <= 0.0:
+		return
+	var frames: int = int(ceilf(seconds * float(Engine.physics_ticks_per_second)))
+	_settle_frames = maxi(_settle_frames, frames)
+
+
+# --- Applying the server's decisions on a client -------------------------------
+
+func net_start_match() -> void:
+	_applying = true
+	start_match()
+	_applying = false
+
+
+func net_start_race() -> void:
+	_applying = true
+	start_race()
+	_applying = false
+
+
+func net_start_round(seat_index: int, round_number: int) -> void:
+	var seat: MatchParticipant = _participant_at(seat_index)
+	if seat == null:
+		return
+	_applying = true
+	_round_number = round_number - 1
+	take_seat(seat)
+	start_round()
+	_applying = false
+
+
+func net_convert(index: int) -> void:
+	_applying = true
+	convert_participant(_participant_at(index))
+	_applying = false
+
+
+func net_race_out(index: int) -> void:
+	var participant: MatchParticipant = _participant_at(index)
+	if participant == null or _phase != Phase.RACE:
+		return
+	_applying = true
+	_fall_out_of_race(participant)
+	_applying = false
+
+
+func net_resolve(outcome: Outcome) -> void:
+	_applying = true
+	_resolve(outcome)
+	_applying = false
+
+
+func net_win(index: int) -> void:
+	var participant: MatchParticipant = _participant_at(index)
+	if participant == null:
+		return
+	_applying = true
+	_win_match(participant)
+	_applying = false
+
+
+func net_ghost_respawn(index: int) -> void:
+	var participant: MatchParticipant = _participant_at(index)
+	if participant == null or not participant.is_ghost:
+		return
+	_applying = true
+	_finish_respawn(participant)
+	_applying = false
+
+
+func net_ghost_caught(ghost_index: int, caught_index: int) -> void:
+	var ghost: MatchParticipant = _participant_at(ghost_index)
+	var caught: MatchParticipant = _participant_at(caught_index)
+	if ghost == null or caught == null or not ghost.is_ghost or not caught.is_running:
+		return
+	_applying = true
+	_swap_with_ghost(ghost, caught)
+	_applying = false
+
+
+## A human seat became a bot's mid-match: the body stays, the brain takes over.
+func net_seat_to_bot(index: int) -> void:
+	var participant: MatchParticipant = _participant_at(index)
+	if participant == null or not participant.is_human() or participant.body == null:
+		return
+	participant.kind = MatchParticipant.Kind.AI
+	participant.brain = _find_brain(participant.body)
+	if _mirror or participant.brain == null:
+		return
+	if participant.is_running:
+		_start_running_in_place(participant, participant.tracker.get_travelled_arc(), null)
+	elif participant.is_ghost:
+		participant.brain.rules = get_rules()
+		participant.brain.begin_chase(RUNNER_GROUP)
+	elif participant.is_shooter:
+		_arm_tower_brain()
+
+
+func _participant_at(index: int) -> MatchParticipant:
+	if index < 0 or index >= _participants.size():
+		return null
+	return _participants[index]
+
+
+## True when a client is asked to decide something only the server may.
+func _refuses_local_decision() -> bool:
+	return _mirror and not _applying
 
 
 ## What [param participant] is watching, and why.
@@ -1128,6 +1287,8 @@ func resolve_runner(collider: Node3D) -> RingRunner:
 func convert_participant(participant: MatchParticipant) -> bool:
 	if participant == null or is_resolved() or _phase != Phase.ROUND:
 		return false
+	if _refuses_local_decision():
+		return false
 	if not participant.is_running:
 		return false
 
@@ -1139,8 +1300,10 @@ func convert_participant(participant: MatchParticipant) -> bool:
 		_park_body(participant)
 	_removed_count += 1
 
+	participant_converted.emit(participant)
 	runner_removed.emit(get_runners_remaining())
-	_check_shooter_win()
+	if not _mirror:
+		_check_shooter_win()
 	return true
 
 
@@ -1157,6 +1320,8 @@ func remove_runner(runner: RingRunner) -> bool:
 ## hit reaction and no recovery, because neither is designed.
 func apply_hit(participant: MatchParticipant) -> bool:
 	if participant == null or is_resolved() or not participant.is_running:
+		return false
+	if _refuses_local_decision():
 		return false
 	participant.lives -= 1
 	if participant.lives > 0:
@@ -1208,7 +1373,7 @@ func apply_hit(participant: MatchParticipant) -> bool:
 ## See [method _fall_out_of_race] for what OUT is made of and
 ## [method _restart_after_an_empty_race] for the other half of the ruling.
 func handle_fall(participant: MatchParticipant) -> bool:
-	if participant == null or is_resolved():
+	if participant == null or is_resolved() or _refuses_local_decision():
 		return false
 	match _phase:
 		Phase.RACE:
@@ -1255,6 +1420,7 @@ func _fall_out_of_race(participant: MatchParticipant) -> bool:
 	_park_body(participant)
 	_removed_count += 1
 
+	participant_converted.emit(participant)
 	runner_removed.emit(get_runners_remaining())
 	_restart_after_an_empty_race()
 	return true
@@ -1275,7 +1441,7 @@ func _fall_out_of_race(participant: MatchParticipant) -> bool:
 ## freed or instanced here. Everything else is placement, which is what
 ## [constant SETTLE_PHYSICS_FRAMES] exists for.
 func _restart_after_an_empty_race() -> void:
-	if _phase != Phase.RACE or get_runners_remaining() > 0:
+	if _mirror or _phase != Phase.RACE or get_runners_remaining() > 0:
 		return
 	restart()
 
@@ -1446,7 +1612,7 @@ func _make_ghost(participant: MatchParticipant) -> void:
 	# alternative -- deferring the chase to the end of the hold -- would leave
 	# [method RingRunner.is_chasing] lying about a participant who is
 	# unambiguously a ghost for those three seconds.
-	if participant.brain != null:
+	if participant.brain != null and not _mirror:
 		participant.brain.rules = get_rules()
 		participant.brain.begin_chase(RUNNER_GROUP)
 
@@ -1493,6 +1659,9 @@ func _place_ghost_at_start(participant: MatchParticipant) -> void:
 	# stepped. See [method _hold_body] -- it also clears any respawn hold, so the
 	# assignment below is the only one in force.
 	_hold_body(participant)
+	if _mirror:
+		# The server says when the respawn lands; see net_ghost_respawn.
+		return
 	var delay: float = maxf(get_ghost_profile().respawn_delay_seconds, 0.0)
 	if delay > 0.0:
 		participant.respawn_hold_remaining = delay
@@ -1595,7 +1764,7 @@ func _wake_ghost(participant: MatchParticipant) -> void:
 		participant.home_collision_layer if profile.shootable else GHOST_HAZARD_LAYER
 	)
 	body.collision_mask = participant.home_collision_mask
-	body.set_physics_process(true)
+	body.set_physics_process(not _mirror)
 
 
 ## Take the ghost back off [param participant]: their colour, their pace, their
@@ -1653,9 +1822,10 @@ func _start_running_in_place(
 	if participant.brain != null:
 		participant.brain.profile.track_radius = _route.lane_radius(carried_level)
 		participant.brain.rules = active
-		participant.brain.resume(
-			_centre, _start_point, _end_point, travelled_arc, _route, carried_level
-		)
+		if not _mirror:
+			participant.brain.resume(
+				_centre, _start_point, _end_point, travelled_arc, _route, carried_level
+			)
 
 
 ## The palette this match paints its bodies from: [member palette] when the
@@ -1784,7 +1954,10 @@ func _build_participants() -> void:
 	_participants.clear()
 	_participant_by_body_id.clear()
 
-	if player != null:
+	if not _net_bodies.is_empty():
+		for slot: int in _net_bodies.size():
+			_participants.append(_make_net_participant(slot))
+	elif player != null:
 		_participants.append(_make_human_participant())
 
 	while _participants.size() < wanted:
@@ -1800,6 +1973,24 @@ func _build_participants() -> void:
 		if participant.body != null:
 			_participant_by_body_id[participant.body.get_instance_id()] = participant
 			_assign_runner_color(participant)
+
+
+## One seat's participant from the net roster: a human wears no brain, a bot keeps its own.
+func _make_net_participant(slot: int) -> MatchParticipant:
+	var body: PlayerController = _net_bodies[slot]
+	var participant: MatchParticipant = MatchParticipant.new()
+	participant.kind = _net_kinds[slot]
+	participant.display_name = _net_names[slot]
+	participant.body = body
+	participant.home_collision_layer = body.collision_layer
+	participant.home_collision_mask = body.collision_mask
+	participant.tracker = _attach_tracker(body)
+	participant.tracker.lap_finished.connect(_on_participant_arrived.bind(participant))
+	if participant.kind == MatchParticipant.Kind.AI:
+		participant.brain = _find_brain(body)
+		if participant.brain != null:
+			participant.brain.profile = participant.brain.profile.duplicate() as BotProfile
+	return participant
 
 
 func _make_human_participant() -> MatchParticipant:
@@ -2038,7 +2229,7 @@ func _place_on_track(participant: MatchParticipant, start_point: Vector3) -> voi
 	# A body on the track runs; it does not play the tower. The outgoing shooter
 	# arrives here on every seat change with its tower brain still loaded.
 	_silence_tower_brain(participant)
-	if participant.brain != null:
+	if participant.brain != null and not _mirror:
 		# The brain reads pace from the rules and geometry from its profile. The
 		# split is the seam: "walk or sprint" is a rule of the round, "how hard
 		# does it steer" is tuning of the brain. configure() places the body.
@@ -2150,7 +2341,7 @@ func _wake_body(participant: MatchParticipant) -> void:
 		return
 	body.collision_layer = participant.home_collision_layer
 	body.collision_mask = participant.home_collision_mask
-	body.set_physics_process(true)
+	body.set_physics_process(not _mirror)
 
 
 ## Put a converted runner's body out of the world: hidden, uncollidable, stopped
@@ -2223,7 +2414,7 @@ func _arm_tower_brain() -> void:
 	# human's round takes that return, and the prisoners still have to be told
 	# there is somebody up there. See [constant GUARD_GROUP].
 	_publish_the_seat()
-	if _phase != Phase.ROUND or _seat == null or _seat.is_human():
+	if _mirror or _phase != Phase.ROUND or _seat == null or _seat.is_human():
 		# The opening race has no shooter, and a human in the tower is driven by
 		# the human. Either way every brain stays down: an AI that fought the
 		# player for their own look axis would be the worst bug in the game.
@@ -2465,7 +2656,7 @@ func _attach_rifle(participant: MatchParticipant) -> void:
 	if ads != null:
 		ads.optic = body.get_node_or_null(^"Optic") as WeaponOptic
 
-	_set_human_trigger(participant.is_human())
+	_set_human_trigger(participant.is_human() and participant.index == _local_index and not _mirror)
 
 
 ## Take the rifle out of everyone's hands. The opening race has no shooter, and
@@ -2522,7 +2713,7 @@ func _apply_turn_reload(participant: MatchParticipant) -> void:
 # --- Resolution ---------------------------------------------------------------
 
 func _on_target_hit(collider: Node3D, _hit_position: Vector3, _hit_normal: Vector3) -> void:
-	if _phase != Phase.ROUND or is_resolved():
+	if _phase != Phase.ROUND or is_resolved() or _mirror:
 		return
 	var participant: MatchParticipant = resolve_participant(collider)
 	if participant == null:
@@ -2538,7 +2729,7 @@ func _on_target_hit(collider: Node3D, _hit_position: Vector3, _hit_normal: Vecto
 func _on_participant_arrived(
 	_elapsed_seconds: float, _path_length: float, participant: MatchParticipant
 ) -> void:
-	if participant == null or not participant.is_running:
+	if participant == null or not participant.is_running or _mirror:
 		return
 
 	match _phase:
@@ -2593,7 +2784,7 @@ func _all_running_have_finished() -> bool:
 ## cannot win -- which is the loud failure [MatchRules] asks for, and better than
 ## a sweep quietly measuring a different rule than the one it selected.
 func _check_shooter_win() -> void:
-	if is_resolved():
+	if is_resolved() or _mirror:
 		return
 	var active: MatchRules = get_rules()
 	match active.shooter_win_condition:

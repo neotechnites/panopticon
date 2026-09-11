@@ -32,6 +32,7 @@ var _look_pixels: Vector2 = Vector2.ZERO
 
 func _ready() -> void:
 	PlayerActions.ensure_registered()
+	WeaponActions.ensure_registered()
 	if capture_mouse_on_ready:
 		_set_mouse_captured(true)
 
@@ -69,6 +70,8 @@ func poll(_delta: float) -> MoveIntent:
 	_intent.jump_held = Input.is_action_pressed(PlayerActions.JUMP)
 	_intent.slide_pressed = Input.is_action_just_pressed(PlayerActions.SLIDE)
 	_intent.slide_held = Input.is_action_pressed(PlayerActions.SLIDE)
+	_intent.fire_pressed = Input.is_action_just_pressed(WeaponActions.FIRE)
+	_intent.fire_held = Input.is_action_pressed(WeaponActions.FIRE)
 	# Dimensionless, and the delta is already in radians, so the order of the
 	# two scalars does not matter. Null optic == 1.0: see the export above.
 	var aim_scale: float = profile.mouse_sensitivity
