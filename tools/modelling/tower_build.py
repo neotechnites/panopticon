@@ -44,7 +44,7 @@ SMOOTH_F   = 0.50
 CUT_KEEP   = -2.60     # faces above this are deleted; the loop we extrude
 
 STEPS      = 7                 # straight wall
-STEP_DZ    = (1.21, 1.41)
+STEP_DZ    = (1.40, 1.60)
 STEP_SCALE = 0.985
 JIT_R      = 0.18
 JIT_Z      = 0.10
@@ -54,23 +54,25 @@ ROUND      = ((0.85, 0.95), (0.62, 0.70), (0.34, 0.45))   # (scale, dz)
 APEX_DZ    = 0.50
 
 FLOOR_Z    = 0.17      # the room floor: the hollowing cylinder's bottom face
-CEIL_Z     = 5.90      # ...and its top face
+CEIL_Z     = 7.25      # ...and its top face
 R_IN       = 7.00      # inner skin == collision radius
 NSUB       = 32
 SILL_H     = 1.40      # collider lip above the floor; jump apex is 1.11
 EYE_H      = 1.65
 BODY_H     = 1.80
 
-N_HOLES    = 6         # 8 cannot reach 6 m wide on a 48 m circumference
-W_HOLE     = 7.00      # tangential, m
-H_HOLE     = 3.95      # vertical, m
+N_HOLES    = 8
+W_HOLE     = 5.20      # tangential, m
+H_HOLE     = 5.22      # vertical, m
 D_HOLE     = 6.00      # radial, through the wall
-HOLE_JIT   = 0.10      # +/- on every axis
+HOLE_JIT   = 0.10      # +/- on the radial depth
+W_JIT      = 0.04      # ...tighter on width and height, whose ranges are set
+H_JIT      = 0.04
 SHRINK     = 1.06      # an icosphere is inscribed; widen x to hit the gap spec
 Z_HOLE     = (3.20, 3.55)
-GAP        = (0.45, 0.90)      # stone between two mouths
-GAP_BIG    = 0.88              # ...two of them are at the wide end
-HY         = (1.90, 2.05)      # half-height, bounded by the sill and the ceiling
+GAP        = (0.70, 0.88)      # stone between two mouths
+GAP_BIG    = 0.97              # ...two of them are at the wide end
+HY         = (2.50, 2.72)      # half-height, bounded by the sill and the ceiling
 R_WIN_C    = 7.60              # cutter centre radius
 
 DISSOLVE   = 3.0       # degrees
@@ -380,13 +382,13 @@ def _plan_holes(r, r_wall):
     gaps = [r.rng(GAP) for _ in range(N_HOLES)]
     for k in (r.i(0, N_HOLES // 2 - 1), r.i(N_HOLES // 2, N_HOLES - 1)):
         gaps[k] = GAP_BIG + 0.08 * r.sf()
-    hx = [0.5 * W_HOLE * SHRINK * (1.0 + HOLE_JIT * r.sf()) for _ in range(N_HOLES)]
+    hx = [0.5 * W_HOLE * SHRINK * (1.0 + W_JIT * r.sf()) for _ in range(N_HOLES)]
     k = (circ - sum(gaps)) / (2.0 * sum(hx))
     hx = [h * k for h in hx]
 
     holes, b = [], 0.0
     for i in range(N_HOLES):
-        hy = min(HY[1], max(HY[0], 0.5 * H_HOLE * (1.0 + HOLE_JIT * r.sf())))
+        hy = min(HY[1], max(HY[0], 0.5 * H_HOLE * (1.0 + H_JIT * r.sf())))
         hz = 0.5 * D_HOLE * (1.0 + HOLE_JIT * r.sf())
         cz = r.rng(Z_HOLE)
         cz = max(cz, FLOOR_Z + SILL_H + hy + 0.02)
