@@ -1,10 +1,9 @@
-"""tower -- ONE continuous rock, from Ryan's TowerRock, with holes punched in it.
+"""tower -- Ryan's TowerRock, continued upward BY HAND and hollowed with booleans.
 
-His body is appended from assets/models/tower.blend. His CAP is deleted. The
-rock then keeps rising at the body's own width with the body's own wobble and
-closes over in a low dome -- no band, no overhang, no horizontal line. The
-windows are irregular rounded blobs cut through that wall, splayed to an inner
-skin at r 7.0 which is the collision surface.
+His body is appended from tower.blend, his old cap is deleted, and the open
+boundary loop is EXTRUDED ring by ring with per-vertex noise, so every new face
+inherits his own faceting. The room, the ceiling and the eight window mouths are
+cut with Boolean modifiers. One manifold rock, one surface, no ring style.
 """
 
 import math
@@ -13,7 +12,7 @@ import sys
 
 import bpy
 import bmesh
-from mathutils import Vector
+from mathutils import Matrix, Vector
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)) + os.sep + "lib")
@@ -35,43 +34,47 @@ OBJECT_NAME = "TowerRock"
 COLLIDER_NAME = "TowerCollision-colonly"
 BLEND_PATH = r"C:\dev\panopticon\assets\models\tower.blend"
 
-FLOOR_Z    = 0.17      # his floor disc
-CUT_Z      = 5.00      # every face entirely above this is his old cap: deleted
-SILL_Z     = 1.40      # collider lip; jump apex is 1.11, so he cannot leave
-CEIL_Z     = 5.60      # inner ceiling
-R_REF      = 8.00      # radius the arc widths below are quoted at
+CAP_Z      = 5.00      # his old cap: every face entirely above this goes
+MID_LO     = -0.60     # ...and everything between here and CAP_Z that is not
+MID_HI     = 5.00      #    his floor n-gon
+WELD       = 0.02
+SMOOTH_Z   = -4.50     # his top rings, relaxed in XY to kill the rim bulge
+SMOOTH_IT  = 3
+SMOOTH_F   = 0.50
+CUT_KEEP   = -2.60     # faces above this are deleted; the loop we extrude
 
-# Outer rings above his rim, then the dome as (z, radius multiplier).
-Z_OUT      = (1.30, 2.20, 3.40, 4.95, 5.60, 6.10)
-TAPER      = (1.00, 1.00, 1.00, 1.00, 0.995, 0.96)         # per Z_OUT ring
-DOME       = ((6.60, 0.86), (7.00, 0.62), (7.30, 0.32))
-APEX_Z     = 7.50
-K_LO, K_HI = 1, 4      # ring indices the holes are cut between (1.30 .. 4.95)
+STEPS      = 7                 # straight wall
+STEP_DZ    = (1.21, 1.41)
+STEP_SCALE = 0.985
+JIT_R      = 0.18
+JIT_Z      = 0.10
+WANDER_R   = 0.45              # cap on a vertex's drift from its ring mean
+WANDER_Z   = 0.30
+ROUND      = ((0.85, 0.95), (0.62, 0.70), (0.34, 0.45))   # (scale, dz)
+APEX_DZ    = 0.50
 
-Z_IN       = (FLOOR_Z, 1.30, 4.95, CEIL_Z)
-KI_LO, KI_HI = 1, 2
+FLOOR_Z    = 0.17      # the room floor: the hollowing cylinder's bottom face
+CEIL_Z     = 5.90      # ...and its top face
+R_IN       = 7.00      # inner skin == collision radius
+NSUB       = 32
+SILL_H     = 1.40      # collider lip above the floor; jump apex is 1.11
+EYE_H      = 1.65
+BODY_H     = 1.80
 
-RING_STEP  = 0.20      # random walk per ring, m
-DRIFT_CAP  = 0.34      # never systematically wider or narrower than his rim
-Z_JAG      = 0.09      # height jitter on the new rings, m
-SEED       = 20260912
+N_HOLES    = 6         # 8 cannot reach 6 m wide on a 48 m circumference
+W_HOLE     = 7.00      # tangential, m
+H_HOLE     = 3.95      # vertical, m
+D_HOLE     = 6.00      # radial, through the wall
+HOLE_JIT   = 0.10      # +/- on every axis
+SHRINK     = 1.06      # an icosphere is inscribed; widen x to hit the gap spec
+Z_HOLE     = (3.20, 3.55)
+GAP        = (0.45, 0.90)      # stone between two mouths
+GAP_BIG    = 0.88              # ...two of them are at the wide end
+HY         = (1.90, 2.05)      # half-height, bounded by the sill and the ceiling
+R_WIN_C    = 7.60              # cutter centre radius
 
-N_HOLES   = 7
-SPANS     = (4, 4, 4, 4, 3, 3, 3)      # bearing steps each hole is cut across
-GAPS      = (1, 1, 1, 1, 1, 1, 1)      # rock between them
-MARGIN    = (0.55, 0.95)    # rock left inside the span, each side, m
-MARGIN_FAT = (1.20, 1.60)   # ...except twice, which is where the wall is wide
-W_CLAMP   = (3.60, 5.00)    # hole width, m
-H_HOLE    = (2.90, 3.30)    # hole height, m
-Z_HOLE    = (1.45, 1.62)    # hole bottom, m -- above the sill
-Z_HOLE_MAX = 4.70           # ...and its top stays under the 4.95 ring
-BLOB_JAG  = 0.14            # per-vertex radial wobble of a hole outline
-SPLAY     = 0.78            # inner mouth is this much of the outer: angled reveals
-
-EYE_H = 1.65
-BODY_H = 1.80
-
-SNAP_TOL  = 0.065      # reuse one of his vertices within this of a bearing
+DISSOLVE   = 3.0       # degrees
+SEED       = 20260913
 
 # Atlas zones as (u0, v0, u1, v1), matching the packed HellRock atlas.
 ZONE_ROCK  = (0.0, 0.5, 0.5, 1.0)
@@ -81,8 +84,7 @@ UV_SCALE = 0.13
 UV_PAD = 1.5 / 128.0
 
 TAU = 2.0 * math.pi
-NSUB = 32              # set from his rim loop at build time
-BEAR = []              # his rim's own bearings, ascending
+OPEN_BEARING = 0.0
 
 
 # =============================================================================
@@ -90,7 +92,7 @@ BEAR = []              # his rim's own bearings, ascending
 # =============================================================================
 
 class _Rng(object):
-    """Deterministic LCG so the wall is byte-identical every rebuild."""
+    """Deterministic LCG so the rock is byte-identical every rebuild."""
 
     def __init__(self, seed):
         self.s = seed & 0x7FFFFFFF
@@ -111,21 +113,6 @@ class _Rng(object):
     def rng(self, span):
         return span[0] + (span[1] - span[0]) * self.f()
 
-    def shuffle(self, xs):
-        for i in range(len(xs) - 1, 0, -1):
-            j = self.i(0, i)
-            xs[i], xs[j] = xs[j], xs[i]
-        return xs
-
-
-def _bear(co):
-    return math.atan2(co.y, co.x) % TAU
-
-
-def _wrap(a):
-    """Signed angle difference folded into (-pi, pi]."""
-    return (a + math.pi) % TAU - math.pi
-
 
 def _newell(pts):
     n = Vector((0.0, 0.0, 0.0))
@@ -136,10 +123,6 @@ def _newell(pts):
         n.z += (a[0] - b[0]) * (a[1] + b[1])
     return n
 
-
-# =============================================================================
-# HIS MESH -- boundary loops, resampling
-# =============================================================================
 
 def _boundary_loops(bm):
     """Every open edge loop, as an ordered vertex ring."""
@@ -154,514 +137,23 @@ def _boundary_loops(bm):
             continue
         seen.add(e0)
         v0 = e0.verts[0]
-        loop, e, v = [v0], e0, e0.verts[1]
+        loop, v = [v0], e0.verts[1]
         while v is not v0:
             loop.append(v)
             nxt = [x for x in adj.get(v, []) if x not in seen]
             if not nxt:
                 break
-            e = nxt[0]
-            seen.add(e)
-            v = e.other_vert(v)
+            seen.add(nxt[0])
+            v = nxt[0].other_vert(v)
         loops.append(loop)
     return loops
 
 
-def _loop_stats(loop):
+def _stats(loop):
     zs = [v.co.z for v in loop]
     rs = [math.hypot(v.co.x, v.co.y) for v in loop]
     return {"n": len(loop), "z0": min(zs), "z1": max(zs), "zm": sum(zs) / len(zs),
             "r0": min(rs), "r1": max(rs), "rm": sum(rs) / len(rs)}
-
-
-def _order_ccw(loop):
-    """Rotate/reverse so bearings increase from index 0."""
-    area = 0.0
-    for i in range(len(loop)):
-        a, b = loop[i].co, loop[(i + 1) % len(loop)].co
-        area += a.x * b.y - b.x * a.y
-    if area < 0.0:
-        loop = list(reversed(loop))
-    k = min(range(len(loop)), key=lambda i: _bear(loop[i].co))
-    return loop[k:] + loop[:k]
-
-
-def _edge_between(a, b):
-    for e in a.link_edges:
-        if e.other_vert(a) is b:
-            return e
-    return None
-
-
-def _fac_for_bearing(p0, p1, b):
-    """Parameter along p0->p1 whose bearing is b. Linear, exact."""
-    s, c = math.sin(b), math.cos(b)
-    a0 = p0.x * s - p0.y * c
-    d = (p1.x - p0.x) * s - (p1.y - p0.y) * c
-    if abs(d) < 1e-9:
-        return 0.5
-    return -a0 / d
-
-
-def _outline(loop):
-    """His loop as plain (x, y) -- it has to outlive the bmesh."""
-    return [(v.co.x, v.co.y) for v in _order_ccw(loop)]
-
-
-def _radius_at(pts, theta):
-    """Radius of a closed outline at ``theta`` -- a point ON his own edge."""
-    bl = [math.atan2(y, x) % TAU for x, y in pts]
-    n = len(pts)
-    for i in range(n):
-        if (theta - bl[i]) % TAU <= (bl[(i + 1) % n] - bl[i]) % TAU:
-            p0, p1 = Vector(pts[i] + (0.0,)), Vector(pts[(i + 1) % n] + (0.0,))
-            f = min(1.0, max(0.0, _fac_for_bearing(p0, p1, theta)))
-            p = p0 + (p1 - p0) * f
-            return math.hypot(p.x, p.y)
-    return math.hypot(*pts[0])
-
-
-def _resample(loop, bearings, tol=SNAP_TOL):
-    """His loop, cut so it has exactly one vertex on each bearing."""
-    loop = _order_ccw(loop)
-    n = len(loop)
-    bl = [_bear(v.co) for v in loop]
-    out = [None] * len(bearings)
-    used, segs = set(), {}
-    for ti, b in enumerate(bearings):
-        j = min(range(n), key=lambda k: abs(_wrap(bl[k] - b)))
-        if abs(_wrap(bl[j] - b)) < tol and j not in used:
-            out[ti] = loop[j]
-            used.add(j)
-            continue
-        hits = [i for i in range(n)
-                if (b - bl[i]) % TAU <= (bl[(i + 1) % n] - bl[i]) % TAU]
-        if not hits:
-            raise SystemExit("MDL ERROR: loop is not star-shaped at %.3f rad" % b)
-        segs.setdefault(hits[0], []).append((ti, b))
-    for k, items in segs.items():
-        items.sort(key=lambda it: (it[1] - bl[k]) % TAU)
-        cur, end = loop[k], loop[(k + 1) % n]
-        for ti, b in items:
-            e = _edge_between(cur, end)
-            if e is None:
-                raise SystemExit("MDL ERROR: resample lost the edge at %.3f rad" % b)
-            f = min(0.92, max(0.08, _fac_for_bearing(cur.co, end.co, b)))
-            _e, nv = bmesh.utils.edge_split(e, cur, f)
-            out[ti] = nv
-            cur = nv
-    if any(v is None for v in out):
-        raise SystemExit("MDL ERROR: resample left a bearing unfilled")
-    return out
-
-
-# =============================================================================
-# FACES
-# =============================================================================
-
-NEW = []          # [(BMFace, zone)] -- everything this script adds
-
-
-def _face(bm, verts, want, zone):
-    """A face whose normal is flipped to agree with ``want``."""
-    try:
-        f = bm.faces.new(verts)
-    except ValueError:
-        return None
-    f.normal_update()
-    if f.normal.dot(Vector(want)) < 0.0:
-        f.normal_flip()
-    NEW.append((f, zone))
-    return f
-
-
-def _facew(bm, verts, zone):
-    """A face whose winding is already right -- do not second-guess it."""
-    try:
-        f = bm.faces.new(verts)
-    except ValueError:
-        return None
-    f.normal_update()
-    NEW.append((f, zone))
-    return f
-
-
-def _rad(a, inward=False):
-    return (-math.cos(a), -math.sin(a), 0.0) if inward else (math.cos(a), math.sin(a), 0.0)
-
-
-# =============================================================================
-# THE CONTINUOUS ROCK
-# =============================================================================
-
-def _kill_cap(bm):
-    """Everything of his above CUT_Z: the hat, its underside and his ceiling."""
-    doomed = [f for f in bm.faces if all(v.co.z > CUT_Z for v in f.verts)]
-    n = len(doomed)
-    if doomed:
-        bmesh.ops.delete(bm, geom=doomed, context="FACES")
-    loose = [v for v in bm.verts if not v.link_faces]
-    if loose:
-        bmesh.ops.delete(bm, geom=loose, context="VERTS")
-    bm.verts.ensure_lookup_table()
-    bm.faces.ensure_lookup_table()
-    return n, len(loose)
-
-
-def _outer_rings(bm, rim_v, r):
-    """His rim, continued upward at his own width, then closed as a low dome."""
-    r_rim = [math.hypot(v.co.x, v.co.y) for v in rim_v]
-    drift = [0.0] * NSUB
-    rings = [list(rim_v)]
-    rad = [list(r_rim)]
-    zed = [[v.co.z for v in rim_v]]
-    for z0 in Z_OUT:
-        row, rr, zz = [], [], []
-        for i in range(NSUB):
-            d = drift[i] + RING_STEP * r.sf()
-            drift[i] = max(-DRIFT_CAP, min(DRIFT_CAP, d))
-            rr.append((r_rim[i] + drift[i]) * TAPER[len(rings) - 1])
-            zz.append(z0 + Z_JAG * r.sf())
-            row.append(bm.verts.new((rr[i] * math.cos(BEAR[i]),
-                                     rr[i] * math.sin(BEAR[i]), zz[i])))
-        rings.append(row)
-        rad.append(rr)
-        zed.append(zz)
-    top = rad[-1]
-    for z0, mul in DOME:
-        row, rr, zz = [], [], []
-        for i in range(NSUB):
-            rr.append(top[i] * (mul + 0.02 * r.sf()))
-            zz.append(z0 + 0.5 * Z_JAG * r.sf())
-            row.append(bm.verts.new((rr[i] * math.cos(BEAR[i]),
-                                     rr[i] * math.sin(BEAR[i]), zz[i])))
-        rings.append(row)
-        rad.append(rr)
-        zed.append(zz)
-    apex = bm.verts.new((0.10 * r.sf(), 0.10 * r.sf(), APEX_Z + 0.06 * r.sf()))
-    return rings, rad, zed, apex
-
-
-def _inner_rings(bm, flr_v, rfun, r):
-    """A true prism at r 7.0 -- the collision surface -- on his floor's edge."""
-    rings = [list(flr_v)]
-    for z0 in Z_IN[1:]:
-        row = []
-        for i in range(NSUB):
-            rr = rfun(BEAR[i])
-            z = z0 + (0.10 * r.sf() if z0 == CEIL_Z else 0.0)
-            row.append(bm.verts.new((rr * math.cos(BEAR[i]),
-                                     rr * math.sin(BEAR[i]), z)))
-        rings.append(row)
-    return rings
-
-
-def _seg(beta):
-    """Index of the bearing segment ``beta`` falls in, and the fraction along."""
-    for i in range(NSUB):
-        j = (i + 1) % NSUB
-        span = (BEAR[j] - BEAR[i]) % TAU
-        d = (beta - BEAR[i]) % TAU
-        if d <= span:
-            return i, (d / span if span > 1e-9 else 0.0)
-    return 0, 0.0
-
-
-def _wall_r(rad, zed, beta, zeta):
-    """Radius of the outer wall at an arbitrary bearing and height."""
-    i, f = _seg(beta)
-    j = (i + 1) % NSUB
-    nk = len(Z_OUT) + 1
-    rs = [rad[k][i] * (1.0 - f) + rad[k][j] * f for k in range(nk)]
-    zs = [zed[k][i] * (1.0 - f) + zed[k][j] * f for k in range(nk)]
-    for k in range(nk - 1):
-        if zs[k] <= zeta <= zs[k + 1]:
-            t = (zeta - zs[k]) / max(1e-6, zs[k + 1] - zs[k])
-            return rs[k] * (1.0 - t) + rs[k + 1] * t
-    return rs[-1] if zeta > zs[-1] else rs[0]
-
-
-def _layout(r):
-    """Eight holes round the tower: irregular widths, irregular spacing."""
-    spans = r.shuffle(list(SPANS))
-    gaps = r.shuffle(list(GAPS))
-    fat = set()
-    while len(fat) < 2:
-        fat.add(r.i(0, N_HOLES - 1))
-    holes, at = [], r.i(0, NSUB - 1)
-    for h in range(N_HOLES):
-        holes.append({"a": at % NSUB, "span": spans[h], "fat": h in fat})
-        at += spans[h] + gaps[h]
-    return holes
-
-
-def _blob(rad, zed, hole, r):
-    """One rounded, irregular opening as (bearing, height) around its centre."""
-    a, span = hole["a"], hole["span"]
-    b = (a + span) % NSUB
-    ba, bb = BEAR[a], BEAR[a] + ((BEAR[b] - BEAR[a]) % TAU)
-    uc = 0.5 * (ba + bb)
-    marg = r.rng(MARGIN_FAT if hole["fat"] else MARGIN)
-    w = max(W_CLAMP[0], min(W_CLAMP[1], (bb - ba) * R_REF - 2.0 * marg))
-    z0 = r.rng(Z_HOLE)
-    hgt = min(r.rng(H_HOLE), Z_HOLE_MAX - z0)
-    zc = z0 + 0.5 * hgt
-    n = 7 + r.i(0, 1)
-    ph0 = TAU * r.f()
-    out = []
-    for k in range(n):
-        phi = ph0 + TAU * k / n + (TAU / n) * 0.26 * r.sf()
-        s = 1.0 + BLOB_JAG * r.sf()
-        du = 0.5 * w * s * math.cos(phi)
-        dz = 0.5 * hgt * s * math.sin(phi)
-        out.append((uc + du / R_REF, zc + dz))
-    hole.update({"b": b, "w": w, "h": hgt, "z0": zc - 0.5 * hgt, "uc": uc,
-                 "ring": out, "n": n})
-    return hole
-
-
-def _bridge(bm, O, PO, I, PI, zone, flip):
-    """Fill the annulus between boundary O and hole outline I with triangles.
-
-    Both loops are given in the wall's own (arc, height) chart, where a CCW
-    winding is an outward normal; ``flip`` turns that round for the inner skin.
-    """
-    def ccw(L, P):
-        a = sum(P[k][0] * P[(k + 1) % len(P)][1] - P[(k + 1) % len(P)][0] * P[k][1]
-                for k in range(len(P)))
-        return (L, P) if a >= 0.0 else (L[::-1], P[::-1])
-
-    O, PO = ccw(O, PO)
-    I, PI = ccw(I, PI)
-    cx = sum(p[0] for p in PI) / len(PI)
-    cy = sum(p[1] for p in PI) / len(PI)
-    ang = lambda p: math.atan2(p[1] - cy, p[0] - cx)      # noqa: E731
-    aO, aI = [ang(p) for p in PO], [ang(p) for p in PI]
-    m, n = len(O), len(I)
-    j0 = min(range(n), key=lambda k: abs(_wrap(aI[k] - aO[0])))
-    I, aI = I[j0:] + I[:j0], aI[j0:] + aI[:j0]
-
-    def cum(a):
-        t = [0.0]
-        for k in range(len(a)):
-            t.append(t[-1] + (a[(k + 1) % len(a)] - a[k]) % TAU)
-        return t
-
-    tO, tI = cum(aO), cum(aI)
-    ci = cj = 0
-    while ci < m or cj < n:
-        to = tO[ci + 1] if ci < m else 1e9
-        ti = tI[cj + 1] if cj < n else 1e9
-        if to <= ti:
-            tri = [O[ci], O[(ci + 1) % m], I[cj % n]]
-            ci += 1
-        else:
-            tri = [O[ci % m], I[(cj + 1) % n], I[cj % n]]
-            cj += 1
-        _facew(bm, tri[::-1] if flip else tri, zone)
-
-
-def _patch(bm, rings, rad, zed, hole, r):
-    """Cut one hole out of the outer wall and return its outline verts."""
-    a, span = hole["a"], hole["span"]
-    idx = [(a + k) % NSUB for k in range(span + 1)]
-    ub = [BEAR[a] + ((BEAR[i] - BEAR[a]) % TAU) for i in idx]
-    ub[0] = BEAR[a]
-
-    O, PO = [], []
-
-    def add(k, t):
-        O.append(rings[k][idx[t]])
-        PO.append((ub[t] * R_REF, zed[k][idx[t]]))
-
-    for t in range(span + 1):
-        add(K_LO, t)
-    for k in range(K_LO + 1, K_HI + 1):
-        add(k, span)
-    for t in range(span - 1, -1, -1):
-        add(K_HI, t)
-    for k in range(K_HI - 1, K_LO, -1):
-        add(k, 0)
-
-    I, PI = [], []
-    for beta, zeta in hole["ring"]:
-        rr = _wall_r(rad, zed, beta % TAU, zeta)
-        I.append(bm.verts.new((rr * math.cos(beta), rr * math.sin(beta), zeta)))
-        PI.append((beta * R_REF, zeta))
-    _bridge(bm, O, PO, I, PI, ZONE_ROCK, False)
-    return I
-
-
-def _patch_in(bm, rings, hole, rfun):
-    """The same hole in the inner skin, smaller, so every reveal is splayed."""
-    a, span = hole["a"], hole["span"]
-    idx = [(a + k) % NSUB for k in range(span + 1)]
-    ub = [BEAR[a] + ((BEAR[i] - BEAR[a]) % TAU) for i in idx]
-    O, PO = [], []
-
-    def add(k, t):
-        O.append(rings[k][idx[t]])
-        PO.append((ub[t] * R_REF, Z_IN[k]))
-
-    for t in range(span + 1):
-        add(KI_LO, t)
-    for t in range(span, -1, -1):
-        add(KI_HI, t)
-    uc, zc = hole["uc"], hole["z0"] + 0.5 * hole["h"]
-    I, PI = [], []
-    for beta, zeta in hole["ring"]:
-        bi = uc + (beta - uc) * SPLAY
-        zi = zc + (zeta - zc) * SPLAY
-        rr = rfun(bi % TAU)
-        I.append(bm.verts.new((rr * math.cos(bi), rr * math.sin(bi), zi)))
-        PI.append((bi * R_REF, zi))
-    _bridge(bm, O, PO, I, PI, ZONE_SHADE, True)
-    return I
-
-
-def _reveal(bm, outer_ring, inner_ring):
-    """Angled rock between the outer mouth and the inner mouth of one hole."""
-    n = len(outer_ring)
-    cen = Vector((0.0, 0.0, 0.0))
-    for v in outer_ring + inner_ring:
-        cen += v.co
-    cen /= float(2 * n)
-    for k in range(n):
-        j = (k + 1) % n
-        quad = [outer_ring[k], outer_ring[j], inner_ring[j], inner_ring[k]]
-        mid = sum((v.co for v in quad), Vector()) / 4.0
-        _face(bm, quad, (cen - mid), ZONE_CARVE)
-
-
-def _skins(bm, rings, rad, zed, apex, inner, holes, rfun):
-    """Every quad of the wall that a hole does not eat, plus floor and ceiling."""
-    cut = {}
-    for h in holes:
-        for k in range(h["span"]):
-            cut[(h["a"] + k) % NSUB] = h
-    nk = len(Z_OUT) + 1
-    for k in range(len(rings) - 1):
-        for i in range(NSUB):
-            j = (i + 1) % NSUB
-            if K_LO <= k < K_HI and i in cut:
-                continue
-            mid = BEAR[i] + 0.5 * ((BEAR[j] - BEAR[i]) % TAU)
-            _face(bm, [rings[k][i], rings[k][j], rings[k + 1][j], rings[k + 1][i]],
-                  _rad(mid), ZONE_ROCK)
-    top = rings[-1]
-    for i in range(NSUB):
-        j = (i + 1) % NSUB
-        _face(bm, [top[i], top[j], apex], (0.0, 0.0, 1.0), ZONE_ROCK)
-
-    for k in range(len(inner) - 1):
-        for i in range(NSUB):
-            j = (i + 1) % NSUB
-            if KI_LO <= k < KI_HI and i in cut:
-                continue
-            mid = BEAR[i] + 0.5 * ((BEAR[j] - BEAR[i]) % TAU)
-            _face(bm, [inner[k][i], inner[k][j], inner[k + 1][j], inner[k + 1][i]],
-                  _rad(mid, inward=True), ZONE_SHADE)
-
-    # footing: close the gap between his floor's edge and his rim
-    for i in range(NSUB):
-        j = (i + 1) % NSUB
-        _face(bm, [inner[0][i], inner[0][j], rings[0][j], rings[0][i]],
-              (0.0, 0.0, -1.0), ZONE_SHADE)
-
-    # ceiling: a shallow disc over the room, facing down
-    hub = bm.verts.new((0.0, 0.0, CEIL_Z + 0.14))
-    ceil = inner[-1]
-    for i in range(NSUB):
-        _face(bm, [hub, ceil[i], ceil[(i + 1) % NSUB]], (0.0, 0.0, -1.0), ZONE_SHADE)
-    return nk
-
-
-# =============================================================================
-# COLLIDER -- floor, a sill all round, rock between the holes, a ceiling
-# =============================================================================
-
-def _collider(holes, rfun):
-    verts, faces = [], []
-
-    def v(p):
-        verts.append(tuple(p))
-        return len(verts) - 1
-
-    def pt(i, z):
-        rr = rfun(BEAR[i])
-        return (rr * math.cos(BEAR[i]), rr * math.sin(BEAR[i]), z)
-
-    def emit(idx, want):
-        pts = [verts[k] for k in idx]
-        if _newell(pts).dot(Vector(want)) < 0.0:
-            idx = list(reversed(idx))
-        if len(idx) == 4:
-            faces.append((idx[0], idx[1], idx[2]))
-            faces.append((idx[0], idx[2], idx[3]))
-        else:
-            faces.append(tuple(idx))
-
-    cut = set()
-    for h in holes:
-        for k in range(h["span"]):
-            cut.add((h["a"] + k) % NSUB)
-
-    floor = [v(pt(i, FLOOR_Z)) for i in range(NSUB)]
-    for i in range(1, NSUB - 1):
-        emit([floor[0], floor[i], floor[i + 1]], (0.0, 0.0, 1.0))
-    sill = [v(pt(i, SILL_Z)) for i in range(NSUB)]
-    for i in range(NSUB):
-        j = (i + 1) % NSUB
-        mid = BEAR[i] + 0.5 * ((BEAR[j] - BEAR[i]) % TAU)
-        emit([floor[i], floor[j], sill[j], sill[i]], _rad(mid, inward=True))
-    for i in range(NSUB):
-        if i in cut:
-            continue
-        j = (i + 1) % NSUB
-        mid = BEAR[i] + 0.5 * ((BEAR[j] - BEAR[i]) % TAU)
-        q = [v(pt(i, SILL_Z)), v(pt(j, SILL_Z)), v(pt(j, CEIL_Z)), v(pt(i, CEIL_Z))]
-        emit(q, _rad(mid, inward=True))
-    ceil = [v(pt(i, CEIL_Z)) for i in range(NSUB)]
-    for i in range(1, NSUB - 1):
-        emit([ceil[0], ceil[i], ceil[i + 1]], (0.0, 0.0, -1.0))
-    return mdl.mesh(COLLIDER_NAME, verts, faces)
-
-
-# =============================================================================
-# UV -- per-face planar projection into that face's zone of the packed atlas
-# =============================================================================
-
-def unwrap(ob, zone_by_index, name):
-    me = ob.data
-    uvl = me.uv_layers.get(name)
-    if uvl is None:
-        print("MDL note: UV layer %r did not survive bmesh; his atlas is lost" % name)
-        uvl = me.uv_layers.new(name=name)
-    r = _Rng(SEED + len(me.polygons))
-    for pi, poly in enumerate(me.polygons):
-        zone = zone_by_index.get(pi)
-        if zone is None:
-            continue
-        u0, v0, u1, v1 = zone
-        span_u, span_v = (u1 - u0) - 2.0 * UV_PAD, (v1 - v0) - 2.0 * UV_PAD
-        nrm = poly.normal
-        ax = max(range(3), key=lambda i: abs(nrm[i]))
-        ii, jj = ((1, 2), (0, 2), (0, 1))[ax]
-        fu = -1.0 if r.i(0, 1) else 1.0
-        fv = -1.0 if r.i(0, 1) else 1.0
-        cos = [me.vertices[me.loops[li].vertex_index].co for li in poly.loop_indices]
-        mi, mj = min(c[ii] for c in cos), min(c[jj] for c in cos)
-        w = min((max(c[ii] for c in cos) - mi) * UV_SCALE, 1.0)
-        h = min((max(c[jj] for c in cos) - mj) * UV_SCALE, 1.0)
-        ou, ov = r.f() * (1.0 - w), r.f() * (1.0 - h)
-        for li, co in zip(poly.loop_indices, cos):
-            s = min(ou + (co[ii] - mi) * UV_SCALE, 1.0)
-            t = min(ov + (co[jj] - mj) * UV_SCALE, 1.0)
-            if fu < 0.0:
-                s = 1.0 - s
-            if fv < 0.0:
-                t = 1.0 - t
-            uvl.data[li].uv = (u0 + UV_PAD + s * span_u, v0 + UV_PAD + t * span_v)
 
 
 # =============================================================================
@@ -704,11 +196,377 @@ def _append_rock():
 
 
 # =============================================================================
-# EXTRA RENDERS -- the facade at deck height, and the room from inside
+# 1..3  STRIP HIS CAP, RELAX THE KNUCKLE, EXTRUDE THE WALL
 # =============================================================================
 
-OPEN_BEARING = 0.0
+def _strip(bm):
+    """His cap and his old room, gone. Returns the counts for the report."""
+    cap = [f for f in bm.faces if all(v.co.z > CAP_Z for v in f.verts)]
+    if cap:
+        bmesh.ops.delete(bm, geom=cap, context="FACES")
 
+    floor_ngon = None
+    for f in bm.faces:
+        zs = [v.co.z for v in f.verts]
+        if len(f.verts) >= 12 and max(zs) - min(zs) < 0.25 \
+                and MID_LO < sum(zs) / len(zs) < MID_HI:
+            if floor_ngon is None or len(f.verts) > len(floor_ngon.verts):
+                floor_ngon = f
+    mid = [f for f in bm.faces
+           if f is not floor_ngon
+           and all(MID_LO < v.co.z < MID_HI for v in f.verts)]
+    if mid:
+        bmesh.ops.delete(bm, geom=mid, context="FACES")
+
+    loose = [v for v in bm.verts if not v.link_faces]
+    if loose:
+        bmesh.ops.delete(bm, geom=loose, context="VERTS")
+    n0 = len(bm.verts)
+    bmesh.ops.remove_doubles(bm, verts=list(bm.verts), dist=WELD)
+    return len(cap), len(mid), len(loose), n0 - len(bm.verts), floor_ngon
+
+
+def _relax(bm):
+    """His top rings, smoothed in XY only: the rim bulge eases into the column."""
+    vs = [v for v in bm.verts if v.co.z > SMOOTH_Z]
+    for _ in range(SMOOTH_IT):
+        bmesh.ops.smooth_vert(bm, verts=vs, factor=SMOOTH_F,
+                              use_axis_x=True, use_axis_y=True, use_axis_z=False)
+    return len(vs)
+
+
+def _open_top(bm):
+    """Delete above CUT_KEEP; cap every other hole; return the rim's edges."""
+    doomed = [f for f in bm.faces if f.calc_center_median().z > CUT_KEEP]
+    if doomed:
+        bmesh.ops.delete(bm, geom=doomed, context="FACES")
+    loose = [v for v in bm.verts if not v.link_faces]
+    if loose:
+        bmesh.ops.delete(bm, geom=loose, context="VERTS")
+
+    loops = _boundary_loops(bm)
+    if not loops:
+        raise SystemExit("MDL ERROR: the cut left no open loop to extrude")
+    rim = max(loops, key=len)
+    filled = 0
+    for lp in loops:
+        if lp is rim or len(lp) < 3:
+            continue
+        vs = set(lp)
+        edges = [e for e in bm.edges if e.is_boundary
+                 and e.verts[0] in vs and e.verts[1] in vs]
+        filled += len(bmesh.ops.holes_fill(bm, edges=edges, sides=0).get("faces", []))
+    return rim, len(doomed), len(loops) - 1, filled
+
+
+def _jitter(verts, r, scale, dz):
+    """One extruded ring: scaled in, raised, and noised per vertex."""
+    pol = []
+    for v in verts:
+        rr = math.hypot(v.co.x, v.co.y)
+        pol.append((math.atan2(v.co.y, v.co.x), rr * scale + JIT_R * r.sf(),
+                    v.co.z + dz + JIT_Z * r.sf()))
+    rm = sum(p[1] for p in pol) / len(pol)
+    zm = sum(p[2] for p in pol) / len(pol)
+    for v, (a, rr, zz) in zip(verts, pol):
+        rr = min(rm + WANDER_R, max(rm - WANDER_R, rr))
+        zz = min(zm + WANDER_Z, max(zm - WANDER_Z, zz))
+        v.co = Vector((rr * math.cos(a), rr * math.sin(a), zz))
+    return rm, zm
+
+
+def _grow(bm, r):
+    """Extrude the rim upward: straight wall, rounded top, fan to an apex."""
+    rings = []
+    cur = [v for v in bm.verts if any(e.is_boundary for e in v.link_edges)]
+    base_r = sum(math.hypot(v.co.x, v.co.y) for v in cur) / len(cur)
+
+    # never let the wall pinch onto the room: r at the ceiling must clear R_IN
+    taper = STEP_SCALE
+    want = R_IN + 0.75
+    if base_r * taper ** STEPS < want:
+        taper = min(1.0, (want / base_r) ** (1.0 / STEPS))
+
+    plan = [(taper, r.rng(STEP_DZ)) for _ in range(STEPS)] + list(ROUND)
+    for scale, dz in plan:
+        edges = [e for e in bm.edges if e.is_boundary]
+        res = bmesh.ops.extrude_edge_only(bm, edges=edges)
+        new = [g for g in res["geom"] if isinstance(g, bmesh.types.BMVert)]
+        rings.append(_jitter(new, r, scale, dz))
+
+    top = [e for e in bm.edges if e.is_boundary]
+    tv = set(v for e in top for v in e.verts)
+    apex = bm.verts.new((0.22 * r.sf(), 0.22 * r.sf(),
+                         max(v.co.z for v in tv) + APEX_DZ))
+    for e in top:
+        try:
+            bm.faces.new((e.verts[0], e.verts[1], apex))
+        except ValueError:
+            pass
+    bmesh.ops.recalc_face_normals(bm, faces=list(bm.faces))
+    return rings, base_r, taper, apex.co.z
+
+
+def _seal(bm):
+    """EXACT boolean needs a closed, outward solid. Make it one, and say so."""
+    for _ in range(4):
+        edges = [e for e in bm.edges if e.is_boundary]
+        if not edges:
+            break
+        bmesh.ops.holes_fill(bm, edges=edges, sides=0)
+    bmesh.ops.recalc_face_normals(bm, faces=list(bm.faces))
+    bm.normal_update()
+    vol = bm.calc_volume(signed=True)
+    if vol < 0.0:
+        bmesh.ops.reverse_faces(bm, faces=list(bm.faces))
+        bm.normal_update()
+    nonman = len([e for e in bm.edges if not e.is_manifold])
+    return len([e for e in bm.edges if e.is_boundary]), nonman, vol
+
+
+# =============================================================================
+# 4..5  BOOLEANS -- the room, then the mouths
+# =============================================================================
+
+def _tris(ob):
+    ob.data.calc_loop_triangles()
+    return len(ob.data.loop_triangles)
+
+
+def _apply_boolean(ob, cutter):
+    mod = ob.modifiers.new("cut", "BOOLEAN")
+    mod.object = cutter
+    mod.operation = "DIFFERENCE"
+    mod.solver = "EXACT"
+    # Without these two the EXACT solver annihilates this mesh: the room is an
+    # internal cavity, and a window cut re-opens it. Non-negotiable here.
+    for flag in ("use_self", "use_hole_tolerant"):
+        try:
+            setattr(mod, flag, True)
+        except Exception:
+            pass
+    for o in bpy.context.selected_objects:
+        o.select_set(False)
+    bpy.context.view_layer.objects.active = ob
+    ob.select_set(True)
+    bpy.ops.object.modifier_apply(modifier=mod.name)
+    bpy.data.objects.remove(cutter, do_unlink=True)
+
+
+def _volume(ob):
+    bm = bmesh.new()
+    bm.from_mesh(ob.data)
+    v = bm.calc_volume(signed=True)
+    nm = len([e for e in bm.edges if not e.is_manifold])
+    bm.free()
+    return v, nm
+
+
+def _hollow(ob):
+    bpy.ops.mesh.primitive_cylinder_add(
+        vertices=NSUB, radius=R_IN, depth=CEIL_Z - FLOOR_Z,
+        location=(0.0, 0.0, 0.5 * (FLOOR_Z + CEIL_Z)))
+    _apply_boolean(ob, bpy.context.active_object)
+
+
+def _wall_radius(ob, z0, z1):
+    zs = [(math.hypot(v.co.x, v.co.y)) for v in ob.data.vertices if z0 < v.co.z < z1]
+    return sum(zs) / max(1, len(zs))
+
+
+def _plan_holes(r, r_wall):
+    """Eight mouths on irregular bearings, sized so the piers hit the spec."""
+    circ = TAU * r_wall
+    gaps = [r.rng(GAP) for _ in range(N_HOLES)]
+    for k in (r.i(0, N_HOLES // 2 - 1), r.i(N_HOLES // 2, N_HOLES - 1)):
+        gaps[k] = GAP_BIG + 0.08 * r.sf()
+    hx = [0.5 * W_HOLE * SHRINK * (1.0 + HOLE_JIT * r.sf()) for _ in range(N_HOLES)]
+    k = (circ - sum(gaps)) / (2.0 * sum(hx))
+    hx = [h * k for h in hx]
+
+    holes, b = [], 0.0
+    for i in range(N_HOLES):
+        hy = min(HY[1], max(HY[0], 0.5 * H_HOLE * (1.0 + HOLE_JIT * r.sf())))
+        hz = 0.5 * D_HOLE * (1.0 + HOLE_JIT * r.sf())
+        cz = r.rng(Z_HOLE)
+        cz = max(cz, FLOOR_Z + SILL_H + hy + 0.02)
+        cz = min(cz, CEIL_Z - 0.20 - hy)
+        b += hx[i] / r_wall
+        holes.append({"b": b, "hx": hx[i], "hy": hy, "hz": hz, "cz": cz,
+                      "half": hx[i] / r_wall, "gap": gaps[i]})
+        b += hx[i] / r_wall + gaps[i] / r_wall
+    return holes, gaps, circ
+
+
+def _punch(ob, holes):
+    for h in holes:
+        bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=1, radius=1.0)
+        cut = bpy.context.active_object
+        b = h["b"]
+        sb, cb = math.sin(b), math.cos(b)
+        cut.matrix_world = Matrix((
+            (-sb * h["hx"], 0.0, cb * h["hz"], R_WIN_C * cb),
+            (cb * h["hx"], 0.0, sb * h["hz"], R_WIN_C * sb),
+            (0.0, h["hy"], 0.0, h["cz"]),
+            (0.0, 0.0, 0.0, 1.0)))
+        n0 = _tris(ob)
+        _apply_boolean(ob, cut)
+        h["dt"] = _tris(ob) - n0
+
+
+# =============================================================================
+# 6  CLEAN
+# =============================================================================
+
+def _clean(ob):
+    bm = bmesh.new()
+    bm.from_mesh(ob.data)
+    edges = [e for e in bm.edges if all(v.co.z > CUT_KEEP for v in e.verts)]
+    verts = [v for v in bm.verts if v.co.z > CUT_KEEP]
+    bmesh.ops.dissolve_limit(bm, angle_limit=math.radians(DISSOLVE),
+                             verts=verts, edges=edges)
+    bmesh.ops.triangulate(bm, faces=list(bm.faces))
+    bmesh.ops.recalc_face_normals(bm, faces=list(bm.faces))
+    bm.normal_update()
+    bm.to_mesh(ob.data)
+    bm.free()
+    ob.data.update()
+
+
+def _sample_normals(ob, r_wall):
+    """Outward on the outside, inward in the room. Counted, not assumed."""
+    me = ob.data
+    tally = {"inner": [0, 0], "outer": [0, 0], "floor": [0, 0], "ceil": [0, 0]}
+    for p in me.polygons:
+        c, n = p.center, p.normal
+        rr = math.hypot(c.x, c.y)
+        rad = Vector((c.x, c.y, 0.0))
+        rad = rad.normalized() if rad.length > 1e-6 else Vector((1.0, 0.0, 0.0))
+        d = n.dot(rad)
+        if abs(n.z) < 0.5 and abs(d) > 0.6 and FLOOR_Z + 0.4 < c.z < CEIL_Z - 0.4:
+            if rr < R_IN + 0.25:
+                tally["inner"][d < 0.0] += 1
+            elif rr > r_wall - 0.45:
+                tally["outer"][d > 0.0] += 1
+        elif rr < R_IN - 0.4 and abs(c.z - FLOOR_Z) < 0.08:
+            tally["floor"][n.z > 0.0] += 1
+        elif rr < R_IN - 0.4 and abs(c.z - CEIL_Z) < 0.08:
+            tally["ceil"][n.z < 0.0] += 1
+    return tally
+
+
+# =============================================================================
+# 7  COLLIDER -- floor, a sill all round, a pier per gap, a ceiling
+# =============================================================================
+
+def _collider(holes):
+    verts, faces = [], []
+    sill_z = FLOOR_Z + SILL_H
+
+    def v(p):
+        verts.append(tuple(p))
+        return len(verts) - 1
+
+    def pt(b, z):
+        return (R_IN * math.cos(b), R_IN * math.sin(b), z)
+
+    def emit(idx, want):
+        pts = [verts[k] for k in idx]
+        if _newell(pts).dot(Vector(want)) < 0.0:
+            idx = list(reversed(idx))
+        if len(idx) == 4:
+            faces.append((idx[0], idx[1], idx[2]))
+            faces.append((idx[0], idx[2], idx[3]))
+        else:
+            faces.append(tuple(idx))
+
+    def rad(a):
+        return (-math.cos(a), -math.sin(a), 0.0)
+
+    bear = [TAU * i / NSUB for i in range(NSUB)]
+    floor = [v(pt(b, FLOOR_Z)) for b in bear]
+    for i in range(1, NSUB - 1):
+        emit([floor[0], floor[i], floor[i + 1]], (0.0, 0.0, 1.0))
+    sill = [v(pt(b, sill_z)) for b in bear]
+    for i in range(NSUB):
+        j = (i + 1) % NSUB
+        emit([floor[i], floor[j], sill[j], sill[i]],
+             rad(bear[i] + 0.5 * TAU / NSUB))
+
+    piers = []
+    for i, h in enumerate(holes):
+        nxt = holes[(i + 1) % N_HOLES]
+        b0 = h["b"] + h["half"]
+        b1 = nxt["b"] - nxt["half"]
+        span = (b1 - b0) % TAU
+        piers.append(span * R_IN)
+        q = [v(pt(b0, sill_z)), v(pt(b0 + span, sill_z)),
+             v(pt(b0 + span, CEIL_Z)), v(pt(b0, CEIL_Z))]
+        emit(q, rad(b0 + 0.5 * span))
+
+    ceil = [v(pt(b, CEIL_Z)) for b in bear]
+    for i in range(1, NSUB - 1):
+        emit([ceil[0], ceil[i], ceil[i + 1]], (0.0, 0.0, -1.0))
+    return mdl.mesh(COLLIDER_NAME, verts, faces), piers
+
+
+# =============================================================================
+# 8  UV -- per-face planar projection into that face's zone of the packed atlas
+# =============================================================================
+
+def _zone(c, n):
+    rad = Vector((c.x, c.y, 0.0))
+    d = n.dot(rad.normalized()) if rad.length > 1e-6 else 0.0
+    if n.z > 0.55:
+        return ZONE_ROCK if c.z > CEIL_Z else ZONE_SHADE
+    if n.z < -0.55:
+        return ZONE_SHADE
+    if d > 0.15:
+        return ZONE_ROCK
+    if d < -0.15:
+        return ZONE_SHADE
+    return ZONE_CARVE
+
+
+def unwrap(ob, name):
+    """Everything above CUT_KEEP is ours; below it his own atlas UVs stand."""
+    me = ob.data
+    uvl = me.uv_layers.get(name)
+    if uvl is None:
+        print("MDL note: UV layer %r did not survive; his atlas is lost" % name)
+        uvl = me.uv_layers.new(name=name)
+    r = _Rng(SEED + len(me.polygons))
+    done = 0
+    for poly in me.polygons:
+        cos = [me.vertices[me.loops[li].vertex_index].co for li in poly.loop_indices]
+        if max(c.z for c in cos) <= CUT_KEEP:
+            continue
+        done += 1
+        u0, v0, u1, v1 = _zone(poly.center, poly.normal)
+        span_u, span_v = (u1 - u0) - 2.0 * UV_PAD, (v1 - v0) - 2.0 * UV_PAD
+        nrm = poly.normal
+        ax = max(range(3), key=lambda i: abs(nrm[i]))
+        ii, jj = ((1, 2), (0, 2), (0, 1))[ax]
+        fu = -1.0 if r.i(0, 1) else 1.0
+        fv = -1.0 if r.i(0, 1) else 1.0
+        mi, mj = min(c[ii] for c in cos), min(c[jj] for c in cos)
+        w = min((max(c[ii] for c in cos) - mi) * UV_SCALE, 1.0)
+        h = min((max(c[jj] for c in cos) - mj) * UV_SCALE, 1.0)
+        ou, ov = r.f() * (1.0 - w), r.f() * (1.0 - h)
+        for li, co in zip(poly.loop_indices, cos):
+            s = min(ou + (co[ii] - mi) * UV_SCALE, 1.0)
+            t = min(ov + (co[jj] - mj) * UV_SCALE, 1.0)
+            if fu < 0.0:
+                s = 1.0 - s
+            if fv < 0.0:
+                t = 1.0 - t
+            uvl.data[li].uv = (u0 + UV_PAD + s * span_u, v0 + UV_PAD + t * span_v)
+    return done
+
+
+# =============================================================================
+# EXTRA RENDER -- the room from inside, which is where the normals show
+# =============================================================================
 
 def _extra_renders(spec, objects):
     scene = bpy.context.scene
@@ -729,13 +587,8 @@ def _extra_renders(spec, objects):
     scene.world = world
     world.use_nodes = True
     bg = world.node_tree.nodes["Background"]
-    bg.inputs[0].default_value = (0.32, 0.09, 0.07, 1.0)
-    bg.inputs[1].default_value = 0.55
-    ld = bpy.data.lights.new("KeyRed", type="SUN")
-    ld.energy = 3.6
-    ld.color = (1.0, 0.36, 0.28)
-    key = mdl._link(bpy.data.objects.new("KeyRed", ld))
-    key.rotation_euler = (math.radians(-62.0), 0.0, math.radians(35.0))
+    bg.inputs[0].default_value = (0.34, 0.11, 0.08, 1.0)
+    bg.inputs[1].default_value = 0.65
 
     target = mdl._link(bpy.data.objects.new("InTarget", None))
     cam = mdl._link(bpy.data.objects.new("InCam", bpy.data.cameras.new("InCam")))
@@ -746,31 +599,44 @@ def _extra_renders(spec, objects):
     con.up_axis = "UP_Y"
 
     ux, uy = math.cos(OPEN_BEARING), math.sin(OPEN_BEARING)
-    out_dir = spec.get("out_dir", ".")
-
-    def shot(nm, loc, tgt, lens, res):
-        cam.data.lens = lens
-        cam.location = loc
-        target.location = tgt
-        scene.render.resolution_x, scene.render.resolution_y = res
-        bpy.context.view_layer.update()
-        path = os.path.join(out_dir, "%s_%s.png" % (NAME, nm))
-        scene.render.filepath = path
-        bpy.ops.render.render(write_still=True)
-        print("MDL RENDER %s (hand-placed camera)" % os.path.basename(path))
-
-    shot("facade", (ux * 26.0, uy * 26.0, 4.2), (0.0, 0.0, 4.0), 42.0, (1300, 950))
-
     fl = bpy.data.lights.new("RoomFill", type="POINT")
     fl.energy = 900.0
     fl.color = (1.0, 0.55, 0.40)
     lamp = mdl._link(bpy.data.objects.new("RoomFill", fl))
     lamp.location = (-ux * 1.8, -uy * 1.8, 2.6)
-    shot("room", (-ux * 4.6, -uy * 4.6, EYE_H + 0.3), (ux * 24.0, uy * 24.0, 2.4),
-         18.0, (1100, 820))
-    bpy.data.objects.remove(lamp, do_unlink=True)
 
-    for ob in (cam, target, key):
+    cam.data.lens = 18.0
+    cam.location = (-ux * 4.6, -uy * 4.6, FLOOR_Z + EYE_H)
+    target.location = (ux * 24.0, uy * 24.0, FLOOR_Z + 2.3)
+    scene.render.resolution_x, scene.render.resolution_y = 1000, 760
+    bpy.context.view_layer.update()
+    scene.render.filepath = os.path.join(spec.get("out_dir", "."), "%s_room.png" % NAME)
+    bpy.ops.render.render(write_still=True)
+    print("MDL RENDER %s_room.png (hand-placed camera)" % NAME)
+    lamp.data.energy = 0.0
+
+    # The rock is 45 m deep, so mdl's auto-fit renders the head as a speck.
+    # These two frame the head and the column under it, which is what is judged.
+    key = bpy.data.lights.new("Sun", type="SUN")
+    key.energy = 3.2
+    sun = mdl._link(bpy.data.objects.new("Sun", key))
+    sun.rotation_euler = (math.radians(58.0), 0.0, math.radians(38.0))
+    bg.inputs[1].default_value = 1.15
+    cam.data.lens = 50.0
+    scene.render.resolution_x, scene.render.resolution_y = 1100, 1000
+    for tag, az, el in (("out1_az90_el4", 90.0, 4.0), ("out2_az30_el20", 30.0, 20.0)):
+        a, e = math.radians(az), math.radians(el)
+        d = Vector((math.sin(a) * math.cos(e), -math.cos(a) * math.cos(e),
+                    math.sin(e)))
+        target.location = (0.0, 0.0, 0.6)
+        cam.location = target.location + d * 46.0
+        bpy.context.view_layer.update()
+        scene.render.filepath = os.path.join(spec.get("out_dir", "."),
+                                             "%s_%s.png" % (NAME, tag))
+        bpy.ops.render.render(write_still=True)
+        print("MDL RENDER %s_%s.png (hand-framed on the head)" % (NAME, tag))
+
+    for ob in (cam, target, lamp, sun):
         bpy.data.objects.remove(ob, do_unlink=True)
 
 
@@ -779,99 +645,87 @@ def _extra_renders(spec, objects):
 # =============================================================================
 
 def build():
-    global OPEN_BEARING, NEW, NSUB, BEAR
-    NEW = []
+    global OPEN_BEARING
     rock, mat, uvname = _append_rock()
     r = _Rng(SEED)
 
     bm = bmesh.new()
     bm.from_mesh(rock.data)
 
-    n_cap, n_loose = _kill_cap(bm)
-    print("MDL STATS cap_faces_removed=%d loose_verts_removed=%d" % (n_cap, n_loose))
+    n_cap, n_mid, n_loose, n_weld, fl = _strip(bm)
+    print("MDL STATS cap_faces=%d mid_faces=%d loose=%d welded=%d floor_ngon=%s"
+          % (n_cap, n_mid, n_loose, n_weld,
+             ("%d-gon @ z%.2f" % (len(fl.verts),
+                                  sum(v.co.z for v in fl.verts) / len(fl.verts)))
+             if fl else "none"))
 
-    # ---- his open loops: rim, floor, and any hole he left behind -------------
-    loops = _boundary_loops(bm)
-    low, strays = [], []
-    for lp in loops:
-        st = _loop_stats(lp)
-        print("MDL STATS loop n=%d z=%.2f..%.2f (mean %.2f) r=%.2f..%.2f (mean %.2f)"
-              % (st["n"], st["z0"], st["z1"], st["zm"], st["r0"], st["r1"], st["rm"]))
-        (low if st["zm"] < 2.0 else strays).append(lp)
-    low.sort(key=lambda lp: _loop_stats(lp)["rm"])
-    if len(low) < 2:
-        raise SystemExit("MDL ERROR: expected his rim and his floor loop")
-    rim, floor = low[-1], low[-2]
-    strays += low[:-2]
+    n_sm = _relax(bm)
+    rim, n_del, n_strays, n_fill = _open_top(bm)
+    st = _stats(rim)
+    print("MDL STATS smoothed=%d cut_faces=%d strays=%d stray_faces=%d"
+          % (n_sm, n_del, n_strays, n_fill))
+    print("MDL STATS loop n=%d z=%.2f..%.2f (mean %.2f) r=%.2f..%.2f (mean %.2f)"
+          % (st["n"], st["z0"], st["z1"], st["zm"], st["r0"], st["r1"], st["rm"]))
 
-    for lp in strays:
-        st = _loop_stats(lp)
-        vs = set(lp)
-        edges = [e for e in bm.edges if e.is_boundary and e.verts[0] in vs
-                 and e.verts[1] in vs]
-        res = bmesh.ops.holes_fill(bm, edges=edges, sides=0)
-        made = res.get("faces", [])
-        want = Vector((0.0, 0.0, 1.0 if st["zm"] > 3.0 else -1.0))
-        for f in made:
-            f.normal_update()
-            if f.normal.dot(want) < 0.0:
-                f.normal_flip()
-            NEW.append((f, ZONE_ROCK))
-        print("MDL STATS hole_filled n=%d faces=%d z=%.2f..%.2f"
-              % (st["n"], len(made), st["z0"], st["z1"]))
-
-    # ---- one bearing set: his rim's own corners -----------------------------
-    rim = _order_ccw(rim)
-    NSUB = len(rim)
-    BEAR = [_bear(v.co) for v in rim]
-    rim_v = list(rim)
-    flr_v = _resample(floor, BEAR)
-    outline = _outline(floor)
-    rfun = lambda a: _radius_at(outline, a % TAU)     # noqa: E731
-
-    rings, rad, zed, apex = _outer_rings(bm, rim_v, r)
-    inner = _inner_rings(bm, flr_v, rfun, r)
-
-    holes = [_blob(rad, zed, h, r) for h in _layout(r)]
-    for h in holes:
-        ho = _patch(bm, rings, rad, zed, h, r)
-        hi = _patch_in(bm, inner, h, rfun)
-        _reveal(bm, ho, hi)
-    _skins(bm, rings, rad, zed, apex, inner, holes, rfun)
-
-    bm.normal_update()
-    bm.faces.index_update()
-    zone_by_index = {f.index: z for f, z in NEW}
-    n_new = len(NEW)
+    rings, base_r, taper, apex_z = _grow(bm, r)
+    n_open, n_nonman, vol = _seal(bm)
+    print("MDL STATS sealed open_edges=%d non_manifold=%d volume=%.1f" %
+          (n_open, n_nonman, vol))
     bm.to_mesh(rock.data)
     bm.free()
-
     rock.data.update()
-    unwrap(rock, zone_by_index, uvname)
-    mdl.finish(rock, mat, flat=True, strip_uvs=False)
+    print("MDL STATS rings=%d base_r=%.2f taper=%.4f apex_z=%.2f means=%s"
+          % (len(rings), base_r, taper, apex_z,
+             ",".join("%.2f@%.2f" % (m, z) for m, z in rings)))
+
+    print("MDL STATS grown_tris=%d" % _tris(rock))
+    _hollow(rock)
+    _hv, _hn = _volume(rock)
+    print("MDL STATS hollow_tris=%d volume=%.1f non_manifold=%d"
+          % (_tris(rock), _hv, _hn))
+    r_wall = _wall_radius(rock, 2.0, 5.0)
+    holes, gaps, circ = _plan_holes(r, r_wall)
+    _punch(rock, holes)
+    print("MDL STATS punched_tris=%d per_hole=%s"
+          % (_tris(rock), ",".join(str(h["dt"]) for h in holes)))
+    _clean(rock)
+    print("MDL STATS cleaned_tris=%d" % _tris(rock))
+
     rock.name = OBJECT_NAME
     rock.data.name = OBJECT_NAME
+    n_uv = unwrap(rock, uvname)
+    mdl.finish(rock, mat, flat=True, strip_uvs=False)
 
-    coll_ob = _collider(holes, rfun)
+    coll_ob, piers = _collider(holes)
     coll_ob.hide_render = True
-    OPEN_BEARING = holes[0]["uc"]
+    OPEN_BEARING = holes[0]["b"]
 
+    tally = _sample_normals(rock, r_wall)
     rock.data.calc_loop_triangles()
     coll_ob.data.calc_loop_triangles()
-    rr = [x for row in rad for x in row]
-    print("MDL STATS visual_tris=%d collision_tris=%d new_faces=%d sub=%d"
+    open_w = sum(2.0 * h["hx"] for h in holes)
+    sills = [h["cz"] - h["hy"] - FLOOR_Z for h in holes]
+    heads = [h["cz"] + h["hy"] for h in holes]
+    print("MDL STATS visual_tris=%d collision_tris=%d uv_faces=%d r_wall=%.2f"
           % (len(rock.data.loop_triangles), len(coll_ob.data.loop_triangles),
-             n_new, NSUB))
-    print("MDL STATS rings=%d z=rim..%.2f..dome..%.2f radius=%.2f..%.2f"
-          % (len(rings), Z_OUT[-1], APEX_Z, min(rr), max(rr)))
-    print("MDL STATS holes=%d w=%.2f..%.2f h=%.2f..%.2f z=%.2f..%.2f sides=%s"
-          % (len(holes), min(h["w"] for h in holes), max(h["w"] for h in holes),
-             min(h["h"] for h in holes), max(h["h"] for h in holes),
-             min(h["z0"] for h in holes),
-             max(h["z0"] + h["h"] for h in holes),
-             ",".join(str(h["n"]) for h in holes)))
-    print("MDL STATS sill=%.2f headroom=%.2f splay=%.2f uv_layers=%d"
-          % (SILL_Z - FLOOR_Z, CEIL_Z - BODY_H, SPLAY, len(rock.data.uv_layers)))
+             n_uv, r_wall))
+    print("MDL STATS holes=%d w=%.2f..%.2f h=%.2f..%.2f circ=%.1f open=%.1f%%"
+          % (N_HOLES, min(2 * h["hx"] for h in holes),
+             max(2 * h["hx"] for h in holes),
+             min(2 * h["hy"] for h in holes), max(2 * h["hy"] for h in holes),
+             circ, 100.0 * open_w / circ))
+    print("MDL STATS sill=%.2f..%.2f head=%.2f..%.2f pier=%.2f..%.2f gap=%.2f..%.2f"
+          % (min(sills), max(sills), min(heads), max(heads),
+             min(piers), max(piers), min(gaps), max(gaps)))
+    print("MDL STATS normals inner=%d/%d outer=%d/%d floor=%d/%d ceil=%d/%d "
+          "(good/total)"
+          % (tally["inner"][1], sum(tally["inner"]),
+             tally["outer"][1], sum(tally["outer"]),
+             tally["floor"][1], sum(tally["floor"]),
+             tally["ceil"][1], sum(tally["ceil"])))
+    print("MDL STATS floor=%.2f ceil=%.2f headroom=%.2f eye=%.2f jump_clear=%.2f"
+          % (FLOOR_Z, CEIL_Z, CEIL_Z - FLOOR_Z - BODY_H, FLOOR_Z + EYE_H,
+             min(sills) - 1.11))
     return [rock, coll_ob]
 
 

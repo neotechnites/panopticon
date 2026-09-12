@@ -9,7 +9,7 @@ Rock only. No cover, traps, pits, pads, ramps or tower -- those are scene work.
 
 Authored in WORLD coordinates so the scene instances it at identity:
 
-    courtyard floor ..  y = COURTYARD_Z  (tower foot lands on it)
+    lava sea .........  y = COURTYARD_Z  (tower foot lands on it)
     deck surface .....  y = DECK_Z       (runner's feet; guard's eye level)
     gallery ceiling ..  y = CEIL_Z
     rim ..............  y = RIM_Z
@@ -21,7 +21,8 @@ tower's does: flat deck, clean pit wall, courtyard disc, outer wall and flat
 ceiling. The jittered rock mesh is NEVER its own collider.
 
 Texture: the tower's atlas, same painter, same seed -- byte-identical, so
-this reads as the rock the tower was cut from.
+this reads as the rock the tower was cut from. Two surfaces: the rock, and
+the lava sea on the pit floor, which has its own tiling sheet.
 
     tools/modelling/model look  map_base --cam 35,30,40
     tools/modelling/model build map_base --cam 35,30,40
@@ -105,6 +106,28 @@ ZONE_EMBER  = (0.0, 0.0, 0.5, 0.5)
 ZONE_GLOW   = (0.5, 0.0, 1.0, 0.25)   # cell interiors: painted over the unused
                                       # lower half of CARVE, after the four
                                       # tower zones, so those stay byte-identical
+
+# The deck is the one surface the red sun hits square on, so the wall tone
+# read washed out on it. It takes SHADE (the darker hell-rock) at its own,
+# finer tiling, projected radially so a facet's texel density comes from its
+# real extent and not its world-xy bounding box.
+ZONE_DECK      = ("deck",) + ZONE_SHADE
+DECK_UV_SCALE  = 0.34                 # ~0.048 m/texel: speckle 0.2..0.5 m
+
+# ---- the lava sea on the floor of the shaft --------------------------------
+# Its own material and its own tiling sheet (not an atlas cell), so it repeats
+# instead of stretching one window over 90 m of floor.
+ZONE_LAVA      = ("lava",)
+LAVA_TEX       = 256
+LAVA_ALBEDO    = "map_base_lava_albedo"
+LAVA_EMISSIVE  = "map_base_lava_emissive"
+LAVA_SEED      = 7720133
+LAVA_REPEAT    = (12.0, 24.0)         # metres per repeat, drawn per face
+LAVA_RINGS     = (1.0, 0.70, 0.42, 0.14)   # radius fractions of the pit foot
+LAVA_PATCH     = 16.0                 # metres: faces in one patch share a UV window
+LAVA_SWELL     = 0.6                  # +- metres of slow molten swell
+LAVA_STEP      = 0.3                  # swell snaps to this: flat crust plates
+LAVA_FLAT_R    = 18.0                 # level under the tower's foot
 
 # ---- prison cells: stone screens cut into the pit faces ---------------------
 # A cell is an arched mouth cut through the wall, a reveal stepping back to a
@@ -333,6 +356,85 @@ def rock_material(name, albedo, emissive):
     bsdf.inputs["Emission Strength"].default_value = 1.0   # exactly 1.0: no KHR warning
     mat.diffuse_color = (0.13, 0.04, 0.04, 1.0)
     return mat
+
+
+def _lava_density(n):
+    """Seamless low-frequency crust mask: products of whole-cycle harmonics, so
+    it wraps. 1 = plated over, 0 = open molten."""
+    out = [0.0] * (n * n)
+    for y in range(n):
+        b = TWO_PI * y / n
+        for x in range(n):
+            a = TWO_PI * x / n
+            v = (0.55 * math.sin(a + 0.9) * math.sin(b + 2.1)
+                 + 0.30 * math.sin(2.0 * a - 1.4) * math.cos(2.0 * b + 0.3)
+                 + 0.15 * math.cos(3.0 * b + 2.6) * math.sin(2.0 * a))
+            out[y * n + x] = min(1.0, max(0.0, 0.5 + 0.75 * v))
+    return out
+
+
+def _lava_texture():
+    """A seamless lava sheet: molten bed, dark crust plates, glowing fissures.
+    Plate density rides a low-frequency mask, so the sheet has plated regions
+    and open molten regions instead of one even crust everywhere."""
+    c = _Canvas(LAVA_TEX)
+    r = _Rng(LAVA_SEED)
+    n = LAVA_TEX
+    dens = _lava_density(n)
+
+    def blot(x, y, w, h, rgb, glow):
+        for dy in range(h):
+            for dx in range(w):
+                c.put((x + dx) % n, (y + dy) % n, rgb, glow)
+
+    hot = [(226, 70, 10), (255, 104, 20), (206, 52, 6), (255, 132, 30)]
+    for y in range(n):                                   # molten bed: all emits
+        for x in range(n):
+            s = r.pick(hot)
+            c.put(x, y, s, s)
+    crust = [(26, 9, 8), (38, 14, 11), (17, 6, 6), (48, 20, 15)]
+    for _ in range(360):                                 # plates: 85 % .. 15 % cover
+        x, y = r.i(0, n - 1), r.i(0, n - 1)
+        if r.f() > min(1.0, max(0.05, (dens[y * n + x] - 0.30) / 0.35)):
+            continue
+        w, h = r.i(8, 30), r.i(8, 30)
+        sh = r.pick(crust)
+        blot(x, y, w, h, sh, (0, 0, 0))
+        for _ in range(3):                               # break the square outline
+            blot((x + r.i(-4, w - 4)) % n, (y + r.i(-4, h - 4)) % n,
+                 r.i(5, 14), r.i(5, 14), sh, (0, 0, 0))
+    for _ in range(420):                                 # cooling flecks on the plates
+        x, y = r.i(0, n - 1), r.i(0, n - 1)
+        if dens[y * n + x] < 0.45:
+            continue
+        blot(x, y, r.i(2, 5), r.i(2, 5), (60, 22, 14), (24, 4, 1))
+    for _ in range(150):                                 # fissures: hot, thin, wandering
+        x, y = r.i(0, n - 1), r.i(0, n - 1)
+        if dens[y * n + x] < 0.50:
+            continue
+        for _step in range(50):
+            sh = r.pick(hot)
+            c.put(x % n, y % n, sh, sh)
+            c.put((x + 1) % n, y % n, sh, sh)
+            x += r.i(-1, 1)
+            y += r.i(-1, 1)
+    for _ in range(40):                                  # white-hot pools, open water only
+        x, y = r.i(0, n - 1), r.i(0, n - 1)
+        if dens[y * n + x] > 0.26:
+            continue
+        core = r.pick([(255, 214, 96), (255, 178, 60)])
+        for _step in range(18):                          # a walked blob, not a square
+            blot(x, y, r.i(3, 6), r.i(3, 6), core, (255, 200, 80))
+            x += r.i(-3, 3)
+            y += r.i(-3, 3)
+    images = []
+    for name, buf in ((LAVA_ALBEDO, c.alb), (LAVA_EMISSIVE, c.emi)):
+        img = bpy.data.images.new(name, LAVA_TEX, LAVA_TEX, alpha=False)
+        img.colorspace_settings.name = "sRGB"
+        img.pixels.foreach_set(buf)
+        img.update()
+        images.append(img)
+    return images[0], images[1]
 
 
 # =============================================================================
@@ -965,23 +1067,37 @@ def _carve(m, wall, c):
     CELLS.append((cw, out, Wm, Hm))
 
 
-def _disc(m, wall, z, want, zone):
-    """A flat-ish disc under a wall's foot ring: one band from the wall's own
-    rim vertices (all of them, so the seam is shared) to a half-radius ring,
-    then a fan to the true centre."""
+def _lava_sea(m, wall, z, r):
+    """The floor of the shaft, as a sea of lava. Concentric rings down from the
+    wall's own foot vertices (so the seam is shared) to the centre; the rings
+    swell on two low harmonics of theta, level again under the tower's foot."""
     n = len(wall.ang)
     nu = wall.nu
-    inner = [m.v(tuple(0.5 * (m.verts[wall.rings[0][i]][k] + (0.0, 0.0, z)[k]) for k in range(3)))
-             for i in range(n)]
-    for i in range(n):
-        j = (i + 1) % n
-        rim = [wall.W(wall.cols[i * nu + su], z) for su in range(nu + 1)]
-        for su in range(nu):
-            m.tri(inner[i], rim[su], rim[su + 1], want, zone)
-        m.tri(inner[i], rim[nu], inner[j], want, zone)
+    cols = [wall.cols[i * nu + su] for i in range(n) for su in range(nu)]
+    rim = [wall.W(t, z) for t in cols]
+    rad0 = [math.hypot(m.verts[v][0], m.verts[v][1]) for v in rim]
+    rings = [rim]
+    for frac in LAVA_RINGS[1:]:
+        p0, p1 = r.f() * TWO_PI, r.f() * TWO_PI
+        k0, k1 = r.i(2, 4), r.i(5, 8)
+        ring = []
+        for k, t in enumerate(cols):
+            rad = rad0[k] * frac
+            taper = min(1.0, max(0.0, (rad - LAVA_FLAT_R) / 8.0))
+            dz = LAVA_SWELL * taper * (0.62 * math.sin(k0 * t + p0)
+                                       + 0.38 * math.sin(k1 * t + p1))
+            dz = LAVA_STEP * round(dz / LAVA_STEP)   # plateaus: crust plates, not swell
+            ring.append(m.v((rad * math.cos(t), rad * math.sin(t), z + dz)))
+        rings.append(ring)
+    ncol = len(cols)
+    for a, b in zip(rings, rings[1:]):
+        for k in range(ncol):
+            j = (k + 1) % ncol
+            m.quad(a[k], a[j], b[j], b[k], UP, ZONE_LAVA)
     cid = m.v((0.0, 0.0, z))
-    for i in range(n):
-        m.tri(cid, inner[i], inner[(i + 1) % n], want, zone)
+    last = rings[-1]
+    for k in range(ncol):
+        m.tri(cid, last[k], last[(k + 1) % ncol], UP, ZONE_LAVA)
 
 
 
@@ -1015,8 +1131,8 @@ def _rock(r):
 
     pit_wall = _Wall(m, ang, pit_z, pit, PIT_SUB, PIT_CAP, pit_zone)
 
-    # ---- courtyard floor: the tower's foot lands on it ----------------------
-    _disc(m, pit_wall, COURTYARD_Z, UP, ZONE_SHADE)
+    # ---- the lava sea: what the pit floor is, and what lights it ------------
+    _lava_sea(m, pit_wall, COURTYARD_Z, _Rng(LAVA_SEED))
 
     # ---- outer wall: deck up to the gallery ceiling ------------------------
     wall_z = [DECK_Z] + WALL_RINGS_Z + [CEIL_Z]
@@ -1069,7 +1185,7 @@ def _rock(r):
         for t in ts[1:-1]:
             pit_wall.add_xt(len(pit_wall.rows) - 1, t)
             shaft.add_xt(0, t)
-        _grid(m, pit[npit - 1][i], pit[npit - 1][j], wall[0][j], wall[0][i], UP, ZONE_ROCK,
+        _grid(m, pit[npit - 1][i], pit[npit - 1][j], wall[0][j], wall[0][i], UP, ZONE_DECK,
               ANG_SUB, deck_nv, edge_ab=[pit_wall.W(t, DECK_Z) for t in ts])
         _grid(m, upper[0][i], upper[0][j], wall[nwall - 1][j], wall[nwall - 1][i],
               (0.0, 0.0, -1.0), ZONE_ROCK, ANG_SUB, deck_nv, edge_ab=[shaft.W(t, CEIL_Z) for t in ts])
@@ -1119,6 +1235,66 @@ def _collider(ang):
 # UV -- per-face planar projection into a random window of its zone
 # =============================================================================
 
+def _lava_uv(me, uvl, poly):
+    """The sea is cut into LAVA_PATCH-metre patches; each takes its own window
+    of the sheet -- quarter-turn rotation, mirror, offset, 12..24 m per repeat.
+    The sheet is toroidal, so every one of those is still seamless, and the sea
+    repeats nowhere. Faces in a patch share the window, so the floor does not
+    break up face by face."""
+    cos = [me.vertices[me.loops[li].vertex_index].co for li in poly.loop_indices]
+    cx = sum(c[0] for c in cos) / len(cos)
+    cy = sum(c[1] for c in cos) / len(cos)
+    key = (int(math.floor(cx / LAVA_PATCH)) + 512) * 1021 + int(math.floor(cy / LAVA_PATCH)) + 512
+    q = _Rng(LAVA_SEED + key * 7919)
+    for _ in range(4):
+        q.n()
+    k = 1.0 / (LAVA_REPEAT[0] + q.f() * (LAVA_REPEAT[1] - LAVA_REPEAT[0]))
+    turns = q.i(0, 3)
+    mir = -1.0 if q.i(0, 1) else 1.0
+    ou, ov = q.f(), q.f()
+    for li, co in zip(poly.loop_indices, cos):
+        u, v = mir * co[0] * k, co[1] * k
+        for _ in range(turns):
+            u, v = -v, u
+        uvl.data[li].uv = (ou + u, ov + v)
+
+
+def _deck_uv(me, uvl, poly, zone, r):
+    """Deck facets project in (radius, arc), not world x-y: a facet's own extent
+    sets its texel density, so the ring's grain is even all the way round."""
+    u0, v0, u1, v1 = zone
+    span_u = (u1 - u0) - 2.0 * UV_PAD
+    span_v = (v1 - v0) - 2.0 * UV_PAD
+    cos = [me.vertices[me.loops[li].vertex_index].co for li in poly.loop_indices]
+    ac = math.atan2(sum(c[1] for c in cos), sum(c[0] for c in cos))
+    rc = sum(math.hypot(c[0], c[1]) for c in cos) / len(cos)
+    pts = []
+    for co in cos:
+        rad = math.hypot(co[0], co[1])
+        th = math.atan2(co[1], co[0])
+        th = ac + (th - ac + math.pi) % TWO_PI - math.pi
+        pts.append((rad * DECK_UV_SCALE, (th - ac) * rc * DECK_UV_SCALE))
+    mi = min(p[0] for p in pts)
+    mj = min(p[1] for p in pts)
+    w = max(p[0] for p in pts) - mi
+    h = max(p[1] for p in pts) - mj
+    k = min(1.0, 1.0 / max(w, h, EPS))     # widest deck facets: coarsen, never smear
+    pts = [(k * (p[0] - mi), k * (p[1] - mj)) for p in pts]
+    mi = mj = 0.0
+    w, h = k * w, k * h
+    ou, ov = r.f() * (1.0 - w), r.f() * (1.0 - h)
+    fu = -1.0 if r.i(0, 1) else 1.0
+    fv = -1.0 if r.i(0, 1) else 1.0
+    for li, p in zip(poly.loop_indices, pts):
+        s = min(ou + p[0] - mi, 1.0)
+        t = min(ov + p[1] - mj, 1.0)
+        if fu < 0.0:
+            s = 1.0 - s
+        if fv < 0.0:
+            t = 1.0 - t
+        uvl.data[li].uv = (u0 + UV_PAD + s * span_u, v0 + UV_PAD + t * span_v)
+
+
 def unwrap(ob, zones, seed=0):
     """Identical to tower_build.py's unwrap: fixed UV_SCALE texel density, no
     per-face scale reduction. Every face here is now <=3 m, so nothing needs
@@ -1128,7 +1304,14 @@ def unwrap(ob, zones, seed=0):
     uvl = me.uv_layers.new(name="UVMap")
     r = _Rng(TEX_SEED + seed * 7919 + len(me.polygons))
     for pi, poly in enumerate(me.polygons):
-        u0, v0, u1, v1 = zones[pi]
+        zone = zones[pi]
+        if zone[0] == "lava":                    # own sheet: its own window per face
+            _lava_uv(me, uvl, poly)
+            continue
+        if zone[0] == "deck":                    # radial/tangential, finer tiling
+            _deck_uv(me, uvl, poly, zone[1:], r)
+            continue
+        u0, v0, u1, v1 = zone
         span_u = (u1 - u0) - 2.0 * UV_PAD
         span_v = (v1 - v0) - 2.0 * UV_PAD
         nrm = poly.normal
@@ -1160,10 +1343,18 @@ def unwrap(ob, zones, seed=0):
 def _deck_render(spec, objects):
     """Arena light (bentham_ring's red sun), hand-placed cameras via TRACK_TO."""
     scene = bpy.context.scene
-    scene.render.engine = "BLENDER_EEVEE"
-    mdl._try(scene.eevee, "taa_render_samples", int(spec.get("samples", 64)))
-    mdl._try(scene.eevee, "use_shadows", True)
-    mdl._try(scene.eevee, "use_raytracing", True)
+    # EEVEE needs a GPU and a console session; --cpu runs over plain ssh, where
+    # it takes the process down mid-render. Follow the spec, as mdl does.
+    if spec.get("engine", "eevee").lower() == "cycles":
+        scene.render.engine = "CYCLES"
+        scene.cycles.device = "CPU"
+        scene.cycles.samples = int(spec.get("samples", 64))
+        scene.cycles.use_denoising = True
+    else:
+        scene.render.engine = "BLENDER_EEVEE"
+        mdl._try(scene.eevee, "taa_render_samples", int(spec.get("samples", 64)))
+        mdl._try(scene.eevee, "use_shadows", True)
+        mdl._try(scene.eevee, "use_raytracing", True)
     scene.render.image_settings.file_format = "PNG"
     scene.render.film_transparent = False
     mdl._try(scene.view_settings, "view_transform", "Standard")
@@ -1205,6 +1396,10 @@ def _deck_render(spec, objects):
          24.0, (1200, 750))
     shot("guard", (0.0, 0.0, DECK_Z), (lane, 30.0, DECK_Z - 4.0), 24.0, (1200, 750))
     shot("shaft", (0.0, -10.0, COURTYARD_Z + EYE_H), (0.0, 26.0, 160.0), 16.0, (900, 1200))
+    shot("pit", (INNER_R - 0.6, 0.0, DECK_Z + EYE_H), (14.0, 6.0, COURTYARD_Z),
+         22.0, (1200, 900))
+    shot("floor", (lane, 0.0, DECK_Z + 5.0), (lane - 3.0, 7.0, DECK_Z),
+         30.0, (1200, 900))
     if CELLS:
         cm, out, w, h = max([c for c in CELLS if c[0][2] < DECK_Z] or CELLS,
                             key=lambda c: c[3])
@@ -1227,15 +1422,24 @@ def build():
     albedo, emissive = build_texture()
     mdl.save_texture(albedo)
     mdl.save_texture(emissive)
+    lava_albedo, lava_emissive = _lava_texture()
+    mdl.save_texture(lava_albedo)
+    mdl.save_texture(lava_emissive)
 
     ob = rock.object(OBJECT_NAME)
     unwrap(ob, rock.zones)
     mdl.finish(ob, rock_material("HellRock", albedo, emissive), strip_uvs=False)
+    ob.data.materials.append(rock_material("LavaSea", lava_albedo, lava_emissive))
+    lava_tris = 0
+    for pi, poly in enumerate(ob.data.polygons):
+        if rock.zones[pi][0] == "lava":
+            poly.material_index = 1
+            lava_tris += 1
 
     coll_ob = coll.object(COLLIDER_NAME)
     coll_ob.hide_render = True
-    print("MDL STATS visual_tris=%d collision_tris=%d"
-          % (len(ob.data.polygons), len(coll_ob.data.polygons)))
+    print("MDL STATS visual_tris=%d collision_tris=%d lava_tris=%d deck_uv=%.2f"
+          % (len(ob.data.polygons), len(coll_ob.data.polygons), lava_tris, DECK_UV_SCALE))
     print("MDL STATS cells=%d pit=%d pit_top=%.1f uniform_to=%.0f above200=%d top=%.0f"
           % (len(CELLS), sum(1 for c in CELLS if c[0][2] < DECK_Z),
              max(c[0][2] + 0.5 * c[3] for c in CELLS if c[0][2] < DECK_Z), UNIFORM_TOP,
