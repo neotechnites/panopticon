@@ -11,7 +11,7 @@ const GROUP: StringName = &"ring_navigation"
 const AGENT_RADIUS: float = 0.75
 ## Whole cell_height multiples: the baker rounds them anyway and warns otherwise.
 const AGENT_HEIGHT: float = 2.0
-const AGENT_MAX_CLIMB: float = 0.5
+const AGENT_MAX_CLIMB: float = 0.25
 const AGENT_MAX_SLOPE_DEGREES: float = 40.0
 const CELL_SIZE: float = 0.25
 const CELL_HEIGHT: float = 0.25
@@ -22,6 +22,9 @@ const CELL_HEIGHT: float = 0.25
 ## pushing the funnel's corner-cut clear of the raw hazard box.
 const HAZARD_INFLATION_METRES: float = 0.8
 const HAZARD_VERTICAL_MARGIN_METRES: float = 1.0
+## How far above a trap's own base the carve reaches. A trap poisons the floor it sits on;
+## anything standing higher than this is a platform in it, and keeps its navmesh.
+const HAZARD_CARVE_ABOVE_METRES: float = 0.4
 ## Deck edges are carved this far inboard of a level's authored inner/outer radius.
 const EDGE_MARGIN_METRES: float = 1.0
 const EDGE_SEGMENTS: int = 48
@@ -39,6 +42,22 @@ const LINK_LAND_TOLERANCE_METRES: float = 0.4
 const PAD_CARVE_MARGIN_METRES: float = 0.5
 const DEFAULT_GRAVITY: float = 22.0
 
+## Islands the carve leaves over a hazard -- platform tops in a lava lake, and the shores
+## either side -- are joined by a NavigationLink3D wherever the body's jump reaches.
+const JUMP_LINK_MAX: int = 48
+const JUMP_MIN_METRES: float = 1.2
+const JUMP_MAX_DROP_METRES: float = 2.5
+## Fraction of the ballistic reach a link may ask for, and metres of apex kept in hand.
+const JUMP_REACH_SAFETY: float = 0.85
+const JUMP_RISE_CLEARANCE_METRES: float = 0.15
+## A link end sits this far inside its polygon, so a landing aims at the platform, not its lip.
+const JUMP_LINK_INSET_METRES: float = 0.5
+## Boundary edges further than this from a carved trap footprint are never linked.
+const JUMP_HAZARD_REACH_METRES: float = 6.0
+const JUMP_HAZARD_HEIGHT_METRES: float = 4.0
+const JUMP_LINK_TRAVEL_COST: float = 1.0
+const JUMP_LINK_MATCH_METRES: float = 1.2
+
 var _polygons: int = 0
 var _bake_ms: int = 0
 var _synced: bool = false
@@ -54,6 +73,11 @@ var _movement: MovementProfile = null
 var _links: Array[NavigationLink3D] = []
 var _dead_pads: Array[BoostPad] = []
 var _links_refined: bool = false
+var _jump_nodes: Array[NavigationLink3D] = []
+var _jump_plans: Array[Dictionary] = []
+var _hazard_boxes: Array[Dictionary] = []
+var _jump_options: Array[Dictionary] = []
+var _root_transform: Transform3D = Transform3D.IDENTITY
 
 ## Regions by level-root instance id; the tree cannot be asked while the root is still readying.
 static var _by_root: Dictionary = {}
@@ -129,6 +153,7 @@ func bake_from(
 	var root_3d: Node3D = root as Node3D
 	if root_3d != null:
 		into_root = root_3d.global_transform.affine_inverse()
+	_root_transform = into_root.affine_inverse()
 
 	var mesh: NavigationMesh = NavigationMesh.new()
 	mesh.geometry_parsed_geometry_type = NavigationMesh.PARSED_GEOMETRY_STATIC_COLLIDERS
@@ -157,10 +182,11 @@ func bake_from(
 		NavigationServer3D.bake_from_source_geometry_data(mesh, source)
 		navigation_mesh = mesh
 	_build_pad_links(root, into_root)
+	var jumps: int = _build_jump_links()
 	_polygons = mesh.get_polygon_count()
 	_bake_ms = Time.get_ticks_msec() - started
 	charge("bake", started_usec)
-	print("RingNavigation: baked %d polygons, %d traps, %d deck edges, %d dead pads carved, %d pad links, in %d ms" % [_polygons, carved, edges, dead, _links.size(), _bake_ms])
+	print("RingNavigation: baked %d polygons, %d traps, %d deck edges, %d dead pads carved, %d pad links, %d jump links, in %d ms" % [_polygons, carved, edges, dead, _links.size(), jumps, _bake_ms])
 
 
 func get_polygon_count() -> int:
@@ -186,6 +212,7 @@ func is_ready() -> bool:
 	if _synced and not _links_refined:
 		_links_refined = true
 		_refine_pad_links()
+		_refine_jump_links()
 	return _synced
 
 
@@ -237,7 +264,7 @@ func _carve_traps(node: Node, source: NavigationMeshSourceGeometryData3D, into_r
 		source.add_projected_obstruction(
 			corners,
 			bottom - HAZARD_VERTICAL_MARGIN_METRES,
-			trap.size_metres.y + 2.0 * HAZARD_VERTICAL_MARGIN_METRES,
+			HAZARD_VERTICAL_MARGIN_METRES + HAZARD_CARVE_ABOVE_METRES,
 			true,
 		)
 		carved += 1
@@ -536,3 +563,340 @@ func _first_blocking_floor(
 
 static func _ring_point(centre: Vector3, angle: float, radius: float, height: float) -> Vector3:
 	return Vector3(centre.x + cos(angle) * radius, height, centre.z + sin(angle) * radius)
+
+
+# --- Jump links ---------------------------------------------------------------
+
+## True when [param world_point] stands over a carved trap footprint widened by [param margin].
+func point_over_hazard(world_point: Vector3, margin: float = 0.0) -> bool:
+	return _hazard_footprint_distance(world_point) <= margin
+
+
+## Every jump a body could take, both ways round a two-way link: where it leaves from,
+## where it lands, the ground speed it wants and the seconds it spends in the air.
+func jump_link_options() -> Array[Dictionary]:
+	return _jump_options
+
+
+## What a runner needs from the link between two path points -- the ground speed to take off
+## at -- or {} when the pair is not a jump of ours.
+func jump_link_between(entry: Vector3, exit: Vector3) -> Dictionary:
+	for index: int in _jump_nodes.size():
+		var link: NavigationLink3D = _jump_nodes[index]
+		if not link.enabled:
+			continue
+		var plan: Dictionary = _jump_plans[index]
+		var start: Vector3 = link.get_global_start_position()
+		var end: Vector3 = link.get_global_end_position()
+		if _pair_matches(entry, exit, start, end):
+			return {"speed": float(plan["speed"]), "air": float(plan["air"])}
+		if bool(plan["both"]) and _pair_matches(entry, exit, end, start):
+			return {"speed": float(plan["back"]), "air": float(plan["air_back"])}
+	return {}
+
+
+static func _pair_matches(entry: Vector3, exit: Vector3, start: Vector3, end: Vector3) -> bool:
+	return Vector2(entry.x - start.x, entry.z - start.z).length() <= JUMP_LINK_MATCH_METRES \
+		and Vector2(exit.x - end.x, exit.z - end.z).length() <= JUMP_LINK_MATCH_METRES
+
+
+func _free_jump_links() -> void:
+	for link: NavigationLink3D in _jump_nodes:
+		link.queue_free()
+	_jump_nodes.clear()
+	_jump_plans.clear()
+
+
+## One link per pair of islands whose boundaries meet over a carved trap, carrying the
+## crossings that pair offers. [method _refine_jump_links] picks which one it flies.
+func _build_jump_links() -> int:
+	_free_jump_links()
+	if _movement == null or navigation_mesh == null:
+		return 0
+	_build_hazard_boxes()
+	if _hazard_boxes.is_empty():
+		return 0
+	var edges: Array[Dictionary] = _hazard_boundary_edges()
+	if edges.size() < 2:
+		return 0
+
+	var cell: float = maxf(_jump_max_span(), 1.0) + 1.0
+	var grid: Dictionary = {}
+	for index: int in edges.size():
+		var home: Vector2i = _edge_cell(edges[index], cell)
+		var bucket: Array = grid.get(home, [])
+		bucket.append(index)
+		grid[home] = bucket
+
+	var best: Dictionary = {}
+	for index: int in edges.size():
+		var home: Vector2i = _edge_cell(edges[index], cell)
+		for dx: int in range(-1, 2):
+			for dz: int in range(-1, 2):
+				for other: int in grid.get(home + Vector2i(dx, dz), []) as Array:
+					if other > index:
+						_consider_jump(edges[index], edges[other], best)
+
+	var ranked: Array = []
+	for pair: Vector2i in best:
+		var options: Array = (best[pair] as Dictionary).values()
+		options.sort_custom(
+			func(x: Dictionary, y: Dictionary) -> bool: return float(x["span"]) < float(y["span"])
+		)
+		ranked.append(options)
+	ranked.sort_custom(func(x: Array, y: Array) -> bool:
+		return float((x[0] as Dictionary)["span"]) < float((y[0] as Dictionary)["span"]))
+
+	for options: Array in ranked:
+		if _jump_nodes.size() >= JUMP_LINK_MAX:
+			break
+		var first: Dictionary = options[0]
+		var link: NavigationLink3D = NavigationLink3D.new()
+		link.name = "JumpLink_%d" % _jump_nodes.size()
+		link.travel_cost = JUMP_LINK_TRAVEL_COST
+		link.enabled = false
+		link.start_position = first["start"]
+		link.end_position = first["end"]
+		add_child(link)
+		_jump_nodes.append(link)
+		_jump_plans.append({
+			"options": options, "speed": 0.0, "back": 0.0, "air": 0.0, "air_back": 0.0, "both": false,
+		})
+	return _jump_nodes.size()
+
+
+static func _edge_cell(edge: Dictionary, cell: float) -> Vector2i:
+	var from: Vector3 = edge["from"]
+	var to: Vector3 = edge["to"]
+	return Vector2i(int(floor((from.x + to.x) * 0.5 / cell)), int(floor((from.z + to.z) * 0.5 / cell)))
+
+
+## Keep the shortest crossing this island pair has in each metre of span, so a landing the
+## baked heights misjudge does not hide a longer one onto the same platform.
+func _consider_jump(a: Dictionary, b: Dictionary, best: Dictionary) -> void:
+	if int(a["island"]) == int(b["island"]):
+		return
+	if not bool(a["inside"]) and not bool(b["inside"]):
+		return
+	var near: PackedVector3Array = Geometry3D.get_closest_points_between_segments(
+		a["from"], a["to"], b["from"], b["to"]
+	)
+	var start: Vector3 = _nudge_inwards(near[0], a["centre"])
+	var end: Vector3 = _nudge_inwards(near[1], b["centre"])
+	var span: float = Vector2(end.x - start.x, end.z - start.z).length()
+	if span < JUMP_MIN_METRES or span > _jump_max_span():
+		return
+	var pair: Vector2i = Vector2i(mini(a["island"], b["island"]), maxi(a["island"], b["island"]))
+	var options: Dictionary = best.get(pair, {})
+	var slot: int = int(span)
+	var held: Dictionary = options.get(slot, {})
+	if held.is_empty() or span < float(held["span"]):
+		options[slot] = {"start": start, "end": end, "span": span}
+	best[pair] = options
+
+
+## Pick each link's crossing from the floor a body really stands on: the bake rounds a
+## surface to the cell height, which is a quarter of the apex the decision turns on.
+func _refine_jump_links() -> void:
+	var world: World3D = get_world_3d()
+	var space: PhysicsDirectSpaceState3D = world.direct_space_state if world != null else null
+	if space == null or _movement == null:
+		return
+	_jump_options.clear()
+	for index: int in _jump_nodes.size():
+		var link: NavigationLink3D = _jump_nodes[index]
+		var plan: Dictionary = _jump_plans[index]
+		link.enabled = false
+		# Every crossing this pair offers is measured, not just the shortest: a two-way
+		# hop onto a platform beats a one-way drop off it, whatever their spans.
+		for option: Dictionary in plan["options"] as Array:
+			var span: float = float(option["span"])
+			var low: float = _floor_under(space, global_transform * (option["start"] as Vector3))
+			var high: float = _floor_under(space, global_transform * (option["end"] as Vector3))
+			var out: float = _takeoff_speed(span, high - low)
+			var back: float = _takeoff_speed(span, low - high)
+			if out < 0.0 and back < 0.0:
+				continue
+			if link.enabled and not (out >= 0.0 and back >= 0.0 and not bool(plan["both"])):
+				continue
+			var forward: bool = out >= 0.0
+			link.start_position = option["start"] if forward else option["end"]
+			link.end_position = option["end"] if forward else option["start"]
+			plan["speed"] = out if forward else back
+			plan["back"] = back if forward else -1.0
+			plan["air"] = _jump_air(high - low) if forward else _jump_air(low - high)
+			plan["air_back"] = _jump_air(low - high) if forward else 0.0
+			plan["both"] = out >= 0.0 and back >= 0.0
+			link.bidirectional = bool(plan["both"])
+			link.enabled = true
+		_jump_plans[index] = plan
+		if link.enabled:
+			_jump_options.append({
+				"entry": link.get_global_start_position(),
+				"exit": link.get_global_end_position(),
+				"speed": float(plan["speed"]),
+				"air": float(plan["air"]),
+			})
+			if bool(plan["both"]):
+				_jump_options.append({
+					"entry": link.get_global_end_position(),
+					"exit": link.get_global_start_position(),
+					"speed": float(plan["back"]),
+					"air": float(plan["air_back"]),
+				})
+
+
+## The static floor under [param point], or its own height when nothing is beneath it.
+func _floor_under(space: PhysicsDirectSpaceState3D, point: Vector3) -> float:
+	var query: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(
+		point + Vector3.UP * 1.5, point + Vector3.DOWN * 2.0
+	)
+	query.collision_mask = STATIC_COLLIDER_MASK
+	query.collide_with_areas = false
+	var hit: Dictionary = space.intersect_ray(query)
+	return (hit["position"] as Vector3).y if not hit.is_empty() else point.y
+
+
+## Ground speed a jump needs to clear [param span] onto ground [param rise] above it, or -1
+## when the apex cannot reach that height or the run cannot reach that distance.
+## [param slack] forgives the cell height the baked mesh rounds a surface by.
+func _takeoff_speed(span: float, rise: float, slack: float = 0.0) -> float:
+	if rise - slack > _movement.get_jump_apex_height() - JUMP_RISE_CLEARANCE_METRES:
+		return -1.0
+	if rise < -JUMP_MAX_DROP_METRES:
+		return -1.0
+	var speed: float = span / maxf(_jump_air(rise), 0.001)
+	return speed if speed <= _movement.ground_speed * JUMP_REACH_SAFETY else -1.0
+
+
+## Seconds a jump spends in the air before it is back at [param rise] above its take-off.
+func _jump_air(rise: float) -> float:
+	var launch: float = _movement.jump_velocity
+	return (launch + sqrt(maxf(launch * launch - 2.0 * _gravity * rise, 0.0))) / maxf(_gravity, 0.1)
+
+
+## Longest jump the profile could ever make, used to size the candidate search.
+func _jump_max_span() -> float:
+	var launch: float = _movement.jump_velocity
+	var air: float = (launch + sqrt(launch * launch + 2.0 * _gravity * JUMP_MAX_DROP_METRES)) / maxf(_gravity, 0.1)
+	return _movement.ground_speed * JUMP_REACH_SAFETY * air
+
+
+static func _nudge_inwards(point: Vector3, centre: Vector3) -> Vector3:
+	var reach: float = Vector2(centre.x - point.x, centre.z - point.z).length()
+	if reach < 0.01:
+		return point
+	return point.lerp(centre, minf(JUMP_LINK_INSET_METRES, reach) / reach)
+
+
+## Every mesh edge with one polygon behind it that lies within reach of a carved trap,
+## carrying the island (polygons joined edge to edge) it belongs to.
+func _hazard_boundary_edges() -> Array[Dictionary]:
+	var vertices: PackedVector3Array = navigation_mesh.get_vertices()
+	var polygons: int = navigation_mesh.get_polygon_count()
+	var stride: int = maxi(vertices.size(), 1)
+	var owner: Array[int] = []
+	owner.resize(polygons)
+	for index: int in polygons:
+		owner[index] = index
+	var first: Dictionary = {}
+	var shared: Dictionary = {}
+	for index: int in polygons:
+		var polygon: PackedInt32Array = navigation_mesh.get_polygon(index)
+		for corner: int in polygon.size():
+			var key: int = _edge_key(polygon[corner], polygon[(corner + 1) % polygon.size()], stride)
+			if first.has(key):
+				_join(owner, index, int(first[key]))
+				shared[key] = true
+			else:
+				first[key] = index
+
+	var edges: Array[Dictionary] = []
+	for index: int in polygons:
+		var polygon: PackedInt32Array = navigation_mesh.get_polygon(index)
+		if polygon.size() < 3:
+			continue
+		var centre: Vector3 = Vector3.ZERO
+		for corner: int in polygon:
+			centre += vertices[corner]
+		centre /= float(polygon.size())
+		for corner: int in polygon.size():
+			var a: int = polygon[corner]
+			var b: int = polygon[(corner + 1) % polygon.size()]
+			if shared.has(_edge_key(a, b, stride)):
+				continue
+			var reach: float = _hazard_footprint_distance(_root_transform * ((vertices[a] + vertices[b]) * 0.5))
+			if reach > JUMP_HAZARD_REACH_METRES:
+				continue
+			edges.append({
+				"from": vertices[a],
+				"to": vertices[b],
+				"centre": centre,
+				"island": _join_root(owner, index),
+				"inside": reach <= 0.0,
+			})
+	return edges
+
+
+static func _edge_key(a: int, b: int, stride: int) -> int:
+	return mini(a, b) * stride + maxi(a, b)
+
+
+static func _join_root(owner: Array[int], node: int) -> int:
+	var cursor: int = node
+	while owner[cursor] != cursor:
+		owner[cursor] = owner[owner[cursor]]
+		cursor = owner[cursor]
+	return cursor
+
+
+static func _join(owner: Array[int], a: int, b: int) -> void:
+	var left: int = _join_root(owner, a)
+	var right: int = _join_root(owner, b)
+	if left != right:
+		owner[right] = left
+
+
+## Trap footprints in the shape the carve used them, so "over a hazard" and "carved" agree.
+func _build_hazard_boxes() -> void:
+	_hazard_boxes.clear()
+	for volume: Node3D in _hazard_volumes:
+		var trap: TrapVolume = volume as TrapVolume
+		if trap == null:
+			continue
+		var world: Transform3D = trap.global_transform
+		var half: Vector3 = trap.size_metres * 0.5
+		var scale_x: float = maxf(world.basis.x.length(), 0.001)
+		var scale_z: float = maxf(world.basis.z.length(), 0.001)
+		var extent: float = Vector2(
+			(half.x + HAZARD_INFLATION_METRES) * scale_x, (half.z + HAZARD_INFLATION_METRES) * scale_z
+		).length() + JUMP_HAZARD_REACH_METRES
+		_hazard_boxes.append({
+			"inverse": world.affine_inverse(),
+			"centre": world.origin,
+			"reach_squared": extent * extent,
+			"half": Vector3(half.x + HAZARD_INFLATION_METRES, half.y, half.z + HAZARD_INFLATION_METRES),
+			"scale": Vector2(scale_x, scale_z),
+		})
+
+
+## Metres from [param world_point] to the nearest carved trap footprint, 0.0 inside it, INF
+## when no trap stands near enough in height to matter.
+func _hazard_footprint_distance(world_point: Vector3) -> float:
+	var best: float = INF
+	for box: Dictionary in _hazard_boxes:
+		var centre: Vector3 = box["centre"]
+		if Vector2(world_point.x - centre.x, world_point.z - centre.z).length_squared() > float(box["reach_squared"]):
+			continue
+		var half: Vector3 = box["half"]
+		var local: Vector3 = (box["inverse"] as Transform3D) * world_point
+		if absf(local.y) > half.y + JUMP_HAZARD_HEIGHT_METRES:
+			continue
+		var scale: Vector2 = box["scale"]
+		var gap: Vector2 = Vector2(
+			maxf(absf(local.x) - half.x, 0.0) * scale.x, maxf(absf(local.z) - half.z, 0.0) * scale.y
+		)
+		best = minf(best, gap.length())
+		if best <= 0.0:
+			return 0.0
+	return best
