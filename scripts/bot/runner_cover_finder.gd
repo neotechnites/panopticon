@@ -107,6 +107,14 @@ var _probes: int = 0
 
 ## Resumable search state: the step to probe next and the pose it was started from.
 const RESUME_MOVE_METRES: float = 3.0
+
+## Raycasts every runner's cover search may spend per physics frame, shared.
+const RAYS_PER_FRAME: int = 80
+static var _ray_frame: int = -1
+static var _rays_spent: int = 0
+var _radius_index: int = 0
+var _best: Vector3 = Vector3.ZERO
+var _best_deviation: float = INF
 var _step: int = 1
 var _complete: bool = true
 var _key_from: Vector3 = Vector3.ZERO
@@ -159,6 +167,7 @@ func search(
 		_arc_gain = 0.0
 		_probes = 0
 		_step = 1
+		_radius_index = 0
 		_complete = false
 		_key_from = from_position
 		_key_eye = eye
@@ -191,10 +200,19 @@ func search(
 			return false
 		probed += maxi(profile.cover_search_radial_steps, 1)
 		var angle: float = from_angle + travel_sign * step_arc
-		var best: Vector3 = Vector3.ZERO
-		var best_deviation: float = INF
+		if _radius_index == 0:
+			_best = Vector3.ZERO
+			_best_deviation = INF
+		var radii: PackedFloat32Array = _radii(profile, from_radius)
 
-		for radius: float in _radii(profile, from_radius):
+		for ri: int in range(_radius_index, radii.size()):
+			if not _rays_left():
+				# Out of rays this frame; pick up at this candidate next tick.
+				_step = step
+				_radius_index = ri
+				RingNavigation.charge("cover", since)
+				return false
+			var radius: float = radii[ri]
 			var point: Vector3 = _point_at(centre, angle, radius, from_position.y)
 			_probes += 1
 			# Cheapest rejection first. See probe 5 in the class docs.
@@ -215,12 +233,13 @@ func search(
 			if not path_is_walkable(space, profile, from_position, point):
 				continue
 			var deviation: float = absf(radius - track_radius)
-			if deviation < best_deviation:
-				best_deviation = deviation
-				best = point
+			if deviation < _best_deviation:
+				_best_deviation = deviation
+				_best = point
+		_radius_index = 0
 
-		if best_deviation < INF:
-			_position = best
+		if _best_deviation < INF:
+			_position = _best
 			_arc_gain = step_arc
 			_found = true
 			_complete = true
@@ -372,6 +391,18 @@ static func segment_crosses_hazard(
 
 # --- Probes -------------------------------------------------------------------
 
+static func _spend_ray() -> void:
+	var frame: int = Engine.get_physics_frames()
+	if frame != _ray_frame:
+		_ray_frame = frame
+		_rays_spent = 0
+	_rays_spent += 1
+
+
+static func _rays_left() -> bool:
+	return Engine.get_physics_frames() != _ray_frame or _rays_spent < RAYS_PER_FRAME
+
+
 ## True when a downward ray at [param point] finds a floor within
 ## [member RunnerProfile.cover_max_step_height] of [param feet_y].
 ## [b]It starts JUST above the step, not twenty metres up, and that is the whole
@@ -395,6 +426,7 @@ static func _floor_within_a_step(
 	query.collide_with_areas = false
 	query.collide_with_bodies = true
 
+	_spend_ray()
 	var hit: Dictionary = space.intersect_ray(query)
 	if hit.is_empty():
 		return false
@@ -407,6 +439,7 @@ func _is_hidden(
 	perception: RunnerPerception, profile: RunnerProfile, point: Vector3, threat_eye: Vector3
 ) -> bool:
 	var chest: Vector3 = point + Vector3.UP * profile.cover_test_height
+	_spend_ray()
 	return not perception.has_clear_line(chest, threat_eye)
 
 
