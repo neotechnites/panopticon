@@ -82,7 +82,7 @@ PART_ZONE = {
 }
 
 # ---- master proportions (metres) -------------------------------------------
-HEIGHT       = 1.785   # crown; the hunch spends the rest of the 1.8 envelope
+HEIGHT       = 1.790   # crown; the hunch spends the rest of the 1.8 envelope
 HIP_Z        = 0.900
 SPINE_Z      = 1.020
 
@@ -170,28 +170,54 @@ SHIN_RINGS  = [(-0.008, 0.040, 0.044),   # knee, from below
 FOOT_SOLE  = dict(x=(0.022, 0.112), y=(-0.190, 0.050), z=0.000)
 FOOT_ANKLE = dict(x=(0.032, 0.098), y=(-0.075, 0.052), z=0.112)
 
-# The shoulder blades that stand out of the hunched back. World-space plates,
-# bound to Spine, (x0, x1, z0, z1) on the body and proud of it.
-BLADE_IN  = dict(x=(0.026, 0.104), y=0.012, z=(1.175, 1.290))
-BLADE_OUT = dict(x=(0.038, 0.090), y=0.062, z=(1.200, 1.272))
-
 # ---- the head ---------------------------------------------------------------
-# The biggest thing on him: 0.30 wide, 0.42 long, 0.31 tall, on a 0.05 m neck,
-# so it overhangs front, back and both sides. Built as vertical cross-sections
-# lofted front to back; each section is an 8-point polygon
-#   (y, z_apex, w_temple, z_temple, w_cheek, z_cheek, w_jaw, z_jaw, z_keel)
-# so the model carries a ridged cranium (apex), temple and cheek planes, a jaw
-# step in under the cheek, and a keel under the chin. Nothing is round.
+# A face built out of planes, on a tall back-swept cranium. Three sections --
+# the flat face, the cheekbone, the nape -- each authored as a 5-row by 5-column
+# lattice, (z, half_width) per row; the 16 border points of one section stitch
+# straight to the next, and the front section's 25 points ARE the face, so the
+# brow, eye sockets, cheeks, mouth and chin are all separate hard quads.
+#
+#   row 0 brow    -- juts forward; the plane below it is the overhang
+#   row 1 eye     -- pushed BACK except at the centre, so the sockets are hollows
+#   row 2 cheek   -- the widest line on the whole model
+#   row 3 mouth
+#   row 4 chin    -- a small forward point
+HEAD_COLS = [1.0, 0.44, 0.0, -0.44, -1.0]
+
+HEAD_FACE_Y = -0.245
+HEAD_FACE_ROWS = [(1.648, 0.098),   # brow
+                  (1.598, 0.115),   # eye
+                  (1.552, 0.118),   # cheek
+                  (1.508, 0.070),   # mouth
+                  (1.466, 0.030)]   # chin
+# y offset per (row, col): negative is forward, positive is back into the skull.
+HEAD_FACE_DY = [
+    [-0.014, -0.014, -0.014, -0.014, -0.014],   # the brow ridge, overhanging
+    [ 0.006,  0.034,  0.000,  0.034,  0.006],   # sockets back, nose bridge out;
+    [ 0.010,  0.016,  0.000,  0.016,  0.010],   # the outer column stays put, or
+    [ 0.020,  0.026,  0.026,  0.026,  0.020],   # the hollow cuts a groove round
+    [ 0.014,  0.014,  0.014,  0.014,  0.014],   # the whole skull. Chin, forward
+]                                               # of the mouth and under the brow
+
 HEAD_SECTIONS = [
-    (-0.335, 1.605, 0.014, 1.592, 0.018, 1.572, 0.012, 1.556, 1.548),  # nose tip
-    (-0.250, 1.660, 0.052, 1.628, 0.062, 1.570, 0.034, 1.516, 1.500),  # nose wedge
-    (-0.185, 1.735, 0.105, 1.672, 0.132, 1.572, 0.064, 1.500, 1.478),  # brow ridge
-    (-0.105, 1.785, 0.112, 1.690, 0.150, 1.575, 0.070, 1.486, 1.462),  # cheekbone
-    (-0.062, 1.782, 0.112, 1.688, 0.150, 1.574, 0.070, 1.487, 1.464),  # peak
-    (-0.020, 1.760, 0.108, 1.672, 0.146, 1.570, 0.068, 1.488, 1.466),
-    ( 0.065, 1.690, 0.088, 1.630, 0.118, 1.562, 0.056, 1.508, 1.492),  # back skull
-    ( 0.115, 1.612, 0.042, 1.590, 0.052, 1.556, 0.028, 1.532, 1.524),
+    (-0.120, [(1.702, 0.086), (1.634, 0.140), (1.566, 0.150),
+              (1.512, 0.072), (1.478, 0.056)]),   # cheekbone: 0.30 across
+    ( 0.105, [(1.790, 0.048), (1.716, 0.070), (1.626, 0.078),
+              (1.570, 0.056), (1.548, 0.042)]),   # peak and nape
 ]
+
+# Face quads that take the dark atlas cell: the two eye hollows under the brow,
+# and the mouth. Indexed (row_band * 4 + column_band) into the face lattice.
+HEAD_DARK_QUADS = (0, 3, 13, 14)
+
+# The nose: a pyramid off the bridge, 0.075 m proud of the face, flat beneath.
+HEAD_NOSE_TOP = (0.030, 1.598)     # half-width, z of the base's top edge
+HEAD_NOSE_BOT = (0.042, 1.516)
+HEAD_NOSE_TIP = (0.0, -0.320, 1.546)
+
+# One flat wedge each side for an ear, 4 triangles apiece.
+HEAD_EAR = [(0.145, -0.045, 1.640), (0.145, 0.010, 1.600),
+            (0.145, -0.040, 1.560), (0.172, -0.030, 1.604)]
 
 # ---- run cycle (the runner's, verbatim) -------------------------------------
 CYCLE_FRAMES = 20
@@ -335,41 +361,75 @@ def _outward(name, verts, faces):
     return mdl.mesh(name, verts, fixed)
 
 
+def _head_point(y, rows, r, c, dy=None):
+    z, w = rows[r]
+    return (w * HEAD_COLS[c], y + (dy[r][c] if dy else 0.0), z)
+
+
+def _head_ring(first):
+    """The 16 border indices of a 5x5 lattice, in one order round the section."""
+    g = lambda r, c: first + r * 5 + c
+    return ([g(0, c) for c in range(5)]
+            + [g(r, 4) for r in (1, 2, 3)]
+            + [g(4, c) for c in range(4, -1, -1)]
+            + [g(r, 0) for r in (3, 2, 1)])
+
+
 def build_head():
-    """The skull: HEAD_SECTIONS lofted front to back, stitched with hard quads."""
-    verts, rings = [], []
-    for (y, z_top, w_up, z_up, w_mid, z_mid, w_lo, z_lo, z_bot) in HEAD_SECTIONS:
-        base = len(verts)
-        verts += [(0.0, y, z_top),
-                  (w_up, y, z_up), (w_mid, y, z_mid), (w_lo, y, z_lo),
-                  (0.0, y, z_bot),
-                  (-w_lo, y, z_lo), (-w_mid, y, z_mid), (-w_up, y, z_up)]
-        rings.append(list(range(base, base + 8)))
+    """The skull, as (object, per-face atlas zone). Every surface is a plane."""
+    verts, faces, zones = [], [], []
 
-    faces = []
+    # The face: a 5x5 lattice of hard quads, brow to chin.
+    for r in range(5):
+        for c in range(5):
+            verts.append(_head_point(HEAD_FACE_Y, HEAD_FACE_ROWS, r, c,
+                                     HEAD_FACE_DY))
+    for r in range(4):
+        for c in range(4):
+            faces.append((r * 5 + c, r * 5 + c + 1,
+                          (r + 1) * 5 + c + 1, (r + 1) * 5 + c))
+            zones.append(ZONE_DARK if len(faces) - 1 in HEAD_DARK_QUADS
+                         else PART_ZONE["Head"])
+
+    # Cheekbone and nape sections, stitched border to border.
+    rings = [_head_ring(0)]
+    for (y, rows) in HEAD_SECTIONS:
+        first = len(verts)
+        for r in range(5):
+            for c in range(5):
+                verts.append(_head_point(y, rows, r, c))
+        rings.append(_head_ring(first))
     for a, b in zip(rings, rings[1:]):
-        for i in range(8):
-            j = (i + 1) % 8
+        for i in range(16):
+            j = (i + 1) % 16
             faces.append((a[i], a[j], b[j], b[i]))
-    faces.append(tuple(rings[0]))
-    faces.append(tuple(rings[-1]))
-    return _outward("Head", verts, faces)
+            zones.append(PART_ZONE["Head"])
+    faces.append(tuple(rings[-1]))          # the flat nape plane
+    zones.append(ZONE_DARK)
 
+    # The nose, a pyramid standing off the bridge with a flat underside.
+    wt, zt = HEAD_NOSE_TOP
+    wb, zb = HEAD_NOSE_BOT
+    base = len(verts)
+    verts += [(wt, HEAD_FACE_Y, zt), (-wt, HEAD_FACE_Y, zt),
+              (-wb, HEAD_FACE_Y, zb), (wb, HEAD_FACE_Y, zb), HEAD_NOSE_TIP]
+    tip = base + 4
+    for i in range(4):
+        faces.append((tip, base + i, base + (i + 1) % 4))
+        zones.append(PART_ZONE["Head"])
+    faces.append((base, base + 1, base + 2, base + 3))
+    zones.append(PART_ZONE["Head"])
 
-def build_blades():
-    """Two plates standing out of the hunched upper back, bound to Spine."""
-    out = []
+    # Ears: a flat wedge each side.
     for side in (1.0, -1.0):
-        def quad(spec, side=side):
-            x0, x1 = spec["x"]
-            z0, z1 = spec["z"]
-            if side < 0:
-                x0, x1 = -x1, -x0
-            return [(x0, spec["y"], z0), (x1, spec["y"], z0),
-                    (x1, spec["y"], z1), (x0, spec["y"], z1)]
-        name = "Blade." + ("L" if side > 0 else "R")
-        out.append(mdl.frustum(name, quad(BLADE_IN), quad(BLADE_OUT)))
-    return out
+        base = len(verts)
+        verts += [(side * x, y, z) for (x, y, z) in HEAD_EAR]
+        for f in ((0, 1, 2), (3, 0, 1), (3, 1, 2), (3, 2, 0)):
+            faces.append(tuple(base + i for i in f))
+            zones.append(PART_ZONE["Head"])
+
+    ob = _outward("Head", verts, faces)
+    return ob, zones
 
 
 def build_mesh():
@@ -385,9 +445,8 @@ def build_mesh():
     tube("Hips", HIPS_RINGS)
     tube("Spine", SPINE_RINGS)
     tube("Neck", NECK_RINGS)
-    parts.append(("Head", build_head(), PART_ZONE["Head"]))
-    for blade in build_blades():
-        parts.append(("Spine", blade, PART_ZONE["Spine"]))
+    head, head_zones = build_head()
+    parts.append(("Head", head, head_zones))
 
     for suffix, side in (("L", 1.0), ("R", -1.0)):
         tube("UpperArm." + suffix, UPPERARM_RINGS, sides=SIDES_LIMB)
@@ -412,7 +471,8 @@ def build_mesh():
     # here stays aligned with the merged mesh's polygons.
     zones = []
     for (_bone, ob, zone) in parts:
-        zones.extend([zone] * len(ob.data.polygons))
+        n = len(ob.data.polygons)
+        zones.extend(zone if isinstance(zone, list) else [zone] * n)
     body, groups = mdl.merge_parts([(b, o) for (b, o, _z) in parts], MESH_NAME)
     return body, groups, zones
 
