@@ -219,6 +219,8 @@ signal ghost_caught(ghost: MatchParticipant, caught: MatchParticipant)
 ## Emitted on the tick one prisoner shoves another. [param victim] has already
 ## been launched when it fires.
 signal participant_shoved(shover: MatchParticipant, victim: MatchParticipant)
+## The finisher just received a rifle.
+signal finisher_armed(weapon: Rifle)
 
 ## Every design parameter of the match: how many players, on what track, at what
 ## pace, with what reload escalation, and what counts as a win.
@@ -3138,6 +3140,7 @@ func _attach_finisher_rifle(participant: MatchParticipant, weapon: Rifle) -> voi
 
 	# The human's trigger, the same one the tower's rifle hands the mouse.
 	_set_trigger(weapon, participant.is_human() and participant.index == _local_index and not _mirror)
+	finisher_armed.emit(weapon)
 
 
 ## Point a bot finisher at the guard with the brain it plays the tower on.

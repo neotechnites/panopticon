@@ -125,6 +125,7 @@ func _connect_all() -> void:
 		_bind(_catch_reaction.catch_made, _on_catch_made)
 		_bind(_catch_reaction.catch_taken, _on_catch_taken)
 	if _controller != null:
+		_bind(_controller.finisher_armed, _on_finisher_armed)
 		_bind(_controller.match_started, _on_match_started)
 		_bind(_controller.race_started, _on_race_started)
 		_bind(_controller.round_started, _on_round_started)
@@ -278,6 +279,17 @@ func _post_at(event: StringName, world_position: Vector3) -> void:
 ## The shot leaves from the shooter's eye, and that is the position the report
 ## must come from: the whole point of a shot in PANOPTICON is that it tells
 ## everyone on the ring roughly where the tower is looking from.
+## The finisher's rifle posts the same cues as the tower's.
+func _on_finisher_armed(weapon: Rifle) -> void:
+	if weapon == null:
+		return
+	_bind(weapon.fired, _on_fired)
+	_bind(weapon.target_hit, _on_target_hit)
+	_bind(weapon.missed, _on_missed)
+	_bind(weapon.reload_started, _on_reload_started)
+	_bind(weapon.reload_finished, _on_reload_finished)
+
+
 func _on_fired(origin: Vector3, _end_point: Vector3) -> void:
 	_post_at(AudioEvents.RIFLE_FIRED, origin)
 
