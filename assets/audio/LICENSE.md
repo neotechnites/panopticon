@@ -39,3 +39,7 @@ crush. Regenerate with `python3 tools/audio/fetch_sfx.py`.
 | `ui_back.wav` | [319812](https://freesound.org/s/319812/) | Finger snap 1 | zmobie | [CC0 1.0](http://creativecommons.org/publicdomain/zero/1.0/) | 2026-09-11 |
 | `ui_menu_opened.wav` | [406273](https://freesound.org/s/406273/) | hit - wooden 01.wav | Anthousai | [CC0 1.0](http://creativecommons.org/publicdomain/zero/1.0/) | 2026-09-11 |
 | `ui_menu_closed.wav` | [406283](https://freesound.org/s/406283/) | hit - wooden spoon - dropped onto counter 06.wav | Anthousai | [CC0 1.0](http://creativecommons.org/publicdomain/zero/1.0/) | 2026-09-11 |
+
+## music/ — PLACEHOLDERS, NOT LICENSED, NOT FOR DISTRIBUTION
+- `PLACEHOLDER_match_theme.ogg` — "Wangan Trial - Double Clutch" (Soichi Terada). Ryan's temporary pick; replace before any public build.
+- `PLACEHOLDER_menu_theme.ogg` — "WRLD" (CASTCADIA). Ryan's temporary pick; replace before any public build.
