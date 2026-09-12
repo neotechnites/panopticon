@@ -178,6 +178,9 @@ func sample_state(out: PlayerState) -> void:
 	out.yaw = controller.rotation.y
 	out.pitch = controller.head.rotation.x if controller.head != null else 0.0
 	out.on_floor = controller.is_on_floor()
+	var power: RunnerPower = RunnerPower.of(controller)
+	out.ability = int(power.get_active()) if power != null else 0
+	out.ability_remaining = power.get_remaining() if power != null else 0.0
 
 
 ## Put an authoritative state onto the body. Called by [NetReplicator] on a
@@ -187,9 +190,16 @@ func sample_state(out: PlayerState) -> void:
 ## Transform, velocity and floor state. A client never integrates the velocity
 ## -- its physics is off -- but [PrisonerAvatar] reads speed and footing to pick
 ## a clip, and a body reporting neither is drawn standing still or dead forever.
+##
+## The runner power comes down the same way and is DRAWN, not run: the effect
+## belongs to the authority, and this machine's own body is mirrored like any
+## other, so a client sees its own shield here or nowhere.
 func apply_state(state: PlayerState) -> void:
 	if controller == null:
 		return
+	var power: RunnerPower = RunnerPower.of(controller)
+	if power != null:
+		power.present(state.ability as MatchRules.RunnerAbility, state.ability_remaining)
 	controller.global_position = state.position
 	controller.rotation.y = state.yaw
 	controller.velocity = state.velocity

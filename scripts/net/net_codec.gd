@@ -48,10 +48,10 @@ const INTENT_SIZE: int = 23
 ## Bytes of snapshot header: u32 tick, u8 body count.
 const SNAPSHOT_HEADER_SIZE: int = 5
 
-## Bytes per body inside a snapshot: u8 seat, 8 floats, 1 flag byte. The seat is
-## a byte and not a peer id because seats are what bodies are named by -- see
-## [PlayerState].
-const SNAPSHOT_BODY_SIZE: int = 34
+## Bytes per body inside a snapshot: u8 seat, 8 floats, 1 flag byte, u8 running
+## ability and u8 tenths of a second left on it. The seat is a byte and not a
+## peer id because seats are what bodies are named by -- see [PlayerState].
+const SNAPSHOT_BODY_SIZE: int = 36
 
 ## Bytes of roster header: u8 phase, u8 seat count.
 const ROSTER_HEADER_SIZE: int = 2
@@ -75,6 +75,12 @@ const _FLAG_ABILITY_HELD: int = 1 << 7
 const _FLAG2_SHOVE_PRESSED: int = 1 << 0
 const _FLAG_ON_FLOOR: int = 1 << 0
 const _FLAG_SEAT_READY: int = 1 << 0
+
+## Highest [enum MatchRules.RunnerAbility] value the wire carries.
+const _MAX_ABILITY: int = 4
+
+## Ceiling on the quantised ability timer: 255 tenths of a second.
+const _ABILITY_TENTHS_MAX: int = 255
 
 ## Ticks are unsigned 32-bit on the wire and wrap there.
 const TICK_MODULUS: int = 1 << 32
@@ -170,6 +176,10 @@ static func pack_snapshot(snapshot: WorldSnapshot) -> PackedByteArray:
 		buffer.put_float(state.yaw)
 		buffer.put_float(state.pitch)
 		buffer.put_u8(_FLAG_ON_FLOOR if state.on_floor else 0)
+		buffer.put_u8(clampi(state.ability, 0, _MAX_ABILITY))
+		buffer.put_u8(clampi(
+			int(state.ability_remaining * 10.0), 0, _ABILITY_TENTHS_MAX
+		))
 	return buffer.data_array
 
 
@@ -200,6 +210,11 @@ static func unpack_snapshot(payload: PackedByteArray, out: WorldSnapshot) -> boo
 		var yaw: float = buffer.get_float()
 		var pitch: float = buffer.get_float()
 		var flags: int = buffer.get_u8()
+		# An ability byte from a build with more powers than this one is clamped
+		# rather than refused: it costs one body's effect, not the whole world's
+		# positions.
+		var ability: int = mini(buffer.get_u8(), _MAX_ABILITY)
+		var ability_tenths: int = buffer.get_u8()
 		if not (position.is_finite() and velocity.is_finite() and is_finite(yaw) and is_finite(pitch)):
 			out.clear()
 			return false
@@ -210,6 +225,8 @@ static func unpack_snapshot(payload: PackedByteArray, out: WorldSnapshot) -> boo
 		state.yaw = yaw
 		state.pitch = pitch
 		state.on_floor = (flags & _FLAG_ON_FLOOR) != 0
+		state.ability = ability
+		state.ability_remaining = float(ability_tenths) * 0.1
 		out.commit()
 	return true
 

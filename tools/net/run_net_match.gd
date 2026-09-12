@@ -32,7 +32,7 @@ func _initialize() -> void:
 	_o = BotHarness.parse_arguments({
 		"role": "server", "address": "127.0.0.1", "port": 27960, "seconds": 90.0,
 		"log": "", "seats": 6, "tower": 1, "name": "", "humans": 3, "fire-every": 0.0,
-		"screen": false, "preset": "classic",
+		"screen": false, "preset": "classic", "press-ability": 0, "press-at": 6.0,
 	})
 	Engine.max_fps = 60
 	_started_ms = Time.get_ticks_msec()
@@ -221,6 +221,8 @@ func _hook_match(match_scene: Node) -> void:
 	var scripted: ScriptedIntentSource = ScriptedIntentSource.new()
 	scripted.name = "Scripted"
 	scripted.fire_every = float(_o.get("fire-every", 0.0))
+	scripted.ability_slot = int(_o.get("press-ability", 0))
+	scripted.ability_at = float(_o.get("press-at", 6.0))
 	_net_match.add_child(scripted)
 	_net_match.set_local_source(scripted)
 
@@ -281,6 +283,7 @@ func _sample() -> void:
 		_tick(), _controller.get_phase_name(), _controller.get_round_number(),
 		_who(_controller.get_seat_participant()), str(paused), " ".join(parts),
 	])
+	_sample_powers()
 	var mine: MatchParticipant = _controller.get_human_participant()
 	if mine != null and mine.body != null:
 		var source: IntentSource = mine.body.intent_source
@@ -288,6 +291,19 @@ func _sample() -> void:
 			mine.index, str(mine.body.is_physics_processing()),
 			source.get_class() if source != null else "null",
 			mine.body.collision_layer, mine.body.velocity.length(),
+		])
+
+
+## What each body is drawing of the runner powers: the authority's own effect,
+## or the one a client read off the snapshot.
+func _sample_powers() -> void:
+	for p: MatchParticipant in _controller.get_participants():
+		var power: RunnerPower = RunnerPower.of(p.body) if p.body != null else null
+		if power == null or power.get_shown() == MatchRules.RunnerAbility.NONE:
+			continue
+		_line("POWER who=%s ability=%d left=%.1f shield=%s decoy=%s" % [
+			_who(p), int(power.get_shown()), power.get_remaining(),
+			str(power.get_shield() != null), str(power.get_decoy() != null),
 		])
 
 

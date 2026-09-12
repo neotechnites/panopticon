@@ -27,6 +27,9 @@ var _decoy: PlayerController = null
 var _shell: MeshInstance3D = null
 var _camo_mesh: MeshInstance3D = null
 var _camo_saved: Material = null
+## What a client is DRAWING, off the snapshot. Never set on the authority, where
+## [member _active] is the truth.
+var _presented: MatchRules.RunnerAbility = MatchRules.RunnerAbility.NONE
 
 
 ## A decoy's intent: straight ahead at run speed, nothing else.
@@ -109,7 +112,31 @@ func activate(which: MatchRules.RunnerAbility = MatchRules.RunnerAbility.NONE) -
 func cancel() -> void:
 	_teardown()
 	_active = MatchRules.RunnerAbility.NONE
+	_presented = MatchRules.RunnerAbility.NONE
 	_remaining = 0.0
+
+
+## Draw [param which] on a mirrored body: the same shield, shell and tint
+## [method activate] builds, with none of the effect. The client's whole view of
+## somebody else's power, and of its own -- a client simulates neither.
+##
+## Called every frame from [PlayerNetLink] with the replicated state, so it is a
+## no-op unless the power changed.
+func present(which: MatchRules.RunnerAbility, remaining: float) -> void:
+	_remaining = maxf(remaining, 0.0)
+	if which == _presented:
+		return
+	_teardown()
+	_presented = which
+	match which:
+		MatchRules.RunnerAbility.BUBBLE_SHIELD:
+			_raise_shield()
+		MatchRules.RunnerAbility.HOLOGRAM:
+			_spawn_decoy()
+		MatchRules.RunnerAbility.ARMOR_LOCK:
+			_raise_shell()
+		MatchRules.RunnerAbility.ACTIVE_CAMO:
+			_cloak()
 
 
 func get_ability() -> MatchRules.RunnerAbility:
@@ -117,7 +144,18 @@ func get_ability() -> MatchRules.RunnerAbility:
 
 
 func is_active() -> bool:
-	return _active != MatchRules.RunnerAbility.NONE
+	return _active != MatchRules.RunnerAbility.NONE or _presented != MatchRules.RunnerAbility.NONE
+
+
+## The power running now, or NONE. Sampled into the snapshot by [PlayerNetLink].
+func get_active() -> MatchRules.RunnerAbility:
+	return _active
+
+
+## What this machine is DRAWING: its own power on the authority, the replicated
+## one on a client.
+func get_shown() -> MatchRules.RunnerAbility:
+	return _active if _active != MatchRules.RunnerAbility.NONE else _presented
 
 
 func get_remaining() -> float:
@@ -161,6 +199,7 @@ func _teardown() -> void:
 	if _shell != null:
 		_shell.queue_free()
 		_shell = null
+	_presented = MatchRules.RunnerAbility.NONE
 	if body != null:
 		body.movement_locked = false
 	if _camo_mesh != null:
@@ -234,6 +273,11 @@ static func shatter(decoy: PlayerController) -> void:
 func _lock() -> void:
 	body.movement_locked = true
 	body.velocity = Vector3.ZERO
+	_raise_shell()
+
+
+## The armor lock's glowing shell, and nothing else: what a client draws.
+func _raise_shell() -> void:
 	var shell: MeshInstance3D = MeshInstance3D.new()
 	shell.name = "ArmorShell"
 	var capsule: CapsuleMesh = CapsuleMesh.new()
