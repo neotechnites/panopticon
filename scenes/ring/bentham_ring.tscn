@@ -775,7 +775,7 @@ Its origin is the floor of the guard room, which is why it drops in at identity:
 
 [node name="TowerSpawn" type="Marker3D" parent="Tower" unique_id=1882367771]
 editor_description = "On the chamber floor, 0.25 m up. The clearance is deliberate: spawning a capsule with its feet exactly on the collision plane overlaps it, and depenetration launches the body across the arena. The model's origin IS this floor, so this is origin + 0.25 and nothing else."
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.25, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.95, 0)
 
 [node name="KeyLight" type="DirectionalLight3D" parent="Tower" unique_id=788049124]
 editor_description = "Fire from the hole above, angled 20 degrees off vertical (about 70 deg below horizontal) into the pit rather than the flat noon light of an office."
