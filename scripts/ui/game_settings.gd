@@ -273,7 +273,7 @@ var effects_volume: float = 1.0
 var music_volume: float = 1.0
 var sfx_crush: bool = false
 
-var display_mode: DisplayMode = DisplayMode.BORDERLESS
+var display_mode: DisplayMode = DisplayMode.WINDOWED
 
 ## Requested window size. Only meaningful in [constant DisplayMode.WINDOWED];
 ## kept across a fullscreen session so returning to windowed restores the size.
@@ -443,7 +443,7 @@ func reset() -> void:
 	effects_volume = 1.0
 	music_volume = 1.0
 	sfx_crush = false
-	display_mode = DisplayMode.BORDERLESS
+	display_mode = DisplayMode.WINDOWED
 	resolution = DEFAULT_RESOLUTION
 	vsync_mode = VSyncMode.ENABLED
 	fps_cap = FpsCap.UNLIMITED
