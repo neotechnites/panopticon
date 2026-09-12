@@ -68,13 +68,14 @@ extends Node3D
 ## getting the silhouette roughly right is not decoration. A crouched prisoner
 ## drawn standing would be a body the guard cannot hit at a height he can see.
 ##
-## [b]The jump is a pose too, and it is airborne rather than jumping.[/b] A
-## fifth clip, [member jump_clip], is synthesised from the same bind pose by
-## [method _build_jump_animation] and shown whenever the body is off the floor,
-## however it got there -- a jump, a fall off a ledge, a ramp taken fast enough
-## to leave it. There is only the one pose for all three, because there is only
-## one thing wrong with the alternative: a prisoner in mid-air was running on the
-## spot, and a body with no ground under it should not be taking strides on it.
+## [b]The jump is airborne rather than jumping.[/b] A fifth clip, [member
+## jump_clip], is authored in [code]assets/models/runner.glb[/code] -- unlike
+## idle, slide and crouch, there is no bind-pose fallback for it -- and shown
+## whenever the body is off the floor, however it got there: a jump, a fall off
+## a ledge, a ramp taken fast enough to leave it. There is only the one clip for
+## all three, because there is only one thing wrong with the alternative: a
+## prisoner in mid-air was running on the spot, and a body with no ground under
+## it should not be taking strides on it.
 ##
 ## It is driven off [method CharacterBody3D.is_on_floor] on the body, plus the
 ## [signal PlayerController.jumped] signal, and off velocity never. Which is not
@@ -97,9 +98,19 @@ extends Node3D
 ## the way up it. Landing is not debounced at either end: the pose is dropped the
 ## first tick there is floor again.
 ##
-## [b]The order the five clips are chosen in[/b], highest first, is slide,
-## crouch, airborne, run, idle -- and the middle of those three is the only one
-## worth arguing about. Slide is top because it is the most specific state the
+## [b]Death outranks everything, and Aim is the guard's stance.[/b] Both,
+## like Jump, are authored clips in the glTF. [signal PlayerController.died]
+## arms [member death_clip], which holds -- nothing below it is checked again
+## -- until the body's speed crosses [member run_resume_speed], which is what a
+## respawned ghost does the moment it starts moving. [member aim_clip] is
+## simpler: it plays for as long as [member PlayerController.is_guard] is
+## true, one seat's whole occupancy, so it sits above slide/crouch/airborne too
+## -- a body in the tower does not do any of those.
+##
+## [b]The order the seven clips are chosen in[/b], highest first, is death,
+## aim, slide, crouch, airborne, run, idle -- and the middle three are the only
+## ones worth arguing about. Slide is top of that group because it is the most
+## specific state the
 ## controller reports and the only one it will not report at the same time as
 ## anything else ([method PlayerController._try_begin_slide] needs the floor,
 ## and [method PlayerController._update_slide_exit] closes a slide the tick the
@@ -208,9 +219,8 @@ extends Node3D
 ## prisoner's head is drawn in space a bullet passes straight through.
 @export var crouch_hip_height: float = 0.48
 
-## The airborne pose's name inside [member animation]. Not in the glTF either;
-## [method _build_jump_animation] builds it once per instance from the same rest
-## pose the idle, the slide and the crouch are built from.
+## The airborne clip's name inside [member animation]. Authored in
+## [code]assets/models/runner.glb[/code], unlike idle/slide/crouch.
 @export var jump_clip: StringName = &"Jump"
 
 ## Cross-fade duration, in seconds, into the airborne pose.
@@ -239,6 +249,14 @@ extends Node3D
 ## Landing has no equivalent and must not grow one. The tick there is floor
 ## again, the body is running.
 @export var air_pose_delay: float = 0.08
+
+## The death clip's name inside [member animation]. Authored in the glTF,
+## non-looping, and arms on [signal PlayerController.died].
+@export var death_clip: StringName = &"Death"
+
+## The guard's stance clip's name inside [member animation]. Authored in the
+## glTF, looping, and shown for as long as [member PlayerController.is_guard].
+@export var aim_clip: StringName = &"Aim"
 
 ## Which visual layer the mesh draws on, authored per body.
 ##
@@ -307,10 +325,8 @@ var _has_crouch: bool = false
 ## reason [member _in_slide] is one.
 var _in_crouch: bool = false
 
-## Whether [method _build_jump_animation] produced a usable [member jump_clip].
-## False disables the airborne branch entirely, leaving a jumping prisoner
-## running on the spot in mid-air -- the pre-jump behaviour, not a crash, which
-## is the same fallback the slide and the crouch take.
+## Whether [member jump_clip] was found in the glTF. False leaves a jumping
+## prisoner running on the spot in mid-air, the pre-jump behaviour.
 var _has_jump: bool = false
 
 ## Whether the body was in the airborne pose last tick. The edge, for the same
@@ -326,6 +342,25 @@ var _air_seconds: float = 0.0
 ## The whole of what the signal is for: it says "this body is airborne ON
 ## PURPOSE", which is the case that skips [member air_pose_delay].
 var _jump_armed: bool = false
+
+## Whether [member death_clip] was found in the glTF.
+var _has_death: bool = false
+
+## Set by [signal PlayerController.died], cleared once the body's speed
+## crosses [member run_resume_speed] again -- a respawned ghost moving under
+## its own power, the only way this body gets a second act.
+var _dead: bool = false
+
+## Whether the body was in the death pose last tick. The edge, for the same
+## reason [member _in_slide] is one.
+var _in_death: bool = false
+
+## Whether [member aim_clip] was found in the glTF.
+var _has_aim: bool = false
+
+## Whether the body was in the guard's stance last tick. The edge, for the
+## same reason [member _in_slide] is one.
+var _in_aim: bool = false
 
 
 func _ready() -> void:
@@ -361,11 +396,17 @@ func _ready() -> void:
 	if not _has_crouch:
 		push_error("PrisonerAvatar could not synthesise \"%s\"; a crouched body will be drawn standing up." % crouch_clip)
 
-	if not animation.has_animation(jump_clip):
-		_build_jump_animation()
 	_has_jump = animation.has_animation(jump_clip)
 	if not _has_jump:
-		push_error("PrisonerAvatar could not synthesise \"%s\"; an airborne body will run on the spot in mid-air." % jump_clip)
+		push_error("PrisonerAvatar cannot find \"%s\"; an airborne body will run on the spot in mid-air." % jump_clip)
+
+	_has_death = animation.has_animation(death_clip)
+	if not _has_death:
+		push_error("PrisonerAvatar cannot find \"%s\"; a killed body will not visibly react." % death_clip)
+
+	_has_aim = animation.has_animation(aim_clip)
+	if not _has_aim:
+		push_error("PrisonerAvatar cannot find \"%s\"; the guard will be drawn running or standing idle." % aim_clip)
 
 	# The signal is the fast path into the airborne pose, not the only one --
 	# see _tick_air. Connected rather than polled because a jump is an event
@@ -374,6 +415,9 @@ func _ready() -> void:
 	# and at a low enough one it could miss a short hop's rise entirely.
 	if body != null and not body.jumped.is_connected(_on_body_jumped):
 		body.jumped.connect(_on_body_jumped)
+
+	if body != null and not body.died.is_connected(_on_body_died):
+		body.died.connect(_on_body_died)
 
 	# Bootstrap into the parked pose, then let the first _process tick pick
 	# the correct clip for the body's actual speed. Never left showing: a
@@ -392,6 +436,44 @@ func _process(delta: float) -> void:
 	# under the slide and the crouch as well, or a body that slid off a ledge
 	# would start counting its fall from whenever the slide happened to close.
 	_tick_air(delta)
+
+	# Death outranks everything: whatever the body was doing when it was shot
+	# is no longer happening. It holds until the body moves under its own power
+	# again -- a respawned ghost picking the chase back up -- rather than on a
+	# timer, because nothing else here knows how long the respawn hold lasts.
+	if _has_death and _dead:
+		if body.get_horizontal_speed() >= run_resume_speed:
+			_dead = false
+			_in_death = false
+		else:
+			if not _in_death:
+				_in_death = true
+				_in_slide = false
+				_in_crouch = false
+				_in_air = false
+				_in_aim = false
+				_running = false
+				animation.speed_scale = 1.0
+				animation.play(death_clip, blend_time)
+			return
+
+	# The guard's stance, asked for rather than inferred exactly like the slide
+	# and the crouch: it is whatever MatchController._place_in_tower says, for
+	# as long as it says it, which is a whole seat's occupancy rather than an
+	# event.
+	if _has_aim and body.is_guard:
+		if not _in_aim:
+			_in_aim = true
+			_in_slide = false
+			_in_crouch = false
+			_in_air = false
+			_running = false
+			animation.speed_scale = 1.0
+			animation.play(aim_clip, blend_time)
+		return
+
+	var leaving_aim: bool = _in_aim
+	_in_aim = false
 
 	# The slide outranks both speed clips, and it is asked for rather than
 	# inferred: a slide runs at run speed, so velocity alone cannot tell the two
@@ -451,7 +533,7 @@ func _process(delta: float) -> void:
 	# if nothing picks a clip up: a prisoner standing up out of a crouch is
 	# usually below run_resume_speed, which is exactly the case that would leave
 	# them frozen mid-squat.
-	var leaving_pose: bool = leaving_slide or _in_crouch
+	var leaving_pose: bool = leaving_slide or _in_crouch or leaving_aim
 	_in_crouch = false
 
 	# Airborne sits directly above the speed clips and below both stances. See
@@ -543,6 +625,12 @@ func _is_airborne() -> bool:
 ## this fires again immediately.
 func _on_body_jumped() -> void:
 	_jump_armed = true
+
+
+## The body was shot out. Arms the death pose; see [member _dead] for how it
+## is cleared.
+func _on_body_died() -> void:
+	_dead = true
 
 
 ## Freeze the run cycle on its first frame. The fallback for a body with no
@@ -902,125 +990,3 @@ func _build_crouch_animation() -> void:
 		animation.add_animation_library(&"", library)
 	library.add_animation(crouch_clip, crouch_anim)
 
-
-## The airborne pose, bone by bone, in the same units and the same sign
-## convention as [constant SLIDE_POSE_DEGREES] and [constant
-## CROUCH_POSE_DEGREES]: degrees of pitch about the model's X axis, applied on
-## top of that bone's rest orientation (see [method _pose_bone]) and composing
-## down the chain, so a bone's angle is read against its parent's. Positive tips
-## an upright bone forwards, towards the toes, and therefore swings a bone that
-## hangs down -- every limb in this rig -- backwards.
-##
-## Hips is in the table rather than in an export of its own, unlike the slide's
-## and the crouch's leans. There is nothing for an export to tune here: the drop
-## those two carry is what puts a body on the floor, and this body is not on the
-## floor. Its hips stay at rest height, which is also what keeps the drawn
-## silhouette inside the standing capsule the shooter is really aiming at.
-## Being in the table means it takes the table's sign convention and no second
-## one has to be remembered -- so its -6 is a backwards lean, read the same way
-## every other negative here is.
-##
-## The reading, from the hips out. The hips tip 6 degrees back, which is a chest
-## coming up rather than a lean, and the spine's 10 of forward curl takes most
-## of that back out so the torso finishes very nearly upright; the neck and head
-## then come back 14 between them, leaving the skull looking a few degrees above
-## level, which is where a body going up is looking.
-##
-## The legs are the pose. The left is the LEAD: the thigh drives 50 degrees up
-## towards the chest and the knee folds 75 under it, which is a tuck. The right
-## TRAILS, 18 degrees behind vertical with the heel kicked 60 up -- the leg that
-## just pushed off. The feet finish the two reads, toes up on the tuck and toes
-## pointed on the push. That asymmetry is the whole difference between a bound
-## and a man being lifted off the ground, and it is deliberately the opposite
-## structure to the crouch, which is symmetric because a crouch is a body held
-## on both feet.
-##
-## The arms counter the legs, as they do in any real gait: the lead leg is the
-## left, so it is the RIGHT arm that comes forward and up and the left that
-## trails past the hip. Both elbows carry a real bend, for the reason the slide's
-## do -- two straight arms is a mannequin, not a sprinter.
-##
-## One pose serves the rise, the apex and the fall. A three-phase clip is a
-## bigger promise than this rig can keep: the fall would want the legs coming
-## down under the body, which is a different pose again, and picking between
-## them means reading a vertical velocity this node has gone out of its way not
-## to read. What is actually wrong with a running man in mid-air is that he is
-## taking strides on ground that is not there, and any one of the three fixes
-## that.
-const JUMP_POSE_DEGREES: Dictionary = {
-	"Hips": -6.0,
-	"Spine": 10.0,
-	"Neck": -8.0,
-	"Head": -6.0,
-	"UpperArm.L": 35.0,
-	"LowerArm.L": -40.0,
-	"UpperArm.R": -60.0,
-	"LowerArm.R": -55.0,
-	"Thigh.L": -50.0,
-	"Shin.L": 75.0,
-	"Foot.L": -20.0,
-	"Thigh.R": 18.0,
-	"Shin.R": 60.0,
-	"Foot.R": 15.0,
-}
-
-
-## Synthesises the airborne pose as a single static pose, one key per bone,
-## exactly as [method _build_slide_animation] and [method _build_crouch_animation]
-## do and for exactly the same reasons -- see the first of those for why this rig
-## gets fourteen hand-authored numbers instead of a downloaded clip.
-##
-## The one structural difference from both of them is the position track. Hips
-## still gets one, because every bone must appear in every clip or the
-## cross-fade blends against whatever the run cycle left that track doing -- and
-## Run does animate the hips' position. But it is keyed at the REST origin, not
-## at a drop: a slide and a crouch put the pelvis on the floor and this does not.
-## Raising it instead, to sell the tuck, was the obvious temptation and is a trap
-## for the reason [member crouch_hip_height] documents from the other end -- the
-## capsule does not move when a body jumps, so lifting the model inside it would
-## draw a skull above the volume a rifle can hit.
-func _build_jump_animation() -> void:
-	var found: Array = _resolve_skeleton()
-	if found.is_empty():
-		return
-	var skeleton_rel_path: String = found[0]
-	var skeleton: Skeleton3D = found[1]
-
-	var jump_anim := Animation.new()
-	# Nothing moves, so the length is arbitrary; non-zero only because a
-	# zero-length clip has nowhere to hang a key, and looping so that holding the
-	# pose past the end -- a long fall, a body that jumped into the pit -- does
-	# not fall off into whatever plays next.
-	jump_anim.length = 0.5
-	jump_anim.loop_mode = Animation.LOOP_LINEAR
-
-	for bone_idx in skeleton.get_bone_count():
-		var bone_name: String = skeleton.get_bone_name(bone_idx)
-		var rest: Transform3D = skeleton.get_bone_rest(bone_idx)
-		var track_path := NodePath(skeleton_rel_path + ":" + bone_name)
-
-		var rot_track: int = jump_anim.add_track(Animation.TYPE_ROTATION_3D)
-		jump_anim.track_set_path(rot_track, track_path)
-
-		var model_rotation := Quaternion.IDENTITY
-		if JUMP_POSE_DEGREES.has(bone_name):
-			model_rotation = Quaternion(Vector3.RIGHT, deg_to_rad(float(JUMP_POSE_DEGREES[bone_name])))
-		# Every bone is keyed, including the two hands, which the table does not
-		# mention and which are therefore keyed at rest. A track this clip
-		# omitted would not hold still through the cross-fade; it would go on
-		# doing whatever the run cycle had it doing.
-		jump_anim.rotation_track_insert_key(rot_track, 0.0, _pose_bone(skeleton, bone_idx, model_rotation))
-
-		if bone_name == "Hips":
-			# At rest height, deliberately. See the method docs.
-			var pos_track: int = jump_anim.add_track(Animation.TYPE_POSITION_3D)
-			jump_anim.track_set_path(pos_track, track_path)
-			jump_anim.position_track_insert_key(pos_track, 0.0, rest.origin)
-
-	var library: AnimationLibrary
-	if animation.has_animation_library(&""):
-		library = animation.get_animation_library(&"")
-	else:
-		library = AnimationLibrary.new()
-		animation.add_animation_library(&"", library)
-	library.add_animation(jump_clip, jump_anim)
