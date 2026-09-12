@@ -1,10 +1,10 @@
 {
-  "_comment": "The tower: Ryan's hand-modelled TowerRock with his cap DELETED, his open boundary loop EXTRUDED upward ring by ring with per-vertex noise so every new face inherits his faceting, then hollowed and windowed with EXACT boolean differences (use_self + use_hole_tolerant, without which the solver eats the whole rock). One continuous silhouette -- no cap, no band, no ledge. ORIGIN IS THE ROOM'S FLOOR: the guard stands at local y=0.17, the rock hangs to about y=-37, the crown tops out near +9.3. One textured material (packed 128x128 atlas), one UV set, no skin, no animation. TowerCollision rides in the .glb as a `-colonly` node: Godot turns it into a StaticBody3D + ConcavePolygonShape3D and discards its mesh, which is why `surfaces` is still 1 and `max_tris` counts only what is drawn. If TowerCollision ever stops appearing, the guard will fall through the floor.",
+  "_comment": "The tower: Ryan's hand-edited TowerRock, appended whole from tower_new.blend and cleaned -- flaps cut, doubles merged, normals recalculated outward on a watertight solid, needless verts dissolved at 3deg, re-triangulated, his HellRock atlas UVs kept. His shape is the source of truth; the old grow/boolean pipeline is retired/tower_build_grown.py. HIS ROOM FLOOR IS NOW z=1.70, NOT 0.17: he filled the old flat floor in with rock, so the guard stands 1.5 m higher than the origin. Ceiling 7.25, inner radius 6.87, eight windows on his bearings. One textured material (packed 128x128 atlas), one UV set, no skin, no animation. TowerCollision rides in the .glb as a `-colonly` node: Godot turns it into a StaticBody3D + ConcavePolygonShape3D and discards its mesh, which is why `surfaces` is still 1 and `max_tris` counts only what is drawn. If TowerCollision ever stops appearing, the guard will fall through the floor.",
   "node_paths": [
     "TowerRock",
     "TowerCollision",
     "TowerCollision/CollisionShape3D"
   ],
   "surfaces": 1,
-  "max_tris": 1300
+  "max_tris": 1250
 }
