@@ -20,3 +20,5 @@ ssh panopticon-pc '
   $e = (Select-String -Path C:\dev\import.txt -Pattern "ERROR" | Measure-Object -Line).Lines
   Write-Output ("PC at " + (git -C C:/dev/panopticon log --oneline -1) + " | import errors: " + $e)
 '
+
+git push -q origin main 2>&1 | tail -1
