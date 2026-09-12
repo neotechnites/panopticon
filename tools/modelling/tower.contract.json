@@ -1,10 +1,10 @@
 {
-  "_comment": "The tower: Ryan's hand-modelled TowerRock, with the watch chamber's wall SCULPTED OUT OF IT by tower_build.py -- his rim loop and his cap loop are resampled onto one bearing set and bridged, so the room wall is his own silhouette continued rather than a ring stuck on. ORIGIN IS THE ROOM'S FLOOR -- the guard stands at local y=0; the rock hangs to y=-37.3 and the cap top is at +9.6. One textured material (packed 128x128 atlas + emissive), one UV set, no skin, no animation. TowerCollision is the purpose-built collider that rides in the .glb as a `-colonly` node: Godot turns it into a StaticBody3D + ConcavePolygonShape3D and discards its mesh, which is why `surfaces` is still 1 and `max_tris` counts only what is drawn. If TowerCollision ever stops appearing, the model has silently gone back to having no collision and the guard will fall through the floor.",
+  "_comment": "The tower: Ryan's hand-modelled TowerRock with his cap DELETED, the rock continued upward at the body's own width and wobble and closed over as a low dome, and the windows punched through that wall as irregular rounded holes with splayed reveals. One continuous silhouette -- no cap, no band, no ledge. ORIGIN IS THE ROOM'S FLOOR: the guard stands at local y=0, the rock hangs to y=-37.3, the dome tops out near +8.5. One textured material (packed 128x128 atlas), one UV set, no skin, no animation. TowerCollision rides in the .glb as a `-colonly` node: Godot turns it into a StaticBody3D + ConcavePolygonShape3D and discards its mesh, which is why `surfaces` is still 1 and `max_tris` counts only what is drawn. If TowerCollision ever stops appearing, the guard will fall through the floor.",
   "node_paths": [
     "TowerRock",
     "TowerCollision",
     "TowerCollision/CollisionShape3D"
   ],
   "surfaces": 1,
-  "max_tris": 1700
+  "max_tris": 1600
 }
