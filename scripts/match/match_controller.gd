@@ -393,7 +393,7 @@ const RUNNER_GROUP: StringName = &"prisoners"
 
 ## How square in front of the shover a body must be to be shoved: a 90 degree
 ## cone, so a shove pushes who you are looking at and not who you brushed past.
-const SHOVE_FACING_DOT: float = 0.7
+const SHOVE_FACING_DOT: float = 0.5
 
 ## How hard the shover's own camera is kicked. Small on purpose -- the feedback
 ## is the other body leaving, not the screen moving.
