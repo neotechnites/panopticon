@@ -1,10 +1,10 @@
 {
-  "_comment": "The map base: a hole in hell's ground, one ring deck round the void the tower stands in. Authored in WORLD coordinates -- instance at identity: deck at y=23.0 (r 44..60) under a rock ceiling at y=31.5 (the gallery is a cutout, open toward the void), courtyard floor at y=-11.05, rim at y=330. Prison cells (arched glowing recesses with carved columns) are carved into the pit faces, visual only. One textured material (the tower's 128x128 atlas + emissive), one UV set. MapBaseCollision is the purpose-built collider shipped as a `-colonly` node (flat deck, pit wall, courtyard disc, outer wall, flat ceiling); Godot turns it into a StaticBody3D + ConcavePolygonShape3D and drops its mesh, so `surfaces` stays 1 and `max_tris` counts only what is drawn.",
+  "_comment": "The map base: a hole in hell's ground, one ring deck round the void the tower stands in. Authored in WORLD coordinates -- instance at identity: deck at y=23.0 (r 46.7..57.3) under a rock ceiling at y=31.5 (the gallery is a cutout, open toward the void), lava sea at y=-11.05, rim at y=330. Prison cells (arched glowing recesses with carved columns) are carved into the pit faces, visual only. TWO surfaces: the hell-rock atlas (rock + emissive), and LavaSea -- the pit floor, on its own seamless emissive lava sheet, each face taking its own rotated/mirrored window of it at 12..24 m per repeat. MapBaseCollision is the purpose-built collider shipped as a `-colonly` node (flat deck, pit wall, courtyard disc, outer wall, flat ceiling); Godot turns it into a StaticBody3D + ConcavePolygonShape3D and drops its mesh, so `surfaces` counts only what is drawn.",
   "node_paths": [
     "MapBaseRock",
     "MapBaseCollision",
     "MapBaseCollision/CollisionShape3D"
   ],
-  "surfaces": 1,
+  "surfaces": 2,
   "max_tris": 56000
 }
