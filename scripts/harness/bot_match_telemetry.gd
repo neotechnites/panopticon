@@ -178,6 +178,49 @@ func _physics_process(_delta: float) -> void:
 	_last_tick_usec = now
 	if _controller != null:
 		_sample_runners()
+		if _trace_every > 0 and _ticks % _trace_every == 0:
+			_trace_runners()
+
+
+## Ticks between trace lines; set by PANOPTICON_TRACE (seconds, 0 is off).
+var _trace_every: int = int(60.0 * float(OS.get_environment("PANOPTICON_TRACE")))
+
+
+## One diagnostic line per live runner: where it is, what it is doing, what it sees.
+func _trace_runners() -> void:
+	for participant: MatchParticipant in _controller.get_participants():
+		var brain: RingRunner = participant.brain
+		if brain == null or participant.body == null or not participant.is_running:
+			continue
+		if not participant.body.is_physics_processing():
+			continue
+		var position: Vector3 = participant.body.global_position
+		var perception: RunnerPerception = brain.get_perception()
+		var cover: RunnerCoverFinder = brain.get("_cover")
+		var anchor: Vector3 = brain.get("_anchor")
+		print(
+			"TRACE t=%.1f p%d %-8s bear=%6.1f pos=(%.1f,%.1f,%.1f) spd=%.2f wp=%d arc=%.1f"
+			% [
+				float(_ticks) / 60.0, participant.index, brain.get_state_name(),
+				rad_to_deg(atan2(position.z, position.x)),
+				position.x, position.y, position.z,
+				participant.body.get_horizontal_speed(),
+				int(brain.get("_wp")), rad_to_deg(brain.get_travelled_arc()),
+			]
+			+ (" threat=%d exposed=%d watched=%d shots=%d reload=%.2f hold=%.1f conf=%.2f/%.2f open=%.1f"
+			% [
+				int(perception.has_threat()), int(perception.is_exposed()),
+				int(perception.believes_watched()), perception.get_shots_heard(),
+				perception.get_believed_reload_remaining(),
+				float(brain.get("_hold_seconds")), brain.get_last_break_confidence(),
+				brain.get_last_break_threshold(), brain.get_last_exposed_metres(),
+			])
+			+ (" tgt=%d cov=%d/%d anchor=(%.1f,%.1f,%.1f) x=%d"
+			% [
+				int(brain.get("_has_target")), int(cover.has_result()), int(cover.is_complete()),
+				anchor.x, anchor.y, anchor.z, brain.get_crossings(),
+			])
+		)
 
 
 ## Stall and hold streaks, sampled from each live runner's body and brain.

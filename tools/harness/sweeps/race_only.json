@@ -1,0 +1,10 @@
+{
+  "base_rules": "res://resources/rules/default_match_rules.tres",
+  "notes": "Opening race, three prisoners: the regression check for the lake crossing.",
+  "variants": [
+    {
+      "name": "race_only",
+      "overrides": {"open_with_race": true, "prisoner_count": 3}
+    }
+  ]
+}
