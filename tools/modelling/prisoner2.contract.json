@@ -8,5 +8,5 @@
             "Thigh.L", "Shin.L", "Foot.L",
             "Thigh.R", "Shin.R", "Foot.R"],
   "surfaces": 1,
-  "max_tris": 700
+  "max_tris": 1100
 }

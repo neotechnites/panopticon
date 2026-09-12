@@ -82,7 +82,7 @@ PART_ZONE = {
 }
 
 # ---- master proportions (metres) -------------------------------------------
-HEIGHT       = 1.750   # crown; the hunch spends the rest of the 1.8 envelope
+HEIGHT       = 1.785   # crown; the hunch spends the rest of the 1.8 envelope
 HIP_Z        = 0.900
 SPINE_Z      = 1.020
 
@@ -93,7 +93,7 @@ NECK_LEN     = 0.110
 HEAD_TILT    = 8.0
 HEAD_LEN     = 0.300
 
-SHOULDER_X   = 0.1180  # narrow shoulders
+SHOULDER_X   = 0.1080  # narrow shoulders -- narrower than the head is wide
 SHOULDER_Y   = -0.075  # and set forward, riding the leaning chest
 SHOULDER_Z   = 1.3150
 ARM_SPLAY    = 7.0
@@ -114,66 +114,84 @@ FOOT_PITCH   = 66.2
 # ---- section profiles ------------------------------------------------------
 # (distance along the bone from its head, half-width in X, half-depth in Y).
 # 6 sides for the torso, 4 for every limb: square-section limbs are what make
-# the whole figure read as a handful of hard planes rather than tubes.
+# the whole figure read as a handful of hard planes rather than tubes. Where a
+# ring steps OUT and straight back in again -- collar, belt, cuff, knee, elbow
+# -- that step is a deliberate plane break, not a bulge.
 SIDES_BODY = 6
 SIDES_LIMB = 4
 
-HIPS_RINGS  = [(-0.090, 0.118, 0.104),
-               (-0.010, 0.140, 0.122),
-               ( 0.130, 0.120, 0.102)]
+HIPS_RINGS  = [(-0.085, 0.104, 0.092),
+               (-0.010, 0.122, 0.108),
+               ( 0.070, 0.112, 0.098),
+               ( 0.092, 0.120, 0.104),   # belt, standing proud of the trousers
+               ( 0.130, 0.106, 0.092)]
 
-SPINE_RINGS = [(-0.045, 0.124, 0.098),   # narrow waist
-               ( 0.150, 0.148, 0.112),   # ribs
-               ( 0.305, 0.150, 0.106),   # shoulder shelf, flat front-to-back
-               ( 0.350, 0.078, 0.074)]   # collar
+SPINE_RINGS = [(-0.045, 0.112, 0.092),   # narrow waist
+               ( 0.150, 0.135, 0.106),   # ribs
+               ( 0.290, 0.138, 0.100),   # shoulder shelf, flat front-to-back
+               ( 0.318, 0.112, 0.090),
+               ( 0.330, 0.118, 0.096),   # collar lip, proud of the shirt
+               ( 0.352, 0.070, 0.066)]   # neck hole
 
-NECK_RINGS  = [(-0.030, 0.054, 0.056),   # thin neck; the top ring runs on
-               ( 0.190, 0.050, 0.052)]  # past the joint, INTO the skull
+NECK_RINGS  = [(-0.030, 0.052, 0.054),   # thin neck; the top ring runs on
+               ( 0.190, 0.048, 0.050)]   # past the joint, INTO the skull
 
-UPPERARM_RINGS = [(0.020, 0.048, 0.050),
-                  (0.085, 0.057, 0.058),
-                  (0.230, 0.045, 0.046),
-                  (0.320, 0.038, 0.038)]
+# ~0.065 m across the upper arm, ~0.055 the forearm.
+UPPERARM_RINGS = [(0.015, 0.032, 0.034),
+                  (0.075, 0.036, 0.038),   # small deltoid
+                  (0.250, 0.029, 0.031),
+                  (0.292, 0.035, 0.037),   # sleeve cuff
+                  (0.320, 0.027, 0.029)]
 
-LOWERARM_RINGS = [(0.000, 0.040, 0.042),
-                  (0.070, 0.047, 0.048),
-                  (0.200, 0.040, 0.040),
-                  (0.295, 0.033, 0.033)]
+LOWERARM_RINGS = [(0.000, 0.030, 0.032),
+                  (0.055, 0.031, 0.033),
+                  (0.230, 0.025, 0.027),
+                  (0.295, 0.022, 0.024)]   # thin wrist
 
-HAND_RINGS  = [(0.000, 0.048, 0.028),    # big simple slab hands
-               (0.085, 0.056, 0.032),
-               (0.185, 0.042, 0.026)]
+HAND_RINGS  = [(0.000, 0.026, 0.019),    # a mitten wedge, wider than the wrist
+               (0.045, 0.048, 0.028),
+               (0.145, 0.046, 0.026),
+               (0.195, 0.030, 0.018)]
 
-THIGH_RINGS = [(-0.015, 0.066, 0.068),
-               ( 0.080, 0.078, 0.080),
-               ( 0.250, 0.066, 0.066),
-               ( 0.395, 0.052, 0.052)]
+# ~0.09 m across the thigh, ~0.07 the shin, with a plane break at the knee.
+THIGH_RINGS = [(-0.010, 0.046, 0.048),
+               ( 0.100, 0.048, 0.050),
+               ( 0.290, 0.038, 0.040),
+               ( 0.372, 0.045, 0.047),   # knee
+               ( 0.400, 0.036, 0.038)]
 
-SHIN_RINGS  = [(-0.020, 0.057, 0.059),
-               ( 0.090, 0.064, 0.066),
-               ( 0.250, 0.052, 0.052),
-               ( 0.380, 0.043, 0.043)]
+SHIN_RINGS  = [(-0.008, 0.040, 0.044),   # knee, from below
+               ( 0.060, 0.035, 0.038),
+               ( 0.150, 0.034, 0.037),   # calf
+               ( 0.300, 0.029, 0.031),
+               ( 0.385, 0.026, 0.028)]   # thin ankle
 
-# Big flat boots, a wedge in world space.
-FOOT_SOLE  = dict(x=(0.030, 0.145), y=(-0.200, 0.055), z=0.000)
-FOOT_ANKLE = dict(x=(0.038, 0.137), y=(-0.130, 0.058), z=0.132)
+# Simple wedges: a long sole, a short top, so the front face slopes to the toe.
+FOOT_SOLE  = dict(x=(0.022, 0.112), y=(-0.190, 0.050), z=0.000)
+FOOT_ANKLE = dict(x=(0.032, 0.098), y=(-0.075, 0.052), z=0.112)
+
+# The shoulder blades that stand out of the hunched back. World-space plates,
+# bound to Spine, (x0, x1, z0, z1) on the body and proud of it.
+BLADE_IN  = dict(x=(0.026, 0.104), y=0.012, z=(1.175, 1.290))
+BLADE_OUT = dict(x=(0.038, 0.090), y=0.062, z=(1.200, 1.272))
 
 # ---- the head ---------------------------------------------------------------
-# A side profile, walked once round the skull, each point carrying its own
-# half-width: chin, under-nose, nose tip, brow, peak, back-top, back-skull,
-# jaw-back. Every face is a big hard plane; nothing here is round. The peak
-# sits just behind the brow and the cranium sweeps back and down from it.
-HEAD_PROFILE = [
-    (-0.215, 1.490, 0.026),   # chin -- a small jaw, tucked up under the nose
-    (-0.295, 1.540, 0.022),   # under the nose
-    (-0.370, 1.598, 0.018),   # nose tip, the furthest point forward
-    (-0.265, 1.652, 0.056),   # brow, heavy and wide, hanging over the nose
-    (-0.190, 1.750, 0.044),   # peak, just behind the brow
-    ( 0.020, 1.660, 0.050),   # the long sweep back and down
-    ( 0.040, 1.545, 0.056),   # back of the skull, behind the neck
-    (-0.070, 1.462, 0.046),   # under the jaw, behind
+# The biggest thing on him: 0.30 wide, 0.42 long, 0.31 tall, on a 0.05 m neck,
+# so it overhangs front, back and both sides. Built as vertical cross-sections
+# lofted front to back; each section is an 8-point polygon
+#   (y, z_apex, w_temple, z_temple, w_cheek, z_cheek, w_jaw, z_jaw, z_keel)
+# so the model carries a ridged cranium (apex), temple and cheek planes, a jaw
+# step in under the cheek, and a keel under the chin. Nothing is round.
+HEAD_SECTIONS = [
+    (-0.335, 1.605, 0.014, 1.592, 0.018, 1.572, 0.012, 1.556, 1.548),  # nose tip
+    (-0.250, 1.660, 0.052, 1.628, 0.062, 1.570, 0.034, 1.516, 1.500),  # nose wedge
+    (-0.185, 1.735, 0.105, 1.672, 0.132, 1.572, 0.064, 1.500, 1.478),  # brow ridge
+    (-0.105, 1.785, 0.112, 1.690, 0.150, 1.575, 0.070, 1.486, 1.462),  # cheekbone
+    (-0.062, 1.782, 0.112, 1.688, 0.150, 1.574, 0.070, 1.487, 1.464),  # peak
+    (-0.020, 1.760, 0.108, 1.672, 0.146, 1.570, 0.068, 1.488, 1.466),
+    ( 0.065, 1.690, 0.088, 1.630, 0.118, 1.562, 0.056, 1.508, 1.492),  # back skull
+    ( 0.115, 1.612, 0.042, 1.590, 0.052, 1.556, 0.028, 1.532, 1.524),
 ]
-HEAD_CHEEK = (0.059, -0.175, 1.552)   # cheekbone: the flank fans to it, nearly flat
 
 # ---- run cycle (the runner's, verbatim) -------------------------------------
 CYCLE_FRAMES = 20
@@ -318,24 +336,40 @@ def _outward(name, verts, faces):
 
 
 def build_head():
-    """The skull: the profile extruded to its per-point width, flanks fanned."""
-    n = len(HEAD_PROFILE)
-    verts = []
-    for (y, z, w) in HEAD_PROFILE:
-        verts.append((w, y, z))          # left rail
-        verts.append((-w, y, z))         # right rail
-    cheek_l = len(verts)
-    verts.append(HEAD_CHEEK)
-    cheek_r = len(verts)
-    verts.append((-HEAD_CHEEK[0], HEAD_CHEEK[1], HEAD_CHEEK[2]))
+    """The skull: HEAD_SECTIONS lofted front to back, stitched with hard quads."""
+    verts, rings = [], []
+    for (y, z_top, w_up, z_up, w_mid, z_mid, w_lo, z_lo, z_bot) in HEAD_SECTIONS:
+        base = len(verts)
+        verts += [(0.0, y, z_top),
+                  (w_up, y, z_up), (w_mid, y, z_mid), (w_lo, y, z_lo),
+                  (0.0, y, z_bot),
+                  (-w_lo, y, z_lo), (-w_mid, y, z_mid), (-w_up, y, z_up)]
+        rings.append(list(range(base, base + 8)))
 
     faces = []
-    for i in range(n):
-        j = (i + 1) % n
-        faces.append((2 * i, 2 * j, 2 * j + 1, 2 * i + 1))   # rim plate
-        faces.append((cheek_l, 2 * i, 2 * j))                # left flank
-        faces.append((cheek_r, 2 * i + 1, 2 * j + 1))        # right flank
+    for a, b in zip(rings, rings[1:]):
+        for i in range(8):
+            j = (i + 1) % 8
+            faces.append((a[i], a[j], b[j], b[i]))
+    faces.append(tuple(rings[0]))
+    faces.append(tuple(rings[-1]))
     return _outward("Head", verts, faces)
+
+
+def build_blades():
+    """Two plates standing out of the hunched upper back, bound to Spine."""
+    out = []
+    for side in (1.0, -1.0):
+        def quad(spec, side=side):
+            x0, x1 = spec["x"]
+            z0, z1 = spec["z"]
+            if side < 0:
+                x0, x1 = -x1, -x0
+            return [(x0, spec["y"], z0), (x1, spec["y"], z0),
+                    (x1, spec["y"], z1), (x0, spec["y"], z1)]
+        name = "Blade." + ("L" if side > 0 else "R")
+        out.append(mdl.frustum(name, quad(BLADE_IN), quad(BLADE_OUT)))
+    return out
 
 
 def build_mesh():
@@ -352,6 +386,8 @@ def build_mesh():
     tube("Spine", SPINE_RINGS)
     tube("Neck", NECK_RINGS)
     parts.append(("Head", build_head(), PART_ZONE["Head"]))
+    for blade in build_blades():
+        parts.append(("Spine", blade, PART_ZONE["Spine"]))
 
     for suffix, side in (("L", 1.0), ("R", -1.0)):
         tube("UpperArm." + suffix, UPPERARM_RINGS, sides=SIDES_LIMB)
