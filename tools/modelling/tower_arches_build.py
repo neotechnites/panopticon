@@ -49,7 +49,7 @@ NBEAR      = 288       # bearings sampled when finding his windows
 EYE_H      = 1.65
 BODY_H     = 1.80
 
-SILL_ABOVE = 1.25      # sill line above the room floor; guard apex is 1.11
+SILL_ABOVE = 0.65      # sill line above the room floor; Ryan: half height, jumping out is allowed
 CROWN_Z    = 7.00      # top of the arch head (his ceiling is 7.25)
 SPLAY      = 10.0      # reveal splay per side, widening outward
 HEAD_SEG   = 12        # segments in the semicircular head
