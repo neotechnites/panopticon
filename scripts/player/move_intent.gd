@@ -52,6 +52,8 @@ var ability_slot: int = 0
 var shove_pressed: bool = false
 ## Dev: hold for 300% ground speed. Local only; never on the wire.
 var turbo_held: bool = false
+## Dev: invincible to the rifle. Local only.
+var godmode: bool = false
 
 
 ## Zero every field. Call before refilling, so a source can never leak a stale
@@ -70,6 +72,7 @@ func clear() -> void:
 	ability_slot = 0
 	shove_pressed = false
 	turbo_held = false
+	godmode = false
 
 
 ## Clamp [member move_direction] to the unit disc.
@@ -93,3 +96,4 @@ func copy_from(other: MoveIntent) -> void:
 	ability_slot = other.ability_slot
 	shove_pressed = other.shove_pressed
 	turbo_held = other.turbo_held
+	godmode = other.godmode
