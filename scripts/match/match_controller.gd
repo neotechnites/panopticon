@@ -353,9 +353,14 @@ const BODY_AVATAR_NAME: StringName = &"Avatar"
 ## to show which of its participants are ghosts.
 const BODY_MESH_NAME: StringName = &"BodyMesh"
 
-## How far a palette colour is lifted toward white before it is painted on a
-## body. The model's atlas is dithered; a flat saturated albedo hides all of it.
-const TINT_WHITE_BLEND: float = 0.45
+## The material name the model gives the one surface a team colour is painted
+## on. See [method shirt_surface_of]; a mesh without it is painted whole.
+const SHIRT_MATERIAL_NAME: String = "Shirt"
+
+## How far a palette colour is lifted toward white before it is painted. Zero:
+## only the shirt is tinted now, and its atlas cell is already a light grey, so
+## a lift on top of that washes the team colour out against the red arena.
+const TINT_WHITE_BLEND: float = 0.0
 
 ## The [ShooterProfile] an AI in the tower plays on when [MatchRules] names
 ## none. The same resource [code]scenes/bot/tower_shooter.tscn[/code] ships
@@ -1269,26 +1274,46 @@ func get_catch_count() -> int:
 
 
 ## The colour [param participant]'s body is wearing right now, straight off the
-## mesh's live [member GeometryInstance3D.material_override]. A test seam --
-## the same value a camera parked at 35-60 m would read off the deck -- rather
-## than a duplicate of the palette lookup, so it is honest about a ghost's
-## alpha and about the guard's temporary repaint, neither of which is in
-## [member MatchParticipant.home_body_material].
+## live material on its shirt surface -- or its whole-mesh override on a body
+## with no shirt. A test seam rather than a duplicate of the palette lookup, so
+## it is honest about a ghost's alpha and the guard's temporary repaint.
 func get_body_color(participant: MatchParticipant) -> Color:
 	if participant == null:
 		return Color.BLACK
 	var mesh: MeshInstance3D = _body_mesh_of(participant.body)
-	var material: BaseMaterial3D = (
-		mesh.material_override as BaseMaterial3D if mesh != null else null
-	)
+	if mesh == null:
+		return Color.BLACK
+	var material: BaseMaterial3D = _painted_material_of(mesh) as BaseMaterial3D
 	if material == null:
 		return Color.BLACK
 	return material.albedo_color
 
 
-## The albedo a body wearing [param base] actually gets: the palette colour
-## lifted toward white by [constant TINT_WHITE_BLEND], keeping its alpha, so the
-## texture under it still reads. The formula, shared with the tests.
+## The surface index whose material is [constant SHIRT_MATERIAL_NAME], or -1 on
+## a mesh that ships none -- the greybox capsule, or a model built before the
+## shirt was split off.
+static func shirt_surface_of(mesh: MeshInstance3D) -> int:
+	if mesh == null or mesh.mesh == null:
+		return -1
+	for index: int in mesh.mesh.get_surface_count():
+		var material: Material = mesh.mesh.surface_get_material(index)
+		if material != null and material.resource_name.begins_with(SHIRT_MATERIAL_NAME):
+			return index
+	return -1
+
+
+## The material this file last painted on [param mesh]: the shirt's override, or
+## the whole-mesh override on a body with no shirt surface.
+static func _painted_material_of(mesh: MeshInstance3D) -> Material:
+	var shirt: int = shirt_surface_of(mesh)
+	if shirt < 0:
+		return mesh.material_override
+	return mesh.get_surface_override_material(shirt)
+
+
+## The albedo a shirt wearing [param base] actually gets: the palette colour
+## lifted toward white by [constant TINT_WHITE_BLEND], keeping its alpha. The
+## formula, shared with the tests.
 static func tint_color(base: Color) -> Color:
 	var lifted: Color = base.lerp(Color.WHITE, TINT_WHITE_BLEND)
 	lifted.a = base.a
@@ -2144,15 +2169,22 @@ func _guard_material_for(participant: MatchParticipant) -> Material:
 	return _tinted_material(participant, get_runner_palette().guard_color)
 
 
-## The material the MODEL ships for [param participant]'s body -- surface 0's
-## own, never a tint this file painted over it. Null on a mesh that ships none.
+## The material the MODEL ships for [param participant]'s shirt -- or surface
+## 0's on a body with no shirt. Never a tint this file painted over it.
 func _base_material_of(participant: MatchParticipant) -> BaseMaterial3D:
 	var mesh: MeshInstance3D = _body_mesh_of(participant.body)
 	if mesh == null or mesh.mesh == null:
 		return null
-	var authored: Material = mesh.mesh.surface_get_material(0)
+	return _authored_material_of(mesh, maxi(shirt_surface_of(mesh), 0))
+
+
+## Surface [param index]'s authored material on [param mesh], or null.
+static func _authored_material_of(mesh: MeshInstance3D, index: int) -> BaseMaterial3D:
+	if mesh.mesh == null or index >= mesh.mesh.get_surface_count():
+		return null
+	var authored: Material = mesh.mesh.surface_get_material(index)
 	if authored == null:
-		authored = mesh.get_surface_override_material(0)
+		authored = mesh.get_surface_override_material(index)
 	return authored as BaseMaterial3D
 
 
@@ -2193,16 +2225,67 @@ func _assign_runner_color(participant: MatchParticipant) -> void:
 	_tint_body(participant, material)
 
 
-## Paint [param participant]'s body mesh, remembering the authored material the
+## Paint [param participant]'s SHIRT, remembering the authored material the
 ## first time so it can be put back exactly.
+##
+## Skin and trousers keep the model's own colours: a team colour is a shirt, not
+## a whole dyed prisoner. A translucent [param material] -- a ghost -- is the one
+## exception; its alpha goes on every surface so the whole body fades.
 func _tint_body(participant: MatchParticipant, material: Material) -> void:
 	var mesh: MeshInstance3D = _body_mesh_of(participant.body)
 	if mesh == null:
 		return
+	var shirt: int = shirt_surface_of(mesh)
 	if not participant.home_material_read:
-		participant.home_body_material = mesh.material_override
+		participant.home_body_material = _painted_material_of(mesh)
 		participant.home_material_read = true
-	mesh.material_override = material
+	if shirt < 0:
+		mesh.material_override = material
+		return
+	# A whole-mesh override would hide every per-surface one under it, and an
+	# authored one (scenes/bot/ring_runner.tscn used to paint a flat orange) is
+	# exactly the one-colour prisoner this replaces.
+	mesh.material_override = null
+	mesh.set_surface_override_material(shirt, material)
+	_fade_body(mesh, shirt, _alpha_of(material))
+
+
+## Carry a ghost's alpha onto every surface but [param shirt], or clear them
+## again at full opacity.
+func _fade_body(mesh: MeshInstance3D, shirt: int, alpha: float) -> void:
+	for index: int in mesh.mesh.get_surface_count():
+		if index == shirt:
+			continue
+		if alpha >= 1.0:
+			mesh.set_surface_override_material(index, null)
+		else:
+			mesh.set_surface_override_material(
+				index, _faded_material(_authored_material_of(mesh, index), alpha)
+			)
+
+
+## [param material]'s alpha, or fully opaque for anything that has no albedo.
+static func _alpha_of(material: Material) -> float:
+	var albedo: BaseMaterial3D = material as BaseMaterial3D
+	return 1.0 if albedo == null else albedo.albedo_color.a
+
+
+## [param base] at [param alpha], cached alongside the tints. Skin and trousers
+## keep their own colours while a ghost fades; only the alpha moves.
+func _faded_material(base: BaseMaterial3D, alpha: float) -> Material:
+	var key: String = "fade|%d|%.3f" % [0 if base == null else base.get_instance_id(), alpha]
+	if _tint_cache.has(key):
+		return _tint_cache[key]
+	var material: BaseMaterial3D
+	if base == null:
+		material = StandardMaterial3D.new()
+		material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	else:
+		material = base.duplicate() as BaseMaterial3D
+	material.albedo_color.a = alpha
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	_tint_cache[key] = material
+	return material
 
 
 ## The one mesh that IS [param body] on screen, and so the one whose colour says
@@ -3109,6 +3192,7 @@ func _finisher_weapon() -> Rifle:
 		)
 		return null
 	weapon.name = "FinisherRifle"
+	weapon.tracer_parent = rifle.tracer_parent if rifle != null else null
 	add_child(weapon)
 	# The scene's own trigger is live from _ready, and this gun is nobody's yet.
 	_set_trigger(weapon, false)

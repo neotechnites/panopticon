@@ -9,7 +9,7 @@ The rig, the clip tables and the clip code below are the runner's, COPIED
 rather than imported: the pipeline ships exactly one build script to the PC,
 so ``from runner_build import ...`` cannot resolve there. Anything that the
 game addresses -- node path ``Armature/Skeleton3D/Runner``, the five clips and
-their frame counts, the sixteen bone names, one surface -- is byte-identical
+their frame counts, the sixteen bone names -- is byte-identical
 in effect, so this .glb is a drop-in swap for runner.glb.
 
 What differs from the runner: the REST pose carries the hunch (Spine and Neck
@@ -49,6 +49,7 @@ SHOVE_CLIP_NAME = "Shove"
 FACING_YAW = 180.0
 
 # ---- atlas ------------------------------------------------------------------
+SHIRT_MATERIAL = "Shirt"       # the surface MatchController tints per team
 TEX_SIZE = 32
 TEX_SEED = 23
 ROUGHNESS = 0.88
@@ -61,13 +62,13 @@ ZONE_TROUSER = (0, 16, 16, 32)
 ZONE_DARK    = (16, 16, 32, 32)
 
 SKIN    = (150, 156, 162)      # desaturated blue-grey
-SHIRT   = (104, 114, 126)
+SHIRT   = (198, 200, 202)      # near-neutral: the team tint rides on this
 TROUSER = (52, 56, 64)
 DARK    = (28, 30, 36)
 
 ZONE_SPOTS = {
     ZONE_SKIN:    [(138, 144, 152), (162, 168, 174), (128, 134, 142)],
-    ZONE_SHIRT:   [(92, 102, 114), (116, 126, 138), (84, 92, 104)],
+    ZONE_SHIRT:   [(186, 188, 190), (212, 214, 216), (178, 180, 182)],
     ZONE_TROUSER: [(44, 48, 56), (62, 66, 74), (38, 42, 50)],
     ZONE_DARK:    [(22, 24, 30), (36, 38, 44), (18, 20, 26)],
 }
@@ -515,8 +516,8 @@ def paint_atlas():
     return img
 
 
-def skin_material(img):
-    mat = bpy.data.materials.new("Prisoner2Skin")
+def _tex_material(name, img):
+    mat = bpy.data.materials.new(name)
     mat.use_nodes = True
     nt = mat.node_tree
     bsdf = nt.nodes.get("Principled BSDF")
@@ -535,13 +536,28 @@ def skin_material(img):
     return mat
 
 
+def skin_material(img):
+    return _tex_material("Prisoner2Skin", img)
+
+
+def shirt_material(img):
+    """Surface 1: the shirt alone, so the match can tint it without the skin."""
+    return _tex_material(SHIRT_MATERIAL, img)
+
+
 def unwrap(ob, zones):
-    """Each face -> a random 2x2 texel window of its zone; undersides go dark."""
+    """Each face -> a random 2x2 texel window of its zone; undersides go dark.
+
+    Returns the zone each face actually landed in, which is what splits the
+    shirt surface off -- an underside is dark cloth, not tintable shirt.
+    """
     me = ob.data
     uvl = me.uv_layers.new(name="UVMap")
     r = random.Random(TEX_SEED * 31 + len(me.polygons))
+    final = []
     for pi, poly in enumerate(me.polygons):
         zone = ZONE_DARK if poly.normal.z < DARK_DOWNFACING else zones[pi]
+        final.append(zone)
         x0, y0, x1, y1 = zone
         tx, ty = r.randrange(x0, x1 - 2), r.randrange(y0, y1 - 2)
         corners = [(tx + 0.5, ty + 0.5), (tx + 1.5, ty + 0.5),
@@ -549,6 +565,18 @@ def unwrap(ob, zones):
         for k, li in enumerate(poly.loop_indices):
             u, v = corners[k % 4]
             uvl.data[li].uv = (u / TEX_SIZE, v / TEX_SIZE)
+    return final
+
+
+def split_shirt(ob, final_zones, material):
+    """Move every shirt-zone face onto its own material slot. Returns its index."""
+    me = ob.data
+    me.materials.append(material)
+    index = len(me.materials) - 1
+    for poly, zone in zip(me.polygons, final_zones):
+        if zone == ZONE_SHIRT:
+            poly.material_index = index
+    return index
 
 
 # =============================================================================
@@ -775,8 +803,9 @@ def build():
     body, groups, zones = build_mesh()
     albedo = paint_atlas()
     mdl.save_texture(albedo)
-    unwrap(body, zones)
+    final_zones = unwrap(body, zones)
     mdl.finish(body, skin_material(albedo), strip_uvs=False)
+    split_shirt(body, final_zones, shirt_material(albedo))
     mdl.rigid_bind(body, arm, groups)
 
     mdl.bake_pose(arm, CLIP_NAME, frames=list(range(1, CYCLE_FRAMES + 2)),

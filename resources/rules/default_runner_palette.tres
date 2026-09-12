@@ -4,6 +4,6 @@
 
 [resource]
 script = ExtResource("1_runner_palette")
-runner_colors = Array[Color]([Color(0.95, 0.82, 0.1, 1), Color(0.2, 0.55, 0.95, 1), Color(0.45, 0.9, 0.2, 1), Color(0.9, 0.25, 0.8, 1), Color(1, 0.6, 0.05, 1), Color(0.1, 0.9, 0.8, 1), Color(0.6, 0.35, 0.95, 1), Color(0.95, 0.9, 0.75, 1)])
+runner_colors = Array[Color]([Color(0.98, 0.85, 0.1, 1), Color(0.1, 0.92, 0.92, 1), Color(0.5, 0.95, 0.15, 1), Color(0.95, 0.2, 0.85, 1), Color(0.92, 0.94, 0.88, 1), Color(0.25, 0.6, 1, 1), Color(0.62, 0.35, 0.98, 1), Color(0.45, 1, 0.72, 1)])
 ghost_alpha = 0.62
-guard_color = Color(0.42, 0.46, 0.56, 1)
+guard_color = Color(1, 1, 1, 1)
