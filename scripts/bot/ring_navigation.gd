@@ -39,6 +39,25 @@ const LINK_LAND_TOLERANCE_METRES: float = 0.4
 const PAD_CARVE_MARGIN_METRES: float = 0.5
 const DEFAULT_GRAVITY: float = 22.0
 
+## Platform tops standing in a carved trap (a lava lake's blocks) and the shores either side
+## are joined by NavigationLink3Ds a bot FLIES, exactly as it flies a boost pad.
+const LAKE_LINK_MAX_SPAN_METRES: float = 6.0
+const LAKE_LINK_MAX_RISE_METRES: float = 1.6
+## Metres a take-off sits back from its edge, and a landing sits in past the far one.
+const LAKE_LINK_INSET_METRES: float = 0.2
+const LAKE_FLIGHT_MIN_SECONDS: float = 0.6
+const LAKE_FLIGHT_MAX_SECONDS: float = 0.9
+## An island no wider than this is landed on at its centre rather than just past its lip.
+const LAKE_ISLAND_SMALL_METRES: float = 1.5
+const LAKE_LINK_MATCH_METRES: float = 1.2
+const LAKE_LINK_MAX: int = 64
+## Take-off points tried per island pair, and how far apart two of them must stand.
+const LAKE_HOP_CANDIDATES: int = 8
+const LAKE_HOP_SPACING_METRES: float = 0.75
+const LAKE_LINK_TRAVEL_COST: float = 0.5
+## Degrees of ring either side of the lake's traps that count as being in it.
+const LAKE_SPAN_PAD_DEGREES: float = 8.0
+
 var _polygons: int = 0
 var _bake_ms: int = 0
 var _synced: bool = false
@@ -54,6 +73,14 @@ var _movement: MovementProfile = null
 var _links: Array[NavigationLink3D] = []
 var _dead_pads: Array[BoostPad] = []
 var _links_refined: bool = false
+var _lake_links: Array[NavigationLink3D] = []
+var _lake_plans: Array[Dictionary] = []
+var _trap_boxes: Array[Dictionary] = []
+var _root_transform: Transform3D = Transform3D.IDENTITY
+var _lake_from: float = 0.0
+var _lake_to: float = 0.0
+var _lake_height: float = 0.0
+var _has_lake: bool = false
 
 ## Regions by level-root instance id; the tree cannot be asked while the root is still readying.
 static var _by_root: Dictionary = {}
@@ -129,6 +156,7 @@ func bake_from(
 	var root_3d: Node3D = root as Node3D
 	if root_3d != null:
 		into_root = root_3d.global_transform.affine_inverse()
+	_root_transform = into_root.affine_inverse()
 
 	var mesh: NavigationMesh = NavigationMesh.new()
 	mesh.geometry_parsed_geometry_type = NavigationMesh.PARSED_GEOMETRY_STATIC_COLLIDERS
@@ -157,10 +185,18 @@ func bake_from(
 		NavigationServer3D.bake_from_source_geometry_data(mesh, source)
 		navigation_mesh = mesh
 	_build_pad_links(root, into_root)
+	var lake: int = _build_lake_links()
+	# Platform tops outside the lake are carved away again and the mesh rebuilt: only the lake
+	# has links to fly them, and navmesh a body cannot climb onto is somewhere it sticks.
+	if _carve_outside_lake(source, into_root) > 0:
+		mesh = mesh.duplicate() as NavigationMesh
+		NavigationServer3D.bake_from_source_geometry_data(mesh, source)
+		navigation_mesh = mesh
+		lake = _build_lake_links()
 	_polygons = mesh.get_polygon_count()
 	_bake_ms = Time.get_ticks_msec() - started
 	charge("bake", started_usec)
-	print("RingNavigation: baked %d polygons, %d traps, %d deck edges, %d dead pads carved, %d pad links, in %d ms" % [_polygons, carved, edges, dead, _links.size(), _bake_ms])
+	print("RingNavigation: baked %d polygons, %d traps, %d deck edges, %d dead pads carved, %d pad links, %d lake links, in %d ms" % [_polygons, carved, edges, dead, _links.size(), lake, _bake_ms])
 
 
 func get_polygon_count() -> int:
@@ -186,6 +222,7 @@ func is_ready() -> bool:
 	if _synced and not _links_refined:
 		_links_refined = true
 		_refine_pad_links()
+		_refine_lake_links()
 	return _synced
 
 
@@ -234,12 +271,12 @@ func _carve_traps(node: Node, source: NavigationMeshSourceGeometryData3D, into_r
 		]:
 			corners.append(into_root * (world * corner))
 		var bottom: float = (into_root * (world * Vector3(0.0, -half.y, 0.0))).y
-		source.add_projected_obstruction(
-			corners,
-			bottom - HAZARD_VERTICAL_MARGIN_METRES,
-			trap.size_metres.y + 2.0 * HAZARD_VERTICAL_MARGIN_METRES,
-			true,
-		)
+		# The carve stops at the trap's own lethal top -- its box, or the surface a feet_only trap
+		# converts at -- so a platform standing IN a trap keeps the navmesh on top of it.
+		var top: float = (into_root * world.origin).y if trap.feet_only \
+			else (into_root * (world * Vector3(0.0, half.y, 0.0))).y
+		var floor_level: float = bottom - HAZARD_VERTICAL_MARGIN_METRES
+		source.add_projected_obstruction(corners, floor_level, maxf(top - floor_level, 0.1), true)
 		carved += 1
 	for child: Node in node.get_children():
 		carved += _carve_traps(child, source, into_root)
@@ -536,3 +573,451 @@ func _first_blocking_floor(
 
 static func _ring_point(centre: Vector3, angle: float, radius: float, height: float) -> Vector3:
 	return Vector3(centre.x + cos(angle) * radius, height, centre.z + sin(angle) * radius)
+
+
+# --- Lake links ---------------------------------------------------------------
+#
+# A lava lake is carved wall to wall, so the only navmesh left inside it is the tops of the
+# platforms standing in it. Those islands and the two shores are joined by NavigationLink3Ds
+# carrying the launch velocity that lands a body on the far end, and a runner FLIES them the
+# way it flies a boost pad. Nothing outside the lake's angular span is touched.
+
+## True when [param world_point] is inside the lake's angular span at its height.
+func is_in_lake_span(world_point: Vector3) -> bool:
+	if not _has_lake or absf(world_point.y - _lake_height) > 6.0:
+		return false
+	var bearing: float = _lake_from + wrapf(_bearing_of(world_point) - _lake_from, -PI, PI)
+	var pad: float = deg_to_rad(LAKE_SPAN_PAD_DEGREES)
+	return bearing >= _lake_from - pad and bearing <= _lake_to + pad
+
+
+## The launch that carries a body from [param from] onto [param to]: a ledge inside the lake
+## the body cannot walk up is flown on the same solver a link is.
+func lake_launch_to(from: Vector3, to: Vector3) -> Vector3:
+	return _lake_launch(from, to)
+
+
+## The launch velocity and landing point of the lake link between two path points, or {}.
+func lake_link_between(entry: Vector3, exit: Vector3) -> Dictionary:
+	for index: int in _lake_links.size():
+		var link: NavigationLink3D = _lake_links[index]
+		if not link.enabled:
+			continue
+		var plan: Dictionary = _lake_plans[index]
+		if not plan.has("velocity"):
+			continue
+		var start: Vector3 = link.get_global_start_position()
+		if _pair_matches(entry, exit, start, link.get_global_end_position()):
+			return {"velocity": plan["velocity"], "landing": plan["landing"], "start": start}
+	return {}
+
+
+static func _pair_matches(entry: Vector3, exit: Vector3, start: Vector3, end: Vector3) -> bool:
+	return Vector2(entry.x - start.x, entry.z - start.z).length() <= LAKE_LINK_MATCH_METRES \
+		and Vector2(exit.x - end.x, exit.z - end.z).length() <= LAKE_LINK_MATCH_METRES
+
+
+func _bearing_of(world_point: Vector3) -> float:
+	return atan2(world_point.z - _bake_centre.z, world_point.x - _bake_centre.x)
+
+
+func _free_lake_links() -> void:
+	for link: NavigationLink3D in _lake_links:
+		link.queue_free()
+	_lake_links.clear()
+	_lake_plans.clear()
+
+
+## One directed link per island pair inside the lake whose nearest edge points are within the
+## jump envelope, ordered the way the lap runs. Positions are refined once the map is live.
+func _build_lake_links() -> int:
+	_free_lake_links()
+	_has_lake = false
+	if navigation_mesh == null:
+		return 0
+	_build_trap_boxes()
+	if _trap_boxes.is_empty():
+		return 0
+	var islands: Array[Dictionary] = _mesh_islands()
+	if not _find_lake_span(islands):
+		return 0
+	var live: Array[Dictionary] = []
+	for island: Dictionary in islands:
+		var edges: Array = _edges_in_span(island)
+		if edges.is_empty():
+			continue
+		island["span_edges"] = edges
+		live.append(island)
+	for a: int in live.size():
+		for b: int in live.size():
+			if a == b or _lake_links.size() >= LAKE_LINK_MAX:
+				continue
+			var hops: Array[Dictionary] = _lake_hops(live[a], live[b])
+			if hops.is_empty():
+				continue
+			var link: NavigationLink3D = NavigationLink3D.new()
+			link.name = "LakeLink_%d" % _lake_links.size()
+			link.bidirectional = false
+			link.travel_cost = LAKE_LINK_TRAVEL_COST
+			link.enabled = false
+			link.start_position = (hops[0] as Dictionary)["start"]
+			link.end_position = (hops[0] as Dictionary)["end"]
+			add_child(link)
+			_lake_links.append(link)
+			_lake_plans.append({"hops": hops})
+	return _lake_links.size()
+
+
+## The forward hops from island [param a] to island [param b] that are in envelope, shortest
+## first, one per distinct take-off point. Which of them has real floor at both ends is settled
+## in [method _refine_lake_links], where the body can be raycast against.
+func _lake_hops(a: Dictionary, b: Dictionary) -> Array[Dictionary]:
+	var found: Array[Dictionary] = []
+	for left: Dictionary in a["span_edges"] as Array:
+		for right: Dictionary in b["span_edges"] as Array:
+			var near: PackedVector3Array = Geometry3D.get_closest_points_between_segments(
+				left["a"], left["b"], right["a"], right["b"]
+			)
+			var span: float = Vector2(near[1].x - near[0].x, near[1].z - near[0].z).length()
+			if span >= LAKE_LINK_MAX_SPAN_METRES:
+				continue
+			if wrapf(_bearing_of(_root_transform * near[1]) - _bearing_of(_root_transform * near[0]), -PI, PI) <= 0.0:
+				continue
+			found.append({"span": span, "from": near[0], "to": near[1]})
+	found.sort_custom(func(x: Dictionary, y: Dictionary) -> bool: return float(x["span"]) < float(y["span"]))
+	var hops: Array[Dictionary] = []
+	for candidate: Dictionary in found:
+		if hops.size() >= LAKE_HOP_CANDIDATES:
+			break
+		var from: Vector3 = candidate["from"]
+		var apart: bool = true
+		for held: Dictionary in hops:
+			apart = apart and Vector2(
+				from.x - (held["from"] as Vector3).x, from.z - (held["from"] as Vector3).z
+			).length() > LAKE_HOP_SPACING_METRES
+		if apart:
+			hops.append(_lake_hop(a, b, from, candidate["to"]))
+	return hops
+
+
+## One hop's take-off and landing: back off the near lip, past the far one, and land a small
+## island at its centre rather than on its rim.
+func _lake_hop(a: Dictionary, b: Dictionary, from: Vector3, to: Vector3) -> Dictionary:
+	var travel: Vector3 = Vector3(to.x - from.x, 0.0, to.z - from.z)
+	travel = travel.normalized() if travel.length() > 0.001 else Vector3.ZERO
+	var start: Vector3 = a["centre"] if float(a["extent"]) <= LAKE_ISLAND_SMALL_METRES \
+		else from - travel * LAKE_LINK_INSET_METRES
+	var end: Vector3 = b["centre"] if float(b["extent"]) <= LAKE_ISLAND_SMALL_METRES \
+		else to + travel * LAKE_LINK_INSET_METRES
+	return {"from": from, "start": Vector3(start.x, from.y, start.z), "end": Vector3(end.x, to.y, end.z)}
+
+
+## Boundary edges of [param island] that lie inside the lake's span, at the lake's height.
+func _edges_in_span(island: Dictionary) -> Array:
+	var kept: Array = []
+	for edge: Dictionary in island["edges"] as Array:
+		var middle: Vector3 = _root_transform * (((edge["a"] as Vector3) + (edge["b"] as Vector3)) * 0.5)
+		if not is_in_lake_span(middle):
+			continue
+		kept.append(edge)
+	return kept
+
+
+## Stand each link on the floor its ends really have, work out the launch, and turn it on.
+func _refine_lake_links() -> void:
+	var world: World3D = get_world_3d()
+	var space: PhysicsDirectSpaceState3D = world.direct_space_state if world != null else null
+	if space == null:
+		return
+	for index: int in _lake_links.size():
+		var link: NavigationLink3D = _lake_links[index]
+		var plan: Dictionary = _lake_plans[index]
+		for hop: Dictionary in plan["hops"] as Array:
+			var start: Vector3 = _floor_point(space, _root_transform * (hop["start"] as Vector3))
+			var end: Vector3 = _floor_point(space, _root_transform * (hop["end"] as Vector3))
+			if not is_finite(start.x) or not is_finite(end.x):
+				continue
+			if absf(end.y - start.y) > LAKE_LINK_MAX_RISE_METRES:
+				continue
+			link.set_global_start_position(start)
+			link.set_global_end_position(end)
+			plan["velocity"] = _lake_launch(start, end)
+			plan["landing"] = end
+			_lake_plans[index] = plan
+			link.enabled = true
+			break
+
+
+## The static floor under [param point], or Vector3.INF when there is none or it is a hazard.
+func _floor_point(space: PhysicsDirectSpaceState3D, point: Vector3) -> Vector3:
+	var query: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(
+		point + Vector3.UP * 2.0, point + Vector3.DOWN * 3.0
+	)
+	query.collision_mask = STATIC_COLLIDER_MASK
+	query.collide_with_areas = false
+	var hit: Dictionary = space.intersect_ray(query)
+	if hit.is_empty():
+		return Vector3.INF
+	var floor_point: Vector3 = hit["position"]
+	return Vector3.INF if _floor_is_lethal(floor_point) else floor_point
+
+
+## True when standing at [param world_point] would trip a trap: inside its box, or at or below
+## the surface a feet_only trap converts at. No margin -- a platform top clears a trap by little.
+func _floor_is_lethal(world_point: Vector3) -> bool:
+	for box: Dictionary in _trap_boxes:
+		var centre: Vector3 = box["centre"]
+		if Vector2(world_point.x - centre.x, world_point.z - centre.z).length_squared() > float(box["reach_squared"]):
+			continue
+		var local: Vector3 = (box["inverse"] as Transform3D) * world_point
+		var half: Vector3 = box["kill_half"]
+		if absf(local.x) > half.x or absf(local.z) > half.z:
+			continue
+		if local.y <= (0.05 if bool(box["feet"]) else half.y) and local.y >= -half.y:
+			return true
+	return false
+
+
+## The velocity that drops a launched body from [param start] onto [param end]. The launch tick
+## is still a ground tick, so its one helping of ground friction is paid for here.
+func _lake_launch(start: Vector3, end: Vector3) -> Vector3:
+	var dt: float = 1.0 / 60.0
+	var flat: Vector2 = Vector2(end.x - start.x, end.z - start.z)
+	var rise: float = end.y - start.y
+	var seconds: float = lerpf(
+		LAKE_FLIGHT_MIN_SECONDS,
+		LAKE_FLIGHT_MAX_SECONDS,
+		clampf(flat.length() / LAKE_LINK_MAX_SPAN_METRES, 0.0, 1.0),
+	)
+	var up: float = rise / seconds + 0.5 * _gravity * seconds
+	var height: float = up * dt
+	var speed: float = up
+	var ticks: int = 1
+	for tick: int in int(LAKE_FLIGHT_MAX_SECONDS * 4.0 * 60.0):
+		speed -= _gravity * dt
+		height += speed * dt
+		ticks += 1
+		if speed < 0.0 and height <= rise:
+			break
+	var ground: float = flat.length() / maxf(float(ticks) * dt, 0.001)
+	for attempt: int in 6:
+		var reach: float = _lake_reach(ground, ticks)
+		if reach <= 0.001:
+			break
+		ground *= flat.length() / reach
+	var direction: Vector2 = flat.normalized() if flat.length() > 0.001 else Vector2.ZERO
+	return Vector3(direction.x * ground, up, direction.y * ground)
+
+
+## Metres a launch at [param speed] covers in [param ticks]: one ground tick of friction --
+## the launch tick is still on the floor -- and then the profile's air friction.
+func _lake_reach(speed: float, ticks: int) -> float:
+	var dt: float = 1.0 / 60.0
+	var stop_speed: float = _movement.friction_stop_speed if _movement != null else 0.0
+	var on_ground: float = _movement.friction if _movement != null else 0.0
+	var in_air: float = _movement.air_friction if _movement != null else 0.0
+	var travelled: float = 0.0
+	var v: float = speed
+	for tick: int in ticks:
+		var drag: float = on_ground if tick == 0 else in_air
+		if drag > 0.0 and v > 0.001:
+			v = maxf(v - maxf(v, stop_speed) * drag * dt, 0.0)
+		travelled += v * dt
+	return travelled
+
+
+## Re-carve the band a feet_only trap's reduced carve left standing, for every such trap outside
+## the lake. Returns how many, so the caller knows whether the mesh has to be baked again.
+func _carve_outside_lake(source: NavigationMeshSourceGeometryData3D, into_root: Transform3D) -> int:
+	var carved: int = 0
+	for volume: Node3D in _hazard_volumes:
+		var trap: TrapVolume = volume as TrapVolume
+		if trap == null or not trap.feet_only:
+			continue
+		if _has_lake and is_in_lake_span(trap.global_position):
+			continue
+		var half: Vector3 = trap.size_metres * 0.5
+		var world: Transform3D = trap.global_transform
+		var corners: PackedVector3Array = PackedVector3Array()
+		for corner: Vector3 in [
+			Vector3(-half.x - HAZARD_INFLATION_METRES, 0.0, -half.z - HAZARD_INFLATION_METRES),
+			Vector3(half.x + HAZARD_INFLATION_METRES, 0.0, -half.z - HAZARD_INFLATION_METRES),
+			Vector3(half.x + HAZARD_INFLATION_METRES, 0.0, half.z + HAZARD_INFLATION_METRES),
+			Vector3(-half.x - HAZARD_INFLATION_METRES, 0.0, half.z + HAZARD_INFLATION_METRES),
+		]:
+			corners.append(into_root * (world * corner))
+		var surface: float = (into_root * world.origin).y
+		var top: float = (into_root * (world * Vector3(0.0, half.y, 0.0))).y + HAZARD_VERTICAL_MARGIN_METRES
+		source.add_projected_obstruction(corners, surface, maxf(top - surface, 0.1), true)
+		carved += 1
+	return carved
+
+
+## Trap footprints in the shape the carve used, so "standing in a trap" and "carved" agree.
+func _build_trap_boxes() -> void:
+	_trap_boxes.clear()
+	for volume: Node3D in _hazard_volumes:
+		var trap: TrapVolume = volume as TrapVolume
+		if trap == null:
+			continue
+		var half: Vector3 = trap.size_metres * 0.5
+		var world: Transform3D = trap.global_transform
+		var reach: float = Vector2(
+			(half.x + HAZARD_INFLATION_METRES) * world.basis.x.length(),
+			(half.z + HAZARD_INFLATION_METRES) * world.basis.z.length(),
+		).length()
+		_trap_boxes.append({
+			"inverse": world.affine_inverse(),
+			"centre": world.origin,
+			"reach_squared": reach * reach,
+			"half": Vector3(half.x + HAZARD_INFLATION_METRES, half.y, half.z + HAZARD_INFLATION_METRES),
+			"kill_half": half,
+			"feet": trap.feet_only,
+		})
+
+
+## The trap [param world_point] stands in the footprint of, or -1.
+func _trap_under(world_point: Vector3) -> int:
+	for index: int in _trap_boxes.size():
+		var box: Dictionary = _trap_boxes[index]
+		var centre: Vector3 = box["centre"]
+		if Vector2(world_point.x - centre.x, world_point.z - centre.z).length_squared() > float(box["reach_squared"]):
+			continue
+		var local: Vector3 = (box["inverse"] as Transform3D) * world_point
+		var half: Vector3 = box["half"]
+		if absf(local.x) <= half.x and absf(local.z) <= half.z and absf(local.y) <= half.y + 4.0:
+			return index
+	return -1
+
+
+## The lake is the biggest run of platform islands -- islands standing wholly in a trap -- that
+## sit within LAKE_SPAN_PAD_DEGREES of each other. Sets the span they and their traps cover.
+func _find_lake_span(islands: Array[Dictionary]) -> bool:
+	var biggest: int = 0
+	for island: Dictionary in islands:
+		biggest = maxi(biggest, int(island["polygons"]))
+	var platforms: Array[Dictionary] = []
+	for island: Dictionary in islands:
+		if int(island["polygons"]) >= biggest:
+			continue
+		if int(island["over"]) * 2 < int(island["polygons"]):
+			continue
+		island["bearing"] = _bearing_of(_root_transform * (island["centre"] as Vector3))
+		platforms.append(island)
+	if platforms.is_empty():
+		return false
+	platforms.sort_custom(func(x: Dictionary, y: Dictionary) -> bool:
+		return float(x["bearing"]) < float(y["bearing"]))
+	var gap: float = deg_to_rad(LAKE_SPAN_PAD_DEGREES * 2.0)
+	var run_from: int = 0
+	var best_from: int = 0
+	var best_to: int = 0
+	for index: int in range(1, platforms.size() + 1):
+		var broken: bool = index == platforms.size() \
+			or float(platforms[index]["bearing"]) - float(platforms[index - 1]["bearing"]) > gap
+		if not broken:
+			continue
+		if index - run_from > best_to - best_from:
+			best_from = run_from
+			best_to = index
+		run_from = index
+	var reference: float = float(platforms[best_from]["bearing"])
+	var low: float = 0.0
+	var high: float = 0.0
+	var height: float = 0.0
+	for index: int in range(best_from, best_to):
+		var island: Dictionary = platforms[index]
+		var relative: float = wrapf(float(island["bearing"]) - reference, -PI, PI)
+		low = minf(low, relative)
+		high = maxf(high, relative)
+		height += (_root_transform * (island["centre"] as Vector3)).y
+		for trap: int in island["traps"] as Dictionary:
+			var bearing: float = wrapf(_bearing_of((_trap_boxes[trap] as Dictionary)["centre"]) - reference, -PI, PI)
+			low = minf(low, bearing)
+			high = maxf(high, bearing)
+	_lake_from = reference + low
+	_lake_to = reference + high
+	_lake_height = height / float(best_to - best_from)
+	_has_lake = true
+	return true
+
+
+## Mesh polygons joined edge to edge, with each island's boundary edges, centre, width and
+## how many of its polygons stand in a trap.
+func _mesh_islands() -> Array[Dictionary]:
+	var vertices: PackedVector3Array = navigation_mesh.get_vertices()
+	var count: int = navigation_mesh.get_polygon_count()
+	var stride: int = maxi(vertices.size(), 1)
+	var owner: Array[int] = []
+	owner.resize(count)
+	for index: int in count:
+		owner[index] = index
+	var first: Dictionary = {}
+	var shared: Dictionary = {}
+	for index: int in count:
+		var polygon: PackedInt32Array = navigation_mesh.get_polygon(index)
+		for corner: int in polygon.size():
+			var key: int = _edge_key(polygon[corner], polygon[(corner + 1) % polygon.size()], stride)
+			if first.has(key):
+				_join(owner, index, int(first[key]))
+				shared[key] = true
+			else:
+				first[key] = index
+	var by_root: Dictionary = {}
+	for index: int in count:
+		var polygon: PackedInt32Array = navigation_mesh.get_polygon(index)
+		if polygon.size() < 3:
+			continue
+		var root: int = _join_root(owner, index)
+		var island: Dictionary = by_root.get(root, {
+			"polygons": 0, "over": 0, "sum": Vector3.ZERO, "edges": [], "traps": {},
+		})
+		var middle: Vector3 = Vector3.ZERO
+		for corner: int in polygon:
+			middle += vertices[corner]
+		middle /= float(polygon.size())
+		island["polygons"] = int(island["polygons"]) + 1
+		island["sum"] = (island["sum"] as Vector3) + middle
+		var trap: int = _trap_under(_root_transform * middle)
+		if trap >= 0:
+			island["over"] = int(island["over"]) + 1
+			(island["traps"] as Dictionary)[trap] = true
+		for corner: int in polygon.size():
+			var a: int = polygon[corner]
+			var b: int = polygon[(corner + 1) % polygon.size()]
+			if shared.has(_edge_key(a, b, stride)):
+				continue
+			(island["edges"] as Array).append({"a": vertices[a], "b": vertices[b]})
+		by_root[root] = island
+	var islands: Array[Dictionary] = []
+	for root: int in by_root:
+		var island: Dictionary = by_root[root]
+		var centre: Vector3 = (island["sum"] as Vector3) / float(island["polygons"])
+		var extent: float = 0.0
+		for edge: Dictionary in island["edges"] as Array:
+			extent = maxf(extent, Vector2(
+				(edge["a"] as Vector3).x - centre.x, (edge["a"] as Vector3).z - centre.z
+			).length())
+		island["centre"] = centre
+		island["extent"] = extent
+		islands.append(island)
+	return islands
+
+
+static func _edge_key(a: int, b: int, stride: int) -> int:
+	return mini(a, b) * stride + maxi(a, b)
+
+
+static func _join_root(owner: Array[int], node: int) -> int:
+	var cursor: int = node
+	while owner[cursor] != cursor:
+		owner[cursor] = owner[owner[cursor]]
+		cursor = owner[cursor]
+	return cursor
+
+
+static func _join(owner: Array[int], a: int, b: int) -> void:
+	var left: int = _join_root(owner, a)
+	var right: int = _join_root(owner, b)
+	if left != right:
+		owner[right] = left
