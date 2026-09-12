@@ -114,19 +114,18 @@ ZONE_GLOW   = (0.5, 0.0, 1.0, 0.25)   # cell interiors: painted over the unused
 ZONE_DECK      = ("deck",) + ZONE_SHADE
 DECK_UV_SCALE  = 0.34                 # ~0.048 m/texel: speckle 0.2..0.5 m
 
-# ---- the lava: ONE sheet and ONE material for sea, channel and wall run -----
-# ULTRAKILL Prelude lava: saturated orange, hot yellow-white veins between
-# near-black crust islands with hard pixel edges. It wraps on both axes, so
-# every lava region takes the same sheet at the same LAVA_SPAN metres per
-# repeat, in a random window and a random rotation per facet.
+# ---- the lava sea on the floor of the shaft --------------------------------
+# Its own material and its own tiling sheet (not an atlas cell), so it repeats
+# instead of stretching one window over 90 m of floor.
 ZONE_LAVA      = ("lava",)
-LAVA_TEX       = 256
+LAVA_TEX       = 512
 LAVA_ALBEDO    = "map_base_lava_albedo"
 LAVA_EMISSIVE  = "map_base_lava_emissive"
-LAVA_MAT       = "Lava"
 LAVA_SEED      = 7720133
-LAVA_SPAN      = 6.0                  # metres per repeat, every lava region
-LAVA_RINGS     = (1.0, 0.86, 0.72, 0.58, 0.45, 0.32, 0.20, 0.10)   # of the pit foot
+LAVA_SPAN      = 104.0                # metres across the sheet: ONE window over the
+                                      # whole sea, no tiling, so there is no repeat
+                                      # and no seam anywhere to hide
+LAVA_RINGS     = (1.0, 0.70, 0.42, 0.14)   # radius fractions of the pit foot
 LAVA_SWELL     = 0.6                  # +- metres of slow molten swell
 LAVA_STEP      = 0.3                  # swell snaps to this: flat crust plates
 LAVA_FLAT_R    = 18.0                 # level under the tower's foot
@@ -163,29 +162,15 @@ LAVA_COLL_RST = [46.70, 48.20, 49.70, 51.20, 52.70, 54.20, 55.70, 57.30]
 
 LAKE_SEED = 5140737
 
-ZONE_RIVER = ("river",)               # the channel bed, across the deck
-ZONE_FALL = ("fall",)                 # ... and the run down a wall
-CROSS_R = 52.0                        # nominal radius for metres <-> radians
-
-# ---- detail: the bed is faceted, the banks are broken rock, the wall is
-# undercut and the lava wells out of a cave mouth 2.5 m inside the rock -------
-BED_JAG     = 0.15          # +- metres of faceted swell on the channel bed
-BED_CELL    = 2.0           # metres: one flat plate of that swell
-BED_PLATES  = 7             # crust plates standing proud of it
-BED_PLATE_H = (0.10, 0.20)
-BANK_JAG    = 0.40          # metres the bank line wanders in plan, per station
-BANK_STEPS  = (0.45, 0.34, 0.80, 0.74)   # the lip in three facets: (across, dropped) x2
-BANK_COLS   = (-0.40, -0.20, 0.20, 0.38, 0.75, 0.95)   # metres either side of a cut
-COL_MIN     = 0.12          # metres: no two section columns closer than this
-BOULDERS    = 8             # on the bank line, 0.6 m proud of the deck
-BOULDER_R   = 0.34
-BOULDER_TOP = DECK_Z + 0.60
-PIT_BANK_W  = 0.35          # metres the pit run's bank takes to reach full depth
-MOUTH_A0, MOUTH_A1 = 296.0, 334.0     # the cave mouth, rock left at both ends
-MOUTH_D     = 2.50          # metres the recess is cut back into the shaft wall
-MOUTH_TOP   = 26.30         # the overhanging rock lip over it
-MOUTH_JAG   = 0.30          # +- metres on the lip and the back wall
-COLL_LIP    = MOUTH_TOP - MOUTH_JAG   # collision takes the lowest lip the jag allows
+ZONE_RIVER = ("river",)               # flow runs radially, wall -> lip
+ZONE_FALL = ("fall",)                 # ... and straight down a wall
+RIVER_TEX = 256
+RIVER_ALBEDO = "map_base_river_albedo"
+RIVER_EMISSIVE = "map_base_river_emissive"
+RIVER_SEED = 7720133
+FLOW_SPAN = 10.0
+CROSS_SPAN = 10.0
+CROSS_R = 52.0
 
 # ---- prison cells: stone screens cut into the pit faces ---------------------
 # A cell is an arched mouth cut through the wall, a reveal stepping back to a
@@ -420,10 +405,82 @@ def rock_material(name, albedo, emissive):
 
 
 def _lava_texture():
-    """FLAT LIT ORANGE, temporarily: one solid albedo and NO emission, so the
-    arena light shades every lava facet and bank and the shape can be read."""
+    """The sea, painted once at world scale: a dark rock crust with a faint
+    ember glow, cut by 1..3 m molten channels and a few wide pools. One window
+    covers the whole floor, so nothing repeats and nothing seams."""
     c = _Canvas(LAVA_TEX)
-    c.rect(0, 0, LAVA_TEX, LAVA_TEX, (255, 106, 16), (0, 0, 0))
+    r = _Rng(LAVA_SEED)
+    n = LAVA_TEX
+    mpp = LAVA_SPAN / n
+    edge = 0.5 * n - 3.0
+
+    def M(metres):
+        return max(1, int(round(metres / mpp)))
+
+    def blot(x, y, w, h, rgb, glow):
+        c.rect(int(x), int(y), int(x) + w, int(y) + h, rgb, glow)
+
+    hot = [(226, 70, 10), (255, 104, 20), (206, 52, 6), (255, 132, 30)]
+    rock = [(48, 22, 18), (36, 15, 13), (60, 29, 23), (27, 11, 11)]
+    ember = [(66, 19, 6), (50, 13, 4), (80, 25, 8)]       # crust emission ~ 0.05
+    for y in range(n):                                    # the crust: rock, with grain
+        for x in range(n):
+            c.put(x, y, r.pick(rock), r.pick(ember))
+    for _ in range(340):                                  # slabs: 2..9 m tonal blocks
+        sh = r.pick(rock)
+        blot(r.i(0, n - 1), r.i(0, n - 1), M(2.0) + r.i(0, M(7.0)),
+             M(2.0) + r.i(0, M(7.0)), sh, r.pick(ember))
+    for _ in range(260):                                  # cold cracks between slabs
+        x, y = r.i(0, n - 1), r.i(0, n - 1)
+        for _step in range(M(9.0)):
+            c.put(x, y, (12, 5, 5), (14, 3, 1))
+            c.put(x + 1, y, (12, 5, 5), (14, 3, 1))
+            x += r.i(-1, 1)
+            y += r.i(-1, 1)
+
+    def flow(x, y, a, steps, w, shades):
+        """A molten channel: a heading that wanders, turned back at the rim."""
+        for _step in range(steps):
+            sh = r.pick(shades)
+            blot(x - 0.5 * w, y - 0.5 * w, w, w, sh, sh)
+            a += 0.26 * r.sf()
+            x += math.cos(a)
+            y += math.sin(a)
+            if math.hypot(x - 0.5 * n, y - 0.5 * n) > edge:
+                a += math.pi
+
+    pools = []
+    for _ in range(5):                                    # 8..15 m pools, walked round
+        for _try in range(40):
+            px, py = r.i(0, n - 1), r.i(0, n - 1)
+            if math.hypot(px - 0.5 * n, py - 0.5 * n) > edge - M(9.0):
+                continue
+            if all(math.hypot(px - q[0], py - q[1]) > M(26.0) for q in pools):
+                break
+        pools.append((px, py))
+        spread = M(3.0) + r.i(0, M(3.0))          # pool: 8..15 m across, bounded
+        size = M(1.5) + r.i(0, M(1.5))
+        for _step in range(90):
+            dx, dy = r.i(-spread, spread), r.i(-spread, spread)
+            if dx * dx + dy * dy > spread * spread:
+                continue
+            sh = r.pick(hot)
+            blot(px + dx - 0.5 * size, py + dy - 0.5 * size, size, size, sh, sh)
+        for _k in range(2):                               # channels drain each pool
+            flow(px, py, r.f() * TWO_PI, 260, M(1.0) + r.i(0, M(1.2)), hot)
+    for _ in range(14):                                   # the rest of the network
+        flow(r.i(0, n - 1), r.i(0, n - 1), r.f() * TWO_PI, 240,
+             M(1.0) + r.i(0, M(1.0)), hot)
+    dim = [(150, 40, 6), (120, 30, 5), (176, 50, 9)]
+    for _ in range(150):                                  # hairline cracks, still lit
+        flow(r.i(0, n - 1), r.i(0, n - 1), r.f() * TWO_PI, 90, M(0.35), dim)
+    for _ in range(70):                                   # white-hot cores in the molten
+        x, y = r.i(0, n - 1), r.i(0, n - 1)
+        o = (y * n + x) * 4
+        if c.emi[o] < 0.3:
+            continue
+        core = r.pick([(255, 214, 96), (255, 178, 60)])
+        blot(x, y, M(0.6), M(0.6), core, core)
     images = []
     for name, buf in ((LAVA_ALBEDO, c.alb), (LAVA_EMISSIVE, c.emi)):
         img = bpy.data.images.new(name, LAVA_TEX, LAVA_TEX, alpha=False)
@@ -432,6 +489,63 @@ def _lava_texture():
         img.update()
         images.append(img)
     return images[0], images[1]
+
+
+def _river_texture():
+    """The river: molten, STREAKED along +U, which every river face maps to its
+    own flow direction. Wraps on both axes so it tiles."""
+    c = _Canvas(RIVER_TEX)
+    r = _Rng(RIVER_SEED)
+    n = RIVER_TEX
+    hot = [(232, 74, 10), (255, 110, 22), (212, 56, 6), (255, 140, 34)]
+    warm = [(178, 46, 6), (150, 34, 4), (200, 58, 10)]
+    crust = [(34, 12, 10), (24, 8, 8), (46, 18, 14)]
+
+    for y in range(n):
+        for x in range(n):
+            s = r.pick(hot)
+            c.put(x, y, s, s)
+    for _ in range(90):                       # crust rafts, drawn out by the flow
+        x, y = r.i(0, n - 1), r.i(0, n - 1)
+        w, h = r.i(18, 70), r.i(2, 7)
+        sh = r.pick(crust)
+        for dy in range(h):
+            for dx in range(w):
+                c.wrap(x + dx, y + dy + (dx // 26), sh, (0, 0, 0))
+    for _ in range(150):                      # dark filaments: the shear lines
+        x, y = r.i(0, n - 1), r.i(0, n - 1)
+        sh = r.pick(crust)
+        for dx in range(r.i(30, 110)):
+            c.wrap(x + dx, y, sh, (6, 2, 2))
+            if r.i(0, 6) == 0:
+                y += r.i(-1, 1)
+    for _ in range(200):                      # warm streaks either side of them
+        x, y = r.i(0, n - 1), r.i(0, n - 1)
+        sh = r.pick(warm)
+        for dx in range(r.i(20, 90)):
+            c.wrap(x + dx, y, sh, sh)
+            if r.i(0, 8) == 0:
+                y += r.i(-1, 1)
+    for _ in range(120):                      # white-hot cores, long and thin
+        x, y = r.i(0, n - 1), r.i(0, n - 1)
+        core = r.pick([(255, 216, 104), (255, 184, 64), (255, 232, 150)])
+        for dx in range(r.i(8, 46)):
+            c.wrap(x + dx, y, core, core)
+            if r.i(0, 10) == 0:
+                y += r.i(-1, 1)
+    images = []
+    for name, buf in ((RIVER_ALBEDO, c.alb), (RIVER_EMISSIVE, c.emi)):
+        img = bpy.data.images.new(name, RIVER_TEX, RIVER_TEX, alpha=False)
+        img.colorspace_settings.name = "sRGB"
+        img.pixels.foreach_set(buf)
+        img.update()
+        images.append(img)
+    return images[0], images[1]
+
+
+def river_material(name, albedo, emissive):
+    """The river: single-sided, exactly as the deck and the walls it is cut into."""
+    return rock_material(name, albedo, emissive)
 
 
 # =============================================================================
@@ -1175,82 +1289,6 @@ def _ramp(x, a, b):
     return min(1.0, max(0.0, (x - a) / (b - a)))
 
 
-def _hash(a, b, salt):
-    """0..1 from three ints. A lattice of these is what facets the lava bed
-    and ragged the cave mouth: the same cell always gets the same value, so
-    a vertex shared by four faces is displaced once."""
-    h = (int(a) * 73856093) ^ (int(b) * 19349663) ^ (int(salt) * 83492791)
-    for _ in range(2):
-        h = (1103515245 * (h & 0x7FFFFFFF) + 12345) & 0x7FFFFFFF
-    return h / float(0x7FFFFFFF)
-
-
-def _sjit(a, b, salt):
-    return 2.0 * _hash(a, b, salt) - 1.0
-
-
-def _thin(cols, hard, gap):
-    """Every hard column, then any other no nearer than `gap` to one kept."""
-    out = sorted(set(hard))
-    for t in sorted(cols):
-        if all(abs(t - k) >= gap for k in out):
-            out.append(t)
-            out.sort()
-    return out
-
-
-def _manifold(mesh):
-    """(open edges, non-manifold edges, coincident faces, degenerate faces)
-    after welding by position -- the seam check every rebuild has to pass."""
-    key, rep = {}, []
-    for p in mesh.verts:
-        k = (round(p[0], 5), round(p[1], 5), round(p[2], 5))
-        rep.append(key.setdefault(k, len(key)))
-    edge, face, degen = {}, {}, 0
-    for f in mesh.faces:
-        a, b, c = rep[f[0]], rep[f[1]], rep[f[2]]
-        if a == b or b == c or a == c:
-            degen += 1
-            continue
-        t = tuple(sorted((a, b, c)))
-        face[t] = face.get(t, 0) + 1
-        for e in ((a, b), (b, c), (c, a)):
-            e = (min(e), max(e))
-            edge[e] = edge.get(e, 0) + 1
-    return (sum(1 for v in edge.values() if v == 1),
-            sum(1 for v in edge.values() if v > 2),
-            sum(v - 1 for v in face.values() if v > 1), degen)
-
-
-def _seam_open(mesh, lo_deg, hi_deg, lo_z, hi_z):
-    """Open edges inside one bearing/height box: 0 is what a welded seam means."""
-    key, rep, pos = {}, [], []
-    for p in mesh.verts:
-        k = (round(p[0], 5), round(p[1], 5), round(p[2], 5))
-        if k not in key:
-            key[k] = len(key)
-            pos.append(p)
-        rep.append(key[k])
-    edge = {}
-    for f in mesh.faces:
-        a, b, c = rep[f[0]], rep[f[1]], rep[f[2]]
-        if a == b or b == c or a == c:
-            continue
-        for e in ((a, b), (b, c), (c, a)):
-            e = (min(e), max(e))
-            edge[e] = edge.get(e, 0) + 1
-    n = 0
-    for (a, b), v in edge.items():
-        if v != 1:
-            continue
-        p, q = pos[a], pos[b]
-        z = 0.5 * (p[2] + q[2])
-        d = (-math.degrees(math.atan2(0.5 * (p[1] + q[1]), 0.5 * (p[0] + q[0])))) % 360.0
-        if lo_z <= z <= hi_z and lo_deg <= d <= hi_deg:
-            n += 1
-    return n
-
-
 # -----------------------------------------------------------------------------
 # the platforms in the river
 # -----------------------------------------------------------------------------
@@ -1336,42 +1374,6 @@ def _build_platforms(m, r):
 
 
 # -----------------------------------------------------------------------------
-# boulders: broken rock left standing on the bank line, so the bank's edge is
-# not a drawn chamfer but a line something fell off
-# -----------------------------------------------------------------------------
-
-BOULDER_RINGS = [(22.30, 1.30, 0.22), (22.86, 1.12, 0.18),
-                 (23.26, 0.90, 0.14), (BOULDER_TOP, 0.50, 0.0)]
-BOULDER_SECTS = {}
-
-
-def _boulder_sect(r):
-    pts = []
-    for i in range(7):
-        a = TWO_PI * (i + 0.26 * r.sf()) / 7
-        k = BOULDER_R * (0.72 + 0.42 * r.f())
-        pts.append((k * math.cos(a), k * math.sin(a)))
-    return pts
-
-
-def _boulders():
-    """(bearing, radius) alternating between the two bank lines."""
-    r = _Rng(LAKE_SEED + 4211)
-    out = []
-    for k in range(BOULDERS):
-        b = (LAKE_A0 + 0.5 * LAKE_BANK) if k % 2 else (LAKE_A1 - 0.5 * LAKE_BANK)
-        out.append((b, INNER_R + 1.3 + (OUTER_R - INNER_R - 2.6) * r.f()))
-    return out
-
-
-def _build_boulders(m, r):
-    for k, (b, rad) in enumerate(_boulders()):
-        sect = _boulder_sect(r)
-        BOULDER_SECTS[k] = sect
-        _lake_column(m, b, rad, sect, BOULDER_RINGS, r, ZONE_SHADE, ragged=0.07)
-
-
-# -----------------------------------------------------------------------------
 # the run down the pit wall: map_base's own wall faces, holed out, pushed back
 # and re-laid in the river's material, with the rock rim banking down to them
 # -----------------------------------------------------------------------------
@@ -1384,24 +1386,14 @@ def _pit_lava(m, wall, ta, tb, cut_a, cut_b, extra, r):
     wall.hole(cut_a, cut_b, LAVA_Z, DECK_Z)        # the rim, down to the river
     ts = _merge_cols(wall.tbreaks(ta, tb), [t for t in extra if ta < t < tb])
     zs = wall.zbreaks(za, LAVA_Z)
-    pad = PIT_BANK_W / INNER_R
-    jit = dict((round(z, 6), (BANK_JAG * r.sf() / INNER_R, BANK_JAG * r.sf() / INNER_R))
-               for z in zs)
 
-    def rec(t, z):
-        """Full depth mid-channel, nothing past the banks -- and each row's
-        bank sits BANK_JAG metres off the last, so the edge is ragged."""
-        d = RECESS_R * _ramp(LAVA_Z - z, 0.0, PIT_FADE)
-        if d < EPS:
-            return 0.0
-        ja, jb = jit[round(z, 6)]
-        return d * min(_ramp(t, ta + ja, ta + ja + pad),
-                       _ramp(t, tb + jb, tb + jb - pad))
+    def rec(z):
+        return RECESS_R * _ramp(LAVA_Z - z, 0.0, PIT_FADE)
 
     node = {}
 
     def N(t, z):
-        d = rec(t, z)
+        d = rec(z)
         if d < EPS:
             return wall.W(t, z)
         key = (round(t, 6), round(z, 6))
@@ -1435,17 +1427,13 @@ def _pit_lava(m, wall, ta, tb, cut_a, cut_b, extra, r):
     return tris
 
 
-def _pit_bank_ends(m, wall, cut_a, cut_b, ta, tb, cols, prof_z):
-    """Closes the deck's stepped bank against the pit wall, where the rim comes
-    down to the river. A fan, not a triangle: the bank now carries the columns
-    its steps are cut on, and every one of them has to be on this seam."""
-    for ca, tt, s in ((cut_a, ta, 1.0), (cut_b, tb, -1.0)):
-        lo, hi = (ca, tt) if ca < tt else (tt, ca)
-        edge = [t for t in cols if lo - 1e-9 <= t <= hi + 1e-9]
-        if s < 0.0:
-            edge.reverse()
-        ring = [wall.W(t, prof_z(t)) for t in edge] + [wall.W(ca, LAVA_Z)]
-        m.fan(ring, (-math.sin(ca) * s, math.cos(ca) * s, 0.0), ZONE_SHADE)
+def _pit_bank_ends(m, wall, cut_a, cut_b, ta, tb):
+    """The two triangles that close the deck's sloped bank against the pit
+    wall, where the rim steps from the deck down to the river."""
+    m.tri(wall.W(cut_a, DECK_Z), wall.W(cut_a, LAVA_Z), wall.W(ta, LAVA_Z),
+          (-math.sin(cut_a), math.cos(cut_a), 0.0), ZONE_SHADE)
+    m.tri(wall.W(cut_b, DECK_Z), wall.W(cut_b, LAVA_Z), wall.W(tb, LAVA_Z),
+          (math.sin(cut_b), -math.cos(cut_b), 0.0), ZONE_SHADE)
 
 
 # -----------------------------------------------------------------------------
@@ -1484,9 +1472,6 @@ def _lake_collider(c, r):
         _lake_column(c, b, rad, sect, [(22.20, 1.08), (PLAT_TOP_Z, 1.0)], r, ZONE_ROCK)
         if inner:
             _lake_column(c, b, FIN_R, fs, [(22.20, 1.16), (FIN_TOP_Z, 0.70)], r, ZONE_ROCK)
-    for k, (b, rad) in enumerate(_boulders()):
-        _lake_column(c, b, rad, BOULDER_SECTS[k],
-                     [(22.40, 1.15), (BOULDER_TOP, 0.50)], r, ZONE_ROCK)
 
 
 # =============================================================================
@@ -1538,16 +1523,13 @@ def _rock(r):
         b = ang[i + 1] if i + 1 < SIDES else ang[0] + TWO_PI
         base_cols += [a + (b - a) * su / ANG_SUB for su in range(ANG_SUB)]
     base_cols.append(ang[0] + TWO_PI)
-    ma, mb = T(MOUTH_A1), T(MOUTH_A0)                # the cave mouth, ma < mb
-    # the bank is where the eye goes, so it gets its own columns: the 0.3 m lip
-    # is cut into three facets on them, and the line wanders across them.
-    hard = [cut0, cut1, bank0, bank1, wl0, wl1, wb0, wb1, ma, mb] \
-        + [cut0 + o / CROSS_R for o in BANK_COLS] + [cut1 - o / CROSS_R for o in BANK_COLS] \
-        + [c for c in pit_wall.cols if cut0 < c < cut1] \
+    sec_cols = _merge_cols(
+        [T(LAKE_A0 + k) for k in range(int(LAKE_A1 - LAKE_A0) + 1)],
+        [c for c in pit_wall.cols if cut0 < c < cut1]
         + [c for c in base_cols if cut0 < c < cut1]
-    # only the 1-degree filler thins: everything a wall already owns is a seam
-    sec_cols = _thin([T(LAKE_A0 + k) for k in range(int(LAKE_A1 - LAKE_A0) + 1)],
-                     hard, COL_MIN / CROSS_R)
+        + [cut0, cut1, bank0, bank1, wl0, wl1, wb0, wb1])
+    # a bank stays one column wide, or it stops reading as a bank
+    sec_cols = [t for t in sec_cols if not (cut0 < t < bank0 or bank1 < t < cut1)]
     cols_all = _merge_cols([c for c in base_cols if not (cut0 < c < cut1)], sec_cols)
     lava_ts = _merge_cols(pit_wall.tbreaks(bank0, bank1),
                           [t for t in sec_cols if bank0 < t < bank1])
@@ -1563,12 +1545,6 @@ def _rock(r):
         wbias[i][0] = wbias[i][nwall - 1] = 0.0     # foot and head exactly OUTER_R
     wzj = [[0.0 if k in (0, nwall - 1) else r.sf() * Z_JAG for k in range(nwall)]
            for _ in range(SIDES)]
-    for i in range(SIDES):                  # ... except over the cave mouth, where
-        a = ang[i]                          # the lip's height has to be predictable
-        b = ang[i + 1] if i + 1 < SIDES else ang[0] + TWO_PI
-        if b > T(MOUTH_A1) and a < T(MOUTH_A0):
-            for k in range(nwall):
-                wzj[i][k] = 0.0
     wall = [_ring(m, ang,
                   lambda i, k=k: OUTER_R * (1.0 + wbias[i][k]),
                   lambda i, k=k: wall_z[k] + wzj[i][k])
@@ -1613,78 +1589,30 @@ def _rock(r):
                 wfv[key] = m.v(_chord(m, wall[k], ang, t))
         return wfv[key]
 
-    # ---- the bank: a 0.3 m lip in three facets, its line wandering BANK_JAG
-    # metres from one radial station to the next, so it is broken rock in plan
-    # and in section rather than a drawn chamfer. The two stations that seam to
-    # the pit wall and the shaft wall keep the plain ramp. -------------------
-    bw = (bank0 - cut0) * CROSS_R
-    bjr = _Rng(LAKE_SEED + 31)
-    BJIT = [(0.0, 0.0) if j in (0, len(RST) - 1)
-            else (BANK_JAG * bjr.sf() / CROSS_R, BANK_JAG * bjr.sf() / CROSS_R)
-            for j in range(len(RST))]
-
-    def _prof(s, stepped):
-        if s <= 0.0:
-            return 0.0
-        if s >= bw:
-            return 1.0
-        f = s / bw
-        if not stepped:
-            return f
-        return BANK_STEPS[1] if f < BANK_STEPS[0] else BANK_STEPS[3]
-
-    def chan_f(t, j):
-        """0 on the deck, 1 on the channel bed."""
-        stepped = j is not None and 0 < j < len(RST) - 1
-        ja, jb = BJIT[j] if stepped else (0.0, 0.0)
-        return min(_prof((t - cut0 - ja) * CROSS_R, stepped),
-                   _prof((cut1 + jb - t) * CROSS_R, stepped))
-
+    # ---- the channel's floor height, and how far it is cut into the wall -----
     def chan_z(t):
-        return DECK_Z + (LAVA_Z - DECK_Z) * chan_f(t, None)
+        if t <= cut0 + 1e-9 or t >= cut1 - 1e-9:
+            return DECK_Z
+        if bank0 - 1e-9 <= t <= bank1 + 1e-9:
+            return LAVA_Z
+        f = _ramp(t, cut0, bank0) if t < bank0 else _ramp(t, cut1, bank1)
+        return DECK_Z + (LAVA_Z - DECK_Z) * f
 
-    def bed_z(t, j):
-        """The bed: flat plates of BED_CELL metres, stepped BED_JAG against
-        each other, with a few crust plates standing proud of them."""
-        f = chan_f(t, j)
-        z = DECK_Z + (LAVA_Z - DECK_Z) * f
-        if f < 1.0 - EPS or not (0 < j < len(RST) - 1):
-            return z
-        ic = int(math.floor(t * CROSS_R / BED_CELL))
-        jr = int(math.floor(RST[j] / BED_CELL))
-        z += BED_JAG * _sjit(ic, jr, 1)
-        if _hash(ic, jr, 2) < BED_PLATES / 100.0:
-            z += BED_PLATE_H[0] + (BED_PLATE_H[1] - BED_PLATE_H[0]) * _hash(ic, jr, 3)
-        return z
+    def wall_colf(t):
+        if t <= wl0 + 1e-9 or t >= wl1 - 1e-9:
+            return 0.0
+        if wb0 - 1e-9 <= t <= wb1 + 1e-9:
+            return 1.0
+        return _ramp(t, wl0, wb0) if t < wb0 else _ramp(t, wl1, wb1)
 
-    WROWS = ["low", (0, 0.0), (0, 0.5), (0, "mouth"), (1, 0.0), (1, 0.5),
+    WROWS = ["low", (0, 0.0), (0, 0.5), (1, 0.0), (1, 0.5),
              (1, "bank"), (1, "split"), (1, 1.0)]
-    WROWF = {"low": 1.0, (0, 0.0): 1.0, (0, 0.5): 1.0, (0, "mouth"): 1.0,
-             (1, 0.0): 1.0, (1, 0.5): 1.0, (1, "bank"): 1.0,
-             (1, "split"): 0.0, (1, 1.0): 0.0}
-    MOUTH_ROWS = 4                       # WROWS[:4]: "low" up to the lip
-    wjr = _Rng(LAKE_SEED + 613)
-    WJIT = dict((lab, (BANK_JAG * wjr.sf() / OUTER_R, BANK_JAG * wjr.sf() / OUTER_R))
-                for lab in WROWS)
+    WROWF = {"low": 1.0, (0, 0.0): 1.0, (0, 0.5): 1.0, (1, 0.0): 1.0,
+             (1, 0.5): 1.0, (1, "bank"): 1.0, (1, "split"): 0.0, (1, 1.0): 0.0}
     wrv = {}
 
-    def wall_colf(t, lab=None):
-        """The shaft wall's channel, each row's bank off the last one's."""
-        da, db = WJIT.get(lab, (0.0, 0.0))
-        a0, b0, b1, a1 = wl0 + da, wb0 + da, wb1 + db, wl1 + db
-        if t <= a0 + 1e-9 or t >= a1 - 1e-9:
-            return 0.0
-        if b0 - 1e-9 <= t <= b1 + 1e-9:
-            return 1.0
-        return _ramp(t, a0, b0) if t < b0 else _ramp(t, a1, b1)
-
-    def mouth_z(t):
-        if t <= ma + 1e-9 or t >= mb - 1e-9:
-            return MOUTH_TOP
-        return MOUTH_TOP + MOUTH_JAG * _sjit(int(round(t * 1e6)), 7, 5)
-
     def wall_rec(lab, t):
-        return RECESS_R * WROWF[lab] * wall_colf(t, lab)
+        return RECESS_R * WROWF[lab] * wall_colf(t)
 
     def WR(lab, t):
         d = wall_rec(lab, t)
@@ -1707,10 +1635,6 @@ def _rock(r):
                 f = (WALL_LAVA_BANK - pa[2]) / (pb[2] - pa[2])
             elif f == "split":
                 f = (WALL_LAVA_TOP - pa[2]) / (pb[2] - pa[2])
-            elif f == "mouth":
-                # the ring above jitters 1.5 m, so clamp: the lip stays between
-                # the row under it and the ring over it, whatever they do.
-                f = min(0.94, max(0.55, (mouth_z(t) - pa[2]) / (pb[2] - pa[2])))
             wrv[key] = m.v(_push(tuple((1.0 - f) * pa[c] + f * pb[c] for c in range(3)), d))
         return wrv[key]
 
@@ -1723,11 +1647,8 @@ def _rock(r):
         want = (-math.cos(am), -math.sin(am), 0.0)
         side = _side_u(ang, am)[0]
         cut = t0 >= cut0 - 1e-9 and t1 <= cut1 + 1e-9
-        in_mouth = cut and t0 >= ma - 1e-9 and t1 <= mb + 1e-9
         rows = WROWS if cut else WROWS[1:]
         for ri in range(len(rows) - 1):
-            if in_mouth and ri < MOUTH_ROWS - 1:
-                continue                               # cut away: the cave mouth
             lo, hi = rows[ri], rows[ri + 1]
             recs = [wall_rec(lo, t0), wall_rec(lo, t1), wall_rec(hi, t0), wall_rec(hi, t1)]
             if min(recs) > RECESS_R - EPS:
@@ -1745,42 +1666,6 @@ def _rock(r):
             else:
                 m.quad(a0, a1, b1, b0, want, zone)
 
-    # ---- the cave mouth: over MOUTH_A0..MOUTH_A1 the channel UNDERCUTS the
-    # shaft wall, MOUTH_D back into the rock under an overhanging lip, so the
-    # lava comes out of the inside of the mountain and not off a flat face ---
-    mcols = [t for t in cols_all if ma - 1e-9 <= t <= mb + 1e-9]
-    MR = WROWS[:MOUTH_ROWS]
-    MSALT = dict((lab, i + 11) for i, lab in enumerate(MR))
-    mv = {}
-
-    def WM(lab, t):
-        """The back of the recess: the wall point pushed MOUTH_D into the rock."""
-        key = (lab, round(t, 7))
-        if key not in mv:
-            d = MOUTH_D - wall_rec(lab, t)
-            if ma + 1e-9 < t < mb - 1e-9:
-                d += MOUTH_JAG * _sjit(int(round(t * 1e6)), MSALT[lab], 9)
-            mv[key] = m.v(_push(m.verts[WR(lab, t)], d))
-        return mv[key]
-
-    for ci in range(len(mcols) - 1):
-        t0, t1 = mcols[ci], mcols[ci + 1]
-        am = 0.5 * (t0 + t1)
-        want = (-math.cos(am), -math.sin(am), 0.0)
-        for ri in range(MOUTH_ROWS - 1):                       # the cave's back
-            lo, hi = MR[ri], MR[ri + 1]
-            m.quad(WM(lo, t0), WM(lo, t1), WM(hi, t1), WM(hi, t0), want,
-                   ZONE_FALL if ri < MOUTH_ROWS - 2 else ZONE_SHADE)
-        m.quad(WR("low", t0), WR("low", t1), WM("low", t1), WM("low", t0),
-               UP, ZONE_RIVER)                                 # bed, carried in
-        m.quad(WR(MR[-1], t0), WR(MR[-1], t1), WM(MR[-1], t1), WM(MR[-1], t0),
-               DOWN, ZONE_SHADE)                               # the rock lip
-    for t, into in ((ma, 1.0), (mb, -1.0)):                    # rock at the ends
-        want = (-math.sin(t) * into, math.cos(t) * into, 0.0)
-        for ri in range(MOUTH_ROWS - 1):
-            lo, hi = MR[ri], MR[ri + 1]
-            m.quad(WR(lo, t), WM(lo, t), WM(hi, t), WR(hi, t), want, ZONE_SHADE)
-
     # ---- the deck: a flat annulus on the river's own radial stations, its
     # surface dropped RECESS_Z into a channel between two sloped banks --------
     rf = [(rr - INNER_R) / (OUTER_R - INNER_R) for rr in RST]
@@ -1797,20 +1682,19 @@ def _rock(r):
         if key not in dv:
             pa, pb = m.verts[DV(t, 0)], m.verts[DV(t, len(RST) - 1)]
             f = rf[j]
-            p = [(1.0 - f) * pa[c] + f * pb[c] for c in range(3)]
-            dv[key] = m.v((p[0], p[1], bed_z(t, j)))
+            dv[key] = m.v(tuple((1.0 - f) * pa[c] + f * pb[c] for c in range(3)))
         return dv[key]
 
     for ci in range(len(cols_all) - 1):
         t0, t1 = cols_all[ci], cols_all[ci + 1]
+        z0, z1 = chan_z(t0), chan_z(t1)
+        if z0 < LAVA_Z + 1e-9 and z1 < LAVA_Z + 1e-9:
+            zone = ZONE_RIVER
+        elif z0 < DECK_Z - 1e-9 or z1 < DECK_Z - 1e-9:
+            zone = ZONE_SHADE                          # the channel's end banks
+        else:
+            zone = ZONE_DECK
         for j in range(len(RST) - 1):
-            fs = (chan_f(t0, j), chan_f(t1, j), chan_f(t0, j + 1), chan_f(t1, j + 1))
-            if min(fs) > 1.0 - EPS:
-                zone = ZONE_RIVER
-            elif max(fs) > EPS:
-                zone = ZONE_SHADE                      # a bank of the channel
-            else:
-                zone = ZONE_DECK
             m.quad(DV(t0, j), DV(t1, j), DV(t1, j + 1), DV(t0, j + 1), UP, zone)
 
     # ---- the gallery ceiling: a flat annulus on the same columns as the wall
@@ -1849,9 +1733,8 @@ def _rock(r):
         else:
             _carve(m, shaft, c)
     pit_tris = _pit_lava(m, pit_wall, bank0, bank1, cut0, cut1, lava_ts, r)
-    _pit_bank_ends(m, pit_wall, cut0, cut1, bank0, bank1, cols_all, chan_z)
+    _pit_bank_ends(m, pit_wall, cut0, cut1, bank0, bank1)
     _build_platforms(m, _Rng(LAKE_SEED))
-    _build_boulders(m, _Rng(LAKE_SEED + 991))
     pit_wall.emit()
     shaft.emit()
 
@@ -1884,12 +1767,11 @@ def _collider(ang, cut0, cut1):
         c.quad(ceil_lip[i], ceil_lip[j], head[j], head[i],
                (0.0, 0.0, -1.0), ZONE_SHADE)                           # ceiling
     c.fan(pit_foot, UP, ZONE_SHADE)                                    # courtyard
+    c.band(foot, head, ang, True, lambda i: ZONE_ROCK)                 # outer wall
 
     # Deck and pit wall are cut where the river runs: no deck collision over it
     # and the lip comes down to the trench, so nothing invisible dams the lava.
-    ma = _norm_t(ang[0], _bear_t(MOUTH_A1))
-    mb = _norm_t(ang[0], _bear_t(MOUTH_A0))
-    dcols = _merge_cols(list(ang) + [ang[0] + TWO_PI], [cut0, cut1, ma, mb])
+    dcols = _merge_cols(list(ang) + [ang[0] + TWO_PI], [cut0, cut1])
     cv = {}
 
     def CV(tag, ring, t, z=None):
@@ -1898,38 +1780,6 @@ def _collider(ang, cut0, cut1):
             p = _chord(c, ring, ang, t)
             cv[key] = c.v(p if z is None else (p[0], p[1], z))
         return cv[key]
-
-    def PV(tag, t, src):
-        key = (tag, round(t, 7))
-        if key not in cv:
-            cv[key] = c.v(_push(c.verts[src], MOUTH_D - MOUTH_JAG))
-        return cv[key]
-
-    # The outer wall, and the cave mouth cut out of its foot: a body cannot walk
-    # into the rock beside the recess, and a shot stops on the overhang.
-    for ci in range(len(dcols) - 1):
-        t0, t1 = dcols[ci], dcols[ci + 1]
-        am = 0.5 * (t0 + t1)
-        inward = (-math.cos(am), -math.sin(am), 0.0)
-        cave = t0 >= ma - 1e-9 and t1 <= mb + 1e-9
-        zb = COLL_LIP if cave else DECK_Z
-        w0 = CV("wf%.2f" % zb, foot, t0, zb)
-        w1 = CV("wf%.2f" % zb, foot, t1, zb)
-        c.quad(w0, w1, CV("wh", head, t1), CV("wh", head, t0), inward, ZONE_ROCK)
-        if not cave:
-            continue
-        f0 = CV("cf", foot, t0, LAVA_Z)
-        f1 = CV("cf", foot, t1, LAVA_Z)
-        b0, b1 = PV("cb", t0, f0), PV("cb", t1, f1)
-        l0, l1 = PV("cl", t0, w0), PV("cl", t1, w1)
-        c.quad(w0, w1, l1, l0, DOWN, ZONE_SHADE)                       # overhang
-        c.quad(b0, b1, l1, l0, inward, ZONE_SHADE)                     # cave back
-        c.quad(f0, f1, b1, b0, UP, ZONE_ROCK)                          # cave floor
-    for t, into in ((ma, 1.0), (mb, -1.0)):                            # its ends
-        f = CV("cf", foot, t, LAVA_Z)
-        w = CV("wf%.2f" % COLL_LIP, foot, t, COLL_LIP)
-        c.quad(f, PV("cb", t, f), PV("cl", t, w), w,
-               (-math.sin(t) * into, math.cos(t) * into, 0.0), ZONE_SHADE)
 
     for ci in range(len(dcols) - 1):
         t0, t1 = dcols[ci], dcols[ci + 1]
@@ -1954,17 +1804,21 @@ def _collider(ang, cut0, cut1):
 # =============================================================================
 
 def _lava_uv(me, uvl, poly):
-    """Every lava face -- sea, channel bed, wall runs -- takes the one tiling
-    sheet through the SAME world projection at LAVA_SPAN metres per repeat, so
-    the molten surface runs on across every facet edge instead of shattering
-    into per-face windows. Flat faces project in world x,y, upright ones in
-    (arc, height); neither stretches, and the sheet wraps, so no seam."""
-    flat = abs(poly.normal[2]) > 0.5
+    """One window over the whole sea: world x,y straight into the sheet."""
     for li in poly.loop_indices:
         co = me.vertices[me.loops[li].vertex_index].co
-        u = co[0] if flat else math.atan2(co[1], co[0]) * CROSS_R
-        v = co[1] if flat else co[2]
-        uvl.data[li].uv = (u / LAVA_SPAN, v / LAVA_SPAN)
+        uvl.data[li].uv = (0.5 + co[0] / LAVA_SPAN, 0.5 + co[1] / LAVA_SPAN)
+
+
+def _flow_uv(me, uvl, poly, vertical):
+    """The river's own sheet. U runs along the flow -- radially inward across
+    the trench, straight down on the fall -- so the streaks always follow it."""
+    for li in poly.loop_indices:
+        co = me.vertices[me.loops[li].vertex_index].co
+        rad = math.hypot(co[0], co[1])
+        ang = math.atan2(co[1], co[0])
+        u = ((LAVA_Z - co[2]) + (OUTER_R - INNER_R)) if vertical else (OUTER_R - rad)
+        uvl.data[li].uv = (u / FLOW_SPAN, (-ang * CROSS_R) / CROSS_SPAN)
 
 
 def _deck_uv(me, uvl, poly, zone, r):
@@ -2013,8 +1867,14 @@ def unwrap(ob, zones, seed=0):
     r = _Rng(TEX_SEED + seed * 7919 + len(me.polygons))
     for pi, poly in enumerate(me.polygons):
         zone = zones[pi]
-        if zone[0] in ("lava", "river", "fall"):   # one sheet, every lava region
+        if zone[0] == "lava":                    # own sheet: its own window per face
             _lava_uv(me, uvl, poly)
+            continue
+        if zone[0] == "river":                   # the river: streaked along the flow
+            _flow_uv(me, uvl, poly, False)
+            continue
+        if zone[0] == "fall":
+            _flow_uv(me, uvl, poly, True)
             continue
         if zone[0] == "deck":                    # radial/tangential, finer tiling
             _deck_uv(me, uvl, poly, zone[1:], r)
@@ -2115,8 +1975,6 @@ def _deck_render(spec, objects):
     shot("deck290", pol(290.0, 52.0, DECK_Z + EYE_H), pol(302.0, 52.0, 23.4),
          34.0, (1400, 800))
     shot("wide", pol(315.3, 6.0, 96.0), pol(315.3, 50.0, 18.0), 24.0, (1500, 1000))
-    shot("cave", pol(319.0, 49.2, LAVA_Z + 1.2), pol(319.0, 60.0, 24.4),
-         30.0, (1400, 900))
     if CELLS:
         cm, out, w, h = max([c for c in CELLS if c[0][2] < DECK_Z] or CELLS,
                             key=lambda c: c[3])
@@ -2142,20 +2000,24 @@ def build():
     lava_albedo, lava_emissive = _lava_texture()
     mdl.save_texture(lava_albedo)
     mdl.save_texture(lava_emissive)
+    river_albedo, river_emissive = _river_texture()
+    mdl.save_texture(river_albedo)
+    mdl.save_texture(river_emissive)
 
     ob = rock.object(OBJECT_NAME)
     unwrap(ob, rock.zones)
     mdl.finish(ob, rock_material("HellRock", albedo, emissive), strip_uvs=False)
-    ob.data.materials.append(rock_material(LAVA_MAT, lava_albedo, lava_emissive))
+    ob.data.materials.append(rock_material("LavaSea", lava_albedo, lava_emissive))
+    ob.data.materials.append(river_material("LavaRiver", river_albedo, river_emissive))
     lava_tris = river_tris = 0
     for pi, poly in enumerate(ob.data.polygons):
         z = rock.zones[pi][0]
-        if z in ("lava", "river", "fall"):
+        if z == "lava":
             poly.material_index = 1
-            if z == "lava":
-                lava_tris += 1
-            else:
-                river_tris += 1
+            lava_tris += 1
+        elif z in ("river", "fall"):
+            poly.material_index = 2
+            river_tris += 1
 
     coll_ob = coll.object(COLLIDER_NAME)
     coll_ob.hide_render = True
@@ -2166,17 +2028,6 @@ def build():
           "wall_lava=%.1f..%.1f deg to y=%.2f pit_run_tris=%d"
           % (LAKE_A0, LAKE_A1, LAVA_Z, river[0], LAKE_BANK, RECESS_R,
              WALL_A0, WALL_A1, WALL_LAVA_TOP, river[1]))
-    print("MDL STATS mouth=%.0f..%.0f deg depth=%.2f lip_y=%.2f jag=%.2f "
-          "bed_jag=%.2f bank_jag=%.2f boulders=%d lava_span=%.1f tex=%d mat=%s"
-          % (MOUTH_A0, MOUTH_A1, MOUTH_D, MOUTH_TOP, MOUTH_JAG, BED_JAG, BANK_JAG,
-             BOULDERS, LAVA_SPAN, LAVA_TEX, LAVA_MAT))
-    for me, lab in ((rock, "rock"), (coll, "collider")):
-        o, nm, co, dg = _manifold(me)
-        print("MDL STATS %s open_edges=%d nonmanifold_edges=%d coincident_faces=%d "
-              "degenerate=%d" % (lab, o, nm, co, dg))
-    print("MDL STATS river_seam_open_edges=%d (bearings %.0f..%.0f, y %.1f..%.1f)"
-          % (_seam_open(rock, LAKE_A0 - 2.0, LAKE_A1 + 2.0, LAVA_Z - 3.0, CEIL_Z),
-             LAKE_A0 - 2.0, LAKE_A1 + 2.0, LAVA_Z - 3.0, CEIL_Z))
     for k, (b, rad, inner) in enumerate(_platforms()):
         print("MDL STATS platform%d bearing=%.3f r=%.1f top=%.2f square=%.1f %s"
               % (k + 1, b, rad, PLAT_TOP_Z, 2.0 * PLAT_HALF, "inner+fin" if inner else "outer"))
