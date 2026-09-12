@@ -162,7 +162,63 @@ transform = Transform3D(1.28025, 0, 0.173648, 0, 1, 0, -0.225742, 0, 0.984808, 5
 
 [node name="Block" parent="Sections" unique_id=1709452550 instance=ExtResource("25_block")]
 editor_description = "Map 1 sections, docs/MAP1_SECTIONS.md."
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 36, 0)
+transform = Transform3D(0.9430726, 0, -0.33258685, 0, 1, 0, 0.33258685, 0, 0.9430726, 20.42693, 22.955883, -52.370792)
+
+[node name="Block2" parent="Sections" unique_id=181159276 instance=ExtResource("25_block")]
+editor_description = "Map 1 sections, docs/MAP1_SECTIONS.md."
+transform = Transform3D(0.9430726, 0, -0.33258685, 0, 1, 0, 0.33258685, 0, 0.9430726, 19.676794, 22.955883, -50.243732)
+
+[node name="Block3" parent="Sections" unique_id=1697544837 instance=ExtResource("25_block")]
+editor_description = "Map 1 sections, docs/MAP1_SECTIONS.md."
+transform = Transform3D(0.9430726, 0, -0.33258685, 0, 1, 0, 0.33258685, 0, 0.9430726, 18.93369, 22.955883, -48.13661)
+
+[node name="Block4" parent="Sections" unique_id=464736584 instance=ExtResource("25_block")]
+editor_description = "Map 1 sections, docs/MAP1_SECTIONS.md."
+transform = Transform3D(0.9430726, 0, -0.33258685, 0, 1, 0, 0.33258685, 0, 0.9430726, 18.147581, 22.955883, -45.907547)
+
+[node name="Block5" parent="Sections" unique_id=1429371816 instance=ExtResource("25_block")]
+editor_description = "Map 1 sections, docs/MAP1_SECTIONS.md."
+transform = Transform3D(0.9430726, 0, -0.33258685, 0, 1, 0, 0.33258685, 0, 0.9430726, 17.396149, 22.955883, -43.77681)
+
+[node name="Block6" parent="Sections" unique_id=1106728294 instance=ExtResource("25_block")]
+editor_description = "Map 1 sections, docs/MAP1_SECTIONS.md."
+transform = Transform3D(0.8704044, 0, -0.49233747, 0, 1, 0, 0.49233747, 0, 0.8704044, 23.161182, 23.768435, -47.98777)
+
+[node name="Block7" parent="Sections" unique_id=1487486073 instance=ExtResource("25_block")]
+editor_description = "Map 1 sections, docs/MAP1_SECTIONS.md."
+transform = Transform3D(0.8704044, 0, -0.49233747, 0, 1, 0, 0.49233747, 0, 0.8704044, 25.354368, 23.560211, -42.063152)
+
+[node name="Block8" parent="Sections" unique_id=413134961 instance=ExtResource("25_block")]
+editor_description = "Map 1 sections, docs/MAP1_SECTIONS.md."
+transform = Transform3D(0.8704044, 0, -0.49233747, 0, 1, 0, 0.49233747, 0, 0.8704044, 31.173153, 23.739939, -43.114895)
+
+[node name="Block9" parent="Sections" unique_id=1889661717 instance=ExtResource("25_block")]
+editor_description = "Map 1 sections, docs/MAP1_SECTIONS.md."
+transform = Transform3D(0.6945967, 0, -0.7193994, 0, 1, 0, 0.7193994, 0, 0.6945967, 31.219719, 23.58713, -37.569263)
+
+[node name="Block10" parent="Sections" unique_id=1298077034 instance=ExtResource("25_block")]
+editor_description = "Map 1 sections, docs/MAP1_SECTIONS.md."
+transform = Transform3D(0.6945967, 0, -0.7193994, 0, 1, 0, 0.7193994, 0, 0.6945967, 37.10829, 23.982391, -38.10285)
+
+[node name="Block11" parent="Sections" unique_id=1349851488 instance=ExtResource("25_block")]
+editor_description = "Map 1 sections, docs/MAP1_SECTIONS.md."
+transform = Transform3D(0.6945967, 0, -0.7193994, 0, 1, 0, 0.7193994, 0, 0.6945967, 36.896507, 23.468115, -32.212097)
+
+[node name="Block12" parent="Sections" unique_id=1621534576 instance=ExtResource("25_block")]
+editor_description = "Map 1 sections, docs/MAP1_SECTIONS.md."
+transform = Transform3D(0.50586355, 0, -0.86261356, 0, 1, 0, 0.86261356, 0, 0.50586355, 42.53833, 23.436665, -31.99332)
+
+[node name="Block13" parent="Sections" unique_id=81094570 instance=ExtResource("25_block")]
+editor_description = "Map 1 sections, docs/MAP1_SECTIONS.md."
+transform = Transform3D(0.50586355, 0, -0.86261356, 0, 1, 0, 0.86261356, 0, 0.50586355, 41.01245, 23.475307, -26.552479)
+
+[node name="Block14" parent="Sections" unique_id=472659984 instance=ExtResource("25_block")]
+editor_description = "Map 1 sections, docs/MAP1_SECTIONS.md."
+transform = Transform3D(0.50586355, 0, -0.86261356, 0, 1, 0, 0.86261356, 0, 0.50586355, 46.716167, 23.614506, -25.280033)
+
+[node name="Block15" parent="Sections" unique_id=536724705 instance=ExtResource("25_block")]
+editor_description = "Map 1 sections, docs/MAP1_SECTIONS.md."
+transform = Transform3D(0.50586355, 0, -0.86261356, 0, 1, 0, 0.86261356, 0, 0.50586355, 44.416836, 23.41956, -20.751137)
 
 [node name="Pocket_010deg" parent="Sections" unique_id=1859918900 instance=ExtResource("13_slab")]
 transform = Transform3D(0.173648, 0, 0.984808, 0, 1, 0, -0.984808, 0, 0.173648, 51.21, 23, 9.02971)
@@ -555,142 +611,142 @@ transform = Transform3D(0.207912, 0, -0.978148, 0, 1, 0, 0.978148, 0, 0.207912, 
 
 [node name="S5_WallRun" type="Node3D" parent="Sections" unique_id=1543765436]
 
-[node name="Lava" type="Node3D" parent="Sections/S5_WallRun"]
+[node name="Lava" type="Node3D" parent="Sections/S5_WallRun" unique_id=227093064]
 editor_description = "Lava lake before the portal, wall to wall."
 
-[node name="Tile_00" parent="Sections/S5_WallRun/Lava" instance=ExtResource("22_lava_tile_scene")]
+[node name="Tile_00" parent="Sections/S5_WallRun/Lava" unique_id=254596632 instance=ExtResource("22_lava_tile_scene")]
 transform = Transform3D(0.517719, 0, 0.920505, 0, 1, 0, -1.219669, 0, 0.390731, 18.8332, 23, -44.3683)
 
-[node name="Tile_01" parent="Sections/S5_WallRun/Lava" instance=ExtResource("22_lava_tile_scene")]
-transform = Transform3D(0.517719, 0, 0.920505, 0, 1, 0, -1.219669, 0, 0.390731, 20.3180, 23, -47.8663)
+[node name="Tile_01" parent="Sections/S5_WallRun/Lava" unique_id=1687350917 instance=ExtResource("22_lava_tile_scene")]
+transform = Transform3D(0.517719, 0, 0.920505, 0, 1, 0, -1.219669, 0, 0.390731, 20.318, 23, -47.8663)
 
-[node name="Tile_02" parent="Sections/S5_WallRun/Lava" instance=ExtResource("22_lava_tile_scene")]
+[node name="Tile_02" parent="Sections/S5_WallRun/Lava" unique_id=88061912 instance=ExtResource("22_lava_tile_scene")]
 transform = Transform3D(0.517719, 0, 0.920505, 0, 1, 0, -1.219669, 0, 0.390731, 21.8028, 23, -51.3642)
 
-[node name="Tile_03" parent="Sections/S5_WallRun/Lava" instance=ExtResource("22_lava_tile_scene")]
+[node name="Tile_03" parent="Sections/S5_WallRun/Lava" unique_id=276424929 instance=ExtResource("22_lava_tile_scene")]
 transform = Transform3D(0.582326, 0, 0.898247, 0, 1, 0, -1.190177, 0, 0.439491, 21.1835, 23, -43.2955)
 
-[node name="Tile_04" parent="Sections/S5_WallRun/Lava" instance=ExtResource("22_lava_tile_scene")]
+[node name="Tile_04" parent="Sections/S5_WallRun/Lava" unique_id=1679037794 instance=ExtResource("22_lava_tile_scene")]
 transform = Transform3D(0.582326, 0, 0.898247, 0, 1, 0, -1.190177, 0, 0.439491, 22.8535, 23, -46.7088)
 
-[node name="Tile_05" parent="Sections/S5_WallRun/Lava" instance=ExtResource("22_lava_tile_scene")]
+[node name="Tile_05" parent="Sections/S5_WallRun/Lava" unique_id=800073156 instance=ExtResource("22_lava_tile_scene")]
 transform = Transform3D(0.582326, 0, 0.898247, 0, 1, 0, -1.190177, 0, 0.439491, 24.5236, 23, -50.1222)
 
-[node name="Tile_06" parent="Sections/S5_WallRun/Lava" instance=ExtResource("22_lava_tile_scene")]
-transform = Transform3D(0.645260, 0, 0.873408, 0, 1, 0, -1.157266, 0, 0.486989, 23.4729, 23, -42.0983)
+[node name="Tile_06" parent="Sections/S5_WallRun/Lava" unique_id=1000898253 instance=ExtResource("22_lava_tile_scene")]
+transform = Transform3D(0.64526, 0, 0.873408, 0, 1, 0, -1.157266, 0, 0.486989, 23.4729, 23, -42.0983)
 
-[node name="Tile_07" parent="Sections/S5_WallRun/Lava" instance=ExtResource("22_lava_tile_scene")]
-transform = Transform3D(0.645260, 0, 0.873408, 0, 1, 0, -1.157266, 0, 0.486989, 25.3234, 23, -45.4172)
+[node name="Tile_07" parent="Sections/S5_WallRun/Lava" unique_id=523398364 instance=ExtResource("22_lava_tile_scene")]
+transform = Transform3D(0.64526, 0, 0.873408, 0, 1, 0, -1.157266, 0, 0.486989, 25.3234, 23, -45.4172)
 
-[node name="Tile_08" parent="Sections/S5_WallRun/Lava" instance=ExtResource("22_lava_tile_scene")]
-transform = Transform3D(0.645260, 0, 0.873408, 0, 1, 0, -1.157266, 0, 0.486989, 27.1740, 23, -48.7362)
+[node name="Tile_08" parent="Sections/S5_WallRun/Lava" unique_id=1646347186 instance=ExtResource("22_lava_tile_scene")]
+transform = Transform3D(0.64526, 0, 0.873408, 0, 1, 0, -1.157266, 0, 0.486989, 27.174, 23, -48.7362)
 
-[node name="Tile_09" parent="Sections/S5_WallRun/Lava" instance=ExtResource("22_lava_tile_scene")]
-transform = Transform3D(0.706341, 0, 0.846060, 0, 1, 0, -1.121030, 0, 0.533087, 25.6948, 23, -40.7801)
+[node name="Tile_09" parent="Sections/S5_WallRun/Lava" unique_id=434148269 instance=ExtResource("22_lava_tile_scene")]
+transform = Transform3D(0.706341, 0, 0.84606, 0, 1, 0, -1.12103, 0, 0.533087, 25.6948, 23, -40.7801)
 
-[node name="Tile_10" parent="Sections/S5_WallRun/Lava" instance=ExtResource("22_lava_tile_scene")]
-transform = Transform3D(0.706341, 0, 0.846060, 0, 1, 0, -1.121030, 0, 0.533087, 27.7205, 23, -43.9951)
+[node name="Tile_10" parent="Sections/S5_WallRun/Lava" unique_id=1200283674 instance=ExtResource("22_lava_tile_scene")]
+transform = Transform3D(0.706341, 0, 0.84606, 0, 1, 0, -1.12103, 0, 0.533087, 27.7205, 23, -43.9951)
 
-[node name="Tile_11" parent="Sections/S5_WallRun/Lava" instance=ExtResource("22_lava_tile_scene")]
-transform = Transform3D(0.706341, 0, 0.846060, 0, 1, 0, -1.121030, 0, 0.533087, 29.7463, 23, -47.2102)
+[node name="Tile_11" parent="Sections/S5_WallRun/Lava" unique_id=1769891245 instance=ExtResource("22_lava_tile_scene")]
+transform = Transform3D(0.706341, 0, 0.84606, 0, 1, 0, -1.12103, 0, 0.533087, 29.7463, 23, -47.2102)
 
-[node name="Tile_12" parent="Sections/S5_WallRun/Lava" instance=ExtResource("22_lava_tile_scene")]
+[node name="Tile_12" parent="Sections/S5_WallRun/Lava" unique_id=1174700533 instance=ExtResource("22_lava_tile_scene")]
 transform = Transform3D(0.765392, 0, 0.816282, 0, 1, 0, -1.081573, 0, 0.577654, 27.8429, 23, -39.3448)
 
-[node name="Tile_13" parent="Sections/S5_WallRun/Lava" instance=ExtResource("22_lava_tile_scene")]
-transform = Transform3D(0.765392, 0, 0.816282, 0, 1, 0, -1.081573, 0, 0.577654, 30.0380, 23, -42.4466)
+[node name="Tile_13" parent="Sections/S5_WallRun/Lava" unique_id=1745359810 instance=ExtResource("22_lava_tile_scene")]
+transform = Transform3D(0.765392, 0, 0.816282, 0, 1, 0, -1.081573, 0, 0.577654, 30.038, 23, -42.4466)
 
-[node name="Tile_14" parent="Sections/S5_WallRun/Lava" instance=ExtResource("22_lava_tile_scene")]
+[node name="Tile_14" parent="Sections/S5_WallRun/Lava" unique_id=979302363 instance=ExtResource("22_lava_tile_scene")]
 transform = Transform3D(0.765392, 0, 0.816282, 0, 1, 0, -1.081573, 0, 0.577654, 32.2331, 23, -45.5485)
 
-[node name="Tile_15" parent="Sections/S5_WallRun/Lava" instance=ExtResource("22_lava_tile_scene")]
+[node name="Tile_15" parent="Sections/S5_WallRun/Lava" unique_id=776527431 instance=ExtResource("22_lava_tile_scene")]
 transform = Transform3D(0.822244, 0, 0.784158, 0, 1, 0, -1.039009, 0, 0.620561, 29.9111, 23, -37.7964)
 
-[node name="Tile_16" parent="Sections/S5_WallRun/Lava" instance=ExtResource("22_lava_tile_scene")]
+[node name="Tile_16" parent="Sections/S5_WallRun/Lava" unique_id=1727529005 instance=ExtResource("22_lava_tile_scene")]
 transform = Transform3D(0.822244, 0, 0.784158, 0, 1, 0, -1.039009, 0, 0.620561, 32.2692, 23, -40.7762)
 
-[node name="Tile_17" parent="Sections/S5_WallRun/Lava" instance=ExtResource("22_lava_tile_scene")]
-transform = Transform3D(0.822244, 0, 0.784158, 0, 1, 0, -1.039009, 0, 0.620561, 34.6273, 23, -43.7560)
+[node name="Tile_17" parent="Sections/S5_WallRun/Lava" unique_id=1158827035 instance=ExtResource("22_lava_tile_scene")]
+transform = Transform3D(0.822244, 0, 0.784158, 0, 1, 0, -1.039009, 0, 0.620561, 34.6273, 23, -43.756)
 
-[node name="Tile_18" parent="Sections/S5_WallRun/Lava" instance=ExtResource("22_lava_tile_scene")]
-transform = Transform3D(0.876734, 0, 0.749781, 0, 1, 0, -0.993460, 0, 0.661686, 31.8933, 23, -36.1395)
+[node name="Tile_18" parent="Sections/S5_WallRun/Lava" unique_id=173524580 instance=ExtResource("22_lava_tile_scene")]
+transform = Transform3D(0.876734, 0, 0.749781, 0, 1, 0, -0.99346, 0, 0.661686, 31.8933, 23, -36.1395)
 
-[node name="Tile_19" parent="Sections/S5_WallRun/Lava" instance=ExtResource("22_lava_tile_scene")]
-transform = Transform3D(0.876734, 0, 0.749781, 0, 1, 0, -0.993460, 0, 0.661686, 34.4077, 23, -38.9886)
+[node name="Tile_19" parent="Sections/S5_WallRun/Lava" unique_id=789339035 instance=ExtResource("22_lava_tile_scene")]
+transform = Transform3D(0.876734, 0, 0.749781, 0, 1, 0, -0.99346, 0, 0.661686, 34.4077, 23, -38.9886)
 
-[node name="Tile_20" parent="Sections/S5_WallRun/Lava" instance=ExtResource("22_lava_tile_scene")]
-transform = Transform3D(0.876734, 0, 0.749781, 0, 1, 0, -0.993460, 0, 0.661686, 36.9221, 23, -41.8378)
+[node name="Tile_20" parent="Sections/S5_WallRun/Lava" unique_id=1114116554 instance=ExtResource("22_lava_tile_scene")]
+transform = Transform3D(0.876734, 0, 0.749781, 0, 1, 0, -0.99346, 0, 0.661686, 36.9221, 23, -41.8378)
 
-[node name="Tile_21" parent="Sections/S5_WallRun/Lava" instance=ExtResource("22_lava_tile_scene")]
-transform = Transform3D(0.928705, 0, 0.713250, 0, 1, 0, -0.945057, 0, 0.700909, 33.7838, 23, -34.3787)
+[node name="Tile_21" parent="Sections/S5_WallRun/Lava" unique_id=149448820 instance=ExtResource("22_lava_tile_scene")]
+transform = Transform3D(0.928705, 0, 0.71325, 0, 1, 0, -0.945057, 0, 0.700909, 33.7838, 23, -34.3787)
 
-[node name="Tile_22" parent="Sections/S5_WallRun/Lava" instance=ExtResource("22_lava_tile_scene")]
-transform = Transform3D(0.928705, 0, 0.713250, 0, 1, 0, -0.945057, 0, 0.700909, 36.4473, 23, -37.0890)
+[node name="Tile_22" parent="Sections/S5_WallRun/Lava" unique_id=793761387 instance=ExtResource("22_lava_tile_scene")]
+transform = Transform3D(0.928705, 0, 0.71325, 0, 1, 0, -0.945057, 0, 0.700909, 36.4473, 23, -37.089)
 
-[node name="Tile_23" parent="Sections/S5_WallRun/Lava" instance=ExtResource("22_lava_tile_scene")]
-transform = Transform3D(0.928705, 0, 0.713250, 0, 1, 0, -0.945057, 0, 0.700909, 39.1107, 23, -39.7994)
+[node name="Tile_23" parent="Sections/S5_WallRun/Lava" unique_id=1528808290 instance=ExtResource("22_lava_tile_scene")]
+transform = Transform3D(0.928705, 0, 0.71325, 0, 1, 0, -0.945057, 0, 0.700909, 39.1107, 23, -39.7994)
 
-[node name="Tile_24" parent="Sections/S5_WallRun/Lava" instance=ExtResource("22_lava_tile_scene")]
+[node name="Tile_24" parent="Sections/S5_WallRun/Lava" unique_id=1225896163 instance=ExtResource("22_lava_tile_scene")]
 transform = Transform3D(0.978008, 0, 0.674671, 0, 1, 0, -0.893938, 0, 0.738119, 35.5773, 23, -32.5191)
 
-[node name="Tile_25" parent="Sections/S5_WallRun/Lava" instance=ExtResource("22_lava_tile_scene")]
+[node name="Tile_25" parent="Sections/S5_WallRun/Lava" unique_id=1119232773 instance=ExtResource("22_lava_tile_scene")]
 transform = Transform3D(0.978008, 0, 0.674671, 0, 1, 0, -0.893938, 0, 0.738119, 38.3822, 23, -35.0829)
 
-[node name="Tile_26" parent="Sections/S5_WallRun/Lava" instance=ExtResource("22_lava_tile_scene")]
-transform = Transform3D(0.978008, 0, 0.674671, 0, 1, 0, -0.893938, 0, 0.738119, 41.1870, 23, -37.6466)
+[node name="Tile_26" parent="Sections/S5_WallRun/Lava" unique_id=2014084969 instance=ExtResource("22_lava_tile_scene")]
+transform = Transform3D(0.978008, 0, 0.674671, 0, 1, 0, -0.893938, 0, 0.738119, 41.187, 23, -37.6466)
 
-[node name="Tile_27" parent="Sections/S5_WallRun/Lava" instance=ExtResource("22_lava_tile_scene")]
+[node name="Tile_27" parent="Sections/S5_WallRun/Lava" unique_id=718470179 instance=ExtResource("22_lava_tile_scene")]
 transform = Transform3D(1.024501, 0, 0.634152, 0, 1, 0, -0.840252, 0, 0.773208, 37.2686, 23, -30.5661)
 
-[node name="Tile_28" parent="Sections/S5_WallRun/Lava" instance=ExtResource("22_lava_tile_scene")]
+[node name="Tile_28" parent="Sections/S5_WallRun/Lava" unique_id=283823152 instance=ExtResource("22_lava_tile_scene")]
 transform = Transform3D(1.024501, 0, 0.634152, 0, 1, 0, -0.840252, 0, 0.773208, 40.2068, 23, -32.9759)
 
-[node name="Tile_29" parent="Sections/S5_WallRun/Lava" instance=ExtResource("22_lava_tile_scene")]
-transform = Transform3D(1.024501, 0, 0.634152, 0, 1, 0, -0.840252, 0, 0.773208, 43.1450, 23, -35.3857)
+[node name="Tile_29" parent="Sections/S5_WallRun/Lava" unique_id=1890105749 instance=ExtResource("22_lava_tile_scene")]
+transform = Transform3D(1.024501, 0, 0.634152, 0, 1, 0, -0.840252, 0, 0.773208, 43.145, 23, -35.3857)
 
-[node name="Tile_30" parent="Sections/S5_WallRun/Lava" instance=ExtResource("22_lava_tile_scene")]
+[node name="Tile_30" parent="Sections/S5_WallRun/Lava" unique_id=730698272 instance=ExtResource("22_lava_tile_scene")]
 transform = Transform3D(1.068051, 0, 0.591812, 0, 1, 0, -0.784151, 0, 0.806076, 38.8529, 23, -28.5253)
 
-[node name="Tile_31" parent="Sections/S5_WallRun/Lava" instance=ExtResource("22_lava_tile_scene")]
+[node name="Tile_31" parent="Sections/S5_WallRun/Lava" unique_id=1587505020 instance=ExtResource("22_lava_tile_scene")]
 transform = Transform3D(1.068051, 0, 0.591812, 0, 1, 0, -0.784151, 0, 0.806076, 41.9159, 23, -30.7742)
 
-[node name="Tile_32" parent="Sections/S5_WallRun/Lava" instance=ExtResource("22_lava_tile_scene")]
-transform = Transform3D(1.068051, 0, 0.591812, 0, 1, 0, -0.784151, 0, 0.806076, 44.9790, 23, -33.0231)
+[node name="Tile_32" parent="Sections/S5_WallRun/Lava" unique_id=1226067132 instance=ExtResource("22_lava_tile_scene")]
+transform = Transform3D(1.068051, 0, 0.591812, 0, 1, 0, -0.784151, 0, 0.806076, 44.979, 23, -33.0231)
 
-[node name="Tile_33" parent="Sections/S5_WallRun/Lava" instance=ExtResource("22_lava_tile_scene")]
+[node name="Tile_33" parent="Sections/S5_WallRun/Lava" unique_id=1918099892 instance=ExtResource("22_lava_tile_scene")]
 transform = Transform3D(1.108532, 0, 0.547772, 0, 1, 0, -0.725798, 0, 0.836628, 40.3255, 23, -26.4026)
 
-[node name="Tile_34" parent="Sections/S5_WallRun/Lava" instance=ExtResource("22_lava_tile_scene")]
+[node name="Tile_34" parent="Sections/S5_WallRun/Lava" unique_id=301030658 instance=ExtResource("22_lava_tile_scene")]
 transform = Transform3D(1.108532, 0, 0.547772, 0, 1, 0, -0.725798, 0, 0.836628, 43.5046, 23, -28.4841)
 
-[node name="Tile_35" parent="Sections/S5_WallRun/Lava" instance=ExtResource("22_lava_tile_scene")]
+[node name="Tile_35" parent="Sections/S5_WallRun/Lava" unique_id=1612176095 instance=ExtResource("22_lava_tile_scene")]
 transform = Transform3D(1.108532, 0, 0.547772, 0, 1, 0, -0.725798, 0, 0.836628, 46.6838, 23, -30.5657)
 
-[node name="Tile_36" parent="Sections/S5_WallRun/Lava" instance=ExtResource("22_lava_tile_scene")]
-transform = Transform3D(1.145828, 0, 0.502158, 0, 1, 0, -0.665359, 0, 0.864776, 41.6822, 23, -24.2040)
+[node name="Tile_36" parent="Sections/S5_WallRun/Lava" unique_id=1274489955 instance=ExtResource("22_lava_tile_scene")]
+transform = Transform3D(1.145828, 0, 0.502158, 0, 1, 0, -0.665359, 0, 0.864776, 41.6822, 23, -24.204)
 
-[node name="Tile_37" parent="Sections/S5_WallRun/Lava" instance=ExtResource("22_lava_tile_scene")]
+[node name="Tile_37" parent="Sections/S5_WallRun/Lava" unique_id=1858997342 instance=ExtResource("22_lava_tile_scene")]
 transform = Transform3D(1.145828, 0, 0.502158, 0, 1, 0, -0.665359, 0, 0.864776, 44.9684, 23, -26.1122)
 
-[node name="Tile_38" parent="Sections/S5_WallRun/Lava" instance=ExtResource("22_lava_tile_scene")]
+[node name="Tile_38" parent="Sections/S5_WallRun/Lava" unique_id=1477093854 instance=ExtResource("22_lava_tile_scene")]
 transform = Transform3D(1.145828, 0, 0.502158, 0, 1, 0, -0.665359, 0, 0.864776, 48.2545, 23, -28.0204)
 
-[node name="Tile_39" parent="Sections/S5_WallRun/Lava" instance=ExtResource("22_lava_tile_scene")]
-transform = Transform3D(1.179833, 0, 0.455101, 0, 1, 0, -0.603009, 0, 0.890440, 42.9192, 23, -21.9359)
+[node name="Tile_39" parent="Sections/S5_WallRun/Lava" unique_id=1050451173 instance=ExtResource("22_lava_tile_scene")]
+transform = Transform3D(1.179833, 0, 0.455101, 0, 1, 0, -0.603009, 0, 0.89044, 42.9192, 23, -21.9359)
 
-[node name="Tile_40" parent="Sections/S5_WallRun/Lava" instance=ExtResource("22_lava_tile_scene")]
-transform = Transform3D(1.179833, 0, 0.455101, 0, 1, 0, -0.603009, 0, 0.890440, 46.3029, 23, -23.6652)
+[node name="Tile_40" parent="Sections/S5_WallRun/Lava" unique_id=414137380 instance=ExtResource("22_lava_tile_scene")]
+transform = Transform3D(1.179833, 0, 0.455101, 0, 1, 0, -0.603009, 0, 0.89044, 46.3029, 23, -23.6652)
 
-[node name="Tile_41" parent="Sections/S5_WallRun/Lava" instance=ExtResource("22_lava_tile_scene")]
-transform = Transform3D(1.179833, 0, 0.455101, 0, 1, 0, -0.603009, 0, 0.890440, 49.6865, 23, -25.3946)
+[node name="Tile_41" parent="Sections/S5_WallRun/Lava" unique_id=1162607082 instance=ExtResource("22_lava_tile_scene")]
+transform = Transform3D(1.179833, 0, 0.455101, 0, 1, 0, -0.603009, 0, 0.89044, 49.6865, 23, -25.3946)
 
-[node name="Tile_42" parent="Sections/S5_WallRun/Lava" instance=ExtResource("22_lava_tile_scene")]
+[node name="Tile_42" parent="Sections/S5_WallRun/Lava" unique_id=395088792 instance=ExtResource("22_lava_tile_scene")]
 transform = Transform3D(1.210448, 0, 0.406737, 0, 1, 0, -0.538926, 0, 0.913545, 44.0329, 23, -19.6047)
 
-[node name="Tile_43" parent="Sections/S5_WallRun/Lava" instance=ExtResource("22_lava_tile_scene")]
+[node name="Tile_43" parent="Sections/S5_WallRun/Lava" unique_id=1887776716 instance=ExtResource("22_lava_tile_scene")]
 transform = Transform3D(1.210448, 0, 0.406737, 0, 1, 0, -0.538926, 0, 0.913545, 47.5044, 23, -21.1503)
 
-[node name="Tile_44" parent="Sections/S5_WallRun/Lava" instance=ExtResource("22_lava_tile_scene")]
+[node name="Tile_44" parent="Sections/S5_WallRun/Lava" unique_id=1363461507 instance=ExtResource("22_lava_tile_scene")]
 transform = Transform3D(1.210448, 0, 0.406737, 0, 1, 0, -0.538926, 0, 0.913545, 50.9758, 23, -22.6959)
 
 [node name="Route" type="Node3D" parent="." unique_id=325112563]
