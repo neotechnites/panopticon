@@ -7,6 +7,8 @@
 [ext_resource type="Script" uid="uid://b37vp7jwips2c" path="res://scripts/ring/ring_level.gd" id="6_ring_level"]
 [ext_resource type="PackedScene" path="res://scenes/tower/watching_eye.tscn" id="7_watching_eye"]
 [ext_resource type="PackedScene" uid="uid://cwyjwhfotqv73" path="res://assets/models/tower.glb" id="8_tower_model"]
+[ext_resource type="PackedScene" uid="uid://qc0reb2qk6wi" path="res://assets/models/tower_arches.glb" id="8b_tower_arches"]
+[ext_resource type="Script" path="res://scripts/ring/tower_variant.gd" id="8c_tower_variant"]
 [ext_resource type="Resource" path="res://scenes/ring/floating_watching_eye_profile.tres" id="9_watcher_profile"]
 [ext_resource type="PackedScene" uid="uid://l2tycnwgajbo" path="res://assets/models/map_base.glb" id="10_map_base_model"]
 [ext_resource type="PackedScene" uid="uid://dcqeakky42fog" path="res://assets/models/spire.glb" id="12_spire"]
@@ -182,31 +184,31 @@ transform = Transform3D(0.9430726, 0, -0.33258685, 0, 1, 0, 0.33258685, 0, 0.943
 
 [node name="Block6" parent="Sections" unique_id=1106728294 instance=ExtResource("25_block")]
 editor_description = "Map 1 sections, docs/MAP1_SECTIONS.md."
-transform = Transform3D(-0.325568, 0, 0.945519, 0, 1, 0, -0.945519, 0, -0.325568, 23.2337, 23.5, -47.6361)
+transform = Transform3D(-0.90894485, 0, 0.41691712, 0, 1, 0, -0.41691712, 0, -0.90894485, 23.2337, 23.5, -47.6361)
 
 [node name="Block7" parent="Sections" unique_id=1487486073 instance=ExtResource("25_block")]
 editor_description = "Map 1 sections, docs/MAP1_SECTIONS.md."
-transform = Transform3D(-0.217228, 0, 0.976121, 0, 1, 0, -0.976121, 0, -0.217228, 26.2943, 23.5, -41.3474)
+transform = Transform3D(-0.86521506, 0, 0.50140107, 0, 1, 0, -0.50140107, 0, -0.86521506, 26.2943, 23.5, -41.3474)
 
 [node name="Block8" parent="Sections" unique_id=413134961 instance=ExtResource("25_block")]
 editor_description = "Map 1 sections, docs/MAP1_SECTIONS.md."
-transform = Transform3D(-0.106135, 0, 0.994352, 0, 1, 0, -0.994352, 0, -0.106135, 33.2874, 23.5, -41.2426)
+transform = Transform3D(-0.80475676, 0, 0.59360516, 0, 1, 0, -0.59360516, 0, -0.80475676, 33.2874, 23.5, -41.2426)
 
 [node name="Block9" parent="Sections" unique_id=1889661717 instance=ExtResource("25_block")]
 editor_description = "Map 1 sections, docs/MAP1_SECTIONS.md."
-transform = Transform3D(0.006302, 0, 0.999980, 0, 1, 0, -0.999980, 0, 0.006302, 34.8659, 23.5, -34.4292)
+transform = Transform3D(-0.70506316, 0, 0.70914423, 0, 1, 0, -0.70914423, 0, -0.70506316, 34.8659, 23.5, -34.4292)
 
 [node name="Block10" parent="Sections" unique_id=1298077034 instance=ExtResource("25_block")]
 editor_description = "Map 1 sections, docs/MAP1_SECTIONS.md."
-transform = Transform3D(0.118660, 0, 0.992935, 0, 1, 0, -0.992935, 0, 0.118660, 41.6589, 23.5, -32.7649)
+transform = Transform3D(-0.6058637, 0, 0.7955684, 0, 1, 0, -0.7955684, 0, -0.6058637, 41.6589, 23.5, -32.7649)
 
 [node name="Block11" parent="Sections" unique_id=1349851488 instance=ExtResource("25_block")]
 editor_description = "Map 1 sections, docs/MAP1_SECTIONS.md."
-transform = Transform3D(0.229515, 0, 0.973305, 0, 1, 0, -0.973305, 0, 0.229515, 41.6756, 23.5, -25.7710)
+transform = Transform3D(-0.51082385, 0, 0.85968524, 0, 1, 0, -0.85968524, 0, -0.51082385, 41.6756, 23.5, -25.771)
 
 [node name="Block12" parent="Sections" unique_id=1621534576 instance=ExtResource("25_block")]
 editor_description = "Map 1 sections, docs/MAP1_SECTIONS.md."
-transform = Transform3D(0.337460, 0, 0.941340, 0, 1, 0, -0.941340, 0, 0.337460, 47.9252, 23.5, -22.6314)
+transform = Transform3D(-0.46729237, 0, 0.8841032, 0, 1, 0, -0.8841032, 0, -0.46729237, 47.9252, 23.5, -22.6314)
 
 [node name="Block13" parent="Sections" unique_id=81094570 instance=ExtResource("25_block")]
 editor_description = "Map 1 sections, docs/MAP1_SECTIONS.md."
@@ -762,6 +764,8 @@ exit_angle_degrees = 335.0
 
 [node name="Tower" type="Node3D" parent="." unique_id=1642350855]
 editor_description = "The tower, and its origin is the FLOOR OF THE GUARD ROOM at y=25.35. That is the model's own datum: assets/models/tower.glb hangs its rock 36.4 m below this point and carries the top of its drum 9.6 m above it, so the model drops in at identity and TowerSpawn, the lights and the Watcher all hang off the same floor.
+script = ExtResource("8c_tower_variant")
+variant = 1
 
 THE GUARD IS INSIDE IT NOW. A hollow chamber 10.2 m across with eight openings.
 
@@ -770,6 +774,9 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 25.35, 0)
 
 [node name="Rock" parent="Tower" unique_id=1992333100 instance=ExtResource("8_tower_model")]
 editor_description = "assets/models/tower.glb: the column, the drum and the hollow chamber, one mesh. It carries its OWN collision (a -colonly shape in the glTF), so the guard stands on the model's floor and is stopped by the model's stone -- there is no second, invisible copy of either in this scene, and nothing here can drift out of agreement with what you can see.
+
+[node name="RockArches" parent="Tower" instance=ExtResource("8b_tower_arches")]
+editor_description = "The Greek-arches variant; Tower.variant picks which one is live."
 
 Its origin is the floor of the guard room, which is why it drops in at identity: see the Tower node above."
 

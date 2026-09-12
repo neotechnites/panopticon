@@ -9,6 +9,9 @@ const SHIELD_RADIUS: float = 4.0
 ## A layer inside the rifle's hit mask that no body's collision mask includes,
 ## so shots stop on the shell and runners walk out of it.
 const SHIELD_LAYER: int = 1 << 19
+## The decoy body: hit by the rifle, ignored by every body mask.
+const DECOY_LAYER: int = 1 << 18
+const DECOY_LEAD_METRES: float = 2.0
 const CAMO_VISIBLE_RANGE: float = 25.0
 const CAMO_ALPHA: float = 0.25
 ## Whole-body camo tint: dark hell red.
@@ -255,8 +258,14 @@ func _spawn_decoy() -> void:
 	decoy.intent_source = source
 	decoy.add_to_group(DECOY_GROUP)
 	var container: Node3D = match_controller.runner_container
-	decoy.position = container.to_local(body.global_position)
+	var ahead: Vector3 = -body.global_transform.basis.z
+	ahead.y = 0.0
+	ahead = ahead.normalized() * DECOY_LEAD_METRES
+	decoy.position = container.to_local(body.global_position + ahead)
 	decoy.rotation = Vector3(0.0, body.global_rotation.y, 0.0)
+	# Shots stop on it (the rifle mask spans every layer); bodies walk through it.
+	decoy.collision_layer = DECOY_LAYER
+	decoy.collision_mask = 1
 	container.add_child(decoy)
 	var mine: MeshInstance3D = _avatar_mesh(body)
 	var theirs: MeshInstance3D = _avatar_mesh(decoy)
