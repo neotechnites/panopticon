@@ -128,6 +128,10 @@ extends Node3D
 ## The body this costume belongs to. Set from the scene that owns both -- see
 ## [code]scenes/player/player.tscn[/code], which points it at the
 ## [CharacterBody3D] this node hangs under.
+## The head-collapsing modifier, by path rather than by class name so that a
+## headless run does not depend on a global class cache having been built.
+const FirstPersonHead: GDScript = preload("res://scripts/player/first_person_head.gd")
+
 @export var body: PlayerController
 
 ## The skinned mesh inside the imported model. Named here rather than found by
@@ -258,16 +262,32 @@ extends Node3D
 ## glTF, looping, and shown for as long as [member PlayerController.is_guard].
 @export var aim_clip: StringName = &"Aim"
 
+## The shove clip's name inside [member animation]. Authored in the glTF,
+## non-looping, and played as a one-shot on [signal PlayerController.shoved].
+@export var shove_clip: StringName = &"Shove"
+
+## Seconds blended into and out of [member shove_clip]. Short: a shove that
+## eases in is a shove that has already missed.
+@export var shove_blend_time: float = 0.06
+
 ## Which visual layer the mesh draws on, authored per body.
 ##
 ## Layer 2 is the owner-hidden layer: every [Camera3D] in the game inherits the
 ## cull_mask on [code]scenes/player/player.tscn[/code], which clears bit 2, so a
-## mesh left here is never drawn from a player's viewpoint -- which is what stops
-## the human from looking at the inside of their own head, since their eye sits
-## at 1.65 m and the model's skull is around it. Layer 3 is where every body that
-## is NOT the local viewpoint goes, and the two AI scenes that inherit the player
-## set it. This is a flag field, so layer 3 is the value 4.
+## mesh left here is never drawn from a player's viewpoint. It is where a body
+## sits while nobody is looking out of it. Layer 3, the value 4, is where every
+## body that is NOT the local viewpoint goes, and the two AI scenes set it. The
+## body the human IS looking out of adds [member first_person_layers].
 @export_flags_3d_render var visual_layers: int = 2
+
+## The layer the mesh is ALSO drawn on while this body is the local viewpoint,
+## so its owner can see their own legs and arms. Layer 1, which no camera
+## clears; the head is collapsed instead -- see [member head_bone].
+@export_flags_3d_render var first_person_layers: int = 1
+
+## The bone collapsed while this body is the local viewpoint. Its geometry is
+## what the eye at 1.65 m would otherwise be inside of.
+@export var head_bone: StringName = &"Head"
 
 ## The material the whole body wears, or null to keep the flat grey the model was
 ## imported with.
@@ -362,6 +382,25 @@ var _has_aim: bool = false
 ## same reason [member _in_slide] is one.
 var _in_aim: bool = false
 
+## Whether [member shove_clip] was found in the glTF.
+var _has_shove: bool = false
+
+## Seconds of [member shove_clip] left to play. Above zero the shove owns the
+## body and every other pose waits, which is the whole of its state.
+var _shove_remaining: float = 0.0
+
+## This body's own camera, or null. Non-null and current means the human is
+## looking out of this body and must be shown their own legs.
+var _camera: Camera3D = null
+
+## Collapses [member head_bone] while this body is the local viewpoint. Null
+## when the skeleton could not be resolved, which keeps the body hidden.
+var _head_hider: FirstPersonHead = null
+
+## Whether the mesh is currently drawn in first person. The edge, for the same
+## reason [member _in_slide] is one.
+var _first_person: bool = false
+
 
 func _ready() -> void:
 	if mesh == null or animation == null:
@@ -408,6 +447,14 @@ func _ready() -> void:
 	if not _has_aim:
 		push_error("PrisonerAvatar cannot find \"%s\"; the guard will be drawn running or standing idle." % aim_clip)
 
+	_has_shove = animation.has_animation(shove_clip)
+	if not _has_shove:
+		push_error("PrisonerAvatar cannot find \"%s\"; a shove will not be visible on the body making it." % shove_clip)
+
+	if body != null:
+		_camera = body.get_node_or_null(^"Head/Camera") as Camera3D
+	_build_head_hider()
+
 	# The signal is the fast path into the airborne pose, not the only one --
 	# see _tick_air. Connected rather than polled because a jump is an event
 	# with a tick attached to it, and _process runs on the render clock: at a
@@ -418,6 +465,9 @@ func _ready() -> void:
 
 	if body != null and not body.died.is_connected(_on_body_died):
 		body.died.connect(_on_body_died)
+
+	if body != null and not body.shoved.is_connected(_on_body_shoved):
+		body.shoved.connect(_on_body_shoved)
 
 	# Bootstrap into the parked pose, then let the first _process tick pick
 	# the correct clip for the body's actual speed. Never left showing: a
@@ -436,6 +486,7 @@ func _process(delta: float) -> void:
 	# under the slide and the crouch as well, or a body that slid off a ledge
 	# would start counting its fall from whenever the slide happened to close.
 	_tick_air(delta)
+	_tick_first_person()
 
 	# Death outranks everything: whatever the body was doing when it was shot
 	# is no longer happening. It holds until the body moves under its own power
@@ -461,6 +512,14 @@ func _process(delta: float) -> void:
 	# and the crouch: it is whatever MatchController._place_in_tower says, for
 	# as long as it says it, which is a whole seat's occupancy rather than an
 	# event.
+	# Above death, below nothing else: a shove is short enough that whatever the
+	# body was doing can wait, and the flags _on_body_shoved cleared make every
+	# pose below re-play itself on the tick it runs out.
+	if _shove_remaining > 0.0:
+		_shove_remaining -= delta
+		if _shove_remaining > 0.0:
+			return
+
 	if _has_aim and body.is_guard:
 		if not _in_aim:
 			_in_aim = true
@@ -631,6 +690,52 @@ func _on_body_jumped() -> void:
 ## is cleared.
 func _on_body_died() -> void:
 	_dead = true
+	_shove_remaining = 0.0
+
+
+## This body just shoved somebody. Take the clip over whatever was playing and
+## clear the pose flags, so each one re-plays itself when the shove runs out.
+func _on_body_shoved() -> void:
+	if not _has_shove or _dead:
+		return
+	_shove_remaining = animation.get_animation(shove_clip).length
+	_in_slide = false
+	_in_crouch = false
+	_in_air = false
+	_in_aim = false
+	_running = false
+	animation.speed_scale = 1.0
+	animation.play(shove_clip, shove_blend_time)
+
+
+## Draw this body for its own owner, or stop. One bool per frame: the camera is
+## current only on the body the human is looking out of, and bots never are.
+func _tick_first_person() -> void:
+	var want: bool = _head_hider != null and _camera != null and _camera.is_current()
+	if want == _first_person:
+		return
+	_first_person = want
+	_head_hider.set_hidden(want)
+	mesh.layers = (visual_layers | first_person_layers) if want else visual_layers
+
+
+## Hang a [FirstPersonHead] off the skeleton, inactive. Left null when there is
+## no skeleton or no [member head_bone], which keeps the body owner-hidden.
+func _build_head_hider() -> void:
+	var found: Array = _resolve_skeleton()
+	if found.is_empty():
+		return
+	var skeleton: Skeleton3D = found[1]
+	var bone: int = skeleton.find_bone(String(head_bone))
+	if bone < 0:
+		push_error("PrisonerAvatar cannot find the bone \"%s\"; this body stays hidden from its own camera." % head_bone)
+		return
+	var hider: FirstPersonHead = FirstPersonHead.new()
+	hider.name = "FirstPersonHead"
+	hider.bone = bone
+	hider.active = false
+	skeleton.add_child(hider)
+	_head_hider = hider
 
 
 ## Freeze the run cycle on its first frame. The fallback for a body with no

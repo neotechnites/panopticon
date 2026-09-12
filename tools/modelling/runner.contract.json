@@ -1,7 +1,7 @@
 {
   "_comment": "What scenes/player/prisoner_avatar.tscn and scripts/player/prisoner_avatar.gd address this model by. Checked on the PC by lib/verify_glb.gd after every build; a build that breaks any of it is not installed.",
   "node_paths": ["Armature/Skeleton3D/Runner", "AnimationPlayer"],
-  "animations": ["Run", "Jump", "Death", "Aim"],
+  "animations": ["Run", "Jump", "Death", "Aim", "Shove"],
   "bones": ["Hips", "Spine", "Neck", "Head",
             "UpperArm.L", "LowerArm.L", "Hand.L",
             "UpperArm.R", "LowerArm.R", "Hand.R",

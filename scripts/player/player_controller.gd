@@ -53,6 +53,10 @@ signal landed(impact_speed: float)
 ## MatchController._make_ghost].
 signal died()
 
+## Emitted on the tick this body shoves somebody, by [method
+## MatchController.apply_shove]. The costume's shove clip hangs off it.
+signal shoved()
+
 ## Emitted on the tick a slide opens, carrying the horizontal speed the body has
 ## [b]after[/b] the entry boost -- the number a slide's dust, camera dip and
 ## audio should be scaled by.
