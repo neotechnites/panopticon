@@ -1,12 +1,7 @@
-[gd_resource type="Resource" script_class="WatchingEyeProfile" load_steps=2 format=3]
+[gd_resource type="Resource" script_class="WatchingEyeProfile" format=3 uid="uid://6nbj0hf10ae"]
 
-[ext_resource type="Script" path="res://scripts/tower/watching_eye_profile.gd" id="1_watching_eye_profile"]
+[ext_resource type="Script" uid="uid://cr65jrqbka7u7" path="res://scripts/tower/watching_eye_profile.gd" id="1_watching_eye_profile"]
 
 [resource]
 script = ExtResource("1_watching_eye_profile")
-radius_metres = 2.5
 height_metres = 14.0
-track_rate = 2.0
-tower_radius_metres = 9.0
-tower_band_low_metres = -4.0
-tower_band_high_metres = 24.0
