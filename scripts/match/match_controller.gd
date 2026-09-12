@@ -3067,7 +3067,11 @@ func _attach_rifle(participant: MatchParticipant) -> void:
 	if ads != null:
 		ads.optic = body.get_node_or_null(^"Optic") as WeaponOptic
 
-	_set_human_trigger(participant.is_human() and participant.index == _local_index and not _mirror)
+	var local_holder: bool = participant.is_human() and participant.index == _local_index
+	# The trigger stays on the host: a client's shots are the host's to fire.
+	# The vignette is presentation, so it follows the holder, not the authority.
+	_set_human_trigger(local_holder and not _mirror)
+	_set_local_holder(rifle, local_holder)
 
 
 ## Take the rifle out of everyone's hands. The opening race has no shooter, and
@@ -3086,10 +3090,21 @@ func _stow_rifle() -> void:
 	if ads != null:
 		ads.optic = null
 	_set_human_trigger(false)
+	_set_local_holder(rifle, false)
 
 
 func _set_human_trigger(active: bool) -> void:
 	_set_trigger(rifle, active)
+
+
+## Tell [param weapon]'s [ScopeVignette] whether the person at this keyboard is
+## holding it -- true on a client's own guard, whose trigger the host holds.
+func _set_local_holder(weapon: Rifle, local: bool) -> void:
+	if weapon == null:
+		return
+	var vignette: ScopeVignette = weapon.get_node_or_null(^"ScopeVignette") as ScopeVignette
+	if vignette != null:
+		vignette.set_local_holder(local)
 
 
 ## Hand [param weapon]'s trigger to the mouse, or take it away.
@@ -3230,7 +3245,9 @@ func _attach_finisher_rifle(participant: MatchParticipant, weapon: Rifle) -> voi
 	weapon.tick(FORCE_READY_SECONDS)
 
 	# The human's trigger, the same one the tower's rifle hands the mouse.
-	_set_trigger(weapon, participant.is_human() and participant.index == _local_index and not _mirror)
+	var local_holder: bool = participant.is_human() and participant.index == _local_index
+	_set_trigger(weapon, local_holder and not _mirror)
+	_set_local_holder(weapon, local_holder)
 	finisher_armed.emit(weapon)
 
 
@@ -3270,6 +3287,7 @@ func _disarm_finisher() -> void:
 	if _finisher_rifle == null or not is_instance_valid(_finisher_rifle):
 		return
 	_set_trigger(_finisher_rifle, false)
+	_set_local_holder(_finisher_rifle, false)
 	if _finisher_rifle.get_parent() != self:
 		var parent: Node = _finisher_rifle.get_parent()
 		if parent != null:

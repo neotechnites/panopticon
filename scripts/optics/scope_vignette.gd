@@ -79,6 +79,11 @@ var _material: ShaderMaterial = null
 ## The last amount pushed at the shader, so a still frame writes nothing.
 var _applied: float = -1.0
 
+## True while the person at this keyboard is holding this rifle with
+## [member trigger] switched off -- a client's own guard, whose shots the host
+## fires. Set by [method MatchController._attach_rifle].
+var _local_holder: bool = false
+
 ## True while the scope is HELD: the trigger went inactive mid-aim (a shot or
 ## the match resolved while the human was looking through the scope), so the
 ## screen is frozen at [member _applied] instead of snapping to
@@ -143,9 +148,9 @@ func tick() -> void:
 	var progress: float = 0.0 if ads == null else ads.get_aim_progress()
 
 	if _held:
-		if (trigger == null or trigger.is_active()) or progress <= 0.0:
+		if _holder_is_the_human() or progress <= 0.0:
 			_held = false
-	elif trigger != null and not trigger.is_active() and progress > 0.0:
+	elif not _holder_is_the_human() and progress > 0.0:
 		_held = true
 
 	var amount: float = _applied if _held else compute_amount()
@@ -175,9 +180,7 @@ func _show_or_hide_the_model(amount: float) -> void:
 func compute_amount() -> float:
 	if ads == null:
 		return 0.0
-	if trigger != null and not trigger.is_active():
-		# A bot in the tower, a prisoner, a spectator, a ghost. Same path,
-		# every frame, evaluating to nothing.
+	if not _holder_is_the_human():
 		return 0.0
 	var profile: ZoomProfile = ads.get_zoom_profile()
 	if profile == null:
@@ -191,6 +194,18 @@ func compute_amount() -> float:
 ## wants to know whether the player is currently looking through the optic.
 func get_amount() -> float:
 	return maxf(_applied, 0.0)
+
+
+## Say whether the local human holds this rifle regardless of [member trigger],
+## which a network client's match switches off because the host fires for it.
+func set_local_holder(local: bool) -> void:
+	_local_holder = local
+
+
+## Whose screen this is. [member trigger] answers it wherever the trigger is
+## live; a client's is not, so the match says so through [method set_local_holder].
+func _holder_is_the_human() -> bool:
+	return _local_holder or trigger == null or trigger.is_active()
 
 
 # --- Internals ----------------------------------------------------------------
