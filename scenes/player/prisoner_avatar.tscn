@@ -1,6 +1,6 @@
 [gd_scene load_steps=3 format=3]
 
-[ext_resource type="PackedScene" uid="uid://cela3gwsdh1ws" path="res://assets/models/runner.glb" id="1_model"]
+[ext_resource type="PackedScene" path="res://assets/models/prisoner2.glb" id="1_model"]
 [ext_resource type="Script" path="res://scripts/player/prisoner_avatar.gd" id="2_avatar"]
 
 [node name="Avatar" node_paths=PackedStringArray("mesh", "animation") instance=ExtResource("1_model")]
