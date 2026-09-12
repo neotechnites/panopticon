@@ -1712,6 +1712,9 @@ func apply_shove(shover: MatchParticipant) -> MatchParticipant:
 		return null
 	if not shover.is_running or shover.body == null:
 		return null
+	if shover.body.is_armed:
+		# Click fires the rifle for an armed finisher.
+		return null
 	if shover.shove_cooldown_remaining > 0.0:
 		return null
 
