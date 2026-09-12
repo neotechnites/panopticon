@@ -84,6 +84,9 @@ static func ensure_registered() -> void:
 		InputMap.action_add_event(ABILITY, pad)
 	if not InputMap.has_action(SHOVE):
 		_ensure(SHOVE, [KEY_F])
+		var shove_mouse: InputEventMouseButton = InputEventMouseButton.new()
+		shove_mouse.button_index = MOUSE_BUTTON_LEFT
+		InputMap.action_add_event(SHOVE, shove_mouse)
 		var shove_pad: InputEventJoypadButton = InputEventJoypadButton.new()
 		shove_pad.button_index = SHOVE_PAD_BUTTON
 		InputMap.action_add_event(SHOVE, shove_pad)
