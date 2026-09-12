@@ -184,15 +184,16 @@ func sample_state(out: PlayerState) -> void:
 ## client, once per drawn frame while interpolating and once per snapshot when
 ## not.
 ##
-## Writes the transform and nothing else. Velocity is carried in the state and
-## deliberately not applied: a client's controller has its physics switched
-## off, so a velocity written here would never be integrated and would only
-## mislead anything that read it back.
+## Transform, velocity and floor state. A client never integrates the velocity
+## -- its physics is off -- but [PrisonerAvatar] reads speed and footing to pick
+## a clip, and a body reporting neither is drawn standing still or dead forever.
 func apply_state(state: PlayerState) -> void:
 	if controller == null:
 		return
 	controller.global_position = state.position
 	controller.rotation.y = state.yaw
+	controller.velocity = state.velocity
+	controller.net_floor = 1 if state.on_floor else 0
 	if controller.head != null:
 		controller.head.rotation.x = state.pitch
 

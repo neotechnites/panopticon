@@ -394,6 +394,18 @@ func get_horizontal_speed() -> float:
 	return Vector2(velocity.x, velocity.z).length()
 
 
+## Floor state pushed in from a snapshot, or -1 to ask physics. A client runs no
+## physics, so [method CharacterBody3D.is_on_floor] there answers for a tick that
+## never happened. Written by [method PlayerNetLink.apply_state].
+var net_floor: int = -1
+
+
+## On the floor, however this machine knows it. Read this, not [method is_on_floor],
+## anywhere a body may be network-driven.
+func is_grounded() -> bool:
+	return is_on_floor() if net_floor < 0 else net_floor == 1
+
+
 ## Start (or refresh) a timed ground-speed boost -- a race power-up. Ground max
 ## speed and ground acceleration run at [param multiplier] for [param seconds].
 func apply_speed_boost(multiplier: float, seconds: float) -> void:
