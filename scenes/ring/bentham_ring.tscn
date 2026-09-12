@@ -182,43 +182,43 @@ transform = Transform3D(0.9430726, 0, -0.33258685, 0, 1, 0, 0.33258685, 0, 0.943
 
 [node name="Block6" parent="Sections" unique_id=1106728294 instance=ExtResource("25_block")]
 editor_description = "Map 1 sections, docs/MAP1_SECTIONS.md."
-transform = Transform3D(0.8704044, 0, -0.49233747, 0, 1, 0, 0.49233747, 0, 0.8704044, 23.161182, 23.768435, -47.98777)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 23.2337, 23.5, -47.6361)
 
 [node name="Block7" parent="Sections" unique_id=1487486073 instance=ExtResource("25_block")]
 editor_description = "Map 1 sections, docs/MAP1_SECTIONS.md."
-transform = Transform3D(0.8704044, 0, -0.49233747, 0, 1, 0, 0.49233747, 0, 0.8704044, 25.354368, 23.560211, -42.063152)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 26.2943, 23.5, -41.3474)
 
 [node name="Block8" parent="Sections" unique_id=413134961 instance=ExtResource("25_block")]
 editor_description = "Map 1 sections, docs/MAP1_SECTIONS.md."
-transform = Transform3D(0.8704044, 0, -0.49233747, 0, 1, 0, 0.49233747, 0, 0.8704044, 31.173153, 23.739939, -43.114895)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 33.2874, 23.5, -41.2426)
 
 [node name="Block9" parent="Sections" unique_id=1889661717 instance=ExtResource("25_block")]
 editor_description = "Map 1 sections, docs/MAP1_SECTIONS.md."
-transform = Transform3D(0.6945967, 0, -0.7193994, 0, 1, 0, 0.7193994, 0, 0.6945967, 31.219719, 23.58713, -37.569263)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 34.8659, 23.5, -34.4292)
 
 [node name="Block10" parent="Sections" unique_id=1298077034 instance=ExtResource("25_block")]
 editor_description = "Map 1 sections, docs/MAP1_SECTIONS.md."
-transform = Transform3D(0.6945967, 0, -0.7193994, 0, 1, 0, 0.7193994, 0, 0.6945967, 37.10829, 23.982391, -38.10285)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 41.6589, 23.5, -32.7649)
 
 [node name="Block11" parent="Sections" unique_id=1349851488 instance=ExtResource("25_block")]
 editor_description = "Map 1 sections, docs/MAP1_SECTIONS.md."
-transform = Transform3D(0.6945967, 0, -0.7193994, 0, 1, 0, 0.7193994, 0, 0.6945967, 36.896507, 23.468115, -32.212097)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 41.6756, 23.5, -25.7710)
 
 [node name="Block12" parent="Sections" unique_id=1621534576 instance=ExtResource("25_block")]
 editor_description = "Map 1 sections, docs/MAP1_SECTIONS.md."
-transform = Transform3D(0.50586355, 0, -0.86261356, 0, 1, 0, 0.86261356, 0, 0.50586355, 42.53833, 23.436665, -31.99332)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 47.9252, 23.5, -22.6314)
 
 [node name="Block13" parent="Sections" unique_id=81094570 instance=ExtResource("25_block")]
 editor_description = "Map 1 sections, docs/MAP1_SECTIONS.md."
-transform = Transform3D(0.50586355, 0, -0.86261356, 0, 1, 0, 0.86261356, 0, 0.50586355, 41.01245, 23.475307, -26.552479)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 36, 8)
 
 [node name="Block14" parent="Sections" unique_id=472659984 instance=ExtResource("25_block")]
 editor_description = "Map 1 sections, docs/MAP1_SECTIONS.md."
-transform = Transform3D(0.50586355, 0, -0.86261356, 0, 1, 0, 0.86261356, 0, 0.50586355, 46.716167, 23.614506, -25.280033)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 11, 36, 8)
 
 [node name="Block15" parent="Sections" unique_id=536724705 instance=ExtResource("25_block")]
 editor_description = "Map 1 sections, docs/MAP1_SECTIONS.md."
-transform = Transform3D(0.50586355, 0, -0.86261356, 0, 1, 0, 0.86261356, 0, 0.50586355, 44.416836, 23.41956, -20.751137)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 14, 36, 8)
 
 [node name="Pocket_068deg" parent="Sections" unique_id=1204010580 instance=ExtResource("13_slab")]
 transform = Transform3D(0.070076294, -3.9638739, -0.6334837, 2.588011, 0.04478195, 0.090960935, 0.11087915, 1.4599471, -1.7227495, 21.831507, 26.438955, 43.075954)
