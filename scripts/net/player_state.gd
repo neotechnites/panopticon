@@ -50,6 +50,14 @@ var pitch: float = 0.0
 ## position delta and guess wrong on ramps.
 var on_floor: bool = false
 
+## The power running on this body, a [enum MatchRules.RunnerAbility] value.
+## Replicated so a client can draw the shield, shell or tint the authority
+## built; the effect itself is never simulated twice.
+var ability: int = 0
+
+## Seconds left on that power, quantised to a tenth on the wire.
+var ability_remaining: float = 0.0
+
 
 func clear() -> void:
 	seat_index = 0
@@ -59,6 +67,8 @@ func clear() -> void:
 	yaw = 0.0
 	pitch = 0.0
 	on_floor = false
+	ability = 0
+	ability_remaining = 0.0
 
 
 func copy_from(other: PlayerState) -> void:
@@ -69,6 +79,8 @@ func copy_from(other: PlayerState) -> void:
 	yaw = other.yaw
 	pitch = other.pitch
 	on_floor = other.on_floor
+	ability = other.ability
+	ability_remaining = other.ability_remaining
 
 
 ## Blend towards [param other] by [param weight], writing into this state.
@@ -82,6 +94,10 @@ func copy_from(other: PlayerState) -> void:
 func interpolate_from(from: PlayerState, to: PlayerState, weight: float) -> void:
 	var t: float = clampf(weight, 0.0, 1.0)
 	seat_index = to.seat_index
+	# The power is taken from the newer end whatever the weight: a shield that
+	# is up is up, and half of one is not a thing to draw.
+	ability = to.ability
+	ability_remaining = to.ability_remaining
 	position = from.position.lerp(to.position, t)
 	velocity = from.velocity.lerp(to.velocity, t)
 	yaw = lerp_angle(from.yaw, to.yaw, t)

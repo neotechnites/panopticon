@@ -41,6 +41,8 @@ func _make_state(seat: int, offset: float) -> PlayerState:
 	state.yaw = 0.25 * offset
 	state.pitch = -0.125 * offset
 	state.on_floor = seat % 2 == 0
+	state.ability = seat % 5
+	state.ability_remaining = 0.5 * float(seat)
 	return state
 
 
@@ -123,6 +125,13 @@ func test_a_snapshot_survives_the_round_trip() -> void:
 		assert_almost_eq(state.yaw, expected.yaw, 0.001, "seat %d yaw" % seat)
 		assert_almost_eq(state.pitch, expected.pitch, 0.001, "seat %d pitch" % seat)
 		assert_true(state.on_floor == expected.on_floor, "seat %d on_floor" % seat)
+		assert_eq_int(state.ability, expected.ability, "seat %d ability" % seat)
+		assert_almost_eq(
+			state.ability_remaining,
+			expected.ability_remaining,
+			0.05,
+			"seat %d ability_remaining, quantised to a tenth" % seat,
+		)
 		assert_eq_int(state.tick, 900, "seat %d carries the snapshot's tick" % seat)
 
 

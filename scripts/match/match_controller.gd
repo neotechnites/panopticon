@@ -603,6 +603,9 @@ func _ready() -> void:
 ## up with where they were put. Does nothing on every other frame.
 func _physics_process(delta: float) -> void:
 	if _mirror:
+		# A client decides no respawn -- the server says when it lands -- but the
+		# death view and its countdown are drawn off this clock.
+		_tick_mirror_respawn_holds(delta)
 		return
 	if _settle_frames > 0:
 		_settle_frames -= 1
@@ -778,6 +781,10 @@ func start_match() -> void:
 
 ## Alias for [method start_match], for callers that read better this way.
 func restart() -> void:
+	if _mirror:
+		# The server restarts a networked match. A client that armed one itself
+		# would wipe its own roster and desync until the next event arrived.
+		return
 	start_match()
 
 
@@ -1168,6 +1175,16 @@ func net_ghost_caught(ghost_index: int, caught_index: int) -> void:
 	_applying = true
 	_swap_with_ghost(ghost, caught)
 	_applying = false
+
+
+## The server says this machine's player shoved somebody: the kick and the clip,
+## with no decision attached. [param forward] is the direction they pushed.
+func net_shove_felt(forward: Vector3) -> void:
+	if shove_camera_kick != null:
+		shove_camera_kick.strike(forward, SHOVE_KICK_SCALE)
+	var human: MatchParticipant = get_human_participant()
+	if human != null and human.body != null:
+		human.body.shoved.emit()
 
 
 ## A human seat became a bot's mid-match: the body stays, the brain takes over.
@@ -1729,7 +1746,9 @@ func apply_shove(shover: MatchParticipant) -> MatchParticipant:
 	shover.shove_cooldown_remaining = maxf(match_rules.shove_cooldown_seconds, 0.0)
 	# A whiff still swings: the arms punch and the cooldown runs.
 	shover.body.shoved.emit()
-	if shove_camera_kick != null and shover.is_human():
+	# The local human's kick, not every human's: on a listen server a remote
+	# player's shove must not move the host's camera.
+	if shove_camera_kick != null and shover == get_human_participant():
 		shove_camera_kick.strike(forward, SHOVE_KICK_SCALE)
 	if victim == null:
 		return null
@@ -1966,7 +1985,11 @@ func _place_ghost_at_start(participant: MatchParticipant) -> void:
 	# assignment below is the only one in force.
 	_hold_body(participant)
 	if _mirror:
-		# The server says when the respawn lands; see net_ghost_respawn.
+		# The server says when the respawn lands; see net_ghost_respawn. The clock
+		# is still armed here so the death view and its countdown are shown.
+		participant.respawn_hold_remaining = maxf(
+			get_ghost_profile().respawn_delay_seconds, 0.0
+		)
 		return
 	var delay: float = maxf(get_ghost_profile().respawn_delay_seconds, 0.0)
 	if delay > 0.0:
@@ -1995,6 +2018,16 @@ func _tick_respawn_holds(delta: float) -> void:
 		)
 		if participant.respawn_hold_remaining <= 0.0:
 			_finish_respawn(participant)
+
+
+## Count a client's respawn holds down without ever ending one. Presentation
+## only: the placement arrives as net_ghost_respawn.
+func _tick_mirror_respawn_holds(delta: float) -> void:
+	for participant: MatchParticipant in _participants:
+		if participant.respawn_hold_remaining > 0.0:
+			participant.respawn_hold_remaining = maxf(
+				participant.respawn_hold_remaining - delta, 0.0
+			)
 
 
 ## Put a held body down on the start line, in its own place on it, and arm its

@@ -153,6 +153,7 @@ func _subscribe_server() -> void:
 		func(outcome: MatchController.Outcome) -> void: rpc(&"_ev_round_resolved", int(outcome))
 	)
 	controller.match_won.connect(_on_match_won)
+	controller.participant_shoved.connect(_on_participant_shoved)
 	controller.ghost_respawned.connect(
 		func(participant: MatchParticipant) -> void: rpc(&"_ev_ghost_respawned", participant.index)
 	)
@@ -227,6 +228,20 @@ func _on_match_won(participant: MatchParticipant) -> void:
 func _on_rifle_hit(collider: Node3D, at: Vector3, normal: Vector3) -> void:
 	var participant: MatchParticipant = controller.resolve_participant(collider)
 	rpc(&"_ev_rifle_hit", participant.index if participant != null else -1, at, normal)
+
+
+## The victim's launch rides the snapshot; the shover's own kick and clip do not,
+## so they are sent to the peer that pushed.
+func _on_participant_shoved(shover: MatchParticipant, _victim: MatchParticipant) -> void:
+	var seats: Array[LobbySeat] = _lobby.get_occupied_seats()
+	if shover == null or shover.body == null or shover.index >= seats.size():
+		return
+	var peer: int = seats[shover.index].peer_id
+	if peer <= 0 or peer == NetTransport.AUTHORITY_PEER_ID:
+		return
+	var forward: Vector3 = -shover.body.global_transform.basis.z
+	forward.y = 0.0
+	rpc_id(peer, &"_ev_shoved", forward.normalized())
 
 
 func _on_seat_occupancy_changed(seat_index: int, occupancy: LobbySeat.Occupancy) -> void:
@@ -326,6 +341,12 @@ func _ev_rifle_hit(index: int, at: Vector3, normal: Vector3) -> void:
 	var participant: MatchParticipant = participants[index] if index >= 0 and index < participants.size() else null
 	var body: Node3D = participant.body if participant != null else null
 	controller.rifle.show_remote_hit(body, at, normal)
+
+
+@rpc("authority", "reliable", "call_remote", 0)
+func _ev_shoved(forward: Vector3) -> void:
+	if not is_authority() and forward.is_finite():
+		controller.net_shove_felt(forward)
 
 
 @rpc("authority", "reliable", "call_remote", 0)
