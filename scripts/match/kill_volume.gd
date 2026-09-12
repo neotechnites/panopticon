@@ -132,7 +132,7 @@ func _on_body_entered(body: Node3D) -> void:
 		# Something that is not a player fell in. The arena has no such thing
 		# today, and if it ever does, destroying it is not this node's decision.
 		return
-	_controller.handle_fall(participant)
+	_controller.handle_fall(participant, true)
 
 
 func _resolve_controller() -> MatchController:

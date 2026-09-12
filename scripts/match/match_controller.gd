@@ -1552,15 +1552,16 @@ func _tick_kill_beat(delta: float) -> void:
 ## -- there is no shooter during the race, so a conversion would mean nothing.
 ## See [method _fall_out_of_race] for what OUT is made of and
 ## [method _restart_after_an_empty_race] for the other half of the ruling.
-func handle_fall(participant: MatchParticipant) -> bool:
+func handle_fall(participant: MatchParticipant, from_pit: bool = false) -> bool:
 	if participant == null or is_resolved() or _refuses_local_decision():
 		return false
 	if participant.body != null and participant.body.get_intent().godmode:
-		# Dev: back to the start line instead of dying.
-		var place: Vector3 = _start_place_for(participant.index, _participants.size())
-		participant.body.global_position = place
-		participant.body.rotation = Vector3(0.0, _heading_of(_track_tangent(_angle_of(place))), 0.0)
-		participant.body.launch(Vector3.ZERO)
+		# Dev: lava is ignored; the pit puts you back on the start line.
+		if from_pit:
+			var place: Vector3 = _start_place_for(participant.index, _participants.size())
+			participant.body.global_position = place
+			participant.body.rotation = Vector3(0.0, _heading_of(_track_tangent(_angle_of(place))), 0.0)
+			participant.body.launch(Vector3.ZERO)
 		return false
 	match _phase:
 		Phase.RACE:
@@ -1791,6 +1792,8 @@ func _catchable_from(ghost: MatchParticipant, radius: float) -> MatchParticipant
 	var best_distance: float = 0.0
 	for other: MatchParticipant in _participants:
 		if not other.is_running or other.body == null:
+			continue
+		if other.body.get_intent().godmode:
 			continue
 		var distance: float = _flat_distance(here, other.body.global_position)
 		if distance > radius:
