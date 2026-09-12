@@ -54,6 +54,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 ## Dev turbo, toggled by T.
 var _turbo: bool = false
+var _godmode: bool = false
 
 func poll(_delta: float) -> MoveIntent:
 	_intent.clear()
@@ -80,6 +81,9 @@ func poll(_delta: float) -> MoveIntent:
 	if Input.is_action_just_pressed(PlayerActions.TURBO):
 		_turbo = not _turbo
 	_intent.turbo_held = _turbo
+	if Input.is_action_just_pressed(PlayerActions.GODMODE):
+		_godmode = not _godmode
+	_intent.godmode = _godmode
 	_intent.ability_held = Input.is_action_pressed(PlayerActions.ABILITY)
 	for i: int in PlayerActions.ABILITY_SLOTS.size():
 		var slot: StringName = PlayerActions.ABILITY_SLOTS[i]

@@ -1384,6 +1384,8 @@ func apply_hit(participant: MatchParticipant) -> bool:
 	var ability: RunnerPower = RunnerPower.of(participant.body)
 	if ability != null and ability.is_hit_immune():
 		return false
+	if participant.body.get_intent().godmode:
+		return false
 	if participant.is_finisher:
 		# Hit points, not lives: the ghost/park path below is not reached until
 		# MatchRules.finisher_health of the guard's shots have landed.

@@ -58,6 +58,8 @@ const ABILITY_SLOTS: Array[StringName] = [&"ability_1", &"ability_2", &"ability_
 const SHOVE: StringName = &"shove"
 ## Dev turbo: T held = 300% speed.
 const TURBO: StringName = &"debug_turbo"
+## Dev godmode: Y toggles rifle immunity.
+const GODMODE: StringName = &"debug_godmode"
 const SHOVE_PAD_BUTTON: JoyButton = JOY_BUTTON_B
 
 ## Matches Godot's default action deadzone.
@@ -86,6 +88,7 @@ static func ensure_registered() -> void:
 		shove_pad.button_index = SHOVE_PAD_BUTTON
 		InputMap.action_add_event(SHOVE, shove_pad)
 	_ensure(TURBO, [KEY_T])
+	_ensure(GODMODE, [KEY_Y])
 	var slot_keys: Array[int] = [KEY_1, KEY_2, KEY_3, KEY_4]
 	for i: int in ABILITY_SLOTS.size():
 		_ensure(ABILITY_SLOTS[i], [slot_keys[i]])
