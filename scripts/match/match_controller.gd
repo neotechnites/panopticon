@@ -1469,6 +1469,8 @@ func apply_guard_hit(guard: MatchParticipant) -> bool:
 func handle_fall(participant: MatchParticipant) -> bool:
 	if participant == null or is_resolved() or _refuses_local_decision():
 		return false
+	if participant.body != null and participant.body.get_intent().godmode:
+		return false
 	match _phase:
 		Phase.RACE:
 			return _fall_out_of_race(participant)
