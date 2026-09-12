@@ -1726,17 +1726,20 @@ func apply_shove(shover: MatchParticipant) -> MatchParticipant:
 
 	var match_rules: MatchRules = get_rules()
 	var victim: MatchParticipant = _shovable_from(shover, forward, match_rules.shove_range_metres)
-	if victim == null:
-		return null
-
 	shover.shove_cooldown_remaining = maxf(match_rules.shove_cooldown_seconds, 0.0)
-	# The same call a boost pad makes: the launch replaces the victim's velocity
-	# on their next tick, so a shove is worth the same whatever they were doing.
-	victim.body.launch(forward * match_rules.shove_impulse + Vector3.UP * match_rules.shove_up_impulse)
+	# A whiff still swings: the arms punch and the cooldown runs.
+	shover.body.shoved.emit()
 	if shove_camera_kick != null and shover.is_human():
 		shove_camera_kick.strike(forward, SHOVE_KICK_SCALE)
+	if victim == null:
+		return null
+	# Like a boost pad: the launch replaces the victim's velocity, and air
+	# control is denied for the arc so they ride it.
+	victim.body.launch(
+		forward * match_rules.shove_impulse + Vector3.UP * match_rules.shove_up_impulse,
+		match_rules.shove_air_lock_seconds,
+	)
 	AudioDirector.post_event_at(AudioEvents.PLAYER_CATCH_MADE, victim.body.global_position)
-	shover.body.shoved.emit()
 	participant_shoved.emit(shover, victim)
 	return victim
 

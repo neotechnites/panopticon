@@ -143,6 +143,8 @@ var _coyote_timer: float = 0.0
 ## Velocity a boost pad asked for, applied on the next physics tick. See launch().
 var _pending_launch: Vector3 = Vector3.ZERO
 var _has_pending_launch: bool = false
+## Seconds left in which air control is denied after a launch (a shove).
+var _air_lock_timer: float = 0.0
 
 ## Time left in which a jump press made in the air still counts on landing.
 var _jump_buffer_timer: float = 0.0
@@ -323,7 +325,10 @@ func _physics_process(delta: float) -> void:
 	else:
 		# --- Air phase ---
 		_apply_friction(profile.air_friction, delta)
-		_air_accelerate(wish_direction, wish_speed, delta)
+		if _air_lock_timer > 0.0:
+			_air_lock_timer -= delta
+		else:
+			_air_accelerate(wish_direction, wish_speed, delta)
 		_apply_gravity(delta)
 
 	_settle_head(delta)
@@ -530,9 +535,10 @@ func _tick_jump_timers(on_floor: bool, delta: float) -> void:
 
 ## Returns true if the body left the ground this tick.
 ## Throw the body at [param velocity_vector] on the next tick, surviving floor contact.
-func launch(velocity_vector: Vector3) -> void:
+func launch(velocity_vector: Vector3, air_lock_seconds: float = 0.0) -> void:
 	_pending_launch = velocity_vector
 	_has_pending_launch = true
+	_air_lock_timer = maxf(air_lock_seconds, 0.0)
 
 
 func _try_jump(on_floor: bool) -> bool:
