@@ -179,7 +179,9 @@ func _physics_process(_delta: float) -> void:
 	if _controller != null:
 		_sample_runners()
 		if _trace_every > 0 and _ticks % _trace_every == 0:
+			_trace_match()
 			_trace_runners()
+		_sample_round_wait()
 
 
 ## Ticks between trace lines; set by PANOPTICON_TRACE (seconds, 0 is off).
@@ -221,6 +223,155 @@ func _trace_runners() -> void:
 				anchor.x, anchor.y, anchor.z, brain.get_crossings(),
 			])
 		)
+
+
+## Seconds a finisher has been armed, and the longest any one finisher held it.
+var _finisher_ticks: int = 0
+var _finisher_ticks_max: int = 0
+var _finisher_armed_count: int = 0
+
+## Ticks of the round in which the guard's brain had no visible target at all.
+var _guard_starved_ticks: int = 0
+var _guard_reload_ticks: int = 0
+var _guard_round_ticks: int = 0
+
+## Runners standing at the portal with their lap finished, waiting on nothing.
+var _idle_at_portal_ticks: int = 0
+
+## Starved-guard ticks with an exposed runner on the ring, and with one inside
+## the arc the guard was facing.
+var _guard_blind_ticks: int = 0
+var _guard_blind_in_arc_ticks: int = 0
+var _guard_blind_clear_ticks: int = 0
+
+const BLIND_ARC_RADIANS: float = 1.05
+
+
+## True when a ray from the guard's head reaches [param target]'s chest.
+func _eye_reaches(guard: PlayerController, target: PlayerController) -> bool:
+	var space: PhysicsDirectSpaceState3D = guard.get_world_3d().direct_space_state
+	if space == null:
+		return false
+	var from: Vector3 = guard.head.global_position if guard.head != null else guard.global_position
+	var query: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(
+		from, target.global_position + Vector3.UP * 0.9
+	)
+	query.exclude = [guard.get_rid()]
+	var hit: Dictionary = space.intersect_ray(query)
+	return hit.is_empty() or (hit.get("collider", null) as Node3D) == target
+
+
+## Was the starved guard merely looking elsewhere, or looking straight at an
+## exposed runner and not seeing it? Sampled only on a tick with no target.
+func _sample_blind(seat: MatchParticipant) -> void:
+	var body: PlayerController = seat.body
+	if body == null:
+		return
+	var forward: Vector2 = Vector2(-body.global_transform.basis.z.x, -body.global_transform.basis.z.z)
+	var exposed: int = 0
+	var in_arc: int = 0
+	var clear: int = 0
+	for participant: MatchParticipant in _controller.get_participants():
+		if not participant.is_running or participant.brain == null or participant.body == null:
+			continue
+		var perception: RunnerPerception = participant.brain.get_perception()
+		if perception == null or not perception.has_threat() or not perception.is_exposed():
+			continue
+		exposed += 1
+		var to: Vector3 = participant.body.global_position - body.global_position
+		if absf(forward.angle_to(Vector2(to.x, to.z))) > BLIND_ARC_RADIANS:
+			continue
+		in_arc += 1
+		if _eye_reaches(body, participant.body):
+			clear += 1
+	if exposed > 0:
+		_guard_blind_ticks += 1
+	if in_arc > 0:
+		_guard_blind_in_arc_ticks += 1
+	if clear > 0:
+		_guard_blind_clear_ticks += 1
+
+
+## One line per trace interval saying what the ROUND is waiting on.
+func _trace_match() -> void:
+	print("MATCH %s" % JSON.stringify(_round_state()))
+
+
+## Per-tick counters for the stall causes: a starved guard, a stuck finisher.
+func _sample_round_wait() -> void:
+	if _controller.get_phase() != MatchController.Phase.ROUND or _controller.is_resolved():
+		return
+	_guard_round_ticks += 1
+	var seat: MatchParticipant = _controller.get_seat_participant()
+	var guard: TowerShooter = seat.tower_brain if seat != null else null
+	if guard != null and guard.is_physics_processing():
+		if guard.get_target() == null:
+			_guard_starved_ticks += 1
+			_sample_blind(seat)
+		if guard.get_state() == TowerShooter.State.RECOVERING:
+			_guard_reload_ticks += 1
+	if _controller.get_finisher() != null:
+		if _finisher_ticks == 0:
+			_finisher_armed_count += 1
+		_finisher_ticks += 1
+		_finisher_ticks_max = maxi(_finisher_ticks_max, _finisher_ticks)
+	else:
+		_finisher_ticks = 0
+	for participant: MatchParticipant in _controller.get_participants():
+		if (
+			participant.is_running and not participant.is_finisher
+			and participant.tracker != null and participant.tracker.has_finished()
+		):
+			_idle_at_portal_ticks += 1
+
+
+## Everything a stalled round is made of, as plain data.
+func _round_state() -> Dictionary:
+	var seat: MatchParticipant = _controller.get_seat_participant()
+	var finisher: MatchParticipant = _controller.get_finisher()
+	var out: Dictionary = {
+		"t": float(_ticks) / 60.0,
+		"phase": _controller.get_phase_name(),
+		"round": _controller.get_round_number(),
+		"seat": seat.index if seat != null else -1,
+		"alive": _controller.get_runners_remaining(),
+		"ghosts": _controller.get_ghosts_remaining(),
+		"guard": _brain_state(seat),
+		"finisher": -1 if finisher == null else finisher.index,
+		"finisher_brain": _brain_state(finisher),
+		"finisher_armed_s": float(_finisher_ticks) / 60.0,
+	}
+	var runners: Array = []
+	for participant: MatchParticipant in _controller.get_participants():
+		if participant.is_shooter:
+			continue
+		runners.append({
+			"i": participant.index,
+			"run": participant.is_running,
+			"ghost": participant.is_ghost,
+			"fin": participant.is_finisher,
+			"done": participant.tracker != null and participant.tracker.has_finished(),
+			"left_m": participant.tracker.get_metres_remaining() if participant.tracker != null else -1.0,
+			"state": participant.brain.get_state_name() if participant.brain != null else "",
+		})
+	out["runners"] = runners
+	return out
+
+
+## One participant's tower brain, as state name / target / shots asked and taken.
+func _brain_state(participant: MatchParticipant) -> Dictionary:
+	var brain: TowerShooter = participant.tower_brain if participant != null else null
+	if brain == null:
+		return {}
+	return {
+		"i": participant.index,
+		"on": brain.is_physics_processing(),
+		"state": brain.get_state_name(),
+		"target": brain.get_target() != null,
+		"asks": brain.get_fire_attempts(),
+		"shots": brain.get_shots_taken(),
+		"conf": brain.get_shot_confidence(),
+	}
 
 
 ## Stall and hold streaks, sampled from each live runner's body and brain.
@@ -498,8 +649,29 @@ func to_dictionary(sim_hz: int) -> Dictionary:
 			"made": _ghosts_made,
 			"catches": _ghost_catches,
 		},
+		"stall": _stall_dictionary(sim_hz),
 		"participants": participants,
 	}
+
+
+## Why the round was still going: the causes, in ticks, and the final state.
+func _stall_dictionary(sim_hz: int) -> Dictionary:
+	var rate: float = float(maxi(sim_hz, 1))
+	var round_ticks: float = float(maxi(_guard_round_ticks, 1))
+	var out: Dictionary = {
+		"round_seconds": float(_guard_round_ticks) / rate,
+		"guard_starved_fraction": float(_guard_starved_ticks) / round_ticks,
+		"guard_reloading_fraction": float(_guard_reload_ticks) / round_ticks,
+		"finisher_armed_count": _finisher_armed_count,
+		"finisher_armed_seconds_max": float(_finisher_ticks_max) / rate,
+		"idle_at_portal_seconds": float(_idle_at_portal_ticks) / rate,
+		"guard_blind_fraction": float(_guard_blind_ticks) / round_ticks,
+		"guard_blind_in_arc_fraction": float(_guard_blind_in_arc_ticks) / round_ticks,
+		"guard_blind_clear_fraction": float(_guard_blind_clear_ticks) / round_ticks,
+	}
+	if _controller != null:
+		out["final"] = _round_state()
+	return out
 
 
 func _tick_dictionary() -> Dictionary:
