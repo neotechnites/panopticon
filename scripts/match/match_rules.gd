@@ -547,11 +547,11 @@ enum RunnerAbility {
 ## THE SHOVE. How hard a prisoner throws the prisoner in front of them, in
 ## metres per second along the shover's forward. [b]LIVE.[/b] Enough to put a
 ## body out from behind a spire, or off a block into the lava.
-@export_range(0.0, 40.0, 0.5, "or_greater") var shove_impulse: float = 10.0
+@export_range(0.0, 40.0, 0.5, "or_greater") var shove_impulse: float = 16.0
 
 ## The upward part of that launch, in metres per second. [b]LIVE.[/b] Small: it
 ## is there so the victim leaves the ground, not so they are juggled.
-@export_range(0.0, 20.0, 0.5, "or_greater") var shove_up_impulse: float = 5.0
+@export_range(0.0, 20.0, 0.5, "or_greater") var shove_up_impulse: float = 7.0
 
 ## How close, in metres, the victim must be to be reached. [b]LIVE.[/b]
 @export_range(0.5, 10.0, 0.5, "or_greater") var shove_range_metres: float = 3.0
@@ -560,7 +560,7 @@ enum RunnerAbility {
 @export_range(0.0, 30.0, 0.1, "or_greater") var shove_cooldown_seconds: float = 1.5
 
 ## Seconds the victim has no air control after a shove.
-@export_range(0.0, 3.0, 0.05, "or_greater") var shove_air_lock_seconds: float = 0.8
+@export_range(0.0, 3.0, 0.05, "or_greater") var shove_air_lock_seconds: float = 1.4
 
 # --- The AI in the tower ------------------------------------------------------
 
