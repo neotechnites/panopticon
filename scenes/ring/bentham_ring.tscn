@@ -220,9 +220,6 @@ transform = Transform3D(0.50586355, 0, -0.86261356, 0, 1, 0, 0.86261356, 0, 0.50
 editor_description = "Map 1 sections, docs/MAP1_SECTIONS.md."
 transform = Transform3D(0.50586355, 0, -0.86261356, 0, 1, 0, 0.86261356, 0, 0.50586355, 44.416836, 23.41956, -20.751137)
 
-[node name="Pocket_010deg" parent="Sections" unique_id=1859918900 instance=ExtResource("13_slab")]
-transform = Transform3D(0.173648, 0, 0.984808, 0, 1, 0, -0.984808, 0, 0.173648, 51.21, 23, 9.02971)
-
 [node name="Pocket_068deg" parent="Sections" unique_id=1204010580 instance=ExtResource("13_slab")]
 transform = Transform3D(0.070076294, -3.9638739, -0.6334837, 2.588011, 0.04478195, 0.090960935, 0.11087915, 1.4599471, -1.7227495, 21.831507, 26.438955, 43.075954)
 
