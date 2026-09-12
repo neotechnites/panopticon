@@ -421,6 +421,9 @@ func _ghost_terms() -> String:
 ## over. Everybody else gets the tower: who is in it, on which turn, and how long
 ## their silence between shots lasts.
 func _context_text(role: Role) -> String:
+	var dev_text: String = _dev_text()
+	if dev_text != "":
+		return dev_text
 	var boost_text: String = _speed_boost_text()
 	if boost_text != "":
 		return boost_text
@@ -445,6 +448,20 @@ func _context_text(role: Role) -> String:
 			tuning.reload_length_suffix,
 		],
 	]))
+
+
+## Dev toggles on the human's body: T turbo, Y invincible. Empty when off.
+func _dev_text() -> String:
+	var human: MatchParticipant = controller.get_human_participant()
+	if human == null or human.body == null:
+		return ""
+	var intent: MoveIntent = human.body.get_intent()
+	var flags: PackedStringArray = PackedStringArray()
+	if intent.godmode:
+		flags.append("INVINCIBLE (Y)")
+	if intent.turbo_held:
+		flags.append("TURBO (T)")
+	return " · ".join(flags)
 
 
 ## Line four's override while the human's own body is under a
