@@ -678,7 +678,7 @@ func _go_idle() -> void:
 ## Called before any of the pose branches can return, so the clock is a property
 ## of the body rather than of whichever clip happened to be playing.
 func _tick_air(delta: float) -> void:
-	if body.is_on_floor():
+	if body.is_grounded():
 		_air_seconds = 0.0
 		_jump_armed = false
 		return
@@ -690,7 +690,7 @@ func _tick_air(delta: float) -> void:
 ## which is what keeps an [member air_pose_delay] of 0.0 from reading as "always
 ## airborne" through the [code]>=[/code] below.
 func _is_airborne() -> bool:
-	if body.is_on_floor():
+	if body.is_grounded():
 		return false
 	return _jump_armed or _air_seconds >= air_pose_delay
 

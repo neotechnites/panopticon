@@ -269,8 +269,15 @@ func _sample() -> void:
 	var parts: PackedStringArray = PackedStringArray()
 	for p: MatchParticipant in _controller.get_participants():
 		var at: Vector3 = p.body.global_position if p.body != null else Vector3.ZERO
-		parts.append("%d=%s:%.1f,%.1f,%.1f" % [p.index, p.get_role_name(), at.x, at.y, at.z])
-	_line("POS tick=%d phase=%s round=%d seat=%s paused=%s %s" % [
+		parts.append("%d=%s:%.1f,%.1f,%.1f rot=%.2f,%.2f,%.2f clip=%s floor=%s" % [
+			p.index, p.get_role_name(), at.x, at.y, at.z,
+			p.body.rotation.x if p.body != null else 0.0,
+			p.body.rotation.y if p.body != null else 0.0,
+			p.body.rotation.z if p.body != null else 0.0,
+			_clip_of(p), str(p.body.is_grounded()) if p.body != null else "?",
+		])
+	_line("POS phys_ms=%.2f tick=%d phase=%s round=%d seat=%s paused=%s %s" % [
+		Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS) * 1000.0,
 		_tick(), _controller.get_phase_name(), _controller.get_round_number(),
 		_who(_controller.get_seat_participant()), str(paused), " ".join(parts),
 	])
@@ -282,6 +289,17 @@ func _sample() -> void:
 			source.get_class() if source != null else "null",
 			mine.body.collision_layer, mine.body.velocity.length(),
 		])
+
+
+## The clip the body is drawing, for confirming a mirrored body is not stuck dead.
+func _clip_of(p: MatchParticipant) -> String:
+	if p.body == null:
+		return "none"
+	for child: Node in p.body.get_children():
+		var avatar: PrisonerAvatar = child as PrisonerAvatar
+		if avatar != null and avatar.animation != null:
+			return String(avatar.animation.current_animation)
+	return "none"
 
 
 func _seconds() -> float:
