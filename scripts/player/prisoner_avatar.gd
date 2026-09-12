@@ -1159,5 +1159,5 @@ func _self_light_skin() -> void:
 		lit.emission_enabled = true
 		lit.emission_texture = lit.albedo_texture
 		lit.emission = Color.WHITE
-		lit.emission_energy_multiplier = 0.45
+		lit.emission_energy_multiplier = 1.1
 		mesh.set_surface_override_material(index, lit)
