@@ -56,6 +56,16 @@ const FLY_SETTLED_METRES: float = 0.3
 const LINK_NOTICE_METRES: float = 16.0
 const OFF_MESH_WAYPOINT_METRES: float = 2.5
 const COVER_PROBE_BUDGET: int = 27
+## A step up inside the lake this high is flown, not walked, and from no further than the reach.
+const LAKE_LEDGE_METRES: float = 0.4
+const LAKE_LEDGE_REACH_METRES: float = 6.0
+## Metres the body backs off a ledge it is jammed against, so the arc clears the lip.
+const LAKE_LEDGE_BACKOFF_METRES: float = 1.6
+const LAKE_HOP_REST_SECONDS: float = 0.5
+## Metres past a ledge's lip the hop aims, so the landing is on the top and not the edge.
+const LAKE_LINK_OVERSHOOT_METRES: float = 0.25
+## How close to a lake link's start the body launches from. See [method _launch_over_lake].
+const LAKE_LAUNCH_METRES: float = 0.8
 const PAD_SIDE_METRES: float = 1.8
 const PAD_RUNUP_METRES: float = 6.0
 const PAD_TURN_METRES: float = 0.6
@@ -139,6 +149,13 @@ var _link_aim_age: float = INF
 var _link_entry: Vector3 = Vector3.ZERO
 var _link_side: float = 0.0
 var _link_staged: bool = false
+## The lake link ahead: its take-off point, launch velocity and landing point.
+var _lake_plan: Dictionary = {}
+var _lake_hop_rest: float = 0.0
+## A lake hop is flown ballistically: air strafing would tear a 4 m arc apart.
+var _lake_flight: bool = false
+var _lake_backing: bool = false
+var _lake_stand: Vector3 = Vector3.ZERO
 var _blocked_seconds: float = 0.0
 var _search_countdown: float = 0.0
 
@@ -325,6 +342,7 @@ func _note_link_ahead() -> void:
 	var types: PackedInt32Array = result.path_types
 	var path: PackedVector3Array = result.path
 	var index: int = _agent.get_current_navigation_path_index()
+	_lake_plan = {}
 	for i: int in range(maxi(index - 1, 0), types.size() - 1):
 		if types[i] != NavigationPathQueryResult3D.PATH_SEGMENT_TYPE_LINK:
 			continue
@@ -335,6 +353,7 @@ func _note_link_ahead() -> void:
 			_link_entry = path[i]
 			_link_aim = path[i + 1]
 			_link_aim_age = 0.0
+			_lake_plan = _nav.lake_link_between(_link_entry, _link_aim) if _nav != null else {}
 		return
 
 
@@ -368,6 +387,77 @@ func _pad_approach_point() -> Vector3:
 	return _link_entry + direction * 1.0
 
 
+## True while a fresh lake link stands on the path ahead.
+func _lake_is_live() -> bool:
+	return not _flying and not _lake_plan.is_empty() and _link_aim_age <= LINK_AIM_MEMORY_SECONDS
+
+
+## True while the body stands in the lava lake's angular span.
+func _in_lake() -> bool:
+	return _nav_ready() and _nav.is_in_lake_span(controller.global_position)
+
+
+## Pressed against a ledge inside the lake the body cannot walk up -- the entry row's lip:
+## fly onto it with the same solver a link uses. True on the tick it launches.
+func _hop_lake_ledge(delta: float) -> bool:
+	_lake_hop_rest = maxf(_lake_hop_rest - delta, 0.0)
+	if _flying or _lake_hop_rest > 0.0 or not controller.is_on_floor():
+		_lake_backing = false
+		return false
+	var here: Vector3 = controller.global_position
+	var target: Vector3 = _next_path_point()
+	if target.y - here.y < LAKE_LEDGE_METRES or _flat_distance(here, target) > LAKE_LEDGE_REACH_METRES:
+		_lake_backing = false
+		return false
+	if not _lake_backing and not controller.is_on_wall():
+		return false
+	var over: Vector3 = Vector3(target.x - here.x, 0.0, target.z - here.z)
+	over = over.normalized() if over.length() > 0.1 else Vector3.ZERO
+	# Jammed against the lip, the launch would be scrubbed flat by the wall: step back first.
+	if not _lake_backing:
+		_lake_backing = true
+		_lake_stand = _nav.snap(here - over * LAKE_LEDGE_BACKOFF_METRES)
+	if _flat_distance(here, _lake_stand) > PATH_POINT_METRES * 0.5:
+		_face(_lake_stand, delta)
+		_drive_towards(_lake_stand, 0.0)
+		return true
+	_lake_backing = false
+	target += over * LAKE_LINK_OVERSHOOT_METRES
+	_release_slide()
+	input.command.move_direction = Vector2.ZERO
+	input.command.jump_pressed = false
+	input.command.jump_held = false
+	controller.launch(_nav.lake_launch_to(here, target))
+	_lake_flight = true
+	_link_aim = target
+	_link_aim_age = 0.0
+	_lake_hop_rest = LAKE_HOP_REST_SECONDS
+	return true
+
+
+## Standing on a lake link's take-off point: fire the recorded launch and hand over to
+## [method _tick_flight], exactly as a boost pad does. True on the tick it launches.
+func _launch_over_lake() -> bool:
+	if not _lake_is_live():
+		return false
+	if not controller.is_on_floor():
+		return false
+	if _flat_distance(controller.global_position, _lake_plan["start"]) > LAKE_LAUNCH_METRES:
+		return false
+	_release_slide()
+	input.command.move_direction = Vector2.ZERO
+	input.command.jump_pressed = false
+	input.command.jump_held = false
+	# Solved from where the body actually stands, not from the link's own start: a take-off
+	# half a metre out would land the arc half a metre out, and the platforms are 2.4 m wide.
+	controller.launch(_nav.lake_launch_to(controller.global_position, _lake_plan["landing"]))
+	_lake_flight = true
+	_link_aim = _lake_plan["landing"]
+	_link_aim_age = 0.0
+	_lake_plan = {}
+	return true
+
+
 func _on_link_reached(details: Dictionary) -> void:
 	_link_aim = details.get("link_exit_position", controller.global_position)
 	_link_aim_age = 0.0
@@ -391,6 +481,7 @@ func _tick_flight(delta: float) -> bool:
 	_fly_seconds += delta
 	if on_floor or _fly_seconds > FLY_MAX_SECONDS:
 		_flying = false
+		_lake_flight = false
 		_link_aim_age = INF
 		_link_staged = false
 		_link_side = 0.0
@@ -399,7 +490,10 @@ func _tick_flight(delta: float) -> bool:
 		_reset_stuck()
 		return false
 	_face(_fly_aim, delta)
-	_steer_flight()
+	if _lake_flight:
+		input.command.move_direction = Vector2.ZERO
+	else:
+		_steer_flight()
 	return true
 
 
@@ -640,6 +734,8 @@ func _physics_process(delta: float) -> void:
 	# and locked it into an endless RECOVER/CROSS loop going nowhere.
 	var remaining_arc: float = _end_arc - _travelled_arc
 	var swept: bool = remaining_arc * _lane_radius() <= profile.arrival_tolerance
+	if _launch_over_lake():
+		return
 	if _tick_flight(delta):
 		return
 
@@ -652,6 +748,14 @@ func _physics_process(delta: float) -> void:
 		return
 
 	_advance_waypoints()
+	# In the lake there is no cover, no hazard to jump and nowhere to stand but the next
+	# platform: run the route, fly the links, and leave the cover game out of it.
+	if _in_lake():
+		_run_route(delta)
+		if not _hop_lake_ledge(delta):
+			_tick_stuck(delta)
+		return
+
 	var climbing: bool = _ramp_from >= 0 and _wp >= _ramp_from
 
 	if climbing or not is_playing_cover():
@@ -891,6 +995,8 @@ func _next_path_point() -> Vector3:
 	if _agent_live() and not _agent.is_navigation_finished():
 		next = _agent.get_next_path_position()
 		_note_link_ahead()
+		if _lake_is_live():
+			return _lake_plan["start"]
 		var staged: Vector3 = _pad_approach_point()
 		if is_finite(staged.x):
 			return staged
