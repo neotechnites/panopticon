@@ -254,8 +254,10 @@ func _cloak() -> void:
 	var base: Material = mesh.material_override
 	if base == null:
 		base = mesh.get_active_material(0)
-	var camo: StandardMaterial3D = (
-		(base.duplicate() as StandardMaterial3D) if base is StandardMaterial3D else StandardMaterial3D.new()
+	# A duplicate of whatever the body is wearing, so the model's texture and the
+	# team tint on it survive the cloak; a fresh flat material only if it has none.
+	var camo: BaseMaterial3D = (
+		(base.duplicate() as BaseMaterial3D) if base is BaseMaterial3D else StandardMaterial3D.new()
 	)
 	camo.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	camo.albedo_color.a = CAMO_ALPHA

@@ -77,6 +77,15 @@ func test_a_finisher_is_armed_and_takes_the_tower_by_killing_the_guard() -> void
 
 	# And the finisher's one shot kills the guard.
 	assert_true(_controller.apply_guard_hit(guard), "one shot at guard_health 1 is a kill")
+
+	# The kill is given time to land before the seat changes hands: the guard is
+	# dead and frozen, the round is still running. See MatchRules.kill_beat_seconds.
+	assert_gt(_rules.kill_beat_seconds, 0.0, "the rules hold the kill for a beat")
+	assert_eq_int(_resolutions, 0, "nothing resolves on the tick of the kill")
+	assert_true(guard.body.movement_locked, "the dead guard stands still where it fell")
+	assert_true(finisher.body.movement_locked, "and so does the finisher, watching it")
+	await step_seconds(_rules.kill_beat_seconds + 0.2)
+
 	assert_eq_int(_last_outcome, int(MatchController.Outcome.LOSS), "the round is lost from the tower")
 	assert_eq_int(_resolutions, 1, "resolved exactly once")
 	assert_same(_controller.get_seat_participant(), finisher, "the finisher takes the tower")
