@@ -203,6 +203,7 @@ var _fallback_readout: MatchReadoutProfile = null
 func _ready() -> void:
 	if outcome_label != null:
 		outcome_label.text = ""
+		outcome_label.visible = false
 	_hide_handover()
 	if readout_panel != null:
 		readout_panel.visible = false
@@ -551,7 +552,8 @@ func _on_match_won(participant: MatchParticipant) -> void:
 ## exactly the same line and simply gets named in it. Nothing here reaches for a
 ## camera, a body or a player.
 func _show_handover(participant: MatchParticipant, turns_in_tower: int) -> void:
-	if handover_panel == null or participant == null:
+	# Ryan: the centre-screen text is in the way. Banner off.
+	if true or handover_panel == null or participant == null:
 		return
 	var seconds: float = _announcements().get_handover_seconds()
 	if seconds <= 0.0:
