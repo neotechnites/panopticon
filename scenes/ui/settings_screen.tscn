@@ -290,6 +290,36 @@ unique_name_in_owner = true
 
 [node name="VsyncSpacer" type="Control" parent="Frame/Dialog/Padding/Layout/Tabs/Video/Grid"]
 
+[node name="FpsName" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Video/Grid"]
+size_flags_vertical = 1
+vertical_alignment = 1
+text = "Max FPS"
+
+[node name="FpsOption" type="OptionButton" parent="Frame/Dialog/Padding/Layout/Tabs/Video/Grid"]
+custom_minimum_size = Vector2(220, 0)
+size_flags_horizontal = 3
+unique_name_in_owner = true
+
+[node name="FpsSpacer" type="Control" parent="Frame/Dialog/Padding/Layout/Tabs/Video/Grid"]
+
+[node name="RenderScaleName" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Video/Grid"]
+size_flags_vertical = 1
+vertical_alignment = 1
+text = "Render Scale"
+
+[node name="RenderScaleSlider" type="HSlider" parent="Frame/Dialog/Padding/Layout/Tabs/Video/Grid"]
+custom_minimum_size = Vector2(220, 0)
+size_flags_horizontal = 3
+size_flags_vertical = 1
+unique_name_in_owner = true
+
+[node name="RenderScaleValue" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Video/Grid"]
+custom_minimum_size = Vector2(72, 0)
+size_flags_vertical = 1
+unique_name_in_owner = true
+vertical_alignment = 1
+horizontal_alignment = 2
+
 [node name="VideoNote" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Video"]
 unique_name_in_owner = true
 autowrap_mode = 3

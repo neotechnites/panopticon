@@ -53,6 +53,22 @@ const DISPLAY_MODE_COUNT: int = 3
 ## Number of entries in [enum VSyncMode]. Same reasoning.
 const VSYNC_MODE_COUNT: int = 3
 
+## A frame-rate ceiling the video tab offers. Values line up with
+## [member Engine.max_fps], where 0 means unlimited.
+enum FpsCap {
+	UNLIMITED,
+	FPS_60,
+	FPS_120,
+	FPS_144,
+	FPS_240,
+}
+
+## [enum FpsCap] -> the [member Engine.max_fps] value it means.
+const FPS_CAP_VALUES: Array[int] = [0, 60, 120, 144, 240]
+
+## Number of entries in [enum FpsCap]. Same reasoning as [constant DISPLAY_MODE_COUNT].
+const FPS_CAP_COUNT: int = 5
+
 ## What [method DisplayServer.get_name] answers when the game is running inside
 ## the editor's embedded Game panel rather than in a window of its own. See
 ## [method is_embedded].
@@ -213,6 +229,12 @@ const RESOLUTION_CHOICES: Array[Vector2i] = [
 	Vector2i(3840, 2160),
 ]
 
+## 3D render resolution as a fraction of the window. Written into
+## [member Viewport.scaling_3d_scale] on the root viewport.
+const DEFAULT_RENDER_SCALE: float = 1.0
+const MIN_RENDER_SCALE: float = 0.5
+const MAX_RENDER_SCALE: float = 1.0
+
 # --- Section and key names ----------------------------------------------------
 #
 # Named here rather than written inline so the schema is readable in one place
@@ -246,6 +268,13 @@ var display_mode: DisplayMode = DisplayMode.WINDOWED
 var resolution: Vector2i = DEFAULT_RESOLUTION
 
 var vsync_mode: VSyncMode = VSyncMode.ENABLED
+
+## Frame-rate ceiling. Written into [member Engine.max_fps].
+var fps_cap: FpsCap = FpsCap.UNLIMITED
+
+## Fraction of the window's resolution the 3D scene is rendered at, then
+## upscaled. Written into [member Viewport.scaling_3d_scale].
+var render_scale: float = DEFAULT_RENDER_SCALE
 
 ## Vertical field of view in degrees, for whichever [Camera3D] the scene decides
 ## is the player's view. Stored and applied on request via
@@ -385,6 +414,8 @@ var window_resize_refused: bool = false
 var _pushed_display_mode: int = -1
 var _pushed_vsync_mode: int = -1
 var _pushed_resolution: Vector2i = Vector2i.ZERO
+var _pushed_fps_cap: int = -1
+var _pushed_render_scale: float = -1.0
 
 
 ## Return every value to its shipped default.
@@ -398,6 +429,8 @@ func reset() -> void:
 	display_mode = DisplayMode.WINDOWED
 	resolution = DEFAULT_RESOLUTION
 	vsync_mode = VSyncMode.ENABLED
+	fps_cap = FpsCap.UNLIMITED
+	render_scale = DEFAULT_RENDER_SCALE
 	field_of_view = DEFAULT_FIELD_OF_VIEW
 	ghosts_enabled = DEFAULT_GHOSTS_ENABLED
 	skip_opening_race = DEFAULT_SKIP_OPENING_RACE
@@ -427,6 +460,8 @@ func clamp_all() -> void:
 	resolution = resolution.clamp(MIN_RESOLUTION, MAX_RESOLUTION)
 	display_mode = clampi(int(display_mode), 0, DISPLAY_MODE_COUNT - 1) as DisplayMode
 	vsync_mode = clampi(int(vsync_mode), 0, VSYNC_MODE_COUNT - 1) as VSyncMode
+	fps_cap = clampi(int(fps_cap), 0, FPS_CAP_COUNT - 1) as FpsCap
+	render_scale = clampf(render_scale, MIN_RENDER_SCALE, MAX_RENDER_SCALE)
 	tower_seat_index = clampi(tower_seat_index, 0, MAX_TOWER_SEAT_INDEX)
 	prisoner_count = clampi(prisoner_count, MIN_PRISONER_COUNT, MAX_PRISONER_COUNT)
 	prisoner_lives = clampi(prisoner_lives, MIN_PRISONER_LIVES, MAX_PRISONER_LIVES)
@@ -477,6 +512,8 @@ func copy_from(other: GameSettings) -> void:
 	display_mode = other.display_mode
 	resolution = other.resolution
 	vsync_mode = other.vsync_mode
+	fps_cap = other.fps_cap
+	render_scale = other.render_scale
 	field_of_view = other.field_of_view
 	ghosts_enabled = other.ghosts_enabled
 	skip_opening_race = other.skip_opening_race
@@ -508,6 +545,8 @@ func equals(other: GameSettings) -> bool:
 		and display_mode == other.display_mode
 		and resolution == other.resolution
 		and vsync_mode == other.vsync_mode
+		and fps_cap == other.fps_cap
+		and is_equal_approx(render_scale, other.render_scale)
 		and is_equal_approx(field_of_view, other.field_of_view)
 		and ghosts_enabled == other.ghosts_enabled
 		and skip_opening_race == other.skip_opening_race
@@ -543,6 +582,8 @@ func write_to(config: ConfigFile) -> void:
 	config.set_value(SECTION_VIDEO, "resolution_width", resolution.x)
 	config.set_value(SECTION_VIDEO, "resolution_height", resolution.y)
 	config.set_value(SECTION_VIDEO, "vsync_mode", int(vsync_mode))
+	config.set_value(SECTION_VIDEO, "fps_cap", int(fps_cap))
+	config.set_value(SECTION_VIDEO, "render_scale", render_scale)
 	config.set_value(SECTION_VIDEO, "field_of_view", field_of_view)
 
 	config.set_value(SECTION_MATCH, "ghosts_enabled", ghosts_enabled)
@@ -583,6 +624,8 @@ func read_from(config: ConfigFile) -> void:
 		read_int(config, SECTION_VIDEO, "resolution_height", resolution.y),
 	)
 	vsync_mode = read_int(config, SECTION_VIDEO, "vsync_mode", int(vsync_mode)) as VSyncMode
+	fps_cap = read_int(config, SECTION_VIDEO, "fps_cap", int(fps_cap)) as FpsCap
+	render_scale = read_float(config, SECTION_VIDEO, "render_scale", render_scale)
 	field_of_view = read_float(config, SECTION_VIDEO, "field_of_view", field_of_view)
 
 	ghosts_enabled = read_bool(config, SECTION_MATCH, "ghosts_enabled", ghosts_enabled)
@@ -631,7 +674,7 @@ func apply_audio() -> void:
 	AudioDirector.set_crush(sfx_crush)
 
 
-## Push window mode, size and vsync at [DisplayServer].
+## Push window mode, size, vsync, the FPS cap and the render scale.
 ##
 ## A no-op under the headless display driver, which has no window to set and
 ## whose stubs would otherwise fill test output with noise.
@@ -688,6 +731,17 @@ func apply_video(force: bool = false) -> void:
 				vsync = DisplayServer.VSYNC_ENABLED
 		DisplayServer.window_set_vsync_mode(vsync)
 		_pushed_vsync_mode = int(vsync_mode)
+
+	if force or int(fps_cap) != _pushed_fps_cap:
+		var index: int = clampi(int(fps_cap), 0, FPS_CAP_VALUES.size() - 1)
+		Engine.max_fps = FPS_CAP_VALUES[index]
+		_pushed_fps_cap = int(fps_cap)
+
+	if force or not is_equal_approx(render_scale, _pushed_render_scale):
+		var main_loop: SceneTree = Engine.get_main_loop() as SceneTree
+		if main_loop != null and main_loop.root != null:
+			main_loop.root.scaling_3d_scale = render_scale
+		_pushed_render_scale = render_scale
 
 
 ## True when the game is running inside the editor's embedded Game panel.
