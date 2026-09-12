@@ -105,6 +105,9 @@ func before_each() -> void:
 	_controller = _match.get_node("MatchController") as MatchController
 	_rules = TestFixtures.match_rules()
 	_ghost_rules = _rules.ghost_profile
+	# The portal finish these tests are written against. The shipped rules now
+	# arm the finisher instead; see MatchRules.finisher_hunts_guard.
+	_rules.finisher_hunts_guard = false
 	_controller.rules = _rules
 
 	add_child(_match)

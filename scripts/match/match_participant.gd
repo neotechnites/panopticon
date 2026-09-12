@@ -103,6 +103,16 @@ var is_running: bool = false
 ## Reseeded at the start of every round.
 var lives: int = 1
 
+## Hit points. Seeded from [member MatchRules.guard_health] in the tower and from
+## [member MatchRules.finisher_health] when [member is_finisher] is set; spent
+## one per hit, and only the hit that takes it to zero kills.
+var health: int = 1
+
+## True while this participant has reached the end and carries a rifle of their
+## own, hunting the guard. Still a prisoner -- [member is_running] stays true, so
+## the guard may shoot them -- and armed until one of the two is dead.
+var is_finisher: bool = false
+
 ## The body's collision layer and mask as authored, kept so that parking a
 ## converted runner out of the world can be undone exactly rather than
 ## approximately.
@@ -196,6 +206,8 @@ func get_turn_index() -> int:
 func get_role_name() -> String:
 	if is_shooter:
 		return "TOWER"
+	if is_finisher:
+		return "HUNTING"
 	if is_running:
 		return "RUNNING"
 	if is_ghost:

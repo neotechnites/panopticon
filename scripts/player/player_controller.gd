@@ -48,6 +48,11 @@ signal jumped()
 ## arrived with (m/s, positive). Fall damage and landing audio use it.
 signal landed(impact_speed: float)
 
+## Emitted the tick [MatchController] converts this body into a ghost. The
+## costume's death pose hangs off this, not off a hit -- see [method
+## MatchController._make_ghost].
+signal died()
+
 ## Emitted on the tick a slide opens, carrying the horizontal speed the body has
 ## [b]after[/b] the entry boost -- the number a slide's dust, camera dip and
 ## audio should be scaled by.
@@ -110,6 +115,12 @@ var speed_scale: float = 1.0
 ## True while Armor Lock holds the body: no movement, no turning, this tick's
 ## intent still readable through [method get_intent].
 var movement_locked: bool = false
+
+## True while this body holds the tower seat. [MatchController] is the only
+## thing that writes it, in [method MatchController._place_in_tower] and
+## [method MatchController._place_on_track]. The costume reads it to draw the
+## guard's stance.
+var is_guard: bool = false
 
 ## Set every tick, either from [member intent_source] or by an outside caller
 ## via [method set_intent].
