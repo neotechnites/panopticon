@@ -185,6 +185,26 @@ func test_a_bot_held_rifle_draws_no_vignette_at_full_aim() -> void:
 	)
 
 
+## A network CLIENT's own guard: the host owns the trigger, so HumanTrigger is
+## off on his machine, but the rifle is on his head and the optic is his.
+## [method MatchController._attach_rifle] says so with set_local_holder, and the
+## vignette must draw -- otherwise the raised model just blocks his view.
+func test_a_clients_own_guard_still_sees_the_optic_with_the_trigger_off() -> void:
+	_trigger.set_active(false)
+	_vignette.set_local_holder(true)
+	_zoom_all_the_way_in()
+	assert_almost_eq(
+		_vignette.compute_amount(), 1.0, 0.0001,
+		"a client holding the rifle must see the same optic the host does",
+	)
+	# And losing the seat takes it away again, exactly as _stow_rifle does.
+	_vignette.set_local_holder(false)
+	assert_almost_eq(
+		_vignette.compute_amount(), 0.0, 0.0001,
+		"and must lose it the moment the rifle leaves his hands",
+	)
+
+
 ## An unwired rifle -- a stowed spare, a bare fixture -- is safe by default.
 func test_an_optic_less_rifle_draws_nothing() -> void:
 	_ads.optic = null
