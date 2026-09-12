@@ -1,7 +1,9 @@
 class_name PauseMenu
 extends CanvasLayer
 
-## Escape, and everything behind it: pause, mouse release, settings, quit.
+## Escape, and everything behind it: pause, mouse release, settings, leaving
+## the match. Resume / Settings / Leave Match -- quitting the app is a main
+## menu decision, not one made mid-match.
 ##
 ## Drop it into any scene as a child of the root. It finds nothing, is wired to
 ## nothing, and exports the two things a scene might reasonably want to hand it.
@@ -42,10 +44,6 @@ extends CanvasLayer
 ## Emitted when the menu opens and when it closes.
 signal opened()
 signal closed()
-
-## Emitted when the player chooses Quit, immediately before the tree quits, for
-## anything that must flush first.
-signal quit_requested()
 
 ## Emitted when the player chooses Main Menu, after the tree is unpaused and the
 ## mouse released but before the scene change is requested.
@@ -204,8 +202,7 @@ func _build() -> void:
 
 	_resume_button = _add_button(column, "Resume", close)
 	_add_button(column, "Settings", _open_settings)
-	_add_button(column, "Main Menu", return_to_main_menu)
-	_add_button(column, "Quit", _quit)
+	_add_button(column, "Leave Match", return_to_main_menu)
 
 	_settings_screen = SETTINGS_SCREEN_SCENE.instantiate()
 	_settings_screen.visible = false
@@ -236,6 +233,7 @@ func _open_settings() -> void:
 	_main_panel.visible = false
 	_settings_screen.refresh()
 	_settings_screen.visible = true
+	_settings_screen.focus_start()
 
 
 ## Called both by the screen's Back button (which has already saved) and by
@@ -288,12 +286,6 @@ func return_to_main_menu() -> void:
 		# is left standing in the match with a working cursor rather than in a
 		# half-torn-down state.
 		push_error("PauseMenu could not load %s: %s" % [main_menu_scene_path, error_string(error)])
-
-
-func _quit() -> void:
-	quit_requested.emit()
-	_store.save_to_disk()
-	get_tree().quit()
 
 
 func _apply_visibility(visible_now: bool) -> void:

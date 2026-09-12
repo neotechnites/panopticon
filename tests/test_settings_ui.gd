@@ -44,6 +44,10 @@ const EXPECTED_ACTIONS: Array[StringName] = [
 	&"jump",
 	&"slide",
 	&"ability",
+	&"ability_1",
+	&"ability_2",
+	&"ability_3",
+	&"ability_4",
 	&"fire",
 	&"zoom",
 ]

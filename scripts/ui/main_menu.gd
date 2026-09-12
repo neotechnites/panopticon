@@ -143,6 +143,7 @@ func open_settings() -> void:
 	_multiplayer_screen.visible = false
 	_settings_screen.refresh()
 	_settings_screen.visible = true
+	_settings_screen.focus_start()
 
 
 ## Show the multiplayer screen. What the Multiplayer button does.

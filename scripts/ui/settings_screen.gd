@@ -74,8 +74,13 @@ const RESOLUTION_NOTE: String = (
 @onready var _display_mode_option: OptionButton = %DisplayModeOption
 @onready var _resolution_option: OptionButton = %ResolutionOption
 @onready var _vsync_option: OptionButton = %VsyncOption
+@onready var _fps_option: OptionButton = %FpsOption
+@onready var _render_scale_slider: HSlider = %RenderScaleSlider
+@onready var _render_scale_value: Label = %RenderScaleValue
 @onready var _audio_note: Label = %Note
 @onready var _video_note: Label = %VideoNote
+
+@onready var _back_button: Button = $Frame/Dialog/Padding/Layout/Footer/Back
 
 var _store: SettingsStore = null
 
@@ -95,6 +100,13 @@ func _ready() -> void:
 ## True while [KeybindPanel] is waiting for a key.
 func is_capturing_input() -> bool:
 	return _keybind_panel != null and _keybind_panel.is_capturing()
+
+
+## Put keyboard focus on Back, so a controller or keyboard can navigate the
+## instant the screen is shown, whichever tab it opens on.
+func focus_start() -> void:
+	if _back_button != null:
+		_back_button.grab_focus()
 
 
 ## Write the file and report the screen closed. The owner decides what to show
@@ -130,6 +142,8 @@ func refresh() -> void:
 	_display_mode_option.selected = int(settings.display_mode)
 	_vsync_option.selected = int(settings.vsync_mode)
 	_resolution_option.selected = _resolution_index(settings.resolution)
+	_fps_option.selected = int(settings.fps_cap)
+	_render_scale_slider.value = settings.render_scale
 
 	_syncing = false
 
@@ -160,6 +174,10 @@ func _configure_ranges() -> void:
 		slider.max_value = 1.0
 		slider.step = 0.01
 
+	_render_scale_slider.min_value = GameSettings.MIN_RENDER_SCALE
+	_render_scale_slider.max_value = GameSettings.MAX_RENDER_SCALE
+	_render_scale_slider.step = 0.05
+
 
 ## Option lists are data, so they are filled from the enums and the shipped
 ## choice list rather than typed into the scene where they could fall out of
@@ -180,6 +198,13 @@ func _fill_choices() -> void:
 	_vsync_option.add_item("Off", int(GameSettings.VSyncMode.DISABLED))
 	_vsync_option.add_item("On", int(GameSettings.VSyncMode.ENABLED))
 	_vsync_option.add_item("Adaptive", int(GameSettings.VSyncMode.ADAPTIVE))
+
+	_fps_option.clear()
+	_fps_option.add_item("Unlimited", int(GameSettings.FpsCap.UNLIMITED))
+	_fps_option.add_item("60", int(GameSettings.FpsCap.FPS_60))
+	_fps_option.add_item("120", int(GameSettings.FpsCap.FPS_120))
+	_fps_option.add_item("144", int(GameSettings.FpsCap.FPS_144))
+	_fps_option.add_item("240", int(GameSettings.FpsCap.FPS_240))
 
 
 ## Offer exactly the seats the match the player is about to start will have.
@@ -212,9 +237,11 @@ func _connect_controls() -> void:
 	_display_mode_option.item_selected.connect(_on_display_mode_selected)
 	_resolution_option.item_selected.connect(_on_resolution_selected)
 	_vsync_option.item_selected.connect(_on_vsync_selected)
+	_fps_option.item_selected.connect(_on_fps_selected)
+	_render_scale_slider.value_changed.connect(_on_render_scale_changed)
 	_keybind_panel.capture_state_changed.connect(_on_capture_state_changed)
 
-	($Frame/Dialog/Padding/Layout/Footer/Back as Button).pressed.connect(close)
+	_back_button.pressed.connect(close)
 	($Frame/Dialog/Padding/Layout/Footer/ResetAll as Button).pressed.connect(_on_reset_all_pressed)
 
 
@@ -329,6 +356,20 @@ func _on_resolution_selected(index: int) -> void:
 	_after_change(true)
 
 
+func _on_fps_selected(index: int) -> void:
+	if _syncing:
+		return
+	_store.settings.fps_cap = index as GameSettings.FpsCap
+	_after_change(true)
+
+
+func _on_render_scale_changed(value: float) -> void:
+	if _syncing:
+		return
+	_store.settings.render_scale = value
+	_after_change(true)
+
+
 func _on_capture_state_changed(capturing: bool) -> void:
 	capture_state_changed.emit(capturing)
 
@@ -358,6 +399,7 @@ func _update_value_labels() -> void:
 	_master_value.text = _percent(_store.settings.master_volume)
 	_effects_value.text = _percent(_store.settings.effects_volume)
 	_music_value.text = _percent(_store.settings.music_volume)
+	_render_scale_value.text = _percent(_store.settings.render_scale)
 
 
 static func _percent(value: float) -> String:

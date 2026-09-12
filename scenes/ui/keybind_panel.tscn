@@ -14,10 +14,10 @@ autowrap_mode = 3
 text = "Two bindings per action. Escape cancels a rebind, Backspace clears the slot."
 
 [node name="Scroll" type="ScrollContainer" parent="Layout"]
-custom_minimum_size = Vector2(0, 336)
+custom_minimum_size = Vector2(0, 460)
 size_flags_vertical = 3
 horizontal_scroll_mode = 0
-editor_description = "Horizontal scrolling is off because the table is built to fit the panel width; only a long list needs to scroll, and only downwards. The minimum height is what asks the dialog for enough room to show all nine rows at the shipped theme, so the list does not arrive already scrolled by one row. Nothing lines up because of this number -- the grid owns the columns -- so a larger font simply scrolls instead of breaking the table."
+editor_description = "Horizontal scrolling is off because the table is built to fit the panel width; only a long list needs to scroll, and only downwards. The minimum height is what asks the dialog for enough room to show all thirteen rows at the shipped theme, so the list does not arrive already scrolled by one row. Nothing lines up because of this number -- the grid owns the columns -- so a larger font simply scrolls instead of breaking the table."
 
 [node name="Table" type="GridContainer" parent="Layout/Scroll"]
 size_flags_horizontal = 3
@@ -178,6 +178,94 @@ text = "Unbound"
 
 [node name="AbilityReset" type="Button" parent="Layout/Scroll/Table"]
 tooltip_text = "Restore the shipped bindings for Ability"
+text = "Reset"
+
+[node name="Ability1Name" type="Label" parent="Layout/Scroll/Table"]
+size_flags_horizontal = 3
+size_flags_vertical = 1
+vertical_alignment = 1
+text = "Ability 1"
+
+[node name="Ability1Slot1" type="Button" parent="Layout/Scroll/Table"]
+custom_minimum_size = Vector2(128, 0)
+size_flags_horizontal = 3
+tooltip_text = "Rebind Ability 1 (slot 1)"
+text = "Unbound"
+
+[node name="Ability1Slot2" type="Button" parent="Layout/Scroll/Table"]
+custom_minimum_size = Vector2(128, 0)
+size_flags_horizontal = 3
+tooltip_text = "Rebind Ability 1 (slot 2)"
+text = "Unbound"
+
+[node name="Ability1Reset" type="Button" parent="Layout/Scroll/Table"]
+tooltip_text = "Restore the shipped bindings for Ability 1"
+text = "Reset"
+
+[node name="Ability2Name" type="Label" parent="Layout/Scroll/Table"]
+size_flags_horizontal = 3
+size_flags_vertical = 1
+vertical_alignment = 1
+text = "Ability 2"
+
+[node name="Ability2Slot1" type="Button" parent="Layout/Scroll/Table"]
+custom_minimum_size = Vector2(128, 0)
+size_flags_horizontal = 3
+tooltip_text = "Rebind Ability 2 (slot 1)"
+text = "Unbound"
+
+[node name="Ability2Slot2" type="Button" parent="Layout/Scroll/Table"]
+custom_minimum_size = Vector2(128, 0)
+size_flags_horizontal = 3
+tooltip_text = "Rebind Ability 2 (slot 2)"
+text = "Unbound"
+
+[node name="Ability2Reset" type="Button" parent="Layout/Scroll/Table"]
+tooltip_text = "Restore the shipped bindings for Ability 2"
+text = "Reset"
+
+[node name="Ability3Name" type="Label" parent="Layout/Scroll/Table"]
+size_flags_horizontal = 3
+size_flags_vertical = 1
+vertical_alignment = 1
+text = "Ability 3"
+
+[node name="Ability3Slot1" type="Button" parent="Layout/Scroll/Table"]
+custom_minimum_size = Vector2(128, 0)
+size_flags_horizontal = 3
+tooltip_text = "Rebind Ability 3 (slot 1)"
+text = "Unbound"
+
+[node name="Ability3Slot2" type="Button" parent="Layout/Scroll/Table"]
+custom_minimum_size = Vector2(128, 0)
+size_flags_horizontal = 3
+tooltip_text = "Rebind Ability 3 (slot 2)"
+text = "Unbound"
+
+[node name="Ability3Reset" type="Button" parent="Layout/Scroll/Table"]
+tooltip_text = "Restore the shipped bindings for Ability 3"
+text = "Reset"
+
+[node name="Ability4Name" type="Label" parent="Layout/Scroll/Table"]
+size_flags_horizontal = 3
+size_flags_vertical = 1
+vertical_alignment = 1
+text = "Ability 4"
+
+[node name="Ability4Slot1" type="Button" parent="Layout/Scroll/Table"]
+custom_minimum_size = Vector2(128, 0)
+size_flags_horizontal = 3
+tooltip_text = "Rebind Ability 4 (slot 1)"
+text = "Unbound"
+
+[node name="Ability4Slot2" type="Button" parent="Layout/Scroll/Table"]
+custom_minimum_size = Vector2(128, 0)
+size_flags_horizontal = 3
+tooltip_text = "Rebind Ability 4 (slot 2)"
+text = "Unbound"
+
+[node name="Ability4Reset" type="Button" parent="Layout/Scroll/Table"]
+tooltip_text = "Restore the shipped bindings for Ability 4"
 text = "Reset"
 
 [node name="FireName" type="Label" parent="Layout/Scroll/Table"]
