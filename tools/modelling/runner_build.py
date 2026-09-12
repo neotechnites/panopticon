@@ -26,7 +26,8 @@ THE CONTRACT THE GAME DEPENDS ON
 address this model by name, so these are not cosmetic choices:
 
   * node path ``Armature/Skeleton3D/Runner`` and a sibling ``AnimationPlayer``
-  * one clip called ``Run``
+  * four clips: ``Run`` (looping), ``Jump`` and ``Death`` (one-shot), ``Aim``
+    (looping, the guard's rifle-ready breathing hold)
   * bones ``Hips Spine Neck Head UpperArm.{L,R} LowerArm.{L,R} Hand.{L,R}
     Thigh.{L,R} Shin.{L,R} Foot.{L,R}`` -- a bespoke naming, NOT Godot's
     humanoid SkeletonProfile, and deliberately so (see prisoner_avatar.gd)
@@ -74,6 +75,9 @@ NAME = "runner"
 MESH_NAME = "Runner"          # -> Armature/Skeleton3D/Runner in Godot
 ARMATURE_NAME = "Armature"
 CLIP_NAME = "Run"
+JUMP_CLIP_NAME = "Jump"
+DEATH_CLIP_NAME = "Death"
+AIM_CLIP_NAME = "Aim"
 FACING_YAW = 180.0            # the model faces -Y; rotate the named views to match
 
 # ---- material ---------------------------------------------------------------
@@ -366,6 +370,162 @@ def run_curves():
     return curves
 
 
+# ---- pose-sequence clips (Jump, Death) --------------------------------------
+# Not cycles: each is a handful of keyframe poses linearly interpolated across
+# the clip, in the same bone-local-X-is-swing convention run_curves() uses.
+
+def _lerp_pose(t, keys):
+    """``keys``: [(t in 0..1, {name: degrees, ...}), ...], sorted by t."""
+    if t <= keys[0][0]:
+        return keys[0][1]
+    for (t0, p0), (t1, p1) in zip(keys, keys[1:]):
+        if t <= t1:
+            f = (t - t0) / max(t1 - t0, 1e-9)
+            names = set(p0) | set(p1)
+            return {b: p0.get(b, 0.0) + (p1.get(b, 0.0) - p0.get(b, 0.0)) * f
+                    for b in names}
+    return keys[-1][1]
+
+
+def _pose_sequence_curves(keys, hip_drop=None):
+    """bone -> f(i, n) sampling ``_lerp_pose`` at each frame's position in
+    [0, 1]. ``hip_drop`` is the same shape, in metres, folded into Hips'
+    location for a body sinking towards the floor."""
+    names = set()
+    for _, pose in keys:
+        names.update(pose)
+
+    curves = {}
+    for bone in names:
+        def fn(i, n, bone=bone):
+            t = i / (n - 1) if n > 1 else 1.0
+            return {"euler": (_lerp_pose(t, keys).get(bone, 0.0), 0.0, 0.0)}
+        curves[bone] = fn
+
+    if hip_drop is not None:
+        base = curves.get("Hips")
+        def hips(i, n):
+            t = i / (n - 1) if n > 1 else 1.0
+            out = base(i, n) if base else {"euler": (0.0, 0.0, 0.0)}
+            out["location"] = (0.0, _lerp_pose(t, hip_drop).get("y", 0.0), 0.0)
+            return out
+        curves["Hips"] = hips
+    return curves
+
+
+JUMP_FRAMES = 12
+
+# Four phases across the clip -- anticipation, push-off, the apex tuck, and
+# the landing brace -- each a full-body pose, degrees about each bone's local
+# X exactly as run_curves() uses it. The apex reuses the tuck the runtime
+# fallback used to synthesise: a real jump, not a mid-stride freeze in the air.
+JUMP_KEYS = [
+    (0.00, {}),
+    (0.25, {"Spine": 10.0, "Neck": -8.0, "Head": -6.0,
+            "UpperArm.L": -30.0, "LowerArm.L": -30.0,
+            "UpperArm.R": -30.0, "LowerArm.R": -30.0,
+            "Thigh.L": -55.0, "Shin.L": 80.0, "Foot.L": -25.0,
+            "Thigh.R": -55.0, "Shin.R": 80.0, "Foot.R": -25.0,
+            "Hips": -4.0}),
+    (0.45, {"Spine": -8.0, "Neck": 4.0, "Head": 4.0,
+            "UpperArm.L": -50.0, "LowerArm.L": -20.0,
+            "UpperArm.R": -50.0, "LowerArm.R": -20.0,
+            "Thigh.L": 15.0, "Shin.L": -10.0, "Foot.L": 10.0,
+            "Thigh.R": 15.0, "Shin.R": -10.0, "Foot.R": 10.0,
+            "Hips": 6.0}),
+    (0.70, {"Hips": -6.0, "Spine": 10.0, "Neck": -8.0, "Head": -6.0,
+            "UpperArm.L": 35.0, "LowerArm.L": -40.0,
+            "UpperArm.R": -60.0, "LowerArm.R": -55.0,
+            "Thigh.L": -50.0, "Shin.L": 75.0, "Foot.L": -20.0,
+            "Thigh.R": 18.0, "Shin.R": 60.0, "Foot.R": 15.0}),
+    (1.00, {"Spine": 14.0, "Neck": -10.0, "Head": -8.0,
+            "UpperArm.L": -20.0, "LowerArm.L": -35.0,
+            "UpperArm.R": -20.0, "LowerArm.R": -35.0,
+            "Thigh.L": -60.0, "Shin.L": 95.0, "Foot.L": -30.0,
+            "Thigh.R": -60.0, "Shin.R": 95.0, "Foot.R": -30.0,
+            "Hips": -8.0}),
+]
+
+
+def jump_curves():
+    return _pose_sequence_curves(JUMP_KEYS)
+
+
+DEATH_FRAMES = 20
+
+# Standing, shot, buckling, toppling, prone -- Hips carries both the forward
+# pitch that puts the whole body on the ground (everything downstream of it
+# in the rig rides along) and, via hip_drop below, the sink to floor height.
+DEATH_KEYS = [
+    (0.00, {}),
+    (0.12, {"Spine": -12.0, "Neck": -10.0, "Head": -14.0,
+            "UpperArm.L": -20.0, "LowerArm.L": -10.0,
+            "UpperArm.R": -20.0, "LowerArm.R": -10.0}),
+    (0.40, {"Hips": 25.0, "Spine": 20.0, "Neck": 10.0, "Head": 8.0,
+            "UpperArm.L": 15.0, "LowerArm.L": 30.0,
+            "UpperArm.R": 15.0, "LowerArm.R": 30.0,
+            "Thigh.L": -35.0, "Shin.L": 55.0, "Foot.L": -15.0,
+            "Thigh.R": -35.0, "Shin.R": 55.0, "Foot.R": -15.0}),
+    (0.70, {"Hips": 60.0, "Spine": 15.0, "Neck": 5.0, "Head": 5.0,
+            "UpperArm.L": 30.0, "LowerArm.L": 45.0,
+            "UpperArm.R": 30.0, "LowerArm.R": 45.0,
+            "Thigh.L": -20.0, "Shin.L": 40.0, "Foot.L": -10.0,
+            "Thigh.R": -20.0, "Shin.R": 40.0, "Foot.R": -10.0}),
+    (1.00, {"Hips": 88.0, "Spine": 8.0, "Neck": 3.0, "Head": 3.0,
+            "UpperArm.L": 20.0, "LowerArm.L": 30.0,
+            "UpperArm.R": 20.0, "LowerArm.R": 30.0,
+            "Thigh.L": -10.0, "Shin.L": 20.0, "Foot.L": 0.0,
+            "Thigh.R": -10.0, "Shin.R": 20.0, "Foot.R": 0.0}),
+]
+
+DEATH_HIP_DROP = [
+    (0.00, {"y": 0.0}),
+    (0.40, {"y": -0.20}),
+    (0.70, {"y": -0.45}),
+    (1.00, {"y": -0.62}),
+]
+
+
+def death_curves():
+    return _pose_sequence_curves(DEATH_KEYS, hip_drop=DEATH_HIP_DROP)
+
+
+# ---- Aim: the guard's stance -------------------------------------------------
+AIM_CYCLE_FRAMES = 44   # ~1.5 s per breath at FPS
+AIM_BREATH_DEG = 2.5
+
+# A held pose, not a cycle of motion: both arms raised to bring the hands
+# together at the chest as if gripping a rifle stock, head pitched down the
+# sight. Constant but for Spine, which breathes.
+AIM_POSE_DEGREES = {
+    "Spine": 6.0,
+    "Neck": 9.0,
+    "Head": 13.0,
+    "UpperArm.L": 68.0,
+    "LowerArm.L": 108.0,
+    "UpperArm.R": 68.0,
+    "LowerArm.R": 108.0,
+}
+
+
+def aim_curves():
+    curves = {}
+    for bone, deg in AIM_POSE_DEGREES.items():
+        if bone == "Spine":
+            continue
+
+        def fn(i, n, deg=deg):
+            return {"euler": (deg, 0.0, 0.0)}
+        curves[bone] = fn
+
+    def spine(i, n):
+        breath = AIM_BREATH_DEG * math.sin(_phase(i, n))
+        return {"euler": (AIM_POSE_DEGREES["Spine"] + breath, 0.0, 0.0)}
+
+    curves["Spine"] = spine
+    return curves
+
+
 # =============================================================================
 # BUILD
 # =============================================================================
@@ -385,11 +545,20 @@ def build():
         fps=FPS,
         curves=run_curves(),
     )
+    mdl.bake_pose(arm, JUMP_CLIP_NAME, frames=list(range(1, JUMP_FRAMES + 1)),
+                  fps=FPS, curves=jump_curves())
+    mdl.bake_pose(arm, DEATH_CLIP_NAME, frames=list(range(1, DEATH_FRAMES + 1)),
+                  fps=FPS, curves=death_curves())
+    mdl.bake_pose(arm, AIM_CLIP_NAME, frames=list(range(1, AIM_CYCLE_FRAMES + 2)),
+                  fps=FPS, curves=aim_curves())
 
     bpy.context.scene.frame_set(1)
     bpy.context.view_layer.update()
     print("MDL STATS bones=%d clip=%s frames=%d..%d fps=%d"
           % (len(arm.data.bones), CLIP_NAME, 1, CYCLE_FRAMES + 1, FPS))
+    print("MDL STATS clip=%s frames=1..%d fps=%d" % (JUMP_CLIP_NAME, JUMP_FRAMES, FPS))
+    print("MDL STATS clip=%s frames=1..%d fps=%d" % (DEATH_CLIP_NAME, DEATH_FRAMES, FPS))
+    print("MDL STATS clip=%s frames=1..%d fps=%d" % (AIM_CLIP_NAME, AIM_CYCLE_FRAMES + 1, FPS))
     return [arm, body]
 
 
