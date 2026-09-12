@@ -26,8 +26,8 @@ THE CONTRACT THE GAME DEPENDS ON
 address this model by name, so these are not cosmetic choices:
 
   * node path ``Armature/Skeleton3D/Runner`` and a sibling ``AnimationPlayer``
-  * four clips: ``Run`` (looping), ``Jump`` and ``Death`` (one-shot), ``Aim``
-    (looping, the guard's rifle-ready breathing hold)
+  * five clips: ``Run`` (looping), ``Jump``, ``Death`` and ``Shove``
+    (one-shot), ``Aim`` (looping, the guard's rifle-ready breathing hold)
   * bones ``Hips Spine Neck Head UpperArm.{L,R} LowerArm.{L,R} Hand.{L,R}
     Thigh.{L,R} Shin.{L,R} Foot.{L,R}`` -- a bespoke naming, NOT Godot's
     humanoid SkeletonProfile, and deliberately so (see prisoner_avatar.gd)
@@ -78,6 +78,7 @@ CLIP_NAME = "Run"
 JUMP_CLIP_NAME = "Jump"
 DEATH_CLIP_NAME = "Death"
 AIM_CLIP_NAME = "Aim"
+SHOVE_CLIP_NAME = "Shove"
 FACING_YAW = 180.0            # the model faces -Y; rotate the named views to match
 
 # ---- material ---------------------------------------------------------------
@@ -526,6 +527,30 @@ def aim_curves():
     return curves
 
 
+# ---- Shove: both arms punch forward ------------------------------------------
+SHOVE_FRAMES = 8
+
+# Wind up at the chest, extend, drop back towards neutral. Only the arms, the
+# spine and the head are named, so the legs keep the rest pose under it and the
+# clip costs nothing to blend out of mid-stride. Degrees about each bone's
+# local X: positive swings an arm forward and leans the spine into the push.
+SHOVE_KEYS = [
+    (0.00, {"Spine": -6.0, "Neck": 4.0, "Head": 4.0,
+            "UpperArm.L": 40.0, "LowerArm.L": 100.0,
+            "UpperArm.R": 40.0, "LowerArm.R": 100.0}),
+    (0.43, {"Spine": 14.0, "Neck": -6.0, "Head": -4.0,
+            "UpperArm.L": 86.0, "LowerArm.L": 6.0,
+            "UpperArm.R": 86.0, "LowerArm.R": 6.0}),
+    (1.00, {"Spine": 2.0, "Neck": 0.0, "Head": 0.0,
+            "UpperArm.L": 18.0, "LowerArm.L": 55.0,
+            "UpperArm.R": 18.0, "LowerArm.R": 55.0}),
+]
+
+
+def shove_curves():
+    return _pose_sequence_curves(SHOVE_KEYS)
+
+
 # =============================================================================
 # BUILD
 # =============================================================================
@@ -551,6 +576,8 @@ def build():
                   fps=FPS, curves=death_curves())
     mdl.bake_pose(arm, AIM_CLIP_NAME, frames=list(range(1, AIM_CYCLE_FRAMES + 2)),
                   fps=FPS, curves=aim_curves())
+    mdl.bake_pose(arm, SHOVE_CLIP_NAME, frames=list(range(1, SHOVE_FRAMES + 1)),
+                  fps=FPS, curves=shove_curves())
 
     bpy.context.scene.frame_set(1)
     bpy.context.view_layer.update()
@@ -559,6 +586,7 @@ def build():
     print("MDL STATS clip=%s frames=1..%d fps=%d" % (JUMP_CLIP_NAME, JUMP_FRAMES, FPS))
     print("MDL STATS clip=%s frames=1..%d fps=%d" % (DEATH_CLIP_NAME, DEATH_FRAMES, FPS))
     print("MDL STATS clip=%s frames=1..%d fps=%d" % (AIM_CLIP_NAME, AIM_CYCLE_FRAMES + 1, FPS))
+    print("MDL STATS clip=%s frames=1..%d fps=%d" % (SHOVE_CLIP_NAME, SHOVE_FRAMES, FPS))
     return [arm, body]
 
 

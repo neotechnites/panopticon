@@ -70,7 +70,7 @@ editor_description = "The prisoner you can see. A visual child of the capsule an
 
 Appended LAST on purpose. scenes/bot/ring_runner.tscn and scenes/bot/tower_shooter.tscn inherit this scene and address its children by ordinal index -- appending is safe, inserting silently re-points every override in both files -- which is why this sits after ZoomInput rather than next to BodyMesh where it belongs by subject.
 
-visual_layers is left at the script's default of 2, the owner-hidden layer that every Camera3D in the game clears from its cull_mask, so the human never sees the inside of their own skull: their eye is at 1.65 m and this model's head is around it. The two AI scenes that inherit this one raise it to layer 3, exactly as they used to do to BodyMesh. body points at the CharacterBody3D so the run cycle can be driven from the speed it is actually moving at."
+visual_layers is left at the script's default of 2, the owner-hidden layer that every Camera3D in the game clears from its cull_mask. While this body's own camera is current PrisonerAvatar adds layer 1 and collapses the Head bone, so the human sees their own legs and arms but not the inside of their skull. The two AI scenes that inherit this one raise it to layer 3. body points at the CharacterBody3D so the run cycle can be driven from the speed it is actually moving at."
 body = NodePath("..")
 
 [node name="Ability" type="Node" parent="." node_paths=PackedStringArray("body")]
