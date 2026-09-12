@@ -351,6 +351,10 @@ const BODY_AVATAR_NAME: StringName = &"Avatar"
 ## to show which of its participants are ghosts.
 const BODY_MESH_NAME: StringName = &"BodyMesh"
 
+## How far a palette colour is lifted toward white before it is painted on a
+## body. The model's atlas is dithered; a flat saturated albedo hides all of it.
+const TINT_WHITE_BLEND: float = 0.45
+
 ## The [ShooterProfile] an AI in the tower plays on when [MatchRules] names
 ## none. The same resource [code]scenes/bot/tower_shooter.tscn[/code] ships
 ## with, so a bot that takes the seat here plays exactly the shooter that scene
@@ -474,6 +478,15 @@ var _warned_unimplemented_rules: bool = false
 ## is 0.0 under every other win condition and is then never read.
 var _hold_remaining: float = 0.0
 
+## Seconds left of the beat the killing shot on the guard is held for, before
+## the round it won is resolved. See [method _begin_kill_beat]. Zero except
+## during that beat, and never set on a mirror.
+var _kill_beat_remaining: float = 0.0
+
+## Who the beat resolves for, and whose body it froze alongside the guard's.
+var _kill_beat_scorer: MatchParticipant = null
+var _kill_beat_guard: MatchParticipant = null
+
 ## Backing store for the rules used when [member rules] is unset. Built on
 ## demand, never shared, so a caller that retunes it cannot reach into another
 ## controller's match.
@@ -503,18 +516,10 @@ var _finisher_rifle: Rifle = null
 ## none. See [method get_runner_palette].
 var _default_palette: RunnerPalette = null
 
-## Painted runner materials, one per [member MatchParticipant.index], built
-## lazily and kept for the life of the match -- an index always names the same
-## participant, so nothing here is ever invalidated.
-var _runner_material_cache: Dictionary[int, Material] = {}
-
-## The same participants' ghost-translucent materials, same cache discipline
-## as [member _runner_material_cache].
-var _ghost_material_cache: Dictionary[int, Material] = {}
-
-## The one material the tower seat wears, built once: unlike a runner's colour
-## it does not vary by who is sitting in the seat.
-var _guard_material_cache: Material = null
+## Painted materials, one per base material and colour. See [method
+## _tinted_material]: every body wearing the same model and the same colour
+## shares one tint, so a seat change repaints rather than allocates.
+var _tint_cache: Dictionary[String, Material] = {}
 
 # Arena geometry, cached at match start. The arena does not move.
 var _centre: Vector3 = Vector3.ZERO
@@ -612,6 +617,9 @@ func _physics_process(delta: float) -> void:
 	_tick_respawn_holds(delta)
 	_tick_ghosts(delta)
 	_tick_shoves(delta)
+	# BEFORE the hold: a beat ending this tick resolves the round the killing
+	# shot already won, and a resolved round is not one the siege can also win.
+	_tick_kill_beat(delta)
 	# LAST, and after the ghosts: the hold is the only win condition decided by
 	# a clock rather than by an event, and a round it ends is a round in which
 	# everything else that was going to happen this tick has already happened.
@@ -836,8 +844,10 @@ func start_round() -> void:
 	# condition, and [method _tick_hold] reads the condition before the clock.
 	_hold_remaining = maxf(get_rules().hold_duration_seconds, 0.0)
 	# Whatever the last round's finisher was doing, it is over: the rifle comes
-	# back here and the hunt ends before any body is placed.
+	# back here and the hunt ends before any body is placed. A kill beat still
+	# running belongs to the round being replaced and must not resolve this one.
 	_disarm_finisher()
+	_clear_kill_beat()
 	# A round is armed on the rules in force now, and the ghost tuning is one of
 	# them. Cleared rather than re-resolved, so the walk is paid for only if a
 	# prisoner is actually shot.
@@ -1266,12 +1276,21 @@ func get_body_color(participant: MatchParticipant) -> Color:
 	if participant == null:
 		return Color.BLACK
 	var mesh: MeshInstance3D = _body_mesh_of(participant.body)
-	var material: StandardMaterial3D = (
-		mesh.material_override as StandardMaterial3D if mesh != null else null
+	var material: BaseMaterial3D = (
+		mesh.material_override as BaseMaterial3D if mesh != null else null
 	)
 	if material == null:
 		return Color.BLACK
 	return material.albedo_color
+
+
+## The albedo a body wearing [param base] actually gets: the palette colour
+## lifted toward white by [constant TINT_WHITE_BLEND], keeping its alpha, so the
+## texture under it still reads. The formula, shared with the tests.
+static func tint_color(base: Color) -> Color:
+	var lifted: Color = base.lerp(Color.WHITE, TINT_WHITE_BLEND)
+	lifted.a = base.a
+	return lifted
 
 
 ## The participants still running, as a copy.
@@ -1379,7 +1398,7 @@ func remove_runner(runner: RingRunner) -> bool:
 func apply_hit(participant: MatchParticipant) -> bool:
 	if participant == null or is_resolved() or not participant.is_running:
 		return false
-	if _refuses_local_decision():
+	if _refuses_local_decision() or _in_kill_beat():
 		return false
 	var ability: RunnerPower = RunnerPower.of(participant.body)
 	if ability != null and ability.is_hit_immune():
@@ -1410,17 +1429,84 @@ func apply_hit(participant: MatchParticipant) -> bool:
 func apply_guard_hit(guard: MatchParticipant) -> bool:
 	if guard == null or is_resolved() or _phase != Phase.ROUND:
 		return false
-	if not guard.is_shooter or _refuses_local_decision():
+	if not guard.is_shooter or _refuses_local_decision() or _in_kill_beat():
 		return false
 	guard.health -= 1
 	if guard.health > 0:
 		return false
 	var scorer: MatchParticipant = _finisher
+	if scorer == null:
+		_disarm_finisher()
+		return false
+	var beat: float = maxf(get_rules().kill_beat_seconds, 0.0)
+	if beat <= 0.0:
+		_disarm_finisher()
+		_score_and_restart(scorer)
+		return true
+	_begin_kill_beat(guard, scorer, beat)
+	return true
+
+
+## Drop any beat in progress, giving the bodies it froze their controls back.
+## Called where a round is armed: a beat belongs to the round that started it.
+func _clear_kill_beat() -> void:
+	_kill_beat_remaining = 0.0
+	for frozen: MatchParticipant in [_kill_beat_guard, _kill_beat_scorer]:
+		if frozen != null and frozen.body != null:
+			frozen.body.movement_locked = false
+	_kill_beat_scorer = null
+	_kill_beat_guard = null
+
+
+## True while the killing shot is being held on screen. Nothing else may resolve
+## the round in that window: the kill already did, it is only being shown.
+func _in_kill_beat() -> bool:
+	return _kill_beat_remaining > 0.0
+
+
+## Let the kill land before the seat changes hands: the guard plays its death,
+## both bodies stand still where they are, and the finisher keeps its own camera
+## pointed at what it just did. The authority owns this clock -- a mirror runs no
+## beat and sees the snapshot.
+func _begin_kill_beat(guard: MatchParticipant, scorer: MatchParticipant, seconds: float) -> void:
+	_kill_beat_remaining = seconds
+	_kill_beat_scorer = scorer
+	_kill_beat_guard = guard
+	_set_trigger(_finisher_rifle, false)
+	_freeze_for_kill_beat(guard)
+	_freeze_for_kill_beat(scorer)
+	if guard.body != null:
+		# The death clip: PrisonerAvatar arms on this signal and on nothing else.
+		guard.body.died.emit()
+
+
+## One body, inert for the length of the beat. The same hold every placement in
+## this file uses, plus the movement lock, so a human in either body cannot walk
+## out of its own ending.
+func _freeze_for_kill_beat(participant: MatchParticipant) -> void:
+	if participant == null or participant.body == null:
+		return
+	_silence_brain(participant)
+	_silence_tower_brain(participant)
+	_hold_body(participant)
+	participant.body.movement_locked = true
+
+
+## Spend the beat, and resolve the round the shot won when it runs out. The two
+## bodies get their controls back here; [method start_round] places and wakes
+## them immediately after.
+func _tick_kill_beat(delta: float) -> void:
+	if _kill_beat_remaining <= 0.0:
+		return
+	_kill_beat_remaining = maxf(_kill_beat_remaining - delta, 0.0)
+	if _kill_beat_remaining > 0.0:
+		return
+	var scorer: MatchParticipant = _kill_beat_scorer
+	_clear_kill_beat()
 	_disarm_finisher()
 	if scorer == null:
-		return false
+		return
 	_score_and_restart(scorer)
-	return true
 
 
 ## Rule on [param participant] having fallen out of the arena. Returns true if
@@ -2030,18 +2116,10 @@ func get_runner_palette() -> RunnerPalette:
 	return _default_palette
 
 
-## [param participant]'s own distinct, stable colour for the whole match. Built
-## once from [method RunnerPalette.color_for_index] and cached by index -- an
-## index always names the same participant for the life of a match, so the
-## same body is never repainted a different shade of itself.
+## [param participant]'s own distinct, stable colour for the whole match, worn
+## on the model's own material. See [method _tinted_material].
 func _runner_material_for(participant: MatchParticipant) -> Material:
-	if _runner_material_cache.has(participant.index):
-		return _runner_material_cache[participant.index]
-	var material := StandardMaterial3D.new()
-	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	material.albedo_color = get_runner_palette().color_for_index(participant.index)
-	_runner_material_cache[participant.index] = material
-	return material
+	return _tinted_material(participant, get_runner_palette().color_for_index(participant.index))
 
 
 ## [param participant]'s SAME colour, translucent -- a ghost reads as who it is
@@ -2049,28 +2127,50 @@ func _runner_material_for(participant: MatchParticipant) -> Material:
 ## [member RunnerPalette.ghost_alpha] is the "slightly" in "slightly
 ## translucent": alpha comes off the colour; the colour itself never does.
 func _ghost_material_for(participant: MatchParticipant) -> Material:
-	if _ghost_material_cache.has(participant.index):
-		return _ghost_material_cache[participant.index]
 	var runner_palette: RunnerPalette = get_runner_palette()
 	var runner_color: Color = runner_palette.color_for_index(participant.index)
-	var material := StandardMaterial3D.new()
-	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	material.albedo_color = Color(runner_color.r, runner_color.g, runner_color.b, runner_palette.ghost_alpha)
-	_ghost_material_cache[participant.index] = material
-	return material
+	runner_color.a = runner_palette.ghost_alpha
+	return _tinted_material(participant, runner_color)
 
 
-## The one material the tower seat wears, distinct from every runner colour so
-## the guard reads as a role rather than as whichever runner happens to be
-## sitting there. Built once: this does not vary by participant.
-func _guard_material() -> Material:
-	if _guard_material_cache != null:
-		return _guard_material_cache
-	var material := StandardMaterial3D.new()
-	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	material.albedo_color = get_runner_palette().guard_color
-	_guard_material_cache = material
+## The colour the tower seat wears, distinct from every runner colour so the
+## guard reads as a role rather than as whichever runner is sitting there.
+func _guard_material_for(participant: MatchParticipant) -> Material:
+	return _tinted_material(participant, get_runner_palette().guard_color)
+
+
+## The material the MODEL ships for [param participant]'s body -- surface 0's
+## own, never a tint this file painted over it. Null on a mesh that ships none.
+func _base_material_of(participant: MatchParticipant) -> BaseMaterial3D:
+	var mesh: MeshInstance3D = _body_mesh_of(participant.body)
+	if mesh == null or mesh.mesh == null:
+		return null
+	var authored: Material = mesh.mesh.surface_get_material(0)
+	if authored == null:
+		authored = mesh.get_surface_override_material(0)
+	return authored as BaseMaterial3D
+
+
+## [param colour] painted onto a DUPLICATE of the model's own material, so the
+## atlas texture survives the team hue -- see [method tint_color] for how far
+## the colour is lifted to let the dither read through. Alpha off [param colour]
+## is what makes a ghost translucent. A body whose mesh ships no material gets
+## the flat unshaded colour it always had.
+func _tinted_material(participant: MatchParticipant, colour: Color) -> Material:
+	var base: BaseMaterial3D = _base_material_of(participant)
+	var key: String = "%d|%s" % [0 if base == null else base.get_instance_id(), colour]
+	if _tint_cache.has(key):
+		return _tint_cache[key]
+	var material: BaseMaterial3D
+	if base == null:
+		material = StandardMaterial3D.new()
+		material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	else:
+		material = base.duplicate() as BaseMaterial3D
+	material.albedo_color = tint_color(colour)
+	if colour.a < 1.0:
+		material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	_tint_cache[key] = material
 	return material
 
 
@@ -2410,7 +2510,7 @@ func _place_on_track(participant: MatchParticipant, start_point: Vector3) -> voi
 	_unmake_ghost(participant)
 	# Back to this participant's own colour. A no-op for a body _unmake_ghost
 	# just repainted; load-bearing for the outgoing shooter, who was never a
-	# ghost and is still wearing _guard_material() from _place_in_tower.
+	# ghost and is still wearing the guard colour from _place_in_tower.
 	_tint_body(participant, participant.home_body_material)
 	_hold_body(participant)
 	var ability: RunnerPower = RunnerPower.of(body)
@@ -2456,7 +2556,7 @@ func _place_in_tower(participant: MatchParticipant) -> void:
 	# The guard's own colour, distinct from every runner's -- see
 	# RunnerPalette.guard_color -- so the seat reads as a role and not as
 	# whichever runner happens to be sitting in it.
-	_tint_body(participant, _guard_material())
+	_tint_body(participant, _guard_material_for(participant))
 	_hold_body(participant)
 	body.global_position = _tower_point
 	body.velocity = Vector3.ZERO
@@ -3116,6 +3216,8 @@ func _on_participant_arrived(
 	_elapsed_seconds: float, _path_length: float, participant: MatchParticipant
 ) -> void:
 	if participant == null or not participant.is_running or _mirror:
+		return
+	if _in_kill_beat():
 		return
 
 	match _phase:

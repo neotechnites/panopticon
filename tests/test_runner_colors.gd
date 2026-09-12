@@ -160,19 +160,21 @@ func test_the_guard_wears_a_colour_no_runner_is_dealt() -> void:
 
 	var palette: RunnerPalette = _controller.get_runner_palette()
 	var guard_color: Color = _controller.get_body_color(seat)
+	# The albedo, not the material: a body wears the palette colour lifted toward
+	# white over the model's own texture -- see MatchController.tint_color.
 	assert_true(
-		guard_color.is_equal_approx(palette.guard_color),
+		guard_color.is_equal_approx(MatchController.tint_color(palette.guard_color)),
 		"the seat holder is painted RunnerPalette.guard_color",
 	)
 	for entry: Color in palette.runner_colors:
 		assert_false(
-			guard_color.is_equal_approx(entry),
+			guard_color.is_equal_approx(MatchController.tint_color(entry)),
 			"the guard colour is not one of the runner colours",
 		)
 
 	# Force the seat to change hands and check the outgoing shooter gets their
 	# own colour back rather than staying grey.
-	var own_color: Color = palette.color_for_index(seat.index)
+	var own_color: Color = MatchController.tint_color(palette.color_for_index(seat.index))
 	var scorer: MatchParticipant = _controller.get_live_participants()[0]
 	scorer.tracker.lap_finished.emit(12.0, 96.0)
 	await step_ticks(SETTLE_TICKS)
@@ -182,7 +184,7 @@ func test_the_guard_wears_a_colour_no_runner_is_dealt() -> void:
 		"the former guard is repainted their own runner colour once they are back on the ring",
 	)
 	assert_true(
-		_controller.get_body_color(scorer).is_equal_approx(palette.guard_color),
+		_controller.get_body_color(scorer).is_equal_approx(MatchController.tint_color(palette.guard_color)),
 		"the new seat holder wears the guard colour",
 	)
 

@@ -272,6 +272,12 @@ enum RunnerAbility {
 ## 1 = one shot takes the tower.
 @export_range(1, 100, 1, "or_greater") var guard_health: int = 1
 
+## Seconds the killing shot is held before the round resolves. [b]LIVE.[/b]
+##
+## The guard dies, both bodies stand still and the finisher keeps watching; the
+## seat changes when this runs out. Zero resolves on the shot, as it used to.
+@export_range(0.0, 10.0, 0.1, "or_greater") var kill_beat_seconds: float = 2.0
+
 # --- The rifle ----------------------------------------------------------------
 
 ## The whole gun, as data. [b]LIVE when set, null = the weapon keeps its own.[/b]
