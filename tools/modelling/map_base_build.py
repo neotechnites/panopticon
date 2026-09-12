@@ -118,13 +118,14 @@ DECK_UV_SCALE  = 0.34                 # ~0.048 m/texel: speckle 0.2..0.5 m
 # Its own material and its own tiling sheet (not an atlas cell), so it repeats
 # instead of stretching one window over 90 m of floor.
 ZONE_LAVA      = ("lava",)
-LAVA_TEX       = 256
+LAVA_TEX       = 512
 LAVA_ALBEDO    = "map_base_lava_albedo"
 LAVA_EMISSIVE  = "map_base_lava_emissive"
 LAVA_SEED      = 7720133
-LAVA_REPEAT    = (12.0, 24.0)         # metres per repeat, drawn per face
+LAVA_SPAN      = 104.0                # metres across the sheet: ONE window over the
+                                      # whole sea, no tiling, so there is no repeat
+                                      # and no seam anywhere to hide
 LAVA_RINGS     = (1.0, 0.70, 0.42, 0.14)   # radius fractions of the pit foot
-LAVA_PATCH     = 16.0                 # metres: faces in one patch share a UV window
 LAVA_SWELL     = 0.6                  # +- metres of slow molten swell
 LAVA_STEP      = 0.3                  # swell snaps to this: flat crust plates
 LAVA_FLAT_R    = 18.0                 # level under the tower's foot
@@ -358,75 +359,83 @@ def rock_material(name, albedo, emissive):
     return mat
 
 
-def _lava_density(n):
-    """Seamless low-frequency crust mask: products of whole-cycle harmonics, so
-    it wraps. 1 = plated over, 0 = open molten."""
-    out = [0.0] * (n * n)
-    for y in range(n):
-        b = TWO_PI * y / n
-        for x in range(n):
-            a = TWO_PI * x / n
-            v = (0.55 * math.sin(a + 0.9) * math.sin(b + 2.1)
-                 + 0.30 * math.sin(2.0 * a - 1.4) * math.cos(2.0 * b + 0.3)
-                 + 0.15 * math.cos(3.0 * b + 2.6) * math.sin(2.0 * a))
-            out[y * n + x] = min(1.0, max(0.0, 0.5 + 0.75 * v))
-    return out
-
-
 def _lava_texture():
-    """A seamless lava sheet: molten bed, dark crust plates, glowing fissures.
-    Plate density rides a low-frequency mask, so the sheet has plated regions
-    and open molten regions instead of one even crust everywhere."""
+    """The sea, painted once at world scale: a dark rock crust with a faint
+    ember glow, cut by 1..3 m molten channels and a few wide pools. One window
+    covers the whole floor, so nothing repeats and nothing seams."""
     c = _Canvas(LAVA_TEX)
     r = _Rng(LAVA_SEED)
     n = LAVA_TEX
-    dens = _lava_density(n)
+    mpp = LAVA_SPAN / n
+    edge = 0.5 * n - 3.0
+
+    def M(metres):
+        return max(1, int(round(metres / mpp)))
 
     def blot(x, y, w, h, rgb, glow):
-        for dy in range(h):
-            for dx in range(w):
-                c.put((x + dx) % n, (y + dy) % n, rgb, glow)
+        c.rect(int(x), int(y), int(x) + w, int(y) + h, rgb, glow)
 
     hot = [(226, 70, 10), (255, 104, 20), (206, 52, 6), (255, 132, 30)]
-    for y in range(n):                                   # molten bed: all emits
+    rock = [(48, 22, 18), (36, 15, 13), (60, 29, 23), (27, 11, 11)]
+    ember = [(66, 19, 6), (50, 13, 4), (80, 25, 8)]       # crust emission ~ 0.05
+    for y in range(n):                                    # the crust: rock, with grain
         for x in range(n):
-            s = r.pick(hot)
-            c.put(x, y, s, s)
-    crust = [(26, 9, 8), (38, 14, 11), (17, 6, 6), (48, 20, 15)]
-    for _ in range(360):                                 # plates: 85 % .. 15 % cover
+            c.put(x, y, r.pick(rock), r.pick(ember))
+    for _ in range(340):                                  # slabs: 2..9 m tonal blocks
+        sh = r.pick(rock)
+        blot(r.i(0, n - 1), r.i(0, n - 1), M(2.0) + r.i(0, M(7.0)),
+             M(2.0) + r.i(0, M(7.0)), sh, r.pick(ember))
+    for _ in range(260):                                  # cold cracks between slabs
         x, y = r.i(0, n - 1), r.i(0, n - 1)
-        if r.f() > min(1.0, max(0.05, (dens[y * n + x] - 0.30) / 0.35)):
-            continue
-        w, h = r.i(8, 30), r.i(8, 30)
-        sh = r.pick(crust)
-        blot(x, y, w, h, sh, (0, 0, 0))
-        for _ in range(3):                               # break the square outline
-            blot((x + r.i(-4, w - 4)) % n, (y + r.i(-4, h - 4)) % n,
-                 r.i(5, 14), r.i(5, 14), sh, (0, 0, 0))
-    for _ in range(420):                                 # cooling flecks on the plates
-        x, y = r.i(0, n - 1), r.i(0, n - 1)
-        if dens[y * n + x] < 0.45:
-            continue
-        blot(x, y, r.i(2, 5), r.i(2, 5), (60, 22, 14), (24, 4, 1))
-    for _ in range(150):                                 # fissures: hot, thin, wandering
-        x, y = r.i(0, n - 1), r.i(0, n - 1)
-        if dens[y * n + x] < 0.50:
-            continue
-        for _step in range(50):
-            sh = r.pick(hot)
-            c.put(x % n, y % n, sh, sh)
-            c.put((x + 1) % n, y % n, sh, sh)
+        for _step in range(M(9.0)):
+            c.put(x, y, (12, 5, 5), (14, 3, 1))
+            c.put(x + 1, y, (12, 5, 5), (14, 3, 1))
             x += r.i(-1, 1)
             y += r.i(-1, 1)
-    for _ in range(40):                                  # white-hot pools, open water only
+
+    def flow(x, y, a, steps, w, shades):
+        """A molten channel: a heading that wanders, turned back at the rim."""
+        for _step in range(steps):
+            sh = r.pick(shades)
+            blot(x - 0.5 * w, y - 0.5 * w, w, w, sh, sh)
+            a += 0.26 * r.sf()
+            x += math.cos(a)
+            y += math.sin(a)
+            if math.hypot(x - 0.5 * n, y - 0.5 * n) > edge:
+                a += math.pi
+
+    pools = []
+    for _ in range(5):                                    # 8..15 m pools, walked round
+        for _try in range(40):
+            px, py = r.i(0, n - 1), r.i(0, n - 1)
+            if math.hypot(px - 0.5 * n, py - 0.5 * n) > edge - M(9.0):
+                continue
+            if all(math.hypot(px - q[0], py - q[1]) > M(26.0) for q in pools):
+                break
+        pools.append((px, py))
+        spread = M(3.0) + r.i(0, M(3.0))          # pool: 8..15 m across, bounded
+        size = M(1.5) + r.i(0, M(1.5))
+        for _step in range(90):
+            dx, dy = r.i(-spread, spread), r.i(-spread, spread)
+            if dx * dx + dy * dy > spread * spread:
+                continue
+            sh = r.pick(hot)
+            blot(px + dx - 0.5 * size, py + dy - 0.5 * size, size, size, sh, sh)
+        for _k in range(2):                               # channels drain each pool
+            flow(px, py, r.f() * TWO_PI, 260, M(1.0) + r.i(0, M(1.2)), hot)
+    for _ in range(14):                                   # the rest of the network
+        flow(r.i(0, n - 1), r.i(0, n - 1), r.f() * TWO_PI, 240,
+             M(1.0) + r.i(0, M(1.0)), hot)
+    dim = [(150, 40, 6), (120, 30, 5), (176, 50, 9)]
+    for _ in range(150):                                  # hairline cracks, still lit
+        flow(r.i(0, n - 1), r.i(0, n - 1), r.f() * TWO_PI, 90, M(0.35), dim)
+    for _ in range(70):                                   # white-hot cores in the molten
         x, y = r.i(0, n - 1), r.i(0, n - 1)
-        if dens[y * n + x] > 0.26:
+        o = (y * n + x) * 4
+        if c.emi[o] < 0.3:
             continue
         core = r.pick([(255, 214, 96), (255, 178, 60)])
-        for _step in range(18):                          # a walked blob, not a square
-            blot(x, y, r.i(3, 6), r.i(3, 6), core, (255, 200, 80))
-            x += r.i(-3, 3)
-            y += r.i(-3, 3)
+        blot(x, y, M(0.6), M(0.6), core, core)
     images = []
     for name, buf in ((LAVA_ALBEDO, c.alb), (LAVA_EMISSIVE, c.emi)):
         img = bpy.data.images.new(name, LAVA_TEX, LAVA_TEX, alpha=False)
@@ -1236,27 +1245,10 @@ def _collider(ang):
 # =============================================================================
 
 def _lava_uv(me, uvl, poly):
-    """The sea is cut into LAVA_PATCH-metre patches; each takes its own window
-    of the sheet -- quarter-turn rotation, mirror, offset, 12..24 m per repeat.
-    The sheet is toroidal, so every one of those is still seamless, and the sea
-    repeats nowhere. Faces in a patch share the window, so the floor does not
-    break up face by face."""
-    cos = [me.vertices[me.loops[li].vertex_index].co for li in poly.loop_indices]
-    cx = sum(c[0] for c in cos) / len(cos)
-    cy = sum(c[1] for c in cos) / len(cos)
-    key = (int(math.floor(cx / LAVA_PATCH)) + 512) * 1021 + int(math.floor(cy / LAVA_PATCH)) + 512
-    q = _Rng(LAVA_SEED + key * 7919)
-    for _ in range(4):
-        q.n()
-    k = 1.0 / (LAVA_REPEAT[0] + q.f() * (LAVA_REPEAT[1] - LAVA_REPEAT[0]))
-    turns = q.i(0, 3)
-    mir = -1.0 if q.i(0, 1) else 1.0
-    ou, ov = q.f(), q.f()
-    for li, co in zip(poly.loop_indices, cos):
-        u, v = mir * co[0] * k, co[1] * k
-        for _ in range(turns):
-            u, v = -v, u
-        uvl.data[li].uv = (ou + u, ov + v)
+    """One window over the whole sea: world x,y straight into the sheet."""
+    for li in poly.loop_indices:
+        co = me.vertices[me.loops[li].vertex_index].co
+        uvl.data[li].uv = (0.5 + co[0] / LAVA_SPAN, 0.5 + co[1] / LAVA_SPAN)
 
 
 def _deck_uv(me, uvl, poly, zone, r):
