@@ -84,12 +84,17 @@ var _winner: MatchParticipant
 
 func before_each() -> void:
 	_match = TestFixtures.make_match()
+	_controller = _match.get_node("MatchController") as MatchController
+	var rules: MatchRules = TestFixtures.match_rules()
+	# The portal finish these tests are written against. The shipped rules now
+	# arm the finisher instead; see MatchRules.finisher_hunts_guard.
+	rules.finisher_hunts_guard = false
+	_controller.rules = rules
 	# Wired up after instancing but before the tree, because MatchController arms
 	# the match from _ready: a listener connected later would miss match_started
 	# and the race that follows it.
 	add_child(_match)
 
-	_controller = _match.get_node("MatchController") as MatchController
 	_controller.seat_changed.connect(_on_seat_changed)
 	_controller.match_won.connect(_on_match_won)
 

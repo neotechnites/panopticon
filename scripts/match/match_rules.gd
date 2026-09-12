@@ -254,6 +254,24 @@ enum RunnerAbility {
 ## like.
 @export_range(1, 10, 1, "or_greater") var prisoner_lives: int = 1
 
+# --- The finisher -------------------------------------------------------------
+
+## Whether reaching the end ARMS the prisoner instead of ending the round.
+## [b]LIVE[/b], default true.
+##
+## True: the finisher is handed the guard's own rifle and the round runs on until
+## one of them is dead. Killing the guard takes the tower exactly as the portal
+## used to. False restores the portal finish. The opening race is unaffected --
+## first through still takes the tower, because there is no guard to kill.
+@export var finisher_hunts_guard: bool = true
+
+## Hit points an armed finisher absorbs from the guard's rifle. [b]LIVE.[/b]
+@export_range(1, 100, 1, "or_greater") var finisher_health: int = 10
+
+## Hit points the guard absorbs from the finisher's rifle. [b]LIVE[/b], default
+## 1 = one shot takes the tower.
+@export_range(1, 100, 1, "or_greater") var guard_health: int = 1
+
 # --- The rifle ----------------------------------------------------------------
 
 ## The whole gun, as data. [b]LIVE when set, null = the weapon keeps its own.[/b]

@@ -61,7 +61,11 @@ var _announced_round: int = 0
 func before_each() -> void:
 	_match = TestFixtures.make_match()
 	_controller = _match.get_node("MatchController") as MatchController
-	_controller.rules = TestFixtures.match_rules()
+	var rules: MatchRules = TestFixtures.match_rules()
+	# The portal finish these tests are written against. The shipped rules now
+	# arm the finisher instead; see MatchRules.finisher_hunts_guard.
+	rules.finisher_hunts_guard = false
+	_controller.rules = rules
 	add_child(_match)
 
 	_human = _controller.get_human_participant()

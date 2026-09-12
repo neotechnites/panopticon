@@ -99,12 +99,17 @@ var _probe_resolve_count: int = -1
 
 func before_each() -> void:
 	_match = TestFixtures.make_match()
+	_controller = _match.get_node("MatchController") as MatchController
+	var rules: MatchRules = TestFixtures.match_rules()
+	# The portal finish these tests are written against. The shipped rules now
+	# arm the finisher instead; see MatchRules.finisher_hunts_guard.
+	rules.finisher_hunts_guard = false
+	_controller.rules = rules
 	# Everything above happens before the instance enters the tree, because
 	# MatchController arms the match from _ready and that arming is itself under
 	# test.
 	add_child(_match)
 
-	_controller = _match.get_node("MatchController") as MatchController
 	_player = _match.get_node("Player") as PlayerController
 	_controller.round_resolved.connect(_on_round_resolved)
 	_controller.match_won.connect(_on_match_won)
