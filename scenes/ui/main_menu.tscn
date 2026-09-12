@@ -1,4 +1,4 @@
-[gd_scene load_steps=11 format=3]
+[gd_scene load_steps=13 format=3]
 
 [ext_resource type="Script" path="res://scripts/ui/main_menu.gd" id="1_main_menu"]
 [ext_resource type="Script" path="res://scripts/ui/settings_boot.gd" id="2_settings_boot"]
@@ -12,6 +12,8 @@
 [ext_resource type="Resource" path="res://scenes/ui/menu_watching_eye_profile.tres" id="10_watcher_profile"]
 [ext_resource type="Script" path="res://scripts/ui/menu_tower_camera.gd" id="11_menu_camera"]
 [ext_resource type="Theme" path="res://scenes/ui/panopticon_menu_theme.tres" id="12_theme"]
+[ext_resource type="AudioStream" path="res://assets/audio/music/PLACEHOLDER_menu_theme.ogg" id="90_music"]
+[ext_resource type="Script" path="res://scripts/audio/music_loop.gd" id="90_music_loop"]
 
 [sub_resource type="Environment" id="Env_menu"]
 background_mode = 1
@@ -128,3 +130,10 @@ visible = false
 [node name="SettingsScreen" parent="." instance=ExtResource("6_settings_screen")]
 unique_name_in_owner = true
 visible = false
+
+[node name="Music" type="AudioStreamPlayer" parent="."]
+stream = ExtResource("90_music")
+volume_db = -10.0
+autoplay = true
+bus = &"Music"
+script = ExtResource("90_music_loop")
