@@ -1,5 +1,5 @@
 {
-  "_comment": "What scenes/player/prisoner_avatar.tscn and scripts/player/prisoner_avatar.gd address this model by. prisoner2 is a drop-in swap for runner.glb, so the node path and clip names are deliberately identical. Checked on the PC by lib/verify_glb.gd after every build; a build that breaks any of it is not installed.",
+  "_comment": "What scenes/player/prisoner_avatar.tscn and scripts/player/prisoner_avatar.gd address this model by. prisoner2 is a drop-in swap for runner.glb, so the node path and clip names are deliberately identical. Two surfaces: the body, and the 'Shirt' surface MatchController tints per team. Checked on the PC by lib/verify_glb.gd after every build; a build that breaks any of it is not installed.",
   "node_paths": ["Armature/Skeleton3D/Runner", "AnimationPlayer"],
   "animations": ["Run", "Jump", "Death", "Aim", "Shove"],
   "bones": ["Hips", "Spine", "Neck", "Head",
@@ -7,6 +7,6 @@
             "UpperArm.R", "LowerArm.R", "Hand.R",
             "Thigh.L", "Shin.L", "Foot.L",
             "Thigh.R", "Shin.R", "Foot.R"],
-  "surfaces": 1,
+  "surfaces": 2,
   "max_tris": 1100
 }

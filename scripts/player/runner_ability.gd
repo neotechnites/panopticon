@@ -217,6 +217,7 @@ func _spawn_decoy() -> void:
 	var theirs: MeshInstance3D = _avatar_mesh(decoy)
 	if mine != null and theirs != null:
 		theirs.material_override = mine.material_override
+		_copy_surfaces(mine, theirs)
 	_decoy = decoy
 
 
@@ -268,6 +269,16 @@ func _cloak() -> void:
 
 
 # --- Helpers ------------------------------------------------------------------
+
+## Copy every surface override across, so a decoy wears the team shirt its
+## owner does rather than the model's bare grey.
+static func _copy_surfaces(from: MeshInstance3D, to: MeshInstance3D) -> void:
+	var count: int = mini(
+		from.get_surface_override_material_count(), to.get_surface_override_material_count()
+	)
+	for index: int in count:
+		to.set_surface_override_material(index, from.get_surface_override_material(index))
+
 
 static func _avatar_mesh(of_body: PlayerController) -> MeshInstance3D:
 	var avatar: PrisonerAvatar = of_body.get_node_or_null(^"Avatar") as PrisonerAvatar
