@@ -39,6 +39,17 @@ const PATH_DETOUR_FACTOR: float = 3.0
 const STUCK_WINDOW_SECONDS: float = 2.0
 const STUCK_DISTANCE_METRES: float = 1.0
 const STUCK_FAILURES_TO_SKIP: int = 2
+
+## Crossings that ended on their timeout before the cover game is abandoned, and
+## the seconds of plain route running that buys.
+const CROSS_FAILURES_TO_RUN: int = 2
+const ROUTE_OVERRIDE_SECONDS: float = 8.0
+
+## Escape bursts tried before the body follows the mesh path wherever it leads,
+## and the seconds that trust lasts.
+const UNSTICK_TRIES_TO_TRUST_PATH: int = 3
+const TRUST_PATH_SECONDS: float = 5.0
+
 ## Seconds of driving one escape direction after a stuck failure, and the
 ## metres of clear ground that end the burst early.
 const UNSTICK_SLIDE_SECONDS: float = 1.5
@@ -142,6 +153,10 @@ var _anchor_is_cover: bool = false
 var _hold_seconds: float = 0.0
 var _cross_seconds: float = 0.0
 var _cross_budget: float = 0.0
+
+## Consecutive crossings that timed out, and what is left of the route run they buy.
+var _failed_crossings: int = 0
+var _route_override: float = 0.0
 var _cross_wants_slide: bool = false
 var _cross_slid: bool = false
 var _cross_slide_held: bool = false
@@ -182,6 +197,10 @@ var _unstick_direction: Vector3 = Vector3.ZERO
 var _unstick_from: Vector3 = Vector3.ZERO
 var _unstick_try: int = 0
 var _unstick_lane: float = 0.0
+
+## While positive, the mesh path is followed as given: no lane shortcut and no
+## refusing a corner for pointing backwards.
+var _trust_path: float = 0.0
 
 var _crossings: int = 0
 var _crossings_to_cover: int = 0
@@ -287,6 +306,8 @@ func _arm(
 	_hold_seconds = 0.0
 	_cross_seconds = 0.0
 	_cross_budget = 0.0
+	_failed_crossings = 0
+	_route_override = 0.0
 	_cross_wants_slide = false
 	_cross_slid = false
 	_cross_slide_held = false
@@ -755,6 +776,7 @@ func _physics_process(delta: float) -> void:
 	if _tick_flight(delta):
 		return
 	_unstick_lane = maxf(_unstick_lane - delta, 0.0)
+	_trust_path = maxf(_trust_path - delta, 0.0)
 	if _tick_unstick(delta):
 		return
 
@@ -773,6 +795,15 @@ func _physics_process(delta: float) -> void:
 		_run_route(delta)
 		if not _hop_lake_ledge(delta):
 			_tick_stuck(delta)
+		return
+
+	# The cover game has nowhere to go from here: run the route for a few
+	# seconds, which is the path that knows the lake, the pads and the unstick.
+	if _route_override > 0.0:
+		_route_override -= delta
+		_run_route(delta)
+		_tick_stuck(delta)
+		_maybe_jump(delta)
 		return
 
 	var climbing: bool = _ramp_from >= 0 and _wp >= _ramp_from
@@ -808,10 +839,13 @@ func _physics_process(delta: float) -> void:
 	match _state:
 		State.RECOVER:
 			_tick_recover(remaining_arc, delta)
+			_tick_stuck(delta)
 		State.HOLD:
 			_tick_hold(remaining_arc, delta)
+			_tick_stuck(delta)
 		State.EVALUATE:
 			_tick_evaluate(remaining_arc, delta)
+			_tick_stuck(delta)
 		State.CROSS:
 			_tick_cross(delta)
 		_:
@@ -955,6 +989,7 @@ func _skip_ahead() -> void:
 		_wp += 1
 	if _state == State.CROSS:
 		_release_slide()
+		_note_crossing(false)
 		_has_anchor = false
 		_has_target = false
 		_set_state(State.RECOVER)
@@ -1013,7 +1048,7 @@ func _next_path_point() -> Vector3:
 		return controller.global_position
 	# Just unstuck: the path's first corner is the body's own snap, on the far
 	# side of what it was wedged behind. The open lane ahead is the way out.
-	if _unstick_lane > 0.0 and not _in_lake() and not _waypoint_is_ramp(_wp):
+	if _unstick_lane > 0.0 and _trust_path <= 0.0 and not _in_lake() and not _waypoint_is_ramp(_wp):
 		return _current_waypoint()
 	var next: Vector3 = _agent_target
 	if _agent_live() and not _agent.is_navigation_finished():
@@ -1024,7 +1059,7 @@ func _next_path_point() -> Vector3:
 		var staged: Vector3 = _pad_approach_point()
 		if is_finite(staged.x):
 			return staged
-	if _waypoint_is_ramp(_wp):
+	if _waypoint_is_ramp(_wp) or _trust_path > 0.0:
 		return next
 	if _forward_arc_of(next) < _travelled_arc - deg_to_rad(BACKWARD_ARC_TOLERANCE_DEGREES):
 		return _point_on_track(_previous_angle + TRAVEL_SIGN * deg_to_rad(BACKWARD_ARC_TOLERANCE_DEGREES))
@@ -1105,6 +1140,12 @@ func _reset_stuck() -> void:
 
 ## Under 1 m in 2 s: re-path first, skip the waypoint (or give up the crossing) second.
 func _tick_stuck(delta: float) -> void:
+	# Standing still on purpose is not being stuck; only a body that is asking
+	# to move and not moving is.
+	if input.command.move_direction == Vector2.ZERO:
+		_stuck_seconds = 0.0
+		_stuck_origin = controller.global_position
+		return
 	_stuck_seconds += delta
 	if _stuck_seconds < STUCK_WINDOW_SECONDS:
 		return
@@ -1146,6 +1187,11 @@ func _arm_unstick() -> void:
 	if not _on_mesh() or _flat_distance(here, _unstick_from) < STUCK_DISTANCE_METRES:
 		_unstick_try += 1
 	var ways: Array[Vector3] = [side, -side, out, -blocked, -out]
+	if _unstick_try >= UNSTICK_TRIES_TO_TRUST_PATH:
+		# Every cheap escape has failed: the mesh knows a way out of this pocket
+		# and the lane does not.
+		_trust_path = TRUST_PATH_SECONDS
+		_aim_agent(_current_waypoint(), true)
 	_unstick_direction = ways[_unstick_try % ways.size()]
 	_unstick_from = here
 	_unstick_seconds = UNSTICK_SLIDE_SECONDS
@@ -1234,9 +1280,25 @@ func _tick_cross(delta: float) -> void:
 	var settled: bool = arrived and (not _anchor_is_cover or not _perception.is_exposed())
 	if settled or _cross_seconds >= _cross_budget:
 		_release_slide()
+		_note_crossing(settled)
 		_set_state(State.RECOVER)
 		return
 	_tick_stuck(delta)
+
+
+## Score a finished crossing. Enough timeouts in a row and the cover game is
+## stood down for [constant ROUTE_OVERRIDE_SECONDS]: it is not getting anywhere.
+func _note_crossing(arrived: bool) -> void:
+	if arrived:
+		_failed_crossings = 0
+		return
+	_failed_crossings += 1
+	if _failed_crossings < CROSS_FAILURES_TO_RUN:
+		return
+	_failed_crossings = 0
+	_route_override = ROUTE_OVERRIDE_SECONDS
+	_has_anchor = false
+	_has_target = false
 
 
 ## Press and hold slide once per crossing, only on a straight, hazard-free chord at speed.
