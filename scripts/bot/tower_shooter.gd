@@ -372,7 +372,9 @@ func _physics_process(delta: float) -> void:
 ## and second design requirements, enforced structurally rather than by care.
 func _visible_targets() -> Array[PlayerController]:
 	var found: Array[PlayerController] = []
-	for node: Node in get_tree().get_nodes_in_group(target_group):
+	var pool: Array[Node] = get_tree().get_nodes_in_group(target_group)
+	pool.append_array(get_tree().get_nodes_in_group(RunnerPower.DECOY_GROUP))
+	for node: Node in pool:
 		var body: PlayerController = node as PlayerController
 		if body == null or body == controller:
 			continue
@@ -387,7 +389,7 @@ func _visible_targets() -> Array[PlayerController]:
 
 
 ## False for a camouflaged runner beyond [constant RunnerPower.CAMO_VISIBLE_RANGE].
-## Holograms carry no camo and sit in the group, so they pass like any runner.
+## Holograms carry no camo and are pooled with the runners, so they pass like any runner.
 func _is_discernible(body: PlayerController) -> bool:
 	var ability: RunnerPower = RunnerPower.of(body)
 	if ability == null or not ability.is_camouflaged():
