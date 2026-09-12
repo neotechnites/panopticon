@@ -551,7 +551,7 @@ enum RunnerAbility {
 @export_range(0.5, 10.0, 0.5, "or_greater") var shove_range_metres: float = 3.0
 
 ## Seconds between one prisoner's shoves. [b]LIVE.[/b]
-@export_range(0.0, 30.0, 0.1, "or_greater") var shove_cooldown_seconds: float = 0.0
+@export_range(0.0, 30.0, 0.1, "or_greater") var shove_cooldown_seconds: float = 1.5
 
 # --- The AI in the tower ------------------------------------------------------
 
