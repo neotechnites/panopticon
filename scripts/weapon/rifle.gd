@@ -713,6 +713,12 @@ func show_remote_hit(collider: Node3D, at: Vector3, normal: Vector3) -> void:
 	target_hit.emit(collider, at, normal)
 
 
+## Cosmetic replay of a miss the authority resolved. The twin of
+## [method show_remote_hit]: a miss is just as loud.
+func show_remote_miss(end_point: Vector3) -> void:
+	missed.emit(end_point)
+
+
 func _cast(from: Vector3, to: Vector3) -> Dictionary:
 	var space: PhysicsDirectSpaceState3D = get_world_3d().direct_space_state
 	if space == null:

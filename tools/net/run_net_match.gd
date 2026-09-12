@@ -3,6 +3,11 @@ extends SceneTree
 ## Headless server or client for a localhost net match. Logs phases, seats,
 ## positions and errors to --log. Run one --role=server and N --role=client.
 ## --screen=true goes through the real MultiplayerScreen instead of the lobby API.
+##
+## Debug hooks, server only, seconds into the match: --arm-finisher hands the
+## remote prisoner the second rifle without making it run a lap, and --kill-guard
+## lands a shot on the guard. Both exist to exercise what a CLIENT is shown.
+## --press-fire is when the scripted human first pulls the trigger.
 
 const MATCH_SCENE: String = "res://scenes/match/match.tscn"
 const SESSION_SCENE: String = "res://scenes/net/net_session.tscn"
@@ -26,6 +31,8 @@ var _readied: bool = false
 var _launched: bool = false
 var _finished: bool = false
 var _errors: int = 0
+var _armed_finisher: bool = false
+var _killed_guard: bool = false
 
 
 func _initialize() -> void:
@@ -33,6 +40,7 @@ func _initialize() -> void:
 		"role": "server", "address": "127.0.0.1", "port": 27960, "seconds": 90.0,
 		"log": "", "seats": 6, "tower": 1, "name": "", "humans": 3, "fire-every": 0.0,
 		"screen": false, "preset": "classic", "press-ability": 0, "press-at": 6.0,
+		"press-fire": 4.0, "arm-finisher": 0.0, "kill-guard": 0.0,
 	})
 	Engine.max_fps = 60
 	_started_ms = Time.get_ticks_msec()
@@ -101,6 +109,7 @@ func _process(_delta: float) -> bool:
 		if _tick() >= 0 and bucket != _last_bucket:
 			_last_bucket = bucket
 			_sample()
+		_run_debug_hooks(in_match)
 		if in_match >= float(_o.get("seconds", 90.0)):
 			_finish("time budget")
 	elif elapsed > 60.0:
@@ -111,6 +120,39 @@ func _process(_delta: float) -> bool:
 func _finalize() -> void:
 	if _log != null:
 		_log.close()
+
+
+# --- Debug hooks --------------------------------------------------------------
+
+## The server's two shortcuts into the finisher ending, so a 60 second run can
+## show a client what it is meant to see without a prisoner running a full lap.
+func _run_debug_hooks(in_match: float) -> void:
+	if not _is_server() or _controller == null:
+		return
+	var arm_at: float = float(_o.get("arm-finisher", 0.0))
+	if arm_at > 0.0 and not _armed_finisher and in_match >= arm_at:
+		_armed_finisher = true
+		var who: MatchParticipant = _remote_prisoner()
+		if who == null:
+			_line("DEBUG arm-finisher: no remote prisoner to arm")
+		else:
+			_line("DEBUG arm-finisher who=%s" % _who(who))
+			_controller._arm_the_finisher(who)
+	var kill_at: float = float(_o.get("kill-guard", 0.0))
+	if kill_at > 0.0 and not _killed_guard and in_match >= kill_at:
+		_killed_guard = true
+		var guard: MatchParticipant = _controller.get_seat_participant()
+		_line("DEBUG kill-guard guard=%s finisher=%s" % [
+			_who(guard), _who(_controller.get_finisher())])
+		_controller.apply_guard_hit(guard)
+
+
+## A prisoner some other peer is driving: the one whose client this run is about.
+func _remote_prisoner() -> MatchParticipant:
+	for p: MatchParticipant in _controller.get_participants():
+		if p.is_human() and p != _controller.get_human_participant() and p.is_running:
+			return p
+	return null
 
 
 # --- Lobby --------------------------------------------------------------------
@@ -220,6 +262,7 @@ func _hook_match(match_scene: Node) -> void:
 		_line("MATCH bound authority=true (started on load)")
 	var scripted: ScriptedIntentSource = ScriptedIntentSource.new()
 	scripted.name = "Scripted"
+	scripted.fire_at = float(_o.get("press-fire", 4.0))
 	scripted.fire_every = float(_o.get("fire-every", 0.0))
 	scripted.ability_slot = int(_o.get("press-ability", 0))
 	scripted.ability_at = float(_o.get("press-at", 6.0))
@@ -250,10 +293,43 @@ func _hook_controller() -> void:
 			_line("RIFLE fired by=%s from=%.1f,%.1f,%.1f" % [_who(_controller.get_seat_participant()), origin.x, origin.y, origin.z]))
 		_controller.rifle.target_hit.connect(func(collider: Node3D, _at: Vector3, _n: Vector3) -> void:
 			_line("RIFLE hit=%s" % _who(_controller.resolve_participant(collider))))
+	_controller.finisher_armed.connect(_on_finisher_armed)
+	_controller.match_started.connect(func(_count: int) -> void: _watch_bodies())
 	var transition: RoundTransitionScreen = _match.get_node_or_null("RoundTransition") as RoundTransitionScreen
 	if transition != null:
 		transition.transition_shown.connect(func(round_number: int) -> void:
 			_line("EV card_shown round=%d paused=%s" % [round_number, str(paused)]))
+
+
+## What a client has to be able to see: the second rifle on its own body, and
+## every shot it takes.
+func _on_finisher_armed(weapon: Rifle) -> void:
+	var who: MatchParticipant = _controller.get_finisher()
+	var mine: bool = who != null and who == _controller.get_human_participant()
+	var head: Node = weapon.get_parent()
+	_line("FINISHER armed who=%s mine=%s rifle_under=%s health=%d armed_flag=%s" % [
+		_who(who), str(mine), head.get_path() if head != null else "none",
+		_controller.get_health(who), str(who.body.is_armed) if who != null and who.body != null else "?",
+	])
+	weapon.fired.connect(func(origin: Vector3, end_point: Vector3) -> void:
+		_line("FINISHER fired from=%.1f,%.1f,%.1f to=%.1f,%.1f,%.1f" % [
+			origin.x, origin.y, origin.z, end_point.x, end_point.y, end_point.z]))
+	weapon.target_hit.connect(func(collider: Node3D, _at: Vector3, _n: Vector3) -> void:
+		_line("FINISHER hit=%s" % _who(_controller.resolve_participant(collider))))
+	weapon.missed.connect(func(end_point: Vector3) -> void:
+		_line("FINISHER missed at=%.1f,%.1f,%.1f" % [end_point.x, end_point.y, end_point.z]))
+
+
+## The kill beat is a death clip on the guard, wherever it is run.
+func _watch_bodies() -> void:
+	for p: MatchParticipant in _controller.get_participants():
+		if p.body == null:
+			continue
+		var who: MatchParticipant = p
+		p.body.died.connect(func() -> void: _line("BODY died who=%s" % _who(who)))
+		p.body.jumped.connect(func() -> void: _line("BODY jumped who=%s" % _who(who)))
+		p.body.slide_started.connect(func(_speed: float) -> void:
+			_line("BODY slide_started who=%s" % _who(who)))
 
 
 func _who(p: MatchParticipant) -> String:

@@ -58,6 +58,27 @@ var ability: int = 0
 ## Seconds left on that power, quantised to a tenth on the wire.
 var ability_remaining: float = 0.0
 
+## Seconds left before that power may be used again, quantised to a tenth.
+## Drawn by the client's own HUD, which has no cooldown clock of its own.
+var cooldown_remaining: float = 0.0
+
+## Whether the authority had armed this body as the finisher, and whether it is
+## holding a rifle. Both are drawn on a mirror and simulated on neither.
+var is_finisher: bool = false
+var is_armed: bool = false
+
+## Hit points left, 0-255 on the wire. The finisher's, and the guard's.
+var health: int = 0
+
+## The authority's body jumped on the tick this was sampled. An EDGE, not a
+## state: a mirror turns it back into [signal PlayerController.jumped].
+var jumped: bool = false
+
+## Whether the authority had this body sliding or crouched. A client runs no
+## physics, so the poses have nowhere else to come from.
+var sliding: bool = false
+var crouching: bool = false
+
 
 func clear() -> void:
 	seat_index = 0
@@ -69,6 +90,13 @@ func clear() -> void:
 	on_floor = false
 	ability = 0
 	ability_remaining = 0.0
+	cooldown_remaining = 0.0
+	is_finisher = false
+	is_armed = false
+	health = 0
+	jumped = false
+	sliding = false
+	crouching = false
 
 
 func copy_from(other: PlayerState) -> void:
@@ -81,6 +109,13 @@ func copy_from(other: PlayerState) -> void:
 	on_floor = other.on_floor
 	ability = other.ability
 	ability_remaining = other.ability_remaining
+	cooldown_remaining = other.cooldown_remaining
+	is_finisher = other.is_finisher
+	is_armed = other.is_armed
+	health = other.health
+	jumped = other.jumped
+	sliding = other.sliding
+	crouching = other.crouching
 
 
 ## Blend towards [param other] by [param weight], writing into this state.
@@ -98,6 +133,15 @@ func interpolate_from(from: PlayerState, to: PlayerState, weight: float) -> void
 	# is up is up, and half of one is not a thing to draw.
 	ability = to.ability
 	ability_remaining = to.ability_remaining
+	# Every other fact below is taken from the newer end for the same reason:
+	# a rifle half-drawn and half of a jump are not things to draw.
+	cooldown_remaining = to.cooldown_remaining
+	is_finisher = to.is_finisher
+	is_armed = to.is_armed
+	health = to.health
+	jumped = to.jumped
+	sliding = to.sliding
+	crouching = to.crouching
 	position = from.position.lerp(to.position, t)
 	velocity = from.velocity.lerp(to.velocity, t)
 	yaw = lerp_angle(from.yaw, to.yaw, t)

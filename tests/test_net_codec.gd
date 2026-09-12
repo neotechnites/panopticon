@@ -43,6 +43,13 @@ func _make_state(seat: int, offset: float) -> PlayerState:
 	state.on_floor = seat % 2 == 0
 	state.ability = seat % 5
 	state.ability_remaining = 0.5 * float(seat)
+	state.cooldown_remaining = 0.3 * float(seat)
+	state.is_finisher = seat == 1
+	state.is_armed = seat == 1
+	state.health = 3 + seat
+	state.jumped = seat == 2
+	state.sliding = seat == 2
+	state.crouching = seat == 0
 	return state
 
 
@@ -132,6 +139,18 @@ func test_a_snapshot_survives_the_round_trip() -> void:
 			0.05,
 			"seat %d ability_remaining, quantised to a tenth" % seat,
 		)
+		assert_almost_eq(
+			state.cooldown_remaining,
+			expected.cooldown_remaining,
+			0.05,
+			"seat %d cooldown_remaining, quantised to a tenth" % seat,
+		)
+		assert_true(state.is_finisher == expected.is_finisher, "seat %d is_finisher" % seat)
+		assert_true(state.is_armed == expected.is_armed, "seat %d is_armed" % seat)
+		assert_eq_int(state.health, expected.health, "seat %d health" % seat)
+		assert_true(state.jumped == expected.jumped, "seat %d jumped, an edge on the wire" % seat)
+		assert_true(state.sliding == expected.sliding, "seat %d sliding" % seat)
+		assert_true(state.crouching == expected.crouching, "seat %d crouching" % seat)
 		assert_eq_int(state.tick, 900, "seat %d carries the snapshot's tick" % seat)
 
 
@@ -295,6 +314,8 @@ func test_a_state_blends_towards_the_newer_one() -> void:
 	assert_vec3_almost_eq(blend.position, Vector3(2.5, 0.0, 0.0), 0.001, "a quarter of the way")
 	assert_almost_eq(blend.yaw, 0.25, 0.001, "yaw follows")
 	assert_eq_int(blend.seat_index, 2, "the seat is carried, not blended")
+	assert_true(blend.sliding == to.sliding, "a pose comes from the newer end, never half of one")
+	assert_eq_int(blend.health, to.health, "so do the hit points")
 
 	blend.interpolate_from(from, to, 2.0)
 	assert_vec3_almost_eq(blend.position, to.position, 0.001, "weight is clamped, never extrapolated")
