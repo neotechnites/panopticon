@@ -1470,6 +1470,11 @@ func handle_fall(participant: MatchParticipant) -> bool:
 	if participant == null or is_resolved() or _refuses_local_decision():
 		return false
 	if participant.body != null and participant.body.get_intent().godmode:
+		# Dev: back to the start line instead of dying.
+		var place: Vector3 = _start_place_for(participant.index, _participants.size())
+		participant.body.global_position = place
+		participant.body.rotation = Vector3(0.0, _heading_of(_track_tangent(_angle_of(place))), 0.0)
+		participant.body.launch(Vector3.ZERO)
 		return false
 	match _phase:
 		Phase.RACE:
