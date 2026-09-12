@@ -2205,6 +2205,10 @@ func _tinted_material(participant: MatchParticipant, colour: Color) -> Material:
 	else:
 		material = base.duplicate() as BaseMaterial3D
 	material.albedo_color = tint_color(colour)
+	# Self-lit: the arena's red light would otherwise swallow every hue.
+	material.emission_enabled = true
+	material.emission = Color(colour.r, colour.g, colour.b, 1.0)
+	material.emission_energy_multiplier = 0.9
 	if colour.a < 1.0:
 		material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	_tint_cache[key] = material
