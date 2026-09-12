@@ -457,7 +457,7 @@ transform = Transform3D(3.0658362, 0, -0.7328331, 0, 1.8605616, 0, 1.2386792, 0,
 [node name="S3_Split" type="Node3D" parent="Sections" unique_id=61707270]
 
 [node name="RockWall_153deg2" parent="Sections/S3_Split" unique_id=435760959 instance=ExtResource("14_rock_wall")]
-transform = Transform3D(-0.07944784, 0.0026787363, -3.089263, 0.014537797, 3.09025, 0.0023057105, 3.0892308, -0.014473695, -0.079459436, 46.51744, 23.132805, 3.6760964)
+transform = Transform3D(-0.07944784, 0.0026787363, -1.1119696, 0.014537797, 3.09025, 0.0008299325, 3.0892308, -0.014473695, -0.02860115, 46.51744, 23.132805, 3.6760964)
 
 [node name="SpeedPowerup" parent="Sections/S3_Split" unique_id=1641447572 instance=ExtResource("24_speed_powerup_scene")]
 editor_description = "Parked on top of the tower until Ryan places it at the end of the hard route."
