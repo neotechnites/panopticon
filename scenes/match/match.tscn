@@ -1,4 +1,4 @@
-[gd_scene load_steps=26 format=3]
+[gd_scene load_steps=27 format=3]
 
 [ext_resource type="PackedScene" path="res://scenes/ring/bentham_ring.tscn" id="1_arena"]
 [ext_resource type="PackedScene" path="res://scenes/player/player.tscn" id="2_player"]
@@ -23,6 +23,7 @@
 [ext_resource type="Resource" path="res://resources/rules/default_match_readout.tres" id="21_readout"]
 [ext_resource type="PackedScene" path="res://scenes/ui/round_transition_screen.tscn" id="22_round_transition"]
 [ext_resource type="Script" path="res://scripts/net/net_match.gd" id="23_net_match"]
+[ext_resource type="Theme" path="res://scenes/ui/panopticon_menu_theme.tres" id="24_menu_theme"]
 [ext_resource type="AudioStream" path="res://assets/audio/music/PLACEHOLDER_match_theme.ogg" id="90_music"]
 [ext_resource type="Script" path="res://scripts/audio/music_loop.gd" id="90_music_loop"]
 
@@ -70,175 +71,382 @@ shove_camera_kick = NodePath("../FeedbackRig/CameraKick")
 
 [node name="HUD" type="CanvasLayer" parent="."]
 
-[node name="Root" type="Control" parent="HUD" node_paths=PackedStringArray("controller", "rifle", "readout_panel", "role_label", "primary_label", "objective_label", "context_label", "hint_label", "outcome_label", "handover_panel", "handover_title", "handover_detail")]
+[node name="Root" type="Control" parent="HUD" node_paths=PackedStringArray("controller", "rifle", "crosshair", "status_panel", "status_label", "flash_label", "tower_panel", "tower_fill", "tower_value", "guard_panel", "guard_fill", "guard_value", "pips_row", "power_panel", "power_label", "power_fill", "boost_label", "dev_label")]
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
+theme = ExtResource("24_menu_theme")
 script = ExtResource("6_hud")
 controller = NodePath("../../MatchController")
 rifle = NodePath("../../Player/Head/Rifle")
-readout_panel = NodePath("Readout")
-role_label = NodePath("Readout/Lines/Role")
-primary_label = NodePath("Readout/Lines/Primary")
-objective_label = NodePath("Readout/Lines/Objective")
-context_label = NodePath("Readout/Lines/Context")
-hint_label = NodePath("Hint")
-outcome_label = NodePath("Outcome")
-handover_panel = NodePath("Handover")
-handover_title = NodePath("Handover/Layout/Title")
-handover_detail = NodePath("Handover/Layout/Detail")
-announcements = ExtResource("20_announcements")
+crosshair = NodePath("Crosshair")
+status_panel = NodePath("Status")
+status_label = NodePath("Status/Line")
+flash_label = NodePath("Flash")
+tower_panel = NodePath("TowerReload")
+tower_fill = NodePath("TowerReload/Track/Fill")
+tower_value = NodePath("TowerReload/Value")
+guard_panel = NodePath("GuardReload")
+guard_fill = NodePath("GuardReload/Track/Fill")
+guard_value = NodePath("GuardReload/Value")
+pips_row = NodePath("Pips")
+power_panel = NodePath("Power")
+power_label = NodePath("Power/Name")
+power_fill = NodePath("Power/Track/Fill")
+boost_label = NodePath("Boost")
+dev_label = NodePath("Dev")
 readout = ExtResource("21_readout")
 
-[node name="Readout" type="Control" parent="HUD/Root"]
-offset_left = 12.0
-offset_top = 10.0
-offset_right = 404.0
-offset_bottom = 138.0
-mouse_filter = 2
-editor_description = "What the player needs to know, and only that. Four lines whose CONTENT depends on the role the human is playing -- tower, prisoner, ghost, or watching -- because the two sides of this game do not share a single interesting number. scripts/match/match_hud.gd writes four strings and four colours off resources/rules/default_match_readout.tres and nothing else; every node under here is authored in this file. Top-left at 392x128 on purpose: it clears the crosshair, the ring band and the horizon at every supported resolution, which matters because the guard is shooting 0.4 m targets at 35-60 m and the prisoner is reading cover at a run. Hidden by MatchHud whenever the match has no human participant, which is every headless bot sweep. mouse_filter IGNORE, like every other node in this HUD."
-
-[node name="Backdrop" type="ColorRect" parent="HUD/Root/Readout"]
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 2
-color = Color(0, 0, 0, 0.42)
-editor_description = "The arena is lit by ONE red light above the tower and is deliberately dark, so this readout is drawn over black concrete, red-lit concrete, a lit tower and the sky depending on where the player is standing. Text alone is illegible over at least two of those. Translucent rather than opaque so the deck is still visible through it, and pure black rather than tinted so it darkens the red light instead of joining it."
-
-[node name="Lines" type="VBoxContainer" parent="HUD/Root/Readout"]
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = 10.0
-offset_top = 6.0
-offset_right = -10.0
-offset_bottom = -6.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 2
-theme_override_constants/separation = 2
-
-[node name="Role" type="Label" parent="HUD/Root/Readout/Lines"]
-theme_override_colors/font_outline_color = Color(0, 0, 0, 0.9)
-theme_override_constants/outline_size = 6
-theme_override_font_sizes/font_size = 18
-text = "TOWER  ·  TURN 2"
-editor_description = "What you ARE. Placeholder text for the editor; MatchHud overwrites it every frame. The seat holder's turn count rides on this line rather than below it because the reload shortens with every turn, so the turn number IS how dangerous this tower is."
-
-[node name="Primary" type="Label" parent="HUD/Root/Readout/Lines"]
-theme_override_colors/font_outline_color = Color(0, 0, 0, 0.9)
-theme_override_constants/outline_size = 7
-theme_override_font_sizes/font_size = 40
-text = "RELOAD 1.8"
-editor_description = "The one number the role lives on, at a size that can be read in peripheral vision without looking away from the ring: the reload countdown in the tower, the metres left on the ring, the orders as a ghost. Its COLOUR is written by MatchHud off MatchReadoutProfile -- amber reloading, green ready, cyan as a ghost -- and never red, because red is the only light in this arena and a red reload countdown would vanish into the deck."
-
-[node name="Objective" type="Label" parent="HUD/Root/Readout/Lines"]
-theme_override_colors/font_outline_color = Color(0, 0, 0, 0.9)
-theme_override_constants/outline_size = 6
-theme_override_font_sizes/font_size = 16
-text = "PRISONERS 2 / 3  ·  CONVERT THEM ALL"
-editor_description = "How many prisoners are still alive, and what the rules IN PLAY say winning is. Both halves are read off the live MatchRules rather than assumed: the runners' half changes under ALL_ARRIVALS, and a shooter win condition MatchRules declares but does not implement says so instead of being described as the one that is."
-
-[node name="Context" type="Label" parent="HUD/Root/Readout/Lines"]
-theme_override_colors/font_outline_color = Color(0, 0, 0, 0.9)
-theme_override_constants/outline_size = 6
-theme_override_font_sizes/font_size = 14
-text = "TOWER Runner 2  ·  TURN 2  ·  2.3S RELOAD"
-editor_description = "Dim, and last, because it is true rather than urgent. A runner gets the tower: who is in it, on which turn, and how LONG their silence between shots lasts -- deliberately not how much of it is left, which is the guard's number and nobody else's. The seat holder gets match progress instead."
-
-[node name="Hint" type="Label" parent="HUD/Root"]
-anchor_top = 1.0
-anchor_bottom = 1.0
-offset_left = 12.0
-offset_top = -28.0
-offset_right = 280.0
-offset_bottom = -6.0
-grow_vertical = 0
-mouse_filter = 2
-theme_override_colors/font_outline_color = Color(0, 0, 0, 0.9)
-theme_override_constants/outline_size = 5
-theme_override_font_sizes/font_size = 13
-text = "[R] restart match"
-editor_description = "The restart key, which is a development affordance and is dressed as one: bottom-left, 13 px and dim, where it is findable and is not competing with the reload. MatchReadoutProfile.show_restart_hint takes it off entirely."
-
-[node name="Outcome" type="Label" parent="HUD/Root"]
+[node name="Crosshair" type="ColorRect" parent="HUD/Root"]
 anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -120.0
-offset_top = -48.0
-offset_right = 120.0
+offset_left = -1.5
+offset_top = -1.5
+offset_right = 1.5
+offset_bottom = 1.5
+mouse_filter = 2
+color = Color(1, 1, 1, 0.85)
+editor_description = "A 3 px dot. The centre of the screen belongs to the arena."
+
+[node name="Status" type="Control" parent="HUD/Root"]
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -240.0
+offset_top = 24.0
+offset_right = 240.0
+offset_bottom = 52.0
+grow_horizontal = 2
+mouse_filter = 2
+editor_description = "Round, prisoners left, and the tower. Written every tick by scripts/match/match_hud.gd."
+
+[node name="Plate" type="ColorRect" parent="HUD/Root/Status"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0, 0, 0, 0.35)
+
+[node name="Line" type="Label" parent="HUD/Root/Status"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.9)
+theme_override_constants/outline_size = 4
+theme_override_font_sizes/font_size = 15
+text = "ROUND 1  ·  PRISONERS 3/3  ·  TOWER: Runner 2"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Flash" type="Label" parent="HUD/Root"]
+visible = false
+anchor_left = 0.5
+anchor_top = 0.18
+anchor_right = 0.5
+anchor_bottom = 0.18
+offset_left = -320.0
+offset_right = 320.0
+offset_bottom = 34.0
+grow_horizontal = 2
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.9)
+theme_override_constants/outline_size = 6
+theme_override_font_sizes/font_size = 26
+text = "TOWER TAKEN BY RUNNER 2"
+horizontal_alignment = 1
+editor_description = "One transient line, two seconds, faded out and never stacked."
+
+[node name="TowerReload" type="Control" parent="HUD/Root"]
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 24.0
+offset_top = -70.0
+offset_right = 284.0
+offset_bottom = -24.0
+grow_vertical = 0
+mouse_filter = 2
+editor_description = "The tower rifle's reload, for a prisoner: the silence after a shot, filling."
+
+[node name="Plate" type="ColorRect" parent="HUD/Root/TowerReload"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0, 0, 0, 0.35)
+
+[node name="Title" type="Label" parent="HUD/Root/TowerReload"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 12.0
+offset_top = 6.0
+offset_right = -12.0
+offset_bottom = -26.0
+grow_horizontal = 2
+grow_vertical = 2
+modulate = Color(1, 1, 1, 0.7)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.9)
+theme_override_constants/outline_size = 4
+theme_override_font_sizes/font_size = 12
+text = "TOWER RIFLE"
+
+[node name="Value" type="Label" parent="HUD/Root/TowerReload"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 12.0
+offset_top = 4.0
+offset_right = -12.0
 offset_bottom = -24.0
 grow_horizontal = 2
 grow_vertical = 2
-horizontal_alignment = 1
-
-[node name="Handover" type="Control" parent="HUD/Root"]
-visible = false
-anchor_left = 0.5
-anchor_top = 0.28
-anchor_right = 0.5
-anchor_bottom = 0.28
-offset_left = -300.0
-offset_right = 300.0
-offset_bottom = 92.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 2
-editor_description = "The tower changing hands, announced. Raised by scripts/match/match_hud.gd on MatchController.seat_changed, held for MatchAnnouncementProfile.handover_seconds and faded out; the script only sets visible, modulate and two strings, and every node under here is authored in this file. Hidden as authored because MatchHud takes it down in _ready anyway and a banner that flashed on the first frame of every match would be worse than one the editor shows folded. Placed at 28% of the screen height rather than at the centre: it clears the role readout above it at every supported resolution, and it leaves the crosshair, the ring and the horizon unobscured, which is the whole point of announcing a seat change to somebody who is at that moment being put back on the start line. mouse_filter IGNORE, like every other node in this HUD."
-
-[node name="Backdrop" type="ColorRect" parent="HUD/Root/Handover"]
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 2
-color = Color(0, 0, 0, 0.55)
-editor_description = "Unstyled and deliberately dark: the banner is read against the deck, the sky and a lit tower depending on where the player is standing when the seat changes, and white text alone is illegible over at least one of them. Alpha rather than opaque so the arena is still visible through it."
-
-[node name="Layout" type="VBoxContainer" parent="HUD/Root/Handover"]
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 2
-alignment = 1
-theme_override_constants/separation = 2
-
-[node name="Title" type="Label" parent="HUD/Root/Handover/Layout"]
-theme_override_font_sizes/font_size = 34
-text = "RUNNER 2 TAKES THE TOWER"
-horizontal_alignment = 1
-editor_description = "Who took it, in one line, big enough to read without looking away from the ring. The text authored here is the placeholder the editor shows; MatchHud overwrites it from the participant every time the seat changes, and phrases the human's own line as YOU TAKE THE TOWER rather than the broken \"You takes\"."
-
-[node name="Detail" type="Label" parent="HUD/Root/Handover/Layout"]
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.9)
+theme_override_constants/outline_size = 4
 theme_override_font_sizes/font_size = 16
-text = "TURN 2"
-horizontal_alignment = 1
-editor_description = "Which turn in the tower this is for them, which is the number that matters: the reload shortens with every turn a player takes, so a third turn is a materially more dangerous tower than a first one and the runners are entitled to know."
+text = "READY"
+horizontal_alignment = 2
 
-[node name="Crosshair" type="Label" parent="HUD/Root"]
+[node name="Track" type="ColorRect" parent="HUD/Root/TowerReload"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 12.0
+offset_top = 30.0
+offset_right = -12.0
+offset_bottom = -8.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(1, 1, 1, 0.16)
+
+[node name="Fill" type="ColorRect" parent="HUD/Root/TowerReload/Track"]
+anchor_bottom = 1.0
+grow_vertical = 2
+mouse_filter = 2
+color = Color(1, 1, 1, 0.9)
+editor_description = "Width is the reload, driven by MatchHud through this node's right anchor."
+
+[node name="GuardReload" type="Control" parent="HUD/Root"]
 anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -12.0
-offset_top = -10.0
-offset_right = 12.0
-offset_bottom = 14.0
+offset_left = -70.0
+offset_top = 18.0
+offset_right = 70.0
+offset_bottom = 46.0
 grow_horizontal = 2
 grow_vertical = 2
-text = "+"
+mouse_filter = 2
+editor_description = "Your own reload, under the dot, where a shooter is already looking."
+
+[node name="Value" type="Label" parent="HUD/Root/GuardReload"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_bottom = -12.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.9)
+theme_override_constants/outline_size = 4
+theme_override_font_sizes/font_size = 13
+text = "READY"
 horizontal_alignment = 1
+
+[node name="Track" type="ColorRect" parent="HUD/Root/GuardReload"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = 22.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(1, 1, 1, 0.16)
+
+[node name="Fill" type="ColorRect" parent="HUD/Root/GuardReload/Track"]
+anchor_bottom = 1.0
+grow_vertical = 2
+mouse_filter = 2
+color = Color(1, 1, 1, 0.9)
+
+[node name="Pips" type="HBoxContainer" parent="HUD/Root"]
+visible = false
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -68.0
+offset_top = 54.0
+offset_right = 68.0
+offset_bottom = 62.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/separation = 4
+editor_description = "Ten pips of the finisher's health, whatever MatchRules.finisher_health is."
+
+[node name="Pip1" type="ColorRect" parent="HUD/Root/Pips"]
+custom_minimum_size = Vector2(10, 8)
+layout_mode = 2
+mouse_filter = 2
+color = Color(1, 1, 1, 1)
+
+[node name="Pip2" type="ColorRect" parent="HUD/Root/Pips"]
+custom_minimum_size = Vector2(10, 8)
+layout_mode = 2
+mouse_filter = 2
+color = Color(1, 1, 1, 1)
+
+[node name="Pip3" type="ColorRect" parent="HUD/Root/Pips"]
+custom_minimum_size = Vector2(10, 8)
+layout_mode = 2
+mouse_filter = 2
+color = Color(1, 1, 1, 1)
+
+[node name="Pip4" type="ColorRect" parent="HUD/Root/Pips"]
+custom_minimum_size = Vector2(10, 8)
+layout_mode = 2
+mouse_filter = 2
+color = Color(1, 1, 1, 1)
+
+[node name="Pip5" type="ColorRect" parent="HUD/Root/Pips"]
+custom_minimum_size = Vector2(10, 8)
+layout_mode = 2
+mouse_filter = 2
+color = Color(1, 1, 1, 1)
+
+[node name="Pip6" type="ColorRect" parent="HUD/Root/Pips"]
+custom_minimum_size = Vector2(10, 8)
+layout_mode = 2
+mouse_filter = 2
+color = Color(1, 1, 1, 1)
+
+[node name="Pip7" type="ColorRect" parent="HUD/Root/Pips"]
+custom_minimum_size = Vector2(10, 8)
+layout_mode = 2
+mouse_filter = 2
+color = Color(1, 1, 1, 1)
+
+[node name="Pip8" type="ColorRect" parent="HUD/Root/Pips"]
+custom_minimum_size = Vector2(10, 8)
+layout_mode = 2
+mouse_filter = 2
+color = Color(1, 1, 1, 1)
+
+[node name="Pip9" type="ColorRect" parent="HUD/Root/Pips"]
+custom_minimum_size = Vector2(10, 8)
+layout_mode = 2
+mouse_filter = 2
+color = Color(1, 1, 1, 1)
+
+[node name="Pip10" type="ColorRect" parent="HUD/Root/Pips"]
+custom_minimum_size = Vector2(10, 8)
+layout_mode = 2
+mouse_filter = 2
+color = Color(1, 1, 1, 1)
+
+[node name="Power" type="Control" parent="HUD/Root"]
+visible = false
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -284.0
+offset_top = -70.0
+offset_right = -24.0
+offset_bottom = -24.0
+grow_horizontal = 0
+grow_vertical = 0
+mouse_filter = 2
+editor_description = "The runner's power and where it is in its cycle. Hidden when the rules give none."
+
+[node name="Plate" type="ColorRect" parent="HUD/Root/Power"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0, 0, 0, 0.35)
+
+[node name="Name" type="Label" parent="HUD/Root/Power"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 12.0
+offset_top = 5.0
+offset_right = -12.0
+offset_bottom = -23.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.9)
+theme_override_constants/outline_size = 4
+theme_override_font_sizes/font_size = 15
+text = "ARMOR LOCK — READY"
+horizontal_alignment = 2
+
+[node name="Track" type="ColorRect" parent="HUD/Root/Power"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 12.0
+offset_top = 30.0
+offset_right = -12.0
+offset_bottom = -8.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(1, 1, 1, 0.16)
+
+[node name="Fill" type="ColorRect" parent="HUD/Root/Power/Track"]
+anchor_bottom = 1.0
+grow_vertical = 2
+mouse_filter = 2
+color = Color(1, 1, 1, 0.9)
+
+[node name="Boost" type="Label" parent="HUD/Root"]
+visible = false
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -284.0
+offset_top = -96.0
+offset_right = -24.0
+offset_bottom = -74.0
+grow_horizontal = 0
+grow_vertical = 0
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.9)
+theme_override_constants/outline_size = 4
+theme_override_font_sizes/font_size = 14
+text = "SPEED x2 · 3.0s"
+horizontal_alignment = 2
+
+[node name="Dev" type="Label" parent="HUD/Root"]
+visible = false
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -284.0
+offset_top = 24.0
+offset_right = -24.0
+offset_bottom = 42.0
+grow_horizontal = 0
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.9)
+theme_override_constants/outline_size = 4
+theme_override_font_sizes/font_size = 12
+text = "INVINCIBLE · TURBO"
+horizontal_alignment = 2
+editor_description = "Dev toggles, only while one is on."
+
 
 [node name="FeedbackRig" parent="." instance=ExtResource("10_feedback_rig")]
 editor_description = "The hit-and-kill feedback layer, pointed at the human. Purely additive: every node here subscribes to signals Rifle and MatchController already emit, no gameplay script is touched, and deleting this node leaves the match exactly as it was. On CanvasLayer 2 it draws above the HUD (layer 1) and below PauseMenu (layer 128), so a hitmarker covers the crosshair and a menu covers both. It is placed BEFORE PauseMenu in child order so PauseMenu stays the last child, which is what gives the menu first refusal on GUI input; the two Controls in here are mouse_filter IGNORE anyway. Inert with no display server -- each node checks DisplayServer at _ready, connects nothing and stops processing -- so tools/harness/ pays nothing for it. The eight exports the rig deliberately ships blank are filled in on the five child nodes below, and each one is listed in that node's own node_paths header: a NodePath export that is NOT named there resolves to null at load with no error at all, which is exactly how PauseMenu.camera was silently broken once already."

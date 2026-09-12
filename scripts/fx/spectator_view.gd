@@ -88,6 +88,14 @@ signal spectating_changed(active: bool)
 
 const HEADLESS_DISPLAY: String = "headless"
 
+## How close and how far the wheel may pull the death orbit, in metres.
+const ZOOM_MIN_METRES: float = 3.0
+const ZOOM_MAX_METRES: float = 12.0
+const ZOOM_STEP_METRES: float = 1.0
+
+## Seconds of a still mouse before the orbit starts turning by itself.
+const IDLE_ORBIT_SECONDS: float = 2.0
+
 var _inert: bool = false
 var _active: bool = false
 
@@ -98,6 +106,14 @@ var _drift_degrees: float = 0.0
 ## The player's own contribution, in radians, on top of the drift.
 var _look_yaw: float = 0.0
 var _look_pitch: float = 0.0
+
+## How far the death orbit is standing off the body, in metres. The wheel.
+var _zoom_metres: float = ZOOM_MIN_METRES
+
+## Seconds since the mouse last moved. The orbit drifts once this passes
+## [constant IDLE_ORBIT_SECONDS], so a player who is looking around is never
+## fought by the camera.
+var _idle_seconds: float = IDLE_ORBIT_SECONDS
 
 ## What the view is showing right now.
 var _state: MatchController.Spectating = MatchController.Spectating.NONE
@@ -189,7 +205,9 @@ func tick(delta: float) -> void:
 	if not _active or wanted != _state:
 		_activate(wanted)
 	_state = wanted
-	_drift_degrees += _drift_rate() * delta
+	_idle_seconds += delta
+	if _idle_seconds >= IDLE_ORBIT_SECONDS:
+		_drift_degrees += _drift_rate() * delta
 	_place(delta)
 
 
@@ -239,7 +257,9 @@ func _activate(state: MatchController.Spectating) -> void:
 	if not was_active:
 		_drift_degrees = _initial_bearing_degrees(state)
 		_look_yaw = 0.0
-		_look_pitch = deg_to_rad(profile.start_pitch_degrees)
+		_look_pitch = _default_pitch()
+		_zoom_metres = clampf(profile.death_radius_metres, ZOOM_MIN_METRES, ZOOM_MAX_METRES)
+		_idle_seconds = IDLE_ORBIT_SECONDS
 		_active = true
 		set_process_unhandled_input(profile.free_look_enabled)
 	camera.fov = profile.field_of_view_degrees
@@ -352,51 +372,36 @@ func _place_overlook() -> void:
 		camera.look_at(focus, Vector3.UP)
 
 
-## The death shot: a fixed over-the-shoulder cut on the spot the body died at,
-## built outward from that spot instead of from an orbit arm, then clamped onto
-## the gallery's own radius and height band -- see
-## [member SpectatorProfile.death_gallery_min_radius_metres] -- so it is never
-## in the rock, even for a death the kill volume caught out over the void.
+## The death shot: an orbit of the spot the body died at, at the distance the
+## wheel is holding. Mouse drag turns it, and it drifts by itself once the mouse
+## has been still for [constant IDLE_ORBIT_SECONDS].
 ##
-## Anchored on [member MatchParticipant.death_position] and
-## [member MatchParticipant.death_facing] rather than the body's live
-## transform: the body itself may already be parked a hundred metres down or
-## waiting on the start line by the time this runs, and the shot has to stay on
-## the spot the player was actually taken from for the whole hold.
+## Anchored on [member MatchParticipant.death_position] rather than the body's
+## live transform: the body may already be parked a hundred metres down or back
+## on the start line by the time this runs.
 func _place_death_shot() -> void:
-	var centre: Vector3 = (
-		controller.arena.global_position if controller.arena != null else Vector3.ZERO
-	)
-	var participant: MatchParticipant = controller.get_human_participant()
-	var body_pos: Vector3 = participant.death_position if participant != null else centre
-	var facing: Vector3 = (
-		participant.death_facing if participant != null else Vector3.FORWARD
-	)
-	if facing.length_squared() < 1e-6:
-		facing = Vector3.FORWARD
-
-	var behind: Vector2 = (
-		Vector2(body_pos.x, body_pos.z)
-		- Vector2(facing.x, facing.z) * profile.death_over_shoulder_distance_metres
-	)
-	var radial: Vector2 = behind - Vector2(centre.x, centre.z)
-	if radial.length_squared() < 1e-6:
-		radial = Vector2(1.0, 0.0)
-	radial = radial.normalized() * clampf(
-		radial.length(),
-		profile.death_gallery_min_radius_metres,
-		profile.death_gallery_max_radius_metres,
-	)
-	var height: float = clampf(
-		centre.y + profile.death_over_shoulder_height_metres,
-		profile.death_gallery_min_height_metres,
-		profile.death_gallery_max_height_metres,
-	)
-	camera.global_position = Vector3(centre.x + radial.x, height, centre.z + radial.y)
-
 	var focus: Vector3 = _focus_point()
+	var bearing: float = deg_to_rad(_drift_degrees) + _look_yaw
+	var pitch: float = clampf(
+		_look_pitch,
+		deg_to_rad(profile.pitch_min_degrees),
+		deg_to_rad(profile.pitch_max_degrees),
+	)
+	var flat: float = cos(pitch) * _zoom_metres
+	camera.global_position = focus + Vector3(
+		cos(bearing) * flat, sin(pitch) * _zoom_metres, sin(bearing) * flat
+	)
 	if camera.global_position.distance_squared_to(focus) > 1e-6:
 		camera.look_at(focus, Vector3.UP)
+
+
+## Where the orbit sits before the player touches it: the elevation the
+## profile's own standoff and height describe.
+func _default_pitch() -> float:
+	return deg_to_rad(profile.start_pitch_degrees) + atan2(
+		maxf(profile.death_height_metres - profile.death_focus_height_metres, 0.0),
+		maxf(profile.death_radius_metres, 0.01),
+	)
 
 
 ## What the camera is looking at.
@@ -432,12 +437,33 @@ func _focus_point() -> Vector3:
 func _unhandled_input(event: InputEvent) -> void:
 	if not _active or profile == null or not profile.free_look_enabled:
 		return
+	var wheel: InputEventMouseButton = event as InputEventMouseButton
+	if wheel != null and wheel.pressed:
+		if wheel.button_index == MOUSE_BUTTON_WHEEL_UP:
+			_zoom(-ZOOM_STEP_METRES)
+		elif wheel.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+			_zoom(ZOOM_STEP_METRES)
+		return
 	var motion: InputEventMouseMotion = event as InputEventMouseMotion
 	if motion == null:
 		return
 	if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
 		return
-	_look_yaw -= motion.relative.x * profile.look_sensitivity
-	_look_pitch -= motion.relative.y * profile.look_sensitivity
+	# Both signs follow the body's own look: mouse right turns the view right,
+	# mouse down looks down. They were inverted.
+	_look_yaw += motion.relative.x * profile.look_sensitivity
+	_look_pitch += motion.relative.y * profile.look_sensitivity
+	_idle_seconds = 0.0
 	# Not marked handled: [PauseMenu] and the settings screen are entitled to see
 	# input while somebody is dead, and neither of them wants mouse motion.
+
+
+## Pull the orbit in or push it out, within the band the wheel is allowed.
+func _zoom(by_metres: float) -> void:
+	_zoom_metres = clampf(_zoom_metres + by_metres, ZOOM_MIN_METRES, ZOOM_MAX_METRES)
+	_idle_seconds = 0.0
+
+
+## How far the death orbit is currently standing off, in metres.
+func get_zoom_metres() -> float:
+	return _zoom_metres
