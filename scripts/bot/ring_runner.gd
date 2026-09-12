@@ -39,6 +39,13 @@ const PATH_DETOUR_FACTOR: float = 3.0
 const STUCK_WINDOW_SECONDS: float = 2.0
 const STUCK_DISTANCE_METRES: float = 1.0
 const STUCK_FAILURES_TO_SKIP: int = 2
+## Seconds of driving one escape direction after a stuck failure, and the
+## metres of clear ground that end the burst early.
+const UNSTICK_SLIDE_SECONDS: float = 1.5
+const UNSTICK_CLEAR_METRES: float = 6.0
+## Seconds after a stuck failure that the body is steered by the lane rather
+## than by the mesh path. See [method _next_path_point].
+const UNSTICK_LANE_SECONDS: float = 3.0
 const CHASE_LOOKAHEAD_METRES: float = 10.0
 ## A path counts as straight when no point on it leaves the chord by more than this.
 const STRAIGHT_PATH_METRES: float = 0.5
@@ -170,6 +177,11 @@ var _last_threshold: float = 0.0
 var _stuck_seconds: float = 0.0
 var _stuck_origin: Vector3 = Vector3.ZERO
 var _stuck_failures: int = 0
+var _unstick_seconds: float = 0.0
+var _unstick_direction: Vector3 = Vector3.ZERO
+var _unstick_from: Vector3 = Vector3.ZERO
+var _unstick_try: int = 0
+var _unstick_lane: float = 0.0
 
 var _crossings: int = 0
 var _crossings_to_cover: int = 0
@@ -487,7 +499,11 @@ func _tick_flight(delta: float) -> bool:
 		_link_side = 0.0
 		if _has_agent_target:
 			_aim_agent(_agent_raw_target, true)
-		_reset_stuck()
+		# Only a flight that travelled clears the stuck clock: the unstick jump
+		# reads as a flight, and resetting on its landing re-armed the very
+		# timer meant to escalate it, so _tick_stuck never fired.
+		if _flat_distance(controller.global_position, _stuck_origin) >= STUCK_DISTANCE_METRES:
+			_reset_stuck()
 		return false
 	_face(_fly_aim, delta)
 	if _lake_flight:
@@ -738,6 +754,9 @@ func _physics_process(delta: float) -> void:
 		return
 	if _tick_flight(delta):
 		return
+	_unstick_lane = maxf(_unstick_lane - delta, 0.0)
+	if _tick_unstick(delta):
+		return
 
 	if _route.has_level_above(_level):
 		if _route.is_standing_on(_level + 1, position.y):
@@ -932,13 +951,14 @@ func _waypoint_is_a_detour(here: Vector3, point: Vector3) -> bool:
 
 
 func _skip_ahead() -> void:
+	if _wp < _waypoints.size() - 1:
+		_wp += 1
 	if _state == State.CROSS:
 		_release_slide()
 		_has_anchor = false
+		_has_target = false
 		_set_state(State.RECOVER)
 		return
-	if _wp < _waypoints.size() - 1:
-		_wp += 1
 	_aim_agent(_current_waypoint(), true)
 
 
@@ -991,6 +1011,10 @@ func _agent_live() -> bool:
 func _next_path_point() -> Vector3:
 	if not _has_agent_target:
 		return controller.global_position
+	# Just unstuck: the path's first corner is the body's own snap, on the far
+	# side of what it was wedged behind. The open lane ahead is the way out.
+	if _unstick_lane > 0.0 and not _in_lake() and not _waypoint_is_ramp(_wp):
+		return _current_waypoint()
 	var next: Vector3 = _agent_target
 	if _agent_live() and not _agent.is_navigation_finished():
 		next = _agent.get_next_path_position()
@@ -1092,11 +1116,60 @@ func _tick_stuck(delta: float) -> void:
 		_stuck_failures = 0
 		return
 	_stuck_failures += 1
+	_arm_unstick()
 	if _stuck_failures >= STUCK_FAILURES_TO_SKIP:
 		_stuck_failures = 0
 		_skip_ahead()
 	elif _has_agent_target:
 		_aim_agent(_agent_target, true)
+
+
+## Arm an escape burst across whatever is blocking the body.
+##
+## A body wedged off the mesh has every path it plans start on the far side of
+## what is blocking it, so steering at the path pushes into that for ever. Which
+## way out is free is not knowable here; the five are tried until one works.
+func _arm_unstick() -> void:
+	if _in_lake():
+		return
+	var blocked: Vector3 = -controller.get_wall_normal() if controller.is_on_wall() \
+		else -controller.global_transform.basis.z
+	blocked.y = 0.0
+	if blocked.length_squared() <= 0.0001:
+		return
+	blocked = blocked.normalized()
+	var here: Vector3 = controller.global_position
+	var side: Vector3 = Vector3(-blocked.z, 0.0, blocked.x)
+	var out: Vector3 = Vector3(here.x - _centre.x, 0.0, here.z - _centre.z).normalized()
+	# Keep a direction only when it both moved the body and left it on the mesh;
+	# sliding to and fro along the inside of a trap is not an escape from it.
+	if not _on_mesh() or _flat_distance(here, _unstick_from) < STUCK_DISTANCE_METRES:
+		_unstick_try += 1
+	var ways: Array[Vector3] = [side, -side, out, -blocked, -out]
+	_unstick_direction = ways[_unstick_try % ways.size()]
+	_unstick_from = here
+	_unstick_seconds = UNSTICK_SLIDE_SECONDS
+	_unstick_lane = UNSTICK_LANE_SECONDS
+
+
+## True when the body stands on ground the mesh covers, so a path can route it.
+func _on_mesh() -> bool:
+	if not _nav_ready():
+		return true
+	var here: Vector3 = controller.global_position
+	return _flat_distance(here, _nav.snap(here)) <= PATH_POINT_METRES
+
+
+## Drive the escape burst, keeping the current facing. True while it owns the body.
+func _tick_unstick(delta: float) -> bool:
+	if _unstick_seconds <= 0.0:
+		return false
+	_unstick_seconds -= delta
+	if _flat_distance(controller.global_position, _unstick_from) >= UNSTICK_CLEAR_METRES:
+		_unstick_seconds = 0.0
+		return false
+	_drive_towards(controller.global_position + _unstick_direction * 5.0, 0.0)
+	return true
 
 
 # --- The cover game -----------------------------------------------------------
@@ -1177,6 +1250,10 @@ func _maybe_slide() -> void:
 	if input.command.move_direction.y < controller.profile.slide_min_forward_intent:
 		return
 	if not _path_is_straight_and_clear():
+		return
+	# A slide fits under an overhang the standing body cannot leave again, and
+	# the mesh is carved out under one. Only slide over mesh.
+	if not _ahead_is_clear(JUMP_LOOK_METRES):
 		return
 	input.hold_slide(true)
 	_cross_slid = true

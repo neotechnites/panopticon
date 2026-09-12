@@ -1,0 +1,10 @@
+{
+  "base_rules": "res://resources/rules/default_match_rules.tres",
+  "notes": "Rounds phase only: no opening race, three prisoners, a bot guard already seated.",
+  "variants": [
+    {
+      "name": "rounds_only",
+      "overrides": {"open_with_race": false, "prisoner_count": 3}
+    }
+  ]
+}
