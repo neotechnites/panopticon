@@ -203,7 +203,7 @@ func _physics_process(_delta: float) -> void:
 func _pace_footsteps(body: PlayerController) -> void:
 	var id: int = body.get_instance_id()
 
-	if body.is_sliding() or not body.is_on_floor():
+	if body.is_sliding() or not body.is_grounded():
 		_last_position.erase(id)
 		return
 
