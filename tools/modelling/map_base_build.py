@@ -419,77 +419,11 @@ def rock_material(name, albedo, emissive):
     return mat
 
 
-LAVA_BLK = 8            # texels per painted block: hard chunky edges, no gradient
-
-
 def _lava_texture():
-    """ULTRAKILL Prelude lava, one sheet for every lava region: saturated
-    orange, hot yellow-white veins, near-black crust islands with hard pixel
-    edges. Painted in LAVA_BLK blocks and wrapped on both axes, so it tiles.
-    Only the molten blocks emit; crust emits nothing and reads unlit-dark."""
+    """FLAT LIT ORANGE, temporarily: one solid albedo and NO emission, so the
+    arena light shades every lava facet and bank and the shape can be read."""
     c = _Canvas(LAVA_TEX)
-    r = _Rng(LAVA_SEED)
-    B = LAVA_TEX // LAVA_BLK
-
-    def blk(bx, by, bw, bh, rgb, glow):
-        for dy in range(bh):
-            for dx in range(bw):
-                x0 = ((bx + dx) % B) * LAVA_BLK
-                y0 = ((by + dy) % B) * LAVA_BLK
-                for yy in range(LAVA_BLK):
-                    for xx in range(LAVA_BLK):
-                        c.put(x0 + xx, y0 + yy, rgb, glow)
-
-    hot = [(255, 106, 16), (255, 124, 26), (238, 88, 10), (255, 140, 36)]
-    vein = [(255, 226, 120), (255, 246, 196), (255, 206, 84)]
-    rim = [(140, 32, 6), (108, 22, 4), (168, 44, 8)]
-    crust = [(20, 11, 10), (11, 6, 7), (30, 16, 13), (7, 4, 5)]
-    white = [(255, 250, 230), (255, 236, 170)]
-    DARK = (0, 0, 0)
-    EMB = (52, 11, 2)
-
-    for by in range(B):                                   # the molten ground
-        for bx in range(B):
-            s = r.pick(hot)
-            blk(bx, by, 1, 1, s, s)
-    for _ in range(18):                                   # hot veins, drawn first so
-        x, y = r.i(0, B - 1), r.i(0, B - 1)                # the crust can cover them
-        a = r.f() * TWO_PI
-        for _step in range(r.i(8, 22)):
-            s = r.pick(vein)
-            blk(int(x), int(y), 1, 1, s, s)
-            a += 0.6 * r.sf()
-            x += math.cos(a)
-            y += math.sin(a)
-    islands = []
-    for _ in range(7):                                    # crust islands: block rects
-        cx, cy = r.i(0, B - 1), r.i(0, B - 1)
-        parts = []
-        for _k in range(r.i(2, 4)):
-            w, h = r.i(2, 5), r.i(2, 5)
-            parts.append((cx + r.i(-3, 3) - w // 2, cy + r.i(-3, 3) - h // 2, w, h))
-        islands.append(parts)
-    for parts in islands:                                 # a hot rim one block wide
-        for (x, y, w, h) in parts:
-            blk(x - 1, y - 1, w + 2, h + 2, r.pick(rim), EMB)
-    for parts in islands:
-        for (x, y, w, h) in parts:
-            blk(x, y, w, h, r.pick(crust), DARK)
-    for _ in range(120):                                  # grain, kept per material
-        bx, by = r.i(0, B - 1), r.i(0, B - 1)
-        o = ((by * LAVA_BLK) * LAVA_TEX + bx * LAVA_BLK) * 4
-        if c.emi[o] > 0.25:
-            s = r.pick(hot)
-            blk(bx, by, 1, 1, s, s)
-        else:
-            blk(bx, by, 1, 1, r.pick(crust), DARK)
-    for _ in range(45):                                   # white-hot cores, molten only
-        bx, by = r.i(0, B - 1), r.i(0, B - 1)
-        o = ((by * LAVA_BLK) * LAVA_TEX + bx * LAVA_BLK) * 4
-        if c.emi[o] < 0.25:
-            continue
-        s = r.pick(white)
-        blk(bx, by, 1, 1, s, s)
+    c.rect(0, 0, LAVA_TEX, LAVA_TEX, (255, 106, 16), (0, 0, 0))
     images = []
     for name, buf in ((LAVA_ALBEDO, c.alb), (LAVA_EMISSIVE, c.emi)):
         img = bpy.data.images.new(name, LAVA_TEX, LAVA_TEX, alpha=False)
