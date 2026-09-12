@@ -177,7 +177,7 @@ func _describe_state() -> String:
 		# the number worth showing instead, because it is the one the guard is
 		# aiming at.
 		return "CROUCH  %.2f m tall" % body.get_stance_height()
-	if body.is_on_floor():
+	if body.is_grounded():
 		var cooldown: float = body.get_slide_cooldown_remaining()
 		if cooldown > 0.0:
 			return "GROUND  slide ready in %.2f s" % cooldown
