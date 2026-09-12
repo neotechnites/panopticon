@@ -59,6 +59,23 @@ const COVER_PROBE_BUDGET: int = 27
 const PAD_SIDE_METRES: float = 1.8
 const PAD_RUNUP_METRES: float = 6.0
 const PAD_TURN_METRES: float = 0.6
+## Metres past a lake link's take-off edge the runner steers at.
+const JUMP_OVERRUN_METRES: float = 2.0
+const JUMP_LINE_LEAD_METRES: float = 1.5
+## How near the link's exit the take-off's own ballistic landing must fall, and how far
+## before the link a body may take off from at all.
+const JUMP_LANDING_METRES: float = 1.1
+const JUMP_LANDING_RISE_METRES: float = 0.8
+const JUMP_MIN_SPAN_METRES: float = 1.0
+const JUMP_EARLY_METRES: float = 4.0
+## Metres past the take-off edge a body may still be walking, and how far it backs off to
+## take the run again.
+const JUMP_EDGE_METRES: float = 0.4
+const JUMP_REGROUP_METRES: float = 1.5
+## Height difference that still counts as standing at a link's take-off.
+const JUMP_DECK_METRES: float = 1.5
+## Metres outside a carved trap footprint that still count as being in the lake.
+const LAKE_MARGIN_METRES: float = 2.0
 
 ## What the runner is doing.
 enum State {
@@ -139,6 +156,10 @@ var _link_aim_age: float = INF
 var _link_entry: Vector3 = Vector3.ZERO
 var _link_side: float = 0.0
 var _link_staged: bool = false
+var _link_is_jump: bool = false
+var _link_speed: float = 0.0
+var _link_air: float = 0.0
+var _flying_jump: bool = false
 var _blocked_seconds: float = 0.0
 var _search_countdown: float = 0.0
 
@@ -279,6 +300,11 @@ func _arm(
 	_slides_attempted = 0
 	_jumps = 0
 	_jump_cooldown = 0.0
+	_link_aim_age = INF
+	_link_is_jump = false
+	_link_speed = 0.0
+	_link_air = 0.0
+	_flying_jump = false
 	_blocked_seconds = 0.0
 	_reported_end = false
 	_reset_stuck()
@@ -335,7 +361,77 @@ func _note_link_ahead() -> void:
 			_link_entry = path[i]
 			_link_aim = path[i + 1]
 			_link_aim_age = 0.0
+			_read_link_kind()
 		return
+
+
+## Take the nearest lake jump that leads further round the ring. The agent's own path only
+## carries a link once its target is past one, which is far too late to line a run up on.
+func _seek_jump_link() -> void:
+	if _flying or _nav == null or not _has_geometry or controller == null:
+		return
+	if _link_is_jump and _link_aim_age <= LINK_AIM_MEMORY_SECONDS:
+		return
+	var here: Vector3 = controller.global_position
+	var arc: float = _forward_arc_of(here)
+	var best: Dictionary = {}
+	var nearest: float = LINK_NOTICE_METRES
+	for option: Dictionary in _nav.jump_link_options():
+		var entry: Vector3 = option["entry"]
+		var exit_point: Vector3 = option["exit"]
+		if absf(here.y - entry.y) > JUMP_DECK_METRES:
+			continue
+		if _forward_arc_of(exit_point) <= maxf(arc, _forward_arc_of(entry)):
+			continue
+		var reach: float = _flat_distance(here, entry)
+		if reach >= nearest:
+			continue
+		nearest = reach
+		best = option
+	if best.is_empty():
+		return
+	_link_entry = best["entry"]
+	_link_aim = best["exit"]
+	_link_speed = float(best["speed"])
+	_link_air = float(best["air"])
+	_link_is_jump = true
+	_link_aim_age = 0.0
+
+
+## Whether the noticed link is a jump across carved ground, and the pace it wants.
+func _read_link_kind() -> void:
+	var jump: Dictionary = _nav.jump_link_between(_link_entry, _link_aim) if _nav != null else {}
+	_link_is_jump = not jump.is_empty()
+	_link_speed = float(jump.get("speed", 0.0))
+	_link_air = float(jump.get("air", 0.0))
+
+
+func _jump_link_pending() -> bool:
+	return _link_is_jump and not _flying and _link_aim_age <= LINK_AIM_MEMORY_SECONDS
+
+
+## Steer along a lake link's own line, aiming past the take-off edge: a body that arrives
+## from the side jumps sideways, and the arc that was solved for the link misses.
+func _jump_approach_point() -> Vector3:
+	var direction: Vector3 = _jump_direction()
+	if direction == Vector3.ZERO:
+		return Vector3.INF
+	var along: float = _along_link(direction)
+	# Past the take-off edge with no landing in hand is a walk into the lava. Turn round
+	# and take the run again rather than step off it.
+	if along > JUMP_EDGE_METRES and not _jump_lands_home():
+		return _link_entry - direction * JUMP_REGROUP_METRES
+	return _link_entry + direction * minf(along + JUMP_LINE_LEAD_METRES, JUMP_OVERRUN_METRES)
+
+
+func _jump_direction() -> Vector3:
+	var direction: Vector3 = Vector3(_link_aim.x - _link_entry.x, 0.0, _link_aim.z - _link_entry.z)
+	return direction.normalized() if direction.length() >= 0.5 else Vector3.ZERO
+
+
+func _along_link(direction: Vector3) -> float:
+	var here: Vector3 = controller.global_position
+	return Vector3(here.x - _link_entry.x, 0.0, here.z - _link_entry.z).dot(direction)
 
 
 ## Enter a pad from beside its axis so it fires near its centre, not at its back edge: full range.
@@ -344,6 +440,8 @@ func _note_link_ahead() -> void:
 func _pad_approach_point() -> Vector3:
 	if _flying or _link_aim_age > LINK_AIM_MEMORY_SECONDS:
 		return Vector3.INF
+	if _link_is_jump:
+		return _jump_approach_point()
 	var direction: Vector3 = Vector3(_link_aim.x - _link_entry.x, 0.0, _link_aim.z - _link_entry.z)
 	if direction.length() < 0.5:
 		return Vector3.INF
@@ -369,8 +467,10 @@ func _pad_approach_point() -> Vector3:
 
 
 func _on_link_reached(details: Dictionary) -> void:
+	_link_entry = details.get("link_entry_position", _link_entry)
 	_link_aim = details.get("link_exit_position", controller.global_position)
 	_link_aim_age = 0.0
+	_read_link_kind()
 
 
 ## Airborne after a pad: steer along the flight, no re-path until landing. True while flying.
@@ -381,6 +481,7 @@ func _tick_flight(delta: float) -> bool:
 		if on_floor or controller.velocity.y < FLY_LAUNCH_SPEED:
 			return false
 		_flying = true
+		_flying_jump = _link_is_jump
 		_fly_seconds = 0.0
 		var flat: Vector3 = Vector3(controller.velocity.x, 0.0, controller.velocity.z)
 		_fly_aim = controller.global_position + flat.normalized() * FLY_AIM_METRES \
@@ -391,13 +492,24 @@ func _tick_flight(delta: float) -> bool:
 	_fly_seconds += delta
 	if on_floor or _fly_seconds > FLY_MAX_SECONDS:
 		_flying = false
+		_flying_jump = false
 		_link_aim_age = INF
 		_link_staged = false
+		_link_is_jump = false
 		_link_side = 0.0
 		if _has_agent_target:
 			_aim_agent(_agent_raw_target, true)
 		_reset_stuck()
 		return false
+	if _flying_jump:
+		# A platform hop is the arc the take-off speed was solved for. Facing the way it
+		# is already travelling keeps the wish along the flight, which neither strafes
+		# metres onto the arc nor drops the speed the landing carries into the next hop.
+		var travel: Vector3 = Vector3(controller.velocity.x, 0.0, controller.velocity.z)
+		if travel.length() > 0.1:
+			_face(controller.global_position + travel.normalized() * 10.0, delta)
+		input.command.move_direction = Vector2(0.0, 1.0)
+		return true
 	_face(_fly_aim, delta)
 	_steer_flight()
 	return true
@@ -615,6 +727,7 @@ func get_navigation() -> RingNavigation:
 # --- The loop -----------------------------------------------------------------
 
 func _physics_process(delta: float) -> void:
+	_seek_jump_link()
 	if _chasing:
 		if not _tick_flight(delta):
 			_tick_chase(delta)
@@ -653,11 +766,18 @@ func _physics_process(delta: float) -> void:
 
 	_advance_waypoints()
 	var climbing: bool = _ramp_from >= 0 and _wp >= _ramp_from
+	# Over the lake there is no cover to hold: a runner that stops on a platform edge
+	# to play the cover game never crosses. Lake links are flown like a pad's.
+	var crossing_gap: bool = _over_hazard() or _jump_link_pending()
 
-	if climbing or not is_playing_cover():
+	if climbing or crossing_gap or not is_playing_cover():
+		if crossing_gap and _state != State.RUNNING:
+			_release_slide()
+			_has_anchor = false
+			_set_state(State.RUNNING)
 		_run_route(delta)
 		_tick_stuck(delta)
-		if is_playing_cover():
+		if is_playing_cover() and not crossing_gap:
 			_maybe_jump(delta)
 		return
 
@@ -885,6 +1005,12 @@ func _agent_live() -> bool:
 ## otherwise walk the body straight backward into it. Refused corners fall
 ## back to a short forward step along the lane instead.
 func _next_path_point() -> Vector3:
+	if _jump_link_pending() and _over_hazard():
+		# Out over the water the lake link outranks the path: a body steered at a waypoint
+		# across the lake walks off the platform it is standing on.
+		var jump: Vector3 = _jump_approach_point()
+		if is_finite(jump.x):
+			return jump
 	if not _has_agent_target:
 		return controller.global_position
 	var next: Vector3 = _agent_target
@@ -914,9 +1040,62 @@ func _follow_path(delta: float) -> void:
 	var error: float = _face(next, delta)
 	if absf(error) < ALIGNED_RADIANS:
 		input.command.move_direction = Vector2(0.0, 1.0)
+	else:
+		_drive_towards(next, 0.0)
+		input.command.move_direction *= clampf(1.0 - absf(error) / (PI * 0.5), MIN_THROTTLE, 1.0)
+	_hold_jump_pace()
+	_press_takeoff()
+
+
+## Approach a lake link at the pace its span needs: full speed overshoots a 2.4 m platform.
+func _hold_jump_pace() -> void:
+	if not _jump_link_pending() or controller.profile == null or _link_speed <= 0.0:
 		return
-	_drive_towards(next, 0.0)
-	input.command.move_direction *= clampf(1.0 - absf(error) / (PI * 0.5), MIN_THROTTLE, 1.0)
+	input.command.move_direction *= clampf(
+		_link_speed / maxf(controller.profile.ground_speed, 0.001), 0.05, 1.0
+	)
+
+
+## Jump at the take-off edge, holding forward; [method _tick_flight] flies it from there.
+func _press_takeoff() -> void:
+	if not _jump_link_pending() or not controller.is_on_floor() or controller.is_sliding():
+		return
+	if _jump_direction() == Vector3.ZERO:
+		return
+	if _flat_distance(controller.global_position, _link_entry) > LINK_NOTICE_METRES:
+		return
+	if _along_link(_jump_direction()) < -JUMP_EARLY_METRES or not _jump_lands_home():
+		return
+	input.command.jump_pressed = true
+	_jumps += 1
+
+
+## True when this tick's jump, flown on the link's own arc, comes down on mesh across the
+## carved gap -- the platform the link names, or any other the run lined up with first.
+func _jump_lands_home() -> bool:
+	if _nav == null or _link_air <= 0.0:
+		return false
+	var direction: Vector3 = _jump_direction()
+	var travel: Vector3 = Vector3(controller.velocity.x, 0.0, controller.velocity.z)
+	if direction == Vector3.ZERO or travel.dot(direction) <= 0.0:
+		return false
+	var here: Vector3 = controller.global_position
+	var land: Vector3 = here + travel * _link_air
+	if _flat_distance(here, land) < JUMP_MIN_SPAN_METRES:
+		return false
+	var ground: Vector3 = _nav.snap(land)
+	if _flat_distance(ground, land) > JUMP_LANDING_METRES:
+		return false
+	if absf(ground.y - _link_aim.y) > JUMP_LANDING_RISE_METRES:
+		return false
+	if _forward_arc_of(ground) <= _forward_arc_of(here):
+		return false
+	return _nav.point_over_hazard(here.lerp(land, 0.5), LAKE_MARGIN_METRES)
+
+
+## True over the lake, where the only play is the crossing.
+func _over_hazard() -> bool:
+	return _nav != null and _nav.point_over_hazard(controller.global_position, LAKE_MARGIN_METRES)
 
 
 ## The mesh path from [param from] to [param to], or the straight line when there is no mesh.
