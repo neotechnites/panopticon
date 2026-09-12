@@ -50,6 +50,8 @@ var ability_slot: int = 0
 ## True on the tick shove was tapped. Resolved by the authority; see
 ## [method MatchController.apply_shove].
 var shove_pressed: bool = false
+## Dev: hold for 300% ground speed. Local only; never on the wire.
+var turbo_held: bool = false
 
 
 ## Zero every field. Call before refilling, so a source can never leak a stale
@@ -67,6 +69,7 @@ func clear() -> void:
 	ability_held = false
 	ability_slot = 0
 	shove_pressed = false
+	turbo_held = false
 
 
 ## Clamp [member move_direction] to the unit disc.
@@ -89,3 +92,4 @@ func copy_from(other: MoveIntent) -> void:
 	ability_held = other.ability_held
 	ability_slot = other.ability_slot
 	shove_pressed = other.shove_pressed
+	turbo_held = other.turbo_held
