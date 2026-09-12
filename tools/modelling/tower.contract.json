@@ -1,6 +1,6 @@
 {
-  "_comment": "The tower: a hoodoo column with a hollow watch chamber cut into its top. ORIGIN IS THE ROOM'S FLOOR -- the guard stands at local y=0 and TowerSpawn lands 0.25 m above it; the rock hangs down to y=-36.4 and the drum's top is at +9.6. One textured material (128x128 atlas + emissive), one UV set, no skin, no animation. TowerCollision is the purpose-built collider that rides in the .glb as a `-colonly` node: Godot turns it into a StaticBody3D + ConcavePolygonShape3D and discards its mesh, which is why `surfaces` is still 1 and `max_tris` counts only what is drawn. If TowerCollision ever stops appearing, the model has silently gone back to having no collision at all and the guard will fall through the floor -- that is what these two node paths are here to catch.",
+  "_comment": "The tower: Ryan's hand-modelled TowerRock body with the watch chamber's wall band carved onto it by tower_build.py. ORIGIN IS THE ROOM'S FLOOR -- the guard stands at local y=0; the rock hangs to y=-37.3 and the cap top is at +9.6. One textured material (packed 128x128 atlas + emissive), one UV set, no skin, no animation. TowerCollision is the purpose-built collider that rides in the .glb as a `-colonly` node: Godot turns it into a StaticBody3D + ConcavePolygonShape3D and discards its mesh, which is why `surfaces` is still 1 and `max_tris` counts only what is drawn. If TowerCollision ever stops appearing, the model has silently gone back to having no collision and the guard will fall through the floor.",
   "node_paths": ["TowerRock", "TowerCollision", "TowerCollision/CollisionShape3D"],
   "surfaces": 1,
-  "max_tris": 800
+  "max_tris": 2000
 }
