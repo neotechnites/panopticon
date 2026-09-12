@@ -35,6 +35,10 @@ window/dpi/allow_hidpi=true
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 
+[editor]
+
+export/convert_text_resources_to_binary=false
+
 [filesystem]
 
 import/blender/enabled=false
