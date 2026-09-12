@@ -124,6 +124,18 @@ const DEFAULT_SKIP_OPENING_RACE: bool = false
 ## [member MatchRules.opening_seat_index] for the same reason as above.
 const DEFAULT_TOWER_SEAT_INDEX: int = 0
 
+## Reload seconds for the first [constant RELOAD_BY_TURN_COUNT] times a player
+## holds the tower, written into [member MatchRules.reload_seconds_by_turn].
+## Matches [member MatchRules.base_reload_seconds] on the shipped rules, for the
+## same reason [constant DEFAULT_GHOSTS_ENABLED] matches the ghost rule.
+const DEFAULT_RELOAD_BY_TURN: PackedFloat32Array = [2.5, 2.5, 2.5, 2.5, 2.5]
+
+## Fixed grid size the settings screen offers: five turns, no more, no fewer.
+const RELOAD_BY_TURN_COUNT: int = 5
+
+const MIN_RELOAD_BY_TURN: float = 0.1
+const MAX_RELOAD_BY_TURN: float = 15.0
+
 ## Highest seat index this file will believe off disk.
 ##
 ## Matches the top of [member MatchRules.opening_seat_index]'s exported range.
@@ -313,6 +325,11 @@ var skip_opening_race: bool = DEFAULT_SKIP_OPENING_RACE
 ## [member MatchRules.opening_seat_index].
 var tower_seat_index: int = DEFAULT_TOWER_SEAT_INDEX
 
+## Reload seconds for the first [constant RELOAD_BY_TURN_COUNT] times a player
+## holds the tower. Always exactly [constant RELOAD_BY_TURN_COUNT] entries --
+## [method clamp_all] repairs any other size back to [constant DEFAULT_RELOAD_BY_TURN].
+var reload_by_turn: PackedFloat32Array = DEFAULT_RELOAD_BY_TURN.duplicate()
+
 ## How many prisoners run the round, written over
 ## [member MatchRules.prisoner_count] at match start.
 ##
@@ -435,6 +452,7 @@ func reset() -> void:
 	ghosts_enabled = DEFAULT_GHOSTS_ENABLED
 	skip_opening_race = DEFAULT_SKIP_OPENING_RACE
 	tower_seat_index = DEFAULT_TOWER_SEAT_INDEX
+	reload_by_turn = DEFAULT_RELOAD_BY_TURN.duplicate()
 	prisoner_count = DEFAULT_PRISONER_COUNT
 	prisoner_lives = DEFAULT_PRISONER_LIVES
 	shooter_win_condition = MatchRules.ShooterWinCondition.TOTAL_CONVERSION
@@ -463,6 +481,13 @@ func clamp_all() -> void:
 	fps_cap = clampi(int(fps_cap), 0, FPS_CAP_COUNT - 1) as FpsCap
 	render_scale = clampf(render_scale, MIN_RENDER_SCALE, MAX_RENDER_SCALE)
 	tower_seat_index = clampi(tower_seat_index, 0, MAX_TOWER_SEAT_INDEX)
+	# A file holding the wrong number of entries is a build mismatch or a hand
+	# edit, not a partial preference worth salvaging.
+	if reload_by_turn.size() != RELOAD_BY_TURN_COUNT:
+		reload_by_turn = DEFAULT_RELOAD_BY_TURN.duplicate()
+	else:
+		for i: int in RELOAD_BY_TURN_COUNT:
+			reload_by_turn[i] = clampf(reload_by_turn[i], MIN_RELOAD_BY_TURN, MAX_RELOAD_BY_TURN)
 	prisoner_count = clampi(prisoner_count, MIN_PRISONER_COUNT, MAX_PRISONER_COUNT)
 	prisoner_lives = clampi(prisoner_lives, MIN_PRISONER_LIVES, MAX_PRISONER_LIVES)
 	rounds_to_win_match = clampi(
@@ -518,6 +543,7 @@ func copy_from(other: GameSettings) -> void:
 	ghosts_enabled = other.ghosts_enabled
 	skip_opening_race = other.skip_opening_race
 	tower_seat_index = other.tower_seat_index
+	reload_by_turn = other.reload_by_turn.duplicate()
 	prisoner_count = other.prisoner_count
 	prisoner_lives = other.prisoner_lives
 	shooter_win_condition = other.shooter_win_condition
@@ -551,6 +577,7 @@ func equals(other: GameSettings) -> bool:
 		and ghosts_enabled == other.ghosts_enabled
 		and skip_opening_race == other.skip_opening_race
 		and tower_seat_index == other.tower_seat_index
+		and _reload_by_turn_almost_equal(other.reload_by_turn)
 		and prisoner_count == other.prisoner_count
 		and prisoner_lives == other.prisoner_lives
 		and shooter_win_condition == other.shooter_win_condition
@@ -564,6 +591,17 @@ func equals(other: GameSettings) -> bool:
 		and join_address == other.join_address
 		and join_port == other.join_port
 	)
+
+
+## Element-wise [method is_equal_approx] for [member reload_by_turn], since
+## [PackedFloat32Array] has no built-in tolerance comparison.
+func _reload_by_turn_almost_equal(other: PackedFloat32Array) -> bool:
+	if reload_by_turn.size() != other.size():
+		return false
+	for i: int in reload_by_turn.size():
+		if not is_equal_approx(reload_by_turn[i], other[i]):
+			return false
+	return true
 
 
 # --- Serialisation ------------------------------------------------------------
@@ -589,6 +627,7 @@ func write_to(config: ConfigFile) -> void:
 	config.set_value(SECTION_MATCH, "ghosts_enabled", ghosts_enabled)
 	config.set_value(SECTION_MATCH, "skip_opening_race", skip_opening_race)
 	config.set_value(SECTION_MATCH, "tower_seat_index", tower_seat_index)
+	config.set_value(SECTION_MATCH, "reload_by_turn", reload_by_turn)
 	config.set_value(SECTION_MATCH, "prisoner_count", prisoner_count)
 	config.set_value(SECTION_MATCH, "prisoner_lives", prisoner_lives)
 	config.set_value(SECTION_MATCH, "shooter_win_condition", int(shooter_win_condition))
@@ -633,6 +672,9 @@ func read_from(config: ConfigFile) -> void:
 		config, SECTION_MATCH, "skip_opening_race", skip_opening_race
 	)
 	tower_seat_index = read_int(config, SECTION_MATCH, "tower_seat_index", tower_seat_index)
+	reload_by_turn = read_packed_float32_array(
+		config, SECTION_MATCH, "reload_by_turn", reload_by_turn
+	)
 	prisoner_count = read_int(config, SECTION_MATCH, "prisoner_count", prisoner_count)
 	prisoner_lives = read_int(config, SECTION_MATCH, "prisoner_lives", prisoner_lives)
 	shooter_win_condition = read_int(
@@ -804,6 +846,7 @@ func apply_to_match_rules(rules: MatchRules) -> void:
 	# uses the seat the player last chose rather than whatever the resource was
 	# left holding.
 	rules.opening_seat_index = tower_seat_index
+	rules.reload_seconds_by_turn = reload_by_turn.duplicate()
 	# Every one of these is written unconditionally too, and for the reason given
 	# above: the rules resource is one shared instance for the whole process, so
 	# a value only written when it is non-default leaves a match started after a
@@ -912,6 +955,19 @@ static func read_string_name(
 		return fallback
 	var value: String = String(raw)
 	return StringName(value) if not value.is_empty() else fallback
+
+
+## Read a [PackedFloat32Array], rejecting anything else. [method clamp_all]
+## repairs a wrong size or an out-of-range value; this only guards the type.
+static func read_packed_float32_array(
+	config: ConfigFile, section: String, key: String, fallback: PackedFloat32Array
+) -> PackedFloat32Array:
+	if not config.has_section_key(section, key):
+		return fallback
+	var raw: Variant = config.get_value(section, key, fallback)
+	if typeof(raw) != TYPE_PACKED_FLOAT32_ARRAY:
+		return fallback
+	return raw
 
 
 ## Read an untyped array, rejecting anything else. An absent section or key is

@@ -56,6 +56,9 @@ const RESOLUTION_NOTE: String = (
 @onready var _ghosts_check: CheckBox = %GhostsCheck
 @onready var _skip_race_check: CheckBox = %SkipRaceCheck
 @onready var _tower_seat_option: OptionButton = %TowerSeatOption
+@onready var _reload_spins: Array[SpinBox] = [
+	%ReloadSpin1, %ReloadSpin2, %ReloadSpin3, %ReloadSpin4, %ReloadSpin5,
+]
 
 @onready var _sensitivity_slider: HSlider = %SensitivitySlider
 @onready var _sensitivity_value: Label = %SensitivityValue
@@ -132,6 +135,8 @@ func refresh() -> void:
 	_ghosts_check.button_pressed = settings.ghosts_enabled
 	_skip_race_check.button_pressed = settings.skip_opening_race
 	_tower_seat_option.selected = _seat_index(settings.tower_seat_index)
+	for i: int in _reload_spins.size():
+		_reload_spins[i].value = settings.reload_by_turn[i]
 	_sensitivity_slider.value = settings.mouse_sensitivity
 	_invert_check.button_pressed = settings.invert_look_y
 	_fov_slider.value = settings.field_of_view
@@ -177,6 +182,12 @@ func _configure_ranges() -> void:
 	_render_scale_slider.min_value = GameSettings.MIN_RENDER_SCALE
 	_render_scale_slider.max_value = GameSettings.MAX_RENDER_SCALE
 	_render_scale_slider.step = 0.05
+
+	for spin: SpinBox in _reload_spins:
+		spin.min_value = GameSettings.MIN_RELOAD_BY_TURN
+		spin.max_value = GameSettings.MAX_RELOAD_BY_TURN
+		spin.step = 0.1
+		spin.suffix = "s"
 
 
 ## Option lists are data, so they are filled from the enums and the shipped
@@ -227,6 +238,8 @@ func _connect_controls() -> void:
 	_ghosts_check.toggled.connect(_on_ghosts_toggled)
 	_skip_race_check.toggled.connect(_on_skip_race_toggled)
 	_tower_seat_option.item_selected.connect(_on_tower_seat_selected)
+	for i: int in _reload_spins.size():
+		_reload_spins[i].value_changed.connect(_on_reload_by_turn_changed.bind(i))
 	_sensitivity_slider.value_changed.connect(_on_sensitivity_changed)
 	_invert_check.toggled.connect(_on_invert_toggled)
 	_fov_slider.value_changed.connect(_on_fov_changed)
@@ -275,6 +288,17 @@ func _on_tower_seat_selected(index: int) -> void:
 	if index < 0:
 		return
 	_store.settings.tower_seat_index = _tower_seat_option.get_item_id(index)
+	_after_change()
+
+
+## Like the ghost toggle, this is a rule of the match: it does not reach
+## anything until a match is started, via [method GameSettings.apply_to_match_rules].
+func _on_reload_by_turn_changed(value: float, turn_index: int) -> void:
+	if _syncing:
+		return
+	var updated: PackedFloat32Array = _store.settings.reload_by_turn.duplicate()
+	updated[turn_index] = value
+	_store.settings.reload_by_turn = updated
 	_after_change()
 
 

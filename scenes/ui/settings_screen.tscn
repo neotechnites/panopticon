@@ -95,6 +95,60 @@ editor_description = "Empty here on purpose. The seats are filled in by Settings
 
 [node name="SeatSpacer" type="Control" parent="Frame/Dialog/Padding/Layout/Tabs/Match/Grid"]
 
+[node name="ReloadName" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Match/Grid"]
+size_flags_vertical = 1
+vertical_alignment = 1
+text = "Reload By Turn"
+
+[node name="ReloadGrid" type="GridContainer" parent="Frame/Dialog/Padding/Layout/Tabs/Match/Grid"]
+size_flags_horizontal = 0
+theme_override_constants/h_separation = 6
+theme_override_constants/v_separation = 2
+columns = 5
+editor_description = "Five columns, top row the ordinal labels, bottom row the SpinBoxes -- one nested grid so the two rows line up by construction."
+
+[node name="Reload1Label" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Match/Grid/ReloadGrid"]
+horizontal_alignment = 1
+text = "1st"
+
+[node name="Reload2Label" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Match/Grid/ReloadGrid"]
+horizontal_alignment = 1
+text = "2nd"
+
+[node name="Reload3Label" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Match/Grid/ReloadGrid"]
+horizontal_alignment = 1
+text = "3rd"
+
+[node name="Reload4Label" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Match/Grid/ReloadGrid"]
+horizontal_alignment = 1
+text = "4th"
+
+[node name="Reload5Label" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Match/Grid/ReloadGrid"]
+horizontal_alignment = 1
+text = "5th"
+
+[node name="ReloadSpin1" type="SpinBox" parent="Frame/Dialog/Padding/Layout/Tabs/Match/Grid/ReloadGrid"]
+custom_minimum_size = Vector2(72, 0)
+unique_name_in_owner = true
+
+[node name="ReloadSpin2" type="SpinBox" parent="Frame/Dialog/Padding/Layout/Tabs/Match/Grid/ReloadGrid"]
+custom_minimum_size = Vector2(72, 0)
+unique_name_in_owner = true
+
+[node name="ReloadSpin3" type="SpinBox" parent="Frame/Dialog/Padding/Layout/Tabs/Match/Grid/ReloadGrid"]
+custom_minimum_size = Vector2(72, 0)
+unique_name_in_owner = true
+
+[node name="ReloadSpin4" type="SpinBox" parent="Frame/Dialog/Padding/Layout/Tabs/Match/Grid/ReloadGrid"]
+custom_minimum_size = Vector2(72, 0)
+unique_name_in_owner = true
+
+[node name="ReloadSpin5" type="SpinBox" parent="Frame/Dialog/Padding/Layout/Tabs/Match/Grid/ReloadGrid"]
+custom_minimum_size = Vector2(72, 0)
+unique_name_in_owner = true
+
+[node name="ReloadSpacer" type="Control" parent="Frame/Dialog/Padding/Layout/Tabs/Match/Grid"]
+
 [node name="GhostsNote" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Match"]
 autowrap_mode = 3
 editor_description = "What the mechanic is, for a player who has not met it. Nothing more: this is a description, not a disclaimer."

@@ -362,13 +362,20 @@ static func rules_field_names(rules: MatchRules) -> PackedStringArray:
 	return names
 
 
-## Every scalar export of [param rules] as bytes. Reliable-channel sized, not
+## Field holding [member MatchRules.reload_seconds_by_turn]. A
+## [PackedFloat32Array] export, not a scalar, so [method rules_field_names]
+## never picks it up on its own -- packed here explicitly instead.
+const _RELOAD_BY_TURN_FIELD: String = "reload_seconds_by_turn"
+
+## Every scalar export of [param rules] as bytes, plus
+## [member MatchRules.reload_seconds_by_turn]. Reliable-channel sized, not
 ## per-tick sized.
 static func pack_rules(rules: MatchRules) -> PackedByteArray:
 	var fields: Dictionary = {}
 	for field: String in rules_field_names(rules):
 		var value: Variant = rules.get(field)
 		fields[field] = String(value) if typeof(value) == TYPE_STRING_NAME else value
+	fields[_RELOAD_BY_TURN_FIELD] = rules.reload_seconds_by_turn
 	return var_to_bytes(fields)
 
 
@@ -400,12 +407,25 @@ static func unpack_rules(payload: PackedByteArray, out: MatchRules) -> bool:
 			TYPE_STRING_NAME:
 				if typeof(value) == TYPE_STRING or typeof(value) == TYPE_STRING_NAME:
 					out.set(field, StringName(String(value)))
+	if fields.has(_RELOAD_BY_TURN_FIELD):
+		var raw: Variant = fields[_RELOAD_BY_TURN_FIELD]
+		if typeof(raw) == TYPE_PACKED_FLOAT32_ARRAY:
+			var reload_by_turn: PackedFloat32Array = raw
+			var all_finite: bool = true
+			for value: float in reload_by_turn:
+				if not is_finite(value):
+					all_finite = false
+					break
+			if all_finite:
+				out.reload_seconds_by_turn = reload_by_turn
 	return true
 
 
-## Copy every scalar export from one rules object onto another.
+## Copy every scalar export from one rules object onto another, plus
+## [member MatchRules.reload_seconds_by_turn].
 static func copy_rules(from: MatchRules, to: MatchRules) -> void:
 	if from == null or to == null or from == to:
 		return
 	for field: String in rules_field_names(from):
 		to.set(field, from.get(field))
+	to.reload_seconds_by_turn = from.reload_seconds_by_turn
