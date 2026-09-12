@@ -1735,7 +1735,7 @@ func apply_shove(shover: MatchParticipant) -> MatchParticipant:
 	victim.body.launch(forward * match_rules.shove_impulse + Vector3.UP * match_rules.shove_up_impulse)
 	if shove_camera_kick != null and shover.is_human():
 		shove_camera_kick.strike(forward, SHOVE_KICK_SCALE)
-	AudioDirector.post_event_at(AudioEvents.HAZARD_BOOST_PAD, victim.body.global_position)
+	AudioDirector.post_event_at(AudioEvents.PLAYER_CATCH_MADE, victim.body.global_position)
 	shover.body.shoved.emit()
 	participant_shoved.emit(shover, victim)
 	return victim
