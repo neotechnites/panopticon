@@ -1492,6 +1492,7 @@ func apply_hit(participant: MatchParticipant) -> bool:
 		return false
 	if participant.body.get_intent().godmode:
 		return false
+	participant.death_cause = MatchParticipant.DeathCause.SHOT
 	if participant.is_finisher:
 		# Hit points, not lives: the ghost/park path below is not reached until
 		# MatchRules.finisher_health of the guard's shots have landed.
@@ -1651,6 +1652,9 @@ func handle_fall(participant: MatchParticipant, from_pit: bool = false) -> bool:
 			participant.body.rotation = Vector3(0.0, _heading_of(_track_tangent(_angle_of(place))), 0.0)
 			participant.body.launch(Vector3.ZERO)
 		return false
+	participant.death_cause = (
+		MatchParticipant.DeathCause.FELL if from_pit else MatchParticipant.DeathCause.LAVA
+	)
 	match _phase:
 		Phase.RACE:
 			return _fall_out_of_race(participant)

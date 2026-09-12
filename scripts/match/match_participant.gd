@@ -199,6 +199,12 @@ var home_material_read: bool = false
 var death_position: Vector3 = Vector3.ZERO
 var death_facing: Vector3 = Vector3.FORWARD
 
+## How this participant was last taken. Written by [MatchController] on the two
+## paths that take one: the rifle, and a hazard.
+enum DeathCause { SHOT, LAVA, FELL }
+
+var death_cause: DeathCause = DeathCause.SHOT
+
 
 func is_human() -> bool:
 	return kind == Kind.HUMAN

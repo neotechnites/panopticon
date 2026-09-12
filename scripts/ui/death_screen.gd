@@ -46,20 +46,23 @@ extends CanvasLayer
 
 const HEADLESS_DISPLAY: String = "headless"
 
-## Colour of the band the text sits on. Dark and translucent: the whole point is
-## that the player can still see the world behind it.
-const BAND_COLOR: Color = Color(0.0, 0.0, 0.0, 0.55)
+## Colour of the plate the text sits on. Dark and translucent: the whole point
+## is that the player can still see the world behind it.
+const BAND_COLOR: Color = Color(0.0, 0.0, 0.0, 0.35)
 
-## Height of that band as a fraction of the screen.
-const BAND_HEIGHT_RATIO: float = 0.26
+## Height of that plate as a fraction of the screen.
+const BAND_HEIGHT_RATIO: float = 0.20
 
-const TITLE_COLOR: Color = Color(1.0, 1.0, 1.0, 0.96)
-const COUNTDOWN_COLOR: Color = Color(1.0, 0.86, 0.4, 1.0)
-const HINT_COLOR: Color = Color(0.78, 0.78, 0.78, 0.85)
+## The match HUD's fonts, so the dead player is not reading a second typeface.
+const THEME_PATH: String = "res://scenes/ui/panopticon_menu_theme.tres"
 
-const TITLE_SIZE: int = 44
-const COUNTDOWN_SIZE: int = 64
-const HINT_SIZE: int = 16
+const TITLE_COLOR: Color = Color(1.0, 1.0, 1.0, 0.92)
+const COUNTDOWN_COLOR: Color = Color(1.0, 1.0, 1.0, 0.85)
+const HINT_COLOR: Color = Color(1.0, 1.0, 1.0, 0.7)
+
+const TITLE_SIZE: int = 34
+const COUNTDOWN_SIZE: int = 52
+const HINT_SIZE: int = 15
 
 var _inert: bool = false
 var _root: Control
@@ -153,23 +156,35 @@ func is_inert() -> bool:
 
 # --- Wording ------------------------------------------------------------------
 
-## The headline. It names the ROLE the player has lost, because that is what
-## actually changed: a shot prisoner is not out of the match, they are a ghost,
-## and a screen that said DEAD would be lying about the mechanic.
+## The headline: WHAT KILLED YOU while the clock runs, and what you are once it
+## has stopped. The cause is the controller's own ruling -- see
+## [member MatchParticipant.death_cause] -- not a guess made here.
 func _title_for(state: MatchController.Spectating) -> String:
 	if state == MatchController.Spectating.RESPAWNING:
+		return _cause_word()
+	return "OUT  ·  ROUND %d" % controller.get_round_number()
+
+
+## SHOT, LAVA or FELL.
+func _cause_word() -> String:
+	var participant: MatchParticipant = controller.get_human_participant()
+	if participant == null:
 		return "DOWN"
-	if controller.get_phase() == MatchController.Phase.RACE:
-		return "OUT OF THE RACE"
-	return "CONVERTED"
+	match participant.death_cause:
+		MatchParticipant.DeathCause.LAVA:
+			return "LAVA"
+		MatchParticipant.DeathCause.FELL:
+			return "FELL"
+		_:
+			return "SHOT"
 
 
+## One line under the number, and only one: the job the player is about to have,
+## or the key that ends the wait.
 func _hint_for(state: MatchController.Spectating) -> String:
 	if state == MatchController.Spectating.RESPAWNING:
-		return "returning to the start line   ---   look around with the mouse"
-	if controller.get_phase() == MatchController.Phase.RACE:
-		return "you are out for the rest of the race   ---   you run the first round   ---   look around with the mouse"
-	return "waiting for the round to end   ---   look around with the mouse"
+		return "GHOST — catch a prisoner to take their place"
+	return "[R] restart match"
 
 
 # --- Construction -------------------------------------------------------------
@@ -179,6 +194,7 @@ func _build() -> void:
 	_root.name = "Root"
 	_root.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_root.theme = load(THEME_PATH) as Theme
 	add_child(_root)
 
 	_band = ColorRect.new()
@@ -220,6 +236,6 @@ func _make_label(node_name: String, font_size: int, colour: Color) -> Label:
 	label.add_theme_color_override(&"font_color", colour)
 	# An outline, because this text is drawn over the live world and the world
 	# behind it is a grey ring under a grey sky.
-	label.add_theme_constant_override(&"outline_size", 6)
+	label.add_theme_constant_override(&"outline_size", 5)
 	label.add_theme_color_override(&"font_outline_color", Color(0.0, 0.0, 0.0, 0.9))
 	return label
