@@ -126,6 +126,10 @@ var movement_locked: bool = false
 ## guard's stance.
 var is_guard: bool = false
 
+## True while this body carries a rifle without holding the seat -- the armed
+## finisher. [MatchController] is the only thing that writes it.
+var is_armed: bool = false
+
 ## Set every tick, either from [member intent_source] or by an outside caller
 ## via [method set_intent].
 var _intent: MoveIntent = MoveIntent.new()

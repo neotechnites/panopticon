@@ -60,6 +60,14 @@ func test_a_finisher_is_armed_and_takes_the_tower_by_killing_the_guard() -> void
 	assert_same(weapon.get_parent(), finisher.body.head, "on the finisher's own head")
 	assert_same(weapon.shooter_body, finisher.body, "excluding its holder from its own shot")
 
+	# And is standing in the tower room rather than back at the portal.
+	var spawn: Marker3D = _controller.arena.get_node(_controller.spawn_marker_path) as Marker3D
+	assert_lt(
+		finisher.body.global_position.distance_to(spawn.global_position),
+		4.0,
+		"the armed finisher is put by the guard's own spawn point"
+	)
+
 	# The guard's shots come off the hit points one at a time, and the ghost
 	# path is not reached until they are gone.
 	for shot: int in _rules.finisher_health - 1:

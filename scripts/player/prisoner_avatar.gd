@@ -289,6 +289,14 @@ const FirstPersonHead: GDScript = preload("res://scripts/player/first_person_hea
 ## what the eye at 1.65 m would otherwise be inside of.
 @export var head_bone: StringName = &"Head"
 
+## The bone collapsed in first person alongside [member head_bone], taking the
+## torso and the arms with it. Restored while [member shove_clip] plays.
+@export var spine_bone: StringName = &"Spine"
+
+## The bones collapsed in first person while this body holds a rifle, so the aim
+## pose's raised arms are not drawn across the camera.
+@export var arm_bones: Array[StringName] = [&"UpperArm.L", &"UpperArm.R"]
+
 ## The material the whole body wears, or null to keep the flat grey the model was
 ## imported with.
 ##
@@ -396,6 +404,15 @@ var _camera: Camera3D = null
 ## Collapses [member head_bone] while this body is the local viewpoint. Null
 ## when the skeleton could not be resolved, which keeps the body hidden.
 var _head_hider: FirstPersonHead = null
+
+## Collapses [member spine_bone], and the arm bones, on the same terms. Null
+## when the rig has no such bone.
+var _spine_hider: FirstPersonHead = null
+var _arm_hiders: Array[FirstPersonHead] = []
+
+## Whether each of those is collapsed right now. Edges, like [member _in_slide].
+var _spine_hidden: bool = false
+var _arms_hidden: bool = false
 
 ## Whether the mesh is currently drawn in first person. The edge, for the same
 ## reason [member _in_slide] is one.
@@ -712,30 +729,60 @@ func _on_body_shoved() -> void:
 ## current only on the body the human is looking out of, and bots never are.
 func _tick_first_person() -> void:
 	var want: bool = _head_hider != null and _camera != null and _camera.is_current()
-	if want == _first_person:
-		return
-	_first_person = want
-	_head_hider.set_hidden(want)
-	mesh.layers = (visual_layers | first_person_layers) if want else visual_layers
+	if want != _first_person:
+		_first_person = want
+		_head_hider.set_hidden(want)
+		mesh.layers = (visual_layers | first_person_layers) if want else visual_layers
+
+	# The torso goes with the head: in first person the body is in the way. The
+	# shove is the one clip whose point is seeing your own arms, so it gets them
+	# back -- the head stays collapsed throughout, on its own modifier.
+	var hide_spine: bool = want and _shove_remaining <= 0.0
+	if _spine_hider != null and hide_spine != _spine_hidden:
+		_spine_hidden = hide_spine
+		_spine_hider.set_hidden(hide_spine)
+
+	# Redundant while the spine is down, and not while the shove has it back.
+	var hide_arms: bool = hide_spine and (body.is_guard or body.is_armed)
+	if hide_arms != _arms_hidden:
+		_arms_hidden = hide_arms
+		for hider: FirstPersonHead in _arm_hiders:
+			hider.set_hidden(hide_arms)
 
 
-## Hang a [FirstPersonHead] off the skeleton, inactive. Left null when there is
-## no skeleton or no [member head_bone], which keeps the body owner-hidden.
+## Hang a [FirstPersonHead] off the skeleton for each bone first person hides,
+## all inactive. Left null when there is no skeleton, which keeps the body
+## owner-hidden.
 func _build_head_hider() -> void:
 	var found: Array = _resolve_skeleton()
 	if found.is_empty():
 		return
 	var skeleton: Skeleton3D = found[1]
-	var bone: int = skeleton.find_bone(String(head_bone))
+	_head_hider = _add_hider(skeleton, head_bone, "FirstPersonHead")
+	_spine_hider = _add_hider(skeleton, spine_bone, "FirstPersonSpine")
+	for bone_name: StringName in arm_bones:
+		var arm: FirstPersonHead = _add_hider(
+			skeleton, bone_name, "FirstPersonArm%d" % _arm_hiders.size()
+		)
+		if arm != null:
+			_arm_hiders.append(arm)
+
+
+## One inactive [FirstPersonHead] on [param bone_name], or null if the rig has
+## no bone by that name.
+func _add_hider(
+	skeleton: Skeleton3D, bone_name: StringName, node_name: String
+) -> FirstPersonHead:
+	var bone: int = skeleton.find_bone(String(bone_name))
 	if bone < 0:
-		push_error("PrisonerAvatar cannot find the bone \"%s\"; this body stays hidden from its own camera." % head_bone)
-		return
+		push_error("PrisonerAvatar cannot find the bone \"%s\"; the local body will show it." % bone_name)
+		return null
 	var hider: FirstPersonHead = FirstPersonHead.new()
-	hider.name = "FirstPersonHead"
+	hider.name = node_name
 	hider.bone = bone
 	hider.active = false
 	skeleton.add_child(hider)
-	_head_hider = hider
+	return hider
 
 
 ## Freeze the run cycle on its first frame. The fallback for a body with no

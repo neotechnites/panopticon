@@ -377,6 +377,10 @@ const TRACKER_PRIORITY_BASE: int = 1
 ## and two frames is correct from either. See [method _place_body_at].
 const SETTLE_PHYSICS_FRAMES: int = 2
 
+## Metres the armed finisher stands from the guard's own spawn point, so the two
+## are not put inside the same capsule. See [method _place_finisher_in_tower].
+const FINISHER_TOWER_OFFSET: float = 2.5
+
 ## Scene-tree group holding exactly the bodies that are RUNNING right now.
 ##
 ## The match's answer to "who is a legitimate target". Membership is maintained
@@ -2944,10 +2948,38 @@ func _arm_the_finisher(participant: MatchParticipant) -> void:
 	_finisher = participant
 	participant.is_finisher = true
 	participant.health = maxi(get_rules().finisher_health, 1)
+	participant.body.is_armed = true
 	# They have arrived; a lap brain still steering would walk them off the end.
 	_silence_brain(participant)
+	# Into the room with the guard, BEFORE the rifle and the brain: both read the
+	# body where it is standing.
+	_place_finisher_in_tower(participant)
 	_attach_finisher_rifle(participant, weapon)
 	_hunt_the_guard(participant, weapon)
+
+
+## Put the armed finisher in the tower room, [constant FINISHER_TOWER_OFFSET]
+## metres off the guard's own spawn and facing it.
+##
+## The race is unchanged -- this happens after the portal, not instead of it --
+## and the move goes through [method _hold_body] like every other placement, so
+## the velocity is zeroed, the physics server is not handed a 300 m sweep, and
+## [method _wake_settled_ghosts] gives the body back its collision two frames
+## later. Human or bot: a finisher that had to walk to the tower would be shot
+## on the way.
+func _place_finisher_in_tower(participant: MatchParticipant) -> void:
+	var body: PlayerController = participant.body
+	if body == null or not _geometry_ready:
+		return
+	var aside: Vector3 = _end_point - _tower_point
+	aside.y = 0.0
+	if aside.length_squared() < 0.0001:
+		aside = Vector3.BACK
+	var place: Vector3 = _tower_point + aside.normalized() * FINISHER_TOWER_OFFSET
+	_hold_body(participant)
+	body.global_position = place
+	body.rotation = Vector3(0.0, _heading_of(_tower_point - place), 0.0)
+	participant.ghost_settle_frames = SETTLE_PHYSICS_FRAMES
 
 
 ## The second rifle, built on first use and kept for the life of the match.
@@ -3025,6 +3057,8 @@ func _hunt_the_guard(participant: MatchParticipant, weapon: Rifle) -> void:
 func _disarm_finisher() -> void:
 	if _finisher != null:
 		_finisher.is_finisher = false
+		if _finisher.body != null:
+			_finisher.body.is_armed = false
 		_silence_tower_brain(_finisher)
 		_finisher = null
 	if _finisher_rifle == null or not is_instance_valid(_finisher_rifle):
