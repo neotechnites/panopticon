@@ -5,7 +5,7 @@
 [resource]
 script = ExtResource("1_watching_eye_profile")
 radius_metres = 2.5
-height_metres = 11.5
+height_metres = 14.0
 track_rate = 2.0
 tower_radius_metres = 9.0
 tower_band_low_metres = -4.0
