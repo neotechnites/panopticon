@@ -152,6 +152,8 @@ var _jump_buffer_timer: float = 0.0
 ## 1.0 outside one; scaled in at the point of use in [method _physics_process],
 ## never written into [member profile].
 var _speed_boost_multiplier: float = 1.0
+## Dev turbo (T held) ground multiplier.
+const TURBO_MULTIPLIER: float = 3.0
 var _speed_boost_timer: float = 0.0
 
 ## Downward speed on the last airborne tick, reported by [signal landed].
@@ -311,10 +313,11 @@ func _physics_process(delta: float) -> void:
 		# touched, so a boost cannot bleed into the slide or air phases, which
 		# read wish_speed and the profile unscaled.
 		_apply_friction(profile.friction, delta)
+		var boost: float = maxf(_speed_boost_multiplier, TURBO_MULTIPLIER if _intent.turbo_held else 1.0)
 		_accelerate(
 			wish_direction,
-			wish_speed * _speed_boost_multiplier,
-			profile.ground_acceleration * _speed_boost_multiplier,
+			wish_speed * boost,
+			profile.ground_acceleration * boost,
 			delta,
 		)
 	else:
