@@ -73,6 +73,7 @@ func poll(_delta: float) -> MoveIntent:
 	_intent.fire_pressed = Input.is_action_just_pressed(WeaponActions.FIRE)
 	_intent.fire_held = Input.is_action_pressed(WeaponActions.FIRE)
 	_intent.ability_pressed = Input.is_action_just_pressed(PlayerActions.ABILITY)
+	_intent.shove_pressed = Input.is_action_just_pressed(PlayerActions.SHOVE)
 	_intent.ability_held = Input.is_action_pressed(PlayerActions.ABILITY)
 	for i: int in PlayerActions.ABILITY_SLOTS.size():
 		var slot: StringName = PlayerActions.ABILITY_SLOTS[i]

@@ -47,6 +47,10 @@ var ability_held: bool = false
 ## 1-4 picks that power directly this tick (test keys); 0 = none.
 var ability_slot: int = 0
 
+## True on the tick shove was tapped. Resolved by the authority; see
+## [method MatchController.apply_shove].
+var shove_pressed: bool = false
+
 
 ## Zero every field. Call before refilling, so a source can never leak a stale
 ## edge into the next tick.
@@ -62,6 +66,7 @@ func clear() -> void:
 	ability_pressed = false
 	ability_held = false
 	ability_slot = 0
+	shove_pressed = false
 
 
 ## Clamp [member move_direction] to the unit disc.
@@ -83,3 +88,4 @@ func copy_from(other: MoveIntent) -> void:
 	ability_pressed = other.ability_pressed
 	ability_held = other.ability_held
 	ability_slot = other.ability_slot
+	shove_pressed = other.shove_pressed

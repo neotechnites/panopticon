@@ -216,6 +216,10 @@ signal ghost_respawned(participant: MatchParticipant)
 ## prisoner who is now the ghost. The swap has already happened when it fires.
 signal ghost_caught(ghost: MatchParticipant, caught: MatchParticipant)
 
+## Emitted on the tick one prisoner shoves another. [param victim] has already
+## been launched when it fires.
+signal participant_shoved(shover: MatchParticipant, victim: MatchParticipant)
+
 ## Every design parameter of the match: how many players, on what track, at what
 ## pace, with what reload escalation, and what counts as a win.
 ##
@@ -252,6 +256,10 @@ signal ghost_caught(ghost: MatchParticipant, caught: MatchParticipant)
 
 ## The body scene AI participants are built from.
 @export var runner_scene: PackedScene
+
+## Optional. The human's camera kick, so their own shove is felt. Null
+## everywhere but the match scene, and a null one simply goes unfelt.
+@export var shove_camera_kick: FxCameraKick
 
 @export var start_marker_path: NodePath = ^"StartEnd/PrisonerStart"
 @export var end_marker_path: NodePath = ^"StartEnd/PrisonerEnd"
@@ -382,6 +390,14 @@ const SETTLE_PHYSICS_FRAMES: int = 2
 ## running, which is the whole point: a bot holding the seat shoots at the human
 ## on exactly the terms a human holding the seat shoots at bots.
 const RUNNER_GROUP: StringName = &"prisoners"
+
+## How square in front of the shover a body must be to be shoved: a 90 degree
+## cone, so a shove pushes who you are looking at and not who you brushed past.
+const SHOVE_FACING_DOT: float = 0.7
+
+## How hard the shover's own camera is kicked. Small on purpose -- the feedback
+## is the other body leaving, not the screen moving.
+const SHOVE_KICK_SCALE: float = 0.5
 
 ## Scene-tree group holding exactly the body that is IN THE TOWER right now, or
 ## nothing at all during the opening race.
@@ -591,6 +607,7 @@ func _physics_process(delta: float) -> void:
 	_wake_settled_ghosts()
 	_tick_respawn_holds(delta)
 	_tick_ghosts(delta)
+	_tick_shoves(delta)
 	# LAST, and after the ghosts: the hold is the only win condition decided by
 	# a clock rather than by an event, and a round it ends is a round in which
 	# everything else that was going to happen this tick has already happened.
@@ -1535,6 +1552,86 @@ func _return_seat_holder_to_tower() -> bool:
 	_place_in_tower(_seat)
 	_settle_frames = SETTLE_PHYSICS_FRAMES
 	return true
+
+
+# --- The shove ----------------------------------------------------------------
+
+## Spend every shove cooldown, and resolve the taps living prisoners made.
+##
+## Run here, over participants, for the reason [method _tick_ghosts] is: the
+## human shoves on exactly a bot's terms, and the authority is the only machine
+## that decides it. The level is latched rather than trusted to be one tick
+## wide, so a held button is still one shove.
+func _tick_shoves(delta: float) -> void:
+	for participant: MatchParticipant in _participants:
+		if participant.shove_cooldown_remaining > 0.0:
+			participant.shove_cooldown_remaining = maxf(
+				participant.shove_cooldown_remaining - delta, 0.0
+			)
+		if not participant.is_running or participant.body == null:
+			continue
+		var pressed: bool = participant.body.get_intent().shove_pressed
+		if pressed and not participant.shove_was_pressed:
+			apply_shove(participant)
+		participant.shove_was_pressed = pressed
+
+
+## Throw the living prisoner in front of [param shover]. Returns the one
+## launched, or null when there is nobody there, no charge, or no right to ask.
+func apply_shove(shover: MatchParticipant) -> MatchParticipant:
+	if shover == null or is_resolved() or _refuses_local_decision():
+		return null
+	if _phase != Phase.RACE and _phase != Phase.ROUND:
+		return null
+	if not shover.is_running or shover.body == null:
+		return null
+	if shover.shove_cooldown_remaining > 0.0:
+		return null
+
+	var forward: Vector3 = -shover.body.global_transform.basis.z
+	forward.y = 0.0
+	if forward.length_squared() < 1e-6:
+		return null
+	forward = forward.normalized()
+
+	var match_rules: MatchRules = get_rules()
+	var victim: MatchParticipant = _shovable_from(shover, forward, match_rules.shove_range_metres)
+	if victim == null:
+		return null
+
+	shover.shove_cooldown_remaining = maxf(match_rules.shove_cooldown_seconds, 0.0)
+	# The same call a boost pad makes: the launch replaces the victim's velocity
+	# on their next tick, so a shove is worth the same whatever they were doing.
+	victim.body.launch(forward * match_rules.shove_impulse + Vector3.UP * match_rules.shove_up_impulse)
+	if shove_camera_kick != null and shover.is_human():
+		shove_camera_kick.strike(forward, SHOVE_KICK_SCALE)
+	AudioDirector.post_event_at(AudioEvents.HAZARD_BOOST_PAD, victim.body.global_position)
+	participant_shoved.emit(shover, victim)
+	return victim
+
+
+## The nearest living prisoner within [param radius] metres of [param shover]
+## and inside its facing cone, or null. Ghosts and the guard are not there.
+func _shovable_from(
+	shover: MatchParticipant, forward: Vector3, radius: float
+) -> MatchParticipant:
+	var here: Vector3 = shover.body.global_position
+	var best: MatchParticipant = null
+	var best_distance: float = 0.0
+	for other: MatchParticipant in _participants:
+		if other == shover or not other.is_running or other.body == null:
+			continue
+		var offset: Vector3 = other.body.global_position - here
+		offset.y = 0.0
+		var distance: float = offset.length()
+		if distance > radius or distance < 1e-3:
+			continue
+		if forward.dot(offset / distance) < SHOVE_FACING_DOT:
+			continue
+		if best == null or distance < best_distance:
+			best = other
+			best_distance = distance
+	return best
 
 
 # --- Ghosts -------------------------------------------------------------------

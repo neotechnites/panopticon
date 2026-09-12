@@ -113,6 +113,13 @@ var health: int = 1
 ## the guard may shoot them -- and armed until one of the two is dead.
 var is_finisher: bool = false
 
+## Seconds before this participant may shove again, counting down. See
+## [member MatchRules.shove_cooldown_seconds].
+var shove_cooldown_remaining: float = 0.0
+
+## The shove button's level last tick, so one hold is one shove.
+var shove_was_pressed: bool = false
+
 ## The body's collision layer and mask as authored, kept so that parking a
 ## converted runner out of the world can be undone exactly rather than
 ## approximately.

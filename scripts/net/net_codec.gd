@@ -41,8 +41,9 @@ extends RefCounted
 ## feature because it is a habit that stops being cheap at a player count this
 ## game will never reach.
 
-## Bytes in a packed intent: u32 tick, 4 floats, 1 flag byte.
-const INTENT_SIZE: int = 22
+## Bytes in a packed intent: u32 tick, 4 floats, a flag byte, the ability slot
+## and a second flag byte.
+const INTENT_SIZE: int = 23
 
 ## Bytes of snapshot header: u32 tick, u8 body count.
 const SNAPSHOT_HEADER_SIZE: int = 5
@@ -70,6 +71,8 @@ const _FLAG_FIRE_PRESSED: int = 1 << 2
 const _FLAG_FIRE_HELD: int = 1 << 5
 const _FLAG_ABILITY_PRESSED: int = 1 << 6
 const _FLAG_ABILITY_HELD: int = 1 << 7
+## Second flag byte. The first is full; new intent bits start here.
+const _FLAG2_SHOVE_PRESSED: int = 1 << 0
 const _FLAG_ON_FLOOR: int = 1 << 0
 const _FLAG_SEAT_READY: int = 1 << 0
 
@@ -105,6 +108,7 @@ static func pack_intent(tick: int, intent: MoveIntent) -> PackedByteArray:
 		flags |= _FLAG_ABILITY_HELD
 	buffer.put_u8(flags)
 	buffer.put_u8(clampi(intent.ability_slot, 0, 4))
+	buffer.put_u8(_FLAG2_SHOVE_PRESSED if intent.shove_pressed else 0)
 	return buffer.data_array
 
 
@@ -126,6 +130,7 @@ static func unpack_intent(payload: PackedByteArray, out: MoveIntent) -> int:
 	var look_y: float = buffer.get_float()
 	var flags: int = buffer.get_u8()
 	var slot: int = buffer.get_u8()
+	var flags2: int = buffer.get_u8()
 	# NaN and infinity survive a float round-trip and poison a physics body on
 	# contact, so they are rejected here rather than clamped: there is no
 	# sensible value to substitute, and a peer sending them is not playing.
@@ -142,6 +147,7 @@ static func unpack_intent(payload: PackedByteArray, out: MoveIntent) -> int:
 	out.ability_pressed = (flags & _FLAG_ABILITY_PRESSED) != 0
 	out.ability_held = (flags & _FLAG_ABILITY_HELD) != 0
 	out.ability_slot = clampi(slot, 0, 4)
+	out.shove_pressed = (flags2 & _FLAG2_SHOVE_PRESSED) != 0
 	out.normalise()
 	return tick
 

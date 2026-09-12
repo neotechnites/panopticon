@@ -55,7 +55,7 @@ player = NodePath("../Player")
 runner_container = NodePath("../Runners")
 runner_scene = ExtResource("4_runner")
 
-[node name="MatchController" type="Node" parent="." node_paths=PackedStringArray("arena", "player", "rifle", "runner_container")]
+[node name="MatchController" type="Node" parent="." node_paths=PackedStringArray("arena", "player", "rifle", "runner_container", "shove_camera_kick")]
 script = ExtResource("5_controller")
 rules = ExtResource("7_rules")
 palette = ExtResource("14_palette")
@@ -64,6 +64,7 @@ player = NodePath("../Player")
 rifle = NodePath("../Player/Head/Rifle")
 runner_container = NodePath("../Runners")
 runner_scene = ExtResource("4_runner")
+shove_camera_kick = NodePath("../FeedbackRig/CameraKick")
 
 [node name="HUD" type="CanvasLayer" parent="."]
 
