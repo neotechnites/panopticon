@@ -30,6 +30,10 @@ gdscript/warnings/unsafe_method_access=1
 
 window/size/viewport_width=1600
 window/size/viewport_height=900
+window/size/mode=3
+window/dpi/allow_hidpi=true
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
 
 [filesystem]
 
