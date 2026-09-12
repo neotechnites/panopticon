@@ -41,6 +41,14 @@ func before_each() -> void:
 	_body.intent_source = _input
 	_ability = RunnerPower.of(_body)
 
+	# The bots take a free shove off anybody who walks in front of them, which
+	# would throw the standing body this file measures. That is
+	# [BotIntentSource]'s business and is covered in tests/test_shove.gd.
+	for participant: MatchParticipant in participants:
+		var bot: BotIntentSource = participant.body.intent_source as BotIntentSource
+		if bot != null:
+			bot.shove_enabled = false
+
 	# An AI takes the tower through the scoring seam; the human runs the round.
 	participants[1].tracker.lap_finished.emit(30.0, 240.0)
 	await step_ticks(SETTLE_TICKS)

@@ -54,6 +54,10 @@ const ABILITY_PAD_BUTTON: JoyButton = JOY_BUTTON_LEFT_SHOULDER
 ## Direct picks: 1 shield, 2 hologram, 3 armor lock, 4 camo.
 const ABILITY_SLOTS: Array[StringName] = [&"ability_1", &"ability_2", &"ability_3", &"ability_4"]
 
+## Prisoner on prisoner: F, or the B button on a pad. Tapped, never held.
+const SHOVE: StringName = &"shove"
+const SHOVE_PAD_BUTTON: JoyButton = JOY_BUTTON_B
+
 ## Matches Godot's default action deadzone.
 const DEADZONE: float = 0.2
 
@@ -74,6 +78,11 @@ static func ensure_registered() -> void:
 		var pad: InputEventJoypadButton = InputEventJoypadButton.new()
 		pad.button_index = ABILITY_PAD_BUTTON
 		InputMap.action_add_event(ABILITY, pad)
+	if not InputMap.has_action(SHOVE):
+		_ensure(SHOVE, [KEY_F])
+		var shove_pad: InputEventJoypadButton = InputEventJoypadButton.new()
+		shove_pad.button_index = SHOVE_PAD_BUTTON
+		InputMap.action_add_event(SHOVE, shove_pad)
 	var slot_keys: Array[int] = [KEY_1, KEY_2, KEY_3, KEY_4]
 	for i: int in ABILITY_SLOTS.size():
 		_ensure(ABILITY_SLOTS[i], [slot_keys[i]])

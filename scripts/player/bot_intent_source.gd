@@ -14,6 +14,20 @@ extends IntentSource
 ## The bot's standing orders. Safe to mutate at any time.
 var command: MoveIntent = MoveIntent.new()
 
+## Take a free shove when a rival walks into reach. Off makes this source do
+## nothing a caller did not ask for.
+@export var shove_enabled: bool = true
+
+## What "into reach" means: metres ahead, and how square in front.
+const SHOVE_RANGE_METRES: float = 2.0
+const SHOVE_FACING_DOT: float = 0.7
+
+## Seconds a bot leaves between shoves. Its own patience, not the match's
+## cooldown -- the authority enforces that one.
+const SHOVE_REST_SECONDS: float = 2.0
+
+var _shove_rest: float = 0.0
+
 
 ## Aim by angular rate, in radians per second: positive [param yaw_rate] turns
 ## right, positive [param pitch_rate] looks up, and [param delta] is the tick
@@ -42,10 +56,44 @@ func hold_slide(held: bool) -> void:
 	command.slide_held = held
 
 
-func poll(_delta: float) -> MoveIntent:
+func poll(delta: float) -> MoveIntent:
 	command.normalise()
+	if shove_enabled:
+		_look_for_a_shove(delta)
 	_intent.copy_from(command)
 	command.jump_pressed = false
 	command.slide_pressed = false
+	command.shove_pressed = false
 	command.look_delta = Vector2.ZERO
 	return _intent
+
+
+## Tap shove when a living prisoner is already in front of a running bot. No
+## pathing and no target choice: it takes what the lap has put there.
+func _look_for_a_shove(delta: float) -> void:
+	_shove_rest = maxf(_shove_rest - delta, 0.0)
+	if _shove_rest > 0.0 or command.move_direction.y <= 0.0:
+		return
+	var body: PlayerController = get_parent() as PlayerController
+	if body == null or not body.is_in_group(MatchController.RUNNER_GROUP):
+		return
+	var forward: Vector3 = -body.global_transform.basis.z
+	forward.y = 0.0
+	if forward.length_squared() < 1e-6:
+		return
+	forward = forward.normalized()
+	var here: Vector3 = body.global_position
+	for node: Node in body.get_tree().get_nodes_in_group(MatchController.RUNNER_GROUP):
+		var rival: PlayerController = node as PlayerController
+		if rival == null or rival == body:
+			continue
+		var offset: Vector3 = rival.global_position - here
+		offset.y = 0.0
+		var distance: float = offset.length()
+		if distance > SHOVE_RANGE_METRES or distance < 1e-3:
+			continue
+		if forward.dot(offset / distance) < SHOVE_FACING_DOT:
+			continue
+		command.shove_pressed = true
+		_shove_rest = SHOVE_REST_SECONDS
+		return

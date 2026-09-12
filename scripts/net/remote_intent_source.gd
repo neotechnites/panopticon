@@ -96,6 +96,7 @@ func poll(_delta: float) -> MoveIntent:
 	command.look_delta = Vector2.ZERO
 	command.fire_pressed = false
 	command.ability_pressed = false
+	command.shove_pressed = false
 	return _intent
 
 

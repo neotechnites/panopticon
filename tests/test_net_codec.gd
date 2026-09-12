@@ -29,6 +29,7 @@ func _make_intent() -> MoveIntent:
 	intent.jump_held = false
 	intent.slide_pressed = false
 	intent.slide_held = true
+	intent.shove_pressed = true
 	return intent
 
 
@@ -58,6 +59,7 @@ func test_an_intent_survives_the_round_trip() -> void:
 	assert_false(got.jump_held, "jump_held")
 	assert_false(got.slide_pressed, "slide_pressed")
 	assert_true(got.slide_held, "slide_held")
+	assert_true(got.shove_pressed, "shove_pressed, off the second flag byte")
 
 
 func test_a_malformed_intent_is_refused_without_touching_the_output() -> void:
