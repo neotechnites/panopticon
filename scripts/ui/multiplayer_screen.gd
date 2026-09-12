@@ -362,7 +362,30 @@ func _render_addresses(port: int) -> void:
 		return
 	for i: int in lines.size():
 		lines[i] = "%s  port %d" % [lines[i], port]
+	if _public_ip != "":
+		lines.insert(0, "%s  port %d   (public - give friends this)" % [_public_ip, port])
+	elif _public_request == null:
+		_fetch_public_ip()
 	_address_field.text = "\n".join(lines)
+
+
+var _public_ip: String = ""
+var _public_request: HTTPRequest = null
+
+
+## Ask ipify for the public address once; re-render when it answers.
+func _fetch_public_ip() -> void:
+	_public_request = HTTPRequest.new()
+	_public_request.timeout = 6.0
+	add_child(_public_request)
+	_public_request.request_completed.connect(
+		func(_result: int, code: int, _headers: PackedStringArray, body: PackedByteArray) -> void:
+			if code == 200:
+				_public_ip = body.get_string_from_utf8().strip_edges()
+				_render_addresses(int(_host_port_spin.value))
+	)
+	if _public_request.request("https://api.ipify.org") != OK:
+		_public_request.queue_free()
 
 
 func _render_roster() -> void:
