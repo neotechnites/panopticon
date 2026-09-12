@@ -505,6 +505,21 @@ transform = Transform3D(0.207912, 0, -0.978148, 0, 1, 0, 0.978148, 0, 0.207912, 
 
 [node name="S5_WallRun" type="Node3D" parent="Sections" unique_id=1543765436]
 
+[node name="Lava" type="Node3D" parent="Sections/S5_WallRun"]
+editor_description = "Lava between the last wall and the portal, banks ~2 m each side."
+
+[node name="Tile_00" parent="Sections/S5_WallRun/Lava" instance=ExtResource("22_lava_tile_scene")]
+transform = Transform3D(0.910684, 0, 0.413104, 0, 1, 0, -0.413104, 0, 0.910684, 45.9895, 23, -20.8618)
+
+[node name="Tile_01" parent="Sections/S5_WallRun/Lava" instance=ExtResource("22_lava_tile_scene")]
+transform = Transform3D(0.910684, 0, 0.413104, 0, 1, 0, -0.413104, 0, 0.910684, 48.7216, 23, -22.1011)
+
+[node name="Tile_02" parent="Sections/S5_WallRun/Lava" instance=ExtResource("22_lava_tile_scene")]
+transform = Transform3D(0.939094, 0, 0.343660, 0, 1, 0, -0.343660, 0, 0.939094, 47.4243, 23, -17.3548)
+
+[node name="Tile_03" parent="Sections/S5_WallRun/Lava" instance=ExtResource("22_lava_tile_scene")]
+transform = Transform3D(0.939094, 0, 0.343660, 0, 1, 0, -0.343660, 0, 0.939094, 50.2415, 23, -18.3858)
+
 [node name="RockWall_292deg" parent="Sections/S5_WallRun" unique_id=1082072721 instance=ExtResource("14_rock_wall")]
 transform = Transform3D(-0.927184, 0, 0.374607, 0, 1.654603, 0, -0.374607, 0, -0.927184, 18.3557, 23, -45.432)
 
