@@ -1,0 +1,11 @@
+{
+  "_comment": "The lava river section of the ring: the deck between bearings 292.3 and 338.3 (r 46.7..57.3) cut down into a trench, lava at y=20.5, rock banks up to deck level (y=23) at both ends, a river mouth in the shaft wall at 300.3..306.3 deg and two falls over the inner lip. Seven rock pillars rise out of the lava, tops flat at y=23.5, 7.00 m centre to centre; the three inner ones carry a cover fin to y=27.3. Authored in WORLD coordinates -- instance at identity. TWO surfaces: HellRock (the tower atlas) and LavaRiver (its own tiling sheet, emissive, streaked along the flow, double-sided for the falls). LakeCollision is the purpose-built collider shipped as a `-colonly` node -- banks above y 21.2, pillar tops and sides, fins, the mouth floor -- and carries NO lava and NO waterfall: the scene's TrapVolume owns the kill. LavaSurface is an empty at the lava height, centre of the trench, for placing that TrapVolume.",
+  "node_paths": [
+    "LakeSection",
+    "LakeCollision",
+    "LakeCollision/CollisionShape3D",
+    "LavaSurface"
+  ],
+  "surfaces": 2,
+  "max_tris": 9000
+}
