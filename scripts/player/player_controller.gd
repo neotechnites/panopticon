@@ -411,6 +411,12 @@ func is_grounded() -> bool:
 	return is_on_floor() if net_floor < 0 else net_floor == 1
 
 
+## Slide and crouch pushed in from a snapshot, or -1 to ask this body. Both
+## poses live in physics this machine may not be running. See [member net_floor].
+var net_slide: int = -1
+var net_crouch: int = -1
+
+
 ## Start (or refresh) a timed ground-speed boost -- a race power-up. Ground max
 ## speed and ground acceleration run at [param multiplier] for [param seconds].
 func apply_speed_boost(multiplier: float, seconds: float) -> void:
@@ -440,7 +446,7 @@ func _tick_speed_boost(delta: float) -> void:
 
 ## True while the body is in the slide state.
 func is_sliding() -> bool:
-	return _sliding
+	return _sliding if net_slide < 0 else net_slide == 1
 
 
 ## Seconds the current slide has left before it times out; 0.0 when not sliding.
@@ -462,7 +468,7 @@ func get_slide_cooldown_remaining() -> float:
 ## Deliberately has no companion clock: unlike [method get_slide_time_remaining]
 ## there is nothing to count down. A crouch lasts exactly as long as the key.
 func is_crouching() -> bool:
-	return _crouching
+	return _crouching if net_crouch < 0 else net_crouch == 1
 
 
 ## The collision capsule's current height in metres -- the standing height, or

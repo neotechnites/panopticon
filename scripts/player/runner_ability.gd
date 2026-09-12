@@ -122,8 +122,12 @@ func cancel() -> void:
 ##
 ## Called every frame from [PlayerNetLink] with the replicated state, so it is a
 ## no-op unless the power changed.
-func present(which: MatchRules.RunnerAbility, remaining: float) -> void:
+func present(
+	which: MatchRules.RunnerAbility, remaining: float, cooldown: float = 0.0
+) -> void:
 	_remaining = maxf(remaining, 0.0)
+	# The client's own HUD reads this; nothing on a mirror counts it down.
+	_cooldown = maxf(cooldown, 0.0)
 	if which == _presented:
 		return
 	_teardown()

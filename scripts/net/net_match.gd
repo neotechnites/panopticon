@@ -13,6 +13,10 @@ const LINK_SCENE_PATH: String = "res://scenes/net/player_net_link.tscn"
 ## How long the server waits for clients to finish loading before starting anyway.
 const READY_TIMEOUT_SECONDS: float = 10.0
 
+## Which of the two rifles a shot event belongs to.
+const TOWER_RIFLE: int = 0
+const FINISHER_RIFLE: int = 1
+
 @export var controller: MatchController
 @export var player: PlayerController
 @export var runner_scene: PackedScene
@@ -26,6 +30,10 @@ var _pending_peers: PackedInt32Array = PackedInt32Array()
 var _wait_seconds: float = 0.0
 var _started: bool = false
 var _fire_was_held: bool = false
+var _finisher_fire_was_held: bool = false
+## Instance ids of the rifles already subscribed to. A bound Callable is a new
+## object every time, so [method Signal.is_connected] cannot answer this.
+var _watched_rifles: Dictionary[int, bool] = {}
 
 
 func _ready() -> void:
@@ -116,6 +124,7 @@ func _add_link(seat: LobbySeat, body: PlayerController, is_local: bool) -> void:
 	link.controller = body
 	link.seat_index = seat.index
 	link.owner_peer_id = seat.peer_id
+	link.match_controller = controller
 	if is_local or (seat.is_bot() and _session.is_authority()):
 		link.local_source = body.intent_source
 	add_child(link)
@@ -154,6 +163,10 @@ func _subscribe_server() -> void:
 	)
 	controller.match_won.connect(_on_match_won)
 	controller.participant_shoved.connect(_on_participant_shoved)
+	controller.finisher_armed.connect(_on_finisher_armed)
+	controller.kill_beat_started.connect(
+		func(guard: MatchParticipant, _seconds: float) -> void: rpc(&"_ev_kill_beat", guard.index)
+	)
 	controller.ghost_respawned.connect(
 		func(participant: MatchParticipant) -> void: rpc(&"_ev_ghost_respawned", participant.index)
 	)
@@ -162,11 +175,18 @@ func _subscribe_server() -> void:
 			rpc(&"_ev_ghost_caught", ghost.index, caught.index)
 	)
 	_lobby.seat_occupancy_changed.connect(_on_seat_occupancy_changed)
-	var rifle: Rifle = controller.rifle
-	if rifle != null:
-		rifle.fired.connect(func(origin: Vector3, end_point: Vector3) -> void:
-			rpc(&"_ev_rifle_fired", origin, end_point, rifle.reload_seconds))
-		rifle.target_hit.connect(_on_rifle_hit)
+	_watch_rifle(controller.rifle, TOWER_RIFLE)
+
+
+## Send one weapon's shots on, [param which] naming the gun so a client replays
+## them on the same one. Idempotent: the finisher's rifle is armed every round.
+func _watch_rifle(weapon: Rifle, which: int) -> void:
+	if weapon == null or _watched_rifles.has(weapon.get_instance_id()):
+		return
+	_watched_rifles[weapon.get_instance_id()] = true
+	weapon.fired.connect(_on_rifle_fired.bind(weapon, which))
+	weapon.target_hit.connect(_on_rifle_hit.bind(which))
+	weapon.missed.connect(func(end_point: Vector3) -> void: rpc(&"_ev_rifle_missed", which, end_point))
 
 
 func _start_now() -> void:
@@ -190,28 +210,37 @@ func _physics_process(delta: float) -> void:
 	_drive_remote_trigger()
 
 
-## A remote human in the tower fires through its intent; the server pulls the trigger.
+## A remote human in the tower or holding the finisher's rifle fires through its
+## intent; the server pulls the trigger.
 func _drive_remote_trigger() -> void:
-	var seat: MatchParticipant = controller.get_seat_participant()
-	var rifle: Rifle = controller.rifle
-	if seat == null or rifle == null or not seat.is_human() or seat == controller.get_human_participant():
-		_fire_was_held = false
-		return
-	var link: PlayerNetLink = _links[seat.index] if seat.index < _links.size() else null
+	_fire_was_held = _drive_trigger(
+		controller.get_seat_participant(), controller.rifle, _fire_was_held
+	)
+	_finisher_fire_was_held = _drive_trigger(
+		controller.get_finisher(), controller.get_finisher_rifle(), _finisher_fire_was_held
+	)
+
+
+## Pull [param weapon]'s trigger from [param who]'s intent packets. Returns
+## whether the trigger is still held.
+func _drive_trigger(who: MatchParticipant, weapon: Rifle, was_held: bool) -> bool:
+	if who == null or weapon == null or not who.is_human() or who == controller.get_human_participant():
+		return false
+	var link: PlayerNetLink = _links[who.index] if who.index < _links.size() else null
 	var source: RemoteIntentSource = link.get_remote_source() if link != null else null
 	if source == null:
-		return
+		return was_held
 	var pressed: bool = source.take_fire()
 	var held: bool = source.is_fire_held()
-	var charged: bool = rifle.profile != null and rifle.profile.charge_enabled
+	var charged: bool = weapon.profile != null and weapon.profile.charge_enabled
 	if charged:
 		if pressed:
-			rifle.begin_charge()
-		elif _fire_was_held and not held:
-			rifle.release_charge()
+			weapon.begin_charge()
+		elif was_held and not held:
+			weapon.release_charge()
 	elif pressed or held:
-		rifle.try_fire()
-	_fire_was_held = held
+		weapon.try_fire()
+	return held
 
 
 func _on_round_started() -> void:
@@ -225,14 +254,27 @@ func _on_match_won(participant: MatchParticipant) -> void:
 	_lobby.conclude_match(seat.index if seat != null else -1)
 
 
-func _on_rifle_hit(collider: Node3D, at: Vector3, normal: Vector3) -> void:
+func _on_rifle_fired(origin: Vector3, end_point: Vector3, weapon: Rifle, which: int) -> void:
+	rpc(&"_ev_rifle_fired", which, origin, end_point, weapon.reload_seconds)
+
+
+func _on_rifle_hit(collider: Node3D, at: Vector3, normal: Vector3, which: int) -> void:
 	var participant: MatchParticipant = controller.resolve_participant(collider)
-	rpc(&"_ev_rifle_hit", participant.index if participant != null else -1, at, normal)
+	rpc(&"_ev_rifle_hit", which, participant.index if participant != null else -1, at, normal)
+
+
+## The finisher's rifle exists only once one has been armed, so it is subscribed
+## to here rather than at [method _subscribe_server].
+func _on_finisher_armed(weapon: Rifle) -> void:
+	var who: MatchParticipant = controller.get_finisher()
+	_watch_rifle(weapon, FINISHER_RIFLE)
+	rpc(&"_ev_finisher_armed", who.index if who != null else -1)
 
 
 ## The victim's launch rides the snapshot; the shover's own kick and clip do not,
 ## so they are sent to the peer that pushed.
-func _on_participant_shoved(shover: MatchParticipant, _victim: MatchParticipant) -> void:
+func _on_participant_shoved(shover: MatchParticipant, victim: MatchParticipant) -> void:
+	_on_shove_landed(victim)
 	var seats: Array[LobbySeat] = _lobby.get_occupied_seats()
 	if shover == null or shover.body == null or shover.index >= seats.size():
 		return
@@ -242,6 +284,12 @@ func _on_participant_shoved(shover: MatchParticipant, _victim: MatchParticipant)
 	var forward: Vector3 = -shover.body.global_transform.basis.z
 	forward.y = 0.0
 	rpc_id(peer, &"_ev_shoved", forward.normalized())
+
+
+## The victim's cue, to everyone: the launch rides the snapshot, the sound does not.
+func _on_shove_landed(victim: MatchParticipant) -> void:
+	if victim != null and victim.body != null:
+		rpc(&"_ev_shove_landed", victim.body.global_position)
 
 
 func _on_seat_occupancy_changed(seat_index: int, occupancy: LobbySeat.Occupancy) -> void:
@@ -328,19 +376,54 @@ func _ev_ghost_caught(ghost_index: int, caught_index: int) -> void:
 
 
 @rpc("authority", "reliable", "call_remote", 0)
-func _ev_rifle_fired(origin: Vector3, end_point: Vector3, reload: float) -> void:
-	if not is_authority() and controller.rifle != null:
-		controller.rifle.show_remote_shot(origin, end_point, reload)
+func _ev_rifle_fired(which: int, origin: Vector3, end_point: Vector3, reload: float) -> void:
+	var weapon: Rifle = _weapon_of(which)
+	if weapon != null:
+		weapon.show_remote_shot(origin, end_point, reload)
 
 
 @rpc("authority", "reliable", "call_remote", 0)
-func _ev_rifle_hit(index: int, at: Vector3, normal: Vector3) -> void:
-	if is_authority() or controller.rifle == null:
+func _ev_rifle_hit(which: int, index: int, at: Vector3, normal: Vector3) -> void:
+	var weapon: Rifle = _weapon_of(which)
+	if weapon == null:
 		return
 	var participants: Array[MatchParticipant] = controller.get_participants()
 	var participant: MatchParticipant = participants[index] if index >= 0 and index < participants.size() else null
 	var body: Node3D = participant.body if participant != null else null
-	controller.rifle.show_remote_hit(body, at, normal)
+	weapon.show_remote_hit(body, at, normal)
+
+
+@rpc("authority", "reliable", "call_remote", 0)
+func _ev_rifle_missed(which: int, end_point: Vector3) -> void:
+	var weapon: Rifle = _weapon_of(which)
+	if weapon != null:
+		weapon.show_remote_miss(end_point)
+
+
+@rpc("authority", "reliable", "call_remote", 0)
+func _ev_finisher_armed(index: int) -> void:
+	if not is_authority():
+		controller.net_arm_finisher(index)
+
+
+@rpc("authority", "reliable", "call_remote", 0)
+func _ev_kill_beat(guard_index: int) -> void:
+	if not is_authority():
+		controller.net_kill_beat(guard_index)
+
+
+@rpc("authority", "reliable", "call_remote", 0)
+func _ev_shove_landed(at: Vector3) -> void:
+	if not is_authority() and at.is_finite():
+		controller.net_shove_landed(at)
+
+
+## Which gun an event names, on a client. Null on the authority, which replays
+## nothing, and before a finisher has been armed.
+func _weapon_of(which: int) -> Rifle:
+	if is_authority():
+		return null
+	return controller.get_finisher_rifle() if which == FINISHER_RIFLE else controller.rifle
 
 
 @rpc("authority", "reliable", "call_remote", 0)

@@ -79,6 +79,10 @@ signal intent_received(peer_id: int, tick: int)
 ## can tell.
 @export var local_source: IntentSource
 
+## The match this body is in, and which participant it is. The finisher flags
+## and the hit points live on the participant, not on the body. Set by [NetMatch].
+@export var match_controller: MatchController
+
 ## Fed by [method _receive_intent] on the authority when a client owns this
 ## seat, and switched into the controller in place of [member local_source].
 ##
@@ -101,6 +105,21 @@ var _tick: int = 0
 ## through a frame.
 var _is_authority: bool = false
 
+## The body jumped since the last snapshot was sampled. An edge has no state to
+## read back off the controller, so it is latched off the signal and cleared
+## when it goes out.
+var _jumped_since_sample: bool = false
+
+## The newest snapshot tick whose EDGES have been replayed on this body, or -1
+## before the first. Interpolation hands [method apply_state] the same snapshot
+## every drawn frame; the events inside it must fire once.
+var _event_tick: int = -1
+var _was_on_floor: bool = true
+var _was_sliding: bool = false
+
+## Downward speed off the last airborne snapshot, for the landing cue.
+var _fall_speed: float = 0.0
+
 
 func _ready() -> void:
 	if session == null or controller == null:
@@ -110,6 +129,7 @@ func _ready() -> void:
 	if replicator != null:
 		replicator.register(self)
 	session.connection_state_changed.connect(_on_connection_state_changed)
+	controller.jumped.connect(func() -> void: _jumped_since_sample = true)
 	refresh_role()
 
 
@@ -181,6 +201,15 @@ func sample_state(out: PlayerState) -> void:
 	var power: RunnerPower = RunnerPower.of(controller)
 	out.ability = int(power.get_active()) if power != null else 0
 	out.ability_remaining = power.get_remaining() if power != null else 0.0
+	out.cooldown_remaining = power.get_cooldown_remaining() if power != null else 0.0
+	out.is_armed = controller.is_armed
+	out.sliding = controller.is_sliding()
+	out.crouching = controller.is_crouching()
+	out.jumped = _jumped_since_sample
+	_jumped_since_sample = false
+	var participant: MatchParticipant = _participant()
+	out.is_finisher = participant.is_finisher if participant != null else false
+	out.health = participant.health if participant != null else 0
 
 
 ## Put an authoritative state onto the body. Called by [NetReplicator] on a
@@ -199,13 +228,60 @@ func apply_state(state: PlayerState) -> void:
 		return
 	var power: RunnerPower = RunnerPower.of(controller)
 	if power != null:
-		power.present(state.ability as MatchRules.RunnerAbility, state.ability_remaining)
+		power.present(
+			state.ability as MatchRules.RunnerAbility,
+			state.ability_remaining,
+			state.cooldown_remaining,
+		)
 	controller.global_position = state.position
 	controller.rotation.y = state.yaw
 	controller.velocity = state.velocity
 	controller.net_floor = 1 if state.on_floor else 0
+	controller.net_slide = 1 if state.sliding else 0
+	controller.net_crouch = 1 if state.crouching else 0
+	controller.is_armed = state.is_armed
 	if controller.head != null:
 		controller.head.rotation.x = state.pitch
+	var participant: MatchParticipant = _participant()
+	if participant != null:
+		participant.is_finisher = state.is_finisher
+		participant.health = state.health
+	_present_events(state)
+
+
+## Turn one snapshot's transitions back into the body's own signals, so that
+## [MovementAudioListener] and [PrisonerAvatar] hear a mirrored body move.
+##
+## Once per snapshot, not once per drawn frame: interpolation replays the same
+## state until the next one lands.
+func _present_events(state: PlayerState) -> void:
+	if _event_tick >= 0 and not NetCodec.is_newer_tick(state.tick, _event_tick):
+		return
+	var first: bool = _event_tick < 0
+	_event_tick = state.tick
+	if first:
+		_was_on_floor = state.on_floor
+		_was_sliding = state.sliding
+		return
+	if state.jumped:
+		controller.jumped.emit()
+	if state.on_floor and not _was_on_floor:
+		controller.landed.emit(_fall_speed)
+	elif not state.on_floor:
+		_fall_speed = absf(state.velocity.y)
+	if state.sliding and not _was_sliding:
+		controller.slide_started.emit(controller.get_horizontal_speed())
+	elif _was_sliding and not state.sliding:
+		controller.slide_ended.emit()
+	_was_on_floor = state.on_floor
+	_was_sliding = state.sliding
+
+
+## This body's participant, or null before the match has built them.
+func _participant() -> MatchParticipant:
+	if match_controller == null or controller == null:
+		return null
+	return match_controller.resolve_participant(controller)
 
 
 # --- Sending ------------------------------------------------------------------

@@ -49,9 +49,10 @@ const INTENT_SIZE: int = 23
 const SNAPSHOT_HEADER_SIZE: int = 5
 
 ## Bytes per body inside a snapshot: u8 seat, 8 floats, 1 flag byte, u8 running
-## ability and u8 tenths of a second left on it. The seat is a byte and not a
-## peer id because seats are what bodies are named by -- see [PlayerState].
-const SNAPSHOT_BODY_SIZE: int = 36
+## ability, u8 tenths left on it, u8 tenths of its cooldown and u8 hit points.
+## The seat is a byte and not a peer id because seats are what bodies are named
+## by -- see [PlayerState].
+const SNAPSHOT_BODY_SIZE: int = 38
 
 ## Bytes of roster header: u8 phase, u8 seat count.
 const ROSTER_HEADER_SIZE: int = 2
@@ -74,13 +75,21 @@ const _FLAG_ABILITY_HELD: int = 1 << 7
 ## Second flag byte. The first is full; new intent bits start here.
 const _FLAG2_SHOVE_PRESSED: int = 1 << 0
 const _FLAG_ON_FLOOR: int = 1 << 0
+## The rest of the snapshot flag byte: what a mirror cannot work out for itself
+## because it runs no physics and takes no match decisions.
+const _FLAG_IS_FINISHER: int = 1 << 1
+const _FLAG_IS_ARMED: int = 1 << 2
+const _FLAG_JUMPED: int = 1 << 3
+const _FLAG_SLIDING: int = 1 << 4
+const _FLAG_CROUCHING: int = 1 << 5
 const _FLAG_SEAT_READY: int = 1 << 0
 
 ## Highest [enum MatchRules.RunnerAbility] value the wire carries.
 const _MAX_ABILITY: int = 4
 
-## Ceiling on the quantised ability timer: 255 tenths of a second.
+## Ceiling on a quantised timer, and on hit points: one byte each.
 const _ABILITY_TENTHS_MAX: int = 255
+const _HEALTH_MAX: int = 255
 
 ## Ticks are unsigned 32-bit on the wire and wrap there.
 const TICK_MODULUS: int = 1 << 32
@@ -175,11 +184,28 @@ static func pack_snapshot(snapshot: WorldSnapshot) -> PackedByteArray:
 		buffer.put_float(state.velocity.z)
 		buffer.put_float(state.yaw)
 		buffer.put_float(state.pitch)
-		buffer.put_u8(_FLAG_ON_FLOOR if state.on_floor else 0)
+		var flags: int = 0
+		if state.on_floor:
+			flags |= _FLAG_ON_FLOOR
+		if state.is_finisher:
+			flags |= _FLAG_IS_FINISHER
+		if state.is_armed:
+			flags |= _FLAG_IS_ARMED
+		if state.jumped:
+			flags |= _FLAG_JUMPED
+		if state.sliding:
+			flags |= _FLAG_SLIDING
+		if state.crouching:
+			flags |= _FLAG_CROUCHING
+		buffer.put_u8(flags)
 		buffer.put_u8(clampi(state.ability, 0, _MAX_ABILITY))
 		buffer.put_u8(clampi(
 			int(state.ability_remaining * 10.0), 0, _ABILITY_TENTHS_MAX
 		))
+		buffer.put_u8(clampi(
+			int(state.cooldown_remaining * 10.0), 0, _ABILITY_TENTHS_MAX
+		))
+		buffer.put_u8(clampi(state.health, 0, _HEALTH_MAX))
 	return buffer.data_array
 
 
@@ -215,6 +241,8 @@ static func unpack_snapshot(payload: PackedByteArray, out: WorldSnapshot) -> boo
 		# positions.
 		var ability: int = mini(buffer.get_u8(), _MAX_ABILITY)
 		var ability_tenths: int = buffer.get_u8()
+		var cooldown_tenths: int = buffer.get_u8()
+		var health: int = buffer.get_u8()
 		if not (position.is_finite() and velocity.is_finite() and is_finite(yaw) and is_finite(pitch)):
 			out.clear()
 			return false
@@ -227,6 +255,13 @@ static func unpack_snapshot(payload: PackedByteArray, out: WorldSnapshot) -> boo
 		state.on_floor = (flags & _FLAG_ON_FLOOR) != 0
 		state.ability = ability
 		state.ability_remaining = float(ability_tenths) * 0.1
+		state.cooldown_remaining = float(cooldown_tenths) * 0.1
+		state.health = health
+		state.is_finisher = (flags & _FLAG_IS_FINISHER) != 0
+		state.is_armed = (flags & _FLAG_IS_ARMED) != 0
+		state.jumped = (flags & _FLAG_JUMPED) != 0
+		state.sliding = (flags & _FLAG_SLIDING) != 0
+		state.crouching = (flags & _FLAG_CROUCHING) != 0
 		out.commit()
 	return true
 

@@ -222,6 +222,10 @@ signal participant_shoved(shover: MatchParticipant, victim: MatchParticipant)
 ## The finisher just received a rifle.
 signal finisher_armed(weapon: Rifle)
 
+## The killing shot landed and the beat has started. [param guard] is the body
+## playing its death.
+signal kill_beat_started(guard: MatchParticipant, seconds: float)
+
 ## Every design parameter of the match: how many players, on what track, at what
 ## pace, with what reload escalation, and what counts as a win.
 ##
@@ -603,6 +607,13 @@ func _ready() -> void:
 ## up with where they were put. Does nothing on every other frame.
 func _physics_process(delta: float) -> void:
 	if _mirror:
+		# The settle runs on a mirror too, or every placed body keeps the
+		# collision layer 0 [method _hold_body] gave it for the rest of the
+		# match. _wake_body leaves the physics off; see it.
+		if _settle_frames > 0:
+			_settle_frames -= 1
+			if _settle_frames == 0:
+				_wake_bodies()
 		# A client decides no respawn -- the server says when it lands -- but the
 		# death view and its countdown are drawn off this clock.
 		_tick_mirror_respawn_holds(delta)
@@ -1187,6 +1198,38 @@ func net_shove_felt(forward: Vector3) -> void:
 		human.body.shoved.emit()
 
 
+## The server armed [param index] as the finisher: the rifle, the viewmodel and
+## the hit points, with the trigger left on the authority.
+func net_arm_finisher(index: int) -> void:
+	var participant: MatchParticipant = _participant_at(index)
+	if participant == null or participant == _finisher or participant.body == null:
+		return
+	var weapon: Rifle = _finisher_weapon()
+	if weapon == null:
+		return
+	_disarm_finisher()
+	_finisher = participant
+	participant.is_finisher = true
+	participant.health = maxi(get_rules().finisher_health, 1)
+	participant.body.is_armed = true
+	_attach_finisher_rifle(participant, weapon)
+
+
+## The server's killing shot: the guard plays its death and the round waits.
+## What the beat resolves into arrives on the ordinary round flow.
+func net_kill_beat(guard_index: int) -> void:
+	var guard: MatchParticipant = _participant_at(guard_index)
+	if guard == null or guard.body == null:
+		return
+	guard.body.died.emit()
+
+
+## The server says a shove landed on somebody at [param at]. The cue only: the
+## victim's launch rides the snapshot.
+func net_shove_landed(at: Vector3) -> void:
+	AudioDirector.post_event_at(AudioEvents.PLAYER_CATCH_MADE, at)
+
+
 ## A human seat became a bot's mid-match: the body stays, the brain takes over.
 func net_seat_to_bot(index: int) -> void:
 	var participant: MatchParticipant = _participant_at(index)
@@ -1522,6 +1565,7 @@ func _begin_kill_beat(guard: MatchParticipant, scorer: MatchParticipant, seconds
 	if guard.body != null:
 		# The death clip: PrisonerAvatar arms on this signal and on nothing else.
 		guard.body.died.emit()
+	kill_beat_started.emit(guard, seconds)
 
 
 ## One body, inert for the length of the beat. The same hold every placement in
