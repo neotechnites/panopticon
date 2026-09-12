@@ -344,6 +344,12 @@ enum RunnerAbility {
 ## is whichever is higher, so a sweep can never drill through the weapon's.
 @export_range(0.0, 5.0, 0.01, "or_greater") var reload_floor_seconds: float = 0.0
 
+## Explicit reload seconds for the tower's early turns, 0-indexed. [b]LIVE[/b],
+## empty by default (defer entirely to [member reload_reduction_per_turn]). An
+## entry at [code]turn_index[/code] IS that turn's reload, still floored; turns
+## past the end of the array keep reducing from the last entry as their base.
+@export var reload_seconds_by_turn: PackedFloat32Array = PackedFloat32Array()
+
 # --- Winning and losing -------------------------------------------------------
 
 ## What the shooter must do to win. [b]LIVE[/b], all three members implemented.
@@ -671,9 +677,17 @@ func get_reload_floor_seconds(weapon_floor: float) -> float:
 ## not this function's. See [member reload_reduction_per_turn] for what is still
 ## open.
 func get_reload_seconds_for_turn(turn_index: int, weapon_base: float, weapon_floor: float) -> float:
+	var floor_seconds: float = get_reload_floor_seconds(weapon_floor)
+	var explicit_count: int = reload_seconds_by_turn.size()
+	if turn_index >= 0 and turn_index < explicit_count:
+		return maxf(reload_seconds_by_turn[turn_index], floor_seconds)
 	var base: float = get_base_reload_seconds(weapon_base)
-	var reduced: float = base - reload_reduction_per_turn * float(maxi(turn_index, 0))
-	return maxf(reduced, get_reload_floor_seconds(weapon_floor))
+	var turns_reduced: int = maxi(turn_index, 0)
+	if explicit_count > 0:
+		base = reload_seconds_by_turn[explicit_count - 1]
+		turns_reduced = maxi(turn_index - (explicit_count - 1), 0)
+	var reduced: float = base - reload_reduction_per_turn * float(turns_reduced)
+	return maxf(reduced, floor_seconds)
 
 
 ## The [ShooterProfile] participant [param index] plays the tower on, or null

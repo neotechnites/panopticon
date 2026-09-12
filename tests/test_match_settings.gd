@@ -206,6 +206,26 @@ func test_the_race_skip_writes_the_rules_both_ways() -> void:
 	)
 
 
+# --- The reload grid -----------------------------------------------------------
+
+## The grid's second column is the reload for the second time in the tower --
+## [method MatchRules.get_reload_seconds_for_turn]'s [code]turn_index[/code] 1 --
+## and nothing else in the chain is free to renumber it.
+func test_the_reload_grid_writes_the_second_turns_reload() -> void:
+	var settings: GameSettings = GameSettings.new()
+	var rules: MatchRules = TestFixtures.match_rules()
+
+	var grid: PackedFloat32Array = settings.reload_by_turn.duplicate()
+	grid[1] = 1.75
+	settings.reload_by_turn = grid
+	settings.apply_to_match_rules(rules)
+
+	assert_almost_eq(
+		rules.get_reload_seconds_for_turn(1, 0.0, 0.0), 1.75, 1e-6,
+		"the second time in the tower reloads at the grid's second value",
+	)
+
+
 ## Both values survive the file, and a file that has never heard of them is not a
 ## failure.
 func test_the_race_skip_round_trips_through_the_config_file() -> void:

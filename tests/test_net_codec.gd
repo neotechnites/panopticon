@@ -207,6 +207,34 @@ func test_a_roster_with_an_impossible_enum_is_refused() -> void:
 	assert_eq_int(got.size(), 0, "and nothing was written")
 
 
+# --- Match rules ---------------------------------------------------------------
+
+## [member MatchRules.reload_seconds_by_turn] is a [PackedFloat32Array], not a
+## scalar export, so it needs its own check that [method NetCodec.pack_rules]
+## and [method NetCodec.copy_rules] both carry it rather than silently dropping it.
+func test_the_reload_grid_survives_pack_and_copy() -> void:
+	var sent: MatchRules = MatchRules.new()
+	sent.reload_seconds_by_turn = PackedFloat32Array([2.5, 2.2, 1.9, 1.6, 1.3])
+
+	var got: MatchRules = MatchRules.new()
+	assert_true(NetCodec.unpack_rules(NetCodec.pack_rules(sent), got), "the payload decodes")
+	assert_eq_int(got.reload_seconds_by_turn.size(), 5, "all five entries came back")
+	for i: int in 5:
+		assert_almost_eq(
+			got.reload_seconds_by_turn[i], sent.reload_seconds_by_turn[i], 1e-6,
+			"entry %d survives pack_rules/unpack_rules" % i,
+		)
+
+	var copied: MatchRules = MatchRules.new()
+	NetCodec.copy_rules(sent, copied)
+	assert_eq_int(copied.reload_seconds_by_turn.size(), 5, "all five entries were copied")
+	for i: int in 5:
+		assert_almost_eq(
+			copied.reload_seconds_by_turn[i], sent.reload_seconds_by_turn[i], 1e-6,
+			"entry %d survives copy_rules" % i,
+		)
+
+
 func test_a_name_is_stripped_and_capped_without_splitting_a_character() -> void:
 	assert_eq_string(
 		NetCodec.sanitise_name("  Ryan\n\t ", NAME_CAP), "Ryan", "control characters and edges go"
