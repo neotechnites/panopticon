@@ -11,6 +11,8 @@ const SHIELD_RADIUS: float = 4.0
 const SHIELD_LAYER: int = 1 << 19
 const CAMO_VISIBLE_RANGE: float = 25.0
 const CAMO_ALPHA: float = 0.25
+## Whole-body camo tint: dark hell red.
+const CAMO_COLOR: Color = Color(0.55, 0.11, 0.06, 1.0)
 
 @export var body: PlayerController
 
@@ -260,11 +262,10 @@ func _cloak() -> void:
 	var camo: BaseMaterial3D = (
 		(base.duplicate() as BaseMaterial3D) if base is BaseMaterial3D else StandardMaterial3D.new()
 	)
-	camo.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	camo.albedo_color.a = CAMO_ALPHA
-	camo.emission_enabled = true
-	camo.emission = Color(0.5, 0.8, 1.0)
-	camo.emission_energy_multiplier = 0.35
+	# Ryan: not invisible -- hell red, the colour that vanished against the rock.
+	camo.transparency = BaseMaterial3D.TRANSPARENCY_DISABLED
+	camo.albedo_color = CAMO_COLOR
+	camo.emission_enabled = false
 	mesh.material_override = camo
 
 
