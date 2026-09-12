@@ -764,21 +764,21 @@ exit_angle_degrees = 335.0
 
 [node name="Tower" type="Node3D" parent="." unique_id=1642350855]
 editor_description = "The tower, and its origin is the FLOOR OF THE GUARD ROOM at y=25.35. That is the model's own datum: assets/models/tower.glb hangs its rock 36.4 m below this point and carries the top of its drum 9.6 m above it, so the model drops in at identity and TowerSpawn, the lights and the Watcher all hang off the same floor.
-script = ExtResource("8c_tower_variant")
-variant = 1
 
 THE GUARD IS INSIDE IT NOW. A hollow chamber 10.2 m across with eight openings.
 
 THE DECK IS AT THE GUARD'S EYE. Ryan: \"raise the top one to eye level.\" The eye is this floor plus 1.65 m = y=27.00, and the deck's walking surface is exactly there, so the guard looks flat along the whole ring."
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 25.35, 0)
+script = ExtResource("8c_tower_variant")
+variant = 1
 
 [node name="Rock" parent="Tower" unique_id=1992333100 instance=ExtResource("8_tower_model")]
 editor_description = "assets/models/tower.glb: the column, the drum and the hollow chamber, one mesh. It carries its OWN collision (a -colonly shape in the glTF), so the guard stands on the model's floor and is stopped by the model's stone -- there is no second, invisible copy of either in this scene, and nothing here can drift out of agreement with what you can see.
 
+Its origin is the floor of the guard room, which is why it drops in at identity: see the Tower node above."
+
 [node name="RockArches" parent="Tower" instance=ExtResource("8b_tower_arches")]
 editor_description = "The Greek-arches variant; Tower.variant picks which one is live."
-
-Its origin is the floor of the guard room, which is why it drops in at identity: see the Tower node above."
 
 [node name="TowerSpawn" type="Marker3D" parent="Tower" unique_id=1882367771]
 editor_description = "On the chamber floor, 0.25 m up. The clearance is deliberate: spawning a capsule with its feet exactly on the collision plane overlaps it, and depenetration launches the body across the arena. The model's origin IS this floor, so this is origin + 0.25 and nothing else."
