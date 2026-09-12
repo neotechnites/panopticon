@@ -569,62 +569,62 @@ transform = Transform3D(0.207912, 0, -0.978148, 0, 1, 0, 0.978148, 0, 0.207912, 
 editor_description = "The lava river is map_base geometry now; this holds only what kills and where the surface is."
 
 [node name="TrapVolume" type="Area3D" parent="Sections/S5_WallRun"]
-transform = Transform3D(-0.878817, 0, 0.477159, 0, 1, 0, -0.477159, 0, -0.878817, 24.8123, 22.3, -45.6985)
+transform = Transform3D(-0.887976, 0, 0.459890, 0, 1, 0, -0.459890, 0, -0.887976, 23.9143, 22.7, -46.1748)
 collision_layer = 0
 collision_mask = 1048577
 monitorable = false
 script = ExtResource("26_trap_volume")
-size_metres = Vector3(8.4, 0.4, 10.6)
+size_metres = Vector3(8.12, 0.4, 10.6)
 feet_only = true
 
 [node name="Shape" type="CollisionShape3D" parent="Sections/S5_WallRun/TrapVolume"]
 
 [node name="TrapVolume2" type="Area3D" parent="Sections/S5_WallRun"]
-transform = Transform3D(-0.799685, 0, 0.600420, 0, 1, 0, -0.600420, 0, -0.799685, 31.2219, 22.3, -41.5836)
+transform = Transform3D(-0.805515, 0, 0.592576, 0, 1, 0, -0.592576, 0, -0.805515, 30.8139, 22.7, -41.8868)
 collision_layer = 0
 collision_mask = 1048577
 monitorable = false
 script = ExtResource("26_trap_volume")
-size_metres = Vector3(8.4, 0.4, 10.6)
+size_metres = Vector3(8.12, 0.4, 10.6)
 feet_only = true
 
 [node name="Shape" type="CollisionShape3D" parent="Sections/S5_WallRun/TrapVolume2"]
 
 [node name="TrapVolume3" type="Area3D" parent="Sections/S5_WallRun"]
-transform = Transform3D(-0.703395, 0, 0.710799, 0, 1, 0, -0.710799, 0, -0.703395, 36.9616, 22.3, -36.5765)
+transform = Transform3D(-0.703395, 0, 0.710799, 0, 1, 0, -0.710799, 0, -0.703395, 36.9616, 22.7, -36.5765)
 collision_layer = 0
 collision_mask = 1048577
 monitorable = false
 script = ExtResource("26_trap_volume")
-size_metres = Vector3(8.4, 0.4, 10.6)
+size_metres = Vector3(8.12, 0.4, 10.6)
 feet_only = true
 
 [node name="Shape" type="CollisionShape3D" parent="Sections/S5_WallRun/TrapVolume3"]
 
 [node name="TrapVolume4" type="Area3D" parent="Sections/S5_WallRun"]
-transform = Transform3D(-0.592013, 0, 0.805928, 0, 1, 0, -0.805928, 0, -0.592013, 41.9083, 22.3, -30.7847)
+transform = Transform3D(-0.584108, 0, 0.811676, 0, 1, 0, -0.811676, 0, -0.584108, 42.2071, 22.7, -30.3736)
 collision_layer = 0
 collision_mask = 1048577
 monitorable = false
 script = ExtResource("26_trap_volume")
-size_metres = Vector3(8.4, 0.4, 10.6)
+size_metres = Vector3(8.12, 0.4, 10.6)
 feet_only = true
 
 [node name="Shape" type="CollisionShape3D" parent="Sections/S5_WallRun/TrapVolume4"]
 
 [node name="TrapVolume5" type="Area3D" parent="Sections/S5_WallRun"]
-transform = Transform3D(-0.467930, 0, 0.883766, 0, 1, 0, -0.883766, 0, -0.467930, 45.9558, 22.3, -24.3324)
+transform = Transform3D(-0.450566, 0, 0.892743, 0, 1, 0, -0.892743, 0, -0.450566, 46.4226, 22.7, -23.4294)
 collision_layer = 0
 collision_mask = 1048577
 monitorable = false
 script = ExtResource("26_trap_volume")
-size_metres = Vector3(8.4, 0.4, 10.6)
+size_metres = Vector3(8.12, 0.4, 10.6)
 feet_only = true
 
 [node name="Shape" type="CollisionShape3D" parent="Sections/S5_WallRun/TrapVolume5"]
 
 [node name="LavaSurface" type="Marker3D" parent="Sections/S5_WallRun"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 36.91, 22.3, -36.63)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 36.91, 22.7, -36.63)
 
 [node name="Route" type="Node3D" parent="." unique_id=325112563]
 editor_description = "WHAT PROGRESS IS: the arc swept so far on the one lap, taken at the lane radius. IT IS DATA, AND IT LIVES ON THE MAP. The deck height, radial band, lane radius, entry angle and exit angle are here, and MatchLapTracker, RingRunner, the HUD and the round card all read them from here rather than from a second copy."
