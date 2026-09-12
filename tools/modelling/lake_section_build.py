@@ -3,11 +3,12 @@ PANOPTICON -- lake_section: the lava river, sunk into the ring deck.
 
 The deck between bearings 292.3 and 338.3 is cut away and replaced by a river
 of lava brimming 0.7 m under it, at y 22.3, with rock shores at both ends. It
-issues from a low slot at the foot of the shaft wall (r 57.3, 300.3..306.3 deg,
-head at y 22.75 so the wall and the deck over it are never cut) and leaves over
-the inner lip (r 46.7) as ONE sheet down the section's whole inner edge.
-Seven rock pillars stand 1.2 m out of it on a 7.0 m zigzag; the three inner
-ones carry a rock fin on the tower side, tall enough to hide a runner on them.
+comes out of the rock along the WHOLE foot of the shaft wall -- one low slot at
+r 57.3, head at y 22.8, so neither the wall nor the deck over it is ever cut --
+and leaves over the inner lip (r 46.7) as ONE sheet down the section's whole
+inner edge, falling 34 m into the pit's lava sea. Seven rock pillars stand
+1.2 m out of the river on a 7.0 m zigzag; the three inner ones carry a rock fin
+on the tower side, tall enough to hide a runner stood on them.
 
 Authored in WORLD coordinates, like map_base_build.py, so the scene instances
 it at identity. Blender +Z -> Godot +Y, Blender +Y -> Godot -Z, and a game
@@ -63,30 +64,28 @@ LAVA_SWELL = 0.04
 # deck and the rock never rises to meet it on the tower side, so it leaves over
 # the lip along the WHOLE inner edge. Outboard it crosses 22.3 at r 56.77.
 CP_BASE = [(46.70, 21.95), (47.60, 21.60), (48.60, 21.40),
-           (55.40, 21.40), (56.50, 21.95), (57.30, 23.00)]
-CP_SHOULDER = [(55.40, 21.40), (56.50, 21.80), (57.30, 22.35)]  # slot jamb
-CP_FLOOR = [(55.40, 21.40), (56.50, 21.45), (57.30, 21.55)]     # slot sill
+           (55.40, 21.40), (56.50, 21.45), (57.30, 21.55)]
 
-RST = [46.70, 47.60, 48.60, 50.00, 51.40, 52.80, 54.20, 55.40,
-       56.00, 56.50, 56.90, 57.30]
+RST = [46.70, 47.60, 48.60, 50.00, 51.40, 52.80, 54.20, 55.40, 56.40, 57.30]
 
 BED_JAG = 0.14                  # rock jitter in the trench
 
-# ---- the river mouth: a low slot at the foot of the wall. Its head is under
-# the deck plane, so the wall and the deck over it are never cut.
-MOUTH_FLOOR = [301.3, 302.3, 303.3, 304.3, 305.3]   # the open channel
-MOUTH_LEDGE = [300.3, 306.3]                        # jambs, slot narrowing
-MOUTH_BACK = 60.0
-MOUTH_CEIL = 22.75              # slot head: 0.45 m over the river, 0.25 under
+# ---- the river mouth: ONE low slot along the whole foot of the wall, so the
+# river comes out of the rock everywhere. Its head is under the deck plane, so
+# neither the wall nor the deck over it is ever cut.
+MOUTH_BACK = 59.4
+MOUTH_CEIL = 22.80              # slot head: 0.5 m over the river, 0.2 m under
                                 # the deck, so rock carries on above it
 
-# ---- the fall: ONE sheet off the whole lip --------------------------------
-FALL_DROP = (6.0, 8.0)          # metres below the lip
-FALL_GAP = 0.55                 # ... except where the curtain tears
-FALL_ROWS = 5
+# ---- the fall: ONE sheet off the whole lip, down to the pit's sea ----------
+FALL_BOTTOM = -11.50            # map_base COURTYARD_Z is -11.05: it sinks in
+FALL_ROWS = 8
 FALL_SUB = 2                    # sheet columns per degree of lip
-FALL_OUT = 2.00                 # how far the sheet leans in off the lip; it has
-                                # to clear map_base's jittered pit wall
+# map_base's pit wall drops from exactly r 46.7 at the lip and may jitter in to
+# r 43.9 at and below y 17. The sheet has to be inside that the whole way or it
+# hides behind the rock, so it swings in hard at the top and then hangs.
+LEAN_A, LEAN_K, LEAN_B = 3.60, 20.0, 0.90
+RIBBON = 0.55                   # how far a thin ribbon hangs back off the sheet
 
 # ---- the run: 7 pillars, 7.00 m centre to centre, alternating r ------------
 PIL_OUT_R = 54.8
@@ -465,14 +464,6 @@ def _interp(cps, x):
 # THE TRENCH
 # =============================================================================
 
-def _mouth_c(b):
-    if any(abs(b - x) < 0.01 for x in MOUTH_FLOOR):
-        return 1.0
-    if any(abs(b - x) < 0.01 for x in MOUTH_LEDGE):
-        return 0.5
-    return 0.0
-
-
 def _shore(b):
     if b <= RAMP_IN[1]:
         return 1.0 - _smooth((b - RAMP_IN[0]) / (RAMP_IN[1] - RAMP_IN[0]))
@@ -483,11 +474,7 @@ def _shore(b):
 
 def bed(b, r):
     """Rock height of the trench floor/banks at (bearing, radius)."""
-    z = _interp(CP_BASE, r)
-    mc = _mouth_c(b)
-    if mc > 0.0 and r >= 55.40:
-        z = _interp(CP_SHOULDER if mc == 0.5 else CP_FLOOR, r)
-    return _lerp(z, DECK_Z, _shore(b))
+    return _lerp(_interp(CP_BASE, r), DECK_Z, _shore(b))
 
 
 def _rock_zone(pts):
@@ -543,63 +530,46 @@ def _trench(m, r):
 
 
 # =============================================================================
-# THE MOUTH -- a tunnel under the wall; its lintel is the deck plane
+# THE SLOT -- the whole foot of the shaft wall, the river coming out of it
 # =============================================================================
 
-def _mouth(m):
-    b0, b1 = MOUTH_LEDGE[0], MOUTH_LEDGE[1]
-    cols = [b0 + k for k in range(int(round(b1 - b0)) + 1)]
-    rs = [OUTER_R, OUTER_R + 0.9, OUTER_R + 1.8, MOUTH_BACK]
-
-    def floor_z(b, rr):
-        return bed(b, OUTER_R)
-
-    grid = [[m.v(pol(b, rr, floor_z(b, rr))) for rr in rs] for b in cols]
-    for i in range(len(cols) - 1):
-        for j in range(len(rs) - 1):
-            zc = 0.25 * sum(m.verts[grid[a][bb]][2]
-                            for (a, bb) in ((i, j), (i + 1, j), (i + 1, j + 1), (i, j + 1)))
-            zone = ZONE_SHADE if zc > LAVA_Z else ZONE_EMBER
-            m.quad(grid[i][j], grid[i + 1][j], grid[i + 1][j + 1], grid[i][j + 1], UP, zone)
-
-    # side walls facing into the tunnel, then the ceiling and the back
-    for k, b in ((0, cols[0]), (len(cols) - 1, cols[-1])):
-        into = -1.0 if k == 0 else 1.0
-        for j in range(len(rs) - 1):
-            t0 = m.v(pol(b, rs[j], MOUTH_CEIL))
-            t1 = m.v(pol(b, rs[j + 1], MOUTH_CEIL))
-            m.quad(grid[k][j], grid[k][j + 1], t1, t0,
-                   _mul(_tangent(b), into), ZONE_SHADE)
-
+def _slot(m):
+    """One low slot the length of the section. Its head sits under the deck, so
+    the rock above it and the wall over that are never cut."""
+    cols = [b for b in (A0 + i for i in range(NCOL + 1))
+            if bed(b, OUTER_R) < MOUTH_CEIL - 0.10]
+    rs = [OUTER_R, OUTER_R + 1.0, MOUTH_BACK]
+    n, nr = len(cols), len(rs)
+    floor = [[m.v(pol(b, rr, bed(b, OUTER_R))) for rr in rs] for b in cols]
     ceil = [[m.v(pol(b, rr, MOUTH_CEIL)) for rr in rs] for b in cols]
-    for i in range(len(cols) - 1):
-        for j in range(len(rs) - 1):
+    lint = [m.v(pol(b, OUTER_R, DECK_Z)) for b in cols]
+
+    for i in range(n - 1):
+        inward = _mul(_radial(cols[i]), -1.0)
+        for j in range(nr - 1):
+            m.quad(floor[i][j], floor[i + 1][j], floor[i + 1][j + 1], floor[i][j + 1],
+                   UP, ZONE_EMBER)
             m.quad(ceil[i][j], ceil[i + 1][j], ceil[i + 1][j + 1], ceil[i][j + 1],
                    DOWN, ZONE_SHADE)
-    for i in range(len(cols) - 1):
-        m.quad(grid[i][-1], grid[i + 1][-1], ceil[i + 1][-1], ceil[i][-1],
-               _mul(_radial(cols[i]), -1.0), ZONE_SHADE)
+        m.quad(floor[i][-1], floor[i + 1][-1], ceil[i + 1][-1], ceil[i][-1],
+               inward, ZONE_SHADE)                                   # back of the slot
+        m.quad(ceil[i][0], ceil[i + 1][0], lint[i + 1], lint[i],
+               inward, ZONE_SHADE)                                   # the lintel
 
-    # The lintel: the slot's head is under the deck, so rock carries on above
-    # it and neither the deck nor the wall is ever cut.
-    for i in range(len(cols) - 1):
-        a0 = ceil[i][0]
-        a1 = ceil[i + 1][0]
-        t0 = m.v(pol(cols[i], OUTER_R, DECK_Z))
-        t1 = m.v(pol(cols[i + 1], OUTER_R, DECK_Z))
-        m.quad(a0, a1, t1, t0, _mul(_radial(cols[i]), -1.0), ZONE_SHADE)
+    for k, into in ((0, -1.0), (n - 1, 1.0)):                        # jambs at the shores
+        for j in range(nr - 1):
+            m.quad(floor[k][j], floor[k][j + 1], ceil[k][j + 1], ceil[k][j],
+                   _mul(_tangent(cols[k]), into), ZONE_SHADE)
 
-    # the river carrying on into the slot, to stop in the dark
-    for i in range(len(cols) - 1):
-        if _mouth_c(cols[i]) != 1.0 or _mouth_c(cols[i + 1]) != 1.0:
+    for i in range(n - 1):                                           # the river, running in
+        if max(m.verts[floor[i][0]][2], m.verts[floor[i + 1][0]][2]) > LAVA_Z - 0.05:
             continue
-        for j in range(len(rs) - 1):
-            ring = [m.v(pol(cols[i], rs[j], LAVA_Z)),
-                    m.v(pol(cols[i + 1], rs[j], LAVA_Z)),
-                    m.v(pol(cols[i + 1], rs[j + 1], LAVA_Z)),
-                    m.v(pol(cols[i], rs[j + 1], LAVA_Z))]
-            m.quad(ring[0], ring[1], ring[2], ring[3], UP, ZONE_LAVA)
-    return cols, rs
+        for j in range(nr - 1):
+            m.quad(m.v(pol(cols[i], rs[j], LAVA_Z)),
+                   m.v(pol(cols[i + 1], rs[j], LAVA_Z)),
+                   m.v(pol(cols[i + 1], rs[j + 1], LAVA_Z)),
+                   m.v(pol(cols[i], rs[j + 1], LAVA_Z)), UP, ZONE_LAVA)
+    return cols[0], cols[-1]
 
 
 def _mul(v, s):
@@ -607,42 +577,46 @@ def _mul(v, s):
 
 
 # =============================================================================
-# THE FALL -- ONE sheet, the whole inner edge of the section
+# THE FALL -- ONE sheet, whole inner edge, lip to the sea 34 m below
 # =============================================================================
 
+def _sheet_r(t, ribbon):
+    """Radius of the sheet at drop fraction t. It swings in off the lip fast
+    enough to stay inside map_base's pit wall, then hangs nearly plumb."""
+    swing = 1.0 - math.exp(-LEAN_K * t)
+    return INNER_R - 0.08 - LEAN_A * swing - LEAN_B * t - ribbon * swing
+
+
 def _fall(m, r):
-    """The river leaves along its entire lip. Weight of flow walks along the
-    length, so the sheet is thick and long in places, torn open in others --
-    not a flat curtain."""
-    b0, b1 = RAMP_IN[1] - 0.5, RAMP_OUT[0] + 0.5
+    """The river leaves along its entire lip and falls to the sea. Weight of
+    flow walks along the length: thick gouts stand proud, thin ribbons hang
+    back, but the sheet is continuous top to bottom."""
+    b0, b1 = RAMP_IN[1] - 0.7, RAMP_OUT[0] + 0.7
     n = int(round((b1 - b0) * FALL_SUB))
     bs = [b0 + (b1 - b0) * k / float(n) for k in range(n + 1)]
 
     flow = []
     cur = 0.7
     for _ in bs:
-        cur = min(1.0, max(0.35, cur + 0.20 * r.sf()))
+        cur = min(1.0, max(0.30, cur + 0.20 * r.sf()))
         flow.append(cur)
-    for _ in range(6):                          # tears in the curtain
-        k = r.i(4, n - 4)
+    for _ in range(6):                          # ribbons, not tears: still continuous
+        k = r.i(3, n - 3)
         for d in range(-1, 2):
-            flow[k + d] = 0.0
-    for k in range(n + 1):                      # ... and it dies into the shores
-        flow[k] *= min(1.0, min(k, n - k) / 5.0)
+            flow[k + d] = 0.05
+    for k in range(n + 1):                      # it thins into the shores
+        flow[k] *= min(1.0, min(k, n - k) / 4.0)
 
     rows = FALL_ROWS
+    total = LAVA_Z - FALL_BOTTOM
     ids = []
     for k, b in enumerate(bs):
-        f = flow[k]
-        drop = FALL_GAP + (FALL_DROP[0] + (FALL_DROP[1] - FALL_DROP[0]) * f
-                           - FALL_GAP) * (f ** 0.4)
-        lean = FALL_OUT * (0.45 + 0.75 * f)
-        skin = 0.30 * r.f()                     # the sheet's own thickness
+        ribbon = RIBBON * (1.0 - flow[k]) + 0.10 * r.f()
+        wave = 0.20 * math.sin(0.7 * k)         # the sheet folds along its length
         col = []
         for iv in range(rows + 1):
-            t = iv / float(rows)
-            rr = INNER_R - 0.08 - skin - lean * (t ** 1.6) - 0.10 * r.f()
-            col.append(m.v(pol(b, rr, LAVA_Z - drop * t)))
+            t = (iv / float(rows)) ** 1.5
+            col.append(m.v(pol(b + wave * t, _sheet_r(t, ribbon), LAVA_Z - total * t)))
         ids.append(col)
     for k in range(n):
         for iv in range(rows):
@@ -758,16 +732,6 @@ def _collider(r):
         if inner:
             _column(c, b, FIN_R, fs, [(22.00, 1.14), (FIN_TOP_Z, 0.70)], r, ZONE_ROCK)
 
-    # the floor of the river mouth: rock ledges either side of the channel,
-    # the channel itself at lava height so standing in it is standing in lava.
-    mcols = [MOUTH_LEDGE[0] + k
-             for k in range(int(round(MOUTH_LEDGE[1] - MOUTH_LEDGE[0])) + 1)]
-    for i in range(len(mcols) - 1):
-        a0 = c.v(pol(mcols[i], OUTER_R, bed(mcols[i], OUTER_R)))
-        a1 = c.v(pol(mcols[i + 1], OUTER_R, bed(mcols[i + 1], OUTER_R)))
-        a2 = c.v(pol(mcols[i + 1], MOUTH_BACK, bed(mcols[i + 1], OUTER_R)))
-        a3 = c.v(pol(mcols[i], MOUTH_BACK, bed(mcols[i], OUTER_R)))
-        c.quad(a0, a1, a2, a3, UP, ZONE_ROCK)
     return c
 
 
@@ -916,7 +880,8 @@ def _shots(spec, objects):
     shot("run", pol(290.0, 52.5, DECK_Z + EYE_H), pol(312.0, 52.0, 22.7),
          26.0, (1400, 800))
     shot("top", pol(315.0, 10.0, 58.0), pol(315.3, 52.0, 22.4), 32.0, (1200, 1000))
-    shot("fall", pol(316.0, 16.0, 20.5), pol(311.0, 46.6, 19.5), 22.0, (1400, 800))
+    shot("fall", pol(316.0, 8.0, 9.0), pol(314.0, 44.0, 6.0), 18.0, (1400, 900))
+    shot("pitfloor", pol(319.0, 14.0, -9.4), pol(314.0, 43.0, 9.0), 20.0, (900, 1300))
     shot("mouth", pol(308.2, 51.0, 23.6), pol(303.3, 58.4, 22.4), 34.0, (1200, 800))
     shot("pillars", pol(300.5, 44.0, 28.0), pol(320.0, 52.0, 23.0), 34.0, (1300, 800))
 
@@ -932,7 +897,7 @@ def build():
     r = _Rng(SEED)
     m = _Mesh()
     lava_cells = _trench(m, r)
-    _mouth(m)
+    slot0, slot1 = _slot(m)
     fall_tris = 2 * _fall(m, r)
     _build_pillars(m, r)
 
@@ -965,8 +930,10 @@ def build():
     tot = len(ob.data.polygons)
     print("MDL STATS visual_tris=%d rock_tris=%d lava_tris=%d collision_tris=%d"
           % (tot, tot - lava_tris, lava_tris, len(coll_ob.data.polygons)))
-    print("MDL STATS lava_y=%.2f lava_cells=%d fall_tris=%d mouth=%.1f..%.1f deg head=%.2f"
-          % (LAVA_Z, lava_cells, fall_tris, MOUTH_LEDGE[0], MOUTH_LEDGE[1], MOUTH_CEIL))
+    print("MDL STATS lava_y=%.2f lava_cells=%d fall_tris=%d fall_bottom=%.2f"
+          % (LAVA_Z, lava_cells, fall_tris, FALL_BOTTOM))
+    print("MDL STATS slot=%.1f..%.1f deg head=%.2f back_r=%.1f sheet_r_top=%.2f sheet_r_bottom=%.2f"
+          % (slot0, slot1, MOUTH_CEIL, MOUTH_BACK, _sheet_r(0.0, 0.0), _sheet_r(1.0, 0.0)))
     print("MDL STATS section=%.1f..%.1f deg r=%.1f..%.1f deck_y=%.2f pillar_top=%.2f"
           % (A0, A1, INNER_R, OUTER_R, DECK_Z, PIL_TOP_Z))
     for k, (b, rad, inner) in enumerate(_pillars()):
