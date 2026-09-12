@@ -363,7 +363,12 @@ static func _collect_hazards(node: Node, hazards: Array[Dictionary]) -> void:
 
 ## True when [param point] lies inside any box in [param hazards].
 static func point_in_hazard(hazards: Array[Dictionary], point: Vector3) -> bool:
-	for hazard: Dictionary in hazards:
+	var grid: Dictionary = _hazard_grid(hazards)
+	var cell: Vector2i = Vector2i(floori(point.x / HAZARD_CELL_METRES), floori(point.z / HAZARD_CELL_METRES))
+	if not grid.has(cell):
+		return false
+	for index: int in grid[cell]:
+		var hazard: Dictionary = hazards[index]
 		if point.distance_squared_to(hazard["centre"]) > float(hazard["reach_squared"]):
 			continue
 		var local: Vector3 = (hazard["inverse"] as Transform3D) * point
@@ -371,6 +376,38 @@ static func point_in_hazard(hazards: Array[Dictionary], point: Vector3) -> bool:
 		if absf(local.x) <= half.x and absf(local.y) <= half.y and absf(local.z) <= half.z:
 			return true
 	return false
+
+
+## XZ cell size of the hazard lookup grid, in metres.
+const HAZARD_CELL_METRES: float = 4.0
+## Grids by source array: [{"source": Array, "size": int, "grid": Dictionary}].
+static var _hazard_grids: Array[Dictionary] = []
+
+
+## The cell grid for [param hazards], rebuilt when the array is new or grew.
+static func _hazard_grid(hazards: Array[Dictionary]) -> Dictionary:
+	for entry: Dictionary in _hazard_grids:
+		if is_same(entry["source"], hazards) and int(entry["size"]) == hazards.size():
+			return entry["grid"]
+	var grid: Dictionary = {}
+	for index: int in hazards.size():
+		var hazard: Dictionary = hazards[index]
+		var centre: Vector3 = hazard["centre"]
+		var reach: float = sqrt(float(hazard["reach_squared"]))
+		var lo: Vector2i = Vector2i(floori((centre.x - reach) / HAZARD_CELL_METRES), floori((centre.z - reach) / HAZARD_CELL_METRES))
+		var hi: Vector2i = Vector2i(floori((centre.x + reach) / HAZARD_CELL_METRES), floori((centre.z + reach) / HAZARD_CELL_METRES))
+		for cx: int in range(lo.x, hi.x + 1):
+			for cz: int in range(lo.y, hi.y + 1):
+				var cell: Vector2i = Vector2i(cx, cz)
+				if not grid.has(cell):
+					grid[cell] = PackedInt32Array()
+				var cells: PackedInt32Array = grid[cell]
+				cells.append(index)
+				grid[cell] = cells
+	if _hazard_grids.size() >= 8:
+		_hazard_grids.pop_front()
+	_hazard_grids.append({"source": hazards, "size": hazards.size(), "grid": grid})
+	return grid
 
 
 ## True when the straight line from [param from] to [param to], sampled every
