@@ -50,6 +50,8 @@ func _ready() -> void:
 	_controller = _resolve_controller()
 	if _controller != null:
 		_controller.connect(&"race_started", _on_race_started)
+		if race_only:
+			_controller.connect(&"round_started", _on_round_started)
 	body_entered.connect(_on_body_entered)
 
 
@@ -109,6 +111,14 @@ func _on_race_started() -> void:
 	if orb != null:
 		orb.visible = true
 	monitoring = true
+
+
+## Race-only: gone for the rounds.
+func _on_round_started() -> void:
+	_armed = false
+	if orb != null:
+		orb.visible = false
+	set_deferred(&"monitoring", false)
 
 
 # --- Finding the match, exactly as scripts/match/phase_gate.gd does -----------
