@@ -535,11 +535,11 @@ enum RunnerAbility {
 ## THE SHOVE. How hard a prisoner throws the prisoner in front of them, in
 ## metres per second along the shover's forward. [b]LIVE.[/b] Enough to put a
 ## body out from behind a spire, or off a block into the lava.
-@export_range(0.0, 40.0, 0.5, "or_greater") var shove_impulse: float = 7.0
+@export_range(0.0, 40.0, 0.5, "or_greater") var shove_impulse: float = 8.0
 
 ## The upward part of that launch, in metres per second. [b]LIVE.[/b] Small: it
 ## is there so the victim leaves the ground, not so they are juggled.
-@export_range(0.0, 20.0, 0.5, "or_greater") var shove_up_impulse: float = 2.0
+@export_range(0.0, 20.0, 0.5, "or_greater") var shove_up_impulse: float = 4.5
 
 ## How close, in metres, the victim must be to be reached. [b]LIVE.[/b]
 @export_range(0.5, 10.0, 0.5, "or_greater") var shove_range_metres: float = 3.0
