@@ -256,6 +256,9 @@ GAP_MIN, GAP_MAX = 0.4, 3.6   # spacing field: tight clusters .. empty stretches
 PIT_SUB, PIT_CAP = 2, 7.0
 
 CELLS = []                    # (centre, out, width, height) for the renders
+REVIEW_SUN = 5.0              # review renders only: white fill sun, watts
+REVIEW_WORLD = 1.6            # ... world light strength
+REVIEW_EXPOSURE = 1.5         # ... stops over the arena look
 
 FACING_YAW = 0.0
 
@@ -2545,7 +2548,23 @@ def _deck_render(spec, objects):
         shot("cell", eye, cm, 35.0, (1000, 800))
         shot("mouth", _v3(cm, out, -1.7 * h), cm, 40.0, (1000, 800))
 
-    for ob in (cam, target, key):
+    # ---- review lighting: renders only, never in the .glb. A white fill sun
+    # and raised exposure so the rock reads mid-grey; the lava still glows.
+    rl = bpy.data.lights.new("ReviewFill", type="SUN")
+    rl.energy = REVIEW_SUN
+    rl.color = (1.0, 0.96, 0.92)
+    fill = mdl._link(bpy.data.objects.new("ReviewFill", rl))
+    fill.rotation_euler = (math.radians(35.0), math.radians(-20.0), math.radians(40.0))
+    key.hide_render = True
+    bg.inputs[0].default_value = (0.55, 0.50, 0.48, 1.0)
+    bg.inputs[1].default_value = REVIEW_WORLD
+    mdl._try(scene.view_settings, "exposure", REVIEW_EXPOSURE)
+    shot("review_chain", pol(74.0, 54.6, DECK_Z + EYE_H), pol(92.0, 54.5, 23.0), 28.0, (1400, 800))
+    shot("review_lane", pol(74.0, 50.0, DECK_Z + EYE_H), pol(95.0, 52.5, 23.0), 28.0, (1400, 800))
+    shot("review_guard", (0.0, 0.0, 27.0), pol(102.0, 54.0, 23.0), 40.0, (1400, 900))
+    shot("review_high", pol(70.0, 22.0, 46.0), pol(104.0, 52.5, 23.0), 26.0, (1500, 1000))
+
+    for ob in (cam, target, key, fill):
         bpy.data.objects.remove(ob, do_unlink=True)
 
 
