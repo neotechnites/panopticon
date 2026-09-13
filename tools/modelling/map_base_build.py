@@ -207,28 +207,40 @@ S2_OUT_LIP = ((0.45, 0.62), (0.80, 0.92))                # outer: steep, no ledg
 S2_FLOOR_N = 6                        # floor quads across the river
 S2_FLOOR_AMP = 0.12                   # the floor's 2-D field, metres, peak
 S2_FLOOR_FADE = 0.7                   # metres from a foot the field takes to rise
-S2_PLAT_R = 54.2                      # the chain's centre line
-# The chain: boulders. Each is one heightfield on a polar grid: a flat
-# landing, rounded shoulders down into the lava, and (hump) the tower-facing
-# side rising in a rounded hump. (along, across: semi-axes at the waterline;
-# top y; hump; off the centre line)
-S2_PLATS = ((1.65, 1.85, 23.05, True, 0.10), (1.45, 1.55, 23.35, False, -0.20),
-            (1.65, 1.85, 22.95, True, 0.20), (1.65, 1.85, 23.30, True, -0.10),
-            (1.45, 1.55, 23.15, False, 0.15), (1.65, 1.85, 22.90, True, 0.0))
-S2_GAPS = (4.6, 5.2, 4.7, 5.0, 5.9, 4.6)      # lava between standing edges: end bank first
+S2_PLAT_R = 54.7                      # the chain's centre line
+# The chain: flat-topped boulders, each one heightfield on a polar grid: a
+# level landing, rounded shoulders down into the lava. (along, across:
+# semi-axes at the waterline; top y; off the centre line)
+S2_PLATS = ((1.72, 1.45, 23.05, 0.10), (1.65, 1.40, 23.35, -0.10),
+            (1.72, 1.45, 22.95, 0.20), (1.68, 1.45, 23.30, -0.05),
+            (1.65, 1.40, 23.15, 0.15), (1.72, 1.45, 22.90, 0.0))
+S2_GAPS = (4.6, 5.1, 4.6, 5.0, 4.7, 5.2)      # lava between standing edges: end bank first
 S2_MASS_N, S2_MASS_P = 20, 2.3        # points round a boulder, its outline's exponent
 S2_MASS_Q = (0.12, 0.3, 0.45, 0.58, 0.68, 0.76, 0.83, 0.89, 0.95, 1.0, 1.08, 1.2)   # rings, of the waterline
-S2_FLAT_Q = 0.75                      # the landing: flat out to here
+S2_FLAT_Q = 0.78                      # the landing: flat out to here
 S2_WATER_D = 0.15                     # the shoulder reaches this far under the lava at the waterline ...
 S2_BOTTOM_D = 0.8                     # ... and the bottom ring this far, at the last ring
 S2_WOB = 0.07                         # the waterline wanders this much of its radius
-S2_HUMP_H = (2.2, 2.4)                # hump height over the landing
-S2_HUMP_V = 0.55                      # hump peak this far in, of the across semi-axis
-S2_HUMP_U = 0.88                      # hump half length, of the along semi-axis
-S2_HUMP_B = (1.0, 0.8)                # hump half depth, inner and outer face: it leans over the landing
-S2_HUMP_P = (2.6, 1.4)                # hump section exponent along, and its profile's
 S2_NOISE = 0.10                       # rock noise on everything but the landing, metres, peak
 S2_NOISE_L = (0.7, 1.8)               # ... wavelengths
+# The cave wall: a ridge on the river's inner bank between the tower and the
+# chain, the length of the chain, windows over three gaps, into the ceiling
+# in front of two landings. The lane stays on its tower side, open.
+S2_WALL_IN = 0.8                      # degrees inside each lip it starts and ends, sunk in the lava
+S2_WALL_STEP = 1.0                    # degrees per column
+S2_WALL_R = 51.0                      # its crest line's radius ...
+S2_WALL_WANDER = 0.2                  # ... wandering this much
+S2_WALL_W = (0.9, 1.05)              # half width at the foot
+S2_WALL_H = (3.6, 5.0)                # height over the lava, wandering
+S2_WALL_CRAG = 0.4                    # metres the crest steps up and down column to column
+S2_WALL_JOIN, S2_WALL_JOIN_W = 9.2, 2.8   # up into the ceiling in front of these landings, over this reach
+S2_WALL_JOIN_AT = (1, 4)
+S2_WALL_WINDOW_AT = (1, 3, 5)         # windows over these gaps (0 = end bank to the first boulder) ...
+S2_WALL_WINDOW = (1.7, 1.9, 1.8)      # ... sill over the lava ...
+S2_WALL_WINDOW_W = 1.6                # ... half width, metres
+S2_WALL_END = 1.6                     # metres each end takes to rise out of the lava
+S2_WALL_SINK = 0.3                    # the feet this far under the lava
+S2_SIGHT_N = 300                      # samples along a sight line
 S2_SEED = 6180339
 S2_TRAP_N = 7                         # TrapVolumes over the river, for the scene
 S2_TRAP_R = (50.3, 57.5)              # ... their radial span
@@ -2398,8 +2410,8 @@ def _s2_setup(T, base_cols):
     k = 180.0 / (math.pi * S2_PLAT_R)
     rm = _Rng(S2_SEED + 1)
     plats, s = [], 0.0
-    for (au, av, top, hump, dr), gap in zip(S2_PLATS, S2_GAPS):
-        sp = _s2_spec(rm, au, av, top, hump)
+    for (au, av, top, dr), gap in zip(S2_PLATS, S2_GAPS):
+        sp = _s2_spec(rm, au, av, top)
         qe = _s2_edge_q(top, au)
         s += gap + qe * sp["R"](math.pi)
         sp.update(b=a0 + S2_END + s * k, rad=S2_PLAT_R + dr, qe=qe)
@@ -2477,8 +2489,8 @@ def _s2_frame(b, rad):
     return P
 
 
-def _s2_spec(r, au, av, top, hump):
-    """One boulder's own numbers: its waterline R(theta), hump and noise."""
+def _s2_spec(r, au, av, top):
+    """One boulder's own numbers: its waterline R(theta) and noise."""
     p1, p2 = r.f() * TWO_PI, r.f() * TWO_PI
     jit = [r.sf() * 0.02 for _ in range(S2_MASS_N)]
     ang = [TWO_PI * (i + 0.5 + 0.25 * r.sf()) / S2_MASS_N for i in range(S2_MASS_N)]
@@ -2488,8 +2500,6 @@ def _s2_spec(r, au, av, top, hump):
         rr = 1.0 / ((c / au) ** S2_MASS_P + (s / av) ** S2_MASS_P) ** (1.0 / S2_MASS_P)
         return rr * (1.0 + S2_WOB * (0.6 * math.sin(2.0 * th + p1) + 0.4 * math.sin(3.0 * th + p2)))
     return {"au": au, "av": av, "top": top, "R": R, "ang": ang, "jit": jit,
-            "h": (S2_HUMP_H[0] + r.f() * (S2_HUMP_H[1] - S2_HUMP_H[0])) if hump else 0.0,
-            "vh": -S2_HUMP_V * av, "ah": S2_HUMP_U * au,
             "noise": _field(_Rng(r.n()), S2_NOISE, 5, S2_NOISE_L)}
 
 
@@ -2502,7 +2512,7 @@ def _s2_edge_q(top, a):
 
 def _s2_z(sp, u, v, q):
     """(z, landing) of a boulder at local (u, v), q of the waterline out."""
-    top, H = sp["top"], sp["h"]
+    top = sp["top"]
     water = LAVA_Z - S2_WATER_D
     if q <= S2_FLAT_Q:
         zs = top
@@ -2511,21 +2521,23 @@ def _s2_z(sp, u, v, q):
         zs = top - (top - water) * math.sin(0.5 * math.pi * t) ** 2
     else:
         zs = water - (q - 1.0) / (S2_MASS_Q[-1] - 1.0) * (S2_BOTTOM_D - S2_WATER_D)
-    D = 0.0
-    if H:
-        dv = v - sp["vh"]
-        bh = S2_HUMP_B[0] if dv < 0.0 else S2_HUMP_B[1]
-        d2 = (abs(u) / sp["ah"]) ** S2_HUMP_P[0] + (dv / bh) ** 2
-        if d2 < 1.0:
-            D = (1.0 - d2) ** S2_HUMP_P[1]
-    land = _ramp(S2_FLAT_Q - q, 0.0, 0.08) * _ramp(0.03 - D, 0.0, 0.03)
-    return zs + H * D + (1.0 - land) * sp["noise"](u, v), land
+    land = _ramp(S2_FLAT_Q - q, 0.0, 0.08)
+    return zs + (1.0 - land) * sp["noise"](u, v), land
+
+
+def _s2_local(sp, p):
+    """A world point in a boulder's frame: (u along, v across, q of the waterline)."""
+    er, et = _radial(sp["b"]), _tangent(sp["b"])
+    base = pol(sp["b"], sp["rad"], 0.0)
+    dx, dy = p[0] - base[0], p[1] - base[1]
+    u, v = dx * et[0] + dy * et[1], dx * er[0] + dy * er[1]
+    return u, v, math.hypot(u, v) / sp["R"](math.atan2(v, u))
 
 
 def _s2_mass(m, sp):
     """One boulder in the river, a closed heightfield: a centre, rings out to
-    a bottom ring under the lava, all one surface -- landing, hump, shoulders
-    and stem are the same rock. The collider gets the identical mesh."""
+    a bottom ring under the lava, all one surface -- landing, shoulders and
+    stem are the same rock. The collider gets the identical mesh."""
     P = _s2_frame(sp["b"], sp["rad"])
     R, ang, jit = sp["R"], sp["ang"], sp["jit"]
     zc, _l = _s2_z(sp, 0.0, 0.0, 0.0)
@@ -2567,9 +2579,135 @@ def _s2_build(m, s2, r):
     S2_INFO.update(a0=s2["a0"], a1=s2["a1"], masses=S2_MASSES)
 
 
+def _s2_wall_spec():
+    """The cave wall's columns: per bearing, crest radius, half width,
+    height over the lava. Windows over three gaps, up to the ceiling in
+    front of two landings, sunk into the lava at both ends."""
+    if "wall" in S2_INFO:
+        return S2_INFO["wall"]
+    r = _Rng(S2_SEED + 21)
+    p1, p2, p3 = r.f() * TWO_PI, r.f() * TWO_PI, r.f() * TWO_PI
+    b0, b1 = S2_INFO["a0"] + S2_WALL_IN, S2_INFO["a1"] - S2_WALL_IN
+    k = 180.0 / (math.pi * S2_PLAT_R)
+    plats = S2_INFO["masses"]
+    ends = [S2_INFO["a0"] + S2_END] + [None] * len(plats) + [S2_INFO["a1"] - S2_END]
+    windows = []
+    for g, sill in zip(S2_WALL_WINDOW_AT, S2_WALL_WINDOW):
+        lo = ends[0] if g == 0 else plats[g - 1]["b"] + plats[g - 1]["qe"] * plats[g - 1]["R"](0.0) * k
+        hi = ends[-1] if g == len(plats) else plats[g]["b"] - plats[g]["qe"] * plats[g]["R"](math.pi) * k
+        windows.append((0.5 * (lo + hi), sill))
+    joins = [plats[i]["b"] for i in S2_WALL_JOIN_AT]
+    n = int(round((b1 - b0) / S2_WALL_STEP))
+    cols = []
+    for i in range(n + 1):
+        bb = b0 + (b1 - b0) * i / n
+        s_m = math.radians(bb) * S2_WALL_R
+        rc = S2_WALL_R + S2_WALL_WANDER * (0.6 * math.sin(0.61 * s_m + p1) + 0.4 * math.sin(1.37 * s_m + p2))
+        W = S2_WALL_W[0] + 0.5 * (S2_WALL_W[1] - S2_WALL_W[0]) * (1.0 + math.sin(0.83 * s_m + p3))
+        H = S2_WALL_H[0] + 0.5 * (S2_WALL_H[1] - S2_WALL_H[0]) * (1.0 + 0.7 * math.sin(0.9 * s_m + p2)
+                                                                  + 0.3 * math.sin(2.3 * s_m + p1))
+        H += S2_WALL_CRAG * (r.sf() + 0.5 * math.sin(4.1 * s_m + p3))
+        for jb in joins:
+            d = abs(bb - jb) / k
+            if d < S2_WALL_JOIN_W:
+                H += (S2_WALL_JOIN - H) * _smooth((S2_WALL_JOIN_W - d) / 1.5)
+        for wb, sill in windows:
+            d = abs(bb - wb) / k
+            if d < S2_WALL_WINDOW_W:
+                H += (sill - H) * _smooth((S2_WALL_WINDOW_W - d) / 1.0)
+        for eb, sgn in ((b0, 1.0), (b1, -1.0)):
+            d = (bb - eb) * sgn / k
+            if d < S2_WALL_END:
+                H += (-0.6 - H) * (1.0 - _smooth(d / S2_WALL_END))
+        cols.append({"b": bb, "rc": rc, "W": W, "H": H})
+    S2_INFO["wall"] = {"cols": cols, "windows": windows, "joins": joins,
+                       "noise": _field(_Rng(S2_SEED + 22), S2_NOISE, 5, S2_NOISE_L)}
+    return S2_INFO["wall"]
+
+
+def _s2_wall_col(bb):
+    """(rc, W, H) of the wall at a bearing, or None off its run."""
+    cols = _s2_wall_spec()["cols"]
+    if bb < cols[0]["b"] or bb > cols[-1]["b"]:
+        return None
+    fi = (bb - cols[0]["b"]) / (cols[-1]["b"] - cols[0]["b"]) * (len(cols) - 1)
+    i = min(len(cols) - 2, int(fi))
+    t = fi - i
+    c0, c1 = cols[i], cols[i + 1]
+    return tuple(c0[key] + (c1[key] - c0[key]) * t for key in ("rc", "W", "H"))
+
+
+def _s2_wall_z(x, y, noise=True):
+    """The wall's surface height at world x-y, or None off its footprint."""
+    col = _s2_wall_col(_bear_deg(math.atan2(y, x)))
+    if col is None:
+        return None
+    rc, W, H = col
+    d = (math.hypot(x, y) - rc) / W
+    if abs(d) > 1.0:
+        return None
+    z = LAVA_Z - S2_WALL_SINK + (H + S2_WALL_SINK) * _s4_wall_prof(d)
+    if noise:
+        z += S2_INFO["wall"]["noise"](x, y) * (1.0 - abs(d) ** 4)
+    return z
+
+
+def _s2_wall(m, coll=False):
+    """The wall as one closed strip, S4's way: rows across the ridge from the
+    outer foot (in the lava) over the crest to the inner foot (in the deck)."""
+    wall = _s2_wall_spec()
+    cols = wall["cols"]
+    D = S4_WALL_ROWS
+    rows = []
+    for c in cols:
+        row = []
+        for d in D:
+            p = pol(c["b"], c["rc"] + d * c["W"], 0.0)
+            z = LAVA_Z - S2_WALL_SINK + (c["H"] + S2_WALL_SINK) * _s4_wall_prof(d)
+            if not coll:
+                z += wall["noise"](p[0], p[1]) * (1.0 - abs(d) ** 4)
+            row.append(m.v((p[0], p[1], z)))
+        bot = [m.v(pol(c["b"], c["rc"] + d * c["W"], LAVA_Z - S2_WALL_SINK - 0.5)) for d in (-1.0, 1.0)]
+        rows.append(row + bot)
+    nd = len(D)
+    for i in range(len(rows) - 1):
+        A, B = rows[i], rows[i + 1]
+        for j in range(nd - 1):
+            zm = 0.25 * sum(m.verts[v][2] for v in (A[j], A[j + 1], B[j], B[j + 1]))
+            zone = ZONE_ROCK if coll else (ZONE_EMBER if zm < LAVA_Z else ZONE_SHADE)
+            m.quad(A[j], A[j + 1], B[j + 1], B[j], UP, zone, best=True)
+        er = _radial(0.5 * (cols[i]["b"] + cols[i + 1]["b"]))
+        m.quad(A[0], B[0], B[nd], A[nd], (-er[0], -er[1], 0.0), ZONE_EMBER)
+        m.quad(A[nd - 1], B[nd - 1], B[nd + 1], A[nd + 1], er, ZONE_EMBER)
+        m.quad(A[nd], B[nd], B[nd + 1], A[nd + 1], DOWN, ZONE_EMBER)
+    for i, sgn in ((0, -1.0), (len(rows) - 1, 1.0)):
+        row = rows[i]
+        et = _tangent(cols[i]["b"])
+        m.fan(row[:nd] + [row[nd + 1], row[nd]], (et[0] * sgn, et[1] * sgn, 0.0), ZONE_EMBER)
+
+
+def _s2_block(target, eye):
+    """How far under rock the sight line from the eye to the target passes:
+    max over the line of (surface - line) over the wall and the boulders;
+    <= 0 means the target is in view."""
+    best = -9.0
+    for k in range(1, S2_SIGHT_N):
+        f = k / float(S2_SIGHT_N)
+        p = (eye[0] + (target[0] - eye[0]) * f, eye[1] + (target[1] - eye[1]) * f,
+             eye[2] + (target[2] - eye[2]) * f)
+        zw = _s2_wall_z(p[0], p[1], noise=False)
+        if zw is not None:
+            best = max(best, zw - p[2])
+        for sp in S2_MASSES:
+            u, v, q = _s2_local(sp, p)
+            if q < 1.0:
+                best = max(best, _s2_z(sp, u, v, q)[0] - p[2])
+    return best
+
+
 def _s2_collider(c, s2, ang, lip, foot, CV):
     """The river's collision on the same bank lines: lane, inner bank, floor
-    flat at the lava, outer bank; then the masses with straight sides."""
+    flat at the lava, outer bank; then the boulders and the wall."""
     keep = (2, 3, 5, 7, 10, 13, 14)          # lane end, bank top, mid, foot, floor, foot, mid
     grid = []
     for t in s2["span"]:
@@ -2584,45 +2722,79 @@ def _s2_collider(c, s2, ang, lip, foot, CV):
             c.quad(a[j], b[j], b[j + 1], a[j + 1], UP, ZONE_ROCK)
     for sp in S2_MASSES:
         _s2_mass(c, sp)
+    _s2_wall(c, coll=True)
 
 
 def _s2_stats(s2):
     """The chain as built: gaps between standing edges (the 45-degree line on
-    the shoulders), and the cover line from the guard's eye over each hump
-    to a 1.8 m body on the landing behind it."""
+    the shoulders); from the guard's eye, how deep under rock each landing
+    and each jump sit, and that the lane is in plain view."""
     eye = (0.0, 0.0, 27.0)
+    wall = _s2_wall_spec()
     edges = []
     for sp in S2_MASSES:
         P = _s2_frame(sp["b"], sp["rad"])
-        edges.append([P(sp["qe"] * sp["R"](th) * math.cos(th), sp["qe"] * sp["R"](th) * math.sin(th), 0.0)
+        edges.append([P(sp["qe"] * sp["R"](th) * math.cos(th), sp["qe"] * sp["R"](th) * math.sin(th), sp["top"])
                       for th in sp["ang"]])
     ends = (pol(s2["a0"] + S2_END, S2_PLAT_R, DECK_Z), pol(s2["a1"] - S2_END, S2_PLAT_R, DECK_Z))
     chain = [[ends[0]]] + edges + [[ends[1]]]
-    gaps = [min(math.dist(p[:2], q[:2]) for p in a for q in b) for a, b in zip(chain, chain[1:])]
-    print("MDL STATS s2 river=%.2f..%.2f deg lava_y=%.2f masses=%d far_gap=%.2f cols=%d"
-          % (s2["a0"], s2["a1"], LAVA_Z, len(S2_MASSES), s2["far_gap"], len(s2["span"])))
+    pairs = [min(((p, q) for p in a for q in b), key=lambda pq: math.dist(pq[0][:2], pq[1][:2]))
+             for a, b in zip(chain, chain[1:])]
+    gaps = [math.dist(p[:2], q[:2]) for p, q in pairs]
+    live = [c["H"] for c in wall["cols"] if c["H"] > 0.0 and c["H"] < S2_WALL_JOIN - 1.0]
+    print("MDL STATS s2 river=%.2f..%.2f deg lava_y=%.2f boulders=%d far_gap=%.2f cols=%d | wall %.1f..%.1f deg r=%.1f+-%.1f "
+          "%d cols, height over lava %.1f..%.1f m, into the ceiling at %s, windows at %s (sills %s), inner foot r>=%.2f "
+          "(lane %.1f m wide)"
+          % (s2["a0"], s2["a1"], LAVA_Z, len(S2_MASSES), s2["far_gap"], len(s2["span"]),
+             wall["cols"][0]["b"], wall["cols"][-1]["b"], S2_WALL_R, S2_WALL_WANDER, len(wall["cols"]),
+             min(live), max(live), ", ".join("%.1f" % b for b in wall["joins"]),
+             ", ".join("%.1f" % w[0] for w in wall["windows"]), ", ".join("%.1f" % w[1] for w in wall["windows"]),
+             min(c["rc"] - c["W"] for c in wall["cols"]), min(c["rc"] - c["W"] for c in wall["cols"]) - INNER_R))
     for k, sp in enumerate(S2_MASSES):
         au, av, top = sp["au"], sp["av"], sp["top"]
-        line = "MDL STATS s2mass%d bearing=%.2f r=%.2f top=%.2f water=%.1fx%.1f stand=%.1f flat=%.1fx%.1f gap_before=%.2f gap_after=%.2f" % (
-            k + 1, sp["b"], sp["rad"], top, 2 * au, 2 * av, 2 * sp["qe"] * au,
-            2 * S2_FLAT_Q * au, S2_FLAT_Q * av - (sp["vh"] + S2_HUMP_B[1]) if sp["h"] else 2 * S2_FLAT_Q * av,
-            gaps[k], gaps[k + 1])
-        if sp["h"]:
-            rb = sp["rad"] + sp["vh"] + S2_HUMP_B[1] + 0.35            # the body: 0.05 m behind the foot
-            worst = 1e9
-            for iu in range(-7, 8):
-                u = 0.05 * iu
-                block = -1e9
-                for iv in range(0, 60):
-                    v = sp["vh"] - 1.3 + 0.025 * iv
-                    q = math.hypot(u, v) / sp["R"](math.atan2(v, u))
-                    z, _l = _s2_z(sp, u, v, q)
-                    block = max(block, eye[2] + (z - eye[2]) * (rb / (sp["rad"] + v)))
-                worst = min(worst, block)
-            peak = max(_s2_z(sp, 0.0, sp["vh"] + 0.02 * i, 0.5)[0] for i in range(-20, 21)) - top
-            line += " hump_h=%.2f base_d=%.1f sight_clear=%.2f" % (peak, S2_HUMP_B[0] + S2_HUMP_B[1],
-                                                                 worst - (top + 1.8))
-        print(line)
+        P = _s2_frame(sp["b"], sp["rad"])
+        margin, tallest, lava = 9.0, 0.0, 9.0
+        for iu in range(-8, 9):
+            for iv in range(-8, 9):
+                u, v = S2_FLAT_Q * au * iu / 8.0, S2_FLAT_Q * av * iv / 8.0
+                th = math.atan2(v, u)
+                if math.hypot(u, v) > S2_FLAT_Q * sp["R"](th):
+                    continue
+                x, y, _z = P(u, v, 0.0)
+                margin = min(margin, _s2_block((x, y, top + 1.8), eye))
+                tallest = max(tallest, _s2_z(sp, u, v, math.hypot(u, v) / sp["R"](th))[0] - top)
+        for th in sp["ang"]:
+            x, y, _z = P(sp["R"](th) * math.cos(th), sp["R"](th) * math.sin(th), 0.0)
+            col = _s2_wall_col(_bear_deg(math.atan2(y, x)))
+            if col:
+                lava = min(lava, math.hypot(x, y) - (col[0] + col[1]))
+        print("MDL STATS s2boulder%d bearing=%.2f r=%.2f top=%.2f water=%.1fx%.1f stand=%.1f flat=%.1fx%.1f "
+              "gap_before=%.2f gap_after=%.2f | nothing on the landing over %.2f m | 1.8 m body anywhere on it "
+              "hidden from the guard by %.2f m at worst | lava between the wall's foot and the waterline %.2f m"
+              % (k + 1, sp["b"], sp["rad"], top, 2 * au, 2 * av, 2 * sp["qe"] * au, 2 * S2_FLAT_Q * au,
+                 2 * S2_FLAT_Q * av, gaps[k], gaps[k + 1], tallest, margin, lava))
+    for k, (p, q) in enumerate(pairs):
+        f = ((q[0] - p[0]) / gaps[k], (q[1] - p[1]) / gaps[k])
+        h = q[2] - p[2]
+        T = (7.0 + math.sqrt(max(0.0, 49.0 - 2.0 * 22.0 * h))) / 22.0
+        hidden, N = 0, 40
+        for i in range(N):
+            t = T * (i + 0.5) / N
+            x, y = p[0] + 11.0 * t * f[0], p[1] + 11.0 * t * f[1]
+            z = p[2] + 7.0 * t - 11.0 * t * t
+            if _s2_block((x, y, z + 0.9), eye) > 0.0:
+                hidden += 1
+        print("MDL STATS s2gap%d=%.2f m rise=%+.2f flight=%.2f s (run-jump reach %.2f m) body hidden for %.0f%% of it"
+              % (k + 1, gaps[k], h, T, 11.0 * T, 100.0 * hidden / N))
+    worst, at = -99.0, None
+    for ib in range(int(s2["a1"] - s2["a0"]) + 1):
+        for rr in (46.9, 47.6, 48.3, 49.0, 49.5):
+            p = pol(s2["a0"] + ib, rr, DECK_Z + 0.05)
+            bl = _s2_block(p, eye)
+            if bl > worst:
+                worst, at = bl, (s2["a0"] + ib, rr)
+    print("MDL STATS s2 lane r 46.9..49.5 every degree: deepest anything sits under rock on the line "
+          "from the guard's eye to a lane point's feet = %.2f m (at %.1f deg r %.1f); <= 0 is plain view" % (worst, at[0], at[1]))
     for k in range(S2_TRAP_N):
         b = s2["a0"] + (k + 0.5) * (s2["a1"] - s2["a0"]) / S2_TRAP_N
         along = 2.0 * S2_TRAP_R[1] * math.sin(math.radians(0.5 * (s2["a1"] - s2["a0"]) / S2_TRAP_N)) + 0.2
@@ -4105,6 +4277,7 @@ def _rock(r):
             _carve(m, shaft, c)
     _build_platforms(m, _Rng(LAKE_SEED))
     _s2_build(m, s2, _Rng(S2_SEED + 1))
+    _s2_wall(m)
     s4r = _Rng(S4_SEED + 5)
     for rock in lay["rocks"]:
         _s4_rock(m, s4r, rock)
@@ -4442,24 +4615,21 @@ def _deck_render(spec, objects):
     bg.inputs[1].default_value = REVIEW_WORLD
     mdl._try(scene.view_settings, "exposure", REVIEW_EXPOSURE)
     a0, a1 = S2_INFO["a0"], S2_INFO["a1"]
-    covered = [ms for ms in S2_INFO["masses"] if ms["h"]]
-    ms = covered[1]
+    ms = S2_INFO["masses"][2]
     P = _s2_frame(ms["b"], ms["rad"])
-    vb = ms["vh"] + S2_HUMP_B[1] + 0.35
-    verts = [P(u, vb + v, ms["top"] + z) for z in (0.0, 1.8) for (u, v) in
+    verts = [P(u, v, ms["top"] + z) for z in (0.0, 1.8) for (u, v) in
              ((-0.3, -0.3), (0.3, -0.3), (0.3, 0.3), (-0.3, 0.3))]
     faces = [(0, 3, 2, 1), (4, 5, 6, 7), (0, 1, 5, 4), (1, 2, 6, 5), (2, 3, 7, 6), (3, 0, 4, 7)]
     proxy = mdl.mesh("ReviewProxy", verts, faces)
     proxy.data.materials.append(mdl.flat_material("ReviewGreen", (0.2, 1.0, 0.3, 1.0)))
-    shot("review_chain", pol(a0 - 3.0, S2_PLAT_R, DECK_Z + EYE_H), pol(a0 + 14.0, S2_PLAT_R, DECK_Z),
+    shot("review_s2_chain", pol(a0 - 3.0, S2_PLAT_R, DECK_Z + EYE_H), pol(a0 + 14.0, S2_PLAT_R, DECK_Z),
          28.0, (1400, 800))
-    shot("review_lane", pol(a0 + 1.0, 48.5, DECK_Z + EYE_H), pol(a0 + 24.0, 50.5, DECK_Z),
+    shot("review_s2_lane", pol(a0 + 1.0, 48.3, DECK_Z + EYE_H), pol(a0 + 24.0, 48.8, DECK_Z),
          28.0, (1400, 800))
-    shot("review_guard", (0.0, 0.0, 27.0), pol(102.0, 54.0, DECK_Z), 35.0, (1400, 900))
-    shot("review_high", pol(0.5 * (a0 + a1) - 22.0, 24.0, 46.0), pol(0.5 * (a0 + a1) + 2.0, 52.5, DECK_Z),
-         18.0, (1500, 1000))
-    shot("review_cover", (0.0, 0.0, 27.0), P(0.0, 0.0, ms["top"] + 0.9), 85.0, (1200, 900))
-    shot("review_outer", pol(a0 + 2.0, 56.85, DECK_Z + 1.2), pol(a0 + 20.0, 57.0, DECK_Z - 0.2),
+    shot("review_s2_guard", (0.0, 0.0, 27.0), pol(102.0, 54.0, DECK_Z), 35.0, (1400, 900))
+    shot("review_s2_high", pol(a0 - 4.0, 56.3, CEIL_Z - 0.9), pol(a0 + 20.0, 53.5, DECK_Z), 22.0, (1500, 1000))
+    shot("review_s2_cover", (0.0, 0.0, 27.0), P(0.0, 0.0, ms["top"] + 0.9), 85.0, (1200, 900))
+    shot("review_s2_outer", pol(a0 + 2.0, 56.85, DECK_Z + 1.2), pol(a0 + 20.0, 57.0, DECK_Z - 0.2),
          30.0, (1400, 800))
 
     for ob in (cam, target, key, fill, proxy):
