@@ -103,8 +103,9 @@ func test_a_prisoner_out_of_reach_is_not_shoved() -> void:
 	assert_lt(victim.body.velocity.length(), STILL_SPEED, "the victim never moved")
 
 
-## A ghost is not a body in the round: it cannot be shoved, and it cannot shove.
-func test_a_ghost_is_neither_shover_nor_victim() -> void:
+## A ghost is not a body in the round and cannot be shoved. A ghost's own shove
+## is the catch, and is asserted in [code]tests/test_ghosts.gd[/code].
+func test_a_ghost_cannot_be_shoved() -> void:
 	var live: Array[MatchParticipant] = _controller.get_live_participants()
 	var shover: MatchParticipant = live[0]
 	var ghost: MatchParticipant = live[1]
@@ -117,10 +118,7 @@ func test_a_ghost_is_neither_shover_nor_victim() -> void:
 	_still(ghost)
 	_face(shover, ghost, REACH_METRES)
 	assert_null(_controller.apply_shove(shover), "a ghost is not there to be shoved")
-
-	_face(ghost, shover, REACH_METRES)
-	assert_null(_controller.apply_shove(ghost), "and a ghost cannot shove")
-	assert_eq_int(_shoves.size(), 0, "no shove happened either way")
+	assert_eq_int(_shoves.size(), 0, "no shove happened")
 
 
 ## One shove, then the cooldown, then another.

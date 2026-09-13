@@ -1748,7 +1748,7 @@ func _return_seat_holder_to_tower() -> bool:
 
 # --- The shove ----------------------------------------------------------------
 
-## Spend every shove cooldown, and resolve the taps living prisoners made.
+## Spend every shove cooldown, and resolve the taps prisoners and ghosts made.
 ##
 ## Run here, over participants, for the reason [method _tick_ghosts] is: the
 ## human shoves on exactly a bot's terms, and the authority is the only machine
@@ -1760,9 +1760,13 @@ func _tick_shoves(delta: float) -> void:
 			participant.shove_cooldown_remaining = maxf(
 				participant.shove_cooldown_remaining - delta, 0.0
 			)
-		if not participant.is_running or participant.body == null:
-			continue
-		var pressed: bool = participant.body.get_intent().shove_pressed
+		# A body out of the world reads as no button at all rather than being
+		# skipped: a latch left standing while it was held or dead would eat the
+		# first tap it makes on the way back.
+		var pressed: bool = false
+		if participant.body != null:
+			if participant.is_running or _ghost_is_in_the_world(participant):
+				pressed = participant.body.get_intent().shove_pressed
 		if pressed and not participant.shove_was_pressed:
 			apply_shove(participant)
 		participant.shove_was_pressed = pressed
@@ -1770,12 +1774,17 @@ func _tick_shoves(delta: float) -> void:
 
 ## Throw the living prisoner in front of [param shover]. Returns the one
 ## launched, or null when there is nobody there, no charge, or no right to ask.
+##
+## A ghost shoves too, and its landed shove IS the catch: see [method _swap_with_ghost].
 func apply_shove(shover: MatchParticipant) -> MatchParticipant:
 	if shover == null or is_resolved() or _refuses_local_decision():
 		return null
 	if _phase != Phase.RACE and _phase != Phase.ROUND:
 		return null
-	if not shover.is_running or shover.body == null:
+	if shover.body == null:
+		return null
+	if not shover.is_running and not _ghost_is_in_the_world(shover):
+		# A ghost that is held or still settling is not in the world to swing.
 		return null
 	if shover.body.is_armed:
 		# Click fires the rifle for an armed finisher.
@@ -1808,6 +1817,11 @@ func apply_shove(shover: MatchParticipant) -> MatchParticipant:
 	)
 	AudioDirector.post_event_at(AudioEvents.PLAYER_CATCH_MADE, victim.body.global_position)
 	participant_shoved.emit(shover, victim)
+	# THE CATCH. A ghost takes a spot by shoving the prisoner who holds it and by
+	# nothing else -- touching them does nothing -- so it is ruled on here, after
+	# the impulse, and the prisoner who loses the spot is knocked away by it.
+	if shover.is_ghost and shover.ghost_grace_remaining <= 0.0 and _is_catchable(victim):
+		_swap_with_ghost(shover, victim)
 	return victim
 
 
@@ -1837,22 +1851,16 @@ func _shovable_from(
 
 # --- Ghosts -------------------------------------------------------------------
 
-## Tick every ghost's grace clock and rule on any catch that has happened.
+## Tick every ghost's catch grace.
 ##
 ## Run from [method _physics_process] rather than from the brains, once per tick,
-## over participants rather than over nodes -- so the human's ghost catches on
-## exactly the terms a bot's does and there is one place a catch can happen.
-##
-## The check is a distance, and only a distance. It is deliberately not a shape
-## query, an area or a signal off the body: those would make the catch a
-## consequence of the collision solver, and a ghost is a solid capsule that
-## cannot occupy a prisoner's space, so contact is not something it can reliably
-## achieve. See [member GhostProfile.catch_radius_metres].
+## over participants rather than over nodes -- so the human's ghost is on exactly
+## the clock a bot's is. The catch itself is not here: it is a shove, and it is
+## ruled on in [method apply_shove]. Proximity takes nobody's spot.
 func _tick_ghosts(delta: float) -> void:
 	if _phase != Phase.ROUND or is_resolved() or not get_rules().has_ghosts():
 		return
 
-	var profile: GhostProfile = get_ghost_profile()
 	for ghost: MatchParticipant in _participants:
 		if not ghost.is_ghost:
 			continue
@@ -1870,38 +1878,24 @@ func _tick_ghosts(delta: float) -> void:
 			# the number in [member GhostProfile.catch_grace_seconds] says. The
 			# clock starts when the body does.
 			continue
-		if ghost.ghost_grace_remaining > 0.0:
-			ghost.ghost_grace_remaining = maxf(ghost.ghost_grace_remaining - delta, 0.0)
-			continue
-		var caught: MatchParticipant = _catchable_from(ghost, profile.catch_radius_metres)
-		if caught != null:
-			_swap_with_ghost(ghost, caught)
+		ghost.ghost_grace_remaining = maxf(ghost.ghost_grace_remaining - delta, 0.0)
 
 
-## The nearest living prisoner within [param radius] metres of [param ghost],
-## horizontally, or null.
-##
-## Horizontal because the deck is flat and the tower is not: a ghost standing
-## under the stand is not about to catch the shooter, and the shooter is not a
-## candidate anyway -- only [member MatchParticipant.is_running] participants are.
-func _catchable_from(ghost: MatchParticipant, radius: float) -> MatchParticipant:
-	if ghost.body == null:
-		return null
-	var here: Vector3 = ghost.body.global_position
-	var best: MatchParticipant = null
-	var best_distance: float = 0.0
-	for other: MatchParticipant in _participants:
-		if not other.is_running or other.body == null:
-			continue
-		if other.body.get_intent().godmode:
-			continue
-		var distance: float = _flat_distance(here, other.body.global_position)
-		if distance > radius:
-			continue
-		if best == null or distance < best_distance:
-			best = other
-			best_distance = distance
-	return best
+## Whether [param other] holds a spot a ghost may take: a living prisoner with a
+## body, not standing behind godmode. The shooter is never a candidate -- only
+## [member MatchParticipant.is_running] participants are.
+func _is_catchable(other: MatchParticipant) -> bool:
+	if other == null or not other.is_running or other.body == null:
+		return false
+	return not other.body.get_intent().godmode
+
+
+## Whether [param participant] is a ghost whose body is in the world: past its
+## respawn hold and past the placement settle that gives its collision back.
+func _ghost_is_in_the_world(participant: MatchParticipant) -> bool:
+	if not participant.is_ghost:
+		return false
+	return participant.respawn_hold_remaining <= 0.0 and participant.ghost_settle_frames <= 0
 
 
 ## The catch: [param ghost] takes [param caught]'s spot, and they trade roles.

@@ -22,11 +22,10 @@ extends TestCase
 ## Waiting for a ghost to genuinely close on a prisoner is tens of simulated
 ## seconds of chasing, and what it would prove is that the pursuit steering
 ## works, which is [RingRunner]'s business. The RULE under test is the swap. So
-## the ghost's body is put where a chase would have taken it -- with its
-## collision already off, which it is, so nothing is dragged -- and the match is
-## left to notice, on its own clock, through the same
-## [method MatchController._tick_ghosts] a real chase arrives at. That the chase
-## itself moves a ghost at all is asserted separately, off the intent seam.
+## the ghost's body is put in shove reach of a prisoner -- with its collision
+## already off, which it is, so nothing is dragged -- and it shoves, through the
+## same [method MatchController.apply_shove] a real chase arrives at. That the
+## chase itself moves a ghost at all is asserted separately, off the intent seam.
 
 ## Ticks to let a freshly armed round settle before it is measured.
 const SETTLE_TICKS: int = 60
@@ -55,6 +54,19 @@ const START_ANGLE_TOLERANCE: float = 1e-3
 ## The body capsule is 0.8 m across, so two bodies whose centres are further
 ## apart than this are not inside one another.
 const BODY_WIDTH_METRES: float = 0.8
+
+## Where a ghost is stood to shove: inside the shipped three metre reach, and
+## clear of the body capsule.
+const CATCH_REACH_METRES: float = 1.2
+
+## Ticks a ghost is left standing on a prisoner to prove that touching is not
+## catching. Two seconds, which is longer than any clock in the mechanic.
+const TOUCH_TICKS: int = 120
+
+## Ticks a bot ghost in reach of its quarry is given to tap shove itself. Half a
+## second, and it is a ghost at three times a prisoner's pace: the brain taps on
+## its own next tick or the quarry is behind it and the chance is gone.
+const CHASE_SHOVE_TICKS: int = 30
 
 ## How far from the start a prisoner must have run before it is shot, for "it was
 ## moved back" to be a claim about anything.
@@ -418,11 +430,12 @@ func test_a_ghost_catching_a_prisoner_swaps_their_roles() -> void:
 	var ghosts_before: int = _controller.get_ghosts_remaining()
 
 	_put_ghost_on(victim, quarry, true)
-	# Long enough for the placement settle to expire and the ghost to be woken:
-	# a ghost inside its settle is skipped by MatchController._tick_ghosts, so
-	# the catch cannot land until the body is back in the world. Derived from the
-	# controller's own constant rather than a magic 2.
+	# Long enough for the placement settle to expire and the ghost to be woken: a
+	# ghost inside its settle is not in the world and its shove is refused, so the
+	# catch cannot land until the body is back. Derived from the controller's own
+	# constant rather than a magic 2.
 	await step_ticks(MatchController.SETTLE_PHYSICS_FRAMES + 2)
+	assert_same(_shove_catch(victim), quarry, "the ghost shoved the prisoner in front of it")
 
 	# The trade.
 	assert_eq_int(_catches, 1, "ghost_caught is announced once")
@@ -488,6 +501,119 @@ func test_a_ghost_catching_a_prisoner_swaps_their_roles() -> void:
 	assert_eq_int(_catches, 1, "the swap did not oscillate on the next tick")
 
 
+## TOUCHING IS NOT CATCHING. The author's rule: a ghost must SHOVE a living
+## prisoner to take their place.
+##
+## The ghost is stood on the prisoner -- the placement that took the spot for as
+## long as the catch was a radius -- with its grace spent, its hold served and its
+## settle woken, which is every condition the swap needs except the shove. Two
+## seconds later nothing has changed hands.
+func test_a_ghost_touching_a_prisoner_takes_no_spot() -> void:
+	await step_ticks(RUNNING_TICKS)
+
+	var victim: MatchParticipant = _controller.get_live_participants()[0]
+	assert_true(_controller.apply_hit(victim), "a prisoner is shot to make the ghost")
+	await _await_respawn(victim)
+	await step_ticks(MatchController.SETTLE_PHYSICS_FRAMES + 2)
+
+	var quarry: MatchParticipant = _controller.get_live_participants()[0]
+	_put_ghost_on(victim, quarry, true)
+	# Standing IN the prisoner, not merely in reach of them: the old radius was
+	# 1.8 m and this is zero, so nothing about the distance can excuse a miss.
+	victim.body.global_position = quarry.body.global_position
+
+	await step_ticks(TOUCH_TICKS)
+
+	assert_eq_int(_catches, 0, "contact announced no catch")
+	assert_eq_int(_controller.get_catch_count(), 0, "and the match counted none")
+	assert_true(victim.is_ghost, "the ghost is still a ghost")
+	assert_true(quarry.is_running, "and the prisoner still holds their spot")
+
+
+## The shove IS the catch, and it arrives through the seam a player's hand does:
+## the tap on the intent, the authority ruling on it on its own tick.
+func test_a_ghost_takes_a_spot_by_shoving_the_prisoner_who_holds_it() -> void:
+	await step_ticks(RUNNING_TICKS)
+
+	var victim: MatchParticipant = _controller.get_live_participants()[0]
+	assert_true(_controller.apply_hit(victim), "a prisoner is shot to make the ghost")
+	await _await_respawn(victim)
+	await step_ticks(MatchController.SETTLE_PHYSICS_FRAMES + 2)
+
+	var quarry: MatchParticipant = _controller.get_live_participants()[0]
+	_put_ghost_on(victim, quarry, true)
+	victim.shove_cooldown_remaining = 0.0
+
+	var tap: MoveIntent = MoveIntent.new()
+	tap.shove_pressed = true
+	victim.body.set_intent(tap)
+	await step_ticks(2)
+
+	assert_eq_int(_catches, 1, "the shove took the spot")
+	assert_same(_last_catch_ghost, victim, "the ghost who shoved is the one who took it")
+	assert_same(_last_catch_caught, quarry, "and the prisoner shoved is the one who lost it")
+	assert_true(victim.is_running, "the ghost is a living prisoner now")
+	assert_true(quarry.is_ghost, "and the prisoner who was shoved is the ghost")
+	# The new ghost cannot take the spot straight back: it is held out of the world,
+	# and a ghost is not a body that can be shoved anyway -- tests/test_shove.gd.
+	victim.shove_cooldown_remaining = 0.0
+	quarry.shove_cooldown_remaining = 0.0
+	assert_null(_controller.apply_shove(quarry), "a ghost held out of the world cannot shove back")
+	assert_eq_int(_catches, 1, "and no second catch happened")
+
+
+## A BOT ghost takes a spot without being told to: its brain taps shove when the
+## prisoner it is chasing is in reach.
+##
+## The whole path, and the only test here that does not press the button itself:
+## [method RingRunner._maybe_shove] writes the intent, the body polls it through
+## [BotIntentSource], and [method MatchController._tick_shoves] rules on it. The
+## quarry is the brain's OWN chase target, frozen where it stands so the reach is
+## not a race between two runners, and the ghost keeps its brain.
+func test_a_bot_ghost_shoves_the_prisoner_it_is_chasing() -> void:
+	await step_ticks(RUNNING_TICKS)
+
+	var ghost: MatchParticipant = _controller.get_live_participants()[0]
+	assert_true(_controller.apply_hit(ghost), "a bot prisoner is shot to make the ghost")
+	await _await_respawn(ghost)
+	await step_ticks(SETTLE_TICKS)
+	if not assert_true(ghost.brain != null and ghost.brain.is_chasing(), "the ghost is chasing"):
+		return
+
+	var hunted: Node3D = ghost.brain.get_chase_target()
+	if not assert_not_null(hunted, "the chase has named a living prisoner"):
+		return
+	var quarry: MatchParticipant = _controller.resolve_participant(hunted)
+	if not assert_not_null(quarry, "and it is a participant of this match"):
+		return
+
+	# The quarry is stopped where it stands; the ghost is stood a shove's reach
+	# behind it, facing it, with its own brain and body left running.
+	if quarry.brain != null:
+		quarry.brain.set_physics_process(false)
+	quarry.body.set_physics_process(false)
+	quarry.body.velocity = Vector3.ZERO
+	ghost.shove_cooldown_remaining = 0.0
+	# The grace is spent by hand: it runs from the moment the ghost landed, and a
+	# real chase spends it on the way over. See GhostProfile.catch_grace_seconds.
+	ghost.ghost_grace_remaining = 0.0
+	# Behind it along the LAP, not behind its facing: the brain hunts the prisoner
+	# the least route ahead of it, so a ghost dropped anywhere else would go after
+	# somebody the test never froze.
+	var spot: Vector3 = quarry.body.global_position
+	var centre: Vector3 = (_match.get_node("Arena") as Node3D).global_position
+	var radial: Vector3 = Vector3(spot.x - centre.x, 0.0, spot.z - centre.z).normalized()
+	var along: Vector3 = Vector3(-radial.z, 0.0, radial.x) * RingRunner.TRAVEL_SIGN
+	ghost.body.global_position = spot - along * CATCH_REACH_METRES
+	ghost.body.look_at(Vector3(spot.x, ghost.body.global_position.y, spot.z))
+
+	await step_ticks(CHASE_SHOVE_TICKS)
+
+	assert_eq_int(_catches, 1, "the bot ghost shoved and took the spot")
+	assert_same(_last_catch_ghost, ghost, "the ghost that shoved is the one that took it")
+	assert_true(ghost.is_running, "it is a living prisoner now")
+
+
 ## The grace is a clock, and when it runs out the catch happens.
 ##
 ## The pair above is left standing on top of each other. Run the grace off and
@@ -513,10 +639,14 @@ func test_the_catch_grace_expires_and_the_catch_then_happens() -> void:
 	# The freshly shot ghost is on its grace and may not catch anybody yet.
 	_put_ghost_on(victim, quarry, false)
 	assert_gt(victim.ghost_grace_remaining, 0.0, "the shot prisoner is on its grace")
-	await step_ticks(2)
-	assert_eq_int(_catches, 0, "a ghost inside its grace catches nobody")
+	await step_ticks(MatchController.SETTLE_PHYSICS_FRAMES + 2)
+	assert_same(_shove_catch(victim), quarry, "the shove itself lands")
+	assert_eq_int(_catches, 0, "but a ghost inside its grace catches nobody")
 
 	await step_seconds(_ghost_rules.catch_grace_seconds + 0.2)
+	assert_almost_eq(victim.ghost_grace_remaining, 0.0, 1e-6, "the grace is spent")
+	_put_ghost_on(victim, quarry, true)
+	assert_same(_shove_catch(victim), quarry, "and the same shove lands again")
 	assert_gt(float(_catches), 0.0, "once the grace is spent the catch lands")
 
 
@@ -839,6 +969,7 @@ func test_a_held_ghost_can_neither_catch_nor_be_caught() -> void:
 	await step_ticks(int(_ghost_rules.respawn_delay_seconds * SIM_HZ * 0.5))
 
 	assert_true(_controller.is_awaiting_respawn(victim), "the hold is still running")
+	assert_null(_shove_catch(victim), "a held ghost cannot even swing")
 	assert_eq_int(_catches, 0, "and a held ghost standing on a prisoner catches nobody")
 	assert_eq_int(_controller.get_catch_count(), 0, "the match counted no catch")
 
@@ -1041,15 +1172,13 @@ func test_a_ghost_past_halfway_still_chases_the_way_the_lap_runs() -> void:
 
 # --- Helpers ------------------------------------------------------------------
 
-## Put [param ghost] where a chase would have taken it: in [param quarry]'s own
-## spot.
+## Put [param ghost] where a chase would have left it: a shove's reach behind
+## [param quarry], facing it.
 ##
-## [b]In the spot, not merely within the catch radius.[/b] Every prisoner runs
-## one track, so a second into a round the field is running together and a body
-## placed a fraction of the catch radius off the quarry may well be nearer to
-## somebody else -- and [method MatchController._catchable_from] rules on the
-## NEAREST living prisoner, which is the mechanic. Standing on the quarry's own
-## spot is the only placement that names the quarry unambiguously.
+## [b]Behind and facing, because the catch is a shove.[/b]
+## [method MatchController._shovable_from] names the nearest living prisoner
+## inside the facing cone, so a ghost stood a body's length off the quarry's back
+## names the quarry unambiguously however close together the field is running.
 ##
 ## Safe to do by hand precisely because a ghost is already off every collision
 ## layer and mask-wise cannot carry anything -- moving a body with collision live
@@ -1060,7 +1189,7 @@ func _put_ghost_on(
 	ghost: MatchParticipant, quarry: MatchParticipant, spend_grace: bool
 ) -> void:
 	# Both bodies are stopped where they stand. The quarry too: it is running at
-	# 8 m/s and would otherwise leave the catch radius long before a grace clock
+	# 8 m/s and would otherwise leave the shove's reach long before a grace clock
 	# measured in seconds ran out, which would test the chase rather than the
 	# rule. Nothing about the catch reads velocity.
 	if ghost.brain != null:
@@ -1072,9 +1201,22 @@ func _put_ghost_on(
 	ghost.body.velocity = Vector3.ZERO
 	quarry.body.velocity = Vector3.ZERO
 	ghost.body.collision_mask = 0
-	ghost.body.global_position = quarry.body.global_position
+	var spot: Vector3 = quarry.body.global_position
+	var behind: Vector3 = quarry.body.global_transform.basis.z
+	behind.y = 0.0
+	if behind.length_squared() < 1e-6:
+		behind = Vector3.BACK
+	ghost.body.global_position = spot + behind.normalized() * CATCH_REACH_METRES
+	ghost.body.look_at(Vector3(spot.x, ghost.body.global_position.y, spot.z))
 	if spend_grace:
 		ghost.ghost_grace_remaining = 0.0
+
+
+## Shove the prisoner in front of [param ghost], which is the only way a spot
+## changes hands. Returns the prisoner who was shoved, or null.
+func _shove_catch(ghost: MatchParticipant) -> MatchParticipant:
+	ghost.shove_cooldown_remaining = 0.0
+	return _controller.apply_shove(ghost)
 
 
 ## Wait out [param participant]'s respawn hold and return on the tick it expires

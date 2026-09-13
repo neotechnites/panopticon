@@ -51,9 +51,9 @@ extends TestCase
 ##
 ## Same reasoning as [code]tests/test_ghosts.gd[/code]: waiting for a ghost to
 ## genuinely close on a prisoner is tens of simulated seconds and what it proves
-## is that the pursuit steering works. The ghost's body is put where a chase
-## would have taken it and the match is left to notice on its own clock, through
-## the same [method MatchController._tick_ghosts] a real chase arrives at.
+## is that the pursuit steering works. The ghost's body is put in shove reach of
+## a prisoner and told to shove, through the same
+## [method MatchController.apply_shove] a real chase arrives at.
 
 const CATCH_PROFILE_PATH: String = "res://resources/fx/default_catch_profile.tres"
 const FEEDBACK_PROFILE_PATH: String = "res://scenes/fx/default_feedback_profile.tres"
@@ -70,6 +70,10 @@ const HOLD_BUDGET_TICKS: int = 240
 
 ## How close two colour channels must be to be the same colour.
 const COLOR_TOLERANCE: float = 1e-4
+
+## Where a ghost is stood to shove: inside the shipped three metre reach, and
+## clear of the body capsule.
+const CATCH_REACH_METRES: float = 1.2
 
 ## Metres of camera offset below which nothing has moved. The kick composes in
 ## single precision off a base read back from a Transform3D.
@@ -353,6 +357,7 @@ func test_a_catch_between_two_bots_is_inert() -> void:
 
 	_put_ghost_on(ghost, quarry)
 	await step_ticks(MatchController.SETTLE_PHYSICS_FRAMES + 2)
+	assert_same(_shove_catch(ghost), quarry, "the bot ghost shoved the bot in front of it")
 
 	# The catch really happened. Without this the rest is vacuous.
 	assert_eq_int(_controller.get_catch_count(), 1, "the match performed the swap")
@@ -401,6 +406,7 @@ func test_the_swap_itself_is_unchanged() -> void:
 		return
 	_put_ghost_on(ghost, _human)
 	await step_ticks(MatchController.SETTLE_PHYSICS_FRAMES + 2)
+	assert_same(_shove_catch(ghost), _human, "the ghost shoved the human")
 
 	assert_eq_int(_taken.size(), 1, "the human was caught, and knows it")
 
@@ -521,7 +527,7 @@ func test_the_shipped_reaction_is_wired_and_inert() -> void:
 ##
 ## The brains, not the participants: nothing about the seat, the round or the
 ## rifle changes, so the catch still arrives through exactly the
-## [method MatchController._tick_ghosts] path a played match arrives at.
+## [method MatchController.apply_shove] path a played match arrives at.
 func _stand_the_tower_down() -> void:
 	for participant: MatchParticipant in _controller.get_participants():
 		if participant.tower_brain != null:
@@ -549,6 +555,8 @@ func _human_catches() -> MatchParticipant:
 		return null
 	_put_ghost_on(_human, quarry)
 	await step_ticks(MatchController.SETTLE_PHYSICS_FRAMES + 2)
+	if _shove_catch(_human) == null:
+		return null
 	return quarry
 
 
@@ -562,6 +570,8 @@ func _human_is_caught() -> MatchParticipant:
 		return null
 	_put_ghost_on(ghost, _human)
 	await step_ticks(MatchController.SETTLE_PHYSICS_FRAMES + 2)
+	if _shove_catch(ghost) == null:
+		return null
 	return ghost
 
 
@@ -578,8 +588,8 @@ func _bot_ghost() -> MatchParticipant:
 	return victim
 
 
-## Stand [param ghost] on [param quarry] and spend its grace, so the next tick of
-## [method MatchController._tick_ghosts] rules on the catch.
+## Stand [param ghost] a shove's reach behind [param quarry], facing it, and spend
+## its grace -- so [method _shove_catch] can take the spot.
 ##
 ## Mirrors the helper in [code]tests/test_ghosts.gd[/code], and is safe for the
 ## same reason: a ghost is already off every collision layer and mask-wise cannot
@@ -587,12 +597,11 @@ func _bot_ghost() -> MatchParticipant:
 ## the trap [method MatchController._hold_body] documents. Both brains are stood
 ## down first so neither steers off the spot on the next tick.
 ##
-## Note what this leaves the two bodies in: THE SAME PLACE. So the reach
-## direction [FxCatchReaction] derives degenerates to
-## [constant Vector3.ZERO] and [method FxCameraKick.strike] falls back on its own
-## fixed off-axis whip -- which is exactly the path a real catch at the bottom of
-## [member GhostProfile.catch_radius_metres] takes, and is why the camera
-## assertions above are made on "the view turned" rather than on a bearing.
+## Note what this leaves the two bodies in: ONE DIRECTLY BEHIND THE OTHER. So the
+## reach direction [FxCatchReaction] derives runs straight down the caught
+## player's view axis, has no lateral component, and [method FxCameraKick.strike]
+## falls back on its own fixed off-axis whip -- which is why the camera assertions
+## above are made on "the view turned" rather than on a bearing.
 func _put_ghost_on(ghost: MatchParticipant, quarry: MatchParticipant) -> void:
 	if ghost.brain != null:
 		ghost.brain.end_chase()
@@ -603,8 +612,21 @@ func _put_ghost_on(ghost: MatchParticipant, quarry: MatchParticipant) -> void:
 	ghost.body.velocity = Vector3.ZERO
 	quarry.body.velocity = Vector3.ZERO
 	ghost.body.collision_mask = 0
-	ghost.body.global_position = quarry.body.global_position
+	var spot: Vector3 = quarry.body.global_position
+	var behind: Vector3 = quarry.body.global_transform.basis.z
+	behind.y = 0.0
+	if behind.length_squared() < 1e-6:
+		behind = Vector3.BACK
+	ghost.body.global_position = spot + behind.normalized() * CATCH_REACH_METRES
+	ghost.body.look_at(Vector3(spot.x, ghost.body.global_position.y, spot.z))
 	ghost.ghost_grace_remaining = 0.0
+
+
+## Take the spot the only way the rules allow: [param ghost] shoves the prisoner
+## in front of it. Returns the prisoner shoved, or null.
+func _shove_catch(ghost: MatchParticipant) -> MatchParticipant:
+	ghost.shove_cooldown_remaining = 0.0
+	return _controller.apply_shove(ghost)
 
 
 ## Wait out [param participant]'s respawn hold. Polled rather than slept for a
