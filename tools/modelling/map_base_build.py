@@ -2843,6 +2843,10 @@ S1_CHEST = 1.3               # chest height: no fixture wider than 1.0 m here
 S1_FLARE = 2.6               # a foot skirt: this times the shaft radius at the floor, an apron tangent to it ...
 S1_SKIRT = (0.5, 1.0, 0.3)   # ... steepening into the shaft over clamp(H * c, lo, hi) metres of height
 S1_SKIRT_P = 2.5             # the apron: height = skirt * (1 - w) ** p over the radial fraction w
+S1_RIM_JITTER = 0.3          # the skirt's outline wanders this much of its extent, vertex to vertex
+S1_RIPPLE = (0.55, 0.5, 0.02, 0.06, 0.25, 0.08)   # floor ripples: first at this beyond the skirt, spacing, height range, half width, wander
+S1_RIPPLE_R = 0.28           # feet of shafts this thick or more get ripples
+S1_RIDGE_Z = 0.8             # drip ridges start above this height
 S1_COL_R = (0.30, 0.42)      # full column waist radius: 0.6..0.9 m across
 S1_OVER = 3                  # the tallest stalagmites get a stalactite dripping over them
 S1_TITES = (32, 1.0, 5.5, 0.12, 0.36)    # stalactites: count, length lo/hi, base radius lo/hi
@@ -3006,24 +3010,28 @@ class _S1Spike(object):
     U_TITE = (0.0, 0.04, 0.11, 0.22, 0.34, 0.47, 0.6, 0.73, 0.86, 1.0)
     U_COL = (0.0, 0.03, 0.07, 0.13, 0.22, 0.32, 0.42, 0.5, 0.58, 0.68, 0.78, 0.87, 0.93, 0.97, 1.0)
 
-    SKIRT_W = (1.0, 0.9, 0.78, 0.64, 0.5, 0.36, 0.22, 0.1)   # skirt rings by radial fraction, edge to shaft
+    SKIRT_W = (1.0, 0.86, 0.72, 0.58, 0.44, 0.31, 0.19, 0.09)   # fillet rings by radial fraction, edge to shaft
     BODY_MITE = (0.34, 0.44, 0.54, 0.64, 0.74, 0.84, 0.92, 0.97, 1.0)
     BODY_COL = (0.22, 0.32, 0.42, 0.5, 0.58, 0.68, 0.78, 0.87, 0.93, 0.97, 1.0)
 
     def __init__(self, kind, b, rad, H, R, sides, r, us, flare, lobe=None, bend=0.08, nridge=3,
-                 ridge_amp=(0.09, 0.22), jitter=0.07):
+                 ridge_amp=(0.09, 0.22), jitter=0.07, skirt_w=None, ridge_z=None):
         self.kind, self.b, self.rad, self.H, self.R, self.sides = kind, b, rad, H, R, sides
         self.skirt = min(S1_SKIRT[1], max(S1_SKIRT[0], S1_SKIRT[2] * H))
+        self.ref = None                                  # the pass-7 shape this one stands in for
         if us is None:                                   # skirt rings by the apron, body rings by fraction
-            sk = [self.skirt * (1.0 - w) ** S1_SKIRT_P / H for w in self.SKIRT_W]
+            sk = [self.skirt * (1.0 - w) ** S1_SKIRT_P / H for w in (skirt_w or self.SKIRT_W)]
             body = self.BODY_MITE if kind == "mite" else self.BODY_COL
             us = tuple(sk + [u for u in body if u > sk[-1] + 0.06])
         self.us, self.flare, self.lobe = us, flare, lobe
         self.angs = [TWO_PI * (i + 0.28 * r.sf()) / sides for i in range(sides)]
         self.fac = [1.0 + 0.13 * r.sf() for _ in range(sides)]
-        self.jit = [[1.0 + jitter * r.sf() for _ in range(sides)] for _ in us]
+        self.jit = [[1.0 + (0.0 if ridge_z is not None and u * H < self.skirt else jitter) * r.sf() for _ in range(sides)]
+                    for u in us]
+        self.rim = [1.0 + S1_RIM_JITTER * r.sf() for _ in range(sides)] if ridge_z is not None else [1.0] * sides
+        self.rock_z = [0.15 + 0.6 * ((v - 1.0) / (2.0 * S1_RIM_JITTER) + 0.5) for v in self.rim]   # where the floor's texture ends
         self.bend = (r.f() * TWO_PI, bend * (0.6 + 0.4 * r.f()), r.f() * TWO_PI)
-        body = [u for u in us if 0.2 < u < 0.9]
+        body = [u for u in us if max(0.2, (ridge_z or 0.0) / H) < u < 0.9]
         self.ridges = []
         for _ in range(nridge):
             if body:
@@ -3072,7 +3080,8 @@ class _S1Spike(object):
     def radius(self, i, u, k=None):
         """Vertex i's radius at u; ring k's own jitter when given."""
         j = self.jit[k][i] if k is not None else 1.0
-        return self.body(u) * self.fac[i] * j * (self.flare_f(u) + self.lobe_f(i, u))
+        rim = 1.0 if self.kind == "tite" else self.rim[i]
+        return self.body(u) * self.fac[i] * j * (1.0 + (self.flare_f(u) - 1.0) * rim + self.lobe_f(i, u))
 
     def offsets(self, k):
         u = self.us[k]
@@ -3174,6 +3183,28 @@ def _s1_sculpt(m, ang, cols_all, lo, hi, pit_wall, shaft, pit_top, wall, upper, 
     deck_waves = _s1_waves(_Rng(S1_SEED + 1), S1_DECK_L)
     ceil_waves = _s1_waves(_Rng(S1_SEED + 2), S1_CEIL_L)
     mounds, drips = [], []          # (x, y, height, radius)
+    ripples = []                    # (x, y, skirt radius, [(distance beyond it, height, wander phase)])
+
+    def ripple_d(rp, x, y):
+        """Distance beyond the skirt and the angle round the foot, in its frame."""
+        rx, ry, rr = rp[0], rp[1], rp[2]
+        er, et = _radial(_bear_deg(math.atan2(ry, rx))), _tangent(_bear_deg(math.atan2(ry, rx)))
+        dr = (x - rx) * er[0] + (y - ry) * er[1]
+        dt = (x - rx) * et[0] + (y - ry) * et[1]
+        return math.hypot(dr, dt) - rr, math.atan2(dt, dr)
+
+    def ripple(x, y):
+        out = 0.0
+        hw, wob = S1_RIPPLE[4], S1_RIPPLE[5]
+        for rp in ripples:
+            d, a = ripple_d(rp, x, y)
+            if d < S1_RIPPLE[0] - hw - wob or d > rp[3][-1][0] + hw + wob:
+                continue
+            for (c, amp, ph) in rp[3]:
+                cc = c + wob * math.sin(2.0 * a + ph)
+                if abs(d - cc) < hw:
+                    out += amp * math.cos(0.5 * math.pi * (d - cc) / hw) ** 2
+        return out
 
     def bump(x, y, lst):
         out = 0.0
@@ -3188,7 +3219,7 @@ def _s1_sculpt(m, ang, cols_all, lo, hi, pit_wall, shaft, pit_top, wall, upper, 
         """The deck's rise over DECK_Z."""
         rho = math.hypot(x, y)
         fr = min(_ramp(rho - INNER_R, 0.0, 1.2), _ramp(OUTER_R - rho, 0.0, 1.2))
-        return fade_s(bearing(x, y)) * fr * (S1_DECK_AMP * deck_waves(x, y) + bump(x, y, mounds))
+        return fade_s(bearing(x, y)) * fr * (S1_DECK_AMP * deck_waves(x, y) + bump(x, y, mounds) + ripple(x, y))
 
     def C(x, y):
         """The ceiling's drop under CEIL_Z: sags, and a drip cone per stalactite."""
@@ -3249,9 +3280,10 @@ def _s1_sculpt(m, ang, cols_all, lo, hi, pit_wall, shaft, pit_top, wall, upper, 
         s0, r0 = centre
         return [(s0 + dt * R_REF / r0, r0 + dr) for (dr, dt) in sp.offsets(k)]
 
-    def cells_under(pp, rows, jmax, margin=0.25):
+    def cells_under(pp, rows, jmax, margin=0.25, clamp=False):
         """The cells whose rectangle meets a param polygon's box plus margin;
-        None when that runs into a boundary strip, the lip or the wall."""
+        None when that runs into a boundary strip, the lip or the wall (or,
+        clamped, as much of the box as stays clear of them)."""
         rc = sum(p[1] for p in pp) / len(pp)
         ms = margin * R_REF / rc
         s0, s1 = min(p[0] for p in pp) - ms, max(p[0] for p in pp) + ms
@@ -3260,6 +3292,8 @@ def _s1_sculpt(m, ang, cols_all, lo, hi, pit_wall, shaft, pit_top, wall, upper, 
         i1 = min(i for i in range(n) if sc[i] * R_REF >= s1) if sc[-1] * R_REF >= s1 else n
         j0 = max(j for j in range(len(rows)) if rows[j] <= r0) if rows[0] <= r0 else -1
         j1 = min(j for j in range(len(rows)) if rows[j] >= r1) if rows[-1] >= r1 else len(rows)
+        if clamp:
+            return (max(1, i0), min(n - 2, i1), max(1, j0), min(jmax, j1))
         if i0 < 1 or i1 > n - 2 or j0 < 1 or j1 > jmax:
             return None
         return (i0, i1, j0, j1)
@@ -3297,8 +3331,10 @@ def _s1_sculpt(m, ang, cols_all, lo, hi, pit_wall, shaft, pit_top, wall, upper, 
         return max(math.hypot(dr, dt) for (dr, dt) in sp.offsets(0))
 
     def fits(sp, x, y, clump=False):
+        sp = sp.ref or sp                                # placement judged on the pass-7 shape
         cover = sp.kind == "column" or sp.H >= S1_COVER_H
         for o in fixtures:
+            o = o.ref or o
             d = math.hypot(x - o.cxy[0], y - o.cxy[1])
             if cover and (o.kind == "column" or o.H >= S1_COVER_H) \
                     and d < S1_FOREST_GAP + widest(sp, S1_CHEST) + widest(o, S1_CHEST):
@@ -3315,32 +3351,77 @@ def _s1_sculpt(m, ang, cols_all, lo, hi, pit_wall, shaft, pit_top, wall, upper, 
     def make(kind, b, rad):
         t = T(b)
         x, y = deck_xy(t, rad)
-        if kind == "column":
-            sp = _S1Spike("column", b, rad, CEIL_H, rng(*S1_COL_R), 8, r, None, S1_FLARE, bend=0.03, nridge=4)
+        old_w = (1.0, 0.9, 0.78, 0.64, 0.5, 0.36, 0.22, 0.1)
+        if kind == "column":                             # the pass-7 draws, so the approved layout stands
+            ref = _S1Spike("column", b, rad, CEIL_H, rng(*S1_COL_R), 8, r, None, S1_FLARE, bend=0.03, nridge=4,
+                           skirt_w=old_w)
         else:
             lo_h, hi_h, lo_r, hi_r = spec(kind)
-            sp = _S1Spike("mite", b, rad, rng(lo_h, hi_h), rng(lo_r, hi_r), r.pick((6, 7, 8)), r, None,
-                          S1_FLARE, bend=0.07, nridge=4)
-        sp.centre, sp.cxy = (t * R_REF, rad), (x, y)
+            ref = _S1Spike("mite", b, rad, rng(lo_h, hi_h), rng(lo_r, hi_r), r.pick((6, 7, 8)), r, None,
+                           S1_FLARE, bend=0.07, nridge=4, skirt_w=old_w)
+        shape = _Rng(S1_SEED * 3 + int(b * 977.0) + int(rad * 131.0))   # the shape is its own
+        sp = _S1Spike(ref.kind, b, rad, ref.H, ref.R, shape.pick((10, 11, 12, 13)), shape, None, S1_FLARE,
+                      bend=0.03 if kind == "column" else 0.07, nridge=4,
+                      ridge_z=S1_RIDGE_Z)
+        sp.ref = ref
+        sp.centre, sp.cxy = ref.centre, ref.cxy = (t * R_REF, rad), (x, y)
         return sp
+
+    def fit_ring(sp, k, centre, blk, rows, margin=0.3):
+        """Pull ring k's rim in, vertex by vertex, until the ring sits inside
+        the block with the margin cells_under wanted; the rim is the only knob."""
+        s0, r0 = centre
+        ms = margin * R_REF / r0
+        lo_s, hi_s = sc[blk[0]] * R_REF + ms, sc[blk[1]] * R_REF - ms
+        lo_r, hi_r = rows[blk[2]] + margin, rows[blk[3]] - margin
+        u = sp.us[k]
+        for i in range(sp.sides):
+            ca, sa = math.cos(sp.angs[i]), math.sin(sp.angs[i])
+            allow = 9.0
+            if ca > 1e-9:
+                allow = min(allow, (hi_r - r0) / ca)
+            elif ca < -1e-9:
+                allow = min(allow, (r0 - lo_r) / -ca)
+            if sa > 1e-9:
+                allow = min(allow, (hi_s - s0) * r0 / R_REF / sa)
+            elif sa < -1e-9:
+                allow = min(allow, (s0 - lo_s) * r0 / R_REF / -sa)
+            if sp.radius(i, u, k) > allow:
+                core = sp.body(u) * sp.fac[i] * sp.jit[k][i]
+                sp.rim[i] = min(sp.rim[i], max(0.0, (allow / core - 1.0 - sp.lobe_f(i, u)) / (sp.flare_f(u) - 1.0)))
 
     def place(sp, x, y, clump=False):
         if not fits(sp, x, y, clump):
             return False
-        blk = cells_under(ring_param(sp, sp.centre, 0), rho, S1_NS - 1)
+        ref = sp.ref or sp
+        blk = cells_under(ring_param(ref, sp.centre, 0), rho, S1_NS - 1)
         if blk is None:
             return False
+        crows = [INNER_R + j * cstep for j in range(S1_NC + 1)]
         if sp.kind == "column":
-            sp.top = sp.centre
-            crows = [INNER_R + j * cstep for j in range(S1_NC + 1)]
-            cblk = cells_under(ring_param(sp, sp.top, len(sp.us) - 1), crows, S1_NC - 1)
+            sp.top = ref.top = sp.centre
+            cblk = cells_under(ring_param(ref, sp.top, len(ref.us) - 1), crows, S1_NC - 1)
             if cblk is None:
                 return False
+        if ref is not sp:                                # the real shape keeps inside the pass-7 blocks
+            fit_ring(sp, 0, sp.centre, blk, rho)
+            if sp.kind == "column":
+                fit_ring(sp, len(sp.us) - 1, sp.top, cblk, crows)
+        if sp.kind == "column":
             cblocks.append((cblk, [sp]))
         fixtures.append(sp)
         spikes.append(sp)
+        if sp.R >= S1_RIPPLE_R:                          # room in the fill for the ripples round it
+            reach = S1_RIPPLE[0] + S1_RIPPLE[1] * 3.2 + S1_RIPPLE[4] + S1_RIPPLE[5]
+            blk = cells_under(ring_param(sp, sp.centre, 0), rho, S1_NS - 1, margin=0.25 + reach, clamp=True)
         dblocks.append((blk, [sp]))
         mounds.append((x, y, S1_MOUND[0] + S1_MOUND[1] * sp.R, S1_MOUND[2] + S1_MOUND[3] * sp.R))
+        if sp.R >= S1_RIPPLE_R:                          # the floor builds up round the bigger feet
+            shape = _Rng(S1_SEED * 5 + int(sp.b * 977.0))
+            nk = shape.i(2, 4)
+            d0, sp_, h0, h1 = S1_RIPPLE[:4]
+            ripples.append((x, y, base_r(sp), [(d0 + sp_ * (k + 0.2 * shape.sf()), (h0 + (h1 - h0) * shape.f()) * (1.0 - 0.1 * k),
+                                                shape.f() * TWO_PI) for k in range(nk)]))
         return True
 
     rest = S1_FOREST_N - S1_FOREST_COLS
@@ -3362,10 +3443,10 @@ def _s1_sculpt(m, ang, cols_all, lo, hi, pit_wall, shaft, pit_top, wall, upper, 
         host = r.pick(hosts)
         a = r.f() * TWO_PI
         sp = make("short", host.b, host.rad)
-        d = base_r(host) + base_r(sp) + 0.6 + 0.2 * r.f()     # its skirt against the host's skirt
+        d = base_r(host.ref) + base_r(sp.ref) + 0.6 + 0.2 * r.f()     # its skirt against the host's skirt
         x, y = host.cxy[0] + d * math.cos(a), host.cxy[1] + d * math.sin(a)
         sp = make("short", _bear_deg(math.atan2(y, x)), math.hypot(x, y))
-        sp.H = min(sp.H, 1.8)
+        sp.H = sp.ref.H = min(sp.H, 1.8)
         if place(sp, sp.cxy[0], sp.cxy[1], True):
             got += 1
     dblocks = merge(dblocks)
@@ -3480,7 +3561,7 @@ def _s1_sculpt(m, ang, cols_all, lo, hi, pit_wall, shaft, pit_top, wall, upper, 
     base_ids = {}
     fill_tris = 0
     for (blk, sps) in dblocks:
-        rings = []
+        rings, polys = [], []
         for sp in sps:
             pp = ring_param(sp, sp.centre, 0)
             pts = [deck_xy(s / R_REF, rr) for (s, rr) in pp]
@@ -3488,8 +3569,44 @@ def _s1_sculpt(m, ang, cols_all, lo, hi, pit_wall, shaft, pit_top, wall, upper, 
             base_ids[(sp, "deck")] = ids
             sp.base = (DECK_Z + H(*deck_xy(sp.centre[0] / R_REF, sp.centre[1])), pts)
             rings.append(list(zip(pp, ids)))
+            polys.append(pp)
+        grid = [(param[c], G[c]) for c in extra_d.get(blk, ())]
+        extra, taken = [], []
+        s_lo, s_hi = sc[blk[0]] * R_REF, sc[blk[1]] * R_REF
+        r_lo, r_hi = rho[blk[2]], rho[blk[3]]
+        for sp in sps:                                   # ripple nodes: the floor resolves the spread
+            rp = [q for q in ripples if q[0] == sp.cxy[0] and q[1] == sp.cxy[1]]
+            if not rp:
+                continue
+            rp = rp[0]
+            s0, r0 = sp.centre
+            stations = []
+            for (c, amp, ph) in rp[3]:
+                stations.append((c, ph, 1.0))                  # the crest
+                stations.append((c + S1_RIPPLE[4], ph, 1.0))   # the trough beyond it
+            stations.insert(0, (rp[3][0][0] - S1_RIPPLE[4], rp[3][0][2], 1.0))
+            for (c, ph, _) in stations:
+                nq = 12 if c < 1.2 else 16
+                for q in range(nq):
+                    a = TWO_PI * (q + 0.37) / nq
+                    rr = rp[2] + c + S1_RIPPLE[5] * math.sin(2.0 * a + ph)
+                    pq = (s0 + rr * math.sin(a) * R_REF / r0, r0 + rr * math.cos(a))
+                    if not (s_lo + 0.3 < pq[0] < s_hi - 0.3 and r_lo + 0.3 < pq[1] < r_hi - 0.3):
+                        continue
+                    pm = (pq[0] * pq[1] / R_REF, pq[1])   # metres
+                    if any(_s1_seg_dist(pm, (a0[0] * pq[1] / R_REF, a0[1]), (a1[0] * pq[1] / R_REF, a1[1])) < 0.4
+                           for poly in polys for a0, a1 in zip(poly, poly[1:] + poly[:1])):
+                        continue
+                    if any(math.hypot((pq[0] - t[0]) * pq[1] / R_REF, pq[1] - t[1]) < 0.2 for t in taken):
+                        continue
+                    x, y = deck_xy(pq[0] / R_REF, pq[1])
+                    extra.append((pq, m.v((x, y, DECK_Z + H(x, y)))))
+                    taken.append(pq)
+        for pq, vid in grid:                             # the grid's own nodes where the ripples leave room
+            if not any(math.hypot((pq[0] - t[0]) * pq[1] / R_REF, pq[1] - t[1]) < 0.3 for t in taken):
+                extra.append((pq, vid))
         fill_tris += _s1_fill(m, loop_of(blk, lambda i, j: param[(i, j)], G), rings, UP, ZONE_DECK,
-                              "deck %s" % (blk,), [(param[c], G[c]) for c in extra_d.get(blk, ())])
+                              "deck %s" % (blk,), extra)
     for (blk, sps) in cblocks:
         rings = []
         for sp in sps:
@@ -3514,12 +3631,15 @@ def _s1_sculpt(m, ang, cols_all, lo, hi, pit_wall, shaft, pit_top, wall, upper, 
                 wz = -1.0 if um < 0.15 else 0.0
             else:                                        # ... an apron along the floor, a column both
                 wz = 1.0 if um * sp.H < sp.skirt else (-1.0 if sp.kind == "column" and um > 0.9 else 0.0)
+            hm = um * sp.H
             for i in range(ns):
                 j = (i + 1) % ns
                 am = 0.5 * (sp.angs[i] + (sp.angs[j] if j else sp.angs[0] + TWO_PI))
+                # the low fillet is floor; the change to rock wanders 0.15..0.75 m up it, face by face
+                zone = ZONE_DECK if sp.kind != "tite" and hm < sp.rock_z[i] else ZONE_ROCK
                 want = (er[0] * math.cos(am) + et[0] * math.sin(am),
                         er[1] * math.cos(am) + et[1] * math.sin(am), wz)
-                m.quad(lvl[a][i], lvl[a][j], lvl[a + 1][j], lvl[a + 1][i], want, ZONE_ROCK, best=True)
+                m.quad(lvl[a][i], lvl[a][j], lvl[a + 1][j], lvl[a + 1][i], want, zone, best=True)
         if tip_dir is not None:
             top = lvl[-1]
             c = tuple(sum(m.verts[v][k] for v in top) / ns for k in range(3))
@@ -3528,6 +3648,17 @@ def _s1_sculpt(m, ang, cols_all, lo, hi, pit_wall, shaft, pit_top, wall, upper, 
                 m.tri(top[i], top[(i + 1) % ns], apex, (0.0, 0.0, tip_dir), ZONE_ROCK)
 
     prisms = []
+
+    def on_floor(sp, u, pts, z):
+        """A ring's vertices in the fillet follow the floor under them, the
+        floor's share fading out up the skirt, so the apron lies on the deck
+        it grows from instead of on the deck at the centre."""
+        w = min(1.0, u * sp.H / sp.skirt)
+        w = w * w * (3.0 - 2.0 * w)
+        if w >= 1.0:
+            return [z] * len(pts)
+        return [z + (1.0 - w) * (H(x, y) - (sp.deck_z - DECK_Z)) for (x, y) in pts]
+
     for sp in spikes:
         t_c = sp.centre[0] / R_REF
         frame = ((math.cos(t_c), math.sin(t_c)), (-math.sin(t_c), math.cos(t_c)))
@@ -3544,7 +3675,7 @@ def _s1_sculpt(m, ang, cols_all, lo, hi, pit_wall, shaft, pit_top, wall, upper, 
                 z = sp.deck_z + (z1 - sp.deck_z) * u
                 pts = [(cx + (tx - cx) * u + dx, cy + (ty - cy) * u + dy) for (dx, dy) in sp.section(u, frame)]
                 sp.rings.append((z, pts))
-                lvl.append([m.v((x, y, z)) for (x, y) in pts])
+                lvl.append([m.v((x, y, zi)) for (x, y), zi in zip(pts, on_floor(sp, u, pts, z))])
             lvl.append(base_ids[(sp, "ceil")])
             emit_tube(sp, lvl, frame, None)
             prisms.append(sp)
@@ -3576,7 +3707,7 @@ def _s1_sculpt(m, ang, cols_all, lo, hi, pit_wall, shaft, pit_top, wall, upper, 
             z = sp.deck_z + u * sp.H
             pts = [(cx + dx, cy + dy) for (dx, dy) in sp.section(u, frame)]
             sp.rings.append((z, pts))
-            lvl.append([m.v((x, y, z)) for (x, y) in pts])
+            lvl.append([m.v((x, y, zi)) for (x, y), zi in zip(pts, on_floor(sp, u, pts, z))])
         emit_tube(sp, lvl, frame, 1.0)
         if sp.H >= 1.0:
             prisms.append(sp)
