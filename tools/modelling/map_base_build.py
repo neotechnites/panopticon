@@ -224,8 +224,16 @@ S4_LIP = ((0.35, 0.08), (0.70, 0.20)) # the lip's round-over rows: (fraction to 
 S4_COLL_EDGE = 47.3                   # the collider's lip bank meets the flat lava here
 S4_COL_MERGE = 0.45                   # a field column this close to a base column yields
 S4_TRAP_STEP = 5.8                    # degrees per TrapVolume box over the field
+S4_FIN_HALF = (0.85, 0.25)            # landing cover: 1.7 m along the axis x 0.5 m thick
+S4_FIN_AT = (-1.7, 1.5)               # its centre off the platform centre: along, toward the tower
+S4_FIN_RINGS = [(-0.3, 1.12), (0.8, 1.06), (1.6, 1.0), (2.4, 0.78)]   # z off the top, scale: 2.4 m tall
+S4_LIP_B, S4_LIP_R = 216.0, 49.6      # the entry lip: run-up cover inside the lane
+S4_LIP_HALF = (1.5, 0.25)             # 3.0 m along the run x 0.5 m thick
+S4_LIP_RINGS = [(-0.3, 1.10), (0.5, 1.05), (1.2, 0.9)]              # z off the deck: 1.2 m tall
+S4_REVIEW = (3.0, 0.45, 1.0, 0.6)     # review renders only: white sun W, fill grey, fill strength, exposure EV
 S4_SEED = 6180339
 S4 = {}                               # the layout, filled by _s4_layout()
+S4_COVER = []                         # (centre, axis, section, rings) of every fin and the lip
 
 # ---- prison cells: stone screens cut into the pit faces ---------------------
 # A cell is an arched mouth cut through the wall, a reveal stepping back to a
@@ -1594,6 +1602,33 @@ def _s4_sect(bearing, axis):
 S4_SECTS = {}
 
 
+def _s4_column(m, r, centre, axis, pts, rings, top_zone, ragged=0.0):
+    """A column at a world x-y centre; `pts` are (along axis, across) metres,
+    across positive toward the tower."""
+    b, rad = _bear_deg(math.atan2(centre[1], centre[0])), math.hypot(centre[0], centre[1])
+    er, et = _radial(b), _tangent(b)
+    perp = (-axis[1], axis[0])
+    if perp[0] * er[0] + perp[1] * er[1] > 0.0:
+        perp = (-perp[0], -perp[1])
+    sect = []
+    for (a, c) in pts:
+        ox, oy = a * axis[0] + c * perp[0], a * axis[1] + c * perp[1]
+        sect.append((ox * er[0] + oy * er[1], ox * et[0] + oy * et[1]))
+    return _lake_column(m, b, rad, sect, rings, r, top_zone, ragged=ragged)
+
+
+def _s4_ellipse(r, ha, hc):
+    pts = []
+    for i in range(6):
+        t = TWO_PI * (i + 0.22 * r.sf()) / 6
+        pts.append((ha * math.cos(t) * (0.85 + 0.15 * r.f()), hc * math.sin(t) * (0.8 + 0.2 * r.f())))
+    return pts
+
+
+def _s4_rect(ha, hc):
+    return [(ha, -hc), (ha, 0.0), (ha, hc), (0.0, hc), (-ha, hc), (-ha, 0.0), (-ha, -hc), (0.0, -hc)]
+
+
 def _s4_platforms(m, r):
     for k, (x, y, top, ax) in enumerate(_s4_layout()["plats"]):
         b, rad = _bear_deg(math.atan2(y, x)), math.hypot(x, y)
@@ -1602,6 +1637,23 @@ def _s4_platforms(m, r):
         rings = [(top - 1.8, 1.40, 0.16), (top - 1.1, 1.28, 0.12),
                  (top - 0.5, 1.13, 0.08), (top, 1.0, 0.0)]
         _lake_column(m, b, rad, sect, rings, r, ZONE_DECK)
+        # the landing cover: a fin grown from the top, on the tower side of
+        # the landing zone, clear of the pad's trigger and the launch line
+        perp = (-ax[1], ax[0])
+        if perp[0] * x + perp[1] * y > 0.0:
+            perp = (-perp[0], -perp[1])
+        cen = (x + S4_FIN_AT[0] * ax[0] + S4_FIN_AT[1] * perp[0],
+               y + S4_FIN_AT[0] * ax[1] + S4_FIN_AT[1] * perp[1])
+        pts = _s4_ellipse(r, *S4_FIN_HALF)
+        rings = [(top + dz, sc) for dz, sc in S4_FIN_RINGS]
+        S4_COVER.append((cen, ax, pts, rings))
+        _s4_column(m, r, cen, ax, pts, rings, ZONE_SHADE, ragged=0.2)
+    # the entry lip: run-up cover on the plain deck before the first pad
+    lp = pol(S4_LIP_B, S4_LIP_R, 0.0)
+    pts = _s4_rect(*S4_LIP_HALF)
+    rings = [(DECK_Z + dz, sc) for dz, sc in S4_LIP_RINGS]
+    S4_COVER.append(((lp[0], lp[1]), _tangent(S4_LIP_B), pts, rings))
+    _s4_column(m, r, (lp[0], lp[1]), _tangent(S4_LIP_B), pts, rings, ZONE_SHADE, ragged=0.12)
 
 
 def _s4_bank_line(r, n):
@@ -2322,6 +2374,8 @@ def _s4_collider(c, r, ang, lip, foot, s4):
                    UP, ZONE_ROCK)
     for (b, rad, sect, top) in S4_SECTS.values():
         _lake_column(c, b, rad, sect, [(LAVA_Z - 0.5, 1.10), (top, 1.0)], r, ZONE_ROCK)
+    for (cen, ax, pts, rings) in S4_COVER:
+        _s4_column(c, r, cen, ax, pts, [rings[0], rings[-1]], ZONE_ROCK)
 
 
 def _collider(ang, cut0, cut1, s4):
@@ -2575,6 +2629,27 @@ def _deck_render(spec, objects):
          26.0, (1400, 800))
     shot("s4exit", pol(268.5, 52.0, DECK_Z + EYE_H), (p2[0], p2[1], p2[2] + 0.3),
          26.0, (1400, 800))
+
+    # ---- review lighting: a white sun, grey fill, exposure up, so rock reads
+    # mid-grey. Renders only: the glb is exported before this runs, and the
+    # lights are removed below. ---------------------------------------------
+    sun_w, grey, fill, ev = S4_REVIEW
+    ld.energy, ld.color = sun_w, (1.0, 1.0, 1.0)
+    key.rotation_euler = (math.radians(40.0), math.radians(25.0), 0.0)
+    bg.inputs[0].default_value = (grey, grey, grey, 1.0)
+    bg.inputs[1].default_value = fill
+    mdl._try(scene.view_settings, "exposure", ev)
+    ax = p1[3]
+    perp = (-ax[1], ax[0])
+    if perp[0] * p1[0] + perp[1] * p1[1] < 0.0:       # away from the tower
+        perp = (-perp[0], -perp[1])
+    shot("review_entry", pol(213.5, 52.0, DECK_Z + EYE_H),
+         (0.5 * (p1[0] + p2[0]), 0.5 * (p1[1] + p2[1]), DECK_Z + 0.6), 24.0, (1400, 800))
+    shot("review_guard", (0.0, 0.0, 27.0), pol(242.0, 52.0, DECK_Z), 40.0, (1400, 900))
+    shot("review_high", pol(218.0, 27.0, 40.0), pol(243.0, 52.0, DECK_Z), 26.0, (1500, 1000))
+    shot("review_p1p2", (p1[0] - 4.5 * ax[0] + 0.8 * perp[0], p1[1] - 4.5 * ax[1] + 0.8 * perp[1],
+                         p1[2] + 2.2), (p2[0], p2[1], p2[2] + 0.5), 18.0, (1400, 800))
+    mdl._try(scene.view_settings, "exposure", 0.0)
     if CELLS:
         cm, out, w, h = max([c for c in CELLS if c[0][2] < DECK_Z] or CELLS,
                             key=lambda c: c[3])
@@ -2612,6 +2687,11 @@ def _s4_stats(s4):
         print("MDL STATS s4 platform%d bearing=%.2f r=%.2f top=%.2f size=%.1fx%.1f axis_godot=(%.4f, 0, %.4f)"
               % (k + 1, _bear_deg(math.atan2(y, x)), math.hypot(x, y), top,
                  2.0 * S4_HALF_ACROSS, 2.0 * S4_HALF_ALONG, ax[0], -ax[1]))
+    for k, (cen, ax, pts, rings) in enumerate(S4_COVER):
+        gx, gy, gz = godot(cen[0], cen[1], rings[0][0])
+        print("MDL STATS s4 cover%d bearing=%.2f r=%.2f base_y=%.2f top_y=%.2f at (%.3f, %.2f, %.3f)"
+              % (k, _bear_deg(math.atan2(cen[1], cen[0])), math.hypot(cen[0], cen[1]),
+                 rings[0][0], rings[-1][0], gx, gy, gz))
     b0, b1 = _bear_deg(s4[2]), _bear_deg(s4[1])          # the lava, bank to bank
     n = int(math.ceil((b1 - b0) / S4_TRAP_STEP))
     rc = 0.5 * (S4_COLL_EDGE + OUTER_R)
