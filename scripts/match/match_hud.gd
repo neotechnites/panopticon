@@ -83,6 +83,9 @@ const PIP_COUNT: int = 10
 ## Top-right: the dev toggles, only while one is on.
 @export var dev_label: Label
 
+## The dev free camera, if the scene ships one. Only read for the FREECAM tag.
+@export var free_camera: FxFreeCamera
+
 ## Wording and colour. Unset falls back on [MatchReadoutProfile]'s own defaults.
 @export var readout: MatchReadoutProfile
 
@@ -94,8 +97,13 @@ var _fallback_readout: MatchReadoutProfile = null
 
 var _showing: bool = false
 
+## Dev: H takes the whole readout off the screen for a clean capture. Local
+## only -- it hides this Control, so nothing below it is drawn either.
+var _hidden: bool = false
+
 
 func _ready() -> void:
+	PlayerActions.ensure_registered()
 	_write_flash("")
 	_hide_all()
 	if controller == null:
@@ -108,8 +116,21 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
+	if Input.is_action_just_pressed(PlayerActions.HUD_TOGGLE):
+		set_hud_hidden(not _hidden)
 	_tick_flash(delta)
 	tick()
+
+
+## Take the HUD off the screen, or put it back. The crosshair goes with it: this
+## Control is the parent of every part of the readout.
+func set_hud_hidden(hidden: bool) -> void:
+	_hidden = hidden
+	visible = not hidden
+
+
+func is_hud_hidden() -> bool:
+	return _hidden
 
 
 ## Refresh from the match. Public so a test or a harness may step it without
@@ -194,7 +215,7 @@ func get_dev_text() -> String:
 ## A label's text, but only while the block it lives in is on screen. Every
 ## label in this HUD is authored with placeholder text for the editor.
 func _shown(panel: Control, label: Label) -> String:
-	if panel == null or label == null or not panel.visible:
+	if _hidden or panel == null or label == null or not panel.visible:
 		return ""
 	return label.text
 
@@ -344,6 +365,8 @@ func _dev_text() -> String:
 		flags.append("INVINCIBLE")
 	if intent.turbo_held:
 		flags.append("TURBO")
+	if free_camera != null and free_camera.is_detached():
+		flags.append("FREECAM")
 	return " · ".join(flags)
 
 
