@@ -94,7 +94,7 @@ SEED = 9110271
 EYE_H = 1.65
 
 # ---- material / texture -- identical to tower_build.py --------------------
-TEX_DIR       = os.path.join(os.path.dirname(os.path.abspath(__file__)), "textures")
+TEX_DIR       = "textures"            # beside the running script, here or in the PC job dir
 TEX_SIZE      = 128
 TEX_ALBEDO    = "map_base_rock_albedo"
 TEX_EMISSIVE  = "map_base_rock_emissive"
@@ -571,7 +571,7 @@ def _river_texture():
 
 def _image_file(name):
     """A texture file beside the script, packed into the .glb; None if absent."""
-    path = os.path.join(TEX_DIR, name)
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), TEX_DIR, name)
     if not os.path.isfile(path):
         return None
     img = bpy.data.images.load(path)
