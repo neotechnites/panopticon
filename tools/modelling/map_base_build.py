@@ -188,7 +188,35 @@ LAVA_COLL_RST = [46.70, 48.20, 49.70, 51.20, 52.70, 54.20, 55.70, 57.30]
 
 LAKE_SEED = 5140737
 
+# ---- S2, the Lava Shelf: a river ALONG the deck, 77..128 deg, with deck on
+# both sides of it. The inner lane is plain deck; the outer route is a chain
+# of five grounded platforms in the river, fins on the inner bank over some.
+S2_A0 = 77.2                          # the river's first bank top, game bearing;
+                                      # the far end follows from the chain
+S2_END_BANK = 2.0                     # degrees each end bank slopes over
+S2_R_IN = 52.65                       # inner bank top (deck edge), nominal
+S2_R_OUT = 56.45                      # outer bank top, nominal: a ledge to the wall
+S2_BANK_W = 0.55                      # bank top -> lava edge, nominal
+S2_BANK_OFF = (-0.25, 0.25)           # the inner deck edge wanders within this
+S2_BANK_OFF_OUT = (-0.2, 0.2)         # ... the outer one within this
+S2_BANK_EDGE = (0.0, 0.3)             # the lava edge within this, into the river
+S2_LIP = ((0.35, 0.23), (0.80, 0.83)) # the bank's round-over: (of the width, of the drop)
+S2_DECK_R = (47.6, 48.6, 50.0, 51.4)  # inner-lane stations, absolute radii
+S2_FLOOR_N = 4                        # floor quads across the river
+S2_FLOOR_FADE = 0.6                   # metres from a foot the floor field takes to rise
+S2_PLAT_R = 54.55                     # the chain's radius
+S2_PLAT_DR = (0.08, 0.0, 0.08, 0.08, -0.05)   # per platform, off the chain's radius
+S2_PLAT_RADIAL = 0.9                  # half-extents of a top: 1.8 m across the river ...
+S2_PLAT_ALONG = 1.3                   # ... 2.6 m along it
+S2_PLAT_YAW = 4.0                     # degrees off the run direction, at most
+S2_GAPS = (5.5, 5.8, 6.2, 6.6, 5.9, 5.5)   # lava between landings: entry, 4 between, exit
+S2_FINS = (0, 2, 3)                   # platforms with a fin on the bank beside them
+S2_FIN_R = 53.0                       # the fins stand on the inner bank
+S2_FIN_HALF_R = 0.34                  # thinner than the lake's, to clear the stems
+S2_SEED = 6180339
+
 ZONE_RIVER = ("river",)               # flow runs radially, wall -> lip
+ZONE_RIVER_T = ("river_t",)          # ... and along the deck in S2
 ZONE_FALL = ("fall",)                 # ... and straight down a wall
 RIVER_TEX = 256
 RIVER_ALBEDO = "map_base_river_albedo"
@@ -1633,6 +1661,173 @@ def _bank_da(line, side, i, rad):
     return (line[i][1] / rad) * (1.0 if side == 0 else -1.0)
 
 
+# -----------------------------------------------------------------------------
+# S2, the Lava Shelf: a river along the deck between two wandering banks, a
+# chain of grounded platforms standing in it, fins on the inner bank
+# -----------------------------------------------------------------------------
+
+S2_PLAT_RINGS = [(22.10, 1.22, 0.14), (22.55, 1.05, 0.03), (PLAT_TOP_Z, 1.0, 0.0)]
+S2_FIN_RINGS = [(22.30, 1.12), (23.40, 1.06), (24.90, 1.0), (26.20, 0.86), (FIN_TOP_Z, 0.70)]
+S2_SECTS = {}       # platform index -> (top section, fin section or None)
+
+
+def _s2_chain():
+    """(bearing off the river's start, radius, fin) per platform, and the
+    river's length in degrees: the gaps laid end to end along the chain."""
+    k = 180.0 / (math.pi * S2_PLAT_R)
+    out, b = [], 0.0
+    for i, gap in enumerate(S2_GAPS[:-1]):
+        b += (gap + S2_PLAT_ALONG * (2 if i else 1)) * k
+        out.append((b, S2_PLAT_R + S2_PLAT_DR[i], i in S2_FINS))
+    return out, b + (S2_PLAT_ALONG + S2_GAPS[-1]) * k
+
+
+def _s2_setup(T, base_cols):
+    """The river's own columns, fitted round the deck's: an end sits ON a deck
+    column when one is within COL_MERGE, else it becomes one."""
+    chain, length = _s2_chain()
+    a0 = S2_A0
+    for c in base_cols:
+        if abs(c - T(a0)) * CROSS_R <= COL_MERGE:
+            a0 = _bear_deg(c)
+    a1 = a0 + length
+    while any(abs(c - T(a1)) * CROSS_R <= COL_MERGE for c in base_cols):
+        a1 += 0.05
+    s1, s0 = T(a0), T(a1)
+    keep = [c for c in base_cols if s0 <= c <= s1] + [s0, s1]
+    cols = [T(a0 + k) for k in range(1, int(math.ceil(a1 - a0)))]
+    cols = [t for t in cols if all(abs(t - k) * CROSS_R > COL_MERGE for k in keep)]
+    plats = [(a0 + b, rad, fin) for b, rad, fin in chain]
+
+    def f(t):
+        """0 on the deck, 1 on the river floor, the end banks between."""
+        b = _bear_deg(t)
+        return min(_ramp(b, a0, a0 + S2_END_BANK), _ramp(b, a1, a1 - S2_END_BANK))
+
+    def window(t):
+        """1 beside a platform, 0 a metre and a half past it: the lava edge
+        keeps to its line there so the moat round the stem never closes."""
+        s = math.radians(_bear_deg(t)) * S2_PLAT_R
+        w = 0.0
+        for b, _rad, _fin in plats:
+            ds = abs(s - math.radians(b) * S2_PLAT_R)
+            w = max(w, 1.0 - _ramp(ds, S2_PLAT_ALONG + 0.5, S2_PLAT_ALONG + 1.5))
+        return w
+    return {"a0": a0, "a1": a1, "s0": s0, "s1": s1, "cols": _merge_cols(cols, [s0, s1]),
+            "f": f, "window": window, "plats": plats, "T": T}
+
+
+def _s2_lines(s2, cols_all):
+    """The bank lines: deck-edge and lava-edge offsets per column, held in
+    runs, and the floor's 2-D field."""
+    span = [t for t in cols_all if s2["s0"] - 1e-9 <= t <= s2["s1"] + 1e-9]
+    n = len(span)
+    r = _Rng(S2_SEED)
+    walks = [_walk(r, n, *S2_BANK_OFF), _walk(r, n, *S2_BANK_EDGE),
+             _walk(r, n, *S2_BANK_OFF_OUT), _walk(r, n, *S2_BANK_EDGE)]
+    s2["lines"] = {round(t, 7): tuple(w[i] for w in walks) for i, t in enumerate(span)}
+    s2["field"] = _field(_Rng(S2_SEED + 2), FLOOR_AMP)
+    s2["ncols"] = n
+
+
+def _s2_rz(s2, t):
+    """(radius, z) of every river station at column t, lip to wall foot
+    exclusive: the inner lane, the inner bank, the floor, the outer bank."""
+    f = s2["f"](t)
+    o_in, e_in, o_out, e_out = s2["lines"][round(t, 7)]
+    w = 1.0 - s2["window"](t)
+    top_in, foot_in = S2_R_IN + o_in, S2_R_IN + S2_BANK_W + e_in * w
+    top_out, foot_out = S2_R_OUT + o_out, S2_R_OUT - S2_BANK_W - e_out * w
+    drop = (DECK_Z - LAVA_Z) * f
+    out = [(rr, DECK_Z) for rr in S2_DECK_R]
+    out.append((top_in, DECK_Z))
+    for fw, fd in S2_LIP:
+        out.append((top_in + fw * (foot_in - top_in), DECK_Z - fd * drop))
+    for k in range(S2_FLOOR_N + 1):
+        rad = foot_in + (foot_out - foot_in) * k / float(S2_FLOOR_N)
+        z = DECK_Z - drop
+        if f >= 1.0 - 1e-9:
+            fade = _ramp(rad - foot_in, 0.0, S2_FLOOR_FADE) * _ramp(foot_out - rad, 0.0, S2_FLOOR_FADE)
+            z += fade * s2["field"](rad * math.cos(t), rad * math.sin(t))
+        out.append((rad, z))
+    for fw, fd in reversed(S2_LIP):
+        out.append((top_out - fw * (top_out - foot_out), DECK_Z - fd * drop))
+    out.append((top_out, DECK_Z))
+    return out
+
+
+S2_KIND = ["deck"] * 5 + ["bank"] * 3 + ["floor"] * S2_FLOOR_N + ["bank"] * 3 + ["deck"]
+S2_NST = len(S2_KIND) + 1            # stations lip .. wall foot
+
+
+def _s2_zone(j, f0, f1):
+    kind = S2_KIND[j]
+    if kind == "floor" and min(f0, f1) >= 1.0 - 1e-9:
+        return ZONE_RIVER_T
+    if kind != "deck" and max(f0, f1) > 1e-9:
+        return ZONE_SHADE
+    return ZONE_DECK
+
+
+def _s2_fin_sect(r):
+    return [(dr * S2_FIN_HALF_R / FIN_HALF_R, dt) for dr, dt in _fin_sect(r)]
+
+
+def _s2_plat_sect(r):
+    """A rectangular top, long along the run, eight boundary points."""
+    a, b = S2_PLAT_RADIAL, S2_PLAT_ALONG
+    pts = [(a, -b), (a, 0.0), (a, b), (0.0, b), (-a, b), (-a, 0.0), (-a, -b), (0.0, -b)]
+    y = math.radians(S2_PLAT_YAW * r.sf())
+    cy, sy = math.cos(y), math.sin(y)
+    return [(x * cy - v * sy, x * sy + v * cy) for (x, v) in pts]
+
+
+def _s2_build_platforms(m, s2, r):
+    for k, (b, rad, fin) in enumerate(s2["plats"]):
+        sect = _s2_plat_sect(r)
+        fs = _s2_fin_sect(r) if fin else None
+        S2_SECTS[k] = (sect, fs)
+        _lake_column(m, b, rad, sect, S2_PLAT_RINGS, r, ZONE_DECK)
+        if fin:
+            _lake_column(m, b, S2_FIN_R, fs, S2_FIN_RINGS, r, ZONE_SHADE, ragged=0.22)
+
+
+def _s2_collider(c, r, s2, ang, lip, foot, CV):
+    """The river's collision on the nominal lines: inner lane, a sloped bank,
+    the floor flat at the lava minus the platform footprints, the outer bank,
+    the ledge; then the platform tops and sides and the fins."""
+    T = s2["T"]
+    cols = _merge_cols([T(s2["a0"] + k) for k in range(1, int(math.ceil(s2["a1"] - s2["a0"])))]
+                       + [a for a in list(ang) + [ang[0] + TWO_PI] if s2["s0"] < a < s2["s1"]],
+                       [s2["s0"], s2["s1"]])
+    rin, rout = S2_R_IN + S2_BANK_W, S2_R_OUT - S2_BANK_W
+    sts = [S2_R_IN] + [rin + (rout - rin) * k / float(S2_FLOOR_N) for k in range(S2_FLOOR_N + 1)] + [S2_R_OUT]
+    plats = [(b, rad, S2_SECTS[k][0]) for k, (b, rad, _fin) in enumerate(s2["plats"])]
+
+    def col(t):
+        z = DECK_Z - (DECK_Z - LAVA_Z) * s2["f"](t)
+        ids = [CV("lip%.2f" % DECK_Z, lip, t)]
+        for rr, zz in zip(sts, [DECK_Z] + [z] * (S2_FLOOR_N + 1) + [DECK_Z]):
+            ids.append(c.v((rr * math.cos(t), rr * math.sin(t), zz)))
+        ids.append(CV("out", foot, t))
+        return ids
+    grid = [col(t) for t in cols]
+    for i in range(len(cols) - 1):
+        am = 0.5 * (cols[i] + cols[i + 1])
+        for j in range(len(sts) + 1):
+            if 2 <= j <= 1 + S2_FLOOR_N:
+                rm = 0.5 * (sts[j - 1] + sts[j])
+                mid = (rm * math.cos(am), rm * math.sin(am), 0.0)
+                if any(_in_platform(mid, *p) for p in plats):
+                    continue
+            c.quad(grid[i][j], grid[i + 1][j], grid[i + 1][j + 1], grid[i][j + 1], UP, ZONE_ROCK)
+    for k, (b, rad, fin) in enumerate(s2["plats"]):
+        sect, fs = S2_SECTS[k]
+        _lake_column(c, b, rad, sect, [(22.20, 1.08), (PLAT_TOP_Z, 1.0)], r, ZONE_ROCK)
+        if fin:
+            _lake_column(c, b, S2_FIN_R, fs, [(22.20, 1.16), (FIN_TOP_Z, 0.70)], r, ZONE_ROCK)
+
+
 # =============================================================================
 # THE ROCK
 # =============================================================================
@@ -1699,6 +1894,9 @@ def _rock(r):
                 if any(abs(t - k) < 1e-7 for k in keep)
                 or all(abs(t - k) * CROSS_R > COL_MERGE for k in keep)]
     cols_all = _merge_cols([c for c in base_cols if not (cut0 < c < cut1)], sec_cols)
+    s2 = _s2_setup(T, base_cols)                   # S2's river: its own columns too
+    cols_all = _merge_cols(cols_all, s2["cols"])
+    _s2_lines(s2, cols_all)
 
     # ---- the lava sea: what the pit floor is, and what lights it ------------
     _lava_sea(m, pit_wall, COURTYARD_Z, _Rng(LAVA_SEED), extra=lava_ts)
@@ -1973,8 +2171,38 @@ def _rock(r):
         dv[key] = m.v(river_pt(t, j, p, math.hypot(pa[0], pa[1]), r_foot))
         return dv[key]
 
+    s2v = {}
+
+    def S2V(t, j):
+        """A river station's vertex at column t; lip and wall foot are the deck's own."""
+        if j == 0:
+            return DV(t, 0)
+        if j == S2_NST - 1:
+            return foot(t)
+        key = (round(t, 7), j)
+        if key not in s2v:
+            rad, z = _s2_rz(s2, t)[j - 1]
+            s2v[key] = m.v((rad * math.cos(t), rad * math.sin(t), z))
+        return s2v[key]
+
+    def s2_chain(t, inside):
+        if inside:
+            return [(math.hypot(*m.verts[S2V(t, j)][:2]), S2V(t, j)) for j in range(S2_NST)]
+        return [(RST[j], DV(t, j)) for j in range(len(RST))]
+
     for ci in range(len(cols_all) - 1):
         t0, t1 = cols_all[ci], cols_all[ci + 1]
+        s2in0 = s2["s0"] - 1e-9 <= t0 <= s2["s1"] + 1e-9
+        s2in1 = s2["s0"] - 1e-9 <= t1 <= s2["s1"] + 1e-9
+        if s2in0 and s2in1:                            # S2: the river along the deck
+            f0, f1 = s2["f"](t0), s2["f"](t1)
+            for j in range(S2_NST - 1):
+                m.quad(S2V(t0, j), S2V(t1, j), S2V(t1, j + 1), S2V(t0, j + 1),
+                       UP, _s2_zone(j, f0, f1), best=True)
+            continue
+        if s2in0 or s2in1:                             # its ends meet the plain deck
+            _strip(m, s2_chain(t0, s2in0), s2_chain(t1, s2in1), UP, ZONE_DECK)
+            continue
         z0, z1 = chan_z(t0), chan_z(t1)
         if z0 < LAVA_Z + 1e-9 and z1 < LAVA_Z + 1e-9:
             zone = ZONE_RIVER
@@ -2033,6 +2261,7 @@ def _rock(r):
         else:
             _carve(m, shaft, c)
     _build_platforms(m, _Rng(LAKE_SEED))
+    _s2_build_platforms(m, s2, _Rng(S2_SEED + 1))
     pit_wall.emit()
     shaft.emit()
 
@@ -2046,14 +2275,14 @@ def _rock(r):
             j = (i + 1) % SIDES
             m.quad(prev[i], prev[j], ring[j], ring[i], UP, ZONE_ROCK)
         prev = ring
-    return m, ang, (len(sec_cols), pit_tris), (cut0, cut1)
+    return m, ang, (len(sec_cols), pit_tris), (cut0, cut1), s2
 
 
 # =============================================================================
 # COLLISION -- flat deck, clean walls, courtyard floor. Nothing jittered.
 # =============================================================================
 
-def _collider(ang, cut0, cut1):
+def _collider(ang, cut0, cut1, s2):
     c = _Mesh()
     lip = _ring(c, ang, lambda i: INNER_R, lambda i: DECK_Z)
     foot = _ring(c, ang, lambda i: OUTER_R, lambda i: DECK_Z)
@@ -2069,7 +2298,7 @@ def _collider(ang, cut0, cut1):
 
     # Deck and pit wall are cut where the river runs: no deck collision over it
     # and the lip comes down to the trench, so nothing invisible dams the lava.
-    dcols = _merge_cols(list(ang) + [ang[0] + TWO_PI], [cut0, cut1])
+    dcols = _merge_cols(list(ang) + [ang[0] + TWO_PI], [cut0, cut1, s2["s0"], s2["s1"]])
     cv = {}
 
     def CV(tag, ring, t, z=None):
@@ -2089,11 +2318,12 @@ def _collider(ang, cut0, cut1):
         a1 = CV("lip%.2f" % tz, lip, t1, tz)
         c.quad(CV("foot", pit_foot, t0), CV("foot", pit_foot, t1), a1, a0,
                inward, ZONE_SHADE)                                     # pit wall
-        if inside:
-            continue
+        if inside or (t0 >= s2["s0"] - 1e-9 and t1 <= s2["s1"] + 1e-9):
+            continue                                       # the rivers lay their own
         c.quad(a0, a1, CV("out", foot, t1), CV("out", foot, t0), UP, ZONE_ROCK)
 
     _lake_collider(c, _Rng(LAKE_SEED))
+    _s2_collider(c, _Rng(S2_SEED), s2, ang, lip, foot, CV)
     _shelf_box(c)
     return c
 
@@ -2137,6 +2367,14 @@ def _flow_uv(me, uvl, poly, vertical):
         ang = math.atan2(co[1], co[0])
         u = ((LAVA_Z - co[2]) + (OUTER_R - INNER_R)) if vertical else (OUTER_R - rad)
         uvl.data[li].uv = (u / FLOW_SPAN, (-ang * CROSS_R) / CROSS_SPAN)
+
+
+def _flow_uv_along(me, uvl, poly):
+    """S2's river runs along the deck: U follows the bearing, V the radius."""
+    for li in poly.loop_indices:
+        co = me.vertices[me.loops[li].vertex_index].co
+        u = -math.atan2(co[1], co[0]) * S2_PLAT_R
+        uvl.data[li].uv = (u / FLOW_SPAN, (math.hypot(co[0], co[1]) - INNER_R) / CROSS_SPAN)
 
 
 def _deck_uv(me, uvl, poly, zone, r):
@@ -2193,6 +2431,9 @@ def unwrap(ob, zones, seed=0):
             continue
         if zone[0] == "fall":
             _flow_uv(me, uvl, poly, True)
+            continue
+        if zone[0] == "river_t":                 # S2: streaked along the deck
+            _flow_uv_along(me, uvl, poly)
             continue
         if zone[0] == "deck":                    # radial/tangential, finer tiling
             _deck_uv(me, uvl, poly, zone[1:], r)
@@ -2293,6 +2534,10 @@ def _deck_render(spec, objects):
     shot("deck290", pol(290.0, 52.0, DECK_Z + EYE_H), pol(302.0, 52.0, 23.4),
          34.0, (1400, 800))
     shot("wide", pol(315.3, 6.0, 96.0), pol(315.3, 50.0, 18.0), 24.0, (1500, 1000))
+    shot("s2run", pol(74.5, 54.7, DECK_Z + EYE_H), pol(90.0, 54.5, 22.9), 28.0, (1400, 800))
+    shot("s2chain", pol(84.4, 54.7, DECK_Z + EYE_H), pol(106.0, 54.6, 23.0), 30.0, (1400, 800))
+    shot("s2lane", pol(81.0, 49.5, DECK_Z + EYE_H), pol(98.0, 53.8, 23.0), 30.0, (1400, 800))
+    shot("s2top", pol(102.7, 14.0, 50.0), pol(102.7, 53.0, 22.8), 30.0, (1400, 1000))
     if CELLS:
         cm, out, w, h = max([c for c in CELLS if c[0][2] < DECK_Z] or CELLS,
                             key=lambda c: c[3])
@@ -2309,8 +2554,8 @@ def _deck_render(spec, objects):
 # =============================================================================
 
 def build():
-    rock, ang, river, cut = _rock(_Rng(SEED))
-    coll = _collider(ang, cut[0], cut[1])
+    rock, ang, river, cut, s2 = _rock(_Rng(SEED))
+    coll = _collider(ang, cut[0], cut[1], s2)
 
     albedo, emissive = build_texture()
     mdl.save_texture(albedo)
@@ -2333,7 +2578,7 @@ def build():
         if z == "lava":
             poly.material_index = 1
             lava_tris += 1
-        elif z in ("river", "fall"):
+        elif z in ("river", "fall", "river_t"):
             poly.material_index = 2
             river_tris += 1
 
@@ -2349,6 +2594,13 @@ def build():
     for k, (b, rad, inner) in enumerate(_platforms()):
         print("MDL STATS platform%d bearing=%.3f r=%.1f top=%.2f square=%.1f %s"
               % (k + 1, b, rad, PLAT_TOP_Z, 2.0 * PLAT_HALF, "inner+fin" if inner else "outer"))
+    print("MDL STATS s2 river=%.2f..%.2f deg banks r=%.2f/%.2f lava r=%.2f..%.2f cols=%d"
+          % (s2["a0"], s2["a1"], S2_R_IN, S2_R_OUT, S2_R_IN + S2_BANK_W, S2_R_OUT - S2_BANK_W,
+             s2["ncols"]))
+    for k, (b, rad, fin) in enumerate(s2["plats"]):
+        print("MDL STATS s2 platform%d bearing=%.3f r=%.2f top=%.2f %.1fx%.1f %s"
+              % (k + 1, b, rad, PLAT_TOP_Z, 2 * S2_PLAT_RADIAL, 2 * S2_PLAT_ALONG,
+                 "fin" if fin else "bare"))
     print("MDL STATS cells=%d pit=%d pit_top=%.1f uniform_to=%.0f above200=%d top=%.0f"
           % (len(CELLS), sum(1 for c in CELLS if c[0][2] < DECK_Z),
              max(c[0][2] + 0.5 * c[3] for c in CELLS if c[0][2] < DECK_Z), UNIFORM_TOP,
