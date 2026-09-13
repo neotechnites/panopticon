@@ -2820,30 +2820,32 @@ S1_CELL = 0.70               # tangential cell at the lane radius, metres
 S1_NS = 16                   # deck stations, lip -> foot
 S1_NC = 11                   # ceiling stations, lip -> wall head
 S1_NW = 8                    # wall rows, head -> foot
-S1_LIP_Z = 17.0              # the pit-lip relief band: the pit wall's own top row
-S1_LIP_D = (0.25, 0.6, 1.2, 2.0, 3.0, 4.2, 5.3)   # its rows, metres under the deck
 S1_DECK_AMP, S1_DECK_L = 0.22, (2.5, 6.0)  # flowstone undulation: peak, wavelengths
-S1_MOUND = (0.10, 2.2)       # a low mound under each cluster: height, radius
+S1_MOUND = (0.05, 0.10, 1.0, 2.5)   # a low flowstone mound under each fixture: height a + b*R, radius a + b*R
 S1_CEIL_SAG, S1_CEIL_L = 0.40, (3.0, 6.0)  # the ceiling sags 0..2x this
 S1_DRIP = (0.15, 0.45, 0.9, 1.5)           # drip cone round a stalactite: height lo/hi, radius lo/hi
 S1_FILLET = 1.2              # ceiling-to-wall corner round-over radius
 S1_RIB = {"depth": (0.3, 0.8), "width": (0.3, 0.55), "gap": (1.0, 2.2), "wander": 0.25}
-S1_LIP = {"depth": (0.3, 0.6), "width": (0.3, 0.55), "gap": (0.9, 2.0), "wander": 0.15}
-S1_FOREST_COLS = 10          # floor-to-ceiling columns among the fixtures
-S1_FOREST_B = (15.5, 59.5)   # the forest stands between these bearings ...
-S1_FOREST_ROWS = (48.5, 50.83, 53.17, 55.5)   # ... on these rows, a quarter pitch on from row to row ...
-S1_FOREST_PITCH = 3.0        # ... this far apart along a row ...
-S1_FOREST_JITTER = 0.08      # ... each one nudged this much either way ...
-S1_FOREST_DROP = 0.0         # ... and this fraction of the places left empty
-S1_FOREST_GAP = 1.6          # clear air between any two fixtures at chest height
+S1_FOREST_N = 50             # fixtures thrown at the deck, columns included ...
+S1_FOREST_COLS = 7           # ... this many floor-to-ceiling columns ...
+S1_FOREST_MIX = (0.45, 0.35, 0.20)   # ... the rest short / medium / tall
+S1_FOREST_B = (15.5, 59.5)   # thrown between these bearings ...
+S1_FOREST_R = (47.8, 56.2)   # ... and radii: the whole deck
+S1_CLUMPS = 6                # small ones set at the feet of medium or tall ones
+S1_SHORT = (1.2, 2.4, 0.16, 0.28)    # height lo/hi, body radius lo/hi
+S1_MEDIUM = (2.4, 3.8, 0.26, 0.38)
+S1_TALL = (3.8, 6.0, 0.32, 0.42)
+S1_COVER_H = 2.4             # fixtures this tall or more are cover, and keep S1_FOREST_GAP apart
+S1_FOOT_GAP = 0.5            # clear air between any two feet at 0.3 m: skirts may touch, shafts never
+S1_FOREST_GAP = 1.6          # clear air between two cover fixtures at chest height
 S1_ROUTE_GAP = 1.2           # ... and between their feet: a 0.7 m runner passes anywhere
 S1_CHEST = 1.3               # chest height: no fixture wider than 1.0 m here
-S1_MAIN_H = (3.0, 6.0)
-S1_MAIN_R = (0.30, 0.35)     # body radius at the foot, before the flare: 0.55..0.72 m across at chest
-S1_FLARE = 1.7               # base ring radius over body radius
-S1_COL_R = (0.27, 0.32)      # full column waist radius: 0.6..0.75 m across
+S1_FLARE = 2.6               # a foot skirt: this times the shaft radius at the floor, an apron tangent to it ...
+S1_SKIRT = (0.5, 1.0, 0.3)   # ... steepening into the shaft over clamp(H * c, lo, hi) metres of height
+S1_SKIRT_P = 2.5             # the apron: height = skirt * (1 - w) ** p over the radial fraction w
+S1_COL_R = (0.30, 0.42)      # full column waist radius: 0.6..0.9 m across
 S1_OVER = 3                  # the tallest stalagmites get a stalactite dripping over them
-S1_TITES = (30, 1.0, 6.0, 0.12, 0.36)    # stalactites: count, length lo/hi, base radius lo/hi
+S1_TITES = (32, 1.0, 5.5, 0.12, 0.36)    # stalactites: count, length lo/hi, base radius lo/hi
 S1_TITE_FLARE = 2.0
 S1_TIP_CLEAR = 2.4           # a stalactite tip keeps this over the deck: a runner passes anywhere
 S1_EYE_Z = 27.0
@@ -2853,7 +2855,7 @@ S1_SIGHT_H = (0.2, 0.6, 1.0, 1.4, 1.8)   # a body is hidden when every one of th
 S1_SAMPLE = 0.5              # the deck is sampled on this grid, r 48..56 ...
 S1_SAMPLE_R = (48.0, 56.0)
 S1_SHIFT = 2.5               # ... from the centre eye and from eyes this far to either side
-S1_BANDS = ((47.3, 50.6), (50.0, 53.6), (53.0, 56.7))   # inner, middle, outer routes
+S1_BANDS = ((47.3, 51.5), (49.8, 54.2), (52.5, 56.7))   # inner, middle, outer routes (they may weave)
 S1 = {}                      # handed from the sculpt to the collider, stats and renders
 
 
@@ -2927,6 +2929,14 @@ def _s1_delaunay(pts):
     return [t for t in tris if max(t) < n]
 
 
+def _s1_seg_dist(p, a, b):
+    """Distance from p to the segment a-b, all 2-D."""
+    dx, dy = b[0] - a[0], b[1] - a[1]
+    L2 = dx * dx + dy * dy
+    t = 0.0 if L2 < 1e-12 else max(0.0, min(1.0, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / L2))
+    return math.hypot(p[0] - a[0] - t * dx, p[1] - a[1] - t * dy)
+
+
 def _s1_inpoly(p, poly):
     x, y = p
     inside = False
@@ -2996,9 +3006,18 @@ class _S1Spike(object):
     U_TITE = (0.0, 0.04, 0.11, 0.22, 0.34, 0.47, 0.6, 0.73, 0.86, 1.0)
     U_COL = (0.0, 0.03, 0.07, 0.13, 0.22, 0.32, 0.42, 0.5, 0.58, 0.68, 0.78, 0.87, 0.93, 0.97, 1.0)
 
+    SKIRT_W = (1.0, 0.9, 0.78, 0.64, 0.5, 0.36, 0.22, 0.1)   # skirt rings by radial fraction, edge to shaft
+    BODY_MITE = (0.34, 0.44, 0.54, 0.64, 0.74, 0.84, 0.92, 0.97, 1.0)
+    BODY_COL = (0.22, 0.32, 0.42, 0.5, 0.58, 0.68, 0.78, 0.87, 0.93, 0.97, 1.0)
+
     def __init__(self, kind, b, rad, H, R, sides, r, us, flare, lobe=None, bend=0.08, nridge=3,
                  ridge_amp=(0.09, 0.22), jitter=0.07):
         self.kind, self.b, self.rad, self.H, self.R, self.sides = kind, b, rad, H, R, sides
+        self.skirt = min(S1_SKIRT[1], max(S1_SKIRT[0], S1_SKIRT[2] * H))
+        if us is None:                                   # skirt rings by the apron, body rings by fraction
+            sk = [self.skirt * (1.0 - w) ** S1_SKIRT_P / H for w in self.SKIRT_W]
+            body = self.BODY_MITE if kind == "mite" else self.BODY_COL
+            us = tuple(sk + [u for u in body if u > sk[-1] + 0.06])
         self.us, self.flare, self.lobe = us, flare, lobe
         self.angs = [TWO_PI * (i + 0.28 * r.sf()) / sides for i in range(sides)]
         self.fac = [1.0 + 0.13 * r.sf() for _ in range(sides)]
@@ -3025,7 +3044,7 @@ class _S1Spike(object):
         if self.kind == "tite":
             base = 1.0 - 0.86 * u ** 1.15
         elif self.kind == "column":
-            base = 1.0 + 1.1 * math.exp(-u / 0.06) + 0.9 * math.exp(-(1.0 - u) / 0.06)
+            base = 1.0
         else:
             base = 1.0 - 0.72 * u ** 1.4 - 0.12 * max(0.0, (u - 0.92) / 0.08)   # a rounded crown
         ridge = 1.0
@@ -3034,9 +3053,13 @@ class _S1Spike(object):
         return self.R * base * ridge
 
     def flare_f(self, u):
+        if self.kind == "tite":
+            return 1.0 + (self.flare - 1.0) * math.exp(-u / 0.045)
+        h = u * self.H                                   # the foot apron: flat at its edge, steep at the shaft
+        f = 1.0 + (self.flare - 1.0) * (1.0 - min(1.0, h / self.skirt) ** (1.0 / S1_SKIRT_P))
         if self.kind == "column":
-            return 1.0
-        return 1.0 + (self.flare - 1.0) * math.exp(-u / 0.045)
+            f += 0.9 * math.exp(-(1.0 - u) / 0.06)                                    # ... and the ceiling flare
+        return f
 
     def lobe_f(self, i, u):
         if not self.lobe:
@@ -3174,7 +3197,6 @@ def _s1_sculpt(m, ang, cols_all, lo, hi, pit_wall, shaft, pit_top, wall, upper, 
         return fade_s(bearing(x, y)) * fr * (S1_CEIL_SAG * (1.0 + ceil_waves(x, y)) + bump(x, y, drips))
 
     ribs = _s1_grooves(_Rng(S1_SEED + 3), lo * OUTER_R - 3.0, hi * OUTER_R + 3.0, S1_RIB)
-    lipg = _s1_grooves(_Rng(S1_SEED + 4), lo * INNER_R - 3.0, hi * INNER_R + 3.0, S1_LIP)
     wob = _s1_waves(_Rng(S1_SEED + 5), (2.0, 4.0), 4)
     LC = OUTER_R - INNER_R          # path length across the ceiling
     F = S1_FILLET
@@ -3206,15 +3228,6 @@ def _s1_sculpt(m, ang, cols_all, lo, hi, pit_wall, shaft, pit_top, wall, upper, 
             dr, dz = (tgt[0] - orig[0]) * fs, (tgt[1] - orig[1]) * fs
             x, y, z = x + er[0] * dr, y + er[1] * dr, z + dz
         return (x, y, z)
-
-    def lip_pos(t, d):
-        """Pit-lip band point d under the deck: an undercut lip, ribs below."""
-        fs = fade_s(_bear_deg(t))
-        z = DECK_Z - d
-        x, y, _ = _wall_point(pit_wall, t, z)
-        env = _ramp(d, 0.0, 0.5) * _ramp(DECK_Z - S1_LIP_Z - d, 0.0, 1.2) * fs
-        rec = env * (0.3 + lipg(t * INNER_R, z))
-        return (x + math.cos(t) * rec, y + math.sin(t) * rec, z)
 
     # ---- the plan: a forest. Full columns first, then thin stalagmites, thrown
     # over the whole deck with clear air between their surfaces; every base
@@ -3280,61 +3293,81 @@ def _s1_sculpt(m, ang, cols_all, lo, hi, pit_wall, shaft, pit_top, wall, upper, 
         u = min(1.0, h / sp.H)
         return max(sp.radius(i, u) for i in range(sp.sides))
 
-    def fits(sp, x, y):
+    def base_r(sp):
+        return max(math.hypot(dr, dt) for (dr, dt) in sp.offsets(0))
+
+    def fits(sp, x, y, clump=False):
+        cover = sp.kind == "column" or sp.H >= S1_COVER_H
         for o in fixtures:
             d = math.hypot(x - o.cxy[0], y - o.cxy[1])
-            if d < S1_FOREST_GAP + widest(sp, S1_CHEST) + widest(o, S1_CHEST):
+            if cover and (o.kind == "column" or o.H >= S1_COVER_H) \
+                    and d < S1_FOREST_GAP + widest(sp, S1_CHEST) + widest(o, S1_CHEST):
                 return False
-            if d < S1_ROUTE_GAP + widest(sp, 0.3) + widest(o, 0.3):
+            if d < (S1_FOOT_GAP if clump else S1_ROUTE_GAP) + widest(sp, 0.3) + widest(o, 0.3):
+                return False                                  # feet keep a runner's gap; a clump's small one may touch
+            if d < base_r(sp) + base_r(o) + 0.55:            # base rings stay apart for the fill
                 return False
         return True
 
-    def throw(kind, b, rad):
+    def spec(kind):
+        return {"short": S1_SHORT, "medium": S1_MEDIUM, "tall": S1_TALL}[kind]
+
+    def make(kind, b, rad):
         t = T(b)
         x, y = deck_xy(t, rad)
         if kind == "column":
-            sp = _S1Spike("column", b, rad, CEIL_H, rng(*S1_COL_R), 8, r, _S1Spike.U_COL, 1.0,
-                          bend=0.03, nridge=4)
+            sp = _S1Spike("column", b, rad, CEIL_H, rng(*S1_COL_R), 8, r, None, S1_FLARE, bend=0.03, nridge=4)
         else:
-            sp = _S1Spike("mite", b, rad, rng(*S1_MAIN_H), rng(*S1_MAIN_R), r.pick((7, 8)), r,
-                          _S1Spike.U_MITE, S1_FLARE, bend=0.07, nridge=4)
+            lo_h, hi_h, lo_r, hi_r = spec(kind)
+            sp = _S1Spike("mite", b, rad, rng(lo_h, hi_h), rng(lo_r, hi_r), r.pick((6, 7, 8)), r, None,
+                          S1_FLARE, bend=0.07, nridge=4)
         sp.centre, sp.cxy = (t * R_REF, rad), (x, y)
-        if not fits(sp, x, y):
-            return None
+        return sp
+
+    def place(sp, x, y, clump=False):
+        if not fits(sp, x, y, clump):
+            return False
         blk = cells_under(ring_param(sp, sp.centre, 0), rho, S1_NS - 1)
         if blk is None:
-            return None
-        if kind == "column":
+            return False
+        if sp.kind == "column":
             sp.top = sp.centre
             crows = [INNER_R + j * cstep for j in range(S1_NC + 1)]
             cblk = cells_under(ring_param(sp, sp.top, len(sp.us) - 1), crows, S1_NC - 1)
             if cblk is None:
-                return None
+                return False
             cblocks.append((cblk, [sp]))
         fixtures.append(sp)
         spikes.append(sp)
         dblocks.append((blk, [sp]))
-        return sp
+        mounds.append((x, y, S1_MOUND[0] + S1_MOUND[1] * sp.R, S1_MOUND[2] + S1_MOUND[3] * sp.R))
+        return True
 
-    places = []
-    for k, row in enumerate(S1_FOREST_ROWS):
-        m_per_deg = math.radians(1.0) * row
-        arc = (S1_FOREST_B[1] - S1_FOREST_B[0]) * m_per_deg
-        npl = int(arc / S1_FOREST_PITCH)
-        for q in range(npl + 1):
-            s = (q + 0.25 * k) * S1_FOREST_PITCH               # a quarter pitch per row: shadows interleave
-            if s > arc:
-                continue
-            places.append((S1_FOREST_B[0] + (s + S1_FOREST_JITTER * r.sf()) / m_per_deg,
-                           row + S1_FOREST_JITTER * r.sf()))
-    for k in range(len(places) - 1, 0, -1):                 # a seeded shuffle
-        j = r.i(0, k)
-        places[k], places[j] = places[j], places[k]
-    for k, (b, rad) in enumerate(places):
-        if r.f() < S1_FOREST_DROP:
-            continue
-        kind = "column" if sum(1 for f in fixtures if f.kind == "column") < S1_FOREST_COLS and k % 3 == 0 else "mite"
-        throw(kind, b, rad)
+    rest = S1_FOREST_N - S1_FOREST_COLS
+    quota = [("column", S1_FOREST_COLS), ("tall", int(round(S1_FOREST_MIX[2] * rest))),
+             ("medium", int(round(S1_FOREST_MIX[1] * rest)))]
+    quota.append(("short", rest - quota[1][1] - quota[2][1]))
+    for kind, want in quota:
+        got = tries = 0
+        while got < want and tries < 6000:
+            tries += 1
+            b, rad = rng(*S1_FOREST_B), rng(*S1_FOREST_R)
+            sp = make(kind, b, rad)
+            if place(sp, sp.cxy[0], sp.cxy[1]):
+                got += 1
+    hosts = [f for f in fixtures if f.kind == "mite" and f.H >= S1_COVER_H]
+    got = tries = 0
+    while got < S1_CLUMPS and hosts and tries < 400:            # a small one at a big one's feet
+        tries += 1
+        host = r.pick(hosts)
+        a = r.f() * TWO_PI
+        sp = make("short", host.b, host.rad)
+        d = base_r(host) + base_r(sp) + 0.6 + 0.2 * r.f()     # its skirt against the host's skirt
+        x, y = host.cxy[0] + d * math.cos(a), host.cxy[1] + d * math.sin(a)
+        sp = make("short", _bear_deg(math.atan2(y, x)), math.hypot(x, y))
+        sp.H = min(sp.H, 1.8)
+        if place(sp, sp.cxy[0], sp.cxy[1], True):
+            got += 1
     dblocks = merge(dblocks)
     claim(used_d, dblocks)
     cblocks = merge(cblocks)
@@ -3387,23 +3420,24 @@ def _s1_sculpt(m, ang, cols_all, lo, hi, pit_wall, shaft, pit_top, wall, upper, 
         blk = block_ceil(b, rad, 3 if R > 0.2 else 2, 3 if R > 0.28 else 2)
         if blk is None:
             continue
-        L = S1_TITES[1] + (S1_TITES[2] - S1_TITES[1]) * r.f() ** 1.4
+        L = S1_TITES[1] + (S1_TITES[2] - S1_TITES[1]) * r.f() ** 2.2   # mostly short, a few long
         L = max(S1_TITES[1], min(L, 2.2 + 12.0 * R))       # thin ones stay short
         add_tite(b, rad, L, R, blk)
         got += 1
 
     # ---- the grids' vertices, now every mound and drip cone is known --------
-    G, WG, PG, param, extra_d = {}, {}, {}, {}, {}
+    G, WG, param, extra_d = {}, {}, {}, {}
+    coarse = [i for i, t in enumerate(sc) if any(abs(t - c) < 1e-9 for c in inside)]
     for i, t in enumerate(sc):
         s = t * R_REF
         boundary = i in (0, n - 1)
         if not boundary:
-            pit_wall.add_xt(len(pit_wall.rows) - 1, t)
             shaft.add_xt(0, t)
         for j in range(S1_NS + 1):
             param[(i, j)] = (s, rho[j])
             if j == 0:
-                G[(i, j)] = pit_wall.W(t, DECK_Z)
+                if i in coarse:                          # the lip keeps the pit wall's own vertices
+                    G[(i, j)] = pit_wall.W(t, DECK_Z)
             elif j == S1_NS:
                 G[(i, j)] = WF(0, t)
             elif not boundary:
@@ -3413,8 +3447,10 @@ def _s1_sculpt(m, ang, cols_all, lo, hi, pit_wall, shaft, pit_top, wall, upper, 
                     pp = [ring_param(sp, sp.centre, 0) for sp in sps]
                     if any(_s1_inpoly((s, rho[j]), poly) for poly in pp):
                         continue
-                    if any(math.hypot((s - q[0]) * rho[j] / R_REF, rho[j] - q[1]) < 0.45 for poly in pp for q in poly):
-                        continue
+                    if any(_s1_seg_dist(((s * rho[j] / R_REF), rho[j]), (q0[0] * rho[j] / R_REF, q0[1]),
+                                        (q1[0] * rho[j] / R_REF, q1[1])) < 0.4
+                           for poly in pp for q0, q1 in zip(poly, poly[1:] + poly[:1])):
+                        continue                         # clear of every ring edge: the fill keeps them
                     extra_d.setdefault(blk, []).append((i, j))
                 x, y = deck_xy(t, rho[j])
                 G[(i, j)] = m.v((x, y, DECK_Z + H(x, y)))
@@ -3473,11 +3509,16 @@ def _s1_sculpt(m, ang, cols_all, lo, hi, pit_wall, shaft, pit_top, wall, upper, 
         ns = sp.sides
         er, et = frame
         for a in range(len(lvl) - 1):
+            um = 0.5 * (sp.us[a] + sp.us[a + 1])
+            if sp.kind == "tite":                        # the flat bands: a root flares along the ceiling ...
+                wz = -1.0 if um < 0.15 else 0.0
+            else:                                        # ... an apron along the floor, a column both
+                wz = 1.0 if um * sp.H < sp.skirt else (-1.0 if sp.kind == "column" and um > 0.9 else 0.0)
             for i in range(ns):
                 j = (i + 1) % ns
                 am = 0.5 * (sp.angs[i] + (sp.angs[j] if j else sp.angs[0] + TWO_PI))
                 want = (er[0] * math.cos(am) + et[0] * math.sin(am),
-                        er[1] * math.cos(am) + et[1] * math.sin(am), 0.0)
+                        er[1] * math.cos(am) + et[1] * math.sin(am), wz)
                 m.quad(lvl[a][i], lvl[a][j], lvl[a + 1][j], lvl[a + 1][i], want, ZONE_ROCK, best=True)
         if tip_dir is not None:
             top = lvl[-1]
@@ -3543,14 +3584,16 @@ def _s1_sculpt(m, ang, cols_all, lo, hi, pit_wall, shaft, pit_top, wall, upper, 
     # ---- the deck grid and its boundary strips ------------------------------
     deck_cells = 0
     for i in range(1, n - 2):
-        for j in range(S1_NS):
+        for j in range(1, S1_NS):
             if (i, j) in used_d:
                 continue
             m.quad(G[(i, j)], G[(i + 1, j)], G[(i + 1, j + 1)], G[(i, j + 1)], UP, ZONE_DECK, best=True)
             deck_cells += 1
+    _strip(m, [(sc[i] * R_REF, G[(i, 0)]) for i in coarse],            # the lip row: coarse lip to fine row 1
+           [(sc[i] * R_REF, G[(i, 1)]) for i in range(1, n - 1)], UP, ZONE_DECK)
     for (ib, ii) in ((0, 1), (n - 1, n - 2)):
         A = [(RST[j] - INNER_R, DV(sc[ib], j)) for j in range(len(RST))]
-        B = [(rho[j] - INNER_R, G[(ii, j)]) for j in range(S1_NS + 1)]
+        B = [(rho[j] - INNER_R, G[(ii, j)]) for j in range(1, S1_NS + 1)]
         _strip(m, A, B, UP, ZONE_DECK)
 
     # ---- the ceiling-and-wall grid and its boundary strips ------------------
@@ -3584,43 +3627,13 @@ def _s1_sculpt(m, ang, cols_all, lo, hi, pit_wall, shaft, pit_top, wall, upper, 
         B = [(qs[k], WG[(ii, k)]) for k in range(NQ + 1)]
         _strip(m, A, B, wc_want, ZONE_ROCK)
 
-    # ---- the pit lip: a band cut out of the pit wall and re-laid ------------
-    pit_wall.hole(lo, hi, S1_LIP_Z, DECK_Z)
-    for k, z in enumerate(pit_wall.rows):        # the row under the band fans to its ends
-        if abs(z - S1_LIP_Z) < 1e-6:
-            pit_wall.add_xt(k, lo)
-            pit_wall.add_xt(k, hi)
-    ds = list(S1_LIP_D)
-    for i, t in enumerate(sc):
-        PG[(i, 0)] = G[(i, 0)]
-        if i in (0, n - 1):
-            continue
-        for k, d in enumerate(ds):
-            PG[(i, k + 1)] = m.v(lip_pos(t, d))
-
-    def lip_want(c):
-        a = math.atan2(c[1], c[0])
-        return (-math.cos(a), -math.sin(a), 0.0)
-
-    for i in range(1, n - 2):
-        for k in range(len(ds)):
-            am = 0.5 * (sc[i] + sc[i + 1])
-            z = DECK_Z - 0.5 * ((ds[k - 1] if k else 0.0) + ds[k])
-            zone = ZONE_SHADE if lipg(am * INNER_R, z) > 0.32 else ZONE_ROCK
-            m.quad(PG[(i, k)], PG[(i + 1, k)], PG[(i + 1, k + 1)], PG[(i, k + 1)],
-                   (-math.cos(am), -math.sin(am), 0.0), zone, best=True)
-    bottom = [(t, pit_wall.W(t, S1_LIP_Z)) for t in pit_wall.tbreaks(lo, hi)]
-    _strip(m, bottom, [(sc[i], PG[(i, len(ds))]) for i in range(1, n - 1)], lip_want, ZONE_ROCK)
-    for (ib, ii) in ((0, 1), (n - 1, n - 2)):
-        t = sc[ib]
-        A = [(S1_LIP_Z, pit_wall.W(t, S1_LIP_Z)), (DECK_Z, pit_wall.W(t, DECK_Z))]
-        B = [(DECK_Z - (ds[k - 1] if k else 0.0), PG[(ii, k)]) for k in range(len(ds), -1, -1)]
-        _strip(m, A, B, lip_want, ZONE_ROCK)
-
     # ---- what the collider, the stats and the renders need -----------------
     S1["spikes"], S1["fixtures"], S1["prisms"], S1["tites"] = spikes, fixtures, prisms, tites
     S1["counts"] = {"deck_cells": deck_cells, "fill_tris": fill_tris, "subcols": n,
                     "fixtures": len(fixtures), "columns": sum(1 for f in fixtures if f.kind == "column"),
+                    "short": sum(1 for f in fixtures if f.kind == "mite" and f.H < S1_COVER_H),
+                    "medium": sum(1 for f in fixtures if f.kind == "mite" and S1_COVER_H <= f.H < 3.8),
+                    "tall": sum(1 for f in fixtures if f.kind == "mite" and f.H >= 3.8),
                     "tites": len(tites), "over": sum(1 for t in tites if t.over is not None),
                     "deck_holes": len(dblocks), "ceil_holes": len(cblocks)}
     S1["widths"] = sorted(2.0 * widest(f, S1_CHEST) for f in fixtures)
@@ -3743,8 +3756,8 @@ def _s1_forest(fixtures, H, deck_xy):
                   (max(c[1] for c in comp) - min(c[1] for c in comp) + 1) * S1_SAMPLE)
         if across[0] * across[1] > blob[0] * blob[1]:
             blob = across
-    # routes: a free-space grid at 0.25 m, the runner's centre 0.6 m from any foot
-    step = 0.25
+    # routes: a free-space grid at 0.1 m, the runner's centre 0.6 m from any foot (a cell's tolerance allowed)
+    step = 0.1
     feet = []
     for sp in fixtures:
         u = min(1.0, 0.3 / sp.H)
@@ -3761,7 +3774,7 @@ def _s1_forest(fixtures, H, deck_xy):
                 rad = r0 + (r1 - r0) * ir / nr
                 x, y = deck_xy(b, rad)
                 gap = min([2.0 * (math.hypot(x - fx, y - fy) - fr) for (fx, fy, fr) in feet] + [9.0])
-                if gap >= S1_ROUTE_GAP:
+                if gap >= S1_ROUTE_GAP - 1.5 * step:
                     free[(ib, ir)] = gap
         start = [(0, ir) for ir in range(nr + 1) if (0, ir) in free]
         best = {k: 9.0 for k in start}
@@ -4331,9 +4344,6 @@ def _rock(r):
             if cut0 - 0.02 < t < cut1 + 0.02:
                 continue                       # the channel runs down here
             hw = 0.5 * c["w"] / INNER_R
-            if t + hw > s1_lo and t - hw < s1_hi and c["z"] + 0.5 * c["h"] > S1_LIP_Z:
-                S1["cells_skipped"] = S1.get("cells_skipped", 0) + 1
-                continue                       # S1's pit-lip band is re-laid here
             if t - hw < s4b1 and t + hw > s4b0:
                 continue                       # ... and the field's fall
             _carve(m, pit_wall, c)
@@ -4734,11 +4744,12 @@ def _s1_review(scene, shot):
     proxy = mdl.mesh("PlayerProxy", verts, faces)          # 0.6 m across the sightline, 0.3 m deep
     proxy.data.materials.append(mdl.flat_material("ProxyGreen", (0.1, 0.9, 0.2, 1.0)))
     made.append(proxy)
-    pf = bpy.data.lights.new("ReviewPitFill", type="POINT")   # the pit lip, for the guard's view
-    pf.energy, pf.color, pf.shadow_soft_size = 9000.0, (1.0, 1.0, 1.0), 3.0
-    f = mdl._link(bpy.data.objects.new("ReviewPitFill", pf))
-    f.location = pol(37.0, 38.0, 25.0)
-    made.append(f)
+    for (loc, en) in ((pol(37.0, 38.0, 25.0), 9000.0), (pol(37.0, 26.0, 6.0), 30000.0)):   # the pit wall
+        pf = bpy.data.lights.new("ReviewPitFill", type="POINT")
+        pf.energy, pf.color, pf.shadow_soft_size = en, (1.0, 1.0, 1.0), 3.0
+        f = mdl._link(bpy.data.objects.new("ReviewPitFill", pf))
+        f.location = loc
+        made.append(f)
     mdl._try(scene.view_settings, "exposure", 0.7)
     mid = (px, py, pz + 1.0)
     shot("review_s1_run", pol(13.0, 52.0, DECK_Z + EYE_H), pol(36.0, 52.0, 24.0), 24.0, (1400, 800))
@@ -4750,6 +4761,21 @@ def _s1_review(scene, shot):
     shot("review_s1_high", pol(20.0, 34.0, 30.8), pol(42.0, 52.0, 23.5), 22.0, (1500, 900))
     shot("review_s1_cover", (0.0, 0.0, S1_EYE_Z), mid, 80.0, (1200, 900))
     shot("review_s1_cover_shift", shifted, mid, 80.0, (1200, 900))
+    fx = S1["fixtures"]
+    tall = min([f for f in fx if f.kind == "mite" and f.H >= 3.8], key=lambda f: abs(_bear_deg(math.atan2(f.cxy[1], f.cxy[0])) - 30.0))
+    near = sorted([f for f in fx if f is not tall], key=lambda f: math.hypot(f.cxy[0] - tall.cxy[0], f.cxy[1] - tall.cxy[1]))
+    med = next(f for f in near if f.kind == "mite" and 2.4 <= f.H < 3.8)
+    sht = next(f for f in near if f.kind == "mite" and f.H < 2.4)
+    cx = (tall.cxy[0] + med.cxy[0] + sht.cxy[0]) / 3.0
+    cy = (tall.cxy[1] + med.cxy[1] + sht.cxy[1]) / 3.0
+    ax, ay = sht.cxy[0] - tall.cxy[0], sht.cxy[1] - tall.cxy[1]
+    an = math.hypot(ax, ay) or 1.0
+    nx, ny = -ay / an, ax / an
+    if nx * cx + ny * cy < 0:                                   # from the tower side, looking outward
+        nx, ny = -nx, -ny
+    dist = 2.0 + 0.6 * an
+    shot("review_s1_feet", (cx - nx * dist, cy - ny * dist, DECK_Z + 0.6), (cx, cy, DECK_Z + 0.45), 28.0, (1400, 900))
+    shot("review_s1_pitwall", pol(37.0, 22.0, COURTYARD_Z + 3.0), pol(37.0, 46.7, 10.0), 20.0, (1400, 900))
     shot("review_s1_ceiling", pol(16.0, 52.5, DECK_Z + EYE_H), pol(34.0, 52.0, 29.5), 18.0, (1400, 900))
     mdl._try(scene.view_settings, "exposure", 0.0)
     for ob in made:
