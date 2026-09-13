@@ -251,10 +251,14 @@ S1_HEAD_CLEAR = 2.6                  # a hanging stalactite ends at least this f
 # stalagmites: (bearing, radius, height, base half-width). The blockout's nine
 # at their alternating radii, then the two small ones between 35 and 45.
 S1_STALAGMITES = [
-    (20.0, 48.0, 2.9, 0.62), (25.0, 56.0, 3.1, 0.60), (30.0, 52.0, 2.5, 0.50),
-    (35.0, 48.0, 3.2, 0.65), (40.0, 56.0, 2.4, 0.48), (45.0, 52.0, 2.8, 0.58),
-    (50.0, 48.0, 3.0, 0.62), (55.0, 56.0, 2.3, 0.46), (58.0, 52.0, 2.7, 0.55),
+    (20.0, 48.0, 3.0, 0.62), (25.0, 56.0, 3.3, 0.64), (30.0, 52.0, 2.6, 0.58),
+    (35.0, 48.0, 3.4, 0.68), (40.0, 56.0, 2.7, 0.58), (45.0, 52.0, 3.1, 0.62),
+    (50.0, 48.0, 3.2, 0.66), (55.0, 56.0, 2.6, 0.58), (58.0, 52.0, 2.9, 0.60),
     (38.7, 49.9, 1.9, 0.40), (41.6, 48.2, 1.7, 0.36)]
+S1_SHOULDER = 1.5                    # a stalagmite keeps its full width up to here ...
+S1_TAPER = 1.3                       # ... and tapers to the tip over at least this
+S1_EYE_Z = 27.0                      # the guard's eye, for the silhouette measure
+S1_MEASURE_H = (0.5, 1.0, 1.5)       # heights over the deck it is measured at
 S1_COLUMNS = (25.0, 50.0)            # bearings of the two that meet the ceiling
 # stalactites: (bearing, radius, length, base half-width); a length is clipped
 # so the tip keeps S1_HEAD_CLEAR over the deck
@@ -268,13 +272,12 @@ S1_STALACTITES = [
 S1_NUBS = [(23.0, 56.9, 0.7, 0.38), (33.0, 56.9, 0.5, 0.30),
            (47.0, 56.9, 0.9, 0.42), (56.5, 56.9, 0.6, 0.34)]
 # profiles: (fraction of the height, fraction of the base half-width), base to tip
-S1_MITE_PROFILE = [(0.08, 0.95), (0.30, 0.80), (0.55, 0.60), (0.78, 0.40), (0.95, 0.20)]
 S1_TITE_PROFILE = [(0.06, 0.94), (0.28, 0.74), (0.55, 0.50), (0.80, 0.28), (0.95, 0.12)]
-S1_COLUMN_PROFILE = [(0.03, 0.94), (0.14, 0.74), (0.32, 0.56), (0.52, 0.46),
-                     (0.72, 0.58), (0.88, 0.76), (0.97, 0.95)]
+S1_COLUMN_PROFILE = [(0.52, 0.46), (0.72, 0.58), (0.88, 0.76), (0.97, 0.95)]   # above the shoulder
+S1 = {"deck_sides": [], "prisms": [], "mites": []}
+REVIEW_RENDERS = True                # review-only lighting and a player proxy; never exported
 S1_COLL_SIDES = 6                    # collider frusta
 S1_COLL_FIT = 0.92                   # ... at this fraction of the visual base
-S1 = {"deck_sides": {}, "prisms": []}   # filled by _s1_sculpt, read by _s1_collider
 
 FACING_YAW = 0.0
 
@@ -1756,12 +1759,43 @@ def _s1_spike(m, cx, cy, rings, hw, lean, apex, r, bow=False):
     m.fan(lvl[0], (0.0, 0.0, -up), ZONE_SHADE)
     if apex is None:
         m.fan(lvl[-1], (0.0, 0.0, up), ZONE_SHADE)
-        return
+        return lvl
     tip = m.v((cx + lean[0] * (0.0 if bow else 1.0), cy + lean[1] * (0.0 if bow else 1.0), z1))
     for i in range(ns):
         j = (i + 1) % ns
         want = (sect[i][0] + sect[j][0], sect[i][1] + sect[j][1], up)
         m.tri(lvl[-1][i], lvl[-1][j], tip, want, ZONE_ROCK)
+    return lvl + [[tip] * ns]
+
+
+def _s1_shoulder(z0, H):
+    """The cover profile: full width to S1_SHOULDER, tapering over the top."""
+    zs = max(S1_SHOULDER, H - S1_TAPER)
+    return [(z0 - S1_SINK, 1.0, True), (z0 + 0.35, 1.0, False), (z0 + zs, 0.96, False),
+            (z0 + zs + 0.5 * (H - zs), 0.58, False), (z0 + H - 0.15, 0.22, False)]
+
+
+def _s1_silhouette(m):
+    """Projected width of each main stalagmite from the guard's eye, metres at
+    its distance, at S1_MEASURE_H over the deck: [(bearing, [widths])]."""
+    out = []
+    for (b, rad, x, y, z0, lvl) in S1["mites"]:
+        ws = []
+        for h in S1_MEASURE_H:
+            z = z0 + h
+            for a in range(len(lvl) - 1):
+                za, zb = lvl[a][0], lvl[a + 1][0]
+                if za <= z <= zb:
+                    f = (z - za) / (zb - za)
+                    pts = [tuple((1 - f) * m.verts[i][k] + f * m.verts[j][k] for k in range(3))
+                           for i, j in zip(lvl[a][1], lvl[a + 1][1])]
+                    angs = [math.atan2(p[1], p[0]) for p in pts]
+                    am = math.atan2(y, x)
+                    angs = [am + (t - am + math.pi) % TWO_PI - math.pi for t in angs]
+                    ws.append((max(angs) - min(angs)) * math.hypot(x, y))
+                    break
+        out.append((b, ws))
+    return out
 
 
 def _s1_lean(r, amount):
@@ -1774,6 +1808,7 @@ def _s1_sculpt(m, ang, base_cols, DV, dv, cev, wrv):
     """Relieve the deck, ceiling and wall inside S1_RELIEF, grow the spikes,
     and record what the collider needs."""
     r = _Rng(S1_SEED)
+    S1["deck_sides"] = {}
     deck_dz, ceil_drop, wall_out = _s1_fields()
     for (tk, j, fine), vid in dv.items():
         if fine:
@@ -1811,23 +1846,28 @@ def _s1_sculpt(m, ang, base_cols, DV, dv, cev, wrv):
     for (b, rad, H, hw) in S1_STALAGMITES:
         x, y, _ = pol(b, rad, 0.0)
         z0 = h0(x, y)
+        main = H >= 2.6
         if b in S1_COLUMNS:
             z1 = zc(x, y)
-            rings = [(z0 - S1_SINK, 1.0, True)] \
+            rings = _s1_shoulder(z0, H)[:3] + [(z0 + 2.6, 0.72, False)] \
                 + [(z0 + t * (z1 - z0), s, False) for (t, s) in S1_COLUMN_PROFILE] \
                 + [(CEIL_Z + S1_SINK, 1.0, True)]
-            _s1_spike(m, x, y, rings, hw, _s1_lean(r, 0.35), None, r, bow=True)
-            S1["prisms"].append((x, y, [(z0 - 0.1, fit * hw), (z0 + 0.52 * (z1 - z0), fit * 0.46 * hw),
+            lvl = _s1_spike(m, x, y, rings, hw, _s1_lean(r, 0.35), None, r, bow=True)
+            S1["prisms"].append((x, y, [(z0 - 0.1, fit * hw), (z0 + S1_SHOULDER, fit * 0.96 * hw),
+                                        (z0 + 0.52 * (z1 - z0), fit * 0.46 * hw),
                                         (CEIL_Z, fit * 0.95 * hw)], False))
-            continue
-        rings = [(z0 - S1_SINK, 1.0, True)] + [(z0 + t * H, s, False) for (t, s) in S1_MITE_PROFILE]
-        _s1_spike(m, x, y, rings, hw, _s1_lean(r, 0.28), z0 + H, r)
-        S1["prisms"].append((x, y, [(z0 - 0.1, fit * hw), (z0 + 0.55 * H, fit * 0.60 * hw),
-                                    (z0 + H - 0.05, 0.10)], True))
+        else:
+            rings = _s1_shoulder(z0, H)
+            lvl = _s1_spike(m, x, y, rings, hw, _s1_lean(r, 0.22), z0 + H, r)
+            S1["prisms"].append((x, y, [(z0 - 0.1, fit * hw), (z0 + max(S1_SHOULDER, H - S1_TAPER), fit * 0.96 * hw),
+                                        (z0 + H - 0.05, 0.10)], True))
+            rings = rings + [(z0 + H, 0.0, False)]
+        if main:
+            S1["mites"].append((b, rad, x, y, z0, [(ring[0], ids) for ring, ids in zip(rings, lvl)]))
     for (b, rad, H, hw) in S1_NUBS:
         x, y, _ = pol(b, rad, 0.0)
         z0 = h0(x, y)
-        rings = [(z0 - S1_SINK, 1.0, True)] + [(z0 + t * H, s, False) for (t, s) in S1_MITE_PROFILE]
+        rings = [(z0 - S1_SINK, 1.0, True), (z0 + 0.3 * H, 0.8, False), (z0 + 0.7 * H, 0.45, False)]
         _s1_spike(m, x, y, rings, hw, _s1_lean(r, 0.08), z0 + H, r)
         S1["prisms"].append((x, y, [(z0 - 0.1, fit * hw), (z0 + H - 0.03, 0.10)], True))
     for (b, rad, L, hw) in S1_STALACTITES:
@@ -2529,6 +2569,8 @@ def _deck_render(spec, objects):
     shot("s1_mouth", pol(37.5, 30.0, 29.5), pol(37.5, 52.0, 23.5), 20.0, (1500, 900))
     shot("s1_ceiling", pol(16.0, 52.5, DECK_Z + EYE_H), pol(34.0, 52.0, 29.5), 18.0, (1400, 900))
     bpy.data.objects.remove(fill, do_unlink=True)
+    if REVIEW_RENDERS:
+        _s1_review(scene, shot)
     if CELLS:
         cm, out, w, h = max([c for c in CELLS if c[0][2] < DECK_Z] or CELLS,
                             key=lambda c: c[3])
@@ -2537,6 +2579,42 @@ def _deck_render(spec, objects):
         shot("mouth", _v3(cm, out, -1.7 * h), cm, 40.0, (1000, 800))
 
     for ob in (cam, target, key):
+        bpy.data.objects.remove(ob, do_unlink=True)
+
+
+def _s1_review(scene, shot):
+    """Review-only: white light into the gallery, exposure up, a 0.6 x 1.8 m
+    player proxy behind one stalagmite. Everything made here is removed after."""
+    made = []
+    sd = bpy.data.lights.new("ReviewSun", type="SUN")
+    sd.energy, sd.color = 2.0, (1.0, 1.0, 1.0)
+    sun = mdl._link(bpy.data.objects.new("ReviewSun", sd))
+    aim = mdl._link(bpy.data.objects.new("ReviewAim", None))
+    sun.location, aim.location = (0.0, 0.0, 35.0), pol(37.0, 52.0, DECK_Z)
+    con = sun.constraints.new(type="TRACK_TO")
+    con.target, con.track_axis, con.up_axis = aim, "TRACK_NEGATIVE_Z", "UP_Y"
+    made += [sun, aim]
+    for b in (22.0, 37.0, 52.0):
+        ld = bpy.data.lights.new("ReviewFill", type="POINT")
+        ld.energy, ld.color, ld.shadow_soft_size = 5000.0, (1.0, 1.0, 1.0), 2.5
+        f = mdl._link(bpy.data.objects.new("ReviewFill", ld))
+        f.location = pol(b, 51.0, DECK_Z + 3.8)
+        made.append(f)
+    b, rad, H = S1_STALAGMITES[3][:3]                      # @35 r48, the tallest
+    x, y, _ = pol(b, rad + 1.0, 0.0)                       # 1 m behind it from the tower
+    proxy = mdl.box("PlayerProxy", (x - 0.3, y - 0.3, DECK_Z - 0.15), (x + 0.3, y + 0.3, DECK_Z + 1.8))
+    proxy.data.materials.append(mdl.flat_material("ProxyGreen", (0.1, 0.9, 0.2, 1.0)))
+    made.append(proxy)
+    mdl._try(scene.view_settings, "exposure", 0.7)
+    mid = pol(b, rad, DECK_Z + 1.0)
+    shot("review_run", pol(12.0, 52.0, DECK_Z + EYE_H), pol(34.0, 52.0, 24.0), 24.0, (1400, 800))
+    shot("review_guard", (0.0, 0.0, S1_EYE_Z), pol(37.0, 52.0, 24.0), 40.0, (1600, 900))
+    shot("review_high", pol(20.0, 34.0, 30.8), pol(42.0, 52.0, 23.5), 22.0, (1500, 900))
+    shot("review_cover", pol(b + 2.5, 42.0, DECK_Z + 2.2), mid, 45.0, (1200, 900))
+    shot("review_cover_line", pol(b, 40.0, S1_EYE_Z - (S1_EYE_Z - mid[2]) * 40.0 / rad), mid,
+         60.0, (1200, 900))
+    mdl._try(scene.view_settings, "exposure", 0.0)
+    for ob in made:
         bpy.data.objects.remove(ob, do_unlink=True)
 
 
@@ -2589,6 +2667,9 @@ def build():
           % (len(CELLS), sum(1 for c in CELLS if c[0][2] < DECK_Z),
              max(c[0][2] + 0.5 * c[3] for c in CELLS if c[0][2] < DECK_Z), UNIFORM_TOP,
              sum(1 for c in CELLS if c[0][2] > 200.0), max(c[0][2] for c in CELLS)))
+    for b, ws in _s1_silhouette(rock):
+        print("MDL STATS s1 silhouette @%.0f widths(m at %s)=%s min=%.2f"
+              % (b, S1_MEASURE_H, ["%.2f" % w for w in ws], min(ws)))
     print("MDL STATS s1 stalagmites=%d columns=%d stalactites=%d nubs=%d prisms=%d deck_sides=%d"
           % (len(S1_STALAGMITES) - len(S1_COLUMNS), len(S1_COLUMNS), len(S1_STALACTITES),
              len(S1_NUBS), len(S1["prisms"]), len(S1["deck_sides"])))
