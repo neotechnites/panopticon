@@ -47,8 +47,14 @@ const LAKE_LINK_MAX_RISE_METRES: float = 1.6
 const LAKE_LINK_INSET_METRES: float = 0.2
 const LAKE_FLIGHT_MIN_SECONDS: float = 0.6
 const LAKE_FLIGHT_MAX_SECONDS: float = 0.9
-## An island no wider than this is landed on at its centre rather than just past its lip.
-const LAKE_ISLAND_SMALL_METRES: float = 1.5
+## Metres a foothold must stand above the lake's surface; a bank sloping into the lava is not one.
+const LAKE_STAND_CLEARANCE_METRES: float = 0.2
+## A shore foothold is walked back from the lip in these steps until it stands on real deck.
+const LAKE_FOOTHOLD_STEP_METRES: float = 0.25
+const LAKE_FOOTHOLD_STEPS: int = 8
+## Rays that find the middle of a stepping stone's top: spacing, and rings out from the centre.
+const LAKE_STONE_PROBE_METRES: float = 0.4
+const LAKE_STONE_PROBE_RINGS: int = 4
 const LAKE_LINK_MATCH_METRES: float = 1.2
 const LAKE_LINK_MAX: int = 64
 ## Take-off points tried per island pair, and how far apart two of them must stand.
@@ -57,6 +63,11 @@ const LAKE_HOP_SPACING_METRES: float = 0.75
 const LAKE_LINK_TRAVEL_COST: float = 0.5
 ## Degrees of ring either side of the lake's traps that count as being in it.
 const LAKE_SPAN_PAD_DEGREES: float = 8.0
+## A map declares its lava lake with a Marker3D of this name; the TrapVolumes beside it are it.
+const LAKE_SURFACE_MARKER: StringName = &"LavaSurface"
+## Metres a lake trap's carve reaches past its lethal surface, so the surface's own navmesh goes
+## while the platforms standing clear of it keep theirs.
+const LAKE_SURFACE_CARVE_MARGIN: float = 0.25
 
 var _polygons: int = 0
 var _bake_ms: int = 0
@@ -81,6 +92,8 @@ var _lake_from: float = 0.0
 var _lake_to: float = 0.0
 var _lake_height: float = 0.0
 var _has_lake: bool = false
+## True when the span above came from the map's own marker rather than from the baked islands.
+var _lake_declared: bool = false
 
 ## Regions by level-root instance id; the tree cannot be asked while the root is still readying.
 static var _by_root: Dictionary = {}
@@ -174,6 +187,9 @@ func bake_from(
 
 	var source: NavigationMeshSourceGeometryData3D = NavigationMeshSourceGeometryData3D.new()
 	NavigationServer3D.parse_source_geometry_data(mesh, source, root)
+	_hazard_volumes.clear()
+	_collect_hazard_volumes(root)
+	_declare_lake(root)
 	var carved: int = _carve_traps(root, source, into_root)
 	var edges: int = _carve_edges(route, centre, source, into_root)
 	NavigationServer3D.bake_from_source_geometry_data(mesh, source)
@@ -273,8 +289,13 @@ func _carve_traps(node: Node, source: NavigationMeshSourceGeometryData3D, into_r
 		var bottom: float = (into_root * (world * Vector3(0.0, -half.y, 0.0))).y
 		# The carve stops at the trap's own lethal top -- its box, or the surface a feet_only trap
 		# converts at -- so a platform standing IN a trap keeps the navmesh on top of it.
-		var top: float = (into_root * world.origin).y if trap.feet_only \
-			else (into_root * (world * Vector3(0.0, half.y, 0.0))).y
+		var top: float = (into_root * (world * Vector3(0.0, half.y, 0.0))).y
+		if trap.feet_only:
+			# A lake's own surface must go, or the platforms standing in it never become islands
+			# and the only path across is a walk through the lava.
+			top = (into_root * world.origin).y
+			if _has_lake and is_in_lake_span(world.origin):
+				top += LAKE_SURFACE_CARVE_MARGIN
 		var floor_level: float = bottom - HAZARD_VERTICAL_MARGIN_METRES
 		source.add_projected_obstruction(corners, floor_level, maxf(top - floor_level, 0.1), true)
 		carved += 1
@@ -459,8 +480,6 @@ func _in_hazard_volume(world_point: Vector3) -> bool:
 
 func _carve_dead_pads(root: Node, source: NavigationMeshSourceGeometryData3D, into_root: Transform3D) -> int:
 	_mesh_low = INF
-	_hazard_volumes.clear()
-	_collect_hazard_volumes(root)
 	var pads: Array[BoostPad] = []
 	_collect_pads(root, pads)
 	var dead: int = 0
@@ -632,14 +651,14 @@ func _free_lake_links() -> void:
 ## jump envelope, ordered the way the lap runs. Positions are refined once the map is live.
 func _build_lake_links() -> int:
 	_free_lake_links()
-	_has_lake = false
+	_has_lake = _lake_declared
 	if navigation_mesh == null:
 		return 0
 	_build_trap_boxes()
 	if _trap_boxes.is_empty():
 		return 0
 	var islands: Array[Dictionary] = _mesh_islands()
-	if not _find_lake_span(islands):
+	if not _lake_declared and not _find_lake_span(islands):
 		return 0
 	var live: Array[Dictionary] = []
 	for island: Dictionary in islands:
@@ -700,16 +719,28 @@ func _lake_hops(a: Dictionary, b: Dictionary) -> Array[Dictionary]:
 	return hops
 
 
-## One hop's take-off and landing: back off the near lip, past the far one, and land a small
-## island at its centre rather than on its rim.
+## One hop's take-off and landing. A stepping stone is used at its centre -- a 2.4 m block is not
+## something to leave or land on the rim of -- and a shore at its lip, backed off it.
 func _lake_hop(a: Dictionary, b: Dictionary, from: Vector3, to: Vector3) -> Dictionary:
 	var travel: Vector3 = Vector3(to.x - from.x, 0.0, to.z - from.z)
 	travel = travel.normalized() if travel.length() > 0.001 else Vector3.ZERO
-	var start: Vector3 = a["centre"] if float(a["extent"]) <= LAKE_ISLAND_SMALL_METRES \
-		else from - travel * LAKE_LINK_INSET_METRES
-	var end: Vector3 = b["centre"] if float(b["extent"]) <= LAKE_ISLAND_SMALL_METRES \
-		else to + travel * LAKE_LINK_INSET_METRES
-	return {"from": from, "start": Vector3(start.x, from.y, start.z), "end": Vector3(end.x, to.y, end.z)}
+	var take_stone: bool = _is_stepping_stone(a)
+	var land_stone: bool = _is_stepping_stone(b)
+	var start: Vector3 = a["centre"] if take_stone else from - travel * LAKE_LINK_INSET_METRES
+	var end: Vector3 = b["centre"] if land_stone else to + travel * LAKE_LINK_INSET_METRES
+	return {
+		"from": from,
+		"start": Vector3(start.x, from.y, start.z),
+		"end": Vector3(end.x, to.y, end.z),
+		"travel": travel,
+		"start_stone": take_stone,
+		"end_stone": land_stone,
+	}
+
+
+## True when every polygon of [param island] stands over a trap: a block in the lake, not a shore.
+static func _is_stepping_stone(island: Dictionary) -> bool:
+	return int(island["over"]) >= int(island["polygons"])
 
 
 ## Boundary edges of [param island] that lie inside the lake's span, at the lake's height.
@@ -733,8 +764,13 @@ func _refine_lake_links() -> void:
 		var link: NavigationLink3D = _lake_links[index]
 		var plan: Dictionary = _lake_plans[index]
 		for hop: Dictionary in plan["hops"] as Array:
-			var start: Vector3 = _floor_point(space, _root_transform * (hop["start"] as Vector3))
-			var end: Vector3 = _floor_point(space, _root_transform * (hop["end"] as Vector3))
+			var travel: Vector3 = hop["travel"]
+			var start: Vector3 = _lake_foothold(
+				space, _root_transform * (hop["start"] as Vector3), -travel, bool(hop["start_stone"])
+			)
+			var end: Vector3 = _lake_foothold(
+				space, _root_transform * (hop["end"] as Vector3), travel, bool(hop["end_stone"])
+			)
 			if not is_finite(start.x) or not is_finite(end.x):
 				continue
 			if absf(end.y - start.y) > LAKE_LINK_MAX_RISE_METRES:
@@ -746,6 +782,48 @@ func _refine_lake_links() -> void:
 			_lake_plans[index] = plan
 			link.enabled = true
 			break
+
+
+## Somewhere in the lake a body can actually stand: a stepping stone at the middle of its top,
+## a shore walked [param away] from the lip until the floor clears the lava. Vector3.INF when none.
+func _lake_foothold(
+	space: PhysicsDirectSpaceState3D, point: Vector3, away: Vector3, stone: bool
+) -> Vector3:
+	if stone:
+		return _stone_centre(space, point)
+	for step: int in LAKE_FOOTHOLD_STEPS:
+		var probe: Vector3 = point + away * (float(step) * LAKE_FOOTHOLD_STEP_METRES)
+		var floor_point: Vector3 = _floor_point(space, probe)
+		if _stands_clear_of_lava(floor_point):
+			return floor_point
+	return Vector3.INF
+
+
+## The middle of the stone top under [param point], found by probing out from it. Averaging the
+## hits at that height puts the take-off and the landing on the block, not on its rim.
+func _stone_centre(space: PhysicsDirectSpaceState3D, point: Vector3) -> Vector3:
+	var seed_point: Vector3 = _floor_point(space, point)
+	if not _stands_clear_of_lava(seed_point):
+		return Vector3.INF
+	var sum: Vector3 = Vector3.ZERO
+	var hits: int = 0
+	for row: int in range(-LAKE_STONE_PROBE_RINGS, LAKE_STONE_PROBE_RINGS + 1):
+		for column: int in range(-LAKE_STONE_PROBE_RINGS, LAKE_STONE_PROBE_RINGS + 1):
+			var probe: Vector3 = seed_point + Vector3(
+				float(column) * LAKE_STONE_PROBE_METRES, 0.0, float(row) * LAKE_STONE_PROBE_METRES
+			)
+			var floor_point: Vector3 = _floor_point(space, probe)
+			if not _stands_clear_of_lava(floor_point) or absf(floor_point.y - seed_point.y) > 0.15:
+				continue
+			sum += floor_point
+			hits += 1
+	return seed_point if hits == 0 else Vector3(sum.x / float(hits), seed_point.y, sum.z / float(hits))
+
+
+## True when [param floor_point] is real floor standing clear of the lake's surface.
+func _stands_clear_of_lava(floor_point: Vector3) -> bool:
+	return is_finite(floor_point.x) \
+		and (not _has_lake or floor_point.y >= _lake_height + LAKE_STAND_CLEARANCE_METRES)
 
 
 ## The static floor under [param point], or Vector3.INF when there is none or it is a hazard.
@@ -890,6 +968,51 @@ func _trap_under(world_point: Vector3) -> int:
 	return -1
 
 
+## The lava lake the map declares: a [Marker3D] named [constant LAKE_SURFACE_MARKER] gives its
+## surface height, and the [TrapVolume]s beside it give the angular span it covers.
+func _declare_lake(root: Node) -> bool:
+	_lake_declared = false
+	_has_lake = false
+	var marker: Node3D = _find_lake_marker(root)
+	if marker == null or marker.get_parent() == null:
+		return false
+	var reference: float = _bearing_of(marker.global_position)
+	var low: float = 0.0
+	var high: float = 0.0
+	var found: bool = false
+	for sibling: Node in marker.get_parent().get_children():
+		var trap: TrapVolume = sibling as TrapVolume
+		if trap == null:
+			continue
+		found = true
+		var half: Vector3 = trap.size_metres * 0.5
+		for corner: Vector3 in [
+			Vector3(-half.x, 0.0, -half.z), Vector3(half.x, 0.0, -half.z),
+			Vector3(half.x, 0.0, half.z), Vector3(-half.x, 0.0, half.z),
+		]:
+			var relative: float = wrapf(_bearing_of(trap.global_transform * corner) - reference, -PI, PI)
+			low = minf(low, relative)
+			high = maxf(high, relative)
+	if not found:
+		return false
+	_lake_from = reference + low
+	_lake_to = reference + high
+	_lake_height = marker.global_position.y
+	_has_lake = true
+	_lake_declared = true
+	return true
+
+
+static func _find_lake_marker(node: Node) -> Node3D:
+	if node.name == LAKE_SURFACE_MARKER and node is Node3D:
+		return node as Node3D
+	for child: Node in node.get_children():
+		var found: Node3D = _find_lake_marker(child)
+		if found != null:
+			return found
+	return null
+
+
 ## The lake is the biggest run of platform islands -- islands standing wholly in a trap -- that
 ## sit within LAKE_SPAN_PAD_DEGREES of each other. Sets the span they and their traps cover.
 func _find_lake_span(islands: Array[Dictionary]) -> bool:
@@ -942,8 +1065,8 @@ func _find_lake_span(islands: Array[Dictionary]) -> bool:
 	return true
 
 
-## Mesh polygons joined edge to edge, with each island's boundary edges, centre, width and
-## how many of its polygons stand in a trap.
+## Mesh polygons joined edge to edge, with each island's boundary edges, centre and how many of
+## its polygons stand in a trap.
 func _mesh_islands() -> Array[Dictionary]:
 	var vertices: PackedVector3Array = navigation_mesh.get_vertices()
 	var count: int = navigation_mesh.get_polygon_count()
@@ -992,14 +1115,7 @@ func _mesh_islands() -> Array[Dictionary]:
 	var islands: Array[Dictionary] = []
 	for root: int in by_root:
 		var island: Dictionary = by_root[root]
-		var centre: Vector3 = (island["sum"] as Vector3) / float(island["polygons"])
-		var extent: float = 0.0
-		for edge: Dictionary in island["edges"] as Array:
-			extent = maxf(extent, Vector2(
-				(edge["a"] as Vector3).x - centre.x, (edge["a"] as Vector3).z - centre.z
-			).length())
-		island["centre"] = centre
-		island["extent"] = extent
+		island["centre"] = (island["sum"] as Vector3) / float(island["polygons"])
 		islands.append(island)
 	return islands
 
