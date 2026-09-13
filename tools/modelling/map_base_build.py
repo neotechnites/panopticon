@@ -1634,6 +1634,921 @@ def _bank_da(line, side, i, rad):
 
 
 # =============================================================================
+# S1 -- THE SPIRES (game bearings 15..60): a stalactite cave grown into the
+# rock. Between the deck columns nearest S1_EXT the deck, the ceiling, the
+# outer wall and the pit lip are re-laid on a finer grid whose boundary
+# columns keep the coarse chains, so nothing outside moves; stalagmites,
+# stalactites and full columns are welded into that grid through holes.
+# Its own seed; the main rock RNG is never consulted in here.
+# =============================================================================
+
+S1_EXT = (12.0, 63.0)        # the section plus its ease-in, game bearings
+S1_FADE = 4.0                # degrees the relief eases in over at each end
+S1_SEED = 3170519
+S1_CELL = 0.70               # tangential cell at the lane radius, metres
+S1_NS = 16                   # deck stations, lip -> foot
+S1_NC = 11                   # ceiling stations, lip -> wall head
+S1_NW = 8                    # wall rows, head -> foot
+S1_LIP_Z = 17.0              # the pit-lip relief band: the pit wall's own top row
+S1_LIP_D = (0.25, 0.6, 1.2, 2.0, 3.0, 4.2, 5.3)   # its rows, metres under the deck
+S1_DECK_AMP, S1_DECK_L = 0.22, (2.5, 6.0)  # flowstone undulation: peak, wavelengths
+S1_MOUND = (0.10, 2.2)       # a low mound under each cluster: height, radius
+S1_CEIL_SAG, S1_CEIL_L = 0.40, (3.0, 6.0)  # the ceiling sags 0..2x this
+S1_DRIP = (0.15, 0.45, 0.9, 1.5)           # drip cone round a stalactite: height lo/hi, radius lo/hi
+S1_FILLET = 1.2              # ceiling-to-wall corner round-over radius
+S1_RIB = {"depth": (0.3, 0.8), "width": (0.3, 0.55), "gap": (1.0, 2.2), "wander": 0.25}
+S1_LIP = {"depth": (0.3, 0.6), "width": (0.3, 0.55), "gap": (0.9, 2.0), "wander": 0.15}
+S1_CLUSTERS = [(20.0, 48.4), (25.0, 55.4), (30.0, 53.5), (35.0, 48.4), (40.0, 55.4),
+               (45.0, 53.5), (50.0, 48.4), (55.0, 55.4), (58.0, 53.5)]
+S1_MAIN_H = (3.3, 5.5)
+S1_MAIN_R = (0.40, 0.45)     # body radius at the foot, before the flare
+S1_FLARE = 1.95              # base ring radius over body radius
+S1_LOBE = (0.85, 1.1)        # the fused side lobe, in body radii at the foot ...
+S1_LOBE_H = (0.58, 0.72)     # ... gone by this fraction of the height
+S1_SAT = (0.9, 2.0, 0.18, 0.27)          # satellites: height lo/hi, body radius lo/hi
+S1_SMALL = (14, 0.4, 1.2, 0.10, 0.18)    # scattered small ones: count, height, radius
+S1_COLUMNS = [(23.0, 48.3), (35.5, 55.9), (39.5, 48.3), (51.0, 55.9)]
+S1_COL_R = (0.34, 0.48)      # full column waist radius
+S1_TITES = (30, 1.0, 6.0, 0.12, 0.36)    # stalactites: count, length lo/hi, base radius lo/hi
+S1_TITE_FLARE = 2.0
+S1_OVER = (20.0, 35.0, 50.0) # clusters with a stalactite dripping over the main spire
+S1_LANE_CLEAR = 2.7          # a tip over the lane keeps this over the deck ...
+S1_OFF_CLEAR = 1.6           # ... off the lane this, with a collider under 2.3
+S1_LANE = [(10.0, 52.0), (27.0, 52.0), (28.2, 50.7), (31.8, 50.7), (33.0, 52.0), (42.0, 52.0),
+           (43.2, 50.7), (46.8, 50.7), (48.0, 52.0), (55.0, 52.0), (56.2, 50.7), (59.8, 50.7),
+           (63.0, 52.0)]
+S1_LANE_W = 3.0
+S1_EYE_Z = 27.0
+S1_COVER_H = 1.6             # the silhouette is measured from the deck up to here
+S1_REVIEW = True             # review-only lights and a player proxy; never exported
+S1_RREF = 0.5 * (INNER_R + OUTER_R)
+S1 = {}                      # handed from the sculpt to the collider, stats and renders
+
+
+def _s1_lane_r(b):
+    pts = S1_LANE
+    if b <= pts[0][0]:
+        return pts[0][1]
+    for (b0, r0), (b1, r1) in zip(pts, pts[1:]):
+        if b0 <= b <= b1:
+            return r0 + (r1 - r0) * (b - b0) / (b1 - b0)
+    return pts[-1][1]
+
+
+def _s1_in_lane(b, rad, margin=0.0):
+    return abs(rad - _s1_lane_r(b)) < 0.5 * S1_LANE_W + margin
+
+
+def _s1_waves(r, L, n=6):
+    """A seeded sum of n plane waves, about -1..1, wavelengths in L."""
+    ws = []
+    for _ in range(n):
+        a, wl = r.f() * TWO_PI, L[0] + r.f() * (L[1] - L[0])
+        ws.append((math.cos(a) * TWO_PI / wl, math.sin(a) * TWO_PI / wl, r.f() * TWO_PI, 0.5 + r.f()))
+    k = 1.0 / sum(w[3] for w in ws)
+
+    def f(x, y):
+        return k * sum(w[3] * math.sin(w[0] * x + w[1] * y + w[2]) for w in ws)
+    return f
+
+
+def _s1_grooves(r, s0, s1, spec):
+    """Rounded vertical ribs on a wall: the recess between them, metres, at (arc, z)."""
+    gs = []
+    s = s0 + r.f() * spec["gap"][1]
+    while s < s1:
+        gs.append((s, spec["depth"][0] + r.f() * (spec["depth"][1] - spec["depth"][0]),
+                   spec["width"][0] + r.f() * (spec["width"][1] - spec["width"][0]),
+                   TWO_PI / (2.5 + 3.0 * r.f()), r.f() * TWO_PI))
+        s += spec["gap"][0] + r.f() * (spec["gap"][1] - spec["gap"][0])
+    wander = spec["wander"]
+
+    def f(s, z):
+        rec = 0.0
+        for (sc, d, w, k, ph) in gs:
+            ds = s - sc - wander * math.sin(k * z + ph)
+            if abs(ds) < 3.0 * w:
+                rec += d * math.exp(-(ds / w) ** 2)
+        return min(rec, spec["depth"][1])
+    return f
+
+
+def _s1_delaunay(pts):
+    """Bowyer-Watson over a few dozen 2-D points; index triples."""
+    n = len(pts)
+    xs, ys = [p[0] for p in pts], [p[1] for p in pts]
+    cx, cy = 0.5 * (min(xs) + max(xs)), 0.5 * (min(ys) + max(ys))
+    d = 60.0 * max(max(xs) - min(xs), max(ys) - min(ys)) + 1.0
+    P = list(pts) + [(cx - d, cy - d), (cx + d, cy - d), (cx, cy + d)]
+    tris = [(n, n + 1, n + 2)]
+
+    def inside(t, p):
+        ax, ay = P[t[0]][0] - p[0], P[t[0]][1] - p[1]
+        bx, by = P[t[1]][0] - p[0], P[t[1]][1] - p[1]
+        cx_, cy_ = P[t[2]][0] - p[0], P[t[2]][1] - p[1]
+        det = ((ax * ax + ay * ay) * (bx * cy_ - cx_ * by)
+               - (bx * bx + by * by) * (ax * cy_ - cx_ * ay)
+               + (cx_ * cx_ + cy_ * cy_) * (ax * by - bx * ay))
+        orient = (bx - ax) * (cy_ - ay) - (by - ay) * (cx_ - ax)
+        return det * orient > 0.0
+
+    for i in range(n):
+        p = P[i]
+        bad = [t for t in tris if inside(t, p)]
+        count = {}
+        for t in bad:
+            for e in ((t[0], t[1]), (t[1], t[2]), (t[2], t[0])):
+                key = (min(e), max(e))
+                count[key] = count.get(key, 0) + 1
+        keep = [t for t in tris if t not in bad]
+        for t in bad:
+            for e in ((t[0], t[1]), (t[1], t[2]), (t[2], t[0])):
+                if count[(min(e), max(e))] == 1:
+                    keep.append((e[0], e[1], i))
+        tris = keep
+    return [t for t in tris if max(t) < n]
+
+
+def _s1_inpoly(p, poly):
+    x, y = p
+    inside = False
+    n = len(poly)
+    for i in range(n):
+        (x0, y0), (x1, y1) = poly[i], poly[(i + 1) % n]
+        if (y0 > y) != (y1 > y):
+            if x < x0 + (y - y0) * (x1 - x0) / (y1 - y0):
+                inside = not inside
+    return inside
+
+
+def _s1_fill(m, loop, rings, want, zone, tag):
+    """Triangulate a rectangular hole (loop: [(param, id)] round it) minus the
+    rings inside it (each [(param, id)], closed), welding every vertex. Every
+    loop and ring edge must come out of the triangulation, or the build fails."""
+    pts, ids = [p for p, _ in loop], [i for _, i in loop]
+    spans = []
+    for ring in rings:
+        k0 = len(pts)
+        pts += [p for p, _ in ring]
+        ids += [i for _, i in ring]
+        spans.append((k0, len(pts)))
+    tris = _s1_delaunay(pts)
+    polys = [[pts[k] for k in range(k0, k1)] for (k0, k1) in spans]
+    keep, edges = [], set()
+    for t in tris:
+        c = (sum(pts[k][0] for k in t) / 3.0, sum(pts[k][1] for k in t) / 3.0)
+        if any(_s1_inpoly(c, poly) for poly in polys):
+            continue
+        keep.append(t)
+        for a, b in ((t[0], t[1]), (t[1], t[2]), (t[2], t[0])):
+            edges.add((min(a, b), max(a, b)))
+    nb = len(loop)
+    chains = [[(k, (k + 1) % nb) for k in range(nb)]]
+    for (k0, k1) in spans:
+        chains.append([(k, k0 + (k - k0 + 1) % (k1 - k0)) for k in range(k0, k1)])
+    for chain in chains:
+        for a, b in chain:
+            if (min(a, b), max(a, b)) not in edges:
+                raise RuntimeError("S1 fill %s: edge %d-%d missing" % (tag, a, b))
+
+    def area(poly):
+        return 0.5 * abs(sum(poly[i][0] * poly[(i + 1) % len(poly)][1]
+                             - poly[(i + 1) % len(poly)][0] * poly[i][1] for i in range(len(poly))))
+    want_a = area(pts[:nb]) - sum(area(p) for p in polys)
+    got_a = sum(area([pts[k] for k in t]) for t in keep)
+    if abs(got_a - want_a) > 1e-6 * max(1.0, want_a):
+        raise RuntimeError("S1 fill %s: area %.4f vs %.4f" % (tag, got_a, want_a))
+    for t in keep:
+        m.tri(ids[t[0]], ids[t[1]], ids[t[2]], want, zone)
+    return len(keep)
+
+
+class _S1Spike(object):
+    """A stalagmite ('mite'), stalactite ('tite') or full column: an n-sided
+    tube of rings up a bent axis, organic radius per vertex and per ring, a
+    flowstone flare into the surface it grows from, drip ridges, a fused lobe
+    on one side for the cover clusters. Offsets are (radial, tangential)."""
+
+    U_MITE = (0.0, 0.035, 0.08, 0.15, 0.24, 0.34, 0.44, 0.54, 0.64, 0.74, 0.84, 0.92, 0.97, 1.0)
+    U_SAT = (0.0, 0.05, 0.13, 0.3, 0.55, 0.8, 0.95, 1.0)
+    U_SMALL = (0.0, 0.07, 0.25, 0.55, 0.82, 0.95, 1.0)
+    U_TITE = (0.0, 0.04, 0.11, 0.22, 0.34, 0.47, 0.6, 0.73, 0.86, 1.0)
+    U_COL = (0.0, 0.03, 0.07, 0.13, 0.22, 0.32, 0.42, 0.5, 0.58, 0.68, 0.78, 0.87, 0.93, 0.97, 1.0)
+
+    def __init__(self, kind, b, rad, H, R, sides, r, us, flare, lobe=None, bend=0.08, nridge=3,
+                 ridge_amp=(0.09, 0.22), jitter=0.07):
+        self.kind, self.b, self.rad, self.H, self.R, self.sides = kind, b, rad, H, R, sides
+        self.us, self.flare, self.lobe = us, flare, lobe
+        self.angs = [TWO_PI * (i + 0.28 * r.sf()) / sides for i in range(sides)]
+        self.fac = [1.0 + 0.13 * r.sf() for _ in range(sides)]
+        self.jit = [[1.0 + jitter * r.sf() for _ in range(sides)] for _ in us]
+        self.bend = (r.f() * TWO_PI, bend * (0.6 + 0.4 * r.f()), r.f() * TWO_PI)
+        body = [u for u in us if 0.2 < u < 0.9]
+        self.ridges = []
+        for _ in range(nridge):
+            if body:
+                u = r.pick(body)
+                body = [v for v in body if abs(v - u) > 0.05]
+                self.ridges.append((u, ridge_amp[0] + (ridge_amp[1] - ridge_amp[0]) * r.f(), 0.11))
+        self.centre = None      # (s, rho) param of the base, set by the allocator
+        self.top = None         # for columns: the ceiling param centre
+        self.cxy = None         # the base centre, world
+        self.base = None        # (z, [(x, y)]) the base ring as built
+        self.rings = []         # [(z, [(x, y)])] the rings above it, for the silhouette
+        self.over = None        # a stalactite dripping over this stalagmite
+        self.deck_z = DECK_Z
+        self.tip_z = None
+
+    def body(self, u):
+        """Body radius at u, before the flare and the lobe."""
+        if self.kind == "tite":
+            base = 1.0 - 0.86 * u ** 1.15
+        elif self.kind == "column":
+            base = 1.0 + 1.1 * math.exp(-u / 0.06) + 0.9 * math.exp(-(1.0 - u) / 0.06)
+        else:
+            base = 1.0 - 0.72 * u ** 1.4 - 0.12 * max(0.0, (u - 0.92) / 0.08)   # a rounded crown
+        ridge = 1.0
+        for (uk, ak, wk) in self.ridges:
+            ridge += ak * max(0.0, 1.0 - ((u - uk) / wk) ** 2)
+        return self.R * base * ridge
+
+    def flare_f(self, u):
+        if self.kind == "column":
+            return 1.0
+        return 1.0 + (self.flare - 1.0) * math.exp(-u / 0.045)
+
+    def lobe_f(self, i, u):
+        if not self.lobe:
+            return 0.0
+        a0, amp, uh = self.lobe
+        w = max(0.0, math.cos(self.angs[i] - a0)) ** 3
+        v = u / uh
+        return amp * w * math.sqrt(max(0.0, 1.0 - v * v))
+
+    def radius(self, i, u, k=None):
+        """Vertex i's radius at u; ring k's own jitter when given."""
+        j = self.jit[k][i] if k is not None else 1.0
+        return self.body(u) * self.fac[i] * j * (self.flare_f(u) + self.lobe_f(i, u))
+
+    def offsets(self, k):
+        u = self.us[k]
+        return [(self.radius(i, u, k) * math.cos(self.angs[i]), self.radius(i, u, k) * math.sin(self.angs[i]))
+                for i in range(self.sides)]
+
+    def axis(self, u):
+        """The axis' lateral wander at u: (radial, tangential), metres."""
+        ph, amp, ph2 = self.bend
+        a = amp * self.H * u ** 1.6
+        s = 0.05 * self.H * math.sin(TWO_PI * u + ph2) * u * (1.0 - u)
+        return (a * math.cos(ph) + s * math.cos(ph2), a * math.sin(ph) + s * math.sin(ph2))
+
+    def section(self, u, frame):
+        """World-xy offsets of the cross-section at u round the bent axis."""
+        er, et = frame
+        ax, ay = self.axis(u)
+        return [(er[0] * (ax + self.radius(i, u) * math.cos(self.angs[i])) + et[0] * (ay + self.radius(i, u) * math.sin(self.angs[i])),
+                 er[1] * (ax + self.radius(i, u) * math.cos(self.angs[i])) + et[1] * (ay + self.radius(i, u) * math.sin(self.angs[i])))
+                for i in range(self.sides)]
+
+
+def _s1_frustum(c, cx, cy, rings, angs, frame):
+    """Collider: a closed stack of polygon rings [(z, [(dx, dy)])] (world offsets)."""
+    er, et = frame
+    lvl = [[c.v((cx + dx, cy + dy, z)) for (dx, dy) in offs] for (z, offs) in rings]
+    n = len(angs)
+    for a in range(len(lvl) - 1):
+        for i in range(n):
+            j = (i + 1) % n
+            am = 0.5 * (angs[i] + (angs[j] if j else angs[0] + TWO_PI))
+            want = (er[0] * math.cos(am) + et[0] * math.sin(am), er[1] * math.cos(am) + et[1] * math.sin(am), 0.0)
+            c.quad(lvl[a][i], lvl[a][j], lvl[a + 1][j], lvl[a + 1][i], want, ZONE_ROCK)
+    c.fan(lvl[-1], UP, ZONE_ROCK)
+    c.fan(lvl[0], DOWN, ZONE_ROCK)
+
+
+def _wall_point(wall, t, z):
+    """Where a _Wall's coarse bilinear surface is at (theta, z): W() without
+    registering a vertex."""
+    i, u = wall._side(t)
+    j = (i + 1) % len(wall.ang)
+    zs = wall.ring_z
+    k = max(0, min(len(zs) - 2, _bisect(zs, z) - 1))
+    v = (z - zs[k]) / (zs[k + 1] - zs[k])
+    m = wall.m
+    pa, pb = m.verts[wall.rings[k][i]], m.verts[wall.rings[k][j]]
+    pd, pc = m.verts[wall.rings[k + 1][i]], m.verts[wall.rings[k + 1][j]]
+    return tuple((1 - u) * (1 - v) * pa[c] + u * (1 - v) * pb[c]
+                 + u * v * pc[c] + (1 - u) * v * pd[c] for c in range(3))
+
+
+def _s1_sculpt(m, ang, cols_all, lo, hi, pit_wall, shaft, pit_top, wall, upper, WF, WR, CE, DV, ceil_nv, out_rows):
+    """Everything in S1. Returns the (lo, hi) column angles it owns."""
+    r = _Rng(S1_SEED)
+    R_REF = S1_RREF
+
+    def T(deg):
+        return _norm_t(ang[0], _bear_t(deg))
+
+    inside = [t for t in cols_all if lo - 1e-9 <= t <= hi + 1e-9]
+    b_lo, b_hi = _bear_deg(hi), _bear_deg(lo)          # bearings: b_lo < b_hi
+
+    # ---- the sub-columns: the coarse columns inside, each split to ~S1_CELL --
+    sc = []
+    for t0, t1 in zip(inside, inside[1:]):
+        k = max(1, int(round((t1 - t0) * R_REF / S1_CELL)))
+        sc += [t0 + (t1 - t0) * q / k for q in range(k)]
+    sc.append(hi)
+    n = len(sc)
+    scb = [_bear_deg(t) for t in sc]
+    S1["lo"], S1["hi"], S1["sc"] = lo, hi, sc
+
+    def fade_s(b):
+        return min(_ramp(b - b_lo, 0.0, S1_FADE), _ramp(b_hi - b, 0.0, S1_FADE), 1.0)
+
+    def bearing(x, y):
+        return (-math.degrees(math.atan2(y, x))) % 360.0
+
+    # ---- surfaces: the coarse rock sampled at any column, plus the relief ----
+    def deck_xy(t, rho):
+        pa, pb = _chord(m, pit_top, ang, t), _chord(m, wall[0], ang, t)
+        f = (rho - INNER_R) / (OUTER_R - INNER_R)
+        return ((1 - f) * pa[0] + f * pb[0], (1 - f) * pa[1] + f * pb[1])
+
+    def ceil_xy(t, rho):
+        pa, pb = _chord(m, upper[0], ang, t), _chord(m, wall[-1], ang, t)
+        f = (rho - INNER_R) / (OUTER_R - INNER_R)
+        return ((1 - f) * pa[0] + f * pb[0], (1 - f) * pa[1] + f * pb[1])
+
+    def wall_pt(t, z):
+        """The coarse outer wall at (column, z): between its rings' chords."""
+        pts = [_chord(m, wall[k], ang, t) for k in range(len(wall))]
+        for k in range(len(pts) - 1):
+            if z <= pts[k + 1][2] + 1e-9 or k == len(pts) - 2:
+                f = _ramp(z, pts[k][2], pts[k + 1][2])
+                return tuple((1 - f) * pts[k][c] + f * pts[k + 1][c] for c in range(3))
+
+    deck_waves = _s1_waves(_Rng(S1_SEED + 1), S1_DECK_L)
+    ceil_waves = _s1_waves(_Rng(S1_SEED + 2), S1_CEIL_L)
+    mounds, drips = [], []          # (x, y, height, radius)
+
+    def bump(x, y, lst):
+        out = 0.0
+        for (mx, my, h, rad) in lst:
+            d = math.hypot(x - mx, y - my)
+            if d < rad:
+                v = d / rad
+                out += h * (1.0 - v * v) ** 2
+        return out
+
+    def H(x, y):
+        """The deck's rise over DECK_Z."""
+        rho = math.hypot(x, y)
+        fr = min(_ramp(rho - INNER_R, 0.0, 1.2), _ramp(OUTER_R - rho, 0.0, 1.2))
+        return fade_s(bearing(x, y)) * fr * (S1_DECK_AMP * deck_waves(x, y) + bump(x, y, mounds))
+
+    def C(x, y):
+        """The ceiling's drop under CEIL_Z: sags, and a drip cone per stalactite."""
+        rho = math.hypot(x, y)
+        fr = min(_ramp(rho - INNER_R, 0.0, 1.5), _ramp(OUTER_R - rho, 0.3, 1.3))
+        return fade_s(bearing(x, y)) * fr * (S1_CEIL_SAG * (1.0 + ceil_waves(x, y)) + bump(x, y, drips))
+
+    ribs = _s1_grooves(_Rng(S1_SEED + 3), lo * OUTER_R - 3.0, hi * OUTER_R + 3.0, S1_RIB)
+    lipg = _s1_grooves(_Rng(S1_SEED + 4), lo * INNER_R - 3.0, hi * INNER_R + 3.0, S1_LIP)
+    wob = _s1_waves(_Rng(S1_SEED + 5), (2.0, 4.0), 4)
+    LC = OUTER_R - INNER_R          # path length across the ceiling
+    F = S1_FILLET
+
+    def wc_pos(t, q):
+        """Ceiling-and-wall point at path distance q: 0 at the lip, LC at the
+        corner, LC + CEIL_H at the foot. Relief, ribs and the corner fillet."""
+        fs = fade_s(_bear_deg(t))
+        er = (math.cos(t), math.sin(t))
+        if q <= LC + 1e-9:
+            x, y = ceil_xy(t, INNER_R + q)
+            z = CEIL_Z - C(x, y)
+            dcorner = LC - q
+            uf = F - dcorner if dcorner < F else None
+            orig = (-dcorner, 0.0)
+        else:
+            h = q - LC
+            x, y, z = wall_pt(t, CEIL_Z - h)
+            uf = F + h if h < F else None
+            orig = (0.0, -h)
+            env = _ramp(h, 0.0, 0.5) * _ramp(CEIL_H - h, 0.0, 0.9) * fs
+            rec = env * (ribs(t * OUTER_R, z) + 0.08 * (1.0 + wob(t * OUTER_R, z)))
+            if uf is not None:
+                rec *= 0.5
+            x, y = x + er[0] * rec, y + er[1] * rec
+        if uf is not None:
+            th = 0.5 * math.pi * uf / (2.0 * F)
+            tgt = (-F + F * math.sin(th), -F + F * math.cos(th))
+            dr, dz = (tgt[0] - orig[0]) * fs, (tgt[1] - orig[1]) * fs
+            x, y, z = x + er[0] * dr, y + er[1] * dr, z + dz
+        return (x, y, z)
+
+    def lip_pos(t, d):
+        """Pit-lip band point d under the deck: an undercut lip, ribs below."""
+        fs = fade_s(_bear_deg(t))
+        z = DECK_Z - d
+        x, y, _ = _wall_point(pit_wall, t, z)
+        env = _ramp(d, 0.0, 0.5) * _ramp(DECK_Z - S1_LIP_Z - d, 0.0, 1.2) * fs
+        rec = env * (0.3 + lipg(t * INNER_R, z))
+        return (x + math.cos(t) * rec, y + math.sin(t) * rec, z)
+
+    # ---- the plan: what grows where. Blocks of cells are claimed on the deck
+    # and ceiling grids so every base has a hole of its own to weld into. -----
+    rho = [INNER_R + (OUTER_R - INNER_R) * j / S1_NS for j in range(S1_NS + 1)]
+    used_d, used_c = {}, {}          # cell -> the block that claimed it
+    cstep = LC / S1_NC
+    dstep = (OUTER_R - INNER_R) / S1_NS
+
+    def col_of(b, w=2):
+        if w % 2:
+            b += 0.5 * (scb[0] - scb[1])          # an odd block is centred on a column
+        return min(range(n), key=lambda i: abs(scb[i] - b))
+
+    def claim(used, i0, i1, j0, j1, jmax, lane_margin):
+        if i0 < 1 or i1 > n - 2 or j0 < 1 or j1 > jmax:
+            return False
+        cells = [(i, j) for i in range(i0, i1) for j in range(j0, j1)]
+        if any(c in used for c in cells):
+            return False
+        if lane_margin is not None:
+            for (i, j) in cells:
+                if _s1_in_lane(0.5 * (scb[i] + scb[i + 1]), INNER_R + (j + 0.5) * dstep, lane_margin):
+                    return False
+        for c in cells:
+            used[c] = (i0, i1, j0, j1)
+        return True
+
+    def interior(used, i, j):
+        blocks = set(used.get(c) for c in ((i - 1, j - 1), (i, j - 1), (i - 1, j), (i, j)))
+        return len(blocks) == 1 and None not in blocks
+
+    def block_deck(b, rad, w, h, lane_margin=0.2):
+        ic, jc = col_of(b, w), int(round((rad - INNER_R) / dstep))
+        i0, j0 = ic - w // 2, jc - h // 2
+        j0 = max(1, min(S1_NS - 1 - h, j0))
+        if not claim(used_d, i0, i0 + w, j0, j0 + h, S1_NS - 1, lane_margin):
+            return None
+        return (i0, i0 + w, j0, j0 + h)
+
+    def block_ceil(b, rad, w, h):
+        ic, jc = col_of(b, w), int(round((rad - INNER_R) / cstep))
+        i0, j0 = ic - w // 2, jc - h // 2
+        j0 = max(1, min(S1_NC - 1 - h, j0))
+        if not claim(used_c, i0, i0 + w, j0, j0 + h, S1_NC - 1, None):
+            return None
+        return (i0, i0 + w, j0, j0 + h)
+
+    def centre_d(blk):
+        return (0.5 * (sc[blk[0]] + sc[blk[1]]) * R_REF, 0.5 * (rho[blk[2]] + rho[blk[3]]))
+
+    def centre_c(blk):
+        return (0.5 * (sc[blk[0]] + sc[blk[1]]) * R_REF, INNER_R + 0.5 * (blk[2] + blk[3]) * cstep)
+
+    def rng(lo_, hi_):
+        return lo_ + r.f() * (hi_ - lo_)
+
+    spikes, clusters, tites = [], [], []
+    dblocks, cblocks = [], []       # (block, [spikes with a base ring in it])
+
+    # full columns first: the landmarks
+    for (b, rad) in S1_COLUMNS:
+        bd = block_deck(b, rad, 4, 4, 0.0)
+        bc = block_ceil(b, rad, 4, 3)
+        if bd is None or bc is None:
+            raise RuntimeError("S1: column @%.0f r%.1f does not fit" % (b, rad))
+        sp = _S1Spike("column", b, rad, CEIL_H, rng(*S1_COL_R), 8, r, _S1Spike.U_COL, 1.0,
+                      bend=0.03, nridge=4)
+        sp.centre, sp.top = centre_d(bd), centre_c(bc)
+        spikes.append(sp)
+        dblocks.append((bd, [sp]))
+        cblocks.append((bc, [sp]))
+
+    # the nine cover clusters: a main spire with a fused lobe, satellites beside
+    plan = []
+    for (b, rad) in S1_CLUSTERS:
+        bd = block_deck(b, rad, 4, 4, 0.0)
+        if bd is None:
+            raise RuntimeError("S1: cluster @%.0f r%.1f does not fit" % (b, rad))
+        side = 1.0 if r.f() < 0.5 else -1.0          # +1: the lobe toward +tangential (higher column index)
+        lobe = (side * 0.5 * math.pi + 0.25 * r.sf(), rng(*S1_LOBE), rng(*S1_LOBE_H))
+        main = _S1Spike("mite", b, rad, rng(*S1_MAIN_H), rng(*S1_MAIN_R), 8, r,
+                        _S1Spike.U_MITE, S1_FLARE, lobe=lobe, bend=0.07, nridge=4)
+        s0, r0 = centre_d(bd)
+        main.centre = (s0 - side * 0.22 * R_REF / r0, r0)     # the lobe side keeps its fill margin
+        cx, cy = deck_xy(main.centre[0] / R_REF, main.centre[1])
+        mounds.append((cx, cy, S1_MOUND[0], S1_MOUND[1]))
+        spikes.append(main)
+        dblocks.append((bd, [main]))
+        plan.append((b, rad, bd, side, main))
+    for (b, rad, bd, side, main) in plan:            # satellites once every main block is claimed
+        members = [main]
+        nsat = r.i(1, 3)
+        edge = {1.0: bd[1], -1.0: bd[0]}             # the next free column on each side
+        inner = rad < _s1_lane_r(b)
+        for k in range(nsat):
+            sd = -side if k % 2 == 0 else side       # the first satellite faces the lobe
+            placed = None
+            for w in ((3, 2) if r.f() < 0.6 else (2,)):
+                i0 = edge[sd] if sd > 0 else edge[sd] - w
+                rows = [bd[2], bd[2] + 1, bd[3] - w] if inner else [bd[3] - w, bd[3] - w + 1, bd[2] + 1]
+                for j0 in rows:
+                    if claim(used_d, i0, i0 + w, j0, j0 + w, S1_NS - 1, 0.2):
+                        placed = (i0, w, j0)
+                        break
+                if placed:
+                    break
+            if placed is None and not inner and rad < 55.0:   # a mid cluster: behind the main spire
+                for w in (3, 2):
+                    i0 = bd[0] + r.i(0, 4 - w)
+                    if claim(used_d, i0, i0 + w, bd[3], bd[3] + w, S1_NS - 1, 0.2):
+                        placed = (i0, w, bd[3])
+                        break
+            if placed is None:
+                continue
+            i0, w, j0 = placed
+            if j0 < bd[3]:
+                edge[sd] = i0 + w if sd > 0 else i0
+            blk = (i0, i0 + w, j0, j0 + w)
+            Hs = rng(S1_SAT[0], S1_SAT[1]) if w == 3 else rng(S1_SAT[0], 1.3)
+            sat = _S1Spike("mite", b, rad, Hs, rng(S1_SAT[2], S1_SAT[3]) * (1.0 if w == 3 else 0.8),
+                           6, r, _S1Spike.U_SAT, 1.9, bend=0.06, nridge=1)
+            sat.centre = centre_d(blk)
+            members.append(sat)
+            spikes.append(sat)
+            dblocks.append((blk, [sat]))
+        clusters.append((b, rad, members))
+
+    # scattered small ones by the walls
+    small = []
+    tries = 0
+    while len(small) < S1_SMALL[0] and tries < 400:
+        tries += 1
+        b = rng(b_lo + 3.0, b_hi - 3.0)
+        rad = rng(47.3, 48.9) if r.f() < 0.5 else rng(55.1, 56.7)
+        blk = block_deck(b, rad, 2, 2)
+        if blk is None:
+            continue
+        sp = _S1Spike("mite", b, rad, rng(S1_SMALL[1], S1_SMALL[2]), rng(S1_SMALL[3], S1_SMALL[4]),
+                      5, r, _S1Spike.U_SMALL, 1.8, bend=0.05, nridge=1)
+        sp.centre = centre_d(blk)
+        spikes.append(sp)
+        small.append(sp)
+        dblocks.append((blk, [sp]))
+
+    # stalactites: a few over their stalagmite, the rest thrown at the ceiling
+    def add_tite(b, rad, L, R, blk):
+        sp = _S1Spike("tite", b, rad, L, R, 7 if R > 0.26 else r.pick((5, 6, 6)), r, _S1Spike.U_TITE,
+                      S1_TITE_FLARE, bend=0.08, nridge=3, ridge_amp=(0.18, 0.38), jitter=0.11)
+        sp.centre = centre_c(blk)
+        x, y = ceil_xy(sp.centre[0] / R_REF, sp.centre[1])
+        k = _ramp(R, S1_TITES[3], S1_TITES[4])
+        drips.append((x, y, S1_DRIP[0] + k * (S1_DRIP[1] - S1_DRIP[0]),
+                      S1_DRIP[2] + k * (S1_DRIP[3] - S1_DRIP[2])))
+        spikes.append(sp)
+        tites.append(sp)
+        cblocks.append((blk, [sp]))
+        return sp
+
+    for (b, rad, members) in clusters:
+        if b not in S1_OVER:
+            continue
+        main = members[0]
+        blk = block_ceil(_bear_deg(main.centre[0] / R_REF), main.centre[1], 3, 3)
+        if blk is None:
+            continue
+        sp = add_tite(b, rad, 1.0, rng(0.24, 0.34), blk)
+        sp.over = main           # its length is settled once the deck is known
+    got = tries = 0
+    while got < S1_TITES[0] and tries < 2000:
+        tries += 1
+        b = rng(b_lo + 2.5, b_hi - 2.5)
+        rad = rng(47.4, 56.6)
+        R = S1_TITES[3] + (S1_TITES[4] - S1_TITES[3]) * r.f() ** 1.6
+        blk = block_ceil(b, rad, 3 if R > 0.2 else 2, 3 if R > 0.28 else 2)
+        if blk is None:
+            continue
+        L = S1_TITES[1] + (S1_TITES[2] - S1_TITES[1]) * r.f() ** 1.4
+        L = max(S1_TITES[1], min(L, 2.2 + 12.0 * R))       # thin ones stay short
+        add_tite(b, rad, L, R, blk)
+        got += 1
+
+    # ---- the grids' vertices, now every mound and drip cone is known --------
+    G, WG, PG, param = {}, {}, {}, {}
+    for i, t in enumerate(sc):
+        s = t * R_REF
+        boundary = i in (0, n - 1)
+        if not boundary:
+            pit_wall.add_xt(len(pit_wall.rows) - 1, t)
+            shaft.add_xt(0, t)
+        for j in range(S1_NS + 1):
+            param[(i, j)] = (s, rho[j])
+            if j == 0:
+                G[(i, j)] = pit_wall.W(t, DECK_Z)
+            elif j == S1_NS:
+                G[(i, j)] = WF(0, t)
+            elif not boundary and not interior(used_d, i, j):
+                x, y = deck_xy(t, rho[j])
+                G[(i, j)] = m.v((x, y, DECK_Z + H(x, y)))
+    q_c = [LC * j / S1_NC for j in range(S1_NC + 1)]
+    qs = q_c + [LC + CEIL_H * k / S1_NW for k in range(1, S1_NW + 1)]
+    NQ = len(qs) - 1
+    for i, t in enumerate(sc):
+        boundary = i in (0, n - 1)
+        for k, q in enumerate(qs):
+            if k == 0:
+                WG[(i, k)] = shaft.W(t, CEIL_Z)
+            elif k == NQ:
+                WG[(i, k)] = G[(i, S1_NS)]
+            elif k == S1_NC and boundary:
+                WG[(i, k)] = WF(len(wall) - 1, t)
+            elif not boundary and not interior(used_c, i, k):
+                WG[(i, k)] = m.v(wc_pos(t, q))
+    S1["deck_xy"], S1["H"], S1["fade"] = deck_xy, H, fade_s
+
+    # ---- base rings on the deck and the ceiling, the holes filled round them
+    def ring_param(sp, centre, k):
+        s0, r0 = centre
+        return [(s0 + dt * R_REF / r0, r0 + dr) for (dr, dt) in sp.offsets(k)]
+
+    def loop_of(blk, P, V):
+        i0, i1, j0, j1 = blk
+        path = [(i, j0) for i in range(i0, i1)] + [(i1, j) for j in range(j0, j1)] \
+            + [(i, j1) for i in range(i1, i0, -1)] + [(i0, j) for j in range(j1, j0, -1)]
+        return [(P(i, j), V[(i, j)]) for (i, j) in path]
+
+    base_ids = {}
+    fill_tris = 0
+    for (blk, sps) in dblocks:
+        rings = []
+        for sp in sps:
+            pp = ring_param(sp, sp.centre, 0)
+            pts = [deck_xy(s / R_REF, rr) for (s, rr) in pp]
+            ids = [m.v((x, y, DECK_Z + H(x, y))) for (x, y) in pts]
+            base_ids[(sp, "deck")] = ids
+            sp.base = (DECK_Z + H(*deck_xy(sp.centre[0] / R_REF, sp.centre[1])), pts)
+            rings.append(list(zip(pp, ids)))
+        fill_tris += _s1_fill(m, loop_of(blk, lambda i, j: param[(i, j)], G), rings, UP, ZONE_DECK,
+                              "deck %s" % (blk,))
+    for (blk, sps) in cblocks:
+        rings = []
+        for sp in sps:
+            c = sp.top if sp.kind == "column" else sp.centre
+            pp = ring_param(sp, c, len(sp.us) - 1 if sp.kind == "column" else 0)
+            ids = []
+            for (s, rr) in pp:
+                x, y = ceil_xy(s / R_REF, rr)
+                ids.append(m.v((x, y, CEIL_Z - C(x, y))))
+            base_ids[(sp, "ceil")] = ids
+            rings.append(list(zip(pp, ids)))
+        fill_tris += _s1_fill(m, loop_of(blk, lambda i, j: (sc[i] * R_REF, INNER_R + j * cstep), WG),
+                              rings, DOWN, ZONE_ROCK, "ceil %s" % (blk,))
+
+    # ---- the spikes ---------------------------------------------------------
+    def emit_tube(sp, lvl, frame, tip_dir):
+        ns = sp.sides
+        er, et = frame
+        for a in range(len(lvl) - 1):
+            for i in range(ns):
+                j = (i + 1) % ns
+                am = 0.5 * (sp.angs[i] + (sp.angs[j] if j else sp.angs[0] + TWO_PI))
+                want = (er[0] * math.cos(am) + et[0] * math.sin(am),
+                        er[1] * math.cos(am) + et[1] * math.sin(am), 0.0)
+                m.quad(lvl[a][i], lvl[a][j], lvl[a + 1][j], lvl[a + 1][i], want, ZONE_ROCK, best=True)
+        if tip_dir is not None:
+            top = lvl[-1]
+            c = tuple(sum(m.verts[v][k] for v in top) / ns for k in range(3))
+            apex = m.v((c[0], c[1], c[2] + tip_dir * ((0.4 if sp.kind == "tite" else 0.25) * sp.body(1.0) + 0.04)))
+            for i in range(ns):
+                m.tri(top[i], top[(i + 1) % ns], apex, (0.0, 0.0, tip_dir), ZONE_ROCK)
+
+    prisms = []
+    for sp in spikes:
+        t_c = sp.centre[0] / R_REF
+        frame = ((math.cos(t_c), math.sin(t_c)), (-math.sin(t_c), math.cos(t_c)))
+        sp.frame = frame
+        cx, cy = deck_xy(t_c, sp.centre[1])
+        sp.cxy = (cx, cy)
+        sp.deck_z = DECK_Z + H(cx, cy)
+        if sp.kind == "column":
+            tx, ty = ceil_xy(sp.top[0] / R_REF, sp.top[1])
+            z1 = CEIL_Z - C(tx, ty)
+            lvl = [base_ids[(sp, "deck")]]
+            for k in range(1, len(sp.us) - 1):
+                u = sp.us[k]
+                z = sp.deck_z + (z1 - sp.deck_z) * u
+                pts = [(cx + (tx - cx) * u + dx, cy + (ty - cy) * u + dy) for (dx, dy) in sp.section(u, frame)]
+                sp.rings.append((z, pts))
+                lvl.append([m.v((x, y, z)) for (x, y) in pts])
+            lvl.append(base_ids[(sp, "ceil")])
+            emit_tube(sp, lvl, frame, None)
+            prisms.append(sp)
+            continue
+        if sp.kind == "tite":
+            cx, cy = ceil_xy(t_c, sp.centre[1])
+            sp.cxy = (cx, cy)
+            zc = CEIL_Z - C(cx, cy)
+            deck_here = DECK_Z + H(cx, cy)
+            if sp.over is not None:
+                sp.H = zc - (sp.over.deck_z + sp.over.H + rng(0.5, 1.2))
+            clear = S1_LANE_CLEAR if _s1_in_lane(sp.b, sp.rad, 1.0) else S1_OFF_CLEAR
+            sp.H = max(S1_TITES[1], min(sp.H, zc - deck_here - clear))
+            sp.base_z, sp.tip_z = zc, zc - sp.H
+            sp.base = (zc, [ceil_xy(s / R_REF, rr) for (s, rr) in ring_param(sp, sp.centre, 0)])
+            lvl = [base_ids[(sp, "ceil")]]
+            for k in range(1, len(sp.us)):
+                u = sp.us[k]
+                z = zc - u * sp.H
+                pts = [(cx + dx, cy + dy) for (dx, dy) in sp.section(u, frame)]
+                sp.rings.append((z, pts))
+                lvl.append([m.v((x, y, z)) for (x, y) in pts])
+            emit_tube(sp, lvl, frame, -1.0)
+            if sp.tip_z - deck_here < 2.3:
+                prisms.append(sp)
+            continue
+        lvl = [base_ids[(sp, "deck")]]
+        for k in range(1, len(sp.us)):
+            u = sp.us[k]
+            z = sp.deck_z + u * sp.H
+            pts = [(cx + dx, cy + dy) for (dx, dy) in sp.section(u, frame)]
+            sp.rings.append((z, pts))
+            lvl.append([m.v((x, y, z)) for (x, y) in pts])
+        emit_tube(sp, lvl, frame, 1.0)
+        if sp.H >= 1.0:
+            prisms.append(sp)
+
+    # ---- the deck grid and its boundary strips ------------------------------
+    deck_cells = 0
+    for i in range(1, n - 2):
+        for j in range(S1_NS):
+            if (i, j) in used_d:
+                continue
+            m.quad(G[(i, j)], G[(i + 1, j)], G[(i + 1, j + 1)], G[(i, j + 1)], UP, ZONE_DECK, best=True)
+            deck_cells += 1
+    for (ib, ii) in ((0, 1), (n - 1, n - 2)):
+        A = [(RST[j] - INNER_R, DV(sc[ib], j)) for j in range(len(RST))]
+        B = [(rho[j] - INNER_R, G[(ii, j)]) for j in range(S1_NS + 1)]
+        _strip(m, A, B, UP, ZONE_DECK)
+
+    # ---- the ceiling-and-wall grid and its boundary strips ------------------
+    def wc_want(c):
+        if c[2] > CEIL_Z - 0.55 * F and math.hypot(c[0], c[1]) < OUTER_R - 0.55 * F:
+            return DOWN
+        a = math.atan2(c[1], c[0])
+        return (-math.cos(a), -math.sin(a), 0.0)
+
+    for i in range(1, n - 2):
+        for k in range(NQ):
+            if k < S1_NC and (i, k) in used_c:
+                continue
+            ids = (WG[(i, k)], WG[(i + 1, k)], WG[(i + 1, k + 1)], WG[(i, k + 1)])
+            if k < S1_NC - 1:
+                want, zone = DOWN, ZONE_ROCK
+            else:
+                c = tuple(sum(m.verts[v][q] for v in ids) / 4.0 for q in range(3))
+                want = wc_want(c)
+                zone = ZONE_ROCK
+                if k >= S1_NC:
+                    t, z = 0.5 * (sc[i] + sc[i + 1]), CEIL_Z - (0.5 * (qs[k] + qs[k + 1]) - LC)
+                    zone = ZONE_SHADE if ribs(t * OUTER_R, z) > 0.45 else ZONE_ROCK
+            m.quad(ids[0], ids[1], ids[2], ids[3], want, zone, best=True)
+    for (ib, ii) in ((0, 1), (n - 1, n - 2)):
+        t = sc[ib]
+        A = [(LC * j / ceil_nv, CE(t, j)) for j in range(ceil_nv + 1)]
+        for row in reversed(out_rows[:-1]):
+            v = WR(row, t)
+            A.append((LC + (CEIL_Z - m.verts[v][2]), v))
+        B = [(qs[k], WG[(ii, k)]) for k in range(NQ + 1)]
+        _strip(m, A, B, wc_want, ZONE_ROCK)
+
+    # ---- the pit lip: a band cut out of the pit wall and re-laid ------------
+    pit_wall.hole(lo, hi, S1_LIP_Z, DECK_Z)
+    for k, z in enumerate(pit_wall.rows):        # the row under the band fans to its ends
+        if abs(z - S1_LIP_Z) < 1e-6:
+            pit_wall.add_xt(k, lo)
+            pit_wall.add_xt(k, hi)
+    ds = list(S1_LIP_D)
+    for i, t in enumerate(sc):
+        PG[(i, 0)] = G[(i, 0)]
+        if i in (0, n - 1):
+            continue
+        for k, d in enumerate(ds):
+            PG[(i, k + 1)] = m.v(lip_pos(t, d))
+
+    def lip_want(c):
+        a = math.atan2(c[1], c[0])
+        return (-math.cos(a), -math.sin(a), 0.0)
+
+    for i in range(1, n - 2):
+        for k in range(len(ds)):
+            am = 0.5 * (sc[i] + sc[i + 1])
+            z = DECK_Z - 0.5 * ((ds[k - 1] if k else 0.0) + ds[k])
+            zone = ZONE_SHADE if lipg(am * INNER_R, z) > 0.32 else ZONE_ROCK
+            m.quad(PG[(i, k)], PG[(i + 1, k)], PG[(i + 1, k + 1)], PG[(i, k + 1)],
+                   (-math.cos(am), -math.sin(am), 0.0), zone, best=True)
+    bottom = [(t, pit_wall.W(t, S1_LIP_Z)) for t in pit_wall.tbreaks(lo, hi)]
+    _strip(m, bottom, [(sc[i], PG[(i, len(ds))]) for i in range(1, n - 1)], lip_want, ZONE_ROCK)
+    for (ib, ii) in ((0, 1), (n - 1, n - 2)):
+        t = sc[ib]
+        A = [(S1_LIP_Z, pit_wall.W(t, S1_LIP_Z)), (DECK_Z, pit_wall.W(t, DECK_Z))]
+        B = [(DECK_Z - (ds[k - 1] if k else 0.0), PG[(ii, k)]) for k in range(len(ds), -1, -1)]
+        _strip(m, A, B, lip_want, ZONE_ROCK)
+
+    # ---- what the collider, the stats and the renders need -----------------
+    S1["spikes"], S1["clusters"], S1["prisms"], S1["tites"] = spikes, clusters, prisms, tites
+    S1["counts"] = {"deck_cells": deck_cells, "fill_tris": fill_tris, "subcols": n,
+                    "small": len(small), "sats": sum(len(c[2]) - 1 for c in clusters),
+                    "tites": len(tites), "columns": len(S1_COLUMNS),
+                    "over": sum(1 for t in tites if t.over is not None)}
+    S1["silhouette"] = _s1_silhouette(clusters)
+    return lo, hi
+
+
+def _s1_silhouette(clusters):
+    """Per cluster, from the guard's eye: the combined width (metres at its
+    distance) of every member's cross-section per 0.1 m of height over the
+    deck up to S1_COVER_H; the narrowest, whether it is one unbroken
+    silhouette all the way up, and its reach left/right of the main axis at
+    1.0 m. [(bearing, min_width, unbroken, widths, left, right)]"""
+    out = []
+    for (b, rad, members) in clusters:
+        main = members[0]
+        am = math.atan2(main.cxy[1], main.cxy[0])
+        dist = math.hypot(*main.cxy)
+        widths, unbroken = [], True
+        left = right = 0.0
+        for kh in range(2, int(round(S1_COVER_H * 10)) + 1):
+            z = main.deck_z + 0.1 * kh
+            ivals = []
+            for sp in members:
+                rings = [sp.base] + sp.rings
+                for (za, pa), (zb, pb) in zip(rings, rings[1:]):
+                    if za - 1e-9 <= z <= zb + 1e-9 and zb > za:
+                        f = (z - za) / (zb - za)
+                        pts = [((1 - f) * p[0] + f * q[0], (1 - f) * p[1] + f * q[1]) for p, q in zip(pa, pb)]
+                        angs = [(math.atan2(p[1], p[0]) - am + math.pi) % TWO_PI - math.pi for p in pts]
+                        ivals.append((min(angs), max(angs)))
+                        break
+            ivals.sort()
+            merged = []
+            for a, c in ivals:
+                if merged and a <= merged[-1][1] + 1e-9:
+                    merged[-1] = (merged[-1][0], max(merged[-1][1], c))
+                else:
+                    merged.append((a, c))
+            core = [iv for iv in merged if iv[0] <= 0.0 <= iv[1]]
+            if not core:
+                widths.append(0.0)
+                unbroken = False
+                continue
+            a, c = core[0]
+            widths.append((c - a) * dist)
+            if kh == 10:
+                left, right = -a * dist, c * dist
+        out.append((b, min(widths), unbroken, widths, left, right, 0.5 * (right - left)))
+    return out
+
+
+def _s1_collider(c):
+    """The section's deck follows the flowstone; a frustum stack under every
+    stalagmite of a metre or more, every column and every low stalactite tip."""
+    sc, H, deck_xy = S1["sc"], S1["H"], S1["deck_xy"]
+    cols = list(sc)
+    NJ = S1_NS
+    rho = [INNER_R + (OUTER_R - INNER_R) * j / NJ for j in range(NJ + 1)]
+    grid = []
+    for t in cols:
+        col = []
+        for rr in rho:
+            x, y = deck_xy(t, rr)
+            col.append(c.v((x, y, DECK_Z + H(x, y))))
+        grid.append(col)
+    for i in range(len(cols) - 1):
+        for j in range(NJ):
+            c.quad(grid[i][j], grid[i + 1][j], grid[i + 1][j + 1], grid[i][j + 1], UP, ZONE_ROCK)
+    before = len(c.faces)
+    for sp in S1["prisms"]:
+        cx, cy = sp.cxy
+        if sp.kind == "tite":
+            lv = []
+            for (z, scale) in ((sp.tip_z - 0.05, 0.3), (sp.tip_z + 0.7, 0.8), (sp.tip_z + 1.5, 1.0)):
+                u = max(0.0, min(1.0, (sp.base_z - z) / sp.H))
+                lv.append((z, [(dx * scale, dy * scale) for (dx, dy) in sp.section(u, sp.frame)]))
+        else:
+            hs = [0.3, 1.0, 2.2, 4.5, 7.0, 8.2] if sp.kind == "column" else \
+                ([0.3, 1.0, 2.0, 0.92 * sp.H] if sp.H > 2.4 else [0.3, 0.6 * sp.H, 0.92 * sp.H])
+            lv = []
+            for k, h in enumerate(hs):
+                u = min(1.0, h / sp.H)
+                z = sp.deck_z - 0.1 if k == 0 else sp.deck_z + h
+                lv.append((z, sp.section(u, sp.frame)))
+        _s1_frustum(c, cx, cy, lv, sp.angs, sp.frame)
+    S1["coll_tris"] = len(c.faces) - before + 2 * (len(cols) - 1) * NJ
+
+
+# =============================================================================
 # THE ROCK
 # =============================================================================
 
@@ -1699,6 +2614,11 @@ def _rock(r):
                 if any(abs(t - k) < 1e-7 for k in keep)
                 or all(abs(t - k) * CROSS_R > COL_MERGE for k in keep)]
     cols_all = _merge_cols([c for c in base_cols if not (cut0 < c < cut1)], sec_cols)
+    s1_in = [t for t in cols_all if T(S1_EXT[1]) <= t <= T(S1_EXT[0])]
+    s1_lo, s1_hi = s1_in[0], s1_in[-1]           # S1 re-lays everything between these
+
+    def in_s1(t0, t1):
+        return s1_lo - 1e-9 <= t0 and t1 <= s1_hi + 1e-9
 
     # ---- the lava sea: what the pit floor is, and what lights it ------------
     _lava_sea(m, pit_wall, COURTYARD_Z, _Rng(LAVA_SEED), extra=lava_ts)
@@ -1853,6 +2773,8 @@ def _rock(r):
 
     for ci in range(len(cols_all) - 1):
         t0, t1 = cols_all[ci], cols_all[ci + 1]
+        if in_s1(t0, t1):
+            continue
         am = 0.5 * (t0 + t1)
         want = (-math.cos(am), -math.sin(am), 0.0)
         side = _side_u(ang, am)[0]
@@ -1975,6 +2897,8 @@ def _rock(r):
 
     for ci in range(len(cols_all) - 1):
         t0, t1 = cols_all[ci], cols_all[ci + 1]
+        if in_s1(t0, t1):
+            continue
         z0, z1 = chan_z(t0), chan_z(t1)
         if z0 < LAVA_Z + 1e-9 and z1 < LAVA_Z + 1e-9:
             zone = ZONE_RIVER
@@ -2018,9 +2942,14 @@ def _rock(r):
 
     for ci in range(len(cols_all) - 1):
         t0, t1 = cols_all[ci], cols_all[ci + 1]
+        if in_s1(t0, t1):
+            continue
         for j in range(ceil_nv):
             m.quad(CE(t0, j), CE(t1, j), CE(t1, j + 1), CE(t0, j + 1),
                    (0.0, 0.0, -1.0), ZONE_ROCK)
+
+    # ---- S1: the stalactite cave, grown into all of the above ---------------
+    _s1_sculpt(m, ang, cols_all, s1_lo, s1_hi, pit_wall, shaft, pit[npit - 1], wall, upper, WF, WR, CE, DV, ceil_nv, OUT_ROWS)
 
     # ---- the cells, the river's run down the pit wall, then the faces they
     # were cut from -----------------------------------------------------------
@@ -2029,6 +2958,10 @@ def _rock(r):
             t = pit_wall._norm(c["s"] / INNER_R)
             if cut0 - 0.02 < t < cut1 + 0.02:
                 continue                       # the channel runs down here
+            hw = 0.5 * c["w"] / INNER_R
+            if t + hw > s1_lo and t - hw < s1_hi and c["z"] + 0.5 * c["h"] > S1_LIP_Z:
+                S1["cells_skipped"] = S1.get("cells_skipped", 0) + 1
+                continue                       # S1's pit-lip band is re-laid here
             _carve(m, pit_wall, c)
         else:
             _carve(m, shaft, c)
@@ -2079,6 +3012,8 @@ def _collider(ang, cut0, cut1):
             cv[key] = c.v(p if z is None else (p[0], p[1], z))
         return cv[key]
 
+    s1_lo, s1_hi = S1["lo"], S1["hi"]
+    dcols = _merge_cols(dcols, [s1_lo, s1_hi])
     for ci in range(len(dcols) - 1):
         t0, t1 = dcols[ci], dcols[ci + 1]
         inside = t0 >= cut0 - 1e-9 and t1 <= cut1 + 1e-9
@@ -2089,11 +3024,12 @@ def _collider(ang, cut0, cut1):
         a1 = CV("lip%.2f" % tz, lip, t1, tz)
         c.quad(CV("foot", pit_foot, t0), CV("foot", pit_foot, t1), a1, a0,
                inward, ZONE_SHADE)                                     # pit wall
-        if inside:
+        if inside or (s1_lo - 1e-9 <= t0 and t1 <= s1_hi + 1e-9):
             continue
         c.quad(a0, a1, CV("out", foot, t1), CV("out", foot, t0), UP, ZONE_ROCK)
 
     _lake_collider(c, _Rng(LAKE_SEED))
+    _s1_collider(c)
     _shelf_box(c)
     return c
 
@@ -2299,8 +3235,60 @@ def _deck_render(spec, objects):
         eye = _v3(_v3(_v3(cm, out, -2.2 * h), UP, 0.35 * h), (-out[1], out[0], 0.0), 0.6 * h)
         shot("cell", eye, cm, 35.0, (1000, 800))
         shot("mouth", _v3(cm, out, -1.7 * h), cm, 40.0, (1000, 800))
+    if S1_REVIEW:
+        _s1_review(scene, shot)
 
     for ob in (cam, target, key):
+        bpy.data.objects.remove(ob, do_unlink=True)
+
+
+def _s1_review(scene, shot):
+    """Review-only: white light into the cave, exposure up, a 0.6 x 1.8 m player
+    proxy behind one cluster. Everything made here is removed after."""
+    made = []
+    sd = bpy.data.lights.new("ReviewSun", type="SUN")
+    sd.energy, sd.color = 2.0, (1.0, 1.0, 1.0)
+    sun = mdl._link(bpy.data.objects.new("ReviewSun", sd))
+    aim = mdl._link(bpy.data.objects.new("ReviewAim", None))
+    sun.location, aim.location = (0.0, 0.0, 35.0), pol(37.0, 52.0, DECK_Z)
+    con = sun.constraints.new(type="TRACK_TO")
+    con.target, con.track_axis, con.up_axis = aim, "TRACK_NEGATIVE_Z", "UP_Y"
+    made += [sun, aim]
+    for b in (20.0, 31.0, 42.0, 53.0):
+        ld = bpy.data.lights.new("ReviewFill", type="POINT")
+        ld.energy, ld.color, ld.shadow_soft_size = 4500.0, (1.0, 1.0, 1.0), 2.5
+        f = mdl._link(bpy.data.objects.new("ReviewFill", ld))
+        f.location = pol(b, 51.5, DECK_Z + 4.0)
+        made.append(f)
+    main = max((c[2][0] for c in S1["clusters"]), key=lambda s: s.H)
+    off = [s[6] for s in S1["silhouette"] if s[0] == main.b][0]   # the silhouette's centre at 1 m
+    x, y = main.cxy
+    rad = math.hypot(x, y)
+    er, et = (x / rad, y / rad), (-y / rad, x / rad)
+    px, py = x + er[0] * 1.3 + et[0] * off, y + er[1] * 1.3 + et[1] * off   # 1.3 m behind it
+    verts, faces = [], []
+    for dz in (-0.05, 1.8):
+        for (dr, dt) in ((-0.15, -0.3), (0.15, -0.3), (0.15, 0.3), (-0.15, 0.3)):
+            verts.append((px + er[0] * dr + et[0] * dt, py + er[1] * dr + et[1] * dt, main.deck_z + dz))
+    faces = [(0, 3, 2, 1), (4, 5, 6, 7), (0, 1, 5, 4), (1, 2, 6, 5), (2, 3, 7, 6), (3, 0, 4, 7)]
+    proxy = mdl.mesh("PlayerProxy", verts, faces)          # 0.6 m across the sightline, 0.3 m deep
+    proxy.data.materials.append(mdl.flat_material("ProxyGreen", (0.1, 0.9, 0.2, 1.0)))
+    made.append(proxy)
+    pf = bpy.data.lights.new("ReviewPitFill", type="POINT")   # the pit lip, for the guard's view
+    pf.energy, pf.color, pf.shadow_soft_size = 9000.0, (1.0, 1.0, 1.0), 3.0
+    f = mdl._link(bpy.data.objects.new("ReviewPitFill", pf))
+    f.location = pol(37.0, 38.0, 25.0)
+    made.append(f)
+    mdl._try(scene.view_settings, "exposure", 0.7)
+    mid = (x, y, main.deck_z + 1.0)
+    shot("review_run", pol(13.0, 52.0, DECK_Z + EYE_H), pol(36.0, 52.0, 24.0), 24.0, (1400, 800))
+    shot("review_run2", pol(40.0, 52.0, DECK_Z + EYE_H), pol(18.0, 51.5, 24.0), 24.0, (1400, 800))
+    shot("review_guard", (0.0, 0.0, S1_EYE_Z), pol(37.0, 52.0, 24.0), 35.0, (1600, 900))
+    shot("review_high", pol(20.0, 34.0, 30.8), pol(42.0, 52.0, 23.5), 22.0, (1500, 900))
+    shot("review_cover", (0.0, 0.0, S1_EYE_Z), mid, 80.0, (1200, 900))
+    shot("review_ceiling", pol(16.0, 52.5, DECK_Z + EYE_H), pol(34.0, 52.0, 29.5), 18.0, (1400, 900))
+    mdl._try(scene.view_settings, "exposure", 0.0)
+    for ob in made:
         bpy.data.objects.remove(ob, do_unlink=True)
 
 
@@ -2353,6 +3341,14 @@ def build():
           % (len(CELLS), sum(1 for c in CELLS if c[0][2] < DECK_Z),
              max(c[0][2] + 0.5 * c[3] for c in CELLS if c[0][2] < DECK_Z), UNIFORM_TOP,
              sum(1 for c in CELLS if c[0][2] > 200.0), max(c[0][2] for c in CELLS)))
+    for (b, wmin, ok, ws, left, right, _off) in S1["silhouette"]:
+        print("MDL STATS s1 cover @%.0f min_width=%.2f unbroken=%s at1m left=%.2f right=%.2f widths=%s"
+              % (b, wmin, ok, left, right, " ".join("%.2f" % w for w in ws)))
+    sp = S1["spikes"]
+    print("MDL STATS s1 %s prisms=%d coll_tris=%d mites=%s tites=%s"
+          % (" ".join("%s=%s" % kv for kv in sorted(S1["counts"].items())), len(S1["prisms"]), S1["coll_tris"],
+             " ".join("%.1f" % s.H for s in sp if s.kind == "mite" and s.sides == 8),
+             " ".join("%.1f" % s.H for s in sp if s.kind == "tite")))
     print("MDL STATS deck r=%.1f..%.1f y=%.2f courtyard_y=%.2f ceiling_y=%.2f rim_y=%.1f ground_r=%.0f"
           % (INNER_R, OUTER_R, DECK_Z, COURTYARD_Z, CEIL_Z, RIM_Z, GROUND_RINGS[-1][0]))
     return [ob, coll_ob]
