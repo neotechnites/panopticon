@@ -142,7 +142,7 @@ LAVA_FLAT_R    = 18.0                 # level under the tower's foot
 # RECESS_R back into the two walls, re-laid in the river's material.
 LAKE_A0, LAKE_A1 = 292.3, 338.3       # the channel, bank to bank, game bearings
 LAKE_BANK = 0.6                       # degrees of sloped bank at each end
-WALL_A0, WALL_A1 = 293.0, 338.0       # the run down the shaft wall
+WALL_A0, WALL_A1 = 293.0, 338.0       # pass 4's wall-run columns: the sea's rim keeps them
 WALL_BANK = 0.7
 LAVA_Z = 22.70                        # the channel floor: 0.3 m under the deck
 WALL_LAVA_TOP = 28.80                 # the fall tops out here, 2.7 m under the ceiling
@@ -152,21 +152,21 @@ PIT_FADE = 2.0                        # metres the pit-wall channel takes to ope
 RST = [46.70, 47.60, 48.60, 50.00, 51.40, 52.80, 54.20, 55.40, 56.40, 57.30]
 RST_RIVER = [46.70, 48.20, 49.00, 49.70, 50.40, 51.10, 51.80, 52.50, 53.20,
              53.90, 54.60, 55.30, 56.00, 56.70, 57.30]   # the channel's own stations,
-                                      # absolute radii; the first is the lip, LIP_R out
+                                      # absolute radii; the first is the lip, LIP_R out,
+                                      # the last the wall foot, wherever that is
 FLOOR_AMP = 0.15                      # the river floor's 2-D surface, metres, peak
 FLOOR_L = (1.8, 4.0)                  # ... wavelengths
 FALL_AMP = 0.06                       # the same on the wall fall, smaller
-FALL_FLAT = 0.75                      # 0 = the fall follows the wall's arc, 1 = planar
-FALL_FLAT_DEG = 2.5                   # ... eased in over this many degrees at each end,
-                                      # as is everything cut deeper than RECESS_R
 FALL_ROWS = (24.0, 25.0, 26.0, 27.0)  # fall rows between the foot and the lip
+CEIL_BAND = 0.6                       # rock over the shelf: the ceiling comes down to this
+CEIL_BLEND = 4.0                      # ... and back up to CEIL_Z over this many degrees
 LIP_R = 1.0                           # both lips round over this far ...
 LIP_ROWS = (0.15, 0.35)               # ... on rows this far below the flat
 LIP_P = 1.5                           # the round-over's superellipse exponent
-BANK_STEP = (0.15, 0.4)               # metres a bank edge steps in or out per run
-BANK_OFF = (-0.4, 0.4)                # ... within this of the nominal line (+ into the river)
-BANK_W = [0.30, 0.45, 0.60, 0.80, 1.00]   # bank width, plan: steep .. gentle
-BANK_RUN = (2, 4)                     # stations a step or a width is held for
+BANK_STEP = (0.1, 0.28)               # metres a bank edge steps in or out per run
+BANK_OFF = (-0.3, 0.3)                # the deck edge wanders within this of its line
+BANK_EDGE = (0.0, 0.45)               # the lava edge within this, into the river
+BANK_RUN = (2, 4)                     # rows a step is held for
 BANK_REACH = 3.0                      # metres of floor that follow a bank's line
 COL_MERGE = 0.30                      # a river column this close to a wall column yields
 SHELF_D = 2.5                         # the flat river cut back into the wall over the fall
@@ -1494,7 +1494,7 @@ def _build_platforms(m, r):
 # and re-laid in the river's material, with the rock rim banking down to them
 # -----------------------------------------------------------------------------
 
-def _pit_lava(m, wall, ta, tb, cut_a, cut_b, cols, rim, r):
+def _pit_lava(m, wall, ta, tb, cut_a, cut_b, cols, rim, lines):
     """``ta``..``tb`` is the channel; ``cut_a``..``cut_b`` the wider span whose
     rim comes down to it. The fall runs on ``cols`` (the deck's columns); the
     sea's rim keeps ``rim`` and the sill zips the two. Returns the lava tris."""
@@ -1514,14 +1514,23 @@ def _pit_lava(m, wall, ta, tb, cut_a, cut_b, cols, rim, r):
         return max(_lip(LAVA_Z - z), RECESS_R * _ramp(LAVA_Z - z, 0.0, PIT_FADE))
 
     node = {}
+    row_of = {round(z, 6): BANK_WALL + BANK_DECK - 2 + k for k, z in enumerate(reversed(zs))}
 
     def N(t, z):
-        d = rec(z)
-        if d < EPS:
-            return wall.W(t, z)
+        """The fall's own vertex: the bank line's edge at this row, the
+        columns between following it, all recessed rec(z)."""
         key = (round(t, 6), round(z, 6))
         if key not in node:
-            node[key] = m.v(_push(wall.P(t, z), d))
+            i = row_of[round(z, 6)]
+            rad = INNER_R
+            if abs(t - ta) < 1e-9:
+                da = _bank_da(lines[0], 0, i, rad)
+            elif abs(t - tb) < 1e-9:
+                da = _bank_da(lines[1], 1, i, rad)
+            else:
+                da = (_bank_da(lines[0], 0, i, rad) * max(0.0, 1.0 - (t - ta) * rad / BANK_REACH)
+                      + _bank_da(lines[1], 1, i, rad) * max(0.0, 1.0 - (tb - t) * rad / BANK_REACH))
+            node[key] = m.v(_push(wall.P(t + da, z), rec(z)))
         return node[key]
 
     tris = 0
@@ -1589,19 +1598,39 @@ def _lake_collider(c, r):
             _lake_column(c, b, FIN_R, fs, [(22.20, 1.16), (FIN_TOP_Z, 0.70)], r, ZONE_ROCK)
 
 
-def _bank_profile(r, n):
-    """Per station: (deck-edge offset, bank width), metres, held in runs, so
-    the bank's line steps in and out and its slope changes along the run."""
-    offs, ws, o = [], [], 0.0
-    while len(offs) < n:
+def _walk(r, n, lo, hi):
+    """A seeded random walk held in runs: n values within lo..hi."""
+    out, v = [], 0.5 * (lo + hi) if lo < 0.0 else lo
+    while len(out) < n:
         step = BANK_STEP[0] + r.f() * (BANK_STEP[1] - BANK_STEP[0])
-        if o + step > BANK_OFF[1] or (o - step >= BANK_OFF[0] and r.f() < 0.5):
+        if v + step > hi or (v - step >= lo and r.f() < 0.5):
             step = -step
-        o += step
-        offs += [o] * r.i(*BANK_RUN)
-    while len(ws) < n:
-        ws += [r.pick(BANK_W)] * r.i(*BANK_RUN)
-    return [(offs[j], min(ws[j], 1.5 - offs[j])) for j in range(n)]
+        v = min(hi, max(lo, v + step))
+        out += [v] * r.i(*BANK_RUN)
+    return out[:n]
+
+
+BANK_WALL, BANK_DECK, BANK_PIT = 9, 15, 40    # rows on the wall fall, deck stations, pit rows
+
+
+def _bank_line(r):
+    """ONE bank line per side: (deck-edge offset, lava-edge offset) in metres
+    per row, from the shelf lip down the wall fall (rows 0..8, 8 = the foot),
+    along the deck (8..22, 22 = the pit lip) and down the pit fall (22..)."""
+    n = BANK_WALL + BANK_DECK + BANK_PIT
+    edge = _walk(r, n, *BANK_EDGE)
+    offs = _walk(r, n, *BANK_OFF)
+    foot, lip = BANK_WALL - 1, BANK_WALL + BANK_DECK - 2
+    out = []
+    for i in range(n):
+        k = min(_ramp(i, foot, foot + 2), _ramp(i, lip, lip - 2))   # only the deck's
+        out.append((offs[i] * k, edge[i]))                         # own edge wanders
+    return out
+
+
+def _bank_da(line, side, i, rad):
+    """Angular offset of a side's lava edge on row i, at radius rad."""
+    return (line[i][1] / rad) * (1.0 if side == 0 else -1.0)
 
 
 # =============================================================================
@@ -1619,6 +1648,13 @@ def _rock(r):
     bank0, bank1 = T(LAKE_A1 - LAKE_BANK), T(LAKE_A0 + LAKE_BANK)
     wl0, wl1 = T(WALL_A1), T(WALL_A0)                # the run down the shaft wall
     wb0, wb1 = T(WALL_A1 - WALL_BANK), T(WALL_A0 + WALL_BANK)
+
+    def ceil_z(t):
+        """The gallery ceiling at the wall: down to CEIL_BAND over the shelf
+        across the river, back up to CEIL_Z over CEIL_BLEND degrees."""
+        b = math.radians(CEIL_BLEND)
+        k = min(_ramp(t, cut0 - b, cut0), _ramp(t, cut1 + b, cut1))
+        return CEIL_Z - k * (CEIL_Z - WALL_LAVA_TOP - CEIL_BAND)
 
     # ---- pit wall: courtyard up to the deck lip. Rings are level (their
     # radius steps, like cleaved rock) so a cell mouth is a rectangle in
@@ -1685,6 +1721,9 @@ def _rock(r):
                   lambda i, k=k: OUTER_R * (1.0 + wbias[i][k]),
                   lambda i, k=k: wall_z[k] + wzj[i][k])
             for k in range(nwall)]
+    for i in range(SIDES):                          # the head ring follows the ceiling down
+        v = wall[nwall - 1][i]
+        m.verts[v] = (m.verts[v][0], m.verts[v][1], ceil_z(ang[i]))
 
     def wall_zone(k):
         def zone(i):
@@ -1713,7 +1752,8 @@ def _rock(r):
     wfv = {}
 
     def WF(k, t):
-        """Vertex on outer-wall ring k at a column angle; shared."""
+        """Vertex on outer-wall ring k at a column angle; shared. The head
+        ring follows the ceiling down over the river."""
         key = (k, round(t, 7))
         if key not in wfv:
             i, u = _side_u(ang, t)
@@ -1722,7 +1762,10 @@ def _rock(r):
             elif u > 1.0 - 1e-9:
                 wfv[key] = wall[k][(i + 1) % SIDES]
             else:
-                wfv[key] = m.v(_chord(m, wall[k], ang, t))
+                p = _chord(m, wall[k], ang, t)
+                if k == nwall - 1:
+                    p = (p[0], p[1], ceil_z(t))
+                wfv[key] = m.v(p)
         return wfv[key]
 
     # ---- the channel's floor height, and how far it is cut into the wall -----
@@ -1735,63 +1778,81 @@ def _rock(r):
         return DECK_Z + (LAVA_Z - DECK_Z) * f
 
     def wall_colf(t):
-        if t <= wl0 + 1e-9 or t >= wl1 - 1e-9:
-            return 0.0
-        if wb0 - 1e-9 <= t <= wb1 + 1e-9:
+        """0 on the cut columns, 1 from the bank chains in: the wall's lava
+        edge is the deck's own bank line."""
+        if bank0 - 1e-9 <= t <= bank1 + 1e-9:
             return 1.0
-        return _ramp(t, wl0, wb0) if t < wb0 else _ramp(t, wl1, wb1)
+        return 0.0
 
-    # rows: (label, depth). Outside the river the wall keeps pass 4's rows;
-    # inside, the fall's own rows: foot, FALL_ROWS, the rounded lip, the shelf.
+
+    # rows: (label, depth). Outside the river the wall keeps pass 4's rows
+    # (squeezed under the ceiling where it comes down); inside, the fall's
+    # own rows: foot, FALL_ROWS, the rounded lip, the shelf, the ceiling.
     OUT_ROWS = [((0, 0.0), 0.0), ((0, 0.5), 0.0), ((1, 0.0), 0.0), ((1, 0.5), 0.0),
-                (("z", WALL_ROWS_OUT[0]), 0.0), (("z", WALL_ROWS_OUT[1]), 0.0), ((1, 1.0), 0.0)]
+                (("out", 0), 0.0), (("out", 1), 0.0), ((1, 1.0), 0.0)]
     IN_ROWS = [("low", RECESS_R), ((0, 0.0), RECESS_R)] \
         + [(("z", z), RECESS_R) for z in FALL_ROWS] \
         + [(("z", WALL_LAVA_TOP - d), RECESS_R + _lip(d)) for d in reversed(LIP_ROWS)] \
         + [(("z", WALL_LAVA_TOP), RECESS_R + LIP_R), ("shelf", SHELF_D), ("ceil", SHELF_D),
            ((1, 1.0), 0.0)]
-    t_mid = 0.5 * (wl0 + wl1)
+    IN_ROW_I = {row[0]: BANK_WALL - 1 - k for k, row in enumerate(IN_ROWS[:BANK_WALL])}
     fall_field = _field(_Rng(LAKE_SEED + 3), FALL_AMP)
+    lines = (_bank_line(_Rng(LAKE_SEED + 1)), _bank_line(_Rng(LAKE_SEED + 4)))
     wrv = {}
 
     def wall_rec(row, t):
-        lab, depth = row
-        if depth < EPS:
+        return row[1] * wall_colf(t)
+
+    def wall_da(i, t):
+        """Angular offset of a lava column on bank-line row i."""
+        if t <= cut0 + 1e-9 or t >= cut1 - 1e-9:
             return 0.0
-        flat = FALL_FLAT * (OUTER_R + RECESS_R) * (1.0 / math.cos(t - t_mid) - 1.0)
-        e = math.radians(FALL_FLAT_DEG)
-        ease = min(_ramp(t, wl0, wl0 + e), _ramp(t, wl1, wl1 - e))
-        return depth * wall_colf(t) + flat * ease
+        if abs(t - bank0) < 1e-9:
+            return _bank_da(lines[0], 0, i, OUTER_R)
+        if abs(t - bank1) < 1e-9:
+            return _bank_da(lines[1], 1, i, OUTER_R)
+        return (_bank_da(lines[0], 0, i, OUTER_R) * max(0.0, 1.0 - (t - bank0) * OUTER_R / BANK_REACH)
+                + _bank_da(lines[1], 1, i, OUTER_R) * max(0.0, 1.0 - (bank1 - t) * OUTER_R / BANK_REACH))
 
     def WR(row, t):
+        """A wall vertex. Outside the river: on the wall's own rings. Inside:
+        a straight drop at the foot's radius plus the row's depth, the lava
+        columns swung by the bank line on that row."""
         lab, _depth = row
         d = wall_rec(row, t)
-        if lab == "low":
-            z = chan_z(t)
-            if d < EPS and abs(z - DECK_Z) < 1e-9:
-                return WF(0, t)
-            key = ("low", round(t, 7))
+        if d < EPS and lab in ((0, 0.0), (1, 1.0)):
+            return WF(0 if lab == (0, 0.0) else nwall - 1, t)
+        if lab == "low" and d < EPS and abs(chan_z(t) - DECK_Z) < 1e-9:
+            return WF(0, t)
+        if lab[0] in ("out", 0, 1):                   # pass 4's rows, on the rings
+            if lab[0] == "out":
+                za, zb = m.verts[WR(((1, 0.5), 0.0), t)][2], m.verts[WF(nwall - 1, t)][2]
+                zr = zb - (CEIL_Z - WALL_ROWS_OUT[lab[1]]) * (zb - za) / (CEIL_Z - za)
+                k, f = 1, (zr - m.verts[WF(1, t)][2]) / (zb - m.verts[WF(1, t)][2])
+            else:
+                k, f = lab
+            pa, pb = m.verts[WF(k, t)], m.verts[WF(k + 1, t)]
+            key = (k, round(f, 7), round(d, 5), round(t, 7))
             if key not in wrv:
-                p = m.verts[WF(0, t)]
-                wrv[key] = m.v(_push((p[0], p[1], z), d))
+                wrv[key] = m.v(_push(tuple((1.0 - f) * pa[c] + f * pb[c] for c in range(3)), d))
             return wrv[key]
-        if lab == "shelf":
-            k, f = 1, (WALL_LAVA_TOP - m.verts[WF(1, t)][2]) / (m.verts[WF(2, t)][2] - m.verts[WF(1, t)][2])
-        elif lab == "ceil":
-            k, f = 1, 1.0
-        elif lab[0] == "z":
-            k = 0 if lab[1] <= m.verts[WF(1, t)][2] else 1
-            f = (lab[1] - m.verts[WF(k, t)][2]) / (m.verts[WF(k + 1, t)][2] - m.verts[WF(k, t)][2])
-        else:
-            k, f = lab
-        pa, pb = m.verts[WF(k, t)], m.verts[WF(k + 1, t)]
-        if d < EPS and f in (0.0, 1.0):
-            return WF(k, t) if f == 0.0 else WF(k + 1, t)
-        key = (k, round(f, 7), round(d, 5), round(t, 7))   # same point, same vertex
+        key = (lab, round(d, 5), round(t, 7))
         if key not in wrv:
-            p = _push(tuple((1.0 - f) * pa[c] + f * pb[c] for c in range(3)), d)
-            if lab[0] == "z" and lab[1] in FALL_ROWS and wb0 + 1e-9 < t < wb1 - 1e-9:
-                p = _push(p, fall_field(t * OUTER_R, p[2]))
+            foot = m.verts[WF(0, t)]
+            if lab == "low":
+                z = chan_z(t)
+            elif lab == "shelf":
+                z = WALL_LAVA_TOP
+            elif lab == "ceil":
+                z = ceil_z(t)
+            else:
+                z = lab[1]
+            rad = math.hypot(foot[0], foot[1]) + d
+            i = IN_ROW_I.get(lab, 0)
+            a = t + wall_da(i, t)
+            p = (rad * math.cos(a), rad * math.sin(a), z)
+            if lab[0] == "z" and lab[1] in FALL_ROWS and bank0 + 1e-9 < t < bank1 - 1e-9:
+                p = _push(p, fall_field(t * OUTER_R, z))
             wrv[key] = m.v(p)
         return wrv[key]
 
@@ -1817,9 +1878,10 @@ def _rock(r):
             A = [(row_z(row, t0), WR(row, t0)) for row in rows0]
             B = [(row_z(row, t1), WR(row, t1)) for row in rows1]
             up = (-math.cos(am) + 0.0, -math.sin(am), 0.6)
+            top = min(ceil_z(t0), ceil_z(t1)) - 0.05
             _strip(m, A, B,
-                   lambda c: DOWN if c[2] > CEIL_Z - 0.05 else up,
-                   lambda c: ZONE_ROCK if c[2] > CEIL_Z - 0.05 else ZONE_SHADE)
+                   lambda c: DOWN if c[2] > top else up,
+                   lambda c: ZONE_ROCK if c[2] > top else ZONE_SHADE)
             continue
         rows = IN_ROWS if in0 else OUT_ROWS
         for ri in range(len(rows) - 1):
@@ -1843,7 +1905,8 @@ def _rock(r):
                     zone = ZONE_SHADE                  # a bank of the channel
                 else:
                     lab = lo[0]
-                    ring = 0 if lab == "low" else (int(lab[1] > WALL_RINGS_Z[0]) if lab[0] == "z" else lab[0])
+                    ring = 0 if lab == "low" else (int(lab[1] > WALL_RINGS_Z[0]) if lab[0] == "z"
+                                                   else (1 if lab[0] == "out" else lab[0]))
                     zone = wall_zone(ring)(side)
             if a0 == b0:
                 m.tri(a0, a1, b1, face_want, zone)
@@ -1857,11 +1920,9 @@ def _rock(r):
     rf_out = [(rr - INNER_R) / (OUTER_R - INNER_R) for rr in RST]
     for t in cols_all[:-1]:
         pit_wall.add_xt(len(pit_wall.rows) - 1, t)
-    rr = _Rng(LAKE_SEED + 1)
-    banks = (_bank_profile(rr, len(RST_RIVER)), _bank_profile(rr, len(RST_RIVER)))
     floor_field = _field(_Rng(LAKE_SEED + 2), FLOOR_AMP)
     pit_tris, PN = _pit_lava(m, pit_wall, bank0, bank1, cut0, cut1,
-                             [t for t in cols_all if bank0 <= t <= bank1], lava_ts, r)
+                             [t for t in cols_all if bank0 <= t <= bank1], lava_ts, lines)
     _pit_bank_ends(m, pit_wall, cut0, cut1, bank0, bank1, PN)
 
     def in_chan(t):
@@ -1871,21 +1932,18 @@ def _rock(r):
         """A channel vertex: its column's line wanders with the nearer bank,
         and the floor carries the 2-D field, flat at the lip and the foot."""
         rad = math.hypot(p[0], p[1])
-        oa, wa = banks[0][j]
-        ob, wb = banks[1][j]
+        i = BANK_WALL - 1 + (len(RST_RIVER) - 1 - j)       # bank-line row of this station
         if abs(t - cut0) < 1e-9:
-            da = oa / rad
-        elif abs(t - bank0) < 1e-9:
-            da = (oa + wa) / rad - (bank0 - cut0)
+            da = lines[0][i][0] / rad
         elif abs(t - cut1) < 1e-9:
-            da = -ob / rad
+            da = -lines[1][i][0] / rad
+        elif abs(t - bank0) < 1e-9:
+            da = _bank_da(lines[0], 0, i, rad)
         elif abs(t - bank1) < 1e-9:
-            da = (cut1 - bank1) - (ob + wb) / rad
+            da = _bank_da(lines[1], 1, i, rad)
         else:
-            fa = oa + wa - (bank0 - cut0) * rad
-            fb = ob + wb - (cut1 - bank1) * rad
-            da = (fa * max(0.0, 1.0 - (t - bank0) * rad / BANK_REACH)
-                  - fb * max(0.0, 1.0 - (bank1 - t) * rad / BANK_REACH)) / rad
+            da = (_bank_da(lines[0], 0, i, rad) * max(0.0, 1.0 - (t - bank0) * rad / BANK_REACH)
+                  + _bank_da(lines[1], 1, i, rad) * max(0.0, 1.0 - (bank1 - t) * rad / BANK_REACH))
         a = t + da
         x, y = rad * math.cos(a), rad * math.sin(a)
         z = p[2]
@@ -1915,7 +1973,7 @@ def _rock(r):
             dv[key] = m.v(tuple((1.0 - f) * pa[c] + f * pb[c] for c in range(3)))
             return dv[key]
         r_foot = math.hypot(pb[0], pb[1])
-        if j == len(RST_RIVER) - 1 and r_foot < OUTER_R + 0.05:
+        if j == len(RST_RIVER) - 1:
             return foot(t)
         p = (RST_RIVER[j] * math.cos(t), RST_RIVER[j] * math.sin(t), chan_z(t))
         dv[key] = m.v(river_pt(t, j, p, math.hypot(pa[0], pa[1]), r_foot))
@@ -1936,16 +1994,6 @@ def _rock(r):
             for j in range(n - 1):
                 m.quad(DV(t0, j, True), DV(t1, j, True), DV(t1, j + 1, True),
                        DV(t0, j + 1, True), UP, zone, best=True)
-            a0, a1 = DV(t0, n - 1, True), DV(t1, n - 1, True)   # out to the foot
-            b0, b1 = foot(t0), foot(t1)
-            if a0 == b0 and a1 == b1:
-                pass
-            elif a0 == b0:
-                m.tri(a0, a1, b1, UP, zone)
-            elif a1 == b1:
-                m.tri(a0, a1, b0, UP, zone)
-            else:
-                m.quad(a0, a1, b1, b0, UP, zone, best=True)
         elif in0 or in1:                               # the channel's fine stations
             _strip(m, [((RST_RIVER if in0 else RST)[j], DV(t0, j, in0))
                        for j in range(len(RST_RIVER if in0 else RST))],
