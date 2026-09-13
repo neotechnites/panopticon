@@ -198,6 +198,60 @@ FLOW_SPAN = 10.0
 CROSS_SPAN = 10.0
 CROSS_R = 52.0
 
+# ---- S4 Demon Run: the deck is a lava field, pit lip to wall foot, crossed pad
+# to pad over three landing rocks. Pads are scene nodes (BoostPad: 18 m/s at 45
+# deg, gravity 22, a 3 x 3 m trigger); the launch OVERWRITES the run velocity
+# (player_controller.gd: velocity = _pending_launch), so every flight is the
+# same arc from wherever the body walked into the pad. The field's two cuts sit
+# on side boundaries, so nothing outside them changes.
+S4_CUT_SIDES = (13, 8)                # entry cut = ang[13] (212.9 deg), exit side boundary ang[8] (270.3)
+S4_BANK = 0.7                         # degrees of rounded bank at each end
+S4_BANK_MID = (0.45, 0.68)            # the bank's middle column: fraction across, fraction of the drop
+S4_LANE_R = 52.0
+S4_ENTRY_R, S4_EXIT_R = 52.6, 52.6    # the entry pad and the exit landing: the first and last flights
+                                      # cross the lane so the end banks lie square to them
+S4_ROCKS = [(54.4, 0.2, 2.2, 1.6), (53.8, 0.4, 2.2, 1.6), (54.4, 0.1, 2.2, 1.7)]
+                                      # radius, top over the deck, crest height, crest base width
+S4_REAR, S4_FRONT = 2.5, 2.0          # top: 4.5 m along the flight, the centre 0.5 m forward ...
+S4_HALF_ACROSS = 1.6                  # ... 3.2 m across, flat
+S4_CORNER = (0.3, 0.03)               # how much the outline's corners are eased: outer, inner (tower) side
+S4_SHAPE = [(0.22, 1.04, 0.5), (0.36, 0.97, -0.8), (0.28, 1.02, 0.2)]
+                                      # per rock: outer-corner easing, width scale, where the outer edge bulges (u)
+S4_CREST_FOOT = 0.0                   # the crest's outer foot this far inside the flat's edge (the pad needs the flat)
+S4_CREST_RISE = 0.8                   # ... its ridge this far past the foot
+S4_CREST_KNEE = (0.45, 0.72)          # the outer face breaks at this fraction of the rise, this of the height
+S4_CREST_BACK = 0.35                  # the ridge drops to the inner rim over this: a peak, nothing to stand on
+S4_CREST_INNER = 0.78                 # the inner rim, as a fraction of the crest height
+S4_CREST_END = (0.3, 1.7, 0.8)        # the crest eases along the rock from u0 to u1, to this fraction
+S4_CREST_WOBBLE = 0.14                # ... and wanders this much in height along its length
+S4_CREST_TAIL = (0.8, 0.35)           # the ridge sweeps back past the rear edge by this, from this far below the ridge:
+                                      # the guard's sight lines to the rear of the landing zone still meet the crest
+S4_TOP_JIT = 0.16                     # metres of jitter on the top grid's x-y
+S4_CREST_JIT = 0.16                   # ... and on the crest's height, at full height
+S4_FLAT_JIT = 0.025                   # ... and on the flat top (the collider stays flat)
+S4_RINGS = [(-0.3, None, 0.12, 0.09), (None, 22.45, 0.35, 0.12),
+            (None, 21.6, 0.65, 0.15), (None, 21.2, 0.65, 0.0)]   # (z off the top | absolute z, metres out, jag)
+S4_COLL_RINGS = [(None, 22.0, 0.15, 0.0)]
+S4_RING_LIFT = 0.55                   # the first ring follows the crest by this fraction
+S4_LAND = 1.5                         # nominal landing this far past the next top's near edge
+S4_EXIT_LAND = 1.5                    # ... and onto the exit deck, past the lava's edge
+S4_PAD_BACK = 1.6                     # a rock's pad centre this far behind its front edge
+S4_WALK_ON = 1.75                     # launch origin behind the pad centre: trigger face 1.5 + capsule 0.4 - one tick
+S4_LAUNCH, S4_ANGLE, S4_G = 18.0, 45.0, 22.0
+S4_JUMP_V, S4_RUN, S4_SLIDE = 7.0, 11.0, 14.0
+S4_GUARD_EYE = 27.0
+S4_BODY_H = 1.8
+S4_CHEST = 1.3
+S4_FLOOR_AMP = 0.12
+S4_EDGE_WANDER = (0.0, 0.2)           # the end banks' lava edge wanders this far into the field ...
+S4_MID_WANDER = (-0.25, 0.25)         # ... and the bank's middle column this far either way
+S4_TONGUE = (1.7, 0.5)                # the entry bank is level under the pad: half-width, blend
+S4_TRAP_STEP = 5.8                    # degrees per TrapVolume box over the field
+S4_REVIEW = (2.0, 0.36, 0.7, 0.0)     # review renders only: white sun W, fill grey, fill strength, exposure EV
+S4_SEED = 6180339
+S4 = {}                               # the layout, filled by _s4_layout()
+S4_ROCK_MESH = []                     # (rock, ring list) for the collider
+
 # ---- prison cells: stone screens cut into the pit faces ---------------------
 # A cell is an arched mouth cut through the wall, a reveal stepping back to a
 # flat stone SCREEN, and a plain glowing arch-section box behind. The screen carries
@@ -1490,6 +1544,552 @@ def _build_platforms(m, r):
 
 
 # -----------------------------------------------------------------------------
+# S4 Demon Run: a lava field the full width of the deck, crossed pad to pad
+# -----------------------------------------------------------------------------
+
+def _s4_range(h):
+    """Metres a pad flight covers before the feet are h m ABOVE where they left."""
+    vx = S4_LAUNCH * math.cos(math.radians(S4_ANGLE))
+    vy = S4_LAUNCH * math.sin(math.radians(S4_ANGLE))
+    return vx * (vy + math.sqrt(vy * vy - 2.0 * S4_G * h)) / S4_G
+
+
+def _s4_jump(h, v):
+    """The furthest a jump at ground speed v reaches, landing h m higher."""
+    d = S4_JUMP_V * S4_JUMP_V - 2.0 * S4_G * h
+    if d < 0.0:
+        return 0.0
+    return v * (S4_JUMP_V + math.sqrt(d)) / S4_G
+
+
+def _fwd(bearing_deg):
+    """Unit vector along the run (increasing bearing), Blender x-y."""
+    b = math.radians(bearing_deg)
+    return (-math.sin(b), -math.cos(b))
+
+
+def _unit2(p, q):
+    d = (q[0] - p[0], q[1] - p[1])
+    n = math.hypot(*d)
+    return (d[0] / n, d[1] / n)
+
+
+def _side_angles():
+    r = _Rng(SEED)
+    return [2.0 * math.pi * (i + r.sf() * ANG_JAG) / SIDES for i in range(SIDES)]
+
+
+def _smooth(x):
+    x = min(1.0, max(0.0, x))
+    return x * x * (3.0 - 2.0 * x)
+
+
+def _s4_layout():
+    """Pads, rocks, landings and the flight table, solved from the arc.
+
+    Rock k: centre C, axis a (unit, the bisector of the flight in and the
+    flight out), top z. Its pad sits S4_PAD_BACK behind its front edge on the
+    axis; a runner walks into the pad's back face and leaves S4_WALK_ON behind
+    the pad's centre. Each landing is S4_LAND past the next rock's near edge."""
+    if S4:
+        return S4
+    ang = _side_angles()
+    cut_e = _bear_deg(ang[S4_CUT_SIDES[0]])
+    bank_e = cut_e + S4_BANK
+    # the entry pad's front edge on the bank column: the bank flattens into a
+    # tongue under the pad, so the pad sits on level deck to the lava's edge
+    pad0 = pol(bank_e - math.degrees(1.5 / S4_ENTRY_R), S4_ENTRY_R, 0.0)
+    n = len(S4_ROCKS)
+    tops = [DECK_Z + rk[1] for rk in S4_ROCKS] + [DECK_Z]
+    rads = [rk[0] for rk in S4_ROCKS] + [S4_EXIT_R]
+    faces = [_fwd(bank_e)] * (n + 1)
+    axes = [_fwd(bank_e)] * n
+    bear = [bank_e] * (n + 1)
+    for _it in range(8):
+        pads = [(pad0[0], pad0[1], DECK_Z)]
+        lands, cents, origins = [], [], []
+        for k in range(n + 1):
+            P = pads[-1]
+            f = faces[k]
+            O = (P[0] - S4_WALK_ON * f[0], P[1] - S4_WALK_ON * f[1], P[2])
+            rng = _s4_range(tops[k] - P[2])
+            back = (S4_REAR - S4_LAND) if k < n else 0.0
+            ax = axes[k] if k < n else f
+            lo, hi = bear[k - 1] if k else bank_e, (bear[k - 1] if k else bank_e) + 40.0
+            for _b in range(60):
+                mid = 0.5 * (lo + hi)
+                c = pol(mid, rads[k], 0.0)
+                L = (c[0] - back * ax[0], c[1] - back * ax[1])
+                if math.hypot(L[0] - O[0], L[1] - O[1]) < rng:
+                    lo = mid
+                else:
+                    hi = mid
+            bear[k] = 0.5 * (lo + hi)
+            c = pol(bear[k], rads[k], 0.0)
+            L = (c[0] - back * ax[0], c[1] - back * ax[1], tops[k])
+            lands.append(L)
+            origins.append(O)
+            cents.append((c[0], c[1], tops[k]))
+            faces[k] = _unit2(O, L)
+            if k < n:
+                pads.append((c[0] + (S4_FRONT - S4_PAD_BACK) * ax[0], c[1] + (S4_FRONT - S4_PAD_BACK) * ax[1], tops[k]))
+        for k in range(n):
+            axes[k] = _unit2((0.0, 0.0), (faces[k][0] + faces[k + 1][0], faces[k][1] + faces[k + 1][1]))
+    # the exit cut is the side boundary; the last flight must land 1.5..2.5 m
+    # past the lava's edge there (the run is tuned until it does)
+    exit_land_b = _bear_deg(math.atan2(lands[-1][1], lands[-1][0]))
+    cut_x = _bear_deg(ang[S4_CUT_SIDES[1]])
+    bank_x = cut_x - S4_BANK
+    S4["exit_past_bank"] = math.radians(exit_land_b - bank_x) * S4_EXIT_R
+    S4["exit_past_edge"] = S4["exit_past_bank"] - S4_EDGE_WANDER[1]  # past the lava's furthest wander
+    rocks = []
+    for k in range(n):
+        C = cents[k]
+        a = axes[k]
+        nrm = (-a[1], a[0])
+        if nrm[0] * C[0] + nrm[1] * C[1] > 0.0:        # across, toward the tower
+            nrm = (-nrm[0], -nrm[1])
+        f_in, f_out = faces[k], faces[k + 1]
+        ph = _Rng(S4_SEED + 11 + k).f() * TWO_PI
+        sgn = 1.0 if (nrm[0] == -a[1] and nrm[1] == a[0]) else -1.0
+        rocks.append({"C": (C[0], C[1]), "a": a, "n": nrm, "top": tops[k],
+                      "crest": S4_ROCKS[k][2], "cw": S4_ROCKS[k][3], "r": rads[k],
+                      "shape": S4_SHAPE[k],
+                      "b": _bear_deg(math.atan2(C[1], C[0])), "ph": ph,
+                      "n_in": (sgn * -f_in[1], sgn * f_in[0]),
+                      "n_out": (sgn * -f_out[1], sgn * f_out[0])})
+    S4["rocks"] = rocks
+    S4["pads"] = [(pads[k][0], pads[k][1], pads[k][2], faces[k]) for k in range(n + 1)]
+    S4["lands"] = lands
+    S4["origins"] = origins
+    S4["cut_entry"], S4["bank_entry"] = cut_e, bank_e
+    S4["bank_exit"], S4["cut_exit"] = bank_x, cut_x
+    return S4
+
+
+def _s4_across(rock, u):
+    """The across direction at u along the rock: square to the flight in at
+    the rear edge, to the flight out at the front, blended between."""
+    f = _smooth((u / (S4_REAR if u < 0.0 else S4_FRONT) + 0.6) / 1.2)
+    n0, n1 = rock["n_in"], rock["n_out"]
+    x, y = n0[0] + (n1[0] - n0[0]) * f, n0[1] + (n1[1] - n0[1]) * f
+    d = math.hypot(x, y)
+    return (x / d, y / d)
+
+
+def _s4_world(rock, u, v):
+    """World x-y of local (u along the axis, v across toward the tower)."""
+    n = _s4_across(rock, u)
+    return (rock["C"][0] + u * rock["a"][0] + v * n[0],
+            rock["C"][1] + u * rock["a"][1] + v * n[1])
+
+
+def _s4_local(rock, p):
+    """(u, v) of a world x-y point: the bent frame inverted by iteration."""
+    dx, dy = p[0] - rock["C"][0], p[1] - rock["C"][1]
+    u = dx * rock["a"][0] + dy * rock["a"][1]
+    v = dx * rock["n"][0] + dy * rock["n"][1]
+    for _ in range(4):
+        n = _s4_across(rock, u)
+        na = n[0] * rock["a"][0] + n[1] * rock["a"][1]
+        nn = n[0] * rock["n"][0] + n[1] * rock["n"][1]
+        v = (dx * rock["n"][0] + dy * rock["n"][1]) / nn
+        u = (dx * rock["a"][0] + dy * rock["a"][1]) - v * na
+    return (u, v)
+
+
+def _s4_crest(rock, u, v):
+    """Height of the crest over the flat top at local (u, v): the tower side
+    of the landing zone rises to a rounded ridge that dies out past the pad."""
+    W = S4_HALF_ACROSS
+    v0 = W - S4_CREST_FOOT
+    v3 = W + rock["cw"]
+    v2 = v3 - S4_CREST_BACK
+    v1 = min(v0 + S4_CREST_RISE, v2)
+    kf, kh = S4_CREST_KNEE
+    vk = v0 + kf * (v1 - v0)
+    if v <= v0:
+        gv = 0.0
+    elif v <= vk:                                 # the lower face: one hard facet
+        gv = kh * (v - v0) / (vk - v0)
+    elif v <= v1:                                 # the upper face to a sharp ridge
+        gv = kh + (1.0 - kh) * (v - vk) / (v1 - vk)
+    elif v <= v2:
+        gv = 1.0 - (1.0 - S4_CREST_INNER) * (v - v1) / (v2 - v1)
+    else:
+        gv = S4_CREST_INNER
+    u0, u1, tail = S4_CREST_END
+    gu = 1.0 - (1.0 - tail) * _smooth((u - u0) / (u1 - u0))
+    gu += S4_CREST_WOBBLE / rock["crest"] * (math.sin(1.9 * u + rock["ph"])
+                                            + 0.5 * math.sin(4.3 * u - 0.7 * rock["ph"])) * gu
+    return rock["crest"] * gv * gu
+
+
+def _s4_outline(rock, s, t):
+    """A rounded rectangle: the flat top plus the crest's width on the tower
+    side, corners eased. s, t in -1..1."""
+    A, W = (S4_REAR if s < 0.0 else S4_FRONT), S4_HALF_ACROSS
+    ease, wscale, bulge_u = rock["shape"]
+    c = ease if t < 0.0 else S4_CORNER[1]
+    H = W + 0.5 * rock["cw"]
+    u = A * s * math.sqrt(1.0 - c * t * t)
+    v = 0.5 * rock["cw"] + H * t * math.sqrt(1.0 - c * s * s)
+    if t < 0.0:                                   # the outer (wall) side: its own width, a bulge
+        v = 0.5 * rock["cw"] + (v - 0.5 * rock["cw"]) * (wscale + 0.06 * math.exp(-((u - bulge_u) / 1.2) ** 2))
+    if s < 0.0:
+        v_ridge = _s4_ridge(rock)
+        tail, below = S4_CREST_TAIL
+        u -= tail * _smooth((v - (v_ridge - below)) / below) * (-s)
+    return u, v
+
+
+def _s4_ridge(rock):
+    W = S4_HALF_ACROSS
+    return min(W - S4_CREST_FOOT + S4_CREST_RISE, W + rock["cw"] - S4_CREST_BACK)
+
+
+def _s4_poly(rock, grow=0.0):
+    """The top outline as a world x-y polygon, grown `grow` m about the centre."""
+    key = (id(rock), round(grow, 3))
+    if key not in S4_POLYS:
+        pts = []
+        N = 24
+        for k in range(N):
+            pts.append(_s4_outline(rock, -1.0 + 2.0 * k / N, -1.0))
+        for k in range(N):
+            pts.append(_s4_outline(rock, 1.0, -1.0 + 2.0 * k / N))
+        for k in range(N):
+            pts.append(_s4_outline(rock, 1.0 - 2.0 * k / N, 1.0))
+        for k in range(N):
+            pts.append(_s4_outline(rock, -1.0, 1.0 - 2.0 * k / N))
+        vc = 0.5 * rock["cw"]
+        out = []
+        for (u, v) in pts:
+            d = math.hypot(u, v - vc)
+            g = (d + grow) / d if d > EPS else 1.0
+            out.append(_s4_world(rock, u * g, vc + (v - vc) * g))
+        S4_POLYS[key] = out
+    return S4_POLYS[key]
+
+
+def _s4_inside(rock, p, grow=0.0):
+    """True when a world x-y point is over the rock's top outline (+grow m)."""
+    poly = _s4_poly(rock, grow)
+    x, y = p[0], p[1]
+    inside = False
+    n = len(poly)
+    for i in range(n):
+        ax, ay = poly[i]
+        bx, by = poly[(i + 1) % n]
+        if (ay > y) != (by > y):
+            xx = ax + (y - ay) * (bx - ax) / (by - ay)
+            if xx > x:
+                inside = not inside
+    return inside
+
+
+S4_POLYS = {}
+
+
+S4_GRID_S = [-1.0, -0.66, -0.33, 0.0, 0.33, 0.66, 1.0]
+
+
+def _s4_grid_t(rock):
+    """Across samples: the flat, then a row on each break of the crest."""
+    W = S4_HALF_ACROSS
+    H = W + 0.5 * rock["cw"]
+    v0 = W - S4_CREST_FOOT
+    v1 = v0 + S4_CREST_RISE
+    vk = v0 + S4_CREST_KNEE[0] * (v1 - v0)
+    v3 = W + rock["cw"]
+    v2 = v3 - S4_CREST_BACK
+
+    def t_of(v):
+        return (v - 0.5 * rock["cw"]) / H
+    return [-1.0, -0.6, -0.2, 0.2, t_of(v0), t_of(vk), t_of(v1), t_of(v2), 1.0]
+
+
+def _s4_rock(m, r, rock, coll=False):
+    """One landing rock: a top grid carrying the crest, a rounded lip, then
+    rings widening down through the lava to a skirt and a bottom cap. The
+    collider takes the same top and straight sides, no jitter."""
+    top = rock["top"]
+    GT = _s4_grid_t(rock)
+    ns, nt = len(S4_GRID_S), len(GT)
+    ids = [[None] * nt for _ in range(ns)]
+    for i, s in enumerate(S4_GRID_S):
+        for j, t in enumerate(GT):
+            u, v = _s4_outline(rock, s, t)
+            h = _s4_crest(rock, u, v)
+            if not coll:
+                edge = (i in (0, ns - 1)) or (j in (0, nt - 1))
+                jit = S4_TOP_JIT if edge else 0.6 * S4_TOP_JIT
+                if h < 0.05 and not edge:
+                    jit *= 0.5                     # the flat stays a flat
+                u += jit * r.sf()
+                v += jit * r.sf() * (0.5 if 0.05 < h < 0.9 * rock["crest"] else 1.0)
+                if h > 0.15:
+                    h += S4_CREST_JIT * r.sf() * min(1.0, h / rock["crest"])
+                elif not edge:
+                    h += S4_FLAT_JIT * r.sf()
+            x, y = _s4_world(rock, u, v)
+            ids[i][j] = m.v((x, y, top + h))
+    for i in range(ns - 1):
+        for j in range(nt - 1):
+            hs = [_s4_crest(rock, *_s4_outline(rock, S4_GRID_S[ii], GT[jj]))
+                  for ii in (i, i + 1) for jj in (j, j + 1)]
+            zone = ZONE_DECK if max(hs) < 0.05 else (ZONE_SHADE if max(hs) < 0.9 else ZONE_ROCK)
+            m.quad(ids[i][j], ids[i + 1][j], ids[i + 1][j + 1], ids[i][j + 1], UP,
+                   ZONE_ROCK if coll else zone, best=True)
+    rim = [ids[i][0] for i in range(ns)] + [ids[ns - 1][j] for j in range(1, nt)] \
+        + [ids[i][nt - 1] for i in range(ns - 2, -1, -1)] + [ids[0][j] for j in range(nt - 2, 0, -1)]
+    C = rock["C"]
+    rings = S4_COLL_RINGS if coll else S4_RINGS
+    loops = [rim]
+    for (dz, zabs, out, jag) in rings:
+        loop = []
+        for vid in rim:
+            p = m.verts[vid]
+            d = math.hypot(p[0] - C[0], p[1] - C[1])
+            k = (d + out + (jag * r.sf() if (jag and not coll) else 0.0)) / d
+            z = (top + dz + S4_RING_LIFT * (p[2] - top)) if zabs is None else zabs
+            loop.append(m.v((C[0] + (p[0] - C[0]) * k, C[1] + (p[1] - C[1]) * k, z)))
+        loops.append(loop)
+    nr = len(rim)
+    for a in range(len(loops) - 1):
+        for i in range(nr):
+            j = (i + 1) % nr
+            pa, pb = m.verts[loops[a][i]], m.verts[loops[a][j]]
+            want = (0.5 * (pa[0] + pb[0]) - C[0], 0.5 * (pa[1] + pb[1]) - C[1], 0.0)
+            zc = 0.25 * (pa[2] + pb[2] + m.verts[loops[a + 1][i]][2] + m.verts[loops[a + 1][j]][2])
+            m.quad(loops[a][i], loops[a][j], loops[a + 1][j], loops[a + 1][i], want,
+                   ZONE_ROCK if coll else (ZONE_EMBER if zc < LAVA_Z else ZONE_SHADE), best=True)
+    bot = loops[-1]
+    cid = m.v((C[0], C[1], m.verts[bot[0]][2]))
+    for i in range(nr):
+        m.tri(cid, bot[i], bot[(i + 1) % nr], DOWN, ZONE_ROCK if coll else ZONE_EMBER)
+
+
+def _s4_bank_line(r):
+    """(middle-column wander, lava-edge wander) per row, metres. The cut
+    column is a side boundary and never moves."""
+    n = BANK_WALL + BANK_DECK + BANK_PIT
+    mid = _walk(r, n, *S4_MID_WANDER)
+    edge = _walk(r, n, *S4_EDGE_WANDER)
+    return [(mid[i], edge[i]) for i in range(n)]
+
+
+def _s4_tongue(rad):
+    """1 where the entry bank is level under the entry pad, 0 elsewhere."""
+    half, blend = S4_TONGUE
+    return _smooth((rad - (S4_ENTRY_R - half - blend)) / blend) \
+        * _smooth(((S4_ENTRY_R + half + blend) - rad) / blend)
+
+
+def _s4_hidden(rock, body, eye):
+    """Clearance (m) by which the crest hides the top of a 1.8 m body standing
+    at local (u, v) on the rock from the eye; positive = hidden."""
+    x, y = _s4_world(rock, *body)
+    head = (x, y, rock["top"] + S4_BODY_H)
+    best = -9.0
+    for k in range(1, 400):
+        f = k / 400.0
+        p = (eye[0] + (head[0] - eye[0]) * f, eye[1] + (head[1] - eye[1]) * f,
+             eye[2] + (head[2] - eye[2]) * f)
+        if not _s4_inside(rock, p):
+            continue
+        u, v = _s4_local(rock, p)
+        best = max(best, rock["top"] + _s4_crest(rock, u, v) - p[2])
+    return best
+
+
+def _s4_proxy(name, centre, size, colour):
+    """A render-only box: a body standing at centre (feet), size (w, d, h)."""
+    w, d, h = size
+    x, y, z = centre
+    verts = [(x + sx * 0.5 * w, y + sy * 0.5 * d, z + sz * h)
+             for sz in (0, 1) for sy in (-1, 1) for sx in (-1, 1)]
+    faces = [(0, 1, 3, 2), (4, 6, 7, 5), (0, 4, 5, 1), (2, 3, 7, 6), (0, 2, 6, 4), (1, 5, 7, 3)]
+    me = bpy.data.meshes.new(name)
+    me.from_pydata(verts, [], faces)
+    me.update()
+    ob = mdl._link(bpy.data.objects.new(name, me))
+    ob.data.materials.append(mdl.flat_material(name + "Mat", colour))
+    return ob
+
+
+def _s4_review(scene, shot, ld, key, bg, objects):
+    """Review renders only: a white sun, grey fill, the rock flat mid-grey so
+    form reads, the lava still glowing; proxies for a body. The glb was
+    exported before this runs and everything here is put back after."""
+    lay = _s4_layout()
+    rocks = lay["rocks"]
+    p0 = lay["pads"][0]
+
+    def on(rock, u, v, dz=0.0):
+        x, y = _s4_world(rock, u, v)
+        return (x, y, rock["top"] + dz)
+
+    shot("s4_lit", (p0[0], p0[1], DECK_Z + EYE_H), on(rocks[1], 0.0, 1.0, 0.8), 24.0, (1400, 800))
+    shot("s4_lit_r1", on(rocks[0], -1.5, -0.5, EYE_H), (lay["pads"][2][0], lay["pads"][2][1], lay["pads"][2][2] + 0.3),
+         24.0, (1400, 800))
+    sun_w, grey, fill, ev = S4_REVIEW
+    ld.energy, ld.color = sun_w, (1.0, 1.0, 1.0)
+    key.rotation_euler = (math.radians(40.0), math.radians(25.0), 0.0)
+    bg.inputs[0].default_value = (grey, grey, grey, 1.0)
+    bg.inputs[1].default_value = fill
+    mdl._try(scene.view_settings, "exposure", ev)
+    rock_ob = objects[0]
+    was = rock_ob.data.materials[0]
+    rock_ob.data.materials[0] = mdl.flat_material("ReviewGrey", (0.42, 0.42, 0.42, 1.0))
+
+    yellow = (1.0, 0.85, 0.1, 1.0)
+    body = _s4_proxy("ReviewBody", on(rocks[1], -1.4, -0.4), (0.6, 0.6, S4_BODY_H), yellow)
+    O, f = lay["origins"][2], lay["pads"][2][3]
+    apex = (O[0] + 7.0 * f[0], O[1] + 7.0 * f[1], O[2] + 3.68)
+    flyer = _s4_proxy("ReviewFlyer", apex, (0.6, 0.6, S4_BODY_H), yellow)
+
+    shot("review_entry", (p0[0], p0[1], DECK_Z + EYE_H), on(rocks[1], 0.0, 1.0, 0.8), 24.0, (1400, 800))
+    p2 = lay["pads"][2]
+    shot("review_r1", on(rocks[0], -1.5, -0.5, EYE_H), (p2[0], p2[1], p2[2] + 0.3), 24.0, (1400, 800))
+    shot("review_guard", (0.0, 0.0, S4_GUARD_EYE), pol(242.0, 52.0, DECK_Z), 35.0, (1400, 900))
+    shot("review_high", pol(241.5, 20.0, 60.0), pol(241.5, 52.0, DECK_Z), 24.0, (1500, 1000))
+    shot("review_cover", (0.0, 0.0, S4_GUARD_EYE), on(rocks[1], -1.0, 0.0, 0.9), 100.0, (1200, 800))
+    shot("review_outer", pol(216.0, 56.4, DECK_Z + EYE_H), pol(248.0, 56.9, LAVA_Z), 28.0, (1400, 800))
+
+    for ob in (body, flyer):
+        bpy.data.objects.remove(ob, do_unlink=True)
+    rock_ob.data.materials[0] = was
+    mdl._try(scene.view_settings, "exposure", 0.0)
+
+
+def _s4_stats():
+    """The flight table, the gaps, the cover, and what the scene needs."""
+    lay = _s4_layout()
+    eye = (0.0, 0.0, S4_GUARD_EYE)
+
+    def godot(x, y, z):
+        return (x, z, -y)
+
+    print("MDL STATS s4 field bearings: entry cut %.2f bank %.2f | exit bank %.2f cut %.2f; exit lands %.2f m past the bank column, %.2f m past the lava's furthest wander; lava_y=%.2f"
+          % (lay["cut_entry"], lay["bank_entry"], lay["bank_exit"], lay["cut_exit"],
+             lay["exit_past_bank"], lay["exit_past_edge"], LAVA_Z))
+    rocks = lay["rocks"]
+    edges = []      # walkable-top outlines in flight order: entry lava edge, rocks, exit lava edge
+    for k, (x, y, z, f) in enumerate(lay["pads"]):
+        O, L = lay["origins"][k], lay["lands"][k]
+        gx, gy, gz = godot(x, y, z)
+        fg = (f[0], -f[1])
+        rng = math.hypot(L[0] - O[0], L[1] - O[1])
+        h = L[2] - O[2]
+        t = (S4_LAUNCH * math.sin(math.radians(S4_ANGLE))
+             + math.sqrt((S4_LAUNCH * math.sin(math.radians(S4_ANGLE))) ** 2 - 2.0 * S4_G * h)) / S4_G
+        apex = (S4_LAUNCH * math.sin(math.radians(S4_ANGLE))) ** 2 / (2.0 * S4_G)
+        print("MDL STATS s4 hop%d pad Transform3D(%.6f, 0, %.6f, 0, 1, 0, %.6f, 0, %.6f, %.4f, %.3f, %.4f) "
+              "bearing=%.2f r=%.2f | origin (%.2f, %.2f, %.2f) -> landing (%.2f, %.2f, %.2f) "
+              "range=%.2f m rise=%+.2f flight=%.2f s apex=+%.2f m"
+              % (k + 1, -fg[1], -fg[0], fg[0], -fg[1], gx, gy, gz,
+                 _bear_deg(math.atan2(y, x)), math.hypot(x, y), O[0], O[1], O[2],
+                 L[0], L[1], L[2], rng, h, t, apex))
+    for k, rk in enumerate(rocks):
+        L = lay["lands"][k]
+        u, v = _s4_local(rk, L)
+        # tolerance along the flight: how far short/long still lands on the top
+        f = lay["pads"][k][3]
+        short = long_ = 0.0
+        while _s4_inside(rk, (L[0] - (short + 0.05) * f[0], L[1] - (short + 0.05) * f[1])):
+            short += 0.05
+        while _s4_inside(rk, (L[0] + (long_ + 0.05) * f[0], L[1] + (long_ + 0.05) * f[1])):
+            long_ += 0.05
+        side = 0.0
+        nrm = (-f[1], f[0])
+        while _s4_inside(rk, (L[0] + (side + 0.05) * nrm[0], L[1] + (side + 0.05) * nrm[1])) \
+                and _s4_inside(rk, (L[0] - (side + 0.05) * nrm[0], L[1] - (side + 0.05) * nrm[1])):
+            side += 0.05
+        chest = None
+        vv = S4_HALF_ACROSS - S4_CREST_FOOT
+        while vv < S4_HALF_ACROSS + rk["cw"]:
+            if _s4_crest(rk, -1.0, vv) >= S4_CHEST:
+                chest = vv
+                break
+            vv += 0.01
+        width = (S4_HALF_ACROSS + rk["cw"] - chest) if chest is not None else 0.0
+        hidden = min(_s4_hidden(rk, (uu, vv2), eye)
+                     for uu in (-S4_REAR + 0.4, u, u + 0.8)
+                     for vv2 in (-S4_HALF_ACROSS + 0.5, 0.0, S4_HALF_ACROSS - 0.6))
+        print("MDL STATS s4 rock%d bearing=%.2f r=%.2f top=%.2f (+%.2f) axis_godot=(%.4f, 0, %.4f) "
+              "landing local u=%.2f v=%.2f: %.2f m past the near edge, tolerance -%.2f/+%.2f m along, "
+              "+-%.2f m across | crest +%.2f m, %.2f m wide at chest, hides a %.1f m body by %.2f m"
+              % (k + 1, rk["b"], rk["r"], rk["top"], rk["top"] - DECK_Z, rk["a"][0], -rk["a"][1],
+                 u, v, u + S4_REAR, short, long_, side, rk["crest"], width, S4_BODY_H, hidden))
+    # gaps between consecutive walkable tops, along the flight lines
+    def outline(rk):
+        """The landable top: the flat and the crest's outer face up to the
+        ridge (a body on the inner face slides into the lava)."""
+        W = S4_HALF_ACROSS
+        v_ridge = _s4_ridge(rk)
+        H = W + 0.5 * rk["cw"]
+        t_r = (v_ridge - 0.5 * rk["cw"]) / H
+        N = 24
+        pts = []
+        for k in range(N + 1):
+            pts.append(_s4_outline(rk, -1.0 + 2.0 * k / N, -1.0))
+        for k in range(N + 1):
+            pts.append(_s4_outline(rk, 1.0, -1.0 + (t_r + 1.0) * k / N))
+        for k in range(N + 1):
+            u, v = _s4_outline(rk, 1.0 - 2.0 * k / N, t_r)
+            pts.append((max(u, -S4_REAR), v))          # the tail is not a landing: no flat under it
+        for k in range(N + 1):
+            u, v = _s4_outline(rk, -1.0, t_r - (t_r + 1.0) * k / N)
+            pts.append((max(u, -S4_REAR), v))
+        return [_s4_world(rk, u, v) for (u, v) in pts]
+
+    def arc(bearing):
+        return [pol(bearing, 46.7 + 10.6 * k / 30.0, 0.0)[:2] for k in range(31)]
+
+    chains = [arc(lay["bank_entry"] + math.degrees(S4_EDGE_WANDER[1] / INNER_R))] \
+        + [outline(rk) for rk in rocks] + [arc(lay["bank_exit"] - math.degrees(S4_EDGE_WANDER[1] / INNER_R))]
+    gaps = []
+    for k in range(len(chains) - 1):
+        d = min(math.hypot(p[0] - q[0], p[1] - q[1]) for p in chains[k] for q in chains[k + 1])
+        gaps.append(d)
+    heights = [DECK_Z] + [rk["top"] for rk in rocks] + [DECK_Z]
+    for k, d in enumerate(gaps):
+        drop = heights[k] - heights[k + 1]
+        print("MDL STATS s4 gap%d=%.2f m (lava between walkable tops) vs slide-jump reach %.2f m, run-jump %.2f m"
+              % (k + 1, d, _s4_jump(-drop, S4_SLIDE), _s4_jump(-drop, S4_RUN)))
+    print("MDL STATS s4 min_gap=%.2f m" % min(gaps))
+    # the runner in the air: the apex of every hop against the crests
+    for k in range(len(lay["pads"])):
+        O, L = lay["origins"][k], lay["lands"][k]
+        f = lay["pads"][k][3]
+        apx = (O[0] + 7.0 * f[0], O[1] + 7.0 * f[1], O[2] + 3.68)
+        blocked = 0.0
+        for rk in rocks:
+            for kk in range(1, 400):
+                ff = kk / 400.0
+                p = (eye[0] + (apx[0] - eye[0]) * ff, eye[1] + (apx[1] - eye[1]) * ff,
+                     eye[2] + (apx[2] - eye[2]) * ff)
+                if _s4_inside(rk, p):
+                    uu, vv = _s4_local(rk, p)
+                    blocked = max(blocked, rk["top"] + _s4_crest(rk, uu, vv) - p[2])
+        print("MDL STATS s4 hop%d apex y=%.2f: crest over the guard's sight line by %.2f m (<=0 exposed)"
+              % (k + 1, apx[2], blocked))
+    # trap volumes: bank to bank, feet only, boxes with overlap
+    b0 = lay["bank_entry"] + math.degrees(S4_EDGE_WANDER[1] / S4_LANE_R)
+    b1 = lay["bank_exit"] - math.degrees(S4_EDGE_WANDER[1] / S4_LANE_R)
+    n = int(math.ceil((b1 - b0) / S4_TRAP_STEP))
+    for k in range(n):
+        a, b = b0 + (b1 - b0) * k / n, b0 + (b1 - b0) * (k + 1) / n
+        bm = 0.5 * (a + b)
+        w = 2.0 * OUTER_R * math.tan(math.radians(0.5 * (b - a))) + 0.6
+        gx, gy, gz = godot(*pol(bm, 0.5 * (INNER_R + OUTER_R), LAVA_Z))
+        sb, cb = math.sin(math.radians(bm)), math.cos(math.radians(bm))
+        print("MDL STATS s4 trap%d bearings %.2f..%.2f Transform3D(%.6f, 0, %.6f, 0, 1, 0, %.6f, 0, %.6f, %.4f, %.2f, %.4f) "
+              "size_metres=Vector3(%.2f, 0.4, %.2f) feet_only=true"
+              % (k + 1, a, b, sb, cb, -cb, sb, gx, gy, gz, w, OUTER_R - INNER_R))
+
+# -----------------------------------------------------------------------------
 # the run down the pit wall: map_base's own wall faces, holed out, pushed back
 # and re-laid in the river's material, with the rock rim banking down to them
 # -----------------------------------------------------------------------------
@@ -1649,6 +2249,17 @@ def _rock(r):
     wl0, wl1 = T(WALL_A1), T(WALL_A0)                # the run down the shaft wall
     wb0, wb1 = T(WALL_A1 - WALL_BANK), T(WALL_A0 + WALL_BANK)
 
+    # ---- S4: entry cut on a side boundary, exit cut where the last flight
+    # lands (snapped to a base column when within COL_MERGE), a rounded bank
+    # of two columns at each end ------------------------------------------
+    lay = _s4_layout()
+    s4w = math.radians(S4_BANK)
+    s4c1 = ang[S4_CUT_SIDES[0]]                      # both cuts on side boundaries: exact
+    s4c0 = ang[S4_CUT_SIDES[1]]
+    assert 1.5 <= lay["exit_past_edge"] <= 2.5, "S4 exit lands %.2f m past the lava" % lay["exit_past_edge"]
+    s4b0, s4b1 = s4c0 + s4w, s4c1 - s4w
+    s4m0, s4m1 = s4c0 + S4_BANK_MID[0] * s4w, s4c1 - S4_BANK_MID[0] * s4w
+
 
     # ---- pit wall: courtyard up to the deck lip. Rings are level (their
     # radius steps, like cleaved rock) so a cell mouth is a rectangle in
@@ -1660,8 +2271,8 @@ def _rock(r):
         pbias[i][npit - 1] = 0.0                # the lip is exactly INNER_R
         a = ang[i]
         b = ang[i + 1] if i + 1 < SIDES else ang[0] + TWO_PI
-        if b > cut0 and a < cut1:               # under the river the rim is exact
-            pbias[i][npit - 2] = 0.0            # too, so the channel welds to it
+        if (b > cut0 and a < cut1) or (s4c0 < a < s4c1):   # under the river and the field
+            pbias[i][npit - 2] = 0.0            # the rim is exact too, so the channel welds to it
     pit = [_ring(m, ang, lambda i, k=k: INNER_R * (1.0 + pbias[i][k]), lambda i, k=k: pit_z[k])
            for k in range(npit)]
 
@@ -1700,8 +2311,37 @@ def _rock(r):
                 or all(abs(t - k) * CROSS_R > COL_MERGE for k in keep)]
     cols_all = _merge_cols([c for c in base_cols if not (cut0 < c < cut1)], sec_cols)
 
+    s4_fixed = [s4c0, s4m0, s4b0, s4b1, s4m1, s4c1]
+    s4_keep = _merge_cols([c for c in pit_wall.cols if s4c0 < c < s4c1]
+                          + [c for c in base_cols if s4c0 < c < s4c1], s4_fixed)
+    s4_cols = [s4b1 - math.radians(1.0) * k for k in range(1, int((s4b1 - s4b0) / math.radians(1.0)) + 1)]
+    s4_cols = [t for t in s4_cols if s4b0 < t < s4b1
+               and all(abs(t - k) * CROSS_R > COL_MERGE for k in s4_keep)]
+    s4_cols = _merge_cols(s4_keep, s4_cols)
+    s4_cols = [t for t in s4_cols if not (s4c0 < t < s4b0 or s4b1 < t < s4c1) or t in (s4m0, s4m1)]
+    s4_lava_ts = _merge_cols(pit_wall.tbreaks(s4b0, s4b1), [t for t in s4_cols if s4b0 < t < s4b1])
+    cols_all = _merge_cols([c for c in cols_all if not (s4c0 < c < s4c1)], s4_cols)
+
+    def s4_in(t):
+        return s4c0 - 1e-9 <= t <= s4c1 + 1e-9
+
+    def s4_z(t):
+        """The field's floor height: the deck outside, the lava between the
+        banks, a rounded two-column bank at each end."""
+        if t <= s4c0 + 1e-9 or t >= s4c1 - 1e-9:
+            return DECK_Z
+        if s4b0 - 1e-9 <= t <= s4b1 + 1e-9:
+            return LAVA_Z
+        cut, mid, bank = (s4c0, s4m0, s4b0) if t < s4b0 else (s4c1, s4m1, s4b1)
+        fm = S4_BANK_MID[1]
+        if (t - mid) * (bank - mid) >= 0.0:
+            f = fm + (1.0 - fm) * _ramp((t - mid) / (bank - mid), 0.0, 1.0)
+        else:
+            f = fm * _ramp((t - cut) / (mid - cut), 0.0, 1.0)
+        return DECK_Z + (LAVA_Z - DECK_Z) * f
+
     # ---- the lava sea: what the pit floor is, and what lights it ------------
-    _lava_sea(m, pit_wall, COURTYARD_Z, _Rng(LAVA_SEED), extra=lava_ts)
+    _lava_sea(m, pit_wall, COURTYARD_Z, _Rng(LAVA_SEED), extra=lava_ts + s4_lava_ts)
 
     # ---- outer wall: deck up to the gallery ceiling ------------------------
     wall_z = [DECK_Z] + WALL_RINGS_Z + [CEIL_Z]
@@ -1758,7 +2398,7 @@ def _rock(r):
     # ---- the channel's floor height, and how far it is cut into the wall -----
     def chan_z(t):
         if t <= cut0 + 1e-9 or t >= cut1 - 1e-9:
-            return DECK_Z
+            return s4_z(t)
         if bank0 - 1e-9 <= t <= bank1 + 1e-9:
             return LAVA_Z
         f = _ramp(t, cut0, bank0) if t < bank0 else _ramp(t, cut1, bank1)
@@ -1783,6 +2423,7 @@ def _rock(r):
         + [(("z", WALL_LAVA_TOP), RECESS_R + LIP_R), ("shelf", SHELF_D), ("roof", SHELF_D),
            ("roof2", 0.0), ((1, 1.0), 0.0)]
     IN_ROW_I = {row[0]: BANK_WALL - 1 - k for k, row in enumerate(IN_ROWS[:BANK_WALL])}
+    S4_ROWS = [("low", 0.0)] + OUT_ROWS          # the field: the foot drops to the lava, plain wall above
     fall_field = _field(_Rng(LAKE_SEED + 3), FALL_AMP)
     lines = (_bank_line(_Rng(LAKE_SEED + 1)), _bank_line(_Rng(LAKE_SEED + 4)))
     wrv = {}
@@ -1875,7 +2516,7 @@ def _rock(r):
                    lambda c: DOWN if roofish(c) else up,
                    lambda c: ZONE_ROCK if c[2] > roof else ZONE_SHADE)
             continue
-        rows = IN_ROWS if in0 else OUT_ROWS
+        rows = S4_ROWS if (s4_in(t0) or s4_in(t1)) else (IN_ROWS if in0 else OUT_ROWS)
         for ri in range(len(rows) - 1):
             lo, hi = rows[ri], rows[ri + 1]
             a0, a1 = WR(lo, t0), WR(lo, t1)
@@ -1918,11 +2559,59 @@ def _rock(r):
     pit_tris, PN = _pit_lava(m, pit_wall, bank0, bank1, cut0, cut1,
                              [t for t in cols_all if bank0 <= t <= bank1], lava_ts, lines)
     _pit_bank_ends(m, pit_wall, cut0, cut1, bank0, bank1, PN)
+    s4_lines = (_s4_bank_line(_Rng(S4_SEED + 1)), _s4_bank_line(_Rng(S4_SEED + 4)))
+    s4_field = _field(_Rng(S4_SEED + 2), S4_FLOOR_AMP)
+    s4_pit_tris, S4PN = _pit_lava(m, pit_wall, s4b0, s4b1, s4c0, s4c1,
+                                  [t for t in cols_all if s4b0 <= t <= s4b1], s4_lava_ts, s4_lines)
+    for cut, mid, bank, sgn in ((s4c0, s4m0, s4b0, 1.0), (s4c1, s4m1, s4b1, -1.0)):
+        # the bank's end at the pit lip: a fan from the cut's rim vertex over
+        # the wall's hole edge and the bank's own lip chain
+        want = (-math.sin(cut) * sgn, math.cos(cut) * sgn, 0.0)
+        chain = [pit_wall.W(cut, LAVA_Z), pit_wall.W(bank, LAVA_Z)]
+        if S4PN(bank, LAVA_Z) != pit_wall.W(bank, LAVA_Z):
+            chain.append(S4PN(bank, LAVA_Z))
+        chain.append(pit_wall.W(mid, s4_z(mid)))
+        apex = pit_wall.W(cut, DECK_Z)
+        for a, b in zip(chain, chain[1:]):
+            m.tri(apex, a, b, want, ZONE_SHADE)
 
     def in_chan(t):
-        return cut0 - 1e-9 <= t <= cut1 + 1e-9
+        """Columns on the channels' own stations. S4's cuts are side
+        boundaries and keep the deck's stations, so the deck outside is the
+        deck it was; its bank is the strip from there to the middle column."""
+        return cut0 - 1e-9 <= t <= cut1 + 1e-9 or (s4c0 + 1e-9 < t < s4c1 - 1e-9)
+
+    def s4_pt(t, j, p, r_lip, r_foot):
+        """A field vertex: the two end banks wander on their own lines, the
+        lava carries its own 2-D field, flat at the lip and the foot."""
+        rad = math.hypot(p[0], p[1])
+        i = BANK_WALL - 1 + (len(RST_RIVER) - 1 - j)
+        z = p[2]
+        tongue = _s4_tongue(rad)
+        if abs(t - s4c0) < 1e-9 or abs(t - s4c1) < 1e-9:
+            da = 0.0                                   # the cut is a side boundary: the deck's own
+        elif abs(t - s4m0) < 1e-9:
+            da = 0.5 * _bank_da(s4_lines[0], 0, i, rad) + s4_lines[0][i][0] / rad
+        elif abs(t - s4m1) < 1e-9:
+            da = 0.5 * _bank_da(s4_lines[1], 1, i, rad) - s4_lines[1][i][0] / rad
+            da += ((s4b1 - 0.1 / rad - s4m1) - da) * tongue    # under the pad: level to the lava
+            z += (DECK_Z - z) * tongue
+        elif abs(t - s4b0) < 1e-9:
+            da = _bank_da(s4_lines[0], 0, i, rad)
+        elif abs(t - s4b1) < 1e-9:
+            da = _bank_da(s4_lines[1], 1, i, rad) * (1.0 - tongue)
+        else:
+            da = (_bank_da(s4_lines[0], 0, i, rad) * max(0.0, 1.0 - (t - s4b0) * rad / BANK_REACH)
+                  + _bank_da(s4_lines[1], 1, i, rad) * max(0.0, 1.0 - (s4b1 - t) * rad / BANK_REACH))
+        a = t + da
+        x, y = rad * math.cos(a), rad * math.sin(a)
+        if s4_z(t) < LAVA_Z + 1e-9:
+            z += _ramp(rad - r_lip, 0.0, 0.8) * _ramp(r_foot - rad, 0.0, 0.8) * s4_field(x, y)
+        return (x, y, z)
 
     def river_pt(t, j, p, r_lip, r_foot):
+        if s4_in(t):
+            return s4_pt(t, j, p, r_lip, r_foot)
         """A channel vertex: its column's line wanders with the nearer bank,
         and the floor carries the 2-D field, flat at the lip and the foot."""
         rad = math.hypot(p[0], p[1])
@@ -1948,6 +2637,8 @@ def _rock(r):
     dv = {}
 
     def foot(t):
+        if s4_in(t):
+            return WR(S4_ROWS[0], t)
         return WR(IN_ROWS[0], t) if in_chan(t) else WF(0, t)
 
     def DV(t, j, fine=False):
@@ -1955,7 +2646,11 @@ def _rock(r):
         lip-to-foot run; the channel's are absolute radii (RST_RIVER), with
         the foot beyond them where the fall is cut back into the wall."""
         if j == 0:
-            return PN(t, LAVA_Z) if bank0 - 1e-9 <= t <= bank1 + 1e-9 else pit_wall.W(t, chan_z(t))
+            if bank0 - 1e-9 <= t <= bank1 + 1e-9:
+                return PN(t, LAVA_Z)
+            if s4b0 - 1e-9 <= t <= s4b1 + 1e-9:
+                return S4PN(t, LAVA_Z)
+            return pit_wall.W(t, chan_z(t))
         key = (round(t, 7), j, fine)
         if key in dv:
             return dv[key]
@@ -1997,6 +2692,12 @@ def _rock(r):
             for j in range(len(RST) - 1):
                 m.quad(DV(t0, j), DV(t1, j), DV(t1, j + 1), DV(t0, j + 1), UP, zone)
 
+    S4["edges"] = {}
+    for side, (cut, mid, bank) in enumerate(((s4c0, s4m0, s4b0), (s4c1, s4m1, s4b1))):
+        S4["edges"][side] = [[(RST_RIVER[j] * math.cos(cut), RST_RIVER[j] * math.sin(cut), DECK_Z)]
+                             + [m.verts[DV(t, j, True)] for t in (mid, bank)]
+                             for j in range(len(RST_RIVER))]
+
     # ---- the gallery ceiling: a flat annulus on the same columns as the wall
     # it meets, so its head seam carries no T-junction either -----------------
     ceil_nv = _nv(OUTER_R - INNER_R)
@@ -2029,10 +2730,16 @@ def _rock(r):
             t = pit_wall._norm(c["s"] / INNER_R)
             if cut0 - 0.02 < t < cut1 + 0.02:
                 continue                       # the channel runs down here
+            hw = 0.5 * c["w"] / INNER_R
+            if t - hw < s4b1 and t + hw > s4b0:
+                continue                       # ... and the field's fall
             _carve(m, pit_wall, c)
         else:
             _carve(m, shaft, c)
     _build_platforms(m, _Rng(LAKE_SEED))
+    s4r = _Rng(S4_SEED + 5)
+    for rock in lay["rocks"]:
+        _s4_rock(m, s4r, rock)
     pit_wall.emit()
     shaft.emit()
 
@@ -2046,14 +2753,46 @@ def _rock(r):
             j = (i + 1) % SIDES
             m.quad(prev[i], prev[j], ring[j], ring[i], UP, ZONE_ROCK)
         prev = ring
-    return m, ang, (len(sec_cols), pit_tris), (cut0, cut1)
+    return m, ang, (len(sec_cols), pit_tris), (cut0, cut1), (s4c0, s4b0, s4b1, s4c1)
 
 
 # =============================================================================
 # COLLISION -- flat deck, clean walls, courtyard floor. Nothing jittered.
 # =============================================================================
 
-def _collider(ang, cut0, cut1):
+def _s4_collider(c, r, s4):
+    """S4: a flat surface at the lava height, lip to foot, bank to bank, minus
+    the rocks' footprints; then the rocks, crest and all, straight-sided."""
+    s4c0, s4b0, s4b1, s4c1 = s4
+    lay = _s4_layout()
+    for side in (0, 1):                     # the end banks: deck to the middle column, a step down
+        chain = lay["edges"][side]
+        top = [[c.v((p[0], p[1], DECK_Z)) for p in row[:2]] for row in chain]
+        low = [[c.v((p[0], p[1], LAVA_Z)) for p in row[1:]] for row in chain]
+        for j in range(len(chain) - 1):
+            c.quad(top[j][0], top[j][1], top[j + 1][1], top[j + 1][0], UP, ZONE_ROCK, best=True)
+            c.quad(low[j][0], low[j][1], low[j + 1][1], low[j + 1][0], UP, ZONE_ROCK, best=True)
+            c.quad(top[j][1], top[j + 1][1], low[j + 1][0], low[j][0],
+                   _tangent(0.0) if side else _tangent(180.0), ZONE_ROCK, best=True)
+    step = math.radians(1.0)
+    ts = [s4b1 - step * k for k in range(1, int((s4b1 - s4b0) / step) + 1)]
+    ts = _merge_cols([t for t in ts if (t - s4b0) * CROSS_R > COL_MERGE
+                      and (s4b1 - t) * CROSS_R > COL_MERGE], [s4b0, s4b1])
+    grid = [[c.v((rr * math.cos(t), rr * math.sin(t), LAVA_Z)) for rr in LAVA_COLL_RST] for t in ts]
+    nr = len(LAVA_COLL_RST)
+    for i in range(len(ts) - 1):
+        for j in range(nr - 1):
+            mid = (0.5 * (LAVA_COLL_RST[j] + LAVA_COLL_RST[j + 1]) * math.cos(0.5 * (ts[i] + ts[i + 1])),
+                   0.5 * (LAVA_COLL_RST[j] + LAVA_COLL_RST[j + 1]) * math.sin(0.5 * (ts[i] + ts[i + 1])))
+            if any(_s4_inside(rk, mid, grow=-0.6) for rk in lay["rocks"]):
+                continue
+            c.quad(grid[i][j], grid[i + 1][j], grid[i + 1][j + 1], grid[i][j + 1], UP, ZONE_ROCK)
+    for rk in lay["rocks"]:
+        _s4_rock(c, r, rk, coll=True)
+
+
+def _collider(ang, cut, s4):
+    cut0, cut1 = cut
     c = _Mesh()
     lip = _ring(c, ang, lambda i: INNER_R, lambda i: DECK_Z)
     foot = _ring(c, ang, lambda i: OUTER_R, lambda i: DECK_Z)
@@ -2069,7 +2808,7 @@ def _collider(ang, cut0, cut1):
 
     # Deck and pit wall are cut where the river runs: no deck collision over it
     # and the lip comes down to the trench, so nothing invisible dams the lava.
-    dcols = _merge_cols(list(ang) + [ang[0] + TWO_PI], [cut0, cut1])
+    dcols = _merge_cols(list(ang) + [ang[0] + TWO_PI], [cut0, cut1, s4[0], s4[3]])
     cv = {}
 
     def CV(tag, ring, t, z=None):
@@ -2081,7 +2820,8 @@ def _collider(ang, cut0, cut1):
 
     for ci in range(len(dcols) - 1):
         t0, t1 = dcols[ci], dcols[ci + 1]
-        inside = t0 >= cut0 - 1e-9 and t1 <= cut1 + 1e-9
+        inside = (t0 >= cut0 - 1e-9 and t1 <= cut1 + 1e-9) \
+            or (t0 >= s4[0] - 1e-9 and t1 <= s4[3] + 1e-9)
         tz = LAVA_Z if inside else DECK_Z                  # the rim drops to the river
         am = 0.5 * (t0 + t1)
         inward = (-math.cos(am), -math.sin(am), 0.0)
@@ -2094,6 +2834,7 @@ def _collider(ang, cut0, cut1):
         c.quad(a0, a1, CV("out", foot, t1), CV("out", foot, t0), UP, ZONE_ROCK)
 
     _lake_collider(c, _Rng(LAKE_SEED))
+    _s4_collider(c, _Rng(S4_SEED + 5), s4)
     _shelf_box(c)
     return c
 
@@ -2293,6 +3034,7 @@ def _deck_render(spec, objects):
     shot("deck290", pol(290.0, 52.0, DECK_Z + EYE_H), pol(302.0, 52.0, 23.4),
          34.0, (1400, 800))
     shot("wide", pol(315.3, 6.0, 96.0), pol(315.3, 50.0, 18.0), 24.0, (1500, 1000))
+    _s4_review(scene, shot, ld, key, bg, objects)
     if CELLS:
         cm, out, w, h = max([c for c in CELLS if c[0][2] < DECK_Z] or CELLS,
                             key=lambda c: c[3])
@@ -2309,8 +3051,8 @@ def _deck_render(spec, objects):
 # =============================================================================
 
 def build():
-    rock, ang, river, cut = _rock(_Rng(SEED))
-    coll = _collider(ang, cut[0], cut[1])
+    rock, ang, river, cut, s4 = _rock(_Rng(SEED))
+    coll = _collider(ang, cut, s4)
 
     albedo, emissive = build_texture()
     mdl.save_texture(albedo)
@@ -2349,6 +3091,7 @@ def build():
     for k, (b, rad, inner) in enumerate(_platforms()):
         print("MDL STATS platform%d bearing=%.3f r=%.1f top=%.2f square=%.1f %s"
               % (k + 1, b, rad, PLAT_TOP_Z, 2.0 * PLAT_HALF, "inner+fin" if inner else "outer"))
+    _s4_stats()
     print("MDL STATS cells=%d pit=%d pit_top=%.1f uniform_to=%.0f above200=%d top=%.0f"
           % (len(CELLS), sum(1 for c in CELLS if c[0][2] < DECK_Z),
              max(c[0][2] + 0.5 * c[3] for c in CELLS if c[0][2] < DECK_Z), UNIFORM_TOP,
