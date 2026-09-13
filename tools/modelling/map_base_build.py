@@ -52,10 +52,10 @@ mdl.DEFAULTS["world_strength"] = 0.90
 # =============================================================================
 # TUNABLES
 # =============================================================================
-# Texture files: if tools/modelling/textures/river_albedo.png exists it is the
-# river's albedo (river_emissive.png beside it, else the albedo glows); the
-# same for lava_albedo.png / lava_emissive.png on the pit sea. Otherwise the
-# painted sheets below are used.
+# Texture files (opt-in, USE_TEXTURE_FILES): tools/modelling/textures/
+# river_albedo.png is then the river's albedo (river_emissive.png beside it,
+# else the albedo glows); the same for lava_albedo.png / lava_emissive.png on
+# the pit sea. Otherwise, and by default, the painted sheets below are used.
 
 NAME = "map_base"
 OBJECT_NAME = "MapBaseRock"
@@ -94,6 +94,7 @@ SEED = 9110271
 EYE_H = 1.65
 
 # ---- material / texture -- identical to tower_build.py --------------------
+USE_TEXTURE_FILES = False             # True: texture files in TEX_DIR replace the painted sheets
 TEX_DIR       = "textures"            # beside the running script, here or in the PC job dir
 TEX_SIZE      = 128
 TEX_ALBEDO    = "map_base_rock_albedo"
@@ -158,8 +159,7 @@ FLOOR_AMP = 0.15                      # the river floor's 2-D surface, metres, p
 FLOOR_L = (1.8, 4.0)                  # ... wavelengths
 FALL_AMP = 0.06                       # the same on the wall fall, smaller
 FALL_ROWS = (24.0, 25.0, 26.0, 27.0)  # fall rows between the foot and the lip
-CEIL_BAND = 0.6                       # rock over the shelf: the ceiling comes down to this
-CEIL_BLEND = 4.0                      # ... and back up to CEIL_Z over this many degrees
+SLOT_H = 0.7                          # the recess over the shelf: a slot this tall, wall above
 LIP_R = 1.0                           # both lips round over this far ...
 LIP_ROWS = (0.15, 0.35)               # ... on rows this far below the flat
 LIP_P = 1.5                           # the round-over's superellipse exponent
@@ -582,8 +582,8 @@ def _image_file(name):
 
 
 def _sheet(stem, painted):
-    """(albedo, emissive): the files if the albedo file exists, else painted."""
-    alb = _image_file(stem + "_albedo.png")
+    """(albedo, emissive): the files when opted in and present, else painted."""
+    alb = _image_file(stem + "_albedo.png") if USE_TEXTURE_FILES else None
     if alb is None:
         return painted()
     return alb, (_image_file(stem + "_emissive.png") or alb)
@@ -1649,12 +1649,6 @@ def _rock(r):
     wl0, wl1 = T(WALL_A1), T(WALL_A0)                # the run down the shaft wall
     wb0, wb1 = T(WALL_A1 - WALL_BANK), T(WALL_A0 + WALL_BANK)
 
-    def ceil_z(t):
-        """The gallery ceiling at the wall: down to CEIL_BAND over the shelf
-        across the river, back up to CEIL_Z over CEIL_BLEND degrees."""
-        b = math.radians(CEIL_BLEND)
-        k = min(_ramp(t, cut0 - b, cut0), _ramp(t, cut1 + b, cut1))
-        return CEIL_Z - k * (CEIL_Z - WALL_LAVA_TOP - CEIL_BAND)
 
     # ---- pit wall: courtyard up to the deck lip. Rings are level (their
     # radius steps, like cleaved rock) so a cell mouth is a rectangle in
@@ -1721,9 +1715,6 @@ def _rock(r):
                   lambda i, k=k: OUTER_R * (1.0 + wbias[i][k]),
                   lambda i, k=k: wall_z[k] + wzj[i][k])
             for k in range(nwall)]
-    for i in range(SIDES):                          # the head ring follows the ceiling down
-        v = wall[nwall - 1][i]
-        m.verts[v] = (m.verts[v][0], m.verts[v][1], ceil_z(ang[i]))
 
     def wall_zone(k):
         def zone(i):
@@ -1752,8 +1743,7 @@ def _rock(r):
     wfv = {}
 
     def WF(k, t):
-        """Vertex on outer-wall ring k at a column angle; shared. The head
-        ring follows the ceiling down over the river."""
+        """Vertex on outer-wall ring k at a column angle; shared."""
         key = (k, round(t, 7))
         if key not in wfv:
             i, u = _side_u(ang, t)
@@ -1762,10 +1752,7 @@ def _rock(r):
             elif u > 1.0 - 1e-9:
                 wfv[key] = wall[k][(i + 1) % SIDES]
             else:
-                p = _chord(m, wall[k], ang, t)
-                if k == nwall - 1:
-                    p = (p[0], p[1], ceil_z(t))
-                wfv[key] = m.v(p)
+                wfv[key] = m.v(_chord(m, wall[k], ang, t))
         return wfv[key]
 
     # ---- the channel's floor height, and how far it is cut into the wall -----
@@ -1785,16 +1772,16 @@ def _rock(r):
         return 0.0
 
 
-    # rows: (label, depth). Outside the river the wall keeps pass 4's rows
-    # (squeezed under the ceiling where it comes down); inside, the fall's
-    # own rows: foot, FALL_ROWS, the rounded lip, the shelf, the ceiling.
+    # rows: (label, depth). Outside the river the wall keeps pass 4's rows;
+    # inside, the fall's own rows: foot, FALL_ROWS, the rounded lip, the
+    # shelf, the slot's roof, then plain wall up to the ceiling.
     OUT_ROWS = [((0, 0.0), 0.0), ((0, 0.5), 0.0), ((1, 0.0), 0.0), ((1, 0.5), 0.0),
                 (("out", 0), 0.0), (("out", 1), 0.0), ((1, 1.0), 0.0)]
     IN_ROWS = [("low", RECESS_R), ((0, 0.0), RECESS_R)] \
         + [(("z", z), RECESS_R) for z in FALL_ROWS] \
         + [(("z", WALL_LAVA_TOP - d), RECESS_R + _lip(d)) for d in reversed(LIP_ROWS)] \
-        + [(("z", WALL_LAVA_TOP), RECESS_R + LIP_R), ("shelf", SHELF_D), ("ceil", SHELF_D),
-           ((1, 1.0), 0.0)]
+        + [(("z", WALL_LAVA_TOP), RECESS_R + LIP_R), ("shelf", SHELF_D), ("roof", SHELF_D),
+           ("roof2", 0.0), ((1, 1.0), 0.0)]
     IN_ROW_I = {row[0]: BANK_WALL - 1 - k for k, row in enumerate(IN_ROWS[:BANK_WALL])}
     fall_field = _field(_Rng(LAKE_SEED + 3), FALL_AMP)
     lines = (_bank_line(_Rng(LAKE_SEED + 1)), _bank_line(_Rng(LAKE_SEED + 4)))
@@ -1820,15 +1807,16 @@ def _rock(r):
         columns swung by the bank line on that row."""
         lab, _depth = row
         d = wall_rec(row, t)
-        if d < EPS and lab in ((0, 0.0), (1, 1.0)):
-            return WF(0 if lab == (0, 0.0) else nwall - 1, t)
+        if lab == (0, 0.0) and d < EPS:
+            return WF(0, t)
+        if lab == (1, 1.0):
+            return WF(nwall - 1, t)
         if lab == "low" and d < EPS and abs(chan_z(t) - DECK_Z) < 1e-9:
             return WF(0, t)
         if lab[0] in ("out", 0, 1):                   # pass 4's rows, on the rings
             if lab[0] == "out":
-                za, zb = m.verts[WR(((1, 0.5), 0.0), t)][2], m.verts[WF(nwall - 1, t)][2]
-                zr = zb - (CEIL_Z - WALL_ROWS_OUT[lab[1]]) * (zb - za) / (CEIL_Z - za)
-                k, f = 1, (zr - m.verts[WF(1, t)][2]) / (zb - m.verts[WF(1, t)][2])
+                za, zb = m.verts[WF(1, t)][2], m.verts[WF(nwall - 1, t)][2]
+                k, f = 1, (WALL_ROWS_OUT[lab[1]] - za) / (zb - za)
             else:
                 k, f = lab
             pa, pb = m.verts[WF(k, t)], m.verts[WF(k + 1, t)]
@@ -1843,8 +1831,8 @@ def _rock(r):
                 z = chan_z(t)
             elif lab == "shelf":
                 z = WALL_LAVA_TOP
-            elif lab == "ceil":
-                z = ceil_z(t)
+            elif lab in ("roof", "roof2"):
+                z = WALL_LAVA_TOP + SLOT_H
             else:
                 z = lab[1]
             rad = math.hypot(foot[0], foot[1]) + d
@@ -1878,10 +1866,14 @@ def _rock(r):
             A = [(row_z(row, t0), WR(row, t0)) for row in rows0]
             B = [(row_z(row, t1), WR(row, t1)) for row in rows1]
             up = (-math.cos(am) + 0.0, -math.sin(am), 0.6)
-            top = min(ceil_z(t0), ceil_z(t1)) - 0.05
+            roof = WALL_LAVA_TOP + 0.5 * SLOT_H
+            r_wall = math.hypot(*m.verts[WF(0, t0)][:2])
+
+            def roofish(c):
+                return c[2] > roof and math.hypot(c[0], c[1]) - r_wall > 0.5
             _strip(m, A, B,
-                   lambda c: DOWN if c[2] > top else up,
-                   lambda c: ZONE_ROCK if c[2] > top else ZONE_SHADE)
+                   lambda c: DOWN if roofish(c) else up,
+                   lambda c: ZONE_ROCK if c[2] > roof else ZONE_SHADE)
             continue
         rows = IN_ROWS if in0 else OUT_ROWS
         for ri in range(len(rows) - 1):
@@ -1893,10 +1885,12 @@ def _rock(r):
             face_want = want
             if hi[0] == "shelf":                       # the shelf: flat river
                 face_want, zone = UP, ZONE_RIVER
-            elif lo[0] == "shelf":                     # the back of the cut
+            elif lo[0] == "shelf":                     # the back of the slot
                 zone = ZONE_SHADE
-            elif lo[0] == "ceil":                      # rock over the shelf
+            elif lo[0] == "roof":                      # the slot's roof
                 face_want, zone = DOWN, ZONE_ROCK
+            elif lo[0] == "roof2":                     # plain wall over the slot
+                zone = wall_zone(1)(side)
             else:
                 recs = [wall_rec(lo, t0), wall_rec(lo, t1), wall_rec(hi, t0), wall_rec(hi, t1)]
                 if min(recs) > RECESS_R - EPS:
@@ -2105,11 +2099,11 @@ def _collider(ang, cut0, cut1):
 
 
 def _shelf_box(c):
-    """A curved box over the wall's shelf recess: the wall stays solid there."""
+    """A curved box over the wall's shelf slot: the wall stays solid there."""
     n = 10
     bs = [WALL_A1 + (WALL_A0 - WALL_A1) * k / n for k in range(n + 1)]
-    r0, r1 = OUTER_R - 0.05, OUTER_R + SHELF_D + 4.0
-    z0, z1 = WALL_LAVA_TOP - 0.3, CEIL_Z
+    r0, r1 = OUTER_R - 0.05, OUTER_R + SHELF_D + 0.5
+    z0, z1 = WALL_LAVA_TOP - 0.3, WALL_LAVA_TOP + SLOT_H + 0.3
     lo = [[c.v(pol(b, rad, z0)) for rad in (r0, r1)] for b in bs]
     hi = [[c.v(pol(b, rad, z1)) for rad in (r0, r1)] for b in bs]
     for k in range(n):
