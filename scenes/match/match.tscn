@@ -1,4 +1,4 @@
-[gd_scene load_steps=27 format=3]
+[gd_scene load_steps=28 format=3]
 
 [ext_resource type="PackedScene" path="res://scenes/ring/bentham_ring.tscn" id="1_arena"]
 [ext_resource type="PackedScene" path="res://scenes/player/player.tscn" id="2_player"]
@@ -15,6 +15,7 @@
 [ext_resource type="Script" path="res://scripts/ui/settings_boot.gd" id="12_settings_boot"]
 [ext_resource type="PackedScene" path="res://scenes/ui/match_result_screen.tscn" id="13_result_screen"]
 [ext_resource type="Script" path="res://scripts/fx/spectator_view.gd" id="15_spectator"]
+[ext_resource type="Script" path="res://scripts/fx/free_camera.gd" id="25_free_camera"]
 [ext_resource type="Resource" path="res://resources/fx/default_spectator_profile.tres" id="16_spectator_profile"]
 [ext_resource type="Script" path="res://scripts/ui/death_screen.gd" id="17_death_screen"]
 [ext_resource type="Script" path="res://scripts/camera/seat_handover_view.gd" id="18_handover"]
@@ -71,7 +72,7 @@ shove_camera_kick = NodePath("../FeedbackRig/CameraKick")
 
 [node name="HUD" type="CanvasLayer" parent="."]
 
-[node name="Root" type="Control" parent="HUD" node_paths=PackedStringArray("controller", "rifle", "crosshair", "status_panel", "status_label", "flash_label", "tower_panel", "tower_fill", "tower_value", "guard_panel", "guard_fill", "guard_value", "pips_row", "power_panel", "power_label", "power_fill", "boost_label", "dev_label")]
+[node name="Root" type="Control" parent="HUD" node_paths=PackedStringArray("controller", "rifle", "crosshair", "status_panel", "status_label", "flash_label", "tower_panel", "tower_fill", "tower_value", "guard_panel", "guard_fill", "guard_value", "pips_row", "power_panel", "power_label", "power_fill", "boost_label", "dev_label", "free_camera")]
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
@@ -98,6 +99,7 @@ power_label = NodePath("Power/Name")
 power_fill = NodePath("Power/Track/Fill")
 boost_label = NodePath("Boost")
 dev_label = NodePath("Dev")
+free_camera = NodePath("../../FreeCamera")
 readout = ExtResource("21_readout")
 
 [node name="Crosshair" type="ColorRect" parent="HUD/Root"]
@@ -492,6 +494,19 @@ profile = ExtResource("16_spectator_profile")
 editor_description = "The spectator's own camera, deliberately NOT current in the scene as authored -- the player's camera is, and this one is switched in only while somebody is dead. Its fov is set from SpectatorProfile at _ready rather than borrowed from the player camera, which may be zoomed down a rifle scope at the moment its owner is shot."
 current = false
 fov = 75.0
+
+[node name="FreeCamera" type="Node3D" parent="." node_paths=PackedStringArray("camera", "player_camera", "human_input", "avatar", "controller")]
+editor_description = "Dev only: C detaches a flying camera from the local body mid match, freezing HumanIntentSource so nothing the pilot presses reaches the body or the wire."
+script = ExtResource("25_free_camera")
+camera = NodePath("Camera")
+player_camera = NodePath("../Player/Head/Camera")
+human_input = NodePath("../Player/HumanInput")
+avatar = NodePath("../Player/Avatar")
+controller = NodePath("../MatchController")
+
+[node name="Camera" type="Camera3D" parent="FreeCamera"]
+editor_description = "The free camera's own camera, deliberately NOT current as authored; it is seeded from the player camera on the way out."
+current = false
 
 [node name="SeatHandover" type="Node3D" parent="." node_paths=PackedStringArray("controller", "camera", "player_camera", "human_input", "optic")]
 editor_description = "The tower changing hands, as the player experiences it. A seat change is MatchController.start_round() writing a new global_position onto every body on one tick, and the human camera is a child of one of those bodies, so the biggest moment in the match used to arrive as a single-frame teleport that said nothing. This node holds the view still for a beat at the pose the player was in, then flies its OWN camera to wherever the player camera has ended up, arcing over the deck so the flight does not skim through the ring cover. It never writes the player camera -- WeaponOptic owns that camera's fov, FxCameraKick owns its local transform and PauseMenu writes the display FOV into it -- only its `current` flag, which it sets back on the way out. human_input is the same banked-mouse fix FxSpectatorView documents: a body being placed is held inert and not polling, so a second of unmuted mouse would land on the aim in one frame the instant it woke. optic is what stops a player who lost the tower mid-shot starting their next lap looking down a scope. FxSpectatorView outranks this node: it does not arm while the human is dead and stands down on the frame they die. Inert with no display server, so bot sweeps pay nothing. Strictly additive -- it subscribes to signals MatchController already emits, is subscribed to by nothing, and deleting it restores the instant cut."

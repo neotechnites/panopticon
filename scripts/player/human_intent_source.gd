@@ -56,8 +56,22 @@ func _unhandled_input(event: InputEvent) -> void:
 var _turbo: bool = false
 var _godmode: bool = false
 
+## Dev free camera: while the view is detached this device drives the camera and
+## nothing else, so the body must be handed an empty intent rather than the
+## keyboard's. See [method set_frozen].
+var _frozen: bool = false
+
+## Whether this device was reading input before it was frozen, so unfreezing
+## gives back the state it took rather than switching a silenced source on.
+var _active_before_freeze: bool = true
+
 func poll(_delta: float) -> MoveIntent:
 	_intent.clear()
+	# Frozen is not "no keys pressed": it is the device gone, edges and banked
+	# pixels included. What goes on the wire is this empty intent.
+	if _frozen:
+		_look_pixels = Vector2.ZERO
+		return _intent
 	if profile == null:
 		# Sensitivity is a profile number; without one there is nothing to
 		# scale mouse motion by, so report no intent rather than invent a value.
@@ -108,6 +122,23 @@ func set_active(active: bool) -> void:
 	set_process_unhandled_input(active)
 	if not active:
 		_look_pixels = Vector2.ZERO
+
+
+## Stop this device driving the body at all, or give it back. The seam
+## [FxFreeCamera] uses: a frozen source reports an empty intent every tick.
+func set_frozen(frozen: bool) -> void:
+	if _frozen == frozen:
+		return
+	_frozen = frozen
+	if frozen:
+		_active_before_freeze = is_processing_unhandled_input()
+		set_active(false)
+	else:
+		set_active(_active_before_freeze)
+
+
+func is_frozen() -> bool:
+	return _frozen
 
 
 func _set_mouse_captured(captured: bool) -> void:
