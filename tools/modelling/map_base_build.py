@@ -52,6 +52,10 @@ mdl.DEFAULTS["world_strength"] = 0.90
 # =============================================================================
 # TUNABLES
 # =============================================================================
+# Texture files: if tools/modelling/textures/river_albedo.png exists it is the
+# river's albedo (river_emissive.png beside it, else the albedo glows); the
+# same for lava_albedo.png / lava_emissive.png on the pit sea. Otherwise the
+# painted sheets below are used.
 
 NAME = "map_base"
 OBJECT_NAME = "MapBaseRock"
@@ -90,6 +94,7 @@ SEED = 9110271
 EYE_H = 1.65
 
 # ---- material / texture -- identical to tower_build.py --------------------
+TEX_DIR       = os.path.join(os.path.dirname(os.path.abspath(__file__)), "textures")
 TEX_SIZE      = 128
 TEX_ALBEDO    = "map_base_rock_albedo"
 TEX_EMISSIVE  = "map_base_rock_emissive"
@@ -140,22 +145,31 @@ LAKE_BANK = 0.6                       # degrees of sloped bank at each end
 WALL_A0, WALL_A1 = 293.0, 338.0       # the run down the shaft wall
 WALL_BANK = 0.7
 LAVA_Z = 22.70                        # the channel floor: 0.3 m under the deck
-WALL_LAVA_TOP = 30.70                 # 8 m of wall above it; rock again over that
-WALL_LAVA_BANK = 30.20                # ... with its bank over the last 0.5 m
+WALL_LAVA_TOP = 28.80                 # the fall tops out here, 2.7 m under the ceiling
+WALL_ROWS_OUT = (30.20, 30.70)        # the outer wall's own rows, kept as pass 4 laid them
 RECESS_R = 0.40                       # how far the channel is cut into a wall
 PIT_FADE = 2.0                        # metres the pit-wall channel takes to open
 RST = [46.70, 47.60, 48.60, 50.00, 51.40, 52.80, 54.20, 55.40, 56.40, 57.30]
-RST_RIVER = [46.70, 47.60, 48.60, 49.30, 50.00, 50.70, 51.40, 52.10, 52.80,
-             53.50, 54.20, 54.80, 55.40, 56.40, 57.30]   # the channel's own stations
-RIPPLE_A = (0.07, 0.045, 0.03)        # the river's swell: three harmonics, metres
-RIPPLE_L = (2.6, 1.55, 3.4)           # ... and their wavelengths along the flow
-BANK_STEP = (0.3, 0.8)                # metres a bank edge steps in or out per run
-BANK_OFF = (-0.5, 0.85)               # ... within this of the nominal line (+ into the river)
-BANK_W = [0.06, 0.12, 0.30, 0.55, 0.90, 1.15]   # bank width, plan: near-vertical .. gentle
-BANK_RUN = (1, 3)                     # stations a step or a width is held for
+RST_RIVER = [46.70, 48.20, 49.00, 49.70, 50.40, 51.10, 51.80, 52.50, 53.20,
+             53.90, 54.60, 55.30, 56.00, 56.70, 57.30]   # the channel's own stations,
+                                      # absolute radii; the first is the lip, LIP_R out
+FLOOR_AMP = 0.15                      # the river floor's 2-D surface, metres, peak
+FLOOR_L = (1.8, 4.0)                  # ... wavelengths
+FALL_AMP = 0.06                       # the same on the wall fall, smaller
+FALL_FLAT = 0.75                      # 0 = the fall follows the wall's arc, 1 = planar
+FALL_FLAT_DEG = 2.5                   # ... eased in over this many degrees at each end,
+                                      # as is everything cut deeper than RECESS_R
+FALL_ROWS = (24.0, 25.0, 26.0, 27.0)  # fall rows between the foot and the lip
+LIP_R = 1.0                           # both lips round over this far ...
+LIP_ROWS = (0.15, 0.35)               # ... on rows this far below the flat
+LIP_P = 1.5                           # the round-over's superellipse exponent
+BANK_STEP = (0.15, 0.4)               # metres a bank edge steps in or out per run
+BANK_OFF = (-0.4, 0.4)                # ... within this of the nominal line (+ into the river)
+BANK_W = [0.30, 0.45, 0.60, 0.80, 1.00]   # bank width, plan: steep .. gentle
+BANK_RUN = (2, 4)                     # stations a step or a width is held for
 BANK_REACH = 3.0                      # metres of floor that follow a bank's line
 COL_MERGE = 0.30                      # a river column this close to a wall column yields
-SHELF_D = 2.0                         # the flat river cut back into the wall over the fall
+SHELF_D = 2.5                         # the flat river cut back into the wall over the fall
 FALL_CAP = 3.0                        # tallest fall row
 
 PLAT_OUT_R = 54.8                     # the run: 7 platforms, 7.00 m apart
@@ -555,6 +569,26 @@ def _river_texture():
     return images[0], images[1]
 
 
+def _image_file(name):
+    """A texture file beside the script, packed into the .glb; None if absent."""
+    path = os.path.join(TEX_DIR, name)
+    if not os.path.isfile(path):
+        return None
+    img = bpy.data.images.load(path)
+    img.colorspace_settings.name = "sRGB"
+    img.pack()
+    print("MDL TEXTURE %s from %s" % (img.name, path))
+    return img
+
+
+def _sheet(stem, painted):
+    """(albedo, emissive): the files if the albedo file exists, else painted."""
+    alb = _image_file(stem + "_albedo.png")
+    if alb is None:
+        return painted()
+    return alb, (_image_file(stem + "_emissive.png") or alb)
+
+
 def river_material(name, albedo, emissive):
     """The river: single-sided, exactly as the deck and the walls it is cut into."""
     return rock_material(name, albedo, emissive)
@@ -588,12 +622,15 @@ class _Mesh(object):
         self.verts.append(tuple(p))
         return len(self.verts) - 1
 
-    def _emit(self, idx, want, zone):
+    def _emit(self, idx, want, zone, best=False):
         pts = [self.verts[j] for j in idx]
         n = _newell(pts)
         if n[0] * want[0] + n[1] * want[1] + n[2] * want[2] < 0.0:
             idx = list(reversed(idx))
         if len(idx) == 4:
+            if best and _min_angle(self.verts, idx[1], idx[2], idx[3], idx[0]) \
+                    > _min_angle(self.verts, idx[0], idx[1], idx[2], idx[3]):
+                idx = idx[1:] + idx[:1]                 # the better diagonal
             self.faces.append((idx[0], idx[1], idx[2]))
             self.faces.append((idx[0], idx[2], idx[3]))
             self.zones.append(zone)
@@ -602,8 +639,9 @@ class _Mesh(object):
             self.faces.append(tuple(idx))
             self.zones.append(zone)
 
-    def quad(self, a, b, c, d, want, zone):
-        self._emit([a, b, c, d], want, zone)
+    def quad(self, a, b, c, d, want, zone, best=False):
+        """best: split on whichever diagonal gives the fatter triangles."""
+        self._emit([a, b, c, d], want, zone, best)
 
     def tri(self, a, b, c, want, zone):
         self._emit([a, b, c], want, zone)
@@ -634,6 +672,23 @@ class _Mesh(object):
 
 
 UP = (0.0, 0.0, 1.0)
+
+
+def _min_angle(verts, a, b, c, d):
+    """Smallest corner angle over the two triangles a-b-c, a-c-d."""
+    def corner(p, q, r):
+        u = _sub(q, p)
+        v = _sub(r, p)
+        lu, lv = math.sqrt(_dot(u, u)), math.sqrt(_dot(v, v))
+        if lu < 1e-12 or lv < 1e-12:
+            return 0.0
+        return math.acos(max(-1.0, min(1.0, _dot(u, v) / (lu * lv))))
+    out = math.pi
+    for tri in ((a, b, c), (a, c, d)):
+        P = [verts[i] for i in tri]
+        for k in range(3):
+            out = min(out, corner(P[k], P[(k + 1) % 3], P[(k + 2) % 3]))
+    return out
 
 
 def _held(r, nrings, jag, one_sided):
@@ -939,17 +994,46 @@ def _zipper(m, outer, inner, want, zone):
 
 def _strip(m, A, B, want, zone):
     """Triangles between two chains of (param, id), each ascending, that do
-    not share vertices: every vertex of both is used, no T-junctions."""
+    not share vertices: every vertex of both is used, no T-junctions.
+    want/zone may be callables of the triangle's centroid."""
     i = j = 0
+
+    def dist(a, b):
+        return math.dist(m.verts[a], m.verts[b])
+
     while i < len(A) - 1 or j < len(B) - 1:
-        if j == len(B) - 1 or (i < len(A) - 1 and A[i + 1][0] <= B[j + 1][0]):
-            tri = (A[i][1], A[i + 1][1], B[j][1])
+        if j == len(B) - 1 or (i < len(A) - 1 and
+                               dist(A[i + 1][1], B[j][1]) <= dist(A[i][1], B[j + 1][1])):
+            tri = (A[i][1], A[i + 1][1], B[j][1])       # the shorter diagonal
             i += 1
         else:
             tri = (A[i][1], B[j][1], B[j + 1][1])
             j += 1
         if len(set(tri)) == 3:
-            m.tri(tri[0], tri[1], tri[2], want, zone)
+            c = tuple(sum(m.verts[v][k] for v in tri) / 3.0 for k in range(3))
+            m.tri(tri[0], tri[1], tri[2], want(c) if callable(want) else want,
+                  zone(c) if callable(zone) else zone)
+
+
+def _lip(d):
+    """A convex round-over: how far in front of the flat the surface is, d
+    below it, on a quarter circle of LIP_R."""
+    if d >= LIP_R:
+        return 0.0
+    return LIP_R * (1.0 - (1.0 - (1.0 - d / LIP_R) ** LIP_P) ** (1.0 / LIP_P))
+
+
+def _field(r, amp, n=6):
+    """A seeded 2-D height field: n plane waves, peak amp, metres."""
+    ws = []
+    for _ in range(n):
+        a, L = r.f() * TWO_PI, FLOOR_L[0] + r.f() * (FLOOR_L[1] - FLOOR_L[0])
+        ws.append((math.cos(a) * TWO_PI / L, math.sin(a) * TWO_PI / L, r.f() * TWO_PI, 0.5 + r.f()))
+    k = amp / sum(w[3] for w in ws)
+
+    def f(x, y):
+        return k * sum(w[3] * math.sin(w[0] * x + w[1] * y + w[2]) for w in ws)
+    return f
 
 
 def _by_angle(pts, centre):
@@ -1424,10 +1508,10 @@ def _pit_lava(m, wall, ta, tb, cut_a, cut_b, cols, rim, r):
     for z0, z1 in zip(zc, zc[1:]):
         nv = _nv(z1 - z0, FALL_CAP)
         zs += [z0 + (z1 - z0) * k / nv for k in range(nv)]
-    zs.append(zc[-1])
+    zs = sorted(zs + [LAVA_Z - d for d in LIP_ROWS] + [zc[-1]])
 
     def rec(z):
-        return RECESS_R * _ramp(LAVA_Z - z, 0.0, PIT_FADE)
+        return max(_lip(LAVA_Z - z), RECESS_R * _ramp(LAVA_Z - z, 0.0, PIT_FADE))
 
     node = {}
 
@@ -1446,7 +1530,7 @@ def _pit_lava(m, wall, ta, tb, cut_a, cut_b, cols, rim, r):
         want = (-math.cos(am), -math.sin(am), 0.0)
         for j in range(len(zs) - 1):
             m.quad(N(ts[i], zs[j]), N(ts[i + 1], zs[j]),
-                   N(ts[i + 1], zs[j + 1]), N(ts[i], zs[j + 1]), want, ZONE_FALL)
+                   N(ts[i + 1], zs[j + 1]), N(ts[i], zs[j + 1]), want, ZONE_FALL, best=True)
             tris += 2
     for t, into in ((ta, -1.0), (tb, 1.0)):        # the two banks
         want = (-math.sin(t) * into, math.cos(t) * into, 0.0)
@@ -1454,16 +1538,17 @@ def _pit_lava(m, wall, ta, tb, cut_a, cut_b, cols, rim, r):
                want, ZONE_SHADE)
     _strip(m, [(t, wall.W(t, za)) for t in rim_ts], [(t, N(t, za)) for t in ts],
            UP, ZONE_SHADE)                         # the sill at the sea
-    return tris
+    return tris, N
 
 
-def _pit_bank_ends(m, wall, cut_a, cut_b, ta, tb):
-    """The two triangles that close the deck's sloped bank against the pit
-    wall, where the rim steps from the deck down to the river."""
-    m.tri(wall.W(cut_a, DECK_Z), wall.W(cut_a, LAVA_Z), wall.W(ta, LAVA_Z),
-          (-math.sin(cut_a), math.cos(cut_a), 0.0), ZONE_SHADE)
-    m.tri(wall.W(cut_b, DECK_Z), wall.W(cut_b, LAVA_Z), wall.W(tb, LAVA_Z),
-          (math.sin(cut_b), -math.cos(cut_b), 0.0), ZONE_SHADE)
+def _pit_bank_ends(m, wall, cut_a, cut_b, ta, tb, N):
+    """The triangles that close the deck's sloped bank against the pit wall,
+    where the rim steps from the deck down to the river's rounded lip."""
+    for cut, t, sgn in ((cut_a, ta, 1.0), (cut_b, tb, -1.0)):
+        want = (-math.sin(cut) * sgn, math.cos(cut) * sgn, 0.0)
+        m.tri(wall.W(cut, DECK_Z), wall.W(cut, LAVA_Z), wall.W(t, LAVA_Z), want, ZONE_SHADE)
+        if N(t, LAVA_Z) != wall.W(t, LAVA_Z):
+            m.tri(wall.W(cut, DECK_Z), wall.W(t, LAVA_Z), N(t, LAVA_Z), want, ZONE_SHADE)
 
 
 # -----------------------------------------------------------------------------
@@ -1517,20 +1602,6 @@ def _bank_profile(r, n):
     while len(ws) < n:
         ws += [r.pick(BANK_W)] * r.i(*BANK_RUN)
     return [(offs[j], min(ws[j], 1.5 - offs[j])) for j in range(n)]
-
-
-def _ripple(r):
-    """The river's swell, metres, zero at the lip and the wall foot."""
-    ph = [r.f() * TWO_PI for _ in range(4)]
-
-    def f(a, rad):
-        s = rad - INNER_R
-        c = a * CROSS_R
-        k = _ramp(s, 0.0, 1.2) * _ramp(OUTER_R - rad, 0.0, 1.2)
-        return k * (RIPPLE_A[0] * math.sin(TWO_PI * s / RIPPLE_L[0] + 0.9 * math.sin(c / 3.1 + ph[0]) + ph[1])
-                    + RIPPLE_A[1] * math.sin(TWO_PI * s / RIPPLE_L[1] + c / 2.2 + ph[2])
-                    + RIPPLE_A[2] * math.sin(TWO_PI * c / RIPPLE_L[2] + 1.7 * s + ph[3]))
-    return f
 
 
 # =============================================================================
@@ -1670,20 +1741,31 @@ def _rock(r):
             return 1.0
         return _ramp(t, wl0, wb0) if t < wb0 else _ramp(t, wl1, wb1)
 
-    WROWS = ["low", (0, 0.0), (0, 0.5), (1, 0.0), (1, 0.5),
-             (1, "bank"), (1, "split"), (1, "shelf"), (1, "ceil"), (1, 1.0)]
-    WROWD = {"low": RECESS_R, (0, 0.0): RECESS_R, (0, 0.5): RECESS_R,
-             (1, 0.0): RECESS_R, (1, 0.5): RECESS_R, (1, "bank"): RECESS_R,
-             (1, "split"): RECESS_R, (1, "shelf"): SHELF_D, (1, "ceil"): SHELF_D,
-             (1, 1.0): 0.0}
-    WROWZ = {"bank": WALL_LAVA_BANK, "split": WALL_LAVA_TOP, "shelf": WALL_LAVA_TOP}
+    # rows: (label, depth). Outside the river the wall keeps pass 4's rows;
+    # inside, the fall's own rows: foot, FALL_ROWS, the rounded lip, the shelf.
+    OUT_ROWS = [((0, 0.0), 0.0), ((0, 0.5), 0.0), ((1, 0.0), 0.0), ((1, 0.5), 0.0),
+                (("z", WALL_ROWS_OUT[0]), 0.0), (("z", WALL_ROWS_OUT[1]), 0.0), ((1, 1.0), 0.0)]
+    IN_ROWS = [("low", RECESS_R), ((0, 0.0), RECESS_R)] \
+        + [(("z", z), RECESS_R) for z in FALL_ROWS] \
+        + [(("z", WALL_LAVA_TOP - d), RECESS_R + _lip(d)) for d in reversed(LIP_ROWS)] \
+        + [(("z", WALL_LAVA_TOP), RECESS_R + LIP_R), ("shelf", SHELF_D), ("ceil", SHELF_D),
+           ((1, 1.0), 0.0)]
+    t_mid = 0.5 * (wl0 + wl1)
+    fall_field = _field(_Rng(LAKE_SEED + 3), FALL_AMP)
     wrv = {}
 
-    def wall_rec(lab, t):
-        return WROWD[lab] * wall_colf(t)
+    def wall_rec(row, t):
+        lab, depth = row
+        if depth < EPS:
+            return 0.0
+        flat = FALL_FLAT * (OUTER_R + RECESS_R) * (1.0 / math.cos(t - t_mid) - 1.0)
+        e = math.radians(FALL_FLAT_DEG)
+        ease = min(_ramp(t, wl0, wl0 + e), _ramp(t, wl1, wl1 - e))
+        return depth * wall_colf(t) + flat * ease
 
-    def WR(lab, t):
-        d = wall_rec(lab, t)
+    def WR(row, t):
+        lab, _depth = row
+        d = wall_rec(row, t)
         if lab == "low":
             z = chan_z(t)
             if d < EPS and abs(z - DECK_Z) < 1e-9:
@@ -1693,31 +1775,53 @@ def _rock(r):
                 p = m.verts[WF(0, t)]
                 wrv[key] = m.v(_push((p[0], p[1], z), d))
             return wrv[key]
-        k, f = lab
+        if lab == "shelf":
+            k, f = 1, (WALL_LAVA_TOP - m.verts[WF(1, t)][2]) / (m.verts[WF(2, t)][2] - m.verts[WF(1, t)][2])
+        elif lab == "ceil":
+            k, f = 1, 1.0
+        elif lab[0] == "z":
+            k = 0 if lab[1] <= m.verts[WF(1, t)][2] else 1
+            f = (lab[1] - m.verts[WF(k, t)][2]) / (m.verts[WF(k + 1, t)][2] - m.verts[WF(k, t)][2])
+        else:
+            k, f = lab
         pa, pb = m.verts[WF(k, t)], m.verts[WF(k + 1, t)]
-        if f == "ceil":
-            f = 1.0
-        elif f in WROWZ:
-            f = (WROWZ[f] - pa[2]) / (pb[2] - pa[2])
         if d < EPS and f in (0.0, 1.0):
             return WF(k, t) if f == 0.0 else WF(k + 1, t)
         key = (k, round(f, 7), round(d, 5), round(t, 7))   # same point, same vertex
         if key not in wrv:
-            wrv[key] = m.v(_push(tuple((1.0 - f) * pa[c] + f * pb[c] for c in range(3)), d))
+            p = _push(tuple((1.0 - f) * pa[c] + f * pb[c] for c in range(3)), d)
+            if lab[0] == "z" and lab[1] in FALL_ROWS and wb0 + 1e-9 < t < wb1 - 1e-9:
+                p = _push(p, fall_field(t * OUTER_R, p[2]))
+            wrv[key] = m.v(p)
         return wrv[key]
 
     # ---- outer wall. Over the river the deck is gone, so the wall carries on
     # down to the channel; over WALL_A0..WALL_A1 its lower 8 m are cut back
     # RECESS_R and re-laid in the river's material, banks and all; at the top
     # of the fall a flat shelf of river runs SHELF_D back under the ceiling. --
-    outside_rows = [row for row in WROWS[1:] if row not in ((1, "shelf"), (1, "ceil"))]
+    def row_z(row, t):
+        return m.verts[WR(row, t)][2]
+
     for ci in range(len(cols_all) - 1):
         t0, t1 = cols_all[ci], cols_all[ci + 1]
         am = 0.5 * (t0 + t1)
         want = (-math.cos(am), -math.sin(am), 0.0)
         side = _side_u(ang, am)[0]
-        cut = t0 >= cut0 - 1e-9 and t1 <= cut1 + 1e-9
-        rows = WROWS if cut else outside_rows
+        in0 = cut0 + 1e-9 < t0 < cut1 - 1e-9          # the cut columns carry the
+        in1 = cut0 + 1e-9 < t1 < cut1 - 1e-9          # wall's own rows
+        if in0 != in1:
+            # a cut column carries the wall's rows, its neighbour the fall's:
+            # zip the two chains, the bank of the channel between them
+            rows0 = IN_ROWS if in0 else OUT_ROWS
+            rows1 = IN_ROWS if in1 else OUT_ROWS
+            A = [(row_z(row, t0), WR(row, t0)) for row in rows0]
+            B = [(row_z(row, t1), WR(row, t1)) for row in rows1]
+            up = (-math.cos(am) + 0.0, -math.sin(am), 0.6)
+            _strip(m, A, B,
+                   lambda c: DOWN if c[2] > CEIL_Z - 0.05 else up,
+                   lambda c: ZONE_ROCK if c[2] > CEIL_Z - 0.05 else ZONE_SHADE)
+            continue
+        rows = IN_ROWS if in0 else OUT_ROWS
         for ri in range(len(rows) - 1):
             lo, hi = rows[ri], rows[ri + 1]
             a0, a1 = WR(lo, t0), WR(lo, t1)
@@ -1725,11 +1829,11 @@ def _rock(r):
             if a0 == b0 and a1 == b1:
                 continue
             face_want = want
-            if lo == (1, "split") and hi == (1, "shelf"):   # the shelf: flat river
+            if hi[0] == "shelf":                       # the shelf: flat river
                 face_want, zone = UP, ZONE_RIVER
-            elif lo == (1, "shelf"):                   # back and sides of the cut
+            elif lo[0] == "shelf":                     # the back of the cut
                 zone = ZONE_SHADE
-            elif lo == (1, "ceil"):                    # rock over the shelf
+            elif lo[0] == "ceil":                      # rock over the shelf
                 face_want, zone = DOWN, ZONE_ROCK
             else:
                 recs = [wall_rec(lo, t0), wall_rec(lo, t1), wall_rec(hi, t0), wall_rec(hi, t1)]
@@ -1738,30 +1842,34 @@ def _rock(r):
                 elif max(recs) > EPS:
                     zone = ZONE_SHADE                  # a bank of the channel
                 else:
-                    zone = wall_zone(0 if lo == "low" else lo[0])(side)
+                    lab = lo[0]
+                    ring = 0 if lab == "low" else (int(lab[1] > WALL_RINGS_Z[0]) if lab[0] == "z" else lab[0])
+                    zone = wall_zone(ring)(side)
             if a0 == b0:
                 m.tri(a0, a1, b1, face_want, zone)
             elif a1 == b1:
                 m.tri(a0, a1, b0, face_want, zone)
             else:
-                m.quad(a0, a1, b1, b0, face_want, zone)
+                m.quad(a0, a1, b1, b0, face_want, zone, best=in0)
 
     # ---- the deck: a flat annulus on the river's own radial stations, its
     # surface dropped RECESS_Z into a channel between two sloped banks --------
     rf_out = [(rr - INNER_R) / (OUTER_R - INNER_R) for rr in RST]
-    rf_in = [(rr - INNER_R) / (OUTER_R - INNER_R) for rr in RST_RIVER]
     for t in cols_all[:-1]:
         pit_wall.add_xt(len(pit_wall.rows) - 1, t)
     rr = _Rng(LAKE_SEED + 1)
     banks = (_bank_profile(rr, len(RST_RIVER)), _bank_profile(rr, len(RST_RIVER)))
-    ripple = _ripple(_Rng(LAKE_SEED + 2))
+    floor_field = _field(_Rng(LAKE_SEED + 2), FLOOR_AMP)
+    pit_tris, PN = _pit_lava(m, pit_wall, bank0, bank1, cut0, cut1,
+                             [t for t in cols_all if bank0 <= t <= bank1], lava_ts, r)
+    _pit_bank_ends(m, pit_wall, cut0, cut1, bank0, bank1, PN)
 
     def in_chan(t):
         return cut0 - 1e-9 <= t <= cut1 + 1e-9
 
-    def river_pt(t, j, p):
+    def river_pt(t, j, p, r_lip, r_foot):
         """A channel vertex: its column's line wanders with the nearer bank,
-        and the floor swells."""
+        and the floor carries the 2-D field, flat at the lip and the foot."""
         rad = math.hypot(p[0], p[1])
         oa, wa = banks[0][j]
         ob, wb = banks[1][j]
@@ -1779,23 +1887,38 @@ def _rock(r):
             da = (fa * max(0.0, 1.0 - (t - bank0) * rad / BANK_REACH)
                   - fb * max(0.0, 1.0 - (bank1 - t) * rad / BANK_REACH)) / rad
         a = t + da
-        z = p[2] + (ripple(a, rad) if chan_z(t) < LAVA_Z + 1e-9 else 0.0)
-        return (rad * math.cos(a), rad * math.sin(a), z)
+        x, y = rad * math.cos(a), rad * math.sin(a)
+        z = p[2]
+        if chan_z(t) < LAVA_Z + 1e-9:
+            z += _ramp(rad - r_lip, 0.0, 0.8) * _ramp(r_foot - rad, 0.0, 0.8) * floor_field(x, y)
+        return (x, y, z)
 
     dv = {}
 
+    def foot(t):
+        return WR(IN_ROWS[0], t) if in_chan(t) else WF(0, t)
+
     def DV(t, j, fine=False):
-        rf = rf_in if fine else rf_out
+        """Deck vertex at station j: the deck's stations are fractions of the
+        lip-to-foot run; the channel's are absolute radii (RST_RIVER), with
+        the foot beyond them where the fall is cut back into the wall."""
         if j == 0:
-            return pit_wall.W(t, chan_z(t))
-        if j == len(rf) - 1:
-            return WR("low", t) if in_chan(t) else WF(0, t)
+            return PN(t, LAVA_Z) if bank0 - 1e-9 <= t <= bank1 + 1e-9 else pit_wall.W(t, chan_z(t))
         key = (round(t, 7), j, fine)
-        if key not in dv:
-            pa, pb = m.verts[DV(t, 0)], m.verts[DV(t, len(rf) - 1, fine)]
-            f = rf[j]
-            p = tuple((1.0 - f) * pa[c] + f * pb[c] for c in range(3))
-            dv[key] = m.v(river_pt(t, j, p) if fine and in_chan(t) else p)
+        if key in dv:
+            return dv[key]
+        pa, pb = m.verts[DV(t, 0)], m.verts[foot(t)]
+        if not fine:
+            if j == len(RST) - 1:
+                return foot(t)
+            f = rf_out[j]
+            dv[key] = m.v(tuple((1.0 - f) * pa[c] + f * pb[c] for c in range(3)))
+            return dv[key]
+        r_foot = math.hypot(pb[0], pb[1])
+        if j == len(RST_RIVER) - 1 and r_foot < OUTER_R + 0.05:
+            return foot(t)
+        p = (RST_RIVER[j] * math.cos(t), RST_RIVER[j] * math.sin(t), chan_z(t))
+        dv[key] = m.v(river_pt(t, j, p, math.hypot(pa[0], pa[1]), r_foot))
         return dv[key]
 
     for ci in range(len(cols_all) - 1):
@@ -1809,14 +1932,25 @@ def _rock(r):
             zone = ZONE_DECK
         in0, in1 = in_chan(t0), in_chan(t1)
         if in0 and in1:
-            for j in range(len(RST_RIVER) - 1):
+            n = len(RST_RIVER)
+            for j in range(n - 1):
                 m.quad(DV(t0, j, True), DV(t1, j, True), DV(t1, j + 1, True),
-                       DV(t0, j + 1, True), UP, zone)
+                       DV(t0, j + 1, True), UP, zone, best=True)
+            a0, a1 = DV(t0, n - 1, True), DV(t1, n - 1, True)   # out to the foot
+            b0, b1 = foot(t0), foot(t1)
+            if a0 == b0 and a1 == b1:
+                pass
+            elif a0 == b0:
+                m.tri(a0, a1, b1, UP, zone)
+            elif a1 == b1:
+                m.tri(a0, a1, b0, UP, zone)
+            else:
+                m.quad(a0, a1, b1, b0, UP, zone, best=True)
         elif in0 or in1:                               # the channel's fine stations
-            _strip(m, [(rf_in[j] if in0 else rf_out[j], DV(t0, j, in0))
-                       for j in range(len(rf_in) if in0 else len(rf_out))],
-                   [(rf_in[j] if in1 else rf_out[j], DV(t1, j, in1))
-                    for j in range(len(rf_in) if in1 else len(rf_out))], UP, zone)
+            _strip(m, [((RST_RIVER if in0 else RST)[j], DV(t0, j, in0))
+                       for j in range(len(RST_RIVER if in0 else RST))],
+                   [((RST_RIVER if in1 else RST)[j], DV(t1, j, in1))
+                    for j in range(len(RST_RIVER if in1 else RST))], UP, zone)
         else:
             for j in range(len(RST) - 1):
                 m.quad(DV(t0, j), DV(t1, j), DV(t1, j + 1), DV(t0, j + 1), UP, zone)
@@ -1856,9 +1990,6 @@ def _rock(r):
             _carve(m, pit_wall, c)
         else:
             _carve(m, shaft, c)
-    pit_tris = _pit_lava(m, pit_wall, bank0, bank1, cut0, cut1,
-                         [t for t in cols_all if bank0 <= t <= bank1], lava_ts, r)
-    _pit_bank_ends(m, pit_wall, cut0, cut1, bank0, bank1)
     _build_platforms(m, _Rng(LAKE_SEED))
     pit_wall.emit()
     shaft.emit()
@@ -1929,7 +2060,7 @@ def _shelf_box(c):
     """A curved box over the wall's shelf recess: the wall stays solid there."""
     n = 10
     bs = [WALL_A1 + (WALL_A0 - WALL_A1) * k / n for k in range(n + 1)]
-    r0, r1 = OUTER_R - 0.05, OUTER_R + SHELF_D + 0.3
+    r0, r1 = OUTER_R - 0.05, OUTER_R + SHELF_D + 4.0
     z0, z1 = WALL_LAVA_TOP - 0.3, CEIL_Z
     lo = [[c.v(pol(b, rad, z0)) for rad in (r0, r1)] for b in bs]
     hi = [[c.v(pol(b, rad, z1)) for rad in (r0, r1)] for b in bs]
@@ -2142,10 +2273,10 @@ def build():
     albedo, emissive = build_texture()
     mdl.save_texture(albedo)
     mdl.save_texture(emissive)
-    lava_albedo, lava_emissive = _lava_texture()
+    lava_albedo, lava_emissive = _sheet("lava", _lava_texture)
     mdl.save_texture(lava_albedo)
     mdl.save_texture(lava_emissive)
-    river_albedo, river_emissive = _river_texture()
+    river_albedo, river_emissive = _sheet("river", _river_texture)
     mdl.save_texture(river_albedo)
     mdl.save_texture(river_emissive)
 
