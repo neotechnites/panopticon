@@ -192,7 +192,7 @@ LAKE_SEED = 5140737
 # Inner lane: plain deck, no cover. In the river: a chain of six rock masses,
 # four with a crest grown up their tower-facing side. Past the river the
 # outer bank rises straight into the wall: nothing to run on.
-S2_A0, S2_A1 = 75.0, 130.0            # lip to lip, game bearings
+S2_A0, S2_A1 = 74.5, 130.5            # lip to lip, game bearings
 S2_END = 1.5                          # degrees each end bank takes, lip to lava
 S2_END_P = 1.6                        # ... its round-over exponent
 S2_TAPER = 4.0                        # degrees each end the river narrows over ...
@@ -208,26 +208,27 @@ S2_FLOOR_N = 6                        # floor quads across the river
 S2_FLOOR_AMP = 0.12                   # the floor's 2-D field, metres, peak
 S2_FLOOR_FADE = 0.7                   # metres from a foot the field takes to rise
 S2_PLAT_R = 54.2                      # the chain's centre line
-S2_PLATS = ((2.3, 2.6, 23.05, True, 0.10),    # per mass: top along the run, top across,
-            (2.2, 2.3, 23.35, False, -0.20),  # top y, crest, off the centre line
-            (2.5, 2.8, 22.95, True, 0.20),
-            (2.2, 2.4, 23.30, True, -0.10),
-            (2.4, 2.5, 23.15, False, 0.15),
-            (2.3, 2.6, 22.90, True, 0.0))
-S2_GAPS = (4.6, 5.3, 4.7, 5.0, 6.1, 4.6)      # lava, edge to edge: end bank to the first, then between
-S2_PLAT_N, S2_PLAT_P = 14, 3.5        # points round a top, its superellipse exponent
-S2_PLAT_RINGS = ((0.0, 1.0, 0.0), (-0.05, 1.04, 0.0), (-0.18, 1.10, 0.05), (-0.45, 1.19, 0.08),
-                 (-0.90, 1.33, 0.12), (-1.40, 1.45, 0.14))   # (off the top, scale, jag)
-# A crest is the top's own inner rim carried on upward: a ridge whose foot
-# spans the inner S2_CREST_D of the top, tapering in length and depth as it
-# rises, its inner face the platform's side with a slight batter.
-S2_CREST_H = (2.15, 2.2)              # crest height over its top
-S2_CREST_D = 1.05                     # the ridge's foot, across, at its middle
-S2_CREST_U = (0.70, 0.35, 0.0, -0.35, -0.70)   # the foot's outer edge: u, of the half length ...
-S2_CREST_W = (0.75, 1.0, 1.0, 1.0, 0.75)       # ... and depth there, of S2_CREST_D
-S2_CREST_RINGS = ((0.0, 1.0, 1.0, 1.0), (0.35, 0.96, 0.98, 0.88), (0.90, 0.88, 0.95, 0.72),
-                  (1.35, 0.76, 0.93, 0.56), (1.75, 0.60, 0.91, 0.40))   # (height, length, batter, depth)
-S2_CREST_TOP = (0.42, 0.89, 0.26)     # ... and the top ring
+# The chain: boulders. Each is one heightfield on a polar grid: a flat
+# landing, rounded shoulders down into the lava, and (hump) the tower-facing
+# side rising in a rounded hump. (along, across: semi-axes at the waterline;
+# top y; hump; off the centre line)
+S2_PLATS = ((1.65, 1.85, 23.05, True, 0.10), (1.45, 1.55, 23.35, False, -0.20),
+            (1.65, 1.85, 22.95, True, 0.20), (1.65, 1.85, 23.30, True, -0.10),
+            (1.45, 1.55, 23.15, False, 0.15), (1.65, 1.85, 22.90, True, 0.0))
+S2_GAPS = (4.6, 5.2, 4.7, 5.0, 5.9, 4.6)      # lava between standing edges: end bank first
+S2_MASS_N, S2_MASS_P = 20, 2.3        # points round a boulder, its outline's exponent
+S2_MASS_Q = (0.12, 0.3, 0.45, 0.58, 0.68, 0.76, 0.83, 0.89, 0.95, 1.0, 1.08, 1.2)   # rings, of the waterline
+S2_FLAT_Q = 0.75                      # the landing: flat out to here
+S2_WATER_D = 0.15                     # the shoulder reaches this far under the lava at the waterline ...
+S2_BOTTOM_D = 0.8                     # ... and the bottom ring this far, at the last ring
+S2_WOB = 0.07                         # the waterline wanders this much of its radius
+S2_HUMP_H = (2.2, 2.4)                # hump height over the landing
+S2_HUMP_V = 0.55                      # hump peak this far in, of the across semi-axis
+S2_HUMP_U = 0.88                      # hump half length, of the along semi-axis
+S2_HUMP_B = (1.0, 0.8)                # hump half depth, inner and outer face: it leans over the landing
+S2_HUMP_P = (2.6, 1.4)                # hump section exponent along, and its profile's
+S2_NOISE = 0.10                       # rock noise on everything but the landing, metres, peak
+S2_NOISE_L = (0.7, 1.8)               # ... wavelengths
 S2_SEED = 6180339
 S2_TRAP_N = 7                         # TrapVolumes over the river, for the scene
 S2_TRAP_R = (50.3, 57.5)              # ... their radial span
@@ -1072,11 +1073,11 @@ def _lip(d):
     return LIP_R * (1.0 - (1.0 - (1.0 - d / LIP_R) ** LIP_P) ** (1.0 / LIP_P))
 
 
-def _field(r, amp, n=6):
+def _field(r, amp, n=6, wl=FLOOR_L):
     """A seeded 2-D height field: n plane waves, peak amp, metres."""
     ws = []
     for _ in range(n):
-        a, L = r.f() * TWO_PI, FLOOR_L[0] + r.f() * (FLOOR_L[1] - FLOOR_L[0])
+        a, L = r.f() * TWO_PI, wl[0] + r.f() * (wl[1] - wl[0])
         ws.append((math.cos(a) * TWO_PI / L, math.sin(a) * TWO_PI / L, r.f() * TWO_PI, 0.5 + r.f()))
     k = amp / sum(w[3] for w in ws)
 
@@ -1708,11 +1709,15 @@ def _s2_setup(T, base_cols):
     cols = [t for t in cols if s0 < t < s1
             and all(abs(t - k) * CROSS_R > COL_MERGE for k in keep)]
     k = 180.0 / (math.pi * S2_PLAT_R)
+    rm = _Rng(S2_SEED + 1)
     plats, s = [], 0.0
-    for (L, W, top, crest, dr), gap in zip(S2_PLATS, S2_GAPS):
-        s += gap + 0.5 * L
-        plats.append((a0 + S2_END + s * k, S2_PLAT_R + dr, top, crest, 0.5 * L, 0.5 * W))
-        s += 0.5 * L
+    for (au, av, top, hump, dr), gap in zip(S2_PLATS, S2_GAPS):
+        sp = _s2_spec(rm, au, av, top, hump)
+        qe = _s2_edge_q(top, au)
+        s += gap + qe * sp["R"](math.pi)
+        sp.update(b=a0 + S2_END + s * k, rad=S2_PLAT_R + dr, qe=qe)
+        s += qe * sp["R"](0.0)
+        plats.append(sp)
     return {"a0": a0, "a1": a1, "s0": s0, "s1": s1, "cols": _merge_cols(cols, [s0, s1]),
             "plats": plats, "far_gap": (a1 - a0 - 2.0 * S2_END) / k - s, "T": T}
 
@@ -1776,129 +1781,102 @@ def _s2_zone(j, f0, f1):
     return ZONE_DECK
 
 
-def _s2_outline(r, hu, hv, n, p, jag):
-    """A rounded outline, n points: a superellipse of exponent p, each point
-    pushed in or out a little along its own ray."""
-    pts = []
-    for i in range(n):
-        a = TWO_PI * (i + 0.5) / n
-        c, s = math.cos(a), math.sin(a)
-        k = 1.0 + jag * r.sf()
-        pts.append((math.copysign(abs(c) ** (2.0 / p), c) * hu * k,
-                    math.copysign(abs(s) ** (2.0 / p), s) * hv * k))
-    return pts
-
-
 def _s2_frame(b, rad):
     er, et = _radial(b), _tangent(b)
     base = pol(b, rad, 0.0)
 
     def P(u, v, z):
         return (base[0] + et[0] * u + er[0] * v, base[1] + et[1] * u + er[1] * v, z)
-
-    def want(u, v):
-        return (et[0] * u + er[0] * v, et[1] * u + er[1] * v, 0.0)
-    return P, want
+    return P
 
 
-def _s2_loft(m, lvl, pts, zs, want, zone_fn):
-    """Quads between consecutive rings of one outline; want(u, v) faces out."""
-    n = len(pts)
-    for a in range(len(lvl) - 1):
+def _s2_spec(r, au, av, top, hump):
+    """One boulder's own numbers: its waterline R(theta), hump and noise."""
+    p1, p2 = r.f() * TWO_PI, r.f() * TWO_PI
+    jit = [r.sf() * 0.02 for _ in range(S2_MASS_N)]
+    ang = [TWO_PI * (i + 0.5 + 0.25 * r.sf()) / S2_MASS_N for i in range(S2_MASS_N)]
+
+    def R(th):
+        c, s = abs(math.cos(th)), abs(math.sin(th))
+        rr = 1.0 / ((c / au) ** S2_MASS_P + (s / av) ** S2_MASS_P) ** (1.0 / S2_MASS_P)
+        return rr * (1.0 + S2_WOB * (0.6 * math.sin(2.0 * th + p1) + 0.4 * math.sin(3.0 * th + p2)))
+    return {"au": au, "av": av, "top": top, "R": R, "ang": ang, "jit": jit,
+            "h": (S2_HUMP_H[0] + r.f() * (S2_HUMP_H[1] - S2_HUMP_H[0])) if hump else 0.0,
+            "vh": -S2_HUMP_V * av, "ah": S2_HUMP_U * au,
+            "noise": _field(_Rng(r.n()), S2_NOISE, 5, S2_NOISE_L)}
+
+
+def _s2_edge_q(top, a):
+    """Where the shoulder's pitch along the run reaches 45 deg: the standing edge."""
+    drop = top - (LAVA_Z - S2_WATER_D)
+    s = min(1.0, (1.0 - S2_FLAT_Q) * a / (drop * 0.5 * math.pi))
+    return S2_FLAT_Q + (1.0 - S2_FLAT_Q) * math.asin(s) / math.pi
+
+
+def _s2_z(sp, u, v, q):
+    """(z, landing) of a boulder at local (u, v), q of the waterline out."""
+    top, H = sp["top"], sp["h"]
+    water = LAVA_Z - S2_WATER_D
+    if q <= S2_FLAT_Q:
+        zs = top
+    elif q <= 1.0:
+        t = (q - S2_FLAT_Q) / (1.0 - S2_FLAT_Q)
+        zs = top - (top - water) * math.sin(0.5 * math.pi * t) ** 2
+    else:
+        zs = water - (q - 1.0) / (S2_MASS_Q[-1] - 1.0) * (S2_BOTTOM_D - S2_WATER_D)
+    D = 0.0
+    if H:
+        dv = v - sp["vh"]
+        bh = S2_HUMP_B[0] if dv < 0.0 else S2_HUMP_B[1]
+        d2 = (abs(u) / sp["ah"]) ** S2_HUMP_P[0] + (dv / bh) ** 2
+        if d2 < 1.0:
+            D = (1.0 - d2) ** S2_HUMP_P[1]
+    land = _ramp(S2_FLAT_Q - q, 0.0, 0.08) * _ramp(0.03 - D, 0.0, 0.03)
+    return zs + H * D + (1.0 - land) * sp["noise"](u, v), land
+
+
+def _s2_mass(m, sp):
+    """One boulder in the river, a closed heightfield: a centre, rings out to
+    a bottom ring under the lava, all one surface -- landing, hump, shoulders
+    and stem are the same rock. The collider gets the identical mesh."""
+    P = _s2_frame(sp["b"], sp["rad"])
+    R, ang, jit = sp["R"], sp["ang"], sp["jit"]
+    zc, _l = _s2_z(sp, 0.0, 0.0, 0.0)
+    centre = m.v(P(0.0, 0.0, zc))
+    rings, info = [], []
+    for q in S2_MASS_Q:
+        ids, row = [], []
+        for th, j in zip(ang, jit):
+            rr = q * R(th) * (1.0 + j)
+            u, v = rr * math.cos(th), rr * math.sin(th)
+            z, land = _s2_z(sp, u, v, q)
+            ids.append(m.v(P(u, v, z)))
+            row.append((z, land))
+        rings.append(ids)
+        info.append(row)
+
+    def zone(z, land):
+        if z < LAVA_Z:
+            return ZONE_EMBER
+        return ZONE_DECK if land > 0.5 else ZONE_SHADE
+    n = S2_MASS_N
+    for i in range(n):
+        j = (i + 1) % n
+        m.tri(centre, rings[0][i], rings[0][j], UP, zone(zc, 1.0))
+    for a in range(len(rings) - 1):
         for i in range(n):
             j = (i + 1) % n
-            um, vm = 0.5 * (pts[i][0] + pts[j][0]), 0.5 * (pts[i][1] + pts[j][1])
-            m.quad(lvl[a][i], lvl[a][j], lvl[a + 1][j], lvl[a + 1][i], want(um, vm),
-                   zone_fn(0.5 * (zs[a] + zs[a + 1])))
-
-
-def _s2_sup(u, hu, hv):
-    """The top outline's inner edge (v < 0) at u: its superellipse."""
-    return -hv * (max(0.0, 1.0 - abs(u / hu) ** S2_PLAT_P)) ** (1.0 / S2_PLAT_P)
-
-
-def _s2_crest_ring(hu, hv, ring, pts_in):
-    """Local points of one crest ring: the inner rim's points (7 of the
-    outline) drawn in by the ring's length and batter, then the outer edge
-    back the other way, the ring's depth out from the rim."""
-    _dz, su, sb, sd = ring
-    out = [(u * su, v * sb) for (u, v) in pts_in]
-    for uu, w in zip(reversed(S2_CREST_U), reversed(S2_CREST_W)):
-        u = uu * hu * su
-        out.append((u, _s2_sup(u, hu, hv) * sb + S2_CREST_D * sd * w))
-    return out
-
-
-def _s2_mass(m, r, b, rad, top, hu, hv, crest, coll=False):
-    """One rock mass in the river: a skirted stem widening into the lava, a
-    flat top, and, with ``crest``, a ridge grown up its tower-facing side --
-    one closed piece, the ridge's foot the top's own inner rim, so the
-    platform's inner side carries straight on up into it. ``coll`` rebuilds
-    a recorded mass with straight sides for the collider."""
-    P, want = _s2_frame(b, rad)
-    if coll:
-        rec = crest
-        outline, crest = rec["outline"], rec["crest"]
-        rings = ((-(top - LAVA_Z) - 0.4, 1.0, 0.0), (0.0, 1.0, 0.0))
-    else:
-        outline = _s2_outline(r, hu, hv, S2_PLAT_N, S2_PLAT_P, 0.03)
-        rings = tuple(reversed(S2_PLAT_RINGS))
-    lvl, zs = [], []
-    for dz, sc, jag in rings:
-        lvl.append([m.v(P(u * (k := sc * (1.0 + jag * r.sf())), v * k,
-                          top + dz + (0.5 * jag * r.sf() if jag else 0.0)))
-                    for (u, v) in outline])
-        zs.append(top + dz)
-    _s2_loft(m, lvl, outline, zs, want,
-             lambda z: ZONE_EMBER if z < LAVA_Z else ZONE_SHADE)
-    m.fan(lvl[0], DOWN, ZONE_EMBER)
-    if not crest:
-        m.fan(lvl[-1], UP, ZONE_DECK)
-        if not coll:
-            S2_MASSES.append({"b": b, "rad": rad, "top": top, "hu": hu, "hv": hv,
-                              "outline": outline, "crest": None})
-        return
-    half = S2_PLAT_N // 2                     # outline points half.. are the inner rim
-    rim = list(range(half, S2_PLAT_N))
-    if coll:
-        crings, jags = crest
-    else:
-        H = S2_CREST_H[0] + r.f() * (S2_CREST_H[1] - S2_CREST_H[0])
-        crings = tuple(S2_CREST_RINGS) + ((H,) + S2_CREST_TOP,)
-        n = len(rim) + len(S2_CREST_U)
-        jags = [[(1.0 if k == 0 else 1.0 + 0.05 * r.sf(),
-                  0.06 * r.sf() if k == len(crings) - 1 else 0.0)
-                 for _ in range(n)] for k in range(len(crings))]
-    pts_in = [outline[i] for i in rim]
-    top_ring = lvl[-1]
-    clvl, czs, cpts = [], [], None
-    for k, ring in enumerate(crings):
-        pts = _s2_crest_ring(hu, hv, ring, pts_in)
-        if k == 0:
-            cpts = pts
-            ids = [top_ring[i] for i in rim]
-            ids += [m.v(P(u, v, top)) for (u, v) in pts[len(rim):]]
-        else:
-            ids = [m.v(P(u * jg, v * jg, top + ring[0] + jz))
-                   for (u, v), (jg, jz) in zip(pts, jags[k])]
-        clvl.append(ids)
-        czs.append(top + ring[0])
-    # the landing: the strip between the top's outer arc and the ridge's foot
-    A = [(0, top_ring[rim[-1]])] + [(1 + i, top_ring[i]) for i in range(half + 1)]
-    B = [(0, clvl[0][len(rim) - 1])] + [(1 + i, vid) for i, vid in enumerate(clvl[0][len(rim):])] \
-        + [(9, clvl[0][0])]
-    _strip(m, A, B, UP, ZONE_DECK)
-    vcc = -hv + 0.5 * S2_CREST_D
-    _s2_loft(m, clvl, cpts, czs, lambda u, v: want(u, v - vcc), lambda z: ZONE_SHADE)
-    m.fan(clvl[-1], UP, ZONE_ROCK)
-    if not coll:
-        S2_MASSES.append({"b": b, "rad": rad, "top": top, "hu": hu, "hv": hv,
-                          "outline": outline, "crest": (crings, jags)})
+            zm = 0.25 * (info[a][i][0] + info[a][j][0] + info[a + 1][i][0] + info[a + 1][j][0])
+            lm = 0.25 * (info[a][i][1] + info[a][j][1] + info[a + 1][i][1] + info[a + 1][j][1])
+            m.quad(rings[a][i], rings[a][j], rings[a + 1][j], rings[a + 1][i], UP, zone(zm, lm),
+                   best=True)
+    m.fan(rings[-1], DOWN, ZONE_EMBER)
 
 
 def _s2_build(m, s2, r):
-    for b, rad, top, crest, hu, hv in s2["plats"]:
-        _s2_mass(m, r, b, rad, top, hu, hv, crest)
+    for sp in s2["plats"]:
+        _s2_mass(m, sp)
+    S2_MASSES[:] = s2["plats"]
     S2_INFO.update(a0=s2["a0"], a1=s2["a1"], masses=S2_MASSES)
 
 
@@ -1917,41 +1895,46 @@ def _s2_collider(c, s2, ang, lip, foot, CV):
     for a, b in zip(grid, grid[1:]):
         for j in range(len(a) - 1):
             c.quad(a[j], b[j], b[j + 1], a[j + 1], UP, ZONE_ROCK)
-    r = _Rng(S2_SEED)
-    for ms in S2_MASSES:
-        _s2_mass(c, r, ms["b"], ms["rad"], ms["top"], ms["hu"], ms["hv"], ms, coll=True)
+    for sp in S2_MASSES:
+        _s2_mass(c, sp)
 
 
 def _s2_stats(s2):
-    """The chain as built: gaps edge to edge between the tops, and the cover
-    line from the guard's eye over each crest to a body behind it."""
+    """The chain as built: gaps between standing edges (the 45-degree line on
+    the shoulders), and the cover line from the guard's eye over each hump
+    to a 1.8 m body on the landing behind it."""
     eye = (0.0, 0.0, 27.0)
-    outs = []
-    for ms in S2_MASSES:
-        P, _w = _s2_frame(ms["b"], ms["rad"])
-        outs.append([P(u, v, ms["top"]) for (u, v) in ms["outline"]])
+    edges = []
+    for sp in S2_MASSES:
+        P = _s2_frame(sp["b"], sp["rad"])
+        edges.append([P(sp["qe"] * sp["R"](th) * math.cos(th), sp["qe"] * sp["R"](th) * math.sin(th), 0.0)
+                      for th in sp["ang"]])
     ends = (pol(s2["a0"] + S2_END, S2_PLAT_R, DECK_Z), pol(s2["a1"] - S2_END, S2_PLAT_R, DECK_Z))
-    chain = [[ends[0]]] + outs + [[ends[1]]]
+    chain = [[ends[0]]] + edges + [[ends[1]]]
     gaps = [min(math.dist(p[:2], q[:2]) for p in a for q in b) for a, b in zip(chain, chain[1:])]
     print("MDL STATS s2 river=%.2f..%.2f deg lava_y=%.2f masses=%d far_gap=%.2f cols=%d"
           % (s2["a0"], s2["a1"], LAVA_Z, len(S2_MASSES), s2["far_gap"], len(s2["span"])))
-    for k, ms in enumerate(S2_MASSES):
-        line = "MDL STATS s2mass%d bearing=%.2f r=%.2f top=%.2f along=%.1f across=%.1f gap_before=%.2f gap_after=%.2f" % (
-            k + 1, ms["b"], ms["rad"], ms["top"], 2 * ms["hu"], 2 * ms["hv"], gaps[k], gaps[k + 1])
-        if ms["crest"]:
-            crings, jags = ms["crest"]
-            H, hu, hv = crings[-1][0], ms["hu"], ms["hv"]
-            rim = [ms["outline"][i] for i in range(S2_PLAT_N // 2, S2_PLAT_N)]
-            rb = ms["rad"] - hv + S2_CREST_D + 0.45            # a body 0.15 m behind the foot
-            zl = 1e9
-            for (u, v), (jg, jz) in zip(_s2_crest_ring(hu, hv, crings[-1], rim), jags[-1]):
-                rc, zc = ms["rad"] + v * jg, ms["top"] + H + jz
-                zl = min(zl, eye[2] + (zc - eye[2]) * (rb / rc))
-            chest = _s2_crest_ring(hu, hv, crings[3], rim)
-            w135 = max(u for u, v in chest) - min(u for u, v in chest)
-            d135 = max(v for u, v in chest) - min(v for u, v in chest)
-            line += " crest_h=%.2f chest_w=%.2f chest_d=%.2f sight_clear=%.2f" % (
-                H, w135, d135, zl - (ms["top"] + 1.8))
+    for k, sp in enumerate(S2_MASSES):
+        au, av, top = sp["au"], sp["av"], sp["top"]
+        line = "MDL STATS s2mass%d bearing=%.2f r=%.2f top=%.2f water=%.1fx%.1f stand=%.1f flat=%.1fx%.1f gap_before=%.2f gap_after=%.2f" % (
+            k + 1, sp["b"], sp["rad"], top, 2 * au, 2 * av, 2 * sp["qe"] * au,
+            2 * S2_FLAT_Q * au, S2_FLAT_Q * av - (sp["vh"] + S2_HUMP_B[1]) if sp["h"] else 2 * S2_FLAT_Q * av,
+            gaps[k], gaps[k + 1])
+        if sp["h"]:
+            rb = sp["rad"] + sp["vh"] + S2_HUMP_B[1] + 0.35            # the body: 0.05 m behind the foot
+            worst = 1e9
+            for iu in range(-7, 8):
+                u = 0.05 * iu
+                block = -1e9
+                for iv in range(0, 60):
+                    v = sp["vh"] - 1.3 + 0.025 * iv
+                    q = math.hypot(u, v) / sp["R"](math.atan2(v, u))
+                    z, _l = _s2_z(sp, u, v, q)
+                    block = max(block, eye[2] + (z - eye[2]) * (rb / (sp["rad"] + v)))
+                worst = min(worst, block)
+            peak = max(_s2_z(sp, 0.0, sp["vh"] + 0.02 * i, 0.5)[0] for i in range(-20, 21)) - top
+            line += " hump_h=%.2f base_d=%.1f sight_clear=%.2f" % (peak, S2_HUMP_B[0] + S2_HUMP_B[1],
+                                                                 worst - (top + 1.8))
         print(line)
     for k in range(S2_TRAP_N):
         b = s2["a0"] + (k + 0.5) * (s2["a1"] - s2["a0"]) / S2_TRAP_N
@@ -2691,10 +2674,10 @@ def _deck_render(spec, objects):
     bg.inputs[1].default_value = REVIEW_WORLD
     mdl._try(scene.view_settings, "exposure", REVIEW_EXPOSURE)
     a0, a1 = S2_INFO["a0"], S2_INFO["a1"]
-    covered = [ms for ms in S2_INFO["masses"] if ms["crest"]]
+    covered = [ms for ms in S2_INFO["masses"] if ms["h"]]
     ms = covered[1]
-    P, _w = _s2_frame(ms["b"], ms["rad"])
-    vb = -ms["hv"] + S2_CREST_D + 0.45
+    P = _s2_frame(ms["b"], ms["rad"])
+    vb = ms["vh"] + S2_HUMP_B[1] + 0.35
     verts = [P(u, vb + v, ms["top"] + z) for z in (0.0, 1.8) for (u, v) in
              ((-0.3, -0.3), (0.3, -0.3), (0.3, 0.3), (-0.3, 0.3))]
     faces = [(0, 3, 2, 1), (4, 5, 6, 7), (0, 1, 5, 4), (1, 2, 6, 5), (2, 3, 7, 6), (3, 0, 4, 7)]
