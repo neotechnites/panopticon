@@ -171,6 +171,15 @@ stage_ship() {
   push "$HERE/lib/mdl.py"        "$JOB/mdl.py"
   push "$HERE/lib/pcrun.ps1"     "$JOB/pcrun.ps1"
   push "$script"                 "$JOB/${NAME}_build.py"
+  # Texture files a build script may load instead of painting (map_base's
+  # river/lava sheets): shipped next to the script, stale ones cleared.
+  pc "Remove-Item -Recurse -Force -Path '$JOB_W\\textures' -ErrorAction SilentlyContinue" >/dev/null
+  if [ -d "$HERE/textures" ]; then
+    pc "New-Item -ItemType Directory -Force -Path '$JOB_W\\textures' | Out-Null" >/dev/null
+    for f in "$HERE"/textures/*; do
+      [ -f "$f" ] && push "$f" "$JOB/textures/$(basename "$f")"
+    done
+  fi
   json_spec "$JOB/out" > "$TMP/spec.json"
   push "$TMP/spec.json"          "$JOB/spec.json"
 }
