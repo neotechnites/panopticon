@@ -210,29 +210,24 @@ S4_BANK_MID = (0.45, 0.68)            # the bank's middle column: fraction acros
 S4_LANE_R = 52.0
 S4_ENTRY_R, S4_EXIT_R = 52.6, 52.6    # the entry pad and the exit landing: the first and last flights
                                       # cross the lane so the end banks lie square to them
-S4_ROCKS = [(54.4, 0.2, 2.2, 1.6), (53.8, 0.4, 2.2, 1.6), (54.4, 0.1, 2.2, 1.7)]
-                                      # radius, top over the deck, crest height, crest base width
-S4_REAR, S4_FRONT = 2.5, 2.0          # top: 4.5 m along the flight, the centre 0.5 m forward ...
-S4_HALF_ACROSS = 1.6                  # ... 3.2 m across, flat
-S4_CORNER = (0.3, 0.03)               # how much the outline's corners are eased: outer, inner (tower) side
-S4_SHAPE = [(0.22, 1.04, 0.5), (0.36, 0.97, -0.8), (0.28, 1.02, 0.2)]
-                                      # per rock: outer-corner easing, width scale, where the outer edge bulges (u)
-S4_CREST_FOOT = 0.0                   # the crest's outer foot this far inside the flat's edge (the pad needs the flat)
-S4_CREST_RISE = 0.8                   # ... its ridge this far past the foot
-S4_CREST_KNEE = (0.45, 0.72)          # the outer face breaks at this fraction of the rise, this of the height
-S4_CREST_BACK = 0.35                  # the ridge drops to the inner rim over this: a peak, nothing to stand on
-S4_CREST_INNER = 0.78                 # the inner rim, as a fraction of the crest height
-S4_CREST_END = (0.3, 1.7, 0.8)        # the crest eases along the rock from u0 to u1, to this fraction
-S4_CREST_WOBBLE = 0.14                # ... and wanders this much in height along its length
-S4_CREST_TAIL = (0.8, 0.35)           # the ridge sweeps back past the rear edge by this, from this far below the ridge:
-                                      # the guard's sight lines to the rear of the landing zone still meet the crest
-S4_TOP_JIT = 0.16                     # metres of jitter on the top grid's x-y
-S4_CREST_JIT = 0.16                   # ... and on the crest's height, at full height
-S4_FLAT_JIT = 0.025                   # ... and on the flat top (the collider stays flat)
-S4_RINGS = [(-0.3, None, 0.12, 0.09), (None, 22.45, 0.35, 0.12),
-            (None, 21.6, 0.65, 0.15), (None, 21.2, 0.65, 0.0)]   # (z off the top | absolute z, metres out, jag)
-S4_COLL_RINGS = [(None, 22.0, 0.15, 0.0)]
-S4_RING_LIFT = 0.55                   # the first ring follows the crest by this fraction
+S4_ROCKS = [(54.4, 0.2, 2.4), (53.8, 0.4, 2.3), (54.4, 0.1, 2.5)]   # radius, top over the deck, hump height
+S4_REAR, S4_FRONT = 2.5, 2.0          # the standing top: 4.5 m along the flight, the centre 0.5 m forward
+S4_HALF_ACROSS = 1.6                  # ... 3.2 m across to the standing edge on the wall side
+S4_EDGE_Q = 0.87                      # the standing edge (shoulder at 45 deg) sits here, of the waterline
+S4_FLAT_Q = 0.8                       # dead level out to here, of the waterline
+S4_REAR_IN = 1.6                      # the rear-inner quadrant of the waterline is this much longer: the hump's tail
+S4_HUMP_SIDE = 3.8                    # the waterline's across semi-axis on the tower side
+S4_MASS_N, S4_MASS_P = 24, 2.3        # points round a boulder, its outline's exponent
+S4_MASS_Q = (0.12, 0.3, 0.45, 0.58, 0.68, 0.76, 0.83, 0.89, 0.95, 1.0, 1.08, 1.2)   # rings, of the waterline
+S4_WATER_D = 0.15                     # the shoulder reaches this far under the lava at the waterline ...
+S4_BOTTOM_D = 0.8                     # ... and the bottom ring this far, at the last ring
+S4_WOB = 0.04                         # the waterline wanders this much of its radius
+S4_HUMP_V = 2.5                       # the hump's peak this far across (the landing flat ends at 1.6)
+S4_HUMP_B = (1.2, 0.95)               # its half depth, inner and outer face: it leans over the landing
+S4_HUMP_U = (-1.2, 3.6)               # its centre along, and half length
+S4_HUMP_P = (4.0, 1.2)                # its section exponent along, and its profile's
+S4_NOISE = 0.10                       # rock noise on everything but the landing, metres, peak
+S4_NOISE_L = (0.7, 1.8)               # ... wavelengths
 S4_LAND = 1.5                         # nominal landing this far past the next top's near edge
 S4_EXIT_LAND = 1.5                    # ... and onto the exit deck, past the lava's edge
 S4_PAD_BACK = 1.6                     # a rock's pad centre this far behind its front edge
@@ -243,7 +238,7 @@ S4_GUARD_EYE = 27.0
 S4_BODY_H = 1.8
 S4_CHEST = 1.3
 S4_FLOOR_AMP = 0.12
-S4_EDGE_WANDER = (0.0, 0.2)           # the end banks' lava edge wanders this far into the field ...
+S4_EDGE_WANDER = (0.0, 0.15)          # the end banks' lava edge wanders this far into the field ...
 S4_MID_WANDER = (-0.25, 0.25)         # ... and the bank's middle column this far either way
 S4_TONGUE = (1.7, 0.5)                # the entry bank is level under the pad: half-width, blend
 S4_TRAP_STEP = 5.8                    # degrees per TrapVolume box over the field
@@ -1077,11 +1072,11 @@ def _lip(d):
     return LIP_R * (1.0 - (1.0 - (1.0 - d / LIP_R) ** LIP_P) ** (1.0 / LIP_P))
 
 
-def _field(r, amp, n=6):
+def _field(r, amp, n=6, wl=FLOOR_L):
     """A seeded 2-D height field: n plane waves, peak amp, metres."""
     ws = []
     for _ in range(n):
-        a, L = r.f() * TWO_PI, FLOOR_L[0] + r.f() * (FLOOR_L[1] - FLOOR_L[0])
+        a, L = r.f() * TWO_PI, wl[0] + r.f() * (wl[1] - wl[0])
         ws.append((math.cos(a) * TWO_PI / L, math.sin(a) * TWO_PI / L, r.f() * TWO_PI, 0.5 + r.f()))
     k = amp / sum(w[3] for w in ws)
 
@@ -1650,14 +1645,13 @@ def _s4_layout():
         if nrm[0] * C[0] + nrm[1] * C[1] > 0.0:        # across, toward the tower
             nrm = (-nrm[0], -nrm[1])
         f_in, f_out = faces[k], faces[k + 1]
-        ph = _Rng(S4_SEED + 11 + k).f() * TWO_PI
         sgn = 1.0 if (nrm[0] == -a[1] and nrm[1] == a[0]) else -1.0
-        rocks.append({"C": (C[0], C[1]), "a": a, "n": nrm, "top": tops[k],
-                      "crest": S4_ROCKS[k][2], "cw": S4_ROCKS[k][3], "r": rads[k],
-                      "shape": S4_SHAPE[k],
-                      "b": _bear_deg(math.atan2(C[1], C[0])), "ph": ph,
-                      "n_in": (sgn * -f_in[1], sgn * f_in[0]),
-                      "n_out": (sgn * -f_out[1], sgn * f_out[0])})
+        rk = {"C": (C[0], C[1]), "a": a, "n": nrm, "top": tops[k], "r": rads[k],
+              "b": _bear_deg(math.atan2(C[1], C[0])),
+              "n_in": (sgn * -f_in[1], sgn * f_in[0]),
+              "n_out": (sgn * -f_out[1], sgn * f_out[0])}
+        rk.update(_s4_spec(_Rng(S4_SEED + 11 + k), S4_ROCKS[k][2]))
+        rocks.append(rk)
     S4["rocks"] = rocks
     S4["pads"] = [(pads[k][0], pads[k][1], pads[k][2], faces[k]) for k in range(n + 1)]
     S4["lands"] = lands
@@ -1698,176 +1692,123 @@ def _s4_local(rock, p):
     return (u, v)
 
 
-def _s4_crest(rock, u, v):
-    """Height of the crest over the flat top at local (u, v): the tower side
-    of the landing zone rises to a rounded ridge that dies out past the pad."""
-    W = S4_HALF_ACROSS
-    v0 = W - S4_CREST_FOOT
-    v3 = W + rock["cw"]
-    v2 = v3 - S4_CREST_BACK
-    v1 = min(v0 + S4_CREST_RISE, v2)
-    kf, kh = S4_CREST_KNEE
-    vk = v0 + kf * (v1 - v0)
-    if v <= v0:
-        gv = 0.0
-    elif v <= vk:                                 # the lower face: one hard facet
-        gv = kh * (v - v0) / (vk - v0)
-    elif v <= v1:                                 # the upper face to a sharp ridge
-        gv = kh + (1.0 - kh) * (v - vk) / (v1 - vk)
-    elif v <= v2:
-        gv = 1.0 - (1.0 - S4_CREST_INNER) * (v - v1) / (v2 - v1)
+def _s4_spec(r, hump):
+    """One boulder's own numbers: its waterline R(theta) -- a superellipse
+    with its own semi-axis in each quadrant (long at the rear on the tower
+    side, where the hump's tail is), wandering -- the hump's height, noise."""
+    p1, p2 = r.f() * TWO_PI, r.f() * TWO_PI
+    jit = [r.sf() * 0.02 for _ in range(S4_MASS_N)]
+    ang = [TWO_PI * (i + 0.5 + 0.25 * r.sf()) / S4_MASS_N for i in range(S4_MASS_N)]
+    au_f, au_r = S4_FRONT / S4_EDGE_Q, S4_REAR / S4_EDGE_Q
+    av_out = S4_HALF_ACROSS / S4_EDGE_Q
+
+    def R(th):
+        c, sn = math.cos(th), math.sin(th)
+        au = au_f if c >= 0.0 else (au_r * S4_REAR_IN if sn > 0.0 else au_r)
+        av = S4_HUMP_SIDE if sn >= 0.0 else av_out
+        rr = 1.0 / ((abs(c) / au) ** S4_MASS_P + (abs(sn) / av) ** S4_MASS_P) ** (1.0 / S4_MASS_P)
+        return rr * (1.0 + S4_WOB * (0.6 * math.sin(2.0 * th + p1) + 0.4 * math.sin(3.0 * th + p2)))
+    return {"R": R, "ang": ang, "jit": jit, "h": hump,
+            "noise": _field(_Rng(r.n()), S4_NOISE, 5, S4_NOISE_L)}
+
+
+def _s4_q(rock, u, v):
+    """How far out a local point is, of the waterline: 1 at the waterline."""
+    rr = math.hypot(u, v)
+    if rr < EPS:
+        return 0.0
+    return rr / rock["R"](math.atan2(v, u))
+
+
+def _s4_hump(rock, u, v):
+    """The hump's height over the landing at local (u, v)."""
+    uh, ah = S4_HUMP_U
+    dv = v - S4_HUMP_V
+    bh = S4_HUMP_B[0] if dv > 0.0 else S4_HUMP_B[1]
+    d2 = (abs(u - uh) / ah) ** S4_HUMP_P[0] + (dv / bh) ** 2
+    if d2 >= 1.0:
+        return 0.0
+    return rock["h"] * (1.0 - d2) ** S4_HUMP_P[1]
+
+
+def _s4_z(rock, u, v, q=None, noise=True):
+    """(z, landing) of the boulder at local (u, v): a flat landing, rounded
+    shoulders down under the lava, the hump on top, rock noise off the flat."""
+    if q is None:
+        q = _s4_q(rock, u, v)
+    # the base drops behind the standing edges whatever the waterline does
+    # there: the long rear-inner quadrant carries only the hump's tail
+    H = _s4_hump(rock, u, v)
+    hn = H / max(rock["h"], EPS)
+    q = max(q, (1.0 - hn) * max(-u / (S4_REAR / S4_EDGE_Q), u / (S4_FRONT / S4_EDGE_Q)))
+    top = rock["top"]
+    water = LAVA_Z - S4_WATER_D
+    if q <= S4_FLAT_Q:
+        zs = top
+    elif q <= 1.0:
+        t = (q - S4_FLAT_Q) / (1.0 - S4_FLAT_Q)
+        zs = top - (top - water) * math.sin(0.5 * math.pi * t) ** 2
     else:
-        gv = S4_CREST_INNER
-    u0, u1, tail = S4_CREST_END
-    gu = 1.0 - (1.0 - tail) * _smooth((u - u0) / (u1 - u0))
-    gu += S4_CREST_WOBBLE / rock["crest"] * (math.sin(1.9 * u + rock["ph"])
-                                            + 0.5 * math.sin(4.3 * u - 0.7 * rock["ph"])) * gu
-    return rock["crest"] * gv * gu
+        zs = water - (q - 1.0) / (S4_MASS_Q[-1] - 1.0) * (S4_BOTTOM_D - S4_WATER_D)
+    land = _ramp(S4_FLAT_Q - q, 0.0, 0.08) * _ramp(0.03 - H / max(rock["h"], EPS), 0.0, 0.03)
+    z = zs + H
+    if noise:
+        z += (1.0 - land) * rock["noise"](u, v)
+    return z, land
 
 
-def _s4_outline(rock, s, t):
-    """A rounded rectangle: the flat top plus the crest's width on the tower
-    side, corners eased. s, t in -1..1."""
-    A, W = (S4_REAR if s < 0.0 else S4_FRONT), S4_HALF_ACROSS
-    ease, wscale, bulge_u = rock["shape"]
-    c = ease if t < 0.0 else S4_CORNER[1]
-    H = W + 0.5 * rock["cw"]
-    u = A * s * math.sqrt(1.0 - c * t * t)
-    v = 0.5 * rock["cw"] + H * t * math.sqrt(1.0 - c * s * s)
-    if t < 0.0:                                   # the outer (wall) side: its own width, a bulge
-        v = 0.5 * rock["cw"] + (v - 0.5 * rock["cw"]) * (wscale + 0.06 * math.exp(-((u - bulge_u) / 1.2) ** 2))
-    if s < 0.0:
-        v_ridge = _s4_ridge(rock)
-        tail, below = S4_CREST_TAIL
-        u -= tail * _smooth((v - (v_ridge - below)) / below) * (-s)
-    return u, v
+def _s4_crest(rock, u, v):
+    """Height of the rock over its landing top at local (u, v), for the
+    sight-line checks: the hump, less the shoulder's drop."""
+    return _s4_z(rock, u, v, noise=False)[0] - rock["top"]
 
 
-def _s4_ridge(rock):
-    W = S4_HALF_ACROSS
-    return min(W - S4_CREST_FOOT + S4_CREST_RISE, W + rock["cw"] - S4_CREST_BACK)
-
-
-def _s4_poly(rock, grow=0.0):
-    """The top outline as a world x-y polygon, grown `grow` m about the centre."""
-    key = (id(rock), round(grow, 3))
-    if key not in S4_POLYS:
-        pts = []
-        N = 24
-        for k in range(N):
-            pts.append(_s4_outline(rock, -1.0 + 2.0 * k / N, -1.0))
-        for k in range(N):
-            pts.append(_s4_outline(rock, 1.0, -1.0 + 2.0 * k / N))
-        for k in range(N):
-            pts.append(_s4_outline(rock, 1.0 - 2.0 * k / N, 1.0))
-        for k in range(N):
-            pts.append(_s4_outline(rock, -1.0, 1.0 - 2.0 * k / N))
-        vc = 0.5 * rock["cw"]
-        out = []
-        for (u, v) in pts:
-            d = math.hypot(u, v - vc)
-            g = (d + grow) / d if d > EPS else 1.0
-            out.append(_s4_world(rock, u * g, vc + (v - vc) * g))
-        S4_POLYS[key] = out
-    return S4_POLYS[key]
-
-
-def _s4_inside(rock, p, grow=0.0):
-    """True when a world x-y point is over the rock's top outline (+grow m)."""
-    poly = _s4_poly(rock, grow)
-    x, y = p[0], p[1]
-    inside = False
-    n = len(poly)
-    for i in range(n):
-        ax, ay = poly[i]
-        bx, by = poly[(i + 1) % n]
-        if (ay > y) != (by > y):
-            xx = ax + (y - ay) * (bx - ax) / (by - ay)
-            if xx > x:
-                inside = not inside
-    return inside
-
-
-S4_POLYS = {}
-
-
-S4_GRID_S = [-1.0, -0.66, -0.33, 0.0, 0.33, 0.66, 1.0]
-
-
-def _s4_grid_t(rock):
-    """Across samples: the flat, then a row on each break of the crest."""
-    W = S4_HALF_ACROSS
-    H = W + 0.5 * rock["cw"]
-    v0 = W - S4_CREST_FOOT
-    v1 = v0 + S4_CREST_RISE
-    vk = v0 + S4_CREST_KNEE[0] * (v1 - v0)
-    v3 = W + rock["cw"]
-    v2 = v3 - S4_CREST_BACK
-
-    def t_of(v):
-        return (v - 0.5 * rock["cw"]) / H
-    return [-1.0, -0.6, -0.2, 0.2, t_of(v0), t_of(vk), t_of(v1), t_of(v2), 1.0]
+def _s4_inside(rock, p, q_max=1.0):
+    """True when a world x-y point is over the boulder out to q_max of the
+    waterline (1: the waterline, S4_EDGE_Q: the standing edge)."""
+    u, v = _s4_local(rock, p)
+    return _s4_q(rock, u, v) <= q_max
 
 
 def _s4_rock(m, r, rock, coll=False):
-    """One landing rock: a top grid carrying the crest, a rounded lip, then
-    rings widening down through the lava to a skirt and a bottom cap. The
-    collider takes the same top and straight sides, no jitter."""
-    top = rock["top"]
-    GT = _s4_grid_t(rock)
-    ns, nt = len(S4_GRID_S), len(GT)
-    ids = [[None] * nt for _ in range(ns)]
-    for i, s in enumerate(S4_GRID_S):
-        for j, t in enumerate(GT):
-            u, v = _s4_outline(rock, s, t)
-            h = _s4_crest(rock, u, v)
-            if not coll:
-                edge = (i in (0, ns - 1)) or (j in (0, nt - 1))
-                jit = S4_TOP_JIT if edge else 0.6 * S4_TOP_JIT
-                if h < 0.05 and not edge:
-                    jit *= 0.5                     # the flat stays a flat
-                u += jit * r.sf()
-                v += jit * r.sf() * (0.5 if 0.05 < h < 0.9 * rock["crest"] else 1.0)
-                if h > 0.15:
-                    h += S4_CREST_JIT * r.sf() * min(1.0, h / rock["crest"])
-                elif not edge:
-                    h += S4_FLAT_JIT * r.sf()
-            x, y = _s4_world(rock, u, v)
-            ids[i][j] = m.v((x, y, top + h))
-    for i in range(ns - 1):
-        for j in range(nt - 1):
-            hs = [_s4_crest(rock, *_s4_outline(rock, S4_GRID_S[ii], GT[jj]))
-                  for ii in (i, i + 1) for jj in (j, j + 1)]
-            zone = ZONE_DECK if max(hs) < 0.05 else (ZONE_SHADE if max(hs) < 0.9 else ZONE_ROCK)
-            m.quad(ids[i][j], ids[i + 1][j], ids[i + 1][j + 1], ids[i][j + 1], UP,
-                   ZONE_ROCK if coll else zone, best=True)
-    rim = [ids[i][0] for i in range(ns)] + [ids[ns - 1][j] for j in range(1, nt)] \
-        + [ids[i][nt - 1] for i in range(ns - 2, -1, -1)] + [ids[0][j] for j in range(nt - 2, 0, -1)]
+    """One landing rock: a closed heightfield on a polar grid in the bent
+    frame -- landing, hump, shoulders and stem one surface, the same mesh for
+    the collider."""
+    R, ang, jit = rock["R"], rock["ang"], rock["jit"]
+    zc, _l = _s4_z(rock, 0.0, 0.0, 0.0)
     C = rock["C"]
-    rings = S4_COLL_RINGS if coll else S4_RINGS
-    loops = [rim]
-    for (dz, zabs, out, jag) in rings:
-        loop = []
-        for vid in rim:
-            p = m.verts[vid]
-            d = math.hypot(p[0] - C[0], p[1] - C[1])
-            k = (d + out + (jag * r.sf() if (jag and not coll) else 0.0)) / d
-            z = (top + dz + S4_RING_LIFT * (p[2] - top)) if zabs is None else zabs
-            loop.append(m.v((C[0] + (p[0] - C[0]) * k, C[1] + (p[1] - C[1]) * k, z)))
-        loops.append(loop)
-    nr = len(rim)
-    for a in range(len(loops) - 1):
-        for i in range(nr):
-            j = (i + 1) % nr
-            pa, pb = m.verts[loops[a][i]], m.verts[loops[a][j]]
-            want = (0.5 * (pa[0] + pb[0]) - C[0], 0.5 * (pa[1] + pb[1]) - C[1], 0.0)
-            zc = 0.25 * (pa[2] + pb[2] + m.verts[loops[a + 1][i]][2] + m.verts[loops[a + 1][j]][2])
-            m.quad(loops[a][i], loops[a][j], loops[a + 1][j], loops[a + 1][i], want,
-                   ZONE_ROCK if coll else (ZONE_EMBER if zc < LAVA_Z else ZONE_SHADE), best=True)
-    bot = loops[-1]
-    cid = m.v((C[0], C[1], m.verts[bot[0]][2]))
-    for i in range(nr):
-        m.tri(cid, bot[i], bot[(i + 1) % nr], DOWN, ZONE_ROCK if coll else ZONE_EMBER)
+    centre = m.v((C[0], C[1], zc))
+    rings, info = [], []
+    for q in S4_MASS_Q:
+        ids, row = [], []
+        for th, j in zip(ang, jit):
+            rr = q * R(th) * (1.0 + j)
+            u, v = rr * math.cos(th), rr * math.sin(th)
+            z, land = _s4_z(rock, u, v, q)
+            x, y = _s4_world(rock, u, v)
+            ids.append(m.v((x, y, z)))
+            row.append((z, land))
+        rings.append(ids)
+        info.append(row)
+
+    def zone(z, land):
+        if coll:
+            return ZONE_ROCK
+        if z < LAVA_Z:
+            return ZONE_EMBER
+        return ZONE_DECK if land > 0.5 else ZONE_SHADE
+    n = S4_MASS_N
+    for i in range(n):
+        j = (i + 1) % n
+        m.tri(centre, rings[0][i], rings[0][j], UP, zone(zc, 1.0))
+    for a in range(len(rings) - 1):
+        for i in range(n):
+            j = (i + 1) % n
+            zm = 0.25 * (info[a][i][0] + info[a][j][0] + info[a + 1][i][0] + info[a + 1][j][0])
+            lm = 0.25 * (info[a][i][1] + info[a][j][1] + info[a + 1][i][1] + info[a + 1][j][1])
+            m.quad(rings[a][i], rings[a][j], rings[a + 1][j], rings[a + 1][i], UP, zone(zm, lm),
+                   best=True)
+    m.fan(rings[-1], DOWN, ZONE_ROCK if coll else ZONE_EMBER)
 
 
 def _s4_bank_line(r):
@@ -1997,52 +1938,47 @@ def _s4_stats():
         # tolerance along the flight: how far short/long still lands on the top
         f = lay["pads"][k][3]
         short = long_ = 0.0
-        while _s4_inside(rk, (L[0] - (short + 0.05) * f[0], L[1] - (short + 0.05) * f[1])):
+        E = S4_EDGE_Q
+
+        def stand(p):
+            uu, vv = _s4_local(rk, p)
+            qq = max(_s4_q(rk, uu, vv), -uu / (S4_REAR / E), uu / (S4_FRONT / E))
+            return qq <= E and _s4_hump(rk, uu, vv) < 0.3
+        while stand((L[0] - (short + 0.05) * f[0], L[1] - (short + 0.05) * f[1])):
             short += 0.05
-        while _s4_inside(rk, (L[0] + (long_ + 0.05) * f[0], L[1] + (long_ + 0.05) * f[1])):
+        while stand((L[0] + (long_ + 0.05) * f[0], L[1] + (long_ + 0.05) * f[1])):
             long_ += 0.05
         side = 0.0
         nrm = (-f[1], f[0])
-        while _s4_inside(rk, (L[0] + (side + 0.05) * nrm[0], L[1] + (side + 0.05) * nrm[1])) \
-                and _s4_inside(rk, (L[0] - (side + 0.05) * nrm[0], L[1] - (side + 0.05) * nrm[1])):
+        while stand((L[0] + (side + 0.05) * nrm[0], L[1] + (side + 0.05) * nrm[1])) \
+                and stand((L[0] - (side + 0.05) * nrm[0], L[1] - (side + 0.05) * nrm[1])):
             side += 0.05
-        chest = None
-        vv = S4_HALF_ACROSS - S4_CREST_FOOT
-        while vv < S4_HALF_ACROSS + rk["cw"]:
-            if _s4_crest(rk, -1.0, vv) >= S4_CHEST:
-                chest = vv
-                break
-            vv += 0.01
-        width = (S4_HALF_ACROSS + rk["cw"] - chest) if chest is not None else 0.0
+        vs = [x / 100.0 for x in range(0, 500)]
+        chest_vs = [vv for vv in vs if _s4_crest(rk, u, vv) >= S4_CHEST]
+        width = (chest_vs[-1] - chest_vs[0]) if chest_vs else 0.0
+        peak = max(_s4_crest(rk, u, vv) for vv in vs)
         hidden = min(_s4_hidden(rk, (uu, vv2), eye)
                      for uu in (-S4_REAR + 0.4, u, u + 0.8)
                      for vv2 in (-S4_HALF_ACROSS + 0.5, 0.0, S4_HALF_ACROSS - 0.6))
         print("MDL STATS s4 rock%d bearing=%.2f r=%.2f top=%.2f (+%.2f) axis_godot=(%.4f, 0, %.4f) "
               "landing local u=%.2f v=%.2f: %.2f m past the near edge, tolerance -%.2f/+%.2f m along, "
-              "+-%.2f m across | crest +%.2f m, %.2f m wide at chest, hides a %.1f m body by %.2f m"
+              "+-%.2f m across | hump +%.2f m over the landing, %.2f m thick at chest, hides a %.1f m body by %.2f m"
               % (k + 1, rk["b"], rk["r"], rk["top"], rk["top"] - DECK_Z, rk["a"][0], -rk["a"][1],
-                 u, v, u + S4_REAR, short, long_, side, rk["crest"], width, S4_BODY_H, hidden))
+                 u, v, u + S4_REAR, short, long_, side, peak, width, S4_BODY_H, hidden))
     # gaps between consecutive walkable tops, along the flight lines
     def outline(rk):
-        """The landable top: the flat and the crest's outer face up to the
-        ridge (a body on the inner face slides into the lava)."""
-        W = S4_HALF_ACROSS
-        v_ridge = _s4_ridge(rk)
-        H = W + 0.5 * rk["cw"]
-        t_r = (v_ridge - 0.5 * rk["cw"]) / H
-        N = 24
+        """Where a body can land and stand: out to the standing edge, and on
+        the tower side only to the hump's ridge (its inner face sheds into
+        the lava)."""
         pts = []
-        for k in range(N + 1):
-            pts.append(_s4_outline(rk, -1.0 + 2.0 * k / N, -1.0))
-        for k in range(N + 1):
-            pts.append(_s4_outline(rk, 1.0, -1.0 + (t_r + 1.0) * k / N))
-        for k in range(N + 1):
-            u, v = _s4_outline(rk, 1.0 - 2.0 * k / N, t_r)
-            pts.append((max(u, -S4_REAR), v))          # the tail is not a landing: no flat under it
-        for k in range(N + 1):
-            u, v = _s4_outline(rk, -1.0, t_r - (t_r + 1.0) * k / N)
-            pts.append((max(u, -S4_REAR), v))
-        return [_s4_world(rk, u, v) for (u, v) in pts]
+        for k in range(120):
+            th = TWO_PI * k / 120.0
+            rr = S4_EDGE_Q * rk["R"](th)
+            u, v = rr * math.cos(th), rr * math.sin(th)
+            v = min(v, S4_HUMP_V)
+            u = min(max(u, -S4_REAR), S4_FRONT)        # the tail and the shoulders beyond are no landing
+            pts.append(_s4_world(rk, u, v))
+        return pts
 
     def arc(bearing):
         return [pol(bearing, 46.7 + 10.6 * k / 30.0, 0.0)[:2] for k in range(31)]
@@ -2784,7 +2720,7 @@ def _s4_collider(c, r, s4):
         for j in range(nr - 1):
             mid = (0.5 * (LAVA_COLL_RST[j] + LAVA_COLL_RST[j + 1]) * math.cos(0.5 * (ts[i] + ts[i + 1])),
                    0.5 * (LAVA_COLL_RST[j] + LAVA_COLL_RST[j + 1]) * math.sin(0.5 * (ts[i] + ts[i + 1])))
-            if any(_s4_inside(rk, mid, grow=-0.6) for rk in lay["rocks"]):
+            if any(_s4_inside(rk, mid, q_max=0.9) for rk in lay["rocks"]):
                 continue
             c.quad(grid[i][j], grid[i + 1][j], grid[i + 1][j + 1], grid[i][j + 1], UP, ZONE_ROCK)
     for rk in lay["rocks"]:
