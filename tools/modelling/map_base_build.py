@@ -6,6 +6,8 @@ the gallery is a CUTOUT: rock ceiling CEIL_H over the deck, open only toward
 the void; above it the pit wall carries on to a ragged rim and hell's ground.
 
 Rock only. No cover, traps, pits, pads, ramps or tower -- those are scene work.
+S1 (bearings 15..60) is a cave: stalagmites and stalactites grown from the
+one mesh, the deck, ceiling and wall relieved. Its spikes ARE the cover there.
 
 Authored in WORLD coordinates so the scene instances it at identity:
 
@@ -228,6 +230,51 @@ GAP_MIN, GAP_MAX = 0.4, 3.6   # spacing field: tight clusters .. empty stretches
 PIT_SUB, PIT_CAP = 2, 7.0
 
 CELLS = []                    # (centre, out, width, height) for the renders
+
+# ---- S1 The Spires, game bearings 15..60: a cave. Stalagmites where the
+# blockout's spires stood (two of them full columns to the ceiling),
+# stalactites off the ceiling, and the deck, ceiling and outer wall relieved
+# between S1_RELIEF's bearings. Its own seed; nothing outside it moves.
+S1_RELIEF = (14.0, 61.0)             # vertices move only strictly inside this
+S1_FADE = 4.0                        # degrees the relief eases in over at each end
+S1_SEED = 3170519
+S1_SIDES = 7                         # odd: no two facets face each other
+S1_JAG = 0.14                        # per-vertex radial jitter, fraction of the ring
+S1_SINK = 0.35                       # a base ring is buried this far in the deck or ceiling
+S1_DECK_AMP = 0.12                   # deck undulation, +- metres; the collider follows it
+S1_DECK_L = (4.5, 8.0)               # ... wavelengths
+S1_CEIL_DROP = (0.10, 0.75)          # the ceiling sags by this much: drips and bulges
+S1_CEIL_L = (3.0, 6.0)
+S1_WALL_OUT = 0.60                   # outer wall relief, outward only, metres
+S1_WALL_L = (2.5, 5.0)
+S1_HEAD_CLEAR = 2.6                  # a hanging stalactite ends at least this far over the deck
+# stalagmites: (bearing, radius, height, base half-width). The blockout's nine
+# at their alternating radii, then the two small ones between 35 and 45.
+S1_STALAGMITES = [
+    (20.0, 48.0, 2.9, 0.62), (25.0, 56.0, 3.1, 0.60), (30.0, 52.0, 2.5, 0.50),
+    (35.0, 48.0, 3.2, 0.65), (40.0, 56.0, 2.4, 0.48), (45.0, 52.0, 2.8, 0.58),
+    (50.0, 48.0, 3.0, 0.62), (55.0, 56.0, 2.3, 0.46), (58.0, 52.0, 2.7, 0.55),
+    (38.7, 49.9, 1.9, 0.40), (41.6, 48.2, 1.7, 0.36)]
+S1_COLUMNS = (25.0, 50.0)            # bearings of the two that meet the ceiling
+# stalactites: (bearing, radius, length, base half-width); a length is clipped
+# so the tip keeps S1_HEAD_CLEAR over the deck
+S1_STALACTITES = [
+    (17.0, 50.0, 2.2, 0.40), (19.5, 54.5, 3.4, 0.50), (22.5, 47.8, 5.0, 0.62),
+    (27.0, 51.5, 1.6, 0.32), (29.0, 55.5, 4.2, 0.55), (32.5, 49.0, 2.8, 0.45),
+    (36.0, 53.5, 4.8, 0.60), (38.0, 56.5, 1.8, 0.34), (42.0, 50.5, 3.6, 0.52),
+    (44.0, 47.5, 2.4, 0.42), (47.5, 55.0, 5.0, 0.64), (52.0, 52.5, 1.5, 0.30),
+    (54.5, 49.5, 3.9, 0.54), (57.0, 56.0, 2.6, 0.44), (59.5, 50.5, 1.9, 0.36)]
+# knee-high nubs at the wall foot: (bearing, radius, height, half-width)
+S1_NUBS = [(23.0, 56.9, 0.7, 0.38), (33.0, 56.9, 0.5, 0.30),
+           (47.0, 56.9, 0.9, 0.42), (56.5, 56.9, 0.6, 0.34)]
+# profiles: (fraction of the height, fraction of the base half-width), base to tip
+S1_MITE_PROFILE = [(0.08, 0.95), (0.30, 0.80), (0.55, 0.60), (0.78, 0.40), (0.95, 0.20)]
+S1_TITE_PROFILE = [(0.06, 0.94), (0.28, 0.74), (0.55, 0.50), (0.80, 0.28), (0.95, 0.12)]
+S1_COLUMN_PROFILE = [(0.03, 0.94), (0.14, 0.74), (0.32, 0.56), (0.52, 0.46),
+                     (0.72, 0.58), (0.88, 0.76), (0.97, 0.95)]
+S1_COLL_SIDES = 6                    # collider frusta
+S1_COLL_FIT = 0.92                   # ... at this fraction of the visual base
+S1 = {"deck_sides": {}, "prisms": []}   # filled by _s1_sculpt, read by _s1_collider
 
 FACING_YAW = 0.0
 
@@ -1023,11 +1070,12 @@ def _lip(d):
     return LIP_R * (1.0 - (1.0 - (1.0 - d / LIP_R) ** LIP_P) ** (1.0 / LIP_P))
 
 
-def _field(r, amp, n=6):
+def _field(r, amp, n=6, L=FLOOR_L):
     """A seeded 2-D height field: n plane waves, peak amp, metres."""
     ws = []
+    Ls = L
     for _ in range(n):
-        a, L = r.f() * TWO_PI, FLOOR_L[0] + r.f() * (FLOOR_L[1] - FLOOR_L[0])
+        a, L = r.f() * TWO_PI, Ls[0] + r.f() * (Ls[1] - Ls[0])
         ws.append((math.cos(a) * TWO_PI / L, math.sin(a) * TWO_PI / L, r.f() * TWO_PI, 0.5 + r.f()))
     k = amp / sum(w[3] for w in ws)
 
@@ -1637,6 +1685,175 @@ def _bank_da(line, side, i, rad):
 # THE ROCK
 # =============================================================================
 
+# -----------------------------------------------------------------------------
+# S1 The Spires: the cave
+# -----------------------------------------------------------------------------
+
+def _s1_w(bearing):
+    """0 outside S1_RELIEF, 1 inside it, eased over S1_FADE at each end."""
+    u = min((bearing - S1_RELIEF[0]) / S1_FADE, (S1_RELIEF[1] - bearing) / S1_FADE, 1.0)
+    if u <= 0.0:
+        return 0.0
+    return u * u * (3.0 - 2.0 * u)
+
+
+def _s1_bearing(x, y):
+    return _bear_deg(math.atan2(y, x))
+
+
+def _s1_fields():
+    """(deck dz, ceiling drop, wall push-out) as functions of a world point."""
+    fd = _field(_Rng(S1_SEED + 1), S1_DECK_AMP, L=S1_DECK_L)
+    fc = _field(_Rng(S1_SEED + 2), 1.0, L=S1_CEIL_L)
+    fw = _field(_Rng(S1_SEED + 3), 1.0, L=S1_WALL_L)
+
+    def deck(x, y):
+        rad = math.hypot(x, y)
+        fade = min(1.0, max(0.0, min(rad - INNER_R, OUTER_R - rad) / 2.0))
+        return _s1_w(_s1_bearing(x, y)) * fade * fd(x, y)
+
+    def ceil(x, y):
+        lo, hi = S1_CEIL_DROP
+        return _s1_w(_s1_bearing(x, y)) * (lo + (hi - lo) * 0.5 * (1.0 + fc(x, y)))
+
+    def wall(x, y, z):
+        b = _s1_bearing(x, y)
+        return _s1_w(b) * 0.5 * S1_WALL_OUT * (1.0 + fw(OUTER_R * math.radians(b), z))
+    return deck, ceil, wall
+
+
+def _s1_sect(r):
+    """S1_SIDES unit points round the axis, angularly jittered."""
+    return [(math.cos(a), math.sin(a)) for a in
+            (TWO_PI * (i + 0.30 * r.sf()) / S1_SIDES for i in range(S1_SIDES))]
+
+
+def _s1_spike(m, cx, cy, rings, hw, lean, apex, r, bow=False):
+    """A closed faceted spike on the axis at (cx, cy). ``rings`` is
+    [(z, scale, buried)] from the buried end; ``apex`` closes the far end to a
+    point, or None to bury that end too. ``lean`` (dx, dy) drifts the axis."""
+    sect = _s1_sect(r)
+    z0 = rings[0][0]
+    z1 = apex if apex is not None else rings[-1][0]
+    lvl = []
+    for (z, sc, buried) in rings:
+        f = (z - z0) / (z1 - z0)
+        g = math.sin(math.pi * f) if bow else f
+        out = []
+        for (dx, dy) in sect:
+            k = hw * sc * (1.0 if buried else 1.0 + S1_JAG * r.sf())
+            zz = z if buried else z + 0.05 * r.sf()
+            out.append(m.v((cx + lean[0] * g + dx * k, cy + lean[1] * g + dy * k, zz)))
+        lvl.append(out)
+    ns = len(sect)
+    for a in range(len(lvl) - 1):
+        for i in range(ns):
+            j = (i + 1) % ns
+            want = (sect[i][0] + sect[j][0], sect[i][1] + sect[j][1], 0.0)
+            zone = ZONE_SHADE if r.f() < 0.35 else ZONE_ROCK
+            m.quad(lvl[a][i], lvl[a][j], lvl[a + 1][j], lvl[a + 1][i], want, zone, best=True)
+    up = 1.0 if z1 > z0 else -1.0
+    m.fan(lvl[0], (0.0, 0.0, -up), ZONE_SHADE)
+    if apex is None:
+        m.fan(lvl[-1], (0.0, 0.0, up), ZONE_SHADE)
+        return
+    tip = m.v((cx + lean[0] * (0.0 if bow else 1.0), cy + lean[1] * (0.0 if bow else 1.0), z1))
+    for i in range(ns):
+        j = (i + 1) % ns
+        want = (sect[i][0] + sect[j][0], sect[i][1] + sect[j][1], up)
+        m.tri(lvl[-1][i], lvl[-1][j], tip, want, ZONE_ROCK)
+
+
+def _s1_lean(r, amount):
+    a = r.f() * TWO_PI
+    k = amount * (0.4 + 0.6 * r.f())
+    return (k * math.cos(a), k * math.sin(a))
+
+
+def _s1_sculpt(m, ang, base_cols, DV, dv, cev, wrv):
+    """Relieve the deck, ceiling and wall inside S1_RELIEF, grow the spikes,
+    and record what the collider needs."""
+    r = _Rng(S1_SEED)
+    deck_dz, ceil_drop, wall_out = _s1_fields()
+    for (tk, j, fine), vid in dv.items():
+        if fine:
+            continue
+        p = m.verts[vid]
+        dz = deck_dz(p[0], p[1])
+        if dz:
+            m.verts[vid] = (p[0], p[1], p[2] + dz)
+    for (tk, j), vid in cev.items():
+        p = m.verts[vid]
+        d = ceil_drop(p[0], p[1])
+        if d:
+            m.verts[vid] = (p[0], p[1], p[2] - d)
+    for key, vid in wrv.items():
+        if len(key) != 4 or not isinstance(key[0], int):
+            continue
+        p = m.verts[vid]
+        out = wall_out(p[0], p[1], p[2])
+        if out:
+            m.verts[vid] = _push(p, out)
+    nst = len(RST)
+    for i in range(SIDES):
+        cols = base_cols[i * ANG_SUB:i * ANG_SUB + ANG_SUB + 1]
+        if any(_s1_w(_bear_deg(t)) > 0.0 for t in cols):
+            S1["deck_sides"][round(ang[i], 7)] = \
+                [[m.verts[DV(t, j)] for j in range(nst)] for t in cols]
+
+    def h0(x, y):
+        return DECK_Z + deck_dz(x, y)
+
+    def zc(x, y):
+        return CEIL_Z - ceil_drop(x, y)
+
+    fit = S1_COLL_FIT
+    for (b, rad, H, hw) in S1_STALAGMITES:
+        x, y, _ = pol(b, rad, 0.0)
+        z0 = h0(x, y)
+        if b in S1_COLUMNS:
+            z1 = zc(x, y)
+            rings = [(z0 - S1_SINK, 1.0, True)] \
+                + [(z0 + t * (z1 - z0), s, False) for (t, s) in S1_COLUMN_PROFILE] \
+                + [(CEIL_Z + S1_SINK, 1.0, True)]
+            _s1_spike(m, x, y, rings, hw, _s1_lean(r, 0.35), None, r, bow=True)
+            S1["prisms"].append((x, y, [(z0 - 0.1, fit * hw), (z0 + 0.52 * (z1 - z0), fit * 0.46 * hw),
+                                        (CEIL_Z, fit * 0.95 * hw)], False))
+            continue
+        rings = [(z0 - S1_SINK, 1.0, True)] + [(z0 + t * H, s, False) for (t, s) in S1_MITE_PROFILE]
+        _s1_spike(m, x, y, rings, hw, _s1_lean(r, 0.28), z0 + H, r)
+        S1["prisms"].append((x, y, [(z0 - 0.1, fit * hw), (z0 + 0.55 * H, fit * 0.60 * hw),
+                                    (z0 + H - 0.05, 0.10)], True))
+    for (b, rad, H, hw) in S1_NUBS:
+        x, y, _ = pol(b, rad, 0.0)
+        z0 = h0(x, y)
+        rings = [(z0 - S1_SINK, 1.0, True)] + [(z0 + t * H, s, False) for (t, s) in S1_MITE_PROFILE]
+        _s1_spike(m, x, y, rings, hw, _s1_lean(r, 0.08), z0 + H, r)
+        S1["prisms"].append((x, y, [(z0 - 0.1, fit * hw), (z0 + H - 0.03, 0.10)], True))
+    for (b, rad, L, hw) in S1_STALACTITES:
+        x, y, _ = pol(b, rad, 0.0)
+        z1 = zc(x, y)
+        L = min(L, z1 - (h0(x, y) + S1_HEAD_CLEAR))
+        rings = [(CEIL_Z + S1_SINK, 1.0, True)] + [(z1 - t * L, s, False) for (t, s) in S1_TITE_PROFILE]
+        _s1_spike(m, x, y, rings, hw, _s1_lean(r, 0.22), z1 - L, r)
+
+
+def _s1_collider(c):
+    """A tapered prism for every stalagmite, column and nub."""
+    for (cx, cy, rings, cap) in S1["prisms"]:
+        lvl = [[c.v((cx + rad * math.cos(TWO_PI * i / S1_COLL_SIDES),
+                     cy + rad * math.sin(TWO_PI * i / S1_COLL_SIDES), z))
+                for i in range(S1_COLL_SIDES)] for (z, rad) in rings]
+        for a in range(len(lvl) - 1):
+            for i in range(S1_COLL_SIDES):
+                j = (i + 1) % S1_COLL_SIDES
+                am = TWO_PI * (i + 0.5) / S1_COLL_SIDES
+                c.quad(lvl[a][i], lvl[a][j], lvl[a + 1][j], lvl[a + 1][i],
+                       (math.cos(am), math.sin(am), 0.0), ZONE_ROCK)
+        if cap:
+            c.fan(lvl[-1], UP, ZONE_ROCK)
+
+
 def _rock(r):
     m = _Mesh()
     ang = [2.0 * math.pi * (i + r.sf() * ANG_JAG) / SIDES for i in range(SIDES)]
@@ -2032,6 +2249,7 @@ def _rock(r):
             _carve(m, pit_wall, c)
         else:
             _carve(m, shaft, c)
+    _s1_sculpt(m, ang, base_cols, DV, dv, cev, wrv)
     _build_platforms(m, _Rng(LAKE_SEED))
     pit_wall.emit()
     shaft.emit()
@@ -2091,10 +2309,19 @@ def _collider(ang, cut0, cut1):
                inward, ZONE_SHADE)                                     # pit wall
         if inside:
             continue
+        grid = S1["deck_sides"].get(round(t0, 7))
+        if grid:                                           # S1: the deck undulates
+            ids = [[c.v(p) for p in col] for col in grid]
+            for a in range(len(ids) - 1):
+                for j in range(len(ids[a]) - 1):
+                    c.quad(ids[a][j], ids[a + 1][j], ids[a + 1][j + 1], ids[a][j + 1],
+                           UP, ZONE_ROCK, best=True)
+            continue
         c.quad(a0, a1, CV("out", foot, t1), CV("out", foot, t0), UP, ZONE_ROCK)
 
     _lake_collider(c, _Rng(LAKE_SEED))
     _shelf_box(c)
+    _s1_collider(c)
     return c
 
 
@@ -2293,6 +2520,15 @@ def _deck_render(spec, objects):
     shot("deck290", pol(290.0, 52.0, DECK_Z + EYE_H), pol(302.0, 52.0, 23.4),
          34.0, (1400, 800))
     shot("wide", pol(315.3, 6.0, 96.0), pol(315.3, 50.0, 18.0), 24.0, (1500, 1000))
+    fl = bpy.data.lights.new("S1Fill", type="POINT")          # the gallery is in the
+    fl.energy, fl.color, fl.shadow_soft_size = 2500.0, (1.0, 0.6, 0.5), 2.0   # sun's shadow
+    fill = mdl._link(bpy.data.objects.new("S1Fill", fl))
+    fill.location = pol(37.0, 52.0, 29.0)
+    shot("s1_run", pol(13.0, 52.0, DECK_Z + EYE_H), pol(36.0, 52.0, 24.0), 24.0, (1400, 800))
+    shot("s1_tower", (0.0, 0.0, DECK_Z + 4.0), pol(37.5, 52.0, 24.5), 40.0, (1600, 900))
+    shot("s1_mouth", pol(37.5, 30.0, 29.5), pol(37.5, 52.0, 23.5), 20.0, (1500, 900))
+    shot("s1_ceiling", pol(16.0, 52.5, DECK_Z + EYE_H), pol(34.0, 52.0, 29.5), 18.0, (1400, 900))
+    bpy.data.objects.remove(fill, do_unlink=True)
     if CELLS:
         cm, out, w, h = max([c for c in CELLS if c[0][2] < DECK_Z] or CELLS,
                             key=lambda c: c[3])
@@ -2353,6 +2589,9 @@ def build():
           % (len(CELLS), sum(1 for c in CELLS if c[0][2] < DECK_Z),
              max(c[0][2] + 0.5 * c[3] for c in CELLS if c[0][2] < DECK_Z), UNIFORM_TOP,
              sum(1 for c in CELLS if c[0][2] > 200.0), max(c[0][2] for c in CELLS)))
+    print("MDL STATS s1 stalagmites=%d columns=%d stalactites=%d nubs=%d prisms=%d deck_sides=%d"
+          % (len(S1_STALAGMITES) - len(S1_COLUMNS), len(S1_COLUMNS), len(S1_STALACTITES),
+             len(S1_NUBS), len(S1["prisms"]), len(S1["deck_sides"])))
     print("MDL STATS deck r=%.1f..%.1f y=%.2f courtyard_y=%.2f ceiling_y=%.2f rim_y=%.1f ground_r=%.0f"
           % (INNER_R, OUTER_R, DECK_Z, COURTYARD_Z, CEIL_Z, RIM_Z, GROUND_RINGS[-1][0]))
     return [ob, coll_ob]
