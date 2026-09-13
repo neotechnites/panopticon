@@ -118,9 +118,9 @@ const HEADLESS_DISPLAY: String = "headless"
 ## is no direction to whip towards.
 ##
 ## Not a tunable and deliberately not on the profile: it is a guard against
-## normalising a zero-length vector, not a design question. A ghost catches from
-## inside [member GhostProfile.catch_radius_metres], and at the bottom of that
-## range the direction is noise -- [method FxCameraKick.strike] documents
+## normalising a zero-length vector, not a design question. A ghost catches by
+## shoving, from inside [member MatchRules.shove_range_metres], and at the bottom
+## of that range the direction is noise -- [method FxCameraKick.strike] documents
 ## [constant Vector3.ZERO] as "not known" and uses its own fallback whip, which
 ## is the honest answer.
 const MIN_REACH_METRES: float = 0.05

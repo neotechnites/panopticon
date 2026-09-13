@@ -58,6 +58,9 @@ const UNSTICK_CLEAR_METRES: float = 6.0
 ## than by the mesh path. See [method _next_path_point].
 const UNSTICK_LANE_SECONDS: float = 3.0
 const CHASE_LOOKAHEAD_METRES: float = 10.0
+## Seconds of slack a chasing ghost leaves on top of [member MatchRules.shove_cooldown_seconds]
+## before it taps again, so a retry is never refused by a cooldown a tick short of spent.
+const CHASE_SHOVE_SLACK_SECONDS: float = 0.1
 ## A path counts as straight when no point on it leaves the chord by more than this.
 const STRAIGHT_PATH_METRES: float = 0.5
 ## Heading error under which the body holds plain forward; above it, it strafes and throttles.
@@ -145,6 +148,8 @@ var _end_arc: float = 0.0
 var _state: State = State.RUNNING
 var _chasing: bool = false
 var _chase_group: StringName = &""
+## Seconds before this ghost may tap shove again. See [method _maybe_shove].
+var _shove_rest: float = 0.0
 var _had_threat: bool = false
 
 var _anchor: Vector3 = Vector3.ZERO
@@ -614,6 +619,7 @@ func begin_chase(target_group: StringName) -> void:
 		return
 	_chase_group = target_group
 	_chasing = true
+	_shove_rest = 0.0
 	_state = State.RUNNING
 	input.command.clear()
 	_has_agent_target = false
@@ -863,7 +869,33 @@ func _tick_chase(delta: float) -> void:
 		return
 	_aim_agent(_chase_aim_point(quarry.global_position))
 	_follow_path(delta)
+	_maybe_shove(quarry, delta)
 	_tick_stuck(delta)
+
+
+## Tap shove once the quarry is in the match's reach and in front of this ghost.
+##
+## The shove is how a ghost takes a spot -- see [method MatchController.apply_shove] --
+## so a chase that only closes the distance catches nobody. The rest is the match
+## cooldown plus a tick of slack, which is also what releases the button: the
+## authority latches the rising edge, so a ghost holding it down shoves once.
+func _maybe_shove(quarry: Node3D, delta: float) -> void:
+	_shove_rest = maxf(_shove_rest - delta, 0.0)
+	if rules == null or _shove_rest > 0.0:
+		return
+	var offset: Vector3 = quarry.global_position - controller.global_position
+	offset.y = 0.0
+	var distance: float = offset.length()
+	if distance > rules.shove_range_metres or distance < 1e-3:
+		return
+	var forward: Vector3 = -controller.global_transform.basis.z
+	forward.y = 0.0
+	if forward.length_squared() < 1e-6:
+		return
+	if forward.normalized().dot(offset / distance) < MatchController.SHOVE_FACING_DOT:
+		return
+	input.command.shove_pressed = true
+	_shove_rest = rules.shove_cooldown_seconds + CHASE_SHOVE_SLACK_SECONDS
 
 
 ## A point on the ring a lookahead ahead of the ghost, converging on the quarry's radius.
