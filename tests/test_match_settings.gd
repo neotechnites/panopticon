@@ -46,6 +46,7 @@ var _real_config_path: String = ""
 var _real_ghosts_enabled: bool = false
 var _real_skip_opening_race: bool = false
 var _real_tower_seat_index: int = 0
+var _real_reload_by_turn: PackedFloat32Array = PackedFloat32Array()
 
 
 func before_each() -> void:
@@ -54,6 +55,7 @@ func before_each() -> void:
 	_real_ghosts_enabled = store.settings.ghosts_enabled
 	_real_skip_opening_race = store.settings.skip_opening_race
 	_real_tower_seat_index = store.settings.tower_seat_index
+	_real_reload_by_turn = store.settings.reload_by_turn.duplicate()
 	store.config_path = SCRATCH_CONFIG
 
 
@@ -64,6 +66,7 @@ func after_each() -> void:
 	store.settings.ghosts_enabled = _real_ghosts_enabled
 	store.settings.skip_opening_race = _real_skip_opening_race
 	store.settings.tower_seat_index = _real_tower_seat_index
+	store.settings.reload_by_turn = _real_reload_by_turn
 
 
 # --- The preference itself ----------------------------------------------------
@@ -358,6 +361,38 @@ func test_the_match_tab_race_skip_drives_the_store() -> void:
 	screen.refresh()
 	assert_true(check.button_pressed, "reopening the screen shows the stored skip")
 	assert_eq_int(seats.get_selected_id(), 1, "and the stored seat")
+
+
+## Typing a fraction into a reload spin box keeps the fraction, and typing
+## below the floor clamps to it rather than snapping to a whole second.
+func test_the_reload_spins_keep_fractional_seconds() -> void:
+	var store: SettingsStore = SettingsStore.instance()
+	var screen: SettingsScreen = _open_screen()
+	var spin: SpinBox = screen.get_node_or_null(^"%ReloadSpin1") as SpinBox
+	assert_not_null(spin, "the Match tab has a reload-by-turn spin box")
+	if spin == null:
+		return
+
+	var line_edit: LineEdit = spin.get_line_edit()
+	line_edit.text = "0.5"
+	line_edit.text_submitted.emit("0.5")
+	await step_ticks(1)
+	assert_almost_eq(spin.value, 0.5, 1e-6, "typing 0.5 keeps the fraction")
+	assert_almost_eq(
+		store.settings.reload_by_turn[0], 0.5, 1e-6, "and the store gets the same fraction",
+	)
+
+	line_edit.text = "0"
+	line_edit.text_submitted.emit("0")
+	await step_ticks(1)
+	assert_almost_eq(
+		spin.value, GameSettings.MIN_RELOAD_BY_TURN, 1e-6,
+		"typing 0 clamps to the documented minimum, not up to a whole second",
+	)
+	assert_almost_eq(
+		store.settings.reload_by_turn[0], GameSettings.MIN_RELOAD_BY_TURN, 1e-6,
+		"and the store gets the clamped minimum",
+	)
 
 
 ## The toggle is captioned, so a player meeting the mechanic knows what it is.
