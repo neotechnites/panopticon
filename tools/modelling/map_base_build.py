@@ -188,7 +188,56 @@ LAVA_COLL_RST = [46.70, 48.20, 49.70, 51.20, 52.70, 54.20, 55.70, 57.30]
 
 LAKE_SEED = 5140737
 
+# ---- S2, the Lava Shelf: a river ALONG the deck with deck on both sides.
+# Inner lane: plain deck, no cover. In the river: a chain of six rock masses,
+# four with a crest grown up their tower-facing side. Past the river the
+# outer bank rises straight into the wall: nothing to run on.
+S2_A0, S2_A1 = 75.0, 130.0            # lip to lip, game bearings
+S2_END = 1.5                          # degrees each end bank takes, lip to lava
+S2_END_P = 1.6                        # ... its round-over exponent
+S2_TAPER = 4.0                        # degrees each end the river narrows over ...
+S2_END_W = 2.6                        # ... to a tongue this wide at the wall foot
+S2_STEP = 1.0                         # degrees between the section's own columns
+S2_LANE_R = (47.6, 48.6, 49.5)        # inner-lane stations: flat deck
+S2_IN_R = 50.3                        # inner bank top line; wanders BANK_OFF
+S2_IN_W = (0.45, 1.0)                 # inner bank, top to lava edge: width varies, so pitch does
+S2_OUT_LEDGE = (0.22, 0.42)           # outer bank: the lava edge this far inside the wall foot
+S2_IN_LIP = ((0.25, 0.08), (0.55, 0.30), (0.85, 0.70))   # inner round-over: (of the width, of the drop)
+S2_OUT_LIP = ((0.45, 0.62), (0.80, 0.92))                # outer: steep, no ledge
+S2_FLOOR_N = 6                        # floor quads across the river
+S2_FLOOR_AMP = 0.12                   # the floor's 2-D field, metres, peak
+S2_FLOOR_FADE = 0.7                   # metres from a foot the field takes to rise
+S2_PLAT_R = 54.2                      # the chain's centre line
+S2_PLATS = ((2.3, 2.6, 23.05, True, 0.10),    # per mass: top along the run, top across,
+            (2.2, 2.3, 23.35, False, -0.20),  # top y, crest, off the centre line
+            (2.5, 2.8, 22.95, True, 0.20),
+            (2.2, 2.4, 23.30, True, -0.10),
+            (2.4, 2.5, 23.15, False, 0.15),
+            (2.3, 2.6, 22.90, True, 0.0))
+S2_GAPS = (4.6, 5.3, 4.7, 5.0, 6.1, 4.6)      # lava, edge to edge: end bank to the first, then between
+S2_PLAT_N, S2_PLAT_P = 14, 3.5        # points round a top, its superellipse exponent
+S2_PLAT_RINGS = ((0.0, 1.0, 0.0), (-0.05, 1.04, 0.0), (-0.18, 1.10, 0.05), (-0.45, 1.19, 0.08),
+                 (-0.90, 1.33, 0.12), (-1.40, 1.45, 0.14))   # (off the top, scale, jag)
+# A crest is the top's own inner rim carried on upward: a ridge whose foot
+# spans the inner S2_CREST_D of the top, tapering in length and depth as it
+# rises, its inner face the platform's side with a slight batter.
+S2_CREST_H = (2.15, 2.2)              # crest height over its top
+S2_CREST_D = 1.05                     # the ridge's foot, across, at its middle
+S2_CREST_U = (0.70, 0.35, 0.0, -0.35, -0.70)   # the foot's outer edge: u, of the half length ...
+S2_CREST_W = (0.75, 1.0, 1.0, 1.0, 0.75)       # ... and depth there, of S2_CREST_D
+S2_CREST_RINGS = ((0.0, 1.0, 1.0, 1.0), (0.35, 0.96, 0.98, 0.88), (0.90, 0.88, 0.95, 0.72),
+                  (1.35, 0.76, 0.93, 0.56), (1.75, 0.60, 0.91, 0.40))   # (height, length, batter, depth)
+S2_CREST_TOP = (0.42, 0.89, 0.26)     # ... and the top ring
+S2_SEED = 6180339
+S2_TRAP_N = 7                         # TrapVolumes over the river, for the scene
+S2_TRAP_R = (50.3, 57.5)              # ... their radial span
+S2_INFO = {}                          # what the renders need: lip bearings, the masses
+REVIEW_SUN = 5.0                      # review renders only: white fill sun, watts
+REVIEW_WORLD = 1.6                    # ... world light strength
+REVIEW_EXPOSURE = 1.5                 # ... stops over the arena look
+
 ZONE_RIVER = ("river",)               # flow runs radially, wall -> lip
+ZONE_RIVER_T = ("river_t",)           # ... and along the deck in S2
 ZONE_FALL = ("fall",)                 # ... and straight down a wall
 RIVER_TEX = 256
 RIVER_ALBEDO = "map_base_river_albedo"
@@ -1633,6 +1682,286 @@ def _bank_da(line, side, i, rad):
     return (line[i][1] / rad) * (1.0 if side == 0 else -1.0)
 
 
+# -----------------------------------------------------------------------------
+# S2, the Lava Shelf: a river along the deck between two wandering banks and
+# a chain of rock masses standing in it
+# -----------------------------------------------------------------------------
+
+S2_KIND = ["deck"] * 4 + ["bank"] * 4 + ["floor"] * S2_FLOOR_N + ["bank"] * 3
+S2_NST = len(S2_KIND) + 1             # stations, pit lip .. wall foot
+S2_MASSES = []                        # what _s2_mass built, for the collider and the stats
+
+
+def _s2_setup(T, base_cols):
+    """The river's columns: the deck's own inside it, each lip snapped onto
+    one when it is within COL_MERGE, the section's own columns between; and
+    the chain, its gaps laid end to end from the near end bank's foot."""
+    lips = []
+    for b in (S2_A0, S2_A1):
+        t = T(b)
+        near = [c for c in base_cols if abs(c - t) * CROSS_R <= COL_MERGE]
+        lips.append(near[0] if near else t)
+    s1, s0 = lips
+    a0, a1 = _bear_deg(s1), _bear_deg(s0)
+    keep = [c for c in base_cols if s0 < c < s1] + [s0, s1]
+    cols = [T(a0 + k * S2_STEP) for k in range(1, int((a1 - a0) / S2_STEP) + 1)]
+    cols = [t for t in cols if s0 < t < s1
+            and all(abs(t - k) * CROSS_R > COL_MERGE for k in keep)]
+    k = 180.0 / (math.pi * S2_PLAT_R)
+    plats, s = [], 0.0
+    for (L, W, top, crest, dr), gap in zip(S2_PLATS, S2_GAPS):
+        s += gap + 0.5 * L
+        plats.append((a0 + S2_END + s * k, S2_PLAT_R + dr, top, crest, 0.5 * L, 0.5 * W))
+        s += 0.5 * L
+    return {"a0": a0, "a1": a1, "s0": s0, "s1": s1, "cols": _merge_cols(cols, [s0, s1]),
+            "plats": plats, "far_gap": (a1 - a0 - 2.0 * S2_END) / k - s, "T": T}
+
+
+def _s2_lines(s2, cols_all):
+    """The bank lines, per column in bearing order: inner deck-edge offset,
+    inner bank width, outer ledge; and the floor's field."""
+    span = [t for t in cols_all if s2["s0"] - 1e-9 <= t <= s2["s1"] + 1e-9]
+    span.reverse()
+    n = len(span)
+    r = _Rng(S2_SEED)
+    off, wid, led = _walk(r, n, *BANK_OFF), _walk(r, n, *S2_IN_W), _walk(r, n, *S2_OUT_LEDGE)
+    s2["lines"] = {round(t, 7): (off[i], wid[i], led[i]) for i, t in enumerate(span)}
+    s2["field"] = _field(_Rng(S2_SEED + 2), S2_FLOOR_AMP)
+    s2["span"] = span
+
+
+def _s2_f(s2, t):
+    """0 on the lips, 1 in the river; the end banks round over between."""
+    b = _bear_deg(t)
+    s = min(1.0, max(0.0, min(b - s2["a0"], s2["a1"] - b) / S2_END))
+    return 1.0 - (1.0 - s ** S2_END_P) ** (1.0 / S2_END_P)
+
+
+def _s2_taper(s2, t, r_wall):
+    """How far the inner bank swings out toward the wall at the river's ends."""
+    b = _bear_deg(t)
+    s = 1.0 - min(1.0, max(0.0, min(b - s2["a0"], s2["a1"] - b) / S2_TAPER))
+    return s * s * (r_wall - S2_END_W - S2_IN_R)
+
+
+def _s2_profile(s2, t, r_wall, field=True):
+    """(radius, z) of stations 1..S2_NST-2 at column t: the lane, the inner
+    bank, the floor, the outer bank. The lip and the wall foot are the deck's."""
+    f = _s2_f(s2, t)
+    off, wid, led = s2["lines"][round(t, 7)]
+    drop = (DECK_Z - LAVA_Z) * f
+    top_in = S2_IN_R + off + _s2_taper(s2, t, r_wall)
+    foot_in, foot_out = top_in + wid, r_wall - led
+    out = [(rr, DECK_Z) for rr in S2_LANE_R] + [(top_in, DECK_Z)]
+    for fw, fd in S2_IN_LIP:
+        out.append((top_in + fw * wid, DECK_Z - fd * drop))
+    for k in range(S2_FLOOR_N + 1):
+        rad = foot_in + (foot_out - foot_in) * k / float(S2_FLOOR_N)
+        z = DECK_Z - drop
+        if field and f > 1e-9:
+            fade = _ramp(rad - foot_in, 0.0, S2_FLOOR_FADE) * _ramp(foot_out - rad, 0.0, S2_FLOOR_FADE)
+            z += f * fade * s2["field"](rad * math.cos(t), rad * math.sin(t))
+        out.append((rad, z))
+    for fw, fd in S2_OUT_LIP:
+        out.append((foot_out + fw * led, DECK_Z - drop * (1.0 - fd)))
+    return out
+
+
+def _s2_zone(j, f0, f1):
+    kind = S2_KIND[j]
+    if kind == "floor" and min(f0, f1) > 1.0 - 1e-6:
+        return ZONE_RIVER_T
+    if kind != "deck" and max(f0, f1) > 1e-9:
+        return ZONE_SHADE
+    return ZONE_DECK
+
+
+def _s2_outline(r, hu, hv, n, p, jag):
+    """A rounded outline, n points: a superellipse of exponent p, each point
+    pushed in or out a little along its own ray."""
+    pts = []
+    for i in range(n):
+        a = TWO_PI * (i + 0.5) / n
+        c, s = math.cos(a), math.sin(a)
+        k = 1.0 + jag * r.sf()
+        pts.append((math.copysign(abs(c) ** (2.0 / p), c) * hu * k,
+                    math.copysign(abs(s) ** (2.0 / p), s) * hv * k))
+    return pts
+
+
+def _s2_frame(b, rad):
+    er, et = _radial(b), _tangent(b)
+    base = pol(b, rad, 0.0)
+
+    def P(u, v, z):
+        return (base[0] + et[0] * u + er[0] * v, base[1] + et[1] * u + er[1] * v, z)
+
+    def want(u, v):
+        return (et[0] * u + er[0] * v, et[1] * u + er[1] * v, 0.0)
+    return P, want
+
+
+def _s2_loft(m, lvl, pts, zs, want, zone_fn):
+    """Quads between consecutive rings of one outline; want(u, v) faces out."""
+    n = len(pts)
+    for a in range(len(lvl) - 1):
+        for i in range(n):
+            j = (i + 1) % n
+            um, vm = 0.5 * (pts[i][0] + pts[j][0]), 0.5 * (pts[i][1] + pts[j][1])
+            m.quad(lvl[a][i], lvl[a][j], lvl[a + 1][j], lvl[a + 1][i], want(um, vm),
+                   zone_fn(0.5 * (zs[a] + zs[a + 1])))
+
+
+def _s2_sup(u, hu, hv):
+    """The top outline's inner edge (v < 0) at u: its superellipse."""
+    return -hv * (max(0.0, 1.0 - abs(u / hu) ** S2_PLAT_P)) ** (1.0 / S2_PLAT_P)
+
+
+def _s2_crest_ring(hu, hv, ring, pts_in):
+    """Local points of one crest ring: the inner rim's points (7 of the
+    outline) drawn in by the ring's length and batter, then the outer edge
+    back the other way, the ring's depth out from the rim."""
+    _dz, su, sb, sd = ring
+    out = [(u * su, v * sb) for (u, v) in pts_in]
+    for uu, w in zip(reversed(S2_CREST_U), reversed(S2_CREST_W)):
+        u = uu * hu * su
+        out.append((u, _s2_sup(u, hu, hv) * sb + S2_CREST_D * sd * w))
+    return out
+
+
+def _s2_mass(m, r, b, rad, top, hu, hv, crest, coll=False):
+    """One rock mass in the river: a skirted stem widening into the lava, a
+    flat top, and, with ``crest``, a ridge grown up its tower-facing side --
+    one closed piece, the ridge's foot the top's own inner rim, so the
+    platform's inner side carries straight on up into it. ``coll`` rebuilds
+    a recorded mass with straight sides for the collider."""
+    P, want = _s2_frame(b, rad)
+    if coll:
+        rec = crest
+        outline, crest = rec["outline"], rec["crest"]
+        rings = ((-(top - LAVA_Z) - 0.4, 1.0, 0.0), (0.0, 1.0, 0.0))
+    else:
+        outline = _s2_outline(r, hu, hv, S2_PLAT_N, S2_PLAT_P, 0.03)
+        rings = tuple(reversed(S2_PLAT_RINGS))
+    lvl, zs = [], []
+    for dz, sc, jag in rings:
+        lvl.append([m.v(P(u * (k := sc * (1.0 + jag * r.sf())), v * k,
+                          top + dz + (0.5 * jag * r.sf() if jag else 0.0)))
+                    for (u, v) in outline])
+        zs.append(top + dz)
+    _s2_loft(m, lvl, outline, zs, want,
+             lambda z: ZONE_EMBER if z < LAVA_Z else ZONE_SHADE)
+    m.fan(lvl[0], DOWN, ZONE_EMBER)
+    if not crest:
+        m.fan(lvl[-1], UP, ZONE_DECK)
+        if not coll:
+            S2_MASSES.append({"b": b, "rad": rad, "top": top, "hu": hu, "hv": hv,
+                              "outline": outline, "crest": None})
+        return
+    half = S2_PLAT_N // 2                     # outline points half.. are the inner rim
+    rim = list(range(half, S2_PLAT_N))
+    if coll:
+        crings, jags = crest
+    else:
+        H = S2_CREST_H[0] + r.f() * (S2_CREST_H[1] - S2_CREST_H[0])
+        crings = tuple(S2_CREST_RINGS) + ((H,) + S2_CREST_TOP,)
+        n = len(rim) + len(S2_CREST_U)
+        jags = [[(1.0 if k == 0 else 1.0 + 0.05 * r.sf(),
+                  0.06 * r.sf() if k == len(crings) - 1 else 0.0)
+                 for _ in range(n)] for k in range(len(crings))]
+    pts_in = [outline[i] for i in rim]
+    top_ring = lvl[-1]
+    clvl, czs, cpts = [], [], None
+    for k, ring in enumerate(crings):
+        pts = _s2_crest_ring(hu, hv, ring, pts_in)
+        if k == 0:
+            cpts = pts
+            ids = [top_ring[i] for i in rim]
+            ids += [m.v(P(u, v, top)) for (u, v) in pts[len(rim):]]
+        else:
+            ids = [m.v(P(u * jg, v * jg, top + ring[0] + jz))
+                   for (u, v), (jg, jz) in zip(pts, jags[k])]
+        clvl.append(ids)
+        czs.append(top + ring[0])
+    # the landing: the strip between the top's outer arc and the ridge's foot
+    A = [(0, top_ring[rim[-1]])] + [(1 + i, top_ring[i]) for i in range(half + 1)]
+    B = [(0, clvl[0][len(rim) - 1])] + [(1 + i, vid) for i, vid in enumerate(clvl[0][len(rim):])] \
+        + [(9, clvl[0][0])]
+    _strip(m, A, B, UP, ZONE_DECK)
+    vcc = -hv + 0.5 * S2_CREST_D
+    _s2_loft(m, clvl, cpts, czs, lambda u, v: want(u, v - vcc), lambda z: ZONE_SHADE)
+    m.fan(clvl[-1], UP, ZONE_ROCK)
+    if not coll:
+        S2_MASSES.append({"b": b, "rad": rad, "top": top, "hu": hu, "hv": hv,
+                          "outline": outline, "crest": (crings, jags)})
+
+
+def _s2_build(m, s2, r):
+    for b, rad, top, crest, hu, hv in s2["plats"]:
+        _s2_mass(m, r, b, rad, top, hu, hv, crest)
+    S2_INFO.update(a0=s2["a0"], a1=s2["a1"], masses=S2_MASSES)
+
+
+def _s2_collider(c, s2, ang, lip, foot, CV):
+    """The river's collision on the same bank lines: lane, inner bank, floor
+    flat at the lava, outer bank; then the masses with straight sides."""
+    keep = (2, 3, 5, 7, 10, 13, 14)          # lane end, bank top, mid, foot, floor, foot, mid
+    grid = []
+    for t in s2["span"]:
+        wf = CV("out", foot, t)
+        prof = _s2_profile(s2, t, math.hypot(*c.verts[wf][:2]), field=False)
+        ids = [CV("lip%.2f" % DECK_Z, lip, t)]
+        ids += [c.v((rr * math.cos(t), rr * math.sin(t), z)) for rr, z in (prof[j] for j in keep)]
+        ids.append(wf)
+        grid.append(ids)
+    for a, b in zip(grid, grid[1:]):
+        for j in range(len(a) - 1):
+            c.quad(a[j], b[j], b[j + 1], a[j + 1], UP, ZONE_ROCK)
+    r = _Rng(S2_SEED)
+    for ms in S2_MASSES:
+        _s2_mass(c, r, ms["b"], ms["rad"], ms["top"], ms["hu"], ms["hv"], ms, coll=True)
+
+
+def _s2_stats(s2):
+    """The chain as built: gaps edge to edge between the tops, and the cover
+    line from the guard's eye over each crest to a body behind it."""
+    eye = (0.0, 0.0, 27.0)
+    outs = []
+    for ms in S2_MASSES:
+        P, _w = _s2_frame(ms["b"], ms["rad"])
+        outs.append([P(u, v, ms["top"]) for (u, v) in ms["outline"]])
+    ends = (pol(s2["a0"] + S2_END, S2_PLAT_R, DECK_Z), pol(s2["a1"] - S2_END, S2_PLAT_R, DECK_Z))
+    chain = [[ends[0]]] + outs + [[ends[1]]]
+    gaps = [min(math.dist(p[:2], q[:2]) for p in a for q in b) for a, b in zip(chain, chain[1:])]
+    print("MDL STATS s2 river=%.2f..%.2f deg lava_y=%.2f masses=%d far_gap=%.2f cols=%d"
+          % (s2["a0"], s2["a1"], LAVA_Z, len(S2_MASSES), s2["far_gap"], len(s2["span"])))
+    for k, ms in enumerate(S2_MASSES):
+        line = "MDL STATS s2mass%d bearing=%.2f r=%.2f top=%.2f along=%.1f across=%.1f gap_before=%.2f gap_after=%.2f" % (
+            k + 1, ms["b"], ms["rad"], ms["top"], 2 * ms["hu"], 2 * ms["hv"], gaps[k], gaps[k + 1])
+        if ms["crest"]:
+            crings, jags = ms["crest"]
+            H, hu, hv = crings[-1][0], ms["hu"], ms["hv"]
+            rim = [ms["outline"][i] for i in range(S2_PLAT_N // 2, S2_PLAT_N)]
+            rb = ms["rad"] - hv + S2_CREST_D + 0.45            # a body 0.15 m behind the foot
+            zl = 1e9
+            for (u, v), (jg, jz) in zip(_s2_crest_ring(hu, hv, crings[-1], rim), jags[-1]):
+                rc, zc = ms["rad"] + v * jg, ms["top"] + H + jz
+                zl = min(zl, eye[2] + (zc - eye[2]) * (rb / rc))
+            chest = _s2_crest_ring(hu, hv, crings[3], rim)
+            w135 = max(u for u, v in chest) - min(u for u, v in chest)
+            d135 = max(v for u, v in chest) - min(v for u, v in chest)
+            line += " crest_h=%.2f chest_w=%.2f chest_d=%.2f sight_clear=%.2f" % (
+                H, w135, d135, zl - (ms["top"] + 1.8))
+        print(line)
+    for k in range(S2_TRAP_N):
+        b = s2["a0"] + (k + 0.5) * (s2["a1"] - s2["a0"]) / S2_TRAP_N
+        along = 2.0 * S2_TRAP_R[1] * math.sin(math.radians(0.5 * (s2["a1"] - s2["a0"]) / S2_TRAP_N)) + 0.2
+        rm = 0.5 * (S2_TRAP_R[0] + S2_TRAP_R[1])
+        sb, cb = math.sin(math.radians(b)), math.cos(math.radians(b))
+        print("MDL STATS s2trap%d transform=Transform3D(%.6f, 0, %.6f, 0, 1, 0, %.6f, 0, %.6f, %.4f, %.2f, %.4f) size=Vector3(%.2f, 0.4, %.2f)"
+              % (k + 1, sb, cb, -cb, sb, rm * cb, LAVA_Z, rm * sb, along, S2_TRAP_R[1] - S2_TRAP_R[0]))
+
+
 # =============================================================================
 # THE ROCK
 # =============================================================================
@@ -1699,6 +2028,9 @@ def _rock(r):
                 if any(abs(t - k) < 1e-7 for k in keep)
                 or all(abs(t - k) * CROSS_R > COL_MERGE for k in keep)]
     cols_all = _merge_cols([c for c in base_cols if not (cut0 < c < cut1)], sec_cols)
+    s2 = _s2_setup(T, base_cols)                   # S2's river: its own columns too
+    cols_all = _merge_cols(cols_all, s2["cols"])
+    _s2_lines(s2, cols_all)
 
     # ---- the lava sea: what the pit floor is, and what lights it ------------
     _lava_sea(m, pit_wall, COURTYARD_Z, _Rng(LAVA_SEED), extra=lava_ts)
@@ -1973,8 +2305,41 @@ def _rock(r):
         dv[key] = m.v(river_pt(t, j, p, math.hypot(pa[0], pa[1]), r_foot))
         return dv[key]
 
+    s2v, s2p = {}, {}
+
+    def S2V(t, j):
+        """A river station's vertex at column t; lip and wall foot are the deck's own."""
+        if j == 0:
+            return DV(t, 0)
+        if j == S2_NST - 1:
+            return foot(t)
+        key = (round(t, 7), j)
+        if key not in s2v:
+            if round(t, 7) not in s2p:
+                fw = m.verts[foot(t)]
+                s2p[round(t, 7)] = _s2_profile(s2, t, math.hypot(fw[0], fw[1]))
+            rad, z = s2p[round(t, 7)][j - 1]
+            s2v[key] = m.v((rad * math.cos(t), rad * math.sin(t), z))
+        return s2v[key]
+
+    def s2_chain(t, inside):
+        if inside:
+            return [(j, S2V(t, j)) for j in range(S2_NST)]
+        return [(RST[j], DV(t, j)) for j in range(len(RST))]
+
     for ci in range(len(cols_all) - 1):
         t0, t1 = cols_all[ci], cols_all[ci + 1]
+        s2in0 = s2["s0"] - 1e-9 <= t0 <= s2["s1"] + 1e-9
+        s2in1 = s2["s0"] - 1e-9 <= t1 <= s2["s1"] + 1e-9
+        if s2in0 and s2in1:                            # S2: the river along the deck
+            f0, f1 = _s2_f(s2, t0), _s2_f(s2, t1)
+            for j in range(S2_NST - 1):
+                m.quad(S2V(t0, j), S2V(t1, j), S2V(t1, j + 1), S2V(t0, j + 1),
+                       UP, _s2_zone(j, f0, f1), best=True)
+            continue
+        if s2in0 or s2in1:                             # its lips meet the plain deck
+            _strip(m, s2_chain(t0, s2in0), s2_chain(t1, s2in1), UP, ZONE_DECK)
+            continue
         z0, z1 = chan_z(t0), chan_z(t1)
         if z0 < LAVA_Z + 1e-9 and z1 < LAVA_Z + 1e-9:
             zone = ZONE_RIVER
@@ -2033,6 +2398,7 @@ def _rock(r):
         else:
             _carve(m, shaft, c)
     _build_platforms(m, _Rng(LAKE_SEED))
+    _s2_build(m, s2, _Rng(S2_SEED + 1))
     pit_wall.emit()
     shaft.emit()
 
@@ -2046,14 +2412,14 @@ def _rock(r):
             j = (i + 1) % SIDES
             m.quad(prev[i], prev[j], ring[j], ring[i], UP, ZONE_ROCK)
         prev = ring
-    return m, ang, (len(sec_cols), pit_tris), (cut0, cut1)
+    return m, ang, (len(sec_cols), pit_tris), (cut0, cut1), s2
 
 
 # =============================================================================
 # COLLISION -- flat deck, clean walls, courtyard floor. Nothing jittered.
 # =============================================================================
 
-def _collider(ang, cut0, cut1):
+def _collider(ang, cut0, cut1, s2):
     c = _Mesh()
     lip = _ring(c, ang, lambda i: INNER_R, lambda i: DECK_Z)
     foot = _ring(c, ang, lambda i: OUTER_R, lambda i: DECK_Z)
@@ -2069,7 +2435,7 @@ def _collider(ang, cut0, cut1):
 
     # Deck and pit wall are cut where the river runs: no deck collision over it
     # and the lip comes down to the trench, so nothing invisible dams the lava.
-    dcols = _merge_cols(list(ang) + [ang[0] + TWO_PI], [cut0, cut1])
+    dcols = _merge_cols(list(ang) + [ang[0] + TWO_PI], [cut0, cut1, s2["s0"], s2["s1"]])
     cv = {}
 
     def CV(tag, ring, t, z=None):
@@ -2089,11 +2455,12 @@ def _collider(ang, cut0, cut1):
         a1 = CV("lip%.2f" % tz, lip, t1, tz)
         c.quad(CV("foot", pit_foot, t0), CV("foot", pit_foot, t1), a1, a0,
                inward, ZONE_SHADE)                                     # pit wall
-        if inside:
-            continue
+        if inside or (t0 >= s2["s0"] - 1e-9 and t1 <= s2["s1"] + 1e-9):
+            continue                                       # the rivers lay their own
         c.quad(a0, a1, CV("out", foot, t1), CV("out", foot, t0), UP, ZONE_ROCK)
 
     _lake_collider(c, _Rng(LAKE_SEED))
+    _s2_collider(c, s2, ang, lip, foot, CV)
     _shelf_box(c)
     return c
 
@@ -2137,6 +2504,14 @@ def _flow_uv(me, uvl, poly, vertical):
         ang = math.atan2(co[1], co[0])
         u = ((LAVA_Z - co[2]) + (OUTER_R - INNER_R)) if vertical else (OUTER_R - rad)
         uvl.data[li].uv = (u / FLOW_SPAN, (-ang * CROSS_R) / CROSS_SPAN)
+
+
+def _flow_uv_along(me, uvl, poly):
+    """S2's river runs along the deck: U follows the bearing, V the radius."""
+    for li in poly.loop_indices:
+        co = me.vertices[me.loops[li].vertex_index].co
+        u = -math.atan2(co[1], co[0]) * S2_PLAT_R
+        uvl.data[li].uv = (u / FLOW_SPAN, (math.hypot(co[0], co[1]) - INNER_R) / CROSS_SPAN)
 
 
 def _deck_uv(me, uvl, poly, zone, r):
@@ -2193,6 +2568,9 @@ def unwrap(ob, zones, seed=0):
             continue
         if zone[0] == "fall":
             _flow_uv(me, uvl, poly, True)
+            continue
+        if zone[0] == "river_t":
+            _flow_uv_along(me, uvl, poly)
             continue
         if zone[0] == "deck":                    # radial/tangential, finer tiling
             _deck_uv(me, uvl, poly, zone[1:], r)
@@ -2300,7 +2678,40 @@ def _deck_render(spec, objects):
         shot("cell", eye, cm, 35.0, (1000, 800))
         shot("mouth", _v3(cm, out, -1.7 * h), cm, 40.0, (1000, 800))
 
-    for ob in (cam, target, key):
+    # ---- S2 review shots: render-only lighting (white fill, grey world,
+    # more exposure) so the rock reads mid-grey and the lava still glows;
+    # a 0.6 x 0.6 x 1.8 m proxy body behind one crest, render-only too.
+    rl = bpy.data.lights.new("ReviewFill", type="SUN")
+    rl.energy = REVIEW_SUN
+    rl.color = (1.0, 0.96, 0.92)
+    fill = mdl._link(bpy.data.objects.new("ReviewFill", rl))
+    fill.rotation_euler = (math.radians(35.0), math.radians(-20.0), math.radians(40.0))
+    key.hide_render = True
+    bg.inputs[0].default_value = (0.55, 0.50, 0.48, 1.0)
+    bg.inputs[1].default_value = REVIEW_WORLD
+    mdl._try(scene.view_settings, "exposure", REVIEW_EXPOSURE)
+    a0, a1 = S2_INFO["a0"], S2_INFO["a1"]
+    covered = [ms for ms in S2_INFO["masses"] if ms["crest"]]
+    ms = covered[1]
+    P, _w = _s2_frame(ms["b"], ms["rad"])
+    vb = -ms["hv"] + S2_CREST_D + 0.45
+    verts = [P(u, vb + v, ms["top"] + z) for z in (0.0, 1.8) for (u, v) in
+             ((-0.3, -0.3), (0.3, -0.3), (0.3, 0.3), (-0.3, 0.3))]
+    faces = [(0, 3, 2, 1), (4, 5, 6, 7), (0, 1, 5, 4), (1, 2, 6, 5), (2, 3, 7, 6), (3, 0, 4, 7)]
+    proxy = mdl.mesh("ReviewProxy", verts, faces)
+    proxy.data.materials.append(mdl.flat_material("ReviewGreen", (0.2, 1.0, 0.3, 1.0)))
+    shot("review_chain", pol(a0 - 3.0, S2_PLAT_R, DECK_Z + EYE_H), pol(a0 + 14.0, S2_PLAT_R, DECK_Z),
+         28.0, (1400, 800))
+    shot("review_lane", pol(a0 + 1.0, 48.5, DECK_Z + EYE_H), pol(a0 + 24.0, 50.5, DECK_Z),
+         28.0, (1400, 800))
+    shot("review_guard", (0.0, 0.0, 27.0), pol(102.0, 54.0, DECK_Z), 35.0, (1400, 900))
+    shot("review_high", pol(0.5 * (a0 + a1) - 22.0, 24.0, 46.0), pol(0.5 * (a0 + a1) + 2.0, 52.5, DECK_Z),
+         18.0, (1500, 1000))
+    shot("review_cover", (0.0, 0.0, 27.0), P(0.0, 0.0, ms["top"] + 0.9), 85.0, (1200, 900))
+    shot("review_outer", pol(a0 + 2.0, 56.85, DECK_Z + 1.2), pol(a0 + 20.0, 57.0, DECK_Z - 0.2),
+         30.0, (1400, 800))
+
+    for ob in (cam, target, key, fill, proxy):
         bpy.data.objects.remove(ob, do_unlink=True)
 
 
@@ -2309,8 +2720,8 @@ def _deck_render(spec, objects):
 # =============================================================================
 
 def build():
-    rock, ang, river, cut = _rock(_Rng(SEED))
-    coll = _collider(ang, cut[0], cut[1])
+    rock, ang, river, cut, s2 = _rock(_Rng(SEED))
+    coll = _collider(ang, cut[0], cut[1], s2)
 
     albedo, emissive = build_texture()
     mdl.save_texture(albedo)
@@ -2333,7 +2744,7 @@ def build():
         if z == "lava":
             poly.material_index = 1
             lava_tris += 1
-        elif z in ("river", "fall"):
+        elif z in ("river", "fall", "river_t"):
             poly.material_index = 2
             river_tris += 1
 
@@ -2349,6 +2760,7 @@ def build():
     for k, (b, rad, inner) in enumerate(_platforms()):
         print("MDL STATS platform%d bearing=%.3f r=%.1f top=%.2f square=%.1f %s"
               % (k + 1, b, rad, PLAT_TOP_Z, 2.0 * PLAT_HALF, "inner+fin" if inner else "outer"))
+    _s2_stats(s2)
     print("MDL STATS cells=%d pit=%d pit_top=%.1f uniform_to=%.0f above200=%d top=%.0f"
           % (len(CELLS), sum(1 for c in CELLS if c[0][2] < DECK_Z),
              max(c[0][2] + 0.5 * c[3] for c in CELLS if c[0][2] < DECK_Z), UNIFORM_TOP,
