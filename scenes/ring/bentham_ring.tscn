@@ -163,10 +163,6 @@ transform = Transform3D(1.28025, 0, 0.173648, 0, 1, 0, -0.225742, 0, 0.984808, 5
 
 [node name="Sections" type="Node3D" parent="." unique_id=1418060375]
 
-[node name="Block" parent="Sections" unique_id=1709452550 instance=ExtResource("25_block")]
-editor_description = "Map 1 sections, docs/MAP1_SECTIONS.md."
-transform = Transform3D(0.9430726, 0, -0.33258685, 0, 1, 0, 0.33258685, 0, 0.9430726, 20.42693, 22.955883, -52.370792)
-
 [node name="Block13" parent="Sections" unique_id=81094570 instance=ExtResource("25_block")]
 editor_description = "Map 1 sections, docs/MAP1_SECTIONS.md."
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 36, 8)
@@ -568,8 +564,8 @@ transform = Transform3D(0.207912, 0, -0.978148, 0, 1, 0, 0.978148, 0, 0.207912, 
 [node name="S5_WallRun" type="Node3D" parent="Sections" unique_id=1543765436]
 editor_description = "The lava river is map_base geometry now; this holds only what kills and where the surface is."
 
-[node name="TrapVolume" type="Area3D" parent="Sections/S5_WallRun"]
-transform = Transform3D(-0.887976, 0, 0.459890, 0, 1, 0, -0.459890, 0, -0.887976, 23.9143, 22.7, -46.1748)
+[node name="TrapVolume" type="Area3D" parent="Sections/S5_WallRun" unique_id=1935996398]
+transform = Transform3D(-0.887976, 0, 0.45989, 0, 1, 0, -0.45989, 0, -0.887976, 23.9143, 22.7, -46.1748)
 collision_layer = 0
 collision_mask = 1048577
 monitorable = false
@@ -577,9 +573,9 @@ script = ExtResource("26_trap_volume")
 size_metres = Vector3(8.12, 0.4, 10.6)
 feet_only = true
 
-[node name="Shape" type="CollisionShape3D" parent="Sections/S5_WallRun/TrapVolume"]
+[node name="Shape" type="CollisionShape3D" parent="Sections/S5_WallRun/TrapVolume" unique_id=803112494]
 
-[node name="TrapVolume2" type="Area3D" parent="Sections/S5_WallRun"]
+[node name="TrapVolume2" type="Area3D" parent="Sections/S5_WallRun" unique_id=991984224]
 transform = Transform3D(-0.805515, 0, 0.592576, 0, 1, 0, -0.592576, 0, -0.805515, 30.8139, 22.7, -41.8868)
 collision_layer = 0
 collision_mask = 1048577
@@ -588,9 +584,9 @@ script = ExtResource("26_trap_volume")
 size_metres = Vector3(8.12, 0.4, 10.6)
 feet_only = true
 
-[node name="Shape" type="CollisionShape3D" parent="Sections/S5_WallRun/TrapVolume2"]
+[node name="Shape" type="CollisionShape3D" parent="Sections/S5_WallRun/TrapVolume2" unique_id=477026888]
 
-[node name="TrapVolume3" type="Area3D" parent="Sections/S5_WallRun"]
+[node name="TrapVolume3" type="Area3D" parent="Sections/S5_WallRun" unique_id=484577573]
 transform = Transform3D(-0.703395, 0, 0.710799, 0, 1, 0, -0.710799, 0, -0.703395, 36.9616, 22.7, -36.5765)
 collision_layer = 0
 collision_mask = 1048577
@@ -599,9 +595,9 @@ script = ExtResource("26_trap_volume")
 size_metres = Vector3(8.12, 0.4, 10.6)
 feet_only = true
 
-[node name="Shape" type="CollisionShape3D" parent="Sections/S5_WallRun/TrapVolume3"]
+[node name="Shape" type="CollisionShape3D" parent="Sections/S5_WallRun/TrapVolume3" unique_id=130014619]
 
-[node name="TrapVolume4" type="Area3D" parent="Sections/S5_WallRun"]
+[node name="TrapVolume4" type="Area3D" parent="Sections/S5_WallRun" unique_id=1097794533]
 transform = Transform3D(-0.584108, 0, 0.811676, 0, 1, 0, -0.811676, 0, -0.584108, 42.2071, 22.7, -30.3736)
 collision_layer = 0
 collision_mask = 1048577
@@ -610,9 +606,9 @@ script = ExtResource("26_trap_volume")
 size_metres = Vector3(8.12, 0.4, 10.6)
 feet_only = true
 
-[node name="Shape" type="CollisionShape3D" parent="Sections/S5_WallRun/TrapVolume4"]
+[node name="Shape" type="CollisionShape3D" parent="Sections/S5_WallRun/TrapVolume4" unique_id=1773832855]
 
-[node name="TrapVolume5" type="Area3D" parent="Sections/S5_WallRun"]
+[node name="TrapVolume5" type="Area3D" parent="Sections/S5_WallRun" unique_id=1007667931]
 transform = Transform3D(-0.450566, 0, 0.892743, 0, 1, 0, -0.892743, 0, -0.450566, 46.4226, 22.7, -23.4294)
 collision_layer = 0
 collision_mask = 1048577
@@ -621,9 +617,9 @@ script = ExtResource("26_trap_volume")
 size_metres = Vector3(8.12, 0.4, 10.6)
 feet_only = true
 
-[node name="Shape" type="CollisionShape3D" parent="Sections/S5_WallRun/TrapVolume5"]
+[node name="Shape" type="CollisionShape3D" parent="Sections/S5_WallRun/TrapVolume5" unique_id=2036730644]
 
-[node name="LavaSurface" type="Marker3D" parent="Sections/S5_WallRun"]
+[node name="LavaSurface" type="Marker3D" parent="Sections/S5_WallRun" unique_id=374669933]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 36.91, 22.7, -36.63)
 
 [node name="Route" type="Node3D" parent="." unique_id=325112563]
