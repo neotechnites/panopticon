@@ -98,7 +98,10 @@ DOOR_H     = 2.20
 DOOR_W     = 1.40
 DOOR_BEARING = 0.0     # Blender deg; +X = game bearing 0 (ring_route: cos,sin in x,z)
 TRIM_W     = 0.12      # stone reveal round the door, into the passage
-TRIM_D     = 0.35
+DOOR_FACET = 0         # lining facet the door is cut from; ANG_OFF centres it
+SKIN_GROW  = 0.06      # the skin's opening is this much wider than the lining's,
+                       # so its cut edge dies inside the reveal
+TRIM_D     = 0.60      # reveal depth: must pass the skin at +JAG_R+WALL_T
 FLOOR_DROP = 0.03      # shaft floor this far under the courtyard: no z-fight with it
 TOP_RAMP_LIFT = 0.17   # ramp ends this much above the nosing line: on his floor, not under it
 TOP_LIFT_RUN  = 6.0    # ...gained over this much stair, so the pitch barely changes
@@ -866,7 +869,7 @@ def _wall(m, p, r, sv):
             rr = p.R_of(p.Z[k]) + rjit[j][k] + rec[j][k]
             pin[(j, k)] = (rr * math.cos(a), rr * math.sin(a), z)
             vin[(j, k)] = m.v(pin[(j, k)])
-    special = {(0, 0): "door"}
+    special = {(DOOR_FACET, 0): "door"}
     for w in p.windows:
         special[(w["j"], w["k"])] = w
 
@@ -911,17 +914,33 @@ def _wall(m, p, r, sv):
 
     # hidden outer skin and the caps that close the shell
     m.tag = "skin"
-    vout = {}
+    vout, pout = {}, {}
     for j in range(NS):
         a = math.radians(ANG_OFF + j * 360.0 / NS)
-        for k in (0, nz - 1):
+        for k in (0, 1, nz - 1):
             rr = p.R_of(p.Z[k]) + JAG_R + WALL_T + (rec[j][k])
-            vout[(j, k)] = m.v((rr * math.cos(a), rr * math.sin(a), p.Z[k]))
+            pout[(j, k)] = (rr * math.cos(a), rr * math.sin(a), p.Z[k])
+            vout[(j, k)] = m.v(pout[(j, k)])
     for j in range(NS):
         j1 = (j + 1) % NS
         a_mid = math.radians(ANG_OFF + (j + 0.5) * 360.0 / NS)
-        m.quad(vout[(j, 0)], vout[(j1, 0)], vout[(j1, nz - 1)], vout[(j, nz - 1)],
-               _radial(a_mid), ZONE_SHADE)
+        if j == DOOR_FACET:
+            # The rock is cut away at the door, so the skin is seen there: it
+            # carries the same opening, grown to stay inside the reveal.
+            c00, c10 = pout[(j, 0)], pout[(j1, 0)]
+            c11, c01 = pout[(j1, 1)], pout[(j, 1)]
+            _arched_hole(
+                m, lambda u, v: _bilinear(c00, c10, c11, c01, u, v),
+                dict(v00=vout[(j, 0)], v10=vout[(j1, 0)],
+                     v11=vout[(j1, 1)], v01=vout[(j, 1)]),
+                _radial(a_mid), ZONE_SHADE,
+                (p.R_of(p.Z[0]) + JAG_R + WALL_T) * TAU / NS, p.Z[1] - p.Z[0],
+                DOOR_W + 2.0 * SKIN_GROW, DOOR_H + SKIN_GROW, 0.0)
+            m.quad(vout[(j, 1)], vout[(j1, 1)], vout[(j1, nz - 1)],
+                   vout[(j, nz - 1)], _radial(a_mid), ZONE_SHADE)
+        else:
+            m.quad(vout[(j, 0)], vout[(j1, 0)], vout[(j1, nz - 1)],
+                   vout[(j, nz - 1)], _radial(a_mid), ZONE_SHADE)
         m.quad(vin[(j, 0)], vin[(j1, 0)], vout[(j1, 0)], vout[(j, 0)],
                (0, 0, -1), ZONE_SHADE)
         m.quad(vin[(j, nz - 1)], vin[(j1, nz - 1)], vout[(j1, nz - 1)],
