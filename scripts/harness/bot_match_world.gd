@@ -37,12 +37,13 @@ var _runners: Node3D = null
 ## Build the world around [param rules]. Call it after this node is in the tree:
 ## the arena's markers are read in world space when the match starts.
 ##
-## The rifle's [WeaponProfile] is duplicated and its tracer lifetime zeroed. A
-## tracer is a mesh built per shot and seen by nobody in a headless sweep; it is
-## the only thing removed, it changes no timing the match reads, and the copy is
-## private so the shared .tres is not retuned for whatever runs next in the same
-## process.
-func build(rules: MatchRules) -> void:
+## The rifle's [WeaponProfile] is duplicated, its tracer lifetime zeroed and its
+## spread seeded from [param seed_value]. A tracer is a mesh built per shot and
+## seen by nobody in a headless sweep; the copy is private so the shared .tres
+## is not retuned for whatever runs next in the same process. The rules are
+## copied the same way when [param seed_value] has to reach the controller's own
+## tower brains through [member MatchRules.ai_shooter_aim_seed].
+func build(rules: MatchRules, seed_value: int = 0) -> void:
 	name = "BotMatchWorld"
 
 	_arena = (load(resolve_arena_path(rules)) as PackedScene).instantiate() as Node3D
@@ -58,11 +59,16 @@ func build(rules: MatchRules) -> void:
 	if _rifle.profile != null:
 		var weapon: WeaponProfile = _rifle.profile.duplicate() as WeaponProfile
 		weapon.tracer_lifetime = 0.0
+		if weapon.spread_seed == 0:
+			weapon.spread_seed = BotHarness.stream_seed(seed_value, BotHarness.Stream.SPREAD)
 		_rifle.profile = weapon
 	add_child(_rifle)
 
 	_controller = MatchController.new()
 	_controller.name = "MatchController"
+	if rules != null and seed_value != 0 and rules.ai_shooter_aim_seed == 0:
+		rules = rules.duplicate() as MatchRules
+		rules.ai_shooter_aim_seed = seed_value
 	_controller.rules = rules
 	_controller.arena = _arena
 	_controller.player = null

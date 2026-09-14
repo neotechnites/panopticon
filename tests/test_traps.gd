@@ -64,14 +64,8 @@ const PATH_ARRIVAL_METRES: float = 8.0
 ## half a trap drop used to be, and is nowhere near enough for the open pit.
 const PIT_FALL_TICKS: int = 210
 
-## Idle frames a feet-only trap is given to notice a body standing in it.
-##
-## [member TrapVolume.grace_seconds] is spent in [method Node._process], not in
-## the physics step, and the runner compresses time by driving physics far
-## faster than the main loop -- so a wait counted in physics ticks can contain
-## almost no idle frames at all. This one is counted in the frames that carry
-## the timer.
-const TRAP_GRACE_FRAMES: int = 240
+## Physics ticks a feet-only trap is given to notice a body standing in it.
+const TRAP_GRACE_TICKS: int = 240
 
 ## Mask for the floor probes. Everything, so a hole that is a hole under any
 ## layer scheme still reads as a hole.
@@ -513,18 +507,17 @@ func _floor_y_under(point: Vector3) -> float:
 	return (hit.get("position") as Vector3).y
 
 
-## Wait for a feet-only trap to spend its grace on [param victim], counted in
-## the idle frames that grace actually runs in. See [constant TRAP_GRACE_FRAMES].
+## Wait for a feet-only trap to spend its grace on [param victim].
 ##
 ## The respawn hold is what is waited on, because both answers a trap can give
 ## open with one: a prisoner it converts is held where it died, and a ghost it
 ## catches is held before it is put back.
 func _await_trap_catch(victim: MatchParticipant) -> void:
 	var tree: SceneTree = get_tree()
-	for _frame: int in TRAP_GRACE_FRAMES:
+	for _tick: int in TRAP_GRACE_TICKS:
 		if _controller.is_awaiting_respawn(victim):
 			return
-		await tree.process_frame
+		await tree.physics_frame
 
 
 ## What a body standing at [param point] would land on, or null for nothing at

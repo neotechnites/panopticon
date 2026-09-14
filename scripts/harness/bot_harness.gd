@@ -56,6 +56,11 @@ const DEFAULT_SEED: int = 20260930
 ## independent draws.
 const SEED_STRIDE: int = 7919
 
+## The random streams one match draws on. Every generator in a match is seeded
+## through [method stream_seed]; nothing in a seeded match draws from entropy.
+## AIM is 0 so a seat's aim seed equals [method MatchRules.get_ai_shooter_seed_for].
+enum Stream { AIM, PERCEPTION, SPREAD }
+
 const DEFAULT_OUT_DIR: String = "res://tools/harness/runs"
 
 const SWEEP_SCHEMA: String = "panopticon.bot_sweep.v1"
@@ -156,7 +161,7 @@ func run(
 	for variant: BotVariant in variants:
 		var results: Array = []
 		for index: int in maxi(matches_per_variant, 1):
-			var result: Dictionary = await _run_one(
+			var result: Dictionary = await run_match(
 				variant, index, match_seed(seed_value, index), max_ticks
 			)
 			var file_path: String = _out_dir.path_join(
@@ -206,7 +211,16 @@ static func match_seed(run_seed: int, match_index: int) -> int:
 	return run_seed + match_index * SEED_STRIDE
 
 
-func _run_one(
+## The seed [param stream] of seat [param index] draws on in a match seeded
+## [param match_seed]. 0 passes through as "entropy".
+static func stream_seed(match_seed: int, stream: Stream, index: int = 0) -> int:
+	if match_seed == 0:
+		return 0
+	return match_seed + int(stream) * 1000 + index + 1
+
+
+## Play one match of [param variant] and return its result. A coroutine: await it.
+func run_match(
 	variant: BotVariant, match_index: int, seed_value: int, max_ticks: int
 ) -> Dictionary:
 	var runner: BotMatchRunner = BotMatchRunner.new()

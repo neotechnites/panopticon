@@ -192,8 +192,15 @@ static func level_root_of(node: Node) -> Node:
 	return best
 
 
+## Sync the map on the thread that changed it, now. Map and region iterations
+## build on workers once per main-loop iteration by default, so the tick a
+## mesh first answered depended on the wall clock.
 func _ready() -> void:
 	add_to_group(GROUP)
+	var map: RID = get_navigation_map()
+	NavigationServer3D.map_set_use_async_iterations(map, false)
+	NavigationServer3D.region_set_use_async_iterations(get_rid(), false)
+	NavigationServer3D.map_force_update(map)
 
 
 ## Re-bakes with the arguments of the last [method bake_from] call. [PhaseGate]
@@ -253,6 +260,8 @@ func bake_from(
 	_build_pad_links(root, into_root)
 	var lake: int = _build_lake_links()
 	_polygons = mesh.get_polygon_count()
+	if is_inside_tree():
+		NavigationServer3D.map_force_update(get_navigation_map())
 	_bake_ms = Time.get_ticks_msec() - started
 	charge("bake", started_usec)
 	print("RingNavigation: baked %d polygons, %d traps, %d deck edges, %d dead pads carved, %d pad links, %d lake links, in %d ms" % [_polygons, carved, edges, dead, _links.size(), lake, _bake_ms])
@@ -266,8 +275,7 @@ func get_bake_milliseconds() -> int:
 	return _bake_ms
 
 
-## True once the baked mesh answers map queries. Map iterations build asynchronously,
-## so the iteration id alone lies for a few ticks; a known vertex must snap to itself.
+## True once the baked mesh answers map queries: a known vertex must snap to itself.
 func is_ready() -> bool:
 	if _synced:
 		return true
@@ -282,6 +290,7 @@ func is_ready() -> bool:
 		_links_refined = true
 		_refine_pad_links()
 		_refine_lake_links()
+		NavigationServer3D.map_force_update(map)
 	return _synced
 
 
@@ -299,7 +308,8 @@ func find_path(from: Vector3, to: Vector3) -> PackedVector3Array:
 	var key: int = _path_key(from, to)
 	if key >= 0:
 		var tick: int = Engine.get_physics_frames()
-		if tick - _path_cache_tick >= PATH_CACHE_TICKS or _path_cache.size() >= PATH_CACHE_MAX:
+		if _path_cache_tick < 0 or tick - _path_cache_tick >= PATH_CACHE_TICKS \
+				or _path_cache.size() >= PATH_CACHE_MAX:
 			_path_cache.clear()
 			_path_cache_tick = tick
 		elif _path_cache.has(key):

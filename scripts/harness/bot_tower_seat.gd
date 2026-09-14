@@ -132,6 +132,16 @@ func _ensure_shooter(participant: MatchParticipant) -> TowerShooter:
 	if existing != null and is_instance_valid(existing):
 		return existing
 
+	# A brain the match built first -- a finisher's hunt -- is adopted, not
+	# doubled: two shooters writing one intent is the failure the match's own
+	# _find_tower_brain exists to avoid, and its seed came from the same rules.
+	for child: Node in body.get_children():
+		var adopted: TowerShooter = child as TowerShooter
+		if adopted != null:
+			_install_optic_driver(body, adopted.optic)
+			_shooters[id] = adopted
+			return adopted
+
 	var input: BotIntentSource = body.intent_source as BotIntentSource
 	if input == null:
 		push_error(
@@ -162,17 +172,11 @@ func _ensure_shooter(participant: MatchParticipant) -> TowerShooter:
 	return shooter
 
 
-## A private, per-participant copy of the shooter profile.
-##
-## The seed is derived from the harness seed and the participant index so that
-## the four bots in a match miss in different directions while the whole match
-## still replays identically from the same [code]--seed[/code]. A harness seed
-## of 0 is passed straight through, which [method ShooterProfile.make_rng] reads
-## as "seed from entropy".
+## A private, per-participant copy of the shooter profile, its aim seeded per seat.
 func _make_profile(index: int) -> ShooterProfile:
 	var copy: ShooterProfile = _profile.duplicate() as ShooterProfile
 	if _seed != 0:
-		copy.aim_random_seed = _seed + index + 1
+		copy.aim_random_seed = BotHarness.stream_seed(_seed, BotHarness.Stream.AIM, index)
 	return copy
 
 
