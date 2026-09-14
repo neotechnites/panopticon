@@ -101,6 +101,12 @@ const PAD_TURN_METRES: float = 0.6
 ## How far ahead a covered crossing is worth detouring to. See [method _maybe_take_the_covered_way].
 const COVERED_DETOUR_METRES: float = 20.0
 
+## Physics ticks between full re-plans while exposed. Runners are staggered
+## across the window so one or two of them, not all seven, plan on any one tick.
+const PLAN_PERIOD_TICKS: int = 6
+## How far the body may walk from where a plan was made and still run that plan.
+const PLAN_REUSE_METRES: float = 3.0
+
 ## What the runner is doing.
 enum State {
 	RUNNING,
@@ -196,6 +202,13 @@ var _blocked_seconds: float = 0.0
 ## Seconds spent behind cover waiting for the rifle before taking a flight.
 var _launch_wait: float = 0.0
 var _search_countdown: float = 0.0
+## Handed out round-robin at arm time, so the field's plans land on different ticks.
+static var _plan_phase_next: int = 0
+var _plan_phase: int = 0
+var _plan_tick: int = -PLAN_PERIOD_TICKS
+var _plan_forced: bool = true
+var _was_exposed: bool = false
+var _plan_threat: int = 0
 
 var _target: Vector3 = Vector3.ZERO
 var _target_is_cover: bool = false
@@ -331,6 +344,12 @@ func _arm(
 	_cross_slide_open = false
 	_cross_slide_seconds = 0.0
 	_search_countdown = 0.0
+	_plan_phase = _plan_phase_next % PLAN_PERIOD_TICKS
+	_plan_phase_next += 1
+	_plan_tick = -PLAN_PERIOD_TICKS
+	_plan_forced = true
+	_was_exposed = false
+	_plan_threat = 0
 	_target = Vector3.ZERO
 	_target_is_cover = false
 	_target_path = PackedVector3Array()
@@ -942,10 +961,19 @@ func _physics_process(delta: float) -> void:
 		_has_anchor = false
 		_set_state(State.RECOVER)
 
-	if _perception.is_exposed():
+	var exposed: bool = _perception.is_exposed()
+	if exposed:
 		_seconds_exposed += delta
 	else:
 		_seconds_in_cover += delta
+	# Coming into the open, or a new guard in the seat, is what a stale plan
+	# cannot answer; everything else waits for this runner's turn to plan.
+	var threat_body: PlayerController = _perception.get_threat_body()
+	var threat: int = 0 if threat_body == null else int(threat_body.get_instance_id())
+	if (exposed and not _was_exposed) or threat != _plan_threat:
+		_plan_forced = true
+	_was_exposed = exposed
+	_plan_threat = threat
 
 	match _state:
 		State.RECOVER:
@@ -1617,8 +1645,36 @@ func _begin_cross(target: Vector3, is_cover: bool, path: PackedVector3Array) -> 
 	_set_state(State.CROSS)
 
 
+## True when this runner may spend a full re-plan on this tick.
+## A budgeted search already under way finishes on its own ticks; it costs probes only.
+func _plan_is_due() -> bool:
+	if _plan_forced or not _cover.is_complete():
+		return true
+	var tick: int = Engine.get_physics_frames()
+	return tick - _plan_tick >= PLAN_PERIOD_TICKS \
+		and (tick + _plan_phase) % PLAN_PERIOD_TICKS == 0
+
+
+## True when the standing plan was made near enough to here to still be the plan.
+func _plan_still_holds() -> bool:
+	return _has_target and not _target_path.is_empty() \
+		and _flat_distance(controller.global_position, _target_path[0]) <= PLAN_REUSE_METRES
+
+
 ## Re-plan from here and go without asking the confidence: standing in the open is never an option.
 func _plan_and_cross(remaining_arc: float, delta: float) -> void:
+	if not _plan_is_due():
+		# Not this runner's tick: cross to the plan already standing, or keep
+		# the lap moving on the route until the tick comes round.
+		if _plan_still_holds():
+			_last_confidence = 0.0
+			_last_threshold = 0.0
+			_begin_cross(_target, _target_is_cover, _target_path)
+		else:
+			_run_route(delta)
+		return
+	_plan_forced = false
+	_plan_tick = Engine.get_physics_frames()
 	_choose_target(remaining_arc)
 	if not _has_target:
 		# No cover and no reachable ground ahead this tick: keep the lap moving
@@ -1700,11 +1756,19 @@ func _measure_exposure(path: PackedVector3Array) -> float:
 	var lift: Vector3 = Vector3.UP * _play.cover_test_height
 	var samples: int = maxi(_play.path_samples, 2)
 	var open: int = 0
+	var taken: int = 0
 	for index: int in samples:
+		# These rays come out of the cover search's shared budget, so a frame
+		# with seven runners on it degrades the estimate instead of the tick.
+		if not RunnerCoverFinder.take_ray():
+			break
 		var along: float = length * (float(index) + 0.5) / float(samples)
 		if _perception.has_clear_line(_point_along(path, along) + lift, eye):
 			open += 1
-	return length * float(open) / float(samples)
+		taken += 1
+	if taken == 0:
+		return _exposed_metres
+	return length * float(open) / float(taken)
 
 
 func _point_along(path: PackedVector3Array, metres: float) -> Vector3:

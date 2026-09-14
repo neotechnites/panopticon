@@ -39,6 +39,12 @@ const EDGE_REACH_METRES: float = 8.0
 const REACH_TOLERANCE_METRES: float = 1.5
 const STATIC_COLLIDER_MASK: int = 1
 
+## Path results are reused for this many physics ticks, keyed by the cell either
+## end falls in: seven runners re-planning the same lane are the same A*.
+const PATH_CACHE_TICKS: int = 6
+const PATH_CACHE_CELL_METRES: float = 0.5
+const PATH_CACHE_MAX: int = 192
+
 ## Boost pads become NavigationLink3Ds to their ballistic landing point.
 const LINK_TRAVEL_COST: float = 0.5
 const LINK_SAMPLE_SECONDS: float = 0.05
@@ -111,6 +117,8 @@ const LAKE_SURFACE_CARVE_MARGIN: float = 0.25
 var _polygons: int = 0
 var _bake_ms: int = 0
 var _synced: bool = false
+var _path_cache: Dictionary = {}
+var _path_cache_tick: int = -1
 
 ## The arguments of the last [method bake_from] call, kept so [method
 ## phase_geometry_changed] can repeat it.
@@ -204,6 +212,7 @@ func bake_from(
 	_bake_route = route
 	_bake_centre = centre
 	_synced = false
+	_path_cache.clear()
 	var started_usec: int = Time.get_ticks_usec()
 	var started: int = Time.get_ticks_msec()
 	var into_root: Transform3D = Transform3D.IDENTITY
@@ -287,14 +296,41 @@ func snap(point: Vector3) -> Vector3:
 ## The path from [param from] to [param to], or empty when the mesh does not reach [param to].
 func find_path(from: Vector3, to: Vector3) -> PackedVector3Array:
 	var since: int = Time.get_ticks_usec()
+	var key: int = _path_key(from, to)
+	if key >= 0:
+		var tick: int = Engine.get_physics_frames()
+		if tick - _path_cache_tick >= PATH_CACHE_TICKS or _path_cache.size() >= PATH_CACHE_MAX:
+			_path_cache.clear()
+			_path_cache_tick = tick
+		elif _path_cache.has(key):
+			charge("path", since)
+			return _path_cache[key]
 	var path: PackedVector3Array = NavigationServer3D.map_get_path(get_navigation_map(), from, to, true)
+	if not path.is_empty():
+		var last: Vector3 = path[path.size() - 1]
+		if Vector2(last.x - to.x, last.z - to.z).length() > REACH_TOLERANCE_METRES:
+			path = PackedVector3Array()
+	if key >= 0:
+		_path_cache[key] = path
 	charge("path", since)
-	if path.is_empty():
-		return path
-	var last: Vector3 = path[path.size() - 1]
-	if Vector2(last.x - to.x, last.z - to.z).length() > REACH_TOLERANCE_METRES:
-		return PackedVector3Array()
 	return path
+
+
+## Both ends packed into one int at [constant PATH_CACHE_CELL_METRES], or -1 when
+## either falls outside the arena the packing covers.
+static func _path_key(from: Vector3, to: Vector3) -> int:
+	var a: int = _path_cell(from)
+	var b: int = _path_cell(to)
+	return -1 if a < 0 or b < 0 else (a << 26) | b
+
+
+static func _path_cell(point: Vector3) -> int:
+	var x: int = int(floor(point.x / PATH_CACHE_CELL_METRES)) + 256
+	var y: int = int(floor(point.y / PATH_CACHE_CELL_METRES)) + 128
+	var z: int = int(floor(point.z / PATH_CACHE_CELL_METRES)) + 256
+	if x < 0 or x > 511 or y < 0 or y > 255 or z < 0 or z > 511:
+		return -1
+	return (x << 17) | (y << 9) | z
 
 
 ## Metres along [param path] in the horizontal plane.

@@ -481,6 +481,15 @@ static func _rays_left() -> bool:
 	return Engine.get_physics_frames() != _ray_frame or _rays_spent < RAYS_PER_FRAME
 
 
+## Take one of this frame's shared rays, or false when the frame's budget is gone.
+## Public so the exposure sampling in [RingRunner] spends the same 80 a frame.
+static func take_ray() -> bool:
+	if not _rays_left():
+		return false
+	_spend_ray()
+	return true
+
+
 ## True when a downward ray at [param point] finds a floor within
 ## [member RunnerProfile.cover_max_step_height] of [param feet_y].
 ## [b]It starts JUST above the step, not twenty metres up, and that is the whole
