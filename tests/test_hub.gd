@@ -93,6 +93,13 @@ func test_ten_wedges_one_map_and_nine_question_marks() -> void:
 		var sign_label: Label3D = wedge.get_node_or_null(wedge.label_path) as Label3D
 		if not assert_not_null(sign_label, "%s has a sign" % wedge.name):
 			continue
+		assert_false(sign_label.fixed_size, "%s's sign is sized in metres, not on screen" % wedge.name)
+		assert_almost_eq(
+			sign_label.font_size * sign_label.pixel_size, 1.28, 0.01,
+			"%s's glyphs are about 1.3 m tall: readable at 40 m, not a wall at 5" % wedge.name
+		)
+		assert_almost_eq(wedge.sign_alpha_at(40.0), 1.0, 0.001, "and solid from across the ring")
+		assert_lt(wedge.sign_alpha_at(0.0), 0.2, "and faded to nothing when you stand under it")
 		if wedge.is_decided():
 			decided += 1
 			assert_eq_string(String(wedge.map_id), "bentham_ring", "the hell wedge is Map 1")
@@ -167,9 +174,21 @@ func test_an_offline_hub_starts_a_match_that_returns_to_the_hub() -> void:
 		"and the match is set up to run that map"
 	)
 
-	# The match the hub asked for. Its way out is the hub, not the main menu.
+	# The match the hub asked for, offline: the host alone plus bots, on the map
+	# the wedge named, and its way out is the hub rather than the main menu.
+	assert_eq_string(
+		lobby.match_scene_path, TestFixtures.MATCH_SCENE_PATH,
+		"the hub switches to the match scene"
+	)
 	var match_root: Node3D = TestFixtures.make_match()
 	add_child(match_root)
+	var playing: MatchController = match_root.get_node("MatchController") as MatchController
+	assert_false(playing.hub_mode, "which comes up as a match, not a second hub")
+	assert_eq_int(
+		playing.get_participants().size(),
+		SettingsStore.instance().settings.prisoner_count + 1,
+		"with the host and the bots that fill the field"
+	)
 	var screen: MatchResultScreen = match_root.get_node("ResultScreen") as MatchResultScreen
 	assert_true(screen.returns_to_hub(), "the result screen goes back to the hub")
 	assert_false(screen.hub_scene_path.is_empty(), "and knows which scene that is")
@@ -180,6 +199,35 @@ func test_an_offline_hub_starts_a_match_that_returns_to_the_hub() -> void:
 	var controller: MatchController = again.get_node("MatchController") as MatchController
 	assert_eq_string(controller.get_phase_name(), "HUB", "the hub is a hub again")
 	assert_eq_int(controller.get_participants().size(), 1, "with the player back in it")
+
+
+## A start press that lands after the launch has begun is ignored rather than
+## dereferencing a null viewport, and two presses in one frame start one match.
+##
+## [method SceneTree.change_scene_to_file] takes the outgoing scene out of the
+## tree the moment it is called, so the rest of that input frame runs on a node
+## whose [method Node.get_viewport] is null. The listener below does exactly
+## that, and the presses are delivered by hand because the engine will not
+## dispatch to a node that has already left the tree.
+func test_two_start_presses_in_one_frame_start_one_match() -> void:
+	var hub: Node3D = _make_hub(self, null)
+	var lobby: HubLobby = hub.get_node("HubLobby") as HubLobby
+	var started: Array[StringName] = []
+	lobby.match_starting.connect(func(map_id: StringName) -> void:
+		started.append(map_id)
+		hub.get_parent().remove_child(hub)
+	)
+	await _stand_on_the_dais(hub)
+
+	var press: InputEventAction = InputEventAction.new()
+	press.action = &"interact"
+	press.pressed = true
+	lobby._unhandled_input(press)
+	lobby._unhandled_input(press)
+
+	assert_eq_int(started.size(), 1, "one launch out of two presses in one frame")
+	assert_false(lobby.start_map(), "and the hub will not start a second")
+	hub.free()
 
 
 ## Tab holds nothing while it is closed: the body reads the mouse and the

@@ -108,13 +108,13 @@ transform = Transform3D(-0.309017, 0, 0.951057, 0, 1, 0, -0.951057, 0, -0.309017
 editor_description = "Bearing 18 deg, r 36. Facing the tower."
 
 [node name="Sign" type="Label3D" parent="HubWorld/Wedges/W01_Hell/Dais"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.5, 0)
 billboard = 1
 no_depth_test = true
-fixed_size = true
-pixel_size = 0.012
-font_size = 128
-outline_size = 24
+fixed_size = false
+pixel_size = 0.02
+font_size = 64
+outline_size = 12
 modulate = Color(1, 0.78, 0.55, 1)
 outline_modulate = Color(0, 0, 0, 0.85)
 text = "MAP 1"
@@ -136,13 +136,13 @@ transform = Transform3D(-0.809017, 0, 0.587785, 0, 1, 0, -0.587785, 0, -0.809017
 editor_description = "Bearing 54 deg, r 36. Facing the tower."
 
 [node name="Sign" type="Label3D" parent="HubWorld/Wedges/W02/Dais"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.5, 0)
 billboard = 1
 no_depth_test = true
-fixed_size = true
-pixel_size = 0.012
-font_size = 128
-outline_size = 24
+fixed_size = false
+pixel_size = 0.02
+font_size = 64
+outline_size = 12
 modulate = Color(1, 0.78, 0.55, 1)
 outline_modulate = Color(0, 0, 0, 0.85)
 text = "?"
@@ -155,13 +155,13 @@ transform = Transform3D(-1, 0, 1.22465e-16, 0, 1, 0, -1.22465e-16, 0, -1, 2.2043
 editor_description = "Bearing 90 deg, r 36. Facing the tower."
 
 [node name="Sign" type="Label3D" parent="HubWorld/Wedges/W03/Dais"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.5, 0)
 billboard = 1
 no_depth_test = true
-fixed_size = true
-pixel_size = 0.012
-font_size = 128
-outline_size = 24
+fixed_size = false
+pixel_size = 0.02
+font_size = 64
+outline_size = 12
 modulate = Color(1, 0.78, 0.55, 1)
 outline_modulate = Color(0, 0, 0, 0.85)
 text = "?"
@@ -174,13 +174,13 @@ transform = Transform3D(-0.809017, 0, -0.587785, 0, 1, 0, 0.587785, 0, -0.809017
 editor_description = "Bearing 126 deg, r 36. Facing the tower."
 
 [node name="Sign" type="Label3D" parent="HubWorld/Wedges/W04/Dais"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.5, 0)
 billboard = 1
 no_depth_test = true
-fixed_size = true
-pixel_size = 0.012
-font_size = 128
-outline_size = 24
+fixed_size = false
+pixel_size = 0.02
+font_size = 64
+outline_size = 12
 modulate = Color(1, 0.78, 0.55, 1)
 outline_modulate = Color(0, 0, 0, 0.85)
 text = "?"
@@ -193,13 +193,13 @@ transform = Transform3D(-0.309017, 0, -0.951057, 0, 1, 0, 0.951057, 0, -0.309017
 editor_description = "Bearing 162 deg, r 36. Facing the tower."
 
 [node name="Sign" type="Label3D" parent="HubWorld/Wedges/W05/Dais"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.5, 0)
 billboard = 1
 no_depth_test = true
-fixed_size = true
-pixel_size = 0.012
-font_size = 128
-outline_size = 24
+fixed_size = false
+pixel_size = 0.02
+font_size = 64
+outline_size = 12
 modulate = Color(1, 0.78, 0.55, 1)
 outline_modulate = Color(0, 0, 0, 0.85)
 text = "?"
@@ -212,13 +212,13 @@ transform = Transform3D(0.309017, 0, -0.951057, 0, 1, 0, 0.951057, 0, 0.309017, 
 editor_description = "Bearing 198 deg, r 36. Facing the tower."
 
 [node name="Sign" type="Label3D" parent="HubWorld/Wedges/W06/Dais"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.5, 0)
 billboard = 1
 no_depth_test = true
-fixed_size = true
-pixel_size = 0.012
-font_size = 128
-outline_size = 24
+fixed_size = false
+pixel_size = 0.02
+font_size = 64
+outline_size = 12
 modulate = Color(1, 0.78, 0.55, 1)
 outline_modulate = Color(0, 0, 0, 0.85)
 text = "?"
@@ -231,13 +231,13 @@ transform = Transform3D(0.809017, 0, -0.587785, 0, 1, 0, 0.587785, 0, 0.809017, 
 editor_description = "Bearing 234 deg, r 36. Facing the tower."
 
 [node name="Sign" type="Label3D" parent="HubWorld/Wedges/W07/Dais"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.5, 0)
 billboard = 1
 no_depth_test = true
-fixed_size = true
-pixel_size = 0.012
-font_size = 128
-outline_size = 24
+fixed_size = false
+pixel_size = 0.02
+font_size = 64
+outline_size = 12
 modulate = Color(1, 0.78, 0.55, 1)
 outline_modulate = Color(0, 0, 0, 0.85)
 text = "?"
@@ -250,13 +250,13 @@ transform = Transform3D(1, 0, -2.44929e-16, 0, 1, 0, 2.44929e-16, 0, 1, -6.61309
 editor_description = "Bearing 270 deg, r 36. Facing the tower."
 
 [node name="Sign" type="Label3D" parent="HubWorld/Wedges/W08/Dais"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.5, 0)
 billboard = 1
 no_depth_test = true
-fixed_size = true
-pixel_size = 0.012
-font_size = 128
-outline_size = 24
+fixed_size = false
+pixel_size = 0.02
+font_size = 64
+outline_size = 12
 modulate = Color(1, 0.78, 0.55, 1)
 outline_modulate = Color(0, 0, 0, 0.85)
 text = "?"
@@ -269,13 +269,13 @@ transform = Transform3D(0.809017, 0, 0.587785, 0, 1, 0, -0.587785, 0, 0.809017, 
 editor_description = "Bearing 306 deg, r 36. Facing the tower."
 
 [node name="Sign" type="Label3D" parent="HubWorld/Wedges/W09/Dais"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.5, 0)
 billboard = 1
 no_depth_test = true
-fixed_size = true
-pixel_size = 0.012
-font_size = 128
-outline_size = 24
+fixed_size = false
+pixel_size = 0.02
+font_size = 64
+outline_size = 12
 modulate = Color(1, 0.78, 0.55, 1)
 outline_modulate = Color(0, 0, 0, 0.85)
 text = "?"
@@ -288,13 +288,13 @@ transform = Transform3D(0.309017, 0, 0.951057, 0, 1, 0, -0.951057, 0, 0.309017, 
 editor_description = "Bearing 342 deg, r 36. Facing the tower."
 
 [node name="Sign" type="Label3D" parent="HubWorld/Wedges/W10/Dais"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.5, 0)
 billboard = 1
 no_depth_test = true
-fixed_size = true
-pixel_size = 0.012
-font_size = 128
-outline_size = 24
+fixed_size = false
+pixel_size = 0.02
+font_size = 64
+outline_size = 12
 modulate = Color(1, 0.78, 0.55, 1)
 outline_modulate = Color(0, 0, 0, 0.85)
 text = "?"

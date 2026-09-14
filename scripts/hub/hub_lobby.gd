@@ -178,15 +178,27 @@ func _unhandled_input(event: InputEvent) -> void:
 	var key: InputEventKey = event as InputEventKey
 	if key != null and key.pressed and not key.echo and key.physical_keycode == OVERLAY_KEY:
 		set_overlay_open(not _overlay_open)
-		get_viewport().set_input_as_handled()
+		_consume_event()
 		return
-	if _overlay_open or not InputMap.has_action(interact_action):
+	if _launched or _overlay_open or not InputMap.has_action(interact_action):
 		return
 	if not event.is_action_pressed(interact_action):
 		return
 	if _in_trigger and is_host():
 		start_map()
-		get_viewport().set_input_as_handled()
+		_consume_event()
+
+
+## Mark the event handled, when there is still a viewport to tell.
+##
+## A launch takes the hub out of the tree, and the rest of that input frame runs
+## on a node that has already left it.
+func _consume_event() -> void:
+	if not is_inside_tree():
+		return
+	var viewport: Viewport = get_viewport()
+	if viewport != null:
+		viewport.set_input_as_handled()
 
 
 # --- State --------------------------------------------------------------------
@@ -238,7 +250,7 @@ func get_lobby() -> NetLobby:
 ## refusal is [method NetLobby.describe_launch_block]'s to explain, not this
 ## node's to invent.
 func start_map() -> bool:
-	if _launched or not is_host():
+	if _launched or _starting or not is_host():
 		return false
 	if start_wedge == null or not start_wedge.is_decided():
 		return false
@@ -284,6 +296,14 @@ func _begin(map_id: StringName) -> void:
 	HubLobby.returns_to_hub = true
 	match_starting.emit(map_id)
 	if not changes_scene:
+		return
+	# Deferred: change_scene_to_file takes the hub out of the tree the moment it
+	# is called, and this runs inside the hub's own input frame.
+	_change_scene.call_deferred()
+
+
+func _change_scene() -> void:
+	if not is_inside_tree():
 		return
 	var error: Error = get_tree().change_scene_to_file(match_scene_path)
 	if error != OK:
