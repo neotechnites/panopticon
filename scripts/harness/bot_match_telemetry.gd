@@ -47,6 +47,46 @@ var _hazard_attributed: Dictionary = {}
 const STALL_WINDOW_TICKS: int = 180
 const STALL_DISTANCE_METRES: float = 1.0
 
+## The named stretches of one map, as game bearings about the arena axis and the
+## radial bands a route through them can take. See docs/MAP1_SECTIONS.md.
+##
+## This is the only map knowledge in the harness and it is deliberately not in
+## the bots: a section is a thing to MEASURE play in, and a runner that had been
+## told where the forest was would stop being an instrument. A map the table has
+## no entry for simply reports no sections.
+const SECTION_MAP_ID: StringName = &"bentham_ring"
+const SECTIONS: Array = [
+	{"id": "S1", "from": 15.0, "to": 60.0, "bands": [["inner", 50.7], ["middle", 53.3], ["outer", 99.0]]},
+	{"id": "S2", "from": 75.0, "to": 130.0, "bands": [["lane", 52.5], ["chain", 99.0]]},
+	{"id": "S3", "from": 145.0, "to": 200.0, "bands": [["inner", 54.5], ["outer", 99.0]]},
+	{"id": "S4", "from": 215.0, "to": 270.0, "bands": [["lane", 53.0], ["rocks", 99.0]]},
+	{"id": "S5", "from": 292.0, "to": 338.0, "bands": [["inner", 52.0], ["stones", 99.0]]},
+]
+## Ticks a body must spend in a section before the way it went counts as a route.
+const ROUTE_MIN_TICKS: int = 30
+
+## Per participant: the section pass being watched, as {"id", "bands", "ticks"}.
+var _pass: Dictionary = {}
+var _sections_live: bool = false
+
+## Every [TrapVolume] in the arena, as {inverse, half, centre, reach_squared, feet}.
+##
+## Standing in lava is counted from these and not from the trap's own signal,
+## which cannot be trusted here: a feet_only trap decides depth in [method
+## Node._process], and under 120x compression a body crosses six metres of lava
+## between two process frames and is never once seen overlapping. The trap is
+## right in the game and blind in the harness, so the harness measures the
+## geometry itself.
+var _traps: Array[Dictionary] = []
+
+## Per participant: where it stood last tick, and whether it was running.
+var _last_point: Dictionary = {}
+var _was_running: Dictionary = {}
+## Per participant: lava flights taken, as the brain counts them.
+var _hops_seen: Dictionary = {}
+## Metres a body may move in one tick before it is a re-placement, not a stride.
+const TELEPORT_METRES: float = 20.0
+
 ## Per participant index: stall window origin, hold and stall streaks.
 var _watch: Dictionary = {}
 var _round_tick: int = -1
@@ -119,12 +159,22 @@ func install(controller: MatchController, rifle: Rifle) -> void:
 	rifle.target_hit.connect(_on_target_hit)
 	rifle.missed.connect(_on_missed)
 	_connect_hazards(controller.arena)
+	_sections_live = controller.rules != null and controller.rules.map_id == SECTION_MAP_ID
 
 
 func _connect_hazards(node: Node) -> void:
 	if node == null:
 		return
 	if node is TrapVolume:
+		var trap: TrapVolume = node as TrapVolume
+		var half: Vector3 = trap.size_metres * 0.5
+		_traps.append({
+			"inverse": trap.global_transform.affine_inverse(),
+			"centre": trap.global_position,
+			"reach_squared": Vector2(half.x, half.z).length_squared(),
+			"half": half,
+			"feet": trap.feet_only,
+		})
 		(node as Area3D).body_entered.connect(_on_hazard_entered.bind(true))
 	elif node is KillVolume:
 		(node as Area3D).body_entered.connect(_on_hazard_entered.bind(false))
@@ -152,13 +202,23 @@ func _on_hazard_entered(body: Node3D, lava: bool) -> void:
 			tally.lava_deaths += 1
 		else:
 			tally.falls += 1
+		var section: Dictionary = _section_of(body.global_position)
+		if not section.is_empty():
+			var entry: Dictionary = tally.section(String(section["id"]))
+			var key: String = "lava" if lava else "falls"
+			entry[key] = int(entry[key]) + 1
 
 
 func _on_pad_entered(body: Node3D) -> void:
 	var participant: MatchParticipant = _controller.resolve_participant(body)
 	var tally: BotParticipantTally = _tallies.get(participant.index, null) if participant != null else null
-	if tally != null:
-		tally.pad_launches += 1
+	if tally == null:
+		return
+	tally.pad_launches += 1
+	var section: Dictionary = _section_of(body.global_position)
+	if not section.is_empty():
+		var entry: Dictionary = tally.section(String(section["id"]))
+		entry["flights"] = int(entry["flights"]) + 1
 
 
 func _physics_process(_delta: float) -> void:
@@ -382,9 +442,23 @@ func _sample_runners() -> void:
 		if tally == null or brain == null or participant.body == null:
 			continue
 		var w: Dictionary = _watch.get(participant.index, {})
-		if not participant.is_running or not participant.body.is_physics_processing():
+		var here: Vector3 = participant.body.global_position
+		var running: bool = participant.is_running and participant.body.is_physics_processing()
+		var last: Vector3 = _last_point.get(participant.index, here)
+		# Stopped running, or picked up and put back on the start line: either way
+		# the lap ended where the body last stood, and that is what is scored.
+		if (bool(_was_running.get(participant.index, false)) and not running) \
+			or (running and last.distance_to(here) > TELEPORT_METRES):
+			_note_removal(participant.index, tally, last)
+			_close_pass(participant.index, tally)
+		_was_running[participant.index] = running
+		_last_point[participant.index] = here
+		if not running:
 			_watch[participant.index] = {}
+			_close_pass(participant.index, tally)
 			continue
+		_sample_section(participant.index, tally, here)
+		_sample_hops(participant.index, tally, brain, here)
 		var state: RingRunner.State = brain.get_state()
 		var holding: bool = state == RingRunner.State.HOLD or state == RingRunner.State.EVALUATE
 		var perception: RunnerPerception = brain.get_perception()
@@ -411,6 +485,127 @@ func _sample_runners() -> void:
 			w["stall_run"] = stall_run
 		w["hold"] = hold_ticks
 		_watch[participant.index] = w
+
+
+# --- Sections -----------------------------------------------------------------
+
+## The arena's axis. Bearings and radii are measured about it.
+func _arena_centre() -> Vector3:
+	var arena: Node3D = _controller.arena as Node3D if _controller != null else null
+	return arena.global_position if arena != null else Vector3.ZERO
+
+
+## The section [param point] stands in, or {} outside every one of them.
+func _section_of(point: Vector3) -> Dictionary:
+	if not _sections_live:
+		return {}
+	var centre: Vector3 = _arena_centre()
+	var bearing: float = wrapf(rad_to_deg(atan2(point.z - centre.z, point.x - centre.x)), 0.0, 360.0)
+	for section: Dictionary in SECTIONS:
+		if bearing >= float(section["from"]) and bearing <= float(section["to"]):
+			return section
+	return {}
+
+
+## Which of [param section]'s radial bands [param point] is on.
+func _band_of(section: Dictionary, point: Vector3) -> String:
+	var centre: Vector3 = _arena_centre()
+	var radius: float = Vector2(point.x - centre.x, point.z - centre.z).length()
+	for band: Array in section["bands"] as Array:
+		if radius <= float(band[1]):
+			return String(band[0])
+	return ""
+
+
+## True when a body standing at [param point] is in a trap: inside its footprint
+## and, for a feet_only trap, at or below the surface it converts at.
+func _in_lava(point: Vector3) -> bool:
+	for trap: Dictionary in _traps:
+		var centre: Vector3 = trap["centre"]
+		if Vector2(point.x - centre.x, point.z - centre.z).length_squared() > float(trap["reach_squared"]):
+			continue
+		var local: Vector3 = (trap["inverse"] as Transform3D) * point
+		var half: Vector3 = trap["half"]
+		if absf(local.x) > half.x or absf(local.z) > half.z:
+			continue
+		if local.y <= (0.05 if bool(trap["feet"]) else half.y) and local.y >= -half.y:
+			return true
+	return false
+
+
+## Credit any lava flights taken since last tick to the section they left from.
+func _sample_hops(index: int, tally: BotParticipantTally, brain: RingRunner, point: Vector3) -> void:
+	if not _sections_live or not brain.has_method(&"get_lake_hops"):
+		return
+	var hops: int = brain.get_lake_hops()
+	var taken: int = hops - int(_hops_seen.get(index, 0))
+	_hops_seen[index] = hops
+	if taken <= 0:
+		return
+	var section: Dictionary = _section_of(point)
+	if section.is_empty():
+		return
+	var entry: Dictionary = tally.section(String(section["id"]))
+	entry["flights"] = int(entry["flights"]) + taken
+
+
+## Note a body that stopped running, or was picked up and put back on the start
+## line, against the section it was standing in when it happened.
+func _note_removal(index: int, tally: BotParticipantTally, point: Vector3) -> void:
+	var section: Dictionary = _section_of(point)
+	if section.is_empty():
+		return
+	var entry: Dictionary = tally.section(String(section["id"]))
+	entry["removed"] = int(entry["removed"]) + 1
+
+
+## Add this tick to [param index]'s section pass, closing the previous one when
+## the body has walked out of the section it was in.
+func _sample_section(index: int, tally: BotParticipantTally, point: Vector3) -> void:
+	if not _sections_live:
+		return
+	var section: Dictionary = _section_of(point)
+	var id: String = String(section["id"]) if not section.is_empty() else ""
+	var pass_state: Dictionary = _pass.get(index, {})
+	if String(pass_state.get("id", "")) != id:
+		_close_pass(index, tally)
+		pass_state = {"id": id, "ticks": 0, "bands": {}}
+	if id.is_empty():
+		_pass[index] = pass_state
+		return
+	pass_state["ticks"] = int(pass_state["ticks"]) + 1
+	var band: String = _band_of(section, point)
+	var bands: Dictionary = pass_state["bands"]
+	bands[band] = int(bands.get(band, 0)) + 1
+	_pass[index] = pass_state
+	var entry: Dictionary = tally.section(id)
+	entry["ticks"] = int(entry["ticks"]) + 1
+	var seen: Dictionary = entry["bands"]
+	seen[band] = int(seen.get(band, 0)) + 1
+	if _in_lava(point):
+		entry["lava_ticks"] = int(entry["lava_ticks"]) + 1
+
+
+## Score the finished pass: the band the body spent most of it on is the route
+## it took. A pass shorter than [constant ROUTE_MIN_TICKS] is somebody clipping
+## a corner of the section, not a route through it.
+func _close_pass(index: int, tally: BotParticipantTally) -> void:
+	var pass_state: Dictionary = _pass.get(index, {})
+	var id: String = String(pass_state.get("id", ""))
+	if id.is_empty() or int(pass_state.get("ticks", 0)) < ROUTE_MIN_TICKS:
+		_pass.erase(index)
+		return
+	var best: String = ""
+	var best_ticks: int = -1
+	for band: String in pass_state["bands"] as Dictionary:
+		var ticks: int = int((pass_state["bands"] as Dictionary)[band])
+		if ticks > best_ticks:
+			best_ticks = ticks
+			best = band
+	if not best.is_empty():
+		var routes: Dictionary = tally.section(id)["routes"]
+		routes[best] = int(routes.get(best, 0)) + 1
+	_pass.erase(index)
 
 
 ## Ticks the match has been running. The harness's authority on elapsed
@@ -556,6 +751,31 @@ func _on_fired(_origin: Vector3, _end_point: Vector3) -> void:
 			tally.first_shot_seconds.append(seconds)
 			_first_shots.append(seconds)
 	_first_shot_pending = false
+	_charge_shot_to_its_target()
+
+
+## Credit the shot to whoever the tower was aiming at, in the section they stood
+## in, and say whether the guard's own line reached their chest -- which is the
+## test [RunnerCoverFinder] calls cover, asked from the far end.
+func _charge_shot_to_its_target() -> void:
+	if not _sections_live or _controller == null:
+		return
+	var seat: MatchParticipant = _controller.get_seat_participant()
+	var guard: TowerShooter = seat.tower_brain if seat != null else null
+	var quarry: PlayerController = guard.get_target() if guard != null else null
+	if quarry == null or seat.body == null:
+		return
+	var struck: MatchParticipant = _controller.resolve_participant(quarry)
+	var tally: BotParticipantTally = _tallies.get(struck.index, null) if struck != null else null
+	if tally == null:
+		return
+	var section: Dictionary = _section_of(quarry.global_position)
+	if section.is_empty():
+		return
+	var entry: Dictionary = tally.section(String(section["id"]))
+	entry["shot_at"] = int(entry["shot_at"]) + 1
+	if _eye_reaches(seat.body, quarry):
+		entry["shot_at_uncovered"] = int(entry["shot_at_uncovered"]) + 1
 
 
 ## A shot struck SOMETHING. Whether that something was a player is the match's
@@ -576,6 +796,10 @@ func _on_target_hit(collider: Node3D, _hit_position: Vector3, _hit_normal: Vecto
 	var victim: BotParticipantTally = _tallies.get(struck.index, null)
 	if victim != null:
 		victim.times_converted += 1
+		var section: Dictionary = _section_of(collider.global_position)
+		if not section.is_empty():
+			var entry: Dictionary = victim.section(String(section["id"]))
+			entry["converted"] = int(entry["converted"]) + 1
 
 
 func _on_missed(_end_point: Vector3) -> void:
@@ -601,6 +825,7 @@ func finalise() -> void:
 		tally.running_at_end = participant.is_running and not _match_over
 		if participant.tracker != null:
 			tally.final_progress = participant.tracker.get_progress()
+		_close_pass(participant.index, tally)
 	if _first_shot_pending and _rounds_started > 0:
 		_rounds_without_a_shot += 1
 

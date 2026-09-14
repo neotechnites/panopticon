@@ -75,6 +75,40 @@ var running_at_end: bool = false
 ## Seconds from each round start to this shooter's first shot, one per seat.
 var first_shot_seconds: Array[float] = []
 
+## Play per named section of the map, filled by [BotMatchTelemetry]. Keys are
+## the section ids; each entry holds ticks spent, deaths, shots taken at this
+## body and how many of those found it out of cover, and the routes it took.
+var sections: Dictionary = {}
+
+
+## This participant's counters for [param id], created empty on first ask.
+func section(id: String) -> Dictionary:
+	if not sections.has(id):
+		sections[id] = {
+			"ticks": 0, "lava_ticks": 0, "lava": 0, "falls": 0, "converted": 0,
+			"removed": 0, "shot_at": 0, "shot_at_uncovered": 0, "flights": 0, "routes": {}, "bands": {},
+		}
+	return sections[id]
+
+
+## Sections as plain data, with ticks turned into seconds.
+func _sections_dictionary(sim_hz: int) -> Dictionary:
+	var out: Dictionary = {}
+	for id: String in sections:
+		var entry: Dictionary = (sections[id] as Dictionary).duplicate()
+		var rate: float = float(maxi(sim_hz, 1))
+		entry["seconds"] = float(int(entry["ticks"])) / rate
+		entry["lava_seconds"] = float(int(entry["lava_ticks"])) / rate
+		var bands: Dictionary = {}
+		for band: String in entry["bands"] as Dictionary:
+			bands[band] = float(int((entry["bands"] as Dictionary)[band])) / rate
+		entry["band_seconds"] = bands
+		entry.erase("ticks")
+		entry.erase("lava_ticks")
+		entry.erase("bands")
+		out[id] = entry
+	return out
+
 
 
 ## Fraction of this participant's shots that struck a body, or 0.0 if they never
@@ -111,4 +145,5 @@ func to_dictionary(sim_hz: int) -> Dictionary:
 		"running_at_end": running_at_end,
 		"pad_launches": pad_launches,
 		"first_shot_seconds": first_shot_seconds,
+		"sections": _sections_dictionary(sim_hz),
 	}

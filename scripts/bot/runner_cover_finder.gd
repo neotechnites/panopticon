@@ -88,6 +88,21 @@ const PATH_STEP_METRES: float = 1.5
 ## Margin added to a hazard box for the runner's own capsule, in metres.
 const HAZARD_MARGIN_METRES: float = 0.8
 
+## How far behind the face it hides behind a shadow-snapped candidate stands.
+##
+## A radial ladder a couple of metres apart cannot find the shadow of a 0.7 m
+## stalagmite: the shadow is about as wide as the column, and the sweep steps
+## straight over it. So one ray per angle is fired OUT from the guard's eye
+## instead, and whatever it hits first has its own shadow handed back as a
+## candidate. It costs one ray where the ladder costs nine, it needs no number
+## about the map, and it is the only way a forest of thin cover is findable at
+## all. See [method _shadow_point].
+const SHADOW_STANDOFF_METRES: float = 0.7
+
+## Slack either side of the sight line a candidate must ALSO be hidden at before
+## it counts as thin cover worth standing still behind.
+const COVER_HOLD_SLACK_METRES: float = 0.3
+
 ## Spacing of hazard samples along a crossing, in metres.
 const HAZARD_STEP_METRES: float = 0.5
 
@@ -205,15 +220,20 @@ func search(
 			_best_deviation = INF
 		var radii: PackedFloat32Array = _radii(profile, from_radius)
 
-		for ri: int in range(_radius_index, radii.size()):
+		# One past the ladder is the shadow-snapped candidate. See _shadow_point.
+		for ri: int in range(_radius_index, radii.size() + 1):
 			if not _rays_left():
 				# Out of rays this frame; pick up at this candidate next tick.
 				_step = step
 				_radius_index = ri
 				RingNavigation.charge("cover", since)
 				return false
-			var radius: float = radii[ri]
-			var point: Vector3 = _point_at(centre, angle, radius, from_position.y)
+			var point: Vector3 = _point_at(centre, angle, radii[ri], from_position.y) \
+				if ri < radii.size() \
+				else _shadow_point(perception, profile, centre, angle, from_radius, from_position.y, threat_eye)
+			if not is_finite(point.x):
+				continue
+			var radius: float = Vector2(point.x - centre.x, point.z - centre.z).length()
 			_probes += 1
 			# Cheapest rejection first. See probe 5 in the class docs.
 			if point_in_hazard(hazards, point):
@@ -225,7 +245,8 @@ func search(
 			var deeper: Vector3 = _point_at(
 				centre, angle + travel_sign * depth_arc, radius, from_position.y
 			)
-			if not _is_hidden(perception, profile, deeper, threat_eye):
+			if not _is_hidden(perception, profile, deeper, threat_eye) \
+				and not _holds_thin_cover(perception, profile, point, threat_eye):
 				continue
 			if not _is_standable(space, profile, point, from_position.y):
 				continue
@@ -478,6 +499,54 @@ func _is_hidden(
 	var chest: Vector3 = point + Vector3.UP * profile.cover_test_height
 	_spend_ray()
 	return not perception.has_clear_line(chest, threat_eye)
+
+
+## The standing point just behind whatever first blocks the guard's view along
+## [param angle], or Vector3.INF when the line out is clear.
+##
+## One ray, fired from the eye OUTWARD, in place of hoping a radial ladder lands
+## a sample inside a shadow a stalagmite's width across. Nothing here is told the
+## fixture is there: the ray finds a face, and the room behind a face is cover.
+func _shadow_point(
+	perception: RunnerPerception,
+	profile: RunnerProfile,
+	centre: Vector3,
+	angle: float,
+	from_radius: float,
+	feet_y: float,
+	eye: Vector3,
+) -> Vector3:
+	var reach: float = from_radius + profile.cover_search_radial_span * 0.5
+	var far: Vector3 = _point_at(centre, angle, reach, feet_y) \
+		+ Vector3.UP * profile.cover_test_height
+	_spend_ray()
+	var hit: Dictionary = perception.sight_hit(eye, far)
+	if hit.is_empty():
+		return Vector3.INF
+	var surface: Vector3 = hit.get("position", Vector3.INF)
+	var along: Vector3 = Vector3(surface.x - eye.x, 0.0, surface.z - eye.z)
+	if not is_finite(surface.x) or along.length() < 0.001:
+		return Vector3.INF
+	var behind: Vector3 = surface + along.normalized() * SHADOW_STANDOFF_METRES
+	return Vector3(behind.x, feet_y, behind.z)
+
+
+## True when the shadow at [param point] is wide enough to stand still in.
+##
+## The forward-depth probe asks whether the cover keeps working a pace further
+## round the ring, which is the right question of a wall and the wrong one of a
+## stalagmite: a thin fixture is cover you stand exactly behind and it fails that
+## probe every time. This asks the other question -- is there room to hold here
+## -- by testing a body's slack to either side of the sight line.
+func _holds_thin_cover(
+	perception: RunnerPerception, profile: RunnerProfile, point: Vector3, threat_eye: Vector3
+) -> bool:
+	var along: Vector3 = Vector3(point.x - threat_eye.x, 0.0, point.z - threat_eye.z)
+	if along.length() < 0.001:
+		return false
+	var across: Vector3 = Vector3(-along.z, 0.0, along.x).normalized() * COVER_HOLD_SLACK_METRES
+	return _is_hidden(perception, profile, point + across, threat_eye) \
+		and _is_hidden(perception, profile, point - across, threat_eye)
 
 
 ## True when there is a floor under [param point] within one step of the height

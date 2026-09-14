@@ -8,7 +8,16 @@ const NODE_NAME: StringName = &"RingNavigation"
 ## Every baked region joins this group, so [PhaseGate] can ask for a rebake
 ## without a [NodePath] to it.
 const GROUP: StringName = &"ring_navigation"
-const AGENT_RADIUS: float = 0.75
+## The body's own capsule is 0.4 m; this is that plus a tenth.
+##
+## It was 0.75, which erodes 1.5 m of mesh out of every gap. Map 1's stalactite
+## forest guarantees 1.2 m of clear air between fixture feet and 1.6 m between
+## cover pieces, so at 0.75 the whole of S1 baked as disconnected scraps: every
+## waypoint through it failed its detour check, the route skipped to the finish,
+## and the field turned round and ran backwards into the bars. A navmesh that
+## refuses ground the body walks through is not a conservative navmesh, it is a
+## wrong one.
+const AGENT_RADIUS: float = 0.5
 ## Whole cell_height multiples: the baker rounds them anyway and warns otherwise.
 const AGENT_HEIGHT: float = 2.0
 const AGENT_MAX_CLIMB: float = 0.5
@@ -37,6 +46,17 @@ const LINK_MAX_FLIGHT_SECONDS: float = 6.0
 const LINK_SNAP_METRES: float = 4.0
 const LINK_LAND_TOLERANCE_METRES: float = 0.4
 const PAD_CARVE_MARGIN_METRES: float = 0.5
+## A flight landing this near another pad is aimed at THAT pad's run-in instead.
+##
+## The demon run is four pads over three rocks, and a rock is three metres wide.
+## Aimed at the bare landing point, a body comes down wherever the arc puts it,
+## walks onto the next plate from the side, and throws the next arc off by its
+## own sideways error -- which is how the third flight of every crossing ended in
+## the lava. Aimed at the next pad's back edge, each flight sets the next one up
+## square.
+const PAD_CHAIN_METRES: float = 4.0
+## How near a plate a body must be for [method pad_landing_from] to call it thrown by it.
+const PAD_AIM_METRES: float = 3.0
 const DEFAULT_GRAVITY: float = 22.0
 
 ## Platform tops standing in a carved trap (a lava lake's blocks) and the shores either side
@@ -61,8 +81,12 @@ const LAKE_LINK_MAX: int = 64
 const LAKE_HOP_CANDIDATES: int = 8
 const LAKE_HOP_SPACING_METRES: float = 0.75
 const LAKE_LINK_TRAVEL_COST: float = 0.5
-## Degrees of ring either side of the lake's traps that count as being in it.
+## Degrees of ring either side of a lava span's traps that count as being in it,
+## and metres either side of it radially. The radial bound is what keeps the lava
+## shelf's own inner LANE out of its span: that lane is real deck with the cover
+## game to play on it, and a span bounded only by bearing would swallow it.
 const LAKE_SPAN_PAD_DEGREES: float = 8.0
+const LAKE_SPAN_PAD_METRES: float = 1.5
 ## A map declares its lava lake with a Marker3D of this name; the TrapVolumes beside it are it.
 const LAKE_SURFACE_MARKER: StringName = &"LavaSurface"
 ## Metres a lake trap's carve reaches past its lethal surface, so the surface's own navmesh goes
@@ -83,17 +107,19 @@ var _gravity: float = DEFAULT_GRAVITY
 var _movement: MovementProfile = null
 var _links: Array[NavigationLink3D] = []
 var _dead_pads: Array[BoostPad] = []
+var _pads: Array[BoostPad] = []
 var _links_refined: bool = false
 var _lake_links: Array[NavigationLink3D] = []
 var _lake_plans: Array[Dictionary] = []
 var _trap_boxes: Array[Dictionary] = []
 var _root_transform: Transform3D = Transform3D.IDENTITY
-var _lake_from: float = 0.0
-var _lake_to: float = 0.0
-var _lake_height: float = 0.0
-var _has_lake: bool = false
-## True when the span above came from the map's own marker rather than from the baked islands.
-var _lake_declared: bool = false
+## Every stretch of lava with footholds in it, as {"from", "to", "height"} in
+## radians of bearing and metres of surface. A map has as many as it has: Map 1
+## alone has a declared lake at the wall run and a river through the lava shelf,
+## and a single span could only ever serve one of them.
+var _lake_spans: Array[Dictionary] = []
+## How many of those came from the map's own markers rather than from the baked islands.
+var _declared_spans: int = 0
 
 ## Regions by level-root instance id; the tree cannot be asked while the root is still readying.
 static var _by_root: Dictionary = {}
@@ -202,13 +228,6 @@ func bake_from(
 		navigation_mesh = mesh
 	_build_pad_links(root, into_root)
 	var lake: int = _build_lake_links()
-	# Platform tops outside the lake are carved away again and the mesh rebuilt: only the lake
-	# has links to fly them, and navmesh a body cannot climb onto is somewhere it sticks.
-	if _carve_outside_lake(source, into_root) > 0:
-		mesh = mesh.duplicate() as NavigationMesh
-		NavigationServer3D.bake_from_source_geometry_data(mesh, source)
-		navigation_mesh = mesh
-		lake = _build_lake_links()
 	_polygons = mesh.get_polygon_count()
 	_bake_ms = Time.get_ticks_msec() - started
 	charge("bake", started_usec)
@@ -291,11 +310,10 @@ func _carve_traps(node: Node, source: NavigationMeshSourceGeometryData3D, into_r
 		# converts at -- so a platform standing IN a trap keeps the navmesh on top of it.
 		var top: float = (into_root * (world * Vector3(0.0, half.y, 0.0))).y
 		if trap.feet_only:
-			# A lake's own surface must go, or the platforms standing in it never become islands
-			# and the only path across is a walk through the lava.
-			top = (into_root * world.origin).y
-			if _has_lake and is_in_lake_span(world.origin):
-				top += LAKE_SURFACE_CARVE_MARGIN
+			# The lava's own surface must go, or a body walks across it; the margin keeps
+			# whatever stands clear of it -- a stepping stone, a boulder in the river, a
+			# landing rock in the demon run -- as an island to fly to.
+			top = (into_root * world.origin).y + LAKE_SURFACE_CARVE_MARGIN
 		var floor_level: float = bottom - HAZARD_VERTICAL_MARGIN_METRES
 		source.add_projected_obstruction(corners, floor_level, maxf(top - floor_level, 0.1), true)
 		carved += 1
@@ -374,10 +392,26 @@ func simulate_flight(start: Vector3, velocity: Vector3) -> PackedVector3Array:
 	return arc
 
 
+## Where a body running onto [param pad] along its own axis first trips it: the
+## back edge of the plate, not the centre.
+##
+## A pad fires on CONTACT, so its centre is a launch point no body can ever take
+## off from, and a flight solved from the centre lands a plate's half-width past
+## wherever the body really comes down -- a metre and a half, on a landing rock
+## four metres long, in a lava field. Air control cannot buy that back: it
+## strafes, and the speed cap means it cannot add range.
+func _pad_takeoff(pad: BoostPad) -> Vector3:
+	var flat: Vector3 = pad.get_launch_velocity()
+	flat.y = 0.0
+	if flat.length() < 0.001:
+		return pad.global_position
+	return pad.global_position - flat.normalized() * pad.footprint_metres.z * 0.5
+
+
 ## Where a body launched from [param pad] meets the baked mesh, in mesh space, or Vector3.INF.
 ## The nearest polygon within LINK_SNAP_METRES counts: air control curves the flight onto it.
 func _pad_landing(pad: BoostPad, into_root: Transform3D) -> Vector3:
-	var arc: PackedVector3Array = simulate_flight(pad.global_position, pad.get_launch_velocity())
+	var arc: PackedVector3Array = simulate_flight(_pad_takeoff(pad), pad.get_launch_velocity())
 	var previous_y: float = -INF
 	for world_point: Vector3 in arc:
 		var point: Vector3 = into_root * world_point
@@ -524,9 +558,9 @@ func _build_pad_links(root: Node, into_root: Transform3D) -> void:
 	_links.clear()
 	_links_refined = false
 	_mesh_low = INF
-	var pads: Array[BoostPad] = []
-	_collect_pads(root, pads)
-	for pad: BoostPad in pads:
+	_pads.clear()
+	_collect_pads(root, _pads)
+	for pad: BoostPad in _pads:
 		var landing: Vector3 = _pad_landing(pad, into_root)
 		if not is_finite(landing.x):
 			continue
@@ -534,11 +568,50 @@ func _build_pad_links(root: Node, into_root: Transform3D) -> void:
 		link.name = "PadLink_%s" % pad.name
 		link.bidirectional = false
 		link.travel_cost = LINK_TRAVEL_COST
-		link.start_position = into_root * pad.global_position
+		link.start_position = into_root * _pad_takeoff(pad)
 		link.end_position = landing
 		link.set_meta(&"pad", pad)
 		add_child(link)
 		_links.append(link)
+
+
+## The run-in of the pad whose plate is within PAD_CHAIN_METRES of [param point],
+## or Vector3.INF. See [constant PAD_CHAIN_METRES].
+func _pad_run_in_near(point: Vector3, exclude: BoostPad) -> Vector3:
+	for pad: BoostPad in _pads:
+		if pad == exclude or not is_instance_valid(pad):
+			continue
+		var plate: Vector3 = pad.global_position
+		if absf(point.y - plate.y) > 2.0:
+			continue
+		if Vector2(point.x - plate.x, point.z - plate.z).length() > PAD_CHAIN_METRES:
+			continue
+		return _pad_takeoff(pad)
+	return Vector3.INF
+
+
+## Where the pad a body at [param point] has just been thrown by lands it, or
+## Vector3.INF when there is no pad under it.
+##
+## A pad fires on CONTACT, so a body is launched whether or not the path it was
+## following meant to use the link. An unaimed flight gets no air steering and
+## comes down wherever the plate happened to be crossed -- which, over a lava
+## field with three-metre rocks in it, is the lava. This is how a runner finds
+## out where it is going after it has already left the ground.
+func pad_landing_from(point: Vector3) -> Vector3:
+	for link: NavigationLink3D in _links:
+		if not link.enabled:
+			continue
+		var pad: BoostPad = link.get_meta(&"pad", null) as BoostPad
+		if pad == null or not is_instance_valid(pad):
+			continue
+		var plate: Vector3 = pad.global_position
+		if absf(point.y - plate.y) > PAD_AIM_METRES:
+			continue
+		if Vector2(point.x - plate.x, point.z - plate.z).length() > PAD_AIM_METRES:
+			continue
+		return link.get_global_end_position()
+	return Vector3.INF
 
 
 ## Once the map is live: shorten a link blocked by a wall or ceiling, and snap both ends to the mesh.
@@ -551,12 +624,15 @@ func _refine_pad_links() -> void:
 		if pad == null or not is_instance_valid(pad):
 			link.enabled = false
 			continue
-		var start: Vector3 = pad.global_position
+		var start: Vector3 = _pad_takeoff(pad)
 		var end: Vector3 = link.global_transform * link.end_position
 		if space != null:
 			var blocked: Vector3 = _first_blocking_floor(space, start, pad.get_launch_velocity(), end)
 			if is_finite(blocked.x):
 				end = blocked
+		var chained: Vector3 = _pad_run_in_near(end, pad)
+		if is_finite(chained.x):
+			end = chained
 		var snapped_end: Vector3 = NavigationServer3D.map_get_closest_point(map, end)
 		if snapped_end.distance_to(end) > LINK_SNAP_METRES:
 			link.enabled = false
@@ -603,17 +679,63 @@ static func _ring_point(centre: Vector3, angle: float, radius: float, height: fl
 
 ## True when [param world_point] is inside the lake's angular span at its height.
 func is_in_lake_span(world_point: Vector3) -> bool:
-	if not _has_lake or absf(world_point.y - _lake_height) > 6.0:
-		return false
-	var bearing: float = _lake_from + wrapf(_bearing_of(world_point) - _lake_from, -PI, PI)
+	return not _span_at(world_point).is_empty()
+
+
+## The lava span [param world_point] stands in, or {}.
+func _span_at(world_point: Vector3) -> Dictionary:
 	var pad: float = deg_to_rad(LAKE_SPAN_PAD_DEGREES)
-	return bearing >= _lake_from - pad and bearing <= _lake_to + pad
+	var radius: float = Vector2(world_point.x - _bake_centre.x, world_point.z - _bake_centre.z).length()
+	for span: Dictionary in _lake_spans:
+		if absf(world_point.y - float(span["height"])) > 6.0:
+			continue
+		if radius < float(span["near"]) - LAKE_SPAN_PAD_METRES \
+			or radius > float(span["far"]) + LAKE_SPAN_PAD_METRES:
+			continue
+		var from: float = span["from"]
+		var bearing: float = from + wrapf(_bearing_of(world_point) - from, -PI, PI)
+		if bearing >= from - pad and bearing <= float(span["to"]) + pad:
+			return span
+	return {}
+
+
+## The radii [param corners] reach, folded into [param band] as (near, far).
+func _widen_band(band: Vector2, corners: PackedVector3Array) -> Vector2:
+	for corner: Vector3 in corners:
+		var radius: float = Vector2(corner.x - _bake_centre.x, corner.z - _bake_centre.z).length()
+		band = Vector2(minf(band.x, radius), maxf(band.y, radius))
+	return band
 
 
 ## The launch that carries a body from [param from] onto [param to]: a ledge inside the lake
 ## the body cannot walk up is flown on the same solver a link is.
 func lake_launch_to(from: Vector3, to: Vector3) -> Vector3:
 	return _lake_launch(from, to)
+
+
+## The LANDING of the enabled lava link whose take-off stands nearest [param from],
+## within [param reach] metres and ahead round the ring, or Vector3.INF.
+##
+## The landing and not the take-off, deliberately: a point on the near bank is
+## somewhere the mesh reaches by walking, so a path aimed at one never uses the
+## link and the runner arrives at the water's edge and carries on down the lane.
+## A point on a boulder in the middle of the lava can only be reached by flying,
+## so aiming at one IS choosing the chain.
+func covered_step_ahead(from: Vector3, reach: float) -> Vector3:
+	var best: Vector3 = Vector3.INF
+	var best_gap: float = reach
+	var here: float = _bearing_of(from)
+	for link: NavigationLink3D in _lake_links:
+		if not link.enabled:
+			continue
+		var start: Vector3 = link.get_global_start_position()
+		if wrapf(_bearing_of(start) - here, -PI, PI) < 0.0:
+			continue
+		var gap: float = Vector2(start.x - from.x, start.z - from.z).length()
+		if gap < best_gap:
+			best_gap = gap
+			best = link.get_global_end_position()
+	return best
 
 
 ## The launch velocity and landing point of the lake link between two path points, or {}.
@@ -651,14 +773,15 @@ func _free_lake_links() -> void:
 ## jump envelope, ordered the way the lap runs. Positions are refined once the map is live.
 func _build_lake_links() -> int:
 	_free_lake_links()
-	_has_lake = _lake_declared
+	_lake_spans.resize(_declared_spans)
 	if navigation_mesh == null:
 		return 0
 	_build_trap_boxes()
 	if _trap_boxes.is_empty():
 		return 0
 	var islands: Array[Dictionary] = _mesh_islands()
-	if not _lake_declared and not _find_lake_span(islands):
+	_find_lake_spans(islands)
+	if _lake_spans.is_empty():
 		return 0
 	var live: Array[Dictionary] = []
 	for island: Dictionary in islands:
@@ -822,8 +945,11 @@ func _stone_centre(space: PhysicsDirectSpaceState3D, point: Vector3) -> Vector3:
 
 ## True when [param floor_point] is real floor standing clear of the lake's surface.
 func _stands_clear_of_lava(floor_point: Vector3) -> bool:
-	return is_finite(floor_point.x) \
-		and (not _has_lake or floor_point.y >= _lake_height + LAKE_STAND_CLEARANCE_METRES)
+	if not is_finite(floor_point.x):
+		return false
+	var span: Dictionary = _span_at(floor_point)
+	return span.is_empty() \
+		or floor_point.y >= float(span["height"]) + LAKE_STAND_CLEARANCE_METRES
 
 
 ## The static floor under [param point], or Vector3.INF when there is none or it is a hazard.
@@ -904,33 +1030,6 @@ func _lake_reach(speed: float, ticks: int) -> float:
 	return travelled
 
 
-## Re-carve the band a feet_only trap's reduced carve left standing, for every such trap outside
-## the lake. Returns how many, so the caller knows whether the mesh has to be baked again.
-func _carve_outside_lake(source: NavigationMeshSourceGeometryData3D, into_root: Transform3D) -> int:
-	var carved: int = 0
-	for volume: Node3D in _hazard_volumes:
-		var trap: TrapVolume = volume as TrapVolume
-		if trap == null or not trap.feet_only:
-			continue
-		if _has_lake and is_in_lake_span(trap.global_position):
-			continue
-		var half: Vector3 = trap.size_metres * 0.5
-		var world: Transform3D = trap.global_transform
-		var corners: PackedVector3Array = PackedVector3Array()
-		for corner: Vector3 in [
-			Vector3(-half.x - HAZARD_INFLATION_METRES, 0.0, -half.z - HAZARD_INFLATION_METRES),
-			Vector3(half.x + HAZARD_INFLATION_METRES, 0.0, -half.z - HAZARD_INFLATION_METRES),
-			Vector3(half.x + HAZARD_INFLATION_METRES, 0.0, half.z + HAZARD_INFLATION_METRES),
-			Vector3(-half.x - HAZARD_INFLATION_METRES, 0.0, half.z + HAZARD_INFLATION_METRES),
-		]:
-			corners.append(into_root * (world * corner))
-		var surface: float = (into_root * world.origin).y
-		var top: float = (into_root * (world * Vector3(0.0, half.y, 0.0))).y + HAZARD_VERTICAL_MARGIN_METRES
-		source.add_projected_obstruction(corners, surface, maxf(top - surface, 0.1), true)
-		carved += 1
-	return carved
-
-
 ## Trap footprints in the shape the carve used, so "standing in a trap" and "carved" agree.
 func _build_trap_boxes() -> void:
 	_trap_boxes.clear()
@@ -968,54 +1067,55 @@ func _trap_under(world_point: Vector3) -> int:
 	return -1
 
 
-## The lava lake the map declares: a [Marker3D] named [constant LAKE_SURFACE_MARKER] gives its
-## surface height, and the [TrapVolume]s beside it give the angular span it covers.
-func _declare_lake(root: Node) -> bool:
-	_lake_declared = false
-	_has_lake = false
-	var marker: Node3D = _find_lake_marker(root)
-	if marker == null or marker.get_parent() == null:
-		return false
-	var reference: float = _bearing_of(marker.global_position)
-	var low: float = 0.0
-	var high: float = 0.0
-	var found: bool = false
-	for sibling: Node in marker.get_parent().get_children():
-		var trap: TrapVolume = sibling as TrapVolume
-		if trap == null:
+## The lava the map DECLARES: every [Marker3D] named [constant LAKE_SURFACE_MARKER]
+## gives one span's surface height, and the [TrapVolume]s beside it give the
+## bearings it covers.
+func _declare_lake(root: Node) -> void:
+	_lake_spans.clear()
+	var markers: Array[Node3D] = []
+	_collect_lake_markers(root, markers)
+	for marker: Node3D in markers:
+		if marker.get_parent() == null:
 			continue
-		found = true
-		var half: Vector3 = trap.size_metres * 0.5
-		for corner: Vector3 in [
-			Vector3(-half.x, 0.0, -half.z), Vector3(half.x, 0.0, -half.z),
-			Vector3(half.x, 0.0, half.z), Vector3(-half.x, 0.0, half.z),
-		]:
-			var relative: float = wrapf(_bearing_of(trap.global_transform * corner) - reference, -PI, PI)
-			low = minf(low, relative)
-			high = maxf(high, relative)
-	if not found:
-		return false
-	_lake_from = reference + low
-	_lake_to = reference + high
-	_lake_height = marker.global_position.y
-	_has_lake = true
-	_lake_declared = true
-	return true
+		var reference: float = _bearing_of(marker.global_position)
+		var low: float = 0.0
+		var high: float = 0.0
+		var band: Vector2 = Vector2(INF, -INF)
+		for sibling: Node in marker.get_parent().get_children():
+			var trap: TrapVolume = sibling as TrapVolume
+			if trap == null:
+				continue
+			var half: Vector3 = trap.size_metres * 0.5
+			var corners: PackedVector3Array = PackedVector3Array()
+			for corner: Vector3 in [
+				Vector3(-half.x, 0.0, -half.z), Vector3(half.x, 0.0, -half.z),
+				Vector3(half.x, 0.0, half.z), Vector3(-half.x, 0.0, half.z),
+			]:
+				var world: Vector3 = trap.global_transform * corner
+				corners.append(world)
+				var relative: float = wrapf(_bearing_of(world) - reference, -PI, PI)
+				low = minf(low, relative)
+				high = maxf(high, relative)
+			band = _widen_band(band, corners)
+		if is_finite(band.x):
+			_lake_spans.append({
+				"from": reference + low, "to": reference + high,
+				"height": marker.global_position.y, "near": band.x, "far": band.y,
+			})
+	_declared_spans = _lake_spans.size()
 
 
-static func _find_lake_marker(node: Node) -> Node3D:
+static func _collect_lake_markers(node: Node, found: Array[Node3D]) -> void:
 	if node.name == LAKE_SURFACE_MARKER and node is Node3D:
-		return node as Node3D
+		found.append(node as Node3D)
 	for child: Node in node.get_children():
-		var found: Node3D = _find_lake_marker(child)
-		if found != null:
-			return found
-	return null
+		_collect_lake_markers(child, found)
 
 
-## The lake is the biggest run of platform islands -- islands standing wholly in a trap -- that
-## sit within LAKE_SPAN_PAD_DEGREES of each other. Sets the span they and their traps cover.
-func _find_lake_span(islands: Array[Dictionary]) -> bool:
+## Every run of platform islands -- islands standing wholly in a trap -- that sit within
+## LAKE_SPAN_PAD_DEGREES of each other, as one span apiece. A run of one is a rock nothing
+## hops to; it is left carved out. Runs already inside a declared span are that span's.
+func _find_lake_spans(islands: Array[Dictionary]) -> void:
 	var biggest: int = 0
 	for island: Dictionary in islands:
 		biggest = maxi(biggest, int(island["polygons"]))
@@ -1025,44 +1125,72 @@ func _find_lake_span(islands: Array[Dictionary]) -> bool:
 			continue
 		if int(island["over"]) * 2 < int(island["polygons"]):
 			continue
-		island["bearing"] = _bearing_of(_root_transform * (island["centre"] as Vector3))
+		var centre: Vector3 = _root_transform * (island["centre"] as Vector3)
+		if is_in_lake_span(centre):
+			continue
+		island["bearing"] = _bearing_of(centre)
+
 		platforms.append(island)
 	if platforms.is_empty():
-		return false
+		return
 	platforms.sort_custom(func(x: Dictionary, y: Dictionary) -> bool:
 		return float(x["bearing"]) < float(y["bearing"]))
 	var gap: float = deg_to_rad(LAKE_SPAN_PAD_DEGREES * 2.0)
 	var run_from: int = 0
-	var best_from: int = 0
-	var best_to: int = 0
 	for index: int in range(1, platforms.size() + 1):
 		var broken: bool = index == platforms.size() \
 			or float(platforms[index]["bearing"]) - float(platforms[index - 1]["bearing"]) > gap
 		if not broken:
 			continue
-		if index - run_from > best_to - best_from:
-			best_from = run_from
-			best_to = index
+		if index - run_from > 1:
+			_append_span(platforms, run_from, index)
 		run_from = index
-	var reference: float = float(platforms[best_from]["bearing"])
+
+
+## One span over platforms [param from, param to), reaching over their traps too.
+func _append_span(platforms: Array[Dictionary], from: int, to: int) -> void:
+	var reference: float = float(platforms[from]["bearing"])
 	var low: float = 0.0
 	var high: float = 0.0
+	# The span's height is the LAVA's, taken from the traps the platforms stand
+	# in, and not the platforms' own: a foothold is a thing that stands clear of
+	# the surface, so measuring the surface at the top of a boulder would rule
+	# every boulder out of its own lake.
 	var height: float = 0.0
-	for index: int in range(best_from, best_to):
+	var surfaces: int = 0
+	var band: Vector2 = Vector2(INF, -INF)
+	for index: int in range(from, to):
 		var island: Dictionary = platforms[index]
 		var relative: float = wrapf(float(island["bearing"]) - reference, -PI, PI)
 		low = minf(low, relative)
 		high = maxf(high, relative)
-		height += (_root_transform * (island["centre"] as Vector3)).y
 		for trap: int in island["traps"] as Dictionary:
-			var bearing: float = wrapf(_bearing_of((_trap_boxes[trap] as Dictionary)["centre"]) - reference, -PI, PI)
-			low = minf(low, bearing)
-			high = maxf(high, bearing)
-	_lake_from = reference + low
-	_lake_to = reference + high
-	_lake_height = height / float(best_to - best_from)
-	_has_lake = true
-	return true
+			var box: Dictionary = _trap_boxes[trap]
+			var centre: Vector3 = box["centre"]
+			var half: Vector3 = box["kill_half"]
+			var corners: PackedVector3Array = PackedVector3Array()
+			var world: Transform3D = (box["inverse"] as Transform3D).affine_inverse()
+			for corner: Vector3 in [
+				Vector3(-half.x, 0.0, -half.z), Vector3(half.x, 0.0, -half.z),
+				Vector3(half.x, 0.0, half.z), Vector3(-half.x, 0.0, half.z),
+			]:
+				var point: Vector3 = world * corner
+				corners.append(point)
+				var bearing: float = wrapf(_bearing_of(point) - reference, -PI, PI)
+				low = minf(low, bearing)
+				high = maxf(high, bearing)
+			band = _widen_band(band, corners)
+			height += centre.y if bool(box["feet"]) else centre.y + half.y
+			surfaces += 1
+	if surfaces == 0:
+		return
+	_lake_spans.append({
+		"from": reference + low,
+		"to": reference + high,
+		"height": height / float(surfaces),
+		"near": band.x,
+		"far": band.y,
+	})
 
 
 ## Mesh polygons joined edge to edge, with each island's boundary edges, centre and how many of

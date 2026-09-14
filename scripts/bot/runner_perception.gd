@@ -454,16 +454,26 @@ func _threat_within_view() -> bool:
 
 ## Whether a clear line runs between two points, on the mask the rifle shoots on.
 func _has_line_of_sight(from: Vector3, to: Vector3) -> bool:
+	return sight_hit(from, to).is_empty()
+
+
+## The first thing a shot from [param from] to [param to] would strike, or {}.
+## Public because [RunnerCoverFinder] needs WHERE the line was blocked and not
+## only that it was: the surface it hit is the near face of a piece of cover,
+## and the standing point behind it is the one the runner wants.
+func sight_hit(from: Vector3, to: Vector3) -> Dictionary:
+	if _body == null:
+		return {}
 	var space: PhysicsDirectSpaceState3D = _body.get_world_3d().direct_space_state
 	if space == null:
-		return false
+		return {}
 
 	var query: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(from, to)
 	query.collision_mask = _sight_mask()
 	query.collide_with_areas = false
 	query.collide_with_bodies = true
 	query.exclude = [_body.get_rid(), _threat.get_rid()] if _threat != null else [_body.get_rid()]
-	return space.intersect_ray(query).is_empty()
+	return space.intersect_ray(query)
 
 
 ## Whether a clear line runs from an arbitrary point on the deck to the guard.
@@ -473,7 +483,7 @@ func _has_line_of_sight(from: Vector3, to: Vector3) -> bool:
 func has_clear_line(from: Vector3, to: Vector3) -> bool:
 	if _body == null:
 		return false
-	return _has_line_of_sight(from, to)
+	return sight_hit(from, to).is_empty()
 
 
 ## The mask a shot travels on, so "in cover" means the same thing to the runner
