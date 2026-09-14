@@ -481,3 +481,69 @@ static func copy_rules(from: MatchRules, to: MatchRules) -> void:
 	for field: String in rules_field_names(from):
 		to.set(field, from.get(field))
 	to.reload_seconds_by_turn = from.reload_seconds_by_turn
+
+
+# --- Decoy: authority to everyone ---------------------------------------------
+
+## Wire version of the decoy transform, in its own byte.
+##
+## The one message added after the rest of the format was first written, and
+## the only one a build can meet without knowing whether it speaks it: it
+## arrives on a channel of its own, from a host that may be older than the
+## client reading it. A wrong version is dropped rather than decoded.
+const DECOY_VERSION: int = 1
+
+## Bytes in a packed decoy transform: u8 version, u8 seat and epoch, 3 floats
+## and a u16 yaw. Sixteen, which is the budget -- the hologram streams at the
+## simulation rate rather than the snapshot rate, so it is the one message
+## sized against the tick.
+const DECOY_MOVE_SIZE: int = 16
+
+## Spawns before the epoch wraps. Five bits, beside the three a seat needs: it
+## only has to outlive a stale packet, not a match.
+const DECOY_EPOCH_MODULUS: int = 32
+
+const _DECOY_SEAT_BITS: int = 3
+const _DECOY_SEAT_MASK: int = (1 << _DECOY_SEAT_BITS) - 1
+
+## Yaw is quantised to a u16 over a full turn: a tenth of a milliradian, which
+## is finer than the body's own yaw survives a snapshot at.
+const _DECOY_YAW_STEPS: int = 1 << 16
+
+
+## One hologram's transform. [param epoch] names the spawn it belongs to, so a
+## packet overtaken by its own despawn can be told from a live one.
+static func pack_decoy_move(
+	seat_index: int, epoch: int, position: Vector3, yaw: float
+) -> PackedByteArray:
+	var buffer: StreamPeerBuffer = StreamPeerBuffer.new()
+	buffer.put_u8(DECOY_VERSION)
+	buffer.put_u8(
+		(seat_index & _DECOY_SEAT_MASK)
+		| ((epoch % DECOY_EPOCH_MODULUS) << _DECOY_SEAT_BITS)
+	)
+	buffer.put_float(position.x)
+	buffer.put_float(position.y)
+	buffer.put_float(position.z)
+	buffer.put_u16(int(fposmod(yaw, TAU) / TAU * float(_DECOY_YAW_STEPS)) % _DECOY_YAW_STEPS)
+	return buffer.data_array
+
+
+## Decode into [param out], filling its seat, position and yaw. Returns the
+## epoch, or -1 when the payload is not a decoy transform this build speaks.
+static func unpack_decoy_move(payload: PackedByteArray, out: PlayerState) -> int:
+	if payload.size() != DECOY_MOVE_SIZE:
+		return -1
+	var buffer: StreamPeerBuffer = StreamPeerBuffer.new()
+	buffer.data_array = payload
+	if buffer.get_u8() != DECOY_VERSION:
+		return -1
+	var tag: int = buffer.get_u8()
+	var position: Vector3 = Vector3(buffer.get_float(), buffer.get_float(), buffer.get_float())
+	var yaw: float = float(buffer.get_u16()) / float(_DECOY_YAW_STEPS) * TAU
+	if not position.is_finite():
+		return -1
+	out.seat_index = tag & _DECOY_SEAT_MASK
+	out.position = position
+	out.yaw = yaw
+	return tag >> _DECOY_SEAT_BITS

@@ -133,13 +133,19 @@ func present(
 	_cooldown = maxf(cooldown, 0.0)
 	if which == _presented:
 		return
-	_teardown()
+	# A hologram already placed by the authority's own spawn message is kept:
+	# tearing it down here would put the replacement back at this body's
+	# position for a frame, which is the drift this machine is being told where
+	# the real one is in order to avoid.
+	var keep_decoy: bool = which == MatchRules.RunnerAbility.HOLOGRAM and get_decoy() != null
+	_teardown(keep_decoy)
 	_presented = which
 	match which:
 		MatchRules.RunnerAbility.BUBBLE_SHIELD:
 			_raise_shield()
 		MatchRules.RunnerAbility.HOLOGRAM:
-			_spawn_decoy()
+			if not keep_decoy:
+				_spawn_decoy(true)
 		MatchRules.RunnerAbility.ARMOR_LOCK:
 			_raise_shell()
 		MatchRules.RunnerAbility.ACTIVE_CAMO:
@@ -196,13 +202,14 @@ func _end() -> void:
 	_cooldown = maxf(rules.ability_cooldown_seconds, 0.0) if rules != null else 0.0
 
 
-func _teardown() -> void:
+func _teardown(keep_decoy: bool = false) -> void:
 	if _shield != null:
 		_shield.queue_free()
 		_shield = null
-	if is_instance_valid(_decoy):
-		_decoy.queue_free()
-	_decoy = null
+	if not keep_decoy:
+		if is_instance_valid(_decoy):
+			_decoy.queue_free()
+		_decoy = null
 	if _shell != null:
 		_shell.queue_free()
 		_shell = null
@@ -241,7 +248,10 @@ func _raise_shield() -> void:
 
 # --- Hologram -----------------------------------------------------------------
 
-func _spawn_decoy() -> void:
+## Place the hologram. [param mirrored] builds the client's copy: the same body
+## on the same layer, with no intent and no physics, moved only by the
+## authority's transforms.
+func _spawn_decoy(mirrored: bool = false) -> void:
 	if match_controller == null or match_controller.runner_scene == null:
 		return
 	var decoy: PlayerController = match_controller.runner_scene.instantiate() as PlayerController
@@ -252,10 +262,11 @@ func _spawn_decoy() -> void:
 		if child is RingRunner or child is IntentSource:
 			decoy.remove_child(child)
 			child.free()
-	var source: DecoyIntent = DecoyIntent.new()
-	source.name = "DecoyInput"
-	decoy.add_child(source)
-	decoy.intent_source = source
+	if not mirrored:
+		var source: DecoyIntent = DecoyIntent.new()
+		source.name = "DecoyInput"
+		decoy.add_child(source)
+		decoy.intent_source = source
 	decoy.add_to_group(DECOY_GROUP)
 	var container: Node3D = match_controller.runner_container
 	var ahead: Vector3 = -body.global_transform.basis.z
@@ -267,12 +278,34 @@ func _spawn_decoy() -> void:
 	decoy.collision_layer = DECOY_LAYER
 	decoy.collision_mask = 1
 	container.add_child(decoy)
+	if mirrored:
+		decoy.set_physics_process(false)
 	var mine: MeshInstance3D = _avatar_mesh(body)
 	var theirs: MeshInstance3D = _avatar_mesh(decoy)
 	if mine != null and theirs != null:
 		theirs.material_override = mine.material_override
 		_copy_surfaces(mine, theirs)
 	_decoy = decoy
+
+
+## Put the mirrored hologram where the authority says it is, spawning it if this
+## machine has not drawn it yet. The client's whole view of where a decoy is.
+func present_decoy(position: Vector3, yaw: float) -> void:
+	if get_decoy() == null:
+		_decoy = null
+		_spawn_decoy(true)
+	if _decoy == null:
+		return
+	_decoy.global_position = position
+	_decoy.rotation.y = yaw
+
+
+## Drop the mirrored hologram: the authority's expiry, or a shot that shattered
+## it, replayed here.
+func clear_decoy() -> void:
+	if is_instance_valid(_decoy):
+		_decoy.queue_free()
+	_decoy = null
 
 
 ## A decoy the rifle has hit is gone.
