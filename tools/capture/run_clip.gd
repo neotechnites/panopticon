@@ -85,6 +85,14 @@ const AUDIO_MUTED_DB: float = -60.0
 ## The deck the prisoners run on; a POV body far off it is not standing on it.
 const DECK_Y: float = 23.0
 
+## A body pressed into the pit wall is still "standing" and still "running"; it
+## just never moves again. A clip drops one that has not travelled in this long.
+const STUCK_SECONDS: float = 2.5
+const STUCK_SPEED: float = 0.6
+## The walkable band. The field is dealt sideways across the track and the far
+## edge of the deal can land inside the pit wall, where a body sticks for good.
+const LANE_BAND := Vector2(47.8, 56.8)
+
 const EXIT_OK: int = 0
 const EXIT_BROKEN: int = 2
 
@@ -102,6 +110,8 @@ var _controller: MatchController = null
 var _stage: String = ""
 var _pov: String = ""
 var _pov_body: Node3D = null
+var _stuck_for: float = 0.0
+var _seat: BotTowerSeat = null
 var _fill: OmniLight3D = null
 var _eye: Node3D = null
 var _chain: Node = null
@@ -221,16 +231,28 @@ func _build() -> void:
 	# chainrun wants no seat at all: an unmanned tower never fires, so no round
 	# ends and the staged body is still on the chain when the path finishes.
 	if _stage != "chainrun":
-		var seat: BotTowerSeat = BotTowerSeat.new()
-		seat.name = "ClipTowerSeat"
-		root.add_child(seat)
-		seat.install(_controller, _shooter_profile(), seed_value)
+		_seat = BotTowerSeat.new()
+		_seat.name = "ClipTowerSeat"
+		root.add_child(_seat)
+		_seat.install(_controller, _shooter_profile(), seed_value)
 	else:
 		_disarm_traps(match_root, ^"Sections/S2_LavaShelf")
 	# A clip outlives the match it is filming: a won match freezes every body,
 	# and a frozen ring is not b-roll.
 	_controller.match_won.connect(func(_winner: MatchParticipant) -> void: _controller.restart())
+	# A resolved ROUND freezes the ring just as a won match does, and a guard
+	# clip is mostly rounds: without this the tower stops moving the moment the
+	# last prisoner is converted and films a still life until the clip ends.
+	_controller.round_resolved.connect(
+		func(_outcome: MatchController.Outcome) -> void:
+			_controller.start_round.call_deferred()
+	)
 	_controller.start_match()
+	# A guard only exists in a round: the race has nobody in the tower, so a
+	# POV clip that waits for one films an empty chamber for a minute, and a
+	# runner filmed in the race is never shot at.
+	if _pov != "":
+		_controller.start_round()
 
 	if _pov == "":
 		_aim_camera(_key_start)
@@ -267,7 +289,7 @@ func _make_it_bots_only(match_root: Node, bots: int) -> void:
 	if _pov != "":
 		# A POV clip is a player's view: it wants the readouts and the camera kick,
 		# and the spectator cut when the body it is riding is shot.
-		for keep: String in ["HUD"]:
+		for keep: String in ["HUD", "FeedbackRig"]:
 			silenced.erase(keep)
 	for path: String in silenced:
 		var node: Node = match_root.get_node_or_null(NodePath(path))
@@ -464,11 +486,17 @@ func _ride_a_body() -> void:
 	# picks a body has to keep deciding whether to stay on it.
 	if _pov_body != null and is_instance_valid(_pov_body) and _is_standing(_pov_body):
 		var riding: Camera3D = _eye_of(_pov_body)
-		if riding != null and riding.current:
+		if riding != null and riding.current and not _is_stuck(_pov_body):
+			_hand_over_the_scope(_pov_body)
 			return
+	if _pov == "guard":
+		_ride_the_guard()
+		return
 	for participant: MatchParticipant in _wanted_participants():
 		var body: PlayerController = participant.body
 		if body == null or not _is_standing(body):
+			continue
+		if body == _pov_body:
 			continue
 		var camera: Camera3D = _eye_of(body)
 		if camera == null:
@@ -476,19 +504,69 @@ func _ride_a_body() -> void:
 		camera.current = true
 		_pov_body = body
 		_wear_the_body(body)
+		_stuck_for = 0.0
+		print("[pov] %5.2f ride %s at %v" % [_elapsed, body.name, body.global_position])
 		return
+
+
+## Ride the body the tower's brain is actually aiming.
+##
+## [method MatchController.get_seat_participant] answers nothing in a bots-only
+## match, so the seat is found from the other end: [TowerShooter] holds the
+## [PlayerController] it drives, and that controller's head camera IS the aim --
+## the brain writes look intent into it every tick, so ADS, the scope, the recoil
+## kick and the reload all reach the lens for real.
+func _ride_the_guard() -> void:
+	if _seat == null:
+		return
+	var shooter: TowerShooter = _seat.get_active_shooter()
+	if shooter == null:
+		return
+	var body: PlayerController = shooter.controller
+	if body == null:
+		return
+	var camera: Camera3D = _eye_of(body)
+	if camera == null:
+		return
+	camera.current = true
+	_pov_body = body
+	_wear_the_body(body)
+	print("[pov] %5.2f guard %s at %v" % [_elapsed, body.name, body.global_position])
 
 
 ## The participants this clip is willing to ride, best first.
 func _wanted_participants() -> Array[MatchParticipant]:
-	if _pov == "guard":
-		var seat: MatchParticipant = _controller.get_seat_participant()
-		return [seat] if seat != null else []
 	var running: Array[MatchParticipant] = []
 	for participant: MatchParticipant in _controller.get_participants():
-		if participant.is_running and not participant.is_ghost:
-			running.append(participant)
+		if not participant.is_running or participant.is_ghost or participant.body == null:
+			continue
+		if not _on_the_lane(participant.body):
+			continue
+		running.append(participant)
+	# The one already going fastest: a body wedged in the pit wall reads as
+	# running for the whole match and is the last thing worth filming.
+	running.sort_custom(
+		func(a: MatchParticipant, b: MatchParticipant) -> bool:
+			return a.body.get_horizontal_speed() > b.body.get_horizontal_speed()
+	)
 	return running
+
+
+## True while [param body] is on the walkable band rather than inside a wall.
+func _on_the_lane(body: Node3D) -> bool:
+	var radius: float = Vector2(body.global_position.x, body.global_position.z).length()
+	return radius >= LANE_BAND.x and radius <= LANE_BAND.y
+
+
+## True once the body being ridden has stopped travelling for good.
+func _is_stuck(body: PlayerController) -> bool:
+	if _pov == "guard":
+		return false
+	if body.get_horizontal_speed() > STUCK_SPEED or not _on_the_lane(body):
+		_stuck_for = 0.0
+		return not _on_the_lane(body)
+	_stuck_for += root.get_process_delta_time()
+	return _stuck_for >= STUCK_SECONDS
 
 
 func _eye_of(body: Node3D) -> Camera3D:
@@ -507,11 +585,42 @@ func _is_standing(body: Node3D) -> bool:
 ## other body whole, and [MatchHud] draws this seat's readout.
 func _wear_the_body(body: PlayerController) -> void:
 	PrisonerAvatar.set_viewed_body(body)
+	_hand_over_the_scope(body)
 	# No fill on a ridden body. Hung at the eye it sits inside the body's own
 	# capsule and washes the whole frame to a flat gradient; the ambient lift in
 	# _light_for_social is what a POV clip gets instead.
 	if _fill != null:
 		_fill.light_energy = 0.0
+
+
+## Draw the scope for the guard being ridden.
+##
+## [ScopeVignette] only paints for the person holding the rifle at this keyboard,
+## which in a bots-only match is nobody. The rifle is reparented onto whoever
+## takes the tower, so it is looked up under the body rather than kept in a path.
+func _hand_over_the_scope(body: Node) -> void:
+	if _pov != "guard":
+		return
+	var rifle: Rifle = _find_kind(body, "Rifle") as Rifle
+	if rifle == null:
+		return
+	var vignette: ScopeVignette = rifle.get_node_or_null(^"ScopeVignette") as ScopeVignette
+	if vignette != null:
+		vignette.set_local_holder(true)
+
+
+## The first node under [param from] whose class is [param wanted].
+func _find_kind(from: Node, wanted: String) -> Node:
+	var pending: Array[Node] = [from]
+	while not pending.is_empty():
+		var node: Node = pending.pop_back()
+		if node.is_class(wanted) or node.get_script() != null and node.get_class() == wanted:
+			return node
+		if node.get_script() != null and String(node.get_script().get_global_name()) == wanted:
+			return node
+		for child: Node in node.get_children():
+			pending.append(child)
+	return null
 
 
 # --- Audio --------------------------------------------------------------------
