@@ -64,6 +64,7 @@ func after_each() -> void:
 			Input.action_release(action)
 	if _hud != null and is_instance_valid(_hud):
 		_hud.set_hud_hidden(false)
+	PrisonerAvatar.release_viewed_body()
 
 
 # --- The wire -----------------------------------------------------------------
@@ -113,24 +114,26 @@ func test_the_view_detaches_from_the_body_and_comes_home() -> void:
 	assert_true(_player_camera.current, "and hands the view back to the body")
 
 
-## A body nobody is looking out of sits on the owner-hidden layer, which is the
-## wrong thing to do while the pilot is looking AT it from ten metres away.
+## The pilot is looking AT their own body from ten metres away: it has to be
+## drawn, and drawn whole, head included.
 func test_the_body_is_drawn_while_a_camera_that_is_not_its_own_watches_it() -> void:
-	var stowed: int = _avatar.visual_layers
-	assert_eq_int(
-		stowed & CAMERA_CULL_MASK, 0, "the avatar's own layer is the owner-hidden one",
-	)
+	assert_true(_avatar.is_viewed_first_person(), "the body is the viewed one while the view is home")
+	assert_true(_avatar.is_head_hidden(), "so its own head is out of its own eye")
 
 	_free.set_detached(true)
-	_free.tick(SIM_DELTA)
-	assert_eq_int(
-		_avatar.mesh.layers,
-		stowed | _avatar.first_person_layers,
-		"the whole body is drawn on a layer the cameras keep",
+	_avatar.tick_first_person()
+	assert_false(_avatar.is_viewed_first_person(), "a detached view is nobody's body")
+	assert_false(_avatar.is_head_hidden(), "so the pilot sees their whole body")
+	assert_false(_avatar.is_spine_hidden(), "torso included")
+	assert_gt(
+		float(_avatar.mesh.layers & CAMERA_CULL_MASK),
+		0.0,
+		"on a layer the cameras keep",
 	)
 
 	_free.set_detached(false)
-	assert_eq_int(_avatar.mesh.layers, stowed, "and goes back to owner-hidden on the way out")
+	_avatar.tick_first_person()
+	assert_true(_avatar.is_head_hidden(), "and the head goes back inside on the way home")
 
 
 ## One second of forward is one second of speed, along the camera's own facing.
@@ -231,7 +234,6 @@ func test_the_shipped_match_wires_a_free_camera_and_leaves_it_inert() -> void:
 	assert_same(shipped.camera, _match.get_node("FreeCamera/Camera"), "it has its own camera")
 	assert_same(shipped.player_camera, _player_camera, "it knows the camera to hand back to")
 	assert_same(shipped.human_input, _human_input, "and the device to freeze")
-	assert_same(shipped.avatar, _avatar, "and the body to draw")
 	assert_same(shipped.controller, _controller, "and the match to ask who is dead")
 	assert_same(_hud.free_camera, shipped, "and the HUD reads its tag off that same node")
 
@@ -244,7 +246,6 @@ func _build_camera() -> void:
 	_free.headless_inert = false
 	_free.player_camera = _player_camera
 	_free.human_input = _human_input
-	_free.avatar = _avatar
 	_free.controller = _controller
 
 	_camera = Camera3D.new()

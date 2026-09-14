@@ -29,12 +29,6 @@ signal detached_changed(detached: bool)
 ## The local device, frozen while the view is out.
 @export var human_input: HumanIntentSource
 
-## The local body's costume. While the view is detached its mesh is drawn on
-## [member PrisonerAvatar.first_person_layers] with no bone collapsed, so the
-## pilot sees their whole body in third person instead of the owner-hidden layer
-## a body sits on when nobody is looking out of it.
-@export var avatar: PrisonerAvatar
-
 ## Asked whether the pilot is dead, so this node can get out of the death cam's
 ## way. Optional: without one it simply never stands down on its own.
 @export var controller: MatchController
@@ -143,10 +137,6 @@ func tick(delta: float) -> void:
 		return
 	_apply_look()
 	_fly(delta)
-	# Every frame rather than on the edge: PrisonerAvatar writes the same
-	# property from its own poll, and this is the cheaper of the two ways to be
-	# sure of who wrote it last.
-	_draw_body(true)
 
 
 # --- Internals ----------------------------------------------------------------
@@ -161,15 +151,17 @@ func _take_view() -> void:
 	_yaw = facing.y
 	_pitch = clampf(facing.x, -PITCH_LIMIT, PITCH_LIMIT)
 	camera.current = true
+	# Nobody is being looked out of now, so every body -- the pilot's included
+	# -- goes third person. PrisonerAvatar applies that itself, per body.
+	PrisonerAvatar.set_viewed_body(null)
 	if human_input != null and is_instance_valid(human_input):
 		human_input.set_frozen(true)
 
 
-## Order matters: the body goes back on its owner-hidden layer BEFORE the player
-## camera is current again, so [method PrisonerAvatar._tick_first_person] still
-## has an edge to fire and re-add the first person layer on.
+## Give the claim up before the flags move: with none standing, the view goes
+## back to whichever head camera is current, which is the one set below.
 func _give_view_back() -> void:
-	_draw_body(false)
+	PrisonerAvatar.release_viewed_body()
 	camera.current = false
 	if player_camera != null and is_instance_valid(player_camera):
 		player_camera.current = true
@@ -188,16 +180,6 @@ func _stand_down_for_death() -> bool:
 		return false
 	set_detached(false)
 	return true
-
-
-## Draw the body for a camera that is not its own, or put it back.
-func _draw_body(third_person: bool) -> void:
-	if avatar == null or not is_instance_valid(avatar) or avatar.mesh == null:
-		return
-	if third_person:
-		avatar.mesh.layers = avatar.visual_layers | avatar.first_person_layers
-	else:
-		avatar.mesh.layers = avatar.visual_layers
 
 
 func _apply_look() -> void:

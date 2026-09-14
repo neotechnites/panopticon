@@ -21,7 +21,7 @@ extends Control
 
 ## Which readout is being drawn.
 enum Role {
-	## No human in this match, or the readout is switched off. Draws nothing.
+	## Nobody is being viewed, or the readout is switched off. Draws nothing.
 	NONE,
 	## Holding the tower.
 	GUARD,
@@ -158,23 +158,23 @@ func tick() -> void:
 
 # --- What the player is -------------------------------------------------------
 
-## Which readout the human in this match should be looking at. On a client this
+## Which readout the seat being viewed should be looking at. On a client this
 ## is the mirror's own participant, so the role follows the seat like the host's.
 func get_role() -> Role:
 	if controller == null or not _readout().enabled:
 		return Role.NONE
-	var human: MatchParticipant = controller.get_human_participant()
-	if human == null:
+	var viewed: MatchParticipant = controller.get_viewed_participant()
+	if viewed == null:
 		return Role.NONE
-	if human.is_shooter:
+	if viewed.is_shooter:
 		return Role.GUARD
 	# Checked before is_running: a ghost is made, flags and all, on the tick
 	# they are shot.
-	if human.is_ghost:
+	if viewed.is_ghost:
 		return Role.GHOST
-	if human.is_finisher and human.is_running:
+	if viewed.is_finisher and viewed.is_running:
 		return Role.FINISHER
-	if human.is_running:
+	if viewed.is_running:
 		return Role.PRISONER
 	return Role.SPECTATOR
 
@@ -237,8 +237,8 @@ func _status_text(role: Role) -> String:
 		parts.append("TOWER: %s" % (seat.display_name if seat != null else "--"))
 	else:
 		parts.append("%s %d" % [tuning.prisoners_word, controller.get_runners_remaining()])
-		var human: MatchParticipant = controller.get_human_participant()
-		parts.append("%s %d" % [tuning.turn_word, human.turns_in_tower if human != null else 0])
+		var viewed: MatchParticipant = controller.get_viewed_participant()
+		parts.append("%s %d" % [tuning.turn_word, viewed.turns_in_tower if viewed != null else 0])
 	return tuning.separator.join(parts)
 
 
@@ -283,10 +283,10 @@ func _write_pips(wanted: bool) -> void:
 	_show(pips_row, wanted)
 	if not wanted or pips_row == null:
 		return
-	var human: MatchParticipant = controller.get_human_participant()
+	var viewed: MatchParticipant = controller.get_viewed_participant()
 	var maximum: float = maxf(float(controller.get_rules().finisher_health), 1.0)
 	var lit: int = clampi(
-		int(ceilf(float(human.health if human != null else 0) / maximum * float(PIP_COUNT))),
+		int(ceilf(float(viewed.health if viewed != null else 0) / maximum * float(PIP_COUNT))),
 		0,
 		PIP_COUNT,
 	)
@@ -312,11 +312,11 @@ func _write_power(wanted: bool) -> void:
 
 ## The power's name and where it is in its cycle.
 func _ability_text() -> String:
-	var human: MatchParticipant = controller.get_human_participant()
+	var viewed: MatchParticipant = controller.get_viewed_participant()
 	var rules: MatchRules = controller.get_rules()
-	if human == null or rules.runner_ability == MatchRules.RunnerAbility.NONE:
+	if viewed == null or rules.runner_ability == MatchRules.RunnerAbility.NONE:
 		return ""
-	var ability: RunnerPower = RunnerPower.of(human.body)
+	var ability: RunnerPower = RunnerPower.of(viewed.body)
 	if ability == null:
 		return ""
 	var title: String = MatchRules.runner_ability_title(rules.runner_ability).to_upper()
@@ -330,9 +330,9 @@ func _ability_text() -> String:
 ## How full the power bar is: the run while it is active, the wait while it is
 ## cooling, full when it is ready.
 func _ability_fill() -> float:
-	var human: MatchParticipant = controller.get_human_participant()
+	var viewed: MatchParticipant = controller.get_viewed_participant()
 	var rules: MatchRules = controller.get_rules()
-	var ability: RunnerPower = RunnerPower.of(human.body) if human != null else null
+	var ability: RunnerPower = RunnerPower.of(viewed.body) if viewed != null else null
 	if ability == null:
 		return 0.0
 	if ability.is_active():
@@ -343,23 +343,23 @@ func _ability_fill() -> float:
 	return clampf(1.0 - cooling / maxf(rules.ability_cooldown_seconds, 0.01), 0.0, 1.0)
 
 
-## The boost on the human's own body, or an empty string.
+## The boost on the viewed body, or an empty string.
 func _speed_boost_text() -> String:
-	var human: MatchParticipant = controller.get_human_participant()
-	if human == null or human.body == null:
+	var viewed: MatchParticipant = controller.get_viewed_participant()
+	if viewed == null or viewed.body == null:
 		return ""
-	var remaining: float = human.body.get_speed_boost_remaining()
+	var remaining: float = viewed.body.get_speed_boost_remaining()
 	if remaining <= 0.0:
 		return ""
-	return "SPEED x%d · %.1fs" % [int(human.body.get_speed_boost_multiplier()), remaining]
+	return "SPEED x%d · %.1fs" % [int(viewed.body.get_speed_boost_multiplier()), remaining]
 
 
-## Dev toggles on the human's body: T turbo, Y invincible. Empty when off.
+## Dev toggles on the viewed body: T turbo, Y invincible. Empty when off.
 func _dev_text() -> String:
-	var human: MatchParticipant = controller.get_human_participant()
-	if human == null or human.body == null:
+	var viewed: MatchParticipant = controller.get_viewed_participant()
+	if viewed == null or viewed.body == null:
 		return ""
-	var intent: MoveIntent = human.body.get_intent()
+	var intent: MoveIntent = viewed.body.get_intent()
 	var flags: PackedStringArray = PackedStringArray()
 	if intent.godmode:
 		flags.append("INVINCIBLE")
@@ -380,11 +380,11 @@ func _write_dev() -> void:
 # --- The centre line ----------------------------------------------------------
 
 func _on_round_resolved(outcome: MatchController.Outcome) -> void:
-	var human: MatchParticipant = controller.get_human_participant()
-	if human == null:
+	var viewed: MatchParticipant = controller.get_viewed_participant()
+	if viewed == null:
 		return
 	var tower_held: bool = outcome == MatchController.Outcome.WIN
-	_flash("ROUND WON" if tower_held == human.is_shooter else "ROUND LOST")
+	_flash("ROUND WON" if tower_held == viewed.is_shooter else "ROUND LOST")
 
 
 func _on_race_started() -> void:
