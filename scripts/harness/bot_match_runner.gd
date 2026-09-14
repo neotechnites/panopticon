@@ -137,7 +137,7 @@ func _physics_process(_delta: float) -> void:
 	if _telemetry.get_ticks() >= _max_ticks:
 		_stop("UNRESOLVED", (
 			"hit the tick ceiling of %d ticks (%.1f simulated seconds) in phase %s, round %d"
-			% [
+			% [  # hot-ok: runs once, on the tick the match stops
 				_max_ticks,
 				float(_max_ticks) / float(SIM_HZ),
 				controller.get_phase_name(),
