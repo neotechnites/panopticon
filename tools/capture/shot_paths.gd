@@ -20,6 +20,7 @@ const EYE: float = 1.65
 static func names() -> PackedStringArray:
 	return PackedStringArray([
 		"pit_orbit", "s1_cave", "s2_chain", "s4_run", "s5_fall", "guard_scope",
+		"lake_fall", "scope_hunt",
 	])
 
 
@@ -39,6 +40,10 @@ static func get_shot(shot_name: String) -> Dictionary:
 			return _shot(shot_name, _s5_fall())
 		"guard_scope":
 			return _shot(shot_name, _guard_scope())
+		"lake_fall":
+			return _shot(shot_name, _lake_fall())
+		"scope_hunt":
+			return _shot(shot_name, _scope_hunt())
 	return {}
 
 
@@ -91,12 +96,15 @@ static func _s1_cave() -> Array:
 	return keys
 
 
-## Low tracking shot along the S2 boulder chain over the lava, 75-130 deg.
+## Low tracking shot along the S2 boulder chain over the lava, 76-124 deg.
+##
+## Flown outside the chain so the landings (r 54.7) sit centred against the cave
+## wall and the tower, which is what a portrait frame needs behind a jump.
 static func _s2_chain() -> Array:
 	var keys: Array = []
 	for step: int in 5:
-		var angle: float = 74.0 + float(step) * 14.0
-		keys.append(_key(float(step) * 4.0, angle, 55.2, 1.6, angle + 12.0, 57.0, 0.8, 60.0))
+		var angle: float = 76.0 + float(step) * 10.0
+		keys.append(_key(float(step) * 3.25, angle, 56.6, 1.2, angle + 8.0, 54.7, 0.3, 58.0))
 	return keys
 
 
@@ -129,6 +137,28 @@ static func _guard_scope() -> Array:
 		))
 	return keys
 
+
+## Walk to the S5 lake lip, then tilt up the lava fall on the outer wall.
+##
+## The channel runs 292-338 deg with its floor at y 22.7; the fall tops out at
+## y 28.8 against the outer wall at r 57.3.
+static func _lake_fall() -> Array:
+	return [
+		_key(0.0, 268.0, 53.0, EYE, 279.0, 55.0, 0.3, 55.0),
+		_key(4.0, 275.0, 53.0, EYE, 287.0, 56.0, 0.5, 50.0),
+		_key(8.0, 281.0, 53.0, EYE, 294.0, 57.0, 1.5, 45.0),
+		_key(12.0, 286.0, 53.0, 1.9, 299.0, 57.3, 5.8, 40.0),
+	]
+
+
+## The tower eye over the S1 spires, zooming from a wide sweep to a scope.
+static func _scope_hunt() -> Array:
+	return [
+		_key(0.0, 8.0, 11.0, 5.0, 15.0, 52.0, 1.0, 42.0),
+		_key(3.0, 8.0, 11.0, 5.0, 19.0, 52.0, 1.0, 24.0),
+		_key(7.0, 8.0, 11.0, 5.0, 25.0, 52.0, 1.0, 15.0),
+		_key(13.0, 8.0, 11.0, 5.0, 33.0, 52.0, 1.0, 13.0),
+	]
 
 # --- Building keys ------------------------------------------------------------
 

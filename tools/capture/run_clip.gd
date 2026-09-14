@@ -12,6 +12,7 @@ extends SceneTree
 ## [codeblock]
 ## --shot=NAME      a path from tools/capture/shot_paths.gd  (required)
 ## --seconds=F      how long to fly it; 0 means the shot's own duration
+## --delay=F        seconds held on the first key first, so the match catches up
 ## --seed=N         match seed; 0 means entropy               (default 20260930)
 ## --bots=N         prisoners on the ring, plus one in the tower  (default 7)
 ## --out=DIR        directory the clip is destined for; created if missing
@@ -53,6 +54,7 @@ var _keys: Array = []
 var _key_start: float = 0.0
 var _key_span: float = 0.0
 var _seconds: float = 0.0
+var _delay: float = 0.0
 var _elapsed: float = 0.0
 var _camera: Camera3D = null
 var _controller: MatchController = null
@@ -70,6 +72,7 @@ func _initialize() -> void:
 	_options = BotHarness.parse_arguments({
 		"shot": "",
 		"seconds": 0.0,
+		"delay": 0.0,
 		"seed": BotHarness.DEFAULT_SEED,
 		"bots": 7,
 		"out": "",
@@ -89,9 +92,12 @@ func _process(delta: float) -> bool:
 		return false
 
 	_elapsed += delta
-	var progress: float = clampf(_elapsed / _seconds, 0.0, 1.0)
+	if _elapsed < _delay:
+		_aim_camera(_key_start)
+		return false
+	var progress: float = clampf((_elapsed - _delay) / _seconds, 0.0, 1.0)
 	_aim_camera(_key_start + progress * _key_span)
-	if _elapsed >= _seconds:
+	if _elapsed >= _delay + _seconds:
 		_hush()
 		_done = true
 	return false
@@ -116,6 +122,7 @@ func _build() -> void:
 	_key_span = float(_keys[_keys.size() - 1]["t"]) - _key_start
 	_seconds = float(_options.get("seconds", 0.0))
 	_seconds = maxf(_seconds, 0.1) if _seconds > 0.0 else float(shot["duration"])
+	_delay = maxf(float(_options.get("delay", 0.0)), 0.0)
 
 	var seed_value: int = int(_options.get("seed", 0))
 	if seed_value != 0:
@@ -250,9 +257,10 @@ func _announce(shot: Dictionary) -> void:
 	if not out_dir.is_empty() and not DirAccess.dir_exists_absolute(out_dir):
 		DirAccess.make_dir_recursive_absolute(out_dir)
 	var recording: bool = OS.has_feature("movie")
-	print("shot %s: %.1f s over %d keys, %d bots, seed %d%s" % [
+	print("shot %s: %.1f s (after %.1f s held) over %d keys, %d bots, seed %d%s" % [
 		shot["name"],
 		_seconds,
+		_delay,
 		_keys.size(),
 		int(_options.get("bots", 7)),
 		int(_options.get("seed", 0)),
