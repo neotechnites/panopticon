@@ -618,6 +618,77 @@ enum RunnerAbility {
 ## per-participant COPY of the profile, never into the profile itself.
 @export var ai_shooter_aim_seed: int = 0
 
+# --- Balance ------------------------------------------------------------------
+#
+# Ryan's levers, in one place. Every default here IS today's behaviour, so a
+# match that touches none of them plays exactly as it did before they existed.
+# They exist to move the balance between the level and the two roles; none of
+# them is a blunt nerf on its own.
+
+## Peak angular amplitude of the scope's figure-eight drift, in degrees.
+## [b]LIVE[/b], default 0.0 = no drift, which is today's aim.
+##
+## Applied to the node the shot is CAST FROM, not to a camera overlay, so the
+## drift is in the line the authority resolves as well as in the picture. See
+## [RifleSway].
+@export_range(0.0, 15.0, 0.05, "or_greater") var scope_sway_degrees: float = 0.0
+
+## Cycles per second of that figure-eight. [b]LIVE.[/b] One cycle is one full
+## horizontal sweep and two vertical ones; slow is the point.
+@export_range(0.02, 2.0, 0.01) var scope_sway_hz: float = 0.25
+
+## Seconds of held aim over which the drift decays to nothing. [b]LIVE[/b],
+## default 0.0 = it never settles, which is what makes the amplitude above the
+## only dial until somebody wants breath-holding.
+@export_range(0.0, 30.0, 0.1, "or_greater") var scope_sway_settle_seconds: float = 0.0
+
+## Which tower model the arena raises. [b]LIVE[/b], default 1 = the arches,
+## which is what the shipped arena already shows. See [code]TowerVariant[/code].
+@export_enum("carved", "arches") var tower_variant: int = 1
+
+## How many of the tower's eight openings stay open. [b]LIVE[/b], default
+## [constant TOWER_WINDOW_COUNT] = all of them, which is today's tower.
+##
+## The rest are filled with rock plugs added at runtime; no model changes. The
+## ones left open are spread evenly round the drum rather than taken off one
+## side -- see [code]TowerVariant.is_window_open[/code].
+@export_range(0, 8, 1) var tower_open_windows: int = TOWER_WINDOW_COUNT
+
+## Extra seconds added to the reload after a shot that hit nobody. [b]LIVE[/b],
+## default 0.0 = a miss costs what a hit costs, which is today's rifle.
+##
+## Spent once, on the cycle that follows the miss; it does not accumulate and it
+## does not survive into the next shot. A shot that struck the deck, the cover or
+## the tower is a miss for this purpose: what counts is that no prisoner was hit.
+@export_range(0.0, 15.0, 0.1, "or_greater") var guard_miss_penalty_seconds: float = 0.0
+
+## Whether a confirmed hit raises the guard's hitmarker. [b]LIVE[/b], default
+## true, which is today's feedback. Off leaves the guard to read the ring.
+@export var guard_hit_marker: bool = true
+
+## Multiplier on a prisoner's ground speed. [b]LIVE[/b], default 1.0 = the
+## [MovementProfile]'s own pace.
+##
+## Scales the WISH SPEED at the point of use and nothing else -- the same seam a
+## ghost's pace uses -- so acceleration, friction and the air-strafe rule are
+## untouched and a fast prisoner is still the same character controller.
+@export_range(0.25, 3.0, 0.05, "or_greater") var runner_speed_multiplier: float = 1.0
+
+## Multiplier on a prisoner's jump HEIGHT. [b]LIVE[/b], default 1.0.
+##
+## Height, not launch speed: apex goes as the square of the launch, so the body
+## leaves the ground at [code]sqrt(this)[/code] times
+## [member MovementProfile.jump_velocity] and a 2.0 here is genuinely twice as
+## high.
+@export_range(0.25, 4.0, 0.05, "or_greater") var runner_jump_multiplier: float = 1.0
+
+## Multiplier on [member ability_cooldown_seconds]. [b]LIVE[/b], default 1.0.
+@export_range(0.0, 5.0, 0.05, "or_greater") var ability_cooldown_multiplier: float = 1.0
+
+
+## Openings the tower drum carries. A fact about the model, restated here
+## because [member tower_open_windows] is bounded by it.
+const TOWER_WINDOW_COUNT: int = 8
 
 # --- Derived values -----------------------------------------------------------
 

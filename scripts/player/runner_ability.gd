@@ -193,7 +193,13 @@ func _end() -> void:
 	_teardown()
 	_active = MatchRules.RunnerAbility.NONE
 	_remaining = 0.0
-	_cooldown = maxf(rules.ability_cooldown_seconds, 0.0) if rules != null else 0.0
+	# MatchRules.ability_cooldown_multiplier is the lever; the seconds are the
+	# design value it scales.
+	_cooldown = (
+		maxf(rules.ability_cooldown_seconds * rules.ability_cooldown_multiplier, 0.0)
+		if rules != null
+		else 0.0
+	)
 
 
 func _teardown() -> void:

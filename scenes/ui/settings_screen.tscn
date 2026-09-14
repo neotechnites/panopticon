@@ -149,6 +149,172 @@ unique_name_in_owner = true
 
 [node name="ReloadSpacer" type="Control" parent="Frame/Dialog/Padding/Layout/Tabs/Match/Grid"]
 
+[node name="BalanceHeading" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Match"]
+editor_description = "The levers Ryan tunes the fight with. Every default is the game as it plays today, so an untouched Balance group changes nothing."
+text = "BALANCE"
+
+[node name="BalanceScroll" type="ScrollContainer" parent="Frame/Dialog/Padding/Layout/Tabs/Match"]
+custom_minimum_size = Vector2(0, 200)
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+editor_description = "A bounded window on the Balance rows. Twelve more rows in the tab itself would grow this shrink-centred dialog past 720p and take its footer off the screen; scrolling them keeps every lever reachable at every resolution the video tab offers."
+
+[node name="BalanceGrid" type="GridContainer" parent="Frame/Dialog/Padding/Layout/Tabs/Match/BalanceScroll"]
+size_flags_horizontal = 3
+theme_override_constants/h_separation = 8
+theme_override_constants/v_separation = 4
+columns = 3
+
+[node name="SwayName" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Match/BalanceScroll/BalanceGrid"]
+size_flags_vertical = 1
+vertical_alignment = 1
+text = "Scope Sway"
+
+[node name="SwaySpin" type="SpinBox" parent="Frame/Dialog/Padding/Layout/Tabs/Match/BalanceScroll/BalanceGrid"]
+custom_minimum_size = Vector2(120, 0)
+size_flags_horizontal = 0
+unique_name_in_owner = true
+
+[node name="SwaySpacer" type="Control" parent="Frame/Dialog/Padding/Layout/Tabs/Match/BalanceScroll/BalanceGrid"]
+
+[node name="SwayHzName" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Match/BalanceScroll/BalanceGrid"]
+size_flags_vertical = 1
+vertical_alignment = 1
+text = "Sway Speed"
+
+[node name="SwayHzSpin" type="SpinBox" parent="Frame/Dialog/Padding/Layout/Tabs/Match/BalanceScroll/BalanceGrid"]
+custom_minimum_size = Vector2(120, 0)
+size_flags_horizontal = 0
+unique_name_in_owner = true
+
+[node name="SwayHzSpacer" type="Control" parent="Frame/Dialog/Padding/Layout/Tabs/Match/BalanceScroll/BalanceGrid"]
+
+[node name="SwaySettleName" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Match/BalanceScroll/BalanceGrid"]
+size_flags_vertical = 1
+vertical_alignment = 1
+text = "Sway Settles In"
+
+[node name="SwaySettleSpin" type="SpinBox" parent="Frame/Dialog/Padding/Layout/Tabs/Match/BalanceScroll/BalanceGrid"]
+custom_minimum_size = Vector2(120, 0)
+size_flags_horizontal = 0
+unique_name_in_owner = true
+
+[node name="SwaySettleSpacer" type="Control" parent="Frame/Dialog/Padding/Layout/Tabs/Match/BalanceScroll/BalanceGrid"]
+
+[node name="TowerName" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Match/BalanceScroll/BalanceGrid"]
+size_flags_vertical = 1
+vertical_alignment = 1
+text = "Tower"
+
+[node name="TowerVariantOption" type="OptionButton" parent="Frame/Dialog/Padding/Layout/Tabs/Match/BalanceScroll/BalanceGrid"]
+custom_minimum_size = Vector2(160, 0)
+size_flags_horizontal = 0
+size_flags_vertical = 1
+unique_name_in_owner = true
+editor_description = "Empty here on purpose: SettingsScreen._fill_choices fills it from the two tower models, the same way every other list on this screen is filled from its own data."
+
+[node name="TowerSpacer" type="Control" parent="Frame/Dialog/Padding/Layout/Tabs/Match/BalanceScroll/BalanceGrid"]
+
+[node name="WindowsName" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Match/BalanceScroll/BalanceGrid"]
+size_flags_vertical = 1
+vertical_alignment = 1
+text = "Open Windows"
+
+[node name="WindowsSpin" type="SpinBox" parent="Frame/Dialog/Padding/Layout/Tabs/Match/BalanceScroll/BalanceGrid"]
+custom_minimum_size = Vector2(120, 0)
+size_flags_horizontal = 0
+unique_name_in_owner = true
+
+[node name="WindowsSpacer" type="Control" parent="Frame/Dialog/Padding/Layout/Tabs/Match/BalanceScroll/BalanceGrid"]
+
+[node name="MissPenaltyName" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Match/BalanceScroll/BalanceGrid"]
+size_flags_vertical = 1
+vertical_alignment = 1
+text = "Miss Penalty"
+
+[node name="MissPenaltySpin" type="SpinBox" parent="Frame/Dialog/Padding/Layout/Tabs/Match/BalanceScroll/BalanceGrid"]
+custom_minimum_size = Vector2(120, 0)
+size_flags_horizontal = 0
+unique_name_in_owner = true
+
+[node name="MissPenaltySpacer" type="Control" parent="Frame/Dialog/Padding/Layout/Tabs/Match/BalanceScroll/BalanceGrid"]
+
+[node name="HitMarkerName" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Match/BalanceScroll/BalanceGrid"]
+size_flags_vertical = 1
+vertical_alignment = 1
+text = "Hit Marker"
+
+[node name="HitMarkerCheck" type="CheckBox" parent="Frame/Dialog/Padding/Layout/Tabs/Match/BalanceScroll/BalanceGrid"]
+size_flags_horizontal = 0
+unique_name_in_owner = true
+text = "Confirm hits"
+
+[node name="HitMarkerSpacer" type="Control" parent="Frame/Dialog/Padding/Layout/Tabs/Match/BalanceScroll/BalanceGrid"]
+
+[node name="RunnerSpeedName" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Match/BalanceScroll/BalanceGrid"]
+size_flags_vertical = 1
+vertical_alignment = 1
+text = "Runner Speed"
+
+[node name="RunnerSpeedSpin" type="SpinBox" parent="Frame/Dialog/Padding/Layout/Tabs/Match/BalanceScroll/BalanceGrid"]
+custom_minimum_size = Vector2(120, 0)
+size_flags_horizontal = 0
+unique_name_in_owner = true
+
+[node name="RunnerSpeedSpacer" type="Control" parent="Frame/Dialog/Padding/Layout/Tabs/Match/BalanceScroll/BalanceGrid"]
+
+[node name="RunnerJumpName" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Match/BalanceScroll/BalanceGrid"]
+size_flags_vertical = 1
+vertical_alignment = 1
+text = "Jump Height"
+
+[node name="RunnerJumpSpin" type="SpinBox" parent="Frame/Dialog/Padding/Layout/Tabs/Match/BalanceScroll/BalanceGrid"]
+custom_minimum_size = Vector2(120, 0)
+size_flags_horizontal = 0
+unique_name_in_owner = true
+
+[node name="RunnerJumpSpacer" type="Control" parent="Frame/Dialog/Padding/Layout/Tabs/Match/BalanceScroll/BalanceGrid"]
+
+[node name="AbilityCooldownName" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Match/BalanceScroll/BalanceGrid"]
+size_flags_vertical = 1
+vertical_alignment = 1
+text = "Power Cooldown"
+
+[node name="AbilityCooldownSpin" type="SpinBox" parent="Frame/Dialog/Padding/Layout/Tabs/Match/BalanceScroll/BalanceGrid"]
+custom_minimum_size = Vector2(120, 0)
+size_flags_horizontal = 0
+unique_name_in_owner = true
+
+[node name="AbilityCooldownSpacer" type="Control" parent="Frame/Dialog/Padding/Layout/Tabs/Match/BalanceScroll/BalanceGrid"]
+
+[node name="GuardHealthName" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Match/BalanceScroll/BalanceGrid"]
+size_flags_vertical = 1
+vertical_alignment = 1
+text = "Guard Health"
+
+[node name="GuardHealthSpin" type="SpinBox" parent="Frame/Dialog/Padding/Layout/Tabs/Match/BalanceScroll/BalanceGrid"]
+custom_minimum_size = Vector2(120, 0)
+size_flags_horizontal = 0
+unique_name_in_owner = true
+
+[node name="GuardHealthSpacer" type="Control" parent="Frame/Dialog/Padding/Layout/Tabs/Match/BalanceScroll/BalanceGrid"]
+
+[node name="FinisherHealthName" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Match/BalanceScroll/BalanceGrid"]
+size_flags_vertical = 1
+vertical_alignment = 1
+text = "Finisher Health"
+
+[node name="FinisherHealthSpin" type="SpinBox" parent="Frame/Dialog/Padding/Layout/Tabs/Match/BalanceScroll/BalanceGrid"]
+custom_minimum_size = Vector2(120, 0)
+size_flags_horizontal = 0
+unique_name_in_owner = true
+
+[node name="FinisherHealthSpacer" type="Control" parent="Frame/Dialog/Padding/Layout/Tabs/Match/BalanceScroll/BalanceGrid"]
+
+[node name="BalanceNote" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Match"]
+autowrap_mode = 3
+text = "Scope sway drifts the aim in a figure eight while the scope is up, and the drift is in the shot the host resolves, not just in the picture. Plugged windows are rock; the ones left open stay spread round the tower."
+
 [node name="GhostsNote" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Match"]
 autowrap_mode = 3
 editor_description = "What the mechanic is, for a player who has not met it. Nothing more: this is a description, not a disclaimer."

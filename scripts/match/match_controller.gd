@@ -599,6 +599,7 @@ func _ready() -> void:
 		push_error("MatchController is missing an arena, a rifle, a runner scene or a container; no match will run.")
 		return
 	rifle.target_hit.connect(_on_target_hit)
+	rifle.missed.connect(_on_rifle_missed)
 	if auto_start:
 		start_match()
 
@@ -744,6 +745,7 @@ func start_match() -> void:
 		push_warning("MatchRules: %s" % problem)
 
 	_cache_geometry()
+	_apply_tower_rules()
 	# Re-resolved from the rule set in force NOW, exactly as the tower brains
 	# below are rebuilt from it.
 	_ghost_profile = null
@@ -1503,6 +1505,12 @@ func apply_hit(participant: MatchParticipant) -> bool:
 		return convert_participant(participant)
 	participant.lives -= 1
 	if participant.lives > 0:
+		# A life that is spent but not the last one puts the prisoner back on the
+		# start line, down the whole lap they had run. The alternative -- standing
+		# them up where they were shot -- is what
+		# [member MatchRules.prisoner_lives] used to do, and it costs the guard's
+		# shot nothing at all.
+		_respawn_at_start(participant)
 		return false
 	return convert_participant(participant)
 
@@ -2188,6 +2196,7 @@ func _start_running_in_place(
 	participant.is_shooter = false
 	participant.is_running = true
 	participant.lives = maxi(active.prisoner_lives, 1)
+	_apply_runner_multipliers(body, active)
 
 	body.add_to_group(RUNNER_GROUP)
 	# One route, so the carried arc and the arc it is now measured against are
@@ -2676,6 +2685,7 @@ func _place_on_track(participant: MatchParticipant, start_point: Vector3) -> voi
 
 	var body: PlayerController = participant.body
 	body.is_guard = false
+	_apply_runner_multipliers(body, active)
 	# A round restart brings every ghost back as a living prisoner: the colour,
 	# the pace, the collision and the chase all come off BEFORE the placement, so
 	# _hold_body has the authored layers to switch off and _wake_bodies has them
@@ -2723,6 +2733,9 @@ func _place_in_tower(participant: MatchParticipant) -> void:
 
 	var body: PlayerController = participant.body
 	body.is_guard = true
+	# The runner multipliers are a prisoner's; the guard runs at the profile's
+	# own pace, and a body that carried them into the seat would keep them.
+	_apply_runner_multipliers(body, null)
 	# A ghost can take the tower: they were a prisoner when the seat changed
 	# hands, and the round restarts around them like anybody else.
 	_unmake_ghost(participant)
@@ -2791,6 +2804,61 @@ func _hold_body(participant: MatchParticipant) -> void:
 	# BEFORE they set their own clocks, so cancelling here is free for them and
 	# correct for every other placement in the file.
 	participant.respawn_hold_remaining = 0.0
+
+
+## Put a prisoner who survived a hit back on their own place on the start line.
+##
+## The pit's own placement, minus the announcement: [method _hold_body] makes the
+## body inert on this tick, the position and heading are the ones
+## [method _finish_respawn] uses, and the settle frames hand the collision back
+## through [method _wake_settled_ghosts] once the physics server has caught up.
+## No [signal ghost_respawned] goes out -- nobody became a ghost.
+func _respawn_at_start(participant: MatchParticipant) -> void:
+	var body: PlayerController = participant.body
+	if body == null or not _geometry_ready or _mirror:
+		return
+	_hold_body(participant)
+	var place: Vector3 = _start_place_for(participant.index, _participants.size())
+	body.global_position = place
+	body.rotation = Vector3(0.0, _heading_of(_track_tangent(_angle_of(place))), 0.0)
+	participant.ghost_settle_frames = SETTLE_PHYSICS_FRAMES
+
+
+## Write the prisoner pace and jump levers onto [param body], or take them off
+## again when [param active] is null.
+func _apply_runner_multipliers(body: PlayerController, active: MatchRules) -> void:
+	if body == null:
+		return
+	body.run_speed_scale = 1.0 if active == null else maxf(active.runner_speed_multiplier, 0.0)
+	body.jump_scale = 1.0 if active == null else maxf(active.runner_jump_multiplier, 0.0)
+
+
+## Raise the tower the rules asked for, with the openings the rules left open.
+##
+## Once per match and on every machine, mirror included: the tower is geometry a
+## client shoots through and stands behind, so a client raising a different one
+## would disagree with the authority about where the shot stopped.
+func _apply_tower_rules() -> void:
+	var tower: TowerVariant = _find_tower()
+	if tower == null:
+		return
+	var active: MatchRules = get_rules()
+	tower.variant = clampi(active.tower_variant, 0, 1)
+	tower.open_windows = clampi(active.tower_open_windows, 0, MatchRules.TOWER_WINDOW_COUNT)
+
+
+## The arena's tower, or null on a map that has none.
+func _find_tower() -> TowerVariant:
+	if arena == null:
+		return null
+	var named: TowerVariant = arena.get_node_or_null(^"Tower") as TowerVariant
+	if named != null:
+		return named
+	for node: Node in arena.find_children("*", "Node3D", true, false):
+		var tower: TowerVariant = node as TowerVariant
+		if tower != null:
+			return tower
+	return null
 
 
 ## Give every placed body its collision and its motion back. Converted runners
@@ -3145,6 +3213,16 @@ func _attach_rifle(participant: MatchParticipant) -> void:
 	if ads != null:
 		ads.optic = body.get_node_or_null(^"Optic") as WeaponOptic
 
+	# The same one wire again, for the node that drifts the aim. It is given the
+	# CAMERA rather than the head fallback above: the head carries the holder's
+	# own pitch and a second writer on it would fight PlayerController for the
+	# node every tick.
+	var sway: RifleSway = rifle.get_node_or_null(^"Sway") as RifleSway
+	if sway != null:
+		sway.release()
+		sway.optic = body.get_node_or_null(^"Optic") as WeaponOptic
+		sway.aim_node = camera
+
 	var local_holder: bool = participant.is_human() and participant.index == _local_index
 	# The trigger stays on the host: a client's shots are the host's to fire.
 	# The vignette is presentation, so it follows the holder, not the authority.
@@ -3167,6 +3245,11 @@ func _stow_rifle() -> void:
 	var ads: RifleAds = rifle.get_node_or_null(^"Ads") as RifleAds
 	if ads != null:
 		ads.optic = null
+	var sway: RifleSway = rifle.get_node_or_null(^"Sway") as RifleSway
+	if sway != null:
+		sway.release()
+		sway.optic = null
+		sway.aim_node = null
 	_set_human_trigger(false)
 	_set_local_holder(rifle, false)
 
@@ -3398,8 +3481,29 @@ func _on_target_hit(collider: Node3D, _hit_position: Vector3, _hit_normal: Vecto
 	if participant == null:
 		# The world, or a hologram: a decoy shatters and converts nobody.
 		RunnerPower.shatter(RunnerPower.decoy_of(collider))
+		_charge_miss()
 		return
 	apply_hit(participant)
+
+
+## The round reached maximum range and stopped on nothing.
+func _on_rifle_missed(_end_point: Vector3) -> void:
+	if _phase != Phase.ROUND or is_resolved() or _mirror:
+		return
+	_charge_miss()
+
+
+## Spend [member MatchRules.guard_miss_penalty_seconds] on the reload now
+## running.
+##
+## Here rather than in [Rifle] because only the match knows what a miss is: the
+## weapon reports that it struck a collider and has no opinion about whether that
+## collider was a person, and a penalty charged on every deck hit that happened
+## to be a prisoner's foot would be the wrong rule.
+func _charge_miss() -> void:
+	if rifle == null:
+		return
+	rifle.add_reload_penalty(maxf(get_rules().guard_miss_penalty_seconds, 0.0))
 
 
 ## Somebody reached the end. What that is worth depends entirely on the phase:

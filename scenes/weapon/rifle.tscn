@@ -1,4 +1,4 @@
-[gd_scene load_steps=8 format=3]
+[gd_scene load_steps=9 format=3]
 
 [ext_resource type="Script" path="res://scripts/weapon/rifle.gd" id="1_rifle"]
 [ext_resource type="Script" path="res://scripts/weapon/weapon_input.gd" id="2_weapon_input"]
@@ -7,6 +7,7 @@
 [ext_resource type="Script" path="res://scripts/weapon/rifle_recoil.gd" id="5_rifle_recoil"]
 [ext_resource type="Script" path="res://scripts/weapon/rifle_ads.gd" id="6_rifle_ads"]
 [ext_resource type="PackedScene" path="res://scenes/fx/scope_vignette.tscn" id="7_scope_vignette"]
+[ext_resource type="Script" path="res://scripts/weapon/rifle_sway.gd" id="8_rifle_sway"]
 
 [node name="Rifle" type="Node3D" node_paths=PackedStringArray("muzzle")]
 script = ExtResource("1_rifle")
@@ -86,3 +87,8 @@ view_model = NodePath("../ViewModel")
 editor_description = "The optic, drawn on the screen instead of modelled on the gun. A dark border closes in around a clear centre as the raise finishes, which -- with the field of view already narrowed -- is the whole of the scope: the scope on the model stays the solid brick tools/modelling/rifle_build.py makes it, because Ryan settled that it does not need to be see through.\n\nWired to the two siblings above and nothing else. Ads answers what the transition is doing, so the border runs on the same progress the raised pose and the FOV do and cannot drift from them; HumanTrigger answers whether the HUMAN is holding this rifle, which is the gate that keeps the vignette off a prisoner's, a spectator's, a ghost's and a bot-held tower's screen. MatchController needs no new line for either.\n\nAppended LAST, after Ads, for the reason Ads records above: scenes/bot/tower_shooter.tscn addresses this scene's children by ordinal index (HumanTrigger is 1) and INSERTING a node would silently re-point that override. Writes nothing but its own overlay -- no camera, no FOV, no ViewModel transform -- so deleting it leaves the aim, the zoom and the shot line exactly as they are."
 ads = NodePath("../Ads")
 trigger = NodePath("../HumanTrigger")
+
+[node name="Sway" type="Node" parent="." node_paths=PackedStringArray("rifle")]
+editor_description = "Drifts the aim in a slow figure eight while the scope is up, by MatchRules.scope_sway_degrees. It writes the holder's Camera -- the node Rifle._resolve_shot casts from -- so the drift is in the shot the authority resolves, not only in the picture; optic and the aim node are wired at runtime by MatchController._attach_rifle, like Ads.optic. Appended LAST, after ScopeVignette, for the reason Ads records: scenes/bot/tower_shooter.tscn addresses this scene's children by ordinal index."
+script = ExtResource("8_rifle_sway")
+rifle = NodePath("..")

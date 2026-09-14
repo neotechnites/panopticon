@@ -116,6 +116,22 @@ signal speed_boost_changed(remaining: float)
 ## [member GhostProfile.speed_multiplier].
 var speed_scale: float = 1.0
 
+## Multiplier on the target ground speed a PRISONER is driven at, from
+## [member MatchRules.runner_speed_multiplier]. 1.0 is the profile's own pace.
+##
+## A second factor rather than a value written into [member speed_scale]:
+## that one is the ghost's, and it is what [MovementAudioListener] reads to tell
+## a ghost from a living body. [MatchController] writes this one when it places a
+## body on the track and takes it back off in the tower.
+var run_speed_scale: float = 1.0
+
+## Multiplier on a PRISONER's jump HEIGHT, from
+## [member MatchRules.runner_jump_multiplier]. 1.0 is the profile's own jump.
+##
+## Height, not launch speed: apex goes as the square of the launch, so the launch
+## is scaled by the square root and a 2.0 here really is twice as high.
+var jump_scale: float = 1.0
+
 ## True while Armor Lock holds the body: no movement, no turning, this tick's
 ## intent still readable through [method get_intent].
 var movement_locked: bool = false
@@ -297,7 +313,9 @@ func _physics_process(delta: float) -> void:
 	# vector, so that the accelerate routines stay dimensionally correct.
 	var wish_vector: Vector3 = _get_wish_vector()
 	var wish_direction: Vector3 = wish_vector.normalized()
-	var wish_speed: float = _target_speed(on_floor) * wish_vector.length() * speed_scale
+	var wish_speed: float = (
+		_target_speed(on_floor) * wish_vector.length() * speed_scale * run_speed_scale
+	)
 
 	if _sliding:
 		# --- Slide phase ---
@@ -560,7 +578,7 @@ func _try_jump(on_floor: bool) -> bool:
 	# Assigned, not added: an assignment makes jump height independent of the
 	# vertical speed the body happened to have, so a hop off a downhill slope is
 	# the same height as a hop off flat ground.
-	velocity.y = profile.jump_velocity
+	velocity.y = profile.jump_velocity * sqrt(maxf(jump_scale, 0.0))
 	_coyote_timer = 0.0
 	_jump_buffer_timer = 0.0
 	jumped.emit()
