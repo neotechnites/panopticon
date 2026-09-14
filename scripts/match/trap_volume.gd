@@ -120,16 +120,16 @@ func _ready() -> void:
 	body_entered.connect(_on_body_entered)
 	if feet_only:
 		body_exited.connect(_on_body_exited)
-	set_process(false)
+	set_physics_process(false)
 
 
-## Feet-depth check, run every frame while a body is standing in the volume.
+## Feet-depth check, run every physics tick while a body is standing in the volume.
 ##
 ## Driven off the enter/exit signals rather than polling
 ## [method Area3D.get_overlapping_bodies], which allocates a fresh array per
 ## call: the ring carries twenty-two of these and none of them has anybody in
 ## it on almost every frame of a match.
-func _process(delta: float) -> void:
+func _physics_process(delta: float) -> void:
 	for index: int in range(_inside.size() - 1, -1, -1):
 		var body: Node3D = _inside[index]
 		if not is_instance_valid(body):
@@ -148,7 +148,7 @@ func _process(delta: float) -> void:
 func _on_body_exited(body: Node3D) -> void:
 	_feet_timers.erase(body)
 	_inside.erase(body)
-	set_process(not _inside.is_empty())
+	set_physics_process(not _inside.is_empty())
 
 
 # --- Geometry -----------------------------------------------------------------
@@ -202,10 +202,10 @@ func _find_block() -> CSGBox3D:
 
 func _on_body_entered(body: Node3D) -> void:
 	if feet_only:
-		# Depth and grace are decided per-frame in _process instead.
+		# Depth and grace are decided per tick in _physics_process instead.
 		if not _inside.has(body):
 			_inside.append(body)
-		set_process(true)
+		set_physics_process(true)
 		return
 	_convert(body)
 

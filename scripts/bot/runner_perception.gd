@@ -148,13 +148,15 @@ static func _make_ray() -> PhysicsRayQueryParameters3D:
 
 ## Point this perception at a body and a difficulty. Safe to call again on every
 ## round; it forgets everything it believed about the last one.
-func configure(body: PlayerController, profile: RunnerProfile, rules: MatchRules) -> void:
+func configure(
+	body: PlayerController, profile: RunnerProfile, rules: MatchRules, seed_override: int = 0
+) -> void:
 	_body = body
 	_ray_excludes_built = false
 	_profile = profile
 	_rules = rules
 	if profile != null:
-		_rng = profile.make_rng()
+		_rng = profile.make_rng(seed_override)
 
 	_forget_threat()
 	_rescan_countdown = 0.0

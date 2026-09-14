@@ -2598,6 +2598,8 @@ func _build_participants() -> void:
 	for index: int in _participants.size():
 		var participant: MatchParticipant = _participants[index]
 		participant.index = index
+		if participant.brain != null:
+			participant.brain.seat_index = index
 		if participant.body != null:
 			_participant_by_body_id[participant.body.get_instance_id()] = participant
 			_assign_runner_color(participant)

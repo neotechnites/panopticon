@@ -37,11 +37,6 @@ extends Node
 ##
 ## - [b]No UI.[/b] This is the model. Drawing it is [code]scenes/ui/[/code]'s job.
 ## - [b]No matchmaking, no chat, no invites, no reconnect.[/b]
-## - [b]No launch acknowledgement.[/b] [constant Phase.LAUNCHING] is the window
-##   in which every machine builds bodies, but nobody reports having finished.
-##   The host moves on when its own match layer calls [method begin_match], and
-##   a client still loading simply misses the first few snapshots. Fixing that
-##   is an ack per peer and a wait, and it is not built.
 ## - [b]No persistence.[/b] Scores live in the match, not here; a lobby that
 ##   returns to [constant Phase.GATHERING] has forgotten the match it just ran.
 
@@ -64,6 +59,10 @@ signal seat_vacated(seat_index: int, peer_id: int)
 ## the match layer waits on.
 signal match_launching()
 
+## A client reported its match scene bound at its seat. Authority only; see
+## [method acknowledge_launch].
+signal peer_launched(peer_id: int, seat_index: int)
+
 ## The host's match rules arrived or changed. See [method get_rules].
 signal rules_changed()
 
@@ -81,7 +80,8 @@ enum Phase {
 	## peer can be seated or a bot added.
 	GATHERING,
 	## The roster is frozen and bodies are being built, on every machine at
-	## once. Ends when the match layer calls [method begin_match].
+	## once; each client acknowledges its own with [method acknowledge_launch].
+	## Ends when the match layer calls [method begin_match].
 	LAUNCHING,
 	## A match is running. The lobby is a spectator here: roles move around the
 	## tower without it.
@@ -106,6 +106,9 @@ const MIN_OCCUPANTS: int = 2
 var seats: Array[LobbySeat] = []
 
 var _phase: Phase = Phase.IDLE
+
+## Peers that have acknowledged the launch. Authority only; cleared by [method launch].
+var _launched: Dictionary[int, bool] = {}
 
 ## The host's [MatchRules], on every machine. Set by the host through
 ## [method set_rules]; null until it has.
@@ -468,16 +471,38 @@ func clear_roles() -> bool:
 func launch() -> bool:
 	if not can_launch():
 		return false
+	_launched.clear()
 	_set_phase(Phase.LAUNCHING)
 	_publish()
 	match_launching.emit()
 	return true
 
 
-## The bodies exist; the match is live. Authority only, called by the match
-## layer once it has armed the first round.
-##
-## Nobody acknowledges having finished building. See the class docs.
+## Client to host, reliable: this machine's match scene is bound, at its seat.
+## The host needs no message for its own scene; the reply is whatever of the
+## match the sender missed, from the match layer.
+func acknowledge_launch() -> void:
+	if _is_authority() or _phase != Phase.LAUNCHING:
+		return
+	rpc_id(NetTransport.AUTHORITY_PEER_ID, &"_request_launched", get_local_seat_index())
+
+
+## True once [param peer_id] has acknowledged the launch. The host always has.
+func has_launched(peer_id: int) -> bool:
+	return peer_id == NetTransport.AUTHORITY_PEER_ID or bool(_launched.get(peer_id, false))
+
+
+## Seated human peers that have not acknowledged the launch.
+func get_unlaunched_peers() -> PackedInt32Array:
+	var out: PackedInt32Array = PackedInt32Array()
+	for seat: LobbySeat in seats:
+		if seat.is_human() and not has_launched(seat.peer_id):
+			out.append(seat.peer_id)
+	return out
+
+
+## The bodies exist and every peer has launched; the match is live. Authority
+## only, called by the match layer.
 func begin_match() -> bool:
 	if not _is_authority() or _phase != Phase.LAUNCHING:
 		return false
@@ -555,6 +580,7 @@ func _on_peer_joined(peer_id: int) -> void:
 func _on_peer_left(peer_id: int) -> void:
 	_request_tokens.erase(peer_id)
 	_request_filled_ms.erase(peer_id)
+	_launched.erase(peer_id)
 	if not _is_authority():
 		return
 	var seat: LobbySeat = find_seat_by_peer(peer_id)
@@ -635,6 +661,18 @@ func _request_ready(ready: bool) -> void:
 	if seat == null:
 		return
 	_apply_ready(seat.index, ready)
+
+
+## Client to authority: my match scene is bound, at this seat.
+@rpc("any_peer", "reliable", "call_remote", 0)
+func _request_launched(seat_index: int) -> void:
+	var seat: LobbySeat = _requesting_seat()
+	if seat == null or seat.index != seat_index or _phase != Phase.LAUNCHING:
+		return
+	if _launched.get(seat.peer_id, false):
+		return
+	_launched[seat.peer_id] = true
+	peer_launched.emit(seat.peer_id, seat.index)
 
 
 ## Client to authority: this is what to call me.

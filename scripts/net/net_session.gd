@@ -157,10 +157,10 @@ func leave() -> void:
 ## no vote, no ban list and no reason string on the wire: the peer simply sees
 ## the host go away, which is honest enough for a game where the host IS the
 ## server.
-func kick_peer(peer_id: int) -> void:
+func kick_peer(peer_id: int, now: bool = false) -> void:
 	if transport == null or not is_authority() or peer_id == NetTransport.AUTHORITY_PEER_ID:
 		return
-	transport.kick_peer(peer_id)
+	transport.kick_peer(peer_id, now)
 
 
 ## True when this machine simulates the match: hosting, or offline. See

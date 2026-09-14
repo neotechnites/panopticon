@@ -123,6 +123,10 @@ enum State {
 ## Difficulty and behaviour; a match overrides it through [member rules].
 @export var runner_profile: RunnerProfile
 @export var rules: MatchRules
+## The seat this brain plays; its re-plan tick is phased by it. Set by [MatchController].
+var seat_index: int = 0
+## Seeds the perception guesses when non-zero; the harness sets it, the game leaves 0.
+var perception_seed: int = 0
 
 var _centre: Vector3 = Vector3.ZERO
 var _has_geometry: bool = false
@@ -202,8 +206,8 @@ var _blocked_seconds: float = 0.0
 ## Seconds spent behind cover waiting for the rifle before taking a flight.
 var _launch_wait: float = 0.0
 var _search_countdown: float = 0.0
-## Handed out round-robin at arm time, so the field's plans land on different ticks.
-static var _plan_phase_next: int = 0
+## Ticks since this brain was armed: the plan clock, so a match's tick zero is its own.
+var _ticks: int = 0
 var _plan_phase: int = 0
 var _plan_tick: int = -PLAN_PERIOD_TICKS
 var _plan_forced: bool = true
@@ -316,7 +320,7 @@ func _arm(
 	_path_length = 0.0
 
 	_play = RunnerProfile.resolve(rules, runner_profile)
-	_perception.configure(controller, _play, rules)
+	_perception.configure(controller, _play, rules, perception_seed)
 	_hazards = RunnerCoverFinder.collect_hazards(controller.get_tree().root)
 
 	_nav = RingNavigation.ensure(
@@ -344,8 +348,8 @@ func _arm(
 	_cross_slide_open = false
 	_cross_slide_seconds = 0.0
 	_search_countdown = 0.0
-	_plan_phase = _plan_phase_next % PLAN_PERIOD_TICKS
-	_plan_phase_next += 1
+	_ticks = 0
+	_plan_phase = seat_index % PLAN_PERIOD_TICKS
 	_plan_tick = -PLAN_PERIOD_TICKS
 	_plan_forced = true
 	_was_exposed = false
@@ -874,6 +878,7 @@ func get_navigation() -> RingNavigation:
 # --- The loop -----------------------------------------------------------------
 
 func _physics_process(delta: float) -> void:
+	_ticks += 1
 	if _chasing:
 		if not _tick_flight(delta):
 			_tick_chase(delta)
@@ -1650,9 +1655,8 @@ func _begin_cross(target: Vector3, is_cover: bool, path: PackedVector3Array) -> 
 func _plan_is_due() -> bool:
 	if _plan_forced or not _cover.is_complete():
 		return true
-	var tick: int = Engine.get_physics_frames()
-	return tick - _plan_tick >= PLAN_PERIOD_TICKS \
-		and (tick + _plan_phase) % PLAN_PERIOD_TICKS == 0
+	return _ticks - _plan_tick >= PLAN_PERIOD_TICKS \
+		and (_ticks + _plan_phase) % PLAN_PERIOD_TICKS == 0
 
 
 ## True when the standing plan was made near enough to here to still be the plan.
@@ -1674,7 +1678,7 @@ func _plan_and_cross(remaining_arc: float, delta: float) -> void:
 			_run_route(delta)
 		return
 	_plan_forced = false
-	_plan_tick = Engine.get_physics_frames()
+	_plan_tick = _ticks
 	_choose_target(remaining_arc)
 	if not _has_target:
 		# No cover and no reachable ground ahead this tick: keep the lap moving

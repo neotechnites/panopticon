@@ -278,6 +278,15 @@ extends Resource
 ## body is the match layer's job, and it is free to ignore this.
 @export var fill_vacated_seats_with_bots: bool = true
 
+## Seconds the host waits for every client to acknowledge the launch (see
+## [method NetLobby.acknowledge_launch]) before the match starts without them.
+@export_range(1.0, 60.0, 0.5) var launch_timeout_seconds: float = 10.0
+
+## What becomes of a client that has not acknowledged by then: dropped from
+## the session, its seat handled as any leaver's, or kept and caught up with
+## the match when its acknowledgement arrives.
+@export var drop_unlaunched_peers: bool = false
+
 
 ## Snapshot interval in simulated seconds, the form the replicator accumulates
 ## against.

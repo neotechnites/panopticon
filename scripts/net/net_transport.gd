@@ -157,11 +157,13 @@ func get_local_peer_id() -> int:
 ## Disconnect one peer, leaving the session up. Authority only; callers are
 ## expected to have checked, and a backend that cannot do it may do nothing.
 ##
-## There is exactly one caller today -- [NetLobby], for a peer that connected
-## with nowhere to sit -- and deliberately no kick vote, no ban list and no
-## reason on the wire. The peer sees the host go away, which is the whole truth
-## in a game where the host IS the server.
-func kick_peer(_peer_id: int) -> void:
+## Two callers -- [NetLobby], for a peer that connected with nowhere to sit,
+## and [NetMatch], for one that never acknowledged a launch -- and deliberately
+## no kick vote, no ban list and no reason on the wire. The peer sees the host
+## go away, which is the whole truth in a game where the host IS the server.
+## [param now] drops the peer from every send this instant rather than after
+## the packets in flight.
+func kick_peer(_peer_id: int, _now: bool = false) -> void:
 	pass
 
 

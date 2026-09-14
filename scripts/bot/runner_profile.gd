@@ -435,15 +435,15 @@ func get_cover_search_arc_radians() -> float:
 	return deg_to_rad(cover_search_arc_degrees)
 
 
-## A generator seeded as this profile asks. [member perception_seed] of 0 means
-## "seed from entropy", so three prisoners sharing one resource still guess
-## independently.
-func make_rng() -> RandomNumberGenerator:
+## A generator seeded from [param seed_override], else [member perception_seed];
+## 0 means "seed from entropy", so prisoners sharing one resource guess independently.
+func make_rng(seed_override: int = 0) -> RandomNumberGenerator:
 	var rng: RandomNumberGenerator = RandomNumberGenerator.new()
-	if perception_seed == 0:
+	var chosen: int = seed_override if seed_override != 0 else perception_seed
+	if chosen == 0:
 		rng.randomize()
 	else:
-		rng.seed = perception_seed
+		rng.seed = chosen
 	return rng
 
 

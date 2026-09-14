@@ -24,13 +24,14 @@ extends Node
 ##
 ## [b]What "deterministic where it can be" means here[/b]
 ##
-## The physics delta is pinned at 1/60 s regardless of time compression, the
-## shooter's aim RNG is seeded from the harness seed and the participant index,
-## and the optic runs on the physics tick rather than the render tick. Given the
-## same seed, the same rules and the same machine, two runs execute the same
-## ticks. Across machines, floating-point differences in the physics solver can
-## still diverge, which is why a result file records its seed rather than
-## claiming reproducibility it cannot enforce.
+## The physics delta is pinned at 1/60 s regardless of time compression, every
+## generator (aim, perception, spread) is seeded through
+## [method BotHarness.stream_seed] from the match seed and the seat, and the
+## optic runs on the physics tick rather than the render tick. Given the same
+## seed, the same rules and the same machine, two runs execute the same ticks.
+## Across machines, floating-point differences in the physics solver can still
+## diverge, which is why a result file records its seed rather than claiming
+## reproducibility it cannot enforce.
 
 ## Emitted once, on the tick the match stops for any reason. Carries the full
 ## result dictionary; see tools/harness/RESULT_SCHEMA.md.
@@ -92,9 +93,11 @@ func begin() -> void:
 
 	_world = BotMatchWorld.new()
 	add_child(_world)
-	_world.build(_rules)
+	_world.build(_rules, _seed)
 
 	var controller: MatchController = _world.get_controller()
+	# Emitted after the roster is built and before the first round arms it.
+	controller.match_started.connect(_seed_runners)
 
 	_telemetry = BotMatchTelemetry.new()
 	_telemetry.name = "Telemetry"
@@ -118,6 +121,15 @@ func begin() -> void:
 	# The AI bodies exist only once the match has been armed, so this is the
 	# first moment their inherited human-input nodes can be switched off.
 	BotMatchWorld.silence_local_input(_world.get_runner_container())
+
+
+## Seed every runner brain's guesses from the match seed and its seat.
+func _seed_runners(_count: int) -> void:
+	for participant: MatchParticipant in _world.get_controller().get_participants():
+		if participant.brain != null:
+			participant.brain.perception_seed = BotHarness.stream_seed(
+				_seed, BotHarness.Stream.PERCEPTION, participant.index
+			)
 
 
 ## The result, once [signal finished] has been emitted. Empty before that.
