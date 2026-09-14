@@ -125,11 +125,27 @@ var _shots_heard: int = 0
 ## Set on the tick a round lands near this runner, cleared on the next tick.
 var _was_shot_at: bool = false
 
+## One ray query reused for every sight test. A runner fires up to twenty-five
+## rays a tick; allocating a query object and an exclude array for each was
+## fifteen thousand throwaway objects a second at five bots.
+var _ray: PhysicsRayQueryParameters3D = _make_ray()
+var _ray_exclude: Array[RID] = []
+var _ray_threat: PlayerController = null
+var _ray_excludes_built: bool = false
+
+
+static func _make_ray() -> PhysicsRayQueryParameters3D:
+	var ray: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.new()
+	ray.collide_with_areas = false
+	ray.collide_with_bodies = true
+	return ray
+
 
 ## Point this perception at a body and a difficulty. Safe to call again on every
 ## round; it forgets everything it believed about the last one.
 func configure(body: PlayerController, profile: RunnerProfile, rules: MatchRules) -> void:
 	_body = body
+	_ray_excludes_built = false
 	_profile = profile
 	_rules = rules
 	if profile != null:
@@ -468,12 +484,18 @@ func sight_hit(from: Vector3, to: Vector3) -> Dictionary:
 	if space == null:
 		return {}
 
-	var query: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(from, to)
-	query.collision_mask = _sight_mask()
-	query.collide_with_areas = false
-	query.collide_with_bodies = true
-	query.exclude = [_body.get_rid(), _threat.get_rid()] if _threat != null else [_body.get_rid()]
-	return space.intersect_ray(query)
+	_ray.from = from
+	_ray.to = to
+	_ray.collision_mask = _sight_mask()
+	if not _ray_excludes_built or _ray_threat != _threat:
+		_ray_excludes_built = true
+		_ray_threat = _threat
+		_ray_exclude.clear()
+		_ray_exclude.append(_body.get_rid())
+		if _threat != null:
+			_ray_exclude.append(_threat.get_rid())
+		_ray.exclude = _ray_exclude
+	return space.intersect_ray(_ray)
 
 
 ## Whether a clear line runs from an arbitrary point on the deck to the guard.

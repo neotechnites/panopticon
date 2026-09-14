@@ -28,6 +28,22 @@ const SHOVE_REST_SECONDS: float = 2.0
 
 var _shove_rest: float = 0.0
 
+## The runner group, fetched once per physics tick for the whole field.
+##
+## Every bot asked for it separately and [method SceneTree.get_nodes_in_group]
+## allocates a fresh array each call, so the shove check was one array per bot
+## per tick -- the only O(n^2) group query in the per-tick path.
+static var _rivals_tick: int = -1
+static var _rivals_cache: Array[Node] = []
+
+
+static func _rivals(body: Node) -> Array[Node]:
+	var tick: int = Engine.get_physics_frames()
+	if tick != _rivals_tick:
+		_rivals_tick = tick
+		_rivals_cache = body.get_tree().get_nodes_in_group(MatchController.RUNNER_GROUP)
+	return _rivals_cache
+
 
 ## Aim by angular rate, in radians per second: positive [param yaw_rate] turns
 ## right, positive [param pitch_rate] looks up, and [param delta] is the tick
@@ -83,7 +99,9 @@ func _look_for_a_shove(delta: float) -> void:
 		return
 	forward = forward.normalized()
 	var here: Vector3 = body.global_position
-	for node: Node in body.get_tree().get_nodes_in_group(MatchController.RUNNER_GROUP):
+	for node: Node in _rivals(body):
+		if not is_instance_valid(node):
+			continue
 		var rival: PlayerController = node as PlayerController
 		if rival == null or rival == body:
 			continue

@@ -210,6 +210,21 @@ var _rng: RandomNumberGenerator = RandomNumberGenerator.new()
 var _fire_attempts: int = 0
 var _shots_taken: int = 0
 
+## Reused per tick rather than rebuilt: the scan runs at 60 Hz and allocated
+## three arrays and a ray query per candidate every time.
+var _found: Array[PlayerController] = []
+var _pool: Array[Node] = []
+var _half_angles: Vector2 = Vector2.ZERO
+var _ray: PhysicsRayQueryParameters3D = _make_ray()
+var _ray_exclude: Array[RID] = []
+
+
+static func _make_ray() -> PhysicsRayQueryParameters3D:
+	var ray: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.new()
+	ray.collide_with_areas = false
+	ray.collide_with_bodies = true
+	return ray
+
 
 func _ready() -> void:
 	# Joined BEFORE the configuration check, and never left: this is how a
@@ -371,9 +386,15 @@ func _physics_process(delta: float) -> void:
 ## reachable from anywhere else in the file -- which is the whole of the first
 ## and second design requirements, enforced structurally rather than by care.
 func _visible_targets() -> Array[PlayerController]:
-	var found: Array[PlayerController] = []
-	var pool: Array[Node] = get_tree().get_nodes_in_group(target_group)
+	var found: Array[PlayerController] = _found
+	found.clear()
+	var pool: Array[Node] = _pool
+	pool.clear()
+	pool.append_array(get_tree().get_nodes_in_group(target_group))
 	pool.append_array(get_tree().get_nodes_in_group(RunnerPower.DECOY_GROUP))
+	# Read once: it is the same answer for every candidate on this tick, and it
+	# costs a deg_to_rad, a tan and an atan each time it is asked.
+	_half_angles = _view_half_angles()
 	for node: Node in pool:
 		var body: PlayerController = node as PlayerController
 		if body == null or body == controller:
@@ -428,7 +449,7 @@ func _is_within_view(body: PlayerController) -> bool:
 	if local.z >= 0.0:
 		return false
 
-	var half: Vector2 = _view_half_angles()
+	var half: Vector2 = _half_angles
 	var horizontal: float = absf(atan2(local.x, -local.z))
 	var vertical: float = absf(atan2(local.y, Vector2(local.x, local.z).length()))
 	return horizontal <= half.x and vertical <= half.y
@@ -467,15 +488,15 @@ func _has_line_of_sight(body: PlayerController) -> bool:
 	if space == null:
 		return false
 
-	var query: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(
-		_eye_position(), _aim_point(body)
-	)
-	query.collision_mask = rifle.profile.hit_mask if rifle.profile != null else 0xFFFFF
-	query.collide_with_areas = false
-	query.collide_with_bodies = true
-	query.exclude = [controller.get_rid()]
+	_ray.from = _eye_position()
+	_ray.to = _aim_point(body)
+	_ray.collision_mask = rifle.profile.hit_mask if rifle.profile != null else 0xFFFFF
+	if _ray_exclude.is_empty() or _ray_exclude[0] != controller.get_rid():
+		_ray_exclude.clear()
+		_ray_exclude.append(controller.get_rid())
+		_ray.exclude = _ray_exclude
 
-	var hit: Dictionary = space.intersect_ray(query)
+	var hit: Dictionary = space.intersect_ray(_ray)
 	if hit.is_empty():
 		# Nothing at all in the way, including the target. That happens when the
 		# ray ends inside the target's own capsule, which is where it is aimed.

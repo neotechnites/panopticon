@@ -306,10 +306,11 @@ func _apply() -> void:
 	var multiplier: float = _compute_sensitivity_multiplier(fov)
 	var changed: bool = not is_equal_approx(fov, _applied_fov)
 
-	camera.fov = fov
-	# Read back, so single-precision rounding cannot masquerade as an outside
-	# write on the next tick. See _sync_base_fov.
-	_applied_fov = camera.fov
+	if changed:
+		camera.fov = fov
+		# Read back, so single-precision rounding cannot masquerade as an
+		# outside write on the next tick. See _sync_base_fov.
+		_applied_fov = camera.fov
 	sensitivity_multiplier = multiplier
 
 	if changed:

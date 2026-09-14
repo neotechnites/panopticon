@@ -1081,6 +1081,14 @@ func get_participants() -> Array[MatchParticipant]:
 	return _participants.duplicate()
 
 
+## The same list without the copy, for a read-only caller on the tick path.
+##
+## Telemetry asks for the roster every physics tick and the copy was an array
+## allocation per tick. Do not hold or mutate what this returns.
+func get_participants_ref() -> Array[MatchParticipant]:
+	return _participants
+
+
 ## Who holds the tower, or null during the opening race.
 func get_seat_participant() -> MatchParticipant:
 	return _seat
