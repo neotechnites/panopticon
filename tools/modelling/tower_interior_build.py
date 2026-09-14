@@ -11,9 +11,11 @@ to this lining later.
     stair .... spirals ccw up the shaft wall, landings each ~90 deg of turn
     top ...... a stairwell hole through the guard-room floor at the room's edge
 
-Collision (`-colonly`): stairs as a smooth helicoid RAMP under the visible
-treads (the capsule cannot climb a 0.25 m riser; max floor angle is 46 deg),
-parapets, shaft wall, floor, ceiling, doorway passage, landing chamber.
+Collision (`-colonly`) is the visible geometry itself (wall facets, floor,
+ceiling, parapets, trim, chamber, drips) with one substitution: a smooth
+helicoid RAMP under the treads, since the capsule cannot climb a 0.25 m riser.
+The door passage is the hollow rock's own cut (tower_hollow_build.py); the
+interior draws only a stone reveal round it.
 
     tools/modelling/model build tower_interior
     blender -b -P tower_interior_build.py -- --measure-only     # rock survey only
@@ -69,14 +71,15 @@ CTRL_BAND  = 2.6       # each control ring takes the rock's min over +- this
 
 # stair
 RISE       = 0.25
-GOING      = 0.35      # along the walking line (tread centre)
-TREAD_W    = 1.20
+GOING      = 0.35      # along the walking line
+WALK_OFF   = 0.50      # walking line this far off the parapet face
+TREAD_CLEAR = 2.00     # clear width between the wall and the parapet
 PARAPET_H  = 0.90
 PARAPET_T  = 0.25
 SOFFIT_D   = 0.45      # flight thickness under the nosing line
 RAMP_DROP  = 0.12      # collider ramp this far under the nosing line
 LANDING_EVERY = 90.0   # degrees of turn between landings
-LANDING_LEN   = 1.60   # metres along the walking line
+LANDING_LEN   = 2.50   # metres along the walking line
 STAIR_START_DEG = 27.0 # bearing (Blender, ccw from +x) of the first tread; puts the
                        # stairwell hole on a pier between his windows (267.5 deg)
 TOP_TREAD_LEN = 1.20
@@ -84,8 +87,7 @@ TOP_LIFT   = 0.03      # top tread sits this far above his floor: no z-fight
 
 # top: stairwell hole and the throat under the room floor
 SLAB_T     = 0.80      # shaft ceiling this far under the room floor
-HEADROOM   = 2.05      # raked soffit over the last stretch of stair
-LIP_FREE   = 0.30      # no collider on the soffit within this of the floor: the lip
+HEADROOM   = 2.40      # raked soffit over the last stretch of stair
 HOLE_L     = 2.40      # hole length along the wall, at floor level
 KERB_H     = 0.15
 KERB_T     = 0.28
@@ -95,12 +97,12 @@ NC         = 40        # ceiling rim facets
 DOOR_H     = 2.20
 DOOR_W     = 1.40
 DOOR_BEARING = 0.0     # Blender deg; +X = game bearing 0 (ring_route: cos,sin in x,z)
-PORCH_W    = 2.70
-PORCH_H    = 3.00
-PORCH_T    = 0.90
-PORCH_BURY = 0.40
-PORCH_JAG  = 0.45      # corner jitter so the porch reads as rock, not a slab
+TRIM_W     = 0.12      # stone reveal round the door, into the passage
+TRIM_D     = 0.35
+FLOOR_DROP = 0.03      # shaft floor this far under the courtyard: no z-fight with it
 TOP_RAMP_LIFT = 0.17   # ramp ends this much above the nosing line: on his floor, not under it
+TOP_LIFT_RUN  = 6.0    # ...gained over this much stair, so the pitch barely changes
+SAG = 0.0              # facet chord sag at mid-facet, set from the plan
 
 # windows: (bearing deg, z) wishes; each snaps to a wall facet clear of the stair
 WINDOWS    = [(200.0, -29.0), (300.0, -23.0), (60.0, -12.0), (150.0, -5.0)]
@@ -338,6 +340,8 @@ class _Mesh(object):
         self.verts = []
         self.faces = []
         self.zones = []
+        self.tags = []
+        self.tag = "rock"
         self.cache = {}
 
     def vc(self, p):
@@ -368,6 +372,24 @@ class _Mesh(object):
         for i in range(1, len(clean) - 1):
             self.faces.append((clean[0], clean[i], clean[i + 1]))
             self.zones.append(zone)
+            self.tags.append(self.tag)
+
+    def subset(self, keep):
+        """A new mesh of the faces whose tag passes keep()."""
+        out = _Mesh()
+        remap = {}
+        for f, zone, tag in zip(self.faces, self.zones, self.tags):
+            if not keep(tag):
+                continue
+            idx = []
+            for i in f:
+                if i not in remap:
+                    remap[i] = out.v(self.verts[i])
+                idx.append(remap[i])
+            out.faces.append(tuple(idx))
+            out.zones.append(zone)
+            out.tags.append(tag)
+        return out
 
     def quad(self, a, b, c, d, want, zone):
         self.poly([a, b, c, d], want, zone)
@@ -615,7 +637,7 @@ def _stations(p, z_floor):
     landings = []
     for i in range(n_steps):
         top = i == n_steps - 1
-        rc = p.R_of(z) - TREAD_W * 0.5
+        rc = p.rc_of(z)
         if turn >= math.radians(LANDING_EVERY) and not top and i > 2 \
                 and (n_steps - i) > 6:
             dth = LANDING_LEN / rc
@@ -631,17 +653,17 @@ def _stations(p, z_floor):
     p.n_steps, p.rise, p.st, p.landings = n_steps, rise, st, landings
     p.s_top = st[-1]["s"]
     p.s_end = st[-1]["s"] + st[-1]["going"]
-    p.th_end = st[-1]["th"] + st[-1]["going"] / (p.R_of(z_floor) - TREAD_W * 0.5)
+    p.th_end = st[-1]["th"] + st[-1]["going"] / (p.rc_of(z_floor))
     p.climb = z_floor - FOOT_Z
     p.turns = (p.th_end - math.radians(STAIR_START_DEG)) / TAU
 
     # nose line and bearing as piecewise-linear functions of s
-    rc0 = p.R_of(FOOT_Z) - TREAD_W * 0.5
+    rc0 = p.rc_of(FOOT_Z)
     knots = [(-GOING, FOOT_Z, math.radians(STAIR_START_DEG) - GOING / rc0)]
     for d in st:
         knots.append((d["s"], d["zt"], d["th"]))
         if d["kind"] in ("landing", "top"):
-            rc = p.R_of(d["zt"]) - TREAD_W * 0.5
+            rc = p.rc_of(d["zt"])
             knots.append((d["s"] + d["going"], d["zt"], d["th"] + d["going"] / rc))
     p.knots = knots
 
@@ -691,7 +713,8 @@ def _rings(p, z_floor):
     for z0, z1 in zip(fixed, fixed[1:]):
         rings.append(z0)
         free.append(False)
-        n = int(math.ceil((z1 - z0) / BAND_H))
+        # the door band stays one cell: a ring through it would cut the arch short
+        n = 1 if abs(z0 - FOOT_Z) < 1e-6 else int(math.ceil((z1 - z0) / BAND_H))
         for k in range(1, n):
             rings.append(_lerp(z0, z1, k / float(n)))
             free.append(True)
@@ -753,7 +776,7 @@ def _plan_chamber(p, sv):
         f = (d["zt"] - FOOT_Z) / p.climb
         if not (CHAMBER_LO <= f <= CHAMBER_HI):
             continue
-        rc = p.R_of(d["zt"]) - TREAD_W * 0.5
+        rc = p.rc_of(d["zt"])
         t0, t1 = d["th"], d["th"] + d["going"] / rc
         j0 = int(math.floor((math.degrees(t0 % TAU) - ANG_OFF) / (360.0 / NS)))
         j1 = int(math.floor((math.degrees(t1 % TAU) - ANG_OFF) / (360.0 / NS)))
@@ -777,11 +800,23 @@ def make_plan(sv):
     p = Plan()
     z_floor_axis = sv.floor
     p.ctrl, p.R_of, p.worst = _profile(sv, z_floor_axis)
+    # the wall leans in where the shaft narrows going up; a tread's inner edge
+    # keeps its width under the wall a body's height above it, or the capsule wedges
+    p.R_in = lambda z: min(p.R_of(z + h) for h in (0.0, 0.5, 1.0, 1.5, 2.0))
+    # the facets jitter JAG_R in and sag SAG at mid-chord: the clear width is
+    # measured to the nearest the wall can actually be
+    global SAG
+    SAG = max(c[1] for c in p.ctrl) * (1.0 - math.cos(math.pi / NS))
+    p.R_clear = lambda z: p.R_in(z) - JAG_R - SAG
+    # walking line 0.5 m off the parapet, as a spiral's going is measured: the
+    # parapet edge then runs at ~39 deg, under the capsule's 46 deg floor limit
+    p.rc_of = lambda z: p.R_clear(z) - TREAD_CLEAR + WALK_OFF
+    p.r_i_of = lambda z: p.R_clear(z) - TREAD_CLEAR - PARAPET_T   # tread's inner edge
     # the hole sits at the room's edge: measure his floor there once the
     # stair's arrival bearing is known (a first pass at the axis height)
     _stations(p, z_floor_axis)
     th = p.st[-1]["th"]
-    rr = p.R_of(z_floor_axis) - TREAD_W * 0.5
+    rr = p.rc_of(z_floor_axis)
     zf = sv.down(rr * math.cos(th), rr * math.sin(th), z_floor_axis + 3.0)
     p.z_floor = zf if zf is not None else z_floor_axis
     p.z_c = p.z_floor - SLAB_T
@@ -793,9 +828,11 @@ def make_plan(sv):
     _rings(p, p.z_floor)
     _plan_windows(p, sv)
     # the stairwell hole and the throat under the floor
-    p.s_h0 = p.s_top - (HOLE_L - TOP_TREAD_LEN)
+    # the hole opens where the raked soffit meets the floor: HEADROOM over the
+    # nose, or the capsule's head is in the room floor before the hole
     p.s_throat = p.s_of_nose(p.z_c - HEADROOM)
-    p.r_cd = p.R_top - TREAD_W - 0.03
+    p.s_h0 = min(p.s_top - (HOLE_L - TOP_TREAD_LEN), p.s_of_nose(p.z_floor - 0.05 - HEADROOM))
+    p.r_cd = p.r_i_of(p.z_floor) - 0.03
     p.th_h0 = p.theta(p.s_h0)
     return p
 
@@ -873,6 +910,7 @@ def _wall(m, p, r, sv):
                 _slot_hole(m, P, corners, want, zone, u0, u1, v0, v1, w)
 
     # hidden outer skin and the caps that close the shell
+    m.tag = "skin"
     vout = {}
     for j in range(NS):
         a = math.radians(ANG_OFF + j * 360.0 / NS)
@@ -888,6 +926,7 @@ def _wall(m, p, r, sv):
                (0, 0, -1), ZONE_SHADE)
         m.quad(vin[(j, nz - 1)], vin[(j1, nz - 1)], vout[(j1, nz - 1)],
                vout[(j, nz - 1)], (0, 0, 1), ZONE_SHADE)
+    m.tag = "rock"
     p.rjit, p.zjit, p.rec, p.pin = rjit, zjit, rec, pin
 
 
@@ -964,60 +1003,48 @@ def _slot_hole(m, P, c, want, zone, u0, u1, v0, v1, w):
 
 
 def _door(m, p, sv):
-    """The passage from the lining out through the rock, and the porch on its face."""
+    """Where the rock's face is on the door's bearing, and a stone reveal lining
+    the first TRIM_D of the passage, flush with the rock's cut."""
     a = math.radians(DOOR_BEARING)
     d = _radial(a)
     x_rock = 0.0
     for y in (-1.4, -0.7, 0.0, 0.7, 1.4):
-        for z in (FOOT_Z + 0.2, FOOT_Z + 1.2, FOOT_Z + 2.2, FOOT_Z + PORCH_H):
+        for z in (FOOT_Z + 0.2, FOOT_Z + 1.2, FOOT_Z + 2.2, FOOT_Z + 3.0):
             hit = sv.bvh.ray_cast(Vector((80.0 * d[0] - y * d[1], 80.0 * d[1] + y * d[0], z)),
                                   Vector((-d[0], -d[1], 0.0)), 80.0)
             if hit[0]:
                 x_rock = max(x_rock, hit[0].x * d[0] + hit[0].y * d[1])
-    r_pb = x_rock - PORCH_BURY
-    r_pf = r_pb + PORCH_T
-    p.door = dict(r_pb=r_pb, r_pf=r_pf, x_rock=x_rock, R=p.R_of(FOOT_Z + 1.1))
+    p.door = dict(x_rock=x_rock, R=p.R_of(FOOT_Z + 1.1))
 
-    r = _Rng(SEED + 77)
-    jag = [(r.sf() * PORCH_JAG, r.sf() * PORCH_JAG) for _ in range(4)]   # (y, z) per corner
-
-    def frame(x_along, v_lo, v_hi, half_w, want_sign):
-        """Planar rect at this reach with the arched hole; returns its outline."""
-        cs = [(-half_w + jag[0][0], v_lo), (half_w + jag[1][0], v_lo),
-              (half_w + jag[2][0], v_hi + jag[2][1]), (-half_w + jag[3][0], v_hi + jag[3][1])]
-
-        def P(u, v):
-            y = _lerp(_lerp(cs[0][0], cs[1][0], u), _lerp(cs[3][0], cs[2][0], u), v)
-            z = _lerp(_lerp(cs[0][1], cs[1][1], u), _lerp(cs[3][1], cs[2][1], u), v)
-            return (x_along * d[0] - y * d[1], x_along * d[1] + y * d[0], z)
-        c = dict(v00=m.v(P(0, 0)), v10=m.v(P(1, 0)), v11=m.v(P(1, 1)), v01=m.v(P(0, 1)))
-        want = (d[0] * want_sign, d[1] * want_sign, 0.0)
-        vb = (FOOT_Z - v_lo) / (v_hi - v_lo)
-        return c, _arched_hole(m, P, c, want, ZONE_CARVE, 2.0 * half_w, v_hi - v_lo,
-                               DOOR_W, DOOR_H, vb)
-
-    z_lo, z_hi = FOOT_Z - 0.3, FOOT_Z + PORCH_H
-    cb, ob_ = frame(r_pb, z_lo, z_hi, PORCH_W * 0.5, -1.0)
-    cf, of_ = frame(r_pf, z_lo, z_hi, PORCH_W * 0.5, 1.0)
     tang = (-d[1], d[0], 0.0)
-    m.quad(cb["v01"], cb["v11"], cf["v11"], cf["v01"], (0, 0, 1), ZONE_ROCK)
-    m.quad(cb["v00"], cb["v10"], cf["v10"], cf["v00"], (0, 0, -1), ZONE_ROCK)
-    m.quad(cb["v00"], cb["v01"], cf["v01"], cf["v00"], (-tang[0], -tang[1], 0.0), ZONE_ROCK)
-    m.quad(cb["v10"], cb["v11"], cf["v11"], cf["v10"], tang, ZONE_ROCK)
-
-    def tunnel(ra, rb):
-        n = len(ra)
-        for i in range(n):
-            pa, pb = m.verts[ra[i]], m.verts[ra[(i + 1) % n]]
-            mid = ((pa[0] + pb[0]) * 0.5, (pa[1] + pb[1]) * 0.5, (pa[2] + pb[2]) * 0.5)
-            along = mid[0] * d[0] + mid[1] * d[1]
-            axis = (along * d[0], along * d[1], FOOT_Z + 1.0)
-            want = (axis[0] - mid[0], axis[1] - mid[1], axis[2] - mid[2])
-            if i == n - 1:
-                want = (0.0, 0.0, 1.0)
-            m.quad(ra[i], ra[(i + 1) % n], rb[(i + 1) % n], rb[i], want, ZONE_CARVE)
-    tunnel(p.door_outline_in, ob_)
-    tunnel(ob_, of_)
+    ring = [m.verts[i] for i in p.door_outline_in]
+    n = len(ring)
+    # the outline pushed TRIM_W outward in its own plane (the floor ends only sideways)
+    outer = []
+    for k, (x, y, z) in enumerate(ring):
+        across = x * tang[0] + y * tang[1]
+        along = x * d[0] + y * d[1]
+        if k == 0 or k == n - 1:
+            oa, oz = across + (-TRIM_W if k == 0 else TRIM_W), z
+        else:
+            cx, cz = 0.0, FOOT_Z + DOOR_H - 0.5 * DOOR_W
+            L = math.hypot(across - cx, z - cz) or 1.0
+            oa, oz = across + (across - cx) / L * TRIM_W, z + (z - cz) / L * TRIM_W
+        outer.append((along * d[0] + oa * tang[0], along * d[1] + oa * tang[1], oz))
+    m.tag = "trim"
+    vi = [m.v(q) for q in ring]
+    vo = [m.v(q) for q in outer]
+    vi2 = [m.v((q[0] + d[0] * TRIM_D, q[1] + d[1] * TRIM_D, q[2])) for q in ring]
+    vo2 = [m.v((q[0] + d[0] * TRIM_D, q[1] + d[1] * TRIM_D, q[2])) for q in outer]
+    axis = (p.door["R"] * d[0], p.door["R"] * d[1], FOOT_Z + 1.0)
+    for k in range(n - 1):
+        mid = ring[k]
+        want = (axis[0] - mid[0], axis[1] - mid[1], axis[2] - mid[2])
+        m.quad(vi[k], vi[k + 1], vi2[k + 1], vi2[k], want, ZONE_CARVE)       # the reveal
+        m.quad(vo[k], vo[k + 1], vo2[k + 1], vo2[k],
+               (-want[0], -want[1], -want[2]), ZONE_ROCK)                     # buried back
+        m.quad(vi2[k], vi2[k + 1], vo2[k + 1], vo2[k], d, ZONE_ROCK)         # the trim's edge
+    m.tag = "rock"
 
 
 def _flight(m, p):
@@ -1039,7 +1066,7 @@ def _flight(m, p):
     def loop(s, th, zt):
         R = p.R_top if s >= p.s_h0 - GOING else p.R_of(zt)
         r_o = R + JAG_R + 0.06
-        r_i = R - TREAD_W
+        r_i = p.r_i_of(p.z_floor if s >= p.s_h0 - GOING else zt)
         hp = hp_at(s)
         r_p = r_i + PARAPET_T if hp > 0.0 else r_i
         nose = p.nose(s)
@@ -1060,30 +1087,37 @@ def _flight(m, p):
             end = ntang if m.verts[B[2]][2] < m.verts[A[2]][2] else tang
             wants[1] = wants[2] = wants[3] = end
         zones = [ZONE_CARVE, ZONE_ROCK, ZONE_ROCK, ZONE_ROCK, ZONE_SHADE, ZONE_SHADE]
+        tags = ["tread", "parapet_face", "flight", "flight", "flight", "flight"]
         for e in range(6):
             f = (e + 1) % 6
+            m.tag = tags[e]
             m.quad(A[e], A[f], B[f], B[e], wants[e], zones[e])
+        m.tag = "rock"
 
     prev = None
     for d in st:
         for (s, th, zt) in ((d["s"], d["th"], d["zt"]),
                             (d["s"] + d["going"],
-                             d["th"] + d["going"] / (p.R_of(d["zt"]) - TREAD_W * 0.5),
+                             d["th"] + d["going"] / (p.rc_of(d["zt"])),
                              d["zt"])):
             key = (round(s, 5), round(zt, 5))
             if prev is not None and key == prev[0]:
                 continue
             L, _ = loop(s, th, zt)
             if prev is None:
+                m.tag = "tread"      # the first riser: the ramp, not a wall
                 m.poly(list(reversed(L)), (math.sin(th), -math.cos(th), 0.0), ZONE_ROCK)
+                m.tag = "rock"
             else:
                 riser = abs(s - prev[1]) < 1e-6
                 connect(prev[2], L, prev[3], th, riser)
             prev = (key, s, L, th)
+    m.tag = "tread"
     m.poly(prev[2], (-math.sin(prev[3]), math.cos(prev[3]), 0.0), ZONE_ROCK)
+    m.tag = "rock"
 
 
-def _ceiling(m, p, coll):
+def _ceiling(m, p):
     """Flat shaft ceiling under the room floor, the raked throat, the well, the kerb."""
     z_c = p.z_c
     r_cd = p.r_cd
@@ -1118,7 +1152,7 @@ def _ceiling(m, p, coll):
     rim += [(t, s) for t, s in zip(th_st, fine)]
     rim.sort(key=lambda x: x[0])
 
-    for target in (m, coll):
+    for target in (m,):
         centre = target.v((0.0, 0.0, z_c))
         inner = [target.v((r_cd * math.cos(t), r_cd * math.sin(t), z_c)) for t, _ in rim]
         outer = [target.v((r_out * math.cos(t), r_out * math.sin(t), z_c)) for t, _ in rim]
@@ -1136,7 +1170,7 @@ def _ceiling(m, p, coll):
                 b_i = target.v((r_out * math.cos(ti), r_out * math.sin(ti), hi_))
                 a_j = target.v((r_cd * math.cos(tj), r_cd * math.sin(tj), hj_))
                 b_j = target.v((r_out * math.cos(tj), r_out * math.sin(tj), hj_))
-                if sj <= p.s_h0 + 1e-6 and (target is m or hj_ < p.z_floor - LIP_FREE):
+                if sj <= p.s_h0 + 1e-6:
                     target.quad(a_i, b_i, b_j, a_j, (0, 0, -1), ZONE_SHADE)
                 # the throat's inner wall, and the well's above it
                 top_i = target.v((r_cd * math.cos(ti), r_cd * math.sin(ti),
@@ -1159,18 +1193,17 @@ def _ceiling(m, p, coll):
     t1 = p.th_end + 0.30 / r_cd
     m.sector_prism(r_cd - KERB_T, r_cd, t0, t1, p.z_floor - 0.05, p.z_floor + KERB_H,
                    ZONE_ROCK, zone_top=ZONE_CARVE)
-    coll.sector_prism(r_cd - KERB_T, r_cd, t0, t1, p.z_floor - 0.05, p.z_floor + KERB_H,
-                      ZONE_ROCK)
     p.hole = dict(t0=p.th_h0 % TAU, t1=p.th_end % TAU, r0=r_cd, r1=p.R_top,
                   z=p.z_floor, th_a=th_a)
 
 
 def _floor(m, p, r):
     R = p.R_of(FOOT_Z) + JAG_R + WALL_T
-    centre = m.v((0.0, 0.0, FOOT_Z))
+    z0 = FOOT_Z - FLOOR_DROP
+    centre = m.v((0.0, 0.0, z0))
     mid = [m.v((3.0 * math.cos(TAU * i / NS), 3.0 * math.sin(TAU * i / NS),
-                FOOT_Z - 0.06 * r.f())) for i in range(NS)]
-    rim = [m.v((R * math.cos(TAU * i / NS), R * math.sin(TAU * i / NS), FOOT_Z))
+                z0 - 0.06 * r.f())) for i in range(NS)]
+    rim = [m.v((R * math.cos(TAU * i / NS), R * math.sin(TAU * i / NS), z0))
            for i in range(NS)]
     for i in range(NS):
         j = (i + 1) % NS
@@ -1178,60 +1211,28 @@ def _floor(m, p, r):
         m.quad(mid[i], rim[i], rim[j], mid[j], (0, 0, 1), ZONE_ROCK if i % 3 else ZONE_SHADE)
 
 
-def _chamber(m, p, coll):
+def _chamber(m, p):
     c = p.chamber
     if not c:
         return
     d = p.st[c["li"]]
     R = p.R_of(d["zt"])
-    r_i = R - TREAD_W
+    r_i = p.r_i_of(d["zt"])
     z = d["zt"]
     t0, t1 = c["t0"], c["t1"]
     # the shelf out into the shaft, and its parapet
-    for target in (m, coll):
-        target.sector_prism(r_i - SHELF_D, r_i - 0.02, t0, t1, z - SHELF_T, z,
-                            ZONE_ROCK, zone_top=ZONE_CARVE)
-        target.sector_prism(r_i - SHELF_D, r_i - SHELF_D + PARAPET_T, t0, t1,
-                            z, z + PARAPET_H, ZONE_ROCK)
-        for t in (t0, t1):
-            ta, tb = (t, t + PARAPET_T / r_i) if t == t0 else (t - PARAPET_T / r_i, t)
-            target.sector_prism(r_i - SHELF_D, r_i, ta, tb, z, z + PARAPET_H, ZONE_ROCK)
-    # collider for the alcove: floor, back wall, ceiling, side walls
+    m.sector_prism(r_i - SHELF_D, r_i - 0.02, t0, t1, z - SHELF_T, z,
+                   ZONE_ROCK, zone_top=ZONE_CARVE)
+    m.sector_prism(r_i - SHELF_D, r_i - SHELF_D + PARAPET_T, t0, t1,
+                   z, z + PARAPET_H, ZONE_ROCK)
+    for t in (t0, t1):
+        ta, tb = (t, t + PARAPET_T / r_i) if t == t0 else (t - PARAPET_T / r_i, t)
+        m.sector_prism(r_i - SHELF_D, r_i, ta, tb, z, z + PARAPET_H, ZONE_ROCK)
     a0 = math.radians(ANG_OFF + c["j0"] * 360.0 / NS)
     a1 = math.radians(ANG_OFF + (c["j1"] + 1) * 360.0 / NS)
     if a1 < a0:
         a1 += TAU
-    Rb = R + c["rec"]
-    n = c["j1"] + 1 - c["j0"]
-    for k in range(n):
-        ta = _lerp(a0, a1, k / float(n))
-        tb = _lerp(a0, a1, (k + 1) / float(n))
-        pa, pb = _radial(ta), _radial(tb)
-        f = [coll.v((R * pa[0] - 0.2 * pa[0], R * pa[1] - 0.2 * pa[1], z - 0.03)),
-             coll.v((Rb * pa[0], Rb * pa[1], z - 0.03)),
-             coll.v((Rb * pb[0], Rb * pb[1], z - 0.03)),
-             coll.v((R * pb[0] - 0.2 * pb[0], R * pb[1] - 0.2 * pb[1], z - 0.03))]
-        coll.quad(f[0], f[1], f[2], f[3], (0, 0, 1), ZONE_ROCK)
-        w = [coll.v((Rb * pa[0], Rb * pa[1], z - 0.03)),
-             coll.v((Rb * pb[0], Rb * pb[1], z - 0.03)),
-             coll.v((Rb * pb[0], Rb * pb[1], z + CHAMBER_H)),
-             coll.v((Rb * pa[0], Rb * pa[1], z + CHAMBER_H))]
-        tm = _radial(0.5 * (ta + tb))
-        coll.quad(w[0], w[1], w[2], w[3], (-tm[0], -tm[1], 0.0), ZONE_ROCK)
-        cl = [coll.v((R * pa[0] - 0.2 * pa[0], R * pa[1] - 0.2 * pa[1], z + CHAMBER_H)),
-              coll.v((Rb * pa[0], Rb * pa[1], z + CHAMBER_H)),
-              coll.v((Rb * pb[0], Rb * pb[1], z + CHAMBER_H)),
-              coll.v((R * pb[0] - 0.2 * pb[0], R * pb[1] - 0.2 * pb[1], z + CHAMBER_H))]
-        coll.quad(cl[0], cl[1], cl[2], cl[3], (0, 0, -1), ZONE_ROCK)
-    for t, sign in ((a0, 1.0), (a1, -1.0)):
-        pa = _radial(t)
-        tang = (-pa[1] * sign, pa[0] * sign, 0.0)
-        s = [coll.v((R * pa[0] - 0.2 * pa[0], R * pa[1] - 0.2 * pa[1], z - 0.03)),
-             coll.v((Rb * pa[0], Rb * pa[1], z - 0.03)),
-             coll.v((Rb * pa[0], Rb * pa[1], z + CHAMBER_H)),
-             coll.v((R * pa[0] - 0.2 * pa[0], R * pa[1] - 0.2 * pa[1], z + CHAMBER_H))]
-        coll.quad(s[0], s[1], s[2], s[3], tang, ZONE_ROCK)
-    p.chamber.update(dict(R=R, Rb=Rb, a0=a0, a1=a1))
+    p.chamber.update(dict(R=R, Rb=R + c["rec"], a0=a0, a1=a1))
 
 
 def _drips(m, p, r):
@@ -1275,25 +1276,10 @@ def _drips(m, p, r):
                    0.1 + r.f() * 0.18, 5, ZONE_SHADE, (r.sf() * 0.06, r.sf() * 0.06))
 
 
-def _collider(coll, p):
-    """Wall rings, floor, the ramp under the stair, parapet, soffit, doorway."""
-    ring_z = [FOOT_Z] + [z for z, _r in p.ctrl if FOOT_Z < z < p.z_top] + [p.z_top]
-    rings = []
-    for z in ring_z:
-        R = p.R_of(z)
-        rings.append([coll.v((R * math.cos(TAU * i / NS + math.radians(ANG_OFF)),
-                              R * math.sin(TAU * i / NS + math.radians(ANG_OFF)), z))
-                      for i in range(NS)])
-    for a, b in zip(rings, rings[1:]):
-        for i in range(NS):
-            j = (i + 1) % NS
-            tm = TAU * (i + 0.5) / NS + math.radians(ANG_OFF)
-            coll.quad(a[i], a[j], b[j], b[i], (-math.cos(tm), -math.sin(tm), 0.0), ZONE_ROCK)
-    centre = coll.v((0.0, 0.0, FOOT_Z))
-    for i in range(NS):
-        coll.tri(rings[0][i], rings[0][(i + 1) % NS], centre, (0, 0, 1), ZONE_ROCK)
-
-    # stair: ramp through the nosings less RAMP_DROP; parapet; inner face; soffit
+def _collider(m, p):
+    """Every drawn face but the hidden skin, the treads and the parapet's tread
+    face; under the treads a smooth ramp with the parapet face carried down to it."""
+    coll = m.subset(lambda tag: tag not in ("skin", "tread", "parapet_face"))
     prev = None
     ss = sorted(set([k[0] for k in p.knots]))
     fine = []
@@ -1304,66 +1290,58 @@ def _collider(coll, p):
     fine.append(ss[-1])
     for s in fine:
         nose, th = p.nose(s), p.theta(s)
-        R = p.R_top if s >= p.s_h0 - GOING else p.R_of(nose)
-        r_o, r_i = R + 0.05, R - TREAD_W
-        hp = 0.0 if s >= p.s_h0 - GOING else PARAPET_H * min(1.0, s / 1.0)
+        top = s >= p.s_h0 - GOING
+        R = p.R_top if top else p.R_of(nose)
+        r_o = R + JAG_R + 0.06
+        r_i = p.r_i_of(p.z_floor if top else nose)
+        hp = 0.0 if top else PARAPET_H * min(1.0, s / 1.0)
         if p.chamber:
             c = p.st[p.chamber["li"]]
             if c["s"] - 1e-6 <= s <= c["s"] + c["going"] + 1e-6:
                 hp = 0.0
         r_p = r_i + PARAPET_T if hp > 0.0 else r_i
-        lift = TOP_RAMP_LIFT * min(1.0, max(0.0, (s - (p.s_top - 2.0)) / 2.0))
-        z = max(FOOT_Z, nose - RAMP_DROP + lift)
+        lift = TOP_RAMP_LIFT * min(1.0, max(0.0, (s - (p.s_top - TOP_LIFT_RUN)) / TOP_LIFT_RUN))
+        z = max(FOOT_Z - FLOOR_DROP, nose - RAMP_DROP + lift)
+        cop = nose + hp if hp > 0.0 else z
         cs, sn = math.cos(th), math.sin(th)
         L = [coll.v((r_o * cs, r_o * sn, z)), coll.v((r_p * cs, r_p * sn, z)),
-             coll.v((r_p * cs, r_p * sn, z + hp)), coll.v((r_i * cs, r_i * sn, z + hp)),
-             coll.v((r_i * cs, r_i * sn, nose - SOFFIT_D)),
-             coll.v((r_o * cs, r_o * sn, nose - SOFFIT_D))]
+             coll.v((r_p * cs, r_p * sn, cop))]
         if prev is not None:
             tm = 0.5 * (prev[1] + th)
             rad = _radial(tm)
-            nrad = (-rad[0], -rad[1], 0.0)
-            wants = [(0, 0, 1), rad, (0, 0, 1), nrad, (0, 0, -1)]
-            for e in range(5):
-                coll.quad(prev[0][e], prev[0][e + 1], L[e + 1], L[e], wants[e], ZONE_ROCK)
+            coll.quad(prev[0][0], prev[0][1], L[1], L[0], (0, 0, 1), ZONE_ROCK)
+            coll.quad(prev[0][1], prev[0][2], L[2], L[1], rad, ZONE_ROCK)
         prev = (L, th)
-
-    # doorway: floor, two walls, lintel from the lining out to the porch front
-    d = _radial(math.radians(DOOR_BEARING))
-    tang = (-d[1], d[0], 0.0)
-    x0, x1 = p.door["R"] - 0.6, p.door["r_pf"] + 0.05
-    hw = DOOR_W * 0.5
-
-    def P(x, y, z):
-        return coll.v((x * d[0] - y * d[1], x * d[1] + y * d[0], z))
-    coll.quad(P(x0, -hw, FOOT_Z), P(x1, -hw, FOOT_Z), P(x1, hw, FOOT_Z), P(x0, hw, FOOT_Z),
-              (0, 0, 1), ZONE_ROCK)
-    coll.quad(P(x0, -hw, FOOT_Z), P(x1, -hw, FOOT_Z), P(x1, -hw, FOOT_Z + DOOR_H),
-              P(x0, -hw, FOOT_Z + DOOR_H), tang, ZONE_ROCK)
-    coll.quad(P(x0, hw, FOOT_Z), P(x1, hw, FOOT_Z), P(x1, hw, FOOT_Z + DOOR_H),
-              P(x0, hw, FOOT_Z + DOOR_H), (-tang[0], -tang[1], 0.0), ZONE_ROCK)
-    coll.quad(P(x0, -hw, FOOT_Z + DOOR_H), P(x1, -hw, FOOT_Z + DOOR_H),
-              P(x1, hw, FOOT_Z + DOOR_H), P(x0, hw, FOOT_Z + DOOR_H), (0, 0, -1), ZONE_ROCK)
-    # the porch block round the opening, so nothing walks into its face
-    rb, rf = p.door["r_pb"], p.door["r_pf"]
-    for (ya, yb) in ((-PORCH_W * 0.5, -hw), (hw, PORCH_W * 0.5)):
-        _box_d(coll, d, rb, rf, ya, yb, FOOT_Z - 0.3, FOOT_Z + PORCH_H)
-    _box_d(coll, d, rb, rf, -PORCH_W * 0.5, PORCH_W * 0.5, FOOT_Z + DOOR_H, FOOT_Z + PORCH_H)
+    return coll
 
 
-def _box_d(coll, d, x0, x1, y0, y1, z0, z1):
-    """Closed box in the door's frame: x along d, y across."""
-    def P(x, y, z):
-        return coll.v((x * d[0] - y * d[1], x * d[1] + y * d[0], z))
-    c = [P(x0, y0, z0), P(x1, y0, z0), P(x1, y1, z0), P(x0, y1, z0),
-         P(x0, y0, z1), P(x1, y0, z1), P(x1, y1, z1), P(x0, y1, z1)]
-    tang = (-d[1], d[0], 0.0)
-    coll.quad(c[0], c[1], c[2], c[3], (0, 0, -1), ZONE_ROCK)
-    coll.quad(c[4], c[5], c[6], c[7], (0, 0, 1), ZONE_ROCK)
-    coll.quad(c[0], c[1], c[5], c[4], (-tang[0], -tang[1], 0.0), ZONE_ROCK)
-    coll.quad(c[3], c[2], c[6], c[7], tang, ZONE_ROCK)
-    coll.quad(c[1], c[2], c[6], c[5], d, ZONE_ROCK)
-    coll.quad(c[0], c[3], c[7], c[4], (-d[0], -d[1], 0.0), ZONE_ROCK)
+def _measure_stair(m, p):
+    """Clear tread width to the drawn wall, headroom over the ramp, worst slope."""
+    bvh = BVHTree.FromPolygons([Vector(v) for v in m.verts], [list(f) for f in m.faces],
+                               all_triangles=True, epsilon=0.0)
+    clear, head, slope, where = 99.0, 99.0, 0.0, ""
+    s = 0.0
+    while s < p.s_end:
+        nose, th = p.nose(s), p.theta(s)
+        r_i = p.r_i_of(nose)
+        r_p = r_i + PARAPET_T
+        rc = p.rc_of(nose)
+        for h in (0.3, 1.0, 1.7):
+            org = Vector(((r_p + 0.05) * math.cos(th), (r_p + 0.05) * math.sin(th), nose + h))
+            hit = bvh.ray_cast(org, Vector((math.cos(th), math.sin(th), 0.0)), 6.0)
+            if hit[0]:
+                clear = min(clear, (hit[0] - org).length + 0.05)
+        # headroom over the clear width; outside it the leaning wall is the ceiling
+        for rr in (r_p + 0.3, rc, p.R_clear(nose) - 0.3):
+            org = Vector((rr * math.cos(th), rr * math.sin(th), nose + 0.3))
+            hit = bvh.ray_cast(org, Vector((0.0, 0.0, 1.0)), 60.0)
+            if hit[0] and hit[0].z - nose < head:
+                head = hit[0].z - nose
+                where = "s=%.1f bearing=%.0fdeg z=%.1f r=%.2f" % (s, math.degrees(th) % 360.0, nose, rr)
+        slope = max(slope, math.degrees(math.atan2(RISE, GOING * r_p / rc)))
+        s += 0.25
+    rcs = [p.rc_of(z) for z in (FOOT_Z, p.z_floor)] + [p.rc_of(c[0]) for c in p.ctrl]
+    return (clear, min(rcs), max(rcs), slope), (head, where)
 
 
 # =============================================================================
@@ -1445,7 +1423,7 @@ def _extra_renders(spec, objects):
     ld.energy = 900.0
     ld.color = (1.0, 0.6, 0.45)
     lo = mdl._link(bpy.data.objects.new("DoorFill", ld))
-    lo.location = (p.door["r_pf"] + 2.5, 1.5, FOOT_Z + 2.4)
+    lo.location = (p.door["x_rock"] + 2.5, 1.5, FOOT_Z + 2.4)
     lamps.append(lo)
     ld = bpy.data.lights.new("WellFill", type="POINT")
     ld.energy = 1200.0
@@ -1480,12 +1458,12 @@ def _extra_renders(spec, objects):
 
     def on_stair(s, up=EYE_H):
         th = p.theta(s)
-        rc = p.R_of(p.nose(s)) - TREAD_W * 0.5
+        rc = p.rc_of(p.nose(s))
         return (rc * math.cos(th), rc * math.sin(th), p.nose(s) + up)
 
     rock.hide_render = True
     d = _radial(math.radians(DOOR_BEARING))
-    shot("door", (d[0] * (p.door["r_pf"] + 3.2), d[1] * (p.door["r_pf"] + 3.2) + 0.5,
+    shot("door", (d[0] * (p.door["x_rock"] + 3.2), d[1] * (p.door["x_rock"] + 3.2) + 0.5,
                   FOOT_Z + EYE_H),
          (d[0] * (p.door["R"] - 2.5), d[1] * (p.door["R"] - 2.5), FOOT_Z + 1.3),
          24.0, (1000, 760))
@@ -1497,7 +1475,7 @@ def _extra_renders(spec, objects):
     if p.chamber:
         c = p.chamber
         tc = 0.5 * (c["t0"] + c["t1"])
-        rc = c["R"] - TREAD_W * 0.5
+        rc = p.rc_of(c["z"])
         shot("chamber", (rc * math.cos(c["t0"] - 0.35), rc * math.sin(c["t0"] - 0.35),
                          c["z"] + EYE_H),
              ((c["Rb"] - 0.3) * math.cos(tc), (c["Rb"] - 0.3) * math.sin(tc), c["z"] + 1.2),
@@ -1553,15 +1531,16 @@ def build():
     p = make_plan(sv)
     r = _Rng(SEED)
 
-    m, coll = _Mesh(), _Mesh()
+    m = _Mesh()
     _wall(m, p, r, sv)
     _door(m, p, sv)
     _flight(m, p)
-    _ceiling(m, p, coll)
+    _ceiling(m, p)
     _floor(m, p, r)
-    _chamber(m, p, coll)
+    _chamber(m, p)
     _drips(m, p, r)
-    _collider(coll, p)
+    coll = _collider(m, p)
+    clear, head = _measure_stair(m, p)
 
     albedo, emissive = build_texture()
     mdl.save_texture(albedo)
@@ -1597,9 +1576,12 @@ def build():
           "r=%.2f..%.2f z=%.2f throat_from=%.1fdeg godot_corners=%s"
           % (math.degrees(h["t0"]), math.degrees(h["t1"]), h["r0"], h["r1"], h["z"],
              math.degrees(h["th_a"]), " ".join(corners)))
-    print("MDL STATS door bearing=%.0fdeg lining_R=%.2f rock_face=%.2f porch=%.2f..%.2f "
-          "passage=%.1fm" % (DOOR_BEARING, p.door["R"], p.door["x_rock"], p.door["r_pb"],
-                             p.door["r_pf"], p.door["r_pf"] - p.door["R"]))
+    print("MDL STATS door bearing=%.0fdeg lining_R=%.2f rock_face=%.2f passage=%.1fm "
+          "opening=%.2fx%.2f" % (DOOR_BEARING, p.door["R"], p.door["x_rock"],
+                                 p.door["x_rock"] - p.door["R"], DOOR_W, DOOR_H))
+    print("MDL STATS tread clear_width min=%.2f (want %.2f) headroom min=%.2f (want %.2f) "
+          "at %s; walking_r=%.2f..%.2f inner_slope max=%.1fdeg"
+          % (clear[0], TREAD_CLEAR, head[0], HEADROOM, head[1], clear[1], clear[2], clear[3]))
     for w in p.windows:
         print("MDL STATS window bearing=%.0fdeg z=%.1f reach=%.2f" %
               (math.degrees(w["bearing"]), w["z"], w["r_end"]))
