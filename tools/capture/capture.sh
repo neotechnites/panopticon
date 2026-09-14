@@ -13,7 +13,7 @@
 # project.godot's and which --resolution does not touch, so SIZE is applied
 # through a temporary override.cfg that is removed again whatever happens.
 #
-# Overridable by environment: PC_PROJECT PC_GODOT PC_HOST FPS SIZE SEED BOTS.
+# Overridable by environment: PC_PROJECT PC_GODOT PC_HOST FPS SIZE SEED BOTS DELAY LOOK STAGE POV AUDIO.
 set -euo pipefail
 
 PULL=0
@@ -29,6 +29,11 @@ FPS=${FPS:-60}
 SIZE=${SIZE:-1280x720}
 SEED=${SEED:-20260930}
 BOTS=${BOTS:-7}
+DELAY=${DELAY:-0}   # seconds of match played before the path starts
+LOOK=${LOOK:-social}
+STAGE=${STAGE:-}
+POV=${POV:-}
+AUDIO=${AUDIO:-near}
 
 WIDTH=${SIZE%%x*}
 HEIGHT=${SIZE##*x}
@@ -40,7 +45,7 @@ MAC_DIR=~/Desktop/panopticon-renders/clips
 
 CMD="${GODOT} --path ${PROJECT} --script res://tools/capture/run_clip.gd"
 CMD="${CMD} --write-movie ${PC_AVI} --fixed-fps ${FPS} --resolution ${SIZE}"
-CMD="${CMD} -- --shot=${SHOT} --seconds=${SECS} --seed=${SEED} --bots=${BOTS}"
+CMD="${CMD} -- --shot=${SHOT} --seconds=${SECS} --delay=${DELAY} --look=${LOOK} --stage=${STAGE} --pov=${POV} --audio=${AUDIO} --seed=${SEED} --bots=${BOTS}"
 
 echo "PC> ${CMD}"
 mkdir -p "${MAC_DIR}"
