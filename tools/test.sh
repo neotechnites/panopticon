@@ -1,12 +1,18 @@
 #!/usr/bin/env bash
-# Run the PANOPTICON suite headless and print one line of verdict.
+# Run the PANOPTICON gate headless and print one line of verdict.
 #
-#   tools/test.sh                # the whole suite
+#   tools/test.sh                # class cache, unit suite, hot-path audit
 #   tools/test.sh traps          # only test files whose path contains "traps"
 #
-# Exit code is the runner's: 0 all green, 1 a test failed, 2 the run was broken
-# (a file that would not load, a timeout, or an engine error during the run).
-# Never opens a window -- headless is the only mode this repo runs on the Mac.
+# Three things run, in this order: a class-cache pass, the unit suite (which
+# contains the perf and bandwidth budgets in tests/test_budgets.gd), and the
+# hot-path audit. Everything runs even after something fails, so one run reports
+# every problem rather than the first one.
+#
+# Exit code: 0 all green, 1 a test failed or the audit found a hot-path hit,
+# 2 the run was broken (a file that would not load, a timeout, or an engine
+# error during the run). Never opens a window -- headless is the only mode this
+# repo runs on the Mac.
 set -uo pipefail
 cd "$(dirname "$0")/.."
 
@@ -23,7 +29,8 @@ fi
 "$GODOT" --headless --editor --quit >/dev/null 2>&1
 
 LOG="$(mktemp -t panopticon-tests)"
-trap 'rm -f "$LOG"' EXIT
+AUDIT_LOG="$(mktemp -t panopticon-hotpaths)"
+trap 'rm -f "$LOG" "$AUDIT_LOG"' EXIT
 
 if [ $# -gt 0 ]; then
   "$GODOT" --headless --path . --script res://tools/run_tests.gd -- "--only=$1" >"$LOG" 2>&1
@@ -44,5 +51,23 @@ fi
 if [ "$STATUS" -ne 0 ]; then
   cat "$LOG"
 fi
-echo "$SUMMARY  (exit $STATUS)"
-exit $STATUS
+
+# The budgets print what they measured on every run, pass or fail. That is the
+# whole point of having them: a number drifting towards its gate is visible
+# weeks before it trips, which a green tick alone would never show.
+grep -E 'BUDGET ' "$LOG" | sed -E 's/^ +/  /'
+
+"$GODOT" --headless --path . --script res://tools/audit_hotpaths.gd >"$AUDIT_LOG" 2>&1
+AUDIT_STATUS=$?
+AUDIT="$(grep -E '^(CLEAN|DIRTY)  ' "$AUDIT_LOG" | tail -1)"
+if [ "$AUDIT_STATUS" -ne 0 ] || [ -z "$AUDIT" ]; then
+  cat "$AUDIT_LOG"
+fi
+if [ -z "$AUDIT" ]; then
+  AUDIT="BROKEN  the hot-path audit produced no summary (exit $AUDIT_STATUS)"
+  AUDIT_STATUS=2
+fi
+
+echo "$SUMMARY  |  hot paths: $AUDIT  (exit $STATUS/$AUDIT_STATUS)"
+[ "$STATUS" -ne 0 ] && exit "$STATUS"
+exit "$AUDIT_STATUS"

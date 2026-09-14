@@ -96,9 +96,9 @@ func _process(delta: float) -> void:
 		_idle_seconds = 0.0
 
 	if speed_label != null:
-		speed_label.text = "%5.2f m/s" % speed
+		speed_label.text = "%5.2f m/s" % speed  # hot-ok: dev-only readout, never in a shipped match
 	if peak_label != null:
-		peak_label.text = "peak %.2f" % _peak
+		peak_label.text = "peak %.2f" % _peak  # hot-ok: dev-only readout, never in a shipped match
 	if state_label != null:
 		state_label.text = _describe_state()
 	if detail_label != null:

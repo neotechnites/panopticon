@@ -283,7 +283,7 @@ func _physics_process(delta: float) -> void:
 	if not _started:
 		_wait_seconds += delta
 		if _wait_seconds >= READY_TIMEOUT_SECONDS:
-			push_warning("NetMatch: %d client(s) never reported ready; starting without them." % _pending_peers.size())
+			push_warning("NetMatch: %d client(s) never reported ready; starting without them." % _pending_peers.size())  # hot-ok: fires once; _start_now() latches _started
 			_start_now()
 		return
 	_drive_remote_trigger()

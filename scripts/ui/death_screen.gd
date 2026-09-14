@@ -128,7 +128,7 @@ func tick() -> void:
 	var tenths: int = maxi(int(ceilf(remaining * 10.0)), 0)
 	if tenths != _shown_tenths:
 		_shown_tenths = tenths
-		_countdown.text = "%.1f" % (float(tenths) * 0.1)
+		_countdown.text = "%.1f" % (float(tenths) * 0.1)  # hot-ok: only when the tenth changes
 
 
 # --- Public API ---------------------------------------------------------------

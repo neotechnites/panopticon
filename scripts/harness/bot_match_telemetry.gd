@@ -969,14 +969,14 @@ func _stall_dictionary(sim_hz: int) -> Dictionary:
 
 func _tick_dictionary() -> Dictionary:
 	var ticks: float = float(maxi(_ticks - 1, 1))
-	var out: Dictionary = {
+	var out: Dictionary = {  # hot-ok: named _tick*, but built once when the match ends
 		"max": float(_tick_max_usec) / 1000.0,
 		"avg": float(_tick_sum_usec) / ticks / 1000.0,
 		"over_16ms": _tick_over_16ms,
 	}
 	for kind: String in _cost_max:
-		out["%s_max" % kind] = float(_cost_max[kind]) / 1000.0
-		out["%s_avg" % kind] = float(_cost_sum[kind]) / ticks / 1000.0
+		out["%s_max" % kind] = float(_cost_max[kind]) / 1000.0  # hot-ok: result keys, built once
+		out["%s_avg" % kind] = float(_cost_sum[kind]) / ticks / 1000.0  # hot-ok: result keys, built once
 	return out
 
 
