@@ -87,9 +87,10 @@ const LAKE_HOP_REST_SECONDS: float = 0.5
 const LAKE_LINK_OVERSHOOT_METRES: float = 0.25
 ## How close to a lake link's start the body launches from. See [method _launch_over_lake].
 const LAKE_LAUNCH_METRES: float = 0.8
-const PAD_SIDE_METRES: float = 1.8
 const PAD_RUNUP_METRES: float = 6.0
 const PAD_TURN_METRES: float = 0.6
+## How far ahead a covered crossing is worth detouring to. See [method _maybe_take_the_covered_way].
+const COVERED_DETOUR_METRES: float = 20.0
 
 ## What the runner is doing.
 enum State {
@@ -174,7 +175,6 @@ var _fly_aim: Vector3 = Vector3.ZERO
 var _link_aim: Vector3 = Vector3.ZERO
 var _link_aim_age: float = INF
 var _link_entry: Vector3 = Vector3.ZERO
-var _link_side: float = 0.0
 var _link_staged: bool = false
 ## The lake link ahead: its take-off point, launch velocity and landing point.
 var _lake_plan: Dictionary = {}
@@ -184,6 +184,8 @@ var _lake_flight: bool = false
 var _lake_backing: bool = false
 var _lake_stand: Vector3 = Vector3.ZERO
 var _blocked_seconds: float = 0.0
+## Seconds spent behind cover waiting for the rifle before taking a flight.
+var _launch_wait: float = 0.0
 var _search_countdown: float = 0.0
 
 var _target: Vector3 = Vector3.ZERO
@@ -214,6 +216,7 @@ var _seconds_in_cover: float = 0.0
 var _seconds_exposed: float = 0.0
 var _slides_attempted: int = 0
 var _jumps: int = 0
+var _lake_hops: int = 0
 
 
 func _ready() -> void:
@@ -333,8 +336,10 @@ func _arm(
 	_seconds_exposed = 0.0
 	_slides_attempted = 0
 	_jumps = 0
+	_lake_hops = 0
 	_jump_cooldown = 0.0
 	_blocked_seconds = 0.0
+	_launch_wait = 0.0
 	_reported_end = false
 	_reset_stuck()
 
@@ -386,7 +391,6 @@ func _note_link_ahead() -> void:
 			continue
 		if _flat_distance(controller.global_position, path[i]) <= LINK_NOTICE_METRES:
 			if _link_aim_age > LINK_AIM_MEMORY_SECONDS:
-				_link_side = 0.0
 				_link_staged = false
 			_link_entry = path[i]
 			_link_aim = path[i + 1]
@@ -395,9 +399,17 @@ func _note_link_ahead() -> void:
 		return
 
 
-## Enter a pad from beside its axis so it fires near its centre, not at its back edge: full range.
-## Run up parallel to the axis PAD_SIDE_METRES aside, turn in PAD_TURN_METRES before the centre.
-## Vector3.INF when there is nothing to stage (no fresh link, already flying, at or past the centre).
+## Line the body up BEHIND a pad, on the pad's own axis, and walk it straight in.
+##
+## The pad fires on contact, so the only thing a runner controls is where on the
+## plate's edge it crosses -- and any sideways offset there is the same offset at
+## the far end of a fourteen-metre arc onto a rock three metres wide. Coming in
+## square puts that error at nothing. The link's start is already the back edge
+## (see [method RingNavigation._pad_takeoff]), so the arc it names is the arc
+## this approach actually flies.
+##
+## Vector3.INF when there is nothing to stage: no fresh link, already flying, or
+## the body is already on the plate.
 func _pad_approach_point() -> Vector3:
 	if _flying or _link_aim_age > LINK_AIM_MEMORY_SECONDS:
 		return Vector3.INF
@@ -405,24 +417,26 @@ func _pad_approach_point() -> Vector3:
 	if direction.length() < 0.5:
 		return Vector3.INF
 	direction = direction.normalized()
-	var across: Vector3 = Vector3(-direction.z, 0.0, direction.x)
 	var here: Vector3 = controller.global_position
 	var offset: Vector3 = Vector3(here.x - _link_entry.x, 0.0, here.z - _link_entry.z)
 	var along: float = offset.dot(direction)
-	if along > -0.2:
+	if along > -PAD_TURN_METRES:
 		return Vector3.INF
-	if _link_side == 0.0:
-		var outer: Vector3 = _link_entry + across * PAD_SIDE_METRES
-		var inner: Vector3 = _link_entry - across * PAD_SIDE_METRES
-		var room_outer: float = _flat_distance(_nav.snap(outer), outer) if _nav_ready() else 0.0
-		var room_inner: float = _flat_distance(_nav.snap(inner), inner) if _nav_ready() else 0.0
-		_link_side = 1.0 if room_outer <= room_inner else -1.0
-	var aside: Vector3 = across * _link_side * PAD_SIDE_METRES
 	if along < -PAD_RUNUP_METRES - 1.0:
-		return _link_entry - direction * PAD_RUNUP_METRES + aside
-	if along < -PAD_TURN_METRES:
-		return _link_entry - direction * PAD_TURN_METRES + aside
-	return _link_entry + direction * 1.0
+		return _staging_or_entry(_link_entry - direction * PAD_RUNUP_METRES)
+	# Inside the run-up: steer at the axis just short of the plate, so the
+	# sideways error is spent before the edge rather than carried over it.
+	return _staging_or_entry(_link_entry - direction * PAD_TURN_METRES)
+
+
+## [param staged] when the mesh reaches it, and the pad's own edge otherwise.
+##
+## A landing rock in a lava field is four metres long. Staging a six-metre run-up
+## off one puts the mark in the lava beside it, and the body walks there.
+func _staging_or_entry(staged: Vector3) -> Vector3:
+	if not _nav_ready() or _flat_distance(_nav.snap(staged), staged) <= PATH_POINT_METRES:
+		return staged
+	return _link_entry
 
 
 ## True while a fresh lake link stands on the path ahead.
@@ -433,6 +447,36 @@ func _lake_is_live() -> bool:
 ## True while the body stands in the lava lake's angular span.
 func _in_lake() -> bool:
 	return _nav_ready() and _nav.is_in_lake_span(controller.global_position)
+
+
+## Hold on solid ground rather than launch into the open with the tower on you.
+##
+## A flight is a body at the top of an arc with nothing between it and the rifle
+## and no steering worth the name; the moment to take one is the moment the rifle
+## is empty. So a runner that is BEHIND something -- the crest on the demon run's
+## tower side, the cave wall over the river -- stands there until it believes the
+## tower is reloading or has stopped looking. It gives up after the profile's own
+## patience, so a guard who simply never fires cannot freeze a lap.
+##
+## True while it owns the body.
+func _wait_for_the_launch(delta: float) -> bool:
+	if _play == null or not is_playing_cover() or _flying or not controller.is_on_floor():
+		_launch_wait = 0.0
+		return false
+	_perception.tick(delta)
+	if not _perception.has_threat() or not _perception.believes_watched():
+		_launch_wait = 0.0
+		return false
+	# Already in the open, or the rifle already spent: nothing is bought by waiting.
+	if _perception.is_exposed() or _perception.get_believed_reload_remaining() > 0.0:
+		_launch_wait = 0.0
+		return false
+	_launch_wait += delta
+	if _launch_wait >= _play.max_hold_seconds:
+		return false
+	_face(_perception.get_threat_eye(), delta)
+	input.command.move_direction = Vector2.ZERO
+	return true
 
 
 ## Pressed against a ledge inside the lake the body cannot walk up -- the entry row's lip:
@@ -466,6 +510,7 @@ func _hop_lake_ledge(delta: float) -> bool:
 	input.command.jump_pressed = false
 	input.command.jump_held = false
 	controller.launch(_nav.lake_launch_to(here, target))
+	_lake_hops += 1
 	_lake_flight = true
 	_link_aim = target
 	_link_aim_age = 0.0
@@ -489,6 +534,7 @@ func _launch_over_lake() -> bool:
 	# Solved from where the body actually stands, not from the link's own start: a take-off
 	# half a metre out would land the arc half a metre out, and the platforms are 2.4 m wide.
 	controller.launch(_nav.lake_launch_to(controller.global_position, _lake_plan["landing"]))
+	_lake_hops += 1
 	_lake_flight = true
 	_link_aim = _lake_plan["landing"]
 	_link_aim_age = 0.0
@@ -515,6 +561,13 @@ func _tick_flight(delta: float) -> bool:
 			if flat.length() > 0.1 else controller.global_position
 		if _link_aim_age <= LINK_AIM_MEMORY_SECONDS:
 			_fly_aim = _link_aim
+		elif _nav_ready():
+			# Launched by a pad the path never meant to use. Ask where it throws.
+			var thrown: Vector3 = _nav.pad_landing_from(controller.global_position)
+			if is_finite(thrown.x):
+				_fly_aim = thrown
+				_link_aim = thrown
+				_link_aim_age = 0.0
 		_release_slide()
 	_fly_seconds += delta
 	if on_floor or _fly_seconds > FLY_MAX_SECONDS:
@@ -522,7 +575,6 @@ func _tick_flight(delta: float) -> bool:
 		_lake_flight = false
 		_link_aim_age = INF
 		_link_staged = false
-		_link_side = 0.0
 		if _has_agent_target:
 			_aim_agent(_agent_raw_target, true)
 		# Only a flight that travelled clears the stuck clock: the unstick jump
@@ -732,6 +784,11 @@ func get_jumps() -> int:
 	return _jumps
 
 
+## Flights taken over lava on a navigation link: the stepping stones, the chain.
+func get_lake_hops() -> int:
+	return _lake_hops
+
+
 func get_last_break_confidence() -> float:
 	return _last_confidence
 
@@ -798,6 +855,8 @@ func _physics_process(delta: float) -> void:
 	# In the lake there is no cover, no hazard to jump and nowhere to stand but the next
 	# platform: run the route, fly the links, and leave the cover game out of it.
 	if _in_lake():
+		if _wait_for_the_launch(delta):
+			return
 		_run_route(delta)
 		if not _hop_lake_ledge(delta):
 			_tick_stuck(delta)
@@ -966,6 +1025,14 @@ func _route_level_of(point: Vector3) -> int:
 func _run_route(delta: float) -> void:
 	_aim_agent(_current_waypoint())
 	_follow_path(delta)
+
+
+## The take-off of a covered crossing within reach ahead, or Vector3.INF. A lava
+## river's boulder chain and a lake's stepping stones are both this.
+func _covered_crossing_ahead() -> Vector3:
+	if not _nav_ready() or _in_lake():
+		return Vector3.INF
+	return _nav.covered_step_ahead(controller.global_position, COVERED_DETOUR_METRES)
 
 
 func _current_waypoint() -> Vector3:
@@ -1506,11 +1573,11 @@ func _plan_and_cross(remaining_arc: float, delta: float) -> void:
 
 ## Search for cover, keep it only if the mesh reaches it, else fall back to the route ahead.
 func _choose_target(remaining_arc: float) -> void:
-	_search_cover(remaining_arc)
 	var here: Vector3 = controller.global_position
 	_has_target = false
 	_target_path = PackedVector3Array()
 
+	_search_cover(remaining_arc)
 	if _cover.has_result():
 		var path: PackedVector3Array = _plan_path(here, _cover.get_position())
 		if not path.is_empty():
@@ -1537,6 +1604,31 @@ func _choose_target(remaining_arc: float) -> void:
 
 	if _has_target:
 		_exposed_metres = _measure_exposure(_target_path)
+		_maybe_take_the_covered_way(here)
+
+
+## Swap an open crossing this runner does not believe in for a covered way round.
+##
+## Which side of a lava river to run is not a question the navmesh can answer: it
+## prices the boulder chain by its length and the open lane is always shorter.
+## The price that matters is being SEEN, and the runner already has a number for
+## that -- the same confidence against the same threshold that decides whether it
+## leaves cover at all, which carries the profile's boldness, the tower's
+## attention and the metres of open ground in one figure. Where that says no and
+## a chain of footholds says yes, a person takes the chain.
+func _maybe_take_the_covered_way(here: Vector3) -> void:
+	if _crossing_confidence() >= _break_threshold():
+		return
+	var mouth: Vector3 = _covered_crossing_ahead()
+	if not is_finite(mouth.x):
+		return
+	var way: PackedVector3Array = _plan_path(here, _nav.snap(mouth))
+	if way.is_empty():
+		return
+	_target = mouth
+	_target_is_cover = true
+	_target_path = way
+	_exposed_metres = _measure_exposure(way)
 
 
 ## Metres of [param path] on which a shot from the tower could reach a chest.
