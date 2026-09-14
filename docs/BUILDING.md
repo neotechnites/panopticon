@@ -3,6 +3,22 @@
 First produced 2026-09-10 from commit `f0efb32`. This records what actually
 works, not what ought to.
 
+## One command
+
+    tools/build.sh [win|mac|all] [--tag vX.Y.Z]   # default all, ~45 s
+    tools/build.sh --check                          # engine, templates, presets on both machines
+
+Stamps `application/config/version` with `git describe` (or the `--tag` plus
+short hash) for the export only, then restores `project.godot`. Windows exports
+on the PC in `C:\dev\verify` at this HEAD (pushed as the `build` ref; the play
+copy is never touched) to
+`C:\Users\ddd\Desktop\panopticon-builds\<version>\panopticon-win.zip`; macOS
+exports headless to `build/<version>/panopticon-mac.zip`. Each build is run
+`--headless --quit-after 60` from its zip contents and must load
+`main_menu.tscn`; one row per platform lands in the pod DB `builds` table.
+Missing Mac templates are downloaded and installed by the script. The
+sections below are the manual steps it automates.
+
 ## Engine and templates
 
 The engine version is pinned in `.godot-version`:
