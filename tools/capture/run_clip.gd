@@ -53,6 +53,16 @@ const MATCH_SCENE: String = "res://scenes/match/match.tscn"
 ## that keeps it films the inside of somebody's head.
 const CULL_MASK: int = 1048573
 
+## How close a clip camera may be to something before it stops drawing it.
+const NEAR_METRES: float = 0.05
+
+## The watcher looks down the ring until the camera stops, then takes this long
+## to come round onto it -- arriving as the pan settles, not before it starts.
+const EYE_SWING_SECONDS: float = 1.6
+const EYE_SETTLE_SECONDS: float = 0.2
+## Where it is looking while the lap is still running: the far side of the ring.
+const EYE_ELSEWHERE_DEGREES: float = 150.0
+
 ## The social grade: the shipped environment, lifted. Reinhard rolls the lava off
 ## rather than clipping it, so only the rock really moves.
 ## Exposure is kept close to the shipped value because the lava is emissive and
@@ -93,6 +103,7 @@ var _stage: String = ""
 var _pov: String = ""
 var _pov_body: Node3D = null
 var _fill: OmniLight3D = null
+var _eye: Node3D = null
 var _chain: Node = null
 var _built: bool = false
 var _done: bool = false
@@ -142,6 +153,7 @@ func _process(delta: float) -> bool:
 	else:
 		var progress: float = clampf((_elapsed - _delay) / _seconds, 0.0, 1.0)
 		_aim_camera(_key_start + progress * _key_span)
+		_turn_the_eye(delta)
 	if _elapsed >= _delay + _seconds:
 		_hush()
 		_done = true
@@ -199,6 +211,7 @@ func _build() -> void:
 
 	if String(_options.get("look", "")) == "social":
 		_light_for_social(match_root)
+	_take_the_eye(match_root)
 	_listen_to_audio()
 	if String(_options.get("audio", "")) == "near":
 		_keep_audio_near()
@@ -290,6 +303,9 @@ func _make_camera() -> Camera3D:
 	camera.name = "ClipCamera"
 	camera.cull_mask = CULL_MASK
 	camera.far = 400.0
+	# The shipped 0.3 m near plane slices the rock open when a flown shot passes
+	# close to it; a clip would rather see a wall than see through one.
+	camera.near = NEAR_METRES
 	return camera
 
 
@@ -559,3 +575,29 @@ func _keep_audio_near() -> void:
 				cue.volume_db = AUDIO_MUTED_DB
 		copy.rebuild_index()
 		director.set(which, copy)
+
+
+# --- The watcher --------------------------------------------------------------
+
+## Take the tower's eye off its own poll.
+##
+## [method WatchingEye._process] points the pupil at whatever camera is current,
+## every frame, which means a clip finds it already staring before the shot has
+## turned onto it. Driven from here it can be looking somewhere else first.
+func _take_the_eye(match_root: Node) -> void:
+	_eye = _find_node(match_root, "Watcher") as Node3D
+	if _eye == null or not _eye.has_method("turn_toward"):
+		_eye = null
+		return
+	_eye.process_mode = Node.PROCESS_MODE_DISABLED
+
+
+## Look down the ring, then come round onto the camera as the pan settles.
+func _turn_the_eye(delta: float) -> void:
+	if _eye == null or _camera == null:
+		return
+	var swing_start: float = _seconds - EYE_SWING_SECONDS - EYE_SETTLE_SECONDS
+	var swing: float = clampf((_elapsed - _delay - swing_start) / EYE_SWING_SECONDS, 0.0, 1.0)
+	var elsewhere: Vector3 = SHOTS.ring_point(EYE_ELSEWHERE_DEGREES, 52.0, 1.0)
+	var looked_at: Vector3 = elsewhere.lerp(_camera.global_position, smoothstep(0.0, 1.0, swing))
+	_eye.call(&"turn_toward", _eye.call(&"gaze_direction_for", looked_at), delta)
