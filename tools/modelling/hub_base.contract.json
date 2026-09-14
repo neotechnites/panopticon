@@ -1,0 +1,10 @@
+{
+  "_comment": "The hub lobby floor: ten 36-degree wedges of flat floor (r 14.5..40, y 0) round a plain plinth (r 13.5, y 0.35) the tower is placed on as a scene node; a 1.2..2.0 m outer wall, a 2 m slab under it, sky open. Wedge 1 (bearings 0..36 in Blender xy) is hell rock with a lava pool 0.3 m under the floor and four stalagmites; wedges 2..10 are HubStone with a 0.2 m dais at their centre for a marker. THREE surfaces: HellRock (the arena's atlas), Lava (the arena's river sheet), HubStone. HubBaseCollision is the purpose-built collider shipped as a `-colonly` node (flat deck cut round the pool, plinth, wall, dais pucks, pool banks and floor, stalagmite stacks); Godot turns it into a StaticBody3D + ConcavePolygonShape3D and drops its mesh, so `surfaces` counts only what is drawn.",
+  "node_paths": [
+    "HubBaseRock",
+    "HubBaseCollision",
+    "HubBaseCollision/CollisionShape3D"
+  ],
+  "surfaces": 3,
+  "max_tris": 30000
+}
