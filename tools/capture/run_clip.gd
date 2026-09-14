@@ -13,6 +13,11 @@ extends SceneTree
 ## --shot=NAME      a path from tools/capture/shot_paths.gd  (required)
 ## --seconds=F      how long to fly it; 0 means the shot's own duration
 ## --delay=F        seconds held on the first key first, so the match catches up
+## --look=social    lift the ring's own grade until rock reads on a phone
+## --stage=NAME     staged action: firefight (the tower snap-shoots) or
+##                  chainrun (one prisoner takes the S2 boulder chain)
+## --pov=runner     film down a bot-driven prisoner's own eyes, HUD on, no path
+## --audio=near     only sounds made within AUDIO_NEAR_METRES of the camera
 ## --seed=N         match seed; 0 means entropy               (default 20260930)
 ## --bots=N         prisoners on the ring, plus one in the tower  (default 7)
 ## --out=DIR        directory the clip is destined for; created if missing
@@ -40,11 +45,32 @@ extends SceneTree
 ## brain behind the seat an all-AI tower never fires and no round can end.
 
 const SHOTS := preload("res://tools/capture/shot_paths.gd")
+const CHAIN_STAGE := preload("res://tools/capture/chain_stage.gd")
 const MATCH_SCENE: String = "res://scenes/match/match.tscn"
 
 ## Layer 2 is the owner-hidden layer every camera in the game clears; a camera
 ## that keeps it films the inside of somebody's head.
 const CULL_MASK: int = 1048573
+
+## The social grade: the shipped environment, lifted. Reinhard rolls the lava off
+## rather than clipping it, so only the rock really moves.
+## Exposure is kept close to the shipped value because the lava is emissive and
+## exposure is the only one of these that touches it; the rock is lifted with
+## ambient and a fill instead, which emissive surfaces never see.
+const SOCIAL_EXPOSURE: float = 1.45
+const SOCIAL_AMBIENT: float = 0.95
+const SOCIAL_FILL_ENERGY: float = 0.55
+const SOCIAL_FILL_RANGE: float = 22.0
+const SOCIAL_FILL_COLOUR := Color(1.0, 0.63, 0.44)
+
+## A clip hears what a body at the camera would hear and nothing else: the match
+## bank's flat cues carry no distance at all, so an off-screen round resolving
+## lands at full volume over a quiet shot.
+const AUDIO_NEAR_METRES: float = 25.0
+const AUDIO_MUTED_DB: float = -60.0
+
+## The deck the prisoners run on; a POV body far off it is not standing on it.
+const DECK_Y: float = 23.0
 
 const EXIT_OK: int = 0
 const EXIT_BROKEN: int = 2
@@ -58,6 +84,11 @@ var _delay: float = 0.0
 var _elapsed: float = 0.0
 var _camera: Camera3D = null
 var _controller: MatchController = null
+var _stage: String = ""
+var _pov: String = ""
+var _pov_body: Node3D = null
+var _fill: OmniLight3D = null
+var _chain: Node = null
 var _built: bool = false
 var _done: bool = false
 var _exit_code: int = EXIT_OK
@@ -73,6 +104,10 @@ func _initialize() -> void:
 		"shot": "",
 		"seconds": 0.0,
 		"delay": 0.0,
+		"look": "",
+		"stage": "",
+		"pov": "",
+		"audio": "",
 		"seed": BotHarness.DEFAULT_SEED,
 		"bots": 7,
 		"out": "",
@@ -92,11 +127,16 @@ func _process(delta: float) -> bool:
 		return false
 
 	_elapsed += delta
+	if _stage == "chainrun" and _chain == null and _elapsed > 0.5:
+		_stage_chainrun()
 	if _elapsed < _delay:
 		_aim_camera(_key_start)
 		return false
-	var progress: float = clampf((_elapsed - _delay) / _seconds, 0.0, 1.0)
-	_aim_camera(_key_start + progress * _key_span)
+	if _pov == "runner":
+		_ride_a_runner()
+	else:
+		var progress: float = clampf((_elapsed - _delay) / _seconds, 0.0, 1.0)
+		_aim_camera(_key_start + progress * _key_span)
 	if _elapsed >= _delay + _seconds:
 		_hush()
 		_done = true
@@ -123,7 +163,9 @@ func _build() -> void:
 	_seconds = float(_options.get("seconds", 0.0))
 	_seconds = maxf(_seconds, 0.1) if _seconds > 0.0 else float(shot["duration"])
 	_delay = maxf(float(_options.get("delay", 0.0)), 0.0)
+	_stage = String(_options.get("stage", ""))
 
+	_pov = String(_options.get("pov", ""))
 	var seed_value: int = int(_options.get("seed", 0))
 	if seed_value != 0:
 		seed(seed_value)
@@ -143,22 +185,35 @@ func _build() -> void:
 
 	root.add_child(match_root)
 	_park_the_human(match_root)
-	_camera = _make_camera()
-	root.add_child(_camera)
-	_camera.current = true
+	if _pov == "":
+		_camera = _make_camera()
+		root.add_child(_camera)
+		_camera.current = true
+
+	if String(_options.get("look", "")) == "social":
+		_light_for_social(match_root)
+	_listen_to_audio()
+	if String(_options.get("audio", "")) == "near":
+		_keep_audio_near()
 
 	# Before start_match, exactly as the sweep does it: the first seat is granted
 	# from inside that call and a seat brain armed afterwards would miss it.
-	var seat: BotTowerSeat = BotTowerSeat.new()
-	seat.name = "ClipTowerSeat"
-	root.add_child(seat)
-	seat.install(_controller, _shooter_profile(), seed_value)
+	# chainrun wants no seat at all: an unmanned tower never fires, so no round
+	# ends and the staged body is still on the chain when the path finishes.
+	if _stage != "chainrun":
+		var seat: BotTowerSeat = BotTowerSeat.new()
+		seat.name = "ClipTowerSeat"
+		root.add_child(seat)
+		seat.install(_controller, _shooter_profile(), seed_value)
+	else:
+		_disarm_traps(match_root, ^"Sections/S2_LavaShelf")
 	# A clip outlives the match it is filming: a won match freezes every body,
 	# and a frozen ring is not b-roll.
 	_controller.match_won.connect(func(_winner: MatchParticipant) -> void: _controller.restart())
 	_controller.start_match()
 
-	_aim_camera(_key_start)
+	if _pov == "":
+		_aim_camera(_key_start)
 	_announce(shot)
 
 
@@ -185,10 +240,16 @@ func _make_it_bots_only(match_root: Node, bots: int) -> void:
 
 	# SettingsBoot writes the player's saved settings over the rules, which would
 	# make the same seed film a different match on a different machine.
-	for path: String in [
+	var silenced: Array[String] = [
 		"SettingsBoot", "NetMatch", "HUD", "FeedbackRig", "SpectatorView", "SeatHandover",
 		"FreeCamera", "DeathScreen", "RoundTransition", "ResultScreen", "PauseMenu",
-	]:
+	]
+	if _pov == "runner":
+		# A POV clip is a player's view: it wants the readouts and the camera kick,
+		# and the spectator cut when the body it is riding is shot.
+		for keep: String in ["HUD", "FeedbackRig", "SpectatorView"]:
+			silenced.erase(keep)
+	for path: String in silenced:
 		var node: Node = match_root.get_node_or_null(NodePath(path))
 		if node == null:
 			continue
@@ -229,7 +290,74 @@ func _make_camera() -> Camera3D:
 ## [BotMatchRunner] takes one: [BotTowerSeat] writes a seed into it per body.
 func _shooter_profile() -> ShooterProfile:
 	var profile: ShooterProfile = load(BotMatchRunner.SHOOTER_PROFILE_PATH) as ShooterProfile
-	return profile.duplicate() as ShooterProfile
+	var copy: ShooterProfile = profile.duplicate() as ShooterProfile
+	if _stage == "firefight":
+		# The shipped guard takes most of a clip to decide. This one does not:
+		# it is the same brain with its patience removed, on a throwaway copy.
+		copy.scan_yaw_rate = 2.4
+		copy.reaction_seconds = 0.08
+		copy.shot_confidence_threshold = 0.15
+		copy.aim_error_degrees = 0.3
+		copy.confident_range = 120.0
+	return copy
+
+
+## Lift the ring's own environment until rock reads on a phone: more exposure and
+## ambient, plus a warm fill riding the camera. The shipped resource is untouched.
+func _light_for_social(match_root: Node) -> void:
+	var world: WorldEnvironment = _find_node(match_root, "WorldEnvironment") as WorldEnvironment
+	if world != null and world.environment != null:
+		var env: Environment = world.environment.duplicate() as Environment
+		env.tonemap_exposure = SOCIAL_EXPOSURE
+		env.ambient_light_energy = SOCIAL_AMBIENT
+		world.environment = env
+	_fill = OmniLight3D.new()
+	_fill.name = "ClipFill"
+	_fill.light_color = SOCIAL_FILL_COLOUR
+	_fill.light_energy = SOCIAL_FILL_ENERGY
+	_fill.omni_range = SOCIAL_FILL_RANGE
+	_fill.omni_attenuation = 0.7
+	_fill.shadow_enabled = false
+	# In a POV clip there is no clip camera to hang it on; it follows the body
+	# being ridden instead, which _ride_a_runner reparents it to.
+	if _camera != null:
+		_camera.add_child(_fill)
+	else:
+		root.add_child(_fill)
+
+
+## Put the first living prisoner on the S2 chain instead of on the lane.
+func _stage_chainrun() -> void:
+	var runners: Array[RingRunner] = _controller.get_live_runners()
+	if runners.is_empty() or runners[0].controller == null:
+		return
+	_chain = CHAIN_STAGE.new()
+	_chain.name = "ClipChainStage"
+	root.add_child(_chain)
+	_chain.install(runners[0].controller, runners[0])
+
+
+## Stop the lava under [param section] killing the staged body mid-leap.
+func _disarm_traps(match_root: Node, section: NodePath) -> void:
+	var node: Node = match_root.get_node_or_null(section)
+	if node == null:
+		return
+	for child: Node in node.get_children():
+		var area: Area3D = child as Area3D
+		if area != null:
+			area.monitoring = false
+
+
+## The first node called [param wanted] anywhere under [param from].
+func _find_node(from: Node, wanted: String) -> Node:
+	var pending: Array[Node] = [from]
+	while not pending.is_empty():
+		var node: Node = pending.pop_back()
+		if node.name == wanted:
+			return node
+		for child: Node in node.get_children():
+			pending.append(child)
+	return null
 
 
 # --- Flying it ----------------------------------------------------------------
@@ -266,6 +394,10 @@ func _announce(shot: Dictionary) -> void:
 		int(_options.get("seed", 0)),
 		"" if recording else "  (playing only; no --write-movie)",
 	])
+	print("look %s, stage %s" % [
+		_options.get("look", "") if String(_options.get("look", "")) != "" else "shipped",
+		_stage if _stage != "" else "none",
+	])
 	if not out_dir.is_empty():
 		print("clip: %s" % out_dir.path_join("%s.avi" % shot["name"]))
 
@@ -286,3 +418,92 @@ func _fail(message: String) -> void:
 	printerr(message)
 	_exit_code = EXIT_BROKEN
 	_done = true
+
+
+# --- Riding a body ------------------------------------------------------------
+
+## Keep the view down some living prisoner's own camera, changing body when the
+## one being ridden is taken. The body's camera is never written to: only made
+## current, which is what [FxSpectatorView] does for a dead player.
+func _ride_a_runner() -> void:
+	# A shot prisoner is not freed, it is buried a hundred metres under the deck,
+	# so "still valid" is not "still worth watching": the same standing test that
+	# picks a body has to keep deciding whether to stay on it.
+	if _pov_body != null and is_instance_valid(_pov_body) and _is_standing(_pov_body):
+		var riding: Camera3D = _pov_body.get_node_or_null(^"Head/Camera") as Camera3D
+		if riding == null:
+			riding = _pov_body.get_node_or_null(^"Camera") as Camera3D
+		if riding != null and riding.current:
+			return
+	for runner: RingRunner in _controller.get_live_runners():
+		var body: Node3D = runner.controller
+		if body == null:
+			continue
+		if not _is_standing(body):
+			continue
+		var camera: Camera3D = body.get_node_or_null(^"Head/Camera") as Camera3D
+		if camera == null:
+			camera = body.get_node_or_null(^"Camera") as Camera3D
+		if camera == null:
+			continue
+		camera.current = true
+		_pov_body = body
+		_wear_the_body(body)
+		return
+
+
+## First-person body rules, as the human's body already has them: a runner's
+## avatar sits on visual layer 3 so every other camera sees it, and that is the
+## one layer its own camera does not clear. Put it back on the owner-hidden
+## layer and [PrisonerAvatar] does the rest -- head and spine collapsed, the
+## first-person layer added -- with no change to the avatar itself.
+## True while [param body] is on the deck rather than buried under it.
+func _is_standing(body: Node3D) -> bool:
+	return absf(body.global_position.y - DECK_Y) <= 6.0
+
+
+func _wear_the_body(body: Node3D) -> void:
+	var avatar: Node = body.get_node_or_null(^"Avatar")
+	if avatar != null and avatar.get("visual_layers") != null:
+		avatar.set("visual_layers", 2)
+	if _fill != null:
+		var head: Node = body.get_node_or_null(^"Head")
+		if head != null and _fill.get_parent() != head:
+			_fill.reparent(head, false)
+			_fill.position = Vector3.ZERO
+
+
+# --- Audio --------------------------------------------------------------------
+
+## Print every cue the match posts, so a clip's soundtrack can be read off the log.
+func _listen_to_audio() -> void:
+	var director: AudioDirector = AudioDirector.instance()
+	if director == null:
+		return
+	director.event_played.connect(
+		func(event: StringName, positional: bool) -> void:
+			print("[audio] %6.2f  %s  %s" % [_elapsed, event, "3d" if positional else "flat"])
+	)
+
+
+## Give the director a private bank that only carries near sound: flat cues are
+## muted outright and positional ones stop reaching past [constant AUDIO_NEAR_METRES].
+func _keep_audio_near() -> void:
+	var director: AudioDirector = AudioDirector.instance()
+	if director == null:
+		return
+	for which: StringName in [&"bank", &"crushed_bank"]:
+		var bank: AudioBank = director.get(which) as AudioBank
+		if bank == null:
+			continue
+		var copy: AudioBank = bank.duplicate(true) as AudioBank
+		for cue: AudioCue in copy.cues:
+			if cue == null:
+				continue
+			if cue.positional:
+				cue.max_distance = AUDIO_NEAR_METRES
+				cue.unit_size = minf(cue.unit_size, 6.0)
+			else:
+				cue.volume_db = AUDIO_MUTED_DB
+		copy.rebuild_index()
+		director.set(which, copy)

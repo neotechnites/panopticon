@@ -20,7 +20,7 @@ const EYE: float = 1.65
 static func names() -> PackedStringArray:
 	return PackedStringArray([
 		"pit_orbit", "s1_cave", "s2_chain", "s4_run", "s5_fall", "guard_scope",
-		"lake_fall", "scope_hunt",
+		"lake_fall", "scope_hunt", "wall_fall", "s5_survey",
 	])
 
 
@@ -44,6 +44,10 @@ static func get_shot(shot_name: String) -> Dictionary:
 			return _shot(shot_name, _lake_fall())
 		"scope_hunt":
 			return _shot(shot_name, _scope_hunt())
+		"wall_fall":
+			return _shot(shot_name, _wall_fall())
+		"s5_survey":
+			return _shot(shot_name, _s5_survey())
 	return {}
 
 
@@ -144,10 +148,10 @@ static func _guard_scope() -> Array:
 ## y 28.8 against the outer wall at r 57.3.
 static func _lake_fall() -> Array:
 	return [
-		_key(0.0, 268.0, 53.0, EYE, 279.0, 55.0, 0.3, 55.0),
-		_key(4.0, 275.0, 53.0, EYE, 287.0, 56.0, 0.5, 50.0),
-		_key(8.0, 281.0, 53.0, EYE, 294.0, 57.0, 1.5, 45.0),
-		_key(12.0, 286.0, 53.0, 1.9, 299.0, 57.3, 5.8, 40.0),
+		_key(0.0, 288.0, 50.0, EYE, 297.0, 54.0, 0.0, 55.0),
+		_key(4.0, 293.0, 49.0, EYE, 300.0, 57.0, -0.3, 55.0),
+		_key(8.0, 297.0, 48.0, EYE, 301.0, 57.3, -0.3, 55.0),
+		_key(12.0, 300.0, 48.0, 1.9, 302.0, 57.3, 4.5, 55.0),
 	]
 
 
@@ -159,6 +163,29 @@ static func _scope_hunt() -> Array:
 		_key(7.0, 8.0, 11.0, 5.0, 25.0, 52.0, 1.0, 15.0),
 		_key(13.0, 8.0, 11.0, 5.0, 33.0, 52.0, 1.0, 13.0),
 	]
+
+## Stood on the deck at the S5 channel's near bank, tilting up the lava sheet.
+##
+## The channel floor is at y 22.7 and the sheet on the outer wall (r 57.3) tops
+## out at the slot at y 28.8. Standing at 288 deg keeps solid deck underfoot and
+## puts 13 m between the eye and the wall: enough to hold the river, the whole
+## drop and the rock over it in one frame.
+static func _wall_fall() -> Array:
+	return [
+		_key(0.0, 288.0, 49.5, EYE, 300.0, 57.3, -0.3, 50.0),
+		_key(6.0, 288.5, 49.5, EYE, 300.5, 57.3, 2.4, 50.0),
+		_key(12.0, 289.0, 49.5, EYE, 301.0, 57.3, 5.8, 50.0),
+	]
+
+
+## A wide look across the S5 channel, for checking where its lava actually is.
+static func _s5_survey() -> Array:
+	return [
+		_key(0.0, 285.0, 48.0, 6.0, 305.0, 55.0, 2.0, 70.0),
+		_key(3.0, 300.0, 47.0, 6.0, 312.0, 57.0, 3.0, 70.0),
+		_key(6.0, 315.0, 47.0, 4.0, 322.0, 57.3, 3.0, 70.0),
+	]
+
 
 # --- Building keys ------------------------------------------------------------
 
