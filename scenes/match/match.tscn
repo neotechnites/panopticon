@@ -495,13 +495,12 @@ editor_description = "The spectator's own camera, deliberately NOT current in th
 current = false
 fov = 75.0
 
-[node name="FreeCamera" type="Node3D" parent="." node_paths=PackedStringArray("camera", "player_camera", "human_input", "avatar", "controller")]
+[node name="FreeCamera" type="Node3D" parent="." node_paths=PackedStringArray("camera", "player_camera", "human_input", "controller")]
 editor_description = "Dev only: C detaches a flying camera from the local body mid match, freezing HumanIntentSource so nothing the pilot presses reaches the body or the wire."
 script = ExtResource("25_free_camera")
 camera = NodePath("Camera")
 player_camera = NodePath("../Player/Head/Camera")
 human_input = NodePath("../Player/HumanInput")
-avatar = NodePath("../Player/Avatar")
 controller = NodePath("../MatchController")
 
 [node name="Camera" type="Camera3D" parent="FreeCamera"]

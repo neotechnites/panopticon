@@ -273,20 +273,19 @@ const FirstPersonHead: GDScript = preload("res://scripts/player/first_person_hea
 ## Which visual layer the mesh draws on, authored per body.
 ##
 ## Layer 2 is the owner-hidden layer: every [Camera3D] in the game inherits the
-## cull_mask on [code]scenes/player/player.tscn[/code], which clears bit 2, so a
-## mesh left here is never drawn from a player's viewpoint. It is where a body
-## sits while nobody is looking out of it. Layer 3, the value 4, is where every
-## body that is NOT the local viewpoint goes, and the two AI scenes set it. The
-## body the human IS looking out of adds [member first_person_layers].
+## cull_mask on [code]scenes/player/player.tscn[/code], which clears bit 2.
+## Layer 3, the value 4, is kept by every camera, and the two AI scenes set it.
+## [member first_person_layers] is added to whichever of the two a body wears.
 @export_flags_3d_render var visual_layers: int = 2
 
-## The layer the mesh is ALSO drawn on while this body is the local viewpoint,
-## so its owner can see their own legs and arms. Layer 1, which no camera
-## clears; the head is collapsed instead -- see [member head_bone].
+## The layer the mesh is ALSO drawn on, always: layer 1, which no camera clears.
+## So a body is drawn to whoever looks at it AND, when it is the viewed one, to
+## its own owner -- who sees legs and arms, the head being collapsed instead.
+## Zero it to take one body out of every frame; see [code]run_clip.gd[/code].
 @export_flags_3d_render var first_person_layers: int = 1
 
-## The bone collapsed while this body is the local viewpoint. Its geometry is
-## what the eye at 1.65 m would otherwise be inside of.
+## The bone collapsed while this body is the viewed one. Its geometry is what
+## the eye at 1.65 m would otherwise be inside of.
 @export var head_bone: StringName = &"Head"
 
 ## The bone collapsed in first person alongside [member head_bone], taking the
@@ -397,12 +396,12 @@ var _has_shove: bool = false
 ## body and every other pose waits, which is the whole of its state.
 var _shove_remaining: float = 0.0
 
-## This body's own camera, or null. Non-null and current means the human is
-## looking out of this body and must be shown their own legs.
+## This body's own camera, or null. Current, with no claim standing, means the
+## view is out of this body and it must be shown its own legs.
 var _camera: Camera3D = null
 
-## Collapses [member head_bone] while this body is the local viewpoint. Null
-## when the skeleton could not be resolved, which keeps the body hidden.
+## Collapses [member head_bone] while this body is the viewed one. Null when
+## the skeleton could not be resolved, which leaves the head drawn.
 var _head_hider: FirstPersonHead = null
 
 ## Collapses [member spine_bone], and the arm bones, on the same terms. Null
@@ -417,6 +416,72 @@ var _arms_hidden: bool = false
 ## Whether the mesh is currently drawn in first person. The edge, for the same
 ## reason [member _in_slide] is one.
 var _first_person: bool = false
+
+
+# --- Which body the view belongs to -------------------------------------------
+#
+# One answer for every avatar in the scene, so a camera hung on a bot, on a
+# teammate or on a replay seat hides that body exactly as it hides the local
+# player's. Static rather than a flag per avatar: N flags are N chances to
+# disagree about who is being looked out of.
+
+## The claimed body, or null for a view of its own (free camera, death cam).
+static var _viewed_body: PlayerController = null
+
+## Whether a claim stands. Without one the rule is the poll it replaced:
+## whichever body's own head camera is current is the one being looked out of.
+static var _view_claimed: bool = false
+
+
+## Claim the view for [param viewing_body], null while no body holds it.
+## Called by whoever made a camera current.
+static func set_viewed_body(viewing_body: PlayerController) -> void:
+	_viewed_body = viewing_body
+	_view_claimed = true
+
+
+## Drop the claim; the view goes back to whichever head camera is current.
+static func release_viewed_body() -> void:
+	_viewed_body = null
+	_view_claimed = false
+
+
+## The claimed body, or null when nobody claimed one.
+static func get_viewed_body() -> PlayerController:
+	return _viewed_body
+
+
+## True while [param candidate] is the body the view looks out of. The answer
+## [MatchController] binds the HUD to.
+static func is_body_viewed(candidate: PlayerController) -> bool:
+	if candidate == null:
+		return false
+	if _view_claimed:
+		return _viewed_body == candidate
+	var eye: Camera3D = candidate.get_node_or_null(^"Head/Camera") as Camera3D
+	return eye != null and eye.is_current()
+
+
+## The same question about this avatar's own body, off the cached camera.
+func is_viewed_first_person() -> bool:
+	if body == null:
+		return false
+	if _view_claimed:
+		return _viewed_body == body
+	return _camera != null and _camera.is_current()
+
+
+## What the rules did to this body on the last tick. Read by tests.
+func is_head_hidden() -> bool:
+	return _first_person
+
+
+func is_spine_hidden() -> bool:
+	return _spine_hidden
+
+
+func are_arms_hidden() -> bool:
+	return _arms_hidden
 
 
 func _ready() -> void:
@@ -496,6 +561,12 @@ func _ready() -> void:
 	_park()
 
 
+## Never leave a body that is going away holding the view.
+func _exit_tree() -> void:
+	if _view_claimed and body != null and _viewed_body == body:
+		release_viewed_body()
+
+
 func _process(delta: float) -> void:
 	if body == null:
 		return
@@ -504,7 +575,7 @@ func _process(delta: float) -> void:
 	# under the slide and the crouch as well, or a body that slid off a ledge
 	# would start counting its fall from whenever the slide happened to close.
 	_tick_air(delta)
-	_tick_first_person()
+	tick_first_person()
 
 	# Death outranks everything: whatever the body was doing when it was shot
 	# is no longer happening. It holds until the body moves under its own power
@@ -726,14 +797,19 @@ func _on_body_shoved() -> void:
 	animation.play(shove_clip, shove_blend_time)
 
 
-## Draw this body for its own owner, or stop. One bool per frame: the camera is
-## current only on the body the human is looking out of, and bots never are.
-func _tick_first_person() -> void:
-	var want: bool = _head_hider != null and _camera != null and _camera.is_current()
+## Apply the viewed-body rules to THIS body, every frame, whoever drives it.
+## The viewed body hides itself; every other one is drawn whole. Public so a
+## test or a harness may step it without waiting on a frame.
+func tick_first_person() -> void:
+	var want: bool = _head_hider != null and is_viewed_first_person()
 	if want != _first_person:
 		_first_person = want
 		_head_hider.set_hidden(want)
-		mesh.layers = (visual_layers | first_person_layers) if want else visual_layers
+
+	# Written unconditionally, because the avatar is the only writer of this
+	# field: a body is on a layer the cameras keep whether it is being looked
+	# out of -- so its owner sees their own legs -- or looked at.
+	mesh.layers = visual_layers | first_person_layers
 
 	# The torso goes with the head: in first person the body is in the way. The
 	# shove is the one clip whose point is seeing your own arms, so it gets them
@@ -752,8 +828,7 @@ func _tick_first_person() -> void:
 
 
 ## Hang a [FirstPersonHead] off the skeleton for each bone first person hides,
-## all inactive. Left null when there is no skeleton, which keeps the body
-## owner-hidden.
+## all inactive. Left null when there is no skeleton.
 func _build_head_hider() -> void:
 	var found: Array = _resolve_skeleton()
 	if found.is_empty():

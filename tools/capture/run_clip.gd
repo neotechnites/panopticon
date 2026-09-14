@@ -476,7 +476,6 @@ func _ride_a_body() -> void:
 		camera.current = true
 		_pov_body = body
 		_wear_the_body(body)
-		_hand_the_hud(participant)
 		return
 
 
@@ -501,44 +500,18 @@ func _is_standing(body: Node3D) -> bool:
 	return absf(body.global_position.y - DECK_Y) <= 6.0
 
 
-## First-person body rules, forced rather than asked for.
+## Tell the game this bot is the body being looked out of.
 ##
-## [method PrisonerAvatar._tick_first_person] collapses the head and the spine
-## when a body's own camera is current, but it then ORs
-## [member PrisonerAvatar.first_person_layers] back on -- layer 1, which no
-## camera clears -- so a runner's arms and legs are still drawn across the lens,
-## and up close they are the whole frame. The layers are put back on the
-## owner-hidden one and the avatar hidden outright: a clip wants the view, not
-## the viewer's own shins.
-func _wear_the_body(body: Node3D) -> void:
-	var avatar: Node = body.get_node_or_null(^"Avatar")
-	if avatar != null:
-		avatar.set("first_person_layers", 0)
-		avatar.set("visual_layers", 2)
-		var mesh: GeometryInstance3D = avatar.get("mesh") as GeometryInstance3D
-		if mesh != null:
-			mesh.layers = 2
-		var shown: Node3D = avatar as Node3D
-		if shown != null:
-			shown.visible = false
+## The one call that matters: [PrisonerAvatar] then collapses this body's head,
+## spine and raised arms exactly as it does the local player's, leaves every
+## other body whole, and [MatchHud] draws this seat's readout.
+func _wear_the_body(body: PlayerController) -> void:
+	PrisonerAvatar.set_viewed_body(body)
 	# No fill on a ridden body. Hung at the eye it sits inside the body's own
 	# capsule and washes the whole frame to a flat gradient; the ambient lift in
 	# _light_for_social is what a POV clip gets instead.
 	if _fill != null:
 		_fill.light_energy = 0.0
-
-
-## Let [MatchHUD] draw for the body being ridden.
-##
-## The HUD asks [method MatchController.get_human_participant] who to draw for,
-## and a bots-only match answers nobody. Calling the ridden participant the human
-## is the whole change: nothing else about it moves, and its [BotIntentSource] is
-## still what drives the body.
-func _hand_the_hud(participant: MatchParticipant) -> void:
-	for other: MatchParticipant in _controller.get_participants():
-		if other.kind == MatchParticipant.Kind.HUMAN:
-			other.kind = MatchParticipant.Kind.AI
-	participant.kind = MatchParticipant.Kind.HUMAN
 
 
 # --- Audio --------------------------------------------------------------------

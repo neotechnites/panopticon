@@ -1084,6 +1084,18 @@ func get_human_participant() -> MatchParticipant:
 	return null
 
 
+## The participant the view is currently on: whoever owns the body
+## [PrisonerAvatar] says is being looked out of, falling back to the human.
+##
+## What the HUD binds to, so riding a bot's head -- the capture tool today, a
+## spectated teammate later -- reads that seat's health, power and reload.
+func get_viewed_participant() -> MatchParticipant:
+	for participant: MatchParticipant in _participants:
+		if PrisonerAvatar.is_body_viewed(participant.body):
+			return participant
+	return get_human_participant()
+
+
 ## Hand in seat-indexed bodies from the net layer. [param mirror] makes this a client.
 func configure_net(
 	bodies: Array[PlayerController],
