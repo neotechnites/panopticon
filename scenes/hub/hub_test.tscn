@@ -1,10 +1,11 @@
-[gd_scene load_steps=9 format=3]
+[gd_scene load_steps=10 format=3]
 
 [ext_resource type="PackedScene" path="res://assets/models/hub_base.glb" id="1_hub_base"]
 [ext_resource type="Script" uid="uid://gwfatmklmjcr" path="res://scripts/ring/tower_variant.gd" id="2_tower_variant"]
 [ext_resource type="PackedScene" uid="uid://cwyjwhfotqv73" path="res://assets/models/tower.glb" id="3_tower_model"]
 [ext_resource type="PackedScene" uid="uid://qc0reb2qk6wi" path="res://assets/models/tower_arches.glb" id="4_tower_arches"]
 [ext_resource type="PackedScene" path="res://scenes/tower/watching_eye.tscn" id="5_watching_eye"]
+[ext_resource type="PackedScene" path="res://assets/models/tower_interior.glb" id="6_tower_interior"]
 
 [sub_resource type="ProceduralSkyMaterial" id="SkyMat"]
 sky_top_color = Color(0.54, 0.110700026, 0.054000016, 1)
@@ -45,6 +46,9 @@ script = ExtResource("2_tower_variant")
 visible = false
 
 [node name="RockArches" parent="Tower" instance=ExtResource("4_tower_arches")]
+
+[node name="Interior" parent="Tower" instance=ExtResource("6_tower_interior")]
+editor_description = "tower_interior.glb at identity: door at the foot, spiral stair to the room. The rock is still solid; hollowing waits for Ryan."
 
 [node name="TowerSpawn" type="Marker3D" parent="Tower"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.95, 0)
