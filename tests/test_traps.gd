@@ -447,21 +447,21 @@ func test_a_lap_can_be_navigated_past_every_hazard() -> void:
 	for trap: TrapVolume in _traps():
 		var worst: String = ""
 		for point: Vector3 in path:
-			if _inside_box(trap.global_transform, trap.size_metres, point):
+			if _is_lethal_at(trap, point):
 				worst = "%s at %v" % [trap.name, point]
 				break
 		assert_eq_string(worst, "", "the navigated lap does not cross %s" % trap.name)
 
 
-## True when [param point] is inside the box [param size] centred on
-## [param placement], measured in the box's own frame so a rotated trap is
-## judged by its own edges.
-func _inside_box(placement: Transform3D, size: Vector3, point: Vector3) -> bool:
-	var local: Vector3 = placement.affine_inverse() * point
-	return (
-		absf(local.x) <= size.x * 0.5
-		and absf(local.z) <= size.z * 0.5
-	)
+## True when a body standing at [param point] would be converted by [param trap]:
+## inside its box, or, for a feet_only one, at or below the surface it kills at.
+func _is_lethal_at(trap: TrapVolume, point: Vector3) -> bool:
+	var half: Vector3 = trap.size_metres * 0.5
+	var local: Vector3 = trap.global_transform.affine_inverse() * point
+	if absf(local.x) > half.x or absf(local.z) > half.z:
+		return false
+	var ceiling: float = TrapVolume._FEET_DEPTH if trap.feet_only else half.y
+	return local.y <= ceiling and local.y >= -half.y
 # --- Helpers ------------------------------------------------------------------
 
 ## Every trap in the arena, found by type rather than by path.
