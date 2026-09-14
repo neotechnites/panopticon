@@ -106,6 +106,15 @@ signal main_menu_requested()
 ## close the resource graph into a cycle.
 @export_file("*.tscn") var main_menu_scene_path: String = "res://scenes/ui/main_menu.tscn"
 
+## Where a match that was started from the hub goes when it ends.
+##
+## The session, the seat table and everybody in it outlive the match -- they
+## live on the tree root, not in this scene -- so coming back is a scene change
+## and nothing else. See [member HubLobby.returns_to_hub], which is how a match
+## knows it came from a hub at all: the hub scene is gone by the time this node
+## exists, so there is no node left to ask.
+@export_file("*.tscn") var hub_scene_path: String = "res://scenes/hub/hub.tscn"
+
 ## How long the beat holds and how it fades. Shared with [MatchHud], which uses
 ## the same resource for the handover banner, because the two are one pacing
 ## decision. Unset falls back on the defaults written in
@@ -149,6 +158,8 @@ func _ready() -> void:
 	# be opened over this screen, and a screen whose buttons are dead behind a
 	# menu the player just closed is indistinguishable from a hung game.
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	if HubLobby.returns_to_hub:
+		_play_again_button.text = "Back to the hub"
 	_play_again_button.pressed.connect(play_again)
 	_main_menu_button.pressed.connect(return_to_main_menu)
 	_apply_visibility(false)
@@ -238,7 +249,26 @@ func refresh() -> void:
 ## which is a great deal of work to reach a state one call already reaches. The
 ## screen is not hidden here: it comes down on [signal MatchController.match_started],
 ## so the one thing that dismisses it is a match actually having begun.
+## True when this button leaves for the hub instead of restarting in place.
+func returns_to_hub() -> bool:
+	return HubLobby.returns_to_hub and not hub_scene_path.is_empty()
+
+
 func play_again() -> void:
+	if returns_to_hub():
+		# The match came out of a hub, so it goes back into one: same session,
+		# same seats, and the host free to start the next map from the wedge.
+		play_again_requested.emit()
+		hide_result()
+		var tree: SceneTree = get_tree()
+		tree.paused = false
+		_release_mouse()
+		var error: Error = tree.change_scene_to_file(hub_scene_path)
+		if error != OK:
+			push_error(
+				"MatchResultScreen could not load %s: %s" % [hub_scene_path, error_string(error)]
+			)
+		return
 	if controller == null:
 		push_error("MatchResultScreen has no MatchController; there is no match to restart.")
 		return

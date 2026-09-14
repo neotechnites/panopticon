@@ -46,6 +46,10 @@ signal quit_requested()
 ## the note on cycles above.
 @export_file("*.tscn") var match_scene_path: String = "res://scenes/match/match.tscn"
 
+## The scene [method play_hub] switches to: the hub world, which is where Play
+## goes now. Same path-not-PackedScene rule.
+@export_file("*.tscn") var hub_scene_path: String = "res://scenes/hub/hub.tscn"
+
 ## The action that backs out of a screen. Matches [member PauseMenu.toggle_action]
 ## so Escape means the same thing everywhere.
 @export var back_action: StringName = &"ui_cancel"
@@ -53,6 +57,7 @@ signal quit_requested()
 @onready var _main_panel: Control = %MenuList
 @onready var _play_button: Button = %Play
 @onready var _multiplayer_button: Button = %Multiplayer
+@onready var _quick_match_button: Button = %QuickMatch
 @onready var _settings_button: Button = %Settings
 @onready var _quit_button: Button = %Quit
 @onready var _setup_screen: MatchSetupScreen = %MatchSetupScreen
@@ -73,8 +78,9 @@ func _ready() -> void:
 	# before it having been polite is a menu that one day opens with no pointer.
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
-	_play_button.pressed.connect(open_match_setup)
+	_play_button.pressed.connect(play_hub)
 	_multiplayer_button.pressed.connect(open_multiplayer)
+	_quick_match_button.pressed.connect(open_match_setup)
 	_settings_button.pressed.connect(open_settings)
 	_quit_button.pressed.connect(quit)
 
@@ -107,7 +113,28 @@ func _input(event: InputEvent) -> void:
 
 # --- Actions ------------------------------------------------------------------
 
-## Show the match setup screen. What the Play button does.
+## Write the settings file and open the hub world. What the Play button does.
+##
+## No session: an offline hub is a hub with one body in it, and every later step
+## -- the wedge, the prompt, the launch -- is the same code the hosted one runs.
+## Hosting and joining are still the Multiplayer screen's, which walks into this
+## same scene the moment its handshake completes.
+func play_hub() -> void:
+	_setup_screen.visible = false
+	_settings_screen.visible = false
+	_multiplayer_screen.visible = false
+	_store.save_to_disk()
+	# A hub sets this itself when it launches. Cleared here so that Play, then
+	# Main Menu, then Quick match does not send a quick match back to a hub.
+	HubLobby.returns_to_hub = false
+	play_requested.emit()
+	var error: Error = get_tree().change_scene_to_file(hub_scene_path)
+	if error != OK:
+		push_error("MainMenu could not load %s: %s" % [hub_scene_path, error_string(error)])
+
+
+## Show the match setup screen. What the Quick match button does: a match with
+## no hub in front of it.
 func open_match_setup() -> void:
 	_main_panel.visible = false
 	_settings_screen.visible = false
@@ -130,6 +157,8 @@ func play() -> void:
 	_setup_screen.visible = false
 	_settings_screen.visible = false
 	_store.save_to_disk()
+	# Quick match skips the hub, so the end of it must not go looking for one.
+	HubLobby.returns_to_hub = false
 	play_requested.emit()
 	var error: Error = get_tree().change_scene_to_file(match_scene_path)
 	if error != OK:
@@ -168,7 +197,7 @@ func is_showing_settings() -> bool:
 	return _settings_screen.visible
 
 
-## True while the match setup screen is up.
+## True while the match setup screen is up. Quick match's screen, not Play's.
 func is_showing_match_setup() -> bool:
 	return _setup_screen.visible
 

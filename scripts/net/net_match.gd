@@ -22,6 +22,16 @@ const FINISHER_RIFLE: int = 1
 @export var runner_scene: PackedScene
 @export var runner_container: Node3D
 
+## Bind the hub lobby instead of a match: one body per seated human, the same
+## links and the same snapshots, and none of the match events -- there are no
+## rounds to replay. See [method MatchController.start_hub].
+@export var hub_mode: bool = false
+
+## Where the session lives. The shipped answer is [constant SESSION_PATH]; a
+## test that runs two peers in one process gives each its own branch and names
+## the session in it, which is the only reason this is not a constant.
+@export var session_path: NodePath = SESSION_PATH
+
 var _session: NetSession = null
 var _lobby: NetLobby = null
 var _links: Array[PlayerNetLink] = []
@@ -37,15 +47,24 @@ var _watched_rifles: Dictionary[int, bool] = {}
 
 
 func _ready() -> void:
-	_session = get_tree().root.get_node_or_null(SESSION_PATH) as NetSession
+	_session = get_tree().root.get_node_or_null(session_path) as NetSession
 	if _session == null or not _session.is_established() or controller == null:
 		set_physics_process(false)
 		return
 	_lobby = _session.lobby
-	if _lobby == null or _lobby.get_phase() != NetLobby.Phase.LAUNCHING:
+	if _lobby == null or (not hub_mode and _lobby.get_phase() != NetLobby.Phase.LAUNCHING):
 		set_physics_process(false)
 		return
 	controller.auto_start = false
+	if hub_mode:
+		# No opening role, no event subscriptions and no ready handshake: a hub
+		# decides nothing, so there is nothing for a client to wait for.
+		set_physics_process(false)
+		_build_bodies()
+		controller.start_hub()
+		_started = true
+		match_bound.emit(_session.is_authority())
+		return
 	_build_bodies()
 	_apply_opening()
 	if _session.is_authority():
@@ -91,13 +110,54 @@ func get_session() -> NetSession:
 
 # --- Bodies -------------------------------------------------------------------
 
+## Rebuild the hub's bodies from the seat table as it stands now.
+##
+## The hub outlives joins and leaves -- that is what a lobby is for -- and a
+## body is built per seat at bind time, so a roster that changed needs the set
+## rebuilt rather than patched. It is cheap and it is total: every remote body
+## and every link goes, the controller drops its roster, and the hub is armed
+## again, which stands everybody back on their spawn. Nothing is lost by that
+## because a hub holds no state worth keeping.
+func rebuild_hub() -> void:
+	if not hub_mode or _lobby == null:
+		return
+	# Out of the tree BEFORE the free, not merely queued: queue_free defers, and
+	# a Link0 still holding the name when the new Link0 is added is renamed to
+	# Link0@2 -- which is a node path that resolves on nobody else's machine.
+	for link: PlayerNetLink in _links:
+		remove_child(link)
+		link.queue_free()
+	_links.clear()
+	_slot_of_seat.clear()
+	if runner_container != null:
+		for child: Node in runner_container.get_children():
+			runner_container.remove_child(child)
+			child.queue_free()
+	controller.release_roster()
+	_build_bodies()
+	controller.start_hub()
+
+
+## The seats bodies are built for: every occupant in a match, and only the
+## people in a hub -- a bot has nothing to do in a lobby and is not spawned.
+func _seats_to_build() -> Array[LobbySeat]:
+	var seats: Array[LobbySeat] = _lobby.get_occupied_seats()
+	if not hub_mode:
+		return seats
+	var humans: Array[LobbySeat] = []
+	for seat: LobbySeat in seats:
+		if seat.is_human():
+			humans.append(seat)
+	return humans
+
+
 func _build_bodies() -> void:
 	var bodies: Array[PlayerController] = []
 	var kinds: Array[MatchParticipant.Kind] = []
 	var names: PackedStringArray = PackedStringArray()
 	var local_seat: int = _lobby.get_local_seat_index()
 	var local_slot: int = 0
-	var seats: Array[LobbySeat] = _lobby.get_occupied_seats()
+	var seats: Array[LobbySeat] = _seats_to_build()
 	for slot: int in seats.size():
 		var seat: LobbySeat = seats[slot]
 		var body: PlayerController

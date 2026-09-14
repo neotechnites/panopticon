@@ -102,12 +102,18 @@ theme_override_constants/separation = 14
 unique_name_in_owner = true
 alignment = 0
 text = "Play"
-editor_description = "Opens the match setup screen rather than starting a match. The setup screen's own Start button is what changes scene."
+editor_description = "Opens the hub world, hosting nothing: one body in the ring of wedges, and the host prompt on the hell wedge's dais. The match is started from in there."
 
 [node name="Multiplayer" type="Button" parent="UI/MenuList"]
 unique_name_in_owner = true
 alignment = 0
 text = "Multiplayer"
+
+[node name="QuickMatch" type="Button" parent="UI/MenuList"]
+unique_name_in_owner = true
+alignment = 0
+text = "Quick match"
+editor_description = "The old Play: straight to the match setup screen and into a match, skipping the hub. For testing a match without walking to it."
 
 [node name="Settings" type="Button" parent="UI/MenuList"]
 unique_name_in_owner = true

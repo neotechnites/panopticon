@@ -145,6 +145,9 @@ enum Phase {
 	ROUND,
 	## Somebody won a round from the tower. Nothing moves and nothing resolves.
 	MATCH_OVER,
+	## The hub lobby. Bodies and shoves, no rounds, no tower, no clock. Only a
+	## controller in [member hub_mode] ever reaches it.
+	HUB,
 }
 
 ## What a round has come to, from the shooter's point of view. Exhaustive.
@@ -285,6 +288,18 @@ signal kill_beat_started(guard: MatchParticipant, seconds: float)
 ## Arm the match from [method Node._ready]. Off for a harness that wants to place
 ## things itself before the clock starts.
 @export var auto_start: bool = true
+
+## Run this controller as the hub lobby rather than as a match.
+##
+## A hub is a match with the match taken out: the same bodies, the same
+## replication and the same shove, and no race, no rounds, no tower, no rifle,
+## no traps and no bots. [method start_hub] is the whole of the difference.
+@export var hub_mode: bool = false
+
+## Where the hub stands its players, under [member arena]. Every [Marker3D]
+## child is one spawn, dealt out in participant order so nobody lands inside
+## anybody.
+@export var hub_spawn_path: NodePath = ^"HubSpawns"
 
 ## Physical key that restarts the whole match. Read as a physical scancode rather
 ## than through the input map because the map is [code]project.godot[/code]'s
@@ -594,6 +609,15 @@ func get_ghost_profile() -> GhostProfile:
 
 
 func _ready() -> void:
+	if hub_mode:
+		# No map to install (the hub is its own world), no rifle to subscribe to
+		# and no runner scene to spawn bots from.
+		if arena == null:
+			push_error("MatchController is in hub mode with no arena; there is no hub to stand in.")
+			return
+		if auto_start:
+			start_hub()
+		return
 	_install_chosen_map()
 	if arena == null or rifle == null or runner_scene == null or runner_container == null:
 		push_error("MatchController is missing an arena, a rifle, a runner scene or a container; no match will run.")
@@ -607,6 +631,19 @@ func _ready() -> void:
 ## Wakes the bodies the last arming placed, once the physics server has caught
 ## up with where they were put. Does nothing on every other frame.
 func _physics_process(delta: float) -> void:
+	if hub_mode:
+		# The settle is the one thing a hub shares with an arming: bodies are
+		# placed inert and get their collision back two frames later. Nothing
+		# else in this method has anything to rule on in a lobby.
+		if _settle_frames > 0:
+			_settle_frames -= 1
+			if _settle_frames == 0:
+				_wake_bodies()
+		if not _mirror:
+			# The server rules on a shove in a hub exactly as it does in a
+			# round: a client's press arrives as intent and is read here.
+			_tick_shoves(delta)
+		return
 	if _mirror:
 		# The settle runs on a mirror too, or every placed body keeps the
 		# collision layer 0 [method _hold_body] gave it for the rest of the
@@ -652,7 +689,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	var key: InputEventKey = event as InputEventKey
 	if key == null or not key.pressed or key.echo:
 		return
-	if key.physical_keycode == RESTART_KEY and not _mirror:
+	if key.physical_keycode == RESTART_KEY and not _mirror and not hub_mode:
 		start_match()
 		get_viewport().set_input_as_handled()
 
@@ -734,6 +771,9 @@ func _install_chosen_map() -> void:
 ## defined over a player's history within ONE match, so carrying a count across
 ## restarts would hand the next match a shooter who is already fast.
 func start_match() -> void:
+	if hub_mode:
+		start_hub()
+		return
 	if arena == null or rifle == null:
 		push_error("MatchController cannot start a match without an arena and a rifle.")
 		return
@@ -790,6 +830,85 @@ func start_match() -> void:
 		# Everything after this line is the round the race would have armed.
 		take_seat(_participants[_opening_seat()])
 		start_round()
+
+
+## Arm the hub: every seated player on their own spawn, nobody in a tower.
+##
+## Deliberately not a degenerate round. A round places runners against a route
+## and a finish line the hub does not have, arms a siege clock, publishes a seat
+## and wakes tower brains; every one of those would be a lie here. What the hub
+## keeps is the part a player feels -- a body, its movement, its shove, and the
+## same replication a match runs on -- and [method _physics_process] ticks
+## exactly that and nothing else.
+func start_hub() -> void:
+	if arena == null:
+		push_error("MatchController cannot arm a hub without an arena.")
+		return
+	_phase = Phase.HUB
+	_outcome = Outcome.IN_PROGRESS
+	_seat = null
+	_winner = null
+	_round_number = 0
+	_resolve_count = 0
+	_removed_count = 0
+	_hold_remaining = 0.0
+	_centre = arena.global_position
+	_build_participants()
+	if _participants.is_empty():
+		return
+	_apply_air_control()
+	_settle_frames = SETTLE_PHYSICS_FRAMES
+	var spawns: Array[Marker3D] = _hub_spawns()
+	for index: int in _participants.size():
+		_place_in_hub(_participants[index], index, spawns)
+	match_started.emit(_participants.size())
+
+
+## Stand one player on their own hub spawn.
+##
+## [member MatchParticipant.is_running] is true for a body in the hub, and it is
+## load-bearing rather than decorative: it is what [method _tick_shoves] and
+## [method _shovable_from] read to decide a body is in the world, so a hub where
+## it were false would be a hub in which nobody could push anybody.
+func _place_in_hub(participant: MatchParticipant, index: int, spawns: Array[Marker3D]) -> void:
+	var body: PlayerController = participant.body
+	if body == null:
+		return
+	participant.is_shooter = false
+	participant.is_running = true
+	participant.is_finisher = false
+	participant.lives = 1
+	participant.health = 1
+	body.is_guard = false
+	body.is_armed = false
+	# Null: the hub is nobody's round, so the prisoner pace levers come off. The
+	# powers are off by the same silence -- [method RunnerPower.activate] wants
+	# a rule set and only [method _place_on_track] ever hands one over.
+	_apply_runner_multipliers(body, null)
+	_tint_body(participant, participant.home_body_material)
+	_hold_body(participant)
+	if not spawns.is_empty():
+		var marker: Marker3D = spawns[index % spawns.size()]
+		body.global_position = marker.global_position
+		body.rotation = Vector3(0.0, marker.global_rotation.y, 0.0)
+	body.velocity = Vector3.ZERO
+	if participant.tracker != null:
+		participant.tracker.stop()
+	_silence_brain(participant)
+
+
+## The hub's spawn markers, in scene order. Empty on a world that has none, in
+## which case the bodies stand wherever their scene put them.
+func _hub_spawns() -> Array[Marker3D]:
+	var found: Array[Marker3D] = []
+	var root: Node = arena.get_node_or_null(hub_spawn_path)
+	if root == null:
+		return found
+	for child: Node in root.get_children():
+		var marker: Marker3D = child as Marker3D
+		if marker != null:
+			found.append(marker)
+	return found
 
 
 ## Alias for [method start_match], for callers that read better this way.
@@ -1109,7 +1228,26 @@ func configure_net(
 	_net_names = names.duplicate()
 	_local_index = local_index
 	_mirror = mirror
-	get_rules().prisoner_count = maxi(bodies.size() - 1, 1)
+	if not hub_mode:
+		# A hub's population is not a match's prisoner count, and writing one
+		# into the shared rules would edit the player's own setting every time
+		# somebody walked into the lobby.
+		get_rules().prisoner_count = maxi(bodies.size() - 1, 1)
+
+
+## Forget the roster so the next arming builds a fresh one.
+##
+## For the hub, where the seat table changes while the world stands: a peer
+## leaving and another arriving is two different bodies behind one unchanged
+## count, and [method _build_participants] would keep the old ones. The bodies
+## themselves belong to [NetMatch], which frees them; this only drops the
+## controller's hold on them.
+func release_roster() -> void:
+	_participants.clear()
+	_participant_by_body_id.clear()
+	_net_bodies.clear()
+	_net_kinds.clear()
+	_net_names.clear()
 
 
 func is_networked() -> bool:
@@ -1799,7 +1937,7 @@ func _tick_shoves(delta: float) -> void:
 func apply_shove(shover: MatchParticipant) -> MatchParticipant:
 	if shover == null or is_resolved() or _refuses_local_decision():
 		return null
-	if _phase != Phase.RACE and _phase != Phase.ROUND:
+	if _phase != Phase.RACE and _phase != Phase.ROUND and _phase != Phase.HUB:
 		return null
 	if shover.body == null:
 		return null
@@ -2422,7 +2560,10 @@ func _body_mesh_of(body: PlayerController) -> MeshInstance3D:
 ## tower and [member MatchRules.prisoner_count] on the ring. The human, when
 ## there is one, takes the first slot; AI bodies fill the rest.
 func _build_participants() -> void:
+	# The hub fields whoever is seated and nobody else: bots belong to a match.
 	var wanted: int = get_rules().get_participant_count()
+	if hub_mode:
+		wanted = _net_bodies.size() if not _net_bodies.is_empty() else (1 if player != null else 0)
 	if _participants.size() == wanted:
 		return
 
@@ -2463,8 +2604,7 @@ func _make_net_participant(slot: int) -> MatchParticipant:
 	participant.body = body
 	participant.home_collision_layer = body.collision_layer
 	participant.home_collision_mask = body.collision_mask
-	participant.tracker = _attach_tracker(body)
-	participant.tracker.lap_finished.connect(_on_participant_arrived.bind(participant))
+	_watch_laps(participant, body)
 	if participant.kind == MatchParticipant.Kind.AI:
 		participant.brain = _find_brain(body)
 		if participant.brain != null:
@@ -2479,8 +2619,7 @@ func _make_human_participant() -> MatchParticipant:
 	participant.body = player
 	participant.home_collision_layer = player.collision_layer
 	participant.home_collision_mask = player.collision_mask
-	participant.tracker = _attach_tracker(player)
-	participant.tracker.lap_finished.connect(_on_participant_arrived.bind(participant))
+	_watch_laps(participant, player)
 	return participant
 
 
@@ -2524,9 +2663,24 @@ func _make_ai_participant(slot: int) -> MatchParticipant:
 	participant.brain = brain
 	participant.home_collision_layer = body.collision_layer
 	participant.home_collision_mask = body.collision_mask
-	participant.tracker = _attach_tracker(body)
-	participant.tracker.lap_finished.connect(_on_participant_arrived.bind(participant))
+	_watch_laps(participant, body)
 	return participant
+
+
+## Give [param participant] its body's lap tracker, subscribed exactly once.
+##
+## Once matters. A body outlives the roster built around it -- the human's does
+## across a restart, and every hub body does across a join or a leave -- and
+## [method _attach_tracker] hands back the tracker already on it, so a second
+## roster over the same bodies would subscribe a second time and every finished
+## lap would be scored twice. [method Signal.is_connected] cannot answer this:
+## a bound [Callable] is a new object at every call site, so the old connection
+## is cleared by hand rather than tested for.
+func _watch_laps(participant: MatchParticipant, body: PlayerController) -> void:
+	participant.tracker = _attach_tracker(body)
+	for connection: Dictionary in participant.tracker.lap_finished.get_connections():
+		participant.tracker.lap_finished.disconnect(connection["callable"] as Callable)
+	participant.tracker.lap_finished.connect(_on_participant_arrived.bind(participant))
 
 
 func _attach_tracker(body: PlayerController) -> MatchLapTracker:

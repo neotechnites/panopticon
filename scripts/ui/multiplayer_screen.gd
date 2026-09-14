@@ -13,7 +13,16 @@ const SESSION_SCENE_PATH: String = "res://scenes/net/net_session.tscn"
 const SESSION_NAME: StringName = &"NetSession"
 const RULES_PATH: String = "res://resources/rules/default_match_rules.tres"
 const MATCH_SCENE_PATH: String = "res://scenes/match/match.tscn"
+const HUB_SCENE_PATH: String = "res://scenes/hub/hub.tscn"
 const CUSTOM_ID: int = -1
+
+## Walk into the hub as soon as the session is up, host and client alike.
+##
+## The hub IS the lobby now: this screen's panel is the host/join dialog and the
+## few frames of handshake behind it, and the seat table it draws is drawn again
+## in the hub off the same [NetLobby]. Off for the headless net harness, which
+## drives this screen's own panel rather than a world.
+@export var enters_hub: bool = true
 
 @onready var _name_edit: LineEdit = %NameEdit
 @onready var _status: Label = %Status
@@ -266,6 +275,17 @@ func _on_established() -> void:
 	_show_lobby(true)
 	_render_roster()
 	_render_rules()
+	if enters_hub:
+		_enter_hub()
+
+
+## Leave for the hub, keeping the session: it lives on the tree root and this
+## scene does not.
+func _enter_hub() -> void:
+	_store.save_to_disk()
+	var error: Error = get_tree().change_scene_to_file(HUB_SCENE_PATH)
+	if error != OK:
+		push_error("MultiplayerScreen could not load %s: %s" % [HUB_SCENE_PATH, error_string(error)])
 
 
 func _on_session_ended(failed: bool) -> void:
