@@ -234,13 +234,12 @@ Enumerated honestly, and most are not special cases:
 
 ### Fixes that paper over a missing invariant
 
-- **The launch handshake.** `NetLobby` states plainly that there is **no launch
-  acknowledgement**. The consequences are a 10 s `READY_TIMEOUT_SECONDS` in
-  `NetMatch`, then `_is_bindable_phase` widened to accept `IN_MATCH` (whose own
-  comment says "this is the fix rather than an afterthought"), then `_catch_up()`
-  to re-send the reliable one-shots a late client missed. Three mechanisms
-  standing in for one missing ack. It is the largest piece of compensation in the
-  codebase and it is documented as such, which is the right way to owe a debt.
+- **The launch handshake.** Paid: `NetLobby.acknowledge_launch` is the ack
+  (client → host, reliable, "bound, at seat N"), the host tracks it per peer,
+  the lobby stays LAUNCHING until everyone has, and a peer that never acks is
+  caught up when it does or dropped at `NetSettings.launch_timeout_seconds` by
+  `drop_unlaunched_peers`. The widened bindable phase is gone; `_catch_up()` is
+  the reply to a late ack rather than a guess about who missed what.
 - **`MoveIntent` mixes wire fields with local-only dev fields**
   (`turbo_held`, `godmode`). Because the struct is shared and reused,
   `NetCodec.unpack_intent_at` has to *scrub* two fields it does not carry, with a
@@ -263,7 +262,7 @@ Enumerated honestly, and most are not special cases:
 | Codec | **A** | One file, one format, fixed-size records, validation before every read, size *is* the version; quantisation chosen against a stated error budget rather than by feel. |
 | Replication | **A−** | One packet per tick for the whole world, playout clock with measured adaptive jitter buffer and bounded extrapolation; loses a half grade to the decoy being a second per-tick stream with its own version byte and epoch. |
 | Prediction / reconciliation | **A** | Replay is literally the same `_physics_process`; rewinds position to the authority and yaw to the player's own record; a snap changes the *view*, not the buffer. |
-| Lobby / session lifecycle | **B+** | Authority owns the roster absolutely, clients request and are answered; token-bucket throttle on the reliable broadcast amplifier. No launch acknowledgement, and three mechanisms compensating for it. |
+| Lobby / session lifecycle | **B+** | Authority owns the roster absolutely, clients request and are answered; token-bucket throttle on the reliable broadcast amplifier; a launch acknowledgement per peer, tracked by the host. |
 | Hub ↔ match switch | **B** | Genuinely one body path and one snapshot path (`hub_mode` is a flag, not a fork), but the switch is a whole-tree `change_scene_to_file` carrying state in a `static var returns_to_hub`, and a roster change rebuilds every hub body from scratch. |
 | Authority / validation | **A−** | Every cheap check is present and in the right layer: the codec refuses malformed and NaN, the link clamps look deltas (because the sane range is a tunable the codec must not know), the seat check is `sender_id == owner_peer_id`. No lag compensation and no movement audit — both acknowledged, both design questions. |
 | Tests | **A** | Not assertions about structure: a real UDP socket with ENet's own byte counters, a wire the test owns and drops 5% of, 167 ms RTT with jitter, a 500 ms host hitch. `test_net_authority` tests what the host *refuses*. This is the reason the rest of the grades can be trusted. |

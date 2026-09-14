@@ -177,7 +177,7 @@ which removes the entire class of authority-migration hijack.
 | `PlayerNetLink._receive_intent` | 1, unreliable ordered | authority; seat is remotely drivable at all; **sender owns this seat**; fixed-length frame; NaN and infinity refused; move direction clamped to the unit disc; look delta clamped to `max_look_delta_radians`; replay and reorder refused by tick; **dev keys zeroed**; **rate capped** |
 | `NetLobby._request_ready` | 0, reliable | authority; **seat derived from the sender**; phase must be GATHERING; **rate capped** |
 | `NetLobby._request_name` | 0, reliable | authority; seat derived from the sender; **phase must be GATHERING**; **raw length capped before it is walked**; control characters stripped, truncated to 24 bytes of UTF-8; **rate capped** |
-| `NetMatch._client_ready` | 0, reliable | authority; clears only the sender's own entry; idempotent; no payload |
+| `NetLobby._request_launched` | 0, reliable | authority; **seat derived from the sender** and must match the one named; phase must be LAUNCHING; idempotent; **rate capped** |
 
 Everything else is host→client and annotated `@rpc("authority", ...)`, which
 Godot's own transport filter enforces on top of the `is_authority()` check each
@@ -270,13 +270,15 @@ snapshot lost the jump, and two hops inside one interval arrived as one. It is a
 COUNT now, wrapping at 8, riding in three bits the flag byte already had spare,
 and a mirror fires once per increment it sees. Costs nothing and survives both.
 
-**A client that loaded slowly ended up in an inert match.** The host starts
-without a peer that has not reported after 10 seconds, and starting moves the
-lobby phase to IN_MATCH — at which point the late client's `NetMatch._ready`
-refused to bind at all, leaving it in a match scene with no bodies, no links and
-no way back. It binds in IN_MATCH now, and `_client_ready` arriving after the
-start sends that peer a catch-up: the match is running, and this is the round it
-is on. The bodies need nothing, because a snapshot is absolute.
+**A client that loaded slowly ended up in an inert match.** Every client now
+acknowledges the launch (`NetLobby.acknowledge_launch`: bound, at seat N) and
+the host tracks who has. The lobby stays LAUNCHING until every peer has, so a
+slow client's scene binds in the phase it expects; the host starts without it
+after `NetSettings.launch_timeout_seconds`, sends match events only to peers
+that have launched, and answers a late acknowledgement with a catch-up: the
+match is running, and this is the round it is on. The bodies need nothing,
+because a snapshot is absolute. `NetSettings.drop_unlaunched_peers` drops the
+silent peer at the deadline instead.
 
 **A client was never told the host had gone.** `NetMatch` did not subscribe to
 `session_ended`, so a client whose host quit kept running a match scene full of

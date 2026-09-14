@@ -15,9 +15,6 @@ signal host_lost()
 const SESSION_PATH: NodePath = ^"/root/NetSession"
 const LINK_SCENE_PATH: String = "res://scenes/net/player_net_link.tscn"
 
-## How long the server waits for clients to finish loading before starting anyway.
-const READY_TIMEOUT_SECONDS: float = 10.0
-
 ## Which of the two rifles a shot event belongs to.
 const TOWER_RIFLE: int = 0
 const FINISHER_RIFLE: int = 1
@@ -46,7 +43,6 @@ var _links: Array[PlayerNetLink] = []
 ## get_occupied_seats() is wrong the moment a seat is emptied mid-match.
 var _slot_of_seat: Dictionary[int, int] = {}
 var _seat_of_slot: PackedInt32Array = PackedInt32Array()
-var _pending_peers: PackedInt32Array = PackedInt32Array()
 var _wait_seconds: float = 0.0
 var _started: bool = false
 var _fire_was_held: bool = false
@@ -62,7 +58,7 @@ func _ready() -> void:
 		set_physics_process(false)
 		return
 	_lobby = _session.lobby
-	if _lobby == null or (not hub_mode and not _is_bindable_phase(_lobby.get_phase())):
+	if _lobby == null or (not hub_mode and _lobby.get_phase() != NetLobby.Phase.LAUNCHING):
 		set_physics_process(false)
 		return
 	_session.session_ended.connect(_on_session_ended)
@@ -80,26 +76,12 @@ func _ready() -> void:
 	_apply_opening()
 	if _session.is_authority():
 		_subscribe_server()
-		for seat: LobbySeat in _lobby.get_occupied_seats():
-			if seat.is_human() and seat.peer_id != NetTransport.AUTHORITY_PEER_ID:
-				_pending_peers.append(seat.peer_id)
-		if _pending_peers.is_empty():
+		_lobby.peer_launched.connect(_on_peer_launched)
+		_lobby.seat_vacated.connect(_on_seat_vacated)
+		if _lobby.get_unlaunched_peers().is_empty():
 			_start_now()
 	else:
-		rpc_id(NetTransport.AUTHORITY_PEER_ID, &"_client_ready")
-
-
-## Phases a match scene may bind in.
-##
-## [constant NetLobby.Phase.IN_MATCH] as well as
-## [constant NetLobby.Phase.LAUNCHING], and the second one is the fix rather
-## than an afterthought. The host starts without a client that has not reported
-## after [constant READY_TIMEOUT_SECONDS], and starting moves the phase on --
-## so a client that was merely slow to load used to arrive in a match scene
-## that refused to bind, with no bodies, no links and no way back. It binds
-## now, and [method _client_ready] catches it up.
-static func _is_bindable_phase(phase: NetLobby.Phase) -> bool:
-	return phase == NetLobby.Phase.LAUNCHING or phase == NetLobby.Phase.IN_MATCH
+		_lobby.acknowledge_launch()
 
 
 func is_active() -> bool:
@@ -252,27 +234,27 @@ func _apply_opening() -> void:
 # --- Server -------------------------------------------------------------------
 
 func _subscribe_server() -> void:
-	controller.match_started.connect(func(_count: int) -> void: rpc(&"_ev_match_started"))
-	controller.race_started.connect(func() -> void: rpc(&"_ev_race_started"))
+	controller.match_started.connect(func(_count: int) -> void: _event(&"_ev_match_started"))
+	controller.race_started.connect(func() -> void: _event(&"_ev_race_started"))
 	controller.round_started.connect(_on_round_started)
 	controller.participant_converted.connect(
-		func(participant: MatchParticipant) -> void: rpc(&"_ev_removed", participant.index)
+		func(participant: MatchParticipant) -> void: _event(&"_ev_removed", [participant.index])
 	)
 	controller.round_resolved.connect(
-		func(outcome: MatchController.Outcome) -> void: rpc(&"_ev_round_resolved", int(outcome))
+		func(outcome: MatchController.Outcome) -> void: _event(&"_ev_round_resolved", [int(outcome)])
 	)
 	controller.match_won.connect(_on_match_won)
 	controller.participant_shoved.connect(_on_participant_shoved)
 	controller.finisher_armed.connect(_on_finisher_armed)
 	controller.kill_beat_started.connect(
-		func(guard: MatchParticipant, _seconds: float) -> void: rpc(&"_ev_kill_beat", guard.index)
+		func(guard: MatchParticipant, _seconds: float) -> void: _event(&"_ev_kill_beat", [guard.index])
 	)
 	controller.ghost_respawned.connect(
-		func(participant: MatchParticipant) -> void: rpc(&"_ev_ghost_respawned", participant.index)
+		func(participant: MatchParticipant) -> void: _event(&"_ev_ghost_respawned", [participant.index])
 	)
 	controller.ghost_caught.connect(
 		func(ghost: MatchParticipant, caught: MatchParticipant) -> void:
-			rpc(&"_ev_ghost_caught", ghost.index, caught.index)
+			_event(&"_ev_ghost_caught", [ghost.index, caught.index])
 	)
 	_lobby.seat_occupancy_changed.connect(_on_seat_occupancy_changed)
 	_watch_rifle(controller.rifle, TOWER_RIFLE)
@@ -286,7 +268,7 @@ func _watch_rifle(weapon: Rifle, which: int) -> void:
 	_watched_rifles[weapon.get_instance_id()] = true
 	weapon.fired.connect(_on_rifle_fired.bind(weapon, which))
 	weapon.target_hit.connect(_on_rifle_hit.bind(which))
-	weapon.missed.connect(func(end_point: Vector3) -> void: rpc(&"_ev_rifle_missed", which, end_point))
+	weapon.missed.connect(func(end_point: Vector3) -> void: _event(&"_ev_rifle_missed", [which, end_point]))
 
 
 func _start_now() -> void:
@@ -294,8 +276,27 @@ func _start_now() -> void:
 		return
 	_started = true
 	controller.start_match()
-	_lobby.begin_match()
+	_begin_if_launched()
 	match_bound.emit(true)
+
+
+## The lobby's match begins once every peer has launched, so IN_MATCH means
+## nobody is still binding. Until then the lobby stays LAUNCHING, which is the
+## phase a slow client's scene binds in.
+func _begin_if_launched() -> void:
+	if _started and _lobby.get_unlaunched_peers().is_empty():
+		_lobby.begin_match()
+
+
+## The launch deadline passed with clients unheard from: start without them,
+## and drop them if [member NetSettings.drop_unlaunched_peers] says so.
+func _launch_timed_out() -> void:
+	var late: PackedInt32Array = _lobby.get_unlaunched_peers()
+	push_warning("NetMatch: %d client(s) never acknowledged the launch; starting without them." % late.size())
+	_start_now()
+	if _session.get_settings().drop_unlaunched_peers:
+		for peer: int in late:
+			_session.kick_peer(peer, true)
 
 
 func _physics_process(delta: float) -> void:
@@ -303,9 +304,8 @@ func _physics_process(delta: float) -> void:
 		return
 	if not _started:
 		_wait_seconds += delta
-		if _wait_seconds >= READY_TIMEOUT_SECONDS:
-			push_warning("NetMatch: %d client(s) never reported ready; starting without them." % _pending_peers.size())  # hot-ok: fires once; _start_now() latches _started
-			_start_now()
+		if _wait_seconds >= _session.get_settings().launch_timeout_seconds:
+			_launch_timed_out()
 		return
 	_drive_remote_trigger()
 
@@ -345,21 +345,30 @@ func _drive_trigger(who: MatchParticipant, weapon: Rifle, was_held: bool) -> boo
 
 func _on_round_started() -> void:
 	var seat: MatchParticipant = controller.get_seat_participant()
-	rpc(&"_ev_round_started", seat.index if seat != null else 0, controller.get_round_number())
+	_event(&"_ev_round_started", [seat.index if seat != null else 0, controller.get_round_number()])
 
 
 func _on_match_won(participant: MatchParticipant) -> void:
-	rpc(&"_ev_match_won", participant.index)
+	_event(&"_ev_match_won", [participant.index])
 	_lobby.conclude_match(_seat_index_of(participant.index))
 
 
 func _on_rifle_fired(origin: Vector3, end_point: Vector3, weapon: Rifle, which: int) -> void:
-	rpc(&"_ev_rifle_fired", which, origin, end_point, weapon.reload_seconds)
+	_event(&"_ev_rifle_fired", [which, origin, end_point, weapon.reload_seconds])
 
 
 func _on_rifle_hit(collider: Node3D, at: Vector3, normal: Vector3, which: int) -> void:
 	var participant: MatchParticipant = controller.resolve_participant(collider)
-	rpc(&"_ev_rifle_hit", which, participant.index if participant != null else -1, at, normal)
+	_event(&"_ev_rifle_hit", [which, participant.index if participant != null else -1, at, normal])
+
+
+## One reliable one-shot to every peer whose match scene is bound. A peer still
+## binding has no node to receive it; it gets what it missed from
+## [method _catch_up] when it acknowledges the launch.
+func _event(method: StringName, args: Array = []) -> void:
+	for peer: int in _session.get_peer_ids():
+		if peer != NetTransport.AUTHORITY_PEER_ID and _lobby.has_launched(peer):
+			callv(&"rpc_id", [peer, method] + args)
 
 
 ## The finisher's rifle exists only once one has been armed, so it is subscribed
@@ -367,7 +376,7 @@ func _on_rifle_hit(collider: Node3D, at: Vector3, normal: Vector3, which: int) -
 func _on_finisher_armed(weapon: Rifle) -> void:
 	var who: MatchParticipant = controller.get_finisher()
 	_watch_rifle(weapon, FINISHER_RIFLE)
-	rpc(&"_ev_finisher_armed", who.index if who != null else -1)
+	_event(&"_ev_finisher_armed", [who.index if who != null else -1])
 
 
 ## The victim's launch rides the snapshot; the shover's own kick and clip do not,
@@ -390,7 +399,7 @@ func _on_participant_shoved(shover: MatchParticipant, victim: MatchParticipant) 
 ## The victim's cue, to everyone: the launch rides the snapshot, the sound does not.
 func _on_shove_landed(victim: MatchParticipant) -> void:
 	if victim != null and victim.body != null:
-		rpc(&"_ev_shove_landed", victim.body.global_position)
+		_event(&"_ev_shove_landed", [victim.body.global_position])
 
 
 func _on_seat_occupancy_changed(seat_index: int, occupancy: LobbySeat.Occupancy) -> void:
@@ -404,7 +413,7 @@ func _on_seat_occupancy_changed(seat_index: int, occupancy: LobbySeat.Occupancy)
 		link.refresh_role()
 	controller.net_seat_to_bot(slot)
 	# Deferred: this runs inside the leaving peer's disconnect signal.
-	rpc.call_deferred(&"_ev_seat_to_bot", slot)
+	_event.call_deferred(&"_ev_seat_to_bot", [slot])
 
 
 # --- Wire ---------------------------------------------------------------------
@@ -416,22 +425,26 @@ func _replays() -> bool:
 	return not is_authority()
 
 
-@rpc("any_peer", "reliable", "call_remote", 0)
-func _client_ready() -> void:
-	if not is_authority():
-		return
-	var sender_id: int = multiplayer.get_remote_sender_id()
-	var index: int = _pending_peers.find(sender_id)
-	if index != -1:
-		_pending_peers.remove_at(index)
+## A client's launch acknowledgement: the last one starts the match, a late one
+## is answered with what it missed.
+func _on_peer_launched(peer_id: int, _seat_index: int) -> void:
 	if _started:
-		_catch_up(sender_id)
-		return
-	if _pending_peers.is_empty():
+		_catch_up(peer_id)
+		_begin_if_launched()
+	elif _lobby.get_unlaunched_peers().is_empty():
 		_start_now()
 
 
-## Tell one peer what it missed by binding late.
+## A peer left before launching: the match no longer waits on it. Deferred,
+## because this fires inside the leaving peer's disconnect.
+func _on_seat_vacated(_seat_index: int, _peer_id: int) -> void:
+	if _started:
+		_begin_if_launched.call_deferred()
+	elif _lobby.get_unlaunched_peers().is_empty():
+		_start_now.call_deferred()
+
+
+## Tell one peer what it missed by binding after the start.
 ##
 ## The match events are one-shots on a reliable channel, which delivers them to
 ## whoever is listening AT THE TIME -- and a client still loading is not. Two
