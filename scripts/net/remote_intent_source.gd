@@ -22,6 +22,9 @@ extends IntentSource
 ## survive the packet loss it is guaranteed to see -- a dropped packet means
 ## the body keeps walking the way it was walking, which is right, rather than
 ## stopping dead for one tick, which reads as a stutter and is wrong.
+##
+## Packets are taken one per tick from a short queue rather than latest-wins;
+## see [constant BUFFER_SIZE] for why that matters to the sender.
 
 ## Ticks without a packet before this source gives up and reports no intent.
 ##
@@ -49,6 +52,32 @@ var command: MoveIntent = MoveIntent.new()
 ## Wire tick of the last packet accepted, or -1 before the first one.
 var last_tick: int = -1
 
+## Wire tick of the last packet the body has actually SIMULATED, or -1. Not the
+## same as [member last_tick] -- a packet accepted between two physics ticks has
+## not moved anything yet -- and it is this one a predicting client is
+## acknowledged with, or it would drop an input the authority never ran.
+var applied_tick: int = -1
+
+## Packets accepted and not yet simulated, oldest first. One is taken per tick.
+##
+## [b]A queue, not a latest-wins slot.[/b] Jitter delivers two packets between
+## one pair of ticks about as often as it delivers none, and keeping only the
+## newer of the two throws away an input the player made -- a jump, a look
+## delta, a slide -- which is the one thing this whole path exists not to do.
+## It also breaks the arithmetic a predicting client depends on: the client
+## simulated one tick per intent, so an intent the authority skipped leaves its
+## acknowledgement describing a different number of ticks than the client
+## replayed, and the difference comes back as a correction every time.
+##
+## Four deep, and the oldest is dropped rather than the newest when it
+## overflows, so a client whose clock runs fast cannot buy itself an ever
+## growing lead in input delay.
+const BUFFER_SIZE: int = 4
+var _buffer: Array[MoveIntent] = []
+var _buffer_ticks: PackedInt32Array = PackedInt32Array()
+var _buffer_start: int = 0
+var _buffer_count: int = 0
+
 ## Authority ticks since a packet was accepted.
 var _ticks_since_packet: int = 0
 
@@ -67,7 +96,20 @@ func accept(tick: int, intent: MoveIntent) -> bool:
 	if last_tick >= 0 and not NetCodec.is_newer_tick(tick, last_tick):
 		return false
 	last_tick = tick
-	command.copy_from(intent)
+	if _buffer.is_empty():
+		_buffer.resize(BUFFER_SIZE)
+		_buffer_ticks.resize(BUFFER_SIZE)
+		for i: int in BUFFER_SIZE:
+			_buffer[i] = MoveIntent.new()
+	if _buffer_count >= BUFFER_SIZE:
+		# Arriving faster than the simulation consumes. The oldest goes, so the
+		# delay this queue adds stays bounded.
+		_buffer_start = (_buffer_start + 1) % BUFFER_SIZE
+		_buffer_count -= 1
+	var slot: int = (_buffer_start + _buffer_count) % BUFFER_SIZE
+	_buffer[slot].copy_from(intent)
+	_buffer_ticks[slot] = tick
+	_buffer_count += 1
 	if intent.fire_pressed:
 		_fire_latched = true
 	_ticks_since_packet = 0
@@ -84,7 +126,12 @@ func is_stale() -> bool:
 
 func poll(_delta: float) -> MoveIntent:
 	_ticks_since_packet += 1
-	if _ticks_since_packet > stale_after_ticks and not _stale:
+	if _buffer_count > 0:
+		command.copy_from(_buffer[_buffer_start])
+		applied_tick = _buffer_ticks[_buffer_start]
+		_buffer_start = (_buffer_start + 1) % BUFFER_SIZE
+		_buffer_count -= 1
+	elif _ticks_since_packet > stale_after_ticks and not _stale:
 		_stale = true
 		command.clear()
 
@@ -116,5 +163,8 @@ func reset() -> void:
 	command.clear()
 	_fire_latched = false
 	last_tick = -1
+	applied_tick = -1
+	_buffer_start = 0
+	_buffer_count = 0
 	_ticks_since_packet = 0
 	_stale = false

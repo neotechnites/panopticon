@@ -289,8 +289,12 @@ func _lock() -> void:
 	_raise_shell()
 
 
-## The armor lock's glowing shell, and nothing else: what a client draws.
+## The armor lock's glowing shell, and the hold that goes with it. A client
+## predicting its own body has to be held too, or it walks away from a lock the
+## authority has it standing still in.
 func _raise_shell() -> void:
+	if body != null:
+		body.movement_locked = true
 	var shell: MeshInstance3D = MeshInstance3D.new()
 	shell.name = "ArmorShell"
 	var capsule: CapsuleMesh = CapsuleMesh.new()

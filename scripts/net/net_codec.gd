@@ -35,7 +35,7 @@ extends RefCounted
 ##
 ## [b]What is deliberately not here[/b]
 ##
-## Nothing about lag compensation, delta compression or acknowledgement. Every
+## Nothing about lag compensation or delta compression. Every
 ## field of every body goes every snapshot. At eight players that is about 300
 ## bytes a packet, which is cheap; it is listed as a gap rather than a
 ## feature because it is a habit that stops being cheap at a player count this
@@ -49,10 +49,14 @@ const INTENT_SIZE: int = 23
 const SNAPSHOT_HEADER_SIZE: int = 5
 
 ## Bytes per body inside a snapshot: u8 seat, 8 floats, 1 flag byte, u8 running
-## ability, u8 tenths left on it, u8 tenths of its cooldown and u8 hit points.
-## The seat is a byte and not a peer id because seats are what bodies are named
-## by -- see [PlayerState].
-const SNAPSHOT_BODY_SIZE: int = 38
+## ability, u8 tenths left on it, u8 tenths of its cooldown, u8 hit points and
+## u32 acknowledged intent tick. The seat is a byte and not a peer id because
+## seats are what bodies are named by -- see [PlayerState].
+##
+## The size IS the version: [method unpack_snapshot] refuses any payload that is
+## not a header plus a whole number of bodies this wide, so a build that grew a
+## field cannot half-read one that did not.
+const SNAPSHOT_BODY_SIZE: int = 42
 
 ## Bytes of roster header: u8 phase, u8 seat count.
 const ROSTER_HEADER_SIZE: int = 2
@@ -93,6 +97,10 @@ const _HEALTH_MAX: int = 255
 
 ## Ticks are unsigned 32-bit on the wire and wrap there.
 const TICK_MODULUS: int = 1 << 32
+
+## What [member PlayerState.last_intent_tick] becomes on the wire when the
+## authority has applied no intent for that seat. A u32 has no -1 to carry.
+const NO_INTENT_ACK: int = 0xFFFFFFFF
 
 
 # --- Intent: client to authority ----------------------------------------------
@@ -206,6 +214,10 @@ static func pack_snapshot(snapshot: WorldSnapshot) -> PackedByteArray:
 			int(state.cooldown_remaining * 10.0), 0, _ABILITY_TENTHS_MAX
 		))
 		buffer.put_u8(clampi(state.health, 0, _HEALTH_MAX))
+		buffer.put_u32(
+			NO_INTENT_ACK if state.last_intent_tick < 0
+			else state.last_intent_tick % TICK_MODULUS
+		)
 	return buffer.data_array
 
 
@@ -243,6 +255,7 @@ static func unpack_snapshot(payload: PackedByteArray, out: WorldSnapshot) -> boo
 		var ability_tenths: int = buffer.get_u8()
 		var cooldown_tenths: int = buffer.get_u8()
 		var health: int = buffer.get_u8()
+		var acked: int = buffer.get_u32()
 		if not (position.is_finite() and velocity.is_finite() and is_finite(yaw) and is_finite(pitch)):
 			out.clear()
 			return false
@@ -257,6 +270,7 @@ static func unpack_snapshot(payload: PackedByteArray, out: WorldSnapshot) -> boo
 		state.ability_remaining = float(ability_tenths) * 0.1
 		state.cooldown_remaining = float(cooldown_tenths) * 0.1
 		state.health = health
+		state.last_intent_tick = -1 if acked == NO_INTENT_ACK else acked
 		state.is_finisher = (flags & _FLAG_IS_FINISHER) != 0
 		state.is_armed = (flags & _FLAG_IS_ARMED) != 0
 		state.jumped = (flags & _FLAG_JUMPED) != 0

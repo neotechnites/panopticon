@@ -24,10 +24,13 @@ var seat_index: int = 0
 ##
 ## Consumed for two things: discarding a snapshot that UDP delivered out of
 ## order, and dating the two snapshots [PlayerNetLink] interpolates between.
-## The third use -- telling a client which of its own inputs the authority had
-## seen when it produced this -- is what reconciliation needs and is not
-## implemented.
 var tick: int = 0
+
+## The last intent tick from this seat's owner that the authority had applied
+## when it sampled this, or -1 when it has applied none. The client's own
+## clock, echoed back: it is what a predicting client rewinds to, and the only
+## reason a client can replay its unacknowledged inputs rather than snap.
+var last_intent_tick: int = -1
 
 var position: Vector3 = Vector3.ZERO
 
@@ -83,6 +86,7 @@ var crouching: bool = false
 func clear() -> void:
 	seat_index = 0
 	tick = 0
+	last_intent_tick = -1
 	position = Vector3.ZERO
 	velocity = Vector3.ZERO
 	yaw = 0.0
@@ -102,6 +106,7 @@ func clear() -> void:
 func copy_from(other: PlayerState) -> void:
 	seat_index = other.seat_index
 	tick = other.tick
+	last_intent_tick = other.last_intent_tick
 	position = other.position
 	velocity = other.velocity
 	yaw = other.yaw
@@ -136,6 +141,7 @@ func interpolate_from(from: PlayerState, to: PlayerState, weight: float) -> void
 	# Every other fact below is taken from the newer end for the same reason:
 	# a rifle half-drawn and half of a jump are not things to draw.
 	cooldown_remaining = to.cooldown_remaining
+	last_intent_tick = to.last_intent_tick
 	is_finisher = to.is_finisher
 	is_armed = to.is_armed
 	health = to.health

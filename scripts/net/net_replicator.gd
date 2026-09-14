@@ -26,22 +26,17 @@ extends Node
 ## whether a shot hits, because shots are resolved on the authority against the
 ## authority's own 60 Hz bodies.
 ##
-## [b]How a client reconciles: it does not[/b]
+## [b]How a client plays a snapshot back[/b]
 ##
-## Stated plainly because it is the honest headline of this whole file. A
-## client runs no simulation. It holds the last two snapshots, draws every body
-## -- including its own -- at the moment one snapshot interval behind the newer
-## of them, and slides between the two. That is INTERPOLATION, and it is all
-## there is:
+## Two ways, and which one a body gets is the whole of it. SOMEBODY ELSE'S body
+## is INTERPOLATED: the last two snapshots are held and the body is drawn at the
+## moment one snapshot interval behind the newer of them, sliding between the
+## two. THIS machine's own body is PREDICTED -- it is never touched here beyond
+## being handed the snapshot, because it has already simulated itself and rewinds
+## against the correction on its own. See [PlayerNetLink].
 ##
-## - [b]No prediction.[/b] A client's own body does not move until a snapshot
-##   arrives, so local input costs a full round trip of visible delay. This is
-##   the single biggest thing missing and the reason this is not shippable feel
-##   yet.
-## - [b]No reconciliation.[/b] There is no buffer of unacknowledged inputs to
-##   replay against a correction, which is why prediction cannot simply be
-##   switched on: it needs the authority to say which input it had last seen,
-##   and no packet carries that.
+## What is still missing:
+##
 ## - [b]No lag compensation.[/b] Shots are resolved against where the authority
 ##   thinks bodies are now, not where the shooter saw them. On a listen server
 ##   that quietly favours the host, and it is a design question rather than a
@@ -257,6 +252,7 @@ func apply_snapshot(snapshot: WorldSnapshot) -> void:
 	_have_latest = true
 	_playback_seconds = 0.0
 
+	_deliver_predictions(_latest)
 	if not _should_interpolate():
 		_present(_latest)
 	snapshot_received.emit(_latest.tick, _latest.count)
@@ -278,6 +274,10 @@ func _process(delta: float) -> void:
 	# wrong was preferred to the other one.
 	var weight: float = clampf(_playback_seconds / _playback_span, 0.0, 1.0)
 	for link: PlayerNetLink in _links:
+		if link.is_predicting():
+			# This machine's own body moves itself. Sliding it between two
+			# snapshots as well would be two things driving one body.
+			continue
 		var to: PlayerState = _latest.find_seat(link.seat_index)
 		if to == null:
 			continue
@@ -294,8 +294,19 @@ func _present(snapshot: WorldSnapshot) -> void:
 	for i: int in snapshot.count:
 		var state: PlayerState = snapshot.states[i]
 		var link: PlayerNetLink = find_link(state.seat_index)
-		if link != null:
+		if link != null and not link.is_predicting():
 			link.apply_state(state)
+
+
+## Hand the snapshot to the bodies this machine predicts. They take it as a
+## correction to rewind against, not as a position to be moved to.
+func _deliver_predictions(snapshot: WorldSnapshot) -> void:
+	for link: PlayerNetLink in _links:
+		if not link.is_predicting():
+			continue
+		var state: PlayerState = snapshot.find_seat(link.seat_index)
+		if state != null:
+			link.receive_authoritative(state)
 
 
 func _should_interpolate() -> bool:
