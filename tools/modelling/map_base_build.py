@@ -2819,7 +2819,9 @@ S1_SEED = 3170519
 S1_CELL = 0.70               # tangential cell at the lane radius, metres
 S1_NS = 16                   # deck stations, lip -> foot
 S1_NC = 11                   # ceiling stations, lip -> wall head
-S1_NW = 8                    # wall rows, head -> foot
+S1_CEIL_ROWS = (1, 3, 5, 7, 9)   # ceiling stations drawn, of S1_NC; every other sub-column
+S1_CORNER = 0.6              # a station this far either side of the ceiling-wall corner
+S1_WALL_H = (1.8, 3.4, 5.2, 7.0)     # wall rows, metres below the ceiling
 S1_DECK_AMP, S1_DECK_L = 0.22, (2.5, 6.0)  # flowstone undulation: peak, wavelengths
 S1_MOUND = (0.05, 0.10, 1.0, 2.5)   # a low flowstone mound under each fixture: height a + b*R, radius a + b*R
 S1_CEIL_SAG, S1_CEIL_L = 0.40, (3.0, 6.0)  # the ceiling sags 0..2x this
@@ -2852,6 +2854,14 @@ S1_OVER = 3                  # the tallest stalagmites get a stalactite dripping
 S1_TITES = (32, 1.0, 5.5, 0.12, 0.36)    # stalactites: count, length lo/hi, base radius lo/hi
 S1_TITE_FLARE = 2.0
 S1_TIP_CLEAR = 2.4           # a stalactite tip keeps this over the deck: a runner passes anywhere
+S1_LOD = {                   # drawn sides, fillet rings (radial fraction, edge -> shaft), body rings (height fraction)
+    "short": (7, (1.0, 0.8, 0.5, 0.22), (0.48, 0.66, 0.84, 1.0)),
+    "medium": (8, (1.0, 0.8, 0.5, 0.22), (0.42, 0.58, 0.74, 0.9, 1.0)),
+    "tall": (9, (1.0, 0.8, 0.5, 0.22), (0.4, 0.54, 0.68, 0.82, 0.93, 1.0)),
+    "column": (10, (1.0, 0.8, 0.5, 0.22), (0.3, 0.45, 0.6, 0.75, 0.87, 0.95, 1.0)),
+}
+S1_TITE_LOD = ((5, 6), (0.0, 0.045, 0.14, 0.4, 0.7, 1.0))   # sides thin / thick, rings
+S1_RIPPLE_STEP = 1.6         # ripple nodes this far apart round a foot
 S1_EYE_Z = 27.0
 S1_REVIEW = True             # review-only lights and a player proxy; never exported
 S1_RREF = 0.5 * (INNER_R + OUTER_R)
@@ -3015,13 +3025,13 @@ class _S1Spike(object):
     BODY_COL = (0.22, 0.32, 0.42, 0.5, 0.58, 0.68, 0.78, 0.87, 0.93, 0.97, 1.0)
 
     def __init__(self, kind, b, rad, H, R, sides, r, us, flare, lobe=None, bend=0.08, nridge=3,
-                 ridge_amp=(0.09, 0.22), jitter=0.07, skirt_w=None, ridge_z=None):
+                 ridge_amp=(0.09, 0.22), jitter=0.07, skirt_w=None, ridge_z=None, body_us=None):
         self.kind, self.b, self.rad, self.H, self.R, self.sides = kind, b, rad, H, R, sides
         self.skirt = min(S1_SKIRT[1], max(S1_SKIRT[0], S1_SKIRT[2] * H))
         self.ref = None                                  # the pass-7 shape this one stands in for
         if us is None:                                   # skirt rings by the apron, body rings by fraction
             sk = [self.skirt * (1.0 - w) ** S1_SKIRT_P / H for w in (skirt_w or self.SKIRT_W)]
-            body = self.BODY_MITE if kind == "mite" else self.BODY_COL
+            body = body_us or (self.BODY_MITE if kind == "mite" else self.BODY_COL)
             us = tuple(sk + [u for u in body if u > sk[-1] + 0.06])
         self.us, self.flare, self.lobe = us, flare, lobe
         self.angs = [TWO_PI * (i + 0.28 * r.sf()) / sides for i in range(sides)]
@@ -3359,11 +3369,15 @@ def _s1_sculpt(m, ang, cols_all, lo, hi, pit_wall, shaft, pit_top, wall, upper, 
             lo_h, hi_h, lo_r, hi_r = spec(kind)
             ref = _S1Spike("mite", b, rad, rng(lo_h, hi_h), rng(lo_r, hi_r), r.pick((6, 7, 8)), r, None,
                            S1_FLARE, bend=0.07, nridge=4, skirt_w=old_w)
-        shape = _Rng(S1_SEED * 3 + int(b * 977.0) + int(rad * 131.0))   # the shape is its own
-        sp = _S1Spike(ref.kind, b, rad, ref.H, ref.R, shape.pick((10, 11, 12, 13)), shape, None, S1_FLARE,
+        seed = S1_SEED * 3 + int(b * 977.0) + int(rad * 131.0)          # the shape is its own
+        cshape = _Rng(seed)                                                # the pass-8 shape: the collider stands
+        coll = _S1Spike(ref.kind, b, rad, ref.H, ref.R, cshape.pick((10, 11, 12, 13)), cshape, None, S1_FLARE,
+                        bend=0.03 if kind == "column" else 0.07, nridge=4, ridge_z=S1_RIDGE_Z)
+        sides, skirt_w, body_us = S1_LOD[kind]                            # the drawn shape: the diet
+        sp = _S1Spike(ref.kind, b, rad, ref.H, ref.R, sides, _Rng(seed), None, S1_FLARE,
                       bend=0.03 if kind == "column" else 0.07, nridge=4,
-                      ridge_z=S1_RIDGE_Z)
-        sp.ref = ref
+                      ridge_z=S1_RIDGE_Z, skirt_w=skirt_w, body_us=body_us)
+        sp.ref, sp.coll = ref, coll
         sp.centre, sp.cxy = ref.centre, ref.cxy = (t * R_REF, rad), (x, y)
         return sp
 
@@ -3403,10 +3417,11 @@ def _s1_sculpt(m, ang, cols_all, lo, hi, pit_wall, shaft, pit_top, wall, upper, 
             cblk = cells_under(ring_param(ref, sp.top, len(ref.us) - 1), crows, S1_NC - 1)
             if cblk is None:
                 return False
-        if ref is not sp:                                # the real shape keeps inside the pass-7 blocks
-            fit_ring(sp, 0, sp.centre, blk, rho)
-            if sp.kind == "column":
-                fit_ring(sp, len(sp.us) - 1, sp.top, cblk, crows)
+        if ref is not sp:                                # the real shapes keep inside the pass-7 blocks
+            for sh in (sp, sp.coll):
+                fit_ring(sh, 0, sp.centre, blk, rho)
+                if sp.kind == "column":
+                    fit_ring(sh, len(sh.us) - 1, sp.top, cblk, crows)
         if sp.kind == "column":
             cblocks.append((cblk, [sp]))
         fixtures.append(sp)
@@ -3420,7 +3435,7 @@ def _s1_sculpt(m, ang, cols_all, lo, hi, pit_wall, shaft, pit_top, wall, upper, 
             shape = _Rng(S1_SEED * 5 + int(sp.b * 977.0))
             nk = shape.i(2, 4)
             d0, sp_, h0, h1 = S1_RIPPLE[:4]
-            ripples.append((x, y, base_r(sp), [(d0 + sp_ * (k + 0.2 * shape.sf()), (h0 + (h1 - h0) * shape.f()) * (1.0 - 0.1 * k),
+            ripples.append((x, y, base_r(sp.coll), [(d0 + sp_ * (k + 0.2 * shape.sf()), (h0 + (h1 - h0) * shape.f()) * (1.0 - 0.1 * k),
                                                 shape.f() * TWO_PI) for k in range(nk)]))
         return True
 
@@ -3446,7 +3461,7 @@ def _s1_sculpt(m, ang, cols_all, lo, hi, pit_wall, shaft, pit_top, wall, upper, 
         d = base_r(host.ref) + base_r(sp.ref) + 0.6 + 0.2 * r.f()     # its skirt against the host's skirt
         x, y = host.cxy[0] + d * math.cos(a), host.cxy[1] + d * math.sin(a)
         sp = make("short", _bear_deg(math.atan2(y, x)), math.hypot(x, y))
-        sp.H = sp.ref.H = min(sp.H, 1.8)
+        sp.H = sp.ref.H = sp.coll.H = min(sp.H, 1.8)
         if place(sp, sp.cxy[0], sp.cxy[1], True):
             got += 1
     dblocks = merge(dblocks)
@@ -3474,7 +3489,10 @@ def _s1_sculpt(m, ang, cols_all, lo, hi, pit_wall, shaft, pit_top, wall, upper, 
 
     # stalactites: a few over the tallest stalagmites, the rest thrown at the ceiling
     def add_tite(b, rad, L, R, blk):
-        sp = _S1Spike("tite", b, rad, L, R, 7 if R > 0.26 else r.pick((5, 6, 6)), r, _S1Spike.U_TITE,
+        _S1Spike("tite", b, rad, L, R, 7 if R > 0.26 else r.pick((5, 6, 6)), r, _S1Spike.U_TITE,
+                 S1_TITE_FLARE, bend=0.08, nridge=3, ridge_amp=(0.18, 0.38), jitter=0.11)   # the pass-8 draws
+        shape = _Rng(S1_SEED * 7 + int(b * 977.0) + int(rad * 131.0))                        # the shape is its own
+        sp = _S1Spike("tite", b, rad, L, R, S1_TITE_LOD[0][1 if R > 0.26 else 0], shape, S1_TITE_LOD[1],
                       S1_TITE_FLARE, bend=0.08, nridge=3, ridge_amp=(0.18, 0.38), jitter=0.11)
         sp.centre = centre_c(blk)
         x, y = ceil_xy(sp.centre[0] / R_REF, sp.centre[1])
@@ -3535,20 +3553,37 @@ def _s1_sculpt(m, ang, cols_all, lo, hi, pit_wall, shaft, pit_top, wall, upper, 
                     extra_d.setdefault(blk, []).append((i, j))
                 x, y = deck_xy(t, rho[j])
                 G[(i, j)] = m.v((x, y, DECK_Z + H(x, y)))
-    q_c = [LC * j / S1_NC for j in range(S1_NC + 1)]
-    qs = q_c + [LC + CEIL_H * k / S1_NW for k in range(1, S1_NW + 1)]
+    # the ceiling and the wall are drawn on every other sub-column (the coarse
+    # ones kept, so the wall foot lies on the deck's chords), on S1_CEIL_ROWS,
+    # the corner round-over and S1_WALL_H; the holes snap out to that grid
+    ec = sorted((set(range(1, n - 1, 2)) | set(coarse) | {n - 2}) - {0, n - 1})
+    ne = len(ec)
+    er = list(S1_CEIL_ROWS) + [(LC - S1_CORNER) / cstep, float(S1_NC)]
+    KC = len(er)                                         # qs index of the corner
+    qs = [0.0] + [j * cstep for j in er] + [LC + h for h in (S1_CORNER,) + S1_WALL_H] + [LC + CEIL_H]
     NQ = len(qs) - 1
-    for i, t in enumerate(sc):
-        boundary = i in (0, n - 1)
-        for k, q in enumerate(qs):
-            if k == 0:
+
+    def snap(blk):
+        i0, i1, j0, j1 = blk
+        return (max(a for a in range(ne) if ec[a] <= i0), min(a for a in range(ne) if ec[a] >= i1),
+                max(k for k in range(1, KC + 1) if er[k - 1] <= j0 + 1e-9),
+                min(k for k in range(1, KC + 1) if er[k - 1] >= j1 - 1e-9))
+
+    cblocks = merge([(snap(blk), sps) for blk, sps in cblocks])
+    used_e = {}
+    claim(used_e, cblocks)
+    for k, q in enumerate(qs):
+        if k == 0:
+            for i, t in enumerate(sc):
                 WG[(i, k)] = shaft.W(t, CEIL_Z)
-            elif k == NQ:
+        elif k == NQ:
+            for i in range(n):
                 WG[(i, k)] = G[(i, S1_NS)]
-            elif k == S1_NC and boundary:
-                WG[(i, k)] = WF(len(wall) - 1, t)
-            elif not boundary and not interior(used_c, i, k):
-                WG[(i, k)] = m.v(wc_pos(t, q))
+        else:
+            for a, i in enumerate(ec):
+                if not interior(used_e, a, k):
+                    WG[(i, k)] = m.v(wc_pos(sc[i], q))
+    WGe = {(a, k): WG[(i, k)] for a, i in enumerate(ec) for k in range(NQ + 1) if (i, k) in WG}
     S1["deck_xy"], S1["H"], S1["fade"] = deck_xy, H, fade_s
 
     # ---- base rings on the deck and the ceiling, the holes filled round them
@@ -3586,7 +3621,7 @@ def _s1_sculpt(m, ang, cols_all, lo, hi, pit_wall, shaft, pit_top, wall, upper, 
                 stations.append((c + S1_RIPPLE[4], ph, 1.0))   # the trough beyond it
             stations.insert(0, (rp[3][0][0] - S1_RIPPLE[4], rp[3][0][2], 1.0))
             for (c, ph, _) in stations:
-                nq = 12 if c < 1.2 else 16
+                nq = max(5, min(12, int(round(TWO_PI * (rp[2] + c) / S1_RIPPLE_STEP))))
                 for q in range(nq):
                     a = TWO_PI * (q + 0.37) / nq
                     rr = rp[2] + c + S1_RIPPLE[5] * math.sin(2.0 * a + ph)
@@ -3602,8 +3637,8 @@ def _s1_sculpt(m, ang, cols_all, lo, hi, pit_wall, shaft, pit_top, wall, upper, 
                     x, y = deck_xy(pq[0] / R_REF, pq[1])
                     extra.append((pq, m.v((x, y, DECK_Z + H(x, y)))))
                     taken.append(pq)
-        for pq, vid in grid:                             # the grid's own nodes where the ripples leave room
-            if not any(math.hypot((pq[0] - t[0]) * pq[1] / R_REF, pq[1] - t[1]) < 0.3 for t in taken):
+        for (i, j), (pq, vid) in zip(extra_d.get(blk, ()), grid):   # the grid's own nodes where the ripples leave room, every other one
+            if (i + j) % 2 == 0 and not any(math.hypot((pq[0] - t[0]) * pq[1] / R_REF, pq[1] - t[1]) < 0.3 for t in taken):
                 extra.append((pq, vid))
         fill_tris += _s1_fill(m, loop_of(blk, lambda i, j: param[(i, j)], G), rings, UP, ZONE_DECK,
                               "deck %s" % (blk,), extra)
@@ -3618,11 +3653,11 @@ def _s1_sculpt(m, ang, cols_all, lo, hi, pit_wall, shaft, pit_top, wall, upper, 
                 ids.append(m.v((x, y, CEIL_Z - C(x, y))))
             base_ids[(sp, "ceil")] = ids
             rings.append(list(zip(pp, ids)))
-        fill_tris += _s1_fill(m, loop_of(blk, lambda i, j: (sc[i] * R_REF, INNER_R + j * cstep), WG),
+        fill_tris += _s1_fill(m, loop_of(blk, lambda a, k: (sc[ec[a]] * R_REF, INNER_R + qs[k]), WGe),
                               rings, DOWN, ZONE_ROCK, "ceil %s" % (blk,))
 
     # ---- the spikes ---------------------------------------------------------
-    def emit_tube(sp, lvl, frame, tip_dir):
+    def emit_tube(sp, lvl, frame, tip):
         ns = sp.sides
         er, et = frame
         for a in range(len(lvl) - 1):
@@ -3640,12 +3675,17 @@ def _s1_sculpt(m, ang, cols_all, lo, hi, pit_wall, shaft, pit_top, wall, upper, 
                 want = (er[0] * math.cos(am) + et[0] * math.sin(am),
                         er[1] * math.cos(am) + et[1] * math.sin(am), wz)
                 m.quad(lvl[a][i], lvl[a][j], lvl[a + 1][j], lvl[a + 1][i], want, zone, best=True)
-        if tip_dir is not None:
-            top = lvl[-1]
-            c = tuple(sum(m.verts[v][k] for v in top) / ns for k in range(3))
-            apex = m.v((c[0], c[1], c[2] + tip_dir * ((0.4 if sp.kind == "tite" else 0.25) * sp.body(1.0) + 0.04)))
+        if tip is not None:                              # the last ring is the point: a cone from the ring below
+            top, apex = lvl[-1], m.v(tip)
             for i in range(ns):
-                m.tri(top[i], top[(i + 1) % ns], apex, (0.0, 0.0, tip_dir), ZONE_ROCK)
+                m.tri(top[i], top[(i + 1) % ns], apex, (0.0, 0.0, -1.0 if sp.kind == "tite" else 1.0), ZONE_ROCK)
+
+    def tip_of(sp, cx, cy, frame, z):
+        """The point of a spike: on the bent axis at u = 1, just past the crown."""
+        er, et = frame
+        ax, ay = sp.axis(1.0)
+        d = (0.4 if sp.kind == "tite" else 0.25) * sp.body(1.0) + 0.04
+        return (cx + er[0] * ax + et[0] * ay, cy + er[1] * ax + et[1] * ay, z - d if sp.kind == "tite" else z + d)
 
     prisms = []
 
@@ -3696,8 +3736,9 @@ def _s1_sculpt(m, ang, cols_all, lo, hi, pit_wall, shaft, pit_top, wall, upper, 
                 z = zc - u * sp.H
                 pts = [(cx + dx, cy + dy) for (dx, dy) in sp.section(u, frame)]
                 sp.rings.append((z, pts))
-                lvl.append([m.v((x, y, z)) for (x, y) in pts])
-            emit_tube(sp, lvl, frame, -1.0)
+                if k < len(sp.us) - 1:
+                    lvl.append([m.v((x, y, z)) for (x, y) in pts])
+            emit_tube(sp, lvl, frame, tip_of(sp, cx, cy, frame, zc - sp.H))
             if sp.tip_z - deck_here < 2.3:
                 prisms.append(sp)
             continue
@@ -3707,8 +3748,9 @@ def _s1_sculpt(m, ang, cols_all, lo, hi, pit_wall, shaft, pit_top, wall, upper, 
             z = sp.deck_z + u * sp.H
             pts = [(cx + dx, cy + dy) for (dx, dy) in sp.section(u, frame)]
             sp.rings.append((z, pts))
-            lvl.append([m.v((x, y, zi)) for (x, y), zi in zip(pts, on_floor(sp, u, pts, z))])
-        emit_tube(sp, lvl, frame, 1.0)
+            if k < len(sp.us) - 1:
+                lvl.append([m.v((x, y, zi)) for (x, y), zi in zip(pts, on_floor(sp, u, pts, z))])
+        emit_tube(sp, lvl, frame, tip_of(sp, cx, cy, frame, sp.deck_z + sp.H))
         if sp.H >= 1.0:
             prisms.append(sp)
 
@@ -3734,19 +3776,21 @@ def _s1_sculpt(m, ang, cols_all, lo, hi, pit_wall, shaft, pit_top, wall, upper, 
         a = math.atan2(c[1], c[0])
         return (-math.cos(a), -math.sin(a), 0.0)
 
-    for i in range(1, n - 2):
-        for k in range(NQ):
-            if k < S1_NC and (i, k) in used_c:
+    _strip(m, [(sc[i] * R_REF, WG[(i, 0)]) for i in range(n)],            # the lip row: fine shaft to row 1
+           [(sc[i] * R_REF, WG[(i, 1)]) for i in ec], DOWN, ZONE_ROCK)
+    for a in range(ne - 1):
+        for k in range(1, NQ):
+            if (a, k) in used_e:
                 continue
-            ids = (WG[(i, k)], WG[(i + 1, k)], WG[(i + 1, k + 1)], WG[(i, k + 1)])
-            if k < S1_NC - 1:
+            ids = (WGe[(a, k)], WGe[(a + 1, k)], WGe[(a + 1, k + 1)], WGe[(a, k + 1)])
+            if k + 1 < KC:
                 want, zone = DOWN, ZONE_ROCK
             else:
                 c = tuple(sum(m.verts[v][q] for v in ids) / 4.0 for q in range(3))
                 want = wc_want(c)
                 zone = ZONE_ROCK
-                if k >= S1_NC:
-                    t, z = 0.5 * (sc[i] + sc[i + 1]), CEIL_Z - (0.5 * (qs[k] + qs[k + 1]) - LC)
+                if k >= KC:
+                    t, z = 0.5 * (sc[ec[a]] + sc[ec[a + 1]]), CEIL_Z - (0.5 * (qs[k] + qs[k + 1]) - LC)
                     zone = ZONE_SHADE if ribs(t * OUTER_R, z) > 0.45 else ZONE_ROCK
             m.quad(ids[0], ids[1], ids[2], ids[3], want, zone, best=True)
     for (ib, ii) in ((0, 1), (n - 1, n - 2)):
@@ -3755,7 +3799,7 @@ def _s1_sculpt(m, ang, cols_all, lo, hi, pit_wall, shaft, pit_top, wall, upper, 
         for row in reversed(out_rows[:-1]):
             v = WR(row, t)
             A.append((LC + (CEIL_Z - m.verts[v][2]), v))
-        B = [(qs[k], WG[(ii, k)]) for k in range(NQ + 1)]
+        B = [(qs[k], WG[(ii, k)]) for k in range(1, NQ + 1)]
         _strip(m, A, B, wc_want, ZONE_ROCK)
 
     # ---- what the collider, the stats and the renders need -----------------
@@ -3800,12 +3844,13 @@ def _s1_collider(c):
         else:
             hs = [0.3, 1.0, 2.2, 4.5, 7.0, 8.2] if sp.kind == "column" else \
                 ([0.3, 1.0, 2.0, 0.92 * sp.H] if sp.H > 2.4 else [0.3, 0.6 * sp.H, 0.92 * sp.H])
+            sh = sp.coll                                 # the pass-8 shape: the collider stands
             lv = []
             for k, h in enumerate(hs):
-                u = min(1.0, h / sp.H)
+                u = min(1.0, h / sh.H)
                 z = sp.deck_z - 0.1 if k == 0 else sp.deck_z + h
-                lv.append((z, sp.section(u, sp.frame)))
-        _s1_frustum(c, cx, cy, lv, sp.angs, sp.frame)
+                lv.append((z, sh.section(u, sp.frame)))
+        _s1_frustum(c, cx, cy, lv, sh.angs if sp.kind != "tite" else sp.angs, sp.frame)
     S1["coll_tris"] = len(c.faces) - before + 2 * (len(cols) - 1) * NJ
 
 
