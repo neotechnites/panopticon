@@ -10,13 +10,14 @@ extends Node
 ## a match does not -- a wedge you stand on, a prompt, the rules panel, and the
 ## decision to launch. There is no second body path and no second snapshot path.
 ##
-## [b]Host pick, not a vote.[/b] The host walks onto a wedge's dais and presses
-## interact; everyone goes. That is the decision Ryan has made so far, and it is
-## deliberately the only thing [method start_map] does that a vote would not:
-## replacing it means changing who calls [method start_map] and nothing else.
-## Who takes the guard seat in a match started from here is likewise not decided
-## here -- the seat roles are whatever [MatchRules] already says, exactly as the
-## lobby screen sets them today.
+## [b]Host pick, or a vote.[/b] Under [constant MatchRules.MapPickMode.HOST] the
+## host walks onto a wedge's dais and presses interact; everyone goes. Under
+## [constant MatchRules.MapPickMode.VOTE] the same press opens a vote instead:
+## for [member MatchRules.vote_seconds] every body standing on a decided wedge's
+## dais is a vote for it, the host counts them, and the fullest dais starts --
+## ties by a seeded draw -- through the same launch path. Who takes the guard
+## seat is not decided here either way: the seat roles are whatever [MatchRules]
+## already says.
 ##
 ## [b]The session outlives the scene.[/b] [code]/root/NetSession[/code] is a
 ## child of the tree root, not of the hub, so hub to match to hub is three
@@ -33,6 +34,12 @@ signal prompt_changed(text: String)
 
 ## The rules panel opened or closed.
 signal overlay_toggled(is_open: bool)
+
+## The vote opened, moved, closed or was cancelled on this machine.
+signal vote_changed()
+
+## The vote ended with a winner. [param tied] when the seed had to break it.
+signal vote_closed(winner: MapWedge, rng_seed: int, tied: bool)
 
 const RULES_PATH: String = "res://resources/rules/default_match_rules.tres"
 
@@ -67,6 +74,12 @@ static var returns_to_hub: bool = false
 
 ## The volume the host stands in to be offered the start.
 @export var start_trigger: Area3D
+
+## The parent of every [MapWedge] a vote can count.
+@export var wedges_root: Node3D
+
+## The small vote readout: the timer and one line per decided wedge.
+@export var vote_label: Label
 
 ## The one line of HUD a hub has beyond the prompt: how many people are here.
 @export var players_label: Label
@@ -121,11 +134,30 @@ var _launched: bool = false
 var _prompt: String = ""
 var _mouse_before_overlay: Input.MouseMode = Input.MOUSE_MODE_CAPTURED
 
+var _wedges: Array[MapWedge] = []
+var _wedge_triggers: Array[Area3D] = []
+var _vote_open: bool = false
+var _vote_seconds_left: float = 0.0
+var _vote_shown_seconds: int = -1
+var _vote_seed: int = 0
+var _vote_counts: PackedInt32Array = PackedInt32Array()
+var _vote_winner: MapWedge = null
+var _vote_tied: bool = false
+
 
 func _ready() -> void:
 	_store = SettingsStore.instance()
 	_rules = (load(RULES_PATH) as MatchRules).duplicate() as MatchRules
 	_session = get_tree().root.get_node_or_null(session_path) as NetSession
+	if wedges_root != null:
+		for child: Node in wedges_root.get_children():
+			var wedge: MapWedge = child as MapWedge
+			if wedge != null:
+				_wedges.append(wedge)
+				_wedge_triggers.append(wedge.get_trigger())
+	_vote_counts.resize(_wedges.size())
+	if vote_label != null:
+		vote_label.visible = false
 	if _session != null and _session.is_established():
 		_bind_lobby(_session.lobby)
 	if setup_screen != null:
@@ -160,6 +192,8 @@ func _bind_lobby(lobby: NetLobby) -> void:
 		NetLobby.Phase.POST_MATCH:
 			# Back from a match. Same session, same people, readiness dropped.
 			_lobby.return_to_lobby()
+	# So a client knows how the map gets picked before the host presses anything.
+	_publish_rules()
 
 
 func _process(_delta: float) -> void:
@@ -174,6 +208,22 @@ func _process(_delta: float) -> void:
 		_refresh()
 
 
+func _physics_process(delta: float) -> void:
+	if not _vote_open:
+		return
+	_vote_seconds_left = maxf(_vote_seconds_left - delta, 0.0)
+	if not is_host():
+		if ceili(_vote_seconds_left) != _vote_shown_seconds:
+			_refresh_vote_view()
+		return
+	if _count_votes():
+		_publish_vote()
+	elif ceili(_vote_seconds_left) != _vote_shown_seconds:
+		_refresh_vote_view()
+	if _vote_seconds_left <= 0.0:
+		_close_vote()
+
+
 func _unhandled_input(event: InputEvent) -> void:
 	var key: InputEventKey = event as InputEventKey
 	if key != null and key.pressed and not key.echo and key.physical_keycode == OVERLAY_KEY:
@@ -182,10 +232,16 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if _launched or _overlay_open or not InputMap.has_action(interact_action):
 		return
-	if not event.is_action_pressed(interact_action):
+	if not event.is_action_pressed(interact_action) or not is_host():
 		return
-	if _in_trigger and is_host():
-		start_map()
+	if _vote_open:
+		cancel_vote()
+		_consume_event()
+	elif _in_trigger:
+		if _pick_mode() == MatchRules.MapPickMode.VOTE:
+			open_vote()
+		else:
+			start_map()
 		_consume_event()
 
 
@@ -241,6 +297,190 @@ func get_lobby() -> NetLobby:
 	return _lobby
 
 
+## How the map gets picked on this machine: the host's own setting, or the
+## rules the host published.
+func _pick_mode() -> MatchRules.MapPickMode:
+	if is_host():
+		return _store.settings.map_pick_mode as MatchRules.MapPickMode
+	var rules: MatchRules = _lobby.get_rules() if _lobby != null else null
+	return rules.map_pick_mode if rules != null else MatchRules.MapPickMode.HOST
+
+
+# --- The vote -----------------------------------------------------------------
+
+func is_vote_open() -> bool:
+	return _vote_open
+
+
+func get_vote_seconds_left() -> float:
+	return _vote_seconds_left
+
+
+func get_vote_seed() -> int:
+	return _vote_seed
+
+
+## Bodies on [param wedge]'s dais as of the last count, or 0 off a vote.
+func get_vote_count(wedge: MapWedge) -> int:
+	var index: int = _wedges.find(wedge)
+	return _vote_counts[index] if index >= 0 else 0
+
+
+## The wedge the last vote picked, or null while none has.
+func get_vote_winner() -> MapWedge:
+	return _vote_winner
+
+
+func was_vote_tied() -> bool:
+	return _vote_tied
+
+
+## Open the vote, for everyone. Host only, and only under
+## [constant MatchRules.MapPickMode.VOTE]. [param rng_seed] 0 draws one.
+func open_vote(rng_seed: int = 0) -> bool:
+	if _launched or _starting or _vote_open or not is_host():
+		return false
+	if _pick_mode() != MatchRules.MapPickMode.VOTE or _decided_count() == 0:
+		return false
+	if _lobby != null and _lobby.get_phase() != NetLobby.Phase.GATHERING:
+		return false
+	_publish_rules()
+	_vote_seed = rng_seed if rng_seed != 0 else maxi(randi(), 1)
+	_vote_seconds_left = _rules.vote_seconds
+	_vote_shown_seconds = -1
+	_vote_counts.fill(0)
+	_vote_winner = null
+	_vote_tied = false
+	_vote_open = true
+	_count_votes()
+	_publish_vote()
+	_refresh()
+	return true
+
+
+## Drop the vote without a launch. Host only.
+func cancel_vote() -> bool:
+	if not _vote_open or not is_host():
+		return false
+	_vote_open = false
+	_vote_winner = null
+	_publish_vote()
+	_refresh()
+	return true
+
+
+## The wedge [param counts] elects: the fullest decided one, ties drawn with
+## [param rng_seed]. -1 when no wedge is decided.
+func resolve_winner(counts: PackedInt32Array, rng_seed: int) -> int:
+	var best: int = -1
+	for i: int in _wedges.size():
+		if _wedges[i].is_decided() and i < counts.size():
+			best = maxi(best, counts[i])
+	var tied: PackedInt32Array = PackedInt32Array()
+	for i: int in _wedges.size():
+		if _wedges[i].is_decided() and i < counts.size() and counts[i] == best:
+			tied.append(i)
+	if tied.is_empty():
+		return -1
+	if tied.size() == 1:
+		return tied[0]
+	var rng: RandomNumberGenerator = RandomNumberGenerator.new()
+	rng.seed = rng_seed
+	return tied[rng.randi_range(0, tied.size() - 1)]
+
+
+func _decided_count() -> int:
+	var count: int = 0
+	for wedge: MapWedge in _wedges:
+		if wedge.is_decided():
+			count += 1
+	return count
+
+
+## True when more than one decided wedge holds the top count.
+func _is_tied(counts: PackedInt32Array) -> bool:
+	var best: int = -1
+	var holders: int = 0
+	for i: int in _wedges.size():
+		if not _wedges[i].is_decided() or i >= counts.size():
+			continue
+		if counts[i] > best:
+			best = counts[i]
+			holders = 1
+		elif counts[i] == best:
+			holders += 1
+	return holders > 1
+
+
+## Recount the bodies on every decided dais. True when a count moved.
+func _count_votes() -> bool:
+	var changed: bool = false
+	if controller == null:
+		return false
+	var participants: Array[MatchParticipant] = controller.get_participants_ref()
+	for i: int in _wedges.size():
+		var count: int = 0
+		var trigger: Area3D = _wedge_triggers[i]
+		if trigger != null and _wedges[i].is_decided():
+			for participant: MatchParticipant in participants:
+				if participant.body != null and trigger.overlaps_body(participant.body):
+					count += 1
+		if count != _vote_counts[i]:
+			_vote_counts[i] = count
+			changed = true
+	return changed
+
+
+func _close_vote() -> void:
+	var winner: int = resolve_winner(_vote_counts, _vote_seed)
+	_vote_open = false
+	_vote_winner = _wedges[winner] if winner >= 0 else null
+	_vote_tied = winner >= 0 and _is_tied(_vote_counts)
+	_publish_vote()
+	if _vote_winner == null:
+		_refresh()
+		return
+	vote_closed.emit(_vote_winner, _vote_seed, _vote_tied)
+	if not _start_on(_vote_winner):
+		_refresh()
+
+
+## The host's copy of the vote, to this machine and to every client.
+func _publish_vote() -> void:
+	_refresh_vote_view()
+	vote_changed.emit()
+	if _lobby != null and _session.is_established() and _session.get_peer_count() > 1:
+		rpc(
+			&"_vote_state", _vote_open, _vote_seconds_left, _vote_seed,
+			_wedges.find(_vote_winner), _vote_counts,
+		)
+
+
+## Authority to everyone: where the vote stands.
+@rpc("authority", "reliable", "call_remote", 0)
+func _vote_state(
+	open: bool, seconds: float, rng_seed: int, winner: int, counts: PackedInt32Array
+) -> void:
+	if is_host() or not is_finite(seconds) or counts.size() != _wedges.size():
+		return
+	_vote_open = open
+	_vote_seconds_left = maxf(seconds, 0.0)
+	_vote_seed = rng_seed
+	_vote_counts = counts
+	_vote_winner = _wedges[winner] if winner >= 0 and winner < _wedges.size() else null
+	_vote_tied = _vote_winner != null and _is_tied(counts)
+	_refresh_vote_view()
+	vote_changed.emit()
+	_refresh()
+
+
+## The host's settings onto the rules every machine plays by.
+func _publish_rules() -> void:
+	_store.settings.apply_to_match_rules(_rules)
+	if _lobby != null:
+		_lobby.set_rules(_rules)
+
+
 # --- Starting -----------------------------------------------------------------
 
 ## Start the map on [member start_wedge], for everyone. Host only.
@@ -250,23 +490,26 @@ func get_lobby() -> NetLobby:
 ## refusal is [method NetLobby.describe_launch_block]'s to explain, not this
 ## node's to invent.
 func start_map() -> bool:
-	if _launched or _starting or not is_host():
+	return _start_on(start_wedge)
+
+
+func _start_on(wedge: MapWedge) -> bool:
+	if _launched or _starting or _vote_open or not is_host():
 		return false
-	if start_wedge == null or not start_wedge.is_decided():
+	if wedge == null or not wedge.is_decided():
 		return false
-	if not String(start_wedge.map_id).is_empty():
-		_store.settings.map_id = start_wedge.map_id
+	if not String(wedge.map_id).is_empty():
+		_store.settings.map_id = wedge.map_id
 	_store.settings.clamp_all()
 	_store.save_to_disk()
 
 	if _lobby == null:
 		# Offline: there is no roster to freeze and nobody to tell.
-		_begin(start_wedge.map_id)
+		_begin(wedge.map_id)
 		return true
 
 	_starting = true
-	_store.settings.apply_to_match_rules(_rules)
-	_lobby.set_rules(_rules)
+	_publish_rules()
 	# Standing on the dais IS the host saying go, and in a hub there is no ready
 	# button for anybody else to have pressed. The lobby's readiness gate stays
 	# where it is -- the hub simply answers it.
@@ -324,6 +567,9 @@ func _on_panel_start() -> void:
 func _on_roster_changed() -> void:
 	if net_match != null and not _launched and not _starting:
 		net_match.rebuild_hub()
+	if _vote_open and is_host():
+		# A joiner missed the opening; the bodies were just rebuilt anyway.
+		_publish_vote()
 	_refresh()
 
 
@@ -389,13 +635,42 @@ func _refresh() -> void:
 
 
 func _prompt_text() -> String:
-	if _overlay_open or not _in_trigger or start_wedge == null:
+	if _overlay_open or start_wedge == null:
+		return ""
+	if _vote_open:
+		return "Cancel vote: %s" % _interact_key_name() if is_host() else ""
+	if not _in_trigger:
 		return ""
 	if not start_wedge.is_decided():
 		return "Nothing stands here yet"
 	if not is_host():
 		return "Waiting for host"
+	if _pick_mode() == MatchRules.MapPickMode.VOTE:
+		return "Open vote: %s" % _interact_key_name()
 	return "Start %s: %s" % [start_wedge.title, _interact_key_name()]
+
+
+## The signs and the readout, from the counts as they stand.
+func _refresh_vote_view() -> void:
+	_vote_shown_seconds = ceili(_vote_seconds_left)
+	for i: int in _wedges.size():
+		_wedges[i].set_vote_count(_vote_counts[i] if _vote_open else -1)
+	if vote_label == null:
+		return
+	if _vote_open:
+		var lines: PackedStringArray = PackedStringArray(["VOTE  %d s" % _vote_shown_seconds])
+		for i: int in _wedges.size():
+			if _wedges[i].is_decided():
+				lines.append("%s  %d" % [_wedges[i].title, _vote_counts[i]])
+		vote_label.text = "\n".join(lines)
+		vote_label.visible = true
+	elif _vote_winner != null:
+		vote_label.text = "%s wins%s" % [
+			_vote_winner.title, "  (tie, seed %d)" % _vote_seed if _vote_tied else ""
+		]
+		vote_label.visible = true
+	else:
+		vote_label.visible = false
 
 
 ## What the interact action is actually bound to, so the prompt is not a lie

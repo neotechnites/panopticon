@@ -51,6 +51,8 @@ func after_each() -> void:
 	# Static, and read by the result screen in EVERY other test file: a hub left
 	# set here would turn Play Again into Back to the hub for the whole run.
 	HubLobby.returns_to_hub = false
+	SettingsStore.instance().settings.map_pick_mode = GameSettings.DEFAULT_MAP_PICK_MODE
+	SettingsStore.instance().settings.vote_seconds = GameSettings.DEFAULT_VOTE_SECONDS
 	if _client != null:
 		_client.leave()
 	if _host != null:
@@ -262,7 +264,167 @@ func test_the_rules_panel_is_inert_while_it_is_closed() -> void:
 	assert_false(overlay.visible, "and Tab puts it back down")
 
 
+# --- The vote -----------------------------------------------------------------
+
+## Off by default: the dais offers the start, and there is no vote to open.
+## Switched on, the same press opens a vote, and the host alone on its own dais
+## wins it when the clock runs out.
+func test_an_offline_vote_with_the_host_alone_starts_its_own_wedge() -> void:
+	var hub: Node3D = _make_hub(self, null)
+	var lobby: HubLobby = hub.get_node("HubLobby") as HubLobby
+	var wedge: MapWedge = hub.get_node("HubWorld/Wedges/W01_Hell") as MapWedge
+	var sign_label: Label3D = wedge.get_node(wedge.label_path) as Label3D
+	var vote_label: Label = hub.get_node("HUD/Root/Vote") as Label
+	var started: Array[StringName] = []
+	lobby.match_starting.connect(func(map_id: StringName) -> void: started.append(map_id))
+
+	await _stand_on_the_dais(hub)
+	assert_eq_string(lobby.get_prompt(), "Start MAP 1: E", "host pick is the default")
+	assert_false(lobby.open_vote(), "and a vote cannot be opened under it")
+
+	_vote_rules(5.0)
+	lobby._refresh()
+	assert_eq_string(lobby.get_prompt(), "Open vote: E", "under VOTE the dais offers the vote")
+	assert_true(lobby.open_vote(7), "the host opened it")
+	assert_true(lobby.is_vote_open(), "and it is open")
+	assert_eq_int(lobby.get_vote_count(wedge), 1, "the host's body on the dais is its vote")
+	assert_eq_string(sign_label.text, "MAP 1\n1 vote", "the sign shows the count")
+	assert_true(vote_label.visible, "the readout is up")
+	assert_eq_string(vote_label.text, "VOTE  5 s\nMAP 1  1", "with the timer and the count")
+	assert_eq_string(lobby.get_prompt(), "Cancel vote: E", "and the host is offered the cancel")
+	assert_eq_int(started.size(), 0, "nothing has started yet")
+
+	await step_seconds(5.5)
+	assert_false(lobby.is_vote_open(), "the clock ran out")
+	assert_same(lobby.get_vote_winner(), wedge, "the host's wedge won")
+	assert_false(lobby.was_vote_tied(), "outright")
+	assert_eq_int(started.size(), 1, "and the match started once")
+	if not started.is_empty():
+		assert_eq_string(String(started[0]), "bentham_ring", "on the winning wedge's map")
+
+
+## The host can drop a vote; nothing starts, and the signs go back to normal.
+func test_the_host_can_cancel_a_vote() -> void:
+	var hub: Node3D = _make_hub(self, null)
+	var lobby: HubLobby = hub.get_node("HubLobby") as HubLobby
+	var wedge: MapWedge = hub.get_node("HubWorld/Wedges/W01_Hell") as MapWedge
+	var sign_label: Label3D = wedge.get_node(wedge.label_path) as Label3D
+	var vote_label: Label = hub.get_node("HUD/Root/Vote") as Label
+	var started: Array[StringName] = []
+	lobby.match_starting.connect(func(map_id: StringName) -> void: started.append(map_id))
+
+	_vote_rules(5.0)
+	await _stand_on_the_dais(hub)
+	assert_true(lobby.open_vote(), "the host opened a vote")
+	await step_seconds(1.0)
+	assert_true(lobby.cancel_vote(), "and cancelled it")
+	assert_false(lobby.is_vote_open(), "the vote is closed")
+	assert_eq_string(sign_label.text, "MAP 1", "the sign is the title again")
+	assert_false(vote_label.visible, "the readout is down")
+	assert_eq_string(lobby.get_prompt(), "Open vote: E", "and the dais offers a fresh vote")
+	assert_false(lobby.cancel_vote(), "there is nothing left to cancel")
+
+	await step_seconds(6.0)
+	assert_eq_int(started.size(), 0, "a cancelled vote starts nothing")
+
+
+## Two decided wedges with nobody on either dais tie at zero; the seed picks,
+## and the same seed picks the same wedge every time.
+func test_a_tie_is_broken_by_the_seed() -> void:
+	var hub: Node3D = _make_hub(self, null)
+	var lobby: HubLobby = hub.get_node("HubLobby") as HubLobby
+	var hell: MapWedge = hub.get_node("HubWorld/Wedges/W01_Hell") as MapWedge
+	var other: MapWedge = hub.get_node("HubWorld/Wedges/W02") as MapWedge
+	other.map_scene = hell.map_scene
+	other.map_id = hell.map_id
+	var wedges: Array[MapWedge] = [hell, other]
+	var started: Array[StringName] = []
+	lobby.match_starting.connect(func(map_id: StringName) -> void: started.append(map_id))
+
+	var counts: PackedInt32Array = PackedInt32Array()
+	counts.resize(10)
+	var picked: Dictionary[int, int] = {}
+	for rng_seed: int in range(1, 41):
+		var first: int = lobby.resolve_winner(counts, rng_seed)
+		assert_eq_int(lobby.resolve_winner(counts, rng_seed), first, "seed %d always draws the same wedge" % rng_seed)
+		assert_true(first == 0 or first == 1, "and it is one of the two decided wedges")
+		picked[first] = rng_seed
+	assert_eq_int(picked.size(), 2, "different seeds draw different wedges")
+
+	_vote_rules(5.0)
+	var rng_seed: int = picked[1]
+	assert_true(lobby.open_vote(rng_seed), "the host opened a vote with a known seed")
+	assert_eq_int(lobby.get_vote_count(hell), 0, "nobody is on the hell dais")
+	assert_eq_int(lobby.get_vote_count(other), 0, "or on the other")
+	await step_seconds(5.5)
+	assert_true(lobby.was_vote_tied(), "a tie was drawn")
+	assert_eq_int(lobby.get_vote_seed(), rng_seed, "with the seed that was given")
+	assert_same(lobby.get_vote_winner(), wedges[1], "and the seed's wedge won")
+	assert_true(
+		(hub.get_node("HUD/Root/Vote") as Label).text.contains("seed %d" % rng_seed),
+		"the seed is shown"
+	)
+	assert_eq_int(started.size(), 1, "and the match started")
+
+
 # --- Two peers ----------------------------------------------------------------
+
+## The client's body stands on the dais and the host's does not: the host counts
+## the body it owns for that seat, the client sees the count, and the client's
+## wedge starts for everyone.
+func test_a_client_standing_on_the_dais_wins_the_vote() -> void:
+	if not await _connect():
+		fail("the loopback handshake did not complete")
+		return
+	_vote_rules(5.0)
+	var host_hub: Node3D = _make_hub(_host.get_parent(), _host)
+	var client_hub: Node3D = _make_hub(_client.get_parent(), _client)
+	await step_ticks(4)
+	var host_lobby: HubLobby = host_hub.get_node("HubLobby") as HubLobby
+	var client_lobby: HubLobby = client_hub.get_node("HubLobby") as HubLobby
+	var host_wedge: MapWedge = host_hub.get_node("HubWorld/Wedges/W01_Hell") as MapWedge
+	var client_wedge: MapWedge = client_hub.get_node("HubWorld/Wedges/W01_Hell") as MapWedge
+	var host_told: Array[StringName] = []
+	var client_told: Array[StringName] = []
+	host_lobby.match_starting.connect(func(id: StringName) -> void: host_told.append(id))
+	client_lobby.match_starting.connect(func(id: StringName) -> void: client_told.append(id))
+	_untangle(host_hub.get_node("MatchController") as MatchController)
+	_untangle(client_hub.get_node("MatchController") as MatchController)
+
+	# The client's body as the host owns it, alone on the dais and back on the
+	# layer the trigger watches.
+	var voter: PlayerController = host_hub.get_node("Runners/Seat1") as PlayerController
+	if not assert_not_null(voter, "the host built a body for the client's seat"):
+		return
+	var trigger: Area3D = host_wedge.get_trigger()
+	voter.global_position = trigger.global_position - Vector3(0.0, 2.5, 0.0)
+	voter.velocity = Vector3.ZERO
+	voter.collision_layer = 1
+	await step_ticks(4)
+
+	assert_false(client_lobby.open_vote(), "a client cannot open a vote")
+	assert_true(host_lobby.open_vote(11), "the host opened one")
+	var seen: bool = await NetFixtures.poll_until(
+		self, func() -> bool: return client_lobby.is_vote_open() and client_lobby.get_vote_count(client_wedge) == 1
+	)
+	assert_true(seen, "the client sees the vote open with its own body counted")
+	assert_eq_int(host_lobby.get_vote_count(host_wedge), 1, "the host counts one body: the client's")
+	assert_eq_string(client_lobby.get_prompt(), "", "the client is offered nothing to press")
+	assert_true((client_hub.get_node("HUD/Root/Vote") as Label).visible, "and sees the readout")
+	assert_eq_int(client_lobby.get_vote_seed(), 11, "with the host's seed")
+
+	await step_seconds(5.5)
+	var heard: bool = await NetFixtures.poll_until(
+		self, func() -> bool: return not client_told.is_empty()
+	)
+	assert_true(heard, "the client was told the match is starting")
+	assert_eq_int(host_told.size(), 1, "and so was the host, once")
+	if not client_told.is_empty():
+		assert_eq_string(String(client_told[0]), "bentham_ring", "on the wedge the client stood on")
+	assert_same(host_lobby.get_vote_winner(), host_wedge, "the host's winner is that wedge")
+	assert_same(client_lobby.get_vote_winner(), client_wedge, "and so is the client's")
+	assert_eq_int(int(_host.lobby.get_phase()), int(NetLobby.Phase.LAUNCHING), "the roster is frozen")
+
 
 ## Host and client stand in the same hub, one body each, and the client sees the
 ## host's body move.
@@ -393,6 +555,12 @@ func test_the_host_starts_the_map_for_everyone() -> void:
 
 
 # --- Fixtures -----------------------------------------------------------------
+
+## Switch the host's settings to a vote of [param seconds].
+func _vote_rules(seconds: float) -> void:
+	var settings: GameSettings = SettingsStore.instance().settings
+	settings.map_pick_mode = int(MatchRules.MapPickMode.VOTE)
+	settings.vote_seconds = seconds
 
 ## Two peers on two sockets, connected. Returns false rather than hanging.
 func _connect() -> bool:

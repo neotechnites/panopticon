@@ -70,6 +70,8 @@ const RESOLUTION_NOTE: String = (
 @onready var _windows_spin: SpinBox = %WindowsSpin
 @onready var _miss_penalty_spin: SpinBox = %MissPenaltySpin
 @onready var _hit_marker_check: CheckBox = %HitMarkerCheck
+@onready var _map_pick_option: OptionButton = %MapPickOption
+@onready var _vote_seconds_spin: SpinBox = %VoteSecondsSpin
 @onready var _runner_speed_spin: SpinBox = %RunnerSpeedSpin
 @onready var _runner_jump_spin: SpinBox = %RunnerJumpSpin
 @onready var _ability_cooldown_spin: SpinBox = %AbilityCooldownSpin
@@ -160,6 +162,8 @@ func refresh() -> void:
 	_windows_spin.value = settings.tower_open_windows
 	_miss_penalty_spin.value = settings.guard_miss_penalty_seconds
 	_hit_marker_check.button_pressed = settings.guard_hit_marker
+	_map_pick_option.selected = settings.map_pick_mode
+	_vote_seconds_spin.value = settings.vote_seconds
 	_runner_speed_spin.value = settings.runner_speed_multiplier
 	_runner_jump_spin.value = settings.runner_jump_multiplier
 	_ability_cooldown_spin.value = settings.ability_cooldown_multiplier
@@ -231,6 +235,9 @@ func _configure_ranges() -> void:
 	)
 	_configure_spin(_windows_spin, 0.0, float(MatchRules.TOWER_WINDOW_COUNT), 1.0, "")
 	_configure_spin(
+		_vote_seconds_spin, GameSettings.MIN_VOTE_SECONDS, GameSettings.MAX_VOTE_SECONDS, 1.0, "s",
+	)
+	_configure_spin(
 		_miss_penalty_spin, GameSettings.MIN_GUARD_MISS_PENALTY_SECONDS,
 		GameSettings.MAX_GUARD_MISS_PENALTY_SECONDS, 0.1, "s",
 	)
@@ -287,6 +294,10 @@ func _fill_choices() -> void:
 	_tower_variant_option.add_item("Carved", 0)
 	_tower_variant_option.add_item("Arches", 1)
 
+	_map_pick_option.clear()
+	_map_pick_option.add_item("Host picks", int(MatchRules.MapPickMode.HOST))
+	_map_pick_option.add_item("Vote by standing", int(MatchRules.MapPickMode.VOTE))
+
 	_vsync_option.clear()
 	_vsync_option.add_item("Off", int(GameSettings.VSyncMode.DISABLED))
 	_vsync_option.add_item("On", int(GameSettings.VSyncMode.ENABLED))
@@ -329,6 +340,8 @@ func _connect_controls() -> void:
 	_windows_spin.value_changed.connect(_on_windows_changed)
 	_miss_penalty_spin.value_changed.connect(_on_miss_penalty_changed)
 	_hit_marker_check.toggled.connect(_on_hit_marker_toggled)
+	_map_pick_option.item_selected.connect(_on_map_pick_selected)
+	_vote_seconds_spin.value_changed.connect(_on_vote_seconds_changed)
 	_runner_speed_spin.value_changed.connect(_on_runner_speed_changed)
 	_runner_jump_spin.value_changed.connect(_on_runner_jump_changed)
 	_ability_cooldown_spin.value_changed.connect(_on_ability_cooldown_changed)
@@ -446,6 +459,20 @@ func _on_hit_marker_toggled(pressed: bool) -> void:
 	if _syncing:
 		return
 	_store.settings.guard_hit_marker = pressed
+	_after_change()
+
+
+func _on_map_pick_selected(index: int) -> void:
+	if _syncing or index < 0:
+		return
+	_store.settings.map_pick_mode = _map_pick_option.get_item_id(index)
+	_after_change()
+
+
+func _on_vote_seconds_changed(value: float) -> void:
+	if _syncing:
+		return
+	_store.settings.vote_seconds = value
 	_after_change()
 
 

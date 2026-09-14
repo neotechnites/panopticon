@@ -168,6 +168,19 @@ enum RunnerAbility {
 ## scene was authored with", which is what lets a bespoke test world stand.
 @export var map_id: StringName = MapCatalog.DEFAULT_ID
 
+## How the hub chooses the map: the host alone on a dais, or everyone by
+## standing on one. Read by the hub only; a match ignores it.
+enum MapPickMode {
+	HOST,
+	VOTE,
+}
+
+## See [enum MapPickMode]. [b]LIVE[/b] in the hub, default HOST.
+@export var map_pick_mode: MapPickMode = MapPickMode.HOST
+
+## Seconds a hub vote stays open. [b]LIVE[/b] in the hub, default 20.
+@export_range(5.0, 120.0, 1.0, "or_greater") var vote_seconds: float = 20.0
+
 # --- How a body moves ---------------------------------------------------------
 
 ## Which air-control preset every body in the match runs, by

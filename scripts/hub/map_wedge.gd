@@ -35,6 +35,9 @@ const FADE_FLOOR: float = 0.12
 ## The floating sign, billboarded so it reads from anywhere on the ring.
 @export var label_path: NodePath = ^"Dais/Sign"
 
+## The volume a body stands in to be on this dais. Null on an undecided wedge.
+@export var trigger_path: NodePath = ^"Dais/StartTrigger"
+
 
 var _sign: Label3D = null
 var _sign_alpha: float = 1.0
@@ -71,6 +74,23 @@ func sign_alpha_at(distance: float) -> float:
 ## True when a map has been chosen for this wedge.
 func is_decided() -> bool:
 	return map_scene != null
+
+
+## Write the vote count under the title, or [param count] < 0 for the title alone.
+func set_vote_count(count: int) -> void:
+	if _sign == null:
+		return
+	if not is_decided():
+		_sign.text = UNDECIDED_SIGN
+	elif count < 0:
+		_sign.text = title
+	else:
+		_sign.text = "%s\n%d %s" % [title, count, "vote" if count == 1 else "votes"]
+
+
+## The dais trigger, or null on a wedge that has none.
+func get_trigger() -> Area3D:
+	return get_node_or_null(trigger_path) as Area3D
 
 
 ## The dais marker, or null on a wedge that has none.

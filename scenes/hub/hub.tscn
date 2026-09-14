@@ -403,6 +403,22 @@ theme_override_font_sizes/font_size = 22
 text = "Start MAP 1: E"
 horizontal_alignment = 1
 
+[node name="Vote" type="Label" parent="HUD/Root"]
+visible = false
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -200.0
+offset_top = 20.0
+offset_right = 200.0
+offset_bottom = 60.0
+grow_horizontal = 2
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.9)
+theme_override_constants/outline_size = 4
+theme_override_font_sizes/font_size = 14
+text = "VOTE  20 s"
+horizontal_alignment = 1
+editor_description = "The vote readout: timer and a count per decided wedge. Hidden while no vote is open."
+
 [node name="Overlay" type="CanvasLayer" parent="."]
 layer = 64
 
@@ -430,13 +446,15 @@ theme_override_constants/outline_size = 4
 theme_override_font_sizes/font_size = 14
 editor_description = "Who is in the hub, from the lobby's own seat table. Empty offline."
 
-[node name="HubLobby" type="Node" parent="." node_paths=PackedStringArray("controller", "net_match", "player", "start_wedge", "start_trigger", "players_label", "prompt_label", "setup_screen", "seats_label", "overlay")]
+[node name="HubLobby" type="Node" parent="." node_paths=PackedStringArray("controller", "net_match", "player", "start_wedge", "start_trigger", "wedges_root", "vote_label", "players_label", "prompt_label", "setup_screen", "seats_label", "overlay")]
 script = ExtResource("11_hub_lobby")
 controller = NodePath("../MatchController")
 net_match = NodePath("../NetMatch")
 player = NodePath("../Player")
 start_wedge = NodePath("../HubWorld/Wedges/W01_Hell")
 start_trigger = NodePath("../HubWorld/Wedges/W01_Hell/Dais/StartTrigger")
+wedges_root = NodePath("../HubWorld/Wedges")
+vote_label = NodePath("../HUD/Root/Vote")
 players_label = NodePath("../HUD/Root/Players")
 prompt_label = NodePath("../HUD/Root/Prompt")
 setup_screen = NodePath("../Overlay/Root/MatchSetupScreen")
