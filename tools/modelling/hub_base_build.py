@@ -46,10 +46,10 @@ OBJECT_NAME = "HubBaseRock"
 COLLIDER_NAME = "HubBaseCollision-colonly"
 FACING_YAW = 0.0
 
-R_IN = 14.5                 # floor inner edge: the plinth chamfer foot
-R_PLINTH = 13.5             # chamfer top; the tower rock (r <= 13.4) stands inside
+R_IN = 21.0                 # floor inner edge: the plinth chamfer foot
+R_PLINTH = 20.0             # chamfer top; the tower rock (r <= 13.4) leaves a 6.6 m walk round it
 PLINTH_Z = 0.35
-PLINTH_RINGS = (12.4, 11.3, 10.2, 9.0, 6.5, 3.5)   # plinth top rings: squarish quads, no radial streaks
+PLINTH_RINGS = (19.0, 17.6, 16.2, 14.6, 12.5, 9.5, 6.0, 3.0)   # plinth top rings: squarish quads, no radial streaks
 R_OUT = 40.0                # floor outer edge: the wall foot
 WALL_T = 1.2
 WALL_H = (1.2, 2.0)         # the wall top wanders between these
@@ -57,7 +57,7 @@ SLAB_Z = -2.0
 N_WEDGE = 10
 WEDGE = 2.0 * math.pi / N_WEDGE
 N_INT = 19                  # interior column intervals per wedge
-N_RINGS = 22                # radial intervals R_IN..R_OUT (~1.16 m)
+N_RINGS = 16                # radial intervals R_IN..R_OUT (~1.19 m)
 SEAM_W = 0.3                # the inlaid band between wedges
 SEAM_LIP = 0.02             # the band's lip: a 2 cm slant down to the recess
 SEAM_D = 0.03
@@ -68,19 +68,20 @@ HELL_WEDGE = 0
 DAIS_R, DAIS_BASE_R, DAIS_H, DAIS_SIDES = 1.5, 1.9, 0.2, 24
 DAIS_RAD = 0.5 * (R_IN + R_OUT)
 
-POOL_B, POOL_RAD = 17.0, 29.0   # bearing, radius of the lava pool centre
-POOL_R = 2.4                    # mean rim radius; the shape stretches it along the ring
+POOL_B, POOL_RAD = 16.0, 31.5   # bearing, radius of the lava pool centre
+POOL_R = 2.2                    # mean rim radius; the shape stretches it along the ring
 POOL_N = 32
-POOL_SHAPE = (0.22, 0.08)
-BANK_W = 0.7                    # rim to foot, horizontally: a 23 deg bank
+POOL_SHAPE = (0.20, 0.05)           # rim: 2nd and 3rd harmonic
+FOOT_SHAPE = 0.12                   # foot: 2nd harmonic only, so it stays CONVEX for the lava zipper
+BANK_W = 0.8                    # mean rim-to-foot, horizontally; never steeper than ~36 deg
 LAVA_Z = -0.3
-STONE_OFF = 0.8                 # the stepping stone, off centre along the long axis
+STONE_OFF = 0.45                # the stepping stone, off centre along the long axis
 STONE_R = (0.55, 0.45)          # foot and top radius
 STONE_TOP = 0.03
 STONE_SIDES = 8
 
-SPIKES = [(7.0, 19.0, "short"), (28.0, 20.0, "tall"),
-          (30.0, 36.0, "medium"), (4.5, 36.0, "medium")]   # bearing, radius, size
+SPIKES = [(6.0, 24.5, "short"), (29.0, 25.0, "tall"),
+          (30.0, 36.5, "medium"), (4.0, 36.5, "short")]   # bearing, radius, size
 
 HOLE_PAD = 0.7              # a hole's clearance past its feature: past any cell chord
 COLL_INT = 8                # collider deck: columns per wedge ...
@@ -139,6 +140,14 @@ S1_FLARE = 2.6
 S1_RIDGE_Z = 0.8
 S1_SIZES = {"short": (1.2, 2.4, 0.16, 0.28), "medium": (2.4, 3.8, 0.26, 0.38),
             "tall": (3.8, 6.0, 0.32, 0.42)}
+
+# Render-only company: the arches tower and the eye, read from Ryan's play copy
+# on the PC exactly as tower_build.py reads its .blend. Never exported.
+TOWER_GLB = r"C:\dev\panopticon\assets\models\tower_arches.glb"
+EYE_GLB = r"C:\dev\panopticon\assets\models\eye.glb"
+TOWER_FOOT = 36.4               # model-local depth of the rock's foot under its origin
+EYE_H_OVER_TOWER = 7.2          # WatchingEyeProfile.height_metres
+EYE_RADIUS = 2.5                # ... radius_metres
 
 REVIEW_SUN = 3.0
 REVIEW_WORLD = 1.0
@@ -718,7 +727,7 @@ def _pool(m, coll=False):
         rho = POOL_R * (1.0 + POOL_SHAPE[0] * math.cos(2.0 * (t - phi)) + POOL_SHAPE[1] * math.sin(3.0 * t + 1.0))
         rho_max = max(rho_max, rho)
         rim.append(m.v((cx + rho * math.cos(t), cy + rho * math.sin(t), 0.0)))
-        rf = rho - BANK_W * (1.0 + 0.08 * rng.sf())
+        rf = (POOL_R - BANK_W) * (1.0 + FOOT_SHAPE * math.cos(2.0 * (t - phi)))
         foot.append(m.v((cx + rf * math.cos(t), cy + rf * math.sin(t), LAVA_Z)))
     for i in range(POOL_N):
         j = (i + 1) % POOL_N
@@ -1072,16 +1081,39 @@ def _hub_render(spec, objects):
         bpy.ops.render.render(write_still=True)
         print("MDL RENDER %s (hand-placed camera)" % os.path.basename(path))
 
-    shot("eye", pol(18.0, 34.0, EYE_H), (0.0, 0.0, 0.5), 24.0, (1400, 800))
-    shot("walk", pol(95.0, 27.0, EYE_H), pol(150.0, 27.0, 0.6), 24.0, (1400, 800))
-    shot("high", pol(215.0, 85.0, 42.0), (0.0, 0.0, -1.0), 28.0, (1500, 1000))
-    shot("top", (0.0, -0.5, 115.0), (0.0, 0.0, 0.0), 32.0, (1200, 1200))
-    shot("hell", pol(30.0, 34.0, 3.2), (24.2, 8.9, -0.2), 22.0, (1400, 900))
+    company = _company()
+    shot("eye", pol(18.0, 37.0, EYE_H), (0.0, 0.0, 16.0), 17.0, (1200, 1000))
+    shot("walk", pol(95.0, 31.0, EYE_H), pol(175.0, 15.0, 8.0), 18.0, (1400, 800))
+    shot("high", pol(215.0, 95.0, 55.0), (0.0, 0.0, 12.0), 28.0, (1500, 1000))
+    shot("top", (0.0, -0.5, 130.0), (0.0, 0.0, 0.0), 32.0, (1200, 1200))
+    shot("hell", pol(26.0, 38.5, 3.5), (26.1, 10.4, -0.2), 22.0, (1400, 900))
 
-    for ob in (cam, target, sun, aim):
+    for ob in (cam, target, sun, aim) + tuple(company):
         bpy.data.objects.remove(ob, do_unlink=True)
     if not spec.get("cams"):
         spec["views"] = []          # the named views frame 82 m of floor as a rifle; skip them
+
+
+def _company():
+    """The tower on the plinth and the eye over it, for the renders only."""
+    made = []
+    for path, z, scale in ((TOWER_GLB, PLINTH_Z + TOWER_FOOT, 1.0),
+                           (EYE_GLB, PLINTH_Z + TOWER_FOOT + EYE_H_OVER_TOWER, EYE_RADIUS)):
+        if not os.path.isfile(path):
+            print("MDL note: no %s; rendering without it" % path)
+            continue
+        before = set(bpy.data.objects)
+        bpy.ops.import_scene.gltf(filepath=path)
+        for ob in set(bpy.data.objects) - before:
+            if ob.parent is None:
+                ob.location = (0.0, 0.0, z)
+                ob.scale = (scale, scale, scale)
+            if "colonly" in ob.name:
+                ob.hide_render = True
+            made.append(ob)
+        print("MDL note: %s placed at z=%.2f for the renders" % (os.path.basename(path), z))
+    bpy.context.view_layer.update()
+    return made
 
 
 # =============================================================================

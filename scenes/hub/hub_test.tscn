@@ -1,12 +1,38 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=9 format=3]
 
 [ext_resource type="PackedScene" path="res://assets/models/hub_base.glb" id="1_hub_base"]
 [ext_resource type="Script" uid="uid://gwfatmklmjcr" path="res://scripts/ring/tower_variant.gd" id="2_tower_variant"]
 [ext_resource type="PackedScene" uid="uid://cwyjwhfotqv73" path="res://assets/models/tower.glb" id="3_tower_model"]
 [ext_resource type="PackedScene" uid="uid://qc0reb2qk6wi" path="res://assets/models/tower_arches.glb" id="4_tower_arches"]
+[ext_resource type="PackedScene" path="res://scenes/tower/watching_eye.tscn" id="5_watching_eye"]
+
+[sub_resource type="ProceduralSkyMaterial" id="SkyMat"]
+sky_top_color = Color(0.54, 0.110700026, 0.054000016, 1)
+sky_horizon_color = Color(0.5, 0.09, 0.05, 1)
+sky_curve = 0.25
+sky_energy_multiplier = 1.4
+ground_bottom_color = Color(0.25, 0.05, 0.03, 1)
+ground_horizon_color = Color(0.42, 0.07, 0.04, 1)
+sun_angle_max = 0.0
+
+[sub_resource type="Sky" id="Sky"]
+sky_material = SubResource("SkyMat")
+
+[sub_resource type="Environment" id="Env"]
+background_mode = 2
+sky = SubResource("Sky")
+ambient_light_source = 3
+ambient_light_color = Color(0.7, 0.16, 0.08, 1)
+ambient_light_energy = 0.64
+tonemap_mode = 1
 
 [node name="HubTest" type="Node3D"]
-editor_description = "Hub lobby test: hub_base.glb at identity, the tower standing on the plinth. Nothing else wired."
+editor_description = "The hub lobby: hub_base.glb at identity (floor y 0, plinth y 0.35), the tower on the plinth as in bentham_ring, the arena's sky and light, a PlayerSpawn in the hell wedge."
+
+[node name="Environment" type="Node3D" parent="."]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="Environment"]
+environment = SubResource("Env")
 
 [node name="HubBase" parent="." instance=ExtResource("1_hub_base")]
 
@@ -19,3 +45,27 @@ script = ExtResource("2_tower_variant")
 visible = false
 
 [node name="RockArches" parent="Tower" instance=ExtResource("4_tower_arches")]
+
+[node name="TowerSpawn" type="Marker3D" parent="Tower"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.95, 0)
+
+[node name="KeyLight" type="DirectionalLight3D" parent="Tower"]
+transform = Transform3D(1, 0, 0, 0, 0.34202, 0.939693, 0, -0.939693, 0.34202, 0, 20, 0)
+light_color = Color(1, 0.45, 0.15, 1)
+light_energy = 0.0
+shadow_bias = 0.08
+directional_shadow_mode = 0
+directional_shadow_max_distance = 180.0
+
+[node name="HellFlood" type="OmniLight3D" parent="Tower"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 300, 0)
+light_color = Color(1, 0.28, 0.06, 1)
+light_energy = 3.4
+omni_range = 700.0
+omni_attenuation = 0.6
+
+[node name="Watcher" parent="Tower" instance=ExtResource("5_watching_eye")]
+
+[node name="PlayerSpawn" type="Marker3D" parent="."]
+editor_description = "In the hell wedge (bearing 20 deg, r 26), 0.25 m up, clear of the pool and the stalagmites."
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 24.43, 0.25, -8.89)
