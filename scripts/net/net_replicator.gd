@@ -53,8 +53,8 @@ extends Node
 ## - [b]No delta compression, no acknowledgement, no interest management.[/b]
 ##   Every field of every body goes every snapshot to everybody. Cheap at eight
 ##   players; not a habit to keep.
-## - [b]Movement only.[/b] Weapon fire, hits, the round result and who holds
-##   the tower are not replicated by this file.
+## - [b]Bodies and holograms only.[/b] Weapon fire, hits, the round result and
+##   who holds the tower are not replicated by this file.
 
 ## The authority sent a snapshot. Authority-only, for telemetry.
 signal snapshot_sent(tick: int, body_count: int)
@@ -62,6 +62,23 @@ signal snapshot_sent(tick: int, body_count: int)
 ## A client applied a snapshot. Client-only. Fires on receipt, not on each
 ## interpolated frame.
 signal snapshot_received(tick: int, body_count: int)
+
+## How far a hologram must have moved since the last transform went out before
+## another one does. A decoy that has run into a wall stops costing bandwidth.
+const DECOY_MOVED_METRES: float = 0.001
+const DECOY_TURNED_RADIANS: float = 0.001
+
+
+## One seat's hologram on the authority: which body is being streamed, which
+## spawn it is, and what was last sent for it.
+class DecoyTrack:
+	extends RefCounted
+
+	var decoy: PlayerController = null
+	var epoch: int = 0
+	var position: Vector3 = Vector3.ZERO
+	var yaw: float = 0.0
+
 
 ## The session this replicator belongs to.
 @export var session: NetSession
@@ -96,6 +113,17 @@ var _playback_span: float = 0.0
 var _outgoing: WorldSnapshot = WorldSnapshot.new()
 var _incoming: WorldSnapshot = WorldSnapshot.new()
 var _blend: PlayerState = PlayerState.new()
+var _decoy_in: PlayerState = PlayerState.new()
+
+## Holograms being streamed, keyed by seat. Authority-only.
+var _decoy_tracks: Dictionary[int, DecoyTrack] = {}
+
+## The spawn a client believes is live for a seat, keyed by seat. Client-only:
+## it is what tells a transform overtaken by its own despawn from a live one.
+var _decoy_epochs: Dictionary[int, int] = {}
+
+## Spawn counter, wrapped at [constant NetCodec.DECOY_EPOCH_MODULUS].
+var _decoy_epoch: int = 0
 
 var _is_authority: bool = false
 
@@ -183,6 +211,10 @@ func _physics_process(delta: float) -> void:
 		# packets sent.
 		return
 
+	# Every tick, not at the snapshot rate: a hologram is a body the tower is
+	# shooting at, and one drawn 33 ms behind is one a client's shot misses.
+	_drive_decoys()
+
 	_send_accumulator += delta
 	var interval: float = session.get_settings().get_snapshot_interval()
 	if _send_accumulator < interval:
@@ -214,6 +246,105 @@ func _send_snapshot() -> void:
 		return
 	rpc(&"_receive_snapshot", NetCodec.pack_snapshot(_outgoing))
 	snapshot_sent.emit(_outgoing.tick, _outgoing.count)
+
+
+# --- Holograms ----------------------------------------------------------------
+
+## Send every live decoy's spawn, motion and death.
+##
+## A stream of its own rather than a field of the snapshot, because a decoy is
+## not a seat: it comes and goes inside a round, there is at most one per
+## runner, and the snapshot body is a fixed-size record shared with a machine
+## that may never see a hologram at all.
+##
+## Polled here rather than pushed from [RunnerPower], which spawns them: the
+## authority is the only machine that may say a decoy exists, and polling the
+## seats it already walks costs nothing next to the snapshot it is about to
+## build.
+func _drive_decoys() -> void:
+	for link: PlayerNetLink in _links:
+		if not link.is_replicable():
+			continue
+		var power: RunnerPower = RunnerPower.of(link.controller)
+		var decoy: PlayerController = power.get_decoy() if power != null else null
+		var track: DecoyTrack = _decoy_tracks.get(link.seat_index)
+		if decoy == null:
+			if track != null:
+				_decoy_tracks.erase(link.seat_index)
+				rpc(&"_decoy_ended", link.seat_index, track.epoch)
+			continue
+		if track == null or track.decoy != decoy:
+			_decoy_epoch = (_decoy_epoch + 1) % NetCodec.DECOY_EPOCH_MODULUS
+			track = DecoyTrack.new()
+			track.decoy = decoy
+			track.epoch = _decoy_epoch
+			track.position = decoy.global_position
+			track.yaw = decoy.rotation.y
+			_decoy_tracks[link.seat_index] = track
+			# Reliable: a spawn nobody hears is a hologram half the lobby is
+			# shooting at and half cannot see.
+			rpc(&"_decoy_spawned", link.seat_index, track.epoch, track.position, track.yaw)
+			continue
+		var position: Vector3 = decoy.global_position
+		var yaw: float = decoy.rotation.y
+		if (
+			position.distance_squared_to(track.position) < DECOY_MOVED_METRES * DECOY_MOVED_METRES
+			and absf(angle_difference(track.yaw, yaw)) < DECOY_TURNED_RADIANS
+		):
+			continue
+		track.position = position
+		track.yaw = yaw
+		rpc(&"_decoy_moved", NetCodec.pack_decoy_move(link.seat_index, track.epoch, position, yaw))
+
+
+## Authority to everyone, once, when a runner's hologram appears.
+@rpc("authority", "reliable", "call_remote", 0)
+func _decoy_spawned(seat_index: int, epoch: int, position: Vector3, yaw: float) -> void:
+	if _is_authority or not position.is_finite() or not is_finite(yaw):
+		return
+	_decoy_epochs[seat_index] = epoch
+	_place_decoy(seat_index, position, yaw)
+
+
+## Authority to everyone, every tick the hologram moved.
+##
+## Unreliable and ordered, for the reason a snapshot is: a transform that
+## arrives late has been overtaken by a newer one. It rides a channel of its
+## own so a burst of them cannot delay the snapshot, which is why a stale one
+## can outlive the reliable despawn that followed it -- hence the epoch.
+@rpc("authority", "unreliable_ordered", "call_remote", 3)
+func _decoy_moved(payload: PackedByteArray) -> void:
+	if _is_authority:
+		return
+	var epoch: int = NetCodec.unpack_decoy_move(payload, _decoy_in)
+	if epoch < 0 or int(_decoy_epochs.get(_decoy_in.seat_index, -1)) != epoch:
+		return
+	_place_decoy(_decoy_in.seat_index, _decoy_in.position, _decoy_in.yaw)
+
+
+## Authority to everyone, when the hologram expires or is shot away.
+@rpc("authority", "reliable", "call_remote", 0)
+func _decoy_ended(seat_index: int, epoch: int) -> void:
+	if _is_authority or int(_decoy_epochs.get(seat_index, -1)) != epoch:
+		return
+	_decoy_epochs.erase(seat_index)
+	var power: RunnerPower = _power_of(seat_index)
+	if power != null:
+		power.clear_decoy()
+
+
+func _place_decoy(seat_index: int, position: Vector3, yaw: float) -> void:
+	var power: RunnerPower = _power_of(seat_index)
+	if power != null:
+		power.present_decoy(position, yaw)
+
+
+## The ability node of the body in [param seat_index], or null.
+func _power_of(seat_index: int) -> RunnerPower:
+	var link: PlayerNetLink = find_link(seat_index)
+	if link == null or not link.is_replicable():
+		return null
+	return RunnerPower.of(link.controller)
 
 
 # --- Receiving ----------------------------------------------------------------
@@ -303,6 +434,8 @@ func _should_interpolate() -> bool:
 
 
 func _clear_playback() -> void:
+	_decoy_tracks.clear()
+	_decoy_epochs.clear()
 	_have_previous = false
 	_have_latest = false
 	_playback_seconds = 0.0

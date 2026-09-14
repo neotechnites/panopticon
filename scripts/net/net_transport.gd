@@ -85,11 +85,12 @@ const AUTHORITY_PEER_ID: int = 1
 ## Highest custom [code]@rpc[/code] channel this project uses.
 ##
 ## Channel 0 is the default one, and everything rare and reliable rides it --
-## the lobby roster. The two per-tick streams get channels of their own so that
-## a burst of one cannot delay the other: intent on 1, world snapshots on 2. A
-## backend has to open enough channels to carry them, and see
-## [constant ENetTransport.ENET_CHANNEL_COUNT] for the trap in doing that.
-const MAX_RPC_CHANNEL: int = 2
+## the lobby roster. The per-tick streams get channels of their own so that a
+## burst of one cannot delay the other: intent on 1, world snapshots on 2,
+## hologram transforms on 3. A backend has to open enough channels to carry
+## them, and see [constant ENetTransport.ENET_CHANNEL_COUNT] for the trap in
+## doing that.
+const MAX_RPC_CHANNEL: int = 3
 
 ## Hard cap on players in one session, authority included.
 ##
