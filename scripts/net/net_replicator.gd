@@ -29,11 +29,32 @@ extends Node
 ## [b]How a client plays a snapshot back[/b]
 ##
 ## Two ways, and which one a body gets is the whole of it. SOMEBODY ELSE'S body
-## is INTERPOLATED: the last two snapshots are held and the body is drawn at the
-## moment one snapshot interval behind the newer of them, sliding between the
-## two. THIS machine's own body is PREDICTED -- it is never touched here beyond
-## being handed the snapshot, because it has already simulated itself and rewinds
+## is INTERPOLATED out of a buffer of recent snapshots by a PLAYOUT CLOCK. THIS
+## machine's own body is PREDICTED -- it is never touched here beyond being
+## handed the snapshot, because it has already simulated itself and rewinds
 ## against the correction on its own. See [PlayerNetLink].
+##
+## [b]The playout clock[/b]
+##
+## The client keeps its own position in the authority's tick stream and advances
+## it with the frame, rather than restarting a slide every time a packet lands.
+## That distinction is the whole of jitter tolerance: a reset-on-arrival slide
+## draws a body fast when a packet is early and freezes it when a packet is
+## late, which is exactly the hitch a jittery line produces, and it produces it
+## whether or not any packet was actually lost.
+##
+## The clock is held [member NetSettings.interpolation_delay_ticks] behind the
+## newest snapshot, plus twice the jitter the client has MEASURED on this
+## connection, up to
+## [member NetSettings.max_interpolation_jitter_ticks]. A LAN pays the floor; a
+## tethered phone pays what its own line costs. Drift is taken out by running
+## playback a few per cent fast or slow rather than by jumping, so the
+## correction is never a frame anybody sees.
+##
+## Past the newest snapshot the bodies EXTRAPOLATE along their last velocity for
+## at most [member NetSettings.max_extrapolation_seconds], then hold. A body
+## that keeps running and is corrected reads as a body that kept running; a body
+## that freezes and teleports reads as a broken game.
 ##
 ## What is still missing:
 ##
@@ -41,13 +62,9 @@ extends Node
 ##   thinks bodies are now, not where the shooter saw them. On a listen server
 ##   that quietly favours the host, and it is a design question rather than a
 ##   bug -- see the report.
-## - [b]No extrapolation.[/b] A snapshot that never arrives leaves bodies
-##   parked at the last one rather than sailing on. Freezing is wrong; sailing
-##   on and then snapping back is wrong in a way that looks like a physics bug,
-##   so the cheaper wrong was chosen deliberately.
-## - [b]No delta compression, no acknowledgement, no interest management.[/b]
-##   Every field of every body goes every snapshot to everybody. Cheap at eight
-##   players; not a habit to keep.
+## - [b]No delta compression and no interest management.[/b] Every field of
+##   every body goes every snapshot to everybody, quantised but not differenced.
+##   Cheap at eight players; not a habit to keep.
 ## - [b]Bodies and holograms only.[/b] Weapon fire, hits, the round result and
 ##   who holds the tower are not replicated by this file.
 
@@ -90,18 +107,51 @@ var _tick: int = 0
 ## Simulated seconds since the last snapshot was sent. Authority-only.
 var _send_accumulator: float = 0.0
 
-## The two snapshots a client is currently drawing between, and how far along
-## it is. Client-only.
-var _previous: WorldSnapshot = WorldSnapshot.new()
-var _latest: WorldSnapshot = WorldSnapshot.new()
-var _have_previous: bool = false
-var _have_latest: bool = false
-var _playback_seconds: float = 0.0
+## Snapshots a client holds to draw between, oldest first. Client-only.
+##
+## Twelve at 30 Hz is four hundred milliseconds of history, which is more than
+## the jitter buffer will ever be allowed to ask for and enough that a burst of
+## reordering has something to land in.
+const PLAYBACK_CAPACITY: int = 12
+var _playback: Array[WorldSnapshot] = []
+var _playback_start: int = 0
+var _playback_count: int = 0
 
-## Simulated seconds the two buffered snapshots are apart, measured from their
-## ticks rather than assumed from settings -- the host's rate is the host's to
-## choose and a client that assumed 30 Hz would play a 20 Hz feed too fast.
-var _playback_span: float = 0.0
+## How far behind the newest snapshot the playout clock is drawing, in authority
+## ticks. Negative means extrapolating past it.
+##
+## Held relative to the newest tick rather than as an absolute tick so that the
+## 32-bit wrap is somebody else's problem: every quantity here is a small
+## difference, and differences are what [method NetCodec.tick_delta] makes safe.
+var _render_lag: float = 0.0
+var _have_clock: bool = false
+
+## The client's own playback clock in seconds, and when a snapshot last arrived
+## on it. Simulated seconds, not wall clock: it has to be the same clock the
+## frames are drawn against or the jitter it measures is the test runner's.
+var _clock_seconds: float = 0.0
+var _last_arrival_seconds: float = -1.0
+
+## Measured irregularity of snapshot arrival, in seconds, and the measured gap
+## between them in ticks. Both smoothed; both drive the buffer depth.
+var _jitter_seconds: float = 0.0
+var _interval_ticks: float = 0.0
+
+## Ticks the clock is held behind the newest snapshot. Recomputed per arrival.
+var _delay_ticks: float = 2.0
+
+## Weight the jitter estimate gives a new sample.
+const _JITTER_ALPHA: float = 0.1
+
+## Playback speed change per tick of clock error, and the most of it allowed.
+## Twenty per cent closes two ticks of drift in about a sixth of a second, which
+## is under what a player can see and over what jitter can open in that time.
+const _CLOCK_GAIN: float = 0.1
+const _MAX_DILATION: float = 0.2
+
+## Clock error past which the drift is jumped rather than dilated away. A third
+## of a second: at that point the connection has changed, not drifted.
+const _CLOCK_SNAP_TICKS: float = 20.0
 
 ## Reused so the send and receive paths allocate nothing per tick beyond the
 ## byte array the engine hands over.
@@ -188,15 +238,33 @@ func get_tick() -> int:
 	return _tick
 
 
-## The authority tick of the newest snapshot a client has applied, or -1.
+## The authority tick of the newest snapshot a client has taken, or -1.
 func get_latest_tick() -> int:
-	return _latest.tick if _have_latest else -1
+	return _newest().tick if _playback_count > 0 else -1
+
+
+## How far behind the newest snapshot this client is drawing, in authority
+## ticks, or -1 before the clock has started. The jitter buffer's depth, for the
+## harness and for a debug overlay.
+func get_render_lag_ticks() -> float:
+	return _render_lag if _have_clock else -1.0
+
+
+## The delay the jitter buffer has settled on, in authority ticks.
+func get_delay_ticks() -> float:
+	return _delay_ticks
+
+
+## Measured irregularity of snapshot arrival on this connection, in seconds.
+func get_jitter_seconds() -> float:
+	return _jitter_seconds
 
 
 # --- Sending ------------------------------------------------------------------
 
 func _physics_process(delta: float) -> void:
 	if not _is_authority:
+		_advance_clock(delta)
 		return
 	_tick += 1
 	if session == null or not session.is_established() or session.get_peer_count() <= 1:
@@ -360,8 +428,8 @@ func _receive_snapshot(payload: PackedByteArray) -> void:
 		return
 	if not NetCodec.unpack_snapshot(payload, _incoming):
 		return
-	if _have_latest and not NetCodec.is_newer_tick(_incoming.tick, _latest.tick):
-		# Reordered by UDP and older than one already shown.
+	if _playback_count > 0 and not NetCodec.is_newer_tick(_incoming.tick, _newest().tick):
+		# Reordered by UDP and older than one already buffered.
 		return
 	apply_snapshot(_incoming)
 
@@ -369,54 +437,180 @@ func _receive_snapshot(payload: PackedByteArray) -> void:
 ## Take a snapshot as though it had arrived over the wire. Public because a
 ## test and a future replay viewer both drive it directly.
 func apply_snapshot(snapshot: WorldSnapshot) -> void:
-	if _have_latest:
-		_previous.copy_from(_latest)
-		_have_previous = true
-		var ticks: int = NetCodec.tick_delta(_previous.tick, snapshot.tick)
-		# A non-positive gap means a duplicate or a reorder that slipped
-		# through; fall back to the nominal interval rather than dividing by it.
-		_playback_span = (
-			float(ticks) * get_physics_process_delta_time() if ticks > 0
-			else session.get_settings().get_snapshot_interval()
-		)
-	_latest.copy_from(snapshot)
-	_have_latest = true
-	_playback_seconds = 0.0
+	_buffer_snapshot(snapshot)
+	_update_delay()
+	if not _have_clock:
+		_render_lag = _delay_ticks
+		_have_clock = true
 
-	_deliver_predictions(_latest)
+	_deliver_predictions(_newest())
 	if not _should_interpolate():
-		_present(_latest)
-	snapshot_received.emit(_latest.tick, _latest.count)
+		_present(_newest())
+	snapshot_received.emit(_newest().tick, _newest().count)
 
 
-## Play the buffered snapshots back.
+## Keep [param snapshot], dropping the oldest when the buffer is full. The
+## arriving tick is newer than everything held -- [method _receive_snapshot] has
+## already refused anything else -- so it goes on the end.
+func _buffer_snapshot(snapshot: WorldSnapshot) -> void:
+	if _playback.is_empty():
+		_playback.resize(PLAYBACK_CAPACITY)
+		for i: int in PLAYBACK_CAPACITY:
+			_playback[i] = WorldSnapshot.new()
+	var previous_newest: int = _newest().tick if _playback_count > 0 else -1
+	if _playback_count >= PLAYBACK_CAPACITY:
+		_playback_start = (_playback_start + 1) % PLAYBACK_CAPACITY
+		_playback_count -= 1
+	_slot(_playback_count).copy_from(snapshot)
+	_playback_count += 1
+	if previous_newest >= 0:
+		# The newest tick moved on, so everything behind it is that much further
+		# behind -- the playout clock included.
+		var advanced: int = NetCodec.tick_delta(previous_newest, snapshot.tick)
+		if advanced > 0:
+			_render_lag += float(advanced)
+			_interval_ticks = (
+				float(advanced) if _interval_ticks <= 0.0
+				else lerpf(_interval_ticks, float(advanced), _JITTER_ALPHA)
+			)
+
+
+## Re-measure how irregularly snapshots are arriving, and set the buffer depth
+## from it.
+##
+## Jitter is the difference between when a snapshot was DUE, from the tick gap
+## it carries, and when it turned up on this machine's own playback clock. Twice
+## the smoothed value is held on top of the floor, which covers the ordinary
+## spread of a domestic line without holding a LAN back.
+func _update_delay() -> void:
+	var settings: NetSettings = session.get_settings()
+	if _last_arrival_seconds >= 0.0 and _interval_ticks > 0.0:
+		var expected: float = _interval_ticks * _tick_seconds()
+		var observed: float = _clock_seconds - _last_arrival_seconds
+		_jitter_seconds = lerpf(_jitter_seconds, absf(observed - expected), _JITTER_ALPHA)
+	_last_arrival_seconds = _clock_seconds
+	var jitter_ticks: float = clampf(
+		_jitter_seconds * 2.0 / _tick_seconds(), 0.0, float(settings.max_interpolation_jitter_ticks)
+	)
+	# The floor is a whole snapshot interval whatever the setting says: below
+	# one there is no second snapshot to interpolate towards.
+	var floor_ticks: float = maxf(
+		float(settings.interpolation_delay_ticks), maxf(_interval_ticks, 1.0)
+	)
+	_delay_ticks = floor_ticks + jitter_ticks
+
+
+## Move the playout clock on by one authority tick, give or take the dilation
+## that is taking drift out of it. Client-only.
+##
+## On the PHYSICS tick and not the drawn frame. The clock counts the authority's
+## ticks, the authority advances them on its own physics, and tying the two
+## together is what makes the buffer depth mean the same thing at 30 frames a
+## second as at 240.
+func _advance_clock(delta: float) -> void:
+	_clock_seconds += delta
+	if not _have_clock or _playback_count == 0 or not _should_interpolate():
+		return
+	var error: float = _render_lag - _delay_ticks
+	if absf(error) > _CLOCK_SNAP_TICKS:
+		# The connection changed rather than drifted -- a hitch on the host, a
+		# route that moved. Dilating a third of a second away would take four
+		# seconds of visibly wrong-speed bodies.
+		_render_lag = _delay_ticks
+	else:
+		# Run a shade fast when the buffer is deeper than it should be and a
+		# shade slow when it is shallower. A few per cent of playback speed is
+		# not visible on a running body; a jump is.
+		_render_lag -= 1.0 + clampf(error * _CLOCK_GAIN, -_MAX_DILATION, _MAX_DILATION)
+	var oldest_lag: float = float(NetCodec.tick_delta(_slot(0).tick, _newest().tick))
+	_render_lag = clampf(_render_lag, -_extrapolation_ticks(), oldest_lag)
+
+
+## Draw where the playout clock stands.
 ##
 ## Per drawn frame rather than per physics tick: this moves bodies for the
-## camera, not for the simulation, and on a client there is no simulation for
-## it to be in step with.
+## camera, not for the simulation. The sub-tick fraction is what keeps a body
+## smooth on a machine drawing faster than it simulates.
 func _process(delta: float) -> void:
-	if _is_authority or not _should_interpolate() or not _have_previous:
+	play_back(delta)
+
+
+## One frame of playback. Public because the cost test times it directly.
+func play_back(_delta: float) -> void:
+	if _is_authority or not _have_clock or _playback_count == 0 or not _should_interpolate():
 		return
-	_playback_seconds += delta
-	if _playback_span <= 0.0:
+	_draw(maxf(
+		_render_lag - Engine.get_physics_interpolation_fraction(), -_extrapolation_ticks()
+	))
+
+
+## How far past the newest snapshot a body may be carried, in authority ticks.
+func _extrapolation_ticks() -> float:
+	return session.get_settings().max_extrapolation_seconds / _tick_seconds()
+
+
+## Seconds in one authority tick, as this machine simulates them.
+func _tick_seconds() -> float:
+	return maxf(get_physics_process_delta_time(), 0.0001)
+
+
+## Put every mirrored body where the playout clock says it is, [param lag] ticks
+## behind the newest snapshot.
+func _draw(lag: float) -> void:
+	var newest: WorldSnapshot = _newest()
+	if lag <= 0.0 or _playback_count == 1:
+		_draw_extrapolated(newest, maxf(-lag, 0.0) * _tick_seconds())
 		return
-	# Clamped, never extrapolated past 1.0. A snapshot that never arrives parks
-	# the bodies where they were last seen; see the class docs for why that
-	# wrong was preferred to the other one.
-	var weight: float = clampf(_playback_seconds / _playback_span, 0.0, 1.0)
+
+	# The newest snapshot at or behind the clock, and the one before it. The
+	# buffer is in tick order, so lag falls as the index rises.
+	var to_index: int = _playback_count - 1
+	for i: int in _playback_count:
+		if float(NetCodec.tick_delta(_slot(i).tick, newest.tick)) <= lag:
+			to_index = i
+			break
+	var to_snapshot: WorldSnapshot = _slot(to_index)
+	if to_index == 0:
+		# Older than anything held: the clock has been clamped to the back of
+		# the buffer and there is nothing behind it to slide from.
+		_draw_extrapolated(to_snapshot, 0.0)
+		return
+
+	var from_snapshot: WorldSnapshot = _slot(to_index - 1)
+	var lag_from: float = float(NetCodec.tick_delta(from_snapshot.tick, newest.tick))
+	var lag_to: float = float(NetCodec.tick_delta(to_snapshot.tick, newest.tick))
+	var span: float = lag_from - lag_to
+	var weight: float = 1.0 if span <= 0.0 else clampf((lag_from - lag) / span, 0.0, 1.0)
 	for link: PlayerNetLink in _links:
 		if link.is_predicting():
 			# This machine's own body moves itself. Sliding it between two
 			# snapshots as well would be two things driving one body.
 			continue
-		var to: PlayerState = _latest.find_seat(link.seat_index)
-		if to == null:
+		var to_state: PlayerState = to_snapshot.find_seat(link.seat_index)
+		if to_state == null:
 			continue
-		var from: PlayerState = _previous.find_seat(link.seat_index)
-		if from == null:
-			link.apply_state(to)
+		var from_state: PlayerState = from_snapshot.find_seat(link.seat_index)
+		if from_state == null:
+			link.apply_state(to_state)
 			continue
-		_blend.interpolate_from(from, to, weight)
+		_blend.interpolate_from(from_state, to_state, weight)
+		link.apply_state(_blend)
+
+
+## Draw [param snapshot] carried [param seconds] forward along each body's own
+## velocity. Zero seconds is the snapshot itself.
+func _draw_extrapolated(snapshot: WorldSnapshot, seconds: float) -> void:
+	for link: PlayerNetLink in _links:
+		if link.is_predicting():
+			continue
+		var state: PlayerState = snapshot.find_seat(link.seat_index)
+		if state == null:
+			continue
+		if seconds <= 0.0:
+			link.apply_state(state)
+			continue
+		_blend.copy_from(state)
+		_blend.position += state.velocity * seconds
 		link.apply_state(_blend)
 
 
@@ -440,6 +634,16 @@ func _deliver_predictions(snapshot: WorldSnapshot) -> void:
 			link.receive_authoritative(state)
 
 
+## The buffered snapshot at [param index], oldest first.
+func _slot(index: int) -> WorldSnapshot:
+	return _playback[(_playback_start + index) % PLAYBACK_CAPACITY]
+
+
+## The newest snapshot held. Never called with an empty buffer.
+func _newest() -> WorldSnapshot:
+	return _slot(_playback_count - 1)
+
+
 func _should_interpolate() -> bool:
 	return session != null and session.get_settings().interpolate_remote_bodies
 
@@ -447,12 +651,13 @@ func _should_interpolate() -> bool:
 func _clear_playback() -> void:
 	_decoy_tracks.clear()
 	_decoy_epochs.clear()
-	_have_previous = false
-	_have_latest = false
-	_playback_seconds = 0.0
-	_playback_span = 0.0
-	_previous.clear()
-	_latest.clear()
+	_playback_start = 0
+	_playback_count = 0
+	_have_clock = false
+	_render_lag = 0.0
+	_last_arrival_seconds = -1.0
+	_jitter_seconds = 0.0
+	_interval_ticks = 0.0
 
 
 func _on_connection_state_changed(_state: NetTransport.ConnectionState) -> void:

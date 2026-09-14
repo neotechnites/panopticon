@@ -101,6 +101,24 @@ const MAX_PLAYERS: int = 8
 
 var _state: ConnectionState = ConnectionState.OFFLINE
 
+## Transport-shaped numbers -- compression, peer timeouts -- from the session.
+## Null until [method configure] runs; every reader must cope with that, because
+## a tool that only wants a socket never calls it.
+var _settings: NetSettings = null
+
+
+## Hand this backend the session's settings. Called by [NetSession] before every
+## host and join, so a backend never reaches back up the tree for them.
+func configure(settings: NetSettings) -> void:
+	_settings = settings
+
+
+## The settings, or the shipped defaults when nobody has configured this.
+func get_settings() -> NetSettings:
+	if _settings == null:
+		_settings = NetSettings.new()
+	return _settings
+
 
 ## Become the listen server on [param port]. Returns [constant OK], or an error
 ## and a state of [constant ConnectionState.FAILED].
@@ -200,6 +218,14 @@ static func state_name(state: ConnectionState) -> String:
 		ConnectionState.FAILED:
 			return "FAILED"
 	return "UNKNOWN"
+
+
+## Bytes and packets this backend has moved since the last call, as
+## [code]{sent_bytes, received_bytes, sent_packets, received_packets}[/code].
+## Empty when the backend cannot say. Counters are consumed by reading them, so
+## a caller gets the window since its own previous call and not a running total.
+func take_wire_stats() -> Dictionary:
+	return {}
 
 
 ## Short name of the backend, for logs. Overridden by each implementation.

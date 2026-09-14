@@ -74,12 +74,14 @@ extends Resource
 ## each snapshot as it lands.
 ##
 ## Off, a body teleports [member snapshot_hz] times a second and every dropped
-## packet is a visible hitch. On, it is drawn one snapshot interval in the past
-## and slid smoothly between the two snapshots that bracket that moment, which
-## is what every shipped game does and what makes 30 Hz watchable.
+## packet is a visible hitch. On, the client runs a playout clock through a
+## buffer of recent snapshots and draws the body where it was a little while
+## ago, sliding between the two that bracket that moment -- which is what every
+## shipped game does and what makes 30 Hz watchable. How far behind is
+## [member interpolation_delay_ticks] plus what the connection's own jitter
+## turns out to cost; see [NetReplicator].
 ##
-## The delay is the price and it is real: a remote body is drawn where it was
-## [member snapshot_hz] milliseconds ago plus latency. It applies to REMOTE
+## The delay is the price and it is real. It applies to REMOTE
 ## bodies only: a client's own body is predicted instead (see
 ## [member predict_local_body]) and is never interpolated.
 @export var interpolate_remote_bodies: bool = true
@@ -117,6 +119,41 @@ extends Resource
 ## the view goes with it.
 @export_range(0.05, 10.0, 0.05) var prediction_snap_metres: float = 1.0
 
+## Intents each intent packet carries: the current tick's, and that many minus
+## one from the ticks before it.
+##
+## [b]Two, and it is the cheapest reliability in the project.[/b] Intent rides
+## an unreliable channel and its edges -- jump, slide, shove, trigger -- are
+## consumed once. A dropped packet is therefore a press the player made and the
+## game never saw, and on a 5% line that is one press in twenty. Repeating the
+## previous tick costs nineteen bytes on the direction that was already sending
+## a twentieth of what the host sends, and makes every single-packet loss
+## invisible. Three covers a loss of two in a row.
+##
+## One turns it off, which is the old behaviour and is here so the cost of the
+## feature can be measured rather than argued about.
+@export_range(1, 4, 1) var intent_redundancy: int = 2
+
+## Intent packets the authority will read from one peer in one tick before it
+## starts dropping them.
+##
+## A peer that sends faster than it simulates gains nothing -- the authority
+## consumes one intent per tick whatever arrives -- but it can still spend the
+## host's CPU decoding. This bounds that. Four is twice what a peer sending one
+## packet a tick with the jitter of a bad line will ever need.
+@export_range(1, 32, 1) var max_intent_packets_per_tick: int = 4
+
+## Whether the authority honours [member MoveIntent.ability_slot] from a client.
+##
+## [b]Off, and it is a cheat gate, not a tuning knob.[/b] The slot is a dev test
+## key: it picks a runner power DIRECTLY, skipping the fallback to
+## [member MatchRules.runner_ability], so a modified client that sets it every
+## tick gets Armor Lock -- and with it rifle immunity -- in a match whose rules
+## say abilities are off. The host zeroes the field unless this is on. It exists
+## at all because the headless harness drives abilities through it, and a
+## harness flag is better than a second code path.
+@export var accept_remote_ability_slot: bool = false
+
 ## Authority ticks a body's [RemoteIntentSource] holds its last packet before
 ## deciding the peer has gone quiet and releasing every held button.
 ##
@@ -141,6 +178,34 @@ extends Resource
 ## audit and is not implemented.
 @export_range(0.1, 12.566, 0.001) var max_look_delta_radians: float = PI
 
+## Authority ticks a client holds a snapshot before drawing it: the jitter
+## buffer's floor.
+##
+## Playback is a clock, not a reset-on-arrival slide. The client runs its own
+## playout position through the snapshots it has and keeps it this far behind
+## the newest one, so a packet that arrives early is not jumped to and a packet
+## that arrives late has already been allowed for. Two ticks is one snapshot
+## interval at 30 Hz -- the minimum that has anything to interpolate between.
+@export_range(1, 30, 1) var interpolation_delay_ticks: int = 2
+
+## Ticks of measured jitter the buffer may add to that floor on its own.
+##
+## The delay ADAPTS: the client measures how irregularly snapshots arrive and
+## holds twice that on top of the floor, up to this. A LAN pays nothing; a
+## tethered phone pays what its jitter costs and no more. Eight ticks is 133 ms,
+## past which a connection is beyond what a buffer can hide.
+@export_range(0, 30, 1) var max_interpolation_jitter_ticks: int = 8
+
+## How long a remote body sails on under its own velocity when no snapshot
+## arrives, in seconds.
+##
+## Freezing and snapping is what no extrapolation looks like, and it reads as a
+## body teleporting. Sailing on for a moment and being corrected reads as what
+## it is -- a body that kept running. Bounded hard, because a body extrapolated
+## for a second is a body somewhere else entirely: 150 ms covers a lost snapshot
+## and a late one, and not a disconnection.
+@export_range(0.0, 1.0, 0.01) var max_extrapolation_seconds: float = 0.15
+
 # --- Timeouts -----------------------------------------------------------------
 
 ## Wall-clock seconds a join may sit in [constant NetTransport.ConnectionState.CONNECTING]
@@ -159,6 +224,35 @@ extends Resource
 @export_range(0.5, 60.0, 0.1) var connect_timeout_seconds: float = 5.0
 
 # --- Lobby --------------------------------------------------------------------
+
+## Whether the transport compresses every packet.
+##
+## ENet's range coder, which costs a few microseconds a packet and takes about
+## a fifth off a snapshot even after quantisation -- the flag, ability, health
+## and timer bytes across eight bodies are highly repetitive and that is exactly
+## what an entropy coder is for.
+##
+## [b]Both ends must agree.[/b] A host that compresses and a client that does
+## not have a connection that establishes and then reads rubbish, so this is
+## read at [method NetTransport.host] and [method NetTransport.join] alike and
+## is not something to vary per player.
+@export var compress_traffic: bool = true
+
+## Seconds of silence before ENet gives up on a peer mid-session.
+##
+## Distinct from [member connect_timeout_seconds], which is about a join that
+## never completed. This one is a player whose line died mid-match, and ENet's
+## own default runs to 30 seconds -- long enough that a 1v1 sits in an empty
+## ring wondering. Wall clock, for the same reason.
+@export_range(1.0, 60.0, 0.5) var peer_timeout_seconds: float = 8.0
+
+## Smallest number of seconds between two accepted lobby requests from one peer.
+##
+## [member NetLobby] answers a ready or a name change with a reliable broadcast
+## of the whole roster to everybody, so an unthrottled client can make the host
+## send N packets per packet it sends. A quarter of a second is far below what a
+## human does with a button and far above what a script would like to.
+@export_range(0.0, 5.0, 0.05) var lobby_request_interval_seconds: float = 0.25
 
 ## Longest display name accepted from a peer, in bytes of UTF-8.
 ##

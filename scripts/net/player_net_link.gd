@@ -143,6 +143,26 @@ class PredictedTick extends RefCounted:
 ## Reused per packet so the per-tick path does not allocate.
 var _scratch_intent: MoveIntent = MoveIntent.new()
 
+## The last few intents sent, oldest first, for
+## [member NetSettings.intent_redundancy]. Allocated once and written over.
+var _recent_intents: Array[MoveIntent] = []
+
+## This machine's tick of the newest entry in [member _recent_intents], or -1.
+## A gap in it -- a tick that sent nothing -- empties the window, because the
+## packet format says its intents are consecutive.
+var _recent_tick: int = -1
+
+## How many of [member _recent_intents] are filled, oldest at index zero.
+var _recent_count: int = 0
+
+## The bytes last sent by [method _send_intent]. See
+## [method get_last_intent_packet].
+var _last_packet: PackedByteArray = PackedByteArray()
+
+## Intent packets taken from this seat's owner on the current authority tick.
+## See [member NetSettings.max_intent_packets_per_tick].
+var _packets_this_tick: int = 0
+
 ## True when this machine is a client simulating its own body. Latched with the
 ## rest of the role in [method refresh_role].
 var _predicting: bool = false
@@ -175,10 +195,11 @@ var _tick: int = 0
 ## through a frame.
 var _is_authority: bool = false
 
-## The body jumped since the last snapshot was sampled. An edge has no state to
-## read back off the controller, so it is latched off the signal and cleared
-## when it goes out.
-var _jumped_since_sample: bool = false
+## How many times this body has jumped. An edge has no state to read back off
+## the controller, so it is counted off the signal; the count goes out and is
+## never cleared, which is what lets a mirror notice a jump whose snapshot was
+## dropped. See [member PlayerState.jump_counter].
+var _jump_counter: int = 0
 
 ## The newest snapshot tick whose EDGES have been replayed on this body, or -1
 ## before the first. Interpolation hands [method apply_state] the same snapshot
@@ -186,6 +207,10 @@ var _jumped_since_sample: bool = false
 var _event_tick: int = -1
 var _was_on_floor: bool = true
 var _was_sliding: bool = false
+
+## The jump count last replayed on a mirrored body. See
+## [member PlayerState.jump_counter].
+var _seen_jumps: int = 0
 
 ## Downward speed off the last airborne snapshot, for the landing cue.
 var _fall_speed: float = 0.0
@@ -202,7 +227,7 @@ func _ready() -> void:
 	if replicator != null:
 		replicator.register(self)
 	session.connection_state_changed.connect(_on_connection_state_changed)
-	controller.jumped.connect(func() -> void: _jumped_since_sample = true)
+	controller.jumped.connect(func() -> void: _jump_counter += 1)
 	refresh_role()
 
 
@@ -256,7 +281,10 @@ func refresh_role() -> void:
 
 func _physics_process(delta: float) -> void:
 	_tick += 1
-	if _is_authority or session == null or controller == null:
+	if _is_authority:
+		_packets_this_tick = 0
+		return
+	if session == null or controller == null:
 		return
 	if not _owns_locally():
 		return
@@ -353,8 +381,7 @@ func sample_state(out: PlayerState) -> void:
 	out.is_armed = controller.is_armed
 	out.sliding = controller.is_sliding()
 	out.crouching = controller.is_crouching()
-	out.jumped = _jumped_since_sample
-	_jumped_since_sample = false
+	out.jump_counter = _jump_counter
 	# What the owner of this seat may rewind to: the last intent of theirs this
 	# body has actually simulated, not merely received. Nothing to say for a
 	# bot's seat or the host's own, and nobody to say it to.
@@ -423,8 +450,13 @@ func _present_events(state: PlayerState) -> void:
 	if first:
 		_was_on_floor = state.on_floor
 		_was_sliding = state.sliding
+		_seen_jumps = state.jump_counter
 		return
-	if state.jumped:
+	# Once per jump the counter has advanced by, not once per snapshot that
+	# mentions one: a dropped snapshot is a jump this body still made.
+	var jumps: int = posmod(state.jump_counter - _seen_jumps, NetCodec.JUMP_COUNTER_MODULUS)
+	_seen_jumps = state.jump_counter
+	for _i: int in jumps:
 		controller.jumped.emit()
 	if state.on_floor and not _was_on_floor:
 		controller.landed.emit(_fall_speed)
@@ -458,7 +490,45 @@ func _send_intent() -> void:
 	else:
 		_scratch_intent.copy_from(local_source.poll(get_physics_process_delta_time()))
 	_scratch_intent.normalise()
-	rpc_id(session.get_authority_peer_id(), &"_receive_intent", NetCodec.pack_intent(_tick, _scratch_intent))
+	var redundancy: int = clampi(
+		session.get_settings().intent_redundancy, 1, NetCodec.MAX_INTENT_REDUNDANCY
+	)
+	_remember_intent(_scratch_intent, redundancy)
+	_last_packet = NetCodec.pack_intents(_tick, _recent_intents, _recent_count)
+	rpc_id(session.get_authority_peer_id(), &"_receive_intent", _last_packet)
+
+
+## The intent packet this body last sent, or an empty array before the first.
+##
+## The seam a test harness needs to put a real packet through a wire it has
+## made lossy: loopback drops nothing, so the only way to measure what loss
+## costs is to carry the real bytes by hand. Nothing in the game reads it.
+func get_last_intent_packet() -> PackedByteArray:
+	return _last_packet
+
+
+## Push [param intent] onto the window of ticks the next packet repeats.
+##
+## The window holds consecutive ticks and nothing else: a tick that sent no
+## packet breaks the run, and a packet claiming ticks the sender skipped would
+## acknowledge input that was never made.
+func _remember_intent(intent: MoveIntent, redundancy: int) -> void:
+	if _recent_intents.size() != redundancy:
+		_recent_intents.resize(redundancy)
+		for i: int in redundancy:
+			if _recent_intents[i] == null:
+				_recent_intents[i] = MoveIntent.new()
+		_recent_count = 0
+	if _recent_tick != _tick - 1:
+		_recent_count = 0
+	_recent_tick = _tick
+	if _recent_count < redundancy:
+		_recent_intents[_recent_count].copy_from(intent)
+		_recent_count += 1
+		return
+	for i: int in redundancy - 1:
+		_recent_intents[i].copy_from(_recent_intents[i + 1])
+	_recent_intents[redundancy - 1].copy_from(intent)
 
 
 # --- Receiving ----------------------------------------------------------------
@@ -481,22 +551,44 @@ func _receive_intent(payload: PackedByteArray) -> void:
 		# Nothing remote drives this seat. A bot's body and the host's own can
 		# never be moved by a packet, however well formed.
 		return
-	var sender_id: int = multiplayer.get_remote_sender_id()
-	if sender_id != owner_peer_id:
+	accept_intent_payload(multiplayer.get_remote_sender_id(), payload)
+
+
+## Take one intent packet from [param sender_id]. Authority-side, and it repeats
+## every guard [method _receive_intent] makes, so it is safe to call from a test
+## harness carrying real bytes over a wire of its own.
+func accept_intent_payload(sender_id: int, payload: PackedByteArray) -> void:
+	if not _is_authority or owner_peer_id == 0 or sender_id != owner_peer_id:
 		# The one check that stops a peer driving somebody else's body.
 		return
 
-	var tick: int = NetCodec.unpack_intent(payload, _scratch_intent)
-	if tick < 0:
+	var settings: NetSettings = session.get_settings()
+	_packets_this_tick += 1
+	if _packets_this_tick > settings.max_intent_packets_per_tick:
+		# A peer sending faster than it simulates gains nothing and may not
+		# spend the host's CPU proving it.
 		return
-	var limit: float = session.get_settings().max_look_delta_radians
-	_scratch_intent.look_delta = _scratch_intent.look_delta.clampf(-limit, limit)
+	var count: int = NetCodec.intent_count(payload)
+	if count == 0:
+		return
 
+	var limit: float = settings.max_look_delta_radians
 	var source: RemoteIntentSource = _ensure_remote_source()
-	if not source.accept(tick, _scratch_intent):
-		# Reordered by UDP and older than one already applied.
-		return
-	intent_received.emit(sender_id, tick)
+	var newest: int = -1
+	# Oldest first. The repeats the authority has already had are refused by
+	# accept(); the ones it missed fill the hole the dropped packet left.
+	for i: int in count:
+		var tick: int = NetCodec.unpack_intent_at(payload, i, _scratch_intent)
+		if tick < 0:
+			continue
+		_scratch_intent.look_delta = _scratch_intent.look_delta.clampf(-limit, limit)
+		if not settings.accept_remote_ability_slot:
+			# A dev test key, and a power picked this way skips the rules.
+			_scratch_intent.ability_slot = 0
+		if source.accept(tick, _scratch_intent):
+			newest = tick
+	if newest >= 0:
+		intent_received.emit(sender_id, newest)
 
 
 # --- Prediction ---------------------------------------------------------------
@@ -559,11 +651,11 @@ func _reconcile(delta: float) -> void:
 
 	var first: int = _first_unacknowledged(acked)
 	if first == 0:
-		# Every tick held is newer than the acknowledgement: this is the wake of
-		# a snap, and the authority is still answering for input from before it.
-		# Nothing here maps onto anything kept, so it is left alone -- the body
-		# is already where the snap put it -- and reconciliation resumes on its
-		# own once the acknowledgements catch the buffer up, a round trip later.
+		# Every tick held is newer than the acknowledgement: the wake of a
+		# buffer that was thrown away -- a respawn, or one of the two hard snaps
+		# above -- while the authority is still answering for input from before
+		# it. Nothing here maps onto anything kept, so it is left alone and
+		# reconciliation resumes once the acknowledgements catch the buffer up.
 		return
 	var index: int = first - 1
 	var predicted: PredictedTick = _slot(index)
@@ -574,15 +666,21 @@ func _reconcile(delta: float) -> void:
 		return
 
 	var missed: float = _pending_state.position.distance_to(predicted.position)
-	prediction_corrected.emit(missed, missed > session.get_settings().prediction_snap_metres)
-	if missed > session.get_settings().prediction_snap_metres:
-		_snap_to(_pending_state)
-		return
+	var snapped: bool = missed > session.get_settings().prediction_snap_metres
+	prediction_corrected.emit(missed, snapped)
 
 	var before: Vector3 = controller.global_position
 	controller.global_position = _pending_state.position
 	controller.velocity = _pending_state.velocity
-	controller.rotation.y = predicted.yaw
+	# Whose facing to rewind to. In steady running it is this machine's own,
+	# recorded at the same tick, because yaw is the player's own integration of
+	# the look deltas the authority is integrating too and taking it off a
+	# snapshot would drag the mouse a round trip into the past thirty times a
+	# second. After an event the authority has re-placed the body and its facing
+	# is a fact about the match, so that one is taken instead -- and the replay
+	# turns it by every unacknowledged look delta again, so being shoved never
+	# also takes the mouse.
+	controller.rotation.y = _pending_state.yaw if snapped else predicted.yaw
 	controller.restore_motion_state(predicted.motion)
 	# The replayed ticks are this body's own past. Their signals were heard when
 	# they happened; heard again they would fire the last hundred milliseconds
@@ -595,6 +693,16 @@ func _reconcile(delta: float) -> void:
 	controller.set_block_signals(false)
 
 	_drop_through(index)
+	if snapped:
+		# An event the client could not have predicted -- a launch, a shove, a
+		# kill, a respawn. The BODY still replays: the player's last round trip
+		# of running and turning is theirs and throwing it away is a worse lie
+		# than any pop. What a snap changes is the VIEW, which goes with the
+		# body at once instead of drifting onto it, because drawing a launch as
+		# a graceful slide is a lie about where the body is.
+		_view_error = Vector3.ZERO
+		controller.view_offset = Vector3.ZERO
+		return
 	_add_view_error(before - controller.global_position)
 
 
@@ -607,8 +715,10 @@ func _first_unacknowledged(acked: int) -> int:
 	return _predicted_count
 
 
-## Take the authority's state whole, for a correction no replay can explain: a
-## launch, a shove, a kill, a respawn, or a buffer that has run out of history.
+## Take the authority's state whole, for a correction no replay can be based on:
+## a body the authority has run no input for yet, or an acknowledgement this
+## buffer straddles but does not hold. A correction that is merely LARGE is not
+## one of these -- see [method _reconcile].
 func _snap_to(state: PlayerState) -> void:
 	# The turning done since the authority sampled this is still the player's.
 	# The yaw comes back from the authority -- a body the match has re-placed is

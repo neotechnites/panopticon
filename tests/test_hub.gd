@@ -28,9 +28,16 @@ const HUB_SCENE_PATH: String = "res://scenes/hub/hub.tscn"
 ## budget [code]tests/test_net_session.gd[/code] uses, for the same reason.
 const REPLICATION_TICKS: int = 60
 
-## How close a client's copy of a body has to end up to the authority's. Not
-## zero: a client draws bodies one snapshot interval in the past by design.
-const CONVERGENCE_METRES: float = 2.5
+## How close a client's copy of a body has to end up to the authority's.
+##
+## Not zero: a client draws a mirrored body a JITTER BUFFER in the past by
+## design, and the buffer's depth is measured from the connection rather than
+## fixed -- see [NetReplicator]. Under this runner the socket is polled far less
+## often than the compressed physics ticks, which reads as tens of milliseconds
+## of jitter and buys a correspondingly deep buffer. What this number is for is
+## the difference between followed and did not: the body starts parked a long
+## way off.
+const CONVERGENCE_METRES: float = 5.0
 
 ## Where a client's copy is parked before any snapshot arrives, so that "it
 ## converged" cannot be confused with "it was already there".
@@ -304,6 +311,31 @@ func test_two_peers_stand_in_one_hub_and_see_each_other() -> void:
 		mirror.global_position.distance_to(host_body.global_position), CONVERGENCE_METRES,
 		"and the client's copy of it followed, from where the test parked it"
 	)
+
+
+## The host quitting is the end of the session, and a client is told so.
+##
+## There is no host migration -- promoting a client would hand it a world it
+## never simulated -- so the only right answer is to say the match is over.
+## Before this, a client kept running a match scene full of frozen bodies with
+## nothing deciding anything and no way to find out.
+func test_a_client_is_told_when_the_host_goes_away() -> void:
+	if not await _connect():
+		fail("the loopback handshake did not complete")
+		return
+	var _host_hub: Node3D = _make_hub(_host.get_parent(), _host)
+	var client_hub: Node3D = _make_hub(_client.get_parent(), _client)
+	await step_ticks(4)
+
+	var client_match: NetMatch = client_hub.get_node("NetMatch") as NetMatch
+	if not assert_not_null(client_match, "the client's hub has a NetMatch"):
+		return
+	var lost: Array[bool] = [false]
+	client_match.host_lost.connect(func() -> void: lost[0] = true)
+
+	_host.leave()
+	await NetFixtures.poll_until(self, func() -> bool: return lost[0])
+	assert_true(lost[0], "the client heard that the host had gone")
 
 
 ## The host presses interact on the dais and every machine is told to go, with
