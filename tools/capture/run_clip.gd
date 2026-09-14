@@ -17,6 +17,7 @@ extends SceneTree
 ## --stage=NAME     staged action: firefight (the tower snap-shoots) or
 ##                  chainrun (one prisoner takes the S2 boulder chain)
 ## --pov=runner     film down a bot-driven prisoner's own eyes, HUD on, no path
+## --pov=guard      the same, down the eyes of whoever holds the tower
 ## --audio=near     only sounds made within AUDIO_NEAR_METRES of the camera
 ## --seed=N         match seed; 0 means entropy               (default 20260930)
 ## --bots=N         prisoners on the ring, plus one in the tower  (default 7)
@@ -79,6 +80,8 @@ var _options: Dictionary = {}
 var _keys: Array = []
 var _key_start: float = 0.0
 var _key_span: float = 0.0
+var _look_ahead: float = 0.0
+var _look_ahead_until: float = 0.0
 var _seconds: float = 0.0
 var _delay: float = 0.0
 var _elapsed: float = 0.0
@@ -132,8 +135,8 @@ func _process(delta: float) -> bool:
 	if _elapsed < _delay:
 		_aim_camera(_key_start)
 		return false
-	if _pov == "runner":
-		_ride_a_runner()
+	if _pov != "":
+		_ride_a_body()
 	else:
 		var progress: float = clampf((_elapsed - _delay) / _seconds, 0.0, 1.0)
 		_aim_camera(_key_start + progress * _key_span)
@@ -158,6 +161,8 @@ func _build() -> void:
 		)
 		return
 	_keys = shot["keys"]
+	_look_ahead = float(shot.get("look_ahead", 0.0))
+	_look_ahead_until = float(shot.get("look_ahead_until", 0.0))
 	_key_start = float(_keys[0]["t"])
 	_key_span = float(_keys[_keys.size() - 1]["t"]) - _key_start
 	_seconds = float(_options.get("seconds", 0.0))
@@ -244,7 +249,7 @@ func _make_it_bots_only(match_root: Node, bots: int) -> void:
 		"SettingsBoot", "NetMatch", "HUD", "FeedbackRig", "SpectatorView", "SeatHandover",
 		"FreeCamera", "DeathScreen", "RoundTransition", "ResultScreen", "PauseMenu",
 	]
-	if _pov == "runner":
+	if _pov != "":
 		# A POV clip is a player's view: it wants the readouts and the camera kick,
 		# and the spectator cut when the body it is riding is shot.
 		for keep: String in ["HUD", "FeedbackRig", "SpectatorView"]:
@@ -319,7 +324,7 @@ func _light_for_social(match_root: Node) -> void:
 	_fill.omni_attenuation = 0.7
 	_fill.shadow_enabled = false
 	# In a POV clip there is no clip camera to hang it on; it follows the body
-	# being ridden instead, which _ride_a_runner reparents it to.
+	# being ridden instead, which _ride_a_body reparents it to.
 	if _camera != null:
 		_camera.add_child(_fill)
 	else:
@@ -367,9 +372,19 @@ func _aim_camera(path_time: float) -> void:
 	var pose: Dictionary = SHOTS.sample(_keys, path_time)
 	var position: Vector3 = pose["pos"]
 	var target: Vector3 = pose["look"]
+	# A flown shot points down its own velocity: the lens leads the path by
+	# look_ahead seconds until look_ahead_until, and only then reads a key's
+	# look target -- which is what lets one path fly a lap and then turn.
+	if _look_ahead > 0.0 and path_time < _look_ahead_until:
+		var ahead: Vector3 = SHOTS.sample(_keys, path_time + _look_ahead)["pos"]
+		if position.distance_squared_to(ahead) > 0.0004:
+			target = ahead
 	_camera.global_position = position
 	if position.distance_squared_to(target) > 0.0001:
 		_camera.look_at(target, Vector3.UP)
+	var roll: float = float(pose.get("roll", 0.0))
+	if not is_zero_approx(roll):
+		_camera.rotate_object_local(Vector3(0.0, 0.0, 1.0), deg_to_rad(roll))
 	_camera.fov = float(pose["fov"])
 	# Re-asserted rather than assumed: the match scene carries three other
 	# cameras that can claim the viewport, and a clip filmed from one of them is
@@ -422,55 +437,86 @@ func _fail(message: String) -> void:
 
 # --- Riding a body ------------------------------------------------------------
 
-## Keep the view down some living prisoner's own camera, changing body when the
-## one being ridden is taken. The body's camera is never written to: only made
+## Keep the view down a living body's own camera, changing body when the one
+## being ridden is taken. The body's camera is never written to: only made
 ## current, which is what [FxSpectatorView] does for a dead player.
-func _ride_a_runner() -> void:
+func _ride_a_body() -> void:
 	# A shot prisoner is not freed, it is buried a hundred metres under the deck,
 	# so "still valid" is not "still worth watching": the same standing test that
 	# picks a body has to keep deciding whether to stay on it.
 	if _pov_body != null and is_instance_valid(_pov_body) and _is_standing(_pov_body):
-		var riding: Camera3D = _pov_body.get_node_or_null(^"Head/Camera") as Camera3D
-		if riding == null:
-			riding = _pov_body.get_node_or_null(^"Camera") as Camera3D
+		var riding: Camera3D = _eye_of(_pov_body)
 		if riding != null and riding.current:
 			return
-	for runner: RingRunner in _controller.get_live_runners():
-		var body: Node3D = runner.controller
-		if body == null:
+	for participant: MatchParticipant in _wanted_participants():
+		var body: PlayerController = participant.body
+		if body == null or not _is_standing(body):
 			continue
-		if not _is_standing(body):
-			continue
-		var camera: Camera3D = body.get_node_or_null(^"Head/Camera") as Camera3D
-		if camera == null:
-			camera = body.get_node_or_null(^"Camera") as Camera3D
+		var camera: Camera3D = _eye_of(body)
 		if camera == null:
 			continue
 		camera.current = true
 		_pov_body = body
 		_wear_the_body(body)
+		_hand_the_hud(participant)
 		return
 
 
-## First-person body rules, as the human's body already has them: a runner's
-## avatar sits on visual layer 3 so every other camera sees it, and that is the
-## one layer its own camera does not clear. Put it back on the owner-hidden
-## layer and [PrisonerAvatar] does the rest -- head and spine collapsed, the
-## first-person layer added -- with no change to the avatar itself.
-## True while [param body] is on the deck rather than buried under it.
+## The participants this clip is willing to ride, best first.
+func _wanted_participants() -> Array[MatchParticipant]:
+	if _pov == "guard":
+		var seat: MatchParticipant = _controller.get_seat_participant()
+		return [seat] if seat != null else []
+	var running: Array[MatchParticipant] = []
+	for participant: MatchParticipant in _controller.get_participants():
+		if participant.is_running and not participant.is_ghost:
+			running.append(participant)
+	return running
+
+
+func _eye_of(body: Node3D) -> Camera3D:
+	return body.get_node_or_null(^"Head/Camera") as Camera3D
+
+
+## True while [param body] is on the deck or in the tower, not buried under them.
 func _is_standing(body: Node3D) -> bool:
 	return absf(body.global_position.y - DECK_Y) <= 6.0
 
 
+## First-person body rules, forced rather than asked for.
+##
+## [method PrisonerAvatar._tick_first_person] already collapses the head and the
+## spine when a body's own camera is current, but it then ORs
+## [member PrisonerAvatar.first_person_layers] back on -- layer 1, which no
+## camera clears -- so the rest of the body is still drawn across the lens.
+## Zeroing that and putting the mesh back on the owner-hidden layer makes its own
+## write land on 2, whichever order the two ticks run in.
 func _wear_the_body(body: Node3D) -> void:
 	var avatar: Node = body.get_node_or_null(^"Avatar")
-	if avatar != null and avatar.get("visual_layers") != null:
+	if avatar != null:
+		avatar.set("first_person_layers", 0)
 		avatar.set("visual_layers", 2)
+		var mesh: GeometryInstance3D = avatar.get("mesh") as GeometryInstance3D
+		if mesh != null:
+			mesh.layers = 2
 	if _fill != null:
 		var head: Node = body.get_node_or_null(^"Head")
 		if head != null and _fill.get_parent() != head:
 			_fill.reparent(head, false)
 			_fill.position = Vector3.ZERO
+
+
+## Let [MatchHUD] draw for the body being ridden.
+##
+## The HUD asks [method MatchController.get_human_participant] who to draw for,
+## and a bots-only match answers nobody. Calling the ridden participant the human
+## is the whole change: nothing else about it moves, and its [BotIntentSource] is
+## still what drives the body.
+func _hand_the_hud(participant: MatchParticipant) -> void:
+	for other: MatchParticipant in _controller.get_participants():
+		if other.kind == MatchParticipant.Kind.HUMAN:
+			other.kind = MatchParticipant.Kind.AI
+	participant.kind = MatchParticipant.Kind.HUMAN
 
 
 # --- Audio --------------------------------------------------------------------
