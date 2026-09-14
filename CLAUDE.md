@@ -2,6 +2,8 @@
 
 Ryan's game. Ryan decides design. You implement exactly what is asked, cheaply, and report what you did.
 
+**Read `docs/ENGINEERING.md` before your first edit.** It is the standard every agent and Ryan write to: the invariants, the hot-path rules, and what done means.
+
 ## Cost rules
 - Do exactly the change briefed. No consistency sweeps, no refactors, no extra tests, no "while I was here".
 - Verify with the ONE command the brief names. Write no scratch probes, harnesses, diff scripts or PowerShell wrappers.
