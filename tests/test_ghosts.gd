@@ -931,9 +931,14 @@ func test_the_held_body_can_do_nothing_at_all() -> void:
 		victim.body.global_position, fell_at, 1e-3,
 		"and has not fallen, drifted or been walked anywhere",
 	)
-	assert_null(
-		_participant_struck_at(victim.body.global_position, mask),
-		"the rifle's own ray finds nobody where the held body is standing",
+	# Not "the ray finds nobody": a body is held exactly where it DIED, which is
+	# in the middle of the running field, and a ray through that spot can cross
+	# a prisoner who merely happened to be alongside -- the same caveat this file
+	# already spells out for a ghost's own placement. What the HELD body owes is
+	# that it is never the one the rifle's ray comes back with.
+	assert_false(
+		_participant_struck_at(victim.body.global_position, mask) == victim,
+		"the rifle's own ray does not find the held body where it is standing",
 	)
 
 	# NOT A TARGET, and not killable twice.
@@ -986,6 +991,10 @@ func test_a_held_ghost_can_neither_catch_nor_be_caught() -> void:
 ## that is easy to miss, because a ghost was never alive to be killed.
 func test_a_ghost_returned_by_a_hazard_waits_too() -> void:
 	var victim: MatchParticipant = _controller.get_live_participants()[0]
+	# The rest of the field is scenery, and it has to stay alive: this test waits
+	# out two respawn holds, and a round that resolves inside either of them
+	# clears the hold without ever placing the ghost.
+	TestFixtures.pin_the_field(_controller, victim)
 	assert_true(_controller.apply_hit(victim), "a prisoner is shot to make a ghost")
 	await _await_respawn(victim)
 	await step_ticks(SETTLE_TICKS)

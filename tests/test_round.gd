@@ -640,10 +640,17 @@ func _assert_on_the_track(participant: MatchParticipant, who: String) -> void:
 	var radius: float = _radius_of(position)
 	assert_gt(radius, TOWER_PLATFORM_RADIUS, "%s is off the tower platform (at %v)" % [who, position])
 	assert_between(radius, DECK_INNER_RADIUS, DECK_OUTER_RADIUS, "%s is out on the deck" % who)
-	assert_almost_eq(
-		radius, _controller.get_rules().track_radius, TRACK_TOLERANCE_METRES,
-		"%s is on the track" % who,
-	)
+	# Not "within a few metres of the lane". A runner navigates round the lava
+	# on the shelf now and is entitled to be anywhere across the width of the
+	# deck; what this test pins is a placement that parks bodies at r=59, off
+	# the running surface altogether. So the claim is the deck's OWN band, read
+	# off the route rather than from a lane circle the brain no longer holds.
+	var deck_level: RingLevel = null if _controller.get_route() == null else _controller.get_route().level_at(0)
+	if deck_level != null:
+		assert_between(
+			radius, deck_level.inner_radius, deck_level.outer_radius,
+			"%s is on the deck's own running surface" % who,
+		)
 	# The route's own first gallery, not the marker cached at setup: the ring is
 	# lifted so its top deck is level with the guard's eye, and "deck height" is
 	# a number the map owns.

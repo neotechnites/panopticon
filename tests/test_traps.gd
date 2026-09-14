@@ -17,13 +17,13 @@ extends TestCase
 ##    A CSG subtraction that failed to cut, or a hole outboard of a volume that
 ##    only reaches r=35, both look identical from the editor and both leave a
 ##    prisoner falling forever.
-## 3. [b]The racing line is still clear.[/b] The shipped [RingRunner] baseline
-##    has no obstacle avoidance at all -- it holds full forward at a point on the
-##    [member MatchRules.track_radius] circle four metres ahead. Anything lethal
-##    on that circle is a game that cannot be played, so every trap and every pit
-##    is asserted to leave the line alone. [code]tests/test_runner.gd[/code] then
-##    runs a real bot round the real trapped arena, which is the proof; this is
-##    the cheap check that says WHY when that one breaks.
+## 3. [b]The lap can still be run past the hazards.[/b] The lava now sits ON the
+##    deck, deliberately: the shelf and the demon run are hazards you go round,
+##    and [RingNavigation] bakes the deck with every trap carved out of it so a
+##    runner has a route that misses them. What is worth asserting is therefore
+##    not "nothing lethal is near the lane" -- something lethal is, by design --
+##    but that a navigated path from the start marker to the end marker still
+##    exists and does not cross a single trap.
 
 ## Ticks to let a freshly armed round settle before it is measured.
 const SETTLE_TICKS: int = 60
@@ -43,15 +43,35 @@ const PIT_FLOOR_Y: float = -12.0
 ## How close two angles about the ring axis must be to count as the same bearing.
 const START_ANGLE_TOLERANCE: float = 1e-3
 
-## How much clear deck a hazard must leave on each side of the racing line.
+## How far inboard of the deck's own inner edge the pit probes are dropped.
+## Clear of the edge's own bevel, and nowhere near the tower in the middle.
+const VOID_MARGIN_METRES: float = 2.0
+
+## How many bearings round the ring the pit is probed at. Eight is enough to
+## catch a deck that grew a floor over one quadrant of the courtyard.
+const VOID_BEARINGS: int = 8
+
+## How close a navigated route must finish to the end marker to count as having
+## reached it. The marker stands on the deck and not on the navmesh, so the
+## route stops on the nearest polygon; a polygon here is metres across.
+const PATH_ARRIVAL_METRES: float = 8.0
+
+## Ticks allowed for a body to fall from the deck into the kill volume.
 ##
-## The body is a 0.4 m capsule, so this is five body radii of room either way --
-## far more than the baseline's steering error, and the number the placement in
-## [code]scenes/ring/bentham_ring.tscn[/code] was chosen against (the tightest
-## hazard there leaves 2.25 m). It is deliberately not derived from the cover
-## bands: the point of the check is to fail loudly if somebody moves a trap onto
-## the line, not to track whatever the cover happens to do.
-const TRACK_CLEARANCE_METRES: float = 2.0
+## The deck is at y=23 and the volume's roof hangs at y=-8, so this is thirty
+## one metres of free fall under a 22 m/s^2 gravity -- about 1.7 seconds, and
+## this is two clear of it. [constant FALL_TICKS] is sized for the metre and a
+## half a trap drop used to be, and is nowhere near enough for the open pit.
+const PIT_FALL_TICKS: int = 210
+
+## Idle frames a feet-only trap is given to notice a body standing in it.
+##
+## [member TrapVolume.grace_seconds] is spent in [method Node._process], not in
+## the physics step, and the runner compresses time by driving physics far
+## faster than the main loop -- so a wait counted in physics ticks can contain
+## almost no idle frames at all. This one is counted in the frames that carry
+## the timer.
+const TRAP_GRACE_FRAMES: int = 240
 
 ## Mask for the floor probes. Everything, so a hole that is a hole under any
 ## layer scheme still reads as a hole.
@@ -154,17 +174,18 @@ func test_the_arena_ships_red_traps_that_are_triggers() -> void:
 			"%s detects over exactly the exported extent" % where,
 		)
 
-		var block: CSGBox3D = _block_of(trap)
-		assert_not_null(block, "%s draws something" % where)
-		if block == null:
-			continue
-		assert_vec3_almost_eq(
-			block.size, trap.size_metres, 1e-4,
-			"%s draws exactly the volume that kills" % where,
-		)
+		# The lava is DRAWN by the map model now, not by a CSG block this node
+		# owns, so there is nothing here to compare the visual against. What is
+		# still this node's own is that it is a trigger and not an obstacle:
+		# no collision shape of its own beyond the detection box above, and
+		# nothing under it a body could stand on or shoot through.
 		assert_false(
-			block.use_collision,
-			"%s is not solid -- it is not cover and it occludes nothing" % where,
+			trap.monitorable,
+			"%s is invisible to other areas -- it is a trigger, not a thing" % where,
+		)
+		assert_true(
+			trap.feet_only,
+			"%s catches a body by the feet, so a leap over it is a leap over it" % where,
 		)
 
 	# The round has been running for a second and nobody has walked into one.
@@ -191,7 +212,7 @@ func test_a_prisoner_who_touches_a_trap_becomes_a_ghost() -> void:
 	assert_gt(float(living_before), 1.0, "the round has prisoners in it to lose")
 
 	_put_on_the_trap(victim, traps[0])
-	await step_ticks(CONTACT_TICKS)
+	await _await_trap_catch(victim)
 
 	assert_true(victim.is_ghost, "a prisoner who touches red is a ghost")
 	assert_false(victim.is_running, "and is out of the round")
@@ -249,6 +270,10 @@ func test_a_ghost_who_touches_a_trap_is_returned_to_the_start() -> void:
 		return
 
 	var victim: MatchParticipant = _controller.get_live_participants()[0]
+	# The rest of the field is scenery here, and it has to stay alive: this test
+	# waits out two respawn holds, and a round that resolves inside either of
+	# them clears the hold without ever placing the ghost.
+	TestFixtures.pin_the_field(_controller, victim)
 	assert_true(_controller.apply_hit(victim), "a prisoner is shot to make a ghost")
 	await _await_respawn(victim)
 	await step_ticks(SETTLE_TICKS)
@@ -269,7 +294,7 @@ func test_a_ghost_who_touches_a_trap_is_returned_to_the_start() -> void:
 	# the placement itself. Reading the body afterwards would instead read
 	# wherever the chase brain had carried it, which is what broke this
 	# assertion the first time it was written.
-	await step_ticks(CONTACT_TICKS)
+	await _await_trap_catch(victim)
 	await _await_respawn(victim)
 	if not assert_gt(
 		float(_respawned_at.size()), float(respawns_before),
@@ -308,64 +333,59 @@ func test_a_ghost_who_touches_a_trap_is_returned_to_the_start() -> void:
 
 # --- The pits -----------------------------------------------------------------
 
-## Every pit is a real hole with nothing under it, and every hole is inside the
-## kill volume's extent.
+## The pit inside the deck is a real hole, and it opens onto the kill volume.
 ##
-## Both halves are needed and each is worthless alone. A CSG subtraction that
-## silently failed to cut leaves solid deck that looks like a pit in the editor;
-## a hole outboard of a volume that only reaches the courtyard leaves a prisoner
-## falling past the bottom of the world forever. The control probe on the racing
-## line is what stops this passing because the raycast itself was wrong.
-func test_every_pit_is_a_hole_that_opens_onto_the_kill_volume() -> void:
+## The holes that used to be cut through the deck are gone: the map model ships
+## one annulus with an open middle, and THAT is the pit. The claim is the one the
+## cut-out pits made and the failure it catches is the same -- a floor where the
+## drop should be leaves a racer standing in mid-air over the courtyard, and a
+## hole outboard of the volume leaves one falling past the bottom of the world.
+## The control probe on the racing line is what stops this passing because the
+## raycast itself was wrong.
+func test_the_pit_inside_the_deck_opens_onto_the_kill_volume() -> void:
 	var volume: KillVolume = _arena.get_node_or_null(^"KillBox") as KillVolume
 	if not assert_not_null(volume, "the arena still ships a kill volume"):
 		return
+	var route: RingRoute = _controller.get_route()
+	if not assert_not_null(route, "and a route to read the deck's edge off"):
+		return
 
-	var pits: Array[Node3D] = _pits()
-	assert_gt(float(pits.size()), 0.0, "the deck has pits cut in it")
+	var level: RingLevel = route.level_at(0)
+	var reach: float = level.inner_radius - VOID_MARGIN_METRES
+	var deck: float = _deck_y()
+	var roof: float = volume.global_position.y - volume.roof_depth_metres
+	assert_gt(reach, 0.0, "the deck really is an annulus with a middle to fall into")
+	assert_lt(reach, volume.radius_metres, "and the middle is inside the volume's radius")
+	assert_lt(roof, deck, "whose roof hangs below the deck a body steps off")
 
-	for pit: Node3D in pits:
-		var where: String = String(pit.name)
-		var centre: Vector3 = pit.global_position
-
-		assert_null(
-			_probe_floor_under(centre),
-			"%s is a real hole -- nothing at all is under it" % where,
-		)
-
-		# The whole hole, not just its middle, has to be over the volume.
-		var hole: CSGCylinder3D = pit as CSGCylinder3D
-		var reach: float = _flat_distance(centre, _centre)
-		if hole != null:
-			reach += hole.radius
+	for step: int in VOID_BEARINGS:
+		var angle: float = TAU * float(step) / float(VOID_BEARINGS)
 		assert_lt(
-			reach, volume.radius_metres,
-			"%s falls entirely inside the volume's radius" % where,
-		)
-		assert_lt(
-			-volume.roof_depth_metres, 0.0,
-			"%s drops onto a roof that is below the deck" % where,
+			_floor_y_under(_point_on_track(reach, angle)), roof,
+			"the pit is open at %d degrees -- the first floor under it is below the volume's roof"
+			% int(round(rad_to_deg(angle))),
 		)
 
-	# The probe works. Without this, a raycast that hit nothing anywhere would
+	# The probe works. Without this, a raycast that fell through everything would
 	# report every square metre of the arena as a pit.
-	assert_not_null(
-		_probe_floor_under(_point_on_track(_rules.track_radius, _angle_about(_start_point))),
+	assert_gt(
+		_floor_y_under(_point_on_track(_rules.track_radius, _angle_about(_start_point))),
+		deck - 1.0,
 		"the racing line is still solid deck under the same probe",
 	)
 
 
-## A racer who drops through a pit is answered for, and is OUT of the race.
+## A racer who drops into the pit is answered for, and is OUT of the race.
 ##
 ## The end-to-end version of the test above: a real body, real gravity, the real
 ## hole, and the real volume underneath. It is run in the RACE rather than in a
-## round on purpose -- the race has no shooter at all, so nothing but the pit can
-## remove anybody, and the victim is the human's body, which has no brain and no
-## hand on the keyboard and therefore falls straight down instead of steering out
-## of its own grave.
-func test_a_racer_who_drops_through_a_pit_is_out() -> void:
-	var pits: Array[Node3D] = _pits()
-	if not assert_gt(float(pits.size()), 0.0, "there is a pit to fall into"):
+## round on purpose -- the race has no shooter at all, so nothing but the drop
+## can remove anybody, and the victim is the human's body, which has no brain and
+## no hand on the keyboard and therefore falls straight down instead of steering
+## out of its own grave.
+func test_a_racer_who_drops_into_the_pit_is_out() -> void:
+	var route: RingRoute = _controller.get_route()
+	if not assert_not_null(route, "the arena should carry a route"):
 		return
 
 	# Back to the top of the match: before_each handed the tower over to get a
@@ -378,10 +398,13 @@ func test_a_racer_who_drops_through_a_pit_is_out() -> void:
 	assert_null(victim.brain, "the victim is the inert human body, not a bot")
 	var field: int = _controller.get_participants().size()
 
-	var over: Vector3 = pits[0].global_position
+	var level: RingLevel = route.level_at(0)
+	var over: Vector3 = _point_on_track(
+		level.inner_radius - VOID_MARGIN_METRES, _angle_about(_start_point)
+	)
 	victim.body.velocity = Vector3.ZERO
 	victim.body.global_position = Vector3(over.x, _deck_y() + 0.5, over.z)
-	await step_ticks(FALL_TICKS)
+	await step_ticks(PIT_FALL_TICKS)
 
 	assert_false(victim.is_running, "the racer is out")
 	assert_lt(
@@ -396,73 +419,49 @@ func test_a_racer_who_drops_through_a_pit_is_out() -> void:
 
 # --- The racing line ----------------------------------------------------------
 
-## Nothing lethal stands on the line the shipped runner brain holds.
+## A lap can still be navigated past every hazard, without touching one.
 ##
-## [b]This is the check that keeps the game playable.[/b] [RingRunner]'s baseline
-## faces a point on its level's lane circle and holds full forward with no
-## avoidance of any kind, for the whole lap, and the opening race is nothing but
-## that baseline four times over. A trap or a pit on a lane is a race that can
-## never be finished.
-##
-## [b]It asks the ROUTE which lanes exist rather than being told.[/b] There are
-## three of them now, at three radii, and a hazard is only allowed to be clear of
-## the one lane it happens to share a deck with -- an inner trap on level three
-## is at r=77.5, which would read as "clear" against level one's r=44.5 while
-## sitting on top of level three's runners. So every hazard is matched to the
-## level whose deck it stands on, by height, and judged against that level's
-## lane. A fourth level added to the map is covered by this test without a line
-## being changed here.
-func test_every_trap_and_pit_leaves_the_racing_line_clear() -> void:
-	var route: RingRoute = _controller.get_route()
-	if not assert_not_null(route, "the arena should carry a route to check the lanes of"):
+## [b]This is the check that keeps the game playable.[/b] The lava is on the
+## deck on purpose and the old "nothing lethal within two metres of the lane"
+## rule would now forbid the map Ryan built. What has to hold instead is that
+## the navigation the runners steer on still joins the start marker to the end
+## marker, and that the route it hands back does not pass through lava -- which
+## is exactly what [RingNavigation] carves the traps out of the bake for.
+## [code]tests/test_runner.gd[/code] then runs a real bot round the real arena,
+## which is the proof; this is the cheap check that says WHY when that one breaks.
+func test_a_lap_can_be_navigated_past_every_hazard() -> void:
+	var start: Vector3 = _start_point
+	var finish: Vector3 = (
+		_arena.get_node(TestFixtures.END_MARKER_PATH) as Marker3D
+	).global_position
+
+	var map: RID = _arena.get_world_3d().navigation_map
+	var path: PackedVector3Array = NavigationServer3D.map_get_path(map, start, finish, true)
+	if not assert_gt(float(path.size()), 1.0, "the bake joins the start line to the finish"):
 		return
+	assert_lt(
+		_flat_distance(path[path.size() - 1], finish), PATH_ARRIVAL_METRES,
+		"and the route actually reaches it rather than stopping at a hazard",
+	)
 
 	for trap: TrapVolume in _traps():
-		var level: RingLevel = _level_under(route, trap.global_position.y)
-		var inner: float = level.lane_radius - TRACK_CLEARANCE_METRES
-		var outer: float = level.lane_radius + TRACK_CLEARANCE_METRES
-		var band: Vector2 = _radial_band_of_box(trap.global_transform, trap.size_metres)
-		assert_true(
-			band.y <= inner or band.x >= outer,
-			"%s (r%.2f-r%.2f) is clear of %s's racing line r%.2f-r%.2f"
-			% [trap.name, band.x, band.y, level.name, inner, outer],
-		)
-
-	for pit: Node3D in _pits():
-		var hole: CSGCylinder3D = pit as CSGCylinder3D
-		if hole == null:
-			continue
-		# A pit is a subtraction, so its own Y is the middle of the drum it is
-		# cut through rather than the deck it opens in. The deck is the one whose
-		# radial band it falls inside.
-		var reach: float = _flat_distance(pit.global_position, _centre)
-		var level: RingLevel = _level_around(route, reach)
-		var inner: float = level.lane_radius - TRACK_CLEARANCE_METRES
-		var outer: float = level.lane_radius + TRACK_CLEARANCE_METRES
-		var low: float = reach - hole.radius
-		var high: float = reach + hole.radius
-		assert_true(
-			high <= inner or low >= outer,
-			"%s (r%.2f-r%.2f) is clear of %s's racing line r%.2f-r%.2f"
-			% [pit.name, low, high, level.name, inner, outer],
-		)
+		var worst: String = ""
+		for point: Vector3 in path:
+			if _inside_box(trap.global_transform, trap.size_metres, point):
+				worst = "%s at %v" % [trap.name, point]
+				break
+		assert_eq_string(worst, "", "the navigated lap does not cross %s" % trap.name)
 
 
-## The level whose deck a thing standing at [param height] is on.
-func _level_under(route: RingRoute, height: float) -> RingLevel:
-	return route.level_at(route.level_for_height(height))
-
-
-## The level whose radial band [param radius] falls in.
-func _level_around(route: RingRoute, radius: float) -> RingLevel:
-	var found: RingLevel = route.level_at(0)
-	for index: int in route.level_count():
-		var level: RingLevel = route.level_at(index)
-		if radius >= level.inner_radius - 0.001 and radius <= level.outer_radius + 0.001:
-			found = level
-	return found
-
-
+## True when [param point] is inside the box [param size] centred on
+## [param placement], measured in the box's own frame so a rotated trap is
+## judged by its own edges.
+func _inside_box(placement: Transform3D, size: Vector3, point: Vector3) -> bool:
+	var local: Vector3 = placement.affine_inverse() * point
+	return (
+		absf(local.x) <= size.x * 0.5
+		and absf(local.z) <= size.z * 0.5
+	)
 # --- Helpers ------------------------------------------------------------------
 
 ## Every trap in the arena, found by type rather than by path.
@@ -473,32 +472,11 @@ func _traps() -> Array[TrapVolume]:
 		if trap != null:
 			found.append(trap)
 	return found
-
-
-## Every pit in the arena. Found by group, because a pit is a CSG subtraction
-## with no script on it and nothing else to recognise it by.
-func _pits() -> Array[Node3D]:
-	var found: Array[Node3D] = []
-	for node: Node in _walk(_arena):
-		var pit: Node3D = node as Node3D
-		if pit != null and pit.is_in_group(&"deck_pits"):
-			found.append(pit)
-	return found
-
-
 func _shape_holder(trap: TrapVolume) -> CollisionShape3D:
 	for child: Node in trap.get_children():
 		var holder: CollisionShape3D = child as CollisionShape3D
 		if holder != null:
 			return holder
-	return null
-
-
-func _block_of(trap: TrapVolume) -> CSGBox3D:
-	for child: Node in trap.get_children():
-		var block: CSGBox3D = child as CSGBox3D
-		if block != null:
-			return block
 	return null
 
 
@@ -510,9 +488,43 @@ func _block_of(trap: TrapVolume) -> CSGBox3D:
 ## hand because a trap carries no collision, so there is nothing here to
 ## depenetrate out of.
 func _put_on_the_trap(participant: MatchParticipant, trap: TrapVolume) -> void:
-	var where: Vector3 = trap.global_position
+	# The trap's OWN height, not the first deck's: the lava lies on whichever
+	# deck it was placed on, and a trap only catches a body whose feet are at or
+	# below its origin (see TrapVolume.feet_only), so a body stood at a height
+	# taken from somewhere else is a body it is entitled to ignore.
 	participant.body.velocity = Vector3.ZERO
-	participant.body.global_position = Vector3(where.x, _deck_y() + 0.05, where.z)
+	participant.body.global_position = trap.global_position
+
+
+## How high the first floor under [param point] is, or -[constant INF] when
+## there is nothing within [constant PROBE_DEPTH_METRES].
+func _floor_y_under(point: Vector3) -> float:
+	var space: PhysicsDirectSpaceState3D = _arena.get_world_3d().direct_space_state
+	if space == null:
+		return -INF
+	var from: Vector3 = Vector3(point.x, point.y + 0.5, point.z)
+	var to: Vector3 = Vector3(point.x, point.y + 0.5 - PROBE_DEPTH_METRES, point.z)
+	var query: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(
+		from, to, FLOOR_MASK
+	)
+	var hit: Dictionary = space.intersect_ray(query)
+	if not hit.has("position"):
+		return -INF
+	return (hit.get("position") as Vector3).y
+
+
+## Wait for a feet-only trap to spend its grace on [param victim], counted in
+## the idle frames that grace actually runs in. See [constant TRAP_GRACE_FRAMES].
+##
+## The respawn hold is what is waited on, because both answers a trap can give
+## open with one: a prisoner it converts is held where it died, and a ghost it
+## catches is held before it is put back.
+func _await_trap_catch(victim: MatchParticipant) -> void:
+	var tree: SceneTree = get_tree()
+	for _frame: int in TRAP_GRACE_FRAMES:
+		if _controller.is_awaiting_respawn(victim):
+			return
+		await tree.process_frame
 
 
 ## What a body standing at [param point] would land on, or null for nothing at
@@ -540,31 +552,6 @@ func _probe_floor_under(point: Vector3) -> Object:
 func _deck_y() -> float:
 	var route: RingRoute = _controller.get_route()
 	return _centre.y if route == null else route.deck_height(0)
-
-
-## The band of radii about the ring axis a horizontal box occupies.
-##
-## Sampled over the box's footprint rather than taken from its corners: the point
-## of an inner face is nearer the axis than either of its corners is, so a corner
-## test would report a hazard as further off the line than it really is, which is
-## the one direction this must never be wrong in.
-func _radial_band_of_box(where: Transform3D, size: Vector3) -> Vector2:
-	const STEPS: int = 8
-	var low: float = INF
-	var high: float = 0.0
-	for ix: int in range(STEPS + 1):
-		for iz: int in range(STEPS + 1):
-			var local: Vector3 = Vector3(
-				(float(ix) / float(STEPS) - 0.5) * size.x,
-				0.0,
-				(float(iz) / float(STEPS) - 0.5) * size.z,
-			)
-			var radius: float = _flat_distance(where * local, _centre)
-			low = minf(low, radius)
-			high = maxf(high, radius)
-	return Vector2(low, high)
-
-
 func _point_on_track(radius: float, angle: float) -> Vector3:
 	# On the FIRST level's deck. The arena is three galleries stacked at one
 	# radius now, so a point on the racing line is not a point until it says

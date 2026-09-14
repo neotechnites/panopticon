@@ -52,6 +52,14 @@ var assertions: int = 0
 ## One readable line per failed check.
 var failures: PackedStringArray = PackedStringArray()
 
+## Why this test did not run, or empty if it did.
+##
+## Set through [method skip]. A skipped test is neither a pass nor a failure: the
+## runner prints it, counts it apart, and the suite stays green -- which is the
+## only honest way to carry a test whose subject is knowingly broken. It is not a
+## way to quieten a test that fails; the reason is printed every run.
+var skipped: String = ""
+
 
 ## Runs before the test method. Build fixtures here; parent them to [code]self[/code].
 func before_each() -> void:
@@ -67,6 +75,15 @@ func after_each() -> void:
 
 func is_failed() -> bool:
 	return not failures.is_empty()
+
+
+func is_skipped() -> bool:
+	return not skipped.is_empty()
+
+
+## Abandon this test, with the reason it cannot run. Call it and return.
+func skip(reason: String) -> void:
+	skipped = reason
 
 
 # --- Waiting ------------------------------------------------------------------

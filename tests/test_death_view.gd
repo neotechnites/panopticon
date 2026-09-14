@@ -362,14 +362,27 @@ func test_a_racer_who_is_out_gets_the_overlook_and_no_countdown() -> void:
 	)
 	assert_true(_view_camera.current, "its camera is current")
 
-	# Up, outside the ring, looking at the arena -- not at a body buried under
-	# the deck.
+	# Up, outside the ring, looking out at the DECK -- not at a body buried
+	# under it. The overlook orbits the pit and looks through the gallery's open
+	# inner side, so the focus is a point out on the racing deck at
+	# overlook_focus_radius_metres, never the arena axis and never the corpse.
 	var arena: Node3D = _match.get_node("Arena") as Node3D
-	assert_vec3_almost_eq(
-		_view.get_focus_point(),
-		arena.global_position + Vector3(0.0, _profile.overlook_focus_height_metres, 0.0),
-		1e-4,
-		"the overlook watches the ring, not the corpse",
+	var route: RingRoute = _controller.get_route()
+	var focus: Vector3 = _view.get_focus_point()
+	var out_from_axis: Vector3 = focus - arena.global_position
+	assert_almost_eq(
+		Vector2(out_from_axis.x, out_from_axis.z).length(),
+		_profile.overlook_focus_radius_metres,
+		1e-3,
+		"the overlook watches the deck, not the corpse",
+	)
+	assert_almost_eq(
+		focus.y,
+		arena.global_position.y
+			+ route.deck_height(route.last_index())
+			+ _profile.overlook_focus_height_metres,
+		1e-3,
+		"at deck height, the height a runner is actually seen at",
 	)
 	assert_gt(
 		_view_camera.global_position.y - arena.global_position.y,

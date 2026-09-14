@@ -38,8 +38,20 @@ const CLOCK_TOLERANCE_SECONDS: float = 0.2
 ## arc. Put back by the ALL_ARRIVALS tests once they have finished forcing laps.
 const SHIPPED_ARRIVAL_TOLERANCE: float = 1.5
 
+## How far apart bodies are stood across the finish gate. The gate's opening is
+## four metres wide; this keeps three capsules inside it and clear of each other.
+const GATE_SLOT_METRES: float = 1.2
+
+## How far below the gate's centre a body's feet are put. The gate box is 3.6 m
+## tall and hangs from the portal's foot, so this stands the body ON the deck
+## with its whole capsule inside the opening.
+const GATE_FLOOR_DROP_METRES: float = 1.3
+
 ## The shipped rule set, read off disk rather than out of the resource cache.
 const SHIPPED_RULES_PATH: String = "res://resources/rules/default_match_rules.tres"
+
+## Which slot across the finish gate the next arrival is stood in.
+var _gate_slot: int = 0
 
 var _match: Node3D
 var _controller: MatchController
@@ -475,14 +487,14 @@ func _arm_siege_for(holder: MatchParticipant) -> void:
 ## in the same frame the round arms them, before a single tick has run, so that
 ## [method _run_lap_of] can decide who finishes and in what order.
 ##
-## [b]The tolerance is no longer enough on its own.[/b] A level is banked on the
-## arc AND on the body being at the height of the level above it, so a wide
-## tolerance sweeps every lap instantly and then waits forever for a climb that
-## is never coming. So the bodies are also put down on the TOP level's lane --
-## which is where a prisoner about to finish actually is -- and from there the
-## wide tolerance carries them through the remaining levels a tick at a time.
-## Nothing private is written and no signal is forged; the bodies are placed and
-## the rules are set, and the trackers do the rest themselves.
+## [b]The tolerance is not what ends a lap any more.[/b] The ring ships a finish
+## PORTAL, and [MatchLapTracker] gives a scene that has one the last word: a lap
+## ends when the body overlaps the gate, and the arc tolerance is only the
+## fallback for a map with no portal in it. So [method _run_lap_of] stands the
+## body it is running in the gate, which is where a prisoner who has finished
+## actually is. The tolerance is still widened here, because it is what carries
+## a portal-less map, and because a tracker that has swept its arc is a tracker
+## with nothing left to do but arrive.
 func _arm_one_tick_laps(holder: MatchParticipant) -> Array[MatchParticipant]:
 	# The longest lap of the shipped route is about 490 m of arc; anything past
 	# that is "already at the end" on the first tick, on every level.
@@ -501,14 +513,35 @@ func _arm_one_tick_laps(holder: MatchParticipant) -> Array[MatchParticipant]:
 	return runners
 
 
-## Let one held tracker run, which under [method _arm_one_tick_laps] finishes its
-## lap on the next tick and reports it exactly as a real arrival does.
+## Let one held tracker run, standing its body in the finish gate first, so it
+## arrives the way a real prisoner does and reports it through the same signal.
 func _run_lap_of(participant: MatchParticipant) -> void:
+	_stand_in_the_finish_gate(participant)
 	participant.tracker.set_physics_process(true)
-	# One tick to bank each level still outstanding, one to report the finish,
-	# and one of slack. Derived from the route so a fourth level costs no edit.
+	# One tick for the area to register the body it was just handed, one to bank
+	# each level still outstanding, one to report the finish, and one of slack.
 	var route: RingRoute = _controller.get_route()
-	await step_ticks(2 if route == null else route.level_count() + 2)
+	await step_ticks(3 if route == null else route.level_count() + 3)
+
+
+## Stand [param participant]'s body in the ring's finish gate.
+##
+## Offset across the gate a slot at a time so that a body already standing there
+## -- one that finished a moment ago -- cannot shoulder the next one back out of
+## it before the tracker has looked. Three slots, because the gate's opening is
+## four metres wide and the shipped round has three prisoners in it.
+func _stand_in_the_finish_gate(participant: MatchParticipant) -> void:
+	var gates: Array[Node] = get_tree().get_nodes_in_group(&"finish_gate")
+	if gates.is_empty() or participant.body == null:
+		return
+	var gate: Area3D = gates[0] as Area3D
+	var across: Vector3 = gate.global_transform.basis.x.normalized()
+	var slot: float = float(_gate_slot % 3 - 1) * GATE_SLOT_METRES
+	_gate_slot += 1
+	participant.body.velocity = Vector3.ZERO
+	participant.body.global_position = (
+		gate.global_position - Vector3(0.0, GATE_FLOOR_DROP_METRES, 0.0) + across * slot
+	)
 
 
 ## Put every body in [param runners] down on the top level's lane, at the bearing

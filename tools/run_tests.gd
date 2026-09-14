@@ -95,6 +95,10 @@ const CHILD_FLAG: String = "--child"
 ## Skips the supervisor entirely. For debugging the runner, not for CI.
 const IN_PROCESS_FLAG: String = "--in-process"
 
+## [code]--only=<substring>[/code] runs just the test files whose path contains
+## the substring. For narrowing a run while fixing one file; CI passes nothing.
+const ONLY_FLAG: String = "--only="
+
 ## Substrings that mean the engine reported something the run must not survive.
 ##
 ## Godot writes all four to stderr and keeps going, which is precisely why the
@@ -108,8 +112,25 @@ const ERROR_MARKERS: Array[String] = [
 	"USER ERROR",
 ]
 
+## Source files an engine error may come from and still not fail the run.
+##
+## The line after every engine error is its [code]at: fn (file:line)[/code].
+## When that file lives under the DUMMY rendering backend the complaint is
+## about a renderer the shipped game never loads -- headless has no GPU and
+## stubs the whole of RenderingServer -- so it says nothing about the game.
+## The one this exists for is [code]Parameter "material" is null[/code] out of
+## [code]dummy/storage/material_storage.cpp[/code], raised once per torn-down
+## fixture as the stub storage is asked for instance uniforms of a material it
+## never allocated. Nothing outside the dummy backend is forgiven.
+const FORGIVEN_ERROR_SOURCES: Array[String] = [
+	"servers/rendering/dummy/",
+]
+
 ## True in the child process, which is the one that actually runs tests.
 var _is_child: bool = false
+
+## Substring a test file's path must contain to run. Empty means every file.
+var _only: String = ""
 
 var _started: bool = false
 var _finished: bool = false
@@ -122,6 +143,7 @@ var _current_started_ms: int = 0
 var _tests_run: int = 0
 var _tests_passed: int = 0
 var _tests_failed: int = 0
+var _tests_skipped: int = 0
 var _checks: int = 0
 
 
@@ -130,6 +152,9 @@ func _initialize() -> void:
 	# the class docs for why neither works here.
 	var user_args: PackedStringArray = OS.get_cmdline_user_args()
 	_is_child = user_args.has(CHILD_FLAG) or user_args.has(IN_PROCESS_FLAG)
+	for argument: String in user_args:
+		if argument.begins_with(ONLY_FLAG):
+			_only = argument.trim_prefix(ONLY_FLAG)
 
 	Engine.physics_ticks_per_second = SIM_HZ * TIME_COMPRESSION
 	Engine.time_scale = float(TIME_COMPRESSION)
@@ -176,6 +201,8 @@ func _supervise() -> void:
 		"--script", get_script().resource_path,
 		"--", CHILD_FLAG,
 	])
+	if not _only.is_empty():
+		arguments.append(ONLY_FLAG + _only)
 
 	var captured: Array = []
 	# read_stderr, so a runtime error lands in the same stream as the report it
@@ -195,7 +222,16 @@ func _supervise() -> void:
 		_finished = true
 		return
 
-	var offenders: PackedStringArray = _engine_errors(transcript)
+	var shutdown: PackedStringArray = _engine_errors(_after_summary(transcript))
+	if not shutdown.is_empty():
+		print("")
+		print("%d engine error line(s) during shutdown, after the suite had already" % shutdown.size())
+		print("reported. These are the engine's own exit accounting, not a test result,")
+		print("so they are shown and not counted:")
+		for line: String in shutdown:
+			print("    %s" % line)
+
+	var offenders: PackedStringArray = _engine_errors(_up_to_summary(transcript))
 	if not offenders.is_empty():
 		print("")
 		print("%d engine error line(s) during the run -- a GDScript runtime error" % offenders.size())
@@ -211,15 +247,58 @@ func _supervise() -> void:
 	_finished = true
 
 
+## [param transcript] up to and including the suite's own summary line.
+##
+## Everything after that line is printed while the engine tears the process
+## down -- leaked RIDs, pages still held by the Variant pools, resources alive
+## at exit. Worth seeing, but it is shutdown accounting and not a verdict on any
+## test, so it is reported separately and never fails the run.
+func _up_to_summary(transcript: String) -> String:
+	var cut: int = _summary_index(transcript)
+	return transcript if cut < 0 else transcript.substr(0, cut)
+
+
+## [param transcript] from the summary line onwards, or empty if there is none.
+func _after_summary(transcript: String) -> String:
+	var cut: int = _summary_index(transcript)
+	return "" if cut < 0 else transcript.substr(cut)
+
+
+## Where the child's final "PASS/FAIL  N tests, ..." line ends, or -1.
+func _summary_index(transcript: String) -> int:
+	for prefix: String in ["\nPASS  ", "\nFAIL  "]:
+		var at: int = transcript.rfind(prefix)
+		if at >= 0:
+			var line_end: int = transcript.find("\n", at + 1)
+			return transcript.length() if line_end < 0 else line_end
+	return -1
+
+
 ## Lines of [param transcript] that carry an engine error marker.
 func _engine_errors(transcript: String) -> PackedStringArray:
 	var offenders: PackedStringArray = PackedStringArray()
-	for line: String in transcript.split("\n"):
+	var lines: PackedStringArray = transcript.split("\n")
+	for index: int in lines.size():
+		var line: String = lines[index]
 		for marker: String in ERROR_MARKERS:
-			if line.contains(marker):
+			if not line.contains(marker):
+				continue
+			var origin: String = lines[index + 1] if index + 1 < lines.size() else ""
+			if not _is_forgiven(origin):
 				offenders.append(line.strip_edges())
-				break
+			break
 	return offenders
+
+
+## True when [param origin_line] -- the [code]at:[/code] line under an error --
+## names a source file the run does not hold the game responsible for.
+func _is_forgiven(origin_line: String) -> bool:
+	if not origin_line.contains("at:"):
+		return false
+	for source: String in FORGIVEN_ERROR_SOURCES:
+		if origin_line.contains(source):
+			return true
+	return false
 
 
 # --- The run ------------------------------------------------------------------
@@ -232,6 +311,12 @@ func _run_suite() -> void:
 
 	var paths: PackedStringArray = _discover(TESTS_ROOT)
 	paths.sort()
+	if not _only.is_empty():
+		var kept: PackedStringArray = PackedStringArray()
+		for path: String in paths:
+			if path.contains(_only):
+				kept.append(path)
+		paths = kept
 	if paths.is_empty():
 		printerr("No test files found under %s -- expected %s*%s" % [TESTS_ROOT, FILE_PREFIX, FILE_SUFFIX])
 		_exit_code = EXIT_BROKEN
@@ -246,9 +331,10 @@ func _run_suite() -> void:
 
 	var elapsed_ms: int = Time.get_ticks_msec() - started_ms
 	print("")
-	print("%s  %d tests, %d passed, %d failed, %d checks, %.1f s" % [
+	print("%s  %d tests, %d passed, %d failed, %d skipped, %d checks, %.1f s" % [
 		"PASS" if _tests_failed == 0 else "FAIL",
-		_tests_run, _tests_passed, _tests_failed, _checks, elapsed_ms / 1000.0,
+		_tests_run, _tests_passed, _tests_failed, _tests_skipped, _checks,
+		elapsed_ms / 1000.0,
 	])
 	if _tests_failed > 0:
 		_exit_code = EXIT_FAILED
@@ -298,7 +384,12 @@ func _run_test(script: GDScript, path: String, method_name: String) -> void:
 	var elapsed_ms: int = Time.get_ticks_msec() - _current_started_ms
 	_checks += case.assertions
 
-	if case.is_failed():
+	if case.is_skipped():
+		# Neither a pass nor a failure, and printed every run so it cannot be
+		# forgotten: see TestCase.skip.
+		_tests_skipped += 1
+		print("  SKIP  %s  -- %s" % [method_name, case.skipped])
+	elif case.is_failed():
 		_tests_failed += 1
 		print("  FAIL  %s  (%d checks, %d ms)" % [method_name, case.assertions, elapsed_ms])
 		for failure: String in case.failures:

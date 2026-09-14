@@ -141,7 +141,10 @@ func test_armor_lock_freezes_the_body_and_ignores_hits_until_released() -> void:
 	assert_gt(_body.velocity.length(), 0.5, "the body runs again")
 
 
-func test_active_camo_thins_the_body_then_restores_it_and_cools_down() -> void:
+## Active camo is a REPAINT, not a fade. Ryan's ruling: [i]"not invisible -- hell
+## red, the colour that vanished against the rock."[/i] So the body keeps its
+## own material's texture and stays fully opaque; only the albedo moves.
+func test_active_camo_repaints_the_body_then_restores_it_and_cools_down() -> void:
 	_rules.runner_ability = MatchRules.RunnerAbility.ACTIVE_CAMO
 	var mesh: MeshInstance3D = (_body.get_node(^"Avatar") as PrisonerAvatar).mesh
 	var saved: Material = mesh.material_override
@@ -150,9 +153,12 @@ func test_active_camo_thins_the_body_then_restores_it_and_cools_down() -> void:
 	var camo: StandardMaterial3D = mesh.material_override as StandardMaterial3D
 	assert_not_null(camo, "the body wears a camo material")
 	if camo != null:
-		assert_almost_eq(camo.albedo_color.a, RunnerPower.CAMO_ALPHA, 1e-6, "at 25% opacity")
-		assert_eq_int(int(camo.transparency), int(BaseMaterial3D.TRANSPARENCY_ALPHA), "with alpha on")
-		assert_true(camo.emission_enabled, "and a faint glow")
+		assert_true(camo.albedo_color.is_equal_approx(RunnerPower.CAMO_COLOR), "in hell red")
+		assert_eq_int(
+			int(camo.transparency), int(BaseMaterial3D.TRANSPARENCY_DISABLED),
+			"solid -- a camouflaged runner is repainted, not faded out",
+		)
+		assert_false(camo.emission_enabled, "and unlit, so it cannot glow in the dark")
 
 	await step_seconds(DURATION_SECONDS + 0.5)
 	assert_false(_ability.is_active(), "camo expired")

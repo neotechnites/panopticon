@@ -316,6 +316,10 @@ func test_the_guard_who_falls_in_is_put_back_on_the_tower() -> void:
 ## the claim: that layer is still invisible to the rifle.
 func test_a_ghost_who_falls_in_is_returned_to_the_start() -> void:
 	var victim: MatchParticipant = _controller.get_live_participants()[0]
+	# The rest of the field is scenery here, and it must stay alive: this test
+	# waits out a three second respawn hold, and a round that resolves inside
+	# that window clears the hold without ever placing the ghost.
+	TestFixtures.pin_the_field(_controller, victim)
 	assert_true(_controller.apply_hit(victim), "a prisoner is shot to make a ghost")
 	await _await_respawn(victim)
 	await step_ticks(SETTLE_TICKS)

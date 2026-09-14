@@ -163,6 +163,25 @@ static func make_match() -> Node3D:
 	return match_root
 
 
+## Hold every participant but [param keep] still, where it stands.
+##
+## For tests of a HAZARD or a RULE, where the rest of the field is scenery. The
+## shipped ring is lethal -- lava across the deck and an open pit inboard of
+## r=44 -- and the baseline brain walks into both within a few seconds, so a
+## test that leaves the field running is really racing the other bots' life
+## expectancy. When the last of them goes the round resolves, and a resolution
+## clears every respawn hold, including the one the test is waiting on. Locking
+## their movement leaves them alive, in the round, and standing out of the way.
+##
+## Deliberately not a kill or a park: both change the counts a rule test reads.
+static func pin_the_field(controller: MatchController, keep: MatchParticipant) -> void:
+	for participant: MatchParticipant in controller.get_participants():
+		if participant == keep or participant.body == null:
+			continue
+		participant.body.velocity = Vector3.ZERO
+		participant.body.movement_locked = true
+
+
 ## Depth-first walk of a subtree, including [param root] itself.
 static func _walk(root: Node) -> Array[Node]:
 	var found: Array[Node] = [root]

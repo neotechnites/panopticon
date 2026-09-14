@@ -13,18 +13,15 @@ extends TestCase
 ## rather than adding to it, so a slow approach and a sprinting approach leave
 ## on the identical vector.
 ##
-## [b]Why every test captures the velocity off the signal instead of reading
-## it back after a few physics ticks.[/b] [BoostPad] connects its own
-## [method BoostPad._on_body_entered] in [method BoostPad._ready], before any
-## test gets a chance to add a listener of its own -- so a listener a test
-## connects afterwards always runs AFTER the pad's, in the same signal dispatch,
-## on the same tick, before gravity or air friction have touched the body even
-## once. Reading [member PlayerController.velocity] some ticks later instead
-## would mix the launch itself with however much of the flight already
-## happened -- and would mix it unevenly, because gravity subtracts from the Y
-## axis every tick while air friction scales the horizontal speed
-## multiplicatively, so the 45-degree split the pad actually launched at does
-## not survive being read back late.
+## [b]Why every test reads the velocity one tick after the signal.[/b]
+## [method PlayerController.launch] does not write velocity where it is called:
+## it parks the vector and the controller applies it on the next physics tick,
+## after that tick's floor zeroing, exactly as a jump is applied. So the
+## velocity inside the [signal Area3D.body_entered] dispatch is still the
+## arrival velocity. [method _launch] therefore steps one tick past the signal
+## and undoes the single tick of gravity that same tick adds, which is the only
+## thing that touches the launch on the way out (air friction is 0 in the
+## shipped profile and a bot with no wish direction air-accelerates by nothing).
 
 const PAD_SCENE_PATH: String = "res://scenes/props/boost_pad.tscn"
 
@@ -187,20 +184,18 @@ func _make_human() -> PlayerController:
 
 ## Add [param body] to the tree, stand it at [param on_pad_at] with
 ## [param entry_velocity], and return the velocity [param pad] actually
-## assigned it -- captured the instant [param pad]'s own [code]body_entered[/code]
-## handler ran. See the file header for why that instant and not some tick
-## later.
+## assigned it: read one tick after the signal, with that tick's gravity undone.
+## See the file header for why not the instant of the signal itself.
 func _launch(
 	pad: BoostPad,
 	body: PlayerController,
 	on_pad_at: Vector3,
 	entry_velocity: Vector3 = Vector3.ZERO,
 ) -> Vector3:
-	var box: Array = [Vector3.ZERO, false]
+	var seen: Array = [false]
 	pad.body_entered.connect(func(entered: Node3D) -> void:
-		if entered == body and not box[1]:
-			box[0] = body.velocity
-			box[1] = true
+		if entered == body:
+			seen[0] = true
 	)
 
 	add_child(body)
@@ -209,9 +204,13 @@ func _launch(
 
 	for _tick: int in CONTACT_TICKS:
 		await step_ticks(1)
-		if box[1]:
+		if seen[0]:
 			break
 
-	if not box[1]:
+	if not seen[0]:
 		fail("the pad never fired body_entered for the body placed on it")
-	return box[0] as Vector3
+		return Vector3.ZERO
+
+	# The tick that applies the parked launch also applies one tick of gravity.
+	await step_ticks(1)
+	return body.velocity + Vector3.UP * _profile.get_effective_gravity() * SIM_DELTA

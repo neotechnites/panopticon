@@ -100,7 +100,14 @@ func test_a_prisoner_out_of_reach_is_not_shoved() -> void:
 	assert_null(_controller.apply_shove(shover), "there is nobody in reach to shove")
 	await step_ticks(2)
 	assert_eq_int(_shoves.size(), 0, "and nothing was announced")
-	assert_lt(victim.body.velocity.length(), STILL_SPEED, "the victim never moved")
+	# Horizontal, like the assertion the landed shove makes. A body stood by
+	# hand is a body in the air for a tick or two, and the 0.73 m/s two ticks of
+	# gravity leave on it is not somebody having been shoved.
+	var left: Vector3 = victim.body.velocity
+	assert_lt(
+		Vector2(left.x, left.z).length(), STILL_SPEED,
+		"the victim was never thrown anywhere",
+	)
 
 
 ## A ghost is not a body in the round and cannot be shoved. A ghost's own shove
