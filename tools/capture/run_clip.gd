@@ -61,6 +61,8 @@ const CULL_MASK: int = 1048573
 const SOCIAL_EXPOSURE: float = 1.45
 const SOCIAL_AMBIENT: float = 0.95
 const SOCIAL_FILL_ENERGY: float = 0.55
+## A POV clip rides the fill, so it sits much closer to everything it lights.
+const POV_FILL_ENERGY: float = 0.4
 const SOCIAL_FILL_RANGE: float = 22.0
 const SOCIAL_FILL_COLOUR := Color(1.0, 0.63, 0.44)
 
@@ -252,7 +254,7 @@ func _make_it_bots_only(match_root: Node, bots: int) -> void:
 	if _pov != "":
 		# A POV clip is a player's view: it wants the readouts and the camera kick,
 		# and the spectator cut when the body it is riding is shot.
-		for keep: String in ["HUD", "FeedbackRig", "SpectatorView"]:
+		for keep: String in ["HUD"]:
 			silenced.erase(keep)
 	for path: String in silenced:
 		var node: Node = match_root.get_node_or_null(NodePath(path))
@@ -485,12 +487,13 @@ func _is_standing(body: Node3D) -> bool:
 
 ## First-person body rules, forced rather than asked for.
 ##
-## [method PrisonerAvatar._tick_first_person] already collapses the head and the
-## spine when a body's own camera is current, but it then ORs
+## [method PrisonerAvatar._tick_first_person] collapses the head and the spine
+## when a body's own camera is current, but it then ORs
 ## [member PrisonerAvatar.first_person_layers] back on -- layer 1, which no
-## camera clears -- so the rest of the body is still drawn across the lens.
-## Zeroing that and putting the mesh back on the owner-hidden layer makes its own
-## write land on 2, whichever order the two ticks run in.
+## camera clears -- so a runner's arms and legs are still drawn across the lens,
+## and up close they are the whole frame. The layers are put back on the
+## owner-hidden one and the avatar hidden outright: a clip wants the view, not
+## the viewer's own shins.
 func _wear_the_body(body: Node3D) -> void:
 	var avatar: Node = body.get_node_or_null(^"Avatar")
 	if avatar != null:
@@ -499,11 +502,14 @@ func _wear_the_body(body: Node3D) -> void:
 		var mesh: GeometryInstance3D = avatar.get("mesh") as GeometryInstance3D
 		if mesh != null:
 			mesh.layers = 2
+		var shown: Node3D = avatar as Node3D
+		if shown != null:
+			shown.visible = false
+	# No fill on a ridden body. Hung at the eye it sits inside the body's own
+	# capsule and washes the whole frame to a flat gradient; the ambient lift in
+	# _light_for_social is what a POV clip gets instead.
 	if _fill != null:
-		var head: Node = body.get_node_or_null(^"Head")
-		if head != null and _fill.get_parent() != head:
-			_fill.reparent(head, false)
-			_fill.position = Vector3.ZERO
+		_fill.light_energy = 0.0
 
 
 ## Let [MatchHUD] draw for the body being ridden.
