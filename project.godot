@@ -41,6 +41,11 @@ export/convert_text_resources_to_binary=false
 
 import/blender/enabled=false
 
+[internationalization]
+
+locale/translations=PackedStringArray("res://assets/locale/strings.en.translation", "res://assets/locale/strings.en_XA.translation")
+locale/fallback="en"
+
 [input]
 
 move_forward={

@@ -101,7 +101,7 @@ editor_description = "Ten wedges of 36 degrees, W01 at bearings 0-36. One holds 
 script = ExtResource("12_map_wedge")
 map_scene = ExtResource("21_map1")
 map_id = &"bentham_ring"
-title = "MAP 1"
+title = "HUB_MAP_1"
 
 [node name="Dais" type="Marker3D" parent="HubWorld/Wedges/W01_Hell"]
 transform = Transform3D(-0.309017, 0, 0.951057, 0, 1, 0, -0.951057, 0, -0.309017, 34.238, 0, -11.1246)
@@ -117,7 +117,7 @@ font_size = 64
 outline_size = 12
 modulate = Color(1, 0.78, 0.55, 1)
 outline_modulate = Color(0, 0, 0, 0.85)
-text = "MAP 1"
+text = ""
 
 [node name="StartTrigger" type="Area3D" parent="HubWorld/Wedges/W01_Hell/Dais"]
 editor_description = "Stand here as the host and the map under your feet is offered. Layer 0, mask 1: it monitors bodies and is solid to nothing."
@@ -373,7 +373,7 @@ offset_bottom = 42.0
 theme_override_colors/font_outline_color = Color(0, 0, 0, 0.9)
 theme_override_constants/outline_size = 4
 theme_override_font_sizes/font_size = 14
-text = "1 player"
+text = ""
 
 [node name="Hint" type="Label" parent="HUD/Root"]
 anchors_preset = 0
@@ -385,7 +385,7 @@ modulate = Color(1, 1, 1, 0.55)
 theme_override_colors/font_outline_color = Color(0, 0, 0, 0.9)
 theme_override_constants/outline_size = 4
 theme_override_font_sizes/font_size = 12
-text = "TAB  rules and seats"
+text = "HUB_TAB_HINT"
 
 [node name="Prompt" type="Label" parent="HUD/Root"]
 visible = false
@@ -400,7 +400,7 @@ grow_horizontal = 2
 theme_override_colors/font_outline_color = Color(0, 0, 0, 0.9)
 theme_override_constants/outline_size = 6
 theme_override_font_sizes/font_size = 22
-text = "Start MAP 1: E"
+text = ""
 horizontal_alignment = 1
 
 [node name="Overlay" type="CanvasLayer" parent="."]

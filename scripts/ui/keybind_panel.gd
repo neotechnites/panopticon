@@ -108,7 +108,7 @@ func refresh() -> void:
 ## Abort a capture in flight, leaving the binding alone.
 func cancel_capture() -> void:
 	if is_capturing():
-		_end_capture("Rebind cancelled.")
+		_end_capture(tr("KEYBIND_STATUS_CANCELLED"))
 
 
 ## The actions this panel shows, in the order the scene lays them out.
@@ -126,7 +126,7 @@ func get_displayed_actions() -> Array[StringName]:
 ## The label the scene puts in the name column for [param action].
 func get_row_name(action: StringName) -> String:
 	var label: Label = _table.get_node_or_null(_row_prefix(action) + _NAME_SUFFIX) as Label
-	return label.text if label != null else ""
+	return label.atr(label.text) if label != null else ""
 
 
 func _input(event: InputEvent) -> void:
@@ -152,7 +152,7 @@ func _input(event: InputEvent) -> void:
 			code = key.keycode
 		match code:
 			KEY_ESCAPE:
-				_end_capture("Rebind cancelled.")
+				_end_capture(tr("KEYBIND_STATUS_CANCELLED"))
 			KEY_BACKSPACE, KEY_DELETE:
 				_clear_captured_slot()
 			_:
@@ -219,9 +219,13 @@ func _bind_rows() -> void:
 				push_error("keybind_panel.tscn has no slot %d for action '%s'" % [slot + 1, action])
 				continue
 			button.pressed.connect(_on_slot_pressed.bind(action, slot))
+			button.tooltip_text = tr("KEYBIND_TOOLTIP_REBIND").format({
+				"action": KeybindMap.display_name(action), "slot": slot + 1,
+			})
 			buttons.append(button)
 
 		reset.pressed.connect(_on_reset_action_pressed.bind(action))
+		reset.tooltip_text = tr("KEYBIND_TOOLTIP_RESET").format({"action": KeybindMap.display_name(action)})
 		_slot_buttons[action] = buttons
 
 
@@ -235,10 +239,10 @@ static func _row_prefix(action: StringName) -> String:
 func _on_slot_pressed(action: StringName, slot: int) -> void:
 	_capture_action = action
 	_capture_slot = slot
-	_overlay_label.text = "Press an input for %s (slot %d).\nEscape cancels. Backspace clears." % [
-		KeybindMap.display_name(action),
-		slot + 1,
-	]
+	_overlay_label.text = tr("KEYBIND_CAPTURE_PROMPT").format({
+		"action": KeybindMap.display_name(action),
+		"slot": slot + 1,
+	})
 	_overlay.visible = true
 	_set_status("")
 	capture_state_changed.emit(true)
@@ -250,17 +254,19 @@ func _commit(binding: Dictionary) -> void:
 	var conflict: StringName = _store.keybinds.find_conflict(action, slot, binding)
 	if conflict != &"":
 		# Refused. Both bindings survive, and the message names the thief.
-		_end_capture("%s is already bound to %s. Binding unchanged." % [
-			KeybindMap.describe(binding),
-			KeybindMap.display_name(conflict),
-		])
+		_end_capture(tr("KEYBIND_STATUS_CONFLICT").format({
+			"binding": KeybindMap.describe(binding),
+			"other": KeybindMap.display_name(conflict),
+		}))
 		return
 
 	_store.keybinds.set_binding(action, slot, binding)
 	_store.keybinds.apply_to_input_map()
 	_store.save_to_disk()
 	refresh()
-	_end_capture("%s bound to %s." % [KeybindMap.display_name(action), KeybindMap.describe(binding)])
+	_end_capture(tr("KEYBIND_STATUS_BOUND").format({
+		"action": KeybindMap.display_name(action), "binding": KeybindMap.describe(binding),
+	}))
 	binding_changed.emit()
 
 
@@ -271,7 +277,7 @@ func _clear_captured_slot() -> void:
 	_store.keybinds.apply_to_input_map()
 	_store.save_to_disk()
 	refresh()
-	_end_capture("%s slot %d cleared." % [KeybindMap.display_name(action), slot + 1])
+	_end_capture(tr("KEYBIND_STATUS_CLEARED").format({"action": KeybindMap.display_name(action), "slot": slot + 1}))
 	binding_changed.emit()
 
 
@@ -290,7 +296,7 @@ func _on_reset_action_pressed(action: StringName) -> void:
 	_store.keybinds.apply_to_input_map()
 	_store.save_to_disk()
 	refresh()
-	_set_status("%s reset to default." % KeybindMap.display_name(action))
+	_set_status(tr("KEYBIND_STATUS_RESET").format({"action": KeybindMap.display_name(action)}))
 	binding_changed.emit()
 
 
@@ -301,7 +307,7 @@ func _on_reset_all_pressed() -> void:
 	_store.keybinds.apply_to_input_map()
 	_store.save_to_disk()
 	refresh()
-	_set_status("All bindings reset to default.")
+	_set_status(tr("KEYBIND_STATUS_RESET_ALL"))
 	binding_changed.emit()
 
 

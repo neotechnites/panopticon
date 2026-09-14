@@ -28,9 +28,9 @@ extends Resource
 ## What the map is called, as the map picker shows it.
 @export var title: String = ""
 
-## One sentence under the picker: what running this map IS. A description, not a
-## warning, exactly as [member MatchPresets.Preset.summary] is.
-@export_multiline var summary: String = ""
+## Translation key of the sentence under the picker: what running this map IS. A
+## description, not a warning, exactly as [member MatchPresets.Preset.summary] is.
+@export var summary: String = ""
 
 ## The arena scene. Instanced as the [code]Arena[/code] node of a match -- see
 ## [method MatchController.get_map_scene_path] -- and by [BotMatchWorld] for a

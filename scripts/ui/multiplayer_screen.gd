@@ -125,7 +125,10 @@ func start_hosting() -> Error:
 	ensure_session()
 	var port: int = int(_host_port_spin.value)
 	var error: Error = _session.host(port)
-	_status.text = "Hosting on port %d" % port if error == OK else "Could not host: %s" % error_string(error)
+	_status.text = (
+		tr("MP_STATUS_HOSTING").format({"port": port}) if error == OK
+		else tr("MP_STATUS_HOST_FAILED").format({"error": error_string(error)})
+	)
 	return error
 
 
@@ -135,8 +138,8 @@ func join_game() -> Error:
 	var settings: GameSettings = _store.settings
 	var error: Error = _session.join(settings.join_address, settings.join_port)
 	_status.text = (
-		"Joining %s:%d..." % [settings.join_address, settings.join_port]
-		if error == OK else "Could not join: %s" % error_string(error)
+		tr("MP_STATUS_JOINING").format({"address": settings.join_address, "port": settings.join_port})
+		if error == OK else tr("MP_STATUS_JOIN_FAILED").format({"error": error_string(error)})
 	)
 	return error
 
@@ -186,7 +189,7 @@ func can_start() -> bool:
 ## Host only. Fill the ring with bots, set the opening roles and launch.
 func start_match() -> bool:
 	if not can_start():
-		_status.text = _lobby.describe_launch_block() if _lobby != null else "Not hosting."
+		_status.text = _lobby.describe_launch_block() if _lobby != null else tr("MP_STATUS_NOT_HOSTING")  # i18n-skip: launch-block reasons are NetLobby wire text
 		return false
 	var settings: GameSettings = _store.settings
 	_lobby.fill_with_bots(settings.prisoner_count + 1)
@@ -196,7 +199,7 @@ func start_match() -> bool:
 		var wanted: LobbySeat = _lobby.get_seat(_rules.opening_seat_index)
 		_lobby.assign_guard(wanted.index if wanted != null and wanted.is_occupied() else 0)
 	if not _lobby.launch():
-		_status.text = _lobby.describe_launch_block()
+		_status.text = _lobby.describe_launch_block()  # i18n-skip: launch-block reasons are NetLobby wire text
 		return false
 	return true
 
@@ -244,7 +247,7 @@ static func local_addresses() -> PackedStringArray:
 		var second: int = int(parts[1])
 		var tailscale: bool = parts[0] == "100" and second >= 64 and second <= 127
 		if tailscale:
-			lines.insert(0, "%s   (Tailscale)" % address)
+			lines.insert(0, TranslationServer.translate("MP_ADDRESS_TAILSCALE").format({"address": address}))
 		else:
 			lines.append(address)
 	return lines
@@ -268,10 +271,10 @@ func _on_established() -> void:
 	if _session.is_authority():
 		_lobby.open(_store.settings.player_name)
 		_publish_rules()
-		_lobby_title.text = "LOBBY  ·  hosting on port %d" % int(_host_port_spin.value)
+		_lobby_title.text = tr("MP_LOBBY_HOSTING").format({"port": int(_host_port_spin.value)})
 	else:
-		_lobby_title.text = "LOBBY  ·  %s" % _store.settings.join_address
-		_status.text = "Connected. Waiting for the host."
+		_lobby_title.text = tr("MP_LOBBY_JOINED").format({"address": _store.settings.join_address})
+		_status.text = tr("MP_STATUS_CONNECTED")
 	_show_lobby(true)
 	_render_roster()
 	_render_rules()
@@ -289,7 +292,7 @@ func _enter_hub() -> void:
 
 
 func _on_session_ended(failed: bool) -> void:
-	_status.text = "Connection failed." if failed else "Left the lobby."
+	_status.text = tr("MP_STATUS_FAILED") if failed else tr("MP_STATUS_LEFT")
 	_named = false
 	_show_lobby(false)
 
@@ -334,8 +337,8 @@ func _configure_controls() -> void:
 	_preset_option.clear()
 	var presets: Array[MatchPresets.Preset] = MatchPresets.all()
 	for index: int in presets.size():
-		_preset_option.add_item(presets[index].title, index)
-	_preset_option.add_item("Custom", CUSTOM_ID)
+		_preset_option.add_item(tr(presets[index].title), index)
+	_preset_option.add_item(tr("MP_CUSTOM"), CUSTOM_ID)
 	_preset_option.set_item_disabled(_preset_option.item_count - 1, true)
 
 
@@ -378,12 +381,12 @@ func _show_lobby(in_lobby: bool) -> void:
 func _render_addresses(port: int) -> void:
 	var lines: PackedStringArray = local_addresses()
 	if lines.is_empty():
-		_address_field.text = "No network address found."
+		_address_field.text = tr("MP_NO_ADDRESS")
 		return
 	for i: int in lines.size():
-		lines[i] = "%s  port %d" % [lines[i], port]
+		lines[i] = tr("MP_ADDRESS_PORT").format({"address": lines[i], "port": port})
 	if _public_ip != "":
-		lines.insert(0, "%s  port %d   (public - give friends this)" % [_public_ip, port])
+		lines.insert(0, tr("MP_ADDRESS_PUBLIC").format({"address": _public_ip, "port": port}))
 	elif _public_request == null:
 		_fetch_public_ip()
 	_address_field.text = "\n".join(lines)
@@ -419,20 +422,26 @@ func _render_roster() -> void:
 		child.queue_free()
 	for seat: LobbySeat in _lobby.get_occupied_seats():
 		var row: Label = Label.new()
-		var shown: String = seat.display_name if not seat.display_name.is_empty() else "Player %d" % (seat.index + 1)
+		var shown: String = (
+			seat.display_name if not seat.display_name.is_empty()
+			else tr("MP_SEAT_PLAYER").format({"number": seat.index + 1})
+		)
 		if seat.is_bot():
-			shown += " (bot)"
+			shown = tr("MP_SEAT_NAME_BOT").format({"name": shown})
 		if local != null and seat.index == local.index:
-			shown += " (you)"
-		row.text = "Seat %d   %s   %s   %s" % [
-			seat.index + 1, shown, _role_name(seat.role), "READY" if seat.is_ready else "not ready",
-		]
+			shown = tr("MP_SEAT_NAME_YOU").format({"name": shown})
+		row.text = tr("MP_SEAT_ROW").format({
+			"number": seat.index + 1,
+			"name": shown,
+			"role": _role_name(seat.role),
+			"ready": tr("MP_READY_YES") if seat.is_ready else tr("MP_READY_NO"),
+		})
 		_player_list.add_child(row)
 	if local != null:
 		_ready_toggle.set_pressed_no_signal(local.is_ready)
 	_ready_toggle.disabled = local == null or _lobby.get_phase() != NetLobby.Phase.GATHERING
 	_start_match_button.disabled = not can_start()
-	_start_match_button.tooltip_text = _lobby.describe_launch_block() if is_host() else ""
+	_start_match_button.tooltip_text = _lobby.describe_launch_block() if is_host() else ""  # i18n-skip: launch-block reasons are NetLobby wire text
 
 
 func _render_rules() -> void:
@@ -443,13 +452,19 @@ func _render_rules() -> void:
 	_prisoner_count_spin.value = float(_rules.prisoner_count)
 	_preset_option.selected = _index_of(_preset_option, presets.find(found) if found != null else CUSTOM_ID)
 	_syncing = false
-	_rules_summary.text = "%s  ·  %d prisoners  ·  ghosts %s  ·  %s  ·  %s to win" % [
-		found.title if found != null else "Custom rules",
-		_rules.prisoner_count,
-		"on" if _rules.has_ghosts() else "off",
-		"race for the tower" if _rules.open_with_race else "seat %d opens in the tower" % (_rules.opening_seat_index + 1),
-		"one round" if _rules.rounds_to_win_match == 1 else "%d rounds" % _rules.rounds_to_win_match,
-	]
+	_rules_summary.text = tr("MP_RULES_SUMMARY").format({
+		"mode": tr(found.title) if found != null else tr("MP_CUSTOM_RULES"),
+		"prisoners": _rules.prisoner_count,
+		"ghosts": tr("MP_ON") if _rules.has_ghosts() else tr("MP_OFF"),
+		"opening": (
+			tr("MP_OPENING_RACE") if _rules.open_with_race
+			else tr("MP_OPENING_SEAT").format({"number": _rules.opening_seat_index + 1})
+		),
+		"rounds": (
+			tr("MP_ROUNDS_ONE") if _rules.rounds_to_win_match == 1
+			else tr("MP_ROUNDS_MANY").format({"count": _rules.rounds_to_win_match})
+		),
+	})
 
 
 static func _settings_of(rules: MatchRules) -> GameSettings:
@@ -468,10 +483,10 @@ static func _settings_of(rules: MatchRules) -> GameSettings:
 static func _role_name(role: LobbySeat.Role) -> String:
 	match role:
 		LobbySeat.Role.GUARD:
-			return "tower"
+			return TranslationServer.translate("MP_ROLE_TOWER")
 		LobbySeat.Role.PRISONER:
-			return "prisoner"
-	return "race"
+			return TranslationServer.translate("MP_ROLE_PRISONER")
+	return TranslationServer.translate("MP_ROLE_RACE")
 
 
 static func _index_of(option: OptionButton, id: int) -> int:

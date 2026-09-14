@@ -99,13 +99,13 @@ const FIRST_BOT_SEAT_INDEX: int = 1
 ## Shown in the map picker when [MapCatalog] returns nothing at all -- a broken
 ## install, not a state the game can be played in. Present so the row reads as a
 ## failure rather than as an empty control that swallows clicks.
-const NO_MAPS_TITLE: String = "No maps found"
+const NO_MAPS_TITLE: String = "SETUP_NO_MAPS"
 
 ## Item id of that entry, and never a valid map index.
 const NO_MAPS_ID: int = -1
 
 ## Shown in the mode picker when the rules match no named preset.
-const CUSTOM_TITLE: String = "Custom"
+const CUSTOM_TITLE: String = "SETUP_CUSTOM"
 
 ## Item id of that entry. Negative so it can never collide with a preset index.
 const CUSTOM_ID: int = -1
@@ -242,32 +242,32 @@ func _fill_choices() -> void:
 		# reading a list position back would break the day one is inserted.
 		_map_option.add_item(map.title, map_index)
 	if _map_option.item_count == 0:
-		_map_option.add_item(NO_MAPS_TITLE, NO_MAPS_ID)
+		_map_option.add_item(tr(NO_MAPS_TITLE), NO_MAPS_ID)
 		_map_option.set_item_disabled(0, true)
 
 	_preset_option.clear()
 	var presets: Array[MatchPresets.Preset] = MatchPresets.all()
 	for index: int in presets.size():
 		var preset: MatchPresets.Preset = presets[index]
-		var title: String = preset.title
+		var title: String = tr(preset.title)
 		if preset.id == MatchPresets.CANON_ID:
 			# Named in the list itself as well as in the badge. A default that is
 			# only obvious once you have selected it is not obvious.
-			title = "%s (the default)" % title
+			title = tr("SETUP_PRESET_DEFAULT").format({"title": title})
 		_preset_option.add_item(title, index)
 	# Never selectable, only ever displayed: Custom is what the picker says when
 	# the rules describe no named mode, and "choosing" it would mean nothing.
-	_preset_option.add_item(CUSTOM_TITLE, CUSTOM_ID)
+	_preset_option.add_item(tr(CUSTOM_TITLE), CUSTOM_ID)
 	_preset_option.set_item_disabled(_preset_option.item_count - 1, true)
 
 	_opening_option.clear()
-	_opening_option.add_item("Race for the tower", int(Opening.RACE))
-	_opening_option.add_item("Open in the tower", int(Opening.TOWER))
-	_opening_option.add_item("Open on the ring", int(Opening.RING))
+	_opening_option.add_item(tr("SETUP_OPENING_RACE"), int(Opening.RACE))
+	_opening_option.add_item(tr("SETUP_OPENING_TOWER"), int(Opening.TOWER))
+	_opening_option.add_item(tr("SETUP_OPENING_RING"), int(Opening.RING))
 
 	_lives_option.clear()
 	for lives: int in range(GameSettings.MIN_PRISONER_LIVES, GameSettings.MAX_PRISONER_LIVES + 1):
-		var label: String = "1 hit" if lives == 1 else ("%d hits" % lives)
+		var label: String = tr("SETUP_HITS_ONE") if lives == 1 else tr("SETUP_HITS_MANY").format({"count": lives})
 		_lives_option.add_item(label, lives)
 
 	_shooter_win_option.clear()
@@ -451,12 +451,9 @@ func _update_map_display() -> void:
 	if map == null:
 		# clamp_all() puts an unknown id back to the default, so this is only
 		# reachable with no catalog at all.
-		_map_summary.text = (
-			"No map could be loaded. The game cannot start a match until "
-			+ "%s names one." % MapCatalog.CATALOG_PATH
-		)
+		_map_summary.text = tr("SETUP_NO_MAP_LOADED").format({"path": MapCatalog.CATALOG_PATH})
 		return
-	_map_summary.text = map.summary
+	_map_summary.text = tr(map.summary)
 
 
 ## Show which named mode the current rules are, or Custom.
@@ -473,14 +470,11 @@ func _update_preset_display() -> void:
 	_syncing = false
 
 	if found == null:
-		_preset_badge.text = "custom rules"
-		_preset_summary.text = (
-			"These rules are not one of the named modes. Pick a mode above to set "
-			+ "a whole coherent set at once, or press Restore Canon."
-		)
+		_preset_badge.text = tr("SETUP_BADGE_CUSTOM")
+		_preset_summary.text = tr("SETUP_CUSTOM_SUMMARY")
 		return
-	_preset_badge.text = "CANON" if found.id == MatchPresets.CANON_ID else ""
-	_preset_summary.text = found.summary
+	_preset_badge.text = tr("SETUP_BADGE_CANON") if found.id == MatchPresets.CANON_ID else ""
+	_preset_summary.text = tr(found.summary)
 
 
 func _update_readouts() -> void:
@@ -489,21 +483,20 @@ func _update_readouts() -> void:
 	# Asked of MatchRules so that "how many are in this match" is the same
 	# arithmetic the controller builds its roster with.
 	_probe.prisoner_count = settings.prisoner_count
-	_prisoners_readout.text = "%d in the match" % _probe.get_participant_count()
+	_prisoners_readout.text = tr("SETUP_IN_THE_MATCH").format({"count": _probe.get_participant_count()})
 
 	match _opening_of(settings):
 		Opening.RACE:
-			_opening_readout.text = "first to the end takes it"
+			_opening_readout.text = tr("SETUP_READOUT_RACE")
 		Opening.TOWER:
-			_opening_readout.text = "you start with the rifle"
+			_opening_readout.text = tr("SETUP_READOUT_TOWER")
 		Opening.RING:
-			_opening_readout.text = (
-				"%s starts with the rifle"
-				% MatchRules.get_participant_name(settings.tower_seat_index, true)
-			)
+			_opening_readout.text = tr("SETUP_READOUT_RING").format({
+				"name": MatchRules.get_participant_name(settings.tower_seat_index, true),
+			})
 
 	var rounds: int = settings.rounds_to_win_match
-	_rounds_readout.text = "one round" if rounds == 1 else ("%d rounds" % rounds)
+	_rounds_readout.text = tr("SETUP_ROUNDS_ONE") if rounds == 1 else tr("SETUP_ROUNDS_MANY").format({"count": rounds})
 
 
 ## Compose the note out of things that are TRUE of the chosen rules and would
@@ -514,46 +507,24 @@ func _update_note() -> void:
 	var lines: PackedStringArray = PackedStringArray()
 
 	if settings.prisoner_lives > 1:
-		lines.append(
-			"A prisoner who survives a hit gets no hit reaction and no recovery: "
-			+ "the extra hits are real, the feedback for them is not designed yet."
-		)
+		lines.append(tr("SETUP_NOTE_EXTRA_HITS"))
 	if settings.prisoner_count <= 1 and settings.ghosts_enabled:
-		lines.append(
-			"With one prisoner a ghost has nobody to catch, so the mechanic never "
-			+ "comes up."
-		)
+		lines.append(tr("SETUP_NOTE_LONE_GHOST"))
 	if settings.skip_opening_race:
 		var holder: String = MatchRules.get_participant_name(settings.tower_seat_index, true)
-		lines.append(
-			(
-				"Skipping the race hands the tower straight to %s on turn one, with "
-				+ "everybody else already running. It is the round the race would have started."
-			) % holder
-		)
+		lines.append(tr("SETUP_NOTE_SKIP_RACE").format({"name": holder}))
 	_probe.shooter_win_condition = settings.shooter_win_condition
 	if not _probe.is_shooter_win_condition_implemented():
-		lines.append(
-			"This tower win condition is declared but not implemented; the tower "
-			+ "cannot win the round under it."
-		)
+		lines.append(tr("SETUP_NOTE_UNIMPLEMENTED"))
 	# The two conditions that are a NUMBER as well as a rule. The screen has no
 	# control for either number yet, so the note is where the player finds out
 	# what they just chose -- a mode whose terms are invisible is half a mode.
 	elif settings.shooter_win_condition == MatchRules.ShooterWinCondition.SHUTOUT_COUNT:
-		lines.append(
-			(
-				"The tower wins by converting %d of the %d prisoners; the rest may "
-				+ "reach the end and it still counts."
-			) % [settings.shutout_count, settings.prisoner_count]
-		)
+		lines.append(tr("SETUP_NOTE_SHUTOUT").format({
+			"count": settings.shutout_count, "total": settings.prisoner_count,
+		}))
 	elif settings.shooter_win_condition == MatchRules.ShooterWinCondition.HOLD_DURATION:
-		lines.append(
-			(
-				"The tower wins by holding out for %d seconds. Converting the whole "
-				+ "ring is not a win under this rule; surviving the clock is."
-			) % int(roundf(settings.hold_duration_seconds))
-		)
+		lines.append(tr("SETUP_NOTE_HOLD").format({"seconds": int(roundf(settings.hold_duration_seconds))}))
 
 	_note.text = "\n".join(lines)
 	_note.visible = not lines.is_empty()
@@ -583,18 +554,18 @@ static func _index_of(option: OptionButton, id: int) -> int:
 static func _shooter_win_title(value: int) -> String:
 	match value:
 		MatchRules.ShooterWinCondition.TOTAL_CONVERSION:
-			return "Converting every prisoner"
+			return TranslationServer.translate("SETUP_TOWER_WIN_TOTAL")
 		MatchRules.ShooterWinCondition.SHUTOUT_COUNT:
-			return "Converting a set number"
+			return TranslationServer.translate("SETUP_TOWER_WIN_SHUTOUT")
 		MatchRules.ShooterWinCondition.HOLD_DURATION:
-			return "Holding out for a time"
+			return TranslationServer.translate("SETUP_TOWER_WIN_HOLD")
 	return String(MatchRules.ShooterWinCondition.keys()[value])
 
 
 static func _runner_win_title(value: int) -> String:
 	match value:
 		MatchRules.RunnerWinCondition.FIRST_ARRIVAL:
-			return "One reaching the end"
+			return TranslationServer.translate("SETUP_PRISONER_WIN_FIRST")
 		MatchRules.RunnerWinCondition.ALL_ARRIVALS:
-			return "All of them reaching the end"
+			return TranslationServer.translate("SETUP_PRISONER_WIN_ALL")
 	return String(MatchRules.RunnerWinCondition.keys()[value])

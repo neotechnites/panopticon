@@ -162,29 +162,29 @@ func is_inert() -> bool:
 func _title_for(state: MatchController.Spectating) -> String:
 	if state == MatchController.Spectating.RESPAWNING:
 		return _cause_word()
-	return "OUT  ·  ROUND %d" % controller.get_round_number()
+	return tr("DEATH_OUT_ROUND").format({"round": controller.get_round_number()})
 
 
 ## SHOT, LAVA or FELL.
 func _cause_word() -> String:
 	var participant: MatchParticipant = controller.get_human_participant()
 	if participant == null:
-		return "DOWN"
+		return tr("DEATH_CAUSE_DOWN")
 	match participant.death_cause:
 		MatchParticipant.DeathCause.LAVA:
-			return "LAVA"
+			return tr("DEATH_CAUSE_LAVA")
 		MatchParticipant.DeathCause.FELL:
-			return "FELL"
+			return tr("DEATH_CAUSE_FELL")
 		_:
-			return "SHOT"
+			return tr("DEATH_CAUSE_SHOT")
 
 
 ## One line under the number, and only one: the job the player is about to have,
 ## or the key that ends the wait.
 func _hint_for(state: MatchController.Spectating) -> String:
 	if state == MatchController.Spectating.RESPAWNING:
-		return "GHOST — catch a prisoner to take their place"
-	return "[R] restart match"
+		return tr("DEATH_HINT_GHOST")
+	return tr("DEATH_HINT_RESTART")
 
 
 # --- Construction -------------------------------------------------------------

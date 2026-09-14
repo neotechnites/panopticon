@@ -322,7 +322,7 @@ func test_pressing_a_slot_and_then_a_key_rebinds_that_slot() -> void:
 	assert_eq_string(slot.text, "G", "the slot now shows the key that was pressed")
 
 	assert_eq_string(
-		(_cell(&"jump", 0) as Label).text, "Jump",
+		_panel.get_row_name(&"jump"), "Jump",
 		"the row it belongs to is untouched",
 	)
 	assert_eq_string(
@@ -401,7 +401,7 @@ func test_the_video_note_says_so_when_the_window_refuses_to_resize() -> void:
 	_screen._store.settings.window_resize_refused = false
 	_screen.refresh()
 	assert_eq_string(
-		note.text, SettingsScreen.RESOLUTION_NOTE,
+		note.text, tr(SettingsScreen.RESOLUTION_NOTE),
 		"with the window obeying, the note is the ordinary explanation",
 	)
 

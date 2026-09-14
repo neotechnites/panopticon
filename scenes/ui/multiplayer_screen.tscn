@@ -41,19 +41,19 @@ theme_override_constants/margin_bottom = 12
 theme_override_constants/separation = 8
 
 [node name="Title" type="Label" parent="Frame/Dialog/Padding/Layout"]
-text = "MULTIPLAYER"
+text = "MP_TITLE"
 
 [node name="NameRow" type="HBoxContainer" parent="Frame/Dialog/Padding/Layout"]
 theme_override_constants/separation = 8
 
 [node name="NameLabel" type="Label" parent="Frame/Dialog/Padding/Layout/NameRow"]
 vertical_alignment = 1
-text = "Your name"
+text = "MP_YOUR_NAME"
 
 [node name="NameEdit" type="LineEdit" parent="Frame/Dialog/Padding/Layout/NameRow"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(240, 0)
-placeholder_text = "Name"
+placeholder_text = "MP_NAME_PLACEHOLDER"
 
 [node name="Status" type="Label" parent="Frame/Dialog/Padding/Layout"]
 unique_name_in_owner = true
@@ -70,14 +70,14 @@ size_flags_horizontal = 3
 theme_override_constants/separation = 8
 
 [node name="HostTitle" type="Label" parent="Frame/Dialog/Padding/Layout/ConnectPanels/HostPanel"]
-text = "HOST"
+text = "MP_HOST"
 
 [node name="PortRow" type="HBoxContainer" parent="Frame/Dialog/Padding/Layout/ConnectPanels/HostPanel"]
 theme_override_constants/separation = 8
 
 [node name="PortLabel" type="Label" parent="Frame/Dialog/Padding/Layout/ConnectPanels/HostPanel/PortRow"]
 vertical_alignment = 1
-text = "Port"
+text = "COMMON_PORT"
 
 [node name="HostPortSpin" type="SpinBox" parent="Frame/Dialog/Padding/Layout/ConnectPanels/HostPanel/PortRow"]
 unique_name_in_owner = true
@@ -87,7 +87,7 @@ value = 27960.0
 
 [node name="AddressLabel" type="Label" parent="Frame/Dialog/Padding/Layout/ConnectPanels/HostPanel"]
 autowrap_mode = 3
-text = "Give a friend one of these addresses:"
+text = "MP_ADDRESSES_HINT"
 
 [node name="AddressField" type="TextEdit" parent="Frame/Dialog/Padding/Layout/ConnectPanels/HostPanel"]
 unique_name_in_owner = true
@@ -99,7 +99,7 @@ scroll_fit_content_height = true
 
 [node name="StartHosting" type="Button" parent="Frame/Dialog/Padding/Layout/ConnectPanels/HostPanel"]
 unique_name_in_owner = true
-text = "Start hosting"
+text = "MP_START_HOSTING"
 
 [node name="Divider" type="VSeparator" parent="Frame/Dialog/Padding/Layout/ConnectPanels"]
 
@@ -109,26 +109,26 @@ size_flags_horizontal = 3
 theme_override_constants/separation = 8
 
 [node name="JoinTitle" type="Label" parent="Frame/Dialog/Padding/Layout/ConnectPanels/JoinPanel"]
-text = "JOIN"
+text = "MP_JOIN"
 
 [node name="AddressRow" type="HBoxContainer" parent="Frame/Dialog/Padding/Layout/ConnectPanels/JoinPanel"]
 theme_override_constants/separation = 8
 
 [node name="AddressLabel" type="Label" parent="Frame/Dialog/Padding/Layout/ConnectPanels/JoinPanel/AddressRow"]
 vertical_alignment = 1
-text = "Address"
+text = "MP_ADDRESS"
 
 [node name="JoinAddressEdit" type="LineEdit" parent="Frame/Dialog/Padding/Layout/ConnectPanels/JoinPanel/AddressRow"]
 unique_name_in_owner = true
 size_flags_horizontal = 3
-placeholder_text = "100.x.x.x or 192.168.x.x"
+placeholder_text = "MP_ADDRESS_PLACEHOLDER"
 
 [node name="PortRow" type="HBoxContainer" parent="Frame/Dialog/Padding/Layout/ConnectPanels/JoinPanel"]
 theme_override_constants/separation = 8
 
 [node name="PortLabel" type="Label" parent="Frame/Dialog/Padding/Layout/ConnectPanels/JoinPanel/PortRow"]
 vertical_alignment = 1
-text = "Port"
+text = "COMMON_PORT"
 
 [node name="JoinPortSpin" type="SpinBox" parent="Frame/Dialog/Padding/Layout/ConnectPanels/JoinPanel/PortRow"]
 unique_name_in_owner = true
@@ -141,7 +141,7 @@ size_flags_vertical = 3
 
 [node name="Join" type="Button" parent="Frame/Dialog/Padding/Layout/ConnectPanels/JoinPanel"]
 unique_name_in_owner = true
-text = "Join"
+text = "MP_JOIN_BUTTON"
 
 [node name="LobbyPanel" type="VBoxContainer" parent="Frame/Dialog/Padding/Layout"]
 unique_name_in_owner = true
@@ -151,7 +151,7 @@ theme_override_constants/separation = 8
 
 [node name="LobbyTitle" type="Label" parent="Frame/Dialog/Padding/Layout/LobbyPanel"]
 unique_name_in_owner = true
-text = "LOBBY"
+text = "MP_LOBBY"
 
 [node name="PlayerList" type="VBoxContainer" parent="Frame/Dialog/Padding/Layout/LobbyPanel"]
 unique_name_in_owner = true
@@ -165,7 +165,7 @@ theme_override_constants/separation = 8
 
 [node name="PresetLabel" type="Label" parent="Frame/Dialog/Padding/Layout/LobbyPanel/RulesRow"]
 vertical_alignment = 1
-text = "Mode"
+text = "COMMON_MODE"
 
 [node name="PresetOption" type="OptionButton" parent="Frame/Dialog/Padding/Layout/LobbyPanel/RulesRow"]
 unique_name_in_owner = true
@@ -173,7 +173,7 @@ custom_minimum_size = Vector2(200, 0)
 
 [node name="PrisonersLabel" type="Label" parent="Frame/Dialog/Padding/Layout/LobbyPanel/RulesRow"]
 vertical_alignment = 1
-text = "Prisoners"
+text = "COMMON_PRISONERS"
 
 [node name="PrisonerCountSpin" type="SpinBox" parent="Frame/Dialog/Padding/Layout/LobbyPanel/RulesRow"]
 unique_name_in_owner = true
@@ -190,21 +190,21 @@ theme_override_constants/separation = 16
 
 [node name="ReadyToggle" type="CheckButton" parent="Frame/Dialog/Padding/Layout/LobbyPanel/ButtonRow"]
 unique_name_in_owner = true
-text = "Ready"
+text = "MP_READY"
 
 [node name="StartMatch" type="Button" parent="Frame/Dialog/Padding/Layout/LobbyPanel/ButtonRow"]
 unique_name_in_owner = true
 disabled = true
-text = "Start match"
+text = "MP_START_MATCH"
 
 [node name="ButtonSpacer" type="Control" parent="Frame/Dialog/Padding/Layout/LobbyPanel/ButtonRow"]
 size_flags_horizontal = 3
 
 [node name="Leave" type="Button" parent="Frame/Dialog/Padding/Layout/LobbyPanel/ButtonRow"]
 unique_name_in_owner = true
-text = "Leave"
+text = "MP_LEAVE"
 
 [node name="Back" type="Button" parent="Frame/Dialog/Padding/Layout"]
 unique_name_in_owner = true
 size_flags_horizontal = 4
-text = "Back"
+text = "COMMON_BACK"

@@ -376,7 +376,7 @@ func _set_body_input(active: bool) -> void:
 func _refresh() -> void:
 	if players_label != null:
 		var count: int = get_player_count()
-		players_label.text = "%d player" % count if count == 1 else "%d players" % count
+		players_label.text = tr("HUB_PLAYERS_ONE" if count == 1 else "HUB_PLAYERS_MANY").format({"count": count})
 	var wanted: String = _prompt_text()
 	if wanted != _prompt:
 		_prompt = wanted
@@ -392,10 +392,10 @@ func _prompt_text() -> String:
 	if _overlay_open or not _in_trigger or start_wedge == null:
 		return ""
 	if not start_wedge.is_decided():
-		return "Nothing stands here yet"
+		return tr("HUB_NOTHING_HERE")
 	if not is_host():
-		return "Waiting for host"
-	return "Start %s: %s" % [start_wedge.title, _interact_key_name()]
+		return tr("HUB_WAITING_FOR_HOST")
+	return tr("HUB_START_PROMPT").format({"map": tr(start_wedge.title), "key": _interact_key_name()})
 
 
 ## What the interact action is actually bound to, so the prompt is not a lie
@@ -422,13 +422,13 @@ func _seat_lines() -> String:
 			continue
 		var shown: String = (
 			seat.display_name if not seat.display_name.is_empty()
-			else "Player %d" % (seat.index + 1)
+			else tr("HUB_SEAT_PLAYER").format({"number": seat.index + 1})
 		)
 		if local != null and seat.index == local.index:
-			shown += "  (you)"
+			shown = tr("HUB_SEAT_NAME_YOU").format({"name": shown})
 		if seat.peer_id == NetTransport.AUTHORITY_PEER_ID:
-			shown += "  (host)"
-		lines.append("Seat %d   %s" % [seat.index + 1, shown])
+			shown = tr("HUB_SEAT_NAME_HOST").format({"name": shown})
+		lines.append(tr("HUB_SEAT_ROW").format({"number": seat.index + 1, "name": shown}))
 	return "\n".join(lines)
 
 

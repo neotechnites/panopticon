@@ -35,10 +35,10 @@ class Preset extends RefCounted:
 	## Stable identity, used by tests and never shown to a player.
 	var id: StringName = &""
 
-	## What the picker shows.
+	## Translation key of what the picker shows.
 	var title: String = ""
 
-	## One sentence, shown under the picker. What the mode IS, not a warning.
+	## Translation key of the sentence under the picker. What the mode IS, not a warning.
 	var summary: String = ""
 
 	var prisoner_count: int = GameSettings.DEFAULT_PRISONER_COUNT
@@ -154,12 +154,8 @@ static func _build() -> Array[Preset]:
 	# produces -- tests/test_match_setup.gd asserts exactly that.
 	var canon_preset: Preset = Preset.new()
 	canon_preset.id = CANON_ID
-	canon_preset.title = "Canon"
-	canon_preset.summary = (
-		"The game as designed. Three prisoners, one hit each, ghosts on, and an "
-		+ "opening race for the tower. One prisoner through the end takes the seat; "
-		+ "hold the seat through a round and the match is yours."
-	)
+	canon_preset.title = "SETUP_PRESET_CANON"
+	canon_preset.summary = "SETUP_PRESET_CANON_SUMMARY"
 	canon_preset.prisoner_count = 3
 	canon_preset.prisoner_lives = 1
 	canon_preset.ghosts_enabled = true
@@ -171,11 +167,8 @@ static func _build() -> Array[Preset]:
 	# a player as a mode because it is one: a shot prisoner is simply gone.
 	var classic: Preset = Preset.new()
 	classic.id = &"classic"
-	classic.title = "Classic"
-	classic.summary = (
-		"Canon without ghosts. A shot prisoner is out of the round and the ring "
-		+ "empties as the tower works. Fewer bodies, shorter rounds, no second chance."
-	)
+	classic.title = "SETUP_PRESET_CLASSIC"
+	classic.summary = "SETUP_PRESET_CLASSIC_SUMMARY"
 	classic.prisoner_count = 3
 	classic.prisoner_lives = 1
 	classic.ghosts_enabled = false
@@ -188,11 +181,8 @@ static func _build() -> Array[Preset]:
 	# the mechanic -- it needs a second living prisoner to swap with.
 	var duel: Preset = Preset.new()
 	duel.id = &"duel"
-	duel.title = "Duel"
-	duel.summary = (
-		"One prisoner, one rifle, no ghosts, and three rounds to take the match. "
-		+ "The tower and the ring trade places until somebody holds the seat three times."
-	)
+	duel.title = "SETUP_PRESET_DUEL"
+	duel.summary = "SETUP_PRESET_DUEL_SUMMARY"
 	duel.prisoner_count = 1
 	duel.prisoner_lives = 1
 	duel.ghosts_enabled = false
@@ -204,11 +194,8 @@ static func _build() -> Array[Preset]:
 	# line; see GameSettings.MAX_PRISONER_COUNT.
 	var riot: Preset = Preset.new()
 	riot.id = &"riot"
-	riot.title = "Riot"
-	riot.summary = (
-		"Six prisoners against one single-shot rifle, ghosts on. The tower cannot "
-		+ "cover the ring; the question is how much of it you can."
-	)
+	riot.title = "SETUP_PRESET_RIOT"
+	riot.summary = "SETUP_PRESET_RIOT_SUMMARY"
 	riot.prisoner_count = 6
 	riot.prisoner_lives = 1
 	riot.ghosts_enabled = true
@@ -220,11 +207,8 @@ static func _build() -> Array[Preset]:
 	# is the mode that asks a different question of the map.
 	var siege: Preset = Preset.new()
 	siege.id = &"siege"
-	siege.title = "Siege"
-	siege.summary = (
-		"Four prisoners, and leakage is not enough: EVERY prisoner still in the "
-		+ "round has to reach the end. One left on the ring keeps the tower alive."
-	)
+	siege.title = "SETUP_PRESET_SIEGE"
+	siege.summary = "SETUP_PRESET_SIEGE_SUMMARY"
 	siege.prisoner_count = 4
 	siege.prisoner_lives = 1
 	siege.ghosts_enabled = true

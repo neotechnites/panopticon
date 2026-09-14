@@ -100,9 +100,9 @@ func _process(delta: float) -> void:
 	if peak_label != null:
 		peak_label.text = "peak %.2f" % _peak  # hot-ok: dev-only readout, never in a shipped match
 	if state_label != null:
-		state_label.text = _describe_state()
+		state_label.text = _describe_state()  # i18n-skip: dev-only readout, never in a shipped match
 	if detail_label != null:
-		detail_label.text = _describe_detail()
+		detail_label.text = _describe_detail()  # i18n-skip: dev-only readout, never in a shipped match
 	_lay_out_rail(speed)
 
 
@@ -132,7 +132,7 @@ func _add_tick(speed: float, caption: String) -> void:
 	mark.position = Vector2(rail.size.x * fraction - 1.0, 0.0)
 
 	var text: Label = Label.new()
-	text.text = "%s %.0f" % [caption, speed]
+	text.text = "%s %.0f" % [caption, speed]  # i18n-skip: dev-only readout, never in a shipped match
 	text.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	text.add_theme_font_size_override(&"font_size", 15)
 	text.add_theme_color_override(&"font_color", Color(0.82, 0.84, 0.88, 1.0))

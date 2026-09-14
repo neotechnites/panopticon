@@ -41,7 +41,7 @@ theme_override_constants/margin_bottom = 12
 theme_override_constants/separation = 8
 
 [node name="Title" type="Label" parent="Frame/Dialog/Padding/Layout"]
-text = "SETTINGS"
+text = "SETTINGS_TITLE"
 
 [node name="Tabs" type="TabContainer" parent="Frame/Dialog/Padding/Layout"]
 size_flags_vertical = 3
@@ -60,31 +60,31 @@ editor_description = "Three shared columns -- name, control, readout -- so every
 [node name="GhostsName" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Match/Grid"]
 size_flags_vertical = 1
 vertical_alignment = 1
-text = "Ghosts"
+text = "COMMON_GHOSTS"
 
 [node name="GhostsCheck" type="CheckBox" parent="Frame/Dialog/Padding/Layout/Tabs/Match/Grid"]
 size_flags_horizontal = 0
 unique_name_in_owner = true
-text = "Catch and swap"
+text = "COMMON_CATCH_AND_SWAP"
 
 [node name="GhostsSpacer" type="Control" parent="Frame/Dialog/Padding/Layout/Tabs/Match/Grid"]
 
 [node name="RaceName" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Match/Grid"]
 size_flags_vertical = 1
 vertical_alignment = 1
-text = "Opening Race"
+text = "SETTINGS_OPENING_RACE"
 
 [node name="SkipRaceCheck" type="CheckBox" parent="Frame/Dialog/Padding/Layout/Tabs/Match/Grid"]
 size_flags_horizontal = 0
 unique_name_in_owner = true
-text = "Skip it"
+text = "SETTINGS_SKIP_IT"
 
 [node name="RaceSpacer" type="Control" parent="Frame/Dialog/Padding/Layout/Tabs/Match/Grid"]
 
 [node name="SeatName" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Match/Grid"]
 size_flags_vertical = 1
 vertical_alignment = 1
-text = "Tower Goes To"
+text = "SETTINGS_TOWER_GOES_TO"
 
 [node name="TowerSeatOption" type="OptionButton" parent="Frame/Dialog/Padding/Layout/Tabs/Match/Grid"]
 custom_minimum_size = Vector2(220, 0)
@@ -98,7 +98,7 @@ editor_description = "Empty here on purpose. The seats are filled in by Settings
 [node name="ReloadName" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Match/Grid"]
 size_flags_vertical = 1
 vertical_alignment = 1
-text = "Reload By Turn"
+text = "SETTINGS_RELOAD_BY_TURN"
 
 [node name="ReloadGrid" type="GridContainer" parent="Frame/Dialog/Padding/Layout/Tabs/Match/Grid"]
 size_flags_horizontal = 0
@@ -109,23 +109,23 @@ editor_description = "Five columns, top row the ordinal labels, bottom row the S
 
 [node name="Reload1Label" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Match/Grid/ReloadGrid"]
 horizontal_alignment = 1
-text = "1st"
+text = "SETTINGS_TURN_1"
 
 [node name="Reload2Label" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Match/Grid/ReloadGrid"]
 horizontal_alignment = 1
-text = "2nd"
+text = "SETTINGS_TURN_2"
 
 [node name="Reload3Label" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Match/Grid/ReloadGrid"]
 horizontal_alignment = 1
-text = "3rd"
+text = "SETTINGS_TURN_3"
 
 [node name="Reload4Label" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Match/Grid/ReloadGrid"]
 horizontal_alignment = 1
-text = "4th"
+text = "SETTINGS_TURN_4"
 
 [node name="Reload5Label" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Match/Grid/ReloadGrid"]
 horizontal_alignment = 1
-text = "5th"
+text = "SETTINGS_TURN_5"
 
 [node name="ReloadSpin1" type="SpinBox" parent="Frame/Dialog/Padding/Layout/Tabs/Match/Grid/ReloadGrid"]
 custom_minimum_size = Vector2(72, 0)
@@ -151,7 +151,7 @@ unique_name_in_owner = true
 
 [node name="BalanceHeading" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Match"]
 editor_description = "The levers Ryan tunes the fight with. Every default is the game as it plays today, so an untouched Balance group changes nothing."
-text = "BALANCE"
+text = "SETTINGS_BALANCE"
 
 [node name="BalanceScroll" type="ScrollContainer" parent="Frame/Dialog/Padding/Layout/Tabs/Match"]
 custom_minimum_size = Vector2(0, 200)
@@ -168,7 +168,7 @@ columns = 3
 [node name="SwayName" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Match/BalanceScroll/BalanceGrid"]
 size_flags_vertical = 1
 vertical_alignment = 1
-text = "Scope Sway"
+text = "SETTINGS_SCOPE_SWAY"
 
 [node name="SwaySpin" type="SpinBox" parent="Frame/Dialog/Padding/Layout/Tabs/Match/BalanceScroll/BalanceGrid"]
 custom_minimum_size = Vector2(120, 0)
@@ -180,7 +180,7 @@ unique_name_in_owner = true
 [node name="SwayHzName" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Match/BalanceScroll/BalanceGrid"]
 size_flags_vertical = 1
 vertical_alignment = 1
-text = "Sway Speed"
+text = "SETTINGS_SWAY_SPEED"
 
 [node name="SwayHzSpin" type="SpinBox" parent="Frame/Dialog/Padding/Layout/Tabs/Match/BalanceScroll/BalanceGrid"]
 custom_minimum_size = Vector2(120, 0)
@@ -192,7 +192,7 @@ unique_name_in_owner = true
 [node name="SwaySettleName" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Match/BalanceScroll/BalanceGrid"]
 size_flags_vertical = 1
 vertical_alignment = 1
-text = "Sway Settles In"
+text = "SETTINGS_SWAY_SETTLES_IN"
 
 [node name="SwaySettleSpin" type="SpinBox" parent="Frame/Dialog/Padding/Layout/Tabs/Match/BalanceScroll/BalanceGrid"]
 custom_minimum_size = Vector2(120, 0)
@@ -204,7 +204,7 @@ unique_name_in_owner = true
 [node name="TowerName" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Match/BalanceScroll/BalanceGrid"]
 size_flags_vertical = 1
 vertical_alignment = 1
-text = "Tower"
+text = "SETTINGS_TOWER"
 
 [node name="TowerVariantOption" type="OptionButton" parent="Frame/Dialog/Padding/Layout/Tabs/Match/BalanceScroll/BalanceGrid"]
 custom_minimum_size = Vector2(160, 0)
@@ -218,7 +218,7 @@ editor_description = "Empty here on purpose: SettingsScreen._fill_choices fills 
 [node name="WindowsName" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Match/BalanceScroll/BalanceGrid"]
 size_flags_vertical = 1
 vertical_alignment = 1
-text = "Open Windows"
+text = "SETTINGS_OPEN_WINDOWS"
 
 [node name="WindowsSpin" type="SpinBox" parent="Frame/Dialog/Padding/Layout/Tabs/Match/BalanceScroll/BalanceGrid"]
 custom_minimum_size = Vector2(120, 0)
@@ -230,7 +230,7 @@ unique_name_in_owner = true
 [node name="MissPenaltyName" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Match/BalanceScroll/BalanceGrid"]
 size_flags_vertical = 1
 vertical_alignment = 1
-text = "Miss Penalty"
+text = "SETTINGS_MISS_PENALTY"
 
 [node name="MissPenaltySpin" type="SpinBox" parent="Frame/Dialog/Padding/Layout/Tabs/Match/BalanceScroll/BalanceGrid"]
 custom_minimum_size = Vector2(120, 0)
@@ -242,19 +242,19 @@ unique_name_in_owner = true
 [node name="HitMarkerName" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Match/BalanceScroll/BalanceGrid"]
 size_flags_vertical = 1
 vertical_alignment = 1
-text = "Hit Marker"
+text = "SETTINGS_HIT_MARKER"
 
 [node name="HitMarkerCheck" type="CheckBox" parent="Frame/Dialog/Padding/Layout/Tabs/Match/BalanceScroll/BalanceGrid"]
 size_flags_horizontal = 0
 unique_name_in_owner = true
-text = "Confirm hits"
+text = "SETTINGS_CONFIRM_HITS"
 
 [node name="HitMarkerSpacer" type="Control" parent="Frame/Dialog/Padding/Layout/Tabs/Match/BalanceScroll/BalanceGrid"]
 
 [node name="RunnerSpeedName" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Match/BalanceScroll/BalanceGrid"]
 size_flags_vertical = 1
 vertical_alignment = 1
-text = "Runner Speed"
+text = "SETTINGS_RUNNER_SPEED"
 
 [node name="RunnerSpeedSpin" type="SpinBox" parent="Frame/Dialog/Padding/Layout/Tabs/Match/BalanceScroll/BalanceGrid"]
 custom_minimum_size = Vector2(120, 0)
@@ -266,7 +266,7 @@ unique_name_in_owner = true
 [node name="RunnerJumpName" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Match/BalanceScroll/BalanceGrid"]
 size_flags_vertical = 1
 vertical_alignment = 1
-text = "Jump Height"
+text = "SETTINGS_JUMP_HEIGHT"
 
 [node name="RunnerJumpSpin" type="SpinBox" parent="Frame/Dialog/Padding/Layout/Tabs/Match/BalanceScroll/BalanceGrid"]
 custom_minimum_size = Vector2(120, 0)
@@ -278,7 +278,7 @@ unique_name_in_owner = true
 [node name="AbilityCooldownName" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Match/BalanceScroll/BalanceGrid"]
 size_flags_vertical = 1
 vertical_alignment = 1
-text = "Power Cooldown"
+text = "SETTINGS_POWER_COOLDOWN"
 
 [node name="AbilityCooldownSpin" type="SpinBox" parent="Frame/Dialog/Padding/Layout/Tabs/Match/BalanceScroll/BalanceGrid"]
 custom_minimum_size = Vector2(120, 0)
@@ -290,7 +290,7 @@ unique_name_in_owner = true
 [node name="GuardHealthName" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Match/BalanceScroll/BalanceGrid"]
 size_flags_vertical = 1
 vertical_alignment = 1
-text = "Guard Health"
+text = "SETTINGS_GUARD_HEALTH"
 
 [node name="GuardHealthSpin" type="SpinBox" parent="Frame/Dialog/Padding/Layout/Tabs/Match/BalanceScroll/BalanceGrid"]
 custom_minimum_size = Vector2(120, 0)
@@ -302,7 +302,7 @@ unique_name_in_owner = true
 [node name="FinisherHealthName" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Match/BalanceScroll/BalanceGrid"]
 size_flags_vertical = 1
 vertical_alignment = 1
-text = "Finisher Health"
+text = "SETTINGS_FINISHER_HEALTH"
 
 [node name="FinisherHealthSpin" type="SpinBox" parent="Frame/Dialog/Padding/Layout/Tabs/Match/BalanceScroll/BalanceGrid"]
 custom_minimum_size = Vector2(120, 0)
@@ -313,17 +313,17 @@ unique_name_in_owner = true
 
 [node name="BalanceNote" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Match"]
 autowrap_mode = 3
-text = "Scope sway drifts the aim in a figure eight while the scope is up, and the drift is in the shot the host resolves, not just in the picture. Plugged windows are rock; the ones left open stay spread round the tower."
+text = "SETTINGS_NOTE_SWAY"
 
 [node name="GhostsNote" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Match"]
 autowrap_mode = 3
 editor_description = "What the mechanic is, for a player who has not met it. Nothing more: this is a description, not a disclaimer."
-text = "A shot prisoner returns as a ghost: faster, unshootable, and chasing. Catching a living prisoner takes their place, and their distance round the ring with it."
+text = "SETTINGS_NOTE_GHOSTS"
 
 [node name="RaceNote" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Match"]
 autowrap_mode = 3
 editor_description = "What skipping costs and what it does not, for a player deciding whether to. The second sentence is the one that matters: the round a skip produces is the round a race would have produced, so a skipped match is still the game."
-text = "A match normally opens with a race for the tower: everybody runs the ring and the first to the end takes it. Skip it and the tower is handed to the seat above instead, on turn one, with everybody else already running -- the same round the race would have started."
+text = "SETTINGS_NOTE_OPENING"
 
 [node name="Game" type="VBoxContainer" parent="Frame/Dialog/Padding/Layout/Tabs"]
 theme_override_constants/separation = 8
@@ -337,7 +337,7 @@ editor_description = "Three shared columns -- name, control, readout -- so every
 [node name="SensitivityName" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Game/Grid"]
 size_flags_vertical = 1
 vertical_alignment = 1
-text = "Mouse Sensitivity"
+text = "SETTINGS_MOUSE_SENSITIVITY"
 
 [node name="SensitivitySlider" type="HSlider" parent="Frame/Dialog/Padding/Layout/Tabs/Game/Grid"]
 custom_minimum_size = Vector2(220, 0)
@@ -355,7 +355,7 @@ horizontal_alignment = 2
 [node name="InvertName" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Game/Grid"]
 size_flags_vertical = 1
 vertical_alignment = 1
-text = "Invert Look Y"
+text = "SETTINGS_INVERT_LOOK_Y"
 
 [node name="InvertCheck" type="CheckBox" parent="Frame/Dialog/Padding/Layout/Tabs/Game/Grid"]
 size_flags_horizontal = 0
@@ -366,7 +366,7 @@ unique_name_in_owner = true
 [node name="FovName" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Game/Grid"]
 size_flags_vertical = 1
 vertical_alignment = 1
-text = "Field of View"
+text = "SETTINGS_FIELD_OF_VIEW"
 
 [node name="FovSlider" type="HSlider" parent="Frame/Dialog/Padding/Layout/Tabs/Game/Grid"]
 custom_minimum_size = Vector2(220, 0)
@@ -383,7 +383,7 @@ horizontal_alignment = 2
 
 [node name="Note" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Game"]
 autowrap_mode = 3
-text = "Sensitivity and invert-Y are written into the active MovementProfile; field of view into the player camera."
+text = "SETTINGS_NOTE_INPUT"
 
 [node name="Audio" type="VBoxContainer" parent="Frame/Dialog/Padding/Layout/Tabs"]
 theme_override_constants/separation = 8
@@ -397,7 +397,7 @@ editor_description = "Three shared columns -- name, control, readout -- so every
 [node name="MasterName" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Audio/Grid"]
 size_flags_vertical = 1
 vertical_alignment = 1
-text = "Master"
+text = "SETTINGS_MASTER"
 
 [node name="MasterSlider" type="HSlider" parent="Frame/Dialog/Padding/Layout/Tabs/Audio/Grid"]
 custom_minimum_size = Vector2(220, 0)
@@ -415,7 +415,7 @@ horizontal_alignment = 2
 [node name="EffectsName" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Audio/Grid"]
 size_flags_vertical = 1
 vertical_alignment = 1
-text = "Effects"
+text = "SETTINGS_EFFECTS"
 
 [node name="EffectsSlider" type="HSlider" parent="Frame/Dialog/Padding/Layout/Tabs/Audio/Grid"]
 custom_minimum_size = Vector2(220, 0)
@@ -433,7 +433,7 @@ horizontal_alignment = 2
 [node name="MusicName" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Audio/Grid"]
 size_flags_vertical = 1
 vertical_alignment = 1
-text = "Music"
+text = "SETTINGS_MUSIC"
 
 [node name="MusicSlider" type="HSlider" parent="Frame/Dialog/Padding/Layout/Tabs/Audio/Grid"]
 custom_minimum_size = Vector2(220, 0)
@@ -451,12 +451,12 @@ horizontal_alignment = 2
 [node name="CrushName" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Audio/Grid"]
 size_flags_vertical = 1
 vertical_alignment = 1
-text = "PS1 crush"
+text = "SETTINGS_PS1_CRUSH"
 
 [node name="CrushCheck" type="CheckBox" parent="Frame/Dialog/Padding/Layout/Tabs/Audio/Grid"]
 size_flags_horizontal = 0
 unique_name_in_owner = true
-text = "8-bit, low rate"
+text = "SETTINGS_PS1_CRUSH_HINT"
 
 [node name="CrushSpacer" type="Control" parent="Frame/Dialog/Padding/Layout/Tabs/Audio/Grid"]
 
@@ -477,7 +477,7 @@ editor_description = "Three shared columns -- name, control, readout -- so every
 [node name="DisplayModeName" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Video/Grid"]
 size_flags_vertical = 1
 vertical_alignment = 1
-text = "Display Mode"
+text = "SETTINGS_VIDEO_DISPLAY_MODE"
 
 [node name="DisplayModeOption" type="OptionButton" parent="Frame/Dialog/Padding/Layout/Tabs/Video/Grid"]
 custom_minimum_size = Vector2(220, 0)
@@ -489,7 +489,7 @@ unique_name_in_owner = true
 [node name="ResolutionName" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Video/Grid"]
 size_flags_vertical = 1
 vertical_alignment = 1
-text = "Resolution"
+text = "SETTINGS_VIDEO_RESOLUTION"
 
 [node name="ResolutionOption" type="OptionButton" parent="Frame/Dialog/Padding/Layout/Tabs/Video/Grid"]
 custom_minimum_size = Vector2(220, 0)
@@ -501,7 +501,7 @@ unique_name_in_owner = true
 [node name="VsyncName" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Video/Grid"]
 size_flags_vertical = 1
 vertical_alignment = 1
-text = "V-Sync"
+text = "SETTINGS_VIDEO_VSYNC"
 
 [node name="VsyncOption" type="OptionButton" parent="Frame/Dialog/Padding/Layout/Tabs/Video/Grid"]
 custom_minimum_size = Vector2(220, 0)
@@ -513,7 +513,7 @@ unique_name_in_owner = true
 [node name="FpsName" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Video/Grid"]
 size_flags_vertical = 1
 vertical_alignment = 1
-text = "Max FPS"
+text = "SETTINGS_VIDEO_FPS_CAP"
 
 [node name="FpsOption" type="OptionButton" parent="Frame/Dialog/Padding/Layout/Tabs/Video/Grid"]
 custom_minimum_size = Vector2(220, 0)
@@ -525,7 +525,7 @@ unique_name_in_owner = true
 [node name="RenderScaleName" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Video/Grid"]
 size_flags_vertical = 1
 vertical_alignment = 1
-text = "Render Scale"
+text = "SETTINGS_VIDEO_RENDER_SCALE"
 
 [node name="RenderScaleSlider" type="HSlider" parent="Frame/Dialog/Padding/Layout/Tabs/Video/Grid"]
 custom_minimum_size = Vector2(220, 0)
@@ -543,7 +543,7 @@ horizontal_alignment = 2
 [node name="VideoNote" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Video"]
 unique_name_in_owner = true
 autowrap_mode = 3
-text = "Resolution applies to the window; in either fullscreen mode the display's own resolution is used."
+text = "SETTINGS_VIDEO_NOTE_RESOLUTION"
 editor_description = "Rewritten at runtime by SettingsScreen._update_video_note. The text here is only what it says when the window is obeying; a display server that refuses the resize -- the editor's embedded Game window is the one that does -- makes it say so instead, because a silent refusal is indistinguishable from a broken control."
 
 [node name="Controls" type="MarginContainer" parent="Frame/Dialog/Padding/Layout/Tabs"]
@@ -554,10 +554,10 @@ unique_name_in_owner = true
 [node name="Footer" type="HBoxContainer" parent="Frame/Dialog/Padding/Layout"]
 
 [node name="Back" type="Button" parent="Frame/Dialog/Padding/Layout/Footer"]
-text = "Back"
+text = "COMMON_BACK"
 
 [node name="Spacer" type="Control" parent="Frame/Dialog/Padding/Layout/Footer"]
 size_flags_horizontal = 3
 
 [node name="ResetAll" type="Button" parent="Frame/Dialog/Padding/Layout/Footer"]
-text = "Reset All Settings"
+text = "SETTINGS_RESET_ALL"

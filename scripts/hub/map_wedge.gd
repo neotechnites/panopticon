@@ -25,8 +25,8 @@ const FADE_FLOOR: float = 0.12
 ## The [MapCatalog] id the match runs under. Empty on an undecided wedge.
 @export var map_id: StringName = &""
 
-## What the sign says. Undecided wedges show [constant UNDECIDED_SIGN] whatever
-## is typed here.
+## Translation key of what the sign says. Undecided wedges show
+## [constant UNDECIDED_SIGN] whatever is typed here.
 @export var title: String = ""
 
 ## The marker at the middle of the wedge. The start trigger stands on it.
@@ -45,7 +45,7 @@ func _ready() -> void:
 	if _sign == null:
 		set_process(false)
 		return
-	_sign.text = title if is_decided() else UNDECIDED_SIGN
+	_sign.text = tr(title) if is_decided() else UNDECIDED_SIGN
 	_sign_alpha = _sign.modulate.a
 
 

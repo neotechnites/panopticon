@@ -159,7 +159,7 @@ func _ready() -> void:
 	# menu the player just closed is indistinguishable from a hung game.
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	if HubLobby.returns_to_hub:
-		_play_again_button.text = "Back to the hub"
+		_play_again_button.text = tr("RESULT_BACK_TO_HUB")
 	_play_again_button.pressed.connect(play_again)
 	_main_menu_button.pressed.connect(return_to_main_menu)
 	_apply_visibility(false)
@@ -309,24 +309,24 @@ func return_to_main_menu() -> void:
 ## The one word at the top, from the human's point of view when there is a human.
 func _verdict_text(winner: MatchParticipant, human: MatchParticipant) -> String:
 	if winner == null:
-		return "MATCH OVER"
+		return tr("RESULT_MATCH_OVER")
 	if human == null:
 		# An AI-only match -- a headless sweep, or a player who has left. There
 		# is nobody for a verdict to be about, so it reports rather than judges.
-		return "MATCH OVER"
-	return "VICTORY" if winner == human else "DEFEAT"
+		return tr("RESULT_MATCH_OVER")
+	return tr("RESULT_VICTORY") if winner == human else tr("RESULT_DEFEAT")
 
 
 ## Who won, in what role, in one sentence -- and what the player was doing.
 func _headline_text(winner: MatchParticipant, human: MatchParticipant) -> String:
 	if winner == null:
-		return "The match ended without a winner."
+		return tr("RESULT_NO_WINNER")
 
 	var lines: PackedStringArray = PackedStringArray()
 	if human != null and winner == human:
-		lines.append("You held the tower and cleared the ring.")
+		lines.append(tr("RESULT_YOU_HELD_TOWER"))
 	else:
-		lines.append("%s held the tower and cleared the ring." % winner.display_name)
+		lines.append(tr("RESULT_WINNER_HELD_TOWER").format({"name": winner.display_name}))
 		if human != null:
 			lines.append(_player_role_line(human))
 	return "\n".join(lines)
@@ -340,27 +340,27 @@ func _headline_text(winner: MatchParticipant, human: MatchParticipant) -> String
 ## written here and is unreachable under the shipped rules.
 func _player_role_line(human: MatchParticipant) -> String:
 	if human.is_shooter:
-		return "You were in the tower when it fell."
+		return tr("RESULT_ROLE_TOWER_FELL")
 	if human.is_running:
-		return "You were a prisoner and you survived."
+		return tr("RESULT_ROLE_PRISONER_SURVIVED")
 	if human.is_ghost:
-		return "You were a prisoner. The rifle took you and you finished as a ghost."
-	return "You were a prisoner and the tower cleared you."
+		return tr("RESULT_ROLE_PRISONER_GHOST")
+	return tr("RESULT_ROLE_PRISONER_CLEARED")
 
 
 ## The match's own numbers, all of them read back off the controller.
 func _detail_text(winner: MatchParticipant) -> String:
 	var lines: PackedStringArray = PackedStringArray()
 	if winner != null:
-		lines.append("Tower: %s, turn %d, %d round(s) held" % [
-			winner.display_name, winner.turns_in_tower, winner.rounds_won,
-		])
-	lines.append("Rounds played: %d" % controller.get_round_number())
-	lines.append("Prisoners cleared: %d of %d" % [
-		controller.get_runners_removed(), controller.get_runners_total(),
-	])
+		lines.append(tr("RESULT_DETAIL_TOWER").format({
+			"name": winner.display_name, "turn": winner.turns_in_tower, "rounds": winner.rounds_won,
+		}))
+	lines.append(tr("RESULT_DETAIL_ROUNDS").format({"rounds": controller.get_round_number()}))
+	lines.append(tr("RESULT_DETAIL_CLEARED").format({
+		"cleared": controller.get_runners_removed(), "total": controller.get_runners_total(),
+	}))
 	if controller.get_rules().has_ghosts():
-		lines.append("Ghost swaps: %d" % controller.get_catch_count())
+		lines.append(tr("RESULT_DETAIL_SWAPS").format({"swaps": controller.get_catch_count()}))
 	return "\n".join(lines)
 
 

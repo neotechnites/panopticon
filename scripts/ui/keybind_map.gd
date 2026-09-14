@@ -362,7 +362,7 @@ static func bindings_equal(left: Dictionary, right: Dictionary) -> bool:
 ## key this class matches as physical W.
 static func describe(binding: Dictionary) -> String:
 	if binding.is_empty():
-		return "Unbound"
+		return TranslationServer.translate("KEYBIND_UNBOUND")
 
 	var tag: Variant = binding.get(KEY_FIELD_TYPE, "")
 	var kind: String = String(tag) if typeof(tag) == TYPE_STRING or typeof(tag) == TYPE_STRING_NAME else ""
@@ -373,77 +373,79 @@ static func describe(binding: Dictionary) -> String:
 		TYPE_MOUSE_BUTTON:
 			return describe_mouse_button(_field_int(binding, KEY_FIELD_INDEX))
 		TYPE_JOY_BUTTON:
-			return "Pad Button %d" % _field_int(binding, KEY_FIELD_INDEX)
+			return TranslationServer.translate("KEYBIND_PAD_BUTTON").format({"index": _field_int(binding, KEY_FIELD_INDEX)})
 		TYPE_JOY_AXIS:
 			var direction: String = "+" if _field_float(binding, KEY_FIELD_VALUE, 1.0) >= 0.0 else "-"
-			return "Pad Axis %d%s" % [_field_int(binding, KEY_FIELD_AXIS), direction]
+			return TranslationServer.translate("KEYBIND_PAD_AXIS").format({
+				"axis": _field_int(binding, KEY_FIELD_AXIS), "direction": direction,
+			})
 
-	return "Unknown"
+	return TranslationServer.translate("KEYBIND_UNKNOWN")
 
 
 ## The label printed on this player's keyboard for a physical key position.
 static func describe_physical_keycode(physical_keycode: int) -> String:
 	if physical_keycode == 0:
-		return "Unbound"
+		return TranslationServer.translate("KEYBIND_UNBOUND")
 	var labelled: int = physical_keycode
 	if not GameSettings.is_headless():
 		labelled = DisplayServer.keyboard_get_keycode_from_physical(physical_keycode as Key)
 	if labelled == 0:
 		labelled = physical_keycode
 	var text: String = OS.get_keycode_string(labelled as Key)
-	return text if not text.is_empty() else "Key %d" % physical_keycode
+	return text if not text.is_empty() else TranslationServer.translate("KEYBIND_KEY_CODE").format({"code": physical_keycode})
 
 
 ## Readable name for a mouse button index.
 static func describe_mouse_button(index: int) -> String:
 	match index:
 		MOUSE_BUTTON_LEFT:
-			return "Mouse Left"
+			return TranslationServer.translate("KEYBIND_MOUSE_LEFT")
 		MOUSE_BUTTON_RIGHT:
-			return "Mouse Right"
+			return TranslationServer.translate("KEYBIND_MOUSE_RIGHT")
 		MOUSE_BUTTON_MIDDLE:
-			return "Mouse Middle"
+			return TranslationServer.translate("KEYBIND_MOUSE_MIDDLE")
 		MOUSE_BUTTON_WHEEL_UP:
-			return "Wheel Up"
+			return TranslationServer.translate("KEYBIND_WHEEL_UP")
 		MOUSE_BUTTON_WHEEL_DOWN:
-			return "Wheel Down"
+			return TranslationServer.translate("KEYBIND_WHEEL_DOWN")
 		MOUSE_BUTTON_WHEEL_LEFT:
-			return "Wheel Left"
+			return TranslationServer.translate("KEYBIND_WHEEL_LEFT")
 		MOUSE_BUTTON_WHEEL_RIGHT:
-			return "Wheel Right"
-	return "Mouse %d" % index
+			return TranslationServer.translate("KEYBIND_WHEEL_RIGHT")
+	return TranslationServer.translate("KEYBIND_MOUSE_N").format({"index": index})
 
 
 ## Display name for an action, for the settings screen's left column.
 static func display_name(action: StringName) -> String:
 	match action:
 		PlayerActions.MOVE_FORWARD:
-			return "Move Forward"
+			return TranslationServer.translate("KEYBIND_ACTION_MOVE_FORWARD")
 		PlayerActions.MOVE_BACK:
-			return "Move Back"
+			return TranslationServer.translate("KEYBIND_ACTION_MOVE_BACK")
 		PlayerActions.MOVE_LEFT:
-			return "Move Left"
+			return TranslationServer.translate("KEYBIND_ACTION_MOVE_LEFT")
 		PlayerActions.MOVE_RIGHT:
-			return "Move Right"
+			return TranslationServer.translate("KEYBIND_ACTION_MOVE_RIGHT")
 		PlayerActions.JUMP:
-			return "Jump"
+			return TranslationServer.translate("KEYBIND_ACTION_JUMP")
 		PlayerActions.SLIDE:
-			return "Crouch / Slide"
+			return TranslationServer.translate("KEYBIND_ACTION_SLIDE")
 		PlayerActions.ABILITY:
-			return "Ability"
+			return TranslationServer.translate("KEYBIND_ACTION_ABILITY")
 		PlayerActions.ABILITY_SLOTS[0]:
-			return "Ability 1"
+			return TranslationServer.translate("KEYBIND_ACTION_ABILITY_1")
 		PlayerActions.ABILITY_SLOTS[1]:
-			return "Ability 2"
+			return TranslationServer.translate("KEYBIND_ACTION_ABILITY_2")
 		PlayerActions.ABILITY_SLOTS[2]:
-			return "Ability 3"
+			return TranslationServer.translate("KEYBIND_ACTION_ABILITY_3")
 		PlayerActions.ABILITY_SLOTS[3]:
-			return "Ability 4"
+			return TranslationServer.translate("KEYBIND_ACTION_ABILITY_4")
 		WeaponActions.FIRE:
-			return "Fire"
+			return TranslationServer.translate("KEYBIND_ACTION_FIRE")
 		ZOOM:
-			return "Aim / Zoom"
-	return String(action).capitalize()
+			return TranslationServer.translate("KEYBIND_ACTION_ZOOM")
+	return String(action).capitalize()  # i18n-skip: an action the table does not know, made legible
 
 
 # --- Internals ----------------------------------------------------------------

@@ -196,13 +196,13 @@ func _build() -> void:
 	margin.add_child(column)
 
 	var title: Label = Label.new()
-	title.text = "PAUSED"
+	title.text = tr("PAUSE_TITLE")
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	column.add_child(title)
 
-	_resume_button = _add_button(column, "Resume", close)
-	_add_button(column, "Settings", _open_settings)
-	_add_button(column, "Leave Match", return_to_main_menu)
+	_resume_button = _add_button(column, tr("PAUSE_RESUME"), close)
+	_add_button(column, tr("PAUSE_SETTINGS"), _open_settings)
+	_add_button(column, tr("PAUSE_LEAVE_MATCH"), return_to_main_menu)
 
 	_settings_screen = SETTINGS_SCREEN_SCENE.instantiate()
 	_settings_screen.visible = false

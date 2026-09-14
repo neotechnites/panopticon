@@ -40,7 +40,7 @@ theme_override_constants/margin_bottom = 12
 theme_override_constants/separation = 8
 
 [node name="Title" type="Label" parent="Frame/Dialog/Padding/Layout"]
-text = "START A MATCH"
+text = "SETUP_TITLE"
 
 [node name="MapRow" type="HBoxContainer" parent="Frame/Dialog/Padding/Layout"]
 theme_override_constants/separation = 8
@@ -49,7 +49,7 @@ editor_description = "The map, above the mode and above the rules, because it is
 [node name="MapName" type="Label" parent="Frame/Dialog/Padding/Layout/MapRow"]
 size_flags_vertical = 1
 vertical_alignment = 1
-text = "Map"
+text = "SETUP_MAP"
 
 [node name="MapOption" type="OptionButton" parent="Frame/Dialog/Padding/Layout/MapRow"]
 custom_minimum_size = Vector2(240, 0)
@@ -74,7 +74,7 @@ editor_description = "The mode picker sits above the rules and outside their gri
 [node name="PresetName" type="Label" parent="Frame/Dialog/Padding/Layout/PresetRow"]
 size_flags_vertical = 1
 vertical_alignment = 1
-text = "Mode"
+text = "COMMON_MODE"
 
 [node name="PresetOption" type="OptionButton" parent="Frame/Dialog/Padding/Layout/PresetRow"]
 custom_minimum_size = Vector2(240, 0)
@@ -99,7 +99,7 @@ editor_description = "What the selected mode IS, in one sentence, from MatchPres
 [node name="Divider" type="HSeparator" parent="Frame/Dialog/Padding/Layout"]
 
 [node name="RulesHeading" type="Label" parent="Frame/Dialog/Padding/Layout"]
-text = "Rules"
+text = "SETUP_RULES"
 
 [node name="Grid" type="GridContainer" parent="Frame/Dialog/Padding/Layout"]
 theme_override_constants/h_separation = 8
@@ -110,7 +110,7 @@ editor_description = "Three shared columns -- name, control, readout -- so every
 [node name="PrisonersName" type="Label" parent="Frame/Dialog/Padding/Layout/Grid"]
 size_flags_vertical = 1
 vertical_alignment = 1
-text = "Prisoners"
+text = "COMMON_PRISONERS"
 
 [node name="PrisonerCountSpin" type="SpinBox" parent="Frame/Dialog/Padding/Layout/Grid"]
 custom_minimum_size = Vector2(240, 0)
@@ -126,7 +126,7 @@ unique_name_in_owner = true
 [node name="OpeningName" type="Label" parent="Frame/Dialog/Padding/Layout/Grid"]
 size_flags_vertical = 1
 vertical_alignment = 1
-text = "Opening"
+text = "SETUP_OPENING"
 
 [node name="OpeningOption" type="OptionButton" parent="Frame/Dialog/Padding/Layout/Grid"]
 custom_minimum_size = Vector2(240, 0)
@@ -142,7 +142,7 @@ unique_name_in_owner = true
 [node name="LivesName" type="Label" parent="Frame/Dialog/Padding/Layout/Grid"]
 size_flags_vertical = 1
 vertical_alignment = 1
-text = "Hits to Convert"
+text = "SETUP_HITS_TO_CONVERT"
 
 [node name="LivesOption" type="OptionButton" parent="Frame/Dialog/Padding/Layout/Grid"]
 custom_minimum_size = Vector2(240, 0)
@@ -154,19 +154,19 @@ unique_name_in_owner = true
 [node name="GhostsName" type="Label" parent="Frame/Dialog/Padding/Layout/Grid"]
 size_flags_vertical = 1
 vertical_alignment = 1
-text = "Ghosts"
+text = "COMMON_GHOSTS"
 
 [node name="GhostsCheck" type="CheckBox" parent="Frame/Dialog/Padding/Layout/Grid"]
 size_flags_horizontal = 0
 unique_name_in_owner = true
-text = "Catch and swap"
+text = "COMMON_CATCH_AND_SWAP"
 
 [node name="GhostsSpacer" type="Control" parent="Frame/Dialog/Padding/Layout/Grid"]
 
 [node name="ShooterWinName" type="Label" parent="Frame/Dialog/Padding/Layout/Grid"]
 size_flags_vertical = 1
 vertical_alignment = 1
-text = "Tower Wins By"
+text = "SETUP_TOWER_WINS_BY"
 
 [node name="ShooterWinOption" type="OptionButton" parent="Frame/Dialog/Padding/Layout/Grid"]
 custom_minimum_size = Vector2(240, 0)
@@ -179,7 +179,7 @@ editor_description = "Filled from MatchRules.ShooterWinCondition, with the membe
 [node name="RunnerWinName" type="Label" parent="Frame/Dialog/Padding/Layout/Grid"]
 size_flags_vertical = 1
 vertical_alignment = 1
-text = "Prisoners Win By"
+text = "SETUP_PRISONERS_WIN_BY"
 
 [node name="RunnerWinOption" type="OptionButton" parent="Frame/Dialog/Padding/Layout/Grid"]
 custom_minimum_size = Vector2(240, 0)
@@ -192,7 +192,7 @@ editor_description = "Both members of MatchRules.RunnerWinCondition are implemen
 [node name="AbilityName" type="Label" parent="Frame/Dialog/Padding/Layout/Grid"]
 size_flags_vertical = 1
 vertical_alignment = 1
-text = "Prisoner Power"
+text = "SETUP_PRISONER_POWER"
 
 [node name="AbilityOption" type="OptionButton" parent="Frame/Dialog/Padding/Layout/Grid"]
 custom_minimum_size = Vector2(240, 0)
@@ -205,7 +205,7 @@ editor_description = "Filled from MatchRules.RunnerAbility; None is the default.
 [node name="RoundsName" type="Label" parent="Frame/Dialog/Padding/Layout/Grid"]
 size_flags_vertical = 1
 vertical_alignment = 1
-text = "Rounds To Win"
+text = "SETUP_ROUNDS_TO_WIN"
 
 [node name="RoundsSpin" type="SpinBox" parent="Frame/Dialog/Padding/Layout/Grid"]
 custom_minimum_size = Vector2(240, 0)
@@ -231,16 +231,16 @@ theme_override_constants/separation = 8
 
 [node name="Back" type="Button" parent="Frame/Dialog/Padding/Layout/Footer"]
 unique_name_in_owner = true
-text = "Back"
+text = "COMMON_BACK"
 
 [node name="FooterSpacer" type="Control" parent="Frame/Dialog/Padding/Layout/Footer"]
 size_flags_horizontal = 3
 
 [node name="RestoreCanon" type="Button" parent="Frame/Dialog/Padding/Layout/Footer"]
 unique_name_in_owner = true
-text = "Restore Canon"
+text = "SETUP_RESTORE_CANON"
 
 [node name="Start" type="Button" parent="Frame/Dialog/Padding/Layout/Footer"]
 custom_minimum_size = Vector2(160, 0)
 unique_name_in_owner = true
-text = "Start Match"
+text = "SETUP_START_MATCH"

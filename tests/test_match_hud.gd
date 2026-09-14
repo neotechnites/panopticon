@@ -91,11 +91,11 @@ func test_the_tower_is_told_its_round_its_count_its_turn_and_its_rifle() -> void
 		"the top line names the round -- got \"%s\"" % status,
 	)
 	assert_true(
-		status.contains("%s %d" % [words.prisoners_word, _controller.get_runners_remaining()]),
+		status.contains("%s %d" % [tr(words.prisoners_word), _controller.get_runners_remaining()]),
 		"and how many prisoners are left -- got \"%s\"" % status,
 	)
 	assert_true(
-		status.contains("%s %d" % [words.turn_word, _human.turns_in_tower]),
+		status.contains("%s %d" % [tr(words.turn_word), _human.turns_in_tower]),
 		"and which turn in the tower this is -- got \"%s\"" % status,
 	)
 	assert_eq_int(_controller.get_runners_remaining(), 3, "three prisoners are running")
@@ -103,7 +103,7 @@ func test_the_tower_is_told_its_round_its_count_its_turn_and_its_rifle() -> void
 	# The rifle, which is the single most important number in a guard's life,
 	# and it is under the crosshair rather than in a corner.
 	assert_true(_rifle.can_fire(), "the rifle is ready on the first tick of a turn")
-	assert_eq_string(_hud.get_primary_text(), words.ready_text, "and the readout says so")
+	assert_eq_string(_hud.get_primary_text(), tr(words.ready_text), "and the readout says so")
 
 	# Nothing bottom-right in the tower.
 	assert_eq_string(_hud.get_context_text(), "", "the tower carries no runner power")
@@ -147,7 +147,7 @@ func test_a_prisoner_is_told_the_count_the_tower_and_its_reload() -> void:
 	var status: String = _hud.get_status_text()
 	assert_true(
 		status.contains("%s %d/%d" % [
-			words.prisoners_word,
+			tr(words.prisoners_word),
 			_controller.get_runners_remaining(),
 			_controller.get_runners_total(),
 		]),
@@ -160,7 +160,7 @@ func test_a_prisoner_is_told_the_count_the_tower_and_its_reload() -> void:
 
 	# The reload the prisoner is running from, as the tower's own state.
 	assert_true(_rifle.can_fire(), "the tower is loaded")
-	assert_eq_string(_hud.get_primary_text(), words.ready_text, "and the prisoner is told so")
+	assert_eq_string(_hud.get_primary_text(), tr(words.ready_text), "and the prisoner is told so")
 
 
 ## Ryan's ruling: the runner gets the tower rifle's reload as a bar filling, so
@@ -230,7 +230,7 @@ func test_a_finisher_is_shown_health_pips() -> void:
 	assert_true(_hud.is_readout_showing(), "the HUD is up")
 	assert_eq_int(_human.health, _rules.finisher_health, "on full health")
 	assert_true(
-		_hud.get_status_text().contains(_readout().turn_word),
+		_hud.get_status_text().contains(tr(_readout().turn_word)),
 		"and on the guard's own top line -- got \"%s\"" % _hud.get_status_text(),
 	)
 	assert_not_null(_controller.get_finisher_rifle(), "with a rifle of their own to read")
@@ -283,7 +283,7 @@ func test_the_runners_objective_follows_the_win_condition_in_play() -> void:
 
 	assert_eq_string(
 		words.runner_objective(_controller.get_rules()),
-		words.all_arrivals_objective,
+		tr(words.all_arrivals_objective),
 		"the rules in play are the swept ones",
 	)
 
@@ -297,7 +297,7 @@ func test_match_progress_follows_rounds_to_win_match() -> void:
 
 	assert_eq_string(
 		words.match_progress(_controller.get_rules(), _human.rounds_won),
-		"%s 0 / 3" % words.round_wins_word,
+		"%s 0 / 3" % tr(words.round_wins_word),
 		"a three-round match is a score",
 	)
 
@@ -321,7 +321,7 @@ func test_an_unwinnable_tower_is_told_so() -> void:
 	)
 	assert_eq_string(
 		words.shooter_objective(_controller.get_rules()),
-		words.unwinnable_objective,
+		tr(words.unwinnable_objective),
 		"which is what it is called",
 	)
 
@@ -335,7 +335,7 @@ func test_the_towers_objective_follows_a_set_shutout() -> void:
 
 	assert_eq_string(
 		words.shooter_objective(_controller.get_rules()),
-		words.shutout_objective % 2,
+		tr(words.shutout_objective).format({"count": 2}),
 		"the count in play is the count in the sentence",
 	)
 
@@ -347,36 +347,36 @@ func test_the_wording_is_a_pure_function_of_the_rules() -> void:
 	var rules: MatchRules = TestFixtures.match_rules()
 
 	rules.runner_win_condition = MatchRules.RunnerWinCondition.FIRST_ARRIVAL
-	assert_eq_string(words.runner_objective(rules), words.first_arrival_objective, "first arrival")
+	assert_eq_string(words.runner_objective(rules), tr(words.first_arrival_objective), "first arrival")
 	rules.runner_win_condition = MatchRules.RunnerWinCondition.ALL_ARRIVALS
-	assert_eq_string(words.runner_objective(rules), words.all_arrivals_objective, "all arrivals")
+	assert_eq_string(words.runner_objective(rules), tr(words.all_arrivals_objective), "all arrivals")
 
 	rules.shooter_win_condition = MatchRules.ShooterWinCondition.TOTAL_CONVERSION
-	assert_eq_string(words.shooter_objective(rules), words.total_conversion_objective, "total conversion")
+	assert_eq_string(words.shooter_objective(rules), tr(words.total_conversion_objective), "total conversion")
 	rules.shooter_win_condition = MatchRules.ShooterWinCondition.SHUTOUT_COUNT
 	rules.shutout_count = 2
-	assert_eq_string(words.shooter_objective(rules), words.shutout_objective % 2, "a set shutout")
+	assert_eq_string(words.shooter_objective(rules), tr(words.shutout_objective).format({"count": 2}), "a set shutout")
 	rules.shutout_count = 0
 	assert_eq_string(
-		words.shooter_objective(rules), words.unwinnable_objective, "an unset shutout"
+		words.shooter_objective(rules), tr(words.unwinnable_objective), "an unset shutout"
 	)
 
 	rules.shooter_win_condition = MatchRules.ShooterWinCondition.HOLD_DURATION
 	rules.hold_duration_seconds = 45.0
 	assert_eq_string(
-		words.shooter_objective(rules), words.hold_duration_objective % 45, "a set hold"
+		words.shooter_objective(rules), tr(words.hold_duration_objective).format({"seconds": 45}), "a set hold"
 	)
 	rules.hold_duration_seconds = 0.0
-	assert_eq_string(words.shooter_objective(rules), words.unwinnable_objective, "an unset hold")
+	assert_eq_string(words.shooter_objective(rules), tr(words.unwinnable_objective), "an unset hold")
 
 	rules.shooter_win_condition = MatchRules.ShooterWinCondition.TOTAL_CONVERSION
 
 	rules.rounds_to_win_match = 1
-	assert_eq_string(words.match_progress(rules, 0), words.final_round_text, "one round to win")
+	assert_eq_string(words.match_progress(rules, 0), tr(words.final_round_text), "one round to win")
 	rules.rounds_to_win_match = 4
-	assert_eq_string(words.match_progress(rules, 2), "%s 2 / 4" % words.round_wins_word, "four rounds to win")
+	assert_eq_string(words.match_progress(rules, 2), "%s 2 / 4" % tr(words.round_wins_word), "four rounds to win")
 
-	assert_eq_string(words.prisoner_count_text(1, 3), "%s 1 / 3" % words.prisoners_word, "the shared count")
+	assert_eq_string(words.prisoner_count_text(1, 3), "%s 1 / 3" % tr(words.prisoners_word), "the shared count")
 
 
 # --- A bot pays nothing -------------------------------------------------------
@@ -394,7 +394,7 @@ func test_a_bot_in_the_tower_does_not_hand_the_human_a_guard_readout() -> void:
 		"the human is reading the prisoner's HUD, not the tower's",
 	)
 	assert_false(
-		_hud.get_status_text().contains(_readout().turn_word),
+		_hud.get_status_text().contains(tr(_readout().turn_word)),
 		"and is not being shown the tower's own turn line",
 	)
 

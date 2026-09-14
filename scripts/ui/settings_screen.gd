@@ -46,11 +46,9 @@ const FALLBACK_SEAT_COUNT: int = 2
 ## What the video tab says when the window is doing as it is told. The other two
 ## strings it can say live in [method _video_note_text]; all three are here
 ## rather than in the scene because which one is true is a runtime question.
-const RESOLUTION_NOTE: String = (
-	"Resolution applies to the window; in either fullscreen mode the display's own "
-	+ "resolution is used."
-)
+const RESOLUTION_NOTE: String = "SETTINGS_VIDEO_NOTE_RESOLUTION"
 
+@onready var _tabs: TabContainer = $Frame/Dialog/Padding/Layout/Tabs
 @onready var _keybind_panel: KeybindPanel = %KeybindPanel
 
 @onready var _ghosts_check: CheckBox = %GhostsCheck
@@ -110,6 +108,7 @@ var _syncing: bool = false
 
 func _ready() -> void:
 	_store = SettingsStore.instance()
+	_name_tabs()
 	_configure_ranges()
 	_fill_choices()
 	_connect_controls()
@@ -215,50 +214,60 @@ func _configure_ranges() -> void:
 		spin.min_value = GameSettings.MIN_RELOAD_BY_TURN
 		spin.max_value = GameSettings.MAX_RELOAD_BY_TURN
 		spin.step = 0.1
-		spin.suffix = "s"
+		spin.suffix = tr("SETTINGS_UNIT_SECONDS")
 
 	_configure_spin(
 		_sway_spin, GameSettings.MIN_SCOPE_SWAY_DEGREES,
-		GameSettings.MAX_SCOPE_SWAY_DEGREES, 0.05, "deg",
+		GameSettings.MAX_SCOPE_SWAY_DEGREES, 0.05, tr("SETTINGS_UNIT_DEGREES"),
 	)
 	_configure_spin(
 		_sway_hz_spin, GameSettings.MIN_SCOPE_SWAY_HZ,
-		GameSettings.MAX_SCOPE_SWAY_HZ, 0.01, "Hz",
+		GameSettings.MAX_SCOPE_SWAY_HZ, 0.01, tr("SETTINGS_UNIT_HZ"),
 	)
 	_configure_spin(
 		_sway_settle_spin, GameSettings.MIN_SCOPE_SWAY_SETTLE_SECONDS,
-		GameSettings.MAX_SCOPE_SWAY_SETTLE_SECONDS, 0.1, "s",
+		GameSettings.MAX_SCOPE_SWAY_SETTLE_SECONDS, 0.1, tr("SETTINGS_UNIT_SECONDS"),
 	)
 	_configure_spin(_windows_spin, 0.0, float(MatchRules.TOWER_WINDOW_COUNT), 1.0, "")
 	_configure_spin(
 		_miss_penalty_spin, GameSettings.MIN_GUARD_MISS_PENALTY_SECONDS,
-		GameSettings.MAX_GUARD_MISS_PENALTY_SECONDS, 0.1, "s",
+		GameSettings.MAX_GUARD_MISS_PENALTY_SECONDS, 0.1, tr("SETTINGS_UNIT_SECONDS"),
 	)
 	_configure_spin(
 		_runner_speed_spin, GameSettings.MIN_RUNNER_SPEED_MULTIPLIER,
-		GameSettings.MAX_RUNNER_SPEED_MULTIPLIER, 0.05, "x",
+		GameSettings.MAX_RUNNER_SPEED_MULTIPLIER, 0.05, tr("SETTINGS_UNIT_TIMES"),
 	)
 	_configure_spin(
 		_runner_jump_spin, GameSettings.MIN_RUNNER_JUMP_MULTIPLIER,
-		GameSettings.MAX_RUNNER_JUMP_MULTIPLIER, 0.05, "x",
+		GameSettings.MAX_RUNNER_JUMP_MULTIPLIER, 0.05, tr("SETTINGS_UNIT_TIMES"),
 	)
 	_configure_spin(
 		_ability_cooldown_spin, GameSettings.MIN_ABILITY_COOLDOWN_MULTIPLIER,
-		GameSettings.MAX_ABILITY_COOLDOWN_MULTIPLIER, 0.05, "x",
+		GameSettings.MAX_ABILITY_COOLDOWN_MULTIPLIER, 0.05, tr("SETTINGS_UNIT_TIMES"),
 	)
 	_configure_spin(
 		_guard_health_spin, float(GameSettings.MIN_GUARD_HEALTH),
-		float(GameSettings.MAX_GUARD_HEALTH), 1.0, "hp",
+		float(GameSettings.MAX_GUARD_HEALTH), 1.0, tr("SETTINGS_UNIT_HP"),
 	)
 	_configure_spin(
 		_finisher_health_spin, float(GameSettings.MIN_FINISHER_HEALTH),
-		float(GameSettings.MAX_FINISHER_HEALTH), 1.0, "hp",
+		float(GameSettings.MAX_FINISHER_HEALTH), 1.0, tr("SETTINGS_UNIT_HP"),
 	)
 
 
 ## One [SpinBox], bounded by the same constants [method GameSettings.clamp_all]
 ## enforces, so the range the player can reach and the range that survives a save
 ## are one set of numbers.
+## Tab titles are keys, translated by the TabBar; the node names stay the paths.
+func _name_tabs() -> void:
+	var keys: Array[String] = [
+		"SETTINGS_TAB_MATCH", "SETTINGS_TAB_GAME", "SETTINGS_TAB_AUDIO",
+		"SETTINGS_TAB_VIDEO", "SETTINGS_TAB_CONTROLS",
+	]
+	for index: int in mini(keys.size(), _tabs.get_tab_count()):
+		_tabs.set_tab_title(index, keys[index])
+
+
 static func _configure_spin(
 	spin: SpinBox, minimum: float, maximum: float, step: float, suffix: String
 ) -> void:
@@ -273,27 +282,27 @@ static func _configure_spin(
 ## step with the values they select.
 func _fill_choices() -> void:
 	_display_mode_option.clear()
-	_display_mode_option.add_item("Windowed", int(GameSettings.DisplayMode.WINDOWED))
-	_display_mode_option.add_item("Fullscreen", int(GameSettings.DisplayMode.FULLSCREEN))
-	_display_mode_option.add_item("Borderless Fullscreen", int(GameSettings.DisplayMode.BORDERLESS))
+	_display_mode_option.add_item(tr("SETTINGS_VIDEO_WINDOWED"), int(GameSettings.DisplayMode.WINDOWED))
+	_display_mode_option.add_item(tr("SETTINGS_VIDEO_FULLSCREEN"), int(GameSettings.DisplayMode.FULLSCREEN))
+	_display_mode_option.add_item(tr("SETTINGS_VIDEO_BORDERLESS"), int(GameSettings.DisplayMode.BORDERLESS))
 
 	_resolution_option.clear()
 	for choice: Vector2i in GameSettings.RESOLUTION_CHOICES:
-		_resolution_option.add_item("%d x %d" % [choice.x, choice.y])
+		_resolution_option.add_item(tr("SETTINGS_VIDEO_RESOLUTION_FORMAT").format({"width": choice.x, "height": choice.y}))
 
 	_fill_seat_choices()
 
 	_tower_variant_option.clear()
-	_tower_variant_option.add_item("Carved", 0)
-	_tower_variant_option.add_item("Arches", 1)
+	_tower_variant_option.add_item(tr("SETTINGS_TOWER_CARVED"), 0)
+	_tower_variant_option.add_item(tr("SETTINGS_TOWER_ARCHES"), 1)
 
 	_vsync_option.clear()
-	_vsync_option.add_item("Off", int(GameSettings.VSyncMode.DISABLED))
-	_vsync_option.add_item("On", int(GameSettings.VSyncMode.ENABLED))
-	_vsync_option.add_item("Adaptive", int(GameSettings.VSyncMode.ADAPTIVE))
+	_vsync_option.add_item(tr("SETTINGS_VIDEO_VSYNC_OFF"), int(GameSettings.VSyncMode.DISABLED))
+	_vsync_option.add_item(tr("SETTINGS_VIDEO_VSYNC_ON"), int(GameSettings.VSyncMode.ENABLED))
+	_vsync_option.add_item(tr("SETTINGS_VIDEO_VSYNC_ADAPTIVE"), int(GameSettings.VSyncMode.ADAPTIVE))
 
 	_fps_option.clear()
-	_fps_option.add_item("Unlimited", int(GameSettings.FpsCap.UNLIMITED))
+	_fps_option.add_item(tr("SETTINGS_VIDEO_FPS_UNLIMITED"), int(GameSettings.FpsCap.UNLIMITED))
 	_fps_option.add_item("60", int(GameSettings.FpsCap.FPS_60))
 	_fps_option.add_item("120", int(GameSettings.FpsCap.FPS_120))
 	_fps_option.add_item("144", int(GameSettings.FpsCap.FPS_144))
@@ -693,16 +702,9 @@ func _update_video_note() -> void:
 func _video_note_text() -> String:
 	if _store.settings.window_resize_refused:
 		if GameSettings.is_embedded():
-			return (
-				"The window did not resize: this build is running inside the editor's "
-				+ "embedded Game window, which cannot be resized. Turn off Game > Embed "
-				+ "Game Window in the editor and run again. The choice is saved either way."
-			)
-		return (
-			"The window did not resize: this display server refused the size. "
-			+ "The choice is saved and will be tried again next time the game starts."
-		)
-	return RESOLUTION_NOTE
+			return tr("SETTINGS_VIDEO_NOTE_EMBEDDED")
+		return tr("SETTINGS_VIDEO_NOTE_REFUSED")
+	return tr(RESOLUTION_NOTE)
 
 
 ## Names the buses the project does not define, or an empty string when all
@@ -714,4 +716,4 @@ static func _missing_bus_note() -> String:
 			missing.append(String(bus_name))
 	if missing.is_empty():
 		return ""
-	return "No audio bus named %s; that slider is saved but drives nothing until res://default_bus_layout.tres defines it." % ", ".join(missing)
+	return "No audio bus named %s; that slider is saved but drives nothing until res://default_bus_layout.tres defines it." % ", ".join(missing)  # i18n-skip: a broken project layout, not a player message
