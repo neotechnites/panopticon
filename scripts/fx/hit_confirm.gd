@@ -155,6 +155,12 @@ func show_mark(mark: Mark) -> void:
 		return
 	if mark == Mark.CONFIRMED and not profile.hit_confirm_enabled:
 		return
+	# The host's lever, over the profile's own switch: MatchRules.guard_hit_marker
+	# is a rule of the match, so it can turn the hitmarker off for everybody on it
+	# without anybody editing a FeedbackProfile. It cannot turn one ON that the
+	# profile has disabled -- the check above still stands.
+	if mark == Mark.CONFIRMED and not _rules_allow_hit_marker():
+		return
 	if mark != Mark.CONFIRMED and not profile.miss_mark_enabled:
 		return
 	_mark = mark
@@ -163,6 +169,15 @@ func show_mark(mark: Mark) -> void:
 		camera_kick.confirm()
 	shot_classified.emit(mark)
 	queue_redraw()
+
+
+## Whether the match in force draws a confirmed hit. True with no controller,
+## which is what keeps a bare weapon-test scene behaving as it always has.
+func _rules_allow_hit_marker() -> bool:
+	if controller == null:
+		return true
+	var rules: MatchRules = controller.get_rules()
+	return rules == null or rules.guard_hit_marker
 
 
 ## Take whatever is on screen down immediately. For a round reset or a seat

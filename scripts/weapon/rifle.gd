@@ -239,6 +239,11 @@ var _ready_elapsed: float = 0.0
 ## Backing store for [member reload_seconds].
 var _reload_seconds: float = 0.0
 
+## Seconds added to the CURRENT cycle only, by [method add_reload_penalty].
+## Spent when the reload finishes, so a penalty cannot accumulate across shots
+## and cannot leak into the next round.
+var _reload_penalty_seconds: float = 0.0
+
 ## Backing store for [member rules].
 var _rules: MatchRules = null
 
@@ -348,12 +353,12 @@ func _step_cycle(delta: float) -> void:
 			_begin_reload()
 			_state_elapsed = overshoot
 			_announce_windup()
-			if _state_elapsed >= _reload_seconds:
+			if _state_elapsed >= get_cycle_reload_seconds():
 				_finish_reload()
 		return
 
 	_announce_windup()
-	if _state_elapsed >= _reload_seconds:
+	if _state_elapsed >= get_cycle_reload_seconds():
 		_finish_reload()
 
 
@@ -403,9 +408,9 @@ func get_state_name() -> String:
 func get_time_to_ready() -> float:
 	match _state:
 		State.FIRING:
-			return maxf(profile.shot_duration - _state_elapsed, 0.0) + _reload_seconds
+			return maxf(profile.shot_duration - _state_elapsed, 0.0) + get_cycle_reload_seconds()
 		State.RELOADING:
-			return maxf(_reload_seconds - _state_elapsed, 0.0)
+			return maxf(get_cycle_reload_seconds() - _state_elapsed, 0.0)
 		_:
 			return 0.0
 
@@ -415,9 +420,10 @@ func get_time_to_ready() -> float:
 func get_reload_progress() -> float:
 	if _state != State.RELOADING:
 		return 1.0
-	if _reload_seconds <= 0.0:
+	var cycle: float = get_cycle_reload_seconds()
+	if cycle <= 0.0:
 		return 1.0
-	return clampf(_state_elapsed / _reload_seconds, 0.0, 1.0)
+	return clampf(_state_elapsed / cycle, 0.0, 1.0)
 
 
 ## Restore the reload to its starting value. For a match reset, so progression
@@ -426,6 +432,28 @@ func reset_reload_to_base() -> void:
 	if profile == null:
 		return
 	reload_seconds = get_base_reload_seconds()
+	_reload_penalty_seconds = 0.0
+
+
+## Lengthen the reload now running by [param seconds], once.
+##
+## The seam [member MatchRules.guard_miss_penalty_seconds] is spent through:
+## the match decides what a miss IS -- the weapon reports what it struck and
+## deliberately does not -- and hands the cost back here. Additive within a
+## cycle, cleared when the weapon comes ready, and never written into
+## [member reload_seconds], which is the DURATION a round is played at.
+func add_reload_penalty(seconds: float) -> void:
+	if seconds <= 0.0:
+		return
+	_reload_penalty_seconds += seconds
+	if _state == State.RELOADING:
+		reload_started.emit(get_cycle_reload_seconds())
+
+
+## The reload the current cycle actually runs for: [member reload_seconds] plus
+## any penalty a miss has added to it.
+func get_cycle_reload_seconds() -> float:
+	return _reload_seconds + _reload_penalty_seconds
 
 
 ## The reload this weapon starts a round on: the match's value when a
@@ -776,11 +804,12 @@ func _set_state(next: State) -> void:
 func _begin_reload() -> void:
 	_set_state(State.RELOADING)
 	_windup_announced = false
-	reload_started.emit(_reload_seconds)
+	reload_started.emit(get_cycle_reload_seconds())
 
 
 func _finish_reload() -> void:
 	_set_state(State.READY)
+	_reload_penalty_seconds = 0.0
 	reload_finished.emit()
 
 

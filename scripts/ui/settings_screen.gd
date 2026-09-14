@@ -60,6 +60,22 @@ const RESOLUTION_NOTE: String = (
 	%ReloadSpin1, %ReloadSpin2, %ReloadSpin3, %ReloadSpin4, %ReloadSpin5,
 ]
 
+# The Balance group. Every one of these is a rule of the match, so like the
+# ghost toggle above it reaches nothing until a match starts -- SettingsBoot
+# writes the store over the MatchRules on the way in.
+@onready var _sway_spin: SpinBox = %SwaySpin
+@onready var _sway_hz_spin: SpinBox = %SwayHzSpin
+@onready var _sway_settle_spin: SpinBox = %SwaySettleSpin
+@onready var _tower_variant_option: OptionButton = %TowerVariantOption
+@onready var _windows_spin: SpinBox = %WindowsSpin
+@onready var _miss_penalty_spin: SpinBox = %MissPenaltySpin
+@onready var _hit_marker_check: CheckBox = %HitMarkerCheck
+@onready var _runner_speed_spin: SpinBox = %RunnerSpeedSpin
+@onready var _runner_jump_spin: SpinBox = %RunnerJumpSpin
+@onready var _ability_cooldown_spin: SpinBox = %AbilityCooldownSpin
+@onready var _guard_health_spin: SpinBox = %GuardHealthSpin
+@onready var _finisher_health_spin: SpinBox = %FinisherHealthSpin
+
 @onready var _sensitivity_slider: HSlider = %SensitivitySlider
 @onready var _sensitivity_value: Label = %SensitivityValue
 @onready var _invert_check: CheckBox = %InvertCheck
@@ -137,6 +153,18 @@ func refresh() -> void:
 	_tower_seat_option.selected = _seat_index(settings.tower_seat_index)
 	for i: int in _reload_spins.size():
 		_reload_spins[i].value = settings.reload_by_turn[i]
+	_sway_spin.value = settings.scope_sway_degrees
+	_sway_hz_spin.value = settings.scope_sway_hz
+	_sway_settle_spin.value = settings.scope_sway_settle_seconds
+	_tower_variant_option.selected = settings.tower_variant
+	_windows_spin.value = settings.tower_open_windows
+	_miss_penalty_spin.value = settings.guard_miss_penalty_seconds
+	_hit_marker_check.button_pressed = settings.guard_hit_marker
+	_runner_speed_spin.value = settings.runner_speed_multiplier
+	_runner_jump_spin.value = settings.runner_jump_multiplier
+	_ability_cooldown_spin.value = settings.ability_cooldown_multiplier
+	_guard_health_spin.value = settings.guard_health
+	_finisher_health_spin.value = settings.finisher_health
 	_sensitivity_slider.value = settings.mouse_sensitivity
 	_invert_check.button_pressed = settings.invert_look_y
 	_fov_slider.value = settings.field_of_view
@@ -189,6 +217,56 @@ func _configure_ranges() -> void:
 		spin.step = 0.1
 		spin.suffix = "s"
 
+	_configure_spin(
+		_sway_spin, GameSettings.MIN_SCOPE_SWAY_DEGREES,
+		GameSettings.MAX_SCOPE_SWAY_DEGREES, 0.05, "deg",
+	)
+	_configure_spin(
+		_sway_hz_spin, GameSettings.MIN_SCOPE_SWAY_HZ,
+		GameSettings.MAX_SCOPE_SWAY_HZ, 0.01, "Hz",
+	)
+	_configure_spin(
+		_sway_settle_spin, GameSettings.MIN_SCOPE_SWAY_SETTLE_SECONDS,
+		GameSettings.MAX_SCOPE_SWAY_SETTLE_SECONDS, 0.1, "s",
+	)
+	_configure_spin(_windows_spin, 0.0, float(MatchRules.TOWER_WINDOW_COUNT), 1.0, "")
+	_configure_spin(
+		_miss_penalty_spin, GameSettings.MIN_GUARD_MISS_PENALTY_SECONDS,
+		GameSettings.MAX_GUARD_MISS_PENALTY_SECONDS, 0.1, "s",
+	)
+	_configure_spin(
+		_runner_speed_spin, GameSettings.MIN_RUNNER_SPEED_MULTIPLIER,
+		GameSettings.MAX_RUNNER_SPEED_MULTIPLIER, 0.05, "x",
+	)
+	_configure_spin(
+		_runner_jump_spin, GameSettings.MIN_RUNNER_JUMP_MULTIPLIER,
+		GameSettings.MAX_RUNNER_JUMP_MULTIPLIER, 0.05, "x",
+	)
+	_configure_spin(
+		_ability_cooldown_spin, GameSettings.MIN_ABILITY_COOLDOWN_MULTIPLIER,
+		GameSettings.MAX_ABILITY_COOLDOWN_MULTIPLIER, 0.05, "x",
+	)
+	_configure_spin(
+		_guard_health_spin, float(GameSettings.MIN_GUARD_HEALTH),
+		float(GameSettings.MAX_GUARD_HEALTH), 1.0, "hp",
+	)
+	_configure_spin(
+		_finisher_health_spin, float(GameSettings.MIN_FINISHER_HEALTH),
+		float(GameSettings.MAX_FINISHER_HEALTH), 1.0, "hp",
+	)
+
+
+## One [SpinBox], bounded by the same constants [method GameSettings.clamp_all]
+## enforces, so the range the player can reach and the range that survives a save
+## are one set of numbers.
+static func _configure_spin(
+	spin: SpinBox, minimum: float, maximum: float, step: float, suffix: String
+) -> void:
+	spin.min_value = minimum
+	spin.max_value = maximum
+	spin.step = step
+	spin.suffix = suffix
+
 
 ## Option lists are data, so they are filled from the enums and the shipped
 ## choice list rather than typed into the scene where they could fall out of
@@ -204,6 +282,10 @@ func _fill_choices() -> void:
 		_resolution_option.add_item("%d x %d" % [choice.x, choice.y])
 
 	_fill_seat_choices()
+
+	_tower_variant_option.clear()
+	_tower_variant_option.add_item("Carved", 0)
+	_tower_variant_option.add_item("Arches", 1)
 
 	_vsync_option.clear()
 	_vsync_option.add_item("Off", int(GameSettings.VSyncMode.DISABLED))
@@ -240,6 +322,18 @@ func _connect_controls() -> void:
 	_tower_seat_option.item_selected.connect(_on_tower_seat_selected)
 	for i: int in _reload_spins.size():
 		_reload_spins[i].value_changed.connect(_on_reload_by_turn_changed.bind(i))
+	_sway_spin.value_changed.connect(_on_sway_changed)
+	_sway_hz_spin.value_changed.connect(_on_sway_hz_changed)
+	_sway_settle_spin.value_changed.connect(_on_sway_settle_changed)
+	_tower_variant_option.item_selected.connect(_on_tower_variant_selected)
+	_windows_spin.value_changed.connect(_on_windows_changed)
+	_miss_penalty_spin.value_changed.connect(_on_miss_penalty_changed)
+	_hit_marker_check.toggled.connect(_on_hit_marker_toggled)
+	_runner_speed_spin.value_changed.connect(_on_runner_speed_changed)
+	_runner_jump_spin.value_changed.connect(_on_runner_jump_changed)
+	_ability_cooldown_spin.value_changed.connect(_on_ability_cooldown_changed)
+	_guard_health_spin.value_changed.connect(_on_guard_health_changed)
+	_finisher_health_spin.value_changed.connect(_on_finisher_health_changed)
 	_sensitivity_slider.value_changed.connect(_on_sensitivity_changed)
 	_invert_check.toggled.connect(_on_invert_toggled)
 	_fov_slider.value_changed.connect(_on_fov_changed)
@@ -299,6 +393,94 @@ func _on_reload_by_turn_changed(value: float, turn_index: int) -> void:
 	var updated: PackedFloat32Array = _store.settings.reload_by_turn.duplicate()
 	updated[turn_index] = value
 	_store.settings.reload_by_turn = updated
+	_after_change()
+
+
+# The Balance group. Twelve handlers of one shape: write the store, clamp, and
+# let SettingsBoot carry it into the next match. None of them touches a running
+# one -- these are rules of the round, not presentation.
+
+func _on_sway_changed(value: float) -> void:
+	if _syncing:
+		return
+	_store.settings.scope_sway_degrees = value
+	_after_change()
+
+
+func _on_sway_hz_changed(value: float) -> void:
+	if _syncing:
+		return
+	_store.settings.scope_sway_hz = value
+	_after_change()
+
+
+func _on_sway_settle_changed(value: float) -> void:
+	if _syncing:
+		return
+	_store.settings.scope_sway_settle_seconds = value
+	_after_change()
+
+
+func _on_tower_variant_selected(index: int) -> void:
+	if _syncing or index < 0:
+		return
+	_store.settings.tower_variant = _tower_variant_option.get_item_id(index)
+	_after_change()
+
+
+func _on_windows_changed(value: float) -> void:
+	if _syncing:
+		return
+	_store.settings.tower_open_windows = int(roundf(value))
+	_after_change()
+
+
+func _on_miss_penalty_changed(value: float) -> void:
+	if _syncing:
+		return
+	_store.settings.guard_miss_penalty_seconds = value
+	_after_change()
+
+
+func _on_hit_marker_toggled(pressed: bool) -> void:
+	if _syncing:
+		return
+	_store.settings.guard_hit_marker = pressed
+	_after_change()
+
+
+func _on_runner_speed_changed(value: float) -> void:
+	if _syncing:
+		return
+	_store.settings.runner_speed_multiplier = value
+	_after_change()
+
+
+func _on_runner_jump_changed(value: float) -> void:
+	if _syncing:
+		return
+	_store.settings.runner_jump_multiplier = value
+	_after_change()
+
+
+func _on_ability_cooldown_changed(value: float) -> void:
+	if _syncing:
+		return
+	_store.settings.ability_cooldown_multiplier = value
+	_after_change()
+
+
+func _on_guard_health_changed(value: float) -> void:
+	if _syncing:
+		return
+	_store.settings.guard_health = int(roundf(value))
+	_after_change()
+
+
+func _on_finisher_health_changed(value: float) -> void:
+	if _syncing:
+		return
+	_store.settings.finisher_health = int(roundf(value))
 	_after_change()
 
 
