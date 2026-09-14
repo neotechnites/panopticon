@@ -1,3 +1,4 @@
+class_name StillShot
 extends SceneTree
 ## Render ONE frame of a scene from a given camera pose and write it to a PNG.
 ##
@@ -32,29 +33,50 @@ func _parse(raw: String, fallback: Vector3) -> Vector3:
 	return Vector3(float(parts[0]), float(parts[1]), float(parts[2]))
 
 
+var _scene_path: String = ""
+var _out_path: String = ""
+var _started: bool = false
+
+
+## Parse only. Nothing added to the tree here has a global transform yet, so
+## the scene and the camera wait for the first frame.
 func _initialize() -> void:
-	var scene_path: String = _arg("scene", "")
-	var out_path: String = _arg("out", "")
-	if scene_path.is_empty() or out_path.is_empty():
+	_scene_path = _arg("scene", "")
+	_out_path = _arg("out", "")
+	if _scene_path.is_empty() or _out_path.is_empty():
 		push_error("shot.gd needs --scene= and --out=")
 		quit(1)
-		return
 
-	var packed: PackedScene = load(scene_path) as PackedScene
+
+func _process(_delta: float) -> bool:
+	if _started:
+		return false
+	_started = true
+	var packed: PackedScene = load(_scene_path) as PackedScene
 	if packed == null:
-		push_error("shot.gd could not load %s" % scene_path)
+		push_error("shot.gd could not load %s" % _scene_path)
 		quit(1)
-		return
+		return true
 	root.add_child(packed.instantiate())
-
-	var camera := Camera3D.new()
-	camera.fov = 100.0
-	root.add_child(camera)
-	camera.global_position = _parse(_arg("pos", ""), Vector3(0, 1.9, 44))
-	camera.look_at(_parse(_arg("look", ""), Vector3.ZERO), Vector3.UP)
+	var camera: Camera3D = build_camera(
+		root, _parse(_arg("pos", ""), Vector3(0, 1.9, 44)), _parse(_arg("look", ""), Vector3.ZERO)
+	)
 	camera.current = true
+	_capture(_out_path)
+	return false
 
-	_capture(out_path)
+
+## A 100-degree camera under [param parent], standing at [param pos] and aimed
+## at [param look]. Posed after add_child: a node outside the tree has no
+## global transform to write and look_at refuses to run.
+static func build_camera(parent: Node, pos: Vector3, look: Vector3) -> Camera3D:
+	var camera: Camera3D = Camera3D.new()
+	camera.fov = 100.0
+	parent.add_child(camera)
+	camera.global_position = pos
+	if not look.is_equal_approx(pos):
+		camera.look_at(look, Vector3.UP)
+	return camera
 
 
 func _capture(out_path: String) -> void:
