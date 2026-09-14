@@ -445,7 +445,9 @@ func apply_snapshot(snapshot: WorldSnapshot) -> void:
 
 	_deliver_predictions(_newest())
 	if not _should_interpolate():
-		_present(_newest())
+		# Interpolation off: the snapshot goes straight onto the bodies, which is
+		# the zero-seconds case of the same routine playback uses.
+		_draw_extrapolated(_newest(), 0.0)
 	snapshot_received.emit(_newest().tick, _newest().count)
 
 
@@ -612,15 +614,6 @@ func _draw_extrapolated(snapshot: WorldSnapshot, seconds: float) -> void:
 		_blend.copy_from(state)
 		_blend.position += state.velocity * seconds
 		link.apply_state(_blend)
-
-
-## Put a snapshot straight onto the bodies, with no blending.
-func _present(snapshot: WorldSnapshot) -> void:
-	for i: int in snapshot.count:
-		var state: PlayerState = snapshot.states[i]
-		var link: PlayerNetLink = find_link(state.seat_index)
-		if link != null and not link.is_predicting():
-			link.apply_state(state)
 
 
 ## Hand the snapshot to the bodies this machine predicts. They take it as a
