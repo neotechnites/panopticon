@@ -354,7 +354,7 @@ func test_the_map_picker_offers_every_map_and_writes_the_choice() -> void:
 	assert_eq_string(
 		String(store.settings.map_id), String(maps[last].id), "the picker wrote the map"
 	)
-	assert_eq_string(summary.text, maps[last].summary, "and the screen says what it is")
+	assert_eq_string(summary.text, tr(maps[last].summary), "and the screen says what it is")
 
 
 ## Choosing a mode does not move the player off the map they chose. A map is a

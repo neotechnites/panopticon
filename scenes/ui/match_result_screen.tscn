@@ -51,14 +51,14 @@ theme_override_constants/separation = 8
 [node name="BeatVerdict" type="Label" parent="Beat/Band/Layout"]
 unique_name_in_owner = true
 theme_override_font_sizes/font_size = 72
-text = "VICTORY"
+text = "RESULT_VICTORY"
 horizontal_alignment = 1
 editor_description = "The same word the dialog will lead with, written by the same _verdict_text() the dialog uses -- VICTORY, DEFEAT, or MATCH OVER for a match with no human in it. The text authored here is the placeholder the editor shows."
 
 [node name="BeatHeadline" type="Label" parent="Beat/Band/Layout"]
 unique_name_in_owner = true
 theme_override_font_sizes/font_size = 20
-text = "Who won, and in what role."
+text = ""
 horizontal_alignment = 1
 autowrap_mode = 3
 editor_description = "Who won and in what role, from the same _headline_text() the dialog uses. One source for the sentence, so the beat can never say something the dialog contradicts a moment later."
@@ -67,7 +67,7 @@ editor_description = "Who won and in what role, from the same _headline_text() t
 unique_name_in_owner = true
 modulate = Color(1, 1, 1, 0.55)
 theme_override_font_sizes/font_size = 13
-text = "PRESS ANY KEY"
+text = "RESULT_PRESS_ANY_KEY"
 horizontal_alignment = 1
 editor_description = "Shown only once the beat will actually answer a key -- MatchAnnouncementProfile.win_beat_skip_lockout_seconds after it appears -- so the prompt is never a lie. The lockout exists because a match is won by a shot and a player mashing the trigger at the last runner would otherwise skip the beat with the press that ended the match."
 
@@ -120,14 +120,14 @@ theme_override_constants/separation = 12
 [node name="Verdict" type="Label" parent="Root/Frame/Dialog/Padding/Layout"]
 unique_name_in_owner = true
 theme_override_font_sizes/font_size = 40
-text = "MATCH OVER"
+text = "RESULT_MATCH_OVER"
 horizontal_alignment = 1
 editor_description = "One word, from the human's point of view: VICTORY, DEFEAT, or MATCH OVER when the match had no human in it at all. The text authored here is the placeholder the editor shows; the script overwrites it from the controller every time the screen is shown."
 
 [node name="Headline" type="Label" parent="Root/Frame/Dialog/Padding/Layout"]
 unique_name_in_owner = true
 theme_override_font_sizes/font_size = 18
-text = "Who won, and in what role."
+text = ""
 horizontal_alignment = 1
 autowrap_mode = 3
 editor_description = "Who won and in what role, in a sentence or two: held the tower and cleared the ring, or was a prisoner. Autowrapped, because a participant name is not a fixed width."
@@ -136,7 +136,7 @@ editor_description = "Who won and in what role, in a sentence or two: held the t
 
 [node name="Detail" type="Label" parent="Root/Frame/Dialog/Padding/Layout"]
 unique_name_in_owner = true
-text = "The match's own numbers."
+text = ""
 horizontal_alignment = 1
 editor_description = "The match's numbers, every one of them read back off MatchController rather than tallied here: the tower holder's turn and rounds held, rounds played, prisoners cleared out of the field, and ghost swaps when the rules have ghosts in them."
 
@@ -147,11 +147,11 @@ alignment = 1
 [node name="PlayAgainButton" type="Button" parent="Root/Frame/Dialog/Padding/Layout/Buttons"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(200, 40)
-text = "Play Again"
+text = "RESULT_PLAY_AGAIN"
 editor_description = "Calls MatchController.restart() -- the same call the R key and an all-racers-out fall already make -- rather than reloading the scene. Focused the moment the screen appears, so the keyboard can answer it."
 
 [node name="MainMenuButton" type="Button" parent="Root/Frame/Dialog/Padding/Layout/Buttons"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(200, 40)
-text = "Main Menu"
+text = "RESULT_MAIN_MENU"
 editor_description = "Hands off to PauseMenu.return_to_main_menu() when the scene has a pause menu, so the teardown order -- save settings, unpause, release the mouse, then change scene -- lives in one place instead of two."

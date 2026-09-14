@@ -334,6 +334,7 @@ const SECTION_AUDIO: String = "audio"
 const SECTION_VIDEO: String = "video"
 const SECTION_MATCH: String = "match"
 const SECTION_NET: String = "net"
+const SECTION_DEV: String = "dev"
 
 # --- Values -------------------------------------------------------------------
 
@@ -537,6 +538,10 @@ var join_address: String = DEFAULT_JOIN_ADDRESS
 
 var join_port: int = 27960
 
+## Dev: a locale forced over the system one, empty for the system's. "en_XA" is
+## the pseudo-locale, for seeing which layouts break under longer text.
+var locale: String = ""
+
 ## True when the last window resize [method apply_video] asked for was ignored
 ## outright -- the size before the call and the size after it are the same, and
 ## neither is the size asked for.
@@ -610,6 +615,7 @@ func reset() -> void:
 	player_name = default_player_name()
 	join_address = DEFAULT_JOIN_ADDRESS
 	join_port = 27960
+	locale = ""
 
 
 ## Force every value inside its documented range. Called after every read, so
@@ -700,6 +706,8 @@ func clamp_all() -> void:
 	if join_address.is_empty():
 		join_address = DEFAULT_JOIN_ADDRESS
 	join_port = clampi(join_port, MIN_NET_PORT, MAX_NET_PORT)
+	if not locale.is_empty() and not TranslationServer.get_loaded_locales().has(locale):
+		locale = ""
 
 
 ## Copy every value out of [param other].
@@ -746,6 +754,7 @@ func copy_from(other: GameSettings) -> void:
 	player_name = other.player_name
 	join_address = other.join_address
 	join_port = other.join_port
+	locale = other.locale
 
 
 ## True when every value matches [param other]. Used by the verification harness
@@ -794,6 +803,7 @@ func equals(other: GameSettings) -> bool:
 		and player_name == other.player_name
 		and join_address == other.join_address
 		and join_port == other.join_port
+		and locale == other.locale
 	)
 
 
@@ -861,6 +871,8 @@ func write_to(config: ConfigFile) -> void:
 	config.set_value(SECTION_NET, "player_name", player_name)
 	config.set_value(SECTION_NET, "join_address", join_address)
 	config.set_value(SECTION_NET, "join_port", join_port)
+
+	config.set_value(SECTION_DEV, "locale", locale)
 
 
 ## Read every value out of [param config], substituting the current value --
@@ -945,6 +957,8 @@ func read_from(config: ConfigFile) -> void:
 	join_address = String(read_string_name(config, SECTION_NET, "join_address", join_address))
 	join_port = read_int(config, SECTION_NET, "join_port", join_port)
 
+	locale = String(read_string_name(config, SECTION_DEV, "locale", locale))
+
 	clamp_all()
 
 
@@ -960,6 +974,11 @@ func apply_audio() -> void:
 	_apply_bus(EFFECTS_BUS, effects_volume)
 	_apply_bus(MUSIC_BUS, music_volume)
 	AudioDirector.set_crush(sfx_crush)
+
+
+## Force [member locale] on the [TranslationServer], or hand it back the system's.
+func apply_locale() -> void:
+	TranslationServer.set_locale(locale if not locale.is_empty() else OS.get_locale())
 
 
 ## Push window mode, size, vsync, the FPS cap and the render scale.

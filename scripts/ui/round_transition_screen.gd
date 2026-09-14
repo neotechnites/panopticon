@@ -337,13 +337,13 @@ func refresh() -> void:
 	if controller == null:
 		return
 	if _round_label != null:
-		_round_label.text = "ROUND %d" % controller.get_round_number()
+		_round_label.text = tr("ROUND_TITLE").format({"round": controller.get_round_number()})
 	if _map_label != null:
 		_map_label.text = _map_title()
 	if _tower_label != null:
 		_tower_label.text = _tower_text()
 	if _prisoners_label != null:
-		_prisoners_label.text = "PRISONERS  %d" % controller.get_runners_remaining()
+		_prisoners_label.text = tr("ROUND_PRISONERS").format({"count": controller.get_runners_remaining()})
 
 
 # --- What it says -------------------------------------------------------------
@@ -362,8 +362,8 @@ func _map_title() -> String:
 func _tower_text() -> String:
 	var seat: MatchParticipant = controller.get_seat_participant()
 	if seat == null:
-		return "TOWER  UNCLAIMED"
-	return "TOWER  %s  ·  TURN %d" % [seat.display_name.to_upper(), seat.turns_in_tower]
+		return tr("ROUND_TOWER_UNCLAIMED")
+	return tr("ROUND_TOWER").format({"name": seat.display_name.to_upper(), "turn": seat.turns_in_tower})
 
 
 # --- The card -----------------------------------------------------------------

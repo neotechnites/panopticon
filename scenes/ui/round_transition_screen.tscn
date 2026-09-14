@@ -50,7 +50,7 @@ mouse_filter = 2
 theme_override_colors/font_outline_color = Color(0, 0, 0, 0.9)
 theme_override_constants/outline_size = 8
 theme_override_font_sizes/font_size = 56
-text = "ROUND 3"
+text = "ROUND_TITLE"
 horizontal_alignment = 1
 editor_description = "Which round is about to be played. The one number the card exists to say, at a size that is read rather than looked at. The text authored here is the placeholder the editor shows; the script overwrites it from MatchController.get_round_number() every time the card is raised."
 
@@ -59,7 +59,7 @@ unique_name_in_owner = true
 modulate = Color(1, 1, 1, 0.7)
 mouse_filter = 2
 theme_override_font_sizes/font_size = 18
-text = "BENTHAM RING"
+text = ""
 horizontal_alignment = 1
 editor_description = "The map's own title, read off MapCatalog by MatchRules.map_id -- never the scene path and never a guess. Blank when the rules name a map the catalog does not have, which is a quiet line rather than a lie."
 
@@ -95,7 +95,7 @@ mouse_filter = 2
 theme_override_colors/font_outline_color = Color(0, 0, 0, 0.9)
 theme_override_constants/outline_size = 6
 theme_override_font_sizes/font_size = 20
-text = "TOWER  RUNNER 2  ·  TURN 2"
+text = "ROUND_TOWER"
 editor_description = "Who is in the tower for the round about to be played, and on which of their turns -- the turn is the load-bearing half, because the reload shortens with every turn a player takes and a third turn is a materially more dangerous tower than a first. Read off MatchController.get_seat_participant(); the human's own display name is \"You\"."
 
 [node name="Prisoners" type="Label" parent="Root/Frame/Layout/Facts"]
@@ -104,7 +104,7 @@ mouse_filter = 2
 theme_override_colors/font_outline_color = Color(0, 0, 0, 0.9)
 theme_override_constants/outline_size = 6
 theme_override_font_sizes/font_size = 20
-text = "PRISONERS  3"
+text = "ROUND_PRISONERS"
 editor_description = "How many prisoners are on the ring for this round, read back off MatchController.get_runners_remaining(). Not a tally kept here: the card invents no number, exactly as MatchResultScreen invents no score."
 
 [node name="Hint" type="Label" parent="Root/Frame/Layout"]
@@ -113,6 +113,6 @@ visible = false
 modulate = Color(1, 1, 1, 0.55)
 mouse_filter = 2
 theme_override_font_sizes/font_size = 13
-text = "PRESS ANY KEY TO SKIP"
+text = "ROUND_PRESS_ANY_KEY_TO_SKIP"
 horizontal_alignment = 1
 editor_description = "Shown only once the card will actually answer a key -- MatchAnnouncementProfile.round_card_skip_lockout_seconds after it appears -- so the prompt is never a lie. The lockout exists because a round ends with a shot or with a runner crossing the line, and a player holding fire would otherwise skip the card with the input that ended the round and never see it. Hidden as authored, because the script decides."

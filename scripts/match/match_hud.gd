@@ -237,23 +237,23 @@ func _status_text(role: Role) -> String:
 	var parts: PackedStringArray = PackedStringArray([_round_text()])
 	if role == Role.PRISONER:
 		parts.append("%s %d/%d" % [
-			tuning.prisoners_word,
+			tr(tuning.prisoners_word),
 			controller.get_runners_remaining(),
 			controller.get_runners_total(),
 		])
 		var seat: MatchParticipant = controller.get_seat_participant()
-		parts.append("TOWER: %s" % (seat.display_name if seat != null else "--"))
+		parts.append(tr("HUD_TOWER_HOLDER").format({"name": seat.display_name if seat != null else "--"}))
 	else:
-		parts.append("%s %d" % [tuning.prisoners_word, controller.get_runners_remaining()])
+		parts.append("%s %d" % [tr(tuning.prisoners_word), controller.get_runners_remaining()])
 		var viewed: MatchParticipant = controller.get_viewed_participant()
-		parts.append("%s %d" % [tuning.turn_word, viewed.turns_in_tower if viewed != null else 0])
+		parts.append("%s %d" % [tr(tuning.turn_word), viewed.turns_in_tower if viewed != null else 0])
 	return tuning.separator.join(parts)
 
 
 func _round_text() -> String:
 	if controller.get_phase() == MatchController.Phase.RACE:
-		return "RACE"
-	return "ROUND %d" % controller.get_round_number()
+		return tr("HUD_RACE")
+	return tr("HUD_ROUND").format({"round": controller.get_round_number()})
 
 
 ## The rifle whose reload the tower is running, or null while nobody holds it.
@@ -278,7 +278,7 @@ func _write_bar(panel: Control, fill: Control, value: Label, wanted: bool, gun: 
 	if gun.can_fire():
 		var charged: bool = gun.profile != null and gun.profile.charge_enabled
 		_set_fill(fill, gun.get_charge() if charged else 1.0)
-		_write(value, tuning.ready_text, tuning.ready_color)
+		_write(value, tr(tuning.ready_text), tuning.ready_color)
 		return
 	var total: float = maxf(controller.get_current_reload_seconds(), 0.01)
 	var left: float = gun.get_time_to_ready()
@@ -333,10 +333,12 @@ func _ability_text() -> String:
 		return ""
 	var title: String = MatchRules.runner_ability_title(rules.runner_ability).to_upper()
 	if ability.is_active():
-		return "%s — %.1fs" % [title, ability.get_remaining()]
+		return tr("HUD_ABILITY_ACTIVE").format({"title": title, "seconds": "%.1f" % ability.get_remaining()})
 	if ability.get_cooldown_remaining() > 0.0:
-		return "%s — READY IN %.0fs" % [title, ability.get_cooldown_remaining()]
-	return "%s — READY" % title
+		return tr("HUD_ABILITY_COOLDOWN").format({
+			"title": title, "seconds": "%.0f" % ability.get_cooldown_remaining(),
+		})
+	return tr("HUD_ABILITY_READY").format({"title": title})
 
 
 ## How full the power bar is: the run while it is active, the wait while it is
@@ -363,7 +365,9 @@ func _speed_boost_text() -> String:
 	var remaining: float = viewed.body.get_speed_boost_remaining()
 	if remaining <= 0.0:
 		return ""
-	return "SPEED x%d · %.1fs" % [int(viewed.body.get_speed_boost_multiplier()), remaining]
+	return tr("HUD_SPEED_BOOST").format({
+		"multiplier": int(viewed.body.get_speed_boost_multiplier()), "seconds": "%.1f" % remaining,
+	})
 
 
 ## Dev toggles on the viewed body: T turbo, Y invincible. Empty when off.
@@ -374,11 +378,11 @@ func _dev_text() -> String:
 	var intent: MoveIntent = viewed.body.get_intent()
 	var flags: PackedStringArray = PackedStringArray()
 	if intent.godmode:
-		flags.append("INVINCIBLE")
+		flags.append(tr("HUD_DEV_INVINCIBLE"))
 	if intent.turbo_held:
-		flags.append("TURBO")
+		flags.append(tr("HUD_DEV_TURBO"))
 	if free_camera != null and free_camera.is_detached():
-		flags.append("FREECAM")
+		flags.append(tr("HUD_DEV_FREECAM"))
 	return " · ".join(flags)
 
 
@@ -396,7 +400,7 @@ func _on_round_resolved(outcome: MatchController.Outcome) -> void:
 	if viewed == null:
 		return
 	var tower_held: bool = outcome == MatchController.Outcome.WIN
-	_flash("ROUND WON" if tower_held == viewed.is_shooter else "ROUND LOST")
+	_flash(tr("HUD_ROUND_WON") if tower_held == viewed.is_shooter else tr("HUD_ROUND_LOST"))
 
 
 func _on_race_started() -> void:
@@ -406,7 +410,7 @@ func _on_race_started() -> void:
 func _on_seat_changed(participant: MatchParticipant, _turns_in_tower: int) -> void:
 	# "TOWER TAKEN BY" rather than "X takes the tower": the human's name is
 	# "You", and the second reads as broken English for half of every match.
-	_flash("TOWER TAKEN BY %s" % participant.display_name.to_upper())
+	_flash(tr("HUD_TOWER_TAKEN_BY").format({"name": participant.display_name.to_upper()}))
 
 
 ## Raise the centre line, replacing whatever was there. Never stacked.

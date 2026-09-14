@@ -622,7 +622,7 @@ func _set_body_input(active: bool) -> void:
 func _refresh() -> void:
 	if players_label != null:
 		var count: int = get_player_count()
-		players_label.text = "%d player" % count if count == 1 else "%d players" % count
+		players_label.text = tr("HUB_PLAYERS_ONE" if count == 1 else "HUB_PLAYERS_MANY").format({"count": count})
 	var wanted: String = _prompt_text()
 	if wanted != _prompt:
 		_prompt = wanted
@@ -638,16 +638,16 @@ func _prompt_text() -> String:
 	if _overlay_open or start_wedge == null:
 		return ""
 	if _vote_open:
-		return "Cancel vote: %s" % _interact_key_name() if is_host() else ""
+		return tr("HUB_CANCEL_VOTE_PROMPT").format({"key": _interact_key_name()}) if is_host() else ""
 	if not _in_trigger:
 		return ""
 	if not start_wedge.is_decided():
-		return "Nothing stands here yet"
+		return tr("HUB_NOTHING_HERE")
 	if not is_host():
-		return "Waiting for host"
+		return tr("HUB_WAITING_FOR_HOST")
 	if _pick_mode() == MatchRules.MapPickMode.VOTE:
-		return "Open vote: %s" % _interact_key_name()
-	return "Start %s: %s" % [start_wedge.title, _interact_key_name()]
+		return tr("HUB_OPEN_VOTE_PROMPT").format({"key": _interact_key_name()})
+	return tr("HUB_START_PROMPT").format({"map": tr(start_wedge.title), "key": _interact_key_name()})
 
 
 ## The signs and the readout, from the counts as they stand.
@@ -658,16 +658,20 @@ func _refresh_vote_view() -> void:
 	if vote_label == null:
 		return
 	if _vote_open:
-		var lines: PackedStringArray = PackedStringArray(["VOTE  %d s" % _vote_shown_seconds])
+		var lines: PackedStringArray = PackedStringArray([
+			tr("HUB_VOTE_TIMER").format({"seconds": _vote_shown_seconds})
+		])
 		for i: int in _wedges.size():
 			if _wedges[i].is_decided():
-				lines.append("%s  %d" % [_wedges[i].title, _vote_counts[i]])
+				lines.append(tr("HUB_VOTE_ROW").format({
+					"map": tr(_wedges[i].title), "count": _vote_counts[i]
+				}))
 		vote_label.text = "\n".join(lines)
 		vote_label.visible = true
 	elif _vote_winner != null:
-		vote_label.text = "%s wins%s" % [
-			_vote_winner.title, "  (tie, seed %d)" % _vote_seed if _vote_tied else ""
-		]
+		vote_label.text = tr("HUB_VOTE_WINS_TIE" if _vote_tied else "HUB_VOTE_WINS").format({
+			"map": tr(_vote_winner.title), "seed": _vote_seed
+		})
 		vote_label.visible = true
 	else:
 		vote_label.visible = false
@@ -697,13 +701,13 @@ func _seat_lines() -> String:
 			continue
 		var shown: String = (
 			seat.display_name if not seat.display_name.is_empty()
-			else "Player %d" % (seat.index + 1)
+			else tr("HUB_SEAT_PLAYER").format({"number": seat.index + 1})
 		)
 		if local != null and seat.index == local.index:
-			shown += "  (you)"
+			shown = tr("HUB_SEAT_NAME_YOU").format({"name": shown})
 		if seat.peer_id == NetTransport.AUTHORITY_PEER_ID:
-			shown += "  (host)"
-		lines.append("Seat %d   %s" % [seat.index + 1, shown])
+			shown = tr("HUB_SEAT_NAME_HOST").format({"name": shown})
+		lines.append(tr("HUB_SEAT_ROW").format({"number": seat.index + 1, "name": shown}))
 	return "\n".join(lines)
 
 

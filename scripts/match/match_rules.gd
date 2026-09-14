@@ -730,8 +730,8 @@ func get_participant_count() -> int:
 ## that "Runner 2" means the same body to the screen, the HUD and the log.
 static func get_participant_name(index: int, has_human: bool) -> String:
 	if has_human and index == 0:
-		return "You"
-	return "Runner %d" % index
+		return TranslationServer.translate("SETUP_SEAT_YOU")
+	return TranslationServer.translate("SETUP_SEAT_RUNNER").format({"index": index})
 
 
 ## The reload these rules ask for, given what the weapon would do on its own.
@@ -802,15 +802,15 @@ func get_ai_shooter_seed_for(index: int) -> int:
 static func runner_ability_title(value: int) -> String:
 	match value:
 		RunnerAbility.NONE:
-			return "None"
+			return TranslationServer.translate("SETUP_ABILITY_NONE")
 		RunnerAbility.BUBBLE_SHIELD:
-			return "Bubble Shield"
+			return TranslationServer.translate("SETUP_ABILITY_BUBBLE_SHIELD")
 		RunnerAbility.HOLOGRAM:
-			return "Hologram"
+			return TranslationServer.translate("SETUP_ABILITY_HOLOGRAM")
 		RunnerAbility.ARMOR_LOCK:
-			return "Armor Lock"
+			return TranslationServer.translate("SETUP_ABILITY_ARMOR_LOCK")
 		RunnerAbility.ACTIVE_CAMO:
-			return "Active Camo"
+			return TranslationServer.translate("SETUP_ABILITY_ACTIVE_CAMO")
 	return String(RunnerAbility.keys()[value])
 
 

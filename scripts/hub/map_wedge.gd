@@ -25,8 +25,8 @@ const FADE_FLOOR: float = 0.12
 ## The [MapCatalog] id the match runs under. Empty on an undecided wedge.
 @export var map_id: StringName = &""
 
-## What the sign says. Undecided wedges show [constant UNDECIDED_SIGN] whatever
-## is typed here.
+## Translation key of what the sign says. Undecided wedges show
+## [constant UNDECIDED_SIGN] whatever is typed here.
 @export var title: String = ""
 
 ## The marker at the middle of the wedge. The start trigger stands on it.
@@ -48,7 +48,7 @@ func _ready() -> void:
 	if _sign == null:
 		set_process(false)
 		return
-	_sign.text = title if is_decided() else UNDECIDED_SIGN
+	_sign.text = tr(title) if is_decided() else UNDECIDED_SIGN
 	_sign_alpha = _sign.modulate.a
 
 
@@ -83,9 +83,11 @@ func set_vote_count(count: int) -> void:
 	if not is_decided():
 		_sign.text = UNDECIDED_SIGN
 	elif count < 0:
-		_sign.text = title
+		_sign.text = tr(title)
 	else:
-		_sign.text = "%s\n%d %s" % [title, count, "vote" if count == 1 else "votes"]
+		_sign.text = tr("HUB_SIGN_VOTES_ONE" if count == 1 else "HUB_SIGN_VOTES_MANY").format({
+			"map": tr(title), "count": count
+		})
 
 
 ## The dais trigger, or null on a wedge that has none.

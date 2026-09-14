@@ -126,7 +126,7 @@ func load_from_disk() -> bool:
 	if error != OK:
 		# Covers both "not there yet" and "there but unparseable". Neither is
 		# worth a dialog; both mean defaults.
-		last_load_error = "no readable settings file (%s)" % error_string(error)
+		last_load_error = "no readable settings file (%s)" % error_string(error)  # i18n-skip: a diagnostic read by tests and logs, never shown
 		return false
 
 	var version: int = GameSettings.read_int(config, SECTION_META, "version", 0)
@@ -178,6 +178,7 @@ func save_to_disk() -> Error:
 func apply_all(force_video: bool = false) -> void:
 	settings.apply_audio()
 	settings.apply_video(force_video)
+	settings.apply_locale()
 	keybinds.apply_to_input_map()
 	applied.emit()
 

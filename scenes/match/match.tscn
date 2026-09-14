@@ -144,7 +144,7 @@ grow_vertical = 2
 theme_override_colors/font_outline_color = Color(0, 0, 0, 0.9)
 theme_override_constants/outline_size = 4
 theme_override_font_sizes/font_size = 15
-text = "ROUND 1  ·  PRISONERS 3/3  ·  TOWER: Runner 2"
+text = ""
 horizontal_alignment = 1
 vertical_alignment = 1
 
@@ -161,7 +161,7 @@ grow_horizontal = 2
 theme_override_colors/font_outline_color = Color(0, 0, 0, 0.9)
 theme_override_constants/outline_size = 6
 theme_override_font_sizes/font_size = 26
-text = "TOWER TAKEN BY RUNNER 2"
+text = ""
 horizontal_alignment = 1
 editor_description = "One transient line, two seconds, faded out and never stacked."
 
@@ -199,7 +199,7 @@ modulate = Color(1, 1, 1, 0.7)
 theme_override_colors/font_outline_color = Color(0, 0, 0, 0.9)
 theme_override_constants/outline_size = 4
 theme_override_font_sizes/font_size = 12
-text = "TOWER RIFLE"
+text = "HUD_TOWER_RIFLE"
 
 [node name="Value" type="Label" parent="HUD/Root/TowerReload"]
 anchors_preset = 15
@@ -214,7 +214,7 @@ grow_vertical = 2
 theme_override_colors/font_outline_color = Color(0, 0, 0, 0.9)
 theme_override_constants/outline_size = 4
 theme_override_font_sizes/font_size = 16
-text = "READY"
+text = "HUD_READY"
 horizontal_alignment = 2
 
 [node name="Track" type="ColorRect" parent="HUD/Root/TowerReload"]
@@ -261,7 +261,7 @@ grow_vertical = 2
 theme_override_colors/font_outline_color = Color(0, 0, 0, 0.9)
 theme_override_constants/outline_size = 4
 theme_override_font_sizes/font_size = 13
-text = "READY"
+text = "HUD_READY"
 horizontal_alignment = 1
 
 [node name="Track" type="ColorRect" parent="HUD/Root/GuardReload"]
@@ -393,7 +393,7 @@ grow_vertical = 2
 theme_override_colors/font_outline_color = Color(0, 0, 0, 0.9)
 theme_override_constants/outline_size = 4
 theme_override_font_sizes/font_size = 15
-text = "ARMOR LOCK — READY"
+text = ""
 horizontal_alignment = 2
 
 [node name="Track" type="ColorRect" parent="HUD/Root/Power"]
@@ -430,7 +430,7 @@ grow_vertical = 0
 theme_override_colors/font_outline_color = Color(0, 0, 0, 0.9)
 theme_override_constants/outline_size = 4
 theme_override_font_sizes/font_size = 14
-text = "SPEED x2 · 3.0s"
+text = ""
 horizontal_alignment = 2
 
 [node name="Dev" type="Label" parent="HUD/Root"]
@@ -445,7 +445,7 @@ grow_horizontal = 0
 theme_override_colors/font_outline_color = Color(0, 0, 0, 0.9)
 theme_override_constants/outline_size = 4
 theme_override_font_sizes/font_size = 12
-text = "INVINCIBLE · TURBO"
+text = ""
 horizontal_alignment = 2
 editor_description = "Dev toggles, only while one is on."
 

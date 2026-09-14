@@ -140,7 +140,7 @@ func get_selected() -> AirControlPreset:
 func _refresh_labels() -> void:
 	var preset: AirControlPreset = presets[_index]
 	if name_label != null:
-		name_label.text = "%d/%d  %s        [%s] to cycle" % [
+		name_label.text = "%d/%d  %s        [%s] to cycle" % [  # i18n-skip: dev playground switcher, never in a shipped match
 			_index + 1, presets.size(), preset.display_name,
 			OS.get_keycode_string(fallback_keycode),
 		]

@@ -11,7 +11,7 @@ theme_override_constants/separation = 8
 
 [node name="Hint" type="Label" parent="Layout"]
 autowrap_mode = 3
-text = "Two bindings per action. Escape cancels a rebind, Backspace clears the slot."
+text = "KEYBIND_INTRO"
 
 [node name="Scroll" type="ScrollContainer" parent="Layout"]
 custom_minimum_size = Vector2(0, 460)
@@ -30,292 +30,253 @@ editor_description = "One GridContainer, not nine HBoxContainers. A grid shares 
 size_flags_horizontal = 3
 size_flags_vertical = 1
 vertical_alignment = 1
-text = "Move Forward"
+text = "KEYBIND_ACTION_MOVE_FORWARD"
 
 [node name="MoveForwardSlot1" type="Button" parent="Layout/Scroll/Table"]
 custom_minimum_size = Vector2(128, 0)
 size_flags_horizontal = 3
-tooltip_text = "Rebind Move Forward (slot 1)"
-text = "Unbound"
+text = "KEYBIND_UNBOUND"
 
 [node name="MoveForwardSlot2" type="Button" parent="Layout/Scroll/Table"]
 custom_minimum_size = Vector2(128, 0)
 size_flags_horizontal = 3
-tooltip_text = "Rebind Move Forward (slot 2)"
-text = "Unbound"
+text = "KEYBIND_UNBOUND"
 
 [node name="MoveForwardReset" type="Button" parent="Layout/Scroll/Table"]
-tooltip_text = "Restore the shipped bindings for Move Forward"
-text = "Reset"
+text = "KEYBIND_RESET"
 
 [node name="MoveBackName" type="Label" parent="Layout/Scroll/Table"]
 size_flags_horizontal = 3
 size_flags_vertical = 1
 vertical_alignment = 1
-text = "Move Back"
+text = "KEYBIND_ACTION_MOVE_BACK"
 
 [node name="MoveBackSlot1" type="Button" parent="Layout/Scroll/Table"]
 custom_minimum_size = Vector2(128, 0)
 size_flags_horizontal = 3
-tooltip_text = "Rebind Move Back (slot 1)"
-text = "Unbound"
+text = "KEYBIND_UNBOUND"
 
 [node name="MoveBackSlot2" type="Button" parent="Layout/Scroll/Table"]
 custom_minimum_size = Vector2(128, 0)
 size_flags_horizontal = 3
-tooltip_text = "Rebind Move Back (slot 2)"
-text = "Unbound"
+text = "KEYBIND_UNBOUND"
 
 [node name="MoveBackReset" type="Button" parent="Layout/Scroll/Table"]
-tooltip_text = "Restore the shipped bindings for Move Back"
-text = "Reset"
+text = "KEYBIND_RESET"
 
 [node name="MoveLeftName" type="Label" parent="Layout/Scroll/Table"]
 size_flags_horizontal = 3
 size_flags_vertical = 1
 vertical_alignment = 1
-text = "Move Left"
+text = "KEYBIND_ACTION_MOVE_LEFT"
 
 [node name="MoveLeftSlot1" type="Button" parent="Layout/Scroll/Table"]
 custom_minimum_size = Vector2(128, 0)
 size_flags_horizontal = 3
-tooltip_text = "Rebind Move Left (slot 1)"
-text = "Unbound"
+text = "KEYBIND_UNBOUND"
 
 [node name="MoveLeftSlot2" type="Button" parent="Layout/Scroll/Table"]
 custom_minimum_size = Vector2(128, 0)
 size_flags_horizontal = 3
-tooltip_text = "Rebind Move Left (slot 2)"
-text = "Unbound"
+text = "KEYBIND_UNBOUND"
 
 [node name="MoveLeftReset" type="Button" parent="Layout/Scroll/Table"]
-tooltip_text = "Restore the shipped bindings for Move Left"
-text = "Reset"
+text = "KEYBIND_RESET"
 
 [node name="MoveRightName" type="Label" parent="Layout/Scroll/Table"]
 size_flags_horizontal = 3
 size_flags_vertical = 1
 vertical_alignment = 1
-text = "Move Right"
+text = "KEYBIND_ACTION_MOVE_RIGHT"
 
 [node name="MoveRightSlot1" type="Button" parent="Layout/Scroll/Table"]
 custom_minimum_size = Vector2(128, 0)
 size_flags_horizontal = 3
-tooltip_text = "Rebind Move Right (slot 1)"
-text = "Unbound"
+text = "KEYBIND_UNBOUND"
 
 [node name="MoveRightSlot2" type="Button" parent="Layout/Scroll/Table"]
 custom_minimum_size = Vector2(128, 0)
 size_flags_horizontal = 3
-tooltip_text = "Rebind Move Right (slot 2)"
-text = "Unbound"
+text = "KEYBIND_UNBOUND"
 
 [node name="MoveRightReset" type="Button" parent="Layout/Scroll/Table"]
-tooltip_text = "Restore the shipped bindings for Move Right"
-text = "Reset"
+text = "KEYBIND_RESET"
 
 [node name="JumpName" type="Label" parent="Layout/Scroll/Table"]
 size_flags_horizontal = 3
 size_flags_vertical = 1
 vertical_alignment = 1
-text = "Jump"
+text = "KEYBIND_ACTION_JUMP"
 
 [node name="JumpSlot1" type="Button" parent="Layout/Scroll/Table"]
 custom_minimum_size = Vector2(128, 0)
 size_flags_horizontal = 3
-tooltip_text = "Rebind Jump (slot 1)"
-text = "Unbound"
+text = "KEYBIND_UNBOUND"
 
 [node name="JumpSlot2" type="Button" parent="Layout/Scroll/Table"]
 custom_minimum_size = Vector2(128, 0)
 size_flags_horizontal = 3
-tooltip_text = "Rebind Jump (slot 2)"
-text = "Unbound"
+text = "KEYBIND_UNBOUND"
 
 [node name="JumpReset" type="Button" parent="Layout/Scroll/Table"]
-tooltip_text = "Restore the shipped bindings for Jump"
-text = "Reset"
+text = "KEYBIND_RESET"
 
 [node name="SlideName" type="Label" parent="Layout/Scroll/Table"]
 size_flags_horizontal = 3
 size_flags_vertical = 1
 vertical_alignment = 1
-text = "Crouch / Slide"
+text = "KEYBIND_ACTION_SLIDE"
 
 [node name="SlideSlot1" type="Button" parent="Layout/Scroll/Table"]
 custom_minimum_size = Vector2(128, 0)
 size_flags_horizontal = 3
-tooltip_text = "Rebind Crouch / Slide (slot 1)"
-text = "Unbound"
+text = "KEYBIND_UNBOUND"
 
 [node name="SlideSlot2" type="Button" parent="Layout/Scroll/Table"]
 custom_minimum_size = Vector2(128, 0)
 size_flags_horizontal = 3
-tooltip_text = "Rebind Crouch / Slide (slot 2)"
-text = "Unbound"
+text = "KEYBIND_UNBOUND"
 
 [node name="SlideReset" type="Button" parent="Layout/Scroll/Table"]
-tooltip_text = "Restore the shipped bindings for Crouch / Slide"
-text = "Reset"
+text = "KEYBIND_RESET"
 
 [node name="AbilityName" type="Label" parent="Layout/Scroll/Table"]
 size_flags_horizontal = 3
 size_flags_vertical = 1
 vertical_alignment = 1
-text = "Ability"
+text = "KEYBIND_ACTION_ABILITY"
 
 [node name="AbilitySlot1" type="Button" parent="Layout/Scroll/Table"]
 custom_minimum_size = Vector2(128, 0)
 size_flags_horizontal = 3
-tooltip_text = "Rebind Ability (slot 1)"
-text = "Unbound"
+text = "KEYBIND_UNBOUND"
 
 [node name="AbilitySlot2" type="Button" parent="Layout/Scroll/Table"]
 custom_minimum_size = Vector2(128, 0)
 size_flags_horizontal = 3
-tooltip_text = "Rebind Ability (slot 2)"
-text = "Unbound"
+text = "KEYBIND_UNBOUND"
 
 [node name="AbilityReset" type="Button" parent="Layout/Scroll/Table"]
-tooltip_text = "Restore the shipped bindings for Ability"
-text = "Reset"
+text = "KEYBIND_RESET"
 
 [node name="Ability1Name" type="Label" parent="Layout/Scroll/Table"]
 size_flags_horizontal = 3
 size_flags_vertical = 1
 vertical_alignment = 1
-text = "Ability 1"
+text = "KEYBIND_ACTION_ABILITY_1"
 
 [node name="Ability1Slot1" type="Button" parent="Layout/Scroll/Table"]
 custom_minimum_size = Vector2(128, 0)
 size_flags_horizontal = 3
-tooltip_text = "Rebind Ability 1 (slot 1)"
-text = "Unbound"
+text = "KEYBIND_UNBOUND"
 
 [node name="Ability1Slot2" type="Button" parent="Layout/Scroll/Table"]
 custom_minimum_size = Vector2(128, 0)
 size_flags_horizontal = 3
-tooltip_text = "Rebind Ability 1 (slot 2)"
-text = "Unbound"
+text = "KEYBIND_UNBOUND"
 
 [node name="Ability1Reset" type="Button" parent="Layout/Scroll/Table"]
-tooltip_text = "Restore the shipped bindings for Ability 1"
-text = "Reset"
+text = "KEYBIND_RESET"
 
 [node name="Ability2Name" type="Label" parent="Layout/Scroll/Table"]
 size_flags_horizontal = 3
 size_flags_vertical = 1
 vertical_alignment = 1
-text = "Ability 2"
+text = "KEYBIND_ACTION_ABILITY_2"
 
 [node name="Ability2Slot1" type="Button" parent="Layout/Scroll/Table"]
 custom_minimum_size = Vector2(128, 0)
 size_flags_horizontal = 3
-tooltip_text = "Rebind Ability 2 (slot 1)"
-text = "Unbound"
+text = "KEYBIND_UNBOUND"
 
 [node name="Ability2Slot2" type="Button" parent="Layout/Scroll/Table"]
 custom_minimum_size = Vector2(128, 0)
 size_flags_horizontal = 3
-tooltip_text = "Rebind Ability 2 (slot 2)"
-text = "Unbound"
+text = "KEYBIND_UNBOUND"
 
 [node name="Ability2Reset" type="Button" parent="Layout/Scroll/Table"]
-tooltip_text = "Restore the shipped bindings for Ability 2"
-text = "Reset"
+text = "KEYBIND_RESET"
 
 [node name="Ability3Name" type="Label" parent="Layout/Scroll/Table"]
 size_flags_horizontal = 3
 size_flags_vertical = 1
 vertical_alignment = 1
-text = "Ability 3"
+text = "KEYBIND_ACTION_ABILITY_3"
 
 [node name="Ability3Slot1" type="Button" parent="Layout/Scroll/Table"]
 custom_minimum_size = Vector2(128, 0)
 size_flags_horizontal = 3
-tooltip_text = "Rebind Ability 3 (slot 1)"
-text = "Unbound"
+text = "KEYBIND_UNBOUND"
 
 [node name="Ability3Slot2" type="Button" parent="Layout/Scroll/Table"]
 custom_minimum_size = Vector2(128, 0)
 size_flags_horizontal = 3
-tooltip_text = "Rebind Ability 3 (slot 2)"
-text = "Unbound"
+text = "KEYBIND_UNBOUND"
 
 [node name="Ability3Reset" type="Button" parent="Layout/Scroll/Table"]
-tooltip_text = "Restore the shipped bindings for Ability 3"
-text = "Reset"
+text = "KEYBIND_RESET"
 
 [node name="Ability4Name" type="Label" parent="Layout/Scroll/Table"]
 size_flags_horizontal = 3
 size_flags_vertical = 1
 vertical_alignment = 1
-text = "Ability 4"
+text = "KEYBIND_ACTION_ABILITY_4"
 
 [node name="Ability4Slot1" type="Button" parent="Layout/Scroll/Table"]
 custom_minimum_size = Vector2(128, 0)
 size_flags_horizontal = 3
-tooltip_text = "Rebind Ability 4 (slot 1)"
-text = "Unbound"
+text = "KEYBIND_UNBOUND"
 
 [node name="Ability4Slot2" type="Button" parent="Layout/Scroll/Table"]
 custom_minimum_size = Vector2(128, 0)
 size_flags_horizontal = 3
-tooltip_text = "Rebind Ability 4 (slot 2)"
-text = "Unbound"
+text = "KEYBIND_UNBOUND"
 
 [node name="Ability4Reset" type="Button" parent="Layout/Scroll/Table"]
-tooltip_text = "Restore the shipped bindings for Ability 4"
-text = "Reset"
+text = "KEYBIND_RESET"
 
 [node name="FireName" type="Label" parent="Layout/Scroll/Table"]
 size_flags_horizontal = 3
 size_flags_vertical = 1
 vertical_alignment = 1
-text = "Fire"
+text = "KEYBIND_ACTION_FIRE"
 
 [node name="FireSlot1" type="Button" parent="Layout/Scroll/Table"]
 custom_minimum_size = Vector2(128, 0)
 size_flags_horizontal = 3
-tooltip_text = "Rebind Fire (slot 1)"
-text = "Unbound"
+text = "KEYBIND_UNBOUND"
 
 [node name="FireSlot2" type="Button" parent="Layout/Scroll/Table"]
 custom_minimum_size = Vector2(128, 0)
 size_flags_horizontal = 3
-tooltip_text = "Rebind Fire (slot 2)"
-text = "Unbound"
+text = "KEYBIND_UNBOUND"
 
 [node name="FireReset" type="Button" parent="Layout/Scroll/Table"]
-tooltip_text = "Restore the shipped bindings for Fire"
-text = "Reset"
+text = "KEYBIND_RESET"
 
 [node name="ZoomName" type="Label" parent="Layout/Scroll/Table"]
 size_flags_horizontal = 3
 size_flags_vertical = 1
 vertical_alignment = 1
-text = "Aim / Zoom"
+text = "KEYBIND_ACTION_ZOOM"
 
 [node name="ZoomSlot1" type="Button" parent="Layout/Scroll/Table"]
 custom_minimum_size = Vector2(128, 0)
 size_flags_horizontal = 3
-tooltip_text = "Rebind Aim / Zoom (slot 1)"
-text = "Unbound"
+text = "KEYBIND_UNBOUND"
 
 [node name="ZoomSlot2" type="Button" parent="Layout/Scroll/Table"]
 custom_minimum_size = Vector2(128, 0)
 size_flags_horizontal = 3
-tooltip_text = "Rebind Aim / Zoom (slot 2)"
-text = "Unbound"
+text = "KEYBIND_UNBOUND"
 
 [node name="ZoomReset" type="Button" parent="Layout/Scroll/Table"]
-tooltip_text = "Restore the shipped bindings for Aim / Zoom"
-text = "Reset"
+text = "KEYBIND_RESET"
 
 [node name="Footer" type="HBoxContainer" parent="Layout"]
 
 [node name="ResetAll" type="Button" parent="Layout/Footer"]
-text = "Reset All Bindings"
+text = "KEYBIND_RESET_ALL"
 
 [node name="Status" type="Label" parent="Layout/Footer"]
 size_flags_horizontal = 3

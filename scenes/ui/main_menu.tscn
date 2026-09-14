@@ -101,29 +101,29 @@ theme_override_constants/separation = 14
 [node name="Play" type="Button" parent="UI/MenuList"]
 unique_name_in_owner = true
 alignment = 0
-text = "Play"
+text = "MENU_PLAY"
 editor_description = "Opens the hub world, hosting nothing: one body in the ring of wedges, and the host prompt on the hell wedge's dais. The match is started from in there."
 
 [node name="Multiplayer" type="Button" parent="UI/MenuList"]
 unique_name_in_owner = true
 alignment = 0
-text = "Multiplayer"
+text = "MENU_MULTIPLAYER"
 
 [node name="QuickMatch" type="Button" parent="UI/MenuList"]
 unique_name_in_owner = true
 alignment = 0
-text = "Quick match"
+text = "MENU_QUICK_MATCH"
 editor_description = "The old Play: straight to the match setup screen and into a match, skipping the hub. For testing a match without walking to it."
 
 [node name="Settings" type="Button" parent="UI/MenuList"]
 unique_name_in_owner = true
 alignment = 0
-text = "Settings"
+text = "MENU_SETTINGS"
 
 [node name="Quit" type="Button" parent="UI/MenuList"]
 unique_name_in_owner = true
 alignment = 0
-text = "Quit"
+text = "MENU_QUIT"
 
 [node name="MatchSetupScreen" parent="." instance=ExtResource("5_match_setup")]
 unique_name_in_owner = true
