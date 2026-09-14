@@ -149,6 +149,32 @@ unique_name_in_owner = true
 
 [node name="ReloadSpacer" type="Control" parent="Frame/Dialog/Padding/Layout/Tabs/Match/Grid"]
 
+[node name="MapPickName" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Match/Grid"]
+size_flags_vertical = 1
+vertical_alignment = 1
+text = "Hub Map Pick"
+
+[node name="MapPickOption" type="OptionButton" parent="Frame/Dialog/Padding/Layout/Tabs/Match/Grid"]
+custom_minimum_size = Vector2(220, 0)
+size_flags_horizontal = 0
+size_flags_vertical = 1
+unique_name_in_owner = true
+editor_description = "Filled by SettingsScreen._fill_choices: the host picks from a dais, or everyone votes by standing on one."
+
+[node name="MapPickSpacer" type="Control" parent="Frame/Dialog/Padding/Layout/Tabs/Match/Grid"]
+
+[node name="VoteSecondsName" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Match/Grid"]
+size_flags_vertical = 1
+vertical_alignment = 1
+text = "Vote Seconds"
+
+[node name="VoteSecondsSpin" type="SpinBox" parent="Frame/Dialog/Padding/Layout/Tabs/Match/Grid"]
+custom_minimum_size = Vector2(120, 0)
+size_flags_horizontal = 0
+unique_name_in_owner = true
+
+[node name="VoteSecondsSpacer" type="Control" parent="Frame/Dialog/Padding/Layout/Tabs/Match/Grid"]
+
 [node name="BalanceHeading" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Match"]
 editor_description = "The levers Ryan tunes the fight with. Every default is the game as it plays today, so an untouched Balance group changes nothing."
 text = "BALANCE"

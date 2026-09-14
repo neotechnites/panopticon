@@ -204,6 +204,15 @@ const MAX_SCOPE_SWAY_SETTLE_SECONDS: float = 30.0
 const DEFAULT_TOWER_VARIANT: int = 1
 const TOWER_VARIANT_COUNT: int = 2
 
+## How the hub picks the map: 0 the host on a dais, 1 a vote by standing on one.
+const DEFAULT_MAP_PICK_MODE: int = int(MatchRules.MapPickMode.HOST)
+const MAP_PICK_MODE_COUNT: int = 2
+
+## Seconds a hub vote stays open.
+const DEFAULT_VOTE_SECONDS: float = 20.0
+const MIN_VOTE_SECONDS: float = 5.0
+const MAX_VOTE_SECONDS: float = 120.0
+
 ## Tower openings left open. All of them is the tower as modelled.
 const DEFAULT_TOWER_OPEN_WINDOWS: int = MatchRules.TOWER_WINDOW_COUNT
 
@@ -472,6 +481,12 @@ var scope_sway_settle_seconds: float = DEFAULT_SCOPE_SWAY_SETTLE_SECONDS
 ## [member MatchRules.tower_variant].
 var tower_variant: int = DEFAULT_TOWER_VARIANT
 
+## How the hub picks the map. Written over [member MatchRules.map_pick_mode].
+var map_pick_mode: int = DEFAULT_MAP_PICK_MODE
+
+## Seconds a hub vote stays open. Written over [member MatchRules.vote_seconds].
+var vote_seconds: float = DEFAULT_VOTE_SECONDS
+
 ## Tower openings left open. Written over
 ## [member MatchRules.tower_open_windows].
 var tower_open_windows: int = DEFAULT_TOWER_OPEN_WINDOWS
@@ -581,6 +596,8 @@ func reset() -> void:
 	scope_sway_hz = DEFAULT_SCOPE_SWAY_HZ
 	scope_sway_settle_seconds = DEFAULT_SCOPE_SWAY_SETTLE_SECONDS
 	tower_variant = DEFAULT_TOWER_VARIANT
+	map_pick_mode = DEFAULT_MAP_PICK_MODE
+	vote_seconds = DEFAULT_VOTE_SECONDS
 	tower_open_windows = DEFAULT_TOWER_OPEN_WINDOWS
 	guard_miss_penalty_seconds = DEFAULT_GUARD_MISS_PENALTY_SECONDS
 	guard_hit_marker = DEFAULT_GUARD_HIT_MARKER
@@ -650,6 +667,8 @@ func clamp_all() -> void:
 		MAX_SCOPE_SWAY_SETTLE_SECONDS,
 	)
 	tower_variant = clampi(tower_variant, 0, TOWER_VARIANT_COUNT - 1)
+	map_pick_mode = clampi(map_pick_mode, 0, MAP_PICK_MODE_COUNT - 1)
+	vote_seconds = clampf(vote_seconds, MIN_VOTE_SECONDS, MAX_VOTE_SECONDS)
 	tower_open_windows = clampi(tower_open_windows, 0, MatchRules.TOWER_WINDOW_COUNT)
 	guard_miss_penalty_seconds = clampf(
 		guard_miss_penalty_seconds,
@@ -713,6 +732,8 @@ func copy_from(other: GameSettings) -> void:
 	scope_sway_hz = other.scope_sway_hz
 	scope_sway_settle_seconds = other.scope_sway_settle_seconds
 	tower_variant = other.tower_variant
+	map_pick_mode = other.map_pick_mode
+	vote_seconds = other.vote_seconds
 	tower_open_windows = other.tower_open_windows
 	guard_miss_penalty_seconds = other.guard_miss_penalty_seconds
 	guard_hit_marker = other.guard_hit_marker
@@ -759,6 +780,8 @@ func equals(other: GameSettings) -> bool:
 		and is_equal_approx(scope_sway_hz, other.scope_sway_hz)
 		and is_equal_approx(scope_sway_settle_seconds, other.scope_sway_settle_seconds)
 		and tower_variant == other.tower_variant
+		and map_pick_mode == other.map_pick_mode
+		and is_equal_approx(vote_seconds, other.vote_seconds)
 		and tower_open_windows == other.tower_open_windows
 		and is_equal_approx(guard_miss_penalty_seconds, other.guard_miss_penalty_seconds)
 		and guard_hit_marker == other.guard_hit_marker
@@ -821,6 +844,8 @@ func write_to(config: ConfigFile) -> void:
 	config.set_value(SECTION_MATCH, "scope_sway_hz", scope_sway_hz)
 	config.set_value(SECTION_MATCH, "scope_sway_settle_seconds", scope_sway_settle_seconds)
 	config.set_value(SECTION_MATCH, "tower_variant", tower_variant)
+	config.set_value(SECTION_MATCH, "map_pick_mode", map_pick_mode)
+	config.set_value(SECTION_MATCH, "vote_seconds", vote_seconds)
 	config.set_value(SECTION_MATCH, "tower_open_windows", tower_open_windows)
 	config.set_value(SECTION_MATCH, "guard_miss_penalty_seconds", guard_miss_penalty_seconds)
 	config.set_value(SECTION_MATCH, "guard_hit_marker", guard_hit_marker)
@@ -894,6 +919,8 @@ func read_from(config: ConfigFile) -> void:
 		config, SECTION_MATCH, "scope_sway_settle_seconds", scope_sway_settle_seconds
 	)
 	tower_variant = read_int(config, SECTION_MATCH, "tower_variant", tower_variant)
+	map_pick_mode = read_int(config, SECTION_MATCH, "map_pick_mode", map_pick_mode)
+	vote_seconds = read_float(config, SECTION_MATCH, "vote_seconds", vote_seconds)
 	tower_open_windows = read_int(
 		config, SECTION_MATCH, "tower_open_windows", tower_open_windows
 	)
@@ -1086,6 +1113,8 @@ func apply_to_match_rules(rules: MatchRules) -> void:
 	rules.scope_sway_hz = scope_sway_hz
 	rules.scope_sway_settle_seconds = scope_sway_settle_seconds
 	rules.tower_variant = tower_variant
+	rules.map_pick_mode = map_pick_mode as MatchRules.MapPickMode
+	rules.vote_seconds = vote_seconds
 	rules.tower_open_windows = tower_open_windows
 	rules.guard_miss_penalty_seconds = guard_miss_penalty_seconds
 	rules.guard_hit_marker = guard_hit_marker
