@@ -1,0 +1,93 @@
+[gd_scene load_steps=10 format=3]
+
+[ext_resource type="Script" uid="uid://gwfatmklmjcr" path="res://scripts/ring/tower_variant.gd" id="1_tower_variant"]
+[ext_resource type="PackedScene" uid="uid://cwyjwhfotqv73" path="res://assets/models/tower.glb" id="2_tower_model"]
+[ext_resource type="PackedScene" uid="uid://qc0reb2qk6wi" path="res://assets/models/tower_arches.glb" id="3_tower_arches"]
+[ext_resource type="PackedScene" path="res://assets/models/tower_interior.glb" id="4_tower_interior"]
+[ext_resource type="PackedScene" path="res://scenes/player/player.tscn" id="5_player"]
+
+[sub_resource type="Environment" id="Env"]
+background_mode = 1
+background_color = Color(0.2, 0.06, 0.04, 1)
+ambient_light_source = 2
+ambient_light_color = Color(1, 0.55, 0.4, 1)
+ambient_light_energy = 0.35
+
+[sub_resource type="BoxShape3D" id="CourtyardShape"]
+size = Vector3(90, 1, 90)
+
+[sub_resource type="BoxMesh" id="CourtyardMesh"]
+size = Vector3(90, 1, 90)
+
+[sub_resource type="StandardMaterial3D" id="CourtyardMat"]
+albedo_color = Color(0.16, 0.05, 0.04, 1)
+roughness = 0.95
+
+[node name="TowerInteriorTest" type="Node3D"]
+editor_description = "The tower as bentham_ring instances it (Tower node at y 25.35) with tower_interior.glb at identity under it; PlayerSpawn stands outside the door on the courtyard."
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Env")
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.819152, -0.469846, 0.330366, 0, 0.573576, 0.819152, -0.573576, -0.67101, 0.469846, 0, 60, 0)
+light_color = Color(1, 0.45, 0.2, 1)
+light_energy = 0.8
+
+[node name="Courtyard" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -11.55, 0)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Courtyard"]
+shape = SubResource("CourtyardShape")
+
+[node name="Mesh" type="MeshInstance3D" parent="Courtyard"]
+mesh = SubResource("CourtyardMesh")
+surface_material_override/0 = SubResource("CourtyardMat")
+
+[node name="Tower" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 25.35, 0)
+script = ExtResource("1_tower_variant")
+
+[node name="Rock" parent="Tower" instance=ExtResource("2_tower_model")]
+visible = false
+
+[node name="RockArches" parent="Tower" instance=ExtResource("3_tower_arches")]
+
+[node name="Interior" parent="Tower" instance=ExtResource("4_tower_interior")]
+
+[node name="DoorLight" type="OmniLight3D" parent="Tower"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 15.5, -33.5, 2)
+light_color = Color(1, 0.6, 0.4, 1)
+light_energy = 3.0
+omni_range = 16.0
+
+[node name="ShaftLight1" type="OmniLight3D" parent="Tower"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -33, 0)
+light_color = Color(1, 0.55, 0.4, 1)
+light_energy = 4.0
+omni_range = 22.0
+
+[node name="ShaftLight2" type="OmniLight3D" parent="Tower"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -22, 0)
+light_color = Color(1, 0.55, 0.4, 1)
+light_energy = 4.0
+omni_range = 22.0
+
+[node name="ShaftLight3" type="OmniLight3D" parent="Tower"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -11, 0)
+light_color = Color(1, 0.55, 0.4, 1)
+light_energy = 4.0
+omni_range = 22.0
+
+[node name="ShaftLight4" type="OmniLight3D" parent="Tower"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1.5, 0)
+light_color = Color(1, 0.55, 0.4, 1)
+light_energy = 4.0
+omni_range = 22.0
+
+[node name="PlayerSpawn" type="Marker3D" parent="Tower"]
+editor_description = "Outside the door on the courtyard (Tower space y -36.4), facing -X into it."
+transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, 15.2, -36.4, 0)
+
+[node name="Player" parent="." instance=ExtResource("5_player")]
+transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, 15.2, -11.05, 0)
