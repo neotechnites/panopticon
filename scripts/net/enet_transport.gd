@@ -50,6 +50,21 @@ const DEFAULT_PORT: int = 27960
 ## direction only.
 const ENET_CHANNEL_COUNT: int = NetTransport.MAX_RPC_CHANNEL + 3
 
+## Retransmissions of one reliable packet before ENet starts counting against
+## the timeout window. ENet's own default; it is the window that this project
+## shortens, not the persistence.
+const TIMEOUT_RETRANSMISSIONS: int = 32
+
+## Largest payload this project puts in one packet, in bytes.
+##
+## Every path worth playing on carries a 1200 byte datagram without
+## fragmenting, and a fragmented UDP datagram is lost whole when any one of its
+## fragments is. The snapshot -- the only per-tick message whose size grows with
+## the player count -- is about 210 bytes at the full eight, so the headroom is
+## a factor of five and the number is here to be asserted against rather than
+## approached.
+const SAFE_PAYLOAD_BYTES: int = 1200
+
 ## The peer currently installed on the multiplayer API, or null when offline.
 var _peer: ENetMultiplayerPeer = null
 
@@ -78,6 +93,7 @@ func host(port: int, max_players: int = MAX_PLAYERS) -> Error:
 
 	_bind()
 	_peer = peer
+	_apply_compression(peer)
 	multiplayer.multiplayer_peer = peer
 	_set_state(ConnectionState.HOSTING)
 	return OK
@@ -95,6 +111,7 @@ func join(address: String, port: int) -> Error:
 
 	_bind()
 	_peer = peer
+	_apply_compression(peer)
 	multiplayer.multiplayer_peer = peer
 	# CONNECTING, not CONNECTED: create_client() only opens a socket. The
 	# handshake completes some frames later, on connected_to_server, and until
@@ -116,6 +133,18 @@ func abort() -> void:
 	# happened.
 	_teardown()
 	_set_state(ConnectionState.FAILED)
+
+
+func take_wire_stats() -> Dictionary:
+	if _peer == null or _peer.host == null:
+		return {}
+	var host: ENetConnection = _peer.host
+	return {
+		"sent_bytes": int(host.pop_statistic(ENetConnection.HOST_TOTAL_SENT_DATA)),
+		"received_bytes": int(host.pop_statistic(ENetConnection.HOST_TOTAL_RECEIVED_DATA)),
+		"sent_packets": int(host.pop_statistic(ENetConnection.HOST_TOTAL_SENT_PACKETS)),
+		"received_packets": int(host.pop_statistic(ENetConnection.HOST_TOTAL_RECEIVED_PACKETS)),
+	}
 
 
 func get_local_peer_id() -> int:
@@ -177,7 +206,43 @@ func _unbind() -> void:
 	_bound = false
 
 
+## Compress every packet, if the settings ask for it.
+##
+## [b]Both ends or neither.[/b] A host that compresses and a client that does not
+## share a connection that establishes and then reads rubbish, so this is driven
+## from one field of [NetSettings] and applied identically on both sides. The
+## range coder is the right one of ENet's choices here: the snapshot is eight
+## near-identical records of quantised integers, which is the case an adaptive
+## entropy coder is built for, and it costs microseconds.
+func _apply_compression(peer: ENetMultiplayerPeer) -> void:
+	if peer.host == null:
+		return
+	peer.host.compress(
+		ENetConnection.COMPRESS_RANGE_CODER if get_settings().compress_traffic
+		else ENetConnection.COMPRESS_NONE
+	)
+
+
+## Stop waiting for a peer that has gone silent, rather than ENet's own default.
+##
+## ENet gives a dead peer up to thirty seconds before it calls it gone. In a 1v1
+## that is half a minute of a player standing in an empty ring waiting for
+## somebody whose line died. The three numbers ENet wants are a retransmission
+## limit and a floor and ceiling in milliseconds; the ceiling is what actually
+## decides, and the floor is set to a quarter of it so a brief stall is not a
+## disconnection.
+func _apply_timeout(peer_id: int) -> void:
+	if _peer == null:
+		return
+	var packet_peer: ENetPacketPeer = _peer.get_peer(peer_id)
+	if packet_peer == null:
+		return
+	var ceiling_ms: int = int(get_settings().peer_timeout_seconds * 1000.0)
+	packet_peer.set_timeout(TIMEOUT_RETRANSMISSIONS, ceiling_ms / 4, ceiling_ms)
+
+
 func _on_peer_connected(peer_id: int) -> void:
+	_apply_timeout(peer_id)
 	peer_connected.emit(peer_id)
 
 
@@ -186,6 +251,7 @@ func _on_peer_disconnected(peer_id: int) -> void:
 
 
 func _on_connected_to_server() -> void:
+	_apply_timeout(AUTHORITY_PEER_ID)
 	_set_state(ConnectionState.CONNECTED)
 
 

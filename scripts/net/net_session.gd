@@ -126,6 +126,7 @@ func host(port: int = -1, max_players: int = -1) -> Error:
 		return ERR_UNCONFIGURED
 	var listen_port: int = port if port > 0 else settings.port
 	var players: int = max_players if max_players > 0 else settings.get_effective_max_players()
+	transport.configure(get_settings())
 	return transport.host(listen_port, players)
 
 
@@ -134,6 +135,7 @@ func host(port: int = -1, max_players: int = -1) -> Error:
 func join(address: String, port: int = -1) -> Error:
 	if transport == null:
 		return ERR_UNCONFIGURED
+	transport.configure(get_settings())
 	var error: Error = transport.join(address, port if port > 0 else settings.port)
 	if error == OK:
 		_connect_started_ms = Time.get_ticks_msec()

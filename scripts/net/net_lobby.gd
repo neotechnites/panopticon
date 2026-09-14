@@ -119,6 +119,12 @@ var _local_seat_index: int = -1
 ## [method conclude_match] for why the lobby keeps so little of a result.
 var _last_winning_seat: int = -1
 
+## Each peer's lobby-request allowance, and when it was last topped up, from
+## [method Time.get_ticks_msec]. Wall clock: a flood arrives over a socket and
+## the socket has not heard of the test runner's compressed time.
+var _request_tokens: Dictionary[int, float] = {}
+var _request_filled_ms: Dictionary[int, int] = {}
+
 
 func _ready() -> void:
 	_build_seats()
@@ -547,6 +553,8 @@ func _on_peer_joined(peer_id: int) -> void:
 
 
 func _on_peer_left(peer_id: int) -> void:
+	_request_tokens.erase(peer_id)
+	_request_filled_ms.erase(peer_id)
 	if not _is_authority():
 		return
 	var seat: LobbySeat = find_seat_by_peer(peer_id)
@@ -623,9 +631,7 @@ func _receive_rules(payload: PackedByteArray) -> void:
 ## Client to authority: ready or un-ready my seat.
 @rpc("any_peer", "reliable", "call_remote", 0)
 func _request_ready(ready: bool) -> void:
-	if not _is_authority():
-		return
-	var seat: LobbySeat = find_seat_by_peer(multiplayer.get_remote_sender_id())
+	var seat: LobbySeat = _requesting_seat()
 	if seat == null:
 		return
 	_apply_ready(seat.index, ready)
@@ -634,18 +640,85 @@ func _request_ready(ready: bool) -> void:
 ## Client to authority: this is what to call me.
 @rpc("any_peer", "reliable", "call_remote", 0)
 func _request_name(display_name: String) -> void:
-	if not _is_authority():
-		return
-	var seat: LobbySeat = find_seat_by_peer(multiplayer.get_remote_sender_id())
+	var seat: LobbySeat = _requesting_seat()
 	if seat == null:
 		return
+	if _phase != Phase.GATHERING:
+		# A name is a lobby fact. Accepting one mid-match would republish the
+		# whole roster to everybody in the middle of a round, and there is
+		# nowhere it would be drawn that it has not already been drawn.
+		return
+	if display_name.length() > MAX_RAW_NAME_LENGTH:
+		# Cut before it is walked. [method NetCodec.sanitise_name] inspects
+		# every character, and a peer may not choose how many of them the host
+		# inspects.
+		display_name = display_name.substr(0, MAX_RAW_NAME_LENGTH)
 	_apply_name(seat.index, display_name)
+
+
+## The seat a lobby request belongs to, or null when the request is refused.
+##
+## Three refusals in one place. This machine must be the authority; the sender
+## must hold a seat, which is how the acting seat is DERIVED from the packet's
+## origin and never taken from the packet; and the sender must not be asking
+## faster than [member NetSettings.lobby_request_interval_seconds].
+##
+## The throttle is the one that is easy to miss. Every request the host grants
+## is answered with a reliable broadcast of the whole roster to every peer, so
+## an unthrottled client makes the host send N packets for each one it sends --
+## and alternating a flag defeats any check for "did this change anything".
+func _requesting_seat() -> LobbySeat:
+	if not _is_authority():
+		return null
+	var sender_id: int = multiplayer.get_remote_sender_id()
+	var seat: LobbySeat = find_seat_by_peer(sender_id)
+	if seat == null:
+		return null
+	if not _spend_request_token(sender_id):
+		return null
+	return seat
+
+
+## Take one request out of [param peer_id]'s allowance. False when it is empty.
+##
+## A bucket rather than a minimum gap, because a gap gets the wrong answer for
+## the one case that matters: a player types a name and presses Ready in the
+## same second, which is two requests back to back and entirely ordinary. The
+## bucket holds [constant REQUEST_BURST] and refills at one per
+## [member NetSettings.lobby_request_interval_seconds], so a burst of clicking
+## is free and a script settles at four requests a second.
+func _spend_request_token(peer_id: int) -> bool:
+	var now_ms: int = Time.get_ticks_msec()
+	var interval_ms: float = maxf(
+		session.get_settings().lobby_request_interval_seconds * 1000.0, 1.0
+	)
+	var tokens: float = float(_request_tokens.get(peer_id, float(REQUEST_BURST)))
+	if _request_filled_ms.has(peer_id):
+		tokens += float(now_ms - _request_filled_ms[peer_id]) / interval_ms
+	tokens = minf(tokens, float(REQUEST_BURST))
+	_request_filled_ms[peer_id] = now_ms
+	if tokens < 1.0:
+		_request_tokens[peer_id] = tokens
+		return false
+	_request_tokens[peer_id] = tokens - 1.0
+	return true
 
 
 # --- Internals ----------------------------------------------------------------
 
 func _is_authority() -> bool:
 	return session != null and session.is_authority()
+
+
+## Lobby requests one peer may make back to back before the throttle bites.
+const REQUEST_BURST: int = 4
+
+## Longest raw display name the host will even look at, in characters.
+##
+## Four times the byte budget, which is room for a name of astral-plane emoji
+## and nothing beyond it. The sanitiser truncates properly; this only stops a
+## peer choosing how much work the host does before it gets there.
+const MAX_RAW_NAME_LENGTH: int = 256
 
 
 func _settings() -> NetSettings:

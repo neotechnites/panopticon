@@ -398,17 +398,25 @@ func test_a_host_side_kill_snaps_the_client_instead_of_sliding_it() -> void:
 	_host_link.controller.velocity = Vector3.ZERO
 
 	# One snapshot interval, one latency, one jitter, and a tick to act on it.
-	await step_ticks(SNAPSHOT_EVERY + LATENCY_TICKS + _jitter + 2)
+	var flight: int = SNAPSHOT_EVERY + LATENCY_TICKS + _jitter + 2
+	await step_ticks(flight)
 	var landed: Array = _measure()
 	assert_gt(float(int(landed[1])), 0.0, "the correction was taken as a snap, not a drift")
+	# Where the host put it, PLUS the running the client has done since. A snap
+	# REPLAYS the unacknowledged input rather than deleting it -- see
+	# PlayerNetLink -- so the body lands at the grave carrying a round trip of
+	# the player's own running, and then keeps running for what is left of the
+	# wait. The bound is those two stretches and not zero. What it is not is the
+	# sixty metres the body would still be short of if the snap had not landed.
+	var carried: int = flight + LATENCY_TICKS + SNAPSHOT_EVERY + _jitter
+	var travelled: float = _client_link.controller.get_horizontal_speed() * SIM_DELTA * float(carried)
 	assert_lt(
 		_client_link.controller.global_position.distance_to(grave),
-		1.0,
-		"and the client's body is where the host put it, on the tick it heard",
+		maxf(travelled, 1.0),
+		"and the client's body is where the host put it, carried on by what it has run since",
 	)
-	assert_vec3_almost_eq(
-		_client_link.controller.view_offset,
-		Vector3.ZERO,
-		0.001,
-		"with the view taken with it rather than left behind smoothing",
+	assert_lt(
+		_client_link.controller.view_offset.length(),
+		_client.get_settings().prediction_snap_metres * 0.1,
+		"with the view taken with the body rather than left behind smoothing a snap away",
 	)

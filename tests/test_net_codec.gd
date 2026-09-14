@@ -47,7 +47,7 @@ func _make_state(seat: int, offset: float) -> PlayerState:
 	state.is_finisher = seat == 1
 	state.is_armed = seat == 1
 	state.health = 3 + seat
-	state.jumped = seat == 2
+	state.jump_counter = seat
 	state.sliding = seat == 2
 	state.crouching = seat == 0
 	return state
@@ -127,8 +127,10 @@ func test_a_snapshot_survives_the_round_trip() -> void:
 		if state == null:
 			continue
 		var expected: PlayerState = _make_state(seat, float(seat) * 3.0)
-		assert_vec3_almost_eq(state.position, expected.position, 0.001, "seat %d position" % seat)
-		assert_vec3_almost_eq(state.velocity, expected.velocity, 0.001, "seat %d velocity" % seat)
+		# Half a centimetre: position and velocity are quantised to the
+		# centimetre on the wire, and that is the whole of the error.
+		assert_vec3_almost_eq(state.position, expected.position, 0.006, "seat %d position" % seat)
+		assert_vec3_almost_eq(state.velocity, expected.velocity, 0.006, "seat %d velocity" % seat)
 		assert_almost_eq(state.yaw, expected.yaw, 0.001, "seat %d yaw" % seat)
 		assert_almost_eq(state.pitch, expected.pitch, 0.001, "seat %d pitch" % seat)
 		assert_true(state.on_floor == expected.on_floor, "seat %d on_floor" % seat)
@@ -148,7 +150,9 @@ func test_a_snapshot_survives_the_round_trip() -> void:
 		assert_true(state.is_finisher == expected.is_finisher, "seat %d is_finisher" % seat)
 		assert_true(state.is_armed == expected.is_armed, "seat %d is_armed" % seat)
 		assert_eq_int(state.health, expected.health, "seat %d health" % seat)
-		assert_true(state.jumped == expected.jumped, "seat %d jumped, an edge on the wire" % seat)
+		assert_eq_int(
+			state.jump_counter, expected.jump_counter, "seat %d jump count, an edge counted" % seat
+		)
 		assert_true(state.sliding == expected.sliding, "seat %d sliding" % seat)
 		assert_true(state.crouching == expected.crouching, "seat %d crouching" % seat)
 		assert_eq_int(state.tick, 900, "seat %d carries the snapshot's tick" % seat)

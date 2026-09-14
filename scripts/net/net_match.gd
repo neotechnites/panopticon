@@ -7,6 +7,11 @@ extends Node
 ## The server started the match, or a client learned that it did.
 signal match_bound(authority: bool)
 
+## The session this match was running on ended under a client -- the host quit,
+## crashed or timed out. Client-only, and there is no host migration: whoever
+## is listening is being told the match is over, not asked to take it over.
+signal host_lost()
+
 const SESSION_PATH: NodePath = ^"/root/NetSession"
 const LINK_SCENE_PATH: String = "res://scenes/net/player_net_link.tscn"
 
@@ -52,9 +57,10 @@ func _ready() -> void:
 		set_physics_process(false)
 		return
 	_lobby = _session.lobby
-	if _lobby == null or (not hub_mode and _lobby.get_phase() != NetLobby.Phase.LAUNCHING):
+	if _lobby == null or (not hub_mode and not _is_bindable_phase(_lobby.get_phase())):
 		set_physics_process(false)
 		return
+	_session.session_ended.connect(_on_session_ended)
 	controller.auto_start = false
 	if hub_mode:
 		# No opening role, no event subscriptions and no ready handshake: a hub
@@ -76,6 +82,19 @@ func _ready() -> void:
 			_start_now()
 	else:
 		rpc_id(NetTransport.AUTHORITY_PEER_ID, &"_client_ready")
+
+
+## Phases a match scene may bind in.
+##
+## [constant NetLobby.Phase.IN_MATCH] as well as
+## [constant NetLobby.Phase.LAUNCHING], and the second one is the fix rather
+## than an afterthought. The host starts without a client that has not reported
+## after [constant READY_TIMEOUT_SECONDS], and starting moves the phase on --
+## so a client that was merely slow to load used to arrive in a match scene
+## that refused to bind, with no bodies, no links and no way back. It binds
+## now, and [method _client_ready] catches it up.
+static func _is_bindable_phase(phase: NetLobby.Phase) -> bool:
+	return phase == NetLobby.Phase.LAUNCHING or phase == NetLobby.Phase.IN_MATCH
 
 
 func is_active() -> bool:
@@ -372,11 +391,44 @@ func _on_seat_occupancy_changed(seat_index: int, occupancy: LobbySeat.Occupancy)
 func _client_ready() -> void:
 	if not is_authority():
 		return
-	var index: int = _pending_peers.find(multiplayer.get_remote_sender_id())
+	var sender_id: int = multiplayer.get_remote_sender_id()
+	var index: int = _pending_peers.find(sender_id)
 	if index != -1:
 		_pending_peers.remove_at(index)
+	if _started:
+		_catch_up(sender_id)
+		return
 	if _pending_peers.is_empty():
 		_start_now()
+
+
+## Tell one peer what it missed by binding late.
+##
+## The match events are one-shots on a reliable channel, which delivers them to
+## whoever is listening AT THE TIME -- and a client still loading is not. Two
+## messages cover it: the match is running, and this is the round it is on. The
+## bodies themselves need nothing, because a snapshot is absolute and the next
+## one puts every one of them right.
+func _catch_up(peer_id: int) -> void:
+	if peer_id <= 0 or peer_id == NetTransport.AUTHORITY_PEER_ID:
+		return
+	rpc_id(peer_id, &"_ev_match_started")
+	var seat: MatchParticipant = controller.get_seat_participant()
+	if seat == null:
+		# Nobody in the tower yet: the opening race is still running.
+		rpc_id(peer_id, &"_ev_race_started")
+		return
+	rpc_id(peer_id, &"_ev_round_started", seat.index, controller.get_round_number())
+
+
+## The host went away. There is no migration -- see [ENetTransport] -- so this
+## says so and stops, rather than letting a mirror run a match nobody is
+## deciding.
+func _on_session_ended(_failed: bool) -> void:
+	if is_authority():
+		return
+	set_physics_process(false)
+	host_lost.emit()
 
 
 @rpc("authority", "reliable", "call_remote", 0)

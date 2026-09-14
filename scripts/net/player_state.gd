@@ -73,9 +73,15 @@ var is_armed: bool = false
 ## Hit points left, 0-255 on the wire. The finisher's, and the guard's.
 var health: int = 0
 
-## The authority's body jumped on the tick this was sampled. An EDGE, not a
-## state: a mirror turns it back into [signal PlayerController.jumped].
-var jumped: bool = false
+## How many times this body has jumped, wrapping at
+## [constant NetCodec.JUMP_COUNTER_MODULUS]. An EDGE turned into a COUNT: a
+## mirror fires [signal PlayerController.jumped] once per increment it sees.
+##
+## A flag would have been smaller and wrong. The snapshot channel is unreliable
+## and runs at half the simulation rate, so a flag loses the jump whose snapshot
+## was dropped and merges two hops that landed in one interval; a count survives
+## both, and rides in bits the flag byte already had spare.
+var jump_counter: int = 0
 
 ## Whether the authority had this body sliding or crouched. A client runs no
 ## physics, so the poses have nowhere else to come from.
@@ -98,7 +104,7 @@ func clear() -> void:
 	is_finisher = false
 	is_armed = false
 	health = 0
-	jumped = false
+	jump_counter = 0
 	sliding = false
 	crouching = false
 
@@ -118,7 +124,7 @@ func copy_from(other: PlayerState) -> void:
 	is_finisher = other.is_finisher
 	is_armed = other.is_armed
 	health = other.health
-	jumped = other.jumped
+	jump_counter = other.jump_counter
 	sliding = other.sliding
 	crouching = other.crouching
 
@@ -145,7 +151,7 @@ func interpolate_from(from: PlayerState, to: PlayerState, weight: float) -> void
 	is_finisher = to.is_finisher
 	is_armed = to.is_armed
 	health = to.health
-	jumped = to.jumped
+	jump_counter = to.jump_counter
 	sliding = to.sliding
 	crouching = to.crouching
 	position = from.position.lerp(to.position, t)

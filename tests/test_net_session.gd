@@ -28,7 +28,17 @@ const REPLICATION_TICKS: int = 40
 ## in the past by design, so a falling body is legitimately a few centimetres
 ## behind. The number this bounds is the failure -- a body that never moved at
 ## all, sitting where the test parked it, tens of metres away.
-const CONVERGENCE_METRES: float = 2.0
+## How close the client's body must get to the authority's, in metres.
+##
+## Not zero, and not one snapshot interval either: a mirrored body is drawn a
+## JITTER BUFFER behind the newest snapshot, and the buffer's depth is measured
+## from the connection rather than fixed -- see [NetReplicator]. Under this
+## runner the socket is polled far less often than the compressed physics ticks,
+## which reads as tens of milliseconds of jitter and buys a correspondingly deep
+## buffer, so a body in free fall is several metres behind and correctly so.
+## What this number is for is the difference between followed and did not: the
+## body starts a quarter of a kilometre away.
+const CONVERGENCE_METRES: float = 5.0
 
 ## Where a client's body is parked before any snapshot arrives. Far enough away
 ## that "it converged" cannot be confused with "it was already there".
