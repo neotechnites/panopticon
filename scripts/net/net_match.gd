@@ -40,7 +40,12 @@ const FINISHER_RIFLE: int = 1
 var _session: NetSession = null
 var _lobby: NetLobby = null
 var _links: Array[PlayerNetLink] = []
+## Seat index -> slot, and its inverse. The match layer counts participants in
+## dense slots; the wire and the lobby name seats. Every crossing goes through
+## these two and nowhere else -- deriving a seat from a slot by position in
+## get_occupied_seats() is wrong the moment a seat is emptied mid-match.
 var _slot_of_seat: Dictionary[int, int] = {}
+var _seat_of_slot: PackedInt32Array = PackedInt32Array()
 var _pending_peers: PackedInt32Array = PackedInt32Array()
 var _wait_seconds: float = 0.0
 var _started: bool = false
@@ -148,6 +153,7 @@ func rebuild_hub() -> void:
 		link.queue_free()
 	_links.clear()
 	_slot_of_seat.clear()
+	_seat_of_slot.clear()
 	if runner_container != null:
 		for child: Node in runner_container.get_children():
 			runner_container.remove_child(child)
@@ -177,6 +183,7 @@ func _build_bodies() -> void:
 	var local_seat: int = _lobby.get_local_seat_index()
 	var local_slot: int = 0
 	var seats: Array[LobbySeat] = _seats_to_build()
+	_seat_of_slot.resize(seats.size())
 	for slot: int in seats.size():
 		var seat: LobbySeat = seats[slot]
 		var body: PlayerController
@@ -191,6 +198,7 @@ func _build_bodies() -> void:
 		kinds.append(MatchParticipant.Kind.AI if seat.is_bot() else MatchParticipant.Kind.HUMAN)
 		names.append(seat.display_name if not seat.display_name.is_empty() else "Player %d" % (seat.index + 1))
 		_slot_of_seat[seat.index] = slot
+		_seat_of_slot[slot] = seat.index
 		_add_link(seat, body, seat.index == local_seat)
 	controller.configure_net(bodies, kinds, names, local_slot, not _session.is_authority())
 
@@ -208,6 +216,19 @@ func _add_link(seat: LobbySeat, body: PlayerController, is_local: bool) -> void:
 		link.local_source = body.intent_source
 	add_child(link)
 	_links.append(link)
+
+
+## The seat a participant slot was built from, or -1 for a slot this match has
+## no body for.
+func _seat_index_of(slot: int) -> int:
+	if slot < 0 or slot >= _seat_of_slot.size():
+		return -1
+	return _seat_of_slot[slot]
+
+
+## The link driving a participant slot's body, or null.
+func _link_of_slot(slot: int) -> PlayerNetLink:
+	return _link_for_seat(_seat_index_of(slot))
 
 
 func _link_for_seat(seat_index: int) -> PlayerNetLink:
@@ -305,7 +326,7 @@ func _drive_remote_trigger() -> void:
 func _drive_trigger(who: MatchParticipant, weapon: Rifle, was_held: bool) -> bool:
 	if who == null or weapon == null or not who.is_human() or who == controller.get_human_participant():
 		return false
-	var link: PlayerNetLink = _links[who.index] if who.index < _links.size() else null
+	var link: PlayerNetLink = _link_of_slot(who.index)
 	var source: RemoteIntentSource = link.get_remote_source() if link != null else null
 	if source == null:
 		return was_held
@@ -329,8 +350,7 @@ func _on_round_started() -> void:
 
 func _on_match_won(participant: MatchParticipant) -> void:
 	rpc(&"_ev_match_won", participant.index)
-	var seat: LobbySeat = _lobby.get_occupied_seats()[participant.index] if participant.index < _lobby.get_occupant_count() else null
-	_lobby.conclude_match(seat.index if seat != null else -1)
+	_lobby.conclude_match(_seat_index_of(participant.index))
 
 
 func _on_rifle_fired(origin: Vector3, end_point: Vector3, weapon: Rifle, which: int) -> void:
@@ -354,10 +374,12 @@ func _on_finisher_armed(weapon: Rifle) -> void:
 ## so they are sent to the peer that pushed.
 func _on_participant_shoved(shover: MatchParticipant, victim: MatchParticipant) -> void:
 	_on_shove_landed(victim)
-	var seats: Array[LobbySeat] = _lobby.get_occupied_seats()
-	if shover == null or shover.body == null or shover.index >= seats.size():
+	if shover == null or shover.body == null:
 		return
-	var peer: int = seats[shover.index].peer_id
+	var seat: LobbySeat = _lobby.get_seat(_seat_index_of(shover.index))
+	if seat == null:
+		return
+	var peer: int = seat.peer_id
 	if peer <= 0 or peer == NetTransport.AUTHORITY_PEER_ID:
 		return
 	var forward: Vector3 = -shover.body.global_transform.basis.z
@@ -386,6 +408,13 @@ func _on_seat_occupancy_changed(seat_index: int, occupancy: LobbySeat.Occupancy)
 
 
 # --- Wire ---------------------------------------------------------------------
+
+## True when this machine replays the server's decisions rather than making
+## them. Every [code]_ev_[/code] handler below opens with it, in one spelling, so
+## the guard is read once rather than re-derived per message.
+func _replays() -> bool:
+	return not is_authority()
+
 
 @rpc("any_peer", "reliable", "call_remote", 0)
 func _client_ready() -> void:
@@ -433,7 +462,7 @@ func _on_session_ended(_failed: bool) -> void:
 
 @rpc("authority", "reliable", "call_remote", 0)
 func _ev_match_started() -> void:
-	if is_authority():
+	if not _replays():
 		return
 	controller.net_start_match()
 	if not _started:
@@ -443,19 +472,21 @@ func _ev_match_started() -> void:
 
 @rpc("authority", "reliable", "call_remote", 0)
 func _ev_race_started() -> void:
-	if not is_authority():
-		controller.net_start_race()
+	if not _replays():
+		return
+	controller.net_start_race()
 
 
 @rpc("authority", "reliable", "call_remote", 0)
 func _ev_round_started(seat_index: int, round_number: int) -> void:
-	if not is_authority():
-		controller.net_start_round(seat_index, round_number)
+	if not _replays():
+		return
+	controller.net_start_round(seat_index, round_number)
 
 
 @rpc("authority", "reliable", "call_remote", 0)
 func _ev_removed(index: int) -> void:
-	if is_authority():
+	if not _replays():
 		return
 	if controller.get_phase() == MatchController.Phase.RACE:
 		controller.net_race_out(index)
@@ -465,30 +496,36 @@ func _ev_removed(index: int) -> void:
 
 @rpc("authority", "reliable", "call_remote", 0)
 func _ev_round_resolved(outcome: int) -> void:
-	if not is_authority():
-		controller.net_resolve(outcome as MatchController.Outcome)
+	if not _replays():
+		return
+	controller.net_resolve(outcome as MatchController.Outcome)
 
 
 @rpc("authority", "reliable", "call_remote", 0)
 func _ev_match_won(index: int) -> void:
-	if not is_authority():
-		controller.net_win(index)
+	if not _replays():
+		return
+	controller.net_win(index)
 
 
 @rpc("authority", "reliable", "call_remote", 0)
 func _ev_ghost_respawned(index: int) -> void:
-	if not is_authority():
-		controller.net_ghost_respawn(index)
+	if not _replays():
+		return
+	controller.net_ghost_respawn(index)
 
 
 @rpc("authority", "reliable", "call_remote", 0)
 func _ev_ghost_caught(ghost_index: int, caught_index: int) -> void:
-	if not is_authority():
-		controller.net_ghost_caught(ghost_index, caught_index)
+	if not _replays():
+		return
+	controller.net_ghost_caught(ghost_index, caught_index)
 
 
 @rpc("authority", "reliable", "call_remote", 0)
 func _ev_rifle_fired(which: int, origin: Vector3, end_point: Vector3, reload: float) -> void:
+	if not _replays():
+		return
 	var weapon: Rifle = _weapon_of(which)
 	if weapon != null:
 		weapon.show_remote_shot(origin, end_point, reload)
@@ -496,6 +533,8 @@ func _ev_rifle_fired(which: int, origin: Vector3, end_point: Vector3, reload: fl
 
 @rpc("authority", "reliable", "call_remote", 0)
 func _ev_rifle_hit(which: int, index: int, at: Vector3, normal: Vector3) -> void:
+	if not _replays():
+		return
 	var weapon: Rifle = _weapon_of(which)
 	if weapon == null:
 		return
@@ -507,6 +546,8 @@ func _ev_rifle_hit(which: int, index: int, at: Vector3, normal: Vector3) -> void
 
 @rpc("authority", "reliable", "call_remote", 0)
 func _ev_rifle_missed(which: int, end_point: Vector3) -> void:
+	if not _replays():
+		return
 	var weapon: Rifle = _weapon_of(which)
 	if weapon != null:
 		weapon.show_remote_miss(end_point)
@@ -514,37 +555,40 @@ func _ev_rifle_missed(which: int, end_point: Vector3) -> void:
 
 @rpc("authority", "reliable", "call_remote", 0)
 func _ev_finisher_armed(index: int) -> void:
-	if not is_authority():
-		controller.net_arm_finisher(index)
+	if not _replays():
+		return
+	controller.net_arm_finisher(index)
 
 
 @rpc("authority", "reliable", "call_remote", 0)
 func _ev_kill_beat(guard_index: int) -> void:
-	if not is_authority():
-		controller.net_kill_beat(guard_index)
+	if not _replays():
+		return
+	controller.net_kill_beat(guard_index)
 
 
 @rpc("authority", "reliable", "call_remote", 0)
 func _ev_shove_landed(at: Vector3) -> void:
-	if not is_authority() and at.is_finite():
-		controller.net_shove_landed(at)
+	if not _replays() or not at.is_finite():
+		return
+	controller.net_shove_landed(at)
 
 
-## Which gun an event names, on a client. Null on the authority, which replays
-## nothing, and before a finisher has been armed.
+## Which gun an event names. Null before a finisher has been armed. Callers have
+## already refused the authority; see [method _replays].
 func _weapon_of(which: int) -> Rifle:
-	if is_authority():
-		return null
 	return controller.get_finisher_rifle() if which == FINISHER_RIFLE else controller.rifle
 
 
 @rpc("authority", "reliable", "call_remote", 0)
 func _ev_shoved(forward: Vector3) -> void:
-	if not is_authority() and forward.is_finite():
-		controller.net_shove_felt(forward)
+	if not _replays() or not forward.is_finite():
+		return
+	controller.net_shove_felt(forward)
 
 
 @rpc("authority", "reliable", "call_remote", 0)
 func _ev_seat_to_bot(slot: int) -> void:
-	if not is_authority():
-		controller.net_seat_to_bot(slot)
+	if not _replays():
+		return
+	controller.net_seat_to_bot(slot)
