@@ -12,8 +12,8 @@ This is **personal** work under `neotechnites`, and it must never touch the comp
 
 - Remote is SSH only: `git@github-olympus:neotechnites/panopticon.git`
 - Bound to `~/.ssh/olympus_ed25519` via the `github-olympus` alias in `~/.ssh/config`
-- **Never use the `gh` CLI here.** It is authenticated as the company account
-  `company-login` and would create repos and stamp commits under the company.
+- **Never use the `gh` CLI here.** A wrong GitHub login was used before; any repo created
+  through `gh` must be created under the `neotechnites` org, not any other account.
 - Local git identity is `Ryan <ryan@olympus.local>`, not the company address.
 
 ## Engine

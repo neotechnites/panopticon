@@ -42,13 +42,17 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sqlite3
 import statistics
 import sys
 from pathlib import Path
 
 DEFAULT_DB = Path(
-    "/Users/user/Documents/senate/domains/panopticon/data/panopticon.db"
+    os.environ.get(
+        "PANOPTICON_POD_DB",
+        os.path.expanduser("~/Documents/senate/domains/panopticon/data/panopticon.db"),
+    )
 )
 
 TABLE = "playtests"
