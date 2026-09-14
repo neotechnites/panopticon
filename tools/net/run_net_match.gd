@@ -54,6 +54,9 @@ func _boot() -> void:
 	if _use_screen():
 		SettingsStore.instance().config_path = "user://net_harness_settings.cfg"
 		_screen = (load(SCREEN_SCENE) as PackedScene).instantiate() as MultiplayerScreen
+		# This harness drives the screen's own lobby panel; it has no hub to walk
+		# into and would lose the node it is holding if the scene changed.
+		_screen.enters_hub = false
 		root.add_child(_screen)
 		current_scene = _screen
 		_session = _screen.ensure_session()

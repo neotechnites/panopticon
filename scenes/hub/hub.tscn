@@ -1,0 +1,450 @@
+[gd_scene load_steps=26 format=3]
+
+[ext_resource type="PackedScene" path="res://assets/models/hub_base.glb" id="1_hub_base"]
+[ext_resource type="Script" uid="uid://gwfatmklmjcr" path="res://scripts/ring/tower_variant.gd" id="2_tower_variant"]
+[ext_resource type="PackedScene" uid="uid://cwyjwhfotqv73" path="res://assets/models/tower.glb" id="3_tower_model"]
+[ext_resource type="PackedScene" uid="uid://qc0reb2qk6wi" path="res://assets/models/tower_arches.glb" id="4_tower_arches"]
+[ext_resource type="PackedScene" path="res://scenes/tower/watching_eye.tscn" id="5_watching_eye"]
+[ext_resource type="PackedScene" path="res://assets/models/tower_interior.glb" id="6_tower_interior"]
+[ext_resource type="PackedScene" path="res://scenes/player/player.tscn" id="7_player"]
+[ext_resource type="PackedScene" path="res://scenes/bot/ring_runner.tscn" id="8_runner"]
+[ext_resource type="Script" path="res://scripts/match/match_controller.gd" id="9_controller"]
+[ext_resource type="Script" path="res://scripts/net/net_match.gd" id="10_net_match"]
+[ext_resource type="Script" path="res://scripts/hub/hub_lobby.gd" id="11_hub_lobby"]
+[ext_resource type="Script" path="res://scripts/hub/map_wedge.gd" id="12_map_wedge"]
+[ext_resource type="Script" path="res://scripts/ui/settings_boot.gd" id="13_settings_boot"]
+[ext_resource type="Resource" path="res://scenes/player/default_movement_profile.tres" id="14_movement_profile"]
+[ext_resource type="PackedScene" path="res://scenes/audio/game_audio.tscn" id="15_game_audio"]
+[ext_resource type="PackedScene" path="res://scenes/ui/match_setup_screen.tscn" id="16_match_setup"]
+[ext_resource type="PackedScene" path="res://scenes/ui/pause_menu.tscn" id="17_pause_menu"]
+[ext_resource type="Theme" path="res://scenes/ui/panopticon_menu_theme.tres" id="18_menu_theme"]
+[ext_resource type="Resource" path="res://resources/rules/default_match_rules.tres" id="19_rules"]
+[ext_resource type="Resource" path="res://resources/rules/default_runner_palette.tres" id="20_palette"]
+[ext_resource type="PackedScene" path="res://scenes/ring/bentham_ring.tscn" id="21_map1"]
+
+[sub_resource type="ProceduralSkyMaterial" id="SkyMat"]
+sky_top_color = Color(0.54, 0.110700026, 0.054000016, 1)
+sky_horizon_color = Color(0.5, 0.09, 0.05, 1)
+sky_curve = 0.25
+sky_energy_multiplier = 1.4
+ground_bottom_color = Color(0.25, 0.05, 0.03, 1)
+ground_horizon_color = Color(0.42, 0.07, 0.04, 1)
+sun_angle_max = 0.0
+
+[sub_resource type="Sky" id="Sky"]
+sky_material = SubResource("SkyMat")
+
+[sub_resource type="Environment" id="Env"]
+background_mode = 2
+sky = SubResource("Sky")
+ambient_light_source = 3
+ambient_light_color = Color(0.7, 0.16, 0.08, 1)
+ambient_light_energy = 0.64
+tonemap_mode = 1
+
+[sub_resource type="CylinderShape3D" id="DaisTrigger"]
+height = 5.0
+radius = 3.5
+
+[node name="Hub" type="Node3D"]
+editor_description = "The hub lobby as a playable scene: the ring world, one body per seated human, and MatchController in hub_mode -- a match with no rounds, no tower and no bots."
+
+[node name="SettingsBoot" type="Node" parent="."]
+editor_description = "The player's saved look and display settings, applied before anything reads them. match_rules is deliberately unset: the hub plays no match."
+script = ExtResource("13_settings_boot")
+movement_profile = ExtResource("14_movement_profile")
+
+[node name="HubWorld" type="Node3D" parent="."]
+editor_description = "The hub itself: hub_base.glb at identity (100 m across, floor y 0, plinth r 25 at y 0.35), the tower on the plinth as in bentham_ring, and ten 36 degree wedges around it. MatchController's arena."
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="HubWorld"]
+environment = SubResource("Env")
+
+[node name="HubBase" parent="HubWorld" instance=ExtResource("1_hub_base")]
+
+[node name="Tower" type="Node3D" parent="HubWorld"]
+editor_description = "Origin is the guard-room floor, as in bentham_ring; the rock's foot lands on the plinth top at y 0.35."
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 36.75, 0)
+script = ExtResource("2_tower_variant")
+
+[node name="Rock" parent="HubWorld/Tower" instance=ExtResource("3_tower_model")]
+visible = false
+
+[node name="RockArches" parent="HubWorld/Tower" instance=ExtResource("4_tower_arches")]
+
+[node name="Interior" parent="HubWorld/Tower" instance=ExtResource("6_tower_interior")]
+
+[node name="TowerSpawn" type="Marker3D" parent="HubWorld/Tower"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.95, 0)
+
+[node name="KeyLight" type="DirectionalLight3D" parent="HubWorld/Tower"]
+transform = Transform3D(1, 0, 0, 0, 0.34202, 0.939693, 0, -0.939693, 0.34202, 0, 20, 0)
+light_color = Color(1, 0.45, 0.15, 1)
+light_energy = 0.0
+shadow_bias = 0.08
+directional_shadow_mode = 0
+directional_shadow_max_distance = 180.0
+
+[node name="HellFlood" type="OmniLight3D" parent="HubWorld/Tower"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 300, 0)
+light_color = Color(1, 0.28, 0.06, 1)
+light_energy = 3.4
+omni_range = 700.0
+omni_attenuation = 0.6
+
+[node name="Watcher" parent="HubWorld/Tower" instance=ExtResource("5_watching_eye")]
+
+[node name="Wedges" type="Node3D" parent="HubWorld"]
+editor_description = "Ten wedges of 36 degrees, W01 at bearings 0-36. One holds a map; the other nine hold a question mark until Ryan decides what stands there."
+
+[node name="W01_Hell" type="Node3D" parent="HubWorld/Wedges"]
+script = ExtResource("12_map_wedge")
+map_scene = ExtResource("21_map1")
+map_id = &"bentham_ring"
+title = "MAP 1"
+
+[node name="Dais" type="Marker3D" parent="HubWorld/Wedges/W01_Hell"]
+transform = Transform3D(-0.309017, 0, 0.951057, 0, 1, 0, -0.951057, 0, -0.309017, 34.238, 0, -11.1246)
+editor_description = "Bearing 18 deg, r 36. Facing the tower."
+
+[node name="Sign" type="Label3D" parent="HubWorld/Wedges/W01_Hell/Dais"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5, 0)
+billboard = 1
+no_depth_test = true
+fixed_size = true
+pixel_size = 0.012
+font_size = 128
+outline_size = 24
+modulate = Color(1, 0.78, 0.55, 1)
+outline_modulate = Color(0, 0, 0, 0.85)
+text = "MAP 1"
+
+[node name="StartTrigger" type="Area3D" parent="HubWorld/Wedges/W01_Hell/Dais"]
+editor_description = "Stand here as the host and the map under your feet is offered. Layer 0, mask 1: it monitors bodies and is solid to nothing."
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.5, 0)
+collision_layer = 0
+collision_mask = 1
+
+[node name="Shape" type="CollisionShape3D" parent="HubWorld/Wedges/W01_Hell/Dais/StartTrigger"]
+shape = SubResource("DaisTrigger")
+
+[node name="W02" type="Node3D" parent="HubWorld/Wedges"]
+script = ExtResource("12_map_wedge")
+
+[node name="Dais" type="Marker3D" parent="HubWorld/Wedges/W02"]
+transform = Transform3D(-0.809017, 0, 0.587785, 0, 1, 0, -0.587785, 0, -0.809017, 21.1603, 0, -29.1246)
+editor_description = "Bearing 54 deg, r 36. Facing the tower."
+
+[node name="Sign" type="Label3D" parent="HubWorld/Wedges/W02/Dais"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5, 0)
+billboard = 1
+no_depth_test = true
+fixed_size = true
+pixel_size = 0.012
+font_size = 128
+outline_size = 24
+modulate = Color(1, 0.78, 0.55, 1)
+outline_modulate = Color(0, 0, 0, 0.85)
+text = "?"
+
+[node name="W03" type="Node3D" parent="HubWorld/Wedges"]
+script = ExtResource("12_map_wedge")
+
+[node name="Dais" type="Marker3D" parent="HubWorld/Wedges/W03"]
+transform = Transform3D(-1, 0, 1.22465e-16, 0, 1, 0, -1.22465e-16, 0, -1, 2.20436e-15, 0, -36)
+editor_description = "Bearing 90 deg, r 36. Facing the tower."
+
+[node name="Sign" type="Label3D" parent="HubWorld/Wedges/W03/Dais"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5, 0)
+billboard = 1
+no_depth_test = true
+fixed_size = true
+pixel_size = 0.012
+font_size = 128
+outline_size = 24
+modulate = Color(1, 0.78, 0.55, 1)
+outline_modulate = Color(0, 0, 0, 0.85)
+text = "?"
+
+[node name="W04" type="Node3D" parent="HubWorld/Wedges"]
+script = ExtResource("12_map_wedge")
+
+[node name="Dais" type="Marker3D" parent="HubWorld/Wedges/W04"]
+transform = Transform3D(-0.809017, 0, -0.587785, 0, 1, 0, 0.587785, 0, -0.809017, -21.1603, 0, -29.1246)
+editor_description = "Bearing 126 deg, r 36. Facing the tower."
+
+[node name="Sign" type="Label3D" parent="HubWorld/Wedges/W04/Dais"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5, 0)
+billboard = 1
+no_depth_test = true
+fixed_size = true
+pixel_size = 0.012
+font_size = 128
+outline_size = 24
+modulate = Color(1, 0.78, 0.55, 1)
+outline_modulate = Color(0, 0, 0, 0.85)
+text = "?"
+
+[node name="W05" type="Node3D" parent="HubWorld/Wedges"]
+script = ExtResource("12_map_wedge")
+
+[node name="Dais" type="Marker3D" parent="HubWorld/Wedges/W05"]
+transform = Transform3D(-0.309017, 0, -0.951057, 0, 1, 0, 0.951057, 0, -0.309017, -34.238, 0, -11.1246)
+editor_description = "Bearing 162 deg, r 36. Facing the tower."
+
+[node name="Sign" type="Label3D" parent="HubWorld/Wedges/W05/Dais"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5, 0)
+billboard = 1
+no_depth_test = true
+fixed_size = true
+pixel_size = 0.012
+font_size = 128
+outline_size = 24
+modulate = Color(1, 0.78, 0.55, 1)
+outline_modulate = Color(0, 0, 0, 0.85)
+text = "?"
+
+[node name="W06" type="Node3D" parent="HubWorld/Wedges"]
+script = ExtResource("12_map_wedge")
+
+[node name="Dais" type="Marker3D" parent="HubWorld/Wedges/W06"]
+transform = Transform3D(0.309017, 0, -0.951057, 0, 1, 0, 0.951057, 0, 0.309017, -34.238, 0, 11.1246)
+editor_description = "Bearing 198 deg, r 36. Facing the tower."
+
+[node name="Sign" type="Label3D" parent="HubWorld/Wedges/W06/Dais"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5, 0)
+billboard = 1
+no_depth_test = true
+fixed_size = true
+pixel_size = 0.012
+font_size = 128
+outline_size = 24
+modulate = Color(1, 0.78, 0.55, 1)
+outline_modulate = Color(0, 0, 0, 0.85)
+text = "?"
+
+[node name="W07" type="Node3D" parent="HubWorld/Wedges"]
+script = ExtResource("12_map_wedge")
+
+[node name="Dais" type="Marker3D" parent="HubWorld/Wedges/W07"]
+transform = Transform3D(0.809017, 0, -0.587785, 0, 1, 0, 0.587785, 0, 0.809017, -21.1603, 0, 29.1246)
+editor_description = "Bearing 234 deg, r 36. Facing the tower."
+
+[node name="Sign" type="Label3D" parent="HubWorld/Wedges/W07/Dais"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5, 0)
+billboard = 1
+no_depth_test = true
+fixed_size = true
+pixel_size = 0.012
+font_size = 128
+outline_size = 24
+modulate = Color(1, 0.78, 0.55, 1)
+outline_modulate = Color(0, 0, 0, 0.85)
+text = "?"
+
+[node name="W08" type="Node3D" parent="HubWorld/Wedges"]
+script = ExtResource("12_map_wedge")
+
+[node name="Dais" type="Marker3D" parent="HubWorld/Wedges/W08"]
+transform = Transform3D(1, 0, -2.44929e-16, 0, 1, 0, 2.44929e-16, 0, 1, -6.61309e-15, 0, 36)
+editor_description = "Bearing 270 deg, r 36. Facing the tower."
+
+[node name="Sign" type="Label3D" parent="HubWorld/Wedges/W08/Dais"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5, 0)
+billboard = 1
+no_depth_test = true
+fixed_size = true
+pixel_size = 0.012
+font_size = 128
+outline_size = 24
+modulate = Color(1, 0.78, 0.55, 1)
+outline_modulate = Color(0, 0, 0, 0.85)
+text = "?"
+
+[node name="W09" type="Node3D" parent="HubWorld/Wedges"]
+script = ExtResource("12_map_wedge")
+
+[node name="Dais" type="Marker3D" parent="HubWorld/Wedges/W09"]
+transform = Transform3D(0.809017, 0, 0.587785, 0, 1, 0, -0.587785, 0, 0.809017, 21.1603, 0, 29.1246)
+editor_description = "Bearing 306 deg, r 36. Facing the tower."
+
+[node name="Sign" type="Label3D" parent="HubWorld/Wedges/W09/Dais"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5, 0)
+billboard = 1
+no_depth_test = true
+fixed_size = true
+pixel_size = 0.012
+font_size = 128
+outline_size = 24
+modulate = Color(1, 0.78, 0.55, 1)
+outline_modulate = Color(0, 0, 0, 0.85)
+text = "?"
+
+[node name="W10" type="Node3D" parent="HubWorld/Wedges"]
+script = ExtResource("12_map_wedge")
+
+[node name="Dais" type="Marker3D" parent="HubWorld/Wedges/W10"]
+transform = Transform3D(0.309017, 0, 0.951057, 0, 1, 0, -0.951057, 0, 0.309017, 34.238, 0, 11.1246)
+editor_description = "Bearing 342 deg, r 36. Facing the tower."
+
+[node name="Sign" type="Label3D" parent="HubWorld/Wedges/W10/Dais"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5, 0)
+billboard = 1
+no_depth_test = true
+fixed_size = true
+pixel_size = 0.012
+font_size = 128
+outline_size = 24
+modulate = Color(1, 0.78, 0.55, 1)
+outline_modulate = Color(0, 0, 0, 0.85)
+text = "?"
+
+[node name="HubSpawns" type="Node3D" parent="HubWorld"]
+editor_description = "Where the hub stands its players: eight places in the hell wedge, dealt out in participant order so two bodies never share a cubic metre."
+
+[node name="Spawn1" type="Marker3D" parent="HubWorld/HubSpawns"]
+transform = Transform3D(-0.104528, 0, 0.994522, 0, 1, 0, -0.994522, 0, -0.104528, 32.8192, 0.25, -3.44944)
+
+[node name="Spawn2" type="Marker3D" parent="HubWorld/HubSpawns"]
+transform = Transform3D(-0.224951, 0, 0.97437, 0, 1, 0, -0.97437, 0, -0.224951, 32.1542, 0.25, -7.42338)
+
+[node name="Spawn3" type="Marker3D" parent="HubWorld/HubSpawns"]
+transform = Transform3D(-0.34202, 0, 0.939693, 0, 1, 0, -0.939693, 0, -0.34202, 31.0099, 0.25, -11.2867)
+
+[node name="Spawn4" type="Marker3D" parent="HubWorld/HubSpawns"]
+transform = Transform3D(-0.45399, 0, 0.891007, 0, 1, 0, -0.891007, 0, -0.45399, 29.4032, 0.25, -14.9817)
+
+[node name="Spawn5" type="Marker3D" parent="HubWorld/HubSpawns"]
+transform = Transform3D(-0.559193, 0, 0.829038, 0, 1, 0, -0.829038, 0, -0.559193, 27.3582, 0.25, -18.4534)
+
+[node name="Spawn6" type="Marker3D" parent="HubWorld/HubSpawns"]
+transform = Transform3D(-0.165048, 0, 0.986286, 0, 1, 0, -0.986286, 0, -0.165048, 38.4651, 0.25, -6.43686)
+
+[node name="Spawn7" type="Marker3D" parent="HubWorld/HubSpawns"]
+transform = Transform3D(-0.34202, 0, 0.939693, 0, 1, 0, -0.939693, 0, -0.34202, 36.648, 0.25, -13.3388)
+
+[node name="Spawn8" type="Marker3D" parent="HubWorld/HubSpawns"]
+transform = Transform3D(-0.507538, 0, 0.861629, 0, 1, 0, -0.861629, 0, -0.507538, 33.6035, 0.25, -19.794)
+
+[node name="Player" parent="." instance=ExtResource("7_player")]
+editor_description = "The local body. In the hub it is a prisoner with nothing to run: full movement, a harmless shove, no rifle and no powers."
+
+[node name="Runners" type="Node3D" parent="."]
+editor_description = "Empty by design. NetMatch parents one body per OTHER seated human into it; a hub never holds a bot."
+
+[node name="NetMatch" type="Node" parent="." node_paths=PackedStringArray("controller", "player", "runner_container")]
+editor_description = "The seat table's bodies and their links, in hub mode: no match events, no ready handshake, and a rebuild when somebody joins or leaves. Idle in an offline hub."
+script = ExtResource("10_net_match")
+hub_mode = true
+controller = NodePath("../MatchController")
+player = NodePath("../Player")
+runner_container = NodePath("../Runners")
+runner_scene = ExtResource("8_runner")
+
+[node name="MatchController" type="Node" parent="." node_paths=PackedStringArray("arena", "player", "runner_container")]
+editor_description = "In hub_mode: it places the bodies, wakes them and ticks the shove, and arms no race, no round and no tower. rifle is deliberately unset -- there is no gun in the lobby."
+script = ExtResource("9_controller")
+hub_mode = true
+rules = ExtResource("19_rules")
+palette = ExtResource("20_palette")
+arena = NodePath("../HubWorld")
+player = NodePath("../Player")
+runner_container = NodePath("../Runners")
+runner_scene = ExtResource("8_runner")
+
+[node name="HUD" type="CanvasLayer" parent="."]
+
+[node name="Root" type="Control" parent="HUD"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme = ExtResource("18_menu_theme")
+editor_description = "The whole of a hub's HUD: how many people are here, and what the wedge under your feet offers. The match HUD is not in this scene at all."
+
+[node name="Players" type="Label" parent="HUD/Root"]
+anchors_preset = 0
+offset_left = 24.0
+offset_top = 20.0
+offset_right = 260.0
+offset_bottom = 42.0
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.9)
+theme_override_constants/outline_size = 4
+theme_override_font_sizes/font_size = 14
+text = "1 player"
+
+[node name="Hint" type="Label" parent="HUD/Root"]
+anchors_preset = 0
+offset_left = 24.0
+offset_top = 42.0
+offset_right = 320.0
+offset_bottom = 62.0
+modulate = Color(1, 1, 1, 0.55)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.9)
+theme_override_constants/outline_size = 4
+theme_override_font_sizes/font_size = 12
+text = "TAB  rules and seats"
+
+[node name="Prompt" type="Label" parent="HUD/Root"]
+visible = false
+anchor_left = 0.5
+anchor_top = 0.62
+anchor_right = 0.5
+anchor_bottom = 0.62
+offset_left = -320.0
+offset_right = 320.0
+offset_bottom = 34.0
+grow_horizontal = 2
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.9)
+theme_override_constants/outline_size = 6
+theme_override_font_sizes/font_size = 22
+text = "Start MAP 1: E"
+horizontal_alignment = 1
+
+[node name="Overlay" type="CanvasLayer" parent="."]
+layer = 64
+
+[node name="Root" type="Control" parent="Overlay"]
+visible = false
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = ExtResource("18_menu_theme")
+editor_description = "The rules and seats panel, over the hub. Hidden AND process-disabled while closed, which is what keeps Tab from costing the body a frame of input."
+
+[node name="MatchSetupScreen" parent="Overlay/Root" instance=ExtResource("16_match_setup")]
+editor_description = "The same screen the main menu opens. Its Start button starts the map on the wedge, which is why HubLobby listens to start_requested rather than the screen changing scene itself."
+
+[node name="Seats" type="Label" parent="Overlay/Root"]
+anchors_preset = 0
+offset_left = 40.0
+offset_top = 40.0
+offset_right = 400.0
+offset_bottom = 200.0
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.9)
+theme_override_constants/outline_size = 4
+theme_override_font_sizes/font_size = 14
+editor_description = "Who is in the hub, from the lobby's own seat table. Empty offline."
+
+[node name="HubLobby" type="Node" parent="." node_paths=PackedStringArray("controller", "net_match", "player", "start_wedge", "start_trigger", "players_label", "prompt_label", "setup_screen", "seats_label", "overlay")]
+script = ExtResource("11_hub_lobby")
+controller = NodePath("../MatchController")
+net_match = NodePath("../NetMatch")
+player = NodePath("../Player")
+start_wedge = NodePath("../HubWorld/Wedges/W01_Hell")
+start_trigger = NodePath("../HubWorld/Wedges/W01_Hell/Dais/StartTrigger")
+players_label = NodePath("../HUD/Root/Players")
+prompt_label = NodePath("../HUD/Root/Prompt")
+setup_screen = NodePath("../Overlay/Root/MatchSetupScreen")
+seats_label = NodePath("../Overlay/Root/Seats")
+overlay = NodePath("../Overlay/Root")
+
+[node name="GameAudio" parent="." instance=ExtResource("15_game_audio")]
+
+[node name="PauseMenu" parent="." instance=ExtResource("17_pause_menu")]
+editor_description = "Escape, and the way out to the main menu. Last child, as in the match scene, so it keeps first refusal on GUI input."
+movement_profile = ExtResource("14_movement_profile")
