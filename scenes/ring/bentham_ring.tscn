@@ -11,14 +11,11 @@
 [ext_resource type="PackedScene" uid="uid://cwyjwhfotqv73" path="res://assets/models/tower.glb" id="8_tower_model"]
 [ext_resource type="Resource" path="res://scenes/ring/floating_watching_eye_profile.tres" id="9_watcher_profile"]
 [ext_resource type="PackedScene" uid="uid://l2tycnwgajbo" path="res://assets/models/map_base.glb" id="10_map_base_model"]
-[ext_resource type="PackedScene" uid="uid://dcqeakky42fog" path="res://assets/models/spire.glb" id="12_spire"]
 [ext_resource type="PackedScene" uid="uid://cmmh0fdwp3rjb" path="res://assets/models/slab.glb" id="13_slab"]
 [ext_resource type="PackedScene" uid="uid://c8ejv8vfb00fy" path="res://assets/models/rock_wall.glb" id="14_rock_wall"]
-[ext_resource type="PackedScene" uid="uid://emmcd6tjqn53" path="res://assets/models/boulder.glb" id="15_boulder"]
 [ext_resource type="PackedScene" path="res://scenes/ring/portal.tscn" id="19_portal"]
 [ext_resource type="PackedScene" uid="uid://bc7si5v1kq5n8" path="res://assets/models/rock_bars.glb" id="20_rock_bars"]
 [ext_resource type="PackedScene" path="res://scenes/ring/torch.tscn" id="21_torch"]
-[ext_resource type="PackedScene" path="res://scenes/ring/lava_tile.tscn" id="22_lava_tile_scene"]
 [ext_resource type="PackedScene" path="res://scenes/ring/demon_pad.tscn" id="23_demon_pad_scene"]
 [ext_resource type="PackedScene" path="res://scenes/ring/speed_powerup.tscn" id="24_speed_powerup_scene"]
 [ext_resource type="PackedScene" uid="uid://dmyewylgsm55h" path="res://assets/models/block.glb" id="25_block"]
@@ -124,6 +121,7 @@ omni_range = 12.0
 
 [node name="MapBase" parent="." unique_id=23449969 instance=ExtResource("10_map_base_model")]
 editor_description = "assets/models/map_base.glb: the one deck -- annulus, pit wall down to the courtyard, outer wall up to the rim. Ships its own collision (MapBaseCollision-colonly), so nothing here duplicates it."
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.014858246, 0, -0.01688385)
 
 [node name="KillBox" type="Area3D" parent="." unique_id=887311935]
 editor_description = "The kill box under the one-level ring. Roof at y=-8.0 -- raised from the deeper roof this used to have so a body falling off the outer rim is caught before it lands on rock and gets stuck, rather than only one that falls all the way past the courtyard.
@@ -191,8 +189,8 @@ transform = Transform3D(0.032611825, 3.9321172, -0.6735735, 3.1716394, 0.0669289
 
 [node name="S2_LavaShelf" type="Node3D" parent="Sections" unique_id=2099182289]
 
-[node name="TrapVolume" type="Area3D" parent="Sections/S2_LavaShelf"]
-transform = Transform3D(0.979641, 0, 0.200760, 0, 1, 0, -0.200760, 0, 0.979641, 10.8209, 22.7, 52.8026)
+[node name="TrapVolume" type="Area3D" parent="Sections/S2_LavaShelf" unique_id=606758724]
+transform = Transform3D(0.979641, 0, 0.20076, 0, 1, 0, -0.20076, 0, 0.979641, 10.8209, 22.7, 52.8026)
 collision_layer = 0
 collision_mask = 1048577
 monitorable = false
@@ -200,9 +198,9 @@ script = ExtResource("26_trap_volume")
 size_metres = Vector3(8.23, 0.4, 7.2)
 feet_only = true
 
-[node name="Shape" type="CollisionShape3D" parent="Sections/S2_LavaShelf/TrapVolume"]
+[node name="Shape" type="CollisionShape3D" parent="Sections/S2_LavaShelf/TrapVolume" unique_id=1603198525]
 
-[node name="TrapVolume2" type="Area3D" parent="Sections/S2_LavaShelf"]
+[node name="TrapVolume2" type="Area3D" parent="Sections/S2_LavaShelf" unique_id=391433108]
 transform = Transform3D(0.998061, 0, 0.062248, 0, 1, 0, -0.062248, 0, 0.998061, 3.3552, 22.7, 53.7955)
 collision_layer = 0
 collision_mask = 1048577
@@ -211,10 +209,10 @@ script = ExtResource("26_trap_volume")
 size_metres = Vector3(8.23, 0.4, 7.2)
 feet_only = true
 
-[node name="Shape" type="CollisionShape3D" parent="Sections/S2_LavaShelf/TrapVolume2"]
+[node name="Shape" type="CollisionShape3D" parent="Sections/S2_LavaShelf/TrapVolume2" unique_id=451430508]
 
-[node name="TrapVolume3" type="Area3D" parent="Sections/S2_LavaShelf"]
-transform = Transform3D(0.996994, 0, -0.077479, 0, 1, 0, 0.077479, 0, 0.996994, -4.1761, 22.7, 53.7380)
+[node name="TrapVolume3" type="Area3D" parent="Sections/S2_LavaShelf" unique_id=104137430]
+transform = Transform3D(0.996994, 0, -0.077479, 0, 1, 0, 0.077479, 0, 0.996994, -4.1761, 22.7, 53.738)
 collision_layer = 0
 collision_mask = 1048577
 monitorable = false
@@ -222,9 +220,9 @@ script = ExtResource("26_trap_volume")
 size_metres = Vector3(8.23, 0.4, 7.2)
 feet_only = true
 
-[node name="Shape" type="CollisionShape3D" parent="Sections/S2_LavaShelf/TrapVolume3"]
+[node name="Shape" type="CollisionShape3D" parent="Sections/S2_LavaShelf/TrapVolume3" unique_id=1466767969]
 
-[node name="TrapVolume4" type="Area3D" parent="Sections/S2_LavaShelf"]
+[node name="TrapVolume4" type="Area3D" parent="Sections/S2_LavaShelf" unique_id=2020140085]
 transform = Transform3D(0.976461, 0, -0.215693, 0, 1, 0, 0.215693, 0, 0.976461, -11.6258, 22.7, 52.6313)
 collision_layer = 0
 collision_mask = 1048577
@@ -233,9 +231,9 @@ script = ExtResource("26_trap_volume")
 size_metres = Vector3(8.23, 0.4, 7.2)
 feet_only = true
 
-[node name="Shape" type="CollisionShape3D" parent="Sections/S2_LavaShelf/TrapVolume4"]
+[node name="Shape" type="CollisionShape3D" parent="Sections/S2_LavaShelf/TrapVolume4" unique_id=1407518406]
 
-[node name="TrapVolume5" type="Area3D" parent="Sections/S2_LavaShelf"]
+[node name="TrapVolume5" type="Area3D" parent="Sections/S2_LavaShelf" unique_id=415871505]
 transform = Transform3D(0.936863, 0, -0.349696, 0, 1, 0, 0.349696, 0, 0.936863, -18.8486, 22.7, 50.4969)
 collision_layer = 0
 collision_mask = 1048577
@@ -244,9 +242,9 @@ script = ExtResource("26_trap_volume")
 size_metres = Vector3(8.23, 0.4, 7.2)
 feet_only = true
 
-[node name="Shape" type="CollisionShape3D" parent="Sections/S2_LavaShelf/TrapVolume5"]
+[node name="Shape" type="CollisionShape3D" parent="Sections/S2_LavaShelf/TrapVolume5" unique_id=1383911836]
 
-[node name="TrapVolume6" type="Area3D" parent="Sections/S2_LavaShelf"]
+[node name="TrapVolume6" type="Area3D" parent="Sections/S2_LavaShelf" unique_id=396313267]
 transform = Transform3D(0.878973, 0, -0.476871, 0, 1, 0, 0.476871, 0, 0.878973, -25.7033, 22.7, 47.3767)
 collision_layer = 0
 collision_mask = 1048577
@@ -255,9 +253,9 @@ script = ExtResource("26_trap_volume")
 size_metres = Vector3(8.23, 0.4, 7.2)
 feet_only = true
 
-[node name="Shape" type="CollisionShape3D" parent="Sections/S2_LavaShelf/TrapVolume6"]
+[node name="Shape" type="CollisionShape3D" parent="Sections/S2_LavaShelf/TrapVolume6" unique_id=504254931]
 
-[node name="TrapVolume7" type="Area3D" parent="Sections/S2_LavaShelf"]
+[node name="TrapVolume7" type="Area3D" parent="Sections/S2_LavaShelf" unique_id=165943990]
 transform = Transform3D(0.803922, 0, -0.594735, 0, 1, 0, 0.594735, 0, 0.803922, -32.0562, 22.7, 43.3314)
 collision_layer = 0
 collision_mask = 1048577
@@ -266,7 +264,7 @@ script = ExtResource("26_trap_volume")
 size_metres = Vector3(8.23, 0.4, 7.2)
 feet_only = true
 
-[node name="Shape" type="CollisionShape3D" parent="Sections/S2_LavaShelf/TrapVolume7"]
+[node name="Shape" type="CollisionShape3D" parent="Sections/S2_LavaShelf/TrapVolume7" unique_id=644014580]
 
 [node name="S3_Split" type="Node3D" parent="Sections" unique_id=61707270]
 
@@ -275,7 +273,7 @@ transform = Transform3D(-0.07944784, 0.0026787363, -1.1119696, 0.014537797, 3.09
 
 [node name="SpeedPowerup" parent="Sections/S3_Split" unique_id=1641447572 instance=ExtResource("24_speed_powerup_scene")]
 editor_description = "Parked on top of the tower until Ryan places it at the end of the hard route."
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -27.821747, 25.54493, 46.915737)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -29.058699, 23.34378, 46.313385)
 
 [node name="Lava" type="Node3D" parent="Sections/S3_Split" unique_id=607742211]
 
@@ -290,19 +288,19 @@ transform = Transform3D(0.96533346, 0, 0.26102138, 0, 1, 0, -0.26102138, 0, 0.96
 [node name="DemonPad_Ryan3" parent="Sections/S4_DemonRun" unique_id=1713601717 instance=ExtResource("23_demon_pad_scene")]
 transform = Transform3D(0.9992201, 0, 0.03949845, 0, 1, 0, -0.03949845, 0, 0.9992201, -50.926212, 23, 2.338439)
 
-[node name="DemonPad_212deg" parent="Sections/S4_DemonRun" instance=ExtResource("23_demon_pad_scene")]
+[node name="DemonPad_212deg" parent="Sections/S4_DemonRun" unique_id=1866480373 instance=ExtResource("23_demon_pad_scene")]
 transform = Transform3D(0.857713, 0, -0.514129, 0, 1, 0, 0.514129, 0, 0.857713, -44.6061, 23, -27.8757)
 
-[node name="DemonPad_227deg" parent="Sections/S4_DemonRun" instance=ExtResource("23_demon_pad_scene")]
+[node name="DemonPad_227deg" parent="Sections/S4_DemonRun" unique_id=190270639 instance=ExtResource("23_demon_pad_scene")]
 transform = Transform3D(0.550779, 0, -0.834651, 0, 1, 0, 0.834651, 0, 0.550779, -37.0701, 23.2, -39.8437)
 
-[node name="DemonPad_242deg" parent="Sections/S4_DemonRun" instance=ExtResource("23_demon_pad_scene")]
+[node name="DemonPad_242deg" parent="Sections/S4_DemonRun" unique_id=636700118 instance=ExtResource("23_demon_pad_scene")]
 transform = Transform3D(0.400811, 0, -0.916161, 0, 1, 0, 0.916161, 0, 0.400811, -25.1778, 23.4, -47.5481)
 
-[node name="DemonPad_258deg" parent="Sections/S4_DemonRun" instance=ExtResource("23_demon_pad_scene")]
+[node name="DemonPad_258deg" parent="Sections/S4_DemonRun" unique_id=1814737606 instance=ExtResource("23_demon_pad_scene")]
 transform = Transform3D(-0.041656, 0, -0.999132, 0, 1, 0, 0.999132, 0, -0.041656, -11.6431, 23.1, -53.1255)
 
-[node name="TrapVolume" type="Area3D" parent="Sections/S4_DemonRun"]
+[node name="TrapVolume" type="Area3D" parent="Sections/S4_DemonRun" unique_id=1475256291]
 transform = Transform3D(-0.596017, 0, -0.802972, 0, 1, 0, 0.802972, 0, -0.596017, -41.7545, 22.7, -30.9929)
 collision_layer = 0
 collision_mask = 1048577
@@ -311,10 +309,10 @@ script = ExtResource("26_trap_volume")
 size_metres = Vector3(6.17, 0.4, 10.6)
 feet_only = true
 
-[node name="Shape" type="CollisionShape3D" parent="Sections/S4_DemonRun/TrapVolume"]
+[node name="Shape" type="CollisionShape3D" parent="Sections/S4_DemonRun/TrapVolume" unique_id=911032050]
 
-[node name="TrapVolume2" type="Area3D" parent="Sections/S4_DemonRun"]
-transform = Transform3D(-0.671102, 0, -0.741365, 0, 1, 0, 0.741365, 0, -0.671102, -38.5510, 22.7, -34.8973)
+[node name="TrapVolume2" type="Area3D" parent="Sections/S4_DemonRun" unique_id=127824575]
+transform = Transform3D(-0.671102, 0, -0.741365, 0, 1, 0, 0.741365, 0, -0.671102, -38.551, 22.7, -34.8973)
 collision_layer = 0
 collision_mask = 1048577
 monitorable = false
@@ -322,9 +320,9 @@ script = ExtResource("26_trap_volume")
 size_metres = Vector3(6.17, 0.4, 10.6)
 feet_only = true
 
-[node name="Shape" type="CollisionShape3D" parent="Sections/S4_DemonRun/TrapVolume2"]
+[node name="Shape" type="CollisionShape3D" parent="Sections/S4_DemonRun/TrapVolume2" unique_id=731843596]
 
-[node name="TrapVolume3" type="Area3D" parent="Sections/S4_DemonRun"]
+[node name="TrapVolume3" type="Area3D" parent="Sections/S4_DemonRun" unique_id=1751827390]
 transform = Transform3D(-0.739856, 0, -0.672765, 0, 1, 0, 0.672765, 0, -0.739856, -34.9838, 22.7, -38.4725)
 collision_layer = 0
 collision_mask = 1048577
@@ -333,9 +331,9 @@ script = ExtResource("26_trap_volume")
 size_metres = Vector3(6.17, 0.4, 10.6)
 feet_only = true
 
-[node name="Shape" type="CollisionShape3D" parent="Sections/S4_DemonRun/TrapVolume3"]
+[node name="Shape" type="CollisionShape3D" parent="Sections/S4_DemonRun/TrapVolume3" unique_id=1419704820]
 
-[node name="TrapVolume4" type="Area3D" parent="Sections/S4_DemonRun"]
+[node name="TrapVolume4" type="Area3D" parent="Sections/S4_DemonRun" unique_id=1550206149]
 transform = Transform3D(-0.801631, 0, -0.597819, 0, 1, 0, 0.597819, 0, -0.801631, -31.0866, 22.7, -41.6848)
 collision_layer = 0
 collision_mask = 1048577
@@ -344,9 +342,9 @@ script = ExtResource("26_trap_volume")
 size_metres = Vector3(6.17, 0.4, 10.6)
 feet_only = true
 
-[node name="Shape" type="CollisionShape3D" parent="Sections/S4_DemonRun/TrapVolume4"]
+[node name="Shape" type="CollisionShape3D" parent="Sections/S4_DemonRun/TrapVolume4" unique_id=1327196195]
 
-[node name="TrapVolume5" type="Area3D" parent="Sections/S4_DemonRun"]
+[node name="TrapVolume5" type="Area3D" parent="Sections/S4_DemonRun" unique_id=1706593428]
 transform = Transform3D(-0.855844, 0, -0.517234, 0, 1, 0, 0.517234, 0, -0.855844, -26.8962, 22.7, -44.5039)
 collision_layer = 0
 collision_mask = 1048577
@@ -355,10 +353,10 @@ script = ExtResource("26_trap_volume")
 size_metres = Vector3(6.17, 0.4, 10.6)
 feet_only = true
 
-[node name="Shape" type="CollisionShape3D" parent="Sections/S4_DemonRun/TrapVolume5"]
+[node name="Shape" type="CollisionShape3D" parent="Sections/S4_DemonRun/TrapVolume5" unique_id=121167281]
 
-[node name="TrapVolume6" type="Area3D" parent="Sections/S4_DemonRun"]
-transform = Transform3D(-0.901984, 0, -0.431769, 0, 1, 0, 0.431769, 0, -0.901984, -22.4520, 22.7, -46.9032)
+[node name="TrapVolume6" type="Area3D" parent="Sections/S4_DemonRun" unique_id=644999745]
+transform = Transform3D(-0.901984, 0, -0.431769, 0, 1, 0, 0.431769, 0, -0.901984, -22.452, 22.7, -46.9032)
 collision_layer = 0
 collision_mask = 1048577
 monitorable = false
@@ -366,10 +364,10 @@ script = ExtResource("26_trap_volume")
 size_metres = Vector3(6.17, 0.4, 10.6)
 feet_only = true
 
-[node name="Shape" type="CollisionShape3D" parent="Sections/S4_DemonRun/TrapVolume6"]
+[node name="Shape" type="CollisionShape3D" parent="Sections/S4_DemonRun/TrapVolume6" unique_id=322936291]
 
-[node name="TrapVolume7" type="Area3D" parent="Sections/S4_DemonRun"]
-transform = Transform3D(-0.939616, 0, -0.342232, 0, 1, 0, 0.342232, 0, -0.939616, -17.7960, 22.7, -48.8600)
+[node name="TrapVolume7" type="Area3D" parent="Sections/S4_DemonRun" unique_id=670286669]
+transform = Transform3D(-0.939616, 0, -0.342232, 0, 1, 0, 0.342232, 0, -0.939616, -17.796, 22.7, -48.86)
 collision_layer = 0
 collision_mask = 1048577
 monitorable = false
@@ -377,9 +375,9 @@ script = ExtResource("26_trap_volume")
 size_metres = Vector3(6.17, 0.4, 10.6)
 feet_only = true
 
-[node name="Shape" type="CollisionShape3D" parent="Sections/S4_DemonRun/TrapVolume7"]
+[node name="Shape" type="CollisionShape3D" parent="Sections/S4_DemonRun/TrapVolume7" unique_id=955918518]
 
-[node name="TrapVolume8" type="Area3D" parent="Sections/S4_DemonRun"]
+[node name="TrapVolume8" type="Area3D" parent="Sections/S4_DemonRun" unique_id=673153712]
 transform = Transform3D(-0.968384, 0, -0.249466, 0, 1, 0, 0.249466, 0, -0.968384, -12.9722, 22.7, -50.3559)
 collision_layer = 0
 collision_mask = 1048577
@@ -388,10 +386,10 @@ script = ExtResource("26_trap_volume")
 size_metres = Vector3(6.17, 0.4, 10.6)
 feet_only = true
 
-[node name="Shape" type="CollisionShape3D" parent="Sections/S4_DemonRun/TrapVolume8"]
+[node name="Shape" type="CollisionShape3D" parent="Sections/S4_DemonRun/TrapVolume8" unique_id=427944071]
 
-[node name="TrapVolume9" type="Area3D" parent="Sections/S4_DemonRun"]
-transform = Transform3D(-0.988017, 0, -0.154347, 0, 1, 0, 0.154347, 0, -0.988017, -8.0260, 22.7, -51.3769)
+[node name="TrapVolume9" type="Area3D" parent="Sections/S4_DemonRun" unique_id=1222111725]
+transform = Transform3D(-0.988017, 0, -0.154347, 0, 1, 0, 0.154347, 0, -0.988017, -8.026, 22.7, -51.3769)
 collision_layer = 0
 collision_mask = 1048577
 monitorable = false
@@ -399,10 +397,10 @@ script = ExtResource("26_trap_volume")
 size_metres = Vector3(6.17, 0.4, 10.6)
 feet_only = true
 
-[node name="Shape" type="CollisionShape3D" parent="Sections/S4_DemonRun/TrapVolume9"]
+[node name="Shape" type="CollisionShape3D" parent="Sections/S4_DemonRun/TrapVolume9" unique_id=561469335]
 
-[node name="TrapVolume10" type="Area3D" parent="Sections/S4_DemonRun"]
-transform = Transform3D(-0.998330, 0, -0.057772, 0, 1, 0, 0.057772, 0, -0.998330, -3.0041, 22.7, -51.9132)
+[node name="TrapVolume10" type="Area3D" parent="Sections/S4_DemonRun" unique_id=1486003949]
+transform = Transform3D(-0.99833, 0, -0.057772, 0, 1, 0, 0.057772, 0, -0.99833, -3.0041, 22.7, -51.9132)
 collision_layer = 0
 collision_mask = 1048577
 monitorable = false
@@ -410,7 +408,7 @@ script = ExtResource("26_trap_volume")
 size_metres = Vector3(6.17, 0.4, 10.6)
 feet_only = true
 
-[node name="Shape" type="CollisionShape3D" parent="Sections/S4_DemonRun/TrapVolume10"]
+[node name="Shape" type="CollisionShape3D" parent="Sections/S4_DemonRun/TrapVolume10" unique_id=653003143]
 
 [node name="S5_WallRun" type="Node3D" parent="Sections" unique_id=1543765436]
 editor_description = "The lava river is map_base geometry now; this holds only what kills and where the surface is."
