@@ -90,10 +90,13 @@ func test_a_clients_hologram_stands_where_the_hosts_does_and_dies_with_it() -> v
 	var worst: float = 0.0
 	var worst_yaw: float = 0.0
 	for _tick: int in LIFETIME_TICKS:
+		# Sampled at the TOP of a tick, before the authority's hologram moves
+		# again: physics_frame fires ahead of every _physics_process, so the
+		# transform sent on the tick just gone has had the whole gap between
+		# ticks -- every idle frame in it, which is where a MultiplayerAPI
+		# polls its socket -- to arrive. Sampling one idle frame after the send
+		# instead measures how fast the loopback happened to be.
 		await step_ticks(1)
-		# One idle frame for the packet the tick just produced: polling the
-		# socket is what a MultiplayerAPI does between frames, not during them.
-		await get_tree().process_frame
 		if not is_instance_valid(host_decoy) or host_decoy.is_queued_for_deletion():
 			break
 		last = host_decoy.global_position

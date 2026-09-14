@@ -2153,7 +2153,8 @@ func _wake_ghost(participant: MatchParticipant) -> void:
 		participant.home_collision_layer if profile.shootable else GHOST_HAZARD_LAYER
 	)
 	body.collision_mask = participant.home_collision_mask
-	body.set_physics_process(not _mirror)
+	# A mirror simulates nothing -- except the one body it is predicting.
+	body.set_physics_process(not _mirror or body.net_predicted)
 
 
 ## Take the ghost back off [param participant]: their colour, their pace, their
@@ -2878,7 +2879,8 @@ func _wake_body(participant: MatchParticipant) -> void:
 		return
 	body.collision_layer = participant.home_collision_layer
 	body.collision_mask = participant.home_collision_mask
-	body.set_physics_process(not _mirror)
+	# A mirror simulates nothing -- except the one body it is predicting.
+	body.set_physics_process(not _mirror or body.net_predicted)
 
 
 ## Snapshot where [param participant]'s body is standing and which way it is

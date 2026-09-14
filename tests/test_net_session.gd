@@ -258,7 +258,13 @@ func test_a_client_can_only_ask_and_the_host_decides() -> void:
 		self,
 		func() -> bool:
 			var seat: LobbySeat = host_lobby.get_seat(seat_index)
-			return seat != null and seat.is_ready and seat.display_name == "Guest"
+			if seat == null or not seat.is_ready or seat.display_name != "Guest":
+				return false
+			# The grant is only half of it: the host's answer still has to come
+			# back down the wire, and waiting on the host alone leaves the
+			# client's mirror a round trip behind whatever is asserted next.
+			var mirror: LobbySeat = client_lobby.get_local_seat()
+			return mirror != null and mirror.is_ready
 	)
 	assert_true(granted, "the host granted the request and it came back")
 	assert_true(client_lobby.get_local_seat().is_ready, "the client's mirror agrees")

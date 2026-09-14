@@ -79,10 +79,43 @@ extends Resource
 ## is what every shipped game does and what makes 30 Hz watchable.
 ##
 ## The delay is the price and it is real: a remote body is drawn where it was
-## [member snapshot_hz] milliseconds ago plus latency. Keep it on until the
-## local body gets prediction, at which point the local body must stop
-## interpolating and start predicting -- see [PlayerNetLink].
+## [member snapshot_hz] milliseconds ago plus latency. It applies to REMOTE
+## bodies only: a client's own body is predicted instead (see
+## [member predict_local_body]) and is never interpolated.
 @export var interpolate_remote_bodies: bool = true
+
+## Whether a client simulates its own body from its own input and reconciles it
+## against the snapshots, instead of waiting for the authority to move it.
+##
+## On, a local input costs nothing: the body moves on the tick the key went
+## down and the authority's answer arrives a round trip later to correct a
+## prediction that is usually already right. Off, every step costs a full round
+## trip of visible delay, which is what this game shipped with before.
+##
+## It changes nothing about who decides: the authority still simulates every
+## body and a client's position is still overwritten by whatever comes back.
+## See [PlayerNetLink] for what is replayed and what is snapped.
+@export var predict_local_body: bool = true
+
+## How long a prediction error takes to be drawn away, in seconds.
+##
+## A correction is applied to the BODY at once -- prediction must carry on from
+## where the authority says the body is, or the next correction is measured
+## against a lie -- and taken out of the VIEW over this long, so a few
+## centimetres of disagreement reads as a drift rather than a flick. Roughly a
+## tenth of a second: long enough not to be seen as a jump, short enough that
+## the camera is never meaningfully behind the body.
+@export_range(0.0, 0.5, 0.005) var prediction_smoothing_seconds: float = 0.1
+
+## How far the authority may disagree with a prediction before the body is
+## snapped instead of smoothed, in metres.
+##
+## A correction this large is not drift; it is an event the client could not
+## have predicted -- a shove, a boost pad, a kill, a respawn -- and drawing it
+## as a graceful slide would be a lie about where the body is. Over this, the
+## prediction buffer is dropped, the body takes the authority's state whole and
+## the view goes with it.
+@export_range(0.05, 10.0, 0.05) var prediction_snap_metres: float = 1.0
 
 ## Authority ticks a body's [RemoteIntentSource] holds its last packet before
 ## deciding the peer has gone quiet and releasing every held button.

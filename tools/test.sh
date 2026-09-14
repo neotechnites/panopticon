@@ -16,6 +16,12 @@ if [ -z "$GODOT" ] || [ ! -x "$GODOT" ]; then
   exit 2
 fi
 
+# Global class names (class_name) live in .godot/, which is gitignored, so a
+# branch that adds one arrives with a cache that does not know it and every
+# script referencing the new type fails to parse. One headless editor pass
+# rebuilds the cache; it costs ~3 s against a suite that costs over a minute.
+"$GODOT" --headless --editor --quit >/dev/null 2>&1
+
 LOG="$(mktemp -t panopticon-tests)"
 trap 'rm -f "$LOG"' EXIT
 

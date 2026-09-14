@@ -208,9 +208,10 @@ var _slide_buffer_timer: float = 0.0
 ## the source is: one press, one slide, and re-pressing is how you slide again.
 var _was_slide_pressed: bool = false
 
-## The head's authored local height, captured once so the slide crouch is an
-## offset from the scene's value rather than a number this file invents.
-var _head_base_y: float = 0.0
+## The head's authored local position, captured once so the slide crouch and the
+## prediction view offset are offsets from the scene's value rather than from a
+## number this file invents.
+var _head_base: Vector3 = Vector3.ZERO
 
 ## Current crouch offset applied to the head, in metres (negative is down).
 var _head_offset: float = 0.0
@@ -251,7 +252,7 @@ func _ready() -> void:
 		return
 
 	if head != null:
-		_head_base_y = head.position.y
+		_head_base = head.position
 
 	_capture_capsule()
 	_adopt_profile()
@@ -434,6 +435,92 @@ func is_grounded() -> bool:
 var net_slide: int = -1
 var net_crouch: int = -1
 
+## True while this machine simulates this body ahead of the authority -- a
+## client's own. Written by [PlayerNetLink]; read by [MatchController], which
+## otherwise runs no physics at all on a mirror.
+var net_predicted: bool = false
+
+
+## Where the VIEW is drawn relative to the body, in world space. The body is not
+## moved by it and nothing is hit at it.
+##
+## A predicting client decays a correction through this, so being put right is
+## seen as a slide of a few centimetres rather than a jump. Zero everywhere
+## else. See [PlayerNetLink].
+var view_offset: Vector3 = Vector3.ZERO
+
+## Floats in a captured motion state. See [method capture_motion_state].
+const MOTION_STATE_SIZE: int = 19
+
+
+## This body's mutable movement state -- the timers, the stance, the slide and
+## the pending launch -- into [param out], resized if it has to be.
+##
+## Position, velocity and aim have their own properties and are not here. This
+## is the rest of what a tick depends on, and without it a replayed tick would
+## run on the wrong coyote window and jump where the authority did not.
+func capture_motion_state(out: PackedFloat32Array) -> void:
+	if out.size() != MOTION_STATE_SIZE:
+		out.resize(MOTION_STATE_SIZE)
+	out[0] = _coyote_timer
+	out[1] = _jump_buffer_timer
+	out[2] = _slide_timer
+	out[3] = _slide_cooldown_timer
+	out[4] = _slide_buffer_timer
+	out[5] = _air_lock_timer
+	out[6] = _speed_boost_timer
+	out[7] = _speed_boost_multiplier
+	out[8] = 1.0 if _sliding else 0.0
+	out[9] = 1.0 if _was_slide_pressed else 0.0
+	out[10] = 1.0 if _crouching else 0.0
+	out[11] = 1.0 if _was_on_floor else 0.0
+	out[12] = _fall_speed
+	out[13] = _head_offset
+	out[14] = _pitch
+	out[15] = 1.0 if _has_pending_launch else 0.0
+	out[16] = _pending_launch.x
+	out[17] = _pending_launch.y
+	out[18] = _pending_launch.z
+
+
+## Put a state from [method capture_motion_state] back on the body. A wrongly
+## sized array is ignored rather than half-restored.
+func restore_motion_state(values: PackedFloat32Array) -> void:
+	if values.size() != MOTION_STATE_SIZE:
+		return
+	_coyote_timer = values[0]
+	_jump_buffer_timer = values[1]
+	_slide_timer = values[2]
+	_slide_cooldown_timer = values[3]
+	_slide_buffer_timer = values[4]
+	_air_lock_timer = values[5]
+	_speed_boost_timer = values[6]
+	_speed_boost_multiplier = values[7]
+	_sliding = values[8] > 0.5
+	_was_slide_pressed = values[9] > 0.5
+	_crouching = values[10] > 0.5
+	_was_on_floor = values[11] > 0.5
+	_fall_speed = values[12]
+	_head_offset = values[13]
+	_pitch = values[14]
+	_has_pending_launch = values[15] > 0.5
+	_pending_launch = Vector3(values[16], values[17], values[18])
+	if head != null:
+		head.rotation.x = _pitch
+	# The capsule is sized from the stance, so a restored crouch has to resize
+	# it or the body keeps the height of the tick it was rewound from.
+	_apply_stance()
+
+
+## Run one physics tick on [param intent] rather than on [member intent_source].
+## The replay half of client-side prediction; see [PlayerNetLink].
+func simulate_tick(intent: MoveIntent, delta: float) -> void:
+	var source: IntentSource = intent_source
+	intent_source = null
+	set_intent(intent)
+	_physics_process(delta)
+	intent_source = source
+
 
 ## Start (or refresh) a timed ground-speed boost -- a race power-up. Ground max
 ## speed and ground acceleration run at [param multiplier] for [param seconds].
@@ -503,7 +590,7 @@ func get_stance_height() -> float:
 
 ## The head's current local height, crouch and slide offsets included. The eye
 ## position a spectator camera or a test should read, rather than reaching into
-## [member head] and having to know about [member _head_base_y].
+## [member head] and having to know about [member _head_base].
 func get_eye_height() -> float:
 	if head == null:
 		return 0.0
@@ -975,7 +1062,13 @@ func _settle_head(delta: float) -> void:
 		_head_offset = target
 	else:
 		_head_offset = lerpf(_head_offset, target, 1.0 - exp(-rate * delta))
-	head.position.y = _head_base_y + _head_offset
+	# The view offset is a world vector and the head is a child of a yawing
+	# body, so it is rotated into local space before it is added.
+	head.position = (
+		_head_base
+		+ Vector3(0.0, _head_offset, 0.0)
+		+ global_basis.inverse() * view_offset
+	)
 
 
 # --- Quake movement primitives ------------------------------------------------
