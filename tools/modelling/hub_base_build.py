@@ -46,18 +46,18 @@ OBJECT_NAME = "HubBaseRock"
 COLLIDER_NAME = "HubBaseCollision-colonly"
 FACING_YAW = 0.0
 
-R_IN = 21.0                 # floor inner edge: the plinth chamfer foot
-R_PLINTH = 20.0             # chamfer top; the tower rock (r <= 13.4) leaves a 6.6 m walk round it
+R_IN = 26.0                 # floor inner edge: the plinth chamfer foot
+R_PLINTH = 25.0             # chamfer top; the tower rock (r <= 13.4) leaves an 11.6 m walk round it
 PLINTH_Z = 0.35
-PLINTH_RINGS = (19.0, 17.6, 16.2, 14.6, 12.5, 9.5, 6.0, 3.0)   # plinth top rings: squarish quads, no radial streaks
-R_OUT = 40.0                # floor outer edge: the wall foot
+PLINTH_RINGS = (24.0, 22.8, 21.5, 20.0, 18.0, 15.5, 12.5, 9.0, 5.0)   # plinth top rings: squarish quads, no radial streaks
+R_OUT = 50.0                # floor outer edge: the wall foot
 WALL_T = 1.2
 WALL_H = (1.2, 2.0)         # the wall top wanders between these
 SLAB_Z = -2.0
 N_WEDGE = 10
 WEDGE = 2.0 * math.pi / N_WEDGE
 N_INT = 19                  # interior column intervals per wedge
-N_RINGS = 16                # radial intervals R_IN..R_OUT (~1.19 m)
+N_RINGS = 20                # radial intervals R_IN..R_OUT (1.2 m)
 SEAM_W = 0.3                # the inlaid band between wedges
 SEAM_LIP = 0.02             # the band's lip: a 2 cm slant down to the recess
 SEAM_D = 0.03
@@ -68,20 +68,20 @@ HELL_WEDGE = 0
 DAIS_R, DAIS_BASE_R, DAIS_H, DAIS_SIDES = 1.5, 1.9, 0.2, 24
 DAIS_RAD = 0.5 * (R_IN + R_OUT)
 
-POOL_B, POOL_RAD = 16.0, 31.5   # bearing, radius of the lava pool centre
-POOL_R = 2.2                    # mean rim radius; the shape stretches it along the ring
+POOL_B, POOL_RAD = 16.0, 39.0   # bearing, radius of the lava pool centre
+POOL_R = 2.75                   # mean rim radius; the shape stretches it along the ring
 POOL_N = 32
 POOL_SHAPE = (0.20, 0.05)           # rim: 2nd and 3rd harmonic
 FOOT_SHAPE = 0.12                   # foot: 2nd harmonic only, so it stays CONVEX for the lava zipper
-BANK_W = 0.8                    # mean rim-to-foot, horizontally; never steeper than ~36 deg
+BANK_W = 0.9                    # mean rim-to-foot, horizontally; never steeper than ~36 deg
 LAVA_Z = -0.3
-STONE_OFF = 0.45                # the stepping stone, off centre along the long axis
-STONE_R = (0.55, 0.45)          # foot and top radius
+STONE_OFF = 0.55                # the stepping stone, off centre along the long axis
+STONE_R = (0.65, 0.55)          # foot and top radius
 STONE_TOP = 0.03
 STONE_SIDES = 8
 
-SPIKES = [(6.0, 24.5, "short"), (29.0, 25.0, "tall"),
-          (30.0, 36.5, "medium"), (4.0, 36.5, "short")]   # bearing, radius, size
+SPIKES = [(6.0, 30.0, "short"), (29.0, 30.5, "tall"), (30.0, 46.0, "medium"),
+          (4.0, 46.5, "short"), (31.0, 39.0, "medium"), (17.0, 29.5, "short")]   # bearing, radius, size
 
 HOLE_PAD = 0.7              # a hole's clearance past its feature: past any cell chord
 COLL_INT = 8                # collider deck: columns per wedge ...
@@ -1082,11 +1082,11 @@ def _hub_render(spec, objects):
         print("MDL RENDER %s (hand-placed camera)" % os.path.basename(path))
 
     company = _company()
-    shot("eye", pol(18.0, 37.0, EYE_H), (0.0, 0.0, 16.0), 17.0, (1200, 1000))
-    shot("walk", pol(95.0, 31.0, EYE_H), pol(175.0, 15.0, 8.0), 18.0, (1400, 800))
-    shot("high", pol(215.0, 95.0, 55.0), (0.0, 0.0, 12.0), 28.0, (1500, 1000))
-    shot("top", (0.0, -0.5, 130.0), (0.0, 0.0, 0.0), 32.0, (1200, 1200))
-    shot("hell", pol(26.0, 38.5, 3.5), (26.1, 10.4, -0.2), 22.0, (1400, 900))
+    shot("eye", pol(18.0, 46.0, EYE_H), (0.0, 0.0, 16.0), 17.0, (1200, 1000))
+    shot("walk", pol(95.0, 38.5, EYE_H), pol(175.0, 19.0, 8.0), 18.0, (1400, 800))
+    shot("high", pol(215.0, 118.0, 68.0), (0.0, 0.0, 12.0), 28.0, (1500, 1000))
+    shot("top", (0.0, -0.5, 160.0), (0.0, 0.0, 0.0), 32.0, (1200, 1200))
+    shot("hell", pol(26.0, 48.0, 3.5), (32.1, 12.8, -0.2), 22.0, (1400, 900))
 
     for ob in (cam, target, sun, aim) + tuple(company):
         bpy.data.objects.remove(ob, do_unlink=True)

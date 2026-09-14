@@ -27,7 +27,7 @@ ambient_light_energy = 0.64
 tonemap_mode = 1
 
 [node name="HubTest" type="Node3D"]
-editor_description = "The hub lobby: hub_base.glb at identity (floor y 0, plinth y 0.35), the tower on the plinth as in bentham_ring, the arena's sky and light, a PlayerSpawn in the hell wedge."
+editor_description = "The hub lobby: hub_base.glb at identity (100 m across, floor y 0, plinth r 25 at y 0.35), the tower on the plinth as in bentham_ring, the arena's sky and light, a PlayerSpawn in the hell wedge."
 
 [node name="Environment" type="Node3D" parent="."]
 
@@ -67,5 +67,5 @@ omni_attenuation = 0.6
 [node name="Watcher" parent="Tower" instance=ExtResource("5_watching_eye")]
 
 [node name="PlayerSpawn" type="Marker3D" parent="."]
-editor_description = "In the hell wedge (bearing 20 deg, r 26), 0.25 m up, clear of the pool and the stalagmites."
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 24.43, 0.25, -8.89)
+editor_description = "In the hell wedge (bearing 20 deg, r 33), 0.25 m up, clear of the pool and the stalagmites."
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 31.01, 0.25, -11.29)
