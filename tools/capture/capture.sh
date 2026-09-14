@@ -16,7 +16,10 @@
 # Overridable by environment: PC_PROJECT PC_GODOT PC_HOST FPS SIZE SEED BOTS.
 set -euo pipefail
 
-SHOT="${1:?usage: tools/capture/capture.sh <shot> [seconds]}"
+PULL=0
+for a in "$@"; do [ "$a" = "--pull" ] && PULL=1; done
+set -- "${@/--pull/}"
+SHOT="${1:?usage: tools/capture/capture.sh <shot> [seconds] [--pull]}"
 SECS="${2:-0}"   # 0 means the shot's own authored duration
 
 HOST=${PC_HOST:-panopticon-pc}
@@ -60,5 +63,11 @@ try {
   Remove-Item '${PROJECT}\override.cfg' -ErrorAction SilentlyContinue
 }"
 
-scp -q "${HOST}:C:/Users/ddd/Desktop/panopticon-renders/clips/${SHOT}.avi" "${MAC_DIR}/"
-ls -lh "${MAC_DIR}/${SHOT}.avi"
+# Clips stay on the PC (Ryan: nothing lands on the Mac unless it is being posted).
+# Pass --pull to copy this one clip to the Mac.
+if [ "${PULL:-0}" = "1" ]; then
+  scp -q "${HOST}:C:/Users/ddd/Desktop/panopticon-renders/clips/${SHOT}.avi" "${MAC_DIR}/"
+  ls -lh "${MAC_DIR}/${SHOT}.avi"
+else
+  echo "clip on the PC: C:\\Users\\ddd\\Desktop\\panopticon-renders\\clips\\${SHOT}.avi (add --pull to copy it here)"
+fi
