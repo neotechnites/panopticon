@@ -240,6 +240,13 @@ func _build() -> void:
 	# A clip outlives the match it is filming: a won match freezes every body,
 	# and a frozen ring is not b-roll.
 	_controller.match_won.connect(func(_winner: MatchParticipant) -> void: _controller.restart())
+	# A resolved ROUND freezes the ring just as a won match does, and a guard
+	# clip is mostly rounds: without this the tower stops moving the moment the
+	# last prisoner is converted and films a still life until the clip ends.
+	_controller.round_resolved.connect(
+		func(_outcome: MatchController.Outcome) -> void:
+			_controller.start_round.call_deferred()
+	)
 	_controller.start_match()
 	# A guard only exists in a round: the race has nobody in the tower, so a
 	# POV clip that waits for one films an empty chamber for a minute, and a
