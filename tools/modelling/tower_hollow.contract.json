@@ -1,0 +1,10 @@
+{
+  "_comment": "tower_hollow: tower_arches.glb's drum, cut open for the hub so tower_interior.glb (a separate model, drawn inside at identity) can be walked -- the shaft hollowed to the interior lining's facets + 0.05 m, the 2.2 x 1.4 m arched door passage at the foot (bearing 0, courtyard level), the raked throat under the room floor and the stairwell hole through it. Same origin as the tower (guard-room floor), same packed 128x128 HellRock atlas, one manifold rock. TowerCollision rides in the .glb as a `-colonly` node: the arches collider (floor fan, kerb to the sill band, pier quads, ceiling) with the floor fan cut round the stairwell; the shaft, door and stair are the interior's collider. Godot turns it into a StaticBody3D + ConcavePolygonShape3D and discards its mesh, which is why `surfaces` is 1. tower.glb and tower_arches.glb stay as shipped.",
+  "node_paths": [
+    "TowerRock",
+    "TowerCollision",
+    "TowerCollision/CollisionShape3D"
+  ],
+  "surfaces": 1,
+  "max_tris": 6000
+}

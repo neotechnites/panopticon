@@ -171,6 +171,11 @@ stage_ship() {
   push "$HERE/lib/mdl.py"        "$JOB/mdl.py"
   push "$HERE/lib/pcrun.ps1"     "$JOB/pcrun.ps1"
   push "$script"                 "$JOB/${NAME}_build.py"
+  # Sibling build scripts the script imports (tower_hollow reads tower_arches
+  # and tower_interior); they ride along or the import fails on the PC.
+  for dep in $(grep -oE '^import [a-z0-9_]+_build as' "$script" | awk '{print $2}'); do
+    push "$HERE/$dep.py" "$JOB/$dep.py"
+  done
   # Texture files a build script may load instead of painting (map_base's
   # river/lava sheets): shipped next to the script, stale ones cleared.
   pc "Remove-Item -Recurse -Force -Path '$JOB_W\\textures' -ErrorAction SilentlyContinue; 'ok'" >/dev/null || true
