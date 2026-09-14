@@ -94,7 +94,7 @@ SEED = 9110271
 EYE_H = 1.65
 
 # ---- material / texture -- identical to tower_build.py --------------------
-USE_TEXTURE_FILES = False             # True: texture files in TEX_DIR replace the painted sheets
+USE_TEXTURE_FILES = True             # True: texture files in TEX_DIR replace the painted sheets
 TEX_DIR       = "textures"            # beside the running script, here or in the PC job dir
 TEX_SIZE      = 128
 TEX_ALBEDO    = "map_base_rock_albedo"
