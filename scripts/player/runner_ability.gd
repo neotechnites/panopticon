@@ -46,10 +46,25 @@ class DecoyIntent:
 
 
 ## The ability node on [param node], or null.
+##
+## Memoised per body. The tower's target scan, the net link's presentation pass
+## and the decoy driver all ask this per body per tick, and each ask was a path
+## resolution down the body's children.
+static var _by_body: Dictionary[int, RunnerPower] = {}
+
 static func of(node: Node) -> RunnerPower:
 	if node == null:
 		return null
-	return node.get_node_or_null(^"Ability") as RunnerPower
+	var id: int = node.get_instance_id()
+	var cached: RunnerPower = _by_body.get(id, null)
+	if cached != null and is_instance_valid(cached) and is_instance_valid(node):
+		return cached
+	var found: RunnerPower = node.get_node_or_null(^"Ability") as RunnerPower
+	if found != null:
+		if _by_body.size() > 256:
+			_by_body.clear()
+		_by_body[id] = found
+	return found
 
 
 ## The hologram [param collider] belongs to, or null.

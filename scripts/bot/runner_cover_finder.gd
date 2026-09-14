@@ -132,6 +132,8 @@ var _best: Vector3 = Vector3.ZERO
 var _best_deviation: float = INF
 var _step: int = 1
 var _complete: bool = true
+## Rebuilt in place per angular step instead of reallocated.
+var _radii_buffer: PackedFloat32Array = PackedFloat32Array()
 var _key_from: Vector3 = Vector3.ZERO
 var _key_eye: Vector3 = Vector3.ZERO
 
@@ -400,8 +402,26 @@ static func point_in_hazard(hazards: Array[Dictionary], point: Vector3) -> bool:
 
 
 ## XZ cell size of the hazard lookup grid, in metres.
+## One floor probe reused by every walkability sample; the search fires up to
+## eighty of these a frame and each was allocating its own query object.
+static var _floor_ray: PhysicsRayQueryParameters3D = _make_floor_ray()
+
+
+static func _make_floor_ray() -> PhysicsRayQueryParameters3D:
+	var ray: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.new()
+	ray.collision_mask = FLOOR_MASK
+	ray.collide_with_areas = false
+	ray.collide_with_bodies = true
+	return ray
+
+
 const HAZARD_CELL_METRES: float = 4.0
 ## Grids by source array: [{"source": Array, "size": int, "grid": Dictionary}].
+##
+## One entry per live hazard array. Sized above the player ceiling because each
+## runner arms its own array: at exactly MAX_PLAYERS the cache evicted a grid
+## that was still in use and rebuilt it inside the hot loop.
+const HAZARD_GRID_CACHE: int = 24
 static var _hazard_grids: Array[Dictionary] = []
 
 
@@ -425,7 +445,7 @@ static func _hazard_grid(hazards: Array[Dictionary]) -> Dictionary:
 				var cells: PackedInt32Array = grid[cell]
 				cells.append(index)
 				grid[cell] = cells
-	if _hazard_grids.size() >= 8:
+	if _hazard_grids.size() >= HAZARD_GRID_CACHE:
 		_hazard_grids.pop_front()
 	_hazard_grids.append({"source": hazards, "size": hazards.size(), "grid": grid})
 	return grid
@@ -476,16 +496,11 @@ static func _floor_within_a_step(
 	space: PhysicsDirectSpaceState3D, profile: RunnerProfile, point: Vector3, feet_y: float
 ) -> bool:
 	var lift: float = maxf(profile.cover_max_step_height, 0.0) + FLOOR_PROBE_LIFT_METRES
-	var query: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(
-		Vector3(point.x, feet_y + lift, point.z),
-		Vector3(point.x, feet_y - FLOOR_PROBE_METRES, point.z),
-	)
-	query.collision_mask = FLOOR_MASK
-	query.collide_with_areas = false
-	query.collide_with_bodies = true
+	_floor_ray.from = Vector3(point.x, feet_y + lift, point.z)
+	_floor_ray.to = Vector3(point.x, feet_y - FLOOR_PROBE_METRES, point.z)
 
 	_spend_ray()
-	var hit: Dictionary = space.intersect_ray(query)
+	var hit: Dictionary = space.intersect_ray(_floor_ray)
 	if hit.is_empty():
 		return false
 	var floor_point: Vector3 = hit.get("position", Vector3.ZERO)
@@ -562,16 +577,17 @@ func _is_standable(
 ## exactly on the runner's current radius, which is the cheapest candidate to
 ## reach and therefore the right one to have in the set.
 func _radii(profile: RunnerProfile, centre_radius: float) -> PackedFloat32Array:
-	var radii: PackedFloat32Array = PackedFloat32Array()
 	var count: int = maxi(profile.cover_search_radial_steps, 1)
+	if _radii_buffer.size() != count:
+		_radii_buffer.resize(count)
 	if count == 1:
-		radii.append(centre_radius)
-		return radii
+		_radii_buffer[0] = centre_radius
+		return _radii_buffer
 	var span: float = profile.cover_search_radial_span
 	for index: int in count:
 		var fraction: float = float(index) / float(count - 1)
-		radii.append(centre_radius - span * 0.5 + span * fraction)
-	return radii
+		_radii_buffer[index] = centre_radius - span * 0.5 + span * fraction
+	return _radii_buffer
 
 
 # --- Ring geometry ------------------------------------------------------------

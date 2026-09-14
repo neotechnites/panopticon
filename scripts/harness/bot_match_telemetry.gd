@@ -255,7 +255,7 @@ var _trace_every: int = int(60.0 * float(OS.get_environment("PANOPTICON_TRACE"))
 
 ## One diagnostic line per live runner: where it is, what it is doing, what it sees.
 func _trace_runners() -> void:
-	for participant: MatchParticipant in _controller.get_participants():
+	for participant: MatchParticipant in _controller.get_participants_ref():
 		var brain: RingRunner = participant.brain
 		if brain == null or participant.body == null or not participant.is_running:
 			continue
@@ -336,7 +336,7 @@ func _sample_blind(seat: MatchParticipant) -> void:
 	var exposed: int = 0
 	var in_arc: int = 0
 	var clear: int = 0
-	for participant: MatchParticipant in _controller.get_participants():
+	for participant: MatchParticipant in _controller.get_participants_ref():
 		if not participant.is_running or participant.brain == null or participant.body == null:
 			continue
 		var perception: RunnerPerception = participant.brain.get_perception()
@@ -382,7 +382,7 @@ func _sample_round_wait() -> void:
 		_finisher_ticks_max = maxi(_finisher_ticks_max, _finisher_ticks)
 	else:
 		_finisher_ticks = 0
-	for participant: MatchParticipant in _controller.get_participants():
+	for participant: MatchParticipant in _controller.get_participants_ref():
 		if (
 			participant.is_running and not participant.is_finisher
 			and participant.tracker != null and participant.tracker.has_finished()
@@ -407,7 +407,7 @@ func _round_state() -> Dictionary:
 		"finisher_armed_s": float(_finisher_ticks) / 60.0,
 	}
 	var runners: Array = []
-	for participant: MatchParticipant in _controller.get_participants():
+	for participant: MatchParticipant in _controller.get_participants_ref():
 		if participant.is_shooter:
 			continue
 		runners.append({
@@ -441,7 +441,7 @@ func _brain_state(participant: MatchParticipant) -> Dictionary:
 
 ## Stall and hold streaks, sampled from each live runner's body and brain.
 func _sample_runners() -> void:
-	for participant: MatchParticipant in _controller.get_participants():
+	for participant: MatchParticipant in _controller.get_participants_ref():
 		var tally: BotParticipantTally = _tallies.get(participant.index, null)
 		var brain: RingRunner = participant.brain
 		if tally == null or brain == null or participant.body == null:
@@ -687,7 +687,7 @@ func is_match_over() -> bool:
 
 func _on_match_started(participant_count: int) -> void:
 	_participants_total = participant_count
-	for participant: MatchParticipant in _controller.get_participants():
+	for participant: MatchParticipant in _controller.get_participants_ref():
 		if _tallies.has(participant.index):
 			continue
 		var tally: BotParticipantTally = BotParticipantTally.new()
@@ -789,7 +789,7 @@ func _on_match_won(participant: MatchParticipant) -> void:
 	var tally: BotParticipantTally = _tallies.get(participant.index, null)
 	if tally != null:
 		tally.rounds_won = participant.rounds_won
-	for other: MatchParticipant in _controller.get_participants():
+	for other: MatchParticipant in _controller.get_participants_ref():
 		var entry: BotParticipantTally = _tallies.get(other.index, null)
 		if entry != null and other.tracker != null:
 			entry.final_progress = other.tracker.get_progress()
@@ -881,7 +881,7 @@ func finalise() -> void:
 	_close_seat()
 	if _controller == null:
 		return
-	for participant: MatchParticipant in _controller.get_participants():
+	for participant: MatchParticipant in _controller.get_participants_ref():
 		var tally: BotParticipantTally = _tallies.get(participant.index, null)
 		if tally == null:
 			continue

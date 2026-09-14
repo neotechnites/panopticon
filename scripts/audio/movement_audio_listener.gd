@@ -91,6 +91,9 @@ var _last_position: Dictionary[int, Vector3] = {}
 ## Metres accumulated toward each tracked body's next footstep.
 var _stride_accum: Dictionary[int, float] = {}
 
+## Reused by the tick sweep so a clean tick allocates nothing.
+var _stale: Array[int] = []
+
 
 ## Subscribes and sweeps in [method Node._enter_tree], for the same reason
 ## [MatchAudioListener] does: the whole subtree that exists at scene-load time
@@ -176,14 +179,16 @@ func _default_search_root() -> Node:
 # --- Footsteps, paced by distance ----------------------------------------------
 
 func _physics_process(_delta: float) -> void:
-	var stale: Array[int] = []
+	# _stale is a member and is cleared rather than rebuilt: it is empty on
+	# virtually every tick and this runs at 60 Hz for every body in the match.
+	_stale.clear()
 	for id: int in _bodies:
 		var body: PlayerController = _bodies[id]
 		if not is_instance_valid(body):
-			stale.append(id)
+			_stale.append(id)
 			continue
 		_pace_footsteps(body)
-	for id: int in stale:
+	for id: int in _stale:
 		_bodies.erase(id)
 		_last_position.erase(id)
 		_stride_accum.erase(id)

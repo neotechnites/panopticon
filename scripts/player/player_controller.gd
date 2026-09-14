@@ -1063,12 +1063,14 @@ func _settle_head(delta: float) -> void:
 	else:
 		_head_offset = lerpf(_head_offset, target, 1.0 - exp(-rate * delta))
 	# The view offset is a world vector and the head is a child of a yawing
-	# body, so it is rotated into local space before it is added.
-	head.position = (
-		_head_base
-		+ Vector3(0.0, _head_offset, 0.0)
-		+ global_basis.inverse() * view_offset
-	)
+	# body, so it is rotated into local space before it is added. Only a
+	# client-predicted body ever has one; the rest skip the matrix entirely.
+	var local_head: Vector3 = _head_base + Vector3(0.0, _head_offset, 0.0)
+	if view_offset != Vector3.ZERO:
+		# The body only yaws, so the basis is orthonormal and the transpose is
+		# the inverse at a fraction of the cost.
+		local_head += global_basis.transposed() * view_offset
+	head.position = local_head
 
 
 # --- Quake movement primitives ------------------------------------------------

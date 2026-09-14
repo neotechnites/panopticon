@@ -806,10 +806,13 @@ func tick_first_person() -> void:
 		_first_person = want
 		_head_hider.set_hidden(want)
 
-	# Written unconditionally, because the avatar is the only writer of this
-	# field: a body is on a layer the cameras keep whether it is being looked
-	# out of -- so its owner sees their own legs -- or looked at.
-	mesh.layers = visual_layers | first_person_layers
+	# A body is on a layer the cameras keep whether it is being looked out of --
+	# so its owner sees their own legs -- or looked at. The avatar is the only
+	# writer, so the guard is free: the value never changes after ready and each
+	# write crosses into the RenderingServer.
+	var want_layers: int = visual_layers | first_person_layers
+	if mesh.layers != want_layers:
+		mesh.layers = want_layers
 
 	# The torso goes with the head: in first person the body is in the way. The
 	# shove is the one clip whose point is seeing your own arms, so it gets them

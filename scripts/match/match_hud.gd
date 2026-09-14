@@ -122,6 +122,14 @@ func _process(delta: float) -> void:
 	tick()
 
 
+## The pip count last painted, so a ten-child modulate loop runs on the frames
+## the finisher's health actually changes and not on the other fifty-nine.
+var _lit_pips: int = -1
+
+## The panels [method _hide_all] walks, built once instead of per call.
+var _all_panels: Array[Control] = []
+
+
 ## Take the HUD off the screen, or put it back. The crosshair goes with it: this
 ## Control is the parent of every part of the readout.
 func set_hud_hidden(hidden: bool) -> void:
@@ -290,11 +298,15 @@ func _write_pips(wanted: bool) -> void:
 		0,
 		PIP_COUNT,
 	)
+	if lit == _lit_pips:
+		return
+	_lit_pips = lit
 	var tuning: MatchReadoutProfile = _readout()
+	var dim: Color = tuning.dim_color * Color(1, 1, 1, 0.25)
 	for index: int in pips_row.get_child_count():
 		var pip: Control = pips_row.get_child(index) as Control
 		if pip != null:
-			pip.modulate = tuning.ready_color if index < lit else tuning.dim_color * Color(1, 1, 1, 0.25)
+			pip.modulate = tuning.ready_color if index < lit else dim
 
 
 ## The runner's power, its cycle, and the speed boost while one runs.
@@ -424,23 +436,31 @@ func _write_flash(text: String) -> void:
 # --- Drawing ------------------------------------------------------------------
 
 func _hide_all() -> void:
-	for node: Control in [
-		crosshair, status_panel, tower_panel, guard_panel, pips_row, power_panel,
-		boost_label, dev_label,
-	]:
+	if _all_panels.is_empty():
+		_all_panels = [
+			crosshair, status_panel, tower_panel, guard_panel, pips_row, power_panel,
+			boost_label, dev_label,
+		]
+	for node: Control in _all_panels:
 		_show(node, false)
 
 
 func _show(node: Control, visible_now: bool) -> void:
-	if node != null:
+	if node != null and node.visible != visible_now:
 		node.visible = visible_now
 
 
+## Guarded, because both setters are expensive for a value that rarely moves:
+## assigning [member Label.text] re-shapes and re-lays-out the control even when
+## the string is identical, and the HUD redraws every one of its lines every
+## frame.
 func _write(label: Label, text: String, colour: Color) -> void:
 	if label == null:
 		return
-	label.text = text
-	label.modulate = colour
+	if label.text != text:
+		label.text = text
+	if label.modulate != colour:
+		label.modulate = colour
 
 
 ## Drive a bar by its right anchor, so it fills its track at any resolution.

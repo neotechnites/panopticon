@@ -109,6 +109,9 @@ var _controller: MatchController = null
 ## Per-body seconds spent with feet in, [member feet_only] only.
 var _feet_timers: Dictionary = {}
 
+## Bodies currently overlapping, [member feet_only] only. Empty means asleep.
+var _inside: Array[Node3D] = []
+
 
 func _ready() -> void:
 	_build_shape()
@@ -117,14 +120,21 @@ func _ready() -> void:
 	body_entered.connect(_on_body_entered)
 	if feet_only:
 		body_exited.connect(_on_body_exited)
-		set_process(true)
-	else:
-		set_process(false)
+	set_process(false)
 
 
-## Feet-depth check, run every frame while [member feet_only] is on.
+## Feet-depth check, run every frame while a body is standing in the volume.
+##
+## Driven off the enter/exit signals rather than polling
+## [method Area3D.get_overlapping_bodies], which allocates a fresh array per
+## call: the ring carries twenty-two of these and none of them has anybody in
+## it on almost every frame of a match.
 func _process(delta: float) -> void:
-	for body: Node3D in get_overlapping_bodies():
+	for index: int in range(_inside.size() - 1, -1, -1):
+		var body: Node3D = _inside[index]
+		if not is_instance_valid(body):
+			_inside.remove_at(index)
+			continue
 		if body.global_position.y <= global_transform.origin.y + _FEET_DEPTH:
 			var elapsed: float = _feet_timers.get(body, 0.0) + delta
 			_feet_timers[body] = elapsed
@@ -137,6 +147,8 @@ func _process(delta: float) -> void:
 
 func _on_body_exited(body: Node3D) -> void:
 	_feet_timers.erase(body)
+	_inside.erase(body)
+	set_process(not _inside.is_empty())
 
 
 # --- Geometry -----------------------------------------------------------------
@@ -191,6 +203,9 @@ func _find_block() -> CSGBox3D:
 func _on_body_entered(body: Node3D) -> void:
 	if feet_only:
 		# Depth and grace are decided per-frame in _process instead.
+		if not _inside.has(body):
+			_inside.append(body)
+		set_process(true)
 		return
 	_convert(body)
 
