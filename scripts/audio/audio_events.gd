@@ -144,21 +144,38 @@ const PLAYER_HIT_TAKEN: StringName = &"player.hit_taken"
 
 # --- The catch ----------------------------------------------------------------
 #
-# The two halves of one event, posted on two different machines. Both come from
-# [FxCatchReaction], which is the node that already had to work out which side
-# of a catch the local player was on; MatchAudioListener subscribes to it the
-# same way it subscribes to FxHitReaction, and MatchController is untouched.
+# PLAYER_CATCH_MADE is posted from two places, and they are NOT the same event
+# in disguise -- they carry different placement:
 #
-# NEITHER IS POSITIONAL, for the same reason PLAYER_HIT_TAKEN is not: a catch
-# happens at arm's length, so the listener is standing inside the sound, and a
-# 3D source at zero distance is numerically unstable as well as pointless.
+#   MatchController.apply_shove  -> positional, at the victim, EVERY shove/catch
+#                                    that lands, bot or human. This is the
+#                                    arena's broadcast -- see AudioCue in the
+#                                    bank -- and the reason it is positional is
+#                                    that a bot-heavy match lands one of these
+#                                    roughly every half second and it must not
+#                                    blast the whole ring at full volume.
+#   FxCatchReaction.catch_made    -> flat, no position given, THIS player's own
+#                                    ghost taking a spot. See MatchAudioListener
+#                                    ._on_catch_made, which calls _post() and
+#                                    not _post_at(): a positional cue posted
+#                                    with no position always plays flat (see
+#                                    AudioCue.positional), so the local player's
+#                                    own catch stays exactly as loud as before.
 #
-# A catch between two bots posts NOTHING. FxCatchReaction returns before it
-# emits either signal when neither participant is the local body, so a round in
-# which the bots swap spots twenty times is exactly as quiet as one in which
-# they do not.
+# PLAYER_CATCH_TAKEN has no broadcast twin -- only FxCatchReaction posts it, and
+# only for the local player being caught -- so it stays flat outright, for the
+# same reason PLAYER_HIT_TAKEN is: the listener is standing inside the sound,
+# and a 3D source at zero distance is numerically unstable as well as
+# pointless.
+#
+# A catch between two bots' OWN reactions posts NOTHING through FxCatchReaction:
+# it returns before it emits either signal when neither participant is the
+# local body. The controller's broadcast above still posts for it -- that is
+# what being positional is for.
 
-## [signal FxCatchReaction.catch_made]: THIS player's ghost took somebody's spot.
+## [signal FxCatchReaction.catch_made], flat; or [method MatchController.apply_shove]'s
+## broadcast of the same landed shove/catch, positional. See the block comment
+## above.
 ##
 ## The ghost's reward and the only good news a ghost can generate, so it is
 ## pitched and shaped as an ASCENT. Deliberately not [constant RIFLE_HIT]: that
@@ -274,6 +291,7 @@ const POSITIONAL: Array[StringName] = [
 	MOVEMENT_LAND,
 	MOVEMENT_SLIDE_START,
 	MOVEMENT_SLIDE_END,
+	PLAYER_CATCH_MADE,
 	HAZARD_BOOST_PAD,
 	HAZARD_PORTAL,
 ]
