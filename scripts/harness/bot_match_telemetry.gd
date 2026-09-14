@@ -79,11 +79,16 @@ var _sections_live: bool = false
 ## geometry itself.
 var _traps: Array[Dictionary] = []
 
+## Whether each life was a clean run. See [BotRunWatch].
+var _runs: BotRunWatch = BotRunWatch.new(60)
+
 ## Per participant: where it stood last tick, and whether it was running.
 var _last_point: Dictionary = {}
 var _was_running: Dictionary = {}
 ## Per participant: lava flights taken, as the brain counts them.
 var _hops_seen: Dictionary = {}
+## Where each life ended, rounded. Diagnostics for a map bodies keep leaving.
+var _removals: Array = []
 ## Metres a body may move in one tick before it is a re-placement, not a stride.
 const TELEPORT_METRES: float = 20.0
 
@@ -447,16 +452,21 @@ func _sample_runners() -> void:
 		var last: Vector3 = _last_point.get(participant.index, here)
 		# Stopped running, or picked up and put back on the start line: either way
 		# the lap ended where the body last stood, and that is what is scored.
-		if (bool(_was_running.get(participant.index, false)) and not running) \
-			or (running and last.distance_to(here) > TELEPORT_METRES):
+		var was_running: bool = bool(_was_running.get(participant.index, false))
+		var replaced: bool = running and last.distance_to(here) > TELEPORT_METRES
+		if (was_running and not running) or replaced:
 			_note_removal(participant.index, tally, last)
 			_close_pass(participant.index, tally)
+			_runs.close(participant.index, _ticks, _life_ending(participant))
 		_was_running[participant.index] = running
 		_last_point[participant.index] = here
 		if not running:
 			_watch[participant.index] = {}
 			_close_pass(participant.index, tally)
 			continue
+		if not was_running or replaced:
+			_runs.begin(participant.index, _ticks)
+		_sample_run(participant, brain, here)
 		_sample_section(participant.index, tally, here)
 		_sample_hops(participant.index, tally, brain, here)
 		var state: RingRunner.State = brain.get_state()
@@ -533,6 +543,56 @@ func _in_lava(point: Vector3) -> bool:
 	return false
 
 
+## How a life ended: at the portal, or not.
+func _life_ending(participant: MatchParticipant) -> String:
+	var tracker: MatchLapTracker = participant.tracker
+	return "portal" if tracker != null and tracker.has_finished() else "removed"
+
+
+## Hand [BotRunWatch] one tick of one live body, with what the brain was doing.
+##
+## The brain's own fields are read here and nowhere else. A watch that inferred
+## "it was waiting on a link" from a position would be guessing; the point of the
+## stall table is to name the cause, so it asks.
+func _sample_run(participant: MatchParticipant, brain: RingRunner, here: Vector3) -> void:
+	var body: PlayerController = participant.body
+	var perception: RunnerPerception = brain.get_perception()
+	var state: RingRunner.State = brain.get_state()
+	var threat: bool = perception != null and perception.has_threat()
+	var hidden: bool = threat and not perception.is_exposed()
+	var holding: bool = hidden or state == RingRunner.State.HOLD or state == RingRunner.State.EVALUATE
+	# The three states that steer by facing the tower rather than by where they
+	# are going. See RingRunner._watch_and_hold.
+	var watching: bool = threat and (holding or state == RingRunner.State.RECOVER)
+	var lane: float = 1.0
+	var route: RingRoute = brain.get_route()
+	if route != null:
+		lane = maxf(route.lane_radius(brain.get_level()), 1.0)
+	_runs.sample(
+		participant.index,
+		_ticks,
+		here,
+		body.velocity,
+		-body.global_transform.basis.z,
+		brain.get_travelled_arc() * lane,
+		holding,
+		watching,
+		brain.get_state_name(),
+		{
+			"threat": int(threat),
+			"exposed": int(perception != null and perception.is_exposed()),
+			"link": int(float(brain.get("_link_aim_age")) <= RingRunner.LINK_AIM_MEMORY_SECONDS),
+			"lake": int(brain.call(&"_in_lake")),
+			"target": int(brain.get("_has_target")),
+			"cover": int(brain.get("_target_is_cover")),
+			"wp": int(brain.get("_wp")),
+			"unstick": int(float(brain.get("_unstick_seconds")) > 0.0),
+			"override": int(float(brain.get("_route_override")) > 0.0),
+			"air": int(not body.is_on_floor()),
+		},
+	)
+
+
 ## Credit any lava flights taken since last tick to the section they left from.
 func _sample_hops(index: int, tally: BotParticipantTally, brain: RingRunner, point: Vector3) -> void:
 	if not _sections_live or not brain.has_method(&"get_lake_hops"):
@@ -552,6 +612,11 @@ func _sample_hops(index: int, tally: BotParticipantTally, brain: RingRunner, poi
 ## Note a body that stopped running, or was picked up and put back on the start
 ## line, against the section it was standing in when it happened.
 func _note_removal(index: int, tally: BotParticipantTally, point: Vector3) -> void:
+	_removals.append({
+		"bearing": snappedf(wrapf(rad_to_deg(atan2(point.z, point.x)), 0.0, 360.0), 10.0),
+		"radius": snappedf(Vector2(point.x, point.z).length(), 2.0),
+		"y": snappedf(point.y, 1.0),
+	})
 	var section: Dictionary = _section_of(point)
 	if section.is_empty():
 		return
@@ -826,6 +891,7 @@ func finalise() -> void:
 		if participant.tracker != null:
 			tally.final_progress = participant.tracker.get_progress()
 		_close_pass(participant.index, tally)
+	_runs.finish(_ticks)
 	if _first_shot_pending and _rounds_started > 0:
 		_rounds_without_a_shot += 1
 
@@ -875,6 +941,8 @@ func to_dictionary(sim_hz: int) -> Dictionary:
 			"catches": _ghost_catches,
 		},
 		"stall": _stall_dictionary(sim_hz),
+		"clean_runs": _runs.to_dictionary(),
+		"removals": _removals,
 		"participants": participants,
 	}
 

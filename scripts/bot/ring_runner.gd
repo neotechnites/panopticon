@@ -15,10 +15,13 @@ const TRAVEL_SIGN: float = 1.0
 const SETTLED_SPEED: float = 0.35
 const EVALUATE_SEARCH_SECONDS: float = 0.35
 const HOLD_DEADZONE: float = 0.6
-## Seconds of holding cover, with no shot heard all round, before the runner
-## commits to the next cover or the finish regardless of confidence. Stops a
-## silent guard (a human holding the tower but not firing) from being read as
-## an eternal reload window.
+## Seconds of holding cover, with the rifle SILENT for as long, before the runner
+## commits to the next cover or the finish regardless of confidence.
+##
+## Silence, not "no shot all round": a guard who fires twice and then stops --
+## an AI whose brain the match has stood down, a human who has put the mouse
+## down -- leaves a shot count that is not zero for ever after, and a runner
+## reading that count held one piece of cover for the rest of the match.
 const HOLD_FORCE_SECONDS: float = 4.0
 const RAMP_ARRIVAL_METRES: float = 4.0
 ## Lane waypoints are laid every this many degrees from start to finish.
@@ -73,6 +76,8 @@ const FLY_MAX_SECONDS: float = 6.0
 const LINK_AIM_MEMORY_SECONDS: float = 3.0
 const FLY_AIM_METRES: float = 30.0
 const FLY_GAIN_METRES: float = 4.0
+## How far the wish may be bent off the flight. See [method _steer_flight].
+const FLY_CORRECTION_MAX: float = 0.5
 const FLY_SETTLED_METRES: float = 0.3
 const LINK_NOTICE_METRES: float = 16.0
 const OFF_MESH_WAYPOINT_METRES: float = 2.5
@@ -87,6 +92,10 @@ const LAKE_HOP_REST_SECONDS: float = 0.5
 const LAKE_LINK_OVERSHOOT_METRES: float = 0.25
 ## How close to a lake link's start the body launches from. See [method _launch_over_lake].
 const LAKE_LAUNCH_METRES: float = 0.8
+## Shortest flight worth taking: under this, walk.
+const LAKE_LAUNCH_MIN_METRES: float = 2.0
+## How near a take-off the body steers straight at it rather than at the mesh path.
+const LAKE_AIM_METRES: float = 4.0
 const PAD_RUNUP_METRES: float = 6.0
 const PAD_TURN_METRES: float = 0.6
 ## How far ahead a covered crossing is worth detouring to. See [method _maybe_take_the_covered_way].
@@ -444,9 +453,10 @@ func _lake_is_live() -> bool:
 	return not _flying and not _lake_plan.is_empty() and _link_aim_age <= LINK_AIM_MEMORY_SECONDS
 
 
-## True while the body stands in the lava lake's angular span.
+## True while the body stands on a foothold out in the lava, where there is no
+## cover game to play and nowhere to go but the next one.
 func _in_lake() -> bool:
-	return _nav_ready() and _nav.is_in_lake_span(controller.global_position)
+	return _nav_ready() and _nav.is_on_lava_island(controller.global_position)
 
 
 ## Hold on solid ground rather than launch into the open with the tower on you.
@@ -527,6 +537,11 @@ func _launch_over_lake() -> bool:
 		return false
 	if _flat_distance(controller.global_position, _lake_plan["start"]) > LAKE_LAUNCH_METRES:
 		return false
+	# Solved from where the body stands, so a body that has drifted past the
+	# take-off would be thrown almost straight up. Walk it instead.
+	if _flat_distance(controller.global_position, _lake_plan["landing"]) < LAKE_LAUNCH_MIN_METRES:
+		_lake_plan = {}
+		return false
 	_release_slide()
 	input.command.move_direction = Vector2.ZERO
 	input.command.jump_pressed = false
@@ -583,12 +598,28 @@ func _tick_flight(delta: float) -> bool:
 		if _flat_distance(controller.global_position, _stuck_origin) >= STUCK_DISTANCE_METRES:
 			_reset_stuck()
 		return false
-	_face(_fly_aim, delta)
+	_face(_flight_heading(), delta)
 	if _lake_flight:
 		input.command.move_direction = Vector2.ZERO
 	else:
 		_steer_flight()
 	return true
+
+
+## What to point at during a flight: the aim, until the body has flown PAST it,
+## and then where it is actually going.
+##
+## An arc that overshoots its aim leaves a body facing back down its own flight
+## path: it lands travelling one way and looking the other, spends most of a
+## second turning round, and for that second is a prisoner running backwards. The
+## aim is worth facing while it is still ahead and worth nothing after.
+func _flight_heading() -> Vector3:
+	var here: Vector3 = controller.global_position
+	var travel: Vector3 = Vector3(controller.velocity.x, 0.0, controller.velocity.z)
+	if travel.length() < 0.5:
+		return _fly_aim
+	var to_aim: Vector3 = Vector3(_fly_aim.x - here.x, 0.0, _fly_aim.z - here.z)
+	return _fly_aim if to_aim.dot(travel) > 0.0 else here + travel
 
 
 ## Strafe so the ballistic landing point meets the flight aim. Air control does the rest.
@@ -602,7 +633,22 @@ func _steer_flight() -> void:
 	var error: Vector3 = Vector3(_fly_aim.x - predicted.x, 0.0, _fly_aim.z - predicted.z)
 	# Full push always: air speed only holds at the cap under a full wish. Blend in the correction.
 	var forward: Vector3 = Vector3(velocity.x, 0.0, velocity.z).normalized()
-	var wish: Vector3 = forward + error / FLY_GAIN_METRES
+	# The correction is CAPPED, and that is not fussiness. Air control in this
+	# game is the strafing kind: a hard sideways wish does not merely turn the
+	# flight, it ADDS speed to it. An uncapped correction therefore answers a
+	# five-metre miss by strafing flat out, gaining four metres a second, flying
+	# past the aim on the other side and doing it again -- and on the pad chain
+	# through the Split the second swing took the body off the deck and into the
+	# pit. Half the forward vector is as far as the wish may be bent, which is
+	# still enough to land a fourteen-metre arc on a three-metre rock.
+	var correction: Vector3 = error / FLY_GAIN_METRES
+	# Nothing to correct towards once the aim is behind: steering back at it only
+	# brakes the flight in mid-air.
+	if Vector3(_fly_aim.x - here.x, 0.0, _fly_aim.z - here.z).dot(forward) <= 0.0:
+		correction = Vector3.ZERO
+	if correction.length() > FLY_CORRECTION_MAX:
+		correction = correction.normalized() * FLY_CORRECTION_MAX
+	var wish: Vector3 = forward + correction
 	if wish.length() < 0.05:
 		wish = forward
 	_drive_towards(here + wish.normalized() * 5.0, 0.0)
@@ -1153,7 +1199,13 @@ func _next_path_point() -> Vector3:
 	if _agent_live() and not _agent.is_navigation_finished():
 		next = _agent.get_next_path_position()
 		_note_link_ahead()
-		if _lake_is_live():
+		# Only the last few metres are steered at the take-off directly. A
+		# straight line to one from further off goes through whatever stands
+		# between -- on the lava shelf, the cave wall's foot -- and the body
+		# drives into the rock and stops there. The mesh path reaches the same
+		# point and knows the way round it.
+		if _lake_is_live() \
+			and _flat_distance(controller.global_position, _lake_plan["start"]) <= LAKE_AIM_METRES:
 			return _lake_plan["start"]
 		var staged: Vector3 = _pad_approach_point()
 		if is_finite(staged.x):
@@ -1349,7 +1401,8 @@ func _tick_evaluate(remaining_arc: float, delta: float) -> void:
 		_plan_and_cross(remaining_arc, delta)
 		return
 
-	if _hold_seconds >= HOLD_FORCE_SECONDS and _perception.get_shots_heard() == 0:
+	if _hold_seconds >= HOLD_FORCE_SECONDS \
+		and _perception.get_seconds_since_shot() >= HOLD_FORCE_SECONDS:
 		_plan_and_cross(remaining_arc, delta)
 		return
 
@@ -1358,6 +1411,13 @@ func _tick_evaluate(remaining_arc: float, delta: float) -> void:
 		_search_countdown = EVALUATE_SEARCH_SECONDS
 		_choose_target(remaining_arc)
 	if not _has_target:
+		# A finished search that found nothing, on a body whose patience is spent,
+		# is a body that will stand there for ever: there is nothing to cross to
+		# and this state has no other way out. A guard who simply keeps the seat
+		# and stops firing must not be able to end a lap by existing. Run the
+		# route instead -- it is the path that knows the pads and the links.
+		if _cover.is_complete() and _hold_seconds >= _play.max_hold_seconds:
+			_run_route(delta)
 		return
 
 	_last_confidence = _crossing_confidence()
@@ -1711,10 +1771,34 @@ func _drive_towards(point: Vector3, deadzone: float) -> void:
 	if flat.length() <= deadzone:
 		input.command.move_direction = Vector2.ZERO
 		return
+	flat = _along_the_wall(flat)
 	var basis: Basis = controller.global_transform.basis
 	var right: Vector2 = Vector2(basis.x.x, basis.x.z)
 	var forward: Vector2 = Vector2(-basis.z.x, -basis.z.z)
 	input.command.move_direction = Vector2(flat.dot(right), flat.dot(forward)).normalized()
+
+
+## [param wish] with the part of it that pushes into a wall taken out.
+##
+## The lane through the lava shelf is barely wider than the body, and a corner
+## cut at eleven metres a second puts a shoulder into the cave wall's foot. The
+## body then drives into the rock, holds nothing like walking speed, and the
+## stuck timer takes two seconds to notice -- which from inside the head is a
+## prisoner standing still staring at a wall. Sliding costs nothing and the
+## navmesh path is still what it is steering along.
+func _along_the_wall(wish: Vector2) -> Vector2:
+	if not controller.is_on_wall():
+		return wish
+	var normal: Vector3 = controller.get_wall_normal()
+	var flat: Vector2 = Vector2(normal.x, normal.z)
+	if flat.length() < 0.001:
+		return wish
+	flat = flat.normalized()
+	var into: float = wish.dot(flat)
+	if into >= 0.0:
+		return wish
+	var along: Vector2 = wish - flat * into
+	return wish if along.length() < 0.001 else along
 
 
 func _crossing_speed() -> float:

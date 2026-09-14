@@ -62,6 +62,11 @@ const DEFAULT_GRAVITY: float = 22.0
 ## Platform tops standing in a carved trap (a lava lake's blocks) and the shores either side
 ## are joined by NavigationLink3Ds a bot FLIES, exactly as it flies a boost pad.
 const LAKE_LINK_MAX_SPAN_METRES: float = 6.0
+## Shortest hop worth flying. Under this the two footholds are a stride apart and
+## a launch is a vertical pop that stops the body dead for most of a second.
+const LAKE_LINK_MIN_SPAN_METRES: float = 2.0
+## How far a take-off may stand off the navmesh and still be one.
+const LAKE_TAKEOFF_SNAP_METRES: float = 0.75
 const LAKE_LINK_MAX_RISE_METRES: float = 1.6
 ## Metres a take-off sits back from its edge, and a landing sits in past the far one.
 const LAKE_LINK_INSET_METRES: float = 0.2
@@ -87,6 +92,16 @@ const LAKE_LINK_TRAVEL_COST: float = 0.5
 ## game to play on it, and a span bounded only by bearing would swallow it.
 const LAKE_SPAN_PAD_DEGREES: float = 8.0
 const LAKE_SPAN_PAD_METRES: float = 1.5
+## Metres of clear deck inside a lava span that make it something to run PAST
+## rather than something to cross. Under this there is no lane and the only way
+## on is a chain of footholds; over it there is a lane, and a navmesh offered
+## links as well would price the lane against them and send bodies at the water's
+## edge for no reason. See [method _blocks_the_deck].
+const LAKE_LANE_METRES: float = 2.0
+## Metres above a lava surface a body can stand and still be over it.
+const LAKE_ISLAND_HEAD_METRES: float = 4.0
+## Samples along a hop that decide whether it really crosses lava.
+const LAKE_LAVA_SAMPLES: int = 6
 ## A map declares its lava lake with a Marker3D of this name; the TrapVolumes beside it are it.
 const LAKE_SURFACE_MARKER: StringName = &"LavaSurface"
 ## Metres a lake trap's carve reaches past its lethal surface, so the surface's own navmesh goes
@@ -682,6 +697,29 @@ func is_in_lake_span(world_point: Vector3) -> bool:
 	return not _span_at(world_point).is_empty()
 
 
+## True when [param world_point] stands on a foothold INSIDE lava: a stepping
+## stone, a boulder in the river, a landing rock in the demon run.
+##
+## Not the same question as [method is_in_lake_span], and the difference is the
+## whole of the river: a span covers the water AND its banks, and the lava
+## shelf's inner bank is ordinary deck with a lane on it and a cover game to
+## play. A body there is not committed to anything. A body on a rock in the
+## middle is -- the only way off is a flight -- and that is what this asks.
+func is_on_lava_island(world_point: Vector3) -> bool:
+	if _span_at(world_point).is_empty():
+		return false
+	for box: Dictionary in _trap_boxes:
+		var centre: Vector3 = box["centre"]
+		if Vector2(world_point.x - centre.x, world_point.z - centre.z).length_squared() > float(box["reach_squared"]):
+			continue
+		var local: Vector3 = (box["inverse"] as Transform3D) * world_point
+		var half: Vector3 = box["kill_half"]
+		if absf(local.x) <= half.x and absf(local.z) <= half.z \
+			and local.y >= -half.y and local.y <= LAKE_ISLAND_HEAD_METRES:
+			return true
+	return false
+
+
 ## The lava span [param world_point] stands in, or {}.
 func _span_at(world_point: Vector3) -> Dictionary:
 	var pad: float = deg_to_rad(LAKE_SPAN_PAD_DEGREES)
@@ -697,6 +735,29 @@ func _span_at(world_point: Vector3) -> Dictionary:
 		if bearing >= from - pad and bearing <= float(span["to"]) + pad:
 			return span
 	return {}
+
+
+## One lava span, and whether it blocks the deck.
+func _span(from: float, to: float, height: float, band: Vector2) -> Dictionary:
+	return {
+		"from": from, "to": to, "height": height, "near": band.x, "far": band.y,
+		"blocking": _blocks_the_deck(band.x),
+	}
+
+
+## True when a span reaching in to [param near] leaves no lane inside it.
+##
+## The wall run's lake goes bank to bank and has to be hopped. The lava shelf's
+## river does not: there is deck inside it the whole way, which is the section's
+## own choice -- open lane or covered chain -- and a runner that took the chain
+## because the navmesh priced it cheaper took it for the wrong reason and jammed
+## against the cave wall's foot getting there.
+func _blocks_the_deck(near: float) -> bool:
+	var inner: float = 0.0
+	if _bake_route != null:
+		for level: RingLevel in _bake_route.get_levels():
+			inner = maxf(inner, level.inner_radius)
+	return near <= inner + LAKE_LANE_METRES
 
 
 ## The radii [param corners] reach, folded into [param band] as (near, far).
@@ -821,7 +882,7 @@ func _lake_hops(a: Dictionary, b: Dictionary) -> Array[Dictionary]:
 				left["a"], left["b"], right["a"], right["b"]
 			)
 			var span: float = Vector2(near[1].x - near[0].x, near[1].z - near[0].z).length()
-			if span >= LAKE_LINK_MAX_SPAN_METRES:
+			if span >= LAKE_LINK_MAX_SPAN_METRES or span < LAKE_LINK_MIN_SPAN_METRES:
 				continue
 			if wrapf(_bearing_of(_root_transform * near[1]) - _bearing_of(_root_transform * near[0]), -PI, PI) <= 0.0:
 				continue
@@ -871,7 +932,8 @@ func _edges_in_span(island: Dictionary) -> Array:
 	var kept: Array = []
 	for edge: Dictionary in island["edges"] as Array:
 		var middle: Vector3 = _root_transform * (((edge["a"] as Vector3) + (edge["b"] as Vector3)) * 0.5)
-		if not is_in_lake_span(middle):
+		var span: Dictionary = _span_at(middle)
+		if span.is_empty() or not bool(span["blocking"]):
 			continue
 		kept.append(edge)
 	return kept
@@ -883,20 +945,32 @@ func _refine_lake_links() -> void:
 	var space: PhysicsDirectSpaceState3D = world.direct_space_state if world != null else null
 	if space == null:
 		return
+	var map: RID = get_navigation_map()
 	for index: int in _lake_links.size():
 		var link: NavigationLink3D = _lake_links[index]
 		var plan: Dictionary = _lake_plans[index]
 		for hop: Dictionary in plan["hops"] as Array:
 			var travel: Vector3 = hop["travel"]
-			var start: Vector3 = _lake_foothold(
+			var start: Vector3 = _walkable(map, _lake_foothold(
 				space, _root_transform * (hop["start"] as Vector3), -travel, bool(hop["start_stone"])
-			)
+			))
 			var end: Vector3 = _lake_foothold(
 				space, _root_transform * (hop["end"] as Vector3), travel, bool(hop["end_stone"])
 			)
 			if not is_finite(start.x) or not is_finite(end.x):
 				continue
 			if absf(end.y - start.y) > LAKE_LINK_MAX_RISE_METRES:
+				continue
+			# The span that matters is the one between the points the body really
+			# leaves and lands on, not between the mesh edges they were found from:
+			# a shore take-off is walked back off its lip and a stone's is its
+			# middle, and the two can close to a stride. Flying a stride is a
+			# launch with no forward speed in it -- straight up, straight down, a
+			# second of the body stopped dead, which was the commonest stall on
+			# the map and is exactly what it looks like from inside the head.
+			if Vector2(end.x - start.x, end.z - start.z).length() < LAKE_LINK_MIN_SPAN_METRES:
+				continue
+			if not _crosses_lava(start, end):
 				continue
 			link.set_global_start_position(start)
 			link.set_global_end_position(end)
@@ -905,6 +979,42 @@ func _refine_lake_links() -> void:
 			_lake_plans[index] = plan
 			link.enabled = true
 			break
+
+
+## [param point] moved onto the navmesh, or Vector3.INF when the mesh is further
+## than [constant LAKE_TAKEOFF_SNAP_METRES] away.
+##
+## A take-off is a place a runner has to WALK to before it can leave, and the
+## foothold search only asks for floor that stands clear of the lava. On the lava
+## shelf that is the round-over of the bank's own lip: real floor, half a metre
+## above the lane, off the mesh, and a body sent at it runs up the slope, stops
+## dead and slides back down. That was the commonest stall on the map.
+func _walkable(map: RID, point: Vector3) -> Vector3:
+	if not is_finite(point.x):
+		return point
+	var on_mesh: Vector3 = NavigationServer3D.map_get_closest_point(map, point)
+	return on_mesh if on_mesh.distance_to(point) <= LAKE_TAKEOFF_SNAP_METRES else Vector3.INF
+
+
+## True when the straight line from [param start] to [param end] passes over lava.
+##
+## A link exists to fly a gap that cannot be walked. Two footholds on the same
+## bank, a stride apart with a ledge between them, are not that: flying one
+## throws the body a metre straight up, stops it dead for most of a second, and
+## puts it back down where a step would have taken it. Measured at the lava's own
+## surface, because that is the thing in the way.
+func _crosses_lava(start: Vector3, end: Vector3) -> bool:
+	var span: Dictionary = _span_at(start)
+	if span.is_empty():
+		span = _span_at(end)
+	if span.is_empty():
+		return false
+	var height: float = span["height"]
+	for index: int in range(1, LAKE_LAVA_SAMPLES):
+		var along: Vector3 = start.lerp(end, float(index) / float(LAKE_LAVA_SAMPLES))
+		if _floor_is_lethal(Vector3(along.x, height, along.z)):
+			return true
+	return false
 
 
 ## Somewhere in the lake a body can actually stand: a stepping stone at the middle of its top,
@@ -1098,10 +1208,7 @@ func _declare_lake(root: Node) -> void:
 				high = maxf(high, relative)
 			band = _widen_band(band, corners)
 		if is_finite(band.x):
-			_lake_spans.append({
-				"from": reference + low, "to": reference + high,
-				"height": marker.global_position.y, "near": band.x, "far": band.y,
-			})
+			_lake_spans.append(_span(reference + low, reference + high, marker.global_position.y, band))
 	_declared_spans = _lake_spans.size()
 
 
@@ -1184,13 +1291,7 @@ func _append_span(platforms: Array[Dictionary], from: int, to: int) -> void:
 			surfaces += 1
 	if surfaces == 0:
 		return
-	_lake_spans.append({
-		"from": reference + low,
-		"to": reference + high,
-		"height": height / float(surfaces),
-		"near": band.x,
-		"far": band.y,
-	})
+	_lake_spans.append(_span(reference + low, reference + high, height / float(surfaces), band))
 
 
 ## Mesh polygons joined edge to edge, with each island's boundary edges, centre and how many of

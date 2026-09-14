@@ -122,6 +122,11 @@ var _reload_remaining: float = 0.0
 ## Shots heard since [method configure]. Telemetry only; nothing branches on it.
 var _shots_heard: int = 0
 
+## Seconds since the last report. The brain DOES branch on this: a guard who
+## fires twice and then goes quiet is a guard who has stopped playing, and a
+## count of shots this round cannot tell that from one who is still shooting.
+var _since_shot: float = INF
+
 ## Set on the tick a round lands near this runner, cleared on the next tick.
 var _was_shot_at: bool = false
 
@@ -147,6 +152,7 @@ func configure(body: PlayerController, profile: RunnerProfile, rules: MatchRules
 	_read_bias_age = 0.0
 	_reload_remaining = 0.0
 	_shots_heard = 0
+	_since_shot = INF
 	_was_shot_at = false
 
 
@@ -166,6 +172,7 @@ func tick(delta: float) -> void:
 		_rifle = null
 
 	_reload_remaining = maxf(_reload_remaining - delta, 0.0)
+	_since_shot += delta
 	_rescan_countdown -= delta
 	if _rescan_countdown <= 0.0:
 		_rescan_countdown = RESCAN_SECONDS
@@ -251,6 +258,11 @@ func was_shot_at() -> bool:
 ## Shots heard since the round began. Telemetry.
 func get_shots_heard() -> int:
 	return _shots_heard
+
+
+## Seconds since the last shot was heard, INF if none has been.
+func get_seconds_since_shot() -> float:
+	return _since_shot
 
 
 # --- Finding the guard --------------------------------------------------------
@@ -356,6 +368,7 @@ func _listen_to(rifle: Rifle) -> void:
 ## and it already knows where the tower is.
 func _on_shot_heard(_origin: Vector3, end_point: Vector3) -> void:
 	_shots_heard += 1
+	_since_shot = 0.0
 	_reload_remaining = _believed_reload_window()
 	if _body == null or _profile == null:
 		return
