@@ -227,6 +227,9 @@ stream = ExtResource("catch_made")
 bus = &"SFX"
 volume_db = -4.0
 pitch_jitter = 0.03
+positional = true
+max_distance = 25.0
+unit_size = 6.0
 
 [sub_resource type="Resource" id="Cue_player_catch_taken"]
 resource_name = "player.catch_taken"

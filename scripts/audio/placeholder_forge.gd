@@ -269,11 +269,17 @@ func _make_cue(event: StringName) -> AudioCue:
 			cue.pitch_scale = 0.45
 			cue.pitch_jitter = 0.02
 		AudioEvents.PLAYER_CATCH_MADE:
-			# The ghost's own reward, on the ghost's own machine. Under the
-			# victim's cue below and under PLAYER_HIT_TAKEN: it is good news,
-			# and good news does not have to shout.
+			# Also the arena's broadcast of every landed shove/catch -- see
+			# AudioEvents.PLAYER_CATCH_MADE -- so it carries a short range like a
+			# footstep rather than blasting the whole ring. Posted with no
+			# position (the local player's own catch, through MatchAudioListener)
+			# it still plays flat regardless of this. Under the victim's cue
+			# below and under PLAYER_HIT_TAKEN: it is good news, and good news
+			# does not have to shout.
 			cue.volume_db = -6.0
 			cue.pitch_jitter = 0.03
+			cue.max_distance = 25.0
+			cue.unit_size = 6.0
 		AudioEvents.PLAYER_CATCH_TAKEN:
 			# As loud as PLAYER_HIT_TAKEN, because it is the same thing -- one
 			# player's own death, on the machine it happened to. Pitched a
