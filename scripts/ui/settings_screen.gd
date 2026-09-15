@@ -97,6 +97,9 @@ const RESOLUTION_NOTE: String = "SETTINGS_VIDEO_NOTE_RESOLUTION"
 @onready var _fps_option: OptionButton = %FpsOption
 @onready var _render_scale_slider: HSlider = %RenderScaleSlider
 @onready var _render_scale_value: Label = %RenderScaleValue
+@onready var _brightness_slider: HSlider = %BrightnessSlider
+@onready var _brightness_value: Label = %BrightnessValue
+@onready var _brightness_preview: BrightnessPreview = %BrightnessPreview
 @onready var _audio_note: Label = %Note
 @onready var _video_note: Label = %VideoNote
 
@@ -182,6 +185,7 @@ func refresh() -> void:
 	_resolution_option.selected = _resolution_index(settings.resolution)
 	_fps_option.selected = int(settings.fps_cap)
 	_render_scale_slider.value = settings.render_scale
+	_brightness_slider.value = settings.brightness
 
 	_syncing = false
 
@@ -215,6 +219,10 @@ func _configure_ranges() -> void:
 	_render_scale_slider.min_value = GameSettings.MIN_RENDER_SCALE
 	_render_scale_slider.max_value = GameSettings.MAX_RENDER_SCALE
 	_render_scale_slider.step = 0.05
+
+	_brightness_slider.min_value = GameSettings.MIN_BRIGHTNESS
+	_brightness_slider.max_value = GameSettings.MAX_BRIGHTNESS
+	_brightness_slider.step = 0.05
 
 	for spin: SpinBox in _reload_spins:
 		spin.min_value = GameSettings.MIN_RELOAD_BY_TURN
@@ -374,6 +382,7 @@ func _connect_controls() -> void:
 	_vsync_option.item_selected.connect(_on_vsync_selected)
 	_fps_option.item_selected.connect(_on_fps_selected)
 	_render_scale_slider.value_changed.connect(_on_render_scale_changed)
+	_brightness_slider.value_changed.connect(_on_brightness_changed)
 	_keybind_panel.capture_state_changed.connect(_on_capture_state_changed)
 
 	_back_button.pressed.connect(close)
@@ -625,6 +634,13 @@ func _on_render_scale_changed(value: float) -> void:
 	_after_change(true)
 
 
+func _on_brightness_changed(value: float) -> void:
+	if _syncing:
+		return
+	_store.settings.brightness = value
+	_after_change()
+
+
 func _on_capture_state_changed(capturing: bool) -> void:
 	capture_state_changed.emit(capturing)
 
@@ -655,6 +671,8 @@ func _update_value_labels() -> void:
 	_effects_value.text = _percent(_store.settings.effects_volume)
 	_music_value.text = _percent(_store.settings.music_volume)
 	_render_scale_value.text = _percent(_store.settings.render_scale)
+	_brightness_value.text = _percent(_store.settings.brightness)
+	_brightness_preview.brightness = _store.settings.brightness
 
 
 static func _percent(value: float) -> String:

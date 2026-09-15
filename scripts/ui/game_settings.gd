@@ -328,6 +328,12 @@ const DEFAULT_RENDER_SCALE: float = 1.0
 const MIN_RENDER_SCALE: float = 0.5
 const MAX_RENDER_SCALE: float = 1.0
 
+## Scene exposure. Written into [member Environment.tonemap_exposure] of the
+## live world environment, so it brightens the 3D view and not the HUD.
+const DEFAULT_BRIGHTNESS: float = 1.0
+const MIN_BRIGHTNESS: float = 0.5
+const MAX_BRIGHTNESS: float = 2.0
+
 # --- Section and key names ----------------------------------------------------
 #
 # Named here rather than written inline so the schema is readable in one place
@@ -369,6 +375,9 @@ var fps_cap: FpsCap = FpsCap.UNLIMITED
 ## Fraction of the window's resolution the 3D scene is rendered at, then
 ## upscaled. Written into [member Viewport.scaling_3d_scale].
 var render_scale: float = DEFAULT_RENDER_SCALE
+
+## Exposure multiplier on the 3D scene. See [method apply_brightness].
+var brightness: float = DEFAULT_BRIGHTNESS
 
 ## Vertical field of view in degrees, for whichever [Camera3D] the scene decides
 ## is the player's view. Stored and applied on request via
@@ -591,6 +600,7 @@ func reset() -> void:
 	vsync_mode = VSyncMode.ENABLED
 	fps_cap = FpsCap.UNLIMITED
 	render_scale = DEFAULT_RENDER_SCALE
+	brightness = DEFAULT_BRIGHTNESS
 	field_of_view = DEFAULT_FIELD_OF_VIEW
 	ghosts_enabled = DEFAULT_GHOSTS_ENABLED
 	skip_opening_race = DEFAULT_SKIP_OPENING_RACE
@@ -639,6 +649,7 @@ func clamp_all() -> void:
 	vsync_mode = clampi(int(vsync_mode), 0, VSYNC_MODE_COUNT - 1) as VSyncMode
 	fps_cap = clampi(int(fps_cap), 0, FPS_CAP_COUNT - 1) as FpsCap
 	render_scale = clampf(render_scale, MIN_RENDER_SCALE, MAX_RENDER_SCALE)
+	brightness = clampf(brightness, MIN_BRIGHTNESS, MAX_BRIGHTNESS)
 	tower_seat_index = clampi(tower_seat_index, 0, MAX_TOWER_SEAT_INDEX)
 	# A file holding the wrong number of entries is a build mismatch or a hand
 	# edit, not a partial preference worth salvaging.
@@ -732,6 +743,7 @@ func copy_from(other: GameSettings) -> void:
 	vsync_mode = other.vsync_mode
 	fps_cap = other.fps_cap
 	render_scale = other.render_scale
+	brightness = other.brightness
 	field_of_view = other.field_of_view
 	ghosts_enabled = other.ghosts_enabled
 	skip_opening_race = other.skip_opening_race
@@ -782,6 +794,7 @@ func equals(other: GameSettings) -> bool:
 		and vsync_mode == other.vsync_mode
 		and fps_cap == other.fps_cap
 		and is_equal_approx(render_scale, other.render_scale)
+		and is_equal_approx(brightness, other.brightness)
 		and is_equal_approx(field_of_view, other.field_of_view)
 		and ghosts_enabled == other.ghosts_enabled
 		and skip_opening_race == other.skip_opening_race
@@ -847,6 +860,7 @@ func write_to(config: ConfigFile) -> void:
 	config.set_value(SECTION_VIDEO, "vsync_mode", int(vsync_mode))
 	config.set_value(SECTION_VIDEO, "fps_cap", int(fps_cap))
 	config.set_value(SECTION_VIDEO, "render_scale", render_scale)
+	config.set_value(SECTION_VIDEO, "brightness", brightness)
 	config.set_value(SECTION_VIDEO, "field_of_view", field_of_view)
 
 	config.set_value(SECTION_MATCH, "ghosts_enabled", ghosts_enabled)
@@ -907,6 +921,7 @@ func read_from(config: ConfigFile) -> void:
 	vsync_mode = read_int(config, SECTION_VIDEO, "vsync_mode", int(vsync_mode)) as VSyncMode
 	fps_cap = read_int(config, SECTION_VIDEO, "fps_cap", int(fps_cap)) as FpsCap
 	render_scale = read_float(config, SECTION_VIDEO, "render_scale", render_scale)
+	brightness = read_float(config, SECTION_VIDEO, "brightness", brightness)
 	field_of_view = read_float(config, SECTION_VIDEO, "field_of_view", field_of_view)
 
 	ghosts_enabled = read_bool(config, SECTION_MATCH, "ghosts_enabled", ghosts_enabled)
@@ -1160,6 +1175,25 @@ func apply_to_match_rules(rules: MatchRules) -> void:
 	# Air control is not written here. It is no longer a player preference --
 	# see [AirControlCatalog] -- so [member MatchRules.air_control_id] is left at
 	# its own default and every match runs it.
+
+
+## Write [member brightness] into whatever [Environment] the root viewport's
+## world is showing. Nothing to write into when no WorldEnvironment is up yet;
+## [SettingsBoot] calls again once its scene stands.
+func apply_brightness() -> void:
+	var main_loop: SceneTree = Engine.get_main_loop() as SceneTree
+	if main_loop == null or main_loop.root == null:
+		return
+	var world: World3D = main_loop.root.find_world_3d()
+	if world != null:
+		apply_to_environment(world.environment)
+
+
+## Write [member brightness] into [param environment] as its tonemap exposure.
+func apply_to_environment(environment: Environment) -> void:
+	if environment == null or is_equal_approx(environment.tonemap_exposure, brightness):
+		return
+	environment.tonemap_exposure = brightness
 
 
 ## Write [member field_of_view] into a camera. The scene decides which camera;

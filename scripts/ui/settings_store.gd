@@ -178,6 +178,7 @@ func save_to_disk() -> Error:
 func apply_all(force_video: bool = false) -> void:
 	settings.apply_audio()
 	settings.apply_video(force_video)
+	settings.apply_brightness()
 	settings.apply_locale()
 	keybinds.apply_to_input_map()
 	applied.emit()
