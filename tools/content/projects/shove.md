@@ -5,7 +5,7 @@ aspect: 9:16
 voice: yes
 ryan: for the parts where im saying cover, lava and edge, clips of someone doing those things to another person. for the last part, first person perspective of getting shoved off the ledge.
 shots: the four beats Ryan named, runner on runner, plus a hook frame; the [mine] lines are the translation of his words into captures, not his words
-delivery: each shot is also written on its own as clips\shove\<file>.mp4, 1080x1920, no text, no HUD on any shot (Ryan: "no HUD elements on any perspective shot"); the ~50 s cut is Ryan's, over his voice
+delivery: each shot is also written on its own as content\shove\final\<file>.mp4, 1080x1920, no text, no HUD on any shot (Ryan: "no HUD elements on any perspective shot"); the ~50 s cut is Ryan's, over his voice
 
 ## 1
 said: [mine] hook, for the first frame: the best single shove landing, the victim flying into the lava (the same beat as shot 4, cut tight on the hit)

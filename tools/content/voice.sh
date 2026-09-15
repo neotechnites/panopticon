@@ -4,7 +4,7 @@
 #   tools/content/voice.sh <project> <wav> [n]
 #
 # The wav lands at shot n's gap (default: the first shot that has one) as
-# voice_NN.wav in the project folder on the PC, then render.sh runs again.
+# content\<project>\voice\voice_NN.wav on the PC, then render.sh runs again.
 set -euo pipefail
 source "$(dirname "$0")/lib.sh"
 
@@ -13,9 +13,7 @@ WAV="${2:?usage: tools/content/voice.sh <project> <wav> [n]}"
 [ -f "${WAV}" ] || die "no recording at ${WAV}"
 BRIEF=$(brief_path "${PROJECT}")
 NAME=$(basename "${BRIEF}" .md)
-KIND=$(brief_head "${BRIEF}" kind short)
-[ "${KIND}" = devlog ] && FOLDER=devlogs || FOLDER=shorts
-DIR="${PC_CONTENT}\\${FOLDER}\\${NAME}"
+DIR=$(project_dir "${NAME}")
 
 N="${3:-}"
 if [ -z "${N}" ]; then
@@ -25,6 +23,6 @@ if [ -z "${N}" ]; then
 fi
 [ -n "${N}" ] || die "${NAME} has no shot with a gap: line"
 NN=$(pad2 "${N}")
-pc_push "${WAV}" "$(ff "${DIR}")/voice_${NN}.wav"
+pc_push "${WAV}" "$(ff "${DIR}")/voice/voice_${NN}.wav"
 echo "voice_${NN}.wav laid at shot ${NN}'s gap"
 exec "${CONTENT_DIR}/render.sh" "${PROJECT}"

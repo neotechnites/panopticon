@@ -12,10 +12,35 @@ tools/content/render.sh <project> [--still]   # aspect, captions, voice -> final
 tools/content/voice.sh <project> <wav> [n]    # lay Ryan's recording at shot n's gap, re-render
 ```
 
-Output on the PC: `C:\Users\ddd\Desktop\panopticon-renders\content\{shorts,devlogs}\<project>\`
-with `takes\` (every take and its gate report), `shots\NN.mp4`, `timeline.mp4`,
-`beats.txt`, `voice_gap.txt` and `final*.mp4`. Clips stay there; `--still` pulls
-one frame to the Mac.
+## Where it lands on the PC
+
+Every project is one folder, `C:\Users\ddd\Desktop\panopticon-renders\content\<project>\`,
+split by what a file is (helpers in `lib.sh`: `project_dir`, `pc_layout`,
+`pc_promote`, `pc_worktrees_clean`):
+
+```
+content\<project>\
+  final\     delivered clips only: <file>.mp4 from a shot's file: line, final.mp4
+             (or final__speak-at-<t>s-for-<g>s.mp4); superseded versions in final\alt\
+  cuts\      the edit: NN.mp4 shot masters (NN_before/NN_after/NN_pair.txt for a
+             pair), timeline.mp4, beats.txt, list.txt, slates\, rough cuts and timing
+  voice\     voice_NN.wav recordings, voice_gap.txt, TTS scratch (sapi\ for SAPI)
+  notes\     brief.md, caption_NN.txt, NN.gate.txt + NN.take.log for the take that
+             was cut, and any .md / probe / import notes written while directing
+  stages\    the stage .gd scripts written for the shots
+  frames\    pulled frames: NN.png stills, sheet.png, final_still.png, contact strips
+  scripts\   resolve_project.lua and any one-off .ps1 (stitch, tts, retime)
+  takes\     raw NN_tK.avi + .log + .txt while a shot is being captured; transient
+```
+
+`takes\` is transient: when a shot is cut, `shot.sh` moves the chosen take's gate
+report and log to `notes\NN.gate.txt` / `notes\NN.take.log`, deletes every take
+of that shot (failed takes are not kept), and removes `takes\` once it is empty.
+It also unregisters and deletes any git worktree (`work_<shot>` scratch copies of
+the repo) left under `panopticon-renders`, from both `C:\dev\panopticon` and
+`C:\dev\verify`. Nothing else is written outside these folders; `--still` and
+`sheet.sh` pull one frame each to the Mac. The old `content\shorts\`,
+`content\devlogs\` and `clips\<project>\` folders are the pre-2026-09-15 layout.
 
 ## The brief: `tools/content/projects/<project>.md`
 

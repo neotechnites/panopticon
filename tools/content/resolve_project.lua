@@ -52,7 +52,7 @@ end
 project:SetCurrentTimeline(timeline)
 
 for i, beat in ipairs(beats) do
-  local path = string.format("%s\\shots\\%02d.mp4", dir, beat.n)
+  local path = string.format("%s\\%02d.mp4", dir, beat.n)
   local items = pool:ImportMedia({path})
   if items and items[1] then
     if i > 1 then timeline:AddTrack("video") end

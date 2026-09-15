@@ -11,8 +11,8 @@ PC_PROJECT=${PC_PROJECT:-'C:\dev\verify'}
 PC_GODOT=${PC_GODOT:-'C:\tools\godot\godot.exe'}
 PC_RESOLVE=${PC_RESOLVE:-'C:\Program Files\Blackmagic Design\DaVinci Resolve\Resolve.exe'}
 PC_FUSCRIPT=${PC_FUSCRIPT:-'C:\Program Files\Blackmagic Design\DaVinci Resolve\fuscript.exe'}
-PC_CONTENT='C:\Users\ddd\Desktop\panopticon-renders\content'
-PC_CLIPS='C:\Users\ddd\Desktop\panopticon-renders\clips'
+PC_RENDERS='C:\Users\ddd\Desktop\panopticon-renders'
+PC_CONTENT="${PC_RENDERS}\content"
 PC_BRANCH=${PC_BRANCH:-work-content}
 FPS=${FPS:-60}
 SIZE=${SIZE:-1280x720}
@@ -75,6 +75,66 @@ brief_field() {
 }
 
 pad2() { printf '%02d' "$1"; }
+
+# --- The project folder on the PC ----------------------------------------------
+# Every project is one folder, content\<project>\, split by what a file is:
+#   final\    delivered clips: <file>.mp4 from a shot's file: line, final*.mp4
+#   cuts\     the edit: NN.mp4 shot masters, timeline.mp4, beats.txt, list.txt, slates\
+#   voice\    voice_NN.wav recordings and voice_gap.txt
+#   notes\    brief.md, caption_NN.txt, NN.gate.txt and NN.take.log per shot
+#   stages\   stage .gd scripts written for the shots
+#   frames\   pulled frames: sheet.png, final_still.png, NN.png stills
+#   scripts\  resolve_project.lua and any one-off .ps1
+#   takes\    raw takes while a shot is being captured; gone once it is cut
+PROJECT_FOLDERS='final cuts voice notes stages frames scripts'
+
+project_dir() { echo "${PC_CONTENT}\\$1"; }
+
+# pc_layout <dir> : make the project folder and its subfolders.
+pc_layout() {
+  local dir="$1" list
+  list=$(for f in ${PROJECT_FOLDERS}; do printf "'%s\\\\%s', " "${dir}" "${f}"; done)
+  pc <<EOF
+New-Item -ItemType Directory -Force -Path ${list}'${dir}\\takes' | Out-Null
+EOF
+}
+
+# pc_promote <dir> <NN> <tag> : shot NN is cut; keep the chosen take's gate report
+# and Godot log as notes\NN.gate.txt and notes\NN.take.log, delete every take of
+# the shot (the passing one has been rendered, the failing ones are not kept), and
+# drop takes\ when it is empty.
+pc_promote() {
+  local dir="$1" nn="$2" tag="$3"
+  pc <<EOF
+\$t = '${dir}\\takes'
+if (Test-Path "\$t\\${tag}.txt") { Move-Item -Force "\$t\\${tag}.txt" '${dir}\\notes\\${nn}.gate.txt' }
+if (Test-Path "\$t\\${tag}.log") { Move-Item -Force "\$t\\${tag}.log" '${dir}\\notes\\${nn}.take.log' }
+\$gone = Get-ChildItem \$t -File -Filter '${nn}_*' -ErrorAction SilentlyContinue
+\$bytes = (\$gone | Measure-Object Length -Sum).Sum
+\$gone | Remove-Item -Force
+if ((Test-Path \$t) -and -not (Get-ChildItem \$t -Force)) { Remove-Item \$t -Force }
+Write-Output ('takes of ${nn} deleted: ' + \$gone.Count + ' files, ' + [math]::Round(\$bytes / 1MB, 1) + ' MB')
+EOF
+}
+
+# pc_worktrees_clean : unregister and delete any git worktree of the real repo or
+# the scratch checkout that was left under panopticon-renders (a work_<shot>
+# copy of the repo is scratch: it goes when the shot is done).
+pc_worktrees_clean() {
+  pc <<EOF
+foreach (\$repo in 'C:/dev/panopticon', 'C:/dev/verify') {
+  \$paths = git -C \$repo worktree list --porcelain 2>\$null | Where-Object { \$_ -like 'worktree *' } | ForEach-Object { \$_.Substring(9) }
+  foreach (\$p in \$paths) {
+    if (\$p -like '*/panopticon-renders/*') {
+      git -C \$repo worktree remove --force \$p 2>&1 | Out-Null
+      if (Test-Path \$p) { Remove-Item -LiteralPath \$p -Recurse -Force }
+      Write-Output ('scratch worktree removed: ' + \$p)
+    }
+  }
+  git -C \$repo worktree prune 2>\$null
+}
+EOF
+}
 
 # --- Running Godot on the PC ---------------------------------------------------
 

@@ -7,10 +7,14 @@
 # in (seconds into the take the cut starts), gap, at (git ref for a before/after
 # pair), hold (seconds a still is held), takes and motion (gate overrides), and
 # file (a name: the same cut is also written on its own, in the brief's aspect,
-# to clips\<project>\<file>.mp4 -- a shot handed over as a clip, not a timeline).
-# Output on the PC: content\<kind>\<project>\takes\NN_tK.avi (+ .txt gate report)
-# and shots\NN.mp4, a 16:9 master cut to seconds+gap with game audio muted over
-# the gap. Stills and captions are applied at render, not here.
+# to final\<file>.mp4 -- a shot handed over as a clip, not a timeline).
+# Output on the PC, under content\<project>\ (layout in lib.sh): cuts\NN.mp4, the
+# master cut to seconds+gap with game audio muted over the gap, plus final\<file>.mp4
+# when the entry has a file: line. Takes are captured to takes\NN_tK.avi and
+# gated; once the shot is cut the chosen take's gate report and log move to
+# notes\NN.gate.txt and notes\NN.take.log and every take of the shot is deleted.
+# Any scratch worktree left under panopticon-renders is removed at the end.
+# Stills and captions are applied at render, not here.
 set -euo pipefail
 source "$(dirname "$0")/lib.sh"
 
@@ -19,8 +23,7 @@ N="${2:?usage: tools/content/shot.sh <project> <n>}"
 BRIEF=$(brief_path "${PROJECT}")
 NAME=$(basename "${BRIEF}" .md)
 KIND=$(brief_head "${BRIEF}" kind short)
-[ "${KIND}" = devlog ] && FOLDER=devlogs || FOLDER=shorts
-DIR="${PC_CONTENT}\\${FOLDER}\\${NAME}"
+DIR=$(project_dir "${NAME}")
 NN=$(pad2 "${N}")
 
 CAPTURE=$(brief_field "${BRIEF}" "${N}" capture)
@@ -36,7 +39,7 @@ TAKES_MAX=$(brief_field "${BRIEF}" "${N}" takes "${TAKES_MAX}")
 [[ "${CAPTURE}" == *--seed=* ]] && TAKES_MAX=1
 MOTION_MIN=$(brief_field "${BRIEF}" "${N}" motion "${MOTION_MIN}")
 SAID=$(brief_field "${BRIEF}" "${N}" said)
-FILE=$(brief_field "${BRIEF}" "${N}" file)      # also deliver this cut as clips\<project>\<file>.mp4
+FILE=$(brief_field "${BRIEF}" "${N}" file)      # also deliver this cut as final\<file>.mp4
 ASPECT=$(brief_head "${BRIEF}" aspect "$([ "${KIND}" = devlog ] && echo 16:9 || echo 9:16)")
 # A 9:16 short is filmed 9:16: the viewport is a phone's, the lens composes for
 # it, and nothing is cropped afterwards. Ryan: "the frame should consider the
@@ -50,10 +53,8 @@ fi
 [ -n "${CAPTURE}${STILL}" ] || die "shot ${N} of ${NAME} has no capture: or still: line"
 echo "shot ${NN}: ${SAID}"
 
-pc <<EOF
-New-Item -ItemType Directory -Force -Path '${DIR}\\takes', '${DIR}\\shots' | Out-Null
-EOF
-pc_push "${BRIEF}" "$(ff "${DIR}")/brief.md"
+pc_layout "${DIR}"
+pc_push "${BRIEF}" "$(ff "${DIR}")/notes/brief.md"
 
 # --- One take: godot, then the gate. Prints "motion=<f> freeze=<n>" last. -----
 take() {  # take <tag> <seed> <seconds>
@@ -115,10 +116,9 @@ EOF
 # --- The same cut as a clip of its own, in the delivery aspect. -----------------
 deliver_take() {  # deliver_take <tag> <cut-seconds>
   [ -n "${FILE}" ] || return 0
-  local tag="$1" cut="$2" out="${PC_CLIPS}\\${NAME}\\${FILE}.mp4" geometry
+  local tag="$1" cut="$2" out="${DIR}\\final\\${FILE}.mp4" geometry
   [ "${ASPECT}" = 9:16 ] && geometry="scale=1080:1920" || geometry="scale=1920:1080"
   pc <<EOF
-New-Item -ItemType Directory -Force -Path '${PC_CLIPS}\\${NAME}' | Out-Null
 \$src = '${DIR}\\takes\\${tag}.avi'
 \$audio = ffprobe -v error -select_streams a -show_entries stream=codec_type -of csv=p=0 \$src
 \$af = if (\$audio) { @('-c:a', 'aac', '-ar', '48000', '-b:a', '160k') } else { @('-f', 'lavfi', '-i', 'anullsrc=r=48000:cl=stereo', '-shortest', '-c:a', 'aac') }
@@ -133,14 +133,15 @@ TOTAL=$(python3 -c "print(${SECONDS_WANTED} + ${GAP})")
 if [ -n "${STILL}" ]; then
   # A still, held: shot.gd renders one PNG, ffmpeg holds it.
   T0=$(now_ms)
-  pc_godot "--resolution ${SIZE} --script res://tools/shot.gd -- ${STILL} --out=$(ff "${DIR}")/shots/${NN}.png" "${DIR}\\takes\\${NN}.log" | sed 's/^/  | /'
+  pc_godot "--resolution ${SIZE} --script res://tools/shot.gd -- ${STILL} --out=$(ff "${DIR}")/frames/${NN}.png" "${DIR}\\takes\\${NN}.log" | sed 's/^/  | /'
   echo "  still: godot $(since "$T0")"
   T0=$(now_ms)
   pc <<EOF
-ffmpeg -hide_banner -loglevel error -y -loop 1 -i '${DIR}\\shots\\${NN}.png' -f lavfi -i anullsrc=r=48000:cl=stereo -t ${HOLD} -r ${FPS} -vf "${MASTER}" -c:v libx264 -preset veryfast -crf 18 -pix_fmt yuv420p -c:a aac -shortest '${DIR}\\shots\\${NN}.mp4'
-Write-Output ('rendered ' + (Get-Item '${DIR}\\shots\\${NN}.mp4').Length)
+ffmpeg -hide_banner -loglevel error -y -loop 1 -i '${DIR}\\frames\\${NN}.png' -f lavfi -i anullsrc=r=48000:cl=stereo -t ${HOLD} -r ${FPS} -vf "${MASTER}" -c:v libx264 -preset veryfast -crf 18 -pix_fmt yuv420p -c:a aac -shortest '${DIR}\\cuts\\${NN}.mp4'
+Write-Output ('rendered ' + (Get-Item '${DIR}\\cuts\\${NN}.mp4').Length)
 EOF
   echo "  still: render $(since "$T0")"
+  pc_promote "${DIR}" "${NN}" "${NN}" | sed 's/^/  | /'
 elif [ -n "${AT}" ]; then
   # Before/after: the same capture at <at> and at the branch head, back to back.
   T0=$(now_ms)
@@ -152,14 +153,16 @@ elif [ -n "${AT}" ]; then
   echo "  after: checkout+import $(since "$T0")"
   AFTER=$(best_take "${NN}_after" "$(python3 -c "print(${IN} + ${TOTAL})")")
   T0=$(now_ms)
-  render_take "${BEFORE}" "${DIR}\\shots\\${NN}_before.mp4" "${SECONDS_WANTED}" "${SECONDS_WANTED}" | sed 's/^/  | /'
-  render_take "${AFTER}" "${DIR}\\shots\\${NN}_after.mp4" "${TOTAL}" "${SECONDS_WANTED}" | sed 's/^/  | /'
+  render_take "${BEFORE}" "${DIR}\\cuts\\${NN}_before.mp4" "${SECONDS_WANTED}" "${SECONDS_WANTED}" | sed 's/^/  | /'
+  render_take "${AFTER}" "${DIR}\\cuts\\${NN}_after.mp4" "${TOTAL}" "${SECONDS_WANTED}" | sed 's/^/  | /'
   pc <<EOF
-Set-Content -Path '${DIR}\\shots\\${NN}_pair.txt' -Value @("file '${NN}_before.mp4'", "file '${NN}_after.mp4'")
-ffmpeg -hide_banner -loglevel error -y -f concat -safe 0 -i '${DIR}\\shots\\${NN}_pair.txt' -c copy '${DIR}\\shots\\${NN}.mp4'
-Write-Output ('rendered ' + (Get-Item '${DIR}\\shots\\${NN}.mp4').Length)
+Set-Content -Path '${DIR}\\cuts\\${NN}_pair.txt' -Value @("file '${NN}_before.mp4'", "file '${NN}_after.mp4'")
+ffmpeg -hide_banner -loglevel error -y -f concat -safe 0 -i '${DIR}\\cuts\\${NN}_pair.txt' -c copy '${DIR}\\cuts\\${NN}.mp4'
+Write-Output ('rendered ' + (Get-Item '${DIR}\\cuts\\${NN}.mp4').Length)
 EOF
   echo "  pair: render $(since "$T0")"
+  pc_promote "${DIR}" "${NN}_before" "${BEFORE}" | sed 's/^/  | /'
+  pc_promote "${DIR}" "${NN}_after" "${AFTER}" | sed 's/^/  | /'
 else
   # A shot at another ref (ref:) is filmed with the capture tools that ref has,
   # then the worktree comes back to the branch.
@@ -175,8 +178,10 @@ else
     echo "  back to ${PC_BRANCH}: checkout+import $(since "$T0")"
   fi
   T0=$(now_ms)
-  render_take "${TAG}" "${DIR}\\shots\\${NN}.mp4" "${TOTAL}" "${SECONDS_WANTED}" | sed 's/^/  | /'
+  render_take "${TAG}" "${DIR}\\cuts\\${NN}.mp4" "${TOTAL}" "${SECONDS_WANTED}" | sed 's/^/  | /'
   deliver_take "${TAG}" "${SECONDS_WANTED}" | sed 's/^/  | /'
   echo "  render: $(since "$T0")"
+  pc_promote "${DIR}" "${NN}" "${TAG}" | sed 's/^/  | /'
 fi
-echo "shot ${NN} done in $(since "$T_ALL"): ${DIR}\\shots\\${NN}.mp4"
+pc_worktrees_clean | sed 's/^/  | /'
+echo "shot ${NN} done in $(since "$T_ALL"): ${DIR}\\cuts\\${NN}.mp4"
