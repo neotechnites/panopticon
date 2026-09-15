@@ -313,6 +313,18 @@ unique_name_in_owner = true
 
 [node name="AbilityCooldownSpacer" type="Control" parent="Frame/Dialog/Padding/Layout/Tabs/Match/BalanceScroll/BalanceGrid"]
 
+[node name="GuardSkillName" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Match/BalanceScroll/BalanceGrid"]
+size_flags_vertical = 1
+vertical_alignment = 1
+text = "SETTINGS_GUARD_SKILL"
+
+[node name="GuardSkillSpin" type="SpinBox" parent="Frame/Dialog/Padding/Layout/Tabs/Match/BalanceScroll/BalanceGrid"]
+custom_minimum_size = Vector2(120, 0)
+size_flags_horizontal = 0
+unique_name_in_owner = true
+
+[node name="GuardSkillSpacer" type="Control" parent="Frame/Dialog/Padding/Layout/Tabs/Match/BalanceScroll/BalanceGrid"]
+
 [node name="GuardHealthName" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Match/BalanceScroll/BalanceGrid"]
 size_flags_vertical = 1
 vertical_alignment = 1

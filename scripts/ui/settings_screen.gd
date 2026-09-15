@@ -73,6 +73,7 @@ const RESOLUTION_NOTE: String = "SETTINGS_VIDEO_NOTE_RESOLUTION"
 @onready var _runner_speed_spin: SpinBox = %RunnerSpeedSpin
 @onready var _runner_jump_spin: SpinBox = %RunnerJumpSpin
 @onready var _ability_cooldown_spin: SpinBox = %AbilityCooldownSpin
+@onready var _guard_skill_spin: SpinBox = %GuardSkillSpin
 @onready var _guard_health_spin: SpinBox = %GuardHealthSpin
 @onready var _finisher_health_spin: SpinBox = %FinisherHealthSpin
 
@@ -166,6 +167,7 @@ func refresh() -> void:
 	_runner_speed_spin.value = settings.runner_speed_multiplier
 	_runner_jump_spin.value = settings.runner_jump_multiplier
 	_ability_cooldown_spin.value = settings.ability_cooldown_multiplier
+	_guard_skill_spin.value = settings.guard_skill
 	_guard_health_spin.value = settings.guard_health
 	_finisher_health_spin.value = settings.finisher_health
 	_sensitivity_slider.value = settings.mouse_sensitivity
@@ -251,6 +253,9 @@ func _configure_ranges() -> void:
 	_configure_spin(
 		_ability_cooldown_spin, GameSettings.MIN_ABILITY_COOLDOWN_MULTIPLIER,
 		GameSettings.MAX_ABILITY_COOLDOWN_MULTIPLIER, 0.05, tr("SETTINGS_UNIT_TIMES"),
+	)
+	_configure_spin(
+		_guard_skill_spin, GameSettings.MIN_GUARD_SKILL, GameSettings.MAX_GUARD_SKILL, 0.05, "",
 	)
 	_configure_spin(
 		_guard_health_spin, float(GameSettings.MIN_GUARD_HEALTH),
@@ -354,6 +359,7 @@ func _connect_controls() -> void:
 	_runner_speed_spin.value_changed.connect(_on_runner_speed_changed)
 	_runner_jump_spin.value_changed.connect(_on_runner_jump_changed)
 	_ability_cooldown_spin.value_changed.connect(_on_ability_cooldown_changed)
+	_guard_skill_spin.value_changed.connect(_on_guard_skill_changed)
 	_guard_health_spin.value_changed.connect(_on_guard_health_changed)
 	_finisher_health_spin.value_changed.connect(_on_finisher_health_changed)
 	_sensitivity_slider.value_changed.connect(_on_sensitivity_changed)
@@ -503,6 +509,13 @@ func _on_ability_cooldown_changed(value: float) -> void:
 	if _syncing:
 		return
 	_store.settings.ability_cooldown_multiplier = value
+	_after_change()
+
+
+func _on_guard_skill_changed(value: float) -> void:
+	if _syncing:
+		return
+	_store.settings.guard_skill = value
 	_after_change()
 
 

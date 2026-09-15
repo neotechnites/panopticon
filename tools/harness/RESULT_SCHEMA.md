@@ -32,6 +32,7 @@ One per match.
 | `seat` | object | see below |
 | `shots` | object | see below |
 | `conversions` | int | runners the rifle took out of a round, over the whole match |
+| `guard` | object | the AI guard's shooting by target, see below |
 | `participants` | array | one object per player, see below |
 | `result_path` | string | absolute path of this file |
 
@@ -74,6 +75,20 @@ staying on after winning a round.
 (= `hit_participant / fired`, and `0.0` when nothing was fired — an unfired
 rifle has no hit rate).
 
+### `guard`
+
+| field | meaning |
+| --- | --- |
+| `shots`, `hits` | the tower's shots and the ones that struck a player |
+| `kills` | round conversions whose cause was `SHOT` |
+| `deaths_by_cause`, `race_deaths_by_cause` | conversions by `MatchParticipant.DeathCause` name, in rounds and in the opening race |
+| `first_shot_seconds` | per round, seconds from the round starting to the first shot |
+| `by_state` | `running`, `strafing`, `airborne`, `cover` → `{shots, hits}`, classified from the target's motion when the rifle fired |
+| `by_distance` | `0-30`, `30-60`, `60-90`, `90+` metres → `{shots, hits}` |
+| `reaction_seconds`, `reaction_mean` | per shot, seconds the target had been visible with the rifle ready |
+| `model_reaction_seconds`, `model_reaction_mean` | the reaction delay the guard sampled for that target |
+| `decoy_shots`, `camo_shots` | shots taken at a hologram, and at a camouflaged runner |
+
 ### `participants[]`
 
 | field | meaning |
@@ -109,6 +124,9 @@ Each entry of `variants`:
 | `seconds_median`, `seconds_mean`, `seconds_min`, `seconds_max` | simulated duration **of the resolved matches only**. An unresolved match sits at the ceiling by construction and would pull an average towards the ceiling rather than towards the truth |
 | `rounds_median`, `seat_changes_median` | resolved matches only, same reason |
 | `shots_fired`, `shots_hit`, `hit_rate` | across every match in the arm, resolved or not |
+| `round_wins_tower`, `round_wins_runners`, `runner_round_win_rate` | rounds by who ended them, across every match |
+| `guard_by_state`, `guard_by_distance` | the `guard` buckets summed, each with a `hit_rate` |
+| `guard_reaction_mean`, `guard_model_reaction_mean`, `guard_decoy_shots` | the `guard` numbers across the arm |
 | `winner_counts` | winner name → matches won |
 | `simulated_seconds_total`, `wall_seconds_total` | cost of the arm |
 

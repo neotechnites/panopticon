@@ -52,6 +52,17 @@ static func run_and_report(
 	return report
 
 
+static func _buckets(table: Dictionary) -> String:
+	var parts: PackedStringArray = PackedStringArray()
+	for key: String in ["running", "strafing", "airborne", "cover"]:
+		var entry: Dictionary = table.get(key, {})
+		parts.append("%s %d/%d %.0f%%" % [
+			key, int(entry.get("hits", 0)), int(entry.get("shots", 0)),
+			float(entry.get("hit_rate", 0.0)) * 100.0,
+		])
+	return "  ".join(parts)
+
+
 static func _on_progress(line: String) -> void:
 	print(line)
 
@@ -78,6 +89,14 @@ static func _print_summary(report: Dictionary) -> void:
 			float(arm.get("hit_rate", 0.0)) * 100.0,
 		])
 
+	for entry: Variant in arms:
+		var arm: Dictionary = entry
+		print("%-14s guard  %s  react %3.0f ms  runners win %.0f%% of rounds" % [
+			String(arm.get("variant", "?")),
+			_buckets(arm.get("guard_by_state", {})),
+			float(arm.get("guard_reaction_mean", 0.0)) * 1000.0,
+			float(arm.get("runner_round_win_rate", 0.0)) * 100.0,
+		])
 	var wall: float = float(report.get("wall_seconds", 0.0))
 	print("")
 	print("%s  %d matches, %d unresolved, %.1f s wall clock (%.2f s per match)" % [
