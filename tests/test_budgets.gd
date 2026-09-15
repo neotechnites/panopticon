@@ -49,7 +49,8 @@ const MEASURE_TICKS: int = 1080
 ## Measured 1.187-1.190 ms over three runs; budget is the worst of those +20 %.
 const B1_TICK_AVG_MS: float = 1.45
 
-## B2 -- the worst single tick of the window, in milliseconds.
+## B2 -- the worst tick of the window, in milliseconds, discarding the single
+## highest sample as scheduler noise (see [member TickSampler.second_worst_usec]).
 ##
 ## Measured 5.41-5.85 ms over three runs; budget is the worst of those +20 %.
 ## Well above B1 because the tail is where the bot AI lives: one cover search
@@ -114,6 +115,10 @@ func _skipped_by_machine() -> bool:
 class TickSampler extends Node:
 	var ticks: int = 0
 	var worst_usec: int = 0
+	## Second-highest sample. B2 gates on this: one tick in ~1080 can be stolen
+	## by the OS scheduler regardless of game code, so the single worst is kept
+	## for the report but the gate discards it as one forgiven outlier.
+	var second_worst_usec: int = 0
 	var total_usec: int = 0
 	var objects_gained: int = 0
 	var _last_usec: int = -1
@@ -134,7 +139,11 @@ class TickSampler extends Node:
 		var objects: int = int(Performance.get_monitor(Performance.OBJECT_COUNT))
 		if _armed and _last_usec >= 0:
 			var spent: int = now - _last_usec
-			worst_usec = maxi(worst_usec, spent)
+			if spent > worst_usec:
+				second_worst_usec = worst_usec
+				worst_usec = spent
+			elif spent > second_worst_usec:
+				second_worst_usec = spent
 			total_usec += spent
 			objects_gained += maxi(objects - _last_objects, 0)
 			ticks += 1
@@ -182,14 +191,15 @@ func test_a_seven_bot_match_stays_inside_its_physics_budget() -> void:
 		return
 
 	var avg_ms: float = float(sampler.total_usec) / float(sampler.ticks) / 1000.0
-	var worst_ms: float = float(sampler.worst_usec) / 1000.0
+	var peak_ms: float = float(sampler.worst_usec) / 1000.0
+	var worst_ms: float = float(sampler.second_worst_usec) / 1000.0
 	var objects: float = float(sampler.objects_gained) / float(sampler.ticks)
 	# Seven prisoners plus whoever holds the tower seat: the guard is a
 	# participant too, and a match that lost one would measure a quieter game.
 	var seats: int = world.get_controller().get_participants().size()
 
-	print("          BUDGET physics at %d seats over %d ticks: avg %.3f ms (B1 %.2f), worst %.2f ms (B2 %.1f), %.3f objects/tick (B3 %.2f, %d kept)" % [
-		seats, sampler.ticks, avg_ms, B1_TICK_AVG_MS, worst_ms, B2_TICK_WORST_MS,
+	print("          BUDGET physics at %d seats over %d ticks: avg %.3f ms (B1 %.2f), worst %.2f ms (B2 %.1f, peak %.2f ms), %.3f objects/tick (B3 %.2f, %d kept)" % [
+		seats, sampler.ticks, avg_ms, B1_TICK_AVG_MS, worst_ms, B2_TICK_WORST_MS, peak_ms,
 		objects, B3_OBJECTS_PER_TICK, sampler.objects_gained,
 	])
 

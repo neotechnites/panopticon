@@ -53,6 +53,13 @@ if [ "$STATUS" -ne 0 ]; then
   cat "$LOG"
 fi
 
+# Names of the failing tests, so a flip is never lost to a scrollback nobody
+# saved: the summary line alone used to say only how many, not which.
+FAILING="$(grep -E '^  FAIL  ' "$LOG" | sed -E 's/^  FAIL  ([A-Za-z0-9_]+).*/\1/' | paste -sd ', ' -)"
+if [ -n "$FAILING" ]; then
+  SUMMARY="$SUMMARY  |  failing: $FAILING"
+fi
+
 # The budgets print what they measured on every run, pass or fail. That is the
 # whole point of having them: a number drifting towards its gate is visible
 # weeks before it trips, which a green tick alone would never show.
