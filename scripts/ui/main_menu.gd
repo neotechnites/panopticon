@@ -54,7 +54,7 @@ signal quit_requested()
 ## so Escape means the same thing everywhere.
 @export var back_action: StringName = &"ui_cancel"
 
-@onready var _main_panel: Control = %MenuList
+@onready var _main_panel: Control = $UI
 @onready var _play_button: Button = %Play
 @onready var _multiplayer_button: Button = %Multiplayer
 @onready var _quick_match_button: Button = %QuickMatch

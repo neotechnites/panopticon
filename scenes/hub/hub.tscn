@@ -432,19 +432,31 @@ grow_vertical = 2
 theme = ExtResource("18_menu_theme")
 editor_description = "The rules and seats panel, over the hub. Hidden AND process-disabled while closed, which is what keeps Tab from costing the body a frame of input."
 
-[node name="MatchSetupScreen" parent="Overlay/Root" instance=ExtResource("16_match_setup")]
-editor_description = "The same screen the main menu opens. Its Start button starts the map on the wedge, which is why HubLobby listens to start_requested rather than the screen changing scene itself."
+[node name="Row" type="HBoxContainer" parent="Overlay/Root"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 0
+editor_description = "Seats down the left, the rules dialog centred in what is left, so the two never overlap."
 
-[node name="Seats" type="Label" parent="Overlay/Root"]
-anchors_preset = 0
-offset_left = 40.0
-offset_top = 40.0
-offset_right = 400.0
-offset_bottom = 200.0
+[node name="SeatsMargin" type="MarginContainer" parent="Overlay/Root/Row"]
+size_flags_vertical = 0
+theme_override_constants/margin_left = 40
+theme_override_constants/margin_top = 40
+
+[node name="Seats" type="Label" parent="Overlay/Root/Row/SeatsMargin"]
+custom_minimum_size = Vector2(360, 0)
 theme_override_colors/font_outline_color = Color(0, 0, 0, 0.9)
 theme_override_constants/outline_size = 4
 theme_override_font_sizes/font_size = 14
+autowrap_mode = 3
 editor_description = "Who is in the hub, from the lobby's own seat table. Empty offline."
+
+[node name="MatchSetupScreen" parent="Overlay/Root/Row" instance=ExtResource("16_match_setup")]
+size_flags_horizontal = 3
+editor_description = "The same screen the main menu opens. Its Start button starts the map on the wedge, which is why HubLobby listens to start_requested rather than the screen changing scene itself."
 
 [node name="HubLobby" type="Node" parent="." node_paths=PackedStringArray("controller", "net_match", "player", "start_wedge", "start_trigger", "wedges_root", "vote_label", "players_label", "prompt_label", "setup_screen", "seats_label", "overlay")]
 script = ExtResource("11_hub_lobby")
@@ -457,8 +469,8 @@ wedges_root = NodePath("../HubWorld/Wedges")
 vote_label = NodePath("../HUD/Root/Vote")
 players_label = NodePath("../HUD/Root/Players")
 prompt_label = NodePath("../HUD/Root/Prompt")
-setup_screen = NodePath("../Overlay/Root/MatchSetupScreen")
-seats_label = NodePath("../Overlay/Root/Seats")
+setup_screen = NodePath("../Overlay/Root/Row/MatchSetupScreen")
+seats_label = NodePath("../Overlay/Root/Row/SeatsMargin/Seats")
 overlay = NodePath("../Overlay/Root")
 
 [node name="GameAudio" parent="." instance=ExtResource("15_game_audio")]
