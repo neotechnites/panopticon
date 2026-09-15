@@ -1,0 +1,7 @@
+{
+  "base_rules": "res://resources/rules/default_match_rules.tres",
+  "notes": "Map 3, the Forest, shipped rules: every match must resolve.",
+  "variants": [
+    {"name": "forest", "notes": "map_id forest, shipped guard", "overrides": {"map_id": "forest"}}
+  ]
+}

@@ -22,6 +22,7 @@
 [ext_resource type="Resource" path="res://resources/rules/default_runner_palette.tres" id="20_palette"]
 [ext_resource type="PackedScene" path="res://scenes/ring/bentham_ring.tscn" id="21_map1"]
 [ext_resource type="PackedScene" path="res://scenes/ring/marble.tscn" id="22_map2"]
+[ext_resource type="PackedScene" path="res://scenes/ring/forest.tscn" id="23_map3"]
 
 [sub_resource type="ProceduralSkyMaterial" id="SkyMat"]
 sky_top_color = Color(0.54, 0.110700026, 0.054000016, 1)
@@ -96,7 +97,7 @@ omni_attenuation = 0.6
 [node name="Watcher" parent="HubWorld/Tower" instance=ExtResource("5_watching_eye")]
 
 [node name="Wedges" type="Node3D" parent="HubWorld"]
-editor_description = "Ten wedges of 36 degrees, W01 at bearings 0-36. Two hold maps (hell, marble); the other eight hold a question mark until Ryan decides what stands there."
+editor_description = "Ten wedges of 36 degrees, W01 at bearings 0-36. Three hold maps (hell, marble, forest); the other seven hold a question mark until Ryan decides what stands there."
 
 [node name="W01_Hell" type="Node3D" parent="HubWorld/Wedges"]
 script = ExtResource("12_map_wedge")
@@ -160,14 +161,17 @@ collision_mask = 1
 [node name="Shape" type="CollisionShape3D" parent="HubWorld/Wedges/W02_Marble/Dais/StartTrigger"]
 shape = SubResource("DaisTrigger")
 
-[node name="W03" type="Node3D" parent="HubWorld/Wedges"]
+[node name="W03_Forest" type="Node3D" parent="HubWorld/Wedges"]
 script = ExtResource("12_map_wedge")
+map_scene = ExtResource("23_map3")
+map_id = &"forest"
+title = "HUB_MAP_3"
 
-[node name="Dais" type="Marker3D" parent="HubWorld/Wedges/W03"]
+[node name="Dais" type="Marker3D" parent="HubWorld/Wedges/W03_Forest"]
 transform = Transform3D(-1, 0, 1.22465e-16, 0, 1, 0, -1.22465e-16, 0, -1, 2.20436e-15, 0, -36)
-editor_description = "Bearing 90 deg, r 36. Facing the tower."
+editor_description = "Bearing 90 deg, r 36. Facing the tower. Map 3, the forest."
 
-[node name="Sign" type="Label3D" parent="HubWorld/Wedges/W03/Dais"]
+[node name="Sign" type="Label3D" parent="HubWorld/Wedges/W03_Forest/Dais"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.5, 0)
 billboard = 1
 no_depth_test = true
@@ -177,7 +181,16 @@ font_size = 64
 outline_size = 12
 modulate = Color(1, 0.78, 0.55, 1)
 outline_modulate = Color(0, 0, 0, 0.85)
-text = "?"
+text = ""
+
+[node name="StartTrigger" type="Area3D" parent="HubWorld/Wedges/W03_Forest/Dais"]
+editor_description = "Stand here as the host and the forest map is offered. Layer 0, mask 1: it monitors bodies and is solid to nothing."
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.5, 0)
+collision_layer = 0
+collision_mask = 1
+
+[node name="Shape" type="CollisionShape3D" parent="HubWorld/Wedges/W03_Forest/Dais/StartTrigger"]
+shape = SubResource("DaisTrigger")
 
 [node name="W04" type="Node3D" parent="HubWorld/Wedges"]
 script = ExtResource("12_map_wedge")

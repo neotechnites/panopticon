@@ -1,0 +1,7 @@
+{
+  "base_rules": "res://resources/rules/default_match_rules.tres",
+  "notes": "Map 3, the Forest, with a guard who cannot see or shoot: every runner death is the map's. 0 hazard deaths, every match resolved.",
+  "variants": [
+    {"name": "forest_blind", "notes": "map_id forest, guard_skill 0, one degree of view", "overrides": {"map_id": "forest", "guard_skill": 0.0, "guard_fov_degrees": 1.0}}
+  ]
+}
