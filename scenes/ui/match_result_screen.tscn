@@ -1,6 +1,11 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://scripts/ui/match_result_screen.gd" id="1_match_result_screen"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_beat_band"]
+content_margin_top = 8.0
+content_margin_bottom = 8.0
+bg_color = Color(0, 0, 0, 0.55)
 
 [node name="MatchResultScreen" type="CanvasLayer"]
 process_mode = 3
@@ -19,7 +24,7 @@ grow_vertical = 2
 mouse_filter = 2
 editor_description = "The moment between the last prisoner being converted and the dialog. Raised by scripts/ui/match_result_screen.gd on MatchController.match_won, held for MatchAnnouncementProfile.win_beat_seconds, faded out, and then -- and only then -- the dialog below appears. Any key, click or pad button skips it after a fifth of a second, which is why there is nothing here to press. A SIBLING of Root rather than a child of it, deliberately: Root is the dialog, its visibility is what is_showing() reports and what every test asserts on, and burying the beat inside it would make a match that is being announced indistinguishable from a match that is asking to be replayed. mouse_filter IGNORE, unlike Root: the mouse is still captured during the beat, the match is frozen behind it, and there is nothing here that a click could hit. Never runs headless -- see _beat_seconds() -- so the harness and the suite reach the dialog on the frame the match is won."
 
-[node name="Band" type="Control" parent="Beat"]
+[node name="Band" type="PanelContainer" parent="Beat"]
 anchor_right = 1.0
 anchor_top = 0.22
 anchor_bottom = 0.22
@@ -27,23 +32,10 @@ offset_bottom = 168.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
-editor_description = "A band across the screen rather than a full-screen dim, and that is the whole difference between a beat and a dialog: the arena is frozen behind this, the winner is standing in it, and covering the ring over would throw away the only thing there is to look at. Sits above centre so it clears the crosshair and leaves the deck visible below it."
-
-[node name="Backdrop" type="ColorRect" parent="Beat/Band"]
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 2
-color = Color(0, 0, 0, 0.55)
+theme_override_styles/panel = SubResource("StyleBoxFlat_beat_band")
+editor_description = "A band across the screen rather than a full-screen dim: the arena is frozen behind it and the winner is standing in it. Sits above centre to clear the crosshair; grows with the headline."
 
 [node name="Layout" type="VBoxContainer" parent="Beat/Band"]
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
 mouse_filter = 2
 alignment = 1
 theme_override_constants/separation = 8

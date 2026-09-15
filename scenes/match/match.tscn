@@ -1,4 +1,4 @@
-[gd_scene load_steps=28 format=3]
+[gd_scene load_steps=30 format=3]
 
 [ext_resource type="PackedScene" path="res://scenes/ring/bentham_ring.tscn" id="1_arena"]
 [ext_resource type="PackedScene" path="res://scenes/player/player.tscn" id="2_player"]
@@ -27,6 +27,20 @@
 [ext_resource type="Theme" path="res://scenes/ui/panopticon_menu_theme.tres" id="24_menu_theme"]
 [ext_resource type="AudioStream" path="res://assets/audio/music/PLACEHOLDER_match_theme.ogg" id="90_music"]
 [ext_resource type="Script" path="res://scripts/audio/music_loop.gd" id="90_music_loop"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_hud_plate"]
+content_margin_left = 12.0
+content_margin_top = 4.0
+content_margin_right = 12.0
+content_margin_bottom = 4.0
+bg_color = Color(0, 0, 0, 0.35)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_hud_bar"]
+content_margin_left = 12.0
+content_margin_top = 5.0
+content_margin_right = 12.0
+content_margin_bottom = 8.0
+bg_color = Color(0, 0, 0, 0.35)
 
 [node name="Match" type="Node3D"]
 editor_description = "A whole match. Arena, one human body, three AI bodies, one rifle, and MatchController enforcing the match described by resources/rules/default_match_rules.tres: an opening race with no shooter, then rounds, with the tower passing to whoever reaches the end and the match going to whoever holds it through a round. Nothing under scenes/player, scenes/weapon, scenes/bot or scenes/ring is modified here -- they are composed."
@@ -88,15 +102,15 @@ status_panel = NodePath("Status")
 status_label = NodePath("Status/Line")
 flash_label = NodePath("Flash")
 tower_panel = NodePath("TowerReload")
-tower_fill = NodePath("TowerReload/Track/Fill")
-tower_value = NodePath("TowerReload/Value")
+tower_fill = NodePath("TowerReload/Rows/Track/Fill")
+tower_value = NodePath("TowerReload/Rows/Head/Value")
 guard_panel = NodePath("GuardReload")
 guard_fill = NodePath("GuardReload/Track/Fill")
 guard_value = NodePath("GuardReload/Value")
 pips_row = NodePath("Pips")
 power_panel = NodePath("Power")
-power_label = NodePath("Power/Name")
-power_fill = NodePath("Power/Track/Fill")
+power_label = NodePath("Power/Rows/Name")
+power_fill = NodePath("Power/Rows/Track/Fill")
 boost_label = NodePath("Boost")
 dev_label = NodePath("Dev")
 free_camera = NodePath("../../FreeCamera")
@@ -115,7 +129,7 @@ mouse_filter = 2
 color = Color(1, 1, 1, 0.85)
 editor_description = "A 3 px dot. The centre of the screen belongs to the arena."
 
-[node name="Status" type="Control" parent="HUD/Root"]
+[node name="Status" type="PanelContainer" parent="HUD/Root"]
 anchor_left = 0.5
 anchor_right = 0.5
 offset_left = -240.0
@@ -124,23 +138,10 @@ offset_right = 240.0
 offset_bottom = 52.0
 grow_horizontal = 2
 mouse_filter = 2
-editor_description = "Round, prisoners left, and the tower. Written every tick by scripts/match/match_hud.gd."
-
-[node name="Plate" type="ColorRect" parent="HUD/Root/Status"]
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 2
-color = Color(0, 0, 0, 0.35)
+theme_override_styles/panel = SubResource("StyleBoxFlat_hud_plate")
+editor_description = "Round, prisoners left, and the tower; the plate hugs the line. Written every tick by scripts/match/match_hud.gd."
 
 [node name="Line" type="Label" parent="HUD/Root/Status"]
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
 theme_override_colors/font_outline_color = Color(0, 0, 0, 0.9)
 theme_override_constants/outline_size = 4
 theme_override_font_sizes/font_size = 15
@@ -154,8 +155,6 @@ anchor_left = 0.5
 anchor_top = 0.18
 anchor_right = 0.5
 anchor_bottom = 0.18
-offset_left = -320.0
-offset_right = 320.0
 offset_bottom = 34.0
 grow_horizontal = 2
 theme_override_colors/font_outline_color = Color(0, 0, 0, 0.9)
@@ -165,7 +164,7 @@ text = ""
 horizontal_alignment = 1
 editor_description = "One transient line, two seconds, faded out and never stacked."
 
-[node name="TowerReload" type="Control" parent="HUD/Root"]
+[node name="TowerReload" type="PanelContainer" parent="HUD/Root"]
 anchor_top = 1.0
 anchor_bottom = 1.0
 offset_left = 24.0
@@ -174,63 +173,40 @@ offset_right = 284.0
 offset_bottom = -24.0
 grow_vertical = 0
 mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_hud_bar")
 editor_description = "The tower rifle's reload, for a prisoner: the silence after a shot, filling."
 
-[node name="Plate" type="ColorRect" parent="HUD/Root/TowerReload"]
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
+[node name="Rows" type="VBoxContainer" parent="HUD/Root/TowerReload"]
 mouse_filter = 2
-color = Color(0, 0, 0, 0.35)
+theme_override_constants/separation = 6
 
-[node name="Title" type="Label" parent="HUD/Root/TowerReload"]
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = 12.0
-offset_top = 6.0
-offset_right = -12.0
-offset_bottom = -26.0
-grow_horizontal = 2
-grow_vertical = 2
+[node name="Head" type="HBoxContainer" parent="HUD/Root/TowerReload/Rows"]
+mouse_filter = 2
+theme_override_constants/separation = 8
+
+[node name="Title" type="Label" parent="HUD/Root/TowerReload/Rows/Head"]
 modulate = Color(1, 1, 1, 0.7)
+size_flags_horizontal = 3
 theme_override_colors/font_outline_color = Color(0, 0, 0, 0.9)
 theme_override_constants/outline_size = 4
 theme_override_font_sizes/font_size = 12
 text = "HUD_TOWER_RIFLE"
+vertical_alignment = 1
 
-[node name="Value" type="Label" parent="HUD/Root/TowerReload"]
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = 12.0
-offset_top = 4.0
-offset_right = -12.0
-offset_bottom = -24.0
-grow_horizontal = 2
-grow_vertical = 2
+[node name="Value" type="Label" parent="HUD/Root/TowerReload/Rows/Head"]
 theme_override_colors/font_outline_color = Color(0, 0, 0, 0.9)
 theme_override_constants/outline_size = 4
 theme_override_font_sizes/font_size = 16
 text = "HUD_READY"
 horizontal_alignment = 2
+vertical_alignment = 1
 
-[node name="Track" type="ColorRect" parent="HUD/Root/TowerReload"]
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = 12.0
-offset_top = 30.0
-offset_right = -12.0
-offset_bottom = -8.0
-grow_horizontal = 2
-grow_vertical = 2
+[node name="Track" type="ColorRect" parent="HUD/Root/TowerReload/Rows"]
+custom_minimum_size = Vector2(236, 8)
 mouse_filter = 2
 color = Color(1, 1, 1, 0.16)
 
-[node name="Fill" type="ColorRect" parent="HUD/Root/TowerReload/Track"]
+[node name="Fill" type="ColorRect" parent="HUD/Root/TowerReload/Rows/Track"]
 anchor_bottom = 1.0
 grow_vertical = 2
 mouse_filter = 2
@@ -356,7 +332,7 @@ layout_mode = 2
 mouse_filter = 2
 color = Color(1, 1, 1, 1)
 
-[node name="Power" type="Control" parent="HUD/Root"]
+[node name="Power" type="PanelContainer" parent="HUD/Root"]
 visible = false
 anchor_left = 1.0
 anchor_top = 1.0
@@ -369,47 +345,26 @@ offset_bottom = -24.0
 grow_horizontal = 0
 grow_vertical = 0
 mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_hud_bar")
 editor_description = "The runner's power and where it is in its cycle. Hidden when the rules give none."
 
-[node name="Plate" type="ColorRect" parent="HUD/Root/Power"]
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
+[node name="Rows" type="VBoxContainer" parent="HUD/Root/Power"]
 mouse_filter = 2
-color = Color(0, 0, 0, 0.35)
+theme_override_constants/separation = 6
 
-[node name="Name" type="Label" parent="HUD/Root/Power"]
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = 12.0
-offset_top = 5.0
-offset_right = -12.0
-offset_bottom = -23.0
-grow_horizontal = 2
-grow_vertical = 2
+[node name="Name" type="Label" parent="HUD/Root/Power/Rows"]
 theme_override_colors/font_outline_color = Color(0, 0, 0, 0.9)
 theme_override_constants/outline_size = 4
 theme_override_font_sizes/font_size = 15
 text = ""
 horizontal_alignment = 2
 
-[node name="Track" type="ColorRect" parent="HUD/Root/Power"]
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = 12.0
-offset_top = 30.0
-offset_right = -12.0
-offset_bottom = -8.0
-grow_horizontal = 2
-grow_vertical = 2
+[node name="Track" type="ColorRect" parent="HUD/Root/Power/Rows"]
+custom_minimum_size = Vector2(236, 8)
 mouse_filter = 2
 color = Color(1, 1, 1, 0.16)
 
-[node name="Fill" type="ColorRect" parent="HUD/Root/Power/Track"]
+[node name="Fill" type="ColorRect" parent="HUD/Root/Power/Rows/Track"]
 anchor_bottom = 1.0
 grow_vertical = 2
 mouse_filter = 2
@@ -421,7 +376,7 @@ anchor_left = 1.0
 anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = -284.0
+offset_left = -24.0
 offset_top = -96.0
 offset_right = -24.0
 offset_bottom = -74.0
@@ -437,7 +392,7 @@ horizontal_alignment = 2
 visible = false
 anchor_left = 1.0
 anchor_right = 1.0
-offset_left = -284.0
+offset_left = -24.0
 offset_top = 24.0
 offset_right = -24.0
 offset_bottom = 42.0

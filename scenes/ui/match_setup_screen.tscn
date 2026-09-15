@@ -25,10 +25,10 @@ theme_override_constants/margin_right = 24
 theme_override_constants/margin_bottom = 24
 
 [node name="Dialog" type="PanelContainer" parent="Frame"]
-custom_minimum_size = Vector2(640, 560)
+custom_minimum_size = Vector2(880, 560)
 size_flags_horizontal = 4
 size_flags_vertical = 4
-editor_description = "Centred at a deliberate size, the same shape and the same minimum as the settings dialog, so the two screens the player moves between do not jump. The minimum fits inside 1280x720 with its margins."
+editor_description = "Shrink-centred, the same minimum as the settings dialog, so the two screens the player moves between do not jump."
 
 [node name="Padding" type="MarginContainer" parent="Frame/Dialog"]
 theme_override_constants/margin_left = 12
@@ -62,6 +62,7 @@ size_flags_horizontal = 3
 
 [node name="MapSummary" type="Label" parent="Frame/Dialog/Padding/Layout"]
 autowrap_mode = 3
+theme_override_font_sizes/font_size = 15
 unique_name_in_owner = true
 editor_description = "What the selected map IS, in one sentence, from MapDefinition.summary. It is what makes a list of one read as a described place rather than as a control that does nothing."
 
@@ -93,6 +94,7 @@ size_flags_horizontal = 3
 
 [node name="PresetSummary" type="Label" parent="Frame/Dialog/Padding/Layout"]
 autowrap_mode = 3
+theme_override_font_sizes/font_size = 15
 unique_name_in_owner = true
 editor_description = "What the selected mode IS, in one sentence, from MatchPresets.Preset.summary. A description, not a disclaimer."
 
@@ -219,6 +221,7 @@ unique_name_in_owner = true
 
 [node name="Note" type="Label" parent="Frame/Dialog/Padding/Layout"]
 autowrap_mode = 3
+theme_override_font_sizes/font_size = 15
 unique_name_in_owner = true
 editor_description = "Composed by the script and hidden when it has nothing to say. It carries only things that are TRUE of the chosen rules and would otherwise surprise the player -- a survived hit having no feedback yet, for instance -- and never an opinion about whether a mode is a good idea."
 

@@ -26,10 +26,10 @@ theme_override_constants/margin_right = 24
 theme_override_constants/margin_bottom = 24
 
 [node name="Dialog" type="PanelContainer" parent="Frame"]
-custom_minimum_size = Vector2(640, 560)
+custom_minimum_size = Vector2(880, 560)
 size_flags_horizontal = 4
 size_flags_vertical = 4
-editor_description = "A centred dialog of a deliberate size, not an edge-to-edge sheet. On a 1080p screen a full-width panel strands a 500px table in an acre of empty grey; shrink-centre keeps the controls together and reads the same at every resolution. It grows if a tab's contents need more than the minimum and never shrinks below them, and the minimum is sized to fit inside the smallest resolution the video tab offers (1280x720) with its margins."
+editor_description = "A shrink-centred dialog: 880 wide keeps the notes to a few lines, and it grows for any tab that needs more."
 
 [node name="Padding" type="MarginContainer" parent="Frame/Dialog"]
 theme_override_constants/margin_left = 12
@@ -128,23 +128,23 @@ horizontal_alignment = 1
 text = "SETTINGS_TURN_5"
 
 [node name="ReloadSpin1" type="SpinBox" parent="Frame/Dialog/Padding/Layout/Tabs/Match/Grid/ReloadGrid"]
-custom_minimum_size = Vector2(72, 0)
+custom_minimum_size = Vector2(150, 0)
 unique_name_in_owner = true
 
 [node name="ReloadSpin2" type="SpinBox" parent="Frame/Dialog/Padding/Layout/Tabs/Match/Grid/ReloadGrid"]
-custom_minimum_size = Vector2(72, 0)
+custom_minimum_size = Vector2(150, 0)
 unique_name_in_owner = true
 
 [node name="ReloadSpin3" type="SpinBox" parent="Frame/Dialog/Padding/Layout/Tabs/Match/Grid/ReloadGrid"]
-custom_minimum_size = Vector2(72, 0)
+custom_minimum_size = Vector2(150, 0)
 unique_name_in_owner = true
 
 [node name="ReloadSpin4" type="SpinBox" parent="Frame/Dialog/Padding/Layout/Tabs/Match/Grid/ReloadGrid"]
-custom_minimum_size = Vector2(72, 0)
+custom_minimum_size = Vector2(150, 0)
 unique_name_in_owner = true
 
 [node name="ReloadSpin5" type="SpinBox" parent="Frame/Dialog/Padding/Layout/Tabs/Match/Grid/ReloadGrid"]
-custom_minimum_size = Vector2(72, 0)
+custom_minimum_size = Vector2(150, 0)
 unique_name_in_owner = true
 
 [node name="ReloadSpacer" type="Control" parent="Frame/Dialog/Padding/Layout/Tabs/Match/Grid"]
@@ -169,7 +169,7 @@ vertical_alignment = 1
 text = "SETTINGS_VOTE_SECONDS"
 
 [node name="VoteSecondsSpin" type="SpinBox" parent="Frame/Dialog/Padding/Layout/Tabs/Match/Grid"]
-custom_minimum_size = Vector2(120, 0)
+custom_minimum_size = Vector2(180, 0)
 size_flags_horizontal = 0
 unique_name_in_owner = true
 
@@ -197,7 +197,7 @@ vertical_alignment = 1
 text = "SETTINGS_SCOPE_SWAY"
 
 [node name="SwaySpin" type="SpinBox" parent="Frame/Dialog/Padding/Layout/Tabs/Match/BalanceScroll/BalanceGrid"]
-custom_minimum_size = Vector2(120, 0)
+custom_minimum_size = Vector2(180, 0)
 size_flags_horizontal = 0
 unique_name_in_owner = true
 
@@ -209,7 +209,7 @@ vertical_alignment = 1
 text = "SETTINGS_SWAY_SPEED"
 
 [node name="SwayHzSpin" type="SpinBox" parent="Frame/Dialog/Padding/Layout/Tabs/Match/BalanceScroll/BalanceGrid"]
-custom_minimum_size = Vector2(120, 0)
+custom_minimum_size = Vector2(180, 0)
 size_flags_horizontal = 0
 unique_name_in_owner = true
 
@@ -221,7 +221,7 @@ vertical_alignment = 1
 text = "SETTINGS_SWAY_SETTLES_IN"
 
 [node name="SwaySettleSpin" type="SpinBox" parent="Frame/Dialog/Padding/Layout/Tabs/Match/BalanceScroll/BalanceGrid"]
-custom_minimum_size = Vector2(120, 0)
+custom_minimum_size = Vector2(180, 0)
 size_flags_horizontal = 0
 unique_name_in_owner = true
 
@@ -247,7 +247,7 @@ vertical_alignment = 1
 text = "SETTINGS_OPEN_WINDOWS"
 
 [node name="WindowsSpin" type="SpinBox" parent="Frame/Dialog/Padding/Layout/Tabs/Match/BalanceScroll/BalanceGrid"]
-custom_minimum_size = Vector2(120, 0)
+custom_minimum_size = Vector2(180, 0)
 size_flags_horizontal = 0
 unique_name_in_owner = true
 
@@ -259,7 +259,7 @@ vertical_alignment = 1
 text = "SETTINGS_MISS_PENALTY"
 
 [node name="MissPenaltySpin" type="SpinBox" parent="Frame/Dialog/Padding/Layout/Tabs/Match/BalanceScroll/BalanceGrid"]
-custom_minimum_size = Vector2(120, 0)
+custom_minimum_size = Vector2(180, 0)
 size_flags_horizontal = 0
 unique_name_in_owner = true
 
@@ -283,7 +283,7 @@ vertical_alignment = 1
 text = "SETTINGS_RUNNER_SPEED"
 
 [node name="RunnerSpeedSpin" type="SpinBox" parent="Frame/Dialog/Padding/Layout/Tabs/Match/BalanceScroll/BalanceGrid"]
-custom_minimum_size = Vector2(120, 0)
+custom_minimum_size = Vector2(180, 0)
 size_flags_horizontal = 0
 unique_name_in_owner = true
 
@@ -295,7 +295,7 @@ vertical_alignment = 1
 text = "SETTINGS_JUMP_HEIGHT"
 
 [node name="RunnerJumpSpin" type="SpinBox" parent="Frame/Dialog/Padding/Layout/Tabs/Match/BalanceScroll/BalanceGrid"]
-custom_minimum_size = Vector2(120, 0)
+custom_minimum_size = Vector2(180, 0)
 size_flags_horizontal = 0
 unique_name_in_owner = true
 
@@ -307,7 +307,7 @@ vertical_alignment = 1
 text = "SETTINGS_POWER_COOLDOWN"
 
 [node name="AbilityCooldownSpin" type="SpinBox" parent="Frame/Dialog/Padding/Layout/Tabs/Match/BalanceScroll/BalanceGrid"]
-custom_minimum_size = Vector2(120, 0)
+custom_minimum_size = Vector2(180, 0)
 size_flags_horizontal = 0
 unique_name_in_owner = true
 
@@ -319,7 +319,7 @@ vertical_alignment = 1
 text = "SETTINGS_GUARD_HEALTH"
 
 [node name="GuardHealthSpin" type="SpinBox" parent="Frame/Dialog/Padding/Layout/Tabs/Match/BalanceScroll/BalanceGrid"]
-custom_minimum_size = Vector2(120, 0)
+custom_minimum_size = Vector2(180, 0)
 size_flags_horizontal = 0
 unique_name_in_owner = true
 
@@ -331,7 +331,7 @@ vertical_alignment = 1
 text = "SETTINGS_FINISHER_HEALTH"
 
 [node name="FinisherHealthSpin" type="SpinBox" parent="Frame/Dialog/Padding/Layout/Tabs/Match/BalanceScroll/BalanceGrid"]
-custom_minimum_size = Vector2(120, 0)
+custom_minimum_size = Vector2(180, 0)
 size_flags_horizontal = 0
 unique_name_in_owner = true
 
@@ -339,15 +339,18 @@ unique_name_in_owner = true
 
 [node name="BalanceNote" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Match"]
 autowrap_mode = 3
+theme_override_font_sizes/font_size = 15
 text = "SETTINGS_NOTE_SWAY"
 
 [node name="GhostsNote" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Match"]
 autowrap_mode = 3
+theme_override_font_sizes/font_size = 15
 editor_description = "What the mechanic is, for a player who has not met it. Nothing more: this is a description, not a disclaimer."
 text = "SETTINGS_NOTE_GHOSTS"
 
 [node name="RaceNote" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Match"]
 autowrap_mode = 3
+theme_override_font_sizes/font_size = 15
 editor_description = "What skipping costs and what it does not, for a player deciding whether to. The second sentence is the one that matters: the round a skip produces is the round a race would have produced, so a skipped match is still the game."
 text = "SETTINGS_NOTE_OPENING"
 
@@ -409,6 +412,7 @@ horizontal_alignment = 2
 
 [node name="Note" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Game"]
 autowrap_mode = 3
+theme_override_font_sizes/font_size = 15
 text = "SETTINGS_NOTE_INPUT"
 
 [node name="Audio" type="VBoxContainer" parent="Frame/Dialog/Padding/Layout/Tabs"]
@@ -489,6 +493,7 @@ text = "SETTINGS_PS1_CRUSH_HINT"
 [node name="Note" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Audio"]
 unique_name_in_owner = true
 autowrap_mode = 3
+theme_override_font_sizes/font_size = 15
 editor_description = "Filled in, and shown, only when the project is missing an audio bus one of these sliders drives. Silence is the normal state."
 
 [node name="Video" type="VBoxContainer" parent="Frame/Dialog/Padding/Layout/Tabs"]
@@ -569,6 +574,7 @@ horizontal_alignment = 2
 [node name="VideoNote" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Video"]
 unique_name_in_owner = true
 autowrap_mode = 3
+theme_override_font_sizes/font_size = 15
 text = "SETTINGS_VIDEO_NOTE_RESOLUTION"
 editor_description = "Rewritten at runtime by SettingsScreen._update_video_note. The text here is only what it says when the window is obeying; a display server that refuses the resize -- the editor's embedded Game window is the one that does -- makes it say so instead, because a silent refusal is indistinguishable from a broken control."
 
