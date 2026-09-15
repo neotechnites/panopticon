@@ -6,7 +6,7 @@ extends Node
 ## A step is a Dictionary with a [code]do[/code] and its arguments:
 ## [codeblock]
 ## {"do": "place", "at": Vector3, "face": Vector3}
-## {"do": "run", "to": Vector3, "weave": 0.9, "period": 1.1, "hop": 1.6, "within": 0.6, "timeout": 8.0}
+## {"do": "run", "to": Vector3, "weave": 0.9, "period": 1.1, "hop": 1.6, "within": 0.6, "timeout": 8.0, "speed": 1.0}   # speed < 1 walks
 ## {"do": "lane", "from": deg, "to": deg, "r": 52.0, ...run's weave/period/hop}   # along the ring
 ## {"do": "leap", "to": Vector3, "speed": 8.0}
 ## {"do": "land"}
@@ -14,7 +14,7 @@ extends Node
 ## {"do": "shove_when", "victim": PlayerController, "range": 3.0, "timeout": 12.0}
 ## {"do": "chase", "victim": PlayerController, "range": 2.5, "timeout": 10.0}   # run at them, shove in reach
 ## {"do": "ability", "slot": 2}
-## {"do": "pitch", "down": 12.0}     # tip the head down this many degrees (a POV framing)
+## {"do": "pitch", "down": 12.0, "seconds": 0.0}     # tip the head down this many degrees, at once or over seconds
 ## {"do": "release"}     # hand the body back to its own brain
 ## [/codeblock]
 
@@ -81,10 +81,13 @@ func _physics_process(delta: float) -> void:
 			finished = true
 		"pitch":
 			# PlayerController pitches by -look_delta.y (unless the profile inverts).
+			var over: float = float(step.get("seconds", 0.0))
 			var down: float = deg_to_rad(float(step.get("down", 0.0)))
+			if over > 0.0:
+				down *= minf(delta, over - (_clock - delta)) / over
 			var inverted: bool = _body.profile != null and _body.profile.invert_look_y
 			_intent.look_delta = Vector2(0.0, -down if inverted else down)
-			finished = true
+			finished = _clock >= over
 		"release":
 			_release()
 			return
@@ -119,7 +122,7 @@ func _run(step: Dictionary, delta: float, to: Vector3, within: float) -> bool:
 	var strafe: float = 0.0
 	if weave > 0.0:
 		strafe = sin(_clock * TAU / float(step.get("period", 1.1))) * weave
-	_intent.move_direction = Vector2(strafe, 1.0)
+	_intent.move_direction = Vector2(strafe, float(step.get("speed", 1.0)))
 	_intent.slide_held = bool(step.get("crouch", false))
 	var hop: float = float(step.get("hop", 0.0))
 	if hop > 0.0:
@@ -347,10 +350,13 @@ static func steps_for(stage: String, victim: PlayerController) -> Array:
 				{"do": "hold", "seconds": 12.0},
 			]
 		"shoveedge_victim":
-			# Stood a metre from the rim looking out and a little down over the pit at the tower.
+			# Walks the last couple of metres to the rim, then looks out and a
+			# little down over the pit at the tower; never sees the shover.
+			var facing: Vector3 = (-radial_at(RIM_DEGREES) + tangent_at(RIM_DEGREES) * 0.25).normalized()
 			return [
-				{"do": "place", "at": ring_point(RIM_DEGREES, RIM_VICTIM_R, 0.1), "face": (-radial_at(RIM_DEGREES) + tangent_at(RIM_DEGREES) * 0.25).normalized()},
-				{"do": "pitch", "down": 14.0},
+				{"do": "place", "at": ring_point(RIM_DEGREES, RIM_VICTIM_R + 2.2, 0.1), "face": facing},
+				{"do": "run", "to": ring_point(RIM_DEGREES, RIM_VICTIM_R + 0.3, 0.0), "within": 0.25, "speed": 0.4, "timeout": 2.5},
+				{"do": "pitch", "down": 14.0, "seconds": 0.9},
 				{"do": "hold", "seconds": 20.0},
 			]
 		"lavadeath":
