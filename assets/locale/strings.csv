@@ -299,6 +299,7 @@ HUD_TOWER_EMPTY,TOWER EMPTY,[TÖWÉR ÉMPTÝ ~~~~]
 HUD_RELOAD_LENGTH_SUFFIX,S RELOAD,[S RÉLÖÅD ~~~~]
 HUD_RESTART_HINT,[R] restart match,[[R] réstärt mätch ~~~~ ~~~~]
 HUB_MAP_1,MAP 1,[MÅP 1 ~~~~]
+HUB_MAP_2,MAP 2,[MÅP 2 ~~~~]
 HUB_PLAYERS_ONE,{count} player,[{count} pläýér ~~~~]
 HUB_PLAYERS_MANY,{count} players,[{count} pläýérs ~~~~]
 HUB_TAB_HINT,TAB  rules and seats,[TÅB  rülés änd séäts ~~~~ ~~~~]
@@ -322,3 +323,4 @@ HUB_SIGN_VOTES_MANY,"{map}
 {count} votes","[{map}
 {count} vötés ~~~~ ~~~~]"
 MAP_BENTHAM_RING_SUMMARY,"Three decks stacked outward and upward around the tower, and you have to lap all three. Cover in bands on every level, twelve pits cut clean through the floors, kill blocks flush against every lane, and one ramp up off each level, behind cover. The eye in the middle now stands above all of it and can see every deck.","[Thréé décks stäckéd öütwärd änd üpwärd äröünd thé töwér, änd ýöü hävé tö läp äll thréé. Cövér ïn bänds ön évérý lévél, twélvé pïts cüt cléän thröügh thé flöörs, kïll blöcks flüsh ägäïnst évérý läné, änd öné rämp üp öff éäch lévél, béhïnd cövér. Thé éýé ïn thé mïddlé nöw ständs äbövé äll öf ït änd cän séé évérý déck. ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~]"
+MAP_MARBLE_SUMMARY,"One closed marble rotunda under a solid dome. The lane is a bridge between two beds of marble spikes, the wall behind three tiers of barred cells, the tower a lodge in the middle whose windows throw the only light. Nothing on the lane but the run.","[Öné clöséd märblé rötündä ündér ä sölïd dömé. Thé läné ïs ä brïdgé bétwéén twö béds öf märblé spïkés, thé wäll béhïnd thréé tïérs öf bärréd célls, thé töwér ä lödgé ïn thé mïddlé whösé wïndöws thröw thé önlý lïght. Nöthïng ön thé läné büt thé rün. ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~]"

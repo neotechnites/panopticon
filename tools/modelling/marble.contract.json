@@ -1,0 +1,10 @@
+{
+  "_comment": "Map 2, marble: the Bentham drawing in white marble, one closed rotunda authored in WORLD coordinates -- instance at identity. The lane is Map 1's ring (r 46.7..57.3 at y 23.0) standing 1.6 m over two beds of marble spikes (floor y 21.4): inward to the tower's foot, outward to the wall at r 60. The wall is four tiers of 64 arched cells each (256 cells, 3.2 x 4.2 m, 3.0 m deep), an engaged half-column on every pier, a Greek-key frieze at 47.8..49.6, a great cornice, and a solid coffered dome from y 50.6 to the crown at 77.6 -- no oculus. A ten-post marble gate closes the lane at 354 deg between finish and start. ONE material: the painted 256 px marble atlas (USE_TEXTURE_FILES swaps in textures/marble_albedo.png). MarbleCollision is the purpose-built collider shipped as a `-colonly` node: lane, both podium walls, both bed floors, the plain wall face, the dome, the gate. The spikes are NOT colliders -- the scene's kill cylinder (inner bed) and feet-only traps (trough) kill a body before it lands. Godot turns the collider into a StaticBody3D + ConcavePolygonShape3D and drops its mesh, so `surfaces` counts only what is drawn.",
+  "node_paths": [
+    "MarbleStone",
+    "MarbleCollision",
+    "MarbleCollision/CollisionShape3D"
+  ],
+  "surfaces": 1,
+  "max_tris": 50000
+}

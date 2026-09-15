@@ -1,4 +1,4 @@
-[gd_scene load_steps=26 format=3]
+[gd_scene load_steps=27 format=3]
 
 [ext_resource type="PackedScene" path="res://assets/models/hub_base.glb" id="1_hub_base"]
 [ext_resource type="Script" uid="uid://gwfatmklmjcr" path="res://scripts/ring/tower_variant.gd" id="2_tower_variant"]
@@ -21,6 +21,7 @@
 [ext_resource type="Resource" path="res://resources/rules/default_match_rules.tres" id="19_rules"]
 [ext_resource type="Resource" path="res://resources/rules/default_runner_palette.tres" id="20_palette"]
 [ext_resource type="PackedScene" path="res://scenes/ring/bentham_ring.tscn" id="21_map1"]
+[ext_resource type="PackedScene" path="res://scenes/ring/marble.tscn" id="22_map2"]
 
 [sub_resource type="ProceduralSkyMaterial" id="SkyMat"]
 sky_top_color = Color(0.54, 0.110700026, 0.054000016, 1)
@@ -95,7 +96,7 @@ omni_attenuation = 0.6
 [node name="Watcher" parent="HubWorld/Tower" instance=ExtResource("5_watching_eye")]
 
 [node name="Wedges" type="Node3D" parent="HubWorld"]
-editor_description = "Ten wedges of 36 degrees, W01 at bearings 0-36. One holds a map; the other nine hold a question mark until Ryan decides what stands there."
+editor_description = "Ten wedges of 36 degrees, W01 at bearings 0-36. Two hold maps (hell, marble); the other eight hold a question mark until Ryan decides what stands there."
 
 [node name="W01_Hell" type="Node3D" parent="HubWorld/Wedges"]
 script = ExtResource("12_map_wedge")
@@ -128,14 +129,17 @@ collision_mask = 1
 [node name="Shape" type="CollisionShape3D" parent="HubWorld/Wedges/W01_Hell/Dais/StartTrigger"]
 shape = SubResource("DaisTrigger")
 
-[node name="W02" type="Node3D" parent="HubWorld/Wedges"]
+[node name="W02_Marble" type="Node3D" parent="HubWorld/Wedges"]
 script = ExtResource("12_map_wedge")
+map_scene = ExtResource("22_map2")
+map_id = &"marble"
+title = "HUB_MAP_2"
 
-[node name="Dais" type="Marker3D" parent="HubWorld/Wedges/W02"]
+[node name="Dais" type="Marker3D" parent="HubWorld/Wedges/W02_Marble"]
 transform = Transform3D(-0.809017, 0, 0.587785, 0, 1, 0, -0.587785, 0, -0.809017, 21.1603, 0, -29.1246)
-editor_description = "Bearing 54 deg, r 36. Facing the tower."
+editor_description = "Bearing 54 deg, r 36. Facing the tower. Map 2, the marble rotunda."
 
-[node name="Sign" type="Label3D" parent="HubWorld/Wedges/W02/Dais"]
+[node name="Sign" type="Label3D" parent="HubWorld/Wedges/W02_Marble/Dais"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.5, 0)
 billboard = 1
 no_depth_test = true
@@ -145,7 +149,16 @@ font_size = 64
 outline_size = 12
 modulate = Color(1, 0.78, 0.55, 1)
 outline_modulate = Color(0, 0, 0, 0.85)
-text = "?"
+text = ""
+
+[node name="StartTrigger" type="Area3D" parent="HubWorld/Wedges/W02_Marble/Dais"]
+editor_description = "Stand here as the host and the marble map is offered. Layer 0, mask 1: it monitors bodies and is solid to nothing."
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.5, 0)
+collision_layer = 0
+collision_mask = 1
+
+[node name="Shape" type="CollisionShape3D" parent="HubWorld/Wedges/W02_Marble/Dais/StartTrigger"]
+shape = SubResource("DaisTrigger")
 
 [node name="W03" type="Node3D" parent="HubWorld/Wedges"]
 script = ExtResource("12_map_wedge")
