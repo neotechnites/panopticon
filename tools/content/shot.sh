@@ -5,7 +5,9 @@
 #
 # Entry fields it reads: capture (run_clip args) or still (shot.gd args), seconds,
 # in (seconds into the take the cut starts), gap, at (git ref for a before/after
-# pair), hold (seconds a still is held), takes and motion (gate overrides).
+# pair), hold (seconds a still is held), takes and motion (gate overrides), and
+# file (a name: the same cut is also written on its own, in the brief's aspect,
+# to clips\<project>\<file>.mp4 -- a shot handed over as a clip, not a timeline).
 # Output on the PC: content\<kind>\<project>\takes\NN_tK.avi (+ .txt gate report)
 # and shots\NN.mp4, a 16:9 master cut to seconds+gap with game audio muted over
 # the gap. Stills and captions are applied at render, not here.
@@ -34,6 +36,8 @@ TAKES_MAX=$(brief_field "${BRIEF}" "${N}" takes "${TAKES_MAX}")
 [[ "${CAPTURE}" == *--seed=* ]] && TAKES_MAX=1
 MOTION_MIN=$(brief_field "${BRIEF}" "${N}" motion "${MOTION_MIN}")
 SAID=$(brief_field "${BRIEF}" "${N}" said)
+FILE=$(brief_field "${BRIEF}" "${N}" file)      # also deliver this cut as clips\<project>\<file>.mp4
+ASPECT=$(brief_head "${BRIEF}" aspect "$([ "${KIND}" = devlog ] && echo 16:9 || echo 9:16)")
 [ -n "${CAPTURE}${STILL}" ] || die "shot ${N} of ${NAME} has no capture: or still: line"
 echo "shot ${NN}: ${SAID}"
 
@@ -97,6 +101,22 @@ Write-Output ('rendered ' + (Get-Item '${out}').Length)
 EOF
 }
 
+# --- The same cut as a clip of its own, in the delivery aspect. -----------------
+deliver_take() {  # deliver_take <tag> <cut-seconds>
+  [ -n "${FILE}" ] || return 0
+  local tag="$1" cut="$2" out="${PC_CLIPS}\\${NAME}\\${FILE}.mp4" geometry
+  [ "${ASPECT}" = 9:16 ] && geometry="crop=ih*9/16:ih,scale=1080:1920" || geometry="scale=1920:1080"
+  pc <<EOF
+New-Item -ItemType Directory -Force -Path '${PC_CLIPS}\\${NAME}' | Out-Null
+\$src = '${DIR}\\takes\\${tag}.avi'
+\$audio = ffprobe -v error -select_streams a -show_entries stream=codec_type -of csv=p=0 \$src
+\$af = if (\$audio) { @('-c:a', 'aac', '-ar', '48000', '-b:a', '160k') } else { @('-f', 'lavfi', '-i', 'anullsrc=r=48000:cl=stereo', '-shortest', '-c:a', 'aac') }
+ffmpeg -hide_banner -loglevel error -y -ss ${IN} -i \$src @(\$af) -t ${cut} -c:v libx264 -preset veryfast -crf 18 -pix_fmt yuv420p -r ${FPS} -vf "${geometry}" -movflags +faststart '${out}'
+\$len = ffprobe -v error -show_entries format=duration -of csv=p=0 '${out}'
+Write-Output ('clip ' + '${out}' + ' ' + [math]::Round([double]\$len, 2) + ' s ' + (Get-Item '${out}').Length)
+EOF
+}
+
 T_ALL=$(now_ms)
 TOTAL=$(python3 -c "print(${SECONDS_WANTED} + ${GAP})")
 if [ -n "${STILL}" ]; then
@@ -145,6 +165,7 @@ else
   fi
   T0=$(now_ms)
   render_take "${TAG}" "${DIR}\\shots\\${NN}.mp4" "${TOTAL}" "${SECONDS_WANTED}" | sed 's/^/  | /'
+  deliver_take "${TAG}" "${SECONDS_WANTED}" | sed 's/^/  | /'
   echo "  render: $(since "$T0")"
 fi
 echo "shot ${NN} done in $(since "$T_ALL"): ${DIR}\\shots\\${NN}.mp4"

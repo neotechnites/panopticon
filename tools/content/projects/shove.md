@@ -2,48 +2,52 @@
 kind: short
 format: i-added-x
 aspect: 9:16
-voice: no
-shots: mine (Claude's shot list, not Ryan's; his direction is the ryan: line)
-ryan: lets make a short about the shove. start it with something like 'I added this to my game and it got 10x better'
-hook: the "I added this to my game and it got 10x better" line is Ryan's, spoken or typed over shot 1 in post; nothing is burned into the shots
+voice: yes
+ryan: for the parts where im saying cover, lava and edge, clips of someone doing those things to another person. for the last part, first person perspective of getting shoved off the ledge.
+shots: the four beats Ryan named, runner on runner, plus a hook frame; the [mine] lines are the translation of his words into captures, not his words
+delivery: each shot is also written on its own as clips\shove\<file>.mp4, 1080x1920, no text, HUD only on the POV shot; the ~50 s cut is Ryan's, over his voice
 
 ## 1
-said: [mine] ghost POV chasing a running prisoner from behind, closing in, ends on the shove landing
-capture: --pov=ghost --stage=ghostchase --shot=s3_chase --bots=7 --look=social --audio=near --seed=20260930
-file: 01_ghost_pov
-in: 0.8
-seconds: 5.5
+said: [mine] hook, for the first frame: the best single shove landing, the victim flying into the lava (the same beat as shot 4, cut tight on the hit)
+capture: --stage=shovecatch --shot=s2_gap --bots=2 --look=social --audio=near --track=victim
+file: 00_hook
+in: 3.4
+seconds: 3
+frame: 0.6
 gap: 0
 
 ## 2
-said: [mine] third-person side view of the same shove: ghost hits runner, the swap happens, runner becomes ghost, ghost becomes runner; the swap must be visible
-capture: --stage=ghostchase --shot=s3_chase --bots=7 --look=social --audio=near --seed=20260930
-file: 02_swap_side
-in: 1.5
-seconds: 4.5
+said: "cover" -- someone doing that to another person: a runner crouched behind the pocket rock at 196 deg is shoved up the lane out from behind it by another runner, and the tower's line to them opens up (it fires)
+capture: --stage=shovecover --shot=pocket_cover --bots=2 --look=social --audio=near --track=victim
+file: 01_cover
+in: 0.9
+seconds: 4
+frame: 1.4
 gap: 0
 
 ## 3
-said: [mine] runner POV getting shoved from behind out of nowhere
-capture: --pov=runner --stage=ghostchase --shot=s3_chase --bots=7 --look=social --audio=near --seed=20260930
-file: 03_runner_pov
-in: 2.0
-seconds: 3.5
+said: "edge" -- a runner stood at the pit rim on the S3 deck is shoved over it from behind by another runner and falls out of frame
+capture: --stage=shoveedge --shot=rim_edge --bots=2 --look=social --audio=near --track=victim
+file: 02_edge
+in: 1.2
+seconds: 3.8
+frame: 1.6
 gap: 0
 
 ## 4
-said: [mine] wide shot, a pack of runners with a ghost weaving between them and taking one
-capture: --stage=ghostpack --shot=s1_pack --bots=7 --look=social --audio=near --seed=20260930
-file: 04_pack_wide
-in: 0.5
-seconds: 5.5
+said: "lava" -- a runner mid-jump on the S2 boulder chain is shoved into the lava by the runner waiting on the next landing; the lava takes them
+capture: --stage=shovecatch --shot=s2_gap --bots=2 --look=social --audio=near --track=victim
+file: 03_lava
+in: 3.0
+seconds: 4
+frame: 1.0
 gap: 0
 
 ## 5
-said: [mine] guard POV from the tower watching the swap happen below through the scope
-capture: --pov=guard --stage=ghostchase --shot=s3_chase --bots=7 --look=social --audio=near --seed=20260930
-file: 05_guard_watch
-in: 1.5
-seconds: 3.5
-motion: 0.005
+said: "for the last part, first person perspective of getting shoved off the ledge" -- the victim's own eyes, HUD on: stood at the pit rim looking out over it, shoved from behind, over the edge and falling, held until the death
+capture: --pov=runner --stage=shoveedge --shot=rim_edge --bots=2 --look=social --audio=near
+file: 04_pov_ledge
+in: 0.8
+seconds: 4.4
+frame: 2.4
 gap: 0

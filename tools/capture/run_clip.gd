@@ -24,7 +24,15 @@ extends SceneTree
 ##                  ghostchase (a ghost runs a prisoner down the open S3 lane and
 ##                  shoves them: the catch, and the swap), ghostpack (the round's
 ##                  own pack leaves the line; one of them is ghosted behind it and
-##                  its own brain hunts through the pack for a spot)
+##                  its own brain hunts through the pack for a spot),
+##                  shovecover (a runner crouched behind the pocket rock at 196
+##                  deg is shoved up the lane into the open by another runner, and
+##                  the tower, passive until then, opens up on them), shoveedge (a
+##                  runner stood at the pit rim on the S3 deck is shoved over it
+##                  from behind by another runner)
+## --track=victim   a flown shot keeps its lens on the staged victim instead of
+##                  the path's look targets, and holds where it was looking once
+##                  the victim leaves the deck (over the rim, or into the lava)
 ## --pov=runner     film down a bot-driven prisoner's own eyes, HUD on, no path
 ## --pov=guard      the same, down the eyes of whoever holds the tower
 ## --pov=ghost      the same, down the eyes of the staged ghost, through its catch
@@ -136,6 +144,10 @@ var _eye: Node3D = null
 var _chain: Node = null
 var _driver: Node = null
 var _victim_driver: Node = null
+var _victim_body: PlayerController = null
+var _track: String = ""
+var _tracked_look: Vector3 = Vector3.ZERO
+var _tracking: bool = false
 var _ghost_body: PlayerController = null
 var _logged_shooter: TowerShooter = null
 var _staged: PlayerController = null
@@ -157,6 +169,7 @@ func _initialize() -> void:
 		"look": "",
 		"stage": "",
 		"pov": "",
+		"track": "",
 		"audio": "",
 		"seed": BotHarness.DEFAULT_SEED,
 		"bots": 7,
@@ -224,6 +237,7 @@ func _build() -> void:
 	_stage = String(_options.get("stage", ""))
 
 	_pov = String(_options.get("pov", ""))
+	_track = String(_options.get("track", ""))
 	var seed_value: int = int(_options.get("seed", 0))
 	if seed_value != 0:
 		seed(seed_value)
@@ -285,7 +299,11 @@ func _build() -> void:
 	# POV clip that waits for one films an empty chamber for a minute, and a
 	# runner filmed in the race is never shot at.
 	if _stage == "decoy" or _stage == "ghostchase":
-		_watch_the_deck()
+		_watch_the_deck(STAGE_DRIVER.HIDDEN_DEGREES - 16.0)
+	elif _stage == "shovecover":
+		# Where the shoved runner lands: the guard is already looking there.
+		_watch_the_deck(STAGE_DRIVER.COVER_DEGREES + 11.0)
+		_arm_the_tower_on_the_shove()
 	if _pov != "" or _is_driven_stage():
 		_controller.start_round()
 
@@ -309,6 +327,10 @@ func _make_it_bots_only(match_root: Node, bots: int) -> void:
 	if _stage == "missstreak":
 		# Fifteen misses fit in a clip only if the rifle comes back fast.
 		rules.base_reload_seconds = 0.7
+	elif _stage == "shovecover":
+		# The first shot is at a body still in the air; the second has to land
+		# before the beat is over.
+		rules.base_reload_seconds = 0.9
 	_controller.rules = rules
 
 	# The placeholder music loop is still feeding the audio server when the
@@ -375,15 +397,7 @@ func _shooter_profile() -> ShooterProfile:
 	var profile: ShooterProfile = load(BotMatchRunner.SHOOTER_PROFILE_PATH) as ShooterProfile
 	var copy: ShooterProfile = profile.duplicate() as ShooterProfile
 	if _stage == "firefight" or _stage == "decoy":
-		# The shipped guard takes most of a clip to decide. This one does not:
-		# it is the same brain with its patience removed, on a throwaway copy.
-		copy.scan_yaw_rate = 2.4
-		copy.reaction_seconds = 0.08
-		copy.shot_confidence_threshold = 0.15
-		copy.aim_error_degrees = 0.3
-		copy.confident_range = 120.0
-		# A hologram is only a clip if the guard falls for it.
-		copy.decoy_suspicion_seconds = 0.0
+		_make_it_quick(copy)
 	elif _stage == "missstreak":
 		# Quick to fire and bad at it.
 		copy.scan_yaw_rate = 2.4
@@ -400,6 +414,35 @@ func _shooter_profile() -> ShooterProfile:
 		copy.shot_confidence_threshold = 1.0
 		copy.sure_shot_confidence = 1.0
 	return copy
+
+
+## The shipped guard takes most of a clip to decide. This one does not: it is
+## the same brain with its patience removed, on a throwaway copy.
+func _make_it_quick(copy: ShooterProfile) -> void:
+	copy.scan_yaw_rate = 2.4
+	copy.reaction_seconds = 0.08
+	copy.shot_confidence_threshold = 0.15
+	copy.aim_error_degrees = 0.3
+	copy.confident_range = 120.0
+	# A hologram is only a clip if the guard falls for it.
+	copy.decoy_suspicion_seconds = 0.0
+
+
+## shovecover: the tower watches and never fires while the shover crosses the
+## open deck to the cover, and turns quick the moment the shove lands -- so the
+## first shot of the clip is at the runner who just lost their rock.
+func _arm_the_tower_on_the_shove() -> void:
+	var arm := func(_shover: MatchParticipant, _victim: MatchParticipant) -> void:
+		if _seat == null:
+			return
+		var shooter: TowerShooter = _seat.get_active_shooter()
+		if shooter == null or shooter.profile == null:
+			return
+		var quick: ShooterProfile = shooter.profile.duplicate() as ShooterProfile
+		_make_it_quick(quick)
+		shooter.profile = quick
+		print("[stage] %s: tower armed" % _stage)
+	_controller.participant_shoved.connect(arm, CONNECT_ONE_SHOT)
 
 
 ## Lift the ring's own environment until rock reads on a phone: more exposure and
@@ -452,11 +495,15 @@ func _stage_driven() -> void:
 	if _stage == "ghostchase":
 		_stage_ghostchase(runners)
 		return
+	if _stage == "shovecover" or _stage == "shoveedge":
+		_stage_pair(runners)
+		return
 	var wanted: int = 1 if _wants_chain() else 0
 	if runners.size() <= wanted or runners[wanted].controller == null:
 		return
 	var runner: RunnerBrain = runners[wanted]
 	var victim: PlayerController = runners[0].controller if _wants_chain() else null
+	_victim_body = victim
 	if _stage == "ghostcatch":
 		_make_a_ghost(runner)
 	_driver = STAGE_DRIVER.new()
@@ -498,6 +545,27 @@ func _stage_ghostchase(runners: Array[RunnerBrain]) -> void:
 	print("[stage] %s: %s runs, %s hunts" % [_stage, victim.controller.name, ghost.controller.name])
 
 
+## Two prisoners, both driven: the first is the victim (placed by the stage's
+## _victim steps and ridden by --pov=runner), the second the one who shoves.
+## Neither goes back to its brain: the beat is the whole clip.
+func _stage_pair(runners: Array[RunnerBrain]) -> void:
+	if runners.size() < 2 or runners[0].controller == null or runners[1].controller == null:
+		return
+	var victim: RunnerBrain = runners[0]
+	var shover: RunnerBrain = runners[1]
+	_victim_driver = STAGE_DRIVER.new()
+	_victim_driver.name = "ClipVictimDriver"
+	root.add_child(_victim_driver)
+	_victim_driver.install(victim.controller, victim, STAGE_DRIVER.steps_for(_stage + "_victim", null))
+	_staged = victim.controller
+	_victim_body = victim.controller
+	_driver = STAGE_DRIVER.new()
+	_driver.name = "ClipStageDriver"
+	root.add_child(_driver)
+	_driver.install(shover.controller, shover, STAGE_DRIVER.steps_for(_stage, victim.controller))
+	print("[stage] %s: %s is shoved by %s" % [_stage, victim.controller.name, shover.controller.name])
+
+
 ## Ghost the prisoner at the back of the pack and let its own brain hunt: the
 ## shipped chase, at the shipped three times pace, through the round's own field.
 func _stage_ghostpack() -> void:
@@ -514,14 +582,14 @@ func _stage_ghostpack() -> void:
 
 ## Give the tower a watch point on the open S3 deck, which the shipped guard only
 ## catches at the edge of its S2 sweep; the hologram has to be looked at to be shot.
-func _watch_the_deck() -> void:
+func _watch_the_deck(degrees: float) -> void:
 	var marker := Marker3D.new()
-	marker.name = "ClipWatchS3"
+	marker.name = "ClipWatch"
 	marker.add_to_group(TowerShooter.WATCH_GROUP)
 	root.add_child(marker)
 	# First in tree order is first on the guard's scan: it looks here before the ring's own points.
 	root.move_child(marker, 0)
-	marker.global_position = SHOTS.ring_point(STAGE_DRIVER.HIDDEN_DEGREES - 16.0, 52.0, 1.0)
+	marker.global_position = SHOTS.ring_point(degrees, 52.0, 1.0)
 
 
 ## Turn [param runner]'s participant into a ghost that is in the world now, not
@@ -576,6 +644,8 @@ func _aim_camera(path_time: float) -> void:
 		var ahead: Vector3 = SHOTS.sample(_keys, path_time + _look_ahead)["pos"]
 		if position.distance_squared_to(ahead) > 0.0004:
 			target = ahead
+	if _track == "victim":
+		target = _tracked_target(target)
 	_camera.global_position = position
 	if position.distance_squared_to(target) > 0.0001:
 		_camera.look_at(target, Vector3.UP)
@@ -588,6 +658,18 @@ func _aim_camera(path_time: float) -> void:
 	# a clip nobody can tell is wrong until it is watched.
 	if not _camera.current:
 		_camera.current = true
+
+
+## Where a tracking shot looks: the staged victim's chest while it is on the
+## deck, then the last place it was seen -- the lens holds while the body goes
+## over the rim or under the lava, rather than swinging down after it.
+func _tracked_target(path_target: Vector3) -> Vector3:
+	if _victim_body != null and is_instance_valid(_victim_body) and _is_standing(_victim_body):
+		var participant: MatchParticipant = _controller.resolve_participant(_victim_body)
+		if participant != null and participant.is_running:
+			_tracked_look = _victim_body.global_position + Vector3.UP * 0.9
+			_tracking = true
+	return _tracked_look if _tracking else path_target
 
 
 # --- Reporting ----------------------------------------------------------------
@@ -693,7 +775,7 @@ func _ride_a_body() -> void:
 	if _pov == "runner" and _staged != null and is_instance_valid(_staged) and _pov_body != _staged:
 		if _is_standing(_staged) and _eye_of(_staged) != null:
 			_pov_body = null
-	if _pov_body != null and is_instance_valid(_pov_body) and _is_standing(_pov_body):
+	if _pov_body != null and is_instance_valid(_pov_body) and (_is_standing(_pov_body) or _still_in_it(_pov_body)):
 		var riding: Camera3D = _eye_of(_pov_body)
 		if riding != null and riding.current and not _is_stuck(_pov_body):
 			_hand_over_the_scope(_pov_body)
@@ -795,6 +877,15 @@ func _is_stuck(body: PlayerController) -> bool:
 		return not _on_the_lane(body)
 	_stuck_for += root.get_process_delta_time()
 	return _stuck_for >= STUCK_SECONDS
+
+
+## True while the staged victim is off the deck but not yet out: shoved over
+## the rim it falls thirty metres, and that fall is the shot.
+func _still_in_it(body: PlayerController) -> bool:
+	if body != _staged or body != _victim_body:
+		return false
+	var participant: MatchParticipant = _controller.resolve_participant(body)
+	return participant != null and participant.is_running
 
 
 func _eye_of(body: Node3D) -> Camera3D:

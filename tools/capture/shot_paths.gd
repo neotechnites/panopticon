@@ -22,7 +22,7 @@ static func names() -> PackedStringArray:
 		"pit_orbit", "s1_cave", "s2_chain", "s4_run", "s5_fall", "guard_scope",
 		"lake_fall", "scope_hunt", "wall_fall", "s5_survey", "teaser_lap",
 		"s2_gap", "s3_open_lane", "pad_flight", "s3_pillar", "s4_edge", "portal",
-		"s3_chase", "s1_pack",
+		"s3_chase", "s1_pack", "pocket_cover", "rim_edge",
 	])
 
 
@@ -66,6 +66,10 @@ static func get_shot(shot_name: String) -> Dictionary:
 			return _shot(shot_name, _s3_chase())
 		"s1_pack":
 			return _shot(shot_name, _s1_pack())
+		"pocket_cover":
+			return _shot(shot_name, _pocket_cover())
+		"rim_edge":
+			return _shot(shot_name, _rim_edge())
 		"teaser_lap":
 			var lap: Dictionary = _shot(shot_name, _teaser_lap())
 			# Flown, not aimed: the lens points where the camera is going until
@@ -277,6 +281,26 @@ static func _s1_pack() -> Array:
 	return [
 		_key(0.0, 54.0, 45.0, 3.2, 24.0, 52.0, 0.6, 60.0),
 		_key(8.0, 53.0, 45.0, 3.0, 36.0, 52.0, 0.6, 58.0),
+	]
+
+
+## From the S3/S4 pocket's outer edge looking back down the deck at the rock on
+## the rim at 196 deg: the runner crouched behind it, the shover coming up the
+## lane beyond, and the open deck between the rock and the lens where the shove
+## puts them. Meant for --track=victim; the look here is the crouch spot.
+static func _pocket_cover() -> Array:
+	return [
+		_key(0.0, 209.5, 55.5, 2.2, 198.0, 48.2, 0.9, 60.0),
+		_key(8.0, 208.5, 55.2, 2.1, 199.0, 48.4, 0.9, 58.0),
+	]
+
+
+## On the S3 deck a few metres along the rim from a runner stood at it, looking
+## past the shover's run-up at them and the pit beyond. Meant for --track=victim.
+static func _rim_edge() -> Array:
+	return [
+		_key(0.0, 192.5, 51.5, 2.3, 182.0, 47.2, 0.9, 68.0),
+		_key(8.0, 192.0, 51.3, 2.2, 182.0, 47.2, 0.9, 66.0),
 	]
 
 

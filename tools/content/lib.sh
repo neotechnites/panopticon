@@ -12,6 +12,7 @@ PC_GODOT=${PC_GODOT:-'C:\tools\godot\godot.exe'}
 PC_RESOLVE=${PC_RESOLVE:-'C:\Program Files\Blackmagic Design\DaVinci Resolve\Resolve.exe'}
 PC_FUSCRIPT=${PC_FUSCRIPT:-'C:\Program Files\Blackmagic Design\DaVinci Resolve\fuscript.exe'}
 PC_CONTENT='C:\Users\ddd\Desktop\panopticon-renders\content'
+PC_CLIPS='C:\Users\ddd\Desktop\panopticon-renders\clips'
 PC_BRANCH=${PC_BRANCH:-work-content}
 FPS=${FPS:-60}
 SIZE=${SIZE:-1280x720}

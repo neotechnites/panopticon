@@ -20,7 +20,7 @@ extends Node
 const FALLBACK_GRAVITY: float = 22.0
 
 var _body: PlayerController = null
-var _brain: RingRunner = null
+var _brain: RunnerBrain = null
 var _steps: Array = []
 var _index: int = 0
 var _clock: float = 0.0
@@ -30,7 +30,7 @@ var _released: bool = false
 
 
 ## Take [param body] off [param brain] and start on [param steps].
-func install(body: PlayerController, brain: RingRunner, steps: Array) -> void:
+func install(body: PlayerController, brain: RunnerBrain, steps: Array) -> void:
 	_body = body
 	_brain = brain
 	_steps = steps
@@ -244,6 +244,19 @@ const PAD_DEGREES: float = 148.4
 const PAD_R: float = 51.0
 ## S4: raised lane r 48-50 at 236 deg, lava from r 51 out.
 const S4_LEDGE_DEGREES: float = 236.0
+## The pit: the deck's inner rim is at r 46.7 and drops 31 m into the kill box.
+## shoveedge plays on the flat S3 deck, the victim a metre back from the rim.
+const RIM_DEGREES: float = 182.0
+const RIM_VICTIM_R: float = 47.2
+## The shover starts along the rim, a little outboard, so its run-up crosses the
+## frame and the shove still carries the victim over the rim.
+const RIM_SHOVER_DEGREES: float = 187.0
+const RIM_SHOVER_R: float = 50.5
+## The S3/S4 pocket rock at 194-198 deg on the rim hides a body crouched just
+## outboard of it (r 47.9) from the tower; the deck from 200 deg on is open.
+const COVER_DEGREES: float = 196.5
+const COVER_R: float = 47.9
+const COVER_SHOVER_DEGREES: float = 189.0
 
 
 ## The step list for [param stage], or empty when the stage is not one of these.
@@ -298,6 +311,38 @@ static func steps_for(stage: String, victim: PlayerController) -> Array:
 				{"do": "hold", "seconds": 0.4},
 				{"do": "land"},
 				{"do": "release"},
+			]
+		"shovecover":
+			# The shover, on the open deck behind the hidden runner: run up the
+			# lane at them and shove them along it, out past the rock into the
+			# tower's view; then step back into the same cover and stay down.
+			return [
+				{"do": "place", "at": ring_point(COVER_SHOVER_DEGREES, COVER_R + 0.4, 0.1), "face": tangent_at(COVER_SHOVER_DEGREES)},
+				{"do": "hold", "seconds": 0.9},
+				{"do": "chase", "victim": victim, "range": 2.2, "timeout": 8.0},
+				{"do": "run", "to": ring_point(COVER_DEGREES - 0.5, COVER_R, 0.0), "within": 0.5, "timeout": 3.0},
+				{"do": "hold", "seconds": 12.0, "crouch": true},
+			]
+		"shovecover_victim":
+			# Crouched behind the pocket rock, facing up the lane, never looking back.
+			return [
+				{"do": "place", "at": ring_point(COVER_DEGREES, COVER_R, 0.1), "face": tangent_at(COVER_DEGREES)},
+				{"do": "hold", "seconds": 20.0, "crouch": true},
+			]
+		"shoveedge":
+			# The shover, out on the deck behind a runner stood at the pit rim:
+			# run straight at their back and shove them over it.
+			return [
+				{"do": "place", "at": ring_point(RIM_SHOVER_DEGREES, RIM_SHOVER_R, 0.1), "face": -tangent_at(RIM_SHOVER_DEGREES)},
+				{"do": "hold", "seconds": 1.6},
+				{"do": "chase", "victim": victim, "range": 2.2, "timeout": 8.0},
+				{"do": "hold", "seconds": 12.0},
+			]
+		"shoveedge_victim":
+			# Stood a metre from the rim looking out over the pit at the tower.
+			return [
+				{"do": "place", "at": ring_point(RIM_DEGREES, RIM_VICTIM_R, 0.1), "face": (-radial_at(RIM_DEGREES) + tangent_at(RIM_DEGREES) * 0.25).normalized()},
+				{"do": "hold", "seconds": 20.0},
 			]
 		"lavadeath":
 			return [
