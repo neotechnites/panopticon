@@ -563,8 +563,11 @@ func _find_cover() -> bool:
 	if not _bake.plan(here, _cover, _layers(), _cover_path) or _cover_path.next_link_from(0) >= 0:
 		return false
 	_goal = _cover
-	_path.points = _cover_path.points
-	_path.links = _cover_path.links
+	# Swap the whole route in, never alias its arrays: packed arrays share by
+	# reference, so the next search's clear would empty the route under the cursor.
+	var run_path: RingPath = _path
+	_path = _cover_path
+	_cover_path = run_path
 	_path.cursor = 0
 	_has_path = true
 	_plan_tick = _ticks

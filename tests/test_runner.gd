@@ -245,6 +245,33 @@ func test_a_runner_shot_at_takes_cover_and_then_runs_again() -> void:
 	assert_true(ran_again, "and leaves cover again once its patience is spent")
 
 
+## The route into cover is the runner's own. The cover search plans into scratch that the
+## next search clears; sharing that scratch's arrays once emptied the route under the cursor.
+func test_the_cover_route_survives_the_next_cover_search() -> void:
+	var guard: TowerShooter = _make_guard()
+	var cover: RunnerProfile = RunnerProfile.new()
+	cover.behaviour = RunnerProfile.Behaviour.COVER
+	cover.perception_seed = 20260910
+	cover.boldness = 1.0
+	_brain.runner_profile = cover
+	_reconfigure()
+	await step_seconds(1.0)
+	guard.rifle.fired.emit(guard.controller.global_position, _body.global_position + Vector3.RIGHT)
+	for _tick: int in int(COVER_REACT_SECONDS * SIM_HZ):
+		await step_ticks(1)
+		if _brain.get_state() == RunnerBrain.State.TAKE_COVER:
+			break
+	assert_eq_int(int(_brain.get_state()), int(RunnerBrain.State.TAKE_COVER), "the runner is on its way to cover")
+	var corners: int = _brain._path.size()
+	assert_gt(corners, 0, "with a route to it")
+
+	# What the next search does first, whether or not it finds anything.
+	_brain._cover_path.clear()
+	assert_eq_int(_brain._path.size(), corners, "the route into cover is untouched")
+	await step_ticks(3)
+	assert_true(_brain._path.cursor < _brain._path.size(), "and the cursor still points at a corner of it")
+
+
 ## The baseline prisoner ignores the guard entirely: the control case every claim is measured against.
 func test_the_baseline_runner_never_takes_cover() -> void:
 	var guard: TowerShooter = _make_guard()
