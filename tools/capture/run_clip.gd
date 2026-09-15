@@ -580,6 +580,11 @@ func _log_events() -> void:
 		func(participant: MatchParticipant) -> void:
 			print("[event] %6.2f  ghosted  %s" % [_elapsed, participant.body.name])
 	)
+	# The finish: in the race, the first body through the portal takes the tower.
+	_controller.seat_changed.connect(
+		func(participant: MatchParticipant, turns: int) -> void:
+			print("[event] %6.2f  seat  %s  turn %d" % [_elapsed, participant.body.name, turns])
+	)
 
 
 ## Stop every voice before the engine tears the tree down: a stream still

@@ -103,6 +103,16 @@ try {
 EOF
 }
 
+# pc_checkout <ref> : put the scratch worktree at <ref> and import it. Only ever
+# C:\dev\verify; the real checkout is never touched.
+pc_checkout() {
+  pc <<EOF
+git -C C:/dev/verify checkout -q $1
+cmd /c "${PC_GODOT} --headless --import --path ${PC_PROJECT} > C:\\dev\\content_import.txt 2>&1"
+Write-Output ('verify at ' + (git -C C:/dev/verify log --oneline -1))
+EOF
+}
+
 # Windows path helpers.
 win() { echo "$1" | sed 's#/#\\#g'; }
 ff() { echo "$1" | sed 's#\\#/#g'; }

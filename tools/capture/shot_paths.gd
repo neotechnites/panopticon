@@ -21,7 +21,7 @@ static func names() -> PackedStringArray:
 	return PackedStringArray([
 		"pit_orbit", "s1_cave", "s2_chain", "s4_run", "s5_fall", "guard_scope",
 		"lake_fall", "scope_hunt", "wall_fall", "s5_survey", "teaser_lap",
-		"s2_gap", "s3_open_lane", "pad_flight", "s3_pillar", "s4_edge",
+		"s2_gap", "s3_open_lane", "pad_flight", "s3_pillar", "s4_edge", "portal",
 	])
 
 
@@ -59,6 +59,8 @@ static func get_shot(shot_name: String) -> Dictionary:
 			return _shot(shot_name, _s3_pillar())
 		"s4_edge":
 			return _shot(shot_name, _s4_edge())
+		"portal":
+			return _shot(shot_name, _portal())
 		"teaser_lap":
 			var lap: Dictionary = _shot(shot_name, _teaser_lap())
 			# Flown, not aimed: the lens points where the camera is going until
@@ -240,6 +242,16 @@ static func _s4_edge() -> Array:
 	return [
 		_key(0.0, 225.0, 51.0, 1.9, 233.0, 56.0, 0.3, 66.0),
 		_key(6.0, 226.5, 51.0, 1.8, 236.0, 57.5, 0.2, 62.0),
+	]
+
+
+## From the inner deck just short of the finish, held on the portal at 345 deg:
+## a runner comes up the last of S5 from behind the camera's right shoulder and
+## goes through the disc. Nearly static; the drift is all the path does.
+static func _portal() -> Array:
+	return [
+		_key(0.0, 336.0, 47.0, 2.6, 344.0, 52.0, 1.0, 68.0),
+		_key(8.0, 337.0, 47.2, 2.4, 344.5, 52.0, 1.1, 66.0),
 	]
 
 

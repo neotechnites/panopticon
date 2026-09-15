@@ -27,6 +27,7 @@ SECONDS_WANTED=$(brief_field "${BRIEF}" "${N}" seconds 6)
 GAP=$(brief_field "${BRIEF}" "${N}" gap 0)
 IN=$(brief_field "${BRIEF}" "${N}" in 0)      # seconds into the take the cut starts
 AT=$(brief_field "${BRIEF}" "${N}" at)
+REF=$(brief_field "${BRIEF}" "${N}" ref)   # capture this one shot at a git ref, with that ref's own tools
 HOLD=$(brief_field "${BRIEF}" "${N}" hold 3)
 TAKES_MAX=$(brief_field "${BRIEF}" "${N}" takes "${TAKES_MAX}")
 # A pinned seed plays the same take every time; retrying it buys nothing.
@@ -112,19 +113,11 @@ EOF
 elif [ -n "${AT}" ]; then
   # Before/after: the same capture at <at> and at the branch head, back to back.
   T0=$(now_ms)
-  pc <<EOF
-git -C C:/dev/verify checkout -q ${AT}
-cmd /c "${PC_GODOT} --headless --import --path ${PC_PROJECT} > C:\\dev\\content_import.txt 2>&1"
-Write-Output ('verify at ' + (git -C C:/dev/verify log --oneline -1))
-EOF
+  pc_checkout "${AT}"
   echo "  before: checkout+import $(since "$T0")"
   BEFORE=$(best_take "${NN}_before" "$(python3 -c "print(${IN} + ${SECONDS_WANTED})")")
   T0=$(now_ms)
-  pc <<EOF
-git -C C:/dev/verify checkout -q ${PC_BRANCH}
-cmd /c "${PC_GODOT} --headless --import --path ${PC_PROJECT} > C:\\dev\\content_import.txt 2>&1"
-Write-Output ('verify at ' + (git -C C:/dev/verify log --oneline -1))
-EOF
+  pc_checkout "${PC_BRANCH}"
   echo "  after: checkout+import $(since "$T0")"
   AFTER=$(best_take "${NN}_after" "$(python3 -c "print(${IN} + ${TOTAL})")")
   T0=$(now_ms)
@@ -137,7 +130,19 @@ Write-Output ('rendered ' + (Get-Item '${DIR}\\shots\\${NN}.mp4').Length)
 EOF
   echo "  pair: render $(since "$T0")"
 else
+  # A shot at another ref (ref:) is filmed with the capture tools that ref has,
+  # then the worktree comes back to the branch.
+  if [ -n "${REF}" ]; then
+    T0=$(now_ms)
+    pc_checkout "${REF}"
+    echo "  ref ${REF}: checkout+import $(since "$T0")"
+  fi
   TAG=$(best_take "${NN}" "$(python3 -c "print(${IN} + ${TOTAL} + 1.0)")")
+  if [ -n "${REF}" ]; then
+    T0=$(now_ms)
+    pc_checkout "${PC_BRANCH}"
+    echo "  back to ${PC_BRANCH}: checkout+import $(since "$T0")"
+  fi
   T0=$(now_ms)
   render_take "${TAG}" "${DIR}\\shots\\${NN}.mp4" "${TOTAL}" "${SECONDS_WANTED}" | sed 's/^/  | /'
   echo "  render: $(since "$T0")"

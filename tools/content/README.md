@@ -43,7 +43,9 @@ Per-shot lines: `capture:` (run_clip args: `--shot`, `--pov`, `--stage`,
 `--scene --pos --look`, held for `hold:` seconds); `seconds:`; `in:` (seconds
 into the take the cut starts); `gap:`; `caption:`; `at: <git ref>` for a
 before/after pair (the same capture at that ref and at the branch, back to back);
-`takes:` and `motion:` to override the gate for that shot.
+`ref: <git ref>` to film that one shot at another ref with the capture tools it
+has (the worktree comes back to the branch afterwards); `takes:` and `motion:`
+to override the gate for that shot.
 
 Rules baked in: no hook text, no title cards. A caption is the one line a player
 would type. A devlog (`kind: devlog`) gets 16:9, a 1.5 s working slate before
