@@ -14,6 +14,7 @@ extends Node
 ## {"do": "shove_when", "victim": PlayerController, "range": 3.0, "timeout": 12.0}
 ## {"do": "chase", "victim": PlayerController, "range": 2.5, "timeout": 10.0}   # run at them, shove in reach
 ## {"do": "ability", "slot": 2}
+## {"do": "pitch", "down": 12.0}     # tip the head down this many degrees (a POV framing)
 ## {"do": "release"}     # hand the body back to its own brain
 ## [/codeblock]
 
@@ -77,6 +78,12 @@ func _physics_process(delta: float) -> void:
 			finished = _chase(step)
 		"ability":
 			_intent.ability_slot = int(step.get("slot", 2))
+			finished = true
+		"pitch":
+			# PlayerController pitches by -look_delta.y (unless the profile inverts).
+			var down: float = deg_to_rad(float(step.get("down", 0.0)))
+			var inverted: bool = _body.profile != null and _body.profile.invert_look_y
+			_intent.look_delta = Vector2(0.0, -down if inverted else down)
 			finished = true
 		"release":
 			_release()
@@ -248,10 +255,11 @@ const S4_LEDGE_DEGREES: float = 236.0
 ## shoveedge plays on the flat S3 deck, the victim a metre back from the rim.
 const RIM_DEGREES: float = 182.0
 const RIM_VICTIM_R: float = 47.2
-## The shover starts along the rim, a little outboard, so its run-up crosses the
-## frame and the shove still carries the victim over the rim.
-const RIM_SHOVER_DEGREES: float = 187.0
-const RIM_SHOVER_R: float = 50.5
+## The shover starts further along the rim and a little outboard: its run-up
+## comes down the rim at the lens (rim_edge sits on the rim behind the victim),
+## and the shove still carries the victim inward, over the rim.
+const RIM_SHOVER_DEGREES: float = 187.5
+const RIM_SHOVER_R: float = 50.2
 ## The S3/S4 pocket rock at 194-198 deg on the rim hides a body crouched just
 ## outboard of it (r 47.9) from the tower; the deck from 200 deg on is open.
 const COVER_DEGREES: float = 196.5
@@ -339,9 +347,10 @@ static func steps_for(stage: String, victim: PlayerController) -> Array:
 				{"do": "hold", "seconds": 12.0},
 			]
 		"shoveedge_victim":
-			# Stood a metre from the rim looking out over the pit at the tower.
+			# Stood a metre from the rim looking out and a little down over the pit at the tower.
 			return [
 				{"do": "place", "at": ring_point(RIM_DEGREES, RIM_VICTIM_R, 0.1), "face": (-radial_at(RIM_DEGREES) + tangent_at(RIM_DEGREES) * 0.25).normalized()},
+				{"do": "pitch", "down": 14.0},
 				{"do": "hold", "seconds": 20.0},
 			]
 		"lavadeath":

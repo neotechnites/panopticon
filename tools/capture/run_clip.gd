@@ -33,7 +33,9 @@ extends SceneTree
 ## --track=victim   a flown shot keeps its lens on the staged victim instead of
 ##                  the path's look targets, and holds where it was looking once
 ##                  the victim leaves the deck (over the rim, or into the lava)
-## --pov=runner     film down a bot-driven prisoner's own eyes, HUD on, no path
+## --pov=runner     film down a bot-driven prisoner's own eyes, no path
+## --hud=on         draw the match HUD over a POV clip (crosshair, readouts);
+##                  off unless asked: a short wants the view, not the screen
 ## --pov=guard      the same, down the eyes of whoever holds the tower
 ## --pov=ghost      the same, down the eyes of the staged ghost, through its catch
 ## --audio=near     only sounds made within AUDIO_NEAR_METRES of the camera
@@ -103,6 +105,8 @@ const AUDIO_MUTED_DB: float = -60.0
 
 ## The deck the prisoners run on; a POV body far off it is not standing on it.
 const DECK_Y: float = 23.0
+## A tracked victim this far under the deck has gone over the rim: the lens stops following.
+const TRACK_BELOW_DECK_METRES: float = 1.0
 
 ## A body pressed into the pit wall is still "standing" and still "running"; it
 ## just never moves again. A clip drops one that has not travelled in this long.
@@ -169,6 +173,7 @@ func _initialize() -> void:
 		"look": "",
 		"stage": "",
 		"pov": "",
+		"hud": "",
 		"track": "",
 		"audio": "",
 		"seed": BotHarness.DEFAULT_SEED,
@@ -347,10 +352,11 @@ func _make_it_bots_only(match_root: Node, bots: int) -> void:
 		"FreeCamera", "DeathScreen", "RoundTransition", "ResultScreen", "PauseMenu",
 	]
 	if _pov != "":
-		# A POV clip is a player's view: it wants the readouts and the camera kick,
-		# and the spectator cut when the body it is riding is shot.
-		for keep: String in ["HUD", "FeedbackRig"]:
-			silenced.erase(keep)
+		# A POV clip is a player's view: it wants the camera kick, and the
+		# readouts only when asked for -- Ryan: no HUD elements on any shot.
+		silenced.erase("FeedbackRig")
+		if String(_options.get("hud", "")) == "on":
+			silenced.erase("HUD")
 	for path: String in silenced:
 		var node: Node = match_root.get_node_or_null(NodePath(path))
 		if node == null:
@@ -661,10 +667,11 @@ func _aim_camera(path_time: float) -> void:
 
 
 ## Where a tracking shot looks: the staged victim's chest while it is on the
-## deck, then the last place it was seen -- the lens holds while the body goes
-## over the rim or under the lava, rather than swinging down after it.
+## deck, then the last place it was seen -- the lens holds where the body went
+## over the rim or under the lava, and the body falls out of the frame rather
+## than being chased down by it.
 func _tracked_target(path_target: Vector3) -> Vector3:
-	if _victim_body != null and is_instance_valid(_victim_body) and _is_standing(_victim_body):
+	if _victim_body != null and is_instance_valid(_victim_body) and _victim_body.global_position.y > DECK_Y - TRACK_BELOW_DECK_METRES:
 		var participant: MatchParticipant = _controller.resolve_participant(_victim_body)
 		if participant != null and participant.is_running:
 			_tracked_look = _victim_body.global_position + Vector3.UP * 0.9
