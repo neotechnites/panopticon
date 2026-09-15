@@ -290,8 +290,8 @@ static func _s1_pack() -> Array:
 ## puts them. Meant for --track=victim; the look here is the crouch spot.
 static func _pocket_cover() -> Array:
 	return [
-		_key(0.0, 209.5, 55.5, 2.2, 198.0, 48.2, 0.9, 60.0),
-		_key(8.0, 208.5, 55.2, 2.1, 199.0, 48.4, 0.9, 58.0),
+		_key(0.0, 207.5, 54.8, 2.0, 198.0, 48.2, 0.9, 54.0),
+		_key(8.0, 206.0, 53.4, 1.9, 199.0, 48.4, 0.9, 52.0),
 	]
 
 

@@ -56,10 +56,12 @@ take() {  # take <tag> <seed> <seconds>
   pc_godot "--script res://tools/capture/run_clip.gd --write-movie ${avi} --fixed-fps ${FPS} --resolution ${SIZE} -- ${args} --seconds=${secs}" "${log}" | sed 's/^/  | /'
   echo "  take ${tag}: godot $(since "$t0")" >&2
   t0=$(now_ms)
+  # The gate reads the cut, not the take: the second held before a stage places
+  # its bodies and the tail past the beat are never in the shot.
   pc <<EOF
-\$m = ffmpeg -hide_banner -nostats -i '${avi}' -an -vf "fps=10,scale=160:90,format=gray,tblend=all_mode=difference,lutyuv=y='if(gt(val,24),255,0)',signalstats,metadata=print:key=lavfi.signalstats.YAVG:file=-" -f null - 2>\$null | Select-String 'YAVG=' | ForEach-Object { [double](\$_ -replace '.*YAVG=','') }
+\$m = ffmpeg -hide_banner -nostats -ss ${IN} -t ${TOTAL} -i '${avi}' -an -vf "fps=10,scale=160:90,format=gray,tblend=all_mode=difference,lutyuv=y='if(gt(val,24),255,0)',signalstats,metadata=print:key=lavfi.signalstats.YAVG:file=-" -f null - 2>\$null | Select-String 'YAVG=' | ForEach-Object { [double](\$_ -replace '.*YAVG=','') }
 \$motion = if (\$m) { (\$m | Measure-Object -Average).Average / 255.0 } else { 0 }
-\$f = ffmpeg -hide_banner -nostats -i '${avi}' -an -vf "freezedetect=n=${FREEZE_NOISE_DB}dB:d=${FREEZE_MAX_SECONDS}" -f null - 2>&1 | Select-String 'freeze_duration' | Measure-Object
+\$f = ffmpeg -hide_banner -nostats -ss ${IN} -t ${TOTAL} -i '${avi}' -an -vf "freezedetect=n=${FREEZE_NOISE_DB}dB:d=${FREEZE_MAX_SECONDS}" -f null - 2>&1 | Select-String 'freeze_duration' | Measure-Object
 \$line = ('motion={0:N4} freeze={1}' -f \$motion, \$f.Count)
 Set-Content -Path '${DIR}\\takes\\${tag}.txt' -Value \$line
 Write-Output \$line
