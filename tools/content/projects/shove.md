@@ -17,12 +17,12 @@ frame: 0.3
 gap: 0
 
 ## 2
-said: "cover" -- someone doing that to another person: a runner crouched behind the pocket rock at 196 deg is shoved up the lane out from behind it by another runner, and the tower's line to them opens up (it fires)
+said: "cover" -- someone doing that to another person: a runner crouched behind the pocket rock at 196 deg is shoved up the lane out from behind it by another runner, and the tower's line to them opens up (it fires). Ryan on the first cut: "just a shot that misses, then another shot that hits, with them crouching" -- so now the shove stands them up, and the tower's one shot, once they have landed upright in the open, is the kill
 capture: --stage=shovecover --shot=pocket_cover --bots=2 --look=social --audio=near --track=victim
 file: 01_cover
 in: 0.9
-seconds: 4
-frame: 1.4
+seconds: 3.6
+frame: 1.9
 motion: 0.01     # a fixed lens on two small bodies against dark rock: 0.009-0.013 by nature (freeze 0); the flight and the tracer are the motion
 gap: 0
 

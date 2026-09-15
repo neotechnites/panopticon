@@ -165,6 +165,7 @@ var _tracking: bool = false
 var _tracking_stopped: bool = false
 var _ghost_body: PlayerController = null
 var _pov_kick: FxCameraKick = null
+var _arm_after_landing: bool = false
 var _logged_shooter: TowerShooter = null
 var _staged: PlayerController = null
 var _built: bool = false
@@ -214,6 +215,7 @@ func _process(delta: float) -> bool:
 		_stage_driven()
 	if _stage == "ghostpack" and _ghost_body == null and _elapsed > PACK_GHOST_SECONDS:
 		_stage_ghostpack()
+	_arm_the_tower_when_landed()
 	if _elapsed < _delay:
 		_aim_camera(_key_start)
 		return false
@@ -447,20 +449,37 @@ func _make_it_quick(copy: ShooterProfile) -> void:
 
 
 ## shovecover: the tower watches and never fires while the shover crosses the
-## open deck to the cover, and turns quick the moment the shove lands -- so the
-## first shot of the clip is at the runner who just lost their rock.
+## open deck to the cover. The shove stands the victim up (their driver moves
+## off the crouch), and once they have landed, upright in the open, the tower
+## turns quick and dead accurate: one shot, and it is the kill. Ryan on the
+## first cut: "just a shot that misses, then another shot that hits, with
+## them crouching".
 func _arm_the_tower_on_the_shove() -> void:
-	var arm := func(_shover: MatchParticipant, _victim: MatchParticipant) -> void:
-		if _seat == null:
-			return
-		var shooter: TowerShooter = _seat.get_active_shooter()
-		if shooter == null or shooter.profile == null:
-			return
-		var quick: ShooterProfile = shooter.profile.duplicate() as ShooterProfile
-		_make_it_quick(quick)
-		shooter.profile = quick
-		print("[stage] %s: tower armed" % _stage)
-	_controller.participant_shoved.connect(arm, CONNECT_ONE_SHOT)
+	var stand := func(_shover: MatchParticipant, _victim: MatchParticipant) -> void:
+		if _victim_driver != null:
+			_victim_driver.advance()
+		_arm_after_landing = true
+	_controller.participant_shoved.connect(stand, CONNECT_ONE_SHOT)
+
+
+## The shoved runner is back on the deck and standing: now the tower may fire.
+func _arm_the_tower_when_landed() -> void:
+	if not _arm_after_landing or _seat == null or _victim_body == null or not is_instance_valid(_victim_body):
+		return
+	if not _victim_body.is_on_floor() or _victim_body.get_horizontal_speed() > 1.0:
+		return
+	var shooter: TowerShooter = _seat.get_active_shooter()
+	if shooter == null or shooter.profile == null:
+		return
+	var quick: ShooterProfile = shooter.profile.duplicate() as ShooterProfile
+	_make_it_quick(quick)
+	# One shot, the kill: no aim error, and no firing before the aim is on them.
+	quick.aim_error_degrees = 0.0
+	quick.shot_confidence_threshold = 0.85
+	quick.sure_shot_confidence = 0.85
+	shooter.profile = quick
+	_arm_after_landing = false
+	print("[stage] %s: victim landed standing; tower armed" % _stage)
 
 
 ## Lift the ring's own environment until rock reads on a phone: more exposure and

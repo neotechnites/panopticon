@@ -297,6 +297,14 @@ func _chase(step: Dictionary) -> bool:
 	return true
 
 
+## Finish the current step now: the stage saw something the steps could not
+## (a shove landing) and the next step is the answer to it.
+func advance() -> void:
+	_index += 1
+	_clock = 0.0
+	_hop_clock = 0.0
+
+
 ## Give the body back to its brain now, whatever step it was on.
 func release() -> void:
 	_release()
@@ -440,10 +448,13 @@ static func steps_for(stage: String, victim: PlayerController) -> Array:
 				{"do": "hold", "seconds": 12.0, "crouch": true},
 			]
 		"shovecover_victim":
-			# Crouched behind the pocket rock, facing up the lane, never looking back.
+			# Crouched behind the pocket rock, facing up the lane, never looking
+			# back. The crouch is held until the shove lands (run_clip advances
+			# the driver on it); from then on they are up, and are shot standing.
 			return [
 				{"do": "place", "at": ring_point(COVER_DEGREES, COVER_R, 0.1), "face": tangent_at(COVER_DEGREES)},
 				{"do": "hold", "seconds": 20.0, "crouch": true},
+				{"do": "hold", "seconds": 20.0},
 			]
 		"shovelake":
 			# The shover, back on the bank behind and outboard of the victim:
