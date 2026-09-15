@@ -11,7 +11,7 @@ extends Node
 ## {"do": "leap", "to": Vector3, "speed": 8.0}
 ## {"do": "land"}
 ## {"do": "hold", "seconds": 2.0, "crouch": true}
-## {"do": "shove_when", "victim": PlayerController, "range": 3.0, "timeout": 12.0}
+## {"do": "shove_when", "victim": PlayerController, "range": 3.0, "timeout": 12.0, "face": Vector3}   # face: swing this way, not straight at them
 ## {"do": "chase", "victim": PlayerController, "range": 2.5, "timeout": 10.0}   # run at them, shove in reach
 ## {"do": "ability", "slot": 2}
 ## {"do": "pitch", "down": 12.0, "seconds": 0.0}     # tip the head down this many degrees, at once or over seconds
@@ -181,7 +181,12 @@ func _shove_when(step: Dictionary) -> bool:
 		return true
 	var offset: Vector3 = victim.global_position - _body.global_position
 	offset.y = 0.0
-	if offset.length() > 0.01:
+	# The swing goes where the body faces: straight at them unless the step
+	# says otherwise (it must still be within the shove's facing cone).
+	var facing: Vector3 = step.get("face", Vector3.ZERO) as Vector3
+	if facing.length_squared() > 0.0:
+		_face(facing.normalized())
+	elif offset.length() > 0.01:
 		_face(offset.normalized())
 	if victim.is_on_floor() or offset.length() > float(step.get("range", 3.0)):
 		return false
@@ -274,13 +279,17 @@ const COVER_SHOVER_DEGREES: float = 189.0
 static func steps_for(stage: String, victim: PlayerController) -> Array:
 	match stage:
 		"shovecatch", "ghostcatch":
-			# On the landing the runner is jumping to, facing back up the chain
-			# and a little outward, so the shove throws them at the outer wall.
+			# On the landing the runner is jumping to, facing back up the chain.
+			# The swing itself is skewed fifty degrees inward, the most the facing
+			# cone allows: the runner is thrown off the chain at the ridge and
+			# drops into the lava between, instead of back onto the boulder
+			# they jumped from.
 			var back: Vector3 = -tangent_at(LANDING_2_DEGREES)
+			var swing: Vector3 = (back - radial_at(LANDING_2_DEGREES) * 1.2).normalized()
 			return [
-				{"do": "place", "at": ring_point(LANDING_2_DEGREES, CHAIN_R, LANDING_2_Y + 0.1 - DECK_Y), "face": (back + radial_at(LANDING_2_DEGREES) * 0.7).normalized()},
+				{"do": "place", "at": ring_point(LANDING_2_DEGREES, CHAIN_R, LANDING_2_Y + 0.1 - DECK_Y), "face": back},
 				{"do": "hold", "seconds": 0.2},
-				{"do": "shove_when", "victim": victim, "range": 3.0, "timeout": 16.0},
+				{"do": "shove_when", "victim": victim, "range": 3.0, "timeout": 16.0, "face": swing},
 				{"do": "hold", "seconds": 5.0},
 			]
 		"ghostchase":

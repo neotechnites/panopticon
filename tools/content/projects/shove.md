@@ -11,9 +11,9 @@ delivery: each shot is also written on its own as clips\shove\<file>.mp4, 1080x1
 said: [mine] hook, for the first frame: the best single shove landing, the victim flying into the lava (the same beat as shot 4, cut tight on the hit)
 capture: --stage=shovecatch --shot=s2_gap --bots=2 --look=social --audio=near --track=victim
 file: 00_hook
-in: 3.4
+in: 3.65
 seconds: 3
-frame: 0.6
+frame: 0.3
 gap: 0
 
 ## 2
@@ -38,9 +38,9 @@ gap: 0
 said: "lava" -- a runner mid-jump on the S2 boulder chain is shoved into the lava by the runner waiting on the next landing; the lava takes them
 capture: --stage=shovecatch --shot=s2_gap --bots=2 --look=social --audio=near --track=victim
 file: 03_lava
-in: 3.0
-seconds: 4
-frame: 1.0
+in: 2.8
+seconds: 3.5
+frame: 1.2
 gap: 0
 
 ## 5
