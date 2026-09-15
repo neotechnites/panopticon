@@ -117,7 +117,7 @@ ARCH_JAMB = 3.5             # jamb height, sill to springing; head r 2.0: 5.5 m 
 HEAD_SEG = 6                # segments in the semicircular head
 CELL_D = 3.0                # cell depth into the wall: an open recess to a dark back wall
 BAR_N = 5                   # iron bars over every arch ...
-BAR_HW = 0.05               # ... 0.10 m square ...
+BAR_HW = 0.065              # ... 0.13 m square ...
 BAR_D = 0.5                 # ... standing on the sill this far into the reveal, tips set in the head
 BAND_Z = (7.4, 8.0)         # the tier cornice, over the tier base; its top is the next tier's base
 SLAB_BAND_Z = (SLAB_Z0 - TIER_BASE[SLAB_TIER], TIER_H)   # (7.0, 8.0): the slab tier's, one metre thick
@@ -184,7 +184,7 @@ ZONES = {                   # atlas column, row (row 0 is the bottom of the imag
     "field": _cell(1, 3),    # the beds' floor
 }
 FIT = {"floor": "uv", "frieze": "uv", "coffer": "uv",   # the whole face onto the whole cell
-       "band": "v", "column": "u"}                      # ... on one axis only
+       "band": "v", "column": "u", "iron": "u"}         # ... on one axis only
 ANCHORED = ("stone", "plinth", "band")                  # courses stay level: no v offset, no flips
 EYE_H = 1.65
 TWO_PI = 2.0 * math.pi
@@ -454,7 +454,28 @@ def _paint_band(c, r, box):
 
 
 def _paint_iron(c, r, box):
-    _fill(c, r, box, [(38, 38, 36), (30, 30, 28), (44, 44, 42), (26, 26, 24)])
+    """Dark iron, fitted across the cell in u (FIT): a lit rim down the left
+    edge, a near-black cool base, a mid shadow edge at the right -- so every
+    bar face reads as a rounded dark rod against the cell's dark, not as a
+    smudge of the same grey."""
+    _fill(c, r, box, [(24, 26, 31), (20, 22, 27), (28, 30, 35), (22, 24, 29)])
+    x0, y0, x1, y1 = box
+    n = x1 - x0
+    rim, edge = max(4, (n * 9) // 64), max(2, (n * 5) // 64)
+    hi, mid = (104, 110, 122), (58, 62, 72)
+    fade = [(80, 85, 96), (52, 56, 65)]           # the highlight's last 2 px, stepping down to the base
+    for x in range(x0, x0 + rim):
+        k = x0 + rim - x                           # px left in the rim, 1 at its inner edge
+        col = fade[2 - k] if k <= 2 else hi
+        for y in range(y0, y1):
+            c.put(x, y, col)
+    for x in range(x1 - edge, x1):                 # the shadow edge
+        for y in range(y0, y1):
+            c.put(x, y, mid)
+    pr = _Rng(TEX_SEED + 11)                       # its own stream: the cells painted after it keep their grain
+    for _ in range(24):                            # pitting along the rod, base and rim alike
+        x, yy = pr.i(x0, x1 - 1), pr.i(y0, y1 - 1)
+        c.put(x, yy, pr.pick([(16, 18, 23), (34, 36, 42)]) if x >= x0 + rim else (92, 98, 110))
 
 
 def _paint_blocks(c, r, box, shades, joint, course):
@@ -1185,6 +1206,10 @@ def _render(spec, objects):
     bay = _Bay(int(round(NSIDE * (360.0 - 120.0) / 360.0)) % NSIDE)
     cm = bay.at(bay.L / 2.0, TIER_BASE[LANE_TIER + 1] + SILL_UP + EYE_H, CELL_D - 0.7)
     shot("cell", cm, (0.0, 0.0, TOWER_Y + 3.0), 18.0, (1200, 800))
+    # the runner's eye on the lane, at a lane-tier cell's bars about 12 m off
+    shot("bars", pol(30.0, LANE_R, eye), pol(41.5, WALL_R, TIER_BASE[LANE_TIER] + SILL_UP + 2.5), 35.0, (1400, 800))
+    # standing on the tower's balcony, the railing in hand, looking across the ring at the lane
+    shot("balcony", pol(120.0, 7.1, TOWER_Y + 1.10 + EYE_H), pol(120.0, INNER_R, DECK_Z), 16.0, (1400, 800))
 
     for ob in made:
         bpy.data.objects.remove(ob, do_unlink=True)

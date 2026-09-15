@@ -24,7 +24,7 @@ editor_description = "MAP 2, MARBLE: the Bentham drawing in white marble, one cl
 
 A prisoner runs one 340 deg lap at r 52 from 5 deg to the portal at 345 deg; the rock bars (a scene node, as on Map 1) close the walkway at 353 deg between finish and start. Off the walkway there is nothing to stand on until the spikes, and SpikeFloor kills before a body reaches them; KillBox below the ground floor catches anything that fell through the world.
 
-The light is the tower's: one shadowed gold omni in the lantern throws the eight windows' beams round the gallery and down the drop, over a cool grey ambient. No sun, no sky, no oculus."
+The light is the tower's: one shadowed gold omni in the lantern throws its beams out between the tower's columns round the gallery and down the drop, over a cool grey ambient. No sun, no sky, no oculus."
 
 [node name="Environment" type="Node3D" parent="."]
 
@@ -110,9 +110,9 @@ entry_angle_degrees = 5.0
 exit_angle_degrees = 345.0
 
 [node name="Tower" type="Node3D" parent="."]
-editor_description = "The tower, and its origin is the guard-room datum at y 25.35, exactly as Map 1: assets/models/marble_tower.glb puts its ROOM FLOOR 1.70 above this point (y 27.05), its balcony and 0.9 m balustrade a step under that (floor y 26.35, rail top y 27.25, under the guard's sight line to the lane from anywhere in the room), and its foot 26.35 below it on the spiked ground floor (y -1.0), a 28 m shaft rising through the drop. The eight windows sit on the 25 + 45k grid with sills at 27.7 and crowns at 32.35. The guard's eye at y 28.7 looks 6 deg down onto the walkway at 52 m, sees the three cell tiers below it and the four above, and looks nearly 30 m straight down past the open inner edge onto the spikes.
+editor_description = "The tower, and its origin is the guard-room datum at y 25.35, exactly as Map 1: assets/models/marble_tower.glb puts its ROOM FLOOR 1.70 above this point (y 27.05) and its foot 26.35 below it on the spiked ground floor (y -1.0): one round shaft of constant diameter (r 7.0) rising through the drop. At the room floor the shaft opens into a colonnade of sixteen thin columns at bearings 25 + 22.5k under a dome; the guard's eye at y 28.7 looks out between them 6 deg down onto the walkway at 52 m. Round the shaft at y 26.45, a step under the room, a 1.2 m balcony ledge with a 1.0 m railing (rail top 27.45, under the guard's sight line to the lane from the seat) -- the railing is a collider, nobody walks off.
 
-TowerVariant's plugs still work here (same inner radius 6.86, same window grid). Both variant slots hold the same marble tower, so the rules' tower_variant never blanks it."
+TowerVariant's plugs still work here (same inner radius 6.86, same 25 + 45k grid): each 43 deg plug closes the two openings either side of its column. Both variant slots hold the same marble tower, so the rules' tower_variant never blanks it."
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 25.35, 0)
 script = ExtResource("8c_tower_variant")
 
@@ -121,14 +121,14 @@ editor_description = "assets/models/marble_tower.glb, the carved slot: the same 
 visible = false
 
 [node name="RockArches" parent="Tower" instance=ExtResource("8_tower_model")]
-editor_description = "assets/models/marble_tower.glb: the live tower. Carries its own collision (MarbleTowerCollision-colonly): room floor, sill band, piers, window reveals, ceiling, balcony, parapet, shaft."
+editor_description = "assets/models/marble_tower.glb: the live tower. Carries its own collision (MarbleTowerCollision-colonly): foot, steps, shaft, balcony slab and ledge, an invisible band in the railing's place, room floor, columns, ring beam closed with a flat ceiling."
 
 [node name="TowerSpawn" type="Marker3D" parent="Tower"]
 editor_description = "On the room floor (1.70 over the origin), 0.25 m up so the capsule never starts inside the collision plane."
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.95, 0)
 
 [node name="TowerLight" type="OmniLight3D" parent="Tower"]
-editor_description = "THE ARENA'S LIGHT: one gold point in the lantern, shadowed, so the eight windows throw their beams across the ring as the drawing has them. Colour, energy, range, attenuation and height come from marble_tower_light_profile.tres; the light_* properties here are placeholders for the editor view."
+editor_description = "THE ARENA'S LIGHT: one gold point in the lantern, shadowed, so the beams go out between the columns across the ring as the drawing has them. Colour, energy, range, attenuation and height come from marble_tower_light_profile.tres; the light_* properties here are placeholders for the editor view."
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 8, 0)
 light_color = Color(1, 0.9, 0.66, 1)
 light_energy = 70.0
