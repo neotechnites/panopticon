@@ -23,7 +23,7 @@ file: 01_cover
 in: 0.9
 seconds: 3.6
 frame: 1.9
-motion: 0.01     # a fixed lens on two small bodies against dark rock: 0.009-0.013 by nature (freeze 0); the flight and the tracer are the motion
+motion: 0.007    # a fixed lens on two small bodies against dark rock: 0.007-0.013 by nature (freeze 0); the flight and the tracer are the motion
 gap: 0
 
 ## 3
