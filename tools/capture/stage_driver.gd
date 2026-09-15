@@ -16,6 +16,9 @@ extends Node
 ## {"do": "ability", "slot": 2}
 ## {"do": "pitch", "down": 12.0, "seconds": 0.0}     # tip the head down this many degrees, at once or over seconds
 ## {"do": "turn", "degrees": -140.0, "seconds": 0.5}  # yaw the body over seconds; positive is to its right
+## {"do": "human", "on": true}    # from here on: mouse drift on every look, eased turns with
+##                                # an overshoot and settle, a walk that wavers, and fidget:
+##                                # true on a hold adds small strafe taps and a step back
 ## {"do": "release"}     # hand the body back to its own brain
 ## [/codeblock]
 
@@ -29,6 +32,22 @@ var _clock: float = 0.0
 var _hop_clock: float = 0.0
 var _intent: MoveIntent = MoveIntent.new()
 var _released: bool = false
+## The human layer (see the "human" step): a seeded random walk on the look,
+## a wavering walk speed and the occasional strafe tap while standing.
+var _human: bool = false
+var _rng: RandomNumberGenerator = RandomNumberGenerator.new()
+var _drift: Vector2 = Vector2.ZERO      # look velocity, degrees per second (yaw, pitch)
+var _sway: float = 0.0                  # strafe wobble while walking
+var _fidget_next: float = 0.0
+var _fidget_until: float = 0.0
+var _fidget_move: Vector2 = Vector2.ZERO
+## A human turn: fast out of the gate, past the mark, and back onto it.
+const TURN_OVERSHOOT: float = 1.06
+const TURN_FLICK_SHARE: float = 0.72
+## Mouse drift, in degrees per second of standard deviation around zero.
+const DRIFT_YAW: float = 2.4
+const DRIFT_PITCH: float = 1.6
+const DRIFT_RETURN: float = 2.5
 
 
 ## Take [param body] off [param brain] and start on [param steps].
@@ -36,6 +55,8 @@ func install(body: PlayerController, brain: RunnerBrain, steps: Array) -> void:
 	_body = body
 	_brain = brain
 	_steps = steps
+	# Seeded off the take's own RNG (run_clip seeds it), so a seed is a take.
+	_rng.seed = hash(body.name) ^ randi()
 	if _brain != null:
 		_brain.process_mode = Node.PROCESS_MODE_DISABLED
 	_body.intent_source = null
@@ -72,7 +93,12 @@ func _physics_process(delta: float) -> void:
 			finished = _clock > 0.15 and _body.is_on_floor()
 		"hold":
 			_intent.slide_held = bool(step.get("crouch", false))
+			if _human and bool(step.get("fidget", false)):
+				_fidget(delta)
 			finished = _clock >= float(step.get("seconds", 1.0))
+		"human":
+			_human = bool(step.get("on", true))
+			finished = true
 		"shove_when":
 			finished = _shove_when(step)
 		"chase":
@@ -83,17 +109,13 @@ func _physics_process(delta: float) -> void:
 		"turn":
 			# PlayerController yaws by -look_delta.x: a positive turn is to the right.
 			var over_turn: float = float(step.get("seconds", 0.0))
-			var by: float = deg_to_rad(float(step.get("degrees", 0.0)))
-			if over_turn > 0.0:
-				by *= minf(delta, over_turn - (_clock - delta)) / over_turn
+			var by: float = deg_to_rad(float(step.get("degrees", 0.0))) * _share(over_turn, delta)
 			_intent.look_delta = Vector2(by, 0.0)
 			finished = _clock >= over_turn
 		"pitch":
 			# PlayerController pitches by -look_delta.y (unless the profile inverts).
 			var over: float = float(step.get("seconds", 0.0))
-			var down: float = deg_to_rad(float(step.get("down", 0.0)))
-			if over > 0.0:
-				down *= minf(delta, over - (_clock - delta)) / over
+			var down: float = deg_to_rad(float(step.get("down", 0.0))) * _share(over, delta)
 			var inverted: bool = _body.profile != null and _body.profile.invert_look_y
 			_intent.look_delta = Vector2(0.0, -down if inverted else down)
 			finished = _clock >= over
@@ -102,11 +124,59 @@ func _physics_process(delta: float) -> void:
 			return
 		_:
 			finished = true
+	if _human:
+		_intent.look_delta += _mouse_drift(delta)
 	_body.set_intent(_intent)
 	if finished:
+		if OS.has_environment("STAGE_DEBUG"):
+			print("[step] %s done for %s at r %.2f (%.2fs)" % [step["do"], _body.name, Vector2(_body.global_position.x, _body.global_position.z).length(), _clock])
 		_index += 1
 		_clock = 0.0
 		_hop_clock = 0.0
+
+
+# --- The human layer ----------------------------------------------------------
+
+## The share of a timed look this tick delivers: a flat rate when scripted, and
+## when human a flick -- an ease-out to a little past the mark over most of the
+## time, then a settle back onto it.
+func _share(over: float, delta: float) -> float:
+	if over <= 0.0:
+		return 1.0 if _clock - delta <= 0.0 else 0.0
+	var u1: float = clampf(_clock / over, 0.0, 1.0)
+	var u0: float = clampf((_clock - delta) / over, 0.0, 1.0)
+	if not _human:
+		return u1 - u0
+	return _flick(u1) - _flick(u0)
+
+
+static func _flick(u: float) -> float:
+	if u < TURN_FLICK_SHARE:
+		var v: float = u / TURN_FLICK_SHARE
+		return TURN_OVERSHOOT * (1.0 - pow(1.0 - v, 3.0))
+	var w: float = (u - TURN_FLICK_SHARE) / (1.0 - TURN_FLICK_SHARE)
+	return TURN_OVERSHOOT - (TURN_OVERSHOOT - 1.0) * (1.0 - pow(1.0 - w, 2.0))
+
+
+## A hand on a mouse is never still: the look velocity random-walks around zero
+## and is pulled back to it, so the view wanders a degree or two and no more.
+func _mouse_drift(delta: float) -> Vector2:
+	_drift += (
+		-_drift * DRIFT_RETURN
+		+ Vector2(_rng.randfn(0.0, DRIFT_YAW), _rng.randfn(0.0, DRIFT_PITCH)) * sqrt(2.0 * DRIFT_RETURN)
+	) * delta
+	return Vector2(deg_to_rad(_drift.x), deg_to_rad(_drift.y)) * delta
+
+
+## Stood still, a player shuffles: a strafe tap every second or so. Only ever
+## sideways -- a body that has turned its back on the rim would step off it.
+func _fidget(_delta: float) -> void:
+	if _clock >= _fidget_next:
+		_fidget_next = _clock + _rng.randf_range(0.45, 1.1)
+		_fidget_until = _clock + _rng.randf_range(0.1, 0.22)
+		_fidget_move = Vector2(_rng.randf_range(0.28, 0.45) * (1.0 if _rng.randf() < 0.5 else -1.0), 0.0)
+	if _clock < _fidget_until:
+		_intent.move_direction = _fidget_move
 
 
 ## Along the ring at radius r from one bearing to the next: the target is always
@@ -131,7 +201,13 @@ func _run(step: Dictionary, delta: float, to: Vector3, within: float) -> bool:
 	var strafe: float = 0.0
 	if weave > 0.0:
 		strafe = sin(_clock * TAU / float(step.get("period", 1.1))) * weave
-	_intent.move_direction = Vector2(strafe, float(step.get("speed", 1.0)))
+	var speed: float = float(step.get("speed", 1.0))
+	if _human:
+		# The walk wavers: the pace drifts a little and the line is not straight.
+		_sway = lerpf(_sway, _rng.randf_range(-0.18, 0.18), 3.0 * delta)
+		strafe += _sway
+		speed *= 1.0 + 0.12 * sin(_clock * 4.1 + _sway * 20.0)
+	_intent.move_direction = Vector2(strafe, speed)
 	_intent.slide_held = bool(step.get("crouch", false))
 	var hop: float = float(step.get("hop", 0.0))
 	if hop > 0.0:
@@ -411,16 +487,21 @@ static func steps_for(stage: String, victim: PlayerController) -> Array:
 			# shoulder as the shover comes in, and the shove lands as they are
 			# turning back to the pit. Ryan: "have the player look back and
 			# then get shoved off the edge so we can see what's happening".
+			# Played like a person: mouse drift throughout, a wavering walk up,
+			# a hesitation with a shuffle, the look back a flick that overshoots
+			# and settles, the turn back the same. Ryan: "make it look more like
+			# a human playing and make it less rigid".
 			var facing_back: Vector3 = (-radial_at(RIM_DEGREES) + tangent_at(RIM_DEGREES) * 0.25).normalized()
 			return [
 				{"do": "place", "at": ring_point(RIM_DEGREES, RIM_VICTIM_R + 2.2, 0.1), "face": facing_back},
-				{"do": "run", "to": ring_point(RIM_DEGREES, RIM_VICTIM_R + 0.3, 0.0), "within": 0.25, "speed": 0.4, "timeout": 2.5},
-				{"do": "pitch", "down": 8.0, "seconds": 0.3},
-				{"do": "hold", "seconds": 0.2},
-				{"do": "turn", "degrees": -140.0, "seconds": 0.45},
+				{"do": "human", "on": true},
+				{"do": "run", "to": ring_point(RIM_DEGREES, RIM_VICTIM_R + 0.8, 0.0), "within": 0.3, "speed": 0.25, "timeout": 2.5},
+				{"do": "pitch", "down": 8.0, "seconds": 0.35},
+				{"do": "hold", "seconds": 0.2, "fidget": true},
+				{"do": "turn", "degrees": -140.0, "seconds": 0.42},
 				{"do": "hold", "seconds": 0.3},
 				{"do": "turn", "degrees": 140.0, "seconds": 0.6},
-				{"do": "hold", "seconds": 20.0},
+				{"do": "hold", "seconds": 20.0, "fidget": true},
 			]
 		"lavadeath":
 			return [

@@ -116,6 +116,12 @@ const RIM_R_FALLBACK: float = 46.7
 ## just never moves again. A clip drops one that has not travelled in this long.
 const STUCK_SECONDS: float = 2.5
 const STUCK_SPEED: float = 0.6
+## The game's own camera kick, given to the ridden body: the shover's swing is
+## felt by the human who swings it; a human who is shoved feels the launch and,
+## in a clip, this -- the same whip, at the shove's own scale.
+const FEEDBACK_PROFILE_PATH: String = "res://scenes/fx/default_feedback_profile.tres"
+const POV_SHOVED_KICK_SCALE: float = 1.0
+
 ## The chase ghost runs this much faster than the prisoner it is after. The
 ## shipped ghost is three times faster and would be on them before a lens could
 ## settle; this closes the ten metres over about three seconds.
@@ -158,6 +164,7 @@ var _tracked_look: Vector3 = Vector3.ZERO
 var _tracking: bool = false
 var _tracking_stopped: bool = false
 var _ghost_body: PlayerController = null
+var _pov_kick: FxCameraKick = null
 var _logged_shooter: TowerShooter = null
 var _staged: PlayerController = null
 var _built: bool = false
@@ -740,6 +747,8 @@ func _log_events() -> void:
 				_elapsed, shover.body.name, victim.body.name,
 				fposmod(rad_to_deg(atan2(at.z, at.x)), 360.0), Vector2(at.x, at.z).length(),
 			])
+			if _pov != "" and victim.body == _pov_body:
+				_kick_the_ridden_camera(-shover.body.global_transform.basis.z)
 	)
 	_controller.participant_converted.connect(
 		func(participant: MatchParticipant) -> void:
@@ -931,6 +940,24 @@ func _wear_the_body(body: PlayerController) -> void:
 	# _light_for_social is what a POV clip gets instead.
 	if _fill != null:
 		_fill.light_energy = 0.0
+
+
+## Whip the ridden body's camera the way the game whips a player's: an
+## [FxCameraKick] on its own camera, with the shipped feedback profile.
+func _kick_the_ridden_camera(direction: Vector3) -> void:
+	var eye: Camera3D = _eye_of(_pov_body)
+	if eye == null:
+		return
+	if _pov_kick == null or _pov_kick.camera != eye:
+		if _pov_kick != null:
+			_pov_kick.queue_free()
+		_pov_kick = FxCameraKick.new()
+		_pov_kick.name = "ClipPovKick"
+		_pov_kick.camera = eye
+		_pov_kick.profile = load(FEEDBACK_PROFILE_PATH) as FeedbackProfile
+		root.add_child(_pov_kick)
+	_pov_kick.strike(direction, POV_SHOVED_KICK_SCALE)
+	print("[pov] %5.2f kick" % _elapsed)
 
 
 ## Draw the scope for the guard being ridden.

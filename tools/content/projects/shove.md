@@ -62,3 +62,4 @@ in: 0.8
 seconds: 4.6
 frame: 1.6
 gap: 0
+note: v1 (scripted, linear turns) kept as 04_pov_ledge_b_v1.mp4; Ryan: "make it look more like a human playing and make it less rigid" -- this take is played through the driver's human layer (mouse drift, flick-and-settle turns, a wavering walk, a shuffle at the rim) and the shove whips the camera with the game's own FxCameraKick
