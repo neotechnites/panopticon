@@ -88,7 +88,7 @@ func test_the_hub_scene_is_a_hub_and_not_a_match() -> void:
 
 ## Ten wedges, one of which has a map on it. The other nine are undecided, and
 ## the whole of undecided is a null scene -- there is no second flag for it.
-func test_ten_wedges_one_map_and_nine_question_marks() -> void:
+func test_ten_wedges_two_maps_and_eight_question_marks() -> void:
 	var hub: Node3D = _make_hub(self, null)
 	var wedges: Node3D = hub.get_node("HubWorld/Wedges") as Node3D
 	assert_eq_int(wedges.get_child_count(), 10, "ten 36 degree wedges")
@@ -111,12 +111,13 @@ func test_ten_wedges_one_map_and_nine_question_marks() -> void:
 		assert_lt(wedge.sign_alpha_at(0.0), 0.2, "and faded to nothing when you stand under it")
 		if wedge.is_decided():
 			decided += 1
-			assert_eq_string(String(wedge.map_id), "bentham_ring", "the hell wedge is Map 1")
-			assert_eq_string(sign_label.text, "MAP 1", "and says so")
+			var signs: Dictionary = {&"bentham_ring": "MAP 1", &"forest": "MAP 3"}
+			assert_true(signs.has(wedge.map_id), "%s holds a map that exists" % wedge.name)
+			assert_eq_string(sign_label.text, String(signs.get(wedge.map_id, "")), "and says which")
 		else:
 			assert_eq_string(sign_label.text, "?", "%s is undecided" % wedge.name)
 			assert_eq_string(String(wedge.map_id), "", "and names no map")
-	assert_eq_int(decided, 1, "exactly one wedge has been decided")
+	assert_eq_int(decided, 2, "two wedges have been decided: hell and the forest")
 
 
 ## The spawns are spread. Two capsules in one cubic metre are thrown out of the
@@ -290,7 +291,7 @@ func test_an_offline_vote_with_the_host_alone_starts_its_own_wedge() -> void:
 	assert_eq_int(lobby.get_vote_count(wedge), 1, "the host's body on the dais is its vote")
 	assert_eq_string(sign_label.text, "MAP 1\n1 vote", "the sign shows the count")
 	assert_true(vote_label.visible, "the readout is up")
-	assert_eq_string(vote_label.text, "VOTE  5 s\nMAP 1  1", "with the timer and the count")
+	assert_eq_string(vote_label.text, "VOTE  5 s\nMAP 1  1\nMAP 3  0", "with the timer and a count per decided wedge")
 	assert_eq_string(lobby.get_prompt(), "Cancel vote: E", "and the host is offered the cancel")
 	assert_eq_int(started.size(), 0, "nothing has started yet")
 
@@ -337,6 +338,7 @@ func test_a_tie_is_broken_by_the_seed() -> void:
 	var other: MapWedge = hub.get_node("HubWorld/Wedges/W02") as MapWedge
 	other.map_scene = hell.map_scene
 	other.map_id = hell.map_id
+	(hub.get_node("HubWorld/Wedges/W03_Forest") as MapWedge).map_scene = null   # a two-way tie
 	var wedges: Array[MapWedge] = [hell, other]
 	var started: Array[StringName] = []
 	lobby.match_starting.connect(func(map_id: StringName) -> void: started.append(map_id))
@@ -400,6 +402,9 @@ func test_a_client_standing_on_the_dais_wins_the_vote() -> void:
 	voter.global_position = trigger.global_position - Vector3(0.0, 2.5, 0.0)
 	voter.velocity = Vector3.ZERO
 	voter.collision_layer = 1
+	# Parked: with a second decided wedge a body that drifts off the dais before
+	# the clock runs out turns the vote into a seeded tie, not a win.
+	voter.set_physics_process(false)
 	await step_ticks(4)
 
 	assert_false(client_lobby.open_vote(), "a client cannot open a vote")

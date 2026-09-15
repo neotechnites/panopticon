@@ -21,6 +21,7 @@
 [ext_resource type="Resource" path="res://resources/rules/default_match_rules.tres" id="19_rules"]
 [ext_resource type="Resource" path="res://resources/rules/default_runner_palette.tres" id="20_palette"]
 [ext_resource type="PackedScene" path="res://scenes/ring/bentham_ring.tscn" id="21_map1"]
+[ext_resource type="PackedScene" path="res://scenes/ring/forest.tscn" id="22_map3"]
 
 [sub_resource type="ProceduralSkyMaterial" id="SkyMat"]
 sky_top_color = Color(0.54, 0.110700026, 0.054000016, 1)
@@ -147,14 +148,17 @@ modulate = Color(1, 0.78, 0.55, 1)
 outline_modulate = Color(0, 0, 0, 0.85)
 text = "?"
 
-[node name="W03" type="Node3D" parent="HubWorld/Wedges"]
+[node name="W03_Forest" type="Node3D" parent="HubWorld/Wedges"]
 script = ExtResource("12_map_wedge")
+map_scene = ExtResource("22_map3")
+map_id = &"forest"
+title = "HUB_MAP_3"
 
-[node name="Dais" type="Marker3D" parent="HubWorld/Wedges/W03"]
+[node name="Dais" type="Marker3D" parent="HubWorld/Wedges/W03_Forest"]
 transform = Transform3D(-1, 0, 1.22465e-16, 0, 1, 0, -1.22465e-16, 0, -1, 2.20436e-15, 0, -36)
 editor_description = "Bearing 90 deg, r 36. Facing the tower."
 
-[node name="Sign" type="Label3D" parent="HubWorld/Wedges/W03/Dais"]
+[node name="Sign" type="Label3D" parent="HubWorld/Wedges/W03_Forest/Dais"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.5, 0)
 billboard = 1
 no_depth_test = true
@@ -164,7 +168,15 @@ font_size = 64
 outline_size = 12
 modulate = Color(1, 0.78, 0.55, 1)
 outline_modulate = Color(0, 0, 0, 0.85)
-text = "?"
+text = ""
+
+[node name="StartTrigger" type="Area3D" parent="HubWorld/Wedges/W03_Forest/Dais"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.5, 0)
+collision_layer = 0
+collision_mask = 1
+
+[node name="Shape" type="CollisionShape3D" parent="HubWorld/Wedges/W03_Forest/Dais/StartTrigger"]
+shape = SubResource("DaisTrigger")
 
 [node name="W04" type="Node3D" parent="HubWorld/Wedges"]
 script = ExtResource("12_map_wedge")

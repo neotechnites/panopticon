@@ -1,0 +1,10 @@
+{
+  "_comment": "forest_tree: Map 3's tower, a great tree grown into a shape. Origin is the Tower node (world y 25.35) so it drops in at identity: the trunk stands in the water 25 m below, the lattice of eight branch piers and pointed arches between y 11 and 25.6, the scalloped leaf canopy y 24.8..27.0, the guard's flat floor at y 27.05 (origin + 1.70, as map 1) inside a 0.55 m leaf sill, six thin branches leaning in over it with leaf clumps for a partial roof. One material (the forest atlas), one mesh. ForestTreeCollision is the purpose-built collider shipped as a `-colonly` node (floor, sill, canopy slope, trunk); Godot turns it into a StaticBody3D + ConcavePolygonShape3D and drops its mesh, so `surfaces` counts only what is drawn.",
+  "node_paths": [
+    "ForestTree",
+    "ForestTreeCollision",
+    "ForestTreeCollision/CollisionShape3D"
+  ],
+  "surfaces": 1,
+  "max_tris": 12000
+}

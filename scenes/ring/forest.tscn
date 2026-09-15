@@ -1,0 +1,137 @@
+[gd_scene load_steps=14 format=3]
+
+[ext_resource type="Script" path="res://scripts/match/kill_volume.gd" id="1_kill_volume"]
+[ext_resource type="Script" path="res://scripts/ring/ring_route.gd" id="2_ring_route"]
+[ext_resource type="Script" path="res://scripts/ring/ring_level.gd" id="3_ring_level"]
+[ext_resource type="PackedScene" path="res://scenes/tower/watching_eye.tscn" id="4_watching_eye"]
+[ext_resource type="Resource" path="res://scenes/ring/forest_watching_eye_profile.tres" id="5_watcher_profile"]
+[ext_resource type="PackedScene" path="res://assets/models/forest.glb" id="6_forest_model"]
+[ext_resource type="PackedScene" path="res://assets/models/forest_tree.glb" id="7_forest_tree"]
+[ext_resource type="PackedScene" path="res://scenes/ring/portal.tscn" id="8_portal"]
+
+[sub_resource type="ProceduralSkyMaterial" id="SkyMat"]
+sky_top_color = Color(0.62, 0.78, 0.9, 1)
+sky_horizon_color = Color(0.86, 0.9, 0.7, 1)
+sky_curve = 0.2
+sky_energy_multiplier = 1.3
+ground_bottom_color = Color(0.16, 0.24, 0.12, 1)
+ground_horizon_color = Color(0.4, 0.5, 0.28, 1)
+sun_angle_max = 0.0
+
+[sub_resource type="Sky" id="Sky"]
+sky_material = SubResource("SkyMat")
+
+[sub_resource type="Environment" id="Env"]
+background_mode = 2
+sky = SubResource("Sky")
+ambient_light_source = 3
+ambient_light_color = Color(0.5, 0.66, 0.42, 1)
+ambient_light_energy = 0.8
+tonemap_mode = 1
+
+[sub_resource type="StandardMaterial3D" id="RaySoftMat"]
+transparency = 1
+blend_mode = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 0.9, 0.55, 0.13)
+
+[sub_resource type="StandardMaterial3D" id="RaySolidMat"]
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.92, 0.8, 0.38, 0.55)
+
+[node name="Forest" type="Node3D"]
+editor_description = "MAP 3, THE FOREST: assets/models/forest.glb at identity (grass lane r 46.7..57.3 at y 23.0 round a ravine with water at y -11.05, as map 1's sea, a leaf wall and ceiling), the great tree (forest_tree.glb) as the tower. The sun rays are two nodes in the glb: ForestRaysSolid (opaque yellow wedges) and ForestRaysSoft (faint, additive here, under the Sun light). Flip their visibility to compare."
+
+[node name="Environment" type="Node3D" parent="."]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="Environment"]
+environment = SubResource("Env")
+
+[node name="Sun" type="DirectionalLight3D" parent="Environment"]
+editor_description = "The light-variant rays: the sun from bearing 120 at 52 deg, through the ceiling gaps."
+transform = Transform3D(0.866025, 0.394, -0.3078, 0, 0.6157, 0.788, 0.5, -0.6824, 0.5332, 0, 30, 0)
+light_color = Color(1, 0.95, 0.8, 1)
+light_energy = 1.2
+shadow_enabled = true
+shadow_bias = 0.06
+directional_shadow_mode = 0
+directional_shadow_max_distance = 200.0
+
+[node name="ForestMap" parent="." instance=ExtResource("6_forest_model")]
+editor_description = "assets/models/forest.glb: lane, pit, water, leaf wall, ceiling, cells, fence. Ships its own collision (ForestCollision-colonly)."
+
+[node name="ForestRaysSolid" parent="ForestMap"]
+visible = false
+surface_material_override/0 = SubResource("RaySolidMat")
+
+[node name="ForestRaysSoft" parent="ForestMap"]
+surface_material_override/0 = SubResource("RaySoftMat")
+
+[node name="KillBox" type="Area3D" parent="."]
+editor_description = "Roof 0.5 m over the water (y -10.55), r 62: anything in the ravine is gone."
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 23, 0)
+collision_layer = 0
+collision_mask = 1048577
+monitorable = false
+script = ExtResource("1_kill_volume")
+radius_metres = 62.0
+roof_depth_metres = 33.55
+depth_metres = 30.0
+
+[node name="Shape" type="CollisionShape3D" parent="KillBox"]
+
+[node name="StartEnd" type="Node3D" parent="."]
+
+[node name="PrisonerStart" type="Marker3D" parent="StartEnd"]
+transform = Transform3D(-0.996195, 0, 0.0871557, 0, 1, 0, -0.0871557, 0, -0.996195, 51.8021, 23, 4.5321)
+
+[node name="PrisonerEnd" type="Marker3D" parent="StartEnd"]
+transform = Transform3D(0.965926, 0, 0.258819, 0, 1, 0, -0.258819, 0, 0.965926, 50.2281, 23, -13.4586)
+
+[node name="Portal" parent="StartEnd" instance=ExtResource("8_portal")]
+transform = Transform3D(0.965926, 0, 0.258819, 0, 1, 0, -0.258819, 0, 0.965926, 50.2281, 23, -13.4586)
+
+[node name="Sections" type="Node3D" parent="."]
+
+[node name="Watch" type="Node3D" parent="Sections"]
+editor_description = "Where the AI guard's scan rests: three points round the lane."
+
+[node name="Lane90" type="Marker3D" parent="Sections/Watch" groups=["guard_watch"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 24, 52)
+
+[node name="Lane200" type="Marker3D" parent="Sections/Watch" groups=["guard_watch"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -48.8646, 24, -17.7853)
+
+[node name="Lane300" type="Marker3D" parent="Sections/Watch" groups=["guard_watch"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 26, 24, -45.0333)
+
+[node name="Route" type="Node3D" parent="."]
+script = ExtResource("2_ring_route")
+
+[node name="Level1" type="Node3D" parent="Route"]
+editor_description = "One lap: lane y 23.0, r 46.7..57.3, lane r 52, 5 deg to 335 deg."
+script = ExtResource("3_ring_level")
+deck_height = 23.0
+inner_radius = 46.7
+outer_radius = 57.3
+lane_radius = 52.0
+entry_angle_degrees = 5.0
+exit_angle_degrees = 335.0
+
+[node name="Tower" type="Node3D" parent="."]
+editor_description = "The tree. Origin y 25.35 as map 1's tower; the guard's floor is the canopy top at +1.70 (y 27.05), eye y 28.7."
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 25.35, 0)
+
+[node name="Tree" parent="Tower" instance=ExtResource("7_forest_tree")]
+editor_description = "assets/models/forest_tree.glb: trunk, lattice, canopy, seat, roof. Ships its own collision (ForestTreeCollision-colonly)."
+
+[node name="TowerSpawn" type="Marker3D" parent="Tower"]
+editor_description = "On the canopy floor (+1.70), 0.25 m up."
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.95, 0)
+
+[node name="Watcher" parent="Tower" instance=ExtResource("4_watching_eye")]
+editor_description = "The eye, over the roof branches and under the leaf ceiling."
+profile = ExtResource("5_watcher_profile")
