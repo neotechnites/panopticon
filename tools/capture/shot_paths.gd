@@ -295,14 +295,15 @@ static func _pocket_cover() -> Array:
 	]
 
 
-## On the S3 rim itself, a dozen metres back along it from a runner stood at
-## the rim: the shover comes down the rim at the lens, the shove carries the
-## victim towards it and out over the pit, and with --track=victim the lens
-## follows them to the rim and holds while they drop out of the bottom of frame.
+## High on the outer S3 deck behind and to one side of a runner stood at the
+## rim, looking in over their shoulder at the pit: the shover's run-up is down
+## the lens's own axis, the shove carries the victim straight away from it over
+## the rim, and with --track=victim the lens holds at the rim while they drop
+## out of the bottom of frame.
 static func _rim_edge() -> Array:
 	return [
-		_key(0.0, 168.0, 47.8, 2.3, 182.0, 47.2, 0.9, 60.0),
-		_key(8.0, 169.0, 47.7, 2.2, 182.0, 47.2, 0.9, 58.0),
+		_key(0.0, 188.0, 56.5, 3.4, 182.0, 47.2, 0.9, 56.0),
+		_key(8.0, 187.5, 56.0, 3.3, 182.0, 47.2, 0.9, 55.0),
 	]
 
 

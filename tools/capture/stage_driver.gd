@@ -258,11 +258,11 @@ const S4_LEDGE_DEGREES: float = 236.0
 ## shoveedge plays on the flat S3 deck, the victim a metre back from the rim.
 const RIM_DEGREES: float = 182.0
 const RIM_VICTIM_R: float = 47.2
-## The shover starts further along the rim and a little outboard: its run-up
-## comes down the rim at the lens (rim_edge sits on the rim behind the victim),
-## and the shove still carries the victim inward, over the rim.
-const RIM_SHOVER_DEGREES: float = 187.5
-const RIM_SHOVER_R: float = 50.2
+## The shover starts on the deck behind the victim, a step to one side: its
+## run-up is straight at their back, and the shove carries them inward over the
+## rim, straight away from a lens on the outer deck (rim_edge).
+const RIM_SHOVER_DEGREES: float = 184.5
+const RIM_SHOVER_R: float = 52.0
 ## The S3/S4 pocket rock at 194-198 deg on the rim hides a body crouched just
 ## outboard of it (r 47.9) from the tower; the deck from 200 deg on is open.
 const COVER_DEGREES: float = 196.5
