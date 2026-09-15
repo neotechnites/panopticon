@@ -39,6 +39,12 @@ func _enter_tree() -> void:
 	_on_settings_applied()
 
 
+## Deferred past every sibling's _ready, so the WorldEnvironment this scene
+## ends up with -- MatchController may swap the arena in its own -- is the one written.
+func _ready() -> void:
+	SettingsStore.instance().settings.apply_brightness.call_deferred()
+
+
 func _on_settings_applied() -> void:
 	var store: SettingsStore = SettingsStore.instance()
 	store.settings.apply_to_movement_profile(movement_profile)

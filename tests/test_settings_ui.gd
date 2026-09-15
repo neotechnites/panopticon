@@ -417,6 +417,45 @@ func test_the_video_note_says_so_when_the_window_refuses_to_resize() -> void:
 	)
 
 
+## Dragging the brightness slider writes the store, redraws the readout and the
+## preview strip, lands on the live world environment as exposure, and survives
+## a restart. A [WorldEnvironment] stands in for the scene's own.
+func test_brightness_drives_the_environment_and_survives_a_restart() -> void:
+	var environment: Environment = Environment.new()
+	var world_environment: WorldEnvironment = WorldEnvironment.new()
+	world_environment.environment = environment
+	add_child(world_environment)
+	var slider: HSlider = _screen.get_node("%BrightnessSlider") as HSlider
+	var value: Label = _screen.get_node("%BrightnessValue") as Label
+	var preview: BrightnessPreview = _screen.get_node("%BrightnessPreview") as BrightnessPreview
+
+	assert_almost_eq(slider.min_value, GameSettings.MIN_BRIGHTNESS, 0.001, "the slider floor is the clamp floor")
+	assert_almost_eq(slider.max_value, GameSettings.MAX_BRIGHTNESS, 0.001, "and its ceiling the clamp ceiling")
+	assert_almost_eq(slider.step, 0.05, 0.001, "in steps of five percent")
+
+	slider.value = 1.5
+	assert_almost_eq(_screen._store.settings.brightness, 1.5, 0.001, "dragging writes the store")
+	assert_eq_string(value.text, "150%", "the readout says so")
+	assert_almost_eq(preview.brightness, 1.5, 0.001, "and the preview strip is redrawn at it")
+	assert_almost_eq(environment.tonemap_exposure, 1.5, 0.001, "and the live environment's exposure follows")
+
+	slider.value = 5.0
+	assert_le(_screen._store.settings.brightness, GameSettings.MAX_BRIGHTNESS, "the slider cannot leave the clamp")
+
+	slider.value = 0.75
+	_screen.close()
+	var restarted: SettingsStore = SettingsStore.new()
+	restarted.config_path = SCRATCH_CONFIG
+	assert_true(restarted.load_from_disk(), "the settings file the screen wrote is readable")
+	assert_almost_eq(restarted.settings.brightness, 0.75, 0.001, "a restart reads the brightness back")
+
+	restarted.settings.brightness = 9.0
+	restarted.settings.clamp_all()
+	assert_almost_eq(restarted.settings.brightness, GameSettings.MAX_BRIGHTNESS, 0.001, "a wild file value is clamped")
+	_screen._store.settings.brightness = GameSettings.DEFAULT_BRIGHTNESS
+	world_environment.free()
+
+
 # The other half of the same bug -- apply_video() dragging a maximised window
 # back to the stored resolution every time an unrelated setting moved -- is not
 # asserted here. It cannot be: apply_video() is a no-op with no display server,
