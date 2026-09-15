@@ -63,3 +63,32 @@ seconds: 4.6
 frame: 1.6
 gap: 0
 note: v1 (scripted, linear turns) kept as 04_pov_ledge_b_v1.mp4; Ryan: "make it look more like a human playing and make it less rigid" -- this take is played through the driver's human layer (mouse drift, flick-and-settle turns, a wavering walk, a shuffle at the rim) and the shove whips the camera with the game's own FxCameraKick
+
+## script
+# The v6 cut (2026-09-15), as Ryan signed it off: the voice leads, the picture
+# follows it. Timing measured on the PC: voice-first slots, shove clips 2.8 s at
+# 0.75x, the Game Grumps audio window aligned to the scream's onset (not its
+# peak), music -16 dB then "maybe 20% quieter" -> -18.
+voice: en-US-AndrewNeural +5%
+music: voice/windmill_isle_day.mp3
+music_db: -18
+music_fade: 1.0 1.5
+pad: 0.2
+captions: pop
+captions_font: Impact
+captions_size: 64
+captions_y: 0.72
+| line | clip | in | len | fit | speed | text |
+| l0 | final/f10_lava_parkour.mp4 | | | line | | I added this to my game, and it got ten times better. |
+| l1 | final/f02_pack_sniped_pov.mp4 | | | nohold | | Sure, a bunch of your friends all running next to each other, trying to get to the end without being sniped first, is fun. |
+| l2 | final/f03_guard_alone.mp4 | | | line | | But it felt like everybody was playing a different race. |
+| l3 | final/f04_pov_shove.mp4 | | | line | | What I needed was something to tie the players to each other while they were doing this. |
+| l4a | external/gamegrumps_starsteal_wide.mp4 | | | window onset=26.46 end=31.1 gap=0.15 hold=1.0 | | I wanted my game to foster the type of competitive spirit of a Mario Party. Which, just like in that game, means sabotage. |
+| l4b | external/fallguys_grab_gameplay.mp4 | | | slow | | I was inspired by the grab mechanic in Fall Guys. At how simple it was, but how much of a nuisance it is to have someone doing it to you. |
+| l5 | final/f06_cover_both.mp4 | 0 | 3.6 | line | | But for a game where staying still behind cover is necessary, |
+| l6 | final/f06_cover_both.mp4 | 3.6 | | line | | the better move is a shove. |
+| l7 | final/f08_melee.mp4 | | | line | | Now players can all shove each other around. And it's very annoying, and very satisfying to do to someone else. |
+| l8 | final/01_cover.mp4 | at=1.4 | 2.1 | wait | 0.75 | Shove them out from cover. |
+| l9 | final/02_edge.mp4 | at=1.4 | 2.1 | wait | 0.75 | Shove them off the edge. |
+| l10 | final/03_lava.mp4 | at=1.5 | 2.1 | wait | 0.75 | Shove them into lava. |
+| l11 | final/04_pov_ledge_b.mp4 | | | line | | It's all fun and games, til you're the one getting shoved. |

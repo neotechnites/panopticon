@@ -7,10 +7,53 @@ exists because he asked for it, in his words.
 ```
 tools/content/sync.sh                    # this branch -> C:\dev\verify (once per code change)
 tools/content/shot.sh <project> <n>      # capture + gate + render shot n on the PC
-tools/content/assemble.sh <project>      # shots in order -> timeline.mp4, beats.txt, voice_gap.txt (+ Resolve project)
-tools/content/render.sh <project> [--still]   # aspect, captions, voice -> final.mp4
-tools/content/voice.sh <project> <wav> [n]    # lay Ryan's recording at shot n's gap, re-render
+tools/content/fetch.sh <project> <url> <name> [--find WORD | --from T --to T]   # external footage, credited
+tools/content/voice.sh <project>         # speak every ## script line (edge-tts), voice\words.json
+tools/content/assemble.sh <project> [--tag NAME]   # voice-first cut from the ## script table -> final\<tag>.mp4
+tools/content/dailies.sh <project>       # poster frames + final\index.html for review
+tools/content/serve.sh <project>         # the PC folder in this Mac's browser (loopback + ssh tunnel)
+tools/content/assemble.sh <project>      # (no ## script) shots in order -> timeline.mp4, beats.txt, voice_gap.txt
+tools/content/render.sh <project> [--still]   # (no ## script) aspect, captions, voice -> final.mp4
+tools/content/voice.sh <project> <wav> [n]    # (no ## script) lay Ryan's recording at shot n's gap, re-render
 ```
+
+The per-short process, start to finish, is `tools/content/PLAYBOOK.md`.
+
+## The script table: `## script` in the brief
+
+The cut is written as a table under `## script`: one row per voice line, the
+clip it plays over, and how the picture fits the line. The VOICE decides every
+slot's length; the picture is trimmed, held, slowed or waited for to match --
+"picture follows voice, not voice picture". Header lines above the table set the
+voice, the music and the captions. The shove brief (`projects/shove.md`) is the
+worked example; `pc/assemble.py`'s docstring is the reference.
+
+```
+## script
+voice: en-US-AndrewNeural +5%       # edge-tts voice and rate (voice.sh)
+music: voice/windmill_isle_day.mp3  # under the project folder; music_db: -18; music_fade: 1.0 1.5
+pad: 0.2                            # seconds after each line before the next
+captions: pop                       # pop | none; captions_font: Impact; captions_size: 64; captions_y: 0.72
+| line | clip | in | len | fit | speed | text |
+| l0 | final/f10_lava_parkour.mp4 | | | line | | I added this to my game, ... |
+| l8 | final/01_cover.mp4 | at=1.4 | 2.1 | wait | 0.75 | Shove them out from cover. |
+| l4a | external/gamegrumps_starsteal_wide.mp4 | | | window onset=26.46 end=31.1 gap=0.15 hold=1.0 | | ... sabotage. |
+```
+
+`in` is source seconds (or `at=T`: the `len` window centred on T -- a shove at
+1.4 s: `at=1.4 len=2.1 speed=0.75` is 2.8 s on screen). `fit`: `line` (trim a
+longer clip, hold a shorter one's last frame), `trim`, `slow` (slow to fill),
+`nohold` (the clip ends the slot; leftover voice carries into the next line),
+`wait` (the slot is the picture's; the next line waits), `window onset= end=
+gap= hold=` (an external clip's own sound after the line + gap, music ducked
+0.3 s before and back 0.5 s after, then `hold` s of music only -- align `onset`
+to where the sound STARTS, not its peak), `beat S` (no voice, S seconds over
+the music). Landscape sources get a blurred letterbox fill. Output:
+`final\<tag>.mp4`, `cuts\<tag>_timing.txt` (the table with every trim, hold
+and window, printed), `cuts\<tag>_lines.json`. Segments are cached in
+`cuts\_cache\` by source and numbers: a caption, music or voice change re-cuts
+in ~10 s; a fresh 58 s cut is ~2.5 min. The captions burn in their own pass
+(in-graph burning deadlocked ffmpeg).
 
 ## Where it lands on the PC
 
@@ -20,16 +63,18 @@ split by what a file is (helpers in `lib.sh`: `project_dir`, `pc_layout`,
 
 ```
 content\<project>\
-  final\     delivered clips only: <file>.mp4 from a shot's file: line, final.mp4
-             (or final__speak-at-<t>s-for-<g>s.mp4); superseded versions in final\alt\
-  cuts\      the edit: NN.mp4 shot masters (NN_before/NN_after/NN_pair.txt for a
-             pair), timeline.mp4, beats.txt, list.txt, slates\, rough cuts and timing
-  voice\     voice_NN.wav recordings, voice_gap.txt, TTS scratch (sapi\ for SAPI)
+  final\     delivered clips only: <file>.mp4 from a shot's file: line, <tag>.mp4 cuts,
+             index.html + thumbs\ (dailies); superseded versions in final\alt\
+  cuts\      the edit: <tag>_timing.txt and <tag>_lines.json per cut, _cache\ (rendered
+             segments, reused), _work\; NN.mp4 masters, timeline.mp4, beats.txt for gap briefs
+  voice\     <line>.wav + <line>.txt per script line, words.json (word times), the music bed;
+             voice_NN.wav recordings and voice_gap.txt for gap-based briefs
   notes\     brief.md, caption_NN.txt, NN.gate.txt + NN.take.log for the take that
              was cut, and any .md / probe / import notes written while directing
   stages\    the stage .gd scripts written for the shots
   frames\    pulled frames: NN.png stills, sheet.png, final_still.png, contact strips
-  scripts\   resolve_project.lua and any one-off .ps1 (stitch, tts, retime)
+  external\  fetched footage: <name>.mp4 cuts, SOURCES.md (credits), src\ (full downloads)
+  scripts\   the pc\*.py pushed by voice/assemble/dailies/fetch, resolve_project.lua
   takes\     raw NN_tK.avi + .log + .txt while a shot is being captured; transient
 ```
 

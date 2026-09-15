@@ -1,15 +1,23 @@
 #!/usr/bin/env bash
-# Lay the project's rendered shots out in order, on the PC.
+# Cut a project on the PC: from its ## script table (voice-first), or, for a
+# brief without one, the shots back to back (timeline.mp4 + beats.txt).
 #
-#   tools/content/assemble.sh <project>
+#   tools/content/assemble.sh <project> [--tag NAME] [--no-captions]
 #
-# Writes, in content\<project>\cuts\: beats.txt (one line per shot with its
-# timecodes, caption and Ryan's words), list.txt, slates\ and timeline.mp4 (the
-# 16:9 master, shots back to back; a devlog gets a 1.5 s working slate before
-# each shot); and voice\voice_gap.txt (where the silent gaps are). If DaVinci Resolve is
-# installed, also builds a Resolve project of the same name: one video track
-# per shot, a marker per shot, placeholder text titles and a muted narration
-# track (tools/content/resolve_project.lua through fuscript).
+# With a `## script` table in the brief (the format is in README.md and in
+# tools/content/pc/assemble.py), every voice line maps to a clip and a fit:
+# the voice decides each slot's length, the picture is trimmed, held, slowed
+# or waited for to match, an external clip can carry its own sound in a
+# window the music ducks under, and the word captions pop in from
+# voice\words.json. Segments are cached per source and per number in
+# cuts\_cache\, so re-cutting after a caption, music or voice change encodes
+# no video; the caption burn is its own pass. Output: final\<tag>.mp4
+# (tag defaults to the project name), cuts\<tag>_timing.txt (the table, printed
+# here too) and cuts\<tag>_lines.json. Voice first: tools/content/voice.sh.
+#
+# Without a script table (the older, gap-based briefs): beats.txt, list.txt,
+# slates\ and timeline.mp4 in cuts\, voice\voice_gap.txt, and a Resolve
+# project when Resolve is installed -- then render.sh makes the final.
 set -euo pipefail
 source "$(dirname "$0")/lib.sh"
 
@@ -19,6 +27,29 @@ NAME=$(basename "${BRIEF}" .md)
 KIND=$(brief_head "${BRIEF}" kind short)
 SLATES=$(brief_head "${BRIEF}" slates "$([ "${KIND}" = devlog ] && echo yes || echo no)")
 DIR=$(project_dir "${NAME}")
+
+TAG="${NAME}"; CAPTIONS=""
+shift
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --tag) TAG="$2"; shift 2 ;;
+    --no-captions) CAPTIONS="--no-captions"; shift ;;
+    *) die "unknown option $1" ;;
+  esac
+done
+if grep -q '^## script' "${BRIEF}"; then
+  T_ALL=$(now_ms)
+  pc_layout "${DIR}"
+  pc_push "${BRIEF}" "$(ff "${DIR}")/notes/brief.md"
+  pc_push "${CONTENT_DIR}/pc/brief.py" "$(ff "${DIR}")/scripts/brief.py"
+  pc_push "${CONTENT_DIR}/pc/assemble.py" "$(ff "${DIR}")/scripts/assemble.py"
+  pc <<EOF
+\$ErrorActionPreference = 'Continue'
+& '${PC_PYTHON}' '${DIR}\\scripts\\assemble.py' '${DIR}' '${DIR}\\notes\\brief.md' '${TAG}' ${CAPTIONS} 2>&1
+EOF
+  echo "assemble done in $(since "$T_ALL"): ${DIR}\\final\\${TAG}.mp4"
+  exit 0
+fi
 CUTS="${DIR}\\cuts"
 COUNT=$(brief_count "${BRIEF}")
 [ "${COUNT}" -gt 0 ] || die "${NAME} has no shots"

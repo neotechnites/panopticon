@@ -11,6 +11,8 @@ PC_PROJECT=${PC_PROJECT:-'C:\dev\verify'}
 PC_GODOT=${PC_GODOT:-'C:\tools\godot\godot.exe'}
 PC_RESOLVE=${PC_RESOLVE:-'C:\Program Files\Blackmagic Design\DaVinci Resolve\Resolve.exe'}
 PC_FUSCRIPT=${PC_FUSCRIPT:-'C:\Program Files\Blackmagic Design\DaVinci Resolve\fuscript.exe'}
+PC_PYTHON=${PC_PYTHON:-'C:\Users\ddd\tools\python\python.exe'}   # edge-tts and yt-dlp live here
+PC_SERVE_PORT=${PC_SERVE_PORT:-8765}
 PC_RENDERS='C:\Users\ddd\Desktop\panopticon-renders'
 PC_CONTENT="${PC_RENDERS}\content"
 PC_BRANCH=${PC_BRANCH:-work-content}
@@ -69,7 +71,7 @@ brief_count() { grep -c '^## [0-9]' "$1"; }
 brief_field() {
   local value
   value=$(awk -v n="$2" -v key="$3" '
-    /^## [0-9]+/ { inside = ($2 == n); next }
+    /^## / { inside = ($2 == n); next }
     inside && $0 ~ "^"key":" { sub("^"key":[ \t]*", ""); print; exit }' "$1")
   echo "${value:-${4:-}}"
 }
