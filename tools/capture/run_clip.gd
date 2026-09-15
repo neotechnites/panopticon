@@ -20,9 +20,14 @@ extends SceneTree
 ##                  the chain runner mid-jump into the lava), missstreak (a sloppy
 ##                  guard empties the rifle at a weaving runner), decoy (a
 ##                  hologram eats the shot), padflight (a demon pad flight, then
-##                  the bot finds cover), lavadeath (a runner hops into S4 lava)
+##                  the bot finds cover), lavadeath (a runner hops into S4 lava),
+##                  ghostchase (a ghost runs a prisoner down the open S3 lane and
+##                  shoves them: the catch, and the swap), ghostpack (the round's
+##                  own pack leaves the line; one of them is ghosted behind it and
+##                  its own brain hunts through the pack for a spot)
 ## --pov=runner     film down a bot-driven prisoner's own eyes, HUD on, no path
 ## --pov=guard      the same, down the eyes of whoever holds the tower
+## --pov=ghost      the same, down the eyes of the staged ghost, through its catch
 ## --audio=near     only sounds made within AUDIO_NEAR_METRES of the camera
 ## --seed=N         match seed; 0 means entropy               (default 20260930)
 ## --bots=N         prisoners on the ring, plus one in the tower  (default 7)
@@ -95,6 +100,14 @@ const DECK_Y: float = 23.0
 ## just never moves again. A clip drops one that has not travelled in this long.
 const STUCK_SECONDS: float = 2.5
 const STUCK_SPEED: float = 0.6
+## The chase ghost runs this much faster than the prisoner it is after. The
+## shipped ghost is three times faster and would be on them before a lens could
+## settle; this closes the ten metres over about three seconds.
+const CHASE_GHOST_SPEED_SCALE: float = 1.25
+## ghostpack: how long the pack is given to leave the line before one of the
+## prisoners behind it is ghosted and set on it.
+const PACK_GHOST_SECONDS: float = 2.0
+
 ## The walkable band. The field is dealt sideways across the track and the far
 ## edge of the deal can land inside the pit wall, where a body sticks for good.
 const LANE_BAND := Vector2(47.8, 56.8)
@@ -122,6 +135,8 @@ var _fill: OmniLight3D = null
 var _eye: Node3D = null
 var _chain: Node = null
 var _driver: Node = null
+var _victim_driver: Node = null
+var _ghost_body: PlayerController = null
 var _logged_shooter: TowerShooter = null
 var _staged: PlayerController = null
 var _built: bool = false
@@ -167,6 +182,8 @@ func _process(delta: float) -> bool:
 		_stage_chainrun()
 	if STAGE_DRIVER.is_stage(_stage) and _driver == null and _elapsed > 0.6:
 		_stage_driven()
+	if _stage == "ghostpack" and _ghost_body == null and _elapsed > PACK_GHOST_SECONDS:
+		_stage_ghostpack()
 	if _elapsed < _delay:
 		_aim_camera(_key_start)
 		return false
@@ -267,9 +284,9 @@ func _build() -> void:
 	# A guard only exists in a round: the race has nobody in the tower, so a
 	# POV clip that waits for one films an empty chamber for a minute, and a
 	# runner filmed in the race is never shot at.
-	if _stage == "decoy":
+	if _stage == "decoy" or _stage == "ghostchase":
 		_watch_the_deck()
-	if _pov != "" or STAGE_DRIVER.is_stage(_stage):
+	if _pov != "" or _is_driven_stage():
 		_controller.start_round()
 
 	if _pov == "":
@@ -378,7 +395,7 @@ func _shooter_profile() -> ShooterProfile:
 		copy.aim_error_resample_seconds = 0.15
 		copy.aim_tolerance_degrees = 45.0
 		copy.confident_range = 120.0
-	elif STAGE_DRIVER.is_stage(_stage):
+	elif _is_driven_stage():
 		# The tower watches and never fires: the staged body finishes its beat.
 		copy.shot_confidence_threshold = 1.0
 		copy.sure_shot_confidence = 1.0
@@ -424,13 +441,21 @@ func _stage_chainrun() -> void:
 	_chain.install(runners[0].controller, runners[0])
 
 
+## A stage that plays inside a round with a tower that watches and never fires.
+func _is_driven_stage() -> bool:
+	return STAGE_DRIVER.is_stage(_stage) or _stage == "ghostpack"
+
+
 ## Hand one prisoner to the stage driver; the chain stages hand it the second one.
 func _stage_driven() -> void:
-	var runners: Array[RingRunner] = _controller.get_live_runners()
+	var runners: Array[RunnerBrain] = _controller.get_live_runners()
+	if _stage == "ghostchase":
+		_stage_ghostchase(runners)
+		return
 	var wanted: int = 1 if _wants_chain() else 0
 	if runners.size() <= wanted or runners[wanted].controller == null:
 		return
-	var runner: RingRunner = runners[wanted]
+	var runner: RunnerBrain = runners[wanted]
 	var victim: PlayerController = runners[0].controller if _wants_chain() else null
 	if _stage == "ghostcatch":
 		_make_a_ghost(runner)
@@ -440,6 +465,51 @@ func _stage_driven() -> void:
 	_driver.install(runner.controller, runner, STAGE_DRIVER.steps_for(_stage, victim))
 	_staged = runner.controller
 	print("[stage] %s drives %s" % [_stage, runner.controller.name])
+
+
+## Two prisoners on the open S3 lane: the first runs it, the second is made a
+## ghost ten metres behind and runs the first down. The shove is the catch; the
+## swap is the match's own (see MatchController._swap_with_ghost), and once the
+## bodies have traded roles both go back to their brains.
+func _stage_ghostchase(runners: Array[RunnerBrain]) -> void:
+	if runners.size() < 2 or runners[0].controller == null or runners[1].controller == null:
+		return
+	var victim: RunnerBrain = runners[0]
+	var ghost: RunnerBrain = runners[1]
+	_victim_driver = STAGE_DRIVER.new()
+	_victim_driver.name = "ClipVictimDriver"
+	root.add_child(_victim_driver)
+	_victim_driver.install(victim.controller, victim, STAGE_DRIVER.steps_for("ghostchase_victim", null))
+	_staged = victim.controller
+	_make_a_ghost(ghost)
+	ghost.controller.speed_scale = CHASE_GHOST_SPEED_SCALE
+	_driver = STAGE_DRIVER.new()
+	_driver.name = "ClipStageDriver"
+	root.add_child(_driver)
+	_driver.install(ghost.controller, ghost, STAGE_DRIVER.steps_for(_stage, victim.controller))
+	_ghost_body = ghost.controller
+	# The caught prisoner is a ghost on the start line three seconds from now;
+	# its own brain, not the lane run, is what it should wake up to.
+	_controller.ghost_caught.connect(
+		func(_ghost: MatchParticipant, _caught: MatchParticipant) -> void:
+			if _victim_driver != null:
+				_victim_driver.release()
+	)
+	print("[stage] %s: %s runs, %s hunts" % [_stage, victim.controller.name, ghost.controller.name])
+
+
+## Ghost the prisoner at the back of the pack and let its own brain hunt: the
+## shipped chase, at the shipped three times pace, through the round's own field.
+func _stage_ghostpack() -> void:
+	var runners: Array[RunnerBrain] = _controller.get_live_runners()
+	if runners.size() < 2:
+		return
+	var hindmost: RunnerBrain = runners[runners.size() - 1]
+	if hindmost.controller == null:
+		return
+	_make_a_ghost(hindmost)
+	_ghost_body = hindmost.controller
+	print("[stage] %s: %s ghosted behind %d runners" % [_stage, hindmost.controller.name, runners.size() - 1])
 
 
 ## Give the tower a watch point on the open S3 deck, which the shipped guard only
@@ -456,7 +526,7 @@ func _watch_the_deck() -> void:
 
 ## Turn [param runner]'s participant into a ghost that is in the world now, not
 ## in three seconds on the start line.
-func _make_a_ghost(runner: RingRunner) -> void:
+func _make_a_ghost(runner: RunnerBrain) -> void:
 	for participant: MatchParticipant in _controller.get_participants():
 		if participant.brain != runner:
 			continue
@@ -562,7 +632,11 @@ func _log_the_rifle() -> void:
 func _log_events() -> void:
 	_controller.participant_shoved.connect(
 		func(shover: MatchParticipant, victim: MatchParticipant) -> void:
-			print("[event] %6.2f  shove  %s -> %s" % [_elapsed, shover.body.name, victim.body.name])
+			var at: Vector3 = victim.body.global_position
+			print("[event] %6.2f  shove  %s -> %s at %.1f deg r %.1f" % [
+				_elapsed, shover.body.name, victim.body.name,
+				fposmod(rad_to_deg(atan2(at.z, at.x)), 360.0), Vector2(at.x, at.z).length(),
+			])
 	)
 	_controller.participant_converted.connect(
 		func(participant: MatchParticipant) -> void:
@@ -614,6 +688,11 @@ func _ride_a_body() -> void:
 	# A shot prisoner is not freed, it is buried a hundred metres under the deck,
 	# so "still valid" is not "still worth watching": the same standing test that
 	# picks a body has to keep deciding whether to stay on it.
+	# The staged body is the one the shot is about: move onto it the moment
+	# it exists, whichever prisoner the clip was riding until then.
+	if _pov == "runner" and _staged != null and is_instance_valid(_staged) and _pov_body != _staged:
+		if _is_standing(_staged) and _eye_of(_staged) != null:
+			_pov_body = null
 	if _pov_body != null and is_instance_valid(_pov_body) and _is_standing(_pov_body):
 		var riding: Camera3D = _eye_of(_pov_body)
 		if riding != null and riding.current and not _is_stuck(_pov_body):
@@ -621,6 +700,9 @@ func _ride_a_body() -> void:
 			return
 	if _pov == "guard":
 		_ride_the_guard()
+		return
+	if _pov == "ghost":
+		_ride_the_ghost()
 		return
 	for participant: MatchParticipant in _wanted_participants():
 		var body: PlayerController = participant.body
@@ -664,6 +746,20 @@ func _ride_the_guard() -> void:
 	print("[pov] %5.2f guard %s at %v" % [_elapsed, body.name, body.global_position])
 
 
+## Ride the staged ghost, and stay on that body through the catch: it is a
+## prisoner afterwards, and the lens that saw the shove sees what it bought.
+func _ride_the_ghost() -> void:
+	if _ghost_body == null or not is_instance_valid(_ghost_body):
+		return
+	var camera: Camera3D = _eye_of(_ghost_body)
+	if camera == null:
+		return
+	camera.current = true
+	_pov_body = _ghost_body
+	_wear_the_body(_ghost_body)
+	print("[pov] %5.2f ghost %s at %v" % [_elapsed, _ghost_body.name, _ghost_body.global_position])
+
+
 ## The participants this clip is willing to ride, best first.
 func _wanted_participants() -> Array[MatchParticipant]:
 	var running: Array[MatchParticipant] = []
@@ -692,7 +788,7 @@ func _on_the_lane(body: Node3D) -> bool:
 
 ## True once the body being ridden has stopped travelling for good.
 func _is_stuck(body: PlayerController) -> bool:
-	if _pov == "guard" or body == _staged:
+	if _pov == "guard" or body == _staged or body == _ghost_body:
 		return false
 	if body.get_horizontal_speed() > STUCK_SPEED or not _on_the_lane(body):
 		_stuck_for = 0.0

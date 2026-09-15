@@ -12,6 +12,7 @@ extends Node
 ## {"do": "land"}
 ## {"do": "hold", "seconds": 2.0, "crouch": true}
 ## {"do": "shove_when", "victim": PlayerController, "range": 3.0, "timeout": 12.0}
+## {"do": "chase", "victim": PlayerController, "range": 2.5, "timeout": 10.0}   # run at them, shove in reach
 ## {"do": "ability", "slot": 2}
 ## {"do": "release"}     # hand the body back to its own brain
 ## [/codeblock]
@@ -72,6 +73,8 @@ func _physics_process(delta: float) -> void:
 			finished = _clock >= float(step.get("seconds", 1.0))
 		"shove_when":
 			finished = _shove_when(step)
+		"chase":
+			finished = _chase(step)
 		"ability":
 			_intent.ability_slot = int(step.get("slot", 2))
 			finished = true
@@ -176,6 +179,29 @@ func _shove_when(step: Dictionary) -> bool:
 	return true
 
 
+## Run flat out at the victim, wherever they are now, and tap shove the tick they
+## are in reach and in front. True once swung, or when the chase has timed out.
+func _chase(step: Dictionary) -> bool:
+	var victim: PlayerController = step.get("victim") as PlayerController
+	if victim == null or not is_instance_valid(victim) or _clock > float(step.get("timeout", 10.0)):
+		return true
+	var offset: Vector3 = victim.global_position - _body.global_position
+	offset.y = 0.0
+	var distance: float = offset.length()
+	if distance > 0.01:
+		_face(offset.normalized())
+	_intent.move_direction = Vector2(0.0, 1.0)
+	if distance > float(step.get("range", 2.5)):
+		return false
+	_intent.shove_pressed = true
+	return true
+
+
+## Give the body back to its brain now, whatever step it was on.
+func release() -> void:
+	_release()
+
+
 ## Give the body back to its brain: the bot finishes the clip on its own.
 func _release() -> void:
 	_released = true
@@ -206,6 +232,11 @@ const LANDING_2_DEGREES: float = 99.8
 const LANDING_2_Y: float = 22.95
 ## S3: flat open deck r 47-59 from 140 to 200 deg, nothing to hide behind.
 const OPEN_LANE_R: float = 52.0
+## S3 chase: the victim sets off here on the open lane and the ghost this far
+## behind it, inside the pocket slab at 138 (r 52) rather than on it.
+const CHASE_VICTIM_DEGREES: float = 149.0
+const CHASE_GHOST_DEGREES: float = 141.0
+const CHASE_GHOST_R: float = 49.5
 ## S3: the tower's own pillar hides 180-184 deg on the lane; the decoy runs out of it.
 const HIDDEN_DEGREES: float = 182.0
 ## The demon pad on the S3 lane at 148.4 deg, r 51.
@@ -227,6 +258,23 @@ static func steps_for(stage: String, victim: PlayerController) -> Array:
 				{"do": "hold", "seconds": 0.2},
 				{"do": "shove_when", "victim": victim, "range": 3.0, "timeout": 16.0},
 				{"do": "hold", "seconds": 5.0},
+			]
+		"ghostchase":
+			# The ghost, starting on the S3 lane behind the victim: run them down
+			# and shove. Its brain takes the body back afterwards, so whichever of
+			# the two is alive after the swap keeps running on its own.
+			return [
+				{"do": "place", "at": ring_point(CHASE_GHOST_DEGREES, CHASE_GHOST_R, 0.1)},
+				{"do": "hold", "seconds": 0.2},
+				{"do": "chase", "victim": victim, "range": 2.4, "timeout": 12.0},
+				{"do": "release"},
+			]
+		"ghostchase_victim":
+			# The runner being chased: down the open S3 lane, a little weave, never looking back.
+			return [
+				{"do": "place", "at": ring_point(CHASE_VICTIM_DEGREES, OPEN_LANE_R, 0.1)},
+				{"do": "lane", "from": CHASE_VICTIM_DEGREES, "to": 199.0, "r": OPEN_LANE_R, "weave": 0.35, "period": 1.3, "timeout": 12.0},
+				{"do": "release"},
 			]
 		"missstreak":
 			return [

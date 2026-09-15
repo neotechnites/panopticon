@@ -22,6 +22,7 @@ static func names() -> PackedStringArray:
 		"pit_orbit", "s1_cave", "s2_chain", "s4_run", "s5_fall", "guard_scope",
 		"lake_fall", "scope_hunt", "wall_fall", "s5_survey", "teaser_lap",
 		"s2_gap", "s3_open_lane", "pad_flight", "s3_pillar", "s4_edge", "portal",
+		"s3_chase", "s1_pack",
 	])
 
 
@@ -61,6 +62,10 @@ static func get_shot(shot_name: String) -> Dictionary:
 			return _shot(shot_name, _s4_edge())
 		"portal":
 			return _shot(shot_name, _portal())
+		"s3_chase":
+			return _shot(shot_name, _s3_chase())
+		"s1_pack":
+			return _shot(shot_name, _s1_pack())
 		"teaser_lap":
 			var lap: Dictionary = _shot(shot_name, _teaser_lap())
 			# Flown, not aimed: the lens points where the camera is going until
@@ -252,6 +257,26 @@ static func _portal() -> Array:
 	return [
 		_key(0.0, 336.0, 47.0, 2.6, 344.0, 52.0, 1.0, 68.0),
 		_key(8.0, 337.0, 47.2, 2.4, 344.5, 52.0, 1.1, 66.0),
+	]
+
+
+## On the S3 deck's inner edge ahead of the ghost chase, looking back down the
+## open lane: the runner comes at the lens with the ghost closing behind, the
+## shove lands a few metres out, and the lens settles on the one left standing.
+static func _s3_chase() -> Array:
+	return [
+		_key(0.0, 194.0, 46.5, 2.0, 168.0, 52.0, 0.9, 64.0),
+		_key(4.0, 194.5, 46.5, 1.9, 178.0, 52.0, 0.9, 62.0),
+		_key(8.0, 195.0, 46.5, 1.8, 186.0, 52.0, 0.9, 60.0),
+	]
+
+
+## From the S1 spires looking back at the start pocket: the pack comes off the
+## line at the lens, and the ghost comes through it.
+static func _s1_pack() -> Array:
+	return [
+		_key(0.0, 54.0, 45.0, 3.2, 24.0, 52.0, 0.6, 60.0),
+		_key(8.0, 53.0, 45.0, 3.0, 36.0, 52.0, 0.6, 58.0),
 	]
 
 
