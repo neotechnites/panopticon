@@ -499,6 +499,7 @@ func _ready() -> void:
 		push_error("PrisonerAvatar cannot find the animation \"%s\"; the body will not move." % run_clip)
 		set_process(false)
 		return
+	_keep_the_run_cycle_looping()
 
 	if not animation.has_animation(idle_clip):
 		_build_idle_animation()
@@ -559,6 +560,23 @@ func _ready() -> void:
 	animation.play(run_clip)
 	_running = true
 	_park()
+
+
+## The run cycle loops, whatever the importer decided.
+##
+## The glTF's [code]Run[/code] clip is a 0.7 s cycle that the scene importer
+## brings in as a ONE-SHOT (no loop flag in the file, none asked for in the
+## .import), and [method _process] only calls [method AnimationPlayer.play] on a
+## transition. So a body that kept running for longer than one cycle froze on
+## the clip's last frame and slid along the deck -- every bot in a clip longer
+## than a second, and every prisoner on a long straight in the game. Ryan, on
+## the pack shot: "they stop animating and start just floating". The
+## [Animation] is one shared resource across every instance of the model, so
+## setting it here once makes it loop for every body, this one included.
+func _keep_the_run_cycle_looping() -> void:
+	var run: Animation = animation.get_animation(run_clip)
+	if run != null and run.loop_mode != Animation.LOOP_LINEAR:
+		run.loop_mode = Animation.LOOP_LINEAR
 
 
 ## Never leave a body that is going away holding the view.
