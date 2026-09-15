@@ -1,13 +1,23 @@
 #!/usr/bin/env bash
 # Capture and render ONE shot of a project on the PC, from its entry in the brief.
 #
-#   tools/content/shot.sh <project> <n>
+#   tools/content/shot.sh <project> <n> [--crosshair]
 #
 # Entry fields it reads: capture (run_clip args) or still (shot.gd args), seconds,
 # in (seconds into the take the cut starts), gap, at (git ref for a before/after
-# pair), hold (seconds a still is held), takes and motion (gate overrides), and
-# file (a name: the same cut is also written on its own, in the brief's aspect,
-# to final\<file>.mp4 -- a shot handed over as a clip, not a timeline).
+# pair), hold (seconds a still is held), takes, motion and freeze (gate
+# overrides: motion is the floor, freeze the stretches allowed, or "waive" for a
+# fixed lens Ryan has passed), hud (crosshair | on; --crosshair on the command
+# line is the same as hud: crosshair -- a guard POV keeps the crosshair, nothing
+# else is drawn on any shot), and file (a name: the same cut is also written on
+# its own, in the brief's aspect, to final\<file>.mp4 -- a shot handed over as a
+# clip, not a timeline).
+#
+# A short is filmed PORTRAIT: the viewport is 1080x1920 through a temporary
+# override.cfg in the scratch checkout (C:\dev\verify, never the real repo) and
+# the lens composes for it (a Camera3D fov is the vertical one); nothing is
+# filmed landscape and cropped. Ryan: "the frame should consider the mobile
+# viewing port".
 # Output on the PC, under content\<project>\ (layout in lib.sh): cuts\NN.mp4, the
 # master cut to seconds+gap with game audio muted over the gap, plus final\<file>.mp4
 # when the entry has a file: line. Takes are captured to takes\NN_tK.avi and
@@ -18,8 +28,9 @@
 set -euo pipefail
 source "$(dirname "$0")/lib.sh"
 
-PROJECT="${1:?usage: tools/content/shot.sh <project> <n>}"
-N="${2:?usage: tools/content/shot.sh <project> <n>}"
+PROJECT="${1:?usage: tools/content/shot.sh <project> <n> [--crosshair]}"
+N="${2:?usage: tools/content/shot.sh <project> <n> [--crosshair]}"
+CROSSHAIR=0; [ "${3:-}" = "--crosshair" ] && CROSSHAIR=1
 BRIEF=$(brief_path "${PROJECT}")
 NAME=$(basename "${BRIEF}" .md)
 KIND=$(brief_head "${BRIEF}" kind short)
@@ -38,6 +49,9 @@ TAKES_MAX=$(brief_field "${BRIEF}" "${N}" takes "${TAKES_MAX}")
 # A pinned seed plays the same take every time; retrying it buys nothing.
 [[ "${CAPTURE}" == *--seed=* ]] && TAKES_MAX=1
 MOTION_MIN=$(brief_field "${BRIEF}" "${N}" motion "${MOTION_MIN}")
+FREEZE_ALLOWED=$(brief_field "${BRIEF}" "${N}" freeze 0)   # stretches frozen >= 0.75 s allowed; "waive" skips the gate
+HUD=$(brief_field "${BRIEF}" "${N}" hud)
+[ "${CROSSHAIR}" = 1 ] && HUD=crosshair
 SAID=$(brief_field "${BRIEF}" "${N}" said)
 FILE=$(brief_field "${BRIEF}" "${N}" file)      # also deliver this cut as final\<file>.mp4
 ASPECT=$(brief_head "${BRIEF}" aspect "$([ "${KIND}" = devlog ] && echo 16:9 || echo 9:16)")
@@ -51,6 +65,8 @@ else
   MASTER="scale=1280:720"; GATE_SCALE="scale=160:90"
 fi
 [ -n "${CAPTURE}${STILL}" ] || die "shot ${N} of ${NAME} has no capture: or still: line"
+# No HUD on any shot unless the entry asks: hud: crosshair (a guard POV) or hud: on.
+if [ -n "${HUD}" ] && [[ "${CAPTURE}" != *--hud=* ]]; then CAPTURE="${CAPTURE} --hud=${HUD}"; fi
 echo "shot ${NN}: ${SAID}"
 
 pc_layout "${DIR}"
@@ -88,10 +104,18 @@ best_take() {  # best_take <prefix> <seconds>
     local motion freeze
     motion=$(echo "${report}" | sed -n 's/.*motion=\([0-9.]*\).*/\1/p')
     freeze=$(echo "${report}" | sed -n 's/.*freeze=\([0-9]*\).*/\1/p')
-    if [ "${freeze:-1}" = 0 ] && python3 -c "import sys; sys.exit(0 if float('${motion:-0}') >= ${MOTION_MIN} else 1)"; then
+    if [ "${FREEZE_ALLOWED}" = waive ]; then
+      # A fixed lens on a still body fails by construction; Ryan passed the shot.
+      pc <<EOF
+Add-Content -Path '${DIR}\\takes\\${tag}.txt' -Value 'OVERRIDE: gate waived by the brief (freeze: waive) for this fixed-camera shot'
+EOF
+      echo "  take ${tag}: gate waived by the brief" >&2
       echo "${tag}"; return
     fi
-    if [ "${freeze:-1}" = 0 ] && python3 -c "import sys; sys.exit(0 if float('${motion:-0}') > ${chosen_motion} else 1)"; then
+    if [ "${freeze:-1}" -le "${FREEZE_ALLOWED}" ] && python3 -c "import sys; sys.exit(0 if float('${motion:-0}') >= ${MOTION_MIN} else 1)"; then
+      echo "${tag}"; return
+    fi
+    if [ "${freeze:-1}" -le "${FREEZE_ALLOWED}" ] && python3 -c "import sys; sys.exit(0 if float('${motion:-0}') > ${chosen_motion} else 1)"; then
       chosen="${tag}"; chosen_motion="${motion}"
     fi
     echo "  take ${tag} failed the gate (${report}); retrying with seed $((seed + k))" >&2
