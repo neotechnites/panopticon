@@ -114,15 +114,27 @@ Per-shot lines: `capture:` (run_clip args: `--shot`, `--pov`, `--stage`,
 into the take the cut starts); `gap:`; `caption:`; `at: <git ref>` for a
 before/after pair (the same capture at that ref and at the branch, back to back);
 `ref: <git ref>` to film that one shot at another ref with the capture tools it
-has (the worktree comes back to the branch afterwards); `takes:` and `motion:`
-to override the gate for that shot.
+has (the worktree comes back to the branch afterwards); `takes:`, `motion:` and
+`freeze:` (a count, or `waive` for a fixed lens Ryan has passed) to override
+the gate for that shot; `hud: crosshair` for a guard POV (`shot.sh ... --crosshair`
+is the same).
 
 Rules baked in: no hook text, no title cards. A caption is the one line a player
-would type. A 9:16 short is FILMED 9:16 -- the viewport is 1080x1920 and every
-lens composes for a phone (the action in the middle of the height); nothing is
-captured landscape and cropped. No HUD on any shot unless the capture says
-`--hud=on`. A devlog (`kind: devlog`) gets 16:9, a 1.5 s working slate before
-each shot naming it, and a Resolve project when Resolve is installed.
+would type. A 9:16 short is FILMED 9:16 -- the viewport is 1080x1920 through an
+override.cfg in the scratch checkout and every lens composes for a phone (a
+Camera3D fov is the vertical one; the action in the middle of the height);
+nothing is captured landscape and cropped. No HUD on any shot unless the entry
+says `hud: crosshair` (the one element a guard POV keeps) or `hud: on`. A devlog
+(`kind: devlog`) gets 16:9, a 1.5 s working slate before each shot naming it,
+and a Resolve project when Resolve is installed.
+
+`capture:` lines name a stage: `--stage=NAME` is a plugin under
+`tools/capture/stages/` (the shove short's shots are the examples: pack_sniped,
+guard_alone, faceshove, cover_both, melee, conga, lavaparkour) or one of the
+stages in `tools/capture/stage_driver.gd`; `--set=key=value;...` turns a
+plugin's dials; `--pads=off` / `--traps=off` disarm the ring for the clip. The
+vocabulary is in `tools/capture/stages/README.md`; every stage is smoked
+headless on the Mac before it is filmed.
 
 ## The take gate
 
