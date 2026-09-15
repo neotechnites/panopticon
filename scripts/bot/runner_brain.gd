@@ -14,6 +14,7 @@ signal state_changed(previous: State, current: State)
 const TRAVEL_SIGN: float = 1.0
 const GATE_THROUGH_METRES: float = 2.5
 const GATE_ARRIVAL_METRES: float = 1.5
+const SEAT_SEED_BASE: int = 20260914
 const RAMP_ARRIVAL_METRES: float = 4.0
 const CORNER_METRES: float = 1.0
 const ALIGNED_RADIANS: float = 0.05
@@ -65,7 +66,8 @@ enum Cross { LINE_UP, TAKEOFF, FLY }
 @export var rules: MatchRules
 ## The seat this brain plays; its re-plan tick is phased by it. Set by [MatchController].
 var seat_index: int = 0
-## Seeds the perception guesses when non-zero; the harness sets it, the game leaves 0.
+## Seeds the perception guesses and the dares when non-zero; 0 seeds by seat, so a
+## round replays the same on every machine. The harness sets it per stream.
 var perception_seed: int = 0
 
 var _centre: Vector3 = Vector3.ZERO
@@ -179,8 +181,9 @@ func _arm(
 	_play = RunnerProfile.resolve(rules, runner_profile)
 	if _play == null:
 		_play = RunnerProfile.new()
-	_perception.configure(controller, _play, rules, perception_seed)
-	_rng = _play.make_rng(perception_seed)
+	var seed: int = perception_seed if perception_seed != 0 else SEAT_SEED_BASE + seat_index
+	_perception.configure(controller, _play, rules, seed)
+	_rng = _play.make_rng(seed)
 	_bake = RingBake.ensure(RingBake.level_root_of(controller), controller.profile)
 	_path.clear()
 	_has_path = false

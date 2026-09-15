@@ -189,6 +189,8 @@ func _ready() -> void:
 	var map: RID = get_navigation_map()
 	NavigationServer3D.map_set_use_async_iterations(map, false)
 	NavigationServer3D.region_set_use_async_iterations(get_rid(), false)
+	if _polygons <= 0 and _bake_root != null:
+		bake_from(_bake_root)
 	NavigationServer3D.map_force_update(map)
 
 
