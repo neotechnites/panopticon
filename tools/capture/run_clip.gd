@@ -14,8 +14,13 @@ extends SceneTree
 ## --seconds=F      how long to fly it; 0 means the shot's own duration
 ## --delay=F        seconds held on the first key first, so the match catches up
 ## --look=social    lift the ring's own grade until rock reads on a phone
-## --stage=NAME     staged action: firefight (the tower snap-shoots) or
-##                  chainrun (one prisoner takes the S2 boulder chain)
+## --stage=NAME     staged action: firefight (the tower snap-shoots),
+##                  chainrun (one prisoner takes the S2 boulder chain),
+##                  shovecatch / ghostcatch (a second prisoner, or a ghost, shoves
+##                  the chain runner mid-jump into the lava), missstreak (a sloppy
+##                  guard empties the rifle at a weaving runner), decoy (a
+##                  hologram eats the shot), padflight (a demon pad flight, then
+##                  the bot finds cover), lavadeath (a runner hops into S4 lava)
 ## --pov=runner     film down a bot-driven prisoner's own eyes, HUD on, no path
 ## --pov=guard      the same, down the eyes of whoever holds the tower
 ## --audio=near     only sounds made within AUDIO_NEAR_METRES of the camera
@@ -47,6 +52,7 @@ extends SceneTree
 
 const SHOTS := preload("res://tools/capture/shot_paths.gd")
 const CHAIN_STAGE := preload("res://tools/capture/chain_stage.gd")
+const STAGE_DRIVER := preload("res://tools/capture/stage_driver.gd")
 const MATCH_SCENE: String = "res://scenes/match/match.tscn"
 
 ## Layer 2 is the owner-hidden layer every camera in the game clears; a camera
@@ -115,6 +121,9 @@ var _seat: BotTowerSeat = null
 var _fill: OmniLight3D = null
 var _eye: Node3D = null
 var _chain: Node = null
+var _driver: Node = null
+var _logged_shooter: TowerShooter = null
+var _staged: PlayerController = null
 var _built: bool = false
 var _done: bool = false
 var _exit_code: int = EXIT_OK
@@ -153,8 +162,11 @@ func _process(delta: float) -> bool:
 		return false
 
 	_elapsed += delta
-	if _stage == "chainrun" and _chain == null and _elapsed > 0.5:
+	_log_the_rifle()
+	if _wants_chain() and _chain == null and _elapsed > 0.5:
 		_stage_chainrun()
+	if STAGE_DRIVER.is_stage(_stage) and _driver == null and _elapsed > 0.6:
+		_stage_driven()
 	if _elapsed < _delay:
 		_aim_camera(_key_start)
 		return false
@@ -235,8 +247,11 @@ func _build() -> void:
 		_seat.name = "ClipTowerSeat"
 		root.add_child(_seat)
 		_seat.install(_controller, _shooter_profile(), seed_value)
-	else:
-		_disarm_traps(match_root, ^"Sections/S2_LavaShelf")
+	if _stage == "chainrun":
+		_disarm_traps(^"Sections/S2_LavaShelf")
+	elif _wants_chain():
+		# Only the entry bank: the runner must reach the chain, and then must die.
+		_disarm_traps(^"Sections/S2_LavaShelf", "TrapVolume")
 	# A clip outlives the match it is filming: a won match freezes every body,
 	# and a frozen ring is not b-roll.
 	_controller.match_won.connect(func(_winner: MatchParticipant) -> void: _controller.restart())
@@ -247,11 +262,14 @@ func _build() -> void:
 		func(_outcome: MatchController.Outcome) -> void:
 			_controller.start_round.call_deferred()
 	)
+	_log_events()
 	_controller.start_match()
 	# A guard only exists in a round: the race has nobody in the tower, so a
 	# POV clip that waits for one films an empty chamber for a minute, and a
 	# runner filmed in the race is never shot at.
-	if _pov != "":
+	if _stage == "decoy":
+		_watch_the_deck()
+	if _pov != "" or STAGE_DRIVER.is_stage(_stage):
 		_controller.start_round()
 
 	if _pov == "":
@@ -271,6 +289,9 @@ func _make_it_bots_only(match_root: Node, bots: int) -> void:
 	# retune the rules the next thing in this process reads.
 	var rules: MatchRules = _controller.get_rules().duplicate() as MatchRules
 	rules.prisoner_count = maxi(bots, 1)
+	if _stage == "missstreak":
+		# Fifteen misses fit in a clip only if the rifle comes back fast.
+		rules.base_reload_seconds = 0.7
 	_controller.rules = rules
 
 	# The placeholder music loop is still feeding the audio server when the
@@ -336,7 +357,7 @@ func _make_camera() -> Camera3D:
 func _shooter_profile() -> ShooterProfile:
 	var profile: ShooterProfile = load(BotMatchRunner.SHOOTER_PROFILE_PATH) as ShooterProfile
 	var copy: ShooterProfile = profile.duplicate() as ShooterProfile
-	if _stage == "firefight":
+	if _stage == "firefight" or _stage == "decoy":
 		# The shipped guard takes most of a clip to decide. This one does not:
 		# it is the same brain with its patience removed, on a throwaway copy.
 		copy.scan_yaw_rate = 2.4
@@ -344,6 +365,23 @@ func _shooter_profile() -> ShooterProfile:
 		copy.shot_confidence_threshold = 0.15
 		copy.aim_error_degrees = 0.3
 		copy.confident_range = 120.0
+		# A hologram is only a clip if the guard falls for it.
+		copy.decoy_suspicion_seconds = 0.0
+	elif _stage == "missstreak":
+		# Quick to fire and bad at it.
+		copy.scan_yaw_rate = 2.4
+		copy.reaction_seconds = 0.05
+		copy.reaction_floor_seconds = 0.02
+		copy.shot_confidence_threshold = 0.0
+		copy.sure_shot_confidence = 0.0
+		copy.aim_error_degrees = 6.0
+		copy.aim_error_resample_seconds = 0.15
+		copy.aim_tolerance_degrees = 45.0
+		copy.confident_range = 120.0
+	elif STAGE_DRIVER.is_stage(_stage):
+		# The tower watches and never fires: the staged body finishes its beat.
+		copy.shot_confidence_threshold = 1.0
+		copy.sure_shot_confidence = 1.0
 	return copy
 
 
@@ -371,6 +409,10 @@ func _light_for_social(match_root: Node) -> void:
 		root.add_child(_fill)
 
 
+func _wants_chain() -> bool:
+	return _stage == "chainrun" or _stage == "shovecatch" or _stage == "ghostcatch"
+
+
 ## Put the first living prisoner on the S2 chain instead of on the lane.
 func _stage_chainrun() -> void:
 	var runners: Array[RingRunner] = _controller.get_live_runners()
@@ -382,14 +424,59 @@ func _stage_chainrun() -> void:
 	_chain.install(runners[0].controller, runners[0])
 
 
-## Stop the lava under [param section] killing the staged body mid-leap.
-func _disarm_traps(match_root: Node, section: NodePath) -> void:
-	var node: Node = match_root.get_node_or_null(section)
+## Hand one prisoner to the stage driver; the chain stages hand it the second one.
+func _stage_driven() -> void:
+	var runners: Array[RingRunner] = _controller.get_live_runners()
+	var wanted: int = 1 if _wants_chain() else 0
+	if runners.size() <= wanted or runners[wanted].controller == null:
+		return
+	var runner: RingRunner = runners[wanted]
+	var victim: PlayerController = runners[0].controller if _wants_chain() else null
+	if _stage == "ghostcatch":
+		_make_a_ghost(runner)
+	_driver = STAGE_DRIVER.new()
+	_driver.name = "ClipStageDriver"
+	root.add_child(_driver)
+	_driver.install(runner.controller, runner, STAGE_DRIVER.steps_for(_stage, victim))
+	_staged = runner.controller
+	print("[stage] %s drives %s" % [_stage, runner.controller.name])
+
+
+## Give the tower a watch point on the open S3 deck, which the shipped guard only
+## catches at the edge of its S2 sweep; the hologram has to be looked at to be shot.
+func _watch_the_deck() -> void:
+	var marker := Marker3D.new()
+	marker.name = "ClipWatchS3"
+	marker.add_to_group(TowerShooter.WATCH_GROUP)
+	root.add_child(marker)
+	# First in tree order is first on the guard's scan: it looks here before the ring's own points.
+	root.move_child(marker, 0)
+	marker.global_position = SHOTS.ring_point(STAGE_DRIVER.HIDDEN_DEGREES - 16.0, 52.0, 1.0)
+
+
+## Turn [param runner]'s participant into a ghost that is in the world now, not
+## in three seconds on the start line.
+func _make_a_ghost(runner: RingRunner) -> void:
+	for participant: MatchParticipant in _controller.get_participants():
+		if participant.brain != runner:
+			continue
+		_controller._make_ghost(participant)
+		participant.respawn_hold_remaining = 0.0
+		_controller._finish_respawn(participant)
+		participant.ghost_grace_remaining = 0.0
+		return
+
+
+## Stop the lava under [param section] killing the staged body mid-leap; [param only]
+## names one trap to disarm, or every one when empty.
+func _disarm_traps(section: NodePath, only: String = "") -> void:
+	var node: Node = _controller.arena.get_node_or_null(section) if _controller.arena != null else null
 	if node == null:
+		printerr("No %s under the arena; nothing disarmed." % section)
 		return
 	for child: Node in node.get_children():
 		var area: Area3D = child as Area3D
-		if area != null:
+		if area != null and (only.is_empty() or child.name == only):
 			area.monitoring = false
 
 
@@ -455,6 +542,44 @@ func _announce(shot: Dictionary) -> void:
 	])
 	if not out_dir.is_empty():
 		print("clip: %s" % out_dir.path_join("%s.avi" % shot["name"]))
+
+
+## Print the tower's shots once a brain holds the rifle; a take is judged off the log.
+func _log_the_rifle() -> void:
+	if _seat == null:
+		return
+	var shooter: TowerShooter = _seat.get_active_shooter()
+	if shooter == null or shooter == _logged_shooter:
+		return
+	_logged_shooter = shooter
+	shooter.shot_taken.connect(
+		func(confidence: float) -> void:
+			print("[event] %6.2f  shot  confidence %.2f" % [_elapsed, confidence])
+	)
+
+
+## Print the match's beats, so a take can be judged off its log.
+func _log_events() -> void:
+	_controller.participant_shoved.connect(
+		func(shover: MatchParticipant, victim: MatchParticipant) -> void:
+			print("[event] %6.2f  shove  %s -> %s" % [_elapsed, shover.body.name, victim.body.name])
+	)
+	_controller.participant_converted.connect(
+		func(participant: MatchParticipant) -> void:
+			var at: Vector3 = participant.body.global_position
+			print("[event] %6.2f  out  %s  %s at %.1f deg r %.1f" % [
+				_elapsed, participant.body.name, participant.death_cause,
+				fposmod(rad_to_deg(atan2(at.z, at.x)), 360.0), Vector2(at.x, at.z).length(),
+			])
+	)
+	_controller.ghost_caught.connect(
+		func(ghost: MatchParticipant, caught: MatchParticipant) -> void:
+			print("[event] %6.2f  catch  %s took %s" % [_elapsed, ghost.body.name, caught.body.name])
+	)
+	_controller.runner_ghosted.connect(
+		func(participant: MatchParticipant) -> void:
+			print("[event] %6.2f  ghosted  %s" % [_elapsed, participant.body.name])
+	)
 
 
 ## Stop every voice before the engine tears the tree down: a stream still
@@ -547,6 +672,8 @@ func _wanted_participants() -> Array[MatchParticipant]:
 	# running for the whole match and is the last thing worth filming.
 	running.sort_custom(
 		func(a: MatchParticipant, b: MatchParticipant) -> bool:
+			if a.body == _staged or b.body == _staged:
+				return a.body == _staged
 			return a.body.get_horizontal_speed() > b.body.get_horizontal_speed()
 	)
 	return running
@@ -560,7 +687,7 @@ func _on_the_lane(body: Node3D) -> bool:
 
 ## True once the body being ridden has stopped travelling for good.
 func _is_stuck(body: PlayerController) -> bool:
-	if _pov == "guard":
+	if _pov == "guard" or body == _staged:
 		return false
 	if body.get_horizontal_speed() > STUCK_SPEED or not _on_the_lane(body):
 		_stuck_for = 0.0

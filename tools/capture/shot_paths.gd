@@ -21,6 +21,7 @@ static func names() -> PackedStringArray:
 	return PackedStringArray([
 		"pit_orbit", "s1_cave", "s2_chain", "s4_run", "s5_fall", "guard_scope",
 		"lake_fall", "scope_hunt", "wall_fall", "s5_survey", "teaser_lap",
+		"s2_gap", "s3_open_lane", "pad_flight", "s3_pillar", "s4_edge",
 	])
 
 
@@ -48,6 +49,16 @@ static func get_shot(shot_name: String) -> Dictionary:
 			return _shot(shot_name, _wall_fall())
 		"s5_survey":
 			return _shot(shot_name, _s5_survey())
+		"s2_gap":
+			return _shot(shot_name, _s2_gap())
+		"s3_open_lane":
+			return _shot(shot_name, _s3_open_lane())
+		"pad_flight":
+			return _shot(shot_name, _pad_flight())
+		"s3_pillar":
+			return _shot(shot_name, _s3_pillar())
+		"s4_edge":
+			return _shot(shot_name, _s4_edge())
 		"teaser_lap":
 			var lap: Dictionary = _shot(shot_name, _teaser_lap())
 			# Flown, not aimed: the lens points where the camera is going until
@@ -183,6 +194,52 @@ static func _wall_fall() -> Array:
 		_key(0.0, 288.0, 49.5, EYE, 300.0, 57.3, -0.3, 50.0),
 		_key(6.0, 288.5, 49.5, EYE, 300.5, 57.3, 2.4, 50.0),
 		_key(12.0, 289.0, 49.5, EYE, 301.0, 57.3, 5.8, 50.0),
+	]
+
+
+## From the S2 bank, held on the second gap of the boulder chain: the shove.
+static func _s2_gap() -> Array:
+	return [
+		_key(0.0, 87.0, 50.6, 2.2, 95.6, 55.0, 0.9, 62.0),
+		_key(4.0, 88.5, 50.8, 2.0, 95.6, 55.4, 0.8, 58.0),
+		_key(8.0, 90.0, 51.0, 1.9, 95.6, 55.8, 0.8, 56.0),
+	]
+
+
+## Tracking a runner down the open S3 deck from its outer edge, tower behind.
+static func _s3_open_lane() -> Array:
+	var keys: Array = []
+	for step: int in 6:
+		var angle: float = 150.0 + float(step) * 9.0
+		keys.append(_key(float(step) * 2.5, angle, 58.0, 3.0, angle + 5.0, 50.0, 0.9, 68.0))
+	return keys
+
+
+## Beside the demon pad on the S3 lane at 148 deg, panning with the flight.
+static func _pad_flight() -> Array:
+	return [
+		_key(0.0, 142.0, 47.0, 2.4, 149.0, 51.5, 1.0, 72.0),
+		_key(2.5, 144.0, 47.0, 2.6, 155.0, 51.5, 3.0, 72.0),
+		_key(5.0, 147.0, 47.0, 2.8, 162.0, 52.0, 1.2, 72.0),
+		_key(8.0, 150.0, 47.0, 2.8, 168.0, 52.0, 0.8, 72.0),
+	]
+
+
+## From the S3 deck's outer edge behind the hidden runner, looking down the lane
+## the hologram runs, tower to the right.
+static func _s3_pillar() -> Array:
+	return [
+		_key(0.0, 187.0, 56.5, 1.9, 176.0, 52.0, 0.9, 64.0),
+		_key(4.0, 186.5, 56.5, 1.8, 170.0, 52.0, 0.9, 60.0),
+		_key(8.0, 186.0, 56.5, 1.8, 164.0, 52.0, 0.9, 58.0),
+	]
+
+
+## Low on the S4 lane at 226 deg, looking down at the outer lava strip.
+static func _s4_edge() -> Array:
+	return [
+		_key(0.0, 225.0, 51.0, 1.9, 233.0, 56.0, 0.3, 66.0),
+		_key(6.0, 226.5, 51.0, 1.8, 236.0, 57.5, 0.2, 62.0),
 	]
 
 

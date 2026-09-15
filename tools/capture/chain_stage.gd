@@ -10,24 +10,19 @@ extends Node
 
 ## The chain's centre line, and the landings on it: bearing, top y, half length.
 const CHAIN_RADIUS: float = 54.7
-const LANDING_DEGREES: PackedFloat32Array = PackedFloat32Array(
-	[82.6, 91.5, 99.8, 108.6, 117.1, 126.0]
-)
-const LANDING_TOP_Y: PackedFloat32Array = PackedFloat32Array(
-	[23.05, 23.35, 22.95, 23.30, 23.15, 22.90]
-)
-const LANDING_HALF_METRES: PackedFloat32Array = PackedFloat32Array(
-	[1.72, 1.65, 1.72, 1.68, 1.65, 1.72]
-)
+const LANDING_DEGREES: Array[float] = [82.6, 91.5, 99.8, 108.6, 117.1, 126.0]
+const LANDING_TOP_Y: Array[float] = [23.05, 23.35, 22.95, 23.30, 23.15, 22.90]
+const LANDING_HALF_METRES: Array[float] = [1.72, 1.65, 1.72, 1.68, 1.65, 1.72]
 ## Where the run starts and finishes, on the deck either side of the river.
 const ENTRY_DEGREES: float = 76.5
 const EXIT_DEGREES: float = 130.0
 const BANK_Y: float = 23.0
 
+const DRIVER := preload("res://tools/capture/stage_driver.gd")
+
 const GATHER_SPEED: float = 2.6      ## crossing a landing, before the leap
 const LEAP_SPEED: float = 8.0        ## horizontal speed carried over a gap
 const EDGE_ARRIVAL_METRES: float = 0.35
-const FALLBACK_GRAVITY: float = 22.0
 
 var _body: PlayerController = null
 var _brain: Node = null
@@ -56,7 +51,7 @@ func _physics_process(_delta: float) -> void:
 	_body.set_intent(intent)
 
 	if not _body.is_on_floor():
-		_airborne = true
+		# Only a leap counts as airborne: the drop from the placement height does not.
 		return
 	if _airborne:
 		# Landed: the next landing becomes the one after the one just reached.
@@ -91,19 +86,11 @@ func _walk_to(target: Vector3) -> void:
 
 ## Throw the body at [param target] so it arrives there, not near there.
 func _leap_to(target: Vector3) -> void:
-	var here: Vector3 = _body.global_position
-	var flat: Vector3 = Vector3(target.x - here.x, 0.0, target.z - here.z)
-	var distance: float = flat.length()
-	if distance < 0.001:
+	var velocity: Vector3 = DRIVER.launch_velocity(_body, target, LEAP_SPEED)
+	if velocity == Vector3.ZERO:
 		return
-	var flight: float = distance / LEAP_SPEED
-	var gravity: float = FALLBACK_GRAVITY
-	if _body.profile != null:
-		gravity = _body.profile.gravity * _body.profile.gravity_scale
-	var direction: Vector3 = flat / distance
-	var rise: float = (target.y - here.y + 0.5 * gravity * flight * flight) / flight
-	_face(direction)
-	_body.launch(Vector3(direction.x * LEAP_SPEED, rise, direction.z * LEAP_SPEED), flight * 0.9)
+	_face(Vector3(velocity.x, 0.0, velocity.z).normalized())
+	_body.launch(velocity, DRIVER.flight_seconds(_body, target, LEAP_SPEED) * 0.9)
 	_airborne = true
 
 
