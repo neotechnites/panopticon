@@ -6,7 +6,7 @@ extends Node
 ## [b]The gap this fills, stated plainly[/b]
 ##
 ## [MatchController] moves the rifle onto the seat holder's head and silences
-## their [RingRunner], because a body in the tower does not run laps. It does
+## their [RunnerBrain], because a body in the tower does not run laps. It does
 ## not give them anything to aim with: the shipped match has a human in the
 ## tower, and [code]scenes/bot/tower_shooter.tscn[/code] is a whole body of its
 ## own rather than a brain the match can hand to an existing participant. So a

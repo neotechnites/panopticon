@@ -85,7 +85,7 @@ extends Node3D
 ## flag is the same thing [method PlayerController._try_jump] and
 ## [method PlayerController._update_crouch] themselves rule on. And, as with the
 ## slide, that is what makes a bot's jump animate identically to a human's --
-## [RingRunner] sets [member MoveIntent.jump_pressed] and a keyboard sets
+## [RunnerBrain] sets [member MoveIntent.jump_pressed] and a keyboard sets
 ## [member MoveIntent.jump_pressed], and neither this node nor [PlayerController]
 ## can tell which one did.
 ##
@@ -689,7 +689,7 @@ func _process(delta: float) -> void:
 	# only one of the three special poses that does not change the collision
 	# capsule, so where it disagrees with one that does, it loses. Like them it
 	# is asked for and never inferred -- from the floor flag and the jump
-	# signal, both of which read the same way whether a keyboard or a RingRunner
+	# signal, both of which read the same way whether a keyboard or a RunnerBrain
 	# raised MoveIntent.jump_pressed.
 	if _has_jump and _is_airborne():
 		if not _in_air:

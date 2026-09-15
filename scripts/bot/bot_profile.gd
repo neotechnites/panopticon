@@ -1,12 +1,12 @@
 class_name BotProfile
 extends Resource
 
-## Every tunable number a [RingRunner] uses.
+## Every tunable number a [RunnerBrain] uses.
 ##
 ## Same doctrine as [MovementProfile]: nothing about how the bot behaves may be
 ## hard-coded in the brain, because the project answers design questions by
 ## sweeping variants of a resource in headless matches. A constant buried in
-## [RingRunner] is a constant that can never be swept, and "how fast does a
+## [RunnerBrain] is a constant that can never be swept, and "how fast does a
 ## runner cross the open ground at r=51" is exactly the kind of question this
 ## game needs to be able to ask a hundred times with different numbers.
 ##
@@ -32,7 +32,7 @@ extends Resource
 ## and pit shaft is also placed clear of.
 ##
 ## [b]It is no longer "where the track is" on a map with levels.[/b] Three decks
-## means three lanes, and [RingRunner] reads them off the [RingRoute] level by
+## means three lanes, and [RunnerBrain] reads them off the [RingRoute] level by
 ## level. What is left here is the lane a runner uses when it is armed with no
 ## route at all -- a flat map, or a test fixture -- and the tie-break the cover
 ## search prefers.
@@ -78,6 +78,6 @@ extends Resource
 ## r=47.5 and a runner holding r=44.5 passes it 3 m away -- a distance test
 ## would fire late or not at all, and a runner that missed it would keep going
 ## into the 4 m LapDivider wall at 0 degrees and grind there forever. See
-## [RingRunner].
+## [RunnerBrain].
 @export_range(0.1, 10.0, 0.1) var arrival_tolerance: float = 1.5
 

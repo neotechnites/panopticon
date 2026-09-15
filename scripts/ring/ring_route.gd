@@ -45,12 +45,12 @@ extends Node3D
 ## known.
 ##
 ## [b]It never steers and it never scores.[/b] This is a lookup table with the
-## arithmetic of the route on it. [MatchLapTracker] scores off it, [RingRunner]
+## arithmetic of the route on it. [MatchLapTracker] scores off it, [RunnerBrain]
 ## steers off it, [MatchHUD] reads metres off it, and none of them holds a second
 ## opinion about where the run goes.
 
 ## Direction the lap runs, as a sign on swept angle. It must agree with
-## [constant RingRunner.TRAVEL_SIGN]; the two are separate constants rather than
+## [constant RunnerBrain.TRAVEL_SIGN]; the two are separate constants rather than
 ## one because the ring script and the bot script would otherwise have to import
 ## each other, and [code]tests/test_levels.gd[/code] asserts they match.
 const TRAVEL_SIGN: float = 1.0
@@ -123,7 +123,7 @@ func exit_angle(index: int) -> float:
 ## always in the direction of travel.
 ##
 ## Wrapped into [code][0, TAU)[/code] exactly as [MatchLapTracker] and
-## [RingRunner] used to do it against the two markers: the long way round
+## [RunnerBrain] used to do it against the two markers: the long way round
 ## whenever the short way is behind us, which for an entry and an exit a few
 ## degrees apart is the lap.
 func lap_arc(index: int) -> float:

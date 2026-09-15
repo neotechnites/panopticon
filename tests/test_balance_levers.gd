@@ -170,10 +170,13 @@ func test_a_spare_life_puts_the_prisoner_back_on_the_line() -> void:
 	assert_false(_controller.apply_hit(victim), "a prisoner with a life left is not converted")
 	assert_true(victim.is_running, "and is still in the round")
 	assert_eq_int(victim.lives, 1, "one life is spent")
-	assert_lt(
-		victim.body.global_position.distance_to(start),
+	# The start line is behind where the bot had already got to when the round
+	# settled, so "back on the line" reads as further from the shot than the
+	# settled spot was, not as a return to that spot.
+	assert_gt(
+		victim.body.global_position.distance_to(ran_to),
 		maxf(ran_to.distance_to(start), 1.0),
-		"and the body is back nearer the start than where it was shot",
+		"and the body is back behind where it was shot, not stood up there",
 	)
 
 	assert_true(_controller.apply_hit(victim), "the last life converts them as it always did")

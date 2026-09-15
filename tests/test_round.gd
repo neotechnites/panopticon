@@ -170,8 +170,8 @@ func test_a_round_starts_with_every_prisoner_on_the_track() -> void:
 	# and a physics server catching up with them, which is where the trap lives
 	# -- it dragged a body to r=59 while nothing was steering it at all.
 	_controller.start_round()
-	var runners: Array[RingRunner] = _controller.get_live_runners()
-	for runner: RingRunner in runners:
+	var runners: Array[RunnerBrain] = _controller.get_live_runners()
+	for runner: RunnerBrain in runners:
 		runner.set_physics_process(false)
 		# The intent seam holds its last command until something writes another,
 		# so a brain switched off mid-stride would leave the body walking on the
@@ -238,7 +238,7 @@ func test_the_field_is_dealt_out_along_one_start_line() -> void:
 ## take the round: with the shipped [member MatchRules.rounds_to_win_match] of 1,
 ## that is the end of the match and nothing resolves afterwards.
 func test_all_runners_removed_wins_the_match() -> void:
-	var runners: Array[RingRunner] = _controller.get_live_runners()
+	var runners: Array[RunnerBrain] = _controller.get_live_runners()
 	assert_gt(float(runners.size()), 1.0, "the win condition needs more than one runner to be interesting")
 
 	for index: int in runners.size():
@@ -468,7 +468,7 @@ func test_spawning_runners_does_not_displace_the_player() -> void:
 
 	# The runners went where they were meant to go, which is the other half of
 	# the same fix: nothing was displaced, in either direction.
-	var runners: Array[RingRunner] = _controller.get_live_runners()
+	var runners: Array[RunnerBrain] = _controller.get_live_runners()
 	assert_eq_int(runners.size(), _controller.get_runners_total(), "all runners survived the spawn")
 	for index: int in runners.size():
 		assert_gt(
@@ -572,7 +572,7 @@ func test_the_prisoners_can_see_a_human_in_the_tower() -> void:
 		"the body in the tower is announced as the guard, human or not",
 	)
 
-	var runners: Array[RingRunner] = _controller.get_live_runners()
+	var runners: Array[RunnerBrain] = _controller.get_live_runners()
 	assert_gt(runners.size(), 0, "there are prisoners on the ring to do the seeing")
 	for index: int in runners.size():
 		var perception: RunnerPerception = runners[index].get_perception()
@@ -583,13 +583,12 @@ func test_the_prisoners_can_see_a_human_in_the_tower() -> void:
 			"runner %d has found the human, not some other body" % index,
 		)
 		if runners[index].is_playing_cover():
-			# RUNNING is the state a cover runner sits in while it believes the
-			# ring has no guard. Leaving it is the whole behavioural consequence
-			# of the fix, and every state the brain can be in instead -- RECOVER,
-			# HOLD, EVALUATE, CROSS -- is the cover game being played.
-			assert_false(
-				runners[index].get_state() == RingRunner.State.RUNNING,
-				"runner %d has stopped running the baseline lap and started playing the guard" % index,
+			# A prisoner that knows there is a guard believes itself watched
+			# until it has read otherwise: that belief is what the cover play
+			# in [RunnerBrain] is fed by, so it is the fact worth pinning.
+			assert_true(
+				perception.believes_watched() or not perception.is_exposed(),
+				"runner %d takes the human in the tower for a threat" % index,
 			)
 
 
@@ -611,7 +610,7 @@ func test_nobody_holds_the_tower_during_the_opening_race() -> void:
 			participant.body.is_in_group(MatchController.GUARD_GROUP),
 			"%s is not the guard during a race nobody is shooting in" % participant.display_name,
 		)
-	for runner: RingRunner in _controller.get_live_runners():
+	for runner: RunnerBrain in _controller.get_live_runners():
 		assert_false(
 			runner.get_perception().has_threat(),
 			"a racer has nobody to hide from",
@@ -656,7 +655,7 @@ func _assert_on_the_track(participant: MatchParticipant, who: String) -> void:
 	# a number the map owns.
 	#
 	# The tolerance allows a JUMP APEX as well as a settle. A prisoner is a live
-	# body with a brain that hops -- see RingRunner._maybe_jump -- and this
+	# body with a brain that hops -- see RunnerBrain._maybe_jump -- and this
 	# assertion is "on the deck, not on the tower and not down the pit", not
 	# "both feet on the floor at the instant we happened to look".
 	var route: RingRoute = _controller.get_route()

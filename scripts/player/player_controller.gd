@@ -652,6 +652,11 @@ func launch(velocity_vector: Vector3, air_lock_seconds: float = 0.0) -> void:
 	_air_lock_timer = maxf(air_lock_seconds, 0.0)
 
 
+## Seconds of air control still denied by the last launch; zero when the body may steer.
+func get_air_lock_remaining() -> float:
+	return maxf(_air_lock_timer, 0.0)
+
+
 func _try_jump(on_floor: bool) -> bool:
 	if not on_floor and _coyote_timer <= 0.0:
 		return false

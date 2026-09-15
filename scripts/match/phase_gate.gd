@@ -77,7 +77,7 @@ func _apply(present: bool) -> void:
 			remove_child(child)
 	# Deferred so several gates swapping on the same signal all land before the
 	# navmesh reads the result -- gate first, bake once, after.
-	get_tree().call_group.call_deferred(RingNavigation.GROUP, "phase_geometry_changed")
+	get_tree().call_group.call_deferred(RingBake.GROUP, "phase_geometry_changed")
 
 
 func _resolve_controller() -> Node:

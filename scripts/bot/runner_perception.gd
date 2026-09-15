@@ -127,8 +127,9 @@ var _shots_heard: int = 0
 ## count of shots this round cannot tell that from one who is still shooting.
 var _since_shot: float = INF
 
-## Set on the tick a round lands near this runner, cleared on the next tick.
+## Set when a round lands near this runner; read true for the one tick after.
 var _was_shot_at: bool = false
+var _shot_pending: bool = false
 
 ## One ray query reused for every sight test. A runner fires up to twenty-five
 ## rays a tick; allocating a query object and an exclude array for each was
@@ -172,11 +173,13 @@ func configure(
 	_shots_heard = 0
 	_since_shot = INF
 	_was_shot_at = false
+	_shot_pending = false
 
 
 ## One tick of looking and listening. Everything the brain reads is decided here.
 func tick(delta: float) -> void:
-	_was_shot_at = false
+	_was_shot_at = _shot_pending
+	_shot_pending = false
 	if _body == null or _profile == null:
 		return
 
@@ -204,7 +207,8 @@ func tick(delta: float) -> void:
 		return
 
 	_tick_read_bias(delta)
-	_exposed = _has_line_of_sight(_cover_test_point(), _threat_eye())
+	if RunnerCoverFinder.take_ray():
+		_exposed = _has_line_of_sight(_cover_test_point(), _threat_eye())
 	_sees_threat = _exposed and _threat_within_view()
 
 	if _sees_threat:
@@ -393,7 +397,7 @@ func _on_shot_heard(_origin: Vector3, end_point: Vector3) -> void:
 	if end_point.distance_to(_cover_test_point()) <= _profile.tracer_alarm_metres:
 		# That one was about me. No reaction time is charged for it: being shot
 		# at is not a thing you have to notice.
-		_was_shot_at = true
+		_shot_pending = true
 		_believes_watched = true
 		_disagreement_seconds = 0.0
 		_blind_seconds = 0.0

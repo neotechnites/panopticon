@@ -140,6 +140,9 @@ func _physics_process(delta: float) -> void:
 			_feet_timers[body] = elapsed
 			if elapsed >= grace_seconds:
 				_feet_timers.erase(body)
+				# Dealt with. A body held where it died never moves, so the
+				# physics server never re-pairs it and body_exited never comes.
+				_inside.remove_at(index)
 				_convert(body)
 		else:
 			_feet_timers.erase(body)

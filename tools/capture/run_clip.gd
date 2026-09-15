@@ -373,7 +373,7 @@ func _light_for_social(match_root: Node) -> void:
 
 ## Put the first living prisoner on the S2 chain instead of on the lane.
 func _stage_chainrun() -> void:
-	var runners: Array[RingRunner] = _controller.get_live_runners()
+	var runners: Array[RunnerBrain] = _controller.get_live_runners()
 	if runners.is_empty() or runners[0].controller == null:
 		return
 	_chain = CHAIN_STAGE.new()

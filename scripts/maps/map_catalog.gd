@@ -108,6 +108,9 @@ static func index_of(id: StringName) -> int:
 ## unattended sweep: an unknown id is a stale settings file or a hand-edited
 ## rules resource, and neither is a reason to hand the player an empty world.
 static func scene_path_for(id: StringName) -> String:
+	# A scene path names itself: how a sweep runs a scratch arena the catalog does not list.
+	if String(id).begins_with("res://") and ResourceLoader.exists(String(id)):
+		return String(id)
 	var map: MapDefinition = by_id(id)
 	if map == null:
 		map = default_map()

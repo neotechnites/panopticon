@@ -110,7 +110,7 @@ func test_strength_is_tunable() -> void:
 
 
 ## A bot -- a [PlayerController] driven by a [BotIntentSource], the same body
-## [RingRunner] runs on -- is launched off the identical vector a human-shaped
+## [RunnerBrain] runs on -- is launched off the identical vector a human-shaped
 ## body is. There is no branch in [BoostPad] that could tell them apart: it
 ## reads [member PlayerController.velocity] and nothing about where the intent
 ## driving the body comes from.

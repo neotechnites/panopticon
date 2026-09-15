@@ -21,7 +21,7 @@ extends TestCase
 ##
 ## Waiting for a ghost to genuinely close on a prisoner is tens of simulated
 ## seconds of chasing, and what it would prove is that the pursuit steering
-## works, which is [RingRunner]'s business. The RULE under test is the swap. So
+## works, which is [RunnerBrain]'s business. The RULE under test is the swap. So
 ## the ghost's body is put in shove reach of a prisoner -- with its collision
 ## already off, which it is, so nothing is dragged -- and it shoves, through the
 ## same [method MatchController.apply_shove] a real chase arrives at. That the
@@ -566,7 +566,7 @@ func test_a_ghost_takes_a_spot_by_shoving_the_prisoner_who_holds_it() -> void:
 ## prisoner it is chasing is in reach.
 ##
 ## The whole path, and the only test here that does not press the button itself:
-## [method RingRunner._maybe_shove] writes the intent, the body polls it through
+## [method RunnerBrain._maybe_shove] writes the intent, the body polls it through
 ## [BotIntentSource], and [method MatchController._tick_shoves] rules on it. The
 ## quarry is the brain's OWN chase target, frozen where it stands so the reach is
 ## not a race between two runners, and the ghost keeps its brain.
@@ -603,7 +603,7 @@ func test_a_bot_ghost_shoves_the_prisoner_it_is_chasing() -> void:
 	var spot: Vector3 = quarry.body.global_position
 	var centre: Vector3 = (_match.get_node("Arena") as Node3D).global_position
 	var radial: Vector3 = Vector3(spot.x - centre.x, 0.0, spot.z - centre.z).normalized()
-	var along: Vector3 = Vector3(-radial.z, 0.0, radial.x) * RingRunner.TRAVEL_SIGN
+	var along: Vector3 = Vector3(-radial.z, 0.0, radial.x) * RunnerBrain.TRAVEL_SIGN
 	ghost.body.global_position = spot - along * CATCH_REACH_METRES
 	ghost.body.look_at(Vector3(spot.x, ghost.body.global_position.y, spot.z))
 
@@ -1105,7 +1105,7 @@ func test_a_zero_delay_places_the_ghost_immediately() -> void:
 ## half a lap ahead points BACKWARDS along the course and through the pit in the
 ## middle of the deck, so the ghost turned round and ran against the direction of
 ## play into the inner kerb. The arc is the distance a ghost can actually cover,
-## so the arc is what it steers on now: see [method RingRunner._chase_aim_point].
+## so the arc is what it steers on now: see [method RunnerBrain._chase_aim_point].
 ##
 ## The quarries are parked deliberately past halfway, at bearings chosen to be
 ## clear of the cover bands and the traps, and the assertion is about the sign of
@@ -1151,7 +1151,7 @@ func test_a_ghost_past_halfway_still_chases_the_way_the_lap_runs() -> void:
 	if assert_not_null(victim.brain.get_chase_target(), "the chase is aimed at a living prisoner"):
 		var aim_point: Vector3 = victim.brain.get_chase_aim_point()
 		var aim_arc: float = wrapf(
-			(_angle_about(centre, aim_point) - opened_at) * RingRunner.TRAVEL_SIGN, -PI, PI
+			(_angle_about(centre, aim_point) - opened_at) * RunnerBrain.TRAVEL_SIGN, -PI, PI
 		)
 		assert_gt(aim_arc, 0.0, "the ghost steers at a point AHEAD of it, the way the lap runs")
 		var aim_radius: float = Vector2(aim_point.x - centre.x, aim_point.z - centre.z).length()
@@ -1163,7 +1163,7 @@ func test_a_ghost_past_halfway_still_chases_the_way_the_lap_runs() -> void:
 	await step_ticks(RUNNING_TICKS)
 
 	var travelled: float = wrapf(
-		(_angle_about(centre, victim.body.global_position) - opened_at) * RingRunner.TRAVEL_SIGN,
+		(_angle_about(centre, victim.body.global_position) - opened_at) * RunnerBrain.TRAVEL_SIGN,
 		-PI, PI,
 	)
 	assert_gt(

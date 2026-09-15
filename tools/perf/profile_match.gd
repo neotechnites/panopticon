@@ -218,7 +218,7 @@ func _apply_disables() -> void:
 		var kind: String = ""
 		if node is TrapVolume:
 			kind = "traps"
-		elif node is RingRunner or node is TowerShooter:
+		elif node is RunnerBrain or node is TowerShooter:
 			kind = "brains"
 		elif node is PlayerController:
 			kind = "bodies"

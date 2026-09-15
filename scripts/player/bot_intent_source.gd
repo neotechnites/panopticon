@@ -91,7 +91,7 @@ func _look_for_a_shove(delta: float) -> void:
 	if _shove_rest > 0.0 or command.move_direction.y <= 0.0:
 		return
 	var body: PlayerController = get_parent() as PlayerController
-	if body == null or not body.is_in_group(MatchController.RUNNER_GROUP):
+	if body == null or not body.is_in_group(MatchController.RUNNER_GROUP) or not body.is_on_floor():
 		return
 	var forward: Vector3 = -body.global_transform.basis.z
 	forward.y = 0.0
@@ -103,7 +103,7 @@ func _look_for_a_shove(delta: float) -> void:
 		if not is_instance_valid(node):
 			continue
 		var rival: PlayerController = node as PlayerController
-		if rival == null or rival == body:
+		if rival == null or rival == body or not rival.is_on_floor():
 			continue
 		var offset: Vector3 = rival.global_position - here
 		offset.y = 0.0

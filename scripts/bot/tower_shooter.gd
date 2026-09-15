@@ -1,7 +1,7 @@
 class_name TowerShooter
 extends Node
 
-## The tower's brain: the opposite number to [RingRunner].
+## The tower's brain: the opposite number to [RunnerBrain].
 ##
 ## It stands on the platform, searches the ring, decides whether a runner it can
 ## see is worth a shot, and calls [method Rifle.try_fire]. It has no movement
@@ -106,7 +106,7 @@ static func _make_ray() -> PhysicsRayQueryParameters3D:
 
 func _ready() -> void:
 	# Joined before the configuration check and never left: this is how a
-	# RingRunner finds out there is a guard on the ring at all.
+	# RunnerBrain finds out there is a guard on the ring at all.
 	add_to_group(RunnerPerception.SHOOTER_GROUP)
 	if controller == null or input == null or rifle == null or profile == null:
 		push_error("TowerShooter needs a controller, an input, a rifle and a profile; it will not play.")

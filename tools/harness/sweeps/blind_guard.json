@@ -1,0 +1,7 @@
+{
+  "base_rules": "res://resources/rules/default_match_rules.tres",
+  "notes": "A guard who cannot see or shoot: every runner death is the map's. Runners should win every round.",
+  "variants": [
+    {"name": "blind", "notes": "guard_skill 0, one degree of view", "overrides": {"guard_skill": 0.0, "guard_fov_degrees": 1.0}}
+  ]
+}

@@ -3,9 +3,9 @@ extends Node
 
 ## How far along the route a body has got, and the tick it reaches the end.
 ##
-## [b]Why this is not [RingRunner][/b]
+## [b]Why this is not [RunnerBrain][/b]
 ##
-## [RingRunner] already measures arc travelled, and it is the right measurement
+## [RunnerBrain] already measures arc travelled, and it is the right measurement
 ## -- see its class docs for why a radius test against the end marker is useless
 ## on a 25 m wide deck. But it measures it in order to STEER, and it only exists
 ## on a bot. A match has a human in it, and in the opening race the human is
@@ -16,9 +16,9 @@ extends Node
 ##
 ## So the scoring is lifted out here, onto a node that measures and never steers,
 ## and every participant gets one. Human and AI are judged by the same route, the
-## same tolerance and the same tick. A bot still runs on its own [RingRunner] --
+## same tolerance and the same tick. A bot still runs on its own [RunnerBrain] --
 ## nothing here drives anything -- and that brain's own
-## [signal RingRunner.reached_end] remains the brain's business. Only this node
+## [signal RunnerBrain.reached_end] remains the brain's business. Only this node
 ## scores.
 ##
 ## [b]Arc and level, not distance[/b]
@@ -37,7 +37,7 @@ extends Node
 ## rather than on either alone.
 
 ## Emitted once, on the tick the route is completed. Carries the same telemetry
-## [signal RingRunner.reached_end] does, so a listener can be written against
+## [signal RunnerBrain.reached_end] does, so a listener can be written against
 ## either.
 signal lap_finished(elapsed_seconds: float, path_length: float)
 
@@ -89,7 +89,7 @@ func _ready() -> void:
 ## about [param arena_centre].
 ##
 ## Only the ANGLE of [param start_point] is used, exactly as
-## [method RingRunner.configure] uses it, so a caller may hand over the ring's
+## [method RunnerBrain.configure] uses it, so a caller may hand over the ring's
 ## marker or a staggered start of its own devising. Call it after the body has
 ## been placed: the first tick differences against where it is now.
 func begin(
@@ -178,7 +178,7 @@ func get_progress() -> float:
 
 ## Arc swept on the current level so far, in radians. The raw accumulator behind
 ## [method get_progress], handed over so a ghost swap can carry a run from one
-## body's tracker to another's and to the incoming body's [RingRunner], which
+## body's tracker to another's and to the incoming body's [RunnerBrain], which
 ## keeps an accumulator of its own for steering.
 func get_travelled_arc() -> float:
 	return _travelled_arc

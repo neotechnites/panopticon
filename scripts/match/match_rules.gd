@@ -229,7 +229,7 @@ enum MapPickMode {
 ## Not a free number. Every deck of the shipped arena is an annulus from r=44 to
 ## r=60 with cover in two radial bands at r=47 and r=57, each piece sweeping
 ## roughly +/-0.9 m about its band, and every trap and pit shaft flush against
-## the shoulder those bands end at. A [RingRunner] does not path around anything,
+## the shoulder those bands end at. A [RunnerBrain] does not path around anything,
 ## so a track radius inside a cover band walks a 0.4 m capsule into a box and
 ## stands there for the rest of the round. 52.0 is the clear channel between the
 ## two bands, and it is what [member BotProfile.track_radius] ships at.

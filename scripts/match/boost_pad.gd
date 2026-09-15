@@ -58,11 +58,11 @@ extends Area3D
 ##
 ## [b]Bots and ghosts hit it exactly as a human does, because there is no
 ## branch that could tell them apart.[/b] A [PlayerController] driven by a
-## [HumanIntentSource], one driven by a [BotIntentSource] (see [RingRunner]),
+## [HumanIntentSource], one driven by a [BotIntentSource] (see [RunnerBrain]),
 ## and a ghost's body under [MatchController] are the identical script, and
 ## this node only ever touches [member PlayerController.velocity], never an
 ## intent. A bot brain with no obstacle avoidance and no notion of "airborne"
-## (RingRunner has neither) simply keeps issuing whatever wish direction it
+## (RunnerBrain has neither) simply keeps issuing whatever wish direction it
 ## already had while the assigned velocity carries the body -- nothing to
 ## error on. A GHOST is the same body with
 ## [member PlayerController.speed_scale] raised (3.0 in the shipped

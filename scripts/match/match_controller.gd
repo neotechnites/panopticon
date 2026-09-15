@@ -5,7 +5,7 @@ extends Node
 ##
 ## Every rule of the match is ENFORCED here and nowhere else, and DECIDED in
 ## [MatchRules]. The rifle reports what it struck and stays ignorant of what that
-## means; [RingRunner] reports that it finished its lap and stays ignorant of
+## means; [RunnerBrain] reports that it finished its lap and stays ignorant of
 ## what that costs; [MatchLapTracker] reports arc and rules on nothing; the
 ## player's body knows nothing about any of it. This node is the only place that
 ## turns those reports into a seat change, a round, or a match.
@@ -52,12 +52,12 @@ extends Node
 ##
 ## [b]Two brains, one of them running[/b]
 ##
-## An AI participant owns a [RingRunner] and a [TowerShooter] and is driven by
+## An AI participant owns a [RunnerBrain] and a [TowerShooter] and is driven by
 ## exactly one of them, decided by where the match has just put its body:
 ##
 ## [codeblock]
-## on the track -> RingRunner runs,   TowerShooter down
-## in the tower -> TowerShooter runs, RingRunner down
+## on the track -> RunnerBrain runs,   TowerShooter down
+## in the tower -> TowerShooter runs, RunnerBrain down
 ## converted, or during the race -> neither
 ## human, anywhere -> neither; the keyboard drives it
 ## [/codeblock]
@@ -97,7 +97,7 @@ extends Node
 ##   means what it meant: only the RIFLE can empty the ring.
 ## - [b]A ghost drives the same seam.[/b] Its body is the same
 ##   [PlayerController], written to through the same [MoveIntent]. The bot's
-##   ghost is a [RingRunner] in chase mode; the human's ghost is the keyboard.
+##   ghost is a [RunnerBrain] in chase mode; the human's ghost is the keyboard.
 ##   Nothing about the catch is a bot-only path.
 ## - [b]The catch is ruled here.[/b] Not in the brain -- a brain that called its
 ##   own catch would be a catch only bots could make.
@@ -1551,11 +1551,11 @@ func get_live_participants() -> Array[MatchParticipant]:
 
 ## The AI brains still running, as a copy.
 ##
-## A convenience for callers that think in [RingRunner]s. It cannot see the
+## A convenience for callers that think in [RunnerBrain]s. It cannot see the
 ## human, who has no brain and never will; [method get_live_participants] is the
 ## complete list.
-func get_live_runners() -> Array[RingRunner]:
-	var live: Array[RingRunner] = []
+func get_live_runners() -> Array[RunnerBrain]:
+	var live: Array[RunnerBrain] = []
 	for participant: MatchParticipant in _participants:
 		if participant.is_running and participant.brain != null:
 			live.append(participant.brain)
@@ -1587,7 +1587,7 @@ func resolve_participant(collider: Node3D) -> MatchParticipant:
 
 ## The AI brain a collider belongs to, or null. The human's body resolves to null
 ## here because the human has no brain; use [method resolve_participant].
-func resolve_runner(collider: Node3D) -> RingRunner:
+func resolve_runner(collider: Node3D) -> RunnerBrain:
 	var participant: MatchParticipant = resolve_participant(collider)
 	return participant.brain if participant != null else null
 
@@ -1631,8 +1631,8 @@ func convert_participant(participant: MatchParticipant) -> bool:
 	return true
 
 
-## [method convert_participant], for callers holding a [RingRunner].
-func remove_runner(runner: RingRunner) -> bool:
+## [method convert_participant], for callers holding a [RunnerBrain].
+func remove_runner(runner: RunnerBrain) -> bool:
 	return convert_participant(_participant_of_brain(runner))
 
 
@@ -2142,7 +2142,7 @@ func _make_ghost(participant: MatchParticipant) -> void:
 	# a brain writes nothing but a [MoveIntent] through [BotIntentSource], and a
 	# held body's [method Node._physics_process] is off, so nobody reads it. The
 	# alternative -- deferring the chase to the end of the hold -- would leave
-	# [method RingRunner.is_chasing] lying about a participant who is
+	# [method RunnerBrain.is_chasing] lying about a participant who is
 	# unambiguously a ghost for those three seconds.
 	if participant.brain != null and not _mirror:
 		participant.brain.rules = get_rules()
@@ -2652,9 +2652,9 @@ func _make_ai_participant(slot: int) -> MatchParticipant:
 	body.position = runner_container.to_local(_start_place_for(slot, get_rules().get_participant_count()))
 	runner_container.add_child(body)
 
-	var brain: RingRunner = _find_brain(body)
+	var brain: RunnerBrain = _find_brain(body)
 	if brain == null:
-		push_error("MatchController's runner scene has no RingRunner brain; the runner will not run.")
+		push_error("MatchController's runner scene has no RunnerBrain brain; the runner will not run.")
 		body.queue_free()
 		return null
 
@@ -2712,15 +2712,15 @@ func _find_tracker(body: Node) -> MatchLapTracker:
 
 
 ## The brain, found by type rather than by path.
-func _find_brain(body: Node) -> RingRunner:
+func _find_brain(body: Node) -> RunnerBrain:
 	for child: Node in body.get_children():
-		var brain: RingRunner = child as RingRunner
+		var brain: RunnerBrain = child as RunnerBrain
 		if brain != null:
 			return brain
 	return null
 
 
-func _participant_of_brain(brain: RingRunner) -> MatchParticipant:
+func _participant_of_brain(brain: RunnerBrain) -> MatchParticipant:
 	if brain == null:
 		return null
 	for participant: MatchParticipant in _participants:
@@ -2751,7 +2751,7 @@ func _cache_geometry() -> void:
 ##
 ## The fallback is not a degraded mode. A map with one deck IS a route with one
 ## level on it, and building it here rather than branching at every call site is
-## what keeps [MatchLapTracker], [RingRunner] and [MatchHUD] free of any opinion
+## what keeps [MatchLapTracker], [RunnerBrain] and [MatchHUD] free of any opinion
 ## about how many decks an arena has.
 func _cache_route() -> void:
 	if _route_is_ours and _route != null and is_instance_valid(_route):
@@ -2846,7 +2846,7 @@ func _order_the_scoring(runners: Array[MatchParticipant]) -> void:
 ##
 ## [param start_point] is the exact world position the body is placed at, which
 ## is its own place on the start line rather than the arena's marker. Everything
-## that then judges the run -- [MatchLapTracker] for the score and [RingRunner]
+## that then judges the run -- [MatchLapTracker] for the score and [RunnerBrain]
 ## for the brain's own stopping point -- is given the same start and the same
 ## arena end marker, so a prisoner is scored against the line their brain is
 ## running at and there is no second opinion about where their run ends. Both
@@ -3189,7 +3189,7 @@ func _arm_tower_brain() -> void:
 ## Stop a participant's tower brain and drop the controls it was holding.
 ##
 ## The mirror of [method _silence_brain]. Idempotent, and silent when the brain
-## was not running: clearing a [MoveIntent] that a live [RingRunner] wrote this
+## was not running: clearing a [MoveIntent] that a live [RunnerBrain] wrote this
 ## tick would cost that runner a tick of movement for no reason.
 func _silence_tower_brain(participant: MatchParticipant) -> void:
 	var shooter: TowerShooter = _find_tower_brain(participant)
@@ -3916,7 +3916,7 @@ func _point_on_track(radius: float, angle: float) -> Vector3:
 
 
 func _track_tangent(angle: float) -> Vector3:
-	return Vector3(-sin(angle), 0.0, cos(angle)) * RingRunner.TRAVEL_SIGN
+	return Vector3(-sin(angle), 0.0, cos(angle)) * RunnerBrain.TRAVEL_SIGN
 
 
 ## Where body number [param index] of a field of [param count] stands on the

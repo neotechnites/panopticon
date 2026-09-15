@@ -280,7 +280,7 @@ func _spawn_decoy(mirrored: bool = false) -> void:
 		return
 	decoy.name = "Hologram"
 	for child: Node in decoy.get_children():
-		if child is RingRunner or child is IntentSource:
+		if child is RunnerBrain or child is IntentSource:
 			decoy.remove_child(child)
 			child.free()
 	if not mirrored:

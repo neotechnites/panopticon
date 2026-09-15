@@ -254,11 +254,11 @@ func _physics_process(_delta: float) -> void:
 		_tick_sum_usec += spent
 		if spent > 16000:
 			_tick_over_16ms += 1
-		for kind: String in RingNavigation.cost_usec:
-			var usec: int = int(RingNavigation.cost_usec[kind])
+		for kind: String in RingBake.cost_usec:
+			var usec: int = int(RingBake.cost_usec[kind])
 			_cost_max[kind] = maxi(int(_cost_max.get(kind, 0)), usec)
 			_cost_sum[kind] = int(_cost_sum.get(kind, 0)) + usec
-	RingNavigation.cost_usec.clear()
+	RingBake.cost_usec.clear()
 	_last_tick_usec = now
 	if _controller != null:
 		_sample_runners()
@@ -275,36 +275,27 @@ var _trace_every: int = int(60.0 * float(OS.get_environment("PANOPTICON_TRACE"))
 ## One diagnostic line per live runner: where it is, what it is doing, what it sees.
 func _trace_runners() -> void:
 	for participant: MatchParticipant in _controller.get_participants_ref():
-		var brain: RingRunner = participant.brain
+		var brain: RunnerBrain = participant.brain
 		if brain == null or participant.body == null or not participant.is_running:
 			continue
 		if not participant.body.is_physics_processing():
 			continue
 		var position: Vector3 = participant.body.global_position
 		var perception: RunnerPerception = brain.get_perception()
-		var cover: RunnerCoverFinder = brain.get("_cover")
-		var anchor: Vector3 = brain.get("_anchor")
 		print(
-			"TRACE t=%.1f p%d %-8s bear=%6.1f pos=(%.1f,%.1f,%.1f) spd=%.2f wp=%d arc=%.1f"
+			"TRACE t=%.1f p%d %-10s bear=%6.1f pos=(%.1f,%.1f,%.1f) spd=%.2f arc=%.1f"
 			% [
 				float(_ticks) / 60.0, participant.index, brain.get_state_name(),
 				rad_to_deg(atan2(position.z, position.x)),
 				position.x, position.y, position.z,
-				participant.body.get_horizontal_speed(),
-				int(brain.get("_wp")), rad_to_deg(brain.get_travelled_arc()),
+				participant.body.get_horizontal_speed(), rad_to_deg(brain.get_travelled_arc()),
 			]
-			+ (" threat=%d exposed=%d watched=%d shots=%d reload=%.2f hold=%.1f conf=%.2f/%.2f open=%.1f"
+			+ (" threat=%d exposed=%d watched=%d shots=%d reload=%.2f cover=%.1f/%d flights=%d"
 			% [
 				int(perception.has_threat()), int(perception.is_exposed()),
 				int(perception.believes_watched()), perception.get_shots_heard(),
 				perception.get_believed_reload_remaining(),
-				float(brain.get("_hold_seconds")), brain.get_last_break_confidence(),
-				brain.get_last_break_threshold(), brain.get_last_exposed_metres(),
-			])
-			+ (" tgt=%d cov=%d/%d anchor=(%.1f,%.1f,%.1f) x=%d"
-			% [
-				int(brain.get("_has_target")), int(cover.has_result()), int(cover.is_complete()),
-				anchor.x, anchor.y, anchor.z, brain.get_crossings(),
+				brain.get_cover_seconds(), brain.get_covers(), brain.get_flights(),
 			])
 		)
 
@@ -462,12 +453,14 @@ func _brain_state(participant: MatchParticipant) -> Dictionary:
 func _sample_runners() -> void:
 	for participant: MatchParticipant in _controller.get_participants_ref():
 		var tally: BotParticipantTally = _tallies.get(participant.index, null)
-		var brain: RingRunner = participant.brain
+		var brain: RunnerBrain = participant.brain
 		if tally == null or brain == null or participant.body == null:
 			continue
 		var w: Dictionary = _watch.get(participant.index, {})
 		var here: Vector3 = participant.body.global_position
-		var running: bool = participant.is_running and participant.body.is_physics_processing()
+		# A finisher stands in the tower hunting the guard: not a lap, not a stall.
+		var running: bool = participant.is_running and participant.body.is_physics_processing() \
+			and not participant.is_finisher
 		var last: Vector3 = _last_point.get(participant.index, here)
 		# Stopped running, or picked up and put back on the start line: either way
 		# the lap ended where the body last stood, and that is what is scored.
@@ -489,8 +482,8 @@ func _sample_runners() -> void:
 		_sample_section(participant.index, tally, here)
 		_sample_hops(participant.index, tally, brain, here)
 		_sample_heading(participant.index, participant.body)
-		var state: RingRunner.State = brain.get_state()
-		var holding: bool = state == RingRunner.State.HOLD or state == RingRunner.State.EVALUATE
+		var state: RunnerBrain.State = brain.get_state()
+		var holding: bool = state == RunnerBrain.State.TAKE_COVER
 		var perception: RunnerPerception = brain.get_perception()
 		var in_cover: bool = perception != null and perception.has_threat() and not perception.is_exposed()
 		var hold_ticks: int = int(w.get("hold", 0)) + 1 if holding else 0
@@ -574,16 +567,15 @@ func _life_ending(participant: MatchParticipant) -> String:
 ## The brain's own fields are read here and nowhere else. A watch that inferred
 ## "it was waiting on a link" from a position would be guessing; the point of the
 ## stall table is to name the cause, so it asks.
-func _sample_run(participant: MatchParticipant, brain: RingRunner, here: Vector3) -> void:
+func _sample_run(participant: MatchParticipant, brain: RunnerBrain, here: Vector3) -> void:
 	var body: PlayerController = participant.body
 	var perception: RunnerPerception = brain.get_perception()
-	var state: RingRunner.State = brain.get_state()
+	var state: RunnerBrain.State = brain.get_state()
 	var threat: bool = perception != null and perception.has_threat()
 	var hidden: bool = threat and not perception.is_exposed()
-	var holding: bool = hidden or state == RingRunner.State.HOLD or state == RingRunner.State.EVALUATE
-	# The three states that steer by facing the tower rather than by where they
-	# are going. See RingRunner._watch_and_hold.
-	var watching: bool = threat and (holding or state == RingRunner.State.RECOVER)
+	var finished: bool = participant.tracker != null and participant.tracker.has_finished()
+	var holding: bool = hidden or state == RunnerBrain.State.TAKE_COVER or finished
+	var watching: bool = threat and holding
 	var lane: float = 1.0
 	var route: RingRoute = brain.get_route()
 	if route != null:
@@ -601,23 +593,19 @@ func _sample_run(participant: MatchParticipant, brain: RingRunner, here: Vector3
 		{
 			"threat": int(threat),
 			"exposed": int(perception != null and perception.is_exposed()),
-			"link": int(float(brain.get("_link_aim_age")) <= RingRunner.LINK_AIM_MEMORY_SECONDS),
-			"lake": int(brain.call(&"_in_lake")),
-			"target": int(brain.get("_has_target")),
-			"cover": int(brain.get("_target_is_cover")),
-			"wp": int(brain.get("_wp")),
-			"unstick": int(float(brain.get("_unstick_seconds")) > 0.0),
-			"override": int(float(brain.get("_route_override")) > 0.0),
+			"link": int(state == RunnerBrain.State.CROSS),
+			"cover": int(state == RunnerBrain.State.TAKE_COVER),
+			"recover": int(state == RunnerBrain.State.RECOVER),
 			"air": int(not body.is_on_floor()),
 		},
 	)
 
 
 ## Credit any lava flights taken since last tick to the section they left from.
-func _sample_hops(index: int, tally: BotParticipantTally, brain: RingRunner, point: Vector3) -> void:
-	if not _sections_live or not brain.has_method(&"get_lake_hops"):
+func _sample_hops(index: int, tally: BotParticipantTally, brain: RunnerBrain, point: Vector3) -> void:
+	if not _sections_live:
 		return
-	var hops: int = brain.get_lake_hops()
+	var hops: int = brain.get_flights()
 	var taken: int = hops - int(_hops_seen.get(index, 0))
 	_hops_seen[index] = hops
 	if taken <= 0:
@@ -924,10 +912,10 @@ func _target_state(quarry: PlayerController) -> String:
 	if not quarry.is_on_floor():
 		return "airborne"
 	var participant: MatchParticipant = _controller.resolve_participant(quarry)
-	var brain: RingRunner = participant.brain if participant != null else null
+	var brain: RunnerBrain = participant.brain if participant != null else null
 	if brain != null:
-		var state: RingRunner.State = brain.get_state()
-		if state == RingRunner.State.HOLD or state == RingRunner.State.EVALUATE:
+		var state: RunnerBrain.State = brain.get_state()
+		if state == RunnerBrain.State.TAKE_COVER:
 			return "cover"
 	if quarry.get_horizontal_speed() < COVER_SPEED:
 		return "cover"

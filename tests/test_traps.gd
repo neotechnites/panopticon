@@ -19,7 +19,7 @@ extends TestCase
 ##    prisoner falling forever.
 ## 3. [b]The lap can still be run past the hazards.[/b] The lava now sits ON the
 ##    deck, deliberately: the shelf and the demon run are hazards you go round,
-##    and [RingNavigation] bakes the deck with every trap carved out of it so a
+##    and [RingBake] bakes the deck with every trap carved out of it so a
 ##    runner has a route that misses them. What is worth asserting is therefore
 ##    not "nothing lethal is near the lane" -- something lethal is, by design --
 ##    but that a navigated path from the start marker to the end marker still
@@ -420,7 +420,7 @@ func test_a_racer_who_drops_into_the_pit_is_out() -> void:
 ## rule would now forbid the map Ryan built. What has to hold instead is that
 ## the navigation the runners steer on still joins the start marker to the end
 ## marker, and that the route it hands back does not pass through lava -- which
-## is exactly what [RingNavigation] carves the traps out of the bake for.
+## is exactly what [RingBake] carves the traps out of the bake for.
 ## [code]tests/test_runner.gd[/code] then runs a real bot round the real arena,
 ## which is the proof; this is the cheap check that says WHY when that one breaks.
 func test_a_lap_can_be_navigated_past_every_hazard() -> void:
@@ -486,6 +486,11 @@ func _put_on_the_trap(participant: MatchParticipant, trap: TrapVolume) -> void:
 	# deck it was placed on, and a trap only catches a body whose feet are at or
 	# below its origin (see TrapVolume.feet_only), so a body stood at a height
 	# taken from somewhere else is a body it is entitled to ignore.
+	# The brain is stood down: a body that keeps its wits jumps clear inside the
+	# grace, and this is a test of the trap, not of the prisoner.
+	if participant.brain != null:
+		participant.brain.set_physics_process(false)
+		participant.brain.input.command.clear()
 	participant.body.velocity = Vector3.ZERO
 	participant.body.global_position = trap.global_position
 

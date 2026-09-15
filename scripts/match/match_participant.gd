@@ -9,7 +9,7 @@ extends RefCounted
 ## rounds; across them the tower passes from player to player, and the thing that
 ## has to survive that pass is the player's IDENTITY -- their turn count, their
 ## lives, their body, whether they are the human. If the shooter were "the node
-## called Player" and a runner were "a RingRunner in the live list", there would
+## called Player" and a runner were "a RunnerBrain in the live list", there would
 ## be no way to say "the same player took the tower again" and therefore no way
 ## to implement the terminator, which is defined entirely in terms of a player's
 ## own history.
@@ -33,7 +33,7 @@ extends RefCounted
 enum Kind {
 	## The player at the keyboard. At most one per match, and there may be none.
 	HUMAN,
-	## A bot body driven by a [RingRunner] while it runs.
+	## A bot body driven by a [RunnerBrain] while it runs.
 	AI,
 }
 
@@ -59,14 +59,14 @@ var body: PlayerController = null
 ## Switched off while this participant holds the seat -- a shooter does not run
 ## laps -- and reconfigured onto the track at the start of every round. See
 ## [member tower_brain] for what drives the body instead.
-var brain: RingRunner = null
+var brain: RunnerBrain = null
 
 ## The tower-playing brain, for an AI participant. Null for the human, whose
 ## trigger is a mouse, and null for an AI that has not yet held the seat -- it is
 ## built on the first turn in the tower and then kept for the life of the match.
 ##
 ## The other half of [member brain]. A participant owns two brains and exactly
-## one of them is switched on at a time: [RingRunner] while they run the ring,
+## one of them is switched on at a time: [RunnerBrain] while they run the ring,
 ## [TowerShooter] while they hold the seat, neither while they are converted or
 ## while the opening race decides who the shooter is. Which one is running is
 ## the ONLY difference between a bot on the track and the same bot in the tower --
