@@ -180,6 +180,7 @@ SETTINGS_CONFIRM_HITS,Confirm hits,[Cönfïrm hïts ~~~~]
 SETTINGS_RUNNER_SPEED,Runner Speed,[Rünnér Spééd ~~~~]
 SETTINGS_JUMP_HEIGHT,Jump Height,[Jümp Héïght ~~~~]
 SETTINGS_POWER_COOLDOWN,Power Cooldown,[Pöwér Cööldöwn ~~~~]
+SETTINGS_GUARD_SKILL,Guard Skill,[Güärd Skïll ~~~~]
 SETTINGS_GUARD_HEALTH,Guard Health,[Güärd Héälth ~~~~]
 SETTINGS_FINISHER_HEALTH,Finisher Health,[Fïnïshér Héälth ~~~~]
 SETTINGS_NOTE_SWAY,"Scope sway drifts the aim in a figure eight while the scope is up, and the drift is in the shot the host resolves, not just in the picture. Plugged windows are rock; the ones left open stay spread round the tower.","[Scöpé swäý drïfts thé äïm ïn ä fïgüré éïght whïlé thé scöpé ïs üp, änd thé drïft ïs ïn thé shöt thé höst résölvés, nöt jüst ïn thé pïctüré. Plüggéd wïndöws äré röck; thé önés léft öpén stäý spréäd röünd thé töwér. ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~]"

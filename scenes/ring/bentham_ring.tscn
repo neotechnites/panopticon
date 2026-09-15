@@ -471,6 +471,18 @@ feet_only = true
 [node name="LavaSurface" type="Marker3D" parent="Sections/S5_WallRun" unique_id=374669933]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 36.91, 22.7, -36.63)
 
+[node name="Watch" type="Node3D" parent="Sections"]
+editor_description = "Chokepoints the AI guard's scan rests on: the S2 lane, the S4 pad apex, the S5 stones."
+
+[node name="S2_Lane" type="Marker3D" parent="Sections/Watch" groups=["guard_watch"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -10.4, 24, 48.9)
+
+[node name="S4_PadApex" type="Marker3D" parent="Sections/Watch" groups=["guard_watch"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -25.2, 28, -47.5)
+
+[node name="S5_Stones" type="Marker3D" parent="Sections/Watch" groups=["guard_watch"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 38.2, 24, -38.2)
+
 [node name="Route" type="Node3D" parent="." unique_id=325112563]
 editor_description = "WHAT PROGRESS IS: the arc swept so far on the one lap, taken at the lane radius. IT IS DATA, AND IT LIVES ON THE MAP. The deck height, radial band, lane radius, entry angle and exit angle are here, and MatchLapTracker, RingRunner, the HUD and the round card all read them from here rather than from a second copy."
 script = ExtResource("5_ring_route")

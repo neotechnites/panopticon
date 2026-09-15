@@ -243,6 +243,10 @@ const MAX_ABILITY_COOLDOWN_MULTIPLIER: float = 4.0
 
 ## Hit points for the finisher fight. Both agree with [MatchRules]: the guard
 ## falls to one shot and an armed finisher absorbs ten.
+const DEFAULT_GUARD_SKILL: float = 0.5
+const MIN_GUARD_SKILL: float = 0.0
+const MAX_GUARD_SKILL: float = 1.0
+
 const DEFAULT_GUARD_HEALTH: int = 1
 const MIN_GUARD_HEALTH: int = 1
 const MAX_GUARD_HEALTH: int = 20
@@ -513,6 +517,9 @@ var runner_jump_multiplier: float = DEFAULT_RUNNER_JUMP_MULTIPLIER
 var ability_cooldown_multiplier: float = DEFAULT_ABILITY_COOLDOWN_MULTIPLIER
 
 ## Hit points the guard absorbs from the finisher's rifle. Written over
+## [member MatchRules.guard_skill].
+var guard_skill: float = DEFAULT_GUARD_SKILL
+
 ## [member MatchRules.guard_health].
 var guard_health: int = DEFAULT_GUARD_HEALTH
 
@@ -609,6 +616,7 @@ func reset() -> void:
 	runner_speed_multiplier = DEFAULT_RUNNER_SPEED_MULTIPLIER
 	runner_jump_multiplier = DEFAULT_RUNNER_JUMP_MULTIPLIER
 	ability_cooldown_multiplier = DEFAULT_ABILITY_COOLDOWN_MULTIPLIER
+	guard_skill = DEFAULT_GUARD_SKILL
 	guard_health = DEFAULT_GUARD_HEALTH
 	finisher_health = DEFAULT_FINISHER_HEALTH
 	map_id = DEFAULT_MAP_ID
@@ -692,6 +700,7 @@ func clamp_all() -> void:
 		MIN_ABILITY_COOLDOWN_MULTIPLIER,
 		MAX_ABILITY_COOLDOWN_MULTIPLIER,
 	)
+	guard_skill = clampf(guard_skill, MIN_GUARD_SKILL, MAX_GUARD_SKILL)
 	guard_health = clampi(guard_health, MIN_GUARD_HEALTH, MAX_GUARD_HEALTH)
 	finisher_health = clampi(finisher_health, MIN_FINISHER_HEALTH, MAX_FINISHER_HEALTH)
 	# A map that is not in the catalog is a file written by an older or newer
@@ -748,6 +757,7 @@ func copy_from(other: GameSettings) -> void:
 	runner_speed_multiplier = other.runner_speed_multiplier
 	runner_jump_multiplier = other.runner_jump_multiplier
 	ability_cooldown_multiplier = other.ability_cooldown_multiplier
+	guard_skill = other.guard_skill
 	guard_health = other.guard_health
 	finisher_health = other.finisher_health
 	map_id = other.map_id
@@ -797,6 +807,7 @@ func equals(other: GameSettings) -> bool:
 		and is_equal_approx(runner_speed_multiplier, other.runner_speed_multiplier)
 		and is_equal_approx(runner_jump_multiplier, other.runner_jump_multiplier)
 		and is_equal_approx(ability_cooldown_multiplier, other.ability_cooldown_multiplier)
+		and is_equal_approx(guard_skill, other.guard_skill)
 		and guard_health == other.guard_health
 		and finisher_health == other.finisher_health
 		and map_id == other.map_id
@@ -862,6 +873,7 @@ func write_to(config: ConfigFile) -> void:
 	config.set_value(SECTION_MATCH, "runner_speed_multiplier", runner_speed_multiplier)
 	config.set_value(SECTION_MATCH, "runner_jump_multiplier", runner_jump_multiplier)
 	config.set_value(SECTION_MATCH, "ability_cooldown_multiplier", ability_cooldown_multiplier)
+	config.set_value(SECTION_MATCH, "guard_skill", guard_skill)
 	config.set_value(SECTION_MATCH, "guard_health", guard_health)
 	config.set_value(SECTION_MATCH, "finisher_health", finisher_health)
 	# As a String, not a StringName: ConfigFile writes a StringName as &"x",
@@ -949,6 +961,7 @@ func read_from(config: ConfigFile) -> void:
 	ability_cooldown_multiplier = read_float(
 		config, SECTION_MATCH, "ability_cooldown_multiplier", ability_cooldown_multiplier
 	)
+	guard_skill = read_float(config, SECTION_MATCH, "guard_skill", guard_skill)
 	guard_health = read_int(config, SECTION_MATCH, "guard_health", guard_health)
 	finisher_health = read_int(config, SECTION_MATCH, "finisher_health", finisher_health)
 	map_id = read_string_name(config, SECTION_MATCH, "map_id", map_id)
@@ -1140,6 +1153,7 @@ func apply_to_match_rules(rules: MatchRules) -> void:
 	rules.runner_speed_multiplier = runner_speed_multiplier
 	rules.runner_jump_multiplier = runner_jump_multiplier
 	rules.ability_cooldown_multiplier = ability_cooldown_multiplier
+	rules.guard_skill = guard_skill
 	rules.guard_health = guard_health
 	rules.finisher_health = finisher_health
 	rules.map_id = map_id

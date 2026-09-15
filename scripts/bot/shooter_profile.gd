@@ -19,10 +19,10 @@ extends Resource
 ## separated into four independent axes so a sweep can move one at a time:
 ##
 ## 1. [b]How long before it commits[/b] -- [member reaction_seconds].
-## 2. [b]How wrong its aim is[/b] -- [member aim_error_degrees] and
-##    [member aim_error_resample_seconds].
-## 3. [b]How well it follows a crossing target[/b] -- [member tracking_gain],
-##    [member max_yaw_rate], [member max_pitch_rate], [member target_lead_seconds].
+## 2. [b]How wrong its aim is[/b] -- [member aim_error_degrees],
+##    [member aim_error_resample_seconds] and [member lead_error_seconds].
+## 3. [b]How well it follows a crossing target[/b] -- [member tracking_omega],
+##    [member tracking_damping], [member max_yaw_rate], [member max_pitch_rate].
 ## 4. [b]How bad a shot it will accept[/b] -- [member shot_confidence_threshold]
 ##    against [member aim_tolerance_degrees],
 ##    [member max_comfortable_track_rate] and the two ranges.
@@ -92,61 +92,75 @@ extends Resource
 
 # --- Acquisition --------------------------------------------------------------
 
-## Seconds a target must stay continuously visible before the bot will consider
-## shooting it. The reaction-time knob.
-##
-## Paid once per acquisition, not once per shot: a target that stays in view
-## across a whole reload is already acquired when the rifle comes back, which is
-## what a human who has been watching a runner the whole time would experience.
-## Lose sight of it and the clock starts again from zero.
-@export_range(0.0, 3.0, 0.01) var reaction_seconds: float = 0.45
+## Median reaction from a target becoming visible to the first shot decision,
+## in seconds, at skill 0.5. Sampled log-normally per acquisition.
+@export_range(0.0, 3.0, 0.01) var reaction_seconds: float = 0.30
+
+## Spread of the reaction sample: sigma of the log-normal.
+@export_range(0.0, 1.0, 0.01) var reaction_spread: float = 0.25
+
+## Fastest reaction any sample can produce, in seconds.
+@export_range(0.0, 2.0, 0.01) var reaction_floor_seconds: float = 0.12
 
 ## Height above a target's origin that the bot aims at, in metres.
-##
-## The shipped body is a 1.8 m capsule whose collision origin sits at y=0.9, so
-## 0.9 is centre mass. Raising it towards 1.5 aims at the head, which is a
-## smaller target and therefore a harder bot; the field is here so that is a
-## number to sweep rather than an opinion in the code.
 @export_range(0.0, 2.0, 0.05) var target_aim_height: float = 0.9
 
-## How far ahead of a moving target the bot aims, in seconds of the target's own
-## velocity.
-##
-## Not projectile lead -- the rifle is hitscan and its round arrives instantly.
-## This compensates for the bot's OWN lag: the tracking loop is a proportional
-## controller and a proportional controller always trails a constant-velocity
-## target by a fixed angle of [code]angular_speed / tracking_gain[/code]. Aiming
-## ahead by [code]1.0 / tracking_gain[/code] seconds cancels that trail exactly,
-## whatever the target's speed and range -- which is where the default comes
-## from, and is the value to move this to whenever
-## [member tracking_gain] changes. Zero is a bot that permanently shoots just
-## behind every crossing runner, which is a perfectly reasonable thing for an
-## easy setting to do.
-@export_range(0.0, 1.0, 0.01) var target_lead_seconds: float = 0.14
+## Seconds a target is held through occlusion before the bot gives it up.
+@export_range(0.0, 3.0, 0.05) var commitment_seconds: float = 0.5
+
+## A shot is declined when the target will be behind cover this many seconds
+## on, unless confidence is above [member sure_shot_confidence].
+@export_range(0.0, 1.0, 0.01) var cover_lookahead_seconds: float = 0.35
+@export_range(0.0, 1.0, 0.01) var sure_shot_confidence: float = 0.9
+
+## A body that appears within this many metres of a known one is treated as a
+## likely decoy for this many seconds: chosen only when nothing else is visible.
+@export_range(0.5, 10.0, 0.1) var decoy_suspicion_metres: float = 4.0
+@export_range(0.0, 10.0, 0.1) var decoy_suspicion_seconds: float = 2.0
 
 # --- Tracking -----------------------------------------------------------------
 
-## Proportional gain on the aim error, in radians per second of turn per radian
-## of error. How hard the bot snaps onto a target and how tightly it holds a
-## crossing one.
-##
-## The brain is a plain P controller with no damping, exactly like
-## [RingRunner]'s steering, and this is the whole of its aiming skill. Too low
-## and it never catches a sprinting runner; too high and it overshoots and
-## oscillates about the target, which shows up as a lower hit rate rather than
-## as an error.
-@export_range(0.5, 40.0, 0.1) var tracking_gain: float = 7.0
+## Natural frequency of the aim, radians per second: how quickly the aim closes
+## on a target. Underdamped, so it lags a moving target and overshoots a jump.
+@export_range(1.0, 40.0, 0.1) var tracking_omega: float = 9.0
 
-## Ceiling on the yaw rate the bot will ask for, in radians per second. The turn
-## speed of the hand on the mouse: it is what stops a large error from producing
-## an instant, inhuman snap, and it is what makes a runner crossing behind the
-## bot genuinely expensive to answer.
+## Damping ratio of the aim; below 1.0 overshoots.
+@export_range(0.1, 2.0, 0.01) var tracking_damping: float = 0.6
+
+## How long the read of a target's velocity takes to catch up with a change,
+## in seconds: a turn or a pad launch is led where the target was heading.
+@export_range(0.0, 2.0, 0.01) var velocity_read_seconds: float = 0.25
+
+## Lead misjudgement, seconds of the target's crossing velocity per radian per
+## second of angular speed, at skill 0.5. The error grows with angular speed.
+@export_range(0.0, 0.5, 0.005) var lead_error_seconds: float = 0.08
+
+## How often the lead misjudgement is resampled, in seconds.
+@export_range(0.05, 5.0, 0.01) var lead_error_resample_seconds: float = 0.5
+
+## Ceiling on the yaw rate the bot will ask for, in radians per second.
 @export_range(0.1, 30.0, 0.1) var max_yaw_rate: float = 3.5
 
-## Ceiling on the pitch rate, in radians per second. Lower than the yaw ceiling
-## because the ring is a horizontal band: a tower that needs a lot of pitch is
-## looking at something that is not the game.
+## Ceiling on the pitch rate, in radians per second.
 @export_range(0.1, 30.0, 0.1) var max_pitch_rate: float = 2.5
+
+# --- Scanning -----------------------------------------------------------------
+
+## How long a sighting is remembered while scanning, in seconds.
+@export_range(0.0, 30.0, 0.5) var memory_seconds: float = 8.0
+
+## How long the scan rests on a point of interest before moving on.
+@export_range(0.1, 5.0, 0.05) var scan_dwell_seconds: float = 0.9
+
+# --- Skill --------------------------------------------------------------------
+#
+# [member MatchRules.guard_skill] scales the model through [method skill_scale]:
+# 1.0 at skill 0.5, 1 + span at skill 0, 1 - span at skill 1. Reaction and the
+# errors multiply by it; response speeds divide by it.
+
+@export_range(0.0, 1.0, 0.01) var skill_reaction_span: float = 0.5
+@export_range(0.0, 1.0, 0.01) var skill_error_span: float = 0.7
+@export_range(0.0, 1.0, 0.01) var skill_scan_span: float = 0.4
 
 # --- Aim error ----------------------------------------------------------------
 
@@ -270,6 +284,36 @@ func get_aim_tolerance_radians() -> float:
 
 ## True when the bot should reach for the scope. One place, so no caller grows
 ## its own idea of what "uses the optic" means.
+## The skill multiplier: 1 + span at skill 0, 1 at 0.5, 1 - span at skill 1.
+static func skill_scale(skill: float, span: float) -> float:
+	return 1.0 + (0.5 - clampf(skill, 0.0, 1.0)) * 2.0 * span
+
+
+func get_reaction_median_seconds(skill: float) -> float:
+	return reaction_seconds * skill_scale(skill, skill_reaction_span)
+
+
+## Angular lead error, radians, for a target crossing at [param angular_speed].
+func get_lead_error_radians(angular_speed: float, skill: float) -> float:
+	return absf(angular_speed) * lead_error_seconds * skill_scale(skill, skill_error_span)
+
+
+func get_aim_error_radians_at(skill: float) -> float:
+	return get_aim_error_radians() * skill_scale(skill, skill_error_span)
+
+
+func get_velocity_read_seconds(skill: float) -> float:
+	return velocity_read_seconds * skill_scale(skill, skill_error_span)
+
+
+func get_scan_yaw_rate(skill: float) -> float:
+	return scan_yaw_rate / skill_scale(skill, skill_scan_span)
+
+
+func get_tracking_omega(skill: float) -> float:
+	return tracking_omega / skill_scale(skill, skill_scan_span)
+
+
 func wants_optic() -> bool:
 	return use_optic
 

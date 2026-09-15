@@ -122,6 +122,24 @@ var _shots_hit_participant: int = 0
 var _shots_hit_world: int = 0
 var _shots_hit_nothing: int = 0
 
+# The guard's shots by what it was shooting at: {shots, hits} per bucket, the
+# shot classified when the rifle fires and settled by the hit or miss after it.
+const HEADING_RING_TICKS: int = 18
+const STRAFE_TURN_RADIANS: float = 0.35
+const COVER_SPEED: float = 1.0
+const DISTANCE_BANDS: Array[float] = [30.0, 60.0, 90.0]
+var _guard_by_state: Dictionary = {}
+var _guard_by_distance: Dictionary = {}
+var _guard_reactions: Array[float] = []
+var _guard_model_reactions: Array[float] = []
+var _guard_decoy_shots: int = 0
+var _guard_camo_shots: int = 0
+var _deaths_by_cause: Dictionary = {}
+var _race_deaths_by_cause: Dictionary = {}
+var _pending_state: String = ""
+var _pending_distance: String = ""
+var _heading_rings: Dictionary = {}
+
 ## Who holds the tower and since when, so the seat's time can be closed out on
 ## the next change. -1 means nobody, which is the truth during the opening race.
 var _seat_index: int = -1
@@ -156,6 +174,7 @@ func install(controller: MatchController, rifle: Rifle) -> void:
 	controller.seat_changed.connect(_on_seat_changed)
 	controller.round_resolved.connect(_on_round_resolved)
 	controller.runner_removed.connect(_on_runner_removed)
+	controller.participant_converted.connect(_on_participant_converted)
 	controller.runner_ghosted.connect(_on_runner_ghosted)
 	controller.ghost_caught.connect(_on_ghost_caught)
 	controller.match_won.connect(_on_match_won)
@@ -469,6 +488,7 @@ func _sample_runners() -> void:
 		_sample_run(participant, brain, here)
 		_sample_section(participant.index, tally, here)
 		_sample_hops(participant.index, tally, brain, here)
+		_sample_heading(participant.index, participant.body)
 		var state: RingRunner.State = brain.get_state()
 		var holding: bool = state == RingRunner.State.HOLD or state == RingRunner.State.EVALUATE
 		var perception: RunnerPerception = brain.get_perception()
@@ -767,6 +787,15 @@ func _on_runner_removed(_remaining: int) -> void:
 	# event and must not be counted from the shot.
 
 
+func _on_participant_converted(participant: MatchParticipant) -> void:
+	var cause: String = String(MatchParticipant.DeathCause.keys()[participant.death_cause])
+	var table: Dictionary = (
+		_deaths_by_cause if _controller.get_phase() == MatchController.Phase.ROUND
+		else _race_deaths_by_cause
+	)
+	table[cause] = int(table.get(cause, 0)) + 1
+
+
 func _on_runner_ghosted(_participant: MatchParticipant) -> void:
 	_ghosts_made += 1
 
@@ -817,6 +846,7 @@ func _on_fired(_origin: Vector3, _end_point: Vector3) -> void:
 			_first_shots.append(seconds)
 	_first_shot_pending = false
 	_charge_shot_to_its_target()
+	_classify_shot()
 
 
 ## Credit the shot to whoever the tower was aiming at, in the section they stood
@@ -852,9 +882,11 @@ func _on_target_hit(collider: Node3D, _hit_position: Vector3, _hit_normal: Vecto
 	var struck: MatchParticipant = _controller.resolve_participant(collider)
 	if struck == null:
 		_shots_hit_world += 1
+		_settle_shot(false)
 		return
 
 	_shots_hit_participant += 1
+	_settle_shot(true)
 	var shooter: BotParticipantTally = _tallies.get(_shooter_index, null)
 	if shooter != null:
 		shooter.shots_hit += 1
@@ -869,6 +901,114 @@ func _on_target_hit(collider: Node3D, _hit_position: Vector3, _hit_normal: Vecto
 
 func _on_missed(_end_point: Vector3) -> void:
 	_shots_hit_nothing += 1
+	_settle_shot(false)
+
+
+# --- The guard ----------------------------------------------------------------
+
+func _sample_heading(index: int, body: PlayerController) -> void:
+	if not _heading_rings.has(index):
+		var fresh: Array[float] = []
+		fresh.resize(HEADING_RING_TICKS)
+		fresh.fill(NAN)
+		_heading_rings[index] = fresh
+	var ring: Array[float] = _heading_rings[index]
+	var velocity: Vector3 = body.velocity
+	var flat: Vector2 = Vector2(velocity.x, velocity.z)
+	ring[_ticks % HEADING_RING_TICKS] = flat.angle() if flat.length() >= COVER_SPEED else NAN
+
+
+## What the guard's target was doing when the rifle fired, as the guard sees
+## it: in the air, still or holding at cover, turning hard, or running straight.
+func _target_state(quarry: PlayerController) -> String:
+	if not quarry.is_on_floor():
+		return "airborne"
+	var participant: MatchParticipant = _controller.resolve_participant(quarry)
+	var brain: RingRunner = participant.brain if participant != null else null
+	if brain != null:
+		var state: RingRunner.State = brain.get_state()
+		if state == RingRunner.State.HOLD or state == RingRunner.State.EVALUATE:
+			return "cover"
+	if quarry.get_horizontal_speed() < COVER_SPEED:
+		return "cover"
+	if participant != null and _heading_rings.has(participant.index):
+		var ring: Array[float] = _heading_rings[participant.index]
+		var now: float = ring[_ticks % HEADING_RING_TICKS]
+		var before: float = ring[(_ticks + 1) % HEADING_RING_TICKS]
+		if not is_nan(now) and not is_nan(before) and absf(wrapf(now - before, -PI, PI)) >= STRAFE_TURN_RADIANS:
+			return "strafing"
+	return "running"
+
+
+func _distance_band(distance: float) -> String:
+	var low: float = 0.0
+	for edge: float in DISTANCE_BANDS:
+		if distance < edge:
+			return "%d-%d" % [int(low), int(edge)]
+		low = edge
+	return "%d+" % int(low)
+
+
+func _classify_shot() -> void:
+	_pending_state = ""
+	_pending_distance = ""
+	if _controller == null:
+		return
+	var seat: MatchParticipant = _controller.get_seat_participant()
+	var guard: TowerShooter = seat.tower_brain if seat != null else null
+	if guard == null or seat.body == null:
+		return
+	var quarry: PlayerController = guard.get_target()
+	if quarry == null:
+		return
+	var eye: Vector3 = seat.body.head.global_position if seat.body.head != null else seat.body.global_position
+	_pending_distance = _distance_band(eye.distance_to(quarry.global_position))
+	_pending_state = _target_state(quarry)
+	_guard_reactions.append(guard.get_ready_sighted_seconds())
+	_guard_model_reactions.append(guard.get_reaction_delay())
+	if quarry.is_in_group(RunnerPower.DECOY_GROUP):
+		_guard_decoy_shots += 1
+	var power: RunnerPower = RunnerPower.of(quarry)
+	if power != null and power.is_camouflaged():
+		_guard_camo_shots += 1
+
+
+func _settle_shot(hit: bool) -> void:
+	if _pending_state.is_empty():
+		return
+	_count_shot(_guard_by_state, _pending_state, hit)
+	_count_shot(_guard_by_distance, _pending_distance, hit)
+	_pending_state = ""
+	_pending_distance = ""
+
+
+func _count_shot(table: Dictionary, key: String, hit: bool) -> void:
+	var entry: Dictionary = table.get(key, {})
+	if entry.is_empty():
+		entry = {"shots": 0, "hits": 0}
+		table[key] = entry
+	entry["shots"] = int(entry["shots"]) + 1
+	if hit:
+		entry["hits"] = int(entry["hits"]) + 1
+
+
+func _guard_dictionary() -> Dictionary:
+	return {
+		"shots": _shots_fired,
+		"hits": _shots_hit_participant,
+		"kills": int(_deaths_by_cause.get("SHOT", 0)),
+		"deaths_by_cause": _deaths_by_cause,
+		"race_deaths_by_cause": _race_deaths_by_cause,
+		"first_shot_seconds": _first_shots,
+		"by_state": _guard_by_state,
+		"by_distance": _guard_by_distance,
+		"reaction_seconds": _guard_reactions,
+		"reaction_mean": BotHarness.mean(_guard_reactions),
+		"model_reaction_seconds": _guard_model_reactions,
+		"model_reaction_mean": BotHarness.mean(_guard_model_reactions),
+		"decoy_shots": _guard_decoy_shots,
+		"camo_shots": _guard_camo_shots,
+	}
 
 
 # --- The report ---------------------------------------------------------------
@@ -931,6 +1071,7 @@ func to_dictionary(sim_hz: int) -> Dictionary:
 			"hit_nothing": _shots_hit_nothing,
 			"hit_rate": get_hit_rate(),
 		},
+		"guard": _guard_dictionary(),
 		"conversions": _conversions,
 		"hazard_deaths": _hazard_deaths,
 		"tick_ms": _tick_dictionary(),

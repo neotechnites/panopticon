@@ -260,6 +260,13 @@ func _summarise(variant: BotVariant, results: Array) -> Dictionary:
 	var winners: Dictionary = {}
 	var wall_seconds: float = 0.0
 	var simulated_seconds: float = 0.0
+	var round_wins_tower: int = 0
+	var round_wins_runners: int = 0
+	var by_state: Dictionary = {}
+	var by_distance: Dictionary = {}
+	var reactions: Array[float] = []
+	var model_reactions: Array[float] = []
+	var decoy_shots: int = 0
 
 	for entry: Variant in results:
 		var result: Dictionary = entry
@@ -270,6 +277,17 @@ func _summarise(variant: BotVariant, results: Array) -> Dictionary:
 		var shots: Dictionary = result.get("shots", {})
 		shots_fired += int(shots.get("fired", 0))
 		shots_hit += int(shots.get("hit_participant", 0))
+		var round_tally: Dictionary = result.get("rounds", {})
+		round_wins_tower += int(round_tally.get("shooter_wins", 0))
+		round_wins_runners += int(round_tally.get("shooter_losses", 0))
+		var guard: Dictionary = result.get("guard", {})
+		_merge_buckets(by_state, guard.get("by_state", {}))
+		_merge_buckets(by_distance, guard.get("by_distance", {}))
+		for value: Variant in guard.get("reaction_seconds", []):
+			reactions.append(float(value))
+		for value: Variant in guard.get("model_reaction_seconds", []):
+			model_reactions.append(float(value))
+		decoy_shots += int(guard.get("decoy_shots", 0))
 
 		if String(result.get("status", "")) != "RESOLVED":
 			unresolved += 1
@@ -310,7 +328,28 @@ func _summarise(variant: BotVariant, results: Array) -> Dictionary:
 		"winner_counts": winners,
 		"simulated_seconds_total": simulated_seconds,
 		"wall_seconds_total": wall_seconds,
+		"round_wins_tower": round_wins_tower,
+		"round_wins_runners": round_wins_runners,
+		"runner_round_win_rate": (
+			float(round_wins_runners) / float(round_wins_tower + round_wins_runners)
+			if round_wins_tower + round_wins_runners > 0 else 0.0
+		),
+		"guard_by_state": by_state,
+		"guard_by_distance": by_distance,
+		"guard_reaction_mean": mean(reactions),
+		"guard_model_reaction_mean": mean(model_reactions),
+		"guard_decoy_shots": decoy_shots,
 	}
+
+
+static func _merge_buckets(into: Dictionary, from: Dictionary) -> void:
+	for key: Variant in from:
+		var entry: Dictionary = from[key]
+		var total: Dictionary = into.get(key, {"shots": 0, "hits": 0})
+		total["shots"] = int(total["shots"]) + int(entry.get("shots", 0))
+		total["hits"] = int(total["hits"]) + int(entry.get("hits", 0))
+		total["hit_rate"] = float(total["hits"]) / float(maxi(int(total["shots"]), 1))
+		into[key] = total
 
 
 ## The median of [param values], or 0.0 when there are none. An empty sample has

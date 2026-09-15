@@ -675,6 +675,10 @@ enum MapPickMode {
 ## the tower is a miss for this purpose: what counts is that no prisoner was hit.
 @export_range(0.0, 15.0, 0.1, "or_greater") var guard_miss_penalty_seconds: float = 0.0
 
+## How good the AI guard is, 0 a learner to 1 an expert. Scales its reaction,
+## lead error and scan speed; see [TowerShooter].
+@export_range(0.0, 1.0, 0.05) var guard_skill: float = 0.5
+
 ## Whether a confirmed hit raises the guard's hitmarker. [b]LIVE[/b], default
 ## true, which is today's feedback. Off leaves the guard to read the ring.
 @export var guard_hit_marker: bool = true
