@@ -1,5 +1,5 @@
 {
-  "_comment": "forest: Map 3. Authored in WORLD coordinates, instance at identity: grass lane r 46.7..57.3 at y 23.0 (as map 1), the pit bank down to water at y 0.0 (r 42.6, its own tiling sheet), a leaf wall from r 57.3 up to the leaf ceiling at y 33 (doming to 37 over the tree) with 12 ragged gaps, 12 forest trunks standing in the wall, 12 cells with branch bars cut into the wall and 16 into the pit bank, ferns and hummocks along the wall foot and the lip only, a branch fence across the lane at 350 deg. TWO surfaces on ForestGround: the forest atlas and the water. ForestRaysSolid and ForestRaysSoft are the sun-ray wedges (one per ceiling gap, same geometry, opaque yellow / faint) behind MESH_RAYS, one surface each. ForestCollision is the purpose-built collider shipped as a `-colonly` node (flat lane, pit cone, water floor, flat wall r 57.3, flat ceiling annulus y 33, the fence box); Godot turns it into a StaticBody3D + ConcavePolygonShape3D and drops its mesh, so `surfaces` counts only what is drawn.",
+  "_comment": "forest: Map 3. Authored in WORLD coordinates, instance at identity: grass lane r 46.7..57.3 at y 23.0 (as map 1), the pit bank down to water at y 0.0 (r 42.6, its own tiling sheet), a leaf wall from r 57.3 up to the leaf ceiling at y 33 (doming to 37 over the tree) with 12 ragged gaps, 12 forest trunks standing in the wall, 12 cells with branch bars cut into the wall and 16 into the pit bank, ferns and hummocks along the wall foot and the lip only, a branch fence across the lane at 350 deg. TWO surfaces on ForestGround: the forest atlas and the water. ForestRaysSolid and ForestRaysSoft are the sun-ray shafts (one per ceiling gap, three crossed vanes, same geometry, tint and feather in COLOR_0, pale / faint) behind MESH_RAYS, one surface each. ForestCollision is the purpose-built collider shipped as a `-colonly` node (flat lane, pit cone, water floor, flat wall r 57.3, flat ceiling annulus y 33, the fence box); Godot turns it into a StaticBody3D + ConcavePolygonShape3D and drops its mesh, so `surfaces` counts only what is drawn.",
   "node_paths": [
     "ForestGround",
     "ForestCollision",
@@ -8,5 +8,5 @@
     "ForestRaysSoft"
   ],
   "surfaces": 4,
-  "max_tris": 45000
+  "max_tris": 45500
 }

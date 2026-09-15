@@ -112,7 +112,8 @@ TEX_SIZE = 256
 TEX_SEED = 7710233
 TPM = 12.0                      # texels per metre on the atlas
 ZONES = {                       # (u0, v0, u1, v1)
-    "grass": (0.0, 0.0, 0.5, 0.375),
+    "grass": (0.0, 0.0, 0.5, 0.25),
+    "verge": (0.0, 0.25, 0.5, 0.375),
     "path": (0.0, 0.375, 0.5, 0.5),
     "leaf": (0.5, 0.5, 1.0, 1.0),
     "shade": (0.0, 0.5, 0.25, 0.75),
@@ -234,41 +235,90 @@ def _leaves(c, r, box, base, shades, lit, count, sz):
             c.put(x + 1, y + h - 1, lit)
 
 
-def _paint_grass(c, r, box):
-    _fill(c, r, box, [(108, 146, 60), (100, 138, 56), (116, 152, 66), (94, 132, 52)])
-    _blotch(c, r, box, [(122, 158, 70), (90, 128, 50), (104, 144, 58)], 40, 4, 12)
+# The lane's greens: between Kokiri gold-green and cartoon green. Every lane
+# zone is painted as fine noise over these (a smooth field picks the green, a
+# per-texel jitter breaks it up), never as blotches: the deck is unwrapped a
+# quad at a time at a random offset, and any shape bigger than a texel or two
+# reads as that quad's own patch, a checkerboard of 1.5 m squares.
+LANE_GREENS = ((136, 158, 62), (118, 156, 64), (98, 152, 66))
+PATH_TONES = ((124, 126, 66), (114, 108, 62), (110, 138, 60))
+VERGE_TONES = ((132, 152, 62), (118, 148, 64), (118, 126, 64))
+EDGE_GREENS = ((108, 140, 56), (94, 132, 54), (84, 122, 50))
+
+
+def _value_field(r, w, h, cell):
+    """Smooth value noise over a w x h texel box: a random lattice every
+    ``cell`` texels, bilinear between, wrapping so the box tiles."""
+    nx, ny = max(1, w // cell), max(1, h // cell)
+    lat = [[r.f() for _ in range(nx)] for _ in range(ny)]
+    out = [[0.0] * w for _ in range(h)]
+    for y in range(h):
+        fy = y * ny / float(h)
+        j0 = int(fy) % ny
+        j1 = (j0 + 1) % ny
+        ty = fy - int(fy)
+        ty = ty * ty * (3.0 - 2.0 * ty)
+        for x in range(w):
+            fx = x * nx / float(w)
+            i0 = int(fx) % nx
+            i1 = (i0 + 1) % nx
+            tx = fx - int(fx)
+            tx = tx * tx * (3.0 - 2.0 * tx)
+            a = lat[j0][i0] + (lat[j0][i1] - lat[j0][i0]) * tx
+            b = lat[j1][i0] + (lat[j1][i1] - lat[j1][i0]) * tx
+            out[y][x] = a + (b - a) * ty
+    return out
+
+
+def _noise_fill(c, r, box, tones, cuts=(0.38, 0.66), jitter=0.22, dither=4):
+    """Fine noise in two or three tones: a two-octave field plus a per-texel
+    jitter picks the tone by ``cuts``; ``dither`` shifts every texel's value
+    a little so no two neighbours are quite the same."""
     x0, y0, x1, y1 = box
-    for _ in range(90):                      # blades
-        x, y = r.i(x0, x1 - 2), r.i(y0, y1 - 4)
-        c.rect(x, y, x + 1, y + r.i(2, 4), r.pick([(138, 172, 78), (72, 112, 44)]))
-    for _ in range(14):                      # clover / small flowers
-        x, y = r.i(x0, x1 - 3), r.i(y0, y1 - 3)
-        c.rect(x, y, x + 2, y + 2, r.pick([(150, 184, 90), (86, 124, 50)]))
+    w, h = x1 - x0, y1 - y0
+    f1 = _value_field(r, w, h, 10)
+    f2 = _value_field(r, w, h, 4)
+    for y in range(h):
+        for x in range(w):
+            v = 0.65 * f1[y][x] + 0.35 * f2[y][x] + r.u(-jitter, jitter)
+            k = 0
+            for cut in cuts:
+                if v >= cut:
+                    k += 1
+            tone = tones[min(k, len(tones) - 1)]
+            d = r.i(-dither, dither)
+            c.put(x0 + x, y0 + y, tuple(max(0, min(255, ch + d)) for ch in tone))
+
+
+def _blades(c, r, box, count, shades):
+    """Single texels, a lighter or darker blade tip each."""
+    x0, y0, x1, y1 = box
+    for _ in range(count):
+        c.put(r.i(x0, x1 - 1), r.i(y0, y1 - 1), r.pick(shades))
+
+
+def _paint_grass(c, r, box):
+    _noise_fill(c, r, box, LANE_GREENS)
+    _blades(c, r, box, 160, [(150, 172, 74), (152, 166, 66), (88, 134, 56)])
+
+
+def _paint_verge(c, r, box):
+    """Between the grass and the path: the greens with the path's worn tone
+    creeping in, so the path has no hard shoulder."""
+    _noise_fill(c, r, box, VERGE_TONES, cuts=(0.42, 0.74))
+    _blades(c, r, box, 60, [(148, 168, 72), (112, 104, 60)])
 
 
 def _paint_path(c, r, box):
-    """The worn line down the middle of the lane: thinner, browner grass."""
-    _fill(c, r, box, [(112, 138, 62), (104, 130, 58), (118, 142, 68), (108, 126, 60)])
-    _blotch(c, r, box, [(120, 116, 70), (98, 122, 56), (126, 128, 76)], 30, 3, 9)
-    x0, y0, x1, y1 = box
-    for _ in range(40):
-        x, y = r.i(x0, x1 - 2), r.i(y0, y1 - 3)
-        c.rect(x, y, x + 1, y + r.i(2, 3), r.pick([(134, 160, 76), (88, 118, 50)]))
-    for _ in range(16):                      # bare earth showing through
-        x, y = r.i(x0, x1 - 4), r.i(y0, y1 - 3)
-        c.rect(x, y, x + r.i(2, 4), y + 2, r.pick([(124, 104, 66), (110, 92, 58)]))
+    """The worn line down the middle of the lane: brown-green, bare earth showing."""
+    _noise_fill(c, r, box, PATH_TONES, cuts=(0.40, 0.72))
+    _blades(c, r, box, 70, [(118, 96, 58), (104, 88, 54), (128, 146, 66)])
 
 
 def _paint_edge(c, r, box):
-    _fill(c, r, box, [(80, 118, 48), (72, 110, 44), (88, 126, 52), (64, 100, 40)])
-    _blotch(c, r, box, [(60, 92, 40), (96, 134, 56)], 22, 3, 8)
-    x0, y0, x1, y1 = box
-    for _ in range(40):
-        x, y = r.i(x0, x1 - 2), r.i(y0, y1 - 5)
-        c.rect(x, y, x + 1, y + r.i(3, 5), (104, 146, 62))
-    for _ in range(10):
-        x, y = r.i(x0, x1 - 3), r.i(y0, y1 - 3)
-        c.rect(x, y, x + 2, y + 2, (58, 44, 30))
+    """The lip, the wall foot, hummocks and cell floors: the lane's greens in shade."""
+    _noise_fill(c, r, box, EDGE_GREENS)
+    _blades(c, r, box, 60, [(120, 150, 62), (58, 44, 30)])
 
 
 def _paint_leaf(c, r, box):
@@ -357,7 +407,7 @@ def _paint_root(c, r, box):
 
 
 PAINTERS = {
-    "grass": _paint_grass, "path": _paint_path, "edge": _paint_edge, "leaf": _paint_leaf,
+    "grass": _paint_grass, "verge": _paint_verge, "path": _paint_path, "edge": _paint_edge, "leaf": _paint_leaf,
     "shade": _paint_shade, "sun": _paint_sun, "fern": _paint_fern,
     "bark": _paint_bark, "earth": _paint_earth, "cell": _paint_cell,
     "root": _paint_root,
@@ -1235,8 +1285,8 @@ def unwrap(ob, zones, seed=0, water_fn=None):
         u0, v0, u1, v1 = ZONES[zone]
         span_u = (u1 - u0) - 2.0 * UV_PAD
         span_v = (v1 - v0) - 2.0 * UV_PAD
-        px = (u1 - u0) * TEX_SIZE
-        scale = TPM / px                     # metres -> fraction of the zone
+        scale = TPM / ((u1 - u0) * TEX_SIZE)      # metres -> fraction of the zone, each axis its own
+        scale_v = TPM / ((v1 - v0) * TEX_SIZE)    # (the lane's zones are wider than tall)
         nrm = poly.normal
         ax = max(range(3), key=lambda i: abs(nrm[i]))
         ii, jj = ((1, 2), (0, 2), (0, 1))[ax]
@@ -1246,12 +1296,12 @@ def unwrap(ob, zones, seed=0, water_fn=None):
         mi = min(co[ii] for co in cos)
         mj = min(co[jj] for co in cos)
         w = min((max(co[ii] for co in cos) - mi) * scale, 1.0)
-        h = min((max(co[jj] for co in cos) - mj) * scale, 1.0)
+        h = min((max(co[jj] for co in cos) - mj) * scale_v, 1.0)
         ou = r.f() * (1.0 - w)
         ov = r.f() * (1.0 - h)
         for li, co in zip(poly.loop_indices, cos):
             s = min(ou + (co[ii] - mi) * scale, 1.0)
-            t = min(ov + (co[jj] - mj) * scale, 1.0)
+            t = min(ov + (co[jj] - mj) * scale_v, 1.0)
             if fu < 0.0:
                 s = 1.0 - s
             if fv < 0.0:

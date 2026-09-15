@@ -34,16 +34,18 @@ transparency = 1
 blend_mode = 1
 cull_mode = 2
 shading_mode = 0
-albedo_color = Color(1, 0.9, 0.55, 0.13)
+vertex_color_use_as_albedo = true
+albedo_color = Color(1, 1, 1, 1)
 
 [sub_resource type="StandardMaterial3D" id="RaySolidMat"]
 transparency = 1
 cull_mode = 2
 shading_mode = 0
-albedo_color = Color(0.92, 0.8, 0.38, 0.55)
+vertex_color_use_as_albedo = true
+albedo_color = Color(1, 1, 1, 1)
 
 [node name="Forest" type="Node3D"]
-editor_description = "MAP 3, THE FOREST: assets/models/forest.glb at identity (grass lane r 46.7..57.3 at y 23.0 round a ravine with water at y -11.05, as map 1's sea, a leaf wall and ceiling), the great tree (forest_tree.glb) as the tower. The sun rays are two nodes in the glb: ForestRaysSolid (opaque yellow wedges) and ForestRaysSoft (faint, additive here, under the Sun light). Flip their visibility to compare."
+editor_description = "MAP 3, THE FOREST: assets/models/forest.glb at identity (grass lane r 46.7..57.3 at y 23.0 round a ravine with water at y -11.05, as map 1's sea, a leaf wall and ceiling), the great tree (forest_tree.glb) as the tower. The sun rays are two nodes in the glb, three crossed vanes per ceiling gap with the tint and the feather in their vertex colour (alpha peaks on the axis, zero at the edges and both ends, so no cap, no hard edge): ForestRaysSolid (pale yellow, alpha 0.35, mixed, the mesh-only look) and ForestRaysSoft (faint, additive, shown here under the Sun light). Both overrides are unshaded and take albedo and alpha from the vertex colour. Flip their visibility to compare."
 
 [node name="Environment" type="Node3D" parent="."]
 

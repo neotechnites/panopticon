@@ -19,9 +19,13 @@ hummocks, cell bars, the fence and the hanging roots are socketed into the
 quads they stand on (_Mesh.socket), the forest trunks are wall columns pushed
 toward the lane. Nothing merely overlaps its host.
 
-The sun rays are two more nodes behind MESH_RAYS: ForestRaysSolid (opaque
-yellow wedges) and ForestRaysSoft (the same wedges, faint, for the scene's
-DirectionalLight variant). ForestCollision rides as a `-colonly` node: flat
+The sun rays are two more nodes behind MESH_RAYS: ForestRaysSolid (pale
+yellow shafts, alpha 0.35) and ForestRaysSoft (the same shafts, faint, for
+the scene's DirectionalLight variant). A shaft is three vanes of a strip
+crossed on the sun's line, tint and feather in the vertex colour (COLOR_0):
+alpha peaks on the axis, is zero along both edges and at both ends, so a
+shaft has no cap and no hard edge; it starts inside its ceiling gap and runs
+into the ground it lands on. ForestCollision rides as a `-colonly` node: flat
 lane, pit cone, water floor, flat wall with a prism per trunk, flat ceiling
 annulus, the fence box at 350 deg. The leafy visual mesh is never its own
 collider.
@@ -81,7 +85,7 @@ EYE_H = 1.65
 
 DECK_RST = [46.7, 47.6, 49.0, 50.5, 52.0, 53.5, 55.6, 57.3]
 DECK_AMP = 0.12             # the lane's 2-D relief, zero at both edges
-PATH_BAND = (50.5, 53.5)    # the worn path down the lane's middle: zone "path"
+PATH_BAND = (50.5, 53.5)    # the worn path down the lane's middle: zone "path"; "verge" one row either side
 LIP_ROW, FOOT_ROW = 0, 6    # the deck bands that take ferns: the lip and the wall foot
 LIP_FERN_R, FOOT_FERN_R = 47.15, 56.6      # where a fern's crown sits in those bands
 
@@ -116,10 +120,13 @@ CEIL_LUMP = 0.45
 GAPS = [(15.0, 2), (58.0, 4), (140.0, 5), (175.0, 2), (215.0, 4),
         (290.0, 5), (325.0, 2), (30.0, 7), (240.0, 9)]
 SUN = (120.0, 52.0)         # the sun's bearing and elevation: rays come from this side
-RAY_TOP = 0.7               # half width of a ray's top square, centred in its gap
-RAY_FOOT = 0.25             # half width of a ray where it lands
-RAY_SOLID = ((0.92, 0.80, 0.38), 0.35)  # emission colour, alpha: opaque yellow objects, unlit
-RAY_SOFT = ((0.90, 0.84, 0.55), 0.12)   # ... and the faint one under the scene's light
+RAY_W = (0.9, 0.5)          # a shaft's half width at the top and at the foot: 1.8 m tapering to 1.0
+RAY_IN = 0.9                # the shaft starts this far up its gap, so the ceiling hides its end
+RAY_OVER = 0.6              # ... and runs this far into whatever it lands on
+RAY_FADE = (0.18, 0.82)     # along the shaft, alpha ramps up to here and back down from here
+RAY_VANES = 3               # planes crossed on the axis: something faces every camera
+RAY_SOLID = ((1.0, 0.93, 0.60), 0.16)   # tint, peak alpha PER VANE: three vanes overlap on the axis,
+RAY_SOFT = ((1.0, 0.95, 0.72), 0.06)    # so a shaft reads at 0.25..0.4 (solid) and faint (soft)
 
 WATER_RINGS = [(31.0, 120), (20.0, 60), (9.0, 24)]   # (r, vertices) inward from the bank's 240
 
@@ -174,10 +181,12 @@ WATER_TEX = 128
 WATER_TILE = 7.0            # metres per repeat
 WATER_SEED = 5140737
 
-REVIEW_SUN = 3.2            # review renders only: white sun from SUN, watts
+REVIEW_SUN = 6.0            # review renders only: the sun from SUN, watts, shadows on (light variant)
 REVIEW_FILL = 1.1           # ... a second sun from the far side, no shadows
 REVIEW_WORLD = 1.0
-REVIEW_SKY = (0.85, 0.82, 0.55)   # a warm pale sky: the gaps read as sunlight
+REVIEW_WORLD_VARIANT = {"solid": 1.2, "light": 0.75}   # the mesh-only variant has no sun to help it
+REVIEW_SKY = (0.72, 0.80, 0.70)   # the world's fill light, pale and a little green
+REVIEW_SEEN = (0.25, 0.36, 0.50)  # the sky the camera sees through a gap: pale blue once REVIEW_EXPOSURE (stops) has lifted it
 REVIEW_EXPOSURE = 0.9
 
 TWO_PI = 2.0 * math.pi
@@ -514,10 +523,10 @@ class _Ground(object):
     def _deck_faces(self):
         m = self.m
         for j in range(len(DECK_RST) - 1):
-            if j == 0 or j == len(DECK_RST) - 2:
-                zone = "edge"
-            elif DECK_RST[j] >= PATH_BAND[0] - 0.01 and DECK_RST[j + 1] <= PATH_BAND[1] + 0.01:
+            if DECK_RST[j] >= PATH_BAND[0] - 0.01 and DECK_RST[j + 1] <= PATH_BAND[1] + 0.01:
                 zone = "path"
+            elif DECK_RST[j + 1] >= PATH_BAND[0] - 0.01 and DECK_RST[j] <= PATH_BAND[1] + 0.01:
+                zone = "verge"               # the band either side of the path
             else:
                 zone = "grass"
             for i in range(NC):
@@ -727,10 +736,7 @@ class _Ground(object):
             c0 = _col_of(b)
             ids = (self.ceil[k][c0], self.ceil[k][(c0 + 2) % NC], self.ceil[k + 1][(c0 + 2) % NC], self.ceil[k + 1][c0])
             c = m.centroid(ids)
-            bc = _bearing_of(c)
-            rd, tn = radial(bc), tangent(bc)
-            self.rays.append([add(add(c, tn, sx * RAY_TOP), rd, sr * RAY_TOP)
-                              for (sx, sr) in ((-1, -1), (1, -1), (1, 1), (-1, 1))])
+            self.rays.append([m.verts[i] for i in ids])   # the gap's corners: its centre is the shaft's
 
     def _water(self):
         """The water: rings inward from the bank's last row, thinning out to a small fan."""
@@ -920,8 +926,11 @@ class _Ground(object):
             _ptube(m, spath, (rs, rs * 0.85), 4, "bark", start=([tq], "bark"), end=([bq], "bark"), wob=0.1, rng=r)
 
     # ---- sun rays ----------------------------------------------------------------
-    def ray_wedges(self):
-        """(top 4 points, foot 4 points, foot) per gap, in world coordinates."""
+    def ray_lines(self):
+        """(top, foot, S) per gap, world coordinates: the shaft's axis runs from
+        ``top`` (RAY_IN up the sun line from the gap's centre, inside the gap)
+        down the sun direction to ``foot`` (where it meets the lane, the wall
+        or the pit bank, plus RAY_OVER into it)."""
         out = []
         sb, se = SUN
         S = (math.cos(math.radians(se)) * math.cos(math.radians(-sb)),
@@ -953,10 +962,7 @@ class _Ground(object):
                     else:
                         lo = mid
                 foot = add(c, S, -lo)
-            ex = norm(cross3(S, UP))
-            ez = norm(cross3(ex, S))
-            fq = [add(add(foot, ex, sx * RAY_FOOT), ez, sz * RAY_FOOT) for (sx, sz) in ((-1, -1), (1, -1), (1, 1), (-1, 1))]
-            out.append((top, fq, foot))
+            out.append((add(c, S, RAY_IN), add(foot, S, -RAY_OVER), S))
         return out
 
     # ---- build -------------------------------------------------------------
@@ -1001,17 +1007,63 @@ def cross3(p, q):
     return (p[1] * q[2] - p[2] * q[1], p[2] * q[0] - p[0] * q[2], p[0] * q[1] - p[1] * q[0])
 
 
-def _ray_mesh(wedges):
-    m = _Mesh()
-    for (top, foot, _c) in wedges:
-        t = [m.v(p) for p in top]
-        f = [m.v(p) for p in foot]
-        axis = lerp(m.centroid(t), m.centroid(f), 0.5)
-        for k in range(4):
-            q = (k + 1) % 4
-            idx = (t[k], t[q], f[q], f[k])
-            m.quad(idx[0], idx[1], idx[2], idx[3], sub(m.centroid(idx), axis), "ray")
+class _RayMesh(_Mesh):
+    """A _Mesh that also carries one RGBA per vertex (the shaft's tint and feather)."""
+
+    def __init__(self):
+        _Mesh.__init__(self)
+        self.colors = []
+
+    def cv(self, p, rgba):
+        self.colors.append(tuple(rgba))
+        return self.v(p)
+
+
+def _ray_mesh(lines, tint, peak):
+    """RAY_VANES planes crossed on each shaft's axis, each a strip three vertices
+    wide (edge, axis, edge) and four rows long (top, fade-in, fade-out, foot).
+    Alpha is ``peak`` on the axis between the fade rows and zero everywhere
+    else, so the strip has no visible end and no hard edge; the width tapers
+    RAY_W[0] to RAY_W[1]."""
+    m = _RayMesh()
+    rows = (0.0, RAY_FADE[0], RAY_FADE[1], 1.0)
+    for (top, foot, S) in lines:
+        axis = sub(foot, top)
+        ex = norm(cross3(S, UP))
+        ez = norm(cross3(ex, S))
+        for vane in range(RAY_VANES):
+            a = math.pi * vane / RAY_VANES
+            side = add((ex[0] * math.cos(a), ex[1] * math.cos(a), ex[2] * math.cos(a)), ez, math.sin(a))
+            grid = []
+            for t in rows:
+                w = RAY_W[0] + (RAY_W[1] - RAY_W[0]) * t
+                c = add(top, axis, t)
+                on = peak if RAY_FADE[0] - 1e-9 <= t <= RAY_FADE[1] + 1e-9 else 0.0
+                grid.append([m.cv(add(c, side, -w), tint + (0.0,)),
+                             m.cv(c, tint + (on,)),
+                             m.cv(add(c, side, w), tint + (0.0,))])
+            for k in range(len(rows) - 1):
+                for col in range(2):
+                    a0, a1 = grid[k][col], grid[k][col + 1]
+                    b0, b1 = grid[k + 1][col], grid[k + 1][col + 1]
+                    m.quad(a0, a1, b1, b0, norm(cross3(side, S)), "ray")
     return m
+
+
+def _ray_object(m, name):
+    """The shaft mesh as a Blender object with its RGBA in a colour attribute
+    the material reads (Base Color and Alpha), which is what makes the glTF
+    exporter write it as COLOR_0."""
+    ob = m.object(name)
+    me = ob.data
+    attr = me.color_attributes.new(name="Col", type="FLOAT_COLOR", domain="POINT")
+    flat = []
+    for rgba in m.colors:
+        flat.extend(rgba)
+    attr.data.foreach_set("color", flat)
+    me.color_attributes.active_color_index = 0
+    me.color_attributes.render_color_index = 0
+    return ob
 
 
 # =============================================================================
@@ -1093,21 +1145,42 @@ def _water_uv(me, uvl, poly):
         uvl.data[li].uv = (co.x / WATER_TILE, co.y / WATER_TILE)
 
 
-def _ray_material(name, colour, alpha):
+def _ray_material(name, colour):
+    """Unlit, blended: Base Color and Alpha come from the vertex colour, the
+    glow is the tint. Godot shows these nodes through the scene's overrides
+    (unshaded, mixed / additive, vertex colour as albedo); this material is
+    for the review render and for the exporter."""
     mat = bpy.data.materials.new(name)
     mat.use_nodes = True
     nt = mat.node_tree
     bsdf = nt.nodes.get("Principled BSDF")
-    bsdf.inputs["Base Color"].default_value = (0.0, 0.0, 0.0, 1.0)     # unlit: the glow is the colour
+    col = nt.nodes.new("ShaderNodeVertexColor")
+    col.layer_name = "Col"
+    col.location = (-640, 200)
+    # Base Color = vertex colour x black: the exporter reads the pattern as
+    # "COLOR_0 times a factor" and writes the vertex colour; the render gets no
+    # diffuse, so the glow is the shaft's whole brightness, as it is in Godot.
+    mix = nt.nodes.new("ShaderNodeMix")
+    mix.data_type = "RGBA"
+    mix.blend_type = "MULTIPLY"
+    mix.location = (-420, 200)
+    a_in = [i for i in mix.inputs if i.identifier == "A_Color"][0]
+    b_in = [i for i in mix.inputs if i.identifier == "B_Color"][0]
+    out = [o for o in mix.outputs if o.identifier == "Result_Color"][0]
+    mix.inputs["Factor"].default_value = 1.0
+    b_in.default_value = (0.0, 0.0, 0.0, 1.0)
+    nt.links.new(col.outputs["Color"], a_in)
+    nt.links.new(out, bsdf.inputs["Base Color"])
+    nt.links.new(col.outputs["Alpha"], bsdf.inputs["Alpha"])
     bsdf.inputs["Emission Color"].default_value = (colour[0], colour[1], colour[2], 1.0)
     bsdf.inputs["Emission Strength"].default_value = 1.0
-    bsdf.inputs["Alpha"].default_value = alpha
     bsdf.inputs["Roughness"].default_value = 1.0
     bsdf.inputs["Metallic"].default_value = 0.0
     mdl._try(mat, "surface_render_method", "BLENDED")
     mdl._try(mat, "blend_method", "BLEND")
+    mdl._try(mat, "use_transparency_overlap", True)
     mat.use_backface_culling = False
-    mat.diffuse_color = (colour[0], colour[1], colour[2], alpha)
+    mat.diffuse_color = (colour[0], colour[1], colour[2], 0.5)
     return mat
 
 
@@ -1136,9 +1209,23 @@ def _forest_render(spec, objects):
     world = bpy.data.worlds.new("ForestSky")
     scene.world = world
     world.use_nodes = True
-    bg = world.node_tree.nodes["Background"]
+    wnt = world.node_tree
+    bg = wnt.nodes["Background"]
     bg.inputs[0].default_value = (REVIEW_SKY[0], REVIEW_SKY[1], REVIEW_SKY[2], 1.0)
     bg.inputs[1].default_value = REVIEW_WORLD
+    # What the camera sees through a ceiling gap is the sky at the scene's
+    # brightness (REVIEW_SEEN), not the fill the world pours in: a gap is a
+    # patch of pale sky, never a white slab.
+    seen = wnt.nodes.new("ShaderNodeBackground")
+    seen.inputs[0].default_value = (REVIEW_SEEN[0], REVIEW_SEEN[1], REVIEW_SEEN[2], 1.0)
+    seen.inputs[1].default_value = 1.0
+    path = wnt.nodes.new("ShaderNodeLightPath")
+    mixw = wnt.nodes.new("ShaderNodeMixShader")
+    wout = wnt.nodes["World Output"]
+    wnt.links.new(path.outputs["Is Camera Ray"], mixw.inputs["Fac"])
+    wnt.links.new(bg.outputs["Background"], mixw.inputs[1])
+    wnt.links.new(seen.outputs["Background"], mixw.inputs[2])
+    wnt.links.new(mixw.outputs["Shader"], wout.inputs["Surface"])
 
     sb, se = SUN
     sd = bpy.data.lights.new("ReviewSun", type="SUN")
@@ -1186,38 +1273,71 @@ def _forest_render(spec, objects):
         print("MDL RENDER %s (hand-placed camera)" % os.path.basename(path))
 
     def variant(which):
-        """'solid': the yellow wedges, no sun. 'light': the sun and the faint wedges."""
+        """'solid': the mesh-only shafts, no sun, the world a little brighter.
+        'light': the sun through the gaps, shadows on, and the faint shafts."""
         if solid:
             solid.hide_render = which != "solid"
         if soft:
             soft.hide_render = which != "light"
         sun.hide_render = which == "solid"
-        bg.inputs[1].default_value = REVIEW_WORLD * (1.35 if which == "solid" else 1.0)
+        bg.inputs[1].default_value = REVIEW_WORLD * REVIEW_WORLD_VARIANT[which]
+
+    def compare(name, loc, tgt, lens, res):
+        """Both variants from one camera, side by side in one image, the
+        mesh-only shafts on the left and the sun-and-faint-shafts on the right."""
+        halves = []
+        for which in ("solid", "light"):
+            variant(which)
+            shot("rays_%s" % which, loc, tgt, lens, res)
+            halves.append(os.path.join(out_dir, "%s_rays_%s.png" % (NAME, which)))
+        import numpy as np
+        imgs = [bpy.data.images.load(h) for h in halves]
+        w, h = imgs[0].size
+        pix = []
+        for img in imgs:
+            buf = np.empty(w * h * 4, dtype=np.float32)
+            img.pixels.foreach_get(buf)
+            pix.append(buf.reshape(h, w, 4))
+        gutter = np.ones((h, 8, 4), dtype=np.float32) * np.array([0.05, 0.05, 0.05, 1.0], dtype=np.float32)
+        both = np.concatenate((pix[0], gutter, pix[1]), axis=1)
+        out = bpy.data.images.new("ForestRaysCompare", both.shape[1], h, alpha=False)
+        out.pixels.foreach_set(both.ravel())
+        path = os.path.join(out_dir, "%s_%s.png" % (NAME, name))
+        out.filepath_raw = path
+        out.file_format = "PNG"
+        out.save()
+        for img in imgs:
+            bpy.data.images.remove(img)
+        bpy.data.images.remove(out)
+        print("MDL RENDER %s (solid | light, one camera)" % os.path.basename(path))
 
     eye = DECK_Z + EYE_H
-    variant("light")
-    shot("lane", pol(200.0, 52.0, eye), pol(232.0, 50.5, DECK_Z + 1.0), 22.0, (1400, 800))
-    shot("lane_tree", pol(60.0, 53.5, eye), (0.0, 0.0, 24.0), 24.0, (1400, 900))
-    shot("guard", (0.0, 0.0, ft.FLOOR_Y + EYE_H), pol(150.0, 52.0, DECK_Z), 24.0, (1400, 800))
-    shot("guard_seat", pol(300.0, 9.5, ft.FLOOR_Y + 2.6), (0.0, 0.0, ft.FLOOR_Y + 1.0), 28.0, (1200, 900))
-    shot("aerial", pol(330.0, 118.0, 105.0), (0.0, 0.0, 18.0), 30.0, (1500, 1100))
-    shot("tower", pol(180.0, 56.5, eye), (0.0, 0.0, 14.0), 20.0, (900, 1300))
-    shot("pit", pol(90.0, 46.9, eye), pol(60.0, 30.0, 2.0), 22.0, (1200, 900))
-    shot("enclosure", pol(200.0, 55.0, 31.5), (0.0, 0.0, 26.0), 20.0, (1500, 900))
-    if INFO.get("wall_cells"):
-        mouth, back, bmid = INFO["wall_cells"][0]
-        mc = tuple(sum(p[k] for p in mouth) / 5.0 for k in range(3))
-        bc = tuple(sum(p[k] for p in back) / 5.0 for k in range(3))
-        inside = lerp(bc, mc, 0.15)
-        inside = (inside[0], inside[1], mc[2] + 0.3)
-        shot("cell", inside, pol(bmid + 25.0, 30.0, 20.0), 20.0, (1200, 900))
-        shot("cell_front", pol(bmid - 6.0, 53.5, eye), (mc[0], mc[1], mc[2] + 0.4), 30.0, (1200, 900))
-    variant("solid")
-    shot("rays_solid", pol(200.0, 54.5, eye), pol(160.0, 49.0, DECK_Z + 3.0), 22.0, (1400, 800))
-    shot("rays_solid_tree", pol(300.0, 54.0, eye), (0.0, 0.0, 22.0), 26.0, (1400, 900))
-    variant("light")
-    shot("rays_light", pol(200.0, 54.5, eye), pol(160.0, 49.0, DECK_Z + 3.0), 22.0, (1400, 800))
-    shot("rays_light_tree", pol(300.0, 54.0, eye), (0.0, 0.0, 22.0), 26.0, (1400, 900))
+    only = spec.get("views") or []
+    if "rays" in only:                   # --views rays: the ray comparison alone, for tuning
+        compare("rays_compare", pol(200.0, 54.5, eye), pol(160.0, 49.0, DECK_Z + 3.0), 22.0, (1400, 800))
+    else:
+        variant("light")
+        shot("lane", pol(200.0, 52.0, eye), pol(232.0, 50.5, DECK_Z + 1.0), 22.0, (1400, 800))
+        shot("lane_tree", pol(60.0, 53.5, eye), (0.0, 0.0, 24.0), 24.0, (1400, 900))
+        shot("guard", (0.0, 0.0, ft.FLOOR_Y + EYE_H), pol(150.0, 52.0, DECK_Z), 24.0, (1400, 800))
+        shot("guard_seat", pol(300.0, 9.5, ft.FLOOR_Y + 2.6), (0.0, 0.0, ft.FLOOR_Y + 1.0), 28.0, (1200, 900))
+        shot("aerial", pol(330.0, 118.0, 105.0), (0.0, 0.0, 18.0), 30.0, (1500, 1100))
+        shot("tower", pol(180.0, 56.5, eye), (0.0, 0.0, 14.0), 20.0, (900, 1300))
+        shot("pit", pol(90.0, 46.9, eye), pol(60.0, 30.0, 2.0), 22.0, (1200, 900))
+        shot("enclosure", pol(200.0, 55.0, 31.5), (0.0, 0.0, 26.0), 20.0, (1500, 900))
+        if INFO.get("wall_cells"):
+            mouth, back, bmid = INFO["wall_cells"][0]
+            mc = tuple(sum(p[k] for p in mouth) / 5.0 for k in range(3))
+            bc = tuple(sum(p[k] for p in back) / 5.0 for k in range(3))
+            inside = lerp(bc, mc, 0.15)
+            inside = (inside[0], inside[1], mc[2] + 0.3)
+            shot("cell", inside, pol(bmid + 25.0, 30.0, 20.0), 20.0, (1200, 900))
+            shot("cell_front", pol(bmid - 6.0, 53.5, eye), (mc[0], mc[1], mc[2] + 0.4), 30.0, (1200, 900))
+        compare("rays_compare", pol(200.0, 54.5, eye), pol(160.0, 49.0, DECK_Z + 3.0), 22.0, (1400, 800))
+        variant("solid")
+        shot("rays_solid_tree", pol(300.0, 54.0, eye), (0.0, 0.0, 22.0), 26.0, (1400, 900))
+        variant("light")
+        shot("rays_light_tree", pol(300.0, 54.0, eye), (0.0, 0.0, 22.0), 26.0, (1400, 900))
 
     for ob in (cam, target, sun, aim, fill, tree):
         bpy.data.objects.remove(ob, do_unlink=True)
@@ -1234,13 +1354,16 @@ def _forest_render(spec, objects):
 # =============================================================================
 
 def build_geometry():
+    """(ground, collider, {node name: shaft mesh})."""
     g = _Ground()
     m = g.build()
-    wedges = g.ray_wedges()
+    lines = g.ray_lines()
     INFO["wall_cells"] = [([m.verts[v] for v in mouth], [m.verts[v] for v in back], bmid)
                           for (mouth, back, bmid) in g.wall_cells]
-    INFO["rays"] = wedges
-    return m, build_collider(), _ray_mesh(wedges)
+    INFO["rays"] = lines
+    rays = {name: _ray_mesh(lines, tint, peak)
+            for name, (tint, peak) in ((RAYS_SOLID_NAME, RAY_SOLID), (RAYS_SOFT_NAME, RAY_SOFT))}
+    return m, build_collider(), rays
 
 
 def build():
@@ -1267,23 +1390,25 @@ def build():
     coll.hide_render = True
     out = [ob, coll]
     if MESH_RAYS:
-        for name, (colour, alpha) in ((RAYS_SOLID_NAME, RAY_SOLID), (RAYS_SOFT_NAME, RAY_SOFT)):
-            rob = rays.object(name)
-            mdl.finish(rob, _ray_material(name + "Mat", colour, alpha))
+        for name, (colour, _peak) in ((RAYS_SOLID_NAME, RAY_SOLID), (RAYS_SOFT_NAME, RAY_SOFT)):
+            rob = _ray_object(rays[name], name)
+            mdl.finish(rob, _ray_material(name + "Mat", colour), strip_uvs=False)
             out.append(rob)
     print("MDL STATS visual_tris=%d collision_tris=%d water_tris=%d ray_tris=%d rays=%d"
-          % (len(ob.data.polygons), len(coll.data.polygons), water_tris, len(rays.faces), len(INFO["rays"])))
+          % (len(ob.data.polygons), len(coll.data.polygons), water_tris, len(rays[RAYS_SOLID_NAME].faces), len(INFO["rays"])))
     print("MDL STATS lane r=%.1f..%.1f y=%.1f water_y=%.1f r=%.1f ceiling_y=%.1f..%.1f wall_cells=%d pit_cells=%d trunks=%d gaps=%d sun=%s"
           % (INNER_R, OUTER_R, DECK_Z, WATER_Z, WATER_R, CEIL_Z, CEIL_Z + CEIL_DOME,
              len(WALL_CELLS), len(PIT_CELLS), len(TRUNKS), len(GAPS), SUN))
-    for k, (_t, _f, foot) in enumerate(INFO["rays"]):
-        print("MDL STATS ray%d foot=(%.1f, %.1f, %.1f) r=%.1f" % (k, foot[0], foot[1], foot[2], math.hypot(foot[0], foot[1])))
+    for k, (top, foot, _s) in enumerate(INFO["rays"]):
+        print("MDL STATS ray%d top=(%.1f, %.1f, %.1f) foot=(%.1f, %.1f, %.1f) r=%.1f"
+              % (k, top[0], top[1], top[2], foot[0], foot[1], foot[2], math.hypot(foot[0], foot[1])))
     return out
 
 
 def _check():
     import forest_check
-    m, c, rays = build_geometry()
+    m, c, ray_set = build_geometry()
+    rays = ray_set[RAYS_SOLID_NAME]
     m.compact()
     c.compact()
     rays.compact()
@@ -1303,8 +1428,11 @@ def _check():
         print("%s tris=%d verts=%d degenerate=%d zones=%s bbox=%s..%s"
               % (name, len(mm.faces), len(mm.verts), degen, zones,
                  ["%.1f" % x for x in lo], ["%.1f" % x for x in hi]))
-    for k, (_t, _f, foot) in enumerate(INFO["rays"]):
-        print("ray%d foot=(%.1f, %.1f, %.1f) r=%.1f" % (k, foot[0], foot[1], foot[2], math.hypot(foot[0], foot[1])))
+    alphas = sorted(set(round(c[3], 3) for c in rays.colors))
+    print("rays vanes=%d verts_per_ray=%d alphas=%s" % (RAY_VANES, len(rays.verts) // len(INFO["rays"]), alphas))
+    for k, (top, foot, _s) in enumerate(INFO["rays"]):
+        print("ray%d top=(%.1f, %.1f, %.1f) foot=(%.1f, %.1f, %.1f) r=%.1f"
+              % (k, top[0], top[1], top[2], foot[0], foot[1], foot[2], math.hypot(foot[0], foot[1])))
 
 
 if __name__ == "__main__":
