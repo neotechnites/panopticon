@@ -208,12 +208,15 @@ static func _wall_fall() -> Array:
 	]
 
 
-## From the S2 bank, held on the second gap of the boulder chain: the shove.
+## Out over the S2 lava by the outer wall, looking up the boulder chain at its
+## second gap: the shove. (The sculpted S2 put a ridge between the lane and the
+## chain at r 50.5-51.5, so the bank no longer sees the chain; the lens sits
+## outside it now, at r 56 with the wall at its back.)
 static func _s2_gap() -> Array:
 	return [
-		_key(0.0, 87.0, 50.6, 2.2, 95.6, 55.0, 0.9, 62.0),
-		_key(4.0, 88.5, 50.8, 2.0, 95.6, 55.4, 0.8, 58.0),
-		_key(8.0, 90.0, 51.0, 1.9, 95.6, 55.8, 0.8, 56.0),
+		_key(0.0, 86.0, 56.0, 1.9, 95.6, 54.7, 0.8, 62.0),
+		_key(4.0, 87.0, 56.0, 1.8, 95.6, 54.7, 0.8, 60.0),
+		_key(8.0, 88.0, 56.0, 1.8, 95.6, 54.7, 0.8, 58.0),
 	]
 
 
