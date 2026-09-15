@@ -15,6 +15,7 @@ extends Node
 ## {"do": "chase", "victim": PlayerController, "range": 2.5, "timeout": 10.0}   # run at them, shove in reach
 ## {"do": "ability", "slot": 2}
 ## {"do": "pitch", "down": 12.0, "seconds": 0.0}     # tip the head down this many degrees, at once or over seconds
+## {"do": "turn", "degrees": -140.0, "seconds": 0.5}  # yaw the body over seconds; positive is to its right
 ## {"do": "release"}     # hand the body back to its own brain
 ## [/codeblock]
 
@@ -79,6 +80,14 @@ func _physics_process(delta: float) -> void:
 		"ability":
 			_intent.ability_slot = int(step.get("slot", 2))
 			finished = true
+		"turn":
+			# PlayerController yaws by -look_delta.x: a positive turn is to the right.
+			var over_turn: float = float(step.get("seconds", 0.0))
+			var by: float = deg_to_rad(float(step.get("degrees", 0.0)))
+			if over_turn > 0.0:
+				by *= minf(delta, over_turn - (_clock - delta)) / over_turn
+			_intent.look_delta = Vector2(by, 0.0)
+			finished = _clock >= over_turn
 		"pitch":
 			# PlayerController pitches by -look_delta.y (unless the profile inverts).
 			var over: float = float(step.get("seconds", 0.0))
@@ -378,7 +387,7 @@ static func steps_for(stage: String, victim: PlayerController) -> Array:
 				{"do": "place", "at": ring_point(LAKE_LIP_DEGREES, LAKE_LIP_R, 0.1), "face": tangent_at(LAKE_LIP_DEGREES)},
 				{"do": "hold", "seconds": 20.0},
 			]
-		"shoveedge":
+		"shoveedge", "shoveedge_look":
 			# The shover, out on the deck behind a runner stood at the pit rim:
 			# run straight at their back and shove them over it.
 			return [
@@ -395,6 +404,21 @@ static func steps_for(stage: String, victim: PlayerController) -> Array:
 				{"do": "place", "at": ring_point(RIM_DEGREES, RIM_VICTIM_R + 2.2, 0.1), "face": facing},
 				{"do": "run", "to": ring_point(RIM_DEGREES, RIM_VICTIM_R + 0.3, 0.0), "within": 0.25, "speed": 0.4, "timeout": 2.5},
 				{"do": "pitch", "down": 14.0, "seconds": 0.9},
+				{"do": "hold", "seconds": 20.0},
+			]
+		"shoveedge_look_victim":
+			# The same, but they hear something: a look back over the left
+			# shoulder as the shover comes in, and the shove lands as they are
+			# turning back to the pit. Ryan: "have the player look back and
+			# then get shoved off the edge so we can see what's happening".
+			var facing_back: Vector3 = (-radial_at(RIM_DEGREES) + tangent_at(RIM_DEGREES) * 0.25).normalized()
+			return [
+				{"do": "place", "at": ring_point(RIM_DEGREES, RIM_VICTIM_R + 2.2, 0.1), "face": facing_back},
+				{"do": "run", "to": ring_point(RIM_DEGREES, RIM_VICTIM_R + 0.3, 0.0), "within": 0.25, "speed": 0.4, "timeout": 2.5},
+				{"do": "pitch", "down": 8.0, "seconds": 0.3},
+				{"do": "turn", "degrees": -140.0, "seconds": 0.45},
+				{"do": "hold", "seconds": 0.3},
+				{"do": "turn", "degrees": 140.0, "seconds": 0.6},
 				{"do": "hold", "seconds": 20.0},
 			]
 		"lavadeath":

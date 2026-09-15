@@ -29,7 +29,8 @@ extends SceneTree
 ##                  deg is shoved up the lane into the open by another runner, and
 ##                  the tower, passive until then, opens up on them), shoveedge (a
 ##                  runner stood at the pit rim on the S3 deck is shoved over it
-##                  from behind by another runner), shovelake (a runner on the lip
+##                  from behind by another runner; shoveedge_look: the same, and
+##                  they look back over their shoulder as it comes), shovelake (a runner on the lip
 ##                  of the S5 bank is shoved out over the lava lake by another)
 ## --track=victim   a flown shot keeps its lens on the staged victim instead of
 ##                  the path's look targets, and holds where it was looking once
@@ -505,7 +506,7 @@ func _stage_driven() -> void:
 	if _stage == "ghostchase":
 		_stage_ghostchase(runners)
 		return
-	if _stage == "shovecover" or _stage == "shoveedge" or _stage == "shovelake":
+	if _stage in ["shovecover", "shoveedge", "shoveedge_look", "shovelake"]:
 		_stage_pair(runners)
 		return
 	var wanted: int = 1 if _wants_chain() else 0

@@ -53,3 +53,12 @@ in: 0.8
 seconds: 4.4
 frame: 2.4
 gap: 0
+
+## 6
+said: Ryan on shot 5: "that works, so keep it, but if you can have the player look back and then get shoved off the edge so we can see what's happening, that would be better" -- the same POV, a look back over the shoulder as the shover comes in, the shove landing as they turn back, then over the edge to the death
+capture: --pov=runner --stage=shoveedge_look --shot=rim_edge --bots=2 --look=social --audio=near
+file: 04_pov_ledge_b
+in: 0.8
+seconds: 4.6
+frame: 1.6
+gap: 0
