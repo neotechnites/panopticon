@@ -416,6 +416,7 @@ static func steps_for(stage: String, victim: PlayerController) -> Array:
 				{"do": "place", "at": ring_point(RIM_DEGREES, RIM_VICTIM_R + 2.2, 0.1), "face": facing_back},
 				{"do": "run", "to": ring_point(RIM_DEGREES, RIM_VICTIM_R + 0.3, 0.0), "within": 0.25, "speed": 0.4, "timeout": 2.5},
 				{"do": "pitch", "down": 8.0, "seconds": 0.3},
+				{"do": "hold", "seconds": 0.2},
 				{"do": "turn", "degrees": -140.0, "seconds": 0.45},
 				{"do": "hold", "seconds": 0.3},
 				{"do": "turn", "degrees": 140.0, "seconds": 0.6},
