@@ -23,6 +23,8 @@ static func names() -> PackedStringArray:
 		"lake_fall", "scope_hunt", "wall_fall", "s5_survey", "teaser_lap",
 		"s2_gap", "s3_open_lane", "pad_flight", "s3_pillar", "s4_edge", "portal",
 		"s3_chase", "s1_pack", "pocket_cover", "rim_edge", "lake_bank",
+		"cover_side", "rim_side", "lava_parkour", "pack_lead", "s3_face_side",
+		"s3_face_over", "s3_melee",
 	])
 
 
@@ -72,6 +74,20 @@ static func get_shot(shot_name: String) -> Dictionary:
 			return _shot(shot_name, _rim_edge())
 		"lake_bank":
 			return _shot(shot_name, _lake_bank())
+		"cover_side":
+			return _shot(shot_name, _cover_side())
+		"rim_side":
+			return _shot(shot_name, _rim_side())
+		"lava_parkour":
+			return _shot(shot_name, _lava_parkour())
+		"pack_lead":
+			return _shot(shot_name, _pack_lead())
+		"s3_face_side":
+			return _shot(shot_name, _s3_face_side())
+		"s3_face_over":
+			return _shot(shot_name, _s3_face_over())
+		"s3_melee":
+			return _shot(shot_name, _s3_melee())
 		"teaser_lap":
 			var lap: Dictionary = _shot(shot_name, _teaser_lap())
 			# Flown, not aimed: the lens points where the camera is going until
@@ -480,6 +496,82 @@ static func _teaser_lap() -> Array:
 	keys.append(_key(LAP_SECONDS + 1.3, 335.0, 52.0, EYE, 20.0, 26.0, 2.6, 74.0))
 	keys.append(_key(LAP_SECONDS + 2.2, 335.0, 52.0, EYE, 0.0, 0.0, 4.0, 68.0))
 	return keys
+
+
+## The shove short's fixed side-on cover frame (f06_cover_both, shots 6+7 as
+## one take): low by the outer wall at 203.5 deg looking back down the ring
+## (bearing falling is screen right), pitched 20 deg up. The tower's eye in the
+## left background, the pocket rock at 198.5 deg just left of centre, the
+## crouched player in its shadow just right of it, the open deck the right
+## half. Vertical fov 88 (55 across at 9:16). Never moves. Ryan's sketch:
+## "camera low and side-on, fixed, never moves; cover on the left third".
+static func _cover_side() -> Array:
+	return [
+		_key(0.0, 203.5, 56.0, 0.8, 199.5, 47.3, 4.22, 88.0),
+		_key(8.0, 203.5, 56.0, 0.8, 199.5, 47.3, 4.22, 88.0),
+	]
+
+
+## The edge conga's fixed lens (f09): hovering 0.4 m inside the rim at 188.7
+## deg, 1.5 m up, looking at the runner on the rim at 182 deg. 5.7 m off: 4.6 m
+## of deck across the frame at the runner, a body just under a quarter of the
+## height, the deck at mid-height, the drop below it. Ryan: "a guy facing the
+## pit, we see him from the side".
+static func _rim_side() -> Array:
+	return [
+		_key(0.0, 188.7, 46.3, 1.5, 182.0, 47.75, 0.2, 72.0),
+		_key(15.0, 188.7, 46.3, 1.5, 182.0, 47.75, 0.2, 72.0),
+	]
+
+
+## Where the lava parkour's chase lens sits before the line is placed (f10):
+## behind the near bank of the S5 lake, looking up it. The lavaparkour stage's
+## own lens takes over from here once the runners exist.
+static func _lava_parkour() -> Array:
+	return [
+		_key(0.0, 283.5, 52.5, 3.9, 292.0, 52.5, 0.9, 76.0),
+		_key(8.0, 283.5, 52.5, 3.9, 292.0, 52.5, 0.9, 76.0),
+	]
+
+
+## Where the pack shot's lens starts (f02): ahead of the pack on its own lane,
+## knee high, looking back at it. The pack_sniped stage's lens takes over.
+static func _pack_lead() -> Array:
+	return [
+		_key(0.0, 153.0, 54.6, 1.1, 144.0, 54.6, 0.9, 72.0),
+		_key(8.0, 153.0, 54.6, 1.1, 144.0, 54.6, 0.9, 72.0),
+	]
+
+
+## Two runners trading shoves (f05): side-on from the outer half of the S3
+## deck, the pit and the tower's eye behind the pair at 170.3 deg r 50.5. The
+## faceshove stage tracks the pair's midpoint from this offset and zooms out as
+## they spread. RECONSTRUCTED from the shot notes, not the lost worktree: check
+## the first take's frame.
+static func _s3_face_side() -> Array:
+	return [
+		_key(0.0, 170.3, 56.2, 1.2, 170.3, 50.5, 1.0, 62.0),
+		_key(8.0, 170.3, 56.2, 1.2, 170.3, 50.5, 1.0, 62.0),
+	]
+
+
+## The same pair over the first shover's shoulder, looking down the lane; the
+## answer throws him back at the lens. RECONSTRUCTED, as above.
+static func _s3_face_over() -> Array:
+	return [
+		_key(0.0, 166.6, 51.0, 1.7, 171.5, 50.5, 0.9, 66.0),
+		_key(8.0, 166.6, 51.0, 1.7, 171.5, 50.5, 0.9, 66.0),
+	]
+
+
+## The melee's first frame (f08): 4.8 deg round the ring from the cluster at
+## 195 deg r 52 (about 4.4 m), 0.9 m outboard, 1.55 m up, looking at chest
+## height, 52 deg across. The melee stage's chase lens takes over from here.
+static func _s3_melee() -> Array:
+	return [
+		_key(0.0, 190.2, 52.9, 1.55, 195.0, 52.0, 1.0, 80.0),
+		_key(8.0, 190.2, 52.9, 1.55, 195.0, 52.0, 1.0, 80.0),
+	]
 
 
 # --- Building keys ------------------------------------------------------------

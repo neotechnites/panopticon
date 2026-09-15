@@ -14,7 +14,9 @@ extends SceneTree
 ## --seconds=F      how long to fly it; 0 means the shot's own duration
 ## --delay=F        seconds held on the first key first, so the match catches up
 ## --look=social    lift the ring's own grade until rock reads on a phone
-## --stage=NAME     staged action: firefight (the tower snap-shoots),
+## --stage=NAME     staged action. A file tools/capture/stages/NAME.gd is a
+##                  stage plugin and wins (see stages/README.md); otherwise one
+##                  of the stages in stage_driver.gd: firefight (the tower snap-shoots),
 ##                  chainrun (one prisoner takes the S2 boulder chain),
 ##                  shovecatch / ghostcatch (a second prisoner, or a ghost, shoves
 ##                  the chain runner mid-jump into the lava), missstreak (a sloppy
@@ -38,6 +40,11 @@ extends SceneTree
 ## --pov=runner     film down a bot-driven prisoner's own eyes, no path
 ## --hud=on         draw the match HUD over a POV clip (crosshair, readouts);
 ##                  off unless asked: a short wants the view, not the screen
+## --hud=crosshair  the crosshair alone (Ryan: a guard POV keeps the crosshair)
+## --set=K=V;K=V    a stage plugin's own dials (its file lists them), e.g.
+##                  --set=shover_wait=5.0;victim=198.5,49.4
+## --pads=off       every boost pad switched off (a thrown body over one is relaunched)
+## --traps=off      every trap volume switched off
 ## --pov=guard      the same, down the eyes of whoever holds the tower
 ## --pov=ghost      the same, down the eyes of the staged ghost, through its catch
 ## --audio=near     only sounds made within AUDIO_NEAR_METRES of the camera
@@ -70,6 +77,8 @@ extends SceneTree
 const SHOTS := preload("res://tools/capture/shot_paths.gd")
 const CHAIN_STAGE := preload("res://tools/capture/chain_stage.gd")
 const STAGE_DRIVER := preload("res://tools/capture/stage_driver.gd")
+const STAGE_LIB := preload("res://tools/capture/stages/lib.gd")
+const STAGES_DIR: String = "res://tools/capture/stages/"
 const MATCH_SCENE: String = "res://scenes/match/match.tscn"
 
 ## Layer 2 is the owner-hidden layer every camera in the game clears; a camera
@@ -168,6 +177,10 @@ var _pov_kick: FxCameraKick = null
 var _arm_after_landing: bool = false
 var _logged_shooter: TowerShooter = null
 var _staged: PlayerController = null
+## The stage plugin, when --stage names a file under tools/capture/stages/.
+var _plugin: RefCounted = null
+var _plugin_cast: bool = false
+var _dials: Dictionary = {}
 var _built: bool = false
 var _done: bool = false
 var _exit_code: int = EXIT_OK
@@ -187,6 +200,9 @@ func _initialize() -> void:
 		"stage": "",
 		"pov": "",
 		"hud": "",
+		"pads": "",
+		"traps": "",
+		"set": "",
 		"track": "",
 		"audio": "",
 		"seed": BotHarness.DEFAULT_SEED,
@@ -211,7 +227,11 @@ func _process(delta: float) -> bool:
 	_log_the_rifle()
 	if _wants_chain() and _chain == null and _elapsed > 0.5:
 		_stage_chainrun()
-	if STAGE_DRIVER.is_stage(_stage) and _driver == null and _elapsed > 0.6:
+	if _plugin != null:
+		if not _plugin_cast and _elapsed > 0.6:
+			_plugin_cast = _plugin.cast(_controller.get_live_runners())
+		_plugin.tick(delta)
+	elif STAGE_DRIVER.is_stage(_stage) and _driver == null and _elapsed > 0.6:
 		_stage_driven()
 	if _stage == "ghostpack" and _ghost_body == null and _elapsed > PACK_GHOST_SECONDS:
 		_stage_ghostpack()
@@ -222,8 +242,9 @@ func _process(delta: float) -> bool:
 	if _pov != "":
 		_ride_a_body()
 	else:
-		var progress: float = clampf((_elapsed - _delay) / _seconds, 0.0, 1.0)
-		_aim_camera(_key_start + progress * _key_span)
+		if _plugin == null or not _plugin.lens(delta):
+			var progress: float = clampf((_elapsed - _delay) / _seconds, 0.0, 1.0)
+			_aim_camera(_key_start + progress * _key_span)
 		_turn_the_eye(delta)
 	if _elapsed >= _delay + _seconds:
 		_hush()
@@ -254,6 +275,11 @@ func _build() -> void:
 	_seconds = maxf(_seconds, 0.1) if _seconds > 0.0 else float(shot["duration"])
 	_delay = maxf(float(_options.get("delay", 0.0)), 0.0)
 	_stage = String(_options.get("stage", ""))
+	for dial: String in String(_options.get("set", "")).split(";", false):
+		var eq: int = dial.find("=")
+		if eq > 0:
+			_dials[dial.substr(0, eq).strip_edges()] = dial.substr(eq + 1).strip_edges()
+	_plugin = _load_stage(_stage)
 
 	_pov = String(_options.get("pov", ""))
 	_track = String(_options.get("track", ""))
@@ -272,10 +298,21 @@ func _build() -> void:
 		_fail("%s has no MatchController; nothing would play." % MATCH_SCENE)
 		match_root.free()
 		return
-	_make_it_bots_only(match_root, int(_options.get("bots", 7)))
+	var bots: int = int(_options.get("bots", 7))
+	if _plugin != null:
+		bots = maxi(bots, _plugin.bots())
+		if _plugin.needs_pov() != "" and _pov != _plugin.needs_pov():
+			_fail("--stage=%s is filmed with --pov=%s." % [_stage, _plugin.needs_pov()])
+			match_root.free()
+			return
+	_make_it_bots_only(match_root, bots)
 
 	root.add_child(match_root)
 	_park_the_human(match_root)
+	if String(_options.get("pads", "")) == "off":
+		print("[stage] %d boost pads disarmed" % STAGE_LIB.disarm_pads(match_root))
+	if String(_options.get("traps", "")) == "off":
+		print("[stage] %d traps disarmed" % STAGE_LIB.disarm_traps(match_root))
 	if _pov == "":
 		_camera = _make_camera()
 		root.add_child(_camera)
@@ -313,6 +350,8 @@ func _build() -> void:
 			_controller.start_round.call_deferred()
 	)
 	_log_events()
+	if _plugin != null:
+		_plugin.before_start()
 	_controller.start_match()
 	# A guard only exists in a round: the race has nobody in the tower, so a
 	# POV clip that waits for one films an empty chamber for a minute, and a
@@ -343,7 +382,9 @@ func _make_it_bots_only(match_root: Node, bots: int) -> void:
 	# retune the rules the next thing in this process reads.
 	var rules: MatchRules = _controller.get_rules().duplicate() as MatchRules
 	rules.prisoner_count = maxi(bots, 1)
-	if _stage == "missstreak":
+	if _plugin != null:
+		_plugin.tune_rules(rules)
+	elif _stage == "missstreak":
 		# Fifteen misses fit in a clip only if the rifle comes back fast.
 		rules.base_reload_seconds = 0.7
 	elif _stage == "shovecover":
@@ -371,6 +412,9 @@ func _make_it_bots_only(match_root: Node, bots: int) -> void:
 		silenced.erase("FeedbackRig")
 		if String(_options.get("hud", "")) == "on":
 			silenced.erase("HUD")
+		# --hud=crosshair leaves the HUD silenced (its _ready hides every panel
+		# and, disabled, its tick never shows them again); the crosshair alone
+		# is switched back on once a body is ridden (_wear_the_body).
 	for path: String in silenced:
 		var node: Node = match_root.get_node_or_null(NodePath(path))
 		if node == null:
@@ -408,6 +452,10 @@ func _make_camera() -> Camera3D:
 	# The shipped 0.3 m near plane slices the rock open when a flown shot passes
 	# close to it; a clip would rather see a wall than see through one.
 	camera.near = NEAR_METRES
+	# The fov is the VERTICAL one: a portrait take (1080x1920) composes for the
+	# height, and a key's fov reads the same on a phone as it did when it was
+	# framed. (52 deg across a 9:16 frame is 82 deg tall.)
+	camera.keep_aspect = Camera3D.KEEP_HEIGHT
 	return camera
 
 
@@ -416,7 +464,9 @@ func _make_camera() -> Camera3D:
 func _shooter_profile() -> ShooterProfile:
 	var profile: ShooterProfile = load(BotMatchRunner.SHOOTER_PROFILE_PATH) as ShooterProfile
 	var copy: ShooterProfile = profile.duplicate() as ShooterProfile
-	if _stage == "firefight" or _stage == "decoy":
+	if _plugin != null:
+		_plugin.tune_shooter(copy)
+	elif _stage == "firefight" or _stage == "decoy":
 		_make_it_quick(copy)
 	elif _stage == "missstreak":
 		# Quick to fire and bad at it.
@@ -523,7 +573,27 @@ func _stage_chainrun() -> void:
 
 ## A stage that plays inside a round with a tower that watches and never fires.
 func _is_driven_stage() -> bool:
-	return STAGE_DRIVER.is_stage(_stage) or _stage == "ghostpack"
+	return _plugin != null or STAGE_DRIVER.is_stage(_stage) or _stage == "ghostpack"
+
+
+## The stage plugin called [param stage_name] under tools/capture/stages/, or null.
+func _load_stage(stage_name: String) -> RefCounted:
+	if stage_name.is_empty() or stage_name == "stage" or stage_name == "lib" or stage_name == "guard_hand":
+		return null
+	var path: String = STAGES_DIR + stage_name + ".gd"
+	if not ResourceLoader.exists(path):
+		return null
+	var script: GDScript = load(path) as GDScript
+	if script == null:
+		_fail("%s would not load." % path)
+		return null
+	var plugin: RefCounted = script.new() as RefCounted
+	if plugin == null or not plugin.has_method("cast"):
+		_fail("%s is not a stage (it must extend tools/capture/stages/stage.gd)." % path)
+		return null
+	plugin.set("clip", self)
+	print("[stage] plugin %s" % path)
+	return plugin
 
 
 ## Hand one prisoner to the stage driver; the chain stages hand it the second one.
@@ -754,6 +824,9 @@ func _log_the_rifle() -> void:
 	shooter.shot_taken.connect(
 		func(confidence: float) -> void:
 			print("[event] %6.2f  shot  confidence %.2f" % [_elapsed, confidence])
+			if _plugin != null:
+				_plugin.on_shot(confidence)
+			_flag_the_drivers("shot")
 	)
 
 
@@ -768,7 +841,23 @@ func _log_events() -> void:
 			])
 			if _pov != "" and victim.body == _pov_body:
 				_kick_the_ridden_camera(-shover.body.global_transform.basis.z)
+			if _plugin != null:
+				_plugin.on_shove(shover, victim)
+			_flag_the_drivers("shove")
 	)
+	if _controller.rifle != null:
+		_controller.rifle.target_hit.connect(
+			func(collider: Node3D, _at: Vector3, _n: Vector3) -> void:
+				print("[event] %6.2f  hit  %s" % [_elapsed, collider.name if collider != null else "?"])
+				if _plugin != null:
+					_plugin.on_hit(collider)
+				_flag_the_drivers("hit")
+		)
+		_controller.rifle.missed.connect(
+			func(_end: Vector3) -> void:
+				print("[event] %6.2f  miss" % _elapsed)
+				_flag_the_drivers("miss")
+		)
 	_controller.participant_converted.connect(
 		func(participant: MatchParticipant) -> void:
 			var at: Vector3 = participant.body.global_position
@@ -776,6 +865,8 @@ func _log_events() -> void:
 				_elapsed, participant.body.name, participant.death_cause,
 				fposmod(rad_to_deg(atan2(at.z, at.x)), 360.0), Vector2(at.x, at.z).length(),
 			])
+			if _plugin != null:
+				_plugin.on_out(participant)
 	)
 	_controller.ghost_caught.connect(
 		func(ghost: MatchParticipant, caught: MatchParticipant) -> void:
@@ -790,6 +881,14 @@ func _log_events() -> void:
 		func(participant: MatchParticipant, turns: int) -> void:
 			print("[event] %6.2f  seat  %s  turn %d" % [_elapsed, participant.body.name, turns])
 	)
+
+
+## Raise [param flag_name] on every stage driver in the tree: a "wait_flag"
+## step finishes on it (the flinch when the one beside us drops).
+func _flag_the_drivers(flag_name: String) -> void:
+	for node: Node in root.get_children():
+		if node.has_method("flag") and node.has_method("is_done"):
+			node.flag(flag_name)
 
 
 ## Stop every voice before the engine tears the tree down: a stream still
@@ -954,6 +1053,8 @@ func _is_standing(body: Node3D) -> bool:
 func _wear_the_body(body: PlayerController) -> void:
 	PrisonerAvatar.set_viewed_body(body)
 	_hand_over_the_scope(body)
+	if String(_options.get("hud", "")) == "crosshair" and STAGE_LIB.show_only_the_crosshair(root):
+		print("[pov] crosshair on, rest of the HUD off")
 	# No fill on a ridden body. Hung at the eye it sits inside the body's own
 	# capsule and washes the whole frame to a flat gradient; the ambient lift in
 	# _light_for_social is what a POV clip gets instead.
