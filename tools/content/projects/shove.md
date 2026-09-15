@@ -23,6 +23,7 @@ file: 01_cover
 in: 0.9
 seconds: 4
 frame: 1.4
+motion: 0.01     # a fixed lens on two small bodies against dark rock: 0.009-0.013 by nature (freeze 0); the flight and the tracer are the motion
 gap: 0
 
 ## 3
@@ -32,6 +33,7 @@ file: 02_edge
 in: 1.2
 seconds: 3.8
 frame: 1.6
+motion: 0.002    # a fixed lens, the run-up and the flight both down its own axis: 0.002 by nature (freeze 0)
 gap: 0
 
 ## 4
