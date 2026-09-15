@@ -24,13 +24,15 @@ DIR="${PC_CONTENT}\\${FOLDER}\\${NAME}"
 COUNT=$(brief_count "${BRIEF}")
 T_ALL=$(now_ms)
 
-# Geometry: the 720p master to the delivery frame.
+# Geometry: the master to the delivery frame. A 9:16 master is already
+# 1080x1920 (shot.sh films a short in portrait); the crop and the letterbox
+# are for a 16:9 master filmed before that, or a shot filmed at a ref: without it.
 case "${ASPECT}" in
   9:16)
     if [ "${FRAME}" = letterbox ]; then
       GEOMETRY="scale=1080:-2,pad=1080:1920:(ow-iw)/2:(oh-ih)/2"
     else
-      GEOMETRY="crop=ih*9/16:ih,scale=1080:1920"
+      GEOMETRY="crop=min(iw\,ih*9/16):ih,scale=1080:1920"
     fi
     CAPTION_SIZE=54; CAPTION_Y="h*0.74" ;;
   16:9) GEOMETRY="scale=1920:1080"; CAPTION_SIZE=48; CAPTION_Y="h*0.80" ;;

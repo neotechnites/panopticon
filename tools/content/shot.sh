@@ -38,6 +38,15 @@ MOTION_MIN=$(brief_field "${BRIEF}" "${N}" motion "${MOTION_MIN}")
 SAID=$(brief_field "${BRIEF}" "${N}" said)
 FILE=$(brief_field "${BRIEF}" "${N}" file)      # also deliver this cut as clips\<project>\<file>.mp4
 ASPECT=$(brief_head "${BRIEF}" aspect "$([ "${KIND}" = devlog ] && echo 16:9 || echo 9:16)")
+# A 9:16 short is filmed 9:16: the viewport is a phone's, the lens composes for
+# it, and nothing is cropped afterwards. Ryan: "the frame should consider the
+# mobile viewing port". The master and the gate follow the same frame.
+if [ "${ASPECT}" = 9:16 ]; then
+  [ "${SIZE}" = 1280x720 ] && SIZE=1080x1920
+  MASTER="scale=1080:1920"; GATE_SCALE="scale=90:160"
+else
+  MASTER="scale=1280:720"; GATE_SCALE="scale=160:90"
+fi
 [ -n "${CAPTURE}${STILL}" ] || die "shot ${N} of ${NAME} has no capture: or still: line"
 echo "shot ${NN}: ${SAID}"
 
@@ -59,7 +68,7 @@ take() {  # take <tag> <seed> <seconds>
   # The gate reads the cut, not the take: the second held before a stage places
   # its bodies and the tail past the beat are never in the shot.
   pc <<EOF
-\$m = ffmpeg -hide_banner -nostats -ss ${IN} -t ${TOTAL} -i '${avi}' -an -vf "fps=10,scale=160:90,format=gray,tblend=all_mode=difference,lutyuv=y='if(gt(val,24),255,0)',signalstats,metadata=print:key=lavfi.signalstats.YAVG:file=-" -f null - 2>\$null | Select-String 'YAVG=' | ForEach-Object { [double](\$_ -replace '.*YAVG=','') }
+\$m = ffmpeg -hide_banner -nostats -ss ${IN} -t ${TOTAL} -i '${avi}' -an -vf "fps=10,${GATE_SCALE},format=gray,tblend=all_mode=difference,lutyuv=y='if(gt(val,24),255,0)',signalstats,metadata=print:key=lavfi.signalstats.YAVG:file=-" -f null - 2>\$null | Select-String 'YAVG=' | ForEach-Object { [double](\$_ -replace '.*YAVG=','') }
 \$motion = if (\$m) { (\$m | Measure-Object -Average).Average / 255.0 } else { 0 }
 \$f = ffmpeg -hide_banner -nostats -ss ${IN} -t ${TOTAL} -i '${avi}' -an -vf "freezedetect=n=${FREEZE_NOISE_DB}dB:d=${FREEZE_MAX_SECONDS}" -f null - 2>&1 | Select-String 'freeze_duration' | Measure-Object
 \$line = ('motion={0:N4} freeze={1}' -f \$motion, \$f.Count)
@@ -98,7 +107,7 @@ render_take() {  # render_take <tag> <out-mp4> <cut-seconds> <mute-from-seconds>
 \$src = '${DIR}\\takes\\${tag}.avi'
 \$audio = ffprobe -v error -select_streams a -show_entries stream=codec_type -of csv=p=0 \$src
 \$af = if (\$audio) { @('-af', "volume=enable='gte(t,${mute})':volume=0", '-c:a', 'aac', '-ar', '48000', '-b:a', '160k') } else { @('-f', 'lavfi', '-i', 'anullsrc=r=48000:cl=stereo', '-shortest', '-c:a', 'aac') }
-ffmpeg -hide_banner -loglevel error -y -ss ${IN} -i \$src @(\$af) -t ${cut} -c:v libx264 -preset veryfast -crf 18 -pix_fmt yuv420p -r ${FPS} -vf "scale=1280:720" '${out}'
+ffmpeg -hide_banner -loglevel error -y -ss ${IN} -i \$src @(\$af) -t ${cut} -c:v libx264 -preset veryfast -crf 18 -pix_fmt yuv420p -r ${FPS} -vf "${MASTER}" '${out}'
 Write-Output ('rendered ' + (Get-Item '${out}').Length)
 EOF
 }
@@ -107,7 +116,7 @@ EOF
 deliver_take() {  # deliver_take <tag> <cut-seconds>
   [ -n "${FILE}" ] || return 0
   local tag="$1" cut="$2" out="${PC_CLIPS}\\${NAME}\\${FILE}.mp4" geometry
-  [ "${ASPECT}" = 9:16 ] && geometry="crop=ih*9/16:ih,scale=1080:1920" || geometry="scale=1920:1080"
+  [ "${ASPECT}" = 9:16 ] && geometry="scale=1080:1920" || geometry="scale=1920:1080"
   pc <<EOF
 New-Item -ItemType Directory -Force -Path '${PC_CLIPS}\\${NAME}' | Out-Null
 \$src = '${DIR}\\takes\\${tag}.avi'
@@ -128,7 +137,7 @@ if [ -n "${STILL}" ]; then
   echo "  still: godot $(since "$T0")"
   T0=$(now_ms)
   pc <<EOF
-ffmpeg -hide_banner -loglevel error -y -loop 1 -i '${DIR}\\shots\\${NN}.png' -f lavfi -i anullsrc=r=48000:cl=stereo -t ${HOLD} -r ${FPS} -vf "scale=1280:720" -c:v libx264 -preset veryfast -crf 18 -pix_fmt yuv420p -c:a aac -shortest '${DIR}\\shots\\${NN}.mp4'
+ffmpeg -hide_banner -loglevel error -y -loop 1 -i '${DIR}\\shots\\${NN}.png' -f lavfi -i anullsrc=r=48000:cl=stereo -t ${HOLD} -r ${FPS} -vf "${MASTER}" -c:v libx264 -preset veryfast -crf 18 -pix_fmt yuv420p -c:a aac -shortest '${DIR}\\shots\\${NN}.mp4'
 Write-Output ('rendered ' + (Get-Item '${DIR}\\shots\\${NN}.mp4').Length)
 EOF
   echo "  still: render $(since "$T0")"

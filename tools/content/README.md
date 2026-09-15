@@ -48,7 +48,10 @@ has (the worktree comes back to the branch afterwards); `takes:` and `motion:`
 to override the gate for that shot.
 
 Rules baked in: no hook text, no title cards. A caption is the one line a player
-would type. A devlog (`kind: devlog`) gets 16:9, a 1.5 s working slate before
+would type. A 9:16 short is FILMED 9:16 -- the viewport is 1080x1920 and every
+lens composes for a phone (the action in the middle of the height); nothing is
+captured landscape and cropped. No HUD on any shot unless the capture says
+`--hud=on`. A devlog (`kind: devlog`) gets 16:9, a 1.5 s working slate before
 each shot naming it, and a Resolve project when Resolve is installed.
 
 ## The take gate
