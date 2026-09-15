@@ -105,8 +105,10 @@ const AUDIO_MUTED_DB: float = -60.0
 
 ## The deck the prisoners run on; a POV body far off it is not standing on it.
 const DECK_Y: float = 23.0
-## A tracked victim this far under the deck has gone over the rim: the lens stops following.
+## A tracked victim this far under the deck, or inside the deck's inner radius,
+## has gone over the rim: the lens stops following and the body falls out of frame.
 const TRACK_BELOW_DECK_METRES: float = 1.0
+const RIM_R_FALLBACK: float = 46.7
 
 ## A body pressed into the pit wall is still "standing" and still "running"; it
 ## just never moves again. A clip drops one that has not travelled in this long.
@@ -152,6 +154,7 @@ var _victim_body: PlayerController = null
 var _track: String = ""
 var _tracked_look: Vector3 = Vector3.ZERO
 var _tracking: bool = false
+var _tracking_stopped: bool = false
 var _ghost_body: PlayerController = null
 var _logged_shooter: TowerShooter = null
 var _staged: PlayerController = null
@@ -671,12 +674,21 @@ func _aim_camera(path_time: float) -> void:
 ## over the rim or under the lava, and the body falls out of the frame rather
 ## than being chased down by it.
 func _tracked_target(path_target: Vector3) -> Vector3:
-	if _victim_body != null and is_instance_valid(_victim_body) and _victim_body.global_position.y > DECK_Y - TRACK_BELOW_DECK_METRES:
+	if _victim_body != null and is_instance_valid(_victim_body) and not _tracking_stopped:
+		var at: Vector3 = _victim_body.global_position
 		var participant: MatchParticipant = _controller.resolve_participant(_victim_body)
-		if participant != null and participant.is_running:
-			_tracked_look = _victim_body.global_position + Vector3.UP * 0.9
+		if at.y < DECK_Y - TRACK_BELOW_DECK_METRES or Vector2(at.x, at.z).length() < _rim_r():
+			_tracking_stopped = true
+		elif participant != null and participant.is_running:
+			_tracked_look = at + Vector3.UP * 0.9
 			_tracking = true
 	return _tracked_look if _tracking else path_target
+
+
+## The deck's inner radius, read off the map's own route data.
+func _rim_r() -> float:
+	var level: Node = _controller.arena.get_node_or_null(^"Route/Level1") if _controller.arena != null else null
+	return float(level.get("inner_radius")) if level != null else RIM_R_FALLBACK
 
 
 # --- Reporting ----------------------------------------------------------------
