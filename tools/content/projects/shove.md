@@ -37,12 +37,12 @@ motion: 0.002    # a fixed lens, the run-up and the flight both down its own axi
 gap: 0
 
 ## 4
-said: "lava" -- a runner mid-jump on the S2 boulder chain is shoved into the lava by the runner waiting on the next landing; the lava takes them
-capture: --stage=shovecatch --shot=s2_gap --bots=2 --look=social --audio=near --track=victim
+said: "lava" -- Ryan on the chain take: "use the other lava sections that are wider, this is pretty janky" -- so the S5 lava lake: a runner on the lip of the bank is shoved from behind out over the open lake and dies in the lava in front of the lens
+capture: --stage=shovelake --shot=lake_bank --bots=2 --look=social --audio=near --track=victim
 file: 03_lava
-in: 2.8
-seconds: 3.5
-frame: 1.2
+in: 0.9
+seconds: 3.4
+frame: 1.5
 gap: 0
 
 ## 5

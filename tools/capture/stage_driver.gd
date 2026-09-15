@@ -273,6 +273,17 @@ const RIM_SHOVER_R: float = 52.0
 const COVER_DEGREES: float = 196.5
 const COVER_R: float = 47.9
 const COVER_SHOVER_DEGREES: float = 189.0
+## S5: the lava lake fills the corridor from 293 to 335 deg, r 47-57, with a
+## few stones; the bank at 286-291 is solid deck. shovelake stands the victim
+## on the lip of the bank and throws them out over the open lake, clear of the
+## stones at 298 (r 54-56).
+const LAKE_LIP_DEGREES: float = 291.5
+const LAKE_LIP_R: float = 50.0
+## Five metres behind the lip along the lane and a little outboard: a shove
+## from here carries the victim ten metres up the lake at r 52-54, between the
+## stones at 298 and 310 (r 54-56) and well short of the inner rim.
+const LAKE_SHOVER_DEGREES: float = 285.6
+const LAKE_SHOVER_R: float = 51.0
 
 
 ## The step list for [param stage], or empty when the stage is not one of these.
@@ -348,6 +359,24 @@ static func steps_for(stage: String, victim: PlayerController) -> Array:
 			return [
 				{"do": "place", "at": ring_point(COVER_DEGREES, COVER_R, 0.1), "face": tangent_at(COVER_DEGREES)},
 				{"do": "hold", "seconds": 20.0, "crouch": true},
+			]
+		"shovelake":
+			# The shover, back on the bank behind and outboard of the victim:
+			# run at them and shove; the line from here to the lip crosses the
+			# lake's open middle, so they land in lava, not on a stone.
+			var lip: Vector3 = ring_point(LAKE_LIP_DEGREES, LAKE_LIP_R, 0.0)
+			var from: Vector3 = ring_point(LAKE_SHOVER_DEGREES, LAKE_SHOVER_R, 0.1)
+			return [
+				{"do": "place", "at": from, "face": Vector3(lip.x - from.x, 0.0, lip.z - from.z).normalized()},
+				{"do": "hold", "seconds": 0.8},
+				{"do": "chase", "victim": victim, "range": 2.2, "timeout": 8.0},
+				{"do": "hold", "seconds": 12.0},
+			]
+		"shovelake_victim":
+			# Stood on the lip of the bank, looking out along the lane over the lake.
+			return [
+				{"do": "place", "at": ring_point(LAKE_LIP_DEGREES, LAKE_LIP_R, 0.1), "face": tangent_at(LAKE_LIP_DEGREES)},
+				{"do": "hold", "seconds": 20.0},
 			]
 		"shoveedge":
 			# The shover, out on the deck behind a runner stood at the pit rim:

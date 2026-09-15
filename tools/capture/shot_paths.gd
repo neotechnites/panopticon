@@ -22,7 +22,7 @@ static func names() -> PackedStringArray:
 		"pit_orbit", "s1_cave", "s2_chain", "s4_run", "s5_fall", "guard_scope",
 		"lake_fall", "scope_hunt", "wall_fall", "s5_survey", "teaser_lap",
 		"s2_gap", "s3_open_lane", "pad_flight", "s3_pillar", "s4_edge", "portal",
-		"s3_chase", "s1_pack", "pocket_cover", "rim_edge",
+		"s3_chase", "s1_pack", "pocket_cover", "rim_edge", "lake_bank",
 	])
 
 
@@ -70,6 +70,8 @@ static func get_shot(shot_name: String) -> Dictionary:
 			return _shot(shot_name, _pocket_cover())
 		"rim_edge":
 			return _shot(shot_name, _rim_edge())
+		"lake_bank":
+			return _shot(shot_name, _lake_bank())
 		"teaser_lap":
 			var lap: Dictionary = _shot(shot_name, _teaser_lap())
 			# Flown, not aimed: the lens points where the camera is going until
@@ -307,6 +309,17 @@ static func _rim_edge() -> Array:
 	return [
 		_key(0.0, 188.0, 56.5, 3.4, 182.0, 47.2, 0.9, 56.0),
 		_key(8.0, 187.5, 56.0, 3.3, 182.0, 47.2, 0.9, 55.0),
+	]
+
+
+## Out over the S5 lava lake, looking back at the lip of the bank: the shover
+## comes down the bank at the victim, and the shove throws them at the lens,
+## out over the open lake, to land in the lava a few metres in front of it.
+## Meant for --track=victim.
+static func _lake_bank() -> Array:
+	return [
+		_key(0.0, 306.5, 50.5, 2.4, 291.5, 50.0, 0.9, 62.0),
+		_key(8.0, 306.0, 50.7, 2.3, 291.5, 50.0, 0.9, 60.0),
 	]
 
 
