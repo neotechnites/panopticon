@@ -1,0 +1,621 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/match/kill_volume.gd" id="1_kill_volume"]
+[ext_resource type="Script" path="res://scripts/ring/tower_light.gd" id="3_tower_light"]
+[ext_resource type="Resource" path="res://scenes/ring/marble_tower_light_profile.tres" id="4_tower_light_profile"]
+[ext_resource type="Script" path="res://scripts/ring/ring_route.gd" id="5_ring_route"]
+[ext_resource type="Script" path="res://scripts/ring/ring_level.gd" id="6_ring_level"]
+[ext_resource type="Script" path="res://scripts/ring/tower_variant.gd" id="8c_tower_variant"]
+[ext_resource type="PackedScene" path="res://assets/models/marble_tower.glb" id="8_tower_model"]
+[ext_resource type="PackedScene" path="res://assets/models/marble.glb" id="10_map_model"]
+[ext_resource type="PackedScene" path="res://scenes/ring/portal.tscn" id="19_portal"]
+[ext_resource type="PackedScene" uid="uid://bc7si5v1kq5n8" path="res://assets/models/rock_bars.glb" id="20_rock_bars"]
+[ext_resource type="Script" path="res://scripts/match/trap_volume.gd" id="26_trap_volume"]
+
+[sub_resource type="Environment" id="Env"]
+background_mode = 1
+background_color = Color(0.25, 0.26, 0.28, 1)
+ambient_light_source = 2
+ambient_light_color = Color(0.70, 0.72, 0.76, 1)
+ambient_light_energy = 0.55
+tonemap_mode = 1
+
+[node name="Marble" type="Node3D"]
+editor_description = "MAP 2, MARBLE: the Bentham drawing in white marble, one closed rotunda built on assets/models/marble.glb -- the lane annulus r 46.7..57.3 at y 23.0 (Map 1's ring) standing 1.6 m over two beds of marble spikes, the wall of cells (three tiers, 192 cells), a Greek-key frieze and a solid coffered dome to y 77.6. The model ships its own collision, so this scene adds no geometry: only the tower, the lethal volumes, the lights and the markers.
+
+A prisoner runs one 340 deg lap at r 52 from 5 deg to the portal at 345 deg; the rock bars (a scene node, as on Map 1) close the lane at 353 deg between finish and start. Off the lane there is nothing to stand on: the inner bed is one KillVolume cylinder, the outer trough forty-eight TrapVolume boxes.
+
+The light is the tower's: one shadowed warm-white omni in the lantern throws the eight windows' beams round the ring, over a cool grey ambient. No sun, no sky, no oculus."
+
+[node name="Environment" type="Node3D" parent="."]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="Environment"]
+environment = SubResource("Env")
+
+[node name="MapBase" parent="." instance=ExtResource("10_map_model")]
+editor_description = "assets/models/marble.glb: the whole rotunda, one contiguous mesh -- lane, both spike beds and their spikes, the trough, the wall of cells, the frieze, the dome. Ships its own collision (MarbleCollision-colonly); the spikes are not in it, the volumes below kill first."
+
+[node name="KillBox" type="Area3D" parent="."]
+editor_description = "The catch-all under the whole map, roof at y 12.0: nothing should ever reach it (the lowest floor is the bed's inner terrace at y 17.4), so a body here fell through the world. Trigger only, mask 1048577 (living bodies and ghosts); scripts/match/kill_volume.gd hands whatever entered to MatchController.handle_fall()."
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 20, 0)
+collision_layer = 0
+collision_mask = 1048577
+monitorable = false
+script = ExtResource("1_kill_volume")
+radius_metres = 64.0
+roof_depth_metres = 8.0
+depth_metres = 30.0
+
+[node name="Shape" type="CollisionShape3D" parent="KillBox"]
+editor_description = "Deliberately empty. KillVolume._build_shape writes a CylinderShape3D over it on ready."
+
+[node name="SpikeBed" type="Area3D" parent="."]
+editor_description = "THE INNER BED OF SPIKES: one cylinder r 46.3 whose roof is at y 23.5, half a metre OVER the lane, reaching down past the lowest terrace (17.4). The radius is 0.4 m -- a capsule's -- inside the lane's lip at 46.7, so a body standing on the lane never touches it and a body whose feet have left the lip is dead before it lands; the spikes themselves are not colliders. The roof stands over the lane on purpose: RingBake carves a lethal volume out of the navigation mesh only across the heights it spans, so a roof under the lane would leave the bots a walkable mesh right to the edge. The guard's room (floor 27.05) and balcony (26.35) are above it."
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 31.5, 0)
+collision_layer = 0
+collision_mask = 1048577
+monitorable = false
+script = ExtResource("1_kill_volume")
+radius_metres = 46.3
+roof_depth_metres = 8.0
+depth_metres = 14.0
+
+[node name="Shape" type="CollisionShape3D" parent="SpikeBed"]
+
+[node name="StartEnd" type="Node3D" parent="."]
+editor_description = "One level, one lap: start at 5 deg and finish at 345 deg on the lane at y 23.0, the bars at 353 deg between them."
+
+[node name="PrisonerStart" type="Marker3D" parent="StartEnd"]
+editor_description = "5.0 deg on the lane, y 23.0: the model's lane surface exactly. Its ANGLE places the field -- MatchController deals bodies radially across the lane from here at start_line_spacing_metres -- and its height is load-bearing."
+transform = Transform3D(-0.996195, 0, 0.0871557, 0, 1, 0, -0.0871557, 0, -0.996195, 51.8021, 23, 4.5321)
+
+[node name="PrisonerEnd" type="Marker3D" parent="StartEnd"]
+editor_description = "345.0 deg on the lane, matching the portal's own transform. The end of the whole route: reaching it takes the tower."
+transform = Transform3D(0.965926, 0, 0.258819, 0, 1, 0, -0.258819, 0, 0.965926, 50.2281, 23, -13.4586)
+
+[node name="Portal" parent="StartEnd" instance=ExtResource("19_portal")]
+editor_description = "The finish at 345 deg. Local Z is the pass-through axis along the run, local X the span across the lane."
+transform = Transform3D(0.965926, 0, 0.258819, 0, 1, 0, -0.258819, 0, 0.965926, 50.2281, 23, -13.4586)
+
+[node name="RockBars" parent="." instance=ExtResource("20_rock_bars")]
+editor_description = "Bars across the lane at 353 deg, in the gap between finish (345) and start (5), so the finish is visible from the start but not walkable back to: with a finish gate in the scene, standing in it is the win. The same scene node Map 1 uses, not a marble structure -- nothing is built on the lane. Local X (10.6 m) runs radially across the lane, local Z along it."
+transform = Transform3D(0.992546, 0, 0.121869, 0, 1, 0, -0.121869, 0, 0.992546, 51.6124, 23, -6.33721)
+
+[node name="Sections" type="Node3D" parent="."]
+editor_description = "No sections on this map: Ryan, \"dont put anything on the ring, just get the tower and ring done\". Only the trough's lethal volumes and the guard's watch points live here."
+
+[node name="Trough" type="Node3D" parent="Sections"]
+editor_description = "THE OUTER BED OF SPIKES: the trough r 57.3..60.0 sunk 1.6 m under the lane, covered by 48 boxes of 7.5 deg, each 2.3 m radial (57.7..60.0, a capsule's radius outside the lip so a body on the lane never touches one) x 3.1 m tall (20.4..23.5, the top half a metre over the lane so RingBake carves the bots' mesh back from the edge) x 7.7 m along. Not feet_only: anything that overlaps one is dead, so the trough's teeth may stand higher than the lane. The inner chord corners (r 57.83) are within a capsule's radius of a body that has left the lip, so no body can stand on the trough floor uncovered."
+[node name="TrapVolume1" type="Area3D" parent="Sections/Trough"]
+transform = Transform3D(0.0654031, 0, 0.997859, 0, 1, 0, -0.997859, 0, 0.0654031, 58.724, 21.95, 3.84897)
+collision_layer = 0
+collision_mask = 1048577
+monitorable = false
+script = ExtResource("26_trap_volume")
+size_metres = Vector3(7.7, 3.1, 2.3)
+feet_only = false
+
+[node name="Shape" type="CollisionShape3D" parent="Sections/Trough/TrapVolume1"]
+[node name="TrapVolume2" type="Area3D" parent="Sections/Trough"]
+transform = Transform3D(0.19509, 0, 0.980785, 0, 1, 0, -0.980785, 0, 0.19509, 57.7192, 21.95, 11.4811)
+collision_layer = 0
+collision_mask = 1048577
+monitorable = false
+script = ExtResource("26_trap_volume")
+size_metres = Vector3(7.7, 3.1, 2.3)
+feet_only = false
+
+[node name="Shape" type="CollisionShape3D" parent="Sections/Trough/TrapVolume2"]
+[node name="TrapVolume3" type="Area3D" parent="Sections/Trough"]
+transform = Transform3D(0.321439, 0, 0.94693, 0, 1, 0, -0.94693, 0, 0.321439, 55.7268, 21.95, 18.9167)
+collision_layer = 0
+collision_mask = 1048577
+monitorable = false
+script = ExtResource("26_trap_volume")
+size_metres = Vector3(7.7, 3.1, 2.3)
+feet_only = false
+
+[node name="Shape" type="CollisionShape3D" parent="Sections/Trough/TrapVolume3"]
+[node name="TrapVolume4" type="Area3D" parent="Sections/Trough"]
+transform = Transform3D(0.442289, 0, 0.896873, 0, 1, 0, -0.896873, 0, 0.442289, 52.781, 21.95, 26.0287)
+collision_layer = 0
+collision_mask = 1048577
+monitorable = false
+script = ExtResource("26_trap_volume")
+size_metres = Vector3(7.7, 3.1, 2.3)
+feet_only = false
+
+[node name="Shape" type="CollisionShape3D" parent="Sections/Trough/TrapVolume4"]
+[node name="TrapVolume5" type="Area3D" parent="Sections/Trough"]
+transform = Transform3D(0.55557, 0, 0.83147, 0, 1, 0, -0.83147, 0, 0.55557, 48.932, 21.95, 32.6953)
+collision_layer = 0
+collision_mask = 1048577
+monitorable = false
+script = ExtResource("26_trap_volume")
+size_metres = Vector3(7.7, 3.1, 2.3)
+feet_only = false
+
+[node name="Shape" type="CollisionShape3D" parent="Sections/Trough/TrapVolume5"]
+[node name="TrapVolume6" type="Area3D" parent="Sections/Trough"]
+transform = Transform3D(0.659346, 0, 0.75184, 0, 1, 0, -0.75184, 0, 0.659346, 44.2458, 21.95, 38.8025)
+collision_layer = 0
+collision_mask = 1048577
+monitorable = false
+script = ExtResource("26_trap_volume")
+size_metres = Vector3(7.7, 3.1, 2.3)
+feet_only = false
+
+[node name="Shape" type="CollisionShape3D" parent="Sections/Trough/TrapVolume6"]
+[node name="TrapVolume7" type="Area3D" parent="Sections/Trough"]
+transform = Transform3D(0.75184, 0, 0.659346, 0, 1, 0, -0.659346, 0, 0.75184, 38.8025, 21.95, 44.2458)
+collision_layer = 0
+collision_mask = 1048577
+monitorable = false
+script = ExtResource("26_trap_volume")
+size_metres = Vector3(7.7, 3.1, 2.3)
+feet_only = false
+
+[node name="Shape" type="CollisionShape3D" parent="Sections/Trough/TrapVolume7"]
+[node name="TrapVolume8" type="Area3D" parent="Sections/Trough"]
+transform = Transform3D(0.83147, 0, 0.55557, 0, 1, 0, -0.55557, 0, 0.83147, 32.6953, 21.95, 48.932)
+collision_layer = 0
+collision_mask = 1048577
+monitorable = false
+script = ExtResource("26_trap_volume")
+size_metres = Vector3(7.7, 3.1, 2.3)
+feet_only = false
+
+[node name="Shape" type="CollisionShape3D" parent="Sections/Trough/TrapVolume8"]
+[node name="TrapVolume9" type="Area3D" parent="Sections/Trough"]
+transform = Transform3D(0.896873, 0, 0.442289, 0, 1, 0, -0.442289, 0, 0.896873, 26.0287, 21.95, 52.781)
+collision_layer = 0
+collision_mask = 1048577
+monitorable = false
+script = ExtResource("26_trap_volume")
+size_metres = Vector3(7.7, 3.1, 2.3)
+feet_only = false
+
+[node name="Shape" type="CollisionShape3D" parent="Sections/Trough/TrapVolume9"]
+[node name="TrapVolume10" type="Area3D" parent="Sections/Trough"]
+transform = Transform3D(0.94693, 0, 0.321439, 0, 1, 0, -0.321439, 0, 0.94693, 18.9167, 21.95, 55.7268)
+collision_layer = 0
+collision_mask = 1048577
+monitorable = false
+script = ExtResource("26_trap_volume")
+size_metres = Vector3(7.7, 3.1, 2.3)
+feet_only = false
+
+[node name="Shape" type="CollisionShape3D" parent="Sections/Trough/TrapVolume10"]
+[node name="TrapVolume11" type="Area3D" parent="Sections/Trough"]
+transform = Transform3D(0.980785, 0, 0.19509, 0, 1, 0, -0.19509, 0, 0.980785, 11.4811, 21.95, 57.7192)
+collision_layer = 0
+collision_mask = 1048577
+monitorable = false
+script = ExtResource("26_trap_volume")
+size_metres = Vector3(7.7, 3.1, 2.3)
+feet_only = false
+
+[node name="Shape" type="CollisionShape3D" parent="Sections/Trough/TrapVolume11"]
+[node name="TrapVolume12" type="Area3D" parent="Sections/Trough"]
+transform = Transform3D(0.997859, 0, 0.0654031, 0, 1, 0, -0.0654031, 0, 0.997859, 3.84897, 21.95, 58.724)
+collision_layer = 0
+collision_mask = 1048577
+monitorable = false
+script = ExtResource("26_trap_volume")
+size_metres = Vector3(7.7, 3.1, 2.3)
+feet_only = false
+
+[node name="Shape" type="CollisionShape3D" parent="Sections/Trough/TrapVolume12"]
+[node name="TrapVolume13" type="Area3D" parent="Sections/Trough"]
+transform = Transform3D(0.997859, 0, -0.0654031, 0, 1, 0, 0.0654031, 0, 0.997859, -3.84897, 21.95, 58.724)
+collision_layer = 0
+collision_mask = 1048577
+monitorable = false
+script = ExtResource("26_trap_volume")
+size_metres = Vector3(7.7, 3.1, 2.3)
+feet_only = false
+
+[node name="Shape" type="CollisionShape3D" parent="Sections/Trough/TrapVolume13"]
+[node name="TrapVolume14" type="Area3D" parent="Sections/Trough"]
+transform = Transform3D(0.980785, 0, -0.19509, 0, 1, 0, 0.19509, 0, 0.980785, -11.4811, 21.95, 57.7192)
+collision_layer = 0
+collision_mask = 1048577
+monitorable = false
+script = ExtResource("26_trap_volume")
+size_metres = Vector3(7.7, 3.1, 2.3)
+feet_only = false
+
+[node name="Shape" type="CollisionShape3D" parent="Sections/Trough/TrapVolume14"]
+[node name="TrapVolume15" type="Area3D" parent="Sections/Trough"]
+transform = Transform3D(0.94693, 0, -0.321439, 0, 1, 0, 0.321439, 0, 0.94693, -18.9167, 21.95, 55.7268)
+collision_layer = 0
+collision_mask = 1048577
+monitorable = false
+script = ExtResource("26_trap_volume")
+size_metres = Vector3(7.7, 3.1, 2.3)
+feet_only = false
+
+[node name="Shape" type="CollisionShape3D" parent="Sections/Trough/TrapVolume15"]
+[node name="TrapVolume16" type="Area3D" parent="Sections/Trough"]
+transform = Transform3D(0.896873, 0, -0.442289, 0, 1, 0, 0.442289, 0, 0.896873, -26.0287, 21.95, 52.781)
+collision_layer = 0
+collision_mask = 1048577
+monitorable = false
+script = ExtResource("26_trap_volume")
+size_metres = Vector3(7.7, 3.1, 2.3)
+feet_only = false
+
+[node name="Shape" type="CollisionShape3D" parent="Sections/Trough/TrapVolume16"]
+[node name="TrapVolume17" type="Area3D" parent="Sections/Trough"]
+transform = Transform3D(0.83147, 0, -0.55557, 0, 1, 0, 0.55557, 0, 0.83147, -32.6953, 21.95, 48.932)
+collision_layer = 0
+collision_mask = 1048577
+monitorable = false
+script = ExtResource("26_trap_volume")
+size_metres = Vector3(7.7, 3.1, 2.3)
+feet_only = false
+
+[node name="Shape" type="CollisionShape3D" parent="Sections/Trough/TrapVolume17"]
+[node name="TrapVolume18" type="Area3D" parent="Sections/Trough"]
+transform = Transform3D(0.75184, 0, -0.659346, 0, 1, 0, 0.659346, 0, 0.75184, -38.8025, 21.95, 44.2458)
+collision_layer = 0
+collision_mask = 1048577
+monitorable = false
+script = ExtResource("26_trap_volume")
+size_metres = Vector3(7.7, 3.1, 2.3)
+feet_only = false
+
+[node name="Shape" type="CollisionShape3D" parent="Sections/Trough/TrapVolume18"]
+[node name="TrapVolume19" type="Area3D" parent="Sections/Trough"]
+transform = Transform3D(0.659346, 0, -0.75184, 0, 1, 0, 0.75184, 0, 0.659346, -44.2458, 21.95, 38.8025)
+collision_layer = 0
+collision_mask = 1048577
+monitorable = false
+script = ExtResource("26_trap_volume")
+size_metres = Vector3(7.7, 3.1, 2.3)
+feet_only = false
+
+[node name="Shape" type="CollisionShape3D" parent="Sections/Trough/TrapVolume19"]
+[node name="TrapVolume20" type="Area3D" parent="Sections/Trough"]
+transform = Transform3D(0.55557, 0, -0.83147, 0, 1, 0, 0.83147, 0, 0.55557, -48.932, 21.95, 32.6953)
+collision_layer = 0
+collision_mask = 1048577
+monitorable = false
+script = ExtResource("26_trap_volume")
+size_metres = Vector3(7.7, 3.1, 2.3)
+feet_only = false
+
+[node name="Shape" type="CollisionShape3D" parent="Sections/Trough/TrapVolume20"]
+[node name="TrapVolume21" type="Area3D" parent="Sections/Trough"]
+transform = Transform3D(0.442289, 0, -0.896873, 0, 1, 0, 0.896873, 0, 0.442289, -52.781, 21.95, 26.0287)
+collision_layer = 0
+collision_mask = 1048577
+monitorable = false
+script = ExtResource("26_trap_volume")
+size_metres = Vector3(7.7, 3.1, 2.3)
+feet_only = false
+
+[node name="Shape" type="CollisionShape3D" parent="Sections/Trough/TrapVolume21"]
+[node name="TrapVolume22" type="Area3D" parent="Sections/Trough"]
+transform = Transform3D(0.321439, 0, -0.94693, 0, 1, 0, 0.94693, 0, 0.321439, -55.7268, 21.95, 18.9167)
+collision_layer = 0
+collision_mask = 1048577
+monitorable = false
+script = ExtResource("26_trap_volume")
+size_metres = Vector3(7.7, 3.1, 2.3)
+feet_only = false
+
+[node name="Shape" type="CollisionShape3D" parent="Sections/Trough/TrapVolume22"]
+[node name="TrapVolume23" type="Area3D" parent="Sections/Trough"]
+transform = Transform3D(0.19509, 0, -0.980785, 0, 1, 0, 0.980785, 0, 0.19509, -57.7192, 21.95, 11.4811)
+collision_layer = 0
+collision_mask = 1048577
+monitorable = false
+script = ExtResource("26_trap_volume")
+size_metres = Vector3(7.7, 3.1, 2.3)
+feet_only = false
+
+[node name="Shape" type="CollisionShape3D" parent="Sections/Trough/TrapVolume23"]
+[node name="TrapVolume24" type="Area3D" parent="Sections/Trough"]
+transform = Transform3D(0.0654031, 0, -0.997859, 0, 1, 0, 0.997859, 0, 0.0654031, -58.724, 21.95, 3.84897)
+collision_layer = 0
+collision_mask = 1048577
+monitorable = false
+script = ExtResource("26_trap_volume")
+size_metres = Vector3(7.7, 3.1, 2.3)
+feet_only = false
+
+[node name="Shape" type="CollisionShape3D" parent="Sections/Trough/TrapVolume24"]
+[node name="TrapVolume25" type="Area3D" parent="Sections/Trough"]
+transform = Transform3D(-0.0654031, 0, -0.997859, 0, 1, 0, 0.997859, 0, -0.0654031, -58.724, 21.95, -3.84897)
+collision_layer = 0
+collision_mask = 1048577
+monitorable = false
+script = ExtResource("26_trap_volume")
+size_metres = Vector3(7.7, 3.1, 2.3)
+feet_only = false
+
+[node name="Shape" type="CollisionShape3D" parent="Sections/Trough/TrapVolume25"]
+[node name="TrapVolume26" type="Area3D" parent="Sections/Trough"]
+transform = Transform3D(-0.19509, 0, -0.980785, 0, 1, 0, 0.980785, 0, -0.19509, -57.7192, 21.95, -11.4811)
+collision_layer = 0
+collision_mask = 1048577
+monitorable = false
+script = ExtResource("26_trap_volume")
+size_metres = Vector3(7.7, 3.1, 2.3)
+feet_only = false
+
+[node name="Shape" type="CollisionShape3D" parent="Sections/Trough/TrapVolume26"]
+[node name="TrapVolume27" type="Area3D" parent="Sections/Trough"]
+transform = Transform3D(-0.321439, 0, -0.94693, 0, 1, 0, 0.94693, 0, -0.321439, -55.7268, 21.95, -18.9167)
+collision_layer = 0
+collision_mask = 1048577
+monitorable = false
+script = ExtResource("26_trap_volume")
+size_metres = Vector3(7.7, 3.1, 2.3)
+feet_only = false
+
+[node name="Shape" type="CollisionShape3D" parent="Sections/Trough/TrapVolume27"]
+[node name="TrapVolume28" type="Area3D" parent="Sections/Trough"]
+transform = Transform3D(-0.442289, 0, -0.896873, 0, 1, 0, 0.896873, 0, -0.442289, -52.781, 21.95, -26.0287)
+collision_layer = 0
+collision_mask = 1048577
+monitorable = false
+script = ExtResource("26_trap_volume")
+size_metres = Vector3(7.7, 3.1, 2.3)
+feet_only = false
+
+[node name="Shape" type="CollisionShape3D" parent="Sections/Trough/TrapVolume28"]
+[node name="TrapVolume29" type="Area3D" parent="Sections/Trough"]
+transform = Transform3D(-0.55557, 0, -0.83147, 0, 1, 0, 0.83147, 0, -0.55557, -48.932, 21.95, -32.6953)
+collision_layer = 0
+collision_mask = 1048577
+monitorable = false
+script = ExtResource("26_trap_volume")
+size_metres = Vector3(7.7, 3.1, 2.3)
+feet_only = false
+
+[node name="Shape" type="CollisionShape3D" parent="Sections/Trough/TrapVolume29"]
+[node name="TrapVolume30" type="Area3D" parent="Sections/Trough"]
+transform = Transform3D(-0.659346, 0, -0.75184, 0, 1, 0, 0.75184, 0, -0.659346, -44.2458, 21.95, -38.8025)
+collision_layer = 0
+collision_mask = 1048577
+monitorable = false
+script = ExtResource("26_trap_volume")
+size_metres = Vector3(7.7, 3.1, 2.3)
+feet_only = false
+
+[node name="Shape" type="CollisionShape3D" parent="Sections/Trough/TrapVolume30"]
+[node name="TrapVolume31" type="Area3D" parent="Sections/Trough"]
+transform = Transform3D(-0.75184, 0, -0.659346, 0, 1, 0, 0.659346, 0, -0.75184, -38.8025, 21.95, -44.2458)
+collision_layer = 0
+collision_mask = 1048577
+monitorable = false
+script = ExtResource("26_trap_volume")
+size_metres = Vector3(7.7, 3.1, 2.3)
+feet_only = false
+
+[node name="Shape" type="CollisionShape3D" parent="Sections/Trough/TrapVolume31"]
+[node name="TrapVolume32" type="Area3D" parent="Sections/Trough"]
+transform = Transform3D(-0.83147, 0, -0.55557, 0, 1, 0, 0.55557, 0, -0.83147, -32.6953, 21.95, -48.932)
+collision_layer = 0
+collision_mask = 1048577
+monitorable = false
+script = ExtResource("26_trap_volume")
+size_metres = Vector3(7.7, 3.1, 2.3)
+feet_only = false
+
+[node name="Shape" type="CollisionShape3D" parent="Sections/Trough/TrapVolume32"]
+[node name="TrapVolume33" type="Area3D" parent="Sections/Trough"]
+transform = Transform3D(-0.896873, 0, -0.442289, 0, 1, 0, 0.442289, 0, -0.896873, -26.0287, 21.95, -52.781)
+collision_layer = 0
+collision_mask = 1048577
+monitorable = false
+script = ExtResource("26_trap_volume")
+size_metres = Vector3(7.7, 3.1, 2.3)
+feet_only = false
+
+[node name="Shape" type="CollisionShape3D" parent="Sections/Trough/TrapVolume33"]
+[node name="TrapVolume34" type="Area3D" parent="Sections/Trough"]
+transform = Transform3D(-0.94693, 0, -0.321439, 0, 1, 0, 0.321439, 0, -0.94693, -18.9167, 21.95, -55.7268)
+collision_layer = 0
+collision_mask = 1048577
+monitorable = false
+script = ExtResource("26_trap_volume")
+size_metres = Vector3(7.7, 3.1, 2.3)
+feet_only = false
+
+[node name="Shape" type="CollisionShape3D" parent="Sections/Trough/TrapVolume34"]
+[node name="TrapVolume35" type="Area3D" parent="Sections/Trough"]
+transform = Transform3D(-0.980785, 0, -0.19509, 0, 1, 0, 0.19509, 0, -0.980785, -11.4811, 21.95, -57.7192)
+collision_layer = 0
+collision_mask = 1048577
+monitorable = false
+script = ExtResource("26_trap_volume")
+size_metres = Vector3(7.7, 3.1, 2.3)
+feet_only = false
+
+[node name="Shape" type="CollisionShape3D" parent="Sections/Trough/TrapVolume35"]
+[node name="TrapVolume36" type="Area3D" parent="Sections/Trough"]
+transform = Transform3D(-0.997859, 0, -0.0654031, 0, 1, 0, 0.0654031, 0, -0.997859, -3.84897, 21.95, -58.724)
+collision_layer = 0
+collision_mask = 1048577
+monitorable = false
+script = ExtResource("26_trap_volume")
+size_metres = Vector3(7.7, 3.1, 2.3)
+feet_only = false
+
+[node name="Shape" type="CollisionShape3D" parent="Sections/Trough/TrapVolume36"]
+[node name="TrapVolume37" type="Area3D" parent="Sections/Trough"]
+transform = Transform3D(-0.997859, 0, 0.0654031, 0, 1, 0, -0.0654031, 0, -0.997859, 3.84897, 21.95, -58.724)
+collision_layer = 0
+collision_mask = 1048577
+monitorable = false
+script = ExtResource("26_trap_volume")
+size_metres = Vector3(7.7, 3.1, 2.3)
+feet_only = false
+
+[node name="Shape" type="CollisionShape3D" parent="Sections/Trough/TrapVolume37"]
+[node name="TrapVolume38" type="Area3D" parent="Sections/Trough"]
+transform = Transform3D(-0.980785, 0, 0.19509, 0, 1, 0, -0.19509, 0, -0.980785, 11.4811, 21.95, -57.7192)
+collision_layer = 0
+collision_mask = 1048577
+monitorable = false
+script = ExtResource("26_trap_volume")
+size_metres = Vector3(7.7, 3.1, 2.3)
+feet_only = false
+
+[node name="Shape" type="CollisionShape3D" parent="Sections/Trough/TrapVolume38"]
+[node name="TrapVolume39" type="Area3D" parent="Sections/Trough"]
+transform = Transform3D(-0.94693, 0, 0.321439, 0, 1, 0, -0.321439, 0, -0.94693, 18.9167, 21.95, -55.7268)
+collision_layer = 0
+collision_mask = 1048577
+monitorable = false
+script = ExtResource("26_trap_volume")
+size_metres = Vector3(7.7, 3.1, 2.3)
+feet_only = false
+
+[node name="Shape" type="CollisionShape3D" parent="Sections/Trough/TrapVolume39"]
+[node name="TrapVolume40" type="Area3D" parent="Sections/Trough"]
+transform = Transform3D(-0.896873, 0, 0.442289, 0, 1, 0, -0.442289, 0, -0.896873, 26.0287, 21.95, -52.781)
+collision_layer = 0
+collision_mask = 1048577
+monitorable = false
+script = ExtResource("26_trap_volume")
+size_metres = Vector3(7.7, 3.1, 2.3)
+feet_only = false
+
+[node name="Shape" type="CollisionShape3D" parent="Sections/Trough/TrapVolume40"]
+[node name="TrapVolume41" type="Area3D" parent="Sections/Trough"]
+transform = Transform3D(-0.83147, 0, 0.55557, 0, 1, 0, -0.55557, 0, -0.83147, 32.6953, 21.95, -48.932)
+collision_layer = 0
+collision_mask = 1048577
+monitorable = false
+script = ExtResource("26_trap_volume")
+size_metres = Vector3(7.7, 3.1, 2.3)
+feet_only = false
+
+[node name="Shape" type="CollisionShape3D" parent="Sections/Trough/TrapVolume41"]
+[node name="TrapVolume42" type="Area3D" parent="Sections/Trough"]
+transform = Transform3D(-0.75184, 0, 0.659346, 0, 1, 0, -0.659346, 0, -0.75184, 38.8025, 21.95, -44.2458)
+collision_layer = 0
+collision_mask = 1048577
+monitorable = false
+script = ExtResource("26_trap_volume")
+size_metres = Vector3(7.7, 3.1, 2.3)
+feet_only = false
+
+[node name="Shape" type="CollisionShape3D" parent="Sections/Trough/TrapVolume42"]
+[node name="TrapVolume43" type="Area3D" parent="Sections/Trough"]
+transform = Transform3D(-0.659346, 0, 0.75184, 0, 1, 0, -0.75184, 0, -0.659346, 44.2458, 21.95, -38.8025)
+collision_layer = 0
+collision_mask = 1048577
+monitorable = false
+script = ExtResource("26_trap_volume")
+size_metres = Vector3(7.7, 3.1, 2.3)
+feet_only = false
+
+[node name="Shape" type="CollisionShape3D" parent="Sections/Trough/TrapVolume43"]
+[node name="TrapVolume44" type="Area3D" parent="Sections/Trough"]
+transform = Transform3D(-0.55557, 0, 0.83147, 0, 1, 0, -0.83147, 0, -0.55557, 48.932, 21.95, -32.6953)
+collision_layer = 0
+collision_mask = 1048577
+monitorable = false
+script = ExtResource("26_trap_volume")
+size_metres = Vector3(7.7, 3.1, 2.3)
+feet_only = false
+
+[node name="Shape" type="CollisionShape3D" parent="Sections/Trough/TrapVolume44"]
+[node name="TrapVolume45" type="Area3D" parent="Sections/Trough"]
+transform = Transform3D(-0.442289, 0, 0.896873, 0, 1, 0, -0.896873, 0, -0.442289, 52.781, 21.95, -26.0287)
+collision_layer = 0
+collision_mask = 1048577
+monitorable = false
+script = ExtResource("26_trap_volume")
+size_metres = Vector3(7.7, 3.1, 2.3)
+feet_only = false
+
+[node name="Shape" type="CollisionShape3D" parent="Sections/Trough/TrapVolume45"]
+[node name="TrapVolume46" type="Area3D" parent="Sections/Trough"]
+transform = Transform3D(-0.321439, 0, 0.94693, 0, 1, 0, -0.94693, 0, -0.321439, 55.7268, 21.95, -18.9167)
+collision_layer = 0
+collision_mask = 1048577
+monitorable = false
+script = ExtResource("26_trap_volume")
+size_metres = Vector3(7.7, 3.1, 2.3)
+feet_only = false
+
+[node name="Shape" type="CollisionShape3D" parent="Sections/Trough/TrapVolume46"]
+[node name="TrapVolume47" type="Area3D" parent="Sections/Trough"]
+transform = Transform3D(-0.19509, 0, 0.980785, 0, 1, 0, -0.980785, 0, -0.19509, 57.7192, 21.95, -11.4811)
+collision_layer = 0
+collision_mask = 1048577
+monitorable = false
+script = ExtResource("26_trap_volume")
+size_metres = Vector3(7.7, 3.1, 2.3)
+feet_only = false
+
+[node name="Shape" type="CollisionShape3D" parent="Sections/Trough/TrapVolume47"]
+[node name="TrapVolume48" type="Area3D" parent="Sections/Trough"]
+transform = Transform3D(-0.0654031, 0, 0.997859, 0, 1, 0, -0.997859, 0, -0.0654031, 58.724, 21.95, -3.84897)
+collision_layer = 0
+collision_mask = 1048577
+monitorable = false
+script = ExtResource("26_trap_volume")
+size_metres = Vector3(7.7, 3.1, 2.3)
+feet_only = false
+
+[node name="Shape" type="CollisionShape3D" parent="Sections/Trough/TrapVolume48"]
+[node name="Watch" type="Node3D" parent="Sections"]
+editor_description = "Chokepoints the AI guard's scan rests on. A plain lane has none, so these are the run's thirds: the opening straight, the far side, the approach to the finish."
+
+[node name="Opening" type="Marker3D" parent="Sections/Watch" groups=["guard_watch"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 39.8343, 24, 33.425)
+
+[node name="FarSide" type="Marker3D" parent="Sections/Watch" groups=["guard_watch"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -52, 24, 6.36816e-15)
+
+[node name="Approach" type="Marker3D" parent="Sections/Watch" groups=["guard_watch"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 39.8343, 24, -33.425)
+
+[node name="Route" type="Node3D" parent="."]
+editor_description = "WHAT PROGRESS IS: the arc swept on the one lap, taken at the lane radius. Data, on the map; MatchLapTracker, RingRunner, the HUD and the round card read it from here."
+script = ExtResource("5_ring_route")
+
+[node name="Level1" type="Node3D" parent="Route"]
+editor_description = "Level 1: lane y 23.0, r 46.7..57.3, lane r 52.0, 5 deg to 345 deg = 340 deg of lap, 309 m. Its exit is the finish of the whole route."
+script = ExtResource("6_ring_level")
+deck_height = 23.0
+inner_radius = 46.7
+outer_radius = 57.3
+lane_radius = 52.0
+entry_angle_degrees = 5.0
+exit_angle_degrees = 345.0
+
+[node name="Tower" type="Node3D" parent="."]
+editor_description = "The tower, and its origin is the guard-room datum at y 25.35, exactly as Map 1: assets/models/marble_tower.glb puts its ROOM FLOOR 1.70 above this point (y 27.05), its foot 7.95 below it on the bed's lowest terrace (y 17.4), the eight windows on the 25 + 45k grid with sills at 27.7 and crowns at 32.35. The guard's eye at y 28.7 looks 6 deg down onto the lane at 52 m and sees every spike tip pass under that line.
+
+TowerVariant's plugs still work here (same inner radius 6.86, same window grid). Both variant slots hold the same marble tower, so the rules' tower_variant never blanks it."
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 25.35, 0)
+script = ExtResource("8c_tower_variant")
+
+[node name="Rock" parent="Tower" instance=ExtResource("8_tower_model")]
+editor_description = "assets/models/marble_tower.glb, the carved slot: the same marble tower, so a match run with tower_variant 0 has a tower."
+visible = false
+
+[node name="RockArches" parent="Tower" instance=ExtResource("8_tower_model")]
+editor_description = "assets/models/marble_tower.glb: the live tower. Carries its own collision (MarbleTowerCollision-colonly): room floor, sill band, piers, window reveals, ceiling, balcony, parapet, shaft."
+
+[node name="TowerSpawn" type="Marker3D" parent="Tower"]
+editor_description = "On the room floor (1.70 over the origin), 0.25 m up so the capsule never starts inside the collision plane."
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.95, 0)
+
+[node name="TowerLight" type="OmniLight3D" parent="Tower"]
+editor_description = "THE ARENA'S LIGHT: one warm-white point in the lantern, shadowed, so the eight windows throw their beams across the ring as the drawing has them. Colour, energy, range, attenuation and height come from marble_tower_light_profile.tres; the light_* properties here are placeholders for the editor view."
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 8, 0)
+light_color = Color(1, 0.98, 0.94, 1)
+light_energy = 60.0
+shadow_enabled = true
+omni_range = 90.0
+script = ExtResource("3_tower_light")
+profile = ExtResource("4_tower_light_profile")

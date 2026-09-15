@@ -1,0 +1,7 @@
+{
+  "base_rules": "res://resources/rules/marble_match_rules.tres",
+  "notes": "Map 2, marble, with a guard who cannot see or shoot: every runner death is the map's. The map passes when hazard deaths are zero and every match resolves.",
+  "variants": [
+    {"name": "marble_blind", "notes": "guard_skill 0, one degree of view", "overrides": {"guard_skill": 0.0, "guard_fov_degrees": 1.0}}
+  ]
+}

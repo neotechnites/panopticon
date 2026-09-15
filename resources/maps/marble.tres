@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="MapDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/maps/map_definition.gd" id="1_map_definition"]
+
+[resource]
+script = ExtResource("1_map_definition")
+id = &"marble"
+title = "The Marble Rotunda"
+summary = "MAP_MARBLE_SUMMARY"
+scene_path = "res://scenes/ring/marble.tscn"

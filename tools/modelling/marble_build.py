@@ -1,0 +1,1226 @@
+"""
+PANOPTICON -- marble: Map 2, the Bentham drawing built in white marble.
+
+One closed rotunda, ONE CONTIGUOUS MODEL: the ring lane, both spike beds, the
+wall of cells and the dome are a single connected mesh in a single .glb. The
+tower is the only other model (marble_tower_build.py, its own contiguous
+mesh, dropped in by the scene at the guard-room datum, as Map 1 does). The
+lane is a bridge of marble between two beds of marble spikes -- inward to the tower's foot, outward to the wall -- and the wall
+behind is four tiers of arched cells with a pilaster on every pier, a
+Greek-key frieze and a great cornice under a solid coffered dome. No oculus:
+the light is the tower's, and a cool ambient. Nothing on the lane.
+
+Stone only. Mechanics -- the kill cylinder over the inner bed, the feet-only
+traps over the trough, portal, spawns, watch markers -- are scene nodes in
+scenes/ring/marble.tscn.
+
+Authored in WORLD coordinates so the scene instances it at identity:
+
+    spike beds ........  y = FIELD_Z (20.9), terraced down to 16.9 at the tower
+    lane ..............  y = DECK_Z  (23.0; the runner's feet, Map 1's ring)
+    guard-room floor ..  y = 27.05   (the scene's Tower node at 25.35 + 1.70)
+    wall top / frieze .  y = 47.3 .. 49.1
+    dome springs ......  y = 50.1, apex 77.1
+
+Blender +Z -> Godot +Y, Blender +Y -> Godot -Z. A game bearing of b degrees
+is Blender angle -b.
+
+HOW IT IS ONE MESH. _Mesh.v() is a welding registry: two parts that put a
+vertex at the same world point (to 1e-4) get the same vertex. Every part is
+built against the SEAM RINGS below -- exact station angles and radii, so the
+lane's trough ends on the ring the wall starts from and the great cornice's
+back edge is the dome's spring line. Bands between rings of different
+station counts are zippered (_zipper), never left as T-junctions. Spikes are
+stitched into the bed's own floor cells, pilasters and cornices share their
+edges. _check() proves it: one connected component, every edge on exactly
+two faces.
+
+Parts (each a sibling *_build.py the pipeline ships along):
+    marble_lane_build   the lane, podium walls, both beds and their spikes,
+                        the trough
+    marble_wall_build   the wall: socle, three tiers of cells, pilasters,
+                        cornices, frieze, great cornice, the dome
+
+Collision is purpose-built and rides in the .glb as a `-colonly` node: lane,
+podium walls, bed floors, the plain wall face, the dome. The spikes are NOT colliders: a body that
+leaves the lane is dead by the volumes before it lands.
+
+Texture: one painted 256 px atlas of 64 px cells, palette sampled off the
+Temple of Time (see docs/maps/marble.md). USE_TEXTURE_FILES: drop
+textures/marble_albedo.png (+ marble_emissive.png) beside the script and the
+painted atlas is replaced -- same 4 x 4 layout, see ZONES.
+
+    python3 tools/modelling/marble_build.py --check     # geometry + contiguity, no Blender
+    tools/modelling/model build marble                  # the pipeline
+"""
+
+import math
+import os
+import sys
+
+try:
+    import bpy
+except ImportError:                       # --check on the Mac: geometry only
+    bpy = None
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, HERE)
+sys.path.insert(0, HERE + os.sep + "lib")
+if bpy is not None:
+    import mdl  # noqa: E402
+    mdl.DEFAULTS["ground"] = False
+    mdl.DEFAULTS["world_grey"] = 0.30
+    mdl.DEFAULTS["world_strength"] = 0.90
+    mdl.DEFAULTS["views"] = []            # closed dome: the outside says nothing
+
+# =============================================================================
+# TUNABLES
+# =============================================================================
+
+NAME = "marble"
+OBJECT_NAME = "MarbleStone"
+COLLIDER_NAME = "MarbleCollision-colonly"
+FACING_YAW = 0.0
+
+NSIDE = 64                  # bays round the wall; 5.89 m chords at r 60
+INNER_R = 46.7              # lane inner lip (Map 1's ring)
+OUTER_R = 57.3              # lane outer lip
+DECK_Z = 23.0
+FIELD_Z = 20.9              # both spike beds' floor: 2.1 m under the lane, past RingBake's
+                            # 2.0 m drop probe, so the bots' mesh stops a metre short of both lips
+WALL_R = 60.0               # the wall face, and the trough's outer edge
+LIP = 0.10                  # the lane's chamfered nosing, both edges
+DECK_SUB = 2                # angular subdivision of the lane (2.9 m facets)
+DECK_RS = (INNER_R + LIP, 49.4, 52.0, 54.6, OUTER_R - LIP)
+# The inner bed steps down toward the tower in three terraces, so the shaft
+# stands tall as the drawing draws it and the spikes near it can grow without
+# touching the guard's sight line. (riser radius, floor y inside it)
+TERRACES = ((38.0, 19.4), (30.0, 17.9), (22.0, 16.9))
+FIELD_RS = (4.0, 8.0, 14.0, 22.0, 30.0, 38.0, 43.0, INNER_R)   # bed floor rings, tower foot outward
+
+# ---- the wall: three tiers of cells, Map 1's cell size ----------------------
+TIER_H = 8.8
+TIER_BASE = (FIELD_Z, FIELD_Z + TIER_H, FIELD_Z + 2 * TIER_H)   # 20.9 29.7 38.5; top 47.3
+SILL_UP = 2.1               # arch sill over the tier base (tier 1: the lane level, 23.0)
+ARCH_W = 4.0                # cell mouth width
+ARCH_JAMB = 3.5             # jamb height, sill to springing; head r 2.0: 5.5 m mouths, Map 1's tallest
+HEAD_SEG = 6                # segments in the semicircular head
+CELL_D = 3.0                # cell depth into the wall (tiers 2, 3: an open recess)
+SCREEN_D = 0.6              # tier 1: the reveal steps back to a slotted stone screen here ...
+SLOT_D = 0.4                # ... slots this deep to a dark plate behind
+SLOT_W = 0.34               # slot width; three slots, stone between
+SLOT_N = 3
+SLOT_UP = 0.3               # slots start this far over the sill and end this far under the head
+BAND_Z = (8.2, 8.8)         # the tier cornice, over the tier base; its top is the next tier's base
+BAND_PROUD = 0.45           # ... as proud as the pilasters, which run up into it
+FRIEZE_Z = (47.3, 49.1)     # Greek key
+CORNICE_Z = (49.1, 50.1)    # the great cornice
+CORNICE_PROUD = 0.8
+
+# ---- the dome -------------------------------------------------------------
+DOME_Z0 = 50.1
+DOME_RISE = 27.0
+DOME_RINGS = 8
+DOME_CAP_R = 4.2            # flat medallion at the crown
+
+# ---- the spike beds ---------------------------------------------------------
+SPIKE_SEED = 7702141
+IN_R0, IN_R1 = 10.3, 45.5   # inner bed spike rings, first and last
+IN_STEP = 2.3               # ring pitch and mean spacing along a ring
+IN_H = (1.0, 2.6)           # spike height at the lane .. at the tower
+RISER_CLEAR = 0.7           # no spike this close to a terrace riser
+IN_JIT = 0.6                # position jitter, metres
+IN_TIP_CAP = 23.2           # no tip over this for r > IN_CAP_R: 0.2 m over the lip, under the sight line
+IN_CAP_R = 43.5
+OUT_RS = (58.2, 59.2)       # trough rings
+OUT_STEP = 1.5
+OUT_H = (2.2, 2.9)            # the trough's teeth all stand over the lane level, a fence beside the run
+OUT_JIT = 0.3
+OUT_TIP_CAP = 24.2          # the trough's traps are full boxes topping at 22.9; the teeth stand over the lane
+SMALL_EVERY = 3             # a small spike at the foot of every third one
+SMALL_H = 0.45              # ... this fraction of its height
+BASE_K = (0.08, 0.14)       # base half-width = BASE_K[0] + BASE_K[1] * H: sharp
+GUARD_EYE_Z = 28.7          # tower floor 27.05 + 1.65
+LANE_R = 52.0
+
+# ---- the bars between finish and start ---------------------------------------
+# Nothing stands on the lane. The bars that stop a runner walking back from
+# the start line to the portal are a scene node (RockBars, as on Map 1), at
+# this bearing, and the lane's stations are even.
+BARS_B = 353.0
+
+# ---- texture ------------------------------------------------------------------
+USE_TEXTURE_FILES = True
+TEX_DIR = "textures"
+TEX_SIZE = 256
+TEX_ALBEDO = "marble_albedo"
+TEX_EMISSIVE = "marble_emissive"
+TEX_SEED = 9021131
+ROUGHNESS = 0.55
+METALLIC = 0.0
+UV_SCALE = 0.066            # image units per metre: a 64 px cell spans 3.8 m
+UV_PAD = 1.5 / TEX_SIZE
+CELL_UV = 0.25
+
+
+def _cell(i, j):
+    return (i * CELL_UV, j * CELL_UV, (i + 1) * CELL_UV, (j + 1) * CELL_UV)
+
+
+ZONES = {                   # atlas column, row (row 0 is the bottom of the image)
+    "marble": _cell(0, 0),   # white marble
+    "marble2": _cell(1, 0),  # ... a second sheet of it
+    "shade": _cell(2, 0),    # grey marble: reveals, podium walls, dome cap
+    "floor": _cell(3, 0),    # the lane: 3 x 3 slabs, one facet per cell
+    "cellin": _cell(0, 1),   # cell interior, faintly emissive
+    "frieze": _cell(1, 1),   # Greek key, one bay per cell
+    "coffer": _cell(2, 1),   # dome coffer, one facet per cell
+    "spike": _cell(3, 1),
+    "column": _cell(0, 2),   # fluting
+    "band": _cell(1, 2),     # cornice moulding
+    "iron": _cell(2, 2),
+    "stone": _cell(3, 2),    # the tower shaft's blocks
+    "plinth": _cell(0, 3),   # ashlar under the sills
+    "field": _cell(1, 3),    # the beds' floor
+}
+FIT = {"floor": "uv", "frieze": "uv", "coffer": "uv",   # the whole face onto the whole cell
+       "band": "v", "column": "u"}                      # ... on one axis only
+ANCHORED = ("stone", "plinth", "band")                  # courses stay level: no v offset, no flips
+EYE_H = 1.65
+TWO_PI = 2.0 * math.pi
+EPS = 1e-9
+UP = (0.0, 0.0, 1.0)
+DOWN = (0.0, 0.0, -1.0)
+
+
+# =============================================================================
+# TEXTURE -- painted 256 px atlas
+# =============================================================================
+
+class _Rng(object):
+    """Deterministic LCG; the model is byte-identical every rebuild."""
+
+    def __init__(self, seed):
+        self.s = seed & 0x7FFFFFFF
+
+    def n(self):
+        self.s = (1103515245 * self.s + 12345) & 0x7FFFFFFF
+        return self.s
+
+    def bits(self):
+        return self.n() >> 12
+
+    def f(self):
+        return self.n() / float(0x7FFFFFFF)
+
+    def sf(self):
+        return self.f() * 2.0 - 1.0
+
+    def i(self, a, b):
+        return a + self.bits() % (b - a + 1)
+
+    def pick(self, seq):
+        return seq[self.bits() % len(seq)]
+
+
+def _s2l(rgb):
+    out = []
+    for c in rgb:
+        c /= 255.0
+        out.append(c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4)
+    return out
+
+
+class _Canvas(object):
+    def __init__(self, size):
+        self.w = self.h = size
+        n = size * size * 4
+        self.alb = [0.0] * n
+        self.emi = [0.0] * n
+        for i in range(size * size):
+            self.alb[i * 4 + 3] = 1.0
+            self.emi[i * 4 + 3] = 1.0
+
+    def put(self, x, y, rgb, glow=None):
+        if not (0 <= x < self.w and 0 <= y < self.h):
+            return
+        o = (y * self.w + x) * 4
+        r, g, b = _s2l(rgb)
+        self.alb[o], self.alb[o + 1], self.alb[o + 2] = r, g, b
+        if glow is not None:
+            r, g, b = _s2l(glow)
+            self.emi[o], self.emi[o + 1], self.emi[o + 2] = r, g, b
+
+    def rect(self, x0, y0, x1, y1, rgb, glow=None):
+        for y in range(y0, y1):
+            for x in range(x0, x1):
+                self.put(x, y, rgb, glow)
+
+
+def _rect_of(zone, size):
+    u0, v0, u1, v1 = zone
+    return (int(round(u0 * size)), int(round(v0 * size)),
+            int(round(u1 * size)), int(round(v1 * size)))
+
+
+def _fill(c, r, box, shades, glow=None):
+    x0, y0, x1, y1 = box
+    for y in range(y0, y1):
+        for x in range(x0, x1):
+            c.put(x, y, r.pick(shades), glow)
+
+
+def _shatter(c, r, box, shades, count, minsz, maxsz):
+    x0, y0, x1, y1 = box
+    for _ in range(count):
+        w = r.i(minsz, maxsz)
+        h = max(minsz, min(maxsz, w + r.i(-1, 1)))
+        x, y = r.i(x0, x1 - w - 1), r.i(y0, y1 - h - 1)
+        c.rect(x, y, x + w, y + h, r.pick(shades))
+
+
+def _veins(c, r, box, shades, count, steps):
+    """Thin wandering lines: marble veining."""
+    x0, y0, x1, y1 = box
+    for _ in range(count):
+        x, y = r.i(x0, x1 - 1), r.i(y0, y1 - 1)
+        dx, dy = r.pick([-1, 1]), r.pick([-1, 0, 1])
+        col = r.pick(shades)
+        for _s in range(steps):
+            c.put(x, y, col)
+            if r.f() < 0.3:
+                dy = r.pick([-1, 0, 1])
+            if r.f() < 0.1:
+                dx = -dx
+            x += dx
+            y += dy
+            if not (x0 <= x < x1 and y0 <= y < y1):
+                break
+
+
+def _paint_marble(c, r, box, base, blotch, vein):
+    _fill(c, r, box, base)
+    _shatter(c, r, box, blotch, 8, 6, 16)
+    _veins(c, r, box, vein, 3, 30)
+
+
+# Palette: the Temple of Time's stone -- warm-grey off-white in the light
+# (#d9d4c8 .. #e4dfd4), cool grey in shadow, a faint tinge and no more. See
+# docs/maps/marble.md for the samples.
+
+def _paint_white(c, r, box):
+    _paint_marble(c, r, box, [(226, 222, 212), (222, 218, 208), (230, 226, 216), (225, 221, 211)],
+                  [(218, 214, 204), (232, 228, 219)], [(200, 197, 189), (182, 180, 173)])
+
+
+def _paint_white2(c, r, box):
+    _paint_marble(c, r, box, [(222, 218, 208), (218, 214, 204), (226, 222, 212), (221, 217, 207)],
+                  [(214, 210, 200), (229, 225, 215)], [(196, 193, 185), (178, 176, 169)])
+
+
+def _paint_shade(c, r, box):
+    _paint_marble(c, r, box, [(150, 152, 156), (147, 149, 153), (153, 155, 159), (149, 151, 155)],
+                  [(144, 146, 150), (156, 158, 162)], [(136, 139, 144), (126, 129, 135)])
+
+
+def _paint_spike(c, r, box):
+    _fill(c, r, box, [(218, 215, 206), (215, 212, 203), (221, 218, 209), (217, 214, 205)])
+    x0, y0, x1, y1 = box
+    for _ in range(6):                            # vertical streaks: the stone's grain
+        x, w = r.i(x0, x1 - 3), r.i(1, 2)
+        yy, h = r.i(y0, y1 - 8), r.i(8, 24)
+        c.rect(x, yy, x + w, min(y1, yy + h), r.pick([(200, 197, 189), (206, 203, 195)]))
+
+
+def _paint_field(c, r, box):
+    _fill(c, r, box, [(178, 175, 167), (175, 172, 164), (181, 178, 170), (177, 174, 166)])
+    _shatter(c, r, box, [(170, 167, 159), (185, 182, 174)], 10, 3, 9)
+    x0, y0, x1, y1 = box
+    for _ in range(16):
+        c.put(r.i(x0, x1 - 1), r.i(y0, y1 - 1), (160, 158, 151))
+
+
+def _paint_floor(c, r, box):
+    """Three by three slabs with an inlaid border: the lane's paving, one facet
+    per cell. A touch darker than the walls."""
+    _paint_marble(c, r, box, [(210, 205, 194), (206, 201, 190), (214, 209, 198)],
+                  [(200, 195, 184), (218, 213, 202)], [(184, 180, 170)])
+    x0, y0, x1, y1 = box
+    n = x1 - x0
+    joint = (176, 172, 162)
+    for k in (1, 2):
+        p = x0 + (n * k) // 3
+        c.rect(p - 1, y0, p + 1, y1, joint)
+        q = y0 + (n * k) // 3
+        c.rect(x0, q - 1, x1, q + 1, joint)
+    c.rect(x0, y0, x1, y0 + 1, joint)
+    c.rect(x0, y0, x0 + 1, y1, joint)
+    for k in range(3):                             # a mosaic diamond in each slab
+        for l in range(3):
+            cx = x0 + (n * (2 * k + 1)) // 6
+            cy = y0 + (n * (2 * l + 1)) // 6
+            d = max(2, n // 24)
+            c.rect(cx - d, cy - 1, cx + d, cy + 1, (168, 164, 154))
+            c.rect(cx - 1, cy - d, cx + 1, cy + d, (168, 164, 154))
+
+
+def _paint_cell(c, r, box):
+    """The dark of a cell: cool near-black grey, faintly emissive so the
+    mouths never go pure black under the tower's shadow."""
+    _fill(c, r, box, [(50, 51, 55), (45, 46, 50), (55, 56, 60), (40, 41, 45)], (14, 15, 18))
+    _shatter(c, r, box, [(36, 37, 41), (60, 61, 65)], 12, 4, 10)
+    x0, y0, x1, y1 = box
+    for _ in range(4):                             # a pale slit: a figure, a cot, a window
+        x, w = r.i(x0 + 4, x1 - 6), r.i(1, 2)
+        yy, h = r.i(y0 + 6, y1 - 16), r.i(6, 14)
+        c.rect(x, yy, x + w, yy + h, (82, 83, 88), (26, 27, 32))
+
+
+def _paint_frieze(c, r, box):
+    """A Greek key: two hooks across the cell, one bay per cell."""
+    _fill(c, r, box, [(222, 218, 208), (218, 214, 204), (226, 222, 212)])
+    x0, y0, x1, y1 = box
+    n = x1 - x0
+    unit = n // 2
+    key = (128, 126, 120)
+    s = max(2, n // 16)                            # stroke
+    lo, hi = y0 + n // 6, y1 - n // 6              # the band the key lives in
+    for k in range(2):
+        u = x0 + k * unit
+        c.rect(u, hi - s, u + unit, hi, key)                       # top bar
+        c.rect(u + unit - 2 * s, lo, u + unit - s, hi, key)        # right descender
+        c.rect(u + s, lo, u + unit - s, lo + s, key)               # bottom bar
+        c.rect(u + s, lo, u + 2 * s, hi - 3 * s, key)              # inner riser
+        c.rect(u + s, hi - 4 * s, u + unit - 4 * s, hi - 3 * s, key)   # inner top
+        c.rect(u + unit - 5 * s, lo + 2 * s, u + unit - 4 * s, hi - 3 * s, key)   # inner drop
+    c.rect(x0, lo - s - 1, x1, lo - s + 1, (170, 167, 160))       # rules above and below
+    c.rect(x0, hi + s - 1, x1, hi + s + 1, (170, 167, 160))
+
+
+def _paint_coffer(c, r, box):
+    """A sunk square: nested steps darkening inward, a boss at the centre."""
+    x0, y0, x1, y1 = box
+    n = x1 - x0
+    steps = [(204, 200, 190), (184, 181, 173), (164, 162, 156), (144, 143, 139), (152, 151, 146)]
+    for k, col in enumerate(steps):
+        d = (n * k) // 10
+        c.rect(x0 + d, y0 + d, x1 - d, y1 - d, col)
+    m = n // 2
+    b = max(2, n // 10)
+    c.rect(x0 + m - b, y0 + m - b, x0 + m + b, y0 + m + b, (190, 187, 179))
+    c.rect(x0 + m - b // 2, y0 + m - b // 2, x0 + m + b // 2, y0 + m + b // 2, (216, 212, 203))
+    for _ in range(40):
+        c.put(r.i(x0, x1 - 1), r.i(y0, y1 - 1), r.pick(steps[:2]))
+
+
+def _paint_column(c, r, box):
+    """Fluting: vertical stripes, a shadow line at each arris."""
+    x0, y0, x1, y1 = box
+    n = x1 - x0
+    w = max(4, n // 8)
+    for x in range(x0, x1):
+        k = (x - x0) // w
+        rel = (x - x0) % w
+        if rel == 0:
+            col = (164, 163, 158)
+        elif rel < w // 2:
+            col = (226, 222, 212) if k % 2 == 0 else (221, 217, 207)
+        else:
+            col = (200, 197, 189)
+        for y in range(y0, y1):
+            c.put(x, y, col)
+    _shatter(c, r, box, [(216, 212, 203)], 10, 2, 5)
+
+
+def _paint_band(c, r, box):
+    """Cornice moulding: horizontal fillets, dark under the drips."""
+    x0, y0, x1, y1 = box
+    n = y1 - y0
+    rows = [(0.00, 0.12, (184, 182, 176)), (0.12, 0.22, (226, 222, 212)), (0.22, 0.30, (166, 165, 160)),
+            (0.30, 0.48, (220, 216, 206)), (0.48, 0.56, (176, 174, 168)), (0.56, 0.74, (228, 224, 214)),
+            (0.74, 0.82, (158, 157, 153)), (0.82, 1.00, (216, 212, 203))]
+    for a, b, col in rows:
+        c.rect(x0, y0 + int(a * n), x1, y0 + int(b * n), col)
+    _shatter(c, r, box, [(210, 206, 197)], 8, 2, 4)
+
+
+def _paint_iron(c, r, box):
+    _fill(c, r, box, [(46, 46, 48), (40, 40, 42), (52, 52, 54), (36, 36, 38)])
+
+
+def _paint_blocks(c, r, box, shades, joint, course):
+    """Ashlar: courses this many pixels high, joints staggered."""
+    _fill(c, r, box, shades)
+    x0, y0, x1, y1 = box
+    n = x1 - x0
+    row = 0
+    for y in range(y0, y1, course):
+        c.rect(x0, y, x1, y + 1, joint)
+        off = (row * course * 3 // 2) % (course * 2)
+        for x in range(x0 + off, x1, course * 2):
+            c.rect(x, y, x + 1, min(y1, y + course), joint)
+        row += 1
+    _shatter(c, r, box, [shades[0], shades[-1]], 6, 2, 4)
+
+
+def _paint_stone(c, r, box):
+    _paint_blocks(c, r, box, [(140, 138, 132), (137, 135, 129), (143, 141, 135), (139, 137, 131)],
+                  (106, 105, 100), 16)
+
+
+def _paint_plinth(c, r, box):
+    _paint_blocks(c, r, box, [(202, 198, 188), (199, 195, 185), (205, 201, 191), (201, 197, 187)],
+                  (166, 163, 155), 16)
+
+
+PAINTERS = {
+    "marble": _paint_white, "marble2": _paint_white2, "shade": _paint_shade, "floor": _paint_floor,
+    "cellin": _paint_cell, "frieze": _paint_frieze, "coffer": _paint_coffer, "spike": _paint_spike,
+    "column": _paint_column, "band": _paint_band, "iron": _paint_iron, "stone": _paint_stone,
+    "plinth": _paint_plinth, "field": _paint_field,
+}
+
+
+def paint_atlas():
+    """The painted atlas as (albedo, emissive) pixel buffers: a _Canvas."""
+    c = _Canvas(TEX_SIZE)
+    r = _Rng(TEX_SEED)
+    for name in sorted(ZONES):
+        PAINTERS[name](c, r, _rect_of(ZONES[name], TEX_SIZE))
+    _paint_white2(c, r, _rect_of(_cell(2, 3), TEX_SIZE))     # the two spare cells
+    _paint_white(c, r, _rect_of(_cell(3, 3), TEX_SIZE))
+    return c
+
+
+def build_texture():
+    c = paint_atlas()
+    out = []
+    for name, buf in ((TEX_ALBEDO, c.alb), (TEX_EMISSIVE, c.emi)):
+        img = bpy.data.images.new(name, TEX_SIZE, TEX_SIZE, alpha=False)
+        img.colorspace_settings.name = "sRGB"
+        img.pixels.foreach_set(buf)
+        img.update()
+        out.append(img)
+    return out[0], out[1]
+
+
+def _image_file(name):
+    path = os.path.join(HERE, TEX_DIR, name)
+    if not os.path.isfile(path):
+        return None
+    img = bpy.data.images.load(path)
+    img.colorspace_settings.name = "sRGB"
+    img.pack()
+    print("MDL TEXTURE %s from %s" % (img.name, path))
+    return img
+
+
+def _sheet(stem, painted):
+    """(albedo, emissive): the files when opted in and present, else painted."""
+    alb = _image_file(stem + "_albedo.png") if USE_TEXTURE_FILES else None
+    if alb is None:
+        return painted()
+    return alb, (_image_file(stem + "_emissive.png") or alb)
+
+
+def stone_material(name, albedo, emissive):
+    mat = bpy.data.materials.new(name)
+    mat.use_nodes = True
+    nt = mat.node_tree
+    bsdf = nt.nodes.get("Principled BSDF")
+    for img, socket, y in ((albedo, "Base Color", 260), (emissive, "Emission Color", -220)):
+        node = nt.nodes.new("ShaderNodeTexImage")
+        node.image = img
+        node.interpolation = "Closest"
+        node.location = (-460, y)
+        nt.links.new(node.outputs["Color"], bsdf.inputs[socket])
+    bsdf.inputs["Roughness"].default_value = ROUGHNESS
+    bsdf.inputs["Metallic"].default_value = METALLIC
+    bsdf.inputs["Emission Strength"].default_value = 1.0   # exactly 1.0: no KHR warning
+    mat.diffuse_color = (0.78, 0.76, 0.72, 1.0)
+    return mat
+
+
+# =============================================================================
+# GEOMETRY HELPERS -- winding is checked, never assumed
+# =============================================================================
+
+def _newell(pts):
+    nx = ny = nz = 0.0
+    n = len(pts)
+    for i in range(n):
+        ax, ay, az = pts[i]
+        bx, by, bz = pts[(i + 1) % n]
+        nx += (ay - by) * (az + bz)
+        ny += (az - bz) * (ax + bx)
+        nz += (ax - bx) * (ay + by)
+    return (nx, ny, nz)
+
+
+class _Mesh(object):
+    """Face accumulator: every face states the direction its normal must point."""
+
+    WELD = 1.0e-4
+
+    def __init__(self):
+        self.verts = []
+        self.faces = []
+        self.zones = []
+        self.groups = []                          # per triangle: the emitted face it came from
+        self._index = {}
+
+    def v(self, p):
+        """The vertex at p -- the existing one if a part already put one there."""
+        key = (round(p[0] / self.WELD), round(p[1] / self.WELD), round(p[2] / self.WELD))
+        i = self._index.get(key)
+        if i is None:
+            i = len(self.verts)
+            self.verts.append((float(p[0]), float(p[1]), float(p[2])))
+            self._index[key] = i
+        return i
+
+    def _emit(self, idx, want, zone):
+        pts = [self.verts[j] for j in idx]
+        n = _newell(pts)
+        if n[0] * want[0] + n[1] * want[1] + n[2] * want[2] < 0.0:
+            idx = list(reversed(idx))
+        gid = len(self.groups)                    # the atlas window is per emitted face, not per triangle
+        if len(idx) == 4:
+            self.faces.append((idx[0], idx[1], idx[2]))
+            self.faces.append((idx[0], idx[2], idx[3]))
+            self.zones.append(zone)
+            self.zones.append(zone)
+            self.groups += [gid, gid]
+        else:
+            self.faces.append(tuple(idx))
+            self.zones.append(zone)
+            self.groups.append(gid)
+
+    def quad(self, a, b, c, d, want, zone):
+        self._emit([a, b, c, d], want, zone)
+
+    def tri(self, a, b, c, want, zone):
+        self._emit([a, b, c], want, zone)
+
+    def fan(self, ring, want, zone):
+        gid = len(self.groups)
+        for i in range(1, len(ring) - 1):
+            self.tri(ring[0], ring[i], ring[i + 1], want, zone)
+            self.groups[-1] = gid                 # the whole fan is one face for the atlas
+
+    def poly(self, ring, want, zone):
+        """A convex polygon as a fan from its first vertex."""
+        self.fan(ring, want, zone)
+
+    def object(self, name):
+        return mdl.mesh(name, self.verts, self.faces)
+
+
+def pol(bearing_deg, rad, z):
+    """Game bearing -> Blender xy (a game bearing of b is Blender angle -b)."""
+    a = math.radians(-bearing_deg)
+    return (rad * math.cos(a), rad * math.sin(a), z)
+
+
+def _add(p, q, s=1.0):
+    return (p[0] + q[0] * s, p[1] + q[1] * s, p[2] + q[2] * s)
+
+
+def _unit(p):
+    n = math.sqrt(p[0] ** 2 + p[1] ** 2 + p[2] ** 2) or 1.0
+    return (p[0] / n, p[1] / n, p[2] / n)
+
+
+ANG = [TWO_PI * i / NSIDE for i in range(NSIDE)]
+
+# =============================================================================
+# SEAM CONTRACT -- the rings the parts meet on. Angles are Blender radians,
+# sorted ascending in [0, 2pi). Both sides of a seam call the same function,
+# so the floats agree and _Mesh.v welds them.
+# =============================================================================
+
+PILASTER_W = 1.0            # the pier between two cells, proud of the wall face
+PILASTER_PROUD = 0.45
+
+
+def ring_pts(angles, rad, z):
+    """World points of a ring."""
+    return [(rad * math.cos(a), rad * math.sin(a), z) for a in angles]
+
+
+def lane_angles():
+    """The lane system's stations, 128 even. Used by the deck, both podium
+    walls, the trough's inner rings and the inner bed's outer band."""
+    return [TWO_PI * i / (NSIDE * DECK_SUB) for i in range(NSIDE * DECK_SUB)]
+
+
+def wall_stations():
+    """The wall's stations, 192 round: every bay corner and the pilaster edge
+    PILASTER_W/2 along the chord on each side of it -- as (angle, x, y), sorted
+    by angle. They are CHORD points (_Bay.at), not points on the r 60 circle:
+    the wall part reaches them with the same _Bay arithmetic, so they weld.
+    The trough's outer ring, every cornice's back edge and the dome's spring
+    ring are made of these."""
+    out = []
+    for i in range(NSIDE):
+        bay = _Bay(i)
+        for u in (0.0, PILASTER_W / 2.0, bay.L - PILASTER_W / 2.0):
+            x, y, _z = bay.at(u, 0.0)
+            out.append((math.atan2(y, x) % TWO_PI, x, y))
+    return sorted(out)
+
+
+def station_pts(stations, z):
+    return [(x, y, z) for (_a, x, y) in stations]
+
+
+def station_angles(stations):
+    return [a for (a, _x, _y) in stations]
+
+
+TOWER_BASE_R = 8.0          # the tower's bottom step: the bed floor runs in under it
+TOWER_FOOT_Z = TERRACES[-1][1]
+
+
+def seam_wall_foot():
+    """(stations, y): the wall foot ring at y FIELD_Z -- the trough ends here, the wall starts."""
+    return wall_stations(), FIELD_Z
+
+
+def seam_dome_spring():
+    """(stations, y): the great cornice's back edge at y DOME_Z0 -- the dome's spring ring."""
+    return wall_stations(), DOME_Z0
+
+
+def _zipper(m, outer, outer_ang, inner, inner_ang, want, zone):
+    """Triangles between two closed rings of different station counts, each
+    given as vertex ids with their angles (ascending). Advances whichever
+    side's next angle is smaller, so no edge is left with a vertex in its
+    middle. `want` may be a vector or a function of the face's centroid."""
+    no, ni = len(outer), len(inner)
+    # start both at their smallest angle; angles are in [0, 2pi)
+    io = ii = 0
+    steps = 0
+    # the outer ring is the reference; iterate until both wrapped
+    a_o = list(outer_ang) + [outer_ang[0] + TWO_PI]
+    a_i = list(inner_ang) + [inner_ang[0] + TWO_PI]
+    # align: rotate inner so its first angle is the first >= outer[0]
+    while io < no or ii < ni:
+        next_o = a_o[io + 1] if io < no else 1e9
+        next_i = a_i[ii + 1] if ii < ni else 1e9
+        o0, i0 = outer[io % no], inner[ii % ni]
+        if next_o < next_i - 1e-9:                # ties advance the inner ring: fatter triangles
+            o1 = outer[(io + 1) % no]
+            tri = (o0, o1, i0)
+            io += 1
+        else:
+            i1 = inner[(ii + 1) % ni]
+            tri = (o0, i1, i0)
+            ii += 1
+        w = want(m.verts[tri[0]], m.verts[tri[1]], m.verts[tri[2]]) if callable(want) else want
+        m.tri(tri[0], tri[1], tri[2], w, zone)
+        steps += 1
+        if steps > no + ni + 2:
+            raise RuntimeError("zipper ran away")
+
+
+def _ring(m, rad, z, n=NSIDE, ang=None):
+    ang = ang or ANG
+    return [m.v((rad * math.cos(a), rad * math.sin(a), z)) for a in ang[:n]]
+
+
+def _rad_of(i):
+    """Outward unit vector at ring vertex i (Blender xy)."""
+    return (math.cos(ANG[i]), math.sin(ANG[i]), 0.0)
+
+
+def _mid_rad(i):
+    a = ANG[i] + math.pi / NSIDE
+    return (math.cos(a), math.sin(a), 0.0)
+
+
+def _band(m, lo, hi, inward, zone):
+    """Quads between two rings (same count)."""
+    n = len(lo)
+    for i in range(n):
+        j = (i + 1) % n
+        w = _mid_rad(i) if n == NSIDE else _unit(_add(m.verts[lo[i]], m.verts[lo[j]]))
+        want = (-w[0], -w[1], 0.0) if inward else w
+        m.quad(lo[i], lo[j], hi[j], hi[i], want, zone)
+
+
+class _Bay(object):
+    """One flat facet of the wall: corner P0 at ANG[i], P1 at ANG[i+1], r WALL_R.
+    Local (u, z, d): u along the chord, z up, d into the wall."""
+
+    def __init__(self, i, rad=WALL_R):
+        a0, a1 = ANG[i], ANG[(i + 1) % NSIDE]
+        self.p0 = (rad * math.cos(a0), rad * math.sin(a0))
+        self.p1 = (rad * math.cos(a1), rad * math.sin(a1))
+        dx, dy = self.p1[0] - self.p0[0], self.p1[1] - self.p0[1]
+        self.L = math.hypot(dx, dy)
+        self.u = (dx / self.L, dy / self.L)
+        am = ANG[i] + math.pi / NSIDE                    # never the wrap-around mean
+        self.n_in = (-math.cos(am), -math.sin(am), 0.0)     # toward the axis
+        self.n_out = (math.cos(am), math.sin(am), 0.0)
+
+    def at(self, u, z, d=0.0):
+        return (self.p0[0] + self.u[0] * u + self.n_out[0] * d,
+                self.p0[1] + self.u[1] * u + self.n_out[1] * d, z)
+
+    def dir(self, du, dz):
+        """A local (u, z) direction as a world vector."""
+        return (self.u[0] * du, self.u[1] * du, dz)
+
+
+# =============================================================================
+# THE ARCH -- an outline and its frame, by rays from the springing centre
+# =============================================================================
+
+def _ray_box(cx, cz, th, u0, u1, z0, z1):
+    """Where the ray from (cx, cz) at angle th leaves the box."""
+    dx, dz = math.cos(th), math.sin(th)
+    t = 1e9
+    if abs(dx) > EPS:
+        t = min(t, ((u1 if dx > 0 else u0) - cx) / dx)
+    if abs(dz) > EPS:
+        t = min(t, ((z1 if dz > 0 else z0) - cz) / dz)
+    return (cx + dx * t, cz + dz * t)
+
+
+def _arch_thetas(c, hw, s, sp, u0, u1, z0, z1):
+    """Angles round the springing centre: the head's segments, the rays to the
+    rectangle's corners, the sill corners and the sill's middle. Sorted."""
+    ths = [math.pi * k / HEAD_SEG for k in range(HEAD_SEG + 1)]
+    for (x, z) in ((u1, z1), (u0, z1), (u0, z0), (u1, z0), (c - hw, s), (c + hw, s), (c, s)):
+        ths.append(math.atan2(z - sp, x - c) % TWO_PI)
+    ths.sort()
+    out = []
+    for t in ths:
+        if not out or t - out[-1] > 1e-6:
+            out.append(t)
+    if out and TWO_PI - out[-1] < 1e-6:
+        out.pop()
+    return out
+
+
+def _arch_inner(c, hw, s, sp, th):
+    """The arch outline at angle th: the head for 0..pi, else the jamb/sill box."""
+    if th <= math.pi + 1e-9:
+        return (c + hw * math.cos(th), sp + hw * math.sin(th))
+    return _ray_box(c, sp, th, c - hw, c + hw, s, sp)
+
+
+def _arch_frame(m, bay, u0, u1, z0, z1, c, hw, s, sp, depth, zone_of,
+                inner_pts=None, want_in=None, back=True, back_zone="cellin", reveal_zone="shade"):
+    """The bay face [u0,u1]x[z0,z1] with an arched mouth cut in it, the reveal
+    running `depth` into the wall, and a back wall. Returns the inner loop.
+
+    zone_of(zmid): the frame's zone by height. want_in: the face normal (the
+    bay's inward normal by default)."""
+    want = want_in or bay.n_in
+    ths = _arch_thetas(c, hw, s, sp, u0, u1, z0, z1)
+    inner2 = [_arch_inner(c, hw, s, sp, t) for t in ths]
+    outer2 = [_ray_box(c, sp, t, u0, u1, z0, z1) for t in ths]
+    vin = [m.v(bay.at(u, z)) for (u, z) in inner2]
+    vout = [m.v(bay.at(u, z)) for (u, z) in outer2]
+    n = len(ths)
+    for k in range(n):
+        j = (k + 1) % n
+        zm = 0.25 * (inner2[k][1] + inner2[j][1] + outer2[k][1] + outer2[j][1])
+        m.quad(vin[k], vin[j], vout[j], vout[k], want, zone_of(zm))
+    if depth <= 0.0:
+        return vin
+    vdeep = [m.v(bay.at(u, z, depth)) for (u, z) in inner2]
+    for k in range(n):
+        j = (k + 1) % n
+        mu = 0.5 * (inner2[k][0] + inner2[j][0])
+        mz = 0.5 * (inner2[k][1] + inner2[j][1])
+        w = bay.dir(c - mu, sp - mz)                       # toward the springing centre
+        if abs(w[0]) + abs(w[1]) + abs(w[2]) < EPS:
+            w = UP
+        m.quad(vin[k], vin[j], vdeep[j], vdeep[k], w, reveal_zone)
+    if back:
+        # fan from the sill's middle: every other outline point is in view of
+        # it, and the jamb's three collinear points never make a sliver
+        k0 = min(range(n), key=lambda k: abs(ths[k] - 1.5 * math.pi))
+        m.poly(vdeep[k0:] + vdeep[:k0], want, back_zone)
+    return vin
+
+
+# =============================================================================
+# AUDIT -- what "one contiguous mesh" means, as numbers
+# =============================================================================
+
+def audit(m, label="mesh"):
+    """Components, edge classes, degenerate faces, duplicate positions.
+
+    An edge is MANIFOLD when exactly two faces use it in opposite directions,
+    BOUNDARY when one face does, DOUBLED when two faces run it the same way
+    (a flipped or duplicated face), OVER when three or more faces meet on it.
+    Returns the dict it prints."""
+    parent = list(range(len(m.verts)))
+
+    def find(x):
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+
+    def union(a, b):
+        ra, rb = find(a), find(b)
+        if ra != rb:
+            parent[ra] = rb
+
+    directed = {}
+    degenerate = 0
+    for f in m.faces:
+        for k in range(3):
+            e = (f[k], f[(k + 1) % 3])
+            directed[e] = directed.get(e, 0) + 1
+            union(e[0], e[1])
+        n = _newell([m.verts[i] for i in f])
+        if math.sqrt(n[0] ** 2 + n[1] ** 2 + n[2] ** 2) < 1e-7:
+            degenerate += 1
+    used = set(i for f in m.faces for i in f)
+    comps = len(set(find(i) for i in used))
+    manifold = boundary = doubled = over = 0
+    seen = set()
+    for (a, b), n in directed.items():
+        key = (min(a, b), max(a, b))
+        if key in seen:
+            continue
+        seen.add(key)
+        back = directed.get((b, a), 0)
+        total = n + back
+        if total == 2 and n == 1 and back == 1:
+            manifold += 1
+        elif total == 1:
+            boundary += 1
+        elif total >= 3:
+            over += 1
+        else:
+            doubled += 1
+    dup = 0
+    keys = set()
+    for v in m.verts:
+        key = (round(v[0], 4), round(v[1], 4), round(v[2], 4))
+        if key in keys:
+            dup += 1
+        keys.add(key)
+    out = {"tris": len(m.faces), "verts": len(m.verts), "components": comps,
+           "manifold_edges": manifold, "boundary_edges": boundary, "doubled_edges": doubled,
+           "over_edges": over, "degenerate": degenerate, "duplicate_positions": dup,
+           "unused_verts": len(m.verts) - len(used)}
+    print("%s tris=%d verts=%d components=%d manifold=%d boundary=%d doubled=%d over=%d degenerate=%d dup_pos=%d unused=%d"
+          % (label, out["tris"], out["verts"], comps, manifold, boundary, doubled, over, degenerate, dup, out["unused_verts"]))
+    return out
+
+
+def boundary_loops(m):
+    """The boundary edges grouped into closed loops: (edge count, mean radius, mean z) each."""
+    directed = {}
+    for f in m.faces:
+        for k in range(3):
+            directed[(f[k], f[(k + 1) % 3])] = 1
+    nxt = {}
+    for (a, b) in directed:
+        if (b, a) not in directed:
+            nxt[a] = b
+    loops = []
+    seen = set()
+    for a in list(nxt):
+        if a in seen:
+            continue
+        loop, cur = [], a
+        while cur in nxt and cur not in seen:
+            seen.add(cur)
+            loop.append(cur)
+            cur = nxt[cur]
+        pts = [m.verts[i] for i in loop]
+        loops.append((len(loop), sum(math.hypot(q[0], q[1]) for q in pts) / len(pts),
+                      sum(q[2] for q in pts) / len(pts)))
+    return sorted(loops, key=lambda t: -t[0])
+
+
+# =============================================================================
+# UV -- per-face planar projection into a random window of its zone
+# =============================================================================
+
+def _project(cos_list, nrm):
+    """Planar 2-D coordinates for a set of points: radial/tangential for floors
+    and soffits, along-the-face/up for walls."""
+    if abs(nrm[2]) > 0.7:
+        ac = math.atan2(sum(c[1] for c in cos_list), sum(c[0] for c in cos_list))
+        rc = sum(math.hypot(c[0], c[1]) for c in cos_list) / len(cos_list)
+        pts = []
+        for co in cos_list:
+            th = math.atan2(co[1], co[0])
+            th = ac + (th - ac + math.pi) % TWO_PI - math.pi
+            pts.append((math.hypot(co[0], co[1]), (th - ac) * rc))
+        return pts
+    ex = (-nrm[1], nrm[0])
+    ln = math.hypot(ex[0], ex[1]) or 1.0
+    ex = (ex[0] / ln, ex[1] / ln)
+    return [(co[0] * ex[0] + co[1] * ex[1], co[2]) for co in cos_list]
+
+
+def _group_uv(me, uvl, polys, zone, r, fit, anchored):
+    """One atlas window for a whole emitted face (both triangles of a quad,
+    every triangle of a fan), so no seam runs down a quad's diagonal."""
+    u0, v0, u1, v1 = zone
+    span_u = (u1 - u0) - 2.0 * UV_PAD
+    span_v = (v1 - v0) - 2.0 * UV_PAD
+    nrm = me.polygons[polys[0]].normal
+    loops = [li for pi in polys for li in me.polygons[pi].loop_indices]
+    cos_list = [me.vertices[me.loops[li].vertex_index].co for li in loops]
+    pts = _project(cos_list, nrm)
+    mi = min(p[0] for p in pts)
+    mj = min(p[1] for p in pts)
+    w = max(p[0] for p in pts) - mi
+    h = max(p[1] for p in pts) - mj
+    k = min(UV_SCALE, 1.0 / max(w, h, EPS))
+    sx = sy = k
+    ou, ov = r.f() * (1.0 - w * k), r.f() * (1.0 - h * k)
+    fu = -1.0 if r.i(0, 1) else 1.0
+    fv = -1.0 if r.i(0, 1) else 1.0
+    if fit in ("uv", "u"):
+        sx, ou, fu = 1.0 / max(w, EPS), 0.0, 1.0
+    if fit in ("uv", "v"):
+        sy, ov, fv = 1.0 / max(h, EPS), 0.0, 1.0
+    if anchored:
+        ov, fu, fv = 0.0, 1.0, 1.0
+    for li, p in zip(loops, pts):
+        s = min(ou + (p[0] - mi) * sx, 1.0)
+        t = min(ov + (p[1] - mj) * sy, 1.0)
+        if fu < 0.0:
+            s = 1.0 - s
+        if fv < 0.0:
+            t = 1.0 - t
+        uvl.data[li].uv = (u0 + UV_PAD + s * span_u, v0 + UV_PAD + t * span_v)
+
+
+def unwrap(ob, zones, groups, seed=0):
+    me = ob.data
+    uvl = me.uv_layers.new(name="UVMap")
+    r = _Rng(TEX_SEED + seed * 7919 + len(me.polygons))
+    by_group = {}
+    for pi in range(len(me.polygons)):
+        by_group.setdefault(groups[pi], []).append(pi)
+    for gid in sorted(by_group):
+        polys = by_group[gid]
+        z = zones[polys[0]]
+        _group_uv(me, uvl, polys, ZONES[z], r, FIT.get(z, ""), z in ANCHORED)
+
+
+# =============================================================================
+# RENDERS -- the arena is closed, so every shot is lit from inside
+# =============================================================================
+
+TOWER_GLB = r"C:\Users\ddd\panopticon-modelling\jobs\marble_tower\out\marble_tower.glb"
+TOWER_Y = 25.35             # the scene's Tower node: the model's origin, world y
+LANTERN_H = 8.0             # the arena light: this far over the tower datum, a metre under the room's ceiling
+REVIEW_LANTERN_W = 70000.0  # review renders only: the lantern's point light, watts ...
+REVIEW_FILL_W = 6000.0      # ... twelve unshadowed fills round the ring ...
+REVIEW_DOME_W = 50000.0     # ... and one under the dome
+
+
+def _company():
+    """The tower at its datum, for the renders only."""
+    made = []
+    if not os.path.isfile(TOWER_GLB):
+        print("MDL note: no %s; rendering without the tower" % TOWER_GLB)
+        return made
+    before = set(bpy.data.objects)
+    bpy.ops.import_scene.gltf(filepath=TOWER_GLB)
+    for ob in set(bpy.data.objects) - before:
+        if ob.parent is None:
+            ob.location = (0.0, 0.0, TOWER_Y)
+        if "colonly" in ob.name:
+            ob.hide_render = True
+        made.append(ob)
+    bpy.context.view_layer.update()
+    print("MDL note: marble_tower.glb placed at z=%.2f for the renders" % TOWER_Y)
+    return made
+
+
+def _render(spec, objects):
+    scene = bpy.context.scene
+    if spec.get("engine", "eevee").lower() == "cycles":
+        scene.render.engine = "CYCLES"
+        scene.cycles.device = "CPU"
+        scene.cycles.samples = int(spec.get("samples", 64))
+        scene.cycles.use_denoising = True
+    else:
+        scene.render.engine = "BLENDER_EEVEE"
+        mdl._try(scene.eevee, "taa_render_samples", int(spec.get("samples", 64)))
+        mdl._try(scene.eevee, "use_shadows", True)
+        mdl._try(scene.eevee, "use_raytracing", True)
+    scene.render.image_settings.file_format = "PNG"
+    scene.render.film_transparent = False
+    mdl._try(scene.view_settings, "view_transform", "Standard")
+    mdl._try(scene.view_settings, "exposure", 0.0)
+
+    made = _company()
+    world = bpy.data.worlds.new("Rotunda")
+    scene.world = world
+    world.use_nodes = True
+    bg = world.node_tree.nodes["Background"]
+    bg.inputs[0].default_value = (0.40, 0.41, 0.44, 1.0)
+    bg.inputs[1].default_value = 0.35
+
+    # the arena's light: one pale-gold point in the lantern, shadowed, so the
+    # windows throw beams as the drawing has them ...
+    ld = bpy.data.lights.new("Lantern", type="POINT")
+    ld.energy = REVIEW_LANTERN_W
+    ld.color = (1.0, 0.98, 0.94)
+    ld.shadow_soft_size = 0.6
+    lantern = mdl._link(bpy.data.objects.new("Lantern", ld))
+    lantern.location = (0.0, 0.0, TOWER_Y + LANTERN_H)
+    made.append(lantern)
+    # ... and review-only fill: unshadowed points round the ring under the
+    # third tier, so the stone reads off-white and the shadows grey.
+    for k in range(12):
+        fd = bpy.data.lights.new("ReviewFill%d" % k, type="POINT")
+        fd.energy = REVIEW_FILL_W
+        fd.color = (0.90, 0.91, 0.94)
+        fd.use_shadow = False
+        f = mdl._link(bpy.data.objects.new("ReviewFill%d" % k, fd))
+        f.location = pol(k * 30.0 + 15.0, 50.0, 38.0)
+        made.append(f)
+    hd = bpy.data.lights.new("ReviewDome", type="POINT")
+    hd.energy = REVIEW_DOME_W
+    hd.color = (0.86, 0.88, 0.92)
+    hd.use_shadow = False
+    h = mdl._link(bpy.data.objects.new("ReviewDome", hd))
+    h.location = (0.0, 0.0, 66.0)
+    made.append(h)
+
+    target = mdl._link(bpy.data.objects.new("ShotTarget", None))
+    cam = mdl._link(bpy.data.objects.new("ShotCam", bpy.data.cameras.new("ShotCam")))
+    scene.camera = cam
+    con = cam.constraints.new(type="TRACK_TO")
+    con.target = target
+    con.track_axis = "TRACK_NEGATIVE_Z"
+    con.up_axis = "UP_Y"
+    made += [target, cam]
+    out_dir = spec.get("out_dir", ".")
+
+    def shot(name, loc, tgt, lens, res):
+        cam.data.lens = lens
+        cam.data.clip_end = 600.0
+        cam.location = loc
+        target.location = tgt
+        scene.render.resolution_x, scene.render.resolution_y = res
+        bpy.context.view_layer.update()
+        path = os.path.join(out_dir, "%s_%s.png" % (NAME, name))
+        scene.render.filepath = path
+        bpy.ops.render.render(write_still=True)
+        print("MDL RENDER %s (hand-placed camera)" % os.path.basename(path))
+
+    eye = DECK_Z + EYE_H
+    shot("runner", pol(30.0, LANE_R, eye), pol(58.0, LANE_R, DECK_Z + 1.0), 24.0, (1400, 800))
+    shot("guard", pol(70.0, 6.3, GUARD_EYE_Z), pol(70.0, LANE_R, DECK_Z), 30.0, (1400, 800))
+    shot("wide", pol(200.0, 22.0, 66.0), pol(20.0, 30.0, DECK_Z), 20.0, (1500, 1000))
+    shot("across", pol(120.0, 55.0, eye), (0.0, 0.0, TOWER_Y + 4.0), 28.0, (1400, 800))
+    shot("spikes_in", pol(95.0, 48.0, eye), pol(80.0, 30.0, DECK_Z - 1.0), 30.0, (1400, 800))
+    shot("spikes_out", pol(240.0, 55.5, eye), pol(255.0, 59.0, DECK_Z - 0.5), 30.0, (1400, 800))
+    shot("tiers", pol(150.0, 50.0, eye), pol(150.0, WALL_R, 40.0), 20.0, (1000, 1200))
+    # inside a tier-2 cell (the 3 m recesses), 2.3 m back from the mouth,
+    # looking out through the arch at the tower
+    bay = _Bay(int(round(NSIDE * (360.0 - 120.0) / 360.0)) % NSIDE)
+    cm = bay.at(bay.L / 2.0, TIER_BASE[1] + SILL_UP + EYE_H, CELL_D - 0.7)
+    shot("cell", cm, (0.0, 0.0, TOWER_Y + 3.0), 18.0, (1200, 800))
+
+    for ob in made:
+        bpy.data.objects.remove(ob, do_unlink=True)
+
+
+# =============================================================================
+# BUILD
+# =============================================================================
+
+def _parts():
+    return ml, mw
+
+
+def _stone():
+    """The whole rotunda in one welded mesh, and each part's numbers."""
+    ml, mw = _parts()
+    m = _Mesh()
+    info = {}
+    n0 = len(m.faces)
+    info["lane"] = ml.build(m) or {}
+    info["lane"]["tris"] = len(m.faces) - n0
+    n0 = len(m.faces)
+    info["wall"] = mw.build(m) or {}
+    info["wall"]["tris"] = len(m.faces) - n0
+    return m, info
+
+
+def _collider():
+    ml, mw = _parts()
+    c = _Mesh()
+    ml.collider(c)
+    mw.collider(c)
+    return c
+
+
+def build():
+    stone, info = _stone()
+    coll = _collider()
+    a = audit(stone, "stone")
+    albedo, emissive = _sheet("marble", build_texture)
+    mdl.save_texture(albedo)
+    mdl.save_texture(emissive)
+
+    ob = stone.object(OBJECT_NAME)
+    unwrap(ob, stone.zones, stone.groups)
+    mdl.finish(ob, stone_material("Marble", albedo, emissive), strip_uvs=False)
+    coll_ob = coll.object(COLLIDER_NAME)
+    coll_ob.hide_render = True
+
+    print("MDL STATS visual_tris=%d collision_tris=%d lane_tris=%d wall_tris=%d"
+          % (len(ob.data.polygons), len(coll_ob.data.polygons), info["lane"]["tris"], info["wall"]["tris"]))
+    print("MDL STATS contiguity components=%d manifold=%d boundary=%d doubled=%d over=%d degenerate=%d dup_pos=%d"
+          % (a["components"], a["manifold_edges"], a["boundary_edges"], a["doubled_edges"],
+             a["over_edges"], a["degenerate"], a["duplicate_positions"]))
+    for part in ("lane", "wall"):
+        print("MDL STATS %s %s" % (part, " ".join("%s=%s" % kv for kv in sorted(info[part].items()))))
+    print("MDL STATS lane r=%.1f..%.1f y=%.2f beds_y=%.2f wall_r=%.1f dome=%.1f..%.1f"
+          % (INNER_R, OUTER_R, DECK_Z, FIELD_Z, WALL_R, DOME_Z0, DOME_Z0 + DOME_RISE))
+    return [ob, coll_ob]
+
+
+def _check():
+    """--check: build without Blender and prove the mesh is one contiguous model."""
+    stone, info = _stone()
+    coll = _collider()
+    a = audit(stone, "stone")
+    audit(coll, "coll")
+    for part in ("lane", "wall"):
+        print("%s %s" % (part, " ".join("%s=%s" % kv for kv in sorted(info[part].items()))))
+    loops = boundary_loops(stone)
+    print("boundary loops: %d  largest: %s" % (len(loops), loops[:4]))
+    ok = a["components"] == 1 and a["doubled_edges"] == 0 and a["over_edges"] == 0 \
+        and a["degenerate"] == 0 and a["duplicate_positions"] == 0
+    expect_b = int(info["wall"].get("bar_boundary_edges", 0))
+    ok = ok and a["boundary_edges"] == expect_b
+    print("CONTIGUOUS %s (boundary edges expected %d)" % ("YES" if ok else "NO", expect_b))
+    c = paint_atlas()
+    print("atlas %dx%d painted" % (c.w, c.h))
+    return ok
+
+
+# The parts, imported last so their own `import marble_build` finds this module
+# complete. Column-0 `import x_build as y`: tools/modelling/model ships the
+# siblings it sees written exactly like that.
+import marble_lane_build as ml  # noqa: E402
+import marble_wall_build as mw  # noqa: E402
+
+
+if __name__ == "__main__":
+    if bpy is None or "--check" in sys.argv:
+        sys.exit(0 if _check() else 1)
+    else:
+        mdl.main(NAME, build, facing_yaw=FACING_YAW, post=_render)
