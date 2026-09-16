@@ -1,23 +1,33 @@
 """
-PANOPTICON -- forest_tree: Map 3's tower. A great tree grown into a shape.
+PANOPTICON -- forest_tree: Map 3's tower. A great tree grown to be a tower.
 
 Origin is the Tower node (world y 25.35), like tower.glb: the model drops in
 at identity under scenes/ring/forest.tscn's Tower. Authored in WORLD
 coordinates (Blender z = Godot y) and shifted on export.
 
-    water ......... y 0.0     the trunk stands in it, root buttresses out to r 9.5
-    trunk ......... y -2..13.5, r 7.4 at the foot to 4.2 at the split
-    lattice ....... y 11..25.6: eight branch piers lean out to r 7, fork, and the
-                    arms meet the neighbours' in eight pointed arches; two twig
-                    rungs per opening; you see the far piers through the openings
-    canopy ........ y 24.8..27.0, a scalloped leaf disc r 8..9
-    guard floor ... y 27.05 (origin + 1.70, as map 1), flat r 5, a 0.55 m leaf sill
-    roof .......... six thin branches off the sill lean in to y 31.5, leaf clumps
-                    hung on them: a partial roof, sky between
+    water ......... y -11.05   the trunk stands in it, eight buttress roots out to r ~9
+    trunk ......... y -13..27.05, r 8 at the foot to 5.2 at y 20, then a goblet
+                    flare out to r 7.0 at the floor; cos(8a) fluting with a ridge
+                    on every pier bearing, so the piers continue the trunk's ridges
+    floor ......... y 27.05 (origin + 1.70, as map 1), flat r 5, the top of the trunk;
+                    a bark rim r 5.0..7.0 rises 0.55 m round it (the goblet's lip)
+    piers ......... eight blade piers (r 0.9 -> 0.6, oval) out of sockets in the rim
+                    top, leaning out to r 8 and into sockets in the canopy belly at
+                    y 33.0: the guard's windows. One twig rail per opening at
+                    floor + 0.95; a pointed arch between neighbours springs at
+                    y ~29.85 and peaks at r 8.3, y 32.5. Nothing else sits in an
+                    opening between y 28.2 and 29.5: the guard's sightline
+    ceiling ....... the canopy belly, y 33.0 at r 9 sagging to 32.5 at the centre,
+                    eight ribs from beside each pier's landing to a keystone boss:
+                    a vault
+    canopy ........ the leaf disc from the belly rim up to a lumpy crown at y 37.2,
+                    eight-lobed rim r ~11; six short thick branches out of the top
+                    ending in leaf clumps (the roof), tops ~y 39.4 (map ceiling 40.7)
 
 One material (the forest atlas, painted or textures/forest_atlas_albedo.png),
-one mesh, no rig. ForestTreeCollision rides as a `-colonly` node: the guard
-floor, the sill, the canopy's slope and the trunk. Nothing else is touched.
+one mesh, no rig. ForestTreeCollision rides as a `-colonly` node: the trunk
+cylinder r 5, the floor, the rim, the canopy's outer slope. Nothing else is
+touched.
 
 This file also holds what forest_build.py shares: the rng, the face
 accumulator, the atlas painter, the tube/blob helpers, the unwrap.
@@ -58,49 +68,66 @@ WATER_Y = -11.05            # the map's water (map 1's lava sea level)
 FLOOR_Y = ORIGIN_Y + 1.70   # the guard's floor, as map 1's room floor
 FLOOR_R = 5.0
 FLOOR_RINGS = ((3.4, 28), (1.6, 14))   # (r, verts): the flat floor gridded in, halving the count; no sliver fan
-SILL = ((5.0, 0.0), (5.2, 0.55), (6.15, 0.5), (6.45, 0.0))   # (r, over the floor), inner to outer; the roof branches root on the top
-TOP_RINGS = ((8.0, 0.12),)  # (r, over the floor): the leaf top between the canopy rim and the sill, lumpy
 FOOT_Y = -13.0
 
-TRUNK_SIDES = 40            # 5 per pier, 4 per root lobe
-TRUNK = [(-13.0, 8.0), (-11.0, 7.4), (-8.5, 6.8), (-5.0, 6.4), (-1.0, 6.2), (3.0, 6.0), (7.0, 5.7),
-         (10.5, 5.4), (12.6, 5.15), (14.8, 4.55), (16.8, 3.9), (17.9, 2.4)]   # (y, r): the top domes into the split
-TRUNK_CAP_Y = 18.5
-TRUNK_FLUTE = 0.035         # per-side radius wander, held up the trunk (more and the pier patches go jagged)
-ROOTS = 10                  # buttress lobes of the trunk profile ...
-ROOT_LOBE = (0.42, 0.0, 1.4)   # ... (amplitude at the foot, the y they fade out at, the power)
-PIER_BAND = 8               # the piers grow out of the two trunk bands TRUNK[8]..TRUNK[10] (a 5x2 patch each)
-
 PIERS = 8
-PIER_SIDES = 8              # a 10-gon's edge points straight at the trunk patch's corner: a sliver
-PIER_PATH = [(4.55, 14.8), (5.7, 15.75), (6.5, 17.3), (7.1, 18.7), (7.6, 20.2), (8.1, 21.9), (8.3, 23.1),
-             (7.5, 24.15)]   # (r, y); the ends snap onto the trunk band and the canopy belly
-PIER_R = (1.4, 1.25, 1.1, 1.0, 0.9)
-ARM_SEG = 4                 # the pier segment the arches spring from (y ~21)
-ARM_R = (0.45, 0.4, 0.34)   # root to apex, mirrored down the other side
-ARM_LIFT = 0.55             # the arm leaves the pier at atan(lift) above the patch normal
-ARM_OUT = 0.6               # ... from a patch biased this much radially outward (clears the rungs)
-APEX = (8.7, 25.7)          # (r, y) where the two halves meet, inside the canopy
-ARM_PULL = (15.0, 8.9, 24.9)  # the arm's control point: degrees toward the apex, r, y
-RUNG_SEGS = (1, 3, 5)       # pier segments the twig rungs cross from (y ~16.7, 19.5, 22.5)
-RUNG_R = 0.22
-RUNG_SAG = 0.25
+TRUNK_SIDES = 48            # 6 per pier: a vertex on every pier bearing carries the ridge
+# (y, r, flute share): the trunk profile, foot to the floor edge. The goblet flares
+# to r 7.0 at the floor, the rim rises 0.55 over it and drops back to the floor.
+TRUNK = [(-13.0, 8.0, 1.0), (-11.0, 7.5, 1.0), (-8.0, 6.9, 1.0), (-4.0, 6.5, 1.0), (0.0, 6.2, 1.0),
+         (4.0, 5.95, 1.0), (8.0, 5.7, 1.0), (12.0, 5.5, 1.0), (16.0, 5.32, 1.0), (20.0, 5.2, 1.0),
+         (22.5, 5.3, 1.0), (24.5, 5.7, 1.0), (26.0, 6.4, 1.0), (FLOOR_Y, 7.0, 1.0),
+         (FLOOR_Y + 0.35, 7.05, 1.0), (FLOOR_Y + 0.55, 6.8, 1.0),       # the lip's chamfer: the piers' socket patch takes it and the top
+         (FLOOR_Y + 0.55, 5.2, 0.6), (FLOOR_Y + 0.35, 5.05, 0.3), (FLOOR_Y, 5.0, 0.0)]   # the kerb down to the floor
+RIM_TOP = 15                # TRUNK index of the lip's outer ring: bands 14 (chamfer) and 15 (top) take the pier sockets
+TRUNK_FLUTE = 0.045         # cos(8a) fluting, ridge on every pier bearing
+ROOT_LOBE = (0.45, 0.0, 1.4)   # buttress roots: (amplitude at the foot, the y they fade out at, the power)
+PIER_BASE_SIDES = 4         # trunk sides per pier socket, centred on the bearing vertex
 
-CANOPY = [(24.6, 0.88, 0.2), (25.4, 0.96, 0.6), (26.3, 1.0, 1.0), (27.0, 0.9, 0.7)]   # (y, of R, share of the lobes)
-CANOPY_R = 11.0
+PIER_SIDES = 8              # a side faces the neighbour: the arch and rail sockets sit on it
+PIER_SQUASH = 0.75          # the pier's radial thickness as a share of its width: a blade, wide toward its neighbours
+PIER_PATH = [(6.1, FLOOR_Y + 0.55), (6.42, 28.5), (6.62, 29.2), (7.02, 30.5), (7.35, 31.4), (7.68, 32.2), (8.0, 33.0)]   # (r, y)
+PIER_R = (0.9, 0.85, 0.8, 0.73, 0.67, 0.63, 0.6)
+PIER_LAND_SIDES = 4         # belly grid sides per landing socket, centred on the bearing vertex
+RAIL_SEG = 0                # the pier segment the rail crosses from (y 27.6..28.5)
+RAIL_Y = FLOOR_Y + 0.95     # the twig rail: its top at 28.2 is the bottom of the guard's clear sightline
+RAIL_R = 0.2
+RAIL_SAG = 0.1
+ARM_SEG = 2                 # the pier segment the arches spring from (y 29.2..30.5)
+ARM_Y = 29.9                # the spring: the arm's underside at 29.5, the top of the clear band
+ARM_R = (0.4, 0.36, 0.32)   # root to apex, mirrored down the other side
+ARM_STUB = 0.35             # the arm leaves the pier square to its side this far, then bends up toward ARM_PULL
+ARM_OUT = 0.0               # ... from the side facing the neighbour (a bias here would pull the patch onto the rail's or the far arch's sides)
+APEX = (8.3, 32.5)          # (r, y) where the two halves meet, under the belly
+ARM_PULL = (12.0, 7.5, 32.0)  # the arm's control point: degrees toward the apex, r, y
+
 CANOPY_N = 56               # 7 per pier; the grid is a half step off so a vertex sits at every pier bearing
-CANOPY_LOBES = (7, 0.14, 3, 0.05)   # (harmonic, amp) x 2
-UNDER = ((9.0, 24.4), (5.9, 23.85))   # (r, y) round belly rings, unlobed: the piers land on the band between
-UNDER_CENTRE = ((2.6, 23.6, 28), 23.5)   # (r, y, verts) then the centre's y
+BELLY = [(9.0, 33.0), (7.2, 33.0), (5.5, 32.86), (3.8, 32.7), (2.4, 32.58)]   # (r, y) the ceiling: the piers land on band 0, the ribs root in band 1
+BOSS_N = 24
+BOSS = ((1.7, 32.55), (1.55, 31.75), (1.0, 31.4))   # (r, y) the keystone hanging at the centre; the ribs run into band 0
+BOSS_Y = 31.25
+RIB_R = 0.28
+RIB_SIDES = 6
+RIB_BAND = 1                # the belly band the rib's outer socket sits in
+RIB_PATH = [(6.15, 32.5), (4.8, 32.28), (3.2, 32.22), (2.35, 32.18)]   # (r, y) between the sockets, under the belly
+
+CANOPY = [(33.45, 0.93, 0.5), (34.1, 1.0, 1.0), (34.9, 0.97, 0.85), (35.6, 0.88, 0.7), (36.1, 0.76, 0.55),
+          (36.5, 0.61, 0.45), (36.8, 0.45, 0.35), (37.0, 0.26, 0.2)]   # (y, of R, share of the lobes): the leaf disc over the belly rim
+CANOPY_TOP_Y = 37.2
+CANOPY_R = 11.0
+CANOPY_LOBES = (8, 0.12, 8, 0.0)     # (harmonic, amp) x 2: a lobe over every pier (56 verts alias anything above ~10)
+CANOPY_JITTER = (0.015, 0.1, 0.2)   # (r share, y below the crown, y in the crown) lumps
 
 ROOF_N = 6
 ROOF_SIDES = 7
-ROOF_P = ((5.0, 31.0), (3.6, 33.0))   # (r, y) bezier pull and tip; the root is on the sill top
-ROOF_R = (0.3, 0.28, 0.23, 0.15)
-ROOF_CLUMP = (2.0, 1.1)     # the end clump: radius, its centre this far over the tip
-TWIG_T = 0.4                # where along the roof branch the side twig grows
+ROOF_SEGS = 2               # short branches: two segments, the twig roots in the upper one
+ROOF_BAND = 4               # the CANOPY band (rings 4..5, y 36.1..36.5, r 8.4..6.7) the branches root in
+ROOF_P = ((0.3, 36.9), (0.8, 37.0))   # (r beyond the root, y) bezier pull and tip: short, the clump sits on the crown's shoulder
+ROOF_R = (0.5, 0.48, 0.46, 0.45)   # a stub, thick to its end: its last ring is near the clump's first, no thin bridging
+ROOF_CLUMP = (1.8, 0.45)    # the end clump: radius, its centre this far over the tip (clear of the disc, top ~39.1)
+TWIG_T = 0.5                # where along the roof branch the side twig grows
 TWIG_R = 0.09
-TWIG_CLUMP = (1.3, 0.85)    # the twig's clump: radius, over the twig's end
+TWIG_CLUMP = (1.0, 0.65)    # the twig's clump: radius, over the twig's end
 
 SEED = 3140271
 EYE_H = 1.65
@@ -235,15 +262,43 @@ def _leaves(c, r, box, base, shades, lit, count, sz):
             c.put(x + 1, y + h - 1, lit)
 
 
-# The lane's greens: between Kokiri gold-green and cartoon green. Every lane
-# zone is painted as fine noise over these (a smooth field picks the green, a
-# per-texel jitter breaks it up), never as blotches: the deck is unwrapped a
-# quad at a time at a random offset, and any shape bigger than a texel or two
-# reads as that quad's own patch, a checkerboard of 1.5 m squares.
-LANE_GREENS = ((136, 158, 62), (118, 156, 64), (98, 152, 66))
-PATH_TONES = ((124, 126, 66), (114, 108, 62), (110, 138, 60))
-VERGE_TONES = ((132, 152, 62), (118, 148, 64), (118, 126, 64))
-EDGE_GREENS = ((108, 140, 56), (94, 132, 54), (84, 122, 50))
+# The palette, leaning Ocarina of Time (Kokiri Forest: gold-olive grass under a
+# misty gold-green sky, grey-brown trunks, foliage that goes dark and blue-green
+# in the shade) and away from Castle Crashers' flat saturated green. Sampled
+# from the refs (BotW Korok forest: lit grass #99c03d, shaded #679030, ferns
+# #63843f, canopy in shade #5a7c54; OoT Kokiri: grass #696910, mist #92934b,
+# trunks #75745e, deep foliage #353b24) and then muted a step darker so the sun
+# shafts and the lit leaf tops carry the light. Every hex is in
+# docs/maps/forest.md. Every lane zone is painted as fine noise over these (a
+# smooth field picks the green, a per-texel jitter breaks it up), never as
+# blotches: the deck is unwrapped a quad at a time at a random offset, and any
+# shape bigger than a texel or two reads as that quad's own patch.
+LANE_GREENS = ((138, 148, 64), (122, 138, 60), (102, 128, 58))     # #8a9440 #7a8a3c #66803a
+PATH_TONES = ((124, 116, 72), (110, 98, 68), (111, 126, 66))       # #7c7448 #6e6244 #6f7e42
+VERGE_TONES = ((134, 144, 62), (120, 130, 60), (118, 112, 68))     # #86903e #78823c #767044
+EDGE_GREENS = ((108, 124, 60), (92, 110, 56), (78, 96, 52))        # #6c7c3c #5c6e38 #4e6034
+LEAF_BASE = ((58, 74, 44), (52, 68, 42), (64, 80, 48))             # #3a4a2c #344428 #405030
+LEAF_BLOBS = ((92, 112, 64), (104, 122, 72), (80, 102, 56), (90, 110, 62))   # #5c7040 #687a48 #506638 #5a6e3e
+LEAF_LIT = (138, 152, 86)                                          # #8a9856
+SHADE_BASE = ((38, 50, 31), (34, 44, 28))                          # #26321f #222c1c
+SHADE_BLOBS = ((56, 72, 44), (48, 64, 42), (60, 78, 48))           # #38482c #30402a #3c4e30
+SHADE_LIT = (76, 94, 58)                                           # #4c5e3a
+SUN_BASE = ((102, 120, 62), (96, 114, 58))                         # #66783e #60723a
+SUN_BLOBS = ((134, 150, 80), (152, 166, 92), (122, 140, 74), (142, 158, 86))  # #869650 #98a65c #7a8c4a #8e9e56
+SUN_LIT = (176, 184, 108)                                          # #b0b86c
+FERN_BASE = ((74, 98, 54), (68, 92, 50), (80, 106, 58))            # #4a6236 #445c32 #506a3a
+FERN_FROND = ((108, 136, 72), (124, 150, 82))                      # #6c8848 #7c9652
+FERN_DARK = (52, 72, 42)                                           # #34482a
+BARK_BASE = ((94, 84, 64), (88, 78, 60), (100, 90, 70))            # #5e5440 #584e3c #645a46
+BARK_STREAKS = ((72, 64, 48), (112, 102, 80), (66, 58, 44))        # #484030 #706650 #423a2c
+BARK_CRACK = (50, 44, 32)                                          # #322c20
+BARK_MOSS = (84, 104, 60)                                          # #54683c
+EARTH_BASE = ((74, 62, 46), (68, 56, 42), (80, 68, 50), (62, 52, 40))   # #4a3e2e #44382a #504432 #3e3428
+EARTH_BLOTCH = ((60, 50, 38), (90, 78, 58), (56, 46, 36))          # #3c3226 #5a4e3a #382e24
+EARTH_ROOT = (96, 82, 60)                                          # #60523c
+EARTH_STONE = (104, 98, 86)                                        # #686256
+EARTH_MOSS = (66, 90, 50)                                          # #425a32
+ROOT_BASE = ((98, 80, 58), (92, 74, 54), (106, 88, 64))            # #62503a #5c4a36 #6a5840
 
 
 def _value_field(r, w, h, cell):
@@ -299,47 +354,42 @@ def _blades(c, r, box, count, shades):
 
 def _paint_grass(c, r, box):
     _noise_fill(c, r, box, LANE_GREENS)
-    _blades(c, r, box, 160, [(150, 172, 74), (152, 166, 66), (88, 134, 56)])
+    _blades(c, r, box, 160, [(168, 172, 82), (160, 160, 70), (86, 102, 58)])
 
 
 def _paint_verge(c, r, box):
     """Between the grass and the path: the greens with the path's worn tone
     creeping in, so the path has no hard shoulder."""
     _noise_fill(c, r, box, VERGE_TONES, cuts=(0.42, 0.74))
-    _blades(c, r, box, 60, [(148, 168, 72), (112, 104, 60)])
+    _blades(c, r, box, 60, [(160, 164, 78), (112, 104, 60)])
 
 
 def _paint_path(c, r, box):
     """The worn line down the middle of the lane: brown-green, bare earth showing."""
     _noise_fill(c, r, box, PATH_TONES, cuts=(0.40, 0.72))
-    _blades(c, r, box, 70, [(118, 96, 58), (104, 88, 54), (128, 146, 66)])
+    _blades(c, r, box, 70, [(118, 96, 58), (104, 88, 54), (132, 140, 70)])
 
 
 def _paint_edge(c, r, box):
     """The lip, the wall foot, hummocks and cell floors: the lane's greens in shade."""
     _noise_fill(c, r, box, EDGE_GREENS)
-    _blades(c, r, box, 60, [(120, 150, 62), (58, 44, 30)])
+    _blades(c, r, box, 60, [(130, 140, 68), (58, 44, 30)])
 
 
 def _paint_leaf(c, r, box):
-    _leaves(c, r, box, [(58, 94, 42), (52, 86, 40), (64, 100, 46)],
-            [(92, 132, 56), (104, 142, 60), (84, 122, 50), (98, 138, 58)],
-            (124, 158, 68), 520, (3, 5))
+    _leaves(c, r, box, list(LEAF_BASE), list(LEAF_BLOBS), LEAF_LIT, 520, (3, 5))
 
 
 def _paint_shade(c, r, box):
-    _leaves(c, r, box, [(36, 62, 32), (32, 56, 30)],
-            [(56, 88, 44), (48, 78, 40), (62, 96, 48)], (78, 112, 54), 110, (3, 5))
+    _leaves(c, r, box, list(SHADE_BASE), list(SHADE_BLOBS), SHADE_LIT, 110, (3, 5))
 
 
 def _paint_sun(c, r, box):
-    _leaves(c, r, box, [(98, 138, 58), (92, 132, 54)],
-            [(132, 168, 72), (150, 184, 84), (118, 156, 66), (140, 176, 78)],
-            (172, 200, 104), 110, (3, 5))
+    _leaves(c, r, box, list(SUN_BASE), list(SUN_BLOBS), SUN_LIT, 110, (3, 5))
 
 
 def _paint_fern(c, r, box):
-    _fill(c, r, box, [(60, 98, 44), (54, 90, 40), (66, 104, 48)])
+    _fill(c, r, box, list(FERN_BASE))
     x0, y0, x1, y1 = box
     for _ in range(9):                       # fronds: a stem with side ticks
         x, y = r.i(x0 + 4, x1 - 5), r.i(y0 + 2, y1 - 2)
@@ -349,48 +399,47 @@ def _paint_fern(c, r, box):
             xx, yy = x + (k * dx) // 2, y + k
             if not (x0 <= xx < x1 and y0 <= yy < y1):
                 break
-            c.put(xx, yy, (96, 142, 60))
+            c.put(xx, yy, FERN_FROND[0])
             if k % 2 == 0:
-                c.put(xx - 1, yy, (112, 156, 68))
-                c.put(xx + 1, yy, (112, 156, 68))
+                c.put(xx - 1, yy, FERN_FROND[1])
+                c.put(xx + 1, yy, FERN_FROND[1])
     for _ in range(30):
-        c.put(r.i(x0, x1 - 1), r.i(y0, y1 - 1), (44, 74, 34))
+        c.put(r.i(x0, x1 - 1), r.i(y0, y1 - 1), FERN_DARK)
 
 
-def _paint_bark(c, r, box, base=((96, 72, 48), (90, 66, 44), (102, 78, 52))):
+def _paint_bark(c, r, box, base=BARK_BASE):
     _fill(c, r, box, list(base))
     x0, y0, x1, y1 = box
     for _ in range(26):                      # vertical streaks
         x, y = r.i(x0, x1 - 2), r.i(y0, y1 - 8)
-        c.rect(x, y, x + r.i(1, 2), min(y1, y + r.i(6, 18)),
-               r.pick([(76, 56, 36), (112, 86, 58), (70, 50, 32)]))
+        c.rect(x, y, x + r.i(1, 2), min(y1, y + r.i(6, 18)), r.pick(list(BARK_STREAKS)))
     for _ in range(12):                      # cracks
         x, y = r.i(x0, x1 - 1), r.i(y0, y1 - 6)
         for k in range(r.i(4, 9)):
-            c.put(x, y + k, (56, 40, 26))
+            c.put(x, y + k, BARK_CRACK)
             x += r.i(-1, 1)
     for _ in range(8):
         x, y = r.i(x0, x1 - 3), r.i(y0, y1 - 3)
-        c.rect(x, y, x + 2, y + 2, (82, 112, 60))    # moss
+        c.rect(x, y, x + 2, y + 2, BARK_MOSS)    # moss
 
 
 def _paint_earth(c, r, box):
-    _fill(c, r, box, [(86, 64, 44), (80, 58, 40), (92, 70, 48), (74, 54, 38)])
-    _blotch(c, r, box, [(70, 52, 36), (104, 80, 56), (66, 48, 34)], 30, 3, 9)
+    _fill(c, r, box, list(EARTH_BASE))
+    _blotch(c, r, box, list(EARTH_BLOTCH), 30, 3, 9)
     x0, y0, x1, y1 = box
     for _ in range(8):                       # root streaks
         x, y = r.i(x0 + 1, x1 - 2), y0
         for k in range(y1 - y0):
-            c.put(x, y + k, (110, 84, 54))
+            c.put(x, y + k, EARTH_ROOT)
             if k % 3 == 0:
                 x += r.i(-1, 1)
             x = max(x0, min(x1 - 1, x))
     for _ in range(14):                      # stones
         x, y = r.i(x0, x1 - 3), r.i(y0, y1 - 3)
-        c.rect(x, y, x + 2, y + 2, (118, 108, 94))
+        c.rect(x, y, x + 2, y + 2, EARTH_STONE)
     for _ in range(10):
         x, y = r.i(x0, x1 - 3), r.i(y0, y1 - 3)
-        c.rect(x, y, x + 2, y + 2, (72, 104, 50))    # moss
+        c.rect(x, y, x + 2, y + 2, EARTH_MOSS)    # moss
 
 
 def _paint_cell(c, r, box):
@@ -403,7 +452,7 @@ def _paint_cell(c, r, box):
 
 
 def _paint_root(c, r, box):
-    _paint_bark(c, r, box, base=((104, 74, 50), (98, 70, 46), (112, 82, 56)))
+    _paint_bark(c, r, box, base=ROOT_BASE)
 
 
 PAINTERS = {
@@ -894,6 +943,11 @@ def _pier_bearing(k):
     return k * 360.0 / PIERS + 22.5
 
 
+def _pier_theta0():
+    """Pier 0's bearing as a Blender xy angle: the phase of every 8-fold term."""
+    return math.radians(-_pier_bearing(0))
+
+
 def _canopy_theta(s, n=None):
     """The canopy family's angular grid, a half step off the pier grid: with
     CANOPY_N = 7 * PIERS a vertex sits exactly at every pier bearing."""
@@ -901,8 +955,10 @@ def _canopy_theta(s, n=None):
 
 
 def _canopy_R(theta, share=1.0):
+    """The lobed rim radius: a lobe over every pier, a scallop between."""
     h1, a1, h2, a2 = CANOPY_LOBES
-    return CANOPY_R * (1.0 + share * (a1 * math.cos(h1 * theta + 0.4) + a2 * math.cos(h2 * theta + 1.9)))
+    t = theta - _pier_theta0()
+    return CANOPY_R * (1.0 + share * (a1 * math.cos(h1 * t) + a2 * math.cos(h2 * t)))
 
 
 def _cap(m, ring, centre, want, zone):
@@ -942,6 +998,16 @@ def _patch(m, a, b, sides):
     return [quads[i] for i in order]
 
 
+def _patch_mid(m, a, b, sides):
+    """A patch of an odd number of sides with the middle one first: the ring
+    is projected onto the plane of the side it is centred on, not onto a
+    folded neighbour's (which is what _patch's normal-vote can pick on a
+    fat, curving tube)."""
+    quads = [_band_quad(a, b, s) for s in sides]
+    mid = len(sides) // 2
+    return [quads[mid]] + quads[:mid] + quads[mid + 1:]
+
+
 def _patch_centre(m, quads):
     return m.centroid(sorted(set(i for q in quads for i in q)))
 
@@ -962,6 +1028,14 @@ def _facing(m, rings, seg, direction, count):
 
 def _seg_axis(m, rings, seg):
     return lerp(m.centroid(rings[seg]), m.centroid(rings[seg + 1]), 0.5)
+
+
+def _grid_sides(v, n, count):
+    """``count`` adjacent sides of an n-ring centred on vertex v (even count)
+    or on side v (odd count)."""
+    if count % 2:
+        return [(v + d) % n for d in range(-(count // 2), count // 2 + 1)]
+    return [(v + d) % n for d in range(-(count // 2), count // 2)]
 
 
 def _loop_of(m, quads):
@@ -999,12 +1073,19 @@ def _margin(poly, p):
     return best if inside else -best
 
 
-def _weld(m, quads, path, radius, sides, zone, at_start, tag):
-    """socket_ring, plus the proof that the ring landed inside its patch: the
-    margin (in the patch plane) is kept for the --check report."""
+def _weld_pts(m, quads, pts, along, zone, tag):
+    """Weld an explicit ring (points on or near the patch, slid along ``along``
+    onto its plane) into a patch of quads, plus the proof that it landed inside
+    the patch: the margin (in the patch plane) is kept for the --check report."""
     loop = _loop_of(m, quads)
-    ids = socket_ring(m, quads, path, radius, sides, zone, at_start=at_start)
-    n = norm(_newell([m.verts[i] for i in quads[0]]))
+    if len(quads) == 1:
+        plane = plane_of(m, quads[0])
+    else:
+        plane = (m.centroid([i for q in quads for i in q]), norm(_newell([m.verts[i] for i in quads[0]])))
+    pts = project_ring(pts, along, plane)
+    ids = [m.v(p) for p in pts]
+    m.socket(quads, ids, zone)
+    n = plane[1]
     c = m.centroid(ids)
     ex = norm(cross(n, UP if abs(n[2]) < 0.9 else (1.0, 0.0, 0.0)))
     ey = cross(n, ex)
@@ -1014,125 +1095,146 @@ def _weld(m, quads, path, radius, sides, zone, at_start, tag):
     return ids
 
 
+def _weld(m, quads, path, radius, sides, zone, at_start, tag):
+    """A tube end's ring welded into a patch (see _weld_pts): the ring ids for
+    tube(first_ring=..) or tube(last_ring=..)."""
+    pts, t = end_ring(m, path, radius, sides, 1.0, at_start)
+    return _weld_pts(m, quads, pts, t, zone, tag)
+
+
 def _by_azimuth(m, ring, centre):
     """The ring's ids in rising xy azimuth round ``centre``: clump_end lays its
     rings out by azimuth, so a tube's end ring hands over in the same order."""
     return sorted(ring, key=lambda v: math.atan2(m.verts[v][1] - centre[1], m.verts[v][0] - centre[0]) % (2.0 * math.pi))
 
 
-# ---- trunk ------------------------------------------------------------------
+# ---- trunk, rim, floor ------------------------------------------------------
 
 def _trunk(m, r):
-    """Lofted rings, fluted; the lower rings' radius modulated by ROOTS lobes
-    that grow toward the foot, so the foot is a star of buttress roots."""
-    flute = [1.0 + TRUNK_FLUTE * r.sf() for _ in range(TRUNK_SIDES)]
+    """One loft, foot to floor edge: the fluted trunk (a ridge on every pier
+    bearing), the buttress roots growing toward the foot on the same eight
+    bearings, the goblet flare, the lip, the rim top the piers stand on, the
+    kerb down to the flat floor. Returns the rings, TRUNK's order."""
+    th0 = _pier_theta0()
     amp0, fade_y, powr = ROOT_LOBE
     rings = []
-    for (y, rad) in TRUNK:
+    for (y, rad, share) in TRUNK:
         amp = amp0 * max(0.0, (fade_y - y) / (fade_y - FOOT_Y)) ** powr
         ring = []
         for s in range(TRUNK_SIDES):
             a = 2.0 * math.pi * s / TRUNK_SIDES
-            lobe = ((1.0 + math.cos(ROOTS * a)) / 2.0) ** 2        # 0..1, mean 3/8
-            rr = rad * flute[s] * (1.0 + amp * (lobe - 0.375)) * (1.0 + 0.02 * r.sf())
+            c8 = math.cos(PIERS * (a - th0))
+            lobe = ((1.0 + c8) / 2.0) ** 2        # 0..1, mean 3/8
+            rr = rad * (1.0 + share * TRUNK_FLUTE * c8) * (1.0 + amp * (lobe - 0.375)) * (1.0 + 0.012 * share * r.sf())
             ring.append(m.v((rr * math.cos(a), rr * math.sin(a), y)))
         rings.append(ring)
-    split = max(i for i, (y, _) in enumerate(TRUNK) if y < 0.0)
+    split = max(i for i, (y, _, _) in enumerate(TRUNK) if y < 0.0)
     loft(m, rings[:split + 1], "root")
-    loft(m, rings[split:], "bark")
-    _cap(m, rings[-1], (0.0, 0.0, TRUNK_CAP_Y), UP, "bark")
+    loft(m, rings[split:RIM_TOP], "bark")                                    # the trunk and the lip's outer face
+    loft(m, rings[RIM_TOP - 1:RIM_TOP + 2], "bark", want_fn=lambda c: UP)   # the lip's bevel and the rim top
+    loft(m, rings[RIM_TOP + 1:], "bark", want_fn=lambda c: (-c[0], -c[1], 4.0))   # the kerb: inward and up
     _cap(m, rings[0], (0.0, 0.0, FOOT_Y), DOWN, "root")
+    prev = rings[-1]
+    for (rad, nf) in FLOOR_RINGS:
+        ring = _circle(m, rad, FLOOR_Y, nf)
+        zipper(m, prev, ring, UP, "bark")
+        prev = ring
+    _cap(m, prev, (0.0, 0.0, FLOOR_Y), UP, "bark")
     return rings
 
 
-# ---- canopy -----------------------------------------------------------------
+# ---- ceiling and canopy -----------------------------------------------------
 
 def _canopy(m, r):
-    """The scalloped leaf disc: lobed rims, a round belly underneath (the piers
-    land on its outer band), the leaf top in to the sill, the flat floor.
-    Returns (belly rings, sill rings)."""
+    """The belly (the room's ceiling: round rings sagging to the centre, a
+    keystone boss hanging there), then the leaf disc from the belly rim out
+    and up over the lobed rim to the crown. Returns (belly, boss, disc rings)."""
     n = CANOPY_N
-    rings = []
-    for (y, frac, share) in CANOPY:
+    belly = [_circle(m, rad, y, n) for (rad, y) in BELLY]
+    loft(m, belly, "shade", want_fn=lambda c: DOWN)
+    boss = [_circle(m, rad, y, BOSS_N) for (rad, y) in BOSS]
+    zipper(m, belly[-1], boss[0], DOWN, "shade")
+    loft(m, boss, "bark", want_fn=lambda c: (c[0], c[1], -1.2))
+    _cap(m, boss[-1], (0.0, 0.0, BOSS_Y), DOWN, "bark")
+    jr, jy, jc = CANOPY_JITTER
+    disc = [belly[0]]
+    for i, (y, frac, share) in enumerate(CANOPY):
         ring = []
         for s in range(n):
             th = _canopy_theta(s)
-            rr = _canopy_R(th, share) * frac * (1.0 + 0.03 * r.sf())
-            ring.append(m.v((rr * math.cos(th), rr * math.sin(th), y + 0.18 * r.sf())))
-        rings.append(ring)
-    loft(m, rings[:2], "shade")
-    loft(m, rings[1:], "leaf")
-    # underside: round belly rings (no lobes, no jitter: the piers' landing), then in to the centre
-    belly = [rings[0]] + [_circle(m, rad, y, n) for (rad, y) in UNDER]
-    loft(m, belly, "shade", want_fn=lambda c: DOWN)
-    (rad, y, nc), yc = UNDER_CENTRE
-    inner = _circle(m, rad, y, nc, r, jy=0.12)
-    zipper(m, belly[-1], inner, DOWN, "shade")
-    _cap(m, inner, (0.0, 0.0, yc), DOWN, "shade")
-    # top: the outer leaf ring in over the lumpy top to the sill, over the sill, the flat floor
-    top = [rings[-1]]
-    for (rad, over) in TOP_RINGS:
-        top.append(_circle(m, rad, FLOOR_Y + over, n, r, jr=0.04, jy=0.12))
-    sill = [_circle(m, rad, FLOOR_Y + over, n) for (rad, over) in reversed(SILL)]
-    loft(m, top + sill[:1], "sun", want_fn=lambda c: UP)
-    loft(m, sill, "leaf", want_fn=lambda c: UP)
-    prev = sill[-1]
-    for (rad, nf) in FLOOR_RINGS:
-        ring = _circle(m, rad, FLOOR_Y, nf)
-        zipper(m, prev, ring, UP, "sun")
-        prev = ring
-    _cap(m, prev, (0.0, 0.0, FLOOR_Y), UP, "sun")
-    return belly[1:], list(reversed(sill))
+            sock = ROOF_BAND <= i <= ROOF_BAND + 1        # the branches' socket band: regular, so the rings land inside
+            rr = _canopy_R(th, share) * frac * (1.0 + (0.0 if sock else jr) * r.sf())
+            ring.append(m.v((rr * math.cos(th), rr * math.sin(th), y + (0.04 if sock else jc if i > ROOF_BAND + 1 else jy) * r.sf())))
+        disc.append(ring)
+    out_up = lambda c: (c[0], c[1], 0.4 * math.hypot(c[0], c[1]))
+    loft(m, disc[:3], "shade", want_fn=lambda c: (c[0], c[1], -0.3 * math.hypot(c[0], c[1])))   # the skirt under the rim
+    loft(m, disc[2:6], "leaf", want_fn=out_up)
+    loft(m, disc[5:], "sun", want_fn=out_up)   # the crown, lit
+    _cap(m, disc[-1], (0.0, 0.0, CANOPY_TOP_Y), UP, "sun")
+    return belly, boss, disc
 
 
-# ---- the split: piers out of the trunk, up into the canopy -----------------
+# ---- the piers: out of the rim, up into the belly ---------------------------
+
+def _pier_ring(b, path, i, radius):
+    """Pier ring points at path point i in the pier's own frame: ex toward the
+    neighbours (a side centred on it, where the arches and rails socket), ez
+    radial and squashed (a blade). The path lies in one vertical plane, so
+    the frame never twists. Returns (points, tangent)."""
+    n = len(path)
+    t = norm(sub(path[min(n - 1, i + 1)], path[max(0, i - 1)]))
+    rad = radial(b)
+    ez = norm(sub(rad, (t[0] * dot(rad, t), t[1] * dot(rad, t), t[2] * dot(rad, t))))
+    ex = cross(t, ez)
+    pts = []
+    for s in range(PIER_SIDES):
+        a = 2.0 * math.pi * (s + 0.5) / PIER_SIDES
+        pts.append(add(add(path[i], ex, radius * math.cos(a)), ez, radius * PIER_SQUASH * math.sin(a)))
+    return pts, t
+
 
 def _pier(m, r, k, trunk, belly):
-    """Pier k: its base ring is a socket in the trunk's split bands (5 sides
-    of 40 by 2 bands, centred on the bearing: two bands so the patch's sides
-    have a vertex halfway and no corner fans across the ring), its top ring
-    a socket in the canopy belly (4 quads of 56, centred on the vertex at the
-    bearing)."""
+    """Pier k: its base ring a socket in the rim top (PIER_BASE_SIDES sides of
+    the lip's top and bevel bands, centred on the bearing vertex, so the pier
+    is the trunk's ridge carrying on), its top ring a socket in the belly's
+    outer band (centred on the bearing vertex there too)."""
     b = _pier_bearing(k)
     path = [pol(b, rad, y) for (rad, y) in PIER_PATH]
-    per = TRUNK_SIDES // PIERS
-    s0 = int(round(-b / 360.0 * TRUNK_SIDES - per / 2.0)) % TRUNK_SIDES
-    sides = [(s0 + d) % TRUNK_SIDES for d in range(per)]
-    base = _patch(m, trunk[PIER_BAND], trunk[PIER_BAND + 1], sides) + _patch(m, trunk[PIER_BAND + 1], trunk[PIER_BAND + 2], sides)
-    out = norm(sub(_patch_centre(m, base), (0.0, 0.0, TRUNK[PIER_BAND + 1][0])))   # the band's mean normal, roughly
-    base = sorted(base, key=lambda q: -dot(norm(_newell([m.verts[i] for i in q])), out))
+    v = int(round(-b / 360.0 * TRUNK_SIDES)) % TRUNK_SIDES
+    sides = _grid_sides(v, TRUNK_SIDES, PIER_BASE_SIDES)
+    base = _patch(m, trunk[RIM_TOP], trunk[RIM_TOP + 1], sides) + _patch(m, trunk[RIM_TOP - 1], trunk[RIM_TOP], sides)
+    base = sorted(base, key=lambda q: -dot(norm(_newell([m.verts[i] for i in q])), UP))
+    vc = int(round(-b / 360.0 * CANOPY_N - 0.5)) % CANOPY_N
+    land = _patch(m, belly[0], belly[1], _grid_sides(vc, CANOPY_N, PIER_LAND_SIDES))
     path[0] = _patch_centre(m, base)
-    v = int(round(-b / 360.0 * CANOPY_N - 0.5)) % CANOPY_N
-    land = _patch(m, belly[0], belly[1], [(v + d) % CANOPY_N for d in (-2, -1, 0, 1)])
     path[-1] = _patch_centre(m, land)
-    first = _weld(m, base, path, PIER_R[0], PIER_SIDES, "bark", True, "pier base")
-    last = _weld(m, land, path, PIER_R[-1], PIER_SIDES, "shade", False, "pier top")
-    return tube(m, path, PIER_R, PIER_SIDES, "bark", caps=(False, False), wob=0.06, rng=r,
-                first_ring=first, last_ring=last)
+    pts, t = _pier_ring(b, path, 0, PIER_R[0])
+    first = _weld_pts(m, base, pts, t, "bark", "pier base")
+    pts, t = _pier_ring(b, path, len(path) - 1, PIER_R[-1])
+    last = _weld_pts(m, land, pts, t, "shade", "pier top")
+    rings = [first]
+    for i in range(1, len(path) - 1):
+        pts, _ = _pier_ring(b, path, i, _at(PIER_R, i / float(len(path) - 1)) * (1.0 + 0.03 * r.sf()))
+        rings.append([m.v(p) for p in pts])
+    rings.append(last)
+    for i in range(len(path) - 1):
+        axis = lerp(path[i], path[i + 1], 0.5)
+        for s in range(PIER_SIDES):
+            q = (s + 1) % PIER_SIDES
+            idx = (rings[i][s], rings[i][q], rings[i + 1][q], rings[i + 1][s])
+            m.quad(idx[0], idx[1], idx[2], idx[3], sub(m.centroid(idx), axis), "bark")
+    return rings
 
 
 def _apex(k):
-    """Where the arch between piers k and k+1 peaks: APEX, pulled in where a
-    lobe valley would let the arm poke out of the canopy."""
-    b = _pier_bearing(k) + 180.0 / PIERS
-    th = math.radians(-b)
-    y = APEX[1]
-    lo = hi = None
-    for i in range(len(CANOPY) - 1):
-        (y0, f0, s0), (y1, f1, s1) = CANOPY[i], CANOPY[i + 1]
-        if y0 <= y <= y1:
-            t = (y - y0) / (y1 - y0)
-            lo = _canopy_R(th, s0) * f0
-            hi = _canopy_R(th, s1) * f1
-            surface = lo + (hi - lo) * t
-    rad = min(APEX[0], surface * 0.97 - ARM_R[-1] - 0.3)
-    return pol(b, rad, y)
+    """Where the arch between piers k and k+1 peaks."""
+    return pol(_pier_bearing(k) + 180.0 / PIERS, APEX[0], APEX[1])
 
 
 def _arch(m, r, k, piers):
-    """One pointed arch: from a socket (2 sides of the pier's 8) in pier k's
-    outer side, up through the apex (a bezier corner) and down into a socket
-    in pier k+1's side."""
+    """One pointed arch: from a socket (3 sides of the pier's 8, centred on the
+    side facing the neighbour) in pier k at ARM_Y, up through the apex (a
+    bezier corner) and down into the matching socket in pier k+1."""
     apex = _apex(k)
     radii = ARM_R + tuple(reversed(ARM_R[:-1]))
     halves = []
@@ -1141,15 +1243,17 @@ def _arch(m, r, k, piers):
         b = _pier_bearing(kk)
         axis = _seg_axis(m, rings, ARM_SEG)
         side = norm(sub((apex[0], apex[1], axis[2]), axis))
-        face = norm(add(side, radial(b), ARM_OUT))
-        patch = _patch(m, rings[ARM_SEG], rings[ARM_SEG + 1], _facing(m, rings, ARM_SEG, face, 2))
+        rad = radial(b)
+        face = norm(add(sub(side, (rad[0] * dot(side, rad), rad[1] * dot(side, rad), 0.0)), rad, ARM_OUT))
+        patch = _patch_mid(m, rings[ARM_SEG], rings[ARM_SEG + 1], _facing(m, rings, ARM_SEG, face, 3))
         root = _patch_centre(m, patch)
+        root = (root[0], root[1], ARM_Y)
         out = norm(_newell([m.verts[i] for i in patch[0]]))    # the plane the ring is projected onto: leave square to it
         if dot(out, sub(root, axis)) < 0.0:
             out = (-out[0], -out[1], -out[2])
-        q = add(root, norm(add(out, UP, ARM_LIFT)), 1.0)
+        q = add(root, out, ARM_STUB)      # square out of the pier (the socket ring stays round), then the bend up
         pull = pol(b + sgn * ARM_PULL[0], ARM_PULL[1], ARM_PULL[2])
-        halves.append((patch, [root, q] + bez(q, pull, apex, 4)[1:]))
+        halves.append((patch, [root, q] + bez(q, pull, apex, 5)[1:]))
     (pa, ha), (pb, hb) = halves
     path = ha + list(reversed(hb))[1:]
     first = _weld(m, pa, path, ARM_R[0], 6, "bark", True, "arm root")
@@ -1157,60 +1261,84 @@ def _arch(m, r, k, piers):
     tube(m, path, radii, 6, "bark", caps=(False, False), wob=0.05, rng=r, first_ring=first, last_ring=last)
 
 
-def _rungs(m, r, k, piers):
-    """Twig rungs across the opening on pier k's clockwise side: both ends
-    are sockets in the piers' facing quads (one side of the pier's 8)."""
+def _rail(m, r, k, piers):
+    """The twig rail across the opening on pier k's clockwise side, at RAIL_Y:
+    both ends are sockets in the piers' facing sides (3 of the pier's 8)."""
     ra, rc = piers[k], piers[(k + 1) % PIERS]
-    for seg in RUNG_SEGS:
-        aa, cc = _seg_axis(m, ra, seg), _seg_axis(m, rc, seg)
-        d = norm((cc[0] - aa[0], cc[1] - aa[1], 0.0))
-        pa = _patch(m, ra[seg], ra[seg + 1], _facing(m, ra, seg, d, 1))
-        pc = _patch(m, rc[seg], rc[seg + 1], _facing(m, rc, seg, (-d[0], -d[1], 0.0), 1))
-        a, c = _patch_centre(m, pa), _patch_centre(m, pc)
-        mid = lerp(a, c, 0.5)
-        path = bez(a, (mid[0], mid[1], mid[2] - RUNG_SAG), c, 3)
-        first = _weld(m, pa, path, RUNG_R, 4, "bark", True, "rung")
-        last = _weld(m, pc, path, RUNG_R, 4, "bark", False, "rung")
-        tube(m, path, (RUNG_R, RUNG_R * 0.9), 4, "bark", caps=(False, False), wob=0.1, rng=r,
-             first_ring=first, last_ring=last)
+    seg = RAIL_SEG
+    aa, cc = _seg_axis(m, ra, seg), _seg_axis(m, rc, seg)
+    ta, tc = tangent(_pier_bearing(k)), tangent(_pier_bearing((k + 1) % PIERS))
+    d = (cc[0] - aa[0], cc[1] - aa[1], 0.0)
+    da = ta if dot(ta, d) > 0.0 else (-ta[0], -ta[1], 0.0)      # square to each pier: the side facing its neighbour
+    dc = tc if dot(tc, d) < 0.0 else (-tc[0], -tc[1], 0.0)
+    pa = _patch_mid(m, ra[seg], ra[seg + 1], _facing(m, ra, seg, da, 3))
+    pc = _patch_mid(m, rc[seg], rc[seg + 1], _facing(m, rc, seg, dc, 3))
+    a, c = _patch_centre(m, pa), _patch_centre(m, pc)
+    a, c = (a[0], a[1], RAIL_Y), (c[0], c[1], RAIL_Y)
+    mid = lerp(a, c, 0.5)
+    path = bez(a, (mid[0], mid[1], mid[2] - RAIL_SAG), c, 3)
+    first = _weld(m, pa, path, RAIL_R, 4, "bark", True, "rail")
+    last = _weld(m, pc, path, RAIL_R, 4, "bark", False, "rail")
+    tube(m, path, (RAIL_R, RAIL_R * 0.9), 4, "bark", caps=(False, False), wob=0.0, rng=r,
+         first_ring=first, last_ring=last)
+
+
+def _rib(m, r, k, belly, boss):
+    """Vault rib k: out of a socket in the belly band inboard of pier k's
+    landing, swinging down under the ceiling and into the keystone boss's
+    side (2 sides of its 24, centred on the bearing vertex)."""
+    b = _pier_bearing(k)
+    n = CANOPY_N
+    vc = int(round(-b / 360.0 * n - 0.5)) % n
+    outer = _patch(m, belly[RIB_BAND], belly[RIB_BAND + 1], _grid_sides(vc, n, 4))
+    vb = int(round(-b / 360.0 * BOSS_N - 0.5)) % BOSS_N
+    inner = _patch(m, boss[0], boss[1], _grid_sides(vb, BOSS_N, 2))
+    a, c = _patch_centre(m, outer), _patch_centre(m, inner)
+    path = [a] + [pol(b, rad, y) for (rad, y) in RIB_PATH] + [c]
+    first = _weld(m, outer, path, RIB_R, RIB_SIDES, "shade", True, "rib")
+    last = _weld(m, inner, path, RIB_R, RIB_SIDES, "bark", False, "rib boss")
+    tube(m, path, (RIB_R, RIB_R * 0.95, RIB_R * 0.9), RIB_SIDES, "bark", caps=(False, False), wob=0.04, rng=r,
+         first_ring=first, last_ring=last)
 
 
 # ---- roof -------------------------------------------------------------------
 
 def _clump(m, ring, centre, radius, zone, r):
-    clump_end(m, _by_azimuth(m, ring, centre), centre, radius, zone, r)
+    clump_end(m, _by_azimuth(m, ring, centre), centre, radius, zone, r, wob=0.18)
 
 
-def _roof(m, r, sill):
-    """ROOF_N thin branches out of sockets in the sill top, leaning in, each
-    ending in a leaf clump; one side twig each, ending in a smaller clump."""
-    inner, outer = sill[1], sill[2]        # the sill top band
+def _roof(m, r, disc):
+    """ROOF_N short thick branches out of sockets in the canopy top's ROOF_BAND,
+    leaning out and up, each ending in a leaf clump; one side twig each,
+    ending in a smaller clump: the crown's lumps."""
+    outer, inner = disc[ROOF_BAND + 1], disc[ROOF_BAND + 2]
     n = CANOPY_N
     for k in range(ROOF_N):
         b = k * 360.0 / ROOF_N + 30.0 + r.u(-6.0, 6.0)
         v = int(round(-b / 360.0 * n - 0.5)) % n
-        b = -math.degrees(_canopy_theta(v))     # snapped to the sill vertex
-        patch = _patch(m, inner, outer, [(v - 1) % n, v])
+        b = -math.degrees(_canopy_theta(v))     # snapped to the band's vertex
+        patch = _patch(m, outer, inner, [(v - 1) % n, v])
         root = _patch_centre(m, patch)
-        pull = pol(b, ROOF_P[0][0], ROOF_P[0][1])
-        tip = pol(b + r.u(-10.0, 10.0), ROOF_P[1][0], ROOF_P[1][1])
-        path = bez(root, pull, tip, 6)
+        rr = math.hypot(root[0], root[1])
+        pull = pol(b, rr + ROOF_P[0][0], ROOF_P[0][1])
+        tip = pol(b + r.u(-2.0, 2.0), rr + ROOF_P[1][0], ROOF_P[1][1])   # near enough straight up that the socket ring stays round
+        path = bez(root, pull, tip, ROOF_SEGS)
         first = _weld(m, patch, path, ROOF_R[0], ROOF_SIDES, "leaf", True, "roof branch")
         rings = tube(m, path, ROOF_R, ROOF_SIDES, "bark", caps=(False, False), wob=0.06, rng=r, first_ring=first)
         _clump(m, rings[-1], add(tip, UP, ROOF_CLUMP[1]), ROOF_CLUMP[0], "sun", r)
-        # the side twig: out of the branch's outer side, bending up, widened to six for its clump
-        seg = int(round(TWIG_T * 6))
+        # the side twig: out of the branch's side, bending up, widened to six for its clump
+        seg = int(round(TWIG_T * ROOF_SEGS))
         axis = _seg_axis(m, rings, seg)
-        want = norm(add(radial(b), tangent(b), r.pick((-0.7, 0.7))))
-        tp = _patch(m, rings[seg], rings[seg + 1], _facing(m, rings, seg, want, 2))
+        want = tangent(b) if r.f() < 0.5 else (-tangent(b)[0], -tangent(b)[1], 0.0)   # a tangential side: its normal is level, so the twig leaves sideways, not down into the leaves
+        tp = _patch_mid(m, rings[seg], rings[seg + 1], _facing(m, rings, seg, want, 3))   # centred on a side: the ring sits flat on it
         troot = _patch_centre(m, tp)
         out = norm(sub(troot, axis))
         tpath = [troot, add(troot, out, 0.35), add(add(troot, out, 0.55), UP, 0.45), add(add(troot, out, 0.6), UP, 0.95)]
         tfirst = _weld(m, tp, tpath, TWIG_R, 4, "bark", True, "twig")
         trings = tube(m, tpath, (TWIG_R, TWIG_R * 0.8, TWIG_R * 0.6), 4, "bark", caps=(False, False), first_ring=tfirst)
         end = tpath[-1]
-        six = [m.v((end[0] + 0.3 * math.cos(_canopy_theta(s, 6)), end[1] + 0.3 * math.sin(_canopy_theta(s, 6)), end[2] + 0.12))
-               for s in range(6)]
+        six = [m.v((end[0] + 0.45 * math.cos(_canopy_theta(s, 6)), end[1] + 0.45 * math.sin(_canopy_theta(s, 6)), end[2] + 0.12))
+               for s in range(6)]     # r 0.45: near enough the clump's first ring that no bridging triangle goes thin
         zipper(m, six, _by_azimuth(m, trings[-1], end), UP, "sun", centre=end)
         _clump(m, six, add(end, UP, TWIG_CLUMP[1]), TWIG_CLUMP[0], "sun", r)
 
@@ -1220,17 +1348,18 @@ def build_tree_geometry():
     m = _Mesh()
     r = _Rng(SEED)
     trunk = _trunk(m, r)
-    belly, sill = _canopy(m, r)
+    belly, boss, disc = _canopy(m, r)
     piers = [_pier(m, r, k, trunk, belly) for k in range(PIERS)]
     for k in range(PIERS):
         _arch(m, r, k, piers)
-        _rungs(m, r, k, piers)
-    _roof(m, r, sill)
+        _rail(m, r, k, piers)
+        _rib(m, r, k, belly, boss)
+    _roof(m, r, disc)
     return _prune(m)
 
 
 def _prune(m):
-    """Drop the vertices no face references: a socket patch two quads tall
+    """Drop the vertices no face references: a socket patch two bands tall
     takes its inner vertices with it (the pier bases)."""
     used = set()
     for f in m.faces:
@@ -1248,24 +1377,21 @@ def _prune(m):
 
 
 def build_tree_collider():
+    """Trunk cylinder r 5 (foot to floor), the flat floor, the rim, the
+    canopy's outer slope."""
     c = _Mesh()
     n = 24
     circ = lambda rad, y: [c.v((rad * math.cos(2.0 * math.pi * s / n),
                                 rad * math.sin(2.0 * math.pi * s / n), y)) for s in range(n)]
     floor = circ(FLOOR_R, FLOOR_Y)
-    c.fan(floor, UP, "sun")
-    prev = floor
-    for (rad, over) in SILL[1:]:
-        ring = circ(rad, FLOOR_Y + over)
-        loft(c, [prev, ring], "leaf", want_fn=lambda p: UP)
-        prev = ring
-    for (rad, y) in ((CANOPY_R * 0.9, 25.4), (UNDER[0][0], 24.4)):
-        ring = circ(rad, y)
-        loft(c, [prev, ring], "leaf", want_fn=lambda p: (p[0], p[1], 0.6))
-        prev = ring
-    trunk = [circ(5.0, FOOT_Y), circ(5.0, 14.5)]
-    loft(c, trunk, "bark")
-    c.fan(trunk[1], UP, "bark")
+    c.fan(floor, UP, "bark")
+    rim = [floor, circ(5.2, FLOOR_Y + 0.55), circ(7.0, FLOOR_Y + 0.55), circ(7.0, FLOOR_Y)]
+    loft(c, rim[:3], "bark", want_fn=lambda p: UP)
+    loft(c, rim[2:], "bark")
+    loft(c, [circ(FLOOR_R, FOOT_Y), floor], "bark")
+    canopy = [circ(CANOPY_R, CANOPY[1][0]), circ(8.5, 36.0), circ(4.5, 36.9)]
+    loft(c, canopy, "leaf", want_fn=lambda p: (p[0], p[1], 0.6 * math.hypot(p[0], p[1])))
+    c.fan(canopy[-1], UP, "leaf")
     return c
 
 

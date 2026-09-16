@@ -7,13 +7,12 @@ and the sun coming through gaps in the canopy from one side.
 Authored in WORLD coordinates so the scene instances it at identity
 (Blender +Z -> Godot +Y, Blender +Y -> Godot -Z; bearings as map 1's pol()):
 
-    water ............  y -11.05  the pit floor, r 42 (map 1's sea height)
+    pit floor ........  y -11.05  dark earth under the fog, r 42 (map 1's sea height)
     lane .............  y 23.0    grass, r 46.7..57.3, as map 1; a worn path down its middle
     leaf wall ........  r 57.3 at the foot, 60 at the ceiling; bark pilasters bulge out of it
     leaf ceiling .....  y 33.0 at the wall, doming to 41.0 over the tree
 
-ONE CONTIGUOUS mesh (ForestGround) with two surfaces: the forest atlas and the
-water sheet. Every part shares vertices with what it grows from: the grids
+ONE CONTIGUOUS mesh (ForestGround), one surface (the forest atlas). Every part shares vertices with what it grows from: the grids
 share their seam rows, the water rings inward from the bank's last row, ferns,
 hummocks, cell bars, the fence and the hanging roots are socketed into the
 quads they stand on (_Mesh.socket), the forest trunks are wall columns pushed
@@ -31,8 +30,10 @@ annulus, the fence box at 350 deg. The leafy visual mesh is never its own
 collider.
 
 Textures: painted atlas (forest_tree_build.paint_atlas) unless
-textures/forest_atlas_albedo.png exists; the water likewise from
-textures/forest_water_albedo.png. USE_TEXTURE_FILES turns the files on.
+textures/forest_atlas_albedo.png exists. USE_TEXTURE_FILES turns the files on.
+The leaf ceiling (sheet, gaps, limbs, clumps, vines) is forest_ceiling_build;
+the pit's dark floor, fog layers (ForestFog: stacked translucent discs, alpha in
+COLOR_0, for GL Compatibility) and thorny brambles are forest_pit_build.
 
     tools/modelling/model build forest
     python3 tools/modelling/forest_build.py --check
@@ -59,6 +60,8 @@ if bpy is not None:
 import forest_tree_build as ft  # noqa: E402
 from forest_tree_build import (_Mesh, _Rng, UP, DOWN, pol, radial, tangent, add, sub, norm, dot,  # noqa: E402
                                lerp, bez, loft, zipper, plane_of)
+import forest_ceiling_build as fc  # noqa: E402  the leaf ceiling: sheet, gaps, limbs, clumps, vines
+import forest_pit_build as fp  # noqa: E402  the pit: dark floor, fog layers, thorny brambles
 
 # =============================================================================
 # TUNABLES
@@ -78,8 +81,7 @@ OUTER_R = 57.3
 DECK_Z = 23.0
 WATER_Z = -11.05            # map 1's lava sea height: the pit is 34 m deep
 WATER_R = 42.0
-CEIL_Z = 33.0               # the leaf ceiling at the wall ...
-CEIL_DOME = 8.0             # ... and this much higher over the centre
+CEIL_Z = fc.CEIL_Z          # the leaf ceiling at the wall (its dome and gaps live in forest_ceiling_build)
 SEED = 9110271
 EYE_H = 1.65
 
@@ -109,26 +111,19 @@ PIT_ROOT_PUSH = 0.28
 PIT_ROOT_ROWS = (3, len(PIT) - 2)
 
 WALL = [(57.3, 23.0), (57.3, 23.3), (57.35, 25.05), (57.5, 26.8), (58.0, 28.6),
-        (58.8, 30.6), (60.0, CEIL_Z)]               # (r, z) foot to ceiling
+        (58.8, 30.6), (59.3, 31.8), (60.0, CEIL_Z)]   # (r, z) foot to ceiling
 WALL_BULGE = 0.45           # outward-only on the low rows, both ways above
 WALL_ZJAG = 0.3
 
-CEIL_R = [60.0, 57.0, 54.0, 51.0, 48.0, 45.0, 41.5, 37.0, 32.0, 26.5, 20.5, 14.0, 8.0, 3.0]
-CEIL_N = [NC] * 11 + [120, 60, 24]      # vertices per ring: the centre thins out, no sliver fan
-CEIL_LUMP = 0.45
-# (bearing, ring band): a 2-column hole through the leaf ceiling, and a sun ray
-GAPS = [(15.0, 2), (58.0, 4), (140.0, 5), (175.0, 2), (215.0, 4),
-        (290.0, 5), (325.0, 2), (30.0, 7), (240.0, 9)]
 SUN = (120.0, 52.0)         # the sun's bearing and elevation: rays come from this side
-RAY_W = (0.9, 0.5)          # a shaft's half width at the top and at the foot: 1.8 m tapering to 1.0
+RAY_W = (0.9, 0.5)          # a shaft's half width at the top and at the foot for a 3 x 3 m gap: 1.8 m tapering
+                            # to 1.0; a gap's own width (fc: g.rays carries it) scales both
 RAY_IN = 0.9                # the shaft starts this far up its gap, so the ceiling hides its end
 RAY_OVER = 0.6              # ... and runs this far into whatever it lands on
 RAY_FADE = (0.18, 0.82)     # along the shaft, alpha ramps up to here and back down from here
 RAY_VANES = 3               # planes crossed on the axis: something faces every camera
 RAY_SOLID = ((1.0, 0.93, 0.60), 0.16)   # tint, peak alpha PER VANE: three vanes overlap on the axis,
 RAY_SOFT = ((1.0, 0.95, 0.72), 0.06)    # so a shaft reads at 0.25..0.4 (solid) and faint (soft)
-
-WATER_RINGS = [(31.0, 120), (20.0, 60), (9.0, 24)]   # (r, vertices) inward from the bank's 240
 
 # forest trunks: five wall columns each, pushed toward the lane as a bark pilaster
 TRUNKS = [8.0, 38.0, 66.0, 92.0, 120.0, 148.0, 176.0, 204.0, 232.0, 258.0, 286.0, 342.0]
@@ -138,7 +133,14 @@ TRUNK_FLARE = (1.3, 1.15)   # the root flare: wall rows 0 and 1 push this much m
 TRUNK_WANDER = 0.06
 
 WALL_CELLS = [22.0, 50.0, 78.0, 104.0, 131.0, 158.0, 186.0, 212.0, 240.0, 268.0, 296.0, 318.0]
-WALL_CELL_ROWS = (1, 2, 3)  # sill, jamb, apex rows of WALL
+WALL_CELL_ROWS = (1, 2, 3)  # sill, jamb, apex rows of WALL: the lane tier, sill 0.3 m over the grass
+# the upper tier: two per bay between neighbouring TRUNKS, 6..7.5 deg either side of the bay's
+# lower cell so the tiers stagger like brick; none between 328 and 12 deg (the fence, the portal)
+# and none nearer a trunk than 4.5 deg (two bays only fit one, so the wide 286..342 bay takes four)
+WALL_CELLS_UPPER = [15.0, 30.0, 43.5, 57.0, 72.0, 84.0, 97.5, 111.0, 124.5, 138.0, 153.0, 165.0,
+                    180.0, 193.5, 219.0, 247.5, 262.5, 276.0, 291.0, 303.0, 310.5, 325.5]
+WALL_CELL_ROWS_UPPER = (4, 5, 6)   # sill 28.6, jamb 30.6, apex 31.8: 1.2 m of leaf to the ceiling
+WALL_TIERS = ((WALL_CELLS, WALL_CELL_ROWS), (WALL_CELLS_UPPER, WALL_CELL_ROWS_UPPER))
 WALL_CELL_D = 2.5
 _PIT_CELL_ROWS = [(7, 1), (12, 2), (16, 1), (9, 1), (14, 1), (18, 1),
                   (6, 1), (11, 2), (15, 1), (8, 2), (13, 1), (17, 1)]   # (sill row of PIT, bands tall)
@@ -175,11 +177,6 @@ FENCE_LOG_Z = (23.2, 23.62) # its axis height at the lip end and at the wall (it
 FENCE_RAIL_R = 0.24
 FENCE_TOP = 29.5            # the top rail's axis
 FENCE_BOX_TOP = 34.5        # the collider box: nobody jumps the fence
-
-# ---- water: its own tiling sheet ----------------------------------------------
-WATER_TEX = 128
-WATER_TILE = 7.0            # metres per repeat
-WATER_SEED = 5140737
 
 REVIEW_SUN = 6.0            # review renders only: the sun from SUN, watts, shadows on (light variant)
 REVIEW_FILL = 1.1           # ... a second sun from the far side, no shadows
@@ -404,6 +401,7 @@ class _Ground(object):
         self.bank_f = _field(self.r, wl=(3.0, 9.0))
         self.wall_f = _field(self.r, wl=(2.0, 5.0))
         self.ceil_f = _field(self.r, wl=(3.0, 8.0))
+        self.ceil_pole = None
         self.deck = []      # deck[j][i] vertex ids, j over DECK_RST
         self.pit = []       # pit[j][i], j over PIT
         self.wall = []      # wall[j][i], j over WALL
@@ -425,9 +423,10 @@ class _Ground(object):
         for (b, s, h) in PIT_CELLS:
             for k in range(1, h + 1):
                 self.hollow["pit"].add((s - k, (_col_of(b) + 1) % NC))
-        for b in WALL_CELLS:
-            self.hollow["wall"].add((WALL_CELL_ROWS[0] + 1, (_col_of(b) + 1) % NC))
-        self.rays = []      # top quad points per gap
+        for (cells, rows) in WALL_TIERS:                 # the jamb row's middle vertex of every mouth
+            for b in cells:
+                self.hollow["wall"].add((rows[1], (_col_of(b) + 1) % NC))
+        self.rays = []      # (the gap's four corner points, its half width at the top) per ceiling gap: fc fills it
 
     def _trunk_push(self, i, j):
         """How far wall column i is pushed toward the lane at wall row j: the pilasters."""
@@ -474,11 +473,13 @@ class _Ground(object):
 
     def _wall_rows(self):
         m = self.m
-        mouths = set()
-        for b in WALL_CELLS:
-            c0 = _col_of(b)
-            for i in (c0, c0 + 1, c0 + 2):
-                mouths.add(i % NC)
+        mouths = set()      # (row, col) on a mouth's outline, sill to apex, either tier: no bulge there
+        for (cells, rows) in WALL_TIERS:
+            for b in cells:
+                c0 = _col_of(b)
+                for j in range(rows[0], rows[2] + 1):
+                    for i in (c0, c0 + 1, c0 + 2):
+                        mouths.add((j, i % NC))
         self.wall.append(self.deck[-1])                      # the foot is the deck's edge
         for j, (rad, z) in enumerate(WALL[1:], start=1):
             row = []
@@ -491,29 +492,14 @@ class _Ground(object):
                 push = self._trunk_push(i, j)
                 if push > 0.0:
                     rr -= push
-                elif not (i in mouths and j <= WALL_CELL_ROWS[2]):
+                elif (j, i) not in mouths:
                     p = pol(b, rad, z)
                     f = self.wall_f(p[0] * 0.7, z * 0.9)
                     rr += WALL_BULGE * (0.5 + 0.5 * f) if j <= 3 else WALL_BULGE * f
-                    if 2 <= j <= 5:
+                    if 2 <= j < len(WALL) - 1:
                         zz += WALL_ZJAG * self.wall_f(p[1] * 0.7, z + 30.0)
                 row.append(m.v(pol(b, rr, zz)))
             self.wall.append(row)
-
-    def _ceil_rows(self):
-        m = self.m
-        self.ceil.append(self.wall[-1])
-        for k, rad in enumerate(CEIL_R[1:], start=1):
-            row = []
-            n = CEIL_N[k]
-            for i in range(n):
-                b = i * 360.0 / n
-                p = pol(b, rad, 0.0)
-                z = CEIL_Z + CEIL_DOME * (1.0 - (rad / 60.0) ** 2)
-                z += CEIL_LUMP * self.ceil_f(p[0] * 0.5, p[1] * 0.5)
-                row.append(m.v((p[0], p[1], z)))
-            self.ceil.append(row)
-        self.ceil_pole = m.v((0.0, 0.0, CEIL_Z + CEIL_DOME + 0.3))
 
     # ---- faces -------------------------------------------------------------
     def _deck_quad(self, j, i):
@@ -707,46 +693,9 @@ class _Ground(object):
         self.pit_cells = self._cell_faces(self.pit, cells, PIT_CELL_D, -1, zone, "cell", PIT_BAR_R, PIT_BAR_PITCH, False)
 
     def _wall_faces(self):
-        cells = [(_col_of(b), WALL_CELL_ROWS[0], 1) for b in WALL_CELLS]
+        cells = [(_col_of(b), rows[0], 1) for (tier, rows) in WALL_TIERS for b in tier]   # the lane tier first
         zone = lambda j, i: ("bark" if i in self.bark_cols else ("edge" if j == 0 else "leaf"))
         self.wall_cells = self._cell_faces(self.wall, cells, WALL_CELL_D, 1, zone, "cell", BAR_R, BAR_PITCH, True)
-
-    def _ceil_faces(self):
-        m = self.m
-        holes = {}
-        for (b, k) in GAPS:
-            c0 = _col_of(b)
-            holes[(c0, k)] = True
-            holes[((c0 + 1) % NC, k)] = True
-        for k in range(len(self.ceil) - 1):
-            a, b = self.ceil[k], self.ceil[k + 1]
-            if len(a) != len(b):
-                zipper(m, a, b, DOWN, "shade", centre=(0.0, 0.0, 0.0))
-                continue
-            for i in range(NC):
-                q = (i + 1) % NC
-                if (i, k) in holes:
-                    continue
-                m.quad(a[i], a[q], b[q], b[i], DOWN, "shade")
-        last = self.ceil[-1]
-        for i in range(len(last)):
-            q = (i + 1) % len(last)
-            m.tri(self.ceil_pole, last[i], last[q], DOWN, "shade")
-        for (b, k) in GAPS:
-            c0 = _col_of(b)
-            ids = (self.ceil[k][c0], self.ceil[k][(c0 + 2) % NC], self.ceil[k + 1][(c0 + 2) % NC], self.ceil[k + 1][c0])
-            c = m.centroid(ids)
-            self.rays.append([m.verts[i] for i in ids])   # the gap's corners: its centre is the shaft's
-
-    def _water(self):
-        """The water: rings inward from the bank's last row, thinning out to a small fan."""
-        m = self.m
-        outer = self.pit[-1]
-        for (rad, n) in WATER_RINGS:
-            ring = [m.v(pol(360.0 * s / n, rad, WATER_Z)) for s in range(n)]
-            zipper(m, outer, ring, UP, "water", centre=(0.0, 0.0, 0.0))
-            outer = ring
-        m.fan(outer, UP, "water")
 
     # ---- dressing: everything socketed into the quad it stands on --------------
     def _plane_pt(self, plane, x, y):
@@ -936,8 +885,8 @@ class _Ground(object):
         S = (math.cos(math.radians(se)) * math.cos(math.radians(-sb)),
              math.cos(math.radians(se)) * math.sin(math.radians(-sb)),
              math.sin(math.radians(se)))
-        for top in self.rays:
-            c = tuple(sum(p[k] for p in top) / 4.0 for k in range(3))
+        for (top, half_w) in self.rays:
+            c = tuple(sum(p[k] for p in top) / float(len(top)) for k in range(3))
             L = (c[2] - DECK_Z) / S[2]
             foot = add(c, S, -L)
             rad = math.hypot(foot[0], foot[1])
@@ -962,7 +911,7 @@ class _Ground(object):
                     else:
                         lo = mid
                 foot = add(c, S, -lo)
-            out.append((add(c, S, RAY_IN), add(foot, S, -RAY_OVER), S))
+            out.append((add(c, S, RAY_IN), add(foot, S, -RAY_OVER), S, half_w / RAY_W[0]))
         return out
 
     # ---- build -------------------------------------------------------------
@@ -980,15 +929,17 @@ class _Ground(object):
         self._deck_rows()
         self._pit_rows()
         self._wall_rows()
-        self._ceil_rows()
+        fc.ceil_rows(self)          # the leaf sheet's rings over the wall's top row
         self._deck_faces()
         self._pit_faces()
         self._wall_faces()
-        self._ceil_faces()
-        self._water()
+        fc.ceil_faces(self)         # the sheet, its gaps (self.rays), the pole
+        fp.pit_floor(self)          # the dark floor grown inward off the bank's last row
         self._ferns()
         self._hanging_roots()
         self._fence()
+        fc.dress(self)              # limbs, crossing branches, hanging clumps and vines under the sheet
+        fp.brambles(self)           # thorny branches out of the bank, some over the rim
         return self.m
 
 
@@ -1027,7 +978,7 @@ def _ray_mesh(lines, tint, peak):
     RAY_W[0] to RAY_W[1]."""
     m = _RayMesh()
     rows = (0.0, RAY_FADE[0], RAY_FADE[1], 1.0)
-    for (top, foot, S) in lines:
+    for (top, foot, S, wscale) in lines:
         axis = sub(foot, top)
         ex = norm(cross3(S, UP))
         ez = norm(cross3(ex, S))
@@ -1036,7 +987,7 @@ def _ray_mesh(lines, tint, peak):
             side = add((ex[0] * math.cos(a), ex[1] * math.cos(a), ex[2] * math.cos(a)), ez, math.sin(a))
             grid = []
             for t in rows:
-                w = RAY_W[0] + (RAY_W[1] - RAY_W[0]) * t
+                w = (RAY_W[0] + (RAY_W[1] - RAY_W[0]) * t) * wscale
                 c = add(top, axis, t)
                 on = peak if RAY_FADE[0] - 1e-9 <= t <= RAY_FADE[1] + 1e-9 else 0.0
                 grid.append([m.cv(add(c, side, -w), tint + (0.0,)),
@@ -1079,7 +1030,7 @@ def build_collider():
     loft(c, [lip, foot], "grass", want_fn=lambda p: UP)
     pit = [lip, ring(45.2, 21.5), ring(44.2, 14.0), ring(43.0, 3.5), ring(WATER_R, WATER_Z), ring(WATER_R - 0.5, WATER_Z - 2.45)]
     loft(c, pit, "earth", want_fn=lambda p: (-p[0], -p[1], 0.0))
-    c.fan(pit[-1], UP, "water")
+    c.fan(pit[-1], UP, "earth")
     wall = [foot, ring(OUTER_R, CEIL_Z)]
     loft(c, wall, "leaf", want_fn=lambda p: (-p[0], -p[1], 0.0))
     ceil = [wall[1], ring(44.0, CEIL_Z)]
@@ -1108,41 +1059,6 @@ def build_collider():
     c.quad(box[0][0], box[1][0], box[3][0], box[2][0], (-lo[0][0], -lo[0][1], 0.0), "bark")
     c.quad(box[0][1], box[1][1], box[3][1], box[2][1], (lo[1][0], lo[1][1], 0.0), "bark")
     return c
-
-
-# =============================================================================
-# WATER SHEET
-# =============================================================================
-
-def _water_texture():
-    c = ft._Canvas(WATER_TEX)
-    r = _Rng(WATER_SEED)
-    for y in range(WATER_TEX):
-        for x in range(WATER_TEX):
-            s = r.pick([(44, 96, 104), (40, 90, 98), (48, 102, 110), (42, 94, 100)])
-            c.put(x, y, s, (10, 24, 28))
-    for _ in range(26):                          # ripple arcs, wrapping
-        x, y = r.i(0, WATER_TEX - 1), r.i(0, WATER_TEX - 1)
-        n = r.i(6, 18)
-        for k in range(n):
-            xx = x + k
-            yy = y + int(round(1.5 * math.sin(k / float(n) * math.pi)))
-            c.wrap(xx, yy, (70, 140, 150), (16, 34, 38))
-            if k % 3 == 0:
-                c.wrap(xx, yy + 1, (58, 122, 132), (12, 28, 32))
-    for _ in range(30):
-        x, y = r.i(0, WATER_TEX - 1), r.i(0, WATER_TEX - 1)
-        c.wrap(x, y, (36, 80, 88), (8, 20, 24))
-        c.wrap(x + 1, y, (36, 80, 88), (8, 20, 24))
-    for _ in range(8):                           # a few bright flecks
-        c.wrap(r.i(0, WATER_TEX - 1), r.i(0, WATER_TEX - 1), (150, 200, 200), (40, 60, 60))
-    return ft._images(c, WATER_TEX, ("forest_water_albedo", "forest_water_emissive"))
-
-
-def _water_uv(me, uvl, poly):
-    for li in poly.loop_indices:
-        co = me.vertices[me.loops[li].vertex_index].co
-        uvl.data[li].uv = (co.x / WATER_TILE, co.y / WATER_TILE)
 
 
 def _ray_material(name, colour):
@@ -1253,6 +1169,9 @@ def _forest_render(spec, objects):
     tree = ft.build_render_copy(INFO["albedo"], INFO["emissive"])
     rays = {ob.name: ob for ob in objects if ob.name in (RAYS_SOLID_NAME, RAYS_SOFT_NAME)}
     solid, soft = rays.get(RAYS_SOLID_NAME), rays.get(RAYS_SOFT_NAME)
+    for ob in objects:              # the fog stays in every shot
+        if ob.name == fp.FOG_NAME:
+            ob.hide_render = False
 
     target = mdl._link(bpy.data.objects.new("ForestTarget", None))
     cam = mdl._link(bpy.data.objects.new("ForestCam", bpy.data.cameras.new("ForestCam")))
@@ -1320,7 +1239,9 @@ def _forest_render(spec, objects):
         shot("lane", pol(200.0, 52.0, eye), pol(232.0, 50.5, DECK_Z + 1.0), 22.0, (1400, 800))
         shot("lane_tree", pol(60.0, 53.5, eye), (0.0, 0.0, 24.0), 24.0, (1400, 900))
         shot("guard", (0.0, 0.0, ft.FLOOR_Y + EYE_H), pol(150.0, 52.0, DECK_Z), 24.0, (1400, 800))
-        shot("guard_seat", pol(300.0, 9.5, ft.FLOOR_Y + 2.6), (0.0, 0.0, ft.FLOOR_Y + 1.0), 28.0, (1200, 900))
+        shot("guard_seat", pol(300.0, 13.0, ft.FLOOR_Y + 2.2), (0.0, 0.0, ft.FLOOR_Y + 2.4), 30.0, (1200, 900))
+        shot("seat", pol(330.0, 1.2, ft.FLOOR_Y + EYE_H), pol(150.0, 40.0, DECK_Z + 1.0), 16.0, (1400, 800))
+        shot("pit_fog", pol(250.0, 49.5, eye + 0.6), pol(200.0, 30.0, 8.0), 20.0, (1400, 900))
         shot("aerial", pol(330.0, 118.0, 105.0), (0.0, 0.0, 18.0), 30.0, (1500, 1100))
         shot("tower", pol(180.0, 56.5, eye), (0.0, 0.0, 14.0), 20.0, (900, 1300))
         shot("pit", pol(90.0, 46.9, eye), pol(60.0, 30.0, 2.0), 22.0, (1200, 900))
@@ -1333,6 +1254,11 @@ def _forest_render(spec, objects):
             inside = (inside[0], inside[1], mc[2] + 0.3)
             shot("cell", inside, pol(bmid + 25.0, 30.0, 20.0), 20.0, (1200, 900))
             shot("cell_front", pol(bmid - 6.0, 53.5, eye), (mc[0], mc[1], mc[2] + 0.4), 30.0, (1200, 900))
+        if len(INFO.get("wall_cells", [])) > len(WALL_CELLS):     # the upper tier, from the lane looking up
+            uppers = INFO["wall_cells"][len(WALL_CELLS):]
+            mouth, _back, bmid = min(uppers, key=lambda c: abs(c[2] - 138.0))   # a lower cell one side, a trunk the other
+            mc = tuple(sum(p[k] for p in mouth) / 5.0 for k in range(3))
+            shot("cell_upper", pol(bmid + 10.0, 51.5, eye), (mc[0], mc[1], mc[2] - 0.5), 26.0, (1200, 900))
         compare("rays_compare", pol(200.0, 54.5, eye), pol(160.0, 49.0, DECK_Z + 3.0), 22.0, (1400, 800))
         variant("solid")
         shot("rays_solid_tree", pol(300.0, 54.0, eye), (0.0, 0.0, 22.0), 26.0, (1400, 900))
@@ -1356,13 +1282,14 @@ def _forest_render(spec, objects):
 def build_geometry():
     """(ground, collider, {node name: shaft mesh})."""
     g = _Ground()
-    m = g.build()
+    m = ft._prune(g.build())     # a socket patch two quads tall leaves its inner vertices unused
     lines = g.ray_lines()
     INFO["wall_cells"] = [([m.verts[v] for v in mouth], [m.verts[v] for v in back], bmid)
                           for (mouth, back, bmid) in g.wall_cells]
     INFO["rays"] = lines
     rays = {name: _ray_mesh(lines, tint, peak)
             for name, (tint, peak) in ((RAYS_SOLID_NAME, RAY_SOLID), (RAYS_SOFT_NAME, RAY_SOFT))}
+    rays[fp.FOG_NAME] = fp.fog_mesh(_RayMesh, g)
     return m, build_collider(), rays
 
 
@@ -1372,19 +1299,10 @@ def build():
     mdl.save_texture(albedo)
     mdl.save_texture(emissive)
     INFO["albedo"], INFO["emissive"] = albedo, emissive
-    w_alb, w_emi = ft.sheet("forest_water", _water_texture)
-    mdl.save_texture(w_alb)
-    mdl.save_texture(w_emi)
 
     ob = m.object(OBJECT_NAME)
-    ft.unwrap(ob, m.zones, water_fn=_water_uv)
+    ft.unwrap(ob, m.zones)
     mdl.finish(ob, ft.atlas_material("ForestAtlas", albedo, emissive), strip_uvs=False)
-    ob.data.materials.append(ft.atlas_material("ForestWater", w_alb, w_emi))
-    water_tris = 0
-    for pi, poly in enumerate(ob.data.polygons):
-        if m.zones[pi] == "water":
-            poly.material_index = 1
-            water_tris += 1
 
     coll = c.object(COLLIDER_NAME)
     coll.hide_render = True
@@ -1394,12 +1312,18 @@ def build():
             rob = _ray_object(rays[name], name)
             mdl.finish(rob, _ray_material(name + "Mat", colour), strip_uvs=False)
             out.append(rob)
-    print("MDL STATS visual_tris=%d collision_tris=%d water_tris=%d ray_tris=%d rays=%d"
-          % (len(ob.data.polygons), len(coll.data.polygons), water_tris, len(rays[RAYS_SOLID_NAME].faces), len(INFO["rays"])))
-    print("MDL STATS lane r=%.1f..%.1f y=%.1f water_y=%.1f r=%.1f ceiling_y=%.1f..%.1f wall_cells=%d pit_cells=%d trunks=%d gaps=%d sun=%s"
-          % (INNER_R, OUTER_R, DECK_Z, WATER_Z, WATER_R, CEIL_Z, CEIL_Z + CEIL_DOME,
-             len(WALL_CELLS), len(PIT_CELLS), len(TRUNKS), len(GAPS), SUN))
-    for k, (top, foot, _s) in enumerate(INFO["rays"]):
+    fog = _ray_object(rays[fp.FOG_NAME], fp.FOG_NAME)
+    # the review material glows at 0.6 x the tint: the review's exposure and world would otherwise
+    # show the layers a stop paler than Godot's unshaded vertex colour under its Reinhard tonemap
+    mdl.finish(fog, _ray_material(fp.FOG_NAME + "Mat", tuple(c * 0.6 for c in fp.FOG_TINT)), strip_uvs=False)
+    out.append(fog)
+    print("MDL STATS visual_tris=%d collision_tris=%d ray_tris=%d rays=%d fog_tris=%d"
+          % (len(ob.data.polygons), len(coll.data.polygons), len(rays[RAYS_SOLID_NAME].faces), len(INFO["rays"]),
+             len(rays[fp.FOG_NAME].faces)))
+    print("MDL STATS lane r=%.1f..%.1f y=%.1f pit_floor_y=%.1f r=%.1f ceiling_y=%.1f..%.1f wall_cells=%d pit_cells=%d trunks=%d gaps=%d sun=%s"
+          % (INNER_R, OUTER_R, DECK_Z, WATER_Z, WATER_R, CEIL_Z, CEIL_Z + fc.CEIL_DOME,
+             len(WALL_CELLS) + len(WALL_CELLS_UPPER), len(PIT_CELLS), len(TRUNKS), len(fc.GAPS), SUN))
+    for k, (top, foot, _s, _w) in enumerate(INFO["rays"]):
         print("MDL STATS ray%d top=(%.1f, %.1f, %.1f) foot=(%.1f, %.1f, %.1f) r=%.1f"
               % (k, top[0], top[1], top[2], foot[0], foot[1], foot[2], math.hypot(foot[0], foot[1])))
     return out
@@ -1414,7 +1338,9 @@ def _check():
     rays.compact()
     forest_check.prove(m, "ground")
     forest_check.components_report(m)
-    for name, mm in (("ground", m), ("coll", c), ("rays", rays)):
+    fog = ray_set[fp.FOG_NAME]
+    fog.compact()
+    for name, mm in (("ground", m), ("coll", c), ("rays", rays), ("fog", fog)):
         degen = 0
         for f in mm.faces:
             n = ft._newell([mm.verts[i] for i in f])
@@ -1423,14 +1349,14 @@ def _check():
         zones = {}
         for z in mm.zones:
             zones[z] = zones.get(z, 0) + 1
-        lo = [min(v[k] for v in mm.verts) for k in range(3)]
-        hi = [max(v[k] for v in mm.verts) for k in range(3)]
+        lo = [min(v[k] for v in mm.verts) for k in range(3)] if mm.verts else [0.0] * 3
+        hi = [max(v[k] for v in mm.verts) for k in range(3)] if mm.verts else [0.0] * 3
         print("%s tris=%d verts=%d degenerate=%d zones=%s bbox=%s..%s"
               % (name, len(mm.faces), len(mm.verts), degen, zones,
                  ["%.1f" % x for x in lo], ["%.1f" % x for x in hi]))
     alphas = sorted(set(round(c[3], 3) for c in rays.colors))
     print("rays vanes=%d verts_per_ray=%d alphas=%s" % (RAY_VANES, len(rays.verts) // len(INFO["rays"]), alphas))
-    for k, (top, foot, _s) in enumerate(INFO["rays"]):
+    for k, (top, foot, _s, _w) in enumerate(INFO["rays"]):
         print("ray%d top=(%.1f, %.1f, %.1f) foot=(%.1f, %.1f, %.1f) r=%.1f"
               % (k, top[0], top[1], top[2], foot[0], foot[1], foot[2], math.hypot(foot[0], foot[1])))
 

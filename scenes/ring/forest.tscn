@@ -1,4 +1,4 @@
-[gd_scene load_steps=14 format=3]
+[gd_scene load_steps=15 format=3]
 
 [ext_resource type="Script" path="res://scripts/match/kill_volume.gd" id="1_kill_volume"]
 [ext_resource type="Script" path="res://scripts/ring/ring_route.gd" id="2_ring_route"]
@@ -10,8 +10,8 @@
 [ext_resource type="PackedScene" path="res://scenes/ring/portal.tscn" id="8_portal"]
 
 [sub_resource type="ProceduralSkyMaterial" id="SkyMat"]
-sky_top_color = Color(0.62, 0.78, 0.9, 1)
-sky_horizon_color = Color(0.86, 0.9, 0.7, 1)
+sky_top_color = Color(0.66, 0.74, 0.62, 1)
+sky_horizon_color = Color(0.8, 0.8, 0.56, 1)
 sky_curve = 0.2
 sky_energy_multiplier = 1.3
 ground_bottom_color = Color(0.16, 0.24, 0.12, 1)
@@ -25,9 +25,14 @@ sky_material = SubResource("SkyMat")
 background_mode = 2
 sky = SubResource("Sky")
 ambient_light_source = 3
-ambient_light_color = Color(0.5, 0.66, 0.42, 1)
-ambient_light_energy = 0.8
+ambient_light_color = Color(0.5, 0.56, 0.36, 1)
+ambient_light_energy = 0.7
 tonemap_mode = 1
+fog_enabled = true
+fog_light_color = Color(0.56, 0.6, 0.42, 1)
+fog_light_energy = 0.9
+fog_density = 0.006
+fog_sky_affect = 0.4
 
 [sub_resource type="StandardMaterial3D" id="RaySoftMat"]
 transparency = 1
@@ -44,8 +49,15 @@ shading_mode = 0
 vertex_color_use_as_albedo = true
 albedo_color = Color(1, 1, 1, 1)
 
+[sub_resource type="StandardMaterial3D" id="FogMat"]
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+vertex_color_use_as_albedo = true
+albedo_color = Color(1, 1, 1, 1)
+
 [node name="Forest" type="Node3D"]
-editor_description = "MAP 3, THE FOREST: assets/models/forest.glb at identity (grass lane r 46.7..57.3 at y 23.0 round a ravine with water at y -11.05, as map 1's sea, a leaf wall and ceiling), the great tree (forest_tree.glb) as the tower. The sun rays are two nodes in the glb, three crossed vanes per ceiling gap with the tint and the feather in their vertex colour (alpha peaks on the axis, zero at the edges and both ends, so no cap, no hard edge): ForestRaysSolid (pale yellow, alpha 0.35, mixed, the mesh-only look) and ForestRaysSoft (faint, additive, shown here under the Sun light). Both overrides are unshaded and take albedo and alpha from the vertex colour. Flip their visibility to compare."
+editor_description = "MAP 3, THE FOREST: assets/models/forest.glb at identity (grass lane r 46.7..57.3 at y 23.0 round a foggy ravine: an earth bank down to a dark floor at y -11.05, no water, thorny brambles out of the bank, a leaf wall and ceiling), the great tree (forest_tree.glb) as the tower. ForestFog is the pit's fog: ten translucent discs y -7..20 with the tint and alpha in their vertex colour (zero round the trunk and inside the bank, so no edge shows), unshaded and mixed through its override; GL Compatibility has no fog volumes. The sun rays are two nodes in the glb, three crossed vanes per ceiling gap with the tint and the feather in their vertex colour (alpha peaks on the axis, zero at the edges and both ends, so no cap, no hard edge): ForestRaysSolid (pale yellow, alpha 0.35, mixed, the mesh-only look) and ForestRaysSoft (faint, additive, shown here under the Sun light). Both overrides are unshaded and take albedo and alpha from the vertex colour. Flip their visibility to compare."
 
 [node name="Environment" type="Node3D" parent="."]
 
@@ -63,7 +75,7 @@ directional_shadow_mode = 0
 directional_shadow_max_distance = 200.0
 
 [node name="ForestMap" parent="." instance=ExtResource("6_forest_model")]
-editor_description = "assets/models/forest.glb: lane, pit, water, leaf wall, ceiling, cells, fence. Ships its own collision (ForestCollision-colonly)."
+editor_description = "assets/models/forest.glb: lane, pit bank and dark floor, brambles, leaf wall, ceiling, cells, fence; ForestFog and the ray nodes ride in it. Ships its own collision (ForestCollision-colonly)."
 
 [node name="ForestRaysSolid" parent="ForestMap"]
 visible = false
@@ -72,15 +84,19 @@ surface_material_override/0 = SubResource("RaySolidMat")
 [node name="ForestRaysSoft" parent="ForestMap"]
 surface_material_override/0 = SubResource("RaySoftMat")
 
+[node name="ForestFog" parent="ForestMap"]
+editor_description = "The pit's fog: ten stacked discs y -7..20, alpha 0.36 at the bottom easing to 0.05 at the top (a haze, not a lid), tint and alpha from the vertex colour."
+surface_material_override/0 = SubResource("FogMat")
+
 [node name="KillBox" type="Area3D" parent="."]
-editor_description = "Roof 0.5 m over the water (y -10.55), r 62: anything in the ravine is gone."
+editor_description = "Roof at y 12.0, 11 m under the lane and inside the fog, r 62, 30 m deep: anything that drops into the ravine is gone before it sees the floor."
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 23, 0)
 collision_layer = 0
 collision_mask = 1048577
 monitorable = false
 script = ExtResource("1_kill_volume")
 radius_metres = 62.0
-roof_depth_metres = 33.55
+roof_depth_metres = 11.0
 depth_metres = 30.0
 
 [node name="Shape" type="CollisionShape3D" parent="KillBox"]
@@ -124,16 +140,16 @@ entry_angle_degrees = 5.0
 exit_angle_degrees = 335.0
 
 [node name="Tower" type="Node3D" parent="."]
-editor_description = "The tree. Origin y 25.35 as map 1's tower; the guard's floor is the canopy top at +1.70 (y 27.05), eye y 28.7."
+editor_description = "The tree. Origin y 25.35 as map 1's tower; the guard's floor is the platform at the top of the trunk, +1.70 (y 27.05), eye y 28.7, under the arches and the leaf canopy."
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 25.35, 0)
 
 [node name="Tree" parent="Tower" instance=ExtResource("7_forest_tree")]
-editor_description = "assets/models/forest_tree.glb: trunk, lattice, canopy, seat, roof. Ships its own collision (ForestTreeCollision-colonly)."
+editor_description = "assets/models/forest_tree.glb: goblet trunk, the platform, eight piers and pointed arches (the windows), the vaulted canopy over it. Ships its own collision (ForestTreeCollision-colonly)."
 
 [node name="TowerSpawn" type="Marker3D" parent="Tower"]
-editor_description = "On the canopy floor (+1.70), 0.25 m up."
+editor_description = "On the platform floor (+1.70), 0.25 m up."
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.95, 0)
 
 [node name="Watcher" parent="Tower" instance=ExtResource("4_watching_eye")]
-editor_description = "The eye, over the roof branches and under the leaf ceiling."
+editor_description = "The eye, nested in the tree's crown under the leaf ceiling (profile height 13.0: y 38.35)."
 profile = ExtResource("5_watcher_profile")
