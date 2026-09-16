@@ -57,7 +57,7 @@ vertex_color_use_as_albedo = true
 albedo_color = Color(1, 1, 1, 1)
 
 [node name="Forest" type="Node3D"]
-editor_description = "MAP 3, THE FOREST: assets/models/forest.glb at identity (grass lane r 46.7..57.3 at y 23.0 round a foggy ravine: an earth bank down to a dark floor at y -11.05, no water, a thicket of some 1140 barbed brambles filling the pit bottom, a leaf wall and ceiling), the great tree (forest_tree.glb) as the tower. ForestFog is the pit's fog: seven translucent discs y -12.5..-8 (from the floor at -11.05, the old water height, thinning over it) with the tint and alpha in their vertex colour (zero round the trunk and inside the bank, so no edge shows), unshaded and mixed through its override; GL Compatibility has no fog volumes. The sun rays are two nodes in the glb, three crossed vanes per ceiling gap with the tint and the feather in their vertex colour (alpha peaks on the axis, zero at the edges and both ends, so no cap, no hard edge): ForestRaysSolid (pale yellow, alpha 0.35, mixed, the mesh-only look) and ForestRaysSoft (faint, additive, shown here under the Sun light). Both overrides are unshaded and take albedo and alpha from the vertex colour. Flip their visibility to compare."
+editor_description = "MAP 3, THE FOREST: assets/models/forest.glb at identity (grass lane r 46.7..57.3 at y 23.0 round a foggy ravine: an earth bank down to a dark floor at y -11.05, no water, a thicket of some 1140 barbed brambles filling the pit bottom, a leaf wall, a gallery roof of leaves over the lane at y 36 and a canopy dome to y 63 over the ravine), the great tree (forest_tree.glb) as the tower. ForestFog is the pit's fog: seven translucent discs y -12.5..-8 (from the floor at -11.05, the old water height, thinning over it) with the tint and alpha in their vertex colour (zero round the trunk and inside the bank, so no edge shows), unshaded and mixed through its override; GL Compatibility has no fog volumes. The sun rays are two nodes in the glb, three crossed vanes per canopy gap with the tint and the feather in their vertex colour (alpha peaks on the axis, zero at the edges and both ends, so no cap, no hard edge): ForestRaysSolid (pale yellow, alpha 0.35, mixed, the mesh-only look) and ForestRaysSoft (faint, additive, shown here under the Sun light). Both overrides are unshaded and take albedo and alpha from the vertex colour. Flip their visibility to compare."
 
 [node name="Environment" type="Node3D" parent="."]
 
@@ -65,7 +65,7 @@ editor_description = "MAP 3, THE FOREST: assets/models/forest.glb at identity (g
 environment = SubResource("Env")
 
 [node name="Sun" type="DirectionalLight3D" parent="Environment"]
-editor_description = "The light-variant rays: the sun from bearing 120 at 52 deg, through the ceiling gaps."
+editor_description = "The light-variant rays: the sun from bearing 120 at 52 deg, through the canopy gaps."
 transform = Transform3D(0.866025, 0.394, -0.3078, 0, 0.6157, 0.788, 0.5, -0.6824, 0.5332, 0, 30, 0)
 light_color = Color(1, 0.95, 0.8, 1)
 light_energy = 1.2
@@ -151,5 +151,5 @@ editor_description = "On the platform floor (+1.70), 0.25 m up."
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.95, 0)
 
 [node name="Watcher" parent="Tower" instance=ExtResource("4_watching_eye")]
-editor_description = "The eye, nested in the tree's crown under the leaf ceiling (profile height 13.0: y 38.35)."
+editor_description = "The eye, nested in the tree's crown, over the gallery roof and under the canopy dome (profile height 13.0: y 38.35)."
 profile = ExtResource("5_watcher_profile")
