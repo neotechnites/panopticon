@@ -21,9 +21,13 @@ extends "res://tools/capture/stages/stage.gd"
 ## fills the width of the tall frame; the grade is lifted (exposure 3.8,
 ## ambient 3.6) because a POV carries no fill light and the scope is dark rock.
 ##
-## Dials (--set=): degs (162,151,140), r (54), pace (0.5), beat (1.7), fire_at
-## (1.25), start (1.8, when the hand starts moving), lead_in (-13, degrees of
-## ring the scope rests ahead of the first runner), lift (1).
+## Dials (--set=): degs (162,151,140), r (54), pace (0.5), arc (40, degrees of
+## ring each runner's lane runs; at 30 the last runner reached his lane end
+## 0.75 s before his shot and stood idle in the scope -- every runner is shot
+## running, the leader dead at 176 deg before the 178 deg end of the open
+## deck), beat (1.7), fire_at (1.25), start (1.8, when the hand starts moving),
+## lead_in (-13, degrees of ring the scope rests ahead of the first runner),
+## lift (1).
 
 const GUARD_HAND := preload("res://tools/capture/stages/guard_hand.gd")
 const SPARE_DEG: float = 58.0
@@ -65,11 +69,12 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 			return false
 	var r: float = float(option("r", 54.0))
 	var pace: float = float(option("pace", 0.5))
+	var arc: float = float(option("arc", 40.0))
 	for index: int in degs.size():
 		var deg: float = float(degs[index])
 		drive(runners[index], [
 			{"do": "place", "at": LIB.ring_point(deg, r, 0.1)},
-			{"do": "lane", "to": deg + 30.0, "r": r, "speed": pace, "weave": 0.2, "period": 1.2, "timeout": 20.0},
+			{"do": "lane", "to": deg + arc, "r": r, "speed": pace, "weave": 0.2, "period": 1.2, "timeout": 20.0},
 			{"do": "hold", "seconds": 60.0},
 		], index)
 		_bodies.append(runners[index].controller)
