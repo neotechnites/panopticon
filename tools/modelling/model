@@ -19,7 +19,7 @@
 #   tools/modelling/model build runner --views front,side,threequarter,hero
 #   tools/modelling/model build runner --cam 200,35 --cam 15,-10,35 --res 1400x1400
 #   tools/modelling/model build runner --frame 6 --turntable 8
-#   tools/modelling/model build bush --variant autumn        # same script, own .glb
+#   tools/modelling/model build runner --variant slab       # a variant of one build script
 #   tools/modelling/model look   runner --cam 120,25        # renders only, no install
 #   tools/modelling/model look   runner --rest              # rest pose, to debug a rig
 #   tools/modelling/model verify runner                     # re-check the shipped .glb
@@ -97,7 +97,7 @@ ENGINE="eevee"
 SAMPLES=""
 FRAME=""
 TURNTABLE=0
-NORENDER=0
+VARIANT=""
 MARGIN=""
 DO_VERIFY=1
 DO_INSTALL=1
@@ -126,6 +126,7 @@ while [ $# -gt 0 ]; do
     --samples)    SAMPLES="$2"; shift 2 ;;
     --frame)      FRAME="$2"; shift 2 ;;
     --turntable)  TURNTABLE="$2"; shift 2 ;;
+    --variant)    VARIANT="$2"; shift 2 ;;
     --margin)     MARGIN="$2"; shift 2 ;;
     --timeout)    TIMEOUT="$2"; shift 2 ;;
     --no-verify)  DO_VERIFY=0; shift ;;
@@ -137,22 +138,17 @@ while [ $# -gt 0 ]; do
   esac
 done
 NAME="${NAME:-}"
+# One build script, many models: the variant rides every per-job name so two
+# variants never share a job directory, a task name or an installed .glb.
+case "$VARIANT" in
+  "")           FULL="$NAME" ;;
+  *[!a-z0-9_]*) die "--variant must be [a-z0-9_]+" ;;
+  *)            FULL="${NAME}_${VARIANT}" ;;
+esac
 
-# A variant is a second model out of ONE build script -- the same bush in its
-# autumn dress. It is spelled like a filename because it becomes one, so it is
-# checked here rather than at the far end of an scp that half-succeeded.
-if [ -n "$VARIANT" ]; then
-  [[ "$VARIANT" =~ ^[a-z0-9_]+$ ]] || die "bad --variant '$VARIANT' (lowercase, digits and _ only)"
-fi
-# The script is the model; the variant only renames what comes out of it. So
-# everything the PC writes or we install is keyed on $OUT and the authored
-# source stays $NAME -- two variants of one script then get their own job
-# directory, task and .glb, and neither run can eat the other's.
-OUT="${NAME}${VARIANT:+_$VARIANT}"
-
-JOB="$PC_WORK/jobs/$OUT"
-JOB_W="$PC_WORK_W\\jobs\\$OUT"
-TASK="PanopticonModelling_${OUT:-none}"
+JOB="$PC_WORK/jobs/$FULL"
+JOB_W="$PC_WORK_W\\jobs\\$FULL"
+TASK="PanopticonModelling_${FULL:-none}"
 
 # -----------------------------------------------------------------------------
 # helpers
@@ -225,7 +221,7 @@ stage_ship() {
   # a view set you are no longer asking for and you compare against a stale png.
   # -Path, not -LiteralPath: LiteralPath treats the * as part of the filename
   # and silently deletes nothing, which is exactly the stale-render trap.
-  pc "Remove-Item -Path '$JOB_W\\out\\${OUT}_*.png' -ErrorAction SilentlyContinue" >/dev/null
+  pc "Remove-Item -Path '$JOB_W\\out\\${FULL}_*.png' -ErrorAction SilentlyContinue" >/dev/null
   push "$HERE/lib/mdl.py"        "$JOB/mdl.py"
   push "$HERE/lib/pcrun.ps1"     "$JOB/pcrun.ps1"
   push "$script"                 "$JOB/${NAME}_build.py"
@@ -266,7 +262,7 @@ stage_blender() {
 set W=$JOB_W
 del /q "%W%\\build.done" 2>nul
 cd /d "%W%"
-"$PC_BLENDER" -b -noaudio -P "%W%\\${NAME}_build.py" -- --spec "%W%\\spec.json" > "%W%\\build.log" 2>&1
+"$BLENDER" -b -noaudio -P "%W%\\${NAME}_build.py" -- --spec "%W%\\spec.json"${VARIANT:+ --variant $VARIANT} > "%W%\\build.log" 2>&1
 set RC=%ERRORLEVEL%
 findstr /c:"MDL DONE" "%W%\\build.log" >nul || set RC=1
 echo %RC% > "%W%\\build.done"
@@ -322,7 +318,7 @@ set W=$JOB_W
 del /q "%W%\\verify.done" 2>nul
 rmdir /s /q "%W%\\verify\\.godot" 2>nul
 del /q "%W%\\verify\\*.import" "%W%\\verify\\*.png" 2>nul
-copy /y "%W%\\out\\${OUT}.glb" "%W%\\verify\\model.glb" >nul
+copy /y "%W%\\out\\${FULL}.glb" "%W%\\verify\\model.glb" >nul
 "$GODOT" --headless --path "%W%\\verify" --import > "%W%\\verify.log" 2>&1
 "$GODOT" --headless --path "%W%\\verify" --script res://verify_glb.gd >> "%W%\\verify.log" 2>&1
 echo %ERRORLEVEL% > "%W%\\verify.done"
@@ -348,7 +344,7 @@ EOF
 stage_fetch() {
   mkdir -p "$RENDERS"
   local listing
-  listing=$(pc "Get-ChildItem '$JOB_W\\out' -Filter '${OUT}*' | Select-Object -ExpandProperty Name")
+  listing=$(pc "Get-ChildItem '$JOB_W\\out' -Filter '${FULL}*' | Select-Object -ExpandProperty Name")
   local got=0
   while IFS= read -r f; do
     f="${f%$'\r'}"
@@ -374,13 +370,13 @@ stage_fetch() {
 }
 
 stage_install() {
-  [ -f "$TMP/${OUT}.glb" ] || die "no ${OUT}.glb came back from the PC"
+  [ -f "$TMP/${FULL}.glb" ] || die "no ${FULL}.glb came back from the PC"
   mkdir -p "$MODELS"
-  cp "$TMP/${OUT}.glb" "$MODELS/${OUT}.glb"
-  say "assets/models/${OUT}.glb ($(wc -c < "$MODELS/${OUT}.glb" | tr -d ' ') bytes)"
+  cp "$TMP/${FULL}.glb" "$MODELS/${FULL}.glb"
+  say "assets/models/${FULL}.glb ($(wc -c < "$MODELS/${FULL}.glb" | tr -d ' ') bytes)"
   "$REPO/tools/fix_glb_imports.sh"
-  if [ -f "$MODELS/${OUT}.glb.import" ]; then
-    echo "    (${OUT}.glb.import kept -- it carries the uid the scenes reference)"
+  if [ -f "$MODELS/${FULL}.glb.import" ]; then
+    echo "    (${FULL}.glb.import kept -- it carries the uid the scenes reference)"
   fi
 }
 
@@ -650,11 +646,11 @@ case "$CMD" in
     ;;
 
   verify)
-    [ -n "$NAME" ] || die "usage: model verify <name> [--variant v]"
-    [ -f "$MODELS/${OUT}.glb" ] || die "no assets/models/${OUT}.glb"
+    [ -n "$NAME" ] || die "usage: model verify <name>"
+    [ -f "$MODELS/${FULL}.glb" ] || die "no assets/models/${FULL}.glb"
     ensure_workdir
     push "$HERE/lib/pcrun.ps1" "$JOB/pcrun.ps1"
-    push "$MODELS/${OUT}.glb" "$JOB/out/${OUT}.glb"
+    push "$MODELS/${FULL}.glb" "$JOB/out/${FULL}.glb"
     stage_verify
     ;;
 
