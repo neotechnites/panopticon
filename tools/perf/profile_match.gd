@@ -333,9 +333,20 @@ func _aim_camera(delta: float) -> void:
 				_camera.look_at(Vector3.ZERO, Vector3.UP)
 				return
 			var pos: Vector3 = body.global_position + Vector3(0.0, 1.6, 0.0)
-			var flat: Vector3 = Vector3(-pos.z, 0.0, pos.x).normalized()
+			# The tangent to the ring at the body: which way along the lane a
+			# runner faces. It is undefined ON the axis, and a body there is why
+			# this used to film nothing -- see _first_body.
+			var flat: Vector3 = Vector3(-pos.z, 0.0, pos.x)
+			if flat.length_squared() < AXIS_EPSILON:
+				flat = Vector3.FORWARD
+			flat = flat.normalized()
 			_camera.global_position = pos - flat * 3.5 + Vector3(0.0, 0.8, 0.0)
 			_camera.look_at(pos + flat * 12.0, Vector3.UP)
+
+
+## Below this squared radius a body is ON the ring axis, where the lane has no
+## tangent and the runner view has nothing to point along.
+const AXIS_EPSILON: float = 1.0
 
 
 ## The guard's eye in world space: [param arena]'s own spawn marker lifted by
@@ -350,14 +361,36 @@ func _resolve_tower_eye(arena: Node3D) -> Vector3:
 	return marker.global_position + Vector3(0.0, TOWER_EYE_HEIGHT, 0.0)
 
 
+## A body OUT ON THE LANE to put the runner camera behind, or null.
+##
+## [b]Not simply the first participant.[/b] The guard is a participant too and
+## their body stands on the ring axis, where the lane's tangent is undefined --
+## so a run that happened to list them first aimed
+## [method Node3D.look_at] at the camera's own position, spent twenty seconds
+## filming the inside of the tower floor, and reported [b]zero draw calls and
+## zero primitives[/b] while still logging a plausible-looking frame time. That
+## is the worst failure an instrument can have: silent, and wrong in a direction
+## that flatters. It cost this review its first three runner-eye measurements.
+##
+## So the pick is geometric and role-free: the participant whose body is
+## FURTHEST from the ring axis. A runner on the lane is ~52 m out and the guard
+## is ~0, on every map, which makes this a fact about the arena's shape rather
+## than knowledge of who is who.
 func _first_body() -> Node3D:
 	if _world == null:
 		return null
 	var controller: MatchController = _world.get_controller()
+	var best: Node3D = null
+	var best_radius: float = -1.0
 	for participant: MatchParticipant in controller.get_participants():
-		if participant.body != null and is_instance_valid(participant.body):
-			return participant.body
-	return null
+		if participant.body == null or not is_instance_valid(participant.body):
+			continue
+		var at: Vector3 = participant.body.global_position
+		var radius: float = at.x * at.x + at.z * at.z
+		if radius > best_radius:
+			best_radius = radius
+			best = participant.body
+	return best if best_radius > AXIS_EPSILON else null
 
 
 const MONITORS: Array[String] = [
