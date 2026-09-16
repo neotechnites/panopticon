@@ -16,11 +16,13 @@ TowerVariant's 43 deg plugs at 25 + 45k each close the two openings either
 side of a column. The foot lands on the spike floor (world y -1.0 = local
 -26.35).
 
-The balcony floor is BALCONY_Z, 0.6 m under the room floor: a 1.2 m ledge on
-a 0.35 m slab, reached by stepping down between any two columns. Its railing
-is 32 posts 0.10 square, a top rail 1.00 m over the ledge and a mid rail --
-and the rail top (2.10) is UNDER the guard's sight line from the seat to the
-lane's inner edge (2.35 at r 8.2), so the guard shoots over it. The collider
+The balcony floor is FLAT with the room floor (Ryan, pass 4): one level,
+FLOOR_Z, through the columns onto a 1.2 m ledge on a 0.35 m slab. Its
+railing is 32 posts 0.10 square, a top rail 1.00 m over the ledge and a mid
+rail. The rail top (2.70) would cross the guard's sight line from a seat on
+the floor, so the seat stands on a 0.6 m DAIS (the floor's rosette, r 2.2):
+the eye at 3.95 (world 29.3) clears the rail top by 0.14 m to the lane's
+inner edge, 0.26 m to the lane. The collider
 carries an invisible band at COLL_RAIL_R from the ledge to the rail top: the
 railing is functional, nobody walks off.
 
@@ -87,12 +89,11 @@ FOOT_Z = mb.TOWER_FOOT_Z - 25.35   # -26.35: the spike floor
 STEPS = ((8.0, FOOT_Z, FOOT_Z + 0.45), (7.5, FOOT_Z + 0.45, FOOT_Z + 0.9))   # radius, z0, z1
 SHAFT_R = 7.0               # ONE diameter, foot to roof
 SHAFT_Z0 = STEPS[1][2]      # the top step
-SLAB_Z = (0.75, 1.10)       # the balcony slab: underside, top
-BALCONY_Z = SLAB_Z[1]       # the ledge, 0.6 m under the room floor: its rail stays under the
-                            # guard's sight line from the seat to the lane's inner edge (2.35 at r 8.2)
+FLOOR_Z = 1.70              # the room floor
+SLAB_Z = (FLOOR_Z - 0.35, FLOOR_Z)   # the balcony slab: underside, top -- the ledge is FLAT with the room floor
+BALCONY_Z = SLAB_Z[1]       # one level through the columns, no step (Ryan, pass 4)
 BALCONY_R = 8.2             # the ledge's edge: a 1.2 m walk outside the columns
 SHAFT_BANDS = int(math.ceil((SLAB_Z[0] - SHAFT_Z0) / 3.0))   # 9 courses under 3 m, for the atlas
-FLOOR_Z = 1.70              # the room floor
 COL_W = 0.30                # the columns: 0.30 square, flush with the shaft's face
 COL_Z1 = 7.00               # the ring beam's underside: the openings' crown (TowerVariant's plug top clears it)
 BEAM = (COL_Z1, 7.50)       # the ring beam the dome sits on
@@ -102,6 +103,8 @@ DOME_T = 0.30               # the shell: the inner dome springs from the beam's 
 DOME_RINGS = 6
 R_INSET = SHAFT_R - COL_W / math.cos(math.pi / NS)   # the columns' inner line at the corners: the room's wall line
 PAVING_RS = (0.5, 2.2, 4.3, 6.3)   # the room floor: a grey rosette, two rings of slabs, a plain margin to the columns
+DAIS_H = 0.6                # the rosette is a DAIS: the seat stands on it, so the guard's eye clears the rail top
+DAIS_R = PAVING_RS[1]
 # ---- the railing ---------------------------------------------------------------
 POST_W = 0.10               # posts 0.10 square, one at every balcony facet's centre, flush with its edge
 POST_TOP = BALCONY_Z + 1.00 # a 1.0 m railing
@@ -109,7 +112,7 @@ RAILS = ((BALCONY_Z + 0.45, BALCONY_Z + 0.51), (POST_TOP - 0.10, POST_TOP))   # 
 POST_ZS = sorted(set([BALCONY_Z, POST_TOP] + [z for r in RAILS for z in r]))
 B_INSET = BALCONY_R - POST_W / math.cos(math.pi / NB)
 COLL_RAIL_R = BALCONY_R - 0.08   # the collider: an invisible band here, ledge to rail top
-GUARD_EYE = FLOOR_Z + mb.EYE_H   # 3.35: world 28.7
+GUARD_EYE = FLOOR_Z + DAIS_H + mb.EYE_H   # 3.95: world 29.3 (pass 3: 28.7)
 
 
 # =============================================================================
@@ -319,6 +322,11 @@ def _balcony(m, coll=False):
     COLL_RAIL_R and an invisible band there, ledge to rail top."""
     z0, z1 = SLAB_Z
     shaft_pts = lambda z: [(SHAFT_R * math.cos(a), SHAFT_R * math.sin(a), z) for a in _corners()]
+    foot_pts = []                                             # the shaft line at the ledge, split at the columns' feet
+    for ac in _centres():
+        f = _Facet(ac, SHAFT_R)
+        ua, ub = f.post_us(COL_W)
+        foot_pts += [f.at(0.0, z1), f.at(ua, z1), f.at(ub, z1)]
     edge_pts = lambda rad, z: [(rad * math.cos(a), rad * math.sin(a), z) for a in _corners(NB, POST_PHASE)]
     _zip(m, edge_pts(BALCONY_R, z0), shaft_pts(z0), mb.DOWN, "shade")             # underside
     if coll:
@@ -327,29 +335,37 @@ def _balcony(m, coll=False):
         _annulus(m, COLL_RAIL_R, BALCONY_R, POST_TOP, True, "band", NB, POST_PHASE)
         _band(m, _ringz(m, COLL_RAIL_R, z1, NB, POST_PHASE), _ringz(m, COLL_RAIL_R, POST_TOP, NB, POST_PHASE),
               False, "band")
-        _zip(m, edge_pts(COLL_RAIL_R, z1), shaft_pts(z1), mb.UP, "marble2")
+        _zip(m, edge_pts(COLL_RAIL_R, z1), foot_pts, mb.UP, "marble2")
         return
     _split_band(m, NB, POST_PHASE, BALCONY_R, POST_W, z0, z1, True, "band", "top")   # the slab's edge
     line = _cut_band(m, NB, POST_PHASE, BALCONY_R, B_INSET, POST_W, z1, mb.UP, "marble2")
-    _zip(m, line, shaft_pts(z1), mb.UP, "marble2")                                  # the ledge
+    _zip(m, line, foot_pts, mb.UP, "marble2")                                       # the ledge
 
 
 def _room(m, coll=False):
-    """The shaft between the ledge and the room floor, the room floor with the
-    columns' feet cut out of its outer band, and the columns."""
-    _split_band(m, NS, COL_PHASE, SHAFT_R, COL_W, SLAB_Z[1], FLOOR_Z, True, "stone", "top")
+    """The room floor, flat with the ledge, with the columns' feet cut out of
+    its outer band; the dais under the seat; the columns."""
     line = _cut_band(m, NS, COL_PHASE, SHAFT_R, R_INSET, COL_W, FLOOR_Z, mb.UP, "plinth")
+    ring = lambda r, z: [(r * math.cos(a), r * math.sin(a), z) for a in _corners()]
+    top = FLOOR_Z + DAIS_H
     if coll:
-        _disc(m, line, FLOOR_Z, mb.UP, "floor")
+        _zip(m, line, ring(DAIS_R, FLOOR_Z), mb.UP, "floor")
+        _band(m, _ringz(m, DAIS_R, FLOOR_Z), _ringz(m, DAIS_R, top), True, "plinth")
+        _disc(m, ring(DAIS_R, top), top, mb.UP, "floor")
     else:
-        rings = [[(r * math.cos(a), r * math.sin(a), FLOOR_Z) for a in _corners()] for r in PAVING_RS]
+        rings = [ring(r, FLOOR_Z) for r in PAVING_RS]
         _zip(m, line, rings[-1], mb.UP, "shade")                                   # the plain margin
-        for k in range(len(rings) - 1, 0, -1):                                     # radial slabs, one cell each ...
+        for k in range(len(rings) - 1, 1, -1):                                     # radial slabs, one cell each
             a, b = [m.v(p) for p in rings[k - 1]], [m.v(p) for p in rings[k]]
             for i in range(NS):
                 j = (i + 1) % NS
-                m.quad(a[i], a[j], b[j], b[i], mb.UP, "floor" if k > 1 else "shade")   # ... the rosette's wedges plain grey
-        m.poly([m.v(p) for p in rings[0]], mb.UP, "shade")                         # its centre: no vertex on the axis,
+                m.quad(a[i], a[j], b[j], b[i], mb.UP, "floor")
+        _band(m, _ringz(m, DAIS_R, FLOOR_Z), _ringz(m, DAIS_R, top), True, "plinth")   # the dais' wall ...
+        a, b = [m.v(p) for p in ring(PAVING_RS[0], top)], [m.v(p) for p in ring(DAIS_R, top)]
+        for i in range(NS):                                                        # ... its top: the rosette's wedges, plain grey
+            j = (i + 1) % NS
+            m.quad(a[i], a[j], b[j], b[i], mb.UP, "shade")
+        m.poly(a, mb.UP, "shade")                                                  # its centre: no vertex on the axis,
                                                                                    # where the polar unwrap has no frame
     _posts(m, NS, COL_PHASE, SHAFT_R, COL_W, [FLOOR_Z, COL_Z1], (), "column", top=False)
 
@@ -463,7 +479,7 @@ def _render(spec, objects):
     shot("from_lane", mb.pol(30.0, 40.0, eye), (0.0, 0.0, 4.0), 40.0, (1000, 1200))
     shot("window", (0.0, 0.0, GUARD_EYE), mb.pol(open0, 20.0, FLOOR_Z + 0.5), 24.0, (1200, 800))
     # the room at eye level: the floor, the columns, the dome inside
-    shot("room", mb.pol(200.0, 4.6, GUARD_EYE), mb.pol(20.0, 2.5, FLOOR_Z + 0.3), 16.0, (1400, 900))
+    shot("room", mb.pol(200.0, 4.6, FLOOR_Z + mb.EYE_H), mb.pol(20.0, 2.5, FLOOR_Z + 0.3), 16.0, (1400, 900))
     for ob in (target, cam, sun, room):
         bpy.data.objects.remove(ob, do_unlink=True)
 
@@ -490,9 +506,9 @@ def build():
     print("MDL STATS contiguity components=%d boundary=%d doubled=%d over=%d degenerate=%d dup_pos=%d"
           % (a["components"], a["boundary_edges"], a["doubled_edges"], a["over_edges"], a["degenerate"],
              a["duplicate_positions"]))
-    print("MDL STATS floor_z=%.2f eye_z=%.2f shaft_r=%.1f columns=%d col_w=%.2f openings_crown=%.2f "
+    print("MDL STATS floor_z=%.2f dais=%.2f eye_z=%.2f shaft_r=%.1f columns=%d col_w=%.2f openings_crown=%.2f "
           "balcony_z=%.2f balcony_r=%.1f rail_top=%.2f sightline_clear=%.2f dome=%.2f..%.2f foot_z=%.2f"
-          % (FLOOR_Z, GUARD_EYE, SHAFT_R, NS, COL_W, COL_Z1, BALCONY_Z, BALCONY_R, POST_TOP,
+          % (FLOOR_Z, DAIS_H, GUARD_EYE, SHAFT_R, NS, COL_W, COL_Z1, BALCONY_Z, BALCONY_R, POST_TOP,
              sightline_clearance(), DOME_Z0, DOME_Z0 + DOME_RISE, FOOT_Z))
     return [ob, coll_ob]
 

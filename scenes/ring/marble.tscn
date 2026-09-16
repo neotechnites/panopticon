@@ -110,7 +110,7 @@ entry_angle_degrees = 5.0
 exit_angle_degrees = 345.0
 
 [node name="Tower" type="Node3D" parent="."]
-editor_description = "The tower, and its origin is the guard-room datum at y 25.35, exactly as Map 1: assets/models/marble_tower.glb puts its ROOM FLOOR 1.70 above this point (y 27.05) and its foot 26.35 below it on the spiked ground floor (y -1.0): one round shaft of constant diameter (r 7.0) rising through the drop. At the room floor the shaft opens into a colonnade of sixteen thin columns at bearings 25 + 22.5k under a dome; the guard's eye at y 28.7 looks out between them 6 deg down onto the walkway at 52 m. Round the shaft at y 26.45, a step under the room, a 1.2 m balcony ledge with a 1.0 m railing (rail top 27.45, under the guard's sight line to the lane from the seat) -- the railing is a collider, nobody walks off.
+editor_description = "The tower, and its origin is the guard-room datum at y 25.35, exactly as Map 1: assets/models/marble_tower.glb puts its ROOM FLOOR 1.70 above this point (y 27.05) and its foot 26.35 below it on the spiked ground floor (y -1.0): one round shaft of constant diameter (r 7.0) rising through the drop. At the room floor the shaft opens into a colonnade of sixteen thin columns at bearings 25 + 22.5k under a dome; the guard's eye at y 29.3 (a 0.6 m dais under the seat) looks out between them 7 deg down onto the walkway at 52 m. Round the shaft at the room floor's own level, one flat floor through the columns, a 1.2 m balcony ledge with a 1.0 m railing (rail top 28.05, under the guard's sight line to the lane from the dais) -- the railing is a collider, nobody walks off.
 
 TowerVariant's plugs still work here (same inner radius 6.86, same 25 + 45k grid): each 43 deg plug closes the two openings either side of its column. Both variant slots hold the same marble tower, so the rules' tower_variant never blanks it."
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 25.35, 0)
@@ -121,11 +121,11 @@ editor_description = "assets/models/marble_tower.glb, the carved slot: the same 
 visible = false
 
 [node name="RockArches" parent="Tower" instance=ExtResource("8_tower_model")]
-editor_description = "assets/models/marble_tower.glb: the live tower. Carries its own collision (MarbleTowerCollision-colonly): foot, steps, shaft, balcony slab and ledge, an invisible band in the railing's place, room floor, columns, ring beam closed with a flat ceiling."
+editor_description = "assets/models/marble_tower.glb: the live tower. Carries its own collision (MarbleTowerCollision-colonly): foot, steps, shaft, balcony slab and ledge, an invisible band in the railing's place, room floor, dais, columns, ring beam closed with a flat ceiling."
 
 [node name="TowerSpawn" type="Marker3D" parent="Tower"]
-editor_description = "On the room floor (1.70 over the origin), 0.25 m up so the capsule never starts inside the collision plane."
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.95, 0)
+editor_description = "On the dais at the room's centre (the room floor 1.70 over the origin plus the 0.6 m dais), 0.25 m up so the capsule never starts inside the collision plane. The dais lifts the guard's eye to y 29.3, over the balcony's rail top (28.05)."
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.55, 0)
 
 [node name="TowerLight" type="OmniLight3D" parent="Tower"]
 editor_description = "THE ARENA'S LIGHT: one gold point in the lantern, shadowed, so the beams go out between the columns across the ring as the drawing has them. Colour, energy, range, attenuation and height come from marble_tower_light_profile.tres; the light_* properties here are placeholders for the editor view."

@@ -1209,7 +1209,7 @@ def _render(spec, objects):
     # the runner's eye on the lane, at a lane-tier cell's bars about 12 m off
     shot("bars", pol(30.0, LANE_R, eye), pol(41.5, WALL_R, TIER_BASE[LANE_TIER] + SILL_UP + 2.5), 35.0, (1400, 800))
     # standing on the tower's balcony, the railing in hand, looking across the ring at the lane
-    shot("balcony", pol(120.0, 7.1, TOWER_Y + 1.10 + EYE_H), pol(120.0, INNER_R, DECK_Z), 16.0, (1400, 800))
+    shot("balcony", pol(120.0, 7.1, TOWER_Y + 1.70 + EYE_H), pol(120.0, INNER_R, DECK_Z), 16.0, (1400, 800))
 
     for ob in made:
         bpy.data.objects.remove(ob, do_unlink=True)
