@@ -1,20 +1,25 @@
 """
 PANOPTICON -- marble_tower: the guard tower of Map 2, as the Bentham drawing
-draws it (pass 4, to Ryan's verdict on pass 3). ONE SHAFT OF CONSTANT
-DIAMETER from the spike floor to the roof: a plain round stone shaft on two
-low steps, no wider room at the top. Near the top, at the guard floor, the
-shaft opens into a colonnade -- sixteen VERY THIN columns on the shaft's own
-line, open all round between them -- carrying a ring beam and a DOME that
-sits directly on the columns. Round the shaft at the guard floor, a step
-below the room, a narrow BALCONY with a real railing.
+draws it (pass 5, to Ryan's verdict on pass 4: "the columns aren't just
+holding a dome, they are arches"). ONE SHAFT OF CONSTANT DIAMETER from the
+spike floor to the roof: a plain round stone shaft on two low steps, no wider
+room at the top. Near the top, at the guard floor, the shaft opens into an
+ARCADE -- the same sixteen VERY THIN columns on the shaft's own line, now
+JOINED BY ROUND ARCHES: each column rises 3.20 m to a springing at z 4.90 and
+the arches turn from it, span 2.43 m, rise 1.22 m, crowning at 6.12 on the
+corner lines, with a 0.88 m spandrel over each crown up to the ring beam at
+7.00. The beam and the DOME sit on the arches, not on bare columns. Round the
+shaft at the guard floor, a step below the room, a narrow BALCONY with a real
+railing.
 
 Origin = the guard-room datum, exactly as tower.glb: the scene's Tower node
 stands at world y 25.35 and the ROOM FLOOR IS AT z 1.70 above the origin (the
 guard's eye at 1.70 + 1.65 = 3.35, world 28.7, unchanged). The columns stand
-at bearings 25 + 22.5k, so the sixteen openings are centred on 36.25 + 22.5k;
-TowerVariant's 43 deg plugs at 25 + 45k each close the two openings either
-side of a column. The foot lands on the spike floor (world y -1.0 = local
--26.35).
+at bearings 25 + 22.5k, so the sixteen arched openings are centred on
+36.25 + 22.5k -- on the facet CORNERS, so every facet carries HALF an arch at
+each end and two halves across a corner make one arch; TowerVariant's 43 deg
+plugs at 25 + 45k each close the two openings either side of a column,
+unchanged. The foot lands on the spike floor (world y -1.0 = local -26.35).
 
 The balcony floor is FLAT with the room floor (Ryan, pass 4): one level,
 FLOOR_Z, through the columns onto a 1.2 m ledge on a 0.35 m slab. Its
@@ -26,20 +31,31 @@ inner edge, 0.26 m to the lane. The collider
 carries an invisible band at COLL_RAIL_R from the ledge to the rail top: the
 railing is functional, nobody walks off.
 
+Each facet is one PIERCED SCREEN 0.30 deep: the outer face on the facet chord
+at r 7.0, the inner face in the r 6.694 facet's own frame (half arch
+ua_inner = ua - 0.30*tan(pi/16), so its corner points ARE the shared inner
+corners and the arch soffit is a slightly warped ruled surface, which is what
+a round arch turned through a polygon's corner is). Jamb reveals run floor to
+springing, the intrados round the head, a spandrel strip over each half arch.
+
 Marble's atlas, same painter, same seed: stone courses on the shaft, fluting
-on the columns, moulding on the ring beam and the slab's edge, the lane's
-paving on the room floor in two rings of radial slabs round a plain
-medallion, coffers under the dome, grey on the dome, iron on the railing.
+on the columns and their arch panels, coursed stone in the spandrels, shade
+in the reveals and soffits, moulding on the ring beam and the slab's edge,
+the lane's paving on the room floor in two rings of radial slabs round a
+plain medallion, coffers under the dome, grey on the dome, iron on the
+railing.
 ONE CONTIGUOUS MESH: mb._Mesh welds coincident vertices; the columns' feet
-are cut out of the floor's outer band and their tops out of the ring beam's
-underside, the posts' feet out of the ledge's outer band, the rails' ends ARE
-the upper bands of the posts' side faces, the slab is zippered to the shaft,
-the foot is closed with a cap, so _check() proves one component, every edge
-on two faces.
+are cut out of the floor's outer band, the screen's head is SOLID corner to
+corner (so the ring beam has no exposed underside -- its two faces carry the
+panel's top edge, split at every arch and column station), the posts' feet
+are cut out of the ledge's outer band, the rails' ends ARE the upper bands of
+the posts' side faces, the slab is zippered to the shaft, the foot is closed
+with a cap, so _check() proves one component, every edge on two faces.
 MarbleTowerCollision rides in the .glb as a `-colonly` node: foot, steps,
-shaft, the slab, the ledge, the invisible rail band, the room floor, the
-columns, the ring beam closed with a flat ceiling. The dome is out of reach
-and not in it.
+shaft, the slab, the ledge, the invisible rail band, the room floor, plain
+full-height column boxes (a body cannot walk into an arch's head, so the
+collider keeps the cheap colonnade), the ring beam closed with a flat
+ceiling. The dome is out of reach and not in it.
 
     python3 tools/modelling/marble_tower_build.py --check
     tools/modelling/model build marble_tower
@@ -95,7 +111,9 @@ BALCONY_Z = SLAB_Z[1]       # one level through the columns, no step (Ryan, pass
 BALCONY_R = 8.2             # the ledge's edge: a 1.2 m walk outside the columns
 SHAFT_BANDS = int(math.ceil((SLAB_Z[0] - SHAFT_Z0) / 3.0))   # 9 courses under 3 m, for the atlas
 COL_W = 0.30                # the columns: 0.30 square, flush with the shaft's face
-COL_Z1 = 7.00               # the ring beam's underside: the openings' crown (TowerVariant's plug top clears it)
+COL_Z1 = 7.00               # the ring beam's underside: the arcade's head (TowerVariant's plug top clears it)
+SPRING_Z = FLOOR_Z + 3.2    # 4.90: the arches spring here, off the columns' sides
+ARCH_SEG = 5                # segments in each HALF arch (one facet carries half an arch at each end)
 BEAM = (COL_Z1, 7.50)       # the ring beam the dome sits on
 DOME_Z0 = BEAM[1]
 DOME_RISE = 5.4             # the dome: apex at 12.9
@@ -301,6 +319,88 @@ def _rails(m, posts, w, rails, zone):
             m.quad(A(z0), A(z0, w), B(z0, w), B(z0), mb.DOWN, zone)                            # underside
 
 
+# ---- the arcade: the columns are joined by round arches -------------------------
+
+def _arch_us(f, w=COL_W):
+    """A facet's head stations, corner to corner: each half arch's segment ends
+    and the column's two sides. The pierced panel's TOP edge and the ring
+    beam's bottom edge are made of these, and of nothing else."""
+    ua = f.post_us(w)[0]
+    us = [ua * math.sin(0.5 * math.pi * k / ARCH_SEG) for k in range(ARCH_SEG + 1)]
+    return us + [f.L - u for u in reversed(us)]
+
+
+def _arch_pts(f, w=COL_W):
+    """The facet's two HALF arches as (u, z) lists, k = 0 the crown on the
+    corner line, k = ARCH_SEG the springing at the column's side: quarter
+    circles of radius ua about (0, SPRING_Z) and (L, SPRING_Z). The columns
+    stand at the facet centres and the openings straddle the CORNERS, so each
+    opening is one round arch of span 2*ua and rise ua, its two halves cut by
+    the corner between two facets."""
+    ua = f.post_us(w)[0]
+    left, right = [], []
+    for k in range(ARCH_SEG + 1):
+        t = 0.5 * math.pi * k / ARCH_SEG
+        u, z = ua * math.sin(t), SPRING_Z + ua * math.cos(t)
+        left.append((u, z))
+        right.append((f.L - u, z))
+    return left, right
+
+
+def _screen_face(m, f, want):
+    """One face of a facet's pierced screen: the column at the facet's centre
+    as two stacked panels split at the springing, and the spandrel over each
+    half arch, a strip of quads from the arch curve up to the beam."""
+    ua, ub = f.post_us(COL_W)
+
+    def P(u, z):
+        return m.v(f.at(u, z))
+
+    m.quad(P(ua, FLOOR_Z), P(ub, FLOOR_Z), P(ub, SPRING_Z), P(ua, SPRING_Z), want, "column")
+    m.quad(P(ua, SPRING_Z), P(ub, SPRING_Z), P(ub, COL_Z1), P(ua, COL_Z1), want, "column")
+    for half in _arch_pts(f):
+        for k in range(ARCH_SEG):
+            (u0, z0), (u1, z1) = half[k], half[k + 1]
+            m.quad(P(u0, z0), P(u1, z1), P(u1, COL_Z1), P(u0, COL_Z1), want, "stone")
+
+
+def _arcade(m):
+    """The colonnade as an ARCADE (Ryan, pass 5: the drawing's columns are
+    arches). Per facet a pierced screen COL_W deep between FLOOR_Z and COL_Z1:
+    the outer face on the facet chord at SHAFT_R, the inner face in the
+    R_INSET facet's OWN frame -- half arch ua_inner = ua - COL_W*tan(pi/NS), so
+    its corner points are the shared R_INSET corners and the intrados is a
+    slightly warped ruled surface. The jamb reveals run floor to springing, the
+    soffit round the head; the panel's top edge is solid corner to corner, so
+    the ring beam has no exposed underside and sits on the arches."""
+    for ac in _centres():
+        f, fi = _Facet(ac, SHAFT_R), _Facet(ac, R_INSET)
+        _screen_face(m, f, f.n_out)
+        _screen_face(m, fi, fi.n_in)
+        ua, ub = f.post_us(COL_W)
+        uai, ubi = fi.post_us(COL_W)                       # == ua - COL_W*tan(pi/NS), ub - ...
+        for (uo, ui, s) in ((ua, uai, -1.0), (ub, ubi, 1.0)):
+            m.quad(m.v(f.at(uo, FLOOR_Z)), m.v(f.at(uo, SPRING_Z)),                  # the jamb reveal
+                   m.v(fi.at(ui, SPRING_Z)), m.v(fi.at(ui, FLOOR_Z)), f.dir(s, 0.0), "shade")
+        ho, hi = _arch_pts(f), _arch_pts(fi)
+        for (a, b, cu) in ((ho[0], hi[0], 0.0), (ho[1], hi[1], f.L)):
+            for k in range(ARCH_SEG):                                                # the arch soffit
+                (u0, z0), (u1, z1) = a[k], a[k + 1]
+                (v0, w0), (v1, w1) = b[k], b[k + 1]
+                want = f.dir(cu - 0.5 * (u0 + u1), SPRING_Z - 0.5 * (z0 + z1))       # toward the springing centre
+                m.quad(m.v(f.at(u0, z0)), m.v(f.at(u1, z1)),
+                       m.v(fi.at(v1, w1)), m.v(fi.at(v0, w0)), want, "shade")
+
+
+def _head_band(m, f, z0, z1, want, zone):
+    """A facet's ring-beam band: its BOTTOM edge is split at the arcade's head
+    stations, where the pierced panel's top edge meets it, and its top edge is
+    the plain corner-to-corner ring the dome springs from. One polygon, fanned
+    from the far top corner, so no triangle is three collinear points."""
+    ring = [f.at(f.L, z1), f.at(0.0, z1)] + [f.at(u, z0) for u in _arch_us(f)]
+    m.poly([m.v(p) for p in ring], want, zone)
+
+
 def _shaft(m):
     """The closed foot, two steps and the shaft up to the balcony slab."""
     foot = _ringz(m, STEPS[0][0], STEPS[0][1])
@@ -344,7 +444,8 @@ def _balcony(m, coll=False):
 
 def _room(m, coll=False):
     """The room floor, flat with the ledge, with the columns' feet cut out of
-    its outer band; the dais under the seat; the columns."""
+    its outer band; the dais under the seat; the arcade (collider: plain
+    full-height column boxes, which is all a body can walk into)."""
     line = _cut_band(m, NS, COL_PHASE, SHAFT_R, R_INSET, COL_W, FLOOR_Z, mb.UP, "plinth")
     ring = lambda r, z: [(r * math.cos(a), r * math.sin(a), z) for a in _corners()]
     top = FLOOR_Z + DAIS_H
@@ -367,19 +468,27 @@ def _room(m, coll=False):
             m.quad(a[i], a[j], b[j], b[i], mb.UP, "shade")
         m.poly(a, mb.UP, "shade")                                                  # its centre: no vertex on the axis,
                                                                                    # where the polar unwrap has no frame
-    _posts(m, NS, COL_PHASE, SHAFT_R, COL_W, [FLOOR_Z, COL_Z1], (), "column", top=False)
+    if coll:
+        _posts(m, NS, COL_PHASE, SHAFT_R, COL_W, [FLOOR_Z, COL_Z1], (), "column", top=False)
+    else:
+        _arcade(m)
 
 
 def _crown(m, coll=False):
-    """The ring beam on the columns' tops, and the dome on the beam."""
+    """The ring beam on the arches' heads, and the dome on the beam."""
     z0, z1 = BEAM
-    line = _cut_band(m, NS, COL_PHASE, SHAFT_R, R_INSET, COL_W, z0, mb.DOWN, "shade")   # the beam's underside
-    _split_band(m, NS, COL_PHASE, SHAFT_R, COL_W, z0, z1, True, "band", "bottom")      # its outer face ...
-    _split_band(m, NS, COL_PHASE, R_INSET, COL_W, z0, z1, False, "band", "bottom", depth=COL_W)   # ... and inner
-    if coll:                                                                           # closed flat: a lid over the beam, a ceiling under it
+    if coll:                                   # the collider keeps the plain colonnade: a soffit between the column boxes ...
+        _cut_band(m, NS, COL_PHASE, SHAFT_R, R_INSET, COL_W, z0, mb.DOWN, "shade")
+        _split_band(m, NS, COL_PHASE, SHAFT_R, COL_W, z0, z1, True, "band", "bottom")
+        _split_band(m, NS, COL_PHASE, R_INSET, COL_W, z0, z1, False, "band", "bottom", depth=COL_W)
+        # ... closed flat: a lid over the beam, a ceiling under it
         _disc(m, [(SHAFT_R * math.cos(a), SHAFT_R * math.sin(a), z1) for a in _corners()], z1, mb.UP, "band")
         _disc(m, [(R_INSET * math.cos(a), R_INSET * math.sin(a), z1) for a in _corners()], z1, mb.DOWN, "shade")
         return
+    for ac in _centres():          # the arcade's head is solid corner to corner: NO soffit is exposed,
+        f, fi = _Facet(ac, SHAFT_R), _Facet(ac, R_INSET)   # the beam's two faces carry the panel's top edge
+        _head_band(m, f, z0, z1, f.n_out, "band")
+        _head_band(m, fi, z0, z1, fi.n_in, "band")
     for (rad, rise, outward, zone, cap_zone) in ((SHAFT_R, DOME_RISE, True, "shade", "shade"),
                                                   (R_INSET, DOME_RISE - DOME_T, False, "coffer", "shade")):
         prev = _ringz(m, rad, z1)
@@ -422,6 +531,13 @@ def _collider():
     _room(c, coll=True)
     _crown(c, coll=True)
     return c
+
+
+def arch_span():
+    """The arches, as numbers: (span, rise, crown z). An opening straddles a
+    facet corner, so its half span is that facet's own ua on either side."""
+    ua = _Facet(_centres()[0], SHAFT_R).post_us(COL_W)[0]
+    return 2.0 * ua, ua, SPRING_Z + ua
 
 
 def sightline_clearance():
@@ -506,9 +622,12 @@ def build():
     print("MDL STATS contiguity components=%d boundary=%d doubled=%d over=%d degenerate=%d dup_pos=%d"
           % (a["components"], a["boundary_edges"], a["doubled_edges"], a["over_edges"], a["degenerate"],
              a["duplicate_positions"]))
-    print("MDL STATS floor_z=%.2f dais=%.2f eye_z=%.2f shaft_r=%.1f columns=%d col_w=%.2f openings_crown=%.2f "
+    span, rise, crown = arch_span()
+    print("MDL STATS floor_z=%.2f dais=%.2f eye_z=%.2f shaft_r=%.1f columns=%d col_w=%.2f arches=%d "
+          "spring_z=%.2f arch_span=%.2f arch_rise=%.2f arch_crown=%.2f spandrel=%.2f beam_z=%.2f "
           "balcony_z=%.2f balcony_r=%.1f rail_top=%.2f sightline_clear=%.2f dome=%.2f..%.2f foot_z=%.2f"
-          % (FLOOR_Z, DAIS_H, GUARD_EYE, SHAFT_R, NS, COL_W, COL_Z1, BALCONY_Z, BALCONY_R, POST_TOP,
+          % (FLOOR_Z, DAIS_H, GUARD_EYE, SHAFT_R, NS, COL_W, NS, SPRING_Z, span, rise, crown,
+             COL_Z1 - crown, COL_Z1, BALCONY_Z, BALCONY_R, POST_TOP,
              sightline_clearance(), DOME_Z0, DOME_Z0 + DOME_RISE, FOOT_Z))
     return [ob, coll_ob]
 
@@ -522,6 +641,9 @@ def _check():
     zs = [v[2] for v in rock.verts]
     print("counts=%s z=%.2f..%.2f loops=%s" % (counts, min(zs), max(zs), mb.boundary_loops(rock)[:3]))
     print("coll loops=%s" % (mb.boundary_loops(coll)[:3],))
+    span, rise, crown = arch_span()
+    print("arcade: %d round arches, span %.2f rise %.2f, spring %.2f crown %.2f, spandrel %.2f to the beam at %.2f"
+          % (NS, span, rise, SPRING_Z, crown, COL_Z1 - crown, COL_Z1))
     print("sightline clears the rail top by %.2f m (rail %.2f at r %.1f)" % (sightline_clearance(), POST_TOP, BALCONY_R))
     ok = a["components"] == 1 and a["boundary_edges"] == 0 and a["doubled_edges"] == 0 \
         and a["over_edges"] == 0 and a["degenerate"] == 0 and a["duplicate_positions"] == 0 \

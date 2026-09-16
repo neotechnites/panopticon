@@ -140,7 +140,7 @@ SPIKE_H = (1.4, 2.8)        # spike height, short .. tall
 SMALL_EVERY = 3             # a small spike at the foot of every third one
 SMALL_H = 0.45              # ... this fraction of its height
 BASE_K = (0.08, 0.14)       # base half-width = BASE_K[0] + BASE_K[1] * H: sharp
-GUARD_EYE_Z = 28.7          # tower floor 27.05 + 1.65
+GUARD_EYE_Z = 29.3          # tower floor 27.05 + the 0.6 m dais + 1.65
 LANE_R = 52.0
 
 # ---- the bars between finish and start ---------------------------------------
@@ -1082,12 +1082,17 @@ def unwrap(ob, zones, groups, seed=0):
 
 TOWER_GLB = r"C:\Users\ddd\panopticon-modelling\jobs\marble_tower\out\marble_tower.glb"
 TOWER_Y = 25.35             # the scene's Tower node: the model's origin, world y
-LANTERN_H = 8.0             # the arena light: this far over the tower datum, a metre under the room's ceiling
+LANTERN_H = 5.6             # the arena light: this far over the tower datum -- under the arcade's arches, so
+                            # the light leaves the room (scene: marble_tower_light_profile.tres, same number)
 LANTERN_RGB = (1.0, 0.90, 0.66)   # gold: the Temple of Time's light pools (scene profile carries the same)
-REVIEW_LANTERN_W = 70000.0  # review renders only: the lantern's point light, watts ...
-REVIEW_FILL_W = 6000.0      # ... twelve unshadowed fills round the ring ...
-REVIEW_PIT_W = 4000.0       # ... six over the spike floor ...
-REVIEW_DOME_W = 50000.0     # ... and one under the dome
+LANTERN_SOFT = 2.4          # the lamp is 2.4 m WIDE, not a point: the scene's size_metres, and the reason
+                            # the room no longer has a hot spot in the middle of it (Ryan, pass 6)
+REVIEW_LANTERN_W = 8500.0   # review renders only: the lantern's soft light, watts -- a sixth of pass 5's
+                            # 70000, which blew the tower's own room white ...
+REVIEW_FILL_W = 7000.0      # ... twelve unshadowed fills round the ring, standing in for the scene's nearly
+                            # flat falloff (attenuation 0.3), which Blender's inverse square cannot do ...
+REVIEW_PIT_W = 4500.0       # ... six over the spike floor ...
+REVIEW_DOME_W = 60000.0     # ... and one under the dome, which lights its ribs
 
 
 def _company():
@@ -1134,12 +1139,12 @@ def _render(spec, objects):
     bg.inputs[0].default_value = (0.40, 0.41, 0.44, 1.0)
     bg.inputs[1].default_value = 0.35
 
-    # the arena's light: one pale-gold point in the lantern, shadowed, so the
-    # windows throw beams as the drawing has them ...
+    # the arena's light: one pale-gold lamp under the arcade, shadowed and WIDE,
+    # so the arches throw soft beams as the drawing has them ...
     ld = bpy.data.lights.new("Lantern", type="POINT")
     ld.energy = REVIEW_LANTERN_W
     ld.color = LANTERN_RGB
-    ld.shadow_soft_size = 0.6
+    ld.shadow_soft_size = LANTERN_SOFT
     lantern = mdl._link(bpy.data.objects.new("Lantern", ld))
     lantern.location = (0.0, 0.0, TOWER_Y + LANTERN_H)
     made.append(lantern)
@@ -1193,7 +1198,9 @@ def _render(spec, objects):
 
     eye = DECK_Z + EYE_H
     shot("runner", pol(30.0, LANE_R, eye), pol(58.0, LANE_R, DECK_Z + 1.0), 24.0, (1400, 800))
-    shot("guard", pol(70.0, 6.3, GUARD_EYE_Z), pol(70.0, LANE_R, DECK_Z), 30.0, (1400, 800))
+    # the guard on the dais at the axis, looking out THROUGH an arch (the openings
+    # are centred on 36.25 + 22.5k) at the lane: a column at 6.3 m filled the old frame
+    shot("guard", pol(36.25, 0.4, GUARD_EYE_Z), pol(36.25, LANE_R, DECK_Z), 26.0, (1400, 800))
     shot("wide", pol(200.0, 25.0, 74.0), pol(20.0, 30.0, 16.0), 18.0, (1500, 1000))
     shot("across", pol(120.0, 55.0, eye), (0.0, 0.0, TOWER_Y + 4.0), 28.0, (1400, 800))
     # from the walkway's open edge: down over the lip at the spike floor, across at the tower
@@ -1201,6 +1208,9 @@ def _render(spec, objects):
     # low over the spike floor, the tower's shaft behind
     shot("floor", pol(80.0, 40.0, FLOOR_Z + 4.0), pol(60.0, 12.0, FLOOR_Z + 6.0), 24.0, (1400, 800))
     shot("tiers", pol(150.0, 48.0, eye), pol(150.0, WALL_R, 30.0), 14.0, (1000, 1300))
+    # the dome from over the walkway, the drawing's own angle on it: the collar
+    # off the great cornice, the pleats, the ring, the ribs closing on the crown
+    shot("dome", pol(200.0, 54.0, 49.0), (0.0, 0.0, 71.0), 24.0, (1400, 900))
     # inside a cell of the tier over the walkway, 2.3 m back from the mouth,
     # looking out through the bars at the tower
     bay = _Bay(int(round(NSIDE * (360.0 - 120.0) / 360.0)) % NSIDE)
@@ -1208,6 +1218,9 @@ def _render(spec, objects):
     shot("cell", cm, (0.0, 0.0, TOWER_Y + 3.0), 18.0, (1200, 800))
     # the runner's eye on the lane, at a lane-tier cell's bars about 12 m off
     shot("bars", pol(30.0, LANE_R, eye), pol(41.5, WALL_R, TIER_BASE[LANE_TIER] + SILL_UP + 2.5), 35.0, (1400, 800))
+    # the guard's room at eye level under the arena's own lamp: the proof that
+    # the middle of the tower is no longer a hot spot (Ryan, pass 6)
+    shot("tower_light", pol(200.0, 5.2, GUARD_EYE_Z), pol(20.0, 6.0, TOWER_Y + 2.9), 16.0, (1400, 900))
     # standing on the tower's balcony, the railing in hand, looking across the ring at the lane
     shot("balcony", pol(120.0, 7.1, TOWER_Y + 1.70 + EYE_H), pol(120.0, INNER_R, DECK_Z), 16.0, (1400, 800))
 

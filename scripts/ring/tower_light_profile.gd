@@ -92,3 +92,28 @@ extends Resource
 ## flat ambient. Left on by default; exposed in case it costs more than
 ## expected on the target hardware.
 @export var shadow_enabled: bool = true
+
+## How big the lamp is, in metres -- [member OmniLight3D.light_size].
+##
+## [b]2026-09-16, Ryan on Map 2: "it's way way harsh in the middle of the
+## tower".[/b] A point source a couple of metres over the guard's floor is a
+## hot spot by construction: every surface near it is at one tenth the
+## distance of the ring, and no exponent fixes a lamp that is a point. Giving
+## the lamp a radius makes it an area source -- the terminator spreads over
+## its width instead of snapping, and the shadows the columns throw across
+## the ring go from a hard bar to a soft one. Zero (a true point) is the
+## engine's default and what every other map still gets.
+@export_range(0.0, 8.0, 0.05) var size_metres: float = 0.0
+
+## [member Light3D.shadow_blur] -- how far the shadow map is smeared at the
+## edges. The other half of [member size_metres]: with a lamp this close to
+## what it lights, a one-texel shadow edge reads as a drawn line on the
+## floor. Raised on Map 2, left at the engine's 1.0 everywhere else.
+@export_range(0.0, 8.0, 0.05) var shadow_blur: float = 1.0
+
+## [member Light3D.light_specular] -- how much of this lamp shows up as a
+## highlight. Marble under a close point source grows a white blob right
+## under the lantern, which is the hot spot the eye actually follows. Turned
+## down on Map 2 so the stone reads as lit rather than polished; 1.0
+## elsewhere, the engine's default.
+@export_range(0.0, 1.0, 0.05) var specular: float = 1.0

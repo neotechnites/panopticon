@@ -55,5 +55,8 @@ func _apply_profile() -> void:
 	omni_range = profile.range_metres
 	omni_attenuation = profile.attenuation
 	shadow_enabled = profile.shadow_enabled
+	light_size = profile.size_metres
+	shadow_blur = profile.shadow_blur
+	light_specular = profile.specular
 	omni_shadow_mode = OmniLight3D.SHADOW_DUAL_PARABOLOID
 	position = Vector3(0.0, profile.height_metres, 0.0)

@@ -16,7 +16,7 @@ background_mode = 1
 background_color = Color(0.20, 0.21, 0.23, 1)
 ambient_light_source = 2
 ambient_light_color = Color(0.62, 0.66, 0.72, 1)
-ambient_light_energy = 0.5
+ambient_light_energy = 0.62
 tonemap_mode = 1
 
 [node name="Marble" type="Node3D"]
@@ -24,7 +24,7 @@ editor_description = "MAP 2, MARBLE: the Bentham drawing in white marble, one cl
 
 A prisoner runs one 340 deg lap at r 52 from 5 deg to the portal at 345 deg; the rock bars (a scene node, as on Map 1) close the walkway at 353 deg between finish and start. Off the walkway there is nothing to stand on until the spikes, and SpikeFloor kills before a body reaches them; KillBox below the ground floor catches anything that fell through the world.
 
-The light is the tower's: one shadowed gold omni in the lantern throws its beams out between the tower's columns round the gallery and down the drop, over a cool grey ambient. No sun, no sky, no oculus."
+The light is the tower's: one shadowed, SOFT gold omni under the arcade throws its beams out through the tower's arches round the gallery and down the drop, over a cool grey ambient. It is wide (2.4 m), low-energy and nearly flat in falloff, so there is no hot spot in the room and the far wall is lit within a stop of the floor. No sun, no sky, no oculus."
 
 [node name="Environment" type="Node3D" parent="."]
 
@@ -128,11 +128,14 @@ editor_description = "On the dais at the room's centre (the room floor 1.70 over
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.55, 0)
 
 [node name="TowerLight" type="OmniLight3D" parent="Tower"]
-editor_description = "THE ARENA'S LIGHT: one gold point in the lantern, shadowed, so the beams go out between the columns across the ring as the drawing has them. Colour, energy, range, attenuation and height come from marble_tower_light_profile.tres; the light_* properties here are placeholders for the editor view."
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 8, 0)
+editor_description = "THE ARENA'S LIGHT: one warm gold lamp under the arcade, shadowed, so the arches throw their beams out across the ring as the drawing has them. It is a SOFT lamp, not a point (Ryan, 2026-09-16: \"it's way way harsh in the middle of the tower\"): it hangs at 5.6 over the datum -- world 30.95, well over the guard's head and still under the arches' crowns, so the light leaves the room instead of filling the dome -- and it is 2.4 m wide, at a third of the old energy, over a falloff flat enough (attenuation 0.3 over a 140 m reach) that the room floor and the wall 60 m away sit within a stop of each other. Every number is marble_tower_light_profile.tres'; the light_* properties here are placeholders for the editor view."
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5.6, 0)
 light_color = Color(1, 0.9, 0.66, 1)
-light_energy = 70.0
+light_energy = 22.0
+light_size = 2.4
+light_specular = 0.25
 shadow_enabled = true
-omni_range = 90.0
+shadow_blur = 3.0
+omni_range = 140.0
 script = ExtResource("3_tower_light")
 profile = ExtResource("4_tower_light_profile")
