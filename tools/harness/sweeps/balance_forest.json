@@ -1,0 +1,7 @@
+{
+  "base_rules": "res://resources/rules/forest_match_rules.tres",
+  "notes": "Balance sweep, forest, shipped guard (guard_skill 0.5): the arm every other number on this map is read against.",
+  "variants": [
+    {"name": "forest_default", "notes": "shipped rules, guard_skill 0.5", "overrides": {}}
+  ]
+}

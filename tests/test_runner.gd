@@ -122,6 +122,70 @@ func test_cover_points_hide_a_body_from_the_eye_and_stand_clear_of_lava() -> voi
 	assert_eq_int(hidden, bake.get_cover_count(), "every cover point is blocked from the eye at chest height")
 
 
+## Two decks in one sample column used to collapse to whichever the previous deck
+## was, so a column carrying a low and a high deck emitted its low one twice.
+func test_the_bake_emits_each_deck_of_a_sample_column_once() -> void:
+	var bake: RingBake = _brain.get_navigation()
+	if not assert_true(bake != null and bake.is_ready(), "the mesh answers"):
+		return
+	var count: int = bake.get_cover_count()
+	if not assert_gt(count, 20, "the arena has cover on it"):
+		return
+	var duplicates: int = 0
+	for index: int in count:
+		var point: Vector3 = bake.cover_point(index)
+		for other: int in range(index + 1, count):
+			var twin: Vector3 = bake.cover_point(other)
+			if (
+				absf(twin.x - point.x) < RingBake.COVER_SAME_DECK_METRES
+				and absf(twin.z - point.z) < RingBake.COVER_SAME_DECK_METRES
+				and absf(twin.y - point.y) < RingBake.COVER_SAME_DECK_METRES
+			):
+				duplicates += 1
+	assert_eq_int(duplicates, 0, "no sample column emits the same deck twice")
+
+
+## Cover is shadow with a lit border. A deck the eye has no line into anywhere is a
+## floor of its own, not cover: there is no sight line there for a runner to break,
+## and nearest_cover_ahead refuses the point anyway for being off the runner's deck.
+func test_every_cover_deck_is_one_the_eye_can_see_somewhere() -> void:
+	var bake: RingBake = _brain.get_navigation()
+	if not assert_true(bake != null and bake.is_ready(), "the mesh answers"):
+		return
+	var count: int = bake.get_cover_count()
+	if not assert_gt(count, 20, "the arena has cover on it"):
+		return
+	# The box the cover itself occupies, opened out by eight samples so a deck whose
+	# lit ground lies just past the shadow still counts. Nothing here knows a map.
+	var margin: float = RingBake.COVER_SPACING_METRES * 8.0
+	var low: Vector2 = Vector2(INF, INF)
+	var high: Vector2 = Vector2(-INF, -INF)
+	var decks: Dictionary = {}
+	for index: int in count:
+		var point: Vector3 = bake.cover_point(index)
+		low = Vector2(minf(low.x, point.x), minf(low.y, point.z))
+		high = Vector2(maxf(high.x, point.x), maxf(high.y, point.z))
+		decks[roundi(point.y)] = true
+	var space: PhysicsDirectSpaceState3D = _arena.get_world_3d().direct_space_state
+	for deck: int in decks:
+		var lit: bool = false
+		var x: float = low.x - margin
+		while x <= high.x + margin and not lit:
+			var z: float = low.y - margin
+			while z <= high.y + margin and not lit:
+				var height: float = bake.height_at(Vector3(x, float(deck), z))
+				if not is_nan(height) and absf(height - float(deck)) <= 1.0:
+					var query: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(
+						bake.get_eye(),
+						Vector3(x, height, z) + Vector3.UP * RingBake.COVER_CHEST_METRES,
+						RingBake.STATIC_COLLIDER_MASK
+					)
+					lit = space.intersect_ray(query).is_empty()
+				z += RingBake.COVER_SPACING_METRES
+			x += RingBake.COVER_SPACING_METRES
+		assert_true(lit, "the eye has a line onto the deck at y %d that carries cover" % deck)
+
+
 # --- The lap ------------------------------------------------------------------
 
 ## A runner runs the track all the way round, pads and stones included, and reports it.

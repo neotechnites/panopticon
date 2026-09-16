@@ -1,0 +1,9 @@
+{
+  "base_rules": "res://resources/rules/default_match_rules.tres",
+  "notes": "Balance spread, bentham_ring: a guard who cannot see, a learner, and a hard one. The blind arm is the map's own bar -- runners take effectively every round and the map kills nobody.",
+  "variants": [
+    {"name": "bentham_ring_blind", "notes": "guard_skill 0, one degree of view", "overrides": {"guard_skill": 0.0, "guard_fov_degrees": 1.0}},
+    {"name": "bentham_ring_skill_02", "notes": "learner", "overrides": {"guard_skill": 0.2}},
+    {"name": "bentham_ring_skill_08", "notes": "hard but beatable", "overrides": {"guard_skill": 0.8}}
+  ]
+}
