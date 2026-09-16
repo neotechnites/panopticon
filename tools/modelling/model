@@ -2,27 +2,45 @@
 #
 # model -- the PANOPTICON 3D modelling pipeline, driven from the Mac.
 #
-#   Author on the Mac.  Build on the PC.  Look at it on the Mac.
+#   Author on the Mac.  Build where Blender is.  Look at it on the Mac.
 #
-# One command ships a build script to the Windows box, renders it with EEVEE on
-# the GPU, proves the .glb imports into Godot with no errors and no warnings,
-# and drops the model into assets/models/ and the pictures onto the Desktop.
+# THE FAST LOOP -- write, build, one preview, look, iterate:
 #
-#   tools/modelling/model build runner
+#   tools/modelling/model build bush --preview   # glb + 3 quarter-res views, seconds
+#
+# THE FINAL PASS -- the full sheet, the contract, the gate:
+#
+#   tools/modelling/model build bush             # full view sheet, verified, installed
+#   tools/modelling/model build bush --prop      # ...and run the gate the model has earned
+#   tools/modelling/model parity bush            # do the Mac's bytes match the PC's?
+#
+# Everything else:
+#
 #   tools/modelling/model build runner --views front,side,threequarter,hero
 #   tools/modelling/model build runner --cam 200,35 --cam 15,-10,35 --res 1400x1400
 #   tools/modelling/model build runner --frame 6 --turntable 8
 #   tools/modelling/model look   runner --cam 120,25        # renders only, no install
-#   tools/modelling/model look   runner --rest               # rest pose, to debug a rig
+#   tools/modelling/model look   runner --rest              # rest pose, to debug a rig
 #   tools/modelling/model verify runner                     # re-check the shipped .glb
+#   tools/modelling/model refs   runner                     # which scenes use it
+#   tools/modelling/model audit  runner                     # contiguity + quality only
 #   tools/modelling/model views                             # list the named views
 #   tools/modelling/model open                              # reveal the renders in Finder
 #
+# WHERE IT BUILDS. Blender on this Mac is the default the moment it is
+# installed (brew install --cask blender -- keep it on the same Blender series
+# the PC runs). --pc forces the Windows box; the PC is also the automatic
+# fallback when there is no Mac Blender. Same script, same spec, same bytes.
+#
 # See docs/MODELLING.md. The short version of what bit us:
-#   * EEVEE cannot run over plain ssh. It goes through a scheduled task created
-#     /it so that it lands in the logged-on console session and finds the GPU.
-#   * Never run Godot on the Mac; it steals the keyboard. Verification is on
-#     the PC, and it is a real check, not an assumption.
+#   * EEVEE cannot run over plain ssh. On the PC it goes through a scheduled
+#     task created /it so that it lands in the logged-on console session and
+#     finds the GPU. On the Mac it just runs.
+#   * Never run Godot WINDOWED on the Mac; it steals the keyboard. Headless is
+#     what the suite already does, and it is what verifies a locally built model.
+#   * A handful of build scripts branch on floating-point comparisons and do
+#     not produce identical bytes on arm64 and x86-64. `model parity <name>`
+#     is how you find out, and it is why the PC stays one flag away.
 #
 set -euo pipefail
 
@@ -39,11 +57,25 @@ PC_WORK_W='C:\Users\ddd\panopticon-modelling'
 # single shared build.log / build.done / task name means one agent's run
 # silently eats another's -- which presents as "blender failed" on a script
 # that is perfectly fine.
-BLENDER='C:\tools\blender\blender.exe'
-GODOT='C:\tools\godot\godot.exe'
+# Named PC_* so that the Mac's own GODOT / MODEL_BLENDER environment overrides
+# cannot be shadowed by the Windows paths -- they were, once, and it presented
+# as "godot verification FAILED" with an empty log.
+PC_BLENDER='C:\tools\blender\blender.exe'
+PC_GODOT='C:\tools\godot\godot.exe'
 
 MODELS="$REPO/assets/models"
 RENDERS="$HOME/Desktop/panopticon-renders"
+
+# The Mac toolchain. MODEL_BLENDER / GODOT override it; otherwise the cask's
+# app bundle, then anything on PATH. An empty MAC_BLENDER is not an error -- it
+# just means every build goes to the PC, exactly as it always did.
+MAC_BLENDER="${MODEL_BLENDER:-}"
+if [ -z "$MAC_BLENDER" ]; then
+  for c in /Applications/Blender.app/Contents/MacOS/Blender "$(command -v blender || true)"; do
+    if [ -n "$c" ] && [ -x "$c" ]; then MAC_BLENDER="$c"; break; fi
+  done
+fi
+MAC_GODOT="${GODOT:-$(command -v godot || true)}"
 
 die() { printf 'model: %s\n' "$*" >&2; exit 1; }
 say() { printf '\033[1m==> %s\033[0m\n' "$*"; }
@@ -64,6 +96,7 @@ ENGINE="eevee"
 SAMPLES=""
 FRAME=""
 TURNTABLE=0
+NORENDER=0
 MARGIN=""
 DO_VERIFY=1
 DO_INSTALL=1
@@ -72,6 +105,9 @@ KEEP=0
 TIMEOUT=900
 REST=0
 LIGHT=""
+PREVIEW=0
+PROP=0
+WHERE=""            # "" = decide, "local" = this Mac, "pc" = the Windows box
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -83,6 +119,10 @@ while [ $# -gt 0 ]; do
     --rest)       REST=1; shift ;;
     --light)      LIGHT="$2"; shift 2 ;;
     --gpu)        ENGINE="eevee"; shift ;;
+    --preview)    PREVIEW=1; shift ;;
+    --prop)       PROP=1; shift ;;
+    --local)      WHERE="local"; shift ;;
+    --pc)         WHERE="pc"; shift ;;
     --samples)    SAMPLES="$2"; shift 2 ;;
     --frame)      FRAME="$2"; shift 2 ;;
     --turntable)  TURNTABLE="$2"; shift 2 ;;
@@ -116,6 +156,12 @@ spec = {
     "glb": bool($DO_GLB),
     "turntable": int("$TURNTABLE"),
 }
+if "$NORENDER" == "1":
+    spec["views"] = []
+    spec["cams"] = []
+    spec["turntable"] = 0
+    print(json.dumps(spec, indent=1))
+    raise SystemExit(0)
 views = "$VIEWS"
 if views:
     spec["views"] = [v.strip() for v in views.split(",") if v.strip()]
@@ -138,6 +184,10 @@ if "$REST" == "1":
     spec["pose"] = "rest"
 if "$LIGHT":
     spec["key_energy"] = float("$LIGHT")
+if "$PREVIEW" == "1":
+    # mdl fills in the view list, the quarter resolution, the sample count and
+    # the scale proxy. Anything named on the command line still wins.
+    spec["preview"] = True
 print(json.dumps(spec, indent=1))
 PY
 }
@@ -208,7 +258,7 @@ stage_blender() {
 set W=$JOB_W
 del /q "%W%\\build.done" 2>nul
 cd /d "%W%"
-"$BLENDER" -b -noaudio -P "%W%\\${NAME}_build.py" -- --spec "%W%\\spec.json" > "%W%\\build.log" 2>&1
+"$PC_BLENDER" -b -noaudio -P "%W%\\${NAME}_build.py" -- --spec "%W%\\spec.json" > "%W%\\build.log" 2>&1
 set RC=%ERRORLEVEL%
 findstr /c:"MDL DONE" "%W%\\build.log" >nul || set RC=1
 echo %RC% > "%W%\\build.done"
@@ -261,8 +311,8 @@ del /q "%W%\\verify.done" 2>nul
 rmdir /s /q "%W%\\verify\\.godot" 2>nul
 del /q "%W%\\verify\\*.import" "%W%\\verify\\*.png" 2>nul
 copy /y "%W%\\out\\${NAME}.glb" "%W%\\verify\\model.glb" >nul
-"$GODOT" --headless --path "%W%\\verify" --import > "%W%\\verify.log" 2>&1
-"$GODOT" --headless --path "%W%\\verify" --script res://verify_glb.gd >> "%W%\\verify.log" 2>&1
+"$PC_GODOT" --headless --path "%W%\\verify" --import > "%W%\\verify.log" 2>&1
+"$PC_GODOT" --headless --path "%W%\\verify" --script res://verify_glb.gd >> "%W%\\verify.log" 2>&1
 echo %ERRORLEVEL% > "%W%\\verify.done"
 EOF
   push "$TMP/verify.bat" "$JOB/verify.bat"
@@ -312,9 +362,9 @@ stage_fetch() {
 }
 
 stage_install() {
-  [ -f "$TMP/${NAME}.glb" ] || die "no ${NAME}.glb came back from the PC"
+  [ -f "$GLB_SRC" ] || die "no ${NAME}.glb was produced ($GLB_SRC)"
   mkdir -p "$MODELS"
-  cp "$TMP/${NAME}.glb" "$MODELS/${NAME}.glb"
+  cp "$GLB_SRC" "$MODELS/${NAME}.glb"
   say "assets/models/${NAME}.glb ($(wc -c < "$MODELS/${NAME}.glb" | tr -d ' ') bytes)"
   "$REPO/tools/fix_glb_imports.sh"
   if [ -f "$MODELS/${NAME}.glb.import" ]; then
@@ -323,29 +373,279 @@ stage_install() {
 }
 
 # -----------------------------------------------------------------------------
+# stages -- the local (Mac) backend
+#
+# Same build script, same spec JSON, same mdl.py. The only thing that changes
+# is that nothing is copied anywhere: the script already sits next to its
+# textures and its sibling _build modules, so the PC's ship/fetch dance simply
+# has no work to do here.
+# -----------------------------------------------------------------------------
+
+require_script() {
+  [ -f "$HERE/${NAME}_build.py" ] || die "no build script at tools/modelling/${NAME}_build.py
+       Author one first -- that file IS the model. A model whose script lives
+       in a scratchpad is a model you cannot change (see docs/MODELLING.md)."
+}
+
+stage_blender_local() {
+  require_script
+  mkdir -p "$TMP/out"
+  json_spec "$TMP/out" > "$TMP/spec.json"
+  say "blender (local, $ENGINE)"
+  local t0 t1 rc=0
+  t0=$(date +%s)
+  ( cd "$HERE" && PYTHONPATH="$HERE:$HERE/lib" \
+      "$MAC_BLENDER" -b -noaudio -P "$HERE/${NAME}_build.py" -- --spec "$TMP/spec.json" \
+  ) > "$TMP/build.out" 2>&1 || rc=$?
+  # Blender exits 0 after a Python traceback under -b -P, so the exit code
+  # alone reports success for a script that built nothing. mdl.main writes
+  # "MDL DONE" as its last act; that marker is the real verdict.
+  grep -q 'MDL DONE' "$TMP/build.out" || rc=1
+  if [ "$rc" -ne 0 ]; then
+    cp "$TMP/build.out" "$FAILLOG" 2>/dev/null || true
+    grep -E 'MDL|Error|EXCEPTION|Traceback|^  File' "$TMP/build.out" | tail -40 >&2 || true
+    die "blender failed. Full log: $FAILLOG"
+  fi
+  t1=$(date +%s)
+  BLENDER_SECS=$((t1 - t0))
+  grep -E '^MDL (STATS|EXPORT|RENDER|DONE|preview|note)' "$TMP/build.out" || true
+}
+
+stage_verify_local() {
+  say "godot import check (local, headless)"
+  local V="$TMP/verify" rc=0
+  rm -rf "$V"; mkdir -p "$V"
+  # A fresh scratch project every time: Godot prints an import's complaints
+  # exactly once, so a reused .godot/ makes the second run of a broken model
+  # green. Headless only -- a windowed Godot on the Mac steals the keyboard.
+  cat > "$V/project.godot" <<'EOF'
+config_version=5
+
+[application]
+config/name="modelling-verify"
+config/features=PackedStringArray("4.7", "GL Compatibility")
+
+[debug]
+gdscript/warnings/untyped_declaration=1
+gdscript/warnings/unsafe_property_access=1
+gdscript/warnings/unsafe_method_access=1
+EOF
+  cp "$HERE/lib/verify_glb.gd" "$V/verify_glb.gd"
+  [ -f "$HERE/${NAME}.contract.json" ] && cp "$HERE/${NAME}.contract.json" "$V/contract.json"
+  cp "$GLB_SRC" "$V/model.glb"
+  "$MAC_GODOT" --headless --path "$V" --import   > "$TMP/verify.out" 2>&1 || true
+  "$MAC_GODOT" --headless --path "$V" --script res://verify_glb.gd >> "$TMP/verify.out" 2>&1 || rc=$?
+  if [ "$rc" -ne 0 ]; then
+    grep -E 'VERIFY|ERROR|WARNING' "$TMP/verify.out" | tail -40 >&2 || true
+    die "godot verification FAILED -- the model was not installed"
+  fi
+  # Zero errors AND zero warnings is the bar. Godot's importer is happy to warn
+  # about a lost skin and still exit 0.
+  local bad
+  bad=$(grep -cE '^(ERROR|WARNING|SCRIPT ERROR|USER ERROR)' "$TMP/verify.out" || true)
+  if [ "${bad:-0}" -gt 0 ]; then
+    grep -E '^(ERROR|WARNING|SCRIPT ERROR|USER ERROR)' -A2 "$TMP/verify.out" >&2
+    die "$bad error/warning line(s) during import -- the model was not installed"
+  fi
+  grep -E '^VERIFY' "$TMP/verify.out" || true
+}
+
+stage_fetch_local() {
+  mkdir -p "$RENDERS"
+  local got=0 f
+  for f in "$TMP"/out/"$NAME"_*.png; do
+    [ -f "$f" ] || continue
+    cp "$f" "$RENDERS/$(basename "$f")"
+    if [ "$KEEP" = "1" ]; then
+      mkdir -p "$RENDERS/archive"
+      cp "$f" "$RENDERS/archive/$(basename "${f%.png}")_$(date +%Y%m%d-%H%M%S).png"
+    fi
+    got=$((got + 1))
+  done
+  say "$got render(s) -> $RENDERS"
+}
+
+# -----------------------------------------------------------------------------
+# the gate a model has earned
+#
+# Not a judgement call. lib/scene_refs.sh greps the scenes, the scripts and the
+# resources for the model's path AND for the uid its .import file carries, and
+# that answer picks the gate:
+#
+#   nothing references it  ->  contract + contiguity/quality audit + Godot
+#                              import check. tools/test.sh cannot observe a
+#                              .glb no scene loads, so running it proves
+#                              nothing and costs two minutes.
+#   a scene references it  ->  the full gate, every time, no flag to skip it.
+# -----------------------------------------------------------------------------
+
+stage_gate() {
+  local refs=""
+  if refs="$("$HERE/lib/scene_refs.sh" "$NAME")"; then
+    say "$NAME is referenced -- the full gate is mandatory"
+    printf '    %s\n' $refs
+    stage_audit
+    # A model a scene actually loads is the one place a silent arm64/x86-64
+    # geometry difference would ship, and twenty seconds is nothing against the
+    # three minutes this branch is about to spend anyway.
+    if [ "$WHERE" = "local" ] && [ -n "$MAC_BLENDER" ]; then
+      say "parity against the PC"
+      PC_SHA=""
+      if stage_ship >/dev/null 2>&1 && NORENDER=1 stage_blender >/dev/null 2>&1 \
+         && pull "$JOB/out/${NAME}.glb" "$TMP/pc.glb" 2>/dev/null; then
+        PC_SHA=$(shasum -a 256 "$TMP/pc.glb" | cut -d" " -f1)
+        MY_SHA=$(shasum -a 256 "$MODELS/${NAME}.glb" | cut -d" " -f1)
+        if [ "$PC_SHA" = "$MY_SHA" ]; then
+          echo "    identical on both boxes"
+        else
+          python3 "$HERE/lib/glb_diff.py" "$MODELS/${NAME}.glb" "$TMP/pc.glb" || true
+          die "parity BROKEN -- rebuild $NAME with --pc before shipping it"
+        fi
+      else
+        echo "    (PC unreachable -- parity not checked)"
+      fi
+    fi
+    say "bash tools/test.sh"
+    bash "$REPO/tools/test.sh" || die "tools/test.sh FAILED -- fix it before you call this done"
+    say "bot harness (10 matches)"
+    "$MAC_GODOT" --headless --path "$REPO" --script res://tools/harness/run_bot_match.gd \
+      -- --matches=10 > "$TMP/harness.out" 2>&1 \
+      || { tail -30 "$TMP/harness.out" >&2; die "bot harness FAILED"; }
+    tail -3 "$TMP/harness.out"
+  else
+    say "$NAME is referenced by no scene -- prop gate (audit only, no suite)"
+    stage_audit
+    echo "    tools/test.sh and the bot harness are SKIPPED on purpose: nothing"
+    echo "    loads this model yet. They become mandatory the moment a scene does."
+  fi
+}
+
+stage_audit() {
+  local args=()
+  if [ -f "$HERE/${NAME}.contract.json" ]; then
+    local mt
+    mt=$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1])).get("max_tris",""))' \
+         "$HERE/${NAME}.contract.json")
+    [ -n "$mt" ] && args+=(--max-tris "$mt")
+  fi
+  python3 "$HERE/lib/glb_audit.py" "$MODELS/${NAME}.glb" "${args[@]+"${args[@]}"}" \
+    || die "contiguity/quality audit FAILED"
+}
+
+# -----------------------------------------------------------------------------
 # commands
 # -----------------------------------------------------------------------------
 
 TMP="$(mktemp -d "${TMPDIR:-/tmp}/panopticon-model.XXXXXX")"
-trap 'rm -rf "$TMP"' EXIT
+# MODEL_KEEP_TMP=1 keeps the whole job directory -- spec, logs, scratch Godot
+# project -- for when the failure is in the pipeline rather than in the model.
+[ "${MODEL_KEEP_TMP:-0}" = "1" ] || trap 'rm -rf "$TMP"' EXIT
+# $TMP dies with the run, so a failing build copies its log somewhere the next
+# command can still read it.
+FAILLOG="${TMPDIR:-/tmp}/panopticon-model-${NAME:-none}.log"
+GLB_SRC=""
+
+# Which box builds this. --pc and --local are explicit; otherwise the Mac when
+# Blender is installed here, the PC when it is not.
+pick_backend() {
+  case "$WHERE" in
+    local) [ -n "$MAC_BLENDER" ] || die "--local but no Blender on this Mac.
+       brew install --cask blender   (it must match the PC's Blender; see doctor)" ;;
+    pc)    ;;
+    *)     if [ -n "$MAC_BLENDER" ]; then WHERE="local"; else WHERE="pc"; fi ;;
+  esac
+}
 
 case "$CMD" in
 
   build|look)
     [ -n "$NAME" ] || die "usage: model $CMD <name> [options]"
     if [ "$CMD" = "look" ]; then DO_INSTALL=0; DO_VERIFY=0; fi
+    # A preview is a look, not a delivery: it renders at a quarter of the
+    # resolution with a scale proxy standing next to the model, which is not a
+    # thing you verify against a contract or install over the shipped .glb.
+    if [ "$PREVIEW" = "1" ] && [ "$CMD" = "build" ]; then DO_VERIFY=0; DO_INSTALL=0; fi
+    pick_backend
     START=$(date +%s)
+    if [ "$WHERE" = "local" ]; then
+      stage_blender_local
+      GLB_SRC="$TMP/out/${NAME}.glb"
+      if [ "$DO_VERIFY" = "1" ]; then stage_verify_local; fi
+      stage_fetch_local
+    else
+      stage_ship
+      stage_blender
+      if [ "$DO_VERIFY" = "1" ]; then stage_verify; fi
+      stage_fetch
+      GLB_SRC="$TMP/${NAME}.glb"
+    fi
+    if [ "$DO_INSTALL" = "1" ]; then stage_install; fi
+    say "$CMD $NAME complete in $(( $(date +%s) - START ))s on ${WHERE} (blender ${BLENDER_SECS}s)"
+    if [ "$PROP" = "1" ]; then
+      [ "$DO_INSTALL" = "1" ] || die "--prop gates the INSTALLED model; drop --preview/--no-install"
+      stage_gate
+    fi
+    ;;
+
+  refs)
+    [ -n "$NAME" ] || die "usage: model refs <name>"
+    if out="$("$HERE/lib/scene_refs.sh" "$NAME")"; then
+      say "$NAME is referenced -- the full gate applies"
+      printf '    %s\n' $out
+    else
+      say "$NAME is referenced by no scene -- the prop gate applies"
+    fi
+    ;;
+
+  audit)
+    [ -n "$NAME" ] || die "usage: model audit <name>"
+    [ -f "$MODELS/${NAME}.glb" ] || die "no assets/models/${NAME}.glb"
+    stage_audit
+    ;;
+
+  gate)
+    [ -n "$NAME" ] || die "usage: model gate <name>"
+    [ -f "$MODELS/${NAME}.glb" ] || die "no assets/models/${NAME}.glb"
+    stage_gate
+    ;;
+
+  parity)
+    # Two builds of one script, one on each box, compared byte for byte. A few
+    # build scripts branch on a floating-point comparison, and arm64 and x86-64
+    # do not always land on the same side of one; when that happens the models
+    # differ in real geometry and only this says so.
+    [ -n "$NAME" ] || die "usage: model parity <name>"
+    [ -n "$MAC_BLENDER" ] || die "no Blender on this Mac -- nothing to compare"
+    DO_GLB=1; NORENDER=1
+    mkdir -p "$TMP/out"
+    say "local build"
+    stage_blender_local
+    cp "$TMP/out/${NAME}.glb" "$TMP/local.glb"
+    say "pc build"
     stage_ship
     stage_blender
-    if [ "$DO_VERIFY" = "1" ]; then stage_verify; fi
-    stage_fetch
-    if [ "$DO_INSTALL" = "1" ]; then stage_install; fi
-    say "$CMD $NAME complete in $(( $(date +%s) - START ))s (blender ${BLENDER_SECS}s)"
+    pull "$JOB/out/${NAME}.glb" "$TMP/pc.glb"
+    A=$(shasum -a 256 "$TMP/local.glb" | cut -d" " -f1)
+    B=$(shasum -a 256 "$TMP/pc.glb" | cut -d" " -f1)
+    echo "    mac $A"
+    echo "    pc  $B"
+    if [ "$A" = "$B" ]; then
+      say "parity OK -- $NAME builds identically on both boxes"
+    else
+      python3 "$HERE/lib/glb_diff.py" "$TMP/local.glb" "$TMP/pc.glb" || true
+      die "parity BROKEN -- build $NAME on the PC (--pc) for anything you ship"
+    fi
     ;;
 
   verify)
     [ -n "$NAME" ] || die "usage: model verify <name>"
     [ -f "$MODELS/${NAME}.glb" ] || die "no assets/models/${NAME}.glb"
+    pick_backend
+    if [ "$WHERE" = "local" ]; then
+      GLB_SRC="$MODELS/${NAME}.glb"
+      stage_verify_local
+      exit 0
+    fi
     ensure_workdir
     push "$HERE/lib/pcrun.ps1" "$JOB/pcrun.ps1"
     push "$MODELS/${NAME}.glb" "$JOB/out/${NAME}.glb"
@@ -372,17 +672,27 @@ PY
     ;;
 
   doctor)
+    say "mac blender (the default backend)"
+    if [ -n "$MAC_BLENDER" ]; then
+      echo "    $MAC_BLENDER"
+      "$MAC_BLENDER" -v 2>/dev/null | head -1
+    else
+      echo "    NOT INSTALLED -- every build goes to the PC."
+      echo "    brew install --cask blender     # must match the PC's version below"
+    fi
+    say "mac godot (headless verification)"
+    if [ -n "$MAC_GODOT" ]; then "$MAC_GODOT" --headless --version; else echo "    none on PATH"; fi
     say "pc reachable?"
     pc "'ok: ' + \$env:COMPUTERNAME" || die "cannot ssh $PC_ALIAS"
     say "console session (EEVEE needs one)"
     pc "query session" || true
     say "blender"
-    pc "(Get-Item '$BLENDER').VersionInfo.ProductVersion; (Get-Item '$BLENDER').Length"
+    pc "(Get-Item '$PC_BLENDER').VersionInfo.ProductVersion; (Get-Item '$PC_BLENDER').Length"
     say "godot"
-    pc "& '$GODOT' --headless --version"
+    pc "& '$PC_GODOT' --headless --version"
     ;;
 
   help|*)
-    sed -n "3,26p" "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+    sed -n "3,2p" "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
     ;;
 esac

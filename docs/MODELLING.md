@@ -1,34 +1,76 @@
 # Modelling
 
-How a 3D model gets made for PANOPTICON: authored on the Mac, built and
-rendered on the Windows PC, looked at on the Mac, and proved in Godot before it
+How a 3D model gets made for PANOPTICON: authored on the Mac, built on
+whichever box has Blender, looked at on the Mac, and proved in Godot before it
 is allowed anywhere near `assets/models/`.
 
 This exists because the expensive part of modelling was never the geometry. It
 was that **the agent could not see what it had made**, so it iterated on
-arithmetic and waited for a human to say "still wrong". One look now costs
-about twenty-five seconds.
+arithmetic and waited for a human to say "still wrong".
+
+The second expensive part was the round trip. Every look used to cross the
+network to the PC and back, and every model, referenced by a scene or not, then
+paid for the whole game suite and the bot harness. That is four minutes to move
+a bush half a metre. One look now costs seconds, on this machine, and a prop no
+scene loads is gated on what can actually observe it.
+
+## The fast loop
+
+This is the default way to build a prop. Write, build, one preview, look, change
+a number, again:
+
+    tools/modelling/model build bush --preview     # glb + 3 quarter-res views
+
+Full renders and the full gate are a **final pass**, run once, at the end:
+
+    tools/modelling/model build bush --prop        # full sheet, verify, install, gate
+
+`--preview` is a look, not a delivery: it renders at a quarter resolution with
+no denoise and stands a 1.8 m human proxy next to the model for scale, and it
+neither verifies against the contract nor installs over the shipped `.glb`.
 
 ## The five stages
 
 | | | |
 |---|---|---|
 | **Author** | `tools/modelling/<name>_build.py` | in the repo, tunables in one block at the top |
-| **Run** | `tools/modelling/model build <name>` | ships it to the PC, runs Blender headless |
-| **See** | `~/Desktop/panopticon-renders/` | EEVEE on the GPU, standard views or any angle |
-| **Verify** | Godot on the PC | imports the `.glb`, checks it against a contract |
+| **Run** | `tools/modelling/model build <name>` | Blender headless, on this Mac if it is installed here |
+| **See** | `~/Desktop/panopticon-renders/` | EEVEE, standard views or any angle |
+| **Verify** | Godot headless | imports the `.glb`, checks it against a contract |
+| **Gate** | the gate the model has earned | audit only, or the whole suite — decided by grep |
 | **Deliver** | `assets/models/<name>.glb` | only if verification passed |
+
+## Where it builds
+
+Blender on the Mac is the default the moment it is installed:
+
+    brew install --cask blender
+
+Keep it on the **same Blender series as the PC** — `model doctor` prints both
+(5.2.2 on the Mac against 5.2.1 on the PC produces identical bytes; a different
+major version would change the glTF exporter and therefore every file). The
+real test is `model parity <name>`, not the version string. The PC is the
+automatic fallback
+when there is no Mac Blender, and `--pc` forces it; nothing else changes — same
+build script, same spec JSON, same `mdl.py`, and for most models the same bytes
+out. `model parity <name>` builds on both boxes and compares them byte for byte.
 
 ## Commands
 
 Run from the repo root.
 
+    tools/modelling/model build <name> --preview  # the fast loop: 3 quarter-res views, seconds
     tools/modelling/model build <name>            # the whole pipeline, installs the model
+    tools/modelling/model build <name> --prop     # ...and run the gate the model has earned
     tools/modelling/model look  <name>            # renders only: no verify, no install
     tools/modelling/model verify <name>           # re-check the .glb already in assets/models/
+    tools/modelling/model audit  <name>           # contiguity and quality of the shipped .glb
+    tools/modelling/model refs   <name>           # which scenes reference it (this picks the gate)
+    tools/modelling/model gate   <name>           # run that gate without rebuilding
+    tools/modelling/model parity <name>           # do the Mac and the PC produce the same bytes?
     tools/modelling/model views                   # list the named views
     tools/modelling/model open                    # reveal the renders in Finder
-    tools/modelling/model doctor                  # is the PC reachable, is there a console session
+    tools/modelling/model doctor                  # both toolchains, and is the PC reachable
 
 Options for `build` and `look`:
 
@@ -41,11 +83,45 @@ Options for `build` and `look`:
 | `--rest` | rest pose, action cleared — for debugging a rig |
 | `--res WxH` | fixed frame size; default shapes each frame to the subject |
 | `--samples N`, `--light W`, `--margin M` | render quality, key light watts, framing slack |
+| `--preview` | the fast loop: `threequarter`, `front` and `eye` at quarter resolution, no denoise, scale proxy; no verify, no install |
+| `--prop` | after installing, run the gate this model has earned (see below) |
+| `--local`, `--pc` | force the backend instead of letting it be chosen |
 | `--cpu` | Cycles on CPU instead of EEVEE on GPU |
 | `--no-verify`, `--no-install`, `--keep` | skip stages; `--keep` archives a timestamped copy |
 
 Azimuth 0 is the model's own front; elevation is degrees above the horizon.
 `--cam 215,22` and the named view `hero` are the same thing.
+
+## The gate a model has earned
+
+`tools/test.sh` and the bot harness cannot observe a `.glb` that no scene loads.
+Running them for a new prop proves nothing and costs four minutes, which is why
+the prop loop used to be measured in tens of minutes. So the gate is chosen, not
+argued:
+
+| | |
+|---|---|
+| **nothing references it** | the contract check, `lib/glb_audit.py`, and the Godot import check |
+| **a scene references it** | all of that, then `bash tools/test.sh` **and** the bot harness, every time |
+
+Which one applies is not a judgement call and there is no flag to override it.
+`lib/scene_refs.sh <name>` greps `scenes/`, `scripts/`, `resources/` and
+`project.godot` for both spellings a scene can use — the path
+`assets/models/<name>.glb` and the `uid://` its `.import` file carries — and
+`model build <name> --prop` runs whichever gate that answer names. A `.tscn`
+saved by the editor carries the uid and not the path, so grepping for the
+filename alone quietly answers "no" for a model half the map uses; that is why
+the uid is in there.
+
+The moment a scene references the model, the full gate is mandatory. Wiring a
+prop into a scene is therefore the change that carries the suite, not the build
+that made the prop.
+
+`lib/glb_audit.py` parses the `.glb` itself — no Blender, no Godot, hundredths
+of a second — and reports triangles, vertices, connected components after
+welding, duplicate positions and degenerate triangles, art and collision
+separately. It is the contiguity audit: a `.glb` can import perfectly and still
+be five loose shells.
 
 ## Writing a build script
 
@@ -162,6 +238,22 @@ copy of `mdl.py`, and its own scheduled-task name. A shared `build.log` /
 presents as "blender failed" on a script that is perfectly fine. It cost a run
 to find. Expect Blender to take much longer than usual when two builds are in
 flight — there is one GPU.
+
+**arm64 and x86-64 do not always build the same model.** `torch`, `boulder` and
+`marble_bars` come off the Mac byte-for-byte identical to the PC. `forest_tree`
+does not: 323 bytes of 889,312 differ, all of them in the *geometry* buffers,
+because the script picks quads with `sorted(key=...)` on a floating-point dot
+product and the two machines land on opposite sides of a tie. The models are
+deterministic on each box and different between them. So: `model parity <name>`
+before you trust a local build of anything that ships, and `--pc` for the final
+build of a script that fails it. `lib/glb_diff.py` says whether the difference is
+geometry (a different model) or painted texels (the same shape).
+
+**The Windows paths used to be called `$BLENDER` and `$GODOT`.** The moment the
+Mac backend read `${GODOT:-…}` for its own binary, the script's own `GODOT`
+shadowed the environment and every local verification ran `C:\tools\godot\godot.exe`
+on macOS. It presented as "godot verification FAILED" with an empty log. They
+are `PC_BLENDER` and `PC_GODOT` now.
 
 **`C:\dev\panopticon` on the PC is Ryan's play copy.** The pipeline works in
 `C:\Users\ddd\panopticon-modelling` and never touches it.

@@ -61,6 +61,10 @@ VIEWS = {
     "hero":         (215.0, 22.0,  50.0),
     "top":          (0.0,   85.0,  55.0),
     "lowangle":     (25.0, -14.0,  40.0),
+    # A LEVEL camera at the height a player actually meets the prop from. Every
+    # other view looks down on a prop and flatters it; "eye" is the only one
+    # that answers "does this read from where it will be seen?".
+    "eye":          (20.0,   0.0,  45.0),
 }
 
 DEFAULT_VIEWS = ("front", "side", "threequarter")
@@ -94,7 +98,60 @@ DEFAULTS = {
     "turntable": 0,
     "out_dir": ".",
     "glb": True,
+    # A boxy 1.8 m human beside the subject, for scale only. Built AFTER the
+    # glTF export and never exported; see ``_proxy_human``.
+    "proxy": False,
+    # The fast look: see ``PREVIEW_OVERRIDES``. Render-only, by construction.
+    "preview": False,
 }
+
+
+# =============================================================================
+# PREVIEW -- the cheap look, and why it cannot reach the .glb
+# =============================================================================
+# Iterating on a prop costs one render each time, and almost every one of those
+# renders is thrown away after a two-second glance. ``preview`` is the spec that
+# glance deserves: three views instead of the full set, a short edge, few
+# samples, the expensive half of the shading off, and a human standing next to
+# it so "is it the right size?" is answerable at all.
+#
+# Each override applies ONLY where the spec did not state that key itself, so
+# ``{"preview": true, "views": ["top"]}`` means preview quality of exactly the
+# view that was asked for, not preview quality of a view nobody wanted.
+#
+# THE INVARIANT: preview changes nothing the exporter can see. Everything it
+# touches is consumed by ``render`` / ``setup_scene``, both of which run after
+# ``export_glb`` in ``main``. The proxy is geometry that does not exist yet at
+# export time. A preview build and a full build of the same script therefore
+# produce the same bytes, and that is a property of the ordering rather than of
+# anyone remembering to filter a list.
+
+PREVIEW_OVERRIDES = {
+    "views": ["threequarter", "front", "eye"],
+    "proxy": True,
+    "res_long_edge": 600,
+    "samples": 8,
+}
+
+
+def apply_preview(spec, explicit=()):
+    """Fold the ``preview`` shortcut into ``spec``, in place, and report it.
+
+    ``explicit`` is the set of keys the caller's spec file actually stated;
+    those are left alone. Called once, from ``_spec_from_argv`` -- a spec built
+    by hand and handed straight to ``render`` should call this itself.
+    """
+    if not spec.get("preview"):
+        return spec
+    explicit = set(explicit)
+    for key, value in PREVIEW_OVERRIDES.items():
+        if key not in explicit:
+            spec[key] = list(value) if isinstance(value, list) else value
+    print("MDL preview res=%d samples=%d proxy=%s"
+          % (int(spec.get("res_long_edge", 600)),
+             int(spec.get("samples", 8)),
+             "on" if spec.get("proxy") else "off"))
+    return spec
 
 
 # =============================================================================
@@ -616,22 +673,97 @@ def _auto_resolution(lo, hi, direction, long_edge=1200, short_min=560):
     return (rx // 2) * 2, (ry // 2) * 2
 
 
+# -----------------------------------------------------------------------------
+# SCALE PROXY
+# -----------------------------------------------------------------------------
+
+PROXY_HEIGHT = 1.8          # the game's own player height
+PROXY_GAP = 0.6             # clear air between the subject's +X face and it
+# Mid-grey as it RENDERS, not as a linear number: 0.5 linear under this key
+# rig clips to white against the Standard transform and the figure loses its
+# own edges, which is the one thing a scale reference must keep.
+PROXY_COLOR = [0.214, 0.214, 0.214, 1.0]      # sRGB 128
+
+
+def _proxy_human(name="ScaleProxy", height=PROXY_HEIGHT):
+    """A boxy standing figure -- legs, torso, arms, head -- 56 triangles.
+
+    IT EXISTS ONLY FOR SCALE. It is never exported, never counted in
+    ``report``, and nothing in the game ever sees it: it is created inside
+    ``render``, which runs after ``export_glb``, so there is no list anyone has
+    to remember to filter.
+
+    Faces that no preview view can see are omitted rather than drawn: the feet
+    sit on the ground, the leg tops are under the torso, the head's underside is
+    on the shoulders, and the preview views are all at or above the horizon
+    (eye 0 deg, front 8 deg, threequarter 18 deg) so nothing looks up from
+    below. That is what keeps a six-part figure inside 60 triangles.
+    """
+    s = height / 1.8
+    verts, faces = [], []
+
+    def shell(x0, x1, y0, y1, z0, z1, top=False):
+        """Four walls of a box, plus the lid if it can be seen. Normals out."""
+        b = len(verts)
+        for z in (z0, z1):
+            verts.extend([(x0 * s, y0 * s, z * s), (x1 * s, y0 * s, z * s),
+                          (x1 * s, y1 * s, z * s), (x0 * s, y1 * s, z * s)])
+        for i in range(4):
+            j = (i + 1) % 4
+            faces.append((b + i, b + j, b + 4 + j, b + 4 + i))
+        if top:
+            faces.append((b + 4, b + 5, b + 6, b + 7))
+
+    shell(-0.18, -0.04, -0.09, 0.09, 0.00, 0.86)            # left leg
+    shell(0.04, 0.18, -0.09, 0.09, 0.00, 0.86)              # right leg
+    shell(-0.22, 0.22, -0.12, 0.12, 0.86, 1.45, top=True)   # torso
+    shell(-0.31, -0.22, -0.09, 0.09, 0.80, 1.42, top=True)  # left arm
+    shell(0.22, 0.31, -0.09, 0.09, 0.80, 1.42, top=True)    # right arm
+    shell(-0.11, 0.11, -0.11, 0.11, 1.45, 1.80, top=True)   # head
+
+    ob = mesh(name, verts, faces)
+    return finish(ob, flat_material(name, PROXY_COLOR, roughness=0.9))
+
+
+def add_scale_proxy(objects):
+    """Stand a proxy on the ground off the subject's +X side. Returns it.
+
+    Placed from the subject's OWN bounds, so it is beside a rifle and beside a
+    tower without a number being retuned, and its feet are at the subject's
+    minimum Z so the two share a floor.
+    """
+    lo, hi = _bounds(objects)
+    ob = _proxy_human()
+    ob.location = ((lo.x + hi.x) * 0.5 + (hi.x - lo.x) * 0.5 + PROXY_GAP,
+                   (lo.y + hi.y) * 0.5, lo.z)
+    ob.data.calc_loop_triangles()
+    print("MDL proxy %.2fm tris=%d at x=%.3f feet_z=%.3f (not exported)"
+          % (PROXY_HEIGHT, len(ob.data.loop_triangles), ob.location.x, ob.location.z))
+    return ob
+
+
 def setup_scene(spec, objects):
     scene = bpy.context.scene
     engine = spec.get("engine", "eevee").lower()
+    fast = bool(spec.get("preview"))
     if engine == "cycles":
         scene.render.engine = "CYCLES"
         scene.cycles.device = "CPU"
         scene.cycles.samples = int(spec.get("samples", 64))
-        scene.cycles.use_denoising = True
+        # The denoiser costs more than the eight samples a preview asks for.
+        scene.cycles.use_denoising = not fast
     else:
         scene.render.engine = "BLENDER_EEVEE"
         ee = scene.eevee
         _try(ee, "taa_render_samples", int(spec.get("samples", 64)))
+        # Shadows stay on in every mode: on a flat untextured model the shadow
+        # IS the shape, and a preview with no shadows answers nothing. Ray
+        # tracing and fast GI are the expensive half of the frame and neither
+        # survives being looked at for two seconds at 600 px.
         _try(ee, "use_shadows", True)
-        _try(ee, "use_raytracing", True)
-        _try(ee, "use_fast_gi", True)
-        _try(ee, "shadow_ray_count", 2)
+        _try(ee, "use_raytracing", not fast)
+        _try(ee, "use_fast_gi", not fast)
+        _try(ee, "shadow_ray_count", 1 if fast else 2)
     scene.render.image_settings.file_format = "PNG"
     scene.render.film_transparent = False
     # AgX desaturates flat grey into mud; Standard is the only honest transform
@@ -726,7 +858,13 @@ def render(spec, objects, name, facing_yaw=0.0):
     shots = resolve_views(spec, facing_yaw)
     if not shots:
         return []
-    scene, cam, target, lights, lo, hi, centre, radius = setup_scene(spec, objects)
+    # A local list: the caller's ``objects`` is what was exported and reported,
+    # and the proxy must never appear in it. It IS part of the framing bounds --
+    # a scale reference cropped out of frame is not a scale reference.
+    framed = list(objects)
+    if spec.get("proxy"):
+        framed.append(add_scale_proxy(objects))
+    scene, cam, target, lights, lo, hi, centre, radius = setup_scene(spec, framed)
     fixed_res = spec.get("resolution")
     if fixed_res in (None, "auto"):
         fixed_res = None
@@ -785,15 +923,27 @@ def report(name, objects, extra=None):
 # =============================================================================
 
 def _spec_from_argv():
+    """The run's spec, plus the record of which keys the spec file itself set.
+
+    ``preview`` defers to any key the caller stated, so the merged dict is not
+    enough -- once DEFAULTS and the file are one dict, "views was asked for"
+    and "views defaulted" are indistinguishable. The explicit set is kept
+    separately rather than reconstructed by comparing against DEFAULTS, because
+    that comparison is wrong exactly when someone passes the default value on
+    purpose.
+    """
     spec = dict(DEFAULTS)
+    explicit = set()
     argv = sys.argv
     if "--" in argv:
         rest = argv[argv.index("--") + 1:]
         for i, a in enumerate(rest):
             if a == "--spec" and i + 1 < len(rest):
                 with open(rest[i + 1]) as fh:
-                    spec.update(json.load(fh))
-    return spec
+                    given = json.load(fh)
+                spec.update(given)
+                explicit |= set(given)
+    return apply_preview(spec, explicit)
 
 
 def main(name, build, facing_yaw=0.0, glb_name=None, post=None):
