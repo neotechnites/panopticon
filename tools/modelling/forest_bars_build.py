@@ -1,13 +1,23 @@
 """forest_bars -- Map 3's start/finish gate: the forest's answer to map 1's
 hell-rock screen.
 
-The map's own twig/stick bars grown into a gate. A fallen log lies across the
-lane as the sill; two thick living end posts rise out of it to the head; a
-lintel log lies across their tops; twenty branch bars are socketed into the
-sill's top quads and the lintel's underside quads, bowed gently the way the
-lane fence's sticks are; two lashing rails tie them at mid height, welded into
-the posts; three leaf sprays break out of the posts where the frame is still
-living wood. Exactly forest_build's `_fence()` idiom, scaled into a gate.
+The map's own branches grown into a gate. A fallen log lies across the lane as
+the sill; two thick living end posts rise out of it to the head; a lintel log
+lies across their tops; nineteen BRANCHES are socketed into the sill's top
+quads and the lintel's underside quads; two lashing rails tie them at mid
+height, welded into the posts; four leaf sprays break out of the posts where
+the frame is still living wood. forest_build's `_fence()` idiom, scaled into a
+gate and given real wood.
+
+A bar is a branch, not a bar: it leaves the sill thick and reaches the lintel
+thin, losing most of its girth in its first third; it bows through the gate's
+thickness and wanders across it, with one or two kinks where it changed its
+mind; it swells at its knots; short stubs stick out of it where side branches
+were cut off; some of them fork near the top, the second limb lashed to the
+front of the lintel. The lintel's lane boundaries drift across the gate, so no
+two bars stand at the same angle and the screen is a fan, not a comb. Every
+number of every bar comes off the one seed, so no two are alike and the model
+is byte-identical every rebuild.
 
 10.6 m across (Blender X), 8.5 m tall, 0.8 m thick (Blender Y). ORIGIN IS THE
 BASE CENTRE: z = 0 is the ground. Blender +X -> Godot +X, +Z -> Godot +Y,
@@ -63,14 +73,40 @@ SILL_R = (0.370, 0.360, 0.342)   # thick at the lip end, tapering to the wall en
 SILL_WOB = 0.05
 
 # ---- the bars: one lane each, the sill and lintel cut into one segment per bar
-NBARS = 19
+NBARS = 20
 BAR_HALF = 4.02             # the outermost bar centres
-BAR_R = (0.120, 0.108)
 BAR_WOB = 0.15
 BAR_SIDES = 4
-BAR_SEGS = 4                # bezier segments up the bar
-BAR_BOW = (-0.30, -0.18)    # the control point's offset in Y: a gentle bow, all one way
-BAR_WANDER = 0.035          # ... and a little across the lane: hand-cut, never a comb
+BAR_PTS = 7                 # path points per branch: six segments to bend over
+BAR_R = (0.130, 0.102)      # foot radius .. head radius, before the per-bar scatter
+BAR_SCATTER = (0.84, 1.08)  # every branch its own girth
+BAR_TAPER = 1.75            # >1: the branch loses its thickness low down, as wood does
+BAR_BOW = (-0.28, -0.14)    # the bow through the gate's thickness, all one way
+BAR_WANDER = (0.020, 0.040) # the branch's own wander, X and Y, on top of the bow
+BAR_KINKS = (1, 2)          # sharp changes of direction per branch
+BAR_KINK = (0.024, 0.052)  # ... and how far each one throws it
+KNOTS = (1, 3)              # radius swellings per branch: where a limb once left
+KNOT_SWELL = (0.16, 0.34)
+LEAN = 0.13                 # the lintel lane boundaries' drift: the fan, not the comb
+
+# ---- the knots' stubs: cut side branches sticking out of a bar
+STUBS = (0, 2)              # per branch
+STUB_LEN = (0.13, 0.24)
+STUB_R = (0.40, 0.52)       # multiple of the bar's radius where it leaves
+STUB_SIDES = 3              # a nub, three-sided: four bridges into the bar's quad worse
+STUB_SEGS = 2               # bezier segments: the one kink on the way out
+HALF_T = 0.40               # the gate is 0.8 m thick: nothing may reach past this
+
+# ---- the forks: a second limb near the top, welded to the lintel's front face
+FORK_EVERY = 4              # every FORK_EVERY-th branch forks
+FORK_SEG = 4                # the segment the fork leaves at (of BAR_PTS - 1)
+FORK_R = 0.46               # multiple of the bar's radius there
+FORK_SIDES = 3              # three: four bridges into the host's quad worse, and costs more
+FORK_SEGS = 3               # bezier segments up and over to the lintel
+FORK_T = 0.42               # the control point sits toward the root: it leaves, then arrives
+FORK_LEAN = 0.18            # how far off the chord, along the host's own outward normal
+FORK_RISE = 0.12            # ... and along the host tube, so it goes up and over
+FORK_WANDER = 0.04          # hand-grown, never twice the same
 
 # ---- the end posts: living wood, a blade wide across the lane and thin through it
 POST_SIDES = 6
@@ -152,6 +188,71 @@ def _band(m, rings, segs, sides):
 # THE GATE
 # =============================================================================
 
+def stub(m, r, rings, seg, side, length, rad, fit=None):
+    """A cut side-branch knot: a short tapered tube welded out of the band
+    quad (rings[seg], rings[seg+1], side) of an existing bark tube, angled
+    away from the tube axis with an upward tilt and one kink, capped at its
+    free end. Returns the tip point."""
+    patch = ft._patch_mid(m, rings[seg], rings[seg + 1], [side])
+    root = ft._patch_centre(m, patch)
+    out = ft.norm(ft.sub(root, ft._seg_axis(m, rings, seg)))          # straight off the bark
+    rise = ft.norm(ft.add(ft.UP, out, -ft.dot(ft.UP, out)))           # up, squared to `out`
+    tilt = r.u(0.24, 0.40)                                            # how hard it lifts
+    kink = r.u(0.46, 0.60)                                            # where the one kink sits
+    aim = ft.norm(ft.add(out, rise, tilt))
+    tip = ft.add(root, aim, length)
+    pull = ft.add(ft.add(root, out, length * kink),                   # control below the chord:
+                  rise, length * tilt * kink * 0.35)                  # leaves flat, then kinks up
+    path = ft.bez(root, pull, tip, STUB_SEGS)                         # one kink on the way out
+    if fit is not None:
+        fit(patch, path, rad, STUB_SIDES, 1.0, "stub root", True)     # measure before the patch is claimed
+    knot = fb._ptube(m, path, (rad, rad * 0.45), STUB_SIDES, "bark",
+                     start=(patch, "bark"), caps=(True, False), wob=0.12, rng=r)
+    m.fan(knot[-1], ft.norm(ft.sub(path[-1], path[-2])), "bark")      # the saw cut at the free end
+    return m.centroid(knot[-1])
+
+
+def fork(m, r, rings, seg, side, target_patch, rad, fit=None):
+    """The second limb of a forked branch: a tapered tube out of the band
+    quad (rings[seg], rings[seg+1], side) of an existing bark tube, curving
+    up and over to weld into ``target_patch`` (a list of already-registered
+    quads elsewhere in m). Returns the limb's rings."""
+    patch = ft._patch_mid(m, rings[seg], rings[seg + 1], [side])
+    root = ft._patch_centre(m, patch)
+    tip = ft._patch_centre(m, target_patch)
+
+    # The host's own frame at that band: outward off the tube, and along it.
+    away = ft.norm(ft.sub(root, ft._seg_axis(m, rings, seg)))
+    along = ft.norm(ft.sub(m.centroid(rings[seg + 1]), m.centroid(rings[seg])))
+
+    chord = ft.sub(tip, root)
+    span = math.sqrt(ft.dot(chord, chord))
+    ch = ft.norm(chord)
+
+    # Only the part of ``away`` that leaves the chord bends the curve; the rest
+    # would just lengthen a strut. If the fork points straight out of its host,
+    # the host's own axis supplies the bend instead.
+    lean = ft.add(away, ch, -ft.dot(away, ch))
+    if ft.dot(lean, lean) < 1e-6:
+        lean = ft.add(along, ch, -ft.dot(along, ch))
+    lean = ft.norm(lean)
+
+    pull = ft.lerp(root, tip, FORK_T)
+    pull = ft.add(pull, lean, span * FORK_LEAN)
+    pull = ft.add(pull, along, span * FORK_RISE)
+    pull = ft.add(pull, (r.sf(), r.sf(), r.sf()), span * FORK_WANDER)
+
+    path = ft.bez(root, pull, tip, FORK_SEGS)
+
+    if fit is not None:                      # measure BEFORE either patch is claimed
+        fit(patch, path, rad, FORK_SIDES, 1.0, "fork root", True)
+        fit(target_patch, path, rad * 0.7, FORK_SIDES, 1.0, "fork head", False)
+
+    return fb._ptube(m, path, (rad, rad * 0.7), FORK_SIDES, "bark",
+                     start=(patch, "bark"), end=(target_patch, "bark"),
+                     wob=0.1, rng=r)
+
+
 def _sill(m, r):
     """The fallen log across the lane: end to end, capped, lying on the ground.
     Its path breaks at every bar lane boundary and at the two post patches, so
@@ -162,10 +263,21 @@ def _sill(m, r):
     return fb._ptube(m, path, SILL_R, SILL_SIDES, "bark", wob=SILL_WOB, rng=r)
 
 
+def _lean(k):
+    """How far bar ``k``'s lane boundary drifts on the LINTEL relative to the
+    sill. A half-wave across the gate plus a settled wobble: the heads fan out
+    while neighbours stay within a boundary-step of each other, so the gap the
+    fan opens is bounded and the proof can hold it under MAX_GAP."""
+    u = k / float(NBARS)
+    return LEAN * math.sin(math.pi * (u - 0.5)) + LEAN * 0.22 * math.sin(2.4 * math.pi * u + 1.1)
+
+
 def _lintel(m, r):
     """The head rail: a second log across the posts' tops, its top at HEIGHT.
-    One segment per bar, so every bar has its own underside quad."""
-    xs = [-HALF_W] + [-BAR_EDGE + BAR_PITCH * j for j in range(NBARS + 1)] + [HALF_W]
+    One segment per bar, so every bar has its own underside quad -- and the
+    boundaries between those segments drift (``_lean``), so a bar's head does
+    not stand over its foot and no two bars are parallel."""
+    xs = [-HALF_W] + [-BAR_EDGE + BAR_PITCH * j + _lean(j) for j in range(NBARS + 1)] + [HALF_W]
     path = [(x, 0.0, LIN_Z) for x in xs]
     return fb._ptube(m, path, LIN_R, LIN_SIDES, "bark", wob=LIN_WOB, rng=r)
 
@@ -186,27 +298,95 @@ def _post(m, r, sign, sill):
                      flat=POST_FLAT, wob=POST_WOB, rng=r)
 
 
+def _branch(r, foot, top):
+    """One bar's shape: the path from its sill quad to its lintel quad and the
+    radius table along it. Irregular taper (thick foot, thin head, most of the
+    girth lost in the first third), a bow through the gate's thickness, its own
+    wander across it, one or two kinks, and a swelling at each knot. Every
+    offset is scaled by sin(pi*u), so both welded ends stay exactly where the
+    socket put them. Returns (path, radii)."""
+    n = BAR_PTS - 1
+    bow = r.u(*BAR_BOW)
+    ax, ay = r.u(*BAR_WANDER), r.u(*BAR_WANDER) * 0.7
+    fx, fy = r.u(1.1, 2.7), r.u(0.9, 2.1)
+    px, py = r.u(0.0, 2.0 * math.pi), r.u(0.0, 2.0 * math.pi)
+    kinks = {}
+    for _ in range(r.i(*BAR_KINKS)):
+        a, d = r.u(0.0, 2.0 * math.pi), r.u(*BAR_KINK)
+        kinks[r.i(1, n - 1)] = (d * math.cos(a), d * math.sin(a) * 0.7)
+    r0 = BAR_R[0] * r.u(*BAR_SCATTER)
+    r1 = BAR_R[1] * r.u(*BAR_SCATTER)
+    knots = set(r.i(1, n - 1) for _ in range(r.i(*KNOTS)))
+    path, radii = [], []
+    for i in range(n + 1):
+        u = i / float(n)
+        s = math.sin(math.pi * u)                    # 0 at both sockets
+        kx, ky = kinks.get(i, (0.0, 0.0))
+        p = ft.lerp(foot, top, u)
+        path.append((p[0] + (ax * math.sin(fx * math.pi * u + px) + kx) * s,
+                     p[1] + (bow + ay * math.sin(fy * math.pi * u + py) + ky) * s,
+                     p[2]))
+        rad = (r0 + (r1 - r0) * (u ** (1.0 / BAR_TAPER))) * (1.0 + r.u(-0.05, 0.05))
+        radii.append(rad * (1.0 + r.u(*KNOT_SWELL)) if i in knots else rad)
+    return path, radii, sorted(knots)
+
+
+def _lintel_front(m, lin, lseg):
+    """The lintel segment's lower-FRONT face: the quad beside the one the bar's
+    head took, the one leaning out of the gate. A fork's second limb lands here,
+    which is why a fork costs no extra lintel geometry."""
+    down = ft._facing(m, lin, lseg, ft.DOWN, 1)[0]
+    cand = [(down + 1) % LIN_SIDES, (down - 1) % LIN_SIDES]
+    best = min(cand, key=lambda t: m.centroid(ft._band_quad(lin[lseg], lin[lseg + 1], t))[1])
+    return [ft._band_quad(lin[lseg], lin[lseg + 1], best)]
+
+
+def _stub_len(m, rings, seg, side, want):
+    """``want``, shortened if a stub that long would poke out of the gate's own
+    0.8 m thickness: a knot is a nub on the branch, never a spike in the lane."""
+    root = ft._patch_centre(m, ft._patch_mid(m, rings[seg], rings[seg + 1], [side]))
+    out = ft.norm(ft.sub(root, ft._seg_axis(m, rings, seg)))
+    if abs(out[1]) < 1e-6:
+        return want
+    return max(0.07, min(want, (HALF_T - abs(root[1])) / abs(out[1])))
+
+
 def _bars(m, r, sill, lin):
-    """One branch bar per lane, socketed into the sill's top quad and the
-    lintel's underside quad, bowed gently in Y -- _fence's sticks, grown up."""
+    """One branch per lane: socketed into the sill's top quad and the lintel's
+    underside quad, shaped by _branch, knotted with cut stubs, and every
+    FORK_EVERY-th one forked near the top into the lintel's front face.
+    Returns (path, radii, extra) per bar -- ``extra`` is every point the
+    collider must still cover (the fork limb)."""
     out = []
+    fit = lambda patch, pth, rad, sd, fl, tag, at_start: _fit(m, patch, pth, rad, sd, fl, tag, at_start)
     for k in range(NBARS):
-        x = -BAR_HALF + BAR_PITCH * k
         sseg = lseg = 1 + k
         sq = [ft._band_quad(sill[sseg], sill[sseg + 1], ft._facing(m, sill, sseg, ft.UP, 1)[0])]
         lq = [ft._band_quad(lin[lseg], lin[lseg + 1], ft._facing(m, lin, lseg, ft.DOWN, 1)[0])]
-        foot = m.centroid(sq[0])
-        top = m.centroid(lq[0])
-        bow = r.u(*BAR_BOW)
-        mid = ft.add(ft.lerp(foot, top, 0.5), (r.u(-BAR_WANDER, BAR_WANDER), bow, 0.0))
-        path = ft.bez(foot, mid, top, BAR_SEGS)
-        rr = r.u(BAR_R[0] * 0.92, BAR_R[0])
-        radii = (rr, rr * BAR_R[1] / BAR_R[0])
+        path, radii, knots = _branch(r, m.centroid(sq[0]), m.centroid(lq[0]))
         _fit(m, sq, path, radii[0], BAR_SIDES, 1.0, "bar foot")
-        _fit(m, lq, path, radii[1], BAR_SIDES, 1.0, "bar head", at_start=False)
-        fb._ptube(m, path, radii, BAR_SIDES, "bark", start=(sq, "bark"), end=(lq, "bark"),
-                  wob=BAR_WOB, rng=r)
-        out.append((path, radii))
+        _fit(m, lq, path, radii[-1], BAR_SIDES, 1.0, "bar head", at_start=False)
+        rings = fb._ptube(m, path, radii, BAR_SIDES, "bark", start=(sq, "bark"), end=(lq, "bark"),
+                          wob=BAR_WOB, rng=r)
+        extra, taken = [], set()            # (seg, side): a band quad is claimed once
+        if k % FORK_EVERY == 2:
+            side = ft._facing(m, rings, FORK_SEG, (1.0 if k % 2 else -1.0, -0.2, 0.0), 1)[0]
+            rad = ft._at(radii, (FORK_SEG + 0.5) / float(BAR_PTS - 1)) * FORK_R
+            limb = fork(m, r, rings, FORK_SEG, side, _lintel_front(m, lin, lseg), rad, fit=fit)
+            extra = [m.centroid(ring) for ring in limb]
+            taken.add((FORK_SEG, side))
+        for _ in range(r.i(*STUBS)):            # a stub leaves at a knot, where one did
+            i = r.pick(knots) if knots else r.i(1, BAR_PTS - 2)
+            seg = min(BAR_PTS - 2, max(0, i - 1))
+            s0 = r.i(0, BAR_SIDES - 1)          # walk from a drawn side to the first free one
+            side = next((s for s in ((s0 + d) % BAR_SIDES for d in range(BAR_SIDES))
+                         if (seg, s) not in taken), None)
+            if side is None:
+                continue
+            taken.add((seg, side))
+            rad = ft._at(radii, (seg + 0.5) / float(BAR_PTS - 1)) * r.u(*STUB_R)
+            stub(m, r, rings, seg, side, _stub_len(m, rings, seg, side, r.u(*STUB_LEN)), rad, fit=fit)
+        out.append((path, radii, extra))
     return out
 
 
@@ -323,11 +503,12 @@ def _collider(bars, rails):
         rx = max(_post_rx(t) for t in POST_T)
         ry = max(_post_ry(t) for t in POST_T)
         _box(c, (sign * POST_X - rx, -ry, sill_top), (sign * POST_X + rx, ry, POST_TOP), "bark")
-    for path, radii in bars:
+    for path, radii, extra in bars:
         rr = max(radii) * (1.0 + BAR_WOB)
-        xs = [p[0] for p in path]
-        ys = [p[1] for p in path]
-        _box(c, (min(xs) - rr, min(ys) - rr, sill_top), (max(xs) + rr, max(ys) + rr, lin_bot), "bark")
+        xs = [p[0] for p in path] + [p[0] for p in extra]
+        ys = [p[1] for p in path] + [p[1] for p in extra]
+        _box(c, (min(xs) - rr, max(-HALF_T, min(ys) - rr), sill_top),
+             (max(xs) + rr, min(HALF_T, max(ys) + rr), lin_bot), "bark")
     for a, b in rails:
         z = 0.5 * (a[2] + b[2])
         _box(c, (a[0], -RAIL_R, z - RAIL_R - RAIL_SAG), (b[0], RAIL_R, z + RAIL_R), "bark")
@@ -351,7 +532,8 @@ def _gaps(bars, levels=140):
         z = sill_top + (lin_bot - sill_top) * i / float(levels)
         t = max(0.0, min(1.0, (z - sill_top) / (POST_TOP - sill_top)))
         rx = _post_rx(t)
-        cols = [(-POST_X + rx, 0.0, 0.0)] + [_bar_at(p, rr, z) for p, rr in bars] + [(POST_X - rx, 0.0, 0.0)]
+        cols = sorted([_bar_at(p, rr, z) for p, rr, _x in bars], key=lambda c: c[0])
+        cols = [(-POST_X + rx, 0.0, 0.0)] + cols + [(POST_X - rx, 0.0, 0.0)]
         for k in range(len(cols) - 1):
             a, b = cols[k], cols[k + 1]
             g = math.hypot(b[0] - a[0], b[1] - a[1]) - a[2] - b[2]
