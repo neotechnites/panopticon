@@ -50,6 +50,8 @@ extends SceneTree
 ## --audio=near     only sounds made within AUDIO_NEAR_METRES of the camera
 ## --seed=N         match seed; 0 means entropy               (default 20260930)
 ## --bots=N         prisoners on the ring, plus one in the tower  (default 7)
+## --map=ID         a MapCatalog id (bentham_ring, marble, forest); the match
+##                  is filmed on it instead of the map the saved rules name
 ## --out=DIR        directory the clip is destined for; created if missing
 ## [/codeblock]
 ##
@@ -207,6 +209,7 @@ func _initialize() -> void:
 		"audio": "",
 		"seed": BotHarness.DEFAULT_SEED,
 		"bots": 7,
+		"map": "",
 		"out": "",
 	})
 
@@ -382,6 +385,9 @@ func _make_it_bots_only(match_root: Node, bots: int) -> void:
 	# retune the rules the next thing in this process reads.
 	var rules: MatchRules = _controller.get_rules().duplicate() as MatchRules
 	rules.prisoner_count = maxi(bots, 1)
+	var map_id: String = String(_options.get("map", ""))
+	if not map_id.is_empty():
+		rules.map_id = StringName(map_id)
 	if _plugin != null:
 		_plugin.tune_rules(rules)
 	elif _stage == "missstreak":

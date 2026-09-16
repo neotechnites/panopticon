@@ -618,6 +618,18 @@ func _ready() -> void:
 		if auto_start:
 			start_hub()
 		return
+	# While the match scene is still entering the tree its root refuses
+	# add_child/remove_child, and the map swap is exactly that. The root's
+	# ready fires inside the same add_child, once every child is ready.
+	var parent: Node = get_parent()
+	if parent != null and not parent.is_node_ready():
+		parent.ready.connect(_arm, CONNECT_ONE_SHOT)
+		return
+	_arm()
+
+
+## Install the map the rules name, wire the rifle, and start when asked to.
+func _arm() -> void:
 	_install_chosen_map()
 	if arena == null or rifle == null or runner_scene == null or runner_container == null:
 		push_error("MatchController is missing an arena, a rifle, a runner scene or a container; no match will run.")

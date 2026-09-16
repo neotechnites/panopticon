@@ -231,3 +231,98 @@ static func _mentions_map(problems: PackedStringArray) -> bool:
 		if problem.begins_with("map_id"):
 			return true
 	return false
+
+
+# --- The map the rules name is the map that stands ----------------------------
+
+## A body's eye above its feet, for the sight lines.
+const EYE_METRES: float = 1.6
+## A standing body's feet are on the deck: the drop from the eye is the eye's height.
+const FOOTING_METRES: float = 0.3
+
+## Every map in the catalog, installed by [MatchController] into the shipped
+## match scene, stands in the tree in the authored arena's place -- with the
+## arena it replaced gone, the human on the lane and the tower in plain sight.
+##
+## The scene's root refuses add_child/remove_child while it is still entering
+## the tree, which is when [method MatchController._ready] used to swap: both
+## calls failed, the old arena was freed anyway and the match ran in a void.
+func test_every_map_stands_in_the_match_scene_when_the_rules_name_it() -> void:
+	for map: MapDefinition in MapCatalog.all():
+		var match_root: Node3D = TestFixtures.make_match()
+		var controller: MatchController = match_root.get_node(^"MatchController") as MatchController
+		var rules: MatchRules = TestFixtures.match_rules()
+		rules.map_id = map.id
+		controller.rules = rules
+		add_child(match_root)
+
+		var arena: Node3D = match_root.get_node_or_null(^"Arena") as Node3D
+		assert_not_null(arena, "%s: the match has an Arena" % map.id)
+		if arena != null:
+			assert_same(controller.arena, arena, "%s: and it is the controller's arena" % map.id)
+			assert_eq_string(arena.scene_file_path, map.scene_path, "%s: the arena is the map" % map.id)
+		var arenas: int = 0
+		for child: Node in match_root.get_children():
+			if child is Node3D and not child.scene_file_path.is_empty() and child.scene_file_path.begins_with("res://scenes/ring/"):
+				arenas += 1
+		assert_eq_int(arenas, 1, "%s: one arena in the scene, the replaced one gone" % map.id)
+		assert_true(_surfaces_have_materials(arena, map.id), "%s: every surface has a material" % map.id)
+
+		await step_ticks(3)
+		var participants: Array[MatchParticipant] = controller.get_participants()
+		assert_gt(float(participants.size()), 0.0, "%s: the match has participants" % map.id)
+		if not participants.is_empty() and participants[0].body != null:
+			_assert_on_the_lane_facing_the_tower(map.id, controller, participants[0].body)
+		match_root.free()
+
+
+func _assert_on_the_lane_facing_the_tower(
+	map_id: StringName, controller: MatchController, body: PlayerController
+) -> void:
+	var route: RingRoute = controller.get_route()
+	assert_not_null(route, "%s: the match has a route" % map_id)
+	if route == null:
+		return
+	var centre: Vector3 = controller.arena.global_position
+	var feet: Vector3 = body.global_position
+	var radius: float = Vector2(feet.x - centre.x, feet.z - centre.z).length()
+	var level: RingLevel = route.level_at(0)
+	assert_between(radius, level.inner_radius, level.outer_radius, "%s: the human stands on the lane" % map_id)
+	assert_almost_eq(feet.y, level.deck_height, 1.5, "%s: at deck height" % map_id)
+
+	# The field is dealt across the lane, so the other bodies stand in the way.
+	var bodies: Array[RID] = []
+	for participant: MatchParticipant in controller.get_participants():
+		if participant.body != null:
+			bodies.append(participant.body.get_rid())
+	var space: PhysicsDirectSpaceState3D = body.get_world_3d().direct_space_state
+	var eye: Vector3 = feet + Vector3.UP * EYE_METRES
+	var down := PhysicsRayQueryParameters3D.create(eye, eye + Vector3.DOWN * (EYE_METRES + FOOTING_METRES))
+	down.exclude = bodies
+	var footing: Dictionary = space.intersect_ray(down)
+	assert_false(footing.is_empty(), "%s: the human's feet are on the deck" % map_id)
+
+	# What the eye sees looking at the tower's foot is the map -- the tower, or
+	# the lane's own cover -- and never the void a freed arena leaves.
+	var tower: Node3D = (controller.arena.get_node(TestFixtures.TOWER_SPAWN_PATH) as Marker3D).get_parent_node_3d()
+	var sight := PhysicsRayQueryParameters3D.create(eye, tower.global_position)
+	sight.exclude = bodies
+	var seen: Dictionary = space.intersect_ray(sight)
+	var seen_node: Node = seen.get("collider", null) as Node
+	assert_true(
+		seen_node != null and controller.arena.is_ancestor_of(seen_node),
+		"%s: the sight line to the tower lands on the map, not on nothing" % map_id
+	)
+
+
+func _surfaces_have_materials(arena: Node, map_id: StringName) -> bool:
+	var sound: bool = true
+	for node: Node in arena.find_children("*", "MeshInstance3D", true, false):
+		var mesh: MeshInstance3D = node as MeshInstance3D
+		if mesh.mesh == null:
+			continue
+		for surface: int in mesh.mesh.get_surface_count():
+			if mesh.get_active_material(surface) == null:
+				sound = false
+				fail("%s: %s surface %d has no material" % [map_id, mesh.name, surface])
+	return sound
