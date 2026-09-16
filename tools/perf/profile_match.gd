@@ -7,13 +7,28 @@ extends SceneTree
 ##       --seconds=60 --runners=3 --view=runner --out=user://perf_run.csv
 ##
 ## Options: --seconds --runners --view=runner|tower|orbit --width --height
-##          --warmup --out --label --vsync
+##          --warmup --out --label --vsync --map
+##
+## --map takes a catalog id (bentham_ring, marble, forest) or a res:// path and
+## is resolved through MapCatalog; empty means the catalog's default map. A
+## static run instances that scene directly, a match run names it in the rules,
+## so both halves of a comparison are measuring the same ground.
 ##
 ## Writes a CSV of per-second samples plus a SUMMARY line with the mean and the
 ## worst 1% of frame times. Not headless: the point is the GPU.
 
 const RULES_PATH: String = "res://resources/rules/default_match_rules.tres"
 const SHOOTER_PROFILE_PATH: String = "res://scenes/bot/default_shooter_profile.tres"
+
+## Where every arena keeps the guard's seat, and how far over it the eye sits.
+## Read rather than assumed: maps 2 and 3 stand the guard on a dais and in a
+## tree, so one hard-coded height would film the floor on one map and the sky on
+## the next.
+const TOWER_SPAWN_PATH: NodePath = ^"Tower/TowerSpawn"
+const TOWER_EYE_HEIGHT: float = 1.7
+
+## The tower view's last resort: map 1's seat, for an arena carrying no marker.
+const TOWER_EYE_FALLBACK: Vector3 = Vector3(0.0, 27.3, 0.0)
 
 var _options: Dictionary = {}
 var _world: BotMatchWorld = null
@@ -34,6 +49,8 @@ var _last_usec: int = 0
 var _out_path: String = "user://perf_run.csv"
 var _orbit: float = 0.0
 var _done: bool = false
+var _map_path: String = ""
+var _tower_eye: Vector3 = TOWER_EYE_FALLBACK
 
 
 func _initialize() -> void:
@@ -51,6 +68,7 @@ func _initialize() -> void:
 		"disable": "",
 		"stage": 3,
 		"after": "",
+		"map": "",
 	})
 	_limit = float(_options["seconds"])
 	_warmup_left = float(_options["warmup"])
@@ -92,16 +110,24 @@ func _build() -> void:
 	_root.name = "PerfRun"
 	root.add_child(_root)
 
-	print("renderer=%s window=%s" % [
+	# One resolution for both branches: an id, a res:// path, or "" for the
+	# catalog's default, answered by the same list the game and the harness read.
+	_map_path = MapCatalog.scene_path_for(StringName(String(_options["map"])))
+	if _map_path.is_empty():
+		_map_path = BotMatchWorld.ARENA_SCENE_PATH
+
+	print("renderer=%s window=%s map=%s" % [
 		RenderingServer.get_video_adapter_name(), str(DisplayServer.window_get_size()),
+		_map_path,
 	])
 
 	# A control run: the arena and a camera, no match, no bots. What is left is
 	# the render cost of the map, and the difference is what the game costs.
 	var mode: int = int(_options["static"])
 	if mode > 0:
-		var arena: Node3D = (load(BotMatchWorld.ARENA_SCENE_PATH) as PackedScene).instantiate() as Node3D
+		var arena: Node3D = (load(_map_path) as PackedScene).instantiate() as Node3D
 		_root.add_child(arena)
+		_tower_eye = _resolve_tower_eye(arena)
 		if mode >= 2:
 			var runner: PackedScene = load(BotMatchWorld.RUNNER_SCENE_PATH) as PackedScene
 			for index: int in maxi(int(_options["runners"]), 1):
@@ -129,9 +155,14 @@ func _build() -> void:
 	rules.rounds_to_win_match = 99
 	rules.prisoner_lives = 99
 
+	var chosen: String = String(_options["map"])
+	if not chosen.is_empty():
+		rules.map_id = StringName(chosen)
+
 	_world = BotMatchWorld.new()
 	_root.add_child(_world)
 	_world.build(rules)
+	_tower_eye = _resolve_tower_eye(_world.get_node_or_null(^"Arena") as Node3D)
 
 	var controller: MatchController = _world.get_controller()
 
@@ -288,7 +319,7 @@ func _aim_camera(delta: float) -> void:
 		return
 	match String(_options["view"]):
 		"tower":
-			_camera.global_position = Vector3(0.0, 27.3, 0.0)
+			_camera.global_position = _tower_eye
 			_orbit += delta * 0.6
 			_camera.look_at(Vector3(cos(_orbit) * 52.0, 24.0, sin(_orbit) * 52.0), Vector3.UP)
 		"orbit":
@@ -305,6 +336,18 @@ func _aim_camera(delta: float) -> void:
 			var flat: Vector3 = Vector3(-pos.z, 0.0, pos.x).normalized()
 			_camera.global_position = pos - flat * 3.5 + Vector3(0.0, 0.8, 0.0)
 			_camera.look_at(pos + flat * 12.0, Vector3.UP)
+
+
+## The guard's eye in world space: [param arena]'s own spawn marker lifted by
+## [constant TOWER_EYE_HEIGHT]. Resolved once at build time and not per frame,
+## because the tower does not move and [method _aim_camera] runs every frame.
+func _resolve_tower_eye(arena: Node3D) -> Vector3:
+	if arena == null:
+		return TOWER_EYE_FALLBACK
+	var marker: Node3D = arena.get_node_or_null(TOWER_SPAWN_PATH) as Node3D
+	if marker == null:
+		return TOWER_EYE_FALLBACK
+	return marker.global_position + Vector3(0.0, TOWER_EYE_HEIGHT, 0.0)
 
 
 func _first_body() -> Node3D:
