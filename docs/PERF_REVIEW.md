@@ -5,7 +5,9 @@ GL Compatibility) at 1920×1080 windowed, vsync off, from a bots-only match buil
 by `tools/perf/profile_match.gd`. Model figures are parsed straight out of the
 `.glb` files. Nothing here is estimated unless it says so.
 
-**The headline.** The renderer is not the problem and never was: the whole arena
+**The headline** (true of map 1, and see the 2026-09-16 section for where it
+stops being true: on map 2 the renderer IS the problem, and it is one light).
+The renderer is not the problem and never was: the whole arena
 draws in **1.0 ms** — a thousand frames a second — in 15–25 draw calls. Every
 frame this game misses is spent in the bot AI's physics tick, which at seven
 bots runs **40–53 ms against a 16.7 ms budget** and produces stalls up to 170 ms.
@@ -360,7 +362,7 @@ count are the two things that bite. In `GameSettings` terms:
 | `max_lights_per_object` | 8 | project-level, see above |
 | torch lights | halve to 6 (every 60° instead of every 30°) | 12 omnis at range 14 overlap heavily on a 52 m lane |
 | `HellFlood` range | 60, or delete and raise ambient | stops one light from joining every object's light list |
-| shadows | **needs a real toggle** | was "already none" and is no longer true: maps 2 and 3 each cast one realtime shadow over the whole arena. See the 2026-09-16 section, finding 1. On those two maps this is the preset's biggest single lever. |
+| shadows | **needs a real toggle** | was "already none" and is no longer true: maps 2 and 3 each cast one realtime shadow over the whole arena. Measured on the PC (2026-09-16 section, finding 1): marble's costs **1.66 ms, 71 % of that map's whole frame**; forest's costs 0.11 ms. On marble this is the preset's biggest single lever by an order of magnitude. |
 | MSAA | already off | nothing to do |
 
 Alongside that, the arena split from §1 — which is the change that makes a weak
@@ -376,7 +378,11 @@ asks the only question that matters about that: **does a map change what the
 game costs?**
 
 The short answer is that it changes nothing the budgets watch and one thing no
-budget watched at all.
+budget watched at all — and that the one thing is **not** the triangle count
+everybody expected. Map 3 has 1.83x map 1's triangles and is the cheapest map in
+the game. Map 2 has the fewest triangles and the fewest draw calls of the three
+and costs three times either of the others, because of one shadowed light. See
+§3.
 
 ## The table
 
@@ -397,8 +403,10 @@ even though the absolute milliseconds are not this machine's best. Read the
 columns against each other, not against a number from a quiet box. Wire from
 `tools/perf/profile_wire.gd` (new this branch) — the same eight-seat loopback
 session B4/B5 are measured on, with the map's arena actually in the tree.
-Draw from `tests/test_map_draw_budgets.gd` (new this branch), off the live tree
-after `_ready`.
+Draw counts from `tests/test_map_draw_budgets.gd` (new this branch), off the
+live tree after `_ready`. Frame cost and draw calls from
+`tools/perf/profile_match.gd --map=…` on the PC — see §3 for the method and the
+shadow control that explains the ordering.
 
 | | **1 bentham_ring** | **2 marble** | **3 forest** | budget |
 |---|---|---|---|---|
@@ -414,6 +422,10 @@ after `_ready`.
 | transparent triangles | 0 | 0 | **2,196** | — |
 | lights | 20 | 2 | 2 | — |
 | **runtime shadow casters** | **0** | **1** | **1** | — |
+| frame, runner's eye (PC) | 0.945 ms | **2.592 ms** | 0.765 ms | — |
+| frame, guard's eye (PC) | 0.849 ms | **2.349 ms** | 0.793 ms | — |
+| draw calls, runner / guard (PC) | 17.7 / 16.0 | 12.9 / 6.2 | 28.2 / 15.6 | — |
+| primitives drawn, guard (PC) | 76,707 | 75,687 | **276,757** | — |
 | collision triangles | 17,196 | 5,180 | 5,286 | — |
 | `Area3D`s in the map | 32 | 3 | 2 | — |
 | nav polygons (runtime bake) | 509 | 279 | 311 | — |
@@ -538,100 +550,116 @@ rules and sends it on the reliable channel at lobby time. A short string, once,
 off the per-tick path. That is the whole of geometry's presence in the protocol
 and it is the right amount.
 
-## 3. Draw: the one thing that did change
+## 3. Draw: measured on the PC, and it is not what the triangles said
 
-The physics and wire answers above are measurements. **This one is not.** A
-frame on the PC could not be captured for maps 2 and 3 — see "What is missing"
-below. What follows is exact scene and model data, taken two independent ways
-(a Python parse of the `.glb` JSON chunks, and a walk of the live tree after
-`_ready`) which agree to the triangle.
+Captured on Ryan's box (i7-6700, RX 6600 XT, GL Compatibility, 1920x1080,
+vsync off) by `tools/perf/profile_match.gd --map=<id> --view=runner|tower`,
+seven bots, 20 s per arm, from the branch at `4895fb2` in a scratch worktree at
+`C:\dev\perf-newmapperf`. `C:\dev\panopticon` stayed on `main` and was not
+touched. Numbers are the mean of the per-second samples.
 
-### Finding 1 — both new maps cast a realtime shadow. Map 1 casts none.
+| | **1 bentham_ring** | **2 marble** | **3 forest** |
+|---|---|---|---|
+| frame, runner's eye | 0.945 ms (1058 fps) | **2.592 ms (386 fps)** | 0.765 ms (1307 fps) |
+| frame, guard's eye | 0.849 ms (1178 fps) | **2.349 ms (426 fps)** | 0.793 ms (1261 fps) |
+| draw calls, runner / guard | 17.7 / 16.0 | 12.9 / 6.2 | 28.2 / 15.6 |
+| primitives drawn, runner / guard | 73,221 / 76,707 | 73,601 / 75,687 | **269,250 / 276,757** |
+| objects drawn, runner / guard | 17.7 / 16.0 | 12.9 / 6.2 | 28.2 / 15.6 |
+| VRAM | 35.8 MB | 22.1 MB | 32.1 MB |
+| static triangles (§the table) | 78,722 | 75,632 | 143,895 |
 
-This is the headline and it is not in any budget.
+**Marble — the map with the FEWEST triangles and the FEWEST draw calls in the
+game — is three times the cost of either of the others.** Forest, at 1.83x map
+1's triangles and 3.6x its primitives per frame, is the cheapest. Every
+prediction made from geometry in the first draft of this section was wrong in
+its ordering, and the reason is a single line in one `.tres`.
 
-| map | the caster | reach |
-|---|---|---|
-| bentham_ring | — | `default_tower_light_profile.tres` sets `shadow_enabled = false`, and `TowerLight._apply_profile` overwrites the `.tscn`'s `true` at `_ready`. **0 casters.** |
-| marble | `Tower/TowerLight`, `OmniLight3D`, dual-paraboloid | `marble_tower_light_profile.tres` sets `shadow_enabled = true`, `range 140 m`, `shadow_blur 3.0`. 140 m is the whole arena. |
-| forest | `Environment/Sun`, `DirectionalLight3D` | `shadow_enabled = true`, `directional_shadow_max_distance = 200`. Also the whole arena. |
+### Finding 1 — one shadowed omni is 71 % of marble's frame. Proven, not inferred.
 
-Under GL Compatibility a realtime shadow-casting light is not a percentage on
-the frame — it is **a second pass over the geometry it reaches**, and in both
-cases it reaches everything. On the RX 6600 XT, where §2 measured the entire
-arena at 1.0 ms, this will not be visible. On the iGPU that Ryan's "potato" bar
-actually means, it is the single most expensive thing either new map added, and
-it arrived twice without a word.
+The same six arms re-run with `--after=noshadow`, which switches
+`shadow_enabled` off on every `Light3D` and changes nothing else:
 
-`meshes/create_shadow_meshes=true` on every `.glb` import means the shadow pass
-at least runs over a position-only mesh rather than the full vertex format.
+| guard's eye | shadows as shipped | shadows off | delta | primitives on → off |
+|---|---|---|---|---|
+| bentham_ring (**0** casters) | 0.849 ms | 0.877 ms | **+0.03 ms — none** | 76,707 → 76,713 |
+| marble (1 caster) | 2.349 ms | **0.686 ms** | **−1.66 ms, 3.4x** | 75,687 → 75,689 |
+| forest (1 caster) | 0.793 ms | **0.686 ms** | −0.11 ms, 1.16x | 276,757 → **137,869** |
 
-**Not fixed, and deliberately.** Marble's lamp is a shadow caster *on purpose* —
-"one warm gold lamp under the arcade, shadowed, so the arches throw their beams
-out across the ring as the drawing has them", retuned by Ryan on 2026-09-16.
-Forest's `Sun` is what its rays are lit by. Switching either off is an art
-decision, not a performance one, and the brief for this pass was to fix what is
-slow without changing how a map looks. What this section does instead is
-**gate it**, so the third one is a conversation and not a surprise.
+Read the three rows together, because each one does a different job:
 
-The consequence for the potato preset in §4 is that its `shadows` row —
-"already none | nothing to do" — **is now wrong**, and a real shadow toggle is
-the biggest single lever the preset has on maps 2 and 3. That is a
-`GameSettings` change and it is proposed, not made.
+- **bentham_ring is the negative control and it passes.** It has no runtime
+  shadow caster, and switching shadows off moves it by less than the run-to-run
+  noise. The method is sound.
+- **Forest's directional shadow is visible in the primitive counter and nearly
+  free.** Primitives *halve* when it is off — 276,757 → 137,869 — which is the
+  shadow pass re-submitting the entire map, exactly once. It costs **0.11 ms**.
+  So forest's 143,895 triangles are drawn *twice* every frame on this GPU and
+  the whole of it still runs at 1,260 fps. **Triangle count is not this
+  project's problem and this is the number that says so.**
+- **Marble's omni shadow submits no extra geometry at all** — its primitive
+  count does not move — **and costs 1.66 ms, 71 % of the map's entire frame.**
+  That is not vertex work; it is the dual-paraboloid shadow map itself plus
+  `shadow_blur = 3.0` filtering over an `omni_range` of **140 m**, which
+  encloses the whole arena. Pure fill, on the one axis a weak GPU has least of.
 
-### Finding 2 — forest is 1.83x map 1, in one surface, with no LOD lever proven
+On an RX 6600 XT marble still runs at 426 fps and nobody will notice. The
+"potato" bar is an iGPU with a fraction of this card's fill rate, where a
+1.66 ms full-screen-ish filtered shadow pass is the difference between holding
+60 fps and not. **This is the single most expensive thing either new map added,
+it arrived twice without a word, and it is now the first line of the potato
+preset's work.**
 
-143,895 visible triangles against map 1's 78,722. **125,876 of them are
-`ForestGround`, a single surface**, of which 30,985 are the bramble thicket and
-10,625 the pit floor — 41,610 triangles at the bottom of a ravine, most of them
-under seven layers of fog, and none of them anything a runner on the lane is
-looking at.
+**Still not fixed, and still deliberately.** Marble's lamp is a shadow caster on
+purpose — "one warm gold lamp under the arcade, shadowed, so the arches throw
+their beams out across the ring as the drawing has them", retuned by Ryan on
+2026-09-16 — and forest's `Sun` is what its rays are lit by. Switching either
+off is an art decision. What the measurement changes is the *price tag*: the
+conversation is now "1.66 ms and 71 % of the frame for the arches' beams", not
+"a shadow light, probably fine". Three cheaper things to try before losing the
+look, in order: drop `shadow_blur` from 3.0, cut `omni_range` from 140 m to
+something that stops at the walkway, and gate shadows behind the potato preset.
+None was attempted here; all three are art-visible and Ryan's call.
 
-Everything §1 says about `map_base.glb` applies here with more force, and runs
-into the same wall: **a section split is forbidden by the modelling standard.**
-`docs/ENGINEERING.md` requires "one contiguous mesh per map", and
-`tools/modelling/forest_build.py` says so in its own header — "ONE CONTIGUOUS
-mesh (ForestGround), one surface". So frustum culling can reject none of it and
-`visibility_range_*` — set on nothing in this project, on any of the three maps
-— can apply to none of it. An `OccluderInstance3D` could still cull OTHER
-objects behind it, but on these maps there are no other objects worth culling:
-the map mesh is 87-92 % of every arena's triangles (70,993 of 78,722 on map 1,
-69,696 of 75,632 on map 2, 125,876 of 143,895 on map 3) and an occluder cannot
-touch part of one mesh.
-§1's recommendation 1 and the modelling invariant are in direct conflict and
-somebody has to decide which wins; this review is not that decision.
+### Finding 2 — culling reclaims almost nothing, as predicted, and it does not matter
 
-What *does* work on one contiguous mesh is Godot's mesh LOD, and
-`meshes/generate_lods=true` is set on every import, so the LODs exist. Whether
-the Compatibility renderer selects them is the open question, and it is the
-cheapest thing to check on the PC the moment a frame can be captured there: if
-it does, the pit at 60 m is already costing a fraction of 125,876 triangles and
-finding 2 is closed. There is no `rendering/mesh_lod/*` override in
-`project.godot`.
+Forest draws **137,869 primitives with shadows off against 143,895 static
+triangles: culling rejects 4 %.** Map 1 draws 76,707 of 78,722 — **3 %**. Marble
+75,687 of 75,632 — **none at all** (slightly over, because the bodies are in
+that count too).
 
-### Finding 3 — forest holds the only transparent geometry in the game
+That is the one-contiguous-mesh consequence stated in §1, now measured on three
+maps: a 120 m ring in a single `MeshInstance3D` is submitted whole from every
+camera angle, frustum culling can reject none of it, `visibility_range_*` can
+apply to none of it, and an `OccluderInstance3D` cannot hide part of it. Mesh
+LOD is generated (`meshes/generate_lods=true` on every import) and is plainly
+not selecting anything either, or forest's pit would not be in the count from
+the guard's seat.
 
-2,196 triangles: `ForestFog` (2,016, alpha-blended) and `ForestRaysSoft` (180,
-additive). Both carry `cull_mode = 2` — culling disabled — so both faces draw,
-and the fog is **seven stacked full-width discs over the pit**, which is up to
-seven layers of blended overdraw wherever the ravine is in frame.
+**And none of it costs anything.** Forest submits its whole 143,895 triangles
+twice a frame and runs at 1,260 fps. §1's recommendation 1 — split the arena
+per section — remains in direct conflict with `docs/ENGINEERING.md`'s "one
+contiguous mesh per map", and this measurement says **do not spend the conflict
+on performance**, because there is no performance here to win. If the split is
+ever made, make it for a reason that is not this.
 
-The triangle count is nothing. The fill cost is not nothing, and fill is exactly
-what an iGPU is short of. `ForestRaysSolid` (180 tris) is `visible = false` in
-the scene and costs nothing.
+### Finding 3 — the fog and the rays cost nothing measurable
 
-Nothing here can be honestly recommended without a frame. It is named so that
-whoever captures that frame knows where to look first.
+Forest carries the only transparent geometry in the game — `ForestFog` (2,016
+triangles, alpha-blended, seven stacked full-width discs over the pit) and
+`ForestRaysSoft` (180, additive), both with culling disabled so both faces
+draw. It was the prime suspect for overdraw and it is not one: forest is the
+cheapest map at both eyes, at 0.765 and 0.793 ms.
 
-### Also seen
+Its 28.2 draw calls at the runner's eye are the most in the game and still
+nothing. `ForestRaysSolid` is `visible = false` and costs nothing at all.
 
-- Marble is 75,632 triangles — slightly **under** map 1 — in **four surfaces
-  and four materials** against map 1's 37 and 15. On draw calls it is the
-  cheapest map in the game.
-- No `OccluderInstance3D`, no `MultiMeshInstance3D` and no `visibility_range_*`
-  anywhere in any of the three maps. Map 3's 1,150 brambles are the first
-  geometry in this project with a real case for a `MultiMeshInstance3D`, and it
-  cannot have one while the contiguity rule stands.
+### Does anything need occlusion or culling work? No.
+
+That was the question this section was asked. The answer is no, on this GPU and
+by a wide margin: the most expensive map in the game spends 71 % of its frame on
+one light's shadow filter and **0 %** on anything an occluder, a visibility
+range or a mesh split could reach. Occlusion work would be effort spent on the
+one part of the frame that is already free.
 
 ## 4. Do the budgets need per-map values? No — they need a sixth budget
 
@@ -671,21 +699,19 @@ Three things about its shape are deliberate:
 
 ## What is missing, and why
 
-**A real frame from the PC, for maps 2 and 3.** §2's whole method is that the
-Mac cannot see a GPU and the PC can, and the PC's copy at `C:\dev\panopticon`
-is at `a88e472` — before `--map` existed, so the profiler there can only load
-map 1. Getting the instrumented profiler onto that box needs the branch pushed
-to the `pc` remote, and that push was refused by the permission system.
-It was not attempted a second way.
+**An iGPU.** Every number above is an RX 6600 XT, where the slowest map runs at
+386 fps. Ryan's bar is a potato, and the one finding that matters — marble's
+1.66 ms shadow — is a *fill-rate* cost, which is precisely the axis that does
+not scale down gracefully from this card to integrated graphics. The ratio, not
+the millisecond, is the thing to carry across: **71 % of one map's frame, on a
+map that is otherwise the cheapest in the game.** Nothing in this repo can
+measure the machine that matters, and the honest next step is to run
+`tools/perf/profile_match.gd --map=marble --view=tower` once on a laptop.
 
-So findings 1, 2 and 3 are exact statements about geometry and settings and
-**not** measurements of a frame. Three numbers are wanted and are not here:
-draw calls, visible triangles after culling, and frame time, per map, at the
-runner's eye and at the guard's eye. `tools/perf/profile_match.gd --map=marble
---view=tower` is the command; it needs `git push pc work-newmapperf` first, and
-then §2's `schtasks /run /it` dance, because an OpenSSH session on Windows is
-not the interactive desktop session and Godot gets no GL context in it.
+Also not done, deliberately: nothing was changed to make marble faster. The
+three levers in finding 1 are all visible in the art, and the brief for this
+pass was to fix what is slow without changing how a map looks.
 
-Until then the honest statement is: **nothing in the physics tick or on the wire
-needs work on any of the three maps, and the draw side has one unmeasured
-suspect that is named, gated, and worth a frame.**
+**The standing conclusion.** Nothing in the physics tick or on the wire needs
+work on any of the three maps. On the draw side, triangles turned out not to be
+the story on any of them, and one light on map 2 is.
