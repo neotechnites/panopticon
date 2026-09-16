@@ -429,8 +429,8 @@ shadow control that explains the ordering.
 | collision triangles | 17,196 | 5,180 | 5,286 | — |
 | `Area3D`s in the map | 32 | 3 | 2 | — |
 | nav polygons (runtime bake) | 509 | 279 | 311 | — |
-| nav bake | 262–381 ms | 156–176 ms | 80–94 ms | — |
-| cover points found | 196 | 1,837 | **1** | — |
+| nav bake | 259–381 ms | 156–176 ms | 79–94 ms | — |
+| cover points found (at measurement → after `78d89bb`) | 196 → 192 | **1,837 → 164** | **1 → 1** | — |
 
 Bot harness, `--matches=5` on each map, run twice: **CLEAN, 0 unresolved** every
 time. `bash tools/test.sh`: **458 tests, 458 passed, 0 failed, 4933 checks**,
@@ -463,12 +463,23 @@ thing that would have made it expensive:
    `get_overlapping_bodies()` sweep that §3 finding 8 removed was map 1's cost
    and the new maps never had it.
 3. **The cover finder's ray budget holds under a map that offers nine times the
-   cover.** Marble's runtime bake yields **1,837 cover points** against map 1's
-   196 — nine times the search space for the single most expensive thing in the
-   bot tick (§2, "where the cost is", item 1) — and the mean tick does not move,
-   because `RunnerCoverFinder.RAYS_PER_FRAME = 80` is a real ceiling and not a
-   hope. This is the first evidence the project has that the ray budget is doing
-   its job rather than merely existing.
+   cover.** When the physics above was measured, marble's runtime bake yielded
+   **1,837 cover points** against map 1's 196 — nine times the search space for
+   the single most expensive thing in the bot tick (§2, "where the cost is",
+   item 1) — and the mean tick did not move, because
+   `RunnerCoverFinder.RAYS_PER_FRAME = 80` is a real ceiling and not a hope.
+   This is the first evidence the project has that the ray budget is doing its
+   job rather than merely existing.
+
+   **That 1,837 was itself a bug, and it is fixed** — by `78d89bb` ("stop
+   counting unreachable floors as cover"), from another lane, merged into this
+   branch after the measurement. Marble now bakes **164** cover points and map 1
+   **192**. Two things follow. The evidence above still stands, because it is a
+   fact about a load the budget actually survived, and a stress test does not
+   stop counting when the stress is removed. And the physics table's mean tick
+   is if anything now conservative for marble: the load it was measured under no
+   longer exists. Nothing was re-measured for this, because a lower load cannot
+   turn a pass into a failure.
 
 **Two things seen and deliberately not fixed:**
 
@@ -508,7 +519,19 @@ Map 1 is the only one that moves, and it moves by 50 %. What is inside its first
 tail of it lands in the measurement.
 
 So **B1's 1.45 ms ceiling is partly a setup allowance**, not purely steady-state
-play, and it is an allowance only map 1 draws on. That is not a bug and it is
+play, and it is an allowance only map 1 draws on.
+
+**And a warning about B2 on a shared machine.** B2's ceiling is 7.00 ms on a
+measured 5.41-5.85, so about 20 % of headroom on the noisiest number the suite
+takes. That is enough on an idle Mac and not enough on a busy one: with other
+agents running bot sweeps on this box at a load average around 6, the same
+worst-tick reads **6.42-7.47 ms** and trips the gate on roughly half of runs.
+Measured interleaved across four runs each of this branch and its parent, the
+two are indistinguishable (pre 6.42-6.96, post 6.50-7.47), so this is the
+machine and not a regression on either side. **B2 was not raised**: a gate that
+is widened every time it is inconvenient stops being a gate. The right response
+to a red B2 is to look at the load average first, re-run, and use
+`PANOPTICON_SKIP_BUDGETS=1` only on a machine that genuinely cannot measure. That is not a bug and it is
 not worth changing — B1's job is to catch a change of order and a longer warmup
 would only make it slower to run — but anyone reading 1.27 ms off a BUDGET line
 and 0.86 ms off a PHYS line should know the two windows are not the same window,
