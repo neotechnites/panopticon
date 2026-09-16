@@ -360,8 +360,332 @@ count are the two things that bite. In `GameSettings` terms:
 | `max_lights_per_object` | 8 | project-level, see above |
 | torch lights | halve to 6 (every 60° instead of every 30°) | 12 omnis at range 14 overlap heavily on a 52 m lane |
 | `HellFlood` range | 60, or delete and raise ambient | stops one light from joining every object's light list |
-| shadows | already none | nothing to do |
+| shadows | **needs a real toggle** | was "already none" and is no longer true: maps 2 and 3 each cast one realtime shadow over the whole arena. See the 2026-09-16 section, finding 1. On those two maps this is the preset's biggest single lever. |
 | MSAA | already off | nothing to do |
 
 Alongside that, the arena split from §1 — which is the change that makes a weak
 GPU stop paying for 88k triangles it cannot see.
+
+---
+
+# Three maps, one set of budgets — 2026-09-16
+
+Everything above was measured when the game had one arena. It now has three, and
+every budget in `tests/test_budgets.gd` was set on the first one. This section
+asks the only question that matters about that: **does a map change what the
+game costs?**
+
+The short answer is that it changes nothing the budgets watch and one thing no
+budget watched at all.
+
+## The table
+
+Physics from `tools/perf/profile_physics.gd` (new this branch) — the world
+`tests/test_budgets.gd` builds, seven prisoners and a guard, **eight seats**,
+600 warmup ticks then a 1080-tick window, on the Mac, three runs per map.
+
+Ranges are **four runs per map**: three round-robin batches plus one
+confirming run taken later at a lower load. `objects/tick`, `phys_active`,
+`phys_pairs` and `nodes` were bit-identical on every run of a given map.
+
+**The Mac was not quiet** — other work was running on it throughout, at a load
+average of 7-16. So the three maps were measured **round-robin** (map 1, map 2,
+map 3, then repeat, three times) rather than three runs of one map and then
+three of the next: interleaving shares whatever the machine was doing equally
+across the three arms, which is what makes the comparison BETWEEN maps sound
+even though the absolute milliseconds are not this machine's best. Read the
+columns against each other, not against a number from a quiet box. Wire from
+`tools/perf/profile_wire.gd` (new this branch) — the same eight-seat loopback
+session B4/B5 are measured on, with the map's arena actually in the tree.
+Draw from `tests/test_map_draw_budgets.gd` (new this branch), off the live tree
+after `_ready`.
+
+| | **1 bentham_ring** | **2 marble** | **3 forest** | budget |
+|---|---|---|---|---|
+| mean tick | **0.862–0.876 ms** | **0.863–0.865 ms** | **0.863–0.866 ms** | B1 1.45 |
+| worst tick (2nd worst sample) | **5.31–6.76 ms** | **5.14–5.63 ms** | **5.30–5.52 ms** | B2 7.00 |
+| objects kept / tick | 0.0028 | 0.0093 | 0.0074 | B3 0.05 |
+| physics active bodies | 6.0 | 7.0 | 7.1 | — |
+| broadphase pairs | 9.5 | 18.5 | 10.7 | — |
+| host up | 448.8–449.8 B/tick | 432.1–432.6 B/tick | 440.6–440.8 B/tick | B4 535 |
+| client down | 64.1–64.2 B/tick | 61.7–61.8 B/tick | 62.9–63.0 B/tick | B5 76.5 |
+| visible triangles | 78,722 | 75,632 | **143,895** | — |
+| surfaces / materials | 37 / 15 | 4 / 4 | 9 / 9 | — |
+| transparent triangles | 0 | 0 | **2,196** | — |
+| lights | 20 | 2 | 2 | — |
+| **runtime shadow casters** | **0** | **1** | **1** | — |
+| collision triangles | 17,196 | 5,180 | 5,286 | — |
+| `Area3D`s in the map | 32 | 3 | 2 | — |
+| nav polygons (runtime bake) | 509 | 279 | 311 | — |
+| nav bake | 262–381 ms | 156–176 ms | 80–94 ms | — |
+| cover points found | 196 | 1,837 | **1** | — |
+
+Bot harness, `--matches=5` on each map, run twice: **CLEAN, 0 unresolved** every
+time. `bash tools/test.sh`: **458 tests, 458 passed, 0 failed, 4933 checks**,
+hot paths CLEAN, i18n CLEAN — with map 1's own budget line reading avg
+**1.279 ms** against B1 1.45 and worst **5.59 ms** against B2 7.00, which is
+where it read before this branch (1.270 / 5.42). **Map 1's gate did not move.**
+
+## 1. Physics and CPU: nothing to fix, and the reason is worth keeping
+
+All three maps measure the same mean tick to within 1 %, and every one of
+B1, B2 and B3 passes on every map with the same margin it had before. The two
+new maps are in fact **cheaper**: a third of map 1's collision triangles, a
+tenth to a sixteenth of its `Area3D` count, and a nav bake two to four times
+faster.
+
+That is not luck; it is three facts worth writing down, because each is the
+thing that would have made it expensive:
+
+1. **The brambles are not colliders.** `assets/models/forest.glb` ships five
+   nodes and only `ForestCollision-colonly` — **1,830 triangles** — carries
+   collision. The thicket at the pit bottom (`PLANTS = 1150` in
+   `tools/modelling/forest_pit_build.py`, **30,985 triangles**) lives inside
+   `ForestGround`, which is art. The kill
+   volume over the ravine is what makes the thicket lethal, so the physics
+   engine never has to know a bramble exists. The fog discs and the ray vanes
+   are art too.
+2. **Maps 2 and 3 have no trap volumes.** Map 1's 32 `Area3D`s are 22
+   `TrapVolume`s, seven `BoostPad`s, a powerup, a kill volume and the finish
+   gate; maps 2 and 3 have a kill volume or two and the gate. The per-frame
+   `get_overlapping_bodies()` sweep that §3 finding 8 removed was map 1's cost
+   and the new maps never had it.
+3. **The cover finder's ray budget holds under a map that offers nine times the
+   cover.** Marble's runtime bake yields **1,837 cover points** against map 1's
+   196 — nine times the search space for the single most expensive thing in the
+   bot tick (§2, "where the cost is", item 1) — and the mean tick does not move,
+   because `RunnerCoverFinder.RAYS_PER_FRAME = 80` is a real ceiling and not a
+   hope. This is the first evidence the project has that the ray budget is doing
+   its job rather than merely existing.
+
+**Two things seen and deliberately not fixed:**
+
+- `objects/tick` rose from 0.0028 on map 1 to 0.0093 on marble and 0.0074 on
+  forest. Still five times inside B3 and still one to ten kept objects across a
+  1080-tick window, which is respawn cadence and not a leak — maps without traps
+  kill differently, so the deaths fall in different places in the window.
+  Recorded because B3's job is to notice a shape, and if this keeps climbing on
+  map 4 it is the number that will say so first.
+- **Forest's bake finds exactly one cover point.** Not a performance problem
+  today — one point is a cheap sweep — but it is the input to §3 finding **A**,
+  the un-throttled `_plan_and_cross` that re-runs a full search on every tick a
+  runner is exposed and finds nothing. On a map where cover does not exist, that
+  path is permanently in its worst case. It does not bite at eight seats on the
+  Mac; it is the first thing to look at if forest ever tails out on the PC.
+  Note what the fix is and is not: the throttle finding **A** describes is
+  map-agnostic and belongs in `scripts/bot` like the rest of the bot. Knowing
+  that *forest* is the map without cover does not, and must never get there.
+
+**Nothing was changed to make any of this pass.** No collider was simplified, no
+volume removed, no map re-exported.
+
+### One thing the warmup exposed, and B1 should be read knowing it
+
+The table above warms up for **600** ticks. `tests/test_budgets.gd` warms up for
+**120**, and at 120 the same three maps do not agree:
+
+| warmup | bentham_ring | marble | forest |
+|---|---|---|---|
+| 120 ticks (what B1/B2 use) | **1.311 / 1.389 ms** | 0.863 / 0.863 ms | 0.890 / 0.950 ms |
+| 600 ticks | 0.862–0.871 ms | 0.863–0.864 ms | 0.863–0.864 ms |
+
+Map 1 is the only one that moves, and it moves by 50 %. What is inside its first
+120 ticks and not inside the others' is the opening race over seven traps and a
+**262–381 ms nav bake** against marble's 156–176 and forest's 80–94. At 60 Hz a
+300 ms bake is eighteen ticks of the warmup window spent in one call, and the
+tail of it lands in the measurement.
+
+So **B1's 1.45 ms ceiling is partly a setup allowance**, not purely steady-state
+play, and it is an allowance only map 1 draws on. That is not a bug and it is
+not worth changing — B1's job is to catch a change of order and a longer warmup
+would only make it slower to run — but anyone reading 1.27 ms off a BUDGET line
+and 0.86 ms off a PHYS line should know the two windows are not the same window,
+and that the gap between them is map 1's own bake.
+
+## 2. Bandwidth: unchanged, measured, and unchangeable by a map
+
+| map in the tree | host up | client down |
+|---|---|---|
+| none (the budget fixture as shipped) | 449.9 / 450.1 B/tick | 64.3 B/tick |
+| bentham_ring | 448.8 / 449.8 B/tick | 64.1 / 64.2 B/tick |
+| marble | 432.1 / 432.6 B/tick | 61.7 / 61.8 B/tick |
+| forest | 440.8 / 440.6 B/tick | 63.0 / 62.9 B/tick |
+| **B4 / B5** | **535** | **76.5** |
+
+Eight seats, 180 ticks, **90 snapshots and 100-102 packets on every one of the
+four arms**. B4 and B5 are unchanged, and the suite's own B4 line the same day
+reads 445.3 B/tick, in the middle of them.
+
+The **4 % spread is the range coder, not the map.** `NetSettings.compress_traffic`
+is on in the settings this measures, so what a packet costs depends on the
+VALUES in it, and a map with collision under the bodies leaves them at different
+positions than a flat test floor does. The map changes where the players are; it
+does not change what a player costs. Note also that `profile_wire.gd` runs at
+**1x real time** and not the suite's 50x: under compression the main loop retires
+many physics steps per idle frame while the socket is polled once per frame, so
+several ticks' traffic flushes as one batch and the per-tick rate becomes a
+function of how fast the frame ran — which on the first attempt moved the answer
+435-471 B/tick and pointed the wrong way, the no-arena arm reading highest. A
+wire instrument whose answer depends on frame cost cannot answer a question
+about the wire. At 1x every arm reproduces to 0.1 B/tick.
+
+They were never going to change, and the codec says why: `WorldSnapshot` holds
+its eight `PlayerState` for life at `SNAPSHOT_BODY_SIZE = 26` bytes each, and
+there is no map, arena, geometry or scene-path field anywhere in
+`scripts/net/`. The map does cross the wire exactly once — `map_id` is a
+`StringName` export, so `NetCodec.pack_rules` picks it up with the rest of the
+rules and sends it on the reliable channel at lobby time. A short string, once,
+off the per-tick path. That is the whole of geometry's presence in the protocol
+and it is the right amount.
+
+## 3. Draw: the one thing that did change
+
+The physics and wire answers above are measurements. **This one is not.** A
+frame on the PC could not be captured for maps 2 and 3 — see "What is missing"
+below. What follows is exact scene and model data, taken two independent ways
+(a Python parse of the `.glb` JSON chunks, and a walk of the live tree after
+`_ready`) which agree to the triangle.
+
+### Finding 1 — both new maps cast a realtime shadow. Map 1 casts none.
+
+This is the headline and it is not in any budget.
+
+| map | the caster | reach |
+|---|---|---|
+| bentham_ring | — | `default_tower_light_profile.tres` sets `shadow_enabled = false`, and `TowerLight._apply_profile` overwrites the `.tscn`'s `true` at `_ready`. **0 casters.** |
+| marble | `Tower/TowerLight`, `OmniLight3D`, dual-paraboloid | `marble_tower_light_profile.tres` sets `shadow_enabled = true`, `range 140 m`, `shadow_blur 3.0`. 140 m is the whole arena. |
+| forest | `Environment/Sun`, `DirectionalLight3D` | `shadow_enabled = true`, `directional_shadow_max_distance = 200`. Also the whole arena. |
+
+Under GL Compatibility a realtime shadow-casting light is not a percentage on
+the frame — it is **a second pass over the geometry it reaches**, and in both
+cases it reaches everything. On the RX 6600 XT, where §2 measured the entire
+arena at 1.0 ms, this will not be visible. On the iGPU that Ryan's "potato" bar
+actually means, it is the single most expensive thing either new map added, and
+it arrived twice without a word.
+
+`meshes/create_shadow_meshes=true` on every `.glb` import means the shadow pass
+at least runs over a position-only mesh rather than the full vertex format.
+
+**Not fixed, and deliberately.** Marble's lamp is a shadow caster *on purpose* —
+"one warm gold lamp under the arcade, shadowed, so the arches throw their beams
+out across the ring as the drawing has them", retuned by Ryan on 2026-09-16.
+Forest's `Sun` is what its rays are lit by. Switching either off is an art
+decision, not a performance one, and the brief for this pass was to fix what is
+slow without changing how a map looks. What this section does instead is
+**gate it**, so the third one is a conversation and not a surprise.
+
+The consequence for the potato preset in §4 is that its `shadows` row —
+"already none | nothing to do" — **is now wrong**, and a real shadow toggle is
+the biggest single lever the preset has on maps 2 and 3. That is a
+`GameSettings` change and it is proposed, not made.
+
+### Finding 2 — forest is 1.83x map 1, in one surface, with no LOD lever proven
+
+143,895 visible triangles against map 1's 78,722. **125,876 of them are
+`ForestGround`, a single surface**, of which 30,985 are the bramble thicket and
+10,625 the pit floor — 41,610 triangles at the bottom of a ravine, most of them
+under seven layers of fog, and none of them anything a runner on the lane is
+looking at.
+
+Everything §1 says about `map_base.glb` applies here with more force, and runs
+into the same wall: **a section split is forbidden by the modelling standard.**
+`docs/ENGINEERING.md` requires "one contiguous mesh per map", and
+`tools/modelling/forest_build.py` says so in its own header — "ONE CONTIGUOUS
+mesh (ForestGround), one surface". So frustum culling can reject none of it and
+`visibility_range_*` — set on nothing in this project, on any of the three maps
+— can apply to none of it. An `OccluderInstance3D` could still cull OTHER
+objects behind it, but on these maps there are no other objects worth culling:
+the map mesh is 87-92 % of every arena's triangles (70,993 of 78,722 on map 1,
+69,696 of 75,632 on map 2, 125,876 of 143,895 on map 3) and an occluder cannot
+touch part of one mesh.
+§1's recommendation 1 and the modelling invariant are in direct conflict and
+somebody has to decide which wins; this review is not that decision.
+
+What *does* work on one contiguous mesh is Godot's mesh LOD, and
+`meshes/generate_lods=true` is set on every import, so the LODs exist. Whether
+the Compatibility renderer selects them is the open question, and it is the
+cheapest thing to check on the PC the moment a frame can be captured there: if
+it does, the pit at 60 m is already costing a fraction of 125,876 triangles and
+finding 2 is closed. There is no `rendering/mesh_lod/*` override in
+`project.godot`.
+
+### Finding 3 — forest holds the only transparent geometry in the game
+
+2,196 triangles: `ForestFog` (2,016, alpha-blended) and `ForestRaysSoft` (180,
+additive). Both carry `cull_mode = 2` — culling disabled — so both faces draw,
+and the fog is **seven stacked full-width discs over the pit**, which is up to
+seven layers of blended overdraw wherever the ravine is in frame.
+
+The triangle count is nothing. The fill cost is not nothing, and fill is exactly
+what an iGPU is short of. `ForestRaysSolid` (180 tris) is `visible = false` in
+the scene and costs nothing.
+
+Nothing here can be honestly recommended without a frame. It is named so that
+whoever captures that frame knows where to look first.
+
+### Also seen
+
+- Marble is 75,632 triangles — slightly **under** map 1 — in **four surfaces
+  and four materials** against map 1's 37 and 15. On draw calls it is the
+  cheapest map in the game.
+- No `OccluderInstance3D`, no `MultiMeshInstance3D` and no `visibility_range_*`
+  anywhere in any of the three maps. Map 3's 1,150 brambles are the first
+  geometry in this project with a real case for a `MultiMeshInstance3D`, and it
+  cannot have one while the contiguity rule stands.
+
+## 4. Do the budgets need per-map values? No — they need a sixth budget
+
+**B1, B2, B3, B4 and B5 do not need per-map values.** The evidence is the table:
+three maps measure the same mean tick to within 1 %, the same worst tick inside
+the same 1.6 ms spread, and the same bytes inside 4 %. Three copies of one
+number is not a budget, it is a maintenance cost, and splitting B1 per map would
+also make map 1's gate easier to satisfy by giving a regression somewhere to
+hide. Map 1's gate is untouched by this branch.
+
+What the maps *do* differ on is the draw side, and nothing gated it at all. So
+the proposal is a sixth budget of a different kind, and it is **implemented**:
+
+**`tests/test_map_draw_budgets.gd`** walks **every** map in `MapCatalog` after
+`_ready` — which matters, because `TowerLight._apply_profile` overwrites the
+`.tscn`'s `shadow_enabled` and reading the scene file would measure the wrong
+number — and gates six counts per map: triangles, surfaces, materials,
+transparent triangles, lights, and lights that cast. It prints a
+`BUDGET draw map=…` line for every map on every run, as B1–B5 do.
+
+```
+BUDGET draw map=bentham_ring tris=78722 surfaces=37 materials=15 transparent_tris=0 lights=20 shadow_casters=0
+BUDGET draw map=marble       tris=75632 surfaces=4  materials=4  transparent_tris=0    lights=2  shadow_casters=1
+BUDGET draw map=forest       tris=143895 surfaces=9 materials=9  transparent_tris=2196 lights=2  shadow_casters=1
+```
+
+Three things about its shape are deliberate:
+
+- **`shadow_casters` gets an exact ceiling, not 20 % headroom.** Zero means
+  zero. A percentage on a count of 0 or 1 is meaningless, and this is the number
+  the whole file exists for.
+- **A map in the catalog with no row FAILS**, and the failure prints the row to
+  paste in. A map cannot arrive un-measured; that is exactly how these two did.
+- **It is scene data, not wall clock**, so it is identical on every machine, it
+  never skips, and it costs the suite 0.5 s. It does not weaken map 1's gate
+  because it does not touch it — it adds a gate map 1 passes at zero.
+
+## What is missing, and why
+
+**A real frame from the PC, for maps 2 and 3.** §2's whole method is that the
+Mac cannot see a GPU and the PC can, and the PC's copy at `C:\dev\panopticon`
+is at `a88e472` — before `--map` existed, so the profiler there can only load
+map 1. Getting the instrumented profiler onto that box needs the branch pushed
+to the `pc` remote, and that push was refused by the permission system.
+It was not attempted a second way.
+
+So findings 1, 2 and 3 are exact statements about geometry and settings and
+**not** measurements of a frame. Three numbers are wanted and are not here:
+draw calls, visible triangles after culling, and frame time, per map, at the
+runner's eye and at the guard's eye. `tools/perf/profile_match.gd --map=marble
+--view=tower` is the command; it needs `git push pc work-newmapperf` first, and
+then §2's `schtasks /run /it` dance, because an OpenSSH session on Windows is
+not the interactive desktop session and Godot gets no GL context in it.
+
+Until then the honest statement is: **nothing in the physics tick or on the wire
+needs work on any of the three maps, and the draw side has one unmeasured
+suspect that is named, gated, and worth a frame.**
