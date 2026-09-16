@@ -1,26 +1,34 @@
 """
-PANOPTICON -- marble: Map 2, the Bentham drawing built in white marble.
+PANOPTICON -- marble: Map 2, the Bentham drawing built in the Temple of
+Time's stone.
 
-One closed rotunda, ONE CONTIGUOUS MODEL: the ring lane, both spike beds, the
-wall of cells and the dome are a single connected mesh in a single .glb. The
-tower is the only other model (marble_tower_build.py, its own contiguous
-mesh, dropped in by the scene at the guard-room datum, as Map 1 does). The
-lane is a bridge of marble between two beds of marble spikes -- inward to the tower's foot, outward to the wall -- and the wall
-behind is four tiers of arched cells with a pilaster on every pier, a
-Greek-key frieze and a great cornice under a solid coffered dome. No oculus:
-the light is the tower's, and a cool ambient. Nothing on the lane.
+One closed rotunda, ONE CONTIGUOUS MODEL: the spike floor, the gallery
+walkway, the wall of cells and the dome are a single connected mesh in a
+single .glb. The tower is the only other model (marble_tower_build.py, its
+own contiguous mesh, dropped in by the scene at the guard-room datum, as Map
+1 does).
 
-Stone only. Mechanics -- the kill cylinder over the inner bed, the feet-only
-traps over the trough, portal, spawns, watch markers -- are scene nodes in
-scenes/ring/marble.tscn.
+THE SHAPE (pass 3, to Ryan's verdict on pass 2). The rotunda's ground floor
+is covered in marble spikes. The running lane is a GALLERY WALKWAY partway up
+the wall of cells -- a slab at Map 1's lane height and radii, whose inner
+edge is open: step off it and you drop 24 m onto the spikes. The wall is
+SEVEN tiers of arched cells, three below the walkway down to the spike
+floor and four above it, every cell an open recess with iron bars over the
+arch; a pilaster on every pier, a cornice on every tier, a Greek-key frieze
+and a great cornice under a solid coffered dome. No oculus: the light is the
+tower's gold lantern, and a cool ambient. Nothing on the lane.
+
+Stone only. Mechanics -- the kill cylinder over the spike floor, portal,
+spawns, watch markers -- are scene nodes in scenes/ring/marble.tscn.
 
 Authored in WORLD coordinates so the scene instances it at identity:
 
-    spike beds ........  y = FIELD_Z (20.9), terraced down to 16.9 at the tower
-    lane ..............  y = DECK_Z  (23.0; the runner's feet, Map 1's ring)
+    spike floor .......  y = FLOOR_Z (-1.0); spikes to 2.0
+    tiers .............  bases -1.0 / 7.0 / 15.0 / [23.0] / 31.0 / 39.0 / 47.0 (TIER_H 8.0)
+    walkway slab ......  y = SLAB_Z0 (22.0) .. DECK_Z (23.0; the runner's feet, Map 1's ring)
     guard-room floor ..  y = 27.05   (the scene's Tower node at 25.35 + 1.70)
-    wall top / frieze .  y = 47.3 .. 49.1
-    dome springs ......  y = 50.1, apex 77.1
+    wall top / frieze .  y = 55.0 .. 56.8
+    dome springs ......  y = 57.8, apex 84.8
 
 Blender +Z -> Godot +Y, Blender +Y -> Godot -Z. A game bearing of b degrees
 is Blender angle -b.
@@ -28,22 +36,24 @@ is Blender angle -b.
 HOW IT IS ONE MESH. _Mesh.v() is a welding registry: two parts that put a
 vertex at the same world point (to 1e-4) get the same vertex. Every part is
 built against the SEAM RINGS below -- exact station angles and radii, so the
-lane's trough ends on the ring the wall starts from and the great cornice's
-back edge is the dome's spring line. Bands between rings of different
-station counts are zippered (_zipper), never left as T-junctions. Spikes are
-stitched into the bed's own floor cells, pilasters and cornices share their
-edges. _check() proves it: one connected component, every edge on exactly
-two faces.
+floor ends on the ring the wall starts from, the walkway slab closes onto the
+third tier's cornice lines and the great cornice's back edge is the dome's
+spring line. Bands between rings of different station counts are zippered
+(_zipper), never left as T-junctions. Spikes are stitched into the floor's
+own cells, bars into their sills, pilasters and cornices share their edges.
+_check() proves it: one connected component, every edge on exactly two
+faces, no duplicate positions.
 
 Parts (each a sibling *_build.py the pipeline ships along):
-    marble_lane_build   the lane, podium walls, both beds and their spikes,
-                        the trough
-    marble_wall_build   the wall: socle, three tiers of cells, pilasters,
-                        cornices, frieze, great cornice, the dome
+    marble_lane_build   the spike floor and its spikes, the walkway slab:
+                        deck, nosing, inner face, underside, wall margin
+    marble_wall_build   the wall: socles, seven tiers of barred cells,
+                        pilasters, cornices, frieze, great cornice, the dome
 
-Collision is purpose-built and rides in the .glb as a `-colonly` node: lane,
-podium walls, bed floors, the plain wall face, the dome. The spikes are NOT colliders: a body that
-leaves the lane is dead by the volumes before it lands.
+Collision is purpose-built and rides in the .glb as a `-colonly` node: the
+floor, the slab (top, inner face, underside), the plain wall face, the dome.
+The spikes and bars are NOT colliders: a body that leaves the walkway is dead
+by the kill cylinder before it lands.
 
 Texture: one painted 256 px atlas of 64 px cells, palette sampled off the
 Temple of Time (see docs/maps/marble.md). USE_TEXTURE_FILES: drop
@@ -83,60 +93,50 @@ COLLIDER_NAME = "MarbleCollision-colonly"
 FACING_YAW = 0.0
 
 NSIDE = 64                  # bays round the wall; 5.89 m chords at r 60
-INNER_R = 46.7              # lane inner lip (Map 1's ring)
-OUTER_R = 57.3              # lane outer lip
-DECK_Z = 23.0
-FIELD_Z = 20.9              # both spike beds' floor: 2.1 m under the lane, past RingBake's
-                            # 2.0 m drop probe, so the bots' mesh stops a metre short of both lips
-WALL_R = 60.0               # the wall face, and the trough's outer edge
-LIP = 0.10                  # the lane's chamfered nosing, both edges
-DECK_SUB = 2                # angular subdivision of the lane (2.9 m facets)
-DECK_RS = (INNER_R + LIP, 49.4, 52.0, 54.6, OUTER_R - LIP)
-# The inner bed steps down toward the tower in three terraces, so the shaft
-# stands tall as the drawing draws it and the spikes near it can grow without
-# touching the guard's sight line. (riser radius, floor y inside it)
-TERRACES = ((38.0, 19.4), (30.0, 17.9), (22.0, 16.9))
-FIELD_RS = (4.0, 8.0, 14.0, 22.0, 30.0, 38.0, 43.0, INNER_R)   # bed floor rings, tower foot outward
+INNER_R = 46.7              # walkway inner lip (Map 1's ring): the open edge, the drop
+OUTER_R = 57.3              # the lane's outer radius (Map 1's ring); the slab runs on to the wall
+DECK_Z = 23.0               # the walkway top: the runner's feet
+FLOOR_Z = -1.0              # the rotunda floor, covered in spikes: 24 m under the walkway
+WALL_R = 60.0               # the wall face
+LIP = 0.10                  # the walkway's chamfered nosing at the open edge
+DECK_SUB = 2                # angular subdivision of the deck (2.9 m facets)
+DECK_RS = (INNER_R + LIP, 49.4, 52.0, 54.6, OUTER_R)   # paving rings; the margin beyond is plain stone
+SLAB_T = 1.0                # the walkway slab's thickness ...
+SLAB_Z0 = DECK_Z - SLAB_T   # ... its underside, 22.0: the third tier's cornice soffit
 
-# ---- the wall: three tiers of cells, Map 1's cell size ----------------------
-TIER_H = 8.8
-TIER_BASE = (FIELD_Z, FIELD_Z + TIER_H, FIELD_Z + 2 * TIER_H)   # 20.9 29.7 38.5; top 47.3
-SILL_UP = 2.1               # arch sill over the tier base (tier 1: the lane level, 23.0)
+# ---- the wall: seven tiers of cells, Map 1's cell size ----------------------
+TIER_H = 8.0
+N_BELOW, N_ABOVE = 3, 4     # tiers under the walkway (down to the floor) and over it
+N_TIERS = N_BELOW + N_ABOVE
+TIER_BASE = tuple(FLOOR_Z + k * TIER_H for k in range(N_TIERS))   # -1 7 15 23 31 39 47; top 55
+SLAB_TIER = N_BELOW - 1     # the tier whose cornice is the walkway slab (its front is left open)
+LANE_TIER = N_BELOW         # the tier whose base is the walkway (TIER_BASE[LANE_TIER] == DECK_Z)
+SILL_UP = 1.0               # arch sill over the tier base (a socle under every sill)
 ARCH_W = 4.0                # cell mouth width
 ARCH_JAMB = 3.5             # jamb height, sill to springing; head r 2.0: 5.5 m mouths, Map 1's tallest
 HEAD_SEG = 6                # segments in the semicircular head
-CELL_D = 3.0                # cell depth into the wall (tiers 2, 3: an open recess)
-SCREEN_D = 0.6              # tier 1: the reveal steps back to a slotted stone screen here ...
-SLOT_D = 0.4                # ... slots this deep to a dark plate behind
-SLOT_W = 0.34               # slot width; three slots, stone between
-SLOT_N = 3
-SLOT_UP = 0.3               # slots start this far over the sill and end this far under the head
-BAND_Z = (8.2, 8.8)         # the tier cornice, over the tier base; its top is the next tier's base
+CELL_D = 3.0                # cell depth into the wall: an open recess to a dark back wall
+BAR_N = 5                   # iron bars over every arch ...
+BAR_HW = 0.065              # ... 0.13 m square ...
+BAR_D = 0.5                 # ... standing on the sill this far into the reveal, tips set in the head
+BAND_Z = (7.4, 8.0)         # the tier cornice, over the tier base; its top is the next tier's base
+SLAB_BAND_Z = (SLAB_Z0 - TIER_BASE[SLAB_TIER], TIER_H)   # (7.0, 8.0): the slab tier's, one metre thick
 BAND_PROUD = 0.45           # ... as proud as the pilasters, which run up into it
-FRIEZE_Z = (47.3, 49.1)     # Greek key
-CORNICE_Z = (49.1, 50.1)    # the great cornice
+FRIEZE_Z = (TIER_BASE[-1] + TIER_H, TIER_BASE[-1] + TIER_H + 1.8)     # 55.0 .. 56.8, Greek key
+CORNICE_Z = (FRIEZE_Z[1], FRIEZE_Z[1] + 1.0)                          # 56.8 .. 57.8, the great cornice
 CORNICE_PROUD = 0.8
 
 # ---- the dome -------------------------------------------------------------
-DOME_Z0 = 50.1
+DOME_Z0 = CORNICE_Z[1]      # 57.8
 DOME_RISE = 27.0
 DOME_RINGS = 8
 DOME_CAP_R = 4.2            # flat medallion at the crown
 
-# ---- the spike beds ---------------------------------------------------------
+# ---- the spike floor ------------------------------------------------------
 SPIKE_SEED = 7702141
-IN_R0, IN_R1 = 10.3, 45.5   # inner bed spike rings, first and last
-IN_STEP = 2.3               # ring pitch and mean spacing along a ring
-IN_H = (1.0, 2.6)           # spike height at the lane .. at the tower
-RISER_CLEAR = 0.7           # no spike this close to a terrace riser
-IN_JIT = 0.6                # position jitter, metres
-IN_TIP_CAP = 23.2           # no tip over this for r > IN_CAP_R: 0.2 m over the lip, under the sight line
-IN_CAP_R = 43.5
-OUT_RS = (58.2, 59.2)       # trough rings
-OUT_STEP = 1.5
-OUT_H = (2.2, 2.9)            # the trough's teeth all stand over the lane level, a fence beside the run
-OUT_JIT = 0.3
-OUT_TIP_CAP = 24.2          # the trough's traps are full boxes topping at 22.9; the teeth stand over the lane
+SPIKE_R0, SPIKE_R1 = 10.3, 45.5   # spikes from the tower's foot to under the walkway's lip
+SPIKE_PITCH = 2.6           # floor cell pitch, radial and along a ring
+SPIKE_H = (1.4, 2.8)        # spike height, short .. tall
 SMALL_EVERY = 3             # a small spike at the foot of every third one
 SMALL_H = 0.45              # ... this fraction of its height
 BASE_K = (0.08, 0.14)       # base half-width = BASE_K[0] + BASE_K[1] * H: sharp
@@ -184,7 +184,7 @@ ZONES = {                   # atlas column, row (row 0 is the bottom of the imag
     "field": _cell(1, 3),    # the beds' floor
 }
 FIT = {"floor": "uv", "frieze": "uv", "coffer": "uv",   # the whole face onto the whole cell
-       "band": "v", "column": "u"}                      # ... on one axis only
+       "band": "v", "column": "u", "iron": "u"}         # ... on one axis only
 ANCHORED = ("stone", "plinth", "band")                  # courses stay level: no v offset, no flips
 EYE_H = 1.65
 TWO_PI = 2.0 * math.pi
@@ -304,50 +304,58 @@ def _paint_marble(c, r, box, base, blotch, vein):
     _veins(c, r, box, vein, 3, 30)
 
 
-# Palette: the Temple of Time's stone -- warm-grey off-white in the light
-# (#d9d4c8 .. #e4dfd4), cool grey in shadow, a faint tinge and no more. See
-# docs/maps/marble.md for the samples.
+# Palette: the Temple of Time's stone -- warm sandy grey-green ashlar in the
+# light (#9a9676 .. #9e9a7a), darker mortar joints (#5e5c44), cool grey-olive
+# in shadow (#6b6b55). Sampled 8-bit sRGB; see docs/maps/marble.md.
 
 def _paint_white(c, r, box):
-    _paint_marble(c, r, box, [(226, 222, 212), (222, 218, 208), (230, 226, 216), (225, 221, 211)],
-                  [(218, 214, 204), (232, 228, 219)], [(200, 197, 189), (182, 180, 173)])
+    _paint_blocks(c, r, box, [(154, 150, 118), (150, 146, 114), (158, 154, 122), (146, 142, 110)],
+                  (108, 105, 80), 16)
+    _shatter(c, r, box, [(140, 136, 108)], 4, 2, 5)
 
 
 def _paint_white2(c, r, box):
-    _paint_marble(c, r, box, [(222, 218, 208), (218, 214, 204), (226, 222, 212), (221, 217, 207)],
-                  [(214, 210, 200), (229, 225, 215)], [(196, 193, 185), (178, 176, 169)])
+    _paint_blocks(c, r, box, [(146, 142, 112), (142, 138, 108), (150, 146, 116), (138, 134, 104)],
+                  (102, 99, 74), 16)
+    _shatter(c, r, box, [(134, 130, 102)], 4, 2, 5)
 
 
 def _paint_shade(c, r, box):
-    _paint_marble(c, r, box, [(150, 152, 156), (147, 149, 153), (153, 155, 159), (149, 151, 155)],
-                  [(144, 146, 150), (156, 158, 162)], [(136, 139, 144), (126, 129, 135)])
+    _paint_blocks(c, r, box, [(107, 107, 85), (103, 103, 81), (111, 111, 89), (99, 99, 78)],
+                  (80, 80, 66), 16)
+    _shatter(c, r, box, [(94, 94, 74)], 5, 3, 7)
 
 
 def _paint_spike(c, r, box):
-    _fill(c, r, box, [(218, 215, 206), (215, 212, 203), (221, 218, 209), (217, 214, 205)])
+    _fill(c, r, box, [(168, 164, 136), (164, 160, 132), (172, 168, 140), (166, 162, 134)])
     x0, y0, x1, y1 = box
     for _ in range(6):                            # vertical streaks: the stone's grain
         x, w = r.i(x0, x1 - 3), r.i(1, 2)
         yy, h = r.i(y0, y1 - 8), r.i(8, 24)
-        c.rect(x, yy, x + w, min(y1, yy + h), r.pick([(200, 197, 189), (206, 203, 195)]))
+        c.rect(x, yy, x + w, min(y1, yy + h), r.pick([(140, 137, 112), (150, 147, 120)]))
 
 
 def _paint_field(c, r, box):
-    _fill(c, r, box, [(178, 175, 167), (175, 172, 164), (181, 178, 170), (177, 174, 166)])
-    _shatter(c, r, box, [(170, 167, 159), (185, 182, 174)], 10, 3, 9)
+    _fill(c, r, box, [(125, 122, 98), (122, 119, 95), (128, 125, 101), (124, 121, 97)])
+    _shatter(c, r, box, [(110, 107, 85), (138, 135, 108)], 10, 3, 9)
     x0, y0, x1, y1 = box
     for _ in range(16):
-        c.put(r.i(x0, x1 - 1), r.i(y0, y1 - 1), (160, 158, 151))
+        c.put(r.i(x0, x1 - 1), r.i(y0, y1 - 1), (110, 107, 85))
+    grid = (85, 83, 63)
+    for y in range(y0, y1, 16):                    # a dark tile grid
+        c.rect(x0, y, x1, y + 1, grid)
+    for x in range(x0, x1, 16):
+        c.rect(x, y0, x + 1, y1, grid)
 
 
 def _paint_floor(c, r, box):
     """Three by three slabs with an inlaid border: the lane's paving, one facet
-    per cell. A touch darker than the walls."""
-    _paint_marble(c, r, box, [(210, 205, 194), (206, 201, 190), (214, 209, 198)],
-                  [(200, 195, 184), (218, 213, 202)], [(184, 180, 170)])
+    per cell. A touch lighter than the walls, the centre diamond gilt."""
+    _paint_marble(c, r, box, [(170, 166, 131), (166, 162, 127), (174, 170, 135)],
+                  [(160, 156, 122), (178, 174, 139)], [(148, 144, 112)])
     x0, y0, x1, y1 = box
     n = x1 - x0
-    joint = (176, 172, 162)
+    joint = (102, 99, 74)
     for k in (1, 2):
         p = x0 + (n * k) // 3
         c.rect(p - 1, y0, p + 1, y1, joint)
@@ -360,29 +368,30 @@ def _paint_floor(c, r, box):
             cx = x0 + (n * (2 * k + 1)) // 6
             cy = y0 + (n * (2 * l + 1)) // 6
             d = max(2, n // 24)
-            c.rect(cx - d, cy - 1, cx + d, cy + 1, (168, 164, 154))
-            c.rect(cx - 1, cy - d, cx + 1, cy + d, (168, 164, 154))
+            gem = (188, 174, 130) if (k, l) == (1, 1) else (125, 122, 98)
+            c.rect(cx - d, cy - 1, cx + d, cy + 1, gem)
+            c.rect(cx - 1, cy - d, cx + 1, cy + d, gem)
 
 
 def _paint_cell(c, r, box):
-    """The dark of a cell: cool near-black grey, faintly emissive so the
+    """The dark of a cell: near-black grey-olive, faintly emissive so the
     mouths never go pure black under the tower's shadow."""
-    _fill(c, r, box, [(50, 51, 55), (45, 46, 50), (55, 56, 60), (40, 41, 45)], (14, 15, 18))
-    _shatter(c, r, box, [(36, 37, 41), (60, 61, 65)], 12, 4, 10)
+    _fill(c, r, box, [(47, 48, 40), (43, 44, 36), (51, 52, 44), (39, 40, 33)], (10, 11, 9))
+    _shatter(c, r, box, [(35, 36, 30), (56, 57, 48)], 12, 4, 10)
     x0, y0, x1, y1 = box
     for _ in range(4):                             # a pale slit: a figure, a cot, a window
         x, w = r.i(x0 + 4, x1 - 6), r.i(1, 2)
         yy, h = r.i(y0 + 6, y1 - 16), r.i(6, 14)
-        c.rect(x, yy, x + w, yy + h, (82, 83, 88), (26, 27, 32))
+        c.rect(x, yy, x + w, yy + h, (70, 71, 60), (22, 23, 20))
 
 
 def _paint_frieze(c, r, box):
     """A Greek key: two hooks across the cell, one bay per cell."""
-    _fill(c, r, box, [(222, 218, 208), (218, 214, 204), (226, 222, 212)])
+    _fill(c, r, box, [(154, 150, 118), (150, 146, 114), (158, 154, 122)])
     x0, y0, x1, y1 = box
     n = x1 - x0
     unit = n // 2
-    key = (128, 126, 120)
+    key = (69, 70, 58)
     s = max(2, n // 16)                            # stroke
     lo, hi = y0 + n // 6, y1 - n // 6              # the band the key lives in
     for k in range(2):
@@ -393,22 +402,22 @@ def _paint_frieze(c, r, box):
         c.rect(u + s, lo, u + 2 * s, hi - 3 * s, key)              # inner riser
         c.rect(u + s, hi - 4 * s, u + unit - 4 * s, hi - 3 * s, key)   # inner top
         c.rect(u + unit - 5 * s, lo + 2 * s, u + unit - 4 * s, hi - 3 * s, key)   # inner drop
-    c.rect(x0, lo - s - 1, x1, lo - s + 1, (170, 167, 160))       # rules above and below
-    c.rect(x0, hi + s - 1, x1, hi + s + 1, (170, 167, 160))
+    c.rect(x0, lo - s - 1, x1, lo - s + 1, (107, 107, 85))        # rules above and below
+    c.rect(x0, hi + s - 1, x1, hi + s + 1, (107, 107, 85))
 
 
 def _paint_coffer(c, r, box):
     """A sunk square: nested steps darkening inward, a boss at the centre."""
     x0, y0, x1, y1 = box
     n = x1 - x0
-    steps = [(204, 200, 190), (184, 181, 173), (164, 162, 156), (144, 143, 139), (152, 151, 146)]
+    steps = [(154, 150, 118), (130, 127, 100), (108, 106, 84), (86, 85, 66), (96, 95, 76)]
     for k, col in enumerate(steps):
         d = (n * k) // 10
         c.rect(x0 + d, y0 + d, x1 - d, y1 - d, col)
     m = n // 2
     b = max(2, n // 10)
-    c.rect(x0 + m - b, y0 + m - b, x0 + m + b, y0 + m + b, (190, 187, 179))
-    c.rect(x0 + m - b // 2, y0 + m - b // 2, x0 + m + b // 2, y0 + m + b // 2, (216, 212, 203))
+    c.rect(x0 + m - b, y0 + m - b, x0 + m + b, y0 + m + b, (146, 142, 112))
+    c.rect(x0 + m - b // 2, y0 + m - b // 2, x0 + m + b // 2, y0 + m + b // 2, (170, 166, 131))
     for _ in range(40):
         c.put(r.i(x0, x1 - 1), r.i(y0, y1 - 1), r.pick(steps[:2]))
 
@@ -422,30 +431,51 @@ def _paint_column(c, r, box):
         k = (x - x0) // w
         rel = (x - x0) % w
         if rel == 0:
-            col = (164, 163, 158)
+            col = (100, 99, 78)
         elif rel < w // 2:
-            col = (226, 222, 212) if k % 2 == 0 else (221, 217, 207)
+            col = (158, 154, 122) if k % 2 == 0 else (150, 146, 114)
         else:
-            col = (200, 197, 189)
+            col = (128, 125, 100)
         for y in range(y0, y1):
             c.put(x, y, col)
-    _shatter(c, r, box, [(216, 212, 203)], 10, 2, 5)
+    _shatter(c, r, box, [(162, 158, 126)], 10, 2, 5)
 
 
 def _paint_band(c, r, box):
     """Cornice moulding: horizontal fillets, dark under the drips."""
     x0, y0, x1, y1 = box
     n = y1 - y0
-    rows = [(0.00, 0.12, (184, 182, 176)), (0.12, 0.22, (226, 222, 212)), (0.22, 0.30, (166, 165, 160)),
-            (0.30, 0.48, (220, 216, 206)), (0.48, 0.56, (176, 174, 168)), (0.56, 0.74, (228, 224, 214)),
-            (0.74, 0.82, (158, 157, 153)), (0.82, 1.00, (216, 212, 203))]
+    rows = [(0.00, 0.12, (110, 108, 86)), (0.12, 0.22, (162, 158, 126)), (0.22, 0.30, (94, 92, 68)),
+            (0.30, 0.48, (150, 146, 114)), (0.48, 0.56, (110, 108, 86)), (0.56, 0.74, (162, 158, 126)),
+            (0.74, 0.82, (94, 92, 68)), (0.82, 1.00, (150, 146, 114))]
     for a, b, col in rows:
         c.rect(x0, y0 + int(a * n), x1, y0 + int(b * n), col)
-    _shatter(c, r, box, [(210, 206, 197)], 8, 2, 4)
+    _shatter(c, r, box, [(154, 150, 118)], 8, 2, 4)
 
 
 def _paint_iron(c, r, box):
-    _fill(c, r, box, [(46, 46, 48), (40, 40, 42), (52, 52, 54), (36, 36, 38)])
+    """Dark iron, fitted across the cell in u (FIT): a lit rim down the left
+    edge, a near-black cool base, a mid shadow edge at the right -- so every
+    bar face reads as a rounded dark rod against the cell's dark, not as a
+    smudge of the same grey."""
+    _fill(c, r, box, [(24, 26, 31), (20, 22, 27), (28, 30, 35), (22, 24, 29)])
+    x0, y0, x1, y1 = box
+    n = x1 - x0
+    rim, edge = max(4, (n * 9) // 64), max(2, (n * 5) // 64)
+    hi, mid = (104, 110, 122), (58, 62, 72)
+    fade = [(80, 85, 96), (52, 56, 65)]           # the highlight's last 2 px, stepping down to the base
+    for x in range(x0, x0 + rim):
+        k = x0 + rim - x                           # px left in the rim, 1 at its inner edge
+        col = fade[2 - k] if k <= 2 else hi
+        for y in range(y0, y1):
+            c.put(x, y, col)
+    for x in range(x1 - edge, x1):                 # the shadow edge
+        for y in range(y0, y1):
+            c.put(x, y, mid)
+    pr = _Rng(TEX_SEED + 11)                       # its own stream: the cells painted after it keep their grain
+    for _ in range(24):                            # pitting along the rod, base and rim alike
+        x, yy = pr.i(x0, x1 - 1), pr.i(y0, y1 - 1)
+        c.put(x, yy, pr.pick([(16, 18, 23), (34, 36, 42)]) if x >= x0 + rim else (92, 98, 110))
 
 
 def _paint_blocks(c, r, box, shades, joint, course):
@@ -456,21 +486,21 @@ def _paint_blocks(c, r, box, shades, joint, course):
     row = 0
     for y in range(y0, y1, course):
         c.rect(x0, y, x1, y + 1, joint)
-        off = (row * course * 3 // 2) % (course * 2)
+        off = (row % 2) * course                      # half-bond: each course's joints over the block below
         for x in range(x0 + off, x1, course * 2):
-            c.rect(x, y, x + 1, min(y1, y + course), joint)
+            c.rect(x, y + 1, x + 1, min(y1, y + course), joint)
         row += 1
     _shatter(c, r, box, [shades[0], shades[-1]], 6, 2, 4)
 
 
 def _paint_stone(c, r, box):
-    _paint_blocks(c, r, box, [(140, 138, 132), (137, 135, 129), (143, 141, 135), (139, 137, 131)],
-                  (106, 105, 100), 16)
+    _paint_blocks(c, r, box, [(139, 129, 96), (135, 125, 92), (143, 133, 100), (137, 127, 94)],
+                  (98, 91, 68), 16)
 
 
 def _paint_plinth(c, r, box):
-    _paint_blocks(c, r, box, [(202, 198, 188), (199, 195, 185), (205, 201, 191), (201, 197, 187)],
-                  (166, 163, 155), 16)
+    _paint_blocks(c, r, box, [(146, 142, 112), (142, 138, 108), (150, 146, 116), (144, 140, 110)],
+                  (108, 105, 80), 16)
 
 
 PAINTERS = {
@@ -678,13 +708,46 @@ def station_angles(stations):
     return [a for (a, _x, _y) in stations]
 
 
-TOWER_BASE_R = 8.0          # the tower's bottom step: the bed floor runs in under it
-TOWER_FOOT_Z = TERRACES[-1][1]
+TOWER_BASE_R = 8.0          # the tower's bottom step: the floor runs in under it
+TOWER_FOOT_Z = FLOOR_Z
+
+
+def corner_pt(i, z, proud):
+    """The pilaster/cornice corner: the radial point r WALL_R - proud on bay
+    corner i's own bearing, so both bays meeting there use one vertex."""
+    a = ANG[i % NSIDE]
+    r = WALL_R - proud
+    return (r * math.cos(a), r * math.sin(a), z)
+
+
+def slab_stations():
+    """The 192 stations of a tier cornice's FRONT line, proud BAND_PROUD of
+    the wall: per bay the radial corner point (corner_pt) and the two
+    pilaster-edge points (_Bay.at(u, z, -BAND_PROUD)) -- as (angle, x, y),
+    sorted by angle. The wall part's cornice fronts are made of exactly these
+    points, so the walkway slab welds to the slab tier's cornice lines."""
+    out = []
+    for i in range(NSIDE):
+        bay = _Bay(i)
+        x, y, _z = corner_pt(i, 0.0, BAND_PROUD)
+        out.append((math.atan2(y, x) % TWO_PI, x, y))
+        for u in (PILASTER_W / 2.0, bay.L - PILASTER_W / 2.0):
+            x, y, _z = bay.at(u, 0.0, -BAND_PROUD)
+            out.append((math.atan2(y, x) % TWO_PI, x, y))
+    return sorted(out)
 
 
 def seam_wall_foot():
-    """(stations, y): the wall foot ring at y FIELD_Z -- the trough ends here, the wall starts."""
-    return wall_stations(), FIELD_Z
+    """(stations, y): the wall foot ring at y FLOOR_Z -- the floor ends here, the wall starts."""
+    return wall_stations(), FLOOR_Z
+
+
+def seam_slab():
+    """(stations, y_soffit, y_top): the slab tier's cornice front lines at
+    SLAB_Z0 and DECK_Z. The wall part leaves its cornice front OPEN between
+    them on this tier; the lane part's walkway slab closes onto both rings
+    (underside to the lower, deck margin to the upper)."""
+    return slab_stations(), SLAB_Z0, DECK_Z
 
 
 def seam_dome_spring():
@@ -1020,8 +1083,10 @@ def unwrap(ob, zones, groups, seed=0):
 TOWER_GLB = r"C:\Users\ddd\panopticon-modelling\jobs\marble_tower\out\marble_tower.glb"
 TOWER_Y = 25.35             # the scene's Tower node: the model's origin, world y
 LANTERN_H = 8.0             # the arena light: this far over the tower datum, a metre under the room's ceiling
+LANTERN_RGB = (1.0, 0.90, 0.66)   # gold: the Temple of Time's light pools (scene profile carries the same)
 REVIEW_LANTERN_W = 70000.0  # review renders only: the lantern's point light, watts ...
 REVIEW_FILL_W = 6000.0      # ... twelve unshadowed fills round the ring ...
+REVIEW_PIT_W = 4000.0       # ... six over the spike floor ...
 REVIEW_DOME_W = 50000.0     # ... and one under the dome
 
 
@@ -1073,7 +1138,7 @@ def _render(spec, objects):
     # windows throw beams as the drawing has them ...
     ld = bpy.data.lights.new("Lantern", type="POINT")
     ld.energy = REVIEW_LANTERN_W
-    ld.color = (1.0, 0.98, 0.94)
+    ld.color = LANTERN_RGB
     ld.shadow_soft_size = 0.6
     lantern = mdl._link(bpy.data.objects.new("Lantern", ld))
     lantern.location = (0.0, 0.0, TOWER_Y + LANTERN_H)
@@ -1087,6 +1152,14 @@ def _render(spec, objects):
         fd.use_shadow = False
         f = mdl._link(bpy.data.objects.new("ReviewFill%d" % k, fd))
         f.location = pol(k * 30.0 + 15.0, 50.0, 38.0)
+        made.append(f)
+    for k in range(6):                       # ... and over the spike floor, under the walkway
+        fd = bpy.data.lights.new("ReviewPit%d" % k, type="POINT")
+        fd.energy = REVIEW_PIT_W
+        fd.color = (0.90, 0.91, 0.94)
+        fd.use_shadow = False
+        f = mdl._link(bpy.data.objects.new("ReviewPit%d" % k, fd))
+        f.location = pol(k * 60.0, 30.0, 12.0)
         made.append(f)
     hd = bpy.data.lights.new("ReviewDome", type="POINT")
     hd.energy = REVIEW_DOME_W
@@ -1121,16 +1194,22 @@ def _render(spec, objects):
     eye = DECK_Z + EYE_H
     shot("runner", pol(30.0, LANE_R, eye), pol(58.0, LANE_R, DECK_Z + 1.0), 24.0, (1400, 800))
     shot("guard", pol(70.0, 6.3, GUARD_EYE_Z), pol(70.0, LANE_R, DECK_Z), 30.0, (1400, 800))
-    shot("wide", pol(200.0, 22.0, 66.0), pol(20.0, 30.0, DECK_Z), 20.0, (1500, 1000))
+    shot("wide", pol(200.0, 25.0, 74.0), pol(20.0, 30.0, 16.0), 18.0, (1500, 1000))
     shot("across", pol(120.0, 55.0, eye), (0.0, 0.0, TOWER_Y + 4.0), 28.0, (1400, 800))
-    shot("spikes_in", pol(95.0, 48.0, eye), pol(80.0, 30.0, DECK_Z - 1.0), 30.0, (1400, 800))
-    shot("spikes_out", pol(240.0, 55.5, eye), pol(255.0, 59.0, DECK_Z - 0.5), 30.0, (1400, 800))
-    shot("tiers", pol(150.0, 50.0, eye), pol(150.0, WALL_R, 40.0), 20.0, (1000, 1200))
-    # inside a tier-2 cell (the 3 m recesses), 2.3 m back from the mouth,
-    # looking out through the arch at the tower
+    # from the walkway's open edge: down over the lip at the spike floor, across at the tower
+    shot("edge", pol(95.0, INNER_R + 0.9, eye), pol(95.0, INNER_R - 29.1, eye - 21.0), 18.0, (1000, 1300))
+    # low over the spike floor, the tower's shaft behind
+    shot("floor", pol(80.0, 40.0, FLOOR_Z + 4.0), pol(60.0, 12.0, FLOOR_Z + 6.0), 24.0, (1400, 800))
+    shot("tiers", pol(150.0, 48.0, eye), pol(150.0, WALL_R, 30.0), 14.0, (1000, 1300))
+    # inside a cell of the tier over the walkway, 2.3 m back from the mouth,
+    # looking out through the bars at the tower
     bay = _Bay(int(round(NSIDE * (360.0 - 120.0) / 360.0)) % NSIDE)
-    cm = bay.at(bay.L / 2.0, TIER_BASE[1] + SILL_UP + EYE_H, CELL_D - 0.7)
+    cm = bay.at(bay.L / 2.0, TIER_BASE[LANE_TIER + 1] + SILL_UP + EYE_H, CELL_D - 0.7)
     shot("cell", cm, (0.0, 0.0, TOWER_Y + 3.0), 18.0, (1200, 800))
+    # the runner's eye on the lane, at a lane-tier cell's bars about 12 m off
+    shot("bars", pol(30.0, LANE_R, eye), pol(41.5, WALL_R, TIER_BASE[LANE_TIER] + SILL_UP + 2.5), 35.0, (1400, 800))
+    # standing on the tower's balcony, the railing in hand, looking across the ring at the lane
+    shot("balcony", pol(120.0, 7.1, TOWER_Y + 1.10 + EYE_H), pol(120.0, INNER_R, DECK_Z), 16.0, (1400, 800))
 
     for ob in made:
         bpy.data.objects.remove(ob, do_unlink=True)
@@ -1185,10 +1264,13 @@ def build():
     print("MDL STATS contiguity components=%d manifold=%d boundary=%d doubled=%d over=%d degenerate=%d dup_pos=%d"
           % (a["components"], a["manifold_edges"], a["boundary_edges"], a["doubled_edges"],
              a["over_edges"], a["degenerate"], a["duplicate_positions"]))
+    if a["components"] != 1 or a["boundary_edges"] or a["doubled_edges"] or a["over_edges"] \
+            or a["degenerate"] or a["duplicate_positions"]:
+        raise RuntimeError("marble: the stone is not one closed contiguous mesh")
     for part in ("lane", "wall"):
         print("MDL STATS %s %s" % (part, " ".join("%s=%s" % kv for kv in sorted(info[part].items()))))
-    print("MDL STATS lane r=%.1f..%.1f y=%.2f beds_y=%.2f wall_r=%.1f dome=%.1f..%.1f"
-          % (INNER_R, OUTER_R, DECK_Z, FIELD_Z, WALL_R, DOME_Z0, DOME_Z0 + DOME_RISE))
+    print("MDL STATS lane r=%.1f..%.1f y=%.2f floor_y=%.2f tiers=%d wall_r=%.1f dome=%.1f..%.1f"
+          % (INNER_R, OUTER_R, DECK_Z, FLOOR_Z, N_TIERS, WALL_R, DOME_Z0, DOME_Z0 + DOME_RISE))
     return [ob, coll_ob]
 
 
@@ -1203,10 +1285,8 @@ def _check():
     loops = boundary_loops(stone)
     print("boundary loops: %d  largest: %s" % (len(loops), loops[:4]))
     ok = a["components"] == 1 and a["doubled_edges"] == 0 and a["over_edges"] == 0 \
-        and a["degenerate"] == 0 and a["duplicate_positions"] == 0
-    expect_b = int(info["wall"].get("bar_boundary_edges", 0))
-    ok = ok and a["boundary_edges"] == expect_b
-    print("CONTIGUOUS %s (boundary edges expected %d)" % ("YES" if ok else "NO", expect_b))
+        and a["degenerate"] == 0 and a["duplicate_positions"] == 0 and a["boundary_edges"] == 0
+    print("CONTIGUOUS %s" % ("YES" if ok else "NO"))
     c = paint_atlas()
     print("atlas %dx%d painted" % (c.w, c.h))
     return ok
