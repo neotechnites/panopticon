@@ -946,6 +946,11 @@ def _spec_from_argv():
     return apply_preview(spec, explicit)
 
 
+def spec():
+    """The build spec (out_dir, engine, variant, ...) from argv."""
+    return _spec_from_argv()
+
+
 def main(name, build, facing_yaw=0.0, glb_name=None, post=None):
     """Run a build script. This is the last line of every build script.
 

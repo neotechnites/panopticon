@@ -19,6 +19,7 @@
 #   tools/modelling/model build runner --views front,side,threequarter,hero
 #   tools/modelling/model build runner --cam 200,35 --cam 15,-10,35 --res 1400x1400
 #   tools/modelling/model build runner --frame 6 --turntable 8
+#   tools/modelling/model build bush --variant autumn        # same script, own .glb
 #   tools/modelling/model look   runner --cam 120,25        # renders only, no install
 #   tools/modelling/model look   runner --rest              # rest pose, to debug a rig
 #   tools/modelling/model verify runner                     # re-check the shipped .glb
@@ -105,9 +106,7 @@ KEEP=0
 TIMEOUT=900
 REST=0
 LIGHT=""
-PREVIEW=0
-PROP=0
-WHERE=""            # "" = decide, "local" = this Mac, "pc" = the Windows box
+VARIANT=""
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -118,6 +117,7 @@ while [ $# -gt 0 ]; do
     --cpu)        ENGINE="cycles"; shift ;;
     --rest)       REST=1; shift ;;
     --light)      LIGHT="$2"; shift 2 ;;
+    --variant)    VARIANT="$2"; shift 2 ;;
     --gpu)        ENGINE="eevee"; shift ;;
     --preview)    PREVIEW=1; shift ;;
     --prop)       PROP=1; shift ;;
@@ -138,9 +138,21 @@ while [ $# -gt 0 ]; do
 done
 NAME="${NAME:-}"
 
-JOB="$PC_WORK/jobs/$NAME"
-JOB_W="$PC_WORK_W\\jobs\\$NAME"
-TASK="PanopticonModelling_${NAME:-none}"
+# A variant is a second model out of ONE build script -- the same bush in its
+# autumn dress. It is spelled like a filename because it becomes one, so it is
+# checked here rather than at the far end of an scp that half-succeeded.
+if [ -n "$VARIANT" ]; then
+  [[ "$VARIANT" =~ ^[a-z0-9_]+$ ]] || die "bad --variant '$VARIANT' (lowercase, digits and _ only)"
+fi
+# The script is the model; the variant only renames what comes out of it. So
+# everything the PC writes or we install is keyed on $OUT and the authored
+# source stays $NAME -- two variants of one script then get their own job
+# directory, task and .glb, and neither run can eat the other's.
+OUT="${NAME}${VARIANT:+_$VARIANT}"
+
+JOB="$PC_WORK/jobs/$OUT"
+JOB_W="$PC_WORK_W\\jobs\\$OUT"
+TASK="PanopticonModelling_${OUT:-none}"
 
 # -----------------------------------------------------------------------------
 # helpers
@@ -156,12 +168,8 @@ spec = {
     "glb": bool($DO_GLB),
     "turntable": int("$TURNTABLE"),
 }
-if "$NORENDER" == "1":
-    spec["views"] = []
-    spec["cams"] = []
-    spec["turntable"] = 0
-    print(json.dumps(spec, indent=1))
-    raise SystemExit(0)
+if "$VARIANT":
+    spec["variant"] = "$VARIANT"
 views = "$VIEWS"
 if views:
     spec["views"] = [v.strip() for v in views.split(",") if v.strip()]
@@ -217,7 +225,7 @@ stage_ship() {
   # a view set you are no longer asking for and you compare against a stale png.
   # -Path, not -LiteralPath: LiteralPath treats the * as part of the filename
   # and silently deletes nothing, which is exactly the stale-render trap.
-  pc "Remove-Item -Path '$JOB_W\\out\\${NAME}_*.png' -ErrorAction SilentlyContinue" >/dev/null
+  pc "Remove-Item -Path '$JOB_W\\out\\${OUT}_*.png' -ErrorAction SilentlyContinue" >/dev/null
   push "$HERE/lib/mdl.py"        "$JOB/mdl.py"
   push "$HERE/lib/pcrun.ps1"     "$JOB/pcrun.ps1"
   push "$script"                 "$JOB/${NAME}_build.py"
@@ -298,8 +306,12 @@ gdscript/warnings/unsafe_method_access=1
 EOF
   push "$TMP/project.godot"        "$JOB/verify/project.godot"
   push "$HERE/lib/verify_glb.gd"   "$JOB/verify/verify_glb.gd"
-  if [ -f "$HERE/${NAME}.contract.json" ]; then
-    push "$HERE/${NAME}.contract.json" "$JOB/verify/contract.json"
+  # A variant may be held to its own contract; if it does not carry one it is
+  # still held to the base model's, because a variant is not an excuse.
+  local contract="$HERE/${OUT}.contract.json"
+  [ -f "$contract" ] || contract="$HERE/${NAME}.contract.json"
+  if [ -f "$contract" ]; then
+    push "$contract" "$JOB/verify/contract.json"
   else
     pc "Remove-Item -LiteralPath '$JOB_W\\verify\\contract.json' -ErrorAction SilentlyContinue" >/dev/null
   fi
@@ -310,9 +322,9 @@ set W=$JOB_W
 del /q "%W%\\verify.done" 2>nul
 rmdir /s /q "%W%\\verify\\.godot" 2>nul
 del /q "%W%\\verify\\*.import" "%W%\\verify\\*.png" 2>nul
-copy /y "%W%\\out\\${NAME}.glb" "%W%\\verify\\model.glb" >nul
-"$PC_GODOT" --headless --path "%W%\\verify" --import > "%W%\\verify.log" 2>&1
-"$PC_GODOT" --headless --path "%W%\\verify" --script res://verify_glb.gd >> "%W%\\verify.log" 2>&1
+copy /y "%W%\\out\\${OUT}.glb" "%W%\\verify\\model.glb" >nul
+"$GODOT" --headless --path "%W%\\verify" --import > "%W%\\verify.log" 2>&1
+"$GODOT" --headless --path "%W%\\verify" --script res://verify_glb.gd >> "%W%\\verify.log" 2>&1
 echo %ERRORLEVEL% > "%W%\\verify.done"
 EOF
   push "$TMP/verify.bat" "$JOB/verify.bat"
@@ -336,7 +348,7 @@ EOF
 stage_fetch() {
   mkdir -p "$RENDERS"
   local listing
-  listing=$(pc "Get-ChildItem '$JOB_W\\out' -Filter '${NAME}*' | Select-Object -ExpandProperty Name")
+  listing=$(pc "Get-ChildItem '$JOB_W\\out' -Filter '${OUT}*' | Select-Object -ExpandProperty Name")
   local got=0
   while IFS= read -r f; do
     f="${f%$'\r'}"
@@ -362,13 +374,13 @@ stage_fetch() {
 }
 
 stage_install() {
-  [ -f "$GLB_SRC" ] || die "no ${NAME}.glb was produced ($GLB_SRC)"
+  [ -f "$TMP/${OUT}.glb" ] || die "no ${OUT}.glb came back from the PC"
   mkdir -p "$MODELS"
-  cp "$GLB_SRC" "$MODELS/${NAME}.glb"
-  say "assets/models/${NAME}.glb ($(wc -c < "$MODELS/${NAME}.glb" | tr -d ' ') bytes)"
+  cp "$TMP/${OUT}.glb" "$MODELS/${OUT}.glb"
+  say "assets/models/${OUT}.glb ($(wc -c < "$MODELS/${OUT}.glb" | tr -d ' ') bytes)"
   "$REPO/tools/fix_glb_imports.sh"
-  if [ -f "$MODELS/${NAME}.glb.import" ]; then
-    echo "    (${NAME}.glb.import kept -- it carries the uid the scenes reference)"
+  if [ -f "$MODELS/${OUT}.glb.import" ]; then
+    echo "    (${OUT}.glb.import kept -- it carries the uid the scenes reference)"
   fi
 }
 
@@ -638,17 +650,11 @@ case "$CMD" in
     ;;
 
   verify)
-    [ -n "$NAME" ] || die "usage: model verify <name>"
-    [ -f "$MODELS/${NAME}.glb" ] || die "no assets/models/${NAME}.glb"
-    pick_backend
-    if [ "$WHERE" = "local" ]; then
-      GLB_SRC="$MODELS/${NAME}.glb"
-      stage_verify_local
-      exit 0
-    fi
+    [ -n "$NAME" ] || die "usage: model verify <name> [--variant v]"
+    [ -f "$MODELS/${OUT}.glb" ] || die "no assets/models/${OUT}.glb"
     ensure_workdir
     push "$HERE/lib/pcrun.ps1" "$JOB/pcrun.ps1"
-    push "$MODELS/${NAME}.glb" "$JOB/out/${NAME}.glb"
+    push "$MODELS/${OUT}.glb" "$JOB/out/${OUT}.glb"
     stage_verify
     ;;
 
@@ -693,6 +699,6 @@ PY
     ;;
 
   help|*)
-    sed -n "3,2p" "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+    sed -n "3,27p" "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
     ;;
 esac
