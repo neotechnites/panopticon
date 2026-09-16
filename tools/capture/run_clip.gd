@@ -407,9 +407,16 @@ func _make_it_bots_only(match_root: Node, bots: int) -> void:
 		music.free()
 
 	# SettingsBoot writes the player's saved settings over the rules, which would
-	# make the same seed film a different match on a different machine.
+	# make the same seed film a different match on a different machine -- and,
+	# deferred from its _ready, the saved brightness over the environment's
+	# exposure, which flattened every lifted grade (a disabled node's _ready
+	# still runs). It is freed, not disabled: a clip is filmed at the numbers
+	# in its brief, never at one machine's settings.
+	var settings_boot: Node = match_root.get_node_or_null(^"SettingsBoot")
+	if settings_boot != null:
+		settings_boot.free()
 	var silenced: Array[String] = [
-		"SettingsBoot", "NetMatch", "HUD", "FeedbackRig", "SpectatorView", "SeatHandover",
+		"NetMatch", "HUD", "FeedbackRig", "SpectatorView", "SeatHandover",
 		"FreeCamera", "DeathScreen", "RoundTransition", "ResultScreen", "PauseMenu",
 	]
 	if _pov != "":
