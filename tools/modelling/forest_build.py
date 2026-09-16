@@ -1241,10 +1241,10 @@ def _forest_render(spec, objects):
         shot("guard", (0.0, 0.0, ft.FLOOR_Y + EYE_H), pol(150.0, 52.0, DECK_Z), 24.0, (1400, 800))
         shot("guard_seat", pol(300.0, 13.0, ft.FLOOR_Y + 2.2), (0.0, 0.0, ft.FLOOR_Y + 2.4), 30.0, (1200, 900))
         shot("seat", pol(330.0, 1.2, ft.FLOOR_Y + EYE_H), pol(150.0, 40.0, DECK_Z + 1.0), 16.0, (1400, 800))
-        shot("pit_fog", pol(250.0, 49.5, eye + 0.6), pol(200.0, 30.0, 8.0), 20.0, (1400, 900))
+        shot("pit_fog", pol(250.0, 49.0, eye + 0.4), pol(215.0, 36.0, 12.0), 22.0, (1400, 900))    # from the lane, looking down
         shot("aerial", pol(330.0, 118.0, 105.0), (0.0, 0.0, 18.0), 30.0, (1500, 1100))
         shot("tower", pol(180.0, 56.5, eye), (0.0, 0.0, 14.0), 20.0, (900, 1300))
-        shot("pit", pol(90.0, 46.9, eye), pol(60.0, 30.0, 2.0), 22.0, (1200, 900))
+        shot("pit", pol(292.0, 6.4, ft.FLOOR_Y + 0.55 + EYE_H), pol(300.0, 40.0, 14.0), 24.0, (1400, 900))   # from the tower, standing on the lip in an arch (from the floor the lip hides the drop)
         shot("enclosure", pol(200.0, 55.0, 31.5), (0.0, 0.0, 26.0), 20.0, (1500, 900))
         if INFO.get("wall_cells"):
             mouth, back, bmid = INFO["wall_cells"][0]
