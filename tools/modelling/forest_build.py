@@ -939,7 +939,7 @@ class _Ground(object):
         self._hanging_roots()
         self._fence()
         fc.dress(self)              # limbs, crossing branches, hanging clumps and vines under the sheet
-        fp.brambles(self)           # thorny branches out of the bank, some over the rim
+        fp.brambles(self)           # the thicket: thorny branches out of the pit floor, rising from the fog
         return self.m
 
 
@@ -1241,10 +1241,10 @@ def _forest_render(spec, objects):
         shot("guard", (0.0, 0.0, ft.FLOOR_Y + EYE_H), pol(150.0, 52.0, DECK_Z), 24.0, (1400, 800))
         shot("guard_seat", pol(300.0, 13.0, ft.FLOOR_Y + 2.2), (0.0, 0.0, ft.FLOOR_Y + 2.4), 30.0, (1200, 900))
         shot("seat", pol(330.0, 1.2, ft.FLOOR_Y + EYE_H), pol(150.0, 40.0, DECK_Z + 1.0), 16.0, (1400, 800))
-        shot("pit_fog", pol(250.0, 49.0, eye + 0.4), pol(215.0, 36.0, 12.0), 22.0, (1400, 900))    # from the lane, looking down
+        shot("pit_fog", pol(250.0, 48.6, eye + 0.4), pol(238.0, 20.0, -6.0), 24.0, (1400, 900))    # from the lane, looking down into the thicket
         shot("aerial", pol(330.0, 118.0, 105.0), (0.0, 0.0, 18.0), 30.0, (1500, 1100))
         shot("tower", pol(180.0, 56.5, eye), (0.0, 0.0, 14.0), 20.0, (900, 1300))
-        shot("pit", pol(292.0, 6.4, ft.FLOOR_Y + 0.55 + EYE_H), pol(300.0, 40.0, 14.0), 24.0, (1400, 900))   # from the tower, standing on the lip in an arch (from the floor the lip hides the drop)
+        shot("pit", pol(292.0, 6.4, ft.FLOOR_Y + 0.55 + EYE_H), pol(300.0, 22.0, -6.0), 24.0, (1400, 900))   # from the tower, standing on the lip in an arch (from the floor the lip hides the drop)
         shot("enclosure", pol(200.0, 55.0, 31.5), (0.0, 0.0, 26.0), 20.0, (1500, 900))
         if INFO.get("wall_cells"):
             mouth, back, bmid = INFO["wall_cells"][0]
@@ -1313,9 +1313,9 @@ def build():
             mdl.finish(rob, _ray_material(name + "Mat", colour), strip_uvs=False)
             out.append(rob)
     fog = _ray_object(rays[fp.FOG_NAME], fp.FOG_NAME)
-    # the review material glows at 0.6 x the tint: the review's exposure and world would otherwise
+    # the review material glows at 0.45 x the tint: the review's exposure and world would otherwise
     # show the layers a stop paler than Godot's unshaded vertex colour under its Reinhard tonemap
-    mdl.finish(fog, _ray_material(fp.FOG_NAME + "Mat", tuple(c * 0.6 for c in fp.FOG_TINT)), strip_uvs=False)
+    mdl.finish(fog, _ray_material(fp.FOG_NAME + "Mat", tuple(c * 0.45 for c in fp.FOG_TINT)), strip_uvs=False)
     out.append(fog)
     print("MDL STATS visual_tris=%d collision_tris=%d ray_tris=%d rays=%d fog_tris=%d"
           % (len(ob.data.polygons), len(coll.data.polygons), len(rays[RAYS_SOLID_NAME].faces), len(INFO["rays"]),

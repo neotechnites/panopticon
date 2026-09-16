@@ -28,50 +28,52 @@ FOG_NAME = "ForestFog"
 FOG_TINT = (0.34, 0.37, 0.29)   # gold-grey-green, kept dim: nine layers stack to ~0.94 opacity, and unshaded
                                 # fog brighter than the sunlit lane reads as milk, not gloom
 
-# ---- the floor -----------------------------------------------------------------
-FLOOR_RINGS = [(31.0, 120), (20.0, 60), (9.0, 24)]   # (r, vertices) inward from the bank's 240
 
 # ---- the fog: nine 48-gon discs, each three annuli of vertex alpha ----------------
-FOG_Z = (-7.0, 13.0, 2.5)       # bottom, top, pitch: y -7 .. 13, nine layers; the top is 10 m under the rim
-                                # (y 23) and thin, so the bank above it stands clear and fades into the fog
+FOG_Z = (-12.5, -6.0, 1.083)    # bottom, top, pitch: seven layers from under the floor (y -11.05, the old water
+                                # height) to 5 m over it: the fog starts where the floor was and thins over it,
+                                # the thicket standing out of it
 FOG_N = 48
 FOG_HOLE = (6.8, 10.0)          # round the trunk: alpha 0 at 6.8 (outside the trunk, r <= 6.4 above the roots,
                                 # so no disc cuts it into rings), full at 10.0
 FOG_BANK = (-2.5, 0.6)          # full alpha out to bank_r(z) - 2.5, zero at bank_r(z) + 0.6 (inside the bank)
-FOG_ALPHA = (0.42, 0.06)        # the bottom layer, easing to the top layer (a haze, not a lid)
+FOG_ALPHA = (0.5, 0.05)         # the bottom layer, easing to the top layer (dense at the floor, a haze over it)
 FOG_DEPTH_DIM = 0.70            # the tint at the bottom layer, as a factor; 1.0 at the top: darker at depth
 
-# ---- brambles: thorny branches socketed into the bank -----------------------------
+# ---- the thicket: brambles out of the floor, a mass across the pit bottom ---------
 PIT_SEED = 4471023              # its own rng: editing the brambles diffs only the brambles
-BRAMBLES = 36                   # thorny branches rising out of the fog and climbing the bank
-ARCHING = 14                    # ... of which this many reach over the rim onto the lane's edge
-BRAMBLE_QUAD_ROWS = (7, 9)      # bank quads between pit rows j and j+1: rows 7..10, y 14.3..8.9, in and just over the fog top (13)
-ARCH_QUAD_ROWS = (7, 8)         # the over-rim ones start a little higher (they have the longest climb)
-BRAMBLE_AVOID = ((350.0, 7.0), (5.0, 6.0), (335.0, 6.0))   # (bearing, half width): the fence, the portal, the spawn
-BRAMBLE_PTS = (8, 22)           # points along a path ...
+FLOOR_Z = -11.05                # the floor (the bank's last row)
+FLOOR_RINGS = [(38.0, 120)] + [(38.0 - 2.25 * k, 120) for k in range(1, 13)] + [(7.0, 60)]   # r 38 in to 11 by 2.25, then 7
+                                # (r, vertices) inward from the bank's 240: equal counts loft into quads (the
+                                # brambles' sockets), the count halves by a zipper, the centre is a fan under the trunk
+BRAMBLES = 50                   # the tall ones ...
+SCRUB = 150                     # ... and the low tangle between them: short, thinner, no forks
+SCRUB_H = (3.0, 6.5)
+SCRUB_R = (0.26, 0.2, 0.12, 0.075)
+SCRUB_THORNS = (2, 4)
+SCRUB_SPACING = 1.0             # a scrub root keeps this far from every other root (the tall ones keep 1.6)
+BRAMBLE_ROWS = (1, 12)          # floor quads between rings j and j+1 (rings 1..13: r 38 in to 11)
+BRAMBLE_AVOID = ()              # nothing on the floor to keep clear of
+BRAMBLE_PTS = (4, 22)           # points along a path ...
 BRAMBLE_SEG = 1.15              # ... one per this much length, within that
-BRAMBLE_R = (0.42, 0.36, 0.28, 0.17, 0.065)   # the tip is a point (its ring edge still clears the sliver angle)
+BRAMBLE_R = (0.42, 0.36, 0.28, 0.17, 0.085)   # the tip is a point (its ring edge clears the sliver angle on a wandered 1.5 m segment)
 BRAMBLE_SIDES = 5
-BRAMBLE_STAND = 0.45            # a climbing bramble runs this far in front of the bank
-BRAMBLE_TOP_Z = (18.5, 22.4)    # where a pit bramble's climb ends (under the lip) ...
-BRAMBLE_LEAN = (1.0, 2.2)       # ... its last stretch leaning out from the wall this far
-BRAMBLE_DRIFT = (8.0, 16.0)     # degrees of sideways drift over the climb (either way)
-BRAMBLE_WANDER = 0.3            # per-point sideways / radial jitter on the inner points
-ARCH_END_R = (47.4, 48.3)       # where an over-rim bramble ends: on the lane's lip band ...
-ARCH_END_Z = (23.5, 24.4)       # ... this high, never past r 48.6 (the path starts at r 50.5)
-ARCH_PEAK_Z = 24.9              # the climb's pull over the lip (with the wander the curve stays under 25.3)
-FORKS = (1, 2)                  # side branches per bramble, out of its own quads
+THICKET_H = ((9.0, 15.0, 19.0), (38.0, 4.0, 7.0))   # (r, min height, max height) at the trunk and at the bank: tallest round the trunk
+THICKET_LEAN = (0.25, 0.6)      # a bramble's top sits this fraction of its height sideways from its root
+THICKET_DRIFT = (10.0, 40.0)    # degrees the lean swings round as it climbs (a twist)
+BRAMBLE_WANDER = 0.45           # per-point jitter on the inner points
+FORKS = (2, 3)                  # side branches per bramble, out of its own quads
 FORK_AT = (0.3, 0.6)            # ... along the bramble
 FORK_L = (3.0, 6.0)             # ... this long, climbing and swinging sideways
 FORK_R = 0.55                   # ... this fraction of the parent's radius there
-THORNS = (7, 12)
+THORNS = (6, 10)
 THORN_R = (0.2, 0.07)           # base ring (along the bramble) and tip ring
 THORN_FLAT = 0.6                # the base ring across the bramble, as a fraction: a blade, and it fits the quad
 THORN_MIN_DEG = 4.0             # a thorn whose best bridging makes a smaller angle is not grown
 THORN_L = 0.9
 THORN_LEAN = 0.45               # toward the bramble's tip, as a fraction of the normal
 THORN_MAX_U = 1.0               # thorns sit where the bramble is thick enough for the ring to fit its quad
-THORN_ZONE = "cell"             # the darkest sheet: thorns and stems read as black spikes against the fog and the bank
+THORN_ZONE = "cell"             # the darkest sheet: thorns and stems read as black spikes against the fog
 STEM_ZONE = "cell"
 
 # what the check reports
@@ -79,15 +81,25 @@ INFO = {"brambles": 0, "thorns": 0, "forks": 0, "top": (0.0, 0.0), "layers": []}
 
 
 def pit_floor(g):
-    """The floor: rings inward from the bank's last row, thinning out to a small fan."""
+    """The floor at FLOOR_Z: rings inward from the bank's last row. Rings of
+    equal count are lofted into registered quads (the thicket's sockets); a
+    count change is a zipper; the centre is a fan under the trunk. g.floor
+    keeps the rings (outermost first)."""
     m = g.m
     outer = g.pit[-1]
+    z = m.verts[outer[0]][2]
+    g.floor = [outer]
     for (rad, n) in FLOOR_RINGS:
-        z = g.m.verts[outer[0]][2]
         ring = [m.v(pol(360.0 * s / n, rad, z)) for s in range(n)]
-        zipper(m, outer, ring, UP, "cell", centre=(0.0, 0.0, 0.0))
+        if len(ring) == len(outer):
+            for i in range(n):
+                q = (i + 1) % n
+                m.quad(outer[i], outer[q], ring[q], ring[i], UP, "cell")
+        else:
+            zipper(m, outer, ring, UP, "cell", centre=(0.0, 0.0, 0.0))
+        g.floor.append(ring)
         outer = ring
-    m.fan(outer, UP, "cell")
+    ft._cap(m, outer, (0.0, 0.0, z), UP, "cell")   # a centre vertex: a fan from a ring vertex is all slivers
 
 
 # =============================================================================
@@ -119,93 +131,92 @@ def _quad_normal(m, ids):
     return norm(ft._newell([m.verts[j] for j in m.quad_corners(ids)]))
 
 
-def _bank_quad(g, j, i):
-    NC = len(g.pit[0])
-    q = (i + 1) % NC
-    return (g.pit[j][i], g.pit[j][q], g.pit[j + 1][q], g.pit[j + 1][i])
+def _floor_quad(g, j, i):
+    a, b = g.floor[j], g.floor[j + 1]
+    n = len(a)
+    q = (i + 1) % n
+    return (a[i], a[q], b[q], b[i])
 
 
-def _bank_patch(g, j, i):
-    """Two neighbouring bank quads (columns i and i+1 of row j): a bramble's base
-    ring (BRAMBLE_R[0]) needs the width. None when either is missing."""
-    NC = len(g.pit[0])
-    patch = [_bank_quad(g, j, i), _bank_quad(g, j, (i + 1) % NC)]
+def _floor_patch(g, j, i):
+    """Two neighbouring floor quads (columns i and i+1 between rings j and j+1):
+    a bramble's base ring (BRAMBLE_R[0]) needs the width. None when either is
+    missing or not a registered quad (a zipper band)."""
+    a, b = g.floor[j], g.floor[j + 1]
+    if len(a) != len(b):
+        return None
+    n = len(a)
+    patch = [_floor_quad(g, j, i), _floor_quad(g, j, (i + 1) % n)]
     for q in patch:
         if None in q or not g.m.has_quad(q):
             return None
     return patch
 
 
-def _sockets(g, r, count, rows, taken):
-    """``count`` bank quads (j, i) in ``rows``, off the fence, the portal and the
-    spawn, none twice, all real quads (the cell hollows and the split sill lines
-    are not)."""
-    NC = len(g.pit[0])
+def _sockets(g, r, count, rows, taken, roots, spacing=1.6):
+    """``count`` floor patches (j, i) in ``rows``, none overlapping, all real
+    quads, spread so no root stands within ``spacing`` of another (``roots``
+    is the list of root points so far, extended)."""
     out = []
     tries = 0
-    while len(out) < count and tries < 4000:
+    while len(out) < count and tries < 6000:
         tries += 1
         j = r.i(rows[0], rows[1])
-        i = r.i(0, NC - 1)
-        if (j, i) in taken or (j, (i + 1) % NC) in taken or (j, (i - 1) % NC) in taken:
+        n = len(g.floor[j])
+        i = r.i(0, n - 1)
+        if (j, i) in taken or (j, (i + 1) % n) in taken or (j, (i - 1) % n) in taken:
             continue
-        b = i * 360.0 / NC + 360.0 / NC
-        if any(_near(b, tb, w) for (tb, w) in BRAMBLE_AVOID):
-            continue
-        patch = _bank_patch(g, j, i)
+        patch = _floor_patch(g, j, i)
         if patch is None:
             continue
+        c = g.m.centroid(sorted(set(v for q in patch for v in q)))
+        if any(math.hypot(c[0] - p[0], c[1] - p[1]) < spacing for p in roots):
+            continue
         taken.add((j, i))
-        taken.add((j, (i + 1) % NC))
+        taken.add((j, (i + 1) % n))
+        roots.append(c)
         out.append((j, i))
     return out
 
 
-def _bramble_path(g, r, quad, arch):
-    """A path out of the bank patch's centre (two quads) that climbs the bank: it runs
-    BRAMBLE_STAND in front of the wall (bank_r(z) - STAND), drifting sideways
-    BRAMBLE_DRIFT degrees over the climb, jittered on its inner points. Over-rim
-    ones climb to the lip, curl over the round-over and end on the lane's lip
-    band; the rest stop under the lip (BRAMBLE_TOP_Z) leaning out from the wall."""
+def _height_at(rad):
+    """(min, max) bramble height at radius rad: THICKET_H interpolated."""
+    (r0, lo0, hi0), (r1, lo1, hi1) = THICKET_H
+    u = max(0.0, min(1.0, (rad - r0) / (r1 - r0)))
+    return lo0 + (lo1 - lo0) * u, hi0 + (hi1 - hi0) * u
+
+
+def _bramble_path(g, r, patch, height=None):
+    """A path out of the floor patch's centre, climbing to a height set by its
+    radius (tallest round the trunk) or given, leaning sideways and twisting
+    round as it climbs, jittered on its inner points."""
     m = g.m
-    bank_r = _host(g)._bank_r
-    c = m.centroid(sorted(set(v for q in quad for v in q)))
-    n_in = norm(add(_quad_normal(m, quad[0]), _quad_normal(m, quad[1])))   # the bank faces the axis
-    if dot(n_in, (-c[0], -c[1], 0.0)) < 0.0:
-        n_in = (-n_in[0], -n_in[1], -n_in[2])
-    b0 = -math.degrees(math.atan2(c[1], c[0]))        # bearing of the socket
-    z0 = c[2]
-    drift = r.u(*BRAMBLE_DRIFT) * r.pick((-1.0, 1.0))
-    raw = [c, add(c, n_in, 0.6)]                      # leave the wall square to it
-    if arch:
-        z_top = 23.0
-    else:
-        z_top = r.u(*BRAMBLE_TOP_Z)
-    steps = max(4, int((z_top - z0) / 1.5))
+    c = m.centroid(sorted(set(v for q in patch for v in q)))
+    b0 = -math.degrees(math.atan2(c[1], c[0]))
+    r0 = math.hypot(c[0], c[1])
+    lo, hi = _height_at(r0) if height is None else height
+    h = r.u(lo, hi)
+    lean = r.u(*THICKET_LEAN) * h
+    a_lean = r.u(0.0, 360.0)                          # which way it leans
+    drift = r.u(*THICKET_DRIFT) * r.pick((-1.0, 1.0))
+    raw = [c, add(c, UP, 0.6)]
+    steps = max(4, int(h / 1.5))
     for k in range(1, steps + 1):
         u = k / float(steps)
-        z = z0 + (z_top - z0) * u
-        raw.append(pol(b0 + drift * u, bank_r(z) - BRAMBLE_STAND, z))
-    if arch:
-        re, ze = r.u(*ARCH_END_R), r.u(*ARCH_END_Z)
-        b1 = b0 + drift
-        raw.append(pol(b1, 46.5, ARCH_PEAK_Z - 0.6))
-        raw.append(pol(b1 + drift * 0.08, 47.0, ARCH_PEAK_Z))
-        raw.append(pol(b1 + drift * 0.15, re, ze))
-    else:
-        lean = r.u(*BRAMBLE_LEAN)
-        b1 = b0 + drift
-        raw.append(pol(b1 + drift * 0.06, bank_r(z_top) - BRAMBLE_STAND - lean * 0.6, z_top + 0.8))
-        raw.append(pol(b1 + drift * 0.12, bank_r(z_top) - BRAMBLE_STAND - lean, z_top + 1.2))
+        a = math.radians(a_lean + drift * u)
+        off = lean * u * u
+        p = (c[0] + off * math.cos(a), c[1] + off * math.sin(a), c[2] + h * u)
+        rr = math.hypot(p[0], p[1])
+        if rr < 8.0:                                  # never into the trunk
+            p = (p[0] * 8.0 / rr, p[1] * 8.0 / rr, p[2])
+        raw.append(p)
     length = sum(math.sqrt(sum((raw[k][i] - raw[k - 1][i]) ** 2 for i in range(3))) for k in range(1, len(raw)))
     npts = max(BRAMBLE_PTS[0], min(BRAMBLE_PTS[1], int(math.ceil(length / BRAMBLE_SEG)) + 1))
     path = _resample(raw, npts)         # even segments: the tip ring's edge against a long last segment is a sliver
-    # the wander: sideways and radial jitter on the inner points; the first
-    # segment keeps its direction (it sets the socket ring's projection)
     for k in range(2, npts - 1):
         p = path[k]
         bb = -math.degrees(math.atan2(p[1], p[0]))
-        path[k] = add(add(p, ft.tangent(bb), r.u(-1.0, 1.0) * BRAMBLE_WANDER), ft.radial(bb), r.u(-1.0, 0.3) * BRAMBLE_WANDER)
+        path[k] = add(add(p, ft.tangent(bb), r.u(-1.0, 1.0) * BRAMBLE_WANDER), ft.radial(bb), r.u(-1.0, 1.0) * BRAMBLE_WANDER)
     return path
 
 
@@ -321,14 +332,14 @@ def _thorn(g, m, quad, along, d, local_r=None):
     return True
 
 
-def _thorns(g, r, rings, path):
+def _thorns(g, r, rings, path, want_range=None):
     """THORNS thorns grown out of the bramble's own quads (socketed), on its
     thicker half, leaning toward the tip, at most two per segment."""
     m = g.m
     n = len(rings)
     sides = len(rings[0])
     slots = [(i, s) for i in range(n - 1) if i / float(n - 1) <= THORN_MAX_U for s in range(sides)]
-    want = r.i(*THORNS)
+    want = r.i(*(want_range or THORNS))
     made = 0
     used_seg = {}
     while made < want and slots:
@@ -354,35 +365,38 @@ def _thorns(g, r, rings, path):
 
 
 def brambles(g):
-    """BRAMBLES thorny branches out of the bank: five-sided tapered tubes
-    (BRAMBLE_R) socketed into bank quads on rows BRAMBLE_QUAD_ROWS, ARCHING of
-    them climbing over the lip to end above the lane's lip band, the rest
-    twisting out over the pit; THORNS three-sided thorns each, socketed into
-    the bramble's own quads. Zone "root". Fills INFO for the check."""
+    """The thicket: BRAMBLES thorny branches out of the pit floor, five-sided
+    tapered tubes (BRAMBLE_R) socketed into two-quad floor patches, climbing
+    THICKET_H (tallest round the trunk) and leaning, with FORKS side branches
+    and THORNS thorns each, socketed into the bramble's own quads. Fills INFO
+    for the check."""
     m = g.m
     _ptube = _host(g)._ptube
     r = ft._Rng(PIT_SEED)
     taken = set()
-    arch_spots = _sockets(g, r, ARCHING, ARCH_QUAD_ROWS, taken)
-    pit_spots = _sockets(g, r, BRAMBLES - len(arch_spots), BRAMBLE_QUAD_ROWS, taken)
+    roots = []
+    spots = _sockets(g, r, BRAMBLES, BRAMBLE_ROWS, taken, roots)
+    scrub = _sockets(g, r, SCRUB, BRAMBLE_ROWS, taken, roots, SCRUB_SPACING)
     v0 = len(m.verts)
     count = thorns = forks = 0
-    for (spots, arch) in ((arch_spots, True), (pit_spots, False)):
-        for (j, i) in spots:
-            patch = _bank_patch(g, j, i)
+    for (spot_list, tall) in ((spots, True), (scrub, False)):
+        for (j, i) in spot_list:
+            patch = _floor_patch(g, j, i)
             if patch is None:
                 continue
-            path = _bramble_path(g, r, patch, arch)
-            if not _fits(g, patch, path, BRAMBLE_R[0]):
+            radii = BRAMBLE_R if tall else SCRUB_R
+            path = _bramble_path(g, r, patch, None if tall else SCRUB_H)
+            if not _fits(g, patch, path, radii[0]):
                 continue
-            rings = _ptube(m, path, BRAMBLE_R, BRAMBLE_SIDES, STEM_ZONE, start=(patch, "earth"),
+            rings = _ptube(m, path, radii, BRAMBLE_SIDES, STEM_ZONE, start=(patch, "cell"),
                            caps=(False, True), wob=0.08, rng=r)
-            for _ in range(r.i(*FORKS)):
-                fork = _fork(g, r, rings, path, BRAMBLE_R)
-                if fork is not None:
-                    thorns += _thorns(g, r, fork[0], fork[1])
-                    forks += 1
-            thorns += _thorns(g, r, rings, path)
+            if tall:
+                for _ in range(r.i(*FORKS)):
+                    fork = _fork(g, r, rings, path, radii)
+                    if fork is not None:
+                        thorns += _thorns(g, r, fork[0], fork[1])
+                        forks += 1
+            thorns += _thorns(g, r, rings, path, THORNS if tall else SCRUB_THORNS)
             count += 1
     top = (0.0, -1e9)
     for p in m.verts[v0:]:
