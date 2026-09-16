@@ -6,9 +6,10 @@ Two living trunks stand either side of the opening, flare into roots at the
 foot, lean in as they climb and braid over the top into a pointed arch.
 Thinner branches grow out of the trunks' faces, arch over the crown and out
 onto the shoulders, and end in leaf clumps. Inside the opening hangs the
-portal's own effect surface: portal_build.py's emissive swirl, unchanged --
-same painter, same constants, same planar unwrap -- so the finish reads the
-same to a runner and the gameplay does not move.
+portal's own effect surface: an emissive swirl of sunlit green pulled into a
+gold-white core -- portal_build.py's geometry, constants and planar unwrap,
+repainted -- so the finish reads the same to a runner and the gameplay does
+not move.
 
     envelope ...... 4.5 m wide (X) x 4.0 m tall (Z) x 0.8 m deep (Y)
     origin ........ the base centre; Blender z = 0 is the ground
@@ -147,7 +148,7 @@ SWIRL_WIDTH = 0.42      # fraction of an arm's band that is bright
 
 
 def _paint_swirl(c, r, box):
-    """A spiral of bright orange arms on deep red, white-hot core, dark rim. Emissive."""
+    """A spiral of sunlit yellow-green arms on deep leaf shadow, gold-white core, dark rim. Emissive."""
     x0, y0, x1, y1 = box
     w, h = x1 - x0, y1 - y0
     cx = x0 + w / 2.0
@@ -160,20 +161,20 @@ def _paint_swirl(c, r, box):
             band = (ang * SWIRL_ARMS / (2.0 * math.pi) + rad * SWIRL_TURNS) % 1.0
             band = min(band, 1.0 - band) * 2.0            # 0 on the arm, 1 between
             if rad < 0.14:
-                col = r.pick([(255, 226, 120), (255, 244, 170)])
+                col = r.pick([(250, 232, 128), (255, 246, 168)])
             elif band < SWIRL_WIDTH * (1.0 - 0.5 * rad):
-                col = r.pick([(255, 128, 20), (255, 96, 12), (255, 160, 40)])
+                col = r.pick([(170, 180, 96), (144, 158, 84), (158, 172, 90)])
             elif band < SWIRL_WIDTH * (1.0 - 0.5 * rad) + 0.22:
-                col = r.pick([(190, 40, 8), (210, 52, 10)])
+                col = r.pick([(86, 106, 60), (98, 116, 68)])
             else:
-                col = r.pick([(112, 8, 6), (92, 6, 6), (128, 12, 8)])
+                col = r.pick([(44, 58, 36), (38, 50, 31), (50, 64, 40)])
             if rad > 0.9:
                 col = tuple(int(v * 0.45) for v in col)
             c.put(x, y, col, col)
 
 
 def build_atlas():
-    """The forest atlas, with the ember swirl replacing the earth zone.
+    """The forest atlas, with the sun swirl replacing the earth zone.
 
     Returns (albedo_image, emissive_image).
     """
@@ -530,6 +531,7 @@ def _in_scene_render(spec, objects):
 
     def shot(name, loc, tgt, lens, res):
         cam.data.lens = lens
+        cam.data.clip_end = 600.0
         cam.location = loc
         target.location = tgt
         scene.render.resolution_x, scene.render.resolution_y = res
@@ -594,6 +596,17 @@ def _in_scene_render(spec, objects):
          ft.pol(336.0, 52.0, eye),                  # 8.2 m past the finish, looking back
          ft.pol(b, 52.0, aim_z),
          28.0, (1400, 900))
+    # the effect surface close up, and the same surface from the guard's eye on
+    # the tree platform: it has to read from the tower as well as from the lane.
+    surf_z = fb.DECK_Z + DISC_CENTRE_Z
+    shot("surface",
+         ft.pol(b + 3.6, 52.0, surf_z),             # 3.3 m in front of the mouth
+         ft.pol(b, 52.0, surf_z),
+         35.0, (1000, 1000))
+    shot("tower",
+         ft.pol(b, 9.5, ft.FLOOR_Y + ft.EYE_H),     # guard's eye height, clear of the piers
+         ft.pol(b, 52.0, surf_z),
+         35.0, (1400, 900))
 
     # ---- leave the scene as mdl's own views expect to find it --------------
     for ob in made:
