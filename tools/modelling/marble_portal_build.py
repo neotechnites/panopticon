@@ -32,11 +32,9 @@ runner passes through it along Godot local Z, exactly as on Map 1.
 ONE CLOSED MANIFOLD SOLID. The opening is not a hole: the two effect-surface
 faces stand at y = -0.02 and y = +0.02 and each side's reveal runs from its own
 outer face IN to that plane, so the mouth is plugged by a 0.04 m lens and every
-edge has exactly two faces. The surface is still what it was on Map 1 --
-portal_build._paint_swirl into marble's spare atlas cell (2, 3), drawn with
-mb.stone_material: the same Principled BSDF, the same albedo + emissive pair,
-Closest interpolation, emission strength exactly 1.0. The gameplay effect is
-unchanged; only the stone round it is.
+edge has exactly two faces. The surface is this module's own _paint_swirl --
+Map 1's spiral in the rotunda's cold palette -- into marble's spare atlas cell
+(2, 3), drawn with mb.stone_material at emission strength exactly 1.0.
 
 MarblePortalCollision is a separate `-colonly` object: the marble uprights and
 the arched head, the same silhouette extruded flat through the full 0.8 m. The
@@ -52,7 +50,6 @@ to the PC: keep them at column 0.
 import math
 import os
 import sys
-import types
 
 try:
     import bpy
@@ -68,13 +65,6 @@ import marble_build as mb  # noqa: E402
 # PC only when a column-0 `import x_build as y` names them in THIS script.
 import marble_lane_build as _ml  # noqa: E402, F401
 import marble_wall_build as _mw  # noqa: E402, F401
-if bpy is None:
-    # portal_build is an older-generation script: it does a bare `import bpy`.
-    # --check runs on the Mac with no Blender, so stand a hollow module in its
-    # place. Nothing outside the Blender guard touches it, and `model` still
-    # ships the real file because the import below is at column 0.
-    sys.modules.setdefault("portal_build", types.ModuleType("portal_build"))
-import portal_build as _portal  # noqa: E402  -- _paint_swirl, under Blender only
 
 if bpy is not None:
     import mdl  # noqa: E402
@@ -101,6 +91,9 @@ IN_HALF_W = 1.35            # the opening: 2.7 m clear at the ground (portal_bui
 IN_SPRING = 2.6             # ... the head springs here (portal_build's IN_SPRING)
 IN_APEX = 3.15              # ... and crowns here (portal_build's IN_SPRING + IN_RISE)
 DISC_CENTRE_Z = 1.5         # the swirl's centre: the painter puts it at this height of the mouth
+SWIRL_ARMS = 3              # the effect surface, Map 1's numbers: three arms ...
+SWIRL_TURNS = 2.6           # ... wrapping this many times from the rim to the core ...
+SWIRL_WIDTH = 0.42          # ... and this much of each band bright
 ARCH_SEG = mb.HEAD_SEG      # 6 chords over the head, the wall's own resolution
 
 PLINTH_H = 0.32             # the plinth's top wash: the base course the jambs stand on
@@ -143,8 +136,35 @@ RING = OUT[CROWN_K:] + OUT[:CROWN_K]            # the surface's fan starts at th
 
 
 # =============================================================================
-# TEXTURE -- marble's atlas, with Map 1's swirl in the spare cell
+# TEXTURE -- marble's atlas, with the rotunda's own swirl in the spare cell
 # =============================================================================
+
+def _paint_swirl(c, r, box):
+    """A spiral of pale blue-white arms on deep blue-grey, near-white core,
+    dark rim. Emissive. Map 1's geometry, the rotunda's colour."""
+    x0, y0, x1, y1 = box
+    w, h = x1 - x0, y1 - y0
+    cx = x0 + w / 2.0
+    cy = y0 + h * (DISC_CENTRE_Z / IN_APEX)
+    for y in range(y0, y1):
+        for x in range(x0, x1):
+            dx, dy = (x + 0.5 - cx) / (w / 2.0), (y + 0.5 - cy) / (h / 2.0)
+            rad = math.hypot(dx, dy)
+            ang = math.atan2(dy, dx)
+            band = (ang * SWIRL_ARMS / (2.0 * math.pi) + rad * SWIRL_TURNS) % 1.0
+            band = min(band, 1.0 - band) * 2.0            # 0 on the arm, 1 between
+            if rad < 0.14:
+                col = r.pick([(236, 242, 252), (214, 226, 244)])
+            elif band < SWIRL_WIDTH * (1.0 - 0.5 * rad):
+                col = r.pick([(152, 164, 186), (136, 150, 176), (170, 182, 202)])
+            elif band < SWIRL_WIDTH * (1.0 - 0.5 * rad) + 0.22:
+                col = r.pick([(104, 110, 122), (92, 100, 114)])
+            else:
+                col = r.pick([(54, 58, 70), (46, 50, 60), (60, 64, 76)])
+            if rad > 0.9:
+                col = tuple(int(v * 0.45) for v in col)
+            c.put(x, y, col, col)
+
 
 def _paint_portal(c, r, box):
     """Nothing, on purpose. mb.paint_atlas() whites the two spare cells AFTER
@@ -159,10 +179,9 @@ mb.PAINTERS["portal"] = _paint_portal
 
 
 def _texture():
-    """(albedo, emissive): marble's atlas with portal_build's swirl on top."""
+    """(albedo, emissive): marble's atlas with this module's swirl on top."""
     c = mb.paint_atlas()
-    _portal._paint_swirl(c, _portal._Rng(_portal.TEX_SEED),
-                         mb._rect_of(PORTAL_CELL, mb.TEX_SIZE))
+    _paint_swirl(c, mb._Rng(mb.TEX_SEED), mb._rect_of(PORTAL_CELL, mb.TEX_SIZE))
     out = []
     for name, buf in ((mb.TEX_ALBEDO, c.alb), (mb.TEX_EMISSIVE, c.emi)):
         img = bpy.data.images.new(name, mb.TEX_SIZE, mb.TEX_SIZE, alpha=False)
@@ -465,6 +484,13 @@ def _render(spec, objects):
         eye = mb.DECK_Z + mb.EYE_H
         shot("lane", mb.pol(BEARING + 22.0, mb.LANE_R, eye),
              mb.pol(BEARING, mb.LANE_R, mb.DECK_Z + 1.8), 30.0, (1400, 900))
+        # the effect surface close up, and the same surface from the guard's
+        # eye: it has to read from the tower as well as from the lane.
+        surf_z = mb.DECK_Z + DISC_CENTRE_Z
+        shot("surface", mb.pol(BEARING + 3.6, mb.LANE_R, surf_z),
+             mb.pol(BEARING, mb.LANE_R, surf_z), 35.0, (1000, 1000))
+        shot("tower", mb.pol(BEARING, 6.0, mb.TOWER_Y + 3.95),
+             mb.pol(BEARING, mb.LANE_R, surf_z), 35.0, (1400, 900))
         for (ob, loc, rot) in was:                  # the default views frame the prop at the origin
             ob.location, ob.rotation_euler = loc, rot
         bpy.context.view_layer.update()

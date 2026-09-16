@@ -6,19 +6,19 @@
 size = Vector3(4.0, 3.6, 1.0)
 
 [node name="Portal" type="Node3D"]
-editor_description = "The finish portal IN MARBLE: model, glow and the win gate. scenes/ring/portal.tscn node for node -- the same Glow, the same Gate at the same transform in the same finish_gate group -- with assets/models/marble_portal.glb in place of the hell-rock one, because Map 2 is a white rotunda and Map 1's ragged brimstone arch read as a different game. The EFFECT SURFACE is unchanged: marble_portal_build paints portal_build's own swirl into marble's spare atlas cell and draws it through the same material (albedo + emissive, Closest, emission strength 1.0), so the portal looks the same from the inside out -- only its surround changed. Instanced into scenes/ring/marble.tscn at the finish bearing (345 deg)."
+editor_description = "Map 2's finish portal: scenes/ring/portal.tscn node for node, with the marble surround and the rotunda's own cool pale effect surface."
 
 [node name="PortalModel" parent="." instance=ExtResource("1_portal_model")]
 
 [node name="Glow" type="OmniLight3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.0, 0)
-light_color = Color(1.0, 0.3, 0.05, 1.0)
+light_color = Color(0.72, 0.84, 1.0, 1.0)
 light_energy = 5.0
 omni_range = 16.0
 shadow_enabled = false
 
 [node name="Gate" type="Area3D" parent="." groups=["finish_gate"]]
-editor_description = "The disc opening. A body has to overlap this to finish, not just cross the portal's angle -- see MatchLapTracker. The marble surround keeps the hell-rock portal's opening exactly (2.7 m clear at the ground, springing 2.60, apex 3.15, surface centre 1.50), so this volume is unmoved and unresized."
+editor_description = "The disc opening: a body has to overlap this to finish -- see MatchLapTracker."
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.8, 0)
 collision_layer = 0
 collision_mask = 1048577

@@ -6,13 +6,13 @@
 size = Vector3(4.0, 3.6, 1.0)
 
 [node name="Portal" type="Node3D"]
-editor_description = "MAP 3's finish portal: the same node as scenes/ring/portal.tscn with the forest model in place of the hell-rock arch -- a surround of grown branches and leaves arching over the opening, the same emissive swirl on the effect surface inside it. Glow and Gate are byte-identical to portal.tscn's, so the finish plays exactly as it did. Instanced into scenes/ring/forest.tscn at the finish bearing."
+editor_description = "Map 3's finish portal: scenes/ring/portal.tscn node for node, with the grown surround and the forest's own green-gold effect surface."
 
 [node name="PortalModel" parent="." instance=ExtResource("1_forest_portal_model")]
 
 [node name="Glow" type="OmniLight3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.0, 0)
-light_color = Color(1.0, 0.3, 0.05, 1.0)
+light_color = Color(0.85, 1.0, 0.55, 1.0)
 light_energy = 5.0
 omni_range = 16.0
 shadow_enabled = false
