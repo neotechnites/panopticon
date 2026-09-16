@@ -1,0 +1,7 @@
+{
+  "base_rules": "res://resources/rules/marble_match_rules.tres",
+  "notes": "Balance sweep, marble, shipped guard (guard_skill 0.5): the arm every other number on this map is read against.",
+  "variants": [
+    {"name": "marble_default", "notes": "shipped rules, guard_skill 0.5", "overrides": {}}
+  ]
+}

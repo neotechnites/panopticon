@@ -57,6 +57,11 @@ const COVER_CHEST_METRES: float = 0.9
 const COVER_HEAD_METRES: float = 1.5
 const COVER_CELL_METRES: float = 4.0
 const COVER_TAKEN_METRES: float = 1.5
+## Two samples in one column are the same deck when their heights are this close.
+const COVER_SAME_DECK_METRES: float = 0.01
+## The four grid neighbours the guard's light floods through, as (x, z) steps.
+const COVER_NEIGHBOUR_X: Array[int] = [1, -1, 0, 0]
+const COVER_NEIGHBOUR_Z: Array[int] = [0, 0, 1, -1]
 const EYE_HEIGHT_METRES: float = 1.6
 const EYE_MARKER_PATH: NodePath = ^"Tower/TowerSpawn"
 ## Path results are reused for this many physics ticks per half-metre cell pair.
@@ -997,7 +1002,11 @@ func pad_link_near(point: Vector3, reach: float = 3.0) -> Link:
 
 # --- Cover --------------------------------------------------------------------
 
-## A point on the mesh every ~1.5 m is cover when the guard's eye cannot see a body there.
+## A point on the mesh every ~1.5 m is cover when the guard's eye cannot see a body
+## there AND that patch of shadow touches ground the eye CAN see. Shadow with no lit
+## border is not cover: it is another floor the guard has no line into, so there is no
+## sight line there to break, and [method nearest_cover_ahead] would refuse the point
+## anyway. The sample grid is the only geometry this reads; nothing here knows a map.
 func _sample_cover() -> void:
 	_cover.clear()
 	_cover_facing.clear()
@@ -1017,23 +1026,90 @@ func _sample_cover() -> void:
 	var heights: PackedFloat32Array = PackedFloat32Array()
 	for bucket: int in buckets:
 		heights.append(float(bucket))
+	# Ascending: a dictionary hands its keys back in insertion order, so two decks
+	# could arrive low, high, low and the duplicate test below -- which compares
+	# against every deck this column has already taken -- has to see them all.
+	heights.sort()
+
+	# One slot per (column, row, deck). A NAN height is no mesh there; deck_lit is 1
+	# for ground the eye watches and 0 for ground it cannot see.
+	var stride: int = maxi(heights.size(), 1)
+	var slots: int = columns * rows * stride
+	var deck_height: PackedFloat32Array = PackedFloat32Array()
+	deck_height.resize(slots)
+	deck_height.fill(NAN)
+	var deck_lit: PackedByteArray = PackedByteArray()
+	deck_lit.resize(slots)
 	for column: int in columns:
 		for row: int in rows:
 			var x: float = low.x + (float(column) + 0.5) * COVER_SPACING_METRES
 			var z: float = low.y + (float(row) + 0.5) * COVER_SPACING_METRES
-			var used: float = NAN
+			var base: int = (column * rows + row) * stride
+			var taken: int = 0
 			for deck: float in heights:
 				var height: float = height_at(Vector3(x, deck, z))
-				if is_nan(height) or (not is_nan(used) and absf(height - used) < 0.01):
+				if is_nan(height):
 					continue
-				used = height
+				var already: bool = false
+				for slot: int in taken:
+					if absf(deck_height[base + slot] - height) < COVER_SAME_DECK_METRES:
+						already = true
+						break
+				if already:
+					continue
 				var point: Vector3 = Vector3(x, height, z)
 				if is_lethal(point, COVER_LETHAL_CLEARANCE_METRES):
 					continue
-				if _sight_clear(point + Vector3.UP * COVER_CHEST_METRES) or _sight_clear(point + Vector3.UP * COVER_HEAD_METRES):
+				deck_height[base + taken] = height
+				var lit: bool = (
+					_sight_clear(point + Vector3.UP * COVER_CHEST_METRES)
+					or _sight_clear(point + Vector3.UP * COVER_HEAD_METRES)
+				)
+				deck_lit[base + taken] = 1 if lit else 0
+				taken += 1
+
+	# Light spreads a step at a time from every deck the eye watches into the shadow
+	# beside it. A shadow slot the flood never reaches is a floor of its own.
+	var step: float = maxf(AGENT_MAX_CLIMB, COVER_SPACING_METRES * tan(deg_to_rad(AGENT_MAX_SLOPE_DEGREES)))
+	var keep: PackedByteArray = PackedByteArray()
+	keep.resize(slots)
+	var queue: PackedInt32Array = PackedInt32Array()
+	for slot: int in slots:
+		if deck_lit[slot] == 1 and not is_nan(deck_height[slot]):
+			queue.append(slot)
+	var head: int = 0
+	while head < queue.size():
+		var here: int = queue[head]
+		head += 1
+		var cell: int = here / stride
+		var column: int = cell / rows
+		var row: int = cell % rows
+		var height: float = deck_height[here]
+		for side: int in COVER_NEIGHBOUR_X.size():
+			var ncolumn: int = column + COVER_NEIGHBOUR_X[side]
+			var nrow: int = row + COVER_NEIGHBOUR_Z[side]
+			if ncolumn < 0 or ncolumn >= columns or nrow < 0 or nrow >= rows:
+				continue
+			var nbase: int = (ncolumn * rows + nrow) * stride
+			for slot: int in stride:
+				var there: int = nbase + slot
+				if is_nan(deck_height[there]) or deck_lit[there] == 1 or keep[there] == 1:
+					continue
+				if absf(deck_height[there] - height) > step:
+					continue
+				keep[there] = 1
+				queue.append(there)
+
+	for column: int in columns:
+		for row: int in rows:
+			var x: float = low.x + (float(column) + 0.5) * COVER_SPACING_METRES
+			var z: float = low.y + (float(row) + 0.5) * COVER_SPACING_METRES
+			var base: int = (column * rows + row) * stride
+			for slot: int in stride:
+				if keep[base + slot] == 0:
 					continue
 				var index: int = _cover.size()
-				_cover.append(point)
+				_cover.append(Vector3(x, deck_height[base + slot], z))
 				_cover_facing.append(Vector3(_eye.x - x, 0.0, _eye.z - z).normalized())
 				_cells_insert(_cover_cells, Vector2(x, z), Vector2(x, z), COVER_CELL_METRES, index)
 
