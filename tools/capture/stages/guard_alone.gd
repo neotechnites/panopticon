@@ -34,6 +34,10 @@ const SPARE_DEG: float = 58.0
 
 var _bodies: Array = []
 var _hand: Node = null
+## Where the first runner is placed, for the scope's rest: the bodies are still
+## on their spawn the tick the hand is made (a driver places on its first
+## physics tick), so the park comes from the dials, never from a body.
+var _first_point: Vector3 = Vector3.ZERO
 var _guard: PlayerController = null
 
 
@@ -78,6 +82,7 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 			{"do": "hold", "seconds": 60.0},
 		], index)
 		_bodies.append(runners[index].controller)
+	_first_point = LIB.ring_point(float(degs[0]), r, 1.0)
 	# Everyone else parked on deck in the S1/S2 pocket, out of every window the
 	# scope visits; one prisoner is always left standing.
 	for index: int in range(degs.size(), runners.size()):
@@ -106,7 +111,6 @@ func tick(_delta: float) -> void:
 	var fire_at: float = float(option("fire_at", 1.25))
 	for body: PlayerController in _bodies:
 		_hand.beats.append({"body": body, "seconds": beat, "fire_at": fire_at})
-	var first: Vector3 = _bodies[0].global_position
-	_hand.park = LIB.ring_point(LIB.bearing_of(first) - float(option("lead_in", -13.0)), LIB.radius_of(first), 1.0)
+	_hand.park = LIB.ring_point(LIB.bearing_of(_first_point) - float(option("lead_in", -13.0)), LIB.radius_of(_first_point), 1.0)
 	_hand.start_at = float(option("start", 1.8))
 	say("tower brain stood down; the hand starts at %.1f s" % float(option("start", 1.8)))
