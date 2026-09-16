@@ -170,6 +170,39 @@ func test_the_host_is_offered_map_one_on_the_dais() -> void:
 	assert_eq_string(lobby.get_prompt(), "Start MAP 1: E", "and the host is offered the map")
 
 
+## Every decided wedge works the same way as the hell wedge: stand the host on
+## its dais and the prompt names ITS map; press interact and THAT map starts.
+func test_every_decided_wedge_offers_and_starts_its_own_map() -> void:
+	for wedge_name: String in ["W01_Hell", "W02_Marble", "W03_Forest"]:
+		var hub: Node3D = _make_hub(self, null)
+		var lobby: HubLobby = hub.get_node("HubLobby") as HubLobby
+		var wedge: MapWedge = hub.get_node("HubWorld/Wedges/" + wedge_name) as MapWedge
+		var started: Array[StringName] = []
+		lobby.match_starting.connect(func(map_id: StringName) -> void: started.append(map_id))
+
+		await _stand_on_the_dais(hub, wedge_name)
+		assert_true(lobby.is_on_the_dais(), "%s: the body is in the trigger" % wedge_name)
+		assert_eq_string(
+			lobby.get_prompt(), "Start %s: E" % tr(wedge.title),
+			"%s: the host is offered the map on the wedge under their feet" % wedge_name
+		)
+
+		var press: InputEventAction = InputEventAction.new()
+		press.action = &"interact"
+		press.pressed = true
+		lobby._unhandled_input(press)
+		assert_eq_int(started.size(), 1, "%s: interact starts the match" % wedge_name)
+		if not started.is_empty():
+			assert_eq_string(
+				String(started[0]), String(wedge.map_id), "%s: on that wedge's map" % wedge_name
+			)
+		assert_eq_string(
+			String(SettingsStore.instance().settings.map_id), String(wedge.map_id),
+			"%s: and the match is set up to run it" % wedge_name
+		)
+		hub.free()
+
+
 ## The offline round trip: the hub asks for a match, and the match that comes
 ## out of it knows to come back here rather than to the main menu.
 func test_an_offline_hub_starts_a_match_that_returns_to_the_hub() -> void:
@@ -535,10 +568,12 @@ func test_the_host_starts_the_map_for_everyone() -> void:
 	host_lobby.match_starting.connect(func(id: StringName) -> void: host_told.append(id))
 	client_lobby.match_starting.connect(func(id: StringName) -> void: client_told.append(id))
 
+	await _stand_on_the_dais(client_hub)
 	assert_false(client_lobby.is_host(), "a client may not start anything")
 	assert_false(client_lobby.start_map(), "and pressing it does nothing")
 	assert_eq_int(client_told.size(), 0, "nobody was told")
 
+	await _stand_on_the_dais(host_hub)
 	assert_true(host_lobby.start_map(), "the host launched")
 	var heard: bool = await NetFixtures.poll_until(
 		self, func() -> bool: return not client_told.is_empty()
@@ -642,9 +677,9 @@ func _make_hub(parent: Node, session: NetSession) -> Node3D:
 ## [signal SceneTree.process_frame] fires immediately BEFORE the frame's
 ## [method Node._process] calls -- so a fixed "step, then one process frame" is
 ## a coin toss rather than a wait.
-func _stand_on_the_dais(hub: Node3D) -> void:
+func _stand_on_the_dais(hub: Node3D, wedge_name: String = "W01_Hell") -> void:
 	var trigger: Area3D = hub.get_node(
-		"HubWorld/Wedges/W01_Hell/Dais/StartTrigger"
+		"HubWorld/Wedges/%s/Dais/StartTrigger" % wedge_name
 	) as Area3D
 	var body: PlayerController = hub.get_node("Player") as PlayerController
 	var lobby: HubLobby = hub.get_node("HubLobby") as HubLobby

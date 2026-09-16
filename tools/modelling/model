@@ -172,9 +172,19 @@ stage_ship() {
   push "$HERE/lib/pcrun.ps1"     "$JOB/pcrun.ps1"
   push "$script"                 "$JOB/${NAME}_build.py"
   # Sibling build scripts the script imports (tower_hollow reads tower_arches
-  # and tower_interior); they ride along or the import fails on the PC.
-  for dep in $(grep -oE '^import [a-z0-9_]+_build as' "$script" | awk '{print $2}'); do
-    push "$HERE/$dep.py" "$JOB/$dep.py"
+  # and tower_interior; hub_base's wedge themes read marble and forest_tree),
+  # and what those import in turn; they ride along or the import fails on the PC.
+  local queue="$NAME" seen=" $NAME " dep
+  while [ -n "$queue" ]; do
+    local cur="${queue%% *}"
+    queue="${queue#"$cur"}"; queue="${queue# }"
+    for dep in $(grep -oE '^(import|from) [a-z0-9_]+_build( |$)' "$HERE/${cur}_build.py" | awk '{print $2}'); do
+      dep="${dep%_build}"
+      case "$seen" in *" $dep "*) continue ;; esac
+      seen="$seen$dep "
+      queue="${queue:+$queue }$dep"
+      push "$HERE/${dep}_build.py" "$JOB/${dep}_build.py"
+    done
   done
   # Texture files a build script may load instead of painting (map_base's
   # river/lava sheets): shipped next to the script, stale ones cleared.

@@ -3,8 +3,11 @@ PANOPTICON -- hub_base: the lobby floor. A flat ring of ten 36-degree wedges
 round a plain circular plinth the tower is dropped onto as a scene node.
 Wedge 1 (bearings 0..36) is a taste of the hell map: the arena's rock atlas,
 a shallow lava pool with sloped banks and a stepping stone, four stalagmites.
-Wedges 2..10 are undecided maps: bare grey stone, a low round dais at the
-centre for a "?" marker. Wedge seams are 0.3 m inlaid bands, 3 cm recessed.
+Wedge 2 is the marble rotunda (hub_marble_build) and wedge 3 the forest
+(hub_forest_build): each dresses its floor, its dais and its slice of the outer
+wall through the _Theme interface below. Wedges 4..10 are undecided maps: bare
+grey stone, a low round dais at the centre for a "?" marker. Wedge seams are
+0.3 m inlaid bands, 3 cm recessed.
 
 World coordinates, instance at identity: floor at y 0, plinth top at 0.35,
 slab bottom at -2, outer wall 1.2..2.0 over the floor, sky open.
@@ -12,8 +15,9 @@ Blender +Z -> Godot +Y, Blender +Y -> Godot -Z.
 
 One manifold rock; collision rides in the .glb as a `-colonly` node: flat
 deck cut where the pool is, plinth, wall, dais pucks, pool banks and floor,
-stalagmite stacks. Three materials: HellRock (painted atlas, byte-identical
-to the arena's), Lava (the arena's river sheet), HubStone (painted grey).
+stalagmite stacks. Five materials: HellRock (painted atlas, byte-identical
+to the arena's), Lava (the arena's river sheet), HubStone (painted grey),
+Marble and ForestAtlas (the two maps' own painted atlases).
 
     tools/modelling/model build hub_base
     python3 tools/modelling/hub_base_build.py --check     # geometry only, no Blender
@@ -478,24 +482,28 @@ class _Mesh(object):
         self.verts = []
         self.faces = []
         self.zones = []
+        self.groups = []            # per face: the emitted quad / tri / fan it came from (one UV window each)
 
     def v(self, p):
         self.verts.append(tuple(p))
         return len(self.verts) - 1
+
+    def _push(self, tri, zone, group):
+        self.faces.append(tuple(tri))
+        self.zones.append(zone)
+        self.groups.append(group)
 
     def _emit(self, idx, want, zone):
         pts = [self.verts[j] for j in idx]
         n = _newell(pts)
         if n[0] * want[0] + n[1] * want[1] + n[2] * want[2] < 0.0:
             idx = list(reversed(idx))
+        group = len(self.faces)
         if len(idx) == 4:
-            self.faces.append((idx[0], idx[1], idx[2]))
-            self.faces.append((idx[0], idx[2], idx[3]))
-            self.zones.append(zone)
-            self.zones.append(zone)
+            self._push((idx[0], idx[1], idx[2]), zone, group)
+            self._push((idx[0], idx[2], idx[3]), zone, group)
         else:
-            self.faces.append(tuple(idx))
-            self.zones.append(zone)
+            self._push(idx, zone, group)
 
     def quad(self, a, b, c, d, want, zone):
         self._emit([a, b, c, d], want, zone)
@@ -508,11 +516,21 @@ class _Mesh(object):
         n = _newell([self.verts[j] for j in ring])
         if n[0] * want[0] + n[1] * want[1] + n[2] * want[2] < 0.0:
             ring = list(reversed(ring))
+        group = len(self.faces)
         for i in range(1, len(ring) - 1):
-            self.faces.append((ring[0], ring[i], ring[i + 1]))
-            self.zones.append(zone)
+            self._push((ring[0], ring[i], ring[i + 1]), zone, group)
+
+    def compact(self):
+        """Drop vertices no face uses (a theme's wall may skip the stock wall
+        top), so nothing exports as a loose point."""
+        used = sorted(set(i for f in self.faces for i in f))
+        remap = {old: new for new, old in enumerate(used)}
+        self.verts = [self.verts[i] for i in used]
+        self.faces = [tuple(remap[i] for i in f) for f in self.faces]
+        return self
 
     def object(self, name):
+        self.compact()
         return mdl.mesh(name, self.verts, self.faces)
 
 
@@ -598,7 +616,7 @@ class _Grid(object):
                     if kind == "in":
                         z = -SEAM_D
                     elif kind == "int":
-                        z = (JITTER_HELL if w == HELL_WEDGE else JITTER_STONE) * rng.sf()
+                        z = theme_of(w).jitter * rng.sf()
                 row.append(m.v((r * math.cos(a), r * math.sin(a), z)))
             self.V.append(row)
         self.removed = set()
@@ -614,7 +632,8 @@ class _Grid(object):
         if c0[1] == "in" or c1[1] == "in":
             return ZONE_SEAM
         a1 = c1[0] if j + 1 < self.nc else c1[0] + TWO_PI
-        return ZONE_DECK if _wedge_of(0.5 * (c0[0] + a1)) == HELL_WEDGE else ZONE_STONE
+        am = 0.5 * (c0[0] + a1)
+        return theme_of(_wedge_of(am)).floor_zone(0.5 * (self.rings[i] + self.rings[i + 1]), am)
 
     def cut(self, cx, cy, D, loop, zone):
         cells = set()
@@ -704,15 +723,18 @@ def _stack(m, lo, hi, cx, cy, zone):
 
 
 def _dais(m, w, coll=False):
-    """A low round dais at the wedge centre: 3 m top, 0.2 m up, chamfered."""
-    cx, cy, _ = pol((w + 0.5) * math.degrees(WEDGE), DAIS_RAD)
+    """A low round dais at the wedge centre: 3 m top, 0.2 m up, chamfered,
+    in the wedge theme's dais zone; the hole round it is the theme's floor."""
+    th = theme_of(w)
+    a = (w + 0.5) * math.degrees(WEDGE)
+    cx, cy, _ = pol(a, DAIS_RAD)
     base = _ring(m, cx, cy, DAIS_BASE_R, 0.0, DAIS_SIDES)
     top = _ring(m, cx, cy, DAIS_R, DAIS_H, DAIS_SIDES)
-    _stack(m, base, top, cx, cy, ZONE_DAIS)
-    m.fan(top, UP, ZONE_DAIS)
+    _stack(m, base, top, cx, cy, th.dais_zone)
+    m.fan(top, UP, th.dais_zone)
     if coll:
-        m.fan(base, DOWN, ZONE_DAIS)
-    return (cx, cy, DAIS_BASE_R + HOLE_PAD, base, ZONE_STONE)
+        m.fan(base, DOWN, th.dais_zone)
+    return (cx, cy, DAIS_BASE_R + HOLE_PAD, base, th.floor_zone(DAIS_RAD, math.radians(a)))
 
 
 def _pool(m, coll=False):
@@ -845,25 +867,46 @@ def _wall_tops(cols):
     return out
 
 
-def _wall(m, foot, cols, zone_of):
+def _plain_wall(m, j, jn, am, foot, top_in, top_out, bot_out, zone):
+    """One column interval of the stock wall: inner face, top, outer face."""
+    m.quad(foot[j], foot[jn], top_in[jn], top_in[j], (-math.cos(am), -math.sin(am), 0.0), zone)
+    m.quad(top_in[j], top_in[jn], top_out[jn], top_out[j], UP, zone)
+    m.quad(top_out[j], top_out[jn], bot_out[jn], bot_out[j], (math.cos(am), math.sin(am), 0.0), zone)
+
+
+def _wall(m, foot, cols, coll=False):
     """Inner face up from the floor's outer ring, a top, the outer face down
-    to the slab bottom. Returns the outer bottom ring."""
+    to the slab bottom. Every column's height and outer radius come from its
+    wedge's theme; a theme that claims its wall builds the run of intervals
+    between its wedge's two seam-band edge columns itself (the collider never
+    does: it is the flat wall at the theme's height). Returns the outer
+    bottom ring."""
     tops = _wall_tops(cols)
-    ro = R_OUT + WALL_T
+    n = len(cols)
     top_in, top_out, bot_out = [], [], []
     for (a, _k, _w), (t, jog) in zip(cols, tops):
-        top_in.append(m.v((R_OUT * math.cos(a), R_OUT * math.sin(a), t)))
-        top_out.append(m.v((ro * math.cos(a), ro * math.sin(a), t - 0.1 * jog)))
+        th = theme_of(_wedge_of(a))
+        h = th.wall_top(a)
+        ro = (R_OUT + WALL_T) if coll else th.wall_out(a)
+        z_in, z_out = (t, t - 0.1 * jog) if h is None else (h, h)
+        top_in.append(m.v((R_OUT * math.cos(a), R_OUT * math.sin(a), z_in)))
+        top_out.append(m.v((ro * math.cos(a), ro * math.sin(a), z_out)))
         bot_out.append(m.v((ro * math.cos(a), ro * math.sin(a), SLAB_Z)))
-    n = len(cols)
+    claimed = {}
     for j in range(n):
         jn = (j + 1) % n
         a1 = cols[jn][0] if jn else cols[0][0] + TWO_PI
         am = 0.5 * (cols[j][0] + a1)
-        zone = zone_of(am)
-        m.quad(foot[j], foot[jn], top_in[jn], top_in[j], (-math.cos(am), -math.sin(am), 0.0), zone)
-        m.quad(top_in[j], top_in[jn], top_out[jn], top_out[j], UP, zone)
-        m.quad(top_out[j], top_out[jn], bot_out[jn], bot_out[j], (math.cos(am), math.sin(am), 0.0), zone)
+        w = _wedge_of(am)
+        th = theme_of(w)
+        inside = (cols[j][1] != "in" and cols[jn][1] != "in"
+                  and _wedge_of(cols[j][0]) == w and _wedge_of(a1) == w)
+        if not coll and inside and th.claims_wall():
+            claimed.setdefault(w, []).append(j)
+            continue
+        _plain_wall(m, j, jn, am, foot, top_in, top_out, bot_out, th.wall_zone(am))
+    for w in sorted(claimed):
+        theme_of(w).wall(m, claimed[w], foot, top_in, top_out, bot_out, cols)
     return bot_out
 
 
@@ -888,8 +931,119 @@ def _plinth(m, lip, cols):
         m.tri(prev[j], prev[(j + 1) % n], ct, UP, ZONE_DAIS)
 
 
-def _wall_zone(am):
-    return ZONE_ROCK if _wedge_of(am) == HELL_WEDGE else ZONE_SIDE
+# =============================================================================
+# THEMES -- what a wedge is dressed as
+# =============================================================================
+
+class _Theme(object):
+    """One wedge's dressing. The base class is an undecided wedge: HubStone
+    floor and dais, the low wandering stone wall.
+
+    Angles are Blender radians from +x (bearing 0 is wedge 0's first seam,
+    wedge w runs w*WEDGE .. (w+1)*WEDGE); ``a`` is a wall column's angle.
+    Every zone a theme emits is a tuple whose first element is its ``key``
+    (its material); the base hub zones are keyed "stone", "deck", "river" or
+    are the bare HellRock rectangles."""
+
+    key = "stone"
+    jitter = JITTER_STONE       # floor vertex height wander
+    dais_zone = ZONE_DAIS       # None: no dais puck on this wedge
+
+    def floor_zone(self, r, a):
+        """A floor cell's zone by its centre (radius, angle)."""
+        return ZONE_STONE
+
+    def features(self, m, w, coll=False):
+        """Holes to cut into the floor grid, as _Grid.cut takes them:
+        (cx, cy, D, base_loop, zone). For the collider, closed pieces may be
+        added to ``m`` directly and no hole returned."""
+        return []
+
+    def wall_top(self, a):
+        """The wall's height at column angle ``a``; None for the stock wander."""
+        return None
+
+    def wall_out(self, a):
+        """The outer face's radius at column angle ``a``."""
+        return R_OUT + WALL_T
+
+    def wall_zone(self, am):
+        """The zone of a stock wall interval centred on angle ``am``."""
+        return ZONE_SIDE
+
+    def claims_wall(self):
+        return False
+
+    def wall(self, m, J, foot, top_in, top_out, bot_out, cols):
+        """Build the wall over intervals ``J`` (a contiguous run: interval j
+        spans columns j..j+1). Seams that MUST be met, edge for edge: the
+        chain foot[j]-foot[j+1] along the floor and bot_out[j]-bot_out[j+1]
+        along the slab bottom for every j in J, and at the two end columns
+        c = J[0] and c = J[-1]+1 the three edges foot[c]-top_in[c],
+        top_in[c]-top_out[c], top_out[c]-bot_out[c]. Inside, the stock
+        top_in / top_out vertices may be used or left unused."""
+        raise NotImplementedError
+
+    # -- material: None-returning themes share the base hub materials --------
+    def images(self):
+        """(albedo, emissive) bpy images for this theme's own material, or None."""
+        return None
+
+    def material(self, albedo, emissive):
+        return rock_material(self.key.capitalize(), albedo, emissive)
+
+    def unwrap(self, me, uvl, polys, zone, r):
+        """UVs for one emitted group of faces (both triangles of a quad, every
+        triangle of a fan) in one of this theme's zones."""
+        for pi in polys:
+            _box_uv(me, uvl, me.polygons[pi], zone[1:], r)
+
+
+class _HellTheme(_Theme):
+    """Wedge 1: the arena's rock, the lava pool, the stalagmites; no dais."""
+
+    key = "rock"
+    jitter = JITTER_HELL
+    dais_zone = None
+
+    def __init__(self):
+        self.spikes = []
+
+    def floor_zone(self, r, a):
+        return ZONE_DECK
+
+    def features(self, m, w, coll=False):
+        holes = [_pool(m, coll=coll)]
+        self.spikes = []
+        for k in range(len(SPIKES)):
+            hole, sp = _spike(m, k, coll=coll)
+            self.spikes.append(sp)
+            if not coll:
+                holes.append(hole)
+        return holes
+
+    def wall_zone(self, am):
+        return ZONE_ROCK
+
+
+_HELL = _HellTheme()
+_STONE = _Theme()
+
+
+def theme_of(w):
+    """The theme dressing wedge ``w``. Looked up late: the two map themes are
+    imported at the bottom of this file, after everything they import back."""
+    if w == HELL_WEDGE:
+        return _HELL
+    if w == 1:
+        return hub_marble_build.THEME
+    if w == 2:
+        return hub_forest_build.THEME
+    return _STONE
+
+
+def _themes():
+    return [theme_of(w) for w in range(N_WEDGE)]
 
 
 def _rock():
@@ -897,37 +1051,34 @@ def _rock():
     rings = [R_IN + (R_OUT - R_IN) * i / N_RINGS for i in range(N_RINGS + 1)]
     g = _Grid(m, rings, True, N_INT, True, _Rng(SEED))
     for w in range(N_WEDGE):
-        if w != HELL_WEDGE:
+        th = theme_of(w)
+        if th.dais_zone is not None:
             g.cut(*_dais(m, w))
-    g.cut(*_pool(m))
-    spikes = []
-    for k in range(len(SPIKES)):
-        hole, sp = _spike(m, k)
-        g.cut(*hole)
-        spikes.append(sp)
+        for hole in th.features(m, w):
+            g.cut(*hole)
     g.emit()
-    bot = _wall(m, g.V[-1], g.cols[-1], _wall_zone)
+    bot = _wall(m, g.V[-1], g.cols[-1])
     cb = m.v((0.0, 0.0, SLAB_Z))
     for j in range(g.nc):
         m.tri(bot[j], bot[(j + 1) % g.nc], cb, DOWN, ZONE_SIDE)
     _plinth(m, g.V[0], g.cols[0])
-    return m, spikes
+    return m, _HELL.spikes
 
 
 def _collider():
     c = _Mesh()
     rings = [R_IN + (R_OUT - R_IN) * i / COLL_RINGS for i in range(COLL_RINGS + 1)]
     g = _Grid(c, rings, False, COLL_INT, False, None)
-    g.cut(*_pool(c, coll=True))
+    for w in range(N_WEDGE):
+        for hole in theme_of(w).features(c, w, coll=True):
+            g.cut(*hole)
     g.emit()
     for w in range(N_WEDGE):
-        if w != HELL_WEDGE:
+        if theme_of(w).dais_zone is not None:
             _dais(c, w, coll=True)
-    for k in range(len(SPIKES)):
-        _spike(c, k, coll=True)
     cols = _columns(R_OUT, True, N_INT)                  # the wall top, column for column
     foot = [c.v((R_OUT * math.cos(a), R_OUT * math.sin(a), 0.0)) for (a, _k, _w) in cols]
-    bot = _wall(c, foot, cols, lambda am: ZONE_SIDE)
+    bot = _wall(c, foot, cols, coll=True)
     cb = c.v((0.0, 0.0, SLAB_Z))
     for j in range(len(cols)):
         c.tri(bot[j], bot[(j + 1) % len(cols)], cb, DOWN, ZONE_SIDE)
@@ -1012,20 +1163,30 @@ def _box_uv(me, uvl, poly, zone, r):
         uvl.data[li].uv = (u0 + UV_PAD + s * span_u, v0 + UV_PAD + t * span_v)
 
 
-def unwrap(ob, zones):
+def unwrap(ob, zones, groups, themes):
     me = ob.data
     uvl = me.uv_layers.new(name="UVMap")
     r = _Rng(TEX_SEED + len(me.polygons))
-    for pi, poly in enumerate(me.polygons):
-        zone = zones[pi]
-        if zone[0] == "river":
-            _lava_uv(me, uvl, poly)
-        elif zone[0] == "deck":
-            _deck_uv(me, uvl, poly, zone[1:], r)
-        elif zone[0] == "stone":
-            _box_uv(me, uvl, poly, zone[1:], r)
-        else:
-            _box_uv(me, uvl, poly, zone, r)
+    by_key = dict((th.key, th) for th in themes if th.images() is not None)
+    by_group = {}
+    for pi in range(len(me.polygons)):
+        by_group.setdefault(groups[pi], []).append(pi)
+    for gid in sorted(by_group):
+        polys = by_group[gid]
+        zone = zones[polys[0]]
+        if zone[0] in by_key:
+            by_key[zone[0]].unwrap(me, uvl, polys, zone, r)
+            continue
+        for pi in polys:
+            poly = me.polygons[pi]
+            if zone[0] == "river":
+                _lava_uv(me, uvl, poly)
+            elif zone[0] == "deck":
+                _deck_uv(me, uvl, poly, zone[1:], r)
+            elif zone[0] == "stone":
+                _box_uv(me, uvl, poly, zone[1:], r)
+            else:
+                _box_uv(me, uvl, poly, zone, r)
 
 
 # =============================================================================
@@ -1087,6 +1248,10 @@ def _hub_render(spec, objects):
     shot("high", pol(215.0, 118.0, 68.0), (0.0, 0.0, 12.0), 28.0, (1500, 1000))
     shot("top", (0.0, -0.5, 160.0), (0.0, 0.0, 0.0), 32.0, (1200, 1200))
     shot("hell", pol(26.0, 48.0, 3.5), (32.1, 12.8, -0.2), 22.0, (1400, 900))
+    # The two map wedges from a prisoner's eye on the hub floor: the dais in the
+    # foreground, the wedge's own wall behind it.
+    shot("wedge_marble", pol(50.0, 27.5, EYE_H), pol(56.0, 50.0, 3.2), 20.0, (1400, 900))
+    shot("wedge_forest", pol(86.0, 27.5, EYE_H), pol(92.0, 50.0, 3.2), 20.0, (1400, 900))
 
     for ob in (cam, target, sun, aim) + tuple(company):
         bpy.data.objects.remove(ob, do_unlink=True)
@@ -1134,22 +1299,38 @@ def build():
     mdl.save_texture(stone_albedo)
     mdl.save_texture(stone_emissive)
 
+    themes = []
+    for th in _themes():
+        if th not in themes:
+            themes.append(th)
     ob = rock.object(OBJECT_NAME)
-    unwrap(ob, rock.zones)
+    unwrap(ob, rock.zones, rock.groups, themes)
     mdl.finish(ob, rock_material("HellRock", albedo, emissive), strip_uvs=False)
     ob.data.materials.append(rock_material("Lava", river_albedo, river_emissive))
     ob.data.materials.append(rock_material("HubStone", stone_albedo, stone_emissive))
-    counts = [0, 0, 0]
+    slot = {"river": 1, "stone": 2}
+    names = ["hellrock", "lava", "stone"]
+    for th in themes:
+        imgs = th.images()
+        if imgs is None:
+            continue
+        alb, emi = imgs
+        mdl.save_texture(alb)
+        mdl.save_texture(emi)
+        slot[th.key] = len(ob.data.materials)
+        names.append(th.key)
+        ob.data.materials.append(th.material(alb, emi))
+    counts = [0] * len(names)
     for pi, poly in enumerate(ob.data.polygons):
-        z = rock.zones[pi][0]
-        idx = 1 if z == "river" else (2 if z == "stone" else 0)
+        idx = slot.get(rock.zones[pi][0], 0)
         poly.material_index = idx
         counts[idx] += 1
 
     coll_ob = coll.object(COLLIDER_NAME)
     coll_ob.hide_render = True
-    print("MDL STATS visual_tris=%d collision_tris=%d hellrock=%d lava=%d stone=%d"
-          % (len(ob.data.polygons), len(coll_ob.data.polygons), counts[0], counts[1], counts[2]))
+    print("MDL STATS visual_tris=%d collision_tris=%d %s"
+          % (len(ob.data.polygons), len(coll_ob.data.polygons),
+             " ".join("%s=%d" % (n, k) for n, k in zip(names, counts))))
     print("MDL STATS ring r=%.1f..%.1f plinth r=%.1f y=%.2f wall_top=%.1f..%.1f slab_y=%.1f lava_y=%.2f"
           % (R_IN, R_OUT, R_PLINTH, PLINTH_Z, WALL_H[0], WALL_H[1], SLAB_Z, LAVA_Z))
     print("MDL STATS spikes H=%s R=%s" % (" ".join("%.1f" % s.H for s in spikes),
@@ -1157,12 +1338,46 @@ def build():
     return [ob, coll_ob]
 
 
+def _components(m):
+    """Connected components of the faces, joined through shared vertices."""
+    parent = list(range(len(m.verts)))
+
+    def find(i):
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        return i
+
+    for f in m.faces:
+        a = find(f[0])
+        for k in (1, 2):
+            b = find(f[k])
+            if a != b:
+                parent[b] = a
+    return len(set(find(i) for f in m.faces for i in f))
+
+
+def _duplicates(m):
+    """Vertices standing on another vertex's position (a seam that was not
+    welded): faces sharing the spot without sharing the index."""
+    seen = {}
+    dup = 0
+    for (x, y, z) in m.verts:
+        k = (round(x, 4), round(y, 4), round(z, 4))
+        dup += 1 if k in seen else 0
+        seen[k] = True
+    return dup
+
+
 def _check():
-    """--check: build the geometry without Blender and prove the rock is one
-    closed manifold (every edge in exactly two faces, opposite directions)."""
+    """--check: build the geometry without Blender and prove the rock is ONE
+    closed manifold (every edge in exactly two faces, opposite directions;
+    one connected component; no vertex doubled at a seam)."""
     rock, spikes = _rock()
     coll = _collider()
+    ok = True
     for name, m in (("rock", rock), ("coll", coll)):
+        m.compact()
         edges = {}
         for f in m.faces:
             for k in range(3):
@@ -1178,13 +1393,25 @@ def _check():
         for z in m.zones:
             key = z[0] if isinstance(z[0], str) else "rock"
             zones[key] = zones.get(key, 0) + 1
-        print("%s tris=%d verts=%d nonmanifold_edges=%d degenerate=%d zones=%s"
-              % (name, len(m.faces), len(m.verts), bad, degen, zones))
+        comps, dups = _components(m), _duplicates(m)
+        print("%s tris=%d verts=%d nonmanifold_edges=%d degenerate=%d components=%d duplicate_positions=%d zones=%s"
+              % (name, len(m.faces), len(m.verts), bad, degen, comps, dups, zones))
+        if name == "rock":
+            ok = bad == 0 and degen == 0 and comps == 1 and dups == 0
     print("spikes " + " ".join("H=%.1f R=%.2f" % (s.H, s.R) for s in spikes))
+    print("CHECK " + ("OK" if ok else "FAILED: the rock is not one closed manifold"))
+    return ok
+
+
+# The two map wedges, imported last so their own `import hub_base_build` finds
+# this module complete. Column-0 `import x_build as y`: tools/modelling/model
+# ships the siblings it sees written exactly like that.
+import hub_marble_build  # noqa: E402
+import hub_forest_build  # noqa: E402
 
 
 if __name__ == "__main__":
     if bpy is None or "--check" in sys.argv:
-        _check()
+        sys.exit(0 if _check() else 1)
     else:
         mdl.main(NAME, build, facing_yaw=FACING_YAW, post=_hub_render)

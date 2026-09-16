@@ -11,7 +11,8 @@ extends Node
 ## decision to launch. There is no second body path and no second snapshot path.
 ##
 ## [b]Host pick, or a vote.[/b] Under [constant MatchRules.MapPickMode.HOST] the
-## host walks onto a wedge's dais and presses interact; everyone goes. Under
+## host walks onto any decided wedge's dais and presses interact; everyone goes
+## to that wedge's map. Under
 ## [constant MatchRules.MapPickMode.VOTE] the same press opens a vote instead:
 ## for [member MatchRules.vote_seconds] every body standing on a decided wedge's
 ## dais is a vote for it, the host counts them, and the fullest dais starts --
@@ -68,14 +69,8 @@ static var returns_to_hub: bool = false
 ## The local player's body, for the trigger test.
 @export var player: PlayerController
 
-## The wedge whose dais this trigger stands on. Today the hell wedge; the export
-## is what makes a second start point a scene edit rather than a code one.
-@export var start_wedge: MapWedge
-
-## The volume the host stands in to be offered the start.
-@export var start_trigger: Area3D
-
-## The parent of every [MapWedge] a vote can count.
+## The parent of every [MapWedge]: each one's dais is a start point, and a vote
+## counts them all.
 @export var wedges_root: Node3D
 
 ## The small vote readout: the timer and one line per decided wedge.
@@ -128,7 +123,8 @@ var _rules: MatchRules = null
 ## rebuild the bodies of a hub that is about to be torn down anyway.
 var _starting: bool = false
 
-var _in_trigger: bool = false
+## The wedge whose dais the local body is standing on, or null out on the ring.
+var _wedge_here: MapWedge = null
 var _overlay_open: bool = false
 var _launched: bool = false
 var _prompt: String = ""
@@ -197,15 +193,21 @@ func _bind_lobby(lobby: NetLobby) -> void:
 
 
 func _process(_delta: float) -> void:
-	var body: PlayerController = _local_body()
-	var inside: bool = (
-		start_trigger != null
-		and body != null
-		and start_trigger.get_overlapping_bodies().has(body)
-	)
-	if inside != _in_trigger:
-		_in_trigger = inside
+	var here: MapWedge = _wedge_under(_local_body())
+	if here != _wedge_here:
+		_wedge_here = here
 		_refresh()
+
+
+## The wedge whose dais trigger holds [param body], or null.
+func _wedge_under(body: PlayerController) -> MapWedge:
+	if body == null:
+		return null
+	for i: int in _wedges.size():
+		var trigger: Area3D = _wedge_triggers[i]
+		if trigger != null and trigger.overlaps_body(body):
+			return _wedges[i]
+	return null
 
 
 func _physics_process(delta: float) -> void:
@@ -237,7 +239,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if _vote_open:
 		cancel_vote()
 		_consume_event()
-	elif _in_trigger:
+	elif _wedge_here != null:
 		if _pick_mode() == MatchRules.MapPickMode.VOTE:
 			open_vote()
 		else:
@@ -264,9 +266,14 @@ func is_host() -> bool:
 	return _session == null or not _session.is_established() or _session.is_authority()
 
 
-## True while the local body is standing on the start wedge's dais.
+## True while the local body is standing on a wedge's dais.
 func is_on_the_dais() -> bool:
-	return _in_trigger
+	return _wedge_here != null
+
+
+## The wedge whose dais the local body is standing on, or null.
+func get_wedge_here() -> MapWedge:
+	return _wedge_here
 
 
 ## The line the HUD is showing, or empty when nothing is offered.
@@ -483,14 +490,15 @@ func _publish_rules() -> void:
 
 # --- Starting -----------------------------------------------------------------
 
-## Start the map on [member start_wedge], for everyone. Host only.
+## Start the map on the wedge under the local body, for everyone. Host only.
 ##
-## Returns false and changes nothing when this machine is not the host, when the
-## wedge holds no map, or when the seat table refuses the launch -- and the
-## refusal is [method NetLobby.describe_launch_block]'s to explain, not this
-## node's to invent.
+## Returns false and changes nothing when this machine is not the host, when
+## the body is not on a dais or the wedge holds no map, or when the seat table
+## refuses the launch -- and the refusal is
+## [method NetLobby.describe_launch_block]'s to explain, not this node's to
+## invent.
 func start_map() -> bool:
-	return _start_on(start_wedge)
+	return _start_on(_wedge_here)
 
 
 func _start_on(wedge: MapWedge) -> bool:
@@ -557,9 +565,19 @@ func _on_launching() -> void:
 	_begin(_lobby.get_rules().map_id if _lobby.get_rules() != null else &"")
 
 
+## The panel's Start: the wedge under the body, else the wedge holding the map
+## the panel picked.
 func _on_panel_start() -> void:
 	set_overlay_open(false)
-	start_map()
+	_start_on(_wedge_here if _wedge_here != null else _wedge_for_map(_store.settings.map_id))
+
+
+## The wedge holding [param map_id], or null when no wedge has it.
+func _wedge_for_map(map_id: StringName) -> MapWedge:
+	for wedge: MapWedge in _wedges:
+		if wedge.is_decided() and wedge.map_id == map_id:
+			return wedge
+	return null
 
 
 ## A peer joined or left. The hub's bodies are built per seat, so the set is
@@ -635,19 +653,19 @@ func _refresh() -> void:
 
 
 func _prompt_text() -> String:
-	if _overlay_open or start_wedge == null:
+	if _overlay_open:
 		return ""
 	if _vote_open:
 		return tr("HUB_CANCEL_VOTE_PROMPT").format({"key": _interact_key_name()}) if is_host() else ""
-	if not _in_trigger:
+	if _wedge_here == null:
 		return ""
-	if not start_wedge.is_decided():
+	if not _wedge_here.is_decided():
 		return tr("HUB_NOTHING_HERE")
 	if not is_host():
 		return tr("HUB_WAITING_FOR_HOST")
 	if _pick_mode() == MatchRules.MapPickMode.VOTE:
 		return tr("HUB_OPEN_VOTE_PROMPT").format({"key": _interact_key_name()})
-	return tr("HUB_START_PROMPT").format({"map": tr(start_wedge.title), "key": _interact_key_name()})
+	return tr("HUB_START_PROMPT").format({"map": tr(_wedge_here.title), "key": _interact_key_name()})
 
 
 ## The signs and the readout, from the counts as they stand.
