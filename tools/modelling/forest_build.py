@@ -2,7 +2,7 @@
 PANOPTICON -- forest: Map 3. A clearing under a closed canopy: a grass lane
 round a ravine, a great tree in the middle (forest_tree.glb, the tower), a
 wall of leaves you cannot see through, cells cut into it with branch bars,
-and the sun coming through gaps in the canopy from one side.
+and shafts of sun coming down through the leaves from one side.
 
 Authored in WORLD coordinates so the scene instances it at identity
 (Blender +Z -> Godot +Y, Blender +Y -> Godot -Z; bearings as map 1's pol()):
@@ -11,8 +11,8 @@ Authored in WORLD coordinates so the scene instances it at identity
     lane .............  y 23.0    grass, r 46.7..57.3, as map 1; a worn path down its middle
     leaf wall ........  r 57.3 at the foot, 60 at the gallery roof; bark pilasters bulge out
     gallery roof .....  y 36.0    dense leaf over the lane only, r 60 in to the pit lip
-    wall above it ....  y 36..50  at r ~47: three more tiers of barred cells, over the ravine
-    canopy dome ......  y 50 at that wall's head to 63.2 over the tree: the grand roof
+    wall above it ....  y 36..64  at r ~47: six more tiers of barred cells, over the ravine
+    canopy dome ......  y 64 at that wall's head to 77.4 over the tree: the grand roof
 
 ONE CONTIGUOUS mesh (ForestGround), one surface (the forest atlas). Every part shares vertices with what it grows from: the grids
 share their seam rows, the water rings inward from the bank's last row, ferns,
@@ -25,15 +25,15 @@ yellow shafts, alpha 0.35) and ForestRaysSoft (the same shafts, faint, for
 the scene's DirectionalLight variant). A shaft is three vanes of a strip
 crossed on the sun's line, tint and feather in the vertex colour (COLOR_0):
 alpha peaks on the axis, is zero along both edges and at both ends, so a
-shaft has no cap and no hard edge; it starts inside its ceiling gap and runs
-into the ground it lands on. ForestCollision rides as a `-colonly` node: flat
+shaft has no cap and no hard edge; it starts under the closed canopy and
+runs into the ground it lands on. ForestCollision rides as a `-colonly` node: flat
 lane, pit cone, water floor, flat wall with a prism per trunk, flat ceiling
 annulus, the fence box at 350 deg. The leafy visual mesh is never its own
 collider.
 
 Textures: painted atlas (forest_tree_build.paint_atlas) unless
 textures/forest_atlas_albedo.png exists. USE_TEXTURE_FILES turns the files on.
-The leaf ceiling (sheet, gaps, limbs, clumps, vines) is forest_ceiling_build;
+The leaf ceiling (sheet, shafts, limbs, clumps, vines) is forest_ceiling_build;
 the pit's dark floor, fog layers (ForestFog: stacked translucent discs, alpha in
 COLOR_0, for GL Compatibility) and thorny brambles are forest_pit_build.
 
@@ -62,7 +62,7 @@ if bpy is not None:
 import forest_tree_build as ft  # noqa: E402
 from forest_tree_build import (_Mesh, _Rng, UP, DOWN, pol, radial, tangent, add, sub, norm, dot,  # noqa: E402
                                lerp, bez, loft, zipper, plane_of)
-import forest_ceiling_build as fc  # noqa: E402  the leaf ceiling: sheet, gaps, limbs, clumps, vines
+import forest_ceiling_build as fc  # noqa: E402  the leaf ceiling: sheet, shafts, limbs, clumps, vines
 import forest_pit_build as fp  # noqa: E402  the pit: dark floor, fog layers, thorny brambles
 
 # =============================================================================
@@ -83,7 +83,7 @@ OUTER_R = 57.3
 DECK_Z = 23.0
 WATER_Z = -11.05            # map 1's lava sea height: the pit is 34 m deep
 WATER_R = 42.0
-CEIL_Z = fc.GALLERY_Z       # the gallery roof over the lane (the dome and its gaps live in forest_ceiling_build)
+CEIL_Z = fc.GALLERY_Z       # the gallery roof over the lane (the dome and its shafts live in forest_ceiling_build)
 SEED = 9110271
 EYE_H = 1.65
 
@@ -118,9 +118,9 @@ WALL_BULGE = 0.45           # outward-only on the low rows, both ways above
 WALL_ZJAG = 0.3
 
 SUN = (120.0, 52.0)         # the sun's bearing and elevation: rays come from this side
-RAY_W = (0.9, 1.15)         # a shaft's half width at the top and at the foot for a 3 m gap: 1.8 m,
-                            # spreading gently to 2.3 over its fall; the gap's own size scales both
-RAY_IN = 0.9                # the shaft starts this far up its gap, so the ceiling hides its end
+RAY_W = (0.9, 1.15)         # a shaft's half width at the top and at the foot for a 3 m source: 1.8 m,
+                            # spreading gently to 2.3 over its fall; the source's own size scales both
+RAY_IN = -0.45              # the shaft starts this far UNDER the closed canopy, so its source is never seen
 RAY_OVER = 0.6              # ... and runs this far into whatever it lands on
 RAY_FADE = (0.18, 0.82)     # along the shaft, alpha ramps up to here and back down from here
 RAY_VANES = 3               # planes crossed on the axis: something faces every camera
@@ -146,18 +146,22 @@ WALL_TIERS = ((WALL_CELLS, WALL_CELL_ROWS), (WALL_CELLS_UPPER, WALL_CELL_ROWS_UP
 WALL_CELL_D = 2.5
 
 # The wall above the gallery roof: a leaf cliff at r ~47 standing on the roof's inner
-# rim, carrying three more tiers of barred cells over the ravine -- map 1's wall above
-# its deck. (r, z) rows: rim, then sill / jamb / apex per tier, then the dome's spring.
-UPPER = [(46.70, fc.GALLERY_Z), (46.75, 36.50), (46.85, 38.50), (46.95, 39.70),
-         (47.05, 40.70), (47.15, 42.70), (47.25, 43.90),
-         (47.35, 44.90), (47.45, 46.90), (47.55, 48.10), (fc.DOME[0][0], fc.DOME[0][1])]
+# rim, carrying six more tiers of barred cells over the ravine -- map 1's wall above
+# its deck. (r, z) rows: rim, then sill / jamb / apex per tier, then two plain leaf
+# rows to the dome's spring.
+UPPER = [(46.70, fc.GALLERY_Z), (46.73, 36.50), (46.85, 38.50), (46.92, 39.70),
+         (46.99, 40.70), (47.11, 42.70), (47.18, 43.90),
+         (47.24, 44.90), (47.36, 46.90), (47.43, 48.10),
+         (47.49, 49.10), (47.61, 51.10), (47.69, 52.30),
+         (47.75, 53.30), (47.87, 55.30), (47.94, 56.50),
+         (48.00, 57.50), (48.12, 59.50), (48.19, 60.70),
+         (48.28, 62.30), (fc.DOME[0][0], fc.DOME[0][1])]
 UPPER_BULGE = 0.35          # outward-only: the leaf never overhangs the rim
 UPPER_ZJAG = 0.25
-UPPER_TIER_ROWS = ((1, 2, 3), (4, 5, 6), (7, 8, 9))
+UPPER_TIER_ROWS = ((1, 2, 3), (4, 5, 6), (7, 8, 9), (10, 11, 12), (13, 14, 15), (16, 17, 18))
 _UP_STEP = 360.0 / 17.0
-UPPER_CELLS = [[10.6 + _UP_STEP * k for k in range(17)],    # 17 a tier, one every 17 m of wall
-               [_UP_STEP * k for k in range(17)],           # ... the middle tier half a bay off, like brick
-               [10.6 + _UP_STEP * k for k in range(17)]]
+# 17 a tier, one every 17 m of wall; every other tier half a bay off, like brick
+UPPER_CELLS = [[off + _UP_STEP * k for k in range(17)] for off in (10.6, 0.0) * 3]
 UPPER_TIERS = tuple(zip(UPPER_CELLS, UPPER_TIER_ROWS))
 UPPER_CELL_D = 2.0          # shallower and coarser than the lane's: they are read at 50..95 m
 UPPER_BAR_R = (0.06, 0.08)
@@ -203,7 +207,7 @@ REVIEW_FILL = 1.1           # ... a second sun from the far side, no shadows
 REVIEW_WORLD = 1.0
 REVIEW_WORLD_VARIANT = {"solid": 1.2, "light": 0.75}   # the mesh-only variant has no sun to help it
 REVIEW_SKY = (0.72, 0.80, 0.70)   # the world's fill light, pale and a little green
-REVIEW_SEEN = (0.30, 0.38, 0.33)  # the sky the camera sees through a gap: pale and a little green once REVIEW_EXPOSURE (stops) has lifted it
+REVIEW_SEEN = (0.30, 0.38, 0.33)  # the sky a camera ray that clears the canopy sees: pale and a little green once REVIEW_EXPOSURE (stops) has lifted it
 REVIEW_EXPOSURE = 0.9
 
 TWO_PI = 2.0 * math.pi
@@ -453,7 +457,7 @@ class _Ground(object):
         for (cells, rows) in UPPER_TIERS:
             for b in cells:
                 self.hollow["upper"].add((rows[1], (_col_of(b) + 1) % NC))
-        self.rays = []      # (the gap's four corner points, its half width at the top) per ceiling gap: fc fills it
+        self.rays = []      # (a shaft source's four corner points, its half width at the top) per shaft: fc fills it
 
     def _trunk_push(self, i, j):
         """How far wall column i is pushed toward the lane at wall row j: the pilasters."""
@@ -940,9 +944,9 @@ class _Ground(object):
 
     # ---- sun rays ----------------------------------------------------------------
     def ray_lines(self):
-        """(top, foot, S, scale) per gap, world coordinates: the shaft's axis runs
-        from ``top`` (RAY_IN up the sun line from the gap's centre, inside the
-        gap) down the sun direction to ``foot`` -- the first thing it meets, the
+        """(top, foot, S, scale) per shaft, world coordinates: the shaft's axis runs
+        from ``top`` (RAY_IN up the sun line from the source's centre, so it
+        begins under the leaves) down the sun direction to ``foot`` -- the first thing it meets, the
         dome, the gallery roof's top, the tree, the bank or the pit floor, plus
         RAY_OVER into it."""
         out = []
@@ -994,13 +998,13 @@ class _Ground(object):
         self._pit_faces()
         self._wall_faces()
         fc.gallery_faces(self)
-        self._upper_faces()         # three more tiers of cells over the ravine
-        fc.dome_faces(self)         # the dome, its organic gaps (self.rays), the pole
+        self._upper_faces()         # six more tiers of cells over the ravine
+        fc.dome_faces(self)         # the dome, its organic shaft sources (self.rays), the pole
         fp.pit_floor(self)          # the dark floor grown inward off the bank's last row
         self._ferns()
         self._hanging_roots()
         self._fence()
-        fc.dress(self)              # leaf clumps round the gaps' rims, high in the canopy
+        fc.dress(self)              # leaf clumps round the shaft sources, high in the canopy
         fp.brambles(self)           # the thicket: thorny branches out of the pit floor, rising from the fog
         return self.m
 
@@ -1216,9 +1220,9 @@ def _forest_render(spec, objects):
     bg = wnt.nodes["Background"]
     bg.inputs[0].default_value = (REVIEW_SKY[0], REVIEW_SKY[1], REVIEW_SKY[2], 1.0)
     bg.inputs[1].default_value = REVIEW_WORLD
-    # What the camera sees through a ceiling gap is the sky at the scene's
-    # brightness (REVIEW_SEEN), not the fill the world pours in: a gap is a
-    # patch of pale sky, never a white slab.
+    # What a camera ray that clears the canopy sees is the sky at the scene's
+    # brightness (REVIEW_SEEN), not the fill the world pours in: the sky reads as
+    # a patch of pale green, never a white slab.
     seen = wnt.nodes.new("ShaderNodeBackground")
     seen.inputs[0].default_value = (REVIEW_SEEN[0], REVIEW_SEEN[1], REVIEW_SEEN[2], 1.0)
     seen.inputs[1].default_value = 1.0
@@ -1280,7 +1284,7 @@ def _forest_render(spec, objects):
 
     def variant(which):
         """'solid': the mesh-only shafts, no sun, the world a little brighter.
-        'light': the sun through the gaps, shadows on, and the faint shafts."""
+        'light': the sun through the leaves, shadows on, and the faint shafts."""
         if solid:
             solid.hide_render = which != "solid"
         if soft:
@@ -1329,14 +1333,16 @@ def _forest_render(spec, objects):
         shot("guard_seat", pol(300.0, 13.0, ft.FLOOR_Y + 2.2), (0.0, 0.0, ft.FLOOR_Y + 2.4), 30.0, (1200, 900))
         shot("seat", pol(330.0, 1.2, ft.FLOOR_Y + EYE_H), pol(150.0, 40.0, DECK_Z + 1.0), 16.0, (1400, 800))
         shot("pit_fog", pol(250.0, 48.6, eye + 0.4), pol(238.0, 20.0, -6.0), 24.0, (1400, 900))    # from the lane, looking down into the thicket
-        shot("aerial", pol(330.0, 118.0, 105.0), (0.0, 0.0, 18.0), 30.0, (1500, 1100))
+        shot("aerial", pol(330.0, 132.0, 122.0), (0.0, 0.0, 26.0), 30.0, (1500, 1100))
         shot("tower", pol(180.0, 56.5, eye), (0.0, 0.0, 14.0), 20.0, (900, 1300))
         shot("pit", pol(292.0, 6.4, ft.FLOOR_Y + 0.55 + EYE_H), pol(300.0, 22.0, -6.0), 24.0, (1400, 900))   # from the tower, standing on the lip in an arch (from the floor the lip hides the drop)
-        shot("enclosure", pol(200.0, 55.5, DECK_Z + 4.5), (0.0, 0.0, 44.0), 15.0, (1500, 1000))
+        shot("enclosure", pol(200.0, 55.5, DECK_Z + 4.5), (0.0, 0.0, 52.0), 12.0, (1500, 1000))
         # the roof, from the lane: the gallery of leaves overhead, its rim, and the dome beyond
         shot("roof", pol(196.0, 53.5, eye), pol(186.0, 42.0, 41.0), 18.0, (1400, 1000))
-        # the wall above the gallery, from the guard's eye out of an arch: three tiers over the ravine
-        shot("wall_above", (0.0, 0.0, ft.FLOOR_Y + EYE_H), pol(135.0, 47.0, 42.5), 40.0, (1400, 900))
+        # the wall above the gallery: six tiers of cells over the ravine, seen from the pit lip
+        # across the ring (a chord, so the tree does not stand in front of it -- from the guard's
+        # own eye the tree's canopy belly at y 33 is the ceiling and the wall above is hidden)
+        shot("wall_above", pol(315.0, 46.9, eye), pol(200.0, 47.5, 50.0), 40.0, (1400, 900))
         if INFO.get("wall_cells"):
             mouth, back, bmid = INFO["wall_cells"][0]
             mc = tuple(sum(p[k] for p in mouth) / 5.0 for k in range(3))
@@ -1414,10 +1420,10 @@ def build():
           % (len(ob.data.polygons), len(coll.data.polygons), len(rays[RAYS_SOLID_NAME].faces), len(INFO["rays"]),
              len(rays[fp.FOG_NAME].faces)))
     print("MDL STATS lane r=%.1f..%.1f y=%.1f pit_floor_y=%.1f r=%.1f gallery_y=%.1f wall_above=%.1f..%.1f dome_y=%.1f "
-          "wall_cells=%d upper_cells=%d pit_cells=%d trunks=%d gaps=%d sun=%s"
+          "wall_cells=%d upper_cells=%d pit_cells=%d trunks=%d shafts=%d sun=%s"
           % (INNER_R, OUTER_R, DECK_Z, WATER_Z, WATER_R, fc.GALLERY_Z, UPPER[0][1], UPPER[-1][1], fc.DOME_TOP,
              len(WALL_CELLS) + len(WALL_CELLS_UPPER), sum(len(t) for t in UPPER_CELLS),
-             len(PIT_CELLS), len(TRUNKS), len(fc.GAPS), SUN))
+             len(PIT_CELLS), len(TRUNKS), len(fc.SHAFTS), SUN))
     for k, (top, foot, _s, _w) in enumerate(INFO["rays"]):
         print("MDL STATS ray%d top=(%.1f, %.1f, %.1f) foot=(%.1f, %.1f, %.1f) r=%.1f"
               % (k, top[0], top[1], top[2], foot[0], foot[1], foot[2], math.hypot(foot[0], foot[1])))

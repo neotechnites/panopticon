@@ -10,25 +10,27 @@ this module grows the roof into g.m, sharing vertices with the wall's top row
                      y 36, g.gal[0] IS g.wall[-1]; its last ring is the rim the
                      wall above the gallery stands on (forest_build._upper_rows)
     gallery_faces(g) that roof's faces
-    dome_rows(g)     the dome's rings, g.dome[0] IS g.upper[-1] (y 50)
-    dome_faces(g)    the dome, its organic gaps left open, and g.rays
-    dress(g)         leaf clumps round every gap's rim -- the gaps read as
-                     daylight between clumps, never as a cut rectangle
+    dome_rows(g)     the dome's rings, g.dome[0] IS g.upper[-1] (y 64)
+    dome_faces(g)    the dome, closed all the way round, and g.rays
+    dress(g)         leaf clumps round each shaft's mouth -- they hang in its
+                     light, so no rim can read as a cut rectangle
 
 Heights (world y, the lane is 23.0):
 
     gallery roof ...  36.0  over the lane, 13 m up: dense leaf, lumped, nothing
                       hanging under it
-    wall above .....  36.0 -> 50.0 at r ~47: three more tiers of barred cells
+    wall above .....  36.0 -> 64.0 at r ~47: six more tiers of barred cells
                       (forest_build), seen from the tower and across the ring
-    dome ...........  50.0 at the rim to 63.2 over the tree: 40 m over the lane,
-                      three times the gallery, the tree's crown (37.2..39.7)
+    dome ...........  64.0 at the rim to 77.4 over the tree: 54 m over the lane,
+                      four times the gallery, the tree's crown (37.2..39.7)
                       standing up into it
 
-The gaps are organic blobs cut out of the dome's quad grid (a wobbly radius
-round a centre, no two alike), all on the sun's side, each with a ring of leaf
-clumps hung round its rim; forest_build._ray_mesh turns g.rays into one soft
-shaft per gap.
+The leaves are unbroken: every dome quad carries a face, so nothing can read as
+a hole or a bright polygon from below. The shafts come down THROUGH the closed
+leaves from five anchors on the sun's side -- an organic blob of cells round
+each (a wobbly radius round a centre, no two alike), lit as "sun" leaf with
+clumps hung over it; forest_build._ray_mesh turns g.rays into one soft shaft
+per anchor.
 
     python3 tools/modelling/forest_build.py --check     proves the whole ground
 """
@@ -47,33 +49,33 @@ GALLERY_R = [60.0, 55.9, 51.5, 46.7]        # wall top inward to the pit lip
 GALLERY_SAG = 0.5           # the roof dips this much mid-span (zero at both edges)
 GALLERY_LUMP = 0.55         # ... and its underside is lumped this much: leaf clumps, not a lid
 LEAF_T = 0.12               # a gallery quad lit enough to be "leaf" rather than "shade" ...
-DOME_LEAF_T = -0.05         # ... and a dome quad, higher and catching more of the gaps' light
+DOME_LEAF_T = -0.05         # ... and a dome quad, higher and catching more of the shafts' light
 
 # (r, y, vertices): the dome over the ravine, springing off the wall above the gallery.
 # 120 columns from ring 1 in: a 2 m chord against a 3 m band is a square-ish quad, which
-# is what lets a gap's rim and a clump's socket sit in it without slivers.
-DOME = [(47.7, 50.0, 240), (44.0, 53.4, 120), (40.5, 56.0, 120), (37.0, 58.0, 120),
-        (33.0, 59.6, 120), (28.0, 61.0, 120), (22.0, 62.0, 60), (14.0, 62.8, 60),
-        (7.0, 63.2, 30)]
-DOME_TOP = 63.4             # the pole
+# is what lets a shaft's mouth and a clump's socket sit in it without slivers.
+DOME = [(48.40, 64.0, 240), (44.0, 67.4, 120), (40.5, 70.0, 120), (37.0, 72.0, 120),
+        (33.0, 73.6, 120), (28.0, 75.0, 120), (22.0, 76.0, 60), (14.0, 76.8, 60),
+        (7.0, 77.2, 30)]
+DOME_TOP = 77.4             # the pole
 DOME_LUMP = 2.2             # the dome billows this much: leaf masses, never a smooth dish
 DOME_LUMP_SCALE = 0.55      # ... at this much of the field's own wavelength (6..15 m clumps)
-GAP_BANDS = (1, 5)          # gaps are cut in dome bands 1..4 (r 28..44): the uniform 120-wide ones
+SHAFT_BANDS = (1, 5)        # the shafts are anchored in dome bands 1..4 (r 28..44): the uniform 120-wide ones
 
-# (bearing, band, radius in metres, wobble seed): a hole through the canopy, and a
-# sun shaft. All on the sun's side (SUN bears 120) so the shafts read as one light.
-GAPS = [(74.0, 3, 3.2, 11), (103.0, 1, 4.2, 23), (127.0, 4, 2.4, 37),
-        (149.0, 2, 3.6, 53), (172.0, 3, 2.8, 71)]
-GAP_RAG = (0.55, 0.45)      # every vertex on a gap's edge is pulled this far in y and in plan:
-                            # the rim is torn leaf, not a staircase of quads
-GAP_LIT = 2                 # cells this far round a gap are the lit "sun" leaf: the light
-                            # falls on the leaves it comes past, never on a hard black edge
-GAP_WOB = (0.30, 0.22, 0.14)   # the blob's radius wobbles at 2, 3 and 5 per turn
-GAP_HALF = (0.42, 0.5, 2.2)    # the shaft's half width at the top: this x the blob's radius, clamped
+# (bearing, band, radius in metres, wobble seed): where a sun shaft comes down through
+# the leaves. All on the sun's side (SUN bears 120) so the shafts read as one light.
+SHAFTS = [(74.0, 3, 3.2, 11), (103.0, 1, 4.2, 23), (127.0, 4, 2.4, 37),
+          (149.0, 2, 3.6, 53), (172.0, 3, 2.8, 71)]
+SHAFT_RAG = (0.55, 0.45)    # every vertex round a shaft's mouth is pulled this far in y and in
+                            # plan: torn leaf, not a staircase of quads
+SHAFT_LIT = 2               # a shaft's own cells and the cells this far round them are the lit
+                            # "sun" leaf: the light falls ON the leaves, never past a cut edge
+SHAFT_WOB = (0.30, 0.22, 0.14)   # the blob's radius wobbles at 2, 3 and 5 per turn
+SHAFT_HALF = (0.42, 0.5, 2.2)    # the shaft's half width at the top: this x the blob's radius, clamped
 
 SEED = 9110271 + 77         # the roof's own seed: editing it diffs only the roof
 
-RIM_CLUMPS = 6              # leaf clumps round each gap's rim ...
+RIM_CLUMPS = 6              # leaf clumps round each shaft's mouth ...
 CLUMP_R = (0.9, 1.7)        # ... this big, hung this far under the dome
 CLUMP_HANG = (0.5, 1.8)
 CLUMP_SEGS = 6
@@ -136,7 +138,7 @@ def gallery_faces(g):
 
 
 # =============================================================================
-# THE DOME -- grand, far over the ravine, with organic gaps
+# THE DOME -- grand, far over the ravine, closed leaf with sun shafts through it
 # =============================================================================
 
 def dome_z(rad):
@@ -182,9 +184,9 @@ def dome_rows(g):
 
 
 def _blob_r(rng_ph, ang, radius):
-    """The gap's wobbly radius at angle ``ang``: never a circle, never a box."""
+    """The shaft's wobbly radius at angle ``ang``: never a circle, never a box."""
     f = 1.0
-    for (k, amp) in zip((2.0, 3.0, 5.0), GAP_WOB):
+    for (k, amp) in zip((2.0, 3.0, 5.0), SHAFT_WOB):
         f += amp * math.sin(k * ang + rng_ph[int(k) % 3])
     return radius * max(0.35, f)
 
@@ -195,12 +197,13 @@ def dome_quad_ids(g, k, i):
     return (g.dome[k][i], g.dome[k][q], g.dome[k + 1][q], g.dome[k + 1][i])
 
 
-def _gap_cells(g):
-    """Per gap: its dome quads (an organic blob, no two alike) and their centres."""
+def _shaft_cells(g):
+    """Per shaft: the dome quads its light comes through (an organic blob, no two
+    alike) and their centres. The quads keep their faces: the light falls on them."""
     out = []
-    lo, hi = GAP_BANDS
+    lo, hi = SHAFT_BANDS
     nc = len(g.dome[lo])
-    for (b, band, radius, seed) in GAPS:
+    for (b, band, radius, seed) in SHAFTS:
         r = ft._Rng(SEED + seed)
         ph = (r.f() * TWO_PI, r.f() * TWO_PI, r.f() * TWO_PI)
         c = pol(b, 0.5 * (DOME[band][0] + DOME[band + 1][0]), 0.0)
@@ -226,8 +229,8 @@ def _gap_cells(g):
 
 
 def _one_blob(cells, pts, nc):
-    """The blob's biggest 4-connected island: a lone cell off the edge reads as a
-    hole punched in the leaves, not as daylight through them."""
+    """The blob's biggest 4-connected island: a lone lit cell off to the side reads
+    as a stray bright patch, not as one shaft coming through."""
     want = set(cells)
     seen = set()
     best = None
@@ -251,44 +254,42 @@ def _one_blob(cells, pts, nc):
     return [c for (c, _p) in out], [p for (_c, p) in out]
 
 
-def _rag_rims(g, holes):
-    """Pull every vertex on a gap's edge about: the rim is torn leaf, not a
-    staircase of quads. The vertices are shared, so the leaves round it move too."""
+def _rag_rims(g, cells):
+    """Pull every vertex round a shaft's mouth about: the leaf there hangs torn and
+    uneven, not as a staircase of quads. The vertices are shared, so the leaves
+    round it move too."""
     r = ft._Rng(SEED + 911)
     ids = set()
-    for (i, k) in holes:
+    for (i, k) in cells:
         ids.update(dome_quad_ids(g, k, i))
     for vid in sorted(ids):
         (x, y, z) = g.m.verts[vid]
         rad = math.hypot(x, y)
         t = (-y / rad, x / rad, 0.0) if rad > 1e-6 else (1.0, 0.0, 0.0)
-        p = add((x, y, z), t, GAP_RAG[1] * r.sf())
-        rr = 1.0 + GAP_RAG[1] * r.sf() / max(1.0, rad)
-        g.m.verts[vid] = (p[0] * rr, p[1] * rr, z + GAP_RAG[0] * r.sf())
+        p = add((x, y, z), t, SHAFT_RAG[1] * r.sf())
+        rr = 1.0 + SHAFT_RAG[1] * r.sf() / max(1.0, rad)
+        g.m.verts[vid] = (p[0] * rr, p[1] * rr, z + SHAFT_RAG[0] * r.sf())
 
 
 def dome_faces(g):
     m = g.m
-    g.gaps = _gap_cells(g)
-    holes = set()
-    for gap in g.gaps:
-        holes.update(gap["cells"])
-    g.ceil_holes = holes
-    lit = set()
-    nc = len(g.dome[GAP_BANDS[0]])
-    for (i, k) in holes:
-        for di in range(-GAP_LIT, GAP_LIT + 1):
-            for dk in range(-GAP_LIT, GAP_LIT + 1):
+    g.shafts = _shaft_cells(g)
+    mouths = set()
+    for sh in g.shafts:
+        mouths.update(sh["cells"])
+    lit = set()                                   # the shafts' own cells and the leaf round them
+    nc = len(g.dome[SHAFT_BANDS[0]])
+    for (i, k) in mouths:
+        for di in range(-SHAFT_LIT, SHAFT_LIT + 1):
+            for dk in range(-SHAFT_LIT, SHAFT_LIT + 1):
                 lit.add(((i + di) % nc, k + dk))
-    _rag_rims(g, holes)
+    _rag_rims(g, mouths)
     for k in range(len(g.dome) - 1):
         a, b = g.dome[k], g.dome[k + 1]
         if len(a) != len(b):
             zipper(m, a, b, DOWN, "shade", centre=(0.0, 0.0, 0.0))
             continue
-        for i in range(len(a)):
-            if (i, k) in holes:
-                continue
+        for i in range(len(a)):               # every quad carries a face: the dome is unbroken
             q = (i + 1) % len(a)
             ids = (a[i], a[q], b[q], b[i])
             zone = "sun" if (i, k) in lit else _leafy(g, ids, DOME_LEAF_T, DOME_LUMP_SCALE, 60.0)
@@ -297,13 +298,13 @@ def dome_faces(g):
     for i in range(len(last)):
         q = (i + 1) % len(last)
         m.tri(g.ceil_pole, last[i], last[q], DOWN, "shade")
-    for gap in g.gaps:
-        half = min(GAP_HALF[2], max(GAP_HALF[1], GAP_HALF[0] * gap["radius"]))
-        g.rays.append((gap["pts"], half))
+    for sh in g.shafts:
+        half = min(SHAFT_HALF[2], max(SHAFT_HALF[1], SHAFT_HALF[0] * sh["radius"]))
+        g.rays.append((sh["pts"], half))
 
 
 # =============================================================================
-# DRESSING -- leaf clumps round each gap's rim, socketed into the dome
+# DRESSING -- leaf clumps round each shaft's mouth, socketed into the dome
 # =============================================================================
 
 def _dist(p, q):
@@ -317,10 +318,10 @@ class _State(object):
     def __init__(self, g, fb):
         self.g, self.m, self.fb = g, g.m, fb
         self.r = ft._Rng(SEED + 5)
-        self.nc = len(g.dome[GAP_BANDS[0]])
+        self.nc = len(g.dome[SHAFT_BANDS[0]])
         self.taken = set()
-        for (i, k) in g.ceil_holes:
-            self.taken.add((i, k))
+        for sh in g.shafts:                    # a shaft's own cells take no clump: they are its light
+            self.taken.update(sh["cells"])
         self.sph = []
         self.worst = math.pi
         self.count = 0
@@ -429,7 +430,7 @@ def _clump_hang(m, ring, centre, radius, zone, rng, squash=0.75, wob=0.2):
 
 def _rim_clump(st, k, i, over=None):
     """One leaf clump on a short stem out of dome quad (i, k); ``over`` leans it
-    toward the gap's centre so it hangs across the daylight."""
+    toward the shaft's centre so it hangs across the light."""
     m, r = st.m, st.r
     quads = [st.dome_quad(k, i)]
     if quads[0] is None:
@@ -453,22 +454,22 @@ def _rim_clump(st, k, i, over=None):
         return False
     st.taken.add((i, k))
     rings = ft.tube(m, path, STEM_R, CLUMP_SEGS, "bark", caps=(False, False), first_ring=ring0)
-    _clump_hang(m, rings[-1], centre, radius, "sun", r)   # lit: they hang in the gap's own light
+    _clump_hang(m, rings[-1], centre, radius, "sun", r)   # lit: they hang in the shaft's own light
     st.sph.append((centre, radius * 1.25))
     st.count += 1
     return True
 
 
 def dress(g):
-    """Leaf clumps round every gap's rim: the daylight comes between clumps."""
+    """Leaf clumps round every shaft's mouth: they occlude its top from below."""
     import sys
     fb = sys.modules[g.__class__.__module__]   # the driver (forest_build, or a render copy of it)
     st = _State(g, fb)
     before = sum(1 for f in g.m.faces if f is not None)
-    lo, hi = GAP_BANDS
-    for gap in g.gaps:
-        cells = set(gap["cells"])
-        c = gap["centre"]
+    lo, hi = SHAFT_BANDS
+    for sh in g.shafts:
+        cells = set(sh["cells"])
+        c = sh["centre"]
         rim = []
         for (i, k) in sorted(cells):
             for (di, dk) in ((-1, 0), (1, 0), (0, -1), (0, 1)):
@@ -491,6 +492,6 @@ def dress(g):
             if _rim_clump(st, k, i, over=c if made % 3 == 0 else None):
                 made += 1
     after = sum(1 for f in g.m.faces if f is not None)
-    print("MDL STATS roof gallery_y=%.1f dome_y=%.1f..%.1f gaps=%d rim_clumps=%d tris_added=%d worst_bridge_deg=%.1f"
-          % (GALLERY_Z, DOME[0][1], DOME_TOP, len(GAPS), st.count, after - before, math.degrees(st.worst)))
+    print("MDL STATS roof gallery_y=%.1f dome_y=%.1f..%.1f shafts=%d rim_clumps=%d tris_added=%d worst_bridge_deg=%.1f"
+          % (GALLERY_Z, DOME[0][1], DOME_TOP, len(SHAFTS), st.count, after - before, math.degrees(st.worst)))
     g.ceil_stats = {"rim_clumps": st.count, "tris_added": after - before}
