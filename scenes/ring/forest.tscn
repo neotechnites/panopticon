@@ -1,4 +1,4 @@
-[gd_scene load_steps=15 format=3]
+[gd_scene load_steps=16 format=3]
 
 [ext_resource type="Script" path="res://scripts/match/kill_volume.gd" id="1_kill_volume"]
 [ext_resource type="Script" path="res://scripts/ring/ring_route.gd" id="2_ring_route"]
@@ -7,7 +7,8 @@
 [ext_resource type="Resource" path="res://scenes/ring/forest_watching_eye_profile.tres" id="5_watcher_profile"]
 [ext_resource type="PackedScene" path="res://assets/models/forest.glb" id="6_forest_model"]
 [ext_resource type="PackedScene" path="res://assets/models/forest_tree.glb" id="7_forest_tree"]
-[ext_resource type="PackedScene" path="res://scenes/ring/portal.tscn" id="8_portal"]
+[ext_resource type="PackedScene" path="res://scenes/ring/forest_portal.tscn" id="8_portal"]
+[ext_resource type="PackedScene" path="res://assets/models/forest_bars.glb" id="9_forest_bars"]
 
 [sub_resource type="ProceduralSkyMaterial" id="SkyMat"]
 sky_top_color = Color(0.66, 0.74, 0.62, 1)
@@ -111,6 +112,10 @@ transform = Transform3D(0.965926, 0, 0.258819, 0, 1, 0, -0.258819, 0, 0.965926, 
 
 [node name="Portal" parent="StartEnd" instance=ExtResource("8_portal")]
 transform = Transform3D(0.965926, 0, 0.258819, 0, 1, 0, -0.258819, 0, 0.965926, 50.2281, 23, -13.4586)
+
+[node name="Bars" parent="." instance=ExtResource("9_forest_bars")]
+editor_description = "The gate across the lane at 353 deg, in the gap between the finish (345) and the start (5), so the finish is visible from the start but not walkable back to. The same node and the same place Map 1 and Map 2 give their bars, in the forest's own material: assets/models/forest_bars.glb, a fallen-log sill, a lintel, two living end posts and lashed branch bars, the map's cell bars scaled up. It keeps rock_bars.glb's envelope exactly (10.6 x 8.5 m, origin the base centre) and its guarantee that no gap anywhere exceeds 0.38 m, so the swap is the model and nothing else. Local X (10.6 m) runs radially across the lane, local Z along it. The map mesh's own fallen-log fence stands three degrees ahead of it at 350."
+transform = Transform3D(0.992546, 0, 0.121869, 0, 1, 0, -0.121869, 0, 0.992546, 51.6124, 23, -6.33721)
 
 [node name="Sections" type="Node3D" parent="."]
 

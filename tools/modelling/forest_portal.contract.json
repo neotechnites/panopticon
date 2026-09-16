@@ -1,0 +1,10 @@
+{
+  "_comment": "forest_portal: Map 3's finish line. Two living trunks either side of the opening, braided over the top into a pointed arch, with branches arching over into leaf clumps; portal_build's emissive swirl hangs inside as the effect surface, painted over the forest atlas's `earth` zone and unwrapped planar so it is pixel-for-pixel the disc portal.glb shows. 4.5 x 4.0 x 0.8 m, origin at the base centre, y=0 is the ground; the disc lies in local XY at z=0 so a runner passes through along local Z, exactly as portal.glb. ONE connected mesh: the disc is fanned off the frame's own y=0 vertex row, it does not float. One textured material (the forest 256x256 atlas + emissive), one UV set, no skin, no animation. ForestPortalCollision is the same two jambs and the same arched head coarsened to a four-sided prism ring -- not a box -- shipped as a `-colonly` node, leaving |x| <= 1.30 clear from the ground to z = 2.8 (portal.glb's hole, to the centimetre; the disc has no collision). Godot turns it into a StaticBody3D + ConcavePolygonShape3D and drops its mesh, so `surfaces` stays 1 and `max_tris` counts only what is drawn.",
+  "node_paths": [
+    "ForestPortal",
+    "ForestPortalCollision",
+    "ForestPortalCollision/CollisionShape3D"
+  ],
+  "surfaces": 1,
+  "max_tris": 1500
+}
