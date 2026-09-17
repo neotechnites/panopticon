@@ -260,6 +260,20 @@ var _charging: bool = false
 ## single-shot cycle unless the reload is shorter than the flight time.
 var _projectiles: Array[WeaponProjectile] = []
 
+## Rounds a client is flying purely to be seen, one per replayed remote shot.
+##
+## Kept apart from [member _projectiles] because these hold no authority at all:
+## they never cast, never hit, never miss, and never reach [method _report]. The
+## host sends the shot line and the hit separately, as it always has, so a
+## cosmetic round that also reported would score the same shot twice.
+##
+## They exist because a travelling shot that is only travelling on the host is
+## not the same game on both machines: the tower's round has to be visibly
+## crossing the gap for a runner to have anything to dodge. Both ends of the line
+## are already on the wire and the speed is a rule both machines share, so the
+## flight is reconstructed locally for zero extra bytes.
+var _visual_rounds: Array[WeaponProjectile] = []
+
 ## The shooter's speed in m/s, sampled from the aim source's own motion so that
 ## no extra wiring is needed to know whether the tower is walking. Stays 0.0
 ## unless [member WeaponProfile.moving_spread_degrees] asks for it.
@@ -631,6 +645,40 @@ func get_settled_seconds() -> float:
 
 # --- Rounds in flight ---------------------------------------------------------
 
+## Whether a shot from this weapon crosses the gap instead of arriving instantly.
+##
+## The single answer to "does the shot travel", and every path in this file asks
+## here rather than reading the profile directly. The profile says what the gun
+## IS; the match gets the last word, exactly as it does on the reload -- see
+## [method get_base_reload_seconds]. An arm of a sweep is a [MatchRules], so a
+## shot model that cannot be reached from one is a shot model that can never be
+## measured, which is the same as not having it.
+func is_travelling_shot() -> bool:
+	if profile == null:
+		return false
+	if rules == null:
+		return profile.is_projectile()
+	return rules.shot_travels(profile.is_projectile())
+
+
+## The muzzle speed of a shot in m/s, after the match has had its say.
+##
+## [b]0.0 means hitscan[/b] -- an infinite speed, not a stalled round -- and
+## callers lean on that rather than asking the shot model a second time: a bot's
+## lead computation multiplies by nothing and a replay draws its streak
+## instantly, both off this one number. Under a travelling shot the profile's
+## speed for this [param charge] is passed through [member rules] the same way
+## the reload is, so a sweep can vary the lead a runner is worth without
+## touching the weapon.
+func get_shot_speed(charge: float = 0.0) -> float:
+	if not is_travelling_shot():
+		return 0.0
+	var speed: float = profile.get_charged_projectile_speed(charge)
+	if rules == null:
+		return speed
+	return rules.get_projectile_speed(speed)
+
+
 ## How many rounds are currently in the air. Always 0 under hitscan, which is
 ## the shipped model, so this doubles as the assertion that the default weapon
 ## allocates nothing.
@@ -638,14 +686,28 @@ func get_projectiles_in_flight() -> int:
 	return _projectiles.size()
 
 
+## How many cosmetic rounds a client is currently flying. Always 0 on the
+## authority and always 0 under hitscan, so a budget test can assert that the
+## replay path allocates nothing for the shipped weapon either.
+func get_visual_rounds_in_flight() -> int:
+	return _visual_rounds.size()
+
+
 ## Delete every round in the air without resolving it: no hit, no miss, no
 ## signal. For a round reset or a teardown, where a shot fired by a tower that
 ## no longer exists should not land on a runner in the next round.
+##
+## Cosmetic rounds go with them. A replay left mid-flight across a round boundary
+## would put a streak in the sky with nothing behind it.
 func clear_projectiles() -> void:
 	for round_shot: WeaponProjectile in _projectiles:
 		if is_instance_valid(round_shot):
 			round_shot.queue_free()
 	_projectiles.clear()
+	for visual: WeaponProjectile in _visual_rounds:
+		if is_instance_valid(visual):
+			visual.queue_free()
+	_visual_rounds.clear()
 
 
 # --- Rules-supplied weapon ----------------------------------------------------
@@ -677,6 +739,9 @@ static func read_rules_profile(source: MatchRules) -> WeaponProfile:
 ## Order matters: [signal fired] goes out before [signal target_hit], so a
 ## listener that reacts to the tower having given itself away sees the shot even
 ## if a hit listener removes the target and tears down half the scene.
+##
+## Under a travelling shot only the first half happens here; the outcome and the
+## tracer both wait for the round -- see [method _report].
 func _resolve_shot(charge: float) -> void:
 	var source: Node3D = aim_source if aim_source != null else self
 	var origin: Vector3 = source.global_position
@@ -694,14 +759,20 @@ func _resolve_shot(charge: float) -> void:
 	# still gives an observer the tower's position to within the muzzle offset.
 	var muzzle_node: Node3D = muzzle if muzzle != null else source
 
-	if profile.is_projectile():
+	if is_travelling_shot():
 		# The outcome is not known yet, so the broadcast carries the line the
 		# round was launched along and the hit or miss follows it later. The
 		# round leaves the eye rather than the barrel for the same reason the
 		# ray does: no parallax to explain away between the crosshair and where
 		# the shot actually goes.
-		_launch(origin, direction, travel_range, charge)
-		_spawn_tracer(muzzle_node.global_position, far_point)
+		#
+		# No tracer here. A streak drawn at the trigger paints the entire line
+		# before the round has crossed any of it -- which is exactly the hitscan
+		# read, and it would hand a runner the impact point early enough to
+		# dodge the flight the model exists to create. The barrel at THIS
+		# instant rides along on the round so the trail that lands later still
+		# starts where the shot left, not where the tower has since walked to.
+		_launch(origin, direction, travel_range, charge, muzzle_node.global_position)
 		fired.emit(origin, far_point)
 		return
 
@@ -725,13 +796,24 @@ func _resolve_shot(charge: float) -> void:
 
 ## Cosmetic replay of a shot the authority took: tracer, [signal fired] and the
 ## reload cycle, with no ray and no hit. For clients in a networked match.
+##
+## Under a travelling shot the instant streak is replaced by a cosmetic round
+## flown between the two ends the host already sent, at [method get_shot_speed],
+## and the tracer waits for it to arrive. The wire is untouched -- the same
+## origin, end point and reload it always carried -- because both ends of the
+## line and the speed are enough to rebuild the flight locally. The round
+## resolves into a trail and nothing else: the hit and the miss are the host's
+## and arrive on their own messages.
 func show_remote_shot(origin: Vector3, end_point: Vector3, reload: float) -> void:
 	if profile == null:
 		return
 	var muzzle_node: Node3D = muzzle if muzzle != null else (aim_source if aim_source != null else self)
 	if reload > 0.0:
 		reload_seconds = reload
-	_spawn_tracer(muzzle_node.global_position, end_point)
+	if is_travelling_shot():
+		_launch_visual(origin, end_point, muzzle_node.global_position)
+	else:
+		_spawn_tracer(muzzle_node.global_position, end_point)
 	fired.emit(origin, end_point)
 	_set_state(State.FIRING)
 
@@ -862,10 +944,15 @@ func _step_charge(delta: float) -> void:
 ## Fly every round in the air, and report the ones that landed.
 ##
 ## Walked backwards so a round resolving does not shuffle the ones behind it.
-## Under the shipped hitscan model the array is always empty and this is one
-## [method Array.is_empty] call per tick.
+## Under the shipped hitscan model both arrays are always empty and this is two
+## [method Array.is_empty] calls per tick.
+##
+## The authority's rounds and a client's cosmetic ones are flown by the same
+## call in the same tick so the flight is one behaviour with one clock; what
+## differs is only what arrival MEANS, and that difference is the single missing
+## [method _report] below.
 func _step_projectiles(delta: float) -> void:
-	if _projectiles.is_empty():
+	if _projectiles.is_empty() and _visual_rounds.is_empty():
 		return
 	var index: int = _projectiles.size() - 1
 	while index >= 0:
@@ -877,12 +964,36 @@ func _step_projectiles(delta: float) -> void:
 			_report(round_shot)
 			round_shot.queue_free()
 		index -= 1
+	index = _visual_rounds.size() - 1
+	while index >= 0:
+		var visual: WeaponProjectile = _visual_rounds[index]
+		if not is_instance_valid(visual):
+			_visual_rounds.remove_at(index)
+		elif visual.advance(delta):
+			_visual_rounds.remove_at(index)
+			# A cosmetic round's whole outcome is its trail. Never [method
+			# _report]: the hit and the miss belong to the host and are already
+			# on their way, and emitting them here would resolve one shot twice
+			# on one machine.
+			_spawn_tracer(visual.muzzle_origin, visual.get_end_point())
+			visual.queue_free()
+		index -= 1
 
 
 ## Turn a resolved round into the same [signal target_hit] or [signal missed]
 ## a hitscan shot would have emitted. The point of the exercise: nothing
 ## downstream can tell which model fired.
+##
+## The tracer is drawn FIRST, before either outcome, which is the order a hitscan
+## shot has always used -- see [method _resolve_shot] -- and it matters for the
+## same reason: a hit listener is allowed to remove the target and tear down half
+## the scene, and the streak that gives the tower's position away must survive
+## that. Same line, same lifetime as the hitscan streak; it simply arrives after
+## the flight, which is what makes it a trail rather than a prediction. It starts
+## at the round's own [member WeaponProjectile.muzzle_origin], the barrel at the
+## trigger, because that is where the shot actually left from.
 func _report(round_shot: WeaponProjectile) -> void:
+	_spawn_tracer(round_shot.muzzle_origin, round_shot.get_end_point())
 	if round_shot.has_hit():
 		target_hit.emit(
 			round_shot.get_collider(), round_shot.get_end_point(), round_shot.get_normal()
@@ -892,16 +1003,59 @@ func _report(round_shot: WeaponProjectile) -> void:
 
 
 ## Put a round in the air along the line the shot actually took.
-func _launch(origin: Vector3, direction: Vector3, travel_range: float, charge: float) -> void:
+##
+## [param muzzle_position] is the barrel at the trigger, handed to the round
+## rather than looked up when it lands: the seat is a role and the tower moves,
+## so by the time the round arrives the muzzle is somewhere else and a trail
+## drawn from it would be a lie about where the shot came from.
+func _launch(
+	origin: Vector3,
+	direction: Vector3,
+	travel_range: float,
+	charge: float,
+	muzzle_position: Vector3
+) -> void:
 	var parent: Node = _world_parent()
 	var exclude: Array[RID] = []
 	if shooter_body != null:
 		exclude.append(shooter_body.get_rid())
-	var speed: float = profile.get_charged_projectile_speed(charge)
-	_projectiles.append(
-		WeaponProjectile.launch(parent, origin, direction, speed, travel_range, profile, exclude)
+	# The match's speed, not the profile's: the round in the air has to be the
+	# round the rules asked for or a sweep measures a weapon nobody configured.
+	var speed: float = get_shot_speed(charge)
+	var round_shot: WeaponProjectile = WeaponProjectile.launch(
+		parent, origin, direction, speed, travel_range, profile, exclude
 	)
+	round_shot.muzzle_origin = muzzle_position
+	_projectiles.append(round_shot)
 	projectile_launched.emit(origin, direction, speed)
+
+
+## Fly a cosmetic round along a line the authority already resolved.
+##
+## Direction and range are reconstructions from the two ends on the wire, not new
+## information, which is the entire trick: the replay costs no bytes. `cosmetic`
+## is what tells the round it owns no outcome -- it sweeps nothing and strikes
+## nothing -- so a client cannot invent a hit the host never scored.
+func _launch_visual(origin: Vector3, end_point: Vector3, muzzle_position: Vector3) -> void:
+	var travel_range: float = origin.distance_to(end_point)
+	if travel_range <= 0.0:
+		# A zero-length shot has no flight to show and no direction to normalise.
+		# Draw it the way hitscan would; the alternative is a divide by zero.
+		_spawn_tracer(muzzle_position, end_point)
+		return
+	var exclude: Array[RID] = []
+	var visual: WeaponProjectile = WeaponProjectile.launch(
+		_world_parent(),
+		origin,
+		(end_point - origin) / travel_range,
+		get_shot_speed(),
+		travel_range,
+		profile,
+		exclude,
+		true
+	)
+	visual.muzzle_origin = muzzle_position
+	_visual_rounds.append(visual)
 
 
 ## Announce the wind-up once, on the tick the reload crosses into it.

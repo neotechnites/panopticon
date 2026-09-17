@@ -125,8 +125,8 @@ func configure(from: Vector3, to: Vector3, profile: WeaponProfile) -> void:
 	cast_shadow = SHADOW_CASTING_SETTING_OFF
 	global_transform = Transform3D(Basis.IDENTITY, start)
 
-	mesh = _build_ribbon(span, profile.tracer_width)
-	_material = _build_material()
+	mesh = Tracer.build_ribbon(span, profile.tracer_width)
+	_material = Tracer.build_material(_color)
 	material_override = _material
 	_apply_fade()
 
@@ -139,11 +139,18 @@ func _process(delta: float) -> void:
 	_apply_fade()
 
 
-## Two quads crossed along [param axis], expressed in the tracer's local space
-## with the muzzle at the origin. Four triangles, twelve vertices, no indices --
-## at the volumes a single-shot weapon produces this is far cheaper than the
+## Two quads crossed along [param axis], expressed in the caller's local space
+## with the near end at the origin. Four triangles, twelve vertices, no indices
+## -- at the volumes a single-shot weapon produces this is far cheaper than the
 ## bookkeeping needed to share them.
-func _build_ribbon(axis: Vector3, width: float) -> ImmediateMesh:
+##
+## Public and static because the streak has a second caller:
+## [WeaponProjectile] draws a round in flight as this same crossed-quad streak
+## rather than a sphere, since a sphere cannot be read at 100 m across the ring.
+## One geometry implementation, not two -- the whole argument above for crossed
+## quads over a line or a billboard applies identically to a round, and a second
+## copy of it would be free to drift away from this one.
+static func build_ribbon(axis: Vector3, width: float) -> ImmediateMesh:
 	var mesh_out: ImmediateMesh = ImmediateMesh.new()
 	var length: float = axis.length()
 	if length <= 0.0:
@@ -158,16 +165,18 @@ func _build_ribbon(axis: Vector3, width: float) -> ImmediateMesh:
 
 	var half: float = width * 0.5
 	mesh_out.surface_begin(Mesh.PRIMITIVE_TRIANGLES)
-	_add_quad(mesh_out, axis, side * half)
-	_add_quad(mesh_out, axis, other * half)
+	Tracer.add_quad(mesh_out, axis, side * half)
+	Tracer.add_quad(mesh_out, axis, other * half)
 	mesh_out.surface_end()
 	return mesh_out
 
 
-## One quad spanning the shot, [param half_width] to either side of the axis.
-## Winding is not maintained because the material disables culling -- a tracer
+## One quad spanning the streak, [param half_width] to either side of the axis.
+## Winding is not maintained because the material disables culling -- a streak
 ## must look identical from both sides or the X cross-section would show gaps.
-func _add_quad(mesh_out: ImmediateMesh, axis: Vector3, half_width: Vector3) -> void:
+## Static alongside [method build_ribbon] for the same reason: the round in
+## flight is built out of these same quads.
+static func add_quad(mesh_out: ImmediateMesh, axis: Vector3, half_width: Vector3) -> void:
 	var near_a: Vector3 = -half_width
 	var near_b: Vector3 = half_width
 	var far_a: Vector3 = axis - half_width
@@ -180,7 +189,12 @@ func _add_quad(mesh_out: ImmediateMesh, axis: Vector3, half_width: Vector3) -> v
 	mesh_out.surface_add_vertex(far_a)
 
 
-## Unshaded, alpha-blended, unculled, depth-write off.
+## Unshaded, alpha-blended, unculled, depth-write off, in [param color].
+##
+## Takes the colour rather than reading [member _color] so [WeaponProjectile]
+## can dress its in-flight streak out of the same one implementation -- the
+## blending argument below is exactly as true for a round as for a tracer, and
+## it is the kind of argument that gets lost when it is copied.
 ##
 ## Unshaded because a tracer is a light source, not a lit surface, and a lit one
 ## would go black in the ring's shadowed cover. Unculled because the two crossed
@@ -199,7 +213,7 @@ func _add_quad(mesh_out: ImmediateMesh, axis: Vector3, half_width: Vector3) -> v
 ## the pale deck, against the sky and over the near-white face of the eye alike,
 ## which no additive colour can do. The cost is that it no longer blooms; the
 ## brightness that bought is worth less than being seen at all.
-func _build_material() -> StandardMaterial3D:
+static func build_material(color: Color) -> StandardMaterial3D:
 	var material: StandardMaterial3D = StandardMaterial3D.new()
 	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
@@ -207,7 +221,7 @@ func _build_material() -> StandardMaterial3D:
 	material.cull_mode = BaseMaterial3D.CULL_DISABLED
 	material.no_depth_test = false
 	material.disable_receive_shadows = true
-	material.albedo_color = _color
+	material.albedo_color = color
 	return material
 
 

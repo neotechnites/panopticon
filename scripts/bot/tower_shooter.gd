@@ -539,8 +539,21 @@ func _recall_freshest() -> bool:
 	return found
 
 
-## Steer at the believed point plus lead, misjudged in proportion to how fast
-## the target crosses; returns the believed aim error for the shot decision.
+## Steer at the believed point plus lead: the aim's own lag, and time of flight
+## as well when the round travels, because leading a moving round is a second
+## skill on top of tracking. Both leads read the BELIEVED velocity, so a runner
+## who breaks stride after the muzzle flash beats a shot that was perfect when
+## it left.
+##
+## Returns the aim error the shot decision is made on, which is the error
+## against the SOLUTION -- where the round has to go -- and not against where
+## the runner is standing now. Those are the same point under hitscan and only
+## under hitscan. Measuring a led shot against the runner's current position
+## reads the guard's own correct lead as being off target: the harness caught
+## it doing exactly that, waiting out its own solution (reaction 469 ms to
+## 820 ms) and dropping from a 28% hit rate to 3%. A guard is on target when
+## its gun is on the intercept; that is what being on target MEANS for a round
+## that has to fly.
 func _track(delta: float) -> Vector2:
 	var to_target: Vector3 = _believed_point - _eye_position()
 	var range_to_target: float = maxf(to_target.length(), 0.0001)
@@ -551,11 +564,27 @@ func _track(delta: float) -> Vector2:
 	var omega: float = profile.get_tracking_omega(get_skill())
 	var ideal_lead: float = 2.0 * profile.tracking_damping / omega
 	var steer_point: Vector3 = _believed_point + crossing * ideal_lead
+	# Where the round has to be sent, as against where the gun is being swung.
+	# The believed point itself while nothing is in the air, which is what keeps
+	# the hitscan guard bit-for-bit the one that shipped.
+	var solution: Vector3 = _believed_point
+	var error_speed: float = angular_speed
+	var shot_speed: float = rifle.get_shot_speed()
+	if shot_speed > 0.0:
+		# Flight time to the believed point, then once more to where that lead put
+		# it. The misjudgement takes a fraction of the TOTAL lead, so a slow round
+		# is a longer lead and a wider miss, never a free one.
+		var flight: float = range_to_target / shot_speed
+		flight = (to_target + _believed_velocity * flight).length() / shot_speed
+		var ballistic: Vector3 = _believed_velocity * flight
+		solution += ballistic
+		steer_point += ballistic
+		error_speed = angular_speed * ((ideal_lead + flight) / ideal_lead)
 	if crossing_speed > 0.0001:
-		var misjudged: float = profile.get_lead_error_radians(angular_speed, get_skill()) * _lead_bias
+		var misjudged: float = profile.get_lead_error_radians(error_speed, get_skill()) * _lead_bias
 		steer_point += crossing / crossing_speed * (misjudged * range_to_target)
 	_steer(_angles_to(steer_point), delta, profile.max_yaw_rate, profile.max_pitch_rate)
-	return _angles_to(_believed_point)
+	return _angles_to(solution)
 
 
 ## The hand on the mouse: a second-order response to the aim error.

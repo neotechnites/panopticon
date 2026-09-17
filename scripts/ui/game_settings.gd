@@ -224,6 +224,14 @@ const MIN_GUARD_MISS_PENALTY_SECONDS: float = 0.0
 ## Past the base reload a miss stops being a penalty and becomes a lost turn.
 const MAX_GUARD_MISS_PENALTY_SECONDS: float = 10.0
 
+## Metres per second a guard's bullet flies. 0 is hitscan, today's rifle.
+const DEFAULT_GUARD_PROJECTILE_SPEED: float = 0.0
+const MIN_GUARD_PROJECTILE_SPEED: float = 0.0
+
+## Ceiling on the saved preference. Past it the flight time is under a frame
+## and the shot is hitscan in all but name.
+const MAX_GUARD_PROJECTILE_SPEED: float = 1200.0
+
 ## Whether a confirmed hit raises the guard's hitmarker. True is today's game.
 const DEFAULT_GUARD_HIT_MARKER: bool = true
 
@@ -509,6 +517,10 @@ var tower_open_windows: int = DEFAULT_TOWER_OPEN_WINDOWS
 ## [member MatchRules.guard_miss_penalty_seconds].
 var guard_miss_penalty_seconds: float = DEFAULT_GUARD_MISS_PENALTY_SECONDS
 
+## Metres per second a guard's bullet flies, 0 hitscan. Written over
+## [member MatchRules.guard_projectile_speed].
+var guard_projectile_speed: float = DEFAULT_GUARD_PROJECTILE_SPEED
+
 ## Whether a confirmed hit raises the hitmarker. Written over
 ## [member MatchRules.guard_hit_marker].
 var guard_hit_marker: bool = DEFAULT_GUARD_HIT_MARKER
@@ -622,6 +634,7 @@ func reset() -> void:
 	vote_seconds = DEFAULT_VOTE_SECONDS
 	tower_open_windows = DEFAULT_TOWER_OPEN_WINDOWS
 	guard_miss_penalty_seconds = DEFAULT_GUARD_MISS_PENALTY_SECONDS
+	guard_projectile_speed = DEFAULT_GUARD_PROJECTILE_SPEED
 	guard_hit_marker = DEFAULT_GUARD_HIT_MARKER
 	runner_speed_multiplier = DEFAULT_RUNNER_SPEED_MULTIPLIER
 	runner_jump_multiplier = DEFAULT_RUNNER_JUMP_MULTIPLIER
@@ -700,6 +713,11 @@ func clamp_all() -> void:
 		MIN_GUARD_MISS_PENALTY_SECONDS,
 		MAX_GUARD_MISS_PENALTY_SECONDS,
 	)
+	guard_projectile_speed = clampf(
+		guard_projectile_speed,
+		MIN_GUARD_PROJECTILE_SPEED,
+		MAX_GUARD_PROJECTILE_SPEED,
+	)
 	runner_speed_multiplier = clampf(
 		runner_speed_multiplier, MIN_RUNNER_SPEED_MULTIPLIER, MAX_RUNNER_SPEED_MULTIPLIER
 	)
@@ -765,6 +783,7 @@ func copy_from(other: GameSettings) -> void:
 	vote_seconds = other.vote_seconds
 	tower_open_windows = other.tower_open_windows
 	guard_miss_penalty_seconds = other.guard_miss_penalty_seconds
+	guard_projectile_speed = other.guard_projectile_speed
 	guard_hit_marker = other.guard_hit_marker
 	runner_speed_multiplier = other.runner_speed_multiplier
 	runner_jump_multiplier = other.runner_jump_multiplier
@@ -816,6 +835,7 @@ func equals(other: GameSettings) -> bool:
 		and is_equal_approx(vote_seconds, other.vote_seconds)
 		and tower_open_windows == other.tower_open_windows
 		and is_equal_approx(guard_miss_penalty_seconds, other.guard_miss_penalty_seconds)
+		and is_equal_approx(guard_projectile_speed, other.guard_projectile_speed)
 		and guard_hit_marker == other.guard_hit_marker
 		and is_equal_approx(runner_speed_multiplier, other.runner_speed_multiplier)
 		and is_equal_approx(runner_jump_multiplier, other.runner_jump_multiplier)
@@ -883,6 +903,7 @@ func write_to(config: ConfigFile) -> void:
 	config.set_value(SECTION_MATCH, "vote_seconds", vote_seconds)
 	config.set_value(SECTION_MATCH, "tower_open_windows", tower_open_windows)
 	config.set_value(SECTION_MATCH, "guard_miss_penalty_seconds", guard_miss_penalty_seconds)
+	config.set_value(SECTION_MATCH, "guard_projectile_speed", guard_projectile_speed)
 	config.set_value(SECTION_MATCH, "guard_hit_marker", guard_hit_marker)
 	config.set_value(SECTION_MATCH, "runner_speed_multiplier", runner_speed_multiplier)
 	config.set_value(SECTION_MATCH, "runner_jump_multiplier", runner_jump_multiplier)
@@ -965,6 +986,9 @@ func read_from(config: ConfigFile) -> void:
 	)
 	guard_miss_penalty_seconds = read_float(
 		config, SECTION_MATCH, "guard_miss_penalty_seconds", guard_miss_penalty_seconds
+	)
+	guard_projectile_speed = read_float(
+		config, SECTION_MATCH, "guard_projectile_speed", guard_projectile_speed
 	)
 	guard_hit_marker = read_bool(config, SECTION_MATCH, "guard_hit_marker", guard_hit_marker)
 	runner_speed_multiplier = read_float(
@@ -1164,6 +1188,7 @@ func apply_to_match_rules(rules: MatchRules) -> void:
 	rules.vote_seconds = vote_seconds
 	rules.tower_open_windows = tower_open_windows
 	rules.guard_miss_penalty_seconds = guard_miss_penalty_seconds
+	rules.guard_projectile_speed = guard_projectile_speed
 	rules.guard_hit_marker = guard_hit_marker
 	rules.runner_speed_multiplier = runner_speed_multiplier
 	rules.runner_jump_multiplier = runner_jump_multiplier

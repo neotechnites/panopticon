@@ -9,7 +9,6 @@ min_reload_seconds = 0.5
 shot_duration = 0.06
 shot_model = 1
 projectile_speed = 120.0
-projectile_visual_radius = 0.06
 max_range = 400.0
 hit_mask = 1048575
 tracer_lifetime = 0.8

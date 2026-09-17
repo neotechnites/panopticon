@@ -67,6 +67,7 @@ const RESOLUTION_NOTE: String = "SETTINGS_VIDEO_NOTE_RESOLUTION"
 @onready var _tower_variant_option: OptionButton = %TowerVariantOption
 @onready var _windows_spin: SpinBox = %WindowsSpin
 @onready var _miss_penalty_spin: SpinBox = %MissPenaltySpin
+@onready var _projectile_speed_spin: SpinBox = %ProjectileSpeedSpin
 @onready var _hit_marker_check: CheckBox = %HitMarkerCheck
 @onready var _map_pick_option: OptionButton = %MapPickOption
 @onready var _vote_seconds_spin: SpinBox = %VoteSecondsSpin
@@ -164,6 +165,7 @@ func refresh() -> void:
 	_tower_variant_option.selected = settings.tower_variant
 	_windows_spin.value = settings.tower_open_windows
 	_miss_penalty_spin.value = settings.guard_miss_penalty_seconds
+	_projectile_speed_spin.value = settings.guard_projectile_speed
 	_hit_marker_check.button_pressed = settings.guard_hit_marker
 	_map_pick_option.selected = settings.map_pick_mode
 	_vote_seconds_spin.value = settings.vote_seconds
@@ -249,6 +251,10 @@ func _configure_ranges() -> void:
 	_configure_spin(
 		_miss_penalty_spin, GameSettings.MIN_GUARD_MISS_PENALTY_SECONDS,
 		GameSettings.MAX_GUARD_MISS_PENALTY_SECONDS, 0.1, tr("SETTINGS_UNIT_SECONDS"),
+	)
+	_configure_spin(
+		_projectile_speed_spin, GameSettings.MIN_GUARD_PROJECTILE_SPEED,
+		GameSettings.MAX_GUARD_PROJECTILE_SPEED, 10.0, tr("SETTINGS_UNIT_METRES_PER_SECOND"),
 	)
 	_configure_spin(
 		_runner_speed_spin, GameSettings.MIN_RUNNER_SPEED_MULTIPLIER,
@@ -361,6 +367,7 @@ func _connect_controls() -> void:
 	_tower_variant_option.item_selected.connect(_on_tower_variant_selected)
 	_windows_spin.value_changed.connect(_on_windows_changed)
 	_miss_penalty_spin.value_changed.connect(_on_miss_penalty_changed)
+	_projectile_speed_spin.value_changed.connect(_on_projectile_speed_changed)
 	_hit_marker_check.toggled.connect(_on_hit_marker_toggled)
 	_map_pick_option.item_selected.connect(_on_map_pick_selected)
 	_vote_seconds_spin.value_changed.connect(_on_vote_seconds_changed)
@@ -433,7 +440,7 @@ func _on_reload_by_turn_changed(value: float, turn_index: int) -> void:
 	_after_change()
 
 
-# The Balance group. Twelve handlers of one shape: write the store, clamp, and
+# The Balance group. Thirteen handlers of one shape: write the store, clamp, and
 # let SettingsBoot carry it into the next match. None of them touches a running
 # one -- these are rules of the round, not presentation.
 
@@ -476,6 +483,13 @@ func _on_miss_penalty_changed(value: float) -> void:
 	if _syncing:
 		return
 	_store.settings.guard_miss_penalty_seconds = value
+	_after_change()
+
+
+func _on_projectile_speed_changed(value: float) -> void:
+	if _syncing:
+		return
+	_store.settings.guard_projectile_speed = value
 	_after_change()
 
 

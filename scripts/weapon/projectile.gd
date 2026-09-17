@@ -34,6 +34,23 @@ extends Node3D
 ## new position, so a round cannot pass through cover however fast it is going.
 ## [member WeaponProfile.projectile_step_metres] caps how long one of those
 ## segments may be, which keeps the impact normal honest on thin geometry.
+##
+## [b]Cosmetic rounds[/b]
+##
+## A peer that is not the authority still has to SHOW the round, and the host
+## has already told it where the shot ended. Such a round is configured
+## [code]cosmetic[/code]: no collision mask, no areas, no gravity. It is a
+## straight line to a point somebody else resolved, and bending it a second
+## time would walk the picture off that line -- the streak would arrive
+## somewhere the hit was not. It still flies through the same [method advance]
+## as a live round, so the two cannot drift apart by having two flight paths.
+
+## Where the streak this round leaves should start: the muzzle as it stood on
+## the tick the trigger broke, not wherever the barrel has swung since. [Rifle]
+## assigns it after [method launch] because the weapon is the only thing that
+## knows which of its own muzzle positions fired this round -- a streak drawn
+## from the current muzzle would rubber-band with the shooter's aim.
+var muzzle_origin: Vector3 = Vector3.ZERO
 
 ## Metres per second, direction included. Gravity bends it in flight.
 var _velocity: Vector3 = Vector3.ZERO
@@ -62,6 +79,10 @@ var _hit: Dictionary = {}
 var _resolved: bool = false
 var _end_point: Vector3 = Vector3.ZERO
 
+## True when this round is only a picture of a shot the authority already
+## resolved. It collides with nothing, so it cannot invent a hit of its own.
+var _cosmetic: bool = false
+
 
 ## Put a round in the air along [param direction] from [param origin] and hand
 ## it back. [param travel_range] is the distance it may cover before it is
@@ -72,6 +93,10 @@ var _end_point: Vector3 = Vector3.ZERO
 ## [param exclude] is the shooter's own collider, for exactly the reason
 ## [member Rifle.shooter_body] exists: a round launched inside its owner's
 ## capsule would otherwise strike it on the first step.
+##
+## [param cosmetic] makes the round visual-only -- see [i]Cosmetic rounds[/i]
+## above. A cosmetic round never reports a hit, so a peer showing one cannot
+## disagree with the host about what the shot did.
 static func launch(
 	parent: Node,
 	origin: Vector3,
@@ -80,9 +105,10 @@ static func launch(
 	travel_range: float,
 	profile: WeaponProfile,
 	exclude: Array[RID],
+	cosmetic: bool = false,
 ) -> WeaponProjectile:
 	var round_shot: WeaponProjectile = WeaponProjectile.new()
-	round_shot.configure(origin, direction, speed, travel_range, profile, exclude)
+	round_shot.configure(origin, direction, speed, travel_range, profile, exclude, cosmetic)
 	parent.add_child(round_shot)
 	return round_shot
 
@@ -96,8 +122,10 @@ func configure(
 	travel_range: float,
 	profile: WeaponProfile,
 	exclude: Array[RID],
+	cosmetic: bool = false,
 ) -> void:
 	top_level = true
+	_cosmetic = cosmetic
 	_velocity = direction.normalized() * maxf(speed, 0.001)
 	_gravity = maxf(profile.projectile_gravity, 0.0)
 	_range_left = maxf(travel_range, 0.0)
@@ -109,8 +137,17 @@ func configure(
 	_end_point = origin
 	global_transform = Transform3D(Basis.IDENTITY, origin)
 
-	if profile.projectile_visual_radius > 0.0:
-		_build_visual(profile)
+	if _cosmetic:
+		# Stripped here rather than branched on in flight: the round is aimed at
+		# an end point the authority has already resolved, so a mask that could
+		# stop it short and a gravity that could bend it off that line are not
+		# softened, they are removed.
+		_mask = 0
+		_hit_areas = false
+		_gravity = 0.0
+
+	if profile.draws_projectile_streak():
+		_build_visual(direction, profile)
 
 
 ## Fly for [param delta] seconds. Returns true on the step the round resolves --
@@ -174,6 +211,13 @@ func is_resolved() -> bool:
 	return _resolved
 
 
+## True when this round is a visual-only copy of somebody else's shot. What a
+## caller checks before it credits a round with anything: a cosmetic round is
+## allowed to be seen and nothing else.
+func is_cosmetic() -> bool:
+	return _cosmetic
+
+
 ## True when the round resolved by striking something.
 func has_hit() -> bool:
 	return not _hit.is_empty()
@@ -208,6 +252,8 @@ func get_flight_seconds() -> float:
 
 ## Raycast the segment just crossed. Resolves the round if it struck anything.
 func _sweep(from: Vector3, to: Vector3) -> void:
+	if _cosmetic:
+		return
 	if from.is_equal_approx(to):
 		return
 	var space: PhysicsDirectSpaceState3D = get_world_3d().direct_space_state
@@ -231,30 +277,31 @@ func _resolve(at: Vector3, result: Dictionary) -> void:
 	global_position = at
 
 
-## A small unshaded, additive dot in the tracer's colour, so the round reads as
-## the same hot thing the streak is made of. Built only when
-## [member WeaponProfile.projectile_visual_radius] asks for it, which it does
-## not by default: a headless sweep should not be paying for a mesh nobody
-## looks at.
-func _build_visual(profile: WeaponProfile) -> void:
-	var sphere: SphereMesh = SphereMesh.new()
-	sphere.radius = profile.projectile_visual_radius
-	sphere.height = profile.projectile_visual_radius * 2.0
-	sphere.radial_segments = 6
-	sphere.rings = 3
-
-	var material: StandardMaterial3D = StandardMaterial3D.new()
-	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	material.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
-	material.disable_receive_shadows = true
+## A short streak of the same ribbon [Tracer] is made of, trailing BEHIND the
+## round's head. A dot at the impact point tells a runner nothing; a streak
+## tells them the heading, and therefore which way to break -- the whole reason
+## travel time is a skill rather than a delay.
+##
+## Built only when [method WeaponProfile.draws_projectile_streak] asks for it:
+## a headless sweep should not be paying for a mesh nobody looks at, and that
+## one question is the whole gate, so a profile cannot half-enable the look.
+##
+## The ribbon is built along [code]-direction[/code], so it hangs back down the
+## line the round came from and the lit tip is where the round actually is.
+## Its basis is left identity -- the mesh is world-axis geometry, exactly as
+## [Tracer] builds it, and this node's basis never turns (see [method
+## configure] and [method _resolve], which only ever move the origin). A node
+## that rotated would rotate the streak off the flight line.
+func _build_visual(direction: Vector3, profile: WeaponProfile) -> void:
 	var tint: Color = profile.tracer_color
 	tint.a = profile.get_tracer_alpha()
-	material.albedo_color = tint
 
 	var visual: MeshInstance3D = MeshInstance3D.new()
 	visual.name = "Round"
-	visual.mesh = sphere
-	visual.material_override = material
+	visual.transform = Transform3D.IDENTITY
+	visual.mesh = Tracer.build_ribbon(
+		-direction.normalized() * profile.projectile_visual_length, profile.tracer_width
+	)
+	visual.material_override = Tracer.build_material(tint)
 	visual.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(visual)

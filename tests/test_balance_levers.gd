@@ -316,6 +316,7 @@ func test_the_levers_reach_the_rules_and_are_clamped() -> void:
 	settings.tower_open_windows = 99
 	settings.runner_speed_multiplier = -3.0
 	settings.guard_health = 0
+	settings.guard_projectile_speed = 9000.0
 	settings.clamp_all()
 
 	assert_almost_eq(
@@ -329,11 +330,16 @@ func test_the_levers_reach_the_rules_and_are_clamped() -> void:
 		"pace clamped",
 	)
 	assert_eq_int(settings.guard_health, GameSettings.MIN_GUARD_HEALTH, "guard health clamped")
+	assert_almost_eq(
+		settings.guard_projectile_speed, GameSettings.MAX_GUARD_PROJECTILE_SPEED, 1e-6,
+		"the round's speed clamped",
+	)
 
 	settings.scope_sway_degrees = 2.0
 	settings.tower_variant = 0
 	settings.tower_open_windows = 5
 	settings.guard_miss_penalty_seconds = 1.5
+	settings.guard_projectile_speed = MatchRules.SUGGESTED_PROJECTILE_SPEED
 	settings.guard_hit_marker = false
 	settings.runner_jump_multiplier = 1.4
 	settings.ability_cooldown_multiplier = 2.0
@@ -345,6 +351,10 @@ func test_the_levers_reach_the_rules_and_are_clamped() -> void:
 	assert_eq_int(rules.tower_variant, 0, "the tower landed")
 	assert_eq_int(rules.tower_open_windows, 5, "the openings landed")
 	assert_almost_eq(rules.guard_miss_penalty_seconds, 1.5, 1e-6, "the miss penalty landed")
+	assert_almost_eq(
+		rules.guard_projectile_speed, MatchRules.SUGGESTED_PROJECTILE_SPEED, 1e-6,
+		"the round's speed landed",
+	)
 	assert_false(rules.guard_hit_marker, "the hitmarker landed")
 	assert_almost_eq(rules.runner_jump_multiplier, 1.4, 1e-6, "the jump landed")
 	assert_almost_eq(rules.ability_cooldown_multiplier, 2.0, 1e-6, "the cooldown landed")
@@ -362,6 +372,7 @@ func test_the_levers_round_trip_through_the_config() -> void:
 	written.tower_variant = 0
 	written.tower_open_windows = 2
 	written.guard_miss_penalty_seconds = 0.5
+	written.guard_projectile_speed = 175.0
 	written.guard_hit_marker = false
 	written.runner_speed_multiplier = 1.2
 	written.runner_jump_multiplier = 0.8

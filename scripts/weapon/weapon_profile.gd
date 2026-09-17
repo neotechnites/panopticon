@@ -176,11 +176,20 @@ enum ShotModel {
 ## round is spent in well under a second.
 @export_range(0.1, 60.0, 0.1, "or_greater") var projectile_max_flight_seconds: float = 10.0
 
-## Radius of the visible round, metres. 0.0 -- invisible -- by default, so
-## switching to [constant ShotModel.PROJECTILE] costs a headless sweep no
-## geometry at all and the tracer remains the only tell. Raise it to see the
-## round in a play session.
-@export_range(0.0, 1.0, 0.005) var projectile_visual_radius: float = 0.0
+## Metres of streak drawn behind a round in flight, trailing back along its own
+## velocity. Inert under [constant ShotModel.HITSCAN], where nothing travels.
+##
+## This is what makes the projectile model legible at all. A round is a point
+## moving at [member projectile_speed]; at 100 m across the ring a dot the size
+## of the round itself is smaller than a pixel and a prisoner sees nothing leave
+## the tower, which costs them the counter-play the whole model exists to hand
+## them. A 2.5 m streak is read from anywhere on the deck,
+## and being a length rather than a thickness it also shows which WAY the round
+## is going -- the fact a runner needs in order to dodge it.
+##
+## 0.0 draws nothing, exactly as if [member tracer_enabled] were off; see
+## [method draws_projectile_streak].
+@export_range(0.0, 20.0, 0.1, "or_greater") var projectile_visual_length: float = 2.5
 
 # --- Recoil --------------------------------------------------------------------
 #
@@ -656,6 +665,15 @@ func get_charged_projectile_speed(charge: float) -> float:
 ## about whether geometry gets made.
 func draws_tracer() -> bool:
 	return tracer_enabled and tracer_lifetime > 0.0 and tracer_width > 0.0
+
+
+## True when a round in flight should draw its streak. One gate, and it hangs
+## off [method draws_tracer] on purpose: the streak is the tracer's geometry in
+## the tracer's colour and at the tracer's width, so a sweep arm that switched
+## the tell off and still watched a lit round fly would be measuring nothing.
+## While this is false a round allocates no mesh and no material at all.
+func draws_projectile_streak() -> bool:
+	return draws_tracer() and projectile_visual_length > 0.0
 
 
 ## The tracer's starting alpha: the colour's own alpha scaled by

@@ -184,7 +184,7 @@ text = "SETTINGS_BALANCE"
 custom_minimum_size = Vector2(0, 200)
 size_flags_vertical = 3
 horizontal_scroll_mode = 0
-editor_description = "A bounded window on the Balance rows. Twelve more rows in the tab itself would grow this shrink-centred dialog past 720p and take its footer off the screen; scrolling them keeps every lever reachable at every resolution the video tab offers."
+editor_description = "A bounded window on the Balance rows. Thirteen more rows in the tab itself would grow this shrink-centred dialog past 720p and take its footer off the screen; scrolling them keeps every lever reachable at every resolution the video tab offers."
 
 [node name="BalanceGrid" type="GridContainer" parent="Frame/Dialog/Padding/Layout/Tabs/Match/BalanceScroll"]
 size_flags_horizontal = 3
@@ -265,6 +265,18 @@ size_flags_horizontal = 0
 unique_name_in_owner = true
 
 [node name="MissPenaltySpacer" type="Control" parent="Frame/Dialog/Padding/Layout/Tabs/Match/BalanceScroll/BalanceGrid"]
+
+[node name="ProjectileSpeedName" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Match/BalanceScroll/BalanceGrid"]
+size_flags_vertical = 1
+vertical_alignment = 1
+text = "SETTINGS_PROJECTILE_SPEED"
+
+[node name="ProjectileSpeedSpin" type="SpinBox" parent="Frame/Dialog/Padding/Layout/Tabs/Match/BalanceScroll/BalanceGrid"]
+custom_minimum_size = Vector2(180, 0)
+size_flags_horizontal = 0
+unique_name_in_owner = true
+
+[node name="ProjectileSpeedSpacer" type="Control" parent="Frame/Dialog/Padding/Layout/Tabs/Match/BalanceScroll/BalanceGrid"]
 
 [node name="HitMarkerName" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Match/BalanceScroll/BalanceGrid"]
 size_flags_vertical = 1

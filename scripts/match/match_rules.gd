@@ -675,6 +675,18 @@ enum MapPickMode {
 ## the tower is a miss for this purpose: what counts is that no prisoner was hit.
 @export_range(0.0, 15.0, 0.1, "or_greater") var guard_miss_penalty_seconds: float = 0.0
 
+## How fast the guard's shot flies, in metres per second. [b]LIVE[/b], default
+## 0.0 = hitscan, which is today's rifle: the flash and the hit are one event.
+##
+## Travel time is a different game, not a slower one. A hitscan guard answers
+## "where is the runner"; a guard with a bullet in the air has to answer "where
+## will the runner BE", which is reading an intention rather than a position.
+## The runner is handed the other half of the same bargain: the flash arrives
+## before the shot does, and half a second is long enough to break stride and
+## let it pass through the gap where they were going. Neither side is nerfed --
+## both are given something to read. See [constant SUGGESTED_PROJECTILE_SPEED].
+@export_range(0.0, 1200.0, 5.0, "or_greater") var guard_projectile_speed: float = 0.0
+
 ## How good the AI guard is, 0 a learner to 1 an expert. Scales its reaction,
 ## lead error and scan speed; see [TowerShooter].
 @export_range(0.0, 1.0, 0.05) var guard_skill: float = 0.5
@@ -706,6 +718,16 @@ enum MapPickMode {
 ## Openings the tower drum carries. A fact about the model, restated here
 ## because [member tower_open_windows] is bounded by it.
 const TOWER_WINDOW_COUNT: int = 8
+
+## The speed to reach for when [member guard_projectile_speed] is turned on at
+## all. Nothing reads this; it is the number worth typing into the box first.
+##
+## 200 m/s is half a second of flight at a hundred metres, which is about three
+## and a half metres of lead on a sprinting prisoner. That is enough that
+## leading is a real skill rather than a guess, and enough that a runner who
+## reads the muzzle flash still has time to break stride -- while staying fast
+## enough that the shot is a shot and not a lob.
+const SUGGESTED_PROJECTILE_SPEED: float = 200.0
 
 # --- Derived values -----------------------------------------------------------
 
@@ -747,6 +769,29 @@ func get_base_reload_seconds(weapon_base: float) -> float:
 	if base_reload_seconds <= 0.0:
 		return weapon_base
 	return base_reload_seconds
+
+
+## Whether a shot fired under these rules travels, given what the weapon is on
+## its own.
+##
+## [param weapon_is_projectile] is the weapon's own answer. The lever only ever
+## ADDS flight to a hitscan weapon: it never takes it away, so a match with no
+## opinion (0.0) leaves a projectile weapon a projectile weapon.
+func shot_travels(weapon_is_projectile: bool) -> bool:
+	return guard_projectile_speed > 0.0 or weapon_is_projectile
+
+
+## The speed a travelling shot leaves at, given what the weapon would do on its
+## own.
+##
+## [param weapon_speed] is the weapon's own muzzle speed. A
+## [member guard_projectile_speed] of 0.0 means "no match opinion", and the
+## weapon's own value is returned untouched -- the same convention as
+## [method get_base_reload_seconds].
+func get_projectile_speed(weapon_speed: float) -> float:
+	if guard_projectile_speed <= 0.0:
+		return weapon_speed
+	return guard_projectile_speed
 
 
 ## The effective reload floor: the higher of the match's and the weapon's.
