@@ -1,0 +1,20 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="PackedScene" path="res://assets/models/marble_spikes_strip.glb" id="1_marble_spikes_strip"]
+[ext_resource type="Script" path="res://scripts/match/trap_volume.gd" id="2_trap_volume"]
+
+[node name="MarbleSpikeStrip" type="Node3D"]
+editor_description = "A 6.0 x 2.0 m spiked threshold plus the TrapVolume over it; local X is the 6 m length, origin the floor it stands on."
+
+[node name="Model" parent="." instance=ExtResource("1_marble_spikes_strip")]
+
+[node name="TrapVolume" type="Area3D" parent="."]
+editor_description = "The strip's own footprint, 2.6 m tall: high enough that RingBake finds every jump over it lethal and links none."
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.3, 0)
+collision_layer = 0
+collision_mask = 1048577
+monitorable = false
+script = ExtResource("2_trap_volume")
+size_metres = Vector3(6.0, 2.6, 2.0)
+
+[node name="Shape" type="CollisionShape3D" parent="TrapVolume"]
