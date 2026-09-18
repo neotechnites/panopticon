@@ -13,7 +13,7 @@ ssh panopticon-pc '
     $t = Get-Content $_.FullName -Raw
     if ($t -match "gltf/embedded_image_handling=") { $t = $t -replace "gltf/embedded_image_handling=\d", "gltf/embedded_image_handling=3" }
     else { $t = $t -replace "\[params\]\r?\n", "[params]`r`ngltf/embedded_image_handling=3`r`n" }
-    Set-Content -NoNewline $_.FullName $t
+    [IO.File]::WriteAllText($_.FullName, $t)
   }
   Remove-Item C:\dev\panopticon\assets\models\*_albedo.png*, C:\dev\panopticon\assets\models\*_emissive.png* -ErrorAction SilentlyContinue
   cmd /c "C:\tools\godot\godot.exe --headless --import --path C:\dev\panopticon > C:\dev\import.txt 2>&1"
