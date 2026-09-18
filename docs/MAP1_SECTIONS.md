@@ -32,14 +32,17 @@ Rules that shape everything:
 
 **Pocket 130–145**: slab r 52 @ 138.
 
-**S3 The Demon Pad Grid 145–200** — chaos. Ryan: *"create a grid of fucking
-demon pads. carve out a path from them. and create a half wall for cover."*
-and *"no gaps in the fucking wall."*
+**S3 The Demon Pad Grid 145–200** — chaos. Ryan: *"step 1 fill the section
+with demon pads. step 2 cut a path through it by removing demon pads. step 3
+a wall of cover at the pit edge, like all the other cover, short enough that a
+person jumping on a demon pad flies above it from the guard tower. thats it."*
 
 The deck is FLAT at lane height (r 46.7–57.3, y 23.0): no crests, no dips. On
-it, `demon_pad` nodes on a regular grid — rows 3.24° (2.94 m at r 52) apart
-along the arc, 4 columns across the width (r 47.8, 50.5, 53.2, 55.9; 2.7 m
-apart), so a pad row reads as tiled from wall to lip. The S3 block of
+it, `demon_pad` nodes fill a regular grid — 17 rows 3.24° (2.94 m at r 52)
+apart along the arc, 3 columns across the width (r 49.15, 52.35, 55.55; 3.2 m
+apart), so with the wall on the lip the deck is tiled from wall to wall with no
+gap a body fits through (three 2.5 m plates plus the wall's 0.75 m foot leave
+0.3 m at each end; a fourth column would need 11 m). The S3 block of
 `tools/modelling/map_base_build.py` is the one layout the mesh, the collider,
 the pad transforms in `scenes/ring/bentham_ring.tscn` (the build writes the
 node block) and the proofs all come from. The section's deck grid is true
@@ -49,52 +52,48 @@ exact metric and the wall's edges fall on mesh lines.
 
 - **No lava and no TrapVolume anywhere in this section.** A launch drops you
   back on the same deck; nothing here kills you.
-- **Two pad blocks, each followed by its landing rows.** A pad's flight is
-  14.7 m, five rows on, and the bot bake (`RingBake`) only links a pad whose
-  flight lands on open navmesh at least 0.95 m (agent radius 0.50 plus its
-  0.45 m landing margin) from every rim, wall foot and pad plate — pad models
-  are physical, so a landing on the next pad is a DEAD pad, carved out of the
-  mesh as a 3.5 m obstacle, and on a 2.7 m pitch a handful of those seal the
-  deck and the lap has no path (measured: a tiled 17-row field gave 15 dead
-  pads and `test_the_bake_links_the_whole_lap_into_one_path` failed). So rows
-  0–4 and 10–14 carry pads and rows 5–9 and 15–16 are pad-free landing rows.
-  Every pad's back-edge flight is proved to land ≥ 0.95 m clear of everything.
-- **The path** is cut through each block by leaving cells pad-free: one
-  column wide, wandering column 1 → 2 in block A and column 2 in block B (a
-  bend costs one extra cell, so the runner steps sideways, then forward).
-- **Three pads are left IN the path** (rows 0, 3, 11) and must be jumped. From
+- **The path** is cut by leaving cells pad-free: one column wide, the middle
+  column for rows 0–9, stepping to the inner column at row 9 (a bend costs
+  one extra cell, so the runner steps sideways, then forward). 18 cells
+  cleared of 51, 36 pads remain.
+- **Three pads are left IN the path** (rows 1, 4, 10) and must be jumped. From
   flat ground the shipped 2.5 × 1.0 m trigger box cannot be jumped (a 7 m/s,
   1.11 m jump keeps its feet over 1.0 m for only 2.24 m of travel, and the
-  capsule overlaps the box for 3.4 m), so these three carry
-  `footprint_metres = (1.2, 0.5, 2.5)`: 0.5 m tall, and 1.2 m across, set
-  0.5 m outward of the column so neither the gap to the wall's foot nor the
-  gap to the next column's box is a body's 0.8 m — the pad cannot be walked
-  round — and so the jump pad's own landing sits a body clear of the wall.
-  Feet clear the 0.5 m box by +0.34 m at the overlap's ends with a take-off
-  window of 1.7 m; the row after each jump pad is the same column, cleared,
-  so the 7 m jump lands on the path.
-- **One half wall**, 1.5 m tall, 0.35 m flat top, 0.75 m at the foot, runs
-  unbroken along the path's pit side from 145 to 200 as one polyline (an arc
-  per row, a radial jog where its column changes). In a landing row it stands
-  at the column that was pad-free five rows earlier, and it only jogs inside a
-  landing row whose source row had no pad in the jog's inner column — either
-  way a landing never meets the wall's keep-out. It is `map_base.glb`'s own
-  rock, sampled on grid lines placed exactly at its top edges and feet, and
-  proved by a ray down every 0.05 m of the polyline on the built mesh:
-  1.50 m over the deck all the way. Why 1.5 and not 1.2: the guard's eye is
-  5.9 m over the deck, so the sight line to a crouched capsule (1.2 m) rises
-  ~0.1 m across the path's width — a 1.2 m wall would hide nothing. At 1.5 m
-  the crouched capsule is hidden anywhere on the path cell (raycast, every
-  row, three stances) and a standing one (1.8 m) is seen by ≥ 0.37 m.
-- **Every pad aims forward** at the shipped 18 m/s, grid pads 8° inward of
-  the tangent (so a landing sits at its own radius rather than 2 m outward,
-  and a column-1 landing stays clear of the wall at column 2's pit side),
-  the jump pads 4°. Rows 12–14 would land past the section, so those pads
-  carry a lower `launch_speed` and land at bearing 200.3, on the open pocket
-  1.3° before the divider's eroded face; the shortest hop is 7 m — a hop
-  shorter than its own plate lands back on the plate and fires it again for
-  ever (a bot hovered on one for 40 s). A backward-throwing pad loops a bot
-  the same way, so none is laid.
+  capsule overlaps the box for 3.6 m), so these three carry
+  `footprint_metres = (2.5, 0.5, 2.5)`: the same plate, 0.5 m tall. Feet
+  clear it by +0.3 m at the overlap's ends with a take-off window of 1.6 m;
+  the row after each is cleared in the same column, so the 7 m jump lands on
+  the path; the gaps either side of the pad are 0.38 m, no body's 0.8 m.
+- **One half wall at the pit edge**, 1.85 m tall, 0.35 m flat top, 0.75 m at
+  the foot, its inner foot on the lip itself, runs unbroken from 145 to 200
+  as one arc. It is `map_base.glb`'s own rock, sampled on grid lines placed
+  exactly at its top edges and feet, and proved by a ray down every 0.05 m of
+  its length on the built mesh: 1.85 m over the deck all the way. Why 1.85:
+  the guard's eye is 5.9 m over the deck, so the sight line over the wall to
+  the middle column is 1.69 m up at the wall — a crouched capsule (1.2 m)
+  anywhere on the path is under it (raycast, every row, three stances), a
+  standing one (1.8 m) is over it on both path columns, and a pad's flight
+  (apex 3.68 m) is well above it: hit a pad and you are thrown up out of
+  cover into the guard's view.
+- **Every pad aims forward** at the shipped 18 m/s, 8° inward of the tangent so
+  a flight lands at its own radius rather than 2 m outward. Landing on the
+  next pad five rows on is the minefield: you fly again. The last rows' flights
+  reach past the section; the S3|S4 divider at 204 (3.4 m of rock to the
+  ceiling) catches them and they drop on the deck in front of it, short of
+  S4's lava at 212.9. No pad is slowed and none aims backward: a hop shorter
+  than its own plate lands back on the plate and fires it again for ever, and
+  a backward pad loops a bot the same way.
+- **The bots walk the path.** `RingBake` links a pad only when its flight
+  lands on open mesh a body clear of everything (pad plates are physical);
+  a pad whose flight lands nowhere is a dead pad, carved out of the mesh as
+  an obstacle. The three jump pads have rows +4 and +5 cleared in their
+  column, where their flights land, so they are live and the mesh runs
+  through them (proved: 1.64 m clear). With the old carve margin (0.5 m) the
+  lane between two carved pads was 0.9 m and the bake sealed it;
+  `PAD_CARVE_MARGIN_METRES` is 0.2 (the arithmetic is on the constant): the
+  lane is 1.5 m on a 2.7 m pitch, 2.5 m on this 3.2 m one. Measured on the
+  whole ring: 587 polygons, 4 dead pads, 24 pad links, 50 jump links, and
+  `test_the_bake_links_the_whole_lap_into_one_path` plans start to end.
 - The guard's eye for this section is y = **28.90**, traced from the running
   game (`Tower/TowerSpawn` at 27.30 plus `RingBake.EYE_HEIGHT_METRES` 1.60).
 

@@ -252,167 +252,122 @@ feet_only = true
 [node name="Shape" type="CollisionShape3D" parent="Sections/S2_LavaShelf/TrapVolume7" unique_id=644014580]
 
 [node name="S3_Minefield" type="Node3D" parent="Sections" unique_id=61707270]
-editor_description = "S3, the demon pad grid (bearings 145..200). The deck is flat at lane height and tiled with these demon_pad nodes in rows along the arc and columns across the width; one path is carved through the grid by the cells left pad-free, three pads left in the path (trigger 0.5 m tall) have to be jumped, and the half wall along the path's pit side is map_base.glb's own rock. tools/modelling/map_base_build.py (the S3 block) is the one layout the mesh, the collider, these pad transforms and the proofs all come from; the build writes this node block. Every pad launches at the shipped 18 m/s; the 204 divider catches the flights that would leave the section. No lava and no TrapVolume in this section: a launch drops you back on the same deck. SpeedPowerup is a parked leftover from the retired Split, left where it was found."
+editor_description = "S3, the demon pad grid (bearings 145..200). The deck is flat at lane height and filled with these demon_pad nodes, 17 rows x 3 columns (2.94 x 3.2 m); one path is cut through the grid by the cells left pad-free, three pads left in the path (rows 1, 4, 10; trigger 2.5 x 0.5 x 2.5) have to be jumped, and the half wall at the pit edge is map_base.glb's own rock. tools/modelling/map_base_build.py (the S3 block) is the one layout the mesh, the collider, these pad transforms and the proofs all come from; the build writes this node block. Every pad launches at the shipped 18 m/s; the 204 divider catches the flights that would leave the section. No lava and no TrapVolume in this section: a launch drops you back on the same deck. SpeedPowerup is a parked leftover from the retired Split, left where it was found."
 
 [node name="SpeedPowerup" parent="Sections/S3_Minefield" unique_id=1641447572 instance=ExtResource("24_speed_powerup_scene")]
 editor_description = "Parked on top of the tower until Ryan places it at the end of the hard route."
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -29.058699, 23.34378, 46.313385)
 
 [node name="DemonPad_r00_c0_147deg" parent="Sections/S3_Minefield" unique_id=1012174845 instance=ExtResource("23_demon_pad_scene")]
-transform = Transform3D(0.891798, 0, 0.452435, 0, 1, 0, -0.452435, 0, 0.891798, -39.9057, 23.000, 26.3130)
+transform = Transform3D(0.903335, 0, 0.428935, 0, 1, 0, -0.428935, 0, 0.903335, -41.0328, 23.000, 27.0561)
 
-[node name="DemonPad_r00_c1_147deg" parent="Sections/S3_Minefield" unique_id=667882545 instance=ExtResource("23_demon_pad_scene")]
-transform = Transform3D(0.891798, 0, 0.452435, 0, 1, 0, -0.452435, 0, 0.891798, -42.1598, 23.000, 27.7993)
-
-[node name="DemonPad_r00_c3_147deg" parent="Sections/S3_Minefield" unique_id=572240055 instance=ExtResource("23_demon_pad_scene")]
-transform = Transform3D(0.891798, 0, 0.452435, 0, 1, 0, -0.452435, 0, 0.891798, -46.6680, 23.000, 30.7719)
+[node name="DemonPad_r00_c2_147deg" parent="Sections/S3_Minefield" unique_id=310151597 instance=ExtResource("23_demon_pad_scene")]
+transform = Transform3D(0.903335, 0, 0.428935, 0, 1, 0, -0.428935, 0, 0.903335, -46.3758, 23.000, 30.5792)
 
 [node name="DemonPad_r01_c0_150deg" parent="Sections/S3_Minefield" unique_id=670665547 instance=ExtResource("23_demon_pad_scene")]
-transform = Transform3D(0.915925, 0, 0.401348, 0, 1, 0, -0.401348, 0, 0.915925, -41.3281, 23.000, 24.0173)
+transform = Transform3D(0.926118, 0, 0.377235, 0, 1, 0, -0.377235, 0, 0.926118, -42.4953, 23.000, 24.6956)
 
 [node name="DemonPad_r01_c1_150deg" parent="Sections/S3_Minefield" unique_id=618637177 instance=ExtResource("23_demon_pad_scene")]
-transform = Transform3D(0.915925, 0, 0.401348, 0, 1, 0, -0.401348, 0, 0.915925, -43.6625, 23.000, 25.3739)
+transform = Transform3D(0.926118, 0, 0.377235, 0, 1, 0, -0.377235, 0, 0.926118, -45.2620, 23.000, 26.3035)
+footprint_metres = Vector3(2.5, 0.5, 2.5)
 
-[node name="DemonPad_r01_c3_150deg" parent="Sections/S3_Minefield" unique_id=505090131 instance=ExtResource("23_demon_pad_scene")]
-transform = Transform3D(0.915925, 0, 0.401348, 0, 1, 0, -0.401348, 0, 0.915925, -48.3314, 23.000, 28.0872)
+[node name="DemonPad_r01_c2_150deg" parent="Sections/S3_Minefield" unique_id=910764293 instance=ExtResource("23_demon_pad_scene")]
+transform = Transform3D(0.926118, 0, 0.377235, 0, 1, 0, -0.377235, 0, 0.926118, -48.0287, 23.000, 27.9113)
 
 [node name="DemonPad_r02_c0_153deg" parent="Sections/S3_Minefield" unique_id=37650365 instance=ExtResource("23_demon_pad_scene")]
-transform = Transform3D(0.937130, 0, 0.348981, 0, 1, 0, -0.348981, 0, 0.937130, -42.6185, 23.000, 21.6450)
+transform = Transform3D(0.945944, 0, 0.324330, 0, 1, 0, -0.324330, 0, 0.945944, -43.8221, 23.000, 22.2563)
 
-[node name="DemonPad_r02_c1_153deg" parent="Sections/S3_Minefield" unique_id=792697977 instance=ExtResource("23_demon_pad_scene")]
-transform = Transform3D(0.937130, 0, 0.348981, 0, 1, 0, -0.348981, 0, 0.937130, -45.0258, 23.000, 22.8676)
-
-[node name="DemonPad_r02_c3_153deg" parent="Sections/S3_Minefield" unique_id=342409965 instance=ExtResource("23_demon_pad_scene")]
-transform = Transform3D(0.937130, 0, 0.348981, 0, 1, 0, -0.348981, 0, 0.937130, -49.8404, 23.000, 25.3128)
+[node name="DemonPad_r02_c2_153deg" parent="Sections/S3_Minefield" unique_id=915317899 instance=ExtResource("23_demon_pad_scene")]
+transform = Transform3D(0.945944, 0, 0.324330, 0, 1, 0, -0.324330, 0, 0.945944, -49.5284, 23.000, 25.1544)
 
 [node name="DemonPad_r03_c0_156deg" parent="Sections/S3_Minefield" unique_id=723423683 instance=ExtResource("23_demon_pad_scene")]
-transform = Transform3D(0.955343, 0, 0.295500, 0, 1, 0, -0.295500, 0, 0.955343, -43.7729, 23.000, 19.2036)
-
-[node name="DemonPad_r03_c1_156deg" parent="Sections/S3_Minefield" unique_id=131959499 instance=ExtResource("23_demon_pad_scene")]
-transform = Transform3D(0.955343, 0, 0.295500, 0, 1, 0, -0.295500, 0, 0.955343, -46.2454, 23.000, 20.2883)
+transform = Transform3D(0.962751, 0, 0.270390, 0, 1, 0, -0.270390, 0, 0.962751, -45.0091, 23.000, 19.7459)
 
 [node name="DemonPad_r03_c2_156deg" parent="Sections/S3_Minefield" unique_id=205300089 instance=ExtResource("23_demon_pad_scene")]
-transform = Transform3D(0.955343, 0, 0.295500, 0, 1, 0, -0.295500, 0, 0.955343, -49.0842, 23.000, 21.5337)
-footprint_metres = Vector3(1.4, 0.5, 2.5)
-
-[node name="DemonPad_r03_c3_156deg" parent="Sections/S3_Minefield" unique_id=501067871 instance=ExtResource("23_demon_pad_scene")]
-transform = Transform3D(0.955343, 0, 0.295500, 0, 1, 0, -0.295500, 0, 0.955343, -51.1904, 23.000, 22.4577)
+transform = Transform3D(0.962751, 0, 0.270390, 0, 1, 0, -0.270390, 0, 0.962751, -50.8699, 23.000, 22.3171)
 
 [node name="DemonPad_r04_c0_160deg" parent="Sections/S3_Minefield" unique_id=298921291 instance=ExtResource("23_demon_pad_scene")]
-transform = Transform3D(0.970506, 0, 0.241075, 0, 1, 0, -0.241075, 0, 0.970506, -44.7875, 23.000, 16.7008)
+transform = Transform3D(0.976485, 0, 0.215588, 0, 1, 0, -0.215588, 0, 0.976485, -46.0524, 23.000, 17.1725)
 
 [node name="DemonPad_r04_c1_160deg" parent="Sections/S3_Minefield" unique_id=24182103 instance=ExtResource("23_demon_pad_scene")]
-transform = Transform3D(0.970506, 0, 0.241075, 0, 1, 0, -0.241075, 0, 0.970506, -47.3174, 23.000, 17.6442)
+transform = Transform3D(0.976485, 0, 0.215588, 0, 1, 0, -0.215588, 0, 0.976485, -49.0508, 23.000, 18.2906)
+footprint_metres = Vector3(2.5, 0.5, 2.5)
 
-[node name="DemonPad_r04_c3_160deg" parent="Sections/S3_Minefield" unique_id=841947907 instance=ExtResource("23_demon_pad_scene")]
-transform = Transform3D(0.970506, 0, 0.241075, 0, 1, 0, -0.241075, 0, 0.970506, -52.3770, 23.000, 19.5309)
+[node name="DemonPad_r04_c2_160deg" parent="Sections/S3_Minefield" unique_id=889722215 instance=ExtResource("23_demon_pad_scene")]
+transform = Transform3D(0.976485, 0, 0.215588, 0, 1, 0, -0.215588, 0, 0.976485, -52.0491, 23.000, 19.4086)
 
 [node name="DemonPad_r05_c0_163deg" parent="Sections/S3_Minefield" unique_id=475057019 instance=ExtResource("23_demon_pad_scene")]
-transform = Transform3D(0.982572, 0, 0.185881, 0, 1, 0, -0.185881, 0, 0.982572, -45.6592, 23.000, 14.1448)
+transform = Transform3D(0.987101, 0, 0.160097, 0, 1, 0, -0.160097, 0, 0.987101, -46.9488, 23.000, 14.5443)
 
-[node name="DemonPad_r05_c3_163deg" parent="Sections/S3_Minefield" unique_id=331509721 instance=ExtResource("23_demon_pad_scene")]
-transform = Transform3D(0.982572, 0, 0.185881, 0, 1, 0, -0.185881, 0, 0.982572, -53.3965, 23.000, 16.5417)
+[node name="DemonPad_r05_c2_163deg" parent="Sections/S3_Minefield" unique_id=537636945 instance=ExtResource("23_demon_pad_scene")]
+transform = Transform3D(0.987101, 0, 0.160097, 0, 1, 0, -0.160097, 0, 0.987101, -53.0621, 23.000, 16.4382)
 
 [node name="DemonPad_r06_c0_166deg" parent="Sections/S3_Minefield" unique_id=1039207669 instance=ExtResource("23_demon_pad_scene")]
-transform = Transform3D(0.991502, 0, 0.130094, 0, 1, 0, -0.130094, 0, 0.991502, -46.3852, 23.000, 11.5436)
+transform = Transform3D(0.994567, 0, 0.104095, 0, 1, 0, -0.104095, 0, 0.994567, -47.6952, 23.000, 11.8697)
 
 [node name="DemonPad_r06_c2_166deg" parent="Sections/S3_Minefield" unique_id=863781577 instance=ExtResource("23_demon_pad_scene")]
-transform = Transform3D(0.991502, 0, 0.130094, 0, 1, 0, -0.130094, 0, 0.991502, -51.6253, 23.000, 12.8477)
-
-[node name="DemonPad_r06_c3_166deg" parent="Sections/S3_Minefield" unique_id=725189843 instance=ExtResource("23_demon_pad_scene")]
-transform = Transform3D(0.991502, 0, 0.130094, 0, 1, 0, -0.130094, 0, 0.991502, -54.2454, 23.000, 13.4998)
+transform = Transform3D(0.994567, 0, 0.104095, 0, 1, 0, -0.104095, 0, 0.994567, -53.9058, 23.000, 13.4152)
 
 [node name="DemonPad_r07_c0_169deg" parent="Sections/S3_Minefield" unique_id=1006330527 instance=ExtResource("23_demon_pad_scene")]
-transform = Transform3D(0.997266, 0, 0.073891, 0, 1, 0, -0.073891, 0, 0.997266, -46.9631, 23.000, 8.9056)
+transform = Transform3D(0.998859, 0, 0.047760, 0, 1, 0, -0.047760, 0, 0.998859, -48.2894, 23.000, 9.1571)
 
 [node name="DemonPad_r07_c2_169deg" parent="Sections/S3_Minefield" unique_id=684870049 instance=ExtResource("23_demon_pad_scene")]
-transform = Transform3D(0.997266, 0, 0.073891, 0, 1, 0, -0.073891, 0, 0.997266, -52.2685, 23.000, 9.9117)
-
-[node name="DemonPad_r07_c3_169deg" parent="Sections/S3_Minefield" unique_id=332221021 instance=ExtResource("23_demon_pad_scene")]
-transform = Transform3D(0.997266, 0, 0.073891, 0, 1, 0, -0.073891, 0, 0.997266, -54.9213, 23.000, 10.4147)
+transform = Transform3D(0.998859, 0, 0.047760, 0, 1, 0, -0.047760, 0, 0.998859, -54.5774, 23.000, 10.3495)
 
 [node name="DemonPad_r08_c0_172deg" parent="Sections/S3_Minefield" unique_id=4736065 instance=ExtResource("23_demon_pad_scene")]
-transform = Transform3D(0.999848, 0, 0.017452, 0, 1, 0, -0.017452, 0, 0.999848, -47.3911, 23.000, 6.2392)
+transform = Transform3D(0.999962, 0, -0.008727, 0, 1, 0, 0.008727, 0, 0.999962, -48.7295, 23.000, 6.4154)
 
 [node name="DemonPad_r08_c2_172deg" parent="Sections/S3_Minefield" unique_id=99179811 instance=ExtResource("23_demon_pad_scene")]
-transform = Transform3D(0.999848, 0, 0.017452, 0, 1, 0, -0.017452, 0, 0.999848, -52.7449, 23.000, 6.9440)
-
-[node name="DemonPad_r08_c3_172deg" parent="Sections/S3_Minefield" unique_id=360525597 instance=ExtResource("23_demon_pad_scene")]
-transform = Transform3D(0.999848, 0, 0.017452, 0, 1, 0, -0.017452, 0, 0.999848, -55.4218, 23.000, 7.2964)
-
-[node name="DemonPad_r09_c0_176deg" parent="Sections/S3_Minefield" unique_id=282009671 instance=ExtResource("23_demon_pad_scene")]
-transform = Transform3D(0.999238, 0, -0.039042, 0, 1, 0, 0.039042, 0, 0.999238, -47.6678, 23.000, 3.5528)
-
-[node name="DemonPad_r09_c1_176deg" parent="Sections/S3_Minefield" unique_id=328311493 instance=ExtResource("23_demon_pad_scene")]
-transform = Transform3D(0.999238, 0, -0.039042, 0, 1, 0, 0.039042, 0, 0.999238, -50.7592, 23.000, 3.7832)
-footprint_metres = Vector3(1.4, 0.5, 2.5)
+transform = Transform3D(0.999962, 0, -0.008727, 0, 1, 0, 0.008727, 0, 0.999962, -55.0748, 23.000, 7.2507)
 
 [node name="DemonPad_r09_c2_176deg" parent="Sections/S3_Minefield" unique_id=1017697383 instance=ExtResource("23_demon_pad_scene")]
-transform = Transform3D(0.999238, 0, -0.039042, 0, 1, 0, 0.039042, 0, 0.999238, -53.0528, 23.000, 3.9541)
-
-[node name="DemonPad_r09_c3_176deg" parent="Sections/S3_Minefield" unique_id=20724801 instance=ExtResource("23_demon_pad_scene")]
-transform = Transform3D(0.999238, 0, -0.039042, 0, 1, 0, 0.039042, 0, 0.999238, -55.7454, 23.000, 4.1548)
+transform = Transform3D(0.997873, 0, -0.065185, 0, 1, 0, 0.065185, 0, 0.997873, -55.3963, 23.000, 4.1288)
 
 [node name="DemonPad_r10_c0_179deg" parent="Sections/S3_Minefield" unique_id=740058619 instance=ExtResource("23_demon_pad_scene")]
-transform = Transform3D(0.995438, 0, -0.095411, 0, 1, 0, 0.095411, 0, 0.995438, -47.7924, 23.000, 0.8551)
+transform = Transform3D(0.992599, 0, -0.121436, 0, 1, 0, 0.121436, 0, 0.992599, -49.1421, 23.000, 0.8792)
+footprint_metres = Vector3(2.5, 0.5, 2.5)
+
+[node name="DemonPad_r10_c1_179deg" parent="Sections/S3_Minefield" unique_id=573896807 instance=ExtResource("23_demon_pad_scene")]
+transform = Transform3D(0.992599, 0, -0.121436, 0, 1, 0, 0.121436, 0, 0.992599, -52.3416, 23.000, 0.9365)
 
 [node name="DemonPad_r10_c2_179deg" parent="Sections/S3_Minefield" unique_id=147081429 instance=ExtResource("23_demon_pad_scene")]
-transform = Transform3D(0.995438, 0, -0.095411, 0, 1, 0, 0.095411, 0, 0.995438, -53.1915, 23.000, 0.9517)
+transform = Transform3D(0.992599, 0, -0.121436, 0, 1, 0, 0.121436, 0, 0.992599, -55.5411, 23.000, 0.9937)
 
-[node name="DemonPad_r10_c3_179deg" parent="Sections/S3_Minefield" unique_id=1069618959 instance=ExtResource("23_demon_pad_scene")]
-transform = Transform3D(0.995438, 0, -0.095411, 0, 1, 0, 0.095411, 0, 0.995438, -55.8911, 23.000, 1.0000)
+[node name="DemonPad_r11_c1_182deg" parent="Sections/S3_Minefield" unique_id=395123469 instance=ExtResource("23_demon_pad_scene")]
+transform = Transform3D(0.984157, 0, -0.177299, 0, 1, 0, 0.177299, 0, 0.984157, -52.3110, 23.000, -2.0210)
 
-[node name="DemonPad_r11_c0_182deg" parent="Sections/S3_Minefield" unique_id=633641507 instance=ExtResource("23_demon_pad_scene")]
-transform = Transform3D(0.988461, 0, -0.151476, 0, 1, 0, 0.151476, 0, 0.988461, -47.7644, 23.000, -1.8454)
-
-[node name="DemonPad_r11_c3_182deg" parent="Sections/S3_Minefield" unique_id=137782681 instance=ExtResource("23_demon_pad_scene")]
-transform = Transform3D(0.988461, 0, -0.151476, 0, 1, 0, 0.151476, 0, 0.988461, -55.8583, 23.000, -2.1581)
-
-[node name="DemonPad_r12_c0_185deg" parent="Sections/S3_Minefield" unique_id=1055210735 instance=ExtResource("23_demon_pad_scene")]
-transform = Transform3D(0.978329, 0, -0.207058, 0, 1, 0, 0.207058, 0, 0.978329, -47.5839, 23.000, -4.5399)
+[node name="DemonPad_r11_c2_182deg" parent="Sections/S3_Minefield" unique_id=641823371 instance=ExtResource("23_demon_pad_scene")]
+transform = Transform3D(0.984157, 0, -0.177299, 0, 1, 0, 0.177299, 0, 0.984157, -55.5086, 23.000, -2.1446)
 
 [node name="DemonPad_r12_c1_185deg" parent="Sections/S3_Minefield" unique_id=531911117 instance=ExtResource("23_demon_pad_scene")]
-transform = Transform3D(0.978329, 0, -0.207058, 0, 1, 0, 0.207058, 0, 0.978329, -50.2717, 23.000, -4.7963)
+transform = Transform3D(0.972573, 0, -0.232597, 0, 1, 0, 0.232597, 0, 0.972573, -52.1133, 23.000, -4.9720)
 
-[node name="DemonPad_r12_c3_185deg" parent="Sections/S3_Minefield" unique_id=611847605 instance=ExtResource("23_demon_pad_scene")]
-transform = Transform3D(0.978329, 0, -0.207058, 0, 1, 0, 0.207058, 0, 0.978329, -55.6473, 23.000, -5.3092)
-
-[node name="DemonPad_r13_c0_189deg" parent="Sections/S3_Minefield" unique_id=930052325 instance=ExtResource("23_demon_pad_scene")]
-transform = Transform3D(0.965074, 0, -0.261979, 0, 1, 0, 0.261979, 0, 0.965074, -47.2516, 23.000, -7.2200)
+[node name="DemonPad_r12_c2_185deg" parent="Sections/S3_Minefield" unique_id=572325449 instance=ExtResource("23_demon_pad_scene")]
+transform = Transform3D(0.972573, 0, -0.232597, 0, 1, 0, 0.232597, 0, 0.972573, -55.2989, 23.000, -5.2760)
 
 [node name="DemonPad_r13_c1_189deg" parent="Sections/S3_Minefield" unique_id=351497169 instance=ExtResource("23_demon_pad_scene")]
-transform = Transform3D(0.965074, 0, -0.261979, 0, 1, 0, 0.261979, 0, 0.965074, -49.9206, 23.000, -7.6278)
+transform = Transform3D(0.957885, 0, -0.287152, 0, 1, 0, 0.287152, 0, 0.957885, -51.7494, 23.000, -7.9072)
 
-[node name="DemonPad_r14_c0_192deg" parent="Sections/S3_Minefield" unique_id=638481665 instance=ExtResource("23_demon_pad_scene")]
-transform = Transform3D(0.948738, 0, -0.316063, 0, 1, 0, 0.316063, 0, 0.948738, -46.7684, 23.000, -9.8770)
+[node name="DemonPad_r13_c2_189deg" parent="Sections/S3_Minefield" unique_id=129792781 instance=ExtResource("23_demon_pad_scene")]
+transform = Transform3D(0.957885, 0, -0.287152, 0, 1, 0, 0.287152, 0, 0.957885, -54.9127, 23.000, -8.3906)
 
 [node name="DemonPad_r14_c1_192deg" parent="Sections/S3_Minefield" unique_id=508093097 instance=ExtResource("23_demon_pad_scene")]
-transform = Transform3D(0.948738, 0, -0.316063, 0, 1, 0, 0.316063, 0, 0.948738, -49.4102, 23.000, -10.4349)
+transform = Transform3D(0.940140, 0, -0.340790, 0, 1, 0, 0.340790, 0, 0.940140, -51.2202, 23.000, -10.8171)
 
 [node name="DemonPad_r14_c2_192deg" parent="Sections/S3_Minefield" unique_id=491703717 instance=ExtResource("23_demon_pad_scene")]
-transform = Transform3D(0.948738, 0, -0.316063, 0, 1, 0, 0.316063, 0, 0.948738, -52.0519, 23.000, -10.9928)
-
-[node name="DemonPad_r15_c0_195deg" parent="Sections/S3_Minefield" unique_id=141278887 instance=ExtResource("23_demon_pad_scene")]
-transform = Transform3D(0.929374, 0, -0.369139, 0, 1, 0, 0.369139, 0, 0.929374, -46.1360, 23.000, -12.5024)
+transform = Transform3D(0.940140, 0, -0.340790, 0, 1, 0, 0.340790, 0, 0.940140, -54.3512, 23.000, -11.4784)
 
 [node name="DemonPad_r15_c1_195deg" parent="Sections/S3_Minefield" unique_id=887340705 instance=ExtResource("23_demon_pad_scene")]
-transform = Transform3D(0.929374, 0, -0.369139, 0, 1, 0, 0.369139, 0, 0.929374, -48.7420, 23.000, -13.2087)
+transform = Transform3D(0.919393, 0, -0.393340, 0, 1, 0, 0.393340, 0, 0.919393, -50.5276, 23.000, -13.6925)
 
 [node name="DemonPad_r15_c2_195deg" parent="Sections/S3_Minefield" unique_id=373716479 instance=ExtResource("23_demon_pad_scene")]
-transform = Transform3D(0.929374, 0, -0.369139, 0, 1, 0, 0.369139, 0, 0.929374, -51.3480, 23.000, -13.9149)
-
-[node name="DemonPad_r15_c3_195deg" parent="Sections/S3_Minefield" unique_id=386765125 instance=ExtResource("23_demon_pad_scene")]
-transform = Transform3D(0.929374, 0, -0.369139, 0, 1, 0, 0.369139, 0, 0.929374, -54.3401, 23.000, -14.7257)
-footprint_metres = Vector3(1.4, 0.5, 2.5)
-
-[node name="DemonPad_r16_c0_198deg" parent="Sections/S3_Minefield" unique_id=917399595 instance=ExtResource("23_demon_pad_scene")]
-transform = Transform3D(0.907044, 0, -0.421036, 0, 1, 0, 0.421036, 0, 0.907044, -45.3563, 23.000, -15.0880)
+transform = Transform3D(0.919393, 0, -0.393340, 0, 1, 0, 0.393340, 0, 0.919393, -53.6162, 23.000, -14.5295)
 
 [node name="DemonPad_r16_c1_198deg" parent="Sections/S3_Minefield" unique_id=726924061 instance=ExtResource("23_demon_pad_scene")]
-transform = Transform3D(0.907044, 0, -0.421036, 0, 1, 0, 0.421036, 0, 0.907044, -47.9182, 23.000, -15.9403)
+transform = Transform3D(0.895712, 0, -0.444635, 0, 1, 0, 0.444635, 0, 0.895712, -49.6737, 23.000, -16.5242)
 
 [node name="DemonPad_r16_c2_198deg" parent="Sections/S3_Minefield" unique_id=570226275 instance=ExtResource("23_demon_pad_scene")]
-transform = Transform3D(0.907044, 0, -0.421036, 0, 1, 0, 0.421036, 0, 0.907044, -50.4802, 23.000, -16.7925)
+transform = Transform3D(0.895712, 0, -0.444635, 0, 1, 0, 0.444635, 0, 0.895712, -52.7101, 23.000, -17.5343)
 
 [node name="S4_DemonRun" type="Node3D" parent="Sections" unique_id=203383202]
 

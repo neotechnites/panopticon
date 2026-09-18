@@ -48,7 +48,15 @@ const PAD_LAND_SEARCH_METRES: float = 5.0
 const PAD_LAND_REACH_METRES: float = 1.5
 const PAD_LAND_MARGIN_METRES: float = 1.2
 const PAD_MAX_FLIGHT_SECONDS: float = 6.0
-const PAD_CARVE_MARGIN_METRES: float = 0.5
+## Metres added round a dead pad's plate when it is carved out of the mesh as an
+## obstacle. The walkable edge then sits footprint/2 + this + AGENT_RADIUS from
+## the pad's centre: 1.25 + 0.2 + 0.5 = 1.95 m for a 2.5 m plate, so two dead
+## pads 2.7 m apart leave a 2 x (2.7 - 1.95) = 1.5 m lane between them and a
+## body of radius 0.4 walking that lane's centre stays 0.3 m off both trigger
+## boxes. At the old 0.5 the edge was 2.25 m out and the same lane was 0.9 m,
+## which the bake sealed: a field of pads with one lane cut through it had no
+## path for the bots at all.
+const PAD_CARVE_MARGIN_METRES: float = 0.2
 const PAD_CLEARANCE_METRES: float = 0.8
 ## Cover points: sampled every this many metres; discarded this close to a lethal volume.
 const COVER_SPACING_METRES: float = 1.5
