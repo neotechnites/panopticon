@@ -1,0 +1,6 @@
+{
+  "_comment": "eye: THE WATCHING EYE that hangs over the tower -- a unit-sphere eyeball (sclera 24x12 UV sphere, radius exactly 1.0) with a glowing red iris and a black pupil, so WatchingEyeProfile.radius_metres can be applied in scenes/tower/watching_eye.tscn as a uniform scale and mean literally the radius in metres. THE GAZE AXIS IS glTF +Z, not Godot's conventional -Z -- scripts/tower/watching_eye.gd builds its own basis rather than calling look_at, which would point the back of the eyeball at the viewer. Three nodes, one surface each, three untextured materials (M_Sclera, M_Iris with KHR_materials_emissive_strength 1.1, M_Pupil), no UV set beyond the sclera's own, no rig, no animation, no texture and NO COLLISION -- nothing here is on the rifle's hit mask and every mesh is taken off shadow casting on ready. The iris and pupil are spherical CAPS concentric with the sclera, on radii 1.005 and 1.008, rim radii 0.580 and 0.290: they curve with the ball instead of floating in front of it, which is what the squashed-sphere iris (apex 42 mm proud) and the flat disc pupil did. Node names are addressed by the scene and the script; renaming one is a gameplay bug days later. 768 tris = 528 sclera + 168 iris + 72 pupil.",
+  "node_paths": ["Eye_Sclera", "Eye_Iris", "Eye_Pupil"],
+  "surfaces": 3,
+  "max_tris": 820
+}

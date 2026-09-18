@@ -256,6 +256,19 @@ shadowed the environment and every local verification ran `C:\tools\godot\godot.
 on macOS. It presented as "godot verification FAILED" with an empty log. They
 are `PC_BLENDER` and `PC_GODOT` now.
 
+**Blender's UV sphere does not emit its faces in a stable order.** The same
+`eye_build.py`, run six times on one Mac with nothing changed, produced five
+different index arrays for `Eye_Sclera_Mesh`. The vertex POSITIONS were
+identical every time and so was the set of 528 triangles — only the order the
+triangles are listed in varies, and it varies per longitude column, by a
+different cyclic rotation each run. It is below the API: `bmesh`'s uvsphere
+hands the exporter a scrambled face order and the exporter faithfully preserves
+it. So `model parity eye` can never pass, a byte-for-byte rebuild of anything
+containing `primitive_uv_sphere_add` is not a thing, and the honest proof for
+such a model is positions elementwise, node transforms exactly, and the
+triangle multiset — not the bytes. `lib/glb_audit.py` and the contract check
+both see through it; a naive `cmp` does not.
+
 **`C:\dev\panopticon` on the PC is Ryan's play copy.** The pipeline works in
 `C:\Users\ddd\panopticon-modelling` and never touches it.
 
@@ -265,8 +278,7 @@ are `PC_BLENDER` and `PC_GODOT` now.
 |---|---|---|
 | `runner.glb` | `runner_build.py` | 544 tris, 16-joint rig, 21-frame `Run` clip at 30 fps, 1.8 m |
 | `rifle.glb` | `rifle_build.py` | no skin, no animation, muzzle at local `(0, 0, -1.150)` |
-| `eye.glb` | **none** | predates this pipeline |
+| `eye.glb` | `eye_build.py` | 768 tris, 3 nodes, no rig; the sclera's exported triangle ORDER is not reproducible (see below) |
 
 Each script's own header states the contract it holds to; the tri budget is in
-`<name>.contract.json`. `eye.glb` is still unregenerable — it is the next thing
-to reconstruct if it ever needs to change.
+`<name>.contract.json`.

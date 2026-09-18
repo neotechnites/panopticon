@@ -28,7 +28,7 @@ separately — they cost physics, not draw calls.
 | 3 | `tower_interior.glb` | 5,195 | 1 | 1 | yes — 2,533 | 2×128² (14 KB) | 680 KB |
 | 4 | `tower_arches.glb` | 4,010 | 1 | 1 | yes — 144 | 2×128² (14 KB) | 375 KB |
 | 5 | `tower.glb` | 1,194 | 1 | 1 | yes — 144 | 2×128² (14 KB) | 135 KB |
-| 6 | `eye.glb` | 1,078 | 3 | 3 | none | none | 30 KB |
+| 6 | `eye.glb` | 768 | 3 | 3 | none | none | 21 KB |
 | 7 | `rock_bars.glb` | 1,048 | 1 | 1 | yes — 240 | 2×128² (14 KB) | 133 KB |
 | 8 | `tower2.glb` | 858 | 1 | 1 | yes — 70 | 2×128² (14 KB) | 105 KB |
 | 9 | `husk_a/b/c.glb` | 702 / 698 / 604 | 1 | 1 | none | 1×32–128² | 83–110 KB |

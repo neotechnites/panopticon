@@ -4,7 +4,7 @@ extends Node3D
 ## The eyeball over the tower, and the one thing in PANOPTICON that moves because
 ## of where [b]you[/b] are standing.
 ##
-## [code]assets/models/eye.glb[/code] -- a 1,078-triangle ball with a glowing red
+## [code]assets/models/eye.glb[/code] -- a 768-triangle ball with a glowing red
 ## iris and a black pupil -- floats in the gap between the top of
 ## [PanopticonEye]'s box (y=4.15) and the light over the tower
 ## ([code]KeyLight[/code], y=20), and turns so that its pupil points at whoever is
@@ -97,8 +97,9 @@ extends Node3D
 
 ## Which way the pupil points in the model's own space.
 ##
-## [code]eye.glb[/code] puts the iris at +Z (translation z=0.798) and the pupil
-## disc in front of it at z=1.054, so the gaze axis is [constant Vector3.BACK] --
+## [code]eye.glb[/code] puts the iris and the pupil at +Z -- spherical caps on the
+## eyeball's own front, apexes at z=1.005 and z=1.008 against a sclera of radius
+## 1.0 -- so the gaze axis is [constant Vector3.BACK] --
 ## the [b]opposite[/b] of Godot's conventional -Z forward. That is why this file
 ## builds its own basis in [method gaze_basis_for] rather than calling
 ## [method Node3D.look_at], which would point the model's back of the head at the
@@ -310,8 +311,7 @@ func gaze_direction() -> Vector3:
 ##
 ## The eyeball hangs a couple of metres under the tower's omni light, so a
 ## shadow-casting ball would drop a hard disc of darkness over the guard's box and
-## the inner deck -- and, because the iris bulges four centimetres proud of the
-## sclera, that disc would have a faint lump on it that turned as the eye turned.
+## the inner deck, and that disc would turn as the eye turned.
 ## Harmless in fact (it turns with the local viewer, so it can only ever indicate
 ## where the viewer already is) but it is a moving patch of light on the deck,
 ## which is the shape of a tell, and switching it off is free. Matches

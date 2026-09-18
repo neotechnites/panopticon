@@ -29,6 +29,6 @@ editor_description = "The only thing that turns. It is a separate node from the 
 [node name="Model" parent="Gaze" instance=ExtResource("3_eye_model")]
 editor_description = "assets/models/eye.glb, committed since it was made and referenced by nothing until now. Authored as a unit sphere -- the sclera spans -1..+1 on every axis -- so WatchingEyeProfile.radius_metres is applied here as a uniform scale and is literally the radius in metres.
 
-THE GAZE AXIS IS +Z, NOT -Z. The glTF puts the iris at z=0.798 and the pupil disc at z=1.054, which is the opposite of Godot's conventional forward. That is why WatchingEye builds its own basis rather than calling look_at, which would point the back of the eyeball at the viewer -- a mistake that reads as a deliberate design decision from the ring and is invisible in a diff.
+THE GAZE AXIS IS +Z, NOT -Z. The glTF puts the iris and the pupil on the front of the ball as spherical caps, apexes at z=1.005 and z=1.008 against a sclera of radius 1.0, which is the opposite of Godot's conventional forward. That is why WatchingEye builds its own basis rather than calling look_at, which would point the back of the eyeball at the viewer -- a mistake that reads as a deliberate design decision from the ring and is invisible in a diff.
 
 The scale lives on this node rather than on Gaze or the root: a scaled root would make the metre-denominated column test in WatchingEye.is_on_the_tower mean something other than metres, and a scale on Gaze would be wiped every frame by the basis the script writes there."

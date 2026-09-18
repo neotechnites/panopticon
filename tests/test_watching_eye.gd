@@ -492,9 +492,8 @@ func test_the_shipped_eye_follows_with_a_delay_and_can_be_turned_off() -> void:
 ## shape would put it on the rifle's hit mask and stop the guard's own shots from
 ## leaving the tower; a light on it would put a patch on the deck that moves with
 ## the local viewer, which is the shape of a tell even though it could not
-## actually signal anything. Shadow casting is off for that last reason too -- the
-## iris stands proud of the sclera, so a shadow-casting eyeball would drop a
-## lumpy, turning disc across the box below it.
+## actually signal anything. Shadow casting is off for that last reason too -- a
+## shadow-casting eyeball would drop a turning disc across the box below it.
 func test_the_eye_is_inert() -> void:
 	for node: Node in _descendants_of(_eye):
 		assert_null(node as CollisionObject3D, "%s: the eye must have no physics body" % node.name)
