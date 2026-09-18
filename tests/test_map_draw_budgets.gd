@@ -61,18 +61,19 @@ extends TestCase
 const DRAW_BUDGETS: Dictionary = {
 	# The reference map. B1-B5 were all measured on this one.
 	#
-	# Re-measured after S3's demon pads became lava cracks: 89764 tris (was
-	# 87268) because the 36 cracks are cut into map_base.glb itself -- 1370
-	# deck tris round the fissures, 2920 fissure tris, and the ragged lip
-	# wall's seven stations -- while the 36 x 62-tri pad models went. Surfaces
-	# hold at 70: each `lava_crack` node draws one haze MeshInstance3D where
-	# each `demon_pad` drew one model. `transparent_tris` leaves zero for the
-	# first time on this map: the heat haze is 36 x 4 triangles of a spatial
-	# shader that reads the screen (hint_screen_texture) and writes ALPHA,
-	# so it is 144 triangles in the sorted pass plus one screen copy a frame;
-	# ceiling 173 (144 + 20 %). Lights measured 19, inside the 24 it had.
+	# Re-measured after S3's demon pads became lava cracks, then one crack
+	# network: 89662 tris (was 87268 with the pads) because the cracks are cut
+	# into map_base.glb itself -- 826 deck tris round the network, 2948 fissure
+	# tris, and the ragged lip wall's seven stations -- while the 36 x 62-tri
+	# pad models went. Surfaces 65: each `lava_crack` node draws one haze
+	# MeshInstance3D where each `demon_pad` drew one model, and the three
+	# stray S4 pads that stood in S3 are gone. `transparent_tris` leaves zero
+	# for the first time on this map: the heat haze is 36 x 4 triangles of a
+	# spatial shader that reads the screen (hint_screen_texture) and writes
+	# ALPHA, so it is 144 triangles in the sorted pass plus one screen copy a
+	# frame; ceiling 173 (144 + 20 %). Lights measured 19, inside the 24 it had.
 	"bentham_ring": {
-		"tris": 107717, "surfaces": 84, "materials": 18,
+		"tris": 107595, "surfaces": 78, "materials": 18,
 		"transparent_tris": 173, "lights": 24, "shadow_casters": 0,
 	},
 	# Four surfaces were the whole arena until the course went on the lane: 71

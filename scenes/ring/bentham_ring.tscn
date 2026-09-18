@@ -365,15 +365,6 @@ transform = Transform3D(0.895712, 0, -0.444635, 0, 1, 0, 0.444635, 0, 0.895712, 
 transform = Transform3D(0.895712, 0, -0.444635, 0, 1, 0, 0.444635, 0, 0.895712, -52.7101, 23.000, -17.5343)
 [node name="S4_DemonRun" type="Node3D" parent="Sections" unique_id=203383202]
 
-[node name="DemonPad_Ryan1" parent="Sections/S4_DemonRun" unique_id=565235915 instance=ExtResource("23_demon_pad_scene")]
-transform = Transform3D(0.89099234, 0, 0.4540192, 0, 1, 0, -0.4540192, 0, 0.89099234, -43.38981, 23, 26.71414)
-
-[node name="DemonPad_Ryan2" parent="Sections/S4_DemonRun" unique_id=1114819637 instance=ExtResource("23_demon_pad_scene")]
-transform = Transform3D(0.96533346, 0, 0.26102138, 0, 1, 0, -0.26102138, 0, 0.96533346, -49.301155, 23, 14.886329)
-
-[node name="DemonPad_Ryan3" parent="Sections/S4_DemonRun" unique_id=1713601717 instance=ExtResource("23_demon_pad_scene")]
-transform = Transform3D(0.9992201, 0, 0.03949845, 0, 1, 0, -0.03949845, 0, 0.9992201, -50.926212, 23, 2.338439)
-
 [node name="DemonPad_212deg" parent="Sections/S4_DemonRun" unique_id=1866480373 instance=ExtResource("23_demon_pad_scene")]
 transform = Transform3D(0.857713, 0, -0.514129, 0, 1, 0, 0.514129, 0, 0.857713, -44.6061, 23, -27.8757)
 
