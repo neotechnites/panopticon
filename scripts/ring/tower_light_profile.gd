@@ -40,13 +40,12 @@ extends Resource
 ## at 35-60 m instead of a rounding error.
 @export_range(0.0, 200.0, 0.5) var energy: float = 80.0
 
-## [member OmniLight3D.omni_range], in metres. Must clear the straight-line
-## distance from the light to the far side of the outer wall (r=62) or the
-## edge of the ring goes to true black regardless of [member energy]. At the
-## default height (30 m) that distance is ~69 m; this ships with generous
-## headroom above that so the falloff curve is still doing something out at
-## the wall rather than hitting a hard zero.
-@export_range(10.0, 300.0, 1.0) var range_metres: float = 130.0
+## [member OmniLight3D.omni_range], in metres. On a map whose lamp hangs in
+## open air this has to clear the far side of the outer wall (r=62, ~69 m at
+## 30 m up) or the ring's edge goes to true black. On a map whose lamp is
+## buried in the tower's own rock it is the only thing standing in for the
+## occlusion the renderer will not give it: see [member height_metres].
+@export_range(1.0, 300.0, 1.0) var range_metres: float = 130.0
 
 ## [member OmniLight3D.omni_attenuation] -- the exponent on
 ## [code]distance^-attenuation[/code] in Godot 4's falloff. Godot's own
@@ -71,17 +70,14 @@ extends Resource
 ## the guard from behind, and a lit figure in a dark slit is the most readable
 ## thing on the map -- the mechanic inverted by one number.
 ##
-## So the glow is put BELOW the chamber floor. Tower/Platform is a 1 m slab
-## spanning local y=-1 to y=0 with collision and this light casts shadows, so the
-## floor the guard stands on is itself the occluder: nothing from this lamp
-## reaches the room. What it does light is the column under the tower and the
-## sky-facing underside of the stand, which is what makes the tower read as a lit
-## thing from the galleries without lighting the one thing that has to stay dark.
-##
-## Its range is the other half. At -3 m the lamp is 45 m from the nearest deck
-## corner and [member range_metres] would have to be raised a long way to reach
-## it, so the galleries are lit by KeyLight, as they already were, and this is a
-## local glow and nothing else.
+## So the glow is put BELOW the chamber floor, and [member range_metres] is what
+## keeps it there. The floor is NOT an occluder: GL Compatibility renders this
+## omni's shadows but they occlude nothing (measured 2026-09-18 -- turning every
+## tower mesh off shadow casting changes the frame not at all), so a lamp buried
+## in the rock with reach to spare lights the chamber walls and ceiling straight
+## through 4.6 m of stone, and a lit guard in a dark slit is the mechanic
+## inverted. Map 1 holds it to 8 m, inside its own rock. Raise it and the room
+## lights up again.
 @export_range(-40.0, 120.0, 0.1) var height_metres: float = -3.0
 
 ## Whether the tower light casts shadows at all. This is the one thing in
