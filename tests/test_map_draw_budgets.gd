@@ -61,17 +61,17 @@ extends TestCase
 const DRAW_BUDGETS: Dictionary = {
 	# The reference map. B1-B5 were all measured on this one.
 	#
-	# Re-measured after the dividers and S3, the demon minefield: 45 surfaces
-	# against the 37 this row was first built on. Each `demon_pad` node is one
-	# more surface -- Godot draws separate MeshInstance3Ds separately under GL
-	# Compatibility, so a minefield of N pads costs N draw calls and there is no
-	# batching to reclaim them short of a MultiMesh. S3 ships 11 pads; a denser
-	# variant would move this number one for one, which is exactly the change of
-	# order this gate exists to make visible.
-	# `tris` is NOT widened: the measurement rose 78722 -> 90316 and is still
-	# inside the ceiling it already had.
+	# Re-measured after S3 became the demon pad grid: 70 surfaces against the
+	# 45 the minefield had and the 37 this row was first built on. Each
+	# `demon_pad` node is one more surface -- Godot draws separate
+	# MeshInstance3Ds separately under GL Compatibility, so a grid of N pads costs
+	# N draw calls and there is no batching to reclaim them short of a MultiMesh.
+	# S3 ships 36 pads (11 before), which is exactly the change of order this
+	# gate exists to make visible, and it is written down here on purpose.
+	# `tris` is NOT widened: the measurement moved 90316 -> 87268 (the crests and
+	# dips went) and is still inside the ceiling it already had.
 	"bentham_ring": {
-		"tris": 94467, "surfaces": 54, "materials": 18,
+		"tris": 94467, "surfaces": 84, "materials": 18,
 		"transparent_tris": 0, "lights": 24, "shadow_casters": 0,
 	},
 	# Four surfaces were the whole arena until the course went on the lane: 71
