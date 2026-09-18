@@ -362,6 +362,10 @@ S3_COLL_ST = 1                        # ... and every Nth station. BOTH 1 on pur
 S3_FLANK = 30.0                       # a facet leaning more than this off flat is wall, not deck
 S3_REVIEW = (2.2, 0.55, 1.5)          # review renders only: white sun W, world grey, exposure EV
 S3_FIELD_BACK = 4.5                   # ... degrees the mid-field eye stands behind the proxy
+S3_DENSE = os.environ.get("S3_DENSE") == "1"   # the denser pad variant, for Ryan to choose
+                                      # from: lib/s3_minefield.py reads the same flag and
+                                      # lays a fuller field; the review shots are named apart
+                                      # so both sets can sit side by side on his desktop
 S3_EYE_R = 54.3                       # ... and the radius the approach shot stands at: outside
                                       # the crest band, or the first crest fills the frame
 S3_PAD_HALF = 1.25                    # ... the stand-in pad plate's half extent, as the node's
@@ -5393,12 +5397,21 @@ def _s3_corridor_r(L, bearing):
     return best[1]
 
 
+def _s3_shot(shot):
+    """Name the section's review shots apart when the dense variant is built, so
+    a dense set never overwrites the sparse one in the render folder."""
+    def named(name, *rest):
+        return shot(name.replace("review_s3_", "s3_dense_", 1) if S3_DENSE else name, *rest)
+    return named
+
+
 def _s3_review(scene, shot):
     """Review-only: a white fill over the minefield, exposure up, and three
     proxy bodies -- one standing and one crouched behind cover on the ground,
     one at a pad's apex -- so the raycast numbers in the MDL STATS s3 lines
     can be read off a picture. Everything made here is removed after."""
     L = S3["L"]
+    shot = _s3_shot(shot)
     made = []
     sd = bpy.data.lights.new("ReviewSun", type="SUN")
     sd.energy, sd.color = S3_REVIEW[0], (1.0, 1.0, 1.0)

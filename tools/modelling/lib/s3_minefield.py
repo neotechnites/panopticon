@@ -44,17 +44,27 @@ launches tangentially toward increasing bearing. No pad's yaw is written down:
 each is SOLVED, forward first, falling back to backward where the deck leaves
 no forward flight that still lands on it.
 
+TWO FIELDS. The section ships in two variants so the look can be chosen from
+renders rather than from argument. `S3_DENSE=1` in the environment selects the
+DENSE field; anything else, unset included, builds the SPARSE field this module
+has always built, byte for byte. The dense field spends cover to buy pads --
+see THE SECOND FIELD below for the one measured lever that actually moves the
+count, and for why it is not the crests.
+
 Run `python3 s3_minefield.py` for the self-proof. It prints every number it
 asserts, and it prints the one place this section falls short of its brief --
-the pad count -- rather than hiding it.
+the pad count -- rather than hiding it. It then builds BOTH variants in child
+processes of their own, proves each in full, and prints them side by side.
 """
 
 import math
+import os
 from collections import deque
 
 # The section's whole public surface. Everything else is either a TUNABLE the
 # style rule asks to be named, or a private helper.
-__all__ = ["S3_B0", "S3_B1", "S3_EXT", "S3_SEED", "layout"]
+__all__ = ["S3_B0", "S3_B1", "S3_EXT", "S3_SEED", "S3_DENSE", "S3_VARIANT",
+           "layout"]
 
 # =============================================================================
 # TUNABLES
@@ -323,6 +333,100 @@ _ARC_APEX_X = math.tan(math.radians(PAD_ANGLE)) / (2.0 * _ARC_K)
 # only where a legal FORWARD flight exists; past the bearing where those run out
 # the section carries no pads, which reads as the way out. Never hardcoded.
 FWD_MIN = 6                # regression floor on the forward pad count
+
+
+# =============================================================================
+# THE SECOND FIELD -- the DENSE variant, behind one environment flag
+# =============================================================================
+# S3 ships TWO fields so the look can be picked from renders instead of from
+# argument: the SPARSE one above, which this module has always built, and a
+# DENSE one that spends cover to buy pads. A flag is the only handle that
+# reaches a mesh build, a scene build and this self-proof alike, so all three
+# can be asked for the SAME field in one command.
+#
+# THIS IS THE MODULE'S ONE ENVIRONMENT READ, and it happens exactly once, at
+# import, into a constant. The no-os.environ rule exists because a per-call
+# read makes the geometry depend on WHEN it was asked rather than on S3_SEED,
+# and a .glb that differs between two runs of one build is the exact bug the
+# digest exists to catch. Read once, the flag is just another tunable: layout()
+# stays pure, stays cached, and stays byte-identical inside a process.
+DENSE_VAR = "S3_DENSE"           # the environment variable, named once
+DENSE_ON = "1"                   # the ONLY value that selects the dense field;
+                                 # anything else, unset included, is the sparse one
+PROOF_CHILD_VAR = "S3_PROOF_CHILD"   # set on the proof's own children, so a child
+                                     # proves one variant instead of recursing
+PROOF_CHILD_ON = "1"             # ... and the value it is set to
+METRICS_TAG = "METRICS "         # the line a child prints for the parent's table
+VARIANT_SPARSE = "sparse"        # the two variant names, written down once each
+VARIANT_DENSE = "dense"
+S3_DENSE = os.environ.get(DENSE_VAR) == DENSE_ON
+S3_VARIANT = VARIANT_DENSE if S3_DENSE else VARIANT_SPARSE
+
+# The sparse section's digest as it ships today. The proof asserts it, so any
+# edit that moves the sparse field by a single float fails loudly here rather
+# than quietly reshipping a different map 1.
+SPARSE_DIGEST = "b8ceb269873e3cd82c91899b8c1fdf68"
+
+COVER_COUNT_MIN, COVER_COUNT_MAX = 9, 12     # crest count band the proof allows
+
+# ---- what the dense field pays, and what it buys ----------------------------
+# WHAT BINDS THE PAD COUNT IS NOT COVER. Measured on this deck: a pad's flight
+# is PAD_RANGE 14.70 m, which at r ~52 is a fixed 14.5 deg hop round the ring
+# whatever yaw it is given -- aim further inward and the landing simply leaves
+# the deck. So a pad exists only where the bearing 14.5 deg AHEAD of it can be
+# landed on. Two things take that bearing away. The last 14.5 deg of the
+# section has nothing ahead of it inside PAD_LAND_B1. And each dip is a
+# DIP_ALONG x 2 x DIP_HALF_ACROSS saucer lying across the corridor, sealed to
+# the pit lip by its crest and to the wall by its buttress: it is a wall-to-wall
+# no-landing band about 10 deg wide, and it blacks out the launch bearings
+# 14.5 deg BEHIND it just as completely.
+#
+# That is why the dense field's biggest single lever is DIP_SEP. At the sparse
+# 9.00 the three dips' landing bands run together into one unbroken 28 deg
+# blackout and its shadow empties the whole first third of the deck; a hair
+# wider and the bands part, the shadow breaks up, and the launchable window
+# opens from 20 deg to 24 deg. Measured: crest count, crest width, lattice
+# step, yaw step, arc clearance and pad-to-pad gap ALL have zero sensitivity
+# once DIP_SEP is right -- 14 pads is what this deck holds.
+DENSE_DIP_SEP = 9.15             # the dips part, and their landing bands part with
+                                 # them. 9.00 is one continuous blackout; above
+                                 # ~9.8 a dip pad's own landing falls in the next
+                                 # dip and no dip set carries the section at all
+# Cover is the trade Ryan ranked first, and it is nearly free here: crests
+# compete with the inner pad lane, but the pad count is deck-limited, not
+# cover-limited, so it holds flat from 7 crests down. Take the knee, not the
+# floor -- 7 crests keep their cover and cost no pad at all.
+DENSE_COVER_TARGET = 4           # spread crests on top of the three dip ones
+DENSE_COVER_COUNT_MIN = 4        # the floor the dense field must never go under
+# The dense field is held to a STRICTER dead-pad rule than the sparse one: a
+# full bake cell of clear floor under every landing, measured to every crest,
+# lump, buttress and dip footprint and to both walkable rims. It costs nothing
+# once DIP_SEP is right, and it is what makes a denser field safe to walk into.
+DENSE_PAD_LAND_CLEAR = BAKE_GRID     # one bake cell clear of every footprint
+DENSE_PAD_LAND_EDGE = BAKE_GRID      # and of r GRID_R0 / GRID_R1
+# The one gate the dense field does relax: a crest's published shadow. Ryan's
+# third trade, and the cheapest of the three -- the floor drops to one bake
+# cell, which is the width the cover bake must straddle to sample a shadow at
+# all, and the field then lands at 2.60 m anyway, so the relaxation is never
+# actually spent.
+DENSE_PATCH_MIN = BAKE_GRID
+DENSE_PAD_MIN_ACHIEVED = 12      # regression floor at the dense frontier
+
+if S3_DENSE:
+    DIP_SEP = DENSE_DIP_SEP
+    COVER_TARGET = DENSE_COVER_TARGET
+    COVER_COUNT_MIN = DENSE_COVER_COUNT_MIN
+    PAD_LAND_CLEAR = DENSE_PAD_LAND_CLEAR
+    PAD_LAND_EDGE = DENSE_PAD_LAND_EDGE
+    PATCH_MIN = DENSE_PATCH_MIN
+    PAD_MIN_ACHIEVED = DENSE_PAD_MIN_ACHIEVED
+
+# The dead-pad gate the proof holds this variant to: each field is judged by
+# the rule its own solver was built against, so the two can never drift apart.
+PAD_LAND_PROOF_CLEAR = PAD_LAND_CLEAR
+# At least this many crests must cast a shadow a bake cell wide, in EITHER
+# variant -- a crest whose shadow the bake cannot sample is not cover.
+COVER_SHADOWED_MIN = 4
 
 
 # =============================================================================
@@ -1404,6 +1508,10 @@ def layout():
 
 _PF_HASH_CELL = 3.0        # plan hash cell for the body sweep, metres
 _PF_NB = [0]               # grid row stride, set once the grid is built
+# The numbers the side-by-side table is built from. The proof fills this as it
+# goes, so the table quotes the SAME values the assertions were run against
+# rather than measuring the section a second time and hoping the two agree.
+_PROOF_METRICS = {}
 
 
 def _pf_digest(lay):
@@ -1456,6 +1564,49 @@ def _pf_rock(lay):
             obs.append((bt[0], bt[1], math.degrees(math.atan2(bt[3], bt[2])),
                         bt[5], bt[4]))
     return obs
+
+
+def _pf_land_boxes(lay):
+    """Every footprint a landing must stand clear of, in `_plan_gap` shape
+    (cx, cz, ux, uz, half_along, half_across): each crest, each of its lumps,
+    each dip's outer buttress, and each dip saucer -- whose two ends ARE its
+    published rims, so the rim clearance and the saucer clearance are one
+    measurement and cannot drift apart."""
+    out = []
+    for c in lay["covers"]:
+        cx, cz = _plan(c["b"], c["r"])
+        ux, uz = _dir(_cover_yaw(c["b"]))
+        out.append((cx, cz, ux, uz, c["half_along"], c["half_across"]))
+        for lx, lz, lux, luz, lh, _lh2, _lt, _lf in _cover_lumps(c):
+            out.append((lx, lz, lux, luz, lh, lh))
+    for d in lay["dips"]:
+        q = lay["pads"][d["pad"]]
+        bt = _dip_buttress(_plan(q["b"], q["r"]), q["yaw"])
+        if bt is not None:
+            out.append(bt[:6])
+        r0, r1 = d["rim0"], d["rim1"]
+        ux, uz = (r1[0] - r0[0]) / d["along"], (r1[1] - r0[1]) / d["along"]
+        out.append((0.5 * (r0[0] + r1[0]), 0.5 * (r0[1] + r1[1]), ux, uz,
+                    0.5 * d["along"], DIP_HALF_ACROSS))
+    return out
+
+
+def _pf_land_clearance(lay):
+    """For every pad, the least plan distance from its landing to anything that
+    would make it a DEAD pad: any crest, lump, buttress or dip footprint, and
+    the two walkable rims r GRID_R0 / GRID_R1. Returns the per-pad list."""
+    boxes = _pf_land_boxes(lay)
+    out = []
+    for p in lay["pads"]:
+        lx, lz = p["land"]
+        lr = math.hypot(lx, lz)
+        clear = min(lr - GRID_R0, GRID_R1 - lr)
+        for box in boxes:
+            gap = _plan_gap(lx, lz, box)
+            if gap < clear:
+                clear = gap
+        out.append(clear)
+    return out
 
 
 def _pf_obstacles(lay, drop=()):
@@ -1702,13 +1853,17 @@ if __name__ == "__main__":
     assert sta[0] == 46.7 and sta[-1] == 57.3
     assert min(ssteps) >= 0.25 and max(ssteps) <= 0.50
 
+    print("  variant              %s" % S3_VARIANT)
+    _PROOF_METRICS["variant"] = S3_VARIANT
+
     covers = LAY["covers"]
-    assert 9 <= len(covers) <= 12, len(covers)
+    assert COVER_COUNT_MIN <= len(covers) <= COVER_COUNT_MAX, len(covers)
     for c in covers:
         assert set(c) == {"b", "r", "top", "half_along", "half_across", "hide_r"}
         assert 1.90 <= c["top"] <= 2.10
         assert c["hide_r"] > c["r"]
     print("  covers               n=%d" % len(covers))
+    _PROOF_METRICS["covers"] = len(covers)
     # The MESH samples `height` on this section's own grid, so the analytic peak
     # is not what the game gets. Assert the SAMPLED top, which is the number a
     # raycast onto the shipped collider returns.
@@ -1723,6 +1878,8 @@ if __name__ == "__main__":
         assert set(p) == {"b", "r", "yaw", "land"}
     print("  pads                 n=%d  area %.1f%% of the field"
           % (len(pads), len(pads) * 6.25 / 529.2 * 100.0))
+    _PROOF_METRICS["pads"] = len(pads)
+    _PROOF_METRICS["pad_area"] = len(pads) * 6.25 / 529.2 * 100.0
     assert PAD_MIN_ACHIEVED <= len(pads) <= PAD_MAX, len(pads)
     if len(pads) < PAD_BRIEF_MIN:
         last = max(q["b"] for q in pads)
@@ -1760,6 +1917,7 @@ if __name__ == "__main__":
         assert abs(gap - 6.0) < 1e-6, gap
     print("  dips                 n=3  depths %s  rim gap %.6f"
           % ([d["depth"] for d in dips], gap))
+    _PROOF_METRICS["dips"] = len(dips)
 
     cor = LAY["corridor"]
     csteps = [cor[i + 1][0] - cor[i][0] for i in range(len(cor) - 1)]
@@ -1850,6 +2008,8 @@ if __name__ == "__main__":
           % (nav_narrow[0], nav_narrow[1], 2.0 * NAV_DISC_R))
     assert nav_reached, "the navmesh disc cannot roll through S3"
     assert nav_narrow[0] >= 2.0 * NAV_DISC_R - 1e-9, nav_narrow
+    _PROOF_METRICS["nav_narrow"] = nav_narrow[0]
+    _PROOF_METRICS["nav_rolls"] = bool(nav_reached)
 
     # And the same disc on ROCK ALONE, with NO jump edges. Godot bakes a pad as
     # a link, not an obstacle, so this is what decides whether the navmesh is
@@ -1991,6 +2151,21 @@ if __name__ == "__main__":
     print("  forward %d / backward %d -- a backward pad loops a bot round the"
           " ring, so zero is the only number" % (n_fwd, n_back))
     assert n_back == 0, n_back
+    _PROOF_METRICS["backward"] = n_back
+
+    # A landing with no navmesh under it is a DEAD pad: the bake carves crest
+    # footprints and dip flanks out of the walkable surface, so a body thrown
+    # there cannot path home. The gate is the variant's own, measured against
+    # every crest, lump, buttress and dip footprint and both walkable rims.
+    land_clear = _pf_land_clearance(LAY)
+    n_dead = sum(1 for v in land_clear if v < PAD_LAND_PROOF_CLEAR)
+    print("  dead pads            %d  (worst landing clearance %.2f m, gate %.2f m,"
+          % (n_dead, min(land_clear), PAD_LAND_PROOF_CLEAR))
+    print("                       measured to every crest, lump, buttress and dip")
+    print("                       footprint and to r %.1f / %.1f)" % (GRID_R0, GRID_R1))
+    assert n_dead == 0, (n_dead, min(land_clear))
+    _PROOF_METRICS["dead"] = n_dead
+    _PROOF_METRICS["land_clear"] = min(land_clear)
     print("  last pad             b=%.2f; past there no FORWARD flight lands on the"
           " field, so no pad is laid" % max(q["b"] for q in pads))
     print("  worst arc clearance  %.3f m (pad %d) over take-off..apex, required %.2f"
@@ -2084,6 +2259,7 @@ if __name__ == "__main__":
     for k in range(len(covers)):
         assert patw[k] >= PATCH_MIN, (k, patw[k])
         assert patd[k] >= PATCH_DEPTH_MIN, (k, patd[k])
+    _PROOF_METRICS["shadow_w"] = sorted(round(v, 2) for v in patw)
 
     # ---- 7. the surface welds ----------------------------------------------
     print("\n[7] SURFACE")
@@ -2134,6 +2310,11 @@ if __name__ == "__main__":
     assert _pf_digest(layout()) == dig, "layout() differs between calls"
     here = hashlib.sha256(dig.encode()).hexdigest()[:32]
     print("  digest               %s" % here)
+    _PROOF_METRICS["digest"] = here
+    if not S3_DENSE:
+        assert here == SPARSE_DIGEST, (here, SPARSE_DIGEST)
+        print("  unchanged            %s -- the shipped sparse section, byte for byte"
+              % SPARSE_DIGEST)
     print("  same object twice    layout() is layout(): %s" % (layout() is LAY))
 
     code = ("import s3_minefield as m, hashlib;"
@@ -2150,6 +2331,82 @@ if __name__ == "__main__":
         assert out == here, (seed, out, here)
     print("  floats compared via float.hex(); cols, stations, every cover/pad/dip")
     print("  field, the corridor, and height on a fixed 200-point grid")
+
+    import json
+    print("%s%s" % (METRICS_TAG, json.dumps(_PROOF_METRICS, sort_keys=True)))
+
+    # ---- 9. the two variants, side by side ---------------------------------
+    # Each field is built in its OWN CHILD PROCESS, one per setting of the flag,
+    # so each is a genuine fresh import that reads the environment once at its
+    # own import time -- not a re-derivation inside a process that already chose.
+    # Every child runs this entire proof, so every assertion above has already
+    # held in BOTH modes before a single number reaches the table.
+    if os.environ.get(PROOF_CHILD_VAR) != PROOF_CHILD_ON:
+        print("\n[9] THE TWO VARIANTS, SIDE BY SIDE")
+        runs = {}
+        for tag, flag in ((VARIANT_SPARSE, None), (VARIANT_DENSE, DENSE_ON)):
+            env = dict(os.environ)
+            env[PROOF_CHILD_VAR] = PROOF_CHILD_ON
+            env.pop(DENSE_VAR, None)
+            if flag is not None:
+                env[DENSE_VAR] = flag
+            got = subprocess.run([sys.executable, os.path.abspath(__file__)],
+                                 capture_output=True, text=True, env=env,
+                                 cwd=os.path.dirname(os.path.abspath(__file__)))
+            assert got.returncode == 0, (tag, got.stdout[-1500:], got.stderr[-1500:])
+            hit = [q for q in got.stdout.splitlines() if q.startswith(METRICS_TAG)]
+            assert len(hit) == 1, (tag, len(hit))
+            runs[tag] = json.loads(hit[0][len(METRICS_TAG):])
+            print("  %-6s built and fully proved in its own process" % tag)
+
+        spa, den = runs[VARIANT_SPARSE], runs[VARIANT_DENSE]
+        print("  %-24s %-22s %-22s" % ("", "S3_DENSE unset", "S3_DENSE=1"))
+        print("  %s" % ("-" * 70))
+        for label, fmt, key in (("pad count", "%d", "pads"),
+                                ("pad area fraction", "%.1f%% of the deck", "pad_area"),
+                                ("crest count", "%d", "covers"),
+                                ("dip count", "%d", "dips"),
+                                ("narrowest disc width", "%.2f m", "nav_narrow"),
+                                ("backward pads", "%d", "backward"),
+                                ("dead pads", "%d", "dead"),
+                                ("worst land clearance", "%.2f m", "land_clear")):
+            print("  %-24s %-22s %-22s"
+                  % (label, fmt % spa[key], fmt % den[key]))
+        for tag in (VARIANT_SPARSE, VARIANT_DENSE):
+            wid = runs[tag]["shadow_w"]
+            print("  %-24s %s"
+                  % ("crest shadow widths, " + tag,
+                     " ".join("%.1f" % v for v in wid)))
+            assert sum(1 for v in wid if v >= BAKE_GRID) >= COVER_SHADOWED_MIN, tag
+        for tag in (VARIANT_SPARSE, VARIANT_DENSE):
+            print("  %-24s %s" % ("determinism digest, " + tag, runs[tag]["digest"]))
+        print("  every crest shadow above is at least one %.2f m bake cell wide,"
+              % BAKE_GRID)
+        print("  and at least %d crests carry one in each variant"
+              % COVER_SHADOWED_MIN)
+
+        assert spa["digest"] == SPARSE_DIGEST, (spa["digest"], SPARSE_DIGEST)
+        assert spa["backward"] == 0 and den["backward"] == 0
+        assert spa["dead"] == 0 and den["dead"] == 0
+        assert spa["nav_rolls"] and den["nav_rolls"]
+        assert den["pads"] > spa["pads"], (den["pads"], spa["pads"])
+        print("  the flag is off by default: %s is the shipped section, unchanged"
+              % VARIANT_SPARSE)
+
+        # The dense field gets the same two-hash-seed treatment the sparse one
+        # has always had: CPython randomises string hashing per process, and a
+        # dict iteration order that drifts is exactly what flips one quad.
+        for seed in ("0", "1"):
+            env = dict(os.environ)
+            env[DENSE_VAR] = DENSE_ON
+            env["PYTHONHASHSEED"] = seed
+            got = subprocess.run([sys.executable, "-c", code], capture_output=True,
+                                 text=True, env=env,
+                                 cwd=os.path.dirname(os.path.abspath(__file__)))
+            out = got.stdout.strip()
+            print("  dense PYTHONHASHSEED=%s  %s  %s"
+                  % (seed, out, "match" if out == den["digest"] else "MISMATCH"))
+            assert out == den["digest"], (seed, out, den["digest"])
 
     print("\n" + "=" * 78)
     print("ALL CHECKS PASSED")
