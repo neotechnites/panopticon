@@ -1,0 +1,27 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="PackedScene" path="res://assets/models/forest_thorns.glb" id="1_thorns_model"]
+[ext_resource type="Script" path="res://scripts/match/trap_volume.gd" id="2_trap_volume"]
+
+[node name="ForestThornsStrip" type="Node3D"]
+
+[node name="Model" parent="." instance=ExtResource("1_thorns_model")]
+
+[node name="ForestThornsRound" parent="Model"]
+visible = false
+
+[node name="CollisionShape3D" parent="Model/ForestThornsRoundCollision"]
+disabled = true
+
+[node name="Thorns" type="Area3D" parent="."]
+editor_description = "Lifted 0.15 m because the forest lane carries +-0.12 m relief and TrapVolume.feet_only fires only when feet.y <= origin.y + 0.05, so a volume at the prop's own y would miss a runner standing on a bump."
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.15, 0)
+collision_layer = 0
+collision_mask = 1048577
+monitorable = false
+script = ExtResource("2_trap_volume")
+size_metres = Vector3(6, 1, 2)
+feet_only = true
+grace_seconds = 0.15
+
+[node name="Shape" type="CollisionShape3D" parent="Thorns"]

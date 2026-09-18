@@ -3,13 +3,13 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-uid="uid://cplpperlub84c"
-path="res://.godot/imported/forest_rock_slab.glb-7c869e6c57a96064cf27907f48036603.scn"
+uid="uid://d3q5kbhxbc37n"
+path="res://.godot/imported/forest_thorns.glb-f076698c51f368d938044f660aed0cd8.scn"
 
 [deps]
 
-source_file="res://assets/models/forest_rock_slab.glb"
-dest_files=["res://.godot/imported/forest_rock_slab.glb-7c869e6c57a96064cf27907f48036603.scn"]
+source_file="res://assets/models/forest_thorns.glb"
+dest_files=["res://.godot/imported/forest_thorns.glb-f076698c51f368d938044f660aed0cd8.scn"]
 
 [params]
 
