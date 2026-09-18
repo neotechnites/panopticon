@@ -1,0 +1,6 @@
+{
+  "_comment": "forest_bush --variant low: a bush for Map 3's lane, 1.30 m tall and 2.00 m across, origin at the base centre so it drops onto the grass at identity. Cover a crouched runner (1.2 m) is gone behind and a standing one (1.8 m) is not. One contiguous mesh, one textured material (the 256x256 forest atlas + emissive, shared with forest_build.py), one UV set, no skin, no animation. ForestBushCollision is the purpose-built collider shipped as a `-colonly` node -- an eight-sided barrel whose radius at each height is measured off the drawn mesh, not a box; Godot turns it into a StaticBody3D + ConcavePolygonShape3D and drops its mesh, so `surfaces` stays 1 and `max_tris` counts only what is drawn.",
+  "node_paths": ["ForestBush", "ForestBushCollision", "ForestBushCollision/CollisionShape3D"],
+  "surfaces": 1,
+  "max_tris": 900
+}

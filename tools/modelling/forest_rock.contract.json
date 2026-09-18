@@ -1,0 +1,6 @@
+{
+  "_comment": "Forest granite, three variants from one build script (--variant boulder|slab|outcrop), one contract: boulder 2.02 x 1.74 x 1.30 (144 tris), slab 2.49 x 0.66 x 2.11 (120), outcrop 2.42 x 2.22 x 0.70 (140). Origin at base centre. One textured material (128x128 granite/moss atlas + emissive), one UV set. ForestRockCollision rides in the .glb as a `-colonly` node -- the drawn columns and profile with the jitter zeroed and a flat top; its mesh is discarded on import, so surfaces stays 1 and max_tris counts only what is drawn.",
+  "node_paths": ["ForestRock", "ForestRockCollision", "ForestRockCollision/CollisionShape3D"],
+  "surfaces": 1,
+  "max_tris": 160
+}

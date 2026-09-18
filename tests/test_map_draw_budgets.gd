@@ -71,10 +71,14 @@ const DRAW_BUDGETS: Dictionary = {
 		"tris": 119100, "surfaces": 90, "materials": 14,
 		"transparent_tris": 0, "lights": 3, "shadow_casters": 1,
 	},
-	# The expensive one: 1.83x the Ring, plus 2196 transparent triangles, plus a
-	# shadow caster. Its ceiling is generous because its measurement already is.
+	# The expensive one: 2.16x the Ring, plus 2196 transparent triangles, plus a
+	# shadow caster. Re-measured after the lane was laid out as an obstacle
+	# course: 45 placed prop instances (trunks, thickets, standing stones,
+	# boulders, shelves, thorn patches, three pads and an orb) take it from 9
+	# surfaces to 54 and from 11 materials to 20. Ceilings are the new
+	# measurement plus 20 %, as the header says.
 	"forest": {
-		"tris": 172674, "surfaces": 11, "materials": 11,
+		"tris": 204532, "surfaces": 65, "materials": 24,
 		"transparent_tris": 2636, "lights": 3, "shadow_casters": 1,
 	},
 }
