@@ -7,7 +7,12 @@ extends SceneTree
 ##       --seconds=60 --runners=3 --view=runner --out=user://perf_run.csv
 ##
 ## Options: --seconds --runners --view=runner|tower|orbit --width --height
-##          --warmup --out --label --vsync --map
+##          --warmup --out --label --vsync --map --at=x,y,z --look=x,y,z
+##
+## --at and --look pin the camera to one world pose for the whole run (view
+## "fixed"): the way to price one effect from one spot, such as the S3 lava
+## haze from a runner's eye two metres off a crack, with --disable=haze as
+## the control arm.
 ##
 ## --map takes a catalog id (bentham_ring, marble, forest) or a res:// path and
 ## is resolved through MapCatalog; empty means the catalog's default map. A
@@ -69,6 +74,8 @@ func _initialize() -> void:
 		"stage": 3,
 		"after": "",
 		"map": "",
+		"at": "",
+		"look": "",
 	})
 	_limit = float(_options["seconds"])
 	_warmup_left = float(_options["warmup"])
@@ -187,6 +194,16 @@ func _build() -> void:
 	_camera.fov = 75.0
 	_root.add_child(_camera)
 	_camera.make_current()
+	if not String(_options["at"]).is_empty():
+		_options["view"] = "fixed"
+
+
+## "x,y,z" as a Vector3, or the fallback when it is not three numbers.
+static func _parse_vec(raw: String, fallback: Vector3) -> Vector3:
+	var parts: PackedStringArray = raw.split(",")
+	if parts.size() != 3:
+		return fallback
+	return Vector3(float(parts[0]), float(parts[1]), float(parts[2]))
 
 
 ## Engine-side bisect: things a script disable cannot reach.
@@ -257,12 +274,17 @@ func _apply_disables() -> void:
 			kind = "controller"
 		elif node.get_class() == "Area3D":
 			kind = "areas"
+		elif node.is_in_group(&"lava_haze"):
+			kind = "haze"
 		elif node.get_script() != null:
 			kind = "scripted"
 		if kind.is_empty() or not wanted.has(kind):
 			continue
 		if kind == "scripted" and (node is Camera3D or node == self):
 			continue
+		if kind == "haze":
+			# A shader draws it, not a tick: off means not drawn at all.
+			(node as Node3D).visible = false
 		node.set_process(false)
 		node.set_physics_process(false)
 		counts[kind] = int(counts.get(kind, 0)) + 1
@@ -318,6 +340,9 @@ func _aim_camera(delta: float) -> void:
 	if _camera == null:
 		return
 	match String(_options["view"]):
+		"fixed":
+			_camera.global_position = _parse_vec(String(_options["at"]), Vector3(52.0, 25.5, 0.0))
+			_camera.look_at(_parse_vec(String(_options["look"]), Vector3.ZERO), Vector3.UP)
 		"tower":
 			_camera.global_position = _tower_eye
 			_orbit += delta * 0.6

@@ -375,13 +375,29 @@ S3_JUMP_ROWS = (1, 4, 10)             # rows whose path cell keeps its pad: jump
                                       # the path, so these three must be LIVE, not carved
 S3_BAKE_KEEP = 0.95                   # RingBake: agent radius 0.50 erodes the mesh round every
                                       # rim, wall foot and pad plate, then LAND_MARGIN 0.45
-S3_WALL_H = 1.85                      # the half wall at the pit edge: about a person tall. A
-                                      # crouched capsule (1.2 m) anywhere on the path is under
-                                      # the guard's sight line over it, a standing one (1.8 m)
-                                      # is not, and a pad's flight (apex 3.68 m) is well above
-S3_WALL_TOP = 0.175                   # half width of the flat top (0.35 m)
-S3_WALL_FOOT = 0.375                  # half width at the foot (0.75 m): flanks 0.2 m, 84 deg
-S3_WALL_R = INNER_R + S3_WALL_FOOT    # its centreline: the inner foot IS the pit lip
+S3_WALL_FOOT = 1.04                   # the half wall at the pit edge: one ragged rock, its
+                                      # inner foot the lip itself, its rock reaching at most
+                                      # this far from the lip (2 x the widest foot half width
+                                      # in _s3_wall_spec). Its crest is NOT one height: every
+                                      # column carries its own crag inside the window the
+                                      # guard's sight lines allow (a crouched capsule on the
+                                      # path hidden, a standing one seen), so it reads as rock
+                                      # and not as a corridor wall. Ryan: "its not a fucking
+                                      # hallway. its just fucking cover, its just a fucking
+                                      # rock wall to the left of the runners."
+S3_WALL_ST = (46.85, 47.00, 47.15, 47.30, 47.45, 47.60, 47.80)   # stations across the wall:
+                                      # 0.15 m apart, so a >= 0.30 m plateau always has two on
+                                      # it and the ray down the crest line lands ON the crest
+S3_WALL_END_SPUR = 0.25               # the S3|S4 divider's own lip spur reaches this far over
+                                      # the wall's 200 end (unchanged rock outside the section);
+                                      # the wall proofs report samples under it apart
+S3_CRACK_SEED = 6180339               # the fissures: one _Rng per pad, seed + 7919 * index
+S3_CRACK_FLOOR = 0.70                 # the lava floor's half width, of the fissure's top
+S3_CRACK_MARGIN = 0.10                # a patch cell boundary keeps this far from an outline
+S3_CRACK_ZONE_FLOOR = ZONE_GLOW       # the lava: every texel of that cell emits
+S3_CRACK_ZONE_WALL = ZONE_EMBER       # the cleft's sides, upper band: near-black rock with
+                                      # ember streaks; the band under it is lava too
+S3_CRACK_LIP = 0.35                   # the dark upper band, of the depth
 S3_COL_STEP = 0.5                     # plain lattice: arc metres between columns ...
 S3_ST_STEP = 1.0                      # ... and metres between stations
 S3_EDGE_BAND = 1.0                    # the first station in from the OUTER rim: one band takes
@@ -394,10 +410,6 @@ S3_RUN, S3_JUMP_V = 11.0, 7.0         # ground speed, jump take-off speed
 S3_BFS = 0.05                         # metres between the path proof's lattice points
 S3_FLANK = 30.0                       # a facet leaning more than this off flat is wall, not deck
 S3_REVIEW = (2.2, 0.55, 1.5)          # review renders only: white sun W, world grey, exposure EV
-S3_PLATE_LIFT = 0.02                  # review pad plates float this far over the rock
-S3_PLATE_COLOUR = (0.26, 0.055, 0.010, 1.0)   # review plate; dark enough to survive +1.5 EV
-S3_JUMP_COLOUR = (0.05, 0.30, 0.55, 1.0)      # ... the three jump pads, told apart
-S3_CHEVRON_COLOUR = (0.95, 0.42, 0.06, 1.0)   # ... and the chevron: which way it throws
 S3 = {}                               # the layout plus the columns it claimed
 
 # ---- prison cells: stone screens cut into the pit faces ---------------------
@@ -2911,6 +2923,754 @@ def _s3_lattice(lo, hi, step, exact, merge):
     return sorted(set(out + [lo, hi]))
 
 
+
+
+# ---- S3 CRACKS PART (pasted from s3_cracks_part.py) ----
+# ---- the cracks: where each demon pad's plate stood, a fissure cut into the
+# deck rock with lava in it. Ryan: "instead of a demon pad, either create an
+# element, or hard model into the map, cracks that have like, wavy hotness
+# coming out of them ... make it look like theres lava under the cracks."
+# One main fissure and a few splinters per pad, drawn in the pad's own frame
+# (u along the launch, v across); the mesher _s3_fissure_rings cuts them.
+S3_CRACK_HALF = 1.15                  # fissures stay inside |u|, |v| <= this: the
+                                      # 2.5 m plate less S3_CRACK_MARGIN a side
+S3_CRACK_DEPTH = 0.22                 # the deepest floor, metres: deeper than this
+                                      # and the near wall hides the lava from a
+                                      # runner's eye, so the slit reads as a line
+
+_S3C_W_MIN, _S3C_W_MAX = 0.07, 0.24   # the cut's half width at the deck: the rule
+_S3C_D_MIN = 0.10                     # ... and the floor never comes up past this
+_S3C_KINK = (0.10, 0.35)              # how far a vertex stands off the chord of its
+                                      # neighbours: the jag you can see ...
+_S3C_KINK_CAP = 0.60                  # ... never more than this much of its shorter
+                                      # step, or the offset ring folds on itself
+_S3C_FLAT = 0.03                      # a vertex standing off by less than this is not
+_S3C_STRAIGHT = 2                     # a kink but a straight run: at most this many,
+_S3C_FLAT_DEG = 3.0                   # turning at most this far, per fissure
+_S3C_ANGLE_MIN = 60.0                 # no vertex sharper than this: a sharper one
+                                      # folds the offset ring onto itself
+_S3C_STEP = (0.20, 0.70)              # how long one step along a fissure may be; they
+                                      # are drawn uneven, since even steps saw
+_S3C_WANDER = 58.0                    # degrees off its start heading before the turns
+                                      # are pulled back: a crack still goes somewhere
+_S3C_GAP = 0.12                       # outlines of different fissures stay this far
+_S3C_GAP_SLACK = 0.005                # ... and the draw leaves a little over
+_S3C_BRANCH = (0.16, 0.30)            # the first splinter's near tip stands this far
+_S3C_BRANCH_FAN = 40.0                # off the main's outline, within this of square
+                                      # to it: it reads as a branch, not a stray
+_S3C_AREA = (0.45, 1.0)               # total outline area a pad must land in ...
+_S3C_MEAN_W = (0.085, 0.115)          # ... which is drawn as a mean half width over
+_S3C_AREA_WANT = (0.50, 0.92)         # every metre of fissure, then held here
+_S3C_MAIN_PEAK = (0.16, 0.21)         # the width profile's amplitude before the pad's
+_S3C_SLIVER_PEAK = (0.075, 0.105)     # area is solved for: a splinter runs thinner ...
+_S3C_SLIVER_W = 0.12                  # ... and never widens past a sliver
+_S3C_WAIST = (0.28, 0.42)             # the main cut nips to this much of its profile
+                                      # at one vertex: two lobes, not one lens
+_S3C_MAIN_LEN = (2.0, 2.3)            # the main fissure's polyline length
+_S3C_MINOR_LEN = (0.5, 1.1)           # ... and a splinter's
+_S3C_MIN_SEG = 0.17                   # shortest step a splinter may take: below it
+                                      # a 0.10 m kink cannot keep a 60 deg vertex
+_S3C_ROT = (15.4, 59.6)               # degrees the main fissure lies off u, either way
+_S3C_JITTER = 0.12                    # how far off pad centre the main fissure sits
+_S3C_TRIES = 120                      # redraws before a pad is given up on ...
+_S3C_PLACE_TRIES = 80                 # ... and tries at setting one fissure down
+
+
+# ---- plan geometry ---------------------------------------------------------
+
+def _s3c_outline(c, w):
+    """offset a centreline into a closed ring of 2n-2 points, zero width at both ends."""
+    n = len(c)
+    nrm = []
+    for i in range(n):
+        if i == 0:
+            ax, ay = c[0]
+            bx, by = c[1]
+        elif i == n - 1:
+            ax, ay = c[n - 2]
+            bx, by = c[n - 1]
+        else:
+            ax, ay = c[i - 1]
+            bx, by = c[i + 1]
+        px = -(by - ay)
+        py = bx - ax
+        m = math.hypot(px, py)
+        if m == 0.0:
+            nrm.append((0.0, 0.0))
+        else:
+            nrm.append((px / m, py / m))
+    ring = [(c[0][0], c[0][1])]
+    for i in range(1, n - 1):
+        ring.append((c[i][0] + nrm[i][0] * w[i], c[i][1] + nrm[i][1] * w[i]))
+    ring.append((c[n - 1][0], c[n - 1][1]))
+    for i in range(n - 2, 0, -1):
+        ring.append((c[i][0] - nrm[i][0] * w[i], c[i][1] - nrm[i][1] * w[i]))
+    return ring
+
+
+def _s3c_length(c):
+    """polyline length."""
+    t = 0.0
+    for i in range(len(c) - 1):
+        t += math.hypot(c[i + 1][0] - c[i][0], c[i + 1][1] - c[i][1])
+    return t
+
+
+def _s3c_kink(c, i):
+    """perp distance from c[i] to the line c[i-1]..c[i+1], metres."""
+    ax, ay = c[i - 1]
+    bx, by = c[i + 1]
+    px, py = c[i]
+    dx = bx - ax
+    dy = by - ay
+    m = math.hypot(dx, dy)
+    if m == 0.0:
+        return math.hypot(px - ax, py - ay)
+    return abs(dx * (py - ay) - dy * (px - ax)) / m
+
+
+def _s3c_vertex_angle(c, i):
+    """degrees at c[i] between c[i-1] and c[i+1]; 180=straight."""
+    ux = c[i - 1][0] - c[i][0]
+    uy = c[i - 1][1] - c[i][1]
+    vx = c[i + 1][0] - c[i][0]
+    vy = c[i + 1][1] - c[i][1]
+    return math.degrees(math.atan2(abs(ux * vy - uy * vx), ux * vx + uy * vy))
+
+
+def _s3c_area(poly):
+    """abs(shoelace)/2 of a closed polygon."""
+    n = len(poly)
+    t = 0.0
+    for i in range(n):
+        j = (i + 1) % n
+        t += poly[i][0] * poly[j][1] - poly[j][0] * poly[i][1]
+    return abs(t) / 2.0
+
+
+def _s3c_simple(poly):
+    """true iff simple: no zero edge, non-adjacent edges never touch, adjacent meet only at the shared end."""
+
+    def orient(a, b, p):
+        d = (b[0] - a[0]) * (p[1] - a[1]) - (b[1] - a[1]) * (p[0] - a[0])
+        if d > 0.0:
+            return 1
+        if d < 0.0:
+            return -1
+        return 0
+
+    def on_seg(a, b, p):
+        return (min(a[0], b[0]) <= p[0] <= max(a[0], b[0])
+                and min(a[1], b[1]) <= p[1] <= max(a[1], b[1]))
+
+    def touch(p, q, r, s):
+        d1 = orient(r, s, p)
+        d2 = orient(r, s, q)
+        d3 = orient(p, q, r)
+        d4 = orient(p, q, s)
+        if d1 * d2 < 0 and d3 * d4 < 0:
+            return True
+        if d1 == 0 and on_seg(r, s, p):
+            return True
+        if d2 == 0 and on_seg(r, s, q):
+            return True
+        if d3 == 0 and on_seg(p, q, r):
+            return True
+        if d4 == 0 and on_seg(p, q, s):
+            return True
+        return False
+
+    n = len(poly)
+    if n < 3:
+        return False
+    for i in range(n):
+        a = poly[i]
+        b = poly[(i + 1) % n]
+        if a[0] == b[0] and a[1] == b[1]:
+            return False
+    for i in range(n):
+        a = poly[i]
+        b = poly[(i + 1) % n]
+        c = poly[(i + 2) % n]
+        if orient(a, b, c) == 0 and (b[0] - a[0]) * (c[0] - b[0]) + (b[1] - a[1]) * (c[1] - b[1]) < 0.0:
+            return False
+    for i in range(n):
+        for j in range(i + 1, n):
+            if j == i + 1 or (i == 0 and j == n - 1):
+                continue
+            if touch(poly[i], poly[(i + 1) % n], poly[j], poly[(j + 1) % n]):
+                return False
+    return True
+
+
+def _s3c_seg_gap(p, q, r, s):
+    """shortest distance between segments pq and rs; 0.0 if they intersect."""
+
+    def orient(a, b, x):
+        d = (b[0] - a[0]) * (x[1] - a[1]) - (b[1] - a[1]) * (x[0] - a[0])
+        if d > 0.0:
+            return 1
+        if d < 0.0:
+            return -1
+        return 0
+
+    def on_seg(a, b, x):
+        return (min(a[0], b[0]) <= x[0] <= max(a[0], b[0])
+                and min(a[1], b[1]) <= x[1] <= max(a[1], b[1]))
+
+    def pt_seg(x, a, b):
+        dx = b[0] - a[0]
+        dy = b[1] - a[1]
+        dd = dx * dx + dy * dy
+        if dd <= 1e-12:
+            return math.hypot(x[0] - a[0], x[1] - a[1])
+        t = ((x[0] - a[0]) * dx + (x[1] - a[1]) * dy) / dd
+        if t < 0.0:
+            t = 0.0
+        elif t > 1.0:
+            t = 1.0
+        return math.hypot(x[0] - (a[0] + t * dx), x[1] - (a[1] + t * dy))
+
+    d1 = orient(r, s, p)
+    d2 = orient(r, s, q)
+    d3 = orient(p, q, r)
+    d4 = orient(p, q, s)
+    if d1 * d2 < 0 and d3 * d4 < 0:
+        return 0.0
+    if d1 == 0 and on_seg(r, s, p):
+        return 0.0
+    if d2 == 0 and on_seg(r, s, q):
+        return 0.0
+    if d3 == 0 and on_seg(p, q, r):
+        return 0.0
+    if d4 == 0 and on_seg(p, q, s):
+        return 0.0
+    return min(pt_seg(p, r, s), pt_seg(q, r, s), pt_seg(r, p, q), pt_seg(s, p, q))
+
+
+def _s3c_poly_gap(a, b):
+    """shortest distance between two closed polygons' boundaries; 0.0 if they cross or one contains the other."""
+
+    def inside(poly, x):
+        n = len(poly)
+        hit = False
+        for i in range(n):
+            px, py = poly[i]
+            qx, qy = poly[(i + 1) % n]
+            if (py > x[1]) != (qy > x[1]):
+                cx = px + (x[1] - py) * (qx - px) / (qy - py)
+                if cx > x[0]:
+                    hit = not hit
+        return hit
+
+    na = len(a)
+    nb = len(b)
+    g = float("inf")
+    for i in range(na):
+        for j in range(nb):
+            d = _s3c_seg_gap(a[i], a[(i + 1) % na], b[j], b[(j + 1) % nb])
+            if d < g:
+                g = d
+            if g <= 1e-12:
+                return 0.0
+    if inside(b, a[0]) or inside(a, b[0]):
+        return 0.0
+    return g
+
+
+# ---- one pad's fissures: drawn, then solved to a width ----------------------
+
+def _s3c_steps(rng, want, nv):
+    """The nv-1 steps along a fissure, summing to `want` and each inside the
+    step band. Uneven on purpose: even steps read as a saw tooth, not rock.
+    None if the band cannot hold nv-1 of them."""
+    mean = want / float(nv - 1)
+    if not (_S3C_STEP[0] < mean < _S3C_STEP[1]):
+        return None
+    sp = min(0.42, 1.0 - (_S3C_STEP[0] + 0.005) / mean, (_S3C_STEP[1] - 0.005) / mean - 1.0)
+    raw = [1.0 - sp + 2.0 * sp * rng.f() for _ in range(nv - 1)]
+    t = sum(raw)
+    out = [want * x / t for x in raw]
+    for x in out:
+        if not (_S3C_STEP[0] <= x <= _S3C_STEP[1]):
+            return None
+    return out
+
+
+def _s3c_turn(a, b, kink):
+    """The turn between steps a and b that stands their shared vertex `kink`
+    off the chord of its neighbours. Rises with the turn, so bisect. None if
+    the vertex cannot reach that kink without going sharper than the rule."""
+
+    def off(t):
+        ch = math.sqrt(a * a + b * b + 2.0 * a * b * math.cos(t))
+        return a * b * math.sin(t) / ch if ch > 0.0 else 0.0
+
+    cap = math.radians(180.0 - _S3C_ANGLE_MIN)
+    if off(cap) < kink:
+        return None
+    lo, hi = 0.0, cap
+    for _ in range(48):
+        mid = 0.5 * (lo + hi)
+        if off(mid) < kink:
+            lo = mid
+        else:
+            hi = mid
+    return 0.5 * (lo + hi)
+
+
+def _s3c_spine(rng, want, nv):
+    """One fissure's centreline in its own frame: nv vertices, polyline length
+    exactly `want`, uneven steps, and a turn of drawn size and random sign at
+    every vertex -- so it dog-legs and runs on rather than sawing. Up to
+    _S3C_STRAIGHT vertices run near straight; every other one stands _S3C_KINK
+    off its neighbours' chord by construction. A crack that has wandered is
+    pulled back, so it still reads as going somewhere. Recentred on its own
+    bounding box. None if the draw cannot be made."""
+    step = _s3c_steps(rng, want, nv)
+    if step is None:
+        return None
+    flat = set()
+    while len(flat) < (rng.i(0, _S3C_STRAIGHT) if nv >= 6 else 0):
+        flat.add(rng.i(1, nv - 2))
+    head, x, y = 0.0, 0.0, 0.0
+    c = [(0.0, 0.0)]
+    for i in range(nv - 1):
+        if i > 0:
+            if i in flat:
+                turn = math.radians(_S3C_FLAT_DEG * rng.f())
+            else:
+                lim = min(_S3C_KINK[1], _S3C_KINK_CAP * min(step[i - 1], step[i]))
+                if lim <= _S3C_KINK[0]:
+                    return None
+                turn = _s3c_turn(step[i - 1], step[i],
+                                 _S3C_KINK[0] + (lim - _S3C_KINK[0]) * rng.f())
+                if turn is None:
+                    return None
+            bias = max(-1.0, min(1.0, math.degrees(head) / _S3C_WANDER))
+            head += -turn if rng.f() < 0.5 + 0.5 * bias else turn
+        x += step[i] * math.cos(head)
+        y += step[i] * math.sin(head)
+        c.append((x, y))
+    us = [p[0] for p in c]
+    vs = [p[1] for p in c]
+    mu = 0.5 * (min(us) + max(us))
+    mv = 0.5 * (min(vs) + max(vs))
+    return [(p[0] - mu, p[1] - mv) for p in c]
+
+
+def _s3c_widths(rng, nv, peak, waist):
+    """Half widths along a fissure: nought at both tips, irregular between. The
+    main cut nips almost shut at one interior vertex, so it reads as two rock
+    lobes joined by a waist rather than one smooth lens. Scaled later -- `peak`
+    only sets the shape's amplitude before the pad's area is solved for."""
+    w = [0.0] * nv
+    for i in range(1, nv - 1):
+        t = i / float(nv - 1)
+        w[i] = peak * math.sin(math.pi * t) ** 0.75 * (0.86 + 0.20 * rng.f())
+    if waist and nv >= 5:
+        w[rng.i(2, nv - 3)] *= _S3C_WAIST[0] + (_S3C_WAIST[1] - _S3C_WAIST[0]) * rng.f()
+    return w
+
+
+def _s3c_clamped(w, s):
+    """Widths scaled by `s` and held off the floor."""
+    out = [0.0] * len(w)
+    for i in range(1, len(w) - 1):
+        out[i] = min(_S3C_W_MAX, max(_S3C_W_MIN, w[i] * s))
+    return out
+
+
+def _s3c_area_scale(spines, ws, want):
+    """The one width multiplier for the whole pad whose total outline area is
+    `want` m2. Area rises with it, so bisect; a target the clamps cannot reach
+    yields the nearer end and the draw is judged on its merits."""
+
+    def area(s):
+        return sum(_s3c_area(_s3c_outline(spines[j], _s3c_clamped(ws[j], s)))
+                   for j in range(len(ws)))
+
+    lo, hi = 0.2, 4.0
+    if area(lo) >= want:
+        return lo
+    if area(hi) <= want:
+        return hi
+    for _ in range(50):
+        mid = 0.5 * (lo + hi)
+        if area(mid) < want:
+            lo = mid
+        else:
+            hi = mid
+    return 0.5 * (lo + hi)
+
+
+def _s3c_depths(rng, w, deepest):
+    """Floor depths: nought at the tips, deeper where the cut is wider."""
+    d = [0.0] * len(w)
+    for i in range(1, len(w) - 1):
+        rel = w[i] / _S3C_W_MAX
+        v = _S3C_D_MIN + (deepest - _S3C_D_MIN) * rel * (0.72 + 0.40 * rng.f())
+        d[i] = min(S3_CRACK_DEPTH, max(_S3C_D_MIN, v))
+    return d
+
+
+def _s3c_place(c, deg, ou, ov):
+    """A centreline turned `deg` about its own centre and set down at (ou, ov)."""
+    a = math.radians(deg)
+    ca, sa = math.cos(a), math.sin(a)
+    return [(ou + p[0] * ca - p[1] * sa, ov + p[0] * sa + p[1] * ca) for p in c]
+
+
+def _s3c_span(ring, lim):
+    """How far an outline drawn about the origin may be shifted and still sit
+    inside the half square: ((u_lo, u_hi), (v_lo, v_hi)). Empty if it cannot
+    fit at all."""
+    us = [p[0] for p in ring]
+    vs = [p[1] for p in ring]
+    return ((-lim - min(us), lim - max(us)), (-lim - min(vs), lim - max(vs)))
+
+
+def _s3c_offset(rng, span, cap):
+    """A landing point inside `span`, never further than `cap` from the pad
+    centre. None if the span is empty."""
+    out = []
+    for (lo, hi) in span:
+        lo, hi = max(lo, -cap), min(hi, cap)
+        if lo > hi:
+            return None
+        out.append(lo + (hi - lo) * rng.f())
+    return (out[0], out[1])
+
+
+def _s3c_edge_point(rng, ring):
+    """A point somewhere on a ring's boundary and the unit normal pointing out
+    of it: where a splinter branches off the main fissure."""
+    e = rng.i(0, len(ring) - 1)
+    a, b = ring[e], ring[(e + 1) % len(ring)]
+    t = rng.f()
+    dx, dy = b[0] - a[0], b[1] - a[1]
+    m = math.hypot(dx, dy)
+    if m == 0.0:
+        return None
+    s = 0.0
+    for i in range(len(ring)):
+        j = (i + 1) % len(ring)
+        s += ring[i][0] * ring[j][1] - ring[j][0] * ring[i][1]
+    k = -1.0 if s > 0.0 else 1.0
+    return ((a[0] + dx * t, a[1] + dy * t), (k * -dy / m, k * dx / m))
+
+
+def _s3c_tip_gap(p, ring):
+    """How far a point stands off a closed outline."""
+    return min(_s3c_seg_gap(p, p, ring[i], ring[(i + 1) % len(ring)])
+               for i in range(len(ring)))
+
+
+def _s3c_branch(rng, spine, host):
+    """A splinter laid tip-first off the main fissure's outline: its near tip
+    stands _S3C_BRANCH clear of the rock, pointing away from it. None if the
+    draw picks a degenerate edge."""
+    ep = _s3c_edge_point(rng, host)
+    if ep is None:
+        return None
+    (px, py), (nx, ny) = ep
+    q = _S3C_BRANCH[0] + (_S3C_BRANCH[1] - _S3C_BRANCH[0]) * rng.f()
+    tip = (px + nx * q, py + ny * q)
+    out = math.degrees(math.atan2(ny, nx)) + _S3C_BRANCH_FAN * rng.sf()
+    h0 = math.degrees(math.atan2(spine[1][1] - spine[0][1], spine[1][0] - spine[0][0]))
+    turned = _s3c_place(spine, out - h0, 0.0, 0.0)
+    return [(p[0] + tip[0] - turned[0][0], p[1] + tip[1] - turned[0][1]) for p in turned]
+
+
+def _s3c_ok(c, w, d, main):
+    """Every rule one fissure owes on its own: tips sharp, widths and depths in
+    band, kinks readable, no vertex sharper than the mesher can take, and an
+    outline that is a simple polygon inside the pad."""
+    n = len(c)
+    if len(w) != n or len(d) != n:
+        return None
+    if w[0] != 0.0 or w[n - 1] != 0.0 or d[0] != 0.0 or d[n - 1] != 0.0:
+        return None
+    for i in range(1, n - 1):
+        if not (_S3C_W_MIN - 1e-9 <= w[i] <= 0.24 + 1e-9):
+            return None
+        if not (_S3C_D_MIN - 1e-9 <= d[i] <= S3_CRACK_DEPTH + 1e-9):
+            return None
+        k = _s3c_kink(c, i)
+        if k > _S3C_KINK[1] or (_S3C_FLAT < k < _S3C_KINK[0]):
+            return None
+        if _s3c_vertex_angle(c, i) < _S3C_ANGLE_MIN:
+            return None
+    lo, hi = (_S3C_MAIN_LEN if main else _S3C_MINOR_LEN)
+    if not (lo - 1e-9 <= _s3c_length(c) <= hi + 1e-9):
+        return None
+    ring = _s3c_outline(c, w)
+    for (u, v) in ring:
+        if abs(u) > S3_CRACK_HALF + 1e-9 or abs(v) > S3_CRACK_HALF + 1e-9:
+            return None
+    if not _s3c_simple(ring):
+        return None
+    return ring
+
+
+def _s3c_draw(rng):
+    """One candidate pad: the main fissure, then one or two splinters, the
+    first of them branching off the main's outline. None when a draw breaks a
+    rule; the caller redraws."""
+    nv = rng.i(6, 9)
+    want = _S3C_MAIN_LEN[0] + 0.02 + (_S3C_MAIN_LEN[1] - _S3C_MAIN_LEN[0] - 0.04) * rng.f()
+    spines = [_s3c_spine(rng, want, nv)]
+    peaks = [_S3C_MAIN_PEAK[0] + (_S3C_MAIN_PEAK[1] - _S3C_MAIN_PEAK[0]) * rng.f()]
+    lens = [want]
+    for _ in range(rng.i(1, 2)):
+        ln = _S3C_MINOR_LEN[0] + 0.02 + (_S3C_MINOR_LEN[1] - _S3C_MINOR_LEN[0] - 0.04) * rng.f()
+        top = min(5, 1 + int(ln / _S3C_MIN_SEG))
+        spines.append(_s3c_spine(rng, ln, rng.i(max(3, top - 1), top) if top > 3 else 3))
+        peaks.append(_S3C_SLIVER_PEAK[0]
+                     + (_S3C_SLIVER_PEAK[1] - _S3C_SLIVER_PEAK[0]) * rng.f())
+        lens.append(ln)
+    if None in spines:
+        return None
+    ws = [_s3c_widths(rng, len(spines[j]), peaks[j], j == 0) for j in range(len(spines))]
+    mw = _S3C_MEAN_W[0] + (_S3C_MEAN_W[1] - _S3C_MEAN_W[0]) * rng.f()
+    scale = _s3c_area_scale(spines, ws, min(_S3C_AREA_WANT[1],
+                                            max(_S3C_AREA_WANT[0], 2.0 * mw * sum(lens))))
+    ws = [_s3c_clamped(w, scale) for w in ws]
+    for j, w in enumerate(ws):        # the ceiling would flatten the profile into a
+        top = _S3C_W_MAX if j == 0 else _S3C_SLIVER_W    # plateau and the cut would
+        if max(w) >= top - 1e-9:      # stop reading as a crack, and a fat splinter
+            return None               # is a shard: redraw instead of clamping
+    ds = [_s3c_depths(rng, ws[j], S3_CRACK_DEPTH if j == 0 else S3_CRACK_DEPTH * 0.82)
+          for j in range(len(ws))]
+
+    out, rings = [], []
+    for j in range(len(spines)):
+        main = j == 0
+        placed = None
+        for _ in range(_S3C_PLACE_TRIES):
+            if main:
+                # aim the END-TO-END bearing, not the axis: the tips wander off it
+                deg = _S3C_ROT[0] + (_S3C_ROT[1] - _S3C_ROT[0]) * rng.f()
+                if rng.f() < 0.5:
+                    deg = -deg
+                s0, s1 = spines[j][0], spines[j][-1]
+                turned = _s3c_place(spines[j],
+                                    deg - math.degrees(math.atan2(s1[1] - s0[1],
+                                                                  s1[0] - s0[0])), 0.0, 0.0)
+                off = _s3c_offset(rng, _s3c_span(_s3c_outline(turned, ws[j]), S3_CRACK_HALF),
+                                  _S3C_JITTER)
+                if off is None:
+                    continue
+                c = _s3c_place(turned, 0.0, off[0], off[1])
+            elif j == 1:
+                c = _s3c_branch(rng, spines[j], rings[0])
+                if c is None:
+                    continue
+                # the tip is set off ONE edge; a neighbouring one may be nearer,
+                # so measure the whole outline before believing the offset
+                root = _s3c_tip_gap(c[0], rings[0])
+                if not (_S3C_BRANCH[0] <= root <= _S3C_BRANCH[1]):
+                    continue
+            else:
+                turned = _s3c_place(spines[j], 360.0 * rng.f(), 0.0, 0.0)
+                off = _s3c_offset(rng, _s3c_span(_s3c_outline(turned, ws[j]), S3_CRACK_HALF),
+                                  S3_CRACK_HALF)
+                if off is None:
+                    continue
+                c = _s3c_place(turned, 0.0, off[0], off[1])
+            ring = _s3c_ok(c, ws[j], ds[j], main)
+            if ring is None:
+                continue
+            if any(_s3c_poly_gap(ring, r) < _S3C_GAP + _S3C_GAP_SLACK for r in rings):
+                continue
+            placed = (c, ring)
+            break
+        if placed is None:
+            return None
+        out.append({"c": placed[0], "w": ws[j], "d": ds[j]})
+        rings.append(placed[1])
+
+    area = sum(_s3c_area(r) for r in rings)
+    if not (_S3C_AREA[0] <= area <= _S3C_AREA[1]):
+        return None
+    return out
+
+
+def _s3_crack_layout(rng):
+    """-> list of fissures for one pad: {"c": [(u, v), ...], "w": [...], "d": [...]}.
+    u along the pad's launch direction, v across, metres, pad centre at 0,0.
+    n = len(c) == len(w) == len(d); w[0] == w[-1] == 0 and d[0] == d[-1] == 0 (sharp tips);
+    interior half widths 0.07..0.24, depths _S3C_D_MIN..S3_CRACK_DEPTH.
+
+    One main fissure 2.0-2.3 m long, 6-9 vertices, jagged with uneven steps and
+    turns either way, laid 15-60 deg off the launch direction, plus one or two
+    thin splinters 0.5-1.1 m, the first branching off the main's outline. Every
+    outline is a simple polygon inside |u|, |v| <= S3_CRACK_HALF, outlines of
+    different fissures stay 0.12 m apart, and the pad's widths are solved so the
+    total outline area lands where it was drawn. Every pad is a fresh draw, so
+    no two are alike."""
+    for _ in range(_S3C_TRIES):
+        pad = _s3c_draw(rng)
+        if pad is not None:
+            return pad
+    raise RuntimeError("s3 cracks: no layout inside %d draws" % _S3C_TRIES)
+# ---- end S3 cracks part ----
+
+
+# ---- the lip wall: ragged rock, not a hallway (Ryan: "its not a fucking
+# hallway. its just fucking cover, its just a fucking rock wall"). A per-column
+# crag on the crest, top and foot wandering, faces cleaved in runs of 1-3
+# columns like rock_wall_build.py; the crest is spent INSIDE the window the
+# guard's sight lines cut (crouched on the path hidden, standing seen), so the
+# raggedness never costs the sight line. Every value is a seeded hash of the
+# column index: no state, the same rock at any bearing in any order.
+
+S3_WALL_SEED = 3310691
+S3_WALL_MARGIN = 0.03        # metres of clearance kept at BOTH window edges
+S3_WALL_T = (0.15, 0.25)     # half width of the flat top, wandering in runs
+S3_WALL_W = (0.36, 0.52)     # half width at the foot; the inner foot IS the lip
+S3_WALL_CRAG = (0.10, 0.25)  # peak-to-peak crag on the crest, per run
+S3_WALL_FACE = 0.04          # cleaved facet relief, flanks only, never the top
+S3_WALL_TAPER = 0.6          # metres past S3_FIELD the ends die out over
+S3_WALL_KSTEP = 0.5          # arc metres per column: the crag's grain
+S3_WALL_BAND_PROOF = 0.5     # the sight proof tests a row's columns this far past
+                             # half a row pitch either side of the row; the crest
+                             # honours them one column step further out
+S3_WALL_CELL = 0.9           # half a pad cell plus a body: the path cell's sides
+S3_WALL_EPS = 1.0e-9
+
+
+
+def _s3_wall_hash(k, salt):
+    """0.0 <= h < 1.0 from a column index and a channel salt. No state: the
+    wall can be sampled at any bearing, in any order, forever."""
+    h = (int(k) * 2654435761 + int(salt) * 40503 + S3_WALL_SEED) & 0xFFFFFFFF
+    h ^= h >> 16
+    h = (h * 2246822519) & 0xFFFFFFFF
+    h ^= h >> 13
+    h = (h * 3266489917) & 0xFFFFFFFF
+    h ^= h >> 16
+    return h / 4294967296.0
+
+
+def _s3_wall_edge(j, salt):
+    """Is column j the start of a run? A third of columns break outright; a
+    column also breaks when neither of the two before it did. That second
+    clause is what caps a run at 3 -- it cannot be extended by luck."""
+    if int(_s3_wall_hash(j, salt) * 3.0) == 0:
+        return True
+    return (int(_s3_wall_hash(j - 1, salt) * 3.0) != 0
+            and int(_s3_wall_hash(j - 2, salt) * 3.0) != 0)
+
+
+def _s3_wall_run(k, salt):
+    """The leader of k's run. One of k, k-1, k-2 always breaks (if k and k-1
+    both held, then h(k-1) != 0 forced h(k-2) == 0), so this never falls
+    through and every column in a run reads one value: cleaved, not smooth."""
+    for m in (0, 1, 2):
+        if _s3_wall_edge(k - m, salt):
+            return k - m
+    return k - 2
+
+
+def _s3_wall_held(k, salt):
+    """The run's own 0..1, held flat across its 1-3 columns."""
+    return _s3_wall_hash(_s3_wall_run(k, salt), salt)
+
+
+
+def _s3_wall_spec(lay):
+    """The lip wall's shape, as callables over bearing. `lay` is _s3_layout()'s
+    dict: rows (bearings), path (column per row), spans (the cleared columns
+    per row, which is what the guard must be able to shoot into)."""
+    rows = list(lay["rows"])
+    spans = list(lay["spans"])
+    u_lo, u_hi = _s3_arc(S3_FIELD[0]), _s3_arc(S3_FIELD[1])
+    eye = S3_EYE_Z - DECK_Z          # 5.90 m of eye over this deck
+
+    def _k(b):
+        """Column index: the grain the whole wall is cut on."""
+        return int(math.floor((_s3_arc(b) - u_lo) / S3_WALL_KSTEP))
+
+    def T(b):
+        lo, hi = S3_WALL_T
+        return lo + _s3_wall_held(_k(b), 11) * (hi - lo)
+
+    def W(b):
+        lo, hi = S3_WALL_W
+        return lo + _s3_wall_held(_k(b), 23) * (hi - lo)
+
+    def rc(b):
+        """The centreline. The inner foot, rc - W, is the lip itself."""
+        return INNER_R + W(b)
+
+    half_row = 0.5 * (rows[1] - rows[0])
+
+    def _cols_near(b, band):
+        """The path columns of every row within half a row pitch plus `band`
+        metres of b: the crest at b must serve all of them."""
+        out = set()
+        reach = half_row + math.degrees(band / S3_LANE_R)
+        for i, rb in enumerate(rows):
+            if abs(rb - b) <= reach + 1.0e-9:
+                out.update(range(spans[i][0], spans[i][1] + 1))
+        return out
+
+    def window(b, band=S3_WALL_BAND_PROOF):
+        """(L, U) over the deck: the crest must hide a crouched body on the
+        path and must not hide a standing one, for every path column of every
+        row within reach (the sideways step honours both columns; tighter
+        wins). The edges are taken at the WIDEST top over the WIDEST foot
+        for U and the narrowest foot under the widest top for L, so the
+        window never depends on which column's run T and W fall in: the
+        built crest between two columns is a mix of two crests, each inside
+        this same window, so it is inside it too."""
+        r_in = INNER_R + S3_WALL_W[0] - S3_WALL_T[1]     # the inner top edge, nearest
+        r_out = INNER_R + S3_WALL_W[1] + S3_WALL_T[1]    # the outer top edge, farthest
+        L, U = -1.0e9, 1.0e9
+        for j in _cols_near(b, band):
+            far = S3_COLS[j] + S3_WALL_CELL      # the path cell's far side
+            near = S3_COLS[j] - S3_WALL_CELL     # ... and its wall side
+            L = max(L, eye - (eye - S3_CROUCH) * r_in / far)
+            U = min(U, eye - (eye - S3_STAND) * r_out / near)
+        return L, U
+
+    def crest(b):
+        """Crest height over the deck. The crag is spent as a fraction of the
+        room in the window, so raggedness never costs the sight line. The
+        window is taken one column step wider than the proof samples it, so
+        every column a proof sample lies between honours that sample's rows."""
+        L, U = window(b, S3_WALL_BAND_PROOF + S3_WALL_KSTEP)
+        j = _s3_wall_run(_k(b), 37)
+        lo, hi = S3_WALL_CRAG
+        amp = 0.5 * (lo + _s3_wall_hash(j, 71) * (hi - lo))
+        room = max(0.0, 0.5 * (U - L) - S3_WALL_MARGIN)
+        return 0.5 * (L + U) + (2.0 * _s3_wall_hash(j, 89) - 1.0) * min(amp, room)
+
+    def _taper(b):
+        d = min(_s3_arc(b) - u_lo, u_hi - _s3_arc(b))
+        return 1.0 if d >= 0.0 else max(0.0, 1.0 + d / S3_WALL_TAPER)
+
+    def height(b, rho, noise=True):
+        """Rock over DECK_Z at (bearing, station). Flat on the top, a rounded
+        shoulder down the flanks to nothing at the foot, nothing beyond."""
+        t, w, r = T(b), W(b), rc(b)
+        d = abs(rho - r)
+        if d >= w - S3_WALL_EPS:
+            return 0.0                            # at the lip: exactly deck
+        h = crest(b)
+        if d > t:
+            s = (w - d) / (w - t)                 # 1 at the top edge, 0 at the foot
+            h *= math.sin(0.5 * math.pi * s)      # rounded into the plateau
+            if noise:                                 # faces cleaved in and out,
+                face = 101 + (1 if rho > r else 0)     # each side held in its run
+                n = 2.0 * _s3_wall_hash(_s3_wall_run(_k(b), 5), face) - 1.0
+                h += S3_WALL_FACE * n * math.sin(math.pi * s)   # 0 at both ends
+        return h * _taper(b)
+
+    return dict(crest=crest, T=T, W=W, rc=rc, window=window, height=height)
+
+
 def _s3_layout():
     """The section's one layout: rows, the path's spans, the pads, the wall
     polyline, the height field over the deck and the grid lines that sample
@@ -2936,33 +3696,37 @@ def _s3_layout():
                 continue
             pads.append({"row": i, "col": j, "b": rows[i], "rho": S3_COLS[j], "jump": jump,
                          "hx": 0.5 * S3_PAD, "hz": 0.5 * S3_PAD})
-    # the wall: one arc at the pit edge, its inner foot on the lip itself
-    rho_w = [S3_WALL_R] * n
-    pts = [(S3_FIELD[0], S3_WALL_R), (S3_FIELD[1], S3_WALL_R)]
+    # each pad's cracks: the fissures cut into the deck where the plate was,
+    # in the pad's own frame (u along the launch, v across); no two alike
+    for k, pad in enumerate(pads):
+        pad["cracks"] = _s3_crack_layout(_Rng(S3_CRACK_SEED + 7919 * k))
+    # the wall: one ragged rock at the pit edge, its inner foot on the lip
+    # itself. dist() measures from the LIP arc between the field's ends, so
+    # "a body clear of the wall" is dist > S3_WALL_FOOT + the body's radius.
+    pts = [(S3_FIELD[0], INNER_R), (S3_FIELD[1], INNER_R)]
     segs = [((_s3_arc(pts[0][0]), pts[0][1]), (_s3_arc(pts[1][0]), pts[1][1]))]
 
     def dist(b, rho):
         u = _s3_arc(b)
         return min(_s3_seg_dist(u, rho, a, c) for a, c in segs)
 
-    def height(b, rho):
-        d = dist(b, rho)
-        return S3_WALL_H * max(0.0, min(1.0, (S3_WALL_FOOT - d) / (S3_WALL_FOOT - S3_WALL_TOP)))
-
-    # grid lines: the wall's top edges and feet exactly, a plain lattice between.
-    # The wall's inner foot is the lip vertex itself (station INNER_R, height 0).
-    top_deg = math.degrees(S3_WALL_TOP / S3_LANE_R)
-    foot_deg = math.degrees(S3_WALL_FOOT / S3_LANE_R)
-    exact_b = [S3_FIELD[0], S3_FIELD[0] - top_deg, S3_FIELD[0] - foot_deg,
-               S3_FIELD[1], S3_FIELD[1] + top_deg, S3_FIELD[1] + foot_deg]
-    exact_r = [S3_WALL_R - S3_WALL_TOP, S3_WALL_R + S3_WALL_TOP, S3_WALL_R + S3_WALL_FOOT]
+    lay = dict(rows=rows, step=step, path=path, spans=spans, pads=pads, pts=pts, segs=segs,
+               dist=dist, ext=S3_EXT)
+    wall = _s3_wall_spec(lay)
+    lay["wall"] = wall
+    lay["height"] = wall["height"]
+    lay["rho_w"] = [wall["rc"](b) for b in rows]
+    # grid lines: the field's ends exactly, a plain lattice between; across
+    # the wall the fixed stations S3_WALL_ST, then the plain lattice. The
+    # wall's inner foot is the lip vertex itself (station INNER_R, height 0).
+    exact_b = [S3_FIELD[0], S3_FIELD[1]]
+    exact_r = list(S3_WALL_ST)
     cols = _s3_lattice(S3_EXT[0], S3_EXT[1], math.degrees(S3_COL_STEP / S3_LANE_R), exact_b,
                        math.degrees(S3_MERGE / S3_LANE_R))
     stations = sorted(set([INNER_R, OUTER_R] + _s3_lattice(INNER_R, OUTER_R - S3_EDGE_BAND,
                                                           S3_ST_STEP, exact_r, S3_MERGE)))
-    S3["lay"] = dict(rows=rows, step=step, path=path, spans=spans, pads=pads, rho_w=rho_w,
-                     pts=pts, jogs=[], segs=segs, dist=dist, height=height, exact_b=exact_b,
-                     cols=cols, stations=stations, ext=S3_EXT)
+    lay.update(exact_b=exact_b, cols=cols, stations=stations)
+    S3["lay"] = lay
     return S3["lay"]
 
 
@@ -3034,6 +3798,204 @@ def _s3_collider(c):
     S3["coll_tris"] = 2 * (len(cols) - 1) * (len(st) - 1)
 
 
+# ---- the cracks: fissures cut into the deck where each plate was ------------
+
+def _s3_fissure_rings(f, pad):
+    """A fissure's outline and floor in Blender plan: (top, floor, tips).
+    top[i] = (left_xy, right_xy) for the interior centreline points, floor[i]
+    = (left_xyz, right_xyz) sunk d_i under the deck at S3_CRACK_FLOOR of the
+    width; tips = the two end points (one vertex each, top and floor meet).
+    u runs along the pad's launch direction, v across."""
+    (ox, oz), (fx, fz) = pad["o"], pad["f"]
+    ax, ay = fx, -fz                                  # along, Blender plan
+    bx, by = -fz, -fx                                 # across: Godot (-fz, fx) -> Blender
+    c, w, d = f["c"], f["w"], f["d"]
+    n = len(c)
+
+    def plan(u, v):
+        return (ox + u * ax + v * bx, -oz + u * ay + v * by)
+
+    def normal(i):
+        p, q = c[max(0, i - 1)], c[min(n - 1, i + 1)]
+        du, dv = q[0] - p[0], q[1] - p[1]
+        L = math.hypot(du, dv)
+        return (-dv / L, du / L)
+    top, floor = [], []
+    for i in range(1, n - 1):
+        nu, nv = normal(i)
+        top.append((plan(c[i][0] + nu * w[i], c[i][1] + nv * w[i]),
+                    plan(c[i][0] - nu * w[i], c[i][1] - nv * w[i])))
+        fw = w[i] * S3_CRACK_FLOOR
+        fl = plan(c[i][0] + nu * fw, c[i][1] + nv * fw)
+        fr = plan(c[i][0] - nu * fw, c[i][1] - nv * fw)
+        floor.append(((fl[0], fl[1], DECK_Z - d[i]), (fr[0], fr[1], DECK_Z - d[i])))
+    tips = (plan(*c[0]), plan(*c[n - 1]))
+    return top, floor, tips
+
+
+def _s3_patch_rects(L):
+    """Where the deck grid gives way to the cracks: per pad, the rectangle of
+    grid cells (column span, station span) whose interior holds every
+    fissure outline with S3_CRACK_MARGIN to spare. Cached in S3["patches"]."""
+    if "patches" in S3:
+        return S3["patches"]
+    T, cols, st = L["T"], L["cols"], L["stations"]
+    rects = []
+    for p in _s3_pads():
+        rings = [_s3_fissure_rings(f, p) for f in p["cracks"]]
+        ts, rs = [], []
+        for top, _floor, tips in rings:
+            for (x, y) in [a for pair in top for a in pair] + list(tips):
+                rho = math.hypot(x, y)
+                ts.append(T(_bear_deg(math.atan2(y, x))))
+                rs.append(rho)
+        mt = S3_CRACK_MARGIN / min(rs)
+        i0 = max(i for i, t in enumerate(cols) if t <= min(ts) - mt)
+        i1 = min(i for i, t in enumerate(cols) if t >= max(ts) + mt)
+        j0 = max(j for j in range(len(st)) if st[j] <= min(rs) - S3_CRACK_MARGIN)
+        j1 = min(j for j in range(len(st)) if st[j] >= max(rs) + S3_CRACK_MARGIN)
+        rects.append(dict(pads=[p["name"]], rings=rings, i0=i0, i1=i1, j0=j0, j1=j1))
+    # two pads whose rectangles share a cell (the lattice put no column in the
+    # gap between their outlines) become one patch: the bounding rectangle,
+    # both sets of holes
+    merged = True
+    while merged:
+        merged = False
+        for a in range(len(rects)):
+            for b in range(a + 1, len(rects)):
+                A, B = rects[a], rects[b]
+                if A["i0"] < B["i1"] and B["i0"] < A["i1"] and A["j0"] < B["j1"] and B["j0"] < A["j1"]:
+                    A.update(i0=min(A["i0"], B["i0"]), i1=max(A["i1"], B["i1"]),
+                             j0=min(A["j0"], B["j0"]), j1=max(A["j1"], B["j1"]),
+                             rings=A["rings"] + B["rings"], pads=A["pads"] + B["pads"])
+                    del rects[b]
+                    merged = True
+                    break
+            if merged:
+                break
+    for pr in rects:
+        pr.update(tlo=cols[pr["i0"]], thi=cols[pr["i1"]], ci=list(range(pr["i0"], pr["i1"] + 1)))
+    S3["patches"] = rects
+    return rects
+
+
+def _s3_in_patch(t0, t1, j):
+    """Whether the deck cell (columns t0..t1, stations j..j+1) belongs to a
+    crack patch and is laid by _s3_patches instead of the plain grid."""
+    for pr in S3["patches"]:
+        if pr["tlo"] - 1e-9 <= t0 and t1 <= pr["thi"] + 1e-9 and pr["j0"] <= j < pr["j1"]:
+            return True
+    return False
+
+
+def _s3_patches(m, S3V):
+    """The crack patches: for each pad, the rectangle of deck cells is one
+    polygon whose boundary is the grid's own vertices (so the patch welds to
+    the deck with no duplicate and no T-junction) and whose holes are the
+    fissure outlines; Blender's scanfill triangulates the deck between, and
+    the fissures get sloped sides down to a lava floor. Returns per-pad
+    (floor area, wall area, deck tris, fissure tris)."""
+    from mathutils import Vector
+    from mathutils.geometry import tessellate_polygon
+    L = S3["L"]
+    cols = L["cols"]
+    stats = []
+    for pr in _s3_patch_rects(L):
+        ci, j0, j1 = pr["ci"], pr["j0"], pr["j1"]
+        loop = [S3V(cols[i], j0) for i in ci]
+        loop += [S3V(cols[ci[-1]], j) for j in range(j0 + 1, j1 + 1)]
+        loop += [S3V(cols[i], j1) for i in reversed(ci[:-1])]
+        loop += [S3V(cols[ci[0]], j) for j in range(j1 - 1, j0, -1)]
+        ids = [loop]
+        fiss = []
+        for top, floor, tips in pr["rings"]:
+            floor_l, floor_r = [a[0] for a in floor], [a[1] for a in floor]
+            t0 = m.v((tips[0][0], tips[0][1], DECK_Z))
+            t1 = m.v((tips[1][0], tips[1][1], DECK_Z))
+            left = [m.v((a[0][0], a[0][1], DECK_Z)) for a in top]
+            right = [m.v((a[1][0], a[1][1], DECK_Z)) for a in top]
+            fl = [m.v(a[0]) for a in floor]
+            fr = [m.v(a[1]) for a in floor]
+            # the dark lip band: a ring S3_CRACK_LIP of the way down each side
+            ml = [m.v(tuple(a[k] + S3_CRACK_LIP * (b[k] - a[k]) for k in range(3)))
+                  for a, b in zip([(x, y, DECK_Z) for x, y in [p[0] for p in top]], floor_l)]
+            mr = [m.v(tuple(a[k] + S3_CRACK_LIP * (b[k] - a[k]) for k in range(3)))
+                  for a, b in zip([(x, y, DECK_Z) for x, y in [p[1] for p in top]], floor_r)]
+            ids.append([t0] + left + [t1] + list(reversed(right)))
+            fiss.append((t0, t1, left, right, ml, mr, fl, fr))
+        loops = [[Vector((m.verts[i][0], m.verts[i][1], 0.0)) for i in ring] for ring in ids]
+        flat = [i for ring in ids for i in ring]
+        before = len(m.faces)
+        for tri in tessellate_polygon(loops):
+            a, b, c = flat[tri[0]], flat[tri[1]], flat[tri[2]]
+            if len({a, b, c}) == 3:
+                m.tri(a, b, c, UP, ZONE_DECK)
+        deck_tris = len(m.faces) - before
+        before = len(m.faces)
+        floor_area = wall_area = 0.0
+        for t0, t1, left, right, ml, mr, fl, fr in fiss:
+            n = len(left)
+            chain_l = [t0] + left + [t1]
+            chain_r = [t0] + right + [t1]
+            chain_ml = [t0] + ml + [t1]
+            chain_mr = [t0] + mr + [t1]
+            chain_fl = [t0] + fl + [t1]
+            chain_fr = [t0] + fr + [t1]
+            for i in range(n + 1):
+                # each side in two bands (a dark lip, lava under it), then the
+                # floor: quads between neighbouring stations, triangles where
+                # a tip closes them. A side faces into the cleft: toward the
+                # other side's top.
+                k = min(max(i, 1), n)
+                wl = _s3_crack_want(m, chain_l[k], chain_r[k])
+                wr = _s3_crack_want(m, chain_r[k], chain_l[k])
+                for quad, want, zone in (
+                        ((chain_l[i], chain_l[i + 1], chain_ml[i + 1], chain_ml[i]), wl,
+                         S3_CRACK_ZONE_WALL),
+                        ((chain_ml[i], chain_ml[i + 1], chain_fl[i + 1], chain_fl[i]), wl,
+                         S3_CRACK_ZONE_FLOOR),
+                        ((chain_r[i], chain_mr[i], chain_mr[i + 1], chain_r[i + 1]), wr,
+                         S3_CRACK_ZONE_WALL),
+                        ((chain_mr[i], chain_fr[i], chain_fr[i + 1], chain_mr[i + 1]), wr,
+                         S3_CRACK_ZONE_FLOOR),
+                        ((chain_fl[i], chain_fr[i], chain_fr[i + 1], chain_fl[i + 1]), UP,
+                         S3_CRACK_ZONE_FLOOR)):
+                    uniq = []
+                    for v in quad:
+                        if v not in uniq:
+                            uniq.append(v)
+                    if len(uniq) < 3:
+                        continue
+                    if len(uniq) == 4:
+                        m.quad(uniq[0], uniq[1], uniq[2], uniq[3], want, zone, best=True)
+                    else:
+                        m.tri(uniq[0], uniq[1], uniq[2], want, zone)
+                    area = _s3_poly_area(m, uniq)
+                    if zone == S3_CRACK_ZONE_FLOOR:
+                        floor_area += area
+                    else:
+                        wall_area += area
+        stats.append(("+".join(pr["pads"]), floor_area, wall_area, deck_tris,
+                      len(m.faces) - before, len(pr["rings"])))
+    S3["crack_stats"] = stats
+    return stats
+
+
+def _s3_crack_want(m, top, other):
+    """The direction a fissure side's normal must face: into the cleft (from
+    this side's top edge toward the other side's) and up."""
+    a, c = m.verts[top], m.verts[other]
+    dx, dy = c[0] - a[0], c[1] - a[1]
+    L = math.hypot(dx, dy) or 1.0
+    return (dx / L, dy / L, 0.6)
+
+
+def _s3_poly_area(m, ids):
+    pts = [m.verts[i] for i in ids]
+    n = _newell(pts)
+    return 0.5 * math.sqrt(n[0] * n[0] + n[1] * n[1] + n[2] * n[2])
+
+
 # ---- the plan: grid -> Godot ------------------------------------------------
 
 def _s3_plan(b, rho):
@@ -3085,7 +4047,7 @@ def _s3_pads():
         p = dict(pad)
         p.update(o=o, f=f, v=v, land=land, land_grid=_s3_grid_of(*land),
                  bake_land=_s3_bake_land(o, f, v),
-                 name="DemonPad_r%02d_c%d_%03ddeg" % (pad["row"], pad["col"], round(pad["b"])))
+                 name="LavaCrack_r%02d_c%d_%03ddeg" % (pad["row"], pad["col"], round(pad["b"])))
         out.append(p)
     S3["pads"] = out
     return out
@@ -3116,7 +4078,7 @@ def _s3_scene_block():
     for p in _s3_pads():
         uid = (int(hashlib.md5(p["name"].encode()).hexdigest()[:8], 16) & 0x3fffffff) | 1
         lines.append('[node name="%s" parent="Sections/S3_Minefield" unique_id=%d '
-                     'instance=ExtResource("23_demon_pad_scene")]' % (p["name"], uid))
+                     'instance=ExtResource("23_lava_crack_scene")]' % (p["name"], uid))
         lines.append("transform = " + _s3_pad_transform(p))
         if p["jump"]:
             lines.append("footprint_metres = Vector3(%.1f, %.1f, %.1f)" % (S3_PAD, S3_JUMP_PAD_H, S3_PAD))
@@ -3207,46 +4169,65 @@ def _s3_prove_path():
 
 
 def _s3_prove_wall():
-    """The wall as BUILT: a ray down onto the rock mesh every 0.05 m along the
-    polyline must hit S3_WALL_H over the deck -- no gap, no dip. Returns
-    (polyline metres, samples, min hit, max hit)."""
+    """The wall as BUILT: a ray down onto the rock mesh every 0.05 m along
+    the crest line must land inside the sight window at that bearing -- no
+    gap, no dip under the crouched line, no crag over the standing line.
+    Returns (crest metres, samples, min hit, max hit, where, where, samples
+    outside the window, mean, std, samples on the crest within 0.01 of the
+    spec)."""
     import mathutils
     ob = bpy.data.objects[OBJECT_NAME]
-    lay = S3["lay"]
-    lo, hi, n, length, lo_at, hi_at = 9e9, -9e9, 0, 0.0, 0.0, 0.0
-    for k in range(len(lay["pts"]) - 1):
-        (b0, r0), (b1, r1) = lay["pts"][k], lay["pts"][k + 1]
-        u0, u1 = _s3_arc(b0), _s3_arc(b1)
-        seg = math.hypot(u1 - u0, r1 - r0)
-        length += seg
-        m = max(2, int(seg / 0.05) + 1)
-        for i in range(m):
-            f = i / (m - 1.0)
-            b, rho = b0 + f * (b1 - b0), r0 + f * (r1 - r0)
-            gx, gz = _s3_plan(b, rho)
-            hit, loc, _nrm, _idx = ob.ray_cast(mathutils.Vector((gx, -gz, DECK_Z + 6.0)),
-                                              mathutils.Vector((0.0, 0.0, -1.0)))
-            z = (loc.z - DECK_Z) if hit else -9.0
-            if z < lo:
-                lo, lo_at = z, b
-            if z > hi:
-                hi, hi_at = z, b
-            n += 1
-    return length, n, lo, hi, lo_at, hi_at
+    wall = S3["lay"]["wall"]
+    lo, hi, n, lo_at, hi_at, bad, spur, on_spec = 9e9, -9e9, 0, 0.0, 0.0, 0, 0, 0
+    u0, u1 = _s3_arc(S3_FIELD[0]), _s3_arc(S3_FIELD[1])
+    m = int((u1 - u0) / 0.05) + 1
+    zs = []
+    for i in range(m):
+        b = S3_FIELD[0] + (S3_FIELD[1] - S3_FIELD[0]) * i / (m - 1.0)
+        gx, gz = _s3_plan(b, wall["rc"](b))
+        hit, loc, _nrm, _idx = ob.ray_cast(mathutils.Vector((gx, -gz, DECK_Z + 6.0)),
+                                          mathutils.Vector((0.0, 0.0, -1.0)))
+        z = (loc.z - DECK_Z) if hit else -9.0
+        L, U = wall["window"](b)
+        if not (L <= z <= U):
+            # the S3|S4 divider's own lip spur (unchanged, outside this
+            # section's rock) rises over the wall's 200 end: reported apart
+            if min(b - S3_FIELD[0], S3_FIELD[1] - b) * math.radians(1.0) * S3_LANE_R <= S3_WALL_END_SPUR:
+                spur += 1
+            else:
+                bad += 1
+                print("MDL note s3 wall sample outside the window: %.2f deg, ray %.3f, window %.3f..%.3f, "
+                      "spec crest %.3f" % (b, z, L, U, wall["crest"](b)))
+        if abs(z - wall["crest"](b)) <= 0.01:
+            on_spec += 1
+        zs.append(z)
+        if z < lo:
+            lo, lo_at = z, b
+        if z > hi:
+            hi, hi_at = z, b
+        n += 1
+    mean = sum(zs) / n
+    std = math.sqrt(sum((z - mean) ** 2 for z in zs) / n)
+    return u1 - u0, n, lo, hi, lo_at, hi_at, bad, mean, std, on_spec, spur
 
 
-def _s3_sight(ob, target):
+def _s3_sight(ob, target, standing):
     """Whether the guard's eye sees a world point, raycast on the BUILT rock:
-    (blocked, metres the straight line at the wall's inner top edge passes
-    under (negative) or over the wall's top)."""
+    (blocked, metres the straight line passes under (negative) or over the
+    wall's crest at the top edge that binds: the inner edge for a crouched
+    body that must be hidden, the outer edge for a standing one that must be
+    seen)."""
     import mathutils
+    wall = S3["lay"]["wall"]
     eye = mathutils.Vector((0.0, 0.0, S3_EYE_Z))
     tgt = mathutils.Vector(target)
     d = tgt - eye
     hit, loc, _n, _i = ob.ray_cast(eye, d.normalized())
     blocked = hit and (loc - eye).length < d.length - 0.02
-    f = (S3_WALL_R - S3_WALL_TOP) / math.hypot(tgt.x, tgt.y)
-    margin = (S3_EYE_Z + f * (tgt.z - S3_EYE_Z)) - (DECK_Z + S3_WALL_H)
+    b = _bear_deg(math.atan2(tgt.y, tgt.x))
+    edge = wall["rc"](b) + (wall["T"](b) if standing else -wall["T"](b))
+    f = edge / math.hypot(tgt.x, tgt.y)
+    margin = (S3_EYE_Z + f * (tgt.z - S3_EYE_Z)) - (DECK_Z + wall["crest"](b))
     return blocked, margin
 
 
@@ -3256,9 +4237,13 @@ def _s3_prove_cover():
     crouched (capsule top 1.2 m) and standing (1.8 m); and a body at a pad's
     apex over each column. Returns per-row (bearing, crouched hidden at all
     three, standing seen at all three, worst crouched margin, worst standing
-    margin) and the count of apex bodies seen of those tested."""
+    margin), the count of apex bodies seen of those tested, and the fine
+    proof: the same three stances every 0.25 m along the whole path (both
+    columns where the path steps across), as (samples, crouched seen,
+    standing hidden) -- the ragged crest must hold BETWEEN the rows too."""
     ob = bpy.data.objects[OBJECT_NAME]
     lay = S3["lay"]
+    wall = lay["wall"]
     out = []
     apex_seen = apex_n = 0
     for i, b in enumerate(lay["rows"]):
@@ -3267,7 +4252,7 @@ def _s3_prove_cover():
         for rho in (rp - 0.9, rp, rp + 0.9):
             gx, gz = _s3_plan(b, rho)
             for h, crouched in ((S3_CROUCH, True), (S3_STAND, False)):
-                blocked, margin = _s3_sight(ob, (gx, -gz, DECK_Z + h))
+                blocked, margin = _s3_sight(ob, (gx, -gz, DECK_Z + h), not crouched)
                 if crouched:
                     hidden = hidden and blocked
                     worst_c = max(worst_c, margin)
@@ -3277,10 +4262,35 @@ def _s3_prove_cover():
         out.append((b, hidden, seen, worst_c, worst_s))
         for rc in S3_COLS:                       # a launched body at its apex, feet up
             gx, gz = _s3_plan(b, rc)
-            blocked, _m = _s3_sight(ob, (gx, -gz, DECK_Z + S3_APEX))
+            blocked, _m = _s3_sight(ob, (gx, -gz, DECK_Z + S3_APEX), True)
             apex_n += 1
             apex_seen += 0 if blocked else 1
-    return out, apex_seen, apex_n
+    fine_n = fine_c = fine_s = fine_spur = 0
+    step_b = math.degrees(0.25 / S3_LANE_R)
+    rows, half = lay["rows"], 0.5 * lay["step"]
+    nb = int((S3_FIELD[1] - S3_FIELD[0]) / step_b) + 1
+    for k in range(nb):
+        b = S3_FIELD[0] + k * step_b
+        cols = set()
+        for i, rb in enumerate(rows):
+            if abs(b - rb) <= half + 1e-9:
+                cols.update(range(lay["spans"][i][0], lay["spans"][i][1] + 1))
+        for c in cols:
+            rp = S3_COLS[c]
+            for rho in (rp - 0.9, rp, rp + 0.9):
+                gx, gz = _s3_plan(b, rho)
+                fine_n += 1
+                blocked, _m = _s3_sight(ob, (gx, -gz, DECK_Z + S3_CROUCH), False)
+                fine_c += 0 if blocked else 1
+                blocked, _m = _s3_sight(ob, (gx, -gz, DECK_Z + S3_STAND), True)
+                fine_s += 1 if blocked else 0
+                if blocked and (S3_FIELD[1] - b) * math.radians(1.0) * S3_LANE_R <= S3_WALL_END_SPUR:
+                    fine_s -= 1                  # under the divider's lip spur at the 200 end
+                    fine_spur += 1
+                elif blocked:
+                    print("MDL note s3 standing body hidden at %.2f deg r %.2f (column %d), crest there %.3f, "
+                          "window %.3f..%.3f" % (b, rho, c, wall["crest"](b), *wall["window"](b)))
+    return out, apex_seen, apex_n, (fine_n, fine_c, fine_s, fine_spur)
 
 
 def _s3_prove_launch():
@@ -3404,7 +4414,7 @@ def _s3_stats():
                 if d < wall_gap:
                     wall_gap, wall_who = d, p["name"]
     print("MDL STATS s3 pads: nearest corner-to-box gap between neighbours %.3f m (%s), nearest box "
-          "point to the wall's foot %.3f m (%s); both must be > 0 and under a body's %.1f m"
+          "point to the wall's widest foot %.3f m (%s); both must be > 0 and under a body's %.1f m"
           % (gap, gap_who, wall_gap, wall_who, 2.0 * S3_BODY_R))
     with_j, without_j = _s3_prove_path()
     print("MDL STATS s3 path: entry->exit %s with the jump pads jumped; %s with them blocked "
@@ -3418,19 +4428,39 @@ def _s3_stats():
               "jump), take-off window %+.2f m -> %s"
               % (what, box_h, span, window, clear, window - span,
                  "CLEARED" if clear > 0.0 and window > span else "cannot be jumped"))
-    length, n, lo, hi, lo_at, hi_at = _s3_prove_wall()
-    print("MDL STATS s3 wall: %.1f m along the pit edge at r %.2f, %d ray samples on the built rock, "
-          "top %.3f (at %.2f deg)..%.3f m (at %.2f deg) over the deck (want %.2f, no gap)"
-          % (length, S3_WALL_R, n, lo, lo_at, hi, hi_at, S3_WALL_H))
-    cover, apex_seen, apex_n = _s3_prove_cover()
+    length, n, lo, hi, lo_at, hi_at, bad, mean, std, on_spec, spur = _s3_prove_wall()
+    wall = lay["wall"]
+    ws = [wall["window"](b) for b in (S3_FIELD[0] + (S3_FIELD[1] - S3_FIELD[0]) * k / 200.0
+                                      for k in range(201))]
+    print("MDL STATS s3 wall: %.1f m of ragged crest along the pit edge, %d ray samples down the built "
+          "rock every 0.05 m: %.3f (at %.2f deg)..%.3f m (at %.2f deg) over the deck, mean %.3f, std "
+          "%.3f, %d samples outside the sight window (must be 0; %d more in the last %.2f m at the 200 end "
+          "are the S3|S4 divider's own lip spur over the wall's end, unchanged), %d on the spec's crest "
+          "within 0.01 m; window (crouched line at the inner top edge .. standing line at the outer) "
+          "%.2f..%.2f m at the middle-column rows, %.2f..%.2f m at the inner-column rows"
+          % (length, n, lo, lo_at, hi, hi_at, mean, std, bad, spur, S3_WALL_END_SPUR, on_spec,
+             ws[0][0], ws[0][1], ws[-1][0], ws[-1][1]))
+    for stat in S3.get("crack_stats", []):
+        print("MDL STATS s3 crack %s: %d fissure(s), lava %.3f m2 (emissive: floor and lower sides), dark lip "
+              "%.3f m2, deck patch %d tris, fissure %d tris" % (stat[0], stat[5], stat[1], stat[2], stat[3], stat[4]))
+    cs = S3.get("crack_stats", [])
+    if cs:
+        print("MDL STATS s3 cracks: %d patches for %d pads, emissive lava %.2f..%.2f m2 per pad (total %.1f), "
+              "%d deck tris + %d fissure tris"
+              % (len(cs), len(pads), min(c[1] for c in cs), max(c[1] for c in cs), sum(c[1] for c in cs),
+                 sum(c[3] for c in cs), sum(c[4] for c in cs)))
+    cover, apex_seen, apex_n, fine = _s3_prove_cover()
     ok_c = sum(1 for c in cover if c[1])
     ok_s = sum(1 for c in cover if c[2])
     print("MDL STATS s3 cover: eye (0, %.2f, 0) raycast on the built rock, 3 stances x %d rows on the "
           "path: crouched capsule (%.1f m) hidden in %d/%d rows, standing (%.1f m) seen in %d/%d; the "
-          "sight line at the wall's inner top edge is under the top by >= %.3f m crouched, over it by "
-          ">= %.3f m standing; a body at a pad's apex (%.2f m up) seen in %d/%d column-rows"
+          "sight line is under the crest by >= %.3f m crouched (inner top edge), over it by "
+          ">= %.3f m standing (outer top edge); a body at a pad's apex (%.2f m up) seen in %d/%d column-rows; "
+          "every 0.25 m along the whole path, 3 stances: %d samples, crouched seen in %d, standing hidden in %d "
+          "(both must be 0; %d standing samples in the last %.2f m at the 200 end sit under the divider's lip spur)"
           % (S3_EYE_Z, len(cover), S3_CROUCH, ok_c, len(cover), S3_STAND, ok_s, len(cover),
-             -max(c[3] for c in cover), min(c[4] for c in cover), S3_APEX, apex_seen, apex_n))
+             -max(c[3] for c in cover), min(c[4] for c in cover), S3_APEX, apex_seen, apex_n,
+             fine[0], fine[1], fine[2], fine[3], S3_WALL_END_SPUR))
     bad, n_deck, n_caught, n_mouth, rim, face_b, lava_b, jclear, jwho = _s3_prove_launch()
     print("MDL STATS s3 launch: %d flights land on this deck before the divider's face at %.2f deg (nearest "
           "rim %.2f m past the body), %d reach the divider and are caught by its rock (they drop on the deck "
@@ -5083,6 +6113,7 @@ def _rock(r):
         return ((1 - f) * pa[0] + f * pb[0], (1 - f) * pa[1] + f * pb[1])
 
     S3["deck_xy"] = s3_xy
+    _s3_patch_rects(s3)                 # which deck cells the cracks take over
 
     def S3V(t, j):
         """A minefield station's vertex at column t. The pit lip and the wall
@@ -5133,6 +6164,8 @@ def _rock(r):
         s3in1 = s3["s0"] - 1e-9 <= t1 <= s3["s1"] + 1e-9
         if s3in0 and s3in1:                            # S3: the minefield's field
             for j in range(len(S3_ST) - 1):
+                if _s3_in_patch(t0, t1, j):            # a crack patch lays this cell
+                    continue
                 ids = (S3V(t0, j), S3V(t1, j), S3V(t1, j + 1), S3V(t0, j + 1))
                 m.quad(ids[0], ids[1], ids[2], ids[3], UP, _s3_zone(m, ids), best=True)
             continue
@@ -5171,6 +6204,8 @@ def _rock(r):
         else:
             for j in range(len(RST) - 1):
                 m.quad(DV(t0, j), DV(t1, j), DV(t1, j + 1), DV(t0, j + 1), UP, zone)
+
+    _s3_patches(m, S3V)                 # the cracks, welded into the grid's own vertices
 
     S4["edges"] = {}
     for side, (cut, mid, bank) in enumerate(((s4c0, s4m0, s4b0), (s4c1, s4m1, s4b1))):
@@ -5853,39 +6888,6 @@ def _s3_proxy(name, px, py, pz, h, colour):
     return ob
 
 
-def _s3_pad_plates():
-    """Review-only plates standing in for the scene's demon pads. The pads
-    are Godot nodes, so a Blender render of the .glb shows a bare deck and the
-    grid -- the whole point of the section -- is invisible. Each is the pad's
-    own trigger square, 20 mm over the rock, with a chevron pointing where it
-    throws; the three jump pads are blue. All removed before the file is
-    written."""
-    made = []
-    for k, p in enumerate(_s3_pads()):
-        hx, hz = p["hx"], p["hz"]
-        (gx, gz), (fx, fz) = p["o"], p["f"]
-        bx, by = gx, -gz                                      # Godot plan -> Blender
-        ax, ay = fx, -fz                                      # facing, Blender plan
-        z = DECK_Z + S3_PLATE_LIFT
-        verts = [(bx + ax * u - ay * v, by + ay * u + ax * v, z)
-                 for (u, v) in ((-hz, -hx), (hz, -hx), (hz, hx), (-hz, hx))]
-        faces = []
-        for q in (0.25, 0.60, 0.95):                          # a chevron: three bars, narrowing
-            w = hx * (1.0 - q) * 0.9
-            cx, cy = bx + ax * (q - 0.5) * 2.0 * hz, by + ay * (q - 0.5) * 2.0 * hz
-            base = len(verts)
-            for (du, dv) in ((-w, -0.12), (w, -0.12), (w, 0.12), (-w, 0.12)):
-                verts.append((cx - ay * du + ax * dv, cy + ax * du + ay * dv, z + 0.02))
-            faces.append((base, base + 1, base + 2, base + 3))
-        ob = mdl.mesh("PadPlate%d" % k, verts, [(0, 1, 2, 3)])
-        ob.data.materials.append(mdl.flat_material(
-            "PadPlateMat%d" % k, S3_JUMP_COLOUR if p["jump"] else S3_PLATE_COLOUR))
-        ch = mdl.mesh("PadChevron%d" % k, verts, faces)
-        ch.data.materials.append(mdl.flat_material("PadChevronMat%d" % k, S3_CHEVRON_COLOUR))
-        made += [ob, ch]
-    return made
-
-
 def _s3_on_path(i, frac=0.5):
     """A Blender plan point on the path at row i: frac 0 is the wall side of
     the path cell, 1 its far side."""
@@ -5922,25 +6924,29 @@ def _s3_review(scene, shot):
     cx, cy = _s3_on_path(8, 0.5)
     made.append(_s3_proxy("StandProxy", sx, sy, DECK_Z, S3_STAND, (0.1, 0.9, 0.2, 1.0)))
     made.append(_s3_proxy("CrouchProxy", cx, cy, DECK_Z, S3_CROUCH, (0.2, 0.5, 1.0, 1.0)))
-    made += _s3_pad_plates()
 
     rows = lay["rows"]
     ex, ey = S3["deck_xy"](S3["L"]["T"](S3_EXT[0] + 0.5), S3_COLS[lay["path"][0]] + 0.3)
     tx, ty = _s3_on_path(5, 0.5)
-    shot("s3b_entry", (ex, ey, DECK_Z + EYE_H), (tx, ty, DECK_Z + 0.8), 24.0, (1500, 850))
+    shot("s3c_entry", (ex, ey, DECK_Z + EYE_H), (tx, ty, DECK_Z + 0.8), 24.0, (1500, 850))
     px, py = _s3_on_path(2, 0.6)
     qx, qy = _s3_on_path(9, 0.5)
-    shot("s3b_path", (px, py, DECK_Z + EYE_H), (qx, qy, DECK_Z + 0.9), 28.0, (1500, 850))
-    wx, wy = S3["deck_xy"](S3["L"]["T"](rows[3]), 56.5)
-    ww, wv = S3["deck_xy"](S3["L"]["T"](rows[9]), lay["rho_w"][9])
-    shot("s3b_wall", (wx, wy, DECK_Z + 3.5), (ww, wv, DECK_Z + 0.9), 30.0, (1500, 850))
+    shot("s3c_path", (px, py, DECK_Z + EYE_H), (qx, qy, DECK_Z + 0.9), 28.0, (1500, 850))
+    wx, wy = S3["deck_xy"](S3["L"]["T"](rows[3]), 54.0)
+    ww, wv = S3["deck_xy"](S3["L"]["T"](rows[8]), lay["rho_w"][8])
+    shot("s3c_wall", (wx, wy, DECK_Z + EYE_H), (ww, wv, DECK_Z + 1.2), 30.0, (1500, 850))
     jrow = S3_JUMP_ROWS[len(S3_JUMP_ROWS) // 2]
     jx, jy = _s3_on_path(jrow - 1, 0.5)
     jump = [p for p in _s3_pads() if p["jump"] and p["row"] == jrow][0]
-    shot("s3b_jump", (jx, jy, DECK_Z + EYE_H), (jump["o"][0], -jump["o"][1], DECK_Z + 0.2),
+    shot("s3c_jump", (jx, jy, DECK_Z + EYE_H), (jump["o"][0], -jump["o"][1], DECK_Z + 0.2),
          30.0, (1500, 850))
-    shot("s3b_guard", (0.0, 0.0, S3_EYE_Z), pol(172.0, 52.0, DECK_Z), 35.0, (1600, 900))
-    shot("s3b_aerial", pol(172.0, 14.0, 62.0), pol(172.0, 52.0, DECK_Z), 26.0, (1600, 1000))
+    crack = [p for p in _s3_pads() if p["row"] == 6 and p["col"] == 2][0]
+    cx2, cy2 = crack["o"][0], -crack["o"][1]
+    fx2, fy2 = crack["f"][0], -crack["f"][1]
+    shot("s3c_crack", (cx2 - 2.6 * fx2, cy2 - 2.6 * fy2, DECK_Z + EYE_H), (cx2, cy2, DECK_Z - 0.1),
+         30.0, (1500, 850))
+    shot("s3c_guard", (0.0, 0.0, S3_EYE_Z), pol(172.0, 52.0, DECK_Z), 35.0, (1600, 900))
+    shot("s3c_aerial", pol(172.0, 14.0, 62.0), pol(172.0, 52.0, DECK_Z), 26.0, (1600, 1000))
     mdl._try(scene.view_settings, "exposure", 0.0)
     for ob in made:
         bpy.data.objects.remove(ob, do_unlink=True)

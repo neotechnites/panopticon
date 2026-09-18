@@ -1,0 +1,13 @@
+[gd_resource type="ShaderMaterial" load_steps=2 format=3]
+
+[ext_resource type="Shader" path="res://scenes/ring/lava_haze.gdshader" id="1_lava_haze"]
+
+[resource]
+resource_name = "Lava haze"
+shader = ExtResource("1_lava_haze")
+shader_parameter/strength = 0.006
+shader_parameter/rise_metres_per_second = 0.4
+shader_parameter/haze_height_metres = 2.0
+shader_parameter/wave_scale = 7.0
+shader_parameter/edge_fade = 0.28
+shader_parameter/dark_lift = 0.0157
