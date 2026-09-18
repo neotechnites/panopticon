@@ -5,7 +5,7 @@ Rules that shape everything:
 - The lane at r = 52 is walkable end to end (bots live there). Risk sits off the lane.
 - Cover from the tower is only on the INNER side of what it protects → covered routes are OUTER, open routes are INNER.
 - Lava never crosses the lane. Lava kills on touch (TrapVolume over a lava tile).
-- Between sections: a rest pocket, and across it a divider wall of `map_base.glb`'s own rock (see *Dividers* below).
+- Between sections: a rest pocket, with a wall of `map_base.glb`'s own rock on the runner's right, on the pit lip (see *Lip walls* below).
 
 ## Elements (assets/models/*.glb, each with its own `-colonly` collision, hell rock atlas)
 | name        | size                                  | role                        |
@@ -23,7 +23,7 @@ Rules that shape everything:
 
 **S1 The Spires 15–60** — thin cover. 9 `spire`: @20 r48, @25 r56, @30 r52, @35 r48, @40 r56, @45 r52, @50 r48, @55 r56, @58 r52. Sprint spire to spire; each only hides a standing body exactly behind it.
 
-**Pocket 60–75**: the S1|S2 divider @ 66.5 (its spur at the lip is the pocket's cover; the placeholder slab at 59–67 is gone).
+**Pocket 60–75**: lip wall 61.7–71.3 (the placeholder slab at 59–67 is gone).
 
 **S2 The Lava Shelf 75–130** — open inner lane vs covered outer platforms.
 - `rock_wall` × 4 end to end at r 53.5 from 80 → 125, 1.3 m tall (scale y 0.43): crouch cover only.
@@ -31,7 +31,7 @@ Rules that shape everything:
 - 7 `boulder` in the lava at r 57: @84, @90, @96, @102, @108, @114, @120 (gaps ≈ 3 m). Jumping exposes you above the wall.
 - Inner lane r 44–53 open; 2 `spire` at r 47 @95 and @112 for the bots.
 
-**Pocket 130–145**: the S2|S3 divider @ 139 (spur at the lip; the placeholder slab at 126.5–135 is gone).
+**Pocket 130–145**: lip wall 134.2–143.8 (the placeholder slab at 126.5–135 is gone).
 
 **S3 The Lava Crack Grid 145–200** — chaos. Ryan: *"step 1 fill the section
 with demon pads. step 2 cut a path through it by removing demon pads. step 3
@@ -99,8 +99,9 @@ chord vertices, so the weld is unchanged).
   into the guard's view.
 - **Every launch aims forward** at the shipped 18 m/s, 8° inward of the
   tangent so a flight lands at its own radius. The last rows' flights reach
-  past the section; the S3|S4 divider at 204 catches them and they drop on
-  the deck in front of it, short of S4's lava at 212.9.
+  past the section; nothing catches them now (the 204 wall is on the lip,
+  r < 48.2), so the build's launch proof names any pad whose flight lands
+  past 212.9, S4's lava — the last row's outer two do.
 - **The bots walk the path.** `RingBake` links a pad only when its flight
   lands on open mesh a body clear of everything; a pad whose flight lands
   nowhere is a dead pad, carved out of the mesh as an obstacle
@@ -110,35 +111,37 @@ chord vertices, so the weld is unchanged).
 - The guard's eye for this section is y = **28.90**, traced from the running
   game (`Tower/TowerSpawn` at 27.30 plus `RingBake.EYE_HEIGHT_METRES` 1.60).
 
-**Pocket 200–215**: the S3|S4 divider @ 204; slab r 52 @ 208.
+**Pocket 200–215**: lip wall 199.2–208.8 (the placeholder slab at 190–198.6 is gone).
 
 **S4 Demon Run 215–270** — speed. Lava strips beside the lane narrow it: `lava_tile` r 44–49 and r 55–60 from 220 → 265. 3 `demon_pad` on the lane r 52 @222, @240, @258, launching forward. 2 `slab` at r 52 @231 and @249 between pads (boost into cover, sprint, boost again).
 
-**Pocket 270–285**: the S4|S5 divider @ 286; slab r 52 @ 278.
+**Pocket 270–285**: lip wall 281.2–290.8 (the placeholder slab at 270–278 is gone).
 
 **S5 The Wall Run 285–335** — classic gaps. 4 `rock_wall` at r 49 parallel to the run: 288–296, 300–308, 312–320, 324–332 (4° gaps ≈ 3.6 m at r 49). 3 `slab` at r 57 @295, @307, @319 for the outer lane. Finish @335.
 
-## Dividers (the cross-lane walls)
-Every section boundary carries a wall of `map_base.glb`'s own rock, built by the `CROSS_WALLS` table
-of `tools/modelling/map_base_build.py` in the language of `map1_wall_build.py`: one closed mass from
-0.8 m under the deck to 0.3 m into the ceiling, r 46.8–58.3, with one mouth cut through at the lane
-(3.6 m wide, 3.7 m high; the start gate's is 4.6 × 4.8) and a tangential spur where its foot grips the
-pit lip — that spur is the cover, because a radial wall alone casts no shadow from a tower at the
-centre.
+## Lip walls (the cover between sections)
+Ryan: *"not tunnels ... it just needs to be a fucking wall on the right side."* The lap runs toward
+rising bearing and forward × up points at the axis, so the runner's right is the pit lip. Each section
+boundary, and the start, carries a wall standing ON the lip (r 46.9–48.2, 1.3 m thick), tangential to
+the ring, in `map_base.glb`'s own rock — the `rock_wall` prop's language, ~8 m long, 3 m tall, a ragged
+domed head — no mouth, nothing across the deck, nothing near the ceiling. The runner passes it on the
+outer side; it is cover from the tower while they cross the boundary. The `LIP_WALLS` table of
+`tools/modelling/map_base_build.py` is the one source; each wall carries its own seed.
 
-| wall  | bearing | why there |
-|-------|---------|-----------|
-| start | 13      | 3.9 m ahead of PrisonerStart; the lip screen -8..14 stands across the start |
-| S1\|S2 | 66.5   | the only plain deck is 61.5–74.0 (S1's fillets stop at 61.0, S2's lava tongue starts at 74.5); the mouth exits 2.4 m before S2's first TrapVolume carve (72.9), which is the corridor the bake needs to drop into S2's inner lane |
-| S2\|S3 | 139    | plain deck 130.5–144.5; the mouth's near face is 2.6 m past S2's last carve (132.2) and the spur's toe stops 1.4 m short of S3's lip wall at 145 |
-| S3\|S4 | 204    | plain deck 196–208; catches the S3 flights that would leave the section |
-| S4\|S5 | 286    | plain deck 282–290.5; the "narrow" variant, S5's rock crowds the band |
+| wall  | bearings      | head over deck | note |
+|-------|---------------|----------------|------|
+| start | -8 .. 14      | 4.6 m          | the big one, unchanged; the 13° gate across the lane is gone |
+| S1\|S2 | 61.7 .. 71.3 | 3.0 m          | plain deck 61.5–74.0 |
+| S2\|S3 | 134.2 .. 143.8 | 3.0 m        | plain deck 130.5–144.5 |
+| S3\|S4 | 199.2 .. 208.8 | 3.0 m        | its sinking end grows into the last 0.8° of S3's half wall |
+| S4\|S5 | 281.2 .. 290.8 | 3.0 m        | plain deck 282–290.5 |
 
-The bands are measured on the shipped collider (a vertical ray every 0.5° and 0.5 m over r 46.8–58.3),
-not argued: no lava crosses any wall's line, so none needs an arch. Each wall is proved at build time
-(`MDL STATS cross_wall` / `MDL STATS sight`): one connected component, 0 duplicate positions, 0 lines
-over the crest, and the lowest ledge on it above a 1.11 m jump. `tests/test_map1_divider_s1s2.gd` runs
-a body at full speed through the 66.5 mouth and into its spur.
+Why 3 m: the guard's eye is (0, 28.90, 0) and a standing head on the lane is 24.80; that line crosses
+r 47.55 at 2.15 m over the deck, 0.85 m under the head, and the whole deck width behind the wall is
+under it (2.48 m at r 57). Proved at build time on the built rock (`MDL STATS lip_wall`): the crest by a
+ray down every 0.05 m of the full-height run, every standing body on the lane behind it hidden at every
+point, and the lane a stride past each end at deck height. `tests/test_map1_lip_walls.gd` repeats the
+hidden check in Godot physics and runs a body at full speed past every wall on the outer side.
 
 ## Bots
 Cover instances register exactly as the old CSG cover did (same group, same collision layers) so RunnerCoverFinder uses them. Bots never need to jump a gap: nothing on r 50–54 is lava.

@@ -159,12 +159,6 @@ transform = Transform3D(1.28025, 0, 0.173648, 0, 1, 0, -0.225742, 0, 0.984808, 5
 editor_description = "Map 1 sections, docs/MAP1_SECTIONS.md."
 transform = Transform3D(0.8416613, 0, 0.54000586, 0, 1, 0, -0.54000586, 0, 0.8416613, -43.77672, 24.75596, 21.819647)
 
-[node name="Pocket_068deg3" parent="Sections" unique_id=55631334 instance=ExtResource("13_slab")]
-transform = Transform3D(-0.22422567, 1.1075441, -1.7831467, 3.171639, 0.06692891, -0.12742248, -0.00885543, -4.0727277, -0.4870059, -45.67616, 27.289593, -11.655811)
-
-[node name="Pocket_068deg4" parent="Sections" unique_id=1255665039 instance=ExtResource("13_slab")]
-transform = Transform3D(0.032611825, 3.9321172, 0.6735735, 3.1716394, 0.06692891, -0.12742248, -0.22201806, 1.5336937, -1.7213615, 3.701808, 27.289593, -48.886856)
-
 [node name="S1_Spires" type="Node3D" parent="Sections" unique_id=990277720]
 
 [node name="S2_LavaShelf" type="Node3D" parent="Sections" unique_id=2099182289]
