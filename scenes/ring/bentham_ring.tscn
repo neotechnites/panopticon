@@ -16,6 +16,7 @@
 [ext_resource type="PackedScene" uid="uid://bc7si5v1kq5n8" path="res://assets/models/rock_bars.glb" id="20_rock_bars"]
 [ext_resource type="PackedScene" path="res://scenes/ring/torch.tscn" id="21_torch"]
 [ext_resource type="PackedScene" path="res://scenes/ring/demon_pad.tscn" id="23_demon_pad_scene"]
+[ext_resource type="PackedScene" path="res://scenes/ring/lava_crack.tscn" id="23_lava_crack_scene"]
 [ext_resource type="PackedScene" path="res://scenes/ring/speed_powerup.tscn" id="24_speed_powerup_scene"]
 [ext_resource type="PackedScene" uid="uid://dmyewylgsm55h" path="res://assets/models/block.glb" id="25_block"]
 [ext_resource type="Script" uid="uid://bqujt25fif0uv" path="res://scripts/match/trap_volume.gd" id="26_trap_volume"]
@@ -246,123 +247,122 @@ feet_only = true
 [node name="Shape" type="CollisionShape3D" parent="Sections/S2_LavaShelf/TrapVolume7" unique_id=644014580]
 
 [node name="S3_Minefield" type="Node3D" parent="Sections" unique_id=61707270]
-editor_description = "S3, the demon pad grid (bearings 145..200). The deck is flat at lane height and filled with these demon_pad nodes, 17 rows x 3 columns (2.94 x 3.2 m); one path is cut through the grid by the cells left pad-free, three pads left in the path (rows 1, 4, 10; trigger 2.5 x 0.5 x 2.5) have to be jumped, and the half wall at the pit edge is map_base.glb's own rock. tools/modelling/map_base_build.py (the S3 block) is the one layout the mesh, the collider, these pad transforms and the proofs all come from; the build writes this node block. Every pad launches at the shipped 18 m/s; the 204 divider catches the flights that would leave the section. No lava and no TrapVolume in this section: a launch drops you back on the same deck. SpeedPowerup is a parked leftover from the retired Split, left where it was found."
+editor_description = "S3, the lava crack grid (bearings 145..200). The deck is flat at lane height; where each of the 36 demon pads stood there is now a crack in map_base.glb's own rock with lava glowing in it (hard-modelled, flush, no plate) and one of these lava_crack nodes over it: the same BoostPad trigger and footprint as the demon pad plus a heat-haze quad (scenes/ring/lava_haze.gdshader, one shared material). 17 rows x 3 columns (2.94 x 3.2 m); one path is cut through the grid by the cells left crack-free, three cracks left in the path (rows 1, 4, 10; trigger 2.5 x 0.5 x 2.5) have to be jumped, and the ragged rock wall at the pit edge is map_base.glb's own rock. tools/modelling/map_base_build.py (the S3 block) is the one layout the mesh, the collider, these node transforms and the proofs all come from; the build writes this node block. Every crack launches at the shipped 18 m/s; the 204 divider catches the flights that would leave the section. No lava hazard and no TrapVolume in this section: a launch drops you back on the same deck. SpeedPowerup is a parked leftover from the retired Split, left where it was found."
 
 [node name="SpeedPowerup" parent="Sections/S3_Minefield" unique_id=1641447572 instance=ExtResource("24_speed_powerup_scene")]
 editor_description = "Parked on top of the tower until Ryan places it at the end of the hard route."
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -29.058699, 23.34378, 46.313385)
 
-[node name="DemonPad_r00_c0_147deg" parent="Sections/S3_Minefield" unique_id=1012174845 instance=ExtResource("23_demon_pad_scene")]
+[node name="LavaCrack_r00_c0_147deg" parent="Sections/S3_Minefield" unique_id=806265377 instance=ExtResource("23_lava_crack_scene")]
 transform = Transform3D(0.903335, 0, 0.428935, 0, 1, 0, -0.428935, 0, 0.903335, -41.0328, 23.000, 27.0561)
 
-[node name="DemonPad_r00_c2_147deg" parent="Sections/S3_Minefield" unique_id=310151597 instance=ExtResource("23_demon_pad_scene")]
+[node name="LavaCrack_r00_c2_147deg" parent="Sections/S3_Minefield" unique_id=248902969 instance=ExtResource("23_lava_crack_scene")]
 transform = Transform3D(0.903335, 0, 0.428935, 0, 1, 0, -0.428935, 0, 0.903335, -46.3758, 23.000, 30.5792)
 
-[node name="DemonPad_r01_c0_150deg" parent="Sections/S3_Minefield" unique_id=670665547 instance=ExtResource("23_demon_pad_scene")]
+[node name="LavaCrack_r01_c0_150deg" parent="Sections/S3_Minefield" unique_id=48556655 instance=ExtResource("23_lava_crack_scene")]
 transform = Transform3D(0.926118, 0, 0.377235, 0, 1, 0, -0.377235, 0, 0.926118, -42.4953, 23.000, 24.6956)
 
-[node name="DemonPad_r01_c1_150deg" parent="Sections/S3_Minefield" unique_id=618637177 instance=ExtResource("23_demon_pad_scene")]
+[node name="LavaCrack_r01_c1_150deg" parent="Sections/S3_Minefield" unique_id=738976213 instance=ExtResource("23_lava_crack_scene")]
 transform = Transform3D(0.926118, 0, 0.377235, 0, 1, 0, -0.377235, 0, 0.926118, -45.2620, 23.000, 26.3035)
 footprint_metres = Vector3(2.5, 0.5, 2.5)
 
-[node name="DemonPad_r01_c2_150deg" parent="Sections/S3_Minefield" unique_id=910764293 instance=ExtResource("23_demon_pad_scene")]
+[node name="LavaCrack_r01_c2_150deg" parent="Sections/S3_Minefield" unique_id=59533919 instance=ExtResource("23_lava_crack_scene")]
 transform = Transform3D(0.926118, 0, 0.377235, 0, 1, 0, -0.377235, 0, 0.926118, -48.0287, 23.000, 27.9113)
 
-[node name="DemonPad_r02_c0_153deg" parent="Sections/S3_Minefield" unique_id=37650365 instance=ExtResource("23_demon_pad_scene")]
+[node name="LavaCrack_r02_c0_153deg" parent="Sections/S3_Minefield" unique_id=600047593 instance=ExtResource("23_lava_crack_scene")]
 transform = Transform3D(0.945944, 0, 0.324330, 0, 1, 0, -0.324330, 0, 0.945944, -43.8221, 23.000, 22.2563)
 
-[node name="DemonPad_r02_c2_153deg" parent="Sections/S3_Minefield" unique_id=915317899 instance=ExtResource("23_demon_pad_scene")]
+[node name="LavaCrack_r02_c2_153deg" parent="Sections/S3_Minefield" unique_id=626668947 instance=ExtResource("23_lava_crack_scene")]
 transform = Transform3D(0.945944, 0, 0.324330, 0, 1, 0, -0.324330, 0, 0.945944, -49.5284, 23.000, 25.1544)
 
-[node name="DemonPad_r03_c0_156deg" parent="Sections/S3_Minefield" unique_id=723423683 instance=ExtResource("23_demon_pad_scene")]
+[node name="LavaCrack_r03_c0_156deg" parent="Sections/S3_Minefield" unique_id=803106071 instance=ExtResource("23_lava_crack_scene")]
 transform = Transform3D(0.962751, 0, 0.270390, 0, 1, 0, -0.270390, 0, 0.962751, -45.0091, 23.000, 19.7459)
 
-[node name="DemonPad_r03_c2_156deg" parent="Sections/S3_Minefield" unique_id=205300089 instance=ExtResource("23_demon_pad_scene")]
+[node name="LavaCrack_r03_c2_156deg" parent="Sections/S3_Minefield" unique_id=3603179 instance=ExtResource("23_lava_crack_scene")]
 transform = Transform3D(0.962751, 0, 0.270390, 0, 1, 0, -0.270390, 0, 0.962751, -50.8699, 23.000, 22.3171)
 
-[node name="DemonPad_r04_c0_160deg" parent="Sections/S3_Minefield" unique_id=298921291 instance=ExtResource("23_demon_pad_scene")]
+[node name="LavaCrack_r04_c0_160deg" parent="Sections/S3_Minefield" unique_id=1061754841 instance=ExtResource("23_lava_crack_scene")]
 transform = Transform3D(0.976485, 0, 0.215588, 0, 1, 0, -0.215588, 0, 0.976485, -46.0524, 23.000, 17.1725)
 
-[node name="DemonPad_r04_c1_160deg" parent="Sections/S3_Minefield" unique_id=24182103 instance=ExtResource("23_demon_pad_scene")]
+[node name="LavaCrack_r04_c1_160deg" parent="Sections/S3_Minefield" unique_id=172222761 instance=ExtResource("23_lava_crack_scene")]
 transform = Transform3D(0.976485, 0, 0.215588, 0, 1, 0, -0.215588, 0, 0.976485, -49.0508, 23.000, 18.2906)
 footprint_metres = Vector3(2.5, 0.5, 2.5)
 
-[node name="DemonPad_r04_c2_160deg" parent="Sections/S3_Minefield" unique_id=889722215 instance=ExtResource("23_demon_pad_scene")]
+[node name="LavaCrack_r04_c2_160deg" parent="Sections/S3_Minefield" unique_id=86487713 instance=ExtResource("23_lava_crack_scene")]
 transform = Transform3D(0.976485, 0, 0.215588, 0, 1, 0, -0.215588, 0, 0.976485, -52.0491, 23.000, 19.4086)
 
-[node name="DemonPad_r05_c0_163deg" parent="Sections/S3_Minefield" unique_id=475057019 instance=ExtResource("23_demon_pad_scene")]
+[node name="LavaCrack_r05_c0_163deg" parent="Sections/S3_Minefield" unique_id=534463185 instance=ExtResource("23_lava_crack_scene")]
 transform = Transform3D(0.987101, 0, 0.160097, 0, 1, 0, -0.160097, 0, 0.987101, -46.9488, 23.000, 14.5443)
 
-[node name="DemonPad_r05_c2_163deg" parent="Sections/S3_Minefield" unique_id=537636945 instance=ExtResource("23_demon_pad_scene")]
+[node name="LavaCrack_r05_c2_163deg" parent="Sections/S3_Minefield" unique_id=873843549 instance=ExtResource("23_lava_crack_scene")]
 transform = Transform3D(0.987101, 0, 0.160097, 0, 1, 0, -0.160097, 0, 0.987101, -53.0621, 23.000, 16.4382)
 
-[node name="DemonPad_r06_c0_166deg" parent="Sections/S3_Minefield" unique_id=1039207669 instance=ExtResource("23_demon_pad_scene")]
+[node name="LavaCrack_r06_c0_166deg" parent="Sections/S3_Minefield" unique_id=740054829 instance=ExtResource("23_lava_crack_scene")]
 transform = Transform3D(0.994567, 0, 0.104095, 0, 1, 0, -0.104095, 0, 0.994567, -47.6952, 23.000, 11.8697)
 
-[node name="DemonPad_r06_c2_166deg" parent="Sections/S3_Minefield" unique_id=863781577 instance=ExtResource("23_demon_pad_scene")]
+[node name="LavaCrack_r06_c2_166deg" parent="Sections/S3_Minefield" unique_id=739069885 instance=ExtResource("23_lava_crack_scene")]
 transform = Transform3D(0.994567, 0, 0.104095, 0, 1, 0, -0.104095, 0, 0.994567, -53.9058, 23.000, 13.4152)
 
-[node name="DemonPad_r07_c0_169deg" parent="Sections/S3_Minefield" unique_id=1006330527 instance=ExtResource("23_demon_pad_scene")]
+[node name="LavaCrack_r07_c0_169deg" parent="Sections/S3_Minefield" unique_id=362726935 instance=ExtResource("23_lava_crack_scene")]
 transform = Transform3D(0.998859, 0, 0.047760, 0, 1, 0, -0.047760, 0, 0.998859, -48.2894, 23.000, 9.1571)
 
-[node name="DemonPad_r07_c2_169deg" parent="Sections/S3_Minefield" unique_id=684870049 instance=ExtResource("23_demon_pad_scene")]
+[node name="LavaCrack_r07_c2_169deg" parent="Sections/S3_Minefield" unique_id=734103101 instance=ExtResource("23_lava_crack_scene")]
 transform = Transform3D(0.998859, 0, 0.047760, 0, 1, 0, -0.047760, 0, 0.998859, -54.5774, 23.000, 10.3495)
 
-[node name="DemonPad_r08_c0_172deg" parent="Sections/S3_Minefield" unique_id=4736065 instance=ExtResource("23_demon_pad_scene")]
+[node name="LavaCrack_r08_c0_172deg" parent="Sections/S3_Minefield" unique_id=152067277 instance=ExtResource("23_lava_crack_scene")]
 transform = Transform3D(0.999962, 0, -0.008727, 0, 1, 0, 0.008727, 0, 0.999962, -48.7295, 23.000, 6.4154)
 
-[node name="DemonPad_r08_c2_172deg" parent="Sections/S3_Minefield" unique_id=99179811 instance=ExtResource("23_demon_pad_scene")]
+[node name="LavaCrack_r08_c2_172deg" parent="Sections/S3_Minefield" unique_id=1046468353 instance=ExtResource("23_lava_crack_scene")]
 transform = Transform3D(0.999962, 0, -0.008727, 0, 1, 0, 0.008727, 0, 0.999962, -55.0748, 23.000, 7.2507)
 
-[node name="DemonPad_r09_c2_176deg" parent="Sections/S3_Minefield" unique_id=1017697383 instance=ExtResource("23_demon_pad_scene")]
+[node name="LavaCrack_r09_c2_176deg" parent="Sections/S3_Minefield" unique_id=985613053 instance=ExtResource("23_lava_crack_scene")]
 transform = Transform3D(0.997873, 0, -0.065185, 0, 1, 0, 0.065185, 0, 0.997873, -55.3963, 23.000, 4.1288)
 
-[node name="DemonPad_r10_c0_179deg" parent="Sections/S3_Minefield" unique_id=740058619 instance=ExtResource("23_demon_pad_scene")]
+[node name="LavaCrack_r10_c0_179deg" parent="Sections/S3_Minefield" unique_id=360420305 instance=ExtResource("23_lava_crack_scene")]
 transform = Transform3D(0.992599, 0, -0.121436, 0, 1, 0, 0.121436, 0, 0.992599, -49.1421, 23.000, 0.8792)
 footprint_metres = Vector3(2.5, 0.5, 2.5)
 
-[node name="DemonPad_r10_c1_179deg" parent="Sections/S3_Minefield" unique_id=573896807 instance=ExtResource("23_demon_pad_scene")]
+[node name="LavaCrack_r10_c1_179deg" parent="Sections/S3_Minefield" unique_id=935329409 instance=ExtResource("23_lava_crack_scene")]
 transform = Transform3D(0.992599, 0, -0.121436, 0, 1, 0, 0.121436, 0, 0.992599, -52.3416, 23.000, 0.9365)
 
-[node name="DemonPad_r10_c2_179deg" parent="Sections/S3_Minefield" unique_id=147081429 instance=ExtResource("23_demon_pad_scene")]
+[node name="LavaCrack_r10_c2_179deg" parent="Sections/S3_Minefield" unique_id=1033786255 instance=ExtResource("23_lava_crack_scene")]
 transform = Transform3D(0.992599, 0, -0.121436, 0, 1, 0, 0.121436, 0, 0.992599, -55.5411, 23.000, 0.9937)
 
-[node name="DemonPad_r11_c1_182deg" parent="Sections/S3_Minefield" unique_id=395123469 instance=ExtResource("23_demon_pad_scene")]
+[node name="LavaCrack_r11_c1_182deg" parent="Sections/S3_Minefield" unique_id=443457969 instance=ExtResource("23_lava_crack_scene")]
 transform = Transform3D(0.984157, 0, -0.177299, 0, 1, 0, 0.177299, 0, 0.984157, -52.3110, 23.000, -2.0210)
 
-[node name="DemonPad_r11_c2_182deg" parent="Sections/S3_Minefield" unique_id=641823371 instance=ExtResource("23_demon_pad_scene")]
+[node name="LavaCrack_r11_c2_182deg" parent="Sections/S3_Minefield" unique_id=111490085 instance=ExtResource("23_lava_crack_scene")]
 transform = Transform3D(0.984157, 0, -0.177299, 0, 1, 0, 0.177299, 0, 0.984157, -55.5086, 23.000, -2.1446)
 
-[node name="DemonPad_r12_c1_185deg" parent="Sections/S3_Minefield" unique_id=531911117 instance=ExtResource("23_demon_pad_scene")]
+[node name="LavaCrack_r12_c1_185deg" parent="Sections/S3_Minefield" unique_id=365022061 instance=ExtResource("23_lava_crack_scene")]
 transform = Transform3D(0.972573, 0, -0.232597, 0, 1, 0, 0.232597, 0, 0.972573, -52.1133, 23.000, -4.9720)
 
-[node name="DemonPad_r12_c2_185deg" parent="Sections/S3_Minefield" unique_id=572325449 instance=ExtResource("23_demon_pad_scene")]
+[node name="LavaCrack_r12_c2_185deg" parent="Sections/S3_Minefield" unique_id=355976913 instance=ExtResource("23_lava_crack_scene")]
 transform = Transform3D(0.972573, 0, -0.232597, 0, 1, 0, 0.232597, 0, 0.972573, -55.2989, 23.000, -5.2760)
 
-[node name="DemonPad_r13_c1_189deg" parent="Sections/S3_Minefield" unique_id=351497169 instance=ExtResource("23_demon_pad_scene")]
+[node name="LavaCrack_r13_c1_189deg" parent="Sections/S3_Minefield" unique_id=976151355 instance=ExtResource("23_lava_crack_scene")]
 transform = Transform3D(0.957885, 0, -0.287152, 0, 1, 0, 0.287152, 0, 0.957885, -51.7494, 23.000, -7.9072)
 
-[node name="DemonPad_r13_c2_189deg" parent="Sections/S3_Minefield" unique_id=129792781 instance=ExtResource("23_demon_pad_scene")]
+[node name="LavaCrack_r13_c2_189deg" parent="Sections/S3_Minefield" unique_id=857161875 instance=ExtResource("23_lava_crack_scene")]
 transform = Transform3D(0.957885, 0, -0.287152, 0, 1, 0, 0.287152, 0, 0.957885, -54.9127, 23.000, -8.3906)
 
-[node name="DemonPad_r14_c1_192deg" parent="Sections/S3_Minefield" unique_id=508093097 instance=ExtResource("23_demon_pad_scene")]
+[node name="LavaCrack_r14_c1_192deg" parent="Sections/S3_Minefield" unique_id=779193549 instance=ExtResource("23_lava_crack_scene")]
 transform = Transform3D(0.940140, 0, -0.340790, 0, 1, 0, 0.340790, 0, 0.940140, -51.2202, 23.000, -10.8171)
 
-[node name="DemonPad_r14_c2_192deg" parent="Sections/S3_Minefield" unique_id=491703717 instance=ExtResource("23_demon_pad_scene")]
+[node name="LavaCrack_r14_c2_192deg" parent="Sections/S3_Minefield" unique_id=905110793 instance=ExtResource("23_lava_crack_scene")]
 transform = Transform3D(0.940140, 0, -0.340790, 0, 1, 0, 0.340790, 0, 0.940140, -54.3512, 23.000, -11.4784)
 
-[node name="DemonPad_r15_c1_195deg" parent="Sections/S3_Minefield" unique_id=887340705 instance=ExtResource("23_demon_pad_scene")]
+[node name="LavaCrack_r15_c1_195deg" parent="Sections/S3_Minefield" unique_id=163284953 instance=ExtResource("23_lava_crack_scene")]
 transform = Transform3D(0.919393, 0, -0.393340, 0, 1, 0, 0.393340, 0, 0.919393, -50.5276, 23.000, -13.6925)
 
-[node name="DemonPad_r15_c2_195deg" parent="Sections/S3_Minefield" unique_id=373716479 instance=ExtResource("23_demon_pad_scene")]
+[node name="LavaCrack_r15_c2_195deg" parent="Sections/S3_Minefield" unique_id=702790395 instance=ExtResource("23_lava_crack_scene")]
 transform = Transform3D(0.919393, 0, -0.393340, 0, 1, 0, 0.393340, 0, 0.919393, -53.6162, 23.000, -14.5295)
 
-[node name="DemonPad_r16_c1_198deg" parent="Sections/S3_Minefield" unique_id=726924061 instance=ExtResource("23_demon_pad_scene")]
+[node name="LavaCrack_r16_c1_198deg" parent="Sections/S3_Minefield" unique_id=338443385 instance=ExtResource("23_lava_crack_scene")]
 transform = Transform3D(0.895712, 0, -0.444635, 0, 1, 0, 0.444635, 0, 0.895712, -49.6737, 23.000, -16.5242)
 
-[node name="DemonPad_r16_c2_198deg" parent="Sections/S3_Minefield" unique_id=570226275 instance=ExtResource("23_demon_pad_scene")]
+[node name="LavaCrack_r16_c2_198deg" parent="Sections/S3_Minefield" unique_id=481527361 instance=ExtResource("23_lava_crack_scene")]
 transform = Transform3D(0.895712, 0, -0.444635, 0, 1, 0, 0.444635, 0, 0.895712, -52.7101, 23.000, -17.5343)
-
 [node name="S4_DemonRun" type="Node3D" parent="Sections" unique_id=203383202]
 
 [node name="DemonPad_Ryan1" parent="Sections/S4_DemonRun" unique_id=565235915 instance=ExtResource("23_demon_pad_scene")]

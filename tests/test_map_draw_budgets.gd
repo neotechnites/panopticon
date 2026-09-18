@@ -61,18 +61,19 @@ extends TestCase
 const DRAW_BUDGETS: Dictionary = {
 	# The reference map. B1-B5 were all measured on this one.
 	#
-	# Re-measured after S3 became the demon pad grid: 70 surfaces against the
-	# 45 the minefield had and the 37 this row was first built on. Each
-	# `demon_pad` node is one more surface -- Godot draws separate
-	# MeshInstance3Ds separately under GL Compatibility, so a grid of N pads costs
-	# N draw calls and there is no batching to reclaim them short of a MultiMesh.
-	# S3 ships 36 pads (11 before), which is exactly the change of order this
-	# gate exists to make visible, and it is written down here on purpose.
-	# `tris` is NOT widened: the measurement moved 90316 -> 87268 (the crests and
-	# dips went) and is still inside the ceiling it already had.
+	# Re-measured after S3's demon pads became lava cracks: 89764 tris (was
+	# 87268) because the 36 cracks are cut into map_base.glb itself -- 1370
+	# deck tris round the fissures, 2920 fissure tris, and the ragged lip
+	# wall's seven stations -- while the 36 x 62-tri pad models went. Surfaces
+	# hold at 70: each `lava_crack` node draws one haze MeshInstance3D where
+	# each `demon_pad` drew one model. `transparent_tris` leaves zero for the
+	# first time on this map: the heat haze is 36 x 4 triangles of a spatial
+	# shader that reads the screen (hint_screen_texture) and writes ALPHA,
+	# so it is 144 triangles in the sorted pass plus one screen copy a frame;
+	# ceiling 173 (144 + 20 %). Lights measured 19, inside the 24 it had.
 	"bentham_ring": {
-		"tris": 94467, "surfaces": 84, "materials": 18,
-		"transparent_tris": 0, "lights": 24, "shadow_casters": 0,
+		"tris": 107717, "surfaces": 84, "materials": 18,
+		"transparent_tris": 173, "lights": 24, "shadow_casters": 0,
 	},
 	# Four surfaces were the whole arena until the course went on the lane: 71
 	# placed prop instances is what an obstacle course costs in draw calls, and
@@ -196,16 +197,26 @@ class DrawCounts:
 		return mesh.surface_get_material(surface)
 
 	## Transparent or additive: either costs the sorted, un-depth-written pass
-	## that opaque geometry avoids. Only [BaseMaterial3D] can be asked; a
-	## [ShaderMaterial] is opaque as far as this gate is concerned, because
-	## nothing but the shader knows.
+	## that opaque geometry avoids. A [BaseMaterial3D] is asked directly. A
+	## [ShaderMaterial] is read off its shader's source: a spatial shader that
+	## writes ALPHA, declares a blend mode other than mix, or reads the screen
+	## through hint_screen_texture (which costs a screen copy per frame on top
+	## of the sorted pass) goes through the transparent pass, and this gate
+	## must see it -- the S3 lava haze is exactly that.
 	static func _is_see_through(material: Material) -> bool:
 		var base: BaseMaterial3D = material as BaseMaterial3D
-		if base == null:
+		if base != null:
+			if base.transparency != BaseMaterial3D.TRANSPARENCY_DISABLED:
+				return true
+			return base.blend_mode != BaseMaterial3D.BLEND_MODE_MIX
+		var shaded: ShaderMaterial = material as ShaderMaterial
+		if shaded == null or shaded.shader == null:
 			return false
-		if base.transparency != BaseMaterial3D.TRANSPARENCY_DISABLED:
-			return true
-		return base.blend_mode != BaseMaterial3D.BLEND_MODE_MIX
+		var code: String = shaded.shader.code
+		for mark: String in ["hint_screen_texture", "ALPHA =", "ALPHA=", "blend_add", "blend_sub", "blend_mul"]:
+			if code.contains(mark):
+				return true
+		return false
 
 
 ## Instance [param map], let it run [method Node._ready], count it, free it.

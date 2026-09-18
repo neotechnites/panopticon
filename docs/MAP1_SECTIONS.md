@@ -15,7 +15,8 @@ Rules that shape everything:
 | rock_wall   | 8.0 l × 3.0 h × 1.2 t, ragged top     | walls, the Split divider    |
 | boulder     | 2.0 dia × 1.2 h, flat top             | platform over lava          |
 | lava_tile   | 4 × 4 m, 0.3 m thick, emissive        | hazard floor (kill on touch)|
-| demon_pad   | 2.5 m dia disc, emissive sigil        | boost pad (BoostPad script) |
+| demon_pad   | 2.5 m dia disc, emissive sigil        | boost pad (BoostPad script)  |
+| lava_crack  | the same trigger, no model, heat haze | S3: a crack in the deck rock |
 
 ## Sections (angles in degrees along the run; r in metres)
 **Start pocket 5–15**: slab at r 52 @ 10.
@@ -32,68 +33,80 @@ Rules that shape everything:
 
 **Pocket 130–145**: the S2|S3 divider @ 139 (spur at the lip; the placeholder slab at 126.5–135 is gone).
 
-**S3 The Demon Pad Grid 145–200** — chaos. Ryan: *"step 1 fill the section
+**S3 The Lava Crack Grid 145–200** — chaos. Ryan: *"step 1 fill the section
 with demon pads. step 2 cut a path through it by removing demon pads. step 3
 a wall of cover at the pit edge, like all the other cover, short enough that a
 person jumping on a demon pad flies above it from the guard tower. thats it."*
+Then, on the modelling: *"the demon pad was a stand in ... instead of a demon
+pad, either create an element, or hard model into the map, cracks that have
+like, wavy hotness coming out of them. the type of waviness you see above a
+road on a hot day. not steam of course, but make it look like theres lava
+under the cracks. as for the cover, its not a fucking hallway. its just
+fucking cover, its just a fucking rock wall to the left of the runners."*
 
 The deck is FLAT at lane height (r 46.7–57.3, y 23.0): no crests, no dips. On
-it, `demon_pad` nodes fill a regular grid — 17 rows 3.24° (2.94 m at r 52)
+it, 36 launch positions fill a regular grid — 17 rows 3.24° (2.94 m at r 52)
 apart along the arc, 3 columns across the width (r 49.15, 52.35, 55.55; 3.2 m
-apart), so with the wall on the lip the deck is tiled from wall to wall with no
-gap a body fits through (three 2.5 m plates plus the wall's 0.75 m foot leave
-0.3 m at each end; a fourth column would need 11 m). The S3 block of
+apart) — exactly where the demon pads stood. The S3 block of
 `tools/modelling/map_base_build.py` is the one layout the mesh, the collider,
-the pad transforms in `scenes/ring/bentham_ring.tscn` (the build writes the
+the node transforms in `scenes/ring/bentham_ring.tscn` (the build writes the
 node block) and the proofs all come from. The section's deck grid is true
 polar between the lip and the wall foot (those two rows stay the ring's own
-chord vertices, so the weld is unchanged), so pads, wall and proofs share one
-exact metric and the wall's edges fall on mesh lines.
+chord vertices, so the weld is unchanged).
 
-- **No lava and no TrapVolume anywhere in this section.** A launch drops you
-  back on the same deck; nothing here kills you.
-- **The path** is cut by leaving cells pad-free: one column wide, the middle
+- **The launch is unchanged, the visual is not.** Each position is a
+  `scenes/ring/lava_crack.tscn`: the demon pad's own `BoostPad` trigger
+  (`scripts/match/boost_pad.gd`, 2.5 × 1.0 × 2.5 m, 18 m/s at 45°) with no
+  model, plus a `LavaHaze` node. Under it, cut into `map_base.glb`'s own deck
+  rock as part of the one mesh: a jagged fissure 2.0–2.3 m long with one or
+  two splinters, 0.14–0.48 m wide at the deck, 0.10–0.22 m deep, a dark rock
+  lip on the upper sides and the glowing lava cell (atlas `ZONE_GLOW`) on the
+  lower sides and the floor — flush, no plate, no two alike (one seeded draw
+  per pad). The deck cells round each crack are one scanfill polygon whose
+  boundary is the grid's own vertices, so nothing is duplicated at the seam.
+  The collider stays the flat deck over the cracks (they are narrower than a
+  body), so the bake, the bots and the jump proofs are the demon pad's.
+- **The haze** is `scenes/ring/lava_haze.gdshader` on two crossed 2.4 × 2.0 m
+  quads (one surface, 4 tris, one shared `ShaderMaterial`): pure refraction of
+  the scene behind through `hint_screen_texture`, a slow rising 2-octave
+  noise, fading to nothing at the top and the sides. No particles, no colour,
+  no steam. GL Compatibility pays one screen copy per frame for it.
+- **No lava hazard and no TrapVolume anywhere in this section.** A launch
+  drops you back on the same deck; nothing here kills you.
+- **The path** is cut by leaving cells crack-free: one column wide, the middle
   column for rows 0–9, stepping to the inner column at row 9 (a bend costs
   one extra cell, so the runner steps sideways, then forward). 18 cells
-  cleared of 51, 36 pads remain.
-- **Three pads are left IN the path** (rows 1, 4, 10) and must be jumped. From
-  flat ground the shipped 2.5 × 1.0 m trigger box cannot be jumped (a 7 m/s,
-  1.11 m jump keeps its feet over 1.0 m for only 2.24 m of travel, and the
-  capsule overlaps the box for 3.6 m), so these three carry
-  `footprint_metres = (2.5, 0.5, 2.5)`: the same plate, 0.5 m tall. Feet
-  clear it by +0.3 m at the overlap's ends with a take-off window of 1.6 m;
-  the row after each is cleared in the same column, so the 7 m jump lands on
-  the path; the gaps either side of the pad are 0.38 m, no body's 0.8 m.
-- **One half wall at the pit edge**, 1.85 m tall, 0.35 m flat top, 0.75 m at
-  the foot, its inner foot on the lip itself, runs unbroken from 145 to 200
-  as one arc. It is `map_base.glb`'s own rock, sampled on grid lines placed
-  exactly at its top edges and feet, and proved by a ray down every 0.05 m of
-  its length on the built mesh: 1.85 m over the deck all the way. Why 1.85:
-  the guard's eye is 5.9 m over the deck, so the sight line over the wall to
-  the middle column is 1.69 m up at the wall — a crouched capsule (1.2 m)
-  anywhere on the path is under it (raycast, every row, three stances), a
-  standing one (1.8 m) is over it on both path columns, and a pad's flight
-  (apex 3.68 m) is well above it: hit a pad and you are thrown up out of
-  cover into the guard's view.
-- **Every pad aims forward** at the shipped 18 m/s, 8° inward of the tangent so
-  a flight lands at its own radius rather than 2 m outward. Landing on the
-  next pad five rows on is the minefield: you fly again. The last rows' flights
-  reach past the section; the S3|S4 divider at 204 (3.4 m of rock to the
-  ceiling) catches them and they drop on the deck in front of it, short of
-  S4's lava at 212.9. No pad is slowed and none aims backward: a hop shorter
-  than its own plate lands back on the plate and fires it again for ever, and
-  a backward pad loops a bot the same way.
+  cleared of 51, 36 cracks remain.
+- **Three cracks are left IN the path** (rows 1, 4, 10) and must be jumped:
+  they carry `footprint_metres = (2.5, 0.5, 2.5)`, the same trigger 0.5 m
+  tall. Feet clear it by +0.3 m at the overlap's ends with a take-off window
+  of 1.6 m; the row after each is cleared in the same column, so the 7 m jump
+  lands on the path.
+- **One ragged rock wall at the pit edge**, its inner foot on the lip itself,
+  runs unbroken from 145 to 200 as one arc of `map_base.glb`'s own rock — the
+  runner's RIGHT going the lap (the pit is on the right of a runner going 5°
+  → 335°); cover from the tower can only stand on the pit side. Not a smooth
+  extrusion: every 0.5 m column carries its own crag on the crest, the top
+  (0.30–0.50 m) and the foot (0.72–1.04 m) wander in runs of 1–3 columns, the
+  flanks are cleaved. The crest is spent INSIDE the window the guard's sight
+  lines cut — over the line to a crouched capsule (1.2 m) at the far side of
+  the path cell (hidden), under the line to a standing one (1.8 m) at the
+  wall side (seen) — so it stands 1.77–2.12 m where the path is the middle
+  column and 1.50–1.87 m where it is the inner column; built crest
+  1.60–2.02 m, proved by a ray down every 0.05 m of its length and by the
+  same raycasts every 0.25 m along the whole path. A pad's flight (apex
+  3.68 m) is well above it: hit a crack and you are thrown up out of cover
+  into the guard's view.
+- **Every launch aims forward** at the shipped 18 m/s, 8° inward of the
+  tangent so a flight lands at its own radius. The last rows' flights reach
+  past the section; the S3|S4 divider at 204 catches them and they drop on
+  the deck in front of it, short of S4's lava at 212.9.
 - **The bots walk the path.** `RingBake` links a pad only when its flight
-  lands on open mesh a body clear of everything (pad plates are physical);
-  a pad whose flight lands nowhere is a dead pad, carved out of the mesh as
-  an obstacle. The three jump pads have rows +4 and +5 cleared in their
-  column, where their flights land, so they are live and the mesh runs
-  through them (proved: 1.64 m clear). With the old carve margin (0.5 m) the
-  lane between two carved pads was 0.9 m and the bake sealed it;
-  `PAD_CARVE_MARGIN_METRES` is 0.2 (the arithmetic is on the constant): the
-  lane is 1.5 m on a 2.7 m pitch, 2.5 m on this 3.2 m one. Measured on the
-  whole ring: 587 polygons, 4 dead pads, 24 pad links, 50 jump links, and
-  `test_the_bake_links_the_whole_lap_into_one_path` plans start to end.
+  lands on open mesh a body clear of everything; a pad whose flight lands
+  nowhere is a dead pad, carved out of the mesh as an obstacle
+  (`PAD_CARVE_MARGIN_METRES` 0.2). The three jump cracks have rows +4 and +5
+  cleared in their column, where their flights land, so they are live and
+  the mesh runs through them.
 - The guard's eye for this section is y = **28.90**, traced from the running
   game (`Tower/TowerSpawn` at 27.30 plus `RingBake.EYE_HEIGHT_METRES` 1.60).
 
