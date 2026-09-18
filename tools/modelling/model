@@ -246,7 +246,7 @@ stage_ship() {
       push "$HERE/${dep}_build.py" "$JOB/${dep}_build.py"
     done
     # Shared modules under lib/ that the script imports by bare name
-    # (map_base reads lib/s3_minefield.py and lib/s3_proof.py). mdl.py already
+    # (a build script may keep a layout or a proof there). mdl.py already
     # lands beside the script, so these go to the same place and the script
     # directory's place on sys.path finds them -- without this a --pc build
     # dies on ImportError while the Mac build is perfectly fine.

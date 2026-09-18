@@ -32,6 +32,7 @@ Hand-placed shots come back with every run: runner (eye on the deck), guard
 (one cell, angled and straight on).
 """
 
+import json
 import math
 import os
 import sys
@@ -44,8 +45,6 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)) + os.sep + "lib")
 import mdl  # noqa: E402
 import map1_wall_build as mw  # noqa: E402  the cross-lane walls' geometry
 import map1_sight_build as sg  # noqa: E402  ... and the proof the guard cannot see past them
-import s3_minefield  # noqa: E402  S3's one layout: field, corridor, cover, dips
-import s3_proof  # noqa: E402  ... and the proofs read off it
 
 # The model spans y = -11 .. +330; mdl's ground plane would sit under the
 # courtyard and black out any low camera. Same override as the tower.
@@ -331,51 +330,95 @@ S4_SEED = 6180339
 S4 = {}                               # the layout, filled by _s4_layout()
 S4_ROCK_MESH = []                     # (rock, ring list) for the collider
 
-# ---- S3 Demon Minefield: the deck is a field of boost pads with one pad-free
-# corridor cut through it. Ryan: "a minefield of demon pads, and cover that is
-# only about as tall as a character, so if you hit a demon pad, you get bounced
-# up out of cover ... a path cut through them, that sometimes you need to jump
-# over the pads. you just land back down on the same field."
+# ---- S3 Demon Pad Grid: the deck is FLAT at lane height and tiled with demon
+# pads in rows along the arc and columns across the width. One walkable path is
+# carved through the grid by leaving cells pad-free, three pads are left IN the
+# path and have to be jumped, and one half wall of the deck's own rock runs
+# unbroken along the path's pit side. Ryan: "create a grid of fucking demon
+# pads. carve out a path from them. and create a half wall for cover." and
+# "no gaps in the fucking wall."
 #
-# So: no lava anywhere in here. The section's whole shape is ONE height field,
-# tools/modelling/lib/s3_minefield.py, which the deck grid, the collider, the
-# proofs in lib/s3_proof.py and the scene's pad transforms all read -- one
-# truth, so the pad a runner trips is on the rock the guard is looking at.
-# Cover is crests grown out of the field's own rock, never a block on it.
-S3_EYE_Z = 28.90                      # the guard's eye, TRACED IN THE RUNNING GAME rather
-                                      # than assumed: RingBake takes Tower/TowerSpawn (tower
-                                      # origin 25.35 + local 1.95 = 27.30) plus its own
-                                      # EYE_HEIGHT_METRES 1.60, and bake.get_eye() prints
-                                      # (0, 28.9, 0). S1_EYE_Z and S4_GUARD_EYE still say 27.0,
-                                      # an old deck-level approximation that makes their cover
-                                      # claims 1.9 m of eye height too generous. Not changed
-                                      # here -- it is not this section's to move -- but S3 is
-                                      # proved against the eye the game actually uses.
-S3_COLL_COL = 1                       # collider: every Nth of the section's columns ...
-S3_COLL_ST = 1                        # ... and every Nth station. BOTH 1 on purpose: the
-                                      # cover here is only ~2 m tall and blocks the guard by
-                                      # as little as 0.47 m, so a collider that sampled the
-                                      # crests on a coarser grid than the art would round
-                                      # their tops down and a runner would stand behind cover
-                                      # shorter than the cover he can see. Art and collision
-                                      # are the SAME surface in this section.
+# Everything is laid out in the deck's GRID frame -- (game bearing, station
+# radius) -- and reaches the plan through the same chord interpolation the
+# mesh uses (s3_xy), so the wall's top edges and feet lie exactly on mesh lines
+# and a pad node stands on the rock the guard is looking at. No lava and no
+# TrapVolume in the section: a launch lands back on this deck.
+S3_EYE_Z = 28.90                      # the guard's eye, TRACED IN THE RUNNING GAME:
+                                      # Tower/TowerSpawn 27.30 + RingBake EYE_HEIGHT 1.60.
+                                      # S1_EYE_Z and S4_GUARD_EYE still say 27.0; not
+                                      # this section's to move.
+S3_EXT = (143.0, 202.0)               # bearings S3 re-lays on its own grid
+S3_FIELD = (145.0, 200.0)             # the pad field and the wall run between these
+S3_LANE_R = 52.0                      # arc metres are measured at this radius
+S3_ROWS = 17                          # pad rows along the arc ...
+S3_ROW_B = (146.6, 198.4)             # ... first and last row centre: 3.24 deg = 2.94 m apart
+S3_COLS = (47.8, 50.5, 53.2, 55.9)    # pad column radii: 2.7 m apart, wall to lip
+S3_PAD = 2.5                          # the demon_pad trigger box, metres across (scene default)
+S3_PAD_H = 1.0                        # ... and tall (scene default): unjumpable on a flat deck
+S3_JUMP_PAD_H = 0.5                   # the three jump pads' trigger height: what a 1.11 m
+                                      # jump clears with margin, where 1.0 m cannot be
+S3_JUMP_PAD_W = 1.2                   # ... and their width across the path: a full 2.5 m pad
+                                      # centred in the cell would sit under the wall's flank
+S3_JUMP_OUT = 0.50                    # ... set this far outward of the column: between the
+                                      # wall's foot and the next column's box, neither gap a
+                                      # body's 0.8 m, and the landing a body clear of the wall
+S3_YAW_IN = 8.0                       # every grid pad aims this far inward of the tangent, so a
+                                      # flight lands at its own radius (+0.1 m from the bake's
+                                      # back-edge take-off) rather than 2 m outward -- and so a
+                                      # column-1 landing stays S3_BAKE_KEEP clear of the wall
+                                      # that stands at column 2's pit side five rows on
+S3_JUMP_YAW = 4.0                     # the jump pads aim shallower: their landing needs to sit
+                                      # OUTWARD of their own column's wall by S3_BAKE_KEEP
+S3_BAKE_KEEP = 0.95                   # RingBake: agent radius 0.50 erodes the mesh round every
+                                      # wall foot, rim and pad plate, then LAND_MARGIN 0.45; a
+                                      # landing nearer than this is a DEAD pad, carved out of
+                                      # the mesh as a 3.5 m obstacle -- on a 2.7 m pitch a few
+                                      # of those seal the deck and the lap has no path
+# A full flight lands five rows on, and the bake needs that landing on open
+# deck (see S3_BAKE_KEEP), so the pads come in two 5-row blocks and the 5 rows
+# after each block are the LANDING rows, pad-free from wall to lip. Block B's
+# last three rows would land past the section: those pads are slowed to land
+# at S3_LAND_MAX_B, on the open pocket before the divider.
+S3_PAD_ROWS = (0, 1, 2, 3, 4, 10, 11, 12, 13, 14)
+# The column the path runs in per row. In a pad row it is the cleared cell; in
+# a landing row it is where the wall stands, and it MUST be the column that was
+# pad-free five rows earlier, or a landing there sits inside the wall's keep-out.
+# The wall may only jog between columns c, c+1 inside a landing row whose source
+# row had no pad in column c, for the same reason.
+S3_PATH = (1, 1, 2, 2, 2,  1, 1, 2, 2, 2,  2, 2, 2, 2, 2,  2, 2)
+S3_JUMP_ROWS = (0, 3, 11)             # pad rows whose path cell keeps its pad: jump it. The
+                                      # row after each is the same column, cleared, so the
+                                      # 7 m jump lands on the path; none is a slowed row
+S3_LAND_MAX_B = 200.3                 # a slowed pad lands here: 1.3 deg before the divider's
+                                      # eroded face, past the last pad row, on open deck
+S3_WALL_H = 1.5                       # the half wall: hides a crouched capsule (1.2 m) from
+                                      # the eye anywhere on the path, shows a standing one
+                                      # (1.8 m). 1.2 m of wall would not: the sight line rises
+                                      # 0.1 m across the path's width.
+S3_WALL_OFF = 0.85                    # wall centreline this far inward of the path column: the
+                                      # inner foot then clears the next column's rotated box
+S3_WALL_TOP = 0.175                   # half width of the flat top (0.35 m)
+S3_WALL_FOOT = 0.375                  # half width at the foot (0.75 m): flanks 0.2 m, 82 deg
+S3_JOG_IN = 0.375                     # a radial jog's centreline this far inside the wider row
+S3_COL_STEP = 0.5                     # plain lattice: arc metres between columns ...
+S3_ST_STEP = 1.0                      # ... and metres between stations
+S3_EDGE_BAND = 1.0                    # the first station in from each rim: one band takes up
+                                      # the ring's chord sagitta (0.46 m at a side's middle)
+S3_MERGE = 0.12                       # a lattice line this near an exact one yields
+S3_LAUNCH, S3_ANGLE, S3_G = 18.0, 45.0, 22.0   # BoostPad defaults, gravity 22 (MovementProfile)
+S3_HOP_MIN = 3.5                      # a slowed pad's hop is never shorter than its own plate
+                                      # plus a body: a hop that lands back on the plate fires
+                                      # it again for ever (a bot hovered on one for 40 s)
+S3_BODY_R, S3_STAND, S3_CROUCH = 0.40, 1.80, 1.20   # capsule radius, standing and crouched height
+S3_RUN, S3_JUMP_V = 11.0, 7.0         # ground speed, jump take-off speed
+S3_BFS = 0.05                         # metres between the path proof's lattice points
 S3_FLANK = 30.0                       # a facet leaning more than this off flat is wall, not deck
 S3_REVIEW = (2.2, 0.55, 1.5)          # review renders only: white sun W, world grey, exposure EV
-S3_FIELD_BACK = 4.5                   # ... degrees the mid-field eye stands behind the proxy
-S3_DENSE = os.environ.get("S3_DENSE") == "1"   # the denser pad variant, for Ryan to choose
-                                      # from: lib/s3_minefield.py reads the same flag and
-                                      # lays a fuller field; the review shots are named apart
-                                      # so both sets can sit side by side on his desktop
-S3_EYE_R = 54.3                       # ... and the radius the approach shot stands at: outside
-                                      # the crest band, or the first crest fills the frame
-S3_PAD_HALF = 1.25                    # ... the stand-in pad plate's half extent, as the node's
-S3_PLATE_N = 12                       # ... sides on its disc
-S3_PLATE_LIFT = 0.02                  # ... how far it floats over the rock, to not z-fight
-S3_PLATE_COLOUR = (0.26, 0.055, 0.010, 1.0)   # ... its plate: dark enough to survive the
-                                      # review fill and the +1.5 EV, or it reads as a white blob
-S3_CHEVRON_COLOUR = (0.95, 0.42, 0.06, 1.0)   # ... and its chevron, which says which way it throws
+S3_PLATE_LIFT = 0.02                  # review pad plates float this far over the rock
+S3_PLATE_COLOUR = (0.26, 0.055, 0.010, 1.0)   # review plate; dark enough to survive +1.5 EV
+S3_JUMP_COLOUR = (0.05, 0.30, 0.55, 1.0)      # ... the three jump pads, told apart
+S3_CHEVRON_COLOUR = (0.95, 0.42, 0.06, 1.0)   # ... and the chevron: which way it throws
 S3 = {}                               # the layout plus the columns it claimed
-
 # ---- prison cells: stone screens cut into the pit faces ---------------------
 # A cell is an arched mouth cut through the wall, a reveal stepping back to a
 # flat stone SCREEN, and a plain glowing arch-section box behind. The screen carries
@@ -2855,16 +2898,119 @@ def _s2_stats(s2):
 
 
 # -----------------------------------------------------------------------------
-# S3, the Demon Minefield: a field of pads on plain deck, a corridor cut
-# through it, low crests for cover, three dips where a pad has to be jumped
+# S3, the Demon Pad Grid: a flat deck tiled with pads, one path carved through
+# the grid, three pads in the path that must be jumped, one half wall of rock
+# along the path's pit side. One layout, in the grid frame, read by the mesh,
+# the collider, the scene's pad nodes and the proofs.
 # -----------------------------------------------------------------------------
+
+def _s3_arc(b_deg):
+    """Arc metres at the lane for a bearing: the along axis of the grid frame."""
+    return math.radians(b_deg) * S3_LANE_R
+
+
+def _s3_seg_dist(u, r, a, b):
+    """Distance from (u, r) to the segment a-b, all in (arc, station) metres."""
+    dx, dy = b[0] - a[0], b[1] - a[1]
+    L2 = dx * dx + dy * dy
+    s = 0.0 if L2 < EPS else max(0.0, min(1.0, ((u - a[0]) * dx + (r - a[1]) * dy) / L2))
+    return math.hypot(u - a[0] - s * dx, r - a[1] - s * dy)
+
+
+def _s3_lattice(lo, hi, step, exact, merge):
+    """lo..hi every `step`, the `exact` values in, any lattice value within
+    `merge` of an exact one dropped; lo and hi always survive."""
+    out = [v for v in exact if lo < v < hi]
+    k = 1
+    while lo + k * step < hi - merge:
+        v = lo + k * step
+        if all(abs(v - e) > merge for e in out):
+            out.append(v)
+        k += 1
+    return sorted(set(out + [lo, hi]))
+
+
+def _s3_layout():
+    """The section's one layout: rows, the path's spans, the pads, the wall
+    polyline, the height field over the deck and the grid lines that sample
+    it exactly. Pure geometry in the grid frame; cached in S3["lay"]."""
+    if "lay" in S3:
+        return S3["lay"]
+    n = S3_ROWS
+    step = (S3_ROW_B[1] - S3_ROW_B[0]) / (n - 1)
+    rows = [S3_ROW_B[0] + i * step for i in range(n)]
+    path = list(S3_PATH)
+    # a pad row's cleared span: its own path cell, plus the cell it steps
+    # across to before the next pad row, so the runner moves sideways, then
+    # forward. A landing row has no pads: its span is just the wall's column.
+    spans = []
+    for i in range(n):
+        nxt = path[i + 1] if (i + 1 < n and i in S3_PAD_ROWS and i + 1 in S3_PAD_ROWS) else path[i]
+        spans.append((min(path[i], nxt), max(path[i], nxt)))
+    pads = []
+    for i in S3_PAD_ROWS:
+        for j in range(len(S3_COLS)):
+            cleared = spans[i][0] <= j <= spans[i][1]
+            jump = i in S3_JUMP_ROWS and j == path[i]
+            if cleared and not jump:
+                continue
+            pads.append({"row": i, "col": j, "b": rows[i], "jump": jump,
+                         "rho": S3_COLS[j] + (S3_JUMP_OUT if jump else 0.0),
+                         "hx": 0.5 * (S3_JUMP_PAD_W if jump else S3_PAD), "hz": 0.5 * S3_PAD})
+    # the wall: ONE polyline along the pit side of the cleared cells. An arc
+    # per row at the innermost cleared column, and where that column changes
+    # a radial jog, set S3_JOG_IN inside whichever row is the wider one so it
+    # stands on cleared deck and never under a pad.
+    rho_w = [S3_COLS[lo] - S3_WALL_OFF for lo, _hi in spans]
+    jog_deg = math.degrees(S3_JOG_IN / S3_LANE_R)
+    foot_deg = math.degrees(S3_WALL_FOOT / S3_LANE_R)
+    pts = [(S3_FIELD[0], rho_w[0])]
+    jogs = []
+    for i in range(n - 1):
+        if abs(rho_w[i] - rho_w[i + 1]) < EPS:
+            continue
+        bb = rows[i] + 0.5 * step
+        bc = bb - jog_deg if spans[i][0] < spans[i + 1][0] else bb + jog_deg   # inside the wider row
+        pts += [(bc, rho_w[i]), (bc, rho_w[i + 1])]
+        jogs.append(bc)
+    pts.append((S3_FIELD[1], rho_w[-1]))
+    segs = [((_s3_arc(pts[k][0]), pts[k][1]), (_s3_arc(pts[k + 1][0]), pts[k + 1][1]))
+            for k in range(len(pts) - 1)]
+
+    def dist(b, rho):
+        u = _s3_arc(b)
+        return min(_s3_seg_dist(u, rho, a, c) for a, c in segs)
+
+    def height(b, rho):
+        d = dist(b, rho)
+        return S3_WALL_H * max(0.0, min(1.0, (S3_WALL_FOOT - d) / (S3_WALL_FOOT - S3_WALL_TOP)))
+
+    # grid lines: the wall's top edges and feet exactly, a plain lattice between
+    top_deg = math.degrees(S3_WALL_TOP / S3_LANE_R)
+    exact_b = []
+    for bc in jogs:
+        exact_b += [bc, bc - top_deg, bc + top_deg, bc - foot_deg, bc + foot_deg]
+    exact_b += [S3_FIELD[0], S3_FIELD[0] - top_deg, S3_FIELD[0] - foot_deg,
+                S3_FIELD[1], S3_FIELD[1] + top_deg, S3_FIELD[1] + foot_deg]
+    exact_r = []
+    for rw in sorted(set(rho_w)):
+        exact_r += [rw - S3_WALL_FOOT, rw - S3_WALL_TOP, rw + S3_WALL_TOP, rw + S3_WALL_FOOT]
+    cols = _s3_lattice(S3_EXT[0], S3_EXT[1], math.degrees(S3_COL_STEP / S3_LANE_R), exact_b,
+                       math.degrees(S3_MERGE / S3_LANE_R))
+    stations = sorted(set([INNER_R, OUTER_R] + _s3_lattice(INNER_R + S3_EDGE_BAND, OUTER_R - S3_EDGE_BAND,
+                                                          S3_ST_STEP, exact_r, S3_MERGE)))
+    S3["lay"] = dict(rows=rows, step=step, path=path, spans=spans, pads=pads, rho_w=rho_w,
+                     pts=pts, jogs=jogs, segs=segs, dist=dist, height=height, exact_b=exact_b,
+                     cols=cols, stations=stations, ext=S3_EXT)
+    return S3["lay"]
+
 
 def _s3_setup(T, base_cols):
     """S3's columns: the deck's own inside the section, each end snapped onto
     one when it is within COL_MERGE, and the section's own between -- so the
     deck, the outer wall and the ceiling all break on the same lines and
     nothing T-junctions. Same shape as _s2_setup."""
-    L = dict(s3_minefield.layout())
+    L = dict(_s3_layout())
     ends = []
     for b in L["ext"]:
         t = T(b)
@@ -2872,22 +3018,31 @@ def _s3_setup(T, base_cols):
         ends.append(near[0] if near else t)
     s1, s0 = ends                     # the LOW bearing is the HIGH Blender angle
     keep = [c for c in base_cols if s0 < c < s1] + [s0, s1]
-    cols = [t for t in (T(b) for b in L["cols"]) if s0 < t < s1
-            and all(abs(t - k) * CROSS_R > COL_MERGE for k in keep)]
+    # the wall's own edge columns are kept whatever the base deck has near
+    # them (a base column every ~2.8 deg would otherwise eat one in four and
+    # round that wall edge off); only the plain lattice yields to a base column
+    exact = [T(b) for b in L["exact_b"] if s0 < T(b) < s1]
+    cols = [t for t in exact if all(abs(t - k) > 1e-7 for k in keep)]
+    cols += [t for t in (T(b) for b in L["cols"]) if s0 < t < s1
+             and all(abs(t - e) > 1e-7 for e in exact)
+             and all(abs(t - k) * CROSS_R > COL_MERGE for k in keep)]
+    slivers = sum(1 for e in exact for k in keep if 1e-7 < abs(e - k) * CROSS_R < 0.1)
+    if slivers:
+        print("MDL note s3 %d wall edge column(s) within 0.1 m of a deck column" % slivers)
     L.update(s0=s0, s1=s1, cols=_merge_cols(keep, cols), T=T)
     return L
 
 
-def _s3_h(L, x, y):
-    """The section's rock over DECK_Z at a BLENDER plan point. Godot's plan
-    axes are (x, -y), which is the frame lib/s3_minefield.py is written in."""
-    return L["height"](x, -y)
+def _s3_h(L, t, rho):
+    """The section's rock over DECK_Z at a GRID point: Blender column angle t,
+    station radius rho. The deck grid and the collider sample this."""
+    return L["height"](_bear_deg(t), rho)
 
 
 def _s3_zone(m, ids):
     """A facet flat enough to be floor takes the deck's radial projection; a
-    crest flank or a dip wall takes the rock zone, or the radial projection
-    collapses on it and the texture smears vertically."""
+    wall flank takes the rock zone, or the radial projection collapses on it
+    and the texture smears vertically."""
     pts = [m.verts[i] for i in ids]
     n = _newell(pts)
     mag = math.sqrt(n[0] * n[0] + n[1] * n[1] + n[2] * n[2])
@@ -2899,23 +3054,18 @@ def _s3_zone(m, ids):
 
 
 def _s3_collider(c):
-    """The section's deck follows the field: one grid on the same surface the
-    art mesh uses, at S1's collider cell size. No lava, no rocks, no holes --
-    the crests ARE the deck here."""
+    """The section's deck and wall: one grid on the same surface the art mesh
+    uses, every column and every station. Art and collision are the SAME
+    surface in this section."""
     L = S3["L"]
-    cols = L["cols"][::S3_COLL_COL]
-    if cols[-1] != L["cols"][-1]:
-        cols.append(L["cols"][-1])
-    st = L["stations"][::S3_COLL_ST]
-    if st[-1] != L["stations"][-1]:
-        st.append(L["stations"][-1])
+    cols, st = L["cols"], L["stations"]
     deck_xy = S3["deck_xy"]
     grid = []
     for t in cols:
         col = []
         for rad in st:
             x, y = deck_xy(t, rad)
-            col.append(c.v((x, y, DECK_Z + _s3_h(L, x, y))))
+            col.append(c.v((x, y, DECK_Z + _s3_h(L, t, rad))))
         grid.append(col)
     for i in range(len(cols) - 1):
         for j in range(len(st) - 1):
@@ -2924,36 +3074,393 @@ def _s3_collider(c):
     S3["coll_tris"] = 2 * (len(cols) - 1) * (len(st) - 1)
 
 
-def _s3_pad_transform(L, pad):
+# ---- the plan: grid -> Godot, through the deck's own chord frame ------------
+
+def _s3_plan(b, rho):
+    """Godot plan (gx, gz) of a grid point."""
+    x, y = S3["deck_xy"](S3["L"]["T"](b), rho)
+    return x, -y
+
+
+def _s3_grid_of(gx, gz):
+    """A Godot plan point back to the grid: (bearing, radius). The grid's
+    interior is true polar, so this is exact."""
+    return math.degrees(math.atan2(gz, gx)) % 360.0, math.hypot(gx, gz)
+
+
+def _s3_facing(gx, gz, yaw=S3_YAW_IN):
+    """A pad's launch direction in the Godot plan: the tangent toward higher
+    bearing, turned `yaw` degrees toward the axis."""
+    a = math.atan2(gz, gx) + math.radians(yaw)
+    return -math.sin(a), math.cos(a)
+
+
+def _s3_bake_land(o, f, v):
+    """Where RingBake's ballistic flight ends: it takes off from the plate's
+    BACK edge, half a plate behind the origin (pad_takeoff), and its air
+    control never engages above max_air_speed, so this is the exact point
+    the bake tests for a live pad."""
+    R = v * v * math.sin(math.radians(2.0 * S3_ANGLE)) / S3_G - 0.5 * S3_PAD
+    return o[0] + R * f[0], o[1] + R * f[1]
+
+
+def _s3_land(o, f, v):
+    """Where a body launched from plan point o along f at v m/s lands, on the
+    flat deck: the 45 degree range v^2/g."""
+    R = v * v * math.sin(math.radians(2.0 * S3_ANGLE)) / S3_G
+    return o[0] + R * f[0], o[1] + R * f[1]
+
+
+def _s3_pads():
+    """Every pad's Godot plan geometry: origin, facing, launch speed and
+    ballistic landing. Cached."""
+    if "pads" in S3:
+        return S3["pads"]
+    out = []
+    for pad in S3["lay"]["pads"]:
+        o = _s3_plan(pad["b"], pad["rho"])
+        f = _s3_facing(o[0], o[1], S3_JUMP_YAW if pad["jump"] else S3_YAW_IN)
+        v = S3_LAUNCH
+        if _s3_grid_of(*_s3_land(o, f, v))[0] > S3_LAND_MAX_B:
+            lo, hi = 3.0, S3_LAUNCH
+            for _ in range(50):
+                mid = 0.5 * (lo + hi)
+                if _s3_grid_of(*_s3_land(o, f, mid))[0] > S3_LAND_MAX_B:
+                    hi = mid
+                else:
+                    lo = mid
+            v = lo
+        land = _s3_land(o, f, v)
+        p = dict(pad)
+        p.update(o=o, f=f, v=v, land=land, land_grid=_s3_grid_of(*land),
+                 bake_land=_s3_bake_land(o, f, v), hop=v * v / S3_G,
+                 name="DemonPad_r%02d_c%d_%03ddeg" % (pad["row"], pad["col"], round(pad["b"])))
+        out.append(p)
+    S3["pads"] = out
+    return out
+
+
+def _s3_pad_transform(p):
     """The pad node's Godot Transform3D: it launches along local -Z, so the
-    basis' third COLUMN is minus the flight direction and the .tscn's twelve
-    floats are that basis by ROWS, then the origin. Derived from the landing
-    the layout solved, never from a hand-typed angle."""
-    bx, by, _ = pol(pad["b"], pad["r"], 0.0)      # pol is Blender ...
-    ox, oz = bx, -by                              # ... and Godot z = -Blender y
-    oy = DECK_Z + _s3_h(L, bx, by)
-    fx, fz = pad["land"][0] - ox, pad["land"][1] - oz
-    n = math.hypot(fx, fz) or 1.0
-    fx, fz = fx / n, fz / n
+    basis' third COLUMN is minus the facing and the .tscn's twelve floats are
+    that basis by ROWS, then the origin."""
+    (ox, oz), (fx, fz) = p["o"], p["f"]
     return ("Transform3D(%.6f, 0, %.6f, 0, 1, 0, %.6f, 0, %.6f, %.4f, %.3f, %.4f)"
-            % (-fz, -fx, fx, -fz, ox, oy, oz)), (ox, oy, oz), (fx, fz)
+            % (-fz, -fx, fx, -fz, ox, DECK_Z, oz))
+
+
+def _s3_box_dist(p, gx, gz):
+    """Plan distance from a point to a pad's trigger box (0 inside)."""
+    dx, dz = gx - p["o"][0], gz - p["o"][1]
+    fx, fz = p["f"]
+    along, across = dx * fx + dz * fz, dx * -fz + dz * fx
+    return math.hypot(max(abs(along) - p["hz"], 0.0), max(abs(across) - p["hx"], 0.0))
+
+
+def _s3_scene_block():
+    """The .tscn node block for the section's pads, one node per pad under
+    Sections/S3_Minefield. unique_id is a stable hash of the name."""
+    import hashlib
+    lines = []
+    for p in _s3_pads():
+        uid = (int(hashlib.md5(p["name"].encode()).hexdigest()[:8], 16) & 0x3fffffff) | 1
+        lines.append('[node name="%s" parent="Sections/S3_Minefield" unique_id=%d '
+                     'instance=ExtResource("23_demon_pad_scene")]' % (p["name"], uid))
+        lines.append("transform = " + _s3_pad_transform(p))
+        if p["jump"]:
+            lines.append("footprint_metres = Vector3(%.1f, %.1f, %.1f)" % (S3_JUMP_PAD_W, S3_JUMP_PAD_H, S3_PAD))
+        if p["v"] < S3_LAUNCH - 1e-6:
+            lines.append("launch_speed = %.2f" % p["v"])
+        lines.append("")
+    return "\n".join(lines)
+
+
+# ---- proofs -----------------------------------------------------------------
+
+def _s3_prove_path():
+    """Walk the section on a lattice of the grid frame: a body's centre may
+    stand where it is a radius clear of the lip, the wall's rock and every
+    pad's trigger box. Entry (bearing < 143.5) must reach exit (> 201.5) with
+    the three jump pads passable, and must NOT with them blocked -- so the
+    only way through is the path and the pads on it are jumped, not walked
+    round. Returns (length with jumps, reachable without jumps)."""
+    from collections import deque
+    lay = S3["lay"]
+    pads = _s3_pads()
+    by_cell = {}
+    for p in pads:
+        by_cell.setdefault((p["row"], p["col"]), []).append(p)
+    step_b = math.degrees(S3_BFS / S3_LANE_R)
+    nb = int((S3_EXT[1] + 0.5 - (S3_EXT[0] - 0.5)) / step_b) + 1
+    nr = int((OUTER_R - INNER_R) / S3_BFS) + 1
+    row_step, r0 = lay["step"], lay["rows"][0]
+    keep = S3_WALL_FOOT + S3_BODY_R
+    free = bytearray(nb * nr)          # 1 free, 2 a jump pad's keep-out (passable when jumped)
+    T = S3["L"]["T"]
+    for ib in range(nb):
+        b = S3_EXT[0] - 0.5 + ib * step_b
+        t = T(b)
+        pa, pb = S3["deck_xy"](t, INNER_R), S3["deck_xy"](t, OUTER_R)
+        ri = int(round((b - r0) / row_step))
+        cand = []
+        for rr in (ri - 1, ri, ri + 1):
+            for cc in range(len(S3_COLS)):
+                cand += by_cell.get((rr, cc), [])
+        for ir in range(nr):
+            rho = INNER_R + ir * S3_BFS
+            if rho < INNER_R + S3_BODY_R or rho > OUTER_R - S3_BODY_R:
+                continue
+            if lay["dist"](b, rho) < keep:
+                continue
+            fr = (rho - INNER_R) / (OUTER_R - INNER_R)
+            gx = pa[0] + fr * (pb[0] - pa[0])
+            gz = -(pa[1] + fr * (pb[1] - pa[1]))
+            state = 1
+            for p in cand:
+                if _s3_box_dist(p, gx, gz) < S3_BODY_R:
+                    state = 2 if p["jump"] else 0
+                    if state == 0:
+                        break
+            free[ib * nr + ir] = state
+
+    def run(jump_ok):
+        dist = [None] * (nb * nr)
+        dq = deque()
+        for ir in range(nr):
+            for ib in range(int(1.0 / step_b)):     # the half degree before the section
+                if free[ib * nr + ir] == 1:
+                    dist[ib * nr + ir] = 0.0
+                    dq.append((ib, ir))
+        best = None
+        goal_ib = nb - int(1.0 / step_b)
+        while dq:
+            ib, ir = dq.popleft()
+            d = dist[ib * nr + ir]
+            if ib >= goal_ib:
+                best = d if best is None else min(best, d)
+                continue
+            rho = INNER_R + ir * S3_BFS
+            du = S3_BFS * rho / S3_LANE_R
+            for db, dr in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                jb, jr = ib + db, ir + dr
+                if not (0 <= jb < nb and 0 <= jr < nr):
+                    continue
+                st = free[jb * nr + jr]
+                if st == 0 or (st == 2 and not jump_ok):
+                    continue
+                nd = d + (du if db else S3_BFS)
+                if dist[jb * nr + jr] is None or nd < dist[jb * nr + jr] - 1e-9:
+                    dist[jb * nr + jr] = nd
+                    dq.append((jb, jr))
+        return best
+    return run(True), run(False)
+
+
+def _s3_prove_wall():
+    """The wall as BUILT: a ray down onto the rock mesh every 0.05 m along the
+    polyline must hit S3_WALL_H over the deck -- no gap, no dip. Returns
+    (polyline metres, samples, min hit, max hit)."""
+    import mathutils
+    ob = bpy.data.objects[OBJECT_NAME]
+    lay = S3["lay"]
+    lo, hi, n, length = 9e9, -9e9, 0, 0.0
+    for k in range(len(lay["pts"]) - 1):
+        (b0, r0), (b1, r1) = lay["pts"][k], lay["pts"][k + 1]
+        u0, u1 = _s3_arc(b0), _s3_arc(b1)
+        seg = math.hypot(u1 - u0, r1 - r0)
+        length += seg
+        m = max(2, int(seg / 0.05) + 1)
+        for i in range(m):
+            f = i / (m - 1.0)
+            b, rho = b0 + f * (b1 - b0), r0 + f * (r1 - r0)
+            gx, gz = _s3_plan(b, rho)
+            hit, loc, _nrm, _idx = ob.ray_cast(mathutils.Vector((gx, -gz, DECK_Z + 6.0)),
+                                              mathutils.Vector((0.0, 0.0, -1.0)))
+            z = (loc.z - DECK_Z) if hit else -9.0
+            lo, hi, n = min(lo, z), max(hi, z), n + 1
+    return length, n, lo, hi
+
+
+def _s3_prove_cover():
+    """Raycast from the guard's eye against the BUILT rock: for every row, a
+    body on the path at the wall side, the middle and the far side of the
+    walkable band, crouched (capsule top 1.2 m) and standing (1.8 m). Returns
+    per-row (bearing, crouched hidden at all three, standing seen at all three,
+    worst crouched margin, worst standing margin) where a margin is metres
+    the ray passes under (negative) or over the rock it crosses."""
+    import mathutils
+    ob = bpy.data.objects[OBJECT_NAME]
+    lay = S3["lay"]
+    eye = mathutils.Vector((0.0, 0.0, S3_EYE_Z))
+    out, bends = [], []
+    for i, b in enumerate(lay["rows"]):
+        lo, hi = lay["spans"][i]
+        near = lay["rho_w"][i] + S3_WALL_FOOT + S3_BODY_R
+        far = S3_COLS[lo] + 0.95
+        hidden, seen, worst_c, worst_s = True, True, -9e9, 9e9
+        stances = [near, 0.5 * (near + far), far] + ([S3_COLS[hi] + 0.95] if hi > lo else [])
+        for k, rho in enumerate(stances):
+            gx, gz = _s3_plan(b, rho)
+            for h, crouched in ((S3_CROUCH, True), (S3_STAND, False)):
+                tgt = mathutils.Vector((gx, -gz, DECK_Z + h))
+                d = tgt - eye
+                hit, loc, _n, _i = ob.ray_cast(eye, d.normalized())
+                blocked = hit and (loc - eye).length < d.length - 0.02
+                # margin: at the wall's inner top edge, the ray's height minus the top
+                bw, rw = b, lay["rho_w"][i] - S3_WALL_TOP
+                wx, wz = _s3_plan(bw, rw)
+                f = math.hypot(wx, wz) / math.hypot(gx, gz)
+                margin = (S3_EYE_Z + f * (DECK_Z + h - S3_EYE_Z)) - (DECK_Z + S3_WALL_H)
+                if k == 3:                      # a bend's crossing cell, 2.7 m further out
+                    if crouched and not blocked:
+                        bends.append((b, margin))
+                    continue
+                if crouched:
+                    hidden = hidden and blocked
+                    worst_c = max(worst_c, margin)
+                else:
+                    seen = seen and not blocked
+                    worst_s = min(worst_s, margin)
+        out.append((b, hidden, seen, worst_c, worst_s))
+    return out, bends
+
+
+def _s3_prove_launch():
+    """Every pad is LIVE for RingBake: its ballistic flight from the plate's
+    back edge lands on this deck at least S3_BAKE_KEEP from every rim, every
+    wall foot and every other pad's plate, and before the divider's eroded
+    face. Returns (bad names, min clearance, its pad, furthest landing
+    bearing, shortest hop, divider face bearing)."""
+    lay = S3["lay"]
+    pads = _s3_pads()
+    spec = _cross_spec("divider", 0)
+    div_b = [bb for bb, kind, _seed in CROSS_WALLS if kind == "divider"][0]
+    face_b = div_b - math.degrees((0.5 * spec.t_body + S3_BAKE_KEEP) / S3_LANE_R)
+    bad, worst, who, bmax, hop_min = [], 9e9, "", 0.0, 9e9
+    for p in pads:
+        gx, gz = p["bake_land"]
+        b, rho = _s3_grid_of(gx, gz)
+        bmax = max(bmax, b)
+        hop_min = min(hop_min, p["hop"])
+        clear = min(rho - INNER_R, OUTER_R - rho)
+        clear = min(clear, lay["dist"](b, rho) - S3_WALL_FOOT)
+        for q in pads:
+            if q is not p:
+                clear = min(clear, _s3_box_dist(q, gx, gz))
+        if clear < worst:
+            worst, who = clear, p["name"]
+        if clear < S3_BAKE_KEEP or b > face_b or p["hop"] < S3_HOP_MIN:
+            bad.append(p["name"])
+    return bad, worst, who, bmax, hop_min, face_b
+
+
+def _s3_jump_numbers(box_h):
+    """A running jump over a pad of trigger height box_h on flat deck. The
+    capsule overlaps the box in plan over 2 * (box half extent along the
+    path + body radius); feet must be over box_h for all of it. Returns
+    (overlap span, window where feet clear box_h, clearance at the span's
+    ends for a jump centred on the pad); a negative clearance or a window
+    shorter than the span is a pad that cannot be jumped."""
+    th = math.radians(S3_JUMP_YAW)
+    half = 0.5 * S3_PAD * math.cos(th) + 0.5 * S3_JUMP_PAD_W * math.sin(th)
+    span = 2.0 * (half + S3_BODY_R)
+    a, c = S3_JUMP_V / S3_RUN, S3_G / (2.0 * S3_RUN * S3_RUN)   # feet y(s) = a s - c s^2
+    disc = a * a - 4.0 * c * box_h
+    window = math.sqrt(disc) / c if disc > 0.0 else 0.0
+    apex_s = a / (2.0 * c)
+    s = apex_s - 0.5 * span
+    clear = (a * s - c * s * s) - box_h
+    return span, window, clear
 
 
 def _s3_stats():
+    """Every number the section claims, printed from the built model."""
+    lay = S3["lay"]
+    pads = _s3_pads()
     L = S3["L"]
-    for line in s3_proof.stats(L, eye=(0.0, S3_EYE_Z, 0.0)):
-        print(line)
-    for k, pad in enumerate(L["pads"]):
-        xf, o, _f = _s3_pad_transform(L, pad)
-        print("MDL STATS s3 pad%d bearing=%.2f r=%.2f %s | flight %.2f m to bearing %.2f r %.2f"
-              % (k + 1, pad["b"], pad["r"], xf,
-                 math.hypot(pad["land"][0] - o[0], pad["land"][1] - o[2]),
-                 math.degrees(math.atan2(pad["land"][1], pad["land"][0])) % 360.0,
-                 math.hypot(*pad["land"])))
-    print("MDL STATS s3 grid %d columns x %d stations, collider %d tris, %d pads, %d cover crests, "
+    n_jump = sum(1 for p in pads if p["jump"])
+    n_slow = sum(1 for p in pads if p["v"] < S3_LAUNCH - 1e-6)
+    print("MDL STATS s3 grid %d rows (%d pad rows in two blocks, %d landing rows) x %d columns, %d pads "
+          "(%d jump, %d slowed), %d path cells cleared, row pitch %.2f deg = %.2f m at r %.0f, column pitch %.2f m"
+          % (S3_ROWS, len(S3_PAD_ROWS), S3_ROWS - len(S3_PAD_ROWS), len(S3_COLS), len(pads), n_jump, n_slow,
+             len(S3_PAD_ROWS) * len(S3_COLS) - len(pads) + n_jump, lay["step"],
+             math.radians(lay["step"]) * S3_LANE_R, S3_LANE_R, S3_COLS[1] - S3_COLS[0]))
+    print("MDL STATS s3 mesh %d columns x %d stations, collider %d tris, flat deck at y=%.1f, "
           "no lava and no trap volume in the section"
-          % (len(L["cols"]), len(L["stations"]), S3.get("coll_tris", 0),
-             len(L["pads"]), len(L["covers"])))
+          % (len(L["cols"]), len(L["stations"]), S3.get("coll_tris", 0), DECK_Z))
+    for p in pads:
+        lb, lr = p["land_grid"]
+        print("MDL STATS s3 pad %s %s%s | v %.2f m/s -> lands bearing %.2f r %.2f%s"
+              % (p["name"], _s3_pad_transform(p),
+                 " box_h=%.1f" % S3_JUMP_PAD_H if p["jump"] else "", p["v"], lb, lr,
+                 " JUMP" if p["jump"] else ""))
+    # pads never overlap one another or the wall's rock
+    gap, gap_who = 9e9, ""
+    for i, p in enumerate(pads):
+        for q in pads[i + 1:]:
+            if abs(p["row"] - q["row"]) <= 1 and abs(p["col"] - q["col"]) <= 1:
+                fx, fz = q["f"]
+                for su in (-q["hz"], q["hz"]):
+                    for sv in (-q["hx"], q["hx"]):
+                        cx = q["o"][0] + su * fx + sv * -fz
+                        cz = q["o"][1] + su * fz + sv * fx
+                        d = _s3_box_dist(p, cx, cz)
+                        if d < gap:
+                            gap, gap_who = d, p["name"] + "/" + q["name"]
+    wall_gap, wall_who = 9e9, ""
+    for p in pads:
+        fx, fz = p["f"]
+        for su in (-p["hz"], 0.0, p["hz"]):
+            for sv in (-p["hx"], 0.0, p["hx"]):
+                cx = p["o"][0] + su * fx + sv * -fz
+                cz = p["o"][1] + su * fz + sv * fx
+                b, rho = _s3_grid_of(cx, cz)
+                d = lay["dist"](b, rho) - S3_WALL_FOOT
+                if d < wall_gap:
+                    wall_gap, wall_who = d, p["name"]
+    print("MDL STATS s3 pads: nearest corner-to-box gap between neighbours %.3f m (%s), nearest box "
+          "point to the wall's foot %.3f m (%s); both must be > 0" % (gap, gap_who, wall_gap, wall_who))
+    with_j, without_j = _s3_prove_path()
+    print("MDL STATS s3 path: entry->exit %s with the jump pads jumped; %s with them blocked "
+          "(the pads on the path cannot be walked round)"
+          % ("%.1f m walkable" % with_j if with_j is not None else "NOT WALKABLE",
+             "STILL REACHABLE" if without_j is not None else "unreachable"))
+    for box_h, what in ((S3_JUMP_PAD_H, "a jump pad"), (S3_PAD_H, "an ordinary pad")):
+        span, window, clear = _s3_jump_numbers(box_h)
+        print("MDL STATS s3 jump over %s (box %.1f m): capsule overlaps the box for %.2f m, feet are "
+              "over it for %.2f m of the flight, clearance %+.3f m at the overlap's ends (centred "
+              "jump), take-off window %+.2f m -> %s"
+              % (what, box_h, span, window, clear, window - span,
+                 "CLEARED" if clear > 0.0 and window > span else "cannot be jumped"))
+    length, n, lo, hi = _s3_prove_wall()
+    print("MDL STATS s3 wall: %.1f m polyline, %d jogs, %d ray samples on the built rock, top "
+          "%.3f..%.3f m over the deck (want %.2f, no gap)" % (length, len(lay["jogs"]), n, lo, hi, S3_WALL_H))
+    cover, bends = _s3_prove_cover()
+    ok_c = sum(1 for c in cover if c[1])
+    ok_s = sum(1 for c in cover if c[2])
+    print("MDL STATS s3 cover: eye (0, %.2f, 0) raycast on the built rock, 3 stances x %d rows: crouched "
+          "capsule (%.1f m) hidden in %d/%d rows, standing (%.1f m) seen in %d/%d; sight line "
+          "at the wall's inner top edge is under the top by >= %.3f m crouched, over it by >= %.3f m standing"
+          % (S3_EYE_Z, len(cover), S3_CROUCH, ok_c, len(cover), S3_STAND, ok_s, len(cover),
+             -max(c[3] for c in cover), min(c[4] for c in cover)))
+    print("MDL STATS s3 cover at the %d bends' crossing cells (2.7 m further from the wall): crouched seen in %d%s"
+          % (len(lay["jogs"]), len(bends), "" if not bends else ", by " + " ".join("%.3f m at %.1f deg" % (m, b) for b, m in bends)))
+    bad, worst, who, bmax, hop_min, face_b = _s3_prove_launch()
+    print("MDL STATS s3 launch: %d/%d pads live for the bake -- every back-edge flight lands on open deck "
+          ">= %.2f m from any rim, wall foot or pad plate (nearest %.2f m, %s), furthest landing %.2f deg "
+          "(divider's eroded face %.2f), shortest hop %.1f m (min %.1f)%s"
+          % (len(pads) - len(bad), len(pads), S3_BAKE_KEEP, worst, who, bmax, face_b, hop_min, S3_HOP_MIN,
+             "" if not bad else " BAD: " + " ".join(bad)))
+    # the scene block, beside the .glb
+    out_dir = "."
+    for k, a in enumerate(sys.argv):
+        if a == "--spec" and k + 1 < len(sys.argv):
+            with open(sys.argv[k + 1]) as fh:
+                out_dir = json.load(fh).get("out_dir", ".")
+    path = os.path.join(out_dir, "map_base_s3_pads.tscn.part")
+    with open(path, "w") as fh:
+        fh.write(_s3_scene_block())
+    print("MDL note s3 pad nodes -> %s" % path)
 
 
 # =============================================================================
@@ -4576,10 +5083,15 @@ def _rock(r):
     S3_ST = s3["stations"]
 
     def s3_xy(t, rho):
-        """The plan point of a station at column t, between the pit lip's own
-        chord and the wall foot's own chord -- the same frame S1's collider
-        uses, so the section's grid meets the ring's rings exactly and the
-        collider built from it lands on the art mesh rather than beside it."""
+        """The plan point of a station at column t. The lip and the wall foot
+        are the ring's own chord points, so the section's grid meets the
+        ring's rings exactly and the collider built from it lands on the art
+        mesh rather than beside it. Every station between is TRUE polar: the
+        ring's sides are jittered 32-gon chords, so a chord-interpolated frame
+        is up to 7 % short of a metre and a 2.5 m pad laid in it would not fit
+        its 2.7 m column; the band at each edge absorbs the chord's sagitta."""
+        if INNER_R + EPS < rho < OUTER_R - EPS:
+            return (rho * math.cos(t), rho * math.sin(t))
         pa, pb = _chord(m, pit[npit - 1], ang, t), _chord(m, wall[0], ang, t)
         f = (rho - INNER_R) / (OUTER_R - INNER_R)
         return ((1 - f) * pa[0] + f * pb[0], (1 - f) * pa[1] + f * pb[1])
@@ -4597,7 +5109,7 @@ def _rock(r):
         key = (round(t, 7), j)
         if key not in s3v:
             x, y = s3_xy(t, S3_ST[j])
-            s3v[key] = m.v((x, y, DECK_Z + _s3_h(s3, x, y)))
+            s3v[key] = m.v((x, y, DECK_Z + _s3_h(s3, t, S3_ST[j])))
         return s3v[key]
 
     def s3_chain(t, inside):
@@ -5355,63 +5867,55 @@ def _s3_proxy(name, px, py, pz, h, colour):
     return ob
 
 
-def _s3_pad_plates(L):
-    """Review-only discs standing in for the scene's demon pads. The pads are
-    Godot nodes, so a Blender render of the .glb shows a bare field and the
-    minefield -- the whole point of the section -- is invisible. These are
-    12-gon plates 20 mm over the rock, glowing, and every one of them is
-    removed before the file is written."""
+def _s3_pad_plates():
+    """Review-only plates standing in for the scene's demon pads. The pads
+    are Godot nodes, so a Blender render of the .glb shows a bare deck and the
+    grid -- the whole point of the section -- is invisible. Each is the pad's
+    own trigger square, 20 mm over the rock, with a chevron pointing where it
+    throws; the three jump pads are blue. All removed before the file is
+    written."""
     made = []
-    for k, pad in enumerate(L["pads"]):
-        bx, by, _ = pol(pad["b"], pad["r"], 0.0)
-        z = DECK_Z + _s3_h(L, bx, by) + S3_PLATE_LIFT
-        er, et = _radial(pad["b"]), _tangent(pad["b"])
-        fx, fz = pad["land"][0] - bx, pad["land"][1] + by      # Godot plan, then to Blender
-        verts, faces = [], []
-        for i in range(S3_PLATE_N):
-            a = TWO_PI * i / S3_PLATE_N
-            u, v = S3_PAD_HALF * math.cos(a), S3_PAD_HALF * math.sin(a)
-            verts.append((bx + et[0] * u + er[0] * v, by + et[1] * u + er[1] * v, z))
-        disc = [tuple(range(S3_PLATE_N))]
-        n = math.hypot(fx, fz) or 1.0
-        ax, ay = fx / n, -fz / n                               # the facing, in Blender plan
-        for q in (0.25, 0.60, 0.95):                           # a chevron: three bars, narrowing
-            w = S3_PAD_HALF * (1.0 - q) * 0.9
-            cx, cy = bx + ax * (q - 0.5) * 2.0 * S3_PAD_HALF, by + ay * (q - 0.5) * 2.0 * S3_PAD_HALF
+    for k, p in enumerate(_s3_pads()):
+        hx, hz = p["hx"], p["hz"]
+        (gx, gz), (fx, fz) = p["o"], p["f"]
+        bx, by = gx, -gz                                      # Godot plan -> Blender
+        ax, ay = fx, -fz                                      # facing, Blender plan
+        z = DECK_Z + S3_PLATE_LIFT
+        verts = [(bx + ax * u - ay * v, by + ay * u + ax * v, z)
+                 for (u, v) in ((-hz, -hx), (hz, -hx), (hz, hx), (-hz, hx))]
+        faces = []
+        for q in (0.25, 0.60, 0.95):                          # a chevron: three bars, narrowing
+            w = hx * (1.0 - q) * 0.9
+            cx, cy = bx + ax * (q - 0.5) * 2.0 * hz, by + ay * (q - 0.5) * 2.0 * hz
             base = len(verts)
             for (du, dv) in ((-w, -0.12), (w, -0.12), (w, 0.12), (-w, 0.12)):
                 verts.append((cx - ay * du + ax * dv, cy + ax * du + ay * dv, z + 0.02))
             faces.append((base, base + 1, base + 2, base + 3))
-        ob = mdl.mesh("PadPlate%d" % k, verts, disc)
-        ob.data.materials.append(mdl.flat_material("PadPlateMat%d" % k, S3_PLATE_COLOUR))
+        ob = mdl.mesh("PadPlate%d" % k, verts, [(0, 1, 2, 3)])
+        ob.data.materials.append(mdl.flat_material(
+            "PadPlateMat%d" % k, S3_JUMP_COLOUR if p["jump"] else S3_PLATE_COLOUR))
         ch = mdl.mesh("PadChevron%d" % k, verts, faces)
         ch.data.materials.append(mdl.flat_material("PadChevronMat%d" % k, S3_CHEVRON_COLOUR))
         made += [ob, ch]
     return made
 
 
-def _s3_corridor_r(L, bearing):
-    """The corridor's radius at a bearing: it weaves, so a camera meant to stand
-    ON the route cannot assume one."""
-    best = min(L["corridor"], key=lambda br: abs(br[0] - bearing))
-    return best[1]
-
-
-def _s3_shot(shot):
-    """Name the section's review shots apart when the dense variant is built, so
-    a dense set never overwrites the sparse one in the render folder."""
-    def named(name, *rest):
-        return shot(name.replace("review_s3_", "s3_dense_", 1) if S3_DENSE else name, *rest)
-    return named
+def _s3_on_path(i, frac=0.5):
+    """A Blender plan point on the path at row i: frac 0 is against the wall,
+    1 the far side of the walkable band."""
+    lay = S3["lay"]
+    near = lay["rho_w"][i] + S3_WALL_FOOT + S3_BODY_R
+    far = S3_COLS[lay["spans"][i][0]] + 0.95
+    x, y = S3["deck_xy"](S3["L"]["T"](lay["rows"][i]), near + frac * (far - near))
+    return x, y
 
 
 def _s3_review(scene, shot):
-    """Review-only: a white fill over the minefield, exposure up, and three
-    proxy bodies -- one standing and one crouched behind cover on the ground,
-    one at a pad's apex -- so the raycast numbers in the MDL STATS s3 lines
-    can be read off a picture. Everything made here is removed after."""
-    L = S3["L"]
-    shot = _s3_shot(shot)
+    """Review-only: a white fill over the grid, exposure up, the pad plates,
+    and two proxy bodies on the path behind the wall -- one standing, one
+    crouched -- so the raycast numbers in the MDL STATS s3 lines can be read
+    off the guard's picture. Everything made here is removed after."""
+    lay = S3["lay"]
     made = []
     sd = bpy.data.lights.new("ReviewSun", type="SUN")
     sd.energy, sd.color = S3_REVIEW[0], (1.0, 1.0, 1.0)
@@ -5429,57 +5933,32 @@ def _s3_review(scene, shot):
         made.append(f)
     mdl._try(scene.view_settings, "exposure", S3_REVIEW[2])
 
-    covers = L["covers"]
-    mid = covers[len(covers) // 2]
-    alt = covers[min(len(covers) - 1, len(covers) // 2 + 2)]
-    bodies = []
-    for cv, h, colour, nm in ((mid, S4_BODY_H, (0.1, 0.9, 0.2, 1.0), "StandProxy"),
-                              (alt, 1.2, (0.2, 0.5, 1.0, 1.0), "CrouchProxy")):
-        px, py, _ = pol(cv["b"], cv["hide_r"], 0.0)
-        pz = DECK_Z + _s3_h(L, px, py)
-        made.append(_s3_proxy(nm, px, py, pz, h, colour))
-        bodies.append((px, py, pz))
-    pad = L["pads"][0]
-    apx, apy, _ = pol(pad["b"], pad["r"], 0.0)
-    made.append(_s3_proxy("LaunchProxy", apx, apy,
-                          DECK_Z + _s3_h(L, apx, apy) + S4_APEX, S4_BODY_H,
-                          (1.0, 0.35, 0.1, 1.0)))
+    sx, sy = _s3_on_path(6, 0.5)
+    cx, cy = _s3_on_path(8, 0.5)
+    made.append(_s3_proxy("StandProxy", sx, sy, DECK_Z, S3_STAND, (0.1, 0.9, 0.2, 1.0)))
+    made.append(_s3_proxy("CrouchProxy", cx, cy, DECK_Z, S3_CROUCH, (0.2, 0.5, 1.0, 1.0)))
+    made += _s3_pad_plates()
 
-    made += _s3_pad_plates(L)
-    dip = L["dips"][len(L["dips"]) // 2]
-    r0, r1 = dip["rim0"], dip["rim1"]
-    rim0 = (r0[0], -r0[1], DECK_Z + _s3_h(L, r0[0], -r0[1]))
-    rim1 = (r1[0], -r1[1], DECK_Z + _s3_h(L, r1[0], -r1[1]))
-    back = _bear_deg(math.atan2(rim0[1], rim0[0]))
-    ent, ext = L["ext"]
-
-    # The approach: stand OUTWARD of the crest band (the crests run r 48.5..51.5,
-    # so an eye on the lane at r 52 is inside the first one) and look down the run.
-    shot("review_s3_entry", pol(ent - 1.5, S3_EYE_R, DECK_Z + EYE_H),
-         pol(ent + 19.0, S3_EYE_R - 1.0, DECK_Z + 1.0), 26.0, (1500, 850))
-    # Mid-field beside a cover piece: stand on the corridor a few degrees short of
-    # the proxy (the camera was inside it), at the corridor's own radius there.
-    eye_b = mid["b"] - S3_FIELD_BACK
-    eye_r = _s3_corridor_r(L, eye_b)
-    eb = pol(eye_b, eye_r, 0.0)
-    tb = pol(mid["b"] + 11.0, _s3_corridor_r(L, mid["b"] + 11.0), 0.0)
-    shot("review_s3_field", (eb[0], eb[1], DECK_Z + _s3_h(L, eb[0], eb[1]) + EYE_H),
-         (tb[0], tb[1], DECK_Z + 1.2), 28.0, (1500, 850))
-    shot("review_s3_guard", (0.0, 0.0, S3_EYE_Z), pol(172.0, 52.0, DECK_Z), 35.0, (1600, 900))
-    shot("review_s3_aerial", pol(172.0, 14.0, 62.0), pol(172.0, 52.0, DECK_Z), 26.0, (1600, 1000))
-    shot("review_s3_jump", pol(back - 3.5, math.hypot(rim0[0], rim0[1]), rim0[2] + EYE_H),
-         (rim1[0], rim1[1], rim1[2] + 0.4), 30.0, (1500, 850))
-    shot("review_s3_cover", (0.0, 0.0, S3_EYE_Z),
-         (bodies[0][0], bodies[0][1], bodies[0][2] + 0.9), 80.0, (1300, 900))
-    shot("review_s3_crouch", (0.0, 0.0, S3_EYE_Z),
-         (bodies[1][0], bodies[1][1], bodies[1][2] + 0.6), 80.0, (1300, 900))
-    shot("review_s3_launch", (0.0, 0.0, S3_EYE_Z),
-         (apx, apy, DECK_Z + S4_APEX + 0.9), 55.0, (1300, 900))
+    rows = lay["rows"]
+    ex, ey = S3["deck_xy"](S3["L"]["T"](S3_EXT[0] + 0.5), S3_COLS[lay["path"][0]] + 0.3)
+    tx, ty = _s3_on_path(5, 0.5)
+    shot("s3b_entry", (ex, ey, DECK_Z + EYE_H), (tx, ty, DECK_Z + 0.8), 24.0, (1500, 850))
+    px, py = _s3_on_path(2, 0.6)
+    qx, qy = _s3_on_path(9, 0.5)
+    shot("s3b_path", (px, py, DECK_Z + EYE_H), (qx, qy, DECK_Z + 0.9), 28.0, (1500, 850))
+    wx, wy = S3["deck_xy"](S3["L"]["T"](rows[3]), 57.0)
+    ww, wv = S3["deck_xy"](S3["L"]["T"](rows[8]), lay["rho_w"][8])
+    shot("s3b_wall", (wx, wy, DECK_Z + 3.5), (ww, wv, DECK_Z + 0.7), 30.0, (1500, 850))
+    jrow = S3_JUMP_ROWS[len(S3_JUMP_ROWS) // 2]
+    jx, jy = _s3_on_path(jrow - 1, 0.5)
+    jump = [p for p in _s3_pads() if p["jump"] and p["row"] == jrow][0]
+    shot("s3b_jump", (jx, jy, DECK_Z + EYE_H), (jump["o"][0], -jump["o"][1], DECK_Z + 0.2),
+         30.0, (1500, 850))
+    shot("s3b_guard", (0.0, 0.0, S3_EYE_Z), pol(172.0, 52.0, DECK_Z), 35.0, (1600, 900))
+    shot("s3b_aerial", pol(172.0, 14.0, 62.0), pol(172.0, 52.0, DECK_Z), 26.0, (1600, 1000))
     mdl._try(scene.view_settings, "exposure", 0.0)
     for ob in made:
         bpy.data.objects.remove(ob, do_unlink=True)
-
-
 def _s1_review(scene, shot):
     """Review-only: white light into the cave, exposure up, a 0.6 x 1.8 m player
     proxy behind one cluster. Everything made here is removed after."""

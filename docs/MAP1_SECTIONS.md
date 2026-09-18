@@ -32,55 +32,71 @@ Rules that shape everything:
 
 **Pocket 130–145**: slab r 52 @ 138.
 
-**S3 The Demon Minefield 145–200** — chaos. Ryan: *"a minefield of demon pads,
-and cover that is only about as tall as a character, so if you hit a demon pad,
-you get bounced up out of cover ... a path cut through them, that sometimes you
-need to jump over the pads. you just land back down on the same field."*
+**S3 The Demon Pad Grid 145–200** — chaos. Ryan: *"create a grid of fucking
+demon pads. carve out a path from them. and create a half wall for cover."*
+and *"no gaps in the fucking wall."*
 
-The floor, the corridor, the cover and the dips are all `map_base.glb`'s own
-rock, from one height field: `tools/modelling/lib/s3_minefield.py`. The mesh,
-the pad transforms in `scenes/ring/bentham_ring.tscn` and the proofs in
-`tools/modelling/lib/s3_proof.py` all read that one layout, so the pad a runner
-trips is on the rock the guard is looking at.
+The deck is FLAT at lane height (r 46.7–57.3, y 23.0): no crests, no dips. On
+it, `demon_pad` nodes on a regular grid — rows 3.24° (2.94 m at r 52) apart
+along the arc, 4 columns across the width (r 47.8, 50.5, 53.2, 55.9; 2.7 m
+apart), so a pad row reads as tiled from wall to lip. The S3 block of
+`tools/modelling/map_base_build.py` is the one layout the mesh, the collider,
+the pad transforms in `scenes/ring/bentham_ring.tscn` (the build writes the
+node block) and the proofs all come from. The section's deck grid is true
+polar between the lip and the wall foot (those two rows stay the ring's own
+chord vertices, so the weld is unchanged), so pads, wall and proofs share one
+exact metric and the wall's edges fall on mesh lines.
 
 - **No lava and no TrapVolume anywhere in this section.** A launch drops you
-  back on the same field; nothing here kills you.
-- The field is plain deck (r 46.7–57.3, y 23.0) under a dense scatter of
-  `demon_pad` nodes — the shipped pad, shipped physics: 18 m/s at 45°, 14.70 m
-  range, 3.68 m apex. Every flight is solved to land back inside the section
-  (r 48.2–56.2, bearings 146–199); a pad past bearing 182 cannot reach a legal
-  forward landing on a 10.6 m deck, so those few aim backward instead.
-- **Cover is crests grown out of the field's own rock**, never a block on it,
-  tops 1.9–2.1 m over the deck — about as tall as a prisoner — on the TOWER
-  side of the corridor, so a runner outward of one is hidden standing or
-  crouched. Their flanks are steeper than 46°, so a launched body cannot land
-  on one and stand there.
-- **A corridor is cut through the pads**, walkable end to end by a 0.4 m body
-  without ever overlapping a pad's trigger box.
-- **Three dips break it.** Where the corridor is pinched to under 3.3 m the
-  floor drops ~0.55 m into a 6 m saucer with a pad on its floor: the pad cannot
-  be walked round, and because the take-off rim stands 0.55 m over the pad the
-  jump's feet clear the trigger box's 1.0 m top for the whole 3.3 m the capsule
-  overlaps it. From flat ground a full 2.5 m pad is NOT jumpable (the window
-  where a 7 m/s jump keeps its feet over 1.0 m is only 2.24 m long) — the dip
-  is what makes the jump exist. The outer shoulder that pinches each dip is
-  ROCK, not a second pad: a pad out at r 55 has no forward flight that lands
-  back on a 10.6 m deck, and rock needs no flight.
-- **Every pad aims forward** (its landing bearing is greater than its own), and
-  past bearing ~184.5 no forward flight lands on the field, so no pad is laid
-  there and the last stretch is the way out. A backward-throwing pad loops a
-  bot for ever — it walks forward, is thrown back, walks forward again — and
-  fails `test_a_runner_completes_a_lap`. Bots are map-agnostic, so the map has
-  to be what fixes that, not the brain.
-- **The corridor carries the bot navigation mesh, not just a body.** `RingBake`
-  bakes at agent radius 0.50 on a 0.25 m grid, so a route has to stay about
-  2.6 m clear: a corridor a human walks is not automatically one a bot can
-  path. A 1.30 m radius disc rolls from end to end.
-- Getting launched throws you to +3.68 m, well over the 2.1 m cover line, into
-  plain view; you land back down on the same field.
+  back on the same deck; nothing here kills you.
+- **Two pad blocks, each followed by its landing rows.** A pad's flight is
+  14.7 m, five rows on, and the bot bake (`RingBake`) only links a pad whose
+  flight lands on open navmesh at least 0.95 m (agent radius 0.50 plus its
+  0.45 m landing margin) from every rim, wall foot and pad plate — pad models
+  are physical, so a landing on the next pad is a DEAD pad, carved out of the
+  mesh as a 3.5 m obstacle, and on a 2.7 m pitch a handful of those seal the
+  deck and the lap has no path (measured: a tiled 17-row field gave 15 dead
+  pads and `test_the_bake_links_the_whole_lap_into_one_path` failed). So rows
+  0–4 and 10–14 carry pads and rows 5–9 and 15–16 are pad-free landing rows.
+  Every pad's back-edge flight is proved to land ≥ 0.95 m clear of everything.
+- **The path** is cut through each block by leaving cells pad-free: one
+  column wide, wandering column 1 → 2 in block A and column 2 in block B (a
+  bend costs one extra cell, so the runner steps sideways, then forward).
+- **Three pads are left IN the path** (rows 0, 3, 11) and must be jumped. From
+  flat ground the shipped 2.5 × 1.0 m trigger box cannot be jumped (a 7 m/s,
+  1.11 m jump keeps its feet over 1.0 m for only 2.24 m of travel, and the
+  capsule overlaps the box for 3.4 m), so these three carry
+  `footprint_metres = (1.2, 0.5, 2.5)`: 0.5 m tall, and 1.2 m across, set
+  0.5 m outward of the column so neither the gap to the wall's foot nor the
+  gap to the next column's box is a body's 0.8 m — the pad cannot be walked
+  round — and so the jump pad's own landing sits a body clear of the wall.
+  Feet clear the 0.5 m box by +0.34 m at the overlap's ends with a take-off
+  window of 1.7 m; the row after each jump pad is the same column, cleared,
+  so the 7 m jump lands on the path.
+- **One half wall**, 1.5 m tall, 0.35 m flat top, 0.75 m at the foot, runs
+  unbroken along the path's pit side from 145 to 200 as one polyline (an arc
+  per row, a radial jog where its column changes). In a landing row it stands
+  at the column that was pad-free five rows earlier, and it only jogs inside a
+  landing row whose source row had no pad in the jog's inner column — either
+  way a landing never meets the wall's keep-out. It is `map_base.glb`'s own
+  rock, sampled on grid lines placed exactly at its top edges and feet, and
+  proved by a ray down every 0.05 m of the polyline on the built mesh:
+  1.50 m over the deck all the way. Why 1.5 and not 1.2: the guard's eye is
+  5.9 m over the deck, so the sight line to a crouched capsule (1.2 m) rises
+  ~0.1 m across the path's width — a 1.2 m wall would hide nothing. At 1.5 m
+  the crouched capsule is hidden anywhere on the path cell (raycast, every
+  row, three stances) and a standing one (1.8 m) is seen by ≥ 0.37 m.
+- **Every pad aims forward** at the shipped 18 m/s, grid pads 8° inward of
+  the tangent (so a landing sits at its own radius rather than 2 m outward,
+  and a column-1 landing stays clear of the wall at column 2's pit side),
+  the jump pads 4°. Rows 12–14 would land past the section, so those pads
+  carry a lower `launch_speed` and land at bearing 200.3, on the open pocket
+  1.3° before the divider's eroded face; the shortest hop is 7 m — a hop
+  shorter than its own plate lands back on the plate and fires it again for
+  ever (a bot hovered on one for 40 s). A backward-throwing pad loops a bot
+  the same way, so none is laid.
 - The guard's eye for this section is y = **28.90**, traced from the running
-  game (`Tower/TowerSpawn` at 27.30 plus `RingBake.EYE_HEIGHT_METRES` 1.60),
-  not the 23.0 + 4.0 the older sections assume.
+  game (`Tower/TowerSpawn` at 27.30 plus `RingBake.EYE_HEIGHT_METRES` 1.60).
 
 **Pocket 200–215**: slab r 52 @ 208.
 
