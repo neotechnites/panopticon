@@ -3300,7 +3300,8 @@ def _s3_prove_launch():
     lay = S3["lay"]
     pads = _s3_pads()
     spec = _cross_spec("divider", 0)
-    div_b = [bb for bb, kind, _seed in CROSS_WALLS if kind == "divider"][0]
+    div_b = min(bb for bb, kind, _seed in CROSS_WALLS   # the divider past S3:
+                if kind == "divider" and bb > S3_EXT[1])  # the one that catches
     face_b = div_b - math.degrees(0.5 * spec.t_body / S3_LANE_R)
     lava_b = _s4_layout()["cut_entry"]
     vh = S3_LAUNCH * math.cos(math.radians(S3_ANGLE))
@@ -5376,40 +5377,51 @@ def _collider(ang, cut0, cut1, s2, s4):
 # second block. Symmetric: a divider serves the section on each side equally.
 #
 # WHERE THEY CAN STAND, MEASURED. A wall across the lane needs plain deck under
-# the whole of it, because the bake walks a 2.0 m agent on a 0.25 m cell and
-# carves lava as lethal: drop the wall where a section has sunk its floor and
-# its mouth opens onto a hole. The bearings at which every collider vertex in
-# the footprint (r 46.8..58.3, +-1.6 deg) sits at exactly y 23.00 are
+# the whole of what shows above it, because the bake walks a 2.0 m agent on a
+# 0.25 m cell and carves every TrapVolume as lethal: drop the wall where a
+# section has sunk its floor and its mouth opens onto a hole. Measured on the
+# shipped collider with a vertical ray every 0.5 deg and 0.5 m (r 46.8..58.3),
+# the bearings at which the whole deck sits at exactly y 23.00 are
 #
-#     0.0..13.0     62.5..73.5     196.0..208.0     282.0..290.5
+#     0.0..13.0   61.5..74.0   130.5..144.5   196.0..208.0   282.0..290.5
 #
-# and that is the whole of it. So three walls stand, and two boundaries have
-# nowhere to put one:
+# One band per boundary, so every boundary gets a wall. The two rest pockets
+# that were once left out are plain deck end to end: S1's fillets stop at
+# 61.0 and S2's lava tongue starts at 74.5 (its lava at 76.5); S2's tongue
+# ends at 130.5 and S3's lip wall starts at 145.0 (the "river at 139" was the
+# retired S3 Minefield). No lava crosses either wall's line, so neither needs
+# an arch; what does bite is the BAKE CORRIDOR between a mouth and S2's
+# TrapVolume carve (each box grows LETHAL_INFLATION 0.8 m in the bake):
 #
-#   S1|S2 (rest pocket 60..75). Its band is 62.5..73.5, and the pocket slab
-#   instance occupies 63..72 at r 47.4..49.2 -- a wall late enough to clear it
-#   still overlaps it with its own skirt, and tests/test_map1_slab_68.gd runs
-#   the inner band (r 48.3..52) to bearing 74 and must get past. A wall that
-#   seals the lane contradicts that test by construction. Move the placeholder
-#   slab and a wall fits at 70..73.5.
+#   S1|S2 at 66.5. Body 63.2..69.8 at the lane, 2 m past S1's last fillet;
+#   the spur 62.1..70.9 at the lip. The mouth's far face plus the agent
+#   radius is 70.3, and S2's first carve reaches back to 72.9 at r >= 49.5:
+#   2.4 m along the lap to step from the mouth (r 50.7..53.3) down into S2's
+#   inner lane (r < 49.0). Later and that corridor closes; earlier and the
+#   spur stands in S1's fillets.
 #
-#   S2|S3 (rest pocket 130..145). No band at all: the lava river crosses the
-#   whole deck through it (LavaRiver faces r 47.6..56.5 at bearing 139), so a
-#   wall there would dam the river.
+#   S2|S3 at 139.0. S2's last carve ends at 132.2 (r <= 49.7) and the mouth's
+#   near face less the agent is 135.2: 2.6 m to climb from the inner lane to
+#   the mouth. The spur's toe at the lip stops at 143.4, 1.4 m short of S3's
+#   own lip wall at 145.0, so nothing here touches S3's rock; the far face
+#   plus the agent is 142.9 against S3's first side pads at 145.2, and the
+#   mouth (r 50.7..53.3) lines up with S3's pad-free middle column.
 #
-# Both are left out on purpose rather than jammed through a lava shelf, which
-# is what a wall at 80 did: its mouth opened onto S2's sunken floor at
-# y 22.4..22.7, the bake refused it, and the lap stopped being one path.
+# Both replace the placeholder pocket slabs that stood at 59..67 and
+# 126.5..135 on the lip (Ryan's markers for these two boundaries): the spur
+# at the lip is that pocket's cover now, in this rock.
 
 CROSS_BASE_Z = -0.80              # local: the base, under the deck and its lip
 CROSS_TOP_Z = CEIL_H + 0.30       # local: the head, inside the ceiling rock
 CROSS_X_IN = -5.20                # inner end at r 46.80, inside the lip round-over
 CROSS_X_OUT = 6.30                # outer end at r 58.30, inside the outer wall
 
-# (bearing, kind, seed). "narrow" is the S4|S5 variant: S5's own rock crowds
-# the band, so it carries a shorter spur at the lip than the others.
+# (bearing, kind, seed), in lap order. "narrow" is the S4|S5 variant: S5's own
+# rock crowds the band, so it carries a shorter spur at the lip than the others.
 CROSS_WALLS = [
     (13.0, "start", 9260117),     # the start: 3.9 m ahead of PrisonerStart at 5 deg
+    (66.5, "divider", 4170923),   # S1 | S2: band is plain 61.5..74.0, see above
+    (139.0, "divider", 6290381),  # S2 | S3: band is plain 130.5..144.5, see above
     (204.0, "divider", 5310947),  # S3 | S4: band is plain to 205.0 at this width
     (286.0, "narrow", 7720261),   # S4 | S5: band is plain to 287.5 at this width
 ]

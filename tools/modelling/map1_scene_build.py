@@ -1,4 +1,4 @@
-"""map1_scene -- map 1's four cross-lane walls, photographed where they stand.
+"""map1_scene -- map 1's five cross-lane walls, photographed where they stand.
 
 NOT A MODEL, and no longer a post hook. The walls are sculpted INTO map 1's own
 mesh (map_base_build.py), so there is no prop to place and nothing here to
@@ -18,6 +18,12 @@ writes four shots per wall into ~/Desktop/panopticon-renders/map1/ --
                                       the wall: what cover the wall actually is
     map1_wall_<bearing>_lip.png       from the lane, inward at the spur whose
                                       mass is what makes that cover
+
+-- or, for a wall the WALLS table labels, the same four shots as
+sections/map_base_<label>_<view>.png, which is where the section renders
+live. The lap runs toward INCREASING bearing (PrisonerStart at 5 deg, the
+finish at 335, S3's pads throw toward the 204 divider), so "back down the
+lap" is a lower bearing and "past the wall" a higher one.
 
 THE .GLB IS THE INPUT. map_base_build.py is a quarter of a megabyte of sculpt
 and takes minutes to run; importing its output takes seconds and cannot be
@@ -62,11 +68,16 @@ LANE_R = 52.0                   # the walkable lane, end to end of the lap
 WALL_R = (46.8, 58.3)           # radial span: both ends buried in the ring
 WALL_Z = (22.2, 31.8)           # foot under the deck (23.0), crest into the
                                 # ceiling (31.88) -- it closes the gallery
-WALLS = (                       # bearing, mouth width, mouth head over the deck
-    (13.0, 4.60, 4.80),         # the start gate: the whole field pours through it
-    (204.0, 3.60, 3.70),        # S3 | S4
-    (286.0, 3.60, 3.70),        # S4 | S5
+WALLS = (                       # bearing, mouth width, mouth head over the deck,
+                                # and the label its shots are filed under (None:
+                                # map1_wall_<bearing>_<view>.png in OUT_DIR)
+    (13.0, 4.60, 4.80, None),           # the start gate: the whole field pours through it
+    (66.5, 3.60, 3.70, "div_s1s2"),     # S1 | S2
+    (139.0, 3.60, 3.70, "div_s2s3"),    # S2 | S3
+    (204.0, 3.60, 3.70, None),          # S3 | S4
+    (286.0, 3.60, 3.70, None),          # S4 | S5
 )
+SECTION_DIR = os.path.join(OUT_DIR, "sections")
 
 # ---- where the cameras stand ------------------------------------------------
 APPROACH_DEG = 9.0              # 9 deg at r 52 is 8.2 m: a runner's last stride
@@ -291,7 +302,7 @@ def _mark(bearing, deg, tgt, z, spread, vspread, min_free=None):
         offsets += [float(d) for d in (deg - k, deg + k) if 2.5 <= d <= 24.0]
     for d in offsets:
         for r in MARK_R:
-            p = mb.pol(bearing + d, r, z)
+            p = mb.pol(bearing - d, r, z)
             rays = []
             for q in _fan(p, tgt, spread, vspread):
                 nm, dist = _first(p, q)
@@ -300,16 +311,16 @@ def _mark(bearing, deg, tgt, z, spread, vspread, min_free=None):
                 if d != deg or r != LANE_R:
                     print("MDL note map1_scene: b=%.1f mark moved to %+.1f deg "
                           "r %.1f -- the deck is not clear on the line asked for"
-                          % (bearing, d, r))
+                          % (bearing, -d, r))
                 return p, d, r
-    nm, dist = _first(mb.pol(bearing + deg, LANE_R, z), tgt)
+    nm, dist = _first(mb.pol(bearing - deg, LANE_R, z), tgt)
     print("MDL note map1_scene: b=%.1f no clear mark anywhere on the deck "
           "(%s at %.2f m) -- shooting from %+.1f deg anyway"
-          % (bearing, nm, dist, deg))
-    return mb.pol(bearing + deg, LANE_R, z), deg, LANE_R
+          % (bearing, nm, dist, -deg))
+    return mb.pol(bearing - deg, LANE_R, z), deg, LANE_R
 
 
-def _shot(rig, bearing, view, loc, tgt, lens):
+def _shot(rig, bearing, view, loc, tgt, lens, label=None):
     scene = bpy.context.scene
     cam, target = rig["cam"], rig["target"]
     cam.data.lens = lens
@@ -321,7 +332,10 @@ def _shot(rig, bearing, view, loc, tgt, lens):
     d = q - p
     hit, at, _n, _i, ob, _m = scene.ray_cast(
         bpy.context.view_layer.depsgraph, p, d.normalized(), distance=d.length)
-    path = os.path.join(OUT_DIR, "map1_wall_%.1f_%s.png" % (bearing, view))
+    if label is None:
+        path = os.path.join(OUT_DIR, "map1_wall_%.1f_%s.png" % (bearing, view))
+    else:
+        path = os.path.join(SECTION_DIR, "map_base_%s_%s.png" % (label, view))
     scene.render.filepath = path
     bpy.ops.render.render(write_still=True)
     print("MDL RENDER %s (b=%.1f lens=%.0f %dx%d cam=(%.2f,%.2f,%.2f) "
@@ -335,7 +349,7 @@ def _shot(rig, bearing, view, loc, tgt, lens):
 # THE FOUR SHOTS, PER WALL
 # =============================================================================
 
-def shoot(rig, bearing, mouth_w, head_z):
+def shoot(rig, bearing, mouth_w, head_z, label=None):
     _stand(rig, bearing, head_z)
     eye = mb.DECK_Z + mb.EYE_H                    # 1.65 m over the deck
     mouth = mb.pol(bearing, LANE_R, mb.DECK_Z + 0.5 * head_z)
@@ -343,20 +357,20 @@ def shoot(rig, bearing, mouth_w, head_z):
     # the last stride before the mouth, from where the whole mouth is in view
     stand, _deg, _r = _mark(bearing, APPROACH_DEG, mouth, eye,
                             0.35 * mouth_w, 0.30 * head_z)
-    _shot(rig, bearing, "approach", stand, mouth, LENS)
-    # inside the pass, looking the way the lap runs (falling bearing)
+    _shot(rig, bearing, "approach", stand, mouth, LENS, label)
+    # inside the pass, looking the way the lap runs (rising bearing)
     _shot(rig, bearing, "through",
           mb.pol(bearing, LANE_R, eye),
-          mb.pol(bearing - THROUGH_DEG, LANE_R, eye), LENS)
+          mb.pol(bearing + THROUGH_DEG, LANE_R, eye), LENS, label)
     # the guard, on a body standing on the deck just past the wall
     _shot(rig, bearing, "guard",
           mb.pol(bearing, GUARD_EYE_R, GUARD_EYE_Z),
-          mb.pol(bearing - PAST_DEG, LANE_R, mb.DECK_Z + BODY_Z), LENS_GUARD)
+          mb.pol(bearing + PAST_DEG, LANE_R, mb.DECK_Z + BODY_Z), LENS_GUARD, label)
     # the spur at the pit lip: the mass that makes the cover behind the wall.
     # The aim IS rock, so the mark only has to stand 2 m clear of it.
     spur = mb.pol(bearing, mb.INNER_R + 1.0, mb.DECK_Z + 1.2)
     stand, _deg, _r = _mark(bearing, LIP_DEG, spur, eye, 1.5, 0.8, min_free=2.0)
-    _shot(rig, bearing, "lip", stand, spur, LENS_LIP)
+    _shot(rig, bearing, "lip", stand, spur, LENS_LIP, label)
 
 
 def main():
@@ -366,6 +380,7 @@ def main():
                              "the model first; this script only photographs it"
                              % path)
     os.makedirs(OUT_DIR, exist_ok=True)
+    os.makedirs(SECTION_DIR, exist_ok=True)
     bpy.ops.wm.read_factory_settings(use_empty=True)
     scene = bpy.context.scene
     _world(scene)
@@ -375,11 +390,14 @@ def main():
     print("MDL note map1_scene: walls at %s, r %.1f..%.1f, y %.1f..%.1f"
           % (", ".join("%.1f" % w[0] for w in WALLS),
              WALL_R[0], WALL_R[1], WALL_Z[0], WALL_Z[1]))
-    for bearing, mouth_w, head_z in WALLS:
-        print("MDL note map1_scene: wall b=%.1f mouth %.2f x %.2f m at r %.1f"
-              % (bearing, mouth_w, head_z, LANE_R))
-        shoot(rig, bearing, mouth_w, head_z)
-    print("MDL DONE map1_scene (%d shots -> %s)" % (4 * len(WALLS), OUT_DIR))
+    only = [float(a) for a in sys.argv[sys.argv.index("--") + 1:]] if "--" in sys.argv else []
+    for bearing, mouth_w, head_z, label in WALLS:
+        if only and bearing not in only:
+            continue                              # `-- 66.5 139` shoots just those
+        print("MDL note map1_scene: wall b=%.1f mouth %.2f x %.2f m at r %.1f -> %s"
+              % (bearing, mouth_w, head_z, LANE_R, label or "map1_wall_%.1f" % bearing))
+        shoot(rig, bearing, mouth_w, head_z, label)
+    print("MDL DONE map1_scene (%d shots -> %s)" % (4 * (len(only) or len(WALLS)), OUT_DIR))
 
 
 if __name__ == "__main__":
