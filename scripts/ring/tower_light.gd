@@ -26,14 +26,12 @@ extends OmniLight3D
 ## a literal in a scene file. [TowerLightProfile] is the knob; this script's
 ## only job is to read it onto the [OmniLight3D] it extends, once, at ready.
 ##
-## [b]GL Compatibility[/b]
+## [b]Shadow mode[/b]
 ##
-## The project pins the Compatibility renderer, which does not support
-## cubemap omni shadows -- only dual paraboloid. [member OmniLight3D.omni_shadow_mode]
-## is forced to [constant OmniLight3D.SHADOW_DUAL_PARABOLOID] here rather than
-## left on whatever the scene file happens to have, so this light degrades
-## correctly under that renderer even if someone changes the default in the
-## inspector.
+## [member OmniLight3D.omni_shadow_mode] is set here, not left to the scene
+## file. GL Compatibility rejects dual paraboloid -- it logs per frame and the
+## fallback dims everything the light reaches -- and cube is also Forward+'s
+## default, so cube needs no renderer branch.
 
 ## The colour, brightness, reach and height. Falls back to a
 ## default-constructed [TowerLightProfile] with a warning rather than to
@@ -58,5 +56,5 @@ func _apply_profile() -> void:
 	light_size = profile.size_metres
 	shadow_blur = profile.shadow_blur
 	light_specular = profile.specular
-	omni_shadow_mode = OmniLight3D.SHADOW_DUAL_PARABOLOID
+	omni_shadow_mode = OmniLight3D.SHADOW_CUBE
 	position = Vector3(0.0, profile.height_metres, 0.0)
