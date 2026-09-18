@@ -42,8 +42,10 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)) + os.sep + "lib")
 
 import mdl  # noqa: E402
-import s3_minefield  # noqa: E402
-import s3_proof  # noqa: E402
+import map1_wall_build as mw  # noqa: E402  the cross-lane walls' geometry
+import map1_sight_build as sg  # noqa: E402  ... and the proof the guard cannot see past them
+import s3_minefield  # noqa: E402  S3's one layout: field, corridor, cover, dips
+import s3_proof  # noqa: E402  ... and the proofs read off it
 
 # The model spans y = -11 .. +330; mdl's ground plane would sit under the
 # courtyard and black out any low camera. Same override as the tower.
@@ -4737,6 +4739,7 @@ def _rock(r):
             j = (i + 1) % SIDES
             m.quad(prev[i], prev[j], ring[j], ring[i], UP, ZONE_ROCK)
         prev = ring
+    _cross_walls(m)
     return m, ang, (len(sec_cols), pit_tris), (cut0, cut1), s2, (s4c0, s4b0, s4b1, s4c1)
 
 
@@ -4829,7 +4832,257 @@ def _collider(ang, cut0, cut1, s2, s4):
     _s3_collider(c)
     _s4_collider(c, _Rng(S4_SEED + 5), s4)
     _shelf_box(c)
+    _cross_walls(c, coll=True)
     return c
+
+
+# =============================================================================
+# THE CROSS-LANE WALLS -- the section dividers, and the big one at the start
+# =============================================================================
+# Ryan: "the cover walls that are inbetween the sections ... as well as the big
+# one at the start. nothing with my placement should even really be considered,
+# theyre functional, not where i want them or how they are sized." So the
+# placement and the sizes below are taken from the map, not from his
+# instances -- and they are built HERE, in the map's own mesh, with the map's
+# own atlas, because a wall across the lane is a piece of this rock and not a
+# prop. Same as S2's cave wall and S4's wall run: a closed mass whose feet are
+# sunk under the deck and whose head is sunk into the ceiling.
+#
+# WHY FULL CROSS-SECTION. The guard room floor is world y 27.05 (the scene's
+# Tower node at 25.35 plus the shipped tower's own floor at 1.70 -- TowerSpawn
+# sits at 1.95, "floor + 0.25"), so the guard's eye is at 28.70 and 29.81 at
+# the apex of a jump: 5.70 m and 6.81 m over the deck. A wall meant to be
+# unlookable-over has to beat that, and the gallery is only CEIL_H = 8.5 m
+# tall, so any such wall is very nearly floor-to-ceiling anyway. Being part of
+# this mesh, it can simply BE floor-to-ceiling: the head runs 0.30 m into the
+# ceiling rock, where it is invisible and cannot z-fight, which a separate
+# .glb could never do safely.
+#
+# WHY THE MOUTH IS AT THE LANE. The lane at r = 52 is walkable end to end and
+# bots never jump (docs/MAP1_SECTIONS.md), so the way through is a mouth cut
+# clean through the full thickness at the lane, floor clear, no sill. A gap
+# left at the outer end would hand the covered route a free pass; one at the
+# inner end would sit on the lip of the void. One mouth is one chokepoint.
+#
+# WHY THE INNER END SWELLS. The tower is at the CENTRE of the ring, so a flat
+# radial wall casts almost no shadow along the lap whatever its height: the
+# sight line from an eye at r <= 7 to a body a metre past the wall crosses the
+# wall's plane out over the void near r = 18 and never enters the rock. Cover
+# on this deck is made by mass at the pit lip, so each wall's foot swells
+# tangentially where it grips the lip. That spur is what puts a covered pocket
+# on the deck behind the wall, and it is the wall's own thickness, not a
+# second block. Symmetric: a divider serves the section on each side equally.
+#
+# WHERE THEY CAN STAND, MEASURED. A wall across the lane needs plain deck under
+# the whole of it, because the bake walks a 2.0 m agent on a 0.25 m cell and
+# carves lava as lethal: drop the wall where a section has sunk its floor and
+# its mouth opens onto a hole. The bearings at which every collider vertex in
+# the footprint (r 46.8..58.3, +-1.6 deg) sits at exactly y 23.00 are
+#
+#     0.0..13.0     62.5..73.5     196.0..208.0     282.0..290.5
+#
+# and that is the whole of it. So three walls stand, and two boundaries have
+# nowhere to put one:
+#
+#   S1|S2 (rest pocket 60..75). Its band is 62.5..73.5, and the pocket slab
+#   instance occupies 63..72 at r 47.4..49.2 -- a wall late enough to clear it
+#   still overlaps it with its own skirt, and tests/test_map1_slab_68.gd runs
+#   the inner band (r 48.3..52) to bearing 74 and must get past. A wall that
+#   seals the lane contradicts that test by construction. Move the placeholder
+#   slab and a wall fits at 70..73.5.
+#
+#   S2|S3 (rest pocket 130..145). No band at all: the lava river crosses the
+#   whole deck through it (LavaRiver faces r 47.6..56.5 at bearing 139), so a
+#   wall there would dam the river.
+#
+# Both are left out on purpose rather than jammed through a lava shelf, which
+# is what a wall at 80 did: its mouth opened onto S2's sunken floor at
+# y 22.4..22.7, the bake refused it, and the lap stopped being one path.
+
+CROSS_BASE_Z = -0.80              # local: the base, under the deck and its lip
+CROSS_TOP_Z = CEIL_H + 0.30       # local: the head, inside the ceiling rock
+CROSS_X_IN = -5.20                # inner end at r 46.80, inside the lip round-over
+CROSS_X_OUT = 6.30                # outer end at r 58.30, inside the outer wall
+
+# (bearing, kind, seed). "narrow" is the S4|S5 variant: S5's own rock crowds
+# the band, so it carries a shorter spur at the lip than the others.
+CROSS_WALLS = [
+    (13.0, "start", 9260117),     # the start: 3.9 m ahead of PrisonerStart at 5 deg
+    (204.0, "divider", 5310947),  # S3 | S4: band is plain to 205.0 at this width
+    (286.0, "narrow", 7720261),   # S4 | S5: band is plain to 287.5 at this width
+]
+
+# ---- the lip screen: the rock the start is dealt behind ---------------------
+# Ryan's RockWall_153deg2 placeholder, built as this map's own rock: a
+# tangential screen standing ON the pit lip across the start, so the field
+# dealt at bearing 5 is out of the tower's sight until it runs out from behind
+# it. Both ends taper under the deck, so neither reads as a cut slab.
+
+LIP_B0 = -8.0                 # first bearing ...
+LIP_B1 = 14.0                 # ... and last: 22 deg of screen across the start
+LIP_TAPER = 2.0               # deg at each end over which the head sinks to the deck
+LIP_R_IN = 46.90              # inner face: on the lip (INNER_R 46.70), clear of the void
+LIP_R_OUT = 48.20             # outer face: 1.3 m thick. Ryan's 50.40 is on the start line --
+                              # the field is dealt sideways from lane r 52.0 at 2.0 m, so the
+                              # innermost body dealt stands at r 49.0 and is 0.4 m wide
+LIP_TOP_Z = 27.60             # head: 4.60 m over the deck, 3.90 m under the ceiling
+LIP_BASE_Z = 22.20            # foot, buried: under the deck and under every sunken floor
+LIP_END_Z = DECK_Z - 0.15     # the tapered ends finish under the deck surface
+LIP_STEP = 1.10               # deg per column ...
+LIP_COARSE = 3                # ... times this for the collider
+LIP_HEAD = (-1.0, -0.4, 0.25, 1.0)    # rows across the head, of the half thickness
+LIP_CROWN = 0.40              # the head is domed over LIP_TOP_Z, never under it ...
+LIP_CROWN_END = 0.25          # ... and keeps this much of it where it sinks, so no
+                              # three points of an end cap are ever in line
+LIP_MID = 0.55                # each face carries a row at this fraction of its height
+LIP_SKIN_IN = 0.14            # the drawn faces stand this far proud of the envelope ...
+LIP_SKIN_OUT = 0.26
+LIP_JAG_IN = 0.10             # ... and each column recesses back into it by up to this,
+LIP_JAG_OUT = 0.20            # so the collider is never outside the rock that is drawn
+LIP_JAG_Z = 0.12              # head jitter, UP only, for the same reason
+LIP_JAG_RUN = (1, 3)          # columns a jitter value is held for
+LIP_SEED = 4180933
+
+
+def _cross_spec(kind, seed):
+    """One cross-lane wall, in map1_wall_build's local frame: local x radial
+    with x = 0 on the lane, local y tangential, local z up from the deck."""
+    common = dict(x_in=CROSS_X_IN, x_out=CROSS_X_OUT, base_z=CROSS_BASE_Z,
+                  crest_z=CROSS_TOP_Z, crest_jag=(-0.05, 0.05),
+                  ridge_rise=(0.04, 0.10), ridge_jag=0.10,
+                  skirt_z=2.20, taper_p=1.80, face_run=(1, 3),
+                  coll_cols=1, seed=seed)
+    if kind == "start":
+        # Grander in every measured way: 4.6 m of body against 3.4, a 4.2 m
+        # gate against 3.2, and a 4.6 m spur at the lip, so the pen the field
+        # is dealt into has cover on its inner flank.
+        return mw.WallSpec(t_crest=3.20, t_body=4.60, t_skirt=8.40, skirt_z=2.40,
+                           rows=13, cols=5, x_jag=0.20, face_jag=0.20, row_jag=0.11,
+                           mouth=mw.Mouth(0.0, 4.60, 3.30, 4.80, steps=3, jag=0.07),
+                           hook_in=mw.Hook(4.60, 4.20, 3.60, 0.40),
+                           hook_out=mw.Hook(2.00, 4.00, 2.40, 0.0),
+                           coll_rows=5,
+                           **{k: v for k, v in common.items() if k not in ("skirt_z",)})
+    return mw.WallSpec(t_crest=2.20, t_body=3.40,
+                       t_skirt=6.60 if kind == "narrow" else 7.40,
+                       rows=11, cols=4, x_jag=0.18, face_jag=0.16, row_jag=0.10,
+                       mouth=mw.Mouth(0.0, 3.60, 2.90, 3.70, steps=2, jag=0.06),
+                       hook_in=mw.Hook(2.40 if kind == "narrow" else 3.60,
+                                       3.60, 3.00, 0.35),
+                       hook_out=mw.Hook(1.30, 3.00, 1.80, 0.0),
+                       coll_rows=4, **common)
+
+
+def _cross_emit(m, bearing, wall):
+    """Append a wall built in the local frame into this mesh at a bearing.
+
+    The faces are appended as they were authored rather than re-wound through
+    m.quad, because local -> world here is a rotation about z with (radial,
+    tangential, up) right-handed: det +1, so every normal is carried over
+    exactly. Nothing else in the mesh is read or touched.
+    """
+    er, et = _radial(bearing), _tangent(bearing)
+    base = len(m.verts)
+    for lx, ly, lz in wall.verts:
+        rad = mw.LANE_R + lx
+        m.verts.append((rad * er[0] + ly * et[0], rad * er[1] + ly * et[1],
+                        DECK_Z + lz))
+    for face, zone in zip(wall.faces, wall.zones):
+        m.faces.append(tuple(base + i for i in face))
+        m.zones.append(zone)
+    return len(wall.faces)
+
+
+def _cross_walls(m, coll=False):
+    """Every cross-lane wall, appended last so the rest of the map is
+    untouched. Each wall carries its own seed and draws nothing from the
+    map's own random streams, so the geometry before this call is
+    triangle-identical with the walls in or out."""
+    tris = 0
+    for bearing, kind, seed in CROSS_WALLS:
+        spec = _cross_spec(kind, seed)
+        wall = mw.wall_solid(spec, collider=coll)
+        tris += _cross_emit(m, bearing, wall)
+        if not coll:
+            w = wall.weld_report()
+            print("MDL STATS cross_wall b=%.1f %-7s tris=%d verts=%d components=%d "
+                  "dup_positions=%d degenerate=%d loose=%d r=%.2f..%.2f "
+                  "z=%.2f..%.2f mouth=%.2fx%.2f spur=%.2f"
+                  % (bearing, kind, w["tris"], w["verts"], w["components"],
+                     w["duplicate_positions"], w["degenerate_tris"], w["loose_verts"],
+                     mw.LANE_R + spec.x_in, mw.LANE_R + spec.x_out,
+                     DECK_Z + spec.base_z, DECK_Z + spec.crest_z,
+                     spec.mouth.width, spec.mouth.head_z, spec.hook_in.reach))
+            rep = sg.guard_report(wall.tris(), bearing,
+                                  mouth=(spec.mouth.x_centre, spec.mouth.width,
+                                         spec.mouth.head_z))
+            for line in sg.format_report(rep).splitlines():
+                print("%s b=%.1f" % (line, bearing))
+    print("MDL STATS cross_walls n=%d %s_tris=%d" % (len(CROSS_WALLS),
+                                                     "collision" if coll else "visual", tris))
+    return tris + _lip_screen(m, coll=coll)
+
+
+def _lip_screen(m, coll=False):
+    """The screen on the pit lip across the start: one closed cross-section
+    loop per column, quadded to its neighbour and capped at both ends."""
+    r = _Rng(LIP_SEED)
+    n = max(1, int(round((LIP_B1 - LIP_B0) / (LIP_STEP * (LIP_COARSE if coll else 1)))))
+
+    def held(jag):
+        """One recess per column, held for runs: steps, like cleaved rock."""
+        if coll:
+            return [0.0] * (n + 1)
+        out = []
+        while len(out) <= n:
+            out += [r.f() * jag] * r.i(*LIP_JAG_RUN)
+        return out[:n + 1]
+
+    jin, jout, jz = held(LIP_JAG_IN), held(LIP_JAG_OUT), held(LIP_JAG_Z)
+    cols, loops = [], []
+    for i in range(n + 1):
+        b = LIP_B0 + (LIP_B1 - LIP_B0) * i / n
+        f = _smooth(min(b - LIP_B0, LIP_B1 - b) / LIP_TAPER)
+        ri, ro = LIP_R_IN, LIP_R_OUT
+        if not coll:
+            ri -= LIP_SKIN_IN - jin[i]
+            ro += LIP_SKIN_OUT - jout[i]
+        top = LIP_END_Z + (LIP_TOP_Z - LIP_END_Z) * f + jz[i] * f
+        mid = LIP_BASE_Z + LIP_MID * (top - LIP_BASE_Z)
+        crown = 0.0 if coll else LIP_CROWN * (LIP_CROWN_END + (1.0 - LIP_CROWN_END) * f)
+        sec = [(ri, LIP_BASE_Z)] + ([] if coll else [(ri, mid)])
+        for d in ((-1.0, 1.0) if coll else LIP_HEAD):
+            sec.append((ri + 0.5 * (d + 1.0) * (ro - ri), top + crown * (1.0 - d * d)))
+        sec += ([] if coll else [(ro, mid)]) + [(ro, LIP_BASE_Z)]
+        cols.append({"b": b, "sec": sec, "ri": ri, "ro": ro})
+        loops.append([m.v(pol(b, rad, z)) for rad, z in sec])
+
+    before = len(m.faces)
+    L = len(loops[0])
+    for i in range(n):
+        A, B, ca, cb = loops[i], loops[i + 1], cols[i], cols[i + 1]
+        er = _radial(0.5 * (ca["b"] + cb["b"]))
+        for k in range(L):
+            k2 = (k + 1) % L
+            dr = 0.5 * (ca["sec"][k2][0] - ca["sec"][k][0] + cb["sec"][k2][0] - cb["sec"][k][0])
+            dz = 0.5 * (ca["sec"][k2][1] - ca["sec"][k][1] + cb["sec"][k2][1] - cb["sec"][k][1])
+            zone = ZONE_ROCK
+            if not coll and abs(ca["sec"][k2][0] - ca["sec"][k][0]) < EPS:
+                inner = ca["sec"][k][0] < 0.5 * (ca["ri"] + ca["ro"])
+                jg = 0.5 * ((jin[i] + jin[i + 1]) if inner else (jout[i] + jout[i + 1]))
+                zone = ZONE_SHADE if jg > SHADE_T * (LIP_JAG_IN if inner else LIP_JAG_OUT) else ZONE_ROCK
+            m.quad(A[k], B[k], B[k2], A[k2], (-dz * er[0], -dz * er[1], dr), zone)
+    j = 0 if coll else 3                          # anchor the cap on the head: the
+    for i, sgn in ((0, 1.0), (n, -1.0)):          # faces are flat, and fan them and
+        et = _tangent(cols[i]["b"])               # the cap's own first tri is degenerate
+        m.fan(loops[i][j:] + loops[i][:j], (et[0] * sgn, et[1] * sgn, 0.0), ZONE_ROCK)
+
+    tris = len(m.faces) - before
+    print("MDL STATS lip_screen %s_tris=%d cols=%d b=%.1f..%.1f (taper %.1f deg at each end) "
+          "r=%.2f..%.2f z=%.2f..%.2f head %.2f m over the deck, %.2f m under the ceiling"
+          % ("collision" if coll else "visual", tris, n + 1, LIP_B0, LIP_B1, LIP_TAPER,
+             LIP_R_IN, LIP_R_OUT, LIP_BASE_Z, LIP_TOP_Z, LIP_TOP_Z - DECK_Z, CEIL_Z - LIP_TOP_Z))
+    return tris
 
 
 def _shelf_box(c):

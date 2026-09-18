@@ -49,7 +49,7 @@ extends TestCase
 ## [b]What the first measurement found[/b], and why these rows are not all alike:
 ## [codeblock]
 ##   bentham_ring   78722 tris   37 surfaces   20 lights   0 shadow casters
-##   marble         75632 tris    4 surfaces    2 lights   1 shadow caster
+##   marble         99250 tris   75 surfaces    2 lights   1 shadow caster
 ##   forest        143895 tris    9 surfaces    2 lights   1 shadow caster
 ## [/codeblock]
 ## The Ring carries twenty lights and casts no shadow from any of them; the two
@@ -61,30 +61,34 @@ extends TestCase
 const DRAW_BUDGETS: Dictionary = {
 	# The reference map. B1-B5 were all measured on this one.
 	#
-	# `surfaces` was 45 (measured 37, +20 %) until S3, the demon minefield, put
-	# 35 `demon_pad` nodes on the deck. Each pad instance is one more surface --
-	# Godot draws separate MeshInstance3Ds separately under GL Compatibility, so
-	# a minefield of N pads costs N draw surfaces and there is no batching to
-	# reclaim them without a MultiMesh. Re-measured at 72 and re-ceilinged at
-	# 72 + 20 %. This is somebody saying so, which is what the header asks for:
-	# the cost is the pad COUNT, so if the Ring's surfaces move again without S3
-	# changing, that is the change of order this gate exists to catch.
-	# `tris` is NOT widened: the measurement rose 78722 -> 87656 and is still
+	# Re-measured after the dividers and S3, the demon minefield: 45 surfaces
+	# against the 37 this row was first built on. Each `demon_pad` node is one
+	# more surface -- Godot draws separate MeshInstance3Ds separately under GL
+	# Compatibility, so a minefield of N pads costs N draw calls and there is no
+	# batching to reclaim them short of a MultiMesh. S3 ships 11 pads; a denser
+	# variant would move this number one for one, which is exactly the change of
+	# order this gate exists to make visible.
+	# `tris` is NOT widened: the measurement rose 78722 -> 90316 and is still
 	# inside the ceiling it already had.
 	"bentham_ring": {
-		"tris": 94467, "surfaces": 87, "materials": 18,
+		"tris": 94467, "surfaces": 54, "materials": 18,
 		"transparent_tris": 0, "lights": 24, "shadow_casters": 0,
 	},
-	# Four surfaces for a whole arena: one contiguous rock mesh, as the modelling
-	# rule says. The shadow caster is the one to argue about, not the triangles.
+	# Four surfaces were the whole arena until the course went on the lane: 71
+	# placed prop instances is what an obstacle course costs in draw calls, and
+	# the surfaces row is where it shows. The shadow caster is still one.
 	"marble": {
-		"tris": 90759, "surfaces": 5, "materials": 5,
+		"tris": 119100, "surfaces": 90, "materials": 14,
 		"transparent_tris": 0, "lights": 3, "shadow_casters": 1,
 	},
-	# The expensive one: 1.83x the Ring, plus 2196 transparent triangles, plus a
-	# shadow caster. Its ceiling is generous because its measurement already is.
+	# The expensive one: 2.16x the Ring, plus 2196 transparent triangles, plus a
+	# shadow caster. Re-measured after the lane was laid out as an obstacle
+	# course: 45 placed prop instances (trunks, thickets, standing stones,
+	# boulders, shelves, thorn patches, three pads and an orb) take it from 9
+	# surfaces to 54 and from 11 materials to 20. Ceilings are the new
+	# measurement plus 20 %, as the header says.
 	"forest": {
-		"tris": 172674, "surfaces": 11, "materials": 11,
+		"tris": 204532, "surfaces": 65, "materials": 24,
 		"transparent_tris": 2636, "lights": 3, "shadow_casters": 1,
 	},
 }

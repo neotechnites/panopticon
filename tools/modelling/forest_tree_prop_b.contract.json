@@ -1,0 +1,10 @@
+{
+  "_comment": "forest_tree_prop_b: the fat one: a ~1.60 m trunk on a heavy root flare, 6.7 m tall, a full crown. A loose prop for map 3's lane, placed by hand as cover on the path; origin at the foot of the trunk on the ground plane so it drops onto the lane at identity. One material (the forest atlas, shared with forest_build.py), one contiguous mesh. ForestTreePropBCollision is the purpose-built collider shipped as a `-colonly` node -- the trunk's own silhouette, not a box, so a runner behind the trunk is behind the collider at every height a runner can occupy; the crown does not collide. Godot turns it into a StaticBody3D + ConcavePolygonShape3D and drops its mesh, so `surfaces` counts only what is drawn.",
+  "node_paths": [
+    "ForestTreePropB",
+    "ForestTreePropBCollision",
+    "ForestTreePropBCollision/CollisionShape3D"
+  ],
+  "surfaces": 1,
+  "max_tris": 2000
+}

@@ -43,3 +43,34 @@ Sampled off the Temple of Time references (`~/Desktop/panopticon-refs/Map 2/imag
 | railing gold (6) | `#bcae82` (188,174,130) | the paving's centre inlay |
 
 Atlas cells (paint values, before lighting): ashlar `#9a9676` with mortar joints `#6c6950` (half-bond courses); second sheet `#928e70` / `#66634a`; grey-olive (reveals, undersides, cap) `#6b6b55` / `#505042`; paving slabs `#aaa683` with joints `#66634a` and inlays `#7d7a62` (centre `#bcae82`); spike floor `#7d7a62` with a tile grid `#55533f`; cell interior `#2f3028` (+ faint emissive); frieze ground `#9a9676`, key `#45463a`; coffer `#9a9676` stepping down to `#565542`; spike `#a8a488` with grain `#8c8970`; fluting `#9e9a7a` / `#64634e`; cornice fillets `#a29e7e` / `#5e5c44`; iron `#181a1f` with a rim `#686e7a`; tower ashlar `#8b8160` / `#625b44`; socles `#928e70` / `#6c6950`.
+
+## Course
+
+Ryan: *"spin up a tree map, and marble map, to do its best job making an
+obstacle course for both of those with the elements it created. no rules, just
+let them try their best."* Six stretches with a rest pocket between, all placed
+instances under `Sections` in `scenes/ring/marble.tscn` -- nothing is welded
+into `marble.glb`. The guard's eye is 6.5 m over the lane and only 45 m inboard
+of it, so a prop's shadow runs radially OUTWARD and reaches to about 1.16x its
+own radius: cover stands on the INNER side of the ground it protects, and a
+2.2 m stump shelters a body for about five metres while a 5.0 m column shelters
+one to the wall. That one number shapes every stretch.
+
+| deg | stretch | the problem | props |
+|---|---|---|---|
+| 5-14 | start | first shade | 1 broken column, r 56 |
+| 14-70 | **The Arcade** | seven broadside arches at r 50 stripe the whole outer lane with full-height cover and slit it with their own windows; the open fast line is the 1.5 m of lip inboard of them. Three of the best stripes hold a spike patch | 7 arch, 3 spike patch |
+| 78-130 | **The Ledge** | spiked thresholds shut the wall side, so the run is pinned to the open inner edge over the 24 m drop; the crux at 106 deg leaves 4 m of lip | 6 spike strip, 3 column, 1 orb |
+| 138-195 | **The Ruin** | five heaps staggered across the width, one column still standing between two stumps -- shelter you cross to, not along. One spike patch at the wall, one on the lip | 5 column, 10 broken, 2 spike patch |
+| 203-258 | **The Gauntlet** | the mirror of the Ledge: thresholds shut the lip for the whole stretch, so the run is a 4 m wall lane with no cover in it, flown in 15 m hops by three pads at a 3.7 m apex -- the most visible a runner ever is | 5 spike strip, 3 demon pad |
+| 266-320 | **The Palisade** | ten columns along the open lip every 5 deg throw shadows one body wide right across the lane: cover you can stand in and cannot travel in. Five stumps at r 55.5 are the only pockets | 10 column, 5 broken, 1 orb |
+| 328-344 | **The Last Gate** | two arches face-on across the lane, the way round each shut by a spike patch -- inner at the first, outer at the second | 2 arch, 2 spike patch |
+
+Every spike footprint carries its own `TrapVolume` 2.6 m tall
+(`scenes/ring/marble_spike_patch.tscn`, `marble_spike_strip.tscn`); the height
+is load-bearing, because `RingBake` finds every jump arc over one lethal and so
+links none. Two rules the bot harness wrote, both paid for: every hazard leaves
+at least 4 m of navigable bypass, and no pad flight crosses one -- a pad's apex
+is 3.7 m and a capsule's feet 0.9 m under that, which is 0.2 m over a spike
+volume's roof. `RingBake`: 164 cover points on the bare lane, 209 with the
+course, against 192 on Map 1.

@@ -12,7 +12,6 @@
 [ext_resource type="Resource" path="res://scenes/ring/floating_watching_eye_profile.tres" id="9_watcher_profile"]
 [ext_resource type="PackedScene" uid="uid://l2tycnwgajbo" path="res://assets/models/map_base.glb" id="10_map_base_model"]
 [ext_resource type="PackedScene" uid="uid://cmmh0fdwp3rjb" path="res://assets/models/slab.glb" id="13_slab"]
-[ext_resource type="PackedScene" uid="uid://c8ejv8vfb00fy" path="res://assets/models/rock_wall.glb" id="14_rock_wall"]
 [ext_resource type="PackedScene" path="res://scenes/ring/portal.tscn" id="19_portal"]
 [ext_resource type="PackedScene" uid="uid://bc7si5v1kq5n8" path="res://assets/models/rock_bars.glb" id="20_rock_bars"]
 [ext_resource type="PackedScene" path="res://scenes/ring/torch.tscn" id="21_torch"]
@@ -157,15 +156,7 @@ transform = Transform3D(1.28025, 0, 0.173648, 0, 1, 0, -0.225742, 0, 0.984808, 5
 
 [node name="Block13" parent="Sections" unique_id=81094570 instance=ExtResource("25_block")]
 editor_description = "Map 1 sections, docs/MAP1_SECTIONS.md."
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 36, 8)
-
-[node name="Block14" parent="Sections" unique_id=472659984 instance=ExtResource("25_block")]
-editor_description = "Map 1 sections, docs/MAP1_SECTIONS.md."
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 11, 36, 8)
-
-[node name="Block15" parent="Sections" unique_id=536724705 instance=ExtResource("25_block")]
-editor_description = "Map 1 sections, docs/MAP1_SECTIONS.md."
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 14, 36, 8)
+transform = Transform3D(0.8416613, 0, 0.54000586, 0, 1, 0, -0.54000586, 0, 0.8416613, -43.77672, 24.75596, 21.819647)
 
 [node name="Pocket_068deg" parent="Sections" unique_id=1204010580 instance=ExtResource("13_slab")]
 transform = Transform3D(0.070076294, -3.9638739, 0.6334837, 2.588011, 0.04478195, -0.090960935, 0.11087915, 1.4599471, 1.7227495, 21.831507, 26.438955, 43.075954)
@@ -262,10 +253,6 @@ feet_only = true
 
 [node name="S3_Minefield" type="Node3D" parent="Sections" unique_id=61707270]
 editor_description = "S3, the demon minefield (bearings 145..200). The field, the corridor cut through it, the cover crests and the three dips are map_base.glb's own rock -- tools/modelling/lib/s3_minefield.py is the one layout the mesh, these pad transforms and the proofs in lib/s3_proof.py all come from. No lava and no TrapVolume in this section: a launch drops you back on the same field. The two nodes below are parked leftovers from the retired Split, left where they were found."
-
-[node name="RockWall_153deg2" parent="Sections/S3_Minefield" unique_id=435760959 instance=ExtResource("14_rock_wall")]
-transform = Transform3D(-0.07944784, 0.0026787363, -1.1119696, 0.014537797, 3.09025, 0.0008299325, 3.0892308, -0.014473695, -0.02860115, 46.51744, 23.132805, 3.6760964)
-
 
 [node name="SpeedPowerup" parent="Sections/S3_Minefield" unique_id=1641447572 instance=ExtResource("24_speed_powerup_scene")]
 editor_description = "Parked on top of the tower until Ryan places it at the end of the hard route."
@@ -498,16 +485,16 @@ feet_only = true
 [node name="LavaSurface" type="Marker3D" parent="Sections/S5_WallRun" unique_id=374669933]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 36.91, 22.7, -36.63)
 
-[node name="Watch" type="Node3D" parent="Sections"]
+[node name="Watch" type="Node3D" parent="Sections" unique_id=248816094]
 editor_description = "Chokepoints the AI guard's scan rests on: the S2 lane, the S4 pad apex, the S5 stones."
 
-[node name="S2_Lane" type="Marker3D" parent="Sections/Watch" groups=["guard_watch"]]
+[node name="S2_Lane" type="Marker3D" parent="Sections/Watch" unique_id=474506620 groups=["guard_watch"]]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -10.4, 24, 48.9)
 
-[node name="S4_PadApex" type="Marker3D" parent="Sections/Watch" groups=["guard_watch"]]
+[node name="S4_PadApex" type="Marker3D" parent="Sections/Watch" unique_id=1887471974 groups=["guard_watch"]]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -25.2, 28, -47.5)
 
-[node name="S5_Stones" type="Marker3D" parent="Sections/Watch" groups=["guard_watch"]]
+[node name="S5_Stones" type="Marker3D" parent="Sections/Watch" unique_id=1179109405 groups=["guard_watch"]]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 38.2, 24, -38.2)
 
 [node name="Route" type="Node3D" parent="." unique_id=325112563]

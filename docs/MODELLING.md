@@ -76,6 +76,7 @@ Options for `build` and `look`:
 
 | flag | |
 |---|---|
+| `--variant V` | build `<name>_V` from `<name>_build.py`; also on `verify`, one contract covers all variants |
 | `--views front,side,threequarter` | named views; default is those three |
 | `--cam AZ,EL[,LENS]` | any angle, repeatable |
 | `--turntable N` | N shots evenly around |
