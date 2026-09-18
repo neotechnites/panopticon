@@ -71,6 +71,22 @@ ZONE_ROCK  = (0.0, 0.5, 0.5, 1.0)
 UV_SCALE = 0.13
 UV_PAD = 1.5 / 128.0
 
+FLECK_LUM = 0.001      # an atlas texel this bright in his emissive map is lava.
+                       # His unlit cell is a hard zero, the fleck 0.0026 linear
+                       # (0.025 if pixels[] ever hands back sRGB) -- clear of both
+FLECK_M2PT = 0.05      # ...and magnification is what makes one read as a wedge:
+                       # square metres of floor per atlas texel. The two facets
+                       # the dissolve fans out run 0.88 and 0.146; every floor
+                       # facet still carrying his own mapping is 0.012 or less
+FLECK_FIT = (1.0, 0.98, 0.96, 0.94)   # uniform UV shrinks to try when no plain
+                       # slide fits between his flecks -- one facet is three
+                       # texels too tall for the gap and fits once it gives 2%
+FLECK_MAX = 4          # more blown-up floor facets than this and the floor
+                       # itself is wrong, not its UV: warn and touch nothing
+FLECK_GUARD = 1        # texels of bilinear headroom to leave around a facet
+FLECK_Z = 0.15         # his floor sags: how far a facet's centre may sit below
+                       # MEAS["floor"] and still be floor (measured 1.593..1.702)
+
 TAU = 2.0 * math.pi
 SEED = 20260913
 
@@ -834,6 +850,184 @@ def unwrap(ob, name):
 
 
 # =============================================================================
+# 7b  FLECKS -- one floor facet magnified a lava fleck into a wedge
+# =============================================================================
+
+def _flecks(mat):
+    """Texels of his emissive atlas that carry lava, as (x, y), plus its size."""
+    img = None
+    if mat.use_nodes:
+        for nd in mat.node_tree.nodes:
+            if nd.type == "TEX_IMAGE" and nd.image and "emissive" in nd.image.name:
+                img = nd.image
+                break
+    if img is None:
+        return None, 0, 0
+    w, h = img.size
+    px = list(img.pixels)
+    hot = []
+    for i in range(w * h):
+        lum = (0.2126 * px[4 * i] + 0.7152 * px[4 * i + 1]
+               + 0.0722 * px[4 * i + 2])
+        if lum > FLECK_LUM:
+            hot.append((i % w, i // w))
+    return hot, w, h
+
+
+def _uv_area(uvs):
+    """Shoelace area of a face in UV units."""
+    a = 0.0
+    for k in range(len(uvs)):
+        u0, v0 = uvs[k]
+        u1, v1 = uvs[(k + 1) % len(uvs)]
+        a += u0 * v1 - u1 * v0
+    return abs(a) * 0.5
+
+
+def _in_face(uvs, pu, pv):
+    """Is (pu, pv) inside the face, fanned from its first loop?"""
+    for k in range(1, len(uvs) - 1):
+        (ax, ay), (bx, by), (cx, cy) = uvs[0], uvs[k], uvs[k + 1]
+        d = (by - cy) * (ax - cx) + (cx - bx) * (ay - cy)
+        if abs(d) < 1.0e-12:
+            continue
+        r = ((by - cy) * (pu - cx) + (cx - bx) * (pv - cy)) / d
+        t = ((cy - ay) * (pu - cx) + (ax - cx) * (pv - cy)) / d
+        if r >= 0.0 and t >= 0.0 and r + t <= 1.0:
+            return True
+    return False
+
+
+def _fleck_lava(uvs, hot, w, h):
+    """Lava texels whose centre falls inside the face."""
+    return sum(1 for x, y in hot if _in_face(uvs, (x + 0.5) / w, (y + 0.5) / h))
+
+
+def _fleck_clear(bb, lava, w, h, du, dv):
+    """No lava texel inside the shifted rect, widened by FLECK_GUARD texels."""
+    x0 = int((bb[0] + du) * w) - FLECK_GUARD
+    x1 = int((bb[2] + du) * w) + FLECK_GUARD
+    y0 = int((bb[1] + dv) * h) - FLECK_GUARD
+    y1 = int((bb[3] + dv) * h) + FLECK_GUARD
+    for x, y in lava:
+        if x0 <= x <= x1 and y0 <= y <= y1:
+            return False
+    return True
+
+
+def _fleck_cell(uvs):
+    """The quarter of the atlas a face is mapped into."""
+    cu = 0.0 if 0.5 * (min(u[0] for u in uvs) + max(u[0] for u in uvs)) < 0.5 else 0.5
+    cv = 0.0 if 0.5 * (min(u[1] for u in uvs) + max(u[1] for u in uvs)) < 0.5 else 0.5
+    return cu, cv
+
+
+def _fleck_place(uvs, hot, w, h):
+    """Smallest change that lifts a face off every lava texel in its own cell.
+
+    A plain slide first. His flecks are spread so that the widest lava-free
+    window 44 texels tall is only 29 wide, and the larger of the two fanned
+    facets needs 33 x 46 -- three texels too tall to fit anywhere. So if no
+    slide fits, give up two per cent of the face's UV about its own centre and
+    try again; at that size it drops into the 48 x 43 window between them.
+    """
+    cu, cv = _fleck_cell(uvs)
+    lava = [(x, y) for x, y in hot
+            if cu <= (x + 0.5) / w <= cu + 0.5 and cv <= (y + 0.5) / h <= cv + 0.5]
+    mu = sum(u[0] for u in uvs) / len(uvs)
+    mv = sum(u[1] for u in uvs) / len(uvs)
+    for sc in FLECK_FIT:
+        suv = [(mu + (u - mu) * sc, mv + (v - mv) * sc) for u, v in uvs]
+        bb = (min(u[0] for u in suv), min(u[1] for u in suv),
+              max(u[0] for u in suv), max(u[1] for u in suv))
+        best = None
+        for a in range(-w, w + 1):
+            du = a / float(w)
+            if bb[0] + du < cu + UV_PAD or bb[2] + du > cu + 0.5 - UV_PAD:
+                continue
+            for b in range(-h, h + 1):
+                if best is not None and abs(a) + abs(b) >= best[0]:
+                    continue
+                dv = b / float(h)
+                if bb[1] + dv < cv + UV_PAD or bb[3] + dv > cv + 0.5 - UV_PAD:
+                    continue
+                if _fleck_clear(bb, lava, w, h, du, dv):
+                    best = (abs(a) + abs(b), sc, du, dv, a, b)
+        if best:
+            return best[1], best[2], best[3], best[4], best[5]
+    return None
+
+
+def unfleck(ob, name, mat, floor_z):
+    """Lift every blown-up guard-room floor facet off his lava flecks.
+
+    His atlas hides four 2x2 lava flecks in the otherwise unlit cell the room
+    floor is mapped into -- bright in the base colour AND in the emissive map,
+    so a facet covering one glows whether the room is lit or not. The dissolve
+    at the end of build() merges the floor into a single n-gon and triangulates
+    it into a fan, which leaves two facets carrying 32 and 49 square metres of
+    floor on 37 and 333 texels of his UV. At 0.88 and 0.15 m2 per texel they
+    render a fleck as a wedge; every floor facet still on his own mapping runs
+    0.012 m2 per texel or finer and renders the same fleck as the grain it was
+    drawn to be. So the test is magnification, and lava, not area: move the
+    facets that are both, leave his mapping alone everywhere else.
+    """
+    hot, w, h = _flecks(mat)
+    if hot is None:
+        print("MDL note: no emissive atlas; fleck pass skipped")
+        return 0
+    me = ob.data
+    uvl = me.uv_layers.get(name)
+    if uvl is None:
+        return 0
+    cand = []
+    for poly in me.polygons:
+        if abs(poly.normal.z) < 0.9:
+            continue
+        if abs(poly.center.z - floor_z) > FLECK_Z:
+            continue
+        uvs = [tuple(uvl.data[li].uv) for li in poly.loop_indices]
+        tx = _uv_area(uvs) * w * h
+        if tx <= 0.0 or poly.area / tx <= FLECK_M2PT:
+            continue
+        n = _fleck_lava(uvs, hot, w, h)
+        if n:
+            cand.append((poly, uvs, poly.area / tx, tx, n))
+    if len(cand) > FLECK_MAX:
+        print("MDL WARN unfleck found %d blown-up floor facets on lava, over "
+              "the %d cap -- nothing moved" % (len(cand), FLECK_MAX))
+        for poly, uvs, mpt, tx, n in sorted(cand, key=lambda c: -c[2]):
+            print("MDL WARN   area=%.2fm2 texels=%.1f %.5f m2/texel lava=%d"
+                  % (poly.area, tx, mpt, n))
+        return 0
+    moved = 0
+    for poly, uvs, mpt, tx, n in cand:
+        put = _fleck_place(uvs, hot, w, h)
+        if put is None:
+            print("MDL WARN floor facet %.2fm2 at %.5f m2/texel has nowhere "
+                  "clear to go -- left on %d lava texel(s)"
+                  % (poly.area, mpt, n))
+            continue
+        sc, du, dv, a, b = put
+        mu = sum(u[0] for u in uvs) / len(uvs)
+        mv = sum(u[1] for u in uvs) / len(uvs)
+        for li in poly.loop_indices:
+            u, v = uvl.data[li].uv
+            uvl.data[li].uv = (mu + (u - mu) * sc + du, mv + (v - mv) * sc + dv)
+        new = [tuple(uvl.data[li].uv) for li in poly.loop_indices]
+        moved += 1
+        print("MDL STATS unflecked area=%.2fm2 texels=%.1f %.4f m2/texel "
+              "lava=%d->%d scale=%.2f shift=(%+d,%+d) u %.4f..%.4f v %.4f..%.4f"
+              " -> u %.4f..%.4f v %.4f..%.4f"
+              % (poly.area, tx, mpt, n, _fleck_lava(new, hot, w, h), sc, a, b,
+                 min(u[0] for u in uvs), max(u[0] for u in uvs),
+                 min(u[1] for u in uvs), max(u[1] for u in uvs),
+                 min(u[0] for u in new), max(u[0] for u in new),
+                 min(u[1] for u in new), max(u[1] for u in new)))
+    return moved
+
+
+# =============================================================================
 # EXTRA RENDERS -- the room from inside, and the head framed by hand
 # =============================================================================
 
@@ -1001,6 +1195,7 @@ def build():
     print("MDL STATS dissolved tris %d -> %d" % (n0, _tris(rock)))
 
     n_uv = unwrap(rock, uvname)
+    n_fleck = unfleck(rock, uvname, mat, m["floor"])
     mdl.finish(rock, mat, flat=True, strip_uvs=False)
 
     coll_ob, spans = _collider(m, plan)
@@ -1010,8 +1205,9 @@ def build():
     coll_ob.data.calc_loop_triangles()
     bo, nm = _shell(rock)
     print("MDL STATS visual_tris=%d collision_tris=%d reuv_faces=%d "
-          "open_edges=%d non_manifold=%d"
-          % (_tris(rock), len(coll_ob.data.loop_triangles), n_uv, bo, nm))
+          "unflecked=%d open_edges=%d non_manifold=%d"
+          % (_tris(rock), len(coll_ob.data.loop_triangles), n_uv, n_fleck,
+             bo, nm))
     print("MDL STATS arch width=%.2fm hw=%.2f sill=%.2f (floor+%.2f) "
           "spring=%.2f crown=%.2f jamb=%.2f splay=%.0fdeg"
           % (plan["width"], plan["hw"], plan["sill"],

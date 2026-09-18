@@ -279,7 +279,7 @@ stage_blender() {
 set W=$JOB_W
 del /q "%W%\\build.done" 2>nul
 cd /d "%W%"
-"$BLENDER" -b -noaudio -P "%W%\\${NAME}_build.py" -- --spec "%W%\\spec.json"${VARIANT:+ --variant $VARIANT} > "%W%\\build.log" 2>&1
+"$PC_BLENDER" -b -noaudio -P "%W%\\${NAME}_build.py" -- --spec "%W%\\spec.json"${VARIANT:+ --variant $VARIANT} > "%W%\\build.log" 2>&1
 set RC=%ERRORLEVEL%
 findstr /c:"MDL DONE" "%W%\\build.log" >nul || set RC=1
 echo %RC% > "%W%\\build.done"
@@ -321,7 +321,7 @@ EOF
   push "$HERE/lib/verify_glb.gd"   "$JOB/verify/verify_glb.gd"
   # A variant may be held to its own contract; if it does not carry one it is
   # still held to the base model's, because a variant is not an excuse.
-  local contract="$HERE/${OUT}.contract.json"
+  local contract="$HERE/${FULL}.contract.json"
   [ -f "$contract" ] || contract="$HERE/${NAME}.contract.json"
   if [ -f "$contract" ]; then
     push "$contract" "$JOB/verify/contract.json"
@@ -336,8 +336,8 @@ del /q "%W%\\verify.done" 2>nul
 rmdir /s /q "%W%\\verify\\.godot" 2>nul
 del /q "%W%\\verify\\*.import" "%W%\\verify\\*.png" 2>nul
 copy /y "%W%\\out\\${FULL}.glb" "%W%\\verify\\model.glb" >nul
-"$GODOT" --headless --path "%W%\\verify" --import > "%W%\\verify.log" 2>&1
-"$GODOT" --headless --path "%W%\\verify" --script res://verify_glb.gd >> "%W%\\verify.log" 2>&1
+"$PC_GODOT" --headless --path "%W%\\verify" --import > "%W%\\verify.log" 2>&1
+"$PC_GODOT" --headless --path "%W%\\verify" --script res://verify_glb.gd >> "%W%\\verify.log" 2>&1
 echo %ERRORLEVEL% > "%W%\\verify.done"
 EOF
   push "$TMP/verify.bat" "$JOB/verify.bat"
