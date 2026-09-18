@@ -57,15 +57,21 @@ chord vertices, so the weld is unchanged).
 - **The launch is unchanged, the visual is not.** Each position is a
   `scenes/ring/lava_crack.tscn`: the demon pad's own `BoostPad` trigger
   (`scripts/match/boost_pad.gd`, 2.5 × 1.0 × 2.5 m, 18 m/s at 45°) with no
-  model, plus a `LavaHaze` node. Under it, cut into `map_base.glb`'s own deck
-  rock as part of the one mesh: a jagged fissure 2.0–2.3 m long with one or
-  two splinters, 0.14–0.48 m wide at the deck, 0.10–0.22 m deep, a dark rock
-  lip on the upper sides and the glowing lava cell (atlas `ZONE_GLOW`) on the
-  lower sides and the floor — flush, no plate, no two alike (one seeded draw
-  per pad). The deck cells round each crack are one scanfill polygon whose
-  boundary is the grid's own vertices, so nothing is duplicated at the seam.
-  The collider stays the flat deck over the cracks (they are narrower than a
-  body), so the bake, the bots and the jump proofs are the demon pad's.
+  model, plus a `LavaHaze` node. Under them, cut into `map_base.glb`'s own
+  deck rock as part of the one mesh, ONE crack network (Ryan: *"can you make
+  them tile so that they look like one thing instead?"*): a seeded spanning
+  tree of the 36 pad cells (never a path cell) picks which neighbours join,
+  each joined pair shares one port on its common cell edge — one
+  cross-section both cells' fissures end on — and inside a cell one main
+  fissure runs port to port with the other ports and a splinter or two
+  branching off it through T-mouths on the main's own side vertices. 35
+  joins, 64 fissures, one island: the deck round it is one scanfill polygon
+  with one hole, on the grid's own vertices, no duplicate at any seam.
+  Fissures are 0.14–0.48 m wide at the deck, 0.10–0.22 m deep, a dark rock
+  lip on the upper sides and the glowing lava cell (atlas `ZONE_GLOW`) on
+  the lower sides and the floor — flush, no plate. The collider stays the
+  flat deck over the cracks (they are narrower than a body), so the bake,
+  the bots and the jump proofs are the demon pad's.
 - **The haze** is `scenes/ring/lava_haze.gdshader` on two crossed 2.4 × 2.0 m
   quads (one surface, 4 tris, one shared `ShaderMaterial`): pure refraction of
   the scene behind through `hint_screen_texture`, a slow rising 2-octave
@@ -76,7 +82,7 @@ chord vertices, so the weld is unchanged).
 - **The path** is cut by leaving cells crack-free: one column wide, the middle
   column for rows 0–9, stepping to the inner column at row 9 (a bend costs
   one extra cell, so the runner steps sideways, then forward). 18 cells
-  cleared of 51, 36 cracks remain.
+  cleared of 51, 36 cracked cells remain.
 - **Three cracks are left IN the path** (rows 1, 4, 10) and must be jumped:
   they carry `footprint_metres = (2.5, 0.5, 2.5)`, the same trigger 0.5 m
   tall. Feet clear it by +0.3 m at the overlap's ends with a take-off window
