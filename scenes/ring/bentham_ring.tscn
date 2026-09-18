@@ -12,7 +12,6 @@
 [ext_resource type="Resource" path="res://scenes/ring/floating_watching_eye_profile.tres" id="9_watcher_profile"]
 [ext_resource type="PackedScene" uid="uid://l2tycnwgajbo" path="res://assets/models/map_base.glb" id="10_map_base_model"]
 [ext_resource type="PackedScene" uid="uid://cmmh0fdwp3rjb" path="res://assets/models/slab.glb" id="13_slab"]
-[ext_resource type="PackedScene" uid="uid://c8ejv8vfb00fy" path="res://assets/models/rock_wall.glb" id="14_rock_wall"]
 [ext_resource type="PackedScene" path="res://scenes/ring/portal.tscn" id="19_portal"]
 [ext_resource type="PackedScene" uid="uid://bc7si5v1kq5n8" path="res://assets/models/rock_bars.glb" id="20_rock_bars"]
 [ext_resource type="PackedScene" path="res://scenes/ring/torch.tscn" id="21_torch"]
@@ -267,9 +266,6 @@ feet_only = true
 [node name="Shape" type="CollisionShape3D" parent="Sections/S2_LavaShelf/TrapVolume7" unique_id=644014580]
 
 [node name="S3_Split" type="Node3D" parent="Sections" unique_id=61707270]
-
-[node name="RockWall_153deg2" parent="Sections/S3_Split" unique_id=435760959 instance=ExtResource("14_rock_wall")]
-transform = Transform3D(-0.07944784, 0.0026787363, -1.1119696, 0.014537797, 3.09025, 0.0008299325, 3.0892308, -0.014473695, -0.02860115, 46.51744, 23.132805, 3.6760964)
 
 [node name="SpeedPowerup" parent="Sections/S3_Split" unique_id=1641447572 instance=ExtResource("24_speed_powerup_scene")]
 editor_description = "Parked on top of the tower until Ryan places it at the end of the hard route."
