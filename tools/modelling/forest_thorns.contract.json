@@ -1,0 +1,15 @@
+{
+  "_comment": "forest_thorns: two ground-hugging thorn patches for Map 3, the forest. The same barbed brambles as the forest pit's thicket (forest_pit_build._barbed_tube, zone 'cell', the forest atlas), knee-high: a three-sided tube whose every ring has one vertex pushed out into a thorn. Two placeable footprints, each ONE connected component, each authored at its own origin with y=0 the ground it sits on, so either node drops into a map at the transform Ryan gives it. ForestThornsRound is a disc 2.50 m across (644 tris, 20 plants); ForestThornsStrip is 6.00 x 2.00 m (1062 tris, 34 plants). Tallest thorn tip 0.96 m. One material (the forest atlas) per mesh, one UV set, hence surfaces=2; max_tris counts both drawn meshes.",
+  "_hazard": "THESE ARE A HAZARD, NOT COVER, AND THE MAP SCENE MAKES THEM LETHAL. At 0.96 m they hide nobody (crouch cover is 1.3 m) and they sit under the 1.11 m jump apex, so the 2 m strip is hoppable and a lane lined with them is a choice, not a wall. The .glb's colliders are deliberately NOT the bush: each is a flat 0.06 m mat on the patch's exact footprint, which you stand ON. Solid thorns would be new cover the tower cannot see through and a wall the shipped bot brain -- which has no obstacle avoidance -- would grind against, which is the same reasoning TrapVolume gives for its own drawn block carrying no collision.",
+  "_scene_volume": "Put a TrapVolume (scripts/match/trap_volume.gd, class_name TrapVolume) over each patch AT THE SAME TRANSFORM AS THE PROP NODE -- the prop's origin is already the ground plane, which is what feet_only wants. Set feet_only = true, grace_seconds = 0.15, collision_layer = 0, collision_mask = 1048577 (bit 0 + MatchController.GHOST_HAZARD_LAYER), monitorable = false, exactly as forest.tscn's KillBox. size_metres: Vector3(2.2, 1.0, 2.2) for ForestThornsRound and Vector3(6.0, 1.0, 2.0) for ForestThornsStrip. The strip's box IS the drawn footprint to the millimetre. The round patch's box is the equal-area square over a 2.5 m disc, because TrapVolume is a box and nothing else: its corners stand 0.31 m outside the thorns and its edge midpoints 0.15 m inside, which at the tuned run speed of 11 m/s is under one 60 Hz tick either way. TrapVolume's height is not load-bearing with feet_only on; 1.0 is the thorns' own 0.96 rounded up so the drawn block, if ever shown, matches. Wiring these is a map change and is NOT part of this prop: nothing places them automatically.",
+  "node_paths": [
+    "ForestThornsRound",
+    "ForestThornsRoundCollision",
+    "ForestThornsRoundCollision/CollisionShape3D",
+    "ForestThornsStrip",
+    "ForestThornsStripCollision",
+    "ForestThornsStripCollision/CollisionShape3D"
+  ],
+  "surfaces": 2,
+  "max_tris": 2000
+}

@@ -49,7 +49,7 @@ extends TestCase
 ## [b]What the first measurement found[/b], and why these rows are not all alike:
 ## [codeblock]
 ##   bentham_ring   78722 tris   37 surfaces   20 lights   0 shadow casters
-##   marble         75632 tris    4 surfaces    2 lights   1 shadow caster
+##   marble         99250 tris   75 surfaces    2 lights   1 shadow caster
 ##   forest        143895 tris    9 surfaces    2 lights   1 shadow caster
 ## [/codeblock]
 ## The Ring carries twenty lights and casts no shadow from any of them; the two
@@ -64,16 +64,21 @@ const DRAW_BUDGETS: Dictionary = {
 		"tris": 94467, "surfaces": 45, "materials": 18,
 		"transparent_tris": 0, "lights": 24, "shadow_casters": 0,
 	},
-	# Four surfaces for a whole arena: one contiguous rock mesh, as the modelling
-	# rule says. The shadow caster is the one to argue about, not the triangles.
+	# Four surfaces were the whole arena until the course went on the lane: 71
+	# placed prop instances is what an obstacle course costs in draw calls, and
+	# the surfaces row is where it shows. The shadow caster is still one.
 	"marble": {
-		"tris": 90759, "surfaces": 5, "materials": 5,
+		"tris": 119100, "surfaces": 90, "materials": 14,
 		"transparent_tris": 0, "lights": 3, "shadow_casters": 1,
 	},
-	# The expensive one: 1.83x the Ring, plus 2196 transparent triangles, plus a
-	# shadow caster. Its ceiling is generous because its measurement already is.
+	# The expensive one: 2.16x the Ring, plus 2196 transparent triangles, plus a
+	# shadow caster. Re-measured after the lane was laid out as an obstacle
+	# course: 45 placed prop instances (trunks, thickets, standing stones,
+	# boulders, shelves, thorn patches, three pads and an orb) take it from 9
+	# surfaces to 54 and from 11 materials to 20. Ceilings are the new
+	# measurement plus 20 %, as the header says.
 	"forest": {
-		"tris": 172674, "surfaces": 11, "materials": 11,
+		"tris": 204532, "surfaces": 65, "materials": 24,
 		"transparent_tris": 2636, "lights": 3, "shadow_casters": 1,
 	},
 }

@@ -1,0 +1,6 @@
+{
+  "_comment": "marble_column_broken: the same column snapped off at ~2.2 m with a jagged fracture cap -- standing cover. Origin at the base centre, y=0 is the ground; 0.8 m across the shaft on the same square plinth. One textured material (marble_build.py's painted 256 px Temple-of-Time atlas + emissive), one UV set, no skin, no animation. MarbleColumnBrokenCollision is drawn from the column's own faces -- an 8-sided body following the same profile -- and shipped as a `-colonly` node; Godot turns it into a StaticBody3D + ConcavePolygonShape3D and drops its mesh, so `surfaces` stays 1 and `max_tris` counts only what is drawn.",
+  "node_paths": ["MarbleColumnBroken", "MarbleColumnBrokenCollision", "MarbleColumnBrokenCollision/CollisionShape3D"],
+  "surfaces": 1,
+  "max_tris": 400
+}
