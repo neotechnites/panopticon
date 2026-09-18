@@ -32,10 +32,55 @@ Rules that shape everything:
 
 **Pocket 130–145**: slab r 52 @ 138.
 
-**S3 The Split 145–200** — choose.
-- `rock_wall` × 5 full height at r 55 from 148 → 197: a solid divider.
-- INNER lane r 44–54.5: open, fast, no cover at all.
-- OUTER lane r 55.5–60: fully covered from the tower, but the floor is lava (`lava_tile` r 56–60 from 150 → 195) with 8 `boulder` at r 58: @153, @158, @163, @169, @175, @181, @187, @193 (gaps 3.5–4 m, one 4.5 m jump @169→175). Entrance/exit gaps in the wall @146 and @199.
+**S3 The Demon Minefield 145–200** — chaos. Ryan: *"a minefield of demon pads,
+and cover that is only about as tall as a character, so if you hit a demon pad,
+you get bounced up out of cover ... a path cut through them, that sometimes you
+need to jump over the pads. you just land back down on the same field."*
+
+The floor, the corridor, the cover and the dips are all `map_base.glb`'s own
+rock, from one height field: `tools/modelling/lib/s3_minefield.py`. The mesh,
+the pad transforms in `scenes/ring/bentham_ring.tscn` and the proofs in
+`tools/modelling/lib/s3_proof.py` all read that one layout, so the pad a runner
+trips is on the rock the guard is looking at.
+
+- **No lava and no TrapVolume anywhere in this section.** A launch drops you
+  back on the same field; nothing here kills you.
+- The field is plain deck (r 46.7–57.3, y 23.0) under a dense scatter of
+  `demon_pad` nodes — the shipped pad, shipped physics: 18 m/s at 45°, 14.70 m
+  range, 3.68 m apex. Every flight is solved to land back inside the section
+  (r 48.2–56.2, bearings 146–199); a pad past bearing 182 cannot reach a legal
+  forward landing on a 10.6 m deck, so those few aim backward instead.
+- **Cover is crests grown out of the field's own rock**, never a block on it,
+  tops 1.9–2.1 m over the deck — about as tall as a prisoner — on the TOWER
+  side of the corridor, so a runner outward of one is hidden standing or
+  crouched. Their flanks are steeper than 46°, so a launched body cannot land
+  on one and stand there.
+- **A corridor is cut through the pads**, walkable end to end by a 0.4 m body
+  without ever overlapping a pad's trigger box.
+- **Three dips break it.** Where the corridor is pinched to under 3.3 m the
+  floor drops ~0.55 m into a 6 m saucer with a pad on its floor: the pad cannot
+  be walked round, and because the take-off rim stands 0.55 m over the pad the
+  jump's feet clear the trigger box's 1.0 m top for the whole 3.3 m the capsule
+  overlaps it. From flat ground a full 2.5 m pad is NOT jumpable (the window
+  where a 7 m/s jump keeps its feet over 1.0 m is only 2.24 m long) — the dip
+  is what makes the jump exist. The outer shoulder that pinches each dip is
+  ROCK, not a second pad: a pad out at r 55 has no forward flight that lands
+  back on a 10.6 m deck, and rock needs no flight.
+- **Every pad aims forward** (its landing bearing is greater than its own), and
+  past bearing ~184.5 no forward flight lands on the field, so no pad is laid
+  there and the last stretch is the way out. A backward-throwing pad loops a
+  bot for ever — it walks forward, is thrown back, walks forward again — and
+  fails `test_a_runner_completes_a_lap`. Bots are map-agnostic, so the map has
+  to be what fixes that, not the brain.
+- **The corridor carries the bot navigation mesh, not just a body.** `RingBake`
+  bakes at agent radius 0.50 on a 0.25 m grid, so a route has to stay about
+  2.6 m clear: a corridor a human walks is not automatically one a bot can
+  path. A 1.30 m radius disc rolls from end to end.
+- Getting launched throws you to +3.68 m, well over the 2.1 m cover line, into
+  plain view; you land back down on the same field.
+- The guard's eye for this section is y = **28.90**, traced from the running
+  game (`Tower/TowerSpawn` at 27.30 plus `RingBake.EYE_HEIGHT_METRES` 1.60),
+  not the 23.0 + 4.0 the older sections assume.
 
 **Pocket 200–215**: slab r 52 @ 208.
 

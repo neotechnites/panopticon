@@ -235,6 +235,17 @@ stage_ship() {
       queue="${queue:+$queue }$dep"
       push "$HERE/${dep}_build.py" "$JOB/${dep}_build.py"
     done
+    # Shared modules under lib/ that the script imports by bare name
+    # (map_base reads lib/s3_minefield.py and lib/s3_proof.py). mdl.py already
+    # lands beside the script, so these go to the same place and the script
+    # directory's place on sys.path finds them -- without this a --pc build
+    # dies on ImportError while the Mac build is perfectly fine.
+    for dep in $(grep -oE '^(import|from) [a-z0-9_]+' "$HERE/${cur}_build.py" | awk '{print $2}'); do
+      [ -f "$HERE/lib/${dep}.py" ] || continue
+      case "$seen" in *" lib:$dep "*) continue ;; esac
+      seen="$seen lib:$dep "
+      push "$HERE/lib/${dep}.py" "$JOB/${dep}.py"
+    done
   done
   # Texture files a build script may load instead of painting (map_base's
   # river/lava sheets): shipped next to the script, stale ones cleared.

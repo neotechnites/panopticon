@@ -42,6 +42,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)) + os.sep + "lib")
 
 import mdl  # noqa: E402
+import s3_minefield  # noqa: E402
+import s3_proof  # noqa: E402
 
 # The model spans y = -11 .. +330; mdl's ground plane would sit under the
 # courtyard and black out any low camera. Same override as the tower.
@@ -312,6 +314,7 @@ S4_EXIT_LAND = 1.5                    # ... and onto the exit deck, past the lav
 S4_PAD_BACK = 1.6                     # a rock's pad centre this far behind its front edge
 S4_WALK_ON = 1.75                     # launch origin behind the pad centre: trigger face 1.5 + capsule 0.4 - one tick
 S4_LAUNCH, S4_ANGLE, S4_G = 18.0, 45.0, 22.0
+S4_APEX = 3.68                        # the pad's apex over its take-off: (v sin a)^2 / 2g
 S4_JUMP_V, S4_RUN, S4_SLIDE = 7.0, 11.0, 14.0
 S4_GUARD_EYE = 27.0
 S4_BODY_H = 1.8
@@ -325,6 +328,47 @@ S4_REVIEW = (2.0, 0.36, 0.7, 0.0)     # review renders only: white sun W, fill g
 S4_SEED = 6180339
 S4 = {}                               # the layout, filled by _s4_layout()
 S4_ROCK_MESH = []                     # (rock, ring list) for the collider
+
+# ---- S3 Demon Minefield: the deck is a field of boost pads with one pad-free
+# corridor cut through it. Ryan: "a minefield of demon pads, and cover that is
+# only about as tall as a character, so if you hit a demon pad, you get bounced
+# up out of cover ... a path cut through them, that sometimes you need to jump
+# over the pads. you just land back down on the same field."
+#
+# So: no lava anywhere in here. The section's whole shape is ONE height field,
+# tools/modelling/lib/s3_minefield.py, which the deck grid, the collider, the
+# proofs in lib/s3_proof.py and the scene's pad transforms all read -- one
+# truth, so the pad a runner trips is on the rock the guard is looking at.
+# Cover is crests grown out of the field's own rock, never a block on it.
+S3_EYE_Z = 28.90                      # the guard's eye, TRACED IN THE RUNNING GAME rather
+                                      # than assumed: RingBake takes Tower/TowerSpawn (tower
+                                      # origin 25.35 + local 1.95 = 27.30) plus its own
+                                      # EYE_HEIGHT_METRES 1.60, and bake.get_eye() prints
+                                      # (0, 28.9, 0). S1_EYE_Z and S4_GUARD_EYE still say 27.0,
+                                      # an old deck-level approximation that makes their cover
+                                      # claims 1.9 m of eye height too generous. Not changed
+                                      # here -- it is not this section's to move -- but S3 is
+                                      # proved against the eye the game actually uses.
+S3_COLL_COL = 1                       # collider: every Nth of the section's columns ...
+S3_COLL_ST = 1                        # ... and every Nth station. BOTH 1 on purpose: the
+                                      # cover here is only ~2 m tall and blocks the guard by
+                                      # as little as 0.47 m, so a collider that sampled the
+                                      # crests on a coarser grid than the art would round
+                                      # their tops down and a runner would stand behind cover
+                                      # shorter than the cover he can see. Art and collision
+                                      # are the SAME surface in this section.
+S3_FLANK = 30.0                       # a facet leaning more than this off flat is wall, not deck
+S3_REVIEW = (2.2, 0.55, 1.5)          # review renders only: white sun W, world grey, exposure EV
+S3_FIELD_BACK = 4.5                   # ... degrees the mid-field eye stands behind the proxy
+S3_EYE_R = 54.3                       # ... and the radius the approach shot stands at: outside
+                                      # the crest band, or the first crest fills the frame
+S3_PAD_HALF = 1.25                    # ... the stand-in pad plate's half extent, as the node's
+S3_PLATE_N = 12                       # ... sides on its disc
+S3_PLATE_LIFT = 0.02                  # ... how far it floats over the rock, to not z-fight
+S3_PLATE_COLOUR = (0.26, 0.055, 0.010, 1.0)   # ... its plate: dark enough to survive the
+                                      # review fill and the +1.5 EV, or it reads as a white blob
+S3_CHEVRON_COLOUR = (0.95, 0.42, 0.06, 1.0)   # ... and its chevron, which says which way it throws
+S3 = {}                               # the layout plus the columns it claimed
 
 # ---- prison cells: stone screens cut into the pit faces ---------------------
 # A cell is an arched mouth cut through the wall, a reveal stepping back to a
@@ -2804,6 +2848,108 @@ def _s2_stats(s2):
               % (k + 1, sb, cb, -cb, sb, rm * cb, LAVA_Z, rm * sb, along, S2_TRAP_R[1] - S2_TRAP_R[0]))
 
 
+# -----------------------------------------------------------------------------
+# S3, the Demon Minefield: a field of pads on plain deck, a corridor cut
+# through it, low crests for cover, three dips where a pad has to be jumped
+# -----------------------------------------------------------------------------
+
+def _s3_setup(T, base_cols):
+    """S3's columns: the deck's own inside the section, each end snapped onto
+    one when it is within COL_MERGE, and the section's own between -- so the
+    deck, the outer wall and the ceiling all break on the same lines and
+    nothing T-junctions. Same shape as _s2_setup."""
+    L = dict(s3_minefield.layout())
+    ends = []
+    for b in L["ext"]:
+        t = T(b)
+        near = [c for c in base_cols if abs(c - t) * CROSS_R <= COL_MERGE]
+        ends.append(near[0] if near else t)
+    s1, s0 = ends                     # the LOW bearing is the HIGH Blender angle
+    keep = [c for c in base_cols if s0 < c < s1] + [s0, s1]
+    cols = [t for t in (T(b) for b in L["cols"]) if s0 < t < s1
+            and all(abs(t - k) * CROSS_R > COL_MERGE for k in keep)]
+    L.update(s0=s0, s1=s1, cols=_merge_cols(keep, cols), T=T)
+    return L
+
+
+def _s3_h(L, x, y):
+    """The section's rock over DECK_Z at a BLENDER plan point. Godot's plan
+    axes are (x, -y), which is the frame lib/s3_minefield.py is written in."""
+    return L["height"](x, -y)
+
+
+def _s3_zone(m, ids):
+    """A facet flat enough to be floor takes the deck's radial projection; a
+    crest flank or a dip wall takes the rock zone, or the radial projection
+    collapses on it and the texture smears vertically."""
+    pts = [m.verts[i] for i in ids]
+    n = _newell(pts)
+    mag = math.sqrt(n[0] * n[0] + n[1] * n[1] + n[2] * n[2])
+    if mag < EPS:
+        return ZONE_DECK
+    if abs(n[2]) / mag >= math.cos(math.radians(S3_FLANK)):
+        return ZONE_DECK
+    return ZONE_SHADE
+
+
+def _s3_collider(c):
+    """The section's deck follows the field: one grid on the same surface the
+    art mesh uses, at S1's collider cell size. No lava, no rocks, no holes --
+    the crests ARE the deck here."""
+    L = S3["L"]
+    cols = L["cols"][::S3_COLL_COL]
+    if cols[-1] != L["cols"][-1]:
+        cols.append(L["cols"][-1])
+    st = L["stations"][::S3_COLL_ST]
+    if st[-1] != L["stations"][-1]:
+        st.append(L["stations"][-1])
+    deck_xy = S3["deck_xy"]
+    grid = []
+    for t in cols:
+        col = []
+        for rad in st:
+            x, y = deck_xy(t, rad)
+            col.append(c.v((x, y, DECK_Z + _s3_h(L, x, y))))
+        grid.append(col)
+    for i in range(len(cols) - 1):
+        for j in range(len(st) - 1):
+            c.quad(grid[i][j], grid[i + 1][j], grid[i + 1][j + 1], grid[i][j + 1],
+                   UP, ZONE_ROCK)
+    S3["coll_tris"] = 2 * (len(cols) - 1) * (len(st) - 1)
+
+
+def _s3_pad_transform(L, pad):
+    """The pad node's Godot Transform3D: it launches along local -Z, so the
+    basis' third COLUMN is minus the flight direction and the .tscn's twelve
+    floats are that basis by ROWS, then the origin. Derived from the landing
+    the layout solved, never from a hand-typed angle."""
+    bx, by, _ = pol(pad["b"], pad["r"], 0.0)      # pol is Blender ...
+    ox, oz = bx, -by                              # ... and Godot z = -Blender y
+    oy = DECK_Z + _s3_h(L, bx, by)
+    fx, fz = pad["land"][0] - ox, pad["land"][1] - oz
+    n = math.hypot(fx, fz) or 1.0
+    fx, fz = fx / n, fz / n
+    return ("Transform3D(%.6f, 0, %.6f, 0, 1, 0, %.6f, 0, %.6f, %.4f, %.3f, %.4f)"
+            % (-fz, -fx, fx, -fz, ox, oy, oz)), (ox, oy, oz), (fx, fz)
+
+
+def _s3_stats():
+    L = S3["L"]
+    for line in s3_proof.stats(L, eye=(0.0, S3_EYE_Z, 0.0)):
+        print(line)
+    for k, pad in enumerate(L["pads"]):
+        xf, o, _f = _s3_pad_transform(L, pad)
+        print("MDL STATS s3 pad%d bearing=%.2f r=%.2f %s | flight %.2f m to bearing %.2f r %.2f"
+              % (k + 1, pad["b"], pad["r"], xf,
+                 math.hypot(pad["land"][0] - o[0], pad["land"][1] - o[2]),
+                 math.degrees(math.atan2(pad["land"][1], pad["land"][0])) % 360.0,
+                 math.hypot(*pad["land"])))
+    print("MDL STATS s3 grid %d columns x %d stations, collider %d tris, %d pads, %d cover crests, "
+          "no lava and no trap volume in the section"
+          % (len(L["cols"]), len(L["stations"]), S3.get("coll_tris", 0),
+             len(L["pads"]), len(L["covers"])))
+
+
 # =============================================================================
 # S1 -- THE SPIRES (game bearings 15..60): a stalactite cave grown into the
 # rock. Between the deck columns nearest S1_EXT the deck, the ceiling, the
@@ -4052,6 +4198,9 @@ def _rock(r):
     s2 = _s2_setup(T, base_cols)                   # S2's river: its own columns too
     cols_all = _merge_cols(cols_all, s2["cols"])
     _s2_lines(s2, cols_all)
+    s3 = _s3_setup(T, base_cols)                   # S3's minefield: its own columns too
+    S3["L"] = s3
+    cols_all = _merge_cols(cols_all, s3["cols"])
     s1_in = [t for t in cols_all if T(S1_EXT[1]) <= t <= T(S1_EXT[0])]
     s1_lo, s1_hi = s1_in[0], s1_in[-1]           # S1 re-lays everything between these
 
@@ -4417,6 +4566,39 @@ def _rock(r):
         dv[key] = m.v(river_pt(t, j, p, math.hypot(pa[0], pa[1]), r_foot))
         return dv[key]
 
+    s3v = {}
+    S3_ST = s3["stations"]
+
+    def s3_xy(t, rho):
+        """The plan point of a station at column t, between the pit lip's own
+        chord and the wall foot's own chord -- the same frame S1's collider
+        uses, so the section's grid meets the ring's rings exactly and the
+        collider built from it lands on the art mesh rather than beside it."""
+        pa, pb = _chord(m, pit[npit - 1], ang, t), _chord(m, wall[0], ang, t)
+        f = (rho - INNER_R) / (OUTER_R - INNER_R)
+        return ((1 - f) * pa[0] + f * pb[0], (1 - f) * pa[1] + f * pb[1])
+
+    S3["deck_xy"] = s3_xy
+
+    def S3V(t, j):
+        """A minefield station's vertex at column t. The pit lip and the wall
+        foot are the deck's own vertices, so the section welds to the ring
+        outside it without a single duplicate position."""
+        if j == 0:
+            return DV(t, 0)
+        if j == len(S3_ST) - 1:
+            return foot(t)
+        key = (round(t, 7), j)
+        if key not in s3v:
+            x, y = s3_xy(t, S3_ST[j])
+            s3v[key] = m.v((x, y, DECK_Z + _s3_h(s3, x, y)))
+        return s3v[key]
+
+    def s3_chain(t, inside):
+        if inside:
+            return [(S3_ST[j], S3V(t, j)) for j in range(len(S3_ST))]
+        return [(RST[j], DV(t, j)) for j in range(len(RST))]
+
     s2v, s2p = {}, {}
 
     def S2V(t, j):
@@ -4442,6 +4624,16 @@ def _rock(r):
     for ci in range(len(cols_all) - 1):
         t0, t1 = cols_all[ci], cols_all[ci + 1]
         if in_s1(t0, t1):
+            continue
+        s3in0 = s3["s0"] - 1e-9 <= t0 <= s3["s1"] + 1e-9
+        s3in1 = s3["s0"] - 1e-9 <= t1 <= s3["s1"] + 1e-9
+        if s3in0 and s3in1:                            # S3: the minefield's field
+            for j in range(len(S3_ST) - 1):
+                ids = (S3V(t0, j), S3V(t1, j), S3V(t1, j + 1), S3V(t0, j + 1))
+                m.quad(ids[0], ids[1], ids[2], ids[3], UP, _s3_zone(m, ids), best=True)
+            continue
+        if s3in0 or s3in1:                             # its ends meet the plain deck
+            _strip(m, s3_chain(t0, s3in0), s3_chain(t1, s3in1), UP, ZONE_DECK)
             continue
         s2in0 = s2["s0"] - 1e-9 <= t0 <= s2["s1"] + 1e-9
         s2in1 = s2["s0"] - 1e-9 <= t1 <= s2["s1"] + 1e-9
@@ -4600,7 +4792,9 @@ def _collider(ang, cut0, cut1, s2, s4):
 
     # Deck and pit wall are cut where the river runs: no deck collision over it
     # and the lip comes down to the trench, so nothing invisible dams the lava.
-    dcols = _merge_cols(list(ang) + [ang[0] + TWO_PI], [cut0, cut1, s2["s0"], s2["s1"], s4[0], s4[3]])
+    dcols = _merge_cols(list(ang) + [ang[0] + TWO_PI],
+                        [cut0, cut1, s2["s0"], s2["s1"], s4[0], s4[3],
+                         S3["L"]["s0"], S3["L"]["s1"]])
     cv = {}
 
     def CV(tag, ring, t, z=None):
@@ -4624,13 +4818,15 @@ def _collider(ang, cut0, cut1, s2, s4):
         c.quad(CV("foot", pit_foot, t0), CV("foot", pit_foot, t1), a1, a0,
                inward, ZONE_SHADE)                                     # pit wall
         if (inside or (t0 >= s2["s0"] - 1e-9 and t1 <= s2["s1"] + 1e-9)
+                or (S3["L"]["s0"] - 1e-9 <= t0 and t1 <= S3["L"]["s1"] + 1e-9)
                 or (s1_lo - 1e-9 <= t0 and t1 <= s1_hi + 1e-9)):
-            continue                                       # the rivers and S1 lay their own
+            continue                                       # the rivers, S1 and S3 lay their own
         c.quad(a0, a1, CV("out", foot, t1), CV("out", foot, t0), UP, ZONE_ROCK)
 
     _lake_collider(c, _Rng(LAKE_SEED))
     _s2_collider(c, s2, ang, lip, foot, CV)
     _s1_collider(c)
+    _s3_collider(c)
     _s4_collider(c, _Rng(S4_SEED + 5), s4)
     _shelf_box(c)
     return c
@@ -4851,6 +5047,7 @@ def _deck_render(spec, objects):
         shot("mouth", _v3(cm, out, -1.7 * h), cm, 40.0, (1000, 800))
     if S1_REVIEW:
         _s1_review(scene, shot)
+    _s3_review(scene, shot)
 
     # ---- S2 review shots: render-only lighting (white fill, grey world,
     # more exposure) so the rock reads mid-grey and the lava still glows;
@@ -4883,6 +5080,137 @@ def _deck_render(spec, objects):
          30.0, (1400, 800))
 
     for ob in (cam, target, key, fill, proxy):
+        bpy.data.objects.remove(ob, do_unlink=True)
+
+
+def _s3_proxy(name, px, py, pz, h, colour):
+    """A render-only body: 0.6 m across the sight line, 0.3 m deep, h tall,
+    standing on the rock at (px, py, pz). Never exported."""
+    b = _bear_deg(math.atan2(py, px))
+    er, et = _radial(b), _tangent(b)
+    verts = []
+    for dz in (-0.05, h):
+        for (dr, dt) in ((-0.15, -0.3), (0.15, -0.3), (0.15, 0.3), (-0.15, 0.3)):
+            verts.append((px + er[0] * dr + et[0] * dt, py + er[1] * dr + et[1] * dt, pz + dz))
+    faces = [(0, 3, 2, 1), (4, 5, 6, 7), (0, 1, 5, 4), (1, 2, 6, 5), (2, 3, 7, 6), (3, 0, 4, 7)]
+    ob = mdl.mesh(name, verts, faces)
+    ob.data.materials.append(mdl.flat_material(name + "Mat", colour))
+    return ob
+
+
+def _s3_pad_plates(L):
+    """Review-only discs standing in for the scene's demon pads. The pads are
+    Godot nodes, so a Blender render of the .glb shows a bare field and the
+    minefield -- the whole point of the section -- is invisible. These are
+    12-gon plates 20 mm over the rock, glowing, and every one of them is
+    removed before the file is written."""
+    made = []
+    for k, pad in enumerate(L["pads"]):
+        bx, by, _ = pol(pad["b"], pad["r"], 0.0)
+        z = DECK_Z + _s3_h(L, bx, by) + S3_PLATE_LIFT
+        er, et = _radial(pad["b"]), _tangent(pad["b"])
+        fx, fz = pad["land"][0] - bx, pad["land"][1] + by      # Godot plan, then to Blender
+        verts, faces = [], []
+        for i in range(S3_PLATE_N):
+            a = TWO_PI * i / S3_PLATE_N
+            u, v = S3_PAD_HALF * math.cos(a), S3_PAD_HALF * math.sin(a)
+            verts.append((bx + et[0] * u + er[0] * v, by + et[1] * u + er[1] * v, z))
+        disc = [tuple(range(S3_PLATE_N))]
+        n = math.hypot(fx, fz) or 1.0
+        ax, ay = fx / n, -fz / n                               # the facing, in Blender plan
+        for q in (0.25, 0.60, 0.95):                           # a chevron: three bars, narrowing
+            w = S3_PAD_HALF * (1.0 - q) * 0.9
+            cx, cy = bx + ax * (q - 0.5) * 2.0 * S3_PAD_HALF, by + ay * (q - 0.5) * 2.0 * S3_PAD_HALF
+            base = len(verts)
+            for (du, dv) in ((-w, -0.12), (w, -0.12), (w, 0.12), (-w, 0.12)):
+                verts.append((cx - ay * du + ax * dv, cy + ax * du + ay * dv, z + 0.02))
+            faces.append((base, base + 1, base + 2, base + 3))
+        ob = mdl.mesh("PadPlate%d" % k, verts, disc)
+        ob.data.materials.append(mdl.flat_material("PadPlateMat%d" % k, S3_PLATE_COLOUR))
+        ch = mdl.mesh("PadChevron%d" % k, verts, faces)
+        ch.data.materials.append(mdl.flat_material("PadChevronMat%d" % k, S3_CHEVRON_COLOUR))
+        made += [ob, ch]
+    return made
+
+
+def _s3_corridor_r(L, bearing):
+    """The corridor's radius at a bearing: it weaves, so a camera meant to stand
+    ON the route cannot assume one."""
+    best = min(L["corridor"], key=lambda br: abs(br[0] - bearing))
+    return best[1]
+
+
+def _s3_review(scene, shot):
+    """Review-only: a white fill over the minefield, exposure up, and three
+    proxy bodies -- one standing and one crouched behind cover on the ground,
+    one at a pad's apex -- so the raycast numbers in the MDL STATS s3 lines
+    can be read off a picture. Everything made here is removed after."""
+    L = S3["L"]
+    made = []
+    sd = bpy.data.lights.new("ReviewSun", type="SUN")
+    sd.energy, sd.color = S3_REVIEW[0], (1.0, 1.0, 1.0)
+    sun = mdl._link(bpy.data.objects.new("ReviewSun", sd))
+    aim = mdl._link(bpy.data.objects.new("ReviewAim", None))
+    sun.location, aim.location = (0.0, 0.0, 40.0), pol(172.0, 52.0, DECK_Z)
+    con = sun.constraints.new(type="TRACK_TO")
+    con.target, con.track_axis, con.up_axis = aim, "TRACK_NEGATIVE_Z", "UP_Y"
+    made += [sun, aim]
+    for b in (150.0, 162.0, 174.0, 186.0, 197.0):
+        ld = bpy.data.lights.new("ReviewFill", type="POINT")
+        ld.energy, ld.color, ld.shadow_soft_size = 5200.0, (1.0, 1.0, 1.0), 3.0
+        f = mdl._link(bpy.data.objects.new("ReviewFill", ld))
+        f.location = pol(b, 52.0, DECK_Z + 4.5)
+        made.append(f)
+    mdl._try(scene.view_settings, "exposure", S3_REVIEW[2])
+
+    covers = L["covers"]
+    mid = covers[len(covers) // 2]
+    alt = covers[min(len(covers) - 1, len(covers) // 2 + 2)]
+    bodies = []
+    for cv, h, colour, nm in ((mid, S4_BODY_H, (0.1, 0.9, 0.2, 1.0), "StandProxy"),
+                              (alt, 1.2, (0.2, 0.5, 1.0, 1.0), "CrouchProxy")):
+        px, py, _ = pol(cv["b"], cv["hide_r"], 0.0)
+        pz = DECK_Z + _s3_h(L, px, py)
+        made.append(_s3_proxy(nm, px, py, pz, h, colour))
+        bodies.append((px, py, pz))
+    pad = L["pads"][0]
+    apx, apy, _ = pol(pad["b"], pad["r"], 0.0)
+    made.append(_s3_proxy("LaunchProxy", apx, apy,
+                          DECK_Z + _s3_h(L, apx, apy) + S4_APEX, S4_BODY_H,
+                          (1.0, 0.35, 0.1, 1.0)))
+
+    made += _s3_pad_plates(L)
+    dip = L["dips"][len(L["dips"]) // 2]
+    r0, r1 = dip["rim0"], dip["rim1"]
+    rim0 = (r0[0], -r0[1], DECK_Z + _s3_h(L, r0[0], -r0[1]))
+    rim1 = (r1[0], -r1[1], DECK_Z + _s3_h(L, r1[0], -r1[1]))
+    back = _bear_deg(math.atan2(rim0[1], rim0[0]))
+    ent, ext = L["ext"]
+
+    # The approach: stand OUTWARD of the crest band (the crests run r 48.5..51.5,
+    # so an eye on the lane at r 52 is inside the first one) and look down the run.
+    shot("review_s3_entry", pol(ent - 1.5, S3_EYE_R, DECK_Z + EYE_H),
+         pol(ent + 19.0, S3_EYE_R - 1.0, DECK_Z + 1.0), 26.0, (1500, 850))
+    # Mid-field beside a cover piece: stand on the corridor a few degrees short of
+    # the proxy (the camera was inside it), at the corridor's own radius there.
+    eye_b = mid["b"] - S3_FIELD_BACK
+    eye_r = _s3_corridor_r(L, eye_b)
+    eb = pol(eye_b, eye_r, 0.0)
+    tb = pol(mid["b"] + 11.0, _s3_corridor_r(L, mid["b"] + 11.0), 0.0)
+    shot("review_s3_field", (eb[0], eb[1], DECK_Z + _s3_h(L, eb[0], eb[1]) + EYE_H),
+         (tb[0], tb[1], DECK_Z + 1.2), 28.0, (1500, 850))
+    shot("review_s3_guard", (0.0, 0.0, S3_EYE_Z), pol(172.0, 52.0, DECK_Z), 35.0, (1600, 900))
+    shot("review_s3_aerial", pol(172.0, 14.0, 62.0), pol(172.0, 52.0, DECK_Z), 26.0, (1600, 1000))
+    shot("review_s3_jump", pol(back - 3.5, math.hypot(rim0[0], rim0[1]), rim0[2] + EYE_H),
+         (rim1[0], rim1[1], rim1[2] + 0.4), 30.0, (1500, 850))
+    shot("review_s3_cover", (0.0, 0.0, S3_EYE_Z),
+         (bodies[0][0], bodies[0][1], bodies[0][2] + 0.9), 80.0, (1300, 900))
+    shot("review_s3_crouch", (0.0, 0.0, S3_EYE_Z),
+         (bodies[1][0], bodies[1][1], bodies[1][2] + 0.6), 80.0, (1300, 900))
+    shot("review_s3_launch", (0.0, 0.0, S3_EYE_Z),
+         (apx, apy, DECK_Z + S4_APEX + 0.9), 55.0, (1300, 900))
+    mdl._try(scene.view_settings, "exposure", 0.0)
+    for ob in made:
         bpy.data.objects.remove(ob, do_unlink=True)
 
 
@@ -5004,6 +5332,7 @@ def build():
         print("MDL STATS platform%d bearing=%.3f r=%.1f top=%.2f square=%.1f %s"
               % (k + 1, b, rad, PLAT_TOP_Z, 2.0 * PLAT_HALF, "inner+fin" if inner else "outer"))
     _s2_stats(s2)
+    _s3_stats()
     _s4_stats()
     print("MDL STATS cells=%d pit=%d pit_top=%.1f uniform_to=%.0f above200=%d top=%.0f"
           % (len(CELLS), sum(1 for c in CELLS if c[0][2] < DECK_Z),

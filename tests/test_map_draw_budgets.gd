@@ -60,8 +60,19 @@ extends TestCase
 ## be RIGHT here. They are asserted not to move without somebody saying so.
 const DRAW_BUDGETS: Dictionary = {
 	# The reference map. B1-B5 were all measured on this one.
+	#
+	# `surfaces` was 45 (measured 37, +20 %) until S3, the demon minefield, put
+	# 35 `demon_pad` nodes on the deck. Each pad instance is one more surface --
+	# Godot draws separate MeshInstance3Ds separately under GL Compatibility, so
+	# a minefield of N pads costs N draw surfaces and there is no batching to
+	# reclaim them without a MultiMesh. Re-measured at 72 and re-ceilinged at
+	# 72 + 20 %. This is somebody saying so, which is what the header asks for:
+	# the cost is the pad COUNT, so if the Ring's surfaces move again without S3
+	# changing, that is the change of order this gate exists to catch.
+	# `tris` is NOT widened: the measurement rose 78722 -> 87656 and is still
+	# inside the ceiling it already had.
 	"bentham_ring": {
-		"tris": 94467, "surfaces": 45, "materials": 18,
+		"tris": 94467, "surfaces": 87, "materials": 18,
 		"transparent_tris": 0, "lights": 24, "shadow_casters": 0,
 	},
 	# Four surfaces for a whole arena: one contiguous rock mesh, as the modelling
