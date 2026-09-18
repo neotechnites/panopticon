@@ -2935,19 +2935,28 @@ def _s3_lattice(lo, hi, step, exact, merge):
 # or two branching off it through T-mouths that reuse the main's own side
 # vertices. One tree, one island, one outline: the deck round it is one
 # polygon with one hole, welded on the grid's own vertices.
-S3_CRACK_W = (0.07, 0.24)             # a fissure's half width at the deck, interior stations
-S3_CRACK_D = (0.10, 0.22)             # ... and its floor depth, wider is deeper
-S3_CRACK_PORT_W = (0.10, 0.18)        # half width where two cells' fissures meet
+S3_CRACK_W = (0.09, 0.22)             # a fissure's half width at the deck, interior stations:
+                                      # never a hairline, so it reads from the tower
+S3_CRACK_D = (0.14, 0.26)             # ... and its floor depth, wider is deeper
+S3_CRACK_PORT_W = (0.12, 0.22)        # half width where two cells' fissures meet
 S3_CRACK_PORT_D = (0.12, 0.18)
-S3_CRACK_INSET = 0.35                 # interior stations keep this far inside the cell's edges
+S3_CRACK_INSET = 0.18                 # interior stations keep this far inside the cell's edges
 S3_CRACK_PORT_IN = (0.30, 0.55)       # the first station in from a port, metres straight in
-S3_CRACK_STEP = (0.25, 0.65)          # metres between stations along a fissure
+S3_CRACK_STEP = (0.20, 0.45)          # metres between stations along a fissure
 S3_CRACK_KICK = (0.10, 0.40)          # lateral jag of an interior station off the line
 S3_CRACK_ANGLE = 60.0                 # no station sharper than this
-S3_CRACK_MOUTH = (0.22, 0.65)         # a host segment this long may take a branch
-S3_CRACK_GAP = 0.12                   # fissures that do not join keep this apart
-S3_CRACK_SPLINTER = (0.45, 0.95)      # a dead-end splinter's reach off its host
-S3_CRACK_TRIES = 80                   # draws per cell before the plain fallback
+S3_CRACK_MOUTH = (0.18, 0.60)         # a host segment this long may take a branch
+S3_CRACK_GAP = 0.08                   # fissures that do not join keep this apart
+S3_CRACK_SPLINTER = (0.35, 1.25)      # a dead-end splinter's reach off its host
+S3_CRACK_BRIDGES = (2, 4)             # fissures a cell runs from one fissure to another, so the
+                                      # crust breaks into plates with lava all round them
+S3_CRACK_BRIDGE_L = (0.6, 1.7)        # ... between mouths this far apart
+S3_CRACK_REFINE = 1.2                 # no deck triangle round the cracks keeps an edge longer
+                                      # than this: a long facet drops its texel density
+S3_CRACK_TRIES = 80                   # draws per cell before the build gives up
+S3_CRACK_PER_CELL = (14, 18)          # fissures a cell is crazed with: main, port branches,
+                                      # then dead-end splinters off any of them ...
+S3_CRACK_DEPTH_MAX = 3                # ... splinters off splinters, this deep
 
 
 def _s3n_u(v):
@@ -3035,19 +3044,21 @@ def _s3n_normals(f, ports):
     return out
 
 
-def _s3n_chain(rng, p0, d0, p1, d1, inside):
+def _s3n_chain(rng, p0, d0, p1, d1, inside, back0=0.0, back1=0.0):
     """A jagged polyline from p0 to p1. d0: the direction it must leave p0
     along (None: free); d1: the direction it must arrive at p1 along (None:
-    free). Interior stations inside(). None when no draw fits."""
+    free); back0/back1: extra metres the first/last interior station stands
+    off its end (a host's half width, when the end is a mouth on it).
+    Interior stations inside(). None when no draw fits."""
     for _ in range(12):
         c = [p0]
         if d0 is not None:
-            k = S3_CRACK_PORT_IN[0] + rng.f() * (S3_CRACK_PORT_IN[1] - S3_CRACK_PORT_IN[0])
+            k = back0 + S3_CRACK_PORT_IN[0] + rng.f() * (S3_CRACK_PORT_IN[1] - S3_CRACK_PORT_IN[0])
             side = _s3n_perp(d0)
             c.append(_s3n_add(_s3n_add(p0, d0, k), side, rng.sf() * 0.12))
         last = None
         if d1 is not None:
-            k = S3_CRACK_PORT_IN[0] + rng.f() * (S3_CRACK_PORT_IN[1] - S3_CRACK_PORT_IN[0])
+            k = back1 + S3_CRACK_PORT_IN[0] + rng.f() * (S3_CRACK_PORT_IN[1] - S3_CRACK_PORT_IN[0])
             side = _s3n_perp(d1)
             last = _s3n_add(_s3n_add(p1, d1, -k), side, rng.sf() * 0.12)
         a = c[-1]
@@ -3119,26 +3130,131 @@ def _s3n_mouth_pts(host, k, side):
     return R[0], R[1]
 
 
+def _s3n_fits(new, ring, made, rings, in_box, ports, base):
+    """Whether a freshly drawn fissure may join the cell: its outline simple
+    and inside the inset box (a port's own two vertices may sit on the
+    edge), clear of every other fissure by S3_CRACK_GAP, and against its
+    host touching only at the two mouth vertices it shares."""
+    if not _s3c_simple(ring):
+        return False
+    pks = [e[1] for e in (new["e0"], new["e1"]) if e[0] == "port"]
+    for q in ring:
+        if not in_box(q, S3_CRACK_INSET - 0.06):
+            if not any(_s3n_dist(q, ports[pk]["p"]) <= ports[pk]["w"] + 1e-6 for pk in pks):
+                return False
+    hosts = {}
+    for end, key in ((new["e0"], "mouth0"), (new["e1"], "mouth1")):
+        if end[0] == "mouth":
+            hosts[end[1] - base] = new[key]              # global index -> this cell's
+    shared_pts = [q for mm in hosts.values() for q in mm]
+    for hi, (f, r) in enumerate(zip(made, rings)):
+        if hi in hosts:
+            if not _s3n_ring_clear(ring, r, shared_pts, 0.06):
+                return False
+        else:
+            # a sibling on the next segment of the same host shares a vertex
+            common = [q for q in ring if any(_s3n_dist(q, x) < 1e-9 for x in r)]
+            if common:
+                if not _s3n_ring_clear(ring, r, common, 0.06):
+                    return False
+            elif _s3c_poly_gap(ring, r) < S3_CRACK_GAP:
+                return False
+    return True
+
+
+def _s3n_ring_clear(ring, other, shared, dmin):
+    """Two outlines that meet only at `shared` vertices: every other point
+    of `ring` keeps dmin from `other`, and no edge of one crosses or touches
+    an edge of the other unless they share an endpoint."""
+    no = len(other)
+    for q in ring:
+        if any(_s3n_dist(q, x) < 1e-9 for x in shared):
+            continue
+        if min(_s3n_pt_seg(q, other[i], other[(i + 1) % no]) for i in range(no)) < dmin:
+            return False
+    nb = len(ring)
+    for i in range(nb):
+        pa, pb = ring[i], ring[(i + 1) % nb]
+        for j in range(no):
+            pc, pd = other[j], other[(j + 1) % no]
+            if any(_s3n_dist(x, y) < 1e-9 for x in (pa, pb) for y in (pc, pd)):
+                continue
+            if _s3c_seg_gap(pa, pb, pc, pd) < 0.02:
+                return False
+    return True
+
+
+def _s3n_mouth_on(rng, host, target, want_side, used):
+    """A segment of `host` that may take a mouth: 1..n-3 (never a segment on
+    an end station), S3_CRACK_MOUTH long, not already used on that side nor
+    next to a used one. With a target: the nearest such segment on the
+    target's side, at least 0.45 m off; without: a random one."""
+    pts = host["pts"]
+    n = len(pts)
+    cands = []
+    for k in range(1, n - 2):
+        seg = _s3n_dist(pts[k], pts[k + 1])
+        if not (S3_CRACK_MOUTH[0] <= seg <= S3_CRACK_MOUTH[1]):
+            continue
+        mid = _s3n_add(pts[k], pts[k + 1])
+        mid = (0.5 * mid[0], 0.5 * mid[1])
+        dirv = _s3n_u((pts[k + 1][0] - pts[k][0], pts[k + 1][1] - pts[k][1]))
+        for side in ((1, -1) if want_side is None else (want_side,)):
+            if target is not None:
+                if (1 if _s3n_cross(dirv, _s3n_add(target, mid, -1.0)) > 0.0 else -1) != side:
+                    continue
+            if any(kk == k and ss == side for kk, ss in used):
+                continue
+            dd = _s3n_dist(target, mid) if target is not None else 0.0
+            if target is not None and dd < 0.45:
+                continue
+            cands.append((dd, k, side, mid, dirv))
+    if not cands:
+        return None
+    if target is not None:
+        return min(cands, key=lambda c: c[0])
+    return rng.pick(cands)
+
+
 def _s3n_cell(rng, F, plist, base):
     """One cell's fissures: a main between its two farthest ports (or port
     to tip, or tip to tip), a branch from every other port to a T-mouth on
-    the main, and a dead-end splinter or two. Retried until every outline is
-    simple, fissures that do not join keep S3_CRACK_GAP apart, and every
-    interior station is inside the cell's inset box."""
+    the main, then a crazing of dead-end splinters off every fissure, three
+    deep, until the cell holds S3_CRACK_PER_CELL of them. Ryan: "its needs
+    to be significantly more cracked with clearer edges." Every fissure is
+    fitted (_s3n_fits) as it is drawn; the cell is redrawn only when its
+    port connections cannot be made."""
     c, a, o, ha, hr = F["c"], F["a"], F["o"], F["ha"], F["hr"]
 
+    def local(p):
+        d = _s3n_add(p, c, -1.0)
+        return _s3n_dot(d, a), _s3n_dot(d, o)
+
     def inside(p):
-        u, v = _s3n_dot(_s3n_add(p, c, -1.0), a), _s3n_dot(_s3n_add(p, c, -1.0), o)
+        u, v = local(p)
         return abs(u) <= ha - S3_CRACK_INSET and abs(v) <= hr - S3_CRACK_INSET
 
     def in_box(p, slack=0.0):
-        u, v = _s3n_dot(_s3n_add(p, c, -1.0), a), _s3n_dot(_s3n_add(p, c, -1.0), o)
+        u, v = local(p)
         return abs(u) <= ha - S3_CRACK_INSET + slack and abs(v) <= hr - S3_CRACK_INSET + slack
 
     ports = F["ports"]
     why = {}
     for attempt in range(S3_CRACK_TRIES):
-        made = []
+        made, rings = [], []
+
+        def add(f):
+            f.setdefault("used", [])
+            f.setdefault("depth", 0)
+            _s3n_normals(f, ports)
+            _s3n_widths(rng, f, ports)
+            ring = _s3n_outline(f)
+            if not _s3n_fits(f, ring, made, rings, in_box, ports, base):
+                return False
+            made.append(f)
+            rings.append(ring)
+            return True
+
         # ---- the main
         if len(plist) >= 2:
             best = None
@@ -3154,7 +3270,6 @@ def _s3n_cell(rng, F, plist, base):
             e0, e1 = ("port", k0), ("port", k1)
         elif len(plist) == 1:
             (k0, in0) = plist[0]
-            # the tip: across the cell from the port, off centre
             tip = _s3n_add(c, in0, 0.35 * (ha if abs(_s3n_dot(in0, a)) > 0.5 else hr) * rng.f())
             tip = _s3n_add(tip, _s3n_perp(in0), rng.sf() * 0.6)
             pts = _s3n_chain(rng, ports[k0]["p"], in0, tip, None, inside)
@@ -3163,145 +3278,136 @@ def _s3n_cell(rng, F, plist, base):
         else:
             ang = rng.f() * TWO_PI
             dv = (math.cos(ang), math.sin(ang))
-            p0 = _s3n_add(c, dv, -0.9)
-            p1 = _s3n_add(c, dv, 0.9)
-            pts = _s3n_chain(rng, p0, None, p1, None, inside)
+            pts = _s3n_chain(rng, _s3n_add(c, dv, -0.9), None, _s3n_add(c, dv, 0.9), None, inside)
             rest = []
             e0, e1 = ("tip",), ("tip",)
-        if pts is None:
+        if pts is None or not add(dict(pts=pts, e0=e0, e1=e1, cell=F["cell"], role="main")):
             why["main"] = why.get("main", 0) + 1
             continue
-        main = dict(pts=pts, e0=e0, e1=e1, cell=F["cell"], role="main")
-        _s3n_normals(main, ports)
-        _s3n_widths(rng, main, ports)
-        made.append(main)
-        n = len(pts)
-        used = []                                    # (k, side) mouths on the main
-
-        def mouth_for(target, want_side=None):
-            """The main segment nearest `target` that may take a mouth."""
-            best = None
-            for k in range(1, n - 2):
-                seg = _s3n_dist(pts[k], pts[k + 1])
-                if not (S3_CRACK_MOUTH[0] <= seg <= S3_CRACK_MOUTH[1]):
-                    continue
-                mid = _s3n_add(pts[k], pts[k + 1])
-                mid = (0.5 * mid[0], 0.5 * mid[1])
-                dirv = _s3n_u((pts[k + 1][0] - pts[k][0], pts[k + 1][1] - pts[k][1]))
-                side = 1 if _s3n_cross(dirv, _s3n_add(target, mid, -1.0)) > 0.0 else -1
-                if want_side is not None and side != want_side:
-                    continue
-                if any(kk == k or (ss == side and abs(kk - k) < 2) for kk, ss in used):
-                    continue
-                dd = _s3n_dist(target, mid)
-                if dd < 0.45:
-                    continue
-                if best is None or dd < best[0]:
-                    best = (dd, k, side, mid, dirv)
-            return best
-
-        ok = True
+        main = made[0]
         # ---- branches: every other port joins the main through a mouth
+        ok = True
         for (kp, inp) in rest:
-            pick = mouth_for(ports[kp]["p"])
-            if pick is None:
-                why["mouth"] = why.get("mouth", 0) + 1
-                ok = False
-                break
-            _dd, k, side, mid, dirv = pick
-            nrm = _s3n_perp(dirv)
-            approach = (nrm[0] * side, nrm[1] * side)     # from the host toward the branch
-            bpts = _s3n_chain(rng, ports[kp]["p"], inp, mid, (-approach[0], -approach[1]), inside)
-            if bpts is None:
-                why["branch"] = why.get("branch", 0) + 1
-                ok = False
-                break
-            br = dict(pts=bpts, e0=("port", kp), e1=("mouth", base, k, side), cell=F["cell"],
-                      role="branch", wcap=0.14)
-            br["mouth1"] = _s3n_mouth_pts(main, k, side)
-            _s3n_normals(br, ports)
-            _s3n_widths(rng, br, ports)
-            made.append(br)
-            used.append((k, side))
-        if not ok:
-            continue
-        # ---- splinters: dead ends off the main
-        for _ in range(rng.pick([0, 1, 1, 2])):
+            done = False
             for _try in range(6):
-                k = rng.i(1, n - 3)
-                seg = _s3n_dist(pts[k], pts[k + 1])
-                if not (S3_CRACK_MOUTH[0] <= seg <= S3_CRACK_MOUTH[1]):
-                    continue
-                side = rng.pick([1, -1])
-                if any(kk == k or (ss == side and abs(kk - k) < 2) for kk, ss in used):
-                    continue
-                mid = _s3n_add(pts[k], pts[k + 1])
-                mid = (0.5 * mid[0], 0.5 * mid[1])
-                dirv = _s3n_u((pts[k + 1][0] - pts[k][0], pts[k + 1][1] - pts[k][1]))
+                pick = _s3n_mouth_on(rng, main, ports[kp]["p"], None, main["used"])
+                if pick is None:
+                    break
+                _dd, k, side, mid, dirv = pick
                 nrm = _s3n_perp(dirv)
-                away = (nrm[0] * side, nrm[1] * side)
-                reach = S3_CRACK_SPLINTER[0] + rng.f() * (S3_CRACK_SPLINTER[1] - S3_CRACK_SPLINTER[0])
-                tip = _s3n_add(_s3n_add(mid, away, reach), dirv, rng.sf() * 0.5)
-                if not inside(tip):
+                approach = (nrm[0] * side, nrm[1] * side)
+                bpts = _s3n_chain(rng, ports[kp]["p"], inp, mid, (-approach[0], -approach[1]), inside,
+                                  back1=0.5 * (main["w"][k] + main["w"][k + 1]))
+                if bpts is None:
                     continue
-                spts = _s3n_chain(rng, mid, away, tip, None, inside)
-                if spts is None:
-                    continue
-                sp = dict(pts=spts, e0=("mouth", base, k, side), e1=("tip",), cell=F["cell"],
-                          role="splinter", wcap=0.13)
-                sp["mouth0"] = _s3n_mouth_pts(main, k, side)
-                sp["mouth0"] = (sp["mouth0"][1], sp["mouth0"][0])   # leaving, not entering
-                _s3n_normals(sp, ports)
-                _s3n_widths(rng, sp, ports)
-                made.append(sp)
-                used.append((k, side))
+                br = dict(pts=bpts, e0=("port", kp), e1=("mouth", base, k, side), cell=F["cell"],
+                          role="branch", wcap=0.20)
+                br["mouth1"] = _s3n_mouth_pts(main, k, side)
+                if add(br):
+                    main["used"].append((k, side))
+                    done = True
+                    break
+            if not done:
+                ok = False
                 break
-        # ---- validity
-        rings = [_s3n_outline(f) for f in made]
-        if not all(_s3c_simple(r) for r in rings):
-            why["simple"] = why.get("simple", 0) + 1
-            continue
-        for f, r in zip(made, rings):
-            for i, q in enumerate(r):
-                if not in_box(q, S3_CRACK_INSET - 0.06):    # outline points may come to 0.06 of the edge
-                    # only a port's own two vertices may sit on the cell edge
-                    pks = [e[1] for e in (f["e0"], f["e1"]) if e[0] == "port"]
-                    if not any(_s3n_dist(q, ports[pk]["p"]) <= ports[pk]["w"] + 1e-6 for pk in pks):
-                        ok = False
         if not ok:
-            why["box"] = why.get("box", 0) + 1
+            why["branch"] = why.get("branch", 0) + 1
             continue
-        host_ring = rings[0]
-        for f, r in zip(made[1:], rings[1:]):
-            mouth = f["mouth1"] if f["e1"][0] == "mouth" else f["mouth0"]
-            for q in r:
-                if _s3n_dist(q, mouth[0]) < 1e-9 or _s3n_dist(q, mouth[1]) < 1e-9:
+        # ---- bridges: fissure to fissure, so the crust breaks into plates
+        for _b in range(rng.i(S3_CRACK_BRIDGES[0], S3_CRACK_BRIDGES[1])):
+            for _try in range(12):
+                if len(made) < 1:
+                    break
+                ia = rng.i(0, len(made) - 1)
+                A = made[ia]
+                pa_ = _s3n_mouth_on(rng, A, None, None, A["used"])
+                if pa_ is None:
                     continue
-                if min(_s3n_pt_seg(q, host_ring[i], host_ring[(i + 1) % len(host_ring)])
-                       for i in range(len(host_ring))) < 0.08:
-                    ok = False
-            # and no edge of the branch's outline may cross or touch one of the
-            # host's, other than at the two mouth vertices they share
-            nb, nh = len(r), len(host_ring)
-            for i in range(nb):
-                pa, pb = r[i], r[(i + 1) % nb]
-                for j in range(nh):
-                    pc, pd = host_ring[j], host_ring[(j + 1) % nh]
-                    shared = any(_s3n_dist(x, y) < 1e-9 for x in (pa, pb) for y in (pc, pd))
-                    if shared:
+                _d, ka, sa, mida, dira = pa_
+                awaya = _s3n_perp(dira)
+                awaya = (awaya[0] * sa, awaya[1] * sa)
+                others = [q for q in range(len(made)) if q != ia]
+                if not others:
+                    break
+                ib = rng.pick(others)
+                B = made[ib]
+                pb_ = _s3n_mouth_on(rng, B, mida, None, B["used"])
+                if pb_ is None:
+                    continue
+                _d, kb, sb, midb, dirb = pb_
+                L = _s3n_dist(mida, midb)
+                if not (S3_CRACK_BRIDGE_L[0] <= L <= S3_CRACK_BRIDGE_L[1]):
+                    continue
+                if _s3n_dot(awaya, _s3n_u(_s3n_add(midb, mida, -1.0))) < 0.3:
+                    continue                          # B must lie out on A's open side
+                awayb = _s3n_perp(dirb)
+                awayb = (awayb[0] * sb, awayb[1] * sb)
+                bpts = _s3n_chain(rng, mida, awaya, midb, (-awayb[0], -awayb[1]), inside,
+                                  back0=0.5 * (A["w"][ka] + A["w"][ka + 1]),
+                                  back1=0.5 * (B["w"][kb] + B["w"][kb + 1]))
+                if bpts is None:
+                    continue
+                bg = dict(pts=bpts, e0=("mouth", base + ia, ka, sa), e1=("mouth", base + ib, kb, sb),
+                          cell=F["cell"], role="bridge", wcap=0.20, depth=1)
+                m0 = _s3n_mouth_pts(A, ka, sa)
+                bg["mouth0"] = (m0[1], m0[0])
+                bg["mouth1"] = _s3n_mouth_pts(B, kb, sb)
+                if add(bg):
+                    A["used"].append((ka, sa))
+                    B["used"].append((kb, sb))
+                    break
+        # ---- crazing: dead-end splinters off every fissure, breadth first
+        budget = rng.i(S3_CRACK_PER_CELL[0], S3_CRACK_PER_CELL[1])
+        queue = list(range(len(made)))
+        rounds = 0
+        while len(made) < budget and rounds < 10:
+            if not queue:                                # another pass over every host
+                queue = list(range(len(made)))
+                rounds += 1
+            hi = queue.pop(0)
+            host = made[hi]
+            depth = host["depth"]
+            if depth >= S3_CRACK_DEPTH_MAX:
+                continue
+            want = rng.i(2, 3) if depth == 0 else rng.i(1, 2)
+            for _child in range(want):
+                if len(made) >= budget:
+                    break
+                for _try in range(24):
+                    pick = _s3n_mouth_on(rng, host, None, None, host["used"])
+                    if pick is None:
+                        break
+                    _dd, k, side, mid, dirv = pick
+                    nrm = _s3n_perp(dirv)
+                    away = (nrm[0] * side, nrm[1] * side)
+                    lo, hi_ = S3_CRACK_SPLINTER
+                    # the tip: of several throws, the one farthest from every
+                    # fissure already drawn, so the crazing spreads over the
+                    # whole cell instead of clotting round the main
+                    tip, best = None, -1.0
+                    for _throw in range(6):
+                        reach = (lo + rng.f() * (hi_ - lo)) * (1.0 if depth == 0 else 0.75)
+                        cand = _s3n_add(_s3n_add(mid, away, reach), dirv, rng.sf() * 0.6)
+                        if not inside(cand):
+                            continue
+                        clear = min(_s3n_pt_seg(cand, r[i], r[(i + 1) % len(r)])
+                                    for r in rings for i in range(len(r)))
+                        if clear > best:
+                            tip, best = cand, clear
+                    if tip is None or best < 0.3:
                         continue
-                    if _s3c_seg_gap(pa, pb, pc, pd) < 0.02:
-                        ok = False
-        if not ok:
-            why["host_gap"] = why.get("host_gap", 0) + 1
-            continue
-        for i in range(1, len(made)):
-            for j in range(i + 1, len(made)):
-                if _s3c_poly_gap(rings[i], rings[j]) < S3_CRACK_GAP:
-                    ok = False
-        if not ok:
-            why["gap"] = why.get("gap", 0) + 1
-            continue
+                    spts = _s3n_chain(rng, mid, away, tip, None, inside,
+                                      back0=0.5 * (host["w"][k] + host["w"][k + 1]))
+                    if spts is None:
+                        continue
+                    sp = dict(pts=spts, e0=("mouth", base + hi, k, side), e1=("tip",), cell=F["cell"],
+                              role="splinter", wcap=0.15 if depth == 0 else 0.13, depth=depth + 1)
+                    m0 = _s3n_mouth_pts(host, k, side)
+                    sp["mouth0"] = (m0[1], m0[0])                 # leaving, not entering
+                    if add(sp):
+                        host["used"].append((k, side))
+                        queue.append(len(made) - 1)
+                        break
         return made
     raise RuntimeError("s3 cracks: cell %s found no layout in %d draws: %s ports %d"
                        % (str(F["cell"]), S3_CRACK_TRIES, str(why), len(plist)))
@@ -3334,20 +3440,8 @@ def _s3_crack_network():
     for k in range(len(order) - 1, 0, -1):          # Fisher-Yates on the seeded LCG
         q = rng.i(0, k)
         order[k], order[q] = order[q], order[k]
-    parent = {cc: cc for cc in cells}
-
-    def find(x):
-        while parent[x] != x:
-            parent[x] = parent[parent[x]]
-            x = parent[x]
-        return x
-    tree = []
-    for A, B in order:
-        ra, rb = find(A), find(B)
-        if ra != rb:
-            parent[ra] = rb
-            tree.append((A, B))
-    ports = []
+    tree = order                                    # every neighbouring pair joins: the crust
+    ports = []                                      # breaks into plates, not into one tree
     for A, B in tree:
         fa, fb = cells[A], cells[B]
         w = S3_CRACK_PORT_W[0] + rng.f() * (S3_CRACK_PORT_W[1] - S3_CRACK_PORT_W[0])
@@ -3835,8 +3929,7 @@ def _s3_net_mesh(m):
     islands)."""
     net = _s3_crack_network()
     F, ports = net["fissures"], net["ports"]
-    order = [i for i, f in enumerate(F) if f["role"] == "main"] \
-        + [i for i, f in enumerate(F) if f["role"] != "main"]
+    order = list(range(len(F)))                    # a host always precedes its branches
     V = {}
     port_v = {}
     suppressed = set()
@@ -3964,9 +4057,26 @@ def _s3_patches(m, S3V):
     L = S3["L"]
     cols = L["cols"]
     loops, lava, lip, ftris = _s3_net_mesh(m)
+    holes, plates = [], []
     for ring in loops:
-        assert _s3c_simple([(m.verts[i][0], m.verts[i][1]) for i in ring]), \
-            "s3 cracks: an island's outline crosses itself"
+        P = [(m.verts[i][0], m.verts[i][1]) for i in ring]
+        assert _s3c_simple(P), "s3 cracks: an outline crosses itself"
+        area = 0.5 * sum(P[i][0] * P[(i + 1) % len(P)][1] - P[(i + 1) % len(P)][0] * P[i][1]
+                         for i in range(len(P)))
+        # the walk keeps the crack on its right: clockwise round a crack
+        # network's outside (a hole in the deck), anticlockwise round a plate
+        # of crust the cracks enclose (deck again, on its own)
+        (holes if area < 0.0 else plates).append(ring)
+
+    def fill(rings):
+        vecs = [[Vector((m.verts[i][0], m.verts[i][1], 0.0)) for i in ring] for ring in rings]
+        flat = [i for ring in rings for i in ring]
+        out = []
+        for tri in tessellate_polygon(vecs):
+            a, b, c = flat[tri[0]], flat[tri[1]], flat[tri[2]]
+            if len({a, b, c}) == 3:
+                out.append((a, b, c))
+        return out
     stats = []
     for pr in _s3_patch_rects(L):
         ci, j0, j1 = pr["ci"], pr["j0"], pr["j1"]
@@ -3974,21 +4084,63 @@ def _s3_patches(m, S3V):
         loop += [S3V(cols[ci[-1]], j) for j in range(j0 + 1, j1 + 1)]
         loop += [S3V(cols[i], j1) for i in reversed(ci[:-1])]
         loop += [S3V(cols[ci[0]], j) for j in range(j1 - 1, j0, -1)]
-        ids = [loop] + loops
-        vecs = [[Vector((m.verts[i][0], m.verts[i][1], 0.0)) for i in ring] for ring in ids]
-        flat = [i for ring in ids for i in ring]
+        tris = fill([loop] + holes)
+        for ring in plates:
+            tris += fill([ring])
+        tris = _s3_refine(m, tris, S3_CRACK_REFINE)
         before = len(m.faces)
-        for tri in tessellate_polygon(vecs):
-            a, b, c = flat[tri[0]], flat[tri[1]], flat[tri[2]]
-            if len({a, b, c}) == 3:
-                m.tri(a, b, c, UP, ZONE_DECK)
+        for a, b, c in tris:
+            m.tri(a, b, c, UP, ZONE_DECK)
         net = _s3_crack_network()
-        stats.append(("network: %d cells, %d joins, %d fissures" % (len(net["cells"]), len(net["tree"]),
-                                                                    len(net["fissures"])),
-                      lava, lip, len(m.faces) - before, ftris, len(loops)))
+        stats.append(("network: %d cells, %d joins, %d fissures, %d plate(s) of crust enclosed"
+                      % (len(net["cells"]), len(net["tree"]), len(net["fissures"]), len(plates)),
+                      lava, lip, len(m.faces) - before, ftris, len(holes)))
     S3["crack_stats"] = stats
-    S3["crack_islands"] = len(loops)
+    S3["crack_islands"] = len(holes)
     return stats
+
+
+def _s3_refine(m, tris, longest):
+    """Longest-edge bisection until no edge is over `longest`: the two
+    triangles on an edge split together, so the patch stays conforming, and
+    an edge on the patch's boundary is a lattice edge or a crack edge, both
+    already short, so the boundary never moves."""
+    tris = [tuple(t) for t in tris]
+    mids = {}
+
+    def key(a, b):
+        return (a, b) if a < b else (b, a)
+
+    def length(a, b):
+        return math.dist(m.verts[a], m.verts[b])
+    changed = True
+    while changed:
+        changed = False
+        by_edge = {}
+        for ti, t in enumerate(tris):
+            for e in range(3):
+                by_edge.setdefault(key(t[e], t[(e + 1) % 3]), []).append(ti)
+        worst = None
+        for e, owners in by_edge.items():
+            L = length(*e)
+            if L > longest and (worst is None or L > worst[0]):
+                worst = (L, e, owners)
+        if worst is None:
+            break
+        _L, e, owners = worst
+        if e not in mids:
+            a, b = m.verts[e[0]], m.verts[e[1]]
+            mids[e] = m.v(((a[0] + b[0]) * 0.5, (a[1] + b[1]) * 0.5, (a[2] + b[2]) * 0.5))
+        mid = mids[e]
+        for ti in sorted(owners, reverse=True):
+            t = tris[ti]
+            apex = [v for v in t if v not in e][0]
+            i = t.index(apex)
+            u, v = t[(i + 1) % 3], t[(i + 2) % 3]      # the split edge, in the triangle's order
+            tris[ti] = (apex, u, mid)
+            tris.append((apex, mid, v))
+        changed = True
+    return tris
 
 
 def _s3_crack_want(m, top, other):
@@ -4446,10 +4598,20 @@ def _s3_stats():
         per = {}
         for f in net["fissures"]:
             per[f["cell"]] = per.get(f["cell"], 0) + 1
+        parent = {cc: cc for cc in net["cells"]}
+
+        def find(x):
+            while parent[x] != x:
+                parent[x] = parent[parent[x]]
+                x = parent[x]
+            return x
+        for A, B in net["tree"]:
+            parent[find(A)] = find(B)
+        blocks = len(set(find(cc) for cc in net["cells"]))
         print("MDL STATS s3 cracks: %s, %d island(s) of crack surface (one per contiguous block of pad "
               "cells: %d block(s)), lava %.1f m2 (emissive: floor and lower sides), dark lip %.1f m2, "
               "deck patch %d tris, fissure %d tris; fissures per cell %d..%d"
-              % (stat[0], stat[5], len(net["cells"]) - len(net["tree"]), stat[1], stat[2], stat[3], stat[4],
+              % (stat[0], stat[5], blocks, stat[1], stat[2], stat[3], stat[4],
                  min(per.values()), max(per.values())))
     cover, apex_seen, apex_n, fine = _s3_prove_cover()
     ok_c = sum(1 for c in cover if c[1])
@@ -6851,7 +7013,7 @@ def _s3_review(scene, shot):
     sd.energy, sd.color = S3_REVIEW[0], (1.0, 1.0, 1.0)
     sun = mdl._link(bpy.data.objects.new("ReviewSun", sd))
     aim = mdl._link(bpy.data.objects.new("ReviewAim", None))
-    sun.location, aim.location = (0.0, 0.0, 40.0), pol(172.0, 52.0, DECK_Z)
+    sun.location, aim.location = (0.0, 0.0, 110.0), pol(172.0, 52.0, DECK_Z)   # steep: short shadows off the wall
     con = sun.constraints.new(type="TRACK_TO")
     con.target, con.track_axis, con.up_axis = aim, "TRACK_NEGATIVE_Z", "UP_Y"
     made += [sun, aim]
@@ -6871,23 +7033,23 @@ def _s3_review(scene, shot):
     rows = lay["rows"]
     ex, ey = S3["deck_xy"](S3["L"]["T"](S3_EXT[0] + 0.5), S3_COLS[lay["path"][0]] + 0.3)
     tx, ty = _s3_on_path(5, 0.5)
-    shot("s3d_entry", (ex, ey, DECK_Z + EYE_H), (tx, ty, DECK_Z + 0.8), 24.0, (1500, 850))
+    shot("s3e_entry", (ex, ey, DECK_Z + EYE_H), (tx, ty, DECK_Z + 0.8), 24.0, (1500, 850))
     px, py = _s3_on_path(2, 0.6)
     qx, qy = _s3_on_path(9, 0.5)
-    shot("s3d_path", (px, py, DECK_Z + EYE_H), (qx, qy, DECK_Z + 0.9), 28.0, (1500, 850))
+    shot("s3e_path", (px, py, DECK_Z + EYE_H), (qx, qy, DECK_Z + 0.9), 28.0, (1500, 850))
     wx, wy = S3["deck_xy"](S3["L"]["T"](rows[3]), 54.0)
     ww, wv = S3["deck_xy"](S3["L"]["T"](rows[8]), lay["rho_w"][8])
-    shot("s3d_wall", (wx, wy, DECK_Z + EYE_H), (ww, wv, DECK_Z + 1.2), 30.0, (1500, 850))
+    shot("s3e_wall", (wx, wy, DECK_Z + EYE_H), (ww, wv, DECK_Z + 1.2), 30.0, (1500, 850))
     jrow = S3_JUMP_ROWS[len(S3_JUMP_ROWS) // 2]
     jx, jy = _s3_on_path(jrow - 1, 0.5)
     jump = [p for p in _s3_pads() if p["jump"] and p["row"] == jrow][0]
-    shot("s3d_jump", (jx, jy, DECK_Z + EYE_H), (jump["o"][0], -jump["o"][1], DECK_Z + 0.2),
+    shot("s3e_jump", (jx, jy, DECK_Z + EYE_H), (jump["o"][0], -jump["o"][1], DECK_Z + 0.2),
          30.0, (1500, 850))
     cx2, cy2 = S3["deck_xy"](S3["L"]["T"](rows[3]), 54.5)
     tx2, ty2 = S3["deck_xy"](S3["L"]["T"](rows[8]), 54.0)
-    shot("s3d_crack", (cx2, cy2, DECK_Z + 3.2), (tx2, ty2, DECK_Z), 28.0, (1500, 850))
-    shot("s3d_guard", (0.0, 0.0, S3_EYE_Z), pol(172.0, 52.0, DECK_Z), 35.0, (1600, 900))
-    shot("s3d_aerial", pol(172.0, 14.0, 62.0), pol(172.0, 52.0, DECK_Z), 26.0, (1600, 1000))
+    shot("s3e_crack", (cx2, cy2, DECK_Z + 3.2), (tx2, ty2, DECK_Z), 28.0, (1500, 850))
+    shot("s3e_guard", (0.0, 0.0, S3_EYE_Z), pol(172.0, 52.0, DECK_Z), 35.0, (1600, 900))
+    shot("s3e_aerial", pol(172.0, 14.0, 62.0), pol(172.0, 52.0, DECK_Z), 26.0, (1600, 1000))
     mdl._try(scene.view_settings, "exposure", 0.0)
     for ob in made:
         bpy.data.objects.remove(ob, do_unlink=True)

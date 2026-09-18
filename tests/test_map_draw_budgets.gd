@@ -62,12 +62,15 @@ const DRAW_BUDGETS: Dictionary = {
 	# The reference map. B1-B5 were all measured on this one.
 	#
 	# Re-measured after S3's demon pads became lava cracks, then one crack
-	# network: 89662 tris (was 87268 with the pads) because the cracks are cut
-	# into map_base.glb itself -- 826 deck tris round the network, 2948 fissure
-	# tris, and the ragged lip wall's seven stations -- while the 36 x 62-tri
-	# pad models went. Surfaces 65: each `lava_crack` node draws one haze
-	# MeshInstance3D where each `demon_pad` drew one model, and the three
-	# stray S4 pads that stood in S3 are gone. `transparent_tris` leaves zero
+	# network, then a dense crazed one (Ryan: "significantly more cracked with
+	# clearer edges"): 99156 tris, because the cracks are cut into
+	# map_base.glb itself -- 367 fissures in 36 cells, 9556 fissure tris and
+	# 7688 deck tris round them (the deck between the cracks is bisected down
+	# to 1.2 m edges so no facet drops its texel density) -- against 87268
+	# with the pad models. Inside the 107595 ceiling the network was first
+	# measured under; that ceiling stays, it is the gate the crazing was built
+	# to. Surfaces 63: each `lava_crack` node draws one haze MeshInstance3D
+	# where each `demon_pad` drew one model. `transparent_tris` leaves zero
 	# for the first time on this map: the heat haze is 36 x 4 triangles of a
 	# spatial shader that reads the screen (hint_screen_texture) and writes
 	# ALPHA, so it is 144 triangles in the sorted pass plus one screen copy a

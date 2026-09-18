@@ -58,20 +58,27 @@ chord vertices, so the weld is unchanged).
   `scenes/ring/lava_crack.tscn`: the demon pad's own `BoostPad` trigger
   (`scripts/match/boost_pad.gd`, 2.5 × 1.0 × 2.5 m, 18 m/s at 45°) with no
   model, plus a `LavaHaze` node. Under them, cut into `map_base.glb`'s own
-  deck rock as part of the one mesh, ONE crack network (Ryan: *"can you make
-  them tile so that they look like one thing instead?"*): a seeded spanning
-  tree of the 36 pad cells (never a path cell) picks which neighbours join,
-  each joined pair shares one port on its common cell edge — one
+  deck rock as part of the one mesh, ONE crazed crack network (Ryan: *"can
+  you make them tile so that they look like one thing instead?"*, then
+  *"now its unclear where you can even be, its needs to be significantly
+  more cracked with clearer edges"*): every neighbouring pair of the 36 pad
+  cells (never a path cell) shares one port on its common cell edge — one
   cross-section both cells' fissures end on — and inside a cell one main
-  fissure runs port to port with the other ports and a splinter or two
-  branching off it through T-mouths on the main's own side vertices. 35
-  joins, 64 fissures, one island: the deck round it is one scanfill polygon
-  with one hole, on the grid's own vertices, no duplicate at any seam.
-  Fissures are 0.14–0.48 m wide at the deck, 0.10–0.22 m deep, a dark rock
-  lip on the upper sides and the glowing lava cell (atlas `ZONE_GLOW`) on
-  the lower sides and the floor — flush, no plate. The collider stays the
-  flat deck over the cracks (they are narrower than a body), so the bake,
-  the bots and the jump proofs are the demon pad's.
+  fissure runs port to port, the other ports join it through T-mouths on
+  its own side vertices, bridges run fissure to fissure so the crust breaks
+  into plates, and dead-end splinters craze the rest, three deep, their
+  tips thrown to the emptiest ground. 42 joins, 367 fissures (4–14 a cell),
+  12 plates of crust enclosed, one island: the deck round it is one scanfill
+  polygon with one hole (each plate its own), bisected to ≤ 1.2 m edges, on
+  the grid's own vertices, no duplicate at any seam. Fissures are
+  0.18–0.44 m wide at the deck, 0.14–0.26 m deep, a dark rock lip on the
+  upper sides and the glowing lava cell (atlas `ZONE_GLOW`) on the lower
+  sides and the floor — flush, no plate, no hairlines. The path cells are
+  plain deck: the one lane through a cracked field. The collider stays the
+  flat deck over the cracks, so the bake, the bots and the jump proofs are
+  the demon pad's. From the guard's eye the lip wall hides the deck surface
+  itself (the sight line over the crest meets the deck at r ≈ 69), so the
+  cracks read from the runner's eye and the aerial, never from the tower.
 - **The haze** is `scenes/ring/lava_haze.gdshader` on two crossed 2.4 × 2.0 m
   quads (one surface, 4 tris, one shared `ShaderMaterial`): pure refraction of
   the scene behind through `hint_screen_texture`, a slow rising 2-octave
