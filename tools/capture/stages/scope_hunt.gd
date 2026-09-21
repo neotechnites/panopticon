@@ -123,8 +123,8 @@ func before_start() -> void:
 
 
 func cast(runners: Array[RunnerBrain]) -> bool:
-	var degs: PackedStringArray = String(option("degs", "26,30,34,39.9,43.2,46.5,50")).split(",")
-	var rs: PackedStringArray = String(option("rs", "54,54,54,54,54,54,54")).split(",")
+	var degs: PackedStringArray = String(option("degs", "88,91,94,97,100,103,106")).split(",")
+	var rs: PackedStringArray = String(option("rs", "48,48,48,48,48,48,48")).split(",")
 	if runners.size() < degs.size() or degs.size() != rs.size():
 		return false
 	for brain: RunnerBrain in runners:
@@ -146,7 +146,7 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 			{"do": "hold", "seconds": 60.0},
 		], index)
 		_runners.append(runners[index].controller)
-	for raw: String in String(option("targets", "5,4,3")).split(","):
+	for raw: String in String(option("targets", "2,3,4")).split(","):
 		var k: int = int(raw)
 		if k >= 0 and k < _runners.size():
 			_targets.append(_runners[k])
@@ -154,7 +154,7 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 				_first_point = LIB.ring_point(float(degs[k]), float(rs[k]), 1.0)
 	victim_body(_targets[0] if not _targets.is_empty() else _runners[0])
 	say("scope_hunt: %d on the lap at %s deg, r %s, pace %.2f; the hand takes %s" % [
-		_runners.size(), ",".join(degs), ",".join(rs), pace, String(option("targets", "5,4,3")),
+		_runners.size(), ",".join(degs), ",".join(rs), pace, String(option("targets", "2,3,4")),
 	])
 	return true
 
