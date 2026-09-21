@@ -116,8 +116,13 @@ func _physics_process(delta: float) -> void:
 	_pitch += _rate.y * delta
 	if body != null and is_instance_valid(body) and fire_at >= 0.0 and not _fired.has(k) and into >= fire_at:
 		_fired.append(k)
-		# The last of the error goes in the squeeze: the crosshair is on him.
-		var exact: Vector2 = _angles_to(body.global_position + Vector3.UP * AIM_HEIGHT)
+		# The last of the error goes in the squeeze: the crosshair is on him,
+		# led by the round's flight time when the shot travels.
+		var mark: Vector3 = body.global_position + Vector3.UP * AIM_HEIGHT
+		var shot_speed: float = _controller.rifle.get_shot_speed() if _controller.rifle != null else 0.0
+		if shot_speed > 0.0:
+			mark += body.velocity * (mark.distance_to(_eye_position()) / shot_speed)
+		var exact: Vector2 = _angles_to(mark)
 		_yaw = exact.x
 		_pitch = exact.y
 		_apply_head()

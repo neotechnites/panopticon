@@ -27,7 +27,7 @@ extends "res://tools/capture/stages/stage.gd"
 ## running, the leader dead at 176 deg before the 178 deg end of the open
 ## deck), beat (1.7), fire_at (1.25), start (1.8, when the hand starts moving),
 ## lead_in (-13, degrees of ring the scope rests ahead of the first runner),
-## lift (1).
+## lift (1), speed (0, the projectile lever in m/s; the hand leads by its flight).
 
 const GUARD_HAND := preload("res://tools/capture/stages/guard_hand.gd")
 const SPARE_DEG: float = 58.0
@@ -52,6 +52,8 @@ func needs_pov() -> String:
 func tune_rules(rules: MatchRules) -> void:
 	# The rifle comes back in this long, so every rest gets a ready rifle.
 	rules.base_reload_seconds = 1.0
+	# speed (0): the projectile lever, m/s; 0 keeps hitscan.
+	rules.guard_projectile_speed = float(option("speed", 0.0))
 
 
 func before_start() -> void:

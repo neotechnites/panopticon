@@ -8,6 +8,7 @@ extends SceneTree
 ##
 ## Options: --seconds --runners --view=runner|tower|orbit --width --height
 ##          --warmup --out --label --vsync --map --at=x,y,z --look=x,y,z
+##          --rounds
 ##
 ## --at and --look pin the camera to one world pose for the whole run (view
 ## "fixed"): the way to price one effect from one spot, such as the S3 lava
@@ -24,6 +25,13 @@ extends SceneTree
 
 const RULES_PATH: String = "res://resources/rules/default_match_rules.tres"
 const SHOOTER_PROFILE_PATH: String = "res://scenes/bot/default_shooter_profile.tres"
+const WEAPON_PROFILE_PATH: String = "res://scenes/weapon/default_weapon_profile.tres"
+
+## What --rounds keeps in the air: cosmetic rounds fired from the guard's eye,
+## fanned this many degrees apart so N of them price N streaks and not one.
+const ROUND_SPEED: float = 200.0
+const ROUND_RANGE: float = 80.0
+const ROUND_FAN_DEGREES: float = 6.0
 
 ## Where every arena keeps the guard's seat, and how far over it the eye sits.
 ## Read rather than assumed: maps 2 and 3 stand the guard on a dais and in a
@@ -57,6 +65,10 @@ var _done: bool = false
 var _map_path: String = ""
 var _tower_eye: Vector3 = TOWER_EYE_FALLBACK
 
+var _rounds: Array[WeaponProjectile] = []
+var _weapon_profile: WeaponProfile = null
+var _no_exclude: Array[RID] = []
+
 
 func _initialize() -> void:
 	_options = _parse({
@@ -76,6 +88,7 @@ func _initialize() -> void:
 		"map": "",
 		"at": "",
 		"look": "",
+		"rounds": 0,
 	})
 	_limit = float(_options["seconds"])
 	_warmup_left = float(_options["warmup"])
@@ -153,6 +166,7 @@ func _build() -> void:
 		_camera.global_position = Vector3(52.0, 25.5, 0.0)
 		_camera.look_at(Vector3.ZERO, Vector3.UP)
 		_options["view"] = "fixed"
+		_arm_rounds()
 		return
 
 	var rules: MatchRules = (load(RULES_PATH) as MatchRules).duplicate() as MatchRules
@@ -196,6 +210,7 @@ func _build() -> void:
 	_camera.make_current()
 	if not String(_options["at"]).is_empty():
 		_options["view"] = "fixed"
+	_arm_rounds()
 
 
 ## "x,y,z" as a Vector3, or the fallback when it is not three numbers.
@@ -204,6 +219,39 @@ static func _parse_vec(raw: String, fallback: Vector3) -> Vector3:
 	if parts.size() != 3:
 		return fallback
 	return Vector3(float(parts[0]), float(parts[1]), float(parts[2]))
+
+
+## Put --rounds cosmetic rounds in the air, aimed where the camera now looks.
+func _arm_rounds() -> void:
+	var wanted: int = maxi(int(_options["rounds"]), 0)
+	print("rounds=%d" % wanted)
+	if wanted <= 0:
+		return
+	_weapon_profile = load(WEAPON_PROFILE_PATH) as WeaponProfile
+	_rounds.resize(wanted)
+	for index: int in wanted:
+		_rounds[index] = _fire(_fan_direction(index, wanted))
+
+
+## Round [param index] of [param count]: the camera's forward, fanned off it.
+func _fan_direction(index: int, count: int) -> Vector3:
+	var offset: float = (float(index) - (float(count) - 1.0) * 0.5) * ROUND_FAN_DEGREES
+	return (-_camera.global_transform.basis.z).rotated(Vector3.UP, deg_to_rad(offset))
+
+
+## One cosmetic round from the guard's eye. Never the authority's shot: this
+## prices the picture a round draws, and must not resolve a hit on anybody.
+func _fire(direction: Vector3) -> WeaponProjectile:
+	return WeaponProjectile.launch(
+		_root, _tower_eye, direction, ROUND_SPEED, ROUND_RANGE, _weapon_profile, _no_exclude, true
+	)
+
+
+## Retire the spent round in slot [param index] and put a fresh one in its place,
+## so the count in the air is the constant the run is pricing.
+func _relaunch(index: int) -> void:
+	_rounds[index].queue_free()
+	_rounds[index] = _fire(_fan_direction(index, _rounds.size()))
 
 
 ## Engine-side bisect: things a script disable cannot reach.
@@ -311,6 +359,10 @@ func _process(delta: float) -> bool:
 	_last_usec = now
 
 	_aim_camera(delta)
+
+	for index: int in _rounds.size():
+		if _rounds[index].advance(delta):
+			_relaunch(index)
 
 	if _warmup_left > 0.0:
 		_warmup_left -= delta
@@ -508,11 +560,11 @@ func _write() -> void:
 	var worst1: float = tail / float(maxi(count - tail_from, 1))
 
 	var summary: String = (
-		"SUMMARY label=%s view=%s runners=%d frames=%d seconds=%.1f"
+		"SUMMARY label=%s view=%s runners=%d rounds=%d frames=%d seconds=%.1f"
 		+ " mean_ms=%.3f (%.1f fps) median_ms=%.3f p99_ms=%.3f worst1pct_ms=%.3f (%.1f fps)"
 	) % [
 		String(_options["label"]), String(_options["view"]), int(_options["runners"]),
-		count, _elapsed, mean, 1000.0 / maxf(mean, 0.001), p50, p99,
+		maxi(int(_options["rounds"]), 0), count, _elapsed, mean, 1000.0 / maxf(mean, 0.001), p50, p99,
 		worst1, 1000.0 / maxf(worst1, 0.001),
 	]
 

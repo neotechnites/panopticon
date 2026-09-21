@@ -45,3 +45,8 @@ capture: tools/content/fetch.sh, SOURCES.md
 ## 5
 said: "footage of the new feature being used"
 capture: after the visible bullet lands: --pov=guard --crosshair, guard_projectile_speed on, 6-8 s
+
+## bullet_test (feature check, not a shot)
+capture: --pov=guard --hud=crosshair --stage=guard_alone --shot=s3_open_lane --bots=4 --set=speed=200;degs=170,159,148 --look=social --audio=near --seed=20260930
+seconds: 3
+file: frames\bullet_test

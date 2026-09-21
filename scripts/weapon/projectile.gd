@@ -83,6 +83,26 @@ var _end_point: Vector3 = Vector3.ZERO
 ## resolved. It collides with nothing, so it cannot invent a hit of its own.
 var _cosmetic: bool = false
 
+## Triangles in one bullet: an eight-face head plus the two crossed tail quads.
+const VISUAL_TRIANGLES: int = 12
+
+## The head's white-hot core; the tail is the profile's tracer colour, fading out.
+const HEAD_COLOR: Color = Color(1.0, 0.97, 0.85, 1.0)
+
+## Head proportions in tracer widths: the spike ahead of the core and the stub behind it.
+const HEAD_TIP_WIDTHS: float = 3.0
+const HEAD_BACK_WIDTHS: float = 1.0
+
+## How much of the tail's width survives at its far end.
+const TAIL_TAPER: float = 0.25
+
+## One material and one mesh per look, shared by every round in the air.
+static var _visual_material: StandardMaterial3D = null
+static var _visual_meshes: Dictionary = {}
+
+## The bullet drawn at this round's position, or null for a round nobody sees.
+var _visual: MeshInstance3D = null
+
 
 ## Put a round in the air along [param direction] from [param origin] and hand
 ## it back. [param travel_range] is the distance it may cover before it is
@@ -197,6 +217,8 @@ func advance(delta: float) -> bool:
 
 		global_position = to
 		_end_point = to
+		if _gravity > 0.0 and _visual != null:
+			_visual.basis = WeaponProjectile.heading_basis(_velocity)
 		remaining -= step
 
 		if _flight >= _max_flight:
@@ -277,31 +299,97 @@ func _resolve(at: Vector3, result: Dictionary) -> void:
 	global_position = at
 
 
-## A short streak of the same ribbon [Tracer] is made of, trailing BEHIND the
-## round's head. A dot at the impact point tells a runner nothing; a streak
-## tells them the heading, and therefore which way to break -- the whole reason
-## travel time is a skill rather than a delay.
-##
-## Built only when [method WeaponProfile.draws_projectile_streak] asks for it:
-## a headless sweep should not be paying for a mesh nobody looks at, and that
-## one question is the whole gate, so a profile cannot half-enable the look.
-##
-## The ribbon is built along [code]-direction[/code], so it hangs back down the
-## line the round came from and the lit tip is where the round actually is.
-## Its basis is left identity -- the mesh is world-axis geometry, exactly as
-## [Tracer] builds it, and this node's basis never turns (see [method
-## configure] and [method _resolve], which only ever move the origin). A node
-## that rotated would rotate the streak off the flight line.
+## The bullet: a bright head with a short tail fading behind it, one shared mesh
+## and one shared material, its nose on [param direction].
 func _build_visual(direction: Vector3, profile: WeaponProfile) -> void:
+	_visual = MeshInstance3D.new()
+	_visual.name = "Round"
+	_visual.mesh = WeaponProjectile.visual_mesh_for(profile)
+	_visual.material_override = WeaponProjectile.visual_material()
+	_visual.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_visual.transform = Transform3D(WeaponProjectile.heading_basis(direction), Vector3.ZERO)
+	add_child(_visual)
+
+
+## A basis whose -Z is [param direction], for a mesh built nose-forward.
+static func heading_basis(direction: Vector3) -> Basis:
+	var forward: Vector3 = direction.normalized()
+	var up: Vector3 = Vector3.UP if absf(forward.dot(Vector3.UP)) < 0.99 else Vector3.RIGHT
+	return Basis.looking_at(forward, up)
+
+
+## The bullet mesh for [param profile]'s tail length, width and colour, built once per look.
+static func visual_mesh_for(profile: WeaponProfile) -> Mesh:
 	var tint: Color = profile.tracer_color
 	tint.a = profile.get_tracer_alpha()
+	var key: String = "%.3f|%.3f|%08x" % [profile.projectile_visual_length, profile.tracer_width, tint.to_rgba32()]
+	var cached: Mesh = _visual_meshes.get(key, null) as Mesh
+	if cached == null:
+		cached = _build_bullet_mesh(profile.projectile_visual_length, profile.tracer_width, tint)
+		_visual_meshes[key] = cached
+	return cached
 
-	var visual: MeshInstance3D = MeshInstance3D.new()
-	visual.name = "Round"
-	visual.transform = Transform3D.IDENTITY
-	visual.mesh = Tracer.build_ribbon(
-		-direction.normalized() * profile.projectile_visual_length, profile.tracer_width
-	)
-	visual.material_override = Tracer.build_material(tint)
-	visual.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	add_child(visual)
+
+## The one bullet material: the tracer's unshaded alpha blend, coloured by the vertices.
+static func visual_material() -> StandardMaterial3D:
+	if _visual_material == null:
+		_visual_material = Tracer.build_material(Color.WHITE)
+		_visual_material.vertex_color_use_as_albedo = true
+	return _visual_material
+
+
+## Nose at -Z: an eight-face head, then two crossed
+## quads tapering and fading to nothing [param length] metres behind it.
+static func _build_bullet_mesh(length: float, width: float, tint: Color) -> ArrayMesh:
+	var half: float = width * 0.5
+	var tip: Vector3 = Vector3(0.0, 0.0, -width * HEAD_TIP_WIDTHS)
+	var back: Vector3 = Vector3(0.0, 0.0, width * HEAD_BACK_WIDTHS)
+	var ring: Array[Vector3] = [
+		Vector3(half, 0.0, 0.0), Vector3(0.0, half, 0.0), Vector3(-half, 0.0, 0.0), Vector3(0.0, -half, 0.0),
+	]
+	var tool: SurfaceTool = SurfaceTool.new()
+	tool.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for index: int in ring.size():
+		var a: Vector3 = ring[index]
+		var b: Vector3 = ring[(index + 1) % ring.size()]
+		_add_triangle(tool, HEAD_COLOR, tip, a, b)
+		_add_triangle(tool, HEAD_COLOR, back, b, a)
+	var faded: Color = tint
+	faded.a = 0.0
+	var far: Vector3 = Vector3(0.0, 0.0, maxf(length, width))
+	_add_tail_quad(tool, Vector3(half, 0.0, 0.0), back, far, tint, faded)
+	_add_tail_quad(tool, Vector3(0.0, half, 0.0), back, far, tint, faded)
+	return tool.commit()
+
+
+static func _add_triangle(tool: SurfaceTool, color: Color, a: Vector3, b: Vector3, c: Vector3) -> void:
+	tool.set_color(color)
+	tool.add_vertex(a)
+	tool.set_color(color)
+	tool.add_vertex(b)
+	tool.set_color(color)
+	tool.add_vertex(c)
+
+
+## One tail quad from [param near] to [param far], [param half_width] wide at the head
+## and [constant TAIL_TAPER] of that at the end.
+static func _add_tail_quad(
+	tool: SurfaceTool, half_width: Vector3, near: Vector3, far: Vector3, near_color: Color, far_color: Color
+) -> void:
+	var far_half: Vector3 = half_width * TAIL_TAPER
+	var near_a: Vector3 = near - half_width
+	var near_b: Vector3 = near + half_width
+	var far_a: Vector3 = far - far_half
+	var far_b: Vector3 = far + far_half
+	tool.set_color(near_color)
+	tool.add_vertex(near_a)
+	tool.set_color(near_color)
+	tool.add_vertex(near_b)
+	tool.set_color(far_color)
+	tool.add_vertex(far_b)
+	tool.set_color(near_color)
+	tool.add_vertex(near_a)
+	tool.set_color(far_color)
+	tool.add_vertex(far_b)
+	tool.set_color(far_color)
+	tool.add_vertex(far_a)

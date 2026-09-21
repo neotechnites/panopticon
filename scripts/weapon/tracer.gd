@@ -140,16 +140,7 @@ func _process(delta: float) -> void:
 
 
 ## Two quads crossed along [param axis], expressed in the caller's local space
-## with the near end at the origin. Four triangles, twelve vertices, no indices
-## -- at the volumes a single-shot weapon produces this is far cheaper than the
-## bookkeeping needed to share them.
-##
-## Public and static because the streak has a second caller:
-## [WeaponProjectile] draws a round in flight as this same crossed-quad streak
-## rather than a sphere, since a sphere cannot be read at 100 m across the ring.
-## One geometry implementation, not two -- the whole argument above for crossed
-## quads over a line or a billboard applies identically to a round, and a second
-## copy of it would be free to drift away from this one.
+## with the near end at the origin. Four triangles, twelve vertices, no indices.
 static func build_ribbon(axis: Vector3, width: float) -> ImmediateMesh:
 	var mesh_out: ImmediateMesh = ImmediateMesh.new()
 	var length: float = axis.length()
@@ -172,10 +163,7 @@ static func build_ribbon(axis: Vector3, width: float) -> ImmediateMesh:
 
 
 ## One quad spanning the streak, [param half_width] to either side of the axis.
-## Winding is not maintained because the material disables culling -- a streak
-## must look identical from both sides or the X cross-section would show gaps.
-## Static alongside [method build_ribbon] for the same reason: the round in
-## flight is built out of these same quads.
+## Winding is not maintained because the material disables culling.
 static func add_quad(mesh_out: ImmediateMesh, axis: Vector3, half_width: Vector3) -> void:
 	var near_a: Vector3 = -half_width
 	var near_b: Vector3 = half_width
@@ -192,9 +180,7 @@ static func add_quad(mesh_out: ImmediateMesh, axis: Vector3, half_width: Vector3
 ## Unshaded, alpha-blended, unculled, depth-write off, in [param color].
 ##
 ## Takes the colour rather than reading [member _color] so [WeaponProjectile]
-## can dress its in-flight streak out of the same one implementation -- the
-## blending argument below is exactly as true for a round as for a tracer, and
-## it is the kind of argument that gets lost when it is copied.
+## can dress its bullet out of the same one implementation.
 ##
 ## Unshaded because a tracer is a light source, not a lit surface, and a lit one
 ## would go black in the ring's shadowed cover. Unculled because the two crossed
