@@ -59,3 +59,25 @@ file: 05_pov_projectile
 capture: --pov=guard --hud=crosshair --stage=guard_alone --shot=s3_open_lane --bots=4 --set=speed=200;degs=170,159,148 --look=social --audio=near --seed=20260930
 seconds: 3
 file: frames\bullet_test
+
+## dailies
+# The review page, in script order: tools/content/dailies.sh projectile.
+# id | src (relative to content\projectile\, empty = pending) | line (L<n> in
+# "## script -> clip") | desc (one line). Poster is frames\<id>.png.
+| id | src | line | desc |
+| 01a_pack | cuts/01a_pack.mp4 | L1 | Shove short, 3.7-9.7 s: the pack sniped off the deck, then the last runner alone. No captions, no music. |
+| 01a_hook | cuts/01a_hook.mp4 | L1 | Shove short, 0-3 s: the opening hook, the shove off the parkour into the lava. No captions, no music. |
+| 01b | | L2 | Pending from Ryan: the screenshot of the comment asking for a projectile sniper. |
+| 02_pov_hitscan | final/02_pov_hitscan.mp4 | L3 | Guard POV, hitscan, crosshair only: three runners dropped at 3.3, 5.9 and 8.5 s down S2's open lane. |
+| warzone_a | external/warzone_a.mp4 | L4 | Warzone AX-50 at 241 m over the Verdansk rooftops: crosshair held above the roofline, DOWNED ~0.4 s after the kick. 720p source, softest of the set. |
+| warzone_c | external/warzone_c.mp4 | L4 | Warzone HDR at ~898 m: the crosshair sits plainly above the target's head, a tracer streaks out, DOWNED at 6.85 s. Clearest drop of the warzone set; 24 fps. |
+| fortnite_a | external/fortnite_a.mp4 | L5 | Fortnite: the white tracer streaks visibly past the target's head. The miss and its reason in one frame. |
+| fortnite_b | external/fortnite_b.mp4 | L5 | Fortnite: leading a moving target, the "how to fix it" half. The hit lands on the clip's last frame. |
+| fortnite_c | external/fortnite_c.mp4 | L5 | Fortnite heavy-vs-bolt drop test: the arc demonstrated deliberately rather than incidentally. Longest of the set. |
+| 05_pov_projectile_a | cuts/05_pov_projectile_a.mp4 | L6 | Guard POV, projectile round at 200 m/s: a miss into the map at 4.6 s, then the lead and the hit on a crossing runner at 8.0 s. Seed 20260930; the delivered take. |
+| 05_pov_projectile_b | cuts/05_pov_projectile_b.mp4 | L6 | The same beat at seed 20261005: same two squeezes, the runner a degree further round. The alternate take. |
+| bullet_test | frames/bullet_test.mp4 | - | Feature check, not a shot: three runners at fixed bearings, the 200 m/s round in flight. Does the bullet read on screen. |
+
+## Ryan 2026-09-21 on the first dailies
+"warzone a and fortnite b is what well use. the projectile in the last clip looks stupid, it covers the entire view for the first frame, and for this clip, and the 02 pov hitscan, the people hes shooting at are retarded. they need to look like real players"
+-> shot 3 = warzone_a, shot 4 = fortnite_b (locked). Bullet visual: must not fill the view at the muzzle. Shots 2 and 5: refilm with runners that look like real players.
