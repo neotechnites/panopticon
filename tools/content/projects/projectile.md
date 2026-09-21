@@ -30,13 +30,13 @@ said: "put the guys comment up on screen"
 capture: none; Ryan's screenshot, full width on the portrait canvas over 1a's last frame? no: over live footage, never a still
 ## 2
 said: "pov footage of sniper gameplay"
-capture: --shot=s3_open_lane --stage=scope_hunt --pov=guard --bots=7
+capture: --shot=s3_open_lane --stage=scope_hunt --pov=guard --bots=7 --seed=20260922
 hud: crosshair
 seconds: 8
 in: 1.5
 takes: 1
 motion: 0.015
-frame: 1.81667
+frame: 1.26667
 file: 02_pov_hitscan
 ## 3
 said: "warzone footage of sniper shots where fall off happens"
@@ -68,7 +68,7 @@ file: frames\bullet_test
 | 01a_pack | cuts/01a_pack.mp4 | L1 | Shove short, 3.7-9.7 s: the pack sniped off the deck, then the last runner alone. No captions, no music. |
 | 01a_hook | cuts/01a_hook.mp4 | L1 | Shove short, 0-3 s: the opening hook, the shove off the parkour into the lava. No captions, no music. |
 | 01b | | L2 | Pending from Ryan: the screenshot of the comment asking for a projectile sniper. |
-| 02_pov_hitscan | final/02_pov_hitscan.mp4 | L3 | Guard POV, hitscan, crosshair only: three runners dropped at 3.3, 5.9 and 8.5 s down S2's open lane. |
+| 02_pov_hitscan | final/02_pov_hitscan.mp4 | L3 | Guard POV, hitscan, crosshair only: seven prisoners running the lap on their own live brains, three of them dropped at 1.25, 3.70 and 6.20 s into the cut. Refilmed after Ryan's note on the first dailies. |
 | warzone_a | external/warzone_a.mp4 | L4 | Warzone AX-50 at 241 m over the Verdansk rooftops: crosshair held above the roofline, DOWNED ~0.4 s after the kick. 720p source, softest of the set. |
 | warzone_c | external/warzone_c.mp4 | L4 | Warzone HDR at ~898 m: the crosshair sits plainly above the target's head, a tracer streaks out, DOWNED at 6.85 s. Clearest drop of the warzone set; 24 fps. |
 | fortnite_a | external/fortnite_a.mp4 | L5 | Fortnite: the white tracer streaks visibly past the target's head. The miss and its reason in one frame. |
