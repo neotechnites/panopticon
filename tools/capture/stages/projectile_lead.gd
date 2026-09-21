@@ -40,12 +40,14 @@ extends "res://tools/capture/stages/stage.gd"
 ## the open bearing ahead of him, and he ran out into it just in time to be hit.
 ## Correct in the log, unreadable on camera.
 ##
-## Both squeezes are therefore timed to a moment when the TRACKED MAN IS VISIBLE
-## and the led mark is in an open half-degree. A hitscan shot only needs the
-## first; a round that travels needs both, and on this deck the two are rarely
-## true together for long. A: visible at 54.9 deg, mark 53.7. B: visible at 53.5
-## deg, mark 55.3. If either beat is re-timed, re-measure BOTH -- do not assume
-## an arc the probe calls open will still have a man standing in the clear.
+## Both beats therefore carry "clear": the hand reaches fire_at and then HOLDS
+## the trigger until the eye can see the man AND the ground he is being led
+## into, up to 1.2 s. Timing the trigger on the clock instead is what made this
+## shot flaky: the same beat killed on one take and put the round in the wall on
+## the next, off a 0.02 s difference between the headless run and the render.
+## With the hold, the trigger lands at 7.16, 7.22 and 7.25 s on three seeds and
+## kills on all three. The miss beat holds too -- a miss is only readable if you
+## can see the man it missed.
 ##
 ## The round also leaves the muzzle while the probe's ray leaves the eye, and at
 ## this depression that difference is a plate at 50 m. An earlier cut aimed the
@@ -200,11 +202,11 @@ func tick(_delta: float) -> void:
 	_hand.beats.append({
 		"body": _runners[0], "seconds": float(option("beat_a", 3.8)),
 		"fire_at": float(option("fire_a", 3.0)),
-		"lead": 0.0, "behind": float(option("behind", 1.2)),
+		"lead": 0.0, "behind": float(option("behind", 1.2)), "clear": true,
 	})
 	_hand.beats.append({
 		"body": _runners[1], "seconds": float(option("beat_b", 3.6)),
-		"fire_at": float(option("fire_b", 1.75)),
+		"fire_at": float(option("fire_b", 1.75)), "clear": true,
 	})
 	# No trigger on the last beat: the scope comes off the drop and onto the man
 	# still coming, so the clip ends on a move rather than on a held frame.
