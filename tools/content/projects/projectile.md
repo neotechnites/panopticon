@@ -46,7 +46,14 @@ said: "fortnite footage same stuff"
 capture: tools/content/fetch.sh, SOURCES.md
 ## 5
 said: "footage of the new feature being used"
-capture: after the visible bullet lands: --pov=guard --crosshair, guard_projectile_speed on, 6-8 s
+capture: --shot=s3_open_lane --stage=projectile_lead --pov=guard --bots=4 --look=social --audio=near --seed=20261005
+hud: crosshair
+seconds: 9
+in: 1.2
+takes: 1
+motion: 0.006
+frame: 3.52
+file: 05_pov_projectile
 
 ## bullet_test (feature check, not a shot)
 capture: --pov=guard --hud=crosshair --stage=guard_alone --shot=s3_open_lane --bots=4 --set=speed=200;degs=170,159,148 --look=social --audio=near --seed=20260930
