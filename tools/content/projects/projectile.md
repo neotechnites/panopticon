@@ -44,7 +44,7 @@ said: "fortnite footage same stuff"
 capture: tools/content/fetch.sh, SOURCES.md
 ## 5
 said: "footage of the new feature being used"
-capture: --shot=s3_open_lane --stage=projectile_lead --pov=guard --bots=4 --look=social --audio=near --seed=20261005
+capture: --shot=s3_open_lane --stage=projectile_lead --pov=guard --bots=4 --look=social --audio=near --seed=20260930
 hud: crosshair
 seconds: 9
 in: 1.2

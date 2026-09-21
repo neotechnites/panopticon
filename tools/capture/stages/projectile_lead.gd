@@ -25,24 +25,32 @@ extends "res://tools/capture/stages/stage.gd"
 ## Fortnite read Ryan asked for: why you missed, and what fixes it.
 ##
 ## THE LANE. probe_ring.gd --los at h 1.0, every 0.5 deg from 44 to 64, at r 54
-## and r 56 (both agree), is the only reason this shot lands at all:
+## and r 56 (both agree), says 45.0-49.5 is the pillar, 50-59 is speckled --
+## open and blocked alternating every half degree, MapBaseCollision at r 50-53 --
+## 59.5-62.5 is clean, and 63 on is the inner wall. Four degrees of sampling
+## (what shot 2 used) reads 50-59 as open because 52, 56 and 60 all happen to
+## fall in gaps. They are gaps.
 ##
-##   44.0-44.5   open (44.0 blocked at r 56)
-##   45.0-49.5   TowerCollision at r 6.9 -- the pillar
-##   50.0-59.0   SPECKLED: open and blocked alternate every half degree,
-##               MapBaseCollision at r 50-53, plates standing ~1.2 m proud
-##   59.5-62.5   OPEN, both radii, seven samples running -- the only clean arc
-##   63.0-       MapBaseCollision again, the inner wall
+## That probe is a point test, and a point test is not what governs this shot. A
+## raycast from the tower eye to each runner's chest, every 0.1 s for the whole
+## take, says a man on this deck is VISIBLE ABOUT HALF THE TIME, flickering in
+## and out of 0.2-0.5 s windows as he crosses the columns, everywhere on the
+## arc. So the first cut of this shot fired its killing round at a man the scope
+## could not see: he was behind a column at the squeeze, the round was led into
+## the open bearing ahead of him, and he ran out into it just in time to be hit.
+## Correct in the log, unreadable on camera.
 ##
-## Four degrees of sampling (what shot 2 used) reads 49-60 as "open" because 52,
-## 56 and 60 all happen to fall in gaps. They are gaps. Both squeezes are
-## The killing round's mark sits at 61.3-61.8, inside that arc. The missed round
-## is aimed at 53.7 with the man at 54.9 -- both in the open half-degrees either
-## side of 53.5-56.0 -- and it crosses him and carries on to the far wall at 56 m
-## rather than thumping into a plate in front of him. Probe the mark AND the man:
-## a mark the probe calls open is not enough on its own, because the round leaves
-## the muzzle and the probe's ray leaves the eye, and at this depression the
-## difference is a plate at 50 m.
+## Both squeezes are therefore timed to a moment when the TRACKED MAN IS VISIBLE
+## and the led mark is in an open half-degree. A hitscan shot only needs the
+## first; a round that travels needs both, and on this deck the two are rarely
+## true together for long. A: visible at 54.9 deg, mark 53.7. B: visible at 53.5
+## deg, mark 55.3. If either beat is re-timed, re-measure BOTH -- do not assume
+## an arc the probe calls open will still have a man standing in the clear.
+##
+## The round also leaves the muzzle while the probe's ray leaves the eye, and at
+## this depression that difference is a plate at 50 m. An earlier cut aimed the
+## miss at 56.9 deg, which the probe calls blocked; the round hit that plate five
+## metres short of the man instead of crossing him.
 ##
 ## No runner carries flinch_on. The flinch is honest and it is also the one
 ## thing that couples the second shot to the first: a one-frame difference in
@@ -53,7 +61,7 @@ extends "res://tools/capture/stages/stage.gd"
 ## The clock, in clip seconds (bodies placed at 0.6 s, the cut starts at 1.2):
 ##   1.6  the hand leaves the park and eases down the line onto A
 ##   4.6  MISS   A at 54.9 deg, the round crosses 1.2 m behind him and flies on
-##   8.0  HIT    B at 60.0 deg, led 1.8 deg, down at 8.28
+##   7.15 HIT    B at 53.5 deg, led 1.8 deg, down at 7.43
 ##   9.0  the scope comes off the drop onto C, who is still coming up the ring
 ## A starts at 35.82 deg, B at 16.11, C at 8.0, all at r 54, pace 0.55. A's start
 ## is a poor dial -- his glance schedule makes the bearing he reaches by the
@@ -71,7 +79,7 @@ extends "res://tools/capture/stages/stage.gd"
 ##   behind    metres of ring the missed round is put behind A (1.2)
 ##   start     clip seconds the hand leaves the park (1.6)
 ##   beat_a/beat_b/beat_c  seconds the hand spends on each man (3.8, 3.6, 4.0)
-##   fire_a/fire_b         seconds into that beat the trigger goes (3.0, 2.6)
+##   fire_a/fire_b         seconds into that beat the trigger goes (3.0, 1.75)
 ##   lead_in   degrees of ring the scope rests ahead of A (-13)
 ##   lift      1 to lift the grade for a phone (a POV carries no fill light)
 ##   clear     the scope's clear centre as a fraction of half the frame height
@@ -196,7 +204,7 @@ func tick(_delta: float) -> void:
 	})
 	_hand.beats.append({
 		"body": _runners[1], "seconds": float(option("beat_b", 3.6)),
-		"fire_at": float(option("fire_b", 2.6)),
+		"fire_at": float(option("fire_b", 1.75)),
 	})
 	# No trigger on the last beat: the scope comes off the drop and onto the man
 	# still coming, so the clip ends on a move rather than on a held frame.
@@ -210,7 +218,7 @@ func tick(_delta: float) -> void:
 	say("tower brain stood down; the hand starts at %.2f s, misses at %.2f, leads and hits at %.2f" % [
 		_hand.start_at,
 		_hand.start_at + float(option("fire_a", 3.0)),
-		_hand.start_at + float(option("beat_a", 3.8)) + float(option("fire_b", 2.6)),
+		_hand.start_at + float(option("beat_a", 3.8)) + float(option("fire_b", 1.75)),
 	])
 
 
