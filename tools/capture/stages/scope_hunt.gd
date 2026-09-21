@@ -17,50 +17,62 @@ extends "res://tools/capture/stages/stage.gd"
 ##
 ## Seven runners, not three: Ryan asked for the lap, so the deck is busy and
 ## the three that drop are picked out of a moving pack rather than queued up
-## for the lens. They run two lanes at two radii so seven bodies fit the clear
-## stretch without a conga line, every one of them with the human layer on and
-## its own seeded glance schedule, so nothing moves in lockstep. Four are never
-## shot: the round cannot resolve under the last kill.
+## for the lens. All seven run one lane at r 48, three degrees apart, which is
+## 2.51 m of ring between bodies: a pack, not a conga line, and the tower's eye
+## is 28.9 m up and looking down on it, so nobody is behind anybody. Every one
+## has the human layer on and its own seeded glance schedule, so nothing moves
+## in lockstep. Four are never shot: the round cannot resolve under the last
+## kill.
 ##
-## Which three drop, and WHERE, is the one thing that is not free, and it cost
-## two takes to learn why. The guard shoots outward from the tower's axis, so
-## two things stand between him and the ring: the tower's own pillars, and the
-## deck itself where the inner ring rises. probe_ring.gd --los at r 54, every
-## 4 deg, h 1.0 and h 1.6 (they agree everywhere) reads:
+## The lane is S2 The Lava Shelf, 75-130 deg, and it was picked for the picture
+## before the ray. The first take ran 52-60 deg because that was the only arc
+## --los would pass a round down, but that is the middle of S1 The Spires: nine
+## spire columns, and three small dark figures lost in a dark red field. Line of
+## sight is a ray; a shot is a picture. S2 is the section docs/MAP1_SECTIONS.md
+## builds to be seen from the tower -- inner lane r 44-53 open, a 1.3 m rock
+## wall at r 53.5 from 80 to 125, the lava field behind it at r 54.5-60 -- so a
+## body on the inner lane stands between the tower and the lava and reads dark
+## against orange. The S3 open lane guard_alone used is not available: the crack
+## grid now fills 145-200.
 ##
-##   4 deg        TowerCollision at r 6.85       a pillar
-##   5-13 deg     MapBaseCollision at r ~46      the inner wall, +4.6 m
-##   16 deg       open
-##   20-40 deg    MapBaseCollision at r 46 -> 40 the inner ring, rising
-##   44-47 deg    open
-##   48 deg       TowerCollision at r 6.85       the second pillar
-##   49-60 deg    open
-##   63-70 deg    MapBaseCollision at r ~18      the inner wall again, +3.0 m
+## Which three drop, and WHERE, is the one thing that is not free. The guard
+## shoots outward from the tower's axis, so the tower's own piers and any rise
+## in the deck eat rounds. probe_ring.gd --los at r 48, 78-128 deg every 2 deg,
+## h 1.0 and h 1.6 (they agree at every sample), then half-degree steps across
+## the edges:
 ##
-## So there is exactly one window wide enough to kill three men in eight
-## seconds without a pillar or a deck lip eating a round: 52-60 degrees. The
-## first take put a target at 12 deg and the round hit MapBaseCollision at
-## r 46.9, y 24.48 -- the wall, not the man. Every beat is therefore timed so
-## that the body is between 52 and 60 degrees at the squeeze: at pace 0.22 a
-## runner covers 2.42 deg of ring a second, the beats fire at 3.3, 5.9 and
-## 8.5 clip seconds, so the three targets start at 46.5, 43.2 and 39.9 and are
-## shot at 53, 56 and 59 degrees. The pack is taken front to back while it
-## streams forward, so the scope falls back through the line rather than
-## chasing its own start bearing. Four spares at 26, 30, 34 and 50 fill the
-## frame and keep the round alive under the last kill.
+##   78-89.5 deg     open
+##   90-94.5 deg     TowerCollision at r 6.86        the tower's own pier
+##   95-128 deg      open
 ##
-## All seven run one radius, r 54: probe_ring --heights finds a 2.74 m object
-## standing on the deck at r 52, 48 deg, straight through a second lane. The
-## line is broken up by weave and by the human layer instead.
+## That is 33 degrees clear from 95 to the end of the sweep at 128, and
+## --heights reads r 48 dead flat under all of it: +0.00 at every bearing. The two
+## r 47 spires S2 keeps for the bots, at 95 and 112, cast no measurable shadow
+## one metre further out -- 93-98 and 108-116 at half a degree are open end to
+## end. No other radius will do: r 50 is open on the same window but carries
+## bumps of +0.89, +0.67 and +1.65 at 84, 106 and 116, and r 52 and r 54 are
+## BLOCKED by MapBaseCollision at r ~50.4 at every bearing outside the pier's,
+## the rock wall's own foot. So all seven run r 48.
 ##
-## Where they run is measured, not chosen. probe_ring.gd --clear at bc9684c
-## reports exactly four pad- and trap-free stretches of the ring inside the
-## walkable band r 47.5-56.5: 0-71, 136-143, 202-207 and 272-288 degrees. Only
-## the first is long enough for seven bodies and eight seconds, and --heights
-## reads it flat at r 52 and r 54 (r 48 is +4.6 m of wall, r 58 has no floor at
-## all). So the lap runs 12-36 deg out to the fifties, two radii two metres
-## apart, well inside the stretch at both ends. The S3 open lane guard_alone
-## used is not available here: the crack grid now fills 145-200.
+## Seven start 3 deg apart from 88 to 106 and the hand takes the middle three,
+## runners 2, 3 and 4, back to front -- the rearmost first, then forward with
+## the pack -- which spreads the kills along the lane instead of stacking them
+## where the scope already sits. At pace 0.22 a body covers 3.2 deg of ring a
+## second at r 48 (measured: 94 -> 102.5 deg in 2.68 s), the beats fire at 3.30,
+## 5.90 and 8.50 clip seconds, and the headless take drops them at 102.5, 113.9
+## and 125.4 degrees: 11 degrees apart, every one inside the open window and
+## 8 degrees clear of the pier. Weave 0.25 wanders the radius over 47.7-48.3,
+## which is nothing the rifle cares about.
+##
+## The ground under this lane is not "clear" in probe_ring --clear's sense and
+## cannot be: --clear reports only 0-71, 136-143, 202-207 and 272-288 deg free
+## of pad and trap footprints inside r 47.5-56.5, because S2's seven lava
+## TrapVolumes bound out to r 46.4-61.4 across 72-135 deg and swallow the whole
+## band. That is a footprint, not a floor -- the lava itself is at r 54.5-60 --
+## and nothing here launches or burns a body anyway: before_start disarms 40
+## pads and 22 traps, and a launched or burned runner is not a body the guard
+## shot. The first hazard actually sitting on r 48 is S3's crack grid from
+## 143.9 deg, and at 9.5 s the leading runner is only at 134 deg.
 ##
 ## Dials (--set=):
 ##   degs      start bearing of each runner, in order (7 values)
@@ -123,8 +135,8 @@ func before_start() -> void:
 
 
 func cast(runners: Array[RunnerBrain]) -> bool:
-	var degs: PackedStringArray = String(option("degs", "26,30,34,39.9,43.2,46.5,50")).split(",")
-	var rs: PackedStringArray = String(option("rs", "54,54,54,54,54,54,54")).split(",")
+	var degs: PackedStringArray = String(option("degs", "88,91,94,97,100,103,106")).split(",")
+	var rs: PackedStringArray = String(option("rs", "48,48,48,48,48,48,48")).split(",")
 	if runners.size() < degs.size() or degs.size() != rs.size():
 		return false
 	for brain: RunnerBrain in runners:
@@ -146,7 +158,7 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 			{"do": "hold", "seconds": 60.0},
 		], index)
 		_runners.append(runners[index].controller)
-	for raw: String in String(option("targets", "5,4,3")).split(","):
+	for raw: String in String(option("targets", "2,3,4")).split(","):
 		var k: int = int(raw)
 		if k >= 0 and k < _runners.size():
 			_targets.append(_runners[k])
@@ -154,7 +166,7 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 				_first_point = LIB.ring_point(float(degs[k]), float(rs[k]), 1.0)
 	victim_body(_targets[0] if not _targets.is_empty() else _runners[0])
 	say("scope_hunt: %d on the lap at %s deg, r %s, pace %.2f; the hand takes %s" % [
-		_runners.size(), ",".join(degs), ",".join(rs), pace, String(option("targets", "5,4,3")),
+		_runners.size(), ",".join(degs), ",".join(rs), pace, String(option("targets", "2,3,4")),
 	])
 	return true
 
