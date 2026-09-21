@@ -138,6 +138,8 @@ func test_the_visual_round_rides_the_host_flight() -> void:
 
 	var ticks: int = 0
 	var compared: int = 0
+	var hidden_ticks: int = 0
+	var shown_ticks: int = 0
 	while _both_in_the_air() and ticks < MAX_FLIGHT_TICKS:
 		_rifle.tick(SIM_DELTA)
 		ticks += 1
@@ -163,6 +165,26 @@ func test_the_visual_round_rides_the_host_flight() -> void:
 			break
 		compared += 1
 
+		# The shooter's own eye is the origin (no camera here): the bullet is
+		# hidden inside REVEAL_METRES of it and capped to MAX_VIEW_RADIANS beyond.
+		var visual: MeshInstance3D = _visual_of(twin)
+		var flown_metres: float = SHOT_SPEED * flown
+		if flown_metres < WeaponProjectile.REVEAL_METRES:
+			assert_true(visual != null and not visual.visible, "the bullet is hidden at %.1f m" % flown_metres)
+			assert_almost_eq(twin.get_visual_scale(), 0.0, 1.0e-6, "and its drawn scale is zero there")
+			hidden_ticks += 1
+		else:
+			assert_true(visual != null and visual.visible, "the bullet is drawn at %.1f m" % flown_metres)
+			var drawn: float = twin.get_visual_scale() * _profile.tracer_width / flown_metres
+			assert_le(
+				drawn, WeaponProjectile.MAX_VIEW_RADIANS + 1.0e-6,
+				"and subtends no more than the cap at %.1f m" % flown_metres,
+			)
+			assert_gt(twin.get_visual_scale(), 0.0, "at a size above zero")
+			shown_ticks += 1
+
+	assert_gt(float(hidden_ticks), 0.0, "at least one tick flew inside the reveal distance, unseen")
+	assert_gt(float(shown_ticks), 0.0, "and at least one beyond it, seen")
 	assert_gt(
 		float(compared), float(MIN_COMPARED_TICKS) - 1.0,
 		"the pair was compared over a real flight, not one or two ticks of it",
@@ -176,6 +198,34 @@ func test_the_visual_round_rides_the_host_flight() -> void:
 	)
 	assert_eq_int(_rifle.get_projectiles_in_flight(), 0, "no live round is left flying")
 	assert_eq_int(_rifle.get_visual_rounds_in_flight(), 0, "and no cosmetic one either")
+
+
+# --- Another player's eye ----------------------------------------------------
+
+## Beyond the cap's reach, a bystander's camera draws the bullet from its first tick, full size.
+const BYSTANDER_METRES: float = 80.0
+
+
+func test_the_bullet_is_seen_whole_from_another_players_eye() -> void:
+	var camera: Camera3D = Camera3D.new()
+	_world.add_child(camera)
+	camera.global_position = ORIGIN + Vector3.RIGHT * BYSTANDER_METRES
+	camera.current = true
+	await step_ticks(1)
+
+	_rules.guard_projectile_speed = SHOT_SPEED
+	_rifle.show_remote_shot(ORIGIN, ORIGIN + Vector3.FORWARD * VISUAL_DISTANCE, _rifle.reload_seconds)
+	_rifle.tick(SIM_DELTA)
+	var twin: WeaponProjectile = _round_in_world(true)
+	assert_not_null(twin, "the replay is in the air")
+	var visual: MeshInstance3D = _visual_of(twin) if twin != null else null
+	assert_true(visual != null and visual.visible, "a bystander sees the bullet on its first tick")
+	assert_almost_eq(
+		twin.get_visual_scale() if twin != null else 0.0, 1.0, 1.0e-6,
+		"and at full size, %.0f m from their eye" % BYSTANDER_METRES,
+	)
+	camera.current = false
+	camera.queue_free()
 
 
 # --- One mesh, one material ---------------------------------------------------
