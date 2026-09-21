@@ -35,6 +35,8 @@ hud: crosshair
 seconds: 8
 in: 1.5
 takes: 1
+motion: 0.015
+frame: 1.81667
 file: 02_pov_hitscan
 ## 3
 said: "warzone footage of sniper shots where fall off happens"
