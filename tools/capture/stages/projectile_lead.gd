@@ -15,12 +15,13 @@ extends "res://tools/capture/stages/stage.gd"
 ## takes time to arrive. The eye is 55 m out and 200 m/s is 0.27 s in the air:
 ## 16 frames at 60 fps of a lit bullet with a 2.5 m tail, which is the subject.
 ##
-## The miss is a fixed 2.0 m of ring behind him ("behind" on the beat), not a
+## The miss is a fixed 1.2 m of ring behind him ("behind" on the beat), not a
 ## scaled-down lead. That is measurement, not taste: a runner's gait is
 ## stop-start, and his speed at the squeeze reads anywhere from 3.1 to 6.3 m/s,
 ## so a lead scaled to 0 leaves the round anywhere from 0.8 to 1.7 m behind him
-## -- which is a hit about half the time. Two metres is always a miss and always
-## reads as one. The second beat takes the full lead and kills. That is the
+## -- which is a hit about half the time. A fixed 1.2 m is always a miss, always
+## reads as one, and is small enough that both the man and the mark stay inside
+## the one arc the round can cross. The second beat takes the full lead and kills. That is the
 ## Fortnite read Ryan asked for: why you missed, and what fixes it.
 ##
 ## THE LANE. probe_ring.gd --los at h 1.0, every 0.5 deg from 44 to 64, at r 54
@@ -35,9 +36,13 @@ extends "res://tools/capture/stages/stage.gd"
 ##
 ## Four degrees of sampling (what shot 2 used) reads 49-60 as "open" because 52,
 ## 56 and 60 all happen to fall in gaps. They are gaps. Both squeezes are
-## therefore put inside 59.5-62.5: the missed round's mark at 56.9 deg and the
-## killing round's at 61.3-62.1. Every runner crosses the whole arc, so what
-## picks the window is WHEN the hand fires, not where anyone is standing.
+## The killing round's mark sits at 61.3-61.8, inside that arc. The missed round
+## is aimed at 53.7 with the man at 54.9 -- both in the open half-degrees either
+## side of 53.5-56.0 -- and it crosses him and carries on to the far wall at 56 m
+## rather than thumping into a plate in front of him. Probe the mark AND the man:
+## a mark the probe calls open is not enough on its own, because the round leaves
+## the muzzle and the probe's ray leaves the eye, and at this depression the
+## difference is a plate at 50 m.
 ##
 ## No runner carries flinch_on. The flinch is honest and it is also the one
 ## thing that couples the second shot to the first: a one-frame difference in
@@ -47,20 +52,23 @@ extends "res://tools/capture/stages/stage.gd"
 ##
 ## The clock, in clip seconds (bodies placed at 0.6 s, the cut starts at 1.2):
 ##   1.6  the hand leaves the park and eases down the line onto A
-##   4.6  MISS   A at 59.0 deg, the round crosses 2.0 m behind him and lands
+##   4.6  MISS   A at 54.9 deg, the round crosses 1.2 m behind him and flies on
 ##   8.0  HIT    B at 60.0 deg, led 1.8 deg, down at 8.28
 ##   9.0  the scope comes off the drop onto C, who is still coming up the ring
-## A starts at 40.85 deg, B at 16.11, C at 8.0, all at r 54, pace 0.55. A is
+## A starts at 35.82 deg, B at 16.11, C at 8.0, all at r 54, pace 0.55. A's start
+## is a poor dial -- his glance schedule makes the bearing he reaches by the
+## squeeze move about 1.8 deg for every degree of start -- so it was searched,
+## not solved. A is
 ## never killed -- he is missed and runs on -- and C is never shot, so the round
 ## cannot resolve under the one kill and no body has to be parked to hold it open.
 ##
 ## Dials (--set=):
 ##   speed     the projectile lever in m/s (200; 0 would be hitscan)
-##   degs      start bearing of A, B and C (40.85,16.11,8.0)
+##   degs      start bearing of A, B and C (35.82,16.11,8.0)
 ##   r         radius of all three (54)
 ##   pace      run speed multiplier (0.55)
 ##   arc       degrees of ring each lane runs (55)
-##   behind    metres of ring the missed round is put behind A (2.0)
+##   behind    metres of ring the missed round is put behind A (1.2)
 ##   start     clip seconds the hand leaves the park (1.6)
 ##   beat_a/beat_b/beat_c  seconds the hand spends on each man (3.8, 3.6, 4.0)
 ##   fire_a/fire_b         seconds into that beat the trigger goes (3.0, 2.6)
@@ -113,7 +121,7 @@ func before_start() -> void:
 
 
 func cast(runners: Array[RunnerBrain]) -> bool:
-	var degs: PackedStringArray = String(option("degs", "40.85,16.11,8.0")).split(",")
+	var degs: PackedStringArray = String(option("degs", "35.82,16.11,8.0")).split(",")
 	if runners.size() < degs.size():
 		return false
 	for brain: RunnerBrain in runners:
@@ -184,7 +192,7 @@ func tick(_delta: float) -> void:
 	_hand.beats.append({
 		"body": _runners[0], "seconds": float(option("beat_a", 3.8)),
 		"fire_at": float(option("fire_a", 3.0)),
-		"lead": 0.0, "behind": float(option("behind", 2.0)),
+		"lead": 0.0, "behind": float(option("behind", 1.2)),
 	})
 	_hand.beats.append({
 		"body": _runners[1], "seconds": float(option("beat_b", 3.6)),
