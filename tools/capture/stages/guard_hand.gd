@@ -50,6 +50,12 @@ const AIM_HEIGHT: float = 1.0
 ## both read anything between 0 and 7 m/s, and the round has to be led by the
 ## speed he is actually covering ground at.
 const VELOCITY_WINDOW: float = 0.45
+## The short average the steadiness test compares against the long one.
+const FAST_WINDOW: float = 0.12
+## How far apart those two may be, m/s, and how slowly he may be moving, before
+## the hand calls the shot off and waits.
+const STEADY_TOLERANCE: float = 1.6
+const STEADY_FLOOR: float = 2.0
 ## Longest a "clear" beat waits for a gap in the columns before it fires anyway.
 const CLEAR_WAIT: float = 1.2
 
@@ -67,10 +73,10 @@ var _rate: Vector2 = Vector2.ZERO
 var _fired: Array = []
 var _last_aim: Array = []
 var _installed: bool = false
-var _tracked: int = -1
-var _tracked_at: Vector3 = Vector3.ZERO
-var _tracked_velocity: Vector3 = Vector3.ZERO
+## Per body: where it was, a slow average of its velocity, and a fast one.
+var _seen: Dictionary = {}
 var _ray: PhysicsRayQueryParameters3D = null
+var _picked: Array = []
 
 
 ## [param clock] is the clip's elapsed time now, so start_at and the log are in clip seconds.
@@ -109,8 +115,31 @@ func _physics_process(delta: float) -> void:
 		into -= float(beats[k].get("seconds", 1.7))
 		k += 1
 	var beat: Dictionary = beats[k]
-	var body: PlayerController = beat.get("body") as PlayerController
 	var fire_at: float = float(beat.get("fire_at", -1.0))
+	var body: PlayerController = beat.get("body") as PlayerController
+	# from ([]): a beat may name a pool of men instead of one. Until it fires,
+	# the hand keeps swinging onto whichever of them is in the open and nearest
+	# the line it is already on -- what a player does when the man he was on
+	# ducks behind a column. With live brains on the lap nobody can be promised
+	# to be anywhere, so a beat that names one body alone will sooner or later
+	# hold its shot on a man who is not coming out.
+	var pool: Array = beat.get("from", [])
+	var entry: Variant = null
+	if not pool.is_empty():
+		while _picked.size() < beats.size():
+			_picked.append(null)
+		# acquire (0.0): how long before fire_at the hand is allowed to come onto
+		# this beat's man. It matters because the men watch the rifle: hold a
+		# scope on a prisoner for three seconds and he breaks for cover, which
+		# is exactly the thing a lead cannot predict. Coming on late and firing
+		# inside his reaction time is how the shot lands -- and it is what a
+		# player does.
+		var acquire: float = float(beat.get("acquire", 0.0))
+		if not _fired.has(k) and (acquire <= 0.0 or fire_at < 0.0 or into >= fire_at - acquire):
+			_picked[k] = _pick_from(pool, _picked[k])
+		entry = _picked[k]
+		if entry != null:
+			body = _body_of(entry)
 	var aim: Vector3
 	if _fired.has(k) or body == null or not is_instance_valid(body):
 		aim = _last_aim[k] if _last_aim[k] != Vector3.ZERO else beat.get("at", park)
@@ -123,17 +152,13 @@ func _physics_process(delta: float) -> void:
 		aim += Vector3(body.velocity.x, 0.0, body.velocity.z) * lag_seconds
 	# The lead is taken from a velocity MEASURED off the body between frames, not
 	# from PlayerController.velocity: read from outside the controller's own tick
-	# that field is zero on most frames, so a round led by it is led by nothing
-	# and lands wherever the sampled frame happened to fall.
-	if body != null and is_instance_valid(body):
-		if k != _tracked:
-			_tracked = k
-			_tracked_at = body.global_position
-			_tracked_velocity = Vector3.ZERO
-		elif delta > 0.0:
-			var step: Vector3 = (body.global_position - _tracked_at) / delta
-			_tracked_at = body.global_position
-			_tracked_velocity = _tracked_velocity.lerp(step, clampf(delta / VELOCITY_WINDOW, 0.0, 1.0))
+	# that field is zero on most frames, so a round led by it is led by nothing.
+	# Every man in the beat is measured, every frame, not just the one the hand
+	# is on -- the hand swings between them, and a lead taken off an estimate
+	# that started when the swing did is a lead of zero.
+	_measure(body, delta)
+	for one: Variant in pool:
+		_measure(_body_of(one), delta)
 	var wanted: Vector2 = _angles_to(aim)
 	if not _fired.has(k):
 		var settling: float = 1.0 if fire_at < 0.0 else clampf((fire_at - into) / SETTLE_SECONDS, 0.0, 1.0)
@@ -153,7 +178,7 @@ func _physics_process(delta: float) -> void:
 		# happens to be behind a rock that frame: it is why one beat killed on one
 		# take and put the round in the wall on the next, off a 0.02 s difference.
 		# Capped by CLEAR_WAIT so a take can never hang waiting for a gap.
-		if bool(beat.get("clear", false)) and into < fire_at + CLEAR_WAIT and not _shot_is_there(beat, body):
+		if bool(beat.get("clear", false)) and into < fire_at + CLEAR_WAIT and not _shot_is_there(beat, body, entry):
 			_apply_head()
 			return
 		_fired.append(k)
@@ -210,7 +235,7 @@ func _mark_for(beat: Dictionary, body: PlayerController) -> Vector3:
 	# it, so it crosses behind him and the miss is one you can read. Only the
 	# squeeze is scaled; the tracking crosshair still sits on him.
 	var flight: float = mark.distance_to(_eye_position()) / shot_speed
-	var along := Vector3(_tracked_velocity.x, 0.0, _tracked_velocity.z)
+	var along: Vector3 = _velocity_of(body)
 	mark += along * flight * float(beat.get("lead", 1.0))
 	# behind (0.0): metres the round is put behind him on purpose, along his own
 	# line of travel. A miss has to be a fixed size to be filmed: scaling the
@@ -223,12 +248,95 @@ func _mark_for(beat: Dictionary, body: PlayerController) -> Vector3:
 	return mark
 
 
-## True when the eye can see both the man and the point the round is being sent
-## to. One query object, reused: this runs every frame of the hold.
-func _shot_is_there(beat: Dictionary, body: PlayerController) -> bool:
+## A pool entry is either the body itself or the brain playing it: a stage that
+## wants the hand to respect what a man is DOING hands over brains.
+func _body_of(entry: Variant) -> PlayerController:
+	var brain: RunnerBrain = entry as RunnerBrain
+	if brain != null:
+		return brain.controller
+	return entry as PlayerController
+
+
+## Fold this frame's movement of [param body] into its two running averages.
+func _measure(body: PlayerController, delta: float) -> void:
+	if body == null or not is_instance_valid(body) or delta <= 0.0:
+		return
+	var key: int = body.get_instance_id()
+	var here: Vector3 = body.global_position
+	if not _seen.has(key):
+		_seen[key] = {"at": here, "slow": Vector3.ZERO, "fast": Vector3.ZERO}
+		return
+	var row: Dictionary = _seen[key]
+	var step: Vector3 = (here - row["at"]) / delta
+	row["at"] = here
+	row["slow"] = (row["slow"] as Vector3).lerp(step, clampf(delta / VELOCITY_WINDOW, 0.0, 1.0))
+	row["fast"] = (row["fast"] as Vector3).lerp(step, clampf(delta / FAST_WINDOW, 0.0, 1.0))
+
+
+## The velocity the lead is taken from: the slow average, flattened.
+func _velocity_of(body: PlayerController) -> Vector3:
+	if body == null or not _seen.has(body.get_instance_id()):
+		return Vector3.ZERO
+	var slow: Vector3 = _seen[body.get_instance_id()]["slow"]
+	return Vector3(slow.x, 0.0, slow.z)
+
+
+## True when he is running the same way he was: the fast average and the slow
+## one agree. A lead is a prediction, and a prediction only holds while he is
+## not changing his mind -- a man breaking for cover or juking off a round that
+## just landed is the one case where the round arrives where he WAS going. It is
+## also when a player would not take the shot.
+func _running_steady(body: PlayerController) -> bool:
+	if body == null or not _seen.has(body.get_instance_id()):
+		return false
+	var row: Dictionary = _seen[body.get_instance_id()]
+	var slow: Vector3 = row["slow"]
+	var fast: Vector3 = row["fast"]
+	if Vector2(slow.x, slow.z).length() < STEADY_FLOOR:
+		return false
+	return Vector2(fast.x - slow.x, fast.z - slow.z).length() <= STEADY_TOLERANCE
+
+
+## The man this beat should be on right now: of [param pool], the one the eye
+## can see that is nearest the line the hand already holds. [param current] is
+## kept when nobody is in the open, so the hand stays where it was rather than
+## snapping about between rocks.
+func _pick_from(pool: Array, current: Variant) -> Variant:
+	var best: Variant = null
+	var best_error: float = INF
+	for entry: Variant in pool:
+		var body: PlayerController = _body_of(entry)
+		if body == null or not is_instance_valid(body) or not _can_see(body):
+			continue
+		var to: Vector2 = _angles_to(body.global_position + Vector3.UP * AIM_HEIGHT)
+		var error: float = absf(angle_difference(_yaw, to.x)) + absf(to.y - _pitch)
+		if error < best_error:
+			best_error = error
+			best = entry
+	if best == null:
+		return current
+	return best
+
+
+## True when nothing stands between the eye and his chest.
+func _can_see(body: PlayerController) -> bool:
+	_ready_ray()
+	_ray.exclude = [_guard.get_rid(), body.get_rid()]
+	_ray.from = _eye_position()
+	_ray.to = body.global_position + Vector3.UP * AIM_HEIGHT
+	return _guard.get_world_3d().direct_space_state.intersect_ray(_ray).is_empty()
+
+
+func _ready_ray() -> void:
 	if _ray == null:
 		_ray = PhysicsRayQueryParameters3D.new()
 		_ray.collide_with_areas = false
+
+
+## True when the eye can see both the man and the point the round is being sent
+## to. One query object, reused: this runs every frame of the hold.
+func _shot_is_there(beat: Dictionary, body: PlayerController, entry: Variant = null) -> bool:
+	_ready_ray()
 	var space: PhysicsDirectSpaceState3D = _guard.get_world_3d().direct_space_state
 	var eye: Vector3 = _eye_position()
 	_ray.exclude = [_guard.get_rid(), body.get_rid()]
@@ -238,7 +346,15 @@ func _shot_is_there(beat: Dictionary, body: PlayerController) -> bool:
 		return false
 	_ray.from = eye
 	_ray.to = _mark_for(beat, body)
-	return space.intersect_ray(_ray).is_empty()
+	if not space.intersect_ray(_ray).is_empty():
+		return false
+	# A man who is breaking for cover, mid-jump or juking off the last round is
+	# the one who will not be where the lead says. His own brain knows which he
+	# is doing, so ask it rather than guess from the velocity.
+	var brain: RunnerBrain = entry as RunnerBrain
+	if brain != null and brain.get_state() != RunnerBrain.State.RUN:
+		return false
+	return _running_steady(body)
 
 
 func _apply_head() -> void:

@@ -1,105 +1,83 @@
 extends "res://tools/capture/stages/stage.gd"
 
 ## projectile_lead: the guard POV down the scope with the projectile lever ON --
-## a round that misses behind a runner, then the same hand leading the next one
+## a round seen passing behind a man, then the same hand leading the next one
 ## and killing him. Shot 5 of the projectile short. Filmed with
-## [code]--shot=s3_open_lane --stage=projectile_lead --pov=guard --hud=crosshair --bots=4 --seconds=10.2[/code]
+## [code]--shot=s3_open_lane --stage=projectile_lead --pov=guard --hud=crosshair --bots=6 --seconds=11.2[/code]
 ## (cut 1.2 s in, 9.0 s). Ryan: "footage of the new feature being used" and "i
 ## want it to look like sniping in fortnite where you can actually see the
-## bullet as it travels", under the line "So, i went ahead and implemented that,
-## tell me in the comments what you think, is this a good addition?".
+## bullet as it travels".
 ##
-## Shot 2 said what hitscan looks like in this lane; this is the same lane, the
-## same hand and the same runners with guard_projectile_speed at 200 m/s, so the
-## only thing that changed on screen between the two shots is that the round now
-## takes time to arrive. The eye is 55 m out and 200 m/s is 0.27 s in the air:
-## 16 frames at 60 fps of a lit bullet with a 2.5 m tail, which is the subject.
+## The eye is 55 m out and 200 m/s is 0.27 s in the air: 16 frames at 60 fps of
+## a lit bullet, which is the subject of the shot.
 ##
-## The miss is a fixed 1.2 m of ring behind him ("behind" on the beat), not a
-## scaled-down lead. That is measurement, not taste: a runner's gait is
-## stop-start, and his speed at the squeeze reads anywhere from 3.1 to 6.3 m/s,
-## so a lead scaled to 0 leaves the round anywhere from 0.8 to 1.7 m behind him
-## -- which is a hit about half the time. A fixed 1.2 m is always a miss, always
-## reads as one, and is small enough that both the man and the mark stay inside
-## the one arc the round can cross. The second beat takes the full lead and kills. That is the
-## Fortnite read Ryan asked for: why you missed, and what fixes it.
+## [b]The men are played, not driven[/b]
 ##
-## THE LANE. probe_ring.gd --los at h 1.0, every 0.5 deg from 44 to 64, at r 54
-## and r 56 (both agree), says 45.0-49.5 is the pillar, 50-59 is speckled --
-## open and blocked alternating every half degree, MapBaseCollision at r 50-53 --
-## 59.5-62.5 is clean, and 63 on is the inner wall. Four degrees of sampling
-## (what shot 2 used) reads 50-59 as open because 52, 56 and 60 all happen to
-## fall in gaps. They are gaps.
+## Ryan on the first dailies: "the people hes shooting at are retarded. they
+## need to look like real players." The first cut drove them down a lane with a
+## weave on it, which is a rail, and it read as one. They now run on their own
+## [RunnerBrain], the shipped one, exactly as the bot harness runs them: they
+## plan a lap, break for cover when the rifle is on them, jump the gaps, hold
+## behind a rock and come out when their patience runs out, and juke when a
+## round lands inside their tracer alarm. What this stage does is hand each seat
+## a different man to be -- see tools/capture/runner_cast.gd, which is
+## capture-only and map-agnostic, and which shot 2 uses for the same reason.
+## Nothing here drives a body.
 ##
-## That probe is a point test, and a point test is not what governs this shot. A
-## raycast from the tower eye to each runner's chest, every 0.1 s for the whole
-## take, says a man on this deck is VISIBLE ABOUT HALF THE TIME, flickering in
-## and out of 0.2-0.5 s windows as he crosses the columns, everywhere on the
-## arc. So the first cut of this shot fired its killing round at a man the scope
-## could not see: he was behind a column at the squeeze, the round was led into
-## the open bearing ahead of him, and he ran out into it just in time to be hit.
-## Correct in the log, unreadable on camera.
+## The price of that is nobody can be promised to be anywhere. So the hand is
+## not told WHICH man to shoot: each beat is given the whole cast and swings
+## onto whoever is in the open and nearest the line it already holds, and holds
+## the trigger ("clear") until the eye can see both the man and the ground he is
+## being led into. That is also what makes the shot repeatable, because a deck
+## of columns hides a runner about half the time.
 ##
-## Both beats therefore carry "clear": the hand reaches fire_at and then HOLDS
-## the trigger until the eye can see the man AND the ground he is being led
-## into, up to 1.2 s. Timing the trigger on the clock instead is what made this
-## shot flaky: the same beat killed on one take and put the round in the wall on
-## the next, off a 0.02 s difference between the headless run and the render.
-## With the hold, the trigger lands at 7.16, 7.22 and 7.25 s on three seeds and
-## kills on all three. The miss beat holds too -- a miss is only readable if you
-## can see the man it missed.
+## [b]The lane[/b]
 ##
-## The round also leaves the muzzle while the probe's ray leaves the eye, and at
-## this depression that difference is a plate at 50 m. An earlier cut aimed the
-## miss at 56.9 deg, which the probe calls blocked; the round hit that plate five
-## metres short of the man instead of crossing him.
+## probe_ring.gd --los at h 1.0, every 0.5 deg from 44 to 64, at r 54 and r 56:
+## 45.0-49.5 is the pillar, 50-59 is speckled -- open and blocked alternating
+## every half degree, plates at r 50-53 standing 1.2 m proud -- 59.5-62.5 is
+## clean, and 63 on is the inner wall. Four degrees of sampling reads 50-59 as
+## open because 52, 56 and 60 all fall in gaps. They are gaps. The round also
+## leaves the muzzle while that probe's ray leaves the eye, and at this
+## depression the difference is a plate at 50 m, so the "clear" hold raycasts
+## the real thing every frame rather than trusting the table.
 ##
-## No runner carries flinch_on. The flinch is honest and it is also the one
-## thing that couples the second shot to the first: a one-frame difference in
-## when the first round lands moves the flinch, and three seconds later the
-## second man is up to 8 degrees from where the clock says he is -- which is the
-## difference between a kill and a round in the rock. Without it the take repeats.
-##
-## The clock, in clip seconds (bodies placed at 0.6 s, the cut starts at 1.2):
-##   1.6  the hand leaves the park and eases down the line onto A
-##   4.6  MISS   A at 54.9 deg, the round crosses 1.2 m behind him and flies on
-##   7.15 HIT    B at 53.5 deg, led 1.8 deg, down at 7.43
-##   9.0  the scope comes off the drop onto C, who is still coming up the ring
-## A starts at 35.82 deg, B at 16.11, C at 8.0, all at r 54, pace 0.55. A's start
-## is a poor dial -- his glance schedule makes the bearing he reaches by the
-## squeeze move about 1.8 deg for every degree of start -- so it was searched,
-## not solved. A is
-## never killed -- he is missed and runs on -- and C is never shot, so the round
-## cannot resolve under the one kill and no body has to be parked to hold it open.
+## [b]The clock[/b], in clip seconds (bodies placed at 0.6, the cut starts at 1.2):
+##   1.6   the hand leaves the park and eases onto whoever is in the open
+##   4.6+  MISS  the round crosses 1.2 m behind him and carries on
+##   7.15+ HIT   led by the round's flight, and he goes down 0.27 s later
+##   9.0   the scope comes off the drop onto the next man still coming
+## Both firing beats hold past those times until the shot is actually there, so
+## the exact frame moves a little with the seed. That is the point of the hold.
 ##
 ## Dials (--set=):
 ##   speed     the projectile lever in m/s (200; 0 would be hitscan)
-##   degs      start bearing of A, B and C (35.82,16.11,8.0)
-##   r         radius of all three (54)
-##   pace      run speed multiplier (0.55)
-##   arc       degrees of ring each lane runs (55)
-##   behind    metres of ring the missed round is put behind A (1.2)
+##   first     bearing of the man furthest back (6)
+##   step      degrees of ring between them (13)
+##   r         radius they are strung along (54)
+##   behind    metres of ring the missed round is put behind him (1.2)
 ##   start     clip seconds the hand leaves the park (1.6)
-##   beat_a/beat_b/beat_c  seconds the hand spends on each man (3.8, 3.6, 4.0)
-##   fire_a/fire_b         seconds into that beat the trigger goes (3.0, 1.75)
-##   lead_in   degrees of ring the scope rests ahead of A (-13)
+##   beat_a/beat_b/beat_c  seconds the hand spends on each beat (3.8, 3.6, 4.0)
+##   fire_a/fire_b         seconds into that beat the trigger is ready (3.0, 1.75)
+##   park_deg  bearing the scope rests on before the first beat (52)
 ##   lift      1 to lift the grade for a phone (a POV carries no fill light)
 ##   clear     the scope's clear centre as a fraction of half the frame height
 
 const GUARD_HAND := preload("res://tools/capture/stages/guard_hand.gd")
+const CAST := preload("res://tools/capture/runner_cast.gd")
 
 ## Map 1. Pinned here so a settings file on the filming machine cannot move it.
 const MAP_1: StringName = &"bentham_ring"
 
 var _runners: Array = []
+var _brains: Array = []
 var _hand: Node = null
-var _first_point: Vector3 = Vector3.ZERO
 var _guard: PlayerController = null
 var _kills: int = 0
 
 
 func bots() -> int:
-	return 4
+	return int(option("bots_wanted", 6))
 
 
 func needs_pov() -> String:
@@ -113,12 +91,16 @@ func tune_rules(rules: MatchRules) -> void:
 	rules.guard_projectile_speed = float(option("speed", 200.0))
 	# The rifle comes back in this long, so both beats get a ready rifle.
 	rules.base_reload_seconds = 1.0
+	# RunnerProfile.resolve gives the round's exported profile priority over the
+	# brain's own, so leaving it set would hand all six seats the same man and
+	# every dial the cast layer sets below would be ignored.
+	CAST.free_the_seats(rules)
 
 
 func before_start() -> void:
 	var root: Node = clip.root
-	# Three bodies crossing 55 deg of ring will otherwise find a pad or a lava
-	# crack, and a launched runner is not a body the guard missed.
+	# Men crossing 60 deg of ring will otherwise find a pad or a lava crack, and
+	# a launched runner is not a body the guard missed.
 	say("%d boost pads disarmed" % LIB.disarm_pads(root))
 	say("%d traps disarmed" % LIB.disarm_traps(root))
 	if int(option("lift", 1)) == 1:
@@ -131,64 +113,40 @@ func before_start() -> void:
 
 
 func cast(runners: Array[RunnerBrain]) -> bool:
-	var degs: PackedStringArray = String(option("degs", "35.82,16.11,8.0")).split(",")
-	if runners.size() < degs.size():
+	if runners.size() < 2:
 		return false
 	for brain: RunnerBrain in runners:
 		if brain.controller == null:
 			return false
 	var r: float = float(option("r", 54.0))
-	var pace: float = float(option("pace", 0.55))
-	var arc: float = float(option("arc", 55.0))
-	# Every runner gets the lane shape scope_hunt proved on camera -- the human
-	# layer on, his own glance schedule, weave 0.25. Taking the human layer off
-	# the two the hand shoots at (to steady their speed for the lead) looked like
-	# the obvious fix and is not: without it the lane stalls the body outright,
-	# frozen at one bearing for the rest of the take. The lead is steadied in the
-	# hand instead, by measuring the body's speed over VELOCITY_WINDOW.
-	for index: int in degs.size():
-		var deg: float = float(degs[index])
-		drive(runners[index], [
-			{"do": "place", "at": LIB.ring_point(deg, r, 0.1)},
-			{"do": "human", "on": true},
-			{
-				"do": "lane", "to": deg + arc, "r": r,
-				"speed": pace, "weave": 0.25, "period": 1.2, "timeout": 30.0,
-				"glances": _glances(index),
-			},
-			{"do": "hold", "seconds": 60.0},
-		], index)
-		_runners.append(runners[index].controller)
-	# Anyone past the three is parked at 280 deg, in the 272-288 clear stretch,
-	# a hundred metres of ring from every window the scope visits.
-	for index: int in range(degs.size(), runners.size()):
-		drive(runners[index], [
-			{"do": "place", "at": LIB.ring_point(280.0 + 3.0 * float(index), 52.0, 0.1)},
-			{"do": "hold", "seconds": 60.0},
-		], index, "ClipSpare%d" % index)
-	_first_point = LIB.ring_point(float(degs[0]), r, 1.0)
-	# B is the one who dies.
-	victim_body(_runners[1] if _runners.size() > 1 else _runners[0])
-	say("projectile_lead: %d crossing at %s deg, r %.0f, pace %.2f, round %.0f m/s" % [
-		_runners.size(), ",".join(degs), r, pace, float(option("speed", 200.0)),
+	var first: float = float(option("first", 6.0))
+	var step: float = float(option("step", 13.0))
+	var bodies: Array = []
+	var points: Array = []
+	var brains: Array = []
+	for index: int in runners.size():
+		bodies.append(runners[index].controller)
+		brains.append(runners[index])
+		# Strung along the lap, and off one radius, so the scope never finds
+		# them stood in a rank.
+		points.append(LIB.ring_point(
+			first + step * float(index),
+			r + 1.6 * float(index % 3 - 1),
+			0.1
+		))
+	# Each man gets his own way of playing, then is armed again on it.
+	CAST.vary(brains, int(clip._options.get("seed", 0)))
+	var placed: int = CAST.restart(brains, points)
+	_runners = bodies
+	_brains = brains
+	say("projectile_lead: %d played on the lap from %.0f deg, %.0f deg apart, r %.0f, round %.0f m/s" % [
+		placed, first, step, r, float(option("speed", 200.0)),
 	])
 	return true
 
 
-## A runner looking around as he runs. Every body gets a different schedule, and
-## the driver's own seed_with jitters it further, so three heads never turn together.
-func _glances(index: int) -> Array:
-	var phase: float = 0.35 + 0.31 * float(index)
-	return [
-		{"t": phase, "right": -38.0 - 6.0 * float(index % 3), "pitch": -3.0},
-		{"t": phase + 1.4, "right": 24.0 + 5.0 * float(index % 2), "pitch": 2.0},
-		{"t": phase + 3.1, "right": -52.0, "pitch": -5.0},
-		{"t": phase + 4.9, "right": 18.0, "pitch": 0.0},
-	]
-
-
 func tick(_delta: float) -> void:
-	if _hand != null or _runners.size() < 3:
+	if _hand != null or _brains.size() < 2:
 		return
 	var shooter: TowerShooter = LIB.stand_down(seat())
 	if shooter == null or shooter.controller == null:
@@ -199,25 +157,24 @@ func tick(_delta: float) -> void:
 	_hand.name = "ClipGuardHand"
 	clip.root.add_child(_hand)
 	_hand.install(_guard, controller(), elapsed())
+	# No beat names a body: each is given the whole cast and takes whoever is in
+	# the open. "clear" holds the trigger until the shot is really there.
 	_hand.beats.append({
-		"body": _runners[0], "seconds": float(option("beat_a", 3.8)),
+		"from": _brains, "seconds": float(option("beat_a", 3.8)),
 		"fire_at": float(option("fire_a", 3.0)),
 		"lead": 0.0, "behind": float(option("behind", 1.2)), "clear": true,
 	})
 	_hand.beats.append({
-		"body": _runners[1], "seconds": float(option("beat_b", 3.6)),
+		"from": _brains, "seconds": float(option("beat_b", 3.6)),
 		"fire_at": float(option("fire_b", 1.75)), "clear": true,
+		"acquire": float(option("acquire", 0.35)),
 	})
 	# No trigger on the last beat: the scope comes off the drop and onto the man
 	# still coming, so the clip ends on a move rather than on a held frame.
-	_hand.beats.append({"body": _runners[2], "seconds": float(option("beat_c", 4.0))})
-	_hand.park = LIB.ring_point(
-		LIB.bearing_of(_first_point) - float(option("lead_in", -13.0)),
-		LIB.radius_of(_first_point),
-		1.0
-	)
+	_hand.beats.append({"from": _brains, "seconds": float(option("beat_c", 4.0))})
+	_hand.park = LIB.ring_point(float(option("park_deg", 52.0)), float(option("r", 54.0)), 1.0)
 	_hand.start_at = float(option("start", 1.6))
-	say("tower brain stood down; the hand starts at %.2f s, misses at %.2f, leads and hits at %.2f" % [
+	say("tower brain stood down; the hand starts at %.2f s, is ready to miss at %.2f and to lead at %.2f, and holds each until the shot is there" % [
 		_hand.start_at,
 		_hand.start_at + float(option("fire_a", 3.0)),
 		_hand.start_at + float(option("beat_a", 3.8)) + float(option("fire_b", 1.75)),
