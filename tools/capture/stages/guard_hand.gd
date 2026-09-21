@@ -10,13 +10,18 @@ extends Node
 ## squeeze at [code]fire_at[/code], take the recoil and let the same spring
 ## bring the scope back down onto the drop, then ease off to the next beat.
 ##
+## A beat's [code]lead[/code] (1.0) is the fraction of the round's flight the
+## squeeze leads the runner by. It exists because a travelling round can be
+## missed, and [code]behind[/code] (0.0) puts the round a fixed number of metres
+## back along his own line of travel. Both do nothing while the rifle is hitscan.
+##
 ## [codeblock]
 ## var hand: Node = GUARD_HAND.new()
 ## root.add_child(hand)
 ## hand.install(guard_body, controller)
 ## hand.beats = [
 ##     {"body": runner_a, "seconds": 1.7, "fire_at": 1.25},
-##     {"body": runner_b, "seconds": 1.7, "fire_at": 1.25},
+##     {"body": runner_b, "seconds": 1.7, "fire_at": 1.25, "behind": 2.2},
 ##     {"at": Vector3, "seconds": 1.0},               # a look at a point, no shot
 ## ]
 ## hand.park = Vector3   # where the scope rests until the first beat
@@ -38,6 +43,11 @@ const RECOIL_YAW_RATE: float = deg_to_rad(14.0)
 const SWAY_DEGREES: float = 0.25
 const SWAY_HZ: float = 0.6
 const AIM_HEIGHT: float = 1.0
+## Seconds the measured target velocity is averaged over before the squeeze reads
+## it. Long, because a runner's gait is stop-start: the field and a short window
+## both read anything between 0 and 7 m/s, and the round has to be led by the
+## speed he is actually covering ground at.
+const VELOCITY_WINDOW: float = 0.45
 
 var beats: Array = []
 var park: Vector3 = Vector3.ZERO
@@ -53,6 +63,9 @@ var _rate: Vector2 = Vector2.ZERO
 var _fired: Array = []
 var _last_aim: Array = []
 var _installed: bool = false
+var _tracked: int = -1
+var _tracked_at: Vector3 = Vector3.ZERO
+var _tracked_velocity: Vector3 = Vector3.ZERO
 
 
 ## [param clock] is the clip's elapsed time now, so start_at and the log are in clip seconds.
@@ -103,6 +116,19 @@ func _physics_process(delta: float) -> void:
 		# second-order lag, so once the hand has settled the crosshair sits on him.
 		var lag_seconds: float = 2.0 * HAND_ZETA / HAND_OMEGA
 		aim += Vector3(body.velocity.x, 0.0, body.velocity.z) * lag_seconds
+	# The lead is taken from a velocity MEASURED off the body between frames, not
+	# from PlayerController.velocity: read from outside the controller's own tick
+	# that field is zero on most frames, so a round led by it is led by nothing
+	# and lands wherever the sampled frame happened to fall.
+	if body != null and is_instance_valid(body):
+		if k != _tracked:
+			_tracked = k
+			_tracked_at = body.global_position
+			_tracked_velocity = Vector3.ZERO
+		elif delta > 0.0:
+			var step: Vector3 = (body.global_position - _tracked_at) / delta
+			_tracked_at = body.global_position
+			_tracked_velocity = _tracked_velocity.lerp(step, clampf(delta / VELOCITY_WINDOW, 0.0, 1.0))
 	var wanted: Vector2 = _angles_to(aim)
 	if not _fired.has(k):
 		var settling: float = 1.0 if fire_at < 0.0 else clampf((fire_at - into) / SETTLE_SECONDS, 0.0, 1.0)
@@ -121,7 +147,21 @@ func _physics_process(delta: float) -> void:
 		var mark: Vector3 = body.global_position + Vector3.UP * AIM_HEIGHT
 		var shot_speed: float = _controller.rifle.get_shot_speed() if _controller.rifle != null else 0.0
 		if shot_speed > 0.0:
-			mark += body.velocity * (mark.distance_to(_eye_position()) / shot_speed)
+			# lead (1.0): how much of the round's flight the squeeze leads by. At 0.0
+			# the shot goes where he IS -- which a travelling round reaches after he
+			# has left it, so it crosses behind him and the miss is one you can read.
+			# Only the squeeze is scaled; the tracking crosshair still sits on him.
+			var flight: float = mark.distance_to(_eye_position()) / shot_speed
+			var along := Vector3(_tracked_velocity.x, 0.0, _tracked_velocity.z)
+			mark += along * flight * float(beat.get("lead", 1.0))
+			# behind (0.0): metres the round is put behind him on purpose, along
+			# his own line of travel. A miss has to be a fixed size to be filmed:
+			# scaling the lead instead makes the miss whatever his gait happened
+			# to be doing at the squeeze, which is anything from 0.8 to 1.6 m and
+			# lands on him as often as not.
+			var behind: float = float(beat.get("behind", 0.0))
+			if behind != 0.0 and along.length_squared() > 0.0001:
+				mark -= along.normalized() * behind
 		var exact: Vector2 = _angles_to(mark)
 		_yaw = exact.x
 		_pitch = exact.y
