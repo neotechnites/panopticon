@@ -16,6 +16,8 @@ extends Node
 ## back along his own line of travel. Both do nothing while the rifle is hitscan.
 ## [code]clear[/code] (false) holds the trigger past [code]fire_at[/code] until the
 ## eye can see both the man and the ground he is led into, for up to CLEAR_WAIT.
+## [code]watch[/code] (false) keeps the hand on the man after the squeeze so the
+## frame the round arrives in still has him in it.
 ##
 ## [codeblock]
 ## var hand: Node = GUARD_HAND.new()
@@ -141,7 +143,18 @@ func _physics_process(delta: float) -> void:
 		if entry != null:
 			body = _body_of(entry)
 	var aim: Vector3
-	if _fired.has(k) or body == null or not is_instance_valid(body):
+	if _fired.has(k) and bool(beat.get("watch", false)) and body != null and is_instance_valid(body):
+		# watch (false): after the squeeze the hand stays ON the man and rides the
+		# kick back down, which is what a player does -- he takes the shot and
+		# watches it land. With a round that travels it is the difference between
+		# filming the hit and filming the rock where he used to be: half a second
+		# of flight at 100 m/s, a man covering five metres of ring in it, and a
+		# recoil kick on top, and a frozen aim has the impact outside the scope.
+		# Ryan: "pov a would have been perfect, if the shot they hit wasnt out of
+		# frame when it hits the runner."
+		aim = body.global_position + Vector3.UP * AIM_HEIGHT
+		_last_aim[k] = aim
+	elif _fired.has(k) or body == null or not is_instance_valid(body):
 		aim = _last_aim[k] if _last_aim[k] != Vector3.ZERO else beat.get("at", park)
 	else:
 		aim = body.global_position + Vector3.UP * AIM_HEIGHT

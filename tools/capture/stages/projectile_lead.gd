@@ -169,7 +169,7 @@ func tick(_delta: float) -> void:
 	_hand.beats.append({
 		"from": _brains, "seconds": float(option("beat_b", 3.6)),
 		"fire_at": float(option("fire_b", 1.75)), "clear": true,
-		"acquire": float(option("acquire", 0.35)),
+		"acquire": float(option("acquire", 0.35)), "watch": true,
 	})
 	# No trigger on the last beat: the scope comes off the drop and onto the man
 	# still coming, so the clip ends on a move rather than on a held frame.
