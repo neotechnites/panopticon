@@ -43,7 +43,7 @@ const BODY_DISTANCE: float = 30.0
 const COVER_DISTANCE: float = 12.0
 
 ## A hundred metres, because [constant MatchRules.SUGGESTED_PROJECTILE_SPEED] is
-## quoted in half-seconds at a hundred metres and that is the claim under test.
+## quoted in seconds at a hundred metres and that is the claim under test.
 const LONG_DISTANCE: float = 100.0
 
 ## Length of the replayed shot line in the authority test. Deliberately NOT a
@@ -263,19 +263,9 @@ func test_a_round_in_flight_is_stopped_by_cover() -> void:
 
 # --- The number on the box ----------------------------------------------------
 
-## [constant MatchRules.SUGGESTED_PROJECTILE_SPEED] is half a second at a
-## hundred metres, as advertised.
-##
-## [b]This test is that constant's only consumer.[/b] Nothing in the shipped
-## game reads it -- it is documentation, the number worth typing into the box
-## first -- and a documented number with no reader is a number that drifts from
-## what it claims. So the claim is asserted here instead: at a hundred metres
-## the suggested speed puts the round in the air for about half a second, which
-## is what makes leading a skill and what gives a runner who reads the muzzle
-## flash time to break stride. The 300 m/s arm is the contrast: a third of a
-## second, fast enough that the read is much harder, which is what the suggested
-## speed is a choice AGAINST.
-func test_the_suggested_speed_reads_as_half_a_second_at_a_hundred_metres() -> void:
+## [constant MatchRules.SUGGESTED_PROJECTILE_SPEED] is about a second at a
+## hundred metres, as advertised: this test is that constant's only consumer.
+func test_the_suggested_speed_reads_as_a_second_at_a_hundred_metres() -> void:
 	_add_body(LONG_DISTANCE, "Body")
 	await step_ticks(1)
 
@@ -286,8 +276,8 @@ func test_the_suggested_speed_reads_as_half_a_second_at_a_hundred_metres() -> vo
 	var suggested_ticks: int = _fly_until_resolved()
 	assert_eq_int(_hits, 1, "the round crossed a hundred metres and landed")
 	assert_between(
-		float(suggested_ticks) * SIM_DELTA, 0.4, 0.6,
-		"SUGGESTED_PROJECTILE_SPEED is about half a second of flight at 100 m",
+		float(suggested_ticks) * SIM_DELTA, 0.9, 1.1,
+		"SUGGESTED_PROJECTILE_SPEED is about a second of flight at 100 m",
 	)
 	# The same number from the other direction, so a changed constant fails here
 	# rather than quietly widening the window above.

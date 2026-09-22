@@ -86,9 +86,9 @@ func needs_pov() -> String:
 
 func tune_rules(rules: MatchRules) -> void:
 	rules.map_id = MAP_1
-	# The subject of the shot: the round travels. 200 m/s is the lever the
-	# bullet_test capture used, and MatchRules.SUGGESTED_PROJECTILE_SPEED.
-	rules.guard_projectile_speed = float(option("speed", 200.0))
+	# The subject of the shot: the round travels, at the suggested lever unless
+	# a dial says otherwise.
+	rules.guard_projectile_speed = float(option("speed", MatchRules.SUGGESTED_PROJECTILE_SPEED))
 	# The rifle comes back in this long, so both beats get a ready rifle.
 	rules.base_reload_seconds = 1.0
 	# RunnerProfile.resolve gives the round's exported profile priority over the

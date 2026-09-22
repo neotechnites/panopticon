@@ -50,7 +50,10 @@ extends Node3D
 ## assigns it after [method launch] because the weapon is the only thing that
 ## knows which of its own muzzle positions fired this round -- a streak drawn
 ## from the current muzzle would rubber-band with the shooter's aim.
-var muzzle_origin: Vector3 = Vector3.ZERO
+var muzzle_origin: Vector3 = Vector3.ZERO:
+	set(value):
+		muzzle_origin = value
+		_muzzle_offset = value - _origin
 
 ## Metres per second, direction included. Gravity bends it in flight.
 var _velocity: Vector3 = Vector3.ZERO
@@ -100,18 +103,25 @@ const TAIL_TAPER: float = 0.25
 static var _visual_material: StandardMaterial3D = null
 static var _visual_meshes: Dictionary = {}
 
-## Nearer than this to the viewer's eye the bullet is not drawn: the shooter
-## sees it recede, never at the lens.
-const REVEAL_METRES: float = 4.0
+## Nearer than this to the viewer's eye the bullet is not drawn: the trigger
+## frame at the muzzle, never the lens.
+const REVEAL_METRES: float = 1.0
 
-## The widest the bullet may draw, in radians of view; nearer rounds shrink to it.
-const MAX_VIEW_RADIANS: float = 0.3 * PI / 180.0
+## Sized in screen space: never narrower than MIN nor wider than MAX radians of
+## view, so it stays a few pixels at 100 m and never fills the scope up close.
+const MIN_VIEW_RADIANS: float = 0.5 * PI / 180.0
+const MAX_VIEW_RADIANS: float = 1.0 * PI / 180.0
+
+## The bullet leaves the barrel and slides onto the flight line over this many
+## metres, so a shooter sees it climb onto the crosshair rather than sit on it.
+const MUZZLE_BLEND_METRES: float = 20.0
 
 ## The bullet drawn at this round's position, or null for a round nobody sees.
 var _visual: MeshInstance3D = null
 var _heading: Basis = Basis.IDENTITY
 var _width: float = 0.3
 var _origin: Vector3 = Vector3.ZERO
+var _muzzle_offset: Vector3 = Vector3.ZERO
 var _visual_scale: float = 0.0
 
 
@@ -328,27 +338,36 @@ func _build_visual(direction: Vector3, profile: WeaponProfile) -> void:
 	_dress_visual()
 
 
-## Hide the bullet inside [constant REVEAL_METRES] of the viewer's eye and cap its
-## angular size beyond it. The eye is the current camera, else the shot's origin.
+## Place the bullet on the muzzle-to-line blend, hide it inside [constant
+## REVEAL_METRES] of the viewer's eye, and size it in view angle beyond that.
 func _dress_visual() -> void:
+	var travelled: float = _end_point.distance_to(_origin)
+	_visual.position = _muzzle_offset * (1.0 - clampf(travelled / MUZZLE_BLEND_METRES, 0.0, 1.0))
 	var eye: Vector3 = _origin
 	if is_inside_tree():
 		var camera: Camera3D = get_viewport().get_camera_3d()
 		if camera != null:
 			eye = camera.global_position
-	var distance: float = _end_point.distance_to(eye)
+	var distance: float = (_end_point + _visual.position).distance_to(eye)
 	if distance < REVEAL_METRES:
 		_visual_scale = 0.0
 		_visual.visible = false
 		return
-	_visual_scale = minf(1.0, distance * MAX_VIEW_RADIANS / _width)
+	_visual_scale = clampf(1.0, distance * MIN_VIEW_RADIANS / _width, distance * MAX_VIEW_RADIANS / _width)
 	_visual.visible = true
 	_visual.basis = _heading.scaled(Vector3(_visual_scale, _visual_scale, _visual_scale))
 
 
-## How large the bullet is drawn, 1.0 at full size and 0.0 while hidden.
+## How large the bullet is drawn against its authored size; 0.0 while hidden.
 func get_visual_scale() -> float:
 	return _visual_scale
+
+
+## Where the bullet is drawn in world space: the flight line plus the muzzle blend.
+func get_visual_position() -> Vector3:
+	if _visual == null:
+		return _end_point
+	return _end_point + _visual.position
 
 
 ## A basis whose -Z is [param direction], for a mesh built nose-forward.

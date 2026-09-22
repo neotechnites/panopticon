@@ -138,8 +138,7 @@ func test_the_visual_round_rides_the_host_flight() -> void:
 
 	var ticks: int = 0
 	var compared: int = 0
-	var hidden_ticks: int = 0
-	var shown_ticks: int = 0
+	var on_line_ticks: int = 0
 	while _both_in_the_air() and ticks < MAX_FLIGHT_TICKS:
 		_rifle.tick(SIM_DELTA)
 		ticks += 1
@@ -165,26 +164,32 @@ func test_the_visual_round_rides_the_host_flight() -> void:
 			break
 		compared += 1
 
-		# The shooter's own eye is the origin (no camera here): the bullet is
-		# hidden inside REVEAL_METRES of it and capped to MAX_VIEW_RADIANS beyond.
+		# The shooter's own eye is the origin (no camera here). The bullet is drawn
+		# on the muzzle-to-line blend, sized in view angle between the floor and the cap.
 		var visual: MeshInstance3D = _visual_of(twin)
-		var flown_metres: float = SHOT_SPEED * flown
-		if flown_metres < WeaponProjectile.REVEAL_METRES:
-			assert_true(visual != null and not visual.visible, "the bullet is hidden at %.1f m" % flown_metres)
-			assert_almost_eq(twin.get_visual_scale(), 0.0, 1.0e-6, "and its drawn scale is zero there")
-			hidden_ticks += 1
-		else:
-			assert_true(visual != null and visual.visible, "the bullet is drawn at %.1f m" % flown_metres)
-			var drawn: float = twin.get_visual_scale() * _profile.tracer_width / flown_metres
-			assert_le(
-				drawn, WeaponProjectile.MAX_VIEW_RADIANS + 1.0e-6,
-				"and subtends no more than the cap at %.1f m" % flown_metres,
-			)
-			assert_gt(twin.get_visual_scale(), 0.0, "at a size above zero")
-			shown_ticks += 1
+		var blend: float = 1.0 - clampf(SHOT_SPEED * flown / WeaponProjectile.MUZZLE_BLEND_METRES, 0.0, 1.0)
+		var expected_at: Vector3 = twin.global_position + (_rifle.muzzle.global_position - ORIGIN) * blend
+		if not assert_vec3_almost_eq(
+			twin.get_visual_position(), expected_at, LINE_TOLERANCE,
+			"the bullet is drawn on the muzzle blend at %.1f m" % (SHOT_SPEED * flown),
+		):
+			break
+		var distance: float = twin.get_visual_position().distance_to(ORIGIN)
+		var expected_scale: float = clampf(
+			1.0,
+			distance * WeaponProjectile.MIN_VIEW_RADIANS / _profile.tracer_width,
+			distance * WeaponProjectile.MAX_VIEW_RADIANS / _profile.tracer_width,
+		)
+		assert_true(visual != null and visual.visible, "the bullet is drawn at %.1f m" % distance)
+		if not assert_almost_eq(
+			twin.get_visual_scale(), expected_scale, 1.0e-6,
+			"and sized between the view-angle floor and cap at %.1f m" % distance,
+		):
+			break
+		if blend <= 0.0:
+			on_line_ticks += 1
 
-	assert_gt(float(hidden_ticks), 0.0, "at least one tick flew inside the reveal distance, unseen")
-	assert_gt(float(shown_ticks), 0.0, "and at least one beyond it, seen")
+	assert_gt(float(on_line_ticks), 0.0, "past the blend the bullet rides the flight line itself")
 	assert_gt(
 		float(compared), float(MIN_COMPARED_TICKS) - 1.0,
 		"the pair was compared over a real flight, not one or two ticks of it",
@@ -202,7 +207,7 @@ func test_the_visual_round_rides_the_host_flight() -> void:
 
 # --- Another player's eye ----------------------------------------------------
 
-## Beyond the cap's reach, a bystander's camera draws the bullet from its first tick, full size.
+## A bystander's camera far off the line draws the bullet from its first tick, at least full size.
 const BYSTANDER_METRES: float = 80.0
 
 
@@ -220,12 +225,34 @@ func test_the_bullet_is_seen_whole_from_another_players_eye() -> void:
 	assert_not_null(twin, "the replay is in the air")
 	var visual: MeshInstance3D = _visual_of(twin) if twin != null else null
 	assert_true(visual != null and visual.visible, "a bystander sees the bullet on its first tick")
+	var distance: float = twin.get_visual_position().distance_to(camera.global_position) if twin != null else 0.0
 	assert_almost_eq(
-		twin.get_visual_scale() if twin != null else 0.0, 1.0, 1.0e-6,
-		"and at full size, %.0f m from their eye" % BYSTANDER_METRES,
+		twin.get_visual_scale() if twin != null else 0.0,
+		maxf(1.0, distance * WeaponProjectile.MIN_VIEW_RADIANS / _profile.tracer_width), 1.0e-6,
+		"and lifted to the view-angle floor, %.0f m from their eye" % BYSTANDER_METRES,
 	)
 	camera.current = false
 	camera.queue_free()
+
+
+## A round with no muzzle offset starts at the eye: hidden on the trigger frame,
+## drawn one tick later.
+func test_the_bullet_is_hidden_at_the_eye_itself() -> void:
+	var exclude: Array[RID] = []
+	var round_shot: WeaponProjectile = WeaponProjectile.launch(
+		_world, ORIGIN, Vector3.FORWARD, SHOT_SPEED, VISUAL_DISTANCE, _profile, exclude, true
+	)
+	var visual: MeshInstance3D = _visual_of(round_shot)
+	assert_true(visual != null and not visual.visible, "at the eye the bullet is not drawn")
+	assert_almost_eq(round_shot.get_visual_scale(), 0.0, 1.0e-6, "and its scale is zero")
+	round_shot.advance(SIM_DELTA)
+	assert_true(visual != null and visual.visible, "one tick out it is drawn")
+	assert_gt(round_shot.get_visual_scale(), 0.0, "at a size above zero")
+	assert_vec3_almost_eq(
+		round_shot.get_visual_position(), round_shot.global_position, LINE_TOLERANCE,
+		"and, with no muzzle to blend from, exactly on the flight line",
+	)
+	round_shot.queue_free()
 
 
 # --- One mesh, one material ---------------------------------------------------

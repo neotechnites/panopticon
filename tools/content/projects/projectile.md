@@ -56,7 +56,7 @@ frame: 3.52
 file: 05_pov_projectile
 
 ## bullet_test (feature check, not a shot)
-capture: --pov=guard --hud=crosshair --stage=guard_alone --shot=s3_open_lane --bots=4 --set=speed=200;degs=170,159,148 --look=social --audio=near --seed=20260930
+capture: --pov=guard --hud=crosshair --stage=guard_alone --shot=s3_open_lane --bots=4 --set=speed=100;degs=170,159,148 --look=social --audio=near --seed=20260930
 seconds: 3
 file: frames\bullet_test
 

@@ -189,7 +189,7 @@ enum ShotModel {
 ##
 ## 0.0 draws nothing, exactly as if [member tracer_enabled] were off; see
 ## [method draws_projectile_streak].
-@export_range(0.0, 20.0, 0.1, "or_greater") var projectile_visual_length: float = 2.5
+@export_range(0.0, 20.0, 0.1, "or_greater") var projectile_visual_length: float = 6.0
 
 # --- Recoil --------------------------------------------------------------------
 #

@@ -720,14 +720,10 @@ enum MapPickMode {
 const TOWER_WINDOW_COUNT: int = 8
 
 ## The speed to reach for when [member guard_projectile_speed] is turned on at
-## all. Nothing reads this; it is the number worth typing into the box first.
-##
-## 200 m/s is half a second of flight at a hundred metres, which is about three
-## and a half metres of lead on a sprinting prisoner. That is enough that
-## leading is a real skill rather than a guess, and enough that a runner who
-## reads the muzzle flash still has time to break stride -- while staying fast
-## enough that the shot is a shot and not a lob.
-const SUGGESTED_PROJECTILE_SPEED: float = 200.0
+## all: 100 m/s is 0.6 s in the air at 60 m, slow enough that the bullet can be
+## followed by eye through the scope. Nothing reads this; it is the number
+## worth typing into the box first.
+const SUGGESTED_PROJECTILE_SPEED: float = 100.0
 
 # --- Derived values -----------------------------------------------------------
 
