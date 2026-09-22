@@ -263,9 +263,9 @@ func test_a_round_in_flight_is_stopped_by_cover() -> void:
 
 # --- The number on the box ----------------------------------------------------
 
-## [constant MatchRules.SUGGESTED_PROJECTILE_SPEED] is about a second at a
+## [constant MatchRules.SUGGESTED_PROJECTILE_SPEED] is about half a second at a
 ## hundred metres, as advertised: this test is that constant's only consumer.
-func test_the_suggested_speed_reads_as_a_second_at_a_hundred_metres() -> void:
+func test_the_suggested_speed_reads_as_half_a_second_at_a_hundred_metres() -> void:
 	_add_body(LONG_DISTANCE, "Body")
 	await step_ticks(1)
 
@@ -276,8 +276,8 @@ func test_the_suggested_speed_reads_as_a_second_at_a_hundred_metres() -> void:
 	var suggested_ticks: int = _fly_until_resolved()
 	assert_eq_int(_hits, 1, "the round crossed a hundred metres and landed")
 	assert_between(
-		float(suggested_ticks) * SIM_DELTA, 0.9, 1.1,
-		"SUGGESTED_PROJECTILE_SPEED is about a second of flight at 100 m",
+		float(suggested_ticks) * SIM_DELTA, 0.45, 0.6,
+		"SUGGESTED_PROJECTILE_SPEED is about half a second of flight at 100 m",
 	)
 	# The same number from the other direction, so a changed constant fails here
 	# rather than quietly widening the window above.
