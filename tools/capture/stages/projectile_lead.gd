@@ -8,8 +8,10 @@ extends "res://tools/capture/stages/stage.gd"
 ## want it to look like sniping in fortnite where you can actually see the
 ## bullet as it travels".
 ##
-## The eye is 55 m out and 200 m/s is 0.27 s in the air: 16 frames at 60 fps of
-## a lit bullet, which is the subject of the shot.
+## The eye is 55 m out and 100 m/s (MatchRules.SUGGESTED_PROJECTILE_SPEED) is
+## 0.56 s in the air: 34 frames at 60 fps of a lit bullet climbing onto the
+## crosshair and receding, which is the subject of the shot. Ryan: "if it has to
+## move slower than it has to move slower".
 ##
 ## [b]The men are played, not driven[/b]
 ##
@@ -51,7 +53,7 @@ extends "res://tools/capture/stages/stage.gd"
 ## the exact frame moves a little with the seed. That is the point of the hold.
 ##
 ## Dials (--set=):
-##   speed     the projectile lever in m/s (200; 0 would be hitscan)
+##   speed     the projectile lever in m/s (100; 0 would be hitscan)
 ##   first     bearing of the man furthest back (6)
 ##   step      degrees of ring between them (13)
 ##   r         radius they are strung along (54)
@@ -140,7 +142,7 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 	_runners = bodies
 	_brains = brains
 	say("projectile_lead: %d played on the lap from %.0f deg, %.0f deg apart, r %.0f, round %.0f m/s" % [
-		placed, first, step, r, float(option("speed", 200.0)),
+		placed, first, step, r, float(option("speed", MatchRules.SUGGESTED_PROJECTILE_SPEED)),
 	])
 	return true
 
