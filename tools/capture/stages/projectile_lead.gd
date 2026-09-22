@@ -165,6 +165,7 @@ func tick(_delta: float) -> void:
 		"from": _brains, "seconds": float(option("beat_a", 3.8)),
 		"fire_at": float(option("fire_a", 3.0)),
 		"lead": 0.0, "behind": float(option("behind", 1.2)), "clear": true,
+		"watch": true,
 	})
 	_hand.beats.append({
 		"from": _brains, "seconds": float(option("beat_b", 3.6)),
