@@ -720,10 +720,16 @@ enum MapPickMode {
 const TOWER_WINDOW_COUNT: int = 8
 
 ## The speed to reach for when [member guard_projectile_speed] is turned on at
-## all: 100 m/s is 0.6 s in the air at 60 m, slow enough that the bullet can be
-## followed by eye through the scope. Nothing reads this; it is the number
-## worth typing into the box first.
-const SUGGESTED_PROJECTILE_SPEED: float = 100.0
+## all. Ryan: "how long it take for that bullet to get to the enemy, is how long
+## it should take in my game." Measured off the Fortnite reference clip
+## (content/projectile/external/fortnite_b.mp4, 60 fps): the magazine drops 9 to
+## 8 on frame 136 (the trigger; the kick lands on 137) and the round is at the
+## target on frame 152, so 16 frames = 0.267 s of flight. The typical shot here
+## is the guard's eye (0, 28.90, 0) to a runner's chest 1 m over the deck at
+## r 52 (deck y 23.0 on the lane, by probe_ring): sqrt(52^2 + 4.9^2) = 52.2 m.
+## 52.2 m / 0.267 s = 196 m/s, at the lever's 5 m/s step 195 m/s = 0.268 s.
+## Nothing reads this; it is the number worth typing into the box first.
+const SUGGESTED_PROJECTILE_SPEED: float = 195.0
 
 # --- Derived values -----------------------------------------------------------
 
