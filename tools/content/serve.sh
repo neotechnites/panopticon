@@ -4,7 +4,8 @@
 #   tools/content/serve.sh <project>          # then open the URL it prints
 #   tools/content/serve.sh <project> --stop   # stop the server and the tunnel
 #
-# On the PC, Python's http.server on 127.0.0.1:8765 serving content\<project>\,
+# On the PC, pc/serve_range.py on 127.0.0.1:8765 serving content\<project>\ --
+# http.server's own handler ignores Range, so a browser cannot scrub an mp4 --
 # started through WMI (Win32_Process.Create) so it outlives the ssh session --
 # Start-Process from an ssh session dies with it -- with stdout and stderr
 # redirected to notes\serve.log, because a console-less python that writes a
@@ -25,7 +26,7 @@ tunnel_pids() { pgrep -f "ssh.*-L ${PORT}:127.0.0.1:${PORT}" || true; }
 
 if [ "${2:-}" = "--stop" ]; then
   pc <<PS
-\$srv = Get-CimInstance Win32_Process -Filter "Name = 'python.exe'" | Where-Object { \$_.CommandLine -match 'http\\.server ${PORT}' }
+\$srv = Get-CimInstance Win32_Process -Filter "Name = 'python.exe'" | Where-Object { \$_.CommandLine -match '(serve_range\\.py|http\\.server) ${PORT}' }
 foreach (\$p in \$srv) {
   Stop-Process -Id \$p.ProcessId -Force -ErrorAction SilentlyContinue
   Stop-Process -Id \$p.ParentProcessId -Force -ErrorAction SilentlyContinue
@@ -37,22 +38,24 @@ PS
   exit 0
 fi
 
+pc_layout "${DIR}"
+pc_push "${CONTENT_DIR}/pc/serve_range.py" "$(ff "${DIR}")/scripts/serve_range.py"
+
 pc <<PS
 \$ErrorActionPreference = 'Continue'
-New-Item -ItemType Directory -Force -Path '${DIR}\\notes' | Out-Null
-\$srv = Get-CimInstance Win32_Process -Filter "Name = 'python.exe'" | Where-Object { \$_.CommandLine -match 'http\\.server ${PORT}' }
+\$srv = Get-CimInstance Win32_Process -Filter "Name = 'python.exe'" | Where-Object { \$_.CommandLine -match '(serve_range\\.py|http\\.server) ${PORT}' }
 \$keep = \$false
 foreach (\$p in \$srv) {
-  if (\$p.CommandLine -match [regex]::Escape('${DIR}')) { \$keep = \$true; Write-Output ('server already up for ${NAME}: pid ' + \$p.ProcessId) }
+  if (\$p.CommandLine -match 'serve_range\\.py' -and \$p.CommandLine -match [regex]::Escape('${DIR}')) { \$keep = \$true; Write-Output ('server already up for ${NAME}: pid ' + \$p.ProcessId) }
   else {
     Stop-Process -Id \$p.ProcessId -Force -ErrorAction SilentlyContinue
     Stop-Process -Id \$p.ParentProcessId -Force -ErrorAction SilentlyContinue
-    Write-Output ('stopped the server for another project: pid ' + \$p.ProcessId)
+    Write-Output ('stopped the server holding ${PORT}: pid ' + \$p.ProcessId)
     Start-Sleep -Milliseconds 500
   }
 }
 if (-not \$keep) {
-  \$cmd = 'cmd.exe /c "${PC_PYTHON} -u -m http.server ${PORT} --bind 127.0.0.1 --directory ${DIR} > ${DIR}\\notes\\serve.log 2>&1"'
+  \$cmd = 'cmd.exe /c "${PC_PYTHON} -u ${DIR}\\scripts\\serve_range.py ${PORT} --bind 127.0.0.1 --directory ${DIR} > ${DIR}\\notes\\serve.log 2>&1"'
   \$r = Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{ CommandLine = \$cmd }
   Write-Output ('server started for ${NAME}: return ' + \$r.ReturnValue + ', pid ' + \$r.ProcessId)
   Start-Sleep -Seconds 2
