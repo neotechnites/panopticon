@@ -18,15 +18,18 @@ clip. The page (default final\index.html):
   4. any other mp4 in final\ (takes made outside the brief), alphabetically.
 
 Every <video> is preload="none" with a poster frame and a cache-busting
-?v=<mtime> on its src, the three things Ryan asked for when the page kept
-reloading every clip. One inline <style>, no fonts fetched, dark.
+?v=<mtime>-<build> on its src, the three things Ryan asked for when the page
+kept reloading every clip. The build half is one int(time.time()) per run, so
+every ?v= on the page changes on every build even when the clip behind it did
+not. One inline <style>, no fonts fetched, dark.
 
 When the brief carries a `## dailies` pipe table (id | src | line | desc) the
-page IS that table, in that order, and none of the four sections above are
-emitted. Each row is one card: the id, the script line it sits under quoted
-(the `L<n> "..."` lines of the brief's `## script -> clip` section, matched on
-the row's line cell; `-` means no line), the seconds, the desc and the clip.
-`src` is relative to the project dir (cuts\, final\, external\, frames\) and
+page is the latest cut (section 1 above) and then that table, in that order;
+sections 2 to 4 are not emitted. Each row is one card: the id, the script line
+it sits under quoted (the `L<n> "..."` lines of the brief's `## script -> clip`
+section, matched on the row's line cell; `-` means no line), the seconds, the
+desc and the clip. `src` is relative to the project dir (cuts\, final\,
+external\, frames\) and
 the page lives in final\, so anything outside final\ gets a ../ prefix; an
 empty src is a labelled pending row with no <video>. Posters are
 final\thumbs\<id>.jpg -- frames\<id>.png scaled to 360 wide when that png
@@ -45,6 +48,10 @@ import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import brief as brief_mod  # noqa: E402
+
+# One stamp per run, set in main(), so every ?v= on the page is new every build
+# even when the clip behind it has not been touched.
+BUILD = 0
 
 
 def dur(path):
@@ -123,8 +130,8 @@ def sources(project):
 def video(src_rel, poster_rel, mtime, landscape=False):
     style = ' style="aspect-ratio:16/9"' if landscape else ""
     poster = (' poster="%s"' % html.escape(poster_rel)) if poster_rel else ""
-    return ('<video controls preload="none" playsinline%s%s src="%s?v=%d"></video>'
-            % (poster, style, html.escape(src_rel), int(mtime)))
+    return ('<video controls preload="none" playsinline%s%s src="%s?v=%d-%d"></video>'
+            % (poster, style, html.escape(src_rel), int(mtime), BUILD))
 
 
 # --- The `## dailies` page ------------------------------------------------------
@@ -258,7 +265,63 @@ def strays(project, shown):
     return out
 
 
+def latest_cut(final, cuts, title):
+    """The cut the page opens with: final\\<title>.mp4 when there is one, else
+    the newest final\\*.mp4 that has a cuts\\<tag>_timing.txt. None for a
+    project with no cut yet."""
+    latest = None
+    candidates = []
+    for name in os.listdir(final) if os.path.isdir(final) else []:
+        if name.lower().endswith(".mp4"):
+            tag = os.path.splitext(name)[0]
+            if os.path.exists(os.path.join(cuts, tag + "_timing.txt")):
+                candidates.append((os.path.getmtime(os.path.join(final, name)), name))
+    if candidates:
+        candidates.sort(reverse=True)
+        latest = candidates[0][1]
+        for _m, name in candidates:
+            if os.path.splitext(name)[0] == title:
+                latest = name
+    return latest
+
+
+def cut_block(project, parsed, esc):
+    """The latest cut -- the clip with its own poster frame, the Start/Line/Clip table off
+    cuts\\<tag>_lines.json and the raw timing -- as one block of HTML, or "" when
+    the project has no cut. Both pages open with it: Ryan wants the thing he is
+    reviewing first, whichever page he is on."""
+    final = os.path.join(project, "final")
+    cuts = os.path.join(project, "cuts")
+    title = parsed["head"].get("title", os.path.basename(project))
+    latest = latest_cut(final, cuts, title)
+    if not latest:
+        return ""
+    tag = os.path.splitext(latest)[0]
+    src = os.path.join(final, latest)
+    with open(os.path.join(cuts, tag + "_timing.txt"), encoding="utf-8") as f:
+        timing = f.read()
+    rows = ""
+    lines_path = os.path.join(cuts, tag + "_lines.json")
+    script = parsed["script"]
+    if script and os.path.exists(lines_path):
+        with open(lines_path, encoding="utf-8") as f:
+            starts = json.load(f)
+        for r in script["rows"]:
+            rows += "<tr><td>%s</td><td>%s</td><td>%s</td></tr>" % (
+                esc("%.1f" % starts.get(r["line"], 0.0)), esc(r.get("text", "")), esc(r.get("clip", "")))
+    parts = ['<h3>Latest cut</h3><div class="cut">%s<div><h2 style="margin:0 0 8px;font-size:1.1rem">%s</h2>'
+             '<div class="meta"><span>%.1f s</span><span>%s</span></div>'
+             % (video(latest, poster_for(project, tag, src)[0], os.path.getmtime(src)), esc(tag), dur(src),
+                time.strftime("%Y-%m-%d %H:%M", time.localtime(os.path.getmtime(src))))]
+    if rows:
+        parts.append("<table><tr><th>Start</th><th>Line</th><th>Clip</th></tr>%s</table>" % rows)
+    parts.append("<pre>%s</pre></div></div>" % esc(timing))
+    return "\n".join(parts)
+
+
 def main():
+    global BUILD
+    BUILD = int(time.time())
     project, brief_path = sys.argv[1], sys.argv[2]
     out_html = sys.argv[3] if len(sys.argv) > 3 else os.path.join(project, "final", "index.html")
     parsed = brief_mod.parse(brief_path)
@@ -302,6 +365,9 @@ th{color:var(--mute);font-weight:500;text-transform:uppercase;letter-spacing:.06
         cards, made, pending, shown = dailies_cards(project, rows, lines, esc)
         parts.append('<p class="sub">Every clip in the brief\'s dailies table, in script order. '
                      'Answer by clip id. Built %s.</p>' % time.strftime("%Y-%m-%d %H:%M"))
+        block = cut_block(project, parsed, esc)
+        if block:
+            parts.append(block)
         parts.append('<div class="grid">%s</div>' % "".join(cards))
         rest = strays(project, shown)
         parts.append('<p class="desc">Not on this page: %s</p>'
@@ -317,40 +383,10 @@ th{color:var(--mute);font-weight:500;text-transform:uppercase;letter-spacing:.06
                  % time.strftime("%Y-%m-%d %H:%M"))
 
     # 1. The latest cut.
-    latest = None
-    candidates = []
-    for name in os.listdir(final) if os.path.isdir(final) else []:
-        if name.lower().endswith(".mp4"):
-            tag = os.path.splitext(name)[0]
-            if os.path.exists(os.path.join(cuts, tag + "_timing.txt")):
-                candidates.append((os.path.getmtime(os.path.join(final, name)), name))
-    if candidates:
-        candidates.sort(reverse=True)
-        latest = candidates[0][1]
-        for _m, name in candidates:
-            if os.path.splitext(name)[0] == title:
-                latest = name
-    if latest:
-        tag = os.path.splitext(latest)[0]
-        src = os.path.join(final, latest)
-        with open(os.path.join(cuts, tag + "_timing.txt"), encoding="utf-8") as f:
-            timing = f.read()
-        rows = ""
-        lines_path = os.path.join(cuts, tag + "_lines.json")
-        script = parsed["script"]
-        if script and os.path.exists(lines_path):
-            with open(lines_path, encoding="utf-8") as f:
-                starts = json.load(f)
-            for r in script["rows"]:
-                rows += "<tr><td>%s</td><td>%s</td><td>%s</td></tr>" % (
-                    esc("%.1f" % starts.get(r["line"], 0.0)), esc(r.get("text", "")), esc(r.get("clip", "")))
-        parts.append('<h3>Latest cut</h3><div class="cut">%s<div><h2 style="margin:0 0 8px;font-size:1.1rem">%s</h2>'
-                     '<div class="meta"><span>%.1f s</span><span>%s</span></div>'
-                     % (video(latest, thumb(latest), os.path.getmtime(src)), esc(tag), dur(src),
-                        time.strftime("%Y-%m-%d %H:%M", time.localtime(os.path.getmtime(src)))))
-        if rows:
-            parts.append("<table><tr><th>Start</th><th>Line</th><th>Clip</th></tr>%s</table>" % rows)
-        parts.append("<pre>%s</pre></div></div>" % esc(timing))
+    latest = latest_cut(final, cuts, title)
+    block = cut_block(project, parsed, esc)
+    if block:
+        parts.append(block)
 
     # 2. External footage.
     ext = os.path.join(project, "external")

@@ -8,7 +8,9 @@
 # table and script lines, the external footage with its credit lines from
 # external\SOURCES.md, every shot in the brief with a file: line in order (id,
 # Ryan's words, seconds), and any other take in final\. Every video is
-# preload="none" with a poster and a cache-busting ?v= on its src. View it
+# preload="none" with a poster and a cache-busting ?v=<mtime>-<build> on its
+# src, so every one of them is new on every build. A brief with a `## dailies`
+# table is the cut and then that table. View it
 # through tools/content/serve.sh: http://127.0.0.1:8765/final/index.html
 set -euo pipefail
 source "$(dirname "$0")/lib.sh"

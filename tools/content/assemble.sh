@@ -43,6 +43,7 @@ if grep -q '^## script' "${BRIEF}"; then
   pc_push "${BRIEF}" "$(ff "${DIR}")/notes/brief.md"
   pc_push "${CONTENT_DIR}/pc/brief.py" "$(ff "${DIR}")/scripts/brief.py"
   pc_push "${CONTENT_DIR}/pc/assemble.py" "$(ff "${DIR}")/scripts/assemble.py"
+  pc_push "${CONTENT_DIR}/pc/card.py" "$(ff "${DIR}")/scripts/card.py"
   pc <<EOF
 \$ErrorActionPreference = 'Continue'
 & '${PC_PYTHON}' '${DIR}\\scripts\\assemble.py' '${DIR}' '${DIR}\\notes\\brief.md' '${TAG}' ${CAPTIONS} 2>&1

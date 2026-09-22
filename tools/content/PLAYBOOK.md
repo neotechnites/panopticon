@@ -103,3 +103,30 @@ Godot take 20-90 s (a 6-8 s clip at 60 fps, 11% of real time); shot gate
 after a caption/music/voice change 10 s; the old v6 retime rebuilt everything
 in 3.5 min; the first in-graph caption burn took 30 min and deadlocked once;
 dailies page 7 s; edge-tts 12 lines ~1 min; a yt-dlp section download ~20 s.
+
+## Measured (2026-09-21, projectile rough v1)
+
+A comment-reply short is picture-poor: 42.5 s of voice over five clips that
+hold 36.7 s at 1x, so the cut is 7.1 s short before a frame is placed. Count
+that first, from `voice.sh`, and decide where the shortfall is paid -- holding
+a frame is not one of the options, so a short clip plays slow (a `fill` speed
+in the script table works it out per line) and only the bed under the first two
+lines is worth a hand-set rate, because both lines share it. Two things came
+out of that and are now in `assemble.py`: a clip cell may name several parts
+(`a.mp4,b.mp4`, each `path@in:len`) so a line that outlasts its clip runs into
+the next one instead of freezing, and `in: cont` picks the bed up where the
+line before it stopped, which is what lets a card come up over picture that is
+already playing with no cut. Placing a beat on a word is arithmetic, not taste:
+the hit at source 5.97 s under "that" at 1.79 s into the line fixes the
+in-point at 4.18 s, and when that leaves less clip than line, the tail of the
+same clip is a second part at a `fill` rate -- the action lands on the word and
+the line still ends on live action. Two costs are real and worth saying out
+loud: that in-point trims the miss off the front, and warzone/fortnite at
+0.77x and 0.64x are visibly slow. Also: the word captions had a bug, not a
+style -- a chunk hung on 0.08 s past its last word and drew on top of the next
+chunk, garbled, four frames at a time; a chunk's tail now stops at the next
+chunk's first word. Game audio under the voice is `game: 0.25` and is
+tempo-matched with `atempo`, so a gunshot still lands with the frame that fired
+it on a slowed clip. Timings: edge-tts 6 lines 22 s, first assemble 100 s
+(segments 35, captions 37, audio+mux 21, 720p copy in that), re-cut after the
+caption fix 67 s with every segment cached.

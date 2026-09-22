@@ -7,10 +7,16 @@ Runs ON THE PC (tools/content/assemble.sh pushes it):
 The brief's ## script table maps every voice line to a clip and says how the
 clip fits the line (the v6 retime of the shove short, generalised):
 
-    | line | clip | in | len | fit | speed | text |
+    | line | clip | in | len | fit | speed | text | card |
 
+  clip   one clip, or several comma separated -- `path[@in[:len]]` each -- played
+         back to back as one slot, so a line whose voice outlasts the first clip
+         continues into the next instead of freezing on a last frame.
   in     source seconds the window starts, or at=T: the window is centred on T
-         (a shove at 1.4 s: at=1.4 len=2.1 speed=0.75 -> 2.8 s on screen)
+         (a shove at 1.4 s: at=1.4 len=2.1 speed=0.75 -> 2.8 s on screen), or
+         `cont`: carry on from where the line before it stopped in the same clip
+         cell, so a card can come up over the picture that is already playing
+         with no cut.
   len    source seconds in the window; blank is to the end of the clip
   fit    line    the slot is the voice + pad; a longer clip is trimmed, a shorter
                  one holds its last frame
@@ -26,11 +32,26 @@ clip fits the line (the v6 retime of the shove short, generalised):
                  before and back 0.5 s after, then `hold` seconds of picture and
                  music only. The video in-point is onset - (voice + gap).
          beat S  no voice: S seconds of the clip over the music
-  speed  playback rate for the window (0.75 slows it); blank is 1
+  speed  playback rate for the window (0.75 slows it); blank is 1. One value
+         covers every clip part; a comma list is one per part; `fill` on the
+         last part is the rate that makes it span exactly what is left of the
+         slot -- slowed when its source is short, trimmed when it is long,
+         never frozen and never fast-forwarded.
+  card   a still that slides in over the picture with no cut:
+         `path w=900 y=0.35 in=0.35 out=0.30` -- the png scaled to w wide
+         keeping aspect, its centre at y of the height, in from the right over
+         `in` seconds at the line's first word, out to the left over `out`
+         seconds at its last word, with the drop shadow baked in by card.py.
+         Swapping the png is a one-file replacement.
+
+A fit compares the clip's seconds ON SCREEN (source / speed) with the slot, so
+a slowed clip is measured as what it plays, not as what it holds.
 
 Script header: music: <path under the project>  music_db: -18  music_fade: 1 1.5
 pad: 0.2  captions: pop|none  captions_font: Impact  captions_size: 64
-captions_y: 0.72 (fraction of the height).
+captions_y: 0.72 (fraction of the height)  game: 0.25 (each take's own sound
+under the voice, linear, tempo-matched to a slowed picture; 0 or absent is
+silent)  copy_720: yes (also write final\<tag>_720.mp4).
 
 Every rendered segment is cached in cuts\_cache\ by a hash of its source
 (path, mtime, size) and every number that shapes it, so a caption, music or
@@ -42,6 +63,7 @@ cuts\<tag>_lines.json (each line's start in the cut).
 """
 import hashlib
 import json
+import math
 import os
 import re
 import shutil
@@ -71,6 +93,12 @@ def dur(path):
     out = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", path],
                          capture_output=True, text=True).stdout.strip()
     return float(out) if out else 0.0
+
+
+def png_size(path):
+    out = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height",
+                          "-of", "csv=p=0", path], capture_output=True, text=True).stdout.strip().split(",")
+    return int(out[0]), int(out[1])
 
 
 def is_landscape(path):
@@ -119,6 +147,83 @@ def parse_fit(fit):
     return mode, opts
 
 
+def parse_parts(cell):
+    r"""A clip cell is one or more parts, comma separated, each `path[@in[:len]]`
+    in source seconds: the picture of one slot, played back to back. So
+    `cuts/01a_pack.mp4,cuts/01a_hook.mp4` is the pack take and then the hook
+    take -- a line whose voice outlasts the first clip continues into the next
+    one instead of freezing on its last frame."""
+    parts = []
+    for raw in cell.split(","):
+        spec = raw.strip()
+        if not spec:
+            continue
+        path, at, length = spec, None, None
+        if "@" in path:
+            path, _, win = path.partition("@")
+            if ":" in win:
+                win, _, ln = win.partition(":")
+                length = float(ln)
+            at = float(win)
+        parts.append({"path": path.strip(), "in": at, "len": length})
+    if not parts:
+        raise SystemExit("assemble: a clip cell with no clip in it")
+    return parts
+
+
+def parse_speeds(cell, n):
+    r"""The speed column: blank is 1x for every part, one number is that speed
+    for all of them, a comma list is one per part. `fill` is the speed that
+    makes a part span exactly what is left of the slot -- slowed when its source
+    is short, trimmed when its source is long, never frozen and never
+    fast-forwarded. Only the last part may be `fill`."""
+    cell = (cell or "").strip()
+    if not cell:
+        return [1.0] * n
+    vals = [v.strip().lower() for v in cell.split(",")]
+    if len(vals) == 1:
+        vals = vals * n
+    if len(vals) != n:
+        raise SystemExit("assemble: %d speeds for %d clip parts" % (len(vals), n))
+    speeds = ["fill" if v == "fill" else float(v) for v in vals]
+    if "fill" in speeds[:-1]:
+        raise SystemExit("assemble: only the last clip part may have speed fill")
+    return speeds
+
+
+def parse_card(cell):
+    r"""The card column: a still that slides over the picture that is already
+    playing, no cut. `path w=900 y=0.35 in=0.35 out=0.30` -- the png scaled to
+    `w` wide keeping its aspect, its centre at `y` of the height, sliding in
+    from the right over `in` seconds at the line's first word and out to the
+    left over `out` seconds at its last word. Swapping the png for another at
+    the same size rule is a one-file replacement."""
+    cell = (cell or "").strip()
+    if not cell:
+        return None
+    bits = cell.split()
+    card = {"path": bits[0], "w": 900, "y": 0.35, "in": 0.35, "out": 0.30,
+            "alpha": 0.6, "blur": 24, "dx": 0, "dy": 12}
+    for b in bits[1:]:
+        k, _, v = b.partition("=")
+        if k not in card or k == "path":
+            raise SystemExit("assemble: card: unknown option %s" % b)
+        card[k] = float(v)
+    card["w"] = int(card["w"])
+    return card
+
+
+def atempo_chain(speed):
+    """atempo only takes 0.5-2.0 a stage, so a bigger stretch is staged."""
+    if abs(speed - 1.0) < 1e-6:
+        return ""
+    n = 1
+    while not (0.5 <= speed ** (1.0 / n) <= 2.0):
+        n += 1
+    step = speed ** (1.0 / n)
+    return ",".join("atempo=%.6f" % step for _ in range(n))
+
+
 def main():
     project, brief_path, tag = sys.argv[1], sys.argv[2], sys.argv[3]
     captions_wanted = "--no-captions" not in sys.argv[4:]
@@ -156,110 +261,215 @@ def main():
 
     # --- the slots ---------------------------------------------------------
     t0 = time.time()
-    table = ["{0:<4} {1:>7} {2:>7} {3:<40} {4}".format("line", "start", "len", "clip", "fit")]
+    table = ["{0:<4} {1:>7} {2:>7} {3:<52} {4}".format("line", "start", "len", "clip", "fit")]
     segments = []
     starts = {}
     windows = []          # (audio start, audio end, source, onset, length)
     cursor = 0.0
     carry = 0.0
+    prev_clip = None
+    prev_rest = None      # what is left of the previous line's chain, for in: cont
+    games = []            # (absolute start, src, source in, source seconds, speed, on screen)
+    game_vol = float(head.get("game", 0) or 0)
     for row in script["rows"]:
         key = row["line"]
-        src = os.path.join(project, row["clip"].replace("/", os.sep))
-        if not os.path.exists(src):
-            raise SystemExit(f"assemble: {key}: no clip at {src}")
         mode, opts = parse_fit(row.get("fit", "line") or "line")
-        speed = float(row.get("speed") or 1.0)
-        src_dur = dur(src)
-        length = float(row["len"]) if row.get("len") else None
-        raw_in = row.get("in", "") or "0"
-        if raw_in.startswith("at="):
-            centre = float(raw_in[3:])
-            if length is None:
-                raise SystemExit(f"assemble: {key}: at= needs a len")
-            start_in = max(0.0, centre - length / 2.0)
-        else:
-            start_in = float(raw_in)
-        avail = length if length is not None else max(src_dur - start_in, 0.01)
+        raw_in = (row.get("in", "") or "0").strip()
+        card = parse_card(row.get("card", ""))
         line_len = (voice[key]["dur"] + pad) if key in voice else 0.0
+
+        # --- the chain: one source window per clip part, in order -----------
+        if raw_in == "cont":
+            if prev_clip != row["clip"] or not prev_rest:
+                raise SystemExit(f"assemble: {key}: in: cont wants the line before it on the same clip with picture left")
+            wins = [dict(w) for w in prev_rest]
+        else:
+            wins = []
+            for i, part in enumerate(parse_parts(row["clip"])):
+                src = os.path.join(project, part["path"].replace("/", os.sep))
+                if not os.path.exists(src):
+                    raise SystemExit(f"assemble: {key}: no clip at {src}")
+                length = part["len"]
+                if part["in"] is not None:
+                    s_in = part["in"]
+                elif i > 0:
+                    s_in = 0.0
+                elif raw_in.startswith("at="):
+                    if not row.get("len"):
+                        raise SystemExit(f"assemble: {key}: at= needs a len")
+                    length = float(row["len"])
+                    s_in = max(0.0, float(raw_in[3:]) - length / 2.0)
+                else:
+                    s_in = float(raw_in or 0)
+                    if length is None and row.get("len"):
+                        length = float(row["len"])
+                avail_i = length if length is not None else max(dur(src) - s_in, 0.01)
+                wins.append({"path": part["path"], "src": src, "in": s_in, "avail": avail_i})
+        speeds = parse_speeds(row.get("speed", ""), len(wins))
+        if mode == "window" and len(wins) != 1:
+            raise SystemExit(f"assemble: {key}: a window wants one clip part, not {len(wins)}")
+        orig = [w["avail"] for w in wins]
+        avail = sum(orig)
+        has_fill = speeds[-1] == "fill"
+        out_fixed = sum(w["avail"] / s for w, s in zip(wins, speeds) if s != "fill")
+        out_total = None if has_fill else out_fixed     # None: a fill part stretches to anything
+
+        # --- how long the slot is ------------------------------------------
         starts[key] = cursor + carry
         carry_out = 0.0
-        hold = 0.0
         window_audio = None
-        if mode == "nohold":
-            if line_len + carry > avail:
-                seg_len = snap(avail)
-                carry_out = (line_len + carry) - seg_len
-                fit = "no hold: clip {:.2f}s ends, {:.2f}s of line carried to next".format(avail, carry_out)
-            else:
-                seg_len = snap(line_len + carry)
-                fit = "trimmed -{:.2f}s (clip {:.2f}s)".format(avail - seg_len, avail)
-        elif mode == "wait":
-            seg_len = snap(avail / speed)
-            fit = "slowed {}x, src {:.2f}-{:.2f}s -> {:.2f}s (line {:.2f}s waits)".format(
-                speed, start_in, start_in + avail, seg_len, line_len)
-            if line_len + carry > seg_len:
-                hold = line_len + carry - seg_len
-                seg_len = snap(line_len + carry)
-                fit += ", held +{:.2f}s".format(hold)
-        elif mode == "window":
+        want = snap(line_len + carry)
+        if mode == "window":
             onset, end = opts["onset"], opts["end"]
             gap = opts.get("gap", 0.15)
             after = opts.get("hold", 1.0)
             audio_in = voice[key]["dur"] + gap          # slot offset where the clip's sound starts
             audio_len = end - onset
             seg_len = snap(audio_in + audio_len + after)
-            start_in = onset - audio_in
-            if start_in < 0:
+            wins[0]["in"] = onset - audio_in
+            if wins[0]["in"] < 0:
                 raise SystemExit(f"assemble: {key}: the window's onset ({onset}s) is closer to the clip's start than the line is long")
-            avail = seg_len
-            window_audio = (cursor + carry + audio_in, src, onset, audio_len)
+            wins[0]["avail"] = seg_len
+            speeds = [1.0 if has_fill else speeds[0]]
+            window_audio = (cursor + carry + audio_in, wins[0]["src"], onset, audio_len)
             fit = ("window: src {:.2f}-{:.2f}s; line ends +{:.2f}s, sound on +{:.2f}s, off +{:.2f}s, then {:.1f}s music only"
-                   .format(start_in, start_in + seg_len, voice[key]["dur"], audio_in, audio_in + audio_len, after))
+                   .format(wins[0]["in"], wins[0]["in"] + seg_len, voice[key]["dur"], audio_in, audio_in + audio_len, after))
         elif mode == "beat":
             seg_len = snap(opts.get("value", 1.0))
-            if seg_len > avail + 0.005:
-                hold = seg_len - avail
-                fit = "beat {:.2f}s, held +{:.2f}s (clip {:.2f}s)".format(seg_len, hold, avail)
+            fit = "beat {:.2f}s (clip {:.2f}s on screen)".format(seg_len, out_fixed)
+        elif mode == "nohold":
+            seg_len = want if out_total is None or want <= out_total else snap(out_total)
+            carry_out = max((line_len + carry) - seg_len, 0.0)
+            fit = ("no hold: clip {:.2f}s ends, {:.2f}s of line carried to next".format(out_fixed, carry_out)
+                   if carry_out > 0.005 else "trimmed -{:.2f}s (clip {:.2f}s)".format(out_fixed - seg_len, out_fixed))
+        elif mode == "wait":
+            seg_len = snap(out_fixed) if out_total is not None else want
+            fit = "the picture leads: {:.2f}s on screen (line {:.2f}s)".format(seg_len, line_len)
+            if want > seg_len + 0.005:
+                seg_len = want
+                fit += ", the line holds it +{:.2f}s".format(want - snap(out_fixed))
+        elif mode == "trim":
+            seg_len = want if out_total is None or want <= out_total else snap(out_total)
+            fit = ("cut short with clip ({:.2f}s)".format(out_fixed) if seg_len < want - 0.005
+                   else "trimmed -{:.2f}s (clip {:.2f}s)".format(out_fixed - seg_len, out_fixed))
+        elif mode == "slow":
+            seg_len = want
+            if out_total is not None and out_total < seg_len - 0.005:
+                scale = out_total / seg_len
+                speeds = [s * scale for s in speeds]
+                out_fixed = sum(w["avail"] / s for w, s in zip(wins, speeds))
+                fit = "slowed to fill (clip {:.2f}s of source)".format(avail)
             else:
-                fit = "beat {:.2f}s (clip {:.2f}s)".format(seg_len, avail)
+                fit = "trimmed -{:.2f}s (clip {:.2f}s)".format(out_fixed - seg_len, out_fixed)
         else:
-            seg_len = snap(line_len + carry)
-            if seg_len > avail + 0.005:
-                if mode == "slow":
-                    speed = avail / seg_len
-                    fit = "slowed to {:.2f}x to fill (clip {:.2f}s)".format(speed, avail)
-                elif mode == "trim":
-                    seg_len = snap(avail)
-                    fit = "cut short with clip ({:.2f}s)".format(avail)
+            seg_len = want
+            fit = ("trimmed -{:.2f}s (clip {:.2f}s)".format(out_fixed - seg_len, out_fixed)
+                   if out_total is not None and out_total - seg_len > 0.005 else "exact")
+        if carry > 0.005 and mode not in ("window", "beat"):
+            fit += " [+{:.2f}s carried from prev line]".format(carry)
+
+        # --- the slot's seconds, spread over the parts in order -------------
+        rem = seg_len
+        for i, w in enumerate(wins):
+            s = speeds[i]
+            if s == "fill":
+                share = max(rem, 1.0 / FPS)
+                if w["avail"] >= share:
+                    w["speed"], w["avail"] = 1.0, share     # trimmed; never fast-forwarded
                 else:
-                    hold = seg_len - avail
-                    fit = "held +{:.2f}s (clip {:.2f}s)".format(hold, avail)
-            elif avail - seg_len > 0.005:
-                fit = "trimmed -{:.2f}s (clip {:.2f}s)".format(avail - seg_len, avail)
+                    w["speed"] = w["avail"] / share
+                w["out"] = share
             else:
-                fit = "exact"
-            if carry > 0:
-                fit += " [+{:.2f}s carried from prev line]".format(carry)
+                w["speed"] = s
+                out_i = w["avail"] / s
+                if out_i > rem + 1e-9:
+                    w["out"] = max(rem, 0.0)
+                    w["avail"] = w["out"] * s
+                else:
+                    w["out"] = out_i
+            w["hold"] = 0.0
+            rem = max(rem - w["out"], 0.0)
+        live = [i for i, w in enumerate(wins) if w["out"] > 1e-6]
+        used = sum(w["out"] for w in wins)
+        if seg_len - used > 0.005:
+            wins[live[-1] if live else 0]["hold"] = seg_len - used
+            fit += "; held +{:.2f}s on the last frame".format(seg_len - used)
+        rest = []
+        for i, w in enumerate(wins):
+            left = orig[i] - w["avail"]
+            if left > 1.0 / FPS:
+                rest.append({"path": w["path"], "src": w["src"], "in": w["in"] + w["avail"], "avail": left})
+        prev_clip, prev_rest = row["clip"], rest
+
+        # --- the card, if this line carries one -----------------------------
+        card_png = ""
+        card_t = None
+        if card:
+            import card as card_mod                       # only a line with a card needs it
+            src_png = os.path.join(project, card["path"].replace("/", os.sep))
+            if not os.path.exists(src_png):
+                raise SystemExit(f"assemble: {key}: no card at {src_png}")
+            card_png = os.path.join(cache, sha(stat_key(src_png), card["w"], card["alpha"], card["blur"],
+                                               card["dx"], card["dy"]) + "_card.png")
+            if not os.path.exists(card_png):
+                card_mod.shadowed(src_png, card_png, width=card["w"], alpha=card["alpha"],
+                                  blur=int(card["blur"]), dx=int(card["dx"]), dy=int(card["dy"]))
+            cw, ch = png_size(card_png)
+            ws = words_all.get(key, {}).get("words", [])
+            t_in = max(0.0, ws[0]["t"]) if ws else 0.0
+            t_out = max(t_in + card["in"], ws[-1]["t"]) if ws else max(seg_len - card["out"], t_in + card["in"])
+            card_t = (cw, ch, t_in, t_out)
+            fit += "; card {}x{} slides in at {:.2f}s over {:.2f}s, out at {:.2f}s over {:.2f}s".format(
+                cw, ch, t_in, card["in"], t_out, card["out"])
+
+        # --- render every part ----------------------------------------------
         if window_audio:
             windows.append(window_audio)
-        vf = ""
-        if abs(speed - 1.0) > 1e-9:
-            vf += "setpts={:.6f}*PTS,".format(1.0 / speed)
-        vf += fit_filter(src) + f",fps={FPS},format=yuv420p"
-        if hold > 0.005:
-            vf += f",tpad=stop_mode=clone:stop_duration={hold:.4f}"
-        seg_key = sha(stat_key(src), f"{start_in:.4f}", f"{avail:.4f}", f"{speed:.6f}", f"{seg_len:.4f}", f"{hold:.4f}", vf, FPS)
-        seg = os.path.join(cache, seg_key + ".mp4")
-        if not os.path.exists(seg):
-            run(FF + ["-ss", f"{start_in:.4f}", "-t", f"{avail:.4f}", "-i", src, "-t", f"{seg_len:.4f}", "-vf", vf,
-                      "-an", "-c:v", "libx264", "-preset", "fast", "-crf", "18", seg])
-            fit += "  [rendered]"
-        shown = seg_len if mode == "window" else avail
-        clip_name = row["clip"].replace("/", "\\")
-        if start_in > 0 or length is not None or mode == "window":
-            clip_name += " [{:.2f}-{:.2f}]".format(start_in, start_in + shown)
-        table.append("{0:<4} {1:>6.2f}s {2:>6.2f}s {3:<40} {4}".format(key, cursor, seg_len, clip_name, fit))
-        segments.append(seg)
+        part_start = starts[key]
+        for i, w in enumerate(wins):
+            if w["out"] <= 1e-6:
+                continue
+            vf = ""
+            if abs(w["speed"] - 1.0) > 1e-9:
+                vf += "setpts={:.6f}*PTS,".format(1.0 / w["speed"])
+            vf += fit_filter(w["src"]) + f",fps={FPS},format=yuv420p"
+            if w["hold"] > 0.005:
+                vf += ",tpad=stop_mode=clone:stop_duration={:.4f}".format(w["hold"])
+            out_len = w["out"] + w["hold"]
+            card_over = ""
+            if card_t:
+                off = part_start - starts[key]           # where this part starts on screen
+                cw, ch, t_in, t_out = card_t
+                if t_out + card["out"] > off and t_in < off + out_len:
+                    card_over = card_mod.overlay_args(cw, ch, card["y"], t_in - off, card["in"],
+                                                      t_out - off, card["out"], W, H)
+            seg_key = sha(stat_key(w["src"]), "%.4f" % w["in"], "%.4f" % w["avail"], "%.6f" % w["speed"],
+                          "%.4f" % out_len, vf, FPS, card_over,
+                          stat_key(card_png) if (card_png and card_over) else "")
+            seg = os.path.join(cache, seg_key + ".mp4")
+            if not os.path.exists(seg):
+                args = FF + ["-ss", "%.4f" % w["in"], "-t", "%.4f" % w["avail"], "-i", w["src"]]
+                if card_over:
+                    # the pixel format is set after the overlay, so the card's alpha
+                    # is still there to blend with
+                    pic = vf[:-len(",format=yuv420p")] if vf.endswith(",format=yuv420p") else vf
+                    args += ["-loop", "1", "-i", card_png, "-filter_complex",
+                             "[0:v]" + pic + "[pic];[1:v]format=rgba[card];[pic][card]overlay="
+                             + card_over + ",format=yuv420p[v]", "-map", "[v]"]
+                else:
+                    args += ["-vf", vf]
+                args += ["-t", "%.4f" % out_len, "-an", "-c:v", "libx264", "-preset", "fast", "-crf", "18", seg]
+                run(args)
+                fit += "  [rendered]" if i == 0 else ""
+            segments.append(seg)
+            if game_vol > 0 and mode != "window" and has_audio(w["src"]):
+                games.append((part_start, w["src"], w["in"], w["avail"], w["speed"], w["out"]))
+            part_start += out_len
+
+        clip_name = " , ".join("{}[{:.2f}-{:.2f}]".format(w["path"].replace("/", "\\"), w["in"], w["in"] + w["avail"])
+                               for i, w in enumerate(wins) if i in live)
+        fit += " @ " + ", ".join("%.3fx" % wins[i]["speed"] for i in live)
+        table.append("{0:<4} {1:>6.2f}s {2:>6.2f}s {3:<52} {4}".format(key, cursor, seg_len, clip_name, fit))
         cursor += seg_len
         carry = carry_out
     t_segments = time.time() - t0
@@ -334,9 +544,9 @@ def main():
                        "afade=t=out:st={5:.3f}:d={6}[am]".format(idx, total, db, fade_in, gate, total - fade_out, fade_out))
         mix += "[am]"
         idx += 1
-        summary.append("audio: voice + music {} dB (fade in {}s, fade out {}s); no game audio".format(db, fade_in, fade_out))
+        summary.append("audio: voice + music {} dB (fade in {}s, fade out {}s)".format(db, fade_in, fade_out))
     else:
-        summary.append("audio: voice only, no music")
+        summary.append("audio: voice only, no music" + ("" if games else "; no game audio"))
     for a_start, src, onset, a_len in windows:
         if not has_audio(src):
             raise SystemExit(f"assemble: window clip {src} has no audio")
@@ -346,6 +556,18 @@ def main():
             idx, max(a_len - WINDOW_FADE, 0.0), WINDOW_FADE, ms))
         mix += f"[w{idx}]"
         idx += 1
+    for g_start, g_src, g_in, g_avail, g_speed, g_out in games:
+        inputs += ["-ss", "%.4f" % g_in, "-t", "%.4f" % g_avail, "-i", g_src]
+        tempo = atempo_chain(g_speed)
+        ms = int(round(g_start * 1000))
+        filters.append("[{0}:a]{1}atrim=0:{2:.3f},volume={3:.4f},afade=t=in:st=0:d=0.03,"
+                       "afade=t=out:st={4:.3f}:d=0.05,adelay={5}|{5}[g{0}]".format(
+                           idx, tempo + "," if tempo else "", g_out, game_vol, max(g_out - 0.05, 0.0), ms))
+        mix += "[g{}]".format(idx)
+        idx += 1
+    if games:
+        summary.append("game audio: the take's own sound under the voice at {:.0f}% ({:+.1f} dB), {} parts, "
+                       "tempo-matched to the picture".format(game_vol * 100, 20 * math.log10(game_vol), len(games)))
     n_in = idx - 1
     if n_in == 0:
         raise SystemExit("assemble: nothing to mix (no voice, no music)")
@@ -353,6 +575,12 @@ def main():
     out = os.path.join(project, "final", f"{tag}.mp4")
     run(FF + inputs + ["-filter_complex", graph, "-map", "0:v", "-map", "[out]", "-c:v", "copy", "-c:a", "aac",
                        "-b:a", "192k", "-movflags", "+faststart", out])
+    small = ""
+    if str(head.get("copy_720", "no")).strip().lower() in ("yes", "true", "1"):
+        small = os.path.join(project, "final", f"{tag}_720.mp4")
+        run(FF + ["-i", out, "-vf", "scale=720:-2", "-c:v", "libx264", "-preset", "medium", "-crf", "20",
+                  "-pix_fmt", "yuv420p", "-c:a", "copy", "-movflags", "+faststart", small])
+        summary.append("720p copy: %s" % small)
     t_audio = time.time() - t0
 
     # --- the record --------------------------------------------------------
@@ -414,12 +642,22 @@ def build_ass(starts, words_all, head):
             continue
         ws = words_all[key]["words"]
         abs_words = [{"w": w["word"].upper(), "s": t0 + max(0.0, w["t"]), "e": t0 + max(0.0, w["t"]) + w["dur"]} for w in ws]
+        groups = []
         i = 0
         for n in chunks(len(abs_words)):
-            grp = abs_words[i:i + n]
+            groups.append(abs_words[i:i + n])
             i += n
+        for c, grp in enumerate(groups):
             n_chunks += 1
+            # The chunk hangs on for `tail` after its last word, but never past
+            # the next chunk's first word: two chunks drawn at once read as one
+            # garbled line (measured on l6 of the projectile cut, where
+            # "that" starts 68 ms before "implemented" had finished hanging).
             end_chunk = grp[-1]["e"] + tail
+            if c + 1 < len(groups):
+                end_chunk = min(end_chunk, groups[c + 1][0]["s"])
+            if end_chunk <= grp[-1]["s"]:
+                end_chunk = grp[-1]["s"] + 0.05
             for j, w in enumerate(grp):
                 s = w["s"]
                 e = grp[j + 1]["s"] if j + 1 < len(grp) else end_chunk

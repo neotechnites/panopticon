@@ -28,6 +28,12 @@ capture: none; cut from content\shove\final\rough_v11_nomusic.mp4
 ## 1b
 said: "put the guys comment up on screen"
 capture: none; Ryan's screenshot, full width on the portrait canvas over 1a's last frame? no: over live footage, never a still
+placeholder: external\comment_placeholder.png, made by
+  `python3 tools/content/pc/card.py --placeholder comment_placeholder.png 1080 400 24`
+  -- a blank white rounded rectangle, nothing on it. The card column of the
+  `## script` table does the rest: 900 wide, centred, middle at 35% of the
+  height, black drop shadow at 60% over a 24 px blur offset 0/12. Ryan's
+  screenshot replaces that one file at that one path; the same rule scales it.
 ## 2
 said: "pov footage of sniper gameplay"
 capture: --shot=s3_open_lane --stage=scope_hunt --pov=guard --bots=7 --seed=20260922
@@ -60,6 +66,35 @@ capture: --pov=guard --hud=crosshair --stage=guard_alone --shot=s3_open_lane --b
 seconds: 3
 file: frames\bullet_test
 
+## script
+# The rough v1 cut (2026-09-21): a TTS placeholder voice so Ryan can get the gist.
+# Voice-first as the shove cut was: every slot is the voice line + 0.2 s and the
+# picture is trimmed or slowed to match -- never frozen, so where the clips are
+# shorter than the voice they play slow rather than stop.
+#   l1+l2  one continuous 9.0 s bed, 01a_pack then 01a_hook, at 0.710x across
+#          both lines; the comment card slides in over it with no cut.
+#   l3     8.0 s of POV slowed to fill 8.80 s, so the last kill plays on rather
+#          than holding, and then it cuts to l4.
+#   l4/l5  warzone_a and fortnite_b as delivered, slowed to fill their lines.
+#   l6     the picture start is trimmed to 4.18 s so the hit (source 5.97 s)
+#          lands on "that" and the runner is down (6.45 s) before "Tell"; the
+#          2.55 s of live action after the kill fills the rest at 0.52x.
+voice: en-US-AndrewNeural +5%
+pad: 0.2
+game: 0.25
+copy_720: yes
+captions: pop
+captions_font: Impact
+captions_size: 64
+captions_y: 0.72
+| line | clip | in | len | fit | speed | text | card |
+| l1 | cuts/01a_pack.mp4,cuts/01a_hook.mp4 | 0 |  | line | 0.7096 | Last week, I put up my first short to promote my game, and, was lucky enough that out of the few comments I got, a couple were feedback. |  |
+| l2 | cuts/01a_pack.mp4,cuts/01a_hook.mp4 | cont |  | slow |  | This guy specifically recommended changing the sniper from a hitscan weapon to a projectile weapon, | external/comment_placeholder.png w=900 y=0.35 in=0.35 out=0.30 |
+| l3 | cuts/02_pov_hitscan.mp4 | 0 |  | slow |  | and while I liked the idea of hitscan at first, I did need ways to make it harder for the sniper than it currently is, and so I think this is a great idea to try and achieve that. |  |
+| l4 | external/warzone_a.mp4 | 0 |  | slow |  | The two games I like the most for this feeling are, one, Call of Duty, specifically in early Warzone, hitting a long shot felt incredible, |  |
+| l5 | external/fortnite_b.mp4 | 0 |  | slow |  | and two, Fortnite. What I especially like about Fortnite is how clear it is why you missed and how to lead out or aim up to fix it. |  |
+| l6 | cuts/05_pov_projectile_a.mp4@4.18:2.27,cuts/05_pov_projectile_a.mp4@6.45 |  |  | line | 1,fill | So, I went ahead and implemented that. Tell me in the comments what you think: is this a good addition? Or is hitscan still the better move? |  |
+
 ## dailies
 # The review page, in script order: tools/content/dailies.sh projectile.
 # id | src (relative to content\projectile\, empty = pending) | line (L<n> in
@@ -67,7 +102,7 @@ file: frames\bullet_test
 | id | src | line | desc |
 | 01a_pack | cuts/01a_pack.mp4 | L1 | Shove short, 3.7-9.7 s: the pack sniped off the deck, then the last runner alone. No captions, no music. |
 | 01a_hook | cuts/01a_hook.mp4 | L1 | Shove short, 0-3 s: the opening hook, the shove off the parkour into the lava. No captions, no music. |
-| 01b | | L2 | Pending from Ryan: the screenshot of the comment asking for a projectile sniper. |
+| 01b |  | L2 | The comment card, placeholder: a blank white 1080x400 rounded rectangle, 900 wide on the canvas at 35% height with a drop shadow, sliding in from the right on L2's first word and out to the left on its last. Drop Ryan's screenshot in at external\comment_placeholder.png and re-run assemble: same size rule (900 wide, aspect kept), one file, no other change. |
 | 02_pov_hitscan | final/02_pov_hitscan.mp4 | L3 | Guard POV, hitscan, crosshair only: seven prisoners running the lap on their own live brains, three of them dropped at 1.25, 3.70 and 6.20 s into the cut. Refilmed after Ryan's note on the first dailies. |
 | warzone_a | external/warzone_a.mp4 | L4 | Warzone AX-50 at 241 m over the Verdansk rooftops: crosshair held above the roofline, DOWNED ~0.4 s after the kick. 720p source, softest of the set. |
 | warzone_c | external/warzone_c.mp4 | L4 | Warzone HDR at ~898 m: the crosshair sits plainly above the target's head, a tracer streaks out, DOWNED at 6.85 s. Clearest drop of the warzone set; 24 fps. |

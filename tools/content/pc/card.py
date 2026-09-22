@@ -3,6 +3,7 @@ r"""Make and animate the comment card that opens a short.
 Runs anywhere ffmpeg does (the Mac builds and checks it, the PC uses it):
 
     python3 card.py --selftest <outdir>
+    python3 card.py --placeholder <out.png> [w h radius]
 
 A short starts on a comment: a white rounded card that slides in from the
 right, sits still while the voice reads it, then slides out to the left. That
@@ -280,7 +281,14 @@ def main():
     if len(sys.argv) == 3 and sys.argv[1] == "--selftest":
         _selftest(sys.argv[2])
         return
-    raise SystemExit("usage: card.py --selftest <outdir>")
+    if len(sys.argv) >= 3 and sys.argv[1] == "--placeholder":
+        a = [int(v) for v in sys.argv[3:6]] or [1080, 400, 24]
+        while len(a) < 3:
+            a.append([1080, 400, 24][len(a)])
+        out = placeholder(sys.argv[2], a[0], a[1], a[2])
+        print("placeholder %dx%d radius %d: %s" % (a[0], a[1], a[2], out))
+        return
+    raise SystemExit("usage: card.py --selftest <outdir> | --placeholder <out.png> [w h radius]")
 
 
 if __name__ == "__main__":
