@@ -17,7 +17,8 @@ extends Node
 ## [code]clear[/code] (false) holds the trigger past [code]fire_at[/code] until the
 ## eye can see both the man and the ground he is led into, for up to CLEAR_WAIT.
 ## [code]watch[/code] (false) keeps the hand on the man after the squeeze so the
-## frame the round arrives in still has him in it.
+## frame the round arrives in still has him in it. [code]shots[/code] (1) lets a
+## beat fire more than once: miss, re-lead, fire again.
 ##
 ## [codeblock]
 ## var hand: Node = GUARD_HAND.new()
@@ -73,6 +74,8 @@ var _yaw: float = 0.0
 var _pitch: float = 0.0
 var _rate: Vector2 = Vector2.ZERO
 var _fired: Array = []
+## Shots taken on each beat, so a beat may work a man rather than fire once.
+var _shots: Dictionary = {}
 var _last_aim: Array = []
 var _installed: bool = false
 ## Per body: where it was, a slow average of its velocity, and a fast one.
@@ -137,13 +140,13 @@ func _physics_process(delta: float) -> void:
 		# inside his reaction time is how the shot lands -- and it is what a
 		# player does.
 		var acquire: float = float(beat.get("acquire", 0.0))
-		if not _fired.has(k) and (acquire <= 0.0 or fire_at < 0.0 or into >= fire_at - acquire):
+		if not _spent(k, beat) and (acquire <= 0.0 or fire_at < 0.0 or into >= fire_at - acquire):
 			_picked[k] = _pick_from(pool, _picked[k])
 		entry = _picked[k]
 		if entry != null:
 			body = _body_of(entry)
 	var aim: Vector3
-	if _fired.has(k) and bool(beat.get("watch", false)) and body != null and is_instance_valid(body):
+	if _spent(k, beat) and bool(beat.get("watch", false)) and body != null and is_instance_valid(body):
 		# watch (false): after the squeeze the hand stays ON the man and rides the
 		# kick back down, which is what a player does -- he takes the shot and
 		# watches it land. With a round that travels it is the difference between
@@ -154,7 +157,7 @@ func _physics_process(delta: float) -> void:
 		# frame when it hits the runner."
 		aim = body.global_position + Vector3.UP * AIM_HEIGHT
 		_last_aim[k] = aim
-	elif _fired.has(k) or body == null or not is_instance_valid(body):
+	elif _spent(k, beat) or body == null or not is_instance_valid(body):
 		aim = _last_aim[k] if _last_aim[k] != Vector3.ZERO else beat.get("at", park)
 	else:
 		aim = body.global_position + Vector3.UP * AIM_HEIGHT
@@ -173,7 +176,7 @@ func _physics_process(delta: float) -> void:
 	for one: Variant in pool:
 		_measure(_body_of(one), delta)
 	var wanted: Vector2 = _angles_to(aim)
-	if not _fired.has(k):
+	if not _spent(k, beat):
 		var settling: float = 1.0 if fire_at < 0.0 else clampf((fire_at - into) / SETTLE_SECONDS, 0.0, 1.0)
 		var sway: float = deg_to_rad(SWAY_DEGREES) * settling
 		wanted += Vector2(sin(t * TAU * SWAY_HZ) * sway, sin(t * TAU * SWAY_HZ * 1.7 + 1.0) * sway * 0.6)
@@ -183,7 +186,7 @@ func _physics_process(delta: float) -> void:
 	_rate = _rate.limit_length(HAND_MAX_RATE)
 	_yaw = wrapf(_yaw + _rate.x * delta, -PI, PI)
 	_pitch += _rate.y * delta
-	if body != null and is_instance_valid(body) and fire_at >= 0.0 and not _fired.has(k) and into >= fire_at:
+	if body != null and is_instance_valid(body) and fire_at >= 0.0 and not _spent(k, beat) and into >= fire_at and _rifle_ready():
 		# clear (false): hold the trigger until the shot is actually there -- the
 		# man in the open AND the ground he is being led into in the open. On a
 		# deck of columns a runner is visible about half the time, in windows a
@@ -191,10 +194,14 @@ func _physics_process(delta: float) -> void:
 		# happens to be behind a rock that frame: it is why one beat killed on one
 		# take and put the round in the wall on the next, off a 0.02 s difference.
 		# Capped by CLEAR_WAIT so a take can never hang waiting for a gap.
-		if bool(beat.get("clear", false)) and into < fire_at + CLEAR_WAIT and not _shot_is_there(beat, body, entry):
+		# wait (CLEAR_WAIT): how long this beat holds out for a real shot before
+		# taking the one it has. A beat working an alarmed man wants longer.
+		if bool(beat.get("clear", false)) and into < fire_at + float(beat.get("wait", CLEAR_WAIT)) and not _shot_is_there(beat, body, entry):
 			_apply_head()
 			return
-		_fired.append(k)
+		_shots[k] = _shots_on(k) + 1
+		if not _fired.has(k):
+			_fired.append(k)
 		# The last of the error goes in the squeeze: the crosshair is on him,
 		# led by the round's flight time when the shot travels.
 		var mark: Vector3 = _mark_for(beat, body)
@@ -259,6 +266,27 @@ func _mark_for(beat: Dictionary, body: PlayerController) -> Vector3:
 	if behind != 0.0 and along.length_squared() > 0.0001:
 		mark -= along.normalized() * behind
 	return mark
+
+
+## Shots this beat has taken.
+func _shots_on(k: int) -> int:
+	return int(_shots.get(k, 0))
+
+
+## True when the beat has taken every shot it was given. shots (1): a beat may
+## work a man rather than fire once and move on -- miss, re-lead, fire again,
+## which is what a player does and what keeps a long clip alive. Between shots
+## the hand tracks and leads normally; after the last one it watches.
+func _spent(k: int, beat: Dictionary) -> bool:
+	return _shots_on(k) >= maxi(int(beat.get("shots", 1)), 1)
+
+
+## True when the rifle would actually take the shot, so a beat working a man
+## holds its trigger through the reload instead of spending its shots on
+## refusals.
+func _rifle_ready() -> bool:
+	var rifle: Rifle = _controller.rifle
+	return rifle != null and rifle.can_fire()
 
 
 ## A pool entry is either the body itself or the brain playing it: a stage that
