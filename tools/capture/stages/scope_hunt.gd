@@ -77,6 +77,13 @@ extends "res://tools/capture/stages/stage.gd"
 ## Dials (--set=):
 ##   degs      start bearing of each runner, in order (7 values)
 ##   rs        start radius of each runner, in order (7 values)
+##   scan      1 to sweep the scope along the lane whenever it has no man, and
+##             to keep sweeping after the last squeeze. Needed on a cut long
+##             enough to have gaps; it retimes the first acquisition, so the
+##             eight-second take is filmed without it.
+##   shots     squeezes in the clip (3). A longer cut carries more: the beats
+##             are evenly spaced, so four of them spread the kills over ten
+##             seconds the way three spread them over eight.
 ##   start     clip seconds the hand starts moving (the cut's in point)
 ##   beat      seconds the hand spends per target
 ##   fire_at   seconds into a beat the trigger goes
@@ -104,6 +111,14 @@ const TARGET_TO: float = 130.0
 ## Seconds between finding a man and squeezing, when he is found part-way into a
 ## beat. A hand that lands and fires on the same frame reads as a machine.
 const ACQUIRE_SECONDS: float = 0.6
+## Degrees of ring a second the scope sweeps while it has nobody to look at. A
+## guard with no target hunts for one; he does not hold on a rock. This is also
+## the only thing keeping the picture alive in the gaps -- a scope parked on
+## static stone is a frozen frame, and the take gate counts those.
+const SCAN_DEGREES: float = 7.0
+## Radius the scan sweeps along: the lane the men run, so the sweep crosses the
+## ground they will appear on rather than the wall behind it.
+const SCAN_RADIUS: float = 48.5
 
 var _runners: Array[RunnerBrain] = []
 var _hand: Node = null
@@ -221,7 +236,14 @@ func tick(_delta: float) -> void:
 	var into: float = elapsed() - _hand.start_at
 	if into < 0.0:
 		return
-	var k: int = clampi(int(into / beat), 0, _hand.beats.size() - 1)
+	var shots: int = int(option("shots", 3))
+	var scanning: bool = int(option("scan", 0)) == 1
+	var k: int = clampi(int(into / beat), 0, shots - 1)
+	if scanning and int(into / beat) >= shots:
+		# Past the last squeeze: the trailing look beat, swept so the tail of a
+		# long cut is a guard still hunting rather than a held frame.
+		_hand.beats[_hand.beats.size() - 1]["at"] = _scan_point()
+		return
 	if k != _beat_now:
 		_beat_now = k
 		_locked = false
@@ -230,8 +252,11 @@ func tick(_delta: float) -> void:
 	var mark: PlayerController = _clearest()
 	if mark == null:
 		# No man, no shot. Cleared every frame so a body that steps out of the
-		# open before the squeeze does not take the round with him.
+		# open before the squeeze does not take the round with him. The scope
+		# keeps hunting down the lane instead of holding on stone.
 		_hand.beats[k]["body"] = null
+		if scanning:
+			_hand.beats[k]["at"] = _scan_point()
 		return
 	var within: float = into - float(k) * beat
 	# Found late in the beat, the squeeze waits ACQUIRE_SECONDS: a hand that
@@ -272,7 +297,7 @@ func _raise_the_hand() -> void:
 	# Three beats, each starting on the first live body it can see. The bodies
 	# here are only placeholders so the hand has something to rest on; tick()
 	# replaces each one as its beat comes up.
-	for index: int in 3:
+	for index: int in int(option("shots", 3)):
 		_hand.beats.append({
 			"body": _runners[mini(index + 2, _runners.size() - 1)].controller,
 			"seconds": beat,
@@ -282,6 +307,15 @@ func _raise_the_hand() -> void:
 			# stepped behind.
 			"clear": true,
 		})
+	# scan (0): a last beat with no body and no fire_at, so the hand cannot shoot
+	# on it and guard_hand falls through to its "at", which tick() sweeps. A long
+	# cut needs it -- without it the scope holds on the last man it killed for the
+	# whole tail, and a scope parked on stone is a frozen frame the take gate
+	# counts. It is off by default because it moves the scope in the gaps, which
+	# changes when the hand finds its first man: the delivered eight-second take
+	# was timed without it.
+	if int(option("scan", 0)) == 1:
+		_hand.beats.append({"seconds": 60.0})
 	_hand.park = LIB.ring_point(
 		LIB.bearing_of(_first_point) - float(option("lead_in", -13.0)),
 		LIB.radius_of(_first_point),
@@ -291,6 +325,13 @@ func _raise_the_hand() -> void:
 	say("tower brain stood down; the hand starts at %.2f s, beats %.2f s, fires at +%.2f" % [
 		_hand.start_at, beat, fire_at,
 	])
+
+
+## Where the scope looks when it has no man: a point tracking steadily along the
+## lane, wrapping back to the start of the open stretch. Read fresh every frame.
+func _scan_point() -> Vector3:
+	var span: float = TARGET_TO - TARGET_FROM
+	return LIB.ring_point(TARGET_FROM + fposmod(elapsed() * SCAN_DEGREES, span), SCAN_RADIUS, 1.0)
 
 
 ## The live prisoner the tower can best shoot right now: on the deck, outside the
