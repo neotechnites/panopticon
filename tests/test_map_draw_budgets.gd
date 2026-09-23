@@ -113,8 +113,22 @@ const DRAW_BUDGETS: Dictionary = {
 	# MarbleStone draws 12 surfaces where the atlas drew 1 -- surfaces 15,
 	# materials 15, ceilings 18 (+20 %). Triangles unchanged in the .glb; the
 	# tris row below counts vertices/3 and fell with the shared UVs.
+	#
+	# THE EYE ARRIVED, 2026-09-23. This map was the only one with no WatchingEye
+	# over its tower, and the game is called PANOPTICON. eye.glb is three nodes
+	# of one surface each, so every count above it moved by exactly three:
+	# 88624 -> 89392 tris (768, the eyeball), 15 -> 18 surfaces, 15 -> 18
+	# materials -- the three are marble_watching_eye_look.tres' own, overriding
+	# the glTF's, and the walker reads the SURFACE OVERRIDE, which is what the
+	# renderer takes. Surfaces and materials had landed exactly ON their
+	# ceilings, which is a gate with no slack left in it, so all three are
+	# re-cut to measured + 20 % as the header says: 107271 / 22 / 22. The tris
+	# ceiling still catches the change it was lowered to catch -- the obstacle
+	# course that came off the lane was 23618 triangles and this leaves 17879 of
+	# headroom, so putting it back still fails here. lights and the exact
+	# shadow_casters are untouched.
 	"marble": {
-		"tris": 90759, "surfaces": 18, "materials": 18,
+		"tris": 107271, "surfaces": 22, "materials": 22,
 		"transparent_tris": 0, "lights": 4, "shadow_casters": 1,
 	},
 	# The expensive one: 2.5x the Ring, plus 2196 transparent triangles, plus a
@@ -130,6 +144,18 @@ const DRAW_BUDGETS: Dictionary = {
 	# out of a block of butter"): 5040 fog tris + the portal's 180, plus 20 %.
 	# Materials re-measured at 27 on 2026-09-22 with ForestGround on twelve
 	# tiling sheets (lib/texel.py) instead of one atlas; ceiling 33 (+20 %).
+	#
+	# 2026-09-23: forest_bars.glb came off the same per-face atlas window the
+	# ground came off (Ryan: "the texturing on the gate is bad"), onto one
+	# tiling sheet per class, so the stand at 353 deg draws three surfaces where
+	# it drew one: 163 -> 165 surfaces, 27 -> 29 materials. Its triangles did
+	# not move -- the geometry is identical, only the UVs -- and neither did
+	# tris, transparent_tris, lights or the shadow caster. The eye's look does
+	# not appear here at all: the forest already had a Watcher, and three
+	# overrides replace three glTF materials one for one. THE CEILINGS ARE NOT
+	# RAISED for this: 183 and 33 still hold the measurement with room, and
+	# buying 20 % of fresh headroom for two surfaces would hand back gate
+	# strength for nothing.
 	"forest": {
 		"tris": 299778, "surfaces": 183, "materials": 33,
 		"transparent_tris": 6264, "lights": 3, "shadow_casters": 1,
