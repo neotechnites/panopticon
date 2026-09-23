@@ -1,7 +1,7 @@
 extends TestCase
 
 ## Map 1's five lip walls: a wall of map_base.glb's own rock on the runner's
-## right (the pit lip, r 46.9-48.2; 204 is thinner, 46.9-47.5) at each
+## right (the pit lip, r 46.9-48.2; 204 and 286 are thinner, 46.9-47.5) at each
 ## section boundary and across the start, ~8 m long and 3 m tall (the
 ## start's 22 deg and 4.6 m), no mouth.
 ##

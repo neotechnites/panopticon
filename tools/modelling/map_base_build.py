@@ -329,9 +329,10 @@ S4_NOISE_L = (0.7, 1.8)               # ... wavelengths
 # ---- the cave wall: a ridge of rock between the tower and the flights ------
 S4_WALL_B = (209.8, 271.6)            # bearings it runs between, sunk into the lava at each end
 S4_WALL_STEP = 0.85                   # degrees per column (~0.72 m)
-S4_WALL_R = 48.7                      # its crest line's radius ...
-S4_WALL_WANDER = 0.35                 # ... wandering this much
-S4_WALL_W = (1.35, 1.75)              # half width at the foot
+S4_WALL_R = 47.26                     # its crest line's radius: on the lip walls' drawn line,
+S4_WALL_WANDER = 0.05                 # ... wandering this much (feet 46.76..47.76, never past 204's face)
+S4_WALL_W = (0.40, 0.45)              # half width at the foot
+S4_WALL_ARC_R = 48.7                  # arc metres for its crags, joins and windows: heights as before
 S4_WALL_H = (4.6, 5.8)                # height over the lava, wandering
 S4_WALL_JOIN, S4_WALL_JOIN_W = 9.2, 3.2   # up into the ceiling (8.8 m over the lava) in front of each landing, over this reach
 S4_WALL_WINDOW_AT = 0.62              # a window on the falling side of each flight, this far along it ...
@@ -2155,21 +2156,21 @@ def _s4_wall_spec():
     cols = []
     for i in range(n + 1):
         bb = b0 + (b1 - b0) * i / n
-        s_m = math.radians(bb) * S4_WALL_R                  # arc position, metres
+        s_m = math.radians(bb) * S4_WALL_ARC_R              # arc position, metres
         rc = S4_WALL_R + S4_WALL_WANDER * (0.6 * math.sin(0.61 * s_m + p1) + 0.4 * math.sin(1.37 * s_m + p2))
         W = S4_WALL_W[0] + 0.5 * (S4_WALL_W[1] - S4_WALL_W[0]) * (1.0 + math.sin(0.83 * s_m + p3))
         H = S4_WALL_H[0] + 0.5 * (S4_WALL_H[1] - S4_WALL_H[0]) * (1.0 + 0.7 * math.sin(0.9 * s_m + p2)
                                                                   + 0.3 * math.sin(2.3 * s_m + p1))
         H += S4_WALL_CRAG * (r.sf() + 0.5 * math.sin(4.1 * s_m + p3))   # a craggy top edge
         for jb in joins:                                     # up to the ceiling at the landings
-            d = abs(bb - jb) * math.radians(1.0) * S4_WALL_R
+            d = abs(bb - jb) * math.radians(1.0) * S4_WALL_ARC_R
             H += (S4_WALL_JOIN - H) * _smooth((S4_WALL_JOIN_W - d) / 1.5) if d < S4_WALL_JOIN_W else 0.0
         for wb, depth in windows:                            # windows and the break
-            d = abs(bb - wb) * math.radians(1.0) * S4_WALL_R
+            d = abs(bb - wb) * math.radians(1.0) * S4_WALL_ARC_R
             if d < S4_WALL_WINDOW_W:
                 H += (depth - H) * _smooth((S4_WALL_WINDOW_W - d) / 1.2)
         for eb, sgn in ((b0, 1.0), (b1, -1.0)):              # sunk at both ends
-            d = (bb - eb) * sgn * math.radians(1.0) * S4_WALL_R
+            d = (bb - eb) * sgn * math.radians(1.0) * S4_WALL_ARC_R
             if d < S4_WALL_END:
                 H += (-0.6 - H) * (1.0 - _smooth(d / S4_WALL_END))
         on_deck = _ramp(lay["bank_entry"] + 0.3 - bb, 0.0, 0.6)  # standing on the deck before the field
@@ -6710,12 +6711,13 @@ LIP_WALLS = [                 # name, first and last bearing, head z, deg of tap
     # path's inner column at the corner.
     dict(name="204", b0=199.2, b1=208.8, top=26.00, taper=1.5, jag_z=0.35,
          r_out=47.50, seed=5310947),
-    dict(name="286", b0=281.2, b1=290.8, top=26.00, taper=1.5, jag_z=0.35, seed=7720261), # S4 | S5
+    dict(name="286", b0=281.2, b1=290.8, top=26.00, taper=1.5, jag_z=0.35,
+         r_out=47.50, seed=7720261),                                                      # S4 | S5, as 204
 ]
 LIP_EYE_Z = 28.90             # the guard's eye, as RingBake and S3 trace it
 LIP_R_IN = 46.90              # inner face: on the lip (INNER_R 46.70), clear of the void
 LIP_R_OUT = 48.20             # outer face: 1.3 m thick, unless a row carries its own r_out
-                              # (204 does). Ryan's 50.40 is on the start line --
+                              # (204 and 286 do). Ryan's 50.40 is on the start line --
                               # the field is dealt sideways from lane r 52.0 at 2.0 m, so the
                               # innermost body dealt stands at r 49.0 and is 0.4 m wide
 LIP_BASE_Z = 22.20            # foot, buried: under the deck and under every sunken floor

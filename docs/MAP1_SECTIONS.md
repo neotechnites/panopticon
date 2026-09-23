@@ -140,7 +140,7 @@ chord vertices, so the weld is unchanged).
 ## Lip walls (the cover between sections)
 Ryan: *"not tunnels ... it just needs to be a fucking wall on the right side."* The lap runs toward
 rising bearing and forward × up points at the axis, so the runner's right is the pit lip. Each section
-boundary, and the start, carries a wall standing ON the lip (r 46.9–48.2, 1.3 m thick; 204 is r 46.9–47.5),
+boundary, and the start, carries a wall standing ON the lip (r 46.9–48.2, 1.3 m thick; 204 and 286 are r 46.9–47.5),
 tangential to the ring, in `map_base.glb`'s own rock — the `rock_wall` prop's language, ~8 m long, 3 m tall, a ragged
 domed head — no mouth, nothing across the deck, nothing near the ceiling. The runner passes it on the
 outer side; it is cover from the tower while they cross the boundary. The `LIP_WALLS` table of
@@ -152,7 +152,7 @@ outer side; it is cover from the tower while they cross the boundary. The `LIP_W
 | S1\|S2 | 61.7 .. 71.3 | 3.0 m          | plain deck 61.5–74.0 |
 | S2\|S3 | 134.2 .. 143.8 | 3.0 m        | plain deck 130.5–144.5 |
 | S3\|S4 | 199.2 .. 208.8 | 3.0 m        | its sinking end grows into the last 0.8° of S3's half wall; `r_out` 47.50 |
-| S4\|S5 | 281.2 .. 290.8 | 3.0 m        | plain deck 282–290.5 |
+| S4\|S5 | 281.2 .. 290.8 | 3.0 m        | plain deck 282–290.5; `r_out` 47.50, as 204 |
 
 Why 3 m: the guard's eye is (0, 28.90, 0) and a standing head on the lane is 24.80; that line crosses
 r 47.55 at 2.15 m over the deck, 0.85 m under the head, and the whole deck width behind the wall is
