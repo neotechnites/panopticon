@@ -26,8 +26,6 @@ points are identical floats in both meshes: no seam, no gap, no step.
     sheet_z(rad)  the tower sheet's nominal underside at radius rad (before
                   its lumps): the dome's profile over the ravine, crown rim to
                   seam, for the map's ray tracing
-    LIMB_BEARINGS the tower's eight great limbs run out under the sheet on
-                  these game bearings
     report(a, b)  the proof: (count, worst distance) between two rings
 
 Heights (world y, the lane is 23.0). Before this pass the whole roof was flat
@@ -62,7 +60,6 @@ SHEET = [(11.0, 34.10), (14.0, 37.45), (19.0, 40.30), (24.5, 42.65), (30.0, 44.7
          (35.5, 46.50), (41.0, 48.15), (44.5, 49.15), (SEAM_R, SEAM_Z)]
 SETTLE_ULPS = 64            # how far settle() may walk to find a shared float (~0.25 mm at y 50)
 SHEET_LUMP = 0.6            # the tower sheet billows this much (rings between the rim and the seam only)
-LIMB_BEARINGS = [k * 45.0 + 10.0 for k in range(8)]   # game bearings, off the piers (22.5 + 45 k)
 TWO_PI = 2.0 * math.pi
 
 

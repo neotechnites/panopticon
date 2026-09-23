@@ -34,10 +34,9 @@ coordinates (Blender z = Godot y) and shifted on export.
                     +-0.46 m, the billow handing over to the seam's own wave
                     over the last 9 m; a coarse top skin runs back from the same
                     seam ring into the crown, so the sheet is a closed leaf mass
-                    and no edge carries three faces. Eight great limbs run out
-                    UNDER it from sockets in the crown's skirt, rising with it,
-                    their side branches and hung clumps making the underside
-                    foliage rather than a plane. Nothing the sheet carries comes
+                    and no edge carries three faces. Its underside is many tree
+                    tops of all sizes and shapes (CROWNS), creased where they meet,
+                    the tower's crown one of them. Nothing the sheet carries comes
                     below y 32.7: the guard's eye is 28.7 and his downward
                     sightline to the lane is clear.
 
@@ -151,7 +150,7 @@ TWIG_R = 0.09
 TWIG_CLUMP = (1.0, 0.65)    # the twig's clump: radius, over the twig's end
 
 # ---- the roof sheet: the crown carried out to the level's seam -------------
-SHEET_N = 120               # verts per sheet ring: the rim's 56 zip up to it, the seam's 240 down from it
+SHEET_N = 160               # verts per sheet ring: the rim's 56 zip up to it, the seam's 240 down from it
 SHEET_WAVES = 6             # the billow: a sum of this many sines (forest_build's _field)
 SHEET_WL = (11.0, 30.0)     # their wavelengths, m
 SHEET_IN_LUMP = 0.30        # the inner rings billow less: they hang off the fixed rim
@@ -200,28 +199,25 @@ STEM_SIDES = 6
 STEM_R = 0.22               # and its neck, at the clump
 STEM_IN = 0.45              # the foot is the sheet quad's outline drawn this far in
 
-LIMB_SIDES = 7
-LIMB_PATH_R = (11.6, 13.2, 14.8, 16.4, 18.0, 19.6, 21.2, 22.8, 24.4, 26.0,
-               27.6, 29.2, 30.8, 32.4, 34.0, 35.6, 37.2, 38.8, 40.4, 42.0)   # ring radii out from the root socket
-LIMB_R = (0.55, 0.88, 0.90, 0.83, 0.74, 0.65, 0.57, 0.49, 0.42, 0.36, 0.32, 0.30)   # read along the path: the collar, the swell, the taper
-LIMB_DROOP = ((0.30, 0.30), (0.0, 0.45))   # (out, down) the two steps the tip curls through into its clump under it
-# (r, the axis this far under the sheet). The root's drop is the one number the
-# dome moved: the sheet used to be 0.02 m over the rim at r 11.6 and is now 0.67
-# over it, so the old 0.50 aimed the limb's first step up INTO its own socket and
-# pinched the collar band. 1.20 puts that first ring back where it sat on the flat
-# roof -- just under the socket -- and the limb climbs with the sheet from there.
-LIMB_DROP = ((11.6, 1.20), (14.0, 1.25), (36.0, 1.25), (42.4, 0.95))
-LIMB_WANDER = 3.0           # degrees of bearing wander
-LIMB_WAVE = 0.18            # and this much in y
-LIMB_ROOT_SIDES = 2         # skirt quads (the band under the rim) per root socket
-LIMB_ROOT = 0.55            # the root ring is the skirt patch's own outline, drawn this far in
-LIMB_TIP_CLUMP = (1.20, 0.55)   # (radius, squash) the clump each limb ends in
-BRANCH_PER_LIMB = (2, 3)
-BRANCH_R = (0.35, 0.29, 0.24, 0.21)   # thick to its end: the clump takes over from a ring near its own size
-BRANCH_ROOT = 0.55          # the branch leaves the limb at this share of the limb's own radius
-BRANCH_SIDES = 5
-BRANCH_LEN = (2.0, 6.0)
-BRANCH_CLUMP = (1.2, 2.0)
+# ---- the canopy: the roof is many tree tops, the tower's crown one of them -----
+# Ryan: "i want it to look like it blends into a roof created from all sorts of other tree tops."
+CROWN_SEED = 5170313
+CROWN_TRIES = 70            # tops tried, biggest first; one that will not fit is skipped
+CROWN_R = (2.6, 8.0)        # a top's radius, m
+CROWN_DEPTH = (0.26, 0.42)  # how far a top hangs under the dome, as a share of its radius
+CROWN_DEEPEST = 3.0         # and never more than this, m: the drum's cells stay in view
+CROWN_STRETCH = (0.75, 1.30)   # oval tops: long axis over short, sqrt of it each way
+CROWN_LOBES = ((3, 6), (0.0, 0.15))   # (harmonic range, amplitude range) of a top's outline
+CROWN_GAP = 0.80            # two tops' centres at least this share of their summed radii apart
+CROWN_TOWER_R = 12.0        # the tower's crown counts as a top this wide: neighbours crowd it
+CROWN_SPAN = (12.5, 43.0)   # where a top's centre may sit
+CROWN_FADE_IN = (12.0, 15.0)   # tops fade in off the crown's rim ...
+CROWN_FADE_OUT = (38.0, 44.0)  # ... and out before the drum's top tier of cells
+CROWN_LEAF = (2.5, 5.0)     # the leafy lumps on a top: their wavelengths, m
+CROWN_LUMP = 0.12           # and their share of its depth
+CROWN_EDGE = 0.12           # a face hung less than this share of its top's depth is a crease: shade
+CROWN_SUN = 0.35            # the share of tops in the lighter leaf
+SHEET_STEP = 1.5            # no sheet band longer than this, m: a small top still has vertices in it
 CLUMP_CLEAR = 0.30          # a hung clump's top sits this far under the sheet
 CLUMP_SQUASH = 0.60
 LEAF_FLOOR = 30.45          # nothing the sheet carries hangs below this: the guard's sightline is clear at r > 11
@@ -1551,7 +1547,7 @@ def _sheet_profile():
         (r0, z0), (r1, z1) = S[k], S[k + 1]
         slant = math.hypot(r1 - r0, z1 - z0)
         width = forest_seam.TWO_PI * r0 / SHEET_N
-        steps = max(1, int(math.ceil(slant / (SHEET_ASPECT * width))))
+        steps = max(1, int(math.ceil(slant / (SHEET_ASPECT * width))), int(math.ceil(slant / SHEET_STEP)))
         for step in range(steps):
             rad = r0 + (r1 - r0) * step / float(steps)
             prof.append((rad, forest_seam.sheet_z(rad)))
@@ -1579,19 +1575,96 @@ SHEET_AMP = [(rad, amp) for (rad, _z, amp) in SHEET_RINGS]  # the amplitude read
 
 def _sheet_amp(rad):
     """How far the sheet billows at radius rad: SHEET_RINGS' capped amplitudes,
-    read between the rings, so the limbs under the sheet see the same numbers."""
+    read between the rings, so what hangs from the sheet sees the same numbers."""
     return _pw(SHEET_AMP, rad)
 
 
-def _sheet_under(f, rad, th):
+def _ramp(x, a, b):
+    t = max(0.0, min(1.0, (x - a) / (b - a)))
+    return t * t * (3.0 - 2.0 * t)
+
+
+def _place_crowns():
+    """The tree tops over the ravine, biggest first, none crowding another or the
+    tower's crown closer than CROWN_GAP: each an oval, lobed dome of its own."""
+    r = _Rng(CROWN_SEED)
+    radii = sorted((r.u(*CROWN_R) for _ in range(CROWN_TRIES)), reverse=True)
+    lo, hi = CROWN_SPAN
+    tops = []
+    for R in radii:
+        for _try in range(60):
+            rc = math.sqrt(r.u(lo * lo, hi * hi))
+            a = r.u(0.0, 2.0 * math.pi)
+            x, y = rc * math.cos(a), rc * math.sin(a)
+            if rc < CROWN_GAP * (CROWN_TOWER_R + R):
+                continue
+            if any(math.hypot(x - t["x"], y - t["y"]) < CROWN_GAP * (R + t["R"]) for t in tops):
+                continue
+            tops.append({"x": x, "y": y, "R": R, "D": min(CROWN_DEEPEST, R * r.u(*CROWN_DEPTH)),
+                         "sx": math.sqrt(r.u(*CROWN_STRETCH)), "phi": r.u(0.0, math.pi),
+                         "k": r.i(*CROWN_LOBES[0]), "amp": r.u(*CROWN_LOBES[1]), "ph": r.u(0.0, 6.28),
+                         "zone": "sun" if r.f() < CROWN_SUN else "leaf"})
+            break
+    return tops, _field(r, 6, CROWN_LEAF)
+
+
+CROWNS, CROWN_FIELD = _place_crowns()
+
+
+def _crown_fade(rad):
+    return _ramp(rad, *CROWN_FADE_IN) * (1.0 - _ramp(rad, *CROWN_FADE_OUT))
+
+
+def _canopy_at(x, y):
+    """(drop, top, share): how far the tree tops hang under the dome at (x, y), the
+    top that hangs lowest there, and how deep into it (1 at its middle, 0 at a crease)."""
+    fade = _crown_fade(math.hypot(x, y))
+    if fade <= 0.0:
+        return 0.0, None, 0.0
+    best, top = 0.0, None
+    for t in CROWNS:
+        dx, dy = x - t["x"], y - t["y"]
+        if abs(dx) > 1.6 * t["R"] or abs(dy) > 1.6 * t["R"]:
+            continue
+        ca, sa = math.cos(t["phi"]), math.sin(t["phi"])
+        u, v = (dx * ca + dy * sa) / t["sx"], (dy * ca - dx * sa) * t["sx"]
+        d = math.hypot(u, v) / (t["R"] * (1.0 + t["amp"] * math.cos(t["k"] * math.atan2(v, u) + t["ph"])))
+        if d < 1.0:
+            h = t["D"] * (1.0 - d * d) ** 0.6
+            if h > best:
+                best, top = h, t
+    if top is None:
+        return 0.0, None, 0.0
+    return fade * best * (1.0 + CROWN_LUMP * CROWN_FIELD(x, y)), top, best / top["D"]
+
+
+def _canopy_zone(f):
+    """The top's own leaf in its middle, shade in the creases where tops meet; off
+    the canopy's span the sheet's old billow picks, as the lane roof's does."""
+    old = _leaf_zone(f)
+
+    def z(pts):
+        n = float(len(pts))
+        x, y = sum(p[0] for p in pts) / n, sum(p[1] for p in pts) / n
+        if _crown_fade(math.hypot(x, y)) < 0.5:
+            return old(pts)
+        _drop, top, share = _canopy_at(x, y)
+        return "shade" if top is None or share < CROWN_EDGE else top["zone"]
+    return z
+
+
+def _sheet_under(f, rad, th, tops=True):
     """The sheet's underside at (radius, Blender angle): the dome's profile, its
     own billow, and -- near the seam -- the seam's own wave taking that billow's
-    place, so the last band arrives on the shared ring already lumped like it."""
+    place, so the last band arrives on the shared ring already lumped like it.
+    ``tops`` hangs the tree tops from it; the top skin rides above without them."""
     if rad >= forest_seam.SEAM_R:
         return forest_seam.seam_z(th)
     t = _sheet_blend(rad)
-    own = _sheet_amp(rad) * f(rad * math.cos(th), rad * math.sin(th))
-    return forest_seam.sheet_z(rad) + (1.0 - t) * own + t * (forest_seam.seam_z(th) - forest_seam.SEAM_Z)
+    x, y = rad * math.cos(th), rad * math.sin(th)
+    own = _sheet_amp(rad) * f(x, y)
+    drop = _canopy_at(x, y)[0] if tops else 0.0
+    return forest_seam.sheet_z(rad) + (1.0 - t) * own + t * (forest_seam.seam_z(th) - forest_seam.SEAM_Z) - drop
 
 
 def _sheet_top_z(f, rad, th):
@@ -1601,7 +1674,7 @@ def _sheet_top_z(f, rad, th):
     thickness hypot(1, slope) -- straight up it would read thinner as it steepens."""
     r0, r1 = forest_seam.CROWN_RIM[0], forest_seam.SEAM_R
     taper = max(0.0, (r1 - rad) / (r1 - r0))
-    return _sheet_under(f, rad, th) + SHEET_THICK * taper * math.hypot(1.0, _sheet_slope(rad))
+    return _sheet_under(f, rad, th, tops=False) + SHEET_THICK * taper * math.hypot(1.0, _sheet_slope(rad))
 
 
 def _sheet(m, r, disc):
@@ -1616,7 +1689,7 @@ def _sheet(m, r, disc):
     over the crown's first top band, so the sheet is a closed leaf mass: every
     edge still carries two faces. Returns (underside rings, seam ids, field)."""
     f = _field(r)
-    zone = _leaf_zone(f)
+    zone = _canopy_zone(f)
     rings = []
     for (rad, _z, _amp) in SHEET_RINGS[1:-1]:
         ring = []
@@ -1703,80 +1776,6 @@ def _hung(m, r, last_ring, end, centre, radius, zone, squash=CLUMP_SQUASH):
     clump_end(m, collar, centre, radius, zone, r, squash=squash, wob=0.2)
 
 
-def _limb(m, r, k, disc, f):
-    """One great limb: out of a socket in the crown's skirt (the band under the
-    rim), running out under the sheet to r 42, wandering a little in bearing and
-    in y, ending in a leaf clump; two or three side branches out of sockets in
-    its own sides, each ending in a clump hung under the sheet."""
-    n = CANOPY_N
-    b0 = forest_seam.LIMB_BEARINGS[k]
-    v = int(round(-b0 / 360.0 * n - 0.5)) % n
-    patch = _patch_mid(m, disc[1], disc[2], _grid_sides(v, n, LIMB_ROOT_SIDES))
-    root = _patch_centre(m, patch)
-    b = -math.degrees(math.atan2(root[1], root[0]))
-    ph, pv = r.u(0.0, 6.28), r.u(0.0, 6.28)
-    out = radial(b)
-    path = [root]
-    for i, rad in enumerate(LIMB_PATH_R):
-        t = i / float(len(LIMB_PATH_R) - 1)
-        bb = b + LIMB_WANDER * math.sin(2.2 * t + ph) * (0.25 + 0.75 * t)
-        th = math.radians(-bb)
-        z = _sheet_under(f, rad, th) - _pw(LIMB_DROP, rad) + LIMB_WAVE * math.sin(3.1 * t + pv)
-        path.append(pol(bb, rad, z))
-    for (dr, dz) in LIMB_DROOP:            # the tip curls down: its last ring lies flat under the clump
-        q = path[-1]
-        path.append((q[0] + out[0] * dr, q[1] + out[1] * dr, q[2] - dz))
-    t0, ex, ez = frames(path)[0]
-    n0 = plane_of(m, patch[0])[1]                  # the ring lies IN the band, and is slid onto its plane
-    pts = _socket_loop(m, patch, LIMB_SIDES, LIMB_ROOT, ex=ex, along=t0)
-    first = _weld_pts(m, patch, pts, n0, "shade", "limb root")
-    rings = tube(m, path, LIMB_R, LIMB_SIDES, "bark", caps=(False, False), wob=0.04, rng=r, first_ring=first)
-    tip = path[-1]
-    crad, sq = LIMB_TIP_CLUMP
-    crad = _fit(tip[2] - 0.55 * crad * sq, crad, sq)
-    centre = (tip[0], tip[1], tip[2] - 0.55 * crad * sq)
-    _hung(m, r, rings[-1], tip, centre, crad, "leaf", sq)
-    segs = []
-    for _ in range(r.i(*BRANCH_PER_LIMB)):
-        for _try in range(8):
-            seg = r.i(2, len(rings) - 6)
-            if all(abs(seg - q) > 2 for q in segs):
-                segs.append(seg)
-                _branch(m, r, rings, seg, b, f)
-                break
-
-
-def _branch(m, r, rings, seg, b, f):
-    """A side branch off limb segment ``seg``: out of a socket in the side facing
-    along the lane, bending out and up, ending in a clump hung under the sheet."""
-    side = tangent(b)
-    if r.f() < 0.5:
-        side = (-side[0], -side[1], 0.0)
-    patch = _patch_mid(m, rings[seg], rings[seg + 1], _facing(m, rings, seg, side, 3))
-    root = _patch_centre(m, patch)
-    limb_r = _at(LIMB_R, seg / float(len(rings) - 1))
-    radii = tuple(max(0.17, min(x, BRANCH_ROOT * limb_r * x / BRANCH_R[0])) for x in BRANCH_R)
-    out = norm(sub(root, _seg_axis(m, rings, seg)))
-    L = r.u(*BRANCH_LEN)
-    while L > BRANCH_LEN[0] and math.hypot(root[0] + out[0] * L, root[1] + out[1] * L) > 43.5:
-        L -= 0.5
-    end_xy = (root[0] + out[0] * L, root[1] + out[1] * L)
-    rad = math.hypot(*end_xy)
-    th = math.atan2(end_xy[1], end_xy[0])
-    z_sheet = _sheet_under(f, rad, th)
-    crad = r.u(*BRANCH_CLUMP)
-    cz = z_sheet - CLUMP_CLEAR - crad * CLUMP_SQUASH
-    crad = _fit(cz, crad, CLUMP_SQUASH)
-    cz = z_sheet - CLUMP_CLEAR - crad * CLUMP_SQUASH
-    centre = (end_xy[0], end_xy[1], cz)
-    end = (centre[0], centre[1], centre[2] + 0.55 * crad * CLUMP_SQUASH)
-    ctrl = add(add(root, out, L * 0.75), UP, end[2] - root[2] - 0.80)   # the branch bends up into its clump
-    path = bez(root, ctrl, end, 3)
-    first = _weld(m, patch, path, radii[0], BRANCH_SIDES, "bark", True, "limb branch")
-    brings = tube(m, path, radii, BRANCH_SIDES, "bark", caps=(False, False), wob=0.05, rng=r, first_ring=first)
-    _hung(m, r, brings[-1], end, centre, crad, "sun" if r.f() < 0.5 else "leaf")
-
-
 def _sheet_clumps(m, r, rings):
     """Leaf masses on short stems out of the sheet's own quads, so the underside
     reads as foliage and not a plane (forest_ceiling_build._rim_clump's trick)."""
@@ -1793,8 +1792,8 @@ def _sheet_clumps(m, r, rings):
             continue
         c = _patch_centre(m, quads)
         rad = math.hypot(c[0], c[1])
-        if not (15.0 <= rad <= 42.0):
-            continue
+        if not (15.0 <= rad <= 42.0) or _canopy_at(c[0], c[1])[2] >= CROWN_EDGE:
+            continue                    # small tops in the creases between the big ones
         crad = r.u(*SHEET_CLUMP_R)
         cz = c[2] - r.u(*SHEET_CLUMP_HANG) - crad * CLUMP_SQUASH
         crad = _fit(cz, crad, CLUMP_SQUASH)
@@ -1831,15 +1830,13 @@ def build_tree_geometry():
     _PROOF["first_new"] = len(m.verts)
     sheet, seam, field = _sheet(m, r, disc)
     _PROOF["first_limb"] = len(m.verts)
-    for k in range(len(forest_seam.LIMB_BEARINGS)):
-        _limb(m, r, k, disc, field)
     _PROOF["clumps"] = _sheet_clumps(m, r, sheet)
     _PROOF["seam"] = [m.verts[i] for i in seam]
     _PROOF["new"] = [m.verts[i] for i in range(_PROOF["first_new"], len(m.verts))]
     _PROOF["skin"] = [m.verts[i] for i in range(_PROOF["first_new"], _PROOF["first_limb"])]
     # Everything the build made before the sheet -- trunk, floor, rim, piers,
     # arches, rails, belly, boss, ribs, canopy disc, roof branches -- as it
-    # stands in the finished mesh, sockets the limbs carved included. Nothing
+    # stands in the finished mesh, every socket carved in it included. Nothing
     # above the crown may move one float of it: this is the proof that it did not.
     _PROOF["limbs"] = [m.verts[i] for i in range(_PROOF["first_limb"], len(m.verts))]
     _PROOF["bands"] = tuple((tag, [[m.verts[i] for i in ring] for ring in rings])
@@ -2009,17 +2006,9 @@ def _check():
                     min_rise, at = rise, ra
         print("SHEET %-5s bands=%2d worst_aspect=%.2f min_rise=%+.3f at r=%.1f (fold if <= 0)"
               % (tag, len(rings) - 1, worst_asp, min_rise, at))
-    rim = forest_seam.CROWN_RIM[0]
-    limbs = [q for q in _PROOF["limbs"] if math.hypot(q[0], q[1]) > rim]
-    inside = [q for q in _PROOF["limbs"] if math.hypot(q[0], q[1]) <= rim]
-    low = min(limbs, key=lambda q: q[2])
-    print("LIMBS lowest_y=%.2f at r=%.1f -- every limb, side branch and hung clump outside"
-          " r %.1f (clear floor %.2f, guard's eye %.2f, tallest lane fixture 31.5). The %d"
-          " verts inside the rim are the root sockets in the crown's skirt: r %.2f..%.2f,"
-          " y %.2f..%.2f, above the pier landings at 33.0. clumps=%d"
-          % (low[2], math.hypot(low[0], low[1]), rim, LEAF_FLOOR, FLOOR_Y + EYE_H, len(inside),
-             min(math.hypot(q[0], q[1]) for q in inside), max(math.hypot(q[0], q[1]) for q in inside),
-             min(q[2] for q in inside), max(q[2] for q in inside), _PROOF["clumps"]))
+    low = min(_PROOF["limbs"], key=lambda q: q[2])
+    print("HUNG lowest_y=%.2f at r=%.1f (clear floor %.2f, guard's eye %.2f) clumps=%d tops=%d"
+          % (low[2], math.hypot(low[0], low[1]), LEAF_FLOOR, FLOOR_Y + EYE_H, _PROOF["clumps"], len(CROWNS)))
     skin = _PROOF["skin"]
     print("SHEET_SKIN y=%.2f..%.2f verts=%d" % (min(q[2] for q in skin), max(q[2] for q in skin), len(skin)))
     room = sorted((round(p[0], 5), round(p[1], 5), round(p[2], 5)) for p in m.verts
