@@ -1698,6 +1698,7 @@ def _lava_sea(m, wall, z, r, extra=()):
             dz = LAVA_STEP * round(dz / LAVA_STEP)   # plateaus: crust plates, not swell
             ring.append((t, m.v((rad * math.cos(t), rad * math.sin(t), z + dz))))
         rings.append(ring)
+    cid = m.v((0.0, 0.0, z))
     rings.append([(t, cid) for t, _v in rings[-1]])     # the centre, on the last ring's columns
     t0 = cols[0]
 
