@@ -122,20 +122,11 @@ const DRAW_BUDGETS: Dictionary = {
 	# the glTF's, and the walker reads the SURFACE OVERRIDE, which is what the
 	# renderer takes. Surfaces and materials had landed exactly ON their
 	# ceilings, which is a gate with no slack left in it, so all three are
-	# re-cut to measured + 20 % as the header says: 107271 / 22 / 22. The tris
-	# ceiling still catches the change it was lowered to catch -- the obstacle
-	# course that came off the lane was 23618 triangles and this leaves 17879 of
+	# re-cut to measured + 20 % as the header says. The tris ceiling still
+	# catches the change it was lowered to catch -- the obstacle course that came
+	# off the lane was 23618 triangles and the ceiling leaves less than that of
 	# headroom, so putting it back still fails here. lights and the exact
 	# shadow_casters are untouched.
-	# Both of those passes landed on this one row and the MERGE (a27c366) kept
-	# BOTH openings and only one close, so the dictionary never closed, this file
-	# did not parse, and tools/test.sh exited 2 on main with the whole draw gate
-	# silently not running. Repaired 2026-09-23 to the one row the two passes
-	# describe between them: the later pass's row, kept verbatim. Nothing was
-	# raised to make it pass -- the live tree, which carries the eye AND the
-	# per-class sheets (no single branch had measured the two together), measures
-	# tris 89392, surfaces 34, materials 34, transparent 0, lights 3, casters 1,
-	# and every one of those fits inside the numbers already written below.
 	# Surfaces re-measured 2026-09-23, when the last two models on the atlas went
 	# onto lib/texel.py too (Ryan: "the texturing on the dome of the tower looks
 	# like it didnt get fixed" and "the texturing on the gate is bad"). The tower
@@ -190,6 +181,18 @@ const DRAW_BUDGETS: Dictionary = {
 	# rendering/limits/opengl/max_lights_per_object = 32, so 144 OmniLight3Ds
 	# could never all bind to it. Each cell's back face wears an emissive sheet
 	# instead: no light node, no draw call, no triangle.
+	#
+	# Re-measured 2026-09-23 (pass 4: the cell glow, the fog top, the roof's
+	# value and the tower seam): tris 255415 -> 255325, and NOTHING else in the
+	# row moved -- surfaces 166, materials 30, transparent_tris 5220, lights 2,
+	# shadow_casters 1, all as they were. The 90 triangles came off ForestGround
+	# (116920 -> 116830) where `lamp` took the rear half of every cell pocket off
+	# `cell`, `earth` and `edge` and needed fewer splits at the zone boundary
+	# than the old back-face-only zone did. The lamp is BRIGHTER and WIDER and
+	# still costs no light node and no draw call, which is why lights is still 2
+	# measured: the paragraph above is still exactly true after this pass.
+	# Ceilings unchanged again -- all six fit, and a 0.035 % move in tris is not
+	# a reason to hand back 20 % of fresh headroom.
 	"forest": {
 		"tris": 299778, "surfaces": 183, "materials": 33,
 		"transparent_tris": 6264, "lights": 3, "shadow_casters": 1,

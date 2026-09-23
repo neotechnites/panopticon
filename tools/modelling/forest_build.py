@@ -206,13 +206,34 @@ BAR_SHELF = 0.45            # the recess floor / roof / jamb strip the bars sock
 BAR_SEG = 1.2               # metres per bar segment
 
 # Ryan: "also put a small light source, a pretty dim one, in each cell so you can
-# see them better." Every cell's BACK FACE is that light. It is an emissive sheet
-# and not an OmniLight3D because the whole map is ONE mesh (ForestGround) and the
-# GL Compatibility renderer binds at most project.godot's
+# see them better." The cell's lamp is an emissive sheet and not an OmniLight3D
+# because the whole map is ONE mesh (ForestGround) and the GL Compatibility
+# renderer binds at most project.godot's
 # rendering/limits/opengl/max_lights_per_object = 32 lights to one object: 144
 # cell lamps cannot all reach it, and which 32 won would be arbitrary. An emissive
-# face costs no light, no draw call and not one triangle -- the back face was
-# always there -- only its own sheet, and it lights exactly the recess it is in.
+# face costs no light, no draw call and not one triangle -- the faces were
+# always there -- only its own sheet.
+#
+# Then Ryan: "i dont see light from the cells". Two things were wrong, and the
+# first was written down here as if it were true: an emissive face does NOT light
+# the recess it is in. GL Compatibility has no GI of any kind, so emission is
+# added to the emitting fragment and to nothing else, and forest.tscn's
+# Environment pours ambient_light_energy 0.55 over the pocket anyway and then
+# runs Reinhard over the lot. Measured in the review render, the old lamp moved
+# a cell mouth from mean luminance 0.0222 to 0.0222 against a leaf wall at about
+# 0.025: the mouth was exactly as bright as the wall around it, which is what
+# "no light" looks like. So the lamp has to BE the lit pixels, not cast them:
+#
+#   1. the emission is an order of magnitude up (LAMP_GLOW below), because at
+#      sRGB 44 it was ~2% of white under a tonemapper that compresses;
+#   2. LAMP_ZONE is worn by the whole REAR HALF of the pocket -- back wall,
+#      floor, roof and both jambs from the BAR_SHELF line back -- so the falloff
+#      a real lamp would paint on its own recess is drawn instead. The front
+#      half keeps the dark `cell` zones, so a mouth still reads dark frame ->
+#      dark front strip -> glowing pocket -> bars in silhouette.
+#
+# Still no light, no draw call and no triangle: same 13 surfaces, same 123140
+# triangles as before the change.
 LAMP_ZONE = "lamp"
 
 FERNS_WALL = 33
@@ -739,16 +760,24 @@ class _Ground(object):
         def q(a, b, c, d, zn):
             m.quad(a, b, c, d, sub(mc, m.centroid((a, b, c, d))), zn)
 
+        # Front half of the pocket (mouth to the BAR_SHELF line) keeps the dark
+        # recess zones; the REAR half -- floor, roof and both jambs from the shelf
+        # back to the lamp -- wears LAMP_ZONE with it. Nothing carries light to a
+        # neighbouring face in GL Compatibility (no GI of any kind), so the
+        # falloff a real lamp would paint on its own pocket has to be drawn: dark
+        # jamb at the mouth, glowing pocket behind the bars. It costs no
+        # triangle, no light and no draw call -- those quads existed and `lamp`
+        # was already one of the thirteen surfaces.
         for j in range(len(T) - 1):
             q(fF[j], fF[j + 1], fM[j + 1], fM[j], floor_zone)
-            q(fM[j], fM[j + 1], fB[j + 1], fB[j], floor_zone)
+            q(fM[j], fM[j + 1], fB[j + 1], fB[j], LAMP_ZONE)
             q(rF[j], rF[j + 1], rM[j + 1], rM[j], zone)
-            q(rM[j], rM[j + 1], rB[j + 1], rB[j], zone)
+            q(rM[j], rM[j + 1], rB[j + 1], rB[j], LAMP_ZONE)
         for k in range(h):
             q(left[k], left[k + 1], lM[k + 1], lM[k], zone)
-            q(lM[k], lM[k + 1], lB[k + 1], lB[k], zone)
+            q(lM[k], lM[k + 1], lB[k + 1], lB[k], LAMP_ZONE)
             q(right[k], right[k + 1], gM[k + 1], gM[k], zone)
-            q(gM[k], gM[k + 1], gB[k + 1], gB[k], zone)
+            q(gM[k], gM[k + 1], gB[k + 1], gB[k], LAMP_ZONE)
         loop = list(fB) + gB[1:h] + list(reversed(rB)) + list(reversed(lB[1:h]))
         cb = m.v(m.centroid(loop))
         for i in range(len(loop)):
@@ -1208,13 +1237,14 @@ def _sheet_lamp(c, r, s):
         for x in range(c.w):
             k = r.pick(base)
             c.put(x, y, k, LAMP_GLOW)
-    for _ in range(_n(5)):                       # the warmer patches: a lamp is not even
+    for _ in range(_n(7)):                       # the warmer patches: a lamp is not even
         x, y = r.i(0, c.w - 1), r.i(0, c.h - 1)
-        w, hh = _sz(4), _sz(3)
+        w, hh = _sz(3), _sz(2)
         c.rect(x, y, x + w, y + hh, (30, 27, 19), LAMP_GLOW_HOT)
-    for _ in range(_n(6)):                       # soot and cracks: the glow is not uniform
-        x, y = r.i(0, c.w - 1), r.i(0, c.h - 1)
-        c.rect(x, y, x + _sz(2), y + 1, (10, 9, 7), LAMP_GLOW_DIM)
+    for _ in range(_n(18)):                      # soot and cracks: the glow is not uniform.
+        x, y = r.i(0, c.w - 1), r.i(0, c.h - 1)   # bumped from 6 -- at the brightness the
+        w = _sz(3) if r.f() < 0.4 else _sz(1)     # mouth needs, a sparse sheet read as one
+        c.rect(x, y, x + w, y + _sz(1), (10, 9, 7), LAMP_GLOW_DIM)
 
 
 def _sheet_cell(c, r, s):
@@ -1233,7 +1263,17 @@ def _forest_ref(centre):
     if z >= CEIL_Z + 0.5:
         return 47.0                              # the cell drum over the ravine
     if z > DECK_Z - 1.0:
-        return 58.5 if rad > 57.0 else 52.0      # leaf wall | lane, lane roof
+        # leaf wall | lane, lane roof. The step is at 57.25 and not at 57.0 because it
+        # is evaluated per TRIANGLE: a quad whose two triangles land either side of it
+        # is projected two ways and tears along its own diagonal. At 57.0 the roof's
+        # second band (rings 57.8 -> 55.6) straddled, so 447 edges carried half a
+        # repeat -- 6.4 m -- of u jump, zig-zagging one band in from the wall's corner.
+        # Triangle centres near the step run 56.73 (the lane's outer quad), 57.07 (that
+        # roof band), then 57.30 (the wall's foot rows), so the gap is empty from 57.1
+        # to 57.3 and the wall keeps the ref it had. Counting every edge whose two
+        # triangles sit on one smooth surface and straddle the step: 1004 at 57.0, 489
+        # at 57.20, 442 at 57.25, 438 at 57.30 (and rising again either side).
+        return 58.5 if rad > 57.25 else 52.0
     return 45.0                                  # the pit bank and floor
 
 
@@ -1245,9 +1285,23 @@ def _sheet(name, paint, **kw):
 # "a pretty dim one"): the forest's sun is 0.85 and the shafts are the brightest
 # thing in frame, so a lamp that read as a lantern would out-light the wood. This
 # is a glow you see IN the mouth, not a lamp that lights the lane.
-LAMP_GLOW = (44, 34, 20)
-LAMP_GLOW_HOT = (62, 47, 27)     # ... the warmer patches
-LAMP_GLOW_DIM = (26, 20, 12)     # ... and the soot
+LAMP_GLOW = (132, 100, 54)
+LAMP_GLOW_HOT = (184, 144, 82)   # ... the warmer patches
+LAMP_GLOW_DIM = (70, 52, 30)     # ... and the soot
+
+# The roof's own hollows. Ryan: "the texture on the roof is so dark that it looks
+# weird when it goes right to the corner of the wall." The lane's lid is the ONLY
+# thing wearing class "shade" in this map (forest_ceiling_build._leafy picks it in
+# the hollows between the underside's bulges), and it was painted from
+# forest_tree_build.SHADE_*, a palette that sits at 0.62 of the leaf wall's value.
+# Against the wall's "leaf" at the corner that read as a black band rather than as
+# canopy. These are ft.SHADE_* scaled 1.45 in sRGB -- the same base/blob/lit split,
+# the same hue, the hollows still darker than the bulges so the roof still modulates,
+# but 0.90 of the wall instead of 0.62 so the corner is a change of light, not a cut.
+# Local on purpose: ft.SHADE_* is forest_tree.glb's own sheet and is not ours to move.
+ROOF_BASE = ((55, 73, 45), (49, 64, 41))
+ROOF_BLOBS = ((81, 104, 64), (70, 93, 61), (87, 113, 70))
+ROOF_LIT = (110, 136, 84)
 
 _BLADES = [(168, 172, 82), (160, 160, 70), (86, 102, 58)]
 SHEETS = {
@@ -1256,7 +1310,7 @@ SHEETS = {
     "path": _sheet("path", _noise(ft.PATH_TONES, (0.40, 0.72), 70, [(118, 96, 58), (104, 88, 54), (132, 140, 70)]), seed=3),
     "edge": _sheet("edge", _noise(ft.EDGE_GREENS, (0.38, 0.66), 60, [(130, 140, 68), (58, 44, 30)], (64, 64)), seed=4),
     "leaf": _sheet("leaf", _leaves(ft.LEAF_BASE, ft.LEAF_BLOBS, ft.LEAF_LIT, 520, (3, 5), 128), seed=5),
-    "shade": _sheet("shade", _leaves(ft.SHADE_BASE, ft.SHADE_BLOBS, ft.SHADE_LIT, 110, (3, 5), 64), seed=6),
+    "shade": _sheet("shade", _leaves(ROOF_BASE, ROOF_BLOBS, ROOF_LIT, 110, (3, 5), 64), seed=6),
     "sun": _sheet("sun", _leaves(ft.SUN_BASE, ft.SUN_BLOBS, ft.SUN_LIT, 110, (3, 5), 64), seed=7),
     "fern": _sheet("fern", _sheet_fern, seed=8),
     "bark": _sheet("bark", _bark(ft.BARK_BASE), seed=9),
@@ -1494,6 +1548,10 @@ def _forest_render(spec, objects):
         shot("aerial_cut", (0.0, -70.0, 130.0), (0.0, 0.0, DECK_Z), 28.0, (1400, 1400))
         # the lane eye, up and in: the leaf overhead, the seam, and the crown beyond it
         shot("lane_up", pol(200.0, 52.0, eye), pol(200.0, 12.0, fs.CROWN_RIM[1] + 0.5), 16.0, (1400, 1000))
+        # from the lane, up and OUT at the wall-roof corner: the leaf wall's head at
+        # r 60 / CEIL_Z and the roof's first band running in from it. The one shot that
+        # shows whether the roof's value meets the wall's or drops off a cliff there.
+        shot("roof_corner", pol(200.0, 50.0, eye), pol(200.0, 58.8, CEIL_Z - 0.6), 20.0, (1400, 1000))
         shot("guard", (0.0, 0.0, ft.FLOOR_Y + EYE_H), pol(150.0, 52.0, DECK_Z), 24.0, (1400, 800))
         # on the lip at bearing 10, looking up the tower's sheet: the crown where the
         # sheet meets the drum's head, with the seam at the top of frame

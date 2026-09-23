@@ -53,20 +53,31 @@ FOG_OVERRIDE = 0.6              # FogMat's albedo alpha in scenes/ring/forest.ts
 # FogMat's disable_fog, without which the Environment's depth fog repaints these layers
 # AND the floor behind them to one pale colour, and one colour over one flat plane is
 # exactly what reads as a floor. GL Compatibility has no fog volumes, so the fog is layers.
-FOG_Z = (-11.6, 4.0, 1.2)       # bottom (just under the floor at -11.05), top, pitch: 14 layers, the top
-                                # one at alpha 0 so the fog ends in air, never on a plane
+FOG_Z = (-11.6, -5.75, 0.45)    # bottom (just under the floor at -11.05), top, pitch: 14 layers, the top
+                                # one at alpha 0 so the fog ends in air, never on a plane. The top is set
+                                # by the THICKET, not by the pit: the tallest thorn stands at y -2.78 and a
+                                # stack that ended at 4.0 buried every one of them (0 % of the bramble
+                                # geometry stood clear of even the thinnest column). The fog is the thicket's
+                                # floor now -- it tops out 3.0 m under the tallest spike -- so the brambles
+                                # come out of it instead of standing in it. Same 14 layers and same 5040
+                                # tris as before; only the pitch and the ceiling moved
 FOG_N = 36                      # segments round: 14 layers x 5 bands x 36 x 2 = 5040 tris, which is
                                 # what the forest has left under its 130k budget (the fog is a tenth of it)
 FOG_HOLE = (6.8, 13.0)          # round the trunk: alpha 0 at 6.8 (outside the trunk, r <= 6.4 above the
                                 # roots) easing to full at 13.0 -- a wide inner feather, no ring edge
-FOG_BANK = (2.0, 9.0, 0.6)      # the rim feather, which SHRINKS WITH DEPTH: this wide right through the
+FOG_BANK = (1.4, 9.0, 0.6)      # the rim feather, which SHRINKS WITH DEPTH: this wide right through the
                                 # slab, this wide at the top layer, and always ending this far INSIDE the bank, so the
                                 # fog stops buried in earth and can never show an edge against it. Nine
                                 # metres of feather at the floor left the bank's foot and the floor's outer
                                 # rim (r 33..42 of a 42 m floor) inside the ramp -- and that rim is the
                                 # nearest flat thing to an eye on the lane, half of what read as a floor.
-                                # Two metres down there puts 91 % of the floor's area under the solid slab;
-                                # up top the feather stays wide, where the fog has to fade into open air
+                                # Two metres down there put 91 % of the floor's area under the solid slab
+                                # while the stack was 15.6 m tall and the bank widened a metre across it.
+                                # Compressed onto the thicket the bank barely widens at all, so every slab
+                                # layer's feather now lands on the SAME 2 m of rim instead of stepping
+                                # outward with height, and the rim ray went 21.3 % -> 30.1 %. 1.4 m puts it
+                                # back to 20.5 %: the floor's outer rim is no more visible than it was.
+                                # Up top the feather stays wide, where the fog has to fade into open air
 FOG_MID = 0.5                   # a ring this far across the full-alpha span: the wobble varies radially
 FOG_FEATHER = 0.55              # alpha at the middle of the rim feather. Raised from 0.42 with the shrink:
                                 # 0.42 shaped a nine-metre ramp nobody reads end to end, but the floor's
@@ -75,8 +86,11 @@ FOG_FEATHER = 0.55              # alpha at the middle of the rim feather. Raised
 FOG_ALPHA = 1.0                 # the floor layer's alpha: opaque, the most a vertex colour can ask for.
                                 # Anything less cannot win -- FOG_OVERRIDE caps one layer at 0.6, so putting
                                 # a vertical ray under 0.5 % transmittance needs six layers at the ceiling
-FOG_SOLID = 0.45                # ... and the bottom this fraction of the stack holds it: six layers of solid
-                                # dark (y -11.6 to -4.6) that the drift never thins. Below the roll the fog
+FOG_SOLID = 0.39                # ... and the bottom this fraction of the stack holds it: six layers of solid
+                                # dark (y -11.6 to -9.35) that the drift never thins. Six is the number the
+                                # transmittance proof needs (0.4 ** 6), so when the stack was compressed onto
+                                # the thicket this fraction moved with it to keep exactly those six layers
+                                # solid -- the slab is thinner in metres and identical in opacity. Below the roll the fog
                                 # is not a gradient, it is the dark. This is the number the transmittance
                                 # proof moves; the layers above it are the look
 FOG_CURVE = 1.6                 # above the slab the column falls as ((reach - u)/(reach - FOG_SOLID))^this
@@ -89,8 +103,9 @@ FOG_REACH = 0.65                # how high a column of fog climbs, as a fraction
                                 # the thin places, 1.0 in the thick ones, set by the drift field -- the top
                                 # of the fog ROLLS instead of lying flat, and never reaches past the top
                                 # layer, which is therefore alpha 0 all the way round: no plane to see.
-                                # 0.65 is 3 m clear of FOG_SOLID, so the slab's own top is always buried
-                                # under graded fog and is never a surface either
+                                # 0.65 is 1.5 m -- three and a bit layers -- clear of FOG_SOLID, so the slab's
+                                # own top is always buried under graded fog and is never a surface either.
+                                # In metres: the fog's top rolls between y -7.80 and y -5.75
 FOG_DENSE = 0.30                # ... and the same field thickens and thins the column, +/- this much --
                                 # weighted to the roll and zero in the slab, because a thin spot low down
                                 # is a window onto the floor
