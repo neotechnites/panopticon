@@ -106,10 +106,12 @@ const DRAW_BUDGETS: Dictionary = {
 	# course's 170443 and 54; materials fall from 20 to 16 with the pads, orb
 	# and thorn patches gone. tris and surfaces ceilings are the new
 	# measurement plus 20 %, as the header says; the rest keep the ceilings
-	# they had.
+	# they had. transparent_tris re-measured at 5220 after the pit fog became
+	# fourteen rolling layers instead of seven flat discs (Ryan: "thorns coming
+	# out of a block of butter"): 5040 fog tris + the portal's 180, plus 20 %.
 	"forest": {
 		"tris": 299778, "surfaces": 183, "materials": 24,
-		"transparent_tris": 2636, "lights": 3, "shadow_casters": 1,
+		"transparent_tris": 6264, "lights": 3, "shadow_casters": 1,
 	},
 }
 

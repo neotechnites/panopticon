@@ -44,7 +44,9 @@ FOG_BANK = (-9.0, 0.6)          # the rim feather: full alpha out to bank_r(z) -
                                 # the bank, so the fog thins for nine metres before it ever meets earth
 FOG_MID = 0.5                   # a ring this far across the full-alpha span: the wobble varies radially
 FOG_FEATHER = 0.42              # alpha at the middle of the rim feather (eased, not a straight ramp)
-FOG_ALPHA = 0.18                # the bottom layer ...
+FOG_ALPHA = 0.45                # the bottom layer ... (0.18 was invisible in Godot: the pit floor is sunlit, and a
+                                # column has to stack to ~0.85 opacity to put that floor into gloom; the scene's
+                                # FogMat alpha can only scale this DOWN)
 FOG_CURVE = 1.6                 # ... falling as (1 - u/reach)^FOG_CURVE to exactly 0 where the column ends
 FOG_DEPTH_DIM = 0.50            # the tint at the bottom layer, as a factor; 1.0 at the top: gloom below
 FOG_REACH = 0.65                # how high a column of fog climbs, as a fraction of the stack: FOG_REACH in
