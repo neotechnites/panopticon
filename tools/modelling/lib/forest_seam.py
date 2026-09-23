@@ -41,7 +41,13 @@ tallest lane fixture (the bars, 31.5).
 """
 
 import math
+import struct
 
+TOWER_ORIGIN_Y = 25.35      # forest_tree_build.ORIGIN_Y: the Tower node the tree hangs under.
+                            # It lives HERE because it is the second thing the two models
+                            # share -- the map is at identity and the tree is not, so a seam
+                            # point only lands on the same float in both if this number is
+                            # the same number on both sides of the join. See settle().
 SEAM_R = 47.6               # the cell drum's head: the level stops here, the tree's crown carries on
 SEAM_N = 240                # forest_build.NC: one seam vertex per map column
 SEAM_Z = 50.0               # the seam's mean height, world y: the dome's high ring
@@ -54,17 +60,59 @@ CROWN_RIM = (11.0, 34.1)    # (r, y) where the tower's leaf disc rim is and the 
 # span and plunges only where the tree holds it down.
 SHEET = [(11.0, 34.10), (14.0, 37.45), (19.0, 40.30), (24.5, 42.65), (30.0, 44.70),
          (35.5, 46.50), (41.0, 48.15), (44.5, 49.15), (SEAM_R, SEAM_Z)]
+SETTLE_ULPS = 64            # how far settle() may walk to find a shared float (~0.25 mm at y 50)
 SHEET_LUMP = 0.6            # the tower sheet billows this much (rings between the rim and the seam only)
 LIMB_BEARINGS = [k * 45.0 + 10.0 for k in range(8)]   # game bearings, off the piers (22.5 + 45 k)
 TWO_PI = 2.0 * math.pi
 
 
+def _f32(x):
+    """x rounded to the float32 a mesh vertex is actually stored as."""
+    return struct.unpack("<f", struct.pack("<f", x))[0]
+
+
+def _ulp_walk(x, steps):
+    """The float32 ``steps`` ulps from float32 x (steps may be negative)."""
+    bits = struct.unpack("<i", struct.pack("<f", x))[0]
+    bits = (bits + steps) if bits >= 0 else (bits - steps)
+    return struct.unpack("<f", struct.pack("<i", bits))[0]
+
+
+def settle(z):
+    """The nearest height to z that BOTH models can hold as the same float.
+
+    The map is at identity, so it stores the seam's world height as
+    float32(z). The tree is authored in world coordinates and exported
+    shifted by -TOWER_ORIGIN_Y, so it stores float32(z - origin) and the
+    engine puts it back at float32(float32(z - origin) + float32(origin)).
+    Those two are one ulp apart for most z -- a 4 micron step all the way
+    round a 240-vertex ring, which is the difference between "the same
+    vertex" and "two vertices that are very close".
+
+    So the ring does not sit on the arithmetic's nominal height: it sits on
+    the nearest height that survives the round trip unchanged. The walk is
+    over float32 ulps, so it moves a seam point by at most a couple of
+    microns and the answer is the same on arm64 and on x86-64 (IEEE 754
+    round-to-nearest, no library call). Raises if no such height exists
+    within SETTLE_ULPS -- silently returning the nominal value would put the
+    gap back and leave the proof saying zero.
+    """
+    o32 = _f32(TOWER_ORIGIN_Y)
+    for step in range(SETTLE_ULPS + 1):
+        for cand in ((_f32(z),) if step == 0 else
+                     (_ulp_walk(z, step), _ulp_walk(z, -step))):
+            if _f32(_f32(_f32(cand - TOWER_ORIGIN_Y) + o32)) == cand:
+                return cand
+    raise ValueError("no float32 seam height near %r survives the tower shift" % (z,))
+
+
 def seam_z(th):
-    """The seam's height at Blender xy angle th (radians)."""
+    """The seam's height at Blender xy angle th (radians), settled onto a float
+    both models can hold (see settle): the ring is the join, not a target."""
     z = SEAM_Z
     for (k, amp, ph) in SEAM_WAVES:
         z += amp * math.sin(k * th + ph)
-    return z
+    return settle(z)
 
 
 def seam_ring():
@@ -88,6 +136,20 @@ def sheet_z(rad):
     return SEAM_Z
 
 
+def cross_glb_error():
+    """The worst distance between where the MAP puts a seam vertex and where
+    the engine puts the TOWER's own copy of it: the number settle() exists to
+    drive to zero. Both sides are taken through the float32 a vertex is really
+    stored as, and the tower's through the shift and back."""
+    o32 = _f32(TOWER_ORIGIN_Y)
+    worst = 0.0
+    for (x, y, z) in seam_ring():
+        mapped = (_f32(x), _f32(y), _f32(z))
+        tower = (_f32(x), _f32(y), _f32(_f32(_f32(z - TOWER_ORIGIN_Y) + o32)))
+        worst = max(worst, math.dist(mapped, tower))
+    return worst
+
+
 def report(a, b):
     """(count, worst distance) between two rings given as point lists, matched
     by nearest point: what 'matched vertex for vertex' means in numbers."""
@@ -101,4 +163,5 @@ def report(a, b):
 if __name__ == "__main__":
     ring = seam_ring()
     zs = [p[2] for p in ring]
-    print("SEAM r=%.1f n=%d z=%.2f..%.2f mean=%.2f" % (SEAM_R, len(ring), min(zs), max(zs), sum(zs) / len(zs)))
+    print("SEAM r=%.1f n=%d z=%.2f..%.2f mean=%.2f cross_glb_error=%.1e"
+          % (SEAM_R, len(ring), min(zs), max(zs), sum(zs) / len(zs), cross_glb_error()))

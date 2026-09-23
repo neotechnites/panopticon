@@ -82,7 +82,9 @@ OBJECT_NAME = "ForestTree"
 COLLIDER_NAME = "ForestTreeCollision-colonly"
 FACING_YAW = 0.0
 
-ORIGIN_Y = 25.35            # the Tower node: the model's origin, world y
+ORIGIN_Y = forest_seam.TOWER_ORIGIN_Y   # the Tower node: the model's origin, world y.
+                            # forest_seam owns it: the seam only lands on one float in both
+                            # models if the shift is the same number on both sides (settle)
 WATER_Y = -11.05            # the map's water (map 1's lava sea level)
 FLOOR_Y = ORIGIN_Y + 1.70   # the guard's floor, as map 1's room floor
 FLOOR_R = 5.0
@@ -171,6 +173,21 @@ SEAM_BLEND = 9.0            # over the last this many metres of radius the sheet
 SHEET_THICK = 0.80          # the leaf mass's thickness at the rim, nothing at the seam (the
                             # unseen top skin). Measured along the sheet's normal: on a dome
                             # at 48 degrees a plain vertical offset would read as half of it.
+SHEET_RIM_RISE = 0.25       # and it stands at least this far above the highest the rim can
+                            # jitter to. The lobe fixes the band's PLAN; this fixes its
+                            # SECTION: a first band that falls anywhere round the ring is the
+                            # same coin toss as one that leans back, and loses the same way.
+SHEET_LOBE_OUT = 16.0       # the crown's rim is eight-lobed and reaches r 12.5 over every
+                            # pier, but the sheet's rings were circles: the first one sat at a
+                            # flat r 12.0, so over every lobe the sheet's first band ran INWARD
+                            # as it rose 1.1 m. A band that leans back like that is near
+                            # vertical, its "down" side is a coin toss, and the toss came up
+                            # facing the axis -- eight panels round the crown whose front was
+                            # turned away from the lane, and backface culling shows the sky
+                            # through every one of them. So the sheet's inner rings carry the
+                            # rim's OWN lobe and fade it out by this radius: the first band is
+                            # then the same width all the way round, it never leans back, and
+                            # the crown's shape runs on into the roof instead of stopping at it.
 SHEET_TOP = ((12.8, 40), (16.0, 40), (21.0, 48), (27.0, 48),
              (34.0, 56), (41.0, 60), (44.5, 80))   # (r, verts) the top skin's rings: coarse,
                             # but no band over SHEET_ASPECT and none of them near-vertical
@@ -1484,6 +1501,37 @@ def _sheet_blend(rad):
     return max(0.0, min(1.0, (rad - (forest_seam.SEAM_R - SEAM_BLEND)) / SEAM_BLEND))
 
 
+def _rim_r(th, bound=False):
+    """The crown's rim (CANOPY[1], the ring the sheet grows out of) at Blender
+    angle th. ``bound`` adds the whole swing of the jitter, so the answer is an
+    upper bound on where a rim vertex can actually be rather than a mean."""
+    _y, frac, share = CANOPY[1]
+    r = _canopy_R(th, share) * frac
+    return r * (1.0 + CANOPY_JITTER[0]) if bound else r
+
+
+def _sheet_lobe(rad, th):
+    """How far out the sheet's ring at nominal radius ``rad`` is pushed at angle
+    th: the crown rim's own lobe, at full size where the sheet leaves the rim and
+    gone by SHEET_LOBE_OUT. In phase with the rim, so the first band keeps its
+    width all the way round and neighbouring rings can never cross (their radii
+    differ by the nominal spacing less the difference of two decays)."""
+    r0 = forest_seam.CROWN_RIM[0]
+    t = max(0.0, min(1.0, (SHEET_LOBE_OUT - rad) / (SHEET_LOBE_OUT - r0)))
+    return t * (_rim_r(th, bound=True) - _rim_r(math.pi / (2.0 * CANOPY_LOBES[0]) + _pier_theta0(), bound=True))
+
+
+def _sheet_r(rad, th):
+    """The sheet's ring radius at (nominal radius, angle): never inside the
+    contract's own inner radius, and never inside the crown's rim."""
+    return max(forest_seam.CROWN_RIM[0], rad + _sheet_lobe(rad, th))
+
+
+def _rim_z_max():
+    """The highest a vertex of the crown's rim can be, jitter included."""
+    return CANOPY[1][0] + CANOPY_JITTER[1]
+
+
 def _sheet_profile():
     """The sheet's rings, crown rim to seam: [(radius, nominal z, billow amplitude)].
 
@@ -1574,7 +1622,9 @@ def _sheet(m, r, disc):
         ring = []
         for s in range(SHEET_N):
             th = _canopy_theta(s, SHEET_N)
-            ring.append(m.v((rad * math.cos(th), rad * math.sin(th), _sheet_under(f, rad, th))))
+            rr = _sheet_r(rad, th)      # the crown's lobe, fading out: see SHEET_LOBE_OUT
+            zz = max(_sheet_under(f, rr, th), _rim_z_max() + SHEET_RIM_RISE)
+            ring.append(m.v((rr * math.cos(th), rr * math.sin(th), zz)))
         rings.append(ring)
     seam = [m.v(p) for p in forest_seam.seam_ring()]       # verbatim, in seam order
     zipper(m, disc[2], rings[0], DOWN, zone)
