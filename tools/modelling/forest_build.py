@@ -31,8 +31,11 @@ lane, pit cone, water floor, flat wall with a prism per trunk, flat ceiling
 annulus. The leafy visual mesh is never its own
 collider.
 
-Textures: painted atlas (forest_tree_build.paint_atlas) unless
-textures/forest_atlas_albedo.png exists. USE_TEXTURE_FILES turns the files on.
+Textures: one tiling sheet per class (lib/texel.py, SHEETS below: grass,
+verge, path, edge, leaf, shade, sun, fern, bark, earth, cell, root), painted
+here in forest_tree_build's palette, world-projected at texel.MPT m per texel;
+textures/forest_<class>_albedo.png (+ _emissive.png) replaces a painted sheet
+when ft.USE_TEXTURE_FILES is on. The props keep the forest atlas.
 The leaf ceiling (sheet, shafts, limbs, clumps, vines) is forest_ceiling_build;
 the pit's dark floor, fog layers (ForestFog: stacked translucent discs, alpha in
 COLOR_0, for GL Compatibility) and thorny brambles are forest_pit_build.
@@ -53,6 +56,7 @@ except ImportError:                       # --check on the Mac: geometry only
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 sys.path.insert(0, HERE + os.sep + "lib")
+import texel as tx  # noqa: E402  one tiling sheet per class, world-projected
 if bpy is not None:
     import mdl  # noqa: E402
     mdl.DEFAULTS["ground"] = False
@@ -1054,6 +1058,127 @@ def _ray_object(m, name):
 # COLLIDER -- flat lane, pit cone, water floor, wall + trunk prisms, ceiling
 # =============================================================================
 
+# =============================================================================
+# SHEETS -- the forest's classes, one tiling image each (lib/texel.py)
+# =============================================================================
+# Counts and sizes carry the atlas cells' density per metre: a 64 px cell at
+# 12 texels/m was 5.33 m; a sheet at texel.MPT is 12.8 m square.
+_CELL_M = 64.0 / ft.TPM
+_K = (tx.TILE * tx.MPT / _CELL_M) ** 2         # sheet area / cell area: 5.76
+_S = (1.0 / ft.TPM) / tx.MPT                   # old texel / new texel: 1.67
+
+
+def _n(count, cell_px=64):
+    return int(round(count * _K * (64.0 / cell_px) ** 2))
+
+
+def _sz(texels):
+    return max(1, int(round(texels * _S)))
+
+
+def _noise(tones, cuts, nblades, blade_shades, cell_px=(128, 64)):
+    def paint(c, r, s):
+        tx.noise_fill(c, r, c.box, tones, cuts=cuts, cells=(_sz(10), _sz(4)))
+        tx.blades(c, r, c.box, int(round(nblades * (c.w * c.h) / float(cell_px[0] * cell_px[1]))), blade_shades)
+    return paint
+
+
+def _leaves(base, blobs, lit, count, sz, cell_px):
+    def paint(c, r, s):
+        tx.fill(c, r, c.box, list(base))
+        for _ in range(_n(count, cell_px)):
+            w = r.i(_sz(sz[0]), _sz(sz[1]))
+            h = max(2, w - r.i(0, 2))
+            x, y = r.i(0, c.w - 1), r.i(0, c.h - 1)
+            c.rect(x, y, x + w, y + h, r.pick(list(blobs)))
+            c.rect(x, y + h - 1, x + max(2, w // 2), y + h, lit)      # the lit edge of every leaf
+    return paint
+
+
+def _sheet_fern(c, r, s):
+    tx.fill(c, r, c.box, list(ft.FERN_BASE))
+    for _ in range(_n(9)):                       # fronds: a stem with side ticks
+        x, y = r.i(0, c.w - 1), r.i(0, c.h - 1)
+        n = r.i(_sz(8), _sz(16))
+        dx = r.pick([-1, 1])
+        for k in range(n):
+            xx, yy = x + (k * dx) // 2, y + k
+            c.put(xx, yy, ft.FERN_FROND[0])
+            if k % 2 == 0:
+                c.put(xx - 1, yy, ft.FERN_FROND[1])
+                c.put(xx + 1, yy, ft.FERN_FROND[1])
+    tx.blades(c, r, c.box, _n(30), [ft.FERN_DARK])
+
+
+def _bark(base):
+    def paint(c, r, s):
+        tx.fill(c, r, c.box, list(base))
+        tx.streaks(c, r, c.box, _n(26), list(ft.BARK_STREAKS), (_sz(6), _sz(18)), (1, _sz(2)))
+        tx.streaks(c, r, c.box, _n(12), [ft.BARK_CRACK], (_sz(4), _sz(9)), (1, 1), wander=1)
+        for _ in range(_n(8)):
+            x, y = r.i(0, c.w - 1), r.i(0, c.h - 1)
+            c.rect(x, y, x + _sz(2), y + _sz(2), ft.BARK_MOSS)
+    return paint
+
+
+def _sheet_earth(c, r, s):
+    tx.fill(c, r, c.box, list(ft.EARTH_BASE))
+    tx.shatter(c, r, c.box, list(ft.EARTH_BLOTCH), _n(30), _sz(3), _sz(9))
+    for _ in range(_n(8)):                       # root streaks, top to bottom, wrapping
+        x = r.i(0, c.w - 1)
+        for k in range(c.h):
+            c.put(x, k, ft.EARTH_ROOT)
+            if k % 3 == 0:
+                x += r.i(-1, 1)
+    for count, col in ((14, ft.EARTH_STONE), (10, ft.EARTH_MOSS)):
+        for _ in range(_n(count)):
+            x, y = r.i(0, c.w - 1), r.i(0, c.h - 1)
+            c.rect(x, y, x + _sz(2), y + _sz(2), col)
+
+
+def _sheet_cell(c, r, s):
+    tx.fill(c, r, c.box, [(14, 16, 12), (18, 20, 14), (12, 14, 10), (20, 24, 16)])
+    tx.shatter(c, r, c.box, [(24, 28, 18), (10, 12, 8)], _n(12), _sz(3), _sz(8))
+    for _ in range(_n(3)):                       # something pale, far back
+        x, y = r.i(0, c.w - 1), r.i(0, c.h - 1)
+        c.rect(x, y, x + _sz(2), y + 1, (52, 60, 44))
+
+
+def _forest_ref(centre):
+    """The radius a face's arc is measured at, by region, so every region's
+    projection is near-isometric and closes round the ring."""
+    rad = math.hypot(centre[0], centre[1])
+    z = centre[2]
+    if z >= 64.0:
+        return 30.0                              # the canopy dome
+    if z >= CEIL_Z + 0.5:
+        return 47.0                              # the cell wall over the ravine
+    if z > DECK_Z - 1.0:
+        return 58.5 if rad > 57.0 else 52.0      # leaf wall | lane, gallery roof
+    return 45.0                                  # the pit bank and floor
+
+
+def _sheet(name, paint, **kw):
+    return tx.Sheet(name, paint, ref_r=_forest_ref, roughness=ft.ROUGHNESS, **kw)
+
+
+_BLADES = [(168, 172, 82), (160, 160, 70), (86, 102, 58)]
+SHEETS = {
+    "grass": _sheet("grass", _noise(ft.LANE_GREENS, (0.38, 0.66), 160, _BLADES), seed=1),
+    "verge": _sheet("verge", _noise(ft.VERGE_TONES, (0.42, 0.74), 60, [(160, 164, 78), (112, 104, 60)]), seed=2),
+    "path": _sheet("path", _noise(ft.PATH_TONES, (0.40, 0.72), 70, [(118, 96, 58), (104, 88, 54), (132, 140, 70)]), seed=3),
+    "edge": _sheet("edge", _noise(ft.EDGE_GREENS, (0.38, 0.66), 60, [(130, 140, 68), (58, 44, 30)], (64, 64)), seed=4),
+    "leaf": _sheet("leaf", _leaves(ft.LEAF_BASE, ft.LEAF_BLOBS, ft.LEAF_LIT, 520, (3, 5), 128), seed=5),
+    "shade": _sheet("shade", _leaves(ft.SHADE_BASE, ft.SHADE_BLOBS, ft.SHADE_LIT, 110, (3, 5), 64), seed=6),
+    "sun": _sheet("sun", _leaves(ft.SUN_BASE, ft.SUN_BLOBS, ft.SUN_LIT, 110, (3, 5), 64), seed=7),
+    "fern": _sheet("fern", _sheet_fern, seed=8),
+    "bark": _sheet("bark", _bark(ft.BARK_BASE), seed=9),
+    "earth": _sheet("earth", _sheet_earth, seed=10),
+    "cell": _sheet("cell", _sheet_cell, seed=11),
+    "root": _sheet("root", _bark(ft.ROOT_BASE), seed=12),
+}
+
+
 def build_collider():
     c = _Mesh()
     n = 48
@@ -1342,8 +1467,12 @@ def build():
     INFO["albedo"], INFO["emissive"] = albedo, emissive
 
     ob = m.object(OBJECT_NAME)
-    ft.unwrap(ob, m.zones)
-    mdl.finish(ob, ft.atlas_material("ForestAtlas", albedo, emissive), strip_uvs=False)
+    classes = list(m.zones)
+    tx.unwrap(ob, classes, SHEETS, seed=1)
+    mats = tx.materials(NAME, SHEETS, use_files=ft.USE_TEXTURE_FILES, tex_dir=os.path.join(HERE, ft.TEX_DIR))
+    order = tx.finish(ob, classes, mats)
+    tx.report(SHEETS)
+    print("MDL STATS surfaces=%d order=%s" % (len(ob.data.materials), ",".join(order)))
 
     coll = c.object(COLLIDER_NAME)
     coll.hide_render = True
