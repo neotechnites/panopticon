@@ -30,7 +30,8 @@ built into its welded _Mesh against the seam contract there.
 
 Every point on the wall face is _Bay.at(u, z, d), so shared points weld. The
 only free edges this part leaves are three loops of 192: the foot ring at
-FLOOR_Z and the slab tier's two cornice front lines. No T-junction: the frame
+FLOOR_Z and the slab tier's two cornice front lines, plus every bar's open
+back and buried cap (BAR_OPEN edges, facing no camera). No T-junction: the frame
 round each arch is zippered straight onto the corners of its bay rectangle,
 so the rectangle's edges carry no stray vertices and the pilaster returns,
 soffits and cornice faces are plain quads.
@@ -78,6 +79,8 @@ UP, DOWN = mb.UP, mb.DOWN
 TWO_PI = mb.TWO_PI
 
 _STATS = {}
+_OPEN = set()               # the bars' open-backed vertices: not seams
+BAR_OPEN = 6                # free edges a bar leaves: sill back edge, two back arrises, three cap edges
 _Bay = mb._Bay              # mb.slab_stations() and wall_stations() use this very class: the seams weld
 
 
@@ -313,11 +316,10 @@ def _bars(m, cell):
         tfr = m.v(bay.at(u + BHW, zt, mb.BAR_D - BHW))
         tbl = m.v(bay.at(u - BHW, zt, mb.BAR_D + BHW))
         tbr = m.v(bay.at(u + BHW, zt, mb.BAR_D + BHW))
-        m.quad(fl, fr, tfr, tfl, bay.n_in, "iron")
-        m.quad(br, bl, tbl, tbr, bay.n_out, "iron")
-        m.quad(bl, fl, tfl, tbl, bay.dir(-1.0, 0.0), "iron")
+        m.quad(fl, fr, tfr, tfl, bay.n_in, "iron")               # no back (faces the cell, never a camera)
+        m.quad(bl, fl, tfl, tbl, bay.dir(-1.0, 0.0), "iron")     # and no cap (in the stone): open, BAR_OPEN edges
         m.quad(fr, br, tbr, tfr, bay.dir(1.0, 0.0), "iron")
-        m.quad(tfl, tfr, tbr, tbl, UP, "iron")                   # the cap, in the stone
+        _OPEN.update((bl, br, tbl, tbr, tfl, tfr))
     _STATS["bars"] = _STATS.get("bars", 0) + mb.BAR_N
 
 
@@ -595,6 +597,7 @@ def _dome(m, coll=False):
 def build(m):
     """The wall into m. Returns the numbers."""
     _STATS.clear()
+    _OPEN.clear()
     counts = {}
     mark = [len(m.faces)]
 
@@ -736,7 +739,7 @@ def _seam_audit(m):
             directed[(f[k], f[(k + 1) % 3])] = 1
     free = set()
     for (a, b) in directed:
-        if (b, a) not in directed:
+        if (b, a) not in directed and a not in _OPEN:
             free.add(a)
             free.add(b)
     have = set((round(m.verts[i][0], 4), round(m.verts[i][1], 4), round(m.verts[i][2], 4)) for i in free)
@@ -773,9 +776,11 @@ if __name__ == "__main__":
     # Alone, the part is TWO pieces: the wall under the slab tier's open
     # cornice front and the wall over it. The lane part's walkway slab, closing
     # onto the soffit and top lines, joins them (marble_build --check: 1).
-    ok = (a["components"] == 2 and a["boundary_edges"] == 3 * 192 and a["doubled_edges"] == 0
+    bars = info["bars"]
+    ok = (a["components"] == 2 and a["boundary_edges"] == 3 * 192 + BAR_OPEN * bars and a["doubled_edges"] == 0
           and a["over_edges"] == 0 and a["degenerate"] == 0 and a["duplicate_positions"] == 0
-          and len(loops) == 3 and all(n == 192 for (n, _r, _z) in loops) and frames_ok and seams_ok)
+          and len(loops) == 3 + bars and all(n == 192 for (n, _r, _z) in loops[:3])
+          and all(n == BAR_OPEN for (n, _r, _z) in loops[3:]) and frames_ok and seams_ok)
     print("WALL PART %s (two pieces alone: the slab tier's cornice front is the lane part's slab)"
           % ("OK" if ok else "NOT OK"))
     sys.exit(0 if ok else 1)

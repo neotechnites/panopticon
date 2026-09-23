@@ -51,8 +51,8 @@ are cut out of the floor's outer band, the screen's head is SOLID corner to
 corner (so the ring beam has no exposed underside -- its two faces carry the
 panel's top edge, split at every arch and column station), the posts' feet
 are cut out of the ledge's outer band, the rails' ends ARE the upper bands of
-the posts' side faces, the slab is zippered to the shaft, the foot is closed
-with a cap, so _check() proves one component, every edge on two faces.
+the posts' side faces, the slab is zippered to the shaft, so _check() proves one component, every
+edge on two faces but the foot ring, open on the spike floor (no cap under it).
 MarbleTowerCollision rides in the .glb as a `-colonly` node: foot, steps,
 shaft, the slab, the ledge, the invisible rail band, the room floor, plain
 full-height column boxes (a body cannot walk into an arch's head, so the
@@ -112,7 +112,7 @@ FLOOR_Z = 1.70              # the room floor
 SLAB_Z = (FLOOR_Z - 0.35, FLOOR_Z)   # the balcony slab: underside, top -- the ledge is FLAT with the room floor
 BALCONY_Z = SLAB_Z[1]       # one level through the columns, no step (Ryan, pass 4)
 BALCONY_R = 8.2             # the ledge's edge: a 1.2 m walk outside the columns
-SHAFT_BANDS = int(math.ceil((SLAB_Z[0] - SHAFT_Z0) / 3.0))   # 9 courses under 3 m, for the atlas
+SHAFT_BANDS = 1             # the courses are world-projected (texel cyl), so one band foot to slab
 COL_W = 0.30                # the columns: 0.30 square, flush with the shaft's face
 COL_Z1 = 7.00               # the ring beam's underside: the arcade's head (TowerVariant's plug top clears it)
 SPRING_Z = FLOOR_Z + 3.2    # 4.90: the arches spring here, off the columns' sides
@@ -593,10 +593,11 @@ def _head_band(m, f, z0, z1, want, zone):
     m.poly([m.v(p) for p in ring], want, zone)
 
 
-def _shaft(m):
-    """The closed foot, two steps and the shaft up to the balcony slab."""
+def _shaft(m, cap=True):
+    """The foot (capped only for the collider: the art's cap is under the floor), two steps, the shaft."""
     foot = _ringz(m, STEPS[0][0], STEPS[0][1])
-    m.fan(list(reversed(foot)), mb.DOWN, "plinth")           # the closed foot, on the spike floor
+    if cap:
+        m.fan(list(reversed(foot)), mb.DOWN, "plinth")       # the closed foot, on the spike floor
     for (rad, z0, z1) in STEPS:
         _band(m, _ringz(m, rad, z0), _ringz(m, rad, z1), True, "plinth")
     _annulus(m, STEPS[1][0], STEPS[0][0], STEPS[0][2], True, "plinth")
@@ -653,6 +654,13 @@ def _paving(m, inner, outer):
                 _classify(m, n0, "floor")
 
 
+def _joints(pts, q=PAVE_SUB):
+    """A ring's points with every facet split q times, as _paving splits its cell edges."""
+    n = len(pts)
+    return [tuple(pts[i][d] + (pts[(i + 1) % n][d] - pts[i][d]) * a / q for d in range(3))
+            for i in range(n) for a in range(q)]
+
+
 def _room(m, coll=False):
     """The room floor, flat with the ledge, with the columns' feet cut out of
     its outer band; the dais under the seat; the arcade (collider: plain
@@ -666,10 +674,14 @@ def _room(m, coll=False):
         _disc(m, ring(DAIS_R, top), top, mb.UP, "floor")
     else:
         rings = [ring(r, FLOOR_Z) for r in PAVING_RS]
-        _zip(m, line, rings[-1], mb.UP, "shade")                                   # the plain margin
+        _zip(m, line, _joints(rings[-1]), mb.UP, "shade")                          # the plain margin, on the slab joints
         for k in range(len(rings) - 1, 1, -1):                                     # radial slabs, one cell each
             _paving(m, rings[k - 1], rings[k])
-        _band(m, _ringz(m, DAIS_R, FLOOR_Z), _ringz(m, DAIS_R, top), True, "plinth")   # the dais' wall ...
+        foot, head = _joints(ring(DAIS_R, FLOOR_Z)), ring(DAIS_R, top)             # the dais' wall, its foot on the joints ...
+        for i in range(NS):
+            j, q = (i + 1) % NS, PAVE_SUB
+            pts = [head[j], head[i]] + foot[i * q:i * q + q] + [foot[(j * q) % len(foot)]]
+            m.poly([m.v(p) for p in pts], mb._unit((head[i][0] + head[j][0], head[i][1] + head[j][1], 0.0)), "plinth")
         a, b = [m.v(p) for p in ring(PAVING_RS[0], top)], [m.v(p) for p in ring(DAIS_R, top)]
         for i in range(NS):                                                        # ... its top: the rosette's wedges, plain grey
             j = (i + 1) % NS
@@ -747,7 +759,7 @@ def _crown(m, coll=False):
 def _rock():
     m = mb._Mesh()
     m.face_class = {}                     # face -> the class it wears, when its zone does not name it
-    _shaft(m)
+    _shaft(m, cap=False)
     n1 = len(m.faces)
     _balcony(m)
     posts = _posts(m, NB, POST_PHASE, BALCONY_R, POST_W, POST_ZS, RAILS, "iron")
@@ -896,7 +908,7 @@ def _check():
     print("coffers: arc %.2f m, %d rows of %.2f m (%d texels), %.4f m/texel up the meridian"
           % (COFFER_ARC, COFFER_ROWS, COFFER_ARC / COFFER_ROWS, COFFER_PX,
              (COFFER_ARC / COFFER_ROWS) / COFFER_PX))
-    ok = a["components"] == 1 and a["boundary_edges"] == 0 and a["doubled_edges"] == 0 \
+    ok = a["components"] == 1 and a["boundary_edges"] == NS and a["doubled_edges"] == 0 \
         and a["over_edges"] == 0 and a["degenerate"] == 0 and a["duplicate_positions"] == 0 \
         and c["boundary_edges"] == 0 and c["over_edges"] == 0 and sightline_clearance() > 0.0
     print("CONTIGUOUS %s" % ("YES" if ok else "NO"))
