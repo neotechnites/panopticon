@@ -151,6 +151,8 @@ LAVA_EMIT_LO   = 112.0 / 255.0        # a texel whose brightest channel is at or
                                       # emits nothing (the crust, (112,1,1))
 LAVA_EMIT_HI   = 176.0 / 255.0        # ... and at or over this emits its whole albedo
                                       # (the orange, (176,50,7)); smoothstep between
+LAVA_EMIT_FLOOR = 0.25                # the crust still emits this share of its albedo:
+                                      # Ryan, "a faint glow to the lava", even in shadow
 LAVA_ALBEDO    = "map_base_lava_albedo"
 LAVA_EMISSIVE  = "map_base_lava_emissive"
 LAVA_SEED      = 7720133
@@ -879,8 +881,8 @@ def _image_file(name):
 def _lava_emissive_from(alb):
     """The sea's emissive, derived from its albedo: each texel emits its own
     colour scaled by a smoothstep of its brightest channel from LAVA_EMIT_LO
-    (nothing) to LAVA_EMIT_HI (all of it), so the glow follows the bright
-    orange and the dark crust stays dark. Pixels are the file's own sRGB
+    (LAVA_EMIT_FLOOR of it) to LAVA_EMIT_HI (all of it), so the glow follows the
+    bright orange and the dark crust only faintly glows. Pixels are the file's own sRGB
     bytes, as Blender hands them back."""
     w, h = alb.size
     src = [0.0] * (w * h * 4)
@@ -890,7 +892,7 @@ def _lava_emissive_from(alb):
     for o in range(0, len(src), 4):
         t = (max(src[o], src[o + 1], src[o + 2]) - LAVA_EMIT_LO) / span
         t = min(1.0, max(0.0, t))
-        k = t * t * (3.0 - 2.0 * t)
+        k = LAVA_EMIT_FLOOR + (1.0 - LAVA_EMIT_FLOOR) * t * t * (3.0 - 2.0 * t)
         out[o], out[o + 1], out[o + 2] = src[o] * k, src[o + 1] * k, src[o + 2] * k
         out[o + 3] = 1.0
     img = bpy.data.images.new(LAVA_EMISSIVE, w, h, alpha=False)
