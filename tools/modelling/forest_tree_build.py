@@ -968,15 +968,21 @@ def socket_ring(m, quads, path, radius, sides, zone, flat=1.0, at_start=True):
     return ids
 
 
-def clump_end(m, last_ring, centre, radius, zone, rng, squash=0.75, wob=0.25):
-    """A leaf clump grown off a tube's last ring: rings up round a ball, top fan."""
+def clump_end(m, last_ring, centre, radius, zone, rng, squash=0.75, wob=0.25, phase=0.0, down=False):
+    """A leaf clump grown off a tube's last ring: rings up round a ball, top fan. ``phase`` is the
+    ring's first azimuth, so no band twists; ``down`` hangs it under a tube arriving from above."""
     segs = len(last_ring)
     rings = [list(last_ring)]
-    for lat in (-35.0, 5.0, 40.0, 68.0):
+    lats = (-35.0, 5.0, 40.0, 68.0)
+    if down:        # hung: the first ring just under the collar, so the ball never wraps back over its stem
+        h0 = min(m.verts[v][2] - centre[2] for v in last_ring) / (radius * squash)
+        lo = max(-20.0, min(35.0, math.degrees(math.asin(max(-1.0, min(1.0, h0)))) - 12.0))
+        lats = (lo, min(-5.0, (lo - 40.0) / 2.0), -40.0, -68.0)
+    for lat in lats:
         ring = []
         cl, sl = math.cos(math.radians(lat)), math.sin(math.radians(lat))
         for s in range(segs):
-            a = 2.0 * math.pi * s / segs + rng.f() * 0.25
+            a = 2.0 * math.pi * s / segs + phase + rng.f() * 0.25
             rr = radius * (1.0 + wob * rng.sf())
             ring.append(m.v((centre[0] + rr * cl * math.cos(a), centre[1] + rr * cl * math.sin(a),
                              centre[2] + rr * sl * squash)))
@@ -986,7 +992,7 @@ def clump_end(m, last_ring, centre, radius, zone, rng, squash=0.75, wob=0.25):
             q = (s + 1) % segs
             idx = (rings[i][s], rings[i][q], rings[i + 1][q], rings[i + 1][s])
             m.quad(idx[0], idx[1], idx[2], idx[3], sub(m.centroid(idx), centre), zone)
-    top = m.v((centre[0], centre[1], centre[2] + radius * squash * (1.0 + wob * rng.sf())))
+    top = m.v((centre[0], centre[1], centre[2] + (-1.0 if down else 1.0) * radius * squash * (1.0 + wob * rng.sf())))
     for s in range(segs):
         q = (s + 1) % segs
         m.tri(top, rings[-1][s], rings[-1][q], sub(m.centroid((top, rings[-1][s], rings[-1][q])), centre), zone)
@@ -1467,7 +1473,7 @@ def _roof(m, r, disc):
         end = tpath[-1]
         six = [m.v((end[0] + 0.45 * math.cos(_canopy_theta(s, 6)), end[1] + 0.45 * math.sin(_canopy_theta(s, 6)), end[2] + 0.12))
                for s in range(6)]     # r 0.45: near enough the clump's first ring that no bridging triangle goes thin
-        zipper(m, six, _by_azimuth(m, trings[-1], end), UP, "sun", centre=end)
+        zipper(m, six, _by_azimuth(m, trings[-1], end), DOWN, "sun", centre=end)   # the clump's underside
         _clump(m, six, add(end, UP, TWIG_CLUMP[1]), TWIG_CLUMP[0], "sun", r)
 
 
@@ -1707,10 +1713,12 @@ def _sheet(m, r, disc):
             th = _canopy_theta(s, n)
             ring.append(m.v((rad * math.cos(th), rad * math.sin(th), _sheet_top_z(f, rad, th))))
         top.append(ring)
+    first_top = len(m.faces)
     zipper(m, disc[3], top[0], DOWN, "leaf")      # the top skin wants DOWN with the sheet: nothing is ever
     for i in range(len(top) - 1):                 # above it in play, and a view from over the ravine culls it
         zipper(m, top[i], top[i + 1], DOWN, "leaf")
     zipper(m, top[-1], seam, DOWN, "leaf")
+    _PROOF["top_faces"] = range(first_top, len(m.faces))    # wound DOWN on purpose: orient() leaves it
     _PROOF["bands"] = (("under", [disc[2]] + rings + [seam]), ("top", [disc[3]] + top + [seam]))
     return rings, seam, f
 
@@ -1769,8 +1777,10 @@ def _hung(m, r, last_ring, end, centre, radius, zone, squash=CLUMP_SQUASH):
     collar = [m.v((centre[0] + 0.45 * radius * math.cos(a0 + 2.0 * math.pi * (s + 0.5) / n),
                    centre[1] + 0.45 * radius * math.sin(a0 + 2.0 * math.pi * (s + 0.5) / n), end[2]))
               for s in range(n)]      # half a step off the tube's own ring: the zipper never ties
-    zipper(m, collar, ring, UP if end[2] > centre[2] else DOWN, zone, centre=end)
-    clump_end(m, collar, centre, radius, zone, r, squash=squash, wob=0.2)
+    hang = end[2] > centre[2]
+    zipper(m, collar, ring, UP if hang else DOWN, zone, centre=end)
+    clump_end(m, collar, centre, radius, zone, r, squash=squash, wob=0.2,
+              phase=a0 + math.pi / n, down=hang)
 
 
 def _sheet_clumps(m, r, rings):
@@ -1800,7 +1810,7 @@ def _sheet_clumps(m, r, rings):
         et = (-er[1], er[0], 0.0)
         foot = _socket_loop(m, quads, STEM_SIDES, STEM_IN, ex=er, along=DOWN)
         ring0 = _weld_pts(m, quads, foot, DOWN, "shade", "sheet clump")
-        neck = _oval((c[0], c[1], top), er, et, (STEM_R, STEM_R), STEM_SIDES)
+        neck = _oval((c[0], c[1], top), er, (-et[0], -et[1], 0.0), (STEM_R, STEM_R), STEM_SIDES)   # wound as the foot
         mid = [lerp(m.verts[ring0[k]], neck[k], 0.62) for k in range(STEM_SIDES)]
         srings = [ring0, [m.v(q) for q in mid], [m.v(q) for q in neck]]
         loft(m, srings, "bark", want_fn=lambda q: (q[0] - c[0], q[1] - c[1], 0.0))
@@ -1842,7 +1852,7 @@ def build_tree_geometry():
     _PROOF["pre"] = ([tuple(q) for q in m.verts[:n]],
                      [(tuple(f), m.zones[i]) for i, f in enumerate(m.faces)
                       if f is not None and max(f) < n])
-    return _prune(m)
+    return orient(_prune(m), skip=_PROOF["top_faces"])
 
 
 def _prune(m):
@@ -1860,6 +1870,46 @@ def _prune(m):
     m.verts = verts
     m.faces = [tuple(remap[i] for i in f) if f is not None else None for f in m.faces]
     m.quads = {}
+    return m
+
+
+def orient(m, skip=()):
+    """Wind every face as its neighbours do, per connected patch, the majority by area: a face whose
+    ``want`` guessed wrong turns round and reads from the side the rest does. ``skip`` keeps its winding."""
+    skip = set(skip)
+    edges = {}
+    for fi, f in enumerate(m.faces):
+        if f is None or fi in skip:
+            continue
+        for k in range(len(f)):
+            a, b = f[k], f[(k + 1) % len(f)]
+            edges.setdefault((min(a, b), max(a, b)), []).append((fi, a))
+    flip = {}
+    for seed in range(len(m.faces)):
+        if m.faces[seed] is None or seed in skip or seed in flip:
+            continue
+        flip[seed], patch, stack = False, [seed], [seed]
+        while stack:
+            fi = stack.pop()
+            f = m.faces[fi]
+            for k in range(len(f)):
+                a, b = f[k], f[(k + 1) % len(f)]
+                twins = edges[(min(a, b), max(a, b))]
+                if len(twins) != 2:
+                    continue
+                gj, ga = twins[1] if twins[0][0] == fi else twins[0]
+                if gj not in flip:          # a neighbour agrees when it runs the shared edge the other way
+                    flip[gj] = flip[fi] != (ga == a)
+                    patch.append(gj)
+                    stack.append(gj)
+        area = lambda fi: math.sqrt(sum(c * c for c in _newell([m.verts[i] for i in m.faces[fi]])))
+        wrong = sum(area(fi) for fi in patch if flip[fi])
+        if wrong * 2.0 > sum(area(fi) for fi in patch):
+            for fi in patch:
+                flip[fi] = not flip[fi]
+    for fi, fl in flip.items():
+        if fl:
+            m.faces[fi] = tuple(reversed(m.faces[fi]))
     return m
 
 

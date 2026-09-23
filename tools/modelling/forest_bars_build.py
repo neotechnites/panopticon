@@ -1808,7 +1808,7 @@ def build_geometry():
         taken[k] = set()
 
     INFO["strands"] = strands
-    return ft._prune(m), _collider(strands), strands
+    return ft.orient(ft._prune(m)), _collider(strands), strands   # socket bridges wound as their neighbours
 
 
 # =============================================================================
