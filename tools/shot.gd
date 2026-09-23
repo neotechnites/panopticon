@@ -19,6 +19,12 @@ extends SceneTree
 ##   --look=x,y,z        point to aim at
 ##   --out=C:/path.png   where to write
 ##   --settle=seconds    extra wall-clock time to run before the shot (default 0)
+##   --flat=1            override every visible mesh with ONE plain grey material,
+##                       so a shot shows form and nothing else. ENGINEERING's
+##                       "if the form is not readable in flat grey, it is wrong"
+##                       made testable: it is the one measurement that separates a
+##                       geometry defect from a texture defect without guessing.
+##   --fov=degrees       camera field of view (default 100)
 
 func _arg(name: String, fallback: String) -> String:
 	for raw in OS.get_cmdline_user_args():
@@ -38,6 +44,8 @@ var _scene_path: String = ""
 var _out_path: String = ""
 var _settle: float = 0.0
 var _settled: float = 0.0
+var _flat: bool = false
+var _fov: float = 100.0
 var _list_path: String = ""
 var _started: bool = false
 
@@ -48,6 +56,8 @@ func _initialize() -> void:
 	_scene_path = _arg("scene", "")
 	_out_path = _arg("out", "")
 	_settle = maxf(0.0, float(_arg("settle", "0")))
+	_flat = _arg("flat", "0") == "1"
+	_fov = maxf(1.0, float(_arg("fov", "100")))
 	_list_path = _arg("list", "")
 	if _scene_path.is_empty() or _out_path.is_empty():
 		push_error("shot.gd needs --scene= and --out=")
@@ -63,9 +73,12 @@ func _process(_delta: float) -> bool:
 		push_error("shot.gd could not load %s" % _scene_path)
 		quit(1)
 		return true
-	root.add_child(packed.instantiate())
+	var scene_root: Node = packed.instantiate()
+	root.add_child(scene_root)
+	if _flat:
+		_flatten(scene_root, flat_material())
 	var camera: Camera3D = build_camera(
-		root, _parse(_arg("pos", ""), Vector3(0, 1.9, 44)), _parse(_arg("look", ""), Vector3.ZERO)
+		root, _parse(_arg("pos", ""), Vector3(0, 1.9, 44)), _parse(_arg("look", ""), Vector3.ZERO), _fov
 	)
 	camera.current = true
 	if _list_path.is_empty():
@@ -95,12 +108,36 @@ func _capture_list(camera: Camera3D, list_path: String, out_dir: String) -> void
 	quit(0)
 
 
-## A 100-degree camera under [param parent], standing at [param pos] and aimed
-## at [param look]. Posed after add_child: a node outside the tree has no
-## global transform to write and look_at refuses to run.
-static func build_camera(parent: Node, pos: Vector3, look: Vector3) -> Camera3D:
+## The one grey every --flat shot wears: mid-grey, no texture, no vertex colour,
+## fully rough and unmetallic, culling off so a one-sided course still reads.
+static func flat_material() -> StandardMaterial3D:
+	var mat: StandardMaterial3D = StandardMaterial3D.new()
+	mat.albedo_color = Color(0.62, 0.62, 0.62)
+	mat.roughness = 1.0
+	mat.metallic = 0.0
+	mat.specular_mode = BaseMaterial3D.SPECULAR_DISABLED
+	mat.vertex_color_use_as_albedo = false
+	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	return mat
+
+
+## Put [param mat] over every drawn surface under [param node]. material_override
+## is used rather than editing the surfaces: the shot leaves the scene's own
+## materials untouched and the process is thrown away after one frame anyway.
+static func _flatten(node: Node, mat: StandardMaterial3D) -> void:
+	var geom: GeometryInstance3D = node as GeometryInstance3D
+	if geom != null:
+		geom.material_override = mat
+	for child: Node in node.get_children():
+		_flatten(child, mat)
+
+
+## A camera under [param parent], standing at [param pos] and aimed at
+## [param look], [param fov] degrees wide. Posed after add_child: a node outside
+## the tree has no global transform to write and look_at refuses to run.
+static func build_camera(parent: Node, pos: Vector3, look: Vector3, fov: float = 100.0) -> Camera3D:
 	var camera: Camera3D = Camera3D.new()
-	camera.fov = 100.0
+	camera.fov = fov
 	parent.add_child(camera)
 	camera.global_position = pos
 	if not look.is_equal_approx(pos):
