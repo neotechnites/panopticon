@@ -145,7 +145,8 @@ WALLFACE_R     = 47.2                 # arc metres measured at this radius
 # atlas's glow cell (Ryan: "i specifically said dont use that texture in the
 # cracks").
 ZONE_LAVA      = ("lava",)
-LAVA_TILE_M    = 5.0                  # metres one repeat of the tile covers; 256 px -> 19.5 mm/texel
+LAVA_TILE_M    = 5.0                  # metres one repeat of the tile covers; 256 px -> 19.5 mm/texel.
+                                      # The falls are laid at this same scale, in world space
 LAVA_EMIT_LO   = 112.0 / 255.0        # a texel whose brightest channel is at or under this
                                       # emits nothing (the crust, (112,1,1))
 LAVA_EMIT_HI   = 176.0 / 255.0        # ... and at or over this emits its whole albedo
@@ -274,16 +275,26 @@ REVIEW_SUN = 5.0                      # review renders only: white fill sun, wat
 REVIEW_WORLD = 1.6                    # ... world light strength
 REVIEW_EXPOSURE = 1.5                 # ... stops over the arena look
 
-ZONE_RIVER = ("river",)               # flow runs radially, wall -> lip
-ZONE_RIVER_T = ("river_t",)           # ... and along the deck in S2
+# The river and the falls are the SAME LAVA as the sea, so they carry the sea's
+# sheet at the sea's metres per texel -- Ryan: "the pit texture is bad because
+# its at a different scale than the lava falls". They keep their own material
+# (LavaRiver) and their own surface; only the projection differs, and only
+# because the surface does: flat lava takes world x,y, a wall fall takes
+# (arc, height). See _lava_uv and _flow_uv.
+ZONE_RIVER = ("river",)               # the channel floor and the wall shelf: flat
+ZONE_RIVER_T = ("river_t",)           # ... and along the deck in S2, flat
 ZONE_FALL = ("fall",)                 # ... and straight down a wall
-RIVER_TEX = 256
-RIVER_ALBEDO = "map_base_river_albedo"
-RIVER_EMISSIVE = "map_base_river_emissive"
-RIVER_SEED = 7720133
-FLOW_SPAN = 10.0
-CROSS_SPAN = 10.0
-CROSS_R = 52.0
+FALL_REF_R = (47.5, 57.5)             # a wall fall's arc is measured at ITS wall's radius --
+FALL_REF_SPLIT = 53.0                 # the pit wall, the outer wall. Constant per wall (the
+                                      # WALLFACE_R idiom): a radius taken per vertex would
+                                      # turn the pit wall's own jag into a smear, because
+                                      # d(theta*r)/dr is theta, and theta runs to 2.6 rad here.
+                                      # No fall face lies within a metre of the split.
+FALL_FLAT_NZ = 0.7071                 # a fall face this level takes world x,y instead: at 45
+                                      # deg the two world-axis projections stretch alike, so
+                                      # the crossover is the best either can do, and every
+                                      # face gets the better of the two.
+CROSS_R = 52.0                        # reference radius for column merging
 
 # ---- S4 Demon Run: the deck is a lava field, pit lip to wall foot, crossed pad
 # to pad over three landing rocks. Pads are scene nodes (BoostPad: 18 m/s at 45
@@ -852,58 +863,6 @@ def _lava_texture():
     return images[0], images[1]
 
 
-def _river_texture():
-    """The river: molten, STREAKED along +U, which every river face maps to its
-    own flow direction. Wraps on both axes so it tiles."""
-    c = _Canvas(RIVER_TEX)
-    r = _Rng(RIVER_SEED)
-    n = RIVER_TEX
-    hot = [(232, 74, 10), (255, 110, 22), (212, 56, 6), (255, 140, 34)]
-    warm = [(178, 46, 6), (150, 34, 4), (200, 58, 10)]
-    crust = [(34, 12, 10), (24, 8, 8), (46, 18, 14)]
-
-    for y in range(n):
-        for x in range(n):
-            s = r.pick(hot)
-            c.put(x, y, s, s)
-    for _ in range(90):                       # crust rafts, drawn out by the flow
-        x, y = r.i(0, n - 1), r.i(0, n - 1)
-        w, h = r.i(18, 70), r.i(2, 7)
-        sh = r.pick(crust)
-        for dy in range(h):
-            for dx in range(w):
-                c.wrap(x + dx, y + dy + (dx // 26), sh, (0, 0, 0))
-    for _ in range(150):                      # dark filaments: the shear lines
-        x, y = r.i(0, n - 1), r.i(0, n - 1)
-        sh = r.pick(crust)
-        for dx in range(r.i(30, 110)):
-            c.wrap(x + dx, y, sh, (6, 2, 2))
-            if r.i(0, 6) == 0:
-                y += r.i(-1, 1)
-    for _ in range(200):                      # warm streaks either side of them
-        x, y = r.i(0, n - 1), r.i(0, n - 1)
-        sh = r.pick(warm)
-        for dx in range(r.i(20, 90)):
-            c.wrap(x + dx, y, sh, sh)
-            if r.i(0, 8) == 0:
-                y += r.i(-1, 1)
-    for _ in range(120):                      # white-hot cores, long and thin
-        x, y = r.i(0, n - 1), r.i(0, n - 1)
-        core = r.pick([(255, 216, 104), (255, 184, 64), (255, 232, 150)])
-        for dx in range(r.i(8, 46)):
-            c.wrap(x + dx, y, core, core)
-            if r.i(0, 10) == 0:
-                y += r.i(-1, 1)
-    images = []
-    for name, buf in ((RIVER_ALBEDO, c.alb), (RIVER_EMISSIVE, c.emi)):
-        img = bpy.data.images.new(name, RIVER_TEX, RIVER_TEX, alpha=False)
-        img.colorspace_settings.name = "sRGB"
-        img.pixels.foreach_set(buf)
-        img.update()
-        images.append(img)
-    return images[0], images[1]
-
-
 def _image_file(name):
     """A texture file beside the script, packed into the .glb; None if absent."""
     path = os.path.join(os.path.dirname(os.path.abspath(__file__)), TEX_DIR, name)
@@ -914,14 +873,6 @@ def _image_file(name):
     img.pack()
     print("MDL TEXTURE %s from %s" % (img.name, path))
     return img
-
-
-def _sheet(stem, painted):
-    """(albedo, emissive): the files when opted in and present, else painted."""
-    alb = _image_file(stem + "_albedo.png") if USE_TEXTURE_FILES else None
-    if alb is None:
-        return painted()
-    return alb, (_image_file(stem + "_emissive.png") or alb)
 
 
 def _lava_emissive_from(alb):
@@ -1360,6 +1311,41 @@ def _zipper(m, outer, inner, want, zone):
             j += 1
 
 
+def _one_sided(m, tris, want, zone):
+    """Emit triangles that are already wound the same way round as ONE
+    surface with ONE front side: the side is chosen once, by the triangle
+    whose own normal lies most nearly along ``want``, and every triangle is
+    then handed _emit its own normal so no face can be flipped alone. Asking
+    each face which side it is on lets a surface that turns away from
+    ``want`` invert a single triangle, and an inverted triangle is
+    backface-culled: a hole where the mesh has none.
+    want/zone may be callables of the triangle's centroid."""
+    best, flip, keep = -1.0, False, []
+    for tri in tris:
+        if len(set(tri)) < 3:
+            continue
+        pts = [m.verts[v] for v in tri]
+        n = _newell(pts)
+        ln = math.sqrt(n[0] * n[0] + n[1] * n[1] + n[2] * n[2])
+        if ln < 1e-12:
+            continue
+        c = tuple(sum(p[k] for p in pts) / 3.0 for k in range(3))
+        w = want(c) if callable(want) else want
+        lw = math.sqrt(w[0] * w[0] + w[1] * w[1] + w[2] * w[2])
+        d = (n[0] * w[0] + n[1] * w[1] + n[2] * w[2]) / (ln * lw)
+        if abs(d) > best:
+            best, flip = abs(d), d < 0.0
+        keep.append((tri, n, c))
+    for tri, n, c in keep:
+        m.tri(tri[0], tri[1], tri[2], tuple(-x for x in n) if flip else n,
+              zone(c) if callable(zone) else zone)
+
+
+def _fan_at(m, apex, chain, want, zone):
+    """A fan from one apex over a chain of ids: one surface, one front side."""
+    _one_sided(m, [(apex, a, b) for a, b in zip(chain, chain[1:])], want, zone)
+
+
 def _strip(m, A, B, want, zone):
     """Triangles between two chains of (param, id), each ascending, that do
     not share vertices: every vertex of both is used, no T-junctions.
@@ -1369,18 +1355,17 @@ def _strip(m, A, B, want, zone):
     def dist(a, b):
         return math.dist(m.verts[a], m.verts[b])
 
+    tris = []
     while i < len(A) - 1 or j < len(B) - 1:
         if j == len(B) - 1 or (i < len(A) - 1 and
                                dist(A[i + 1][1], B[j][1]) <= dist(A[i][1], B[j + 1][1])):
             tri = (A[i][1], A[i + 1][1], B[j][1])       # the shorter diagonal
             i += 1
         else:
-            tri = (A[i][1], B[j][1], B[j + 1][1])
+            tri = (A[i][1], B[j + 1][1], B[j][1])       # same way round as above
             j += 1
-        if len(set(tri)) == 3:
-            c = tuple(sum(m.verts[v][k] for v in tri) / 3.0 for k in range(3))
-            m.tri(tri[0], tri[1], tri[2], want(c) if callable(want) else want,
-                  zone(c) if callable(zone) else zone)
+        tris.append(tri)
+    _one_sided(m, tris, want, zone)
 
 
 def _lip(d):
@@ -2530,7 +2515,8 @@ def _pit_lava(m, wall, ta, tb, cut_a, cut_b, cols, rim, lines):
             m.quad(N(ts[i], zs[j]), N(ts[i + 1], zs[j]),
                    N(ts[i + 1], zs[j + 1]), N(ts[i], zs[j + 1]), want, ZONE_FALL, best=True)
             tris += 2
-    for t, into in ((ta, -1.0), (tb, 1.0)):        # the two banks
+    for t, into in ((ta, 1.0), (tb, -1.0)):        # the two banks: each
+        # faces along the channel, into the span ta..tb, not out of it
         want = (-math.sin(t) * into, math.cos(t) * into, 0.0)
         _strip(m, [(z, wall.W(t, z)) for z in zc], [(z, N(t, z)) for z in zs],
                want, ZONE_SHADE)
@@ -2542,11 +2528,12 @@ def _pit_lava(m, wall, ta, tb, cut_a, cut_b, cols, rim, lines):
 def _pit_bank_ends(m, wall, cut_a, cut_b, ta, tb, N):
     """The triangles that close the deck's sloped bank against the pit wall,
     where the rim steps from the deck down to the river's rounded lip."""
-    for cut, t, sgn in ((cut_a, ta, 1.0), (cut_b, tb, -1.0)):
-        want = (-math.sin(cut) * sgn, math.cos(cut) * sgn, 0.0)
-        m.tri(wall.W(cut, DECK_Z), wall.W(cut, LAVA_Z), wall.W(t, LAVA_Z), want, ZONE_SHADE)
+    for cut, t in ((cut_a, ta), (cut_b, tb)):
+        want = (-math.cos(cut), -math.sin(cut), 0.0)   # a patch of the pit wall
+        chain = [wall.W(cut, LAVA_Z), wall.W(t, LAVA_Z)]
         if N(t, LAVA_Z) != wall.W(t, LAVA_Z):
-            m.tri(wall.W(cut, DECK_Z), wall.W(t, LAVA_Z), N(t, LAVA_Z), want, ZONE_SHADE)
+            chain.append(N(t, LAVA_Z))
+        _fan_at(m, wall.W(cut, DECK_Z), chain, want, ZONE_SHADE)
 
 
 # -----------------------------------------------------------------------------
@@ -6253,14 +6240,8 @@ def _rock(r):
             rows1 = IN_ROWS if in1 else OUT_ROWS
             A = [(row_z(row, t0), WR(row, t0)) for row in rows0]
             B = [(row_z(row, t1), WR(row, t1)) for row in rows1]
-            up = (-math.cos(am) + 0.0, -math.sin(am), 0.6)
             roof = WALL_LAVA_TOP + 0.5 * SLOT_H
-            r_wall = math.hypot(*m.verts[WF(0, t0)][:2])
-
-            def roofish(c):
-                return c[2] > roof and math.hypot(c[0], c[1]) - r_wall > 0.5
-            _strip(m, A, B,
-                   lambda c: DOWN if roofish(c) else up,
+            _strip(m, A, B, (-math.cos(am), -math.sin(am), 0.0),
                    lambda c: ZONE_ROCK if c[2] > roof else ZONE_SHADE)
             continue
         rows = S4_ROWS if (s4_in(t0) or s4_in(t1)) else (IN_ROWS if in0 else OUT_ROWS)
@@ -6310,17 +6291,17 @@ def _rock(r):
     s4_field = _field(_Rng(S4_SEED + 2), S4_FLOOR_AMP)
     s4_pit_tris, S4PN = _pit_lava(m, pit_wall, s4b0, s4b1, s4c0, s4c1,
                                   [t for t in cols_all if s4b0 <= t <= s4b1], s4_lava_ts, s4_lines)
-    for cut, mid, bank, sgn in ((s4c0, s4m0, s4b0, 1.0), (s4c1, s4m1, s4b1, -1.0)):
+    for cut, mid, bank in ((s4c0, s4m0, s4b0), (s4c1, s4m1, s4b1)):
         # the bank's end at the pit lip: a fan from the cut's rim vertex over
-        # the wall's hole edge and the bank's own lip chain
-        want = (-math.sin(cut) * sgn, math.cos(cut) * sgn, 0.0)
+        # the wall's hole edge and the bank's own lip chain. Every vertex but
+        # the bank's lip is on the pit wall, so the wall's own way out is the
+        # confident one -- the tangent is near enough edge-on to be a guess.
+        want = (-math.cos(cut), -math.sin(cut), 0.0)
         chain = [pit_wall.W(cut, LAVA_Z), pit_wall.W(bank, LAVA_Z)]
         if S4PN(bank, LAVA_Z) != pit_wall.W(bank, LAVA_Z):
             chain.append(S4PN(bank, LAVA_Z))
         chain.append(pit_wall.W(mid, s4_z(mid)))
-        apex = pit_wall.W(cut, DECK_Z)
-        for a, b in zip(chain, chain[1:]):
-            m.tri(apex, a, b, want, ZONE_SHADE)
+        _fan_at(m, pit_wall.W(cut, DECK_Z), chain, want, ZONE_SHADE)
 
     def in_chan(t):
         """Columns on the channels' own stations. S4's cuts are side
@@ -6721,12 +6702,20 @@ LIP_WALLS = [                 # name, first and last bearing, head z, deg of tap
     dict(name="013", b0=-8.0, b1=14.0, top=27.60, taper=2.0, jag_z=0.12, seed=4180933),
     dict(name="066", b0=61.7, b1=71.3, top=26.00, taper=1.5, jag_z=0.35, seed=4170923),   # S1 | S2
     dict(name="139", b0=134.2, b1=143.8, top=26.00, taper=1.5, jag_z=0.35, seed=6290381), # S2 | S3
-    dict(name="204", b0=199.2, b1=208.8, top=26.00, taper=1.5, jag_z=0.35, seed=5310947), # S3 | S4
+    # S3 | S4. Ryan: "the cover on section 4 is too far towards the inner part
+    # of the ring, and it jets out of the corner, either move it in a little
+    # bit or thin it out." Its inner face is already on the lip, so it is
+    # thinned: r_out 48.20 -> 47.50 puts its drawn face (47.56..47.76) on S3's
+    # own half wall's line (47.56..47.58) instead of 0.78-0.86 m out into the
+    # path's inner column at the corner.
+    dict(name="204", b0=199.2, b1=208.8, top=26.00, taper=1.5, jag_z=0.35,
+         r_out=47.50, seed=5310947),
     dict(name="286", b0=281.2, b1=290.8, top=26.00, taper=1.5, jag_z=0.35, seed=7720261), # S4 | S5
 ]
 LIP_EYE_Z = 28.90             # the guard's eye, as RingBake and S3 trace it
 LIP_R_IN = 46.90              # inner face: on the lip (INNER_R 46.70), clear of the void
-LIP_R_OUT = 48.20             # outer face: 1.3 m thick. Ryan's 50.40 is on the start line --
+LIP_R_OUT = 48.20             # outer face: 1.3 m thick, unless a row carries its own r_out
+                              # (204 does). Ryan's 50.40 is on the start line --
                               # the field is dealt sideways from lane r 52.0 at 2.0 m, so the
                               # innermost body dealt stands at r 49.0 and is 0.4 m wide
 LIP_BASE_Z = 22.20            # foot, buried: under the deck and under every sunken floor
@@ -6769,7 +6758,6 @@ def _lip_prove(ob):
     view, so the wall is a wall and not a gate."""
     import mathutils
     eye = mathutils.Vector((0.0, 0.0, LIP_EYE_Z))
-    rm = 0.5 * (LIP_R_IN + LIP_R_OUT)
 
     def down(b, rad):
         hit, loc, _n, _i = ob.ray_cast(mathutils.Vector(pol(b, rad, CEIL_Z - 0.5)),
@@ -6783,6 +6771,7 @@ def _lip_prove(ob):
         return not (hit and (loc - eye).length < d.length - 0.02)
 
     for w in LIP_WALLS:
+        rm = 0.5 * (LIP_R_IN + w.get("r_out", LIP_R_OUT))
         f0, f1 = w["b0"] + w["taper"], w["b1"] - w["taper"]
         n = max(2, int(math.radians(f1 - f0) * rm / LIP_PROVE_STEP))
         crest = [down(f0 + (f1 - f0) * k / (n - 1), rm) for k in range(n)]
@@ -6841,7 +6830,7 @@ def _lip_screen(m, w, coll=False):
     for i in range(n + 1):
         b = b0 + (b1 - b0) * i / n
         f = _smooth(min(b - b0, b1 - b) / taper)
-        ri, ro = LIP_R_IN, LIP_R_OUT
+        ri, ro = LIP_R_IN, w.get("r_out", LIP_R_OUT)
         if not coll:
             ri -= LIP_SKIN_IN - jin[i]
             ro += LIP_SKIN_OUT - jout[i]
@@ -6879,7 +6868,7 @@ def _lip_screen(m, w, coll=False):
     print("MDL STATS lip_wall %s %s_tris=%d cols=%d b=%.1f..%.1f (taper %.1f deg at each end) "
           "r=%.2f..%.2f z=%.2f..%.2f head %.2f m over the deck, %.2f m under the ceiling"
           % (w["name"], "collision" if coll else "visual", tris, n + 1, b0, b1, taper,
-             LIP_R_IN, LIP_R_OUT, LIP_BASE_Z, top_z, top_z - DECK_Z, CEIL_Z - top_z))
+             LIP_R_IN, w.get("r_out", LIP_R_OUT), LIP_BASE_Z, top_z, top_z - DECK_Z, CEIL_Z - top_z))
     return tris
 
 
@@ -6916,22 +6905,30 @@ def _lava_uv(me, uvl, poly):
 
 
 def _flow_uv(me, uvl, poly, vertical):
-    """The river's own sheet. U runs along the flow -- radially inward across
-    the trench, straight down on the fall -- so the streaks always follow it."""
-    for li in poly.loop_indices:
-        co = me.vertices[me.loops[li].vertex_index].co
-        rad = math.hypot(co[0], co[1])
-        ang = math.atan2(co[1], co[0])
-        u = ((LAVA_Z - co[2]) + (OUTER_R - INNER_R)) if vertical else (OUTER_R - rad)
-        uvl.data[li].uv = (u / FLOW_SPAN, (-ang * CROSS_R) / CROSS_SPAN)
+    """A fall, on the SEA's tile at the SEA's world scale (Ryan: "the pit
+    texture is bad because its at a different scale than the lava falls"). A
+    wall fall projects (arc, height), the arc at its wall's FALL_REF_R, so a
+    metre down or across the wall is a metre in the tile exactly as it is on
+    the sea below; a flat one -- the channel floor, the wall shelf, and a fall
+    face that has rolled over past FALL_FLAT_NZ -- is the sea's own world x,y.
+    The reference is constant over a wall, so both are continuous functions of
+    world position: neighbouring faces share their vertex UVs and no seam
+    carries a jump. atan2 cuts at game bearing 180, where there is no lava."""
+    if not vertical or abs(poly.normal[2]) > FALL_FLAT_NZ:
+        _lava_uv(me, uvl, poly)
+        return
+    cos = [me.vertices[me.loops[li].vertex_index].co for li in poly.loop_indices]
+    rc = sum(math.hypot(c[0], c[1]) for c in cos) / len(cos)
+    ref = FALL_REF_R[1] if rc > FALL_REF_SPLIT else FALL_REF_R[0]
+    for li, co in zip(poly.loop_indices, cos):
+        uvl.data[li].uv = (-math.atan2(co[1], co[0]) * ref / LAVA_TILE_M,
+                           co[2] / LAVA_TILE_M)
 
 
 def _flow_uv_along(me, uvl, poly):
-    """S2's river runs along the deck: U follows the bearing, V the radius."""
-    for li in poly.loop_indices:
-        co = me.vertices[me.loops[li].vertex_index].co
-        u = -math.atan2(co[1], co[0]) * S2_PLAT_R
-        uvl.data[li].uv = (u / FLOW_SPAN, (math.hypot(co[0], co[1]) - INNER_R) / CROSS_SPAN)
+    """S2's river runs ALONG the deck: it lies flat, so it takes the sea's own
+    world x,y projection at the sea's scale, like every other flat lava face."""
+    _lava_uv(me, uvl, poly)
 
 
 def _deck_uv(me, uvl, poly, zone, r):
@@ -7332,9 +7329,6 @@ def build():
     rock, ang, river, cut, s2, s4 = _rock(_Rng(SEED))
     coll = _collider(ang, cut[0], cut[1], s2, s4)
 
-    river_albedo, river_emissive = _sheet("river", _river_texture)
-    mdl.save_texture(river_albedo)
-    mdl.save_texture(river_emissive)
     lava_albedo, lava_emissive = _lava_sheet()
     mdl.save_texture(lava_albedo)
     mdl.save_texture(lava_emissive)
@@ -7346,7 +7340,7 @@ def build():
     # The atlas is painted for the S3 cracks alone: main's unwrap runs into a
     # scratch layer and the crack faces copy their windows from it, so their
     # UVs and texels are exactly what they were. Every other rock face is a
-    # texel sheet; the sea is Ryan's tile (LavaSea) and the river its own sheet.
+    # texel sheet; the sea and the falls are both Ryan's tile, at one scale.
     me = ob.data
     unwrap(ob, rock.zones)
     scratch = me.uv_layers[-1]
@@ -7372,7 +7366,7 @@ def build():
     for m in mats.values():
         m.diffuse_color = (0.13, 0.04, 0.04, 1.0)
     mats["glow"] = rock_material("HellGlow", albedo, emissive)
-    mats["river"] = river_material("LavaRiver", river_albedo, river_emissive)
+    mats["river"] = river_material("LavaRiver", lava_albedo, lava_emissive)
     mats["lava"] = rock_material("LavaSea", lava_albedo, lava_emissive)
     slots = ["river" if c in ("river", "fall", "river_t") else c for c in classes]   # one LavaRiver slot
     order = tx.finish(ob, slots, mats)

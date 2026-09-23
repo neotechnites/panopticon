@@ -1,8 +1,9 @@
 extends TestCase
 
 ## Map 1's five lip walls: a wall of map_base.glb's own rock on the runner's
-## right (the pit lip, r 46.9-48.2) at each section boundary and across the
-## start, ~8 m long and 3 m tall (the start's 22 deg and 4.6 m), no mouth.
+## right (the pit lip, r 46.9-48.2; 204 is thinner, 46.9-47.5) at each
+## section boundary and across the start, ~8 m long and 3 m tall (the
+## start's 22 deg and 4.6 m), no mouth.
 ##
 ## Two things each must be. Cover: a standing body on the lane directly
 ## behind it is hidden from the guard's eye at (0, 28.90, 0). A wall and not a
