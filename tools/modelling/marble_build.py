@@ -1240,6 +1240,9 @@ def _render(spec, objects):
     shot("cell", cm, (0.0, 0.0, TOWER_Y + 3.0), 18.0, (1200, 800))
     # the runner's eye on the lane, at a lane-tier cell's bars about 12 m off
     shot("bars", pol(30.0, LANE_R, eye), pol(41.5, WALL_R, TIER_BASE[LANE_TIER] + SILL_UP + 2.5), 35.0, (1400, 800))
+    # close on that cell from the margin of the lane, the bars foot to head in one
+    # frame: the proof they are one width their full length (Ryan, pass 8)
+    shot("cell_close", pol(41.5, WALL_R - 5.5, eye), pol(41.5, WALL_R, TIER_BASE[LANE_TIER] + SILL_UP + 2.75), 22.0, (1000, 1300))
     # the guard's room at eye level under the arena's own lamp: the proof that
     # the middle of the tower is no longer a hot spot (Ryan, pass 6)
     shot("tower_light", pol(200.0, 5.2, GUARD_EYE_Z), pol(20.0, 6.0, TOWER_Y + 2.9), 16.0, (1400, 900))
