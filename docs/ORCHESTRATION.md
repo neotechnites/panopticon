@@ -32,3 +32,13 @@ Report to Ryan the moment the merge lands. Verification that is still needed run
 - **A map-mesh change per agent.** Every `map_base.glb` edit costs a ~10 min Blender build. Parts, one weld, one build.
 - **Model quota.** Fable's quota ran out mid-session on 2026-09-23 and killed three agents at launch. Default to Opus; use `model: fable` only when Ryan asks and the quota is known good.
 - **The editor checkout writing to tracked files.** Ryan's open Godot editor has twice moved `MapBase` (once by 3 m, which broke every match) and once re-saved new `.tres` resources as empty stubs. `MapBase` is now `_edit_lock_`ed. Before merging, `git status` the editor checkout and restore anything it touched that Ryan did not mean.
+
+## The ledger is the queue
+
+Ryan, 2026-09-23, after finding agents idle while approved work sat untouched: "why do we have agents sitting doing nothing... isnt there more to do than just one subagent?"
+
+The Head does NOT use Ryan's messages as its scheduler. His messages are interrupts; the queue is the `scope_ledger` in the pod DB plus anything he has already named. Whenever there is free capacity, pull the next approved item and start it, and say in the next reply what was pulled.
+
+Two hard edges:
+- **Never invent scope.** Only items Ryan has already named. A thing he has not asked for is not in the queue no matter how obviously good it looks.
+- **Never start something waiting on his verdict.** If the next step needs him to judge a render, it stays parked, and the reply says so.
