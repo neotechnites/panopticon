@@ -130,3 +130,6 @@ tempo-matched with `atempo`, so a gunshot still lands with the frame that fired
 it on a slowed clip. Timings: edge-tts 6 lines 22 s, first assemble 100 s
 (segments 35, captions 37, audio+mux 21, 720p copy in that), re-cut after the
 caption fix 67 s with every segment cached.
+
+## Never slow a clip down
+Ryan, 2026-09-22, on a cut with clips at 0.4x–0.8x: "never slow down clips its looks terrible." A slowed clip repeats frames and stutters. A line that outruns its picture gets MORE picture (the next take, the alternate, the next clip), then a hold on live action for the last fraction of a second; never a rate under 1x, never a freeze. Game audio is off in every clip: voice and the music bed only.
