@@ -10,6 +10,7 @@ a plain flat box the full top size, shipped as a `-colonly` node.
 import os
 import sys
 
+import bmesh
 import bpy
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -295,6 +296,17 @@ def unwrap(ob, zones, seed=0):
                                v0 + UV_PAD + t * span_v)
 
 
+def _drop_faces(ob, idx):
+    """Delete faces no camera reaches, after unwrap so every kept face keeps its texels."""
+    bm = bmesh.new()
+    bm.from_mesh(ob.data)
+    bm.faces.ensure_lookup_table()
+    bmesh.ops.delete(bm, geom=[bm.faces[i] for i in idx], context="FACES")
+    bm.to_mesh(ob.data)
+    bm.free()
+    ob.data.update()
+
+
 def _finish(rock, coll):
     """Texture, unwrap, material and the `-colonly` collider; returns [visual, collider]."""
     albedo, emissive = build_texture()
@@ -302,6 +314,7 @@ def _finish(rock, coll):
     mdl.save_texture(emissive)
     ob = rock.object(OBJECT_NAME)
     unwrap(ob, rock.zones)
+    _drop_faces(ob, rock.buried)
     mdl.finish(ob, rock_material("HellRock", albedo, emissive), strip_uvs=False)
     coll_ob = coll.object(COLLIDER_NAME)     # Godot: StaticBody3D + CollisionShape3D
     coll_ob.hide_render = True
@@ -340,7 +353,9 @@ def _block(r):
         m.quad(wall_top[i], wall_top[j], chamfer[j], chamfer[i], (ox, oy, 0.4), ZONE_CARVE)
 
     m.fan(chamfer, (0.0, 0.0, 1.0), ZONE_ROCK)      # dead-flat top, 2 tris
-    m.fan(base, (0.0, 0.0, -1.0), ZONE_SHADE)        # base, hidden but sealed
+    f0 = len(m.faces)
+    m.fan(base, (0.0, 0.0, -1.0), ZONE_SHADE)
+    m.buried = list(range(f0, len(m.faces)))   # the base sits on the ground: dropped after unwrap
     return m
 
 

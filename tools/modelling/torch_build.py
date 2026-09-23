@@ -368,10 +368,10 @@ def _held(r, nsides, nrings, jag, run):
 # zones listed in ``planar``: those map the whole zone by (axis_i, axis_j) extent
 # =============================================================================
 
-def unwrap(ob, zones, planar=None, seed=0):
+def unwrap(ob, zones, planar=None, seed=0, count=None):
     me = ob.data
     uvl = me.uv_layers.new(name="UVMap")
-    r = _Rng(TEX_SEED + seed * 7919 + len(me.polygons))
+    r = _Rng(TEX_SEED + seed * 7919 + (len(me.polygons) if count is None else count))
     planar = planar or {}
     for pi, poly in enumerate(me.polygons):
         zone = zones[pi]
@@ -443,7 +443,8 @@ def _torch(r):
     lo = _ring(m, ARM_FROM[0], ARM_FROM[1], ARM_FROM[2], ARM_R[0], angs4)
     hi = _ring(m, ARM_TO[0], ARM_TO[1], ARM_TO[2], ARM_R[1], angs4)
     _band(m, lo, hi, angs4, ZONE_SHADE)
-    # cup: a 5-sided frustum, open at the top (the flame sits in it)
+    arm_foot = lo
+    # cup: a 5-sided frustum; the flame grows from its rim, so the two close each other
     angs5 = [2.0 * math.pi * (i + 0.5) / 5.0 for i in range(5)]
     cb = _ring(m, ARM_TO[0], ARM_TO[1], CUP_Z[0], CUP_R[0], angs5)
     ct = _ring(m, ARM_TO[0], ARM_TO[1], CUP_Z[1], CUP_R[1], angs5)
@@ -457,9 +458,12 @@ def _torch(r):
         if k > 0:
             cx += r.sf() * FLAME_LEAN
             cy += r.sf() * FLAME_LEAN
+        if k == 0:
+            rings.append(ct)           # the flame's base IS the cup's rim
+            continue
         ring = []
         for a in angs:
-            rr = rad * (1.0 + (r.sf() * FLAME_JAG if k > 0 else 0.0))
+            rr = rad * (1.0 + r.sf() * FLAME_JAG)
             ring.append(m.v((cx + rr * math.cos(a), cy + rr * math.sin(a), z)))
         rings.append(ring)
     tip = m.v((cx + r.sf() * FLAME_LEAN, cy + r.sf() * FLAME_LEAN, FLAME_TIP))
@@ -469,7 +473,9 @@ def _torch(r):
         j = (i + 1) % FLAME_SIDES
         mid = 0.5 * (angs[i] + angs[j] + (2.0 * math.pi if j == 0 else 0.0))
         m.tri(rings[-1][i], rings[-1][j], tip, (math.cos(mid), math.sin(mid), 0.3), ZONE_FLAME)
-    m.fan(rings[0], (0.0, 0.0, -1.0), ZONE_FLAME)
+    m.uv_faces = len(m.faces) + 3      # the old flame base fan, for the atlas windows
+    # the arm's foot half stands proud of the plate: cap it
+    m.quad(arm_foot[0], arm_foot[1], arm_foot[2], arm_foot[3], (0.0, 0.0, -1.0), ZONE_SHADE)
     return m
 
 
@@ -480,7 +486,7 @@ def build():
     rock = _torch(_Rng(SEED))
     ob = rock.object(OBJECT_NAME)
     fx = 0.16
-    unwrap(ob, rock.zones,
+    unwrap(ob, rock.zones, count=rock.uv_faces,
            planar={ZONE_FLAME: (0, 2, -fx, FLAME_RINGS[0][0], fx, FLAME_TIP)})
     mdl.finish(ob, rock_material("HellRock", albedo, emissive), strip_uvs=False)
     print("MDL STATS visual_tris=%d collision_tris=0 bracket=%.2f flame=%.2f"

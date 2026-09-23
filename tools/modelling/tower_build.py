@@ -40,6 +40,8 @@ WELD       = 0.02      # merge by distance
 DEGEN      = 1.0e-4    # edge length below which an edge is degenerate
 DISSOLVE   = 3.0       # degrees
 DISSOLVE_Z = -2.60     # ...applied only above here; his lower rock is untouched
+SLIVER     = math.radians(3.0)   # a triangle thinner than this is re-cut
+NEEDLE_MAX = 0.20      # metres: the longest short edge a needle merge may close
 FLAP_PASSES = 8
 
 NSUB       = 32        # collider ring resolution
@@ -263,9 +265,97 @@ def _polish(bm):
     bmesh.ops.dissolve_limit(bm, angle_limit=math.radians(DISSOLVE),
                              verts=verts, edges=edges)
     bmesh.ops.triangulate(bm, faces=list(bm.faces))
+    bm.normal_update()
+    fixed = _slivers(bm)
+    left = len([f for f in bm.faces if _min_ang(f) < SLIVER])
+    print("MDL STATS slivers fixed=%d left=%d" % (fixed, left))
     bmesh.ops.recalc_face_normals(bm, faces=list(bm.faces))
     bm.normal_update()
     return n0 - len(bm.verts)
+
+
+def _min_ang(f):
+    return min(lp.calc_angle() for lp in f.loops)
+
+
+def _other_face(e, f):
+    fs = [g for g in e.link_faces if g is not f]
+    return fs[0] if len(e.link_faces) == 2 and len(fs[0].verts) == 3 else None
+
+
+def _flip_cap(bm, f, uv):
+    """A cap (one angle near 180): swap the long edge; the vertex lies on it, so no shape moves."""
+    lv = max(f.loops, key=lambda lp: lp.calc_angle())
+    if lv.calc_angle() < math.radians(150.0):
+        return False
+    e, v = lv.link_loop_next.edge, lv.vert
+    g = _other_face(e, f)
+    if g is None:
+        return False
+    d = [x for x in g.verts if x not in e.verts][0]
+    if d in [x.other_vert(v) for x in v.link_edges]:
+        return False
+    old = min(_min_ang(f), _min_ang(g))
+    f.normal_update()
+    g.normal_update()
+    n = f.normal * f.calc_area() + g.normal * g.calc_area()
+    a, b = lv.link_loop_next.vert, lv.link_loop_next.link_loop_next.vert
+    for t in ((v.co, a.co, d.co), (v.co, d.co, b.co)):
+        if (t[1] - t[0]).cross(t[2] - t[0]).dot(n) <= 0.0 or _tri_ang(*t) <= old:
+            return False
+    ne = bmesh.ops.rotate_edges(bm, edges=[e], use_ccw=False)["edges"]
+    for h in (ne[0].link_faces if ne else ()):
+        for lp in h.loops:                # re-projected by unwrap, like a filled face
+            lp[uv].uv = (0.0, 0.0)
+    return bool(ne)
+
+
+def _tri_ang(p, q, r):
+    return min((b - a).angle(c - a, 0.0) for a, b, c in ((p, q, r), (q, r, p), (r, p, q)))
+
+
+def _collapse_needle(bm, f):
+    """A needle (one edge a tenth of the rest): merge its short edge at the midpoint."""
+    es = sorted(f.edges, key=lambda e: e.calc_length())
+    e = es[0]
+    if e.calc_length() > min(NEEDLE_MAX, 0.1 * es[-1].calc_length()):
+        return False
+    a, b = e.verts
+    if len(e.link_faces) != 2:
+        return False
+    common = ({x.other_vert(a) for x in a.link_edges}
+              & {x.other_vert(b) for x in b.link_edges})
+    opp = {x for g in e.link_faces for x in g.verts if x not in e.verts}
+    if common != opp:
+        return False                      # would pinch the surface into a fin
+    mid = (a.co + b.co) * 0.5
+    for g in set(a.link_faces) | set(b.link_faces):
+        if a in g.verts and b in g.verts:
+            continue
+        g.normal_update()
+        pts = [mid if x in (a, b) else x.co for x in g.verts]
+        nn = (pts[1] - pts[0]).cross(pts[2] - pts[0])
+        if nn.length < 1e-9 or nn.normalized().dot(g.normal) < 0.5:
+            return False                  # a neighbour would fold over
+    bmesh.ops.pointmerge(bm, verts=[a, b], merge_co=mid)
+    return True
+
+
+def _slivers(bm):
+    """Re-cut the triangles under SLIVER degrees his triangulation left: flip caps, merge needles."""
+    uv = bm.loops.layers.uv.active or bm.loops.layers.uv.new()
+    fixed = 0
+    for _ in range(6):
+        n0 = fixed
+        for f in [f for f in bm.faces if _min_ang(f) < SLIVER]:
+            if not f.is_valid or len(f.verts) != 3 or _min_ang(f) >= SLIVER:
+                continue
+            if _flip_cap(bm, f, uv) or _collapse_needle(bm, f):
+                fixed += 1
+        if fixed == n0:
+            break
+    bmesh.ops.dissolve_degenerate(bm, dist=1.0e-6, edges=list(bm.edges))
+    return fixed
 
 
 # =============================================================================
