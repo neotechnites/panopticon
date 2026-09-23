@@ -50,7 +50,7 @@ import map_base_build as mb  # noqa: E402
 
 REPO = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                     os.pardir, os.pardir))
-MAP_GLB = os.path.join(REPO, "assets", "models", "map_base.glb")
+MAP_GLBS = [os.path.join(REPO, "assets", "models", "map_base_%s.glb" % c) for c in mb.CHUNKS]
 TOWER_GLB = os.path.join(REPO, "assets", "models", "tower.glb")
 OUT_DIR = os.path.expanduser("~/Desktop/panopticon-renders/map1/sections")
 
@@ -232,7 +232,7 @@ def shoot(rig, w):
 
 
 def main():
-    for path in (MAP_GLB, TOWER_GLB):
+    for path in MAP_GLBS + [TOWER_GLB]:
         if not os.path.isfile(path):
             raise SystemExit("MDL ERROR map1_scene: no %s -- build and install "
                              "the model first; this script only photographs it" % path)
@@ -240,7 +240,8 @@ def main():
     bpy.ops.wm.read_factory_settings(use_empty=True)
     scene = bpy.context.scene
     _world(scene)
-    _drop_in(MAP_GLB, 0.0)                        # the walls are already in it
+    for path in MAP_GLBS:                         # the walls are already in it
+        _drop_in(path, 0.0)
     _drop_in(TOWER_GLB, TOWER_Y)
     rig = _rig(scene)
     only = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []

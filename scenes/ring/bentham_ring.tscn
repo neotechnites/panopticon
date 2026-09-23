@@ -10,9 +10,20 @@
 [ext_resource type="Script" uid="uid://gwfatmklmjcr" path="res://scripts/ring/tower_variant.gd" id="8c_tower_variant"]
 [ext_resource type="PackedScene" uid="uid://cwyjwhfotqv73" path="res://assets/models/tower.glb" id="8_tower_model"]
 [ext_resource type="Resource" path="res://scenes/ring/floating_watching_eye_profile.tres" id="9_watcher_profile"]
-[ext_resource type="PackedScene" uid="uid://l2tycnwgajbo" path="res://assets/models/map_base.glb" id="10_map_base_model"]
+[ext_resource type="PackedScene" path="res://assets/models/map_base_s1.glb" id="10_map_base_s1"]
+[ext_resource type="PackedScene" path="res://assets/models/map_base_s2.glb" id="10_map_base_s2"]
+[ext_resource type="PackedScene" path="res://assets/models/map_base_s3.glb" id="10_map_base_s3"]
+[ext_resource type="PackedScene" path="res://assets/models/map_base_s4.glb" id="10_map_base_s4"]
+[ext_resource type="PackedScene" path="res://assets/models/map_base_s5.glb" id="10_map_base_s5"]
+[ext_resource type="PackedScene" path="res://assets/models/map_base_lip013.glb" id="10_map_base_lip013"]
+[ext_resource type="PackedScene" path="res://assets/models/map_base_lip066.glb" id="10_map_base_lip066"]
+[ext_resource type="PackedScene" path="res://assets/models/map_base_lip139.glb" id="10_map_base_lip139"]
+[ext_resource type="PackedScene" path="res://assets/models/map_base_lip204.glb" id="10_map_base_lip204"]
+[ext_resource type="PackedScene" path="res://assets/models/map_base_lip286.glb" id="10_map_base_lip286"]
+[ext_resource type="PackedScene" path="res://assets/models/map_base_cover_s2.glb" id="10_map_base_cover_s2"]
+[ext_resource type="PackedScene" path="res://assets/models/map_base_cover_s4.glb" id="10_map_base_cover_s4"]
+[ext_resource type="PackedScene" path="res://assets/models/map_base_gate.glb" id="10_map_base_gate"]
 [ext_resource type="PackedScene" path="res://scenes/ring/portal.tscn" id="19_portal"]
-[ext_resource type="PackedScene" uid="uid://bc7si5v1kq5n8" path="res://assets/models/rock_bars.glb" id="20_rock_bars"]
 [ext_resource type="PackedScene" path="res://scenes/ring/torch.tscn" id="21_torch"]
 [ext_resource type="PackedScene" path="res://scenes/ring/demon_pad.tscn" id="23_demon_pad_scene"]
 [ext_resource type="PackedScene" path="res://scenes/ring/lava_crack.tscn" id="23_lava_crack_scene"]
@@ -111,9 +122,49 @@ light_color = Color(1, 0.35, 0.05, 1)
 light_energy = 3.0
 omni_range = 12.0
 
-[node name="MapBase" parent="." unique_id=23449969 instance=ExtResource("10_map_base_model")]
-editor_description = "assets/models/map_base.glb: the one deck -- annulus, pit wall down to the courtyard, outer wall up to the rim. Ships its own collision (MapBaseCollision-colonly), so nothing here duplicates it."
+[node name="MapBase" type="Node3D" parent="." unique_id=23449969]
+editor_description = "The one deck -- annulus, pit wall down to the courtyard, outer wall up to the rim -- from one sculpt (tools/modelling/map_base_build.py), exported per chunk: assets/models/map_base_<chunk>.glb, each at identity here with its own collision. Rebuild one: tools/modelling/model build map_base --chunk <name>."
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.014858246, 0, -0.01688385)
+metadata/_edit_lock_ = true
+
+[node name="MapBaseS1" parent="MapBase" unique_id=1580951151 instance=ExtResource("10_map_base_s1")]
+metadata/_edit_lock_ = true
+
+[node name="MapBaseS2" parent="MapBase" unique_id=619000714 instance=ExtResource("10_map_base_s2")]
+metadata/_edit_lock_ = true
+
+[node name="MapBaseS3" parent="MapBase" unique_id=1972932750 instance=ExtResource("10_map_base_s3")]
+metadata/_edit_lock_ = true
+
+[node name="MapBaseS4" parent="MapBase" unique_id=1674093368 instance=ExtResource("10_map_base_s4")]
+metadata/_edit_lock_ = true
+
+[node name="MapBaseS5" parent="MapBase" unique_id=90165443 instance=ExtResource("10_map_base_s5")]
+metadata/_edit_lock_ = true
+
+[node name="MapBaseLip013" parent="MapBase" unique_id=1060407299 instance=ExtResource("10_map_base_lip013")]
+metadata/_edit_lock_ = true
+
+[node name="MapBaseLip066" parent="MapBase" unique_id=19430730 instance=ExtResource("10_map_base_lip066")]
+metadata/_edit_lock_ = true
+
+[node name="MapBaseLip139" parent="MapBase" unique_id=1130352879 instance=ExtResource("10_map_base_lip139")]
+metadata/_edit_lock_ = true
+
+[node name="MapBaseLip204" parent="MapBase" unique_id=2143417935 instance=ExtResource("10_map_base_lip204")]
+metadata/_edit_lock_ = true
+
+[node name="MapBaseLip286" parent="MapBase" unique_id=1430336861 instance=ExtResource("10_map_base_lip286")]
+metadata/_edit_lock_ = true
+
+[node name="MapBaseCoverS2" parent="MapBase" unique_id=694012974 instance=ExtResource("10_map_base_cover_s2")]
+metadata/_edit_lock_ = true
+
+[node name="MapBaseCoverS4" parent="MapBase" unique_id=1799092588 instance=ExtResource("10_map_base_cover_s4")]
+metadata/_edit_lock_ = true
+
+[node name="MapBaseGate" parent="MapBase" unique_id=432265109 instance=ExtResource("10_map_base_gate")]
+editor_description = "The cave wall with slots (rock_bars_build.py) across the lane at 350 deg, built into the sculpt where RockBars stood."
 metadata/_edit_lock_ = true
 
 [node name="KillBox" type="Area3D" parent="." unique_id=887311935]
@@ -147,10 +198,6 @@ transform = Transform3D(0.965926, 0, 0.258819, 0, 1, 0, -0.258819, 0, 0.965926, 
 [node name="Portal" parent="StartEnd" unique_id=759663694 instance=ExtResource("19_portal")]
 editor_description = "The finish, further back toward the bars at 345 deg. A runner passes through the disc along the run direction: local Z is the pass-through axis, local X the 4.5 m span across the lane."
 transform = Transform3D(0.965926, 0, 0.258819, 0, 1, 0, -0.258819, 0, 0.965926, 50.2281, 23, -13.4586)
-
-[node name="RockBars" parent="." unique_id=876412848 instance=ExtResource("20_rock_bars")]
-editor_description = "Bars across the lane at 350 deg, in the gap between finish and start, so the finish is visible from the start. Unscaled: local X (11.92 m) runs radially from the cliff lip (r 46.58) into the outer wall (r 58.50, face at 57.09); local Z is tangential."
-transform = Transform3D(0.984808, 0, 0.173648, 0, 1, 0, -0.173648, 0, 0.984808, 51.7418, 23, -9.1235)
 
 [node name="Sections" type="Node3D" parent="." unique_id=1418060375]
 

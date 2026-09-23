@@ -20,6 +20,8 @@
 #   tools/modelling/model build runner --cam 200,35 --cam 15,-10,35 --res 1400x1400
 #   tools/modelling/model build runner --frame 6 --turntable 8
 #   tools/modelling/model build runner --variant slab       # a variant of one build script
+#   tools/modelling/model build map_base --chunk s3         # a chunked map: rebuild one chunk's .glb
+#   tools/modelling/model build map_base --views none       # no renders at all
 #   tools/modelling/model look   runner --cam 120,25        # renders only, no install
 #   tools/modelling/model look   runner --rest              # rest pose, to debug a rig
 #   tools/modelling/model verify runner                     # re-check the shipped .glb
@@ -113,6 +115,7 @@ VARIANT=""
 PREVIEW=0
 PROP=0
 WHERE=""            # "" = decide, "local" = this Mac, "pc" = the Windows box
+CHUNK=""            # a chunked map (writes <name>.chunks.json): export only this chunk
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -124,6 +127,7 @@ while [ $# -gt 0 ]; do
     --rest)       REST=1; shift ;;
     --light)      LIGHT="$2"; shift 2 ;;
     --variant)    VARIANT="$2"; shift 2 ;;
+    --chunk)      CHUNK="$2"; shift 2 ;;
     --gpu)        ENGINE="eevee"; shift ;;
     --preview)    PREVIEW=1; shift ;;
     --prop)       PROP=1; shift ;;
@@ -173,7 +177,9 @@ spec = {
 if "$VARIANT":
     spec["variant"] = "$VARIANT"
 views = "$VIEWS"
-if views:
+if views == "none":
+    spec["views"] = []
+elif views:
     spec["views"] = [v.strip() for v in views.split(",") if v.strip()]
 elif "${#CAMS[@]}" != "0" or int("$TURNTABLE"):
     spec["views"] = []
@@ -194,6 +200,11 @@ if "$REST" == "1":
     spec["pose"] = "rest"
 if "$LIGHT":
     spec["key_energy"] = float("$LIGHT")
+if "$CHUNK":
+    # One chunk is an export, not a review: no renders unless some were named.
+    spec["chunk"] = "$CHUNK"
+    if "views" not in spec and "$PREVIEW" != "1":
+        spec["views"] = []
 if "$PREVIEW" == "1":
     # mdl fills in the view list, the quarter resolution, the sample count and
     # the scale proxy. Anything named on the command line still wins.
@@ -323,6 +334,7 @@ EOF
   # still held to the base model's, because a variant is not an excuse.
   local contract="$HERE/${FULL}.contract.json"
   [ -f "$contract" ] || contract="$HERE/${NAME}.contract.json"
+  [ -n "${VERIFY_CONTRACT:-}" ] && contract="$VERIFY_CONTRACT"
   if [ -f "$contract" ]; then
     push "$contract" "$JOB/verify/contract.json"
   else
@@ -335,7 +347,7 @@ set W=$JOB_W
 del /q "%W%\\verify.done" 2>nul
 rmdir /s /q "%W%\\verify\\.godot" 2>nul
 del /q "%W%\\verify\\*.import" "%W%\\verify\\*.png" 2>nul
-copy /y "%W%\\out\\${FULL}.glb" "%W%\\verify\\model.glb" >nul
+copy /y "%W%\\out\\${VERIFY_GLB:-${FULL}.glb}" "%W%\\verify\\model.glb" >nul
 "$PC_GODOT" --headless --path "%W%\\verify" --import > "%W%\\verify.log" 2>&1
 "$PC_GODOT" --headless --path "%W%\\verify" --script res://verify_glb.gd >> "%W%\\verify.log" 2>&1
 echo %ERRORLEVEL% > "%W%\\verify.done"
@@ -378,12 +390,54 @@ stage_fetch() {
       *.glb)
         pull "$JOB/out/$f" "$TMP/$f"
         ;;
-      *.stats.json)
+      *.stats.json|*.chunks.json)
         pull "$JOB/out/$f" "$TMP/$f"
         ;;
     esac
   done <<< "$listing"
   say "$got render(s) -> $RENDERS"
+}
+
+# A chunked map writes <name>.chunks.json: one .glb per chunk, each with its
+# own contract. $1 = the directory the build's output landed in.
+chunk_glbs() {
+  python3 -c 'import json,sys;[print(c["glb"]) for c in json.load(open(sys.argv[1]))["chunks"]]' \
+    "$1/${NAME}.chunks.json"
+}
+
+chunk_contract() {
+  # $1 = manifest dir, $2 = glb basename, $3 = contract file to write
+  python3 - "$1/${NAME}.chunks.json" "$2" "$3" <<'PY'
+import json, sys
+for c in json.load(open(sys.argv[1]))["chunks"]:
+    if c["glb"] == sys.argv[2]:
+        json.dump(c["contract"], open(sys.argv[3], "w"), indent=1)
+PY
+}
+
+# Verify then install every chunk; $1 = where the build's output landed.
+stage_chunks() {
+  local dir="$1" g
+  for g in $(chunk_glbs "$dir"); do
+    say "chunk $g"
+    chunk_contract "$dir" "$g" "$TMP/contract_$g.json"
+    GLB_SRC="$dir/$g"
+    if [ "$DO_VERIFY" = "1" ]; then
+      if [ "$WHERE" = "local" ]; then
+        VERIFY_CONTRACT="$TMP/contract_$g.json" stage_verify_local
+      else
+        VERIFY_CONTRACT="$TMP/contract_$g.json" VERIFY_GLB="$g" stage_verify
+      fi
+    fi
+  done
+  if [ "$DO_INSTALL" = "1" ]; then
+    mkdir -p "$MODELS"
+    for g in $(chunk_glbs "$dir"); do
+      cp "$dir/$g" "$MODELS/$g"
+      say "assets/models/$g ($(wc -c < "$MODELS/$g" | tr -d ' ') bytes)"
+    done
+    "$REPO/tools/fix_glb_imports.sh"
+  fi
 }
 
 stage_install() {
@@ -460,7 +514,8 @@ gdscript/warnings/unsafe_property_access=1
 gdscript/warnings/unsafe_method_access=1
 EOF
   cp "$HERE/lib/verify_glb.gd" "$V/verify_glb.gd"
-  [ -f "$HERE/${NAME}.contract.json" ] && cp "$HERE/${NAME}.contract.json" "$V/contract.json"
+  local contract="${VERIFY_CONTRACT:-$HERE/${NAME}.contract.json}"
+  [ -f "$contract" ] && cp "$contract" "$V/contract.json"
   cp "$GLB_SRC" "$V/model.glb"
   "$MAC_GODOT" --headless --path "$V" --import   > "$TMP/verify.out" 2>&1 || true
   "$MAC_GODOT" --headless --path "$V" --script res://verify_glb.gd >> "$TMP/verify.out" 2>&1 || rc=$?
@@ -557,8 +612,13 @@ stage_audit() {
          "$HERE/${NAME}.contract.json")
     [ -n "$mt" ] && args+=(--max-tris "$mt")
   fi
-  python3 "$HERE/lib/glb_audit.py" "$MODELS/${NAME}.glb" "${args[@]+"${args[@]}"}" \
-    || die "contiguity/quality audit FAILED"
+  local g gs=("$MODELS/${NAME}.glb")
+  [ -f "${gs[0]}" ] || gs=("$MODELS/${NAME}"_*.glb)                # a chunked map audits each chunk
+  for g in "${gs[@]}"; do
+    [ -f "$g" ] || continue
+    python3 "$HERE/lib/glb_audit.py" "$g" "${args[@]+"${args[@]}"}" \
+      || die "contiguity/quality audit FAILED ($g)"
+  done
 }
 
 # -----------------------------------------------------------------------------
@@ -595,17 +655,21 @@ case "$CMD" in
     START=$(date +%s)
     if [ "$WHERE" = "local" ]; then
       stage_blender_local
+      OUT="$TMP/out"
       GLB_SRC="$TMP/out/${NAME}.glb"
-      if [ "$DO_VERIFY" = "1" ]; then stage_verify_local; fi
+      if [ "$DO_VERIFY" = "1" ] && [ ! -f "$OUT/${NAME}.chunks.json" ]; then stage_verify_local; fi
       stage_fetch_local
     else
       stage_ship
       stage_blender
-      if [ "$DO_VERIFY" = "1" ]; then stage_verify; fi
       stage_fetch
+      OUT="$TMP"
       GLB_SRC="$TMP/${NAME}.glb"
+      if [ "$DO_VERIFY" = "1" ] && [ ! -f "$OUT/${NAME}.chunks.json" ]; then stage_verify; fi
     fi
-    if [ "$DO_INSTALL" = "1" ]; then stage_install; fi
+    if [ -f "$OUT/${NAME}.chunks.json" ]; then
+      stage_chunks "$OUT"
+    elif [ "$DO_INSTALL" = "1" ]; then stage_install; fi
     say "$CMD $NAME complete in $(( $(date +%s) - START ))s on ${WHERE} (blender ${BLENDER_SECS}s)"
     if [ "$PROP" = "1" ]; then
       [ "$DO_INSTALL" = "1" ] || die "--prop gates the INSTALLED model; drop --preview/--no-install"

@@ -1026,12 +1026,14 @@ def spec():
     return _spec_from_argv()
 
 
-def main(name, build, facing_yaw=0.0, glb_name=None, post=None):
+def main(name, build, facing_yaw=0.0, glb_name=None, post=None, export=None):
     """Run a build script. This is the last line of every build script.
 
     ``build()`` returns the object (or list of objects) to export and render.
     ``facing_yaw`` is how many degrees to rotate every named view so that
     "front" means the front of this model, whichever way it was authored.
+    ``export(out_dir, objects, spec)``, when given, writes the .glb files
+    itself (a chunked map) and returns their paths.
     """
     spec = _spec_from_argv()
     reset()
@@ -1042,7 +1044,9 @@ def main(name, build, facing_yaw=0.0, glb_name=None, post=None):
 
     out_dir = spec.get("out_dir", ".")
     os.makedirs(out_dir, exist_ok=True)
-    if spec.get("glb", True):
+    if spec.get("glb", True) and export:
+        stats["glbs"] = export(out_dir, objects, spec)
+    elif spec.get("glb", True):
         path = os.path.join(out_dir, glb_name or (name + ".glb"))
         export_glb(path, objects)
         stats["glb"] = path
