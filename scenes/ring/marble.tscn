@@ -15,21 +15,35 @@
 background_mode = 1
 background_color = Color(0.20, 0.21, 0.23, 1)
 ambient_light_source = 2
-ambient_light_color = Color(0.62, 0.66, 0.72, 1)
-ambient_light_energy = 0.62
+ambient_light_color = Color(0.60, 0.61, 0.55, 1)
+ambient_light_energy = 0.6
 tonemap_mode = 1
+tonemap_white = 6.0
 
 [node name="Marble" type="Node3D"]
 editor_description = "MAP 2, MARBLE: the Bentham drawing in white marble, one closed rotunda built on assets/models/marble.glb. The GROUND FLOOR is at y -1.0 and is covered in marble spikes from the tower's foot out to the wall. The running lane is a GALLERY WALKWAY, an annulus r 46.7..59.55 at y 23.0 whose inner edge is open: no rail, no trough, a 24 m drop onto the spikes. Its outer edge is the wall of cells: seven tiers of barred cells, three below the walkway and four above it (tier bases -1, 7, 15, 23, 31, 39, 47), a wall top at 55, a dome springing at 57.8 and closing at an apex of 84.8. The model ships its own collision, so this scene adds no geometry: only the tower, the two lethal volumes, the light and the markers.
 
 A prisoner runs one 340 deg lap at r 52 from 5 deg to the portal at 345 deg. THE LANE IS BARE (Ryan, 2026-09-22: \"for the marble level, can you just get rid of all the elements on the ring? just so it looks good for screenshots and trailers and stuff\"): the obstacle course -- 71 placed instances, columns, broken columns, arches, spike patches and strips, pads, the orbs -- came off, and nothing stands on the 340 deg run now but the portal at the finish. The bars at 353 deg stayed, behind the finish and out of every shot of the lane, because the bake and the harness proved them structural rather than scenery: see the Bars node. The models the course used are still in assets/models/; only this scene changed. Off the walkway there is nothing to stand on until the spikes, and SpikeFloor kills before a body reaches them; KillBox below the ground floor catches anything that fell through the world.
 
-The light is the tower's: one shadowed, SOFT gold omni under the arcade throws its beams out through the tower's arches round the gallery and down the drop, over a cool grey ambient. It is wide (2.4 m), low-energy and nearly flat in falloff, so there is no hot spot in the room and the far wall is lit within a stop of the floor. No sun, no sky, no oculus."
+The light (2026-09-22, Ryan: \"the lighting in the marble level is absolutely terrible\") is a sunlit temple's, in two parts. The KEY is Environment/Skylight: one warm near-white omni on the axis at y 62, under the dome and over the tower's roof, and it is the map's ONE shadow caster -- so the walkway slab shades the three tiers under it, every cell's bars shade its reveal, the cornices band the wall and the tower stands on its own shadow on the spike floor, all top-down as through an oculus the mesh does not have. The tower's own lamp under the arcade is now a plain UNSHADOWED warm room light with reach enough (90 m) to fill under the walkway where the skylight cannot go; the old arrangement (the tower lamp shadowed at energy 22 over a flat falloff, a cool ambient, nothing above y 35 lit) blew the guard room out to white, threw hard mustard scallops on the lane band and left the top four tiers and the whole dome black. Ambient is a flat warm grey-olive fill for the shadow floor; the tonemap white is lifted so the room floor under the lamp rolls off instead of clipping. No sun, no sky, no oculus."
 
 [node name="Environment" type="Node3D" parent="."]
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="Environment"]
 environment = SubResource("Env")
+
+[node name="Skylight" type="OmniLight3D" parent="Environment"]
+editor_description = "THE KEY LIGHT and the map's one shadow caster: a warm near-white omni on the axis at y 62 (above the tower's dome apex 38.25, below the wall top 55 .. dome spring 57.8 .. apex 84.8), so the whole rotunda -- seven tiers, frieze, cornice, dome -- is lit from one high point with a 1/sqrt(d) falloff flat enough that the lane floor (65 m, NdotL 0.6) and the upper tiers (60-77 m, NdotL ~1) sit within a stop of each other. Range 110 covers the wall foot at r 60, y -1 (88 m). 3 m wide with a 2.0 shadow blur so the slab's edge on the tiers below and the bars' shadows in the cells are soft, not drawn lines. Cube shadow mode set here because GL Compatibility rejects dual paraboloid (see TowerLight). Cost measured on the PC at the runner's eye: see docs/maps/marble.md."
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 62, 0)
+light_color = Color(1, 0.96, 0.86, 1)
+light_energy = 22.0
+light_size = 3.0
+light_specular = 0.3
+shadow_enabled = true
+shadow_blur = 2.0
+omni_range = 110.0
+omni_attenuation = 0.5
+omni_shadow_mode = 1
 
 [node name="MapBase" parent="." instance=ExtResource("10_map_model")]
 editor_description = "assets/models/marble.glb: the whole rotunda, one contiguous mesh -- the spiked ground floor at y -1.0, the gallery walkway r 46.7..59.55 at y 23.0 with its open inner lip, the seven tiers of barred cells (bases -1/7/15/23/31/39/47), the wall top at 55, the dome from 57.8 to the apex at 84.8. Ships its own collision (MarbleCollision-colonly); the spikes are not in it, the volumes kill first."
@@ -132,14 +146,15 @@ editor_description = "On the dais at the room's centre (the room floor 1.70 over
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.55, 0)
 
 [node name="TowerLight" type="OmniLight3D" parent="Tower"]
-editor_description = "THE ARENA'S LIGHT: one warm gold lamp under the arcade, shadowed, so the arches throw their beams out across the ring as the drawing has them. It is a SOFT lamp, not a point (Ryan, 2026-09-16: \"it's way way harsh in the middle of the tower\"): it hangs at 5.6 over the datum -- world 30.95, well over the guard's head and still under the arches' crowns, so the light leaves the room instead of filling the dome -- and it is 2.4 m wide, at a third of the old energy, over a falloff flat enough (attenuation 0.3 over a 140 m reach) that the room floor and the wall 60 m away sit within a stop of each other. Every number is marble_tower_light_profile.tres'; the light_* properties here are placeholders for the editor view."
+editor_description = "The tower's own lamp under the arcade, UNSHADOWED since 2026-09-22: it hangs at 5.6 over the datum -- world 30.95, over the guard's head and under the arches' crowns -- as a warm room light, and because nothing occludes it, it reaches out through the shaft and the walkway slab to the three cell tiers under the lane (90 m) that the shadowed Skylight cannot light. It is a SOFT lamp (Ryan, 2026-09-16: \"it's way way harsh in the middle of the tower\"): 2.4 m wide, energy 4 over a nearly flat falloff (attenuation 0.35), so the room floor 3 m under it rolls off at the tonemap white instead of clipping. Every number is marble_tower_light_profile.tres'; the light_* properties here mirror it for the editor view."
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5.6, 0)
-light_color = Color(1, 0.9, 0.66, 1)
-light_energy = 22.0
+light_color = Color(1, 0.94, 0.8, 1)
+light_energy = 4.0
 light_size = 2.4
 light_specular = 0.25
-shadow_enabled = true
+shadow_enabled = false
 shadow_blur = 3.0
-omni_range = 140.0
+omni_range = 90.0
+omni_attenuation = 0.35
 script = ExtResource("3_tower_light")
 profile = ExtResource("4_tower_light_profile")

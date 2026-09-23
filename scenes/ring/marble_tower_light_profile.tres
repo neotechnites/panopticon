@@ -4,12 +4,12 @@
 
 [resource]
 script = ExtResource("1_tower_light_profile")
-color = Color(1, 0.9, 0.66, 1)
-energy = 22.0
-range_metres = 140.0
-attenuation = 0.3
+color = Color(1, 0.94, 0.8, 1)
+energy = 4.0
+range_metres = 90.0
+attenuation = 0.35
 height_metres = 5.6
-shadow_enabled = true
+shadow_enabled = false
 size_metres = 2.4
 shadow_blur = 3.0
 specular = 0.25
