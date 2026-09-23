@@ -38,12 +38,14 @@ corners and the arch soffit is a slightly warped ruled surface, which is what
 a round arch turned through a polygon's corner is). Jamb reveals run floor to
 springing, the intrados round the head, a spandrel strip over each half arch.
 
-Marble's atlas, same painter, same seed: stone courses on the shaft, fluting
-on the columns and their arch panels, coursed stone in the spandrels, shade
-in the reveals and soffits, moulding on the ring beam and the slab's edge,
-the lane's paving on the room floor in two rings of radial slabs round a
-plain medallion, coffers under the dome, grey on the dome, iron on the
-railing.
+Texture: ONE TILING SHEET PER MATERIAL CLASS (lib/texel.py, SHEETS below),
+world-projected at the rotunda's own density -- no atlas, no per-face random
+window. The shaft's courses therefore run round all sixteen facets at one
+height, on the same world 1 m grid the rotunda's wall courses use, and their
+vertical joints stand on the facet corners; the dome is a "custom" sheet
+whose v is the meridian's ARC LENGTH, so a coffer is the same size at the
+spring and at the crown. USE_TEXTURE_FILES swaps a painted class for
+textures/marble_tower_<class>_albedo.png when one is there.
 ONE CONTIGUOUS MESH: mb._Mesh welds coincident vertices; the columns' feet
 are cut out of the floor's outer band, the screen's head is SOLID corner to
 corner (so the ring beam has no exposed underside -- its two faces carry the
@@ -78,6 +80,7 @@ sys.path.insert(0, HERE)
 sys.path.insert(0, HERE + os.sep + "lib")
 
 import marble_build as mb  # noqa: E402
+import texel as tx  # noqa: E402  one tiling sheet per class, world-projected
 # marble_build imports its two part modules at its foot; they ride along to the
 # PC only when a column-0 `import x_build as y` names them in THIS script.
 import marble_lane_build as _ml  # noqa: E402, F401
@@ -131,6 +134,182 @@ POST_ZS = sorted(set([BALCONY_Z, POST_TOP] + [z for r in RAILS for z in r]))
 B_INSET = BALCONY_R - POST_W / math.cos(math.pi / NB)
 COLL_RAIL_R = BALCONY_R - 0.08   # the collider: an invisible band here, ledge to rail top
 GUARD_EYE = FLOOR_Z + DAIS_H + mb.EYE_H   # 3.95: world 29.3 (pass 3: 28.7)
+
+
+# =============================================================================
+# TEXTURE  (lib/texel.py: one tiling sheet per class, world cylindrical)
+# =============================================================================
+# The tower wears the rotunda's stone at the rotunda's density: WALL_MPT
+# (0.046 m) a texel, a sheet 12 courses of 1.0 m tall, phased on FOOT_Z -- the
+# spike floor -- so every course line lands on the world 1 m grid the wall's
+# own courses use (tower local z = world y - 25.35). Across, a shaft sheet is
+# 60 texels = 2.761 m and texel's ring() closes that at exactly 16 repeats
+# round r 7.0: ONE REPEAT PER FACET, its vertical joints on the facet corners
+# (U0_SHAFT puts u = 0 there), 2.749/60 = 0.0458 m a texel, 0.4 % off the
+# vertical. The balcony's sheet is 35 texels = 1.611 m: 32 repeats at r 8.2,
+# one per post facet. Band, column, iron and the floor slab are fitted to the
+# face exactly as the rotunda fits them; the dome is "custom" (see _dome_vs).
+
+USE_TEXTURE_FILES = True
+TEX_DIR = mb.TEX_DIR
+MPT = mb.WALL_MPT                    # 0.046019 m a texel: the rotunda's wall density
+SHEET_H = mb.WALL_H                  # 261 texels = 12 courses of 1.0 m
+SHEET_M = SHEET_H * MPT              # 12.01 m: the sheet's period up
+COURSES = 12
+SHAFT_PX = 60                        # one facet across at r 7.0 -> ring() closes at 16
+BAL_PX = 35                          # one balcony facet across at r 8.2 -> 32 repeats
+U0_SHAFT = SHAFT_R * math.radians(-(COL_PHASE + 180.0 / NS))       # u = 0 on a facet corner
+U0_BAL = BALCONY_R * math.radians(-(POST_PHASE + 180.0 / NB))      # ... on a balcony corner
+V0 = FOOT_Z                          # v = 0 on the spike floor: courses on the world grid
+
+
+def _dome_profile(rad, rise):
+    """The shell's meridian: (radius, height over the spring) per ring, ring
+    DOME_RINGS the apex, and the cumulative ARC LENGTH at each."""
+    pts = [(rad * math.cos(0.5 * math.pi * k / DOME_RINGS),
+            rise * math.sin(0.5 * math.pi * k / DOME_RINGS)) for k in range(DOME_RINGS + 1)]
+    arc = [0.0]
+    for k in range(DOME_RINGS):
+        arc.append(arc[-1] + math.hypot(pts[k + 1][0] - pts[k][0], pts[k + 1][1] - pts[k][1]))
+    return pts, arc
+
+
+DOME_ARC = _dome_profile(SHAFT_R, DOME_RISE)[1][-1]                     # the skin's meridian
+COFFER_ARC = _dome_profile(R_INSET, DOME_RISE - DOME_T)[1][-1]          # the coffered soffit's
+COFFER_ROWS = DOME_RINGS                                                # one coffer a ring band
+COFFER_PX = int(round((COFFER_ARC / COFFER_ROWS) / MPT))                # ... at MPT up the arc
+
+
+def _dome_vs(rad, rise, cls):
+    """v per ring for a dome shell: the meridian's ARC LENGTH at the sheet's
+    own density, so a texel is the same size at the spring and at the crown
+    (an angle would stretch it, a face fit would shrink it toward the apex).
+    The skin continues the shaft's courses across the beam; the coffers start
+    a row at the spring and close one at the apex."""
+    arc = _dome_profile(rad, rise)[1]
+    if cls == "coffer":
+        return [s / (COFFER_PX * MPT) for s in arc]
+    return [(DOME_Z0 - V0 + s) / SHEET_M for s in arc]
+
+
+# ---- the painters: the palette docs/maps/marble.md records, unchanged -------
+
+def _ashlar(c, r, shades, joint, verticals=True, courses=COURSES):
+    """Coursed blocks on a sheet one facet wide: a joint line on every course,
+    a vertical joint on the facet corner (u = 0) every course, the courses
+    half-bonded between, so a joint never stops at a face edge."""
+    tx.fill(c, r, c.box, shades)
+    rows = [int(round(k * c.h / float(courses))) for k in range(courses)]
+    for k, y0 in enumerate(rows):
+        y1 = rows[k + 1] if k + 1 < len(rows) else c.h
+        c.rect(0, y0, c.w, y0 + 1, joint)
+        if not verticals:
+            continue
+        for x in ([0, c.w // 2] if k % 2 == 0 else [0, c.w // 4, (3 * c.w) // 4]):
+            c.rect(x, y0 + 1, x + 1, y1, joint)
+    tx.shatter(c, r, c.box, [shades[0], shades[-1]], 16, 4, 9)
+
+
+def _sheet_stone(c, r, s):
+    """The shaft: tower ashlar #8b8160, joints #625b44."""
+    _ashlar(c, r, [(139, 129, 96), (135, 125, 92), (143, 133, 100), (137, 127, 94)], (98, 91, 68))
+
+
+def _sheet_plinth(c, r, s):
+    _ashlar(c, r, [(146, 142, 112), (142, 138, 108), (150, 146, 116), (144, 140, 110)], (108, 105, 80))
+
+
+def _sheet_shade(c, r, s):
+    """Grey-olive #6b6b55: reveals, soffits, undersides. Courses only."""
+    _ashlar(c, r, [(107, 107, 85), (103, 103, 81), (111, 111, 89), (99, 99, 78)], (80, 80, 66),
+            verticals=False)
+
+
+def _sheet_marble2(c, r, s):
+    """The balcony ledge, one repeat a post facet."""
+    _ashlar(c, r, [(146, 142, 112), (142, 138, 108), (150, 146, 116), (138, 134, 104)], (102, 99, 74),
+            courses=COURSES)
+
+
+def _sheet_coffer(c, r, s):
+    """One sunk coffer, a whole cell of the sheet: #9a9676 stepping down to
+    #565542 with a boss, in a grey-olive rib the next coffer shares."""
+    W, H = c.w, c.h
+    steps = [(154, 150, 118), (130, 127, 100), (108, 106, 84), (86, 85, 66), (96, 95, 76)]
+    tx.fill(c, r, c.box, [(107, 107, 85), (103, 103, 81)])
+    mx, my = max(2, W // 10), max(2, H // 10)
+    for k, col in enumerate(steps):
+        dx, dy = mx + (W // 2 - mx) * k // 6, my + (H // 2 - my) * k // 6
+        c.rect(dx, dy, W - dx, H - dy, col)
+    bw, bh = max(2, W // 14), max(2, H // 14)
+    c.rect(W // 2 - bw, H // 2 - bh, W // 2 + bw, H // 2 + bh, (146, 142, 112))
+    c.rect(W // 2 - bw // 2, H // 2 - bh // 2, W // 2 + bw // 2, H // 2 + bh // 2, (170, 166, 131))
+    tx.blades(c, r, c.box, 30, [(140, 136, 108), (96, 95, 76)])
+
+
+def _sheet_medallion(c, r, s):
+    """The dais' centre, drawn ONCE in a 1 m box the disc fills: a rosette of
+    sixteen spokes. Its face is a ring of vertices ABOUT the axis, where a
+    polar projection has no frame and would smear one row of texels across it."""
+    W, H = c.w, c.h
+    cx, cy = W / 2.0, H / 2.0
+    pale, olive, mid, dark = (154, 150, 118), (107, 107, 85), (146, 142, 112), (86, 85, 66)
+    for y in range(H):
+        for x in range(W):
+            dx, dy = x + 0.5 - cx, y + 0.5 - cy
+            d = math.hypot(dx, dy) / (W * 0.5)
+            spoke = int((math.atan2(dy, dx) + math.pi) / (math.pi / 8)) % 2
+            if d > 0.94:
+                col = olive
+            elif d > 0.82:
+                col = pale
+            elif d > 0.30:
+                col = olive if spoke else mid
+            elif d > 0.17:
+                col = dark
+            else:
+                col = pale
+            c.put(x, y, col)
+    tx.blades(c, r, c.box, 40, [(140, 136, 108)])
+
+
+def _wall(name, paint, seed, width=SHAFT_PX, ref_r=SHAFT_R, u0=U0_SHAFT):
+    return tx.Sheet(name, paint, mpt=MPT, size=SHEET_H, width=width, ref_r=ref_r,
+                    phase=(u0, V0), roughness=mb.ROUGHNESS, seed=seed)
+
+
+SHEETS = {
+    "stone": _wall("stone", _sheet_stone, 1),                                  # the shaft, the spandrels
+    "plinth": _wall("plinth", _sheet_plinth, 2),                               # foot, steps, room floor band, dais
+    "shade": _wall("shade", _sheet_shade, 3),                                  # reveals, soffits, undersides
+    "marble2": _wall("marble2", _sheet_marble2, 4, BAL_PX, BALCONY_R, U0_BAL),  # the ledge
+    "band": tx.Sheet("band", mb._sheet_band, mode="fit_v", width=256, size=64,
+                     roughness=mb.ROUGHNESS, seed=5),                          # ring beam, slab edge
+    "column": tx.Sheet("column", mb._sheet_column, mode="fit_u", width=64, size=256,
+                       roughness=mb.ROUGHNESS, seed=6),
+    "iron": tx.Sheet("iron", mb._sheet_iron, mode="fit_u", width=64, size=256,
+                     roughness=mb.ROUGHNESS, seed=7),
+    "floor": tx.Sheet("floor", mb._sheet_floor, mode="fit", size=64, mpt=2.7 / 64.0,
+                      roughness=mb.ROUGHNESS, seed=8),                         # one paving slab a face
+    "medallion": tx.Sheet("medallion", _sheet_medallion, mode="box", size=64,
+                          mpt=2.0 * PAVING_RS[0] / 64.0,
+                          phase=(-PAVING_RS[0], -PAVING_RS[0]),
+                          roughness=mb.ROUGHNESS, seed=9),
+    "coffer": tx.Sheet("coffer", _sheet_coffer, mpt=MPT, size=COFFER_PX, width=SHAFT_PX,
+                       mode="custom", roughness=mb.ROUGHNESS, seed=10),        # the dome inside
+    "dome": tx.Sheet("dome", _sheet_stone, mpt=MPT, size=SHEET_H, width=SHAFT_PX,
+                     mode="custom", roughness=mb.ROUGHNESS, seed=11),          # ... and outside
+}
+# Two faces wear a class their zone does not name, because their PROJECTION
+# differs, not their stone: the dome's skin (zone "shade") is "dome", and the
+# dais' centre disc (zone "shade") is "medallion".
+
+
+def _classify(m, n0, cls):
+    """Every face emitted since n0 belongs to class `cls`."""
+    for pi in range(n0, len(m.faces)):
+        m.face_class[pi] = cls
+
 
 
 # =============================================================================
@@ -466,8 +645,9 @@ def _room(m, coll=False):
         for i in range(NS):                                                        # ... its top: the rosette's wedges, plain grey
             j = (i + 1) % NS
             m.quad(a[i], a[j], b[j], b[i], mb.UP, "shade")
+        n0 = len(m.faces)
         m.poly(a, mb.UP, "shade")                                                  # its centre: no vertex on the axis,
-                                                                                   # where the polar unwrap has no frame
+        _classify(m, n0, "medallion")                                              # where the polar unwrap has no frame
     if coll:
         _posts(m, NS, COL_PHASE, SHAFT_R, COL_W, [FLOOR_Z, COL_Z1], (), "column", top=False)
     else:
@@ -489,8 +669,15 @@ def _crown(m, coll=False):
         f, fi = _Facet(ac, SHAFT_R), _Facet(ac, R_INSET)   # the beam's two faces carry the panel's top edge
         _head_band(m, f, z0, z1, f.n_out, "band")
         _head_band(m, fi, z0, z1, fi.n_in, "band")
-    for (rad, rise, outward, zone, cap_zone) in ((SHAFT_R, DOME_RISE, True, "shade", "shade"),
-                                                  (R_INSET, DOME_RISE - DOME_T, False, "coffer", "shade")):
+    # The two shells state their own UVs (SHEETS "dome" and "coffer" are
+    # "custom"): u is the AZIMUTH, one repeat a facet, continuing the shaft's
+    # -- so the band closes round with no seam -- and v is the meridian's ARC
+    # LENGTH, so a texel is the same size at the spring and at the crown. Each
+    # cap triangle gives the apex its OWN u, halfway between its two feet: one
+    # pole vertex with one UV is what smears a crown.
+    for (rad, rise, outward, zone, cls) in ((SHAFT_R, DOME_RISE, True, "shade", "dome"),
+                                            (R_INSET, DOME_RISE - DOME_T, False, "coffer", "coffer")):
+        vs = _dome_vs(rad, rise, cls)
         prev = _ringz(m, rad, z1)
         for k in range(1, DOME_RINGS):
             t = 0.5 * math.pi * k / DOME_RINGS
@@ -502,16 +689,25 @@ def _crown(m, coll=False):
                 w = (er[0] * rise, er[1] * rise, rad)
                 if not outward:
                     w = (-w[0], -w[1], -w[2])
-                m.quad(prev[i], prev[j], ring[j], ring[i], w, zone)
+                n0 = len(m.faces)
+                m.quad(prev[i], prev[j], ring[j], ring[i], w, zone,
+                       {prev[i]: (float(i), vs[k - 1]), prev[j]: (i + 1.0, vs[k - 1]),
+                        ring[j]: (i + 1.0, vs[k]), ring[i]: (float(i), vs[k])})
+                _classify(m, n0, cls)
             prev = ring
         apex = m.v((0.0, 0.0, z1 + rise))
         for i in range(NS):
             j = (i + 1) % NS
-            m.tri(prev[i], prev[j], apex, mb.UP if outward else mb.DOWN, cap_zone)
+            n0 = len(m.faces)
+            m.tri(prev[i], prev[j], apex, mb.UP if outward else mb.DOWN, "shade")
+            m.face_uv[n0] = {prev[i]: (float(i), vs[-2]), prev[j]: (i + 1.0, vs[-2]),
+                             apex: (i + 0.5, vs[-1])}
+            _classify(m, n0, cls)
 
 
 def _rock():
     m = mb._Mesh()
+    m.face_class = {}                     # face -> the class it wears, when its zone does not name it
     _shaft(m)
     n1 = len(m.faces)
     _balcony(m)
@@ -526,6 +722,7 @@ def _rock():
 
 def _collider():
     c = mb._Mesh()
+    c.face_class = {}
     _shaft(c)
     _balcony(c, coll=True)
     _room(c, coll=True)
@@ -596,6 +793,8 @@ def _render(spec, objects):
     shot("window", (0.0, 0.0, GUARD_EYE), mb.pol(open0, 20.0, FLOOR_Z + 0.5), 24.0, (1200, 800))
     # the room at eye level: the floor, the columns, the dome inside
     shot("room", mb.pol(200.0, 4.6, FLOOR_Z + mb.EYE_H), mb.pol(20.0, 2.5, FLOOR_Z + 0.3), 16.0, (1400, 900))
+    # the dome from under it, the guard's own view of the coffers and the crown
+    shot("dome", mb.pol(200.0, 6.0, FLOOR_Z + mb.EYE_H), (0.0, 0.0, DOME_Z0 + 0.35 * DOME_RISE), 16.0, (1400, 900))
     for ob in (target, cam, sun, room):
         bpy.data.objects.remove(ob, do_unlink=True)
 
@@ -607,12 +806,15 @@ def _render(spec, objects):
 def build():
     rock, counts = _rock()
     coll = _collider()
-    albedo, emissive = mb._sheet("marble", mb.build_texture)
-    mdl.save_texture(albedo)
-    mdl.save_texture(emissive)
     ob = rock.object(OBJECT_NAME)
-    mb.unwrap(ob, rock.zones, rock.groups, seed=3)
-    mdl.finish(ob, mb.stone_material("Marble", albedo, emissive), strip_uvs=False)
+    classes = [rock.face_class.get(pi, z) for pi, z in enumerate(rock.zones)]
+    tx.unwrap(ob, classes, SHEETS, seed=3, face_uv=rock.face_uv, groups=rock.groups)
+    mats = tx.materials(NAME, SHEETS, use_files=USE_TEXTURE_FILES, tex_dir=os.path.join(HERE, TEX_DIR))
+    for mat in mats.values():
+        mat.diffuse_color = (0.78, 0.76, 0.72, 1.0)
+    order = tx.finish(ob, classes, mats)
+    tx.report(SHEETS)
+    print("MDL STATS surfaces=%d order=%s" % (len(ob.data.materials), ",".join(order)))
     coll_ob = coll.object(COLLIDER_NAME)
     coll_ob.hide_render = True
     a = mb.audit(rock, "tower")
@@ -645,6 +847,16 @@ def _check():
     print("arcade: %d round arches, span %.2f rise %.2f, spring %.2f crown %.2f, spandrel %.2f to the beam at %.2f"
           % (NS, span, rise, SPRING_Z, crown, COL_Z1 - crown, COL_Z1))
     print("sightline clears the rail top by %.2f m (rail %.2f at r %.1f)" % (sightline_clearance(), POST_TOP, BALCONY_R))
+    for cls in sorted(SHEETS):
+        sh = SHEETS[cls]
+        if sh.mode == "cyl":
+            sh.ring((sh.ref_r, 0.0, 0.0))
+    tx.report(SHEETS)
+    print("dome skin: arc %.2f m, %.4f m/texel up the meridian, %.4f m across at the spring"
+          % (DOME_ARC, SHEET_M / SHEET_H, mb.TWO_PI * SHAFT_R / NS / SHAFT_PX))
+    print("coffers: arc %.2f m, %d rows of %.2f m (%d texels), %.4f m/texel up the meridian"
+          % (COFFER_ARC, COFFER_ROWS, COFFER_ARC / COFFER_ROWS, COFFER_PX,
+             (COFFER_ARC / COFFER_ROWS) / COFFER_PX))
     ok = a["components"] == 1 and a["boundary_edges"] == 0 and a["doubled_edges"] == 0 \
         and a["over_edges"] == 0 and a["degenerate"] == 0 and a["duplicate_positions"] == 0 \
         and c["boundary_edges"] == 0 and c["over_edges"] == 0 and sightline_clearance() > 0.0

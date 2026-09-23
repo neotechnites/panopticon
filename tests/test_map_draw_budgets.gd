@@ -113,8 +113,19 @@ const DRAW_BUDGETS: Dictionary = {
 	# MarbleStone draws 12 surfaces where the atlas drew 1 -- surfaces 15,
 	# materials 15, ceilings 18 (+20 %). Triangles unchanged in the .glb; the
 	# tris row below counts vertices/3 and fell with the shared UVs.
+	#
+	# Surfaces re-measured 2026-09-23, when the last two models on the atlas went
+	# onto lib/texel.py too (Ryan: "the texturing on the dome of the tower looks
+	# like it didnt get fixed" and "the texturing on the gate is bad"). The tower
+	# draws 11 surfaces where its atlas drew 1 and the gate 7 where it drew 1, so
+	# the arena measures surfaces 15 -> 31, materials 15 -> 31; ceilings 37
+	# (+20 %). TRIANGLES DID NOT MOVE -- 88624 before and after, because the
+	# tower's geometry is bit-identical and the widened gate kept its topology --
+	# so the tris ceiling is left where it was rather than raised to fit a number
+	# that did not change. Lights, transparency and the one shadow caster are
+	# untouched.
 	"marble": {
-		"tris": 90759, "surfaces": 18, "materials": 18,
+		"tris": 90759, "surfaces": 37, "materials": 37,
 		"transparent_tris": 0, "lights": 4, "shadow_casters": 1,
 	},
 	# The expensive one: 2.5x the Ring, plus 2196 transparent triangles, plus a

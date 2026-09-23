@@ -11,12 +11,25 @@ top in three, exactly as marble_wall_build._cornice orders them). Hanging in
 the mouth, N_BAR vertical bars of the cells' own iron -- 0.13 m square,
 2 * mb.BAR_HW -- with N_XBAR horizontal cross-bars through them.
 
-A DROP-IN FOR rock_bars.glb, so the scene swaps the model and changes nothing
-else: 10.6 m wide (x -5.3 .. 5.3), 8.5 m tall (z 0 .. 8.5), 0.5 m deep
-(y -0.25 .. 0.25). ORIGIN IS THE BASE CENTRE: z = 0 is the ground. Blender +Z
--> Godot +Y, +X -> +X, +Y -> -Z, so the screen spans Godot local X across the
-lane and its thickness is local Z along the lane. As rock_bars guarantees, NO
-GAP ANYWHERE IS WIDER THAN 0.38 m: the widest is the bar pitch, 0.342.
+IT SPANS THE WALKWAY WALL TO LIP. Ryan, 2026-09-23: "the gate doesnt block
+anyone from going past it to the portal." It did not: on rock_bars' inherited
+10.6 m (HALF_W 5.3) centred on the lane at r 52.0 it reached r 46.7..57.3,
+while marble's walkway runs r 46.7..59.55 -- headless measurement of the scene,
+2.2495 m of open floor between the gate's outer end and the cell wall, and a
+body walked round it. The gate is now 12.85 m wide (x -6.425 .. 6.425) and the
+scene stands its centre at r 53.125, so it reaches the inner lip (46.7) and the
+wall (59.55) with nothing to walk round. Everything else is rock_bars' still:
+8.5 m tall (z 0 .. 8.5), 0.5 m deep (y -0.25 .. 0.25). ORIGIN IS THE BASE
+CENTRE: z = 0 is the ground. Blender +Z -> Godot +Y, +X -> +X, +Y -> -Z, so the
+screen spans Godot local X across the lane and its thickness is local Z along
+the lane. As rock_bars guarantees, NO GAP ANYWHERE IS WIDER THAN 0.38 m: the
+widest is the bar pitch, 0.342.
+
+THE EXTRA 2.25 m GOES INTO THE FLANKING ASHLAR FIELD, nowhere else. The mouth
+stays 6.0 m under its r 3.0 head, the jambs stay mb.PILASTER_W wide at the two
+ends, the twelve bars keep their 0.342 pitch: only the screen between a jamb's
+inner line (XP) and the mouth grows, 1.3 m a side to 2.425 m a side. The
+collider's own field boxes grow with it, so the new stone is solid, not scenery.
 
 The frame's profile is three depths, and only three: PROUD_HD (the socle, the
 pilasters and the cornice, at the full 0.25) and FIELD_HD (the screen between
@@ -40,7 +53,30 @@ underside is capped: nothing is left open.
 
 MarbleBarsCollision rides in the .glb as a `-colonly` node, one box per real
 solid -- socle, two pilasters, two jamb margins, spandrel, cornice, a box per
-vertical bar, a box per cross-bar -- not one fat box over everything.
+vertical bar, a box per cross-bar -- not one fat box over everything. The two
+jamb-margin boxes are the ones that carry the widening: they run ARCH_HW .. XP
+a side, so the new ashlar field is solid from the socle to the cornice soffit
+and the only opening left anywhere across the walkway is the barred mouth.
+
+It now carries a box for EVERY real solid, which the widening's test found it
+did not: see _collider(). The sweep of it measures 0.342 m, the drawn mesh's
+own widest gap, at every height.
+
+tests/test_marble_gate.gd is the proof in the scene: it drives a 0.4 x 1.8 m
+capsule at the gate at 11 m/s from radial offsets spanning the whole walkway,
+sweeps the collider for an opening wider than 0.38 m, and checks the top.
+
+Texture: ONE TILING SHEET PER MATERIAL CLASS (lib/texel.py, SHEETS below) at
+the rotunda's own density -- no atlas, no per-face random window, which is what
+left this gate a flat cold wash beside the wall it stands in. The gate is a
+FLAT SLAB, not a ring, so the stone is projected "box" -- world x/y/z by the
+face normal's largest axis, in the gate's own frame -- and its courses are
+therefore level lines at the gate's own heights: a joint on the ledge (0.85,
+the socle is exactly one course) and on the sill (1.0), then on up the world 1 m
+grid the rotunda's wall courses stand on. The iron is on the PORTCULLIS' OWN
+MODULE (see _sheet_iron), so every upright wears the cells' lit rim.
+USE_TEXTURE_FILES swaps a painted class for textures/marble_bars_<class>_albedo.png
+when one is there.
 
     python3 tools/modelling/marble_bars_build.py --check
     tools/modelling/model build marble_bars
@@ -63,6 +99,7 @@ sys.path.insert(0, HERE)
 sys.path.insert(0, HERE + os.sep + "lib")
 
 import marble_build as mb  # noqa: E402
+import texel as tx  # noqa: E402  one tiling sheet per class, world-projected
 # marble_build imports its two part modules at its foot; they ride along to the
 # PC only when a column-0 `import x_build as y` names them in THIS script.
 import marble_lane_build as _ml  # noqa: E402, F401
@@ -85,15 +122,21 @@ FACING_YAW = 0.0
 BEARING = 353.0             # the scene's bearing for the gate: mb.BARS_B, the gap between
                             # finish (345) and start (5). The in-scene render stands it here.
 
-HALF_W = 5.3                # 10.6 m across the lane -- rock_bars' width, to the centimetre
-HEIGHT = 8.5                # ... and its height
+LIP_R = 46.7                # the walkway's inner lip, and the gate's inner end
+WALL_R = 59.55              # the walkway's outer edge at the cell wall, and the gate's outer end
+HALF_W = 0.5 * (WALL_R - LIP_R)   # 6.425: 12.85 m across the lane, WALL to LIP, so there is
+                            # no floor to walk round. Was rock_bars' 5.3, which left 2.25 m open
+                            # outboard once the scene centred it on the lane at r 52.0.
+CENTRE_R = 0.5 * (WALL_R + LIP_R) # 53.125: where the scene must stand the gate's origin
+HEIGHT = 8.5                # rock_bars' height, unchanged
 PROUD_HD = 0.25             # half depth of socle, pilasters and cornice: 0.5 m of stone, rock_bars' depth
 PROUD = 0.12                # the pilaster stands this far proud of the screen. The rotunda's
                             # mb.PILASTER_PROUD is 0.45 off a 3 m wall; a 0.5 m gate affords 0.12
 FIELD_HD = PROUD_HD - PROUD # 0.13: half depth of the screen between the pilasters
 
 PW = mb.PILASTER_W          # 1.0: the pilaster jambs, the rotunda's own pier width
-XP = HALF_W - PW            # 4.3: the pilasters' inner line, where the screen sets back
+XP = HALF_W - PW            # 5.425: the pilasters' inner line, where the screen sets back.
+                            # The jambs keep PW; the widening lands in the field inboard of it.
 
 SOCLE_Z = 0.85              # the socle's top: the ledge where the frame sets back to FIELD_HD
 SILL_Z = mb.SILL_UP         # 1.0: the sill the bars stand on (the rotunda's sill over a tier base)
@@ -178,6 +221,130 @@ def widest_gap():
                 worst = max(worst, max(0.0, xl - xa))
                 break
     return worst
+
+
+# =============================================================================
+# TEXTURE  (lib/texel.py: one tiling sheet per class, world box projection)
+# =============================================================================
+# The gate wears the rotunda's stone at the rotunda's density: mb.WALL_MPT
+# (0.046019 m) a texel on a sheet mb.WALL_H (261) texels tall = 12 courses of
+# 1.0 m. It is a FLAT SLAB standing across the lane, not a ring, so the stone
+# projects "box" -- world x/y/z by the normal's largest axis -- in the gate's
+# OWN frame, which is the frame its joints have to line up with: v = z on every
+# face of the screen, so a course line is level right across the gate and
+# carries on through the jamb reveals at the same height.
+#
+# Up (v): V0 puts a joint exactly on the SILL (1.0), the line the iron stands
+# on, and the courses then run up from it a course at a time. The gate's z 0 IS
+# the walkway deck (world y 23), 24 courses over the rotunda's own FLOOR_Z
+# (-1.0), so those lines are the wall's own course lines to within the quarter
+# texel the 261/12 rounding costs. The socle is phased on its own top instead:
+# V0_PLINTH puts its single joint on the ledge at 0.85, so the socle reads as
+# one course of stone from the ground to the ledge, which is what a socle is.
+#
+# Across (u): STONE_PX texels = 2.991 m, blocks of 1.50 m half-bonded, the
+# rotunda's own block. Phase U0 = 0 stands the sheet's continuous vertical
+# joint on the gate's centre line (behind the iron), on the mouth's two jambs
+# (+-2.991, 9 mm -- a fifth of a texel -- off the +-3.0 arris) and behind the
+# pilasters (+-5.98), so every one of them falls on an edge or on nothing.
+#
+# The iron is the cells' iron, on the portcullis' own module: see _sheet_iron.
+
+USE_TEXTURE_FILES = True
+TEX_DIR = mb.TEX_DIR
+MPT = mb.WALL_MPT                       # 0.046019 m a texel: the rotunda's wall density
+SHEET_H = mb.WALL_H                     # 261 texels = 12 courses of 1.0 m
+COURSES = 12
+COURSE_PX = int(round(SHEET_H / float(COURSES)))   # 22 texels
+COURSE_M = COURSE_PX * MPT              # 1.0124 m: the course, to the nearest texel
+STONE_PX = int(round(3.0 / MPT))        # 65 texels = 2.991 m across: 1.50 m blocks
+U0 = 0.0                                # u = 0 on the gate's centre line
+V0 = SILL_Z - COURSE_M                  # a joint exactly on the sill, then a course at a time
+V0_PLINTH = SOCLE_Z - COURSE_M          # ... and the socle's one joint on the ledge
+
+IRON_MOD = BAR_PITCH + 2.0 * BAR_HW     # 0.4715 m: the uprights' centre-to-centre pitch
+IRON_PX = 58                            # texels across one module -> the bar is 16 of them
+IRON_MPT = IRON_MOD / IRON_PX           # 0.008130 m a texel
+BAR_PX = int(round(2.0 * BAR_HW / IRON_MPT))       # 16
+IRON_U0 = bar_x(0) - BAR_HW             # u = 0 on EVERY upright's left edge
+
+
+# ---- the painters: the palette docs/maps/marble.md records, unchanged -------
+
+def _ashlar(c, r, shades, joint, verticals=True, courses=COURSES):
+    """Coursed blocks: a joint line on every course, a vertical joint on the
+    sheet's own edge every course and the courses half-bonded between, so a
+    joint runs across a face edge instead of stopping at it."""
+    tx.fill(c, r, c.box, shades)
+    rows = [int(round(k * c.h / float(courses))) for k in range(courses)]
+    for k, y0 in enumerate(rows):
+        y1 = rows[k + 1] if k + 1 < len(rows) else c.h
+        c.rect(0, y0, c.w, y0 + 1, joint)
+        if not verticals:
+            continue
+        for x in ([0, c.w // 2] if k % 2 == 0 else [0, c.w // 4, (3 * c.w) // 4]):
+            c.rect(x, y0 + 1, x + 1, y1, joint)
+    tx.shatter(c, r, c.box, [shades[0], shades[-1]], 16, 4, 9)
+
+
+def _sheet_marble(c, r, s):
+    """The screen's ashlar field: #9a9676 in #6c6950 mortar."""
+    _ashlar(c, r, [(154, 150, 118), (150, 146, 114), (158, 154, 122), (146, 142, 110)],
+            (108, 105, 80))
+
+
+def _sheet_marble2(c, r, s):
+    """The spandrel over the head: the second sheet, #928e70 in #66634a."""
+    _ashlar(c, r, [(146, 142, 112), (142, 138, 108), (150, 146, 116), (138, 134, 104)],
+            (102, 99, 74))
+
+
+def _sheet_shade(c, r, s):
+    """Grey-olive #6b6b55 in #505042: ledge, reveals, soffits, sill, the
+    cornice's top. Courses only -- an underside shows no vertical joint."""
+    _ashlar(c, r, [(107, 107, 85), (103, 103, 81), (111, 111, 89), (99, 99, 78)],
+            (80, 80, 66), verticals=False)
+
+
+def _sheet_plinth(c, r, s):
+    """The socle: #928e70 in #6c6950, one course tall (V0_PLINTH)."""
+    _ashlar(c, r, [(146, 142, 112), (142, 138, 108), (150, 146, 116), (144, 140, 110)],
+            (108, 105, 80))
+
+
+def _sheet_iron(c, r, s):
+    """The cell bars' iron -- near-black #181a1f with the lit rim #686e7a --
+    drawn on the PORTCULLIS' OWN MODULE. The uprights' centres are exactly
+    IRON_MOD apart, so with u = 0 on bar 0's left edge EVERY upright's face
+    falls on texels 0 .. BAR_PX of the sheet and every cross-bar segment --
+    which spans a gap between two uprights -- falls on the rest. So each
+    upright wears the rim down its left arris and the shadow down its right,
+    exactly as a cell bar does, and the cross-bars wear the base iron."""
+    tx.fill(c, r, c.box, [(24, 26, 31), (20, 22, 27), (28, 30, 35), (22, 24, 29)])
+    c.rect(0, 0, 2, c.h, (104, 110, 122))              # the lit rim
+    c.rect(2, 0, 3, c.h, (80, 85, 96))                 # ... stepping down to the base
+    c.rect(BAR_PX - 2, 0, BAR_PX, c.h, (58, 62, 72))   # the shadow edge
+    tx.blades(c, r, c.box, 40, [(16, 18, 23), (34, 36, 42)])
+
+
+def _stone(name, paint, seed, v0=V0):
+    return tx.Sheet(name, paint, mpt=MPT, size=SHEET_H, width=STONE_PX, mode="box",
+                    phase=(U0, v0), roughness=mb.ROUGHNESS, seed=seed)
+
+
+SHEETS = {
+    "marble": _stone("marble", _sheet_marble, 1),                              # the screen's field
+    "marble2": _stone("marble2", _sheet_marble2, 2),                           # the spandrel
+    "shade": _stone("shade", _sheet_shade, 3),                                 # ledge, reveals, soffits, sill
+    "plinth": _stone("plinth", _sheet_plinth, 4, V0_PLINTH),                   # the socle
+    "band": tx.Sheet("band", mb._sheet_band, mode="fit_v", width=256, size=64,
+                     roughness=mb.ROUGHNESS, seed=5),                          # the cornice's mouldings
+    "column": tx.Sheet("column", mb._sheet_column, mode="fit_u", width=64, size=256,
+                       roughness=mb.ROUGHNESS, seed=6),                        # the fluted pilasters
+    "iron": tx.Sheet("iron", _sheet_iron, mpt=IRON_MPT, width=IRON_PX, size=256,
+                     mode="box", phase=(IRON_U0, 0.0),
+                     roughness=mb.ROUGHNESS, seed=7),                          # the portcullis
+}
 
 
 # =============================================================================
@@ -423,7 +590,21 @@ def _gate():
 
 
 def _collider():
-    """One box per real solid, not one fat box over everything."""
+    """One box per real solid, not one fat box over everything -- and a box for
+    EVERY real solid, which is the fix of 2026-09-23. Two pieces of drawn stone
+    had no box: the band between the socle's top (0.85) and the sill the bars
+    stand on (1.00), and the spandrel's curved haunches, which a single flat
+    CROWN_Z .. CORN_Z slab left open from the arch's underside up to 7.20. A
+    radial sweep of the old collider found 5.995 m of open lane at z 0.87 and
+    2.72 m at z 7.11, against a drawn mesh with no gap over 0.342 anywhere. Both
+    were out of a body's reach, and neither is any business of a barrier's to
+    leave lying about: tests/test_marble_gate.gd asserts the collider's own
+    widest opening across the walkway, at every height, not the reachable ones.
+
+    The spandrel is now a stair of boxes on the head's OWN stations, HEAD_XS --
+    the same polyline the drawn soffit is built on. Each column's floor is the
+    LOWER of its two ends, so the collider's arch is inscribed in the drawn one:
+    a barrier may be solid where the stone is not, never open where it is."""
     c = mb._Mesh()
     _box(c, (-HALF_W, -PROUD_HD, 0.0), (HALF_W, PROUD_HD, SOCLE_Z), "plinth")
     _box(c, (-HALF_W, -PROUD_HD, CORN_Z), (HALF_W, PROUD_HD, HEIGHT), "band")
@@ -431,10 +612,18 @@ def _collider():
         _box(c, (x0, -PROUD_HD, SOCLE_Z), (x1, PROUD_HD, CORN_Z), "column")
     for (x0, x1) in ((ARCH_HW, XP), (-XP, -ARCH_HW)):
         _box(c, (x0, -FIELD_HD, SOCLE_Z), (x1, FIELD_HD, CORN_Z), "marble")
-    _box(c, (-ARCH_HW, -FIELD_HD, CROWN_Z), (ARCH_HW, FIELD_HD, CORN_Z), "marble2")
+    _box(c, (-ARCH_HW, -FIELD_HD, SOCLE_Z), (ARCH_HW, FIELD_HD, SILL_Z), "marble")
+    for i in range(len(HEAD_XS) - 1):
+        xa, xb = HEAD_XS[i], HEAD_XS[i + 1]
+        _box(c, (xa, -FIELD_HD, min(head_z(xa), head_z(xb))), (xb, FIELD_HD, CORN_Z), "marble2")
     for k in range(N_BAR):
         xl, xr = bar_span(k)
-        _box(c, (xl, -BAR_HW, SILL_Z), (xr, BAR_HW, min(head_z(xl), head_z(xr))), "iron")
+        # The drawn bar's head is a polygon ON the soffit's polyline, so the box
+        # tops at the HIGHER of its two ends: the low end would leave a sliver of
+        # daylight between the bar's shoulder and the spandrel above it, and at
+        # the haunch that sliver merges with the pitch beside it into a 0.411 m
+        # opening. Over-topping only pushes iron into stone.
+        _box(c, (xl, -BAR_HW, SILL_Z), (xr, BAR_HW, max(head_z(xl), head_z(xr))), "iron")
     for (z0, z1) in XBAR_Z:
         _box(c, (-ARCH_HW, -BAR_HW, z0), (ARCH_HW, BAR_HW, z1), "iron")
     return c
@@ -460,7 +649,7 @@ def _render(spec, objects):
     """
     ROTUNDA_GLB = r"C:\Users\ddd\panopticon-modelling\jobs\marble\out\marble.glb"
     PROXY_W, PROXY_D, PROXY_H = 0.6, 0.3, 1.8   # metres: shoulders, chest, a standing runner
-    LANE_R = 52.0               # the lane's radius, the scene transform's own number
+    LANE_R = CENTRE_R           # 53.125: the gate's centre, wall to lip, the scene transform's own number
     LANE_Z = 23.0               # the walkway top the prop stands on (mb.DECK_Z)
     CAM_OFF = 22.0              # degrees round the lane between the runner and the prop
 
@@ -613,12 +802,15 @@ def _render(spec, objects):
 def build():
     gate, counts = _gate()
     coll = _collider()
-    albedo, emissive = mb._sheet("marble", mb.build_texture)
-    mdl.save_texture(albedo)
-    mdl.save_texture(emissive)
     ob = gate.object(OBJECT_NAME)
-    mb.unwrap(ob, gate.zones, gate.groups, seed=SEED)
-    mdl.finish(ob, mb.stone_material("Marble", albedo, emissive), strip_uvs=False)
+    tx.unwrap(ob, gate.zones, SHEETS, seed=SEED, groups=gate.groups)
+    mats = tx.materials(NAME, SHEETS, use_files=USE_TEXTURE_FILES,
+                        tex_dir=os.path.join(HERE, TEX_DIR))
+    for mat in mats.values():
+        mat.diffuse_color = (0.78, 0.76, 0.72, 1.0)
+    order = tx.finish(ob, gate.zones, mats)
+    tx.report(SHEETS)
+    print("MDL STATS surfaces=%d order=%s" % (len(ob.data.materials), ",".join(order)))
     coll_ob = coll.object(COLLIDER_NAME)
     coll_ob.hide_render = True
     a = mb.audit(gate, "bars")
