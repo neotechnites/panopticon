@@ -18,6 +18,7 @@ extends SceneTree
 ##   --pos=x,y,z         camera position
 ##   --look=x,y,z        point to aim at
 ##   --out=C:/path.png   where to write
+##   --settle=seconds    extra wall-clock time to run before the shot (default 0)
 
 func _arg(name: String, fallback: String) -> String:
 	for raw in OS.get_cmdline_user_args():
@@ -35,6 +36,8 @@ func _parse(raw: String, fallback: Vector3) -> Vector3:
 
 var _scene_path: String = ""
 var _out_path: String = ""
+var _settle: float = 0.0
+var _settled: float = 0.0
 var _started: bool = false
 
 
@@ -43,6 +46,7 @@ var _started: bool = false
 func _initialize() -> void:
 	_scene_path = _arg("scene", "")
 	_out_path = _arg("out", "")
+	_settle = maxf(0.0, float(_arg("settle", "0")))
 	if _scene_path.is_empty() or _out_path.is_empty():
 		push_error("shot.gd needs --scene= and --out=")
 		quit(1)
@@ -80,6 +84,23 @@ static func build_camera(parent: Node, pos: Vector3, look: Vector3) -> Camera3D:
 
 
 func _capture(out_path: String) -> void:
+	# Anything that EASES toward a target needs wall-clock time, not frames: the
+	# WatchingEye turns its pupil at track_rate 2.0/s, so six frames leaves it
+	# still aimed wherever it started. --settle runs the tree until that many
+	# seconds of real frame delta have gone by. Default 0.0 skips the loop
+	# entirely, leaving the six-frame behaviour below exactly as it was.
+	# Real delta comes off the OS clock, not get_process_delta_time(): the frame
+	# that instantiates the scene carries the whole load stall in its delta, and
+	# one such frame would satisfy the whole budget without any time passing for
+	# the eye to turn in.
+	var settled: float = 0.0
+	var mark: int = Time.get_ticks_usec()
+	while settled < _settle:
+		await process_frame
+		var now: int = Time.get_ticks_usec()
+		settled += float(now - mark) * 0.000001
+		mark = now
+	_settled = settled
 	# Several frames, not one: lights, shadow maps and any _ready() wiring need a
 	# tick or two to settle, and a single frame reliably captures the moment
 	# before they do.
@@ -88,5 +109,8 @@ func _capture(out_path: String) -> void:
 	await RenderingServer.frame_post_draw
 	var image: Image = root.get_viewport().get_texture().get_image()
 	image.save_png(out_path)
-	print("SHOT %s %dx%d" % [out_path, image.get_width(), image.get_height()])
+	# The suffix appears only when someone asked to settle, so the default line
+	# anything downstream greps for is unchanged.
+	var note: String = "" if _settle <= 0.0 else " settled=%.2fs" % _settled
+	print("SHOT %s %dx%d%s" % [out_path, image.get_width(), image.get_height(), note])
 	quit(0)
