@@ -215,7 +215,7 @@ CROWN_SPAN = (12.5, 45.5)   # where a top's centre may sit
 CROWN_FADE_IN = (12.0, 15.0)   # tops fade in off the crown's rim ...
 CROWN_FADE_OUT = (45.0, 47.6)  # ... and over the drum's head: they grow on over the wall, clear of its top cells
 SEAM_TINT = (35.6, 47.6)    # radius band over which the canopy's shade and sun fade to the drum's leaf
-SEAM_WALL_N = (-0.98, 0.17)  # the drum head's mean normal (radial, up), read off forest.glb: the light the roof fades to
+SEAM_LIFT = 1.15            # and the roof's leaf brightens this much by the seam, meeting the drum's shaded head
 CROWN_LEAF = (2.5, 5.0)    # the leafy lumps on a top: their wavelengths, m
 CROWN_LUMP = 0.12           # and their share of its depth
 CROWN_EDGE = 0.12           # a face hung less than this share of its top's depth is a crease: shade
@@ -1954,7 +1954,7 @@ def _zone_means(names):
 
 def seam_tint(ob, zones):
     """Ryan: "a hard line from the color of the roof to the color of the wall". Over
-    SEAM_TINT the canopy's shade and sun fade, per corner in COLOR_0, to the drum's leaf."""
+    SEAM_TINT the canopy's shade and sun fade, per corner in COLOR_0, to the drum's leaf, lifting by SEAM_LIFT."""
     mean = _zone_means(("leaf", "shade", "sun"))
     k = {z: [mean["leaf"][c] / mean[z][c] for c in range(3)] for z in ("shade", "sun")}
     me = ob.data
@@ -1963,7 +1963,7 @@ def seam_tint(ob, zones):
     out = list(zones)
     for pi, poly in enumerate(me.polygons):
         zone = zones[pi]
-        if zone not in ("shade", "sun"):
+        if zone not in ("leaf", "shade", "sun"):
             continue
         ts = [_ramp(math.hypot(*me.vertices[me.loops[li].vertex_index].co[:2]), *SEAM_TINT)
               for li in poly.loop_indices]
@@ -1972,9 +1972,15 @@ def seam_tint(ob, zones):
         if zone == "shade":             # the leaf's texels darkened to the shade, lifting to leaf
             out[pi] = "leaf"
         for li, t in zip(poly.loop_indices, ts):
+            lift = 1.0 + (SEAM_LIFT - 1.0) * t
             for c in range(3):
-                f = (1.0 / k[zone][c]) * (1.0 - t) + t if zone == "shade" else 1.0 + (k[zone][c] - 1.0) * t
-                flat[li * 4 + c] = f
+                if zone == "shade":
+                    f = (1.0 / k[zone][c]) * (1.0 - t) + t
+                elif zone == "sun":
+                    f = 1.0 + (k[zone][c] - 1.0) * t
+                else:
+                    f = 1.0
+                flat[li * 4 + c] = f * lift
     col.data.foreach_set("color", flat)
     me.color_attributes.active_color_index = 0
     me.color_attributes.render_color_index = 0
@@ -2003,58 +2009,14 @@ def tint_material(mat):
     return mat
 
 
-def seam_light(ob, zones):
-    """The roof faces down and so took the sky's dark lower half; the drum faces the ravine. Over
-    SEAM_TINT each canopy face's shading normal swings to the drum head's, so both light alike."""
-    me = ob.data
-    crown = [pi for pi, z in enumerate(zones) if z in ("leaf", "shade", "sun")]
-    bins = {}
-    for pi in crown:
-        poly = me.polygons[pi]
-        c, n = poly.center, poly.normal
-        rad = math.hypot(c[0], c[1])
-        if rad < SEAM_TINT[0] or n[2] >= 0.0:
-            continue
-        b = bins.setdefault(int(rad * 2.0), [0.0, 0.0])
-        b[0] += (n[0] * c[0] + n[1] * c[1]) / rad * poly.area
-        b[1] += n[2] * poly.area
-    ref = {k: math.atan2(v[1], v[0]) for k, v in bins.items()}
-    wall = math.atan2(SEAM_WALL_N[1], SEAM_WALL_N[0])
-    flat = [None] * len(me.loops)
-    for poly in me.polygons:
-        for li in poly.loop_indices:
-            flat[li] = tuple(poly.normal)
-    for pi in crown:
-        poly = me.polygons[pi]
-        n = poly.normal
-        for li in poly.loop_indices:
-            co = me.vertices[me.loops[li].vertex_index].co
-            rad = math.hypot(co[0], co[1])
-            w = _ramp(rad, *SEAM_TINT)
-            if w <= 0.0:
-                continue
-            k = min(ref, key=lambda b: abs(b - rad * 2.0))
-            d = w * (((wall - ref[k]) + math.pi) % (2.0 * math.pi) - math.pi)
-            ux, uy = co[0] / rad, co[1] / rad
-            nr = n[0] * ux + n[1] * uy
-            nt = -n[0] * uy + n[1] * ux
-            nr, nz = nr * math.cos(d) - n[2] * math.sin(d), nr * math.sin(d) + n[2] * math.cos(d)
-            flat[li] = (nr * ux - nt * uy, nr * uy + nt * ux, nz)
-    me.polygons.foreach_set("use_smooth", [True] * len(me.polygons))
-    me.edges.foreach_set("use_edge_sharp", [True] * len(me.edges))
-    me.normals_split_custom_set(flat)
-
-
 def build_render_copy(albedo=None, emissive=None):
     """The tree in WORLD coordinates for another model's review renders."""
     m = build_tree_geometry()
     ob = m.object("ReviewTree")
-    zones = seam_tint(ob, m.zones)
-    unwrap(ob, zones)
+    unwrap(ob, seam_tint(ob, m.zones))
     if albedo is None:
         albedo, emissive = sheet("forest_atlas", paint_atlas)
     mdl.finish(ob, tint_material(atlas_material("ForestAtlasTree", albedo, emissive)), strip_uvs=False)
-    seam_light(ob, zones)
     return ob
 
 
@@ -2066,10 +2028,8 @@ def build():
     mdl.save_texture(emissive)
     shift = (0.0, 0.0, -ORIGIN_Y)
     ob = m.object(OBJECT_NAME, shift)
-    zones = seam_tint(ob, m.zones)
-    unwrap(ob, zones)
+    unwrap(ob, seam_tint(ob, m.zones))
     mdl.finish(ob, tint_material(atlas_material("ForestAtlas", albedo, emissive)), strip_uvs=False)
-    seam_light(ob, zones)
     coll = c.object(COLLIDER_NAME, shift)
     coll.hide_render = True
     print("MDL STATS visual_tris=%d collision_tris=%d floor_y=%.2f eye_y=%.2f apex_y=%.1f"
