@@ -44,6 +44,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)) + os.sep + "lib")
 
 import mdl  # noqa: E402
+import texel as tx  # noqa: E402
 
 # The model spans y = -11 .. +330; mdl's ground plane would sit under the
 # courtyard and black out any low camera. Same override as the tower.
@@ -59,7 +60,11 @@ mdl.DEFAULTS["world_strength"] = 0.90
 # else the albedo glows); lava_albedo.png is the pit sea's, tiled every
 # LAVA_TILE_M metres (lava_emissive.png beside it, else the emissive is
 # DERIVED from the albedo: the bright orange glows, the dark crust stays
-# dark). Otherwise the painted sheets below are used.
+# dark). The rock is one tiling sheet per class through lib/texel.py --
+# map_base_<class>_albedo.png (+ _emissive.png) for rock, shade, carve, ember
+# -- world-projected at TEXEL_MPT m per texel, no atlas windows; the atlas
+# stays only for the S3 cracks' glow cell. Otherwise the painted sheets below
+# are used.
 
 NAME = "map_base"
 OBJECT_NAME = "MapBaseRock"
@@ -648,6 +653,98 @@ def build_texture():
         img.update()
         images.append(img)
     return images[0], images[1]
+
+
+# ---- the rock's tiling sheets (lib/texel.py): one per class, world-projected --
+# Every class at TEXEL_MPT m per texel; a sheet repeats every TEXEL_TILE texels
+# (12.8 m) and closes on itself round the ring. Painted at the same metre
+# sizes the atlas cells had (an 8 m cell of 64 texels), so the rock reads the
+# same from 6 m and stops smearing at 1 m.
+TEXEL_MPT = tx.MPT
+TEXEL_TILE = tx.TILE
+_K = (TEXEL_TILE * TEXEL_MPT / 8.0) ** 2      # sheet area / old cell area: 2.56
+_S = 0.125 / TEXEL_MPT                        # old texel / new texel: 2.5
+
+
+def _n(count):
+    return int(round(count * _K))
+
+
+def _sz(texels):
+    return max(1, int(round(texels * _S)))
+
+
+def _specks(c, r, count, size, rgb, glow):
+    for _ in range(_n(count)):
+        x, y = r.i(0, c.w - 1), r.i(0, c.h - 1)
+        c.rect(x, y, x + size, y + size, rgb, glow)
+
+
+def _sheet_rock(c, r, s):
+    tx.fill(c, r, c.box, [(74, 27, 25), (58, 20, 19), (90, 35, 30), (46, 16, 16)])
+    tx.shatter(c, r, c.box, [(96, 40, 33), (48, 16, 16), (110, 48, 38)], _n(20), _sz(6), _sz(15))
+    tx.shatter(c, r, c.box, [(32, 11, 12), (118, 56, 43)], _n(12), _sz(4), _sz(9))
+    _specks(c, r, 6, _sz(2), (172, 44, 12), (114, 22, 3))
+
+
+def _sheet_shade(c, r, s):
+    tx.fill(c, r, c.box, [(34, 12, 12), (24, 8, 9), (44, 17, 15), (17, 6, 7)])
+    tx.shatter(c, r, c.box, [(42, 16, 15), (10, 3, 4)], _n(20), _sz(4), _sz(11))
+    _specks(c, r, 4, _sz(2), (140, 34, 9), (92, 16, 2))
+
+
+def _sheet_carve(c, r, s):
+    tx.fill(c, r, c.box, [(84, 58, 53), (72, 48, 44), (96, 69, 63), (64, 42, 39)])
+    tx.shatter(c, r, c.box, [(66, 43, 40), (102, 74, 68), (56, 35, 33)], _n(14), _sz(5), _sz(14))
+    tx.shatter(c, r, c.box, [(74, 38, 27), (46, 27, 25)], _n(10), _sz(4), _sz(10))
+    _specks(c, r, 10, _sz(2), (52, 32, 30), None)
+    _specks(c, r, 3, _sz(2), (152, 48, 14), (88, 18, 2))
+
+
+def _sheet_ember(c, r, s):
+    tx.fill(c, r, c.box, [(11, 4, 5), (16, 6, 6), (7, 2, 3), (20, 8, 7)])
+    halo = _sz(1)
+    for _ in range(_n(15)):                    # hot veins: a random walk with a dim halo
+        x, y = r.i(0, c.w - 1), r.i(0, c.h - 1)
+        for _step in range(int(60 * _S)):
+            c.rect(x - halo, y - halo, x + halo + 1, y + halo + 1, (58, 15, 4), (74, 15, 1))
+            hot = r.pick([(255, 150, 30), (255, 212, 88), (248, 100, 14)])
+            c.rect(x, y, x + 2, y + 2, hot, hot)
+            x += r.i(-1, 1)
+            y += r.i(-1, 1)
+    _specks(c, r, 30, 2, (7, 3, 4), None)
+    _specks(c, r, 10, _sz(2), (236, 92, 18), (194, 54, 5))
+
+
+def _hell_ref(centre):
+    """The radius a face's arc is measured at: its own region's, so the
+    projection is near-isometric and the ring closes without a seam."""
+    rad = math.hypot(centre[0], centre[1])
+    z = centre[2]
+    if z > 90.0 and rad > 55.0:
+        return 66.0                            # the crater lip outside
+    if DECK_Z - 1.0 < z < CEIL_Z + 0.5:
+        return 58.5 if rad > 57.0 else 52.0    # outer wall | deck, lip walls, ceiling
+    return 47.0 if z >= CEIL_Z + 0.5 else 45.0 # the shaft above the gallery | the pit below it
+
+
+SHEETS = {
+    "rock": tx.Sheet("rock", _sheet_rock, ref_r=_hell_ref, roughness=ROCK_ROUGHNESS, seed=1),
+    "shade": tx.Sheet("shade", _sheet_shade, ref_r=_hell_ref, roughness=ROCK_ROUGHNESS, seed=2),
+    "carve": tx.Sheet("carve", _sheet_carve, ref_r=_hell_ref, roughness=ROCK_ROUGHNESS, seed=3),
+    "ember": tx.Sheet("ember", _sheet_ember, ref_r=_hell_ref, roughness=ROCK_ROUGHNESS, seed=4),
+}
+_ZONE_CLASS = {ZONE_ROCK: "rock", ZONE_SHADE: "shade", ZONE_CARVE: "carve",
+               ZONE_EMBER: "ember", ZONE_GLOW: "glow"}
+
+
+def _class_of(zone):
+    """Atlas zone -> texel class; the river keeps its own sheet and unwrap."""
+    if zone[0] in ("lava", "river", "fall", "river_t"):
+        return zone[0]
+    if zone[0] in ("deck", "wallface"):
+        return "shade"
+    return _ZONE_CLASS[zone]
 
 
 def rock_material(name, albedo, emissive):
@@ -7009,6 +7106,9 @@ def _deck_render(spec, objects):
         print("MDL RENDER %s (hand-placed camera)" % os.path.basename(path))
 
     lane = 0.5 * (INNER_R + OUTER_R)
+    shot("tex_wall_1m", pol(40.0, 56.3, DECK_Z + EYE_H), pol(40.0, 57.4, DECK_Z + EYE_H), 18.0, (1200, 675))
+    shot("tex_wall_6m", pol(40.0, 51.3, DECK_Z + EYE_H), pol(40.0, 57.4, DECK_Z + EYE_H), 18.0, (1200, 675))
+    shot("tex_s3wall_1m", pol(172.0, 48.6, DECK_Z + EYE_H), pol(172.0, 47.5, DECK_Z + 1.4), 18.0, (1200, 675))
     shot("runner", (lane, 0.0, DECK_Z + EYE_H), (38.0, 46.0, DECK_Z + 3.0),
          24.0, (1200, 750))
     shot("guard", (0.0, 0.0, DECK_Z), (lane, 30.0, DECK_Z - 4.0), 24.0, (1200, 750))
@@ -7232,34 +7332,54 @@ def build():
     rock, ang, river, cut, s2, s4 = _rock(_Rng(SEED))
     coll = _collider(ang, cut[0], cut[1], s2, s4)
 
-    albedo, emissive = build_texture()
-    mdl.save_texture(albedo)
-    mdl.save_texture(emissive)
     river_albedo, river_emissive = _sheet("river", _river_texture)
     mdl.save_texture(river_albedo)
     mdl.save_texture(river_emissive)
     lava_albedo, lava_emissive = _lava_sheet()
     mdl.save_texture(lava_albedo)
     mdl.save_texture(lava_emissive)
+    albedo, emissive = build_texture()             # the atlas: the S3 cracks' cell
+    mdl.save_texture(albedo)
+    mdl.save_texture(emissive)
 
     ob = rock.object(OBJECT_NAME)
+    # The atlas is painted for the S3 cracks alone: main's unwrap runs into a
+    # scratch layer and the crack faces copy their windows from it, so their
+    # UVs and texels are exactly what they were. Every other rock face is a
+    # texel sheet; the sea is Ryan's tile (LavaSea) and the river its own sheet.
+    me = ob.data
     unwrap(ob, rock.zones)
-    mdl.finish(ob, rock_material("HellRock", albedo, emissive), strip_uvs=False)
-    # Three surfaces: the rock atlas, the river's streaked sheet, and the pit's
-    # sea on Ryan's tile (Ryan: "the lava pit is using the old texture not the
-    # one i made"). A tile only repeats on its own surface; the S3 cracks stay
-    # on the atlas's glow cell.
-    ob.data.materials.append(river_material("LavaRiver", river_albedo, river_emissive))
-    ob.data.materials.append(rock_material("LavaSea", lava_albedo, lava_emissive))
-    lava_tris = river_tris = 0
-    for pi, poly in enumerate(ob.data.polygons):
-        z = rock.zones[pi][0]
-        if z == "lava":
-            poly.material_index = 2
-            lava_tris += 1
-        elif z in ("river", "fall", "river_t"):
-            poly.material_index = 1
-            river_tris += 1
+    scratch = me.uv_layers[-1]
+    scratch.name = "Scratch"
+    classes = [_class_of(z) for z in rock.zones]
+
+    def _from_scratch(me_, uvl, poly):
+        for li in poly.loop_indices:
+            uvl.data[li].uv = scratch.data[li].uv
+
+    custom = {"river": lambda me_, uvl, poly: _flow_uv(me_, uvl, poly, False),
+              "fall": lambda me_, uvl, poly: _flow_uv(me_, uvl, poly, True),
+              "river_t": _flow_uv_along, "lava": _lava_uv, "glow": _from_scratch}
+    tx.unwrap(ob, classes, SHEETS, seed=1, custom=custom)
+    me.uv_layers.remove(me.uv_layers["Scratch"])
+    me.uv_layers[0].name = "UVMap"
+    me.uv_layers[0].active = True
+    me.uv_layers[0].active_render = True
+    mats = tx.materials(NAME, SHEETS, use_files=USE_TEXTURE_FILES,
+                        tex_dir=os.path.join(os.path.dirname(os.path.abspath(__file__)), TEX_DIR),
+                        names={"rock": "HellRock", "shade": "HellShade", "carve": "HellCarve",
+                               "ember": "HellEmber"})
+    for m in mats.values():
+        m.diffuse_color = (0.13, 0.04, 0.04, 1.0)
+    mats["glow"] = rock_material("HellGlow", albedo, emissive)
+    mats["river"] = river_material("LavaRiver", river_albedo, river_emissive)
+    mats["lava"] = rock_material("LavaSea", lava_albedo, lava_emissive)
+    slots = ["river" if c in ("river", "fall", "river_t") else c for c in classes]   # one LavaRiver slot
+    order = tx.finish(ob, slots, mats)
+    tx.report(SHEETS)
+    lava_tris = sum(1 for c in classes if c == "lava")
+    river_tris = sum(1 for c in classes if c in ("river", "fall", "river_t"))
+    print("MDL STATS surfaces=%d order=%s" % (len(me.materials), ",".join(order)))
 
     coll_ob = coll.object(COLLIDER_NAME)
     coll_ob.hide_render = True

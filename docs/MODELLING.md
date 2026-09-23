@@ -151,6 +151,13 @@ rings — the workhorse), `prism`, `frustum`, `plate_z`, `tube`, `box`,
 `flat_material`, `finish`, `join`, `merge_parts`, and for rigs `armature`,
 `rigid_bind`, `bake_pose`.
 
+Map meshes texture through `lib/texel.py`: one tiling sheet per material
+class (`Sheet`), painted on a wrapping canvas so it has no seam, sampled
+REPEAT, and projected in world cylindrical coordinates at one metres-per-texel
+(`texel.MPT`, 0.05) so texels are the same size everywhere and the only UV
+seams are corners. No atlas, so nothing bleeds at any mip. `texel.preview`
+writes a sheet as a tiled PNG without Blender: that is the painter's fast loop.
+
 **The build script is the model.** The `.glb` is output. `runner_build.py` had
 to be reconstructed by reading the rest pose, section profiles and animation
 curves back out of a binary nobody could edit; do not create that situation
