@@ -27,6 +27,7 @@ own tile (textures/lava_albedo.png), repeated at world scale.
 
     tools/modelling/model look  map_base --cam 35,30,40
     tools/modelling/model build map_base --cam 35,30,40
+    tools/modelling/model build map_base --chunk s2     # one chunk's .glb only (CHUNKS)
 
 Hand-placed shots come back with every run: runner (eye on the deck), guard
 (void centre at deck height), shaft (courtyard looking up), cell and mouth
@@ -43,8 +44,10 @@ import bpy
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)) + os.sep + "lib")
 
+from mathutils import Matrix  # noqa: E402
 import mdl  # noqa: E402
 import texel as tx  # noqa: E402
+import rock_bars_build as rb  # noqa: E402
 
 # The model spans y = -11 .. +330; mdl's ground plane would sit under the
 # courtyard and black out any low camera. Same override as the tower.
@@ -937,6 +940,14 @@ class _Mesh(object):
         self.verts = []
         self.faces = []
         self.zones = []
+        self.spans = {}            # element chunk -> (first face, end face)
+
+    def span(self, name, fn, *args, **kw):
+        """Run fn(self, ...) and record the faces it appends as element `name`."""
+        f0 = len(self.faces)
+        out = fn(self, *args, **kw)
+        self.spans[name] = (f0, len(self.faces))
+        return out
 
     def v(self, p):
         self.verts.append(tuple(p))
@@ -2950,7 +2961,7 @@ def _s2_collider(c, s2, ang, lip, foot, CV):
             c.quad(a[j], b[j], b[j + 1], a[j + 1], UP, ZONE_ROCK)
     for sp in S2_MASSES:
         _s2_mass(c, sp)
-    _s2_wall(c, coll=True)
+    c.span("cover_s2", _s2_wall, coll=True)
 
 
 def _s2_stats(s2):
@@ -6560,11 +6571,11 @@ def _rock(r):
             _carve(m, shaft, c)
     _build_platforms(m, _Rng(LAKE_SEED))
     _s2_build(m, s2, _Rng(S2_SEED + 1))
-    _s2_wall(m)
+    m.span("cover_s2", _s2_wall)
     s4r = _Rng(S4_SEED + 5)
     for rock in lay["rocks"]:
         _s4_rock(m, s4r, rock)
-    _s4_wall(m)
+    m.span("cover_s4", _s4_wall)
     pit_wall.emit()
     shaft.emit()
 
@@ -6615,7 +6626,7 @@ def _s4_collider(c, r, s4):
             c.quad(grid[i][j], grid[i + 1][j], grid[i + 1][j + 1], grid[i][j + 1], UP, ZONE_ROCK)
     for rk in lay["rocks"]:
         _s4_rock(c, r, rk, coll=True)
-    _s4_wall(c, coll=True)
+    c.span("cover_s4", _s4_wall, coll=True)
 
 
 def _collider(ang, cut0, cut1, s2, s4):
@@ -6747,7 +6758,7 @@ def _lip_walls(m, coll=False):
     or out."""
     tris = 0
     for w in LIP_WALLS:
-        tris += _lip_screen(m, w, coll=coll)
+        tris += m.span("lip" + w["name"], _lip_screen, w, coll=coll)
     print("MDL STATS lip_walls n=%d %s_tris=%d" % (len(LIP_WALLS), "collision" if coll else "visual", tris))
     return tris
 
@@ -7327,6 +7338,149 @@ def _s1_review(scene, shot):
 # BUILD
 # =============================================================================
 
+# =============================================================================
+# CHUNKS -- one sculpt, exported per section and per element (decision 84)
+# =============================================================================
+# The whole map is built as one mesh, as before; export cuts it into one .glb
+# per chunk. A section takes every face whose centre lies in its bearings; an
+# element takes the faces its own builder appended (Mesh.span). Chunks share
+# the boundary vertices of the one mesh, so the seams are exact.
+#   tools/modelling/model build map_base --chunk s3     # rebuilds map_base_s3.glb only
+SECTIONS = [                  # chunk, first bearing (the next one's is its last)
+    ("s1", 342.0), ("s2", 66.5), ("s3", 139.0), ("s4", 204.0), ("s5", 286.0),
+]
+ELEMENTS = ["lip" + w["name"] for w in LIP_WALLS] + ["cover_s2", "cover_s4", "gate"]
+CHUNKS = [c for c, _b in SECTIONS] + ELEMENTS
+# The gate (rock_bars_build's cave wall with slots) where Ryan placed RockBars
+# in bentham_ring.tscn: its Transform3D as written (basis rows, then origin).
+GATE_NODE = (0.984808, 0, 0.173648, 0, 1, 0, -0.173648, 0, 0.984808, 51.7418, 23, -9.1235)
+MAPBASE_NODE_ORIGIN = (0.014858246, 0.0, -0.01688385)
+CHUNK_OF = {}                 # "vis"/"col" -> chunk name per face, set by build()
+
+
+def _chunk_label(chunk):
+    return "MapBase" + "".join(p[:1].upper() + p[1:] for p in chunk.split("_"))
+
+
+def _section_of(bearing):
+    best = SECTIONS[-1][0]
+    for chunk, b0 in SECTIONS:                      # the last one whose start is passed
+        if (bearing - SECTIONS[0][1]) % 360.0 >= (b0 - SECTIONS[0][1]) % 360.0:
+            best = chunk
+    return best
+
+
+def _assign(m):
+    """Chunk name per face of a _Mesh: its element span, else its section."""
+    out = [None] * len(m.faces)
+    for name, (f0, f1) in m.spans.items():
+        for fi in range(f0, f1):
+            out[fi] = name
+    for fi, f in enumerate(m.faces):
+        if out[fi] is None:
+            x = sum(m.verts[j][0] for j in f) / len(f)
+            y = sum(m.verts[j][1] for j in f) / len(f)
+            out[fi] = _section_of(_bear_deg(math.atan2(y, x)))
+    return out
+
+
+def _gate():
+    """rock_bars' gate, built into this scene at its placed transform."""
+    ob, coll_ob = rb.build()
+    g = GATE_NODE
+    o = MAPBASE_NODE_ORIGIN
+    # Godot node transform (x right, y up, z back) -> Blender (x, -z, y).
+    mg = Matrix(((g[0], g[1], g[2], g[9] - o[0]),       # into MapBase's frame
+                 (g[3], g[4], g[5], g[10] - o[1]),
+                 (g[6], g[7], g[8], g[11] - o[2]),
+                 (0.0, 0.0, 0.0, 1.0)))
+    cv = Matrix(((1.0, 0.0, 0.0, 0.0), (0.0, 0.0, -1.0, 0.0), (0.0, 1.0, 0.0, 0.0), (0.0, 0.0, 0.0, 1.0)))
+    mb_ = cv @ mg @ cv.inverted()
+    label = _chunk_label("gate")
+    ob.name, coll_ob.name = label + "Rock", label + "Collision-colonly"
+    for o_ in (ob, coll_ob):
+        o_.data.transform(mb_)
+        o_.data.update()
+    return ob, coll_ob
+
+
+def _split(src, keep, name):
+    """A new object holding only the faces keep[] marks: the same vertex
+    positions, loop UVs, material slots and indices, flat shaded."""
+    sm = src.data
+    remap, verts, faces, mids, uvs = {}, [], [], [], []
+    uvl = sm.uv_layers[0].data if sm.uv_layers else None
+    for poly in sm.polygons:
+        if not keep[poly.index]:
+            continue
+        f = []
+        for li in poly.loop_indices:
+            vi = sm.loops[li].vertex_index
+            if vi not in remap:
+                remap[vi] = len(verts)
+                verts.append(tuple(sm.vertices[vi].co))
+            f.append(remap[vi])
+            if uvl is not None:
+                uvs.append(tuple(uvl[li].uv))
+        faces.append(f)
+        mids.append(poly.material_index)
+    me = bpy.data.meshes.new(name)
+    me.from_pydata(verts, [], faces)
+    for mat in sm.materials:
+        me.materials.append(mat)
+    me.polygons.foreach_set("material_index", mids)
+    if uvl is not None:
+        layer = me.uv_layers.new(name=sm.uv_layers[0].name)
+        layer.data.foreach_set("uv", [c for uv in uvs for c in uv])
+    for p_ in me.polygons:
+        p_.use_smooth = False
+    me.update()
+    return mdl._link(bpy.data.objects.new(name, me))
+
+
+def _export_chunks(out_dir, objects, spec):
+    """One .glb per chunk (only spec["chunk"] when it names one), and a
+    manifest the model tool verifies and installs from."""
+    want = spec.get("chunk") or ""
+    if want and want not in CHUNKS:
+        raise SystemExit("MDL ERROR no chunk %r; chunks are %s" % (want, ", ".join(CHUNKS)))
+    ob, coll_ob, gate_ob, gate_coll = objects
+    if (len(CHUNK_OF["vis"]) != len(ob.data.polygons)
+            or len(CHUNK_OF["col"]) != len(coll_ob.data.polygons)):
+        raise SystemExit("MDL ERROR chunk labels no longer match the mesh's faces")
+    made = []
+    for chunk in ([want] if want else CHUNKS):
+        label = _chunk_label(chunk)
+        if chunk == "gate":
+            vis, col = gate_ob, gate_coll
+        else:
+            vis = _split(ob, [c == chunk for c in CHUNK_OF["vis"]], label + "Rock")
+            col = _split(coll_ob, [c == chunk for c in CHUNK_OF["col"]], label + "Collision-colonly")
+        col.hide_render = True
+        path = os.path.join(out_dir, "%s_%s.glb" % (NAME, chunk))
+        mdl.export_glb(path, [vis, col])
+        print("MDL EXPORT %s (%d bytes) visual_tris=%d collision_tris=%d"
+              % (path, os.path.getsize(path), len(vis.data.polygons), len(col.data.polygons)))
+        made.append({"chunk": chunk, "glb": os.path.basename(path),
+                     "contract": {"node_paths": [label + "Rock", label + "Collision",
+                                                 label + "Collision/CollisionShape3D"],
+                                  "max_tris": 110000}})
+        for o_ in ((vis, col) if chunk != "gate" else ()):
+            me = o_.data
+            bpy.data.objects.remove(o_, do_unlink=True)
+            bpy.data.meshes.remove(me)
+    with open(os.path.join(out_dir, NAME + ".chunks.json"), "w") as fh:
+        json.dump({"chunks": made}, fh, indent=1)
+    return [os.path.join(out_dir, c["glb"]) for c in made]
+
+
+def _post(spec, objects):
+    """Review renders, skipped when no views are asked for (--chunk, --views none)."""
+    if "views" in spec and not spec["views"] and not spec.get("cams"):
+        return
+    _deck_render(spec, objects)
+
+
 def build():
     rock, ang, river, cut, s2, s4 = _rock(_Rng(SEED))
     coll = _collider(ang, cut[0], cut[1], s2, s4)
@@ -7411,8 +7565,11 @@ def build():
              " ".join("%.1f" % s.H for s in sp if s.kind == "tite")))
     print("MDL STATS deck r=%.1f..%.1f y=%.2f courtyard_y=%.2f ceiling_y=%.2f rim_y=%.1f ground_r=%.0f"
           % (INNER_R, OUTER_R, DECK_Z, COURTYARD_Z, CEIL_Z, RIM_Z, GROUND_RINGS[-1][0]))
-    return [ob, coll_ob]
+    CHUNK_OF["vis"] = _assign(rock)
+    CHUNK_OF["col"] = _assign(coll)
+    gate_ob, gate_coll = _gate()
+    return [ob, coll_ob, gate_ob, gate_coll]
 
 
 if __name__ == "__main__":
-    mdl.main(NAME, build, facing_yaw=FACING_YAW, post=_deck_render)
+    mdl.main(NAME, build, facing_yaw=FACING_YAW, post=_post, export=_export_chunks)

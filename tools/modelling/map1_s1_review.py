@@ -10,7 +10,7 @@ here to export: this file is the camera crew, and it runs on its own --
 
 <tag> names the pass (it goes in every filename); the optional second argument
 is the .glb to photograph, so a candidate sculpt in /tmp can be shot against
-the shipped one. Default: assets/models/map_base.glb.
+the shipped one. Default: assets/models/map_base_s1.glb.
 
 It imports that map .glb at identity and assets/models/tower.glb at its
 guard-room datum, then writes three shots into
@@ -62,7 +62,7 @@ import map_base_build as mb  # noqa: E402
 
 REPO = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                     os.pardir, os.pardir))
-MAP_GLB = os.path.join(REPO, "assets", "models", "map_base.glb")
+MAP_GLB = os.path.join(REPO, "assets", "models", "map_base_s1.glb")
 TOWER_GLB = os.path.join(REPO, "assets", "models", "tower.glb")
 OUT_DIR = os.path.expanduser("~/Desktop/panopticon-renders/map1/sections")
 
