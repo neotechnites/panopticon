@@ -1,4 +1,4 @@
-[gd_scene load_steps=28 format=3]
+[gd_scene load_steps=23 format=3]
 
 [ext_resource type="Script" path="res://scripts/match/kill_volume.gd" id="1_kill_volume"]
 [ext_resource type="Script" path="res://scripts/ring/ring_route.gd" id="2_ring_route"]
@@ -15,12 +15,7 @@
 [ext_resource type="PackedScene" path="res://assets/models/forest_bush_low.glb" id="13_bush_low"]
 [ext_resource type="PackedScene" path="res://assets/models/forest_bush_tall.glb" id="14_bush_tall"]
 [ext_resource type="PackedScene" path="res://assets/models/forest_rock_boulder.glb" id="15_boulder"]
-[ext_resource type="PackedScene" path="res://assets/models/forest_rock_slab.glb" id="16_slab"]
 [ext_resource type="PackedScene" path="res://assets/models/forest_rock_outcrop.glb" id="17_outcrop"]
-[ext_resource type="PackedScene" path="res://scenes/props/forest_thorns_round.tscn" id="18_thorns_round"]
-[ext_resource type="PackedScene" path="res://scenes/props/forest_thorns_strip.tscn" id="19_thorns_strip"]
-[ext_resource type="PackedScene" path="res://scenes/ring/demon_pad.tscn" id="20_demon_pad"]
-[ext_resource type="PackedScene" path="res://scenes/ring/speed_powerup.tscn" id="21_speed_orb"]
 
 [sub_resource type="ProceduralSkyMaterial" id="SkyMat"]
 sky_top_color = Color(0.66, 0.74, 0.62, 1)
@@ -143,173 +138,443 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -48.8646, 24, -17.7853)
 [node name="Lane300" type="Marker3D" parent="Sections/Watch" groups=["guard_watch"]]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 26, 24, -45.0333)
 
-[node name="Start" type="Node3D" parent="Sections"]
-editor_description = "Start pocket 5-14 deg: open grass and one boulder on the outside."
+[node name="Lip" type="Node3D" parent="Sections"]
+editor_description = "The lip line: trees and undergrowth in the ravine-edge fern band (r 47.45), off the walkable lane, the leaners' crowns hanging out over the path."
 
-[node name="S1_Stand" type="Node3D" parent="Sections"]
-editor_description = "S1 The Stand 14-74 deg: a trunk slalom, four trunks inside the lane so the corridor runs outside them in their shadow, then three outside so it runs inside them in full view."
+[node name="Lane" type="Node3D" parent="Sections"]
+editor_description = "The lane line: trunks standing IN (r 49.9) or OUT (r 53.8) of the walkable lane and never mid-lane, swapping sides every one to three trees so the corridor snakes through the wood; the start pocket and the run-in to the portal stay open."
 
-[node name="Pocket_078" type="Node3D" parent="Sections"]
-editor_description = "Rest pocket 74-82 deg: one standing stone inside the lane."
+[node name="Wall" type="Node3D" parent="Sections"]
+editor_description = "The wall line: trees and undergrowth in the wall-foot fern band (r 56.55), off the walkable lane, standing between the leaf wall's own trunks and its lower cell mouths."
 
-[node name="S2_Hedge" type="Node3D" parent="Sections"]
-editor_description = "S2 The Bramble Hedge 82-142 deg: a lethal hedge laid along the lane in 6 m runs that change sides twice, hoppable at 0.96 m, with a thicket tall enough for head cover on the inside runs only."
+[node name="Tree_c_007deg" parent="Sections/Lip" instance=ExtResource("12_tree_c")]
+transform = Transform3D(0.749036, 0, -0.406016, 0, 0.852, 0, 0.406016, 0, 0.749036, 47.0727, 22.95, 5.97171)
 
-[node name="Pocket_146" type="Node3D" parent="Sections"]
-editor_description = "Rest pocket 142-150 deg: one standing stone inside the lane."
+[node name="Tree_a_014deg" parent="Sections/Lip" instance=ExtResource("10_tree_a")]
+transform = Transform3D(-0.977494, 0, -0.435208, 0, 1.07, 0, 0.435208, 0, -0.977494, 46.0565, 22.95, 11.4149)
 
-[node name="S3_Boulders" type="Node3D" parent="Sections"]
-editor_description = "S3 The Boulder Field 152-214 deg: three standing stones 30 deg apart are the only head cover; the boulders between them hide a chest and not a head and the shelves are there to be jumped."
+[node name="Tree_c_020deg" parent="Sections/Lip" instance=ExtResource("12_tree_c")]
+transform = Transform3D(0.826255, 0, -0.572126, 0, 1.005, 0, 0.572126, 0, 0.826255, 44.4451, 22.95, 16.6173)
 
-[node name="Pocket_218" type="Node3D" parent="Sections"]
-editor_description = "Rest pocket 214-222 deg: one standing stone inside the lane."
+[node name="Tree_a_027deg" parent="Sections/Lip" instance=ExtResource("10_tree_a")]
+transform = Transform3D(0.722795, 0, 0.763, 0, 1.051, 0, -0.763, 0, 0.722795, 42.2104, 22.95, 21.6746)
 
-[node name="S4_BoostRun" type="Node3D" parent="Sections"]
-editor_description = "S4 The Boost Run 222-282 deg: three pads throw a runner 14.7 m down the lane over a thorn patch into a thicket's shadow; walking it is one outer corridor past the brambles."
+[node name="Tree_c_035deg" parent="Sections/Lip" instance=ExtResource("12_tree_c")]
+transform = Transform3D(0.777066, 0, -0.412999, 0, 0.88, 0, 0.412999, 0, 0.777066, 39.0437, 22.95, 26.9646)
 
-[node name="Pocket_282" type="Node3D" parent="Sections"]
-editor_description = "Rest pocket 278-286 deg: one standing stone inside the lane."
+[node name="BushLow_039deg" parent="Sections/Lip" instance=ExtResource("13_bush_low")]
+transform = Transform3D(0.29354, 0, 0.955947, 0, 1, 0, -0.955947, 0, 0.29354, 36.7082, 22.95, 30.0667)
 
-[node name="S5_Thicket" type="Node3D" parent="Sections"]
-editor_description = "S5 The Thicket 286-320 deg: single file, one thicket per bay with the sides alternating every 9 deg, so every second bay is the naked one."
+[node name="BushLow_047deg" parent="Sections/Lip" instance=ExtResource("13_bush_low")]
+transform = Transform3D(-0.999173, 0, -0.040655, 0, 1, 0, 0.040655, 0, -0.999173, 32.3548, 22.95, 34.7084)
 
-[node name="S6_LastGap" type="Node3D" parent="Sections"]
-editor_description = "S6 The Last Gap 320-335 deg: one bare shelf, one last stone, then 11.8 m of nothing to the portal."
+[node name="BushLow_052deg" parent="Sections/Lip" instance=ExtResource("13_bush_low")]
+transform = Transform3D(-0.769511, 0, 0.638634, 0, 1, 0, -0.638634, 0, -0.769511, 29.3239, 22.95, 37.3043)
 
-[node name="Boulder_010deg" parent="Sections/Start" instance=ExtResource("15_boulder")]
-transform = Transform3D(0.970296, 0, 0.241922, 0, 1, 0, -0.241922, 0, 0.970296, 52.8842, 22.95, 9.32491)
+[node name="Boulder_056deg" parent="Sections/Lip" instance=ExtResource("15_boulder")]
+transform = Transform3D(0.828256, 0, -0.56035, 0, 1, 0, 0.56035, 0, 0.828256, 26.6023, 22.95, 39.2915)
 
-[node name="Tree_b_018deg" parent="Sections/S1_Stand" instance=ExtResource("11_tree_b")]
-transform = Transform3D(1.49178, 0, -0.156793, 0, 1, 0, 0.156793, 0, 1.49178, 47.5528, 22.95, 15.4508)
+[node name="BushLow_064deg" parent="Sections/Lip" instance=ExtResource("13_bush_low")]
+transform = Transform3D(-0.959658, 0, -0.281169, 0, 1, 0, 0.281169, 0, -0.959658, 20.9272, 22.95, 42.5859)
 
-[node name="Tree_a_026deg" parent="Sections/S1_Stand" instance=ExtResource("10_tree_a")]
-transform = Transform3D(0.406737, 0, -0.913545, 0, 1, 0, 0.913545, 0, 0.406737, 44.9397, 22.95, 21.9186)
+[node name="BushLow_071deg" parent="Sections/Lip" instance=ExtResource("13_bush_low")]
+transform = Transform3D(0.810451, 0, -0.585807, 0, 1, 0, 0.585807, 0, 0.810451, 15.4012, 22.95, 44.881)
 
-[node name="Tree_c_034deg" parent="Sections/S1_Stand" instance=ExtResource("12_tree_c")]
-transform = Transform3D(1.38276, 0, -0.219008, 0, 1, 0, 0.219008, 0, 1.38276, 41.4519, 22.95, 27.9596)
+[node name="Tree_a_076deg" parent="Sections/Lip" instance=ExtResource("10_tree_a")]
+transform = Transform3D(-0.850483, 0, 0.423294, 0, 0.95, 0, -0.423294, 0, -0.850483, 11.5756, 22.95, 46.0164)
 
-[node name="Tree_b_042deg" parent="Sections/S1_Stand" instance=ExtResource("11_tree_b")]
-transform = Transform3D(0.0348995, 0, 0.999391, 0, 1, 0, -0.999391, 0, 0.0348995, 37.1572, 22.95, 33.4565)
+[node name="BushLow_082deg" parent="Sections/Lip" instance=ExtResource("13_bush_low")]
+transform = Transform3D(-0.60293, 0, -0.797794, 0, 1, 0, 0.797794, 0, -0.60293, 6.54635, 22.95, 46.9963)
 
-[node name="Tree_a_054deg" parent="Sections/S1_Stand" instance=ExtResource("10_tree_a")]
-transform = Transform3D(0.93358, 0, 0.358368, 0, 1, 0, -0.358368, 0, 0.93358, 31.5641, 22.95, 43.4442)
+[node name="Tree_a_087deg" parent="Sections/Lip" instance=ExtResource("10_tree_a")]
+transform = Transform3D(-0.233674, 0, -0.918749, 0, 0.948, 0, 0.918749, 0, -0.233674, 2.12765, 22.95, 47.4023)
 
-[node name="Tree_c_062deg" parent="Sections/S1_Stand" instance=ExtResource("12_tree_c")]
-transform = Transform3D(-0.920505, 0, -0.390731, 0, 1, 0, 0.390731, 0, -0.920505, 25.2106, 22.95, 47.4143)
+[node name="Boulder_092deg" parent="Sections/Lip" instance=ExtResource("15_boulder")]
+transform = Transform3D(-0.332655, 0, -0.943049, 0, 1, 0, 0.943049, 0, -0.332655, -1.89598, 22.95, 47.4121)
 
-[node name="Tree_b_070deg" parent="Sections/S1_Stand" instance=ExtResource("11_tree_b")]
-transform = Transform3D(0, 0, 1.5, 0, 1, 0, -1.5, 0, 0, 18.3665, 22.95, 50.4615)
+[node name="Tree_a_100deg" parent="Sections/Lip" instance=ExtResource("10_tree_a")]
+transform = Transform3D(0.0315102, 0, -0.911455, 0, 0.912, 0, 0.911455, 0, 0.0315102, -8.06828, 22.95, 46.759)
 
-[node name="Slab_078deg" parent="Sections/Pocket_078" instance=ExtResource("16_slab")]
-transform = Transform3D(-1.56504, 0, -0.207912, 0, 1.4, 0, 0.332659, 0, -0.978148, 10.3956, 22.95, 48.9074)
+[node name="Boulder_105deg" parent="Sections/Lip" instance=ExtResource("15_boulder")]
+transform = Transform3D(-0.290535, 0, 0.956864, 0, 1, 0, -0.956864, 0, -0.290535, -11.9847, 22.95, 45.9115)
 
-[node name="BushTall_086deg" parent="Sections/S2_Hedge" instance=ExtResource("14_bush_tall")]
-transform = Transform3D(-1.07901, 0, -0.694658, 0, 1.35, 0, 1.04199, 0, -0.71934, 3.48782, 22.95, 49.8782)
+[node name="Tree_a_112deg" parent="Sections/Lip" instance=ExtResource("10_tree_a")]
+transform = Transform3D(-0.591906, 0, 0.660618, 0, 0.887, 0, -0.660618, 0, -0.591906, -18.1048, 22.95, 43.8602)
 
-[node name="ThornsStrip_093deg" parent="Sections/S2_Hedge" instance=ExtResource("19_thorns_strip")]
-transform = Transform3D(-0.99863, 0, 0.052336, 0, 1, 0, -0.052336, 0, -0.99863, -2.6168, 22.95, 49.9315)
+[node name="BushLow_119deg" parent="Sections/Lip" instance=ExtResource("13_bush_low")]
+transform = Transform3D(0.99975, 0, -0.0223384, 0, 1, 0, 0.0223384, 0, 0.99975, -23.214, 22.95, 41.3837)
 
-[node name="ThornsStrip_108deg" parent="Sections/S2_Hedge" instance=ExtResource("19_thorns_strip")]
-transform = Transform3D(-0.951057, 0, 0.309017, 0, 1, 0, -0.309017, 0, -0.951057, -16.5942, 22.95, 51.0717)
+[node name="Tree_c_125deg" parent="Sections/Lip" instance=ExtResource("12_tree_c")]
+transform = Transform3D(-0.282542, 0, -0.812262, 0, 0.86, 0, 0.812262, 0, -0.282542, -27.5341, 22.95, 38.6442)
 
-[node name="BushLow_116deg" parent="Sections/S2_Hedge" instance=ExtResource("13_bush_low")]
-transform = Transform3D(-0.559193, 0, 0.829038, 0, 1, 0, -0.829038, 0, -0.559193, -23.5405, 22.95, 48.2652)
+[node name="BushLow_132deg" parent="Sections/Lip" instance=ExtResource("13_bush_low")]
+transform = Transform3D(-0.594402, 0, -0.804168, 0, 1, 0, 0.804168, 0, -0.594402, -32.0445, 22.95, 34.995)
 
-[node name="BushTall_126deg" parent="Sections/S2_Hedge" instance=ExtResource("14_bush_tall")]
-transform = Transform3D(-0.286213, 0, -0.981627, 0, 1.35, 0, 1.47244, 0, -0.190809, -29.3893, 22.95, 40.4508)
+[node name="Tree_a_137deg" parent="Sections/Lip" instance=ExtResource("10_tree_a")]
+transform = Transform3D(-0.107912, 0, -0.881419, 0, 0.888, 0, 0.881419, 0, -0.107912, -34.5385, 22.95, 32.5361)
 
-[node name="ThornsStrip_134deg" parent="Sections/S2_Hedge" instance=ExtResource("19_thorns_strip")]
-transform = Transform3D(-0.71934, 0, 0.694658, 0, 1, 0, -0.694658, 0, -0.71934, -34.7329, 22.95, 35.967)
+[node name="Tree_c_141deg" parent="Sections/Lip" instance=ExtResource("12_tree_c")]
+transform = Transform3D(-0.644586, 0, -0.932987, 0, 1.134, 0, 0.932987, 0, -0.644586, -36.938, 22.95, 29.784)
 
-[node name="Slab_146deg" parent="Sections/Pocket_146" instance=ExtResource("16_slab")]
-transform = Transform3D(-0.894709, 0, 0.829038, 0, 1.4, 0, -1.32646, 0, -0.559193, -41.4519, 22.95, 27.9596)
+[node name="Tree_c_148deg" parent="Sections/Lip" instance=ExtResource("12_tree_c")]
+transform = Transform3D(-0.963518, 0, -0.538933, 0, 1.104, 0, 0.538933, 0, -0.963518, -40.3623, 22.95, 24.9477)
 
-[node name="Slab_156deg" parent="Sections/S3_Boulders" instance=ExtResource("16_slab")]
-transform = Transform3D(-0.751155, 0, 0.882948, 0, 1.4, 0, -1.41272, 0, -0.469472, -45.6773, 22.95, 20.3368)
+[node name="Tree_c_156deg" parent="Sections/Lip" instance=ExtResource("12_tree_c")]
+transform = Transform3D(-0.822578, 0, -0.414254, 0, 0.921, 0, 0.414254, 0, -0.822578, -43.2869, 22.95, 19.4357)
 
-[node name="Boulder_164deg" parent="Sections/S3_Boulders" instance=ExtResource("15_boulder")]
-transform = Transform3D(0.913545, 0, -0.406737, 0, 1, 0, 0.406737, 0, 0.913545, -51.6198, 22.95, 14.8017)
+[node name="Boulder_162deg" parent="Sections/Lip" instance=ExtResource("15_boulder")]
+transform = Transform3D(-0.97437, 0, 0.224951, 0, 1, 0, -0.224951, 0, -0.97437, -45.1659, 22.95, 14.5447)
 
-[node name="Outcrop_171deg" parent="Sections/S3_Boulders" instance=ExtResource("17_outcrop")]
-transform = Transform3D(-0.358368, 0, -0.93358, 0, 1, 0, 0.93358, 0, -0.358368, -53.0389, 22.95, 8.40053)
+[node name="Tree_a_167deg" parent="Sections/Lip" instance=ExtResource("10_tree_a")]
+transform = Transform3D(0.806684, 0, 0.408016, 0, 0.904, 0, -0.408016, 0, 0.806684, -46.2891, 22.95, 10.4317)
 
-[node name="Boulder_179deg" parent="Sections/S3_Boulders" instance=ExtResource("15_boulder")]
-transform = Transform3D(0.104528, 0, -0.994522, 0, 1, 0, 0.994522, 0, 0.104528, -49.9924, 22.95, 0.87262)
+[node name="Tree_a_175deg" parent="Sections/Lip" instance=ExtResource("10_tree_a")]
+transform = Transform3D(0.909269, 0, 0.110839, 0, 0.916, 0, -0.110839, 0, 0.909269, -47.2517, 22.95, 4.3335)
 
-[node name="Slab_186deg" parent="Sections/S3_Boulders" instance=ExtResource("16_slab")]
-transform = Transform3D(0.332659, 0, 0.978148, 0, 1.4, 0, -1.56504, 0, 0.207912, -49.7261, 22.95, -5.22642)
+[node name="BushLow_180deg" parent="Sections/Lip" instance=ExtResource("13_bush_low")]
+transform = Transform3D(-0.763909, 0, -0.645324, 0, 1, 0, 0.645324, 0, -0.763909, -47.45, 22.95, -0.00828159)
 
-[node name="Boulder_194deg" parent="Sections/S3_Boulders" instance=ExtResource("15_boulder")]
-transform = Transform3D(-0.777146, 0, 0.62932, 0, 1, 0, -0.62932, 0, -0.777146, -52.1049, 22.95, -12.9912)
+[node name="Tree_c_184deg" parent="Sections/Lip" instance=ExtResource("12_tree_c")]
+transform = Transform3D(-1.04745, 0, 0.421286, 0, 1.129, 0, -0.421286, 0, -1.04745, -47.3292, 22.95, -3.38429)
 
-[node name="Outcrop_201deg" parent="Sections/S3_Boulders" instance=ExtResource("17_outcrop")]
-transform = Transform3D(0.694658, 0, -0.71934, 0, 1, 0, 0.71934, 0, 0.694658, -50.1333, 22.95, -19.2444)
+[node name="Tree_c_191deg" parent="Sections/Lip" instance=ExtResource("12_tree_c")]
+transform = Transform3D(-1.119, 0, -0.000781209, 0, 1.119, 0, 0.000781209, 0, -1.119, -46.5237, 22.95, -9.33013)
 
-[node name="Slab_210deg" parent="Sections/S3_Boulders" instance=ExtResource("16_slab")]
-transform = Transform3D(0.62517, 0, 0.920505, 0, 1.4, 0, -1.47281, 0, 0.390731, -43.3013, 22.95, -25)
+[node name="Tree_a_197deg" parent="Sections/Lip" instance=ExtResource("10_tree_a")]
+transform = Transform3D(-0.74734, 0, -0.658406, 0, 0.996, 0, 0.658406, 0, -0.74734, -45.2911, 22.95, -14.15)
 
-[node name="Slab_218deg" parent="Sections/Pocket_218" instance=ExtResource("16_slab")]
-transform = Transform3D(0.985058, 0, 0.788011, 0, 1.4, 0, -1.26082, 0, 0.615661, -39.4005, 22.95, -30.7831)
+[node name="Tree_a_203deg" parent="Sections/Lip" instance=ExtResource("10_tree_a")]
+transform = Transform3D(0.577473, 0, 0.764388, 0, 0.958, 0, -0.764388, 0, 0.577473, -43.8127, 22.95, -18.2195)
 
-[node name="Pad_224deg" parent="Sections/S4_BoostRun" instance=ExtResource("20_demon_pad")]
-transform = Transform3D(0.613941, 0, -0.789352, 0, 1, 0, 0.789352, 0, 0.613941, -37.6215, 22.95, -36.3306)
+[node name="Tree_c_208deg" parent="Sections/Lip" instance=ExtResource("12_tree_c")]
+transform = Transform3D(-0.925871, 0, 0.377841, 0, 1, 0, -0.377841, 0, -0.925871, -41.7433, 22.95, -22.5611)
 
-[node name="BushLow_227deg" parent="Sections/S4_BoostRun" instance=ExtResource("13_bush_low")]
-transform = Transform3D(0.45399, 0, 0.891007, 0, 1, 0, -0.891007, 0, 0.45399, -34.0999, 22.95, -36.5677)
+[node name="Tree_a_214deg" parent="Sections/Lip" instance=ExtResource("10_tree_a")]
+transform = Transform3D(0.223944, 0, 1.00434, 0, 1.029, 0, -1.00434, 0, 0.223944, -39.4348, 22.95, -26.3893)
 
-[node name="ThornsRound_232deg" parent="Sections/S4_BoostRun" instance=ExtResource("18_thorns_round")]
-transform = Transform3D(-0.615661, 0, 0.788011, 0, 1, 0, -0.788011, 0, -0.615661, -30.7215, 22.95, -39.3217)
+[node name="Tree_a_220deg" parent="Sections/Lip" instance=ExtResource("10_tree_a")]
+transform = Transform3D(-0.28501, 0, 0.922998, 0, 0.966, 0, -0.922998, 0, -0.28501, -36.5978, 22.95, -30.2011)
 
-[node name="Orb_234deg" parent="Sections/S4_BoostRun" instance=ExtResource("21_speed_orb")]
-transform = Transform3D(0.587785, 0, -0.809017, 0, 1, 0, 0.809017, 0, 0.587785, -31.5641, 23, -43.4442)
+[node name="Tree_c_226deg" parent="Sections/Lip" instance=ExtResource("12_tree_c")]
+transform = Transform3D(-0.792829, 0, 0.737774, 0, 1.083, 0, -0.737774, 0, -0.792829, -33.1872, 22.95, -33.9133)
 
-[node name="BushTall_239deg" parent="Sections/S4_BoostRun" instance=ExtResource("14_bush_tall")]
-transform = Transform3D(1.45544, 0, -0.241922, 0, 1.35, 0, 0.362883, 0, 0.970296, -25.5459, 22.95, -42.5155)
+[node name="Boulder_233deg" parent="Sections/Lip" instance=ExtResource("15_boulder")]
+transform = Transform3D(0.606544, 0, 0.79505, 0, 1, 0, -0.79505, 0, 0.606544, -28.2576, 22.95, -38.1184)
 
-[node name="Pad_242deg" parent="Sections/S4_BoostRun" instance=ExtResource("20_demon_pad")]
-transform = Transform3D(0.339969, 0, -0.940437, 0, 1, 0, 0.940437, 0, 0.339969, -24.5534, 22.95, -46.1782)
+[node name="Tree_a_238deg" parent="Sections/Lip" instance=ExtResource("10_tree_a")]
+transform = Transform3D(0.737417, 0, -0.533213, 0, 0.91, 0, 0.533213, 0, 0.737417, -25.0322, 22.95, -40.3099)
 
-[node name="BushLow_245deg" parent="Sections/S4_BoostRun" instance=ExtResource("13_bush_low")]
-transform = Transform3D(-0.866025, 0, 0.5, 0, 1, 0, -0.5, 0, -0.866025, -21.1309, 22.95, -45.3154)
+[node name="Tree_a_244deg" parent="Sections/Lip" instance=ExtResource("10_tree_a")]
+transform = Transform3D(0.867558, 0, 0.489243, 0, 0.996, 0, -0.489243, 0, 0.867558, -20.994, 22.95, -42.5529)
 
-[node name="ThornsRound_250deg" parent="Sections/S4_BoostRun" instance=ExtResource("18_thorns_round")]
-transform = Transform3D(-0.34202, 0, 0.939693, 0, 1, 0, -0.939693, 0, -0.34202, -17.0668, 22.95, -46.8907)
+[node name="Tree_a_250deg" parent="Sections/Lip" instance=ExtResource("10_tree_a")]
+transform = Transform3D(-0.987315, 0, -0.282735, 0, 1.027, 0, 0.282735, 0, -0.987315, -16.3144, 22.95, -44.5572)
 
-[node name="BushTall_257deg" parent="Sections/S4_BoostRun" instance=ExtResource("14_bush_tall")]
-transform = Transform3D(0.182804, 0, 0.992546, 0, 1.35, 0, -1.48882, 0, 0.121869, -11.1576, 22.95, -48.3288)
+[node name="Tree_a_256deg" parent="Sections/Lip" instance=ExtResource("10_tree_a")]
+transform = Transform3D(-0.145007, 0, 0.845658, 0, 0.858, 0, -0.845658, 0, -0.145007, -11.7682, 22.95, -45.9675)
 
-[node name="Pad_260deg" parent="Sections/S4_BoostRun" instance=ExtResource("20_demon_pad")]
-transform = Transform3D(0.0327191, 0, -0.999465, 0, 1, 0, 0.999465, 0, 0.0327191, -9.0818, 22.95, -51.5054)
+[node name="Tree_a_261deg" parent="Sections/Lip" instance=ExtResource("10_tree_a")]
+transform = Transform3D(-0.953187, 0, -0.114167, 0, 0.96, 0, 0.114167, 0, -0.953187, -7.59454, 22.95, -46.8383)
 
-[node name="BushLow_263deg" parent="Sections/S4_BoostRun" instance=ExtResource("13_bush_low")]
-transform = Transform3D(-0.052336, 0, -0.99863, 0, 1, 0, 0.99863, 0, -0.052336, -6.09347, 22.95, -49.6273)
+[node name="Tree_a_268deg" parent="Sections/Lip" instance=ExtResource("10_tree_a")]
+transform = Transform3D(-0.0586727, 0, -1.0764, 0, 1.078, 0, 1.0764, 0, -0.0586727, -1.66426, 22.95, -47.4208)
 
-[node name="ThornsRound_268deg" parent="Sections/S4_BoostRun" instance=ExtResource("18_thorns_round")]
-transform = Transform3D(-0.0348995, 0, 0.999391, 0, 1, 0, -0.999391, 0, -0.0348995, -1.74148, 22.95, -49.8696)
+[node name="Boulder_276deg" parent="Sections/Lip" instance=ExtResource("15_boulder")]
+transform = Transform3D(-0.960924, 0, 0.276812, 0, 1, 0, -0.276812, 0, -0.960924, 4.64679, 22.95, -47.2219)
 
-[node name="BushTall_275deg" parent="Sections/S4_BoostRun" instance=ExtResource("14_bush_tall")]
-transform = Transform3D(-1.29904, 0, 0.5, 0, 1.35, 0, -0.75, 0, -0.866025, 4.32292, 22.95, -49.4113)
+[node name="Boulder_280deg" parent="Sections/Lip" instance=ExtResource("15_boulder")]
+transform = Transform3D(0.888377, 0, 0.459115, 0, 1, 0, -0.459115, 0, 0.888377, 8.06012, 22.95, -46.7604)
 
-[node name="Slab_282deg" parent="Sections/Pocket_282" instance=ExtResource("16_slab")]
-transform = Transform3D(1.56504, 0, -0.207912, 0, 1.4, 0, 0.332659, 0, 0.978148, 10.3956, 22.95, -48.9074)
+[node name="Tree_a_285deg" parent="Sections/Lip" instance=ExtResource("10_tree_a")]
+transform = Transform3D(0.96526, 0, 0.196209, 0, 0.985, 0, -0.196209, 0, 0.96526, 12.0168, 22.95, -45.9032)
 
-[node name="BushTall_288deg" parent="Sections/S5_Thicket" instance=ExtResource("14_bush_tall")]
-transform = Transform3D(1.49794, 0, -0.052336, 0, 1.35, 0, 0.0785039, 0, 0.99863, 15.4508, 22.95, -47.5528)
+[node name="Tree_c_292deg" parent="Sections/Lip" instance=ExtResource("12_tree_c")]
+transform = Transform3D(0.555113, 0, 0.87946, 0, 1.04, 0, -0.87946, 0, 0.555113, 17.8211, 22.95, -43.9762)
 
-[node name="BushTall_297deg" parent="Sections/S5_Thicket" instance=ExtResource("14_bush_tall")]
-transform = Transform3D(-0.311868, 0, -0.978148, 0, 1.35, 0, 1.46722, 0, -0.207912, 24.3793, 22.95, -47.8471)
+[node name="Boulder_298deg" parent="Sections/Lip" instance=ExtResource("15_boulder")]
+transform = Transform3D(-0.0713234, 0, -0.997453, 0, 1, 0, 0.997453, 0, -0.0713234, 22.1154, 22.95, -41.9811)
 
-[node name="BushTall_306deg" parent="Sections/S5_Thicket" instance=ExtResource("14_bush_tall")]
-transform = Transform3D(0.537552, 0, 0.93358, 0, 1.35, 0, -1.40037, 0, 0.358368, 29.3893, 22.95, -40.4508)
+[node name="Tree_a_305deg" parent="Sections/Lip" instance=ExtResource("10_tree_a")]
+transform = Transform3D(-0.840064, 0, 0.35244, 0, 0.911, 0, -0.35244, 0, -0.840064, 27.3111, 22.95, -38.8021)
 
-[node name="BushTall_315deg" parent="Sections/S5_Thicket" instance=ExtResource("14_bush_tall")]
-transform = Transform3D(1.47721, 0, -0.173648, 0, 1.35, 0, 0.260472, 0, 0.984808, 37.9716, 22.95, -37.9716)
+[node name="Tree_a_312deg" parent="Sections/Lip" instance=ExtResource("10_tree_a")]
+transform = Transform3D(0.958916, 0, -0.323456, 0, 1.012, 0, 0.323456, 0, 0.958916, 31.5837, 22.95, -35.4114)
 
-[node name="Outcrop_324deg" parent="Sections/S6_LastGap" instance=ExtResource("17_outcrop")]
-transform = Transform3D(0.0697565, 0, 0.997564, 0, 1, 0, -0.997564, 0, 0.0697565, 43.4442, 22.95, -31.5641)
+[node name="Tree_c_319deg" parent="Sections/Lip" instance=ExtResource("12_tree_c")]
+transform = Transform3D(1.01496, 0, 0.439423, 0, 1.106, 0, -0.439423, 0, 1.01496, 35.6311, 22.95, -31.3357)
 
-[node name="Slab_332deg" parent="Sections/S6_LastGap" instance=ExtResource("16_slab")]
-transform = Transform3D(0.751155, 0, -0.882948, 0, 1.4, 0, 1.41272, 0, 0.469472, 44.1474, 22.95, -23.4736)
+[node name="Tree_a_325deg" parent="Sections/Lip" instance=ExtResource("10_tree_a")]
+transform = Transform3D(0.8662, 0, 0.362517, 0, 0.939, 0, -0.362517, 0, 0.8662, 38.864, 22.95, -27.223)
+
+[node name="Boulder_332deg" parent="Sections/Lip" instance=ExtResource("15_boulder")]
+transform = Transform3D(-0.890689, 0, -0.454612, 0, 1, 0, 0.454612, 0, -0.890689, 41.8374, 22.95, -22.386)
+
+[node name="Boulder_340deg" parent="Sections/Lip" instance=ExtResource("15_boulder")]
+transform = Transform3D(0.974488, 0, 0.224441, 0, 1, 0, -0.224441, 0, 0.974488, 44.4971, 22.95, -16.4776)
+
+[node name="Tree_c_359deg" parent="Sections/Lip" instance=ExtResource("12_tree_c")]
+transform = Transform3D(1.10462, 0, 0.256444, 0, 1.134, 0, -0.256444, 0, 1.10462, 47.4455, 22.95, -0.654225)
+
+[node name="Tree_a_015deg" parent="Sections/Lane" instance=ExtResource("10_tree_a")]
+transform = Transform3D(-0.509064, 0, -1.09219, 0, 1.205, 0, 1.09219, 0, -0.509064, 48.2087, 22.95, 12.8814)
+
+[node name="Tree_b_021deg" parent="Sections/Lane" instance=ExtResource("11_tree_b")]
+transform = Transform3D(-0.0132341, 0, -1.06792, 0, 1.068, 0, 1.06792, 0, -0.0132341, 46.6694, 22.95, 17.6628)
+
+[node name="Tree_b_026deg" parent="Sections/Lane" instance=ExtResource("11_tree_b")]
+transform = Transform3D(-0.125115, 0, -1.04151, 0, 1.049, 0, 1.04151, 0, -0.125115, 44.8154, 22.95, 21.9451)
+
+[node name="Tree_c_033deg" parent="Sections/Lane" instance=ExtResource("12_tree_c")]
+transform = Transform3D(-1.00928, 0, 0.444934, 0, 1.103, 0, -0.444934, 0, -1.00928, 45.1511, 22.95, 29.2543)
+
+[node name="Tree_a_039deg" parent="Sections/Lane" instance=ExtResource("10_tree_a")]
+transform = Transform3D(-1.13146, 0, 0.521848, 0, 1.246, 0, -0.521848, 0, -1.13146, 41.692, 22.95, 34.0032)
+
+[node name="Tree_c_047deg" parent="Sections/Lane" instance=ExtResource("12_tree_c")]
+transform = Transform3D(0.450107, 0, -0.900806, 0, 1.007, 0, 0.900806, 0, 0.450107, 34.1716, 22.95, 36.3636)
+
+[node name="Tree_a_054deg" parent="Sections/Lane" instance=ExtResource("10_tree_a")]
+transform = Transform3D(-0.197066, 0, -1.15531, 0, 1.172, 0, 1.15531, 0, -0.197066, 31.6608, 22.95, 43.4975)
+
+[node name="Tree_c_062deg" parent="Sections/Lane" instance=ExtResource("12_tree_c")]
+transform = Transform3D(0.241559, 0, -1.03314, 0, 1.061, 0, 1.03314, 0, 0.241559, 23.588, 22.95, 43.9729)
+
+[node name="Tree_a_068deg" parent="Sections/Lane" instance=ExtResource("10_tree_a")]
+transform = Transform3D(-0.704484, 0, -0.685559, 0, 0.983, 0, 0.685559, 0, -0.704484, 18.7655, 22.95, 46.2371)
+
+[node name="Tree_a_075deg" parent="Sections/Lane" instance=ExtResource("10_tree_a")]
+transform = Transform3D(-0.29904, 0, -1.0783, 0, 1.119, 0, 1.0783, 0, -0.29904, 13.8065, 22.95, 51.9983)
+
+[node name="Tree_b_081deg" parent="Sections/Lane" instance=ExtResource("11_tree_b")]
+transform = Transform3D(0.0621874, 0, -0.928921, 0, 0.931, 0, 0.928921, 0, 0.0621874, 8.23064, 22.95, 53.1667)
+
+[node name="Tree_a_086deg" parent="Sections/Lane" instance=ExtResource("10_tree_a")]
+transform = Transform3D(-0.806238, 0, -0.804551, 0, 1.139, 0, 0.804551, 0, -0.806238, 3.66859, 22.95, 53.6748)
+
+[node name="Tree_c_094deg" parent="Sections/Lane" instance=ExtResource("12_tree_c")]
+transform = Transform3D(-0.284028, 0, -1.10302, 0, 1.139, 0, 1.10302, 0, -0.284028, -3.38527, 22.95, 49.785)
+
+[node name="Tree_b_101deg" parent="Sections/Lane" instance=ExtResource("11_tree_b")]
+transform = Transform3D(-0.563294, 0, -1.02548, 0, 1.17, 0, 1.02548, 0, -0.563294, -9.23053, 22.95, 49.0388)
+
+[node name="BushLow_108deg" parent="Sections/Lane" instance=ExtResource("13_bush_low")]
+transform = Transform3D(-0.45927, 0, 0.888297, 0, 1, 0, -0.888297, 0, -0.45927, -16.509, 22.95, 51.2044)
+
+[node name="Tree_c_113deg" parent="Sections/Lane" instance=ExtResource("12_tree_c")]
+transform = Transform3D(0.276959, 0, 1.03146, 0, 1.068, 0, -1.03146, 0, 0.276959, -20.831, 22.95, 49.6035)
+
+[node name="Boulder_120deg" parent="Sections/Lane" instance=ExtResource("15_boulder")]
+transform = Transform3D(0.999187, 0, -0.0403062, 0, 1, 0, 0.0403062, 0, 0.999187, -24.9726, 22.95, 43.2016)
+
+[node name="Tree_a_128deg" parent="Sections/Lane" instance=ExtResource("10_tree_a")]
+transform = Transform3D(-1.2025, 0, -0.115152, 0, 1.208, 0, 0.115152, 0, -1.2025, -30.3841, 22.95, 39.583)
+
+[node name="Tree_b_135deg" parent="Sections/Lane" instance=ExtResource("11_tree_b")]
+transform = Transform3D(-0.898075, 0, -0.430671, 0, 0.996, 0, 0.430671, 0, -0.898075, -35.2353, 22.95, 35.3339)
+
+[node name="Tree_b_142deg" parent="Sections/Lane" instance=ExtResource("11_tree_b")]
+transform = Transform3D(1.01363, 0, -0.145344, 0, 1.024, 0, 0.145344, 0, 1.01363, -42.6824, 22.95, 32.7514)
+
+[node name="Tree_a_150deg" parent="Sections/Lane" instance=ExtResource("10_tree_a")]
+transform = Transform3D(0.473037, 0, 0.954181, 0, 1.065, 0, -0.954181, 0, 0.473037, -46.531, 22.95, 27.0056)
+
+[node name="Tree_a_157deg" parent="Sections/Lane" instance=ExtResource("10_tree_a")]
+transform = Transform3D(0.555271, 0, 0.746039, 0, 0.93, 0, -0.746039, 0, 0.555271, -46.001, 22.95, 19.337)
+
+[node name="Tree_c_164deg" parent="Sections/Lane" instance=ExtResource("12_tree_c")]
+transform = Transform3D(-1.19634, 0, 0.0396867, 0, 1.197, 0, -0.0396867, 0, -1.19634, -48.036, 22.95, 13.5113)
+
+[node name="Tree_b_172deg" parent="Sections/Lane" instance=ExtResource("11_tree_b")]
+transform = Transform3D(1.00609, 0, -0.0765315, 0, 1.009, 0, 0.0765315, 0, 1.00609, -53.216, 22.95, 7.90571)
+
+[node name="Tree_a_179deg" parent="Sections/Lane" instance=ExtResource("10_tree_a")]
+transform = Transform3D(0.335858, 0, 1.11031, 0, 1.16, 0, -1.11031, 0, 0.335858, -53.7823, 22.95, 1.38016)
+
+[node name="Tree_c_186deg" parent="Sections/Lane" instance=ExtResource("12_tree_c")]
+transform = Transform3D(-0.891892, 0, -0.270467, 0, 0.932, 0, 0.270467, 0, -0.891892, -49.5958, 22.95, -5.50171)
+
+[node name="Tree_c_194deg" parent="Sections/Lane" instance=ExtResource("12_tree_c")]
+transform = Transform3D(0.985331, 0, -0.62531, 0, 1.167, 0, 0.62531, 0, 0.985331, -52.2245, 22.95, -12.9243)
+
+[node name="Boulder_201deg" parent="Sections/Lane" instance=ExtResource("15_boulder")]
+transform = Transform3D(-0.316974, 0, -0.948434, 0, 1, 0, 0.948434, 0, -0.316974, -46.7155, 22.95, -17.5406)
+
+[node name="BushTall_208deg" parent="Sections/Lane" instance=ExtResource("14_bush_tall")]
+transform = Transform3D(-0.13018, 0, 0.99149, 0, 1, 0, -0.99149, 0, -0.13018, -47.551, 22.95, -25.1663)
+
+[node name="Tree_b_215deg" parent="Sections/Lane" instance=ExtResource("11_tree_b")]
+transform = Transform3D(0.162356, 0, -0.909624, 0, 0.924, 0, 0.909624, 0, 0.162356, -44.2634, 22.95, -30.5809)
+
+[node name="Tree_c_222deg" parent="Sections/Lane" instance=ExtResource("12_tree_c")]
+transform = Transform3D(-0.875434, 0, 0.878189, 0, 1.24, 0, -0.878189, 0, -0.875434, -36.8489, 22.95, -33.6477)
+
+[node name="Tree_b_229deg" parent="Sections/Lane" instance=ExtResource("11_tree_b")]
+transform = Transform3D(0.812059, 0, 0.423812, 0, 0.916, 0, -0.423812, 0, 0.812059, -32.7373, 22.95, -37.66)
+
+[node name="Tree_a_236deg" parent="Sections/Lane" instance=ExtResource("10_tree_a")]
+transform = Transform3D(-0.324764, 0, -1.05829, 0, 1.107, 0, 1.05829, 0, -0.324764, -30.1546, 22.95, -44.5549)
+
+[node name="Tree_b_244deg" parent="Sections/Lane" instance=ExtResource("11_tree_b")]
+transform = Transform3D(-0.833022, 0, 0.518107, 0, 0.981, 0, -0.518107, 0, -0.833022, -22.2107, 22.95, -44.6844)
+
+[node name="Outcrop_249deg" parent="Sections/Lane" instance=ExtResource("17_outcrop")]
+transform = Transform3D(-0.644791, 0, 0.764359, 0, 1, 0, -0.764359, 0, -0.644791, -17.8582, 22.95, -46.595)
+
+[node name="Tree_c_256deg" parent="Sections/Lane" instance=ExtResource("12_tree_c")]
+transform = Transform3D(-0.123683, 0, 1.0296, 0, 1.037, 0, -1.0296, 0, -0.123683, -11.6659, 22.95, -48.5172)
+
+[node name="Tree_c_263deg" parent="Sections/Lane" instance=ExtResource("12_tree_c")]
+transform = Transform3D(-0.152374, 0, -0.974155, 0, 0.986, 0, 0.974155, 0, -0.152374, -6.42607, 22.95, -53.4148)
+
+[node name="Tree_c_268deg" parent="Sections/Lane" instance=ExtResource("12_tree_c")]
+transform = Transform3D(-0.153426, 0, -1.0266, 0, 1.038, 0, 1.0266, 0, -0.153426, -2.00897, 22.95, -53.7625)
+
+[node name="Tree_b_275deg" parent="Sections/Lane" instance=ExtResource("11_tree_b")]
+transform = Transform3D(-0.951062, 0, -0.205453, 0, 0.973, 0, 0.205453, 0, -0.951062, 4.15817, 22.95, -49.7264)
+
+[node name="Boulder_280deg" parent="Sections/Lane" instance=ExtResource("15_boulder")]
+transform = Transform3D(-0.850628, 0, 0.525769, 0, 1, 0, -0.525769, 0, -0.850628, 9.01647, 22.95, -49.0786)
+
+[node name="Tree_c_285deg" parent="Sections/Lane" instance=ExtResource("12_tree_c")]
+transform = Transform3D(0.382362, 0, 0.892547, 0, 0.971, 0, -0.892547, 0, 0.382362, 13.2345, 22.95, -48.113)
+
+[node name="Tree_b_292deg" parent="Sections/Lane" instance=ExtResource("11_tree_b")]
+transform = Transform3D(0.714154, 0, 0.762895, 0, 1.045, 0, -0.762895, 0, 0.714154, 20.5537, 22.95, -49.7191)
+
+[node name="BushLow_297deg" parent="Sections/Lane" instance=ExtResource("13_bush_low")]
+transform = Transform3D(0.0249556, 0, -0.999689, 0, 1, 0, 0.999689, 0, 0.0249556, 24.7921, 22.95, -47.7472)
+
+[node name="Tree_c_305deg" parent="Sections/Lane" instance=ExtResource("12_tree_c")]
+transform = Transform3D(0.27376, 0, 1.1087, 0, 1.142, 0, -1.1087, 0, 0.27376, 28.3856, 22.95, -41.0399)
+
+[node name="Boulder_312deg" parent="Sections/Lane" instance=ExtResource("15_boulder")]
+transform = Transform3D(-0.943107, 0, 0.33249, 0, 1, 0, -0.33249, 0, -0.943107, 33.247, 22.95, -37.2109)
+
+[node name="Tree_c_319deg" parent="Sections/Lane" instance=ExtResource("12_tree_c")]
+transform = Transform3D(-0.849103, 0, -0.708703, 0, 1.106, 0, 0.708703, 0, -0.849103, 40.3994, 22.95, -35.5292)
+
+[node name="Tree_b_325deg" parent="Sections/Lane" instance=ExtResource("11_tree_b")]
+transform = Transform3D(-0.0252123, 0, 1.21374, 0, 1.214, 0, -1.21374, 0, -0.0252123, 44.2367, 22.95, -30.6195)
+
+[node name="Tree_a_002deg" parent="Sections/Wall" instance=ExtResource("10_tree_a")]
+transform = Transform3D(1.10615, 0, -0.063974, 0, 1.108, 0, 0.063974, 0, 1.10615, 56.5076, 22.95, 2.19056)
+
+[node name="Tree_b_016deg" parent="Sections/Wall" instance=ExtResource("11_tree_b")]
+transform = Transform3D(-0.278897, 0, -1.19283, 0, 1.225, 0, 1.19283, 0, -0.278897, 54.3074, 22.95, 15.7675)
+
+[node name="Tree_a_025deg" parent="Sections/Wall" instance=ExtResource("10_tree_a")]
+transform = Transform3D(1.02645, 0, -0.0854716, 0, 1.03, 0, 0.0854716, 0, 1.02645, 51.3058, 22.95, 23.7827)
+
+[node name="Tree_a_029deg" parent="Sections/Wall" instance=ExtResource("10_tree_a")]
+transform = Transform3D(-0.570413, 0, 0.889875, 0, 1.057, 0, -0.889875, 0, -0.570413, 49.6026, 22.95, 27.1566)
+
+[node name="Tree_b_045deg" parent="Sections/Wall" instance=ExtResource("11_tree_b")]
+transform = Transform3D(0.885504, 0, -0.181929, 0, 0.904, 0, 0.181929, 0, 0.885504, 39.77, 22.95, 40.2027)
+
+[node name="Tree_c_056deg" parent="Sections/Wall" instance=ExtResource("12_tree_c")]
+transform = Transform3D(-1.0144, 0, 0.720095, 0, 1.244, 0, -0.720095, 0, -1.0144, 31.5978, 22.95, 46.8986)
+
+[node name="Tree_c_061deg" parent="Sections/Wall" instance=ExtResource("12_tree_c")]
+transform = Transform3D(-0.57641, 0, 0.878836, 0, 1.051, 0, -0.878836, 0, -0.57641, 27.1393, 22.95, 49.6121)
+
+[node name="Tree_a_072deg" parent="Sections/Wall" instance=ExtResource("10_tree_a")]
+transform = Transform3D(-0.591082, 0, -1.03167, 0, 1.189, 0, 1.03167, 0, -0.591082, 17.6532, 22.95, 53.724)
+
+[node name="Tree_b_076deg" parent="Sections/Wall" instance=ExtResource("11_tree_b")]
+transform = Transform3D(-0.104404, 0, 1.06288, 0, 1.068, 0, -1.06288, 0, -0.104404, 13.8147, 22.95, 54.8366)
+
+[node name="Tree_b_082deg" parent="Sections/Wall" instance=ExtResource("11_tree_b")]
+transform = Transform3D(-0.810049, 0, -0.584656, 0, 0.999, 0, 0.584656, 0, -0.810049, 8.06567, 22.95, 55.9718)
+
+[node name="Tree_c_086deg" parent="Sections/Wall" instance=ExtResource("12_tree_c")]
+transform = Transform3D(-0.039168, 0, 1.07329, 0, 1.074, 0, -1.07329, 0, -0.039168, 4.17115, 22.95, 56.396)
+
+[node name="Tree_a_096deg" parent="Sections/Wall" instance=ExtResource("10_tree_a")]
+transform = Transform3D(-0.878712, 0, -0.462509, 0, 0.993, 0, 0.462509, 0, -0.878712, -6.03867, 22.95, 56.2267)
+
+[node name="Tree_b_102deg" parent="Sections/Wall" instance=ExtResource("11_tree_b")]
+transform = Transform3D(-0.81255, 0, -0.822252, 0, 1.156, 0, 0.822252, 0, -0.81255, -11.5159, 22.95, 55.365)
+
+[node name="Tree_a_112deg" parent="Sections/Wall" instance=ExtResource("10_tree_a")]
+transform = Transform3D(-0.579025, 0, 0.699424, 0, 0.908, 0, -0.699424, 0, -0.579025, -20.7348, 22.95, 52.6115)
+
+[node name="Tree_c_136deg" parent="Sections/Wall" instance=ExtResource("12_tree_c")]
+transform = Transform3D(0.726462, 0, 0.804555, 0, 1.084, 0, -0.804555, 0, 0.726462, -40.3343, 22.95, 39.6364)
+
+[node name="Tree_b_141deg" parent="Sections/Wall" instance=ExtResource("11_tree_b")]
+transform = Transform3D(0.566215, 0, 1.00898, 0, 1.157, 0, -1.00898, 0, 0.566215, -43.873, 22.95, 35.68)
+
+[node name="Tree_b_153deg" parent="Sections/Wall" instance=ExtResource("11_tree_b")]
+transform = Transform3D(-0.526311, 0, 0.920107, 0, 1.06, 0, -0.920107, 0, -0.526311, -50.56, 22.95, 25.3296)
+
+[node name="Tree_c_163deg" parent="Sections/Wall" instance=ExtResource("12_tree_c")]
+transform = Transform3D(0.893381, 0, 0.421918, 0, 0.988, 0, -0.421918, 0, 0.893381, -54.0443, 22.95, 16.6468)
+
+[node name="Tree_b_168deg" parent="Sections/Wall" instance=ExtResource("11_tree_b")]
+transform = Transform3D(-0.331392, 0, 1.18452, 0, 1.23, 0, -1.18452, 0, -0.331392, -55.2729, 22.95, 11.9504)
+
+[node name="Tree_b_172deg" parent="Sections/Wall" instance=ExtResource("11_tree_b")]
+transform = Transform3D(-0.411206, 0, 0.944357, 0, 1.03, 0, -0.944357, 0, -0.411206, -55.9491, 22.95, 8.22194)
+
+[node name="BushTall_181deg" parent="Sections/Wall" instance=ExtResource("14_bush_tall")]
+transform = Transform3D(-0.997428, 0, -0.0716715, 0, 1, 0, 0.0716715, 0, -0.997428, -56.5419, 22.95, -0.957328)
+
+[node name="Tree_b_194deg" parent="Sections/Wall" instance=ExtResource("11_tree_b")]
+transform = Transform3D(1.04766, 0, -0.026702, 0, 1.048, 0, 0.026702, 0, 1.04766, -54.9852, 22.95, -13.2109)
+
+[node name="Tree_a_199deg" parent="Sections/Wall" instance=ExtResource("10_tree_a")]
+transform = Transform3D(0.934727, 0, -0.774649, 0, 1.214, 0, 0.774649, 0, 0.934727, -53.6057, 22.95, -18.0091)
+
+[node name="Tree_c_209deg" parent="Sections/Wall" instance=ExtResource("12_tree_c")]
+transform = Transform3D(0.696522, 0, -0.822765, 0, 1.078, 0, 0.822765, 0, 0.696522, -49.431, 22.95, -27.4678)
+
+[node name="Tree_b_219deg" parent="Sections/Wall" instance=ExtResource("11_tree_b")]
+transform = Transform3D(-0.664993, 0, 0.695146, 0, 0.962, 0, -0.695146, 0, -0.664993, -43.9786, 22.95, -35.5497)
+
+[node name="Tree_c_225deg" parent="Sections/Wall" instance=ExtResource("12_tree_c")]
+transform = Transform3D(0.532443, 0, -0.769806, 0, 0.936, 0, 0.769806, 0, 0.532443, -39.784, 22.95, -40.1888)
+
+[node name="Tree_b_246deg" parent="Sections/Wall" instance=ExtResource("11_tree_b")]
+transform = Transform3D(0.575599, 0, -0.7683, 0, 0.96, 0, 0.7683, 0, 0.575599, -22.7301, 22.95, -51.7807)
+
+[node name="BushTall_251deg" parent="Sections/Wall" instance=ExtResource("14_bush_tall")]
+transform = Transform3D(0.669131, 0, 0.743145, 0, 1, 0, -0.743145, 0, 0.669131, -18.8303, 22.95, -53.3228)
+
+[node name="Tree_a_264deg" parent="Sections/Wall" instance=ExtResource("10_tree_a")]
+transform = Transform3D(0.777261, 0, 0.558313, 0, 0.957, 0, -0.558313, 0, 0.777261, -5.49867, 22.95, -56.282)
+
+[node name="Tree_a_270deg" parent="Sections/Wall" instance=ExtResource("10_tree_a")]
+transform = Transform3D(0.691433, 0, -0.623443, 0, 0.931, 0, 0.623443, 0, 0.691433, 0.463877, 22.95, -56.5481)
+
+[node name="BushTall_276deg" parent="Sections/Wall" instance=ExtResource("14_bush_tall")]
+transform = Transform3D(-0.492424, 0, -0.870356, 0, 1, 0, 0.870356, 0, -0.492424, 6.06811, 22.95, -56.2235)
+
+[node name="Tree_a_280deg" parent="Sections/Wall" instance=ExtResource("10_tree_a")]
+transform = Transform3D(-0.85758, 0, 0.71883, 0, 1.119, 0, -0.71883, 0, -0.85758, 10.1307, 22.95, -55.6352)
+
+[node name="Tree_b_291deg" parent="Sections/Wall" instance=ExtResource("11_tree_b")]
+transform = Transform3D(0.166818, 0, -1.13379, 0, 1.146, 0, 1.13379, 0, 0.166818, 20.1459, 22.95, -52.8398)
+
+[node name="Tree_c_303deg" parent="Sections/Wall" instance=ExtResource("12_tree_c")]
+transform = Transform3D(-0.997849, 0, -0.629839, 0, 1.18, 0, 0.629839, 0, -0.997849, 30.9647, 22.95, -47.319)
+
+[node name="Tree_b_309deg" parent="Sections/Wall" instance=ExtResource("11_tree_b")]
+transform = Transform3D(-0.35657, 0, -1.07754, 0, 1.135, 0, 1.07754, 0, -0.35657, 35.2264, 22.95, -44.2381)
+
+[node name="Tree_b_312deg" parent="Sections/Wall" instance=ExtResource("11_tree_b")]
+transform = Transform3D(1.00478, 0, -0.35305, 0, 1.065, 0, 0.35305, 0, 1.00478, 37.9126, 22.95, -41.9587)
+
+[node name="Tree_b_320deg" parent="Sections/Wall" instance=ExtResource("11_tree_b")]
+transform = Transform3D(0.991281, 0, 0.700827, 0, 1.214, 0, -0.700827, 0, 0.991281, 43.6354, 22.95, -35.9702)
+
+[node name="Tree_a_326deg" parent="Sections/Wall" instance=ExtResource("10_tree_a")]
+transform = Transform3D(0.957275, 0, 0.521273, 0, 1.09, 0, -0.521273, 0, 0.957275, 46.8766, 22.95, -31.6305)
+
+[node name="Tree_b_331deg" parent="Sections/Wall" instance=ExtResource("11_tree_b")]
+transform = Transform3D(0.748127, 0, 0.7339, 0, 1.048, 0, -0.7339, 0, 0.748127, 49.5123, 22.95, -27.321)
+
+[node name="Tree_c_335deg" parent="Sections/Wall" instance=ExtResource("12_tree_c")]
+transform = Transform3D(-0.815872, 0, -0.718277, 0, 1.087, 0, 0.718277, 0, -0.815872, 51.4501, 22.95, -23.4689)
 
 [node name="Route" type="Node3D" parent="."]
 script = ExtResource("2_ring_route")
