@@ -97,9 +97,14 @@ const DRAW_BUDGETS: Dictionary = {
 	# now has to be told about. tris 90759, surfaces 5, materials 5, lights 3
 	# (2 measured: the tower's lamp and the portal's glow). The shadow caster is
 	# still one and still exact.
+	#
+	# Lights re-measured at 3 on 2026-09-22 (Ryan: "the lighting in the marble
+	# level is absolutely terrible"): the Skylight on the axis is the map's key
+	# and its ONE shadow caster now, the tower's lamp is unshadowed, the
+	# portal's glow is the third. Ceiling 4 (3 + 20 %); shadow_casters exact at 1.
 	"marble": {
 		"tris": 90759, "surfaces": 5, "materials": 5,
-		"transparent_tris": 0, "lights": 3, "shadow_casters": 1,
+		"transparent_tris": 0, "lights": 4, "shadow_casters": 1,
 	},
 	# The expensive one: 2.5x the Ring, plus 2196 transparent triangles, plus a
 	# shadow caster. Re-measured after the obstacle course came off the lane
