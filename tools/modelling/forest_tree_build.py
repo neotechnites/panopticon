@@ -26,17 +26,18 @@ coordinates (Blender z = Godot y) and shifted on export.
     roof .......... Ryan: "make the roof higher, so make it like a dome that
                     collapses in the middle where the tree is". The crown's rim
                     (r 11, y 34.1) is that collapse: from it the leaf sheet
-                    sweeps OUT AND UP 15.9 m to the level's seam at r 47.6,
-                    y 50.0 (forest_seam, 240 shared points), so the tree is the
-                    low middle of a dome that is high at the ring. Eighteen
-                    rings on the contract's curve -- forest_seam.SHEET's nine
-                    split where a band would be a ribbon -- billowing up to
+                    sweeps OUT AND UP to a crest ring (r 41.5, y 53.5) and
+                    springs down onto the level's seam at r 47.6, y 50.0
+                    (forest_seam, 240 shared points): one smooth curve, concave
+                    from below, a dome off its wall. Rings on that curve,
+                    split where a band would be a ribbon, billowing up to
                     +-0.46 m, the billow handing over to the seam's own wave
                     over the last 9 m; a coarse top skin runs back from the same
                     seam ring into the crown, so the sheet is a closed leaf mass
                     and no edge carries three faces. Its underside is many tree
                     tops of all sizes and shapes (CROWNS), creased where they meet,
-                    the tower's crown one of them. Nothing the sheet carries comes
+                    the tower's crown one of them, the outer ones growing on over
+                    the drum's head. Nothing the sheet carries comes
                     below y 32.7: the guard's eye is 28.7 and his downward
                     sightline to the lane is clear.
 
@@ -210,9 +211,9 @@ CROWN_STRETCH = (0.75, 1.30)   # oval tops: long axis over short, sqrt of it eac
 CROWN_LOBES = ((3, 6), (0.0, 0.15))   # (harmonic range, amplitude range) of a top's outline
 CROWN_GAP = 0.80            # two tops' centres at least this share of their summed radii apart
 CROWN_TOWER_R = 12.0        # the tower's crown counts as a top this wide: neighbours crowd it
-CROWN_SPAN = (12.5, 43.0)   # where a top's centre may sit
+CROWN_SPAN = (12.5, 45.5)   # where a top's centre may sit
 CROWN_FADE_IN = (12.0, 15.0)   # tops fade in off the crown's rim ...
-CROWN_FADE_OUT = (38.0, 44.0)  # ... and out before the drum's top tier of cells
+CROWN_FADE_OUT = (45.0, 47.6)  # ... and over the drum's head: they grow on over the wall, clear of its top cells
 CROWN_LEAF = (2.5, 5.0)     # the leafy lumps on a top: their wavelengths, m
 CROWN_LUMP = 0.12           # and their share of its depth
 CROWN_EDGE = 0.12           # a face hung less than this share of its top's depth is a crease: shade
@@ -1481,13 +1482,9 @@ def _leaf_zone(f):
 
 def _sheet_slope(rad):
     """dz/dr of the contract's profile at radius rad: how steeply the dome climbs
-    there. Flat on the old roof, 1.12 at the crown's rim on this one."""
-    S = forest_seam.SHEET
-    for k in range(len(S) - 1):
-        (r0, z0), (r1, z1) = S[k], S[k + 1]
-        if r0 <= rad <= r1:
-            return (z1 - z0) / (r1 - r0)
-    return 0.0
+    (or, past the crest, falls) there."""
+    h = 0.05
+    return (forest_seam.sheet_z(rad + h) - forest_seam.sheet_z(rad - h)) / (2.0 * h)
 
 
 def _sheet_blend(rad):
@@ -1531,27 +1528,25 @@ def _rim_z_max():
 def _sheet_profile():
     """The sheet's rings, crown rim to seam: [(radius, nominal z, billow amplitude)].
 
-    forest_seam.SHEET is the contract's curve and every radius here sits on it --
-    the split only adds rings inside a contract band, it never moves one. A band
-    longer than SHEET_ASPECT quad widths is divided into equal steps, so the inner
-    bands, where the dome is steepest and the rings narrowest, get the most.
+    Every ring sits on forest_seam.sheet_z's curve, one every SHEET_STEP of slant,
+    closer near the rim where a band would be over SHEET_ASPECT quad widths.
 
     The amplitude is then capped per ring so no ring can billow past a neighbour:
-    the clearance to a neighbour is the rise between them less whatever the seam's
+    the clearance to a neighbour is the slant between them less whatever the seam's
     own wave can open up between their two blends, and a ring takes SHEET_FOLD of
-    the smaller clearance either side. Two neighbours together therefore never
-    spend more than 0.9 of the rise that separates them."""
+    the smaller clearance either side."""
     S = forest_seam.SHEET
-    prof = []
-    for k in range(len(S) - 1):
-        (r0, z0), (r1, z1) = S[k], S[k + 1]
-        slant = math.hypot(r1 - r0, z1 - z0)
-        width = forest_seam.TWO_PI * r0 / SHEET_N
-        steps = max(1, int(math.ceil(slant / (SHEET_ASPECT * width))), int(math.ceil(slant / SHEET_STEP)))
-        for step in range(steps):
-            rad = r0 + (r1 - r0) * step / float(steps)
-            prof.append((rad, forest_seam.sheet_z(rad)))
-    prof.append((S[-1][0], S[-1][1]))
+    radii, rad, run, dr = [S[0][0]], S[0][0], 0.0, 0.01
+    while rad < S[-1][0] - 1e-9:        # walk the curve: a ring every SHEET_STEP of slant, closer where rings are narrow
+        nxt = min(S[-1][0], rad + dr)
+        run += math.hypot(nxt - rad, forest_seam.sheet_z(nxt) - forest_seam.sheet_z(rad))
+        rad = nxt
+        if run >= min(SHEET_STEP, SHEET_ASPECT * forest_seam.TWO_PI * radii[-1] / SHEET_N):
+            radii.append(rad)
+            run = 0.0
+    if radii[-1] < S[-1][0] - 1e-9:     # the last short piece joins the band before it
+        radii[-1] = S[-1][0]
+    prof = [(rad, forest_seam.sheet_z(rad)) for rad in radii[:-1]] + [(S[-1][0], S[-1][1])]
     swing = sum(amp for (_k, amp, _ph) in forest_seam.SEAM_WAVES)   # the seam's whole wave
     blend = [_sheet_blend(rad) for (rad, _z) in prof]
     a, b = S[1][0], S[2][0]
@@ -1563,7 +1558,7 @@ def _sheet_profile():
         t = max(0.0, min(1.0, (rad - a) / (b - a)))
         cap = SHEET_IN_LUMP + (forest_seam.SHEET_LUMP - SHEET_IN_LUMP) * t
         for j in (i - 1, i + 1):
-            clear = abs(prof[j][1] - z) - swing * abs(blend[i] - blend[j])
+            clear = math.hypot(prof[j][0] - rad, prof[j][1] - z) - swing * abs(blend[i] - blend[j])
             cap = min(cap, SHEET_FOLD * clear)
         out.append((rad, z, max(0.0, cap)))
     return out
@@ -1792,7 +1787,7 @@ def _sheet_clumps(m, r, rings):
             continue
         c = _patch_centre(m, quads)
         rad = math.hypot(c[0], c[1])
-        if not (15.0 <= rad <= 42.0) or _canopy_at(c[0], c[1])[2] >= CROWN_EDGE:
+        if not (15.0 <= rad <= 44.5) or _canopy_at(c[0], c[1])[2] >= CROWN_EDGE:
             continue                    # small tops in the creases between the big ones
         crad = r.u(*SHEET_CLUMP_R)
         cz = c[2] - r.u(*SHEET_CLUMP_HANG) - crad * CLUMP_SQUASH
