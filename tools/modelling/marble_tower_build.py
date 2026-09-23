@@ -165,9 +165,21 @@ V0 = FOOT_Z                          # v = 0 on the spike floor: courses on the 
 
 def _dome_profile(rad, rise):
     """The shell's meridian: (radius, height over the spring) per ring, ring
-    DOME_RINGS the apex, and the cumulative ARC LENGTH at each."""
-    pts = [(rad * math.cos(0.5 * math.pi * k / DOME_RINGS),
-            rise * math.sin(0.5 * math.pi * k / DOME_RINGS)) for k in range(DOME_RINGS + 1)]
+    DOME_RINGS the apex, rings EQUALLY SPACED BY ARC so every row is one height."""
+    fine = [(rad * math.cos(0.5 * math.pi * q / 4096.0), rise * math.sin(0.5 * math.pi * q / 4096.0))
+            for q in range(4097)]
+    run = [0.0]
+    for q in range(4096):
+        run.append(run[-1] + math.hypot(fine[q + 1][0] - fine[q][0], fine[q + 1][1] - fine[q][1]))
+    pts, q = [], 0
+    for k in range(DOME_RINGS + 1):
+        want = run[-1] * k / DOME_RINGS
+        while q < 4095 and run[q + 1] < want:
+            q += 1
+        f = (want - run[q]) / max(1e-12, run[q + 1] - run[q])
+        pts.append((fine[q][0] + f * (fine[q + 1][0] - fine[q][0]),
+                    fine[q][1] + f * (fine[q + 1][1] - fine[q][1])))
+    pts[-1] = (0.0, rise)
     arc = [0.0]
     for k in range(DOME_RINGS):
         arc.append(arc[-1] + math.hypot(pts[k + 1][0] - pts[k][0], pts[k + 1][1] - pts[k][1]))
@@ -175,8 +187,8 @@ def _dome_profile(rad, rise):
 
 
 DOME_ARC = _dome_profile(SHAFT_R, DOME_RISE)[1][-1]                     # the skin's meridian
-COFFER_ARC = _dome_profile(R_INSET, DOME_RISE - DOME_T)[1][-1]          # the coffered soffit's
-COFFER_ROWS = DOME_RINGS                                                # one coffer a ring band
+COFFER_ARC = _dome_profile(R_INSET, DOME_RISE - DOME_T)[1][-2]          # the coffered soffit's, to the crown
+COFFER_ROWS = DOME_RINGS - 1                                            # one coffer a ring band; the crown is plain
 COFFER_PX = int(round((COFFER_ARC / COFFER_ROWS) / MPT))                # ... at MPT up the arc
 
 
@@ -188,7 +200,7 @@ def _dome_vs(rad, rise, cls):
     a row at the spring and close one at the apex."""
     arc = _dome_profile(rad, rise)[1]
     if cls == "coffer":
-        return [s / (COFFER_PX * MPT) for s in arc]
+        return [float(k) for k in range(len(arc))]      # ring k IS coffer row k: joints on the rings
     return [(DOME_Z0 - V0 + s) / SHEET_M for s in arc]
 
 
@@ -678,10 +690,10 @@ def _crown(m, coll=False):
     for (rad, rise, outward, zone, cls) in ((SHAFT_R, DOME_RISE, True, "shade", "dome"),
                                             (R_INSET, DOME_RISE - DOME_T, False, "coffer", "coffer")):
         vs = _dome_vs(rad, rise, cls)
+        prof = _dome_profile(rad, rise)[0]
         prev = _ringz(m, rad, z1)
         for k in range(1, DOME_RINGS):
-            t = 0.5 * math.pi * k / DOME_RINGS
-            ring = _ringz(m, rad * math.cos(t), z1 + rise * math.sin(t))
+            ring = _ringz(m, prof[k][0], z1 + prof[k][1])
             for i in range(NS):
                 j = (i + 1) % NS
                 pa, pb = m.verts[prev[i]], m.verts[prev[j]]
@@ -689,19 +701,29 @@ def _crown(m, coll=False):
                 w = (er[0] * rise, er[1] * rise, rad)
                 if not outward:
                     w = (-w[0], -w[1], -w[2])
-                n0 = len(m.faces)
-                m.quad(prev[i], prev[j], ring[j], ring[i], w, zone,
-                       {prev[i]: (float(i), vs[k - 1]), prev[j]: (i + 1.0, vs[k - 1]),
-                        ring[j]: (i + 1.0, vs[k]), ring[i]: (float(i), vs[k])})
-                _classify(m, n0, cls)
+                # a cell fans from its centre: one diagonal kinks a trapezoid's texture, four keep it straight
+                cell = (prev[i], prev[j], ring[j], ring[i])
+                cuv = ((float(i), vs[k - 1]), (i + 1.0, vs[k - 1]), (i + 1.0, vs[k]), (float(i), vs[k]))
+                c = m.v(tuple(sum(m.verts[x][d] for x in cell) / 4.0 for d in range(3)))
+                for e in range(4):
+                    a, b = cell[e], cell[(e + 1) % 4]
+                    n0 = len(m.faces)
+                    m.tri(a, b, c, w, zone)
+                    m.face_uv[n0] = {a: cuv[e], b: cuv[(e + 1) % 4], c: (i + 0.5, 0.5 * (vs[k - 1] + vs[k]))}
+                    _classify(m, n0, cls)
             prev = ring
         apex = m.v((0.0, 0.0, z1 + rise))
+        crown_r = prof[-2][0]
         for i in range(NS):
             j = (i + 1) % NS
             n0 = len(m.faces)
             m.tri(prev[i], prev[j], apex, mb.UP if outward else mb.DOWN, "shade")
-            m.face_uv[n0] = {prev[i]: (float(i), vs[-2]), prev[j]: (i + 1.0, vs[-2]),
-                             apex: (i + 0.5, vs[-1])}
+            if cls == "coffer":        # the crown is plain rib stone, laid flat: a coffer squeezed to a point is pinched
+                m.face_uv[n0] = {x: (0.05 + 0.03 * m.verts[x][0] / crown_r, 0.05 + 0.03 * m.verts[x][1] / crown_r)
+                                 for x in (prev[i], prev[j], apex)}
+            else:
+                m.face_uv[n0] = {prev[i]: (float(i), vs[-2]), prev[j]: (i + 1.0, vs[-2]),
+                                 apex: (i + 0.5, vs[-1])}
             _classify(m, n0, cls)
 
 
