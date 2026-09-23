@@ -63,11 +63,9 @@ H_STEP = 0.04
 # of them and more triangles tested per sample.
 BUCKET_SIZE = 0.50
 
-# The scene's X scale on the RockBars node in scenes/ring/bentham_ring.tscn
-# (basis X column length, 1.28025 / -0.225742). The mesh is authored at 1.0
-# and stretched along its long axis when placed, so a local gap is not the
-# gap the arena has.
-WORLD_X_SCALE = 1.30
+# The scene's X scale on the RockBars node in scenes/ring/bentham_ring.tscn:
+# unscaled since the gate was fitted to the lane at world size.
+WORLD_X_SCALE = 1.0
 
 # A player capsule is this wide. A gap at or under it does not pass a body.
 BODY_DIAMETER = 0.80
@@ -82,7 +80,7 @@ SLOT_TARGET_Z = -4.0
 
 # b. guard_to_body: the guard's tower eye, already converted into this node's
 # local frame, against a body standing on either side of the bars.
-GUARD_EYE = (-40.530, 4.000, -0.121)
+GUARD_EYE = (-52.540, 4.000, 0.000)
 BODY_XS = (-3.0, -1.0, 1.0, 3.0)
 BODY_YS = (0.2, 0.9, 1.6)
 BODY_ZS = (-3.0, 3.0)
