@@ -156,6 +156,21 @@ const DRAW_BUDGETS: Dictionary = {
 	# RAISED for this: 183 and 33 still hold the measurement with room, and
 	# buying 20 % of fresh headroom for two surfaces would hand back gate
 	# strength for nothing.
+	# Re-measured 2026-09-23 after the roof became a dome that sags onto the
+	# tree (lane roof 32.6 -> 38.0, the cell drum back above it to the seam at
+	# 50.0, the tower's crown sweeping up to meet it, the hanging leaf clumps
+	# gone): tris 249815 -> 255415, surfaces 152 -> 164, materials 27 -> 28 (the
+	# new emissive `lamp` sheet), transparent_tris 5220 unchanged (the fog is
+	# still fourteen layers; only its alpha ramp moved). EVERY ceiling in this
+	# row is unchanged -- all six numbers still fit inside the ones already
+	# here, so nothing was widened to let this pass.
+	# lights stays 2 MEASURED (Sun + the portal's Glow) against a ceiling of 3,
+	# and that is the whole point of how the cells are lit: Ryan asked for "a
+	# small light source, a pretty dim one, in each cell", and there are 144
+	# cells. ForestGround is ONE mesh and project.godot sets
+	# rendering/limits/opengl/max_lights_per_object = 32, so 144 OmniLight3Ds
+	# could never all bind to it. Each cell's back face wears an emissive sheet
+	# instead: no light node, no draw call, no triangle.
 	"forest": {
 		"tris": 299778, "surfaces": 183, "materials": 33,
 		"transparent_tris": 6264, "lights": 3, "shadow_casters": 1,
