@@ -55,10 +55,13 @@ floor, the slab (top, inner face, underside), the plain wall face, the dome.
 The spikes and bars are NOT colliders: a body that leaves the walkway is dead
 by the kill cylinder before it lands.
 
-Texture: one painted 256 px atlas of 64 px cells, palette sampled off the
-Temple of Time (see docs/maps/marble.md). USE_TEXTURE_FILES: drop
-textures/marble_albedo.png (+ marble_emissive.png) beside the script and the
-painted atlas is replaced -- same 4 x 4 layout, see ZONES.
+Texture: one tiling sheet per class (lib/texel.py, SHEETS below), the same
+Temple of Time palette (docs/maps/marble.md). The wall sheets are one bay
+wide (128 px = 5.89 m) and twelve 1 m courses tall, phased to the floor, so
+every course line lands on a tier base or a sill and every vertical joint on
+a pier edge; the floor keeps its 3 x 3 slabs per facet. USE_TEXTURE_FILES:
+drop textures/marble_<class>_albedo.png (+ _emissive.png) beside the script
+and that class's painted sheet is replaced. The props keep the 256 px atlas.
 
     python3 tools/modelling/marble_build.py --check     # geometry + contiguity, no Blender
     tools/modelling/model build marble                  # the pipeline
@@ -76,6 +79,7 @@ except ImportError:                       # --check on the Mac: geometry only
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 sys.path.insert(0, HERE + os.sep + "lib")
+import texel as tx  # noqa: E402  one tiling sheet per class, world-projected
 if bpy is not None:
     import mdl  # noqa: E402
     mdl.DEFAULTS["ground"] = False
@@ -540,6 +544,150 @@ def _paint_stone(c, r, box):
 def _paint_plinth(c, r, box):
     _paint_blocks(c, r, box, [(146, 142, 112), (142, 138, 108), (150, 146, 116), (144, 140, 110)],
                   (108, 105, 80), 16)
+
+
+# ---- the sheets (lib/texel.py) --------------------------------------------
+# Wall classes: one bay across (u = i at station i), 12 courses of 1.0 m up
+# from FLOOR_Z, so joints meet the tiers (8 courses), the sills (+1) and the
+# pier edges (PILASTER_W/2 either side of a station); reveals (side faces) get
+# the courses only. The floor's 3 x 3 slabs still fit one facet each.
+BAY_M = TWO_PI * WALL_R / NSIDE          # 5.89 m
+WALL_PX = 128                            # texels across a bay: 0.046 m per texel
+WALL_MPT = BAY_M / WALL_PX
+COURSE_M = 1.0
+COURSES = 12                             # 12.0 m up before the sheet repeats
+WALL_H = int(round(COURSES * COURSE_M / WALL_MPT))   # 261 texels
+JOINT = (108, 105, 80)
+
+
+def _px_u(metres):
+    return int(round(metres / BAY_M * WALL_PX))
+
+
+def _course_rows():
+    return [int(round(k * WALL_H / float(COURSES))) for k in range(COURSES)]
+
+
+def _ashlar(c, r, shades, joint, verticals=True, courses=COURSES, mouth=False):
+    """Coursed blocks on a bay-wide sheet: a joint line on every course, the
+    verticals at the pier edges (and the cell mouth's edges when ``mouth``),
+    alternate courses split once more between them."""
+    tx.fill(c, r, c.box, shades)
+    rows = [int(round(k * c.h / float(courses))) for k in range(courses)]
+    pier = _px_u(PILASTER_W / 2.0)
+    edge = [_px_u(BAY_M / 2.0 - ARCH_W / 2.0), _px_u(BAY_M / 2.0 + ARCH_W / 2.0)] if mouth else [pier, c.w - pier]
+    mid = c.w // 2
+    quarter = [(edge[0] + mid) // 2, (mid + edge[1]) // 2]
+    for k, y0 in enumerate(rows):
+        y1 = rows[k + 1] if k + 1 < len(rows) else c.h
+        c.rect(0, y0, c.w, y0 + 1, joint)
+        if not verticals:
+            continue
+        xs = edge + ([mid] if k % 2 == 0 else quarter)
+        for x in xs:
+            c.rect(x, y0, x + 1, y1, joint)
+
+
+def _sheet_marble(c, r, s):
+    _ashlar(c, r, [(154, 150, 118), (150, 146, 114), (158, 154, 122), (146, 142, 110)], JOINT)
+    tx.shatter(c, r, c.box, [(140, 136, 108)], 20, 6, 14)
+
+
+def _sheet_shade(c, r, s):
+    _ashlar(c, r, [(107, 107, 85), (103, 103, 81), (111, 111, 89), (99, 99, 78)], (80, 80, 66), verticals=False)
+    tx.shatter(c, r, c.box, [(94, 94, 74)], 24, 6, 16)
+
+
+def _sheet_plinth(c, r, s):
+    _ashlar(c, r, [(146, 142, 112), (142, 138, 108), (150, 146, 116), (144, 140, 110)], JOINT,
+            courses=COURSES * 2, mouth=True)
+
+
+def _sheet_cellin(c, r, s):
+    tx.fill(c, r, c.box, [(47, 48, 40), (43, 44, 36), (51, 52, 44), (39, 40, 33)], (10, 11, 9))
+    tx.shatter(c, r, c.box, [(35, 36, 30), (56, 57, 48)], 60, 8, 22)
+    for _ in range(20):                            # a pale slit: a figure, a cot, a window
+        x, w = r.i(0, c.w - 1), r.i(1, 3)
+        yy, h = r.i(0, c.h - 1), r.i(12, 30)
+        c.rect(x, yy, x + w, yy + h, (70, 71, 60), (22, 23, 20))
+
+
+def _sheet_field(c, r, s):
+    tx.fill(c, r, c.box, [(125, 122, 98), (122, 119, 95), (128, 125, 101), (124, 121, 97)])
+    tx.shatter(c, r, c.box, [(110, 107, 85), (138, 135, 108)], 110, 15, 45)
+    tx.blades(c, r, c.box, 180, [(110, 107, 85)])
+    grid, pitch = (85, 83, 63), s.px(0.8)          # a dark tile grid, 0.8 m
+    for y in range(0, c.h, pitch):
+        c.rect(0, y, c.w, y + 1, grid)
+    for x in range(0, c.w, pitch):
+        c.rect(x, 0, x + 1, c.h, grid)
+
+
+def _sheet_spike(c, r, s):
+    tx.fill(c, r, c.box, [(168, 164, 136), (164, 160, 132), (172, 168, 140), (166, 162, 134)])
+    tx.streaks(c, r, c.box, 66, [(140, 137, 112), (150, 147, 120)], (20, 60), (1, 3))
+
+
+def _sheet_frieze(c, r, s):
+    """A Greek key: two hooks across the bay, the face fitted to the sheet."""
+    tx.fill(c, r, c.box, [(154, 150, 118), (150, 146, 114), (158, 154, 122)])
+    W, H = c.w, c.h
+    unit = W // 2
+    key = (69, 70, 58)
+    st = max(2, H // 8)
+    lo, hi = H // 6, H - H // 6
+    for k in range(2):
+        u = k * unit
+        c.rect(u, hi - st, u + unit, hi, key)
+        c.rect(u + unit - 2 * st, lo, u + unit - st, hi, key)
+        c.rect(u + st, lo, u + unit - st, lo + st, key)
+        c.rect(u + st, lo, u + 2 * st, hi - 3 * st, key)
+        c.rect(u + st, hi - 4 * st, u + unit - 4 * st, hi - 3 * st, key)
+        c.rect(u + unit - 5 * st, lo + 2 * st, u + unit - 4 * st, hi - 3 * st, key)
+    c.rect(0, lo - st - 1, W, lo - st + 1, (107, 107, 85))
+    c.rect(0, hi + st - 1, W, hi + st + 1, (107, 107, 85))
+
+
+def _sheet_column(c, r, s):
+    _paint_column(c, r, c.box)
+
+
+def _sheet_band(c, r, s):
+    _paint_band(c, r, c.box)
+
+
+def _sheet_iron(c, r, s):
+    _paint_iron(c, r, c.box)
+
+
+def _sheet_floor(c, r, s):
+    _paint_floor(c, r, c.box)
+
+
+def _sheet_dome(c, r, s):
+    _paint_dome(c, r, c.box)
+
+
+def _wall(name, paint, **kw):
+    return tx.Sheet(name, paint, mpt=WALL_MPT, size=WALL_H, width=WALL_PX, ref_r=WALL_R,
+                    phase=(0.0, FLOOR_Z), roughness=ROUGHNESS, **kw)
+
+
+SHEETS = {
+    "marble": _wall("marble", _sheet_marble, seed=1),
+    "shade": _wall("shade", _sheet_shade, seed=2),
+    "plinth": _wall("plinth", _sheet_plinth, seed=3),
+    "cellin": _wall("cellin", _sheet_cellin, seed=4),
+    "field": tx.Sheet("field", _sheet_field, mode="box", roughness=ROUGHNESS, seed=5),
+    "spike": tx.Sheet("spike", _sheet_spike, mode="box", roughness=ROUGHNESS, seed=6),
+    "floor": tx.Sheet("floor", _sheet_floor, mode="fit", size=64, mpt=2.7 / 64.0, roughness=ROUGHNESS, seed=7),
+    "frieze": tx.Sheet("frieze", _sheet_frieze, mode="fit", width=256, size=64, mpt=BAY_M / 256.0, roughness=ROUGHNESS, seed=8),
+    "column": tx.Sheet("column", _sheet_column, mode="fit_u", width=64, size=256, roughness=ROUGHNESS, seed=9),
+    "band": tx.Sheet("band", _sheet_band, mode="fit_v", width=256, size=64, roughness=ROUGHNESS, seed=10),
+    "iron": tx.Sheet("iron", _sheet_iron, mode="fit_u", width=64, size=256, roughness=ROUGHNESS, seed=11),
+    "dome": tx.Sheet("dome", _sheet_dome, mode="custom", width=128, size=64, roughness=ROUGHNESS, seed=12),
+}
+_CLASS = {"marble2": "marble", "collar": "band"}
 
 
 PAINTERS = {
@@ -1261,6 +1409,9 @@ def _render(spec, objects):
         print("MDL RENDER %s (hand-placed camera)" % os.path.basename(path))
 
     eye = DECK_Z + EYE_H
+    shot("tex_cell_1m", pol(2.8125, WALL_R - 1.0, eye), pol(2.8125, WALL_R + 0.5, DECK_Z + SILL_UP + 2.5), 18.0, (1200, 675))
+    shot("tex_pilaster_1m", pol(5.625, WALL_R - 1.45, eye), pol(5.625, WALL_R - 0.4, DECK_Z + 2.0), 18.0, (1200, 675))
+    shot("tex_floor_1m", pol(45.0, INNER_R + 1.0, eye), pol(45.0, INNER_R - 0.1, DECK_Z - 0.2), 18.0, (1200, 675))
     shot("runner", pol(30.0, LANE_R, eye), pol(58.0, LANE_R, DECK_Z + 1.0), 24.0, (1400, 800))
     # the guard on the dais at the axis, looking out THROUGH an arch (the openings
     # are centred on 36.25 + 22.5k) at the lane: a column at 6.3 m filled the old frame
@@ -1337,13 +1488,15 @@ def build():
     stone, info = _stone()
     coll = _collider()
     a = audit(stone, "stone")
-    albedo, emissive = _sheet("marble", build_texture)
-    mdl.save_texture(albedo)
-    mdl.save_texture(emissive)
-
     ob = stone.object(OBJECT_NAME)
-    unwrap(ob, stone.zones, stone.groups, face_uv=stone.face_uv)
-    mdl.finish(ob, stone_material("Marble", albedo, emissive), strip_uvs=False)
+    classes = [_CLASS.get(z, z) for z in stone.zones]
+    tx.unwrap(ob, classes, SHEETS, seed=1, face_uv=stone.face_uv, groups=stone.groups)
+    mats = tx.materials(NAME, SHEETS, use_files=USE_TEXTURE_FILES, tex_dir=os.path.join(HERE, TEX_DIR))
+    for mat in mats.values():
+        mat.diffuse_color = (0.78, 0.76, 0.72, 1.0)
+    order = tx.finish(ob, classes, mats)
+    tx.report(SHEETS)
+    print("MDL STATS surfaces=%d order=%s" % (len(ob.data.materials), ",".join(order)))
     coll_ob = coll.object(COLLIDER_NAME)
     coll_ob.hide_render = True
 
