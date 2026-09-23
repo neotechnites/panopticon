@@ -17,8 +17,8 @@ uniform vec3 uv1_offset = vec3(0.0);
 uniform vec2 ring_centre = vec2(0.0);   // world xz the falls' walls are round
 uniform float river_y = 22.7;           // the river's surface, world y
 uniform float shelf_y = 28.8;           // the flat lava over the outer fall
-uniform float river_amp = 0.06;         // metres the river rises at a crest
-uniform float fall_amp = 0.05;          // metres a fall bulges out at a crest
+uniform float river_amp = 0.35;         // metres the river rises at a crest
+uniform float fall_amp = 0.30;          // metres a fall bulges out at a crest
 uniform float speed = 0.9;              // rad/s: one swell every ~7 s
 
 float flat_w(float y) {
