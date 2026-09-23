@@ -5,7 +5,7 @@ carved bars and more like a cave wall with slots through it."
 
 So the ROCK is the subject and the gaps are cut into it. There is no sill, no
 lintel and no row of uprights: one mass of the map's own hell rock spans the
-10.6 x 8.5 m opening, its two faces swelling and thinning on their own (a
+lane from the lip to the outer wall, its two faces swelling and thinning on their own (a
 half-thickness of 0.13 .. 0.58 m, heaviest at the haunch where it meets the
 floor and under the brow at the crest), its top edge broken rather than sawn,
 and nine tall slots are cut clean through it. No two slots are alike: each has
@@ -14,19 +14,20 @@ foot, and the rock left between them runs from 0.5 m to 1.7 m across, so the
 screen has no rhythm to read off. Every row of the wall's lattice carries its
 own x and z wobble, which is what makes a slot's edge ragged instead of milled.
 
-THE GUARANTEE IS UNCHANGED. No opening is wider than 0.38 m at any height, so
-a body (0.8 m across) cannot pass and a rifle round and a sight line can. The
-envelope is unchanged too -- 10.6 m across, 8.5 m tall, origin the base centre,
-z=0 the ground -- because forest_bars.glb and marble_bars.glb are drop-ins for
-it and the scene's transform is untouched.
+THE GUARANTEE IS UNCHANGED. No opening is wider than 0.48 m at any height, so
+a body (0.8 m across) cannot pass and a rifle round and a sight line can.
+THE FIT (Ryan: "it just sticks right out the side and off the cliff"): built at
+world scale, its inner end stops on the cliff lip, never over the drop, and its
+outer end grows out of the lane's outer wall in a flare and runs on buried in
+it; it fillets into the floor and the ceiling. Origin the base centre, z=0 the
+ground. forest_bars and marble_bars keep the old 10.6 m envelope; they are not this.
 
 TEXTURE: map 1's own rock sheets through lib/texel.py, not an atlas (Ryan: "the
 texturing on the gate is bad, you seemed to fix it for the maps generally").
 Same painters, same seeds, same tx.MPT = 0.05 m per texel as map_base's walls,
 world-projected in the model's own frame ("box"), so marks run across face
 edges instead of each face carrying its own cut-off window. The RockBars node
-in bentham_ring.tscn scales local X by 1.30, so across the lane those texels
-land at 0.065 m in the world; height and thickness are 0.05 m exactly.
+is unscaled, so the texels are 0.05 m in the world, as map 1's walls are.
 
 The screen spans Blender X (Godot X), thickness along Blender Y (Godot Z).
 Blender +Z -> Godot +Y, +X -> +X, +Y -> -Z.
@@ -56,14 +57,18 @@ NAME = "rock_bars"
 OBJECT_NAME = "RockBars"
 COLLIDER_NAME = "RockBarsCollision-colonly"
 
-HALF_W = 5.3            # 10.6 m across the lane
+# Ryan: "the model you made just sticks right out the side and off the cliff."
+# Built at world scale now (the node is unscaled), spanning r 46.58 .. 58.50 on bearing 350.
+HALF_W = 5.96           # inner end on the cliff lip (map_base's is r 46.49 .. 46.57 here) ...
+X_WALL = 4.55           # ... the lane's outer rock wall face (r 57.09); past it the rock is buried
 HEIGHT = 8.5
+FOOT = -0.25            # the foot is sunk under the deck, so no seam line where it meets it
 
 # The wall's lattice. One row list for the whole wall; every line wobbles its
 # own z at every row, so no band edge is straight.
 ROWS = [0.0, 0.62, 1.35, 2.10, 2.85, 3.60, 4.35, 5.10, 5.85, 6.60, 7.45, 8.50]
 Z_JITTER = 0.24         # a row's height wobble, line by line
-X_JITTER = 0.05         # a solid line's sideways wobble, row by row
+X_JITTER = 0.065        # a solid line's sideways wobble, row by row
 # The gallery is a CUTOUT with a rock ceiling CEIL_H 8.5 m over the deck
 # (map_base_build.CEIL_H), which is exactly this wall's height: so the TOP row
 # is dead flat at 8.5 and buried in that ceiling, and the broken-rock read
@@ -72,27 +77,32 @@ X_JITTER = 0.05         # a solid line's sideways wobble, row by row
 TOP_JITTER = 0.28       # how far the last band under the ceiling breaks up
 
 SLOTS = 8
-SLOT_W = (0.23, 0.37)   # a slot's base width at its widest
-SLOT_MAX = 0.37         # hard ceiling on any opening, at any height
-SLOT_MIN = 0.07         # how far a slot may pinch before it is called shut
-SLOT_LEAN = 0.17        # drift of a slot's centre from foot to head
-SLOT_KINK = 0.10        # its own wander across the lane on the way up
-SLOT_JITTER = 0.050     # per-row raggedness of the cut edge
+# World metres: the old slots x the old node's 1.30 X scale, so they read as they did.
+SLOT_W = (0.30, 0.48)   # a slot's base width at its widest
+SLOT_MAX = 0.48         # hard ceiling on any opening, at any height
+SLOT_MIN = 0.09         # how far a slot may pinch before it is called shut
+SLOT_LEAN = 0.22        # drift of a slot's centre from foot to head
+SLOT_KINK = 0.13        # its own wander across the lane on the way up
+SLOT_JITTER = 0.065     # per-row raggedness of the cut edge
 SLOT_TAPER = 0.22       # how much of its width a tapering slot sheds
-ROCK_MIN = 0.50         # the least rock that may be left between two slots: below
+ROCK_MIN = 0.65         # the least rock that may be left between two slots: below
                         # this a column stops being a mass and starts being a bar
 ROCK_SKEW = 3.0         # how hard the spare width piles onto a few columns, so the
                         # wall carries two or three real masses and not nine equals
-ROCK_SPLIT = 1.15       # a rock column this wide or wider gets two lattice lines
+ROCK_SPLIT = 1.50       # a rock column this wide or wider gets two lattice lines
 
 # Slot heads and feet as row indices: nine different pairs, dealt by the seed.
 SLOT_SPANS = [(1, 10), (1, 9), (2, 10), (1, 8), (3, 10), (1, 10), (2, 7), (1, 9), (4, 10)]
 
 # The wall's own mass: half-thickness at a point, per face.
 T_BASE = 0.185
-T_MIN, T_MAX = 0.115, 0.46
-HAUNCH, HAUNCH_Z = 0.20, 2.30      # it thickens into the floor
-BROW, BROW_Z, BROW_H = 0.15, 6.30, 2.20   # and under the crest
+T_MIN, T_MAX = 0.115, 0.62
+HAUNCH, HAUNCH_Z = 0.28, 2.30      # it thickens into the floor
+BROW, BROW_Z, BROW_H = 0.34, 6.30, 2.20   # and fillets into the ceiling
+FLARE, FLARE_L = 0.80, 2.60        # it grows out of the outer wall: extra half-thickness, reach
+FLARE_STEP = 0.45                  # lattice spacing through the flare, so it curves, not facets
+PROW_MIN, PROW_L = 0.55, 0.70      # at the lip it rounds off to this of its thickness, over this
+END_RAG = 0.15                     # the lip end is broken back by up to this, never out past it
 PHASE_FRONT, PHASE_BACK = 0.0, 2.70       # the two faces are not each other
 
 SHADE_T = 0.150         # a face thinner than this reads as recessed: the shade sheet
@@ -265,7 +275,10 @@ def _thickness(x, z, phase):
     v += 0.036 * math.sin(2.35 * x + 1.90 * z + 3.0 * phase)
     v += HAUNCH * max(0.0, 1.0 - z / HAUNCH_Z) ** 2
     v += BROW * max(0.0, (z - BROW_Z) / BROW_H) ** 2
-    return min(T_MAX, max(T_MIN, v))
+    v = min(T_MAX, max(T_MIN, v))
+    s = min(1.0, max(0.0, 1.0 - (X_WALL - x) / FLARE_L))
+    e = min(1.0, max(0.0, (x + HALF_W) / PROW_L))
+    return (v + FLARE * s * s) * (PROW_MIN + (1.0 - PROW_MIN) * math.sqrt(e))
 
 
 def _taper(kind, u):
@@ -282,8 +295,8 @@ def _taper(kind, u):
 
 def _plan(r):
     """Slot widths and spans, and the rock columns between them, normalised so
-    the lattice fills exactly 10.6 m. Returns the slots and the lane count of
-    each rock column."""
+    the lattice fills the lane from the lip to the outer wall; the last column
+    runs on into the wall. Returns the slots and the lane count of each column."""
     spans = list(SLOT_SPANS)
     for k in range(len(spans) - 1, 0, -1):          # deal them, seed's choice
         j = r.i(0, k)
@@ -301,13 +314,15 @@ def _plan(r):
             "kind": r.pick(["none", "up", "down", "waist", "belly", "up", "belly"]),
         })
     w = [r.f() ** ROCK_SKEW for _ in range(SLOTS + 1)]
-    free = 2.0 * HALF_W - sum(s["w"] for s in slots)
+    free = X_WALL + HALF_W - sum(s["w"] for s in slots)
     spare = free - (SLOTS + 1) * ROCK_MIN
     if spare <= 0.0:
         raise ValueError("no room for %d slots and %d columns of %.2f m"
                          % (SLOTS, SLOTS + 1, ROCK_MIN))
     cols = [ROCK_MIN + spare * x / sum(w) for x in w]
     lanes = [2 if c >= ROCK_SPLIT else 1 for c in cols]
+    lanes[0] = 2                                    # a line for the prow to round over
+    lanes[-1] = max(lanes[-1], int(math.ceil((cols[-1] + HALF_W - X_WALL) / FLARE_STEP)))
     x = -HALF_W
     for g in range(SLOTS + 1):
         x += cols[g]
@@ -361,11 +376,13 @@ def _lattice(r, slots, cols, lanes):
     for i in range(nx):
         for j in range(nz):
             if j == 0:
-                Z[i][j] = 0.0                        # the floor: no daylight under it
+                Z[i][j] = FOOT                       # under the floor: no daylight, no seam
             elif j == nz - 1:
                 Z[i][j] = HEIGHT                     # the ceiling: none over it either
             else:
                 Z[i][j] = ROWS[j] + r.sf() * (TOP_JITTER if j == nz - 2 else Z_JITTER)
+    for j in range(1, nz - 1):                     # the lip end, broken back off the drop
+        X[0][j] = -HALF_W + END_RAG * r.f()
     return X, Z, cell_of
 
 
@@ -424,10 +441,10 @@ def _wall(r):
                (0, 0, -1), "shade")
         m.quad(idx[(-1, i, nz - 1)], idx[(-1, i + 1, nz - 1)],
                idx[(1, i + 1, nz - 1)], idx[(1, i, nz - 1)], (0, 0, 1), "rock")
-    for i, want in ((0, (-1, 0, 0)), (nx - 1, (1, 0, 0))):   # where it meets the lane walls
+    for i, want, zone in ((0, (-1, 0, 0), "rock"), (nx - 1, (1, 0, 0), "shade")):   # lip, buried end
         for j in range(nz - 1):
             m.quad(idx[(-1, i, j)], idx[(-1, i, j + 1)], idx[(1, i, j + 1)], idx[(1, i, j)],
-                   want, "shade")
+                   want, zone)
     return m, slots, X, Z, cell_of, lanes, TH
 
 
@@ -457,18 +474,26 @@ def _collider(slots, X, Z, cell_of, TH):
                    max(TH[(side, i, j)] for side in (-1, 1)
                        for i in range(lo, hi + 1) for j in range(j0, j1 + 1)))
 
-    for a, b, lo, hi in ends:
+    for a, b, lo, hi in ends[:-1]:
         d = depth(lo, hi)
         c.box((a, -d, 0.0), (b, d, HEIGHT), "rock")
+    a, _, lo, hi = ends[-1]                         # the flare: a box per lane, so it follows
+    for i in range(lo, hi):
+        x0 = a if i == lo else min(X[i])
+        x1 = HALF_W if i == hi - 1 else max(X[i + 1])
+        d = depth(i, i + 1)
+        c.box((x0, -d, 0.0), (x1, d, HEIGHT), "rock")
+    nbox = len(ends) - 1 + hi - lo
+    s0, s1 = cell_of[0], cell_of[-1] + 1           # the sill and lintel span the slots only
     foot = min(min(Z[cell_of[k]][s["b"]], Z[cell_of[k] + 1][s["b"]])
                for k, s in enumerate(slots))
     head = max(max(Z[cell_of[k]][s["t"]], Z[cell_of[k] + 1][s["t"]])
                for k, s in enumerate(slots))
-    d = depth(0, nx - 1, 0, 1)
-    c.box((-HALF_W, -d, 0.0), (HALF_W, d, foot), "rock")
-    d = depth(0, nx - 1, len(ROWS) - 2, len(ROWS) - 1)
-    c.box((-HALF_W, -d, head), (HALF_W, d, HEIGHT), "rock")
-    return c, len(ends) + 2, foot, head
+    d = depth(s0, s1, 0, 1)
+    c.box((min(X[s0]), -d, 0.0), (max(X[s1]), d, foot), "rock")
+    d = depth(s0, s1, len(ROWS) - 2, len(ROWS) - 1)
+    c.box((min(X[s0]), -d, head), (max(X[s1]), d, HEIGHT), "rock")
+    return c, nbox + 2, foot, head
 
 
 def _measure(slots, X, cell_of):
