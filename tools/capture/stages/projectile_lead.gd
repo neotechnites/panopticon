@@ -8,7 +8,7 @@ extends "res://tools/capture/stages/stage.gd"
 ## want it to look like sniping in fortnite where you can actually see the
 ## bullet as it travels".
 ##
-## The eye is 55 m out and 100 m/s (MatchRules.SUGGESTED_PROJECTILE_SPEED) is
+## The eye is 55 m out and 100 m/s (CAPTURE_SPEED, pinned for the film) is
 ## 0.56 s in the air: 34 frames at 60 fps of a lit bullet climbing onto the
 ## crosshair and receding, which is the subject of the shot. Ryan: "if it has to
 ## move slower than it has to move slower".
@@ -53,7 +53,7 @@ extends "res://tools/capture/stages/stage.gd"
 ## the exact frame moves a little with the seed. That is the point of the hold.
 ##
 ## Dials (--set=):
-##   speed     the projectile lever in m/s (100; 0 would be hitscan)
+##   speed     the projectile lever in m/s (100, CAPTURE_SPEED; 0 is hitscan)
 ##   first     bearing of the man furthest back (6)
 ##   step      degrees of ring between them (13)
 ##   r         radius they are strung along (54)
@@ -70,6 +70,14 @@ const CAST := preload("res://tools/capture/runner_cast.gd")
 
 ## Map 1. Pinned here so a settings file on the filming machine cannot move it.
 const MAP_1: StringName = &"bentham_ring"
+
+## The round's speed for THIS capture, m/s. Pinned here and not read from
+## MatchRules.SUGGESTED_PROJECTILE_SPEED on purpose: the game's suggestion is a
+## balance number and moves, and Ryan picked 100 for the film after seeing both
+## -- "remake the shot with 100m/s shot". Over the 48-55 m of this lane that is
+## about half a second, thirty frames of bullet to follow. Changing this changes
+## the shot, not the game.
+const CAPTURE_SPEED: float = 100.0
 
 var _runners: Array = []
 var _brains: Array = []
@@ -90,7 +98,7 @@ func tune_rules(rules: MatchRules) -> void:
 	rules.map_id = MAP_1
 	# The subject of the shot: the round travels, at the suggested lever unless
 	# a dial says otherwise.
-	rules.guard_projectile_speed = float(option("speed", MatchRules.SUGGESTED_PROJECTILE_SPEED))
+	rules.guard_projectile_speed = float(option("speed", CAPTURE_SPEED))
 	# The rifle comes back in this long, so both beats get a ready rifle.
 	rules.base_reload_seconds = 1.0
 	# RunnerProfile.resolve gives the round's exported profile priority over the
@@ -142,7 +150,7 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 	_runners = bodies
 	_brains = brains
 	say("projectile_lead: %d played on the lap from %.0f deg, %.0f deg apart, r %.0f, round %.0f m/s" % [
-		placed, first, step, r, float(option("speed", MatchRules.SUGGESTED_PROJECTILE_SPEED)),
+		placed, first, step, r, float(option("speed", CAPTURE_SPEED)),
 	])
 	return true
 
