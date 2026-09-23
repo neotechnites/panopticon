@@ -199,6 +199,8 @@ BANK_REACH = 3.0                      # metres of floor that follow a bank's lin
 COL_MERGE = 0.30                      # a river column this close to a wall column yields
 SHELF_D = 2.5                         # the flat river cut back into the wall over the fall
 FALL_CAP = 3.0                        # tallest fall row
+FALL_WAVE_ROW = 1.0                   # ... and the pit fall's drawn rows, so the lava
+                                      # shader's ripple bends it (scenes/ring/lava_wave.gdshader)
 
 PLAT_OUT_R = 54.8                     # the run: 7 platforms, 7.00 m apart
 PLAT_IN_R = 50.2
@@ -2486,27 +2488,49 @@ def _pit_lava(m, wall, ta, tb, cut_a, cut_b, cols, rim, lines):
         nv = _nv(z1 - z0, FALL_CAP)
         zs += [z0 + (z1 - z0) * k / nv for k in range(nv)]
     zs = sorted(zs + [LAVA_Z - d for d in LIP_ROWS] + [zc[-1]])
+    row_of = {round(z, 6): BANK_WALL + BANK_DECK - 2 + k for k, z in enumerate(reversed(zs))}
+    fine = []                                      # FALL_WAVE_ROW rows for the shader's
+    for z0, z1 in zip(zs, zs[1:]):                 # ripple; banks keep the coarse rows' line
+        nv = _nv(z1 - z0, FALL_WAVE_ROW)
+        fine += [z0 + (z1 - z0) * k / nv for k in range(nv)]
+    fine.append(zs[-1])
+    coarse = zs
+
+    def row_at(z):
+        """Bank-line row of a fine row: linear between its two coarse rows."""
+        for z0, z1 in zip(coarse, coarse[1:]):
+            if z0 - 1e-9 <= z <= z1 + 1e-9:
+                f = (z - z0) / (z1 - z0) if z1 > z0 else 0.0
+                return row_of[round(z0, 6)] + (row_of[round(z1, 6)] - row_of[round(z0, 6)]) * f
+        return row_of[round(z, 6)]
+
+    def bank_da(line, side, i, rad):
+        i0 = int(math.floor(i + 1e-9))
+        f = i - i0
+        a = _bank_da(line, side, i0, rad)
+        return a if f < 1e-9 else a + (_bank_da(line, side, i0 + 1, rad) - a) * f
+
+    zs = fine
 
     def rec(z):
         return max(_lip(LAVA_Z - z), RECESS_R * _ramp(LAVA_Z - z, 0.0, PIT_FADE))
 
     node = {}
-    row_of = {round(z, 6): BANK_WALL + BANK_DECK - 2 + k for k, z in enumerate(reversed(zs))}
 
     def N(t, z):
         """The fall's own vertex: the bank line's edge at this row, the
         columns between following it, all recessed rec(z)."""
         key = (round(t, 6), round(z, 6))
         if key not in node:
-            i = row_of[round(z, 6)]
+            i = row_at(z)
             rad = INNER_R
             if abs(t - ta) < 1e-9:
-                da = _bank_da(lines[0], 0, i, rad)
+                da = bank_da(lines[0], 0, i, rad)
             elif abs(t - tb) < 1e-9:
-                da = _bank_da(lines[1], 1, i, rad)
+                da = bank_da(lines[1], 1, i, rad)
             else:
-                da = (_bank_da(lines[0], 0, i, rad) * max(0.0, 1.0 - (t - ta) * rad / BANK_REACH)
-                      + _bank_da(lines[1], 1, i, rad) * max(0.0, 1.0 - (tb - t) * rad / BANK_REACH))
+                da = (bank_da(lines[0], 0, i, rad) * max(0.0, 1.0 - (t - ta) * rad / BANK_REACH)
+                      + bank_da(lines[1], 1, i, rad) * max(0.0, 1.0 - (tb - t) * rad / BANK_REACH))
             node[key] = m.v(_push(wall.P(t + da, z), rec(z)))
         return node[key]
 
