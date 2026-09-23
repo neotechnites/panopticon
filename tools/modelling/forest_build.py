@@ -16,7 +16,7 @@ Authored in WORLD coordinates so the scene instances it at identity
 
 ONE CONTIGUOUS mesh (ForestGround), one surface (the forest atlas). Every part shares vertices with what it grows from: the grids
 share their seam rows, the water rings inward from the bank's last row, ferns,
-hummocks, cell bars, the fence and the hanging roots are socketed into the
+hummocks, cell bars and the hanging roots are socketed into the
 quads they stand on (_Mesh.socket), the forest trunks are wall columns pushed
 toward the lane. Nothing merely overlaps its host.
 
@@ -28,7 +28,7 @@ alpha peaks on the axis, is zero along both edges and at both ends, so a
 shaft has no cap and no hard edge; it starts under the closed canopy and
 runs into the ground it lands on. ForestCollision rides as a `-colonly` node: flat
 lane, pit cone, water floor, flat wall with a prism per trunk, flat ceiling
-annulus, the fence box at 350 deg. The leafy visual mesh is never its own
+annulus. The leafy visual mesh is never its own
 collider.
 
 Textures: painted atlas (forest_tree_build.paint_atlas) unless
@@ -137,7 +137,7 @@ TRUNK_WANDER = 0.06
 WALL_CELLS = [22.0, 50.0, 78.0, 104.0, 131.0, 158.0, 186.0, 212.0, 240.0, 268.0, 296.0, 318.0]
 WALL_CELL_ROWS = (1, 2, 3)  # sill, jamb, apex rows of WALL: the lane tier, sill 0.3 m over the grass
 # the upper tier: two per bay between neighbouring TRUNKS, 6..7.5 deg either side of the bay's
-# lower cell so the tiers stagger like brick; none between 328 and 12 deg (the fence, the portal)
+# lower cell so the tiers stagger like brick; none between 328 and 12 deg (the portal, the bars)
 # and none nearer a trunk than 4.5 deg (two bays only fit one, so the wide 286..342 bay takes four)
 WALL_CELLS_UPPER = [15.0, 30.0, 43.5, 57.0, 72.0, 84.0, 97.5, 111.0, 124.5, 138.0, 153.0, 165.0,
                     180.0, 193.5, 219.0, 247.5, 262.5, 276.0, 291.0, 303.0, 310.5, 325.5]
@@ -192,15 +192,6 @@ HUMMOCK_BASE = 0.5          # the 4-vertex socket ring ...
 HUMMOCK_RING = 0.3          # ... rises into this 8-ring well inside it
 HUMMOCK_H = 0.32
 HANG_ROOTS = 10
-FENCE_B = 350.0
-FENCE_IN = 46.5             # the fallen log and the rail start here, capped
-FENCE_STEP = 0.55           # stick pitch along the log
-FENCE_R = (0.07, 0.09)
-FENCE_LOG_R = (0.26, 0.32)  # the log's radius at the lip end and at the wall
-FENCE_LOG_Z = (23.2, 23.62) # its axis height at the lip end and at the wall (it leans on the roots)
-FENCE_RAIL_R = 0.24
-FENCE_TOP = 29.5            # the top rail's axis
-FENCE_BOX_TOP = 34.5        # the collider box: nobody jumps the fence
 
 REVIEW_SUN = 6.0            # review renders only: the sun from SUN, watts, shadows on (light variant)
 REVIEW_FILL = 1.1           # ... a second sun from the far side, no shadows
@@ -773,12 +764,10 @@ class _Ground(object):
         return (x, y, z)
 
     def _spot(self, row, avoid_trunks):
-        """An unclaimed deck quad in the row, off the fence and the pilasters."""
+        """An unclaimed deck quad in the row, off the pilasters."""
         r = self.r
         for _ in range(60):
             i = r.i(0, NC - 1)
-            if _near(_col_bearing(i) + 0.75, FENCE_B, 4.0):
-                continue
             if avoid_trunks and (i in self.trunk_cols or (i + 1) % NC in self.trunk_cols):
                 continue
             if (row, i) in self.taken or not self.m.has_quad(self._deck_quad(row, i)):
@@ -901,47 +890,6 @@ class _Ground(object):
             _ptube(m, path, (0.2, 0.17, 0.15, 0.13, 0.11), 4, "root", start=([quad], "earth"), caps=(False, True), wob=0.1, rng=r)
             made += 1
 
-    def _fence(self):
-        """A fallen log across the lane at FENCE_B, its wall end socketed into the
-        leaf wall; sticks grow out of its top quads into a top rail, whose wall
-        end is socketed likewise. Lip ends capped."""
-        m, r = self.m, self.r
-        rd, tn = radial(FENCE_B), tangent(FENCE_B)
-        ci = int(FENCE_B / (360.0 / NC)) % NC
-
-        def wq(j):
-            return (self.wall[j][ci], self.wall[j][(ci + 1) % NC], self.wall[j + 1][(ci + 1) % NC], self.wall[j + 1][ci])
-
-        sticks = []
-        x = FENCE_IN + 0.5
-        while x < OUTER_R - 0.5:
-            sticks.append(x)
-            x += FENCE_STEP
-        bounds = [FENCE_IN] + [x - FENCE_STEP * 0.5 for x in sticks] + [sticks[-1] + FENCE_STEP * 0.5]
-
-        def log_z(x):
-            return FENCE_LOG_Z[0] + (FENCE_LOG_Z[1] - FENCE_LOG_Z[0]) * (x - FENCE_IN) / (OUTER_R - FENCE_IN)
-
-        path = [pol(FENCE_B, x, log_z(x)) for x in bounds]
-        patch = [wq(0), wq(1)]
-        plane = (m.centroid(_patch_frame(m, patch)[3]), _patch_frame(m, patch)[0])
-        path.append(_on_plane(plane, path[-1], norm(sub(path[-1], path[-2]))))
-        log = _ptube(m, path, FENCE_LOG_R, 6, "bark", end=(patch, "leaf"), caps=(True, False), wob=0.05, rng=r, twist="end")
-
-        rpath = [pol(FENCE_B, x, FENCE_TOP) for x in bounds]
-        plane = (m.centroid(wq(4)), _patch_frame(m, [wq(4)])[0])
-        rpath.append(_on_plane(plane, rpath[-1], rd))
-        rail = _ptube(m, rpath, (FENCE_RAIL_R, FENCE_RAIL_R), 6, "bark", end=([wq(4)], "leaf"), caps=(True, False), wob=0.04, rng=r, twist="end")
-
-        for j in range(len(sticks)):
-            tq = (log[j + 1][1], log[j + 1][2], log[j + 2][2], log[j + 2][1])       # the log's top face
-            bq = (rail[j + 1][4], rail[j + 1][5], rail[j + 2][5], rail[j + 2][4])   # the rail's underside
-            foot, top = m.centroid(tq), m.centroid(bq)
-            mid = add(lerp(foot, top, 0.5), tn, r.u(-0.15, 0.15))
-            spath = bez(foot, mid, top, 5)
-            rs = r.u(*FENCE_R)
-            _ptube(m, spath, (rs, rs * 0.85), 4, "bark", start=([tq], "bark"), end=([bq], "bark"), wob=0.1, rng=r)
-
     # ---- sun rays ----------------------------------------------------------------
     def ray_lines(self):
         """(top, foot, S, scale) per shaft, world coordinates: the shaft's axis runs
@@ -1003,7 +951,6 @@ class _Ground(object):
         fp.pit_floor(self)          # the dark floor grown inward off the bank's last row
         self._ferns()
         self._hanging_roots()
-        self._fence()
         fc.dress(self)              # leaf clumps round the shaft sources, high in the canopy
         fp.brambles(self)           # the thicket: thorny branches out of the pit floor, rising from the fog
         return self.m
@@ -1104,7 +1051,7 @@ def _ray_object(m, name):
 
 
 # =============================================================================
-# COLLIDER -- flat lane, pit cone, water floor, wall + trunk prisms, ceiling, the fence box
+# COLLIDER -- flat lane, pit cone, water floor, wall + trunk prisms, ceiling
 # =============================================================================
 
 def build_collider():
@@ -1136,19 +1083,6 @@ def build_collider():
             idx = (lo[k], lo[k + 1], hi[k + 1], hi[k])
             cc = c.centroid(idx)
             c.quad(idx[0], idx[1], idx[2], idx[3], (-cc[0], -cc[1], 0.0), "bark")
-    # the fence box at 350 deg
-    t = tangent(FENCE_B)
-    lo = [pol(FENCE_B, INNER_R, DECK_Z), pol(FENCE_B, OUTER_R, DECK_Z)]
-    box = []
-    for z in (DECK_Z, FENCE_BOX_TOP):
-        for sgn in (-0.3, 0.3):
-            box.append([c.v(add((p[0], p[1], z), t, sgn)) for p in lo])
-    # box[0]=(z0,-), box[1]=(z0,+), box[2]=(z1,-), box[3]=(z1,+); each [inner, outer]
-    c.quad(box[0][0], box[0][1], box[2][1], box[2][0], (-t[0], -t[1], 0.0), "bark")
-    c.quad(box[1][0], box[1][1], box[3][1], box[3][0], t, "bark")
-    c.quad(box[2][0], box[2][1], box[3][1], box[3][0], UP, "bark")
-    c.quad(box[0][0], box[1][0], box[3][0], box[2][0], (-lo[0][0], -lo[0][1], 0.0), "bark")
-    c.quad(box[0][1], box[1][1], box[3][1], box[2][1], (lo[1][0], lo[1][1], 0.0), "bark")
     return c
 
 
@@ -1271,7 +1205,13 @@ def _forest_render(spec, objects):
     con.target, con.track_axis, con.up_axis = target, "TRACK_NEGATIVE_Z", "UP_Y"
     out_dir = spec.get("out_dir", ".")
 
+    # --views <hand shot names>: render only those (the fast loop for one section, e.g.
+    # --views pit_fog,pit). The named views (front/side/threequarter) are mdl's, not ours.
+    sel = set(spec.get("views") or []) - {"front", "side", "threequarter"}
+
     def shot(name, loc, tgt, lens, res):
+        if sel and name not in sel and "rays" not in sel:
+            return
         cam.data.lens = lens
         cam.location = loc
         target.location = tgt
@@ -1295,6 +1235,8 @@ def _forest_render(spec, objects):
     def compare(name, loc, tgt, lens, res):
         """Both variants from one camera, side by side in one image, the
         mesh-only shafts on the left and the sun-and-faint-shafts on the right."""
+        if sel and name not in sel and "rays" not in sel:
+            return
         halves = []
         for which in ("solid", "light"):
             variant(which)

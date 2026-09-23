@@ -25,20 +25,42 @@ import forest_tree_build as ft
 from forest_tree_build import UP, DOWN, pol, add, sub, norm, dot, lerp, bez, zipper
 
 FOG_NAME = "ForestFog"
-FOG_TINT = (0.34, 0.37, 0.29)   # gold-grey-green, kept dim: nine layers stack to ~0.94 opacity, and unshaded
-                                # fog brighter than the sunlit lane reads as milk, not gloom
+FOG_TINT = (0.26, 0.28, 0.22)   # gold-grey-green, kept dim: a column stacks fourteen layers, and unshaded
+                                # fog brighter than the sunlit lane reads as milk, not gloom. Godot shows
+                                # this x 0.6 (the override's albedo), so the floor end lands near 0.08
 
 
-# ---- the fog: nine 48-gon discs, each three annuli of vertex alpha ----------------
-FOG_Z = (-12.5, -8.0, 0.75)     # bottom, top, pitch: seven layers from under the floor (y -11.05, the old water
-                                # height) to 3 m over it: the fog starts where the floor was and thins over it,
-                                # the thicket standing out of it
-FOG_N = 48
-FOG_HOLE = (6.8, 10.0)          # round the trunk: alpha 0 at 6.8 (outside the trunk, r <= 6.4 above the roots,
-                                # so no disc cuts it into rings), full at 10.0
-FOG_BANK = (-2.5, 0.6)          # full alpha out to bank_r(z) - 2.5, zero at bank_r(z) + 0.6 (inside the bank)
-FOG_ALPHA = (0.5, 0.05)         # the bottom layer, easing to the top layer (dense at the floor, a haze over it)
-FOG_DEPTH_DIM = 0.70            # the tint at the bottom layer, as a factor; 1.0 at the top: darker at depth
+# ---- the fog: a stack of translucent discs standing in for a fog volume -----------
+# Read as a pit, not a lid: the alpha falls to zero at the top layer (no top plane to
+# see), feathers a long way into the bank, wobbles low-frequency round and up so no
+# disc reads as a sheet, and darkens with depth. GL Compatibility has no fog volumes.
+FOG_Z = (-11.6, 4.0, 1.2)       # bottom (just under the floor at -11.05), top, pitch: 14 layers, the top
+                                # one at alpha 0 so the fog ends in air, never on a plane
+FOG_N = 36                      # segments round: 14 layers x 5 bands x 36 x 2 = 5040 tris, which is
+                                # what the forest has left under its 130k budget (the fog is a tenth of it)
+FOG_HOLE = (6.8, 13.0)          # round the trunk: alpha 0 at 6.8 (outside the trunk, r <= 6.4 above the
+                                # roots) easing to full at 13.0 -- a wide inner feather, no ring edge
+FOG_BANK = (-9.0, 0.6)          # the rim feather: full alpha out to bank_r(z) - 9.0, zero 0.6 m INSIDE
+                                # the bank, so the fog thins for nine metres before it ever meets earth
+FOG_MID = 0.5                   # a ring this far across the full-alpha span: the wobble varies radially
+FOG_FEATHER = 0.42              # alpha at the middle of the rim feather (eased, not a straight ramp)
+FOG_ALPHA = 0.45                # the bottom layer ... (0.18 was invisible in Godot: the pit floor is sunlit, and a
+                                # column has to stack to ~0.85 opacity to put that floor into gloom; the scene's
+                                # FogMat alpha can only scale this DOWN)
+FOG_CURVE = 1.6                 # ... falling as (1 - u/reach)^FOG_CURVE to exactly 0 where the column ends
+FOG_DEPTH_DIM = 0.50            # the tint at the bottom layer, as a factor; 1.0 at the top: gloom below
+FOG_REACH = 0.65                # how high a column of fog climbs, as a fraction of the stack: FOG_REACH in
+                                # the thin places, 1.0 in the thick ones, set by the drift field -- the top
+                                # of the fog ROLLS instead of lying flat, and never reaches past the top
+                                # layer, which is therefore alpha 0 all the way round: no plane to see
+FOG_DENSE = 0.30                # ... and the same field thickens and thins the column, +/- this much
+FOG_DRIFT = ((3, 0.05, 0.0, 0.45),     # (lobes round, radians per metre up, phase, weight): low frequency and
+             (5, -0.03, 1.90, 0.35),   # ALMOST vertical -- a bank thick here and thin there leans slowly as
+             (8, 0.02, 4.10, 0.20))    # it climbs, where a fast z term would average out over the stack
+FOG_RADIAL = (0.16, 2.3, 0.35)         # one more drift term across the radius (radians per metre, phase,
+                                       # weight): a 40 m period, two samples a ring apart -- patches, not stripes
+FOG_GAIN = 1.7                         # the sines rarely line up, so the field is scaled to its range and
+                                       # clipped: banks with thick middles, not a gentle swell
 
 # ---- the thicket: brambles out of the floor, a mass across the pit bottom ---------
 PIT_SEED = 4471023              # its own rng: editing the brambles diffs only the brambles
@@ -351,14 +373,34 @@ def _ease(u):
     return 0.5 - 0.5 * math.cos(math.pi * u)
 
 
+def _drift(deg, rad, z):
+    """A low-frequency field in (angle, radius, height), -1..1: the sum of a few
+    sines whose weights add to 1. Deterministic -- the fog is the same every build --
+    low frequency round (2, 3 and 5 lobes) and ALMOST vertical, so a thick bank of
+    fog leans slowly as it climbs instead of averaging out through the stack."""
+    a = math.radians(deg)
+    w = 0.0
+    for (lobes, kz, phase, weight) in FOG_DRIFT:
+        w += weight * math.sin(lobes * a + kz * z + phase)
+    kr, phase, weight = FOG_RADIAL
+    w = (1.0 - weight) * w + weight * math.sin(kr * rad + phase + 0.04 * z)
+    return max(-1.0, min(1.0, FOG_GAIN * w))
+
+
 def fog_mesh(cls, g):
-    """Nine stacked discs (FOG_Z), each a FOG_N-gon of three annuli: a hole
-    ring round the trunk (alpha 0 at FOG_HOLE[0], full at FOG_HOLE[1]), full
-    alpha out to bank_r(z) + FOG_BANK[0], zero at bank_r(z) + FOG_BANK[1]
-    inside the bank, so no edge ever shows. Alpha FOG_ALPHA[0] at the bottom
-    layer easing to FOG_ALPHA[1] at the top; the tint FOG_TINT, dimmed
-    FOG_DEPTH_DIM at the bottom. The bottom layer's vertices come first: the
-    triangle order is the blend order, seen from above."""
+    """The pit's fog: FOG_Z layers of FOG_N-gon discs, each five annuli wide --
+    a hole round the trunk (alpha 0 at FOG_HOLE[0], full at FOG_HOLE[1]), the body,
+    and a nine-metre feather out to zero 0.6 m inside the bank (FOG_BANK), so the
+    fog never shows an edge against earth.
+
+    Every vertex is a column of the drift field: the column climbs FOG_REACH..1.0 of
+    the stack and its alpha falls as (1 - u/reach)^FOG_CURVE from FOG_ALPHA at the
+    floor to zero where it ends, thickened or thinned FOG_DENSE by the same field.
+    So the fog's top ROLLS between the bramble tops and the stack's ceiling and is
+    zero at the top layer everywhere -- a gradient thinning toward the rim, no plane
+    anywhere, and the tall brambles come through the thin places. The tint darkens to
+    FOG_DEPTH_DIM at depth. The bottom layer's vertices come first: the triangle
+    order is the blend order, seen from above."""
     _bank_r = _host(g)._bank_r
     m = cls()
     z0, z1, pitch = FOG_Z
@@ -370,17 +412,32 @@ def fog_mesh(cls, g):
     INFO["layers"] = []
     for k, z in enumerate(layers):
         u = k / float(len(layers) - 1)
-        alpha = FOG_ALPHA[0] + (FOG_ALPHA[1] - FOG_ALPHA[0]) * _ease(u)
-        dim = FOG_DEPTH_DIM + (1.0 - FOG_DEPTH_DIM) * u
+        dim = FOG_DEPTH_DIM + (1.0 - FOG_DEPTH_DIM) * _ease(u)
         tint = (FOG_TINT[0] * dim, FOG_TINT[1] * dim, FOG_TINT[2] * dim)
         br = _bank_r(z)
-        radii = [(FOG_HOLE[0], 0.0), (FOG_HOLE[1], alpha), (br + FOG_BANK[0], alpha), (br + FOG_BANK[1], 0.0)]
+        r_in, r_out = FOG_HOLE[1], br + FOG_BANK[0]
+        r_end = br + FOG_BANK[1]
+        radii = [(FOG_HOLE[0], 0.0),
+                 (r_in, 1.0),
+                 (r_in + (r_out - r_in) * FOG_MID, 1.0),
+                 (r_out, 1.0),
+                 (r_out + (r_end - r_out) * 0.5, FOG_FEATHER),
+                 (r_end, 0.0)]
         rings = []
-        for (rad, a) in radii:
-            rings.append([m.cv(pol(360.0 * s / FOG_N, rad, z), tint + (a,)) for s in range(FOG_N)])
+        peak = 0.0
+        for (rad, w) in radii:
+            ring = []
+            for s in range(FOG_N):
+                deg = 360.0 * s / FOG_N
+                d = _drift(deg, rad, z)
+                reach = FOG_REACH + (1.0 - FOG_REACH) * (0.5 + 0.5 * d)
+                a = w * FOG_ALPHA * max(0.0, 1.0 - u / reach) ** FOG_CURVE * (1.0 + FOG_DENSE * d)
+                peak = max(peak, a)
+                ring.append(m.cv(pol(deg, rad, z), tint + (a,)))
+            rings.append(ring)
         for i in range(len(rings) - 1):
             for s in range(FOG_N):
                 q = (s + 1) % FOG_N
                 m.quad(rings[i][s], rings[i][q], rings[i + 1][q], rings[i + 1][s], UP, "fog")
-        INFO["layers"].append((z, round(alpha, 3), round(br + FOG_BANK[1], 2)))
+        INFO["layers"].append((round(z, 2), round(peak, 3), round(r_end, 2)))
     return m

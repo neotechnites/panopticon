@@ -41,6 +41,8 @@ fog_light_color = Color(0.34, 0.38, 0.27, 1)
 fog_light_energy = 0.5
 fog_density = 0.006
 fog_sky_affect = 0.4
+fog_height = 8.0
+fog_height_density = 0.1
 
 [sub_resource type="StandardMaterial3D" id="RaySoftMat"]
 transparency = 1
@@ -65,7 +67,7 @@ vertex_color_use_as_albedo = true
 albedo_color = Color(0.6, 0.6, 0.6, 1)
 
 [node name="Forest" type="Node3D"]
-editor_description = "MAP 3, THE FOREST: assets/models/forest.glb at identity (grass lane r 46.7..57.3 at y 23.0 round a foggy ravine: an earth bank down to a dark floor at y -11.05, no water, a thicket of some 1140 barbed brambles filling the pit bottom, a leaf wall, a gallery roof of leaves over the lane at y 36, a cell wall of six barred tiers from y 36 to y 64 above it, and an unbroken canopy dome to y 77.4 over the ravine), the great tree (forest_tree.glb) as the tower. ForestFog is the pit's fog: seven translucent discs y -12.5..-8 (from the floor at -11.05, the old water height, thinning over it) with the tint and alpha in their vertex colour (zero round the trunk and inside the bank, so no edge shows), unshaded and mixed through its override; GL Compatibility has no fog volumes. The sun rays are two nodes in the glb, three crossed vanes per sun-well with the tint and the feather in their vertex colour (alpha peaks on the axis, zero at the edges and both ends, so no cap, no hard edge): ForestRaysSolid (pale yellow, alpha 0.35, mixed, the mesh-only look) and ForestRaysSoft (faint, additive, shown here under the Sun light). Both overrides are unshaded and take albedo and alpha from the vertex colour. Flip their visibility to compare."
+editor_description = "MAP 3, THE FOREST: assets/models/forest.glb at identity (grass lane r 46.7..57.3 at y 23.0 round a foggy ravine: an earth bank down to a dark floor at y -11.05, no water, a thicket of some 1140 barbed brambles filling the pit bottom, a leaf wall, a gallery roof of leaves over the lane at y 36, a cell wall of six barred tiers from y 36 to y 64 above it, and an unbroken canopy dome to y 77.4 over the ravine), the great tree (forest_tree.glb) as the tower. The pit's mist is the Environment's height fog (fog_height 8.0, fog_height_density 0.1: dense at the floor, thinning up the bank, gone before the lane at y 23; GL Compatibility has no fog volumes, and height fog is the one gradient it does have). ForestFog is the gloom under it: fourteen rolling translucent layers y -11.6..4.0 with the tint and alpha in their vertex colour (zero at the top layer, round the trunk and inside the bank), unshaded and mixed through its override. The sun rays are two nodes in the glb, three crossed vanes per sun-well with the tint and the feather in their vertex colour (alpha peaks on the axis, zero at the edges and both ends, so no cap, no hard edge): ForestRaysSolid (pale yellow, alpha 0.35, mixed, the mesh-only look) and ForestRaysSoft (faint, additive, shown here under the Sun light). Both overrides are unshaded and take albedo and alpha from the vertex colour. Flip their visibility to compare."
 
 [node name="Environment" type="Node3D" parent="."]
 
@@ -83,7 +85,7 @@ directional_shadow_mode = 0
 directional_shadow_max_distance = 200.0
 
 [node name="ForestMap" parent="." instance=ExtResource("6_forest_model")]
-editor_description = "assets/models/forest.glb: lane, pit bank and dark floor, brambles, leaf wall, ceiling, cells, fence; ForestFog and the ray nodes ride in it. Ships its own collision (ForestCollision-colonly)."
+editor_description = "assets/models/forest.glb: lane, pit bank and dark floor, brambles, leaf wall, ceiling, cells; ForestFog and the ray nodes ride in it. Ships its own collision (ForestCollision-colonly)."
 
 [node name="ForestRaysSolid" parent="ForestMap"]
 visible = false
@@ -93,7 +95,7 @@ surface_material_override/0 = SubResource("RaySolidMat")
 surface_material_override/0 = SubResource("RaySoftMat")
 
 [node name="ForestFog" parent="ForestMap"]
-editor_description = "The pit's fog: seven stacked discs y -12.5..-8, alpha 0.5 at the floor easing to 0.06 three metres over it (the fog starts where the floor was; the thicket rises out of it), tint and alpha from the vertex colour."
+editor_description = "The pit's gloom: fourteen rolling layers y -11.6..4.0, alpha 0.45 at the floor falling to exactly 0 at the top layer (no top plane), a 9 m feather to the bank, dark tint dimmed at depth; tint and alpha from the vertex colour. The pale mist over it is the Environment's height fog (fog_height 8, fog_height_density 0.1), which thins toward the rim and never reaches the lane at y 23."
 surface_material_override/0 = SubResource("FogMat")
 
 [node name="KillBox" type="Area3D" parent="."]
@@ -121,7 +123,7 @@ transform = Transform3D(0.965926, 0, 0.258819, 0, 1, 0, -0.258819, 0, 0.965926, 
 transform = Transform3D(0.965926, 0, 0.258819, 0, 1, 0, -0.258819, 0, 0.965926, 50.2281, 23, -13.4586)
 
 [node name="Bars" parent="." instance=ExtResource("9_forest_bars")]
-editor_description = "The barrier across the lane at 353 deg, in the gap between the finish (345) and the start (5), so the finish is visible from the start but not walkable back to. The same node and the same place Map 1 and Map 2 give their bars, in the forest's own terms: assets/models/forest_bars.glb, a stand of saplings and young trunks grown up out of the ground, no frame and no carpentry. It keeps rock_bars.glb's envelope (10.6 x 8.5 m, origin the base centre) and its guarantee that no gap anywhere exceeds 0.38 m, so the swap is the model and nothing else. Local X (10.6 m) runs radially across the lane, local Z along it. The map mesh's own fallen-log fence stands three degrees ahead of it at 350."
+editor_description = "The barrier across the lane at 353 deg, in the gap between the finish (345) and the start (5), so the finish is visible from the start but not walkable back to. The same node and the same place Map 1 and Map 2 give their bars, in the forest's own terms: assets/models/forest_bars.glb, a stand of saplings and young trunks grown up out of the ground, no frame and no carpentry. It keeps rock_bars.glb's envelope (10.6 x 8.5 m, origin the base centre) and its guarantee that no gap anywhere exceeds 0.38 m, so the swap is the model and nothing else. Local X (10.6 m) runs radially across the lane, local Z along it."
 transform = Transform3D(0.992546, 0, 0.121869, 0, 1, 0, -0.121869, 0, 0.992546, 51.6124, 23, -6.33721)
 
 [node name="Sections" type="Node3D" parent="."]
