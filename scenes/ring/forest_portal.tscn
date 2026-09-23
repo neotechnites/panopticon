@@ -1,6 +1,7 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=4 format=3]
 
 [ext_resource type="PackedScene" path="res://assets/models/forest_portal.glb" id="1_forest_portal_model"]
+[ext_resource type="PackedScene" path="res://scenes/ring/portal_motes.tscn" id="2_motes"]
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_gate"]
 size = Vector3(4.0, 3.6, 1.0)
@@ -16,6 +17,9 @@ light_color = Color(0.85, 1.0, 0.55, 1.0)
 light_energy = 3.0
 omni_range = 16.0
 shadow_enabled = false
+
+[node name="Motes" parent="." instance=ExtResource("2_motes")]
+color = Color(0.85, 1.0, 0.55, 1.0)
 
 [node name="Gate" type="Area3D" parent="." groups=["finish_gate"]]
 editor_description = "The disc opening. A body has to overlap this to finish, not just cross the portal's angle -- see MatchLapTracker."
