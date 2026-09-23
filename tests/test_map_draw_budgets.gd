@@ -98,14 +98,17 @@ const DRAW_BUDGETS: Dictionary = {
 		"tris": 90759, "surfaces": 5, "materials": 5,
 		"transparent_tris": 0, "lights": 3, "shadow_casters": 1,
 	},
-	# The expensive one: 2.16x the Ring, plus 2196 transparent triangles, plus a
-	# shadow caster. Re-measured after the lane was laid out as an obstacle
-	# course: 45 placed prop instances (trunks, thickets, standing stones,
-	# boulders, shelves, thorn patches, three pads and an orb) take it from 9
-	# surfaces to 54 and from 11 materials to 20. Ceilings are the new
-	# measurement plus 20 %, as the header says.
+	# The expensive one: 2.5x the Ring, plus 2196 transparent triangles, plus a
+	# shadow caster. Re-measured after the obstacle course came off the lane
+	# and the wood went on (Ryan: "spread trees across the whole thing"):
+	# 143 placed prop instances (113 trees, 30 bushes and rocks, placed by
+	# tools/forest_trees.py) measure 249815 tris and 152 surfaces against the
+	# course's 170443 and 54; materials fall from 20 to 16 with the pads, orb
+	# and thorn patches gone. tris and surfaces ceilings are the new
+	# measurement plus 20 %, as the header says; the rest keep the ceilings
+	# they had.
 	"forest": {
-		"tris": 204532, "surfaces": 65, "materials": 24,
+		"tris": 299778, "surfaces": 183, "materials": 24,
 		"transparent_tris": 2636, "lights": 3, "shadow_casters": 1,
 	},
 }
