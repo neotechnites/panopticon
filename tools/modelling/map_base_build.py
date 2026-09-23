@@ -44,7 +44,7 @@ import bpy
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)) + os.sep + "lib")
 
-from mathutils import Matrix  # noqa: E402
+from mathutils import Matrix, kdtree  # noqa: E402
 import mdl  # noqa: E402
 import texel as tx  # noqa: E402
 import rock_bars_build as rb  # noqa: E402
@@ -167,6 +167,9 @@ LAVA_SWELL     = 0.6                  # +- metres of slow molten swell
 LAVA_STEP      = 0.3                  # swell snaps to this: flat crust plates
 LAVA_FLAT_R    = 18.0                 # level under the tower's foot
 LAVA_ASPECT    = 0.2                  # inner rings: arc between columns, per metre of ring gap
+LAVA_SUB_M     = 2.0                  # the sea's rings are cut this fine, so the lava wave bends it
+WAVE_RAMP      = 2.5                  # metres in from a lava edge the wave takes to reach full height
+WAVE_MATS      = ("LavaSea", "LavaRiver", "LavaCrack")   # every lava surface: the wave shader's
 
 # ---- the lava river: a channel recessed into the deck, the wall and the pit --
 # Folded in from the retired lake_section model. A game bearing of b degrees is
@@ -947,6 +950,7 @@ class _Mesh(object):
         self.faces = []
         self.zones = []
         self.spans = {}            # element chunk -> (first face, end face)
+        self.crack = set()         # the S3 cracks' lava faces: their own LavaCrack surface
 
     def span(self, name, fn, *args, **kw):
         """Run fn(self, ...) and record the faces it appends as element `name`."""
@@ -1694,12 +1698,32 @@ def _lava_sea(m, wall, z, r, extra=()):
             dz = LAVA_STEP * round(dz / LAVA_STEP)   # plateaus: crust plates, not swell
             ring.append((t, m.v((rad * math.cos(t), rad * math.sin(t), z + dz))))
         rings.append(ring)
-    for a_, b_ in zip(rings, rings[1:]):
+    rings.append([(t, cid) for t, _v in rings[-1]])     # the centre, on the last ring's columns
+    t0 = cols[0]
+
+    def _at(ring, t):
+        """Ring's surface at angle t: a lerp along its chord between the columns either side."""
+        u = (t - t0) % TWO_PI
+        us = [(tt - t0) % TWO_PI for tt, _v in ring] + [TWO_PI]
+        k = max(i for i in range(len(ring)) if us[i] <= u + 1e-9)
+        pa, pb = m.verts[ring[k][1]], m.verts[ring[(k + 1) % len(ring)][1]]
+        s_ = (u - us[k]) / max(us[k + 1] - us[k], 1e-9)
+        return tuple(x + (y - x) * s_ for x, y in zip(pa, pb))
+
+    fine = [rings[0]]                   # each gap cut to LAVA_SUB_M, on the inner ring's columns
+    fracs = list(LAVA_RINGS) + [0.0]
+    rmax = max(math.hypot(m.verts[v][0], m.verts[v][1]) for v in rim)
+    for fa, fb, a_, b_ in zip(fracs, fracs[1:], rings, rings[1:]):
+        n_ = max(1, int(math.ceil(rmax * (fa - fb) / LAVA_SUB_M)))
+        for s in range(1, n_):
+            u = s / float(n_)
+            fine.append([(t, m.v(tuple(pa + (pb - pa) * u for pa, pb in zip(_at(a_, t), m.verts[v]))))
+                         for t, v in b_])
+        fine.append(b_)
+    for a_, b_ in zip(fine[:-2], fine[1:-1]):
         _zipper(m, a_, b_, UP, ZONE_LAVA)   # Ryan's tile, on its own surface
-    rings = [[v for _t, v in ring] for ring in rings]
-    ncol = len(rings[-1])
-    cid = m.v((0.0, 0.0, z))
-    last = rings[-1]
+    last = [v for _t, v in fine[-2]]
+    ncol = len(last)
     for k in range(ncol):
         m.tri(cid, last[k], last[(k + 1) % ncol], UP, ZONE_LAVA)
 
@@ -4243,10 +4267,13 @@ def _s3_net_mesh(m):
                         uniq.append(v)
                 if len(uniq) < 3:
                     continue
+                f0 = len(m.faces)
                 if len(uniq) == 4:
                     m.quad(uniq[0], uniq[1], uniq[2], uniq[3], want, zone, best=True)
                 else:
                     m.tri(uniq[0], uniq[1], uniq[2], want, zone)
+                if zone == S3_CRACK_ZONE_FLOOR:
+                    m.crack.update(range(f0, len(m.faces)))
                 area = _s3_poly_area(m, uniq)
                 if zone == S3_CRACK_ZONE_FLOOR:
                     lava += area
@@ -4529,6 +4556,7 @@ def _heal(m):
             total += len(chain) - 2
         start.append(len(faces))
         m.spans = {k: (start[f0], start[f1]) for k, (f0, f1) in m.spans.items()}
+        m.crack = {g for fi in m.crack for g in range(start[fi], start[fi + 1])}
         m.faces, m.zones = faces, zones
     return total
 
@@ -4612,6 +4640,7 @@ def _cull_buried(m, reach=3.0):
             zones.append(m.zones[fi])
     start.append(len(faces))
     m.spans = {k: (start[f0], start[f1]) for k, (f0, f1) in m.spans.items()}
+    m.crack = {start[fi] for fi in m.crack if keep[fi]}
     dropped = len(m.faces) - len(faces)
     m.faces, m.zones = faces, zones
     return dropped
@@ -7816,8 +7845,9 @@ def _split(src, keep, name):
     """A new object holding only the faces keep[] marks: the same vertex
     positions, loop UVs, material slots and indices, flat shaded."""
     sm = src.data
-    remap, verts, faces, mids, uvs = {}, [], [], [], []
-    uvl = sm.uv_layers[0].data if sm.uv_layers else None
+    remap, verts, faces, mids = {}, [], [], []
+    uvls = [(l.name, l.data) for l in sm.uv_layers]
+    uvs = [[] for _ in uvls]
     for poly in sm.polygons:
         if not keep[poly.index]:
             continue
@@ -7828,8 +7858,8 @@ def _split(src, keep, name):
                 remap[vi] = len(verts)
                 verts.append(tuple(sm.vertices[vi].co))
             f.append(remap[vi])
-            if uvl is not None:
-                uvs.append(tuple(uvl[li].uv))
+            for k, (_n, d) in enumerate(uvls):
+                uvs[k].append(tuple(d[li].uv))
         faces.append(f)
         mids.append(poly.material_index)
     me = bpy.data.meshes.new(name)
@@ -7837,13 +7867,49 @@ def _split(src, keep, name):
     for mat in sm.materials:
         me.materials.append(mat)
     me.polygons.foreach_set("material_index", mids)
-    if uvl is not None:
-        layer = me.uv_layers.new(name=sm.uv_layers[0].name)
-        layer.data.foreach_set("uv", [c for uv in uvs for c in uv])
+    for (lname, _d), luv in zip(uvls, uvs):
+        layer = me.uv_layers.new(name=lname)
+        layer.data.foreach_set("uv", [c for uv in luv for c in uv])
+    if uvls:
+        me.uv_layers[0].active = True
+        me.uv_layers[0].active_render = True
     for p_ in me.polygons:
         p_.use_smooth = False
     me.update()
     return mdl._link(bpy.data.objects.new(name, me))
+
+
+def _wave_uv(me):
+    """UV2.x: the share of the lava wave a vertex takes, 0 on every lava edge and under the
+    tower's foot, 1 at WAVE_RAMP in. A function of position only, so split vertices agree."""
+    slots = {i for i, mt in enumerate(me.materials) if mt.name in WAVE_MATS}
+    uses, lava_v = {}, set()
+    for p in me.polygons:
+        if p.material_index in slots:
+            for ek in p.edge_keys:
+                uses[ek] = uses.get(ek, 0) + 1
+            lava_v.update(p.vertices)
+    pts = []
+    for (a, b), n in uses.items():
+        if n == 1:                                     # a lava face's edge no other lava face shares
+            A, B = me.vertices[a].co, me.vertices[b].co
+            k = max(1, int(math.ceil((B - A).length / 0.05)))
+            pts += [A.lerp(B, s / float(k)) for s in range(k + 1)]
+    tree = kdtree.KDTree(max(1, len(pts)))
+    for i, co in enumerate(pts):
+        tree.insert(co, i)
+    tree.balance()
+    w = {}
+    for vi in lava_v:
+        co = me.vertices[vi].co
+        d = tree.find(co)[2] if pts else WAVE_RAMP
+        w[vi] = max(0.0, min(1.0, d / WAVE_RAMP, (math.hypot(co.x, co.y) - LAVA_FLAT_R) / WAVE_RAMP))
+    layer = me.uv_layers.new(name="Wave")
+    layer.data.foreach_set("uv", [c for lp in me.loops for c in (w.get(lp.vertex_index, 0.0), 0.0)])
+    me.uv_layers[0].active = True
+    me.uv_layers[0].active_render = True
+    print("MDL STATS wave lava_verts=%d edge_samples=%d full=%d"
+          % (len(lava_v), len(pts), sum(1 for x in w.values() if x >= 1.0)))
 
 
 def _export_chunks(out_dir, objects, spec):
@@ -7909,7 +7975,7 @@ def build():
     unwrap(ob, rock.zones)
     scratch = me.uv_layers[-1]
     scratch.name = "Scratch"
-    classes = [_class_of(z) for z in rock.zones]
+    classes = ["crack" if fi in rock.crack else _class_of(z) for fi, z in enumerate(rock.zones)]
 
     def _from_scratch(me_, uvl, poly):
         for li in poly.loop_indices:
@@ -7917,7 +7983,8 @@ def build():
 
     custom = {"river": lambda me_, uvl, poly: _flow_uv(me_, uvl, poly, False),
               "fall": lambda me_, uvl, poly: _flow_uv(me_, uvl, poly, True),
-              "river_t": _flow_uv_along, "lava": _lava_uv, "glow": _from_scratch}
+              "river_t": _flow_uv_along, "lava": _lava_uv, "glow": _from_scratch,
+              "crack": _from_scratch}
     tx.unwrap(ob, classes, SHEETS, seed=1, custom=custom)
     me.uv_layers.remove(me.uv_layers["Scratch"])
     me.uv_layers[0].name = "UVMap"
@@ -7932,8 +7999,10 @@ def build():
     mats["glow"] = rock_material("HellGlow", albedo, emissive)
     mats["river"] = river_material("LavaRiver", lava_albedo, lava_emissive)
     mats["lava"] = rock_material("LavaSea", lava_albedo, lava_emissive)
+    mats["crack"] = rock_material("LavaCrack", albedo, emissive)   # the atlas's glow cell, as before
     slots = ["river" if c in ("river", "fall", "river_t") else c for c in classes]   # one LavaRiver slot
     order = tx.finish(ob, slots, mats)
+    _wave_uv(me)
     tx.report(SHEETS)
     lava_tris = sum(1 for c in classes if c == "lava")
     river_tris = sum(1 for c in classes if c in ("river", "fall", "river_t"))

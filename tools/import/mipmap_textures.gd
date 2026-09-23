@@ -35,7 +35,7 @@ extends EditorScenePostImport
 
 const SharedMaterials := preload("res://tools/import/shared_materials.gd")
 ## Surfaces whose glTF material is named here get the waving lava shader instead.
-const WAVE_MATERIALS := [&"LavaRiver"]
+const WAVE_MATERIALS := [&"LavaRiver", &"LavaSea", &"LavaCrack"]
 const LAVA_WAVE_SHADER := "res://scenes/ring/lava_wave.gdshader"
 
 const TEXTURE_PROPERTIES := [
