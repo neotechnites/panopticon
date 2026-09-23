@@ -145,6 +145,24 @@ const PARALLEL_LIMIT: float = 0.9999
 ## never got added".
 @export var profile: WatchingEyeProfile
 
+## What this map's eyeball is made of, or null to draw the materials that came
+## out of [code]eye.glb[/code].
+##
+## THE MAP PICKS THE LOOK; NOTHING HERE KNOWS WHICH MAP IT IS. There is no map
+## id, no scene path and no branch on either in this file -- an arena points its
+## own [code]Watcher[/code] node at its own [WatchingEyeLook] the same way it
+## already points [member profile] at its own [WatchingEyeProfile], and this
+## script applies whatever it is handed. Ryan, 2026-09-23: [i]"create two new
+## textures for the eye, one for the forest level thats green, and one for the
+## marble level that matches the color palette."[/i]
+##
+## NULL IS THE HELL EYE, and deliberately so rather than a fourth resource that
+## restates the glTF. [code]scenes/ring/bentham_ring.tscn[/code] sets no look, so
+## Map 1's eyeball is drawn by the materials the importer built and is not
+## touched by a single line below -- which is what "Map 1's eye is unchanged"
+## has to mean if it is to mean anything.
+@export var look: WatchingEyeLook
+
 
 func _ready() -> void:
 	if profile == null:
@@ -159,6 +177,7 @@ func _ready() -> void:
 	else:
 		model.scale = Vector3.ONE * profile.radius_metres
 		_stop_casting_shadows(model)
+		_wear_the_look(model)
 
 	if get_node_or_null(gaze_path) == null:
 		push_error("WatchingEye.gaze_path does not point at a Node3D; the eye cannot turn.")
@@ -316,6 +335,38 @@ func gaze_direction() -> Vector3:
 ## where the viewer already is) but it is a moving patch of light on the deck,
 ## which is the shape of a tell, and switching it off is free. Matches
 ## [code]cast_shadow = 0[/code] on the box next door.
+## Paints the eyeball in this map's colours, if it was given any.
+##
+## One [method MeshInstance3D.set_surface_override_material] per node, matched by
+## NODE NAME through [method WatchingEyeLook.material_for] -- the three names are
+## what [code]tools/modelling/eye.contract.json[/code] pins and the model's own
+## build gate enforces, so a rename fails in the modelling pipeline rather than
+## arriving here as an eyeball that quietly went back to red.
+##
+## [b]An override, not a rebuilt mesh.[/b] The forest's eye and the marble eye
+## are the hell eye's geometry to the last vertex -- the same sclera and the same
+## two spherical caps on the same measured z-fighting budget -- so a variant
+## [code].glb[/code] per map would ship two more copies of 768 triangles and two
+## more clearance gates to keep in step, to change six colours. See
+## [WatchingEyeLook].
+##
+## [b]It cannot leak anything either.[/b] The colour of the ball is a constant of
+## the map, identical on every machine and visible to everyone from the moment
+## the arena loads. Unlike the orientation it does not even have the viewer's
+## position as an input.
+func _wear_the_look(root: Node) -> void:
+	if look == null:
+		return
+	var surface: MeshInstance3D = root as MeshInstance3D
+	if surface != null:
+		var paint: Material = look.material_for(surface.name)
+		if paint != null:
+			for index: int in surface.get_surface_override_material_count():
+				surface.set_surface_override_material(index, paint)
+	for child: Node in root.get_children():
+		_wear_the_look(child)
+
+
 func _stop_casting_shadows(root: Node) -> void:
 	var surface: GeometryInstance3D = root as GeometryInstance3D
 	if surface != null:

@@ -1,10 +1,11 @@
-[gd_scene load_steps=23 format=3]
+[gd_scene load_steps=24 format=3]
 
 [ext_resource type="Script" path="res://scripts/match/kill_volume.gd" id="1_kill_volume"]
 [ext_resource type="Script" path="res://scripts/ring/ring_route.gd" id="2_ring_route"]
 [ext_resource type="Script" path="res://scripts/ring/ring_level.gd" id="3_ring_level"]
 [ext_resource type="PackedScene" path="res://scenes/tower/watching_eye.tscn" id="4_watching_eye"]
 [ext_resource type="Resource" path="res://scenes/ring/forest_watching_eye_profile.tres" id="5_watcher_profile"]
+[ext_resource type="Resource" path="res://scenes/ring/forest_watching_eye_look.tres" id="5b_watcher_look"]
 [ext_resource type="PackedScene" path="res://assets/models/forest.glb" id="6_forest_model"]
 [ext_resource type="PackedScene" path="res://assets/models/forest_tree.glb" id="7_forest_tree"]
 [ext_resource type="PackedScene" path="res://scenes/ring/forest_portal.tscn" id="8_portal"]
@@ -603,5 +604,10 @@ editor_description = "On the platform floor (+1.70), 0.25 m up."
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.95, 0)
 
 [node name="Watcher" parent="Tower" instance=ExtResource("4_watching_eye")]
-editor_description = "The eye, nested in the tree's crown, over the gallery roof and under the canopy dome (profile height 13.0: y 38.35)."
+editor_description = "The eye, nested in the tree's crown, over the gallery roof and under the canopy dome (profile height 13.0: y 38.35).
+
+IT IS THE FOREST'S OWN EYE, not the hell eye tinted (Ryan, 2026-09-23: \"create two new textures for the eye, one for the forest level thats green\"). forest_watching_eye_look.tres overrides the three materials assets/models/eye.glb ships: the sclera is the leaf underside the ball hangs in (SHADE_BASE #26321f), the iris the lit leaf and the sun-well leaf (#8a9856 / #b0b86c) and the pupil a near-black hole 96x darker than the iris. NO SECOND MODEL: the geometry is map 1's eyeball to the last vertex -- the same sclera and the same two caps on eye_build.py's measured z-fighting budget -- so the variant is three surface overrides and not a second .glb to keep in step. See WatchingEyeLook.
+
+NOT EDITED HERE. scenes/tower/ and scripts/tower/ belong to the eye; this scene owns the instance, its parent, and which look and profile it wears."
 profile = ExtResource("5_watcher_profile")
+look = ExtResource("5b_watcher_look")

@@ -10,6 +10,9 @@
 [ext_resource type="PackedScene" path="res://assets/models/marble.glb" id="10_map_model"]
 [ext_resource type="PackedScene" path="res://scenes/ring/marble_portal.tscn" id="19_portal"]
 [ext_resource type="PackedScene" path="res://assets/models/marble_bars.glb" id="20_marble_bars"]
+[ext_resource type="PackedScene" path="res://scenes/tower/watching_eye.tscn" id="21_watching_eye"]
+[ext_resource type="Resource" path="res://scenes/ring/marble_watching_eye_profile.tres" id="22_watcher_profile"]
+[ext_resource type="Resource" path="res://scenes/ring/marble_watching_eye_look.tres" id="23_watcher_look"]
 
 [sub_resource type="Environment" id="Env"]
 background_mode = 1
@@ -158,3 +161,16 @@ omni_range = 90.0
 omni_attenuation = 0.35
 script = ExtResource("3_tower_light")
 profile = ExtResource("4_tower_light_profile")
+
+[node name="Watcher" parent="Tower" instance=ExtResource("21_watching_eye")]
+editor_description = "THE EYE THAT FOLLOWS YOU, over the rotunda's tower. The other two maps have carried it since it was built; this one did not, and the game is called PANOPTICON, so it does now.
+
+HEIGHT: marble_watching_eye_profile.tres puts it 16.5 m over the guard-room datum (y 25.35), so the 2.5 m ball's centre is at world y 41.85 and it spans 39.35 .. 44.35. Its underside clears the tower's own dome apex (38.25) by 1.10 m and its crown is 13.45 m under the great dome's spring at 57.8, in the clear air the Skylight at y 62 lights from directly above. From a runner's eye on the walkway (y 24.65 at r 52) it stands 17.2 m up and 52 m out, 18 deg above the lane -- in front of the top tiers of cells, against nothing.
+
+IT WEARS THE MARBLE, not the hell rock (Ryan, 2026-09-23: \"one for the marble level that matches the color palette\"). marble_watching_eye_look.tres overrides the three materials assets/models/eye.glb ships: the sclera is the pier shadow #414233, the iris the railing gold #bcae82 emitting a deeper gold than the lantern's so it separates from lit stone, the pupil the cells' own iron #181a1f. NO SECOND MODEL -- the geometry is map 1's eyeball to the last vertex, on eye_build.py's measured z-fighting budget, so a variant is three surface overrides and not a second .glb. See WatchingEyeLook.
+
+THE EXCLUDED COLUMN is r 12 m, y -40 .. 30 in the tower's frame: the guard on the dais and anyone on the balcony ledge (out to r 8.2) are inside it and are not watched, and the nearest a prisoner can be is the walkway's inner lip at r 46.7, 34.7 m of margin. Nobody is ever alive under the tower -- SpikeFloor kills from y 23.5 down.
+
+IT LEAKS NOTHING. It orients toward the local Viewport's own camera, so the bearing is a pure function of the POSITION of the reader's own camera -- not its direction, not the guard, not the seat, not the rifle. NOT EDITED HERE: scenes/tower/ and scripts/tower/ belong to the eye; this scene owns the instance, its parent, and which look and profile it wears."
+profile = ExtResource("22_watcher_profile")
+look = ExtResource("23_watcher_look")

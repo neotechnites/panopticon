@@ -44,7 +44,23 @@ const PROFILE_PATH: String = "res://scenes/tower/default_watching_eye_profile.tr
 const EYE_SOURCE_PATHS: Array[String] = [
 	"res://scripts/tower/watching_eye.gd",
 	"res://scripts/tower/watching_eye_profile.gd",
+	"res://scripts/tower/watching_eye_look.gd",
 ]
+
+## The three glTF nodes the eyeball is made of, which is the whole of its look.
+## [code]tools/modelling/eye.contract.json[/code] pins these names and
+## [code]lib/verify_glb.gd[/code] enforces them on every build of the model.
+const EYE_PART_NAMES: Array[StringName] = [&"Eye_Sclera", &"Eye_Iris", &"Eye_Pupil"]
+
+## The per-map looks, by the [MapDefinition] id whose arena wears them.
+##
+## Map 1 is deliberately absent: [i]"Map 1's eye is unchanged"[/i], which here
+## means its [code]Watcher[/code] sets no look at all and its eyeball draws the
+## materials that came out of the glTF.
+const LOOK_PATHS: Dictionary = {
+	&"forest": "res://scenes/ring/forest_watching_eye_look.tres",
+	&"marble": "res://scenes/ring/marble_watching_eye_look.tres",
+}
 
 ## Somewhere out on the deck: the running channel is r=41.75 to r=46.75, so this
 ## is a prisoner in the middle of it, at head height.
@@ -591,3 +607,120 @@ func test_it_hangs_between_the_box_and_the_light_and_rides_the_tower() -> void:
 	tower.position += Vector3(3.0, 9.0, -2.0)
 	assert_vec3_almost_eq(watcher.global_position, before + Vector3(3.0, 9.0, -2.0), 0.0001,
 		"the eyeball should ride the tower, or a raised ring leaves it behind in mid-air")
+
+
+# --- What it is made of -------------------------------------------------------
+
+## A [WatchingEyeLook] repaints all three parts of the eyeball, and nothing else.
+##
+## [b]Why this is a material override and not a second model.[/b] Ryan asked for
+## a green eye on the forest and a marble one on the rotunda (2026-09-23:
+## [i]"create two new textures for the eye, one for the forest level thats green,
+## and one for the marble level that matches the color palette"[/i]). The
+## geometry of those eyes is map 1's eyeball to the last vertex -- the same
+## sclera and the same two spherical caps sitting on the z-fighting clearance
+## [code]eye_build.py[/code] MEASURES and refuses to ship under -- so a variant
+## [code].glb[/code] per map would be two more copies of 768 triangles and two
+## more clearance gates to keep in step, to change six colours. One mesh, three
+## overrides, and the variants cannot drift from the model because there is only
+## one model.
+##
+## Asserted per NODE because that is how the look is addressed: by the glTF node
+## names the model's own contract pins, not by surface index or material name.
+func test_a_look_repaints_every_part_of_the_eyeball() -> void:
+	var look: WatchingEyeLook = WatchingEyeLook.new()
+	look.sclera = StandardMaterial3D.new()
+	look.iris = StandardMaterial3D.new()
+	look.pupil = StandardMaterial3D.new()
+
+	var eye: WatchingEye = (load(EYE_SCENE_PATH) as PackedScene).instantiate() as WatchingEye
+	eye.profile = load(PROFILE_PATH) as WatchingEyeProfile
+	eye.look = look
+	add_child(eye)
+
+	var painted: Dictionary = _painted_parts(eye)
+	for part: StringName in EYE_PART_NAMES:
+		assert_true(painted.has(part), "the eyeball should still carry a %s to paint" % part)
+		if painted.has(part):
+			assert_same(painted[part], look.material_for(part),
+				"%s should wear the material the look gives it" % part)
+
+	# Three materials, not one: an eye painted a single flat colour is a ball.
+	var distinct: Dictionary = {}
+	for part: StringName in EYE_PART_NAMES:
+		if painted.has(part) and painted[part] != null:
+			distinct[(painted[part] as Object).get_instance_id()] = true
+	assert_eq_int(distinct.size(), 3,
+		"the sclera, the iris and the pupil must be three different materials")
+
+
+## No look means the shipped eye, untouched.
+##
+## This is the whole of "Map 1's eye is unchanged": the Bentham Ring names no
+## look, so not one override is written and its eyeball draws exactly what the
+## glTF importer built. A default that quietly painted something would be a
+## silent change to the map Ryan kept.
+func test_without_a_look_the_glb_is_drawn_unchanged() -> void:
+	var eye: WatchingEye = (load(EYE_SCENE_PATH) as PackedScene).instantiate() as WatchingEye
+	eye.profile = load(PROFILE_PATH) as WatchingEyeProfile
+	add_child(eye)
+
+	for node: Node in _descendants_of(eye):
+		var surface: MeshInstance3D = node as MeshInstance3D
+		if surface == null:
+			continue
+		for index: int in surface.get_surface_override_material_count():
+			assert_null(surface.get_surface_override_material(index),
+				"%s should keep the glTF's own material when no look is set" % node.name)
+
+
+## Every map wears its own eye, and no two maps wear the same one.
+##
+## The eye is per-map DATA -- a resource named by the arena's own
+## [code]Watcher[/code] node -- and this file is where that stays true. A forest
+## look accidentally pointed at the marble resource, or a map that lost its look
+## in a merge, is invisible in a diff and obvious here.
+func test_each_map_wears_its_own_eye() -> void:
+	var seen: Dictionary = {}
+	for map: MapDefinition in MapCatalog.all():
+		if map == null or not map.is_playable():
+			continue
+		var arena: Node3D = (load(map.scene_path) as PackedScene).instantiate() as Node3D
+		add_child(arena)
+
+		var watcher: WatchingEye = arena.get_node_or_null(^"Tower/Watcher") as WatchingEye
+		if not assert_not_null(watcher, "%s should carry an eye over its tower" % map.id):
+			arena.queue_free()
+			continue
+
+		if not LOOK_PATHS.has(map.id):
+			assert_null(watcher.look, "%s was not given a look and must draw the glTF's own" % map.id)
+			arena.queue_free()
+			continue
+
+		if assert_not_null(watcher.look, "%s should name its own eye look" % map.id):
+			assert_eq_string(watcher.look.resource_path, String(LOOK_PATHS[map.id]),
+				"%s should wear the look its own map names" % map.id)
+			assert_false(seen.has(watcher.look.resource_path),
+				"%s shares an eye look with another map" % map.id)
+			seen[watcher.look.resource_path] = true
+
+			var painted: Dictionary = _painted_parts(watcher)
+			for part: StringName in EYE_PART_NAMES:
+				assert_true(painted.has(part) and painted[part] != null,
+					"%s: %s should be painted in the map's own colours" % [map.id, part])
+		arena.queue_free()
+
+
+## The material actually on each of the eyeball's three parts, by node name.
+##
+## Reads the SURFACE OVERRIDE and not the mesh's material, because the override
+## is what the renderer takes and what the draw-budget gate counts.
+func _painted_parts(eye: WatchingEye) -> Dictionary:
+	var found: Dictionary = {}
+	for node: Node in _descendants_of(eye):
+		var surface: MeshInstance3D = node as MeshInstance3D
+		if surface == null or not EYE_PART_NAMES.has(StringName(node.name)):
+			continue
+		found[StringName(node.name)] = surface.get_surface_override_material(0)
+	return found

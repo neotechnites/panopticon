@@ -1,0 +1,30 @@
+[gd_resource type="Resource" script_class="WatchingEyeLook" load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://scripts/tower/watching_eye_look.gd" id="1_look"]
+
+[sub_resource type="StandardMaterial3D" id="Sclera"]
+resource_name = "M_Sclera_Marble"
+cull_mode = 2
+albedo_color = Color(0.0529, 0.0545, 0.0331, 1)
+roughness = 0.3
+
+[sub_resource type="StandardMaterial3D" id="Iris"]
+resource_name = "M_Iris_Marble"
+cull_mode = 2
+albedo_color = Color(0.5029, 0.4233, 0.2232, 1)
+roughness = 0.22
+emission_enabled = true
+emission = Color(1, 0.842, 0.444, 1)
+emission_energy_multiplier = 1.1
+
+[sub_resource type="StandardMaterial3D" id="Pupil"]
+resource_name = "M_Pupil_Marble"
+cull_mode = 2
+albedo_color = Color(0.0091, 0.0103, 0.0137, 1)
+roughness = 0.1
+
+[resource]
+script = ExtResource("1_look")
+sclera = SubResource("Sclera")
+iris = SubResource("Iris")
+pupil = SubResource("Pupil")

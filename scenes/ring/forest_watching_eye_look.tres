@@ -1,0 +1,30 @@
+[gd_resource type="Resource" script_class="WatchingEyeLook" load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://scripts/tower/watching_eye_look.gd" id="1_look"]
+
+[sub_resource type="StandardMaterial3D" id="Sclera"]
+resource_name = "M_Sclera_Forest"
+cull_mode = 2
+albedo_color = Color(0.019, 0.032, 0.014, 1)
+roughness = 0.3
+
+[sub_resource type="StandardMaterial3D" id="Iris"]
+resource_name = "M_Iris_Forest"
+cull_mode = 2
+albedo_color = Color(0.254, 0.479, 0.093, 1)
+roughness = 0.22
+emission_enabled = true
+emission = Color(0.53, 1.0, 0.194, 1)
+emission_energy_multiplier = 1.1
+
+[sub_resource type="StandardMaterial3D" id="Pupil"]
+resource_name = "M_Pupil_Forest"
+cull_mode = 2
+albedo_color = Color(0.0032, 0.005, 0.0023, 1)
+roughness = 0.1
+
+[resource]
+script = ExtResource("1_look")
+sclera = SubResource("Sclera")
+iris = SubResource("Iris")
+pupil = SubResource("Pupil")
