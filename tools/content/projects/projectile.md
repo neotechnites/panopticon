@@ -116,3 +116,12 @@ captions_y: 0.72
 ## Ryan 2026-09-21 on the first dailies
 "warzone a and fortnite b is what well use. the projectile in the last clip looks stupid, it covers the entire view for the first frame, and for this clip, and the 02 pov hitscan, the people hes shooting at are retarded. they need to look like real players"
 -> shot 3 = warzone_a, shot 4 = fortnite_b (locked). Bullet visual: must not fill the view at the muzzle. Shots 2 and 5: refilm with runners that look like real players.
+
+## script v2 (Ryan, 2026-09-22) — "the spaces are for me to record, not for where clips should cut"
+L1 Last week, I put up my first short to promote my game, and, was lucky enough that out of the few comments i got, a couple were feedback.
+L2 This guy specifically recommended changin the sniper from a hitscan weapon to a projectile weapon, and while i lilked the idea of hitscan at first, I did need ways to make it harder for the sniper than it currently is, and so i think this is a great way to try and achieve that.
+L3 The two games i like the most for this feeling of bullet drop and projectile speed are 1. Call of duty, specifically early warzone, where hitting a long shot felt incredible, and 2. fortnite. what i espcially like about fortnite is how clear it is why you missed and how to lead out or aim up to hit your target. you can see the bullet travel the whole way, and exactly where it goes.
+L4 Once I had those two as reffernces, implemantation was pretty simple. I'm still playing with the speeds and drop to get the perfect fell though.
+L5 Tell me what you think in the comments on if this is an improvement or not, and any other feedback you might have, it just might become a part of the finished game
+Ryan: "same clips as before, really all you have to do is extend the final clip, and it should come in when the fortnite clip ends"
+clips: L1 -> 01a; card on "This guy specifically recommended ... projectile weapon"; "and while i liked ..." -> 02; "Call of duty ..." -> warzone_a; "and 2. fortnite ..." -> fortnite_b; L4+L5 -> 05 (extended), starting when the fortnite clip ends.
