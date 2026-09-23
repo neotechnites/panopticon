@@ -577,12 +577,9 @@ GLB_SRC=""
 # Which box builds this. --pc and --local are explicit; otherwise the Mac when
 # Blender is installed here, the PC when it is not.
 pick_backend() {
-  case "$WHERE" in
-    local) [ -n "$MAC_BLENDER" ] || die "--local but no Blender on this Mac.
-       brew install --cask blender   (it must match the PC's Blender; see doctor)" ;;
-    pc)    ;;
-    *)     if [ -n "$MAC_BLENDER" ]; then WHERE="local"; else WHERE="pc"; fi ;;
-  esac
+  # Ryan 2026-09-23: Blender never runs on the Mac. Every build goes to the PC.
+  [ "$WHERE" = "local" ] && die "--local refused: Blender never runs on the Mac (Ryan, 2026-09-23)."
+  WHERE="pc"
 }
 
 case "$CMD" in
