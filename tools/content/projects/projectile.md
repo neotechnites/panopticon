@@ -54,12 +54,12 @@ capture: tools/content/fetch.sh, SOURCES.md
 said: "footage of the new feature being used"
 capture: --shot=s3_open_lane --stage=projectile_lead --pov=guard --bots=6 --look=social --audio=near --seed=20260714
 hud: crosshair
-seconds: 9
+seconds: 18
 in: 1.2
 takes: 1
 motion: 0.006
 frame: 3.52
-file: 05_pov_projectile
+file: 05_pov_projectile_long
 
 ## bullet_test (feature check, not a shot)
 capture: --pov=guard --hud=crosshair --stage=guard_alone --shot=s3_open_lane --bots=4 --set=speed=100;degs=170,159,148 --look=social --audio=near --seed=20260930
