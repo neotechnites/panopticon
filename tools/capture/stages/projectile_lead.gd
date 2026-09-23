@@ -59,6 +59,11 @@ extends "res://tools/capture/stages/stage.gd"
 ##   r         radius they are strung along (54)
 ##   behind    metres of ring the missed round is put behind him (1.2)
 ##   start     clip seconds the hand leaves the park (1.6)
+##   beats     engagements after the first kill (2)
+##   beat_more/fire_more   seconds each of those runs, and when its trigger is
+##             ready inside it (4.0, 1.6)
+##   shots_more/wait_more  rounds each of those may spend on its man, and how
+##             long it holds out for a clear one before taking what it has (3, 2.0)
 ##   beat_a/beat_b/beat_c  seconds the hand spends on each beat (3.8, 3.6, 4.0)
 ##   fire_a/fire_b         seconds into that beat the trigger is ready (3.0, 1.75)
 ##   park_deg  bearing the scope rests on before the first beat (52)
@@ -180,15 +185,35 @@ func tick(_delta: float) -> void:
 		"fire_at": float(option("fire_b", 1.75)), "clear": true,
 		"acquire": float(option("acquire", 0.35)), "watch": true,
 	})
+	# beats (2): how many more engagements after the miss and the first kill. The
+	# short's last section grew to about thirteen seconds of voice, and a scope
+	# that has run out of things to do sits on rock. Each of these re-acquires
+	# whoever is in the open, leads him and fires -- which lands most of the time
+	# and reads as a near miss when it does not, because the hand is still doing
+	# what a player does.
+	var more: int = maxi(int(option("beats", 2)), 0)
+	for index: int in more:
+		_hand.beats.append({
+			"from": _brains, "seconds": float(option("beat_more", 4.0)),
+			"fire_at": float(option("fire_more", 1.6)), "clear": true,
+			"acquire": float(option("acquire", 0.35)), "watch": true,
+			"shots": int(option("shots_more", 3)),
+			"wait": float(option("wait_more", 2.0)),
+		})
 	# No trigger on the last beat: the scope comes off the drop and onto the man
 	# still coming, so the clip ends on a move rather than on a held frame.
 	_hand.beats.append({"from": _brains, "seconds": float(option("beat_c", 4.0))})
 	_hand.park = LIB.ring_point(float(option("park_deg", 52.0)), float(option("r", 54.0)), 1.0)
 	_hand.start_at = float(option("start", 1.6))
-	say("tower brain stood down; the hand starts at %.2f s, is ready to miss at %.2f and to lead at %.2f, and holds each until the shot is there" % [
+	var ready: float = _hand.start_at + float(option("beat_a", 3.8)) + float(option("beat_b", 3.6))
+	var more_at: String = ""
+	for index: int in more:
+		more_at += ", %.2f" % (ready + float(option("fire_more", 1.6)) + float(option("beat_more", 4.0)) * float(index))
+	say("tower brain stood down; the hand starts at %.2f s, is ready to miss at %.2f, to lead at %.2f%s, and holds each until the shot is there" % [
 		_hand.start_at,
 		_hand.start_at + float(option("fire_a", 3.0)),
 		_hand.start_at + float(option("beat_a", 3.8)) + float(option("fire_b", 1.75)),
+		more_at,
 	])
 
 
