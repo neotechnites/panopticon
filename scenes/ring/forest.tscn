@@ -18,12 +18,12 @@
 [ext_resource type="PackedScene" path="res://assets/models/forest_rock_outcrop.glb" id="17_outcrop"]
 
 [sub_resource type="ProceduralSkyMaterial" id="SkyMat"]
-sky_top_color = Color(0.66, 0.74, 0.62, 1)
-sky_horizon_color = Color(0.8, 0.8, 0.56, 1)
+sky_top_color = Color(0.4, 0.45, 0.37, 1)
+sky_horizon_color = Color(0.5, 0.52, 0.37, 1)
 sky_curve = 0.2
-sky_energy_multiplier = 1.3
-ground_bottom_color = Color(0.16, 0.24, 0.12, 1)
-ground_horizon_color = Color(0.4, 0.5, 0.28, 1)
+sky_energy_multiplier = 1.0
+ground_bottom_color = Color(0.09, 0.14, 0.07, 1)
+ground_horizon_color = Color(0.24, 0.3, 0.18, 1)
 sun_angle_max = 0.0
 
 [sub_resource type="Sky" id="Sky"]
@@ -33,12 +33,12 @@ sky_material = SubResource("SkyMat")
 background_mode = 2
 sky = SubResource("Sky")
 ambient_light_source = 3
-ambient_light_color = Color(0.5, 0.56, 0.36, 1)
-ambient_light_energy = 0.7
+ambient_light_color = Color(0.3, 0.34, 0.23, 1)
+ambient_light_energy = 0.55
 tonemap_mode = 1
 fog_enabled = true
-fog_light_color = Color(0.56, 0.6, 0.42, 1)
-fog_light_energy = 0.9
+fog_light_color = Color(0.34, 0.38, 0.27, 1)
+fog_light_energy = 0.5
 fog_density = 0.006
 fog_sky_affect = 0.4
 
@@ -48,21 +48,21 @@ blend_mode = 1
 cull_mode = 2
 shading_mode = 0
 vertex_color_use_as_albedo = true
-albedo_color = Color(1, 1, 1, 1)
+albedo_color = Color(0.7, 0.7, 0.7, 1)
 
 [sub_resource type="StandardMaterial3D" id="RaySolidMat"]
 transparency = 1
 cull_mode = 2
 shading_mode = 0
 vertex_color_use_as_albedo = true
-albedo_color = Color(1, 1, 1, 1)
+albedo_color = Color(0.75, 0.75, 0.75, 1)
 
 [sub_resource type="StandardMaterial3D" id="FogMat"]
 transparency = 1
 cull_mode = 2
 shading_mode = 0
 vertex_color_use_as_albedo = true
-albedo_color = Color(1, 1, 1, 1)
+albedo_color = Color(0.6, 0.6, 0.6, 1)
 
 [node name="Forest" type="Node3D"]
 editor_description = "MAP 3, THE FOREST: assets/models/forest.glb at identity (grass lane r 46.7..57.3 at y 23.0 round a foggy ravine: an earth bank down to a dark floor at y -11.05, no water, a thicket of some 1140 barbed brambles filling the pit bottom, a leaf wall, a gallery roof of leaves over the lane at y 36, a cell wall of six barred tiers from y 36 to y 64 above it, and an unbroken canopy dome to y 77.4 over the ravine), the great tree (forest_tree.glb) as the tower. ForestFog is the pit's fog: seven translucent discs y -12.5..-8 (from the floor at -11.05, the old water height, thinning over it) with the tint and alpha in their vertex colour (zero round the trunk and inside the bank, so no edge shows), unshaded and mixed through its override; GL Compatibility has no fog volumes. The sun rays are two nodes in the glb, three crossed vanes per sun-well with the tint and the feather in their vertex colour (alpha peaks on the axis, zero at the edges and both ends, so no cap, no hard edge): ForestRaysSolid (pale yellow, alpha 0.35, mixed, the mesh-only look) and ForestRaysSoft (faint, additive, shown here under the Sun light). Both overrides are unshaded and take albedo and alpha from the vertex colour. Flip their visibility to compare."
@@ -76,7 +76,7 @@ environment = SubResource("Env")
 editor_description = "The light-variant rays: the sun from bearing 120 at 52 deg, through the canopy gaps."
 transform = Transform3D(0.866025, 0.394, -0.3078, 0, 0.6157, 0.788, 0.5, -0.6824, 0.5332, 0, 30, 0)
 light_color = Color(1, 0.95, 0.8, 1)
-light_energy = 1.2
+light_energy = 0.85
 shadow_enabled = true
 shadow_bias = 0.06
 directional_shadow_mode = 0

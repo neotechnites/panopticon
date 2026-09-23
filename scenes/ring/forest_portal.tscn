@@ -13,7 +13,7 @@ editor_description = "Map 3's finish portal: scenes/ring/portal.tscn node for no
 [node name="Glow" type="OmniLight3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.0, 0)
 light_color = Color(0.85, 1.0, 0.55, 1.0)
-light_energy = 5.0
+light_energy = 3.0
 omni_range = 16.0
 shadow_enabled = false
 
