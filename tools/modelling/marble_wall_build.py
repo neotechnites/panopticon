@@ -7,10 +7,11 @@ built into its welded _Mesh against the seam contract there.
     7 tiers      64 arched cells each (mb.TIER_BASE), Map 1's cell size
                  (4.0 x 5.5 m mouths); EVERY cell an open recess CELL_D deep
                  to a dark back wall
-    bars         BAR_N square iron bars over every arch: pyramids standing on
-                 the sill BAR_D into the reveal, tips set into the head. Their
-                 feet are stitched into the sill's own reveal, so the bars are
-                 part of the one stone
+    bars         BAR_N square iron bars over every arch: straight prisms of
+                 one section foot to head, standing on the sill BAR_D into the
+                 reveal, their capped heads set into the arch. Their feet are
+                 stitched into the sill's own reveal, so the bars are part of
+                 the one stone
     pilasters    on every pier, sill line to cornice, running up INTO the cornice
     cornices     one per tier, band mb.BAND_Z -- except the SLAB_TIER's, band
                  mb.SLAB_BAND_Z (SLAB_Z0 .. DECK_Z), which has NO FRONT FACE:
@@ -58,7 +59,7 @@ PW = mb.PILASTER_W
 PP = mb.PILASTER_PROUD
 HW = mb.ARCH_W / 2.0
 BHW = mb.BAR_HW
-BAR_SET = 0.06              # a bar's tip this far past the head's circle: set into the stone
+BAR_SET = 0.06              # a bar's cap this far past the head's circle: set into the stone
 DOME_COLLAR = 3.2           # metres of arc off the spring ring: the smooth collar, one quad a station
                             # on the wall's own 192 stations -- nothing is zippered across it
 MOULD_D = 0.25              # the ring moulding at the collar's head: the whole ring this far inward ...
@@ -298,18 +299,29 @@ def _sill(m, cell, fl, fr, br, bl):
 
 
 def _bars(m, cell):
-    """BAR_N square pyramids: feet on the sill (the sill's own vertices), the
-    apex BAR_SET past the head's circle -- in the stone."""
+    """BAR_N square PRISMS, the same 0.13 m section foot to head (Ryan: "the
+    cell bars get thinner going up. they shouldnt do that, they should be the
+    same width their full length"): feet on the sill (the sill's own
+    vertices), straight up to a flat square cap BAR_SET past the head's
+    circle -- in the stone, where the head's reveal hides it. The cap sits at
+    the head's height over the bar's corner NEAREST the crown, so every
+    corner of the bar is buried, never a corner showing under the arch."""
     bay = cell.bay
     for k in range(mb.BAR_N):
         u = cell.bar_u[k]
-        apex = m.v(bay.at(u, cell.head_z(u) + BAR_SET, mb.BAR_D))
+        u_near = min(max(cell.c, u - BHW), u + BHW)             # the corner the head is highest over
+        zt = cell.head_z(u_near) + BAR_SET
         fl, fr = cell.foot(m, k, True, True), cell.foot(m, k, True, False)
         bl, br = cell.foot(m, k, False, True), cell.foot(m, k, False, False)
-        m.tri(fl, fr, apex, bay.n_in, "iron")
-        m.tri(br, bl, apex, bay.n_out, "iron")
-        m.tri(bl, fl, apex, bay.dir(-1.0, 0.0), "iron")
-        m.tri(fr, br, apex, bay.dir(1.0, 0.0), "iron")
+        tfl = m.v(bay.at(u - BHW, zt, mb.BAR_D - BHW))
+        tfr = m.v(bay.at(u + BHW, zt, mb.BAR_D - BHW))
+        tbl = m.v(bay.at(u - BHW, zt, mb.BAR_D + BHW))
+        tbr = m.v(bay.at(u + BHW, zt, mb.BAR_D + BHW))
+        m.quad(fl, fr, tfr, tfl, bay.n_in, "iron")
+        m.quad(br, bl, tbl, tbr, bay.n_out, "iron")
+        m.quad(bl, fl, tfl, tbl, bay.dir(-1.0, 0.0), "iron")
+        m.quad(fr, br, tbr, tfr, bay.dir(1.0, 0.0), "iron")
+        m.quad(tfl, tfr, tbr, tbl, UP, "iron")                   # the cap, in the stone
     _STATS["bars"] = _STATS.get("bars", 0) + mb.BAR_N
 
 
