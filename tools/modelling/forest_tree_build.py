@@ -215,7 +215,7 @@ CROWN_SPAN = (12.5, 45.5)   # where a top's centre may sit
 CROWN_FADE_IN = (12.0, 15.0)   # tops fade in off the crown's rim ...
 CROWN_FADE_OUT = (45.0, 47.6)  # ... and over the drum's head: they grow on over the wall, clear of its top cells
 SEAM_TINT = (35.6, 47.6)    # radius band over which the canopy's shade and sun fade to the drum's leaf
-SEAM_WALL_N = (-0.98, 0.17)  # the drum head's mean normal (radial, up), read off forest.glb: the light the roof fades to
+SEAM_LIFT = 1.15            # and the roof's leaf brightens this much by the seam, meeting the drum's shaded head
 CROWN_LEAF = (2.5, 5.0)    # the leafy lumps on a top: their wavelengths, m
 CROWN_LUMP = 0.12           # and their share of its depth
 CROWN_EDGE = 0.12           # a face hung less than this share of its top's depth is a crease: shade
@@ -968,15 +968,21 @@ def socket_ring(m, quads, path, radius, sides, zone, flat=1.0, at_start=True):
     return ids
 
 
-def clump_end(m, last_ring, centre, radius, zone, rng, squash=0.75, wob=0.25):
-    """A leaf clump grown off a tube's last ring: rings up round a ball, top fan."""
+def clump_end(m, last_ring, centre, radius, zone, rng, squash=0.75, wob=0.25, phase=0.0, down=False):
+    """A leaf clump grown off a tube's last ring: rings up round a ball, top fan. ``phase`` is the
+    ring's first azimuth, so no band twists; ``down`` hangs it under a tube arriving from above."""
     segs = len(last_ring)
     rings = [list(last_ring)]
-    for lat in (-35.0, 5.0, 40.0, 68.0):
+    lats = (-35.0, 5.0, 40.0, 68.0)
+    if down:        # hung: the first ring just under the collar, so the ball never wraps back over its stem
+        h0 = min(m.verts[v][2] - centre[2] for v in last_ring) / (radius * squash)
+        lo = max(-20.0, min(35.0, math.degrees(math.asin(max(-1.0, min(1.0, h0)))) - 12.0))
+        lats = (lo, min(-5.0, (lo - 40.0) / 2.0), -40.0, -68.0)
+    for lat in lats:
         ring = []
         cl, sl = math.cos(math.radians(lat)), math.sin(math.radians(lat))
         for s in range(segs):
-            a = 2.0 * math.pi * s / segs + rng.f() * 0.25
+            a = 2.0 * math.pi * s / segs + phase + rng.f() * 0.25
             rr = radius * (1.0 + wob * rng.sf())
             ring.append(m.v((centre[0] + rr * cl * math.cos(a), centre[1] + rr * cl * math.sin(a),
                              centre[2] + rr * sl * squash)))
@@ -986,7 +992,7 @@ def clump_end(m, last_ring, centre, radius, zone, rng, squash=0.75, wob=0.25):
             q = (s + 1) % segs
             idx = (rings[i][s], rings[i][q], rings[i + 1][q], rings[i + 1][s])
             m.quad(idx[0], idx[1], idx[2], idx[3], sub(m.centroid(idx), centre), zone)
-    top = m.v((centre[0], centre[1], centre[2] + radius * squash * (1.0 + wob * rng.sf())))
+    top = m.v((centre[0], centre[1], centre[2] + (-1.0 if down else 1.0) * radius * squash * (1.0 + wob * rng.sf())))
     for s in range(segs):
         q = (s + 1) % segs
         m.tri(top, rings[-1][s], rings[-1][q], sub(m.centroid((top, rings[-1][s], rings[-1][q])), centre), zone)
@@ -1467,7 +1473,7 @@ def _roof(m, r, disc):
         end = tpath[-1]
         six = [m.v((end[0] + 0.45 * math.cos(_canopy_theta(s, 6)), end[1] + 0.45 * math.sin(_canopy_theta(s, 6)), end[2] + 0.12))
                for s in range(6)]     # r 0.45: near enough the clump's first ring that no bridging triangle goes thin
-        zipper(m, six, _by_azimuth(m, trings[-1], end), UP, "sun", centre=end)
+        zipper(m, six, _by_azimuth(m, trings[-1], end), DOWN, "sun", centre=end)   # the clump's underside
         _clump(m, six, add(end, UP, TWIG_CLUMP[1]), TWIG_CLUMP[0], "sun", r)
 
 
@@ -1707,10 +1713,12 @@ def _sheet(m, r, disc):
             th = _canopy_theta(s, n)
             ring.append(m.v((rad * math.cos(th), rad * math.sin(th), _sheet_top_z(f, rad, th))))
         top.append(ring)
+    first_top = len(m.faces)
     zipper(m, disc[3], top[0], DOWN, "leaf")      # the top skin wants DOWN with the sheet: nothing is ever
     for i in range(len(top) - 1):                 # above it in play, and a view from over the ravine culls it
         zipper(m, top[i], top[i + 1], DOWN, "leaf")
     zipper(m, top[-1], seam, DOWN, "leaf")
+    _PROOF["top_faces"] = range(first_top, len(m.faces))    # wound DOWN on purpose: orient() leaves it
     _PROOF["bands"] = (("under", [disc[2]] + rings + [seam]), ("top", [disc[3]] + top + [seam]))
     return rings, seam, f
 
@@ -1769,8 +1777,10 @@ def _hung(m, r, last_ring, end, centre, radius, zone, squash=CLUMP_SQUASH):
     collar = [m.v((centre[0] + 0.45 * radius * math.cos(a0 + 2.0 * math.pi * (s + 0.5) / n),
                    centre[1] + 0.45 * radius * math.sin(a0 + 2.0 * math.pi * (s + 0.5) / n), end[2]))
               for s in range(n)]      # half a step off the tube's own ring: the zipper never ties
-    zipper(m, collar, ring, UP if end[2] > centre[2] else DOWN, zone, centre=end)
-    clump_end(m, collar, centre, radius, zone, r, squash=squash, wob=0.2)
+    hang = end[2] > centre[2]
+    zipper(m, collar, ring, UP if hang else DOWN, zone, centre=end)
+    clump_end(m, collar, centre, radius, zone, r, squash=squash, wob=0.2,
+              phase=a0 + math.pi / n, down=hang)
 
 
 def _sheet_clumps(m, r, rings):
@@ -1800,7 +1810,7 @@ def _sheet_clumps(m, r, rings):
         et = (-er[1], er[0], 0.0)
         foot = _socket_loop(m, quads, STEM_SIDES, STEM_IN, ex=er, along=DOWN)
         ring0 = _weld_pts(m, quads, foot, DOWN, "shade", "sheet clump")
-        neck = _oval((c[0], c[1], top), er, et, (STEM_R, STEM_R), STEM_SIDES)
+        neck = _oval((c[0], c[1], top), er, (-et[0], -et[1], 0.0), (STEM_R, STEM_R), STEM_SIDES)   # wound as the foot
         mid = [lerp(m.verts[ring0[k]], neck[k], 0.62) for k in range(STEM_SIDES)]
         srings = [ring0, [m.v(q) for q in mid], [m.v(q) for q in neck]]
         loft(m, srings, "bark", want_fn=lambda q: (q[0] - c[0], q[1] - c[1], 0.0))
@@ -1842,7 +1852,7 @@ def build_tree_geometry():
     _PROOF["pre"] = ([tuple(q) for q in m.verts[:n]],
                      [(tuple(f), m.zones[i]) for i, f in enumerate(m.faces)
                       if f is not None and max(f) < n])
-    return _prune(m)
+    return orient(_prune(m), skip=_PROOF["top_faces"])
 
 
 def _prune(m):
@@ -1860,6 +1870,46 @@ def _prune(m):
     m.verts = verts
     m.faces = [tuple(remap[i] for i in f) if f is not None else None for f in m.faces]
     m.quads = {}
+    return m
+
+
+def orient(m, skip=()):
+    """Wind every face as its neighbours do, per connected patch, the majority by area: a face whose
+    ``want`` guessed wrong turns round and reads from the side the rest does. ``skip`` keeps its winding."""
+    skip = set(skip)
+    edges = {}
+    for fi, f in enumerate(m.faces):
+        if f is None or fi in skip:
+            continue
+        for k in range(len(f)):
+            a, b = f[k], f[(k + 1) % len(f)]
+            edges.setdefault((min(a, b), max(a, b)), []).append((fi, a))
+    flip = {}
+    for seed in range(len(m.faces)):
+        if m.faces[seed] is None or seed in skip or seed in flip:
+            continue
+        flip[seed], patch, stack = False, [seed], [seed]
+        while stack:
+            fi = stack.pop()
+            f = m.faces[fi]
+            for k in range(len(f)):
+                a, b = f[k], f[(k + 1) % len(f)]
+                twins = edges[(min(a, b), max(a, b))]
+                if len(twins) != 2:
+                    continue
+                gj, ga = twins[1] if twins[0][0] == fi else twins[0]
+                if gj not in flip:          # a neighbour agrees when it runs the shared edge the other way
+                    flip[gj] = flip[fi] != (ga == a)
+                    patch.append(gj)
+                    stack.append(gj)
+        area = lambda fi: math.sqrt(sum(c * c for c in _newell([m.verts[i] for i in m.faces[fi]])))
+        wrong = sum(area(fi) for fi in patch if flip[fi])
+        if wrong * 2.0 > sum(area(fi) for fi in patch):
+            for fi in patch:
+                flip[fi] = not flip[fi]
+    for fi, fl in flip.items():
+        if fl:
+            m.faces[fi] = tuple(reversed(m.faces[fi]))
     return m
 
 
@@ -1954,7 +2004,7 @@ def _zone_means(names):
 
 def seam_tint(ob, zones):
     """Ryan: "a hard line from the color of the roof to the color of the wall". Over
-    SEAM_TINT the canopy's shade and sun fade, per corner in COLOR_0, to the drum's leaf."""
+    SEAM_TINT the canopy's shade and sun fade, per corner in COLOR_0, to the drum's leaf, lifting by SEAM_LIFT."""
     mean = _zone_means(("leaf", "shade", "sun"))
     k = {z: [mean["leaf"][c] / mean[z][c] for c in range(3)] for z in ("shade", "sun")}
     me = ob.data
@@ -1963,7 +2013,7 @@ def seam_tint(ob, zones):
     out = list(zones)
     for pi, poly in enumerate(me.polygons):
         zone = zones[pi]
-        if zone not in ("shade", "sun"):
+        if zone not in ("leaf", "shade", "sun"):
             continue
         ts = [_ramp(math.hypot(*me.vertices[me.loops[li].vertex_index].co[:2]), *SEAM_TINT)
               for li in poly.loop_indices]
@@ -1972,9 +2022,15 @@ def seam_tint(ob, zones):
         if zone == "shade":             # the leaf's texels darkened to the shade, lifting to leaf
             out[pi] = "leaf"
         for li, t in zip(poly.loop_indices, ts):
+            lift = 1.0 + (SEAM_LIFT - 1.0) * t
             for c in range(3):
-                f = (1.0 / k[zone][c]) * (1.0 - t) + t if zone == "shade" else 1.0 + (k[zone][c] - 1.0) * t
-                flat[li * 4 + c] = f
+                if zone == "shade":
+                    f = (1.0 / k[zone][c]) * (1.0 - t) + t
+                elif zone == "sun":
+                    f = 1.0 + (k[zone][c] - 1.0) * t
+                else:
+                    f = 1.0
+                flat[li * 4 + c] = f * lift
     col.data.foreach_set("color", flat)
     me.color_attributes.active_color_index = 0
     me.color_attributes.render_color_index = 0
@@ -2003,58 +2059,14 @@ def tint_material(mat):
     return mat
 
 
-def seam_light(ob, zones):
-    """The roof faces down and so took the sky's dark lower half; the drum faces the ravine. Over
-    SEAM_TINT each canopy face's shading normal swings to the drum head's, so both light alike."""
-    me = ob.data
-    crown = [pi for pi, z in enumerate(zones) if z in ("leaf", "shade", "sun")]
-    bins = {}
-    for pi in crown:
-        poly = me.polygons[pi]
-        c, n = poly.center, poly.normal
-        rad = math.hypot(c[0], c[1])
-        if rad < SEAM_TINT[0] or n[2] >= 0.0:
-            continue
-        b = bins.setdefault(int(rad * 2.0), [0.0, 0.0])
-        b[0] += (n[0] * c[0] + n[1] * c[1]) / rad * poly.area
-        b[1] += n[2] * poly.area
-    ref = {k: math.atan2(v[1], v[0]) for k, v in bins.items()}
-    wall = math.atan2(SEAM_WALL_N[1], SEAM_WALL_N[0])
-    flat = [None] * len(me.loops)
-    for poly in me.polygons:
-        for li in poly.loop_indices:
-            flat[li] = tuple(poly.normal)
-    for pi in crown:
-        poly = me.polygons[pi]
-        n = poly.normal
-        for li in poly.loop_indices:
-            co = me.vertices[me.loops[li].vertex_index].co
-            rad = math.hypot(co[0], co[1])
-            w = _ramp(rad, *SEAM_TINT)
-            if w <= 0.0:
-                continue
-            k = min(ref, key=lambda b: abs(b - rad * 2.0))
-            d = w * (((wall - ref[k]) + math.pi) % (2.0 * math.pi) - math.pi)
-            ux, uy = co[0] / rad, co[1] / rad
-            nr = n[0] * ux + n[1] * uy
-            nt = -n[0] * uy + n[1] * ux
-            nr, nz = nr * math.cos(d) - n[2] * math.sin(d), nr * math.sin(d) + n[2] * math.cos(d)
-            flat[li] = (nr * ux - nt * uy, nr * uy + nt * ux, nz)
-    me.polygons.foreach_set("use_smooth", [True] * len(me.polygons))
-    me.edges.foreach_set("use_edge_sharp", [True] * len(me.edges))
-    me.normals_split_custom_set(flat)
-
-
 def build_render_copy(albedo=None, emissive=None):
     """The tree in WORLD coordinates for another model's review renders."""
     m = build_tree_geometry()
     ob = m.object("ReviewTree")
-    zones = seam_tint(ob, m.zones)
-    unwrap(ob, zones)
+    unwrap(ob, seam_tint(ob, m.zones))
     if albedo is None:
         albedo, emissive = sheet("forest_atlas", paint_atlas)
     mdl.finish(ob, tint_material(atlas_material("ForestAtlasTree", albedo, emissive)), strip_uvs=False)
-    seam_light(ob, zones)
     return ob
 
 
@@ -2066,10 +2078,8 @@ def build():
     mdl.save_texture(emissive)
     shift = (0.0, 0.0, -ORIGIN_Y)
     ob = m.object(OBJECT_NAME, shift)
-    zones = seam_tint(ob, m.zones)
-    unwrap(ob, zones)
+    unwrap(ob, seam_tint(ob, m.zones))
     mdl.finish(ob, tint_material(atlas_material("ForestAtlas", albedo, emissive)), strip_uvs=False)
-    seam_light(ob, zones)
     coll = c.object(COLLIDER_NAME, shift)
     coll.hide_render = True
     print("MDL STATS visual_tris=%d collision_tris=%d floor_y=%.2f eye_y=%.2f apex_y=%.1f"

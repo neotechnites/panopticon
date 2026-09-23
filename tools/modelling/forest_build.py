@@ -185,6 +185,8 @@ UPPER_BULGE = 0.35          # the leaf swells this far out mid-drum and fades to
                             # lumps at the foot and the seam's harmonics at the head, blended
                             # by how far up the drum it is, so no band can ever fold shut.
 UPPER_TIER_ROWS = ((1, 2, 3), (4, 5, 6), (7, 8, 9))   # sills 38.5, 42.7, 46.9
+DRUM_SHADE = 0.55           # the drum's head in the canopy's shade: its leaf's share of light at the seam,
+DRUM_SHADE_R = 50.5         # fading from full at the roof's rim, per corner in COLOR_0, out to this radius
 _UP_STEP = 360.0 / 17.0
 # 17 a tier, one every 17 m of wall; the middle tier half a bay off, like brick
 UPPER_CELLS = [[off + _UP_STEP * k for k in range(17)] for off in (10.6, 0.0, 10.6)]
@@ -1661,6 +1663,25 @@ def build_geometry():
     return m, build_collider(), rays
 
 
+def drum_shade(ob):
+    """The canopy's shadow on the drum: every corner over the lane roof, inside DRUM_SHADE_R, darkens
+    up the drum to DRUM_SHADE at its seam height, so the lane's light fades into the roof's shade."""
+    me = ob.data
+    col = me.color_attributes.new(name="Col", type="FLOAT_COLOR", domain="CORNER")
+    flat = [1.0] * (len(me.loops) * 4)
+    for li, loop in enumerate(me.loops):
+        x, y, z = me.vertices[loop.vertex_index].co
+        if z <= fc.GALLERY_Z or math.hypot(x, y) > DRUM_SHADE_R:
+            continue
+        f = 1.0 - (1.0 - DRUM_SHADE) * ft._ramp(z, fc.GALLERY_Z, fs.seam_z(math.atan2(y, x)))
+        flat[li * 4:li * 4 + 3] = [f, f, f]
+    col.data.foreach_set("color", flat)
+    me.color_attributes.active_color_index = 0
+    me.color_attributes.render_color_index = 0
+    for mat in me.materials:
+        ft.tint_material(mat)
+
+
 def build():
     m, c, rays = build_geometry()
     albedo, emissive = ft.sheet("forest_atlas", ft.paint_atlas)
@@ -1673,6 +1694,7 @@ def build():
     tx.unwrap(ob, classes, SHEETS, seed=1)
     mats = tx.materials(NAME, SHEETS, use_files=ft.USE_TEXTURE_FILES, tex_dir=os.path.join(HERE, ft.TEX_DIR))
     order = tx.finish(ob, classes, mats)
+    drum_shade(ob)
     tx.report(SHEETS)
     print("MDL STATS surfaces=%d order=%s" % (len(ob.data.materials), ",".join(order)))
 
