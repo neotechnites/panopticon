@@ -140,8 +140,8 @@ chord vertices, so the weld is unchanged).
 ## Lip walls (the cover between sections)
 Ryan: *"not tunnels ... it just needs to be a fucking wall on the right side."* The lap runs toward
 rising bearing and forward × up points at the axis, so the runner's right is the pit lip. Each section
-boundary, and the start, carries a wall standing ON the lip (r 46.9–48.2, 1.3 m thick), tangential to
-the ring, in `map_base.glb`'s own rock — the `rock_wall` prop's language, ~8 m long, 3 m tall, a ragged
+boundary, and the start, carries a wall standing ON the lip (r 46.9–48.2, 1.3 m thick; 204 is r 46.9–47.5),
+tangential to the ring, in `map_base.glb`'s own rock — the `rock_wall` prop's language, ~8 m long, 3 m tall, a ragged
 domed head — no mouth, nothing across the deck, nothing near the ceiling. The runner passes it on the
 outer side; it is cover from the tower while they cross the boundary. The `LIP_WALLS` table of
 `tools/modelling/map_base_build.py` is the one source; each wall carries its own seed.
@@ -151,7 +151,7 @@ outer side; it is cover from the tower while they cross the boundary. The `LIP_W
 | start | -8 .. 14      | 4.6 m          | the big one, unchanged; the 13° gate across the lane is gone |
 | S1\|S2 | 61.7 .. 71.3 | 3.0 m          | plain deck 61.5–74.0 |
 | S2\|S3 | 134.2 .. 143.8 | 3.0 m        | plain deck 130.5–144.5 |
-| S3\|S4 | 199.2 .. 208.8 | 3.0 m        | its sinking end grows into the last 0.8° of S3's half wall |
+| S3\|S4 | 199.2 .. 208.8 | 3.0 m        | its sinking end grows into the last 0.8° of S3's half wall; `r_out` 47.50 |
 | S4\|S5 | 281.2 .. 290.8 | 3.0 m        | plain deck 282–290.5 |
 
 Why 3 m: the guard's eye is (0, 28.90, 0) and a standing head on the lane is 24.80; that line crosses
@@ -160,6 +160,14 @@ under it (2.48 m at r 57). Proved at build time on the built rock (`MDL STATS li
 ray down every 0.05 m of the full-height run, every standing body on the lane behind it hidden at every
 point, and the lane a stride past each end at deck height. `tests/test_map1_lip_walls.gd` repeats the
 hidden check in Godot physics and runs a body at full speed past every wall on the outer side.
+
+Ryan, on the 204 wall: *"the cover on section 4 is too far towards the inner part of the ring, and it
+jets out of the corner, either move it in a little bit or thin it out."* Its inner face is already on
+the lip (46.76 drawn, lip 46.70), so it is thinned, not moved: that row alone carries `r_out` 47.50
+(was the shared 48.20), 0.70 m off the outer face. S3's own half wall ends at r 47.56–47.58 and the
+pocket wall's drawn face now runs 47.64–47.72 — a 0.06–0.16 m step at the corner where it was
+0.76–0.86 m, and the path's inner column (r 47.55–50.75) keeps its width. The crest is untouched
+(2.99–3.52 m over the deck) and all 99 bodies on the lane behind it stay hidden at every point.
 
 ## Bots
 Cover instances register exactly as the old CSG cover did (same group, same collision layers) so RunnerCoverFinder uses them. Bots never need to jump a gap: nothing on r 50–54 is lava.
