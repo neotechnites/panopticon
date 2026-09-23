@@ -154,6 +154,8 @@ LAVA_EMIT_LO   = 112.0 / 255.0        # a texel whose brightest channel is at or
                                       # emits nothing (the crust, (112,1,1))
 LAVA_EMIT_HI   = 176.0 / 255.0        # ... and at or over this emits its whole albedo
                                       # (the orange, (176,50,7)); smoothstep between
+LAVA_EMIT_FLOOR = 0.25                # the crust still emits this share of its albedo:
+                                      # Ryan, "a faint glow to the lava", even in shadow
 LAVA_ALBEDO    = "map_base_lava_albedo"
 LAVA_EMISSIVE  = "map_base_lava_emissive"
 LAVA_SEED      = 7720133
@@ -200,6 +202,8 @@ BANK_REACH = 3.0                      # metres of floor that follow a bank's lin
 COL_MERGE = 0.30                      # a river column this close to a wall column yields
 SHELF_D = 2.5                         # the flat river cut back into the wall over the fall
 FALL_CAP = 3.0                        # tallest fall row
+FALL_WAVE_ROW = 1.0                   # ... and the pit fall's drawn rows, so the lava
+                                      # shader's ripple bends it (scenes/ring/lava_wave.gdshader)
 
 PLAT_OUT_R = 54.8                     # the run: 7 platforms, 7.00 m apart
 PLAT_IN_R = 50.2
@@ -882,8 +886,8 @@ def _image_file(name):
 def _lava_emissive_from(alb):
     """The sea's emissive, derived from its albedo: each texel emits its own
     colour scaled by a smoothstep of its brightest channel from LAVA_EMIT_LO
-    (nothing) to LAVA_EMIT_HI (all of it), so the glow follows the bright
-    orange and the dark crust stays dark. Pixels are the file's own sRGB
+    (LAVA_EMIT_FLOOR of it) to LAVA_EMIT_HI (all of it), so the glow follows the
+    bright orange and the dark crust only faintly glows. Pixels are the file's own sRGB
     bytes, as Blender hands them back."""
     w, h = alb.size
     src = [0.0] * (w * h * 4)
@@ -893,7 +897,7 @@ def _lava_emissive_from(alb):
     for o in range(0, len(src), 4):
         t = (max(src[o], src[o + 1], src[o + 2]) - LAVA_EMIT_LO) / span
         t = min(1.0, max(0.0, t))
-        k = t * t * (3.0 - 2.0 * t)
+        k = LAVA_EMIT_FLOOR + (1.0 - LAVA_EMIT_FLOOR) * t * t * (3.0 - 2.0 * t)
         out[o], out[o + 1], out[o + 2] = src[o] * k, src[o + 1] * k, src[o + 2] * k
         out[o + 3] = 1.0
     img = bpy.data.images.new(LAVA_EMISSIVE, w, h, alpha=False)
@@ -2495,27 +2499,49 @@ def _pit_lava(m, wall, ta, tb, cut_a, cut_b, cols, rim, lines):
         nv = _nv(z1 - z0, FALL_CAP)
         zs += [z0 + (z1 - z0) * k / nv for k in range(nv)]
     zs = sorted(zs + [LAVA_Z - d for d in LIP_ROWS] + [zc[-1]])
+    row_of = {round(z, 6): BANK_WALL + BANK_DECK - 2 + k for k, z in enumerate(reversed(zs))}
+    fine = []                                      # FALL_WAVE_ROW rows for the shader's
+    for z0, z1 in zip(zs, zs[1:]):                 # ripple; banks keep the coarse rows' line
+        nv = _nv(z1 - z0, FALL_WAVE_ROW)
+        fine += [z0 + (z1 - z0) * k / nv for k in range(nv)]
+    fine.append(zs[-1])
+    coarse = zs
+
+    def row_at(z):
+        """Bank-line row of a fine row: linear between its two coarse rows."""
+        for z0, z1 in zip(coarse, coarse[1:]):
+            if z0 - 1e-9 <= z <= z1 + 1e-9:
+                f = (z - z0) / (z1 - z0) if z1 > z0 else 0.0
+                return row_of[round(z0, 6)] + (row_of[round(z1, 6)] - row_of[round(z0, 6)]) * f
+        return row_of[round(z, 6)]
+
+    def bank_da(line, side, i, rad):
+        i0 = int(math.floor(i + 1e-9))
+        f = i - i0
+        a = _bank_da(line, side, i0, rad)
+        return a if f < 1e-9 else a + (_bank_da(line, side, i0 + 1, rad) - a) * f
+
+    zs = fine
 
     def rec(z):
         return max(_lip(LAVA_Z - z), RECESS_R * _ramp(LAVA_Z - z, 0.0, PIT_FADE))
 
     node = {}
-    row_of = {round(z, 6): BANK_WALL + BANK_DECK - 2 + k for k, z in enumerate(reversed(zs))}
 
     def N(t, z):
         """The fall's own vertex: the bank line's edge at this row, the
         columns between following it, all recessed rec(z)."""
         key = (round(t, 6), round(z, 6))
         if key not in node:
-            i = row_of[round(z, 6)]
+            i = row_at(z)
             rad = INNER_R
             if abs(t - ta) < 1e-9:
-                da = _bank_da(lines[0], 0, i, rad)
+                da = bank_da(lines[0], 0, i, rad)
             elif abs(t - tb) < 1e-9:
-                da = _bank_da(lines[1], 1, i, rad)
+                da = bank_da(lines[1], 1, i, rad)
             else:
-                da = (_bank_da(lines[0], 0, i, rad) * max(0.0, 1.0 - (t - ta) * rad / BANK_REACH)
-                      + _bank_da(lines[1], 1, i, rad) * max(0.0, 1.0 - (tb - t) * rad / BANK_REACH))
+                da = (bank_da(lines[0], 0, i, rad) * max(0.0, 1.0 - (t - ta) * rad / BANK_REACH)
+                      + bank_da(lines[1], 1, i, rad) * max(0.0, 1.0 - (tb - t) * rad / BANK_REACH))
             node[key] = m.v(_push(wall.P(t + da, z), rec(z)))
         return node[key]
 
