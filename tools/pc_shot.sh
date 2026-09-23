@@ -30,7 +30,11 @@
 #   SETTLE=4        seconds of real time to run before the shot, for anything
 #                   that eases into place (the WatchingEye's pupil). Passed
 #                   through to shot.gd as --settle=.
-# Unset, both leave the godot command line and the render exactly as they were.
+#   FLAT=1          override every drawn surface with one plain grey: the shot
+#                   then shows FORM and nothing else, which is the only way to
+#                   tell a geometry defect from a texture one without guessing.
+#   FOV=45          camera field of view in degrees (shot.gd's default is 100).
+# Unset, all of them leave the godot command line and the render exactly as they were.
 set -euo pipefail
 
 usage() {
@@ -69,6 +73,8 @@ TASK=PanopticonShot
 TIMEOUT=${PC_SHOT_TIMEOUT:-600}
 RES=${RES:-}
 SETTLE=${SETTLE:-}
+FLAT=${FLAT:-}
+FOV=${FOV:-}
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 
 # override.cfg is this script's alone: write it only when RES asks, but always
@@ -85,6 +91,8 @@ fi
 # what it has always been.
 SETTLE_ARG=""
 [ -n "$SETTLE" ] && SETTLE_ARG=" --settle=$SETTLE"
+[ -n "$FLAT" ]   && SETTLE_ARG="$SETTLE_ARG --flat=$FLAT"
+[ -n "$FOV" ]    && SETTLE_ARG="$SETTLE_ARG --fov=$FOV"
 
 say() { printf '\033[1m==> %s\033[0m\n' "$*"; }
 
@@ -153,7 +161,7 @@ echo %RC% > "%W%\\shot.done"
 EOF
 scp -q "$TMP/shot.bat" "$PC:$WORK/shot.bat"
 
-say "shot $SCENE ${LIST:+list=$LIST}${LIST:-pos=$POS look=$LOOK}${RES:+ res=$RES}${SETTLE:+ settle=${SETTLE}s}"
+say "shot $SCENE ${LIST:+list=$LIST}${LIST:-pos=$POS look=$LOOK}${RES:+ res=$RES}${SETTLE:+ settle=${SETTLE}s}${FLAT:+ flat}${FOV:+ fov=$FOV}"
 ssh -o ConnectTimeout=20 "$PC" "
   $OVERRIDE_SET
   try {

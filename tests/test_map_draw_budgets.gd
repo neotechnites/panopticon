@@ -127,8 +127,15 @@ const DRAW_BUDGETS: Dictionary = {
 	# course that came off the lane was 23618 triangles and this leaves 17879 of
 	# headroom, so putting it back still fails here. lights and the exact
 	# shadow_casters are untouched.
-	"marble": {
-		"tris": 107271, "surfaces": 22, "materials": 22,
+	# Both of those passes landed on this one row and the MERGE (a27c366) kept
+	# BOTH openings and only one close, so the dictionary never closed, this file
+	# did not parse, and tools/test.sh exited 2 on main with the whole draw gate
+	# silently not running. Repaired 2026-09-23 to the one row the two passes
+	# describe between them: the later pass's row, kept verbatim. Nothing was
+	# raised to make it pass -- the live tree, which carries the eye AND the
+	# per-class sheets (no single branch had measured the two together), measures
+	# tris 89392, surfaces 34, materials 34, transparent 0, lights 3, casters 1,
+	# and every one of those fits inside the numbers already written below.
 	# Surfaces re-measured 2026-09-23, when the last two models on the atlas went
 	# onto lib/texel.py too (Ryan: "the texturing on the dome of the tower looks
 	# like it didnt get fixed" and "the texturing on the gate is bad"). The tower
