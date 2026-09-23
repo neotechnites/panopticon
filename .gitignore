@@ -25,3 +25,6 @@ export_presets.cfg
 tools/harness/runs/
 __pycache__/
 .venv/
+
+# Map 1 chunk materials, written by the import hook (tools/import/shared_materials.gd).
+assets/models/map_base_materials/

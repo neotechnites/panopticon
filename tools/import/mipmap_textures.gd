@@ -33,6 +33,8 @@ extends EditorScenePostImport
 ## the art's deliberate pixel look and must survive, only minification
 ## changes.
 
+const SharedMaterials := preload("res://tools/import/shared_materials.gd")
+
 const TEXTURE_PROPERTIES := [
 	&"albedo_texture",
 	&"normal_texture",
@@ -53,6 +55,7 @@ func _post_import(scene: Node) -> Object:
 	_materials_refiltered = 0
 
 	_walk(scene)
+	SharedMaterials.share(scene, get_source_file())
 
 	print("MIPMAP %s: %d textures gained mips, %d materials refiltered to NEAREST_WITH_MIPMAPS_ANISOTROPIC" % [
 		get_source_file().get_file(), _textures_mipped, _materials_refiltered,
