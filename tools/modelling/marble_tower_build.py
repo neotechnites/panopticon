@@ -123,7 +123,8 @@ DOME_RISE = 5.4             # the dome: apex at 12.9
 DOME_T = 0.30               # the shell: the inner dome springs from the beam's inner face
 DOME_RINGS = 6
 R_INSET = SHAFT_R - COL_W / math.cos(math.pi / NS)   # the columns' inner line at the corners: the room's wall line
-PAVING_RS = (0.5, 2.2, 4.3, 6.3)   # the room floor: a grey rosette, two rings of slabs, a plain margin to the columns
+PAVING_RS = (0.5, 2.2, 4.25, 6.3)  # the room floor: a grey rosette, two EQUAL rings of slabs, a plain margin to the columns
+PAVE_SUB = 3                # a paving cell is 3 x 3 slabs: its joints are real edges on true rings and radials
 DAIS_H = 0.6                # the rosette is a DAIS: the seat stands on it, so the guard's eye clears the rail top
 DAIS_R = PAVING_RS[1]
 # ---- the railing ---------------------------------------------------------------
@@ -301,8 +302,8 @@ SHEETS = {
                        roughness=mb.ROUGHNESS, seed=6),
     "iron": tx.Sheet("iron", mb._sheet_iron, mode="fit_u", width=64, size=256,
                      roughness=mb.ROUGHNESS, seed=7),
-    "floor": tx.Sheet("floor", mb._sheet_floor, mode="fit", size=64, mpt=2.7 / 64.0,
-                      roughness=mb.ROUGHNESS, seed=8),                         # one paving slab a face
+    "floor": tx.Sheet("floor", mb._sheet_floor, mode="custom", size=64, mpt=2.7 / 64.0,
+                      roughness=mb.ROUGHNESS, seed=8),                         # one paving cell a ring band, UVs per vertex
     "medallion": tx.Sheet("medallion", _sheet_medallion, mode="box", size=64,
                           mpt=2.0 * PAVING_RS[0] / 64.0,
                           phase=(-PAVING_RS[0], -PAVING_RS[0]),
@@ -633,6 +634,25 @@ def _balcony(m, coll=False):
     _zip(m, line, foot_pts, mb.UP, "marble2")                                       # the ledge
 
 
+def _paving(m, inner, outer):
+    """One ring band of cells, each split on its slab joints so every joint is an
+    edge: rings stay concentric, radials run straight to the axis."""
+    n, q = len(inner), PAVE_SUB
+    for i in range(n):
+        j = (i + 1) % n
+        grid = [[m.v(tuple(inner[i][d] + (inner[j][d] - inner[i][d]) * a / q
+                           + ((outer[i][d] + (outer[j][d] - outer[i][d]) * a / q)
+                              - (inner[i][d] + (inner[j][d] - inner[i][d]) * a / q)) * b / q for d in range(3)))
+                 for a in range(q + 1)] for b in range(q + 1)]
+        for b in range(q):
+            for a in range(q):
+                vs = (grid[b][a], grid[b][a + 1], grid[b + 1][a + 1], grid[b + 1][a])
+                uv = ((a / q, b / q), ((a + 1) / q, b / q), ((a + 1) / q, (b + 1) / q), (a / q, (b + 1) / q))
+                n0 = len(m.faces)
+                m.quad(vs[0], vs[1], vs[2], vs[3], mb.UP, "floor", dict(zip(vs, uv)))
+                _classify(m, n0, "floor")
+
+
 def _room(m, coll=False):
     """The room floor, flat with the ledge, with the columns' feet cut out of
     its outer band; the dais under the seat; the arcade (collider: plain
@@ -648,10 +668,7 @@ def _room(m, coll=False):
         rings = [ring(r, FLOOR_Z) for r in PAVING_RS]
         _zip(m, line, rings[-1], mb.UP, "shade")                                   # the plain margin
         for k in range(len(rings) - 1, 1, -1):                                     # radial slabs, one cell each
-            a, b = [m.v(p) for p in rings[k - 1]], [m.v(p) for p in rings[k]]
-            for i in range(NS):
-                j = (i + 1) % NS
-                m.quad(a[i], a[j], b[j], b[i], mb.UP, "floor")
+            _paving(m, rings[k - 1], rings[k])
         _band(m, _ringz(m, DAIS_R, FLOOR_Z), _ringz(m, DAIS_R, top), True, "plinth")   # the dais' wall ...
         a, b = [m.v(p) for p in ring(PAVING_RS[0], top)], [m.v(p) for p in ring(DAIS_R, top)]
         for i in range(NS):                                                        # ... its top: the rosette's wedges, plain grey
