@@ -214,7 +214,8 @@ CROWN_TOWER_R = 12.0        # the tower's crown counts as a top this wide: neigh
 CROWN_SPAN = (12.5, 45.5)   # where a top's centre may sit
 CROWN_FADE_IN = (12.0, 15.0)   # tops fade in off the crown's rim ...
 CROWN_FADE_OUT = (45.0, 47.6)  # ... and over the drum's head: they grow on over the wall, clear of its top cells
-CROWN_LEAF = (2.5, 5.0)     # the leafy lumps on a top: their wavelengths, m
+SEAM_TINT = (35.6, 47.6)    # radius band over which the canopy's shade and sun fade to the drum's leaf
+CROWN_LEAF = (2.5, 5.0)    # the leafy lumps on a top: their wavelengths, m
 CROWN_LUMP = 0.12           # and their share of its depth
 CROWN_EDGE = 0.12           # a face hung less than this share of its top's depth is a crease: shade
 CROWN_SUN = 0.35            # the share of tops in the lighter leaf
@@ -1931,14 +1932,84 @@ def unwrap(ob, zones, seed=0, water_fn=None):
 # BUILD / CHECK
 # =============================================================================
 
+def _zone_means(names):
+    """Linear mean albedo of each painted atlas zone, from a canvas painted as paint_atlas does."""
+    c = _Canvas(TEX_SIZE)
+    r = _Rng(TEX_SEED)
+    for zone, fn in sorted(PAINTERS.items()):
+        fn(c, r, _rect_of(ZONES[zone], TEX_SIZE))
+    out = {}
+    for zone in names:
+        x0, y0, x1, y1 = _rect_of(ZONES[zone], TEX_SIZE)
+        s, n = [0.0, 0.0, 0.0], 0
+        for y in range(y0, y1):
+            for x in range(x0, x1):
+                o = (y * c.w + x) * 4
+                s = [s[k] + c.alb[o + k] for k in range(3)]
+                n += 1
+        out[zone] = [v / n for v in s]
+    return out
+
+
+def seam_tint(ob, zones):
+    """Ryan: "a hard line from the color of the roof to the color of the wall". Over
+    SEAM_TINT the canopy's shade and sun fade, per corner in COLOR_0, to the drum's leaf."""
+    mean = _zone_means(("leaf", "shade", "sun"))
+    k = {z: [mean["leaf"][c] / mean[z][c] for c in range(3)] for z in ("shade", "sun")}
+    me = ob.data
+    col = me.color_attributes.new(name="Col", type="FLOAT_COLOR", domain="CORNER")
+    flat = [1.0] * (len(me.loops) * 4)
+    out = list(zones)
+    for pi, poly in enumerate(me.polygons):
+        zone = zones[pi]
+        if zone not in ("shade", "sun"):
+            continue
+        ts = [_ramp(math.hypot(*me.vertices[me.loops[li].vertex_index].co[:2]), *SEAM_TINT)
+              for li in poly.loop_indices]
+        if max(ts) <= 0.0:
+            continue
+        if zone == "shade":             # the leaf's texels darkened to the shade, lifting to leaf
+            out[pi] = "leaf"
+        for li, t in zip(poly.loop_indices, ts):
+            for c in range(3):
+                f = (1.0 / k[zone][c]) * (1.0 - t) + t if zone == "shade" else 1.0 + (k[zone][c] - 1.0) * t
+                flat[li * 4 + c] = f
+    col.data.foreach_set("color", flat)
+    me.color_attributes.active_color_index = 0
+    me.color_attributes.render_color_index = 0
+    return out
+
+
+def tint_material(mat):
+    """Base Color = atlas x COLOR_0, the pattern the glTF exporter writes as a vertex-coloured texture."""
+    nt = mat.node_tree
+    bsdf = nt.nodes.get("Principled BSDF")
+    img = bsdf.inputs["Base Color"].links[0].from_node
+    col = nt.nodes.new("ShaderNodeVertexColor")
+    col.layer_name = "Col"
+    col.location = (-460, 480)
+    mix = nt.nodes.new("ShaderNodeMix")
+    mix.data_type = "RGBA"
+    mix.blend_type = "MULTIPLY"
+    mix.location = (-220, 300)
+    mix.inputs["Factor"].default_value = 1.0
+    a_in = [i for i in mix.inputs if i.identifier == "A_Color"][0]
+    b_in = [i for i in mix.inputs if i.identifier == "B_Color"][0]
+    res = [o for o in mix.outputs if o.identifier == "Result_Color"][0]
+    nt.links.new(img.outputs["Color"], a_in)
+    nt.links.new(col.outputs["Color"], b_in)
+    nt.links.new(res, bsdf.inputs["Base Color"])
+    return mat
+
+
 def build_render_copy(albedo=None, emissive=None):
     """The tree in WORLD coordinates for another model's review renders."""
     m = build_tree_geometry()
     ob = m.object("ReviewTree")
-    unwrap(ob, m.zones)
+    unwrap(ob, seam_tint(ob, m.zones))
     if albedo is None:
         albedo, emissive = sheet("forest_atlas", paint_atlas)
-    mdl.finish(ob, atlas_material("ForestAtlasTree", albedo, emissive), strip_uvs=False)
+    mdl.finish(ob, tint_material(atlas_material("ForestAtlasTree", albedo, emissive)), strip_uvs=False)
     return ob
 
 
@@ -1950,8 +2021,8 @@ def build():
     mdl.save_texture(emissive)
     shift = (0.0, 0.0, -ORIGIN_Y)
     ob = m.object(OBJECT_NAME, shift)
-    unwrap(ob, m.zones)
-    mdl.finish(ob, atlas_material("ForestAtlas", albedo, emissive), strip_uvs=False)
+    unwrap(ob, seam_tint(ob, m.zones))
+    mdl.finish(ob, tint_material(atlas_material("ForestAtlas", albedo, emissive)), strip_uvs=False)
     coll = c.object(COLLIDER_NAME, shift)
     coll.hide_render = True
     print("MDL STATS visual_tris=%d collision_tris=%d floor_y=%.2f eye_y=%.2f apex_y=%.1f"
