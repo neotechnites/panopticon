@@ -252,11 +252,14 @@ def blob(name, head, direction, rings, sides=6, side=1.0):
     ex, ey, ez = mdl._basis(direction)
     r = _Rng(zlib.crc32(name.encode("utf-8")))
     verts, faces, zones = [], [], []
-    for (t, rx, rz, off, lump, _zone) in rings:
+    ts = [ring[0] for ring in rings]
+    for i, (t, rx, rz, off, lump, _zone) in enumerate(rings):
         centre = Vector(head) + ey * t + Vector((off[0] * side, off[1], off[2]))
+        # the slide stays under a third of the gap to either neighbour: seams never pinch
+        gap = min(abs(ts[j] - t) for j in (i - 1, i + 1) if 0 <= j < len(ts))
         for (px, pz) in mdl._section(sides, rx, rz):
             k = 1.0 + lump * (0.7 * r.sf() + 0.3 * r.sf())
-            dt = lump * LUMP_T * r.sf()
+            dt = max(-gap / 3.0, min(gap / 3.0, lump * LUMP_T * r.sf()))
             verts.append(tuple(centre + ex * (px * k) + ez * (pz * k) + ey * dt))
     n = len(rings)
     for i in range(n - 1):

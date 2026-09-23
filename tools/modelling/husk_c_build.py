@@ -236,8 +236,9 @@ def _ring(c, rx, ry, sides, rot, r, jitter, drip=0.0):
     return out
 
 
-def wrap(body, bot, top, sides, rot, zone, seed, cap_top=False):
-    """One wound band: a truncated cone from ring ``bot`` up to ring ``top``, dark underside."""
+def wrap(body, bot, top, sides, rot, zone, seed, cap_top=True):
+    """One wound band: a closed truncated cone from ring ``bot`` up to ring ``top``, dark underside.
+    Tops are capped even inside the next band, so a bending joint never opens a hole."""
     r = _Rng(seed)
     (bx, by, bz, brx, bry), (tx, ty, tz, trx, try_) = bot, top
     verts = _ring((bx, by, bz), brx, bry, sides, rot, r, JITTER, drip=DRIP)
@@ -266,8 +267,7 @@ def column(body, profile, sides, seed, cap_top=False, mirror=1.0, dark_every=0):
         zone = D if (dark_every and i % dark_every == dark_every - 1) else P
         wrap(body, (x0 * mirror, y0, z0, rx0, ry0),
              (x1 * mirror, y1, z1 + over, rx1 * TAPER, ry1 * TAPER),
-             sides, math.radians(TWIST * i) * mirror, zone, seed + i,
-             cap_top=(last and cap_top))
+             sides, math.radians(TWIST * i) * mirror, zone, seed + i)
 
 
 def build_mesh():
