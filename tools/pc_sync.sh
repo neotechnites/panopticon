@@ -8,7 +8,15 @@ ssh panopticon-pc '
   if ($m) { Write-Output "REFUSED: PC has uncommitted tracked edits:"; $m; exit 2 }
   Remove-Item C:\dev\panopticon\assets\models\*_albedo.png*, C:\dev\panopticon\assets\models\*_emissive.png* -ErrorAction SilentlyContinue
   git -C C:/dev/panopticon clean -fq -- assets/models
+  $incomingFiles = git -C C:/dev/panopticon ls-tree -r --name-only incoming
+  $untrackedFiles = git -C C:/dev/panopticon ls-files --others --exclude-standard
+  foreach ($f in $untrackedFiles) {
+    if ($incomingFiles -contains $f) {
+      Remove-Item (Join-Path C:\dev\panopticon $f) -Force -ErrorAction SilentlyContinue
+    }
+  }
   git -C C:/dev/panopticon merge --ff-only -q incoming
+  if ($LASTEXITCODE -ne 0) { Write-Output "SYNC FAILED"; exit 3 }
   Get-ChildItem C:\dev\panopticon\assets\models\*.glb.import | ForEach-Object {
     $t = Get-Content $_.FullName -Raw
     if ($t -match "gltf/embedded_image_handling=") { $t = $t -replace "gltf/embedded_image_handling=\d", "gltf/embedded_image_handling=3" }
