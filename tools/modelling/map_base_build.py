@@ -21,8 +21,9 @@ tower's does: flat deck, clean pit wall, courtyard disc, outer wall and flat
 ceiling. The jittered rock mesh is NEVER its own collider.
 
 Texture: the tower's atlas, same painter, same seed -- byte-identical, so
-this reads as the rock the tower was cut from. Two surfaces: the rock, and
-the lava sea on the pit floor, which has its own tiling sheet.
+this reads as the rock the tower was cut from. Three surfaces: the rock, the
+lava river on its streaked sheet, and the lava sea on the pit floor on Ryan's
+own tile (textures/lava_albedo.png), repeated at world scale.
 
     tools/modelling/model look  map_base --cam 35,30,40
     tools/modelling/model build map_base --cam 35,30,40
@@ -55,8 +56,10 @@ mdl.DEFAULTS["world_strength"] = 0.90
 # =============================================================================
 # Texture files (opt-in, USE_TEXTURE_FILES): tools/modelling/textures/
 # river_albedo.png is then the river's albedo (river_emissive.png beside it,
-# else the albedo glows); the same for lava_albedo.png / lava_emissive.png on
-# the pit sea. Otherwise, and by default, the painted sheets below are used.
+# else the albedo glows); lava_albedo.png is the pit sea's, tiled every
+# LAVA_TILE_M metres (lava_emissive.png beside it, else the emissive is
+# DERIVED from the albedo: the bright orange glows, the dark crust stays
+# dark). Otherwise the painted sheets below are used.
 
 NAME = "map_base"
 OBJECT_NAME = "MapBaseRock"
@@ -129,16 +132,25 @@ ZONE_WALLFACE  = ("wallface",) + ZONE_SHADE
 WALLFACE_R     = 47.2                 # arc metres measured at this radius
 
 # ---- the lava sea on the floor of the shaft --------------------------------
-# Its own material and its own tiling sheet (not an atlas cell), so it repeats
-# instead of stretching one window over 90 m of floor.
+# Its own material (LavaSea) and its own TILING sheet -- an atlas cell cannot
+# repeat, and one window stretched over 90 m of floor is what Ryan called
+# "the old texture". The sheet is his tile, textures/lava_albedo.png
+# (Lava_tile_2: the dark crust network over orange), laid in world x,y and
+# repeated every LAVA_TILE_M metres. The S3 cracks are NOT this: they keep the
+# atlas's glow cell (Ryan: "i specifically said dont use that texture in the
+# cracks").
 ZONE_LAVA      = ("lava",)
-LAVA_TEX       = 512
+LAVA_TILE_M    = 5.0                  # metres one repeat of the tile covers; 256 px -> 19.5 mm/texel
+LAVA_EMIT_LO   = 112.0 / 255.0        # a texel whose brightest channel is at or under this
+                                      # emits nothing (the crust, (112,1,1))
+LAVA_EMIT_HI   = 176.0 / 255.0        # ... and at or over this emits its whole albedo
+                                      # (the orange, (176,50,7)); smoothstep between
 LAVA_ALBEDO    = "map_base_lava_albedo"
 LAVA_EMISSIVE  = "map_base_lava_emissive"
 LAVA_SEED      = 7720133
-LAVA_SPAN      = 104.0                # metres across the sheet: ONE window over the
-                                      # whole sea, no tiling, so there is no repeat
-                                      # and no seam anywhere to hide
+LAVA_TEX       = 512                  # the painted FALLBACK, only when there is no
+LAVA_SPAN      = 104.0                # lava_albedo.png: painted for LAVA_SPAN metres
+                                      # across, and repeated every LAVA_TILE_M like the file
 LAVA_RINGS     = (1.0, 0.70, 0.42, 0.14)   # radius fractions of the pit foot
 LAVA_SWELL     = 0.6                  # +- metres of slow molten swell
 LAVA_STEP      = 0.3                  # swell snaps to this: flat crust plates
@@ -813,6 +825,39 @@ def _sheet(stem, painted):
     if alb is None:
         return painted()
     return alb, (_image_file(stem + "_emissive.png") or alb)
+
+
+def _lava_emissive_from(alb):
+    """The sea's emissive, derived from its albedo: each texel emits its own
+    colour scaled by a smoothstep of its brightest channel from LAVA_EMIT_LO
+    (nothing) to LAVA_EMIT_HI (all of it), so the glow follows the bright
+    orange and the dark crust stays dark. Pixels are the file's own sRGB
+    bytes, as Blender hands them back."""
+    w, h = alb.size
+    src = [0.0] * (w * h * 4)
+    alb.pixels.foreach_get(src)
+    out = list(src)
+    span = max(LAVA_EMIT_HI - LAVA_EMIT_LO, 1e-6)
+    for o in range(0, len(src), 4):
+        t = (max(src[o], src[o + 1], src[o + 2]) - LAVA_EMIT_LO) / span
+        t = min(1.0, max(0.0, t))
+        k = t * t * (3.0 - 2.0 * t)
+        out[o], out[o + 1], out[o + 2] = src[o] * k, src[o + 1] * k, src[o + 2] * k
+        out[o + 3] = 1.0
+    img = bpy.data.images.new(LAVA_EMISSIVE, w, h, alpha=False)
+    img.colorspace_settings.name = "sRGB"
+    img.pixels.foreach_set(out)
+    img.update()
+    return img
+
+
+def _lava_sheet():
+    """(albedo, emissive) for the sea: Ryan's tile with a derived emissive,
+    a lava_emissive.png beside it if he draws one, else the painted fallback."""
+    alb = _image_file("lava_albedo.png") if USE_TEXTURE_FILES else None
+    if alb is None:
+        return _lava_texture()
+    return alb, (_image_file("lava_emissive.png") or _lava_emissive_from(alb))
 
 
 def river_material(name, albedo, emissive):
@@ -1547,11 +1592,11 @@ def _lava_sea(m, wall, z, r, extra=()):
     for a, b in zip(rings, rings[1:]):
         for k in range(ncol):
             j = (k + 1) % ncol
-            m.quad(a[k], a[j], b[j], b[k], UP, S3_CRACK_ZONE_FLOOR)   # one lava with the S3 cracks
+            m.quad(a[k], a[j], b[j], b[k], UP, ZONE_LAVA)   # Ryan's tile, on its own surface
     cid = m.v((0.0, 0.0, z))
     last = rings[-1]
     for k in range(ncol):
-        m.tri(cid, last[k], last[(k + 1) % ncol], UP, S3_CRACK_ZONE_FLOOR)
+        m.tri(cid, last[k], last[(k + 1) % ncol], UP, ZONE_LAVA)
 
 
 
@@ -6765,10 +6810,12 @@ def _shelf_box(c):
 # =============================================================================
 
 def _lava_uv(me, uvl, poly):
-    """One window over the whole sea: world x,y straight into the sheet."""
+    """The sea: world x,y straight into the tile, one repeat every LAVA_TILE_M
+    metres (the sampler wraps), so every face shares one continuous projection
+    and no ring seam carries a jump in the pattern."""
     for li in poly.loop_indices:
         co = me.vertices[me.loops[li].vertex_index].co
-        uvl.data[li].uv = (0.5 + co[0] / LAVA_SPAN, 0.5 + co[1] / LAVA_SPAN)
+        uvl.data[li].uv = (co[0] / LAVA_TILE_M, co[1] / LAVA_TILE_M)
 
 
 def _flow_uv(me, uvl, poly, vertical):
@@ -6861,9 +6908,11 @@ def unwrap(ob, zones, seed=0):
     r = _Rng(TEX_SEED + seed * 7919 + len(me.polygons))
     for pi, poly in enumerate(me.polygons):
         zone = zones[pi]
-        if zone[0] == "lava":                    # own sheet: its own window per face
-            _lava_uv(me, uvl, poly)
-            continue
+        if zone[0] == "lava":                    # own sheet, tiled in world x,y
+            for _draw in range(4):               # the four draws the atlas path spends per
+                r.n()                            # face (flip u, flip v, window u, window v):
+            _lava_uv(me, uvl, poly)              # burned, so every other face keeps the
+            continue                             # window it had before the sea left the atlas
         if zone[0] == "river":                   # the river: streaked along the flow
             _flow_uv(me, uvl, poly, False)
             continue
@@ -7189,18 +7238,24 @@ def build():
     river_albedo, river_emissive = _sheet("river", _river_texture)
     mdl.save_texture(river_albedo)
     mdl.save_texture(river_emissive)
+    lava_albedo, lava_emissive = _lava_sheet()
+    mdl.save_texture(lava_albedo)
+    mdl.save_texture(lava_emissive)
 
     ob = rock.object(OBJECT_NAME)
     unwrap(ob, rock.zones)
     mdl.finish(ob, rock_material("HellRock", albedo, emissive), strip_uvs=False)
-    # The pit's sea is the atlas's own glowing cell now, the one the S3
-    # cracks show (Ryan: "use the same lava texture for the pit"), so the
-    # LavaSea sheet and its surface are gone: two surfaces, rock and river.
+    # Three surfaces: the rock atlas, the river's streaked sheet, and the pit's
+    # sea on Ryan's tile (Ryan: "the lava pit is using the old texture not the
+    # one i made"). A tile only repeats on its own surface; the S3 cracks stay
+    # on the atlas's glow cell.
     ob.data.materials.append(river_material("LavaRiver", river_albedo, river_emissive))
+    ob.data.materials.append(rock_material("LavaSea", lava_albedo, lava_emissive))
     lava_tris = river_tris = 0
     for pi, poly in enumerate(ob.data.polygons):
         z = rock.zones[pi][0]
         if z == "lava":
+            poly.material_index = 2
             lava_tris += 1
         elif z in ("river", "fall", "river_t"):
             poly.material_index = 1
@@ -7208,9 +7263,10 @@ def build():
 
     coll_ob = coll.object(COLLIDER_NAME)
     coll_ob.hide_render = True
-    print("MDL STATS visual_tris=%d collision_tris=%d lava_tris=%d river_tris=%d deck_uv=%.2f"
+    print("MDL STATS visual_tris=%d collision_tris=%d lava_tris=%d river_tris=%d deck_uv=%.2f "
+          "lava_tile_m=%.1f lava_sheet=%dx%d"
           % (len(ob.data.polygons), len(coll_ob.data.polygons), lava_tris, river_tris,
-             DECK_UV_SCALE))
+             DECK_UV_SCALE, LAVA_TILE_M, lava_albedo.size[0], lava_albedo.size[1]))
     print("MDL STATS river=%.1f..%.1f deg lava_y=%.2f cols=%d bank=%.1f deg recess=%.2f "
           "wall_lava=%.1f..%.1f deg to y=%.2f pit_run_tris=%d"
           % (LAKE_A0, LAKE_A1, LAVA_Z, river[0], LAKE_BANK, RECESS_R,

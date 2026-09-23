@@ -71,9 +71,14 @@ const DRAW_BUDGETS: Dictionary = {
 	# measured under; that ceiling stays, it is the gate the crazing was built
 	# to; 99478 once the lip wall rose to hide a standing body. Surfaces 62:
 	# each `lava_crack` node draws one haze MeshInstance3D where each
-	# `demon_pad` drew one model, and the pit's LavaSea surface is gone --
-	# the sea is the atlas's own glowing cell now, the same lava the S3
-	# cracks show (materials 13 for the same reason). `transparent_tris` leaves zero
+	# `demon_pad` drew one model, and the pit's LavaSea surface was gone --
+	# the sea was the atlas's own glowing cell (materials 13 for the same
+	# reason). Re-measured 2026-09-22 with the sea back on its own surface
+	# (Ryan: "the lava pit is using the old texture not the one i made": his
+	# 256 px tile repeated every 5 m cannot live in an atlas cell, so
+	# map_base.glb is three surfaces again, rock, river, LavaSea): 95522 tris,
+	# 62 surfaces and 13 materials against 61 / 12 the commit before, inside
+	# the 78 / 18 ceilings, which stay. `transparent_tris` leaves zero
 	# for the first time on this map: the heat haze is 36 x 4 triangles of a
 	# spatial shader that reads the screen (hint_screen_texture) and writes
 	# ALPHA, so it is 144 triangles in the sorted pass plus one screen copy a

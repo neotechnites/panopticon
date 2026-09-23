@@ -36,6 +36,7 @@ git rev-parse --verify --quiet "$REF^{commit}" >/dev/null || { echo "pc_shot: no
 
 PC=${PC_HOST:-panopticon-pc}
 GODOT=${PC_GODOT:-'C:\tools\godot\godot.exe'}
+SIZE=${SIZE:-}                                    # WxH: the frame; empty keeps project.godot's
 CLONE='C:/Users/ddd/panopticon-ceiling'          # forward slashes: git, scp, --path
 CLONE_W='C:\Users\ddd\panopticon-ceiling'        # backslashes: cmd
 WORK='C:/Users/ddd/panopticon-shot-work'
@@ -91,14 +92,25 @@ ssh -o ConnectTimeout=20 "$PC" "
 # -- 4. the shot, in the console session ---------------------------------------
 scp -q "$HERE/tools/modelling/lib/pcrun.ps1" "$PC:$WORK/pcrun.ps1"
 
+# shot.gd reads the ROOT viewport, whose size is project.godot's (1600x900) and
+# which --resolution does not touch under the canvas_items stretch mode; SIZE
+# is applied the way tools/capture/capture.sh does it, through an override.cfg
+# in the throwaway clone that the .bat removes again whatever happens.
+OVERRIDE=""
+if [ -n "$SIZE" ]; then
+  case "$SIZE" in *x*) ;; *) echo "pc_shot: SIZE must be WxH" >&2; exit 2 ;; esac
+  OVERRIDE="(echo [display]& echo window/size/viewport_width=${SIZE%%x*}& echo window/size/viewport_height=${SIZE##*x}) > \"$CLONE_W\\override.cfg\""
+fi
 cat > "$TMP/shot.bat" <<EOF
 @echo off
 set W=$WORK_W
 del /q "%W%\\shot.done" 2>nul
 del /q "$PC_PNG" 2>nul
 cd /d "%W%"
+$OVERRIDE
 "$GODOT" --path $CLONE_W --script res://tools/shot.gd -- --scene=$SCENE --pos=$POS --look=$LOOK --out=$PC_PNG > "%W%\\shot.log" 2>&1
 set RC=%ERRORLEVEL%
+del /q "$CLONE_W\\override.cfg" 2>nul
 findstr /c:"SHOT " "%W%\\shot.log" >nul || set RC=1
 echo %RC% > "%W%\\shot.done"
 EOF
