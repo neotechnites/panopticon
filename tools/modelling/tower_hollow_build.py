@@ -576,12 +576,18 @@ def build():
     bmesh.ops.triangulate(bm, faces=list(bm.faces))
     bmesh.ops.recalc_face_normals(bm, faces=list(bm.faces))
     bm.normal_update()
+    n_fin = ta._mend(bm)
+    # needles only under 1 cm: a cut face must stay on its cutter to reach the collider
+    n_sl = ta._slivers(bm, 0.01)
+    bmesh.ops.recalc_face_normals(bm, faces=list(bm.faces))
+    bm.normal_update()
     bm.to_mesh(rock.data)
     bm.free()
     rock.name = OBJECT_NAME
     rock.data.name = OBJECT_NAME
     rock.data.update()
-    print("MDL STATS dissolved tris %d -> %d" % (n0, ta._tris(rock)))
+    print("MDL STATS dissolved tris %d -> %d mended=%d slivers_fixed=%d"
+          % (n0, ta._tris(rock), n_fin, n_sl))
 
     n_uv = ta.unwrap(rock, uvname)
     mdl.finish(rock, mat, flat=True, strip_uvs=False)

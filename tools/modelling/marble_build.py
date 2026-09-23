@@ -42,7 +42,7 @@ spring line. Bands between rings of different station counts are zippered
 (_zipper), never left as T-junctions. Spikes are stitched into the floor's
 own cells, bars into their sills, pilasters and cornices share their edges.
 _check() proves it: one connected component, every edge on exactly two
-faces, no duplicate positions.
+faces but the bars' open backs, no duplicate positions.
 
 Parts (each a sibling *_build.py the pipeline ships along):
     marble_lane_build   the spike floor and its spikes, the walkway slab:
@@ -1505,7 +1505,7 @@ def build():
     print("MDL STATS contiguity components=%d manifold=%d boundary=%d doubled=%d over=%d degenerate=%d dup_pos=%d"
           % (a["components"], a["manifold_edges"], a["boundary_edges"], a["doubled_edges"],
              a["over_edges"], a["degenerate"], a["duplicate_positions"]))
-    if a["components"] != 1 or a["boundary_edges"] or a["doubled_edges"] or a["over_edges"] \
+    if a["components"] != 1 or a["boundary_edges"] != _bar_open(info) or a["doubled_edges"] or a["over_edges"] \
             or a["degenerate"] or a["duplicate_positions"]:
         raise RuntimeError("marble: the stone is not one closed contiguous mesh")
     for part in ("lane", "wall"):
@@ -1513,6 +1513,11 @@ def build():
     print("MDL STATS lane r=%.1f..%.1f y=%.2f floor_y=%.2f tiers=%d wall_r=%.1f dome=%.1f..%.1f"
           % (INNER_R, OUTER_R, DECK_Z, FLOOR_Z, N_TIERS, WALL_R, DOME_Z0, DOME_Z0 + DOME_RISE))
     return [ob, coll_ob]
+
+
+def _bar_open(info):
+    """The only free edges: every bar's open back and cap, which no camera can face."""
+    return mw.BAR_OPEN * info["wall"]["bars"]
 
 
 def _check():
@@ -1526,7 +1531,7 @@ def _check():
     loops = boundary_loops(stone)
     print("boundary loops: %d  largest: %s" % (len(loops), loops[:4]))
     ok = a["components"] == 1 and a["doubled_edges"] == 0 and a["over_edges"] == 0 \
-        and a["degenerate"] == 0 and a["duplicate_positions"] == 0 and a["boundary_edges"] == 0
+        and a["degenerate"] == 0 and a["duplicate_positions"] == 0 and a["boundary_edges"] == _bar_open(info)
     print("CONTIGUOUS %s" % ("YES" if ok else "NO"))
     c = paint_atlas()
     print("atlas %dx%d painted" % (c.w, c.h))

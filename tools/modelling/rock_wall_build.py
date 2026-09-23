@@ -447,7 +447,8 @@ def _wall(r):
         m.quad(a["bm"], c["bm"], c["bb"], a["bb"], (0, 1, 0), _zone_of(bl, True))
     for k, want in ((0, (-1, 0, 0)), (SEGS, (1, 0, 0))):
         e = col[k]
-        m.fan([e["fb"], e["fm"], e["ft"], e["rg"], e["bt"], e["bm"], e["bb"]], want, ZONE_ROCK)
+        # Fan from the proud mid vertex: from fb, fb-fm-ft is a 2-degree sliver. The base sits on the ground.
+        m.fan([e["fm"], e["ft"], e["rg"], e["bt"], e["bm"], e["bb"], e["fb"]], want, ZONE_ROCK)
     return m
 
 

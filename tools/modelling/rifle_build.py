@@ -394,6 +394,15 @@ def tube(name, y0, y1, radii, cz=0.0, cx=0.0, sides=8):
     return _reg(mdl.tube(name, y0, y1, radii, cz=cz, cx=cx, sides=sides))
 
 
+def guard_u(name, half_w, outline):
+    """One solid extruded across X from a (y, z) outline listed counter-clockwise from +X."""
+    n = len(outline)
+    verts = [(-half_w, y, z) for (y, z) in outline] + [(half_w, y, z) for (y, z) in outline]
+    faces = [tuple(range(n - 1, -1, -1)), tuple(range(n, 2 * n))]
+    faces += [(i, (i + 1) % n, n + (i + 1) % n, n + i) for i in range(n)]
+    return _reg(mdl.mesh(name, verts, faces))
+
+
 def unwrap(ob, seed=0):
     """Per-face planar projection into a random window of the object's zone.
 
@@ -455,9 +464,9 @@ def _geometry():
             [(-0.024,  0.020, -0.088), (0.024, 0.020, -0.088),
              (0.024,  0.092, -0.088), (-0.024, 0.092, -0.088)])
     zone(ZONE_IRON)
-    prism("guard_bar",        0.088, 0.206, (-0.017, 0.017, -0.156, -0.136))
-    prism("guard_post_rear",  0.088, 0.106, (-0.017, 0.017, -0.156, -0.096))
-    prism("guard_post_front", 0.188, 0.206, (-0.017, 0.017, -0.156, -0.096))
+    guard_u("trigger_guard", 0.017, [(0.088, -0.156), (0.206, -0.156), (0.206, -0.096),
+                                     (0.188, -0.096), (0.188, -0.136), (0.106, -0.136),
+                                     (0.106, -0.096), (0.088, -0.096)])
     prism("trigger", 0.112, 0.130, (-0.008, 0.008, -0.130, -0.090))
 
     # ---- magazine: mouth ends INSIDE the magwell, body rakes forward -------

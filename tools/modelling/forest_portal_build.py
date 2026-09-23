@@ -46,6 +46,7 @@ if bpy is not None:
     import mdl  # noqa: E402
 
 import forest_tree_build as ft  # noqa: E402
+import texel as tx  # noqa: E402  the in-scene shot's ground wears forest.glb's sheets
 import forest_build as fb  # noqa: E402
 
 if bpy is not None:
@@ -134,6 +135,7 @@ BR_STUB = 0.09          # a branch leaves its face square, then bends
 
 DISC_IN_N = 11          # the effect surface's intermediate ring ...
 DISC_IN_F = 0.50        # ... this far from the centre toward the rim
+DISC_BULGE = 0.01       # metres each side: the back fill used to be the front's faces twice, and dropped
 
 COL_JAMB_N = 3          # collider stations up each straight jamb
 SEED = 5140973
@@ -192,10 +194,10 @@ def build_atlas():
 # a random window, so the swirl lands on the disc once, centred.
 # =============================================================================
 
-def unwrap(ob, zones, planar=None, seed=0):
+def unwrap(ob, zones, planar=None, seed=0, count=None):
     me = ob.data
     uvl = me.uv_layers.new(name="UVMap")
-    r = ft._Rng(ft.TEX_SEED + seed * 7919 + len(me.polygons))
+    r = ft._Rng(ft.TEX_SEED + seed * 7919 + (len(me.polygons) if count is None else count))
     planar = planar or {}
     for pi, poly in enumerate(me.polygons):
         zone = zones[pi]
@@ -365,17 +367,18 @@ class _Portal(object):
         rim = [ring[0] for ring in self.rings]           # section vertex 0: on the inner face, y = 0
         n = len(rim)
         c = (0.0, 0.0, DISC_CENTRE_Z)
-        centre = m.v(c)
-        inner = []
-        for i in range(DISC_IN_N):
-            p = m.verts[rim[int(round(i * n / float(DISC_IN_N))) % n]]
-            inner.append(m.v((c[0] + (p[0] - c[0]) * DISC_IN_F, 0.0,
-                              c[2] + (p[2] - c[2]) * DISC_IN_F)))
-        for want in ((0.0, -1.0, 0.0), (0.0, 1.0, 0.0)):
+        for want in ((0.0, -1.0, 0.0), (0.0, 1.0, 0.0)):     # each side bulges DISC_BULGE its own way: a lens
+            b, before = want[1] * DISC_BULGE, len(m.faces)
+            centre = m.v((c[0], b, c[2]))
+            inner = []
+            for i in range(DISC_IN_N):
+                p = m.verts[rim[int(round(i * n / float(DISC_IN_N))) % n]]
+                inner.append(m.v((c[0] + (p[0] - c[0]) * DISC_IN_F, b * (1.0 - DISC_IN_F ** 2),
+                                  c[2] + (p[2] - c[2]) * DISC_IN_F)))
             self._zip_xz(rim, inner, c, want)
             for i in range(DISC_IN_N):
                 m.tri(inner[i], inner[(i + 1) % DISC_IN_N], centre, want, "earth")
-        return centre
+        m.back_fill = len(m.faces) - before              # the back fill's tris: see build()
 
     # ---- what grows out of it ----------------------------------------------
     def branches(self):
@@ -573,9 +576,10 @@ def _in_scene_render(spec, objects):
 
     albedo, emissive = ft.sheet("forest_atlas", ft.paint_atlas)   # the forest's own atlas
     gm, _coll, _rays = fb.build_geometry()
-    ground = gm.object(fb.OBJECT_NAME)              # fb.build()'s recipe, minus the export
-    ft.unwrap(ground, gm.zones)
-    mdl.finish(ground, ft.atlas_material("ForestAtlasGround", albedo, emissive), strip_uvs=False)
+    ground = gm.object(fb.OBJECT_NAME)              # fb.build()'s recipe, minus the export: its own sheets
+    tx.unwrap(ground, list(gm.zones), fb.SHEETS, seed=1)
+    tx.finish(ground, list(gm.zones), tx.materials(fb.NAME, fb.SHEETS, names={c: "ForestScene_" + c for c in fb.SHEETS},
+                                                   use_files=ft.USE_TEXTURE_FILES, tex_dir=os.path.join(HERE, ft.TEX_DIR)))
     made.append(ground)
     made.append(ft.build_render_copy(albedo, emissive))
 
@@ -630,11 +634,9 @@ def build():
     mdl.save_texture(albedo)
     mdl.save_texture(emissive)
     ob = m.object(OBJECT_NAME)
-    unwrap(ob, m.zones,
+    unwrap(ob, m.zones, count=len(m.faces) - m.back_fill,      # the seed the exporter-dropped back fill left
            planar={"earth": (0, 2, -IN_HALF_W, 0.0, IN_HALF_W, APEX_Z)})
-    # cull=False, as portal.glb's HellRock: the exporter keeps only one of two
-    # coincident disc triangles (13 of 26 in portal.glb, 45 of 90 here), so it is
-    # the material's two-sidedness that makes the effect surface read from behind.
+    # cull=False, as portal.glb's HellRock; the disc is a closed lens now, both faces kept.
     mdl.finish(ob, ft.atlas_material("ForestPortalAtlas", albedo, emissive, cull=False),
                strip_uvs=False)
     coll = c.object(COLLIDER_NAME)     # Godot: StaticBody3D + ConcavePolygonShape3D

@@ -146,17 +146,18 @@ def _newell(pts):
     return (nx, ny, nz)
 
 
-def _cap(obj_name, radius, rim_radius, segments, rings):
+def _cap(obj_name, radius, rim_radius, segments, rings, open_apex=False):
     """A spherical cap of `radius`, centred on the origin, opening along GAZE.
 
     `rim_radius` is the radius of the circle the cap's edge draws when seen
     down the gaze axis -- so the cap subtends asin(rim_radius / radius) and two
     caps of different radii that share a rim radius look the same size head-on.
     Apex first, then `rings` rings of `segments` vertices; a triangle fan at the
-    apex and quad bands below it.
+    apex and quad bands below it. `open_apex` drops the apex fan (the iris under the pupil).
     """
     half_angle = math.asin(rim_radius / radius)
-    verts = [tuple(radius * c for c in GAZE)]
+    base = 0 if open_apex else 1
+    verts = [] if open_apex else [tuple(radius * c for c in GAZE)]
     for j in range(1, rings + 1):
         t = half_angle * j / rings
         ct, st = math.cos(t), math.sin(t)
@@ -167,10 +168,10 @@ def _cap(obj_name, radius, rim_radius, segments, rings):
                                for k in range(3)))
 
     def ring(j, i):                      # vertex index in ring j (1-based), column i
-        return 1 + (j - 1) * segments + (i % segments)
+        return base + (j - 1) * segments + (i % segments)
 
     faces = []
-    for i in range(segments):
+    for i in range(0 if open_apex else segments):
         faces.append((0, ring(1, i), ring(1, i + 1)))
     for j in range(1, rings):
         for i in range(segments):
@@ -290,7 +291,8 @@ def build():
     _paint(sclera, _material("M_Sclera", SCLERA_COLOR, SCLERA_ROUGH), smooth=False)
 
     iris_radius = SCLERA_RADIUS + IRIS_BIAS
-    iris = _cap("Eye_Iris", iris_radius, IRIS_RIM, SEGMENTS, IRIS_RINGS)
+    # its apex fan lies wholly under the opaque pupil (8.7 deg vs 16.4): never drawn, so not built
+    iris = _cap("Eye_Iris", iris_radius, IRIS_RIM, SEGMENTS, IRIS_RINGS, open_apex=True)
     _paint(iris, _material("M_Iris", IRIS_COLOR, IRIS_ROUGH,
                            emission=IRIS_EMISSION,
                            emission_strength=IRIS_EMISSION_STRENGTH))
