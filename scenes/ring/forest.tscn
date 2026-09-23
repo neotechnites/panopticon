@@ -65,9 +65,10 @@ cull_mode = 2
 shading_mode = 0
 vertex_color_use_as_albedo = true
 albedo_color = Color(0.6, 0.6, 0.6, 1)
+disable_fog = true
 
 [node name="Forest" type="Node3D"]
-editor_description = "MAP 3, THE FOREST: assets/models/forest.glb at identity (grass lane r 46.7..57.3 at y 23.0 round a foggy ravine: an earth bank down to a dark floor at y -11.05, no water, a thicket of some 1140 barbed brambles filling the pit bottom, a leaf wall, a gallery roof of leaves over the lane at y 36, a cell wall of six barred tiers from y 36 to y 64 above it, and an unbroken canopy dome to y 77.4 over the ravine), the great tree (forest_tree.glb) as the tower. The pit's mist is the Environment's height fog (fog_height 8.0, fog_height_density 0.1: dense at the floor, thinning up the bank, gone before the lane at y 23; GL Compatibility has no fog volumes, and height fog is the one gradient it does have). ForestFog is the gloom under it: fourteen rolling translucent layers y -11.6..4.0 with the tint and alpha in their vertex colour (zero at the top layer, round the trunk and inside the bank), unshaded and mixed through its override. The sun rays are two nodes in the glb, three crossed vanes per sun-well with the tint and the feather in their vertex colour (alpha peaks on the axis, zero at the edges and both ends, so no cap, no hard edge): ForestRaysSolid (pale yellow, alpha 0.35, mixed, the mesh-only look) and ForestRaysSoft (faint, additive, shown here under the Sun light). Both overrides are unshaded and take albedo and alpha from the vertex colour. Flip their visibility to compare."
+editor_description = "MAP 3, THE FOREST: assets/models/forest.glb at identity (grass lane r 46.7..57.3 at y 23.0 round a foggy ravine: an earth bank down to a floor at y -11.05 that is BURIED in fog and never drawn, a thicket of some 1140 barbed brambles in the dark under it, a leaf wall carrying three tiers of lane-facing cells up to the lane roof at y 38.0 -- 15 m over the grass -- and on that roof's inner rim the cell drum, r 46.7..47.6, three tiers of 17 barred mouths climbing to the seam at y 50.0, so a runner on the lane has a ring of cells above them all the way round). The seam is a 240-vertex ring shared float for float with forest_tree.glb, where the great tree's crown takes over and sweeps INWARD AND DOWN to its rim at y 34.1: the roof is a dome that is high at the ring and collapses in the middle, onto the tree. Ryan: \"make the roof higher, so make it like a dome that collapses in the middle where the tree is, and so theres still like a ring of cells above where the player runs.\" The pit reads bottomless: ForestFog is fourteen layers whose alpha rises with depth to a solid slab low down and whose material sets disable_fog, so the Environment's pale depth fog cannot repaint the darkness it is made of -- a vertical ray reaches the floor at 0.138 % transmittance. Each of the 144 cells carries its own small dim light as an emissive back face (the `lamp` sheet), not a Light3D: one mesh cannot bind 144 of them. The sun rays are two nodes in the glb, three crossed vanes per sun well with the tint and the feather in their vertex colour: ForestRaysSolid (pale yellow, alpha 0.35, mixed, the mesh-only look) and ForestRaysSoft (faint, additive, shown here under the Sun light). Nothing is hung under the wells any more. Flip their visibility to compare."
 
 [node name="Environment" type="Node3D" parent="."]
 
@@ -85,7 +86,7 @@ directional_shadow_mode = 0
 directional_shadow_max_distance = 200.0
 
 [node name="ForestMap" parent="." instance=ExtResource("6_forest_model")]
-editor_description = "assets/models/forest.glb: lane, pit bank and dark floor, brambles, leaf wall, ceiling, cells; ForestFog and the ray nodes ride in it. Ships its own collision (ForestCollision-colonly)."
+editor_description = "assets/models/forest.glb: lane, pit bank and its buried floor, brambles, leaf wall with three lane-facing cell tiers, the lane roof at y 38.0, the cell drum climbing off its inner rim to the seam at y 50.0, and the pit cells; ForestFog and the ray nodes ride in it. Ships its own collision (ForestCollision-colonly)."
 
 [node name="ForestRaysSolid" parent="ForestMap"]
 visible = false
@@ -95,11 +96,11 @@ surface_material_override/0 = SubResource("RaySolidMat")
 surface_material_override/0 = SubResource("RaySoftMat")
 
 [node name="ForestFog" parent="ForestMap"]
-editor_description = "The pit's gloom: fourteen rolling layers y -11.6..4.0, alpha 0.45 at the floor falling to exactly 0 at the top layer (no top plane), a 9 m feather to the bank, dark tint dimmed at depth; tint and alpha from the vertex colour. The pale mist over it is the Environment's height fog (fog_height 8, fog_height_density 0.1), which thins toward the rim and never reaches the lane at y 23."
+editor_description = "The pit's dark, and the reason the pit has no bottom: fourteen layers y -11.6..4.0, opaque (vertex alpha 1.0, the material's 0.6 albedo alpha then capping one layer at 0.6) through the bottom six, then falling to exactly 0 at a height the drift field rolls (no top plane anywhere), with the rim feather narrowing from 9 m up top to 2 m at the floor so the slab reaches the bank's foot and the floor's outer rim. A ray straight down the pit comes out at 0.14 % transmittance, so the floor is not a colour anyone sees; the tint dims to 0.15 at depth, so what they do see is black. disable_fog on FogMat is load-bearing: without it the Environment's depth fog repaints these layers AND the floor behind them to one pale colour, and one colour over one flat plane is a floor. Run tools/modelling/forest_pit_build.py for the numbers. The pale mist above the fog's top is the Environment's height fog (fog_height 8, fog_height_density 0.1), which thins toward the rim and never reaches the lane at y 23."
 surface_material_override/0 = SubResource("FogMat")
 
 [node name="KillBox" type="Area3D" parent="."]
-editor_description = "Roof at y 0.0, 23 m under the lane and just over the thicket's tallest thorns (y -2.8), r 62, 30 m deep: anything that drops into the ravine dies in the brambles."
+editor_description = "Roof at y 0.0, 23 m under the lane and just over the thicket's tallest thorns (y -2.8), r 62, 30 m deep: anything that drops into the ravine dies. Unchanged by the bottomless-pit pass -- the floor is buried in fog, not moved, so the fall and the kill are exactly what they were."
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 23, 0)
 collision_layer = 0
 collision_mask = 1048577
@@ -596,12 +597,12 @@ editor_description = "The tree. Origin y 25.35 as map 1's tower; the guard's flo
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 25.35, 0)
 
 [node name="Tree" parent="Tower" instance=ExtResource("7_forest_tree")]
-editor_description = "assets/models/forest_tree.glb: goblet trunk, the platform, eight piers and pointed arches (the windows), the vaulted canopy over it. Ships its own collision (ForestTreeCollision-colonly)."
+editor_description = "assets/models/forest_tree.glb: goblet trunk, the platform, eight piers and pointed arches (the windows), the vaulted canopy over it, and the crown grown outward as the sagging middle of the level's roof -- from the rim at r 11, y 34.1 it sweeps UP and OUT 15.9 m to the seam ring at r 47.6, y 50.0, shared vertex for vertex with forest.glb's cell drum, eight great limbs rising under it. Ships its own collision (ForestTreeCollision-colonly), the canopy sheet included."
 
 [node name="TowerSpawn" type="Marker3D" parent="Tower"]
 editor_description = "On the platform floor (+1.70), 0.25 m up."
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.95, 0)
 
 [node name="Watcher" parent="Tower" instance=ExtResource("4_watching_eye")]
-editor_description = "The eye, nested in the tree's crown, over the gallery roof and under the canopy dome (profile height 13.0: y 38.35)."
+editor_description = "The eye, nested in the tree's crown (profile height 13.0: y 38.35). The roof is a dome now, high at the ring and collapsed onto the crown, so the eye stands in the open vault over the tree and IS seen from the lane again -- it was seen from nowhere under the old flat roof."
 profile = ExtResource("5_watcher_profile")

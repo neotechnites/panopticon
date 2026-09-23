@@ -9,10 +9,15 @@ Authored in WORLD coordinates so the scene instances it at identity
 
     pit floor ........  y -11.05  dark earth under the fog, r 42 (map 1's sea height)
     lane .............  y 23.0    grass, r 46.7..57.3, as map 1; a worn path down its middle
-    leaf wall ........  r 57.3 at the foot, 60 at the gallery roof; bark pilasters bulge out
-    gallery roof .....  y 36.0    dense leaf over the lane only, r 60 in to the pit lip
-    wall above it ....  y 36..64  at r ~47: six more tiers of barred cells, over the ravine
-    canopy dome ......  y 64 at that wall's head to 77.4 over the tree: the grand roof
+    leaf wall ........  r 57.3 at the foot, 60 at the roof; bark pilasters bulge out, three
+                        tiers of barred cells cut into it, the top one right over the lane
+    lane roof ........  y 38.0    dense leaf, r 60 in to the pit lip at 46.7: the lane's lid,
+                        15 m over the grass
+    cell drum ........  r 46.7..47.6, y 38.0..50.0: three more tiers of cells standing on
+                        that roof's inner rim, looking in over the ravine
+    seam .............  forest_seam.seam_ring(), r 47.6, mean y 50.0: the 240 floats the
+                        drum's head and the tower's crown sheet share. Inside it the roof
+                        is the tree's, sagging from the seam to the crown at 34.1.
 
 ONE CONTIGUOUS mesh (ForestGround), one surface (the forest atlas). Every part shares vertices with what it grows from: the grids
 share their seam rows, the water rings inward from the bank's last row, ferns,
@@ -36,7 +41,7 @@ verge, path, edge, leaf, shade, sun, fern, bark, earth, cell, root), painted
 here in forest_tree_build's palette, world-projected at texel.MPT m per texel;
 textures/forest_<class>_albedo.png (+ _emissive.png) replaces a painted sheet
 when ft.USE_TEXTURE_FILES is on. The props keep the forest atlas.
-The leaf ceiling (sheet, shafts, limbs, clumps, vines) is forest_ceiling_build;
+The leaf ceiling (the lane's roof sheet and its sun wells) is forest_ceiling_build;
 the pit's dark floor, fog layers (ForestFog: stacked translucent discs, alpha in
 COLOR_0, for GL Compatibility) and thorny brambles are forest_pit_build.
 
@@ -66,7 +71,8 @@ if bpy is not None:
 import forest_tree_build as ft  # noqa: E402
 from forest_tree_build import (_Mesh, _Rng, UP, DOWN, pol, radial, tangent, add, sub, norm, dot,  # noqa: E402
                                lerp, bez, loft, zipper, plane_of)
-import forest_ceiling_build as fc  # noqa: E402  the leaf ceiling: sheet, shafts, limbs, clumps, vines
+import forest_seam as fs  # noqa: E402  the ring Map 3's two models share
+import forest_ceiling_build as fc  # noqa: E402  the lane's leaf roof: its sheet and sun wells
 import forest_pit_build as fp  # noqa: E402  the pit: dark floor, fog layers, thorny brambles
 
 # =============================================================================
@@ -87,7 +93,7 @@ OUTER_R = 57.3
 DECK_Z = 23.0
 WATER_Z = -11.05            # map 1's lava sea height: the pit is 34 m deep
 WATER_R = 42.0
-CEIL_Z = fc.GALLERY_Z       # the gallery roof over the lane (the dome and its shafts live in forest_ceiling_build)
+CEIL_Z = fc.GALLERY_Z       # the lane roof, forest_seam.CEIL_Z: the lid over the grass
 SEED = 9110271
 EYE_H = 1.65
 
@@ -116,8 +122,13 @@ PIT_ROOTS = 14              # root ribs down the bank: columns pushed out of it
 PIT_ROOT_PUSH = 0.28
 PIT_ROOT_ROWS = (3, len(PIT) - 2)
 
+# (r, z) foot to the roof, the three cell tiers between. Rows 0..6 are the lane and
+# the middle tier as they were; rows 7..9 are the third tier's sill, jamb and apex,
+# and row 10 is the roof's rim -- 1.4 m of leaf over the apex, so the top tier reads
+# as cells set into the wall and not as a gap at the ceiling.
 WALL = [(57.3, 23.0), (57.3, 23.3), (57.35, 25.05), (57.5, 26.8), (58.0, 28.6),
-        (58.8, 30.6), (59.3, 31.8), (59.65, 33.6), (60.0, CEIL_Z)]   # (r, z) foot to the gallery roof
+        (58.8, 30.6), (59.3, 31.8), (59.45, 33.0), (59.7, 35.2), (59.85, 36.6),
+        (60.0, CEIL_Z)]
 WALL_BULGE = 0.45           # outward-only on the low rows, both ways above
 WALL_ZJAG = 0.3
 
@@ -145,31 +156,43 @@ WALL_CELL_ROWS = (1, 2, 3)  # sill, jamb, apex rows of WALL: the lane tier, sill
 # and none nearer a trunk than 4.5 deg (two bays only fit one, so the wide 286..342 bay takes four)
 WALL_CELLS_UPPER = [15.0, 30.0, 43.5, 57.0, 72.0, 84.0, 97.5, 111.0, 124.5, 138.0, 153.0, 165.0,
                     180.0, 193.5, 219.0, 247.5, 262.5, 276.0, 291.0, 303.0, 310.5, 325.5]
-WALL_CELL_ROWS_UPPER = (4, 5, 6)   # sill 28.6, jamb 30.6, apex 31.8: 4 m of leaf to the gallery roof
-WALL_TIERS = ((WALL_CELLS, WALL_CELL_ROWS), (WALL_CELLS_UPPER, WALL_CELL_ROWS_UPPER))
+WALL_CELL_ROWS_UPPER = (4, 5, 6)   # sill 28.6, jamb 30.6, apex 31.8
+# the third tier: with the roof at 38 there is wall left over the middle tier, so a runner
+# on the lane has cells right above him. Two per bay (three in the wide 286..342 one),
+# spread across what the pilasters leave -- a mouth spans its bearing + 3 deg, so it keeps
+# 4.5 deg above a trunk and 7.5 deg below one, and every one of them stands at least 3 deg
+# off a middle-tier mouth: the courses stagger, none stacks on the one under it.
+WALL_CELLS_THIRD = [18.0, 27.0, 46.5, 54.0, 75.0, 81.0, 100.5, 108.0, 127.5, 135.0, 156.0,
+                    168.5, 183.0, 196.5, 208.5, 224.5, 236.5, 250.5, 265.5, 273.0, 294.0,
+                    307.5, 321.0]
+WALL_CELL_ROWS_THIRD = (7, 8, 9)   # sill 33.0, jamb 35.2, apex 36.6: 10 m over the grass
+WALL_TIERS = ((WALL_CELLS, WALL_CELL_ROWS), (WALL_CELLS_UPPER, WALL_CELL_ROWS_UPPER),
+              (WALL_CELLS_THIRD, WALL_CELL_ROWS_THIRD))
 WALL_CELL_D = 2.5
 
-# The wall above the gallery roof: a leaf cliff at r ~47 standing on the roof's inner
-# rim, carrying six more tiers of barred cells over the ravine -- map 1's wall above
-# its deck. (r, z) rows: rim, then sill / jamb / apex per tier, then two plain leaf
-# rows to the dome's spring.
-UPPER = [(46.70, fc.GALLERY_Z), (46.73, 36.50), (46.85, 38.50), (46.92, 39.70),
-         (46.99, 40.70), (47.11, 42.70), (47.18, 43.90),
-         (47.24, 44.90), (47.36, 46.90), (47.43, 48.10),
-         (47.49, 49.10), (47.61, 51.10), (47.69, 52.30),
-         (47.75, 53.30), (47.87, 55.30), (47.94, 56.50),
-         (48.00, 57.50), (48.12, 59.50), (48.19, 60.70),
-         (48.28, 62.30), (fc.DOME[0][0], fc.DOME[0][1])]
-UPPER_BULGE = 0.35          # outward-only: the leaf never overhangs the rim
-UPPER_ZJAG = 0.25
-UPPER_TIER_ROWS = ((1, 2, 3), (4, 5, 6), (7, 8, 9), (10, 11, 12), (13, 14, 15), (16, 17, 18))
+# The cell drum: a leaf wall at r ~47 standing on the lane roof's inner rim and
+# carrying three more tiers of barred cells over the ravine, up to the ring the
+# tower's crown sheet lands on. (r, z) rows: the rim, then sill / jamb / apex per
+# tier, then one plain row under the head. UPPER[0] IS fc's last gallery ring and
+# the head is forest_seam.seam_ring() itself, appended in _upper_rows.
+UPPER = [(46.70, fc.GALLERY_Z), (46.73, 38.50), (46.85, 40.50), (46.92, 41.70),
+         (46.99, 42.70), (47.11, 44.70), (47.18, 45.90),
+         (47.24, 46.90), (47.36, 48.90), (47.50, 49.20)]
+UPPER_BULGE = 0.35          # the leaf swells this far out mid-drum and fades to nothing at
+                            # both rings (sin^2 of the way up), so no leaf stands outside
+                            # the seam and none overhangs the roof it grows out of.
+                            # The rows need no jag of their own: each one carries the roof's
+                            # lumps at the foot and the seam's harmonics at the head, blended
+                            # by how far up the drum it is, so no band can ever fold shut.
+UPPER_TIER_ROWS = ((1, 2, 3), (4, 5, 6), (7, 8, 9))   # sills 38.5, 42.7, 46.9
 _UP_STEP = 360.0 / 17.0
-# 17 a tier, one every 17 m of wall; every other tier half a bay off, like brick
-UPPER_CELLS = [[off + _UP_STEP * k for k in range(17)] for off in (10.6, 0.0) * 3]
+# 17 a tier, one every 17 m of wall; the middle tier half a bay off, like brick
+UPPER_CELLS = [[off + _UP_STEP * k for k in range(17)] for off in (10.6, 0.0, 10.6)]
 UPPER_TIERS = tuple(zip(UPPER_CELLS, UPPER_TIER_ROWS))
 UPPER_CELL_D = 2.0          # shallower and coarser than the lane's: they are read at 50..95 m
 UPPER_BAR_R = (0.06, 0.08)
 UPPER_BAR_PITCH = 0.8
+
 _PIT_CELL_ROWS = [(7, 1), (12, 2), (16, 1), (9, 1), (14, 1), (18, 1),
                   (6, 1), (11, 2), (15, 1), (8, 2), (13, 1), (17, 1)]   # (sill row of PIT, bands tall)
 PIT_CELLS = [(k * 10.0 + (0.0, 3.5, 6.5)[k % 3],) + _PIT_CELL_ROWS[k % 12] for k in range(36)]
@@ -181,6 +204,16 @@ PIT_BAR_PITCH = 0.75
 BAR_SET = 0.2               # bars stand this far behind the mouth plane
 BAR_SHELF = 0.45            # the recess floor / roof / jamb strip the bars socket into
 BAR_SEG = 1.2               # metres per bar segment
+
+# Ryan: "also put a small light source, a pretty dim one, in each cell so you can
+# see them better." Every cell's BACK FACE is that light. It is an emissive sheet
+# and not an OmniLight3D because the whole map is ONE mesh (ForestGround) and the
+# GL Compatibility renderer binds at most project.godot's
+# rendering/limits/opengl/max_lights_per_object = 32 lights to one object: 144
+# cell lamps cannot all reach it, and which 32 won would be arbitrary. An emissive
+# face costs no light, no draw call and not one triangle -- the back face was
+# always there -- only its own sheet, and it lights exactly the recess it is in.
+LAMP_ZONE = "lamp"
 
 FERNS_WALL = 33
 FERNS_LIP = 22
@@ -420,13 +453,11 @@ class _Ground(object):
         self.bank_f = _field(self.r, wl=(3.0, 9.0))
         self.wall_f = _field(self.r, wl=(2.0, 5.0))
         self.ceil_f = _field(self.r, wl=(3.0, 8.0))
-        self.ceil_pole = None
         self.deck = []      # deck[j][i] vertex ids, j over DECK_RST
         self.pit = []       # pit[j][i], j over PIT
         self.wall = []      # wall[j][i], j over WALL
-        self.gal = []       # gal[k][i], k over fc.GALLERY_R: the roof over the lane
-        self.upper = []     # upper[j][i], j over UPPER: the wall above that roof
-        self.dome = []      # dome[k][i], k over fc.DOME (its own count each)
+        self.gal = []       # gal[k][i], k over fc.GALLERY_R: the lane's roof; gal[-1] is the drum's foot
+        self.upper = []     # upper[j][i], j over UPPER: the cell drum on that rim; upper[-1] IS the seam
         self.wall_cells = []
         self.upper_cells = []
         self.pit_cells = []
@@ -448,11 +479,11 @@ class _Ground(object):
         for (cells, rows) in WALL_TIERS:                 # the jamb row's middle vertex of every mouth
             for b in cells:
                 self.hollow["wall"].add((rows[1], (_col_of(b) + 1) % NC))
-        self.hollow["upper"] = set()
         for (cells, rows) in UPPER_TIERS:
             for b in cells:
                 self.hollow["upper"].add((rows[1], (_col_of(b) + 1) % NC))
         self.rays = []      # (a shaft source's four corner points, its half width at the top) per shaft: fc fills it
+        self.shafts = []    # fc.gallery_faces's own record of each sun well
 
     def _trunk_push(self, i, j):
         """How far wall column i is pushed toward the lane at wall row j: the pilasters."""
@@ -528,33 +559,43 @@ class _Ground(object):
             self.wall.append(row)
 
     def _upper_rows(self):
-        """The wall above the gallery roof: rows standing on the roof's inner rim,
-        leaning out a little so nothing overhangs, its own leaf bulge."""
+        """The cell drum standing on the lane roof's inner rim: rows leaning out a
+        little, its own leaf bulge, and its head the shared seam ring itself.
+
+        A row's height is its table value carrying the roof's own lump at the foot
+        and the seam's own harmonics at the head, blended by how far up the drum it
+        stands. Both ends of the drum are contractual rings nobody here may move --
+        the roof's (g.gal[-1]) and the tower's (forest_seam.seam_ring()) -- and they
+        are lumpy in different ways, so a row of flat table heights would fold shut
+        against one or the other. This way every band stays open all the way round."""
         m = self.m
-        mouths = set()
+        mouths = set()      # (row, col) on a mouth's outline: no bulge there
         for (cells, rows) in UPPER_TIERS:
             for b in cells:
                 c0 = _col_of(b)
                 for j in range(rows[0], rows[2] + 1):
                     for i in (c0, c0 + 1, c0 + 2):
                         mouths.add((j, i % NC))
-        self.upper.append(self.gal[-1])                     # the gallery roof's inner rim
+        self.upper.append(self.gal[-1])                     # the lane roof's inner rim
+        foot = [m.verts[v][2] - fc.GALLERY_Z for v in self.gal[-1]]
+        head = [fs.seam_z(math.radians(-_col_bearing(i))) - fs.SEAM_Z for i in range(NC)]
         for j, (rad, z) in enumerate(UPPER[1:], start=1):
+            w = j / float(len(UPPER))                       # 0 at the rim, 1 at the seam
             row = []
             for i in range(NC):
                 if (j, i) in self.hollow["upper"]:
                     row.append(None)
                     continue
                 b = _col_bearing(i)
-                rr, zz = rad, z
+                zz = z + (1.0 - w) * foot[i] + w * head[i]
+                rr = rad
                 if (j, i) not in mouths:
                     p = pol(b, rad, z)
                     f = self.wall_f(p[0] * 0.7, z * 0.9 + 70.0)
-                    rr += UPPER_BULGE * (0.5 + 0.5 * f)
-                    if j < len(UPPER) - 1:
-                        zz += UPPER_ZJAG * self.wall_f(p[1] * 0.7, z + 90.0)
+                    rr += UPPER_BULGE * math.sin(math.pi * w) ** 2 * (0.5 + 0.5 * f)
                 row.append(m.v(pol(b, rr, zz)))
             self.upper.append(row)
+        self.upper.append([m.v(p) for p in fs.seam_ring()])   # the head: the shared ring itself
 
     # ---- faces -------------------------------------------------------------
     def _deck_quad(self, j, i):
@@ -712,7 +753,7 @@ class _Ground(object):
         cb = m.v(m.centroid(loop))
         for i in range(len(loop)):
             a, b = loop[i], loop[(i + 1) % len(loop)]
-            m.tri(cb, a, b, sub(mc, m.centroid((cb, a, b))), zone)
+            m.tri(cb, a, b, sub(mc, m.centroid((cb, a, b))), LAMP_ZONE)
 
         # the bars: foot ring in the floor shelf strip, top ring in the roof shelf strip
         for k, t in enumerate(bars):
@@ -751,14 +792,21 @@ class _Ground(object):
         cells = [(_col_of(b), rows[0], 1) for (tier, rows) in WALL_TIERS for b in tier]   # the lane tier first
         zone = lambda j, i: ("bark" if i in self.bark_cols else ("edge" if j == 0 else "leaf"))
         self.wall_cells = self._cell_faces(self.wall, cells, WALL_CELL_D, 1, zone, "cell", BAR_R, BAR_PITCH, True)
+        print("MDL STATS leaf_wall rows=%d head_y=%.1f tiers=%s cells=%d depth=%.1f"
+              % (len(WALL), WALL[-1][1], "/".join("%d@y%.1f" % (len(t), WALL[rows[0]][1]) for (t, rows) in WALL_TIERS),
+                 len(cells), WALL_CELL_D))
 
     def _upper_faces(self):
-        """The wall above the gallery: three tiers of barred cells, recessed outward
-        into the leaf over the roof, every mouth facing the tower."""
+        """The drum: three tiers of barred cells, recessed outward into the leaf over
+        the roof, every mouth facing the tower."""
         cells = [(_col_of(b), rows[0], 1) for (tier, rows) in UPPER_TIERS for b in tier]
         zone = lambda j, i: "leaf"
         self.upper_cells = self._cell_faces(self.upper, cells, UPPER_CELL_D, 1, zone, "cell",
                                             UPPER_BAR_R, UPPER_BAR_PITCH, False)
+        print("MDL STATS drum rows=%d r=%.1f..%.1f y=%.1f..%.1f tiers=%s cells=%d depth=%.1f"
+              % (len(self.upper), UPPER[0][0], fs.SEAM_R, UPPER[0][1], fs.SEAM_Z,
+                 "/".join("%d@y%.1f" % (len(t), UPPER[rows[0]][1]) for (t, rows) in UPPER_TIERS),
+                 len(cells), UPPER_CELL_D))
 
     # ---- dressing: everything socketed into the quad it stands on --------------
     def _plane_pt(self, plane, x, y):
@@ -898,9 +946,9 @@ class _Ground(object):
     def ray_lines(self):
         """(top, foot, S, scale) per shaft, world coordinates: the shaft's axis runs
         from ``top`` (RAY_IN up the sun line from the source's centre, so it
-        begins under the leaves) down the sun direction to ``foot`` -- the first thing it meets, the
-        dome, the gallery roof's top, the tree, the bank or the pit floor, plus
-        RAY_OVER into it."""
+        begins under the leaves) down the sun direction to ``foot`` -- the first
+        thing it meets, the lane, the lip, the tree, the bank or the pit floor,
+        plus RAY_OVER into it."""
         out = []
         sb, se = SUN
         S = (math.cos(math.radians(se)) * math.cos(math.radians(-sb)),
@@ -943,19 +991,16 @@ class _Ground(object):
         self._deck_rows()
         self._pit_rows()
         self._wall_rows()
-        fc.gallery_rows(self)       # the leaf roof over the lane, off the wall's top row
-        self._upper_rows()          # the wall above it, off the roof's inner rim
-        fc.dome_rows(self)          # the grand canopy dome, off that wall's head
+        fc.gallery_rows(self)       # the lane's roof, off the wall's top row, in to the drum
+        self._upper_rows()          # the cell drum, off that roof's inner rim, up to the seam
         self._deck_faces()
         self._pit_faces()
         self._wall_faces()
-        fc.gallery_faces(self)
-        self._upper_faces()         # six more tiers of cells over the ravine
-        fc.dome_faces(self)         # the dome, its organic shaft sources (self.rays), the pole
+        fc.gallery_faces(self)      # the roof and its organic sun wells (self.rays)
+        self._upper_faces()         # three more tiers of cells over the ravine
         fp.pit_floor(self)          # the dark floor grown inward off the bank's last row
         self._ferns()
         self._hanging_roots()
-        fc.dress(self)              # leaf clumps round the shaft sources, high in the canopy
         fp.brambles(self)           # the thicket: thorny branches out of the pit floor, rising from the fog
         return self.m
 
@@ -971,12 +1016,28 @@ def _bank_r(z):
     return WATER_R
 
 
+def _roof_z(rad):
+    """The roof's nominal underside at radius rad: over the lane the level's own
+    leaf gallery, low at 38; over the ravine the tower's crown sheet, which is
+    25 m higher at the drum and sags to the tree. The drum's wall stands between
+    the two, and _open closes it."""
+    if rad >= fs.DRUM_R:
+        u = (fc.GALLERY_R[0] - rad) / (fc.GALLERY_R[0] - fc.GALLERY_R[-1])
+        u = max(0.0, min(1.0, u))
+        return fc.GALLERY_Z - fc.GALLERY_SAG * math.sin(math.pi * u)
+    return fs.sheet_z(rad) - fs.SHEET_LUMP
+
+
 def _open(p):
-    """Is p in the clearing's air? Above the gallery roof only the dome is open;
-    over the lane the whole room is; under the lane only inside the bank. The
-    tree stands in the middle of it, so a shaft can land on its crown."""
+    """Is p in the clearing's air? The roof is the lid everywhere: over the lane
+    the gallery at 38, over the ravine the tower's own sheet, and between them
+    the cell drum, solid leaf from the roof's rim to the seam. Under the lane
+    only inside the bank. The tree stands in the middle of it, so a shaft can
+    land on its crown."""
     rad, z = math.hypot(p[0], p[1]), p[2]
     if z < WATER_Z:
+        return False
+    if z >= fc.GALLERY_Z and fs.DRUM_R <= rad <= fs.SEAM_R:     # the cell drum's own wall
         return False
     if 33.0 <= z <= 36.4 and rad <= 11.0:           # the tree's leaf disc ...
         return False
@@ -984,8 +1045,8 @@ def _open(p):
         return False
     if z <= 27.6 and rad <= 7.2:                    # the trunk and the guard's platform
         return False
-    if z > fc.GALLERY_Z:
-        return rad <= fc.dome_r(z) - 0.2
+    if z >= _roof_z(rad):
+        return False
     if z >= DECK_Z:
         return rad <= OUTER_R
     return rad <= _bank_r(z)
@@ -1136,6 +1197,26 @@ def _sheet_earth(c, r, s):
             c.rect(x, y, x + _sz(2), y + _sz(2), col)
 
 
+def _sheet_lamp(c, r, s):
+    """The back wall of a cell, and the only thing in the forest that gives off
+    light: dark stone rubbed with a low, warm glow, brightest in a couple of
+    patches so a mouth reads as lit rather than as a flat panel. The albedo
+    stays nearly as dark as `cell` -- what the lane sees is the EMISSION, and a
+    pale albedo would make the back read as a bright wall in daylight too."""
+    base = [(16, 15, 12), (20, 19, 14), (13, 12, 10), (24, 22, 16)]
+    for y in range(c.h):
+        for x in range(c.w):
+            k = r.pick(base)
+            c.put(x, y, k, LAMP_GLOW)
+    for _ in range(_n(5)):                       # the warmer patches: a lamp is not even
+        x, y = r.i(0, c.w - 1), r.i(0, c.h - 1)
+        w, hh = _sz(4), _sz(3)
+        c.rect(x, y, x + w, y + hh, (30, 27, 19), LAMP_GLOW_HOT)
+    for _ in range(_n(6)):                       # soot and cracks: the glow is not uniform
+        x, y = r.i(0, c.w - 1), r.i(0, c.h - 1)
+        c.rect(x, y, x + _sz(2), y + 1, (10, 9, 7), LAMP_GLOW_DIM)
+
+
 def _sheet_cell(c, r, s):
     tx.fill(c, r, c.box, [(14, 16, 12), (18, 20, 14), (12, 14, 10), (20, 24, 16)])
     tx.shatter(c, r, c.box, [(24, 28, 18), (10, 12, 8)], _n(12), _sz(3), _sz(8))
@@ -1149,18 +1230,24 @@ def _forest_ref(centre):
     projection is near-isometric and closes round the ring."""
     rad = math.hypot(centre[0], centre[1])
     z = centre[2]
-    if z >= 64.0:
-        return 30.0                              # the canopy dome
     if z >= CEIL_Z + 0.5:
-        return 47.0                              # the cell wall over the ravine
+        return 47.0                              # the cell drum over the ravine
     if z > DECK_Z - 1.0:
-        return 58.5 if rad > 57.0 else 52.0      # leaf wall | lane, gallery roof
+        return 58.5 if rad > 57.0 else 52.0      # leaf wall | lane, lane roof
     return 45.0                                  # the pit bank and floor
 
 
 def _sheet(name, paint, **kw):
     return tx.Sheet(name, paint, ref_r=_forest_ref, roughness=ft.ROUGHNESS, **kw)
 
+
+# The cell lamp's emission, sRGB as the painters write it. Dim on purpose (Ryan:
+# "a pretty dim one"): the forest's sun is 0.85 and the shafts are the brightest
+# thing in frame, so a lamp that read as a lantern would out-light the wood. This
+# is a glow you see IN the mouth, not a lamp that lights the lane.
+LAMP_GLOW = (44, 34, 20)
+LAMP_GLOW_HOT = (62, 47, 27)     # ... the warmer patches
+LAMP_GLOW_DIM = (26, 20, 12)     # ... and the soot
 
 _BLADES = [(168, 172, 82), (160, 160, 70), (86, 102, 58)]
 SHEETS = {
@@ -1176,6 +1263,7 @@ SHEETS = {
     "earth": _sheet("earth", _sheet_earth, seed=10),
     "cell": _sheet("cell", _sheet_cell, seed=11),
     "root": _sheet("root", _bark(ft.ROOT_BASE), seed=12),
+    "lamp": _sheet("lamp", _sheet_lamp, seed=13, emissive=True),
 }
 
 
@@ -1191,13 +1279,11 @@ def build_collider():
     c.fan(pit[-1], UP, "earth")
     wall = [foot, ring(OUTER_R, CEIL_Z)]
     loft(c, wall, "leaf", want_fn=lambda p: (-p[0], -p[1], 0.0))
-    ceil = [wall[1], ring(UPPER[0][0], CEIL_Z)]              # the gallery roof over the lane
+    # the flat ceiling annulus in to the pit lip; the cell drum stands above this
+    # roof and needs no collider of its own, and from the lip in the ceiling is the
+    # tower's crown sheet, which forest_tree.glb's own collider carries
+    ceil = [wall[1], ring(INNER_R, CEIL_Z)]
     loft(c, ceil, "shade", want_fn=lambda p: DOWN)
-    up = [ceil[1], ring(UPPER[-1][0], UPPER[-1][1])]         # the wall above it
-    loft(c, up, "leaf", want_fn=lambda p: (-p[0], -p[1], 0.0))
-    dome = [up[1]] + [ring(rad, z) for (rad, z, _n) in fc.DOME[1:]]
-    loft(c, dome, "shade", want_fn=lambda p: DOWN)
-    c.fan(dome[-1], DOWN, "shade")
     # a prism per forest trunk: the bark pilaster's half-hexagon, deck to ceiling
     for b in TRUNKS:
         c0 = _col_of(b)
@@ -1332,7 +1418,10 @@ def _forest_render(spec, objects):
 
     # --views <hand shot names>: render only those (the fast loop for one section, e.g.
     # --views pit_fog,pit). The named views (front/side/threequarter) are mdl's, not ours.
-    sel = set(spec.get("views") or []) - {"front", "side", "threequarter"}
+    # "roof" and "rays" pick WHICH SET of hand shots runs (below); they are not
+    # shot names, so they must not survive into the per-shot filter or every
+    # shot in the set they chose is filtered out and nothing renders at all.
+    sel = set(spec.get("views") or []) - {"front", "side", "threequarter", "roof", "rays"}
 
     def shot(name, loc, tgt, lens, res):
         if sel and name not in sel and "rays" not in sel:
@@ -1392,6 +1481,26 @@ def _forest_render(spec, objects):
     only = spec.get("views") or []
     if "rays" in only:                   # --views rays: the ray comparison alone, for tuning
         compare("rays_compare", pol(200.0, 54.5, eye), pol(160.0, 49.0, DECK_Z + 3.0), 22.0, (1400, 800))
+    elif "roof" in only:
+        # --views roof: the whole lid, five images and nothing else. The lane roof runs
+        # CEIL_Z 38.0 at the wall (r 60) in to fs.DRUM_R, the cell drum climbs from there
+        # to the seam at fs.SEAM_R / fs.SEAM_Z, and the tower's crown sheet sags inward
+        # from the seam. These five say whether that reads as one dome collapsed on the
+        # tree, with a ring of cells over the lane.
+        variant("light")
+        # A true cutaway, straight down the axis from above: the roof's faces point DOWN,
+        # so backface culling alone lets a camera over the level see the lap and the
+        # ravine through it. No geometry moved, no node hidden.
+        shot("aerial_cut", (0.0, -70.0, 130.0), (0.0, 0.0, DECK_Z), 28.0, (1400, 1400))
+        # the lane eye, up and in: the leaf overhead, the seam, and the crown beyond it
+        shot("lane_up", pol(200.0, 52.0, eye), pol(200.0, 12.0, fs.CROWN_RIM[1] + 0.5), 16.0, (1400, 1000))
+        shot("guard", (0.0, 0.0, ft.FLOOR_Y + EYE_H), pol(150.0, 52.0, DECK_Z), 24.0, (1400, 800))
+        # on the lip at bearing 10, looking up the tower's sheet: the crown where the
+        # sheet meets the drum's head, with the seam at the top of frame
+        shot("tower_crown", pol(10.0, 46.0, eye), pol(190.0, 20.0, 19.1), 20.0, (1400, 1000))
+        # from the lane, up over the lip: the seam is centred and the zenith is in frame,
+        # so a step at SEAM_R would break the leaf line across the middle of the picture
+        shot("seam", pol(200.0, 54.0, eye), pol(200.0, fs.SEAM_R, fs.SEAM_Z), 20.0, (1200, 1200))
     else:
         variant("light")
         shot("lane", pol(200.0, 52.0, eye), pol(232.0, 50.5, DECK_Z + 1.0), 22.0, (1400, 800))
@@ -1404,12 +1513,8 @@ def _forest_render(spec, objects):
         shot("tower", pol(180.0, 56.5, eye), (0.0, 0.0, 14.0), 20.0, (900, 1300))
         shot("pit", pol(292.0, 6.4, ft.FLOOR_Y + 0.55 + EYE_H), pol(300.0, 22.0, -6.0), 24.0, (1400, 900))   # from the tower, standing on the lip in an arch (from the floor the lip hides the drop)
         shot("enclosure", pol(200.0, 55.5, DECK_Z + 4.5), (0.0, 0.0, 52.0), 12.0, (1500, 1000))
-        # the roof, from the lane: the gallery of leaves overhead, its rim, and the dome beyond
-        shot("roof", pol(196.0, 53.5, eye), pol(186.0, 42.0, 41.0), 18.0, (1400, 1000))
-        # the wall above the gallery: six tiers of cells over the ravine, seen from the pit lip
-        # across the ring (a chord, so the tree does not stand in front of it -- from the guard's
-        # own eye the tree's canopy belly at y 33 is the ceiling and the wall above is hidden)
-        shot("wall_above", pol(315.0, 46.9, eye), pol(200.0, 47.5, 50.0), 40.0, (1400, 900))
+        # the roof, from the lane: the leaf overhead, the seam, and the tree's crown beyond
+        shot("roof", pol(196.0, 53.5, eye), pol(186.0, 40.0, 33.5), 18.0, (1400, 1000))
         if INFO.get("wall_cells"):
             mouth, back, bmid = INFO["wall_cells"][0]
             mc = tuple(sum(p[k] for p in mouth) / 5.0 for k in range(3))
@@ -1443,10 +1548,49 @@ def _forest_render(spec, objects):
 # BUILD / CHECK
 # =============================================================================
 
+def seam_line():
+    """The proof that the cell drum's head is the tower's own ring: the 240
+    points of upper[-1] against forest_seam.seam_ring(), worst distance."""
+    got = INFO.get("seam") or []
+    n, dev = fs.report(got, fs.seam_ring())
+    return "n=%d max_dev=%.6f in_mesh=%d/%d r=%.4f z=%.4f..%.4f" % (
+        n, dev, INFO.get("seam_in_mesh", 0), len(set(fs.seam_ring())), fs.SEAM_R,
+        min(p[2] for p in got) if got else 0.0, max(p[2] for p in got) if got else 0.0)
+
+
+def ray_feet():
+    """One line per sun shaft: where its light lands, in map bearings."""
+    out = []
+    for k, (top, foot, _s, _w) in enumerate(INFO["rays"]):
+        out.append("ray%d bearing=%.1f top=(%.1f, %.1f, %.1f) r=%.1f foot=(%.1f, %.1f, %.1f) "
+                   "bearing=%.1f r=%.1f on=%s"
+                   % (k, fc.SHAFTS[k][0], top[0], top[1], top[2], math.hypot(top[0], top[1]),
+                      foot[0], foot[1], foot[2], _bearing_of(foot) % 360.0,
+                      math.hypot(foot[0], foot[1]), _lands_on(foot)))
+    return out
+
+
+def _lands_on(foot):
+    """What a shaft's foot is standing in: the lane, the lip, or the ravine."""
+    rad = math.hypot(foot[0], foot[1])
+    if rad >= OUTER_R - 0.05:
+        return "wall"
+    if rad >= INNER_R + 0.9:
+        return "lane"
+    if rad >= INNER_R - 1.2 and foot[2] > DECK_Z - 2.5:
+        return "lip"
+    return "ravine"
+
+
 def build_geometry():
     """(ground, collider, {node name: shaft mesh})."""
     g = _Ground()
-    m = ft._prune(g.build())     # a socket patch two quads tall leaves its inner vertices unused
+    raw = g.build()
+    # the seam's points are read off the BUILT mesh, before _prune renumbers ids;
+    # seam_line() then proves the pruned mesh still carries every one of them
+    INFO["seam"] = [raw.verts[v] for v in g.upper[-1]]
+    m = ft._prune(raw)           # a socket patch two quads tall leaves its inner vertices unused
+    INFO["seam_in_mesh"] = sum(1 for p in set(INFO["seam"]) if p in set(m.verts))
     lines = g.ray_lines()
     INFO["wall_cells"] = [([m.verts[v] for v in mouth], [m.verts[v] for v in back], bmid)
                           for (mouth, back, bmid) in g.wall_cells]
@@ -1490,14 +1634,13 @@ def build():
     print("MDL STATS visual_tris=%d collision_tris=%d ray_tris=%d rays=%d fog_tris=%d"
           % (len(ob.data.polygons), len(coll.data.polygons), len(rays[RAYS_SOLID_NAME].faces), len(INFO["rays"]),
              len(rays[fp.FOG_NAME].faces)))
-    print("MDL STATS lane r=%.1f..%.1f y=%.1f pit_floor_y=%.1f r=%.1f gallery_y=%.1f wall_above=%.1f..%.1f dome_y=%.1f "
-          "wall_cells=%d upper_cells=%d pit_cells=%d trunks=%d shafts=%d sun=%s"
-          % (INNER_R, OUTER_R, DECK_Z, WATER_Z, WATER_R, fc.GALLERY_Z, UPPER[0][1], UPPER[-1][1], fc.DOME_TOP,
-             len(WALL_CELLS) + len(WALL_CELLS_UPPER), sum(len(t) for t in UPPER_CELLS),
+    print("MDL STATS lane r=%.1f..%.1f y=%.1f pit_floor_y=%.1f r=%.1f roof_y=%.1f drum_r=%.1f "
+          "seam_r=%.1f seam_y=%.1f wall_cells=%d upper_cells=%d pit_cells=%d trunks=%d shafts=%d sun=%s"
+          % (INNER_R, OUTER_R, DECK_Z, WATER_Z, WATER_R, fc.GALLERY_Z, fs.DRUM_R, fs.SEAM_R, fs.SEAM_Z,
+             sum(len(t) for (t, _rows) in WALL_TIERS), sum(len(t) for t in UPPER_CELLS),
              len(PIT_CELLS), len(TRUNKS), len(fc.SHAFTS), SUN))
-    for k, (top, foot, _s, _w) in enumerate(INFO["rays"]):
-        print("MDL STATS ray%d top=(%.1f, %.1f, %.1f) foot=(%.1f, %.1f, %.1f) r=%.1f"
-              % (k, top[0], top[1], top[2], foot[0], foot[1], foot[2], math.hypot(foot[0], foot[1])))
+    for line in ray_feet():
+        print("MDL STATS %s" % line)
     return out
 
 
@@ -1510,6 +1653,7 @@ def _check():
     rays.compact()
     forest_check.prove(m, "ground")
     forest_check.components_report(m)
+    print("SEAM %s" % seam_line())
     fog = ray_set[fp.FOG_NAME]
     fog.compact()
     for name, mm in (("ground", m), ("coll", c), ("rays", rays), ("fog", fog)):
@@ -1528,9 +1672,8 @@ def _check():
                  ["%.1f" % x for x in lo], ["%.1f" % x for x in hi]))
     alphas = sorted(set(round(c[3], 3) for c in rays.colors))
     print("rays vanes=%d verts_per_ray=%d alphas=%s" % (RAY_VANES, len(rays.verts) // len(INFO["rays"]), alphas))
-    for k, (top, foot, _s, _w) in enumerate(INFO["rays"]):
-        print("ray%d top=(%.1f, %.1f, %.1f) foot=(%.1f, %.1f, %.1f) r=%.1f"
-              % (k, top[0], top[1], top[2], foot[0], foot[1], foot[2], math.hypot(foot[0], foot[1])))
+    for line in ray_feet():
+        print(line)
 
 
 if __name__ == "__main__":
