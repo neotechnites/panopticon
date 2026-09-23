@@ -919,16 +919,16 @@ def _plinth(m, lip, cols):
         a1 = cols[jn][0] if jn else cols[0][0] + TWO_PI
         am = 0.5 * (cols[j][0] + a1)
         m.quad(lip[j], lip[jn], ch[jn], ch[j], (math.cos(am), math.sin(am), 1.0), ZONE_DAIS)
-    prev = ch
+    # Each top ring is spaced about its radial gap and zippered in, so no quad thins to a sliver.
+    prev, r_prev = ch, R_PLINTH
     for rr in PLINTH_RINGS:
-        ring = [m.v((rr * math.cos(a), rr * math.sin(a), PLINTH_Z)) for (a, _k, _w) in cols]
-        for j in range(n):
-            jn = (j + 1) % n
-            m.quad(prev[j], prev[jn], ring[jn], ring[j], UP, ZONE_DAIS)
-        prev = ring
+        k = max(8, int(round(TWO_PI * rr / (r_prev - rr))))
+        ring = [m.v(pol(360.0 * i / k, rr, PLINTH_Z)) for i in range(k)]
+        _zipper(m, prev, ring, 0.0, 0.0, UP, ZONE_DAIS)
+        prev, r_prev = ring, rr
     ct = m.v((0.0, 0.0, PLINTH_Z))
-    for j in range(n):
-        m.tri(prev[j], prev[(j + 1) % n], ct, UP, ZONE_DAIS)
+    for j in range(len(prev)):
+        m.tri(prev[j], prev[(j + 1) % len(prev)], ct, UP, ZONE_DAIS)
 
 
 # =============================================================================

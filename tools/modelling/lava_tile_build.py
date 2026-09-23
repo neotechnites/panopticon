@@ -375,17 +375,18 @@ def _slab(r):
     for j in range(GRID):
         for i in range(GRID):
             m.quad(top[j][i], top[j][i + 1], top[j + 1][i + 1], top[j + 1][i], UP, lava)
-    foot = {}
-    for (i, j) in ((0, 0), (GRID, 0), (GRID, GRID), (0, GRID)):
-        x, y, _ = m.verts[top[j][i]]
-        foot[(i, j)] = m.v((x, y, 0.0))
-    rim = [(0, 0), (GRID, 0), (GRID, GRID), (0, GRID)]
-    for k in range(4):
-        a, b = rim[k], rim[(k + 1) % 4]
-        ta, tb = top[a[1]][a[0]], top[b[1]][b[0]]
-        ax, ay, _ = m.verts[ta]
-        bx, by, _ = m.verts[tb]
-        m.quad(foot[a], foot[b], tb, ta, (0.5 * (ax + bx), 0.5 * (ay + by), 0.0), ZONE_SHADE)
+    # Sides share every rim vertex (no T-junction crack); the base sits on the floor, never seen.
+    rim = [top[0][i] for i in range(GRID)] + [top[j][GRID] for j in range(GRID)]
+    rim += [top[GRID][i] for i in range(GRID, 0, -1)] + [top[j][0] for j in range(GRID, 0, -1)]
+    foot = []
+    for t in rim:
+        x, y, _ = m.verts[t]
+        foot.append(m.v((x, y, 0.0)))
+    for k in range(len(rim)):
+        a, b = k, (k + 1) % len(rim)
+        ax, ay, _ = m.verts[rim[a]]
+        bx, by, _ = m.verts[rim[b]]
+        m.quad(foot[a], foot[b], rim[b], rim[a], (0.5 * (ax + bx), 0.5 * (ay + by), 0.0), ZONE_SHADE)
     return m
 
 
