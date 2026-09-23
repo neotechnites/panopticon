@@ -15,7 +15,7 @@ edge is open: step off it and you drop 24 m onto the spikes. The wall is
 SEVEN tiers of arched cells, three below the walkway down to the spike
 floor and four above it, every cell an open recess with iron bars over the
 arch; a pilaster on every pier, a cornice on every tier, a Greek-key frieze
-and a great cornice under a solid coffered dome. No oculus: the light is the
+and a great cornice under a solid ribbed dome. No oculus: the light is the
 tower's gold lantern, and a cool ambient. Nothing on the lane.
 
 Stone only. Mechanics -- the kill cylinder over the spike floor, portal,
@@ -178,14 +178,17 @@ ZONES = {                   # atlas column, row (row 0 is the bottom of the imag
     "spike": _cell(3, 1),
     "column": _cell(0, 2),   # fluting
     "band": _cell(1, 2),     # cornice moulding
+    "collar": _cell(1, 2),   # ... the dome's collar and ring moulding wear the same cell
     "iron": _cell(2, 2),
     "stone": _cell(3, 2),    # the tower shaft's blocks
     "plinth": _cell(0, 3),   # ashlar under the sills
     "field": _cell(1, 3),    # the beds' floor
 }
 FIT = {"floor": "uv", "frieze": "uv", "coffer": "uv",   # the whole face onto the whole cell
-       "band": "v", "column": "u", "iron": "u"}         # ... on one axis only
-ANCHORED = ("stone", "plinth", "band")                  # courses stay level: no v offset, no flips
+       "band": "v", "collar": "v", "column": "u", "iron": "u"}   # ... on one axis only
+ANCHORED = ("stone", "plinth", "band", "collar")        # courses stay level: no v offset, no flips
+WALL_PROJECT = ("collar",)                              # unwrapped along-the-face/up whatever the tilt: the
+                                                        # collar leans 45 deg, _project's floor/wall threshold
 EYE_H = 1.65
 TWO_PI = 2.0 * math.pi
 EPS = 1e-9
@@ -515,7 +518,11 @@ def paint_atlas():
     """The painted atlas as (albedo, emissive) pixel buffers: a _Canvas."""
     c = _Canvas(TEX_SIZE)
     r = _Rng(TEX_SEED)
+    done = set()
     for name in sorted(ZONES):
+        if name not in PAINTERS or ZONES[name] in done:      # "collar" wears "band"'s cell: painted once
+            continue
+        done.add(ZONES[name])
         PAINTERS[name](c, r, _rect_of(ZONES[name], TEX_SIZE))
     _paint_white2(c, r, _rect_of(_cell(2, 3), TEX_SIZE))     # the two spare cells
     _paint_white(c, r, _rect_of(_cell(3, 3), TEX_SIZE))
@@ -1010,10 +1017,11 @@ def boundary_loops(m):
 # UV -- per-face planar projection into a random window of its zone
 # =============================================================================
 
-def _project(cos_list, nrm):
+def _project(cos_list, nrm, wall=False):
     """Planar 2-D coordinates for a set of points: radial/tangential for floors
-    and soffits, along-the-face/up for walls."""
-    if abs(nrm[2]) > 0.7:
+    and soffits, along-the-face/up for walls (wall=True: for this face whatever
+    its tilt)."""
+    if abs(nrm[2]) > 0.7 and not wall:
         ac = math.atan2(sum(c[1] for c in cos_list), sum(c[0] for c in cos_list))
         rc = sum(math.hypot(c[0], c[1]) for c in cos_list) / len(cos_list)
         pts = []
@@ -1028,7 +1036,7 @@ def _project(cos_list, nrm):
     return [(co[0] * ex[0] + co[1] * ex[1], co[2]) for co in cos_list]
 
 
-def _group_uv(me, uvl, polys, zone, r, fit, anchored):
+def _group_uv(me, uvl, polys, zone, r, fit, anchored, wall=False):
     """One atlas window for a whole emitted face (both triangles of a quad,
     every triangle of a fan), so no seam runs down a quad's diagonal."""
     u0, v0, u1, v1 = zone
@@ -1037,7 +1045,7 @@ def _group_uv(me, uvl, polys, zone, r, fit, anchored):
     nrm = me.polygons[polys[0]].normal
     loops = [li for pi in polys for li in me.polygons[pi].loop_indices]
     cos_list = [me.vertices[me.loops[li].vertex_index].co for li in loops]
-    pts = _project(cos_list, nrm)
+    pts = _project(cos_list, nrm, wall)
     mi = min(p[0] for p in pts)
     mj = min(p[1] for p in pts)
     w = max(p[0] for p in pts) - mi
@@ -1073,7 +1081,7 @@ def unwrap(ob, zones, groups, seed=0):
     for gid in sorted(by_group):
         polys = by_group[gid]
         z = zones[polys[0]]
-        _group_uv(me, uvl, polys, ZONES[z], r, FIT.get(z, ""), z in ANCHORED)
+        _group_uv(me, uvl, polys, ZONES[z], r, FIT.get(z, ""), z in ANCHORED, z in WALL_PROJECT)
 
 
 # =============================================================================
@@ -1081,6 +1089,8 @@ def unwrap(ob, zones, groups, seed=0):
 # =============================================================================
 
 TOWER_GLB = r"C:\Users\ddd\panopticon-modelling\jobs\marble_tower\out\marble_tower.glb"
+if not os.path.isfile(TOWER_GLB):     # on the Mac: the shipped tower, so the guard's view has its arches
+    TOWER_GLB = os.path.join(HERE, "..", "..", "assets", "models", "marble_tower.glb")
 TOWER_Y = 25.35             # the scene's Tower node: the model's origin, world y
 LANTERN_H = 5.6             # the arena light: this far over the tower datum -- under the arcade's arches, so
                             # the light leaves the room (scene: marble_tower_light_profile.tres, same number)
@@ -1184,7 +1194,11 @@ def _render(spec, objects):
     made += [target, cam]
     out_dir = spec.get("out_dir", ".")
 
+    only = os.environ.get("MARBLE_SHOTS", "")     # the fast loop: MARBLE_SHOTS=a,b renders only those
+
     def shot(name, loc, tgt, lens, res):
+        if only and name not in only.split(","):
+            return
         cam.data.lens = lens
         cam.data.clip_end = 600.0
         cam.location = loc
@@ -1211,6 +1225,14 @@ def _render(spec, objects):
     # the dome from over the walkway, the drawing's own angle on it: the collar
     # off the great cornice, the pleats, the ring, the ribs closing on the crown
     shot("dome", pol(200.0, 54.0, 49.0), (0.0, 0.0, 71.0), 24.0, (1400, 900))
+    # the ceiling as the game shows it (Ryan: "the ceiling of the marble room ...
+    # garbled"): from the runner's eye on the lane; from the guard's eye on the
+    # balcony (from the seat the arch heads cap the sightline at 17 deg -- the
+    # fourth tier, never the dome); and close under the collar where the flutes
+    # stand on the ring
+    shot("dome_from_lane", pol(30.0, LANE_R, eye), (0.0, 0.0, 78.0), 14.0, (1400, 900))
+    shot("dome_from_guard", pol(120.0, 7.6, TOWER_Y + 1.70 + EYE_H), pol(120.0, 40.0, 75.0), 16.0, (1400, 900))
+    shot("dome_detail", pol(200.0, 50.0, eye), pol(200.0, 57.0, 62.0), 20.0, (1400, 900))
     # inside a cell of the tier over the walkway, 2.3 m back from the mouth,
     # looking out through the bars at the tower
     bay = _Bay(int(round(NSIDE * (360.0 - 120.0) / 360.0)) % NSIDE)

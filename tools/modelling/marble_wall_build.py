@@ -20,11 +20,12 @@ built into its welded _Mesh against the seam contract there.
     frieze       the Greek key over the top tier, and the great cornice whose
                  back edge is the dome's spring ring (mb.seam_dome_spring)
     dome         a ribbed spherical cap off the 192-station spring ring: a
-                 smooth collar at the cornice, then ONE 144-station grid of
-                 16 sectors -- a broad rib standing proud INWARD of the shell
-                 and six plain panel facets -- pleated low down, a ring
-                 moulding where the pleats end, the ribs running up into the
-                 flat crown medallion
+                 smooth collar of quads on those stations, a ring moulding
+                 (the station change hidden on its foot step), then ONE
+                 176-station grid of 16 sectors -- a broad rib standing proud
+                 INWARD of the shell and ten plain panel facets -- fluted low
+                 down where the panels stand on the ring, the ribs running up
+                 into the flat crown medallion
 
 Every point on the wall face is _Bay.at(u, z, d), so shared points weld. The
 only free edges this part leaves are three loops of 192: the foot ring at
@@ -58,18 +59,22 @@ PP = mb.PILASTER_PROUD
 HW = mb.ARCH_W / 2.0
 BHW = mb.BAR_HW
 BAR_SET = 0.06              # a bar's tip this far past the head's circle: set into the stone
-DOME_FIRST_BAND = 4.0       # metres of arc the 192 -> 144 collar takes: the dome's smooth foot
+DOME_COLLAR = 3.2           # metres of arc off the spring ring: the smooth collar, one quad a station
+                            # on the wall's own 192 stations -- nothing is zippered across it
+MOULD_D = 0.25              # the ring moulding at the collar's head: the whole ring this far inward ...
+MOULD_H = 0.7               # ... for this much arc. Its foot is where 192 stations become the dome's
+                            # 176, on a 0.25 m step that faces down the sphere and is never seen
 DOME_RIBS = 16              # broad meridional ribs, one over every fourth pier
-RIB_HALF = math.radians(3.0)   # half the angular width of a rib: 6 deg of the 22.5 deg bay, the
-                            # drawing's proportion -- a band, not a line
-RIB_PROUD = 0.85            # ... standing this far inward of the shell
-PANEL_FACETS = 10           # panel facets between two ribs: 9 interior stations, 5 of them pleats
-DOME_RING_F = (0.0, 0.15, 0.30, 0.61, 0.89, 1.0)   # r1 .. r6, up the arc from the collar to the cap:
-                            # short low, short again at the crown, where the stations crowd in
-FLUTE_D = (0.85, 0.45, 0.0)    # the pleat at r1, r2, r3: alternate panel stations inward. The drawing's
-                            # flutes are wedges, widest where they stand on the collar's ring and
-                            # tapering to points a third of the way up: this is that, in stone
-MOULD_D = 0.25              # the ring moulding the flutes stand on: every station at r1, inward
+RIB_HALF = math.radians(3.0)   # half the angular width of a rib: 6 deg of the 22.5 deg sector, the
+                            # rest plain panel ...
+RIB_PROUD = 0.85            # ... standing this far inward of the shell (of the moulding, on its ring)
+PANEL_FACETS = 10           # panel facets between two ribs: 9 interior stations, the 5 odd ones the
+                            # centres of the flutes
+FLUTE_D = 0.85              # a flute is a V-groove two facets wide, this deep where it stands on the
+                            # moulding's ring, tapering to nothing at ring r3: two PLANAR flanks
+FLUTE_RING = 2              # ... the ring (index into DOME_RING_F) the flutes taper out at
+DOME_RING_F = (0.0, 0.15, 0.30, 0.61, 0.89, 1.0)   # r1 .. r6, up the arc from the moulding's head to
+                            # the cap: r1 is the moulding's head, r3 the flutes' points
 SIDE_SPLITS = 1             # the frame's side margins, pilaster fronts and returns in this many stacked quads
 SIDE_SWITCH = 0.5           # head angle where the frame's fan moves from the middle side point to the top corner
 UP, DOWN = mb.UP, mb.DOWN
@@ -403,23 +408,36 @@ def _cornice(m, i, bay, z1, z2, proud, soffit_full, front=True):
 
 def _dome(m, coll=False):
     """The dome off the spring ring, to Bentham's drawing: a smooth collar at
-    the cornice, DOME_RIBS broad ribs standing proud INWARD of the shell with
-    plain panels between them, pleated low down to a ring moulding, the ribs
-    running up into the flat crown medallion. One sheet, solid, no oculus.
+    the cornice, a ring moulding, DOME_RIBS broad ribs standing proud INWARD
+    of the shell with plain panels between them, the panels fluted low down
+    where they stand on the ring, the ribs running up into the flat crown
+    medallion. One sheet, solid, no oculus.
 
-    ONE station grid carries it: a sector is the rib's two shell edges with
-    its two proud points between them, then the interior panel stations -- 9
-    stations, 144 round. Rings r1 (the collar's head) .. r6 (the cap, radius
-    DOME_CAP_R) sit at DOME_RING_F of the arc. The 192-station spring ring
-    zippers onto r1's 112 SHELL points only, each rib's foot and head is
-    closed across its mouth, and the medallion is one fan over r6's shell
-    points. Returns the crown's y. coll=True is the collider's dome: five
-    plain NSIDE rings, no ribs."""
+    Every face is a regular quad or a deliberate triangle, and the only
+    station change (the wall's 192 to the dome's 176) is on the moulding's
+    0.25 m foot step, which faces down the sphere and is not seen:
+
+      spring ring (192 wall stations) --collar quads--> collar head (192)
+        --step zipper, 0.25 in--> moulding foot (176) --moulding quads-->
+        r1 (176, the moulding's head, 0.25 in) --> r2 .. r6 (176, on the shell)
+
+    A sector is [a0, a1, p1 .. p9]: the rib's two shell edges, then nine
+    panel stations. The rib is a box on a0/a1: two proud vertices a ring, a
+    top, two sides, a foot on the moulding and a head at the cap. A flute is
+    a V-groove on an odd panel station between its two neighbours, from r1 to
+    r3: a deep foot vertex, two planar flanks to the point at r3, and the
+    shell triangles beside them. Returns the crown's y. coll=True is the
+    collider's dome: five plain NSIDE rings, no ribs."""
     R = (mb.WALL_R ** 2 + mb.DOME_RISE ** 2) / (2.0 * mb.DOME_RISE)
     zc = mb.DOME_Z0 + mb.DOME_RISE - R
     phi0 = math.asin(mb.WALL_R / R)
     phi_cap = math.asin(mb.DOME_CAP_R / R)
     top = (0.0, 0.0, zc + R * math.cos(phi_cap))
+
+    def at(phi, a, d=0.0):
+        """The point at latitude phi (from the axis), azimuth a, d inward of the shell."""
+        r = R - d
+        return (r * math.sin(phi) * math.cos(a), r * math.sin(phi) * math.sin(a), zc + r * math.cos(phi))
 
     def want(*pts):
         """A face's normal points at the sphere's centre: into the rotunda."""
@@ -427,6 +445,10 @@ def _dome(m, coll=False):
         cx, cy, cz = (sum(p[0] for p in pts) / n, sum(p[1] for p in pts) / n,
                       sum(p[2] for p in pts) / n)
         return (-cx, -cy, zc - cz)
+
+    def down(phi, a, sgn=1.0):
+        """Down the sphere (towards the spring) at (phi, a); sgn -1 is up it."""
+        return (sgn * math.cos(phi) * math.cos(a), sgn * math.cos(phi) * math.sin(a), -sgn * math.sin(phi))
 
     if coll:
         rings = []
@@ -445,76 +467,127 @@ def _dome(m, coll=False):
             m.tri(tv, cap[i], cap[(i + 1) % mb.NSIDE], DOWN, "band")
         return zc + R
 
-    # THE GRID, one sector at a time: rib edge S(a0), the two proud points,
-    # rib edge S(a1), then the interior panel stations. (angle, proud, pleat).
-    grid = []
+    # THE STATIONS: a sector is a0, a1, p1 .. p9 -- (angle, kind); 176 round
+    az = []
     for i in range(DOME_RIBS):
-        a0 = TWO_PI * i / DOME_RIBS - RIB_HALF           # the rib straddles the bearing
-        a1 = a0 + 2.0 * RIB_HALF
+        c = TWO_PI * i / DOME_RIBS
+        a0, a1 = c - RIB_HALF, c + RIB_HALF
         nxt = TWO_PI * (i + 1) / DOME_RIBS - RIB_HALF
-        grid += [(a0, False, False), (a0, True, False), (a1, True, False), (a1, False, False)]
-        grid += [(a1 + (nxt - a1) * k / PANEL_FACETS, False, k % 2 == 1)
-                 for k in range(1, PANEL_FACETS)]
-    per = len(grid) // DOME_RIBS                         # 9 stations a sector
-    shell = [s for s in range(len(grid)) if s % per not in (1, 2)]   # 112: no proud point
-    mould = 0                                            # r1: the ring the flutes stand on
-    flat = len(FLUTE_D) - 1                              # r3, where the pleats have tapered out
+        az.append((a0, "a0"))
+        az.append((a1, "a1"))
+        az += [(a1 + (nxt - a1) * k / PANEL_FACETS, "g" if k % 2 == 1 else "x")
+               for k in range(1, PANEL_FACETS)]
+    N = len(az)
+    per = N // DOME_RIBS
 
-    # THE RINGS r1 .. r6, every station on the sphere less what it is displaced
-    phi1 = phi0 - DOME_FIRST_BAND / R
-    rings = []
-    for k, f in enumerate(DOME_RING_F):
-        phi = phi1 + (phi_cap - phi1) * f
-        sp, cp = math.sin(phi), math.cos(phi)
-        ids = []
-        for (a, proud, pleat) in grid:
-            d = RIB_PROUD if proud else (FLUTE_D[k] if pleat and k < len(FLUTE_D) else 0.0)
-            if k == mould:
-                d += MOULD_D                             # the ring moulding: the whole ring in
-            r = R - d
-            ids.append(m.v((r * sp * math.cos(a), r * sp * math.sin(a), zc + r * cp)))
-        rings.append((ids, phi))
+    # THE RINGS' LATITUDES: the collar's head, then r1 .. r6
+    phi_c = phi0 - DOME_COLLAR / R
+    phi_m = phi_c - MOULD_H / R
+    phis = [phi_m + (phi_cap - phi_m) * f for f in DOME_RING_F]
 
-    # THE BANDS between them: rib top, rib sides, panel facets
-    for k in range(len(rings) - 1):
-        lo, hi = rings[k][0], rings[k + 1][0]
-        panel = "shade" if k < flat else "marble2"       # the two fluted bands, then plain
-        for s in range(len(grid)):
-            t = (s + 1) % len(grid)
-            j = s % per
-            if j in (0, 2):                              # a rib's side wall, facing out of the rib
-                sgn = 1.0 if j == 0 else -1.0
-                a = grid[s][0]
-                w, zone = (sgn * math.sin(a), -sgn * math.cos(a), 0.0), "shade"
-            else:
-                w = want(m.verts[lo[s]], m.verts[lo[t]], m.verts[hi[t]], m.verts[hi[s]])
-                zone = "marble" if j == 1 else panel     # the rib's top, else the panel
-            m.quad(lo[s], lo[t], hi[t], hi[s], w, zone)
+    def depth(k):
+        return MOULD_D if k == 0 else 0.0
 
-    # EVERY RIB'S FOOT AND HEAD, closed across its mouth: the foot faces down
-    # the sphere, the head up it, so neither end is a hole
-    for (ids, phi, sgn) in ((rings[0][0], rings[0][1], 1.0), (rings[-1][0], rings[-1][1], -1.0)):
-        for i in range(DOME_RIBS):
-            s, a = i * per, TWO_PI * i / DOME_RIBS
-            w = (sgn * math.cos(phi) * math.cos(a), sgn * math.cos(phi) * math.sin(a),
-                 -sgn * math.sin(phi))
-            m.quad(ids[s], ids[s + 1], ids[s + 2], ids[s + 3], w, "shade")
+    cache = {}
 
-    # THE COLLAR: the 192-station spring ring zippered onto r1's shell points,
-    # rotated to start at the smallest angle so the zipper's angles ascend
+    def S(k, s):
+        """The shell vertex at ring k, station s -- made when first asked for."""
+        key = ("s", k, s)
+        if key not in cache:
+            cache[key] = m.v(at(phis[k], az[s][0], depth(k)))
+        return cache[key]
+
+    def P(k, s):
+        """A rib's proud vertex at ring k, station s (a0 or a1)."""
+        key = ("p", k, s)
+        if key not in cache:
+            cache[key] = m.v(at(phis[k], az[s][0], depth(k) + RIB_PROUD))
+        return cache[key]
+
+    # THE COLLAR: one quad a station straight up the sphere from the spring
+    # ring, the wall's 192 stations kept, so every joint is vertical
     stations, z = mb.seam_dome_spring()
+    sang = mb.station_angles(stations)
     spring = [m.v(p) for p in mb.station_pts(stations, z)]
-    inner = [(grid[s][0] % TWO_PI, rings[0][0][s]) for s in shell]
-    k0 = min(range(len(inner)), key=lambda i: inner[i][0])
-    inner = inner[k0:] + inner[:k0]
-    _zip_ring(m, spring, mb.station_angles(stations), [v for (_a, v) in inner],
-              [a for (a, _v) in inner], want, "band")
+    head = [m.v(at(phi_c, a)) for a in sang]
+    for i in range(len(spring)):
+        j = (i + 1) % len(spring)
+        m.quad(spring[i], spring[j], head[j], head[i],
+               want(m.verts[spring[i]], m.verts[spring[j]], m.verts[head[j]], m.verts[head[i]]), "collar")
+
+    # THE MOULDING'S FOOT: the step in, MOULD_D wide, where the collar's 192
+    # stations become the dome's 176 -- zippered on a face that looks down
+    # the sphere at the cornice, so its triangles are never seen
+    foot = [m.v(at(phi_c, a, MOULD_D)) for (a, _k) in az]
+    order = sorted(range(N), key=lambda s: az[s][0] % TWO_PI)
+    _zip_ring(m, head, sang, [foot[s] for s in order], [az[s][0] % TWO_PI for s in order],
+              lambda p, q, r: down(phi_c, math.atan2(p[1] + q[1] + r[1], p[0] + q[0] + r[0])), "shade")
+
+    # THE MOULDING'S FACE: up to r1, the ring the flutes and the ribs stand on
+    for s in range(N):
+        t = (s + 1) % N
+        m.quad(foot[s], foot[t], S(0, t), S(0, s),
+               want(m.verts[foot[s]], m.verts[foot[t]], m.verts[S(0, t)], m.verts[S(0, s)]), "collar")
+
+    # THE BANDS r1 .. r6: the ribs' boxes, the plain panels; the fluted bands
+    # (below FLUTE_RING) are the grooves' own faces, made after
+    for k in range(len(phis) - 1):
+        for s in range(N):
+            t = (s + 1) % N
+            ks, kt = az[s][1], az[t][1]
+            if ks == "a0":                                       # the rib: side, top, side
+                a_s, a_t = az[s][0], az[t][0]
+                m.quad(S(k, s), P(k, s), P(k + 1, s), S(k + 1, s),
+                       (math.sin(a_s), -math.cos(a_s), 0.0), "shade")
+                m.quad(P(k, s), P(k, t), P(k + 1, t), P(k + 1, s),
+                       want(m.verts[P(k, s)], m.verts[P(k, t)], m.verts[P(k + 1, t)], m.verts[P(k + 1, s)]),
+                       "marble")
+                m.quad(P(k, t), S(k, t), S(k + 1, t), P(k + 1, t),
+                       (-math.sin(a_t), math.cos(a_t), 0.0), "shade")
+            elif k < FLUTE_RING:
+                continue                                         # a groove's facet
+            else:
+                m.quad(S(k, s), S(k, t), S(k + 1, t), S(k + 1, s),
+                       want(m.verts[S(k, s)], m.verts[S(k, t)], m.verts[S(k + 1, t)], m.verts[S(k + 1, s)]),
+                       "marble2")
+
+    # THE FLUTES: on every odd panel station a V-groove from the moulding's
+    # ring to its point at r3 -- a foot two triangles deep, two planar flanks,
+    # and beside each flank the shell up its ridge, in triangles that keep the
+    # ridge's own line (no sliver runs along a meridian)
+    for s in range(N):
+        if az[s][1] != "g":
+            continue
+        sl, sr = (s - 1) % N, (s + 1) % N
+        a_g = az[s][0]
+        fl, fg, fr = S(0, sl), S(0, s), S(0, sr)
+        fd = m.v(at(phi_m, a_g, MOULD_D + FLUTE_D))
+        apex = S(FLUTE_RING, s)
+        w_foot = down(phi_m, a_g)
+        m.tri(fl, fg, fd, w_foot, "shade")
+        m.tri(fg, fr, fd, w_foot, "shade")
+        m.tri(fl, fd, apex, want(m.verts[fl], m.verts[fd], m.verts[apex]), "shade")
+        m.tri(fr, fd, apex, want(m.verts[fr], m.verts[fd], m.verts[apex]), "shade")
+        for (side, f0) in ((sl, fl), (sr, fr)):
+            r1, r2 = S(1, side), S(2, side)
+            m.tri(r1, r2, apex, want(m.verts[r1], m.verts[r2], m.verts[apex]), "shade")
+            m.tri(r1, apex, f0, want(m.verts[r1], m.verts[apex], m.verts[f0]), "shade")
+
+    # EVERY RIB'S FOOT ON THE MOULDING AND HEAD AT THE CAP, closed across its
+    # mouth: the foot faces down the sphere, the head up it
+    for i in range(DOME_RIBS):
+        s0, s1 = i * per, i * per + 1
+        c = TWO_PI * i / DOME_RIBS
+        m.quad(S(0, s0), P(0, s0), P(0, s1), S(0, s1), down(phis[0], c), "shade")
+        last = len(phis) - 1
+        m.quad(S(last, s0), P(last, s0), P(last, s1), S(last, s1), down(phis[last], c, -1.0), "shade")
 
     # THE MEDALLION: one flat fan over the cap ring's shell points
-    cap = [rings[-1][0][s] for s in shell]
+    last = len(phis) - 1
+    cap = [S(last, s) for s in range(N)]
     tv = m.v(top)
-    for i in range(len(cap)):
-        m.tri(tv, cap[i], cap[(i + 1) % len(cap)], DOWN, "shade")
+    for i in range(N):
+        m.tri(tv, cap[i], cap[(i + 1) % N], DOWN, "shade")
     return zc + R
 
 

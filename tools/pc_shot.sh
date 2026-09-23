@@ -1,0 +1,114 @@
+#!/usr/bin/env bash
+# Render ONE in-game frame of a scene on the PC's GPU and bring the png to the Mac.
+#
+#   tools/pc_shot.sh <git-ref> <res://scene> <out.png on the Mac> <pos x,y,z> <look x,y,z>
+#
+# Why a separate clone. tools/pc_sync.sh owns C:\dev\panopticon -- that is Ryan's
+# play copy, it carries his uncommitted edits, and nothing here may touch it.
+# This script keeps its own throwaway clone at C:/Users/ddd/panopticon-ceiling so
+# a subagent can look at a branch that has not been merged anywhere.
+#
+# Why a scheduled task. An OpenSSH session on Windows lands in session 0, which
+# has no OpenGL context: godot there fails to make a window and hangs. The shot
+# is therefore handed to the logged-on CONSOLE session through a copy of
+# tools/modelling/lib/pcrun.ps1, exactly as the modelling pipeline does for
+# EEVEE, and the .bat writes shot.log and then shot.done with its exit code --
+# a scheduled task returns immediately and its own status tells you nothing.
+#
+# Godot is y-up: pos/look are Godot world coordinates.
+set -euo pipefail
+
+usage() {
+  echo "usage: tools/pc_shot.sh <git-ref> <res://scene> <out.png> <pos x,y,z> <look x,y,z>" >&2
+  exit 2
+}
+[ $# -eq 5 ] || usage
+
+REF="$1"; SCENE="$2"; OUT="$3"; POS="$4"; LOOK="$5"
+
+case "$SCENE" in res://*) ;; *) echo "pc_shot: <scene> must be a res:// path" >&2; exit 2 ;; esac
+case "$POS"  in *,*,*) ;; *) echo "pc_shot: <pos> must be x,y,z" >&2;  exit 2 ;; esac
+case "$LOOK" in *,*,*) ;; *) echo "pc_shot: <look> must be x,y,z" >&2; exit 2 ;; esac
+
+HERE="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$HERE"
+git rev-parse --verify --quiet "$REF^{commit}" >/dev/null || { echo "pc_shot: no such ref: $REF" >&2; exit 2; }
+
+PC=${PC_HOST:-panopticon-pc}
+GODOT=${PC_GODOT:-'C:\tools\godot\godot.exe'}
+CLONE='C:/Users/ddd/panopticon-ceiling'          # forward slashes: git, scp, --path
+CLONE_W='C:\Users\ddd\panopticon-ceiling'        # backslashes: cmd
+WORK='C:/Users/ddd/panopticon-shot-work'
+WORK_W='C:\Users\ddd\panopticon-shot-work'
+PC_PNG='C:/Users/ddd/panopticon-ceiling-shot.png'
+TASK=PanopticonShot
+TIMEOUT=${PC_SHOT_TIMEOUT:-600}
+TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
+
+say() { printf '\033[1m==> %s\033[0m\n' "$*"; }
+
+# -- 1. the clone exists, and it is NOT C:\dev\panopticon -----------------------
+say "clone $CLONE"
+ssh -o ConnectTimeout=20 "$PC" "
+  \$ErrorActionPreference = 'Stop'
+  if (-not (Test-Path '$CLONE_W\\.git')) {
+    git clone --quiet C:/dev/panopticon '$CLONE'
+    Write-Output 'cloned'
+  } else { Write-Output 'present' }
+  New-Item -ItemType Directory -Force -Path '$WORK_W' | Out-Null
+"
+
+# -- 2. the ref lands there as 'incoming', checked out as 'shot' ---------------
+say "push $REF -> incoming"
+git push "$PC:$CLONE" "$REF:refs/heads/incoming" -f 2>&1 | tail -2
+ssh -o ConnectTimeout=20 "$PC" "
+  \$ErrorActionPreference = 'Stop'
+  git -C '$CLONE' checkout -q -f -B shot incoming
+  git -C '$CLONE' reset -q --hard incoming
+  git -C '$CLONE' clean -fdq -- assets/models
+  Write-Output ('shot at ' + (git -C '$CLONE' log --oneline -1))
+"
+
+# -- 3. the .glb.import rewrite pc_sync.sh applies, then a headless import ------
+# Godot's default extracts every embedded texture as a sibling png and rewrites
+# the .import to point at it; =3 keeps the images inside the .glb, so the tree
+# stays clean and the materials survive a clean checkout.
+say "import"
+ssh -o ConnectTimeout=20 "$PC" "
+  Remove-Item $CLONE_W\\assets\\models\\*_albedo.png*, $CLONE_W\\assets\\models\\*_emissive.png* -ErrorAction SilentlyContinue
+  Get-ChildItem $CLONE_W\\assets\\models\\*.glb.import | ForEach-Object {
+    \$t = Get-Content \$_.FullName -Raw
+    if (\$t -match 'gltf/embedded_image_handling=') { \$t = \$t -replace 'gltf/embedded_image_handling=\\d', 'gltf/embedded_image_handling=3' }
+    else { \$t = \$t -replace '\\[params\\]\\r?\\n', \"[params]\`r\`ngltf/embedded_image_handling=3\`r\`n\" }
+    [IO.File]::WriteAllText(\$_.FullName, \$t)
+  }
+  Remove-Item $CLONE_W\\assets\\models\\*_albedo.png*, $CLONE_W\\assets\\models\\*_emissive.png* -ErrorAction SilentlyContinue
+  cmd /c \"$GODOT --headless --import --path $CLONE_W > $WORK_W\\import.txt 2>&1\"
+  \$e = (Select-String -Path $WORK_W\\import.txt -Pattern 'ERROR' | Measure-Object -Line).Lines
+  Write-Output ('import errors: ' + \$e)
+"
+
+# -- 4. the shot, in the console session ---------------------------------------
+scp -q "$HERE/tools/modelling/lib/pcrun.ps1" "$PC:$WORK/pcrun.ps1"
+
+cat > "$TMP/shot.bat" <<EOF
+@echo off
+set W=$WORK_W
+del /q "%W%\\shot.done" 2>nul
+del /q "$PC_PNG" 2>nul
+cd /d "%W%"
+"$GODOT" --path $CLONE_W --script res://tools/shot.gd -- --scene=$SCENE --pos=$POS --look=$LOOK --out=$PC_PNG > "%W%\\shot.log" 2>&1
+set RC=%ERRORLEVEL%
+findstr /c:"SHOT " "%W%\\shot.log" >nul || set RC=1
+echo %RC% > "%W%\\shot.done"
+EOF
+scp -q "$TMP/shot.bat" "$PC:$WORK/shot.bat"
+
+say "shot $SCENE pos=$POS look=$LOOK"
+ssh -o ConnectTimeout=20 "$PC" \
+  "powershell -NoProfile -ExecutionPolicy Bypass -File '$WORK_W\\pcrun.ps1' -Bat '$WORK_W\\shot.bat' -TaskName '$TASK' -TimeoutSec $TIMEOUT"
+
+# -- 5. home ------------------------------------------------------------------
+mkdir -p "$(dirname "$OUT")"
+scp -q "$PC:$PC_PNG" "$OUT"
+say "$(ls -l "$OUT" | awk '{print $5, $NF}')"
