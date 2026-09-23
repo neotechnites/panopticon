@@ -121,6 +121,13 @@ ZONE_GLOW   = (0.5, 0.0, 1.0, 0.25)   # cell interiors: painted over the unused
 ZONE_DECK      = ("deck",) + ZONE_SHADE
 DECK_UV_SCALE  = 0.34                 # ~0.048 m/texel: speckle 0.2..0.5 m
 
+# The S3 lip wall's faces: the same dark rock, projected COHERENTLY along the
+# wall (arc, height) with one window every few metres instead of a random
+# window per triangle -- per-triangle windows on a tall flat face read as a
+# row of light and dark teeth, rock spilling onto the deck, which it is not.
+ZONE_WALLFACE  = ("wallface",) + ZONE_SHADE
+WALLFACE_R     = 47.2                 # arc metres measured at this radius
+
 # ---- the lava sea on the floor of the shaft --------------------------------
 # Its own material and its own tiling sheet (not an atlas cell), so it repeats
 # instead of stretching one window over 90 m of floor.
@@ -373,19 +380,26 @@ S3_JUMP_ROWS = (1, 4, 10)             # rows whose path cell keeps its pad: jump
                                       # the path, so these three must be LIVE, not carved
 S3_BAKE_KEEP = 0.95                   # RingBake: agent radius 0.50 erodes the mesh round every
                                       # rim, wall foot and pad plate, then LAND_MARGIN 0.45
-S3_WALL_FOOT = 1.04                   # the half wall at the pit edge: one ragged rock, its
-                                      # inner foot the lip itself, its rock reaching at most
-                                      # this far from the lip (2 x the widest foot half width
-                                      # in _s3_wall_spec). Its crest is NOT one height: every
-                                      # column carries its own crag inside the window the
-                                      # guard's sight lines allow (a crouched capsule on the
-                                      # path hidden, a standing one seen), so it reads as rock
-                                      # and not as a corridor wall. Ryan: "its not a fucking
-                                      # hallway. its just fucking cover, its just a fucking
-                                      # rock wall to the left of the runners."
-S3_WALL_ST = (46.85, 47.00, 47.15, 47.30, 47.45, 47.60, 47.80)   # stations across the wall:
-                                      # 0.15 m apart, so a >= 0.30 m plateau always has two on
-                                      # it and the ray down the crest line lands ON the crest
+S3_WALL_FOOT = 0.88                   # the wall at the pit edge: one ragged rock rising from
+                                      # the lip itself, its rock reaching at most this far from
+                                      # the lip (the foot line S3_WALL_FOOT_R). It stands on
+                                      # its own footprint: no talus, no spread, the deck flat
+                                      # right up to a near-vertical face on the path side.
+                                      # Ryan: "the wall is like coming out from where it is onto
+                                      # the floor and it looks stupid" -- and "the wall is not
+                                      # tall enough": its crest now hides a STANDING body on the
+                                      # path from the guard's eye along the whole length, ragged
+                                      # column by column inside the window that keeps every
+                                      # crack launch's apex in the guard's sight.
+S3_WALL_IN = 46.85                    # the inner top edge: the face off the lip rises 0.15 m in
+S3_WALL_OUT = 47.55                   # the outer top edge, over the deck ...
+S3_WALL_FOOT_R = 47.58                # ... and its foot, 0.03 m out: a near-vertical face
+S3_WALL_ST = (46.85, 47.00, 47.15, 47.30, 47.45, 47.55, 47.58)   # stations across the wall:
+                                      # the plateau every 0.15 m, the outer top edge, the foot
+S3_WALL_CHAMFER = (0.92, 1.0)         # the outer top edge sits this much of the crest, per
+                                      # column, held in runs: a ragged edge, above the deck only
+S3_WALL_OVER = (0.20, 0.55)           # the crest stands this far over the standing sight line
+                                      # at its lowest .. highest, per column
 S3_WALL_END_SPUR = 0.25               # the S3|S4 divider's own lip spur reaches this far over
                                       # the wall's 200 end (unchanged rock outside the section);
                                       # the wall proofs report samples under it apart
@@ -1533,11 +1547,11 @@ def _lava_sea(m, wall, z, r, extra=()):
     for a, b in zip(rings, rings[1:]):
         for k in range(ncol):
             j = (k + 1) % ncol
-            m.quad(a[k], a[j], b[j], b[k], UP, ZONE_LAVA)
+            m.quad(a[k], a[j], b[j], b[k], UP, S3_CRACK_ZONE_FLOOR)   # one lava with the S3 cracks
     cid = m.v((0.0, 0.0, z))
     last = rings[-1]
     for k in range(ncol):
-        m.tri(cid, last[k], last[(k + 1) % ncol], UP, ZONE_LAVA)
+        m.tri(cid, last[k], last[(k + 1) % ncol], UP, S3_CRACK_ZONE_FLOOR)
 
 
 
@@ -2941,6 +2955,11 @@ S3_CRACK_D = (0.14, 0.26)             # ... and its floor depth, wider is deeper
 S3_CRACK_PORT_W = (0.12, 0.22)        # half width where two cells' fissures meet
 S3_CRACK_PORT_D = (0.12, 0.18)
 S3_CRACK_INSET = 0.18                 # interior stations keep this far inside the cell's edges
+S3_CRACK_WALL_CLEAR = 0.40            # ... and this far out from the lip wall's foot line: the deck
+                                      # patch round the cracks starts at the foot, never inside
+                                      # the wall (a patch boundary up on the wall's plateau once
+                                      # spanned fill triangles from the crest down to the cracks:
+                                      # the "rock spilling onto the floor" Ryan saw)
 S3_CRACK_PORT_IN = (0.30, 0.55)       # the first station in from a port, metres straight in
 S3_CRACK_STEP = (0.20, 0.45)          # metres between stations along a fissure
 S3_CRACK_KICK = (0.10, 0.40)          # lateral jag of an interior station off the line
@@ -3232,11 +3251,13 @@ def _s3n_cell(rng, F, plist, base):
 
     def inside(p):
         u, v = local(p)
-        return abs(u) <= ha - S3_CRACK_INSET and abs(v) <= hr - S3_CRACK_INSET
+        return (abs(u) <= ha - S3_CRACK_INSET and abs(v) <= hr - S3_CRACK_INSET
+                and math.hypot(p[0], p[1]) >= S3_WALL_FOOT_R + S3_CRACK_WALL_CLEAR)
 
     def in_box(p, slack=0.0):
         u, v = local(p)
-        return abs(u) <= ha - S3_CRACK_INSET + slack and abs(v) <= hr - S3_CRACK_INSET + slack
+        return (abs(u) <= ha - S3_CRACK_INSET + slack and abs(v) <= hr - S3_CRACK_INSET + slack
+                and math.hypot(p[0], p[1]) >= S3_WALL_FOOT_R + S3_CRACK_WALL_CLEAR - slack)
 
     ports = F["ports"]
     why = {}
@@ -3674,7 +3695,8 @@ def _s3_wall_held(k, salt):
 def _s3_wall_spec(lay):
     """The lip wall's shape, as callables over bearing. `lay` is _s3_layout()'s
     dict: rows (bearings), path (column per row), spans (the cleared columns
-    per row, which is what the guard must be able to shoot into)."""
+    per row, which is what the guard must NOT see a body standing in, and
+    must see a launched one over)."""
     rows = list(lay["rows"])
     spans = list(lay["spans"])
     u_lo, u_hi = _s3_arc(S3_FIELD[0]), _s3_arc(S3_FIELD[1])
@@ -3685,16 +3707,14 @@ def _s3_wall_spec(lay):
         return int(math.floor((_s3_arc(b) - u_lo) / S3_WALL_KSTEP))
 
     def T(b):
-        lo, hi = S3_WALL_T
-        return lo + _s3_wall_held(_k(b), 11) * (hi - lo)
+        return 0.5 * (S3_WALL_OUT - S3_WALL_IN)
 
     def W(b):
-        lo, hi = S3_WALL_W
-        return lo + _s3_wall_held(_k(b), 23) * (hi - lo)
+        return S3_WALL_FOOT_R - INNER_R
 
     def rc(b):
-        """The centreline. The inner foot, rc - W, is the lip itself."""
-        return INNER_R + W(b)
+        """The plateau's centre line."""
+        return 0.5 * (S3_WALL_IN + S3_WALL_OUT)
 
     half_row = 0.5 * (rows[1] - rows[0])
 
@@ -3709,58 +3729,53 @@ def _s3_wall_spec(lay):
         return out
 
     def window(b, band=S3_WALL_BAND_PROOF):
-        """(L, U) over the deck: the crest must hide a crouched body on the
-        path and must not hide a standing one, for every path column of every
-        row within reach (the sideways step honours both columns; tighter
-        wins). The edges are taken at the WIDEST top over the WIDEST foot
-        for U and the narrowest foot under the widest top for L, so the
-        window never depends on which column's run T and W fall in: the
-        built crest between two columns is a mix of two crests, each inside
-        this same window, so it is inside it too."""
-        r_in = INNER_R + S3_WALL_W[0] - S3_WALL_T[1]     # the inner top edge, nearest
-        r_out = INNER_R + S3_WALL_W[1] + S3_WALL_T[1]    # the outer top edge, farthest
+        """(L, U) over the deck: the crest must hide a STANDING body on the
+        path -- the line from the eye to its top (S3_STAND) at the path
+        cell's far side, taken at the inner top edge -- and must not hide a
+        launched body at its apex over ANY column -- the line to the apex
+        over each column, taken at the outer top edge."""
         L, U = -1.0e9, 1.0e9
         for j in _cols_near(b, band):
             far = S3_COLS[j] + S3_WALL_CELL      # the path cell's far side
-            near = S3_COLS[j] - S3_WALL_CELL     # ... and its wall side
-            L = max(L, eye - (eye - S3_CROUCH) * r_in / far)
-            U = min(U, eye - (eye - S3_STAND) * r_out / near)
+            L = max(L, eye - (eye - S3_STAND) * S3_WALL_IN / far)
+        for rho in S3_COLS:
+            U = min(U, eye - (eye - S3_APEX) * S3_WALL_OUT / rho)
         return L, U
 
     def crest(b):
-        """Crest height over the deck. The crag is spent as a fraction of the
-        room in the window, so raggedness never costs the sight line. The
-        window is taken one column step wider than the proof samples it, so
-        every column a proof sample lies between honours that sample's rows."""
+        """Crest height over the deck: S3_WALL_OVER above the standing line,
+        per column in runs, never nearer the apex line than S3_WALL_MARGIN."""
         L, U = window(b, S3_WALL_BAND_PROOF + S3_WALL_KSTEP)
         j = _s3_wall_run(_k(b), 37)
-        lo, hi = S3_WALL_CRAG
-        amp = 0.5 * (lo + _s3_wall_hash(j, 71) * (hi - lo))
-        room = max(0.0, 0.5 * (U - L) - S3_WALL_MARGIN)
-        return 0.5 * (L + U) + (2.0 * _s3_wall_hash(j, 89) - 1.0) * min(amp, room)
+        lo, hi = S3_WALL_OVER
+        h = L + S3_WALL_MARGIN + lo + _s3_wall_hash(j, 89) * (hi - lo)
+        return min(h, U - S3_WALL_MARGIN)
+
+    def chamfer(b):
+        lo, hi = S3_WALL_CHAMFER
+        return lo + _s3_wall_held(_k(b), 11) * (hi - lo)
 
     def _taper(b):
         d = min(_s3_arc(b) - u_lo, u_hi - _s3_arc(b))
         return 1.0 if d >= 0.0 else max(0.0, 1.0 + d / S3_WALL_TAPER)
 
     def height(b, rho, noise=True):
-        """Rock over DECK_Z at (bearing, station). Flat on the top, a rounded
-        shoulder down the flanks to nothing at the foot, nothing beyond."""
-        t, w, r = T(b), W(b), rc(b)
-        d = abs(rho - r)
-        if d >= w - S3_WALL_EPS:
-            return 0.0                            # at the lip: exactly deck
-        h = crest(b)
-        if d > t:
-            s = (w - d) / (w - t)                 # 1 at the top edge, 0 at the foot
-            h *= math.sin(0.5 * math.pi * s)      # rounded into the plateau
-            if noise:                                 # faces cleaved in and out,
-                face = 101 + (1 if rho > r else 0)     # each side held in its run
-                n = 2.0 * _s3_wall_hash(_s3_wall_run(_k(b), 5), face) - 1.0
-                h += S3_WALL_FACE * n * math.sin(math.pi * s)   # 0 at both ends
-        return h * _taper(b)
+        """Rock over DECK_Z at (bearing, station): nothing at the lip, the
+        crest from the inner top edge across the plateau, the chamfered
+        outer top edge, nothing from the foot out. Piecewise linear between
+        those knots, so any station reads the same rock."""
+        h = crest(b) * _taper(b)
+        knots = ((INNER_R, 0.0), (S3_WALL_IN, h), (S3_WALL_OUT - 0.10, h),
+                 (S3_WALL_OUT, h * chamfer(b)), (S3_WALL_FOOT_R, 0.0))
+        if rho <= INNER_R + S3_WALL_EPS or rho >= S3_WALL_FOOT_R - S3_WALL_EPS:
+            return 0.0
+        for (r0, h0), (r1, h1) in zip(knots, knots[1:]):
+            if r0 - S3_WALL_EPS <= rho <= r1 + S3_WALL_EPS:
+                f = (rho - r0) / (r1 - r0)
+                return h0 + (h1 - h0) * max(0.0, min(1.0, f))
+        return 0.0
 
-    return dict(crest=crest, T=T, W=W, rc=rc, window=window, height=height)
+    return dict(crest=crest, T=T, W=W, rc=rc, window=window, height=height, chamfer=chamfer)
 
 
 def _s3_layout():
@@ -3862,7 +3877,7 @@ def _s3_zone(m, ids):
         return ZONE_DECK
     if abs(n[2]) / mag >= math.cos(math.radians(S3_FLANK)):
         return ZONE_DECK
-    return ZONE_SHADE
+    return ZONE_WALLFACE
 
 
 def _s3_collider(c):
@@ -3906,6 +3921,8 @@ def _s3_patch_rects(L):
     i1 = min(i for i, t in enumerate(cols) if t >= max(ts) + mt)
     j0 = max(j for j in range(len(st)) if st[j] <= min(rs) - S3_CRACK_MARGIN)
     j1 = min(j for j in range(len(st)) if st[j] >= max(rs) + S3_CRACK_MARGIN)
+    assert st[j0] >= S3_WALL_FOOT_R - 1e-6, \
+        "s3 cracks: the deck patch would start inside the lip wall (station %.2f)" % st[j0]
     S3["patches"] = [dict(i0=i0, i1=i1, j0=j0, j1=j1, tlo=cols[i0], thi=cols[i1],
                           ci=list(range(i0, i1 + 1)))]
     return S3["patches"]
@@ -4410,23 +4427,25 @@ def _s3_prove_cover():
     apex_seen = apex_n = 0
     for i, b in enumerate(lay["rows"]):
         rp = S3_COLS[lay["spans"][i][0]]
-        hidden, seen, worst_c, worst_s = True, True, -9e9, 9e9
+        hidden, seen, worst_c, worst_s = True, True, -9e9, -9e9
         for rho in (rp - 0.9, rp, rp + 0.9):
             gx, gz = _s3_plan(b, rho)
             for h, crouched in ((S3_CROUCH, True), (S3_STAND, False)):
-                blocked, margin = _s3_sight(ob, (gx, -gz, DECK_Z + h), not crouched)
+                blocked, margin = _s3_sight(ob, (gx, -gz, DECK_Z + h), False)
                 if crouched:
                     hidden = hidden and blocked
                     worst_c = max(worst_c, margin)
                 else:
-                    seen = seen and not blocked
-                    worst_s = min(worst_s, margin)
+                    seen = seen and blocked           # "seen" now records: standing HIDDEN
+                    worst_s = max(worst_s, margin)
         out.append((b, hidden, seen, worst_c, worst_s))
         for rc in S3_COLS:                       # a launched body at its apex, feet up
             gx, gz = _s3_plan(b, rc)
             blocked, _m = _s3_sight(ob, (gx, -gz, DECK_Z + S3_APEX), True)
             apex_n += 1
             apex_seen += 0 if blocked else 1
+            if blocked:
+                print("MDL note s3 apex HIDDEN at %.2f deg r %.2f, crest %.3f" % (b, rc, wall["crest"](b)))
     fine_n = fine_c = fine_s = fine_spur = 0
     step_b = math.degrees(0.25 / S3_LANE_R)
     rows, half = lay["rows"], 0.5 * lay["step"]
@@ -4444,13 +4463,10 @@ def _s3_prove_cover():
                 fine_n += 1
                 blocked, _m = _s3_sight(ob, (gx, -gz, DECK_Z + S3_CROUCH), False)
                 fine_c += 0 if blocked else 1
-                blocked, _m = _s3_sight(ob, (gx, -gz, DECK_Z + S3_STAND), True)
-                fine_s += 1 if blocked else 0
-                if blocked and (S3_FIELD[1] - b) * math.radians(1.0) * S3_LANE_R <= S3_WALL_END_SPUR:
-                    fine_s -= 1                  # under the divider's lip spur at the 200 end
-                    fine_spur += 1
-                elif blocked:
-                    print("MDL note s3 standing body hidden at %.2f deg r %.2f (column %d), crest there %.3f, "
+                blocked, _m = _s3_sight(ob, (gx, -gz, DECK_Z + S3_STAND), False)
+                fine_s += 0 if blocked else 1
+                if not blocked:
+                    print("MDL note s3 standing body SEEN at %.2f deg r %.2f (column %d), crest there %.3f, "
                           "window %.3f..%.3f" % (b, rho, c, wall["crest"](b), *wall["window"](b)))
     return out, apex_seen, apex_n, (fine_n, fine_c, fine_s, fine_spur)
 
@@ -4589,7 +4605,7 @@ def _s3_stats():
           "rock every 0.05 m: %.3f (at %.2f deg)..%.3f m (at %.2f deg) over the deck, mean %.3f, std "
           "%.3f, %d samples outside the sight window (must be 0; %d more in the last %.2f m at the 200 end "
           "are the S3|S4 divider's own lip spur over the wall's end, unchanged), %d on the spec's crest "
-          "within 0.01 m; window (crouched line at the inner top edge .. standing line at the outer) "
+          "within 0.01 m; window (standing line at the inner top edge .. apex line at the outer) "
           "%.2f..%.2f m at the middle-column rows, %.2f..%.2f m at the inner-column rows"
           % (length, n, lo, lo_at, hi, hi_at, mean, std, bad, spur, S3_WALL_END_SPUR, on_spec,
              ws[0][0], ws[0][1], ws[-1][0], ws[-1][1]))
@@ -4617,14 +4633,12 @@ def _s3_stats():
     ok_c = sum(1 for c in cover if c[1])
     ok_s = sum(1 for c in cover if c[2])
     print("MDL STATS s3 cover: eye (0, %.2f, 0) raycast on the built rock, 3 stances x %d rows on the "
-          "path: crouched capsule (%.1f m) hidden in %d/%d rows, standing (%.1f m) seen in %d/%d; the "
-          "sight line is under the crest by >= %.3f m crouched (inner top edge), over it by "
-          ">= %.3f m standing (outer top edge); a body at a pad's apex (%.2f m up) seen in %d/%d column-rows; "
-          "every 0.25 m along the whole path, 3 stances: %d samples, crouched seen in %d, standing hidden in %d "
-          "(both must be 0; %d standing samples in the last %.2f m at the 200 end sit under the divider's lip spur)"
+          "path: crouched capsule (%.1f m) hidden in %d/%d rows, standing (%.1f m) HIDDEN in %d/%d; the "
+          "sight line to a standing top is under the crest by >= %.3f m (inner top edge); a body at a "
+          "pad's apex (%.2f m up) seen in %d/%d column-rows (must be all); every 0.25 m along the whole "
+          "path, 3 stances: %d samples, crouched seen in %d, standing seen in %d (both must be 0)"
           % (S3_EYE_Z, len(cover), S3_CROUCH, ok_c, len(cover), S3_STAND, ok_s, len(cover),
-             -max(c[3] for c in cover), min(c[4] for c in cover), S3_APEX, apex_seen, apex_n,
-             fine[0], fine[1], fine[2], fine[3], S3_WALL_END_SPUR))
+             -max(c[4] for c in cover), S3_APEX, apex_seen, apex_n, fine[0], fine[1], fine[2]))
     bad, n_deck, n_caught, n_mouth, rim, face_b, lava_b, jclear, jwho = _s3_prove_launch()
     print("MDL STATS s3 launch: %d flights land on this deck by %.2f deg, a metre short of S4's lava at "
           "%.1f deg (nearest rim %.2f m past the body); no divider catches a flight any more (%d caught, "
@@ -6812,6 +6826,31 @@ def _deck_uv(me, uvl, poly, zone, r):
         uvl.data[li].uv = (u0 + UV_PAD + s * span_u, v0 + UV_PAD + t * span_v)
 
 
+def _wallface_uv(me, uvl, poly, zone):
+    """A steep S3 wall facet: u along the wall's arc, v up its height, at
+    UV_SCALE, the window chosen by where the facet starts along the wall so
+    neighbouring facets share it; a seam only where a window runs out."""
+    u0, v0, u1, v1 = zone
+    span_u = (u1 - u0) - 2.0 * UV_PAD
+    span_v = (v1 - v0) - 2.0 * UV_PAD
+    cos = [me.vertices[me.loops[li].vertex_index].co for li in poly.loop_indices]
+    ac = math.atan2(sum(c[1] for c in cos), sum(c[0] for c in cos))
+    arcs, zs = [], []
+    for co in cos:
+        th = math.atan2(co[1], co[0])
+        th = ac + (th - ac + math.pi) % TWO_PI - math.pi
+        arcs.append(th * WALLFACE_R * UV_SCALE)
+        zs.append((co[2] - DECK_Z) * UV_SCALE)
+    lo = min(arcs)
+    ou = (lo % span_u)
+    if ou + (max(arcs) - lo) > span_u:           # the window runs out: start it over
+        ou = 0.0
+    for li, a, z in zip(poly.loop_indices, arcs, zs):
+        s = min(max(ou + (a - lo), 0.0), span_u)
+        t = min(max(z, 0.0), span_v)
+        uvl.data[li].uv = (u0 + UV_PAD + s, v0 + UV_PAD + t)
+
+
 def unwrap(ob, zones, seed=0):
     """Identical to tower_build.py's unwrap: fixed UV_SCALE texel density, no
     per-face scale reduction. Every face here is now <=3 m, so nothing needs
@@ -6836,6 +6875,9 @@ def unwrap(ob, zones, seed=0):
             continue
         if zone[0] == "deck":                    # radial/tangential, finer tiling
             _deck_uv(me, uvl, poly, zone[1:], r)
+            continue
+        if zone[0] == "wallface":                # along the wall, one window per stretch
+            _wallface_uv(me, uvl, poly, zone[1:])
             continue
         u0, v0, u1, v1 = zone
         span_u = (u1 - u0) - 2.0 * UV_PAD
@@ -7011,15 +7053,21 @@ def _s3_review(scene, shot):
     made = []
     sd = bpy.data.lights.new("ReviewSun", type="SUN")
     sd.energy, sd.color = S3_REVIEW[0], (1.0, 1.0, 1.0)
+    # No shadows from the review lights: the arena casts none (bentham_ring
+    # has no shadow caster), and the ragged crest's sun shadow lay on the deck
+    # at the wall's foot as a row of dark teeth that read as rock spilling
+    # onto the floor -- lighting, not geometry, and not the game's.
+    mdl._try(sd, "use_shadow", False)
     sun = mdl._link(bpy.data.objects.new("ReviewSun", sd))
     aim = mdl._link(bpy.data.objects.new("ReviewAim", None))
-    sun.location, aim.location = (0.0, 0.0, 110.0), pol(172.0, 52.0, DECK_Z)   # steep: short shadows off the wall
+    sun.location, aim.location = (0.0, 0.0, 110.0), pol(172.0, 52.0, DECK_Z)
     con = sun.constraints.new(type="TRACK_TO")
     con.target, con.track_axis, con.up_axis = aim, "TRACK_NEGATIVE_Z", "UP_Y"
     made += [sun, aim]
     for b in (150.0, 162.0, 174.0, 186.0, 197.0):
         ld = bpy.data.lights.new("ReviewFill", type="POINT")
         ld.energy, ld.color, ld.shadow_soft_size = 5200.0, (1.0, 1.0, 1.0), 3.0
+        mdl._try(ld, "use_shadow", False)
         f = mdl._link(bpy.data.objects.new("ReviewFill", ld))
         f.location = pol(b, 52.0, DECK_Z + 4.5)
         made.append(f)
@@ -7033,23 +7081,24 @@ def _s3_review(scene, shot):
     rows = lay["rows"]
     ex, ey = S3["deck_xy"](S3["L"]["T"](S3_EXT[0] + 0.5), S3_COLS[lay["path"][0]] + 0.3)
     tx, ty = _s3_on_path(5, 0.5)
-    shot("s3e_entry", (ex, ey, DECK_Z + EYE_H), (tx, ty, DECK_Z + 0.8), 24.0, (1500, 850))
+    shot("s3f_entry", (ex, ey, DECK_Z + EYE_H), (tx, ty, DECK_Z + 0.8), 24.0, (1500, 850))
     px, py = _s3_on_path(2, 0.6)
     qx, qy = _s3_on_path(9, 0.5)
-    shot("s3e_path", (px, py, DECK_Z + EYE_H), (qx, qy, DECK_Z + 0.9), 28.0, (1500, 850))
+    shot("s3f_path", (px, py, DECK_Z + EYE_H), (qx, qy, DECK_Z + 0.9), 28.0, (1500, 850))
     wx, wy = S3["deck_xy"](S3["L"]["T"](rows[3]), 54.0)
     ww, wv = S3["deck_xy"](S3["L"]["T"](rows[8]), lay["rho_w"][8])
-    shot("s3e_wall", (wx, wy, DECK_Z + EYE_H), (ww, wv, DECK_Z + 1.2), 30.0, (1500, 850))
+    shot("s3f_wall", (wx, wy, DECK_Z + EYE_H), (ww, wv, DECK_Z + 1.2), 30.0, (1500, 850))
     jrow = S3_JUMP_ROWS[len(S3_JUMP_ROWS) // 2]
     jx, jy = _s3_on_path(jrow - 1, 0.5)
     jump = [p for p in _s3_pads() if p["jump"] and p["row"] == jrow][0]
-    shot("s3e_jump", (jx, jy, DECK_Z + EYE_H), (jump["o"][0], -jump["o"][1], DECK_Z + 0.2),
+    shot("s3f_jump", (jx, jy, DECK_Z + EYE_H), (jump["o"][0], -jump["o"][1], DECK_Z + 0.2),
          30.0, (1500, 850))
     cx2, cy2 = S3["deck_xy"](S3["L"]["T"](rows[3]), 54.5)
     tx2, ty2 = S3["deck_xy"](S3["L"]["T"](rows[8]), 54.0)
-    shot("s3e_crack", (cx2, cy2, DECK_Z + 3.2), (tx2, ty2, DECK_Z), 28.0, (1500, 850))
-    shot("s3e_guard", (0.0, 0.0, S3_EYE_Z), pol(172.0, 52.0, DECK_Z), 35.0, (1600, 900))
-    shot("s3e_aerial", pol(172.0, 14.0, 62.0), pol(172.0, 52.0, DECK_Z), 26.0, (1600, 1000))
+    shot("s3f_crack", (cx2, cy2, DECK_Z + 3.2), (tx2, ty2, DECK_Z), 28.0, (1500, 850))
+    shot("s3f_guard", (0.0, 0.0, S3_EYE_Z), pol(172.0, 52.0, DECK_Z), 35.0, (1600, 900))
+    shot("s3f_pit", pol(158.0, 51.0, DECK_Z + 7.0), pol(176.0, 28.0, DECK_Z - 22.0), 22.0, (1500, 850))
+    shot("s3f_aerial", pol(172.0, 14.0, 62.0), pol(172.0, 52.0, DECK_Z), 26.0, (1600, 1000))
     mdl._try(scene.view_settings, "exposure", 0.0)
     for ob in made:
         bpy.data.objects.remove(ob, do_unlink=True)
@@ -7137,9 +7186,6 @@ def build():
     albedo, emissive = build_texture()
     mdl.save_texture(albedo)
     mdl.save_texture(emissive)
-    lava_albedo, lava_emissive = _sheet("lava", _lava_texture)
-    mdl.save_texture(lava_albedo)
-    mdl.save_texture(lava_emissive)
     river_albedo, river_emissive = _sheet("river", _river_texture)
     mdl.save_texture(river_albedo)
     mdl.save_texture(river_emissive)
@@ -7147,16 +7193,17 @@ def build():
     ob = rock.object(OBJECT_NAME)
     unwrap(ob, rock.zones)
     mdl.finish(ob, rock_material("HellRock", albedo, emissive), strip_uvs=False)
-    ob.data.materials.append(rock_material("LavaSea", lava_albedo, lava_emissive))
+    # The pit's sea is the atlas's own glowing cell now, the one the S3
+    # cracks show (Ryan: "use the same lava texture for the pit"), so the
+    # LavaSea sheet and its surface are gone: two surfaces, rock and river.
     ob.data.materials.append(river_material("LavaRiver", river_albedo, river_emissive))
     lava_tris = river_tris = 0
     for pi, poly in enumerate(ob.data.polygons):
         z = rock.zones[pi][0]
         if z == "lava":
-            poly.material_index = 1
             lava_tris += 1
         elif z in ("river", "fall", "river_t"):
-            poly.material_index = 2
+            poly.material_index = 1
             river_tris += 1
 
     coll_ob = coll.object(COLLIDER_NAME)

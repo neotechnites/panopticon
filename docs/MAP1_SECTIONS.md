@@ -67,10 +67,11 @@ chord vertices, so the weld is unchanged).
   fissure runs port to port, the other ports join it through T-mouths on
   its own side vertices, bridges run fissure to fissure so the crust breaks
   into plates, and dead-end splinters craze the rest, three deep, their
-  tips thrown to the emptiest ground. 42 joins, 367 fissures (4–14 a cell),
+  tips thrown to the emptiest ground. 42 joins, 379 fissures (4–14 a cell),
   12 plates of crust enclosed, one island: the deck round it is one scanfill
   polygon with one hole (each plate its own), bisected to ≤ 1.2 m edges, on
-  the grid's own vertices, no duplicate at any seam. Fissures are
+  the grid's own vertices, no duplicate at any seam, and starting at the
+  wall's foot line, never on the wall. Fissures are
   0.18–0.44 m wide at the deck, 0.14–0.26 m deep, a dark rock lip on the
   upper sides and the glowing lava cell (atlas `ZONE_GLOW`) on the lower
   sides and the floor — flush, no plate, no hairlines. The path cells are
@@ -95,21 +96,25 @@ chord vertices, so the weld is unchanged).
   tall. Feet clear it by +0.3 m at the overlap's ends with a take-off window
   of 1.6 m; the row after each is cleared in the same column, so the 7 m jump
   lands on the path.
-- **One ragged rock wall at the pit edge**, its inner foot on the lip itself,
-  runs unbroken from 145 to 200 as one arc of `map_base.glb`'s own rock — the
-  runner's RIGHT going the lap (the pit is on the right of a runner going 5°
-  → 335°); cover from the tower can only stand on the pit side. Not a smooth
-  extrusion: every 0.5 m column carries its own crag on the crest, the top
-  (0.30–0.50 m) and the foot (0.72–1.04 m) wander in runs of 1–3 columns, the
-  flanks are cleaved. The crest is spent INSIDE the window the guard's sight
-  lines cut — over the line to a crouched capsule (1.2 m) at the far side of
-  the path cell (hidden), under the line to a standing one (1.8 m) at the
-  wall side (seen) — so it stands 1.77–2.12 m where the path is the middle
-  column and 1.50–1.87 m where it is the inner column; built crest
-  1.60–2.02 m, proved by a ray down every 0.05 m of its length and by the
-  same raycasts every 0.25 m along the whole path. A pad's flight (apex
-  3.68 m) is well above it: hit a crack and you are thrown up out of cover
-  into the guard's view.
+- **One ragged rock wall at the pit edge**, rising from the lip itself on
+  its own 0.88 m footprint (r 46.70–47.58), runs unbroken from 145 to 200 as
+  one arc of `map_base.glb`'s own rock — the runner's RIGHT going the lap
+  (the pit is on the right of a runner going 5° → 335°); cover from the
+  tower can only stand on the pit side. No talus, no spread: the deck is
+  flat right up to a near-vertical face (top edge r 47.55, foot 47.58), and
+  the face is textured coherently along the wall, not a random window per
+  triangle. Ragged only above the deck: every 0.5 m column carries its own
+  crest in runs of 1–3 columns, its outer top edge chamfered 0–8 %. Ryan:
+  *"the wall is not tall enough, and the wall is like coming out from where
+  it is onto the floor and it looks stupid"* — so the crest now hides a
+  STANDING body (1.8 m) on the path from the guard's eye along the whole
+  length (the line to its top at the far side of the path cell, taken at
+  the inner top edge, plus 0.23–0.58 m), and stays under the line to every
+  crack launch's apex (3.68 m) over every column: built crest 2.30–2.87 m
+  (mean 2.58), proved by a ray down every 0.05 m of its length, by
+  raycasts every row and every 0.25 m along the whole path (standing seen
+  0/636), and every apex seen 51/51. Hit a crack and you are thrown up out
+  of cover into the guard's view; walk or crouch and you are not seen.
 - **Every launch aims forward** at the shipped 18 m/s, 8° inward of the
   tangent so a flight lands at its own radius. The last rows' flights reach
   past the section; nothing catches them now (the 204 wall is on the lip,
