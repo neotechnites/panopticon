@@ -20,9 +20,8 @@ coordinates (Blender z = Godot y) and shifted on export.
     ceiling ....... the canopy belly, y 33.0 at r 9 sagging to 32.5 at the centre,
                     eight ribs from beside each pier's landing to a keystone boss:
                     a vault
-    canopy ........ the leaf disc from the belly rim up to a lumpy crown at y 37.2,
-                    eight-lobed rim r ~11; six short thick branches out of the top
-                    ending in leaf clumps (the roof), tops ~y 39.4
+    canopy ........ the leaf disc from the belly rim up to y 34.9, eight-lobed rim
+                    r ~11, closed flat under the roof's top skin (nobody sees above it)
     roof .......... Ryan: "make the roof higher, so make it like a dome that
                     collapses in the middle where the tree is". The crown's rim
                     (r 11, y 34.1) is that collapse: from it the leaf sheet
@@ -132,23 +131,13 @@ RIB_SIDES = 6
 RIB_BAND = 1                # the belly band the rib's outer socket sits in
 RIB_PATH = [(6.15, 32.5), (4.8, 32.28), (3.2, 32.22), (2.35, 32.18)]   # (r, y) between the sockets, under the belly
 
-CANOPY = [(33.45, 0.93, 0.5), (34.1, 1.0, 1.0), (34.9, 0.97, 0.85), (35.6, 0.88, 0.7), (36.1, 0.76, 0.55),
-          (36.5, 0.61, 0.45), (36.8, 0.45, 0.35), (37.0, 0.26, 0.2)]   # (y, of R, share of the lobes): the leaf disc over the belly rim
-CANOPY_TOP_Y = 37.2
+CANOPY = [(33.45, 0.93, 0.5), (34.1, 1.0, 1.0), (34.9, 0.97, 0.85)]   # (y, of R, share of the lobes): the leaf disc over the belly rim
+CANOPY_CAP_Y = 35.2         # the disc's last ring is closed by a fan here, under the roof's top skin
 CANOPY_R = 11.0
 CANOPY_LOBES = (8, 0.12, 8, 0.0)     # (harmonic, amp) x 2: a lobe over every pier (56 verts alias anything above ~10)
-CANOPY_JITTER = (0.015, 0.1, 0.2)   # (r share, y below the crown, y in the crown) lumps
-
-ROOF_N = 6
-ROOF_SIDES = 7
-ROOF_SEGS = 2               # short branches: two segments, the twig roots in the upper one
-ROOF_BAND = 4               # the CANOPY band (rings 4..5, y 36.1..36.5, r 8.4..6.7) the branches root in
-ROOF_P = ((0.3, 36.9), (0.8, 37.0))   # (r beyond the root, y) bezier pull and tip: short, the clump sits on the crown's shoulder
-ROOF_R = (0.5, 0.48, 0.46, 0.45)   # a stub, thick to its end: its last ring is near the clump's first, no thin bridging
-ROOF_CLUMP = (1.8, 0.45)    # the end clump: radius, its centre this far over the tip (clear of the disc, top ~39.1)
-TWIG_T = 0.5                # where along the roof branch the side twig grows
-TWIG_R = 0.09
-TWIG_CLUMP = (1.0, 0.65)    # the twig's clump: radius, over the twig's end
+CANOPY_JITTER = (0.015, 0.1)        # (r share, y) lumps
+CROWN_TOP_DRAWS = 560       # the rng draws the unseen crown top's five rings made, and the
+ROOF_DRAWS = 738            # roof branches': spent still, so every later seed stays put
 
 # ---- the roof sheet: the crown carried out to the level's seam -------------
 SHEET_N = 160               # verts per sheet ring: the rim's 56 zip up to it, the seam's 240 down from it
@@ -188,11 +177,10 @@ SHEET_LOBE_OUT = 16.0       # the crown's rim is eight-lobed and reaches r 12.5 
                             # rim's OWN lobe and fade it out by this radius: the first band is
                             # then the same width all the way round, it never leans back, and
                             # the crown's shape runs on into the roof instead of stopping at it.
-SHEET_TOP = ((12.8, 40), (16.0, 40), (21.0, 48), (27.0, 48),
-             (34.0, 56), (41.0, 60), (44.5, 80))   # (r, verts) the top skin's rings: coarse,
-                            # but no band over SHEET_ASPECT and none of them near-vertical
-                            # where the crown's lobed shoulder reaches out to r 11.8
-                            # (0.96 m of radius between them at worst)
+SHEET_TOP = ((12.8, 40), (16.0, 40), (21.0, 48), (27.0, 48), (32.0, 56))   # (r, verts) the top
+                            # skin's rings: coarse, no band over SHEET_ASPECT, none near-vertical
+SHEET_TOP_MATCH = 34.0      # past this radius the thinning top skin rides the underside's own
+                            # rings, so it stays above it vertex for vertex into the seam
 SHEET_CLUMPS = 16           # leaf masses hung from the sheet's own quads
 SHEET_CLUMP_R = (1.0, 1.8)
 SHEET_CLUMP_HANG = (0.30, 0.55)
@@ -1203,14 +1191,15 @@ def _margin(poly, p):
 
 def _weld_pts(m, quads, pts, along, zone, tag):
     """Weld an explicit ring (points on or near the patch, slid along ``along``
-    onto its plane) into a patch of quads, plus the proof that it landed inside
-    the patch: the margin (in the patch plane) is kept for the --check report."""
+    onto its plane; ``along`` None keeps them where they are) into a patch of quads, plus the
+    proof that it landed inside the patch: the margin (in the patch plane) is kept for --check."""
     loop = _loop_of(m, quads)
     if len(quads) == 1:
         plane = plane_of(m, quads[0])
     else:
         plane = (m.centroid([i for q in quads for i in q]), norm(_newell([m.verts[i] for i in quads[0]])))
-    pts = project_ring(pts, along, plane)
+    if along is not None:
+        pts = project_ring(pts, along, plane)
     ids = [m.v(p) for p in pts]
     m.socket(quads, ids, zone)
     n = plane[1]
@@ -1276,7 +1265,7 @@ def _trunk(m, r):
 def _canopy(m, r):
     """The belly (the room's ceiling: round rings sagging to the centre, a
     keystone boss hanging there), then the leaf disc from the belly rim out
-    and up over the lobed rim to the crown. Returns (belly, boss, disc rings)."""
+    and up over the lobed rim, closed flat. Returns (belly, boss, disc rings)."""
     n = CANOPY_N
     belly = [_circle(m, rad, y, n) for (rad, y) in BELLY]
     loft(m, belly, "shade", want_fn=lambda c: DOWN)
@@ -1284,21 +1273,18 @@ def _canopy(m, r):
     zipper(m, belly[-1], boss[0], DOWN, "shade")
     loft(m, boss, "bark", want_fn=lambda c: (c[0], c[1], -1.2))
     _cap(m, boss[-1], (0.0, 0.0, BOSS_Y), DOWN, "bark")
-    jr, jy, jc = CANOPY_JITTER
+    jr, jy = CANOPY_JITTER
     disc = [belly[0]]
-    for i, (y, frac, share) in enumerate(CANOPY):
+    for (y, frac, share) in CANOPY:
         ring = []
         for s in range(n):
             th = _canopy_theta(s)
-            sock = ROOF_BAND <= i <= ROOF_BAND + 1        # the branches' socket band: regular, so the rings land inside
-            rr = _canopy_R(th, share) * frac * (1.0 + (0.0 if sock else jr) * r.sf())
-            ring.append(m.v((rr * math.cos(th), rr * math.sin(th), y + (0.04 if sock else jc if i > ROOF_BAND + 1 else jy) * r.sf())))
+            rr = _canopy_R(th, share) * frac * (1.0 + jr * r.sf())
+            ring.append(m.v((rr * math.cos(th), rr * math.sin(th), y + jy * r.sf())))
         disc.append(ring)
-    out_up = lambda c: (c[0], c[1], 0.4 * math.hypot(c[0], c[1]))
+    _spend(r, CROWN_TOP_DRAWS)
     loft(m, disc[:3], "shade", want_fn=lambda c: (c[0], c[1], -0.3 * math.hypot(c[0], c[1])))   # the skirt under the rim
-    loft(m, disc[3:6], "leaf", want_fn=out_up)   # band (2,3) is the sheet's top skin: see _sheet
-    loft(m, disc[5:], "sun", want_fn=out_up)   # the crown, lit
-    _cap(m, disc[-1], (0.0, 0.0, CANOPY_TOP_Y), UP, "sun")
+    _cap(m, disc[3], (0.0, 0.0, CANOPY_CAP_Y), UP, "leaf")   # band (2,3) is the sheet's two skins: see _sheet
     return belly, boss, disc
 
 
@@ -1429,46 +1415,12 @@ def _rib(m, r, k, belly, boss):
          first_ring=first, last_ring=last)
 
 
-# ---- roof -------------------------------------------------------------------
+# ---- what was removed -------------------------------------------------------
 
-def _clump(m, ring, centre, radius, zone, r):
-    clump_end(m, _by_azimuth(m, ring, centre), centre, radius, zone, r, wob=0.18)
-
-
-def _roof(m, r, disc):
-    """ROOF_N short thick branches out of sockets in the canopy top's ROOF_BAND,
-    leaning out and up, each ending in a leaf clump; one side twig each,
-    ending in a smaller clump: the crown's lumps."""
-    outer, inner = disc[ROOF_BAND + 1], disc[ROOF_BAND + 2]
-    n = CANOPY_N
-    for k in range(ROOF_N):
-        b = k * 360.0 / ROOF_N + 30.0 + r.u(-6.0, 6.0)
-        v = int(round(-b / 360.0 * n - 0.5)) % n
-        b = -math.degrees(_canopy_theta(v))     # snapped to the band's vertex
-        patch = _patch(m, outer, inner, [(v - 1) % n, v])
-        root = _patch_centre(m, patch)
-        rr = math.hypot(root[0], root[1])
-        pull = pol(b, rr + ROOF_P[0][0], ROOF_P[0][1])
-        tip = pol(b + r.u(-2.0, 2.0), rr + ROOF_P[1][0], ROOF_P[1][1])   # near enough straight up that the socket ring stays round
-        path = bez(root, pull, tip, ROOF_SEGS)
-        first = _weld(m, patch, path, ROOF_R[0], ROOF_SIDES, "leaf", True, "roof branch")
-        rings = tube(m, path, ROOF_R, ROOF_SIDES, "bark", caps=(False, False), wob=0.06, rng=r, first_ring=first)
-        _clump(m, rings[-1], add(tip, UP, ROOF_CLUMP[1]), ROOF_CLUMP[0], "sun", r)
-        # the side twig: out of the branch's side, bending up, widened to six for its clump
-        seg = int(round(TWIG_T * ROOF_SEGS))
-        axis = _seg_axis(m, rings, seg)
-        want = tangent(b) if r.f() < 0.5 else (-tangent(b)[0], -tangent(b)[1], 0.0)   # a tangential side: its normal is level, so the twig leaves sideways, not down into the leaves
-        tp = _patch_mid(m, rings[seg], rings[seg + 1], _facing(m, rings, seg, want, 3))   # centred on a side: the ring sits flat on it
-        troot = _patch_centre(m, tp)
-        out = norm(sub(troot, axis))
-        tpath = [troot, add(troot, out, 0.35), add(add(troot, out, 0.55), UP, 0.45), add(add(troot, out, 0.6), UP, 0.95)]
-        tfirst = _weld(m, tp, tpath, TWIG_R, 4, "bark", True, "twig")
-        trings = tube(m, tpath, (TWIG_R, TWIG_R * 0.8, TWIG_R * 0.6), 4, "bark", caps=(False, False), first_ring=tfirst)
-        end = tpath[-1]
-        six = [m.v((end[0] + 0.45 * math.cos(_canopy_theta(s, 6)), end[1] + 0.45 * math.sin(_canopy_theta(s, 6)), end[2] + 0.12))
-               for s in range(6)]     # r 0.45: near enough the clump's first ring that no bridging triangle goes thin
-        zipper(m, six, _by_azimuth(m, trings[-1], end), UP, "sun", centre=end)
-        _clump(m, six, add(end, UP, TWIG_CLUMP[1]), TWIG_CLUMP[0], "sun", r)
+def _spend(r, n):
+    """Draw n numbers and drop them: what a removed part drew, so later seeds stay put."""
+    for _ in range(n):
+        r.n()
 
 
 # ---- the roof sheet: the crown becomes the ravine's roof --------------------
@@ -1682,8 +1634,8 @@ def _sheet(m, r, disc):
     for vertex: the level's roof carries on from these exact floats. The dome
     climbs the whole way, so it is the RIM that is the low point and the seam
     the high one, and every band is measured against a fold, not a sag.
-    A coarse top skin runs back from the same seam ring into the crown, taking
-    over the crown's first top band, so the sheet is a closed leaf mass: every
+    A coarse top skin runs back from the same seam ring into the crown, closing
+    on the disc's last ring, so the sheet is a closed leaf mass: every
     edge still carries two faces. Returns (underside rings, seam ids, field)."""
     f = _field(r)
     zone = _canopy_zone(f)
@@ -1701,16 +1653,18 @@ def _sheet(m, r, disc):
     loft(m, rings, zone, want_fn=lambda c: DOWN)
     zipper(m, rings[-1], seam, DOWN, zone)
     top = []
-    for (rad, n) in SHEET_TOP:
+    grid = [(rad, n) for (rad, n) in SHEET_TOP] + [(rad, SHEET_N) for (rad, _z, _a) in SHEET_RINGS[1:-1] if rad >= SHEET_TOP_MATCH]
+    for (rad, n) in grid:
         ring = []
         for s in range(n):
             th = _canopy_theta(s, n)
-            ring.append(m.v((rad * math.cos(th), rad * math.sin(th), _sheet_top_z(f, rad, th))))
+            rr = _sheet_r(rad, th) if n == SHEET_N else rad
+            ring.append(m.v((rr * math.cos(th), rr * math.sin(th), _sheet_top_z(f, rr, th))))
         top.append(ring)
-    zipper(m, disc[3], top[0], DOWN, "leaf")      # the top skin wants DOWN with the sheet: nothing is ever
-    for i in range(len(top) - 1):                 # above it in play, and a view from over the ravine culls it
-        zipper(m, top[i], top[i + 1], DOWN, "leaf")
-    zipper(m, top[-1], seam, DOWN, "leaf")
+    zipper(m, disc[3], top[0], UP, "leaf")        # the leaf mass's top: it faces out, up, like the rest of it
+    for i in range(len(top) - 1):
+        zipper(m, top[i], top[i + 1], UP, "leaf")
+    zipper(m, top[-1], seam, UP, "leaf")
     _PROOF["bands"] = (("under", [disc[2]] + rings + [seam]), ("top", [disc[3]] + top + [seam]))
     return rings, seam, f
 
@@ -1753,6 +1707,21 @@ def _socket_loop(m, quads, sides, shrink, ex=None, along=None):
     return out
 
 
+def _on_patch(m, quads, p):
+    """p dropped plumb onto the patch's own triangles (unchanged if it misses them)."""
+    for q in quads:
+        for fi in m.quads[frozenset(q)]:
+            a, b, c = (m.verts[i] for i in m.faces[fi])
+            d = (b[1] - c[1]) * (a[0] - c[0]) + (c[0] - b[0]) * (a[1] - c[1])
+            if abs(d) < 1e-12:
+                continue
+            u = ((b[1] - c[1]) * (p[0] - c[0]) + (c[0] - b[0]) * (p[1] - c[1])) / d
+            v = ((c[1] - a[1]) * (p[0] - c[0]) + (a[0] - c[0]) * (p[1] - c[1])) / d
+            if u >= -1e-9 and v >= -1e-9 and u + v <= 1.0 + 1e-9:
+                return (p[0], p[1], u * a[2] + v * b[2] + (1.0 - u - v) * c[2])
+    return p
+
+
 def _fit(z, radius, squash):
     """The largest clump radius that still hangs clear of LEAF_FLOOR."""
     return max(0.35, min(radius, (z - LEAF_FLOOR) / squash))
@@ -1770,7 +1739,28 @@ def _hung(m, r, last_ring, end, centre, radius, zone, squash=CLUMP_SQUASH):
                    centre[1] + 0.45 * radius * math.sin(a0 + 2.0 * math.pi * (s + 0.5) / n), end[2]))
               for s in range(n)]      # half a step off the tube's own ring: the zipper never ties
     zipper(m, collar, ring, UP if end[2] > centre[2] else DOWN, zone, centre=end)
-    clump_end(m, collar, centre, radius, zone, r, squash=squash, wob=0.2)
+    _ball_under(m, r, collar, centre, radius, zone, squash)
+
+
+def _ball_under(m, r, collar, centre, radius, zone, squash, wob=0.2):
+    """The clump hung below its collar: rings down a squashed ball on the collar's own
+    bearings (no twist, no fold back over the collar), a fan under it; clump_end's draws."""
+    n = len(collar)
+    az = [math.atan2(m.verts[v][1] - centre[1], m.verts[v][0] - centre[0]) for v in collar]
+    rings = [list(collar)]
+    for lat in (10.0, -22.0, -48.0, -72.0):
+        cl, sl = math.cos(math.radians(lat)), math.sin(math.radians(lat))
+        ring = []
+        for s in range(n):
+            a = az[s] + 0.25 * math.pi / n * r.sf()
+            rr = radius * (1.0 + wob * r.sf())
+            ring.append(m.v((centre[0] + rr * cl * math.cos(a), centre[1] + rr * cl * math.sin(a), centre[2] + rr * sl * squash)))
+        rings.append(ring)
+    loft(m, rings, zone, want_fn=lambda c: sub(c, centre))
+    bot = m.v((centre[0], centre[1], centre[2] - radius * squash * (1.0 + wob * r.sf())))
+    for s in range(n):
+        q = (s + 1) % n
+        m.tri(bot, rings[-1][s], rings[-1][q], DOWN, zone)
 
 
 def _sheet_clumps(m, r, rings):
@@ -1798,9 +1788,9 @@ def _sheet_clumps(m, r, rings):
         top = centre[2] + 0.55 * crad * CLUMP_SQUASH
         er = norm((c[0], c[1], 0.0))
         et = (-er[1], er[0], 0.0)
-        foot = _socket_loop(m, quads, STEM_SIDES, STEM_IN, ex=er, along=DOWN)
-        ring0 = _weld_pts(m, quads, foot, DOWN, "shade", "sheet clump")
-        neck = _oval((c[0], c[1], top), er, et, (STEM_R, STEM_R), STEM_SIDES)
+        foot = [_on_patch(m, quads, q) for q in _socket_loop(m, quads, STEM_SIDES, STEM_IN, ex=er, along=DOWN)]
+        ring0 = _weld_pts(m, quads, foot, None, "shade", "sheet clump")   # on the leaves, not a plane: a creased patch never folds
+        neck = _oval((c[0], c[1], top), er, (-et[0], -et[1], 0.0), (STEM_R, STEM_R), STEM_SIDES)   # wound as the foot: no twist
         mid = [lerp(m.verts[ring0[k]], neck[k], 0.62) for k in range(STEM_SIDES)]
         srings = [ring0, [m.v(q) for q in mid], [m.v(q) for q in neck]]
         loft(m, srings, "bark", want_fn=lambda q: (q[0] - c[0], q[1] - c[1], 0.0))
@@ -1823,7 +1813,7 @@ def build_tree_geometry():
         _arch(m, r, k, piers)
         _rail(m, r, k, piers)
         _rib(m, r, k, belly, boss)
-    _roof(m, r, disc)
+    _spend(r, ROOF_DRAWS)
     _PROOF["first_new"] = len(m.verts)
     sheet, seam, field = _sheet(m, r, disc)
     _PROOF["first_limb"] = len(m.verts)
@@ -1832,7 +1822,7 @@ def build_tree_geometry():
     _PROOF["new"] = [m.verts[i] for i in range(_PROOF["first_new"], len(m.verts))]
     _PROOF["skin"] = [m.verts[i] for i in range(_PROOF["first_new"], _PROOF["first_limb"])]
     # Everything the build made before the sheet -- trunk, floor, rim, piers,
-    # arches, rails, belly, boss, ribs, canopy disc, roof branches -- as it
+    # arches, rails, belly, boss, ribs, canopy disc -- as it
     # stands in the finished mesh, every socket carved in it included. Nothing
     # above the crown may move one float of it: this is the proof that it did not.
     _PROOF["limbs"] = [m.verts[i] for i in range(_PROOF["first_limb"], len(m.verts))]
@@ -2099,7 +2089,7 @@ def _check():
         was_v, was_f = pickle.load(open("/tmp/tree_pre_sheet_before.pkl", "rb"))
         same = (was_v == pre_v) and ([(tuple(f), z) for (f, z) in was_f] == pre_f)
         print("PRESHEET_IDENTICAL %s (%d verts, %d tris: trunk, floor, rim, piers, arches,"
-              " rails, belly, boss, ribs, canopy disc, roof branches)"
+              " rails, belly, boss, ribs, canopy disc)"
               % ("ok" if same else "CHANGED", len(pre_v), len(pre_f)))
     except IOError:
         print("PRESHEET_IDENTICAL no baseline (%d verts, %d tris)" % (len(pre_v), len(pre_f)))
