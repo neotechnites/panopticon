@@ -10,13 +10,6 @@
 [ext_resource type="PackedScene" path="res://assets/models/marble.glb" id="10_map_model"]
 [ext_resource type="PackedScene" path="res://scenes/ring/marble_portal.tscn" id="19_portal"]
 [ext_resource type="PackedScene" path="res://assets/models/marble_bars.glb" id="20_marble_bars"]
-[ext_resource type="PackedScene" path="res://scenes/ring/demon_pad.tscn" id="23_demon_pad_scene"]
-[ext_resource type="PackedScene" path="res://scenes/ring/speed_powerup.tscn" id="24_speed_powerup_scene"]
-[ext_resource type="PackedScene" path="res://assets/models/marble_column.glb" id="30_column"]
-[ext_resource type="PackedScene" path="res://assets/models/marble_column_broken.glb" id="31_column_broken"]
-[ext_resource type="PackedScene" path="res://assets/models/marble_arch.glb" id="32_arch"]
-[ext_resource type="PackedScene" path="res://scenes/ring/marble_spike_patch.tscn" id="33_spike_patch"]
-[ext_resource type="PackedScene" path="res://scenes/ring/marble_spike_strip.tscn" id="34_spike_strip"]
 
 [sub_resource type="Environment" id="Env"]
 background_mode = 1
@@ -29,7 +22,7 @@ tonemap_mode = 1
 [node name="Marble" type="Node3D"]
 editor_description = "MAP 2, MARBLE: the Bentham drawing in white marble, one closed rotunda built on assets/models/marble.glb. The GROUND FLOOR is at y -1.0 and is covered in marble spikes from the tower's foot out to the wall. The running lane is a GALLERY WALKWAY, an annulus r 46.7..59.55 at y 23.0 whose inner edge is open: no rail, no trough, a 24 m drop onto the spikes. Its outer edge is the wall of cells: seven tiers of barred cells, three below the walkway and four above it (tier bases -1, 7, 15, 23, 31, 39, 47), a wall top at 55, a dome springing at 57.8 and closing at an apex of 84.8. The model ships its own collision, so this scene adds no geometry: only the tower, the two lethal volumes, the light and the markers.
 
-A prisoner runs one 340 deg lap at r 52 from 5 deg to the portal at 345 deg; the bars (a scene node, as on Map 1) close the walkway at 353 deg between finish and start. Both fixtures are THIS map's own: marble_bars.glb and marble_portal.glb, built in the rotunda's architecture off the same atlas, where Map 1's hell-rock pair read as a different game. Off the walkway there is nothing to stand on until the spikes, and SpikeFloor kills before a body reaches them; KillBox below the ground floor catches anything that fell through the world.
+A prisoner runs one 340 deg lap at r 52 from 5 deg to the portal at 345 deg. THE LANE IS BARE (Ryan, 2026-09-22: \"for the marble level, can you just get rid of all the elements on the ring? just so it looks good for screenshots and trailers and stuff\"): the obstacle course -- 71 placed instances, columns, broken columns, arches, spike patches and strips, pads, the orbs -- came off, and nothing stands on the 340 deg run now but the portal at the finish. The bars at 353 deg stayed, behind the finish and out of every shot of the lane, because the bake and the harness proved them structural rather than scenery: see the Bars node. The models the course used are still in assets/models/; only this scene changed. Off the walkway there is nothing to stand on until the spikes, and SpikeFloor kills before a body reaches them; KillBox below the ground floor catches anything that fell through the world.
 
 The light is the tower's: one shadowed, SOFT gold omni under the arcade throws its beams out through the tower's arches round the gallery and down the drop, over a cool grey ambient. It is wide (2.4 m), low-energy and nearly flat in falloff, so there is no hot spot in the room and the far wall is lit within a stop of the floor. No sun, no sky, no oculus."
 
@@ -69,7 +62,7 @@ depth_metres = 26.5
 [node name="Shape" type="CollisionShape3D" parent="SpikeFloor"]
 
 [node name="StartEnd" type="Node3D" parent="."]
-editor_description = "One level, one lap: start at 5 deg and finish at 345 deg on the lane at y 23.0, the bars at 353 deg between them."
+editor_description = "One level, one lap: start at 5 deg and finish at 345 deg on the lane at y 23.0, the bars at 353 deg between them. Nothing else stands on the run: with the course gone it is 340 deg of clear gallery from the start to the gate."
 
 [node name="PrisonerStart" type="Marker3D" parent="StartEnd"]
 editor_description = "5.0 deg on the lane, y 23.0: the model's lane surface exactly. Its ANGLE places the field -- MatchController deals bodies radially across the lane from here at start_line_spacing_metres -- and its height is load-bearing."
@@ -83,278 +76,27 @@ transform = Transform3D(0.965926, 0, 0.258819, 0, 1, 0, -0.258819, 0, 0.965926, 
 editor_description = "The finish at 345 deg. scenes/ring/marble_portal.tscn -- portal.tscn node for node, the same Glow and the same Gate in the finish_gate group, with the marble surround in place of the hell-rock arch and the portal's own effect surface unchanged inside it. Local Z is the pass-through axis along the run, local X the span across the lane."
 transform = Transform3D(0.965926, 0, 0.258819, 0, 1, 0, -0.258819, 0, 0.965926, 50.2281, 23, -13.4586)
 
+
 [node name="Bars" parent="." instance=ExtResource("20_marble_bars")]
-editor_description = "Bars across the lane at 353 deg, in the gap between finish (345) and start (5), so the finish is visible from the start but not walkable back to: with a finish gate in the scene, standing in it is the win. assets/models/marble_bars.glb: an iron portcullis in a marble frame in the rotunda's own architecture -- ashlar plinth, fluted pilaster jambs, a 6.00 x 6.20 m mouth under a semicircular head, a cornice moulding -- the iron the same near-black as the cell bars. It keeps rock_bars.glb's envelope exactly (10.6 x 8.5 m, origin the base centre) and its guarantee that no gap anywhere exceeds 0.38 m, so the swap is the model and nothing else. Local X (10.6 m) runs radially across the lane, local Z along it."
+editor_description = "Bars across the walkway at 353 deg, in the gap between finish (345) and start (5), and the ONE fixture that survived the clearing of the lane (Ryan, 2026-09-22: \"get rid of all the elements on the ring\") -- because the bake and the harness say it is not decoration. With a finish gate in the scene, standing in it is the win (MatchLapTracker: no checkpoints), so without these bars RingBake links PrisonerStart to PrisonerEnd the SHORT way round, 18.06 m backwards through this gap instead of 288.15 m forwards, and a bot runner walks straight to the portal: 7 of 10 harness matches went unresolved at 101-129 one-shot rounds. With them, 10 of 10 resolve. They stand outside the 340 deg run, behind the finish, so they are in no shot of the lane. assets/models/marble_bars.glb: an iron portcullis in a marble frame in the rotunda's own architecture -- ashlar plinth, fluted pilaster jambs, a 6.00 x 6.20 m mouth under a semicircular head, a cornice moulding -- the iron the same near-black as the cell bars. It keeps rock_bars.glb's envelope exactly (10.6 x 8.5 m, origin the base centre) and its guarantee that no gap anywhere exceeds 0.38 m. Local X (10.6 m) runs radially across the lane, local Z along it."
 transform = Transform3D(0.992546, 0, 0.121869, 0, 1, 0, -0.121869, 0, 0.992546, 51.6124, 23, -6.33721)
 
-[node name="Sections" type="Node3D" parent="."]
-editor_description = "The course: six stretches with a rest pocket between, laid on the walkway as placed instances and written up in docs/maps/marble.md under Course."
+[node name="Watch" type="Node3D" parent="."]
+editor_description = "Where the AI guard's scan rests when it has nothing remembered: five points spread round the lap, so the crosshair sweeps the lane instead of staring at one bearing. Markers only -- nothing is drawn and nothing collides. They are all the Sections node left behind when the course came off the lane (Ryan, 2026-09-22: \"for the marble level, can you just get rid of all the elements on the ring?\"), kept because they are not an element ON the ring: deleting them would change how the guard plays, which is not what was asked. Named by bearing now that there are no stretches to name them after."
 
-[node name="S0_Start" type="Node3D" parent="Sections"]
-editor_description = "Start pocket 5-14 deg: one broken column at the wall, the first shade on the lap."
-
-[node name="Broken_0010p0" parent="Sections/S0_Start" instance=ExtResource("31_column_broken")]
-transform = Transform3D(0.984808, 0, -0.173648, 0, 1, 0, 0.173648, 0, 0.984808, 55.1492, 23, 9.7243)
-
-[node name="S1_Arcade" type="Node3D" parent="Sections"]
-editor_description = "14-70 deg, THE ARCADE: seven arches broadside at r 50 stripe the outer lane with full-height cover and slit it with their own windows, with three spike patches in the deep end and the open lip inboard of them."
-
-[node name="Arch_0020p0" parent="Sections/S1_Arcade" instance=ExtResource("32_arch")]
-transform = Transform3D(-0.34202, 0, -0.939693, 0, 1, 0, 0.939693, 0, -0.34202, 46.9846, 23, 17.101)
-
-[node name="Arch_0028p0" parent="Sections/S1_Arcade" instance=ExtResource("32_arch")]
-transform = Transform3D(-0.469472, 0, -0.882948, 0, 1, 0, 0.882948, 0, -0.469472, 44.1474, 23, 23.4736)
-
-[node name="Arch_0036p0" parent="Sections/S1_Arcade" instance=ExtResource("32_arch")]
-transform = Transform3D(-0.587785, 0, -0.809017, 0, 1, 0, 0.809017, 0, -0.587785, 40.4508, 23, 29.3893)
-
-[node name="Arch_0044p0" parent="Sections/S1_Arcade" instance=ExtResource("32_arch")]
-transform = Transform3D(-0.694658, 0, -0.71934, 0, 1, 0, 0.71934, 0, -0.694658, 35.967, 23, 34.7329)
-
-[node name="Arch_0052p0" parent="Sections/S1_Arcade" instance=ExtResource("32_arch")]
-transform = Transform3D(-0.788011, 0, -0.615661, 0, 1, 0, 0.615661, 0, -0.788011, 30.7831, 23, 39.4005)
-
-[node name="Arch_0060p0" parent="Sections/S1_Arcade" instance=ExtResource("32_arch")]
-transform = Transform3D(-0.866025, 0, -0.5, 0, 1, 0, 0.5, 0, -0.866025, 25, 23, 43.3013)
-
-[node name="Arch_0068p0" parent="Sections/S1_Arcade" instance=ExtResource("32_arch")]
-transform = Transform3D(-0.927184, 0, -0.374607, 0, 1, 0, 0.374607, 0, -0.927184, 18.7303, 23, 46.3592)
-
-[node name="Spikes_0028p0" parent="Sections/S1_Arcade" instance=ExtResource("33_spike_patch")]
-transform = Transform3D(0.882948, 0, -0.469472, 0, 1, 0, 0.469472, 0, 0.882948, 49.8865, 23, 26.5251)
-
-[node name="Spikes_0044p0" parent="Sections/S1_Arcade" instance=ExtResource("33_spike_patch")]
-transform = Transform3D(0.71934, 0, -0.694658, 0, 1, 0, 0.694658, 0, 0.71934, 40.6427, 23, 39.2482)
-
-[node name="Spikes_0060p0" parent="Sections/S1_Arcade" instance=ExtResource("33_spike_patch")]
-transform = Transform3D(0.5, 0, -0.866025, 0, 1, 0, 0.866025, 0, 0.5, 28.25, 23, 48.9304)
-
-[node name="P1_Pocket" type="Node3D" parent="Sections"]
-editor_description = "Rest pocket 70-78 deg."
-
-[node name="Broken_0074p0" parent="Sections/P1_Pocket" instance=ExtResource("31_column_broken")]
-transform = Transform3D(0.275637, 0, -0.961262, 0, 1, 0, 0.961262, 0, 0.275637, 14.3331, 23, 49.9856)
-
-[node name="S2_Ledge" type="Node3D" parent="Sections"]
-editor_description = "78-130 deg, THE LEDGE: six spiked thresholds shut the wall side, so the run is pinned to the open inner edge over the drop with three columns for cover."
-
-[node name="Strip_0082p0" parent="Sections/S2_Ledge" instance=ExtResource("34_spike_strip")]
-transform = Transform3D(0.139173, 0, -0.990268, 0, 1, 0, 0.990268, 0, 0.139173, 7.79369, 23, 55.455)
-
-[node name="Strip_0090p0" parent="Sections/S2_Ledge" instance=ExtResource("34_spike_strip")]
-transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 0, 23, 56)
-
-[node name="Strip_0098p0" parent="Sections/S2_Ledge" instance=ExtResource("34_spike_strip")]
-transform = Transform3D(-0.139173, 0, -0.990268, 0, 1, 0, 0.990268, 0, -0.139173, -7.79369, 23, 55.455)
-
-[node name="Strip_0114p0" parent="Sections/S2_Ledge" instance=ExtResource("34_spike_strip")]
-transform = Transform3D(-0.406737, 0, -0.913545, 0, 1, 0, 0.913545, 0, -0.406737, -22.7773, 23, 51.1585)
-
-[node name="Strip_0122p0" parent="Sections/S2_Ledge" instance=ExtResource("34_spike_strip")]
-transform = Transform3D(-0.529919, 0, -0.848048, 0, 1, 0, 0.848048, 0, -0.529919, -29.6755, 23, 47.4907)
-
-[node name="Strip_0106p0" parent="Sections/S2_Ledge" instance=ExtResource("34_spike_strip")]
-transform = Transform3D(-0.275637, 0, -0.961262, 0, 1, 0, 0.961262, 0, -0.275637, -15.2979, 23, 53.35)
-
-[node name="Column_0086p0" parent="Sections/S2_Ledge" instance=ExtResource("30_column")]
-transform = Transform3D(0.0697565, 0, -0.997564, 0, 1, 0, 0.997564, 0, 0.0697565, 3.41807, 23, 48.8806)
-
-[node name="Column_0094p0" parent="Sections/S2_Ledge" instance=ExtResource("30_column")]
-transform = Transform3D(-0.0697565, 0, -0.997564, 0, 1, 0, 0.997564, 0, -0.0697565, -3.41807, 23, 48.8806)
-
-[node name="Column_0118p0" parent="Sections/S2_Ledge" instance=ExtResource("30_column")]
-transform = Transform3D(-0.469472, 0, -0.882948, 0, 1, 0, 0.882948, 0, -0.469472, -23.0041, 23, 43.2644)
-
-[node name="Orb_0100p0" parent="Sections/S2_Ledge" instance=ExtResource("24_speed_powerup_scene")]
-transform = Transform3D(-0.173648, 0, -0.984808, 0, 1, 0, 0.984808, 0, -0.173648, -8.50876, 23.2, 48.2556)
-
-[node name="P2_Pocket" type="Node3D" parent="Sections"]
-editor_description = "Rest pocket 130-138 deg."
-
-[node name="Broken_0134p0" parent="Sections/P2_Pocket" instance=ExtResource("31_column_broken")]
-transform = Transform3D(-0.694658, 0, -0.71934, 0, 1, 0, 0.71934, 0, -0.694658, -36.1222, 23, 37.4057)
-
-[node name="S3_Ruin" type="Node3D" parent="Sections"]
-editor_description = "138-195 deg, THE RUIN: five heaps staggered across the width, one column still standing between two stumps -- shelter you cross to, not along."
-
-[node name="Broken_0142p5" parent="Sections/S3_Ruin" instance=ExtResource("31_column_broken")]
-transform = Transform3D(-0.793463, 0, -0.608619, 0, 1, 0, 0.608619, 0, -0.793463, -39.6731, 23, 30.4309)
-
-[node name="Column_0144p0" parent="Sections/S3_Ruin" instance=ExtResource("30_column")]
-transform = Transform3D(-0.809017, 0, -0.587785, 0, 1, 0, 0.587785, 0, -0.809017, -40.4508, 23, 29.3893)
-
-[node name="Broken_0145p5" parent="Sections/S3_Ruin" instance=ExtResource("31_column_broken")]
-transform = Transform3D(-0.824024, 0, -0.566555, 0, 1, 0, 0.566555, 0, -0.824024, -41.2012, 23, 28.3277)
-
-[node name="Broken_0152p7" parent="Sections/S3_Ruin" instance=ExtResource("31_column_broken")]
-transform = Transform3D(-0.88828, 0, -0.459302, 0, 1, 0, 0.459302, 0, -0.88828, -49.2996, 23, 25.4913)
-
-[node name="Column_0154p0" parent="Sections/S3_Ruin" instance=ExtResource("30_column")]
-transform = Transform3D(-0.898794, 0, -0.438371, 0, 1, 0, 0.438371, 0, -0.898794, -49.8831, 23, 24.3296)
-
-[node name="Broken_0155p3" parent="Sections/S3_Ruin" instance=ExtResource("31_column_broken")]
-transform = Transform3D(-0.908815, 0, -0.4172, 0, 1, 0, 0.4172, 0, -0.908815, -50.4392, 23, 23.1546)
-
-[node name="Broken_0162p5" parent="Sections/S3_Ruin" instance=ExtResource("31_column_broken")]
-transform = Transform3D(-0.953611, 0, -0.30104, 0, 1, 0, 0.30104, 0, -0.953611, -46.727, 23, 14.751)
-
-[node name="Column_0164p0" parent="Sections/S3_Ruin" instance=ExtResource("30_column")]
-transform = Transform3D(-0.961262, 0, -0.275637, 0, 1, 0, 0.275637, 0, -0.961262, -47.1018, 23, 13.5062)
-
-[node name="Broken_0165p5" parent="Sections/S3_Ruin" instance=ExtResource("31_column_broken")]
-transform = Transform3D(-0.968235, 0, -0.25004, 0, 1, 0, 0.25004, 0, -0.968235, -47.4435, 23, 12.252)
-
-[node name="Broken_0172p6" parent="Sections/S3_Ruin" instance=ExtResource("31_column_broken")]
-transform = Transform3D(-0.991718, 0, -0.128438, 0, 1, 0, 0.128438, 0, -0.991718, -53.5527, 23, 6.93566)
-
-[node name="Column_0174p0" parent="Sections/S3_Ruin" instance=ExtResource("30_column")]
-transform = Transform3D(-0.994522, 0, -0.104528, 0, 1, 0, 0.104528, 0, -0.994522, -53.7042, 23, 5.64454)
-
-[node name="Broken_0175p4" parent="Sections/S3_Ruin" instance=ExtResource("31_column_broken")]
-transform = Transform3D(-0.99675, 0, -0.0805583, 0, 1, 0, 0.0805583, 0, -0.99675, -53.8245, 23, 4.35015)
-
-[node name="Broken_0184p6" parent="Sections/S3_Ruin" instance=ExtResource("31_column_broken")]
-transform = Transform3D(-0.996843, 0, 0.0793934, 0, 1, 0, -0.0793934, 0, -0.996843, -51.3374, 23, -4.08876)
-
-[node name="Column_0186p0" parent="Sections/S3_Ruin" instance=ExtResource("30_column")]
-transform = Transform3D(-0.994522, 0, 0.104528, 0, 1, 0, -0.104528, 0, -0.994522, -51.2179, 23, -5.38322)
-
-[node name="Broken_0187p4" parent="Sections/S3_Ruin" instance=ExtResource("31_column_broken")]
-transform = Transform3D(-0.991567, 0, 0.129597, 0, 1, 0, -0.129597, 0, -0.991567, -51.0657, 23, -6.67424)
-
-[node name="Spikes_0159p0" parent="Sections/S3_Ruin" instance=ExtResource("33_spike_patch")]
-transform = Transform3D(-0.93358, 0, -0.358368, 0, 1, 0, 0.358368, 0, -0.93358, -53.2141, 23, 20.427)
-
-[node name="Spikes_0180p0" parent="Sections/S3_Ruin" instance=ExtResource("33_spike_patch")]
-transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, -48.4, 23, 0)
-
-[node name="P3_Pocket" type="Node3D" parent="Sections"]
-editor_description = "Rest pocket 195-203 deg."
-
-[node name="Broken_0199p0" parent="Sections/P3_Pocket" instance=ExtResource("31_column_broken")]
-transform = Transform3D(-0.945519, 0, 0.325568, 0, 1, 0, -0.325568, 0, -0.945519, -49.167, 23, -16.9295)
-
-[node name="S4_Gauntlet" type="Node3D" parent="Sections"]
-editor_description = "203-258 deg, THE GAUNTLET: five thresholds shut the lip for the whole stretch, leaving a 4 m wall lane with no cover, flown in 15 m hops by three pads clear of every spike."
-
-[node name="Strip_0212p0" parent="Sections/S4_Gauntlet" instance=ExtResource("34_spike_strip")]
-transform = Transform3D(-0.848048, 0, 0.529919, 0, 1, 0, -0.529919, 0, -0.848048, -42.8264, 23, -26.7609)
-
-[node name="Strip_0222p0" parent="Sections/S4_Gauntlet" instance=ExtResource("34_spike_strip")]
-transform = Transform3D(-0.743145, 0, 0.669131, 0, 1, 0, -0.669131, 0, -0.743145, -37.5288, 23, -33.7911)
-
-[node name="Strip_0232p0" parent="Sections/S4_Gauntlet" instance=ExtResource("34_spike_strip")]
-transform = Transform3D(-0.615661, 0, 0.788011, 0, 1, 0, -0.788011, 0, -0.615661, -31.0909, 23, -39.7945)
-
-[node name="Strip_0242p0" parent="Sections/S4_Gauntlet" instance=ExtResource("34_spike_strip")]
-transform = Transform3D(-0.469472, 0, 0.882948, 0, 1, 0, -0.882948, 0, -0.469472, -23.7083, 23, -44.5889)
-
-[node name="Strip_0252p0" parent="Sections/S4_Gauntlet" instance=ExtResource("34_spike_strip")]
-transform = Transform3D(-0.309017, 0, 0.951057, 0, 1, 0, -0.951057, 0, -0.309017, -15.6054, 23, -48.0284)
-
-[node name="Pad_0207p0" parent="Sections/S4_Gauntlet" instance=ExtResource("23_demon_pad_scene")]
-transform = Transform3D(0.891007, 0, -0.45399, 0, 1, 0, 0.45399, 0, 0.891007, -49.0054, 23, -24.9695)
-
-[node name="Pad_0227p0" parent="Sections/S4_Gauntlet" instance=ExtResource("23_demon_pad_scene")]
-transform = Transform3D(0.681998, 0, -0.731354, 0, 1, 0, 0.731354, 0, 0.681998, -37.5099, 23, -40.2245)
-
-[node name="Pad_0247p0" parent="Sections/S4_Gauntlet" instance=ExtResource("23_demon_pad_scene")]
-transform = Transform3D(0.390731, 0, -0.920505, 0, 1, 0, 0.920505, 0, 0.390731, -21.4902, 23, -50.6278)
-
-[node name="P4_Pocket" type="Node3D" parent="Sections"]
-editor_description = "Rest pocket 258-266 deg."
-
-[node name="Broken_0262p0" parent="Sections/P4_Pocket" instance=ExtResource("31_column_broken")]
-transform = Transform3D(-0.139173, 0, 0.990268, 0, 1, 0, -0.990268, 0, -0.139173, -7.237, 23, -51.4939)
-
-[node name="S5_Palisade" type="Node3D" parent="Sections"]
-editor_description = "266-320 deg, THE PALISADE: ten columns along the open lip throw shadows one body wide across the lane -- cover you can stand in and cannot travel in -- with five stumps at r 55.5 as the only pockets."
-
-[node name="Column_0272p0" parent="Sections/S5_Palisade" instance=ExtResource("30_column")]
-transform = Transform3D(0.0348995, 0, 0.999391, 0, 1, 0, -0.999391, 0, 0.0348995, 1.69263, 23, -48.4705)
-
-[node name="Column_0277p0" parent="Sections/S5_Palisade" instance=ExtResource("30_column")]
-transform = Transform3D(0.121869, 0, 0.992546, 0, 1, 0, -0.992546, 0, 0.121869, 5.91066, 23, -48.1385)
-
-[node name="Column_0282p0" parent="Sections/S5_Palisade" instance=ExtResource("30_column")]
-transform = Transform3D(0.207912, 0, 0.978148, 0, 1, 0, -0.978148, 0, 0.207912, 10.0837, 23, -47.4402)
-
-[node name="Column_0287p0" parent="Sections/S5_Palisade" instance=ExtResource("30_column")]
-transform = Transform3D(0.292372, 0, 0.956305, 0, 1, 0, -0.956305, 0, 0.292372, 14.18, 23, -46.3808)
-
-[node name="Column_0292p0" parent="Sections/S5_Palisade" instance=ExtResource("30_column")]
-transform = Transform3D(0.374607, 0, 0.927184, 0, 1, 0, -0.927184, 0, 0.374607, 18.1684, 23, -44.9684)
-
-[node name="Column_0297p0" parent="Sections/S5_Palisade" instance=ExtResource("30_column")]
-transform = Transform3D(0.45399, 0, 0.891007, 0, 1, 0, -0.891007, 0, 0.45399, 22.0185, 23, -43.2138)
-
-[node name="Column_0302p0" parent="Sections/S5_Palisade" instance=ExtResource("30_column")]
-transform = Transform3D(0.529919, 0, 0.848048, 0, 1, 0, -0.848048, 0, 0.529919, 25.7011, 23, -41.1303)
-
-[node name="Column_0307p0" parent="Sections/S5_Palisade" instance=ExtResource("30_column")]
-transform = Transform3D(0.601815, 0, 0.798636, 0, 1, 0, -0.798636, 0, 0.601815, 29.188, 23, -38.7338)
-
-[node name="Column_0312p0" parent="Sections/S5_Palisade" instance=ExtResource("30_column")]
-transform = Transform3D(0.669131, 0, 0.743145, 0, 1, 0, -0.743145, 0, 0.669131, 32.4528, 23, -36.0425)
-
-[node name="Column_0317p0" parent="Sections/S5_Palisade" instance=ExtResource("30_column")]
-transform = Transform3D(0.731354, 0, 0.681998, 0, 1, 0, -0.681998, 0, 0.731354, 35.4707, 23, -33.0769)
-
-[node name="Broken_0274p5" parent="Sections/S5_Palisade" instance=ExtResource("31_column_broken")]
-transform = Transform3D(0.0784591, 0, 0.996917, 0, 1, 0, -0.996917, 0, 0.0784591, 4.35448, 23, -55.3289)
-
-[node name="Broken_0284p5" parent="Sections/S5_Palisade" instance=ExtResource("31_column_broken")]
-transform = Transform3D(0.25038, 0, 0.968148, 0, 1, 0, -0.968148, 0, 0.25038, 13.8961, 23, -53.7322)
-
-[node name="Broken_0294p5" parent="Sections/S5_Palisade" instance=ExtResource("31_column_broken")]
-transform = Transform3D(0.414693, 0, 0.909961, 0, 1, 0, -0.909961, 0, 0.414693, 23.0155, 23, -50.5029)
-
-[node name="Broken_0304p5" parent="Sections/S5_Palisade" instance=ExtResource("31_column_broken")]
-transform = Transform3D(0.566406, 0, 0.824126, 0, 1, 0, -0.824126, 0, 0.566406, 31.4355, 23, -45.739)
-
-[node name="Broken_0314p5" parent="Sections/S5_Palisade" instance=ExtResource("31_column_broken")]
-transform = Transform3D(0.700909, 0, 0.71325, 0, 1, 0, -0.71325, 0, 0.700909, 38.9005, 23, -39.5854)
-
-[node name="Orb_0296p0" parent="Sections/S5_Palisade" instance=ExtResource("24_speed_powerup_scene")]
-transform = Transform3D(0.438371, 0, 0.898794, 0, 1, 0, -0.898794, 0, 0.438371, 22.7953, 23.2, -46.7373)
-
-[node name="P5_Pocket" type="Node3D" parent="Sections"]
-editor_description = "Rest pocket 320-328 deg."
-
-[node name="Broken_0324p0" parent="Sections/P5_Pocket" instance=ExtResource("31_column_broken")]
-transform = Transform3D(0.809017, 0, 0.587785, 0, 1, 0, -0.587785, 0, 0.809017, 42.0689, 23, -30.5648)
-
-[node name="S6_LastGate" type="Node3D" parent="Sections"]
-editor_description = "328-344 deg, THE LAST GATE: two arches face-on across the lane, the way round each shut by a spike patch, inner at the first and outer at the second."
-
-[node name="Arch_0333p0" parent="Sections/S6_LastGate" instance=ExtResource("32_arch")]
-transform = Transform3D(0.891007, 0, 0.45399, 0, 1, 0, -0.45399, 0, 0.891007, 46.3323, 23, -23.6075)
-
-[node name="Spikes_0333p0" parent="Sections/S6_LastGate" instance=ExtResource("33_spike_patch")]
-transform = Transform3D(0.891007, 0, 0.45399, 0, 1, 0, -0.45399, 0, 0.891007, 42.9465, 23, -21.8823)
-
-[node name="Arch_0339p0" parent="Sections/S6_LastGate" instance=ExtResource("32_arch")]
-transform = Transform3D(0.93358, 0, 0.358368, 0, 1, 0, -0.358368, 0, 0.93358, 51.8137, 23, -19.8894)
-
-[node name="Spikes_0339p0" parent="Sections/S6_LastGate" instance=ExtResource("33_spike_patch")]
-transform = Transform3D(0.93358, 0, 0.358368, 0, 1, 0, -0.358368, 0, 0.93358, 54.7078, 23, -21.0004)
-
-[node name="Watch" type="Node3D" parent="Sections"]
-editor_description = "Chokepoints the AI guard's scan rests on: the arcade, the ledge crux, the weave, the palisade and the last gates."
-
-[node name="Arcade" type="Marker3D" parent="Sections/Watch" groups=["guard_watch"]]
+[node name="Lane044" type="Marker3D" parent="Watch" groups=["guard_watch"]]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 40.283, 24, 38.9009)
 
-[node name="LedgeCrux" type="Marker3D" parent="Sections/Watch" groups=["guard_watch"]]
+[node name="Lane106" type="Marker3D" parent="Watch" groups=["guard_watch"]]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -13.7819, 24, 48.0631)
 
-[node name="Gauntlet" type="Marker3D" parent="Sections/Watch" groups=["guard_watch"]]
+[node name="Lane235" type="Marker3D" parent="Watch" groups=["guard_watch"]]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -32.1203, 24, -45.8725)
 
-[node name="Palisade" type="Marker3D" parent="Sections/Watch" groups=["guard_watch"]]
+[node name="Lane294" type="Marker3D" parent="Watch" groups=["guard_watch"]]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 21.1503, 24, -47.5044)
 
-[node name="LastGates" type="Marker3D" parent="Sections/Watch" groups=["guard_watch"]]
+[node name="Lane336" type="Marker3D" parent="Watch" groups=["guard_watch"]]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 49.3315, 24, -21.9638)
 
 [node name="Route" type="Node3D" parent="."]

@@ -24,7 +24,7 @@ the Map 1 tower datum):
 6. Dome: solid, springs at y 57.8 from r 60, rise 27.0, apex y 84.8, flat medallion r 4.2 at the crown, no oculus -- and its pattern is the DRAWING'S (pass 6, Ryan: "make the roof's design match the drawing"), not coffers. Off the spring ring a smooth collar takes the first 4 m of arc up to a ring moulding (0.25 m proud); on that ring stand the pleats -- five wedge flutes in every bay, 0.85 m deep where they meet the ring and tapering out a third of the way up; through them and on to the crown run SIXTEEN broad meridional ribs, 6 deg wide and 0.85 m proud, with plain panels between them, converging on the medallion. One 208-station grid carries the lot (16 sectors x 13: a rib's two shell edges and two proud points, then 9 panel stations), six rings from the collar's head to the cap.
 7. Tower (own glb, origin = guard-room datum, scene node at y 25.35), pass 6 to Ryan's verdict on pass 5: ONE round ashlar shaft of constant diameter, r 7.0 on two low steps (foot r 8.0 on the spike floor at y -1.0), from the floor to the roof -- no wider room at the top. At the guard floor (y 27.05) the shaft opens into a colonnade: sixteen 0.30 m columns on the shaft's own line at bearings 25 + 22.5k, open between them (openings 36.25 + 22.5k, 2.43 m wide, 27.05..31.47) and joined by ROUND ARCHES (pass 6, Ryan: "the columns aren't just holding a dome, they are arches"): each opening is a 2.43 m span springing at y 30.25 off the columns' sides and crowning at y 31.47 on the pier line between two facets, the spandrel over it solid to the beam, so the beam and the dome sit on the arcade and not on sixteen posts. It carries a 0.5 m ring beam (32.35..32.85) and a dome that sits on the arches (springs at y 32.85 from r 7.0, apex y 38.25, coffered inside). A functional balcony FLAT with the room floor (pass 5, Ryan): one level at y 27.05 through the columns onto a 1.2 m ledge on a 0.35 m slab, with a 1.0 m iron railing -- 32 posts 0.10 square, a mid rail and a top rail at y 28.05 -- and an invisible collider band in the railing's place, so nobody walks off. Room floor: the lane's paving in two rings of radial slabs, a plain margin to the columns, and at the centre a 0.6 m DAIS (r 2.2, plain grey top) the seat stands on: it lifts the guard's eye to y 29.3, 0.14 m over the rail top on the line to the lane's inner edge (0.26 m to the lane).
 8. Guard: seat on the dais (TowerSpawn at +0.25), eye at y 29.3, 6.3 m over the lane at 52 m (7 deg down), as Map 1: the runners nearly at the tower's height, a little down. Light: one shadowed GOLD omni under the arcade at y 30.95 (over the guard's head, under the arches' crowns, so the beams go out THROUGH the arches) over a cool grey ambient; no sun, no sky. It is a SOFT lamp (pass 6, Ryan: "it's way way harsh in the middle of the tower"): 2.4 m wide, energy 22 against pass 5's 70, specular 0.25, shadow blur 3.0, and a falloff flat enough over a 140 m reach (attenuation 0.3) that the room's floor and the wall 60 m away are within a stop of each other -- no pool, no hot spot. Every number is `scenes/ring/marble_tower_light_profile.tres`; the review renders mirror it.
-9. Budget: map 69,696 tris (floor + slab 12,096 / wall 57,600, of which 448 cells 31,360, 2,240 bars 8,960, pilasters 7,168, cornices 7,040, dome 2,688; collider 2,304), tower 4,380 (collider 1,278; the sixteen arched screens are 1,536 of it, the railing's 32 posts and two rails 1,344) -- map_base's class (71k): seven tiers of barred cells is what the drawing costs. One painted 256 px atlas (USE_TEXTURE_FILES swaps in `tools/modelling/textures/marble_albedo.png`), emissive only in the cell interiors.
+9. Budget: map 69,696 tris (floor + slab 12,096 / wall 57,600, of which 448 cells 31,360, 2,240 bars 8,960, pilasters 7,168, cornices 7,040, dome 2,688; collider 2,304), tower 4,380 (collider 1,278; the sixteen arched screens are 1,536 of it, the railing's 32 posts and two rails 1,344) -- map_base's class (71k): seven tiers of barred cells is what the drawing costs. One painted 256 px atlas (USE_TEXTURE_FILES swaps in `tools/modelling/textures/marble_albedo.png`), emissive only in the cell interiors. What the ARENA costs to draw, measured off the live tree by `tests/test_map_draw_budgets.gd` with the lane bare: 75,632 tris, 4 surfaces, 4 materials, 0 transparent tris, 2 lights, 1 shadow caster -- the four surfaces are the rotunda, the tower, the portal and the bars, and the two lights are the tower's lamp and the portal's glow. The ceilings in that file are that measurement + 20 % (tris 90,759, surfaces 5, materials 5, lights 3), with `shadow_casters` exact at 1.
 
 ## Palette
 
@@ -44,33 +44,53 @@ Sampled off the Temple of Time references (`~/Desktop/panopticon-refs/Map 2/imag
 
 Atlas cells (paint values, before lighting): ashlar `#9a9676` with mortar joints `#6c6950` (half-bond courses); second sheet `#928e70` / `#66634a`; grey-olive (reveals, undersides, cap) `#6b6b55` / `#505042`; paving slabs `#aaa683` with joints `#66634a` and inlays `#7d7a62` (centre `#bcae82`); spike floor `#7d7a62` with a tile grid `#55533f`; cell interior `#2f3028` (+ faint emissive); frieze ground `#9a9676`, key `#45463a`; coffer `#9a9676` stepping down to `#565542`; spike `#a8a488` with grain `#8c8970`; fluting `#9e9a7a` / `#64634e`; cornice fillets `#a29e7e` / `#5e5c44`; iron `#181a1f` with a rim `#686e7a`; tower ashlar `#8b8160` / `#625b44`; socles `#928e70` / `#6c6950`.
 
-## Course
+## The bare lane
 
-Ryan: *"spin up a tree map, and marble map, to do its best job making an
-obstacle course for both of those with the elements it created. no rules, just
-let them try their best."* Six stretches with a rest pocket between, all placed
-instances under `Sections` in `scenes/ring/marble.tscn` -- nothing is welded
-into `marble.glb`. The guard's eye is 6.5 m over the lane and only 45 m inboard
-of it, so a prop's shadow runs radially OUTWARD and reaches to about 1.16x its
-own radius: cover stands on the INNER side of the ground it protects, and a
-2.2 m stump shelters a body for about five metres while a 5.0 m column shelters
-one to the wall. That one number shapes every stretch.
+Ryan, 2026-09-22: *"for the marble level, can you just get rid of all the
+elements on the ring? just so it looks good for screenshots and trailers and
+stuff."* The six-stretch obstacle course written up here before came out of
+`scenes/ring/marble.tscn`: 18 columns, 21 broken columns, 9 arches, 7 spike
+patches, 11 spike strips, 3 demon pads and 2 speed orbs -- 71 placed instances
+in `Sections`, and the `Sections` node with them. The lap is 340 deg of clear
+gallery again, exactly as the rotunda was first delivered.
 
-| deg | stretch | the problem | props |
-|---|---|---|---|
-| 5-14 | start | first shade | 1 broken column, r 56 |
-| 14-70 | **The Arcade** | seven broadside arches at r 50 stripe the whole outer lane with full-height cover and slit it with their own windows; the open fast line is the 1.5 m of lip inboard of them. Three of the best stripes hold a spike patch | 7 arch, 3 spike patch |
-| 78-130 | **The Ledge** | spiked thresholds shut the wall side, so the run is pinned to the open inner edge over the 24 m drop; the crux at 106 deg leaves 4 m of lip | 6 spike strip, 3 column, 1 orb |
-| 138-195 | **The Ruin** | five heaps staggered across the width, one column still standing between two stumps -- shelter you cross to, not along. One spike patch at the wall, one on the lip | 5 column, 10 broken, 2 spike patch |
-| 203-258 | **The Gauntlet** | the mirror of the Ledge: thresholds shut the lip for the whole stretch, so the run is a 4 m wall lane with no cover in it, flown in 15 m hops by three pads at a 3.7 m apex -- the most visible a runner ever is | 5 spike strip, 3 demon pad |
-| 266-320 | **The Palisade** | ten columns along the open lip every 5 deg throw shadows one body wide right across the lane: cover you can stand in and cannot travel in. Five stumps at r 55.5 are the only pockets | 10 column, 5 broken, 1 orb |
-| 328-344 | **The Last Gate** | two arches face-on across the lane, the way round each shut by a spike patch -- inner at the first, outer at the second | 2 arch, 2 spike patch |
+What stayed, because without it this is not a map: the two meshes
+(`marble.glb`, `marble_tower.glb`), the two lethal volumes that are the
+building itself (`SpikeFloor` over the open drop, `KillBox` under the world),
+the tower's lamp and the cool ambient, `PrisonerStart` / `PrisonerEnd` /
+`TowerSpawn`, the `Route` the lap is measured on, and the portal at 345 deg --
+the lap has to end somewhere, and `tests/test_maps.gd` reads all three markers.
+The five `guard_watch` markers stayed too, moved out of `Sections` to a `Watch`
+node of their own and renamed by bearing (044, 106, 235, 294, 336): they draw
+nothing and collide with nothing, so they are not an element on the ring, and
+deleting them would change how the guard sweeps.
 
-Every spike footprint carries its own `TrapVolume` 2.6 m tall
-(`scenes/ring/marble_spike_patch.tscn`, `marble_spike_strip.tscn`); the height
-is load-bearing, because `RingBake` finds every jump arc over one lethal and so
-links none. Two rules the bot harness wrote, both paid for: every hazard leaves
-at least 4 m of navigable bypass, and no pad flight crosses one -- a pad's apex
-is 3.7 m and a capsule's feet 0.9 m under that, which is 0.2 m over a spike
-volume's roof. `RingBake`: 164 cover points on the bare lane, 209 with the
-course, against 192 on Map 1.
+**And the bars at 353 deg stayed, on the measurement.** They were on the list
+to go, and taking them off breaks the map rather than clearing it. A finish
+gate in the scene means standing in it is the win -- `MatchLapTracker`, no
+checkpoints -- and with nothing across the gap between finish (345) and start
+(5), `RingBake` links `PrisonerStart` to `PrisonerEnd` the short way:
+
+| bars | bake walk start -> end | harness, 10 matches |
+|---|---|---|
+| removed | **18.06 m**, 10 waypoints, backwards through the gap | 7 of 10 UNRESOLVED, 101-129 one-shot rounds, runners win 100% |
+| kept | **288.15 m**, 58 waypoints, the lap | 10 of 10 resolved, CLEAN |
+
+A bot runner simply walks 18 m backwards to the portal. The bars stand behind
+the finish, outside the 340 deg run, so they are in no shot of the lane: they
+cost the screenshots nothing and they are what makes the lap a lap.
+
+Nothing was deleted from `assets/models/` and no build script changed. The
+course props -- `marble_column.glb`, `marble_column_broken.glb`,
+`marble_arch.glb`, `marble_spikes.glb`, `marble_spikes_strip.glb` -- are all
+still built and still shipped, and the two trap scenes
+`marble_spike_patch.tscn` / `marble_spike_strip.tscn` still exist. Only the
+placements went, so putting a course back is a scene edit.
+
+Measured on the bare lane: the arena draws 75,632 tris across 4 surfaces
+(99,250 across 75 with the course); `RingBake` bakes 276 polygons with 2 lethal
+volumes carved and finds 164 cover points, against 209 with the course -- the
+164 this doc always recorded for the bare lane.
+
+Renders of the cleared ring: `~/Desktop/panopticon-renders/marble/clear/`
+(`aerial.png`, `lane.png`, `guard.png`, `portal.png`).

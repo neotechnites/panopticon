@@ -79,11 +79,23 @@ const DRAW_BUDGETS: Dictionary = {
 		"tris": 107595, "surfaces": 78, "materials": 18,
 		"transparent_tris": 173, "lights": 24, "shadow_casters": 0,
 	},
-	# Four surfaces were the whole arena until the course went on the lane: 71
-	# placed prop instances is what an obstacle course costs in draw calls, and
-	# the surfaces row is where it shows. The shadow caster is still one.
+	# THE LANE IS BARE AGAIN (Ryan, 2026-09-22: "for the marble level, can you
+	# just get rid of all the elements on the ring?"). The obstacle course --
+	# 71 placed prop instances -- came off scenes/ring/marble.tscn, and the
+	# surfaces row is where an obstacle course always showed: 75 surfaces to 4,
+	# 11 materials to 4, 99250 tris to 75632. What is left to draw is the
+	# rotunda, the tower, the portal and the bars at 353 deg, and the four
+	# surfaces are exactly those four .glb files. (The bars stayed on the
+	# harness's evidence, not on taste: see the scene's Bars node.)
+	#
+	# The ceilings are LOWERED to the new measurement + 20 % rather than kept:
+	# 119100 tris and 90 surfaces over a 4-surface arena is a gate that could
+	# not see a whole course being put back, which is the one change this map
+	# now has to be told about. tris 90759, surfaces 5, materials 5, lights 3
+	# (2 measured: the tower's lamp and the portal's glow). The shadow caster is
+	# still one and still exact.
 	"marble": {
-		"tris": 119100, "surfaces": 90, "materials": 14,
+		"tris": 90759, "surfaces": 5, "materials": 5,
 		"transparent_tris": 0, "lights": 3, "shadow_casters": 1,
 	},
 	# The expensive one: 2.16x the Ring, plus 2196 transparent triangles, plus a
