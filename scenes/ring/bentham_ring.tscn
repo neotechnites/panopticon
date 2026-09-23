@@ -114,6 +114,7 @@ omni_range = 12.0
 [node name="MapBase" parent="." unique_id=23449969 instance=ExtResource("10_map_base_model")]
 editor_description = "assets/models/map_base.glb: the one deck -- annulus, pit wall down to the courtyard, outer wall up to the rim. Ships its own collision (MapBaseCollision-colonly), so nothing here duplicates it."
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.014858246, 0, -0.01688385)
+metadata/_edit_lock_ = true
 
 [node name="KillBox" type="Area3D" parent="." unique_id=887311935]
 editor_description = "The kill box under the one-level ring. Roof at y=-8.0 -- raised from the deeper roof this used to have so a body falling off the outer rim is caught before it lands on rock and gets stuck, rather than only one that falls all the way past the courtyard.
