@@ -33,12 +33,13 @@ Report to Ryan the moment the merge lands. Verification that is still needed run
 - **Model quota.** Fable's quota ran out mid-session on 2026-09-23 and killed three agents at launch. Default to Opus; use `model: fable` only when Ryan asks and the quota is known good.
 - **The editor checkout writing to tracked files.** Ryan's open Godot editor has twice moved `MapBase` (once by 3 m, which broke every match) and once re-saved new `.tres` resources as empty stubs. `MapBase` is now `_edit_lock_`ed. Before merging, `git status` the editor checkout and restore anything it touched that Ryan did not mean.
 
-## The ledger is the queue
 
-Ryan, 2026-09-23, after finding agents idle while approved work sat untouched: "why do we have agents sitting doing nothing... isnt there more to do than just one subagent?"
+## Ryan says what gets built
 
-The Head does NOT use Ryan's messages as its scheduler. His messages are interrupts; the queue is the `scope_ledger` in the pod DB plus anything he has already named. Whenever there is free capacity, pull the next approved item and start it, and say in the next reply what was pulled.
+2026-09-23, after the Head started work he had not asked for: "just do what i say. you dont need a fucking ledger."
 
-Two hard edges:
-- **Never invent scope.** Only items Ryan has already named. A thing he has not asked for is not in the queue no matter how obviously good it looks.
-- **Never start something waiting on his verdict.** If the next step needs him to judge a render, it stays parked, and the reply says so.
+The Head does not self-start work. It builds what Ryan names, when he names it. The ledger records what he has said; it is not a work queue and the Head does not pull from it. Idle capacity is not a problem to solve by inventing tasks.
+
+## One agent, one task, and it ends
+
+Spawn a fresh agent per task. Do NOT resume a completed agent to give it new work -- that is what left a roster of finished agents cluttering Ryan's view of what is actually running. Resume only to finish the SAME task the agent was already on.
