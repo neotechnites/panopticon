@@ -69,8 +69,11 @@ const DRAW_BUDGETS: Dictionary = {
 	# to 1.2 m edges so no facet drops its texel density) -- against 87268
 	# with the pad models. Inside the 107595 ceiling the network was first
 	# measured under; that ceiling stays, it is the gate the crazing was built
-	# to. Surfaces 63: each `lava_crack` node draws one haze MeshInstance3D
-	# where each `demon_pad` drew one model. `transparent_tris` leaves zero
+	# to; 99478 once the lip wall rose to hide a standing body. Surfaces 62:
+	# each `lava_crack` node draws one haze MeshInstance3D where each
+	# `demon_pad` drew one model, and the pit's LavaSea surface is gone --
+	# the sea is the atlas's own glowing cell now, the same lava the S3
+	# cracks show (materials 13 for the same reason). `transparent_tris` leaves zero
 	# for the first time on this map: the heat haze is 36 x 4 triangles of a
 	# spatial shader that reads the screen (hint_screen_texture) and writes
 	# ALPHA, so it is 144 triangles in the sorted pass plus one screen copy a
