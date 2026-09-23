@@ -160,7 +160,8 @@ ROUGHNESS = 0.55
 METALLIC = 0.0
 UV_SCALE = 0.066            # image units per metre: a 64 px cell spans 3.8 m
 UV_PAD = 1.5 / TEX_SIZE
-DOME_FLUTES = 14            # painted flutes across a dome panel (the drawing has a row of them)
+DOME_FLUTES = 7             # painted flutes across a dome panel (Ryan: "there should be 7, and they
+                            # can be a solid color, not split")
 DOME_FLUTE_V = 0.30         # ... standing on the ring moulding, their points this far up the arc
 CELL_UV = 0.25
 
@@ -432,14 +433,14 @@ def _paint_coffer(c, r, box):
 def _paint_dome(c, r, box):
     """One dome panel between two ribs, the drawing's flutes PAINTED (Ryan:
     "only the triangles ... they just painted on the roof"): standing on the
-    ring moulding a band of pointed flutes, each lit on one side and shadowed
-    on the other, a line where their points reach, plain stone above. u is
+    ring moulding a band of DOME_FLUTES pointed flutes, each one flat solid
+    colour, a line where their points reach, plain stone above. u is
     across the panel, v up the arc (row y0 the moulding's head, y1 the crown).
     A texel here is 0.14 m across and 0.9 m up the arc, so the ground's grain
     is laid ALONG the rows -- a dot would smear into a streak."""
     x0, y0, x1, y1 = box
     W, H = x1 - x0, y1 - y0
-    dark, mid = (78, 78, 60), (112, 110, 86)
+    dark = (78, 78, 60)
     for y in range(y0, y1):
         x = x0
         while x < x1:
@@ -456,7 +457,7 @@ def _paint_dome(c, r, box):
             cx = x0 + (k + 0.5) * W / float(n)
             for x in range(int(math.floor(cx - hw)), int(math.ceil(cx + hw))):
                 if abs(x + 0.5 - cx) < hw:
-                    c.put(x, y, mid if x + 0.5 < cx else dark)
+                    c.put(x, y, dark)
     c.rect(x0, ft, x1, ft + 1, dark)                              # the line the points reach
 
 
