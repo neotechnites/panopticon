@@ -56,7 +56,7 @@ import forest_build as fb  # noqa: E402  _ptube, and the forest for the in-scene
 
 NAME = "forest_bars"
 OBJECT_NAME = "ForestBars"
-COLLIDER_NAME = "ForestBarsCollision-colonly"
+COLLIDER_NAME = "ForestBarsCollision-boxcol"
 FACING_YAW = 0.0
 
 HALF_W = 5.3                # 10.6 m across the lane, Blender X

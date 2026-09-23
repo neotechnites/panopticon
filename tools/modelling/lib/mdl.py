@@ -583,13 +583,82 @@ def _ground(arm, root_name, probes, floor_z, max_lift=None):
 # EXPORT
 # =============================================================================
 
+# A mesh object named ``<Name>-boxcol`` is a box collider and nothing else:
+# it is NOT exported as a mesh. Its world-space bounds become one glTF box
+# (OMI_physics_shape) on a static body (OMI_physics_body), which Godot imports
+# as ``<Name>`` (StaticBody3D) / ``<Name>Shape`` (CollisionShape3D, BoxShape3D
+# of exactly that size). The ``-colonly`` route gives a trimesh of the box's
+# twelve triangles, which the editor draws as twelve triangles; this gives the
+# editor a BoxShape3D with a size, which is what "a big rectangle" means there.
+BOXCOL_TAG = "-boxcol"
+
+
+def _boxcol_bounds(ob):
+    lo = Vector((1e9, 1e9, 1e9))
+    hi = Vector((-1e9, -1e9, -1e9))
+    for v in ob.data.vertices:
+        w = ob.matrix_world @ v.co
+        lo = Vector((min(lo.x, w.x), min(lo.y, w.y), min(lo.z, w.z)))
+        hi = Vector((max(hi.x, w.x), max(hi.y, w.y), max(hi.z, w.z)))
+    return lo, hi
+
+
+def _boxcol_stamp(path, boxes):
+    """Write the OMI physics extensions for ``boxes`` ([(node name, glTF size)])
+    into the exported .glb's JSON chunk. The binary chunk is untouched."""
+    with open(path, "rb") as fh:
+        head = fh.read(12)
+        jlen, jtype = _u32x2(fh.read(8))
+        js = json.loads(fh.read(jlen))
+        rest = fh.read()
+    shapes = js.setdefault("extensions", {}).setdefault("OMI_physics_shape", {}).setdefault("shapes", [])
+    by_name = {n.get("name"): n for n in js["nodes"]}
+    for name, size in boxes:
+        node = by_name[name]
+        node.pop("mesh", None)
+        shapes.append({"type": "box", "box": {"size": [round(size[0], 5), round(size[1], 5), round(size[2], 5)]}})
+        node.setdefault("extensions", {})["OMI_physics_body"] = {
+            "motion": {"type": "static"}, "collider": {"shape": len(shapes) - 1}}
+    used = set(js.get("extensionsUsed", [])) | {"OMI_physics_body", "OMI_physics_shape"}
+    js["extensionsUsed"] = sorted(used)
+    body = json.dumps(js, separators=(",", ":")).encode("utf-8")
+    body += b" " * ((4 - len(body) % 4) % 4)
+    total = 12 + 8 + len(body) + len(rest)
+    with open(path, "wb") as fh:
+        fh.write(b"glTF" + (2).to_bytes(4, "little") + total.to_bytes(4, "little"))
+        fh.write(len(body).to_bytes(4, "little") + jtype.to_bytes(4, "little"))
+        fh.write(body)
+        fh.write(rest)
+
+
+def _u32x2(b):
+    return int.from_bytes(b[0:4], "little"), int.from_bytes(b[4:8], "little")
+
+
 def export_glb(path, objects):
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+    # Every -boxcol mesh is stood in for by an Empty at its bounds' centre; the
+    # mesh itself never reaches the file. Blender's y-up export maps a size
+    # (sx, sy, sz) to glTF (sx, sz, sy).
+    boxes, stand_ins, to_export = [], [], []
+    for ob in objects:
+        if ob.type == "MESH" and ob.name.endswith(BOXCOL_TAG):
+            lo, hi = _boxcol_bounds(ob)
+            name = ob.name[:-len(BOXCOL_TAG)]
+            empty = _link(bpy.data.objects.new(name, None))
+            empty.location = (lo + hi) * 0.5
+            size = hi - lo
+            boxes.append((name, (size.x, size.z, size.y)))
+            stand_ins.append(empty)
+            to_export.append(empty)
+        else:
+            to_export.append(ob)
+    bpy.context.view_layer.update()
     for ob in bpy.context.selected_objects:
         ob.select_set(False)
-    for ob in objects:
+    for ob in to_export:
         ob.select_set(True)
-    bpy.context.view_layer.objects.active = objects[0]
+    bpy.context.view_layer.objects.active = to_export[0]
     kwargs = dict(filepath=path, export_format="GLB", use_selection=True,
                   export_apply=False, export_yup=True, export_normals=True,
                   export_texcoords=True)
@@ -598,6 +667,12 @@ def export_glb(path, objects):
     except TypeError:
         bpy.ops.export_scene.gltf(filepath=path, export_format="GLB",
                                   use_selection=True)
+    for empty in stand_ins:
+        bpy.data.objects.remove(empty, do_unlink=True)
+    if boxes:
+        _boxcol_stamp(path, boxes)
+        for name, size in boxes:
+            print("MDL note boxcol %s -> BoxShape3D size=(%.3f, %.3f, %.3f)" % ((name,) + tuple(size)))
     return path
 
 

@@ -73,7 +73,9 @@ next reader — "pooled in `_query`", not "fine".
 
 One contiguous mesh per map, rock only. Mechanics are scene nodes — cover,
 traps, pads, the tower. Collision is a purpose-built `-colonly` node inside the
-`.glb`; the art mesh is never its own collider. Sections carry their own seeds,
+`.glb` (a `-boxcol` node when the collider is one box: it ships as a glTF box, so
+the editor sees a BoxShape3D, not twelve triangles); the art mesh is never its
+own collider. Sections carry their own seeds,
 so editing one diffs only that one. The build script is the model; the `.glb` is
 output. Render EEVEE in the PC's console session; `--cpu` is twenty times
 slower. A build that breaks its contract file is not installed. No debug texture
