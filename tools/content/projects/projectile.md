@@ -125,3 +125,23 @@ L4 Once I had those two as reffernces, implemantation was pretty simple. I'm sti
 L5 Tell me what you think in the comments on if this is an improvement or not, and any other feedback you might have, it just might become a part of the finished game
 Ryan: "same clips as before, really all you have to do is extend the final clip, and it should come in when the fortnite clip ends"
 clips: L1 -> 01a; card on "This guy specifically recommended ... projectile weapon"; "and while i liked ..." -> 02; "Call of duty ..." -> warzone_a; "and 2. fortnite ..." -> fortnite_b; L4+L5 -> 05 (extended), starting when the fortnite clip ends.
+
+## 6
+said: "pov footage of sniper gameplay"
+# Shot 2's second take, and not an alternate: the hitscan line in Ryan's voice
+# runs about twelve seconds and the delivered 02 is eight, and a clip is never
+# slowed to fit a line, so the cut needs a second take to sit after the first.
+# Same stage, same live-brain prisoners, a different seed and four squeezes
+# instead of three -- shots=4 with a 2.3 s beat spreads the kills over ten
+# seconds the way three over 2.5 s spread them over eight. scan=1 sweeps the
+# scope down the lane whenever it has nobody to look at: over ten seconds the
+# gaps are long enough that a parked scope reads as a frozen frame, and the
+# take gate counts those -- the first attempt came back freeze=2.
+capture: --shot=s3_open_lane --stage=scope_hunt --pov=guard --bots=7 --seed=20261109 --set=scan=1;shots=4;beat=2.3;fire_at=1.0;start=1.2;degs=8,16,24,34,60,68,76;rs=49.4,47.8,50.1,48.3,49.7,47.6,48.9
+hud: crosshair
+seconds: 10
+in: 1.5
+takes: 1
+motion: 0.015
+frame: 1.97
+file: 02_pov_hitscan_b
