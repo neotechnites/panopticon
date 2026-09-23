@@ -29,7 +29,7 @@ separately — they cost physics, not draw calls.
 | 4 | `tower_arches.glb` | 4,010 | 1 | 1 | yes — 144 | 2×128² (14 KB) | 375 KB |
 | 5 | `tower.glb` | 1,194 | 1 | 1 | yes — 144 | 2×128² (14 KB) | 135 KB |
 | 6 | `eye.glb` | 768 | 3 | 3 | none | none | 21 KB |
-| 7 | `rock_bars.glb` | 1,048 | 1 | 1 | yes — 240 | 2×128² (14 KB) | 133 KB |
+| 7 | `rock_bars.glb` | 1,036 | 2 | 2 (HellRock, HellShade) | yes — 132 | 4×256² (90 KB) | 186 KB |
 | 8 | `tower2.glb` | 858 | 1 | 1 | yes — 70 | 2×128² (14 KB) | 105 KB |
 | 9 | `husk_a/b/c.glb` | 702 / 698 / 604 | 1 | 1 | none | 1×32–128² | 83–110 KB |
 | 10 | `creature1–4.glb` | 636–680 | 1 | 1 | none | 1×128² | 87–93 KB |
@@ -37,7 +37,13 @@ separately — they cost physics, not draw calls.
 | — | `rifle.glb` | 372 | 1 | 1 | none | 2×128² (21 KB) | 47 KB |
 | — | every ring prop (`spire`, `slab`, `rock_wall`, `boulder`, `demon_pad`, `lava_tile`, `block`, `torch`, `speed_orb`) | 20–118 | 1–2 | 1 | yes, 4–40 | 2×128² | 12–38 KB |
 
-Textures are already tiny — 128² for everything except the lava pair at 512².
+Textures are already tiny — 128² for everything except the lava pair at 512²
+and the classes that have moved to `lib/texel.py`'s 256² tiling sheets
+(`map_base`, and `rock_bars` since the gate was remade as a cave wall: two
+sheets instead of one atlas is +1 surface and +1 material on the Ring, 66 and
+17 against `test_map_draw_budgets.gd`'s 78 and 18. A third sheet was built and
+then dropped — `ember`, ten glowing triangles inside the slots — precisely
+because it would have spent the Ring's last material slot.)
 Nothing in the texture budget is worth touching.
 
 ### The one outlier: `map_base.glb`
