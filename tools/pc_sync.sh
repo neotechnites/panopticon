@@ -17,10 +17,17 @@ ssh panopticon-pc '
   }
   git -C C:/dev/panopticon merge --ff-only -q incoming
   if ($LASTEXITCODE -ne 0) { Write-Output "SYNC FAILED"; exit 3 }
+  $hook = "res://tools/import/mipmap_textures.gd"
   Get-ChildItem C:\dev\panopticon\assets\models\*.glb.import | ForEach-Object {
     $t = Get-Content $_.FullName -Raw
     if ($t -match "gltf/embedded_image_handling=") { $t = $t -replace "gltf/embedded_image_handling=\d", "gltf/embedded_image_handling=3" }
     else { $t = $t -replace "\[params\]\r?\n", "[params]`r`ngltf/embedded_image_handling=3`r`n" }
+    if ($t -match "import_script/path=(.*)") {
+      $cur = $Matches[1].Trim().Trim([char]34)
+      if ($cur -eq "" -or $cur -eq $hook) { $t = $t -replace "import_script/path=[^\r\n]*", ("import_script/path=" + [char]34 + $hook + [char]34) }
+      else { Write-Output ("WARNING: " + $_.Name + " keeps its own import_script " + $cur) }
+    }
+    else { $t = $t -replace "\[params\]\r?\n", ("[params]`r`nimport_script/path=" + [char]34 + $hook + [char]34 + "`r`n") }
     [IO.File]::WriteAllText($_.FullName, $t)
   }
   Remove-Item C:\dev\panopticon\assets\models\*_albedo.png*, C:\dev\panopticon\assets\models\*_emissive.png* -ErrorAction SilentlyContinue
