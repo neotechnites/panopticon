@@ -160,6 +160,8 @@ ROUGHNESS = 0.55
 METALLIC = 0.0
 UV_SCALE = 0.066            # image units per metre: a 64 px cell spans 3.8 m
 UV_PAD = 1.5 / TEX_SIZE
+DOME_FLUTES = 14            # painted flutes across a dome panel (the drawing has a row of them)
+DOME_FLUTE_V = 0.30         # ... standing on the ring moulding, their points this far up the arc
 CELL_UV = 0.25
 
 
@@ -183,6 +185,8 @@ ZONES = {                   # atlas column, row (row 0 is the bottom of the imag
     "stone": _cell(3, 2),    # the tower shaft's blocks
     "plinth": _cell(0, 3),   # ashlar under the sills
     "field": _cell(1, 3),    # the beds' floor
+    "dome": (0.5, 0.75, 1.0, 1.0),   # a dome PANEL between two ribs, the flutes PAINTED: the two spare
+                             # cells as one 128 x 64 sheet -- u across the panel, v ring to crown
 }
 FIT = {"floor": "uv", "frieze": "uv", "coffer": "uv",   # the whole face onto the whole cell
        "band": "v", "collar": "v", "column": "u", "iron": "u"}   # ... on one axis only
@@ -425,6 +429,37 @@ def _paint_coffer(c, r, box):
         c.put(r.i(x0, x1 - 1), r.i(y0, y1 - 1), r.pick(steps[:2]))
 
 
+def _paint_dome(c, r, box):
+    """One dome panel between two ribs, the drawing's flutes PAINTED (Ryan:
+    "only the triangles ... they just painted on the roof"): standing on the
+    ring moulding a band of pointed flutes, each lit on one side and shadowed
+    on the other, a line where their points reach, plain stone above. u is
+    across the panel, v up the arc (row y0 the moulding's head, y1 the crown).
+    A texel here is 0.14 m across and 0.9 m up the arc, so the ground's grain
+    is laid ALONG the rows -- a dot would smear into a streak."""
+    x0, y0, x1, y1 = box
+    W, H = x1 - x0, y1 - y0
+    dark, mid = (78, 78, 60), (112, 110, 86)
+    for y in range(y0, y1):
+        x = x0
+        while x < x1:
+            run = r.i(3, 9)
+            c.rect(x, y, min(x + run, x1), y + 1,
+                   r.pick([(150, 146, 114), (146, 142, 110), (154, 150, 118), (142, 138, 106)]))
+            x += run
+    fb, ft, n = y0 + 1, y0 + int(round(DOME_FLUTE_V * H)), DOME_FLUTES
+    c.rect(x0, y0, x1, fb, dark)                                  # the shadow under the ring
+    for y in range(fb, ft):
+        t = (y - fb) / float(ft - fb)                            # 0 at the foot, 1 at the points
+        hw = (W / float(n)) * 0.5 * (1.0 - t)
+        for k in range(n):
+            cx = x0 + (k + 0.5) * W / float(n)
+            for x in range(int(math.floor(cx - hw)), int(math.ceil(cx + hw))):
+                if abs(x + 0.5 - cx) < hw:
+                    c.put(x, y, mid if x + 0.5 < cx else dark)
+    c.rect(x0, ft, x1, ft + 1, dark)                              # the line the points reach
+
+
 def _paint_column(c, r, box):
     """Fluting: vertical stripes, a shadow line at each arris."""
     x0, y0, x1, y1 = box
@@ -509,6 +544,7 @@ def _paint_plinth(c, r, box):
 PAINTERS = {
     "marble": _paint_white, "marble2": _paint_white2, "shade": _paint_shade, "floor": _paint_floor,
     "cellin": _paint_cell, "frieze": _paint_frieze, "coffer": _paint_coffer, "spike": _paint_spike,
+    "dome": _paint_dome,
     "column": _paint_column, "band": _paint_band, "iron": _paint_iron, "stone": _paint_stone,
     "plinth": _paint_plinth, "field": _paint_field,
 }
@@ -524,8 +560,6 @@ def paint_atlas():
             continue
         done.add(ZONES[name])
         PAINTERS[name](c, r, _rect_of(ZONES[name], TEX_SIZE))
-    _paint_white2(c, r, _rect_of(_cell(2, 3), TEX_SIZE))     # the two spare cells
-    _paint_white(c, r, _rect_of(_cell(3, 3), TEX_SIZE))
     return c
 
 
@@ -604,6 +638,7 @@ class _Mesh(object):
         self.faces = []
         self.zones = []
         self.groups = []                          # per triangle: the emitted face it came from
+        self.face_uv = {}                         # triangle index -> {vertex: (u, v)} when the face states its own
         self._index = {}
 
     def v(self, p):
@@ -616,12 +651,15 @@ class _Mesh(object):
             self._index[key] = i
         return i
 
-    def _emit(self, idx, want, zone):
+    def _emit(self, idx, want, zone, uv=None):
         pts = [self.verts[j] for j in idx]
         n = _newell(pts)
         if n[0] * want[0] + n[1] * want[1] + n[2] * want[2] < 0.0:
             idx = list(reversed(idx))
         gid = len(self.groups)                    # the atlas window is per emitted face, not per triangle
+        if uv is not None:                        # stated per vertex: the same for every triangle of the face
+            for k in range(2 if len(idx) == 4 else 1):
+                self.face_uv[len(self.faces) + k] = uv
         if len(idx) == 4:
             self.faces.append((idx[0], idx[1], idx[2]))
             self.faces.append((idx[0], idx[2], idx[3]))
@@ -633,8 +671,8 @@ class _Mesh(object):
             self.zones.append(zone)
             self.groups.append(gid)
 
-    def quad(self, a, b, c, d, want, zone):
-        self._emit([a, b, c, d], want, zone)
+    def quad(self, a, b, c, d, want, zone, uv=None):
+        self._emit([a, b, c, d], want, zone, uv)
 
     def tri(self, a, b, c, want, zone):
         self._emit([a, b, c], want, zone)
@@ -1071,12 +1109,23 @@ def _group_uv(me, uvl, polys, zone, r, fit, anchored, wall=False):
         uvl.data[li].uv = (u0 + UV_PAD + s * span_u, v0 + UV_PAD + t * span_v)
 
 
-def unwrap(ob, zones, groups, seed=0):
+def unwrap(ob, zones, groups, seed=0, face_uv=None):
+    """Every emitted face gets a random window of its zone's cell -- unless it
+    stated its own (u, v) per vertex (face_uv: the dome's panels), which is
+    written into the cell as given: 0..1 across the cell, inside UV_PAD."""
     me = ob.data
     uvl = me.uv_layers.new(name="UVMap")
     r = _Rng(TEX_SEED + seed * 7919 + len(me.polygons))
+    face_uv = face_uv or {}
     by_group = {}
     for pi in range(len(me.polygons)):
+        if pi in face_uv:
+            u0, v0, u1, v1 = ZONES[zones[pi]]
+            su, sv = (u1 - u0) - 2.0 * UV_PAD, (v1 - v0) - 2.0 * UV_PAD
+            for li in me.polygons[pi].loop_indices:
+                u, v = face_uv[pi][me.loops[li].vertex_index]
+                uvl.data[li].uv = (u0 + UV_PAD + u * su, v0 + UV_PAD + v * sv)
+            continue
         by_group.setdefault(groups[pi], []).append(pi)
     for gid in sorted(by_group):
         polys = by_group[gid]
@@ -1292,7 +1341,7 @@ def build():
     mdl.save_texture(emissive)
 
     ob = stone.object(OBJECT_NAME)
-    unwrap(ob, stone.zones, stone.groups)
+    unwrap(ob, stone.zones, stone.groups, face_uv=stone.face_uv)
     mdl.finish(ob, stone_material("Marble", albedo, emissive), strip_uvs=False)
     coll_ob = coll.object(COLLIDER_NAME)
     coll_ob.hide_render = True

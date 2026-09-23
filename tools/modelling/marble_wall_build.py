@@ -23,10 +23,10 @@ built into its welded _Mesh against the seam contract there.
     dome         a ribbed spherical cap off the 192-station spring ring: a
                  smooth collar of quads on those stations, a ring moulding
                  (the station change hidden on its foot step), then ONE
-                 176-station grid of 16 sectors -- a broad rib standing proud
-                 INWARD of the shell and ten plain panel facets -- fluted low
-                 down where the panels stand on the ring, the ribs running up
-                 into the flat crown medallion
+                 112-station grid of 16 sectors -- a broad rib standing proud
+                 INWARD of the shell and six smooth panel facets wearing the
+                 drawing's flutes PAINTED -- the ribs running up into the flat
+                 crown medallion
 
 Every point on the wall face is _Bay.at(u, z, d), so shared points weld. The
 only free edges this part leaves are three loops of 192: the foot ring at
@@ -64,18 +64,14 @@ DOME_COLLAR = 3.2           # metres of arc off the spring ring: the smooth coll
                             # on the wall's own 192 stations -- nothing is zippered across it
 MOULD_D = 0.25              # the ring moulding at the collar's head: the whole ring this far inward ...
 MOULD_H = 0.7               # ... for this much arc. Its foot is where 192 stations become the dome's
-                            # 176, on a 0.25 m step that faces down the sphere and is never seen
+                            # 112, on a 0.25 m step that faces down the sphere and is never seen
 DOME_RIBS = 16              # broad meridional ribs, one over every fourth pier
 RIB_HALF = math.radians(3.0)   # half the angular width of a rib: 6 deg of the 22.5 deg sector, the
                             # rest plain panel ...
 RIB_PROUD = 0.85            # ... standing this far inward of the shell (of the moulding, on its ring)
-PANEL_FACETS = 10           # panel facets between two ribs: 9 interior stations, the 5 odd ones the
-                            # centres of the flutes
-FLUTE_D = 0.85              # a flute is a V-groove two facets wide, this deep where it stands on the
-                            # moulding's ring, tapering to nothing at ring r3: two PLANAR flanks
-FLUTE_RING = 2              # ... the ring (index into DOME_RING_F) the flutes taper out at
-DOME_RING_F = (0.0, 0.15, 0.30, 0.61, 0.89, 1.0)   # r1 .. r6, up the arc from the moulding's head to
-                            # the cap: r1 is the moulding's head, r3 the flutes' points
+PANEL_FACETS = 6            # panel facets between two ribs: the panel is SMOOTH, its flutes painted
+DOME_RING_F = (0.0, 0.30, 0.61, 0.89, 1.0)   # r1 .. r5, up the arc from the moulding's head to the
+                            # cap: r1 is the moulding's head, r2 where the painted flutes' points reach
 SIDE_SPLITS = 1             # the frame's side margins, pilaster fronts and returns in this many stacked quads
 SIDE_SWITCH = 0.5           # head angle where the frame's fan moves from the middle side point to the top corner
 UP, DOWN = mb.UP, mb.DOWN
@@ -433,13 +429,16 @@ def _dome(m, coll=False):
         --step zipper, 0.25 in--> moulding foot (176) --moulding quads-->
         r1 (176, the moulding's head, 0.25 in) --> r2 .. r6 (176, on the shell)
 
-    A sector is [a0, a1, p1 .. p9]: the rib's two shell edges, then nine
+    A sector is [a0, a1, p1 .. p5]: the rib's two shell edges, then five
     panel stations. The rib is a box on a0/a1: two proud vertices a ring, a
-    top, two sides, a foot on the moulding and a head at the cap. A flute is
-    a V-groove on an odd panel station between its two neighbours, from r1 to
-    r3: a deep foot vertex, two planar flanks to the point at r3, and the
-    shell triangles beside them. Returns the crown's y. coll=True is the
-    collider's dome: five plain NSIDE rings, no ribs."""
+    top, two sides, a foot on the moulding and a head at the cap. The panel
+    is SMOOTH and wears the drawing's flutes painted (Ryan: "only the
+    triangles ... they just painted on the roof"): every panel quad states
+    its own (u, v) per vertex -- u across the panel between its two ribs, v
+    up the arc from the moulding's head to the crown -- into the "dome"
+    atlas sheet, so the flute band stands on the ring all round and nothing
+    smears at the crown. Returns the crown's y. coll=True is the collider's
+    dome: five plain NSIDE rings, no ribs."""
     R = (mb.WALL_R ** 2 + mb.DOME_RISE ** 2) / (2.0 * mb.DOME_RISE)
     zc = mb.DOME_Z0 + mb.DOME_RISE - R
     phi0 = math.asin(mb.WALL_R / R)
@@ -479,7 +478,7 @@ def _dome(m, coll=False):
             m.tri(tv, cap[i], cap[(i + 1) % mb.NSIDE], DOWN, "band")
         return zc + R
 
-    # THE STATIONS: a sector is a0, a1, p1 .. p9 -- (angle, kind); 176 round
+    # THE STATIONS: a sector is a0, a1, p1 .. p5 -- (angle, kind); 112 round
     az = []
     for i in range(DOME_RIBS):
         c = TWO_PI * i / DOME_RIBS
@@ -487,8 +486,7 @@ def _dome(m, coll=False):
         nxt = TWO_PI * (i + 1) / DOME_RIBS - RIB_HALF
         az.append((a0, "a0"))
         az.append((a1, "a1"))
-        az += [(a1 + (nxt - a1) * k / PANEL_FACETS, "g" if k % 2 == 1 else "x")
-               for k in range(1, PANEL_FACETS)]
+        az += [(a1 + (nxt - a1) * k / PANEL_FACETS, "x") for k in range(1, PANEL_FACETS)]
     N = len(az)
     per = N // DOME_RIBS
 
@@ -541,8 +539,19 @@ def _dome(m, coll=False):
         m.quad(foot[s], foot[t], S(0, t), S(0, s),
                want(m.verts[foot[s]], m.verts[foot[t]], m.verts[S(0, t)], m.verts[S(0, s)]), "collar")
 
-    # THE BANDS r1 .. r6: the ribs' boxes, the plain panels; the fluted bands
-    # (below FLUTE_RING) are the grooves' own faces, made after
+    def panel_uv(k, s, t):
+        """{vertex: (u, v)} for the panel quad on stations s, t between rings
+        k and k + 1: u across the panel from its rib's a1 to the next rib's
+        a0, v the rings' fractions of the arc."""
+        i = s // per
+        a_lo = az[i * per + 1][0]                                # this sector's a1
+        a_hi = TWO_PI * (i + 1) / DOME_RIBS - RIB_HALF           # the next rib's a0
+        u_s = (az[s][0] - a_lo) / (a_hi - a_lo)
+        u_t = 1.0 if t == ((i + 1) * per) % N else (az[t][0] - a_lo) / (a_hi - a_lo)
+        return {S(k, s): (u_s, DOME_RING_F[k]), S(k, t): (u_t, DOME_RING_F[k]),
+                S(k + 1, t): (u_t, DOME_RING_F[k + 1]), S(k + 1, s): (u_s, DOME_RING_F[k + 1])}
+
+    # THE BANDS r1 .. r5: the ribs' boxes and the smooth painted panels
     for k in range(len(phis) - 1):
         for s in range(N):
             t = (s + 1) % N
@@ -556,34 +565,10 @@ def _dome(m, coll=False):
                        "marble")
                 m.quad(P(k, t), S(k, t), S(k + 1, t), P(k + 1, t),
                        (-math.sin(a_t), math.cos(a_t), 0.0), "shade")
-            elif k < FLUTE_RING:
-                continue                                         # a groove's facet
             else:
                 m.quad(S(k, s), S(k, t), S(k + 1, t), S(k + 1, s),
                        want(m.verts[S(k, s)], m.verts[S(k, t)], m.verts[S(k + 1, t)], m.verts[S(k + 1, s)]),
-                       "marble2")
-
-    # THE FLUTES: on every odd panel station a V-groove from the moulding's
-    # ring to its point at r3 -- a foot two triangles deep, two planar flanks,
-    # and beside each flank the shell up its ridge, in triangles that keep the
-    # ridge's own line (no sliver runs along a meridian)
-    for s in range(N):
-        if az[s][1] != "g":
-            continue
-        sl, sr = (s - 1) % N, (s + 1) % N
-        a_g = az[s][0]
-        fl, fg, fr = S(0, sl), S(0, s), S(0, sr)
-        fd = m.v(at(phi_m, a_g, MOULD_D + FLUTE_D))
-        apex = S(FLUTE_RING, s)
-        w_foot = down(phi_m, a_g)
-        m.tri(fl, fg, fd, w_foot, "shade")
-        m.tri(fg, fr, fd, w_foot, "shade")
-        m.tri(fl, fd, apex, want(m.verts[fl], m.verts[fd], m.verts[apex]), "shade")
-        m.tri(fr, fd, apex, want(m.verts[fr], m.verts[fd], m.verts[apex]), "shade")
-        for (side, f0) in ((sl, fl), (sr, fr)):
-            r1, r2 = S(1, side), S(2, side)
-            m.tri(r1, r2, apex, want(m.verts[r1], m.verts[r2], m.verts[apex]), "shade")
-            m.tri(r1, apex, f0, want(m.verts[r1], m.verts[apex], m.verts[f0]), "shade")
+                       "dome", panel_uv(k, s, t))
 
     # EVERY RIB'S FOOT ON THE MOULDING AND HEAD AT THE CAP, closed across its
     # mouth: the foot faces down the sphere, the head up it
