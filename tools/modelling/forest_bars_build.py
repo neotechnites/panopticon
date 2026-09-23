@@ -1791,7 +1791,8 @@ def build_geometry():
 
 
 # =============================================================================
-# COLLIDER -- one box per strand segment: the stand's own shape, not a wall
+# COLLIDER -- one box: the stand's footprint (HALF_W x HALF_T) by its height
+# (Ryan: "the collision object looks really complicated? is it? it can just be a big rectangle.")
 # =============================================================================
 
 def _box(c, lo, hi, zone="bark"):
@@ -1809,20 +1810,11 @@ def _box(c, lo, hi, zone="bark"):
 
 
 def _collider(strands):
+    """One box over the whole stand: the lane's full width, the stand's
+    thickness, ground to its top. The strands are what the gap proof reads;
+    the collider no longer follows them."""
     c = ft._Mesh()
-    for s in strands:
-        path, radii = s["path"], s["radii"]
-        for i in range(len(path) - 1):
-            a, b = path[i], path[i + 1]
-            rr = max(radius_at(radii, i / float(len(path) - 1)),
-                     radius_at(radii, (i + 1) / float(len(path) - 1))) * (1.0 + WOB)
-            lo = (min(a[0], b[0]) - rr, max(-HALF_T, min(a[1], b[1]) - rr),
-                  max(0.0, min(a[2], b[2]) - rr))
-            hi = (max(a[0], b[0]) + rr, min(HALF_T, max(a[1], b[1]) + rr),
-                  min(HEIGHT, max(a[2], b[2]) + rr))
-            if hi[2] <= lo[2]:
-                continue
-            _box(c, lo, hi, "bark")
+    _box(c, (-HALF_W, -HALF_T, 0.0), (HALF_W, HALF_T, HEIGHT), "bark")
     return c
 
 

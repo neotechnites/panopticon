@@ -83,7 +83,7 @@ directional_shadow_mode = 0
 directional_shadow_max_distance = 200.0
 
 [node name="ForestMap" parent="." instance=ExtResource("6_forest_model")]
-editor_description = "assets/models/forest.glb: lane, pit bank and dark floor, brambles, leaf wall, ceiling, cells, fence; ForestFog and the ray nodes ride in it. Ships its own collision (ForestCollision-colonly)."
+editor_description = "assets/models/forest.glb: lane, pit bank and dark floor, brambles, leaf wall, ceiling, cells; ForestFog and the ray nodes ride in it. Ships its own collision (ForestCollision-colonly)."
 
 [node name="ForestRaysSolid" parent="ForestMap"]
 visible = false
@@ -121,7 +121,7 @@ transform = Transform3D(0.965926, 0, 0.258819, 0, 1, 0, -0.258819, 0, 0.965926, 
 transform = Transform3D(0.965926, 0, 0.258819, 0, 1, 0, -0.258819, 0, 0.965926, 50.2281, 23, -13.4586)
 
 [node name="Bars" parent="." instance=ExtResource("9_forest_bars")]
-editor_description = "The barrier across the lane at 353 deg, in the gap between the finish (345) and the start (5), so the finish is visible from the start but not walkable back to. The same node and the same place Map 1 and Map 2 give their bars, in the forest's own terms: assets/models/forest_bars.glb, a stand of saplings and young trunks grown up out of the ground, no frame and no carpentry. It keeps rock_bars.glb's envelope (10.6 x 8.5 m, origin the base centre) and its guarantee that no gap anywhere exceeds 0.38 m, so the swap is the model and nothing else. Local X (10.6 m) runs radially across the lane, local Z along it. The map mesh's own fallen-log fence stands three degrees ahead of it at 350."
+editor_description = "The barrier across the lane at 353 deg, in the gap between the finish (345) and the start (5), so the finish is visible from the start but not walkable back to. The same node and the same place Map 1 and Map 2 give their bars, in the forest's own terms: assets/models/forest_bars.glb, a stand of saplings and young trunks grown up out of the ground, no frame and no carpentry. It keeps rock_bars.glb's envelope (10.6 x 8.5 m, origin the base centre) and its guarantee that no gap anywhere exceeds 0.38 m, so the swap is the model and nothing else. Local X (10.6 m) runs radially across the lane, local Z along it."
 transform = Transform3D(0.992546, 0, 0.121869, 0, 1, 0, -0.121869, 0, 0.992546, 51.6124, 23, -6.33721)
 
 [node name="Sections" type="Node3D" parent="."]
