@@ -336,9 +336,10 @@ S4_NOISE_L = (0.7, 1.8)               # ... wavelengths
 # ---- the cave wall: a ridge of rock between the tower and the flights ------
 S4_WALL_B = (209.8, 271.6)            # bearings it runs between, sunk into the lava at each end
 S4_WALL_STEP = 0.85                   # degrees per column (~0.72 m)
-S4_WALL_R = 47.26                     # its crest line's radius: on the lip walls' drawn line,
-S4_WALL_WANDER = 0.05                 # ... wandering this much (feet 46.76..47.76, never past 204's face)
-S4_WALL_W = (0.40, 0.45)              # half width at the foot
+S4_WALL_R = 49.30                     # its crest line's radius: feet 47.20..51.40, clear of the pit lip
+S4_WALL_WANDER = 0.35                 # ... wandering this much
+S4_WALL_W = (1.35, 1.75)              # half width at the foot
+S4_WALL_PULL = 5.0                    # metres each end takes to narrow onto its corner wall's footprint
 S4_WALL_ARC_R = 48.7                  # arc metres for its crags, joins and windows: heights as before
 S4_WALL_H = (4.6, 5.8)                # height over the lava, wandering
 S4_WALL_JOIN, S4_WALL_JOIN_W = 9.2, 3.2   # up into the ceiling (8.8 m over the lava) in front of each landing, over this reach
@@ -2188,6 +2189,11 @@ def _s4_wall_spec():
             d = (bb - eb) * sgn * math.radians(1.0) * S4_WALL_ARC_R
             if d < S4_WALL_END:
                 H += (-0.6 - H) * (1.0 - _smooth(d / S4_WALL_END))
+        for eb, sgn, wn in ((b0, 1.0, "204"), (b1, -1.0, "286")):   # never past the corner walls
+            g = 1.0 - _smooth((bb - eb) * sgn * math.radians(1.0) * S4_WALL_ARC_R / S4_WALL_PULL)
+            lw = next(w for w in LIP_WALLS if w["name"] == wn)
+            ri, ro = lw.get("r_in", LIP_R_IN), lw.get("r_out", LIP_R_OUT)
+            rc, W = rc + (0.5 * (ri + ro) - rc) * g, W + (0.5 * (ro - ri) - W) * g
         on_deck = _ramp(lay["bank_entry"] + 0.3 - bb, 0.0, 0.6)  # standing on the deck before the field
         base = LAVA_Z + (DECK_Z - LAVA_Z) * on_deck
         cols.append({"b": bb, "rc": rc, "W": W, "H": H, "base": base})
@@ -6748,11 +6754,12 @@ LIP_WALLS = [                 # name, first and last bearing, head z, deg of tap
     # path's inner column at the corner.
     dict(name="204", b0=199.2, b1=208.8, top=26.00, taper=1.5, jag_z=0.35,
          r_out=47.50, seed=5310947),
+    # S4 | S5: 1.3 m thick as it was, moved 0.5 m out so its inner face is clear of the lip.
     dict(name="286", b0=281.2, b1=290.8, top=26.00, taper=1.5, jag_z=0.35,
-         r_out=47.50, seed=7720261),                                                      # S4 | S5, as 204
+         r_in=47.40, r_out=48.70, seed=7720261),
 ]
 LIP_EYE_Z = 28.90             # the guard's eye, as RingBake and S3 trace it
-LIP_R_IN = 46.90              # inner face: on the lip (INNER_R 46.70), clear of the void
+LIP_R_IN = 46.90              # inner face: on the lip (INNER_R 46.70), unless a row carries its own r_in
 LIP_R_OUT = 48.20             # outer face: 1.3 m thick, unless a row carries its own r_out
                               # (204 and 286 do). Ryan's 50.40 is on the start line --
                               # the field is dealt sideways from lane r 52.0 at 2.0 m, so the
@@ -6810,7 +6817,7 @@ def _lip_prove(ob):
         return not (hit and (loc - eye).length < d.length - 0.02)
 
     for w in LIP_WALLS:
-        rm = 0.5 * (LIP_R_IN + w.get("r_out", LIP_R_OUT))
+        rm = 0.5 * (w.get("r_in", LIP_R_IN) + w.get("r_out", LIP_R_OUT))
         f0, f1 = w["b0"] + w["taper"], w["b1"] - w["taper"]
         n = max(2, int(math.radians(f1 - f0) * rm / LIP_PROVE_STEP))
         crest = [down(f0 + (f1 - f0) * k / (n - 1), rm) for k in range(n)]
@@ -6869,7 +6876,7 @@ def _lip_screen(m, w, coll=False):
     for i in range(n + 1):
         b = b0 + (b1 - b0) * i / n
         f = _smooth(min(b - b0, b1 - b) / taper)
-        ri, ro = LIP_R_IN, w.get("r_out", LIP_R_OUT)
+        ri, ro = w.get("r_in", LIP_R_IN), w.get("r_out", LIP_R_OUT)
         if not coll:
             ri -= LIP_SKIN_IN - jin[i]
             ro += LIP_SKIN_OUT - jout[i]
@@ -6907,7 +6914,7 @@ def _lip_screen(m, w, coll=False):
     print("MDL STATS lip_wall %s %s_tris=%d cols=%d b=%.1f..%.1f (taper %.1f deg at each end) "
           "r=%.2f..%.2f z=%.2f..%.2f head %.2f m over the deck, %.2f m under the ceiling"
           % (w["name"], "collision" if coll else "visual", tris, n + 1, b0, b1, taper,
-             LIP_R_IN, w.get("r_out", LIP_R_OUT), LIP_BASE_Z, top_z, top_z - DECK_Z, CEIL_Z - top_z))
+             w.get("r_in", LIP_R_IN), w.get("r_out", LIP_R_OUT), LIP_BASE_Z, top_z, top_z - DECK_Z, CEIL_Z - top_z))
     return tris
 
 
