@@ -77,6 +77,76 @@ Captures, before and after, at
 `~/Desktop/panopticon-renders/marble/fixes/`.
 
 
+## The wobble was the sampling, not the sheets
+
+Ryan, after that pass shipped: *"the marble tower is still wobbly."*
+
+The pass above was a real fix and it was not this one. It put the right picture
+on the tower; nothing was giving the engine a way to read it correctly at
+distance.
+
+**Looked at in the game, in flat grey, first.** `tools/shot.gd --flat=1`
+overrides every drawn surface with one plain grey and is new here, because
+ENGINEERING's *"if the form is not readable in flat grey, it is wrong"* had
+nothing that could take that picture in the game. In that capture from the lane
+the shaft is a clean rectangle: the silhouette's left edge sits at x 810 and the
+right at x 1110 and neither moves by a pixel over 550 px of height. Textured,
+from the same pose, the same shaft is a scatter of broken dashes. One picture,
+and geometry was out.
+
+**The ruled-out list, with the number that ruled each out.**
+
+| candidate | measurement | verdict |
+|---|---|---|
+| silhouette | flat capture, mid pose, bare shaft: left 810, right 1110, over 550 px of height | straight, 0 px |
+| section | all 9 bare-shaft rings, max−min radius within a ring | regular, 4.2e-7 m |
+| stacking | ring-to-ring azimuth drift against ring 0 | aligned, 0.000000000 deg |
+| axis | per-ring centroid | on axis, 0.000000000 m |
+| normals | angle between a shaft triangle's own three vertex normals, all 372 | flat, 0.0000 deg, no alternation |
+| concentricity | ledge r 8.2, beam 7.00–7.50, slab, 16 columns: fitted centres | concentric to 1e-9 m |
+| texture | the flat capture above, and the headless probe below | **the cause** |
+
+**What it actually was.** `marble_tower.glb` embeds its eleven albedo sheets
+(`gltf/embedded_image_handling=3`). Godot's glTF importer builds each as an
+`ImageTexture` with **no mip chain**, while every material asks for
+`texture_filter` 2, `NEAREST_WITH_MIPMAPS`. Headless, before: all eleven
+surfaces report `filter=2 mipmaps=false`. The filter names a mip level that is
+not there, so every pixel samples mip 0 at any distance. From the lane the shaft
+is about 110 px wide across 14 m, so one screen pixel covers roughly 2.5 texels
+of a 0.046 m sheet and the 1-texel mortar joints are sampled at random: they
+break into disconnected dashes, and they crawl when the camera moves. That is
+the wobble, and repainting the sheets could never have touched it.
+
+**The fix.** `tools/import/mipmap_textures.gd`, an `EditorScenePostImport` hook
+on `assets/models/marble_tower.glb.import`: it gives each embedded sheet a mip
+chain and sets the material to `NEAREST_WITH_MIPMAPS_ANISOTROPIC`. NEAREST
+magnification is the art's deliberate pixel look and survives untouched — only
+minification changes. It is a post-import hook rather than
+`gltf/embedded_image_handling=1` because `tools/pc_sync.sh`, `tools/pc_shot.sh`
+and `tools/fix_glb_imports.sh` all rewrite that key back to `3` and none of the
+three touches `import_script/path`.
+
+**After**, same eleven surfaces: `filter=4 mipmaps=true`. In the lane capture the
+mean unbroken run of a course line across the shaft goes **9.1 px → 39.5 px** of
+110 px of shaft width; at 15 m it is 10.0 → 11.3, essentially unmoved, which is
+mip 0 still serving the near view exactly as before. Geometry is untouched and
+the flat captures prove it: the tower's silhouette is **0 px different** before
+and after in the mid, base and orbit poses, and the `.glb` is byte-identical —
+4,380 art tris, 1,278 collision tris, one connected component each.
+
+`tests/test_marble_tower_texture.gd` holds it: eleven sheets, every one with a
+mip chain, every material on `NEAREST_WITH_MIPMAPS_ANISOTROPIC`.
+
+**Scope, measured and left alone.** Every other textured `.glb` in
+`assets/models/` has the same missing mip chain — `marble.glb` 12 surfaces,
+`marble_bars.glb` 7, `map_base.glb` 6, `hub_base.glb` 5, `forest.glb` 13, and one
+each for the props. `marble_tower.glb` is the only one changed here, because the
+tower is what was asked about.
+
+Captures, before and after, at
+`~/Desktop/panopticon-renders/marble/wobble/{lane,base,mid,orbit,flat}_{before,after}.png`.
+
+
 ## Palette
 
 Sampled off the Temple of Time references (`~/Desktop/panopticon-refs/Map 2/images-5.jpg`, `images-6.jpg`), 8-bit sRGB, box means:
