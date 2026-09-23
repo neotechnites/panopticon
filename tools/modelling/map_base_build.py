@@ -166,6 +166,7 @@ LAVA_RINGS     = (1.0, 0.70, 0.42, 0.14)   # radius fractions of the pit foot
 LAVA_SWELL     = 0.6                  # +- metres of slow molten swell
 LAVA_STEP      = 0.3                  # swell snaps to this: flat crust plates
 LAVA_FLAT_R    = 18.0                 # level under the tower's foot
+LAVA_ASPECT    = 0.2                  # inner rings: arc between columns, per metre of ring gap
 
 # ---- the lava river: a channel recessed into the deck, the wall and the pit --
 # Folded in from the retired lake_section model. A game bearing of b degrees is
@@ -1673,25 +1674,30 @@ def _lava_sea(m, wall, z, r, extra=()):
     cols = _merge_cols([wall.cols[i * nu + su] for i in range(n) for su in range(nu)],
                        list(extra))
     rim = [wall.W(t, z) for t in cols]
-    rad0 = [math.hypot(m.verts[v][0], m.verts[v][1]) for v in rim]
-    rings = [rim]
+    rings = [[(t, v) for t, v in zip(cols, rim)]]
+    prev_f = LAVA_RINGS[0]
+    rmean = sum(math.hypot(m.verts[v][0], m.verts[v][1]) for v in rim) / len(rim)
     for frac in LAVA_RINGS[1:]:
         p0, p1 = r.f() * TWO_PI, r.f() * TWO_PI
         k0, k1 = r.i(2, 4), r.i(5, 8)
+        # columns thin toward the centre so a ring's cells stay near LAVA_ASPECT wide per metre deep
+        n = min(len(cols), max(12, int(round(TWO_PI * frac / (LAVA_ASPECT * (prev_f - frac))))))
+        prev_f = frac
         ring = []
-        for k, t in enumerate(cols):
-            rad = rad0[k] * frac
+        for k in range(n):
+            t = cols[0] + TWO_PI * k / n
+            w = _wall_point(wall, t, z)
+            rad = math.hypot(w[0], w[1]) * frac
             taper = min(1.0, max(0.0, (rad - LAVA_FLAT_R) / 8.0))
             dz = LAVA_SWELL * taper * (0.62 * math.sin(k0 * t + p0)
                                        + 0.38 * math.sin(k1 * t + p1))
             dz = LAVA_STEP * round(dz / LAVA_STEP)   # plateaus: crust plates, not swell
-            ring.append(m.v((rad * math.cos(t), rad * math.sin(t), z + dz)))
+            ring.append((t, m.v((rad * math.cos(t), rad * math.sin(t), z + dz))))
         rings.append(ring)
-    ncol = len(cols)
-    for a, b in zip(rings, rings[1:]):
-        for k in range(ncol):
-            j = (k + 1) % ncol
-            m.quad(a[k], a[j], b[j], b[k], UP, ZONE_LAVA)   # Ryan's tile, on its own surface
+    for a_, b_ in zip(rings, rings[1:]):
+        _zipper(m, a_, b_, UP, ZONE_LAVA)   # Ryan's tile, on its own surface
+    rings = [[v for _t, v in ring] for ring in rings]
+    ncol = len(rings[-1])
     cid = m.v((0.0, 0.0, z))
     last = rings[-1]
     for k in range(ncol):
@@ -3664,8 +3670,46 @@ def _s3_crack_network():
         F = dict(cells[cc])
         F["ports"] = ports
         fissures += _s3n_cell(rng, F, cell_ports[cc], len(fissures))
+    fissures = _s3n_off_wall(fissures)
     S3["net"] = dict(cells=cells, tree=tree, ports=ports, fissures=fissures)
     return S3["net"]
+
+
+def _s3n_edge_r(p):
+    """The deck's outer edge (the outer wall's foot chord) at p's bearing."""
+    x, y = S3["deck_xy"](S3["L"]["T"](_bear_deg(math.atan2(p[1], p[0]))), OUTER_R)
+    return math.hypot(x, y)
+
+
+def _s3n_off_wall(fissures):
+    """Splinters that ran past the outer wall's foot tore holes in the deck patch: drop
+    each with every splinter grown off it, and renumber the hosts the rest name."""
+    def off(f):
+        return any(math.hypot(q[0], q[1]) > _s3n_edge_r(q) - S3_CRACK_MARGIN for q in _s3n_outline(f))
+    drop = set(k for k, f in enumerate(fissures) if off(f))
+    grew = True
+    while grew:
+        grew = False
+        for k, f in enumerate(fissures):
+            if k not in drop and any(e[0] == "mouth" and e[1] in drop for e in (f["e0"], f["e1"])):
+                drop.add(k)
+                grew = True
+    for k in drop:
+        if any(e[0] == "port" for e in (fissures[k]["e0"], fissures[k]["e1"])):
+            raise RuntimeError("s3 cracks: a port fissure runs past the outer wall")
+    new = {}
+    for k in range(len(fissures)):
+        if k not in drop:
+            new[k] = len(new)
+    out = []
+    for k, f in enumerate(fissures):
+        if k in drop:
+            continue
+        for key in ("e0", "e1"):
+            if f[key][0] == "mouth":
+                f[key] = (f[key][0], new[f[key][1]]) + tuple(f[key][2:])
+        out.append(f)
+    return out
 
 
 def _s3c_simple(poly):
@@ -4237,13 +4281,347 @@ def _s3_net_mesh(m):
     return loops, lava, lip, tris
 
 
+def _pf_area2(P, ring):
+    return sum(P[ring[i]][0] * P[ring[(i + 1) % len(ring)]][1]
+               - P[ring[(i + 1) % len(ring)]][0] * P[ring[i]][1] for i in range(len(ring)))
+
+
+def _pf_cross(o, a, b):
+    return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
+
+
+def _pf_seg_hit(a, b, c, d):
+    """Proper crossing of segments a-b and c-d (shared end points do not count)."""
+    d1, d2 = _pf_cross(c, d, a), _pf_cross(c, d, b)
+    d3, d4 = _pf_cross(a, b, c), _pf_cross(a, b, d)
+    return ((d1 > 0) != (d2 > 0)) and ((d3 > 0) != (d4 > 0)) and d1 * d2 < 0 and d3 * d4 < 0
+
+
+def _pf_bridge(P, outer, hole):
+    """Splice a hole (clockwise) into the outer ring (anticlockwise) through
+    the shortest diagonal from the hole's rightmost vertex that crosses nothing."""
+    segs = [(outer[i], outer[(i + 1) % len(outer)]) for i in range(len(outer))]
+    segs += [(hole[i], hole[(i + 1) % len(hole)]) for i in range(len(hole))]
+    hk = max(range(len(hole)), key=lambda k: (P[hole[k]][0], -P[hole[k]][1]))
+    for hk_try in [hk] + sorted(range(len(hole)), key=lambda k: -P[hole[k]][0]):
+        h = P[hole[hk_try]]
+        cand = sorted(range(len(outer)), key=lambda k: (P[outer[k]][0] - h[0]) ** 2 + (P[outer[k]][1] - h[1]) ** 2)
+        for ok in cand[:200]:
+            o = P[outer[ok]]
+            if o == h:
+                continue
+            # the diagonal must leave o into the interior
+            prv, nxt = P[outer[ok - 1]], P[outer[(ok + 1) % len(outer)]]
+            if _pf_cross(prv, o, nxt) >= 0:
+                if not (_pf_cross(prv, o, h) > 0 and _pf_cross(o, nxt, h) > 0):
+                    continue
+            elif _pf_cross(prv, o, h) <= 0 and _pf_cross(o, nxt, h) <= 0:
+                continue
+            if any(_pf_seg_hit(h, o, P[a], P[b]) for a, b in segs):
+                continue
+            k = hk_try
+            return outer[:ok + 1] + hole[k:] + hole[:k + 1] + outer[ok:]
+    raise RuntimeError("fill: no bridge to a hole")
+
+
+def _pf_earclip(P, ring):
+    """Ear clipping of one simple anticlockwise ring; reflex corners bucketed on a grid."""
+    n = len(ring)
+    prev = [(i - 1) % n for i in range(n)]
+    nxt = [(i + 1) % n for i in range(n)]
+    alive = n
+    xs = [P[v][0] for v in ring]
+    ys = [P[v][1] for v in ring]
+    cell = max(max(xs) - min(xs), max(ys) - min(ys)) / max(1.0, math.sqrt(n)) + 1e-9
+    grid = {}
+
+    def gk(p):
+        return (int(math.floor(p[0] / cell)), int(math.floor(p[1] / cell)))
+
+    def reflex(i):
+        return _pf_cross(P[ring[prev[i]]], P[ring[i]], P[ring[nxt[i]]]) <= 0.0
+
+    for i in range(n):
+        grid.setdefault(gk(P[ring[i]]), set()).add(i)
+    out = []
+
+    def is_ear(i):
+        a, b, c = P[ring[prev[i]]], P[ring[i]], P[ring[nxt[i]]]
+        if _pf_cross(a, b, c) <= 1e-12:
+            return False
+        x0, x1 = min(a[0], b[0], c[0]), max(a[0], b[0], c[0])
+        y0, y1 = min(a[1], b[1], c[1]), max(a[1], b[1], c[1])
+        g0, g1 = gk((x0, y0)), gk((x1, y1))
+        for gx in range(g0[0], g1[0] + 1):
+            for gy in range(g0[1], g1[1] + 1):
+                for j in grid.get((gx, gy), ()):
+                    if j in (prev[i], i, nxt[i]):
+                        continue
+                    p = P[ring[j]]
+                    if p == a or p == b or p == c or not reflex(j):   # a bridge's twin corner
+                        continue
+                    if _pf_cross(a, b, p) >= 0 and _pf_cross(b, c, p) >= 0 and _pf_cross(c, a, p) >= 0:
+                        return False
+        return True
+
+    i = 0
+    stall = 0
+    while alive > 3:
+        if is_ear(i):
+            out.append((ring[prev[i]], ring[i], ring[nxt[i]]))
+            grid[gk(P[ring[i]])].discard(i)
+            p, q = prev[i], nxt[i]
+            nxt[p], prev[q] = q, p
+            alive -= 1
+            stall = 0
+            i = p
+        else:
+            i = nxt[i]
+            stall += 1
+            if stall > alive + 2:
+                raise RuntimeError("fill: ear clipping stalled with %d left" % alive)
+    out.append((ring[prev[i]], ring[i], ring[nxt[i]]))
+    return out
+
+
+def _pf_flip(P, tris, fixed):
+    """Lawson flips to a constrained Delaunay: no edge in `fixed` moves."""
+    def key(a, b):
+        return (a, b) if a < b else (b, a)
+    tris = [list(t) for t in tris]
+    edge = {}
+    for ti, t in enumerate(tris):
+        for k in range(3):
+            edge.setdefault(key(t[k], t[(k + 1) % 3]), []).append(ti)
+    stack = [e for e, ts in edge.items() if len(ts) == 2 and e not in fixed]
+    guard = 0
+    while stack and guard < 200000:
+        guard += 1
+        e = stack.pop()
+        ts = edge.get(e)
+        if not ts or len(ts) != 2 or e in fixed:
+            continue
+        t0, t1 = tris[ts[0]], tris[ts[1]]
+        a, b = e
+        c = [v for v in t0 if v not in e][0]
+        d = [v for v in t1 if v not in e][0]
+        pa, pb, pc, pd = P[a], P[b], P[c], P[d]
+        # d inside the circumcircle of (a, b, c)?
+        if _pf_cross(pa, pb, pc) < 0:
+            pa, pb = pb, pa
+            a, b = b, a
+        ax, ay = pa[0] - pd[0], pa[1] - pd[1]
+        bx, by = pb[0] - pd[0], pb[1] - pd[1]
+        cx, cy = pc[0] - pd[0], pc[1] - pd[1]
+        det = ((ax * ax + ay * ay) * (bx * cy - cx * by) - (bx * bx + by * by) * (ax * cy - cx * ay)
+               + (cx * cx + cy * cy) * (ax * by - bx * ay))
+        if det <= 1e-12:
+            continue
+        # the quad a-d-b-c must be convex for c-d to replace a-b
+        if _pf_cross(pc, pd, pa) * _pf_cross(pc, pd, pb) >= 0 or _pf_cross(pa, pb, pc) * _pf_cross(pa, pb, pd) >= 0:
+            continue
+        i0, i1 = ts
+        n0 = [c, a, d] if _pf_cross(P[c], P[a], P[d]) > 0 else [c, d, a]
+        n1 = [c, d, b] if _pf_cross(P[c], P[d], P[b]) > 0 else [c, b, d]
+        for t, ti in ((t0, i0), (t1, i1)):
+            for k in range(3):
+                edge[key(t[k], t[(k + 1) % 3])].remove(ti)
+        del edge[key(a, b)]
+        tris[i0], tris[i1] = n0, n1
+        for t, ti in ((n0, i0), (n1, i1)):
+            for k in range(3):
+                edge.setdefault(key(t[k], t[(k + 1) % 3]), []).append(ti)
+        for ee in (key(a, c), key(c, b), key(b, d), key(d, a)):
+            if ee not in fixed:
+                stack.append(ee)
+    return [tuple(t) for t in tris]
+
+
+def _fill2d(rings):
+    """rings[0] the outline, the rest holes, as lists of (x, y); returns index
+    triples into the flattened rings, anticlockwise, every ring edge kept."""
+    P, idx = [], []
+    for r in rings:
+        idx.append(list(range(len(P), len(P) + len(r))))
+        P += [tuple(p[:2]) for p in r]
+    outer = idx[0]
+    if _pf_area2(P, outer) < 0:
+        outer = outer[::-1]
+    holes = []
+    for h in idx[1:]:
+        holes.append(h if _pf_area2(P, h) < 0 else h[::-1])
+    holes.sort(key=lambda h: -max(P[v][0] for v in h))
+    ring = outer
+    for h in holes:
+        ring = _pf_bridge(P, ring, h)
+    tris = _pf_earclip(P, ring)
+    fixed = set()
+    for r in idx:
+        for i in range(len(r)):
+            a, b = r[i], r[(i + 1) % len(r)]
+            fixed.add((a, b) if a < b else (b, a))
+    return _pf_flip(P, tris, fixed)
+
+
+def _heal(m):
+    """Split every face whose open edge runs through another face's corner (a
+    T-junction slit), so seams share vertices; element spans stay whole."""
+    Q = 1e-5
+    total = 0
+    for _ in range(6):
+        K = [(round(p[0] / Q), round(p[1] / Q), round(p[2] / Q)) for p in m.verts]
+        rep = {}
+        for i, k in enumerate(K):
+            rep.setdefault(k, i)
+        cnt, own = {}, {}
+        for fi, f in enumerate(m.faces):
+            for e in range(3):
+                a, b = K[f[e]], K[f[(e + 1) % 3]]
+                if a != b:
+                    u = (a, b) if a < b else (b, a)
+                    cnt[u] = cnt.get(u, 0) + 1
+                    own[u] = (fi, e)
+        bnd = [u for u, n in cnt.items() if n == 1]
+        C, tol, grid = 0.5, 2e-4, {}
+        for k in set(k for u in bnd for k in u):
+            p = m.verts[rep[k]]
+            grid.setdefault(tuple(int(math.floor(p[c] / C)) for c in range(3)), []).append(k)
+        splits = {}
+        for u in bnd:
+            fi, e = own[u]
+            f = m.faces[fi]
+            a, b = m.verts[f[e]], m.verts[f[(e + 1) % 3]]
+            d = _sub(b, a)
+            L2 = _dot(d, d)
+            if L2 < 1e-12:
+                continue
+            lo = [int(math.floor((min(a[c], b[c]) - tol) / C)) for c in range(3)]
+            hi = [int(math.floor((max(a[c], b[c]) + tol) / C)) for c in range(3)]
+            hits = []
+            for gx in range(lo[0], hi[0] + 1):
+                for gy in range(lo[1], hi[1] + 1):
+                    for gz in range(lo[2], hi[2] + 1):
+                        for k in grid.get((gx, gy, gz), ()):
+                            if k in u:
+                                continue
+                            w = m.verts[rep[k]]
+                            t = _dot(_sub(w, a), d) / L2
+                            if 1e-6 < t < 1.0 - 1e-6:
+                                q = _sub(_v3(a, d, t), w)
+                                if _dot(q, q) < tol * tol:
+                                    hits.append((t, rep[k]))
+            if hits and fi not in splits:
+                splits[fi] = (e, sorted(hits))
+        if not splits:
+            break
+        faces, zones, start = [], [], []
+        for fi, f in enumerate(m.faces):
+            start.append(len(faces))
+            if fi not in splits:
+                faces.append(f)
+                zones.append(m.zones[fi])
+                continue
+            e, hits = splits[fi]
+            chain = [f[e]] + [w for _t, w in hits] + [f[(e + 1) % 3]]
+            for i in range(len(chain) - 1):
+                faces.append((chain[i], chain[i + 1], f[(e + 2) % 3]))
+                zones.append(m.zones[fi])
+            total += len(chain) - 2
+        start.append(len(faces))
+        m.spans = {k: (start[f0], start[f1]) for k, (f0, f1) in m.spans.items()}
+        m.faces, m.zones = faces, zones
+    return total
+
+
+def _cull_buried(m, reach=3.0):
+    """Drop the faces of every loose piece (a rock, a platform, a wall set into the
+    deck) that sit wholly under the map's own floor, sealed above and open to nothing below."""
+    Q = 1e-4
+    K = [(round(p[0] / Q), round(p[1] / Q), round(p[2] / Q)) for p in m.verts]
+    par = {}
+
+    def find(x):
+        while par.setdefault(x, x) != x:
+            par[x] = par[par[x]]
+            x = par[x]
+        return x
+
+    for f in m.faces:
+        a = find(K[f[0]])
+        for i in f[1:]:
+            b = find(K[i])
+            if a != b:
+                par[b] = a
+    root = [find(K[f[0]]) for f in m.faces]
+    size = {}
+    for r_ in root:
+        size[r_] = size.get(r_, 0) + 1
+    main = max(size, key=size.get)
+    C, grid = 1.0, {}
+    for fi, f in enumerate(m.faces):
+        if root[fi] != main:
+            continue
+        P = [m.verts[i] for i in f]
+        for gx in range(int(math.floor(min(p[0] for p in P) / C)), int(math.floor(max(p[0] for p in P) / C)) + 1):
+            for gy in range(int(math.floor(min(p[1] for p in P) / C)), int(math.floor(max(p[1] for p in P) / C)) + 1):
+                grid.setdefault((gx, gy), []).append(fi)
+
+    def column(x, y):
+        """(height, facing up) of every main face over or under (x, y)."""
+        out = []
+        for fi in grid.get((int(math.floor(x / C)), int(math.floor(y / C))), ()):
+            (x0, y0, z0), (x1, y1, z1), (x2, y2, z2) = [m.verts[i] for i in m.faces[fi]]
+            d = (y1 - y2) * (x0 - x2) + (x2 - x1) * (y0 - y2)
+            if abs(d) < 1e-12:
+                continue
+            a = ((y1 - y2) * (x - x2) + (x2 - x1) * (y - y2)) / d
+            b = ((y2 - y0) * (x - x2) + (x0 - x2) * (y - y2)) / d
+            if min(a, b, 1.0 - a - b) < -1e-9:
+                continue
+            out.append((a * z0 + b * z1 + (1.0 - a - b) * z2, d > 0.0))
+        return out
+
+    def hidden(p):
+        col = column(p[0], p[1])
+        above = [c for c in col if c[0] > p[2] + 1e-4]
+        below = [c for c in col if c[0] < p[2] - 1e-4]
+        if not above:
+            return False
+        top = min(above)
+        if not top[1] or top[0] - p[2] > reach:
+            return False
+        return not below or not max(below)[1]
+
+    under = {}
+    for f in m.faces:
+        for i in f:
+            if i not in under:
+                under[i] = hidden(m.verts[i])
+    set_in = set(root[fi] for fi, f in enumerate(m.faces)
+                 if root[fi] != main and not all(under[i] for i in f))   # it stands out of the floor
+    keep = []
+    for fi, f in enumerate(m.faces):
+        P = [m.verts[i] for i in f]
+        cen = tuple(sum(p[c] for p in P) / 3.0 for c in range(3))
+        keep.append(root[fi] not in set_in or not (all(under[i] for i in f) and hidden(cen)))
+    start, faces, zones = [], [], []
+    for fi, f in enumerate(m.faces):
+        start.append(len(faces))
+        if keep[fi]:
+            faces.append(f)
+            zones.append(m.zones[fi])
+    start.append(len(faces))
+    m.spans = {k: (start[f0], start[f1]) for k, (f0, f1) in m.spans.items()}
+    dropped = len(m.faces) - len(faces)
+    m.faces, m.zones = faces, zones
+    return dropped
+
+
 def _s3_patches(m, S3V):
     """The crack patch: the rectangle of deck cells is one polygon whose
     boundary is the grid's own vertices (so the patch welds to the deck with
     no duplicate and no T-junction) and whose holes are the network's
-    islands; Blender's scanfill triangulates the deck between."""
-    from mathutils import Vector
-    from mathutils.geometry import tessellate_polygon
+    islands; _fill2d triangulates the deck between."""
     L = S3["L"]
     cols = L["cols"]
     loops, lava, lip, ftris = _s3_net_mesh(m)
@@ -4259,14 +4637,9 @@ def _s3_patches(m, S3V):
         (holes if area < 0.0 else plates).append(ring)
 
     def fill(rings):
-        vecs = [[Vector((m.verts[i][0], m.verts[i][1], 0.0)) for i in ring] for ring in rings]
         flat = [i for ring in rings for i in ring]
-        out = []
-        for tri in tessellate_polygon(vecs):
-            a, b, c = flat[tri[0]], flat[tri[1]], flat[tri[2]]
-            if len({a, b, c}) == 3:
-                out.append((a, b, c))
-        return out
+        tri = _fill2d([[m.verts[i][:2] for i in ring] for ring in rings])
+        return [(flat[a], flat[b], flat[c]) for a, b, c in tri if len({flat[a], flat[b], flat[c]}) == 3]
     stats = []
     for pr in _s3_patch_rects(L):
         ci, j0, j1 = pr["ci"], pr["j0"], pr["j1"]
@@ -6622,6 +6995,8 @@ def _rock(r):
             m.quad(prev[i], prev[j], ring[j], ring[i], UP, ZONE_ROCK)
         prev = ring
     _lip_walls(m)
+    print("MDL STATS healed_t_junctions=%d" % _heal(m))
+    print("MDL STATS buried_faces_dropped=%d" % _cull_buried(m))
     return m, ang, (len(sec_cols), pit_tris), (cut0, cut1), s2, (s4c0, s4b0, s4b1, s4c1)
 
 

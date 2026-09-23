@@ -436,15 +436,14 @@ def _wall(r):
         m.quad(idx[(-1, i, j)], idx[(-1, i, j + 1)], idx[(1, i, j + 1)], idx[(1, i, j)],
                (sgn, 0, 0), "shade")
 
-    for i in range(nx - 1):                     # the wall's foot and its broken crest
-        m.quad(idx[(-1, i, 0)], idx[(-1, i + 1, 0)], idx[(1, i + 1, 0)], idx[(1, i, 0)],
-               (0, 0, -1), "shade")
-        m.quad(idx[(-1, i, nz - 1)], idx[(-1, i + 1, nz - 1)],
-               idx[(1, i + 1, nz - 1)], idx[(1, i, nz - 1)], (0, 0, 1), "rock")
-    for i, want, zone in ((0, (-1, 0, 0), "rock"), (nx - 1, (1, 0, 0), "shade")):   # lip, buried end
-        for j in range(nz - 1):
-            m.quad(idx[(-1, i, j)], idx[(-1, i, j + 1)], idx[(1, i, j + 1)], idx[(1, i, j)],
-                   want, zone)
+    # Foot (under the deck), crest (in the ceiling) and the far end (in the outer wall) are
+    # never seen: only the lip column keeps its caps, where the rock meets the drop.
+    m.quad(idx[(-1, 0, 0)], idx[(-1, 1, 0)], idx[(1, 1, 0)], idx[(1, 0, 0)], (0, 0, -1), "shade")
+    m.quad(idx[(-1, 0, nz - 1)], idx[(-1, 1, nz - 1)], idx[(1, 1, nz - 1)], idx[(1, 0, nz - 1)],
+           (0, 0, 1), "rock")
+    for j in range(nz - 1):
+        m.quad(idx[(-1, 0, j)], idx[(-1, 0, j + 1)], idx[(1, 0, j + 1)], idx[(1, 0, j)],
+               (-1, 0, 0), "rock")
     return m, slots, X, Z, cell_of, lanes, TH
 
 
