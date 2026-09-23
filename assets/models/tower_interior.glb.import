@@ -3,13 +3,13 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-uid="uid://hialp6c7ed83"
-path="res://.godot/imported/marble_portal.glb-417a2ec77634134d7d241cf7a8117c0e.scn"
+uid="uid://4rua8nvbr7y7"
+path="res://.godot/imported/tower_interior.glb-1ede0549e1eabebd0e3bf49293252fbf.scn"
 
 [deps]
 
-source_file="res://assets/models/marble_portal.glb"
-dest_files=["res://.godot/imported/marble_portal.glb-417a2ec77634134d7d241cf7a8117c0e.scn"]
+source_file="res://assets/models/tower_interior.glb"
+dest_files=["res://.godot/imported/tower_interior.glb-1ede0549e1eabebd0e3bf49293252fbf.scn"]
 
 [params]
 

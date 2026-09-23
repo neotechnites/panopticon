@@ -38,6 +38,10 @@ judged by the contiguity rule, so anything whose mesh or node name carries a
 Godot collision tag (see COLLISION_TAGS) is audited as a separate population.
 Matching is by substring, the same way Godot's own glTF importer decides.
 
+The split is a budget rule too: --max-tris gates the ART count only, because
+that is the number a contract's max_tris is written about. Collision triangles
+are counted and printed, never charged against the art budget.
+
 EXACTNESS
 
 Positions are pushed through their node transforms first, so two primitives
@@ -654,12 +658,15 @@ def audit(path, max_tris=None, want_components=None):
     elif want_components is not None and art_result["components"] != want_components:
         reason = "art components=%d, wanted %d" % (
             art_result["components"], want_components)
-    elif max_tris is not None and result["tris"] > max_tris:
-        # Gated on the total the block prints as tris=, art and collision
-        # together, so that the budget is checked against the one number a
-        # reader can see. A budget you cannot reconcile with the report is a
-        # budget that gets argued with instead of met.
-        reason = "tris=%d over budget %d" % (result["tris"], max_tris)
+    elif max_tris is not None and art_result["tris"] > max_tris:
+        # Gated on the ART triangles alone -- the "art tris=" the block prints
+        # -- because that is what every contract's max_tris describes. Collision
+        # hulls are a purpose-built, separately authored population whose cost
+        # is a cook, not a draw; folding them into the art budget silently
+        # charges a model for its collider and fails a model that is inside the
+        # budget its contract wrote down. The first line still prints tris= as
+        # the art+collision total, so both numbers stay readable.
+        reason = "art tris=%d over budget %d" % (art_result["tris"], max_tris)
 
     result["ok"] = reason is None
     result["fail_reason"] = reason
@@ -674,8 +681,8 @@ def format_block(result):
         "AUDIT file=%s meshes=%d surfaces=%d tris=%d verts=%d" % (
             result["file"], result["meshes"], result["surfaces"],
             result["tris"], result["verts"]),
-        "AUDIT art components=%d dup_position_verts=%d degenerate_tris=%d loose_verts=%d" % (
-            art["components"], art["dup_position_verts"],
+        "AUDIT art tris=%d components=%d dup_position_verts=%d degenerate_tris=%d loose_verts=%d" % (
+            art["tris"], art["components"], art["dup_position_verts"],
             art["degenerate_tris"], art["loose_verts"]),
         "AUDIT collision components=%d tris=%d" % (col["components"], col["tris"]),
     ]
@@ -691,8 +698,10 @@ def format_block(result):
 USAGE = """usage: glb_audit.py <file.glb> [--json] [--max-tris N] [--components N]
 
   --json          print the result as one JSON object instead of the block
-  --max-tris N    fail if the total triangle count exceeds N -- the tris= on
-                  the first line, art and collision together
+  --max-tris N    fail if the ART triangle count exceeds N -- the "art tris="
+                  on the second line, collision hulls excluded. This is what a
+                  contract's max_tris means; the first line's tris= is the
+                  art+collision total and is reported, not gated
   --components N  fail unless the art geometry is exactly N connected pieces;
                   a prop wants --components 1
 """

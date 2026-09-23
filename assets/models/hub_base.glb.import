@@ -3,13 +3,13 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-uid="uid://hialp6c7ed83"
-path="res://.godot/imported/marble_portal.glb-417a2ec77634134d7d241cf7a8117c0e.scn"
+uid="uid://bprt0hjc2tw7o"
+path="res://.godot/imported/hub_base.glb-34387e05a24c3b3ff9fa4e0131e86793.scn"
 
 [deps]
 
-source_file="res://assets/models/marble_portal.glb"
-dest_files=["res://.godot/imported/marble_portal.glb-417a2ec77634134d7d241cf7a8117c0e.scn"]
+source_file="res://assets/models/hub_base.glb"
+dest_files=["res://.godot/imported/hub_base.glb-34387e05a24c3b3ff9fa4e0131e86793.scn"]
 
 [params]
 
