@@ -38,6 +38,7 @@ var _scene_path: String = ""
 var _out_path: String = ""
 var _settle: float = 0.0
 var _settled: float = 0.0
+var _list_path: String = ""
 var _started: bool = false
 
 
@@ -47,6 +48,7 @@ func _initialize() -> void:
 	_scene_path = _arg("scene", "")
 	_out_path = _arg("out", "")
 	_settle = maxf(0.0, float(_arg("settle", "0")))
+	_list_path = _arg("list", "")
 	if _scene_path.is_empty() or _out_path.is_empty():
 		push_error("shot.gd needs --scene= and --out=")
 		quit(1)
@@ -66,8 +68,31 @@ func _process(_delta: float) -> bool:
 		root, _parse(_arg("pos", ""), Vector3(0, 1.9, 44)), _parse(_arg("look", ""), Vector3.ZERO)
 	)
 	camera.current = true
-	_capture(_out_path)
+	if _list_path.is_empty():
+		_capture(_out_path)
+	else:
+		_capture_list(camera, _list_path, _out_path)
 	return false
+
+
+## --list=<file>: one shot per line, "name x,y,z x,y,z" (pos, look), each
+## written to <--out dir>/<name>.png from the same loaded scene.
+func _capture_list(camera: Camera3D, list_path: String, out_dir: String) -> void:
+	var text: String = FileAccess.get_file_as_string(list_path)
+	for line: String in text.split("\n"):
+		var parts: PackedStringArray = line.strip_edges().split(" ", false)
+		if parts.size() < 3:
+			continue
+		camera.global_position = _parse(parts[1], camera.global_position)
+		camera.look_at(_parse(parts[2], Vector3.ZERO), Vector3.UP)
+		for _i in 6:
+			await process_frame
+		await RenderingServer.frame_post_draw
+		var image: Image = root.get_viewport().get_texture().get_image()
+		var path: String = out_dir.path_join(parts[0] + ".png")
+		image.save_png(path)
+		print("SHOT %s %dx%d" % [path, image.get_width(), image.get_height()])
+	quit(0)
 
 
 ## A 100-degree camera under [param parent], standing at [param pos] and aimed

@@ -2,6 +2,10 @@
 # Render ONE in-game frame of a scene on the PC's GPU and bring the png to the Mac.
 #
 #   tools/pc_shot.sh <git-ref> <res://scene> <out.png on the Mac> <pos x,y,z> <look x,y,z>
+#   tools/pc_shot.sh <git-ref> <res://scene> <out dir on the Mac> --list <file>
+#
+# --list: one shot per line, "name x,y,z x,y,z" (pos, look), all from ONE Godot
+# run into <out dir>/<name>.png (RES= and SETTLE= apply to it too).
 #
 # Why a separate clone. tools/pc_sync.sh owns C:\dev\panopticon -- that is Ryan's
 # play copy, it carries his uncommitted edits, and nothing here may touch it.
@@ -31,15 +35,22 @@ set -euo pipefail
 
 usage() {
   echo "usage: tools/pc_shot.sh <git-ref> <res://scene> <out.png> <pos x,y,z> <look x,y,z>" >&2
+  echo "       tools/pc_shot.sh <git-ref> <res://scene> <out dir> --list <file>" >&2
   exit 2
 }
 [ $# -eq 5 ] || usage
 
 REF="$1"; SCENE="$2"; OUT="$3"; POS="$4"; LOOK="$5"
+LIST=""
+if [ "$POS" = "--list" ]; then
+  LIST="$LOOK"; [ -f "$LIST" ] || { echo "pc_shot: no such list: $LIST" >&2; exit 2; }
+fi
 
 case "$SCENE" in res://*) ;; *) echo "pc_shot: <scene> must be a res:// path" >&2; exit 2 ;; esac
-case "$POS"  in *,*,*) ;; *) echo "pc_shot: <pos> must be x,y,z" >&2;  exit 2 ;; esac
-case "$LOOK" in *,*,*) ;; *) echo "pc_shot: <look> must be x,y,z" >&2; exit 2 ;; esac
+if [ -z "$LIST" ]; then
+  case "$POS"  in *,*,*) ;; *) echo "pc_shot: <pos> must be x,y,z" >&2;  exit 2 ;; esac
+  case "$LOOK" in *,*,*) ;; *) echo "pc_shot: <look> must be x,y,z" >&2; exit 2 ;; esac
+fi
 
 HERE="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$HERE"
@@ -52,6 +63,8 @@ CLONE_W='C:\Users\ddd\panopticon-ceiling'        # backslashes: cmd
 WORK='C:/Users/ddd/panopticon-shot-work'
 WORK_W='C:\Users\ddd\panopticon-shot-work'
 PC_PNG='C:/Users/ddd/panopticon-ceiling-shot.png'
+PC_SHOTS='C:/Users/ddd/panopticon-shot-work/shots'
+PC_SHOTS_W='C:\Users\ddd\panopticon-shot-work\shots'
 TASK=PanopticonShot
 TIMEOUT=${PC_SHOT_TIMEOUT:-600}
 RES=${RES:-}
@@ -119,20 +132,28 @@ ssh -o ConnectTimeout=20 "$PC" "
 # -- 4. the shot, in the console session ---------------------------------------
 scp -q "$HERE/tools/modelling/lib/pcrun.ps1" "$PC:$WORK/pcrun.ps1"
 
+if [ -n "$LIST" ]; then
+  ssh -o ConnectTimeout=20 "$PC" "Remove-Item -Recurse -Force '$PC_SHOTS_W' -ErrorAction SilentlyContinue; New-Item -ItemType Directory -Force -Path '$PC_SHOTS_W' | Out-Null"
+  scp -q "$LIST" "$PC:$WORK/shots.txt"
+  SHOT_ARGS="--scene=$SCENE --list=$WORK/shots.txt --out=$PC_SHOTS"
+else
+  SHOT_ARGS="--scene=$SCENE --pos=$POS --look=$LOOK --out=$PC_PNG"
+fi
+
 cat > "$TMP/shot.bat" <<EOF
 @echo off
 set W=$WORK_W
 del /q "%W%\\shot.done" 2>nul
 del /q "$PC_PNG" 2>nul
 cd /d "%W%"
-"$GODOT" --path $CLONE_W --script res://tools/shot.gd -- --scene=$SCENE --pos=$POS --look=$LOOK --out=$PC_PNG$SETTLE_ARG > "%W%\\shot.log" 2>&1
+"$GODOT" --path $CLONE_W --script res://tools/shot.gd -- $SHOT_ARGS$SETTLE_ARG > "%W%\\shot.log" 2>&1
 set RC=%ERRORLEVEL%
 findstr /c:"SHOT " "%W%\\shot.log" >nul || set RC=1
 echo %RC% > "%W%\\shot.done"
 EOF
 scp -q "$TMP/shot.bat" "$PC:$WORK/shot.bat"
 
-say "shot $SCENE pos=$POS look=$LOOK${RES:+ res=$RES}${SETTLE:+ settle=${SETTLE}s}"
+say "shot $SCENE ${LIST:+list=$LIST}${LIST:-pos=$POS look=$LOOK}${RES:+ res=$RES}${SETTLE:+ settle=${SETTLE}s}"
 ssh -o ConnectTimeout=20 "$PC" "
   $OVERRIDE_SET
   try {
@@ -144,6 +165,12 @@ ssh -o ConnectTimeout=20 "$PC" "
 "
 
 # -- 5. home ------------------------------------------------------------------
-mkdir -p "$(dirname "$OUT")"
-scp -q "$PC:$PC_PNG" "$OUT"
-say "$(ls -l "$OUT" | awk '{print $5, $NF}')"
+if [ -n "$LIST" ]; then
+  mkdir -p "$OUT"
+  scp -q "$PC:$PC_SHOTS/*.png" "$OUT/"
+  say "$(ls "$OUT"/*.png | wc -l | tr -d ' ') shots -> $OUT"
+else
+  mkdir -p "$(dirname "$OUT")"
+  scp -q "$PC:$PC_PNG" "$OUT"
+  say "$(ls -l "$OUT" | awk '{print $5, $NF}')"
+fi
