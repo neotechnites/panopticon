@@ -59,11 +59,11 @@ extends "res://tools/capture/stages/stage.gd"
 ##   r         radius they are strung along (54)
 ##   behind    metres of ring the missed round is put behind him (1.2)
 ##   start     clip seconds the hand leaves the park (1.6)
-##   beats     engagements after the first kill (2)
+##   beats     engagements after the first kill (3)
 ##   beat_more/fire_more   seconds each of those runs, and when its trigger is
-##             ready inside it (4.0, 1.6)
+##             ready inside it (3.0, 1.2)
 ##   shots_more/wait_more  rounds each of those may spend on its man, and how
-##             long it holds out for a clear one before taking what it has (3, 2.0)
+##             long it holds out for a clear one before taking what it has (2, 1.6)
 ##   beat_a/beat_b/beat_c  seconds the hand spends on each beat (3.8, 3.6, 4.0)
 ##   fire_a/fire_b         seconds into that beat the trigger is ready (3.0, 1.75)
 ##   park_deg  bearing the scope rests on before the first beat (52)
@@ -191,14 +191,14 @@ func tick(_delta: float) -> void:
 	# whoever is in the open, leads him and fires -- which lands most of the time
 	# and reads as a near miss when it does not, because the hand is still doing
 	# what a player does.
-	var more: int = maxi(int(option("beats", 2)), 0)
+	var more: int = maxi(int(option("beats", 3)), 0)
 	for index: int in more:
 		_hand.beats.append({
-			"from": _brains, "seconds": float(option("beat_more", 4.0)),
-			"fire_at": float(option("fire_more", 1.6)), "clear": true,
+			"from": _brains, "seconds": float(option("beat_more", 3.0)),
+			"fire_at": float(option("fire_more", 1.2)), "clear": true,
 			"acquire": float(option("acquire", 0.35)), "watch": true,
-			"shots": int(option("shots_more", 3)),
-			"wait": float(option("wait_more", 2.0)),
+			"shots": int(option("shots_more", 2)),
+			"wait": float(option("wait_more", 1.6)),
 		})
 	# No trigger on the last beat: the scope comes off the drop and onto the man
 	# still coming, so the clip ends on a move rather than on a held frame.
@@ -208,7 +208,7 @@ func tick(_delta: float) -> void:
 	var ready: float = _hand.start_at + float(option("beat_a", 3.8)) + float(option("beat_b", 3.6))
 	var more_at: String = ""
 	for index: int in more:
-		more_at += ", %.2f" % (ready + float(option("fire_more", 1.6)) + float(option("beat_more", 4.0)) * float(index))
+		more_at += ", %.2f" % (ready + float(option("fire_more", 1.2)) + float(option("beat_more", 3.0)) * float(index))
 	say("tower brain stood down; the hand starts at %.2f s, is ready to miss at %.2f, to lead at %.2f%s, and holds each until the shot is there" % [
 		_hand.start_at,
 		_hand.start_at + float(option("fire_a", 3.0)),
@@ -219,4 +219,14 @@ func tick(_delta: float) -> void:
 
 func on_out(participant: MatchParticipant) -> void:
 	_kills += 1
-	say("kill %d: %s" % [_kills, participant.body.name])
+	# Out of the hand's pool the moment he is out of the round. The pool is the
+	# same Array the beats hold, so this is what stops the scope from tracking a
+	# man it has already killed -- which is how an eighteen-second take ends up
+	# pointed at rock with nothing happening, and how the last round went into
+	# the tower's own pillar.
+	for index: int in _brains.size():
+		var brain: RunnerBrain = _brains[index] as RunnerBrain
+		if brain != null and brain.controller == participant.body:
+			_brains.remove_at(index)
+			break
+	say("kill %d: %s (%d still running)" % [_kills, participant.body.name, _brains.size()])
