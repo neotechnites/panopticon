@@ -32,6 +32,16 @@ z-fought through the middle of the pupil. The clearances are MEASURED below and
 the build refuses to install under MIN_CLEARANCE, which is the only reason that
 cannot come back as "it looked fine in Blender".
 
+ONE MODEL, THREE LOOKS -- DO NOT ADD A --variant HERE. Ryan asked for a green
+eye on the forest and a marble one on the rotunda (2026-09-23), and those are
+per-map MATERIALS, not per-map models: scenes/ring/<map>_watching_eye_look.tres
+holds three StandardMaterial3Ds and WatchingEye applies them as surface
+overrides on ready, matched by the node names the contract pins. The geometry
+is identical on every map by construction, so the clearance gate below is
+measured once and cannot fall out of step between variants -- which is exactly
+what building eye_forest.glb and eye_marble.glb would put at risk, to change
+six colours. The three colour blocks below are MAP 1's, and map 1's alone.
+
 Blender is Z-up and glTF is Y-up: p_gltf = (x, z, -y). So the gaze axis, glTF
 +Z, is Blender -Y, and the sphere's poles sit on Blender +/-Z = glTF +/-Y.
 """

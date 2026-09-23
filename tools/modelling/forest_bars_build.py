@@ -23,10 +23,30 @@ ORIGIN IS THE BASE CENTRE: z = 0 is the ground. Blender +X -> Godot +X,
 +Z -> Godot +Y, +Y -> Godot -Z, so the scene drops it in where rock_bars.glb
 goes and forest.tscn needs no change.
 
-ONE CONTIGUOUS mesh (ForestBars), one surface (the forest atlas). What holds it
+ONE CONTIGUOUS mesh (ForestBars), one surface per material class. What holds it
 together is what holds a real stand together: a root plate, buried below
 z = -0.04 and never visible, that every ground stem is socketed into. Forks,
 limbs, roots and leaf clumps grow out of sockets in what carries them.
+
+Textures: one tiling sheet per class (lib/texel.py, SHEETS below), exactly as
+forest_build.py does it, and from forest_build's OWN painters and seeds -- so
+`forest_bark`, `forest_leaf` and `forest_root` here are pixel-for-pixel the
+sheets the forest's ground and trunks are wearing, at texel.MPT = 0.05 m per
+texel. The prefix is therefore "forest", not "forest_bars": these are not this
+prop's sheets, they are the forest's, and a bar leaning against a trunk has to
+show the same grain at the same size. This replaces the old per-face atlas
+window (`ft.unwrap` + `ft.atlas_material`), which gave every face its own
+random patch of a 256 px atlas cell stretched to fit -- the reason the stand
+read as cut off and smeared close up.
+
+The projection is `mode="box"`, not the forest's "cyl". The forest's ground is
+authored in WORLD coordinates and closes round a ring, so its arc length can be
+divided into a whole number of repeats. This prop is authored in LOCAL
+coordinates with its origin at the base centre and is placed on the lane by the
+scene; there is no ring here for "cyl" to close round, and measuring an arc
+about the prop's own origin would swirl the bark round a centre that is inside
+the stand. A world box projection keeps every texel square on whichever axis a
+face points at, which is what a stem wants.
 
     tools/modelling/model build forest_bars --views front,threequarter
     python3 tools/modelling/forest_bars_build.py --check
@@ -44,11 +64,12 @@ except ImportError:                       # --check on the Mac: geometry only
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 sys.path.insert(0, HERE + os.sep + "lib")
+import texel as tx  # noqa: E402  one tiling sheet per class, world-projected
 if bpy is not None:
     import mdl  # noqa: E402
 
 import forest_tree_build as ft  # noqa: E402  the shared library: rng, mesh, atlas, tubes
-import forest_build as fb  # noqa: E402  _ptube, and the forest for the in-scene shot
+import forest_build as fb  # noqa: E402  _ptube, the SHEET PAINTERS, and the forest for the in-scene shot
 
 # =============================================================================
 # TUNABLES
@@ -1870,6 +1891,29 @@ def _gaps(band, strands, levels=PROOF_LEVELS):
 
 
 # =============================================================================
+# SHEETS -- the forest's own sheets, box-projected (lib/texel.py)
+# =============================================================================
+# The stand's polygons carry exactly three zones: bark (stems, forks, limbs),
+# root (the buttress flares and the buried plate) and leaf (the few clumps).
+# Each takes forest_build's painter AND its seed, so the painted image is the
+# one forest.glb wears -- no second palette to drift, no copy-pasted painter.
+# Only the projection differs: "box", because a prop authored about its own
+# base centre has no ring for "cyl" to close round (see the module docstring).
+CLASSES = ("bark", "leaf", "root")
+
+
+def _sheet(cls):
+    src = fb.SHEETS[cls]
+    return tx.Sheet(cls, src.paint, mpt=src.mpt, size=src.size, mode="box",
+                    roughness=src.roughness, metallic=src.metallic,
+                    cull=src.cull, seed=src.seed, emissive=src.emissive)
+
+
+SHEETS = {cls: _sheet(cls) for cls in CLASSES}
+TEX_ARGS = dict(use_files=ft.USE_TEXTURE_FILES, tex_dir=os.path.join(HERE, ft.TEX_DIR))
+
+
+# =============================================================================
 # BUILD
 # =============================================================================
 
@@ -1878,11 +1922,17 @@ def build():
     albedo, emissive = ft.sheet("forest_atlas", ft.paint_atlas)
     mdl.save_texture(albedo)
     mdl.save_texture(emissive)
-    INFO["albedo"], INFO["emissive"] = albedo, emissive
+    INFO["albedo"], INFO["emissive"] = albedo, emissive   # the in-scene shot's tree copy
 
     ob = m.object(OBJECT_NAME)
-    ft.unwrap(ob, m.zones)
-    mdl.finish(ob, ft.atlas_material("ForestAtlas", albedo, emissive), strip_uvs=False)
+    classes = list(m.zones)
+    unknown = sorted(set(classes) - set(SHEETS))
+    if unknown:
+        raise ValueError("forest_bars: no Sheet for zone(s) %s" % ", ".join(unknown))
+    tx.unwrap(ob, classes, SHEETS, seed=1)
+    order = tx.finish(ob, classes, tx.materials("forest", SHEETS, **TEX_ARGS))
+    tx.report(SHEETS)
+    print("MDL STATS surfaces=%d order=%s" % (len(ob.data.materials), ",".join(order)))
 
     coll = c.object(COLLIDER_NAME)
     coll.hide_render = True
@@ -2004,9 +2054,10 @@ def _in_scene_render(spec, objects):
     # --------------------------------------------------------------- in-scene
     m, _coll, _rays = fb.build_geometry()
     ground = keep(m.object(fb.OBJECT_NAME))
-    ft.unwrap(ground, m.zones)
-    mdl.finish(ground, ft.atlas_material("ForestAtlasScene", INFO["albedo"], INFO["emissive"]),
-               strip_uvs=False)
+    gclasses = list(m.zones)                 # the ground wears what forest.glb wears, so the
+    tx.unwrap(ground, gclasses, fb.SHEETS, seed=1)   # shot answers "does the bark match?"
+    tx.finish(ground, gclasses, tx.materials(
+        fb.NAME, fb.SHEETS, names={c: "ForestScene_" + c for c in fb.SHEETS}, **TEX_ARGS))
     keep(ft.build_render_copy(INFO["albedo"], INFO["emissive"]))
 
     # The fixture on the lane: local +X onto radial(BEARING), local +Y onto tangent.
