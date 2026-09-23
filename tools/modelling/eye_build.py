@@ -23,6 +23,15 @@ IRIS_BIAS / PUPIL_BIAS, so the iris curves with the ball at every angle. The
 rim radii are unchanged at 0.580 and 0.290, which is what keeps the iris and
 the pupil the same apparent size from the lane as before.
 
+THE BIASES ARE NOT COSMETIC, THEY ARE THE DEPTH BUDGET. A cap inscribed in a
+sphere sits INSIDE it everywhere except at its own vertices, and two caps with
+different ring counts sag by different amounts, so the clearance the renderer
+gets is always less than the bias -- it was a third of it. Shipped at 0.005 and
+0.008 that left 2.4 mm on a unit ball, 6 mm at the scene's 2.5x, and the iris
+z-fought through the middle of the pupil. The clearances are MEASURED below and
+the build refuses to install under MIN_CLEARANCE, which is the only reason that
+cannot come back as "it looked fine in Blender".
+
 Blender is Z-up and glTF is Y-up: p_gltf = (x, z, -y). So the gaze axis, glTF
 +Z, is Blender -Y, and the sphere's poles sit on Blender +/-Z = glTF +/-Y.
 """
@@ -52,13 +61,32 @@ SCLERA_RADIUS = 1.0         # the model IS a unit sphere; the scene scales it
 # The caps ride on spheres very slightly larger than the sclera. The bias is
 # the whole of the clearance -- millimetres on a one-metre ball -- and it is
 # the only number to touch if the iris ever z-fights.
-IRIS_BIAS = 0.005
+#
+# RYAN, 2026-09-22: "the eye started having like, weird artifacts right in the
+# middle of its pupil." The biases were 0.005 and 0.008 and the measured
+# clearances came out at 0.00239 and 0.00247 -- because both caps are
+# INSCRIBED, and the sag their facets differ by ate two thirds of the bias
+# before the renderer ever saw it. At the scene's 2.5x that left 6.3 mm of
+# depth between a saturated emissive iris and a 0.006-black pupil, which the
+# depth buffer cannot separate from the lane: the iris punched through the
+# pupil in a ring of bright wedges at 53 percent of the pupil's radius, which
+# is exactly where the clearance is thinnest. The rim radii are untouched, so
+# nothing about the eye's apparent size or shape moves; only the standoff.
+IRIS_BIAS = 0.015
 IRIS_RIM = 0.580            # rim radius: the iris's apparent size from the lane
 IRIS_RINGS = 4
 
-PUPIL_BIAS = 0.008
+PUPIL_BIAS = 0.028
 PUPIL_RIM = 0.290
 PUPIL_RINGS = 2
+
+# The clearance the build REFUSES to ship below, in metres on the unit ball.
+# Set from the failure: 0.00247 z-fought from the lane, so the floor is well
+# clear of it and the biases above leave 0.01148 -- 28 percent of headroom over
+# the floor and 4.6x the number that broke. This is a GATE, not a note; see
+# _report_clearance. The old code printed the bad number and installed the
+# model anyway, which is exactly how 0.00247 shipped.
+MIN_CLEARANCE = 0.009
 
 # Linear base colours, straight into glTF's baseColorFactor.
 SCLERA_COLOR = (0.03, 0.03, 0.038, 1.0)
@@ -195,12 +223,23 @@ def _clearance(cap, sclera, rim_radius, cap_radius):
 
 
 def _report_clearance(label, knob, cap, sclera, rim_radius, cap_radius, bias):
+    """Measure the clearance and REFUSE the build if it is under MIN_CLEARANCE.
+
+    This used to print the number and carry on, which is exactly how a 0.00247
+    clearance shipped and z-fought in Ryan's face. A positive gap is not the
+    test: the renderer needs room, not merely the right ORDER. The build dies
+    here instead, because a model that breaks its own contract is not installed
+    and this is the eye's real contract.
+    """
     gap = _clearance(cap, sclera, rim_radius, cap_radius)
-    if gap >= 0.0:
-        print("MDL STATS %s_clearance=%+.5f clear" % (label, gap))
-    else:
-        print("MDL note %s_clearance=%+.5f -- THE SCLERA POKES THROUGH THE %s. "
-              "Raise %s to at least %.4f." % (label, gap, label.upper(), knob, bias - gap))
+    print("MDL STATS %s_clearance=%+.5f floor=%.5f" % (label, gap, MIN_CLEARANCE))
+    if gap < MIN_CLEARANCE:
+        raise SystemExit(
+            "MDL note %s_clearance=%+.5f is under the %.5f floor -- at the scene's "
+            "2.5x that is %.1f mm of depth and the layers z-fight from the lane. "
+            "Raise %s to at least %.4f."
+            % (label, gap, MIN_CLEARANCE, gap * 2500.0, knob,
+               bias + (MIN_CLEARANCE - gap)))
     return gap
 
 

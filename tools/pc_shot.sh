@@ -16,6 +16,17 @@
 # a scheduled task returns immediately and its own status tells you nothing.
 #
 # Godot is y-up: pos/look are Godot world coordinates.
+#
+# Two optional environment variables:
+#   RES=1920x1080   render at that size. Godot's root viewport is project.godot's
+#                   and --resolution does not touch it, so the size arrives as a
+#                   temporary override.cfg -- written into the THROWAWAY CLONE
+#                   only, never C:\dev\panopticon, and removed in a finally
+#                   whatever happens, exactly as tools/capture/capture.sh does.
+#   SETTLE=4        seconds of real time to run before the shot, for anything
+#                   that eases into place (the WatchingEye's pupil). Passed
+#                   through to shot.gd as --settle=.
+# Unset, both leave the godot command line and the render exactly as they were.
 set -euo pipefail
 
 usage() {
@@ -43,7 +54,24 @@ WORK_W='C:\Users\ddd\panopticon-shot-work'
 PC_PNG='C:/Users/ddd/panopticon-ceiling-shot.png'
 TASK=PanopticonShot
 TIMEOUT=${PC_SHOT_TIMEOUT:-600}
+RES=${RES:-}
+SETTLE=${SETTLE:-}
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
+
+# override.cfg is this script's alone: write it only when RES asks, but always
+# clear it afterwards, so an aborted run cannot silently resize the next one.
+OVERRIDE_SET=""
+OVERRIDE_DEL="Remove-Item '$CLONE_W\\override.cfg' -ErrorAction SilentlyContinue"
+if [ -n "$RES" ]; then
+  case "$RES" in *[0-9]x[0-9]*) ;; *) echo "pc_shot: RES must be WIDTHxHEIGHT" >&2; exit 2 ;; esac
+  RES_W=${RES%%x*}; RES_H=${RES##*x}
+  OVERRIDE_SET="\$ErrorActionPreference = 'Stop'; Set-Content -Path '$CLONE_W\\override.cfg' -Value @('[display]','window/size/viewport_width=$RES_W','window/size/viewport_height=$RES_H')"
+fi
+
+# Empty when SETTLE is unset, which leaves the command line below byte-for-byte
+# what it has always been.
+SETTLE_ARG=""
+[ -n "$SETTLE" ] && SETTLE_ARG=" --settle=$SETTLE"
 
 say() { printf '\033[1m==> %s\033[0m\n' "$*"; }
 
@@ -97,16 +125,23 @@ set W=$WORK_W
 del /q "%W%\\shot.done" 2>nul
 del /q "$PC_PNG" 2>nul
 cd /d "%W%"
-"$GODOT" --path $CLONE_W --script res://tools/shot.gd -- --scene=$SCENE --pos=$POS --look=$LOOK --out=$PC_PNG > "%W%\\shot.log" 2>&1
+"$GODOT" --path $CLONE_W --script res://tools/shot.gd -- --scene=$SCENE --pos=$POS --look=$LOOK --out=$PC_PNG$SETTLE_ARG > "%W%\\shot.log" 2>&1
 set RC=%ERRORLEVEL%
 findstr /c:"SHOT " "%W%\\shot.log" >nul || set RC=1
 echo %RC% > "%W%\\shot.done"
 EOF
 scp -q "$TMP/shot.bat" "$PC:$WORK/shot.bat"
 
-say "shot $SCENE pos=$POS look=$LOOK"
-ssh -o ConnectTimeout=20 "$PC" \
-  "powershell -NoProfile -ExecutionPolicy Bypass -File '$WORK_W\\pcrun.ps1' -Bat '$WORK_W\\shot.bat' -TaskName '$TASK' -TimeoutSec $TIMEOUT"
+say "shot $SCENE pos=$POS look=$LOOK${RES:+ res=$RES}${SETTLE:+ settle=${SETTLE}s}"
+ssh -o ConnectTimeout=20 "$PC" "
+  $OVERRIDE_SET
+  try {
+    powershell -NoProfile -ExecutionPolicy Bypass -File '$WORK_W\\pcrun.ps1' -Bat '$WORK_W\\shot.bat' -TaskName '$TASK' -TimeoutSec $TIMEOUT
+    if (\$LASTEXITCODE -ne 0) { exit \$LASTEXITCODE }
+  } finally {
+    $OVERRIDE_DEL
+  }
+"
 
 # -- 5. home ------------------------------------------------------------------
 mkdir -p "$(dirname "$OUT")"
