@@ -43,6 +43,8 @@ DEGEN      = 1.0e-4
 DISSOLVE   = 3.0
 DISSOLVE_Z = -2.60
 FLAP_PASSES = 8
+SLIVER     = math.radians(3.0)   # a triangle thinner than this is re-cut
+NEEDLE     = 0.03      # metres: the longest edge a needle merge may close
 
 NSUB       = 32        # collider ring resolution
 NBEAR      = 288       # bearings sampled when finding his windows
@@ -187,14 +189,15 @@ def _boolean(ob, cutter, op):
     """
     keep = ob.data.copy()
     v0, n0 = _volume(ob), _tris(ob)
-    for tol in (False, True):
+    # self-intersection alone before hole-tolerant: tolerance is what shreds
+    for tol in ((False, False), (True, False), (True, True)):
         mod = ob.modifiers.new("bool", "BOOLEAN")
         mod.object = cutter
         mod.operation = op
         mod.solver = "EXACT"
-        for flag in ("use_self", "use_hole_tolerant"):
+        for flag, on in zip(("use_self", "use_hole_tolerant"), tol):
             try:
-                setattr(mod, flag, tol)
+                setattr(mod, flag, on)
             except Exception:
                 pass
         for o in bpy.context.selected_objects:
@@ -208,8 +211,8 @@ def _boolean(ob, cutter, op):
                 and (v1 >= 0.98 * v0 if op == "UNION" else v1 <= 1.02 * v0))
         if good:
             break
-        print("MDL WARN %s came back wrong (tris %d->%d volume %.0f->%.0f); "
-              "retrying tolerant" % (op, n0, n1, v0, v1))
+        print("MDL WARN %s came back wrong (tris %d->%d volume %.0f->%.0f) with "
+              "self=%s tolerant=%s; retrying" % (op, n0, n1, v0, v1, tol[0], tol[1]))
         old = ob.data
         ob.data = keep.copy()
         bpy.data.meshes.remove(old)
@@ -338,6 +341,136 @@ def _polish(bm):
     bmesh.ops.recalc_face_normals(bm, faces=list(bm.faces))
     bm.normal_update()
     return n0 - len(bm.verts)
+
+
+def _shells(faces):
+    seen, out = set(), []
+    for f0 in faces:
+        if f0 in seen:
+            continue
+        shell, stack = [], [f0]
+        seen.add(f0)
+        while stack:
+            f = stack.pop()
+            shell.append(f)
+            for e in f.edges:
+                for g in e.link_faces:
+                    if g not in seen:
+                        seen.add(g)
+                        stack.append(g)
+        out.append(shell)
+    return out
+
+
+def _mend(bm):
+    """Boolean fins: the faces on a non-manifold edge go, with any small sheet
+    they held on, and the shell's holes are filled."""
+    n0 = len(bm.faces)
+    for _ in range(4):
+        nm = [e for e in bm.edges if len(e.link_faces) > 2]
+        if not nm:
+            break
+        dead = list({f for e in nm for f in e.link_faces})
+        touched = {v for f in dead for v in f.verts}
+        bmesh.ops.delete(bm, geom=dead, context="FACES")
+        shells = _shells(list(bm.faces))
+        big = max(len(sh) for sh in shells)
+        junk = [f for sh in shells if len(sh) < 0.1 * big
+                and any(v in touched for f in sh for v in f.verts) for f in sh]
+        if junk:
+            bmesh.ops.delete(bm, geom=junk, context="FACES")
+        loose = [v for v in bm.verts if not v.link_faces]
+        if loose:
+            bmesh.ops.delete(bm, geom=loose, context="VERTS")
+        for comp in _components([e for e in bm.edges if e.is_boundary]):
+            bmesh.ops.holes_fill(bm, edges=list(comp), sides=0)
+    bmesh.ops.triangulate(bm, faces=list(bm.faces))
+    bmesh.ops.recalc_face_normals(bm, faces=list(bm.faces))
+    bm.normal_update()
+    return n0 - len(bm.faces)
+
+
+def _min_ang(f):
+    return min(lp.calc_angle() for lp in f.loops)
+
+
+def _tri_ang(p, q, r):
+    return min((b - a).angle(c - a, 0.0) for a, b, c in ((p, q, r), (q, r, p), (r, p, q)))
+
+
+def _flip_cap(bm, f, uv):
+    """A cap on a flat patch: turn its long edge. Flat pairs only, so no shape moves."""
+    lv = max(f.loops, key=lambda lp: lp.calc_angle())
+    if lv.calc_angle() < math.radians(150.0):
+        return False
+    e, v = lv.link_loop_next.edge, lv.vert
+    if len(e.link_faces) != 2:
+        return False
+    g = [x for x in e.link_faces if x is not f][0]
+    if len(g.verts) != 3:
+        return False
+    d = [x for x in g.verts if x not in e.verts][0]
+    if any(x.other_vert(v) is d for x in v.link_edges):
+        return False
+    f.normal_update()
+    g.normal_update()
+    if f.normal.angle(g.normal, math.pi) > math.radians(2.0):
+        return False
+    a, b = e.verts
+    if (a.co - v.co).cross(d.co - v.co).dot((d.co - v.co).cross(b.co - v.co)) <= 0.0:
+        return False
+    old = min(_min_ang(f), _min_ang(g))
+    if min(_tri_ang(v.co, a.co, d.co), _tri_ang(v.co, d.co, b.co)) <= old:
+        return False
+    ne = bmesh.ops.rotate_edges(bm, edges=[e], use_ccw=False)["edges"]
+    for h in (ne[0].link_faces if ne else ()):
+        for lp in h.loops:                # re-projected by unwrap, like a boolean face
+            lp[uv].uv = (0.0, 0.0)
+    return bool(ne)
+
+
+def _collapse_needle(bm, f, needle):
+    """A needle (one edge a tenth of the rest, under `needle` m): merge it at its midpoint."""
+    es = sorted(f.edges, key=lambda e: e.calc_length())
+    e = es[0]
+    if e.calc_length() > min(needle, 0.1 * es[-1].calc_length()) or len(e.link_faces) != 2:
+        return False
+    a, b = e.verts
+    common = ({x.other_vert(a) for x in a.link_edges}
+              & {x.other_vert(b) for x in b.link_edges})
+    opp = {x for g in e.link_faces for x in g.verts if x not in e.verts}
+    if common != opp:
+        return False                      # would pinch the surface into a fin
+    mid = (a.co + b.co) * 0.5
+    for g in set(a.link_faces) | set(b.link_faces):
+        if a in g.verts and b in g.verts:
+            continue
+        g.normal_update()
+        pts = [mid if x in (a, b) else x.co for x in g.verts]
+        nn = (pts[1] - pts[0]).cross(pts[2] - pts[0])
+        if nn.length < 1e-9 or nn.normalized().dot(g.normal) < 0.8:
+            return False                  # a neighbour would fold over
+    bmesh.ops.pointmerge(bm, verts=[a, b], merge_co=mid)
+    return True
+
+
+def _slivers(bm, needle=NEEDLE):
+    """Re-cut the triangles under SLIVER degrees the booleans left: flip caps, merge needles."""
+    uv = bm.loops.layers.uv.active or bm.loops.layers.uv.new()
+    fixed = 0
+    for _ in range(6):
+        n0 = fixed
+        for f in [f for f in bm.faces if _min_ang(f) < SLIVER]:
+            if not f.is_valid or len(f.verts) != 3 or _min_ang(f) >= SLIVER:
+                continue
+            if _flip_cap(bm, f, uv) or _collapse_needle(bm, f, needle):
+                fixed += 1
+        if fixed == n0:
+            break
+    bmesh.ops.dissolve_degenerate(bm, dist=1.0e-6, edges=list(bm.edges))
+    bmesh.ops.triangulate(bm, faces=list(bm.faces))
+    bm.normal_update()
+    return fixed
 
 
 # =============================================================================
@@ -1188,11 +1321,16 @@ def build():
     bmesh.ops.triangulate(bm, faces=list(bm.faces))
     bmesh.ops.recalc_face_normals(bm, faces=list(bm.faces))
     bm.normal_update()
+    n_fin = _mend(bm)
+    n_sl = _slivers(bm)
+    bmesh.ops.recalc_face_normals(bm, faces=list(bm.faces))
+    bm.normal_update()
     bm.to_mesh(rock.data)
     bm.free()
     rock.data.name = OBJECT_NAME
     rock.data.update()
-    print("MDL STATS dissolved tris %d -> %d" % (n0, _tris(rock)))
+    print("MDL STATS dissolved tris %d -> %d mended=%d slivers_fixed=%d"
+          % (n0, _tris(rock), n_fin, n_sl))
 
     n_uv = unwrap(rock, uvname)
     n_fleck = unfleck(rock, uvname, mat, m["floor"])

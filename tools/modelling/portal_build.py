@@ -43,6 +43,7 @@ JAG_XZ  = 0.13          # metres, in the arch plane; ground points stay on the g
 JAG_Y   = 0.09          # metres, depth: the faces are not planar
 SHADE_BIAS = 0.04       # front/back facets pushed back this much go dark
 DISC_CENTRE_Z = 1.5
+DISC_BULGE = 0.01       # metres each side: the back fan used to be dropped as a duplicate
 
 COL_UP_W  = 0.95        # upright box width, from the outer edge in
 COL_UP_H  = 2.8
@@ -366,10 +367,10 @@ def _held(r, nsides, nrings, jag, run):
 # zones listed in ``planar``: those map the whole zone by (axis_i, axis_j) extent
 # =============================================================================
 
-def unwrap(ob, zones, planar=None, seed=0):
+def unwrap(ob, zones, planar=None, seed=0, count=None):
     me = ob.data
     uvl = me.uv_layers.new(name="UVMap")
-    r = _Rng(TEX_SEED + seed * 7919 + len(me.polygons))
+    r = _Rng(TEX_SEED + seed * 7919 + (len(me.polygons) if count is None else count))
     planar = planar or {}
     for pi, poly in enumerate(me.polygons):
         zone = zones[pi]
@@ -456,11 +457,12 @@ def _portal(r):
         m.quad(o_f[k], o_f[k + 1], o_b[k + 1], o_b[k], (ox, 0.0, oz), ZONE_ROCK)
         m.quad(i_f[k], i_f[k + 1], i_b[k + 1], i_b[k], (-ox, 0.0, -oz),
                ZONE_SHADE if k % 3 else ZONE_ROCK)
-    # the disc: the opening's own outline at y=0, fanned from the centre, both sides
+    # the disc: the opening's own outline at y=0, fanned to a centre each side;
+    # the centres stand DISC_BULGE apart so the two fans are a closed lens, not one face twice
     rim = [m.v((x, 0.0, z)) for (x, z) in inner]
-    centre = m.v((0.0, 0.0, DISC_CENTRE_Z))
-    m.fan(rim, (0.0, -1.0, 0.0), ZONE_PORTAL, centre=centre)
-    m.fan(rim, (0.0, 1.0, 0.0), ZONE_PORTAL, centre=centre)
+    m.fan(rim, (0.0, -1.0, 0.0), ZONE_PORTAL, centre=m.v((0.0, -DISC_BULGE, DISC_CENTRE_Z)))
+    m.uv_faces = len(m.faces)
+    m.fan(rim, (0.0, 1.0, 0.0), ZONE_PORTAL, centre=m.v((0.0, DISC_BULGE, DISC_CENTRE_Z)))
     return m
 
 
@@ -479,7 +481,7 @@ def build():
     mdl.save_texture(emissive)
     rock = _portal(_Rng(SEED))
     ob = rock.object(OBJECT_NAME)
-    unwrap(ob, rock.zones,
+    unwrap(ob, rock.zones, count=rock.uv_faces,
            planar={ZONE_PORTAL: (0, 2, -IN_HALF_W, 0.0, IN_HALF_W, IN_SPRING + IN_RISE)})
     mdl.finish(ob, rock_material("HellRock", albedo, emissive), strip_uvs=False)
     coll_ob = _collider().object(COLLIDER_NAME)   # Godot: StaticBody3D + ConcavePolygonShape3D

@@ -61,6 +61,7 @@ import math
 import os
 import sys
 
+import bmesh
 import bpy
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -653,8 +654,10 @@ def _rock(r):
     for i in range(SIDES):
         m.tri(top[i], top[(i + 1) % SIDES], apex, (0.0, 0.0, 1.0), ZONE_ROCK)
     bot = rings[0]
+    f0 = len(m.faces)
     for i in range(1, SIDES - 1):
         m.tri(bot[0], bot[i], bot[i + 1], (0.0, 0.0, -1.0), ZONE_SHADE)
+    m.buried = list(range(f0, len(m.faces)))   # the foot cap: dropped after unwrap
 
     # ---- the cavity: inner shell, floor, ceiling ----------------------------
     # Columns share the openings' inner bearings so every reveal runs straight
@@ -876,6 +879,17 @@ def _interior_render(spec, objects):
 # BUILD
 # =============================================================================
 
+def _drop_faces(ob, idx):
+    """Delete faces no camera reaches, after unwrap so every kept face keeps its texels."""
+    bm = bmesh.new()
+    bm.from_mesh(ob.data)
+    bm.faces.ensure_lookup_table()
+    bmesh.ops.delete(bm, geom=[bm.faces[i] for i in idx], context="FACES")
+    bm.to_mesh(ob.data)
+    bm.free()
+    ob.data.update()
+
+
 def build():
     rock, coll = _rock(_Rng(SEED))
 
@@ -885,6 +899,7 @@ def build():
 
     ob = rock.object(OBJECT_NAME)
     unwrap(ob, rock.zones, seed=0)
+    _drop_faces(ob, rock.buried)
     mdl.finish(ob, rock_material("HellRock", albedo, emissive), strip_uvs=False)
 
     # The collider rides in the same .glb: Godot reads `-colonly` off the node
