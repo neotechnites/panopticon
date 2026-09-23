@@ -107,8 +107,14 @@ const DRAW_BUDGETS: Dictionary = {
 	# level is absolutely terrible"): the Skylight on the axis is the map's key
 	# and its ONE shadow caster now, the tower's lamp is unshadowed, the
 	# portal's glow is the third. Ceiling 4 (3 + 20 %); shadow_casters exact at 1.
+	#
+	# Textures re-measured 2026-09-22 (Ryan: "when you get close it looks like
+	# shit"): the stone is one tiling sheet per class through lib/texel.py, so
+	# MarbleStone draws 12 surfaces where the atlas drew 1 -- surfaces 15,
+	# materials 15, ceilings 18 (+20 %). Triangles unchanged in the .glb; the
+	# tris row below counts vertices/3 and fell with the shared UVs.
 	"marble": {
-		"tris": 90759, "surfaces": 5, "materials": 5,
+		"tris": 90759, "surfaces": 18, "materials": 18,
 		"transparent_tris": 0, "lights": 4, "shadow_casters": 1,
 	},
 	# The expensive one: 2.5x the Ring, plus 2196 transparent triangles, plus a
@@ -122,8 +128,10 @@ const DRAW_BUDGETS: Dictionary = {
 	# they had. transparent_tris re-measured at 5220 after the pit fog became
 	# fourteen rolling layers instead of seven flat discs (Ryan: "thorns coming
 	# out of a block of butter"): 5040 fog tris + the portal's 180, plus 20 %.
+	# Materials re-measured at 27 on 2026-09-22 with ForestGround on twelve
+	# tiling sheets (lib/texel.py) instead of one atlas; ceiling 33 (+20 %).
 	"forest": {
-		"tris": 299778, "surfaces": 183, "materials": 24,
+		"tris": 299778, "surfaces": 183, "materials": 33,
 		"transparent_tris": 6264, "lights": 3, "shadow_casters": 1,
 	},
 }
