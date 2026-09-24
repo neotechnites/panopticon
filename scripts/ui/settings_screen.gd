@@ -83,6 +83,7 @@ const RESOLUTION_NOTE: String = "SETTINGS_VIDEO_NOTE_RESOLUTION"
 @onready var _invert_check: CheckBox = %InvertCheck
 @onready var _fov_slider: HSlider = %FovSlider
 @onready var _fov_value: Label = %FovValue
+@onready var _crouch_slide_check: CheckBox = %CrouchSlideCheck
 
 @onready var _master_slider: HSlider = %MasterSlider
 @onready var _master_value: Label = %MasterValue
@@ -178,6 +179,7 @@ func refresh() -> void:
 	_sensitivity_slider.value = settings.mouse_sensitivity
 	_invert_check.button_pressed = settings.invert_look_y
 	_fov_slider.value = settings.field_of_view
+	_crouch_slide_check.button_pressed = settings.crouch_slide_enabled
 	_master_slider.value = settings.master_volume
 	_effects_slider.value = settings.effects_volume
 	_music_slider.value = settings.music_volume
@@ -380,6 +382,7 @@ func _connect_controls() -> void:
 	_sensitivity_slider.value_changed.connect(_on_sensitivity_changed)
 	_invert_check.toggled.connect(_on_invert_toggled)
 	_fov_slider.value_changed.connect(_on_fov_changed)
+	_crouch_slide_check.toggled.connect(_on_crouch_slide_toggled)
 	_master_slider.value_changed.connect(_on_master_changed)
 	_effects_slider.value_changed.connect(_on_effects_changed)
 	_music_slider.value_changed.connect(_on_music_changed)
@@ -574,6 +577,13 @@ func _on_fov_changed(value: float) -> void:
 	if _syncing:
 		return
 	_store.settings.field_of_view = value
+	_after_change()
+
+
+func _on_crouch_slide_toggled(pressed: bool) -> void:
+	if _syncing:
+		return
+	_store.settings.crouch_slide_enabled = pressed
 	_after_change()
 
 

@@ -260,7 +260,7 @@ func _ready() -> void:
 
 func _physics_process(delta: float) -> void:
 	if intent_source != null:
-		_intent.copy_from(intent_source.poll(delta))
+		set_intent(intent_source.poll(delta))
 	_intent.normalise()
 
 	if movement_locked:
@@ -361,6 +361,11 @@ func _physics_process(delta: float) -> void:
 ## before the physics tick that should act on it.
 func set_intent(intent: MoveIntent) -> void:
 	_intent.copy_from(intent)
+	# The one gate for the crouch-and-slide setting: off, a live human's press
+	# of the key is dropped here. A bot or a replay is not a [HumanIntentSource].
+	if intent_source is HumanIntentSource and not SettingsStore.instance().settings.crouch_slide_enabled:
+		_intent.slide_pressed = false
+		_intent.slide_held = false
 
 
 ## The intent this tick was driven by. Owned by the controller; read, do not keep.
