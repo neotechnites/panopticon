@@ -27,7 +27,7 @@ extends TestCase
 const SCENE_PATH: String = "res://maps/marble/marble.tscn"
 
 ## The barrier's own node: marble_bars.glb, whose import ships
-## MarbleBarsCollision (one StaticBody3D, one ConcavePolygonShape3D, layer 1).
+## MarbleBarsCollision (one StaticBody3D, one BoxShape3D, layer 1).
 const BARS_NODE: String = "Bars"
 
 ## The gallery walkway the gate spans: an annulus at y 23.0 whose inner lip is
@@ -440,17 +440,28 @@ func _bars_shapes() -> Array[CollisionShape3D]:
 	return out
 
 
+## Every corner of a box shape, in the shape's own local space.
+func _box_corners(box: BoxShape3D) -> Array[Vector3]:
+	var half: Vector3 = box.size * 0.5
+	var out: Array[Vector3] = []
+	for sx in [-1.0, 1.0]:
+		for sy in [-1.0, 1.0]:
+			for sz in [-1.0, 1.0]:
+				out.append(Vector3(sx * half.x, sy * half.y, sz * half.z))
+	return out
+
+
 ## The world-space box the bars' own faces fill.
 func _bars_collider_world_bounds() -> AABB:
 	var bounds: AABB = AABB()
 	var started: bool = false
 	for holder: CollisionShape3D in _bars_shapes():
-		var concave: ConcavePolygonShape3D = holder.shape as ConcavePolygonShape3D
-		if concave == null:
+		var box: BoxShape3D = holder.shape as BoxShape3D
+		if box == null:
 			continue
 		var to_world: Transform3D = holder.global_transform
-		for vertex: Vector3 in concave.get_faces():
-			var point: Vector3 = to_world * vertex
+		for corner: Vector3 in _box_corners(box):
+			var point: Vector3 = to_world * corner
 			if not started:
 				bounds = AABB(point, Vector3.ZERO)
 				started = true
@@ -464,12 +475,12 @@ func _bars_collider_radius_span() -> Vector2:
 	var near: float = INF
 	var far: float = 0.0
 	for holder: CollisionShape3D in _bars_shapes():
-		var concave: ConcavePolygonShape3D = holder.shape as ConcavePolygonShape3D
-		if concave == null:
+		var box: BoxShape3D = holder.shape as BoxShape3D
+		if box == null:
 			continue
 		var to_world: Transform3D = holder.global_transform
-		for vertex: Vector3 in concave.get_faces():
-			var point: Vector3 = to_world * vertex
+		for corner: Vector3 in _box_corners(box):
+			var point: Vector3 = to_world * corner
 			var radius: float = Vector2(point.x, point.z).length()
 			near = minf(near, radius)
 			far = maxf(far, radius)

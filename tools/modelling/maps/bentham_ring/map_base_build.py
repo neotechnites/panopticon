@@ -7883,7 +7883,7 @@ def _gate():
     cv = Matrix(((1.0, 0.0, 0.0, 0.0), (0.0, 0.0, -1.0, 0.0), (0.0, 1.0, 0.0, 0.0), (0.0, 0.0, 0.0, 1.0)))
     mb_ = cv @ mg @ cv.inverted()
     label = _chunk_label("gate")
-    ob.name, coll_ob.name = label + "Rock", label + "Collision-colonly"
+    ob.name, coll_ob.name = label + "Rock", label + "Collision-boxcol"
     for o_ in (ob, coll_ob):
         o_.data.transform(mb_)
         o_.data.update()
@@ -8016,9 +8016,12 @@ def _export_chunks(out_dir, objects, spec):
         mdl.export_glb(path, [vis, col])
         print("MDL EXPORT %s (%d bytes) visual_tris=%d collision_tris=%d"
               % (path, os.path.getsize(path), len(vis.data.polygons), len(col.data.polygons)))
+        # The gate ships one `-boxcol` box (Godot: <Name>Collision/<Name>CollisionShape);
+        # every other chunk still ships its `-colonly` trimesh (.../CollisionShape3D).
+        shape_child = (label + "CollisionShape") if chunk == "gate" else "CollisionShape3D"
         made.append({"chunk": chunk, "glb": os.path.basename(path),
                      "contract": {"node_paths": [label + "Rock", label + "Collision",
-                                                 label + "Collision/CollisionShape3D"],
+                                                 label + "Collision/" + shape_child],
                                   "max_tris": 110000}})
         for o_ in ((vis, col) if chunk != "gate" else ()):
             me = o_.data
