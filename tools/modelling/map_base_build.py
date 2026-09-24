@@ -1871,8 +1871,13 @@ def _cap(ring):
     return ring[1:] + ring[:1] if len(ring) == 8 else ring
 
 
+# The last two rings share the top's own scale (1.0, no jag): a flat, level
+# margin the width of PLAT_LIP_H rather than a taper reaching the very edge,
+# so a foot at the rim finds a vertical lip, not a slope near the floor angle.
+PLAT_LIP_H = 0.18                     # the flat margin's own height, below the top
 PLAT_RINGS = [(21.20, 1.40, 0.16), (21.90, 1.28, 0.12),
-              (22.50, 1.13, 0.08), (PLAT_TOP_Z, 1.0, 0.0)]
+              (22.50, 1.13, 0.08), (PLAT_TOP_Z - PLAT_LIP_H, 1.0, 0.0),
+              (PLAT_TOP_Z, 1.0, 0.0)]
 FIN_RINGS = [(22.20, 1.22), (23.40, 1.10), (24.90, 1.0),
              (26.20, 0.86), (FIN_TOP_Z, 0.70)]
 
@@ -2644,7 +2649,9 @@ def _lake_collider(c, r):
                    UP, ZONE_ROCK)
     for k, (b, rad, inner) in enumerate(_platforms()):
         sect, fs = LAKE_SECTS[k]
-        _lake_column(c, b, rad, sect, [(22.20, 1.08), (PLAT_TOP_Z, 1.0)], r, ZONE_ROCK)
+        _lake_column(c, b, rad, sect,
+                     [(22.20, 1.08), (PLAT_TOP_Z - PLAT_LIP_H, 1.0), (PLAT_TOP_Z, 1.0)],
+                     r, ZONE_ROCK)
         if inner:
             _lake_column(c, b, FIN_R, fs, [(22.20, 1.16), (FIN_TOP_Z, 0.70)], r, ZONE_ROCK)
 
