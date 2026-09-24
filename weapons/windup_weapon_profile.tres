@@ -11,6 +11,7 @@ reload_windup_fraction = 0.4
 reload_interruptible = true
 max_range = 400.0
 hit_mask = 1048575
+projectile_gravity = 22.0
 tracer_lifetime = 0.8
 tracer_color = Color(1, 0.72, 0.24, 1)
 tracer_width = 0.3

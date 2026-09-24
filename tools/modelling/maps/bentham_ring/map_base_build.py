@@ -2574,7 +2574,10 @@ def _pit_lava(m, wall, ta, tb, cut_a, cut_b, cols, rim, lines):
     zs = fine
 
     def rec(z):
-        return max(_lip(LAVA_Z - z), RECESS_R * _ramp(LAVA_Z - z, 0.0, PIT_FADE))
+        """Opens over PIT_FADE off the lip and closes the same way into the
+        sea, so the foot lands flush on the rim with no step to tear from."""
+        seal = min(_ramp(LAVA_Z - z, 0.0, PIT_FADE), _ramp(z - za, 0.0, PIT_FADE))
+        return max(_lip(LAVA_Z - z), RECESS_R * seal)
 
     node = {}
 
@@ -2592,6 +2595,7 @@ def _pit_lava(m, wall, ta, tb, cut_a, cut_b, cols, rim, lines):
             else:
                 da = (bank_da(lines[0], 0, i, rad) * max(0.0, 1.0 - (t - ta) * rad / BANK_REACH)
                       + bank_da(lines[1], 1, i, rad) * max(0.0, 1.0 - (tb - t) * rad / BANK_REACH))
+            da *= _ramp(z - za, 0.0, PIT_FADE)   # and the edge itself, to the same rim point
             node[key] = m.v(_push(wall.P(t + da, z), rec(z)))
         return node[key]
 

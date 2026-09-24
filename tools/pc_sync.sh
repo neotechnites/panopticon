@@ -6,7 +6,6 @@ git push -q pc main:refs/heads/incoming
 ssh panopticon-pc '
   $m = git -C C:/dev/panopticon status --porcelain | Where-Object { $_ -notmatch "^\?\?" }
   if ($m) { Write-Output "REFUSED: PC has uncommitted tracked edits:"; $m; exit 2 }
-  git -C C:/dev/panopticon clean -fq -- ':(glob)**/models/**'
   $incomingFiles = git -C C:/dev/panopticon ls-tree -r --name-only incoming
   $untrackedFiles = git -C C:/dev/panopticon ls-files --others --exclude-standard
   foreach ($f in $untrackedFiles) {

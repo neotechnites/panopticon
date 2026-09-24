@@ -579,6 +579,13 @@ func _track(delta: float) -> Vector2:
 		var ballistic: Vector3 = _believed_velocity * flight
 		solution += ballistic
 		steer_point += ballistic
+		# Hold over by the fall the round takes in that same flight time, or a
+		# guard aimed dead-on lands every shot low.
+		var gravity: float = rifle.profile.projectile_gravity if rifle.profile != null else 0.0
+		if gravity > 0.0:
+			var drop: float = 0.5 * gravity * flight * flight
+			solution.y += drop
+			steer_point.y += drop
 		error_speed = angular_speed * ((ideal_lead + flight) / ideal_lead)
 	if crossing_speed > 0.0001:
 		var misjudged: float = profile.get_lead_error_radians(error_speed, get_skill()) * _lead_bias

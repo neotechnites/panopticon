@@ -41,11 +41,6 @@ export/convert_text_resources_to_binary=false
 
 import/blender/enabled=false
 
-[internationalization]
-
-locale/translations=PackedStringArray("res://locale/strings.en.translation", "res://locale/strings.en_XA.translation")
-locale/fallback="en"
-
 [input]
 
 move_forward={
@@ -162,6 +157,10 @@ debug_freecam_down={
 "events": [Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":-1,"window_id":0,"alt_pressed":false,"shift_pressed":false,"ctrl_pressed":false,"meta_pressed":false,"pressed":false,"keycode":0,"physical_keycode":81,"key_label":0,"unicode":0,"location":0,"echo":false,"script":null)
 ]
 }
+
+[internationalization]
+
+locale/translations=PackedStringArray("res://locale/strings.en.translation", "res://locale/strings.en_XA.translation")
 
 [rendering]
 

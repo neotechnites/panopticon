@@ -18,6 +18,7 @@ charge_min_fraction_to_fire = 0.0
 charge_spread_multiplier = 0.0
 charge_range_multiplier = 1.0
 charge_projectile_speed_multiplier = 1.0
+projectile_gravity = 22.0
 tracer_lifetime = 0.8
 tracer_color = Color(1, 0.72, 0.24, 1)
 tracer_width = 0.3
