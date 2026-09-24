@@ -416,7 +416,9 @@ class MarbleTheme(hb._Theme):
         self.arches = _wall(m, J, foot, top_in, top_out, bot_out, cols)
 
     def images(self):
-        return mb.build_texture()
+        albedo, emissive = mb.build_texture()
+        albedo.name = "hub_marble_albedo"      # the hub's own paint of the marble atlas
+        return albedo, emissive
 
     def material(self, albedo, emissive):
         return mb.stone_material("Marble", albedo, emissive)

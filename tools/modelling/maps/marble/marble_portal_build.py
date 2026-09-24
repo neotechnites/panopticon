@@ -187,7 +187,7 @@ def _texture():
     c = mb.paint_atlas()
     _paint_swirl(c, mb._Rng(mb.TEX_SEED), mb._rect_of(PORTAL_CELL, mb.TEX_SIZE))
     out = []
-    for name, buf in ((mb.TEX_ALBEDO, c.alb), (mb.TEX_EMISSIVE, c.emi)):
+    for name, buf in (("marble_portal_albedo", c.alb), ("marble_portal_emissive", c.emi)):
         img = bpy.data.images.new(name, mb.TEX_SIZE, mb.TEX_SIZE, alpha=False)
         img.colorspace_settings.name = "sRGB"
         img.pixels.foreach_set(buf)

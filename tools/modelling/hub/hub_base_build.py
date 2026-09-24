@@ -105,8 +105,8 @@ EYE_H = 1.65
 USE_TEXTURE_FILES = True
 TEX_DIR = "textures"
 TEX_SIZE = 128
-TEX_ALBEDO = "map_base_rock_albedo"
-TEX_EMISSIVE = "map_base_rock_emissive"
+TEX_ALBEDO = "map_base_atlas_albedo"
+TEX_EMISSIVE = "map_base_atlas_emissive"
 TEX_SEED = 6661031
 ROCK_ROUGHNESS = 0.95
 ROCK_METALLIC = 0.0
@@ -444,9 +444,9 @@ def _river_texture():
 
 
 def _image_file(name):
-    """A texture file beside the script, packed into the .glb; None if absent."""
-    path = os.path.join(HERE, TEX_DIR, name)
-    if not os.path.isfile(path):
+    """<home>/textures/<name> from anywhere in the repo; None if absent or regenerating."""
+    path = mdl.texture_file(name)
+    if path is None:
         return None
     img = bpy.data.images.load(path)
     img.colorspace_settings.name = "sRGB"

@@ -22,6 +22,7 @@
 #   tools/modelling/model build runner --variant slab       # a variant of one build script
 #   tools/modelling/model build map_base --chunk s3         # a chunked map: rebuild one chunk's .glb
 #   tools/modelling/model build map_base --views none       # no renders at all
+#   tools/modelling/model build torch --regen-texture torch_albedo  # repaint a textures/ PNG (or "all")
 #   tools/modelling/model look   runner --cam 120,25        # renders only, no install
 #   tools/modelling/model look   runner --rest              # rest pose, to debug a rig
 #   tools/modelling/model verify runner                     # re-check the shipped .glb
@@ -115,6 +116,7 @@ PREVIEW=0
 PROP=0
 WHERE=""            # "" = decide, "local" = this Mac, "pc" = the Windows box
 CHUNK=""            # a chunked map (writes <name>.chunks.json): export only this chunk
+REGEN=""            # textures/ PNGs to repaint over (comma list or "all"); others are the source
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -127,6 +129,7 @@ while [ $# -gt 0 ]; do
     --light)      LIGHT="$2"; shift 2 ;;
     --variant)    VARIANT="$2"; shift 2 ;;
     --chunk)      CHUNK="$2"; shift 2 ;;
+    --regen-texture) REGEN="$2"; shift 2 ;;
     --gpu)        ENGINE="eevee"; shift ;;
     --preview)    PREVIEW=1; shift ;;
     --prop)       PROP=1; shift ;;
@@ -164,6 +167,7 @@ else
   SRC="$HERE"; G="$(find "$REPO" -path "$REPO/.godot" -prune -o -name "$FULL.glb" -print | head -1)"
   MODELS="$(dirname "${G:-$REPO/models/x}")"
 fi
+HOME_REL="$(dirname "${MODELS#"$REPO"/}")"   # the model's home: its PNGs live in $HOME_REL/textures/
 
 JOB="$PC_WORK/jobs/$FULL"
 JOB_W="$PC_WORK_W\\jobs\\$FULL"
@@ -174,14 +178,17 @@ TASK="PanopticonModelling_${FULL:-none}"
 # -----------------------------------------------------------------------------
 
 json_spec() {
-  # $1 = out_dir on the PC (windows path, forward slashes)
-  python3 - "$1" <<PY
+  # $1 = out_dir, $2 = the repo tree the build reads and writes textures/ PNGs in
+  python3 - "$1" "$2" <<PY
 import json, sys
 spec = {
     "engine": "$ENGINE",
     "out_dir": sys.argv[1],
     "glb": bool($DO_GLB),
     "turntable": int("$TURNTABLE"),
+    "tex_root": sys.argv[2],
+    "home": "$HOME_REL",
+    "regen_textures": [t.strip() for t in "$REGEN".split(",") if t.strip()],
 }
 if "$VARIANT":
     spec["variant"] = "$VARIANT"
@@ -247,8 +254,9 @@ stage_ship() {
   # a view set you are no longer asking for and you compare against a stale png.
   # -Path, not -LiteralPath: LiteralPath treats the * as part of the filename
   # and silently deletes nothing, which is exactly the stale-render trap.
-  pc "Remove-Item -Path '$JOB_W\\out\\${FULL}_*.png' -ErrorAction SilentlyContinue" >/dev/null
+  pc "Remove-Item -Path '$JOB_W\\out\\${FULL}_*.png','$JOB_W\\out\\textures.txt' -ErrorAction SilentlyContinue" >/dev/null
   push "$HERE/lib/mdl.py"        "$JOB/mdl.py"
+  push "$HERE/lib/glb_textures.py" "$JOB/glb_textures.py"
   push "$HERE/lib/pcrun.ps1"     "$JOB/pcrun.ps1"
   push "$script"                 "$JOB/${NAME}_build.py"
   # Sibling build scripts the script imports (tower_hollow reads tower_arches
@@ -277,14 +285,12 @@ stage_ship() {
       push "$HERE/lib/${dep}.py" "$JOB/${dep}.py"
     done
   done
-  # Texture files a build script may load instead of painting (map_base's
-  # river/lava sheets): every home's textures/ ships next to the script.
-  pc "Remove-Item -Recurse -Force -Path '$JOB_W\\textures' -ErrorAction SilentlyContinue; 'ok'" >/dev/null || true
-  pc "New-Item -ItemType Directory -Force -Path '$JOB_W\\textures' | Out-Null" >/dev/null
-  for f in "$REPO"/*/textures/* "$REPO"/maps/*/textures/*; do
-    [ -f "$f" ] && push "$f" "$JOB/textures/$(basename "$f")"
-  done
-  json_spec "$JOB/out" > "$TMP/spec.json"
+  # Every home's textures/ PNGs, at their repo paths: an existing PNG is what the build uses.
+  ( cd "$REPO" && COPYFILE_DISABLE=1 tar -cf "$TMP/textures.tar" $(ls -d */textures maps/*/textures 2>/dev/null) )
+  pc "Remove-Item -Recurse -Force -Path '$JOB_W\\tree' -ErrorAction SilentlyContinue; New-Item -ItemType Directory -Force -Path '$JOB_W\\tree' | Out-Null; 'ok'" >/dev/null
+  push "$TMP/textures.tar" "$JOB/textures.tar"
+  pc "tar -xf '$JOB_W\\textures.tar' -C '$JOB_W\\tree'" >/dev/null
+  json_spec "$JOB/out" "$JOB/tree" > "$TMP/spec.json"
   push "$TMP/spec.json"          "$JOB/spec.json"
 }
 
@@ -348,13 +354,15 @@ EOF
     pc "Remove-Item -LiteralPath '$JOB_W\\verify\\contract.json' -ErrorAction SilentlyContinue" >/dev/null
   fi
 
+  # The scratch project has no textures/: it imports a copy with the PNGs embedded again.
+  python3 "$HERE/lib/glb_textures.py" embed "${GLB_SRC:-$MODELS/${FULL}.glb}" "$TMP/verify_model.glb" "$REPO" "$HOME_REL"
+  push "$TMP/verify_model.glb" "$JOB/verify/model.glb"
   cat > "$TMP/verify.bat" <<EOF
 @echo off
 set W=$JOB_W
 del /q "%W%\\verify.done" 2>nul
 rmdir /s /q "%W%\\verify\\.godot" 2>nul
 del /q "%W%\\verify\\*.import" "%W%\\verify\\*.png" 2>nul
-copy /y "%W%\\out\\${VERIFY_GLB:-${FULL}.glb}" "%W%\\verify\\model.glb" >nul
 "$PC_GODOT" --headless --path "%W%\\verify" --import > "%W%\\verify.log" 2>&1
 "$PC_GODOT" --headless --path "%W%\\verify" --script res://verify_glb.gd >> "%W%\\verify.log" 2>&1
 echo %ERRORLEVEL% > "%W%\\verify.done"
@@ -403,6 +411,22 @@ stage_fetch() {
     esac
   done <<< "$listing"
   say "$got render(s) -> $RENDERS"
+  local rel
+  pull "$JOB/out/textures.txt" "$TMP/textures.txt" 2>/dev/null || : > "$TMP/textures.txt"
+  while IFS= read -r rel; do
+    rel="${rel%$'\r'}"
+    [ -n "$rel" ] || continue
+    mkdir -p "$REPO/$(dirname "$rel")"
+    pull "$JOB/tree/$rel" "$REPO/$rel"
+    texture_import "$REPO/$rel"
+    say "texture written: $rel"
+  done < "$TMP/textures.txt"
+}
+
+# A new textures/ PNG imports pixel-exact (lossless, never VRAM-compressed) with mipmaps.
+texture_import() {
+  [ -f "$1.import" ] && return 0
+  printf '[remap]\n\nimporter="texture"\ntype="CompressedTexture2D"\n\n[params]\n\ncompress/mode=0\nmipmaps/generate=true\nmipmaps/limit=-1\nprocess/fix_alpha_border=true\ndetect_3d/compress_to=0\n' > "$1.import"
 }
 
 # A chunked map writes <name>.chunks.json: one .glb per chunk, each with its
@@ -480,7 +504,7 @@ require_script() {
 stage_blender_local() {
   require_script
   mkdir -p "$TMP/out"
-  json_spec "$TMP/out" > "$TMP/spec.json"
+  json_spec "$TMP/out" "$REPO" > "$TMP/spec.json"
   say "blender (local, $ENGINE)"
   local t0 t1 rc=0
   t0=$(date +%s)
@@ -523,7 +547,7 @@ EOF
   cp "$HERE/lib/verify_glb.gd" "$V/verify_glb.gd"
   local contract="${VERIFY_CONTRACT:-$SRC/${NAME}.contract.json}"
   [ -f "$contract" ] && cp "$contract" "$V/contract.json"
-  cp "$GLB_SRC" "$V/model.glb"
+  python3 "$HERE/lib/glb_textures.py" embed "$GLB_SRC" "$V/model.glb" "$REPO" "$HOME_REL"
   "$MAC_GODOT" --headless --path "$V" --import   > "$TMP/verify.out" 2>&1 || true
   "$MAC_GODOT" --headless --path "$V" --script res://verify_glb.gd >> "$TMP/verify.out" 2>&1 || rc=$?
   if [ "$rc" -ne 0 ]; then
@@ -554,6 +578,10 @@ stage_fetch_local() {
     got=$((got + 1))
   done
   say "$got render(s) -> $RENDERS"
+  [ -f "$TMP/out/textures.txt" ] || return 0
+  while IFS= read -r f; do
+    [ -n "$f" ] && texture_import "$REPO/$f" && say "texture written: $f"
+  done < "$TMP/out/textures.txt"
 }
 
 # -----------------------------------------------------------------------------

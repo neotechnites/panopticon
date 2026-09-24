@@ -1,37 +1,8 @@
 @tool
 extends EditorScenePostImport
 
-## Gives an imported .glb's embedded textures a mip chain, and lets the
-## materials ask for it.
-##
-## THE DEFECT (measured, headless, on maps/marble/models/marble_tower.glb):
-## the .glb embeds its 11 albedo PNGs and the import is configured
-## `gltf/embedded_image_handling=3`, so Godot's glTF importer builds each
-## sheet as an ImageTexture with NO mip chain. Every material meanwhile asks
-## for `texture_filter = 2` (TEXTURE_FILTER_NEAREST_WITH_MIPMAPS). All 11
-## surfaces report `filter=2 mipmaps=false`: the filter names a mip chain that
-## does not exist, so every pixel samples mip 0 at any distance and the
-## 1-texel masonry joints alias into crawling speckle at lane range.
-##
-## WHY THIS HOOK AND NOT `gltf/embedded_image_handling=1`. Extracting the
-## images to disk would let the normal texture importer build mips — but the
-## setting would not survive. `tools/pc_sync.sh`, `tools/pc_shot.sh` and
-## `tools/fix_glb_imports.sh` each rewrite every .glb.import's
-## `gltf/embedded_image_handling` back to `=3` (adding the line when it is
-## absent), so extraction would be undone on the next sync or shot. None of
-## the three touches `import_script/path`, so a post-import hook is the fix
-## that stays fixed.
-##
-## WHAT IT DOES. Walks the imported tree; for every BaseMaterial3D reachable
-## from a MeshInstance3D (surface material, surface override, or
-## material_override) it rebuilds each non-null albedo/normal/emission/
-## roughness texture whose image has no mips as a fresh ImageTexture with
-## `generate_mipmaps()` applied, caching by source texture instance so a sheet
-## shared by several surfaces is converted once and the one new texture is
-## reused. Then it sets the material to
-## TEXTURE_FILTER_NEAREST_WITH_MIPMAPS_ANISOTROPIC: NEAREST magnification is
-## the art's deliberate pixel look and must survive, only minification
-## changes.
+## Refilters an imported .glb's materials to nearest-with-mipmaps and mips any embedded texture.
+## Textures from a home's textures/ PNGs stay linked to that file, so editing the PNG edits the model.
 
 const SharedMaterials := preload("res://tools/import/shared_materials.gd")
 ## Surfaces whose glTF material is named here get the waving lava shader instead.
@@ -108,7 +79,7 @@ func _fix_material(material: Material) -> void:
 ## Conversions are cached by source texture instance, so one sheet shared by
 ## several surfaces is rebuilt once and every surface gets the same texture.
 func _mipped_texture(texture: Texture2D) -> Texture2D:
-	if texture == null:
+	if texture == null or texture.resource_path.get_extension() == "png":
 		return null
 	var texture_id := texture.get_instance_id()
 	if _texture_cache.has(texture_id):

@@ -39,10 +39,15 @@ THE RULES THIS FILE ENFORCES
 import json
 import math
 import os
+import posixpath
+import re
 import sys
 
 import bpy
 from mathutils import Matrix, Vector
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import glb_textures  # noqa: E402
 
 # =============================================================================
 # STANDARD VIEWS
@@ -359,12 +364,131 @@ def flat_material(name, color, roughness=0.9, metallic=0.0, specular=None):
 
 
 def save_texture(img):
-    """Pack a generated atlas so the glTF export embeds it. No PNG is written
-    to disk -- a home's textures/ is not a build output, and Godot's importer
-    is the only thing that ever needs the pixels, from inside the .glb."""
-    img.pack()
-    print("MDL TEXTURE %s embedded (%dx%d)" % (img.name, img.size[0], img.size[1]))
+    """Kept for the build scripts: main() swaps every image for its textures/ PNG before export."""
     return img
+
+
+# =============================================================================
+# TEXTURES -- every image is a PNG in a home's textures/; the .glb links it
+# =============================================================================
+
+_SPEC = None
+_TEX_URIS = {}       # glTF image name or PNG bytes -> uri relative to <home>/models
+_TEX_WRITTEN = []    # repo-relative PNGs this run wrote
+
+
+def _tex_spec():
+    """(repo root, model's home, regen set) from the spec; the root defaults to this checkout."""
+    spec = _SPEC if _SPEC is not None else _spec_from_argv()
+    root = spec.get("tex_root")
+    if not root:
+        guess = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", ".."))
+        root = guess if os.path.isfile(os.path.join(guess, "project.godot")) else None
+    return root, spec.get("home"), set(spec.get("regen_textures") or ())
+
+
+def _regen(stem):
+    regen = _tex_spec()[2]
+    return "all" in regen or stem in regen
+
+
+def texture_file(name):
+    """Path of <home>/textures/<name> anywhere in the repo; None when absent or regenerating."""
+    stem = os.path.splitext(os.path.basename(name))[0]
+    root = _tex_spec()[0]
+    if not root or _regen(stem):
+        return None
+    rel = glb_textures.find(root, stem)
+    return os.path.join(root, rel) if rel else None
+
+
+def _stem(img):
+    if img.source == "FILE" and img.filepath:
+        return os.path.splitext(os.path.basename(bpy.path.abspath(img.filepath)))[0]
+    name = img.name[:-4] if img.name.endswith(".png") else img.name
+    return re.sub(r"\.\d{3}$", "", name)
+
+
+def _pixels(img):
+    buf = [0.0] * len(img.pixels)
+    img.pixels.foreach_get(buf)
+    return buf
+
+
+def _save_png(img, path):
+    """The image's own bytes (byte buffer) or their sRGB encoding (float), top row first."""
+    w, h = img.size
+    px = _pixels(img)
+    ch = len(px) // (w * h)
+    keep = 4 if img.depth in (32, 128) and ch == 4 else 3
+
+    def byte(v):
+        v = max(0.0, min(1.0, v))
+        if img.is_float:
+            v = v * 12.92 if v <= 0.0031308 else 1.055 * v ** (1.0 / 2.4) - 0.055
+        return int(round(v * 255.0))
+    rows = []
+    for y in range(h - 1, -1, -1):
+        row = []
+        for x in range(w):
+            o = (y * w + x) * ch
+            texel = px[o:o + ch] if ch >= 3 else [px[o]] * 3 + [1.0]
+            row.extend(byte(v) for v in texel[:keep])
+        rows.append(row)
+    glb_textures.write_png(path, w, h, rows, keep == 4)
+
+
+def _texture_images(objects):
+    out = []
+    for ob in objects:
+        if ob.type != "MESH":
+            continue
+        for slot in ob.material_slots:
+            mat = slot.material
+            if mat is None or not mat.use_nodes:
+                continue
+            for node in mat.node_tree.nodes:
+                if node.type == "TEX_IMAGE" and node.image is not None and node.image not in out:
+                    out.append(node.image)
+    return out
+
+
+def externalize_textures(objects):
+    """Swap every image for <home>/textures/<stem>.png: an existing PNG is the source, never
+    overwritten; a missing one, or one named in regen_textures, is written from the paint first."""
+    root, home, _ = _tex_spec()
+    if not root or not home:
+        print("MDL note textures stay embedded: the spec names no tex_root/home")
+        return
+    claimed = {}
+    for img in _texture_images(objects):
+        stem = _stem(img)
+        if stem in claimed:
+            painted, linked = claimed[stem]
+            if list(painted.size) != list(img.size) or _pixels(painted) != _pixels(img):
+                raise RuntimeError("two different textures are both named %s: give one a distinct name" % stem)
+            img.user_remap(linked)
+            continue
+        rel = glb_textures.find(root, stem)
+        if rel is None or _regen(stem):
+            rel = rel or posixpath.join(home, "textures", stem + ".png")
+            _save_png(img, os.path.join(root, rel))
+            _TEX_WRITTEN.append(rel)
+            print("MDL TEXTURE %s written" % rel)
+        path = os.path.join(root, rel)
+        linked = bpy.data.images.load(path, check_existing=True)
+        linked.colorspace_settings.name = "sRGB"
+        painted = img
+        if linked is not img:
+            painted = img.copy()
+            img.user_remap(linked)
+        claimed[stem] = (painted, linked)
+        uri = posixpath.relpath(rel, posixpath.join(home, "models"))
+        with open(path, "rb") as fh:
+            _TEX_URIS[fh.read()] = uri
+        for key in (stem, linked.name, os.path.splitext(linked.name)[0]):
+            _TEX_URIS[key] = uri
+        print("MDL TEXTURE %s -> %s" % (stem, rel))
 
 
 def join(objects, name):
@@ -673,6 +797,9 @@ def export_glb(path, objects):
         _boxcol_stamp(path, boxes)
         for name, size in boxes:
             print("MDL note boxcol %s -> BoxShape3D size=(%.3f, %.3f, %.3f)" % ((name,) + tuple(size)))
+    if _TEX_URIS:
+        linked = glb_textures.externalize(path, lambda n, data: _TEX_URIS.get(data) or _TEX_URIS.get(n))
+        print("MDL EXPORT %d image(s) linked to textures/, not embedded" % len(linked))
     return path
 
 
@@ -1035,15 +1162,19 @@ def main(name, build, facing_yaw=0.0, glb_name=None, post=None, export=None):
     ``export(out_dir, objects, spec)``, when given, writes the .glb files
     itself (a chunked map) and returns their paths.
     """
-    spec = _spec_from_argv()
+    global _SPEC
+    spec = _SPEC = _spec_from_argv()
     reset()
     result = build()
     objects = list(result) if isinstance(result, (list, tuple)) else [result]
+    externalize_textures(objects)
 
     stats = report(name, [o for o in objects if o.type == "MESH"])
 
     out_dir = spec.get("out_dir", ".")
     os.makedirs(out_dir, exist_ok=True)
+    with open(os.path.join(out_dir, "textures.txt"), "w") as fh:
+        fh.write("".join(rel + "\n" for rel in _TEX_WRITTEN))
     if spec.get("glb", True) and export:
         stats["glbs"] = export(out_dir, objects, spec)
     elif spec.get("glb", True):

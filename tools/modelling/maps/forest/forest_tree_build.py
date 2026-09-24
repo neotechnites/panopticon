@@ -574,9 +574,9 @@ def paint_atlas():
 
 
 def image_file(name):
-    """A texture file beside the script, packed into the .glb; None if absent."""
-    path = os.path.join(HERE, TEX_DIR, name)
-    if not os.path.isfile(path):
+    """<home>/textures/<name> from anywhere in the repo; None if absent or regenerating."""
+    path = mdl.texture_file(name)
+    if path is None:
         return None
     img = bpy.data.images.load(path)
     img.colorspace_settings.name = "sRGB"

@@ -729,8 +729,8 @@ def build_texture():
 
 
 def _image_file(name):
-    path = os.path.join(HERE, TEX_DIR, name)
-    if not os.path.isfile(path):
+    path = mdl.texture_file(name)
+    if path is None:
         return None
     img = bpy.data.images.load(path)
     img.colorspace_settings.name = "sRGB"

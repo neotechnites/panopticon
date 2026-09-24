@@ -559,7 +559,9 @@ def _image(name, w, h, buf):
 
 
 def _image_file(path):
-    if not os.path.isfile(path):
+    import mdl
+    path = mdl.texture_file(path)
+    if path is None:
         return None
     img = bpy.data.images.load(path)
     img.colorspace_settings.name = "sRGB"
