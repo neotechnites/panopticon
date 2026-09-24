@@ -7,7 +7,6 @@ ssh panopticon-pc '
   $m = git -C C:/dev/panopticon status --porcelain | Where-Object { $_ -notmatch "^\?\?" }
   if ($m) { Write-Output "REFUSED: PC has uncommitted tracked edits:"; $m; exit 2 }
   Get-ChildItem C:\dev\panopticon -Recurse -Include *_albedo.png*, *_emissive.png* | Where-Object { $_.Directory.Name -eq "models" } | Remove-Item -ErrorAction SilentlyContinue
-  git -C C:/dev/panopticon clean -fq -- ':(glob)**/models/**'
   $incomingFiles = git -C C:/dev/panopticon ls-tree -r --name-only incoming
   $untrackedFiles = git -C C:/dev/panopticon ls-files --others --exclude-standard
   foreach ($f in $untrackedFiles) {
