@@ -5,11 +5,9 @@
 [ext_resource type="Resource" uid="uid://ckxvuihvhgxu5" path="res://scenes/ring/default_tower_light_profile.tres" id="4_tower_light_profile"]
 [ext_resource type="Script" uid="uid://c567e7nxnq0i" path="res://scripts/ring/ring_route.gd" id="5_ring_route"]
 [ext_resource type="Script" uid="uid://b37vp7jwips2c" path="res://scripts/ring/ring_level.gd" id="6_ring_level"]
-[ext_resource type="PackedScene" path="res://scenes/tower/watching_eye.tscn" id="7_watching_eye"]
 [ext_resource type="PackedScene" uid="uid://qc0reb2qk6wi" path="res://assets/models/tower_arches.glb" id="8b_tower_arches"]
 [ext_resource type="Script" uid="uid://gwfatmklmjcr" path="res://scripts/ring/tower_variant.gd" id="8c_tower_variant"]
 [ext_resource type="PackedScene" uid="uid://cwyjwhfotqv73" path="res://assets/models/tower.glb" id="8_tower_model"]
-[ext_resource type="Resource" path="res://scenes/ring/floating_watching_eye_profile.tres" id="9_watcher_profile"]
 [ext_resource type="PackedScene" path="res://assets/models/map_base_s1.glb" id="10_map_base_s1"]
 [ext_resource type="PackedScene" path="res://assets/models/map_base_s2.glb" id="10_map_base_s2"]
 [ext_resource type="PackedScene" path="res://assets/models/map_base_s3.glb" id="10_map_base_s3"]
@@ -659,12 +657,3 @@ omni_range = 25.0
 script = ExtResource("3_tower_light")
 profile = ExtResource("4_tower_light_profile")
 
-[node name="Watcher" parent="Tower" unique_id=346537568 instance=ExtResource("7_watching_eye")]
-editor_description = "THE EYE THAT FOLLOWS YOU. assets/models/eye.glb -- a 5 m ball with a glowing iris -- hanging over the guard's stand and turned so its pupil points at whoever is looking at it. Ryan played it and kept it.
-
-HEIGHT: WatchingEyeProfile.height_metres is 7.2, and it did not need retuning. The node places itself at (0, height, 0) in THIS NODE'S space, and the tower's local frame is exactly what it was -- the whole rise is the Tower transform. So the ball still floats 7.2 m above the platform surface: world y=39.35, spanning y=36.85 to y=41.85, which is 1.9 m clear of the guard's crown below it and far under KeyLight above it. It is the only thing in the tower's space between the guard and the light now that the box of eyes is gone, and at that height it is in clear sky from the deck.
-
-IT LEAKS NOTHING. It orients toward the local Viewport's own camera, so on every client it resolves to that client's player and every prisoner sees the pupil on themselves. The orientation is a pure function of the POSITION of the local camera -- not its direction, not the guard, not the seat, not the rifle -- so it carries zero bits about anybody except the person reading it. A camera inside the tower's own column is not watched at all.
-
-NOT EDITED HERE. scenes/tower/ and scripts/tower/ belong to the eye; this scene owns the instance and its parent, and nothing else."
-profile = ExtResource("9_watcher_profile")
