@@ -5276,19 +5276,23 @@ S1_CEIL_SAG, S1_CEIL_L = 0.40, (3.0, 6.0)  # the ceiling sags 0..2x this
 S1_DRIP = (0.15, 0.45, 0.9, 1.5)           # drip cone round a stalactite: height lo/hi, radius lo/hi
 S1_FILLET = 1.2              # ceiling-to-wall corner round-over radius
 S1_RIB = {"depth": (0.3, 0.8), "width": (0.3, 0.55), "gap": (1.0, 2.2), "wander": 0.25}
-S1_FOREST_N = 26             # fixtures thrown at the deck, columns included ...
-S1_FOREST_COLS = 4           # ... this many floor-to-ceiling columns ...
-S1_FOREST_MIX = (0.45, 0.35, 0.20)   # ... the rest short / medium / tall
+S1_FOREST_N = 48             # fixtures thrown at the deck, columns included ...
+S1_FOREST_COLS = 6           # ... this many floor-to-ceiling columns ...
+S1_FOREST_MIX = (0.15, 0.45, 0.40)   # ... the rest short / medium / tall: mostly cover
 S1_FOREST_B = (15.5, 59.5)   # thrown between these bearings ...
 S1_FOREST_R = (47.8, 56.2)   # ... and radii: the whole deck
-S1_CLUMPS = 3                # small ones set at the feet of medium or tall ones
+S1_LANE_N = 2                # clear winding walking lanes, entry to exit (a couple)
+S1_LANE_W = 2.5              # lane width, metres: no fixture's foot may stand in it
+S1_LANE_WAVE = (6.0, 14.0)   # lane wander, metres of arc at the lane radius
+S1_CLUMPS = 5                # small ones set at the feet of medium or tall ones
 S1_SHORT = (1.2, 2.4, 0.12, 0.20)    # height lo/hi, body radius lo/hi
 S1_MEDIUM = (2.4, 3.8, 0.18, 0.28)
 S1_TALL = (3.8, 6.0, 0.22, 0.32)
-S1_COVER_H = 2.4             # fixtures this tall or more are cover, and keep S1_FOREST_GAP apart
-S1_FOOT_GAP = 0.5            # clear air between any two feet at 0.3 m: skirts may touch, shafts never
-S1_FOREST_GAP = 2.4          # clear air between two cover fixtures at chest height
-S1_ROUTE_GAP = 1.8           # ... and between their feet: a body and a half (0.7 m runner) passes anywhere
+S1_COVER_H = 2.4             # fixtures this tall or more are cover
+S1_FOOT_GAP = 0.5            # clear air between any two feet at 0.3 m: skirts may touch, shafts never; the only
+                             # spacing rule off-lane now, so the forest packs dense between the walking lanes
+S1_FOREST_GAP = 2.4          # clear air between two cover fixtures at chest height (route-property report only)
+S1_ROUTE_GAP = 1.8           # ... and between their feet (route-property report only, see _s1_forest)
 S1_CHEST = 1.3               # chest height: no fixture wider than 1.0 m here
 S1_FLARE = 2.6               # a foot skirt: this times the shaft radius at the floor, an apron tangent to it ...
 S1_SKIRT = (0.5, 1.0, 0.3)   # ... steepening into the shaft over clamp(H * c, lo, hi) metres of height
@@ -5788,17 +5792,42 @@ def _s1_sculpt(m, ang, cols_all, lo, hi, pit_wall, shaft, pit_top, wall, upper, 
     def base_r(sp):
         return max(math.hypot(dr, dt) for (dr, dt) in sp.offsets(0))
 
+    def _s1_lane(seed, base):
+        """A winding lane centre-radius, function of bearing: a seeded sum of
+        arc-length waves about base, clamped inside the deck."""
+        lr = _Rng(seed)
+        ws = []
+        for _ in range(3):
+            wl = S1_LANE_WAVE[0] + lr.f() * (S1_LANE_WAVE[1] - S1_LANE_WAVE[0])
+            ws.append((TWO_PI / wl, lr.f() * TWO_PI, 0.5 + lr.f()))
+        lo = S1_FOREST_R[0] + 0.5 * S1_LANE_W
+        hi = S1_FOREST_R[1] - 0.5 * S1_LANE_W
+        spacing = (hi - lo) / max(1, S1_LANE_N - 1)
+        span = 0.7 * max(0.0, 0.5 * (spacing - S1_LANE_W))     # winding room, short of the next lane
+        k = span / sum(w[2] for w in ws)
+
+        def f(b):
+            s = math.radians(b) * R_REF
+            v = base + k * sum(w[2] * math.sin(w[0] * s + w[1]) for w in ws)
+            return min(hi, max(lo, v))
+        return f
+
+    _lane_lo, _lane_hi = S1_FOREST_R[0] + 0.5 * S1_LANE_W, S1_FOREST_R[1] - 0.5 * S1_LANE_W
+    lanes = [_s1_lane(S1_SEED * 11 + i,
+                       _lane_lo if S1_LANE_N == 1 else _lane_lo + (_lane_hi - _lane_lo) * i / (S1_LANE_N - 1))
+             for i in range(S1_LANE_N)]
+
     def fits(sp, x, y, clump=False):
         sp = sp.ref or sp                                # placement judged on the pass-7 shape
-        cover = sp.kind == "column" or sp.H >= S1_COVER_H
+        if any(abs(sp.rad - lane(sp.b)) < 0.5 * S1_LANE_W + widest(sp, 0.3) for lane in lanes):
+            return False                                  # a foot may not stand in a walking lane
         for o in fixtures:
             o = o.ref or o
             d = math.hypot(x - o.cxy[0], y - o.cxy[1])
-            if cover and (o.kind == "column" or o.H >= S1_COVER_H) \
-                    and d < S1_FOREST_GAP + widest(sp, S1_CHEST) + widest(o, S1_CHEST):
+            # off-lane: pack to the foot-overlap rule only; the lanes above, not
+            # a blanket runner's gap, are what keep the deck walkable
+            if d < S1_FOOT_GAP + widest(sp, 0.3) + widest(o, 0.3):
                 return False
-            if d < (S1_FOOT_GAP if clump else S1_ROUTE_GAP) + widest(sp, 0.3) + widest(o, 0.3):
-                return False                                  # feet keep a runner's gap; a clump's small one may touch
             if d < base_r(sp) + base_r(o) + 0.55:            # base rings stay apart for the fill
                 return False
         return True
@@ -5893,7 +5922,7 @@ def _s1_sculpt(m, ang, cols_all, lo, hi, pit_wall, shaft, pit_top, wall, upper, 
     quota.append(("short", rest - quota[1][1] - quota[2][1]))
     for kind, want in quota:
         got = tries = 0
-        while got < want and tries < 6000:
+        while got < want and tries < 60000:      # dense off-lane packing needs many more misses to land
             tries += 1
             b, rad = rng(*S1_FOREST_B), rng(*S1_FOREST_R)
             sp = make(kind, b, rad)
@@ -5901,7 +5930,7 @@ def _s1_sculpt(m, ang, cols_all, lo, hi, pit_wall, shaft, pit_top, wall, upper, 
                 got += 1
     hosts = [f for f in fixtures if f.kind == "mite" and f.H >= S1_COVER_H]
     got = tries = 0
-    while got < S1_CLUMPS and hosts and tries < 400:            # a small one at a big one's feet
+    while got < S1_CLUMPS and hosts and tries < 4000:            # a small one at a big one's feet
         tries += 1
         host = r.pick(hosts)
         a = r.f() * TWO_PI
