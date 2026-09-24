@@ -9,6 +9,7 @@ min_reload_seconds = 0.5
 shot_duration = 0.06
 max_range = 400.0
 hit_mask = 1048575
+projectile_gravity = 22.0
 spread_degrees = 0.35
 moving_spread_degrees = 2.5
 spread_reference_speed = 8.0

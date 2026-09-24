@@ -9,6 +9,7 @@ min_reload_seconds = 0.5
 shot_duration = 0.06
 max_range = 400.0
 hit_mask = 1048575
+projectile_gravity = 22.0
 tracer_enabled = false
 tracer_lifetime = 0.8
 tracer_color = Color(1, 0.72, 0.24, 1)
