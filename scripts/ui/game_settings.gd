@@ -108,6 +108,10 @@ const DEFAULT_FIELD_OF_VIEW: float = 100.0
 const MIN_FIELD_OF_VIEW: float = 60.0
 const MAX_FIELD_OF_VIEW: float = 120.0
 
+## The shipped game answers the slide key with crouch or slide, so the default
+## is on.
+const DEFAULT_CROUCH_SLIDE_ENABLED: bool = true
+
 ## Ghosts are on for the matches this player starts, which is what the shipped
 ## [code]match/rules/default_match_rules.tres[/code] plays. Named rather than
 ## written inline because [SettingsStore] needs it too: a settings file written
@@ -392,6 +396,10 @@ var brightness: float = DEFAULT_BRIGHTNESS
 ## [method apply_to_camera]; this object never goes looking for a camera itself.
 var field_of_view: float = DEFAULT_FIELD_OF_VIEW
 
+## Whether the slide key may open a crouch or a slide at all. Off, a human
+## player's press of that key is ignored outright; a bot is never asked.
+var crouch_slide_enabled: bool = DEFAULT_CROUCH_SLIDE_ENABLED
+
 ## Turn the ghost mechanic on for the matches this player starts. Default true,
 ## which is [constant MatchRules.GhostBehaviour.CATCH_AND_SWAP] and what the
 ## shipped rules resource plays.
@@ -614,6 +622,7 @@ func reset() -> void:
 	render_scale = DEFAULT_RENDER_SCALE
 	brightness = DEFAULT_BRIGHTNESS
 	field_of_view = DEFAULT_FIELD_OF_VIEW
+	crouch_slide_enabled = DEFAULT_CROUCH_SLIDE_ENABLED
 	ghosts_enabled = DEFAULT_GHOSTS_ENABLED
 	skip_opening_race = DEFAULT_SKIP_OPENING_RACE
 	tower_seat_index = DEFAULT_TOWER_SEAT_INDEX
@@ -763,6 +772,7 @@ func copy_from(other: GameSettings) -> void:
 	render_scale = other.render_scale
 	brightness = other.brightness
 	field_of_view = other.field_of_view
+	crouch_slide_enabled = other.crouch_slide_enabled
 	ghosts_enabled = other.ghosts_enabled
 	skip_opening_race = other.skip_opening_race
 	tower_seat_index = other.tower_seat_index
@@ -815,6 +825,7 @@ func equals(other: GameSettings) -> bool:
 		and is_equal_approx(render_scale, other.render_scale)
 		and is_equal_approx(brightness, other.brightness)
 		and is_equal_approx(field_of_view, other.field_of_view)
+		and crouch_slide_enabled == other.crouch_slide_enabled
 		and ghosts_enabled == other.ghosts_enabled
 		and skip_opening_race == other.skip_opening_race
 		and tower_seat_index == other.tower_seat_index
@@ -883,6 +894,8 @@ func write_to(config: ConfigFile) -> void:
 	config.set_value(SECTION_VIDEO, "brightness", brightness)
 	config.set_value(SECTION_VIDEO, "field_of_view", field_of_view)
 
+	config.set_value(SECTION_INPUT, "crouch_slide_enabled", crouch_slide_enabled)
+
 	config.set_value(SECTION_MATCH, "ghosts_enabled", ghosts_enabled)
 	config.set_value(SECTION_MATCH, "skip_opening_race", skip_opening_race)
 	config.set_value(SECTION_MATCH, "tower_seat_index", tower_seat_index)
@@ -944,6 +957,10 @@ func read_from(config: ConfigFile) -> void:
 	render_scale = read_float(config, SECTION_VIDEO, "render_scale", render_scale)
 	brightness = read_float(config, SECTION_VIDEO, "brightness", brightness)
 	field_of_view = read_float(config, SECTION_VIDEO, "field_of_view", field_of_view)
+
+	crouch_slide_enabled = read_bool(
+		config, SECTION_INPUT, "crouch_slide_enabled", crouch_slide_enabled
+	)
 
 	ghosts_enabled = read_bool(config, SECTION_MATCH, "ghosts_enabled", ghosts_enabled)
 	skip_opening_race = read_bool(

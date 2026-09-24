@@ -435,6 +435,17 @@ unique_name_in_owner = true
 vertical_alignment = 1
 horizontal_alignment = 2
 
+[node name="CrouchSlideName" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Game/Grid"]
+size_flags_vertical = 1
+vertical_alignment = 1
+text = "SETTINGS_CROUCH_SLIDE"
+
+[node name="CrouchSlideCheck" type="CheckBox" parent="Frame/Dialog/Padding/Layout/Tabs/Game/Grid"]
+size_flags_horizontal = 0
+unique_name_in_owner = true
+
+[node name="CrouchSlideSpacer" type="Control" parent="Frame/Dialog/Padding/Layout/Tabs/Game/Grid"]
+
 [node name="Note" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Game"]
 autowrap_mode = 3
 theme_override_font_sizes/font_size = 15
