@@ -12,7 +12,7 @@ so the plinth washes and the cornice soffit are real surfaces, not a texture
 saying so. Every inward face -- the jamb reveals, the arch soffit, the washes,
 the soffit -- is "shade", the atlas cell the rotunda uses for every recess.
 
-DROP-IN for portal.glb. scenes/ring/portal.tscn is NOT edited: its Gate Area3D
+DROP-IN for portal.glb. maps/bentham_ring/props/portal.tscn is NOT edited: its Gate Area3D
 (a 4.0 x 3.6 x 1.0 box at local y 1.8) and its Glow omni at y 2.0 stay where
 they are, so this model keeps portal_build's numbers to the centimetre --
 4.5 x 4.0 x 0.8 m overall, a 2.7 m clear opening (IN_HALF_W 1.35), the head
@@ -40,7 +40,7 @@ MarblePortalCollision is a separate `-colonly` object: the marble uprights and
 the arched head, the same silhouette extruded flat through the full 0.8 m. The
 effect surface has NO collision -- a body walks through it, which is the point.
 
-    python3 tools/modelling/marble_portal_build.py --check
+    python3 tools/modelling/maps/marble/marble_portal_build.py --check
     tools/modelling/model build marble_portal
 
 The column-0 `import x_build as y` lines are what tools/modelling/model ships
@@ -58,7 +58,11 @@ except ImportError:
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-sys.path.insert(0, HERE + os.sep + "lib")
+_HOME = os.path.dirname(os.path.abspath(__file__))
+for _root in (os.path.dirname(_HOME), os.path.dirname(os.path.dirname(_HOME))):  # the repo's tools/modelling
+    if os.path.isfile(os.path.join(_root, "model")) and os.path.isfile(os.path.join(_root, "lib", "mdl.py")):
+        sys.path[1:1] = [d for d, _, _ in os.walk(_root) if "__pycache__" not in d]
+        break
 
 import marble_build as mb  # noqa: E402
 # marble_build imports its two part modules at its foot; they ride along to the
@@ -369,7 +373,7 @@ def head_radius_gap():
 
 
 def gate_clearance():
-    """The two numbers scenes/ring/portal.tscn depends on, as margins in metres.
+    """The two numbers maps/bentham_ring/props/portal.tscn depends on, as margins in metres.
 
     The Gate Area3D is a 4.0 x 3.6 x 1.0 box at local y 1.8 -- WIDER than the
     2.7 m mouth on purpose, since a body can only reach it through the mouth.

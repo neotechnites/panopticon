@@ -27,7 +27,7 @@ extends TestCase
 ## [b]Canon has to be the default in every place that has an opinion[/b]
 ##
 ## Four files hold a view of what the canon round is: the code defaults in
-## [MatchRules], the shipped [code]resources/rules/default_match_rules.tres[/code],
+## [MatchRules], the shipped [code]match/rules/default_match_rules.tres[/code],
 ## the preference defaults in [GameSettings], and the canon entry in
 ## [MatchPresets]. If any two disagree, the first match a player starts is played
 ## under a rule set nobody chose. Several tests below do nothing but hold those
@@ -41,8 +41,8 @@ extends TestCase
 ## back -- a test that left six prisoners in the singleton would hand every later
 ## test in the same process a different game.
 
-const SETUP_SCREEN_PATH: String = "res://scenes/ui/match_setup_screen.tscn"
-const MATCH_RULES_PATH: String = "res://resources/rules/default_match_rules.tres"
+const SETUP_SCREEN_PATH: String = "res://ui/match_setup_screen.tscn"
+const MATCH_RULES_PATH: String = "res://match/rules/default_match_rules.tres"
 const SCRATCH_CONFIG: String = "user://test_match_setup.cfg"
 
 var _real_config_path: String = ""

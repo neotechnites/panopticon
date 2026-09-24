@@ -31,8 +31,8 @@ extends SceneTree
 ## from the latter exits before stdout is flushed, and a report nobody sees is
 ## worse than no report.
 
-const BANK_PATH: String = "res://scenes/audio/placeholder_bank.tres"
-const CRUSHED_BANK_PATH: String = "res://scenes/audio/crushed_bank.tres"
+const BANK_PATH: String = "res://audio/placeholder_bank.tres"
+const CRUSHED_BANK_PATH: String = "res://audio/crushed_bank.tres"
 const EXIT_OK: int = 0
 const EXIT_FAILED: int = 1
 

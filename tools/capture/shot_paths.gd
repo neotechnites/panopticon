@@ -153,7 +153,7 @@ static func _s1_cave() -> Array:
 ## A runner's eye sprinting the lane through S1's thinned spires, 15-60 deg:
 ## RUN speed (11 m/s) the whole way, -5 -> 70 deg, on the widest-bottleneck
 ## route tools/modelling/lib/s1_lane_gap.py measured on the built collider
-## (tools/modelling/map_base.s1_route.json, one key per 0.5 deg); plain lane
+## (tools/modelling/maps/bentham_ring/map_base.s1_route.json, one key per 0.5 deg); plain lane
 ## r 52 either side of the cave. Stops at 70: S2's own rock stands on r 52 at 79.
 static func _s1_run() -> Array:
 	return [

@@ -1,4 +1,4 @@
-# assets/audio/sfx licence
+# audio/sfx licence
 
 Every recording below is CC0 1.0 (public domain, no attribution required) from
 Freesound. `sfx/src/` holds the untouched previews, `sfx/clean/` the trimmed and

@@ -8,7 +8,7 @@ path="res://.godot/imported/eye.glb-7206b5851eb89e9512e5ad3323eaa816.scn"
 
 [deps]
 
-source_file="res://assets/models/eye.glb"
+source_file="res://tower/models/eye.glb"
 dest_files=["res://.godot/imported/eye.glb-7206b5851eb89e9512e5ad3323eaa816.scn"]
 
 [params]

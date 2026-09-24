@@ -100,7 +100,7 @@ const DEFAULT_MOUSE_SENSITIVITY: float = 0.0022
 const MIN_MOUSE_SENSITIVITY: float = 0.0001
 const MAX_MOUSE_SENSITIVITY: float = 0.02
 
-## Matches the FOV that scenes/player/player.tscn ships its Camera3D at, for
+## Matches the FOV that characters/player/player.tscn ships its Camera3D at, for
 ## the same reason [constant DEFAULT_MOUSE_SENSITIVITY] matches the movement
 ## profile's: a player who never opens the settings screen must get exactly the
 ## value the scene was tuned at, not a number this file invented.
@@ -109,7 +109,7 @@ const MIN_FIELD_OF_VIEW: float = 60.0
 const MAX_FIELD_OF_VIEW: float = 120.0
 
 ## Ghosts are on for the matches this player starts, which is what the shipped
-## [code]resources/rules/default_match_rules.tres[/code] plays. Named rather than
+## [code]match/rules/default_match_rules.tres[/code] plays. Named rather than
 ## written inline because [SettingsStore] needs it too: a settings file written
 ## before the default flipped has to be told what the new answer is.
 const DEFAULT_GHOSTS_ENABLED: bool = true
@@ -147,7 +147,7 @@ const MAX_TOWER_SEAT_INDEX: int = 31
 
 ## How many prisoners a match started from this menu puts on the ring. Agrees
 ## with [member MatchRules.prisoner_count] and with the shipped
-## [code]resources/rules/default_match_rules.tres[/code], for the same reason
+## [code]match/rules/default_match_rules.tres[/code], for the same reason
 ## [constant DEFAULT_GHOSTS_ENABLED] agrees with the ghost rule: a preference
 ## that disagrees with the rule it overwrites means the first match a player
 ## starts is played under a rule set nobody chose.
@@ -438,7 +438,7 @@ var reload_by_turn: PackedFloat32Array = DEFAULT_RELOAD_BY_TURN.duplicate()
 ## from here down to [member rounds_to_win_match] is on the match setup screen
 ## for that reason and reaches the match by exactly the same door --
 ## [method apply_to_match_rules], called by the [SettingsBoot] node in
-## [code]scenes/match/match.tscn[/code], on the one cached [MatchRules] the
+## [code]match/match.tscn[/code], on the one cached [MatchRules] the
 ## [MatchController] in that scene runs.
 var prisoner_count: int = DEFAULT_PRISONER_COUNT
 

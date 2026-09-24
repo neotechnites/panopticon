@@ -300,7 +300,7 @@ and the brief was to keep behaviour.
 - `scripts/optics/scope_vignette.gd:213` already dirty-guards its shader
   parameter and hides the overlay when not aiming.
 - `scripts/player/movement_readout.gd:99` writes four formatted labels per frame
-  undirty-checked — but it only exists in `scenes/dev/movement_playground.tscn`
+  undirty-checked — but it only exists in `characters/player/movement_playground.tscn`
   and costs the shipping match nothing.
 
 ---
@@ -318,7 +318,7 @@ and the brief was to keep behaviour.
 | glow / SSAO / SSIL / SDFGI / fog / volumetric fog | not set anywhere in the repo → **off** | nothing to cut; Compatibility supports none of them anyway |
 | `display/window/size` | 1600×900, `canvas_items` stretch | fine |
 
-`scenes/ring/bentham_ring.tscn`, counting instanced subscenes:
+`maps/bentham_ring/bentham_ring.tscn`, counting instanced subscenes:
 
 | lights | count | shadows |
 |---|---|---|
@@ -455,10 +455,10 @@ faster.
 That is not luck; it is three facts worth writing down, because each is the
 thing that would have made it expensive:
 
-1. **The brambles are not colliders.** `assets/models/forest.glb` ships five
+1. **The brambles are not colliders.** `maps/forest/models/forest.glb` ships five
    nodes and only `ForestCollision-colonly` — **1,830 triangles** — carries
    collision. The thicket at the pit bottom (`PLANTS = 1150` in
-   `tools/modelling/forest_pit_build.py`, **30,985 triangles**) lives inside
+   `tools/modelling/maps/forest/forest_pit_build.py`, **30,985 triangles**) lives inside
    `ForestGround`, which is art. The kill
    volume over the ravine is what makes the thicket lethal, so the physics
    engine never has to know a bramble exists. The fog discs and the ray vanes

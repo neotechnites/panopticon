@@ -19,6 +19,6 @@ seconds: 6
 
 ## 3
 said: hold a still of the scope on a runner in the spires for three seconds while I explain the confidence number
-still: --scene=res://scenes/ring/bentham_ring.tscn --pos=8.0,28.6,1.5 --look=45.0,24.0,25.0
+still: --scene=res://maps/bentham_ring/bentham_ring.tscn --pos=8.0,28.6,1.5 --look=45.0,24.0,25.0
 hold: 3
 gap: 3

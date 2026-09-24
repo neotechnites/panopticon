@@ -360,7 +360,7 @@ def flat_material(name, color, roughness=0.9, metallic=0.0, specular=None):
 
 def save_texture(img):
     """Pack a generated atlas so the glTF export embeds it. No PNG is written
-    to disk -- assets/textures/ is not a build output, and Godot's importer
+    to disk -- a home's textures/ is not a build output, and Godot's importer
     is the only thing that ever needs the pixels, from inside the .glb."""
     img.pack()
     print("MDL TEXTURE %s embedded (%dx%d)" % (img.name, img.size[0], img.size[1]))

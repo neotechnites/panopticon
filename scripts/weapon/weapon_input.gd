@@ -49,7 +49,7 @@ extends Node
 ## that has been paused for some unrelated reason.
 ##
 ## True by default, matching a freshly loaded node's own processing state: a
-## bare [code]scenes/weapon/rifle.tscn[/code] with no match controller around
+## bare [code]weapons/rifle.tscn[/code] with no match controller around
 ## it is a human's rifle.
 var _active: bool = true
 
@@ -111,7 +111,7 @@ func set_active(active: bool) -> void:
 ##
 ## [b]It checks [method Node.can_process] as well as its own flag[/b], because
 ## there are two ways this node gets switched off and only one of them comes
-## through [method set_active]: [code]scenes/bot/tower_shooter.tscn[/code]
+## through [method set_active]: [code]characters/bots/tower_shooter.tscn[/code]
 ## silences its own copy with [member Node.process_mode] DISABLED instead, so
 ## that a human's mouse can never spend a bot's one shot. Reading only the flag
 ## would report that bot's rifle as human-held.

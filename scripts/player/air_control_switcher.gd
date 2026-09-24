@@ -7,7 +7,7 @@ extends Node
 ##
 ## [b]Dev only, and still the right tool.[/b] Nothing in a match instances this.
 ## It lives beside [MovementReadout] in
-## [code]scenes/dev/movement_playground.tscn[/code] and, like the readout, draws
+## [code]characters/player/movement_playground.tscn[/code] and, like the readout, draws
 ## no conclusions -- it swaps a resource and prints the name of what is now
 ## selected.
 ##

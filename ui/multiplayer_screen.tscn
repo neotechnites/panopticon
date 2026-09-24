@@ -1,7 +1,7 @@
 [gd_scene load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://scripts/ui/multiplayer_screen.gd" id="1_multiplayer_screen"]
-[ext_resource type="Theme" path="res://scenes/ui/panopticon_menu_theme.tres" id="2_theme"]
+[ext_resource type="Theme" path="res://ui/panopticon_menu_theme.tres" id="2_theme"]
 
 [node name="MultiplayerScreen" type="Control"]
 process_mode = 3

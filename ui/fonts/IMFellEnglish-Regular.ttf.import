@@ -7,7 +7,7 @@ path="res://.godot/imported/IMFellEnglish-Regular.ttf-5e42b6a2f1d156d636779e545e
 
 [deps]
 
-source_file="res://assets/fonts/IMFellEnglish-Regular.ttf"
+source_file="res://ui/fonts/IMFellEnglish-Regular.ttf"
 dest_files=["res://.godot/imported/IMFellEnglish-Regular.ttf-5e42b6a2f1d156d636779e545ec290b2.fontdata"]
 
 [params]

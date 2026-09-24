@@ -11,8 +11,8 @@ extends TestCase
 ## which is the only reason a match is guaranteed to end at all.
 ##
 ## Everything below is asserted against the real
-## [code]scenes/match/match.tscn[/code] on the shipped
-## [code]resources/rules/default_match_rules.tres[/code]. No rule is retuned to
+## [code]match/match.tscn[/code] on the shipped
+## [code]match/rules/default_match_rules.tres[/code]. No rule is retuned to
 ## make a test convenient: a test that measures a rule set nobody plays is
 ## measuring nothing.
 ##

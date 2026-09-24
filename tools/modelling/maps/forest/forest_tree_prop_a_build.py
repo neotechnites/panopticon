@@ -7,7 +7,7 @@ loose parts in one file, so each variant gets its own script, its own glb and
 its own single contiguous mesh.
 
     tools/modelling/model build forest_tree_prop_a
-    python3 tools/modelling/forest_tree_prop_a_build.py --check
+    python3 tools/modelling/maps/forest/forest_tree_prop_a_build.py --check
 """
 
 import os

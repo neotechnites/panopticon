@@ -7,7 +7,7 @@ extends RefCounted
 ##
 ## [codeblock]
 ## {
-##   "base_rules": "res://resources/rules/default_match_rules.tres",
+##   "base_rules": "res://match/rules/default_match_rules.tres",
 ##   "notes": "does a faster floor reload settle the tower sooner?",
 ##   "variants": [
 ##     {"name": "baseline",     "notes": "shipped defaults", "overrides": {}},
@@ -24,7 +24,7 @@ extends RefCounted
 ## than a shrug. A typo that silently measured the baseline twice and reported a
 ## difference of zero is the single most expensive failure this file can have.
 
-const DEFAULT_RULES_PATH: String = "res://resources/rules/default_match_rules.tres"
+const DEFAULT_RULES_PATH: String = "res://match/rules/default_match_rules.tres"
 
 
 ## Load [param path] as a rules resource, or return null and say why.

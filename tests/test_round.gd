@@ -3,9 +3,9 @@ extends TestCase
 ## [MatchController]: what a ROUND is worth inside a match, and the two forms of
 ## the placement trap that have each cost this project a day.
 ##
-## Every test here instances the real [code]scenes/match/match.tscn[/code] --
+## Every test here instances the real [code]match/match.tscn[/code] --
 ## arena, four bodies, rifle, HUD and all -- on the shipped
-## [code]resources/rules/default_match_rules.tres[/code], rather than wiring a
+## [code]match/rules/default_match_rules.tres[/code], rather than wiring a
 ## controller up by hand or retuning the rules into something easier to test. The
 ## rules under test are about what happens when a whole round is armed, and the
 ## regressions at the bottom of this file are about what the physics server does
@@ -56,7 +56,7 @@ const HEIGHT_TOLERANCE_METRES: float = 0.5
 ## MovementProfile's jump apex, which a runner's brain may be part way through.
 const JUMP_APEX_METRES: float = 1.11
 
-## The running surface, from [code]scenes/ring/bentham_ring.tscn[/code]: an annulus
+## The running surface, from [code]maps/bentham_ring/bentham_ring.tscn[/code]: an annulus
 ## with the inner kerb at r=36 and the outer wall at r=60.
 const DECK_INNER_RADIUS: float = 36.0
 const DECK_OUTER_RADIUS: float = 60.0

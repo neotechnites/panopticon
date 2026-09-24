@@ -3,7 +3,7 @@ extends Control
 
 ## Every setting the player can change, on five tabs.
 ##
-## The layout lives in [code]scenes/ui/settings_screen.tscn[/code] and this file
+## The layout lives in [code]ui/settings_screen.tscn[/code] and this file
 ## drives data into it. It used to build the whole screen in code, on the theory
 ## that a scene full of default-themed controls was an unreadable diff. The
 ## trade was worse than it looked: nothing was laid out where a person could see
@@ -36,7 +36,7 @@ signal capture_state_changed(capturing: bool)
 ## will have, and how many there are is [member MatchRules.prisoner_count]'s
 ## answer rather than a number typed into this screen. Naming the file here is
 ## the same wiring [SettingsBoot] does from the match scene, from the other end.
-const MATCH_RULES_PATH: String = "res://resources/rules/default_match_rules.tres"
+const MATCH_RULES_PATH: String = "res://match/rules/default_match_rules.tres"
 
 ## Seats offered when the shipped rules cannot be read at all. One tower and one
 ## prisoner is the smallest thing that is still a match, so the list is never
@@ -400,7 +400,7 @@ func _connect_controls() -> void:
 
 ## Ghosts are a rule of the round, so unlike every other control on this screen
 ## the value does not reach anything until a match is started: SettingsBoot in
-## scenes/match/match.tscn writes it into the MatchRules on the way in. Applying
+## match/match.tscn writes it into the MatchRules on the way in. Applying
 ## it here anyway costs nothing and keeps this handler the same shape as the
 ## rest -- and the store is what the match will read either way.
 func _on_ghosts_toggled(pressed: bool) -> void:
@@ -412,7 +412,7 @@ func _on_ghosts_toggled(pressed: bool) -> void:
 
 ## Like the ghost toggle, this is a rule of the match rather than presentation,
 ## so it does not reach anything until a match is started: SettingsBoot in
-## scenes/match/match.tscn writes it into the MatchRules on the way in.
+## match/match.tscn writes it into the MatchRules on the way in.
 func _on_skip_race_toggled(pressed: bool) -> void:
 	if _syncing:
 		return

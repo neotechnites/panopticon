@@ -36,7 +36,7 @@ forest_build._ray_mesh turns g.rays into one soft shaft per anchor. The wall's
 row and the drum's row are never ragged: their vertices are shared with the
 leaf wall and with the drum standing on them.
 
-    python3 tools/modelling/forest_build.py --check     proves the whole ground
+    python3 tools/modelling/maps/forest/forest_build.py --check     proves the whole ground
 """
 
 import math

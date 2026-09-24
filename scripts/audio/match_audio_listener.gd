@@ -4,7 +4,7 @@ extends Node
 ## Turns what a [Rifle] and a [MatchController] announce into posted audio
 ## events. [b]Attach it; do not edit them.[/b]
 ##
-## Drop this node into scenes/match/match.tscn next to the [AudioDirector] and
+## Drop this node into match/match.tscn next to the [AudioDirector] and
 ## the whole match is audible. Neither scripts/weapon/rifle.gd nor
 ## scripts/match/match_controller.gd changes, or ever needs to: they already
 ## emit every signal worth hearing, and this file is the adapter that turns each

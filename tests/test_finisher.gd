@@ -3,7 +3,7 @@ extends TestCase
 ## The finisher: reaching the end arms a prisoner instead of ending the round.
 ##
 ## One test, and it is the whole mechanic end to end on the real
-## [code]scenes/match/match.tscn[/code]: the portal stops being a win, the
+## [code]match/match.tscn[/code]: the portal stops being a win, the
 ## prisoner who reached it carries the guard's own rifle and
 ## [member MatchRules.finisher_health] hit points, the guard stands on
 ## [member MatchRules.guard_health], and the shot that kills the guard takes the

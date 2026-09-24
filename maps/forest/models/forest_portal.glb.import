@@ -8,7 +8,7 @@ path="res://.godot/imported/forest_portal.glb-192a80ea1fe03a9d50febda62fe3dd94.s
 
 [deps]
 
-source_file="res://assets/models/forest_portal.glb"
+source_file="res://maps/forest/models/forest_portal.glb"
 dest_files=["res://.godot/imported/forest_portal.glb-192a80ea1fe03a9d50febda62fe3dd94.scn"]
 
 [params]

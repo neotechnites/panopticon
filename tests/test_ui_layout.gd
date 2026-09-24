@@ -56,7 +56,7 @@ func test_main_menu_and_its_screens() -> void:
 	var settings: GameSettings = SettingsStore.instance().settings
 	for size: Vector2i in SIZES:
 		settings.reset()
-		var menu: MainMenu = _instance("res://scenes/ui/main_menu.tscn", size)
+		var menu: MainMenu = _instance("res://ui/main_menu.tscn", size)
 		await _settle()
 		_audit("main menu", size, menu)
 
@@ -182,7 +182,7 @@ func test_match_overlays() -> void:
 func test_hub_hud_and_overlay() -> void:
 	for size: Vector2i in SIZES:
 		get_tree().root.size = size
-		var hub: Node3D = (load("res://scenes/hub/hub.tscn") as PackedScene).instantiate() as Node3D
+		var hub: Node3D = (load("res://hub/hub.tscn") as PackedScene).instantiate() as Node3D
 		TestFixtures.silence_human_input(hub)
 		(hub.get_node("HubLobby") as HubLobby).changes_scene = false
 		add_child(hub)

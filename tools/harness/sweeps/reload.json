@@ -1,5 +1,5 @@
 {
-  "base_rules": "res://resources/rules/default_match_rules.tres",
+  "base_rules": "res://match/rules/default_match_rules.tres",
   "notes": "Is the rifle's opening reload what makes the tower unbeatable, or is it the sightlines? Two arms, one field apart.",
   "variants": [
     {

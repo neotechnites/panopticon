@@ -1,6 +1,6 @@
 [gd_resource type="ShaderMaterial" load_steps=2 format=3]
 
-[ext_resource type="Shader" path="res://scenes/ring/lava_haze.gdshader" id="1_lava_haze"]
+[ext_resource type="Shader" path="res://maps/bentham_ring/materials/lava_haze.gdshader" id="1_lava_haze"]
 
 [resource]
 resource_name = "Lava haze"

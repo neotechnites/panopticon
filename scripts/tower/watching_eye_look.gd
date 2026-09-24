@@ -4,7 +4,7 @@ extends Resource
 ## What the eyeball over the tower is MADE OF, on one map.
 ##
 ## [b]The whole of a variant is three materials.[/b]
-## [code]assets/models/eye.glb[/code] is a unit sphere with three nodes --
+## [code]tower/models/eye.glb[/code] is a unit sphere with three nodes --
 ## [code]Eye_Sclera[/code], [code]Eye_Iris[/code], [code]Eye_Pupil[/code] -- one
 ## surface each and one flat, untextured material each, so the eye's entire look
 ## is nine numbers and an emission. Ryan, 2026-09-23: [i]"create two new textures
@@ -14,7 +14,7 @@ extends Resource
 ## [b]Why this is a material swap and not a second model.[/b] The geometry of a
 ## forest eye and a marble eye is the geometry of the hell eye to the last
 ## vertex: the same sclera, the same two spherical caps on the same measured
-## depth budget (see [code]tools/modelling/eye_build.py[/code], where the iris and
+## depth budget (see [code]tools/modelling/tower/eye_build.py[/code], where the iris and
 ## pupil biases are a z-fighting gate, not a look). Building
 ## [code]eye_forest.glb[/code] and [code]eye_marble.glb[/code] with
 ## [code]model --variant[/code] would ship two more copies of 768 triangles and
@@ -57,7 +57,7 @@ extends Resource
 ## is not one of the eye's three.
 ##
 ## Matched by NODE name rather than by material name or by surface index because
-## the node names are what [code]tools/modelling/eye.contract.json[/code] pins and
+## the node names are what [code]tools/modelling/tower/eye.contract.json[/code] pins and
 ## [code]lib/verify_glb.gd[/code] enforces on every build -- a renamed node fails
 ## the model's own gate before it can quietly stop being painted here. Surface
 ## index would match nothing: each node carries exactly one surface, numbered 0.

@@ -4,7 +4,7 @@ a cluster of lumpy blobs: a wide puddle at the feet, thick leg columns, a
 paunch, a hunched chest, a hump rising to 1.8 m with a faceless dome sunk in
 front of it, and sack arms pooling at the ends. Nothing is borrowed from the
 runner but the 16-joint rig (bone names, rest pose, ``Run`` clip); vertices
-bind to the nearest bone. Exported as ``assets/models/husk_b.glb``.
+bind to the nearest bone. Exported as ``characters/models/husk_b.glb``.
 
     tools/modelling/model build husk_b
     tools/modelling/model look  husk_b --cam 35,1,50 --margin 9 --res 1600x900
@@ -21,7 +21,11 @@ import bpy
 from mathutils import Matrix, Vector
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)) + os.sep + "lib")
+_HOME = os.path.dirname(os.path.abspath(__file__))
+for _root in (os.path.dirname(_HOME), os.path.dirname(os.path.dirname(_HOME))):  # the repo's tools/modelling
+    if os.path.isfile(os.path.join(_root, "model")) and os.path.isfile(os.path.join(_root, "lib", "mdl.py")):
+        sys.path[1:1] = [d for d, _, _ in os.walk(_root) if "__pycache__" not in d]
+        break
 
 import mdl  # noqa: E402
 

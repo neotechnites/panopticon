@@ -1,6 +1,6 @@
 """
 PANOPTICON -- the prisoner. A 1.8 m low-poly humanoid on a 16-joint rig with a
-looping run cycle, exported as ``assets/models/runner.glb``.
+looping run cycle, exported as ``characters/models/runner.glb``.
 
 Run through the pipeline (from the Mac, from the repo root)::
 
@@ -22,7 +22,7 @@ output, not input.
 
 THE CONTRACT THE GAME DEPENDS ON
 --------------------------------
-``scenes/player/prisoner_avatar.tscn`` and ``scripts/player/prisoner_avatar.gd``
+``characters/player/prisoner_avatar.tscn`` and ``scripts/player/prisoner_avatar.gd``
 address this model by name, so these are not cosmetic choices:
 
   * node path ``Armature/Skeleton3D/Runner`` and a sibling ``AnimationPlayer``
@@ -35,7 +35,7 @@ address this model by name, so these are not cosmetic choices:
   * feet on z=0, head at z=1.8, model FACING -Y in Blender, which glTF turns
     into +Z in Godot; the avatar scene applies the half turn.
 
-``tools/modelling/runner.contract.json`` states that machine-checkably and the
+``tools/modelling/characters/runner.contract.json`` states that machine-checkably and the
 pipeline enforces it on the PC after every build.
 
 COORDINATES
@@ -63,7 +63,11 @@ import bpy
 from mathutils import Matrix, Vector
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)) + os.sep + "lib")
+_HOME = os.path.dirname(os.path.abspath(__file__))
+for _root in (os.path.dirname(_HOME), os.path.dirname(os.path.dirname(_HOME))):  # the repo's tools/modelling
+    if os.path.isfile(os.path.join(_root, "model")) and os.path.isfile(os.path.join(_root, "lib", "mdl.py")):
+        sys.path[1:1] = [d for d, _, _ in os.walk(_root) if "__pycache__" not in d]
+        break
 
 import mdl  # noqa: E402
 

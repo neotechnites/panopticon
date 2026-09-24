@@ -8,7 +8,7 @@ extends TestCase
 ## the whole ring at full volume for every catch and shove anywhere in the
 ## arena. The fix lives entirely in the shipped bank's [AudioCue.positional]
 ## flag; this file proves it against the real production wiring
-## ([code]scenes/match/match.tscn[/code]'s own GameAudio director and bank)
+## ([code]match/match.tscn[/code]'s own GameAudio director and bank)
 ## rather than a synthetic one, the same way [code]tests/test_shove.gd[/code]
 ## drives [method MatchController.apply_shove] directly.
 ##
@@ -21,7 +21,7 @@ extends TestCase
 ## non-headless-inert [FxCatchReaction] to exercise logic a screen-less run
 ## would otherwise switch off.
 
-const CATCH_PROFILE_PATH: String = "res://resources/fx/default_catch_profile.tres"
+const CATCH_PROFILE_PATH: String = "res://match/feedback/default_catch_profile.tres"
 const SETTLE_TICKS: int = 60
 const REACH_METRES: float = 1.2
 const FAR_FROM_LISTENER_METRES: float = 60.0

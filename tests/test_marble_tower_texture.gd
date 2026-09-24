@@ -6,7 +6,7 @@ extends TestCase
 ## pass before this one repainted the sheets and the wobble survived it. The
 ## sheets were never the defect. The sampling was.
 ##
-## [b]What was measured.[/b] assets/models/marble_tower.glb embeds eleven albedo
+## [b]What was measured.[/b] maps/marble/models/marble_tower.glb embeds eleven albedo
 ## sheets ([code]gltf/embedded_image_handling=3[/code], uncompressed). Godot's
 ## glTF importer built each one as an [ImageTexture] with [b]no mip chain[/b],
 ## while every material on the tower asked for
@@ -37,12 +37,12 @@ extends TestCase
 
 ## The tower as the game loads it: the imported .glb. Not the PNGs on disk --
 ## those were never the thing that was wrong.
-const TOWER_PATH: String = "res://assets/models/marble_tower.glb"
+const TOWER_PATH: String = "res://maps/marble/models/marble_tower.glb"
 
 ## How many albedo sheets the tower ships. Eleven material classes, one tiling
 ## sheet each (band, coffer, column, dome, floor, iron, marble2, medallion,
 ## plinth, shade, stone), one texture apiece -- the count the contract in
-## tools/modelling/marble_tower.contract.json calls "ELEVEN surfaces". An import
+## tools/modelling/maps/marble/marble_tower.contract.json calls "ELEVEN surfaces". An import
 ## change that quietly folds two together, or drops one, is a change to the art,
 ## and this number is how that gets noticed instead of shipping.
 const SHEET_COUNT: int = 11

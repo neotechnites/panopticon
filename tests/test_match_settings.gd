@@ -6,7 +6,7 @@ extends TestCase
 ## [b]The defect this pins[/b]
 ##
 ## Ghosts live behind [member MatchRules.ghost_behaviour] in
-## [code]resources/rules/default_match_rules.tres[/code], and a player cannot
+## [code]match/rules/default_match_rules.tres[/code], and a player cannot
 ## open a text editor to change a rule file. So it is also a PREFERENCE, written
 ## OVER the rules on the way into a match, and the two defaults must agree or the
 ## first frame of the game is played under a rule set nobody chose.
@@ -33,7 +33,7 @@ extends TestCase
 ## preference flipped in the singleton would hand every later test in the same
 ## process a different game.
 
-const SETTINGS_SCREEN_PATH: String = "res://scenes/ui/settings_screen.tscn"
+const SETTINGS_SCREEN_PATH: String = "res://ui/settings_screen.tscn"
 
 ## Where the shared store is pointed while this file runs.
 const SCRATCH_CONFIG: String = "user://test_match_settings.cfg"

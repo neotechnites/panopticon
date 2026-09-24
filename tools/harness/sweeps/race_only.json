@@ -1,5 +1,5 @@
 {
-  "base_rules": "res://resources/rules/default_match_rules.tres",
+  "base_rules": "res://match/rules/default_match_rules.tres",
   "notes": "Opening race, three prisoners: the regression check for the lake crossing.",
   "variants": [
     {

@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" path="res://scripts/net/net_session.gd" id="1_session"]
 [ext_resource type="Script" path="res://scripts/net/enet_transport.gd" id="2_enet"]
-[ext_resource type="Resource" path="res://resources/net/default_net_settings.tres" id="3_settings"]
+[ext_resource type="Resource" path="res://match/net/default_net_settings.tres" id="3_settings"]
 [ext_resource type="Script" path="res://scripts/net/net_lobby.gd" id="4_lobby"]
 [ext_resource type="Script" path="res://scripts/net/net_replicator.gd" id="5_replicator"]
 
@@ -19,7 +19,7 @@ editor_description = "Raw UDP. Runs with no Steam client present at all, which i
 script = ExtResource("2_enet")
 
 [node name="NetLobby" type="Node" parent="." node_paths=PackedStringArray("session")]
-editor_description = "Who is playing, in which seat, and whether the match may start. The host owns the seat table; a client's copy is a mirror of it and every change a client wants is a request. No UI -- that is scenes/ui/'s job."
+editor_description = "Who is playing, in which seat, and whether the match may start. The host owns the seat table; a client's copy is a mirror of it and every change a client wants is a request. No UI -- that is ui/'s job."
 script = ExtResource("4_lobby")
 session = NodePath("..")
 

@@ -172,7 +172,7 @@ if [ "$TARGET" != win ]; then
   codesign -dv "$APP" 2>&1 | grep -E '^(Signature|Identifier)' | sed 's/^/  /'
   SMOKE="$OUT/mac-smoke.log"
   set +e; "$BIN" --headless --verbose --quit-after 60 >"$SMOKE" 2>&1; CODE=$?; set -e
-  grep -q "Completed load for: 'res://scenes/ui/main_menu.tscn'" "$SMOKE" && [ "$CODE" = 0 ] || { tail -20 "$SMOKE"; die "macOS smoke failed (exit $CODE, see $SMOKE)"; }
+  grep -q "Completed load for: 'res://ui/main_menu.tscn'" "$SMOKE" && [ "$CODE" = 0 ] || { tail -20 "$SMOKE"; die "macOS smoke failed (exit $CODE, see $SMOKE)"; }
   ditto -c -k --sequesterRsrc --keepParent "$APP" "$MAC_ZIP"
   [ "$(unzip -Z1 "$MAC_ZIP" | grep -cx 'Panopticon.app/Contents/MacOS/Panopticon')" = 1 ] || die "macOS zip is missing the executable"
   MAC_ZIP_BYTES="$(stat -f%z "$MAC_ZIP")"; MAC_APP_BYTES="$(du -sk "$APP" | cut -f1)"; MAC_APP_BYTES=$((MAC_APP_BYTES * 1024))

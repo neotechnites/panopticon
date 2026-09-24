@@ -40,7 +40,7 @@ signal finished(result: Dictionary)
 ## The rate the simulation is pinned to, whatever the wall clock is doing.
 const SIM_HZ: int = 60
 
-const SHOOTER_PROFILE_PATH: String = "res://scenes/bot/default_shooter_profile.tres"
+const SHOOTER_PROFILE_PATH: String = "res://characters/bots/default_shooter_profile.tres"
 
 var _rules: MatchRules = null
 var _variant: String = "default"

@@ -236,7 +236,7 @@ extends Resource
 # makes these four numbers combat tuning as much as movement tuning.
 
 ## Height of the collision capsule while crouched, in metres, against a standing
-## 1.8 (see [code]scenes/player/player.tscn[/code]). The bottom of the capsule
+## 1.8 (see [code]characters/player/player.tscn[/code]). The bottom of the capsule
 ## stays where it is and the TOP comes down, so a crouched body keeps standing
 ## on the same floor while presenting two thirds of the silhouette.
 ##

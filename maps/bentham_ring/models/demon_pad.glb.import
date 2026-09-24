@@ -8,7 +8,7 @@ path="res://.godot/imported/demon_pad.glb-09fc1b91a884fd8eb3627e442e756b71.scn"
 
 [deps]
 
-source_file="res://assets/models/demon_pad.glb"
+source_file="res://maps/bentham_ring/models/demon_pad.glb"
 dest_files=["res://.godot/imported/demon_pad.glb-09fc1b91a884fd8eb3627e442e756b71.scn"]
 
 [params]

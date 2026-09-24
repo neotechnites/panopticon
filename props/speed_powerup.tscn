@@ -1,7 +1,7 @@
 [gd_scene load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://scripts/match/speed_powerup.gd" id="1_speed_powerup"]
-[ext_resource type="PackedScene" path="res://assets/models/speed_orb.glb" id="2_speed_orb"]
+[ext_resource type="PackedScene" path="res://props/models/speed_orb.glb" id="2_speed_orb"]
 
 [node name="SpeedPowerup" type="Area3D" node_paths=PackedStringArray("orb")]
 editor_description = "Race-only pickup: 300% speed for 7 seconds. Drag-in/Ctrl+D/move -- the orb hovers, spins and bobs on its own."

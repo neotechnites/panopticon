@@ -23,7 +23,7 @@ extends TestCase
 ## thing that touches the launch on the way out (air friction is 0 in the
 ## shipped profile and a bot with no wish direction air-accelerates by nothing).
 
-const PAD_SCENE_PATH: String = "res://scenes/props/boost_pad.tscn"
+const PAD_SCENE_PATH: String = "res://props/boost_pad.tscn"
 
 ## Physics ticks a test allows for the Area3D to notice the body and fire
 ## [signal Area3D.body_entered]. Capture happens the instant it does; this is

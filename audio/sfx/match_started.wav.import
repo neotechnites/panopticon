@@ -7,7 +7,7 @@ path="res://.godot/imported/match_started.wav-86e3892670d1e79602f7c4c4376d274b.s
 
 [deps]
 
-source_file="res://assets/audio/sfx/match_started.wav"
+source_file="res://audio/sfx/match_started.wav"
 dest_files=["res://.godot/imported/match_started.wav-86e3892670d1e79602f7c4c4376d274b.sample"]
 
 [params]

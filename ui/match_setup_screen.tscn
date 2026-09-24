@@ -10,7 +10,7 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 0
-editor_description = "The rules of the round the player picks on the way IN to a match, laid out here rather than in code. Every control on it writes into the one SettingsStore and reaches the match through the SettingsBoot node in scenes/match/match.tscn, which writes them over the same default_match_rules.tres instance MatchController exports -- there is no second path and this screen must never grow one. Structure lives in this file and values live in scripts/ui/match_setup_screen.gd, exactly as scenes/ui/settings_screen.tscn splits them."
+editor_description = "The rules of the round the player picks on the way IN to a match, laid out here rather than in code. Every control on it writes into the one SettingsStore and reaches the match through the SettingsBoot node in match/match.tscn, which writes them over the same default_match_rules.tres instance MatchController exports -- there is no second path and this screen must never grow one. Structure lives in this file and values live in scripts/ui/match_setup_screen.gd, exactly as ui/settings_screen.tscn splits them."
 script = ExtResource("1_match_setup_screen")
 
 [node name="Frame" type="MarginContainer" parent="."]
@@ -55,7 +55,7 @@ text = "SETUP_MAP"
 custom_minimum_size = Vector2(240, 0)
 size_flags_horizontal = 0
 unique_name_in_owner = true
-editor_description = "Empty here on purpose. Filled from MapCatalog.all() by the script, so a second map is a .tres in resources/maps/ and an entry in resources/maps/map_catalog.tres -- data -- and no edit to this file. The game ships one map today and a list of one is the correct thing to show: the choice exists, and it is a choice of one."
+editor_description = "Empty here on purpose. Filled from MapCatalog.all() by the script, so a second map is a .tres in maps/<map>/ and an entry in maps/map_catalog.tres -- data -- and no edit to this file. The game ships one map today and a list of one is the correct thing to show: the choice exists, and it is a choice of one."
 
 [node name="MapSpacer" type="Control" parent="Frame/Dialog/Padding/Layout/MapRow"]
 size_flags_horizontal = 3

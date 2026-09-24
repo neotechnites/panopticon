@@ -5,7 +5,7 @@ extends Node3D
 ## a container for the AI bodies, one rifle, and a [MatchController] wired to
 ## them.
 ##
-## [b]Why this is not scenes/match/match.tscn[/b]
+## [b]Why this is not match/match.tscn[/b]
 ##
 ## The shipped match scene contains a HUD, a pause menu and -- decisively -- a
 ## human body. [MatchController] gives the human the first participant slot, and
@@ -24,9 +24,9 @@ extends Node3D
 ## [member MatchRules.map_id] names, resolved through [MapCatalog], so that a
 ## sweep and a played match are measuring the same ground; this constant is what
 ## is left if the catalog itself cannot be read.
-const ARENA_SCENE_PATH: String = "res://scenes/ring/bentham_ring.tscn"
-const RUNNER_SCENE_PATH: String = "res://scenes/bot/ring_runner.tscn"
-const RIFLE_SCENE_PATH: String = "res://scenes/weapon/rifle.tscn"
+const ARENA_SCENE_PATH: String = "res://maps/bentham_ring/bentham_ring.tscn"
+const RUNNER_SCENE_PATH: String = "res://characters/bots/ring_runner.tscn"
+const RIFLE_SCENE_PATH: String = "res://weapons/rifle.tscn"
 
 var _controller: MatchController = null
 var _rifle: Rifle = null

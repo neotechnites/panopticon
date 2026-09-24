@@ -1,6 +1,6 @@
 extends TestCase
 
-## Every word a player reads comes out of assets/locale/strings.csv.
+## Every word a player reads comes out of locale/strings.csv.
 ##
 ## The audit in tools/audit_i18n.gd is the instrument; these tests read its
 ## report so the suite and the audit can never disagree. The pseudo-locale

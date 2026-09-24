@@ -8,7 +8,7 @@ path="res://.godot/imported/speed_orb.glb-83fec8585b824ec77c559d0ae0411948.scn"
 
 [deps]
 
-source_file="res://assets/models/speed_orb.glb"
+source_file="res://props/models/speed_orb.glb"
 dest_files=["res://.godot/imported/speed_orb.glb-83fec8585b824ec77c559d0ae0411948.scn"]
 
 [params]

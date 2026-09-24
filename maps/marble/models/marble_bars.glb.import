@@ -8,7 +8,7 @@ path="res://.godot/imported/marble_bars.glb-f9e48d8ef063851d4643e72c60d97b29.scn
 
 [deps]
 
-source_file="res://assets/models/marble_bars.glb"
+source_file="res://maps/marble/models/marble_bars.glb"
 dest_files=["res://.godot/imported/marble_bars.glb-f9e48d8ef063851d4643e72c60d97b29.scn"]
 
 [params]

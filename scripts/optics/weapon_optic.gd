@@ -61,7 +61,7 @@ signal zoom_requested(zoomed_in: bool)
 signal zoom_settled(zoomed_in: bool)
 
 ## The camera this optic drives. Normally the player's [Camera3D] under the Head
-## node of [code]scenes/player/player.tscn[/code].
+## node of [code]characters/player/player.tscn[/code].
 ##
 ## The optic owns only this camera's [member Camera3D.fov], and only while it is
 ## set: anything else may write that field at any time and the optic will treat

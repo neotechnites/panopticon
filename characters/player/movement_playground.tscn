@@ -1,12 +1,12 @@
 [gd_scene load_steps=14 format=3]
 
-[ext_resource type="PackedScene" path="res://scenes/player/player.tscn" id="1_player"]
+[ext_resource type="PackedScene" path="res://characters/player/player.tscn" id="1_player"]
 [ext_resource type="Script" path="res://scripts/player/movement_readout.gd" id="2_readout"]
 [ext_resource type="Script" path="res://scripts/player/air_control_switcher.gd" id="3_switcher"]
-[ext_resource type="Resource" path="res://resources/movement/air_control_01_committed.tres" id="4_committed"]
-[ext_resource type="Resource" path="res://resources/movement/air_control_02_carve.tres" id="5_carve"]
-[ext_resource type="Resource" path="res://resources/movement/air_control_03_kite.tres" id="6_kite"]
-[ext_resource type="Resource" path="res://resources/movement/air_control_04_footwork.tres" id="7_footwork"]
+[ext_resource type="Resource" path="res://characters/player/air_control/air_control_01_committed.tres" id="4_committed"]
+[ext_resource type="Resource" path="res://characters/player/air_control/air_control_02_carve.tres" id="5_carve"]
+[ext_resource type="Resource" path="res://characters/player/air_control/air_control_03_kite.tres" id="6_kite"]
+[ext_resource type="Resource" path="res://characters/player/air_control/air_control_04_footwork.tres" id="7_footwork"]
 
 [sub_resource type="StandardMaterial3D" id="MatGround"]
 albedo_color = Color(0.34, 0.35, 0.37, 1.0)
@@ -41,7 +41,7 @@ ambient_light_energy = 0.6
 tonemap_mode = 2
 
 [node name="MovementPlayground" type="Node3D"]
-editor_description = "Dev scene. Not part of any match: a flat plain, a marked 160 m straight, a jumpable staircase, a gap gauntlet with the gaps labelled in metres, two ramps, and a MovementReadout showing live and peak horizontal speed. Everything is greybox and every dimension is derived from scenes/player/default_movement_profile.tres -- jump apex 1.11 m and air time 0.636 s -- so what the geometry asks for is exactly what the profile can pay."
+editor_description = "Dev scene. Not part of any match: a flat plain, a marked 160 m straight, a jumpable staircase, a gap gauntlet with the gaps labelled in metres, two ramps, and a MovementReadout showing live and peak horizontal speed. Everything is greybox and every dimension is derived from characters/player/default_movement_profile.tres -- jump apex 1.11 m and air time 0.636 s -- so what the geometry asks for is exactly what the profile can pay."
 
 [node name="Environment" type="Node3D" parent="."]
 

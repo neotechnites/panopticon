@@ -9,7 +9,7 @@ extends TestCase
 ## time at ground speed. The plain lane at r 52 is the control: the same drive
 ## over rock nobody has sculpted.
 
-const ROUTE_PATH: String = "res://tools/modelling/map_base.s1_route.json"
+const ROUTE_PATH: String = "res://tools/modelling/maps/bentham_ring/map_base.s1_route.json"
 
 const DECK_Y: float = 23.0
 const SPAWN_LIFT: float = 0.1

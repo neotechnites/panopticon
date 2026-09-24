@@ -1,7 +1,7 @@
 extends SceneTree
 
 ## Proves a freshly built [code].glb[/code] actually imports and instantiates in
-## Godot, on the PC, before anybody puts it in [code]assets/models/[/code].
+## Godot, on the PC, before anybody puts it in a home's [code]models/[/code].
 ##
 ## [codeblock]
 ## godot --headless --path <scratch project> --script res://verify_glb.gd

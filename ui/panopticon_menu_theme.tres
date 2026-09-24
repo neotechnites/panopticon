@@ -1,7 +1,7 @@
 [gd_resource type="Theme" format=3 uid="uid://bmqj4lxsx4ap8"]
 
-[ext_resource type="FontFile" uid="uid://b4ah4udnu8b3l" path="res://assets/fonts/IMFellEnglish-Regular.ttf" id="1_imfell"]
-[ext_resource type="FontFile" uid="uid://q872lyeh4fte" path="res://assets/fonts/Inter-Variable.ttf" id="2_inter"]
+[ext_resource type="FontFile" uid="uid://b4ah4udnu8b3l" path="res://ui/fonts/IMFellEnglish-Regular.ttf" id="1_imfell"]
+[ext_resource type="FontFile" uid="uid://q872lyeh4fte" path="res://ui/fonts/Inter-Variable.ttf" id="2_inter"]
 
 [sub_resource type="FontVariation" id="FontVariation_body"]
 base_font = ExtResource("2_inter")

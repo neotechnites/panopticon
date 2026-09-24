@@ -30,7 +30,7 @@ if (-not ((Test-Path $exe) -and (Test-Path $pck) -and (Get-Item $exe).Length -gt
 $smoke = Join-Path (Join-Path $OutRoot $Version) 'win-smoke.log'
 cmd /c "`"$exe`" --headless --verbose --quit-after 60 > `"$smoke`" 2>&1"
 $code = $LASTEXITCODE
-$loaded = Select-String -Path $smoke -Pattern "Completed load for: 'res://scenes/ui/main_menu.tscn'" -Quiet
+$loaded = Select-String -Path $smoke -Pattern "Completed load for: 'res://ui/main_menu.tscn'" -Quiet
 $ok = ($code -eq 0) -and $loaded
 
 Compress-Archive -Path $out -DestinationPath $zip -Force

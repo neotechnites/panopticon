@@ -3,7 +3,7 @@ PANOPTICON -- forest_bush: cover for Map 3's lane. Two variants, one script.
 
     tools/modelling/model build forest_bush --variant low
     tools/modelling/model build forest_bush --variant tall
-    python3 tools/modelling/forest_bush_build.py --check --variant low
+    python3 tools/modelling/maps/forest/forest_bush_build.py --check --variant low
 
     low ....... 1.3 m tall, 2.0 m across. A crouched runner (1.2 m) behind it
                 is gone from the tower; a standing one (1.8 m) is not.
@@ -50,7 +50,11 @@ except ImportError:                       # --check on the Mac: geometry only
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-sys.path.insert(0, HERE + os.sep + "lib")
+_HOME = os.path.dirname(os.path.abspath(__file__))
+for _root in (os.path.dirname(_HOME), os.path.dirname(os.path.dirname(_HOME))):  # the repo's tools/modelling
+    if os.path.isfile(os.path.join(_root, "model")) and os.path.isfile(os.path.join(_root, "lib", "mdl.py")):
+        sys.path[1:1] = [d for d, _, _ in os.walk(_root) if "__pycache__" not in d]
+        break
 if bpy is not None:
     import mdl  # noqa: E402
     mdl.DEFAULTS["world_grey"] = 0.38

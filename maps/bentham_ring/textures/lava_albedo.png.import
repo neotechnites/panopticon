@@ -10,7 +10,7 @@ metadata={
 
 [deps]
 
-source_file="res://tools/modelling/textures/lava_albedo.png"
+source_file="res://maps/bentham_ring/textures/lava_albedo.png"
 dest_files=["res://.godot/imported/lava_albedo.png-f7da3c1627d89b5866a42ecbab866066.ctex"]
 
 [params]

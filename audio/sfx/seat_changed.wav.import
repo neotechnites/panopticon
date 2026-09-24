@@ -7,7 +7,7 @@ path="res://.godot/imported/seat_changed.wav-a6ecdd198c17bfdd4aa377aa0196c3f3.sa
 
 [deps]
 
-source_file="res://assets/audio/sfx/seat_changed.wav"
+source_file="res://audio/sfx/seat_changed.wav"
 dest_files=["res://.godot/imported/seat_changed.wav-a6ecdd198c17bfdd4aa377aa0196c3f3.sample"]
 
 [params]

@@ -7,7 +7,7 @@ path="res://.godot/imported/placeholder_movement_slide_end.wav-c117fa223a3e64ad8
 
 [deps]
 
-source_file="res://assets/audio/placeholder_movement_slide_end.wav"
+source_file="res://audio/placeholder/placeholder_movement_slide_end.wav"
 dest_files=["res://.godot/imported/placeholder_movement_slide_end.wav-c117fa223a3e64ad8300f9113363a43a.sample"]
 
 [params]

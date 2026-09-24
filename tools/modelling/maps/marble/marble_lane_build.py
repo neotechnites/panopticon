@@ -32,7 +32,7 @@ edges: the floor foot, the slab soffit, the slab top. Alone, the part is TWO
 pieces (the floor, the slab): the wall joins them, 24 m apart, into the one
 stone.
 
-    python3 tools/modelling/marble_lane_build.py     # audit this part alone
+    python3 tools/modelling/maps/marble/marble_lane_build.py     # audit this part alone
 """
 
 import math

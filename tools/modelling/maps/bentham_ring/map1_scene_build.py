@@ -5,10 +5,10 @@ mesh (map_base_build.py, LIP_WALLS), so there is no prop to place and nothing
 here to export: this file is the camera crew, and it runs on its own --
 
     /Applications/Blender.app/Contents/MacOS/Blender -b -noaudio \\
-        -P tools/modelling/map1_scene_build.py [-- 066 139]
+        -P tools/modelling/maps/bentham_ring/map1_scene_build.py [-- 066 139]
 
-It imports the shipped assets/models/map_base.glb at identity and
-assets/models/tower.glb at its guard-room datum, then writes two shots per
+It imports the shipped maps/bentham_ring/models/map_base_*.glb at identity and
+tower/models/tower.glb at its guard-room datum, then writes two shots per
 wall into ~/Desktop/panopticon-renders/map1/sections/ --
 
     map_base_lipwall_<name>_approach.png  eye level on the lane, 9 deg back
@@ -42,16 +42,20 @@ import bpy
 import mathutils
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)) + os.sep + "lib")
+_HOME = os.path.dirname(os.path.abspath(__file__))
+for _root in (os.path.dirname(_HOME), os.path.dirname(os.path.dirname(_HOME))):  # the repo's tools/modelling
+    if os.path.isfile(os.path.join(_root, "model")) and os.path.isfile(os.path.join(_root, "lib", "mdl.py")):
+        sys.path[1:1] = [d for d, _, _ in os.walk(_root) if "__pycache__" not in d]
+        break
 
 # The arena's own numbers and the LIP_WALLS table. Read, never written: this
 # script builds no geometry.
 import map_base_build as mb  # noqa: E402
 
 REPO = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                    os.pardir, os.pardir))
-MAP_GLBS = [os.path.join(REPO, "assets", "models", "map_base_%s.glb" % c) for c in mb.CHUNKS]
-TOWER_GLB = os.path.join(REPO, "assets", "models", "tower.glb")
+                                    os.pardir, os.pardir, os.pardir, os.pardir))
+MAP_GLBS = [os.path.join(REPO, "maps", "bentham_ring", "models", "map_base_%s.glb" % c) for c in mb.CHUNKS]
+TOWER_GLB = os.path.join(REPO, "tower", "models", "tower.glb")
 OUT_DIR = os.path.expanduser("~/Desktop/panopticon-renders/map1/sections")
 
 TOWER_Y = 25.35                 # tower.glb's origin is the guard-room DATUM --

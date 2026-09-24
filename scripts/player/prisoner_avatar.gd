@@ -1,7 +1,7 @@
 class_name PrisonerAvatar
 extends Node3D
 
-## The humanoid a prisoner is seen as: [code]assets/models/runner.glb[/code]
+## The humanoid a prisoner is seen as: [code]characters/models/runner.glb[/code]
 ## hung on a [PlayerController] and driven by that body's own speed.
 ##
 ## [b]It is a costume, not a body.[/b] Nothing here is read by physics, by the
@@ -13,7 +13,7 @@ extends Node3D
 ## the silhouette a shooter leads is the volume they hit.
 ##
 ## The one transform it does carry is a half turn about Y, authored on the node
-## in [code]scenes/player/prisoner_avatar.tscn[/code]. The glTF is modelled with
+## in [code]characters/player/prisoner_avatar.tscn[/code]. The glTF is modelled with
 ## its toes towards +Z -- see the foot vertices, which run from -0.05 to +0.15 --
 ## and [PlayerController] takes -Z as forward, so without the flip every prisoner
 ## in the game runs backwards.
@@ -69,7 +69,7 @@ extends Node3D
 ## drawn standing would be a body the guard cannot hit at a height he can see.
 ##
 ## [b]The jump is airborne rather than jumping.[/b] A fifth clip, [member
-## jump_clip], is authored in [code]assets/models/runner.glb[/code] -- unlike
+## jump_clip], is authored in [code]characters/models/runner.glb[/code] -- unlike
 ## idle, slide and crouch, there is no bind-pose fallback for it -- and shown
 ## whenever the body is off the floor, however it got there: a jump, a fall off
 ## a ledge, a ramp taken fast enough to leave it. There is only the one clip for
@@ -126,7 +126,7 @@ extends Node3D
 ## all, so where the two disagree the one with the capsule behind it wins.
 
 ## The body this costume belongs to. Set from the scene that owns both -- see
-## [code]scenes/player/player.tscn[/code], which points it at the
+## [code]characters/player/player.tscn[/code], which points it at the
 ## [CharacterBody3D] this node hangs under.
 ## The head-collapsing modifier, by path rather than by class name so that a
 ## headless run does not depend on a global class cache having been built.
@@ -224,7 +224,7 @@ const FirstPersonHead: GDScript = preload("res://scripts/player/first_person_hea
 @export var crouch_hip_height: float = 0.48
 
 ## The airborne clip's name inside [member animation]. Authored in
-## [code]assets/models/runner.glb[/code], unlike idle/slide/crouch.
+## [code]characters/models/runner.glb[/code], unlike idle/slide/crouch.
 @export var jump_clip: StringName = &"Jump"
 
 ## Cross-fade duration, in seconds, into the airborne pose.
@@ -273,7 +273,7 @@ const FirstPersonHead: GDScript = preload("res://scripts/player/first_person_hea
 ## Which visual layer the mesh draws on, authored per body.
 ##
 ## Layer 2 is the owner-hidden layer: every [Camera3D] in the game inherits the
-## cull_mask on [code]scenes/player/player.tscn[/code], which clears bit 2.
+## cull_mask on [code]characters/player/player.tscn[/code], which clears bit 2.
 ## Layer 3, the value 4, is kept by every camera, and the two AI scenes set it.
 ## [member first_person_layers] is added to whichever of the two a body wears.
 @export_flags_3d_render var visual_layers: int = 2
@@ -896,7 +896,7 @@ func _park() -> void:
 ## every bone is then pinned to [method Skeleton3D.get_bone_rest], which is
 ## already a standing pose with the arms hanging at the sides -- it is the
 ## pose [member run_clip] was itself animated away from, not a T-pose (see
-## [code]assets/models/runner.glb[/code]: every bone's rest translation and
+## [code]characters/models/runner.glb[/code]: every bone's rest translation and
 ## scale is constant across every [code]Run[/code] frame; only rotation, and
 ## for Hips also position, ever move).
 ##
@@ -1065,7 +1065,7 @@ const SLIDE_POSE_DEGREES: Dictionary = {
 
 ## Synthesises the slide as a single static pose -- one key per bone, no motion
 ## between them -- for the same reason the idle is synthesised rather than
-## downloaded: [code]assets/models/runner.glb[/code] carries a bespoke 16-joint
+## downloaded: [code]characters/models/runner.glb[/code] carries a bespoke 16-joint
 ## skeleton with no shoulders, no chest and no toe bones, under names
 ## ([code]UpperArm.L[/code]) that are not the ones Godot's humanoid
 ## [SkeletonProfile] retargeter expects ([code]LeftUpperArm[/code]). A free clip

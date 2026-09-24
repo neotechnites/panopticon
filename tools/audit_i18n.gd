@@ -13,16 +13,16 @@ extends SceneTree
 ## [method scan] is static so [code]tests/test_i18n.gd[/code] asserts the same
 ## report this prints. Exit 0 clean, 1 dirty, 2 the table could not be read.
 
-const CSV_PATH: String = "res://assets/locale/strings.csv"
+const CSV_PATH: String = "res://locale/strings.csv"
 const SOURCE_LOCALE: String = "en"
 const PSEUDO_LOCALE: String = "en_XA"
 
 ## Where key references are counted. Tests and tools are not the game.
-const REFERENCE_ROOTS: Array[String] = ["res://scenes", "res://scripts", "res://resources"]
+const REFERENCE_ROOTS: Array[String] = ["res://maps", "res://hub", "res://characters", "res://weapons", "res://tower", "res://props", "res://ui", "res://audio", "res://match", "res://scripts"]
 const REFERENCE_EXTENSIONS: Array[String] = [".gd", ".tscn", ".tres"]
 
-## Scenes whose authored text must be keys. scenes/dev is a dev playground.
-const UI_SCENE_ROOTS: Array[String] = ["res://scenes/ui", "res://scenes/hub", "res://scenes/match"]
+## Scenes whose authored text must be keys.
+const UI_SCENE_ROOTS: Array[String] = ["res://ui", "res://hub", "res://match"]
 const TEXT_PROPERTIES: Array[String] = ["text", "tooltip_text", "placeholder_text"]
 
 ## Authored text allowed raw: the game's title is a name, not a word.

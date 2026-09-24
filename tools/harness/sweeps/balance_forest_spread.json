@@ -1,5 +1,5 @@
 {
-  "base_rules": "res://resources/rules/forest_match_rules.tres",
+  "base_rules": "res://maps/forest/forest_match_rules.tres",
   "notes": "Balance spread, forest: a guard who cannot see, a learner, and a hard one. The blind arm is the map's own bar -- runners take effectively every round and the map kills nobody.",
   "variants": [
     {"name": "forest_blind", "notes": "guard_skill 0, one degree of view", "overrides": {"guard_skill": 0.0, "guard_fov_degrees": 1.0}},

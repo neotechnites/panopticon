@@ -11,7 +11,7 @@ extends Resource
 ## The author's own instruction: colours belong on something Ryan can open and
 ## drag swatches around in, not buried in [code]match_controller.gd[/code]. The
 ## shipped instance is
-## [code]resources/rules/default_runner_palette.tres[/code]; a scene that names
+## [code]match/rules/default_runner_palette.tres[/code]; a scene that names
 ## none gets it, exactly the way [method MatchController.get_ghost_profile]
 ## falls back to the shipped [GhostProfile].
 ##

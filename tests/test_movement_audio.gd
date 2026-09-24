@@ -4,7 +4,7 @@ extends TestCase
 ## positional audio for every [PlayerController] in the scene.
 ##
 ## [b]Why the director is built by hand instead of using the scene's own
-## [code]scenes/audio/game_audio.tscn[/code].[/b] These tests want to force
+## [code]audio/game_audio.tscn[/code].[/b] These tests want to force
 ## [constant AudioDirector.Activation.ALWAYS] (a headless run otherwise switches
 ## the director off, exactly as it should in play) and to inspect voices
 ## directly -- the same reason [code]tests/test_hit_feedback.gd[/code] builds its
@@ -21,7 +21,7 @@ extends TestCase
 ## fires once per post and cannot miss one -- the same technique
 ## [code]scripts/audio/audio_system_check.gd[/code] uses for the same reason.
 
-const BANK_PATH: String = "res://scenes/audio/placeholder_bank.tres"
+const BANK_PATH: String = "res://audio/placeholder_bank.tres"
 
 ## Height this file's floor sits at. Large and file-specific so a body that
 ## drifts never lands on something another test file left behind.
@@ -44,7 +44,7 @@ func before_each() -> void:
 
 	# Deep duplicate: the bank's cues are Resources of their own, and a shallow
 	# duplicate would leave this file mutating the very objects
-	# scenes/audio/placeholder_bank.tres loads for the shipped game.
+	# audio/placeholder_bank.tres loads for the shipped game.
 	_bank = (load(BANK_PATH) as AudioBank).duplicate(true) as AudioBank
 
 	_director = AudioDirector.new()

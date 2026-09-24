@@ -2,10 +2,10 @@
 
 [ext_resource type="Script" path="res://scripts/player/air_control_catalog.gd" id="1_air_control_catalog"]
 [ext_resource type="Script" path="res://scripts/player/air_control_preset.gd" id="2_air_control_preset"]
-[ext_resource type="Resource" path="res://resources/movement/air_control_01_committed.tres" id="3_committed"]
-[ext_resource type="Resource" path="res://resources/movement/air_control_02_carve.tres" id="4_carve"]
-[ext_resource type="Resource" path="res://resources/movement/air_control_03_kite.tres" id="5_kite"]
-[ext_resource type="Resource" path="res://resources/movement/air_control_04_footwork.tres" id="6_footwork"]
+[ext_resource type="Resource" path="res://characters/player/air_control/air_control_01_committed.tres" id="3_committed"]
+[ext_resource type="Resource" path="res://characters/player/air_control/air_control_02_carve.tres" id="4_carve"]
+[ext_resource type="Resource" path="res://characters/player/air_control/air_control_03_kite.tres" id="5_kite"]
+[ext_resource type="Resource" path="res://characters/player/air_control/air_control_04_footwork.tres" id="6_footwork"]
 
 [resource]
 script = ExtResource("1_air_control_catalog")

@@ -41,8 +41,8 @@ expressions as the top, and mb.audit() proves it -- one component, no
 duplicate positions, no doubled or over-used edges, no boundary edge, no
 degenerate face.
 
-    python3 tools/modelling/marble_spikes_build.py --check
-    python3 tools/modelling/marble_spikes_build.py --check --variant strip
+    python3 tools/modelling/maps/marble/marble_spikes_build.py --check
+    python3 tools/modelling/maps/marble/marble_spikes_build.py --check --variant strip
     tools/modelling/model build marble_spikes
     tools/modelling/model build marble_spikes_strip
 """
@@ -58,7 +58,11 @@ except ImportError:                       # --check on the Mac: geometry only
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-sys.path.insert(0, HERE + os.sep + "lib")
+_HOME = os.path.dirname(os.path.abspath(__file__))
+for _root in (os.path.dirname(_HOME), os.path.dirname(os.path.dirname(_HOME))):  # the repo's tools/modelling
+    if os.path.isfile(os.path.join(_root, "model")) and os.path.isfile(os.path.join(_root, "lib", "mdl.py")):
+        sys.path[1:1] = [d for d, _, _ in os.walk(_root) if "__pycache__" not in d]
+        break
 
 import marble_build as mb  # noqa: E402
 

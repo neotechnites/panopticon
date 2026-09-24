@@ -12,12 +12,12 @@ extends Resource
 ## [method PlayerController.is_sliding], [signal PlayerController.landed]'s
 ## impact speed) and never touches the controller at all. Keeping these numbers
 ## here means the whole movement-audio feature is addable and tunable without
-## a second file outside [code]scripts/audio/[/code] and [code]assets/audio/[/code]
+## a second file outside [code]scripts/audio/[/code] and [code]audio/[/code]
 ## having to change.
 ##
 ## [b]Why this is not on [AudioCue].[/b] Volume, falloff and retrigger rate are
 ## already tunable per event on the shipped cue in the bank -- see
-## [code]scenes/audio/placeholder_bank.tres[/code]. What is here instead is the
+## [code]audio/placeholder_bank.tres[/code]. What is here instead is the
 ## GAMEPLAY-side pacing decision that decides whether and how hard an event
 ## posts at all: how far a body must travel between footsteps, how soft a
 ## landing has to be to stay silent, and whether a ghost is audible.

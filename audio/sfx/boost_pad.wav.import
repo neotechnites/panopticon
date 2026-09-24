@@ -7,7 +7,7 @@ path="res://.godot/imported/boost_pad.wav-f017d3100580f4d560c24b972c5d9633.sampl
 
 [deps]
 
-source_file="res://assets/audio/sfx/boost_pad.wav"
+source_file="res://audio/sfx/boost_pad.wav"
 dest_files=["res://.godot/imported/boost_pad.wav-f017d3100580f4d560c24b972c5d9633.sample"]
 
 [params]

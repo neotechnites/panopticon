@@ -8,7 +8,7 @@ path="res://.godot/imported/marble_portal.glb-417a2ec77634134d7d241cf7a8117c0e.s
 
 [deps]
 
-source_file="res://assets/models/marble_portal.glb"
+source_file="res://maps/marble/models/marble_portal.glb"
 dest_files=["res://.godot/imported/marble_portal.glb-417a2ec77634134d7d241cf7a8117c0e.scn"]
 
 [params]

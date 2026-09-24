@@ -9,11 +9,11 @@ signal closed()
 ## The lobby launched; the match scene is about to replace this one.
 signal match_launching()
 
-const SESSION_SCENE_PATH: String = "res://scenes/net/net_session.tscn"
+const SESSION_SCENE_PATH: String = "res://match/net/net_session.tscn"
 const SESSION_NAME: StringName = &"NetSession"
-const RULES_PATH: String = "res://resources/rules/default_match_rules.tres"
-const MATCH_SCENE_PATH: String = "res://scenes/match/match.tscn"
-const HUB_SCENE_PATH: String = "res://scenes/hub/hub.tscn"
+const RULES_PATH: String = "res://match/rules/default_match_rules.tres"
+const MATCH_SCENE_PATH: String = "res://match/match.tscn"
+const HUB_SCENE_PATH: String = "res://hub/hub.tscn"
 const CUSTOM_ID: int = -1
 
 ## Walk into the hub as soon as the session is up, host and client alike.

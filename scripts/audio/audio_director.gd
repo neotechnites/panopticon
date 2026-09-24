@@ -20,7 +20,7 @@ extends Node
 ## on entering the tree, exactly as [SettingsStore] does, and
 ## [method post_event] is a no-op when that field is null. The consequence is
 ## the property the bot harness needs: a scene with no
-## res://scenes/audio/audio_director.tscn in it is not a scene with broken
+## res://audio/audio_director.tscn in it is not a scene with broken
 ## audio, it is a scene with no audio, and it costs nothing to run.
 ##
 ## [b]Three ways this stays free when it should be.[/b]

@@ -4,7 +4,7 @@ extends Node3D
 ## The eyeball over the tower, and the one thing in PANOPTICON that moves because
 ## of where [b]you[/b] are standing.
 ##
-## [code]assets/models/eye.glb[/code] -- a 768-triangle ball with a glowing red
+## [code]tower/models/eye.glb[/code] -- a 768-triangle ball with a glowing red
 ## iris and a black pupil -- floats in the gap between the top of
 ## [PanopticonEye]'s box (y=4.15) and the light over the tower
 ## ([code]KeyLight[/code], y=20), and turns so that its pupil points at whoever is
@@ -84,7 +84,7 @@ extends Node3D
 ## The node places itself at (0, [member WatchingEyeProfile.height_metres], 0) in
 ## its parent's space on ready, the same way [TowerLight] does, and never reads or
 ## writes a world coordinate. Parented under Tower in
-## [code]scenes/ring/bentham_ring.tscn[/code], it therefore follows the tower
+## [code]maps/bentham_ring/bentham_ring.tscn[/code], it therefore follows the tower
 ## wherever the tower goes. See the report and the scene's editor_description for
 ## what that assumes if the ring is rebuilt.
 ##
@@ -157,7 +157,7 @@ const PARALLEL_LIMIT: float = 0.9999
 ## marble level that matches the color palette."[/i]
 ##
 ## NULL IS THE HELL EYE, and deliberately so rather than a fourth resource that
-## restates the glTF. [code]scenes/ring/bentham_ring.tscn[/code] sets no look, so
+## restates the glTF. [code]maps/bentham_ring/bentham_ring.tscn[/code] sets no look, so
 ## Map 1's eyeball is drawn by the materials the importer built and is not
 ## touched by a single line below -- which is what "Map 1's eye is unchanged"
 ## has to mean if it is to mean anything.
@@ -339,7 +339,7 @@ func gaze_direction() -> Vector3:
 ##
 ## One [method MeshInstance3D.set_surface_override_material] per node, matched by
 ## NODE NAME through [method WatchingEyeLook.material_for] -- the three names are
-## what [code]tools/modelling/eye.contract.json[/code] pins and the model's own
+## what [code]tools/modelling/tower/eye.contract.json[/code] pins and the model's own
 ## build gate enforces, so a rename fails in the modelling pipeline rather than
 ## arriving here as an eyeball that quietly went back to red.
 ##

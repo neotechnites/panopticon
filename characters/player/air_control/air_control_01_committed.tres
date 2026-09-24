@@ -1,7 +1,7 @@
 [gd_resource type="Resource" script_class="AirControlPreset" load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://scripts/player/air_control_preset.gd" id="1_preset"]
-[ext_resource type="Resource" path="res://scenes/player/default_movement_profile.tres" id="2_base"]
+[ext_resource type="Resource" path="res://characters/player/default_movement_profile.tres" id="2_base"]
 
 [resource]
 script = ExtResource("1_preset")

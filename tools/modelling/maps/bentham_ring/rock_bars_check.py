@@ -18,7 +18,7 @@ angles the build script shoots, and the defect surfaces as "you can walk
 through the bars on Map 1" long after the change that caused it. So both
 halves are measured here, on the shipped .glb, with no Blender and no Godot.
 
-    python3 tools/modelling/rock_bars_check.py [--glb PATH]
+    python3 tools/modelling/maps/bentham_ring/rock_bars_check.py [--glb PATH]
 
 The widest slot comes from rays cast along the thin axis on a fine grid over
 the wall's face: the longest run of samples with no triangle in front of them
@@ -36,8 +36,12 @@ import os
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-REPO = os.path.dirname(os.path.dirname(HERE))
-sys.path.insert(0, os.path.join(HERE, "lib"))
+REPO = os.path.abspath(os.path.join(HERE, "..", "..", "..", ".."))
+_HOME = os.path.dirname(os.path.abspath(__file__))
+for _root in (os.path.dirname(_HOME), os.path.dirname(os.path.dirname(_HOME))):  # the repo's tools/modelling
+    if os.path.isfile(os.path.join(_root, "model")) and os.path.isfile(os.path.join(_root, "lib", "mdl.py")):
+        sys.path[1:1] = [d for d, _, _ in os.walk(_root) if "__pycache__" not in d]
+        break
 
 from glb_audit import parse_glb, node_world_matrices, read_accessor  # noqa: E402
 from glb_audit import transform_point, IDENTITY4, MODE_TRIANGLES  # noqa: E402
@@ -46,7 +50,7 @@ from glb_audit import transform_point, IDENTITY4, MODE_TRIANGLES  # noqa: E402
 # TUNABLES
 # =============================================================================
 
-DEFAULT_GLB = os.path.join(REPO, "assets", "models", "rock_bars.glb")
+DEFAULT_GLB = os.path.join(REPO, "maps", "bentham_ring", "models", "rock_bars.glb")
 
 # Which geometry is the art. Substring match on node and mesh name, the way
 # Godot's own importer decides: the collider carries SKIP_NAME on top.
@@ -63,7 +67,7 @@ H_STEP = 0.04
 # of them and more triangles tested per sample.
 BUCKET_SIZE = 0.50
 
-# The scene's X scale on the RockBars node in scenes/ring/bentham_ring.tscn:
+# The scene's X scale on the RockBars node in maps/bentham_ring/bentham_ring.tscn:
 # unscaled since the gate was fitted to the lane at world size.
 WORLD_X_SCALE = 1.0
 

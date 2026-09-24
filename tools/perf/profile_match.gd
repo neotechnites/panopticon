@@ -23,9 +23,9 @@ extends SceneTree
 ## Writes a CSV of per-second samples plus a SUMMARY line with the mean and the
 ## worst 1% of frame times. Not headless: the point is the GPU.
 
-const RULES_PATH: String = "res://resources/rules/default_match_rules.tres"
-const SHOOTER_PROFILE_PATH: String = "res://scenes/bot/default_shooter_profile.tres"
-const WEAPON_PROFILE_PATH: String = "res://scenes/weapon/default_weapon_profile.tres"
+const RULES_PATH: String = "res://match/rules/default_match_rules.tres"
+const SHOOTER_PROFILE_PATH: String = "res://characters/bots/default_shooter_profile.tres"
+const WEAPON_PROFILE_PATH: String = "res://weapons/default_weapon_profile.tres"
 
 ## What --rounds keeps in the air: cosmetic rounds fired from the guard's eye,
 ## fanned this many degrees apart so N of them price N streaks and not one.

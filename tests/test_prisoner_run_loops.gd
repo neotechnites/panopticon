@@ -10,8 +10,8 @@ extends TestCase
 ## every instance of the model, which is why the check runs on two bodies and
 ## on the raw model: the fix has to hold for a body nobody has looked at yet.
 
-const AVATAR_SCENE: String = "res://scenes/player/prisoner_avatar.tscn"
-const MODEL_SCENE: String = "res://assets/models/prisoner2.glb"
+const AVATAR_SCENE: String = "res://characters/player/prisoner_avatar.tscn"
+const MODEL_SCENE: String = "res://characters/models/prisoner2.glb"
 ## Well past one 0.7 s cycle at full pace.
 const RUN_TICKS: int = 150
 
@@ -24,7 +24,7 @@ func test_the_run_clip_loops_on_the_imported_model() -> void:
 	assert_true(player.has_animation(&"Run"), "and the Run clip")
 	assert_eq_int(
 		player.get_animation(&"Run").loop_mode, Animation.LOOP_LINEAR,
-		"Run is imported looping (assets/models/prisoner2.glb.import asks for it)"
+		"Run is imported looping (characters/models/prisoner2.glb.import asks for it)"
 	)
 	model.queue_free()
 

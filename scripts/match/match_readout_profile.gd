@@ -2,7 +2,7 @@ class_name MatchReadoutProfile
 extends Resource
 
 ## Every word and colour the match HUD's role readout is made of. Each word is
-## a translation key into assets/locale/strings.csv, resolved with tr() when read.
+## a translation key into locale/strings.csv, resolved with tr() when read.
 ##
 ## Same rule as [MatchAnnouncementProfile], [FeedbackProfile] and
 ## [SpectatorProfile]: nothing a player READS may be hard-coded in the node that

@@ -7,7 +7,7 @@ Rules that shape everything:
 - Lava never crosses the lane. Lava kills on touch (TrapVolume over a lava tile).
 - Between sections: a rest pocket, with a wall of `map_base.glb`'s own rock on the runner's right, on the pit lip (see *Lip walls* below).
 
-## Elements (assets/models/*.glb, each with its own `-colonly` collision, hell rock atlas)
+## Elements (maps/bentham_ring/models/*.glb, each with its own `-colonly` collision, hell rock atlas)
 | name        | size                                  | role                        |
 |-------------|---------------------------------------|-----------------------------|
 | spire       | 0.9 m base, 2.6 m tall stalagmite     | thin cover, stand exactly behind |
@@ -21,7 +21,7 @@ Rules that shape everything:
 ## Sections (angles in degrees along the run; r in metres)
 **Start pocket 5–15**: slab at r 52 @ 10.
 
-**S1 The Spires 15–60** — thin cover: a stalactite cave grown into `map_base.glb`'s own rock (the `S1_*` block of `tools/modelling/map_base_build.py`, its own seed, re-laid on a finer grid over 12–63 so nothing outside that moves). Stalagmites, floor-to-ceiling columns and stalactites are thrown at the deck and the ceiling by the forest RNG under spacing rules, never placed by hand. Ryan (2026-09-22): *"the lava stalagtite are is too thick and ahrd to get through as a runner."* So the forest is thinned, not cleared: `S1_FOREST_N` 50 → 26 and `S1_FOREST_COLS` 7 → 4 (fixtures 51 → 29: columns 7 → 4, stalagmites 44 → 25), stalactites 35 → 25, shafts thinner (short 0.12–0.20 m, medium 0.18–0.28, tall 0.22–0.32, columns 0.22–0.32 body radius; chest widths 0.14–0.65 m, so a spire still hides a standing body exactly behind it), clear air between any two feet `S1_ROUTE_GAP` 1.8 m (was 1.2; a body and a half is 1.05) and between cover fixtures at chest height `S1_FOREST_GAP` 2.4 m (was 1.6), stalactite tips `S1_TIP_CLEAR` 3.0 m over the deck (was 2.4; a jumping body is 1.8 + 1.11 m), so no stalactite carries a collider. Proved at build time (`MDL STATS s1 forest`: the widest route in each of the inner / middle / outer bands) and on the built mesh (`tools/modelling/lib/s1_lane_gap.py`: the widest-bottleneck route on the lane band r 49.8–54.2 through the collision prisms, written to `tools/modelling/map_base.s1_route.json`), and in Godot physics (`tests/test_map1_s1_run.gd` drives a body at full speed along that route). Sprint spire to spire; a stalagmite may stand on the lane's line, but never without a clear way round it.
+**S1 The Spires 15–60** — thin cover: a stalactite cave grown into `map_base.glb`'s own rock (the `S1_*` block of `tools/modelling/maps/bentham_ring/map_base_build.py`, its own seed, re-laid on a finer grid over 12–63 so nothing outside that moves). Stalagmites, floor-to-ceiling columns and stalactites are thrown at the deck and the ceiling by the forest RNG under spacing rules, never placed by hand. Ryan (2026-09-22): *"the lava stalagtite are is too thick and ahrd to get through as a runner."* So the forest is thinned, not cleared: `S1_FOREST_N` 50 → 26 and `S1_FOREST_COLS` 7 → 4 (fixtures 51 → 29: columns 7 → 4, stalagmites 44 → 25), stalactites 35 → 25, shafts thinner (short 0.12–0.20 m, medium 0.18–0.28, tall 0.22–0.32, columns 0.22–0.32 body radius; chest widths 0.14–0.65 m, so a spire still hides a standing body exactly behind it), clear air between any two feet `S1_ROUTE_GAP` 1.8 m (was 1.2; a body and a half is 1.05) and between cover fixtures at chest height `S1_FOREST_GAP` 2.4 m (was 1.6), stalactite tips `S1_TIP_CLEAR` 3.0 m over the deck (was 2.4; a jumping body is 1.8 + 1.11 m), so no stalactite carries a collider. Proved at build time (`MDL STATS s1 forest`: the widest route in each of the inner / middle / outer bands) and on the built mesh (`tools/modelling/lib/s1_lane_gap.py`: the widest-bottleneck route on the lane band r 49.8–54.2 through the collision prisms, written to `tools/modelling/maps/bentham_ring/map_base.s1_route.json`), and in Godot physics (`tests/test_map1_s1_run.gd` drives a body at full speed along that route). Sprint spire to spire; a stalagmite may stand on the lane's line, but never without a clear way round it.
 
 **Pocket 60–75**: lip wall 61.7–71.3 (the placeholder slab at 59–67 is gone).
 
@@ -48,14 +48,14 @@ The deck is FLAT at lane height (r 46.7–57.3, y 23.0): no crests, no dips. On
 it, 36 launch positions fill a regular grid — 17 rows 3.24° (2.94 m at r 52)
 apart along the arc, 3 columns across the width (r 49.15, 52.35, 55.55; 3.2 m
 apart) — exactly where the demon pads stood. The S3 block of
-`tools/modelling/map_base_build.py` is the one layout the mesh, the collider,
-the node transforms in `scenes/ring/bentham_ring.tscn` (the build writes the
+`tools/modelling/maps/bentham_ring/map_base_build.py` is the one layout the mesh, the collider,
+the node transforms in `maps/bentham_ring/bentham_ring.tscn` (the build writes the
 node block) and the proofs all come from. The section's deck grid is true
 polar between the lip and the wall foot (those two rows stay the ring's own
 chord vertices, so the weld is unchanged).
 
 - **The launch is unchanged, the visual is not.** Each position is a
-  `scenes/ring/lava_crack.tscn`: the demon pad's own `BoostPad` trigger
+  `maps/bentham_ring/props/lava_crack.tscn`: the demon pad's own `BoostPad` trigger
   (`scripts/match/boost_pad.gd`, 2.5 × 1.0 × 2.5 m, 18 m/s at 45°) with no
   model, plus a `LavaHaze` node. Under them, cut into `map_base.glb`'s own
   deck rock as part of the one mesh, ONE crazed crack network (Ryan: *"can
@@ -80,7 +80,7 @@ chord vertices, so the weld is unchanged).
   the demon pad's. From the guard's eye the lip wall hides the deck surface
   itself (the sight line over the crest meets the deck at r ≈ 69), so the
   cracks read from the runner's eye and the aerial, never from the tower.
-- **The haze** is `scenes/ring/lava_haze.gdshader` on two crossed 2.4 × 2.0 m
+- **The haze** is `maps/bentham_ring/materials/lava_haze.gdshader` on two crossed 2.4 × 2.0 m
   quads (one surface, 4 tris, one shared `ShaderMaterial`): pure refraction of
   the scene behind through `hint_screen_texture`, a slow rising 2-octave
   noise, fading to nothing at the top and the sides. No particles, no colour,
@@ -144,7 +144,7 @@ boundary, and the start, carries a wall standing ON the lip (r 46.9–48.2, 1.3 
 tangential to the ring, in `map_base.glb`'s own rock — the `rock_wall` prop's language, ~8 m long, 3 m tall, a ragged
 domed head — no mouth, nothing across the deck, nothing near the ceiling. The runner passes it on the
 outer side; it is cover from the tower while they cross the boundary. The `LIP_WALLS` table of
-`tools/modelling/map_base_build.py` is the one source; each wall carries its own seed.
+`tools/modelling/maps/bentham_ring/map_base_build.py` is the one source; each wall carries its own seed.
 
 | wall  | bearings      | head over deck | note |
 |-------|---------------|----------------|------|

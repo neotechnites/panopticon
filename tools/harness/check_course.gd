@@ -5,7 +5,7 @@ extends SceneTree
 ##
 ## [codeblock]
 ## godot --headless --path . --script res://tools/harness/check_course.gd -- \
-##     --scene=res://scenes/ring/forest.tscn --bin=5
+##     --scene=res://maps/forest/forest.tscn --bin=5
 ## [/codeblock]
 ##
 ## Two questions, both asked of the bake rather than of the geometry:

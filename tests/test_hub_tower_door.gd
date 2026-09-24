@@ -8,9 +8,9 @@ extends TestCase
 ## the triangles Ryan sees. A passage the collider opens where the model is not
 ## cut reads as walking through rock, and that is the bug this guards.
 
-const HUB_SCENE_PATH: String = "res://scenes/hub/hub.tscn"
+const HUB_SCENE_PATH: String = "res://hub/hub.tscn"
 
-## Tower-local, from tools/modelling/tower_interior_build.py's log: bearing 0 is
+## Tower-local, from tools/modelling/tower/tower_interior_build.py's log: bearing 0 is
 ## +X, the courtyard floor is the tower's foot, the rock face is at x 13.02 and
 ## the lining at 6.42.
 const COURTYARD_Y: float = -36.4

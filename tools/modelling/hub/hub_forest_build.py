@@ -11,7 +11,7 @@ and builds it into the one hub rock. See _Theme in hub_base_build.py.
 
 Every zone is ("forest", <ft.ZONES name>): the forest atlas, one material.
 
-    python3 tools/modelling/hub_base_build.py --check
+    python3 tools/modelling/hub/hub_base_build.py --check
 """
 
 import math

@@ -1,10 +1,10 @@
 [gd_scene load_steps=10 format=3]
 
 [ext_resource type="Script" uid="uid://gwfatmklmjcr" path="res://scripts/ring/tower_variant.gd" id="1_tower_variant"]
-[ext_resource type="PackedScene" uid="uid://cwyjwhfotqv73" path="res://assets/models/tower.glb" id="2_tower_model"]
-[ext_resource type="PackedScene" uid="uid://qc0reb2qk6wi" path="res://assets/models/tower_arches.glb" id="3_tower_arches"]
-[ext_resource type="PackedScene" path="res://assets/models/tower_interior.glb" id="4_tower_interior"]
-[ext_resource type="PackedScene" path="res://scenes/player/player.tscn" id="5_player"]
+[ext_resource type="PackedScene" uid="uid://cwyjwhfotqv73" path="res://tower/models/tower.glb" id="2_tower_model"]
+[ext_resource type="PackedScene" uid="uid://qc0reb2qk6wi" path="res://tower/models/tower_arches.glb" id="3_tower_arches"]
+[ext_resource type="PackedScene" path="res://tower/models/tower_interior.glb" id="4_tower_interior"]
+[ext_resource type="PackedScene" path="res://characters/player/player.tscn" id="5_player"]
 
 [sub_resource type="Environment" id="Env"]
 background_mode = 1

@@ -22,7 +22,7 @@ extends RefCounted
 ##
 ## [b]Canon is first and is the default.[/b] [constant CANON_ID] is the rule set
 ## the game is designed around and the one the shipped
-## [code]resources/rules/default_match_rules.tres[/code] plays; every default in
+## [code]match/rules/default_match_rules.tres[/code] plays; every default in
 ## [GameSettings] agrees with it, so a player who never opens this screen is
 ## already playing it.
 

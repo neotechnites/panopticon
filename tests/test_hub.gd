@@ -3,7 +3,7 @@ extends TestCase
 ## The hub world lobby: the ring of wedges you walk around between matches.
 ##
 ## [b]The scene is the shipped one.[/b] Every test here instances the real
-## [code]scenes/hub/hub.tscn[/code], because the thing most likely to break is
+## [code]hub/hub.tscn[/code], because the thing most likely to break is
 ## the wiring -- a [NodePath] export that is not named in a scene's
 ## [code]node_paths[/code] header resolves to null at load with no error at all,
 ## and a hub whose controller is not in [member MatchController.hub_mode] would
@@ -22,7 +22,7 @@ extends TestCase
 ## off and [signal HubLobby.match_starting] is what is asserted: the decision to
 ## switch, on both machines, which is the half a test can own.
 
-const HUB_SCENE_PATH: String = "res://scenes/hub/hub.tscn"
+const HUB_SCENE_PATH: String = "res://hub/hub.tscn"
 
 ## Ticks to let the authority produce and deliver a few snapshots. The same
 ## budget [code]tests/test_net_session.gd[/code] uses, for the same reason.

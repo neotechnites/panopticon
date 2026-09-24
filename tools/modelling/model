@@ -66,7 +66,6 @@ PC_WORK_W='C:\Users\ddd\panopticon-modelling'
 PC_BLENDER='C:\tools\blender\blender.exe'
 PC_GODOT='C:\tools\godot\godot.exe'
 
-MODELS="$REPO/assets/models"
 RENDERS="$HOME/Desktop/panopticon-renders"
 
 # The Mac toolchain. MODEL_BLENDER / GODOT override it; otherwise the cask's
@@ -156,6 +155,16 @@ case "$VARIANT" in
   *)            FULL="${NAME}_${VARIANT}" ;;
 esac
 
+# Build scripts mirror the game: tools/modelling/<home>/<name>_build.py ships to <home>/models/.
+build_script() { find "$HERE" -path "$HERE/lib" -prune -o -name "$1_build.py" -print | head -1; }
+SCRIPT=""; [ -n "$NAME" ] && SCRIPT="$(build_script "$NAME")"
+if [ -n "$SCRIPT" ]; then
+  SRC="$(dirname "$SCRIPT")"; MODELS="$REPO/${SRC#"$HERE"/}/models"
+else
+  SRC="$HERE"; G="$(find "$REPO" -path "$REPO/.godot" -prune -o -name "$FULL.glb" -print | head -1)"
+  MODELS="$(dirname "${G:-$REPO/models/x}")"
+fi
+
 JOB="$PC_WORK/jobs/$FULL"
 JOB_W="$PC_WORK_W\\jobs\\$FULL"
 TASK="PanopticonModelling_${FULL:-none}"
@@ -229,8 +238,8 @@ run_bat() {
 # -----------------------------------------------------------------------------
 
 stage_ship() {
-  local script="$HERE/${NAME}_build.py"
-  [ -f "$script" ] || die "no build script at tools/modelling/${NAME}_build.py
+  local script="$SCRIPT"
+  [ -f "$script" ] || die "no build script at tools/modelling/<home>/${NAME}_build.py
        Author one first -- that file IS the model. A model whose script lives
        in a scratchpad is a model you cannot change (see docs/MODELLING.md)."
   ensure_workdir
@@ -249,19 +258,19 @@ stage_ship() {
   while [ -n "$queue" ]; do
     local cur="${queue%% *}"
     queue="${queue#"$cur"}"; queue="${queue# }"
-    for dep in $(grep -oE '^(import|from) [a-z0-9_]+_build( |$)' "$HERE/${cur}_build.py" | awk '{print $2}'); do
+    for dep in $(grep -oE '^(import|from) [a-z0-9_]+_build( |$)' "$(build_script "$cur")" | awk '{print $2}'); do
       dep="${dep%_build}"
       case "$seen" in *" $dep "*) continue ;; esac
       seen="$seen$dep "
       queue="${queue:+$queue }$dep"
-      push "$HERE/${dep}_build.py" "$JOB/${dep}_build.py"
+      push "$(build_script "$dep")" "$JOB/${dep}_build.py"
     done
     # Shared modules under lib/ that the script imports by bare name
     # (a build script may keep a layout or a proof there). mdl.py already
     # lands beside the script, so these go to the same place and the script
     # directory's place on sys.path finds them -- without this a --pc build
     # dies on ImportError while the Mac build is perfectly fine.
-    for dep in $(grep -oE '^(import|from) [a-z0-9_]+' "$HERE/${cur}_build.py" | awk '{print $2}'); do
+    for dep in $(grep -oE '^(import|from) [a-z0-9_]+' "$(build_script "$cur")" | awk '{print $2}'); do
       [ -f "$HERE/lib/${dep}.py" ] || continue
       case "$seen" in *" lib:$dep "*) continue ;; esac
       seen="$seen lib:$dep "
@@ -269,14 +278,12 @@ stage_ship() {
     done
   done
   # Texture files a build script may load instead of painting (map_base's
-  # river/lava sheets): shipped next to the script, stale ones cleared.
+  # river/lava sheets): every home's textures/ ships next to the script.
   pc "Remove-Item -Recurse -Force -Path '$JOB_W\\textures' -ErrorAction SilentlyContinue; 'ok'" >/dev/null || true
-  if [ -d "$HERE/textures" ]; then
-    pc "New-Item -ItemType Directory -Force -Path '$JOB_W\\textures' | Out-Null" >/dev/null
-    for f in "$HERE"/textures/*; do
-      [ -f "$f" ] && push "$f" "$JOB/textures/$(basename "$f")"
-    done
-  fi
+  pc "New-Item -ItemType Directory -Force -Path '$JOB_W\\textures' | Out-Null" >/dev/null
+  for f in "$REPO"/*/textures/* "$REPO"/maps/*/textures/*; do
+    [ -f "$f" ] && push "$f" "$JOB/textures/$(basename "$f")"
+  done
   json_spec "$JOB/out" > "$TMP/spec.json"
   push "$TMP/spec.json"          "$JOB/spec.json"
 }
@@ -332,8 +339,8 @@ EOF
   push "$HERE/lib/verify_glb.gd"   "$JOB/verify/verify_glb.gd"
   # A variant may be held to its own contract; if it does not carry one it is
   # still held to the base model's, because a variant is not an excuse.
-  local contract="$HERE/${FULL}.contract.json"
-  [ -f "$contract" ] || contract="$HERE/${NAME}.contract.json"
+  local contract="$SRC/${FULL}.contract.json"
+  [ -f "$contract" ] || contract="$SRC/${NAME}.contract.json"
   [ -n "${VERIFY_CONTRACT:-}" ] && contract="$VERIFY_CONTRACT"
   if [ -f "$contract" ]; then
     push "$contract" "$JOB/verify/contract.json"
@@ -434,7 +441,7 @@ stage_chunks() {
     mkdir -p "$MODELS"
     for g in $(chunk_glbs "$dir"); do
       cp "$dir/$g" "$MODELS/$g"
-      say "assets/models/$g ($(wc -c < "$MODELS/$g" | tr -d ' ') bytes)"
+      say "${MODELS#"$REPO"/}/$g ($(wc -c < "$MODELS/$g" | tr -d ' ') bytes)"
     done
     "$REPO/tools/fix_glb_imports.sh"
   fi
@@ -448,7 +455,7 @@ stage_install() {
   [ -n "$GLB_SRC" ] && [ -f "$GLB_SRC" ] || die "no ${FULL}.glb was produced ($GLB_SRC)"
   mkdir -p "$MODELS"
   cp "$GLB_SRC" "$MODELS/${FULL}.glb"
-  say "assets/models/${FULL}.glb ($(wc -c < "$MODELS/${FULL}.glb" | tr -d ' ') bytes)"
+  say "${MODELS#"$REPO"/}/${FULL}.glb ($(wc -c < "$MODELS/${FULL}.glb" | tr -d ' ') bytes)"
   "$REPO/tools/fix_glb_imports.sh"
   if [ -f "$MODELS/${FULL}.glb.import" ]; then
     echo "    (${FULL}.glb.import kept -- it carries the uid the scenes reference)"
@@ -465,7 +472,7 @@ stage_install() {
 # -----------------------------------------------------------------------------
 
 require_script() {
-  [ -f "$HERE/${NAME}_build.py" ] || die "no build script at tools/modelling/${NAME}_build.py
+  [ -f "$SCRIPT" ] || die "no build script at tools/modelling/<home>/${NAME}_build.py
        Author one first -- that file IS the model. A model whose script lives
        in a scratchpad is a model you cannot change (see docs/MODELLING.md)."
 }
@@ -477,8 +484,8 @@ stage_blender_local() {
   say "blender (local, $ENGINE)"
   local t0 t1 rc=0
   t0=$(date +%s)
-  ( cd "$HERE" && PYTHONPATH="$HERE:$HERE/lib" \
-      "$MAC_BLENDER" -b -noaudio -P "$HERE/${NAME}_build.py" -- --spec "$TMP/spec.json" \
+  ( cd "$SRC" && PYTHONPATH="$(find "$HERE" -type d -not -name __pycache__ | paste -sd: -)" \
+      "$MAC_BLENDER" -b -noaudio -P "$SCRIPT" -- --spec "$TMP/spec.json" \
   ) > "$TMP/build.out" 2>&1 || rc=$?
   # Blender exits 0 after a Python traceback under -b -P, so the exit code
   # alone reports success for a script that built nothing. mdl.main writes
@@ -514,7 +521,7 @@ gdscript/warnings/unsafe_property_access=1
 gdscript/warnings/unsafe_method_access=1
 EOF
   cp "$HERE/lib/verify_glb.gd" "$V/verify_glb.gd"
-  local contract="${VERIFY_CONTRACT:-$HERE/${NAME}.contract.json}"
+  local contract="${VERIFY_CONTRACT:-$SRC/${NAME}.contract.json}"
   [ -f "$contract" ] && cp "$contract" "$V/contract.json"
   cp "$GLB_SRC" "$V/model.glb"
   "$MAC_GODOT" --headless --path "$V" --import   > "$TMP/verify.out" 2>&1 || true
@@ -606,10 +613,10 @@ stage_gate() {
 
 stage_audit() {
   local args=()
-  if [ -f "$HERE/${NAME}.contract.json" ]; then
+  if [ -f "$SRC/${NAME}.contract.json" ]; then
     local mt
     mt=$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1])).get("max_tris",""))' \
-         "$HERE/${NAME}.contract.json")
+         "$SRC/${NAME}.contract.json")
     [ -n "$mt" ] && args+=(--max-tris "$mt")
   fi
   local g gs=("$MODELS/${NAME}.glb")
@@ -689,13 +696,13 @@ case "$CMD" in
 
   audit)
     [ -n "$NAME" ] || die "usage: model audit <name>"
-    [ -f "$MODELS/${NAME}.glb" ] || die "no assets/models/${NAME}.glb"
+    [ -f "$MODELS/${NAME}.glb" ] || die "no ${NAME}.glb under ${MODELS#"$REPO"/}"
     stage_audit
     ;;
 
   gate)
     [ -n "$NAME" ] || die "usage: model gate <name>"
-    [ -f "$MODELS/${NAME}.glb" ] || die "no assets/models/${NAME}.glb"
+    [ -f "$MODELS/${NAME}.glb" ] || die "no ${NAME}.glb under ${MODELS#"$REPO"/}"
     stage_gate
     ;;
 
@@ -729,7 +736,7 @@ case "$CMD" in
 
   verify)
     [ -n "$NAME" ] || die "usage: model verify <name>"
-    [ -f "$MODELS/${FULL}.glb" ] || die "no assets/models/${FULL}.glb"
+    [ -f "$MODELS/${FULL}.glb" ] || die "no ${FULL}.glb under ${MODELS#"$REPO"/}"
     ensure_workdir
     push "$HERE/lib/pcrun.ps1" "$JOB/pcrun.ps1"
     push "$MODELS/${FULL}.glb" "$JOB/out/${FULL}.glb"

@@ -12,11 +12,11 @@ extends SceneTree
 ##
 ## [b]Running it[/b]
 ## [codeblock]
-## # 1. write assets/audio/placeholder_*.wav
+## # 1. write audio/placeholder/placeholder_*.wav
 ## godot --headless --path . --script res://scripts/audio/placeholder_forge.gd -- --wavs
 ## # 2. let Godot import what step 1 wrote
 ## godot --headless --path . --import
-## # 3. build scenes/audio/placeholder_bank.tres against the imported streams
+## # 3. build audio/placeholder_bank.tres against the imported streams
 ## godot --headless --path . --script res://scripts/audio/placeholder_forge.gd -- --bank
 ## [/codeblock]
 ## The three steps cannot be collapsed into one: [method @GDScript.load] cannot
@@ -40,11 +40,11 @@ extends SceneTree
 const SAMPLE_RATE: int = 22050
 
 ## Where the .wav files go. Named so that a directory listing says what they are.
-const OUTPUT_DIR: String = "res://assets/audio"
+const OUTPUT_DIR: String = "res://audio/placeholder"
 const FILE_PREFIX: String = "placeholder_"
 
 ## Where the generated bank is saved.
-const BANK_PATH: String = "res://scenes/audio/placeholder_bank.tres"
+const BANK_PATH: String = "res://audio/placeholder_bank.tres"
 
 ## Peak amplitude of a placeholder, before the per-cue [member AudioCue.volume_db]
 ## trim. Well under full scale: a square wave at unity is painful.

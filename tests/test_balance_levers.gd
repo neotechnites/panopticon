@@ -210,11 +210,11 @@ func test_the_hit_marker_obeys_the_match_rules() -> void:
 
 	# The rig's own marker switches itself off with no display server, which is
 	# correct for a bot sweep and useless here, so this test builds one that is
-	# awake -- the licence scenes/fx/feedback_rig.tscn's header grants.
+	# awake -- the licence match/feedback/feedback_rig.tscn's header grants.
 	var confirm: FxHitConfirm = FxHitConfirm.new()
 	confirm.headless_inert = false
 	confirm.profile = (
-		load("res://scenes/fx/default_feedback_profile.tres") as FeedbackProfile
+		load("res://match/feedback/default_feedback_profile.tres") as FeedbackProfile
 	).duplicate() as FeedbackProfile
 	confirm.rifle = _controller.rifle
 	confirm.controller = _controller
@@ -400,7 +400,7 @@ func _make_optic(camera: Camera3D) -> WeaponOptic:
 	var optic: WeaponOptic = WeaponOptic.new()
 	optic.camera = camera
 	optic.profile = (
-		load("res://scripts/optics/default_zoom_profile.tres") as ZoomProfile
+		load("res://weapons/default_zoom_profile.tres") as ZoomProfile
 	).duplicate() as ZoomProfile
 	add_child(optic)
 	optic.set_process(false)
@@ -414,7 +414,7 @@ func _make_optic(camera: Camera3D) -> WeaponOptic:
 ## The shipped rifle's own sway node, pointed at [param camera].
 func _make_sway(optic: WeaponOptic, camera: Camera3D) -> RifleSway:
 	var rifle: Rifle = (
-		load("res://scenes/weapon/rifle.tscn") as PackedScene
+		load("res://weapons/rifle.tscn") as PackedScene
 	).instantiate() as Rifle
 	rifle.rules = _rules
 	add_child(rifle)

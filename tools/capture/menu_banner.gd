@@ -12,7 +12,7 @@ extends SceneTree
 ##
 ##   --out=DIR   where the PNGs go (default the PC's brand folder)
 
-const SCENE := "res://scenes/ui/main_menu.tscn"
+const SCENE := "res://ui/main_menu.tscn"
 const MASTER := Vector2i(3840, 2160)
 const FREEZE_SECONDS := 0.5
 ## YouTube crops every banner to this centred slice on some devices.

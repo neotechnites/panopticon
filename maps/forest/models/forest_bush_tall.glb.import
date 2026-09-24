@@ -8,7 +8,7 @@ path="res://.godot/imported/forest_bush_tall.glb-3ebe4a337889f1feb6cbd8cac8a34b0
 
 [deps]
 
-source_file="res://assets/models/forest_bush_tall.glb"
+source_file="res://maps/forest/models/forest_bush_tall.glb"
 dest_files=["res://.godot/imported/forest_bush_tall.glb-3ebe4a337889f1feb6cbd8cac8a34b00.scn"]
 
 [params]

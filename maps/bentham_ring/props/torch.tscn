@@ -1,6 +1,6 @@
 [gd_scene load_steps=2 format=3]
 
-[ext_resource type="PackedScene" path="res://assets/models/torch.glb" id="1_torch_model"]
+[ext_resource type="PackedScene" path="res://maps/bentham_ring/models/torch.glb" id="1_torch_model"]
 
 [node name="Torch" type="Node3D"]
 

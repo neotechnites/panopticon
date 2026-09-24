@@ -6,13 +6,13 @@ extends Resource
 ##
 ## A bank is a saved [Resource] holding a list of [AudioCue]s. [AudioDirector]
 ## looks names up in it and plays what it finds; gameplay code never touches
-## one. The shipping bank is res://scenes/audio/placeholder_bank.tres.
+## one. The shipping bank is res://audio/placeholder_bank.tres.
 ##
 ## [b]Swapping in real audio[/b]
 ##
 ## [codeblock]
-##   1. Put the file in res://assets/audio/ and let Godot import it.
-##   2. Open scenes/audio/placeholder_bank.tres in the inspector.
+##   1. Put the file in res://audio/ and let Godot import it.
+##   2. Open audio/placeholder_bank.tres in the inspector.
 ##   3. Find the cue whose "event" is the one you are replacing.
 ##   4. Drag the new file onto that cue's "stream". Save.
 ## [/codeblock]

@@ -9,7 +9,7 @@ Two variants out of this one script, chosen with ``--variant``:
 
     tools/modelling/model build marble_column
     tools/modelling/model build marble_column_broken     # the shim next door
-    python3 tools/modelling/marble_column_build.py --check --variant broken
+    python3 tools/modelling/maps/marble/marble_column_build.py --check --variant broken
 
 ORIGIN IS THE BASE CENTRE: z=0 (Godot y=0) is the ground it stands on.
 Blender +Z -> Godot +Y. Authored 16-sided, because a 16-gon's radial
@@ -37,7 +37,11 @@ except ImportError:                       # --check on the Mac: geometry only
     bpy = None
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)) + os.sep + "lib")
+_HOME = os.path.dirname(os.path.abspath(__file__))
+for _root in (os.path.dirname(_HOME), os.path.dirname(os.path.dirname(_HOME))):  # the repo's tools/modelling
+    if os.path.isfile(os.path.join(_root, "model")) and os.path.isfile(os.path.join(_root, "lib", "mdl.py")):
+        sys.path[1:1] = [d for d, _, _ in os.walk(_root) if "__pycache__" not in d]
+        break
 
 if bpy is not None:
     import mdl  # noqa: E402

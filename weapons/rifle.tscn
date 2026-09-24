@@ -2,11 +2,11 @@
 
 [ext_resource type="Script" path="res://scripts/weapon/rifle.gd" id="1_rifle"]
 [ext_resource type="Script" path="res://scripts/weapon/weapon_input.gd" id="2_weapon_input"]
-[ext_resource type="Resource" path="res://scenes/weapon/default_weapon_profile.tres" id="3_weapon_profile"]
-[ext_resource type="PackedScene" uid="uid://brrytn6tpwbeh" path="res://assets/models/rifle.glb" id="4_rifle_model"]
+[ext_resource type="Resource" path="res://weapons/default_weapon_profile.tres" id="3_weapon_profile"]
+[ext_resource type="PackedScene" uid="uid://brrytn6tpwbeh" path="res://weapons/models/rifle.glb" id="4_rifle_model"]
 [ext_resource type="Script" path="res://scripts/weapon/rifle_recoil.gd" id="5_rifle_recoil"]
 [ext_resource type="Script" path="res://scripts/weapon/rifle_ads.gd" id="6_rifle_ads"]
-[ext_resource type="PackedScene" path="res://scenes/fx/scope_vignette.tscn" id="7_scope_vignette"]
+[ext_resource type="PackedScene" path="res://weapons/scope_vignette.tscn" id="7_scope_vignette"]
 [ext_resource type="Script" path="res://scripts/weapon/rifle_sway.gd" id="8_rifle_sway"]
 
 [node name="Rifle" type="Node3D" node_paths=PackedStringArray("muzzle")]
@@ -53,7 +53,7 @@ aim axis instead of 24 -- and tests/test_weapon.gd fails on exactly that."
 transform = Transform3D(0.740766, 0.012264, -0.116683, 0, 0.745891, 0.078396, 0.117326, -0.077431, 0.736708, 0.3, -0.24, -0.38)
 
 [node name="Model" parent="ViewModel" instance=ExtResource("4_rifle_model")]
-editor_description = "assets/models/rifle.glb, untouched and at identity: 456 triangles, one flat material, no UVs, no skin, no animation. Instanced rather than inherited so the model stays a pure import -- reimporting it must never silently rewrite a transform the game depends on.
+editor_description = "weapons/models/rifle.glb, untouched and at identity: 456 triangles, one flat material, no UVs, no skin, no animation. Instanced rather than inherited so the model stays a pure import -- reimporting it must never silently rewrite a transform the game depends on.
 
 Its own axes are already the ones the game wants: bore on y=0, shot line down local -Z, scope directly above the origin, stock back toward +Z, muzzle at local (0, 0, -1.150). Bounds are x +/-0.12, y -0.29 (bipod feet) to +0.18 (scope top), z -1.15 to +0.34.
 
@@ -79,16 +79,16 @@ view_model = NodePath("../ViewModel")
 pose_source = NodePath("../Ads")
 
 [node name="Ads" type="Node" parent="." node_paths=PackedStringArray("view_model")]
-editor_description = "Blends ViewModel between its authored hip pose above and its own aimed pose as WeaponOptic zooms in and out -- the same progress value the FOV change itself uses, read off optic rather than clocked separately, so the raise and the zoom arrive together. optic is wired at runtime by MatchController._attach_rifle, the same way aim_source is, because the optic lives on the holder's Head and this scene is reparented onto whichever head holds the tower. Does not write ViewModel itself -- Recoil above is the sole writer, via pose_source -- so a shot fired while aimed recoils from the aimed pose and the two never fight over the node on the same frame. The aimed pose is exported on this node's own Aimed Pose group, not authored here as a transform, so it can be nudged in the inspector the same way the hip pose is nudged above. Appended LAST: scenes/bot/tower_shooter.tscn addresses this scene's children by ordinal index and inserting a node ahead of this one would silently re-point HumanTrigger's override."
+editor_description = "Blends ViewModel between its authored hip pose above and its own aimed pose as WeaponOptic zooms in and out -- the same progress value the FOV change itself uses, read off optic rather than clocked separately, so the raise and the zoom arrive together. optic is wired at runtime by MatchController._attach_rifle, the same way aim_source is, because the optic lives on the holder's Head and this scene is reparented onto whichever head holds the tower. Does not write ViewModel itself -- Recoil above is the sole writer, via pose_source -- so a shot fired while aimed recoils from the aimed pose and the two never fight over the node on the same frame. The aimed pose is exported on this node's own Aimed Pose group, not authored here as a transform, so it can be nudged in the inspector the same way the hip pose is nudged above. Appended LAST: characters/bots/tower_shooter.tscn addresses this scene's children by ordinal index and inserting a node ahead of this one would silently re-point HumanTrigger's override."
 script = ExtResource("6_rifle_ads")
 view_model = NodePath("../ViewModel")
 
 [node name="ScopeVignette" parent="." node_paths=PackedStringArray("ads", "trigger") instance=ExtResource("7_scope_vignette")]
-editor_description = "The optic, drawn on the screen instead of modelled on the gun. A dark border closes in around a clear centre as the raise finishes, which -- with the field of view already narrowed -- is the whole of the scope: the scope on the model stays the solid brick tools/modelling/rifle_build.py makes it, because Ryan settled that it does not need to be see through.\n\nWired to the two siblings above and nothing else. Ads answers what the transition is doing, so the border runs on the same progress the raised pose and the FOV do and cannot drift from them; HumanTrigger answers whether the HUMAN is holding this rifle, which is the gate that keeps the vignette off a prisoner's, a spectator's, a ghost's and a bot-held tower's screen. MatchController needs no new line for either.\n\nAppended LAST, after Ads, for the reason Ads records above: scenes/bot/tower_shooter.tscn addresses this scene's children by ordinal index (HumanTrigger is 1) and INSERTING a node would silently re-point that override. Writes nothing but its own overlay -- no camera, no FOV, no ViewModel transform -- so deleting it leaves the aim, the zoom and the shot line exactly as they are."
+editor_description = "The optic, drawn on the screen instead of modelled on the gun. A dark border closes in around a clear centre as the raise finishes, which -- with the field of view already narrowed -- is the whole of the scope: the scope on the model stays the solid brick tools/modelling/weapons/rifle_build.py makes it, because Ryan settled that it does not need to be see through.\n\nWired to the two siblings above and nothing else. Ads answers what the transition is doing, so the border runs on the same progress the raised pose and the FOV do and cannot drift from them; HumanTrigger answers whether the HUMAN is holding this rifle, which is the gate that keeps the vignette off a prisoner's, a spectator's, a ghost's and a bot-held tower's screen. MatchController needs no new line for either.\n\nAppended LAST, after Ads, for the reason Ads records above: characters/bots/tower_shooter.tscn addresses this scene's children by ordinal index (HumanTrigger is 1) and INSERTING a node would silently re-point that override. Writes nothing but its own overlay -- no camera, no FOV, no ViewModel transform -- so deleting it leaves the aim, the zoom and the shot line exactly as they are."
 ads = NodePath("../Ads")
 trigger = NodePath("../HumanTrigger")
 
 [node name="Sway" type="Node" parent="." node_paths=PackedStringArray("rifle")]
-editor_description = "Drifts the aim in a slow figure eight while the scope is up, by MatchRules.scope_sway_degrees. It writes the holder's Camera -- the node Rifle._resolve_shot casts from -- so the drift is in the shot the authority resolves, not only in the picture; optic and the aim node are wired at runtime by MatchController._attach_rifle, like Ads.optic. Appended LAST, after ScopeVignette, for the reason Ads records: scenes/bot/tower_shooter.tscn addresses this scene's children by ordinal index."
+editor_description = "Drifts the aim in a slow figure eight while the scope is up, by MatchRules.scope_sway_degrees. It writes the holder's Camera -- the node Rifle._resolve_shot casts from -- so the drift is in the shot the authority resolves, not only in the picture; optic and the aim node are wired at runtime by MatchController._attach_rifle, like Ads.optic. Appended LAST, after ScopeVignette, for the reason Ads records: characters/bots/tower_shooter.tscn addresses this scene's children by ordinal index."
 script = ExtResource("8_rifle_sway")
 rifle = NodePath("..")

@@ -30,7 +30,7 @@ extends CanvasLayer
 ## instead of the convenient one.
 ##
 ## [b]Structure lives in the scene.[/b] The layout is authored in
-## [code]scenes/ui/match_result_screen.tscn[/code] and this file binds the
+## [code]ui/match_result_screen.tscn[/code] and this file binds the
 ## [code]%[/code]-named nodes and drives text into them, exactly as
 ## [SettingsScreen] does. [code]MatchResultScreen.new()[/code] would hand back a
 ## bare [CanvasLayer] with no dialog in it; instance the scene.
@@ -104,7 +104,7 @@ signal main_menu_requested()
 ## [PackedScene] for the same reason [MainMenu] and [PauseMenu] use one: the menu
 ## names the match and the match carries this node, so a [PackedScene] here would
 ## close the resource graph into a cycle.
-@export_file("*.tscn") var main_menu_scene_path: String = "res://scenes/ui/main_menu.tscn"
+@export_file("*.tscn") var main_menu_scene_path: String = "res://ui/main_menu.tscn"
 
 ## Where a match that was started from the hub goes when it ends.
 ##
@@ -113,7 +113,7 @@ signal main_menu_requested()
 ## and nothing else. See [member HubLobby.returns_to_hub], which is how a match
 ## knows it came from a hub at all: the hub scene is gone by the time this node
 ## exists, so there is no node left to ask.
-@export_file("*.tscn") var hub_scene_path: String = "res://scenes/hub/hub.tscn"
+@export_file("*.tscn") var hub_scene_path: String = "res://hub/hub.tscn"
 
 ## How long the beat holds and how it fades. Shared with [MatchHud], which uses
 ## the same resource for the handover banner, because the two are one pacing

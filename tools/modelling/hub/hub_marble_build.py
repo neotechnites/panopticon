@@ -23,7 +23,7 @@ The wall, floor to top:
     cornice      proud again at r 50: "shade" soffit, "band" front to 8 m
     top, outer   the stock quads (top_in / top_out / bot_out): closed
 
-    python3 tools/modelling/hub_base_build.py --check
+    python3 tools/modelling/hub/hub_base_build.py --check
 """
 
 import math

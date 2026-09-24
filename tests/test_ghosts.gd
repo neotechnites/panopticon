@@ -11,7 +11,7 @@ extends TestCase
 ##
 ## [b]Everything here runs the real match scene[/b]
 ##
-## [code]scenes/match/match.tscn[/code] on a private copy of the shipped rules,
+## [code]match/match.tscn[/code] on a private copy of the shipped rules,
 ## which already play [constant MatchRules.GhostBehaviour.CATCH_AND_SWAP]. The
 ## copy is still the point: the shipped [code].tres[/code] is one instance for
 ## the whole process, and a test that retuned it would hand every later test in

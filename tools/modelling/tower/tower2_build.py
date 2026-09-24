@@ -65,7 +65,11 @@ import bmesh
 import bpy
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)) + os.sep + "lib")
+_HOME = os.path.dirname(os.path.abspath(__file__))
+for _root in (os.path.dirname(_HOME), os.path.dirname(os.path.dirname(_HOME))):  # the repo's tools/modelling
+    if os.path.isfile(os.path.join(_root, "model")) and os.path.isfile(os.path.join(_root, "lib", "mdl.py")):
+        sys.path[1:1] = [d for d, _, _ in os.walk(_root) if "__pycache__" not in d]
+        break
 
 import mdl  # noqa: E402
 
@@ -80,7 +84,7 @@ mdl.DEFAULTS["world_strength"] = 0.90
 # TUNABLES -- everything adjustable lives in this block
 # =============================================================================
 
-NAME = "tower2"          # -> assets/models/tower2.glb
+NAME = "tower2"          # -> tower/models/tower2.glb
 OBJECT_NAME = "Tower2Rock"
 COLLIDER_NAME = "Tower2Collision-colonly"
 

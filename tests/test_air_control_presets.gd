@@ -32,13 +32,13 @@ extends TestCase
 ## change".
 
 const PRESET_PATHS: Array[String] = [
-	"res://resources/movement/air_control_01_committed.tres",
-	"res://resources/movement/air_control_02_carve.tres",
-	"res://resources/movement/air_control_03_kite.tres",
-	"res://resources/movement/air_control_04_footwork.tres",
+	"res://characters/player/air_control/air_control_01_committed.tres",
+	"res://characters/player/air_control/air_control_02_carve.tres",
+	"res://characters/player/air_control/air_control_03_kite.tres",
+	"res://characters/player/air_control/air_control_04_footwork.tres",
 ]
 
-const SHIPPED_PROFILE_PATH: String = "res://scenes/player/default_movement_profile.tres"
+const SHIPPED_PROFILE_PATH: String = "res://characters/player/default_movement_profile.tres"
 
 ## The only fields a preset is allowed to differ from the shipped default in.
 ## Everything else being equal is what makes the presets comparable at all.

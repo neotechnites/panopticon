@@ -74,7 +74,7 @@ extends CanvasLayer
 ## in [SeatHandoverView] -- there is nobody for a card to be shown to.
 ##
 ## [b]Structure lives in the scene.[/b] The layout is authored in
-## [code]scenes/ui/round_transition_screen.tscn[/code] and this file binds the
+## [code]ui/round_transition_screen.tscn[/code] and this file binds the
 ## [code]%[/code]-named nodes and writes text into them, exactly as
 ## [SettingsScreen] and [MatchResultScreen] do.
 ## [code]RoundTransitionScreen.new()[/code] would hand back a bare [CanvasLayer]

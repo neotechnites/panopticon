@@ -84,5 +84,5 @@ stands in for shape: if the form is not readable in flat grey, it is wrong.
 ## Content
 
 No real names, no likenesses. No AI-generated image or audio
-assets. Recordings are CC0 only, logged in `assets/audio/LICENSE.md` with id,
+assets. Recordings are CC0 only, logged in `audio/LICENSE.md` with id,
 author and date. Ryan does the foley.

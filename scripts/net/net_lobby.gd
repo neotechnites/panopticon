@@ -35,7 +35,7 @@ extends Node
 ##
 ## [b]What this is honestly not[/b]
 ##
-## - [b]No UI.[/b] This is the model. Drawing it is [code]scenes/ui/[/code]'s job.
+## - [b]No UI.[/b] This is the model. Drawing it is [code]ui/[/code]'s job.
 ## - [b]No matchmaking, no chat, no invites, no reconnect.[/b]
 ## - [b]No persistence.[/b] Scores live in the match, not here; a lobby that
 ##   returns to [constant Phase.GATHERING] has forgotten the match it just ran.

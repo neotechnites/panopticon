@@ -8,7 +8,7 @@ path="res://.godot/imported/forest_rock_boulder.glb-881b4179115c7863d92f69774d7e
 
 [deps]
 
-source_file="res://assets/models/forest_rock_boulder.glb"
+source_file="res://maps/forest/models/forest_rock_boulder.glb"
 dest_files=["res://.godot/imported/forest_rock_boulder.glb-881b4179115c7863d92f69774d7e2c03.scn"]
 
 [params]

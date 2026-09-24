@@ -8,7 +8,7 @@ path="res://.godot/imported/tower_hollow.glb-a0b982865ddfd243462380ea81648b0a.sc
 
 [deps]
 
-source_file="res://assets/models/tower_hollow.glb"
+source_file="res://tower/models/tower_hollow.glb"
 dest_files=["res://.godot/imported/tower_hollow.glb-a0b982865ddfd243462380ea81648b0a.scn"]
 
 [params]

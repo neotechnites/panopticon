@@ -1,5 +1,5 @@
 {
-  "base_rules": "res://resources/rules/default_match_rules.tres",
+  "base_rules": "res://match/rules/default_match_rules.tres",
   "notes": "The guard's shot as a travelling round: hitscan, a slow bullet a runner can beat by breaking stride, and a fast one that mostly still punishes being seen.",
   "variants": [
     {"name": "hitscan", "notes": "0 m/s = the shipped game, the shot and the trigger are one event", "overrides": {"guard_projectile_speed": 0.0}},

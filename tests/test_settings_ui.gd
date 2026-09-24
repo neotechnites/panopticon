@@ -12,7 +12,7 @@ extends TestCase
 ## nothing noticed.
 ##
 ## So these tests read the [b]built scene[/b] rather than the source list: they
-## instantiate [code]scenes/ui/settings_screen.tscn[/code], walk the nodes that
+## instantiate [code]ui/settings_screen.tscn[/code], walk the nodes that
 ## a player would actually be looking at, and assert on their rectangles. A
 ## regression that put the rows back in [InputMap] order, leaked Godot's own
 ## [code]ui_*[/code] actions into the list, or let two rows overlap would fail
@@ -54,7 +54,7 @@ const EXPECTED_ACTIONS: Array[StringName] = [
 
 ## Index of the Controls tab in the authored [TabContainer]. Fourth of five:
 ## Match, Game, Audio, Video, Controls, in the order they are authored in
-## scenes/ui/settings_screen.tscn.
+## ui/settings_screen.tscn.
 const CONTROLS_TAB: int = 4
 
 ## Frames to let a container settle. Godot sorts containers on a deferred call,
@@ -475,7 +475,7 @@ func _open_settings_at(size: Vector2i) -> void:
 	_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
 	add_child(_viewport)
 
-	_screen = (load("res://scenes/ui/settings_screen.tscn") as PackedScene).instantiate()
+	_screen = (load("res://ui/settings_screen.tscn") as PackedScene).instantiate()
 	_viewport.add_child(_screen)
 	await step_ticks(1)
 

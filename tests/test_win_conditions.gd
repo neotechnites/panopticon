@@ -18,7 +18,7 @@ extends TestCase
 ## the default is untouched      -- total conversion does what it always did
 ## [/codeblock]
 ##
-## The match is the real [code]scenes/match/match.tscn[/code] on a private copy
+## The match is the real [code]match/match.tscn[/code] on a private copy
 ## of the shipped rules, driven through the same seams the game drives it
 ## through: a [MatchLapTracker] reporting a finished lap, and
 ## [method MatchController.convert_participant]. Nothing here forges a phase or
@@ -48,7 +48,7 @@ const GATE_SLOT_METRES: float = 1.2
 const GATE_FLOOR_DROP_METRES: float = 1.3
 
 ## The shipped rule set, read off disk rather than out of the resource cache.
-const SHIPPED_RULES_PATH: String = "res://resources/rules/default_match_rules.tres"
+const SHIPPED_RULES_PATH: String = "res://match/rules/default_match_rules.tres"
 
 ## Which slot across the finish gate the next arrival is stood in.
 var _gate_slot: int = 0

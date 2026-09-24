@@ -7,7 +7,7 @@ extends RefCounted
 ##
 ## 1. [b]Prefer the shipped scene to a hand-built stand-in.[/b] A test that
 ##    assembles its own player out of loose nodes is testing a body no one plays;
-##    if [code]scenes/player/player.tscn[/code] loses its collision shape the test
+##    if [code]characters/player/player.tscn[/code] loses its collision shape the test
 ##    still passes. So the fixtures below instance the real scenes and the real
 ##    default profiles wherever the test does not need to vary them.
 ## 2. [b]Never mutate a shared resource.[/b] The default [code].tres[/code] files
@@ -16,20 +16,20 @@ extends RefCounted
 ##    including tests in other files, because the runner is a single Godot
 ##    process. Every accessor here hands back a [method Resource.duplicate].
 
-const PLAYER_SCENE_PATH: String = "res://scenes/player/player.tscn"
-const RUNNER_SCENE_PATH: String = "res://scenes/bot/ring_runner.tscn"
-const RIFLE_SCENE_PATH: String = "res://scenes/weapon/rifle.tscn"
-const ARENA_SCENE_PATH: String = "res://scenes/ring/bentham_ring.tscn"
-const MATCH_SCENE_PATH: String = "res://scenes/match/match.tscn"
+const PLAYER_SCENE_PATH: String = "res://characters/player/player.tscn"
+const RUNNER_SCENE_PATH: String = "res://characters/bots/ring_runner.tscn"
+const RIFLE_SCENE_PATH: String = "res://weapons/rifle.tscn"
+const ARENA_SCENE_PATH: String = "res://maps/bentham_ring/bentham_ring.tscn"
+const MATCH_SCENE_PATH: String = "res://match/match.tscn"
 
-const MATCH_RULES_PATH: String = "res://resources/rules/default_match_rules.tres"
-const GHOST_PROFILE_PATH: String = "res://resources/rules/default_ghost_profile.tres"
+const MATCH_RULES_PATH: String = "res://match/rules/default_match_rules.tres"
+const GHOST_PROFILE_PATH: String = "res://match/rules/default_ghost_profile.tres"
 
-const MOVEMENT_PROFILE_PATH: String = "res://scenes/player/default_movement_profile.tres"
-const WEAPON_PROFILE_PATH: String = "res://scenes/weapon/default_weapon_profile.tres"
-const BOT_PROFILE_PATH: String = "res://scenes/bot/default_bot_profile.tres"
+const MOVEMENT_PROFILE_PATH: String = "res://characters/player/default_movement_profile.tres"
+const WEAPON_PROFILE_PATH: String = "res://weapons/default_weapon_profile.tres"
+const BOT_PROFILE_PATH: String = "res://characters/bots/default_bot_profile.tres"
 
-## Node paths into [code]scenes/ring/bentham_ring.tscn[/code]. The same defaults
+## Node paths into [code]maps/bentham_ring/bentham_ring.tscn[/code]. The same defaults
 ## [MatchController] exports, restated here so a test can find the markers
 ## without owning a [MatchController].
 const START_MARKER_PATH: NodePath = ^"StartEnd/PrisonerStart"
@@ -80,7 +80,7 @@ static func ghost_profile() -> GhostProfile:
 
 ## The real player scene, rewired to be driven by a [BotIntentSource].
 ##
-## Built from [code]scenes/player/player.tscn[/code] rather than from loose
+## Built from [code]characters/player/player.tscn[/code] rather than from loose
 ## nodes so the capsule, the head height and the collision layers under test are
 ## the ones the game ships. The human input node is disabled, not deleted: its
 ## presence is part of the scene, and deleting it would test a scene that does

@@ -11,9 +11,9 @@ extends TestCase
 ## middle of the 2 m clear tread, the wall found by a ray each tick -- and
 ## finally straight in off the top tread. Not one tick may leave it standing.
 
-const HUB_SCENE_PATH: String = "res://scenes/hub/hub.tscn"
+const HUB_SCENE_PATH: String = "res://hub/hub.tscn"
 
-## Tower-local numbers from tools/modelling/tower_hollow_build.py's log.
+## Tower-local numbers from tools/modelling/tower/tower_hollow_build.py's log.
 const COURTYARD_Y: float = -36.4      # the tower's foot, where the door is
 const DOOR_X: float = 13.0            # in the porch mouth (porch 12.62..13.52, bearing 0 = +X)
 const SHAFT_ENTRY_R: float = 6.0      # inside this radius the passage is behind the body

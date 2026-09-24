@@ -8,7 +8,7 @@ path="res://.godot/imported/forest_tree.glb-64ca97ba282076e0207e4865249e8df3.scn
 
 [deps]
 
-source_file="res://assets/models/forest_tree.glb"
+source_file="res://maps/forest/models/forest_tree.glb"
 dest_files=["res://.godot/imported/forest_tree.glb-64ca97ba282076e0207e4865249e8df3.scn"]
 
 [params]

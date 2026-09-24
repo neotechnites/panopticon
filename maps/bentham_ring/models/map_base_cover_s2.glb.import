@@ -8,7 +8,7 @@ path="res://.godot/imported/map_base_cover_s2.glb-cf851e01483311ca1d8b1d3a35e8fb
 
 [deps]
 
-source_file="res://assets/models/map_base_cover_s2.glb"
+source_file="res://maps/bentham_ring/models/map_base_cover_s2.glb"
 dest_files=["res://.godot/imported/map_base_cover_s2.glb-cf851e01483311ca1d8b1d3a35e8fb80.scn"]
 
 [params]

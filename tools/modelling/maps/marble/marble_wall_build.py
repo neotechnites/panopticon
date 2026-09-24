@@ -36,7 +36,7 @@ round each arch is zippered straight onto the corners of its bay rectangle,
 so the rectangle's edges carry no stray vertices and the pilaster returns,
 soffits and cornice faces are plain quads.
 
-    python3 tools/modelling/marble_wall_build.py      # build alone, audit
+    python3 tools/modelling/maps/marble/marble_wall_build.py      # build alone, audit
 """
 
 import math

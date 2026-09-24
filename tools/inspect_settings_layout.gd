@@ -42,7 +42,7 @@ const DEFAULT_SIZES: Array[Vector2i] = [
 
 ## Index of the Controls tab in the authored [TabContainer]. Fourth of five:
 ## Match, Game, Audio, Video, Controls, in the order they are authored in
-## scenes/ui/settings_screen.tscn.
+## ui/settings_screen.tscn.
 const CONTROLS_TAB: int = 4
 
 ## Cells per keybind row: name, slot 1, slot 2, reset.
@@ -141,7 +141,7 @@ func _next_size() -> void:
 	_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
 	root.add_child(_viewport)
 
-	_screen = (load("res://scenes/ui/settings_screen.tscn") as PackedScene).instantiate()
+	_screen = (load("res://ui/settings_screen.tscn") as PackedScene).instantiate()
 	_viewport.add_child(_screen)
 
 	var tabs: TabContainer = _find_tab_container(_screen)

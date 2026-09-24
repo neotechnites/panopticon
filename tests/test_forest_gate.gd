@@ -22,7 +22,7 @@ extends TestCase
 ## a barrier is a barrier that does not exist.
 
 ## The scene under test. Instanced, walked, and freed; nothing here simulates.
-const SCENE_PATH: String = "res://scenes/ring/forest.tscn"
+const SCENE_PATH: String = "res://maps/forest/forest.tscn"
 
 ## What makes a node a candidate barrier, lower-cased and matched as a
 ## substring. Deliberately generous: the point is to catch a second barrier

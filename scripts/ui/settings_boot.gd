@@ -25,7 +25,7 @@ extends Node
 ##
 ## Point it at the SAME resource the [MatchController] in the scene exports, not
 ## at a second copy: Godot hands back one cached object per resource path, so
-## naming res://resources/rules/default_match_rules.tres in both places is one
+## naming res://match/rules/default_match_rules.tres in both places is one
 ## object and the setting lands on the rules the match actually runs. Point it
 ## anywhere else and the toggle appears to save and does nothing -- the identical
 ## trap [member movement_profile] carries, and the reason both are named in the

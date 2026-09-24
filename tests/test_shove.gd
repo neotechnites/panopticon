@@ -3,7 +3,7 @@ extends TestCase
 ## THE SHOVE: one prisoner throwing another off a block, out of cover, or into
 ## the lava.
 ##
-## Run on the real [code]scenes/match/match.tscn[/code] and on a private copy of
+## Run on the real [code]match/match.tscn[/code] and on a private copy of
 ## the shipped rules, because the shove is a rule of the match and is resolved by
 ## [MatchController] on the authority -- a client only sends the tap.
 ##

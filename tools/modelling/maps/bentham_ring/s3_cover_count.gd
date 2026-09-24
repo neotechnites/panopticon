@@ -3,8 +3,8 @@ extends SceneTree
 ## How much COVER the bot bake found inside one angular section of the ring.
 ##
 ## [codeblock]
-## godot --headless --path . --script res://tools/modelling/s3_cover_count.gd -- --section=145,200
-## godot --headless --path . --script res://tools/modelling/s3_cover_count.gd -- --section=215,270
+## godot --headless --path . --script res://tools/modelling/maps/bentham_ring/s3_cover_count.gd -- --section=145,200
+## godot --headless --path . --script res://tools/modelling/maps/bentham_ring/s3_cover_count.gd -- --section=215,270
 ## [/codeblock]
 ##
 ## [code]--section=FROM,TO[/code]  game bearings in degrees, wrapping past 360
@@ -19,7 +19,7 @@ extends SceneTree
 ## zero, so "S3 has cover" is a measurement rather than an opinion. Nothing under
 ## [code]scripts/bot/[/code] is touched; this only reads what the bake exposes.
 
-const RING_SCENE: String = "res://scenes/ring/bentham_ring.tscn"
+const RING_SCENE: String = "res://maps/bentham_ring/bentham_ring.tscn"
 const PREFIX: String = "S3COVER"
 const BUCKET_DEGREES: float = 5.0
 

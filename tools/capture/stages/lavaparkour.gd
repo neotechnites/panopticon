@@ -15,7 +15,7 @@ extends "res://tools/capture/stages/stage.gd"
 ## down onto the landing, a small yaw flick mid-air lines it up, one stumble on
 ## the fourth landing (a dead stop, the head dipping, then on).
 ##
-## Geometry from tools/modelling/map_base_build.py: the lake runs 292.3-338.3
+## Geometry from tools/modelling/maps/bentham_ring/map_base_build.py: the lake runs 292.3-338.3
 ## deg, floor 0.3 m under the deck, seven 2.4 m platforms at deck height from
 ## 298 deg every 5.7676 deg, alternating r 54.8 / r 50.2 (7.0 m apart). Each
 ## hop is an exact ballistic leap at 10.5 m/s, the shipped jump's own arc.

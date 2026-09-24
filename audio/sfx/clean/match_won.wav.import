@@ -7,7 +7,7 @@ path="res://.godot/imported/match_won.wav-cae7e9914dead9ebcbecb3b4d3df40be.sampl
 
 [deps]
 
-source_file="res://assets/audio/sfx/clean/match_won.wav"
+source_file="res://audio/sfx/clean/match_won.wav"
 dest_files=["res://.godot/imported/match_won.wav-cae7e9914dead9ebcbecb3b4d3df40be.sample"]
 
 [params]

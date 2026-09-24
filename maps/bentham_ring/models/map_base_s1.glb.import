@@ -8,7 +8,7 @@ path="res://.godot/imported/map_base_s1.glb-c87639741ee143bc69bb00d99ad2db04.scn
 
 [deps]
 
-source_file="res://assets/models/map_base_s1.glb"
+source_file="res://maps/bentham_ring/models/map_base_s1.glb"
 dest_files=["res://.godot/imported/map_base_s1.glb-c87639741ee143bc69bb00d99ad2db04.scn"]
 
 [params]

@@ -4,7 +4,7 @@ extends TestCase
 ## sockets, in this one headless process.
 ##
 ## [b]Nothing here is a mock.[/b] The host is the shipped
-## [code]scenes/net/net_session.tscn[/code], so is the client, and the packets
+## [code]match/net/net_session.tscn[/code], so is the client, and the packets
 ## between them go through the loopback interface and the actual ENet stack.
 ## The trick that makes it fit in one process is one [MultiplayerAPI] per branch
 ## of the tree; [NetFixtures] explains it, and the fact that RPCs then resolve

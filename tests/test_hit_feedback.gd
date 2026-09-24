@@ -32,10 +32,10 @@ extends TestCase
 ## Every node in [code]scripts/fx[/code] switches itself off when there is no
 ## display server, so a bot sweep pays nothing for feedback nobody can see. A
 ## headless test of the logic has to say so explicitly, which is the one licence
-## [code]scenes/fx/feedback_rig.tscn[/code]'s own header grants.
+## [code]match/feedback/feedback_rig.tscn[/code]'s own header grants.
 
-const FEEDBACK_PROFILE_PATH: String = "res://scenes/fx/default_feedback_profile.tres"
-const BANK_PATH: String = "res://scenes/audio/placeholder_bank.tres"
+const FEEDBACK_PROFILE_PATH: String = "res://match/feedback/default_feedback_profile.tres"
+const BANK_PATH: String = "res://audio/placeholder_bank.tres"
 const CAMERA_PATH: NodePath = ^"Head/Camera"
 const HEAD_PATH: NodePath = ^"Head"
 
@@ -562,7 +562,7 @@ func _make_body(where: Vector3) -> PlayerController:
 func _make_kick(body: PlayerController) -> FxCameraKick:
 	var kick: FxCameraKick = FxCameraKick.new()
 	kick.name = "CameraKick_%s" % body.get_instance_id()
-	# The one licence scenes/fx/feedback_rig.tscn grants: a test that needs the
+	# The one licence match/feedback/feedback_rig.tscn grants: a test that needs the
 	# logic to actually run without a display server says so.
 	kick.headless_inert = false
 	kick.profile = _profile

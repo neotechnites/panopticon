@@ -21,7 +21,7 @@ extends TestCase
 ## These tests pin the behaviour that is implemented; they are not an argument
 ## that it is the right one.
 ##
-## Everything here runs the real [code]scenes/match/match.tscn[/code] on a
+## Everything here runs the real [code]match/match.tscn[/code] on a
 ## private copy of the shipped rules, which play
 ## [constant MatchRules.GhostBehaviour.CATCH_AND_SWAP].
 
@@ -37,7 +37,7 @@ const FALL_TICKS: int = 12
 ## volume's roof and above the floor it would otherwise stand on.
 const DROP_HEIGHT_METRES: float = -8.0
 
-## Top of the courtyard floor, in metres. [code]scenes/ring/bentham_ring.tscn[/code]
+## Top of the courtyard floor, in metres. [code]maps/bentham_ring/bentham_ring.tscn[/code]
 ## puts the 1 m PitFloor slab at y=-12.5, so a body stands at -12.
 const PIT_FLOOR_Y: float = -12.0
 

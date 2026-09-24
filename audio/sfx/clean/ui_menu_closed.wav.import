@@ -7,7 +7,7 @@ path="res://.godot/imported/ui_menu_closed.wav-a8e94551c64ab5366ae274025af4a0bc.
 
 [deps]
 
-source_file="res://assets/audio/sfx/clean/ui_menu_closed.wav"
+source_file="res://audio/sfx/clean/ui_menu_closed.wav"
 dest_files=["res://.godot/imported/ui_menu_closed.wav-a8e94551c64ab5366ae274025af4a0bc.sample"]
 
 [params]

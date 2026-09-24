@@ -48,8 +48,8 @@ extends SceneTree
 ## [method _initialize] configures the clock and nothing else, and all the work
 ## happens in [method _process].
 
-const RULES_PATH: String = "res://resources/rules/default_match_rules.tres"
-const SHOOTER_PROFILE_PATH: String = "res://scenes/bot/default_shooter_profile.tres"
+const RULES_PATH: String = "res://match/rules/default_match_rules.tres"
+const SHOOTER_PROFILE_PATH: String = "res://characters/bots/default_shooter_profile.tres"
 
 ## Seven, because seven is the full lobby and the only count the physics tick
 ## has ever failed at. Same constant, same reason, as the budgets file.

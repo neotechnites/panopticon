@@ -2,7 +2,7 @@
 
 How a 3D model gets made for PANOPTICON: authored on the Mac, built on
 whichever box has Blender, looked at on the Mac, and proved in Godot before it
-is allowed anywhere near `assets/models/`.
+is allowed anywhere near a `models/` folder.
 
 This exists because the expensive part of modelling was never the geometry. It
 was that **the agent could not see what it had made**, so it iterated on
@@ -33,12 +33,12 @@ neither verifies against the contract nor installs over the shipped `.glb`.
 
 | | | |
 |---|---|---|
-| **Author** | `tools/modelling/<name>_build.py` | in the repo, tunables in one block at the top |
+| **Author** | `tools/modelling/<home>/<name>_build.py` | in the repo, tunables in one block at the top |
 | **Run** | `tools/modelling/model build <name>` | Blender headless, on this Mac if it is installed here |
 | **See** | `~/Desktop/panopticon-renders/` | EEVEE, standard views or any angle |
 | **Verify** | Godot headless | imports the `.glb`, checks it against a contract |
 | **Gate** | the gate the model has earned | audit only, or the whole suite — decided by grep |
-| **Deliver** | `assets/models/<name>.glb` | only if verification passed |
+| **Deliver** | `<home>/models/<name>.glb` | only if verification passed |
 
 ## Where it builds
 
@@ -63,7 +63,7 @@ Run from the repo root.
     tools/modelling/model build <name>            # the whole pipeline, installs the model
     tools/modelling/model build <name> --prop     # ...and run the gate the model has earned
     tools/modelling/model look  <name>            # renders only: no verify, no install
-    tools/modelling/model verify <name>           # re-check the .glb already in assets/models/
+    tools/modelling/model verify <name>           # re-check the .glb already in <home>/models/
     tools/modelling/model audit  <name>           # contiguity and quality of the shipped .glb
     tools/modelling/model refs   <name>           # which scenes reference it (this picks the gate)
     tools/modelling/model gate   <name>           # run that gate without rebuilding
@@ -106,9 +106,9 @@ argued:
 | **a scene references it** | all of that, then `bash tools/test.sh` **and** the bot harness, every time |
 
 Which one applies is not a judgement call and there is no flag to override it.
-`lib/scene_refs.sh <name>` greps `scenes/`, `scripts/`, `resources/` and
+`lib/scene_refs.sh <name>` greps every game home, `scripts/` and
 `project.godot` for both spellings a scene can use — the path
-`assets/models/<name>.glb` and the `uid://` its `.import` file carries — and
+`<home>/models/<name>.glb` and the `uid://` its `.import` file carries — and
 `model build <name> --prop` runs whichever gate that answer names. A `.tscn`
 saved by the editor carries the uid and not the path, so grepping for the
 filename alone quietly answers "no" for a model half the map uses; that is why
@@ -233,7 +233,7 @@ PANOPTICON itself and never on the Mac — **Godot on the Mac steals the
 keyboard.**
 
 **Loop mode lives in the `.import` file, not in the `.glb`.**
-`assets/models/runner.glb.import` carries `"Run": {"settings/loop_mode": 1}`
+`characters/models/runner.glb.import` carries `"Run": {"settings/loop_mode": 1}`
 along with the `uid://` the scenes reference, so the pipeline leaves that file
 alone when it installs a rebuilt model. Verification reports `loop=0` because
 the scratch project has no such override; that is expected, not a regression.

@@ -9,9 +9,9 @@ extends SceneTree
 ## lands a shot on the guard. Both exist to exercise what a CLIENT is shown.
 ## --press-fire is when the scripted human first pulls the trigger.
 
-const MATCH_SCENE: String = "res://scenes/match/match.tscn"
-const SESSION_SCENE: String = "res://scenes/net/net_session.tscn"
-const SCREEN_SCENE: String = "res://scenes/ui/multiplayer_screen.tscn"
+const MATCH_SCENE: String = "res://match/match.tscn"
+const SESSION_SCENE: String = "res://match/net/net_session.tscn"
+const SCREEN_SCENE: String = "res://ui/multiplayer_screen.tscn"
 ## Positions are logged once per this many authority ticks, on every process.
 const SAMPLE_TICKS: int = 120
 

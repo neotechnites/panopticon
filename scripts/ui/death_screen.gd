@@ -54,7 +54,7 @@ const BAND_COLOR: Color = Color(0.0, 0.0, 0.0, 0.35)
 const BAND_HEIGHT_RATIO: float = 0.20
 
 ## The match HUD's fonts, so the dead player is not reading a second typeface.
-const THEME_PATH: String = "res://scenes/ui/panopticon_menu_theme.tres"
+const THEME_PATH: String = "res://ui/panopticon_menu_theme.tres"
 
 const TITLE_COLOR: Color = Color(1.0, 1.0, 1.0, 0.92)
 const COUNTDOWN_COLOR: Color = Color(1.0, 1.0, 1.0, 0.85)

@@ -7,7 +7,7 @@ path="res://.godot/imported/catch_taken.wav-e8fd39a44269d8435c62abe0649e9ecf.sam
 
 [deps]
 
-source_file="res://assets/audio/sfx/catch_taken.wav"
+source_file="res://audio/sfx/catch_taken.wav"
 dest_files=["res://.godot/imported/catch_taken.wav-e8fd39a44269d8435c62abe0649e9ecf.sample"]
 
 [params]

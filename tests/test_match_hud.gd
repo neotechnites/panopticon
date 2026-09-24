@@ -15,7 +15,7 @@ extends TestCase
 ## [/codeblock]
 ##
 ## The shipped HUD is the one under test: everything below reads
-## [code]HUD/Root[/code] straight out of [code]scenes/match/match.tscn[/code],
+## [code]HUD/Root[/code] straight out of [code]match/match.tscn[/code],
 ## which makes these tests an assertion that the scene is still wired -- an
 ## export whose [NodePath] has gone stale resolves to null at load with no error
 ## at all, and every text assertion here would come back empty.
@@ -26,7 +26,7 @@ const SETTLE_TICKS: int = 60
 ## The shipped readout tuning. Duplicated by [method _readout] because it is one
 ## instance for the whole process and a test that wrote into it would retune
 ## every later test.
-const READOUT_PROFILE_PATH: String = "res://resources/rules/default_match_readout.tres"
+const READOUT_PROFILE_PATH: String = "res://match/rules/default_match_readout.tres"
 
 var _match: Node3D
 var _controller: MatchController

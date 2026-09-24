@@ -5,9 +5,9 @@
     tools/audio/.venv/bin/python tools/audio/fetch_sfx.py --process  # re-trim/normalise/crush from src/
     tools/audio/.venv/bin/python tools/audio/fetch_sfx.py --only jump land
 
-Writes assets/audio/sfx/src/<key>_<id>.ogg (raw previews), src/manifest.json,
+Writes audio/sfx/src/<key>_<id>.ogg (raw previews), src/manifest.json,
 sfx/clean/<name>.wav (44.1 kHz 16-bit, trimmed, peak -1 dBFS),
-sfx/<name>.wav (22.05 kHz 8-bit) and assets/audio/LICENSE.md.
+sfx/<name>.wav (22.05 kHz 8-bit) and audio/LICENSE.md.
 Needs ffmpeg; run with tools/audio/.venv (requests, numpy). API key read from ~/.config/freesound_key, never printed.
 """
 from __future__ import annotations
@@ -27,11 +27,11 @@ import numpy as np
 import requests
 
 ROOT = Path(__file__).resolve().parents[2]
-SFX = ROOT / "assets" / "audio" / "sfx"
+SFX = ROOT / "audio" / "sfx"
 SRC = SFX / "src"
 CLEAN = SFX / "clean"
 MANIFEST = SRC / "manifest.json"
-LICENSE = ROOT / "assets" / "audio" / "LICENSE.md"
+LICENSE = ROOT / "audio" / "LICENSE.md"
 API = "https://freesound.org/apiv2/"
 FIELDS = "id,name,username,license,duration,previews,tags,avg_rating,num_downloads"
 CC0_URL = "https://creativecommons.org/publicdomain/zero/1.0/"
@@ -259,7 +259,7 @@ def load_manifest() -> dict:
 
 def write_license(manifest: dict) -> None:
     lines = [
-        "# assets/audio/sfx licence",
+        "# audio/sfx licence",
         "",
         "Every recording below is CC0 1.0 (public domain, no attribution required) from",
         "Freesound. `sfx/src/` holds the untouched previews, `sfx/clean/` the trimmed and",

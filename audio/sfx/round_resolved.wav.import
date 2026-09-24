@@ -7,7 +7,7 @@ path="res://.godot/imported/round_resolved.wav-d505469e18d8367df777f68444684fc7.
 
 [deps]
 
-source_file="res://assets/audio/sfx/round_resolved.wav"
+source_file="res://audio/sfx/round_resolved.wav"
 dest_files=["res://.godot/imported/round_resolved.wav-d505469e18d8367df777f68444684fc7.sample"]
 
 [params]

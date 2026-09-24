@@ -20,11 +20,11 @@ extends TestCase
 ##
 ## The third is the one worth the file. A registry that everything reads and
 ## nothing obeys is a configuration screen for a constant, so the map named in
-## [code]resources/maps/map_catalog.tres[/code] is compared against the arena
-## [code]scenes/match/match.tscn[/code] actually composes and against the arena
+## [code]maps/map_catalog.tres[/code] is compared against the arena
+## [code]match/match.tscn[/code] actually composes and against the arena
 ## [BotMatchWorld] would load for a sweep.
 
-const MATCH_RULES_PATH: String = "res://resources/rules/default_match_rules.tres"
+const MATCH_RULES_PATH: String = "res://match/rules/default_match_rules.tres"
 
 ## An id no map will ever have, for the fallback tests.
 const ABSENT_ID: StringName = &"a_map_that_does_not_exist"
@@ -263,7 +263,7 @@ func test_every_map_stands_in_the_match_scene_when_the_rules_name_it() -> void:
 			assert_eq_string(arena.scene_file_path, map.scene_path, "%s: the arena is the map" % map.id)
 		var arenas: int = 0
 		for child: Node in match_root.get_children():
-			if child is Node3D and not child.scene_file_path.is_empty() and child.scene_file_path.begins_with("res://scenes/ring/"):
+			if child is Node3D and not child.scene_file_path.is_empty() and child.scene_file_path.begins_with("res://maps/"):
 				arenas += 1
 		assert_eq_int(arenas, 1, "%s: one arena in the scene, the replaced one gone" % map.id)
 		assert_true(_surfaces_have_materials(arena, map.id), "%s: every surface has a material" % map.id)

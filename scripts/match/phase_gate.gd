@@ -3,7 +3,7 @@ extends Node3D
 
 ## Content that exists in only one phase of the match. Race-only geometry sits
 ## under a "Race only" gate, shooter-round-only geometry under "Rounds only" --
-## drag [code]scenes/ring/race_only.tscn[/code] or [code]rounds_only.tscn[/code]
+## drag [code]props/race_only.tscn[/code] or [code]rounds_only.tscn[/code]
 ## in and reparent walls, pads, lava or boulders under it.
 ##
 ## Gated by REMOVAL, not visibility: a hidden [Area3D] still fires and a hidden

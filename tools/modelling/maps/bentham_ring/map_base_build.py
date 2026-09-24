@@ -42,7 +42,11 @@ import sys
 import bpy
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)) + os.sep + "lib")
+_HOME = os.path.dirname(os.path.abspath(__file__))
+for _root in (os.path.dirname(_HOME), os.path.dirname(os.path.dirname(_HOME))):  # the repo's tools/modelling
+    if os.path.isfile(os.path.join(_root, "model")) and os.path.isfile(os.path.join(_root, "lib", "mdl.py")):
+        sys.path[1:1] = [d for d, _, _ in os.walk(_root) if "__pycache__" not in d]
+        break
 
 from mathutils import Matrix, kdtree  # noqa: E402
 import mdl  # noqa: E402
@@ -58,7 +62,7 @@ mdl.DEFAULTS["world_strength"] = 0.90
 # =============================================================================
 # TUNABLES
 # =============================================================================
-# Texture files (opt-in, USE_TEXTURE_FILES): tools/modelling/textures/
+# Texture files (opt-in, USE_TEXTURE_FILES): maps/bentham_ring/textures/
 # river_albedo.png is then the river's albedo (river_emissive.png beside it,
 # else the albedo glows); lava_albedo.png is the pit sea's, tiled every
 # LAVA_TILE_M metres (lava_emissive.png beside it, else the emissive is
@@ -207,7 +211,7 @@ COL_MERGE = 0.30                      # a river column this close to a wall colu
 SHELF_D = 2.5                         # the flat river cut back into the wall over the fall
 FALL_CAP = 3.0                        # tallest fall row
 FALL_WAVE_ROW = 1.0                   # ... and the pit fall's drawn rows, so the lava
-                                      # shader's ripple bends it (scenes/ring/lava_wave.gdshader)
+                                      # shader's ripple bends it (maps/bentham_ring/materials/lava_wave.gdshader)
 
 PLAT_OUT_R = 54.8                     # the run: 7 platforms, 7.00 m apart
 PLAT_IN_R = 50.2

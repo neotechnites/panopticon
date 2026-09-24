@@ -29,9 +29,9 @@ extends RefCounted
 ## stack has not heard about it. This is the one place in the suite where
 ## [method Time.get_ticks_msec] is the right instrument.
 
-const SESSION_SCENE_PATH: String = "res://scenes/net/net_session.tscn"
-const LINK_SCENE_PATH: String = "res://scenes/net/player_net_link.tscn"
-const SETTINGS_PATH: String = "res://resources/net/default_net_settings.tres"
+const SESSION_SCENE_PATH: String = "res://match/net/net_session.tscn"
+const LINK_SCENE_PATH: String = "res://match/net/player_net_link.tscn"
+const SETTINGS_PATH: String = "res://match/net/default_net_settings.tres"
 
 ## Longest any single wait may take, in real milliseconds. A loopback handshake
 ## is a couple of milliseconds; a second is four hundred times that, so

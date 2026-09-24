@@ -7,7 +7,7 @@ path="res://.godot/imported/Inter-Variable.ttf-e500b369badb17500bd3445af6919693.
 
 [deps]
 
-source_file="res://assets/fonts/Inter-Variable.ttf"
+source_file="res://ui/fonts/Inter-Variable.ttf"
 dest_files=["res://.godot/imported/Inter-Variable.ttf-e500b369badb17500bd3445af6919693.fontdata"]
 
 [params]

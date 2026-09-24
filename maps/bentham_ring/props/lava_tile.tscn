@@ -1,10 +1,10 @@
 [gd_scene load_steps=3 format=3]
 
-[ext_resource type="PackedScene" uid="uid://b0lqxmqax1rbx" path="res://assets/models/lava_tile.glb" id="1_lava_tile"]
+[ext_resource type="PackedScene" uid="uid://b0lqxmqax1rbx" path="res://maps/bentham_ring/models/lava_tile.glb" id="1_lava_tile"]
 [ext_resource type="Script" uid="uid://bqujt25fif0uv" path="res://scripts/match/trap_volume.gd" id="2_trap_volume"]
 
 [node name="LavaTile" type="Node3D"]
-editor_description = "One lava tile, drag-in/Ctrl+D/move/scale: assets/models/lava_tile.glb plus a TrapVolume sized to the tile."
+editor_description = "One lava tile, drag-in/Ctrl+D/move/scale: maps/bentham_ring/models/lava_tile.glb plus a TrapVolume sized to the tile."
 
 [node name="Model" parent="." instance=ExtResource("1_lava_tile")]
 

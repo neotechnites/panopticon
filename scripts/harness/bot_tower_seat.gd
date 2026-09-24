@@ -8,7 +8,7 @@ extends Node
 ## [MatchController] moves the rifle onto the seat holder's head and silences
 ## their [RunnerBrain], because a body in the tower does not run laps. It does
 ## not give them anything to aim with: the shipped match has a human in the
-## tower, and [code]scenes/bot/tower_shooter.tscn[/code] is a whole body of its
+## tower, and [code]characters/bots/tower_shooter.tscn[/code] is a whole body of its
 ## own rather than a brain the match can hand to an existing participant. So a
 ## match played entirely by AI has, today, an INERT tower -- a shooter that
 ## never fires, a round that can never be won from the tower, and therefore a
@@ -120,7 +120,7 @@ func _stand_down_all() -> void:
 
 ## The brain for [param participant]'s body, built on first use.
 ##
-## Built rather than instanced from [code]scenes/bot/tower_shooter.tscn[/code]
+## Built rather than instanced from [code]characters/bots/tower_shooter.tscn[/code]
 ## because that scene is a BODY. The participant already has a body, a head, a
 ## camera and an optic -- the same ones it runs the ring with, which is the
 ## whole point of a seat that changes hands -- so what is missing is only the

@@ -7,7 +7,7 @@ extends Resource
 ## today and the vertical slice requires the player to CHOOSE it. A choice of one
 ## is still a choice, and the thing that makes it one is that the list is data:
 ## adding the second map must be a [code].tres[/code] file and an entry in
-## [code]resources/maps/map_catalog.tres[/code], not an edit to the setup screen,
+## [code]maps/map_catalog.tres[/code], not an edit to the setup screen,
 ## to [MatchController] or to the bot harness. Everything that needs to know what
 ## maps exist -- the match setup screen and [BotMatchWorld] -- reads them through
 ## [MapCatalog], so there is one list and no second opinion.

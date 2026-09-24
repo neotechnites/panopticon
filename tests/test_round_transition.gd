@@ -29,13 +29,13 @@ extends TestCase
 ##    out of the card is a path that has to unpause -- the clock, a skip, a won
 ##    match and a restart alike.
 ##
-## Everything runs against the real [code]scenes/match/match.tscn[/code], and
+## Everything runs against the real [code]match/match.tscn[/code], and
 ## rounds are turned over the way the match itself turns one over: through
 ## [signal MatchLapTracker.lap_finished]. No phase is forged and nothing private
 ## is written.
 
-const SCREEN_SCENE_PATH: String = "res://scenes/ui/round_transition_screen.tscn"
-const ANNOUNCEMENT_PATH: String = "res://resources/rules/default_match_announcement.tres"
+const SCREEN_SCENE_PATH: String = "res://ui/round_transition_screen.tscn"
+const ANNOUNCEMENT_PATH: String = "res://match/rules/default_match_announcement.tres"
 
 ## Ticks to let the opening race and the first round settle before a test
 ## interferes with them.
@@ -104,7 +104,7 @@ func after_each() -> void:
 ## turn over, nothing is connected, and the player sees nothing.
 func test_the_match_scene_carries_a_wired_round_card() -> void:
 	var shipped: RoundTransitionScreen = _shipped()
-	if not assert_not_null(shipped, "scenes/match/match.tscn carries a RoundTransitionScreen"):
+	if not assert_not_null(shipped, "match/match.tscn carries a RoundTransitionScreen"):
 		return
 	assert_same(shipped.controller, _controller, "it watches this match's controller")
 	assert_not_null(shipped.pause_menu, "and knows the pause menu it must not unpause under")

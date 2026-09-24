@@ -22,7 +22,7 @@ const NUDGE: float = 0.001
 
 ## The barrel end the tracer leaves from, in the model's own coordinates.
 ##
-## Taken from tools/modelling/rifle_build.py, which puts the tip of the muzzle
+## Taken from tools/modelling/weapons/rifle_build.py, which puts the tip of the muzzle
 ## brake at MUZZLE_Y = 1.150 along Blender's forward axis -- Godot local -Z.
 const MODEL_MUZZLE: Vector3 = Vector3(0.0, 0.0, -1.150)
 
@@ -234,7 +234,7 @@ func test_a_runtime_reload_change_takes_effect() -> void:
 ## gun, which is precisely the bug the marker exists to prevent.
 func test_the_muzzle_marker_sits_at_the_model_s_barrel_end() -> void:
 	var view_model: Node3D = _rifle.get_node_or_null(^"ViewModel") as Node3D
-	assert_not_null(view_model, "scenes/weapon/rifle.tscn must carry a ViewModel node")
+	assert_not_null(view_model, "weapons/rifle.tscn must carry a ViewModel node")
 
 	var muzzle: Node3D = _rifle.muzzle
 	assert_not_null(muzzle, "Rifle.muzzle must still resolve after the mesh was attached")
@@ -260,7 +260,7 @@ func test_the_muzzle_marker_sits_at_the_model_s_barrel_end() -> void:
 ## crept back onto the crosshair.
 func test_the_view_model_clears_the_crosshair_and_the_near_plane() -> void:
 	var view_model: Node3D = _rifle.get_node_or_null(^"ViewModel") as Node3D
-	assert_not_null(view_model, "scenes/weapon/rifle.tscn must carry a ViewModel node")
+	assert_not_null(view_model, "weapons/rifle.tscn must carry a ViewModel node")
 
 	# The rifle root is at identity and its aim source is itself, so local space
 	# here is exactly what camera space is in a match: the origin is the eye and
@@ -346,7 +346,7 @@ func test_the_view_model_survives_a_seat_change() -> void:
 ## First [MeshInstance3D] anywhere under [param root], or null.
 ##
 ## Found by type rather than by path: the mesh's name comes from inside
-## assets/models/rifle.glb, and a reimport is allowed to change it.
+## weapons/models/rifle.glb, and a reimport is allowed to change it.
 func _find_mesh(root: Node) -> MeshInstance3D:
 	for child: Node in root.get_children():
 		var found: MeshInstance3D = child as MeshInstance3D

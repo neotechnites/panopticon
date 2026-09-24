@@ -7,7 +7,7 @@ path="res://.godot/imported/rifle_fired.wav-97df8a9163400b3945d25562744a8a81.sam
 
 [deps]
 
-source_file="res://assets/audio/sfx/clean/rifle_fired.wav"
+source_file="res://audio/sfx/clean/rifle_fired.wav"
 dest_files=["res://.godot/imported/rifle_fired.wav-97df8a9163400b3945d25562744a8a81.sample"]
 
 [params]

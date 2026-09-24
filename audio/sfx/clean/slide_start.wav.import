@@ -7,7 +7,7 @@ path="res://.godot/imported/slide_start.wav-599726f103ca458e34e7d000ca0fd3e2.sam
 
 [deps]
 
-source_file="res://assets/audio/sfx/clean/slide_start.wav"
+source_file="res://audio/sfx/clean/slide_start.wav"
 dest_files=["res://.godot/imported/slide_start.wav-599726f103ca458e34e7d000ca0fd3e2.sample"]
 
 [params]

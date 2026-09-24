@@ -8,7 +8,7 @@ path="res://.godot/imported/marble_tower.glb-1e127fcfc52beb14fddea9d5ec5c7181.sc
 
 [deps]
 
-source_file="res://assets/models/marble_tower.glb"
+source_file="res://maps/marble/models/marble_tower.glb"
 dest_files=["res://.godot/imported/marble_tower.glb-1e127fcfc52beb14fddea9d5ec5c7181.scn"]
 
 [params]

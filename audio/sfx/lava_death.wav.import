@@ -7,7 +7,7 @@ path="res://.godot/imported/lava_death.wav-338827a850d7d1fd8e03d8bd70841d16.samp
 
 [deps]
 
-source_file="res://assets/audio/sfx/lava_death.wav"
+source_file="res://audio/sfx/lava_death.wav"
 dest_files=["res://.godot/imported/lava_death.wav-338827a850d7d1fd8e03d8bd70841d16.sample"]
 
 [params]

@@ -8,7 +8,7 @@ render_mode blend_mix, unshaded;
 // optic: a dark ring closing in from the edges of the screen around a clear
 // centre, exactly the Call of Duty read, with no render target, no second
 // camera and no transparent lens on the model. The rifle's own scope stays
-// the opaque brick tools/modelling/rifle_build.py makes it.
+// the opaque brick tools/modelling/weapons/rifle_build.py makes it.
 //
 // Every uniform below is driven from scripts/optics/scope_vignette.gd, which
 // reads them off ZoomProfile -- see that resource's "Scope vignette" group.

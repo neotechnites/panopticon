@@ -7,7 +7,7 @@ path="res://.godot/imported/rifle_reload_started.wav-d49719dc0444fb03d17d8547cc6
 
 [deps]
 
-source_file="res://assets/audio/sfx/clean/rifle_reload_started.wav"
+source_file="res://audio/sfx/clean/rifle_reload_started.wav"
 dest_files=["res://.godot/imported/rifle_reload_started.wav-d49719dc0444fb03d17d8547cc61b863.sample"]
 
 [params]

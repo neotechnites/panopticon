@@ -26,12 +26,19 @@ Renderer is **GL Compatibility**, chosen so the game runs on a wide install base
 ## Layout
 
 ```
-scenes/      .tscn by domain — ring/ tower/ player/ ui/
-scripts/     .gd mirroring scenes, plus systems/ for non-node logic
-resources/   .tres — including rules/, the match rule configs
-assets/      models, audio, textures
+maps/<map>/  one map each: scene, definition, rules, props/, models/, textures/, materials/
+hub/         the lobby scene and its models
+characters/  player/ (body, avatar, movement), bots/, models/
+weapons/     rifle, weapon profiles, scope, models/
+tower/       the tower models and the watching eye
+props/       mechanics any map may place: pads, power-ups, phase gates
+ui/          menus, screens, theme, fonts/
+audio/       game_audio.tscn, banks, sfx/, music/, placeholder/
+match/       match.tscn, rules/, feedback/, net/
+locale/      strings.csv and its translations
+scripts/     all .gd code, by system
 tests/       headless suite
-tools/       harness, CI helpers, ingest
+tools/       harness, CI, capture; modelling/<home>/ builds <home>/models/
 ```
 
 ## Two machines, synced by git and nothing else

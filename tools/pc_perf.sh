@@ -36,10 +36,10 @@ ssh -o ConnectTimeout=20 "$PC" "
   \$ErrorActionPreference = 'Stop'
   git -C '$CLONE' checkout -q -f -B shot incoming
   git -C '$CLONE' reset -q --hard incoming
-  git -C '$CLONE' clean -fdq -- assets/models
-  Remove-Item $CLONE_W\\assets\\models\\*_albedo.png*, $CLONE_W\\assets\\models\\*_emissive.png* -ErrorAction SilentlyContinue
+  git -C '$CLONE' clean -fdq -- ':(glob)**/models/**'
+  Get-ChildItem $CLONE_W -Recurse -Include *_albedo.png*, *_emissive.png* | Where-Object { \$_.Directory.Name -eq 'models' } | Remove-Item -ErrorAction SilentlyContinue
   \$hook = 'res://tools/import/mipmap_textures.gd'
-  Get-ChildItem $CLONE_W\\assets\\models\\*.glb.import | ForEach-Object {
+  Get-ChildItem $CLONE_W -Recurse -Filter *.glb.import | ForEach-Object {
     \$t = Get-Content \$_.FullName -Raw
     if (\$t -match 'gltf/embedded_image_handling=') { \$t = \$t -replace 'gltf/embedded_image_handling=\\d', 'gltf/embedded_image_handling=3' }
     else { \$t = \$t -replace '\\[params\\]\\r?\\n', \"[params]\`r\`ngltf/embedded_image_handling=3\`r\`n\" }

@@ -7,7 +7,7 @@ path="res://.godot/imported/placeholder_weapon_rifle_fired.wav-810a2dd6c91962669
 
 [deps]
 
-source_file="res://assets/audio/placeholder_weapon_rifle_fired.wav"
+source_file="res://audio/placeholder/placeholder_weapon_rifle_fired.wav"
 dest_files=["res://.godot/imported/placeholder_weapon_rifle_fired.wav-810a2dd6c9196266975fc93600e7e615.sample"]
 
 [params]

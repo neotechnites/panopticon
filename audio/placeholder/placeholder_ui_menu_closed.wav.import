@@ -7,7 +7,7 @@ path="res://.godot/imported/placeholder_ui_menu_closed.wav-e70d870c9ed98228f1440
 
 [deps]
 
-source_file="res://assets/audio/placeholder_ui_menu_closed.wav"
+source_file="res://audio/placeholder/placeholder_ui_menu_closed.wav"
 dest_files=["res://.godot/imported/placeholder_ui_menu_closed.wav-e70d870c9ed98228f14405f85154b982.sample"]
 
 [params]

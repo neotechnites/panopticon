@@ -66,8 +66,8 @@ func before_each() -> void:
 # --- Wiring ---------------------------------------------------------------------
 
 func test_the_rifle_carries_a_recoil_node_wired_to_the_view_model() -> void:
-	assert_not_null(_recoil, "scenes/weapon/rifle.tscn must carry a Recoil node")
-	assert_not_null(_view_model, "scenes/weapon/rifle.tscn must carry a ViewModel node")
+	assert_not_null(_recoil, "weapons/rifle.tscn must carry a Recoil node")
+	assert_not_null(_view_model, "weapons/rifle.tscn must carry a ViewModel node")
 
 
 ## The weapon ACTUALLY firing starts the kick, and nothing else does.

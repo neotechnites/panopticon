@@ -7,7 +7,7 @@ path="res://.godot/imported/placeholder_match_won.wav-65cdd22850e724503636494ec9
 
 [deps]
 
-source_file="res://assets/audio/placeholder_match_won.wav"
+source_file="res://audio/placeholder/placeholder_match_won.wav"
 dest_files=["res://.godot/imported/placeholder_match_won.wav-65cdd22850e724503636494ec9d2eaf5.sample"]
 
 [params]

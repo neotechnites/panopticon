@@ -52,6 +52,6 @@ static func _build_mesh() -> ArrayMesh:
 
 func _ready() -> void:
 	mesh = shared_mesh()
-	material_override = preload("res://scenes/ring/lava_haze_material.tres")
+	material_override = preload("res://maps/bentham_ring/materials/lava_haze_material.tres")
 	cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_to_group(&"lava_haze")

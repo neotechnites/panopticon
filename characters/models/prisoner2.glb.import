@@ -8,7 +8,7 @@ path="res://.godot/imported/prisoner2.glb-3b59abf08ee15329afa5837078befcc6.scn"
 
 [deps]
 
-source_file="res://assets/models/prisoner2.glb"
+source_file="res://characters/models/prisoner2.glb"
 dest_files=["res://.godot/imported/prisoner2.glb-3b59abf08ee15329afa5837078befcc6.scn"]
 
 [params]

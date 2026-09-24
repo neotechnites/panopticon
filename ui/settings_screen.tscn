@@ -1,7 +1,7 @@
 [gd_scene load_steps=4 format=3]
 
 [ext_resource type="Script" path="res://scripts/ui/settings_screen.gd" id="1_settings_screen"]
-[ext_resource type="PackedScene" path="res://scenes/ui/keybind_panel.tscn" id="2_keybind_panel"]
+[ext_resource type="PackedScene" path="res://ui/keybind_panel.tscn" id="2_keybind_panel"]
 [ext_resource type="Script" path="res://scripts/ui/brightness_preview.gd" id="3_brightness_preview"]
 
 [node name="SettingsScreen" type="Control"]
@@ -50,7 +50,7 @@ editor_description = "Tab titles come from the child node names, so the order th
 
 [node name="Match" type="VBoxContainer" parent="Frame/Dialog/Padding/Layout/Tabs"]
 theme_override_constants/separation = 8
-editor_description = "Rules of the round the player is allowed to choose, as opposed to presentation. First tab because it is the one thing on this screen you change on the way IN to a match rather than during one. Everything here is written over the MatchRules the match runs with by the SettingsBoot node in scenes/match/match.tscn, and the defaults on both sides agree."
+editor_description = "Rules of the round the player is allowed to choose, as opposed to presentation. First tab because it is the one thing on this screen you change on the way IN to a match rather than during one. Everything here is written over the MatchRules the match runs with by the SettingsBoot node in match/match.tscn, and the defaults on both sides agree."
 
 [node name="Grid" type="GridContainer" parent="Frame/Dialog/Padding/Layout/Tabs/Match"]
 theme_override_constants/h_separation = 8

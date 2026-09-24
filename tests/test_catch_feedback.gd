@@ -30,7 +30,7 @@ extends TestCase
 ##
 ## [b]Why the nodes are built here rather than found in the scene[/b]
 ##
-## The one shipped in [code]scenes/match/match.tscn[/code] is
+## The one shipped in [code]match/match.tscn[/code] is
 ## [code]headless_inert[/code] and switches itself off in a test run, which is
 ## right -- a sweep has no screen to draw on. So the logic is tested on an
 ## instance built with that turned off, pointed at the same live
@@ -55,9 +55,9 @@ extends TestCase
 ## a prisoner and told to shove, through the same
 ## [method MatchController.apply_shove] a real chase arrives at.
 
-const CATCH_PROFILE_PATH: String = "res://resources/fx/default_catch_profile.tres"
-const FEEDBACK_PROFILE_PATH: String = "res://scenes/fx/default_feedback_profile.tres"
-const BANK_PATH: String = "res://scenes/audio/placeholder_bank.tres"
+const CATCH_PROFILE_PATH: String = "res://match/feedback/default_catch_profile.tres"
+const FEEDBACK_PROFILE_PATH: String = "res://match/feedback/default_feedback_profile.tres"
+const BANK_PATH: String = "res://audio/placeholder_bank.tres"
 const CAMERA_PATH: NodePath = ^"Head/Camera"
 const SHIPPED_REACTION_PATH: String = "FeedbackRig/CatchReaction"
 
@@ -266,7 +266,7 @@ func test_being_caught_closes_in_and_holds() -> void:
 	# reason the hold exists. Read off SpectatorProfile rather than restated, so
 	# a retuned delay retunes this assertion with it.
 	var spectator: SpectatorProfile = load(
-		"res://resources/fx/default_spectator_profile.tres"
+		"res://match/feedback/default_spectator_profile.tres"
 	) as SpectatorProfile
 	if spectator != null:
 		assert_gt(
@@ -481,7 +481,7 @@ func test_the_layer_can_be_switched_off_from_the_resource() -> void:
 ## rig points at.
 func test_the_shipped_profile_is_a_resource() -> void:
 	var shipped: CatchProfile = load(CATCH_PROFILE_PATH) as CatchProfile
-	assert_not_null(shipped, "resources/fx/default_catch_profile.tres loads")
+	assert_not_null(shipped, "match/feedback/default_catch_profile.tres loads")
 	if shipped == null:
 		return
 	assert_true(shipped.enabled, "and ships switched on")
@@ -491,7 +491,7 @@ func test_the_shipped_profile_is_a_resource() -> void:
 
 # --- The shipped node ---------------------------------------------------------
 
-## The node in [code]scenes/match/match.tscn[/code] is wired, and is inert in a
+## The node in [code]match/match.tscn[/code] is wired, and is inert in a
 ## headless run.
 ##
 ## Both halves matter. Unwired, the catch is silent again and no test above would
@@ -663,7 +663,7 @@ func _assert_is_palette_color(
 	assert_almost_eq(actual.b, expected.b, COLOR_TOLERANCE, "%s -- blue" % message)
 
 
-## The one licence [code]scenes/fx/feedback_rig.tscn[/code]'s own header grants:
+## The one licence [code]match/feedback/feedback_rig.tscn[/code]'s own header grants:
 ## a test that needs the logic to actually run without a display server says so.
 func _make_kick(body: PlayerController) -> FxCameraKick:
 	var kick: FxCameraKick = FxCameraKick.new()

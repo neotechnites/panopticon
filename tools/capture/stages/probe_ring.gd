@@ -27,7 +27,7 @@ extends SceneTree
 ## Every number a stage file quotes (a rock's shadow, a pad's edge, a lane's
 ## width) came off one of these.
 
-const RING_SCENE: String = "res://scenes/ring/bentham_ring.tscn"
+const RING_SCENE: String = "res://maps/bentham_ring/bentham_ring.tscn"
 const DECK_Y: float = 23.0
 const LANE_BAND := Vector2(47.5, 56.5)
 const CLEAR_MARGIN: float = 0.5

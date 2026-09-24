@@ -1,13 +1,13 @@
 [gd_scene load_steps=4 format=3]
 
-[ext_resource type="PackedScene" path="res://assets/models/portal.glb" id="1_portal_model"]
-[ext_resource type="PackedScene" path="res://scenes/ring/portal_motes.tscn" id="2_motes"]
+[ext_resource type="PackedScene" path="res://maps/bentham_ring/models/portal.glb" id="1_portal_model"]
+[ext_resource type="PackedScene" path="res://props/portal_motes.tscn" id="2_motes"]
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_gate"]
 size = Vector3(4.0, 3.6, 1.0)
 
 [node name="Portal" type="Node3D"]
-editor_description = "The finish portal: model, glow and the win gate. Instanced into scenes/ring/bentham_ring.tscn at the finish bearing."
+editor_description = "The finish portal: model, glow and the win gate. Instanced into maps/bentham_ring/bentham_ring.tscn at the finish bearing."
 
 [node name="PortalModel" parent="." instance=ExtResource("1_portal_model")]
 

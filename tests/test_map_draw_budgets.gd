@@ -89,7 +89,7 @@ const DRAW_BUDGETS: Dictionary = {
 	},
 	# THE LANE IS BARE AGAIN (Ryan, 2026-09-22: "for the marble level, can you
 	# just get rid of all the elements on the ring?"). The obstacle course --
-	# 71 placed prop instances -- came off scenes/ring/marble.tscn, and the
+	# 71 placed prop instances -- came off maps/marble/marble.tscn, and the
 	# surfaces row is where an obstacle course always showed: 75 surfaces to 4,
 	# 11 materials to 4, 99250 tris to 75632. What is left to draw is the
 	# rotunda, the tower, the portal and the bars at 353 deg, and the four
@@ -145,7 +145,7 @@ const DRAW_BUDGETS: Dictionary = {
 	# shadow caster. Re-measured after the obstacle course came off the lane
 	# and the wood went on (Ryan: "spread trees across the whole thing"):
 	# 143 placed prop instances (113 trees, 30 bushes and rocks, placed by
-	# tools/forest_trees.py) measure 249815 tris and 152 surfaces against the
+	# tools/modelling/maps/forest/forest_trees.py) measure 249815 tris and 152 surfaces against the
 	# course's 170443 and 54; materials fall from 20 to 16 with the pads, orb
 	# and thorn patches gone. tris and surfaces ceilings are the new
 	# measurement plus 20 %, as the header says; the rest keep the ceilings

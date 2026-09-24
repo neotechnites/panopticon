@@ -7,7 +7,7 @@ path="res://.godot/imported/ui_click.wav-54748830a592cc10bdad7a9be0146cc6.sample
 
 [deps]
 
-source_file="res://assets/audio/sfx/ui_click.wav"
+source_file="res://audio/sfx/ui_click.wav"
 dest_files=["res://.godot/imported/ui_click.wav-54748830a592cc10bdad7a9be0146cc6.sample"]
 
 [params]

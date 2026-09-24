@@ -8,7 +8,7 @@ path="res://.godot/imported/forest_rock_outcrop.glb-ed31a9da843aee8b1677099f23a0
 
 [deps]
 
-source_file="res://assets/models/forest_rock_outcrop.glb"
+source_file="res://maps/forest/models/forest_rock_outcrop.glb"
 dest_files=["res://.godot/imported/forest_rock_outcrop.glb-ed31a9da843aee8b1677099f23a08778.scn"]
 
 [params]

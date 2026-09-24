@@ -20,12 +20,12 @@ nothing flat at the end of it reaches the eye -- so the fog is built to a number
 rather than to a look: the bottom of the stack is one opaque slab and a vertical
 ray leaves under FOG_PROOF of the floor's own colour. It takes two things
 together. The slab is here; the other half is `disable_fog = true` on FogMat in
-scenes/ring/forest.tscn, without which the Environment's depth fog repaints these
+maps/forest/forest.tscn, without which the Environment's depth fog repaints these
 layers AND the floor behind them to one pale colour, and one colour spread over
 one flat plane is exactly what reads as a floor.
 
-    python3 tools/modelling/forest_pit_build.py         the fog's own numbers
-    python3 tools/modelling/forest_build.py --check     proves the whole ground
+    python3 tools/modelling/maps/forest/forest_pit_build.py         the fog's own numbers
+    python3 tools/modelling/maps/forest/forest_build.py --check     proves the whole ground
 """
 
 import math
@@ -38,7 +38,7 @@ FOG_NAME = "ForestFog"
 FOG_TINT = (0.26, 0.28, 0.22)   # gold-grey-green, kept dim: a column stacks fourteen layers, and unshaded
                                 # fog brighter than the sunlit lane reads as milk, not gloom. Godot shows
                                 # this x FOG_OVERRIDE, and FOG_DEPTH_DIM takes the floor end near black
-FOG_OVERRIDE = 0.6              # FogMat's albedo alpha in scenes/ring/forest.tscn. The scene multiplies every
+FOG_OVERRIDE = 0.6              # FogMat's albedo alpha in maps/forest/forest.tscn. The scene multiplies every
                                 # vertex alpha by this, so it is the ceiling on what one layer can hide
                                 # (a layer at vertex alpha 1.0 still passes 40 % of what is behind it).
                                 # fog_report() models it: leave it out and the transmittance numbers are fiction

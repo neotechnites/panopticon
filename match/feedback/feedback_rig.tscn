@@ -5,8 +5,8 @@
 [ext_resource type="Script" path="res://scripts/fx/hit_confirm.gd" id="3_hit_confirm"]
 [ext_resource type="Script" path="res://scripts/fx/hit_reaction.gd" id="4_hit_reaction"]
 [ext_resource type="Script" path="res://scripts/fx/catch_reaction.gd" id="5_catch_reaction"]
-[ext_resource type="Resource" path="res://scenes/fx/default_feedback_profile.tres" id="6_feedback_profile"]
-[ext_resource type="Resource" path="res://resources/fx/default_catch_profile.tres" id="7_catch_profile"]
+[ext_resource type="Resource" path="res://match/feedback/default_feedback_profile.tres" id="6_feedback_profile"]
+[ext_resource type="Resource" path="res://match/feedback/default_catch_profile.tres" id="7_catch_profile"]
 
 [node name="FeedbackRig" type="CanvasLayer"]
 layer = 2

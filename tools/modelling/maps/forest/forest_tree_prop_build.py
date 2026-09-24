@@ -12,8 +12,8 @@ in one glb is not a model, it is a bag. The three thin wrappers
 ``<name>_build.py``; they hold nothing but the variant letter.
 
     tools/modelling/model build forest_tree_prop_a
-    python3 tools/modelling/forest_tree_prop_build.py --check          # all three
-    python3 tools/modelling/forest_tree_prop_build.py --check --variant b
+    python3 tools/modelling/maps/forest/forest_tree_prop_build.py --check          # all three
+    python3 tools/modelling/maps/forest/forest_tree_prop_build.py --check --variant b
 
 Cover contract (docs/maps/forest.md, lane y 23.0, guard eye y 28.7):
   * the trunk is the cover. A standing prisoner is 1.8 m tall and 0.6 m across,
@@ -42,7 +42,11 @@ except ImportError:                       # --check on the Mac: geometry only
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-sys.path.insert(0, HERE + os.sep + "lib")
+_HOME = os.path.dirname(os.path.abspath(__file__))
+for _root in (os.path.dirname(_HOME), os.path.dirname(os.path.dirname(_HOME))):  # the repo's tools/modelling
+    if os.path.isfile(os.path.join(_root, "model")) and os.path.isfile(os.path.join(_root, "lib", "mdl.py")):
+        sys.path[1:1] = [d for d, _, _ in os.walk(_root) if "__pycache__" not in d]
+        break
 
 import forest_tree_build as ft  # noqa: E402  the forest atlas, the mesh library
 from forest_tree_build import (_Mesh, _Rng, UP, DOWN, add, sub, norm, dot, cross,  # noqa: E402

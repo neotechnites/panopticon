@@ -4,7 +4,7 @@ extends Node
 ## Turns what every [PlayerController] in the scene is doing into posted audio
 ## events. [b]Attach it; do not edit them.[/b]
 ##
-## Drop this node into [code]scenes/audio/game_audio.tscn[/code] next to the
+## Drop this node into [code]audio/game_audio.tscn[/code] next to the
 ## [AudioDirector] and every body in the match becomes audible: footsteps, jump,
 ## landing and both ends of a slide, for the human, for every bot, and for a
 ## ghost. [code]scripts/player/player_controller.gd[/code] is not modified for
@@ -35,7 +35,7 @@ extends Node
 ##
 ## [b]Why it watches [signal SceneTree.node_added] AND sweeps once, exactly like
 ## [UIAudioListener].[/b] The human's body is authored directly in
-## [code]scenes/match/match.tscn[/code] and is already in the tree before this
+## [code]match/match.tscn[/code] and is already in the tree before this
 ## node is ready -- the deferred sweep in [method _enter_tree] catches it. Every
 ## AI body is spawned at runtime into the [code]Runners[/code] container by
 ## [method MatchController._make_ai_participant], after this node's own

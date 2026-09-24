@@ -21,7 +21,7 @@ extends TestCase
 ## [/codeblock]
 
 ## The base field of view every test here zooms from: the value
-## [code]scenes/player/player.tscn[/code] ships its camera at.
+## [code]characters/player/player.tscn[/code] ships its camera at.
 const BASE_FOV: float = 100.0
 
 ## Two framerates, to show the transition is time-based and not frame-based.
@@ -35,7 +35,7 @@ var _profile: ZoomProfile
 
 func before_each() -> void:
 	_profile = (
-		load("res://scripts/optics/default_zoom_profile.tres") as ZoomProfile
+		load("res://weapons/default_zoom_profile.tres") as ZoomProfile
 	).duplicate() as ZoomProfile
 
 	_camera = Camera3D.new()

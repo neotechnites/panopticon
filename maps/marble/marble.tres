@@ -7,4 +7,4 @@ script = ExtResource("1_map_definition")
 id = &"marble"
 title = "The Marble Rotunda"
 summary = "MAP_MARBLE_SUMMARY"
-scene_path = "res://scenes/ring/marble.tscn"
+scene_path = "res://maps/marble/marble.tscn"

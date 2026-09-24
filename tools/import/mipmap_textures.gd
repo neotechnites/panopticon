@@ -4,7 +4,7 @@ extends EditorScenePostImport
 ## Gives an imported .glb's embedded textures a mip chain, and lets the
 ## materials ask for it.
 ##
-## THE DEFECT (measured, headless, on assets/models/marble_tower.glb):
+## THE DEFECT (measured, headless, on maps/marble/models/marble_tower.glb):
 ## the .glb embeds its 11 albedo PNGs and the import is configured
 ## `gltf/embedded_image_handling=3`, so Godot's glTF importer builds each
 ## sheet as an ImageTexture with NO mip chain. Every material meanwhile asks
@@ -36,7 +36,7 @@ extends EditorScenePostImport
 const SharedMaterials := preload("res://tools/import/shared_materials.gd")
 ## Surfaces whose glTF material is named here get the waving lava shader instead.
 const WAVE_MATERIALS := [&"LavaRiver", &"LavaSea", &"LavaCrack"]
-const LAVA_WAVE_SHADER := "res://scenes/ring/lava_wave.gdshader"
+const LAVA_WAVE_SHADER := "res://maps/bentham_ring/materials/lava_wave.gdshader"
 
 const TEXTURE_PROPERTIES := [
 	&"albedo_texture",

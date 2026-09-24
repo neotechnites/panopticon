@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Measure the cell bars of assets/models/marble.glb: the width of each bar,
+"""Measure the cell bars of maps/marble/models/marble.glb: the width of each bar,
 in u (along the bay chord) and d (into the wall), at foot / mid / head.
 
-    python3 tools/modelling/lib/bar_width.py assets/models/marble.glb --bearing 41.5 --tier 3 [--heights 3]
+    python3 tools/modelling/lib/bar_width.py maps/marble/models/marble.glb --bearing 41.5 --tier 3 [--heights 3]
 
 Pure python, stdlib only: parse_glb from glb_audit.py beside this file, the
-geometry constants and _Bay from tools/modelling/marble_build.py (imported
+geometry constants and _Bay from tools/modelling/maps/marble/marble_build.py (imported
 without Blender; its two part modules are stubbed so the bottom-of-file
 imports do not pull them in).
 

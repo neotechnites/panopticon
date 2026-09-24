@@ -35,8 +35,8 @@ extends TestCase
 ## What is not here is whether it [i]looks[/i] like an eye, which is a screenshot
 ## and belongs on a person's monitor. Nobody has seen this running.
 
-const EYE_SCENE_PATH: String = "res://scenes/tower/watching_eye.tscn"
-const PROFILE_PATH: String = "res://scenes/tower/default_watching_eye_profile.tres"
+const EYE_SCENE_PATH: String = "res://tower/watching_eye.tscn"
+const PROFILE_PATH: String = "res://tower/default_watching_eye_profile.tres"
 
 ## The two files that make up the watching eye. Read as text below, because "it
 ## cannot refer to the guard" is a fact about the source rather than about any
@@ -48,7 +48,7 @@ const EYE_SOURCE_PATHS: Array[String] = [
 ]
 
 ## The three glTF nodes the eyeball is made of, which is the whole of its look.
-## [code]tools/modelling/eye.contract.json[/code] pins these names and
+## [code]tools/modelling/tower/eye.contract.json[/code] pins these names and
 ## [code]lib/verify_glb.gd[/code] enforces them on every build of the model.
 const EYE_PART_NAMES: Array[StringName] = [&"Eye_Sclera", &"Eye_Iris", &"Eye_Pupil"]
 
@@ -58,8 +58,8 @@ const EYE_PART_NAMES: Array[StringName] = [&"Eye_Sclera", &"Eye_Iris", &"Eye_Pup
 ## means its [code]Watcher[/code] sets no look at all and its eyeball draws the
 ## materials that came out of the glTF.
 const LOOK_PATHS: Dictionary = {
-	&"forest": "res://scenes/ring/forest_watching_eye_look.tres",
-	&"marble": "res://scenes/ring/marble_watching_eye_look.tres",
+	&"forest": "res://maps/forest/forest_watching_eye_look.tres",
+	&"marble": "res://maps/marble/marble_watching_eye_look.tres",
 }
 
 ## Somewhere out on the deck: the running channel is r=41.75 to r=46.75, so this

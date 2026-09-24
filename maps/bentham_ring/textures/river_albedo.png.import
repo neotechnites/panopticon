@@ -10,7 +10,7 @@ metadata={
 
 [deps]
 
-source_file="res://tools/modelling/textures/river_albedo.png"
+source_file="res://maps/bentham_ring/textures/river_albedo.png"
 dest_files=["res://.godot/imported/river_albedo.png-3840fb66dc3efff7fe529369d31498b0.ctex"]
 
 [params]

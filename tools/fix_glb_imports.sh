@@ -3,7 +3,7 @@
 # post-import hook, and remove any PNGs Godot extracted.
 cd "$(dirname "$0")/.." || exit 1
 HOOK='res://tools/import/mipmap_textures.gd'
-for f in assets/models/*.glb.import; do
+for f in */models/*.glb.import maps/*/models/*.glb.import; do
   [ -f "$f" ] || continue
   if grep -q '^gltf/embedded_image_handling=' "$f"; then
     sed -i.bak 's/^gltf\/embedded_image_handling=.*/gltf\/embedded_image_handling=3/' "$f" && rm -f "$f.bak"
@@ -24,4 +24,4 @@ for f in assets/models/*.glb.import; do
 import_script/path=\"$HOOK\"|" "$f" && rm -f "$f.bak"
   fi
 done
-rm -f assets/models/*_albedo.png assets/models/*_albedo.png.import assets/models/*_emissive.png assets/models/*_emissive.png.import
+rm -f */models/*_albedo.png* */models/*_emissive.png* maps/*/models/*_albedo.png* maps/*/models/*_emissive.png*

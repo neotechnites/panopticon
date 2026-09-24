@@ -20,7 +20,7 @@ extends Resource
 
 ## Radius of the eyeball in metres.
 ##
-## [code]assets/models/eye.glb[/code] is authored as a unit sphere -- the sclera
+## [code]tower/models/eye.glb[/code] is authored as a unit sphere -- the sclera
 ## spans -1..+1 on every axis -- so this number is applied to the model as a
 ## uniform scale and is therefore literally the radius in metres. 2.5 gives a 5 m
 ## ball: big enough to read as an eye from the far rail at r=60, small enough to

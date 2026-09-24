@@ -5,14 +5,14 @@ extends Resource
 ## needs to know.
 ##
 ## [b]Two things in one file, deliberately.[/b] This script is both the resource
-## type of [code]resources/movement/air_control_catalog.tres[/code] -- an ordered
+## type of [code]characters/player/air_control/air_control_catalog.tres[/code] -- an ordered
 ## array of [AirControlPreset] -- and the static accessor everything else uses.
 ## The same shape as [MapCatalog], and for the same reason: the alternative was a
 ## second class whose only job was to [method load] the first.
 ##
 ## [b]Why the presets needed a catalog at all.[/b] They were authored for the
 ## movement playground, where the set on offer is typed into
-## [code]scenes/dev/movement_playground.tscn[/code] and cycled with a key. That
+## [code]characters/player/movement_playground.tscn[/code] and cycled with a key. That
 ## is the right shape for a dev scene. A settings file can hold a NAME but not a
 ## scene's array, so the presets are named -- see [member AirControlPreset.id]
 ## -- and this is the one list of what exists, independent of any menu.
@@ -28,14 +28,14 @@ extends Resource
 ## this list to build one.
 ##
 ## [b]Adding a preset is data[/b] -- a [code].tres[/code] in
-## [code]resources/movement/[/code] and an entry in the catalog below, with no
+## [code]characters/player/air_control/[/code] and an entry in the catalog below, with no
 ## edit to [MatchController]. The playground's own list is separate and stays
 ## that way: it is a scene's authored array, and a dev scene is allowed to offer
 ## a set that is not the shipped one.
 
 ## The shipped list. Not a hard-coded preset -- a hard-coded FILE, which is the
 ## one piece of this that cannot itself be data.
-const CATALOG_PATH: String = "res://resources/movement/air_control_catalog.tres"
+const CATALOG_PATH: String = "res://characters/player/air_control/air_control_catalog.tres"
 
 ## The preset every match runs, and the only one a player reaches -- there is no
 ## picker any more; see [MatchSetupScreen]. Also the fallback for a rules
@@ -43,7 +43,7 @@ const CATALOG_PATH: String = "res://resources/movement/air_control_catalog.tres"
 ##
 ## Carve. Committed was the tuning the game shipped with, and
 ## [code]tests/test_air_control_presets.gd[/code] still holds IT identical to
-## [code]scenes/player/default_movement_profile.tres[/code] -- that fact is
+## [code]characters/player/default_movement_profile.tres[/code] -- that fact is
 ## about [code]air_control_01_committed.tres[/code], not about this constant,
 ## and does not move when this does. The other three presets stay on disk and
 ## in the movement playground, unplayed but not deleted.
@@ -133,7 +133,7 @@ static func display_name_for(id: StringName) -> String:
 ##
 ## [b]A fresh profile every call, and that is load-bearing.[/b]
 ## [method AirControlPreset.build] duplicates
-## [code]scenes/player/default_movement_profile.tres[/code], which is the single
+## [code]characters/player/default_movement_profile.tres[/code], which is the single
 ## process-wide instance every scene, every bot and every test is holding.
 ## Handing that object out and then writing air control into it would retune the
 ## shipped game from a menu. See [method AirControlPreset.build].

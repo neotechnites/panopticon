@@ -249,7 +249,7 @@ signal kill_beat_started(guard: MatchParticipant, seconds: float)
 
 ## The colours this match paints its bodies with -- one per runner seat, plus
 ## the guard's own. Leave it unset and the match runs on the shipped
-## [code]resources/rules/default_runner_palette.tres[/code] (see [method
+## [code]match/rules/default_runner_palette.tres[/code] (see [method
 ## get_runner_palette]), exactly the way [member rules] falls back to a default
 ## [MatchRules]. Ryan's to edit; nothing in this script names a colour directly.
 @export var palette: RunnerPalette
@@ -343,25 +343,25 @@ const PEN_SPACING_METRES: float = 4.0
 ## What changes is that [KillVolume] and [TrapVolume] widen their OWN
 ## [member CollisionObject3D.collision_mask] to include this one bit
 ## specifically -- see the masks authored in
-## [code]scenes/ring/bentham_ring.tscn[/code] -- so a hazard that has to see a
+## [code]maps/bentham_ring/bentham_ring.tscn[/code] -- so a hazard that has to see a
 ## ghost can, while nothing that merely shares the rifle's default mask finds
 ## one by accident.
 const GHOST_HAZARD_LAYER: int = 1 << 20
 
 ## The [GhostProfile] a round runs on when [MatchRules] names none. The same
-## resource [code]resources/rules/default_match_rules.tres[/code] points at, so
+## resource [code]match/rules/default_match_rules.tres[/code] points at, so
 ## a match assembled in code plays the ghost the shipped rules were written for
 ## rather than a second, quietly different default.
-const DEFAULT_GHOST_PROFILE_PATH: String = "res://resources/rules/default_ghost_profile.tres"
+const DEFAULT_GHOST_PROFILE_PATH: String = "res://match/rules/default_ghost_profile.tres"
 
 ## The [RunnerPalette] a match paints its bodies from when [member palette]
 ## names none. The same one companion resources point at, for the same reason
 ## [constant DEFAULT_GHOST_PROFILE_PATH] exists: a scene assembled in code gets
 ## the palette the game ships rather than a second, quietly different default.
-const DEFAULT_PALETTE_PATH: String = "res://resources/rules/default_runner_palette.tres"
+const DEFAULT_PALETTE_PATH: String = "res://match/rules/default_runner_palette.tres"
 
 ## The node holding the humanoid a body is seen as. Every body in the game comes
-## from [code]scenes/player/player.tscn[/code], which calls it this.
+## from [code]characters/player/player.tscn[/code], which calls it this.
 const BODY_AVATAR_NAME: StringName = &"Avatar"
 
 ## The name of the greybox capsule mesh, painted when a body has no [PrisonerAvatar].
@@ -382,15 +382,15 @@ const SHIRT_MATERIAL_NAME: String = "Shirt"
 const TINT_WHITE_BLEND: float = 0.0
 
 ## The [ShooterProfile] an AI in the tower plays on when [MatchRules] names
-## none. The same resource [code]scenes/bot/tower_shooter.tscn[/code] ships
+## none. The same resource [code]characters/bots/tower_shooter.tscn[/code] ships
 ## with, so a bot that takes the seat here plays exactly the shooter that scene
 ## was tuned as rather than a second, quietly different default.
-const DEFAULT_SHOOTER_PROFILE_PATH: String = "res://scenes/bot/default_shooter_profile.tres"
+const DEFAULT_SHOOTER_PROFILE_PATH: String = "res://characters/bots/default_shooter_profile.tres"
 
 ## The finisher's rifle, instanced from the SAME scene the guard's is authored
 ## from, so the prisoner who reaches the end gets the guard's gun -- model,
 ## optic, recoil, reload -- and not a second weapon that could drift from it.
-const FINISHER_RIFLE_SCENE_PATH: String = "res://scenes/weapon/rifle.tscn"
+const FINISHER_RIFLE_SCENE_PATH: String = "res://weapons/rifle.tscn"
 
 ## Physics priority given to the first-scored lap tracker; the rest count up from
 ## it. See [method _order_the_scoring].
@@ -719,7 +719,7 @@ func get_map_scene_path() -> String:
 ## [b]Why the controller and not the match scene.[/b] The player chooses a map on
 ## the setup screen, that choice reaches [MatchRules] through the one path every
 ## other rule takes -- [method GameSettings.apply_to_match_rules], called by the
-## [SettingsBoot] node in [code]scenes/match/match.tscn[/code] -- and this is the
+## [SettingsBoot] node in [code]match/match.tscn[/code] -- and this is the
 ## node that reads the rules. Loading the arena anywhere else would be a second
 ## path for one setting, which is exactly the thing the setup screen's header
 ## forbids.
@@ -2481,7 +2481,7 @@ func _tinted_material(participant: MatchParticipant, colour: Color) -> Material:
 ## MatchParticipant.home_body_material] directly rather than letting [method
 ## _tint_body] lazily capture whatever the scene shipped with -- the assigned
 ## colour IS this participant's home look from here on, not the flat material
-## [code]scenes/bot/ring_runner.tscn[/code] or [code]scenes/player/player.tscn[/code]
+## [code]characters/bots/ring_runner.tscn[/code] or [code]characters/player/player.tscn[/code]
 ## happens to author.
 func _assign_runner_color(participant: MatchParticipant) -> void:
 	var material: Material = _runner_material_for(participant)
@@ -2508,7 +2508,7 @@ func _tint_body(participant: MatchParticipant, material: Material) -> void:
 		mesh.material_override = material
 		return
 	# A whole-mesh override would hide every per-surface one under it, and an
-	# authored one (scenes/bot/ring_runner.tscn used to paint a flat orange) is
+	# authored one (characters/bots/ring_runner.tscn used to paint a flat orange) is
 	# exactly the one-colour prisoner this replaces.
 	mesh.material_override = null
 	mesh.set_surface_override_material(shirt, material)
@@ -3262,7 +3262,7 @@ func _find_tower_brain(participant: MatchParticipant) -> TowerShooter:
 
 ## The brain that plays the tower for [param participant], built on first use.
 ##
-## Built rather than instanced from [code]scenes/bot/tower_shooter.tscn[/code],
+## Built rather than instanced from [code]characters/bots/tower_shooter.tscn[/code],
 ## because that scene is a whole BODY. The participant already has a body, a
 ## head, a camera and an optic -- the same ones it runs the ring with, which is
 ## the entire point of a seat that is a role -- so the only thing missing is the
@@ -4002,7 +4002,7 @@ func get_air_control_profile() -> MovementProfile:
 ##
 ## [b]Why the look settings are written into it.[/b]
 ## [method AirControlCatalog.profile_for] hands back a private duplicate of
-## [code]scenes/player/default_movement_profile.tres[/code] -- it must, or a
+## [code]characters/player/default_movement_profile.tres[/code] -- it must, or a
 ## menu would retune the shipped game -- and mouse sensitivity and invert-Y live
 ## on that profile. [PauseMenu] writes them into the SHIPPED instance on every
 ## [signal SettingsStore.applied], which the bodies are no longer holding, so

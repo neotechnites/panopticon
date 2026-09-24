@@ -69,7 +69,7 @@ extends SceneTree
 ##
 ## [BotMatchWorld] composes a headless match from parts and deliberately leaves
 ## the HUD, the feedback rig and the lights of the match scene out; b-roll wants
-## exactly those. So this loads [code]scenes/match/match.tscn[/code] and, before
+## exactly those. So this loads [code]match/match.tscn[/code] and, before
 ## it enters the tree, takes the human out of the roster
 ## ([member MatchController.player] null, so every participant is AI), parks the
 ## body its NodePaths still point at, and disables the layers that exist for a
@@ -81,7 +81,7 @@ const CHAIN_STAGE := preload("res://tools/capture/chain_stage.gd")
 const STAGE_DRIVER := preload("res://tools/capture/stage_driver.gd")
 const STAGE_LIB := preload("res://tools/capture/stages/lib.gd")
 const STAGES_DIR: String = "res://tools/capture/stages/"
-const MATCH_SCENE: String = "res://scenes/match/match.tscn"
+const MATCH_SCENE: String = "res://match/match.tscn"
 
 ## Layer 2 is the owner-hidden layer every camera in the game clears; a camera
 ## that keeps it films the inside of somebody's head.
@@ -130,7 +130,7 @@ const STUCK_SPEED: float = 0.6
 ## The game's own camera kick, given to the ridden body: the shover's swing is
 ## felt by the human who swings it; a human who is shoved feels the launch and,
 ## in a clip, this -- the same whip, at the shove's own scale.
-const FEEDBACK_PROFILE_PATH: String = "res://scenes/fx/default_feedback_profile.tres"
+const FEEDBACK_PROFILE_PATH: String = "res://match/feedback/default_feedback_profile.tres"
 const POV_SHOVED_KICK_SCALE: float = 1.0
 
 ## The chase ghost runs this much faster than the prisoner it is after. The

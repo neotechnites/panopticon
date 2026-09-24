@@ -46,7 +46,7 @@ the pit's dark floor, fog layers (ForestFog: stacked translucent discs, alpha in
 COLOR_0, for GL Compatibility) and thorny brambles are forest_pit_build.
 
     tools/modelling/model build forest
-    python3 tools/modelling/forest_build.py --check
+    python3 tools/modelling/maps/forest/forest_build.py --check
 """
 
 import math
@@ -60,7 +60,11 @@ except ImportError:                       # --check on the Mac: geometry only
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-sys.path.insert(0, HERE + os.sep + "lib")
+_HOME = os.path.dirname(os.path.abspath(__file__))
+for _root in (os.path.dirname(_HOME), os.path.dirname(os.path.dirname(_HOME))):  # the repo's tools/modelling
+    if os.path.isfile(os.path.join(_root, "model")) and os.path.isfile(os.path.join(_root, "lib", "mdl.py")):
+        sys.path[1:1] = [d for d, _, _ in os.walk(_root) if "__pycache__" not in d]
+        break
 import texel as tx  # noqa: E402  one tiling sheet per class, world-projected
 if bpy is not None:
     import mdl  # noqa: E402

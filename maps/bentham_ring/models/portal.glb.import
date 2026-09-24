@@ -8,7 +8,7 @@ path="res://.godot/imported/portal.glb-d5d6c323c3ae45e4d0da36c4e4a42925.scn"
 
 [deps]
 
-source_file="res://assets/models/portal.glb"
+source_file="res://maps/bentham_ring/models/portal.glb"
 dest_files=["res://.godot/imported/portal.glb-d5d6c323c3ae45e4d0da36c4e4a42925.scn"]
 
 [params]

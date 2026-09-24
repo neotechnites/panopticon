@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" uid="uid://wocooilioq2s" path="res://scripts/bot/shooter_profile.gd" id="1_lmd8e"]
 [ext_resource type="Script" uid="uid://bnmbel11j4v7p" path="res://scripts/match/match_rules.gd" id="1_match_rules"]
-[ext_resource type="Resource" path="res://resources/rules/default_ghost_profile.tres" id="2_ghost_profile"]
+[ext_resource type="Resource" path="res://match/rules/default_ghost_profile.tres" id="2_ghost_profile"]
 
 [resource]
 script = ExtResource("1_match_rules")

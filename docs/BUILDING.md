@@ -114,7 +114,7 @@ the main scene instantiates:
 
     panopticon.exe --headless --verbose --quit-after 120
 
-Look for `Completed load for: 'res://scenes/ui/main_menu.tscn'` and exit code 0.
+Look for `Completed load for: 'res://ui/main_menu.tscn'` and exit code 0.
 
 ## What bit us
 
@@ -172,7 +172,7 @@ keyboard-stealing problem as the editor. Verify headless instead:
 
     build/panopticon-mac/Panopticon.app/Contents/MacOS/Panopticon --headless --verbose --quit-after 60
 
-Look for `Completed load for: 'res://scenes/ui/main_menu.tscn'` and exit code 0.
+Look for `Completed load for: 'res://ui/main_menu.tscn'` and exit code 0.
 
 **Friends opening the app will hit Gatekeeper.** It is ad-hoc signed, not
 notarised, so macOS blocks the first launch ("cannot be opened because the

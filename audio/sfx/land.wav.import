@@ -7,7 +7,7 @@ path="res://.godot/imported/land.wav-c22c530768b56e334e99ecb1b0b0cb0a.sample"
 
 [deps]
 
-source_file="res://assets/audio/sfx/land.wav"
+source_file="res://audio/sfx/land.wav"
 dest_files=["res://.godot/imported/land.wav-c22c530768b56e334e99ecb1b0b0cb0a.sample"]
 
 [params]

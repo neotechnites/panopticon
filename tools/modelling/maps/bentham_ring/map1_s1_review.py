@@ -6,13 +6,13 @@ NOT A MODEL and not a post hook. S1 is sculpted INTO map 1's own mesh
 here to export: this file is the camera crew, and it runs on its own --
 
     /Applications/Blender.app/Contents/MacOS/Blender -b -noaudio \\
-        -P tools/modelling/map1_s1_review.py -- <tag> [map.glb]
+        -P tools/modelling/maps/bentham_ring/map1_s1_review.py -- <tag> [map.glb]
 
 <tag> names the pass (it goes in every filename); the optional second argument
 is the .glb to photograph, so a candidate sculpt in /tmp can be shot against
-the shipped one. Default: assets/models/map_base_s1.glb.
+the shipped one. Default: maps/bentham_ring/models/map_base_s1.glb.
 
-It imports that map .glb at identity and assets/models/tower.glb at its
+It imports that map .glb at identity and tower/models/tower.glb at its
 guard-room datum, then writes three shots into
 ~/Desktop/panopticon-renders/map1/sections/ --
 
@@ -54,16 +54,20 @@ import bpy_extras.object_utils as obj_utils
 import mathutils
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)) + os.sep + "lib")
+_HOME = os.path.dirname(os.path.abspath(__file__))
+for _root in (os.path.dirname(_HOME), os.path.dirname(os.path.dirname(_HOME))):  # the repo's tools/modelling
+    if os.path.isfile(os.path.join(_root, "model")) and os.path.isfile(os.path.join(_root, "lib", "mdl.py")):
+        sys.path[1:1] = [d for d, _, _ in os.walk(_root) if "__pycache__" not in d]
+        break
 
 # The arena's own numbers: DECK_Z, EYE_H, the ring radii, pol(). Read, never
 # written -- this script builds no geometry.
 import map_base_build as mb  # noqa: E402
 
 REPO = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                    os.pardir, os.pardir))
-MAP_GLB = os.path.join(REPO, "assets", "models", "map_base_s1.glb")
-TOWER_GLB = os.path.join(REPO, "assets", "models", "tower.glb")
+                                    os.pardir, os.pardir, os.pardir, os.pardir))
+MAP_GLB = os.path.join(REPO, "maps", "bentham_ring", "models", "map_base_s1.glb")
+TOWER_GLB = os.path.join(REPO, "tower", "models", "tower.glb")
 OUT_DIR = os.path.expanduser("~/Desktop/panopticon-renders/map1/sections")
 
 TOWER_Y = 25.35                 # tower.glb's origin is the guard-room DATUM --
@@ -252,7 +256,7 @@ def main():
     argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
     if not argv:
         raise SystemExit("MDL ERROR map1_s1_review: need a tag -- "
-                         "-P tools/modelling/map1_s1_review.py -- <tag> [map.glb]")
+                         "-P tools/modelling/maps/bentham_ring/map1_s1_review.py -- <tag> [map.glb]")
     tag = argv[0]
     map_glb = os.path.abspath(argv[1]) if len(argv) > 1 else MAP_GLB
     for path in (map_glb, TOWER_GLB):

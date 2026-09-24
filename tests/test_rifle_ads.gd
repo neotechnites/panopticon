@@ -8,7 +8,7 @@ extends TestCase
 ## [method RifleRecoil.tick] with explicit, irregular deltas -- never a real
 ## clock -- mirroring tests/test_zoom_feel.gd and tests/test_rifle_recoil.gd.
 ## [member WeaponOptic.camera] and [member Rifle.aim_source] are the SAME
-## [Camera3D] here, exactly as scenes/player/player.tscn wires them: the
+## [Camera3D] here, exactly as characters/player/player.tscn wires them: the
 ## guarantee that matters most is that raising the model changes nothing about
 ## where that camera is pointed.
 
@@ -49,7 +49,7 @@ func before_each() -> void:
 	add_child(_camera)
 
 	_zoom_profile = (
-		load("res://scripts/optics/default_zoom_profile.tres") as ZoomProfile
+		load("res://weapons/default_zoom_profile.tres") as ZoomProfile
 	).duplicate() as ZoomProfile
 
 	_optic = WeaponOptic.new()
@@ -76,7 +76,7 @@ func before_each() -> void:
 	_ads = _rifle.get_node_or_null(^"Ads") as RifleAds
 	# The one cross-scene wire MatchController._attach_rifle draws at runtime --
 	# see its own comment there. Everything else (view_model, pose_source) is
-	# wired inside scenes/weapon/rifle.tscn itself.
+	# wired inside weapons/rifle.tscn itself.
 	_ads.optic = _optic
 	_view_model = _rifle.get_node_or_null(^"ViewModel") as Node3D
 
@@ -110,8 +110,8 @@ func _expected_aim_transform() -> Transform3D:
 # --- Wiring ---------------------------------------------------------------------
 
 func test_the_rifle_carries_an_ads_node_composed_with_recoil() -> void:
-	assert_not_null(_ads, "scenes/weapon/rifle.tscn must carry an Ads node")
-	assert_not_null(_recoil, "scenes/weapon/rifle.tscn must carry a Recoil node")
+	assert_not_null(_ads, "weapons/rifle.tscn must carry an Ads node")
+	assert_not_null(_recoil, "weapons/rifle.tscn must carry a Recoil node")
 	assert_true(
 		_recoil.is_at_rest(),
 		"with the optic unzoomed, the view model must start settled at the hip pose",

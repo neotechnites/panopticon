@@ -12,7 +12,7 @@ extends TestCase
 ##
 ## [b]Why the node is built here rather than found in the scene[/b]
 ##
-## The one shipped in [code]scenes/match/match.tscn[/code] is
+## The one shipped in [code]match/match.tscn[/code] is
 ## [code]headless_inert[/code] and switches itself off in a test run, which is
 ## right -- a headless bot sweep has no view to carry and no mouse to borrow. So
 ## the behaviour is tested on an instance built with that turned off and pointed
@@ -81,7 +81,7 @@ func before_each() -> void:
 	_stand_the_human_out_on_the_track()
 
 	_profile = (
-		load("res://resources/camera/default_seat_handover_profile.tres")
+		load("res://match/default_seat_handover_profile.tres")
 		as SeatHandoverProfile
 	).duplicate() as SeatHandoverProfile
 	# The SHIPPED profile cuts both ways -- see
@@ -273,7 +273,7 @@ func test_the_mouse_is_taken_for_the_flight_and_handed_back() -> void:
 ## asserted here is what the game actually ships with.
 func test_the_shipped_profile_cuts_both_seat_changes() -> void:
 	var shipped: SeatHandoverProfile = load(
-		"res://resources/camera/default_seat_handover_profile.tres"
+		"res://match/default_seat_handover_profile.tres"
 	) as SeatHandoverProfile
 	if not assert_not_null(shipped, "the shipped handover profile loads"):
 		return
@@ -447,7 +447,7 @@ func test_a_match_with_no_player_camera_is_a_no_op() -> void:
 ## The node in the match scene is wired, and switches itself off headless.
 func test_the_shipped_match_wires_a_handover_and_it_is_inert_headless() -> void:
 	var shipped: SeatHandoverView = _match.get_node_or_null("SeatHandover") as SeatHandoverView
-	if not assert_not_null(shipped, "scenes/match/match.tscn carries a SeatHandoverView"):
+	if not assert_not_null(shipped, "match/match.tscn carries a SeatHandoverView"):
 		return
 	assert_not_null(shipped.profile, "it has a profile, so its numbers are tunable")
 	assert_not_null(shipped.camera, "it has a camera of its own to carry the view with")

@@ -32,7 +32,7 @@ func before_each() -> void:
 	add_child(_camera)
 
 	_zoom_profile = (
-		load("res://scripts/optics/default_zoom_profile.tres") as ZoomProfile
+		load("res://weapons/default_zoom_profile.tres") as ZoomProfile
 	).duplicate() as ZoomProfile
 
 	_optic = WeaponOptic.new()
@@ -74,7 +74,7 @@ func _zoom_all_the_way_in() -> void:
 # --- Wiring -------------------------------------------------------------------
 
 func test_the_rifle_carries_a_scope_vignette_wired_to_its_own_siblings() -> void:
-	assert_not_null(_vignette, "scenes/weapon/rifle.tscn must carry a ScopeVignette node")
+	assert_not_null(_vignette, "weapons/rifle.tscn must carry a ScopeVignette node")
 	assert_same(
 		_vignette.ads, _ads,
 		"the vignette must read the transition off the Ads node beside it, not a clock of its own",
@@ -214,7 +214,7 @@ func test_an_optic_less_rifle_draws_nothing() -> void:
 	)
 
 
-## The other way a bot's rifle is silenced: [code]scenes/bot/tower_shooter.tscn[/code]
+## The other way a bot's rifle is silenced: [code]characters/bots/tower_shooter.tscn[/code]
 ## disables its own HumanTrigger with [member Node.process_mode] rather than
 ## calling [method WeaponInput.set_active], so a gate that only read the flag
 ## would put the optic on screen for a bot in the tower.
@@ -224,5 +224,5 @@ func test_a_trigger_silenced_by_process_mode_draws_no_vignette() -> void:
 	_zoom_all_the_way_in()
 	assert_almost_eq(
 		_vignette.compute_amount(), 0.0, 0.0001,
-		"the way scenes/bot/tower_shooter.tscn silences its trigger must gate the optic too",
+		"the way characters/bots/tower_shooter.tscn silences its trigger must gate the optic too",
 	)

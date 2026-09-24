@@ -1,9 +1,9 @@
 extends TestCase
 
-## [code]scenes/ring/lava_crack.tscn[/code]: a boost pad whose only decoration is
+## [code]maps/bentham_ring/props/lava_crack.tscn[/code]: a boost pad whose only decoration is
 ## the refracting [LavaHaze] quad, shared by every crack in a map.
 
-const CRACK_SCENE_PATH: String = "res://scenes/ring/lava_crack.tscn"
+const CRACK_SCENE_PATH: String = "res://maps/bentham_ring/props/lava_crack.tscn"
 
 const PAD_FOOTPRINT: Vector3 = Vector3(2.5, 1.0, 2.5)
 const HAZE_PATH: NodePath = ^"Haze"
@@ -15,7 +15,7 @@ const HAZE_VERTICES: int = 8
 
 
 ## The crack IS the pad -- same script, same mask, same footprint as
-## [code]scenes/ring/demon_pad.tscn[/code]; only the decoration differs.
+## [code]maps/bentham_ring/props/demon_pad.tscn[/code]; only the decoration differs.
 func test_lava_crack_is_a_boost_pad_with_the_pad_footprint() -> void:
 	var crack: Node = _make_crack()
 	add_child(crack)

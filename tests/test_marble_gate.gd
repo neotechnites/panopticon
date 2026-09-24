@@ -24,7 +24,7 @@ extends TestCase
 ## run. The third is asked of a number the jump arc fixes exactly.
 
 ## The scene under test. Instanced, driven, and freed.
-const SCENE_PATH: String = "res://scenes/ring/marble.tscn"
+const SCENE_PATH: String = "res://maps/marble/marble.tscn"
 
 ## The barrier's own node: marble_bars.glb, whose import ships
 ## MarbleBarsCollision (one StaticBody3D, one ConcavePolygonShape3D, layer 1).
@@ -49,7 +49,7 @@ const GATE_CENTRE_RADIUS: float = 53.125
 const START_SIDE_LOCAL_Z: float = 1.0
 const GATE_PLANE_LOCAL_Z: float = 0.0
 
-## The shipped body: scenes/player/player.tscn's own capsule, feet at the
+## The shipped body: characters/player/player.tscn's own capsule, feet at the
 ## body's origin.
 const BODY_RADIUS: float = 0.4
 const BODY_HEIGHT: float = 1.8
@@ -61,7 +61,7 @@ const BODY_HEIGHT: float = 1.8
 const BODY_LAYER: int = 0
 const STATIC_COLLIDER_MASK: int = 1
 
-## The sprint, from scenes/player/default_movement_profile.tres.
+## The sprint, from characters/player/default_movement_profile.tres.
 const GROUND_SPEED: float = 11.0
 const GRAVITY: float = 22.0
 const JUMP_VELOCITY: float = 7.0

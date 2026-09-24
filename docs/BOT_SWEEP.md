@@ -134,7 +134,7 @@ guard is blind 3.1 % of a round and hits 51 % of what he shoots at.
 Lane width is not the problem; the absence of anything standing *inside* the
 lane is. The fix is map content — something on the annulus between r 46.7 and
 57.3 that stands between the tree and the runner — and belongs in
-`tools/modelling/forest_build.py`, not in the bot code. Clean-run rate is
+`tools/modelling/maps/forest/forest_build.py`, not in the bot code. Clean-run rate is
 100.0 %, so the pathing is fine; the runners are simply shot.
 
 Hazard deaths: 0. The bramble pit never fires, for the same reason the marble

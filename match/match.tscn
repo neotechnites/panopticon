@@ -1,31 +1,31 @@
 [gd_scene load_steps=30 format=3]
 
-[ext_resource type="PackedScene" path="res://scenes/ring/bentham_ring.tscn" id="1_arena"]
-[ext_resource type="PackedScene" path="res://scenes/player/player.tscn" id="2_player"]
-[ext_resource type="PackedScene" path="res://scenes/weapon/rifle.tscn" id="3_rifle"]
-[ext_resource type="PackedScene" path="res://scenes/bot/ring_runner.tscn" id="4_runner"]
+[ext_resource type="PackedScene" path="res://maps/bentham_ring/bentham_ring.tscn" id="1_arena"]
+[ext_resource type="PackedScene" path="res://characters/player/player.tscn" id="2_player"]
+[ext_resource type="PackedScene" path="res://weapons/rifle.tscn" id="3_rifle"]
+[ext_resource type="PackedScene" path="res://characters/bots/ring_runner.tscn" id="4_runner"]
 [ext_resource type="Script" path="res://scripts/match/match_controller.gd" id="5_controller"]
 [ext_resource type="Script" path="res://scripts/match/match_hud.gd" id="6_hud"]
-[ext_resource type="Resource" path="res://resources/rules/default_match_rules.tres" id="7_rules"]
-[ext_resource type="Resource" path="res://resources/rules/default_runner_palette.tres" id="14_palette"]
-[ext_resource type="PackedScene" path="res://scenes/ui/pause_menu.tscn" id="8_pause_menu"]
-[ext_resource type="Resource" path="res://scenes/player/default_movement_profile.tres" id="9_movement_profile"]
-[ext_resource type="PackedScene" path="res://scenes/fx/feedback_rig.tscn" id="10_feedback_rig"]
-[ext_resource type="PackedScene" path="res://scenes/audio/game_audio.tscn" id="11_game_audio"]
+[ext_resource type="Resource" path="res://match/rules/default_match_rules.tres" id="7_rules"]
+[ext_resource type="Resource" path="res://match/rules/default_runner_palette.tres" id="14_palette"]
+[ext_resource type="PackedScene" path="res://ui/pause_menu.tscn" id="8_pause_menu"]
+[ext_resource type="Resource" path="res://characters/player/default_movement_profile.tres" id="9_movement_profile"]
+[ext_resource type="PackedScene" path="res://match/feedback/feedback_rig.tscn" id="10_feedback_rig"]
+[ext_resource type="PackedScene" path="res://audio/game_audio.tscn" id="11_game_audio"]
 [ext_resource type="Script" path="res://scripts/ui/settings_boot.gd" id="12_settings_boot"]
-[ext_resource type="PackedScene" path="res://scenes/ui/match_result_screen.tscn" id="13_result_screen"]
+[ext_resource type="PackedScene" path="res://ui/match_result_screen.tscn" id="13_result_screen"]
 [ext_resource type="Script" path="res://scripts/fx/spectator_view.gd" id="15_spectator"]
 [ext_resource type="Script" path="res://scripts/fx/free_camera.gd" id="25_free_camera"]
-[ext_resource type="Resource" path="res://resources/fx/default_spectator_profile.tres" id="16_spectator_profile"]
+[ext_resource type="Resource" path="res://match/feedback/default_spectator_profile.tres" id="16_spectator_profile"]
 [ext_resource type="Script" path="res://scripts/ui/death_screen.gd" id="17_death_screen"]
 [ext_resource type="Script" path="res://scripts/camera/seat_handover_view.gd" id="18_handover"]
-[ext_resource type="Resource" path="res://resources/camera/default_seat_handover_profile.tres" id="19_handover_profile"]
-[ext_resource type="Resource" path="res://resources/rules/default_match_announcement.tres" id="20_announcements"]
-[ext_resource type="Resource" path="res://resources/rules/default_match_readout.tres" id="21_readout"]
-[ext_resource type="PackedScene" path="res://scenes/ui/round_transition_screen.tscn" id="22_round_transition"]
+[ext_resource type="Resource" path="res://match/default_seat_handover_profile.tres" id="19_handover_profile"]
+[ext_resource type="Resource" path="res://match/rules/default_match_announcement.tres" id="20_announcements"]
+[ext_resource type="Resource" path="res://match/rules/default_match_readout.tres" id="21_readout"]
+[ext_resource type="PackedScene" path="res://ui/round_transition_screen.tscn" id="22_round_transition"]
 [ext_resource type="Script" path="res://scripts/net/net_match.gd" id="23_net_match"]
-[ext_resource type="Theme" path="res://scenes/ui/panopticon_menu_theme.tres" id="24_menu_theme"]
-[ext_resource type="AudioStream" path="res://assets/audio/music/PLACEHOLDER_match_theme.ogg" id="90_music"]
+[ext_resource type="Theme" path="res://ui/panopticon_menu_theme.tres" id="24_menu_theme"]
+[ext_resource type="AudioStream" path="res://audio/music/PLACEHOLDER_match_theme.ogg" id="90_music"]
 [ext_resource type="Script" path="res://scripts/audio/music_loop.gd" id="90_music_loop"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_hud_plate"]
@@ -43,10 +43,10 @@ content_margin_bottom = 8.0
 bg_color = Color(0, 0, 0, 0.35)
 
 [node name="Match" type="Node3D"]
-editor_description = "A whole match. Arena, one human body, three AI bodies, one rifle, and MatchController enforcing the match described by resources/rules/default_match_rules.tres: an opening race with no shooter, then rounds, with the tower passing to whoever reaches the end and the match going to whoever holds it through a round. Nothing under scenes/player, scenes/weapon, scenes/bot or scenes/ring is modified here -- they are composed."
+editor_description = "A whole match. Arena, one human body, three AI bodies, one rifle, and MatchController enforcing the match described by match/rules/default_match_rules.tres: an opening race with no shooter, then rounds, with the tower passing to whoever reaches the end and the match going to whoever holds it through a round. Nothing under characters/, weapons/ or maps/ is modified here -- they are composed."
 
 [node name="SettingsBoot" type="Node" parent="."]
-editor_description = "Applies the player's saved settings to this match before anything reads them. Every _enter_tree in a scene runs before any _ready, so this writes the rules while MatchController is still waiting to arm its first round. match_rules is the SAME resources/rules/default_match_rules.tres instance MatchController exports -- Godot returns one cached object per resource path -- so the ghost toggle on the settings screen lands on the rules this match is actually played under; point it at a second copy and the toggle saves and does nothing. movement_profile and camera are deliberately unset: PauseMenu in this scene already carries both, and two nodes writing the same two fields is one more place for them to disagree."
+editor_description = "Applies the player's saved settings to this match before anything reads them. Every _enter_tree in a scene runs before any _ready, so this writes the rules while MatchController is still waiting to arm its first round. match_rules is the SAME match/rules/default_match_rules.tres instance MatchController exports -- Godot returns one cached object per resource path -- so the ghost toggle on the settings screen lands on the rules this match is actually played under; point it at a second copy and the toggle saves and does nothing. movement_profile and camera are deliberately unset: PauseMenu in this scene already carries both, and two nodes writing the same two fields is one more place for them to disagree."
 script = ExtResource("12_settings_boot")
 match_rules = ExtResource("7_rules")
 

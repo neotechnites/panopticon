@@ -20,7 +20,7 @@ extends SceneTree
 ## [code]shot_paths.gd[/code] was fitted to.
 
 const SHOTS := preload("res://tools/capture/shot_paths.gd")
-const RING_SCENE: String = "res://scenes/ring/bentham_ring.tscn"
+const RING_SCENE: String = "res://maps/bentham_ring/bentham_ring.tscn"
 
 const STEP_METRES: float = 0.25
 const WANT_METRES: float = 1.0

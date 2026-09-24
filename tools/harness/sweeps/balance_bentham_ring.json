@@ -1,5 +1,5 @@
 {
-  "base_rules": "res://resources/rules/default_match_rules.tres",
+  "base_rules": "res://match/rules/default_match_rules.tres",
   "notes": "Balance sweep, bentham_ring, shipped guard (guard_skill 0.5): the arm every other number on this map is read against.",
   "variants": [
     {"name": "bentham_ring_default", "notes": "shipped rules, guard_skill 0.5", "overrides": {}}

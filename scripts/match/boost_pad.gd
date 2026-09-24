@@ -10,7 +10,7 @@ extends Area3D
 ##
 ## [b]This is a movement toy, not a level feature.[/b] Explicitly not how
 ## players travel between levels -- Ryan has ruled that ramps behind cover do
-## that. It is a reusable prop under [code]scenes/props/[/code], instanced into
+## that. It is a reusable prop under [code]props/[/code], instanced into
 ## a map the same way [TrapVolume] is, and it is placed in no map by this
 ## change.
 ##

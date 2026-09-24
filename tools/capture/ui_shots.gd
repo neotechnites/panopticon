@@ -6,8 +6,8 @@ extends SceneTree
 ## Writes <locale>_main_menu.png, <locale>_settings_<tab>.png and <locale>_result.png.
 ## Needs a window; headless runs the flow and saves nothing.
 
-const MENU := "res://scenes/ui/main_menu.tscn"
-const RESULT := "res://scenes/ui/match_result_screen.tscn"
+const MENU := "res://ui/main_menu.tscn"
+const RESULT := "res://ui/match_result_screen.tscn"
 const SETTLE_FRAMES := 6
 const LONG_NAME := "Bartholomew Plumestone"
 

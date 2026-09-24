@@ -28,7 +28,7 @@ extends Control
 ## were. Ten controls a player can reason about beat twenty-six they cannot.
 ##
 ## [b]Instantiate the scene -- do not construct this class.[/b] The layout lives
-## in [code]scenes/ui/match_setup_screen.tscn[/code]; this file binds it and
+## in [code]ui/match_setup_screen.tscn[/code]; this file binds it and
 ## drives data into it, the same split [SettingsScreen] uses.
 ##
 ## [b]How a choice reaches the match.[/b] There is one path and this screen does
@@ -40,15 +40,15 @@ extends Control
 ##                   -> the MatchRules the match runs       (SettingsBoot)
 ## [/codeblock]
 ## The last link is the one that silently breaks: [SettingsBoot] in
-## [code]scenes/match/match.tscn[/code] points at the SAME
-## [code]resources/rules/default_match_rules.tres[/code] instance
+## [code]match/match.tscn[/code] points at the SAME
+## [code]match/rules/default_match_rules.tres[/code] instance
 ## [MatchController] exports -- one cached object per resource path -- so what is
 ## chosen here is written into the rules the match is actually played under, and
 ## not into a copy of them. [code]tests/test_match_setup.gd[/code] asserts that
 ## by identity.
 
 ## [b]Air control is not a choice on this screen.[/b] It used to be, when the
-## four presets in [code]resources/movement/[/code] were still an open question --
+## four presets in [code]characters/player/air_control/[/code] were still an open question --
 ## see [AirControlCatalog] -- but Carve is now the shipped tuning and every body
 ## in every match runs it, via [member MatchRules.air_control_id]'s own default.
 ## The other three presets stay on disk, playable back to back in the movement
@@ -61,7 +61,7 @@ extends Control
 ## travels the identical path everything else on this screen does, ending on
 ## [member MatchRules.map_id], which [MatchController] reads to decide what arena
 ## to instance. There is one map today; a list of one is still a choice, and the
-## second map is a [code].tres[/code] in [code]resources/maps/[/code] with no
+## second map is a [code].tres[/code] in [code]maps/<map>/[/code] with no
 ## edit to this file.
 
 

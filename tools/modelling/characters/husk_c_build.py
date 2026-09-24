@@ -5,7 +5,7 @@ top disappears inside the wide base of the next, so the body reads as a
 bandaged cocoon with a dark ledge under every ridge, arms bound at the sides,
 a few unravelled strips hanging loose. Nothing is borrowed from the runner but
 the 16-joint rig (bone names, rest pose, ``Run`` clip); vertices bind to the
-nearest bone. Exported as ``assets/models/husk_c.glb``.
+nearest bone. Exported as ``characters/models/husk_c.glb``.
 
     tools/modelling/model build husk_c
     tools/modelling/model look  husk_c --cam 35,1,50 --margin 9 --res 1600x900
@@ -22,7 +22,11 @@ import bpy
 from mathutils import Matrix, Vector
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)) + os.sep + "lib")
+_HOME = os.path.dirname(os.path.abspath(__file__))
+for _root in (os.path.dirname(_HOME), os.path.dirname(os.path.dirname(_HOME))):  # the repo's tools/modelling
+    if os.path.isfile(os.path.join(_root, "model")) and os.path.isfile(os.path.join(_root, "lib", "mdl.py")):
+        sys.path[1:1] = [d for d, _, _ in os.walk(_root) if "__pycache__" not in d]
+        break
 
 import mdl  # noqa: E402
 

@@ -4,12 +4,12 @@ extends SceneTree
 ## [codeblock]
 ## godot --headless --path . --script res://tools/check_title_screen.gd
 ## [/codeblock]
-## Instantiates scenes/ui/main_menu.tscn, advances 2 s, then prints the tower's
+## Instantiates ui/main_menu.tscn, advances 2 s, then prints the tower's
 ## unprojected screen position and the eye's gaze dotted with the direction back
 ## to the camera (1.0 means it is looking straight at it). Exits 1 if either is
 ## missing or the eye is not looking at the camera.
 
-const SCENE_PATH: String = "res://scenes/ui/main_menu.tscn"
+const SCENE_PATH: String = "res://ui/main_menu.tscn"
 const ADVANCE_SECONDS: float = 2.0
 
 ## The project's configured window: project.godot's display/window/size. The

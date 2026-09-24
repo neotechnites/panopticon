@@ -34,7 +34,7 @@ extends Resource
 ## speed its [MovementProfile] would otherwise give it.
 ##
 ## "Faster than the living" is canon, and how much faster is the author's
-## ruling: the shipped [code]resources/rules/default_ghost_profile.tres[/code]
+## ruling: the shipped [code]match/rules/default_ghost_profile.tres[/code]
 ## runs at 3.0. The code default below is the older 1.25 and is left alone
 ## deliberately -- a profile constructed from nothing is the neutral control a
 ## harness compares against, and the file the game is played on is the ruling.

@@ -1,6 +1,6 @@
 [gd_scene load_steps=3 format=3]
 
-[ext_resource type="PackedScene" path="res://assets/models/forest_thorns.glb" id="1_thorns_model"]
+[ext_resource type="PackedScene" path="res://maps/forest/models/forest_thorns.glb" id="1_thorns_model"]
 [ext_resource type="Script" path="res://scripts/match/trap_volume.gd" id="2_trap_volume"]
 
 [node name="ForestThornsRound" type="Node3D"]

@@ -196,7 +196,7 @@ func test_the_guard_wears_a_colour_no_runner_is_dealt() -> void:
 ## match, so the guarantee holds even if nobody ever ghosts anybody.
 func test_the_shipped_palette_never_deals_the_guard_colour_to_a_runner() -> void:
 	var palette: RunnerPalette = load(
-		"res://resources/rules/default_runner_palette.tres"
+		"res://match/rules/default_runner_palette.tres"
 	) as RunnerPalette
 	assert_not_null(palette, "the shipped palette loads")
 	assert_gt(float(palette.runner_colors.size()), 0.0, "the shipped palette has runner colours")

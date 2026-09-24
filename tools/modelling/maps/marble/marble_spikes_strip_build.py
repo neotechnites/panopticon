@@ -4,7 +4,7 @@ seven cells by two. The model is marble_spikes_build.py; this is the name the
 pipeline builds it under, because `model build <name>` builds one .glb per
 script. Nothing is authored here.
 
-    python3 tools/modelling/marble_spikes_build.py --check --variant strip
+    python3 tools/modelling/maps/marble/marble_spikes_build.py --check --variant strip
     tools/modelling/model build marble_spikes_strip
 """
 

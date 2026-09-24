@@ -8,7 +8,7 @@ path="res://.godot/imported/hub_base.glb-34387e05a24c3b3ff9fa4e0131e86793.scn"
 
 [deps]
 
-source_file="res://assets/models/hub_base.glb"
+source_file="res://hub/models/hub_base.glb"
 dest_files=["res://.godot/imported/hub_base.glb-34387e05a24c3b3ff9fa4e0131e86793.scn"]
 
 [params]

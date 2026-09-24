@@ -53,7 +53,7 @@ signal main_menu_requested()
 ##
 ## Its layout lives in the scene, so [code]SettingsScreen.new()[/code] would
 ## hand back a bare [Control] with none of its controls in it.
-const SETTINGS_SCREEN_SCENE: PackedScene = preload("res://scenes/ui/settings_screen.tscn")
+const SETTINGS_SCREEN_SCENE: PackedScene = preload("res://ui/settings_screen.tscn")
 
 
 ## The action that toggles the menu. Left as an export so a scene can move it
@@ -75,7 +75,7 @@ const SETTINGS_SCREEN_SCENE: PackedScene = preload("res://scenes/ui/settings_scr
 ## node, so a [PackedScene] export here would close the resource graph into a
 ## cycle -- main menu, match, pause menu, main menu. A path has no such edge and
 ## is resolved only when the player asks.
-@export_file("*.tscn") var main_menu_scene_path: String = "res://scenes/ui/main_menu.tscn"
+@export_file("*.tscn") var main_menu_scene_path: String = "res://ui/main_menu.tscn"
 
 var _store: SettingsStore = null
 var _root: Control = null

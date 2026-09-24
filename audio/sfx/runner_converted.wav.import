@@ -7,7 +7,7 @@ path="res://.godot/imported/runner_converted.wav-91bdf7e9e76668b22cdcda2c0951151
 
 [deps]
 
-source_file="res://assets/audio/sfx/runner_converted.wav"
+source_file="res://audio/sfx/runner_converted.wav"
 dest_files=["res://.godot/imported/runner_converted.wav-91bdf7e9e76668b22cdcda2c09511513.sample"]
 
 [params]

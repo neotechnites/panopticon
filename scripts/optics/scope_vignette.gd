@@ -9,7 +9,7 @@ extends CanvasLayer
 ## Ryan's brief was explicit -- "it comes up to your eye then puts like a
 ## vignette on your screen, the scope doesn't actually need to be see through".
 ## The rifle's scope is a solid brick (see
-## [code]tools/modelling/rifle_build.py[/code]) and stays one: no render
+## [code]tools/modelling/weapons/rifle_build.py[/code]) and stays one: no render
 ## target, no second camera, no transparent material, no second draw of the
 ## whole arena. The read comes from this overlay plus the field-of-view change
 ## [WeaponOptic] already applies, which together cost one full-screen blend.
@@ -46,7 +46,7 @@ extends CanvasLayer
 ## Godot's own name for "there is no window", as [FxHitConfirm] uses it.
 const HEADLESS_DISPLAY: String = "headless"
 
-## The [RifleAds] beside this node in [code]scenes/weapon/rifle.tscn[/code].
+## The [RifleAds] beside this node in [code]weapons/rifle.tscn[/code].
 ## The only source of the transition, and of the [ZoomProfile] the numbers come
 ## off -- both read through it rather than from an optic exported here, because
 ## the optic lives on the holder's head and is wired onto Ads at runtime. One
@@ -61,7 +61,7 @@ const HEADLESS_DISPLAY: String = "headless"
 @export var trigger: WeaponInput
 
 ## The full-rect [Control] carrying the vignette shader. Authored in
-## [code]scenes/fx/scope_vignette.tscn[/code]; nothing here builds it.
+## [code]weapons/scope_vignette.tscn[/code]; nothing here builds it.
 @export var overlay: Control
 
 ## Go inert with no display server, exactly as the feedback rig's nodes do, so
@@ -108,7 +108,7 @@ func _ready() -> void:
 		set_process(false)
 		return
 	# A SubResource in a PackedScene is ONE object shared by every instance of
-	# that scene -- the same trap scenes/player/player.tscn records about its
+	# that scene -- the same trap characters/player/player.tscn records about its
 	# collision shape. Two rifles in one tree would otherwise write each
 	# other's uniforms. Duplicated, not rebuilt: every authored value, the
 	# shader included, comes across untouched.

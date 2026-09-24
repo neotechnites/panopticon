@@ -7,7 +7,7 @@ path="res://.godot/imported/placeholder_ui_click.wav-a10454b58494ab1ee5a7ab2959c
 
 [deps]
 
-source_file="res://assets/audio/placeholder_ui_click.wav"
+source_file="res://audio/placeholder/placeholder_ui_click.wav"
 dest_files=["res://.godot/imported/placeholder_ui_click.wav-a10454b58494ab1ee5a7ab2959ca8b7e.sample"]
 
 [params]

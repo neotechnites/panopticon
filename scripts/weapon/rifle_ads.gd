@@ -32,7 +32,7 @@ extends Node
 ##
 ## [b]The aimed pose[/b] is authored as position, rotation and scale below,
 ## exactly like the hip pose is authored on ViewModel's own transform in
-## [code]scenes/weapon/rifle.tscn[/code], so it can be nudged in the inspector
+## [code]weapons/rifle.tscn[/code], so it can be nudged in the inspector
 ## without touching code. The rotation is zero: the hip pose is deliberately
 ## tilted off-axis so the barrel does not sit on the crosshair (see ViewModel's
 ## own [code]editor_description[/code]), and aiming is exactly the act of
@@ -53,7 +53,7 @@ extends Node
 ## [b]Why the scope is not centred on the eye[/b]
 ##
 ## Because it cannot be. The scope
-## ([code]tools/modelling/rifle_build.py[/code], the SCOPE_ block) is a solid
+## ([code]tools/modelling/weapons/rifle_build.py[/code], the SCOPE_ block) is a solid
 ## brick 0.12 m wide and 0.078 m deep whose rear cup now runs 58 mm further
 ## back than it used to; it has no bore through it and no glass in it, and
 ## putting its optical axis on the view axis therefore puts an opaque slab
@@ -161,7 +161,7 @@ func get_hip_transform() -> Transform3D:
 ## the number [method get_current_base_pose] blends the pose with.
 ##
 ## Published here so that [ScopeVignette] -- which hangs beside this node in
-## [code]scenes/weapon/rifle.tscn[/code] and has no optic of its own -- draws on
+## [code]weapons/rifle.tscn[/code] and has no optic of its own -- draws on
 ## the same clock the pose and the field of view run on, without a second wire
 ## from [method MatchController._attach_rifle] that could be left null. Reads
 ## 0.0 with no optic, which is what makes an unwired rifle draw no vignette.

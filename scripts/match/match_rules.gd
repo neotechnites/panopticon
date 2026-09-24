@@ -297,7 +297,7 @@ enum MapPickMode {
 ##
 ## Point this at a [WeaponProfile] and a sweep arm gets the entire rifle by
 ## swapping one resource: hitscan or projectile, spread, tracer behaviour, the
-## shape of the reload, a charged shot. Presets live in [code]scenes/weapon/[/code].
+## shape of the reload, a charged shot. Presets live in [code]weapons/[/code].
 ##
 ## [Rifle] adopts it INTO [member Rifle.profile] rather than holding it alongside,
 ## so [code]rifle.profile[/code] stays the single answer that [MatchController],
@@ -336,7 +336,7 @@ enum MapPickMode {
 ## [method get_reload_seconds_for_turn] on every seat change; which turns count
 ## is [member turn_count_resets_on_seat_loss]'s business.
 ##
-## The shipped [code]resources/rules/default_match_rules.tres[/code] sets this to
+## The shipped [code]match/rules/default_match_rules.tres[/code] sets this to
 ## a real value, because with 0.0 there is no terminator and the match has no
 ## guaranteed end. The code default stays 0.0 so a rule set built in isolation
 ## reproduces the pre-turn behaviour exactly.
@@ -498,7 +498,7 @@ enum MapPickMode {
 ## [enum GhostBehaviour].
 ##
 ## The CODE default here is [constant GhostBehaviour.NONE] and the SHIPPED
-## default in [code]resources/rules/default_match_rules.tres[/code] is
+## default in [code]match/rules/default_match_rules.tres[/code] is
 ## [constant GhostBehaviour.CATCH_AND_SWAP]. That is not an oversight: a rule set
 ## built from nothing is the control case a harness compares against, and the
 ## rule set the game is played on is the author's ruling. A sweep arm that wants
@@ -602,7 +602,7 @@ enum MapPickMode {
 ##
 ## [method RunnerProfile.resolve] already looks for this property, so setting it
 ## here is all a sweep needs to vary how well a prisoner plays. Presets ship in
-## [code]scenes/bot/[/code]: baseline (the old straight-line lap, kept as the
+## [code]characters/bots/[/code]: baseline (the old straight-line lap, kept as the
 ## control case), default, patient and reckless.
 @export var ai_runner_profile: RunnerProfile
 

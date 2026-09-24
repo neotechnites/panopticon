@@ -8,7 +8,7 @@ path="res://.godot/imported/marble_spikes_strip.glb-402eaa721e23adf7edf64b366dc7
 
 [deps]
 
-source_file="res://assets/models/marble_spikes_strip.glb"
+source_file="res://maps/marble/models/marble_spikes_strip.glb"
 dest_files=["res://.godot/imported/marble_spikes_strip.glb-402eaa721e23adf7edf64b366dc75bc9.scn"]
 
 [params]

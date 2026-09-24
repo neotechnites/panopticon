@@ -4,7 +4,7 @@ extends RefCounted
 ## saves one per glTF name ("HellRock.001" is HellRock) and points every chunk at it.
 
 const CHUNK_PREFIX := "map_base_"
-const MATERIAL_DIR := "res://assets/models/map_base_materials/"
+const MATERIAL_DIR := "res://maps/bentham_ring/materials/imported/"
 
 
 ## Swaps each mesh surface's material for the shared saved one; returns how many.

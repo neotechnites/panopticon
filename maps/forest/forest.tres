@@ -7,4 +7,4 @@ script = ExtResource("1_map_definition")
 id = &"forest"
 title = "The Forest"
 summary = "MAP_FOREST_SUMMARY"
-scene_path = "res://scenes/ring/forest.tscn"
+scene_path = "res://maps/forest/forest.tscn"

@@ -1,4 +1,4 @@
-# assets/audio
+# audio
 
 Everything in here beginning with `placeholder_` is a **synthesised beep, not
 sound design.** They are square waves, sine sweeps and noise bursts, generated
@@ -11,10 +11,10 @@ to be replaced and to sound obviously temporary until they are.
 
 One cue, one drag. No code changes, no scene changes.
 
-1. Put the file (`.wav` or `.ogg`) anywhere under `res://assets/audio/`. Godot
+1. Put the file (`.wav` or `.ogg`) anywhere under `res://audio/`. Godot
    imports it on the next editor focus, or on
    `godot --headless --path . --import`.
-2. Open `res://scenes/audio/placeholder_bank.tres` in the inspector.
+2. Open `res://audio/placeholder_bank.tres` in the inspector.
 3. Expand `Cues` and find the one whose `Event` is the name you are replacing —
    the names are the constants in `scripts/audio/audio_events.gd`.
 4. Drag the new file onto that cue's `Stream`. Save the bank.
@@ -45,7 +45,7 @@ godot --headless --path . --import
 godot --headless --path . --script res://scripts/audio/placeholder_forge.gd -- --bank
 ```
 
-The third step **overwrites `scenes/audio/placeholder_bank.tres`** and will
+The third step **overwrites `audio/placeholder_bank.tres`** and will
 discard any hand-editing. Once real audio starts landing, run only the first
 step: the filenames do not change, so an existing bank keeps working.
 

@@ -2,9 +2,9 @@
 
 [ext_resource type="Script" path="res://scripts/maps/map_catalog.gd" id="1_map_catalog"]
 [ext_resource type="Script" path="res://scripts/maps/map_definition.gd" id="2_map_definition"]
-[ext_resource type="Resource" path="res://resources/maps/bentham_ring.tres" id="3_bentham_ring"]
-[ext_resource type="Resource" path="res://resources/maps/marble.tres" id="4_marble"]
-[ext_resource type="Resource" path="res://resources/maps/forest.tres" id="5_forest"]
+[ext_resource type="Resource" path="res://maps/bentham_ring/bentham_ring.tres" id="3_bentham_ring"]
+[ext_resource type="Resource" path="res://maps/marble/marble.tres" id="4_marble"]
+[ext_resource type="Resource" path="res://maps/forest/forest.tres" id="5_forest"]
 
 [resource]
 script = ExtResource("1_map_catalog")

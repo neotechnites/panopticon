@@ -8,7 +8,7 @@ path="res://.godot/imported/rifle.glb-81243bc6d79d22e6828b5910416f220b.scn"
 
 [deps]
 
-source_file="res://assets/models/rifle.glb"
+source_file="res://weapons/models/rifle.glb"
 dest_files=["res://.godot/imported/rifle.glb-81243bc6d79d22e6828b5910416f220b.scn"]
 
 [params]

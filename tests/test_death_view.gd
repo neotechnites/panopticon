@@ -20,7 +20,7 @@ extends TestCase
 ##
 ## [b]Why the nodes are built here rather than found in the scene[/b]
 ##
-## The two shipped in [code]scenes/match/match.tscn[/code] are
+## The two shipped in [code]match/match.tscn[/code] are
 ## [code]headless_inert[/code] and switch themselves off in a test run, which is
 ## right -- a sweep has no view to take over and no mouse to borrow. So the
 ## logic is tested on instances built with that turned off, pointed at the same
@@ -87,7 +87,7 @@ func before_each() -> void:
 	await step_ticks(SETTLE_TICKS)
 
 	_profile = (
-		load("res://resources/fx/default_spectator_profile.tres") as SpectatorProfile
+		load("res://match/feedback/default_spectator_profile.tres") as SpectatorProfile
 	).duplicate() as SpectatorProfile
 	_build_view()
 	_build_screen()
@@ -311,7 +311,7 @@ func test_the_camera_waits_for_the_hit_to_finish_before_it_cuts_away() -> void:
 	)
 
 	var feedback: FeedbackProfile = load(
-		"res://scenes/fx/default_feedback_profile.tres"
+		"res://match/feedback/default_feedback_profile.tres"
 	) as FeedbackProfile
 	if feedback != null:
 		assert_ge(
@@ -443,7 +443,7 @@ func test_the_match_scene_ships_both_and_they_are_headless_inert() -> void:
 	var shipped_view: FxSpectatorView = _match.get_node_or_null(
 		"SpectatorView"
 	) as FxSpectatorView
-	if not assert_not_null(shipped_view, "scenes/match/match.tscn carries a SpectatorView"):
+	if not assert_not_null(shipped_view, "match/match.tscn carries a SpectatorView"):
 		return
 	assert_not_null(shipped_view.profile, "wired to a SpectatorProfile")
 	assert_not_null(shipped_view.camera, "with a camera of its own")

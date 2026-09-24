@@ -7,7 +7,7 @@ path="res://.godot/imported/PLACEHOLDER_menu_theme.ogg-f4ca43a4e48970c6098f3c884
 
 [deps]
 
-source_file="res://assets/audio/music/PLACEHOLDER_menu_theme.ogg"
+source_file="res://audio/music/PLACEHOLDER_menu_theme.ogg"
 dest_files=["res://.godot/imported/PLACEHOLDER_menu_theme.ogg-f4ca43a4e48970c6098f3c8847dced21.oggvorbisstr"]
 
 [params]

@@ -20,7 +20,7 @@ extends TestCase
 ##    fresh match is asserted field by field rather than by trusting that
 ##    [code]restart()[/code] does what its name says.
 ##
-## Everything runs against the real [code]scenes/match/match.tscn[/code] on the
+## Everything runs against the real [code]match/match.tscn[/code] on the
 ## shipped rules, and the match is won the way the match itself wins one: through
 ## [method MatchController.convert_participant], with the race decided through
 ## [signal MatchLapTracker.lap_finished]. No phase is forged and nothing private
@@ -74,7 +74,7 @@ func before_each() -> void:
 ## once already. A result screen with a null controller is exactly that failure:
 ## the match ends, nothing is connected, and the player sees nothing.
 func test_the_match_scene_carries_a_wired_result_screen() -> void:
-	assert_not_null(_screen, "scenes/match/match.tscn has a ResultScreen")
+	assert_not_null(_screen, "match/match.tscn has a ResultScreen")
 	if _screen == null:
 		return
 	assert_same(_screen.controller, _controller, "the screen watches this match's controller")

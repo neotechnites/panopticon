@@ -12,7 +12,7 @@ config_version=5
 
 config/name="Panopticon"
 config/description="A 3D first-person asymmetrical multiplayer game. One player occupies the tower at the centre; the others run the ring."
-run/main_scene="res://scenes/ui/main_menu.tscn"
+run/main_scene="res://ui/main_menu.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 config/icon="res://icon.svg"
 
@@ -43,7 +43,7 @@ import/blender/enabled=false
 
 [internationalization]
 
-locale/translations=PackedStringArray("res://assets/locale/strings.en.translation", "res://assets/locale/strings.en_XA.translation")
+locale/translations=PackedStringArray("res://locale/strings.en.translation", "res://locale/strings.en_XA.translation")
 locale/fallback="en"
 
 [input]

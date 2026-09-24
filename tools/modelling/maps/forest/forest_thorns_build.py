@@ -30,7 +30,7 @@ only sibling `*_build.py` files to the PC: a forest_thorns_review.py would
 never arrive. hub_base_build.py keeps its own shots the same way.
 
     tools/modelling/model build forest_thorns --views threequarter,front
-    python3 tools/modelling/forest_thorns_build.py --check
+    python3 tools/modelling/maps/forest/forest_thorns_build.py --check
 """
 
 import math
@@ -44,7 +44,11 @@ except ImportError:                       # --check on the Mac: geometry only
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-sys.path.insert(0, HERE + os.sep + "lib")
+_HOME = os.path.dirname(os.path.abspath(__file__))
+for _root in (os.path.dirname(_HOME), os.path.dirname(os.path.dirname(_HOME))):  # the repo's tools/modelling
+    if os.path.isfile(os.path.join(_root, "model")) and os.path.isfile(os.path.join(_root, "lib", "mdl.py")):
+        sys.path[1:1] = [d for d, _, _ in os.walk(_root) if "__pycache__" not in d]
+        break
 if bpy is not None:
     import mdl  # noqa: E402
 

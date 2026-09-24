@@ -114,7 +114,7 @@ ssh -o ConnectTimeout=20 "$PC" "
   \$ErrorActionPreference = 'Stop'
   git -C '$CLONE' checkout -q -f -B shot incoming
   git -C '$CLONE' reset -q --hard incoming
-  git -C '$CLONE' clean -fdq -- assets/models
+  git -C '$CLONE' clean -fdq -- ':(glob)**/models/**'
   Write-Output ('shot at ' + (git -C '$CLONE' log --oneline -1))
 "
 
@@ -124,9 +124,9 @@ ssh -o ConnectTimeout=20 "$PC" "
 # stays clean and the materials survive a clean checkout.
 say "import"
 ssh -o ConnectTimeout=20 "$PC" "
-  Remove-Item $CLONE_W\\assets\\models\\*_albedo.png*, $CLONE_W\\assets\\models\\*_emissive.png* -ErrorAction SilentlyContinue
+  Get-ChildItem $CLONE_W -Recurse -Include *_albedo.png*, *_emissive.png* | Where-Object { \$_.Directory.Name -eq 'models' } | Remove-Item -ErrorAction SilentlyContinue
   \$hook = 'res://tools/import/mipmap_textures.gd'
-  Get-ChildItem $CLONE_W\\assets\\models\\*.glb.import | ForEach-Object {
+  Get-ChildItem $CLONE_W -Recurse -Filter *.glb.import | ForEach-Object {
     \$t = Get-Content \$_.FullName -Raw
     if (\$t -match 'gltf/embedded_image_handling=') { \$t = \$t -replace 'gltf/embedded_image_handling=\\d', 'gltf/embedded_image_handling=3' }
     else { \$t = \$t -replace '\\[params\\]\\r?\\n', \"[params]\`r\`ngltf/embedded_image_handling=3\`r\`n\" }
@@ -138,7 +138,7 @@ ssh -o ConnectTimeout=20 "$PC" "
     else { \$t = \$t -replace '\\[params\\]\\r?\\n', (\"[params]\`r\`nimport_script/path=\" + [char]34 + \$hook + [char]34 + \"\`r\`n\") }
     [IO.File]::WriteAllText(\$_.FullName, \$t)
   }
-  Remove-Item $CLONE_W\\assets\\models\\*_albedo.png*, $CLONE_W\\assets\\models\\*_emissive.png* -ErrorAction SilentlyContinue
+  Get-ChildItem $CLONE_W -Recurse -Include *_albedo.png*, *_emissive.png* | Where-Object { \$_.Directory.Name -eq 'models' } | Remove-Item -ErrorAction SilentlyContinue
   cmd /c \"$GODOT --headless --import --path $CLONE_W > $WORK_W\\import.txt 2>&1\"
   \$e = (Select-String -Path $WORK_W\\import.txt -Pattern 'ERROR' | Measure-Object -Line).Lines
   Write-Output ('import errors: ' + \$e)

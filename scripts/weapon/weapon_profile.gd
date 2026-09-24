@@ -211,7 +211,7 @@ enum ShotModel {
 ## both at zero rather than find a separate switch.
 ##
 ## Keep this well under the view model's own near-plane clearance: the rest
-## transform in [code]scenes/weapon/rifle.tscn[/code] holds its nearest vertex
+## transform in [code]weapons/rifle.tscn[/code] holds its nearest vertex
 ## about 0.13 m from the camera against a 0.05 m near plane, so a kick distance
 ## anywhere near that 0.08 m margin will punch the stock through the near plane
 ## at the peak of the kick. This default leaves comfortable room.

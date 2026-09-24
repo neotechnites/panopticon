@@ -19,7 +19,7 @@ and a great cornice under a solid ribbed dome. No oculus: the light is the
 tower's gold lantern, and a cool ambient. Nothing on the lane.
 
 Stone only. Mechanics -- the kill cylinder over the spike floor, portal,
-spawns, watch markers -- are scene nodes in scenes/ring/marble.tscn.
+spawns, watch markers -- are scene nodes in maps/marble/marble.tscn.
 
 Authored in WORLD coordinates so the scene instances it at identity:
 
@@ -63,7 +63,7 @@ a pier edge; the floor keeps its 3 x 3 slabs per facet. USE_TEXTURE_FILES:
 drop textures/marble_<class>_albedo.png (+ _emissive.png) beside the script
 and that class's painted sheet is replaced. The props keep the 256 px atlas.
 
-    python3 tools/modelling/marble_build.py --check     # geometry + contiguity, no Blender
+    python3 tools/modelling/maps/marble/marble_build.py --check     # geometry + contiguity, no Blender
     tools/modelling/model build marble                  # the pipeline
 """
 
@@ -78,7 +78,11 @@ except ImportError:                       # --check on the Mac: geometry only
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-sys.path.insert(0, HERE + os.sep + "lib")
+_HOME = os.path.dirname(os.path.abspath(__file__))
+for _root in (os.path.dirname(_HOME), os.path.dirname(os.path.dirname(_HOME))):  # the repo's tools/modelling
+    if os.path.isfile(os.path.join(_root, "model")) and os.path.isfile(os.path.join(_root, "lib", "mdl.py")):
+        sys.path[1:1] = [d for d, _, _ in os.walk(_root) if "__pycache__" not in d]
+        break
 import texel as tx  # noqa: E402  one tiling sheet per class, world-projected
 if bpy is not None:
     import mdl  # noqa: E402
@@ -1288,7 +1292,7 @@ def unwrap(ob, zones, groups, seed=0, face_uv=None):
 
 TOWER_GLB = r"C:\Users\ddd\panopticon-modelling\jobs\marble_tower\out\marble_tower.glb"
 if not os.path.isfile(TOWER_GLB):     # on the Mac: the shipped tower, so the guard's view has its arches
-    TOWER_GLB = os.path.join(HERE, "..", "..", "assets", "models", "marble_tower.glb")
+    TOWER_GLB = os.path.join(HERE, "..", "..", "..", "..", "maps", "marble", "models", "marble_tower.glb")
 TOWER_Y = 25.35             # the scene's Tower node: the model's origin, world y
 LANTERN_H = 5.6             # the arena light: this far over the tower datum -- under the arcade's arches, so
                             # the light leaves the room (scene: marble_tower_light_profile.tres, same number)

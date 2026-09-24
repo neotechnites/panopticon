@@ -10,12 +10,12 @@
 # prop") is exactly the thing that gets a shipped model past the suite.
 #
 # It looks for both spellings a scene can use:
-#   * the path            res://assets/models/<name>.glb
+#   * the path            res://<home>/models/<name>.glb
 #   * the resource uid    uid://xxxxxxxxxxxxx   (read out of <name>.glb.import)
 # A .tscn saved by the editor carries the uid, not the path, so grepping for
 # the filename alone quietly answers "no" for a model that half the map uses.
 #
-# Searched: scenes/, scripts/, resources/ and project.godot. NOT tools/ and NOT
+# Searched: every game home, scripts/ and project.godot. NOT tools/ and NOT
 # tests/ -- a render harness or a fixture referencing a model is not the game
 # depending on it.
 set -uo pipefail
@@ -24,16 +24,16 @@ REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 NAME="${1:-}"
 [ -n "$NAME" ] || { echo "usage: scene_refs.sh <name>" >&2; exit 2; }
 
-PATTERNS=("assets/models/${NAME}.glb")
+PATTERNS=("/models/${NAME}.glb")
 
-IMPORT="$REPO/assets/models/${NAME}.glb.import"
-if [ -f "$IMPORT" ]; then
+IMPORT="$(find "$REPO" -path "$REPO/.godot" -prune -o -name "${NAME}.glb.import" -print | head -1)"
+if [ -n "$IMPORT" ] && [ -f "$IMPORT" ]; then
   UID_LINE="$(grep -m1 -oE 'uid://[a-z0-9]+' "$IMPORT" || true)"
   [ -n "${UID_LINE:-}" ] && PATTERNS+=("$UID_LINE")
 fi
 
 DIRS=()
-for d in scenes scripts resources; do
+for d in maps hub characters weapons tower props ui audio match scripts; do
   [ -d "$REPO/$d" ] && DIRS+=("$REPO/$d")
 done
 [ -f "$REPO/project.godot" ] && DIRS+=("$REPO/project.godot")
@@ -41,7 +41,7 @@ done
 HITS=""
 if [ "${#DIRS[@]}" -gt 0 ]; then
   for p in "${PATTERNS[@]}"; do
-    FOUND="$(grep -rlF -- "$p" "${DIRS[@]}" 2>/dev/null || true)"
+    FOUND="$(grep -rlF --exclude="*.import" -- "$p" "${DIRS[@]}" 2>/dev/null || true)"
     [ -n "$FOUND" ] && HITS="$HITS$FOUND"$'\n'
   done
 fi

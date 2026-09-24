@@ -8,7 +8,7 @@ extends Control
 ## was an unreadable diff. That theory was retired on the settings screen for
 ## good reasons -- nothing was laid out where a person could see it, and every
 ## size was a number guessed twice -- and this file now follows it: structure in
-## [code]scenes/ui/main_menu.tscn[/code], binding and navigation here.
+## [code]ui/main_menu.tscn[/code], binding and navigation here.
 ##
 ## [b]It owns four views and shows exactly one.[/b]
 ## [codeblock]
@@ -44,11 +44,11 @@ signal quit_requested()
 
 ## The scene [method play] switches to. A path rather than a [PackedScene]; see
 ## the note on cycles above.
-@export_file("*.tscn") var match_scene_path: String = "res://scenes/match/match.tscn"
+@export_file("*.tscn") var match_scene_path: String = "res://match/match.tscn"
 
 ## The scene [method play_hub] switches to: the hub world, which is where Play
 ## goes now. Same path-not-PackedScene rule.
-@export_file("*.tscn") var hub_scene_path: String = "res://scenes/hub/hub.tscn"
+@export_file("*.tscn") var hub_scene_path: String = "res://hub/hub.tscn"
 
 ## The action that backs out of a screen. Matches [member PauseMenu.toggle_action]
 ## so Escape means the same thing everywhere.

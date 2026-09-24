@@ -20,7 +20,7 @@ to the arena's), Lava (the arena's river sheet), HubStone (painted grey),
 Marble and ForestAtlas (the two maps' own painted atlases).
 
     tools/modelling/model build hub_base
-    python3 tools/modelling/hub_base_build.py --check     # geometry only, no Blender
+    python3 tools/modelling/hub/hub_base_build.py --check     # geometry only, no Blender
 """
 
 import math
@@ -34,7 +34,11 @@ except ImportError:                       # --check on the Mac: geometry only
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-sys.path.insert(0, HERE + os.sep + "lib")
+_HOME = os.path.dirname(os.path.abspath(__file__))
+for _root in (os.path.dirname(_HOME), os.path.dirname(os.path.dirname(_HOME))):  # the repo's tools/modelling
+    if os.path.isfile(os.path.join(_root, "model")) and os.path.isfile(os.path.join(_root, "lib", "mdl.py")):
+        sys.path[1:1] = [d for d, _, _ in os.walk(_root) if "__pycache__" not in d]
+        break
 if bpy is not None:
     import mdl  # noqa: E402
     mdl.DEFAULTS["ground"] = False
@@ -147,8 +151,8 @@ S1_SIZES = {"short": (1.2, 2.4, 0.16, 0.28), "medium": (2.4, 3.8, 0.26, 0.38),
 
 # Render-only company: the arches tower and the eye, read from Ryan's play copy
 # on the PC exactly as tower_build.py reads its .blend. Never exported.
-TOWER_GLB = r"C:\dev\panopticon\assets\models\tower_arches.glb"
-EYE_GLB = r"C:\dev\panopticon\assets\models\eye.glb"
+TOWER_GLB = r"C:\dev\panopticon\tower\models\tower_arches.glb"
+EYE_GLB = r"C:\dev\panopticon\tower\models\eye.glb"
 TOWER_FOOT = 36.4               # model-local depth of the rock's foot under its origin
 EYE_H_OVER_TOWER = 7.2          # WatchingEyeProfile.height_metres
 EYE_RADIUS = 2.5                # ... radius_metres

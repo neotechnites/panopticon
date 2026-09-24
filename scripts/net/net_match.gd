@@ -13,7 +13,7 @@ signal match_bound(authority: bool)
 signal host_lost()
 
 const SESSION_PATH: NodePath = ^"/root/NetSession"
-const LINK_SCENE_PATH: String = "res://scenes/net/player_net_link.tscn"
+const LINK_SCENE_PATH: String = "res://match/net/player_net_link.tscn"
 
 ## Which of the two rifles a shot event belongs to.
 const TOWER_RIFLE: int = 0

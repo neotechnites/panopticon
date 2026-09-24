@@ -4,16 +4,16 @@ extends Resource
 ## Every map the game has, in one list, read by everything that needs to know.
 ##
 ## [b]Two things in one file, deliberately.[/b] This script is both the resource
-## type of [code]resources/maps/map_catalog.tres[/code] -- an ordered array of
+## type of [code]maps/map_catalog.tres[/code] -- an ordered array of
 ## [MapDefinition] -- and the static accessor everything else uses. The
 ## alternative was a second class whose only job was to [method load] the first,
 ## and one more indirection to explain.
 ##
 ## [b]Adding a map is data.[/b]
 ## [codeblock]
-##   1. author scenes/<something>/<map>.tscn
-##   2. add resources/maps/<map>.tres, a MapDefinition naming it
-##   3. append that .tres to maps[] in resources/maps/map_catalog.tres
+##   1. author maps/<map>/<map>.tscn
+##   2. add maps/<map>/<map>.tres, a MapDefinition naming it
+##   3. append that .tres to maps[] in maps/map_catalog.tres
 ## [/codeblock]
 ## No script changes. The match setup screen's picker, [MatchController]'s
 ## arena, and the headless [BotMatchWorld] all read this list, so the new map is
@@ -32,7 +32,7 @@ extends Resource
 
 ## The shipped list. Not a hard-coded map -- a hard-coded FILE, which is the one
 ## piece of this that cannot itself be data.
-const CATALOG_PATH: String = "res://resources/maps/map_catalog.tres"
+const CATALOG_PATH: String = "res://maps/map_catalog.tres"
 
 ## The map a player who has chosen nothing plays, and the fallback for a
 ## settings file or a rules resource naming a map that no longer exists.

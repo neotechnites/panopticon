@@ -6,7 +6,7 @@ extends MarginContainer
 ##
 ## Greybox by instruction -- default theme, no colours, no icons. Every control
 ## here is a stock [Button] or [Label], and all of them are authored in
-## [code]scenes/ui/keybind_panel.tscn[/code]. This file binds them to the store
+## [code]ui/keybind_panel.tscn[/code]. This file binds them to the store
 ## and to the capture; it does not build them.
 ##
 ## [b]The table is a [GridContainer].[/b] It replaced eight independent

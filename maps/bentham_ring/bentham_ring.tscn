@@ -2,30 +2,30 @@
 
 [ext_resource type="Script" uid="uid://bafv02t70cxx3" path="res://scripts/match/kill_volume.gd" id="1_kill_volume"]
 [ext_resource type="Script" uid="uid://ouidse6tuvnq" path="res://scripts/ring/tower_light.gd" id="3_tower_light"]
-[ext_resource type="Resource" uid="uid://ckxvuihvhgxu5" path="res://scenes/ring/default_tower_light_profile.tres" id="4_tower_light_profile"]
+[ext_resource type="Resource" uid="uid://ckxvuihvhgxu5" path="res://maps/bentham_ring/default_tower_light_profile.tres" id="4_tower_light_profile"]
 [ext_resource type="Script" uid="uid://c567e7nxnq0i" path="res://scripts/ring/ring_route.gd" id="5_ring_route"]
 [ext_resource type="Script" uid="uid://b37vp7jwips2c" path="res://scripts/ring/ring_level.gd" id="6_ring_level"]
-[ext_resource type="PackedScene" uid="uid://qc0reb2qk6wi" path="res://assets/models/tower_arches.glb" id="8b_tower_arches"]
+[ext_resource type="PackedScene" uid="uid://qc0reb2qk6wi" path="res://tower/models/tower_arches.glb" id="8b_tower_arches"]
 [ext_resource type="Script" uid="uid://gwfatmklmjcr" path="res://scripts/ring/tower_variant.gd" id="8c_tower_variant"]
-[ext_resource type="PackedScene" uid="uid://cwyjwhfotqv73" path="res://assets/models/tower.glb" id="8_tower_model"]
-[ext_resource type="PackedScene" path="res://assets/models/map_base_s1.glb" id="10_map_base_s1"]
-[ext_resource type="PackedScene" path="res://assets/models/map_base_s2.glb" id="10_map_base_s2"]
-[ext_resource type="PackedScene" path="res://assets/models/map_base_s3.glb" id="10_map_base_s3"]
-[ext_resource type="PackedScene" path="res://assets/models/map_base_s4.glb" id="10_map_base_s4"]
-[ext_resource type="PackedScene" path="res://assets/models/map_base_s5.glb" id="10_map_base_s5"]
-[ext_resource type="PackedScene" path="res://assets/models/map_base_lip013.glb" id="10_map_base_lip013"]
-[ext_resource type="PackedScene" path="res://assets/models/map_base_lip066.glb" id="10_map_base_lip066"]
-[ext_resource type="PackedScene" path="res://assets/models/map_base_lip139.glb" id="10_map_base_lip139"]
-[ext_resource type="PackedScene" path="res://assets/models/map_base_lip204.glb" id="10_map_base_lip204"]
-[ext_resource type="PackedScene" path="res://assets/models/map_base_lip286.glb" id="10_map_base_lip286"]
-[ext_resource type="PackedScene" path="res://assets/models/map_base_cover_s2.glb" id="10_map_base_cover_s2"]
-[ext_resource type="PackedScene" path="res://assets/models/map_base_cover_s4.glb" id="10_map_base_cover_s4"]
-[ext_resource type="PackedScene" path="res://assets/models/map_base_gate.glb" id="10_map_base_gate"]
-[ext_resource type="PackedScene" path="res://scenes/ring/portal.tscn" id="19_portal"]
-[ext_resource type="PackedScene" path="res://scenes/ring/torch.tscn" id="21_torch"]
-[ext_resource type="PackedScene" path="res://scenes/ring/demon_pad.tscn" id="23_demon_pad_scene"]
-[ext_resource type="PackedScene" path="res://scenes/ring/lava_crack.tscn" id="23_lava_crack_scene"]
-[ext_resource type="PackedScene" path="res://scenes/ring/speed_powerup.tscn" id="24_speed_powerup_scene"]
+[ext_resource type="PackedScene" uid="uid://cwyjwhfotqv73" path="res://tower/models/tower.glb" id="8_tower_model"]
+[ext_resource type="PackedScene" path="res://maps/bentham_ring/models/map_base_s1.glb" id="10_map_base_s1"]
+[ext_resource type="PackedScene" path="res://maps/bentham_ring/models/map_base_s2.glb" id="10_map_base_s2"]
+[ext_resource type="PackedScene" path="res://maps/bentham_ring/models/map_base_s3.glb" id="10_map_base_s3"]
+[ext_resource type="PackedScene" path="res://maps/bentham_ring/models/map_base_s4.glb" id="10_map_base_s4"]
+[ext_resource type="PackedScene" path="res://maps/bentham_ring/models/map_base_s5.glb" id="10_map_base_s5"]
+[ext_resource type="PackedScene" path="res://maps/bentham_ring/models/map_base_lip013.glb" id="10_map_base_lip013"]
+[ext_resource type="PackedScene" path="res://maps/bentham_ring/models/map_base_lip066.glb" id="10_map_base_lip066"]
+[ext_resource type="PackedScene" path="res://maps/bentham_ring/models/map_base_lip139.glb" id="10_map_base_lip139"]
+[ext_resource type="PackedScene" path="res://maps/bentham_ring/models/map_base_lip204.glb" id="10_map_base_lip204"]
+[ext_resource type="PackedScene" path="res://maps/bentham_ring/models/map_base_lip286.glb" id="10_map_base_lip286"]
+[ext_resource type="PackedScene" path="res://maps/bentham_ring/models/map_base_cover_s2.glb" id="10_map_base_cover_s2"]
+[ext_resource type="PackedScene" path="res://maps/bentham_ring/models/map_base_cover_s4.glb" id="10_map_base_cover_s4"]
+[ext_resource type="PackedScene" path="res://maps/bentham_ring/models/map_base_gate.glb" id="10_map_base_gate"]
+[ext_resource type="PackedScene" path="res://maps/bentham_ring/props/portal.tscn" id="19_portal"]
+[ext_resource type="PackedScene" path="res://maps/bentham_ring/props/torch.tscn" id="21_torch"]
+[ext_resource type="PackedScene" path="res://maps/bentham_ring/props/demon_pad.tscn" id="23_demon_pad_scene"]
+[ext_resource type="PackedScene" path="res://maps/bentham_ring/props/lava_crack.tscn" id="23_lava_crack_scene"]
+[ext_resource type="PackedScene" path="res://props/speed_powerup.tscn" id="24_speed_powerup_scene"]
 [ext_resource type="Script" uid="uid://bqujt25fif0uv" path="res://scripts/match/trap_volume.gd" id="26_trap_volume"]
 
 [sub_resource type="ProceduralSkyMaterial" id="SkyMat"]
@@ -49,7 +49,7 @@ ambient_light_energy = 0.64
 tonemap_mode = 1
 
 [node name="BenthamRing" type="Node3D" unique_id=1690039206]
-editor_description = "THE BENTHAM RING, one level, built on assets/models/map_base.glb -- deck annulus r=44 to r=60 at y=23.0, pit wall down to the courtyard at y=-11.0, outer wall up to the rim. The model ships its own collision, so this generator adds no deck CSG, walls, ramps or trench for it: only the tower, cover, traps, pits, lights and markers.
+editor_description = "THE BENTHAM RING, one level, built on maps/bentham_ring/models/map_base_*.glb -- deck annulus r=44 to r=60 at y=23.0, pit wall down to the courtyard at y=-11.0, outer wall up to the rim. The model ships its own collision, so this generator adds no deck CSG, walls, ramps or trench for it: only the tower, cover, traps, pits, lights and markers.
 
 A prisoner runs one 330 deg lap at r=52, about 299 m, and reaches the end pad, which takes the tower.
 
@@ -121,7 +121,7 @@ light_energy = 3.0
 omni_range = 12.0
 
 [node name="MapBase" type="Node3D" parent="." unique_id=23449969]
-editor_description = "The one deck -- annulus, pit wall down to the courtyard, outer wall up to the rim -- from one sculpt (tools/modelling/map_base_build.py), exported per chunk: assets/models/map_base_<chunk>.glb, each at identity here with its own collision. Rebuild one: tools/modelling/model build map_base --chunk <name>."
+editor_description = "The one deck -- annulus, pit wall down to the courtyard, outer wall up to the rim -- from one sculpt (tools/modelling/maps/bentham_ring/map_base_build.py), exported per chunk: maps/bentham_ring/models/map_base_<chunk>.glb, each at identity here with its own collision. Rebuild one: tools/modelling/model build map_base --chunk <name>."
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.014858246, 0, -0.01688385)
 metadata/_edit_lock_ = true
 
@@ -281,7 +281,7 @@ feet_only = true
 [node name="Shape" type="CollisionShape3D" parent="Sections/S2_LavaShelf/TrapVolume7" unique_id=644014580]
 
 [node name="S3_Minefield" type="Node3D" parent="Sections" unique_id=61707270]
-editor_description = "S3, the lava crack grid (bearings 145..200). The deck is flat at lane height; where each of the 36 demon pads stood there is now a crack in map_base.glb's own rock with lava glowing in it (hard-modelled, flush, no plate) and one of these lava_crack nodes over it: the same BoostPad trigger and footprint as the demon pad plus a heat-haze quad (scenes/ring/lava_haze.gdshader, one shared material). 17 rows x 3 columns (2.94 x 3.2 m); one path is cut through the grid by the cells left crack-free, three cracks left in the path (rows 1, 4, 10; trigger 2.5 x 0.5 x 2.5) have to be jumped, and the ragged rock wall at the pit edge is map_base.glb's own rock. tools/modelling/map_base_build.py (the S3 block) is the one layout the mesh, the collider, these node transforms and the proofs all come from; the build writes this node block. Every crack launches at the shipped 18 m/s; the 204 divider catches the flights that would leave the section. No lava hazard and no TrapVolume in this section: a launch drops you back on the same deck. SpeedPowerup is a parked leftover from the retired Split, left where it was found."
+editor_description = "S3, the lava crack grid (bearings 145..200). The deck is flat at lane height; where each of the 36 demon pads stood there is now a crack in map_base.glb's own rock with lava glowing in it (hard-modelled, flush, no plate) and one of these lava_crack nodes over it: the same BoostPad trigger and footprint as the demon pad plus a heat-haze quad (maps/bentham_ring/materials/lava_haze.gdshader, one shared material). 17 rows x 3 columns (2.94 x 3.2 m); one path is cut through the grid by the cells left crack-free, three cracks left in the path (rows 1, 4, 10; trigger 2.5 x 0.5 x 2.5) have to be jumped, and the ragged rock wall at the pit edge is map_base.glb's own rock. tools/modelling/maps/bentham_ring/map_base_build.py (the S3 block) is the one layout the mesh, the collider, these node transforms and the proofs all come from; the build writes this node block. Every crack launches at the shipped 18 m/s; the 204 divider catches the flights that would leave the section. No lava hazard and no TrapVolume in this section: a launch drops you back on the same deck. SpeedPowerup is a parked leftover from the retired Split, left where it was found."
 
 [node name="SpeedPowerup" parent="Sections/S3_Minefield" unique_id=1641447572 instance=ExtResource("24_speed_powerup_scene")]
 editor_description = "Parked on top of the tower until Ryan places it at the end of the hard route."
@@ -610,7 +610,7 @@ entry_angle_degrees = 5.0
 exit_angle_degrees = 335.0
 
 [node name="Tower" type="Node3D" parent="." unique_id=1642350855]
-editor_description = "The tower, and its origin is the FLOOR OF THE GUARD ROOM at y=25.35. That is the model's own datum: assets/models/tower.glb hangs its rock 36.4 m below this point and carries the top of its drum 9.6 m above it, so the model drops in at identity and TowerSpawn, the lights and the Watcher all hang off the same floor.
+editor_description = "The tower, and its origin is the FLOOR OF THE GUARD ROOM at y=25.35. That is the model's own datum: tower/models/tower.glb hangs its rock 36.4 m below this point and carries the top of its drum 9.6 m above it, so the model drops in at identity and TowerSpawn, the lights and the Watcher all hang off the same floor.
 
 THE GUARD IS INSIDE IT NOW. A hollow chamber 10.2 m across with eight openings.
 
@@ -619,7 +619,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 25.35, 0)
 script = ExtResource("8c_tower_variant")
 
 [node name="Rock" parent="Tower" unique_id=1992333100 instance=ExtResource("8_tower_model")]
-editor_description = "assets/models/tower.glb: the column, the drum and the hollow chamber, one mesh. It carries its OWN collision (a -colonly shape in the glTF), so the guard stands on the model's floor and is stopped by the model's stone -- there is no second, invisible copy of either in this scene, and nothing here can drift out of agreement with what you can see.
+editor_description = "tower/models/tower.glb: the column, the drum and the hollow chamber, one mesh. It carries its OWN collision (a -colonly shape in the glTF), so the guard stands on the model's floor and is stopped by the model's stone -- there is no second, invisible copy of either in this scene, and nothing here can drift out of agreement with what you can see.
 
 Its origin is the floor of the guard room, which is why it drops in at identity: see the Tower node above."
 visible = false

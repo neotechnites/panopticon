@@ -2,7 +2,7 @@
 PANOPTICON -- creature4, "the pilgrim". A 1.8 m near-human on the runner's
 16-joint rig (same bone names, rest pose and ``Run`` clip): hunched, wrapped
 in strips of cloth fused to the skin, a hood-shaped lump for a head, hands
-hanging limp. Exported as ``assets/models/creature4.glb``.
+hanging limp. Exported as ``characters/models/creature4.glb``.
 
     tools/modelling/model build creature4
     tools/modelling/model look  creature4 --cam 35,1,50 --margin 9 --res 1600x900
@@ -21,7 +21,11 @@ import bpy
 from mathutils import Matrix, Vector
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)) + os.sep + "lib")
+_HOME = os.path.dirname(os.path.abspath(__file__))
+for _root in (os.path.dirname(_HOME), os.path.dirname(os.path.dirname(_HOME))):  # the repo's tools/modelling
+    if os.path.isfile(os.path.join(_root, "model")) and os.path.isfile(os.path.join(_root, "lib", "mdl.py")):
+        sys.path[1:1] = [d for d, _, _ in os.walk(_root) if "__pycache__" not in d]
+        break
 
 import mdl  # noqa: E402
 

@@ -27,4 +27,4 @@ __pycache__/
 .venv/
 
 # Map 1 chunk materials, written by the import hook (tools/import/shared_materials.gd).
-assets/models/map_base_materials/
+maps/bentham_ring/materials/imported/

@@ -111,7 +111,7 @@ signal intent_received(peer_id: int, tick: int)
 ## Fed by [method _receive_intent] on the authority when a client owns this
 ## seat, and switched into the controller in place of [member local_source].
 ##
-## Part of [code]scenes/net/player_net_link.tscn[/code] rather than built here
+## Part of [code]match/net/player_net_link.tscn[/code] rather than built here
 ## when a client first turns up: a node this project needs is a node in a
 ## scene file, and one made in code is one nobody can see, inspect or retune.
 ## It costs a handful of bytes on a seat that never has a remote owner.

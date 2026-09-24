@@ -3,17 +3,17 @@
 [ext_resource type="Script" path="res://scripts/match/kill_volume.gd" id="1_kill_volume"]
 [ext_resource type="Script" path="res://scripts/ring/ring_route.gd" id="2_ring_route"]
 [ext_resource type="Script" path="res://scripts/ring/ring_level.gd" id="3_ring_level"]
-[ext_resource type="PackedScene" path="res://assets/models/forest.glb" id="6_forest_model"]
-[ext_resource type="PackedScene" path="res://assets/models/forest_tree.glb" id="7_forest_tree"]
-[ext_resource type="PackedScene" path="res://scenes/ring/forest_portal.tscn" id="8_portal"]
-[ext_resource type="PackedScene" path="res://assets/models/forest_bars.glb" id="9_forest_bars"]
-[ext_resource type="PackedScene" path="res://assets/models/forest_tree_prop_a.glb" id="10_tree_a"]
-[ext_resource type="PackedScene" path="res://assets/models/forest_tree_prop_b.glb" id="11_tree_b"]
-[ext_resource type="PackedScene" path="res://assets/models/forest_tree_prop_c.glb" id="12_tree_c"]
-[ext_resource type="PackedScene" path="res://assets/models/forest_bush_low.glb" id="13_bush_low"]
-[ext_resource type="PackedScene" path="res://assets/models/forest_bush_tall.glb" id="14_bush_tall"]
-[ext_resource type="PackedScene" path="res://assets/models/forest_rock_boulder.glb" id="15_boulder"]
-[ext_resource type="PackedScene" path="res://assets/models/forest_rock_outcrop.glb" id="17_outcrop"]
+[ext_resource type="PackedScene" path="res://maps/forest/models/forest.glb" id="6_forest_model"]
+[ext_resource type="PackedScene" path="res://maps/forest/models/forest_tree.glb" id="7_forest_tree"]
+[ext_resource type="PackedScene" path="res://maps/forest/props/forest_portal.tscn" id="8_portal"]
+[ext_resource type="PackedScene" path="res://maps/forest/models/forest_bars.glb" id="9_forest_bars"]
+[ext_resource type="PackedScene" path="res://maps/forest/models/forest_tree_prop_a.glb" id="10_tree_a"]
+[ext_resource type="PackedScene" path="res://maps/forest/models/forest_tree_prop_b.glb" id="11_tree_b"]
+[ext_resource type="PackedScene" path="res://maps/forest/models/forest_tree_prop_c.glb" id="12_tree_c"]
+[ext_resource type="PackedScene" path="res://maps/forest/models/forest_bush_low.glb" id="13_bush_low"]
+[ext_resource type="PackedScene" path="res://maps/forest/models/forest_bush_tall.glb" id="14_bush_tall"]
+[ext_resource type="PackedScene" path="res://maps/forest/models/forest_rock_boulder.glb" id="15_boulder"]
+[ext_resource type="PackedScene" path="res://maps/forest/models/forest_rock_outcrop.glb" id="17_outcrop"]
 
 [sub_resource type="ProceduralSkyMaterial" id="SkyMat"]
 sky_top_color = Color(0.4, 0.45, 0.37, 1)
@@ -66,7 +66,7 @@ albedo_color = Color(0.6, 0.6, 0.6, 1)
 disable_fog = true
 
 [node name="Forest" type="Node3D"]
-editor_description = "MAP 3, THE FOREST: assets/models/forest.glb at identity (grass lane r 46.7..57.3 at y 23.0 round a foggy ravine: an earth bank down to a floor at y -11.05 that is BURIED in fog and never drawn, a thicket of some 1140 barbed brambles in the dark under it, a leaf wall carrying three tiers of lane-facing cells up to the lane roof at y 38.0 -- 15 m over the grass -- and on that roof's inner rim the cell drum, r 46.7..47.6, three tiers of 17 barred mouths climbing to the seam at y 50.0, so a runner on the lane has a ring of cells above them all the way round). The seam is a 240-vertex ring shared float for float with forest_tree.glb, where the great tree's crown takes over and sweeps INWARD AND DOWN to its rim at y 34.1: the roof is a dome that is high at the ring and collapses in the middle, onto the tree. Ryan: \"make the roof higher, so make it like a dome that collapses in the middle where the tree is, and so theres still like a ring of cells above where the player runs.\" The pit reads bottomless: ForestFog is fourteen layers whose alpha rises with depth to a solid slab low down and whose material sets disable_fog, so the Environment's pale depth fog cannot repaint the darkness it is made of -- a vertical ray reaches the floor at 0.220 % transmittance. Its top is the thicket's floor, y -7.80..-5.75, 3.0 m under the tallest thorn, so the brambles stand out of it. Each of the 144 cells carries its own small dim light as an emissive back face (the `lamp` sheet), not a Light3D: one mesh cannot bind 144 of them. The sun rays are two nodes in the glb, three crossed vanes per sun well with the tint and the feather in their vertex colour: ForestRaysSolid (pale yellow, alpha 0.35, mixed, the mesh-only look) and ForestRaysSoft (faint, additive, shown here under the Sun light). Nothing is hung under the wells any more. Flip their visibility to compare."
+editor_description = "MAP 3, THE FOREST: maps/forest/models/forest.glb at identity (grass lane r 46.7..57.3 at y 23.0 round a foggy ravine: an earth bank down to a floor at y -11.05 that is BURIED in fog and never drawn, a thicket of some 1140 barbed brambles in the dark under it, a leaf wall carrying three tiers of lane-facing cells up to the lane roof at y 38.0 -- 15 m over the grass -- and on that roof's inner rim the cell drum, r 46.7..47.6, three tiers of 17 barred mouths climbing to the seam at y 50.0, so a runner on the lane has a ring of cells above them all the way round). The seam is a 240-vertex ring shared float for float with forest_tree.glb, where the great tree's crown takes over and sweeps INWARD AND DOWN to its rim at y 34.1: the roof is a dome that is high at the ring and collapses in the middle, onto the tree. Ryan: \"make the roof higher, so make it like a dome that collapses in the middle where the tree is, and so theres still like a ring of cells above where the player runs.\" The pit reads bottomless: ForestFog is fourteen layers whose alpha rises with depth to a solid slab low down and whose material sets disable_fog, so the Environment's pale depth fog cannot repaint the darkness it is made of -- a vertical ray reaches the floor at 0.220 % transmittance. Its top is the thicket's floor, y -7.80..-5.75, 3.0 m under the tallest thorn, so the brambles stand out of it. Each of the 144 cells carries its own small dim light as an emissive back face (the `lamp` sheet), not a Light3D: one mesh cannot bind 144 of them. The sun rays are two nodes in the glb, three crossed vanes per sun well with the tint and the feather in their vertex colour: ForestRaysSolid (pale yellow, alpha 0.35, mixed, the mesh-only look) and ForestRaysSoft (faint, additive, shown here under the Sun light). Nothing is hung under the wells any more. Flip their visibility to compare."
 
 [node name="Environment" type="Node3D" parent="."]
 
@@ -84,7 +84,7 @@ directional_shadow_mode = 0
 directional_shadow_max_distance = 200.0
 
 [node name="ForestMap" parent="." instance=ExtResource("6_forest_model")]
-editor_description = "assets/models/forest.glb: lane, pit bank and its buried floor, brambles, leaf wall with three lane-facing cell tiers, the lane roof at y 38.0, the cell drum climbing off its inner rim to the seam at y 50.0, and the pit cells; ForestFog and the ray nodes ride in it. Ships its own collision (ForestCollision-colonly)."
+editor_description = "maps/forest/models/forest.glb: lane, pit bank and its buried floor, brambles, leaf wall with three lane-facing cell tiers, the lane roof at y 38.0, the cell drum climbing off its inner rim to the seam at y 50.0, and the pit cells; ForestFog and the ray nodes ride in it. Ships its own collision (ForestCollision-colonly)."
 
 [node name="ForestRaysSolid" parent="ForestMap"]
 visible = false
@@ -94,7 +94,7 @@ surface_material_override/0 = SubResource("RaySolidMat")
 surface_material_override/0 = SubResource("RaySoftMat")
 
 [node name="ForestFog" parent="ForestMap"]
-editor_description = "The pit's dark, and the reason the pit has no bottom: fourteen layers y -11.6..-5.75, opaque (vertex alpha 1.0, the material's 0.6 albedo alpha then capping one layer at 0.6) through the bottom six, then falling to exactly 0 at a height the drift field rolls (no top plane anywhere), with the rim feather narrowing from 9 m up top to 1.4 m at the floor so the slab reaches the bank's foot and the floor's outer rim. A ray straight down the pit comes out at 0.22 % transmittance, so the floor is not a colour anyone sees; the tint dims to 0.15 at depth, so what they do see is black. disable_fog on FogMat is load-bearing: without it the Environment's depth fog repaints these layers AND the floor behind them to one pale colour, and one colour over one flat plane is a floor. Run tools/modelling/forest_pit_build.py for the numbers. The stack's ceiling is set by the THICKET, not by the pit: the tallest thorn stands at y -2.78, and a stack that ended at y 4.0 buried the thicket whole -- not one bramble vertex cleared even the thinnest column. The top now rolls between y -7.80 and y -5.75, so the brambles come OUT of the fog. Environment height fog moved with it (fog_height -5.75, fog_height_density 0.1): Godot thickens height fog BELOW fog_height, so leaving it at 8 would have left pale mist standing in the 13 m of ravine air the fog just vacated and washed out the very thorn tips this pass uncovered. Above y -5.75 the ravine air is clear and the spikes read hard; below it the haze thickens into the layers."
+editor_description = "The pit's dark, and the reason the pit has no bottom: fourteen layers y -11.6..-5.75, opaque (vertex alpha 1.0, the material's 0.6 albedo alpha then capping one layer at 0.6) through the bottom six, then falling to exactly 0 at a height the drift field rolls (no top plane anywhere), with the rim feather narrowing from 9 m up top to 1.4 m at the floor so the slab reaches the bank's foot and the floor's outer rim. A ray straight down the pit comes out at 0.22 % transmittance, so the floor is not a colour anyone sees; the tint dims to 0.15 at depth, so what they do see is black. disable_fog on FogMat is load-bearing: without it the Environment's depth fog repaints these layers AND the floor behind them to one pale colour, and one colour over one flat plane is a floor. Run tools/modelling/maps/forest/forest_pit_build.py for the numbers. The stack's ceiling is set by the THICKET, not by the pit: the tallest thorn stands at y -2.78, and a stack that ended at y 4.0 buried the thicket whole -- not one bramble vertex cleared even the thinnest column. The top now rolls between y -7.80 and y -5.75, so the brambles come OUT of the fog. Environment height fog moved with it (fog_height -5.75, fog_height_density 0.1): Godot thickens height fog BELOW fog_height, so leaving it at 8 would have left pale mist standing in the 13 m of ravine air the fog just vacated and washed out the very thorn tips this pass uncovered. Above y -5.75 the ravine air is clear and the spikes read hard; below it the haze thickens into the layers."
 surface_material_override/0 = SubResource("FogMat")
 
 [node name="KillBox" type="Area3D" parent="."]
@@ -122,7 +122,7 @@ transform = Transform3D(0.965926, 0, 0.258819, 0, 1, 0, -0.258819, 0, 0.965926, 
 transform = Transform3D(0.965926, 0, 0.258819, 0, 1, 0, -0.258819, 0, 0.965926, 50.2281, 23, -13.4586)
 
 [node name="Bars" parent="." instance=ExtResource("9_forest_bars")]
-editor_description = "The barrier across the lane at 353 deg, in the gap between the finish (345) and the start (5), so the finish is visible from the start but not walkable back to. The same node and the same place Map 1 and Map 2 give their bars, in the forest's own terms: assets/models/forest_bars.glb, a stand of saplings and young trunks grown up out of the ground, no frame and no carpentry. It keeps rock_bars.glb's envelope (10.6 x 8.5 m, origin the base centre) and its guarantee that no gap anywhere exceeds 0.38 m, so the swap is the model and nothing else. Local X (10.6 m) runs radially across the lane, local Z along it. Its collider is ForestBarsCollision/ForestBarsCollisionShape: one BoxShape3D, 10.6 x 8.5 x 1.2 m, the only collision shape under this node."
+editor_description = "The barrier across the lane at 353 deg, in the gap between the finish (345) and the start (5), so the finish is visible from the start but not walkable back to. The same node and the same place Map 1 and Map 2 give their bars, in the forest's own terms: maps/forest/models/forest_bars.glb, a stand of saplings and young trunks grown up out of the ground, no frame and no carpentry. It keeps rock_bars.glb's envelope (10.6 x 8.5 m, origin the base centre) and its guarantee that no gap anywhere exceeds 0.38 m, so the swap is the model and nothing else. Local X (10.6 m) runs radially across the lane, local Z along it. Its collider is ForestBarsCollision/ForestBarsCollisionShape: one BoxShape3D, 10.6 x 8.5 x 1.2 m, the only collision shape under this node."
 transform = Transform3D(0.992546, 0, 0.121869, 0, 1, 0, -0.121869, 0, 0.992546, 51.6124, 23, -6.33721)
 
 [node name="Sections" type="Node3D" parent="."]
@@ -595,7 +595,7 @@ editor_description = "The tree. Origin y 25.35 as map 1's tower; the guard's flo
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 25.35, 0)
 
 [node name="Tree" parent="Tower" instance=ExtResource("7_forest_tree")]
-editor_description = "assets/models/forest_tree.glb: goblet trunk, the platform, eight piers and pointed arches (the windows), the vaulted canopy over it, and the crown grown outward as the sagging middle of the level's roof -- from the rim at r 11, y 34.1 it sweeps UP and OUT 15.9 m to the seam ring at r 47.6, y 50.0, shared vertex for vertex with forest.glb's cell drum, eight great limbs rising under it. Ships its own collision (ForestTreeCollision-colonly), the canopy sheet included."
+editor_description = "maps/forest/models/forest_tree.glb: goblet trunk, the platform, eight piers and pointed arches (the windows), the vaulted canopy over it, and the crown grown outward as the sagging middle of the level's roof -- from the rim at r 11, y 34.1 it sweeps UP and OUT 15.9 m to the seam ring at r 47.6, y 50.0, shared vertex for vertex with forest.glb's cell drum, eight great limbs rising under it. Ships its own collision (ForestTreeCollision-colonly), the canopy sheet included."
 
 [node name="TowerSpawn" type="Marker3D" parent="Tower"]
 editor_description = "On the platform floor (+1.70), 0.25 m up."

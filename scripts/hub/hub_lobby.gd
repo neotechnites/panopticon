@@ -42,7 +42,7 @@ signal vote_changed()
 ## The vote ended with a winner. [param tied] when the seed had to break it.
 signal vote_closed(winner: MapWedge, rng_seed: int, tied: bool)
 
-const RULES_PATH: String = "res://resources/rules/default_match_rules.tres"
+const RULES_PATH: String = "res://match/rules/default_match_rules.tres"
 
 ## Physical key that toggles the rules panel. A scancode rather than an action
 ## for the reason [constant MatchController.RESTART_KEY] is one: the input map
@@ -96,7 +96,7 @@ static var returns_to_hub: bool = false
 @export var session_path: NodePath = ^"/root/NetSession"
 
 ## The scene a launch goes to.
-@export_file("*.tscn") var match_scene_path: String = "res://scenes/match/match.tscn"
+@export_file("*.tscn") var match_scene_path: String = "res://match/match.tscn"
 
 ## The action that starts the map under your feet.
 @export var interact_action: StringName = &"interact"

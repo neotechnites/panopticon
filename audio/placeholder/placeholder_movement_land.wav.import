@@ -7,7 +7,7 @@ path="res://.godot/imported/placeholder_movement_land.wav-a4d60c57ef363818be1ccb
 
 [deps]
 
-source_file="res://assets/audio/placeholder_movement_land.wav"
+source_file="res://audio/placeholder/placeholder_movement_land.wav"
 dest_files=["res://.godot/imported/placeholder_movement_land.wav-a4d60c57ef363818be1ccb4106083bd4.sample"]
 
 [params]

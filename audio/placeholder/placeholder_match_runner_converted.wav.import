@@ -7,7 +7,7 @@ path="res://.godot/imported/placeholder_match_runner_converted.wav-dc9f30e752e94
 
 [deps]
 
-source_file="res://assets/audio/placeholder_match_runner_converted.wav"
+source_file="res://audio/placeholder/placeholder_match_runner_converted.wav"
 dest_files=["res://.godot/imported/placeholder_match_runner_converted.wav-dc9f30e752e944ebf034b349792d75d4.sample"]
 
 [params]

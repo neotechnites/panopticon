@@ -7,4 +7,4 @@ script = ExtResource("1_map_definition")
 id = &"bentham_ring"
 title = "The Bentham Ring"
 summary = "MAP_BENTHAM_RING_SUMMARY"
-scene_path = "res://scenes/ring/bentham_ring.tscn"
+scene_path = "res://maps/bentham_ring/bentham_ring.tscn"

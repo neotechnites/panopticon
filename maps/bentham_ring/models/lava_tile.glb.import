@@ -8,7 +8,7 @@ path="res://.godot/imported/lava_tile.glb-0cb80d9a95a97cb9316abeef75e5c1f0.scn"
 
 [deps]
 
-source_file="res://assets/models/lava_tile.glb"
+source_file="res://maps/bentham_ring/models/lava_tile.glb"
 dest_files=["res://.godot/imported/lava_tile.glb-0cb80d9a95a97cb9316abeef75e5c1f0.scn"]
 
 [params]

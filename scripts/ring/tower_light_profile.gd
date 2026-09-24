@@ -9,7 +9,7 @@ extends Resource
 ## platform makes every shadow in the ring point outward, away from the
 ## tower -- a prisoner's cover is defined by where that single source is, not
 ## by an arbitrary sun. See [TowerLight] for how this is wired onto an
-## [OmniLight3D], and [code]scenes/ring/bentham_ring.tscn[/code]'s
+## [OmniLight3D], and [code]maps/bentham_ring/bentham_ring.tscn[/code]'s
 ## [code]WorldEnvironment[/code] for the ambient side of the same decision
 ## (ambient is turned down hard and tinted to match, so it cannot become a
 ## second, colourless light source).

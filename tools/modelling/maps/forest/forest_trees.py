@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Grow Map 3's wood: trees across the whole ring, as .tscn nodes for
-scenes/ring/forest.tscn.
+maps/forest/forest.tscn.
 
-    python3 tools/forest_trees.py            # print the node block
-    python3 tools/forest_trees.py --write    # splice it into scenes/ring/forest.tscn
-    python3 tools/forest_trees.py --check    # overlaps and the walkable corridor
-    python3 tools/forest_trees.py --cover    # predict what RingBake will find
+    python3 tools/modelling/maps/forest/forest_trees.py            # print the node block
+    python3 tools/modelling/maps/forest/forest_trees.py --write    # splice it into maps/forest/forest.tscn
+    python3 tools/modelling/maps/forest/forest_trees.py --check    # overlaps and the walkable corridor
+    python3 tools/modelling/maps/forest/forest_trees.py --cover    # predict what RingBake will find
 
 Ryan: "for the forest level, im not going to complete it, it just needs to look
 good, can you spread trees across the whole thing like in the beginning, it
@@ -53,13 +53,13 @@ KINDS = {
     "outcrop": ("17_outcrop", "Outcrop"),
 }
 RESOURCE_PATHS = {
-    "10_tree_a": "res://assets/models/forest_tree_prop_a.glb",
-    "11_tree_b": "res://assets/models/forest_tree_prop_b.glb",
-    "12_tree_c": "res://assets/models/forest_tree_prop_c.glb",
-    "13_bush_low": "res://assets/models/forest_bush_low.glb",
-    "14_bush_tall": "res://assets/models/forest_bush_tall.glb",
-    "15_boulder": "res://assets/models/forest_rock_boulder.glb",
-    "17_outcrop": "res://assets/models/forest_rock_outcrop.glb",
+    "10_tree_a": "res://maps/forest/models/forest_tree_prop_a.glb",
+    "11_tree_b": "res://maps/forest/models/forest_tree_prop_b.glb",
+    "12_tree_c": "res://maps/forest/models/forest_tree_prop_c.glb",
+    "13_bush_low": "res://maps/forest/models/forest_bush_low.glb",
+    "14_bush_tall": "res://maps/forest/models/forest_bush_tall.glb",
+    "15_boulder": "res://maps/forest/models/forest_rock_boulder.glb",
+    "17_outcrop": "res://maps/forest/models/forest_rock_outcrop.glb",
 }
 
 # The four lines. (radius, section node, kinds that may stand there with their
@@ -380,7 +380,7 @@ def main():
     print("\n".join(lines))
 
 
-SCENE = "scenes/ring/forest.tscn"
+SCENE = "maps/forest/forest.tscn"
 
 
 def write():

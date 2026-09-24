@@ -8,7 +8,7 @@ path="res://.godot/imported/runner.glb-7bd600fa25dad9b1fecb37046077d838.scn"
 
 [deps]
 
-source_file="res://assets/models/runner.glb"
+source_file="res://characters/models/runner.glb"
 dest_files=["res://.godot/imported/runner.glb-7bd600fa25dad9b1fecb37046077d838.scn"]
 
 [params]

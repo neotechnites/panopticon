@@ -8,7 +8,7 @@ path="res://.godot/imported/torch.glb-54b6fd5f4ff9d2d7554427882fe005af.scn"
 
 [deps]
 
-source_file="res://assets/models/torch.glb"
+source_file="res://maps/bentham_ring/models/torch.glb"
 dest_files=["res://.godot/imported/torch.glb-54b6fd5f4ff9d2d7554427882fe005af.scn"]
 
 [params]

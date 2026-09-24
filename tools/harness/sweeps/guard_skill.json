@@ -1,5 +1,5 @@
 {
-  "base_rules": "res://resources/rules/default_match_rules.tres",
+  "base_rules": "res://match/rules/default_match_rules.tres",
   "notes": "The AI guard's skill lever: a learner, the default, and hard but beatable.",
   "variants": [
     {"name": "skill_02", "notes": "learner", "overrides": {"guard_skill": 0.2}},
