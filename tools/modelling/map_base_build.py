@@ -7880,9 +7880,29 @@ def _split(src, keep, name):
     return mdl._link(bpy.data.objects.new(name, me))
 
 
+def _footprint_box_dist(p, b, rad, sect):
+    """Signed planar distance (m) from p to a footprint box in the (radial,
+    tangential) frame `_in_platform` tests against: <=0 inside."""
+    er, et = _radial(b), _tangent(b)
+    base = pol(b, rad, 0.0)
+    dx, dy = p[0] - base[0], p[1] - base[1]
+    u, v = dx * er[0] + dy * er[1], dx * et[0] + dy * et[1]
+    hu, hv = max(abs(s[0]) for s in sect), max(abs(s[1]) for s in sect)
+    qx, qy = abs(u) - hu, abs(v) - hv
+    return math.hypot(max(qx, 0.0), max(qy, 0.0)) + min(max(qx, qy), 0.0)
+
+
+def _footprint_radial_dist(u, v, R):
+    """Signed planar distance (m) from local (u, v) to a radial footprint's
+    own boundary R(theta), as `_s2_local`/`_s4_local` give it: <=0 inside."""
+    r = math.hypot(u, v)
+    return (r - R(0.0)) if r < EPS else (r - R(math.atan2(v, u)))
+
+
 def _wave_uv(me):
-    """UV2.x: the share of the lava wave a vertex takes, 0 on every lava edge and under the
-    tower's foot, 1 at WAVE_RAMP in. A function of position only, so split vertices agree."""
+    """UV2.x: the share of the lava wave a vertex takes, 0 on every lava edge, under the
+    tower's foot and under every lake platform, fin and S2/S4 boulder standing in the
+    lava, 1 at WAVE_RAMP in. A function of position only, so split vertices agree."""
     slots = {i for i, mt in enumerate(me.materials) if mt.name in WAVE_MATS}
     uses, lava_v = {}, set()
     for p in me.polygons:
@@ -7900,11 +7920,23 @@ def _wave_uv(me):
     for i, co in enumerate(pts):
         tree.insert(co, i)
     tree.balance()
+    boxes = []                                          # every lake platform and its fin
+    for k, (b, rad, inner) in enumerate(_platforms()):
+        sect, fs = LAKE_SECTS[k]
+        boxes.append((b, rad, sect))
+        if inner:
+            boxes.append((b, FIN_R, fs))
+    s2_rocks, s4_rocks = S2_MASSES, _s4_layout()["rocks"]
     w = {}
     for vi in lava_v:
         co = me.vertices[vi].co
+        p = (co.x, co.y)
         d = tree.find(co)[2] if pts else WAVE_RAMP
-        w[vi] = max(0.0, min(1.0, d / WAVE_RAMP, (math.hypot(co.x, co.y) - LAVA_FLAT_R) / WAVE_RAMP))
+        cap = min([math.hypot(co.x, co.y) - LAVA_FLAT_R]
+                  + [_footprint_box_dist(p, *bx) for bx in boxes]
+                  + [_footprint_radial_dist(*_s2_local(sp, p)[:2], sp["R"]) for sp in s2_rocks]
+                  + [_footprint_radial_dist(*_s4_local(rk, p), rk["R"]) for rk in s4_rocks])
+        w[vi] = max(0.0, min(1.0, d / WAVE_RAMP, cap / WAVE_RAMP))
     layer = me.uv_layers.new(name="Wave")
     layer.data.foreach_set("uv", [c for lp in me.loops for c in (w.get(lp.vertex_index, 0.0), 0.0)])
     me.uv_layers[0].active = True
