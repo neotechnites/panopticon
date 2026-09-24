@@ -1,10 +1,9 @@
-[gd_scene load_steps=10 format=3]
+[gd_scene load_steps=9 format=3]
 
 [ext_resource type="PackedScene" path="res://assets/models/hub_base.glb" id="1_hub_base"]
 [ext_resource type="Script" uid="uid://gwfatmklmjcr" path="res://scripts/ring/tower_variant.gd" id="2_tower_variant"]
 [ext_resource type="PackedScene" uid="uid://cwyjwhfotqv73" path="res://assets/models/tower.glb" id="3_tower_model"]
 [ext_resource type="PackedScene" uid="uid://1n7vkimtm3tp" path="res://assets/models/tower_hollow.glb" id="4_tower_arches"]
-[ext_resource type="PackedScene" path="res://scenes/tower/watching_eye.tscn" id="5_watching_eye"]
 [ext_resource type="PackedScene" path="res://assets/models/tower_interior.glb" id="6_tower_interior"]
 
 [sub_resource type="ProceduralSkyMaterial" id="SkyMat"]
@@ -67,8 +66,6 @@ light_color = Color(1, 0.28, 0.06, 1)
 light_energy = 3.4
 omni_range = 700.0
 omni_attenuation = 0.6
-
-[node name="Watcher" parent="Tower" instance=ExtResource("5_watching_eye")]
 
 [node name="PlayerSpawn" type="Marker3D" parent="."]
 editor_description = "In the hell wedge (bearing 20 deg, r 33), 0.25 m up, clear of the pool and the stalagmites."
