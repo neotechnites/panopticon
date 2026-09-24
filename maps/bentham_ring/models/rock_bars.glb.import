@@ -4,12 +4,12 @@ importer="scene"
 importer_version=1
 type="PackedScene"
 uid="uid://bc7si5v1kq5n8"
-path="res://.godot/imported/rock_bars.glb-2d42c027493ba60aca918647a3b71bbf.scn"
+path="res://.godot/imported/rock_bars.glb-fd1915d3834f08122d1fa3b95a6e756d.scn"
 
 [deps]
 
-source_file="res://assets/models/rock_bars.glb"
-dest_files=["res://.godot/imported/rock_bars.glb-2d42c027493ba60aca918647a3b71bbf.scn"]
+source_file="res://maps/bentham_ring/models/rock_bars.glb"
+dest_files=["res://.godot/imported/rock_bars.glb-fd1915d3834f08122d1fa3b95a6e756d.scn"]
 
 [params]
 

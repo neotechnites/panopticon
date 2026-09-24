@@ -4,12 +4,12 @@ importer="scene"
 importer_version=1
 type="PackedScene"
 uid="uid://c8ejv8vfb00fy"
-path="res://.godot/imported/rock_wall.glb-0efed158141cba345784476a4e1e1eed.scn"
+path="res://.godot/imported/rock_wall.glb-9084bdc807379f7a363e35932b87e92e.scn"
 
 [deps]
 
-source_file="res://assets/models/rock_wall.glb"
-dest_files=["res://.godot/imported/rock_wall.glb-0efed158141cba345784476a4e1e1eed.scn"]
+source_file="res://maps/bentham_ring/models/rock_wall.glb"
+dest_files=["res://.godot/imported/rock_wall.glb-9084bdc807379f7a363e35932b87e92e.scn"]
 
 [params]
 

@@ -4,12 +4,12 @@ importer="scene"
 importer_version=1
 type="PackedScene"
 uid="uid://cmmh0fdwp3rjb"
-path="res://.godot/imported/slab.glb-41e07da24d423ee8c8faaf7467117339.scn"
+path="res://.godot/imported/slab.glb-dc1bcad85dcd6d0000a4e48c21aa3115.scn"
 
 [deps]
 
-source_file="res://assets/models/slab.glb"
-dest_files=["res://.godot/imported/slab.glb-41e07da24d423ee8c8faaf7467117339.scn"]
+source_file="res://maps/bentham_ring/models/slab.glb"
+dest_files=["res://.godot/imported/slab.glb-dc1bcad85dcd6d0000a4e48c21aa3115.scn"]
 
 [params]
 

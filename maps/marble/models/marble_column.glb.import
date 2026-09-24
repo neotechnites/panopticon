@@ -4,12 +4,12 @@ importer="scene"
 importer_version=1
 type="PackedScene"
 uid="uid://cfa2xnl8cpw05"
-path="res://.godot/imported/marble_column.glb-4f9cf2eb0f1c5e459e7ecc513076509f.scn"
+path="res://.godot/imported/marble_column.glb-a523d11f78267b15ededebb6d4aebc6d.scn"
 
 [deps]
 
-source_file="res://assets/models/marble_column.glb"
-dest_files=["res://.godot/imported/marble_column.glb-4f9cf2eb0f1c5e459e7ecc513076509f.scn"]
+source_file="res://maps/marble/models/marble_column.glb"
+dest_files=["res://.godot/imported/marble_column.glb-a523d11f78267b15ededebb6d4aebc6d.scn"]
 
 [params]
 

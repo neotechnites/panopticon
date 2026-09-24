@@ -4,12 +4,12 @@ importer="scene"
 importer_version=1
 type="PackedScene"
 uid="uid://cplpperlub84c"
-path="res://.godot/imported/forest_rock_slab.glb-7c869e6c57a96064cf27907f48036603.scn"
+path="res://.godot/imported/forest_rock_slab.glb-bd45839518edc3972b17777232864861.scn"
 
 [deps]
 
-source_file="res://assets/models/forest_rock_slab.glb"
-dest_files=["res://.godot/imported/forest_rock_slab.glb-7c869e6c57a96064cf27907f48036603.scn"]
+source_file="res://maps/forest/models/forest_rock_slab.glb"
+dest_files=["res://.godot/imported/forest_rock_slab.glb-bd45839518edc3972b17777232864861.scn"]
 
 [params]
 

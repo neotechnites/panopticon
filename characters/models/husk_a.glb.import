@@ -4,12 +4,12 @@ importer="scene"
 importer_version=1
 type="PackedScene"
 uid="uid://d0cb72t2cl0ie"
-path="res://.godot/imported/husk_a.glb-16db618687d01216a705883144fc7f1c.scn"
+path="res://.godot/imported/husk_a.glb-568cfeee0bc1d3910f6cedfa4fe8576f.scn"
 
 [deps]
 
-source_file="res://assets/models/husk_a.glb"
-dest_files=["res://.godot/imported/husk_a.glb-16db618687d01216a705883144fc7f1c.scn"]
+source_file="res://characters/models/husk_a.glb"
+dest_files=["res://.godot/imported/husk_a.glb-568cfeee0bc1d3910f6cedfa4fe8576f.scn"]
 
 [params]
 

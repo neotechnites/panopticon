@@ -4,12 +4,12 @@ importer="scene"
 importer_version=1
 type="PackedScene"
 uid="uid://dcqeakky42fog"
-path="res://.godot/imported/spire.glb-88c6c6991a7414eeb75a3848bb0ca158.scn"
+path="res://.godot/imported/spire.glb-3985edcc9d48fc9e18a9f15d3b7a5ed1.scn"
 
 [deps]
 
-source_file="res://assets/models/spire.glb"
-dest_files=["res://.godot/imported/spire.glb-88c6c6991a7414eeb75a3848bb0ca158.scn"]
+source_file="res://maps/bentham_ring/models/spire.glb"
+dest_files=["res://.godot/imported/spire.glb-3985edcc9d48fc9e18a9f15d3b7a5ed1.scn"]
 
 [params]
 

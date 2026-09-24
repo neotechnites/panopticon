@@ -4,12 +4,12 @@ importer="scene"
 importer_version=1
 type="PackedScene"
 uid="uid://emmcd6tjqn53"
-path="res://.godot/imported/boulder.glb-5deb9de6983194830752aeb59f152e12.scn"
+path="res://.godot/imported/boulder.glb-d5a8d2027e9edb5f79afbc436a38079b.scn"
 
 [deps]
 
-source_file="res://assets/models/boulder.glb"
-dest_files=["res://.godot/imported/boulder.glb-5deb9de6983194830752aeb59f152e12.scn"]
+source_file="res://maps/bentham_ring/models/boulder.glb"
+dest_files=["res://.godot/imported/boulder.glb-d5a8d2027e9edb5f79afbc436a38079b.scn"]
 
 [params]
 
