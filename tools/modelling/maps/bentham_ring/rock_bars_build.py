@@ -33,8 +33,9 @@ The screen spans Blender X (Godot X), thickness along Blender Y (Godot Z).
 Blender +Z -> Godot +Y, +X -> +X, +Y -> -Z.
 
 Contract: one mesh "RockBars" (two sheets: rock and shade), plus
-"RockBarsCollision" -- one box per rock column plus a sill and a lintel,
-shipped as a `-colonly` node.
+"RockBarsCollision" -- one box over the wall's full width, height and depth
+(Ryan: "the collision for all the gates can just be a big rectangle"),
+shipped as a `-boxcol` node.
 """
 
 import math
@@ -59,7 +60,7 @@ import texel as tx  # noqa: E402
 
 NAME = "rock_bars"
 OBJECT_NAME = "RockBars"
-COLLIDER_NAME = "RockBarsCollision-colonly"
+COLLIDER_NAME = "RockBarsCollision-boxcol"
 
 # Ryan: "the model you made just sticks right out the side and off the cliff."
 # Built at world scale now (the node is unscaled), spanning r 46.58 .. 58.50 on bearing 350.
@@ -451,52 +452,16 @@ def _wall(r):
     return m, slots, X, Z, cell_of, lanes, TH
 
 
-def _collider(slots, X, Z, cell_of, TH):
-    """One box per rock column, floor to ceiling, plus a sill under the lowest
-    slot foot and a lintel over the highest slot head. The slot lanes are left
-    OPEN, which is what lets a round and a sight line through what a body
-    cannot pass.
-
-    EACH BOX IS AS DEEP AS THE ROCK IT STANDS FOR, not as deep as the wall's
-    deepest point. The wall swells and thins; one blanket half-depth would put
-    a metre of invisible stone across the lane where the rock is a third of
-    that, which is a footprint the lane can feel and the eye cannot check."""
+def _collider(TH):
+    """One box over the gate's full width, height and depth (Ryan: "the
+    collision for all the gates can just be a big rectangle"): whatever the
+    lattice of columns, sill and lintel used to block, one rectangle now
+    blocks, sized to the wall's own deepest point so nothing it used to stop
+    can slip past it."""
     c = _Mesh()
-    nx = len(X)
-    ends = []
-    for g in range(len(slots) + 1):
-        lo = 0 if g == 0 else cell_of[g - 1] + 1
-        hi = cell_of[g] if g < len(slots) else nx - 1
-        a = -HALF_W if g == 0 else max(X[cell_of[g - 1] + 1])
-        b = HALF_W if g == len(slots) else min(X[cell_of[g]])
-        ends.append((a, b, lo, hi))
-
-    def depth(lo, hi, j0=0, j1=None):
-        j1 = len(ROWS) - 1 if j1 is None else j1
-        return max(COLL_HD_MIN,
-                   max(TH[(side, i, j)] for side in (-1, 1)
-                       for i in range(lo, hi + 1) for j in range(j0, j1 + 1)))
-
-    for a, b, lo, hi in ends[:-1]:
-        d = depth(lo, hi)
-        c.box((a, -d, 0.0), (b, d, HEIGHT), "rock")
-    a, _, lo, hi = ends[-1]                         # the flare: a box per lane, so it follows
-    for i in range(lo, hi):
-        x0 = a if i == lo else min(X[i])
-        x1 = HALF_W if i == hi - 1 else max(X[i + 1])
-        d = depth(i, i + 1)
-        c.box((x0, -d, 0.0), (x1, d, HEIGHT), "rock")
-    nbox = len(ends) - 1 + hi - lo
-    s0, s1 = cell_of[0], cell_of[-1] + 1           # the sill and lintel span the slots only
-    foot = min(min(Z[cell_of[k]][s["b"]], Z[cell_of[k] + 1][s["b"]])
-               for k, s in enumerate(slots))
-    head = max(max(Z[cell_of[k]][s["t"]], Z[cell_of[k] + 1][s["t"]])
-               for k, s in enumerate(slots))
-    d = depth(s0, s1, 0, 1)
-    c.box((min(X[s0]), -d, 0.0), (max(X[s1]), d, foot), "rock")
-    d = depth(s0, s1, len(ROWS) - 2, len(ROWS) - 1)
-    c.box((min(X[s0]), -d, head), (max(X[s1]), d, HEIGHT), "rock")
-    return c, nbox + 2, foot, head
+    d = max(COLL_HD_MIN, max(TH.values()))
+    c.box((-HALF_W, -d, 0.0), (HALF_W, d, HEIGHT), "rock")
+    return c
 
 
 def _measure(slots, X, cell_of):
@@ -524,7 +489,7 @@ def _finish(wall, coll):
         mat.diffuse_color = (0.13, 0.04, 0.04, 1.0)
     order = tx.finish(ob, classes, mats)
     tx.report(SHEETS)
-    coll_ob = coll.object(COLLIDER_NAME)     # Godot: StaticBody3D + ConcavePolygonShape3D
+    coll_ob = coll.object(COLLIDER_NAME)     # Godot: StaticBody3D + BoxShape3D
     coll_ob.hide_render = True
     print("MDL STATS visual_tris=%d collision_tris=%d surfaces=%d order=%s"
           % (len(ob.data.polygons), len(coll_ob.data.polygons), len(ob.data.materials),
@@ -535,7 +500,7 @@ def _finish(wall, coll):
 def build():
     r = _Rng(SEED)
     wall, slots, X, Z, cell_of, lanes, TH = _wall(r)
-    coll, nbox, foot, head = _collider(slots, X, Z, cell_of, TH)
+    coll = _collider(TH)
     cols = [(-HALF_W if g == 0 else max(X[cell_of[g - 1] + 1]))
             for g in range(len(slots) + 1)]
     cols = [(HALF_W if g == len(slots) else min(X[cell_of[g]]))
@@ -546,17 +511,10 @@ def build():
     lo = min(min(col) for col in X)
     hi = max(max(col) for col in X)
     top = max(max(col) for col in Z)
-    print("MDL STATS width=%.2f height=%.2f slots=%d widest_gap=%.3f lanes=%d boxes=%d"
-          % (hi - lo, top, SLOTS, widest, len(X) - 1, nbox))
-    slot_th = max(TH[(-1, cell_of[k], (s["b"] + s["t"]) // 2)]
-                  + TH[(1, cell_of[k], (s["b"] + s["t"]) // 2)]
-                  for k, s in enumerate(slots))
+    print("MDL STATS width=%.2f height=%.2f slots=%d widest_gap=%.3f lanes=%d"
+          % (hi - lo, top, SLOTS, widest, len(X) - 1))
     print("MDL STATS columns=%s" % ",".join("%.2f" % c for c in cols))
-    cd = sorted(set(round(2.0 * abs(v[1]), 2) for v in coll.verts))
-    print("MDL STATS sill_to=%.2f lintel_from=%.2f depth=%.2f slot_depth=%.2f "
-          "coll_depth=%s mpt=%.4f"
-          % (foot, head, 2.0 * max(TH.values()), slot_th,
-             ",".join("%.2f" % d for d in cd), tx.MPT))
+    print("MDL STATS coll_depth=%.2f mpt=%.4f" % (2.0 * max(COLL_HD_MIN, max(TH.values())), tx.MPT))
     for k, s in enumerate(slots):
         print("MDL STATS slot%d x=%.2f w=%.3f z=%.2f..%.2f kind=%s"
               % (k, 0.5 * (s["x0"] + s["x1"]), s["w"], ROWS[s["b"]], ROWS[s["t"]], s["kind"]))

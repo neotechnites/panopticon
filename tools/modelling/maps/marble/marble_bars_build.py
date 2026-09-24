@@ -51,16 +51,9 @@ emitted as one polygon carrying the short edges as collinear points (the
 ledge, the cornice soffit, the jamb margins), never as a T-junction. The
 underside is capped: nothing is left open.
 
-MarbleBarsCollision rides in the .glb as a `-colonly` node, one box per real
-solid -- socle, two pilasters, two jamb margins, spandrel, cornice, a box per
-vertical bar, a box per cross-bar -- not one fat box over everything. The two
-jamb-margin boxes are the ones that carry the widening: they run ARCH_HW .. XP
-a side, so the new ashlar field is solid from the socle to the cornice soffit
-and the only opening left anywhere across the walkway is the barred mouth.
-
-It now carries a box for EVERY real solid, which the widening's test found it
-did not: see _collider(). The sweep of it measures 0.342 m, the drawn mesh's
-own widest gap, at every height.
+MarbleBarsCollision rides in the .glb as a `-boxcol` node, one box over the
+gate's full width, height and depth (Ryan: "the collision for all the gates
+can just be a big rectangle"): see _collider().
 
 tests/test_marble_gate.gd is the proof in the scene: it drives a 0.4 x 1.8 m
 capsule at the gate at 11 m/s from radial offsets spanning the whole walkway,
@@ -120,7 +113,7 @@ if bpy is not None:
 
 NAME = "marble_bars"
 OBJECT_NAME = "MarbleBars"
-COLLIDER_NAME = "MarbleBarsCollision-colonly"
+COLLIDER_NAME = "MarbleBarsCollision-boxcol"
 FACING_YAW = 0.0
 
 BEARING = 353.0             # the scene's bearing for the gate: mb.BARS_B, the gap between
@@ -594,42 +587,12 @@ def _gate():
 
 
 def _collider():
-    """One box per real solid, not one fat box over everything -- and a box for
-    EVERY real solid, which is the fix of 2026-09-23. Two pieces of drawn stone
-    had no box: the band between the socle's top (0.85) and the sill the bars
-    stand on (1.00), and the spandrel's curved haunches, which a single flat
-    CROWN_Z .. CORN_Z slab left open from the arch's underside up to 7.20. A
-    radial sweep of the old collider found 5.995 m of open lane at z 0.87 and
-    2.72 m at z 7.11, against a drawn mesh with no gap over 0.342 anywhere. Both
-    were out of a body's reach, and neither is any business of a barrier's to
-    leave lying about: tests/test_marble_gate.gd asserts the collider's own
-    widest opening across the walkway, at every height, not the reachable ones.
-
-    The spandrel is now a stair of boxes on the head's OWN stations, HEAD_XS --
-    the same polyline the drawn soffit is built on. Each column's floor is the
-    LOWER of its two ends, so the collider's arch is inscribed in the drawn one:
-    a barrier may be solid where the stone is not, never open where it is."""
+    """One box over the gate's full width, height and depth (Ryan: "the
+    collision for all the gates can just be a big rectangle"): everything the
+    frame and the bars used to block -- socle to cornice, jamb to jamb, at the
+    frame's own deepest point (PROUD_HD) -- one rectangle now blocks."""
     c = mb._Mesh()
-    _box(c, (-HALF_W, -PROUD_HD, 0.0), (HALF_W, PROUD_HD, SOCLE_Z), "plinth")
-    _box(c, (-HALF_W, -PROUD_HD, CORN_Z), (HALF_W, PROUD_HD, HEIGHT), "band")
-    for (x0, x1) in ((XP, HALF_W), (-HALF_W, -XP)):
-        _box(c, (x0, -PROUD_HD, SOCLE_Z), (x1, PROUD_HD, CORN_Z), "column")
-    for (x0, x1) in ((ARCH_HW, XP), (-XP, -ARCH_HW)):
-        _box(c, (x0, -FIELD_HD, SOCLE_Z), (x1, FIELD_HD, CORN_Z), "marble")
-    _box(c, (-ARCH_HW, -FIELD_HD, SOCLE_Z), (ARCH_HW, FIELD_HD, SILL_Z), "marble")
-    for i in range(len(HEAD_XS) - 1):
-        xa, xb = HEAD_XS[i], HEAD_XS[i + 1]
-        _box(c, (xa, -FIELD_HD, min(head_z(xa), head_z(xb))), (xb, FIELD_HD, CORN_Z), "marble2")
-    for k in range(N_BAR):
-        xl, xr = bar_span(k)
-        # The drawn bar's head is a polygon ON the soffit's polyline, so the box
-        # tops at the HIGHER of its two ends: the low end would leave a sliver of
-        # daylight between the bar's shoulder and the spandrel above it, and at
-        # the haunch that sliver merges with the pitch beside it into a 0.411 m
-        # opening. Over-topping only pushes iron into stone.
-        _box(c, (xl, -BAR_HW, SILL_Z), (xr, BAR_HW, max(head_z(xl), head_z(xr))), "iron")
-    for (z0, z1) in XBAR_Z:
-        _box(c, (-ARCH_HW, -BAR_HW, z0), (ARCH_HW, BAR_HW, z1), "iron")
+    _box(c, (-HALF_W, -PROUD_HD, 0.0), (HALF_W, PROUD_HD, HEIGHT), "plinth")
     return c
 
 
