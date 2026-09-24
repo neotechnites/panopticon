@@ -320,7 +320,8 @@ S4_LANE_R = 52.0
 S4_ENTRY_R, S4_EXIT_R = 52.6, 52.6    # the entry pad and the exit landing: the first and last flights
                                       # cross the lane so the end banks lie square to them
 S4_ROCKS = [(54.4, 0.2, 0.0), (53.8, 0.4, 0.0), (54.4, 0.1, 0.0)]   # radius, top over the deck, (no hump: cover is the wall)
-S4_REAR, S4_FRONT = 2.5, 2.0          # the standing top: 4.5 m along the flight, the centre 0.5 m forward
+S4_REAR, S4_FRONT = 4.0, 2.0          # the standing top: 6.0 m along the flight, rear closed in on the
+                                      # previous rock so a normal hit lands mid-top, not at the edge
 S4_HALF_ACROSS = 1.6                  # ... 3.2 m across to the standing edge on the wall side
 S4_EDGE_Q = 0.87                      # the standing edge (shoulder at 45 deg) sits here, of the waterline
 S4_FLAT_Q = 0.8                       # dead level out to here, of the waterline
@@ -356,7 +357,10 @@ S4_WALL_PROF = 0.85                   # the ridge section: cos^this, rounded cre
 S4_WALL_CRAG = 0.45                   # metres the crest steps up and down column to column
 S4_WALL_ROWS = (-1.0, -0.82, -0.62, -0.4, -0.18, 0.05, 0.28, 0.5, 0.7, 0.86, 1.0)   # rows across, of the half width
 S4_SIGHT_N = 300                      # samples along a sight line
-S4_LAND = 1.5                         # nominal landing this far past the next top's near edge
+S4_LAND = 3.0                         # nominal landing this far past the next top's near edge:
+                                       # same physics reach as before (edge - LAND = 1.0 m of
+                                       # rock behind the target, unchanged), now the enlarged
+                                       # top's own midpoint rather than a bare edge clearance
 S4_EXIT_LAND = 1.5                    # ... and onto the exit deck, past the lava's edge
 S4_PAD_BACK = 1.6                     # a rock's pad centre this far behind its front edge
 S4_WALK_ON = 1.75                     # launch origin behind the pad centre: trigger face 1.5 + capsule 0.4 - one tick
@@ -2445,7 +2449,7 @@ def _s4_stats():
         margin, worst = 9.0, None
         for iu in range(0, 19):
             for iv in range(0, 13):
-                uu = -S4_REAR + 4.5 * iu / 18.0
+                uu = -S4_REAR + (S4_REAR + S4_FRONT) * iu / 18.0
                 vv = -S4_HALF_ACROSS + 3.2 * iv / 12.0
                 x, y = _s4_world(rk, uu, vv)
                 mg = _s4_block((x, y, rk["top"] + S4_BODY_H), eye)
