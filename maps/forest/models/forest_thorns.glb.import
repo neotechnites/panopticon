@@ -4,12 +4,12 @@ importer="scene"
 importer_version=1
 type="PackedScene"
 uid="uid://d3q5kbhxbc37n"
-path="res://.godot/imported/forest_thorns.glb-f076698c51f368d938044f660aed0cd8.scn"
+path="res://.godot/imported/forest_thorns.glb-5f038f40a69e2113edb7f3d8d70f4e93.scn"
 
 [deps]
 
 source_file="res://maps/forest/models/forest_thorns.glb"
-dest_files=["res://.godot/imported/forest_thorns.glb-f076698c51f368d938044f660aed0cd8.scn"]
+dest_files=["res://.godot/imported/forest_thorns.glb-5f038f40a69e2113edb7f3d8d70f4e93.scn"]
 
 [params]
 

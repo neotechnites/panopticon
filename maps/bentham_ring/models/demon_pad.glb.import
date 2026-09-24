@@ -4,12 +4,12 @@ importer="scene"
 importer_version=1
 type="PackedScene"
 uid="uid://q0btrxb6dcla"
-path="res://.godot/imported/demon_pad.glb-09fc1b91a884fd8eb3627e442e756b71.scn"
+path="res://.godot/imported/demon_pad.glb-a0309373cfdcb7b1b79617800f39d3ad.scn"
 
 [deps]
 
 source_file="res://maps/bentham_ring/models/demon_pad.glb"
-dest_files=["res://.godot/imported/demon_pad.glb-09fc1b91a884fd8eb3627e442e756b71.scn"]
+dest_files=["res://.godot/imported/demon_pad.glb-a0309373cfdcb7b1b79617800f39d3ad.scn"]
 
 [params]
 

@@ -3,12 +3,12 @@
 importer="wav"
 type="AudioStreamWAV"
 uid="uid://01ouuoom2w3m"
-path="res://.godot/imported/race_started.wav-90eb09780f87e5026084fe2bb4a8137e.sample"
+path="res://.godot/imported/race_started.wav-5cb673a77e86b23c7c436441e3d2385e.sample"
 
 [deps]
 
 source_file="res://audio/sfx/clean/race_started.wav"
-dest_files=["res://.godot/imported/race_started.wav-90eb09780f87e5026084fe2bb4a8137e.sample"]
+dest_files=["res://.godot/imported/race_started.wav-5cb673a77e86b23c7c436441e3d2385e.sample"]
 
 [params]
 

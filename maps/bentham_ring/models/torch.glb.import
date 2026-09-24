@@ -4,12 +4,12 @@ importer="scene"
 importer_version=1
 type="PackedScene"
 uid="uid://buybjxmnhnkf"
-path="res://.godot/imported/torch.glb-54b6fd5f4ff9d2d7554427882fe005af.scn"
+path="res://.godot/imported/torch.glb-3504829663ff57739618f51dce7dbe4a.scn"
 
 [deps]
 
 source_file="res://maps/bentham_ring/models/torch.glb"
-dest_files=["res://.godot/imported/torch.glb-54b6fd5f4ff9d2d7554427882fe005af.scn"]
+dest_files=["res://.godot/imported/torch.glb-3504829663ff57739618f51dce7dbe4a.scn"]
 
 [params]
 

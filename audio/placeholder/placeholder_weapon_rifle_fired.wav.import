@@ -3,12 +3,12 @@
 importer="wav"
 type="AudioStreamWAV"
 uid="uid://c4ptnkag6lnmx"
-path="res://.godot/imported/placeholder_weapon_rifle_fired.wav-810a2dd6c9196266975fc93600e7e615.sample"
+path="res://.godot/imported/placeholder_weapon_rifle_fired.wav-2433dd8fca7520ca68941e23216cd52e.sample"
 
 [deps]
 
 source_file="res://audio/placeholder/placeholder_weapon_rifle_fired.wav"
-dest_files=["res://.godot/imported/placeholder_weapon_rifle_fired.wav-810a2dd6c9196266975fc93600e7e615.sample"]
+dest_files=["res://.godot/imported/placeholder_weapon_rifle_fired.wav-2433dd8fca7520ca68941e23216cd52e.sample"]
 
 [params]
 

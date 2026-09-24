@@ -4,12 +4,12 @@ importer="scene"
 importer_version=1
 type="PackedScene"
 uid="uid://d0um0xycvx56y"
-path="res://.godot/imported/speed_orb.glb-83fec8585b824ec77c559d0ae0411948.scn"
+path="res://.godot/imported/speed_orb.glb-d085b5d335b9e22f000ac7541da5ac83.scn"
 
 [deps]
 
 source_file="res://props/models/speed_orb.glb"
-dest_files=["res://.godot/imported/speed_orb.glb-83fec8585b824ec77c559d0ae0411948.scn"]
+dest_files=["res://.godot/imported/speed_orb.glb-d085b5d335b9e22f000ac7541da5ac83.scn"]
 
 [params]
 

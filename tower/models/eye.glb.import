@@ -4,12 +4,12 @@ importer="scene"
 importer_version=1
 type="PackedScene"
 uid="uid://bjneo4jla4ta2"
-path="res://.godot/imported/eye.glb-7206b5851eb89e9512e5ad3323eaa816.scn"
+path="res://.godot/imported/eye.glb-58a34837b76f5cd90a1d25bbeb8f14c3.scn"
 
 [deps]
 
 source_file="res://tower/models/eye.glb"
-dest_files=["res://.godot/imported/eye.glb-7206b5851eb89e9512e5ad3323eaa816.scn"]
+dest_files=["res://.godot/imported/eye.glb-58a34837b76f5cd90a1d25bbeb8f14c3.scn"]
 
 [params]
 

@@ -4,12 +4,12 @@ importer="scene"
 importer_version=1
 type="PackedScene"
 uid="uid://dqji6w51naqq5"
-path="res://.godot/imported/forest_tree_prop_c.glb-91eec506a6d0f8ab0e5b26379ba417b7.scn"
+path="res://.godot/imported/forest_tree_prop_c.glb-1ef5ec10cc919448c7a5f1a187fd2a05.scn"
 
 [deps]
 
 source_file="res://maps/forest/models/forest_tree_prop_c.glb"
-dest_files=["res://.godot/imported/forest_tree_prop_c.glb-91eec506a6d0f8ab0e5b26379ba417b7.scn"]
+dest_files=["res://.godot/imported/forest_tree_prop_c.glb-1ef5ec10cc919448c7a5f1a187fd2a05.scn"]
 
 [params]
 

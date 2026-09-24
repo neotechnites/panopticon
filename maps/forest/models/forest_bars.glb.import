@@ -4,12 +4,12 @@ importer="scene"
 importer_version=1
 type="PackedScene"
 uid="uid://b08om5ibdqkrt"
-path="res://.godot/imported/forest_bars.glb-9d52c04d2b546f6a4a424a60152c7a74.scn"
+path="res://.godot/imported/forest_bars.glb-c9945eacb4b38ccb3a026f0c9d696619.scn"
 
 [deps]
 
 source_file="res://maps/forest/models/forest_bars.glb"
-dest_files=["res://.godot/imported/forest_bars.glb-9d52c04d2b546f6a4a424a60152c7a74.scn"]
+dest_files=["res://.godot/imported/forest_bars.glb-c9945eacb4b38ccb3a026f0c9d696619.scn"]
 
 [params]
 

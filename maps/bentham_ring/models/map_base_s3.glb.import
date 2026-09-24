@@ -4,12 +4,12 @@ importer="scene"
 importer_version=1
 type="PackedScene"
 uid="uid://dx6oj1o5k502"
-path="res://.godot/imported/map_base_s3.glb-3d24511c1079d5de96130e03072a42a2.scn"
+path="res://.godot/imported/map_base_s3.glb-a5e09a1eb1e2468c4a852856e0dfcdcf.scn"
 
 [deps]
 
 source_file="res://maps/bentham_ring/models/map_base_s3.glb"
-dest_files=["res://.godot/imported/map_base_s3.glb-3d24511c1079d5de96130e03072a42a2.scn"]
+dest_files=["res://.godot/imported/map_base_s3.glb-a5e09a1eb1e2468c4a852856e0dfcdcf.scn"]
 
 [params]
 

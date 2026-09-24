@@ -4,12 +4,12 @@ importer="scene"
 importer_version=1
 type="PackedScene"
 uid="uid://o7t8nmaosa7q"
-path="res://.godot/imported/forest_rock_boulder.glb-881b4179115c7863d92f69774d7e2c03.scn"
+path="res://.godot/imported/forest_rock_boulder.glb-afd62eb262136ad0a1e3b125b0e9529b.scn"
 
 [deps]
 
 source_file="res://maps/forest/models/forest_rock_boulder.glb"
-dest_files=["res://.godot/imported/forest_rock_boulder.glb-881b4179115c7863d92f69774d7e2c03.scn"]
+dest_files=["res://.godot/imported/forest_rock_boulder.glb-afd62eb262136ad0a1e3b125b0e9529b.scn"]
 
 [params]
 

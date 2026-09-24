@@ -3,12 +3,12 @@
 importer="wav"
 type="AudioStreamWAV"
 uid="uid://qy2r40giyy1t"
-path="res://.godot/imported/lava_death.wav-338827a850d7d1fd8e03d8bd70841d16.sample"
+path="res://.godot/imported/lava_death.wav-f375d8524ce0cd67dd93f08ada6e6f5a.sample"
 
 [deps]
 
 source_file="res://audio/sfx/lava_death.wav"
-dest_files=["res://.godot/imported/lava_death.wav-338827a850d7d1fd8e03d8bd70841d16.sample"]
+dest_files=["res://.godot/imported/lava_death.wav-f375d8524ce0cd67dd93f08ada6e6f5a.sample"]
 
 [params]
 

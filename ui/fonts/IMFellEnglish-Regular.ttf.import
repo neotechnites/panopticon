@@ -3,12 +3,12 @@
 importer="font_data_dynamic"
 type="FontFile"
 uid="uid://b4ah4udnu8b3l"
-path="res://.godot/imported/IMFellEnglish-Regular.ttf-5e42b6a2f1d156d636779e545ec290b2.fontdata"
+path="res://.godot/imported/IMFellEnglish-Regular.ttf-04a5d6815da2c49cd19fb6f91b014723.fontdata"
 
 [deps]
 
 source_file="res://ui/fonts/IMFellEnglish-Regular.ttf"
-dest_files=["res://.godot/imported/IMFellEnglish-Regular.ttf-5e42b6a2f1d156d636779e545ec290b2.fontdata"]
+dest_files=["res://.godot/imported/IMFellEnglish-Regular.ttf-04a5d6815da2c49cd19fb6f91b014723.fontdata"]
 
 [params]
 

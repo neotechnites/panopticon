@@ -3,12 +3,12 @@
 importer="wav"
 type="AudioStreamWAV"
 uid="uid://b2x64r6fhsrcx"
-path="res://.godot/imported/seat_changed.wav-a6ecdd198c17bfdd4aa377aa0196c3f3.sample"
+path="res://.godot/imported/seat_changed.wav-3d6d352fef8693a22c6d088b13874bf3.sample"
 
 [deps]
 
 source_file="res://audio/sfx/seat_changed.wav"
-dest_files=["res://.godot/imported/seat_changed.wav-a6ecdd198c17bfdd4aa377aa0196c3f3.sample"]
+dest_files=["res://.godot/imported/seat_changed.wav-3d6d352fef8693a22c6d088b13874bf3.sample"]
 
 [params]
 

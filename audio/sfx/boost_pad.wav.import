@@ -3,12 +3,12 @@
 importer="wav"
 type="AudioStreamWAV"
 uid="uid://bdhqjmwlxfcjm"
-path="res://.godot/imported/boost_pad.wav-f017d3100580f4d560c24b972c5d9633.sample"
+path="res://.godot/imported/boost_pad.wav-4823c84c8dbbb591d6d1b084d108840d.sample"
 
 [deps]
 
 source_file="res://audio/sfx/boost_pad.wav"
-dest_files=["res://.godot/imported/boost_pad.wav-f017d3100580f4d560c24b972c5d9633.sample"]
+dest_files=["res://.godot/imported/boost_pad.wav-4823c84c8dbbb591d6d1b084d108840d.sample"]
 
 [params]
 

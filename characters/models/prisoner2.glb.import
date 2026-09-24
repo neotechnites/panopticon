@@ -4,12 +4,12 @@ importer="scene"
 importer_version=1
 type="PackedScene"
 uid="uid://yti0gsbcsfi7"
-path="res://.godot/imported/prisoner2.glb-3b59abf08ee15329afa5837078befcc6.scn"
+path="res://.godot/imported/prisoner2.glb-cf0c6c6796dc54672b802e6c90d19ec0.scn"
 
 [deps]
 
 source_file="res://characters/models/prisoner2.glb"
-dest_files=["res://.godot/imported/prisoner2.glb-3b59abf08ee15329afa5837078befcc6.scn"]
+dest_files=["res://.godot/imported/prisoner2.glb-cf0c6c6796dc54672b802e6c90d19ec0.scn"]
 
 [params]
 

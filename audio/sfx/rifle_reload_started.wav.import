@@ -3,12 +3,12 @@
 importer="wav"
 type="AudioStreamWAV"
 uid="uid://bim3ny5n7uvic"
-path="res://.godot/imported/rifle_reload_started.wav-29bba5cc1acb87176ff4fd4b14b20047.sample"
+path="res://.godot/imported/rifle_reload_started.wav-c20481077a9d8bb0ef173267601288c5.sample"
 
 [deps]
 
 source_file="res://audio/sfx/rifle_reload_started.wav"
-dest_files=["res://.godot/imported/rifle_reload_started.wav-29bba5cc1acb87176ff4fd4b14b20047.sample"]
+dest_files=["res://.godot/imported/rifle_reload_started.wav-c20481077a9d8bb0ef173267601288c5.sample"]
 
 [params]
 

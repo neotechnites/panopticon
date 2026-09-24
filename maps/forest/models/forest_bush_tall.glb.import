@@ -4,12 +4,12 @@ importer="scene"
 importer_version=1
 type="PackedScene"
 uid="uid://di40e002w10ft"
-path="res://.godot/imported/forest_bush_tall.glb-3ebe4a337889f1feb6cbd8cac8a34b00.scn"
+path="res://.godot/imported/forest_bush_tall.glb-aa5e01a2e6bee20b15ac3dd67ff1939e.scn"
 
 [deps]
 
 source_file="res://maps/forest/models/forest_bush_tall.glb"
-dest_files=["res://.godot/imported/forest_bush_tall.glb-3ebe4a337889f1feb6cbd8cac8a34b00.scn"]
+dest_files=["res://.godot/imported/forest_bush_tall.glb-aa5e01a2e6bee20b15ac3dd67ff1939e.scn"]
 
 [params]
 

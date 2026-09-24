@@ -3,12 +3,12 @@
 importer="wav"
 type="AudioStreamWAV"
 uid="uid://bcik35sri3545"
-path="res://.godot/imported/runner_converted.wav-ed29a1e23ed654ec46dd80f7a4abd2dd.sample"
+path="res://.godot/imported/runner_converted.wav-ea5dacebcdf9b8b76bb42ea4c73b4647.sample"
 
 [deps]
 
 source_file="res://audio/sfx/clean/runner_converted.wav"
-dest_files=["res://.godot/imported/runner_converted.wav-ed29a1e23ed654ec46dd80f7a4abd2dd.sample"]
+dest_files=["res://.godot/imported/runner_converted.wav-ea5dacebcdf9b8b76bb42ea4c73b4647.sample"]
 
 [params]
 

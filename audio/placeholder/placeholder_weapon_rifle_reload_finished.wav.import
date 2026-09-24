@@ -3,12 +3,12 @@
 importer="wav"
 type="AudioStreamWAV"
 uid="uid://nx74omvtl1ff"
-path="res://.godot/imported/placeholder_weapon_rifle_reload_finished.wav-fd26857f6e66b7ebf394079bae144973.sample"
+path="res://.godot/imported/placeholder_weapon_rifle_reload_finished.wav-9484ce6781abd7bdb1177eb267f97d33.sample"
 
 [deps]
 
 source_file="res://audio/placeholder/placeholder_weapon_rifle_reload_finished.wav"
-dest_files=["res://.godot/imported/placeholder_weapon_rifle_reload_finished.wav-fd26857f6e66b7ebf394079bae144973.sample"]
+dest_files=["res://.godot/imported/placeholder_weapon_rifle_reload_finished.wav-9484ce6781abd7bdb1177eb267f97d33.sample"]
 
 [params]
 

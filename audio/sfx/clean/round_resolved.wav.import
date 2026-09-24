@@ -3,12 +3,12 @@
 importer="wav"
 type="AudioStreamWAV"
 uid="uid://cr1t100f7jgyv"
-path="res://.godot/imported/round_resolved.wav-496e530365cc6396ef0c3fe8d5b251f5.sample"
+path="res://.godot/imported/round_resolved.wav-88240009d44288b6fabb7ba15681c80e.sample"
 
 [deps]
 
 source_file="res://audio/sfx/clean/round_resolved.wav"
-dest_files=["res://.godot/imported/round_resolved.wav-496e530365cc6396ef0c3fe8d5b251f5.sample"]
+dest_files=["res://.godot/imported/round_resolved.wav-88240009d44288b6fabb7ba15681c80e.sample"]
 
 [params]
 

@@ -4,12 +4,12 @@ importer="scene"
 importer_version=1
 type="PackedScene"
 uid="uid://cjxn6pe4m3t15"
-path="res://.godot/imported/forest_rock_outcrop.glb-ed31a9da843aee8b1677099f23a08778.scn"
+path="res://.godot/imported/forest_rock_outcrop.glb-f77aa57582405ef80d6cd45bfc99d3db.scn"
 
 [deps]
 
 source_file="res://maps/forest/models/forest_rock_outcrop.glb"
-dest_files=["res://.godot/imported/forest_rock_outcrop.glb-ed31a9da843aee8b1677099f23a08778.scn"]
+dest_files=["res://.godot/imported/forest_rock_outcrop.glb-f77aa57582405ef80d6cd45bfc99d3db.scn"]
 
 [params]
 

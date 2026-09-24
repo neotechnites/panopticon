@@ -4,12 +4,12 @@ importer="scene"
 importer_version=1
 type="PackedScene"
 uid="uid://cqnhp0sg7cm5"
-path="res://.godot/imported/marble_spikes.glb-5019d83c6881434b49672ef54c25c9b6.scn"
+path="res://.godot/imported/marble_spikes.glb-32ec1920bd5d0d172a8e9811c16d4287.scn"
 
 [deps]
 
 source_file="res://maps/marble/models/marble_spikes.glb"
-dest_files=["res://.godot/imported/marble_spikes.glb-5019d83c6881434b49672ef54c25c9b6.scn"]
+dest_files=["res://.godot/imported/marble_spikes.glb-32ec1920bd5d0d172a8e9811c16d4287.scn"]
 
 [params]
 

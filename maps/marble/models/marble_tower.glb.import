@@ -4,12 +4,12 @@ importer="scene"
 importer_version=1
 type="PackedScene"
 uid="uid://cr8wloytr4cvv"
-path="res://.godot/imported/marble_tower.glb-1e127fcfc52beb14fddea9d5ec5c7181.scn"
+path="res://.godot/imported/marble_tower.glb-ae90e833da9e438b20e21c282ca894c6.scn"
 
 [deps]
 
 source_file="res://maps/marble/models/marble_tower.glb"
-dest_files=["res://.godot/imported/marble_tower.glb-1e127fcfc52beb14fddea9d5ec5c7181.scn"]
+dest_files=["res://.godot/imported/marble_tower.glb-ae90e833da9e438b20e21c282ca894c6.scn"]
 
 [params]
 

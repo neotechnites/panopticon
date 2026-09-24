@@ -4,12 +4,12 @@ importer="scene"
 importer_version=1
 type="PackedScene"
 uid="uid://cela3gwsdh1ws"
-path="res://.godot/imported/runner.glb-7bd600fa25dad9b1fecb37046077d838.scn"
+path="res://.godot/imported/runner.glb-25ffdd06661a6d3cdf3aa8945fb766a3.scn"
 
 [deps]
 
 source_file="res://characters/models/runner.glb"
-dest_files=["res://.godot/imported/runner.glb-7bd600fa25dad9b1fecb37046077d838.scn"]
+dest_files=["res://.godot/imported/runner.glb-25ffdd06661a6d3cdf3aa8945fb766a3.scn"]
 
 [params]
 

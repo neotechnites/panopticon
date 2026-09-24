@@ -3,12 +3,12 @@
 importer="wav"
 type="AudioStreamWAV"
 uid="uid://dubmmdsmssync"
-path="res://.godot/imported/placeholder_match_seat_changed.wav-396a437ee8b14ad8c64c13b80feedd9f.sample"
+path="res://.godot/imported/placeholder_match_seat_changed.wav-5eacc04e06c53a7a60d5435cf1b7bf3d.sample"
 
 [deps]
 
 source_file="res://audio/placeholder/placeholder_match_seat_changed.wav"
-dest_files=["res://.godot/imported/placeholder_match_seat_changed.wav-396a437ee8b14ad8c64c13b80feedd9f.sample"]
+dest_files=["res://.godot/imported/placeholder_match_seat_changed.wav-5eacc04e06c53a7a60d5435cf1b7bf3d.sample"]
 
 [params]
 

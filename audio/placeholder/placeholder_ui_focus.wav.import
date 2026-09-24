@@ -3,12 +3,12 @@
 importer="wav"
 type="AudioStreamWAV"
 uid="uid://dn6hx4khjtl1e"
-path="res://.godot/imported/placeholder_ui_focus.wav-4031d2c37363471b7a163bc731bc5f4c.sample"
+path="res://.godot/imported/placeholder_ui_focus.wav-5d97ec7096df9480fbb832bd642d000f.sample"
 
 [deps]
 
 source_file="res://audio/placeholder/placeholder_ui_focus.wav"
-dest_files=["res://.godot/imported/placeholder_ui_focus.wav-4031d2c37363471b7a163bc731bc5f4c.sample"]
+dest_files=["res://.godot/imported/placeholder_ui_focus.wav-5d97ec7096df9480fbb832bd642d000f.sample"]
 
 [params]
 
