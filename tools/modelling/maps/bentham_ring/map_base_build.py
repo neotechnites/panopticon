@@ -185,6 +185,9 @@ LAKE_BANK = 0.6                       # degrees of sloped bank at each end
 WALL_A0, WALL_A1 = 293.0, 338.0       # pass 4's wall-run columns: the sea's rim keeps them
 WALL_BANK = 0.7
 LAVA_Z = 22.70                        # the channel floor: 0.3 m under the deck
+LAKE_LAVA_Z = 21.70                    # S5 only: the platform run's own lava floor, pulled
+                                      # 1.0 m further down than LAVA_Z so a runner off a
+                                      # platform edge clears floor_snap_length (0.3 m) and flies
 WALL_LAVA_TOP = 28.80                 # the fall tops out here, 2.7 m under the ceiling
 WALL_ROWS_OUT = (30.20, 30.70)        # the outer wall's own rows, kept as pass 4 laid them
 RECESS_R = 0.40                       # how far the channel is cut into a wall
@@ -1867,7 +1870,7 @@ def _lake_column(m, bearing, radius, sect, rings, r, top_zone, ragged=0.0, cap=T
             want = (er[0] * mid[0] + et[0] * mid[1], er[1] * mid[0] + et[1] * mid[1], 0.0)
             zc = 0.5 * (rings[a][0] + rings[a + 1][0])
             m.quad(lvl[a][i], lvl[a][j], lvl[a + 1][j], lvl[a + 1][i], want,
-                   ZONE_EMBER if zc < LAVA_Z else ZONE_SHADE)
+                   ZONE_EMBER if zc < LAKE_LAVA_Z else ZONE_SHADE)
     m.fan(_cap(lvl[-1]), UP, top_zone)
     if cap:
         m.fan(_cap(lvl[0]), DOWN, ZONE_EMBER)
@@ -1883,8 +1886,8 @@ def _cap(ring):
 # taper, so a runner at the rim meets one flat top and a sheer edge, nothing to catch.
 PLAT_WALL_H = 1.0                     # sheer wall under the top's rim
 PLAT_RINGS = [(21.20, 1.40, 0.16), (21.60, 1.20, 0.08),
-              (PLAT_TOP_Z - PLAT_WALL_H, 1.0, 0.0), (LAVA_Z, 1.0, 0.0),
-              (PLAT_TOP_Z, 1.0, 0.0)]
+              (LAKE_LAVA_Z, 1.15, 0.06),   # the lava line, now inside the taper, not the sheer face
+              (PLAT_TOP_Z - PLAT_WALL_H, 1.0, 0.0), (PLAT_TOP_Z, 1.0, 0.0)]
 FIN_RINGS = [(22.20, 1.22), (23.40, 1.10), (24.90, 1.0),
              (26.20, 0.86), (FIN_TOP_Z, 0.70)]
 
@@ -2670,21 +2673,23 @@ def _s4_stats():
 # and re-laid in the river's material, with the rock rim banking down to them
 # -----------------------------------------------------------------------------
 
-def _pit_lava(m, wall, ta, tb, cut_a, cut_b, cols, rim, lines):
+def _pit_lava(m, wall, ta, tb, cut_a, cut_b, cols, rim, lines, lava_z=LAVA_Z):
     """``ta``..``tb`` is the channel; ``cut_a``..``cut_b`` the wider span whose
     rim comes down to it. The fall runs on ``cols`` (the deck's columns); the
-    sea's rim keeps ``rim`` and the sill zips the two. Returns the lava tris."""
+    sea's rim keeps ``rim`` and the sill zips the two. ``lava_z`` is this
+    call's own lava height (S5's LAKE_LAVA_Z, or the shared LAVA_Z for S4).
+    Returns the lava tris."""
     za = wall.ring_z[0]
-    wall.hole(ta, tb, za, LAVA_Z)                  # the channel itself
-    wall.hole(cut_a, cut_b, LAVA_Z, DECK_Z)        # the rim, down to the river
+    wall.hole(ta, tb, za, lava_z)                  # the channel itself
+    wall.hole(cut_a, cut_b, lava_z, DECK_Z)        # the rim, down to the river
     rim_ts = _merge_cols(wall.tbreaks(ta, tb), [t for t in rim if ta < t < tb])
     ts = _merge_cols([ta, tb], [t for t in cols if ta < t < tb])
-    zc = wall.zbreaks(za, LAVA_Z)                  # the pit wall's own rows
+    zc = wall.zbreaks(za, lava_z)                  # the pit wall's own rows
     zs = []
     for z0, z1 in zip(zc, zc[1:]):
         nv = _nv(z1 - z0, FALL_CAP)
         zs += [z0 + (z1 - z0) * k / nv for k in range(nv)]
-    zs = sorted(zs + [LAVA_Z - d for d in LIP_ROWS] + [zc[-1]])
+    zs = sorted(zs + [lava_z - d for d in LIP_ROWS] + [zc[-1]])
     row_of = {round(z, 6): BANK_WALL + BANK_DECK - 2 + k for k, z in enumerate(reversed(zs))}
     fine = []                                      # FALL_WAVE_ROW rows for the shader's
     for z0, z1 in zip(zs, zs[1:]):                 # ripple; banks keep the coarse rows' line
@@ -2712,8 +2717,8 @@ def _pit_lava(m, wall, ta, tb, cut_a, cut_b, cols, rim, lines):
     def rec(z):
         """Opens over PIT_FADE off the lip and closes the same way into the
         sea, so the foot lands flush on the rim with no step to tear from."""
-        seal = min(_ramp(LAVA_Z - z, 0.0, PIT_FADE), _ramp(z - za, 0.0, PIT_FADE))
-        return max(_lip(LAVA_Z - z), RECESS_R * seal)
+        seal = min(_ramp(lava_z - z, 0.0, PIT_FADE), _ramp(z - za, 0.0, PIT_FADE))
+        return max(_lip(lava_z - z), RECESS_R * seal)
 
     node = {}
 
@@ -2755,12 +2760,13 @@ def _pit_lava(m, wall, ta, tb, cut_a, cut_b, cols, rim, lines):
 
 def _pit_bank_ends(m, wall, cut_a, cut_b, ta, tb, N):
     """The triangles that close the deck's sloped bank against the pit wall,
-    where the rim steps from the deck down to the river's rounded lip."""
+    where the rim steps from the deck down to the river's rounded lip. LAKE
+    (S5) only, so it takes S5's own LAKE_LAVA_Z."""
     for cut, t in ((cut_a, ta), (cut_b, tb)):
         want = (-math.cos(cut), -math.sin(cut), 0.0)   # a patch of the pit wall
-        chain = [wall.W(cut, LAVA_Z), wall.W(t, LAVA_Z)]
-        if N(t, LAVA_Z) != wall.W(t, LAVA_Z):
-            chain.append(N(t, LAVA_Z))
+        chain = [wall.W(cut, LAKE_LAVA_Z), wall.W(t, LAKE_LAVA_Z)]
+        if N(t, LAKE_LAVA_Z) != wall.W(t, LAKE_LAVA_Z):
+            chain.append(N(t, LAKE_LAVA_Z))
         _fan_at(m, wall.W(cut, DECK_Z), chain, want, ZONE_SHADE)
 
 
@@ -2786,7 +2792,7 @@ def _lake_collider(c, r):
     cols = [LAKE_A0 + 1.0 * k for k in range(int(LAKE_A1 - LAKE_A0) + 1)]
     plats = [(b, rad, LAKE_SECTS[k][0]) for k, (b, rad, _i) in enumerate(_platforms())]
     nr = len(LAVA_COLL_RST)
-    grid = [[c.v(pol(b, rr, LAVA_Z)) for rr in LAVA_COLL_RST] for b in cols]
+    grid = [[c.v(pol(b, rr, LAKE_LAVA_Z)) for rr in LAVA_COLL_RST] for b in cols]
     for i in range(len(cols) - 1):
         for j in range(nr - 1):
             mid = pol(0.5 * (cols[i] + cols[i + 1]),
@@ -6783,9 +6789,9 @@ def _rock(r):
         if t <= cut0 + 1e-9 or t >= cut1 - 1e-9:
             return s4_z(t)
         if bank0 - 1e-9 <= t <= bank1 + 1e-9:
-            return LAVA_Z
+            return LAKE_LAVA_Z
         f = _ramp(t, cut0, bank0) if t < bank0 else _ramp(t, cut1, bank1)
-        return DECK_Z + (LAVA_Z - DECK_Z) * f
+        return DECK_Z + (LAKE_LAVA_Z - DECK_Z) * f
 
     def wall_colf(t):
         """0 on the cut columns, 1 from the bank chains in: the wall's lava
@@ -6936,7 +6942,8 @@ def _rock(r):
         pit_wall.add_xt(len(pit_wall.rows) - 1, t)
     floor_field = _field(_Rng(LAKE_SEED + 2), FLOOR_AMP)
     pit_tris, PN = _pit_lava(m, pit_wall, bank0, bank1, cut0, cut1,
-                             [t for t in cols_all if bank0 <= t <= bank1], lava_ts, lines)
+                             [t for t in cols_all if bank0 <= t <= bank1], lava_ts, lines,
+                             lava_z=LAKE_LAVA_Z)
     _pit_bank_ends(m, pit_wall, cut0, cut1, bank0, bank1, PN)
     s4_lines = (_s4_bank_line(_Rng(S4_SEED + 1)), _s4_bank_line(_Rng(S4_SEED + 4)))
     s4_field = _field(_Rng(S4_SEED + 2), S4_FLOOR_AMP)
@@ -7009,7 +7016,7 @@ def _rock(r):
         a = t + da
         x, y = rad * math.cos(a), rad * math.sin(a)
         z = p[2]
-        if chan_z(t) < LAVA_Z + 1e-9:
+        if chan_z(t) < LAKE_LAVA_Z + 1e-9:
             z += _ramp(rad - r_lip, 0.0, 0.8) * _ramp(r_foot - rad, 0.0, 0.8) * floor_field(x, y)
         return (x, y, z)
 
@@ -7026,7 +7033,7 @@ def _rock(r):
         the foot beyond them where the fall is cut back into the wall."""
         if j == 0:
             if bank0 - 1e-9 <= t <= bank1 + 1e-9:
-                return PN(t, LAVA_Z)
+                return PN(t, LAKE_LAVA_Z)
             if s4b0 - 1e-9 <= t <= s4b1 + 1e-9:
                 return S4PN(t, LAVA_Z)
             return pit_wall.W(t, chan_z(t))
@@ -7136,7 +7143,11 @@ def _rock(r):
             _strip(m, s2_chain(t0, s2in0), s2_chain(t1, s2in1), UP, ZONE_DECK)
             continue
         z0, z1 = chan_z(t0), chan_z(t1)
-        if z0 < LAVA_Z + 1e-9 and z1 < LAVA_Z + 1e-9:
+        # chan_z falls back to s4_z outside the lake's own bank0..bank1, so the
+        # flat-lava threshold has to follow which section t0/t1 are actually in.
+        lvl0 = LAVA_Z if s4_in(t0) else LAKE_LAVA_Z
+        lvl1 = LAVA_Z if s4_in(t1) else LAKE_LAVA_Z
+        if z0 < lvl0 + 1e-9 and z1 < lvl1 + 1e-9:
             zone = ZONE_RIVER
         elif z0 < DECK_Z - 1e-9 or z1 < DECK_Z - 1e-9:
             zone = ZONE_SHADE                          # the channel's end banks
@@ -7305,9 +7316,10 @@ def _collider(ang, cut0, cut1, s2, s4):
     dcols = _merge_cols(dcols, [s1_lo, s1_hi])
     for ci in range(len(dcols) - 1):
         t0, t1 = dcols[ci], dcols[ci + 1]
-        inside = (t0 >= cut0 - 1e-9 and t1 <= cut1 + 1e-9) \
-            or (t0 >= s4[0] - 1e-9 and t1 <= s4[3] + 1e-9)
-        tz = LAVA_Z if inside else DECK_Z                  # the rim drops to the river
+        in_lake = t0 >= cut0 - 1e-9 and t1 <= cut1 + 1e-9
+        in_s4 = t0 >= s4[0] - 1e-9 and t1 <= s4[3] + 1e-9
+        inside = in_lake or in_s4
+        tz = LAKE_LAVA_Z if in_lake else (LAVA_Z if in_s4 else DECK_Z)  # the rim drops to the river
         am = 0.5 * (t0 + t1)
         inward = (-math.cos(am), -math.sin(am), 0.0)
         a0 = CV("lip%.2f" % tz, lip, t0, tz)
@@ -8259,7 +8271,7 @@ def build():
              DECK_UV_SCALE, LAVA_TILE_M, lava_albedo.size[0], lava_albedo.size[1]))
     print("MDL STATS river=%.1f..%.1f deg lava_y=%.2f cols=%d bank=%.1f deg recess=%.2f "
           "wall_lava=%.1f..%.1f deg to y=%.2f pit_run_tris=%d"
-          % (LAKE_A0, LAKE_A1, LAVA_Z, river[0], LAKE_BANK, RECESS_R,
+          % (LAKE_A0, LAKE_A1, LAKE_LAVA_Z, river[0], LAKE_BANK, RECESS_R,
              WALL_A0, WALL_A1, WALL_LAVA_TOP, river[1]))
     for k, (b, rad, inner) in enumerate(_platforms()):
         print("MDL STATS platform%d bearing=%.3f r=%.1f top=%.2f square=%.1f %s"
