@@ -7,8 +7,9 @@ extends MeshInstance3D
 ## Width of each quad, and the span of the X in plan.
 const WIDTH_METRES: float = 2.4
 
-## How far the haze rises above the tile it stands on.
-const HEIGHT_METRES: float = 2.0
+## How far the haze rises above the tile it stands on: tall enough for the
+## vent band to read as heat going up.
+const HEIGHT_METRES: float = 3.0
 
 ## Built on first need, then handed to every instance.
 static var _shared_mesh: ArrayMesh = null
