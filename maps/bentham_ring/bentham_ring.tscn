@@ -632,9 +632,10 @@ editor_description = "On the chamber floor, 0.25 m up. The clearance is delibera
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.95, 0)
 
 [node name="KeyLight" type="DirectionalLight3D" parent="Tower" unique_id=788049124]
-editor_description = "Fire from the hole above, angled 20 degrees off vertical (about 70 deg below horizontal) into the pit rather than the flat noon light of an office."
+editor_description = "Fire from the hole above, angled 20 degrees off vertical (about 70 deg below horizontal) into the pit rather than the flat noon light of an office. Hidden while its energy is 0: an unlit light still costs every lit pixel a pass."
 transform = Transform3D(1, 0, 0, 0, 0.34202, 0.939693, 0, -0.939693, 0.34202, 0, 20, 0)
 light_color = Color(1, 0.45, 0.15, 1)
+visible = false
 light_energy = 0.0
 shadow_bias = 0.08
 directional_shadow_mode = 0
