@@ -1882,15 +1882,13 @@ def _cap(ring):
     return ring[1:] + ring[:1] if len(ring) == 8 else ring
 
 
-# The top ring alone (1.0, no jag) meets the collider's own flat wall exactly,
-# so a runner at the rim meets one flat top and a sheer edge, nothing to catch;
-# the ring below it keeps a whisper of jag so the visual wall still reads as rock.
+# The top's own scale (1.0, no jag) runs straight down PLAT_WALL_H before any
+# taper, so a runner at the rim meets one flat top and a sheer edge, nothing to catch.
 PLAT_WALL_H = 1.0                     # sheer wall under the top's rim
 PLAT_RINGS = [(21.20, 1.40, 0.16), (21.60, 1.20, 0.08),
               (LAKE_LAVA_Z, 1.15, 0.06),   # the lava line, now inside the taper, not the sheer face
-              (PLAT_TOP_Z - PLAT_WALL_H, 1.0, 0.05), (PLAT_TOP_Z, 1.0, 0.0)]
-FIN_RINGS = [(21.20, 1.55, 0.20), (21.60, 1.35, 0.10), (LAKE_LAVA_Z, 1.28, 0.07),
-             (22.20, 1.22), (23.40, 1.10), (24.90, 1.0),
+              (PLAT_TOP_Z - PLAT_WALL_H, 1.0, 0.0), (PLAT_TOP_Z, 1.0, 0.0)]
+FIN_RINGS = [(22.20, 1.22), (23.40, 1.10), (24.90, 1.0),
              (26.20, 0.86), (FIN_TOP_Z, 0.70)]
 
 LAKE_SECTS = {}     # platform index -> (platform section, fin section or None);
