@@ -50,6 +50,11 @@ the way a broadleaf is:
     uv      every face is unwrapped flat in its own plane at the atlas's texel
             density, so the leaf pixels read on the clusters and bark grain
             runs up the wood.
+    shade   Ryan: "the trees still have ugly sharp edges." Nothing here is
+            flat-shaded: the chunk shades smooth (a bough is a rounded limb),
+            and every cluster's normals lean out from its centre (SOFT_OUT) so
+            the leaf mass shades as a soft volume; its mid rings are lobed
+            (LOBE_BULGE, LOBE_SAG) so the silhouette is ragged from the shape.
 
 Collider: ForestCanopyCollision-colonly, every tree's own prop collider
 (forest_tree_prop_build.build_collider) at that tree's transform -- the same
@@ -162,6 +167,15 @@ LOBE_MID = (0.86, 0.5)      # the mid ring: this share of the rim radius, this s
 LOBE_KEEL = (0.32, 4)       # the keel: this share of the rim radius, this many vertices
 LOBE_SKEW = 0.18            # the mid rings and the keel drift sideways this share of the radius
 LOBE_PUSH = 0.35            # a limb's cluster is centred this share of its radius past the tip
+# Ryan: "the trees still have ugly sharp edges." A cluster is lobed, not a convex
+# polyhedron: its mid rings swell in and out (a two-lobe swell round the ring plus a
+# per-vertex wobble, off the cluster's own sub-seed so no placement draw moves), and
+# its normals are smooth, leaning out from its centre by SOFT_OUT so it shades as one
+# soft volume the way low-poly crowns do. Boughs and trunks shade smooth along their length.
+LOBE_BULGE = (0.14, 0.20)   # (two-lobe swell, per-vertex wobble) of a mid ring's radius
+LOBE_SAG = 0.22             # a mid-ring vertex's hang wobbles this share of its own depth
+KEEL_LIFT = 0.12            # a keel vertex rides up to this share of the depth: no flat underside
+SOFT_OUT = 0.65             # a cluster vertex's normal: this much radial from its centre, the rest smooth
 LID_BURY = 0.10             # world metres a rim sits up inside the roof sheet
 WELL_CLEAR = 0.5            # a fork keeps this far outside a sun well's blob (plus its cluster's radius)
 CROWN_MIN_Z = ftp.CROWN_MIN_Z
@@ -510,6 +524,13 @@ def _fringe_rim(place, roof, lx, ly):
     return z, vx, vy
 
 
+def _lobe_rng(place, cx, cy, R_w, depth_w):
+    """A cluster's own rng for its lobing, seeded off its world place and size:
+    the placement rng draws exactly what it drew, so nothing moves."""
+    wx, wy = place.xy(cx, cy)
+    return _Rng(SEED + int(abs(wx * 1013.0 + wy * 7919.0) * 100.0) + int((R_w + 3.0 * depth_w) * 1e4))
+
+
 def _cluster(m, rng, place, roof, centre, kind, fringe=None):
     """One leaf cluster hung from the roof: rim ON the roof, long axis along the
     lane, bulging mid rings, a keel; centred in and clipped to the deck. 1 shell.
@@ -542,7 +563,9 @@ def _cluster(m, rng, place, roof, centre, kind, fringe=None):
     ca, sa = math.cos(a0), math.sin(a0)
     skew = (rng.sf() * LOBE_SKEW * R, rng.sf() * LOBE_SKEW * R)
     n = LOBE_N
-    rim, rim_z, offs, taper = [], [], [], []
+    lob = _lobe_rng(place, cx, cy, R_w, depth_w)   # the lobing's own draws: the placement's rng is untouched
+    ph = lob.f() * 2.0 * math.pi
+    rim, rim_z, offs, taper, angs = [], [], [], [], []
     for s in range(n):
         a = 2.0 * math.pi * (s + 0.5 * rng.f()) / n
         f = 1.0 + LOBE_WOB * rng.sf()
@@ -559,6 +582,7 @@ def _cluster(m, rng, place, roof, centre, kind, fringe=None):
             taper.append(_lip_taper(math.hypot(*place.xy(lx, ly))))   # the lip side of the hang sinks into the roof
         rim_z.append(z)
         offs.append((lx - cx, ly - cy))
+        angs.append(a)
     if fringe is not None and wr > DECK_R[1]:       # on the cove: the keel stays over the cells' apex row
         floor = (WALL_FLOOR - LANE_Y) / k
         depth = max(0.15 / k, min(depth, (min(rim_z) - floor) / -hang[2]))
@@ -569,10 +593,11 @@ def _cluster(m, rng, place, roof, centre, kind, fringe=None):
         share = 1.0 - (1.0 - LOBE_MID[0]) * u / LOBE_MID[1]
         ring = []
         for s in range(n):
-            dd = depth * u * (1.0 + 0.12 * rng.sf())
+            dd = depth * u * (1.0 + 0.12 * rng.sf() + LOBE_SAG * lob.sf())
+            bulge = 1.0 + LOBE_BULGE[0] * math.sin(2.0 * angs[s] + ph) + LOBE_BULGE[1] * lob.sf()
             z = rim_z[s] + hang[2] * dd
-            lx, ly = _clip(place, cx + skew[0] * u * 2.0 + offs[s][0] * share * (1.0 + 0.08 * rng.sf()) + hang[0] * dd,
-                           cy + skew[1] * u * 2.0 + offs[s][1] * share + hang[1] * dd, edge)
+            lx, ly = _clip(place, cx + skew[0] * u * 2.0 + offs[s][0] * share * bulge * (1.0 + 0.08 * rng.sf()) + hang[0] * dd,
+                           cy + skew[1] * u * 2.0 + offs[s][1] * share * bulge + hang[1] * dd, edge)
             if taper[s] < 1.0:                      # toward the lip: up into the roof over its own plan
                 zl = place.lid(roof, lx, ly) + LID_BURY / k
                 z = zl + (z - zl) * taper[s]
@@ -585,7 +610,7 @@ def _cluster(m, rng, place, roof, centre, kind, fringe=None):
         a = 2.0 * math.pi * (s + 0.3 * rng.f()) / kn + a0
         f = LOBE_KEEL[0] * R * (1.0 + 0.15 * rng.sf())
         lx, ly = _clip(place, kx + f * math.cos(a) * st, ky + f * math.sin(a), edge)
-        z = min(rim_z) + hang[2] * depth + 0.1 * depth * rng.sf()
+        z = min(rim_z) + hang[2] * depth + 0.1 * depth * rng.sf() - hang[2] * KEEL_LIFT * depth * lob.f()
         tk = _lip_taper(math.hypot(*place.xy(lx, ly))) if fringe is not None else 1.0   # each keel vertex by its own radius
         if tk < 1.0:
             zl = place.lid(roof, lx, ly) + LID_BURY / k
@@ -593,6 +618,8 @@ def _cluster(m, rng, place, roof, centre, kind, fringe=None):
         keel.append(m.v((lx, ly, z)))
     inner = (cx + skew[0] * 0.6 + hang[0] * dk * 0.45, cy + skew[1] * 0.6 + hang[1] * dk * 0.45,
              min(rim_z) + hang[2] * dk * 0.45)   # every face points away from here
+    if hasattr(m, "clusters"):                  # its normals lean out from here (_soften)
+        m.clusters.append((inner, [v for ring in rings for v in ring] + keel))
     for j in range(len(rings) - 1):
         a_, b_ = rings[j], rings[j + 1]
         for s in range(n):
@@ -716,6 +743,27 @@ def _unwrap(ob, zones):
             uvl.data[li].uv = (u0 + ft.UV_PAD + s_ * span_u, v0 + ft.UV_PAD + t_ * span_v)
 
 
+def _soften(ob, clusters):
+    """Smooth shading over the whole chunk (a bough is a rounded limb); every leaf
+    cluster's vertex normals lean SOFT_OUT from its centre, so it shades as one soft volume."""
+    from mathutils import Vector
+    me = ob.data
+    me.shade_smooth()
+    me.update()
+    normals = [Vector(v.normal) for v in me.vertices]
+    for (centre, ids) in clusters:
+        c = Vector(centre)
+        for vid in ids:
+            d = me.vertices[vid].co - c
+            if d.length < 1e-6:
+                continue
+            n = normals[vid].lerp(d.normalized(), SOFT_OUT)
+            if n.length > 1e-6:
+                normals[vid] = n.normalized()
+    me.normals_split_custom_set_from_vertices(normals)
+    print("MDL STATS soft clusters=%d smooth_polys=%d" % (len(clusters), sum(1 for p in me.polygons if p.use_smooth)))
+
+
 # =============================================================================
 # THE CHUNK -- every tree, placed; one collider
 # =============================================================================
@@ -730,6 +778,8 @@ def _append(dst, src, place):
             continue
         dst.faces.append(tuple(i + base for i in f))
         dst.zones.append(z)
+    for (centre, ids) in getattr(src, "clusters", ()):
+        dst.clusters.append((place(centre), [i + base for i in ids]))
 
 
 def tree_rows():
@@ -755,6 +805,7 @@ def build_fringe(m, roof):
             if not roof.well_clear(place.foot[0], place.foot[1], margin):
                 continue
             local = _Mesh()
+            local.clusters = []
             shells += _cluster(local, rng, place, roof, (0.0, 0.0), name, fringe=size)
             local.compact()
             if min(math.hypot(*place(p)[:2]) for p in local.verts) <= FRINGE_BAND[0] + 1e-6:
@@ -767,6 +818,7 @@ def build_geometry():
     """(canopy mesh, collider mesh, stats)."""
     roof = _Roof()
     m, c = _Mesh(), _Mesh()
+    m.clusters = []             # (centre, vertex ids) per leaf cluster, for _soften
     stats = {"trees": 0, "shells": 0, "per_kind": {}, "roof_top": roof.top}
     stats["fringe"], stats["lip_clipped"] = build_fringe(m, roof)
     stats["shells"] += stats["fringe"]
@@ -775,6 +827,7 @@ def build_geometry():
         spec = ftp.spec_of(LETTER[kind])
         place = _Place(bearing, radius, spin, scale[0])
         local = _Mesh()
+        local.clusters = []
         rng = _Rng(SEED + spec["seed"] + 7919 * idx)
         stats["shells"] += build_tree(local, rng, spec, place, roof)
         local.compact()
@@ -792,7 +845,8 @@ def build():
     mdl.save_texture(emissive)
     ob = m.object(OBJECT_NAME)
     _unwrap(ob, m.zones)
-    mdl.finish(ob, ft.atlas_material("ForestAtlas", albedo, emissive), strip_uvs=False)
+    mdl.finish(ob, ft.atlas_material("ForestAtlas", albedo, emissive), flat=False, strip_uvs=False)
+    _soften(ob, m.clusters)
     coll = c.object(COLLIDER_NAME)
     coll.hide_render = True
     zs = [v[2] for v in m.verts]
