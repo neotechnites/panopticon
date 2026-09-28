@@ -93,7 +93,7 @@ const ZOOM_MIN_METRES: float = 3.0
 const ZOOM_MAX_METRES: float = 12.0
 const ZOOM_STEP_METRES: float = 1.0
 
-## Seconds of a still mouse before the orbit starts turning by itself.
+## Seconds since the wheel was last touched before the orbit drifts by itself.
 const IDLE_ORBIT_SECONDS: float = 2.0
 
 var _inert: bool = false
@@ -103,16 +103,11 @@ var _active: bool = false
 ## entry, so two deaths in a row do not start from a different bearing each time.
 var _drift_degrees: float = 0.0
 
-## The player's own contribution, in radians, on top of the drift.
-var _look_yaw: float = 0.0
-var _look_pitch: float = 0.0
-
 ## How far the death orbit is standing off the body, in metres. The wheel.
 var _zoom_metres: float = ZOOM_MIN_METRES
 
-## Seconds since the mouse last moved. The orbit drifts once this passes
-## [constant IDLE_ORBIT_SECONDS], so a player who is looking around is never
-## fought by the camera.
+## Seconds since the wheel was last used. The orbit drifts once this passes
+## [constant IDLE_ORBIT_SECONDS].
 var _idle_seconds: float = IDLE_ORBIT_SECONDS
 
 ## What the view is showing right now.
@@ -243,7 +238,7 @@ func is_inert() -> bool:
 	return _inert
 
 
-## The point the camera is currently looking at. The readout a test asserts
+## What the camera's position is anchored on. The readout a test asserts
 ## against, since a camera effect cannot be judged headless.
 func get_focus_point() -> Vector3:
 	return _focus_point()
@@ -256,12 +251,10 @@ func _activate(state: MatchController.Spectating) -> void:
 	_state = state
 	if not was_active:
 		_drift_degrees = _initial_bearing_degrees(state)
-		_look_yaw = 0.0
-		_look_pitch = _default_pitch()
 		_zoom_metres = clampf(profile.death_radius_metres, ZOOM_MIN_METRES, ZOOM_MAX_METRES)
 		_idle_seconds = IDLE_ORBIT_SECONDS
 		_active = true
-		set_process_unhandled_input(profile.free_look_enabled)
+		set_process_unhandled_input(true)
 	camera.fov = profile.field_of_view_degrees
 	camera.current = true
 	if not was_active:
@@ -351,7 +344,7 @@ func _place_overlook() -> void:
 	var centre: Vector3 = (
 		controller.arena.global_position if controller.arena != null else Vector3.ZERO
 	)
-	var bearing: float = deg_to_rad(_drift_degrees) + _look_yaw
+	var bearing: float = deg_to_rad(_drift_degrees)
 	var cam_radius: float = clampf(
 		profile.overlook_orbit_radius_metres,
 		profile.overlook_min_radius_metres,
@@ -367,57 +360,47 @@ func _place_overlook() -> void:
 		cam_height,
 		centre.z + sin(bearing) * cam_radius,
 	)
-	var focus: Vector3 = _focus_point()
-	if camera.global_position.distance_squared_to(focus) > 1e-6:
-		camera.look_at(focus, Vector3.UP)
+	var target: Vector3 = _look_target()
+	if camera.global_position.distance_squared_to(target) > 1e-6:
+		camera.look_at(target, Vector3.UP)
 
 
 ## The death shot: an orbit of the spot the body died at, at the distance the
-## wheel is holding. Mouse drag turns it, and it drifts by itself once the mouse
-## has been still for [constant IDLE_ORBIT_SECONDS].
+## wheel is holding. It drifts by itself once nobody has touched the wheel for
+## [constant IDLE_ORBIT_SECONDS].
 ##
 ## Anchored on [member MatchParticipant.death_position] rather than the body's
 ## live transform: the body may already be parked a hundred metres down or back
 ## on the start line by the time this runs.
 func _place_death_shot() -> void:
-	var focus: Vector3 = _focus_point()
-	var bearing: float = deg_to_rad(_drift_degrees) + _look_yaw
-	var pitch: float = clampf(
-		_look_pitch,
-		deg_to_rad(profile.pitch_min_degrees),
-		deg_to_rad(profile.pitch_max_degrees),
-	)
+	var anchor: Vector3 = _focus_point()
+	var bearing: float = deg_to_rad(_drift_degrees)
+	var pitch: float = _default_pitch()
 	var flat: float = cos(pitch) * _zoom_metres
-	camera.global_position = focus + Vector3(
+	camera.global_position = anchor + Vector3(
 		cos(bearing) * flat, sin(pitch) * _zoom_metres, sin(bearing) * flat
 	)
-	if camera.global_position.distance_squared_to(focus) > 1e-6:
-		camera.look_at(focus, Vector3.UP)
+	var target: Vector3 = _look_target()
+	if camera.global_position.distance_squared_to(target) > 1e-6:
+		camera.look_at(target, Vector3.UP)
 
 
-## Where the orbit sits before the player touches it: the elevation the
-## profile's own standoff and height describe.
+## The orbit's elevation: the profile's own standoff and height describe it.
 func _default_pitch() -> float:
-	return deg_to_rad(profile.start_pitch_degrees) + atan2(
+	return atan2(
 		maxf(profile.death_height_metres - profile.death_focus_height_metres, 0.0),
 		maxf(profile.death_radius_metres, 0.01),
 	)
 
 
-## What the camera is looking at.
-##
-## The body while it is being held -- it is frozen exactly where it died, which
-## is the whole reason that view is worth showing. A point out on the DECK,
-## in the direction the overlook is currently orbiting, once the player is
-## eliminated -- an eliminated racer's body has been parked a hundred metres
-## under the deck and there is nothing down there to watch, so the overlook
-## looks past the pit and out through the gallery's open inner side instead.
+## What the camera's position is anchored on: the body while it is held, or a
+## point out on the deck, in the direction the overlook orbits, once eliminated.
 func _focus_point() -> Vector3:
 	var arena_centre: Vector3 = (
 		controller.arena.global_position if controller.arena != null else Vector3.ZERO
 	)
 	if _state == MatchController.Spectating.ELIMINATED:
-		var bearing: float = deg_to_rad(_drift_degrees) + _look_yaw
+		var bearing: float = deg_to_rad(_drift_degrees)
 		return arena_centre + Vector3(
 			cos(bearing) * profile.overlook_focus_radius_metres,
 			_deck_y() + profile.overlook_focus_height_metres,
@@ -432,10 +415,35 @@ func _focus_point() -> Vector3:
 	)
 
 
-## Free look. Reads the mouse directly, because while this view is up the mouse
-## is not the body's: [member human_input] has been switched off.
+## Where the camera turns to look: the living prisoner furthest along the
+## route, by [method MatchLapTracker.get_progress] -- eye height, not feet.
+## Falls back to [method _focus_point] once nobody is still running.
+func _look_target() -> Vector3:
+	var runner: MatchParticipant = _leading_runner()
+	if runner == null or runner.body == null:
+		return _focus_point()
+	return runner.body.global_position + Vector3(0.0, runner.body.get_eye_height(), 0.0)
+
+
+## The living prisoner with the most route progress, or null if none is
+## running. No mouse look any more -- this is what the camera follows instead.
+func _leading_runner() -> MatchParticipant:
+	var best: MatchParticipant = null
+	var best_progress: float = -1.0
+	for participant: MatchParticipant in controller.get_participants_ref():
+		if not participant.is_running or participant.body == null or participant.tracker == null:
+			continue
+		var progress: float = participant.tracker.get_progress()
+		if progress > best_progress:
+			best_progress = progress
+			best = participant
+	return best
+
+
+## The wheel still zooms the death shot in and out. Mouse look is gone -- the
+## camera tracks the front runner instead of the player steering it.
 func _unhandled_input(event: InputEvent) -> void:
-	if not _active or profile == null or not profile.free_look_enabled:
+	if not _active or profile == null:
 		return
 	var wheel: InputEventMouseButton = event as InputEventMouseButton
 	if wheel != null and wheel.pressed:
@@ -443,19 +451,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			_zoom(-ZOOM_STEP_METRES)
 		elif wheel.button_index == MOUSE_BUTTON_WHEEL_DOWN:
 			_zoom(ZOOM_STEP_METRES)
-		return
-	var motion: InputEventMouseMotion = event as InputEventMouseMotion
-	if motion == null:
-		return
-	if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
-		return
-	# Both signs follow the body's own look: mouse right turns the view right,
-	# mouse down looks down. They were inverted.
-	_look_yaw += motion.relative.x * profile.look_sensitivity
-	_look_pitch += motion.relative.y * profile.look_sensitivity
-	_idle_seconds = 0.0
 	# Not marked handled: [PauseMenu] and the settings screen are entitled to see
-	# input while somebody is dead, and neither of them wants mouse motion.
+	# input while somebody is dead.
 
 
 ## Pull the orbit in or push it out, within the band the wheel is allowed.
