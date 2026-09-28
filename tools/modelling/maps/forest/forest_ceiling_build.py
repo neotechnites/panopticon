@@ -376,6 +376,7 @@ def gallery_faces(g):
     """The roof's faces, facing DOWN, and its five sun wells."""
     m = g.m
     nc = _nc(g)
+    first = len(m.faces)        # the leaf mass shades smooth (forest_build.build): its faces start here
     g.shafts = _shaft_cells(g)
     mouths = set()
     for sh in g.shafts:
@@ -400,6 +401,7 @@ def gallery_faces(g):
             q = (i + 1) % nc
             ids = (rows[k][i], rows[k][q], rows[k + 1][q], rows[k + 1][i])
             m.quad(ids[0], ids[1], ids[2], ids[3], DOWN, _leafy(g, ids))
+    m.roof_faces = set(range(first, len(m.faces)))
     for sh in g.shafts:
         half = min(SHAFT_HALF[2], max(SHAFT_HALF[1], SHAFT_HALF[0] * sh["radius"]))
         g.rays.append((sh["pts"], half))

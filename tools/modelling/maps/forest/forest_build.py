@@ -1720,11 +1720,17 @@ def build():
     mdl.save_texture(emissive)
     INFO["albedo"], INFO["emissive"] = albedo, emissive
 
+    keep = [k for k, f in enumerate(m.faces) if f is not None]      # m.object compacts: the roof's faces by their compacted index
+    soft = [i for i, k in enumerate(keep) if k in getattr(m, "roof_faces", ())]
     ob = m.object(OBJECT_NAME)
     classes = list(m.zones)
     tx.unwrap(ob, classes, SHEETS, seed=1)
     mats = tx.materials(NAME, SHEETS, use_files=ft.USE_TEXTURE_FILES, tex_dir=os.path.join(HERE, ft.TEX_DIR))
     order = tx.finish(ob, classes, mats)
+    for i in soft:              # Ryan: "ugly sharp edges": the roof's leaf mass shades smooth, the rock stays flat
+        ob.data.polygons[i].use_smooth = True
+    ob.data.update()
+    print("MDL STATS roof smooth_polys=%d" % len(soft))
     drum_shade(ob)
     tx.report(SHEETS)
     print("MDL STATS surfaces=%d order=%s" % (len(ob.data.materials), ",".join(order)))
