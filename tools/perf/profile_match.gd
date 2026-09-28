@@ -473,7 +473,12 @@ func _first_body() -> Node3D:
 const MONITORS: Array[String] = [
 	"process", "physics", "navigation", "draw_calls", "primitives", "objects_drawn",
 	"nodes", "objects", "phys_active", "phys_pairs", "mem_static", "vram",
+	"render_cpu", "render_gpu", "lights_seen", "shadow_lights_seen",
 ]
+
+## Every Light3D in the run, gathered once; the frustum test per frame reads it.
+var _lights: Array[Light3D] = []
+var _lights_gathered: bool = false
 
 
 func _accumulate() -> void:
@@ -489,6 +494,51 @@ func _accumulate() -> void:
 	_add("phys_pairs", Performance.get_monitor(Performance.PHYSICS_3D_COLLISION_PAIRS))
 	_add("mem_static", Performance.get_monitor(Performance.MEMORY_STATIC) / 1048576.0)
 	_add("vram", Performance.get_monitor(Performance.RENDER_VIDEO_MEM_USED) / 1048576.0)
+	var vp: RID = root.get_viewport_rid()
+	_add("render_cpu", RenderingServer.viewport_get_measured_render_time_cpu(vp))
+	_add("render_gpu", RenderingServer.viewport_get_measured_render_time_gpu(vp))
+	_count_lights_seen()
+
+
+## Lights whose reach touches the camera frustum: directional always, omni/spot by range sphere.
+func _count_lights_seen() -> void:
+	if not _lights_gathered:
+		_lights_gathered = true
+		RenderingServer.viewport_set_measure_render_time(root.get_viewport_rid(), true)
+		var pending: Array[Node] = [root]
+		while not pending.is_empty():
+			var node: Node = pending.pop_back()
+			for child: Node in node.get_children():
+				pending.append(child)
+			if node is Light3D:
+				_lights.append(node as Light3D)
+	if _camera == null:
+		return
+	var planes: Array[Plane] = _camera.get_frustum()
+	var seen: int = 0
+	var shadowed: int = 0
+	for light: Light3D in _lights:
+		if not is_instance_valid(light) or not light.is_visible_in_tree():
+			continue
+		var reach: float = -1.0
+		if light is OmniLight3D:
+			reach = (light as OmniLight3D).omni_range
+		elif light is SpotLight3D:
+			reach = (light as SpotLight3D).spot_range
+		if reach >= 0.0 and not _sphere_in(planes, light.global_position, reach):
+			continue
+		seen += 1
+		if light.shadow_enabled:
+			shadowed += 1
+	_add("lights_seen", seen)
+	_add("shadow_lights_seen", shadowed)
+
+
+static func _sphere_in(planes: Array[Plane], at: Vector3, radius: float) -> bool:
+	for plane: Plane in planes:
+		if plane.distance_to(at) > radius:
+			return false
+	return true
 
 
 func _add(key: String, value: float) -> void:

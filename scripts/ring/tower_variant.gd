@@ -89,6 +89,9 @@ func _apply() -> void:
 		rock.visible = live
 		for body: Node in rock.find_children("*", "StaticBody3D", true, false):
 			(body as StaticBody3D).collision_layer = 1 if live else 0
+		# The dead variant's shapes leave the physics space, not just the layer.
+		for shape: Node in rock.find_children("*", "CollisionShape3D", true, false):
+			(shape as CollisionShape3D).disabled = not live
 
 
 func _apply_plugs() -> void:

@@ -15,6 +15,131 @@ The 88k-triangle arena is worth tidying but it is not what costs anything today.
 
 ---
 
+# All three maps against the Chromebook bar — 2026-09-28
+
+The bar (Ryan): "This game should run on a Chromebook; we're targeting
+GameCube/PS2 levels of optimisation." Nothing here was measured on a Chromebook;
+every frame number is the PC (i7-6700, RX 6600 XT, GL Compatibility), so read
+the **ratios and counts**, which carry across, not the milliseconds, which do not.
+
+**Method.** `tools/perf/profile_match.gd`, bots-only match, **seven prisoners and
+the AI guard**, 1280×720, vsync off, 5 s warmup then **60 s**, once from a running
+bot (`--view=runner`) and once from the guard's seat (`--view=tower`), run in the
+PC's console session from a throwaway clone at
+`C:\Users\ddd\panopticon-perf0928`. The profiler now also logs render CPU and
+GPU time (`RenderingServer.viewport_get_measured_render_time_*`) and the lights
+whose reach touches the camera frustum. Controls are 30 s arms of the same run
+with `--after=noshadow|nolights|freemap` or `--disable=brains`. CPU tick on the
+Mac from `tools/perf/profile_physics.gd` (eight seats, 600 warmup, 1080 ticks),
+at a load average of 18–20, so read its columns against each other.
+
+`process` and `physics` below are Godot's own monitors, which report **the
+worst step of each second**, averaged over the run — a peak, not a mean.
+
+## The table
+
+Runner's eye / guard's eye. Before is `main` at `d15d6eb`, after is this branch.
+
+| | **1 bentham_ring** | **2 marble** | **3 forest** |
+|---|---|---|---|
+| frame mean, before | 1.099 / 1.056 ms | 1.097 / 1.115 ms | 1.250 / 1.102 ms |
+| frame mean, after | 1.127 / 1.121 ms | 1.071 / 1.083 ms | 1.290 / 1.138 ms |
+| worst 1 %, before → after | 5.64 → 6.82 / 5.49 → 5.90 ms | 3.80 → 3.75 / 3.78 → 3.75 ms | 4.32 → 4.25 / 4.05 → 4.04 ms |
+| GPU render, before → after | 0.711 → 0.699 / 0.676 → 0.690 ms | 0.706 → 0.693 / 0.700 → 0.680 ms | 0.760 → 0.768 / 0.727 → 0.742 ms |
+| render CPU (submit) | 0.28 / 0.27 ms | 0.30 / 0.32 ms | 0.43 / 0.35 ms |
+| draw calls | 55 / 58 | **114 / 124** | **146 / 147** |
+| primitives drawn | 63,226 / 95,369 | **524,639 / 530,703** | **358,661 / 361,715** |
+| lights in view, before → after | 8.6 → **7.6** / 9.1 → **8.1** | 2.4 / 2.4 | 1.2 / 1.4 |
+| shadowed lights in view | 0 | 1 (cube omni) | 1 (directional) |
+| physics step, worst per second | 3.67 / 3.59 ms | 2.64 / 2.67 ms | 3.27 / 3.12 ms |
+| process step, worst per second | 8.75 (one hitch) / 2.86 ms | 2.53 / 2.52 ms | 2.43 / 2.31 ms |
+| physics bodies active / broadphase pairs | 6.4 / 25.6 (was 26.0) | 6.9 / 17.1 (was 17.8) | 7.5 / 19.1 |
+| Mac tick mean, before → after | 0.862 → 0.870 ms | 0.863 → 0.863 ms | 0.863 → 0.876 ms |
+| Mac tick worst (2nd worst sample) | 5.31 → 5.76 ms | 5.41 → 5.46 ms | 5.47 → 5.74 ms |
+| mesh triangles in the scene | 97,155 | 80,290 (`MarbleStone` 73,728 in one mesh) | **255,788** (`ForestGround` 116,920 in one mesh) |
+| collision triangles | 20,586 (19 concave shapes) | 4,404 (4) | 17,862 (**146 concave shapes**) |
+| `Area3D`s | 65 | 3 | 2 |
+| particle systems | 2 CPU (260 quads, the portal) | 2 CPU | 2 CPU |
+| VRAM | 33–35 MB | 26 MB | 35 MB |
+
+**Before and after are the same frame on this card.** Every row moves inside
+run-to-run noise (bentham's runner arm caught one 12 ms hitch). At ~900 fps
+the RX 6600 XT is idle; what the fixes change is counted work (one light fewer
+in every lit pixel's loop, one 1,022-triangle collider out of marble's physics
+space), which only a GPU and CPU a tenth this size will feel.
+
+### Controls — what each cost is worth
+
+| arm (30 s) | as shipped | control | what it prices |
+|---|---|---|---|
+| marble, guard, `noshadow` | 124 draws, 530,703 prims, GPU 0.680 ms | **31 draws, 80,723 prims**, GPU 0.530 ms | the Skylight's cube shadow: **75 % of draw calls, 85 % of primitives, 22 % of GPU** |
+| forest, guard, `noshadow` | 147 draws, 361,715 prims, GPU 0.742 ms | **69 draws, 176,679 prims**, GPU 0.668 ms | the Sun's shadow: 53 % of draws, 51 % of primitives, 10 % of GPU |
+| bentham, runner, `nolights` | GPU 0.699 ms | GPU **0.505 ms** | 18 unshadowed omnis: **28 % of GPU** |
+| bentham, runner, `--disable=brains` | physics peak 3.67 ms, worst 1 % 6.82 ms | physics peak **1.19 ms**, worst 1 % **2.48 ms** | the bot AI: **68 % of the physics peak** and the whole frame tail |
+| marble, guard, `freemap` (every mesh hidden) | GPU 0.680 ms | GPU 0.125 ms | the floor: what a frame costs with nothing drawn |
+
+## Hot spots, ranked per map
+
+**1 bentham_ring**
+1. **Bot AI in the physics tick** — 2.5 of 3.7 ms at the worst step each
+   second, and every frame over 2.5 ms in the tail. Host-only: a client
+   does not run it.
+2. **Per-pixel lighting** — 18 unshadowed omnis (12 torch `Flame`s at range
+   14, `HellFlood` at range 700), 7.6–8.1 in view, 28 % of the GPU frame. The
+   ring chunks' bounds reach y 331, so every chunk pairs with every light.
+3. **Draw calls** — 55–58, five surfaces a chunk over five chunks plus props.
+   Triangles are not on the list: 63k–95k, the least of the three.
+
+**2 marble**
+1. **The Skylight's cube shadow** — six shadow faces each re-submit the whole
+   73,728-triangle `MarbleStone`, because it is one mesh no face can cull:
+   450k of 531k primitives and 93 of 124 draw calls. Every moving body in
+   its 110 m range dirties it, so it redraws every frame.
+2. **Bot AI in the physics tick** — same shape as map 1.
+3. **Lighting** — 2.4 lights in view; cheap next to the shadow.
+
+**3 forest**
+1. **Geometry** — 255,788 triangles in the scene (1.8× on 2026-09-16), 117k
+   of it `ForestGround` in one mesh; 177k drawn without the shadow.
+2. **The Sun's shadow** — draws the ground again: +185k primitives and +78
+   draw calls.
+3. **146 concave static bodies** — every tree, bush and boulder is its own
+   `ConcavePolygonShape3D` (96–144 triangles). No measured tick cost (the Mac
+   tick matches the other maps), but it is the most bodies in the game.
+
+**Everywhere:** raycasts are already budgeted (`RunnerCoverFinder.RAYS_PER_FRAME`
+80 shared, ~25 per exposed bot, one per guard candidate), the hot-path audit is
+clean (90 hot functions, 0 hits), and each map carries the same two
+`CPUParticles3D` at the portal (260 quads, simulated even off screen).
+
+## Fixed on this branch (no visible change)
+
+- **`bentham_ring` `Tower/KeyLight` hidden.** A directional at `light_energy
+  = 0.0` lit nothing and was still in every lit pixel's light loop. Lights in
+  view 8.6 → 7.6.
+- **The dead tower variant leaves the physics space.** `TowerVariant` set the
+  unselected model's layer to 0 but kept its concave shape in the broadphase:
+  1,022 triangles on marble, 144 on map 1. Its shapes are now `disabled`.
+  Broadphase pairs 17.8 → 17.1 on marble, 26.0 → 25.6 on map 1.
+
+## Proposals — each changes the look or the feel, so none is applied
+
+| # | proposal | what it buys (measured) | what it changes |
+|---|---|---|---|
+| 1 | Export `MarbleStone` in chunks (decision 84) so each cube face culls | most of marble's 450k shadow primitives and 93 draw calls | nothing visible; it is a model rebuild, not a quick fix |
+| 2 | Marble Skylight: shadow off in a low preset, or `omni_range` 110 → the walkway | 22 % of marble's GPU, 85 % of its primitives | the tiers lose the slab's and bars' shadows |
+| 3 | Forest: cut `ForestGround` (117k) and the thicket, or give it LODs | up to ~180k primitives ×2 with the shadow | ground and bramble density |
+| 4 | Forest Sun: shadow off in a low preset, or `directional_shadow_max_distance` 200 → ~80 | 185k primitives, 78 draws, 10 % GPU | far trees stop casting |
+| 5 | Map 1 torches: 12 `Flame` omnis → emissive only, or `limits/opengl/max_lights_per_object` 32 → 8 | part of 28 % of map 1's GPU | torch pools of light on the rock |
+| 6 | Forest trees and boulders: 146 concave shapes → cylinders or one merged collider | no measured tick cost; fewer bodies | how a body slides round a trunk |
+| 7 | Bot AI throttle on low-end hosts (think every 2nd tick) | up to 68 % of the physics peak with 7 bots | bot reaction time |
+
+**What is still missing:** a run on a real Chromebook. The measured ratios say
+where it will hurt first: marble's shadow on the GPU, forest's triangle count on
+the vertex side, and seven bots on the host's CPU.
+
+---
+
 ## 1. Models
 
 `assets/models/*.glb`, visible triangles after scene expansion. The `-colonly`
@@ -414,29 +539,8 @@ live tree after `_ready`. Frame cost and draw calls from
 `tools/perf/profile_match.gd --map=…` on the PC — see §3 for the method and the
 shadow control that explains the ordering.
 
-| | **1 bentham_ring** | **2 marble** | **3 forest** | budget |
-|---|---|---|---|---|
-| mean tick | **0.862–0.876 ms** | **0.863–0.865 ms** | **0.863–0.866 ms** | B1 1.45 |
-| worst tick (2nd worst sample) | **5.31–6.76 ms** | **5.14–5.63 ms** | **5.30–5.52 ms** | B2 7.00 |
-| objects kept / tick | 0.0028 | 0.0093 | 0.0074 | B3 0.05 |
-| physics active bodies | 6.0 | 7.0 | 7.1 | — |
-| broadphase pairs | 9.5 | 18.5 | 10.7 | — |
-| host up | 448.8–449.8 B/tick | 432.1–432.6 B/tick | 440.6–440.8 B/tick | B4 535 |
-| client down | 64.1–64.2 B/tick | 61.7–61.8 B/tick | 62.9–63.0 B/tick | B5 76.5 |
-| visible triangles | 78,722 | 75,632 | **143,895** | — |
-| surfaces / materials | 37 / 15 | 4 / 4 | 9 / 9 | — |
-| transparent triangles | 0 | 0 | **2,196** | — |
-| lights | 20 | 2 | 2 | — |
-| **runtime shadow casters** | **0** | **1** | **1** | — |
-| frame, runner's eye (PC) | 0.945 ms | **2.592 ms** | 0.765 ms | — |
-| frame, guard's eye (PC) | 0.849 ms | **2.349 ms** | 0.793 ms | — |
-| draw calls, runner / guard (PC) | 17.7 / 16.0 | 12.9 / 6.2 | 28.2 / 15.6 | — |
-| primitives drawn, guard (PC) | 76,707 | 75,687 | **276,757** | — |
-| collision triangles | 17,196 | 5,180 | 5,286 | — |
-| `Area3D`s in the map | 32 | 3 | 2 | — |
-| nav polygons (runtime bake) | 509 | 279 | 311 | — |
-| nav bake | 259–381 ms | 156–176 ms | 79–94 ms | — |
-| cover points found (at measurement → after `78d89bb`) | 196 → 192 | **1,837 → 164** | **1 → 1** | — |
+Superseded by the 2026-09-28 table at the top of this file; the wire rows
+were not re-measured and stand as written in §2 below.
 
 Bot harness, `--matches=5` on each map, run twice: **CLEAN, 0 unresolved** every
 time. `bash tools/test.sh`: **458 tests, 458 passed, 0 failed, 4933 checks**,
