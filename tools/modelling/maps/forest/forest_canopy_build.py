@@ -33,6 +33,16 @@ the way a broadleaf is:
             over the lane, clusters are centred in and clipped to the deck
             annulus (forest_build.INNER_R..OUTER_R), and the roof's own dips
             (forest_ceiling_build.deck_window) end there too.
+    fringe  Ryan: "a huge gap on the wall side of the flat roof, and on the ring
+            side there's still a very clear corner ... it should look like one
+            surface modelled with intention." Past the crowns' clipped rims the
+            roof is not left bare: four ragged rows of smaller clusters (FRINGE)
+            hang from it, thinning as they go (LIFT). Outward they run over the
+            roof's cove (forest_ceiling_build.COVE_R) and down it into the
+            wall's head, each hung along the cove's normal so the mass curves
+            over and down with it; inward they lift over the lip and spill a
+            little past it under the drum's foot. No straight line, no flat
+            plane beside a mass, nothing low over the lip or the pit.
     uv      every face is unwrapped flat in its own plane at the atlas's texel
             density, so the leaf pixels read on the clusters and bark grain
             runs up the wood.
@@ -153,7 +163,24 @@ WELL_CLEAR = 0.5            # a fork keeps this far outside a sun well's blob (p
 CROWN_MIN_Z = ftp.CROWN_MIN_Z
 SEED = 4471021
 
-MAX_TRIS = 150000
+# The fringe: rows of smaller clusters past the crowns' clipped rims, each row
+# (centre radius, radial jitter), WORLD sizes ((short radius lo, hi), (depth lo, hi)),
+# the step along the lane in metres (lo, hi) and the share of its places left empty.
+FRINGE = (
+    ("in",   (48.3, 0.6), ((1.1, 1.7), (0.9, 1.5)), (2.4, 4.0), 0.12),   # over the lip band, under the crowns' rims
+    ("lip",  (46.9, 0.5), ((0.7, 1.2), (0.5, 0.9)), (1.8, 3.2), 0.18),   # on the lip, spilling a little past it
+    ("out",  (57.2, 0.6), ((1.2, 1.8), (1.0, 1.7)), (2.4, 4.0), 0.12),   # where the roof turns down into the cove
+    ("cove", (58.3, 0.4), ((0.8, 1.3), (0.5, 0.9)), (1.8, 3.0), 0.15),   # down the cove, thinning into the wall's head
+)
+FRINGE_BAND = (45.6, 58.9)  # a fringe rim reaches this far past the lip and this far down the cove (y ~36.7 there)
+LIFT = ((45.6, 0.15), (46.7, 0.4), (49.0, 1.0), (56.5, 1.0), (58.0, 0.55), (58.9, 0.2))
+                            # (world radius, share of a fringe cluster's depth): full over the lane, thinning to
+                            # a wisp past the lip and down the cove: nothing low over the pit or the cells
+WALL_FLOOR = 36.75          # no fringe keel under this on the cove: the third tier's apex row is 36.6
+LIP_TUCK = 0.08             # past the lip a rim sits this far UNDER the roof's edge, tucked under the drum's foot
+FRINGE_SEED = 5570119
+
+MAX_TRIS = 160000           # canopy4 was 138k; the fringe adds ~370 clusters
 
 
 # =============================================================================
@@ -206,6 +233,14 @@ class _Roof(object):
                         return z
         return fc.gallery_z(self.g, x, y)
 
+    def edge_z(self, x, y):
+        """The roof's edge over the pit: its foot ring's height at this bearing."""
+        t = ((-math.degrees(math.atan2(y, x))) % 360.0) / (360.0 / self.nc)
+        i0 = int(t) % self.nc
+        ring = self.g.gal[-1]
+        z0, z1 = self.g.m.verts[ring[i0]][2], self.g.m.verts[ring[(i0 + 1) % self.nc]][2]
+        return z0 + (z1 - z0) * (t - int(t))
+
     def well_clear(self, x, y, margin):
         return all(math.hypot(x - c[0], y - c[1]) >= r * 1.7 + margin for (c, r) in self.wells)
 
@@ -238,6 +273,10 @@ class _Place(object):
     def local_xy(self, wx, wy):
         dx, dy = wx - self.foot[0], wy - self.foot[1]
         return ((self.c * dx + self.s * dy) / self.k, (-self.s * dx + self.c * dy) / self.k)
+
+    def local_dir(self, wx, wy):
+        """A world plan displacement in the local frame (turned and scaled, not moved)."""
+        return ((self.c * wx + self.s * wy) / self.k, (-self.s * wx + self.c * wy) / self.k)
 
     def lid(self, roof, lx, ly):
         """The roof's underside over local (lx, ly), as a local height."""
@@ -434,24 +473,63 @@ def _clip(place, lx, ly, band):
     return place.local_xy(wx * want / rad, wy * want / rad)
 
 
-def _cluster(m, rng, place, roof, centre, kind):
+def _lift(rad):
+    """A fringe cluster's share of its depth at world radius ``rad``: LIFT, piecewise."""
+    if rad <= LIFT[0][0]:
+        return LIFT[0][1]
+    for (r0, f0), (r1, f1) in zip(LIFT, LIFT[1:]):
+        if rad <= r1:
+            return f0 + (f1 - f0) * (rad - r0) / (r1 - r0)
+    return LIFT[-1][1]
+
+
+def _fringe_rim(place, roof, lx, ly):
+    """A fringe rim vertex at local plan (lx, ly): (local z, lx, ly) buried LID_BURY
+    into the roof along its normal (up on the flat, out and up on the cove), or
+    tucked LIP_TUCK under the roof's edge where there is no roof past the lip."""
+    wx, wy = place.xy(lx, ly)
+    wr = math.hypot(wx, wy)
+    if wr < DECK_R[0]:
+        return (roof.edge_z(wx, wy) - LIP_TUCK - LANE_Y) / place.k, lx, ly
+    th = math.radians(fc.cove_theta(wr))
+    z = place.lid(roof, lx, ly) + LID_BURY * math.sin(th) / place.k
+    out = LID_BURY * math.cos(th) / wr
+    vx, vy = place.local_xy(wx + out * wx, wy + out * wy)
+    return z, vx, vy
+
+
+def _cluster(m, rng, place, roof, centre, kind, fringe=None):
     """One leaf cluster hung from the roof: rim ON the roof, long axis along the
-    lane, bulging mid rings, a keel; centred in and clipped to the deck. 1 shell."""
-    (r_lo, r_hi), (d_lo, d_hi), mids = CLUSTER[kind]
+    lane, bulging mid rings, a keel; centred in and clipped to the deck. 1 shell.
+    A ``fringe`` one (its FRINGE sizes) is clipped to FRINGE_BAND, thins by LIFT
+    and hangs along the roof's normal: down over the lane, in and down on the cove."""
+    (r_lo, r_hi), (d_lo, d_hi), mids = CLUSTER[kind] if fringe is None else (fringe + (1,))
     k = place.k
     R_w, depth_w = rng.u(r_lo, r_hi), rng.u(d_lo, d_hi)
-    reach = R_w * (1.0 + LOBE_WOB) + DECK_EDGE
-    if DECK_R[1] - DECK_R[0] < 2.0 * reach:
-        R_w = 0.5 * (DECK_R[1] - DECK_R[0] - 2.0 * DECK_EDGE) / (1.0 + LOBE_WOB)
+    hang = DOWN
+    if fringe is None:
         reach = R_w * (1.0 + LOBE_WOB) + DECK_EDGE
-    cx, cy = _clip(place, centre[0], centre[1], (DECK_R[0] + reach, DECK_R[1] - reach))
+        if DECK_R[1] - DECK_R[0] < 2.0 * reach:
+            R_w = 0.5 * (DECK_R[1] - DECK_R[0] - 2.0 * DECK_EDGE) / (1.0 + LOBE_WOB)
+            reach = R_w * (1.0 + LOBE_WOB) + DECK_EDGE
+        cx, cy = _clip(place, centre[0], centre[1], (DECK_R[0] + reach, DECK_R[1] - reach))
+        edge = (DECK_R[0] + DECK_EDGE, DECK_R[1] - DECK_EDGE)
+    else:
+        cx, cy = centre
+        edge = FRINGE_BAND
+        wx, wy = place.xy(cx, cy)
+        wr = math.hypot(wx, wy)
+        depth_w *= _lift(wr)
+        th = math.radians(fc.cove_theta(wr))
+        if th < 0.5 * math.pi - 1e-9:
+            hx, hy = place.local_dir(-math.cos(th) * wx / wr, -math.cos(th) * wy / wr)
+            hang = (hx, hy, -math.sin(th))
     R, depth = R_w / k, depth_w / k
     a0 = place.tangent_a
     st = rng.u(*LOBE_STRETCH)
     ca, sa = math.cos(a0), math.sin(a0)
     skew = (rng.sf() * LOBE_SKEW * R, rng.sf() * LOBE_SKEW * R)
     n = LOBE_N
-    edge = (DECK_R[0] + DECK_EDGE, DECK_R[1] - DECK_EDGE)
     rim, rim_z, offs = [], [], []
     for s in range(n):
         a = 2.0 * math.pi * (s + 0.5 * rng.f()) / n
@@ -459,50 +537,68 @@ def _cluster(m, rng, place, roof, centre, kind):
         ex, ey = math.cos(a) * st, math.sin(a)
         dx, dy = R * f * (ca * ex - sa * ey), R * f * (sa * ex + ca * ey)
         lx, ly = _clip(place, cx + dx, cy + dy, edge)
-        z = place.lid(roof, lx, ly) + LID_BURY / k
-        rim.append(m.v((lx, ly, z)))
+        if fringe is None:
+            z = place.lid(roof, lx, ly) + LID_BURY / k
+            rim.append(m.v((lx, ly, z)))
+        else:
+            z, vx, vy = _fringe_rim(place, roof, lx, ly)
+            rim.append(m.v((vx, vy, z)))
         rim_z.append(z)
         offs.append((lx - cx, ly - cy))
+    if fringe is not None and wr > DECK_R[1]:       # on the cove: the keel stays over the cells' apex row
+        floor = (WALL_FLOOR - LANE_Y) / k
+        depth = max(0.15 / k, min(depth, (min(rim_z) - floor) / -hang[2]))
     rings = [rim]
     for j in range(mids):
         u = (j + 1) / float(mids + 1)
         share = 1.0 - (1.0 - LOBE_MID[0]) * u / LOBE_MID[1]
         ring = []
         for s in range(n):
-            z = rim_z[s] - depth * u * (1.0 + 0.12 * rng.sf())
-            lx, ly = _clip(place, cx + skew[0] * u * 2.0 + offs[s][0] * share * (1.0 + 0.08 * rng.sf()),
-                           cy + skew[1] * u * 2.0 + offs[s][1] * share, edge)
+            dd = depth * u * (1.0 + 0.12 * rng.sf())
+            z = rim_z[s] + hang[2] * dd
+            lx, ly = _clip(place, cx + skew[0] * u * 2.0 + offs[s][0] * share * (1.0 + 0.08 * rng.sf()) + hang[0] * dd,
+                           cy + skew[1] * u * 2.0 + offs[s][1] * share + hang[1] * dd, edge)
             ring.append(m.v((lx, ly, z)))
         rings.append(ring)
-    zk = min(rim_z) - depth
+    zk = min(rim_z) + hang[2] * depth
     kn = LOBE_KEEL[1]
-    kx, ky = cx + skew[0], cy + skew[1]
+    kx, ky = cx + skew[0] + hang[0] * depth, cy + skew[1] + hang[1] * depth
     keel = []
     for s in range(kn):
         a = 2.0 * math.pi * (s + 0.3 * rng.f()) / kn + a0
         f = LOBE_KEEL[0] * R * (1.0 + 0.15 * rng.sf())
         lx, ly = _clip(place, kx + f * math.cos(a) * st, ky + f * math.sin(a), edge)
         keel.append(m.v((lx, ly, zk + 0.1 * depth * rng.sf())))
-    inner = (cx + skew[0] * 0.6, cy + skew[1] * 0.6, min(rim_z) - depth * 0.45)   # every face points away from here
+    inner = (cx + skew[0] * 0.6 + hang[0] * depth * 0.45, cy + skew[1] * 0.6 + hang[1] * depth * 0.45,
+             min(rim_z) + hang[2] * depth * 0.45)   # every face points away from here
     for j in range(len(rings) - 1):
         a_, b_ = rings[j], rings[j + 1]
         for s in range(n):
             q = (s + 1) % n
             idx = (a_[s], a_[q], b_[q], b_[s])
             m.quad(idx[0], idx[1], idx[2], idx[3], sub(m.centroid(idx), inner), "leaf")
-    _zip(m, rings[-1], keel, inner, "shade")
-    m.fan(keel, DOWN, "shade")
+    _zip(m, rings[-1], keel, inner, "shade", None if hang is DOWN else hang)
+    m.fan(keel, hang, "shade")
     m.fan(rim, UP, "leaf")
     return 1
 
 
-def _zip(m, outer, inner_ring, inner_pt, zone):
-    """Triangles between two loops matched by angle, every one facing away from ``inner_pt``."""
+def _zip(m, outer, inner_ring, inner_pt, zone, axis=None):
+    """Triangles between two loops matched by angle (in plan, or about ``axis``),
+    every one facing away from ``inner_pt``."""
     c = m.centroid(inner_ring)
+    if axis is not None:
+        e1 = (axis[1], -axis[0], 0.0)                 # across the hang, level
+        L = math.hypot(e1[0], e1[1]) or 1.0
+        e1 = (e1[0] / L, e1[1] / L, 0.0)
+        e2 = (axis[1] * e1[2] - axis[2] * e1[1], axis[2] * e1[0] - axis[0] * e1[2], axis[0] * e1[1] - axis[1] * e1[0])
 
     def ang(vid):
         p = m.verts[vid]
-        return math.atan2(p[1] - c[1], p[0] - c[0])
+        if axis is None:
+            return math.atan2(p[1] - c[1], p[0] - c[0])
+        d = sub(p, c)
+        return math.atan2(d[0] * e2[0] + d[1] * e2[1] + d[2] * e2[2], d[0] * e1[0] + d[1] * e1[1] + d[2] * e1[2])
 
     O = sorted(outer, key=ang)
     I = sorted(inner_ring, key=ang)
@@ -618,11 +714,37 @@ def tree_rows():
     return [r for r in forest_trees.LAYOUT if r[1] in TREES]
 
 
+def build_fringe(m, roof):
+    """The FRINGE rows round the lane: a cluster every ragged step, each in its
+    own frame at its own radius, none under a sun well. Returns shells."""
+    shells = 0
+    for row, (name, (r0, dr), size, step, empty) in enumerate(FRINGE):
+        rng = _Rng(FRINGE_SEED + 104729 * row)
+        margin = size[0][1] * (1.0 + LOBE_WOB)     # its short radius: the wells stay open, the light comes through
+        deg = 360.0 / (2.0 * math.pi * r0)         # degrees per metre along the row
+        b = rng.f() * step[0] * deg
+        while b < 360.0:
+            bearing, radius = b, r0 + rng.sf() * dr
+            b += rng.u(*step) * deg
+            if rng.f() < empty:
+                continue
+            place = _Place(bearing, radius, 0.0, 1.0)
+            if not roof.well_clear(place.foot[0], place.foot[1], margin):
+                continue
+            local = _Mesh()
+            shells += _cluster(local, rng, place, roof, (0.0, 0.0), name, fringe=size)
+            local.compact()
+            _append(m, local, place)
+    return shells
+
+
 def build_geometry():
     """(canopy mesh, collider mesh, stats)."""
     roof = _Roof()
     m, c = _Mesh(), _Mesh()
     stats = {"trees": 0, "shells": 0, "per_kind": {}, "roof_top": roof.top}
+    stats["fringe"] = build_fringe(m, roof)
+    stats["shells"] += stats["fringe"]
     for idx, (section, kind, bearing, radius, aim, spin, scale) in enumerate(tree_rows()):
         assert aim == "radial", aim
         spec = ftp.spec_of(LETTER[kind])
@@ -649,8 +771,8 @@ def build():
     coll = c.object(COLLIDER_NAME)
     coll.hide_render = True
     zs = [v[2] for v in m.verts]
-    print("MDL STATS trees=%d shells=%d %s visual_tris=%d collision_tris=%d top_y=%.2f roof_y=%.1f"
-          % (stats["trees"], stats["shells"], stats["per_kind"], len(ob.data.polygons),
+    print("MDL STATS trees=%d shells=%d fringe=%d %s visual_tris=%d collision_tris=%d top_y=%.2f roof_y=%.1f"
+          % (stats["trees"], stats["shells"], stats["fringe"], stats["per_kind"], len(ob.data.polygons),
              len(coll.data.polygons), max(zs), fc.GALLERY_Z))
     return [ob, coll]
 
@@ -750,8 +872,8 @@ def _check():
     vis = forest_check.prove(m, NAME)
     col = forest_check.prove(c, NAME + "_collider")
     zs = [v[2] for v in m.verts]
-    print("SIZE trees=%d shells=%d %s top_y=%.2f roof_top=%.2f" % (stats["trees"], stats["shells"], stats["per_kind"],
-                                                                 max(zs), stats["roof_top"]))
+    print("SIZE trees=%d shells=%d fringe=%d %s top_y=%.2f roof_top=%.2f"
+          % (stats["trees"], stats["shells"], stats["fringe"], stats["per_kind"], max(zs), stats["roof_top"]))
     ok = True
     for label, cond, why in (
             ("components", vis["components"] == stats["shells"], "one shell per tree and per lobe"),
