@@ -5,6 +5,7 @@ extends CanvasLayer
 ## matches Ryan's Windows HDR monitors. Windows never builds it; scene lighting is untouched.
 
 const SHADER: Shader = preload("res://scripts/fx/mac_lift.gdshader")
+const SDR_GAIN: float = 2.0
 
 
 static func wanted() -> bool:
@@ -22,5 +23,6 @@ func _ready() -> void:
 	rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var mat: ShaderMaterial = ShaderMaterial.new()
 	mat.shader = SHADER
+	mat.set_shader_parameter("sdr_gain", SDR_GAIN)
 	rect.material = mat
 	add_child(rect)
