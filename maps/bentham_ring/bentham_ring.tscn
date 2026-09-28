@@ -22,7 +22,6 @@
 [ext_resource type="PackedScene" path="res://maps/bentham_ring/models/map_base_cover_s4.glb" id="10_map_base_cover_s4"]
 [ext_resource type="PackedScene" path="res://maps/bentham_ring/models/map_base_gate.glb" id="10_map_base_gate"]
 [ext_resource type="PackedScene" path="res://maps/bentham_ring/props/portal.tscn" id="19_portal"]
-[ext_resource type="PackedScene" path="res://maps/bentham_ring/props/torch.tscn" id="21_torch"]
 [ext_resource type="PackedScene" path="res://maps/bentham_ring/props/lava_crack.tscn" id="23_lava_crack_scene"]
 [ext_resource type="PackedScene" path="res://props/speed_powerup.tscn" id="24_speed_powerup_scene"]
 [ext_resource type="Script" uid="uid://bqujt25fif0uv" path="res://scripts/match/trap_volume.gd" id="26_trap_volume"]
@@ -61,62 +60,24 @@ environment = SubResource("Env")
 
 [node name="Ring" type="Node3D" parent="." unique_id=215463693]
 
-[node name="Torches" type="Node3D" parent="Ring" unique_id=22124824]
-
-[node name="Torch_015deg" parent="Ring/Torches" unique_id=459825714 instance=ExtResource("21_torch")]
-transform = Transform3D(-0.258819, 0, -0.965926, 0, 1, 0, 0.965926, 0, -0.258819, 55.2993, 25.2, 14.8174)
-
-[node name="Torch_045deg" parent="Ring/Torches" unique_id=1928937207 instance=ExtResource("21_torch")]
-transform = Transform3D(-0.707107, 0, -0.707107, 0, 1, 0, 0.707107, 0, -0.707107, 40.4819, 25.2, 40.4819)
-
-[node name="Torch_075deg" parent="Ring/Torches" unique_id=1823400930 instance=ExtResource("21_torch")]
-transform = Transform3D(-0.965926, 0, -0.258819, 0, 1, 0, 0.258819, 0, -0.965926, 14.8174, 25.2, 55.2993)
-
-[node name="Torch_105deg" parent="Ring/Torches" unique_id=603355196 instance=ExtResource("21_torch")]
-transform = Transform3D(-0.965926, 0, 0.258819, 0, 1, 0, -0.258819, 0, -0.965926, -14.8174, 25.2, 55.2993)
-
-[node name="Torch_135deg" parent="Ring/Torches" unique_id=1660835008 instance=ExtResource("21_torch")]
-transform = Transform3D(-0.707107, 0, 0.707107, 0, 1, 0, -0.707107, 0, -0.707107, -40.4819, 25.2, 40.4819)
-
-[node name="Torch_165deg" parent="Ring/Torches" unique_id=1503196451 instance=ExtResource("21_torch")]
-transform = Transform3D(-0.258819, 0, 0.965926, 0, 1, 0, -0.965926, 0, -0.258819, -55.2993, 25.2, 14.8174)
-
-[node name="Torch_195deg" parent="Ring/Torches" unique_id=758238963 instance=ExtResource("21_torch")]
-transform = Transform3D(0.258819, 0, 0.965926, 0, 1, 0, -0.965926, 0, 0.258819, -55.2993, 25.2, -14.8174)
-
-[node name="Torch_225deg" parent="Ring/Torches" unique_id=1661007158 instance=ExtResource("21_torch")]
-transform = Transform3D(0.707107, 0, 0.707107, 0, 1, 0, -0.707107, 0, 0.707107, -40.4819, 25.2, -40.4819)
-
-[node name="Torch_255deg" parent="Ring/Torches" unique_id=523527170 instance=ExtResource("21_torch")]
-transform = Transform3D(0.965926, 0, 0.258819, 0, 1, 0, -0.258819, 0, 0.965926, -14.8174, 25.2, -55.2993)
-
-[node name="Torch_285deg" parent="Ring/Torches" unique_id=1101670908 instance=ExtResource("21_torch")]
-transform = Transform3D(0.965926, 0, -0.258819, 0, 1, 0, 0.258819, 0, 0.965926, 14.8174, 25.2, -55.2993)
-
-[node name="Torch_315deg" parent="Ring/Torches" unique_id=267725367 instance=ExtResource("21_torch")]
-transform = Transform3D(0.707107, 0, -0.707107, 0, 1, 0, 0.707107, 0, 0.707107, 40.4819, 25.2, -40.4819)
-
-[node name="Torch_345deg" parent="Ring/Torches" unique_id=344578854 instance=ExtResource("21_torch")]
-transform = Transform3D(0.258819, 0, -0.965926, 0, 1, 0, 0.965926, 0, 0.258819, 55.2993, 25.2, -14.8174)
-
 [node name="LavaGlow" type="Node3D" parent="Ring" unique_id=661152170]
 
 [node name="S2_LavaShelf" type="OmniLight3D" parent="Ring/LavaGlow" unique_id=220250157]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -11.2549, 24.5, 50.7674)
 light_color = Color(1, 0.35, 0.05, 1)
-light_energy = 3.0
+light_energy = 3.4
 omni_range = 12.0
 
 [node name="S4_DemonRun_Inner" type="OmniLight3D" parent="Ring/LavaGlow" unique_id=1658816305]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -35.4639, 24.5, -38.0304)
 light_color = Color(1, 0.35, 0.05, 1)
-light_energy = 3.0
+light_energy = 3.4
 omni_range = 12.0
 
 [node name="S4_DemonRun_Outer" type="OmniLight3D" parent="Ring/LavaGlow" unique_id=1751733702]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -11.6975, 24.5, -50.6672)
 light_color = Color(1, 0.35, 0.05, 1)
-light_energy = 3.0
+light_energy = 3.4
 omni_range = 12.0
 
 [node name="MapBase" type="Node3D" parent="." unique_id=23449969]
