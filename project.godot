@@ -16,6 +16,10 @@ run/main_scene="res://ui/main_menu.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 config/icon="res://icon.svg"
 
+[autoload]
+
+MacLiftLayer="*res://scripts/fx/mac_lift.gd"
+
 [audio]
 
 buses/default_bus_layout="uid://svp8whkdkunr"
@@ -36,6 +40,10 @@ window/stretch/aspect="expand"
 [editor]
 
 export/convert_text_resources_to_binary=false
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/mac_lift/plugin.cfg")
 
 [filesystem]
 
