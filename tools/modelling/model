@@ -254,7 +254,7 @@ stage_ship() {
   # a view set you are no longer asking for and you compare against a stale png.
   # -Path, not -LiteralPath: LiteralPath treats the * as part of the filename
   # and silently deletes nothing, which is exactly the stale-render trap.
-  pc "Remove-Item -Path '$JOB_W\\out\\${FULL}_*.png','$JOB_W\\out\\textures.txt' -ErrorAction SilentlyContinue" >/dev/null
+  pc "Remove-Item -Path '$JOB_W\\out\\${FULL}_*.png','$JOB_W\\out\\textures.txt' -ErrorAction SilentlyContinue; 'ok'" >/dev/null
   push "$HERE/lib/mdl.py"        "$JOB/mdl.py"
   push "$HERE/lib/glb_textures.py" "$JOB/glb_textures.py"
   push "$HERE/lib/pcrun.ps1"     "$JOB/pcrun.ps1"
@@ -278,11 +278,17 @@ stage_ship() {
     # lands beside the script, so these go to the same place and the script
     # directory's place on sys.path finds them -- without this a --pc build
     # dies on ImportError while the Mac build is perfectly fine.
+    # ... and a sibling beside the build script (a layout table), the same way.
     for dep in $(grep -oE '^(import|from) [a-z0-9_]+' "$(build_script "$cur")" | awk '{print $2}'); do
-      [ -f "$HERE/lib/${dep}.py" ] || continue
+      case "$dep" in *_build) continue ;; esac
+      src=""
+      for cand in "$HERE/lib/${dep}.py" "$(dirname "$(build_script "$cur")")/${dep}.py"; do
+        if [ -f "$cand" ]; then src="$cand"; break; fi
+      done
+      [ -n "$src" ] || continue
       case "$seen" in *" lib:$dep "*) continue ;; esac
       seen="$seen lib:$dep "
-      push "$HERE/lib/${dep}.py" "$JOB/${dep}.py"
+      push "$src" "$JOB/${dep}.py"
     done
   done
   # Every home's textures/ PNGs, at their repo paths: an existing PNG is what the build uses.
