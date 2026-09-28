@@ -1,12 +1,15 @@
 shader_type canvas_item;
-// Lifts shadows of the finished sRGB frame toward what Windows HDR shows; highlights pass through.
+// Decodes sRGB the way Windows 11 HDR does, then re-encodes at gamma 2.2, matching the PC.
 
 uniform sampler2D screen_tex : hint_screen_texture, filter_nearest;
-uniform float lift = 0.02;
-uniform float gamma = 1.4;
+// Windows' "SDR content brightness" slider: a linear gain before the re-encode.
+uniform float sdr_gain = 2.0;
+
+vec3 srgb_to_linear(vec3 c) {
+	return mix(c / 12.92, pow((c + 0.055) / 1.055, vec3(2.4)), step(0.04045, c));
+}
 
 void fragment() {
 	vec3 c = clamp(texture(screen_tex, SCREEN_UV).rgb, 0.0, 1.0);
-	vec3 up = lift + (1.0 - lift) * pow(c, vec3(1.0 / gamma));
-	COLOR = vec4(mix(up, c, smoothstep(0.55, 0.95, c)), 1.0);
+	COLOR = vec4(pow(min(srgb_to_linear(c) * sdr_gain, 1.0), vec3(1.0 / 2.2)), 1.0);
 }
