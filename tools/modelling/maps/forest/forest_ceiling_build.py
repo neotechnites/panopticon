@@ -21,7 +21,11 @@ this module grows the roof into g.m, sharing vertices with the wall's top row
                      wall's head, COVE_R), the rest flat at y ~38; g.gal[0] IS
                      g.wall[-1] and g.gal[-1] IS the ring forest_build.UPPER
                      stands its drum on
-    gallery_faces(g) that roof's faces, its five sun wells and g.rays
+    eave_rows(g)     the roof's edge past that ring: EAVE_R rings over the pit
+                     at roof height, lifting on an arc off the drum's foot and
+                     ending ragged in the air, so the canopy ends at the lip
+                     with no corner and nothing under it (Ryan: "overspilling")
+    gallery_faces(g) that roof's faces, the eave's, its five sun wells and g.rays
 
 Heights (world y, the lane is 23.0):
 
@@ -108,6 +112,13 @@ SHAFT_LIT = 1               # a well's own cells and the cells this far round th
 SHAFT_WOB = (0.30, 0.22, 0.14)   # the blob's radius wobbles at 2, 3 and 5 per turn
 SHAFT_HALF = (0.42, 0.5, 2.2)    # the shaft's half width at the top: this x the blob's radius, clamped
 
+# The eave. Ryan: "the edge side has these trees just overspilling again." Nothing
+# hangs past the lip any more; the roof ITSELF runs on past it, at roof height only,
+# lifting on an arc tangent to the sheet at the drum's foot and ending ragged in the
+# air over the pit: the canopy ends at the lip, in the air above it, with no corner.
+EAVE_R = (46.25, 45.85, 45.5)   # rings past the lip (fs.DRUM_R): the eave reaches 1.2 m in
+EAVE_ARC = 2.2              # the arc's radius: 0.36 m of lift at the tip, 33 deg up
+EAVE_RAG = 0.22             # the rings wander this far in and out, the tip most: no straight line
 SEED = 9110271 + 77         # the roof's own seed: editing it diffs only the roof
 
 TWO_PI = 2.0 * math.pi
@@ -127,6 +138,7 @@ def _col_of(nc, b):
 
 _TREES = []
 _LUMP2 = ft._field(ft._Rng(SEED + 313), n=6, wl=LUMP2_WL)
+_EAVE = ft._field(ft._Rng(SEED + 517), n=5, wl=(2.5, 7.0))
 
 
 def _trees():
@@ -228,6 +240,29 @@ def gallery_rows(g):
             else:
                 row.append(m.v((p[0], p[1], gallery_z(g, p[0], p[1]))))
         g.gal.append(row)
+
+
+def eave_lift(rad):
+    """How far the eave has risen at plan radius ``rad``: on the EAVE_ARC, tangent to the roof at the lip."""
+    s = max(0.0, GALLERY_R[-1] - rad)
+    return EAVE_ARC - math.sqrt(max(0.0, EAVE_ARC ** 2 - s * s))
+
+
+def eave_rows(g):
+    """EAVE_R rings past the drum's foot (shared, unmoved): each carries the roof's
+    own lumps on, lifted by the arc and wandering in and out, the tip the most."""
+    m = g.m
+    nc = _nc(g)
+    for k, rad in enumerate(EAVE_R):
+        row = []
+        for i in range(nc):
+            b = i * 360.0 / nc
+            p = pol(b, rad, 0.0)
+            rr = rad + EAVE_RAG * (k + 1) / float(len(EAVE_R)) * _EAVE(p[0], p[1])
+            p = pol(b, rr, 0.0)
+            z = GALLERY_Z + GALLERY_LUMP * g.ceil_f(p[0] * 0.9, p[1] * 0.9) + eave_lift(rr)
+            row.append(m.v((p[0], p[1], z)))
+        g.eave.append(row)
 
 
 def gal_quad_ids(g, k, i):
@@ -359,9 +394,16 @@ def gallery_faces(g):
             else:
                 zone = "sun" if (i, k) in lit else _leafy(g, ids)
             m.quad(ids[0], ids[1], ids[2], ids[3], DOWN, zone)
+    rows = [g.gal[-1]] + g.eave               # the eave: the roof's own leaf carried on past the lip
+    for k in range(len(rows) - 1):
+        for i in range(nc):
+            q = (i + 1) % nc
+            ids = (rows[k][i], rows[k][q], rows[k + 1][q], rows[k + 1][i])
+            m.quad(ids[0], ids[1], ids[2], ids[3], DOWN, _leafy(g, ids))
     for sh in g.shafts:
         half = min(SHAFT_HALF[2], max(SHAFT_HALF[1], SHAFT_HALF[0] * sh["radius"]))
         g.rays.append((sh["pts"], half))
-    print("MDL STATS roof gallery_y=%.1f r=%.1f..%.1f rings=%d shafts=%d well_cells=%d"
-          % (GALLERY_Z, GALLERY_R[-1], GALLERY_R[0], len(g.gal), len(SHAFTS), len(mouths)))
+    print("MDL STATS roof gallery_y=%.1f r=%.1f..%.1f rings=%d eave_r=%.2f lift=%.2f shafts=%d well_cells=%d"
+          % (GALLERY_Z, GALLERY_R[-1], GALLERY_R[0], len(g.gal), EAVE_R[-1], eave_lift(EAVE_R[-1]),
+             len(SHAFTS), len(mouths)))
 
