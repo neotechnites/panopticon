@@ -15,8 +15,11 @@ out (thorn hedges, boost pads, the orb, the standing stones) is gone; the wood i
 the map.
 
 The layout is the DATA in LAYOUT below, grown once from SEED by grow() so the
-same numbers come out every run, and every row is a scene instance: nothing is
-welded into forest.glb. Four lines of trees run round the ring:
+same numbers come out every run. The undergrowth rows are scene instances; the
+tree rows are MAP GEOMETRY: forest_canopy_build.py reads them and sculpts every
+tree at its place and scale, rising into the lane roof (forest_canopy.glb, one
+instance at identity, its collider the same trunk prisms the props carried).
+Four lines of trees run round the ring:
 
     LIP   r 47.45  in the lip's fern band, off the walkable lane (a and c only:
                    b's 1.28 m root flare would hang over the drop)
@@ -43,19 +46,18 @@ import sys
 LANE_Y = 22.95          # props sink into the lane's relief rather than float
 SEED = 20260922
 
+TREES = ("tree_a", "tree_b", "tree_c")     # built into forest_canopy.glb, never instanced
 KINDS = {
-    "tree_a":  ("10_tree_a",  "Tree_a"),
-    "tree_b":  ("11_tree_b",  "Tree_b"),
-    "tree_c":  ("12_tree_c",  "Tree_c"),
+    "tree_a":  ("10_canopy",  "Tree_a"),
+    "tree_b":  ("10_canopy",  "Tree_b"),
+    "tree_c":  ("10_canopy",  "Tree_c"),
     "bush_low":  ("13_bush_low",  "BushLow"),
     "bush_tall": ("14_bush_tall", "BushTall"),
     "boulder": ("15_boulder", "Boulder"),
     "outcrop": ("17_outcrop", "Outcrop"),
 }
 RESOURCE_PATHS = {
-    "10_tree_a": "res://maps/forest/models/forest_tree_prop_a.glb",
-    "11_tree_b": "res://maps/forest/models/forest_tree_prop_b.glb",
-    "12_tree_c": "res://maps/forest/models/forest_tree_prop_c.glb",
+    "10_canopy": "res://maps/forest/models/forest_canopy.glb",
     "13_bush_low": "res://maps/forest/models/forest_bush_low.glb",
     "14_bush_tall": "res://maps/forest/models/forest_bush_tall.glb",
     "15_boulder": "res://maps/forest/models/forest_rock_boulder.glb",
@@ -96,6 +98,7 @@ WALL_CELL_CLEAR = 1.9
 # drop. Spread so no two lean alike.
 LEAN_JITTER = 25.0
 
+CANOPY_NOTE = "Every tree of the wood as one chunk of map geometry (forest_canopy.glb): the trunks rise into the lane roof and their limbs end in leaf bosses on it; the collider is the same trunk prisms the props carried."
 SECTION_NOTES = {
     "Lip": "The lip line: trees and undergrowth in the ravine-edge fern band (r 47.45), off the walkable lane, the leaners' crowns hanging out over the path.",
     "Lane": "The lane line: trunks standing IN (r 49.9) or OUT (r 53.8) of the walkable lane and never mid-lane, swapping sides every one to three trees so the corridor snakes through the wood; the start pocket and the run-in to the portal stay open.",
@@ -347,10 +350,12 @@ def block():
     lines = []
     parents = []
     for section, kind, bearing, radius, aim, spin, scale in LAYOUT:
+        counts[kind] = counts.get(kind, 0) + 1
+        if kind in TREES:
+            continue
         if section not in used:
             parents.append(section)
             used[section] = set()
-        counts[kind] = counts.get(kind, 0) + 1
         resource, stem = KINDS[kind]
         name = "%s_%03ddeg" % (stem, round(bearing))
         suffix = 2
@@ -366,6 +371,9 @@ def block():
     for section in parents:
         head.append('[node name="%s" type="Node3D" parent="Sections"]' % section)
         head.append('editor_description = "%s"\n' % SECTION_NOTES[section])
+    if any(k in TREES for k in counts):
+        lines[0:0] = ['[node name="Canopy" parent="Sections" instance=ExtResource("10_canopy")]',
+                      'editor_description = "%s"\n' % CANOPY_NOTE]
     return counts, head, lines
 
 
@@ -407,7 +415,7 @@ def write():
     text = text[:start] + "\n".join(head) + "\n" + "\n".join(lines) + "\n" + text[end:]
     with open(SCENE, "w") as f:
         f.write(text)
-    print("wrote %d instances into %s" % (len(LAYOUT), SCENE))
+    print("wrote %d nodes into %s" % (len(lines) // 2, SCENE))
 
 
 # =============================================================================

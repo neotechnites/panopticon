@@ -1,0 +1,10 @@
+{
+  "_comment": "forest_canopy: Map 3's wood as map geometry, one chunk at identity. Every tree row of forest_trees.LAYOUT (113: 45 a, 30 b, 38 c) sculpted at its own place and scale against the real lane roof: the prop's trunk (its first eight rings, the cover footprint) carried on up to ~0.58 of the way to the roof, four limbs sweeping out and curving up, three twigs off their bends, the trunk's top as a leader, and every tip ending in a leaf boss whose rim lies ON the roof's own triangulated underside (read off forest_build's ground, buried 0.10 m) and whose underside dips down onto the limb -- the roof thickens where the trees arrive and reads as carried by them; nothing crosses the ceiling. One material (the forest atlas, external PNG), one mesh of 113 shells (one per tree, each closed). ForestCanopyCollision is the purpose-built collider shipped as a `-colonly` node: every tree's own prop collider (forest_tree_prop_build.build_collider, the trunk's silhouette to ring 6) at that tree's transform, so the bake and the cover finder see the same triangles the 113 prop instances gave them. Godot turns it into a StaticBody3D + ConcavePolygonShape3D and drops its mesh, so `surfaces` counts only what is drawn.",
+  "node_paths": [
+    "ForestCanopy",
+    "ForestCanopyCollision",
+    "ForestCanopyCollision/CollisionShape3D"
+  ],
+  "surfaces": 1,
+  "max_tris": 150000
+}
