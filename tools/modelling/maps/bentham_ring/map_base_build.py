@@ -2137,64 +2137,90 @@ def _s4_inside(rock, p, q_max=1.0):
 
 # ---- S4's rock-top cracks: Ryan, "S4 needs the same cracks as S3" -- one lone
 # fissure per rock top, at its LavaCrack pad node's own position and aim (read
-# off bentham_ring.tscn's S4_DemonRun instances; the 212 deg node sits on the
-# entry bank, not a rock top, and is left alone). Same recipe as one strand of
-# the S3 network -- S3_CRACK_W/_D for width and floor depth, S3_CRACK_FLOOR/
-# _LIP for the floor and dark lip bands, S3_CRACK_ZONE_FLOOR/_WALL for the
+# off bentham_ring.tscn's S4_DemonRun instances). Same recipe as one strand of
+# the S3 network -- S4_CRACK_W and S3_CRACK_D for width and floor depth, S3_CRACK_
+# FLOOR/_LIP for the floor and dark lip bands, S3_CRACK_ZONE_FLOOR/_WALL for the
 # glowing floor and ember walls, the LavaCrack surface itself -- just one
 # fissure with two free (tip) ends instead of a whole cell's network, cut into
 # the flat cap alone: the collider stays the plain flat grid, so the landing
-# is still walkable underfoot.
+# is still walkable underfoot. Ryan: "there's no crack on the first jump" and
+# "the cracks... are kind of too small, just a tiny line" -- the 212 deg node
+# (the entry bank's own tongue, not a rock top) gets its own fissure too, see
+# S4_ENTRY_CRACK_* below, and all four are drawn much bigger.
 S4_CRACK_NODES = (                    # (Blender x, y), (aim x, y) per rock top
     ((-37.0701, 39.8437), (0.834651, 0.550779)),
     ((-25.1778, 47.5481), (0.916161, 0.400811)),
     ((-11.6431, 53.1255), (0.999132, -0.041656)),
 )
 S4_CRACK_MATCH = 6.0                  # a node belongs to the nearest rock within this many metres
-S4_CRACK_BACK = (0.4, 0.9)            # the fissure's tail, back off the node against its aim
-S4_CRACK_FORWARD = (0.5, 0.95)        # ... and its head, ahead of the node along its aim
-S4_CRACK_Q_MAX = 0.65                 # every station stays this far inside the flat cap's own
-                                      # edge at S4_FLAT_Q (0.8): S3_CRACK_MARGIN's clearance
-S4_CRACK_TRIES = 40                   # draws before the build gives up, as S3_CRACK_TRIES
+S4_CRACK_BACK = (1.1, 1.5)            # the fissure's tail, back off the node against its aim
+S4_CRACK_FORWARD = (1.1, 1.5)         # ... and its head, ahead of the node along its aim: 2-3 m
+                                      # end to end between the two, roughly 3x S3's half-width
+                                      # (S4_CRACK_W below) so it reads as a vent, not a line
+S4_CRACK_W = (0.30, 0.60)             # S4's own half-width at the deck: S3_CRACK_W is too thin here
+S4_CRACK_STEP = (0.9, 1.4)            # stations this far apart -- S3_CRACK_STEP is too close for
+                                      # S4_CRACK_W's half-width: the offset curve would fold on itself
+S4_CRACK_KICK = (0.10, 0.35)          # a station's lateral jag, modest against the wider half-width
+S4_CRACK_ANGLE = 110.0                # no corner sharper than this: gentler than S3_CRACK_ANGLE,
+                                      # again so the wide offset curve stays simple
+S4_CRACK_GAP = 0.5                    # stations keep at least this far apart, well over the half-width
+S4_CRACK_Q_MAX = 0.72                 # every station stays this far inside the flat cap's own
+                                      # edge at S4_FLAT_Q (0.8): a little more room than S3_CRACK_
+                                      # MARGIN's clearance, for S4_CRACK_BACK/_FORWARD's longer reach
+S4_CRACK_TRIES = 200                  # draws before the build gives up: more than S3_CRACK_TRIES,
+                                      # since S4_CRACK_STEP/_GAP narrow which draws are valid
 
 
 def _s4_crack_fissure(rock, pos, aim, seed):
     """One lone jagged fissure across a rock's flat cap, centred near `pos`
     along `aim`: the same draw as an S3 fissure with both ends free tips."""
-    rng = _Rng(seed)
-
     def inside(p):
         u, v = _s4_local(rock, p)
         return _s4_q(rock, u, v) <= S4_CRACK_Q_MAX
+    return _s4_crack_fissure_at(pos, aim, S4_CRACK_BACK, S4_CRACK_FORWARD, inside, seed,
+                                "s4 crack: no fissure fits near %r" % (pos,))
 
+
+def _s4_crack_fissure_at(pos, aim, back_range, fwd_range, inside, seed, err):
+    """One lone jagged fissure between `pos - back*aim` and `pos + fwd*aim`,
+    both ends free tips, kept inside `inside`: the shared draw behind a
+    rock-top crack and the entry-bank crack alike."""
+    rng = _Rng(seed)
     for _try in range(S4_CRACK_TRIES):
-        back = S4_CRACK_BACK[0] + rng.f() * (S4_CRACK_BACK[1] - S4_CRACK_BACK[0])
-        fwd = S4_CRACK_FORWARD[0] + rng.f() * (S4_CRACK_FORWARD[1] - S4_CRACK_FORWARD[0])
+        back = back_range[0] + rng.f() * (back_range[1] - back_range[0])
+        fwd = fwd_range[0] + rng.f() * (fwd_range[1] - fwd_range[0])
         p0 = (pos[0] - back * aim[0], pos[1] - back * aim[1])
         p1 = (pos[0] + fwd * aim[0], pos[1] + fwd * aim[1])
         if not (inside(p0) and inside(p1)):
             continue
-        chain = _s3n_chain(rng, p0, None, p1, None, inside)
+        chain = _s3n_chain(rng, p0, None, p1, None, inside,
+                           step=S4_CRACK_STEP, kick=S4_CRACK_KICK,
+                           min_angle=S4_CRACK_ANGLE, min_gap=S4_CRACK_GAP)
         if chain is None:
             continue
         f = {"pts": chain, "e0": ("tip",), "e1": ("tip",)}
         _s3n_normals(f, {})
-        _s3n_widths(rng, f, {})
+        _s3n_widths(rng, f, {}, S4_CRACK_W)
         return f
-    raise RuntimeError("s4 crack: no fissure fits near %r" % (pos,))
+    raise RuntimeError(err)
 
 
 def _s4_crack_mesh(m, rock, f):
+    """A rock-top fissure: cut against the rock's OWN top height at each
+    station (the flat cap, so `top` is constant along it in practice)."""
+    return _s4_crack_mesh_at(m, f, lambda p: _s4_z(rock, *_s4_local(rock, p))[0])
+
+
+def _s4_crack_mesh_at(m, f, top_fn):
     """One fissure's mesh: the same six-vertex cross-section as an S3 station,
-    floor and lip depth against the rock's OWN top height there, tagged into
-    the LavaCrack surface. Returns the hole's outline as a vertex-id ring."""
+    floor and lip depth against `top_fn`'s height there, tagged into the
+    LavaCrack surface. Returns the hole's outline as a vertex-id ring."""
     pts, nrm, w, d = f["pts"], f["nrm"], f["w"], f["d"]
     n = len(pts)
 
     def station(i):
         p = pts[i]
-        u, v = _s4_local(rock, p)
-        top = _s4_z(rock, u, v)[0]
+        top = top_fn(p)
         if i == 0 or i == n - 1:
             t = m.v((p[0], p[1], top))
             return dict(TL=t, TR=t, ML=t, MR=t, FL=t, FR=t)
@@ -2242,6 +2268,71 @@ def _s4_crack_mesh(m, rock, f):
     if len(ring) > 1 and ring[0] == ring[-1]:
         ring.pop()
     return ring
+
+
+# ---- S4's fourth fissure: the 212 deg LavaCrack node (bentham_ring.tscn,
+# the entry flight's own pad) sits on the flat approach deck, not a rock
+# top, so it never matched a rock above (S4_CRACK_MATCH) and never got cut.
+# Same recipe, cut into a small patch of the PLAIN deck grid instead of a
+# rock's bent frame: the main deck loop skips a handful of columns and two
+# radial rows there, and _s4_entry_crack_setup's `finish` fills the patch
+# with the same crack mesh afterward, on a flat DECK_Z cap.
+S4_ENTRY_CRACK_POS = (-44.6061, 27.8757)      # bentham_ring.tscn's LavaCrack_212deg
+S4_ENTRY_CRACK_AIM = (0.514129, 0.857713)     # transform: origin (Blender x,y), basis z (x,z)
+S4_ENTRY_CRACK_BACK = (1.8, 2.6)              # away from the entry cut: deep in the plain deck
+S4_ENTRY_CRACK_FWD = (0.35, 0.55)             # toward the cut: short of its ~0.8 m clearance
+S4_ENTRY_CRACK_RADIUS = 1.3                   # the patch's half-span either side of S4_ENTRY_R
+S4_ENTRY_CRACK_SEED = S3_CRACK_SEED + 7919 * 3
+
+
+def _s4_entry_crack_setup(cols_all, RST):
+    """Marks out the plain-deck patch the entry-bank fissure replaces, and
+    returns (skip, finish): skip(t0, t1, j) for the main deck loop to skip
+    those cells, finish(m, DV) to call after it and cut the fissure into
+    the vacated patch."""
+    ex, ey = S4_ENTRY_CRACK_POS
+    t = math.atan2(ey, ex)
+    while t < cols_all[0] - math.pi:
+        t += TWO_PI
+    while t > cols_all[-1] + math.pi:
+        t -= TWO_PI
+    near = t - (S4_ENTRY_CRACK_FWD[1] + 0.5) / S4_ENTRY_R    # extra clearance short of the cut
+    far = t + (S4_ENTRY_CRACK_BACK[1] + 0.5) / S4_ENTRY_R
+    t_lo = max(c for c in cols_all if c <= near)
+    t_hi = min(c for c in cols_all if c >= far)
+    cols = [c for c in cols_all if t_lo - 1e-9 <= c <= t_hi + 1e-9]
+    r_lo = S4_ENTRY_R - S4_ENTRY_CRACK_RADIUS
+    r_hi = S4_ENTRY_R + S4_ENTRY_CRACK_RADIUS
+    j_lo = max(j for j in range(len(RST)) if RST[j] <= r_lo)
+    j_hi = min(j for j in range(len(RST)) if RST[j] >= r_hi)
+
+    def skip(t0, t1, j):
+        return t_lo - 1e-9 <= t0 and t1 <= t_hi + 1e-9 and j_lo <= j < j_hi
+
+    def inside(p):
+        pt = math.atan2(p[1], p[0])
+        while pt < t_lo - math.pi:
+            pt += TWO_PI
+        while pt > t_hi + math.pi:
+            pt -= TWO_PI
+        rad = math.hypot(p[0], p[1])
+        return t_lo - 1e-9 <= pt <= t_hi + 1e-9 and RST[j_lo] - 1e-9 <= rad <= RST[j_hi] + 1e-9
+
+    def finish(m, DV):
+        f = _s4_crack_fissure_at(S4_ENTRY_CRACK_POS, S4_ENTRY_CRACK_AIM,
+                                  S4_ENTRY_CRACK_BACK, S4_ENTRY_CRACK_FWD, inside,
+                                  S4_ENTRY_CRACK_SEED,
+                                  "s4 entry crack: no fissure fits near %r" % (S4_ENTRY_CRACK_POS,))
+        hole = _s4_crack_mesh_at(m, f, lambda p: DECK_Z)
+        cap = [DV(c, j_lo) for c in cols] + [DV(c, j_hi) for c in reversed(cols)]
+        flat = cap + hole
+        tri = _fill2d([[m.verts[i][:2] for i in ring] for ring in (cap, hole)])
+        tris = [(flat[a], flat[b], flat[c]) for a, b, c in tri if len({flat[a], flat[b], flat[c]}) == 3]
+        tris = _s3_refine(m, tris, S3_CRACK_REFINE)
+        for a, b, c in tris:
+            m.tri(a, b, c, UP, ZONE_DECK)
+
+    return skip, finish
 
 
 def _s4_rock(m, r, rock, coll=False):
@@ -3417,12 +3508,16 @@ def _s3n_normals(f, ports):
     return out
 
 
-def _s3n_chain(rng, p0, d0, p1, d1, inside, back0=0.0, back1=0.0):
+def _s3n_chain(rng, p0, d0, p1, d1, inside, back0=0.0, back1=0.0,
+               step=S3_CRACK_STEP, kick=S3_CRACK_KICK, min_angle=S3_CRACK_ANGLE, min_gap=0.15):
     """A jagged polyline from p0 to p1. d0: the direction it must leave p0
     along (None: free); d1: the direction it must arrive at p1 along (None:
     free); back0/back1: extra metres the first/last interior station stands
     off its end (a host's half width, when the end is a mouth on it).
-    Interior stations inside(). None when no draw fits."""
+    Interior stations inside(). step/kick/min_angle/min_gap default to S3's
+    own network; S4's own wider fissures draw gentler (S4_CRACK_STEP etc.)
+    so the offset curve a wide half-width traces stays simple. None when no
+    draw fits."""
     for _ in range(12):
         c = [p0]
         if d0 is not None:
@@ -3439,41 +3534,43 @@ def _s3n_chain(rng, p0, d0, p1, d1, inside, back0=0.0, back1=0.0):
         L = _s3n_dist(a, b)
         along = _s3n_u((b[0] - a[0], b[1] - a[1]))
         side = _s3n_perp(along)
-        nmid = max(0, int(L / (0.5 * (S3_CRACK_STEP[0] + S3_CRACK_STEP[1])) + rng.f() - 0.3))
+        nmid = max(0, int(L / (0.5 * (step[0] + step[1])) + rng.f() - 0.3))
         if last is None and d0 is None:
             nmid = max(nmid, 3)
         fr = sorted(0.12 + 0.76 * rng.f() for _ in range(nmid))
         for t in fr:
-            kick = S3_CRACK_KICK[0] + rng.f() * (S3_CRACK_KICK[1] - S3_CRACK_KICK[0])
-            kick *= 1.0 if rng.f() < 0.5 else -1.0
+            kk = kick[0] + rng.f() * (kick[1] - kick[0])
+            kk *= 1.0 if rng.f() < 0.5 else -1.0
             if rng.f() < 0.25:
-                kick *= 0.15                     # a near-straight station now and then
-            c.append(_s3n_add(_s3n_add(a, along, t * L), side, kick))
+                kk *= 0.15                       # a near-straight station now and then
+            c.append(_s3n_add(_s3n_add(a, along, t * L), side, kk))
         if last is not None:
             c.append(last)
         c.append(p1)
         ok = len(c) >= 3
         for i in range(1, len(c) - 1):
-            if not inside(c[i]) or _s3n_angle(c, i) < S3_CRACK_ANGLE:
+            if not inside(c[i]) or _s3n_angle(c, i) < min_angle:
                 ok = False
                 break
         for i in range(len(c) - 1):
-            if _s3n_dist(c[i], c[i + 1]) < 0.15:
+            if _s3n_dist(c[i], c[i + 1]) < min_gap:
                 ok = False
         if ok:
             return c
     return None
 
 
-def _s3n_widths(rng, f, ports):
+def _s3n_widths(rng, f, ports, wrange=S3_CRACK_W, drange=S3_CRACK_D):
     """Half widths and depths per station: ports theirs, tips nought, one
-    waist somewhere along, the rest irregular; a mouth end's are the host's."""
+    waist somewhere along, the rest irregular; a mouth end's are the host's.
+    wrange/drange default to S3's own network; S4's own fissures (rock-top
+    and entry-bank alike) draw wider, via S4_CRACK_W."""
     pts = f["pts"]
     n = len(pts)
     w, d = [0.0] * n, [0.0] * n
     inner = [i for i in range(n) if 0 < i < n - 1]
     waist = rng.pick(inner) if len(inner) > 2 else -1
-    lo, hi = S3_CRACK_W
+    lo, hi = wrange
     cap = f.get("wcap", hi)
     for i in inner:
         if i == waist:
@@ -3481,8 +3578,8 @@ def _s3n_widths(rng, f, ports):
         else:
             w[i] = min(cap, lo + 0.03 + rng.f() * (hi - lo - 0.03))
         t = (w[i] - lo) / (hi - lo)
-        d[i] = S3_CRACK_D[0] + (S3_CRACK_D[1] - S3_CRACK_D[0]) * t * (0.8 + 0.3 * rng.f())
-        d[i] = max(S3_CRACK_D[0], min(S3_CRACK_D[1], d[i]))
+        d[i] = drange[0] + (drange[1] - drange[0]) * t * (0.8 + 0.3 * rng.f())
+        d[i] = max(drange[0], min(drange[1], d[i]))
     for i, end in ((0, f["e0"]), (n - 1, f["e1"])):
         if end[0] == "port":
             w[i], d[i] = ports[end[1]]["w"], ports[end[1]]["d"]
@@ -6679,6 +6776,7 @@ def _rock(r):
     s4_cols = [t for t in s4_cols if not (s4c0 < t < s4b0 or s4b1 < t < s4c1) or t in (s4m0, s4m1)]
     s4_lava_ts = _merge_cols(pit_wall.tbreaks(s4b0, s4b1), [t for t in s4_cols if s4b0 < t < s4b1])
     cols_all = _merge_cols([c for c in cols_all if not (s4c0 < c < s4c1)], s4_cols)
+    ec_skip, ec_finish = _s4_entry_crack_setup(cols_all, RST)   # the entry-bank fissure's patch
 
     def s4_in(t):
         return s4c0 - 1e-9 <= t <= s4c1 + 1e-9
@@ -7130,9 +7228,12 @@ def _rock(r):
                     for j in range(len(RST_RIVER if in1 else RST))], UP, zone)
         else:
             for j in range(len(RST) - 1):
+                if ec_skip(t0, t1, j):               # the entry-bank fissure's own patch
+                    continue
                 m.quad(DV(t0, j), DV(t1, j), DV(t1, j + 1), DV(t0, j + 1), UP, zone)
 
     _s3_patches(m, S3V)                 # the cracks, welded into the grid's own vertices
+    ec_finish(m, DV)                    # ... and S4's entry-bank fissure, into its own patch
 
     S4["edges"] = {}
     for side, (cut, mid, bank) in enumerate(((s4c0, s4m0, s4b0), (s4c1, s4m1, s4b1))):
