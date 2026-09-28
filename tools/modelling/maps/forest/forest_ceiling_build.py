@@ -28,6 +28,14 @@ Heights (world y, the lane is 23.0):
     drum foot .....   g.gal[-1], r 46.7: forest_build's cell drum starts here
                       and climbs to forest_seam.seam_ring() at y 50
 
+The roof follows the wood (Ryan: "the roof doesn't change based on where trees
+are"): forest_trees.LAYOUT's trunks pull the underside DOWN over every crown
+(TREE_DIP within TREE_REACH of a trunk, summed where trees crowd), the open lane
+lifts it (GAP_RISE), and a coarser second lump field (LUMP2) breaks the sheet
+into leaf masses the canopy's own lobes hang from (forest_canopy_build reads the
+built triangles). Over a crown the quads are "shade", in the open they are
+"leaf" with lit "sun" patches: dark undersides, light breaking through the gaps.
+
 The leaves are unbroken: every quad carries a face, so nothing can read as a
 hole or a bright polygon from below. The shafts come down THROUGH the closed
 leaves from five anchors on the sun's side -- an organic blob of cells round
@@ -43,6 +51,7 @@ import math
 
 import forest_seam as fs
 import forest_tree_build as ft
+import forest_trees
 from forest_tree_build import DOWN, pol, add
 
 # =============================================================================
@@ -50,14 +59,21 @@ from forest_tree_build import DOWN, pol, add
 # =============================================================================
 
 GALLERY_Z = fs.CEIL_Z       # the leaf roof over the lane: 15 m over the grass
-# seven rings, the wall's head inward to the drum's foot: 2.2 m bands against a
-# 1.2 m chord at 240 columns, square-ish quads a shaft's mouth fits in
-GALLERY_R = [60.0, 57.8, 55.6, 53.3, 51.1, 48.9, fs.DRUM_R]
+# nine rings, the wall's head inward to the drum's foot: 1.66 m bands against a
+# 1.2 m chord at 240 columns, fine enough for the underside to follow the trees
+GALLERY_R = [60.0, 58.3, 56.7, 55.0, 53.4, 51.7, 50.0, 48.4, fs.DRUM_R]
 GALLERY_SAG = 0.5           # the roof dips this much mid-span (zero at both edges)
 GALLERY_LUMP = 0.55         # ... and its underside is lumped this much: leaf clumps, not a lid
 LEAF_T = 0.12               # a gallery quad lit enough to be "leaf" rather than "shade"
+TREE_DIP = 2.4              # the underside comes down this far over a trunk ...
+TREE_REACH = 3.6            # ... fading to nothing this far (x the tree's scale) from it
+GAP_RISE = 1.3              # and lifts this far over open lane, nothing under it
+LUMP2 = 0.9                 # the coarse leaf masses of the sheet itself
+LUMP2_WL = (4.5, 11.0)      # their wavelengths, m
+SHADE_T = 0.45              # tree weight over which a quad is the crown's dark underside
+SUN_GAP = (0.12, 0.25)      # (tree weight under, lump over) which an open quad is lit leaf
 
-# (bearing, band, radius in metres, wobble seed): where a sun well comes down
+# (bearing, anchor radius, radius in metres, wobble seed): where a sun well comes down
 # through the leaves. All on the sun's side (SUN bears 120) so they read as one
 # light, and all in bands 1..4 -- never band 0 (the wall's own row) nor band 5
 # (the drum's foot), whose vertices are shared and must not be ragged.
@@ -66,9 +82,9 @@ LEAF_T = 0.12               # a gallery quad lit enough to be "leaf" rather than
 # past the lip into the ravine. Three of the five are therefore anchored wide of
 # the sun's own line (bearings 60, 71 and 168) and high in band 1, where that 11 m
 # still lands on the lane; the other two keep the sun's line and fall into the pit.
-SHAFTS = [(60.0, 1, 2.4, 11), (71.0, 1, 2.8, 23), (104.0, 2, 2.0, 37),
-          (140.0, 2, 2.6, 53), (168.0, 1, 1.8, 71)]
-SHAFT_BANDS = (1, 5)        # the wells live in gallery bands 1..4 (r 57.8..48.9)
+SHAFTS = [(60.0, 56.7, 2.4, 11), (71.0, 56.7, 2.8, 23), (104.0, 54.45, 2.0, 37),
+          (140.0, 54.45, 2.6, 53), (168.0, 56.7, 1.8, 71)]
+SHAFT_BANDS = (1, len(GALLERY_R) - 2)   # the wells live in the inner bands, never the wall's row nor the drum's
 SHAFT_RAG = (0.45, 0.35)    # every vertex round a well's mouth is pulled this far in y and in
                             # plan: torn leaf, not a staircase of quads
 SHAFT_LIT = 1               # a well's own cells and the cells this far round them are the lit
@@ -94,14 +110,44 @@ def _col_of(nc, b):
     return int(round(b / (360.0 / nc))) % nc
 
 
-def gallery_z(g, x, y):
-    """The gallery roof's underside at (x, y): a shallow sag across the annulus,
-    lumped like leaf clumps."""
+_TREES = []
+_LUMP2 = ft._field(ft._Rng(SEED + 313), n=6, wl=LUMP2_WL)
+
+
+def _trees():
+    if not _TREES:
+        for (sec, kind, b, rad, aim, spin, sc) in forest_trees.LAYOUT:
+            if kind in forest_trees.TREES:
+                p = pol(b, rad, 0.0)
+                _TREES.append((p[0], p[1], TREE_REACH * sc[0]))
+    return _TREES
+
+
+def tree_weight(x, y):
+    """0..1: how much wood stands under (x, y): 1 over a trunk, 0 in open lane."""
+    t = 0.0
+    for (tx, ty, reach) in _trees():
+        d2 = (x - tx) ** 2 + (y - ty) ** 2
+        if d2 < reach * reach:
+            q = 1.0 - d2 / (reach * reach)
+            t += q * q
+    return min(1.0, t)
+
+
+def _window(x, y):
+    """0 at the wall's row and the drum's foot (both shared, never moved), 1 mid-span."""
     rad = math.hypot(x, y)
     u = (GALLERY_R[0] - rad) / (GALLERY_R[0] - GALLERY_R[-1])
-    u = max(0.0, min(1.0, u))
-    sag = GALLERY_SAG * math.sin(math.pi * u)
-    return GALLERY_Z - sag + GALLERY_LUMP * g.ceil_f(x * 0.9, y * 0.9)
+    return math.sin(math.pi * max(0.0, min(1.0, u)))
+
+
+def gallery_z(g, x, y):
+    """The gallery roof's underside at (x, y): down over the trees, up over the
+    open lane, lumped like leaf masses; flat at both shared edges."""
+    w = _window(x, y)
+    t = tree_weight(x, y)
+    z = GALLERY_Z - GALLERY_SAG * w + GALLERY_LUMP * g.ceil_f(x * 0.9, y * 0.9)
+    return z + w * (GAP_RISE * (1.0 - t) - TREE_DIP * t + LUMP2 * _LUMP2(x, y))
 
 
 def gallery_rows(g):
@@ -127,8 +173,14 @@ def gal_quad_ids(g, k, i):
 
 
 def _leafy(g, ids, thr=LEAF_T, k=0.9, off=0.0):
-    """Leaf where the underside bulges down into the light, shade in the hollows."""
+    """Shade under a crown; in the open, lit leaf on the lumps, leaf where the
+    underside bulges down into the light, shade in the hollows."""
     c = g.m.centroid(ids)
+    t = tree_weight(c[0], c[1])
+    if t > SHADE_T:
+        return "shade"
+    if t < SUN_GAP[0] and _LUMP2(c[0], c[1]) > SUN_GAP[1]:
+        return "sun"
     return "leaf" if g.ceil_f(c[0] * k + off, c[1] * k) > thr else "shade"
 
 
@@ -147,10 +199,11 @@ def _shaft_cells(g):
     out = []
     lo, hi = SHAFT_BANDS
     nc = len(g.gal[lo])
-    for (b, band, radius, seed) in SHAFTS:
+    for (b, anchor_r, radius, seed) in SHAFTS:
         r = ft._Rng(SEED + seed)
         ph = (r.f() * TWO_PI, r.f() * TWO_PI, r.f() * TWO_PI)
-        c = pol(b, 0.5 * (GALLERY_R[band] + GALLERY_R[band + 1]), 0.0)
+        c = pol(b, anchor_r, 0.0)
+        band = max(lo, min(hi - 1, next(k for k in range(len(GALLERY_R) - 1) if GALLERY_R[k + 1] <= anchor_r)))
         cells, pts = [], []
         for k in range(lo, hi):
             for i in range(nc):
