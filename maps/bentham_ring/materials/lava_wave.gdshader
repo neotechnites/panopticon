@@ -8,7 +8,7 @@ uniform sampler2D albedo_texture : source_color, filter_nearest_mipmap_anisotrop
 uniform sampler2D emission_texture : source_color, filter_nearest_mipmap_anisotropic, repeat_enable;
 uniform vec4 albedo_color : source_color = vec4(1.0);
 uniform vec4 emission_color : source_color = vec4(1.0);
-uniform float emission_energy = 1.0;
+uniform float emission_energy = 1.4;
 uniform float roughness = 1.0;
 uniform float metallic = 0.0;
 uniform vec3 uv1_scale = vec3(1.0);
