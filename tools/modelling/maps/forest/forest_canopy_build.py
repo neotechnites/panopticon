@@ -2,29 +2,40 @@
 PANOPTICON -- forest_canopy: the wood's trees as MAP geometry, carrying the lane
 roof as one layered canopy. One chunk, forest_canopy.glb, at identity.
 
-Ryan: "now it just looks like the trees are dead; the roof doesn't look like
-their leaves at all ... a bunch of skinny long branches going up into the roof."
+Ryan: "the trees still look stupid ... the trees don't even rise high enough to
+be part of the roof ... the stupid bubble you made goes right off the edge."
 "Make it look good, make it look like a proper forest."
 
 Every tree in forest_trees.LAYOUT (bearing, radius, variant, spin, scale) is
 built here at its exact place and scale against the REAL roof: forest_build's
-_Ground is grown in this scene (its underside now dips over the trees) and
-every leaf mass that reaches the roof is read off its actual triangles.
+_Ground is grown in this scene (its underside dips over the trees, on the deck
+only) and every crown reads the roof off its actual triangles. A tree is built
+the way a broadleaf is:
 
-    trunk   forest_tree_prop_build's own first eight rings, unchanged -- the
-            cover footprint and the collider -- then two more rings up to the
-            FORK, half way to the roof, barely tapering
-    boughs  two or three HEAVY boughs off the fork bands, short, sweeping out
-            then up; each forks once more into a secondary; the trunk's own
-            top carries on a little as a thick leader. No twigs.
-    lobes   the foliage: irregular, stretched, skewed leaf masses -- a wobbly
-            rim, a mid ring drifted sideways, a keel -- one on every bough tip
-            (the bough runs INTO it, it sits on the bough), one round the
-            leader's head, and one big crown mass over the trunk whose rim
-            lies ON the roof (rims read off the mesh, buried LID_BURY). Any
-            lobe whose top comes within LOBE_MERGE of the roof merges its rim
-            into it too. Lobes of neighbouring trees overlap: one shared mass.
-            Undersides and keels are "shade", flanks "leaf".
+    trunk   forest_tree_prop_build's own rings, unchanged where they are cover
+            and collider, with a buttressed FLARE at the foot (one ring more,
+            ridged), then carried on -- thick, straightening -- to the roof
+            itself: its top ring sits up inside the roof sheet.
+    boughs  three or four HEAVY primaries off the carried-on trunk at different
+            heights, leaving at ~40 deg and sweeping up to a FORK about half
+            way to the roof; past the fork each carries on, bending, to the
+            roof, throws a side limb off the fork that climbs to the roof too,
+            and (some of them) a thinner third limb higher up. Every limb ends
+            IN the roof, never under it.
+    crown   many smaller overlapping leaf clusters rather than one lump: one
+            round the trunk's head, one round every limb's end, two loose ones
+            hung between; every one has its rim ON the roof (read off the
+            mesh, buried LID_BURY) and hangs a different depth, so the roof is
+            visibly made of crowns, the underside is ragged and deep, and no
+            gap opens between crown and roof anywhere. Flanks are "leaf",
+            undersides "shade".
+    deck    nothing of a crown passes the pit lip or the wall foot: tips stay
+            over the lane, clusters are centred in and clipped to the deck
+            annulus (forest_build.INNER_R..OUTER_R), and the roof's own dips
+            (forest_ceiling_build.deck_window) end there too.
+    uv      every face is unwrapped flat in its own plane at the atlas's texel
+            density, so the leaf pixels read on the clusters and bark grain
+            runs up the wood.
 
 Collider: ForestCanopyCollision-colonly, every tree's own prop collider
 (forest_tree_prop_build.build_collider) at that tree's transform -- the same
@@ -54,8 +65,8 @@ for _root in (os.path.dirname(_HOME), os.path.dirname(os.path.dirname(_HOME))): 
         break
 
 import forest_tree_build as ft  # noqa: E402  the forest atlas, the mesh library
-from forest_tree_build import (_Mesh, _Rng, UP, DOWN, add, sub, norm, dot,  # noqa: E402
-                               lerp, bez, tube, socket_ring, pol)
+from forest_tree_build import (_Mesh, _Rng, UP, DOWN, add, sub, bez, tube,  # noqa: E402
+                               socket_ring, pol)
 import forest_tree_prop_build as ftp  # noqa: E402  the variants: trunk, sockets, collider
 import forest_build as fb  # noqa: E402  the ground: the roof the trees end on
 import forest_ceiling_build as fc  # noqa: E402
@@ -78,47 +89,67 @@ LANE_Y = forest_trees.LANE_Y        # the props sank 0.05 m into the lane's reli
 TREES = ("tree_a", "tree_b", "tree_c")
 LETTER = {"tree_a": "a", "tree_b": "b", "tree_c": "c"}
 
-FORK_H = (0.46, 0.54)       # the trunk forks this share of the way to the roof ...
-FORK_MIN = 0.8              # ... and never less than this (local m) above the prop's last ring
-TRUNK_DRIFT = 0.6           # the extension keeps this much of the last band's lean
-TRUNK_TAPER = 0.74          # fork-ring radius / ring-7 radius
-BOUGHS = {"a": 3, "b": 3, "c": 2}
-BOUGH_BANDS = (8, 7, 8)     # trunk bands the primaries socket into (rings 8 and 9 are the extension)
-BOUGH_JITTER = 25.0         # degrees off an even spread
-BOUGH_R = {"a": (0.62, 0.5), "b": (0.6, 0.5), "c": (0.7, 0.5)}   # (root as a share of ring-7 radius, tip as a share of root)
-BOUGH_OUT = (2.0, 3.2)      # metres out along the bearing to the tip, local
-BOUGH_UP = (1.2, 2.6)
-BOUGH_SIDES = 7
-BOUGH_SEGS = 4
-BOUGH_CTRL = (0.7, 0.15)    # the bezier's control: this far out, this far up the rise -- out first, then up
-SUBS = (2, 1, 1)            # secondaries off primary 0, 1, 2
-SUB_BAND = 2
-SUB_OUT = (1.3, 2.2)
-SUB_UP = (0.7, 1.7)
-SUB_ANGLE = (40.0, 80.0)    # degrees off the host bough's bearing, either side
-SUB_R = 0.6                 # root radius as a share of the host's root
-SUB_SIDES = 6
-SUB_SEGS = 3
-LEADER_UP = (2.2, 3.2)
-LEADER_TAPER = 0.6
-LEADER_SEGS = 3
-LEADER_BEND = 0.5           # metres of sideways bow in the leader
-LOBE_R = {"bough": (1.9, 2.8), "sub": (1.4, 2.1), "head": (2.0, 2.9), "crown": (2.6, 3.6)}   # WORLD metres, the short axis
-LOBE_DEPTH = {"bough": (1.1, 1.7), "sub": (0.9, 1.4), "head": (1.4, 2.0), "crown": (1.9, 2.8)}
-LOBE_N = 10                 # rim vertices
+DECK_R = (fb.INNER_R, fb.OUTER_R)   # the walkable annulus: every crown lives over it
+DECK_EDGE = 0.25            # ... and comes no nearer its lip or its wall foot than this (world m)
+TIP_R = (fb.INNER_R + 1.0, fb.OUTER_R - 1.0)   # where a limb may end: over the lane, clear of its edges
+
+FLARE = {"a": (1.22, 1.12, 0.18, 4), "b": (1.15, 1.08, 0.16, 5), "c": (1.22, 1.12, 0.18, 4)}
+                            # (ring-1 swell, flare-ring swell, buttress ridge amplitude, ridges)
+FLARE_Z = 0.32              # the flare ring's height (local m), between the prop's rings 1 and 2
+PROP_TOP = 8                # the prop's top ring's index once the flare ring is in (its rings 0..7 -> 0..8)
+EXT_RINGS = ((0.13, 0.97), (0.27, 0.92), (0.42, 0.85), (0.57, 0.77), (0.72, 0.69), (0.86, 0.61), (1.0, 0.55))
+                            # (share of the climb prop top -> roof, radius / prop top radius): bands short enough not to sliver
+EXT_DRIFT = (0.6, 0.5, 0.35, 0.25, 0.15, 0.08, 0.05)   # the share of the prop's lean each carried-on band keeps: it straightens
+EXT_WANDER = 0.08           # local m of sideways wander per carried-on ring
+TRUNK_BURY = 0.15           # world m the trunk's top ring sits up inside the roof
+
+BOUGHS = {"a": 3, "b": 4, "c": 3}
+BOUGH_BANDS = {"a": (8, 10, 12), "b": (8, 10, 12, 10), "c": (8, 10, 12)}   # carried-on trunk bands the primaries socket into
+BOUGH_PATCH = {"a": 3, "b": 4, "c": 3}   # trunk sides a primary's socket claims (the ring must sit inside them)
+BOUGH_JITTER = 20.0         # degrees off an even spread
+BOUGH_R = 0.66              # a primary's root radius as a share of the trunk's there ...
+BOUGH_TAPER = 0.78          # ... and its radius at the fork as a share of its root
+BOUGH_OUT = (1.7, 2.6)      # local m out along the bearing to the fork
+FORK_SHARE = (0.28, 0.45)   # the fork sits this share of the climb from the socket to the roof
+BOUGH_CTRL = (0.45, 0.35)   # bezier control to the fork: this far out, this far up -- the bough leaves at ~40 deg
+BOUGH_SIDES = 6
+BOUGH_SEGS = (3, 3)         # bezier segments socket -> fork, fork -> roof
+ON_OUT = (1.4, 2.6)         # past the fork the primary carries on this far out ...
+ON_BEND = (18.0, 38.0)      # ... bending this many degrees either side ...
+ON_TAPER = 0.6              # ... to this share of its fork radius where it enters the roof
+SIDE_BAND = 3               # the side limb sockets into the band just under the fork ring (path index 4)
+SIDE_OUT = (1.2, 2.4)
+SIDE_ANGLE = (42.0, 75.0)   # degrees off the primary's bearing, away from its bend
+SIDE_R = (0.72, 0.65)       # root as a share of the fork radius, tip as a share of root
+SIDE_SIDES = 5
+SIDE_SEGS = 3
+TWIGS = {"a": 2, "b": 2, "c": 2}   # how many primaries carry a third, thinner limb off the carried-on part
+TWIG_BAND = 5               # the band of the carried-on part it sockets into
+TWIG_OUT = (0.9, 1.8)
+TWIG_ANGLE = (40.0, 70.0)
+TWIG_R = (0.52, 0.7)        # root as a share of the fork radius, tip as a share of root
+TWIG_SIDES = 4
+TWIG_SEGS = 2
+UP_CTRL = 0.45              # a limb bound for the roof bows out this share of its rise before it climbs
+
+CLUSTER = {                 # WORLD metres: (short radius lo, hi), (depth lo, hi), mid rings
+    "head": ((2.1, 2.6), (2.0, 2.8), 2),
+    "on": ((1.5, 2.2), (1.4, 2.3), 1),
+    "side": ((1.3, 1.9), (1.2, 2.0), 1),
+    "twig": ((1.0, 1.5), (0.8, 1.3), 1),
+    "loose": ((0.9, 1.4), (0.7, 1.1), 1),
+}
+LOOSE = 1                   # loose clusters hung between the limbs, per tree
+LOOSE_AT = (1.5, 3.5)       # local m off the trunk's head
+LOBE_N = 7                  # rim vertices
 LOBE_WOB = 0.28             # rim radius wobble
-LOBE_STRETCH = (1.25, 1.8)  # long axis over short
-LOBE_MID = (0.8, 0.5)       # the mid ring: this share of the rim radius, this share of the depth down
+LOBE_STRETCH = (1.2, 1.6)   # long axis (along the lane) over short (across it)
+LOBE_MID = (0.86, 0.5)      # the mid ring: this share of the rim radius, this share of the depth down
 LOBE_KEEL = (0.32, 4)       # the keel: this share of the rim radius, this many vertices
-LOBE_SKEW = 0.22            # the mid rings and the keel drift sideways this share of the radius
-LOBE_PUSH = 0.45            # a bough's lobe is centred this share of its radius past the tip
-LOBE_TOP = 0.55             # a free lobe's rim sits this share of its depth above the tip it holds
-LOBE_MERGE = 0.9            # a lobe whose top comes within this (world m) of the roof merges its rim into it
-LOBE_HEAD_OFF = 0.3         # the head lobe's centre off the leader's tip, as a share of its radius
-LID_BURY = 0.10             # world metres a merged rim sits up inside the roof sheet
-LID_CLEAR = 0.6             # a bough tip stays this share of its lobe's depth under the roof
-TIP_R = (fb.INNER_R - 0.5, fb.OUTER_R + 1.0)   # where a bough's tip may sit: over the lane, a little past its edges
-WELL_CLEAR = 0.5            # a lobe keeps its centre this far outside a sun well's blob (plus its radius)
+LOBE_SKEW = 0.18            # the mid rings and the keel drift sideways this share of the radius
+LOBE_PUSH = 0.35            # a limb's cluster is centred this share of its radius past the tip
+LID_BURY = 0.10             # world metres a rim sits up inside the roof sheet
+WELL_CLEAR = 0.5            # a fork keeps this far outside a sun well's blob (plus its cluster's radius)
 CROWN_MIN_Z = ftp.CROWN_MIN_Z
 SEED = 4471021
 
@@ -191,6 +222,10 @@ class _Place(object):
         self.c, self.s = math.cos(phi), math.sin(phi)
         self.k = scale
         self.foot = pol(bearing, radius, LANE_Y)
+        fx, fy = self.foot[0], self.foot[1]
+        rr = math.hypot(fx, fy)
+        tx, ty = -fy / rr, fx / rr                    # the lane's tangent at the foot, world ...
+        self.tangent_a = math.atan2(-self.s * tx + self.c * ty, self.c * tx + self.s * ty)   # ... as a local angle
 
     def __call__(self, p):
         x = self.foot[0] + self.k * (self.c * p[0] - self.s * p[1])
@@ -214,37 +249,25 @@ class _Place(object):
 # ONE TREE, in its own local frame
 # =============================================================================
 
-def _trunk_spec(spec, fork_z):
-    """The variant's trunk, its first eight rings untouched, two more up to the fork."""
-    path = [tuple(p) for p in spec["path"]]
-    radii = list(spec["radii"])
-    p6, p7 = path[-2], path[-1]
-    dz = p7[2] - p6[2]
-    drift = ((p7[0] - p6[0]) / dz * TRUNK_DRIFT, (p7[1] - p6[1]) / dz * TRUNK_DRIFT)
-    fork_z = max(fork_z, p7[2] + FORK_MIN)
-    for t in (0.5, 1.0):
-        z = p7[2] + (fork_z - p7[2]) * t
-        path.append((p7[0] + drift[0] * (z - p7[2]), p7[1] + drift[1] * (z - p7[2]), z))
-        radii.append(radii[7] * (1.0 - (1.0 - TRUNK_TAPER) * t))
-    out = dict(spec)
-    out["path"], out["radii"] = path, radii
-    return out
+def _rot(d, deg):
+    a = math.radians(deg)
+    return (d[0] * math.cos(a) - d[1] * math.sin(a), d[0] * math.sin(a) + d[1] * math.cos(a), 0.0)
 
 
-def _fit_tip(place, tip_xy):
-    """Pull a tip's plan position over the lane roof: between TIP_R, in world."""
+def _fit_tip(place, tip_xy, band=TIP_R):
+    """Pull a plan position over the lane: between ``band`` radii, in world."""
     wx, wy = place.xy(*tip_xy)
     rad = math.hypot(wx, wy)
-    if rad < TIP_R[0] or rad > TIP_R[1]:
-        want = max(TIP_R[0], min(TIP_R[1], rad))
+    if rad < band[0] or rad > band[1]:
+        want = max(band[0], min(band[1], rad))
         wx, wy = wx * want / rad, wy * want / rad
     return place.local_xy(wx, wy)
 
 
 def _aim(place, roof, root_xy, d, out, margin):
-    """A bough that would leave the roof (into the drum or the wall) is mirrored
-    across the lane's tangent before its socket is chosen; one over a sun well
-    is turned off it."""
+    """A limb that would leave the lane (over the drop or into the wall) is
+    mirrored across the lane's tangent before its socket is chosen; one over a
+    sun well is turned off it."""
     def world_ok(dd):
         wx, wy = place.xy(root_xy[0] + dd[0] * out, root_xy[1] + dd[1] * out)
         rad = math.hypot(wx, wy)
@@ -261,37 +284,185 @@ def _aim(place, roof, root_xy, d, out, margin):
         wx, wy = place.xy(root_xy[0] + d[0] * out, root_xy[1] + d[1] * out)
         if roof.well_clear(wx, wy, margin):
             break
-        a = math.radians(35.0)
-        d = (d[0] * math.cos(a) - d[1] * math.sin(a), d[0] * math.sin(a) + d[1] * math.cos(a), 0.0)
+        d = _rot(d, 35.0)
     return d
 
 
-def _lobe(m, rng, place, roof, centre, top_z, R_w, depth_w, merge, mids=1, hold_z=None):
-    """One leaf mass. ``centre`` is its plan centre (local), ``top_z`` its rim
-    height unless ``merge`` (rim on the roof); its keel stays under ``hold_z``,
-    the tip it sits on. Returns the number of shells (1)."""
+# ---- the trunk ---------------------------------------------------------------
+
+def _trunk_spec(spec, place, roof, rng):
+    """The variant's trunk, its flare ring in, carried on to the roof: the prop's
+    rings keep their place; the extension straightens, wanders, stays over the lane."""
+    path = [tuple(p) for p in spec["path"]]
+    radii = list(spec["radii"])
+    swell1, swellf, _amp, _n = FLARE[spec["letter"]]
+    p1, p2 = path[1], path[2]
+    t = (FLARE_Z - p1[2]) / (p2[2] - p1[2])
+    path.insert(2, (p1[0] + (p2[0] - p1[0]) * t, p1[1] + (p2[1] - p1[1]) * t, FLARE_Z))
+    radii.insert(2, (radii[1] + (radii[2] - radii[1]) * t) * swellf)
+    radii[1] *= swell1
+    radii[0] *= 0.5 * (1.0 + swell1)
+    top, below = path[PROP_TOP], path[PROP_TOP - 1]
+    dz = top[2] - below[2]
+    lean = ((top[0] - below[0]) / dz, (top[1] - below[1]) / dz)
+    wander = [(rng.sf() * EXT_WANDER, rng.sf() * EXT_WANDER) for _ in EXT_RINGS]
+    h = place.lid(roof, top[0], top[1]) - top[2]      # the climb, local m
+    r_top = radii[PROP_TOP]
+    f = 1.0
+    for _ in range(8):                                # the lean's share, halved until the head is over the lane
+        ext, x, y, z = [], top[0], top[1], top[2]
+        for (share, rr), drift, (wx, wy) in zip(EXT_RINGS, EXT_DRIFT, wander):
+            nz = top[2] + share * h
+            x += lean[0] * drift * f * (nz - z) + wx
+            y += lean[1] * drift * f * (nz - z) + wy
+            z = nz
+            ext.append((x, y, z))
+        hx, hy = place.xy(ext[-1][0], ext[-1][1])
+        if TIP_R[0] <= math.hypot(hx, hy) <= TIP_R[1]:
+            break
+        f *= 0.5
+    hx, hy, _ = ext[-1]
+    ext[-1] = (hx, hy, place.lid(roof, hx, hy) + TRUNK_BURY / place.k)
+    path += ext
+    radii += [r_top * rr for (_share, rr) in EXT_RINGS]
+    out = dict(spec)
+    out["path"], out["radii"] = path, radii
+    return out
+
+
+def _flare(m, rng, spec, trunk):
+    """Buttress ridges on the foot rings: the flare is not a cone."""
+    _s1, _sf, amp, ridges = FLARE[spec["letter"]]
+    phase = rng.f() * 2.0 * math.pi
+    for k, weight in ((0, 1.0), (1, 1.0), (2, 0.55)):
+        cx, cy, _cz = trunk["path"][k]
+        for vid in trunk["rings"][k]:
+            x, y, z = m.verts[vid]
+            a = math.atan2(y - cy, x - cx)
+            f = 1.0 + amp * weight * max(0.0, math.cos(ridges * a + phase)) ** 2
+            m.verts[vid] = (cx + (x - cx) * f, cy + (y - cy) * f, z)
+
+
+# ---- the limbs ---------------------------------------------------------------
+
+def _climb(m, rng, spec, quads, root, plane_n, bearing, path_mid, tip, radii, sides):
+    """Weld a limb into its patch and run it out along ``path_mid`` (the points
+    after the collar) to ``tip``, capped there (inside the roof)."""
+    collar = add(root, plane_n, ftp.STUB * radii[0])
+    path = [root, collar] + path_mid
+    flat = ftp._collar(m, quads, bearing, root, radii[0])
+    ring0 = socket_ring(m, quads, path, radii[0], sides, "bark", flat=flat, at_start=True)
+    return tube(m, path, tuple(radii), sides, "bark", caps=(False, True),
+                wob=spec["wob"], rng=rng, first_ring=ring0), collar
+
+
+def _to_roof(place, roof, start, d, out):
+    """The end of a limb bound for the roof: ``out`` along ``d`` from ``start``
+    in plan, pulled over the lane, its z up inside the roof sheet."""
+    tx, ty = _fit_tip(place, (start[0] + d[0] * out, start[1] + d[1] * out))
+    return (tx, ty, place.lid(roof, tx, ty) + LID_BURY / place.k)
+
+
+def _limb(m, rng, spec, host, band, patch, bearing, out, radii, sides, segs, place, roof, kind):
+    """A limb off a host tube that climbs to the roof: sockets in, bows out,
+    then up; its end is inside the roof. Returns the tip record for its cluster."""
+    d = ftp._dir_of(bearing)
+    c = m.centroid(host[band] + host[band + 1])
+    d = _aim(place, roof, (c[0], c[1]), d, out, 0.0)
+    bearing = -math.degrees(math.atan2(d[1], d[0]))
+    quads, root, plane_n = ftp._patch(m, host, band, patch[0], patch[1], bearing)
+    tip = _to_roof(place, roof, root, d, out)
+    collar = add(root, plane_n, ftp.STUB * radii[0])
+    reach = sub(tip, collar)
+    ctrl = (collar[0] + reach[0] * 0.6, collar[1] + reach[1] * 0.6, collar[2] + reach[2] * UP_CTRL)
+    mid = bez(collar, ctrl, tip, segs)[1:]
+    _climb(m, rng, spec, quads, root, plane_n, bearing, mid, tip, radii, sides)
+    return (tip[0], tip[1], d, kind)
+
+
+def _primary(m, rng, spec, trunk, band, bearing, place, roof):
+    """One heavy bough: out at ~40 deg to its fork, on (bending) into the roof; a
+    side limb off the fork and maybe a thinner one higher, both into the roof."""
+    letter = spec["letter"]
+    rings = trunk["rings"]
+    d = ftp._dir_of(bearing)
+    c = m.centroid(rings[band] + rings[band + 1])
+    out = rng.u(*BOUGH_OUT)
+    d = _aim(place, roof, (c[0], c[1]), d, out, CLUSTER["on"][0][1] + WELL_CLEAR)
+    bearing = -math.degrees(math.atan2(d[1], d[0]))
+    quads, root, plane_n = ftp._patch(m, rings, band, 1, BOUGH_PATCH[letter], bearing)
+    r_host = 0.5 * (trunk["radii"][band] + trunk["radii"][band + 1])
+    r0 = r_host * BOUGH_R
+    rf = r0 * BOUGH_TAPER
+    fx, fy = _fit_tip(place, (root[0] + d[0] * out, root[1] + d[1] * out))
+    fz = root[2] + rng.u(*FORK_SHARE) * (place.lid(roof, fx, fy) - root[2])
+    fork = (fx, fy, fz)
+    collar = add(root, plane_n, ftp.STUB * r0)
+    reach = sub(fork, collar)
+    ctrl = (collar[0] + reach[0] * BOUGH_CTRL[0], collar[1] + reach[1] * BOUGH_CTRL[0],
+            collar[2] + reach[2] * BOUGH_CTRL[1])
+    mid = bez(collar, ctrl, fork, BOUGH_SEGS[0])[1:]
+    side = 1.0 if rng.f() < 0.5 else -1.0
+    d2 = _rot(d, side * rng.u(*ON_BEND))
+    tip = _to_roof(place, roof, fork, d2, rng.u(*ON_OUT))
+    ctrl2 = (fx + (tip[0] - fx) * 0.6, fy + (tip[1] - fy) * 0.6, fz + (tip[2] - fz) * UP_CTRL)
+    mid += bez(fork, ctrl2, tip, BOUGH_SEGS[1])[1:]
+    radii = (r0, r0, r0 * 0.93, r0 * 0.86, rf, rf * 0.85, rf * 0.68, rf * ON_TAPER)
+    bough, _collar = _climb(m, rng, spec, quads, root, plane_n, bearing, mid, tip, radii, BOUGH_SIDES)
+    tips = [(tip[0], tip[1], d2, "on")]
+    rs = rf * SIDE_R[0]
+    tips.append(_limb(m, rng, spec, bough, SIDE_BAND, (1, 2), bearing - side * rng.u(*SIDE_ANGLE),
+                      rng.u(*SIDE_OUT), (rs, rs * SIDE_R[1]), SIDE_SIDES, SIDE_SEGS, place, roof, "side"))
+    if trunk["twigs"]:
+        trunk["twigs"] -= 1
+        b2 = -math.degrees(math.atan2(d2[1], d2[0]))
+        rt = rf * TWIG_R[0]
+        tips.append(_limb(m, rng, spec, bough, TWIG_BAND, (1, 2), b2 + side * rng.u(*TWIG_ANGLE),
+                          rng.u(*TWIG_OUT), (rt, rt * TWIG_R[1]), TWIG_SIDES, TWIG_SEGS, place, roof, "twig"))
+    return tips
+
+
+# ---- the clusters ------------------------------------------------------------
+
+def _clip(place, lx, ly, band):
+    """Local plan -> local plan with its world radius inside ``band``."""
+    wx, wy = place.xy(lx, ly)
+    rad = math.hypot(wx, wy)
+    if band[0] <= rad <= band[1]:
+        return lx, ly
+    want = max(band[0], min(band[1], rad))
+    return place.local_xy(wx * want / rad, wy * want / rad)
+
+
+def _cluster(m, rng, place, roof, centre, kind):
+    """One leaf cluster hung from the roof: rim ON the roof, long axis along the
+    lane, bulging mid rings, a keel; centred in and clipped to the deck. 1 shell."""
+    (r_lo, r_hi), (d_lo, d_hi), mids = CLUSTER[kind]
     k = place.k
+    R_w, depth_w = rng.u(r_lo, r_hi), rng.u(d_lo, d_hi)
+    reach = R_w * (1.0 + LOBE_WOB) + DECK_EDGE
+    if DECK_R[1] - DECK_R[0] < 2.0 * reach:
+        R_w = 0.5 * (DECK_R[1] - DECK_R[0] - 2.0 * DECK_EDGE) / (1.0 + LOBE_WOB)
+        reach = R_w * (1.0 + LOBE_WOB) + DECK_EDGE
+    cx, cy = _clip(place, centre[0], centre[1], (DECK_R[0] + reach, DECK_R[1] - reach))
     R, depth = R_w / k, depth_w / k
-    cx, cy = centre
-    a0 = rng.f() * 2.0 * math.pi
+    a0 = place.tangent_a
     st = rng.u(*LOBE_STRETCH)
     ca, sa = math.cos(a0), math.sin(a0)
     skew = (rng.sf() * LOBE_SKEW * R, rng.sf() * LOBE_SKEW * R)
     n = LOBE_N
+    edge = (DECK_R[0] + DECK_EDGE, DECK_R[1] - DECK_EDGE)
     rim, rim_z, offs = [], [], []
     for s in range(n):
         a = 2.0 * math.pi * (s + 0.5 * rng.f()) / n
         f = 1.0 + LOBE_WOB * rng.sf()
         ex, ey = math.cos(a) * st, math.sin(a)
         dx, dy = R * f * (ca * ex - sa * ey), R * f * (sa * ex + ca * ey)
-        lx, ly = cx + dx, cy + dy
-        z = place.lid(roof, lx, ly) + LID_BURY / k if merge else top_z + 0.12 * depth * rng.sf()
+        lx, ly = _clip(place, cx + dx, cy + dy, edge)
+        z = place.lid(roof, lx, ly) + LID_BURY / k
         rim.append(m.v((lx, ly, z)))
         rim_z.append(z)
-        offs.append((dx, dy))
-    if merge and hold_z is not None:
-        depth = max(depth, min(rim_z) - hold_z + 0.45 * depth)    # the keel stays under the tip it holds
-    # mid rings hang from their own rim vertex: a rim on a sloping roof never folds
+        offs.append((lx - cx, ly - cy))
     rings = [rim]
     for j in range(mids):
         u = (j + 1) / float(mids + 1)
@@ -299,8 +470,9 @@ def _lobe(m, rng, place, roof, centre, top_z, R_w, depth_w, merge, mids=1, hold_
         ring = []
         for s in range(n):
             z = rim_z[s] - depth * u * (1.0 + 0.12 * rng.sf())
-            ring.append(m.v((cx + skew[0] * u * 2.0 + offs[s][0] * share * (1.0 + 0.08 * rng.sf()),
-                             cy + skew[1] * u * 2.0 + offs[s][1] * share, z)))
+            lx, ly = _clip(place, cx + skew[0] * u * 2.0 + offs[s][0] * share * (1.0 + 0.08 * rng.sf()),
+                           cy + skew[1] * u * 2.0 + offs[s][1] * share, edge)
+            ring.append(m.v((lx, ly, z)))
         rings.append(ring)
     zk = min(rim_z) - depth
     kn = LOBE_KEEL[1]
@@ -309,7 +481,8 @@ def _lobe(m, rng, place, roof, centre, top_z, R_w, depth_w, merge, mids=1, hold_
     for s in range(kn):
         a = 2.0 * math.pi * (s + 0.3 * rng.f()) / kn + a0
         f = LOBE_KEEL[0] * R * (1.0 + 0.15 * rng.sf())
-        keel.append(m.v((kx + f * math.cos(a) * st, ky + f * math.sin(a), zk + 0.1 * depth * rng.sf())))
+        lx, ly = _clip(place, kx + f * math.cos(a) * st, ky + f * math.sin(a), edge)
+        keel.append(m.v((lx, ly, zk + 0.1 * depth * rng.sf())))
     inner = (cx + skew[0] * 0.6, cy + skew[1] * 0.6, min(rim_z) - depth * 0.45)   # every face points away from here
     for j in range(len(rings) - 1):
         a_, b_ = rings[j], rings[j + 1]
@@ -349,131 +522,80 @@ def _zip(m, outer, inner_ring, inner_pt, zone):
         m.tri(tri[0], tri[1], tri[2], sub(m.centroid(tri), inner_pt), zone)
 
 
-def _bough(m, rng, spec, host, band, patch, bearing, out, up, radii, sides, segs,
-           kind, place, roof, flip):
-    """One bough: socket in the host, sweep out then up, cap the tip and grow
-    its lobe round it. Returns (rings, bearing, shells)."""
-    d = ftp._dir_of(bearing)
-    R_w = rng.u(*LOBE_R[kind])
-    depth_w = rng.u(*LOBE_DEPTH[kind])
-    c = m.centroid(host[band] + host[band + 1])
-    if flip:
-        d = _aim(place, roof, (c[0], c[1]), d, out, R_w + WELL_CLEAR)
-        bearing = -math.degrees(math.atan2(d[1], d[0]))
-    quads, root, plane_n = ftp._patch(m, host, band, patch[0], patch[1], bearing)
-    tx, ty = _fit_tip(place, (root[0] + d[0] * out, root[1] + d[1] * out))
-    depth = depth_w / place.k
-    lid = place.lid(roof, tx, ty)
-    tz = min(root[2] + up, lid - LID_CLEAR * depth - LID_BURY / place.k)
-    tip = (tx, ty, tz)
-    collar = add(root, plane_n, ftp.STUB * radii[0])
-    reach = sub(tip, collar)
-    ctrl = (collar[0] + reach[0] * BOUGH_CTRL[0], collar[1] + reach[1] * BOUGH_CTRL[0],
-            collar[2] + reach[2] * BOUGH_CTRL[1])
-    path = [root, collar] + bez(collar, ctrl, tip, segs)[1:]
-    flat = ftp._collar(m, quads, bearing, root, radii[0])
-    ring0 = socket_ring(m, quads, path, radii[0], sides, "bark", flat=flat, at_start=True)
-    rings = tube(m, path, tuple(radii), sides, "bark", caps=(False, True),
-                 wob=spec["wob"], rng=rng, first_ring=ring0)
-    R = R_w / place.k
-    centre = (tx + d[0] * LOBE_PUSH * R, ty + d[1] * LOBE_PUSH * R)
-    top_z = tz + LOBE_TOP * depth
-    merge = top_z >= lid - LOBE_MERGE / place.k
-    shells = _lobe(m, rng, place, roof, centre, top_z, R_w, depth_w, merge, hold_z=tz)
-    return rings, bearing, shells
-
-
-def _leader(m, rng, spec, trunk, place, roof):
-    """The trunk's top carries on, thick and bowing a little, into the head lobe."""
-    top_ring, top_c = trunk["top_ring"], trunk["top_centre"]
-    n = len(top_ring)
-    ang = [math.atan2(m.verts[v][1] - top_c[1], m.verts[v][0] - top_c[0]) for v in top_ring]
-    R_w = rng.u(*LOBE_R["head"])
-    depth_w = rng.u(*LOBE_DEPTH["head"])
-    depth = depth_w / place.k
-    a = rng.f() * 2.0 * math.pi
-    tx, ty = _fit_tip(place, (top_c[0] + 0.4 * math.cos(a), top_c[1] + 0.4 * math.sin(a)))
-    lid = place.lid(roof, tx, ty)
-    tz = min(top_c[2] + rng.u(*LEADER_UP), lid - LID_CLEAR * depth - LID_BURY / place.k)
-    tip = (tx, ty, tz)
-    b = a + math.pi / 2.0
-    mid = lerp(top_c, tip, 0.5)
-    ctrl = (mid[0] + LEADER_BEND * math.cos(b), mid[1] + LEADER_BEND * math.sin(b), mid[2])
-    path = bez(top_c, ctrl, tip, LEADER_SEGS)
-    r0, r1 = trunk["top_r"], trunk["top_r"] * LEADER_TAPER
-    rings = [list(top_ring)]
-    for i in range(1, len(path)):
-        t = i / float(len(path) - 1)
-        r = r0 + (r1 - r0) * t
-        cx, cy, cz = path[i]
-        rings.append([m.v((cx + r * (1.0 + spec["wob"] * rng.sf()) * math.cos(ang[s]),
-                           cy + r * (1.0 + spec["wob"] * rng.sf()) * math.sin(ang[s]), cz))
-                      for s in range(n)])
-    for i in range(len(rings) - 1):
-        axis = lerp(path[i], path[i + 1], 0.5)
-        for s in range(n):
-            q = (s + 1) % n
-            idx = (rings[i][s], rings[i][q], rings[i + 1][q], rings[i + 1][s])
-            m.quad(idx[0], idx[1], idx[2], idx[3], sub(m.centroid(idx), axis), "bark")
-    m.fan(rings[-1], UP, "bark")
-    R = R_w / place.k
-    c = rng.f() * 2.0 * math.pi
-    centre = (tx + LOBE_HEAD_OFF * R * math.cos(c), ty + LOBE_HEAD_OFF * R * math.sin(c))
-    top_z = tz + LOBE_TOP * depth
-    merge = top_z >= lid - LOBE_MERGE / place.k
-    return _lobe(m, rng, place, roof, centre, top_z, R_w, depth_w, merge, hold_z=tz)
-
-
-def _crown(m, rng, trunk, place, roof):
-    """The big mass over the trunk, its rim on the roof, its underside two rings deep."""
-    top_c = trunk["top_centre"]
-    R_w = rng.u(*LOBE_R["crown"])
-    depth_w = rng.u(*LOBE_DEPTH["crown"])
-    R = R_w / place.k
-    a = rng.f() * 2.0 * math.pi
-    centre = (top_c[0] + 0.25 * R * math.cos(a), top_c[1] + 0.25 * R * math.sin(a))
-    top_z = place.lid(roof, centre[0], centre[1])
-    return _lobe(m, rng, place, roof, centre, top_z, R_w, depth_w, True, mids=2)
-
+# ---- the tree ----------------------------------------------------------------
 
 def build_tree(m, rng, spec, place, roof):
-    """One tree in its local frame: trunk, boughs and their secondaries, the leader, the lobes."""
+    """One tree in its local frame: flared trunk into the roof, the primaries with
+    their forks and limbs, a cluster on every end, the head and a loose one."""
     first_v = len(m.verts)
-    h_local = place.lid(roof, 0.0, 0.0)
-    fork = rng.u(*FORK_H) * h_local
-    trunk = ftp.build_trunk(m, rng, _trunk_spec(spec, fork))
-    n_trunk = len(trunk["rings"]) * len(trunk["rings"][0]) + 1
     letter = spec["letter"]
+    trunk = ftp.build_trunk(m, rng, _trunk_spec(spec, place, roof, rng))
+    _flare(m, rng, spec, trunk)
+    m.fan(trunk["top_ring"], UP, "bark")            # closed up inside the roof
+    trunk["twigs"] = TWIGS[letter]
+    n_trunk = len(trunk["rings"]) * len(trunk["rings"][0]) + 1
     shells = 1
     base = rng.f() * 360.0
-    r7 = spec["radii"][7]
-    boughs, bearings = [], []
     count = BOUGHS[letter]
-    root_share, tip_share = BOUGH_R[letter]
+    tips = []
     for i in range(count):
         bearing = base + 360.0 * i / count + rng.sf() * BOUGH_JITTER
-        r0 = r7 * root_share
-        rings, bearing, sh = _bough(m, rng, spec, trunk["rings"], BOUGH_BANDS[i], (1, 3), bearing,
-                                    rng.u(*BOUGH_OUT), rng.u(*BOUGH_UP), (r0, r0 * tip_share),
-                                    BOUGH_SIDES, BOUGH_SEGS, "bough", place, roof, flip=True)
-        boughs.append((rings, r0))
-        bearings.append(bearing)
-        shells += sh
-    for i, (rings, r0) in enumerate(boughs):
-        for _ in range(SUBS[i]):
-            side = 1.0 if rng.f() < 0.5 else -1.0
-            bearing = bearings[i] + side * rng.u(*SUB_ANGLE)
-            rs = r0 * SUB_R
-            _, _, sh = _bough(m, rng, spec, rings, SUB_BAND, (1, 2), bearing, rng.u(*SUB_OUT),
-                              rng.u(*SUB_UP), (rs, rs * 0.55), SUB_SIDES, SUB_SEGS, "sub",
-                              place, roof, flip=True)
-            shells += sh
-    shells += _leader(m, rng, spec, trunk, place, roof)
-    shells += _crown(m, rng, trunk, place, roof)
+        tips += _primary(m, rng, spec, trunk, BOUGH_BANDS[letter][i], bearing, place, roof)
+    head = trunk["top_centre"]
+    shells += _cluster(m, rng, place, roof, (head[0], head[1]), "head")
+    for (tx, ty, d, kind) in tips:
+        R = 0.5 * sum(CLUSTER[kind][0]) / place.k
+        shells += _cluster(m, rng, place, roof, (tx + d[0] * LOBE_PUSH * R, ty + d[1] * LOBE_PUSH * R), kind)
+    for _ in range(LOOSE):
+        a = rng.f() * 2.0 * math.pi
+        r = rng.u(*LOOSE_AT)
+        lx, ly = _fit_tip(place, (head[0] + r * math.cos(a), head[1] + r * math.sin(a)))
+        wx, wy = place.xy(lx, ly)
+        if roof.well_clear(wx, wy, CLUSTER["loose"][0][1]):
+            shells += _cluster(m, rng, place, roof, (lx, ly), "loose")
     crown = m.verts[first_v + n_trunk:]
     lowest = min(p[2] for p in crown)
     assert lowest >= CROWN_MIN_Z - 1e-9, "crown reaches z=%.2f under CROWN_MIN_Z" % lowest
     return shells
+
+
+# =============================================================================
+# UV -- every face flat in its own plane
+# =============================================================================
+
+def _unwrap(ob, zones):
+    """Each face laid flat in its own plane at ft.TPM texels a metre, in-plane up
+    along v: leaf pixels read at every slope, bark grain runs up the wood."""
+    from mathutils import Vector
+    me = ob.data
+    uvl = me.uv_layers.new(name="UVMap")
+    r = _Rng(ft.TEX_SEED + 31 + len(me.polygons))
+    up_v, x_v = Vector((0.0, 0.0, 1.0)), Vector((1.0, 0.0, 0.0))
+    for pi, poly in enumerate(me.polygons):
+        u0, v0, u1, v1 = ft.ZONES[zones[pi]]
+        span_u = (u1 - u0) - 2.0 * ft.UV_PAD
+        span_v = (v1 - v0) - 2.0 * ft.UV_PAD
+        su = ft.TPM / ((u1 - u0) * ft.TEX_SIZE)
+        sv = ft.TPM / ((v1 - v0) * ft.TEX_SIZE)
+        n = poly.normal
+        ex = up_v.cross(n) if abs(n.z) < 0.95 else x_v.cross(n)
+        ex.normalize()
+        ey = n.cross(ex)
+        cos = [me.vertices[me.loops[li].vertex_index].co for li in poly.loop_indices]
+        ss = [co.dot(ex) * su for co in cos]
+        ts = [co.dot(ey) * sv for co in cos]
+        s0, t0 = min(ss), min(ts)
+        w = min(max(ss) - s0, 1.0)
+        h = min(max(ts) - t0, 1.0)
+        ou = r.f() * (1.0 - w)
+        ov = r.f() * (1.0 - h)
+        flip = r.i(0, 1)
+        for li, s_, t_ in zip(poly.loop_indices, ss, ts):
+            s_ = min(ou + s_ - s0, 1.0)
+            t_ = min(ov + t_ - t0, 1.0)
+            if flip:
+                s_ = 1.0 - s_
+            uvl.data[li].uv = (u0 + ft.UV_PAD + s_ * span_u, v0 + ft.UV_PAD + t_ * span_v)
 
 
 # =============================================================================
@@ -522,7 +644,7 @@ def build():
     mdl.save_texture(albedo)
     mdl.save_texture(emissive)
     ob = m.object(OBJECT_NAME)
-    ft.unwrap(ob, m.zones)
+    _unwrap(ob, m.zones)
     mdl.finish(ob, ft.atlas_material("ForestAtlas", albedo, emissive), strip_uvs=False)
     coll = c.object(COLLIDER_NAME)
     coll.hide_render = True
@@ -542,7 +664,7 @@ LANE_UP_AHEAD = 11.0        # ... looking this many degrees on round the lane ..
 LANE_UP_RISE = 8.0          # ... at a point this far over the grass
 LANE_UP_LENS = 18.0
 LANE_UP_RES = (1400, 1500)
-PC_OUT = r"C:\Users\ddd\Desktop\panopticon-renders\forest-canopy3"
+PC_OUT = r"C:\Users\ddd\Desktop\panopticon-renders\forest-canopy4"
 
 
 def post(spec, objects):

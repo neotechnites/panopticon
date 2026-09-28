@@ -94,6 +94,7 @@ FACING_YAW = 0.0
 NC = 240                    # columns round the ring: 1.5 deg, 1.5 m at the wall foot
 INNER_R = 46.7
 OUTER_R = 57.3
+assert fc.DIP_R == (INNER_R, OUTER_R), "the roof's tree dips are clipped to this deck"
 DECK_Z = 23.0
 WATER_Z = -11.05            # map 1's lava sea height: the pit is 34 m deep
 WATER_R = 42.0
@@ -993,6 +994,8 @@ class _Ground(object):
             c = tuple(sum(p[k] for p in pts) / float(len(pts)) for k in range(3))
             lo, hi, step = 0.0, None, 0.5
             t = 0.0
+            while t < 140.0 and not _open(add(c, S, -t)):   # a well over lifted leaf sits above the nominal roof: enter the air first
+                t += step
             while t < 140.0:
                 t += step
                 if not _open(add(c, S, -t)):

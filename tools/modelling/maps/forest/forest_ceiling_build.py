@@ -67,6 +67,9 @@ GALLERY_LUMP = 0.55         # ... and its underside is lumped this much: leaf cl
 LEAF_T = 0.12               # a gallery quad lit enough to be "leaf" rather than "shade"
 TREE_DIP = 2.4              # the underside comes down this far over a trunk ...
 TREE_REACH = 3.6            # ... fading to nothing this far (x the tree's scale) from it
+HEAD_LEAN = {"tree_c": 2.4}  # the leaner's head stands this far (local m) along its +X from its foot
+DIP_R = (fs.DRUM_R, 57.3)   # the deck (forest_build.INNER_R..OUTER_R): a tree dip lives over the
+DIP_EDGE = 1.2              # walkable annulus only, fading out over this much at either edge
 GAP_RISE = 1.3              # and lifts this far over open lane, nothing under it
 LUMP2 = 0.9                 # the coarse leaf masses of the sheet itself
 LUMP2_WL = (4.5, 11.0)      # their wavelengths, m
@@ -115,11 +118,14 @@ _LUMP2 = ft._field(ft._Rng(SEED + 313), n=6, wl=LUMP2_WL)
 
 
 def _trees():
+    """(x, y, reach) per tree, centred on its HEAD: a leaner's crown is not over its foot."""
     if not _TREES:
         for (sec, kind, b, rad, aim, spin, sc) in forest_trees.LAYOUT:
             if kind in forest_trees.TREES:
                 p = pol(b, rad, 0.0)
-                _TREES.append((p[0], p[1], TREE_REACH * sc[0]))
+                phi = math.radians(-b + spin)                 # the tree's local +X, in Blender's xy
+                lean = HEAD_LEAN.get(kind, 0.0) * sc[0]
+                _TREES.append((p[0] + lean * math.cos(phi), p[1] + lean * math.sin(phi), TREE_REACH * sc[0]))
     return _TREES
 
 
@@ -141,11 +147,20 @@ def _window(x, y):
     return math.sin(math.pi * max(0.0, min(1.0, u)))
 
 
+def deck_window(x, y):
+    """1 over the walkable deck, 0 past the pit lip and the wall foot: no dip
+    (and no crown, forest_canopy_build) hangs over the drop or into the wall."""
+    rad = math.hypot(x, y)
+    u = min(rad - DIP_R[0], DIP_R[1] - rad) / DIP_EDGE
+    u = max(0.0, min(1.0, u))
+    return u * u * (3.0 - 2.0 * u)
+
+
 def gallery_z(g, x, y):
     """The gallery roof's underside at (x, y): down over the trees, up over the
     open lane, lumped like leaf masses; flat at both shared edges."""
     w = _window(x, y)
-    t = tree_weight(x, y)
+    t = tree_weight(x, y) * deck_window(x, y)
     z = GALLERY_Z - GALLERY_SAG * w + GALLERY_LUMP * g.ceil_f(x * 0.9, y * 0.9)
     return z + w * (GAP_RISE * (1.0 - t) - TREE_DIP * t + LUMP2 * _LUMP2(x, y))
 
