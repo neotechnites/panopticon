@@ -16,9 +16,11 @@ Not a model of its own: forest_build.py calls in here with its _Ground (g) and
 this module grows the roof into g.m, sharing vertices with the wall's top row
 (g.wall[-1]) so the ground stays ONE contiguous mesh. Two calls:
 
-    gallery_rows(g)  the leaf roof over the lane: seven rings r 60 -> 46.7 at
-                     y ~38, g.gal[0] IS g.wall[-1] and g.gal[-1] IS the ring
-                     forest_build.UPPER stands its drum on
+    gallery_rows(g)  the leaf roof over the lane: eleven rings r 59 -> 46.7, the
+                     first four up the cove's arc (the roof curves down into the
+                     wall's head, COVE_R), the rest flat at y ~38; g.gal[0] IS
+                     g.wall[-1] and g.gal[-1] IS the ring forest_build.UPPER
+                     stands its drum on
     gallery_faces(g) that roof's faces, its five sun wells and g.rays
 
 Heights (world y, the lane is 23.0):
@@ -59,9 +61,19 @@ from forest_tree_build import DOWN, pol, add
 # =============================================================================
 
 GALLERY_Z = fs.CEIL_Z       # the leaf roof over the lane: 15 m over the grass
-# nine rings, the wall's head inward to the drum's foot: 1.66 m bands against a
-# 1.2 m chord at 240 columns, fine enough for the underside to follow the trees
-GALLERY_R = [60.0, 58.3, 56.7, 55.0, 53.4, 51.7, 50.0, 48.4, fs.DRUM_R]
+# The cove. Ryan: "a huge gap on the wall side of the flat roof ... it should be smooth
+# and flow ... no extremely acute angles where the canopy meets the wall." The roof
+# meets the wall on a quarter circle: flat in to COVE_R[0], then curving DOWN with
+# radius COVE_R[1] to run into the wall's head at the third tier's jamb, tangent to
+# its lean. The cells' apex row (forest_build.WALL[-1]) is on the arc and is the
+# shared ring; COVE_RINGS rings climb the arc to its top, where the flat roof begins.
+COVE_R = (56.2, 3.5)        # (the arc's top radius: the flat roof ends here, its radius)
+COVE_C = (COVE_R[0], GALLERY_Z - COVE_R[1])   # the arc's centre (r, z): its top is tangent to the roof plane
+COVE_RINGS = 3              # rings on the arc before its top: the apex row (36.9 deg), 55 deg, 72 deg
+# eleven rings, the wall's head in to the drum's foot: three up the cove (about 1.1 m
+# apart on the arc), the top of the arc, then 1.36 m bands against a 1.2 m chord at
+# 240 columns, fine enough for the underside to follow the trees
+GALLERY_R = [59.0, 58.21, 57.28, COVE_R[0], 54.83, 53.48, 52.12, 50.77, 49.41, 48.06, fs.DRUM_R]
 GALLERY_SAG = 0.5           # the roof dips this much mid-span (zero at both edges)
 GALLERY_LUMP = 0.55         # ... and its underside is lumped this much: leaf clumps, not a lid
 LEAF_T = 0.12               # a gallery quad lit enough to be "leaf" rather than "shade"
@@ -78,8 +90,8 @@ SUN_GAP = (0.12, 0.25)      # (tree weight under, lump over) which an open quad 
 
 # (bearing, anchor radius, radius in metres, wobble seed): where a sun well comes down
 # through the leaves. All on the sun's side (SUN bears 120) so they read as one
-# light, and all in bands 1..4 -- never band 0 (the wall's own row) nor band 5
-# (the drum's foot), whose vertices are shared and must not be ragged.
+# light, and all in the flat bands (from the cove's top band in) -- never the cove's
+# steep bands nor the drum's foot band, whose vertices are shared and must not be ragged.
 # A shaft falls toward bearing 300 at 52 deg, so from 15 m up it travels 11 m of
 # plan before it reaches the grass: an anchor over the middle of the lane sails
 # past the lip into the ravine. Three of the five are therefore anchored wide of
@@ -87,7 +99,7 @@ SUN_GAP = (0.12, 0.25)      # (tree weight under, lump over) which an open quad 
 # still lands on the lane; the other two keep the sun's line and fall into the pit.
 SHAFTS = [(60.0, 56.7, 2.4, 11), (71.0, 56.7, 2.8, 23), (104.0, 54.45, 2.0, 37),
           (140.0, 54.45, 2.6, 53), (168.0, 56.7, 1.8, 71)]
-SHAFT_BANDS = (1, len(GALLERY_R) - 2)   # the wells live in the inner bands, never the wall's row nor the drum's
+SHAFT_BANDS = (COVE_RINGS - 1, len(GALLERY_R) - 2)   # the wells live in the roof's bands, never the cove's steep ones nor the drum's
 SHAFT_RAG = (0.45, 0.35)    # every vertex round a well's mouth is pulled this far in y and in
                             # plan: torn leaf, not a staircase of quads
 SHAFT_LIT = 1               # a well's own cells and the cells this far round them are the lit
@@ -140,10 +152,37 @@ def tree_weight(x, y):
     return min(1.0, t)
 
 
+def cove_theta(rad):
+    """Degrees up the cove's arc at plan radius ``rad``: 0 where it is tangent to the
+    wall, 90 at its top and everywhere inside it (the flat roof)."""
+    u = (rad - COVE_C[0]) / COVE_R[1]
+    return math.degrees(math.acos(min(1.0, u))) if u > 0.0 else 90.0
+
+
+def cove_z(rad):
+    """The arc's nominal height at plan radius ``rad`` (GALLERY_Z inside it)."""
+    return COVE_C[1] + COVE_R[1] * math.sin(math.radians(cove_theta(rad)))
+
+
+def cove_r(z):
+    """The arc's plan radius at height ``z``: forest_build's WALL head rows sit on it."""
+    return COVE_C[0] + math.sqrt(max(0.0, COVE_R[1] ** 2 - (z - COVE_C[1]) ** 2))
+
+
+def _cove_relief(g, x, y, th, col=None):
+    """How far a cove vertex sits off the arc along its normal (+ into the leaf): the
+    roof's lumps fading in up the arc, the wall's bulge and its pilasters fading out."""
+    c, s = math.cos(th), math.sin(th)
+    d = GALLERY_LUMP * g.ceil_f(x * 0.9, y * 0.9) * s + g.wall_bulge * g.wall_f(x * 0.7, cove_z(math.hypot(x, y)) * 0.9) * c
+    if col is not None:
+        d -= g.pilaster(col) * c
+    return d
+
+
 def _window(x, y):
-    """0 at the wall's row and the drum's foot (both shared, never moved), 1 mid-span."""
+    """0 at the cove's top and the drum's foot (the latter shared, never moved), 1 mid-span."""
     rad = math.hypot(x, y)
-    u = (GALLERY_R[0] - rad) / (GALLERY_R[0] - GALLERY_R[-1])
+    u = (COVE_R[0] - rad) / (COVE_R[0] - GALLERY_R[-1])
     return math.sin(math.pi * max(0.0, min(1.0, u)))
 
 
@@ -158,7 +197,10 @@ def deck_window(x, y):
 
 def gallery_z(g, x, y):
     """The gallery roof's underside at (x, y): down over the trees, up over the
-    open lane, lumped like leaf masses; flat at both shared edges."""
+    open lane, lumped like leaf masses; the cove's arc (nominal) past its top."""
+    th = math.radians(cove_theta(math.hypot(x, y)))
+    if th < 0.5 * math.pi - 1e-9:
+        return cove_z(math.hypot(x, y)) + _cove_relief(g, x, y, th) * math.sin(th)
     w = _window(x, y)
     t = tree_weight(x, y) * deck_window(x, y)
     z = GALLERY_Z - GALLERY_SAG * w + GALLERY_LUMP * g.ceil_f(x * 0.9, y * 0.9)
@@ -166,17 +208,25 @@ def gallery_z(g, x, y):
 
 
 def gallery_rows(g):
-    """Ring 0 IS the leaf wall's top row; rings 1..6 are the roof's own, the last
-    of them at forest_seam.DRUM_R -- an ordinary lumped roof ring, which the
-    cell drum then stands on (forest_build.UPPER[0] IS this row)."""
+    """Ring 0 IS the leaf wall's top row (the cells' apex row, on the cove's arc);
+    the next COVE_RINGS climb the arc, relieved along its normal so the wall's
+    bulge and pilasters flow up into the roof's lumps; the rest are the roof's
+    own, the last at forest_seam.DRUM_R -- an ordinary lumped roof ring, which
+    the cell drum then stands on (forest_build.UPPER[0] IS this row)."""
     m = g.m
     nc = _nc(g)
     g.gal.append(g.wall[-1])
     for rad in GALLERY_R[1:]:
         row = []
+        th = math.radians(cove_theta(rad))
         for i in range(nc):
-            p = pol(i * 360.0 / nc, rad, 0.0)
-            row.append(m.v((p[0], p[1], gallery_z(g, p[0], p[1]))))
+            b = i * 360.0 / nc
+            p = pol(b, rad, 0.0)
+            if th < 0.5 * math.pi - 1e-9:
+                d = _cove_relief(g, p[0], p[1], th, i)
+                row.append(m.v(pol(b, rad + d * math.cos(th), cove_z(rad) + d * math.sin(th))))
+            else:
+                row.append(m.v((p[0], p[1], gallery_z(g, p[0], p[1]))))
         g.gal.append(row)
 
 
@@ -304,7 +354,10 @@ def gallery_faces(g):
     for k in range(len(g.gal) - 1):
         for i in range(nc):                   # every quad carries a face: the leaf is unbroken
             ids = gal_quad_ids(g, k, i)
-            zone = "sun" if (i, k) in lit else _leafy(g, ids)
+            if k < COVE_RINGS - 1:            # the cove's steep bands are the wall's leaf, its pilasters carried on
+                zone = "bark" if (k == 0 and i in g.bark_cols) else "leaf"
+            else:
+                zone = "sun" if (i, k) in lit else _leafy(g, ids)
             m.quad(ids[0], ids[1], ids[2], ids[3], DOWN, zone)
     for sh in g.shafts:
         half = min(SHAFT_HALF[2], max(SHAFT_HALF[1], SHAFT_HALF[0] * sh["radius"]))

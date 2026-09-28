@@ -128,12 +128,14 @@ PIT_ROOT_PUSH = 0.28
 PIT_ROOT_ROWS = (3, len(PIT) - 2)
 
 # (r, z) foot to the roof, the three cell tiers between. Rows 0..6 are the lane and
-# the middle tier as they were; rows 7..9 are the third tier's sill, jamb and apex,
-# and row 10 is the roof's rim -- 1.4 m of leaf over the apex, so the top tier reads
-# as cells set into the wall and not as a gap at the ceiling.
+# the middle tier as they were; rows 7..9 are the third tier's sill, jamb and apex.
+# The jamb and the apex sit on the roof's cove (forest_ceiling_build.COVE_R): the
+# roof curves down into the wall's head and the apex row is the ring they share.
 WALL = [(57.3, 23.0), (57.3, 23.3), (57.35, 25.05), (57.5, 26.8), (58.0, 28.6),
-        (58.8, 30.6), (59.3, 31.8), (59.45, 33.0), (59.7, 35.2), (59.85, 36.6),
-        (60.0, CEIL_Z)]
+        (58.8, 30.6), (59.3, 31.8), (59.45, 33.0), (59.63, 35.2), (59.0, 36.6)]
+for _rz in WALL[-2:]:
+    assert abs(fc.cove_r(_rz[1]) - _rz[0]) < 0.01, "the wall's head rows sit on the roof's cove"
+assert fc.GALLERY_R[0] == WALL[-1][0], "the roof's first ring IS the wall's apex row"
 WALL_BULGE = 0.45           # outward-only on the low rows, both ways above
 WALL_ZJAG = 0.3
 
@@ -192,6 +194,10 @@ UPPER_BULGE = 0.35          # the leaf swells this far out mid-drum and fades to
 UPPER_TIER_ROWS = ((1, 2, 3), (4, 5, 6), (7, 8, 9))   # sills 38.5, 42.7, 46.9
 DRUM_SHADE = 0.55           # the drum's head in the canopy's shade: its leaf's share of light at the seam,
 DRUM_SHADE_R = 50.5         # fading from full at the roof's rim, per corner in COLOR_0, out to this radius
+COVE_SHADE = 0.9            # the wall's leaf darkens up the cove to the roof's shade (ROOF_BASE is 0.90 of
+COVE_SHADE_Z = (35.2, 37.5)  # the wall's leaf) over these heights, per corner in COLOR_0, ...
+COVE_SHADE_R = (54.8, 56.9)  # ... and back to full over these radii once the roof is flat again
+COVE_REF_Z = 36.65          # the tiling's ref step: the cells' apex row is 36.6, the cove's first band above it
 _UP_STEP = 360.0 / 17.0
 # 17 a tier, one every 17 m of wall; the middle tier half a bay off, like brick
 UPPER_CELLS = [[off + _UP_STEP * k for k in range(17)] for off in (10.6, 0.0, 10.6)]
@@ -492,6 +498,7 @@ class _Ground(object):
         self.pit_root_cols = set()
         self.trunk_cols = {}        # wall column -> index into TRUNK_PROFILE
         self.bark_cols = set()      # wall quads (by their left column) that are bark
+        self.wall_bulge = WALL_BULGE   # the roof's cove carries the wall's bulge on, fading up the arc
         for b in TRUNKS:
             c0 = _col_of(b)
             for k in range(5):
@@ -520,6 +527,12 @@ class _Ground(object):
             return 0.0
         f = TRUNK_FLARE[j] if j < len(TRUNK_FLARE) else 1.0
         return TRUNK_PUSH * TRUNK_PROFILE[k] * f + TRUNK_WANDER * self.r.sf()
+
+    def pilaster(self, i):
+        """The pilaster's push at wall column i above its flare, no wander: the cove
+        (forest_ceiling_build) carries it on up the arc without touching this rng."""
+        k = self.trunk_cols.get(i)
+        return 0.0 if k is None else TRUNK_PUSH * TRUNK_PROFILE[k]
 
     # ---- grids -------------------------------------------------------------
     def _deck_rows(self):
@@ -1059,8 +1072,10 @@ def _roof_z(rad):
     leaf gallery, low at 38; over the ravine the tower's crown sheet, which is
     25 m higher at the drum and sags to the tree. The drum's wall stands between
     the two, and _open closes it."""
+    if rad >= fc.COVE_R[0]:
+        return fc.cove_z(rad)
     if rad >= fs.DRUM_R:
-        u = (fc.GALLERY_R[0] - rad) / (fc.GALLERY_R[0] - fc.GALLERY_R[-1])
+        u = (fc.COVE_R[0] - rad) / (fc.COVE_R[0] - fc.GALLERY_R[-1])
         u = max(0.0, min(1.0, u))
         return fc.GALLERY_Z - fc.GALLERY_SAG * math.sin(math.pi * u)
     return fs.sheet_z(rad) - fs.SHEET_LUMP
@@ -1282,7 +1297,9 @@ def _forest_ref(centre):
         # to 57.3 and the wall keeps the ref it had. Counting every edge whose two
         # triangles sit on one smooth surface and straddle the step: 1004 at 57.0, 489
         # at 57.20, 442 at 57.25, 438 at 57.30 (and rising again either side).
-        return 58.5 if rad > 57.25 else 52.0
+        # The cove (r 56.2..59, y 36.6..38) is roof: the step there is by height, at
+        # the cells' apex row, where the wall's arch band kinks into the arc.
+        return 58.5 if (rad > 57.25 and z <= COVE_REF_Z) else 52.0
     return 45.0                                  # the pit bank and floor
 
 
@@ -1672,15 +1689,20 @@ def build_geometry():
 
 def drum_shade(ob):
     """The canopy's shadow on the drum: every corner over the lane roof, inside DRUM_SHADE_R, darkens
-    up the drum to DRUM_SHADE at its seam height, so the lane's light fades into the roof's shade."""
+    up the drum to DRUM_SHADE at its seam height, so the lane's light fades into the roof's shade.
+    The wall's head does the same up the cove: its leaf darkens to COVE_SHADE where the roof begins."""
     me = ob.data
     col = me.color_attributes.new(name="Col", type="FLOAT_COLOR", domain="CORNER")
     flat = [1.0] * (len(me.loops) * 4)
     for li, loop in enumerate(me.loops):
         x, y, z = me.vertices[loop.vertex_index].co
-        if z <= fc.GALLERY_Z or math.hypot(x, y) > DRUM_SHADE_R:
+        rad = math.hypot(x, y)
+        if z > fc.GALLERY_Z and rad <= DRUM_SHADE_R:
+            f = 1.0 - (1.0 - DRUM_SHADE) * ft._ramp(z, fc.GALLERY_Z, fs.seam_z(math.atan2(y, x)))
+        elif rad > COVE_SHADE_R[0] and z > COVE_SHADE_Z[0]:
+            f = 1.0 - (1.0 - COVE_SHADE) * ft._ramp(z, *COVE_SHADE_Z) * ft._ramp(rad, *COVE_SHADE_R)
+        else:
             continue
-        f = 1.0 - (1.0 - DRUM_SHADE) * ft._ramp(z, fc.GALLERY_Z, fs.seam_z(math.atan2(y, x)))
         flat[li * 4:li * 4 + 3] = [f, f, f]
     col.data.foreach_set("color", flat)
     me.color_attributes.active_color_index = 0
