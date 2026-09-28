@@ -115,34 +115,7 @@ extends Resource
 @export_range(-100.0, 200.0, 0.1) var overlook_min_height_metres: float = 25.0
 @export_range(-100.0, 200.0, 0.1) var overlook_max_height_metres: float = 30.0
 
-# --- Free look ----------------------------------------------------------------
-
-## Let the player steer the orbit with the mouse.
-##
-## [b]This is not decoration; it is what stops the wait being a punishment.[/b]
-## A dead player with a camera they cannot move is watching a cutscene. A dead
-## player who can look around is scouting the ring, watching who is where, and
-## deciding what to do when they land -- which in a game about watching is the
-## most on-theme thing they could possibly be doing.
-@export var free_look_enabled: bool = true
-
-## Radians of camera rotation per pixel of mouse motion.
-##
-## Its own number rather than [member MovementProfile.mouse_sensitivity]: this
-## is an orbit and that is a first-person aim, they are different gestures, and
-## a player who tuned their aim did not thereby tune this.
-@export_range(0.0001, 0.05, 0.0001) var look_sensitivity: float = 0.0035
-
-## How far the player may tip the orbit up and down, in degrees. Kept off the
-## poles, where an orbit camera's up vector becomes ambiguous and the view rolls.
-@export_range(-89.0, 0.0, 0.5) var pitch_min_degrees: float = -12.0
-@export_range(0.0, 89.0, 0.5) var pitch_max_degrees: float = 72.0
-
-## Where the orbit starts, vertically, in degrees above the horizontal. The
-## death view's own default elevation is implied by the radius and height above,
-## so this is the free-look offset applied on top -- zero means "start where the
-## numbers put it".
-@export_range(-89.0, 89.0, 0.5) var start_pitch_degrees: float = 0.0
+# --- Tracking -------------------------------------------------------------
 
 ## Field of view for the spectator camera, in degrees.
 ##
