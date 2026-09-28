@@ -2135,14 +2135,128 @@ def _s4_inside(rock, p, q_max=1.0):
     return _s4_q(rock, u, v) <= q_max
 
 
+# ---- S4's rock-top cracks: Ryan, "S4 needs the same cracks as S3" -- one lone
+# fissure per rock top, at its LavaCrack pad node's own position and aim (read
+# off bentham_ring.tscn's S4_DemonRun instances; the 212 deg node sits on the
+# entry bank, not a rock top, and is left alone). Same recipe as one strand of
+# the S3 network -- S3_CRACK_W/_D for width and floor depth, S3_CRACK_FLOOR/
+# _LIP for the floor and dark lip bands, S3_CRACK_ZONE_FLOOR/_WALL for the
+# glowing floor and ember walls, the LavaCrack surface itself -- just one
+# fissure with two free (tip) ends instead of a whole cell's network, cut into
+# the flat cap alone: the collider stays the plain flat grid, so the landing
+# is still walkable underfoot.
+S4_CRACK_NODES = (                    # (Blender x, y), (aim x, y) per rock top
+    ((-37.0701, 39.8437), (0.834651, 0.550779)),
+    ((-25.1778, 47.5481), (0.916161, 0.400811)),
+    ((-11.6431, 53.1255), (0.999132, -0.041656)),
+)
+S4_CRACK_MATCH = 6.0                  # a node belongs to the nearest rock within this many metres
+S4_CRACK_BACK = (0.4, 0.9)            # the fissure's tail, back off the node against its aim
+S4_CRACK_FORWARD = (0.5, 0.95)        # ... and its head, ahead of the node along its aim
+S4_CRACK_Q_MAX = 0.65                 # every station stays this far inside the flat cap's own
+                                      # edge at S4_FLAT_Q (0.8): S3_CRACK_MARGIN's clearance
+S4_CRACK_TRIES = 40                   # draws before the build gives up, as S3_CRACK_TRIES
+
+
+def _s4_crack_fissure(rock, pos, aim, seed):
+    """One lone jagged fissure across a rock's flat cap, centred near `pos`
+    along `aim`: the same draw as an S3 fissure with both ends free tips."""
+    rng = _Rng(seed)
+
+    def inside(p):
+        u, v = _s4_local(rock, p)
+        return _s4_q(rock, u, v) <= S4_CRACK_Q_MAX
+
+    for _try in range(S4_CRACK_TRIES):
+        back = S4_CRACK_BACK[0] + rng.f() * (S4_CRACK_BACK[1] - S4_CRACK_BACK[0])
+        fwd = S4_CRACK_FORWARD[0] + rng.f() * (S4_CRACK_FORWARD[1] - S4_CRACK_FORWARD[0])
+        p0 = (pos[0] - back * aim[0], pos[1] - back * aim[1])
+        p1 = (pos[0] + fwd * aim[0], pos[1] + fwd * aim[1])
+        if not (inside(p0) and inside(p1)):
+            continue
+        chain = _s3n_chain(rng, p0, None, p1, None, inside)
+        if chain is None:
+            continue
+        f = {"pts": chain, "e0": ("tip",), "e1": ("tip",)}
+        _s3n_normals(f, {})
+        _s3n_widths(rng, f, {})
+        return f
+    raise RuntimeError("s4 crack: no fissure fits near %r" % (pos,))
+
+
+def _s4_crack_mesh(m, rock, f):
+    """One fissure's mesh: the same six-vertex cross-section as an S3 station,
+    floor and lip depth against the rock's OWN top height there, tagged into
+    the LavaCrack surface. Returns the hole's outline as a vertex-id ring."""
+    pts, nrm, w, d = f["pts"], f["nrm"], f["w"], f["d"]
+    n = len(pts)
+
+    def station(i):
+        p = pts[i]
+        u, v = _s4_local(rock, p)
+        top = _s4_z(rock, u, v)[0]
+        if i == 0 or i == n - 1:
+            t = m.v((p[0], p[1], top))
+            return dict(TL=t, TR=t, ML=t, MR=t, FL=t, FR=t)
+        nx, ny = nrm[i]
+        wi, di = w[i], d[i]
+        tl = m.v((p[0] + nx * wi, p[1] + ny * wi, top))
+        tr = m.v((p[0] - nx * wi, p[1] - ny * wi, top))
+        fw = wi * S3_CRACK_FLOOR
+        fl = m.v((p[0] + nx * fw, p[1] + ny * fw, top - di))
+        fr = m.v((p[0] - nx * fw, p[1] - ny * fw, top - di))
+        ml = m.v(tuple(m.verts[tl][k] + S3_CRACK_LIP * (m.verts[fl][k] - m.verts[tl][k]) for k in range(3)))
+        mr = m.v(tuple(m.verts[tr][k] + S3_CRACK_LIP * (m.verts[fr][k] - m.verts[tr][k]) for k in range(3)))
+        return dict(TL=tl, TR=tr, ML=ml, MR=mr, FL=fl, FR=fr)
+
+    S = [station(i) for i in range(n)]
+    for i in range(n - 1):
+        k = min(max(i, 1), n - 2)
+        wl = _s3_crack_want(m, S[k]["TL"], S[k]["TR"])
+        wr = _s3_crack_want(m, S[k]["TR"], S[k]["TL"])
+        faces = [((S[i]["TL"], S[i + 1]["TL"], S[i + 1]["ML"], S[i]["ML"]), wl, S3_CRACK_ZONE_WALL),
+                 ((S[i]["ML"], S[i + 1]["ML"], S[i + 1]["FL"], S[i]["FL"]), wl, S3_CRACK_ZONE_FLOOR),
+                 ((S[i]["TR"], S[i]["MR"], S[i + 1]["MR"], S[i + 1]["TR"]), wr, S3_CRACK_ZONE_WALL),
+                 ((S[i]["MR"], S[i]["FR"], S[i + 1]["FR"], S[i + 1]["MR"]), wr, S3_CRACK_ZONE_FLOOR),
+                 ((S[i]["FL"], S[i]["FR"], S[i + 1]["FR"], S[i + 1]["FL"]), UP, S3_CRACK_ZONE_FLOOR)]
+        for quad, want, zone in faces:
+            uniq = []
+            for v in quad:
+                if v not in uniq:
+                    uniq.append(v)
+            if len(uniq) < 3:
+                continue
+            f0 = len(m.faces)
+            if len(uniq) == 4:
+                m.quad(uniq[0], uniq[1], uniq[2], uniq[3], want, zone, best=True)
+            else:
+                m.tri(uniq[0], uniq[1], uniq[2], want, zone)
+            if zone == S3_CRACK_ZONE_FLOOR:
+                m.crack.update(range(f0, len(m.faces)))
+    left = [S[i]["TL"] for i in range(n)]
+    right = [S[i]["TR"] for i in range(n)]
+    ring = []
+    for v in left + list(reversed(right)):
+        if not ring or ring[-1] != v:
+            ring.append(v)
+    if len(ring) > 1 and ring[0] == ring[-1]:
+        ring.pop()
+    return ring
+
+
 def _s4_rock(m, r, rock, coll=False):
     """One landing rock: a closed heightfield on a polar grid in the bent
     frame -- landing, hump, shoulders and stem one surface, the same mesh for
-    the collider."""
+    the collider. A rock topped with a LavaCrack pad node gets ITS fissure cut
+    into the flat cap, on the visual mesh only."""
     R, ang, jit = rock["R"], rock["ang"], rock["jit"]
-    zc, _l = _s4_z(rock, 0.0, 0.0, 0.0)
     C = rock["C"]
-    centre = m.v((C[0], C[1], zc))
+    node = None
+    if not coll:
+        for idx, (pos, aim) in enumerate(S4_CRACK_NODES):
+            if math.hypot(pos[0] - C[0], pos[1] - C[1]) < S4_CRACK_MATCH:
+                node = (idx, pos, aim)
+                break
     rings, info = [], []
     for q in S4_MASS_Q:
         ids, row = [], []
@@ -2163,10 +2277,27 @@ def _s4_rock(m, r, rock, coll=False):
             return ZONE_EMBER
         return ZONE_DECK if land > 0.5 else ZONE_SHADE
     n = S4_MASS_N
-    for i in range(n):
-        j = (i + 1) % n
-        m.tri(centre, rings[0][i], rings[0][j], UP, zone(zc, 1.0))
-    for a in range(len(rings) - 1):
+    flat_a = S4_MASS_Q.index(S4_FLAT_Q)
+    if node is None:
+        zc, _l = _s4_z(rock, 0.0, 0.0, 0.0)
+        centre = m.v((C[0], C[1], zc))
+        for i in range(n):
+            j = (i + 1) % n
+            m.tri(centre, rings[0][i], rings[0][j], UP, zone(zc, 1.0))
+        a_lo = 0
+    else:
+        idx, pos, aim = node
+        f = _s4_crack_fissure(rock, pos, aim, S3_CRACK_SEED + 7919 * idx)
+        hole = _s4_crack_mesh(m, rock, f)
+        cap = [rings[flat_a][i] for i in range(n)]
+        flat = cap + hole
+        tri = _fill2d([[m.verts[i][:2] for i in ring] for ring in (cap, hole)])
+        tris = [(flat[a], flat[b], flat[c]) for a, b, c in tri if len({flat[a], flat[b], flat[c]}) == 3]
+        tris = _s3_refine(m, tris, S3_CRACK_REFINE)
+        for a, b, c in tris:
+            m.tri(a, b, c, UP, ZONE_DECK)
+        a_lo = flat_a
+    for a in range(a_lo, len(rings) - 1):
         for i in range(n):
             j = (i + 1) % n
             zm = 0.25 * (info[a][i][0] + info[a][j][0] + info[a + 1][i][0] + info[a + 1][j][0])
