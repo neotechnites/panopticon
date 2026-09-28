@@ -226,6 +226,9 @@ FIN_HALF_T = 1.70
 FIN_HALF_R = 0.42
 
 LAVA_COLL_RST = [46.70, 48.20, 49.70, 51.20, 52.70, 54.20, 55.70, 57.30]
+LAVA_COLL_Z = LAVA_Z - 0.6            # what a body lands on in the lake: 0.9 m under the tops, past
+                                      # floor_snap_length (0.3), so a runner leaving a rim flies. The
+                                      # lava is still drawn at LAVA_Z; the S5 TrapVolumes sit here.
 
 LAKE_SEED = 5140737
 
@@ -1879,12 +1882,12 @@ def _cap(ring):
     return ring[1:] + ring[:1] if len(ring) == 8 else ring
 
 
-# The last two rings share the top's own scale (1.0, no jag): a flat, level
-# margin the width of PLAT_LIP_H rather than a taper reaching the very edge,
-# so a foot at the rim finds a vertical lip, not a slope near the floor angle.
-PLAT_LIP_H = 0.18                     # the flat margin's own height, below the top
+# Above the waterline the sides are plumb or lean IN (the ring under the top
+# never scales past 1.0): a body past the rim meets nothing that shoves it out.
+# The flare that seats the column in the lake starts 0.55 m down, under lava.
+PLAT_COLL_FOOT = PLAT_TOP_Z - 1.8     # the collider is a plumb prism this far down: a capsule's height
 PLAT_RINGS = [(21.20, 1.40, 0.16), (21.90, 1.28, 0.12),
-              (22.50, 1.13, 0.08), (PLAT_TOP_Z - PLAT_LIP_H, 1.0, 0.0),
+              (22.25, 1.10, 0.06), (22.45, 0.97, 0.03),
               (PLAT_TOP_Z, 1.0, 0.0)]
 FIN_RINGS = [(22.20, 1.22), (23.40, 1.10), (24.90, 1.0),
              (26.20, 0.86), (FIN_TOP_Z, 0.70)]
@@ -2781,26 +2784,24 @@ def _in_platform(p, b, rad, sect):
 
 
 def _lake_collider(c, r):
-    """What a body stands on: the river surface, flat, minus the platform
-    footprints, then the platform tops and sides and the fins. Both walls keep
-    the flat collision the rock had -- the TrapVolume owns the kill."""
+    """What a body stands on: the lake floor at LAVA_COLL_Z, flat, less the cells
+    wholly under a platform, then the platforms as plumb prisms and the fins.
+    Both walls keep the flat collision the rock had -- the TrapVolume owns the kill."""
     cols = [LAKE_A0 + 1.0 * k for k in range(int(LAKE_A1 - LAKE_A0) + 1)]
     plats = [(b, rad, LAKE_SECTS[k][0]) for k, (b, rad, _i) in enumerate(_platforms())]
     nr = len(LAVA_COLL_RST)
-    grid = [[c.v(pol(b, rr, LAVA_Z)) for rr in LAVA_COLL_RST] for b in cols]
+    grid = [[c.v(pol(b, rr, LAVA_COLL_Z)) for rr in LAVA_COLL_RST] for b in cols]
     for i in range(len(cols) - 1):
         for j in range(nr - 1):
-            mid = pol(0.5 * (cols[i] + cols[i + 1]),
-                      0.5 * (LAVA_COLL_RST[j] + LAVA_COLL_RST[j + 1]), 0.0)
-            if any(_in_platform(mid, *p) for p in plats):
-                continue
+            corners = [pol(cols[i + di], LAVA_COLL_RST[j + dj], 0.0)
+                       for di in (0, 1) for dj in (0, 1)]
+            if any(all(_in_platform(q, *p) for q in corners) for p in plats):
+                continue                               # no floor only where the prism is
             c.quad(grid[i][j], grid[i + 1][j], grid[i + 1][j + 1], grid[i][j + 1],
                    UP, ZONE_ROCK)
     for k, (b, rad, inner) in enumerate(_platforms()):
         sect, fs = LAKE_SECTS[k]
-        _lake_column(c, b, rad, sect,
-                     [(22.20, 1.08), (PLAT_TOP_Z - PLAT_LIP_H, 1.0), (PLAT_TOP_Z, 1.0)],
-                     r, ZONE_ROCK)
+        _lake_column(c, b, rad, sect, [(PLAT_COLL_FOOT, 1.0), (PLAT_TOP_Z, 1.0)], r, ZONE_ROCK)
         if inner:
             _lake_column(c, b, FIN_R, fs, [(22.20, 1.16), (FIN_TOP_Z, 0.70)], r, ZONE_ROCK)
 
