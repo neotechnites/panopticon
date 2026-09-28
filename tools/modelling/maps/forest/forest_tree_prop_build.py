@@ -1,28 +1,10 @@
 """
 PANOPTICON -- forest_tree_prop: a small family of loose trees for map 3's lane,
-placed by hand as cover on the path, that rise into the lane roof and read as
-the structure holding the canopy up. Three variants out of ONE script:
+placed by hand as cover on the path. Three variants out of ONE script:
 
-    a  slim      0.90 m across the trunk, straight, five limbs, 17.6 m to its top pad
-    b  fat       1.59 m across, a heavy root flare, four thick limbs, 17.5 m
-    c  leaning   1.15 m across, leans ~17 deg and forks at 5 m, eases upright, 17.6 m
-
-Ryan: "what would it look like if the tree elements, instead of being complete
-trees, went much higher into the roof where it looked like they help to create
-the canopy? I don't just want it to look like a tree trunk going into a green
-bush at the top, I want it to look like it expands to create the roof above the
-running prisoners."
-
-So: the trunk keeps its cover footprint at the deck, then rises clean to ~11 m;
-from 6 m up its limbs fork off it, rise, and sweep out to horizontal as they
-reach the roof (RISE limbs: a bezier that ends level, then a short hook up);
-twigs fork sideways off the limbs' bends; the trunk's own top carries on as a
-leader. Every tip ends in a PAD -- a wide flat leaf lens, 2..3 m across and
-0.7 m thick, its underside a flat fan off the limb -- not a ball. The roof
-(forest_ceiling_build) is 15 m over the grass and forest_trees.py scales a tree
-0.85..1.25, so the lattice is deep: knees from 11.6 m to 16 m, pads from 12.5 m
-to 17.6 m. At every scale the roof cuts through the lattice somewhere between
-the forks and the top pad, and the leaf overhead belongs to the limbs below it.
+    a  slim      0.90 m across the trunk, 7.96 m tall, straight, 850 tris
+    b  fat       1.59 m across, 7.61 m tall, a heavy root flare, 776 tris
+    c  leaning   1.15 m across, leans ~17 deg and forks at 4 m, 7.44 m tall, 776 tris
 
 Each variant is its OWN glb and its OWN single contiguous mesh -- three meshes
 in one glb is not a model, it is a bag. The three thin wrappers
@@ -35,11 +17,11 @@ in one glb is not a model, it is a bag. The three thin wrappers
 
 Cover contract (docs/maps/forest.md, lane y 23.0, guard eye y 28.7):
   * the trunk is the cover. A standing prisoner is 1.8 m tall and 0.6 m across,
-    so a trunk 0.9 m or wider hides one from the tower. Proved at z = 1.8. The
-    collider is the trunk's first seven rings, unchanged by the canopy.
-  * nothing of the crown -- no leaf, no branch, no socket -- sits below
-    CROWN_MIN_Z = 3.0 m, so the guard's shallow look down the lane passes under
-    every limb and only the narrow trunks break it. Proved as ``lowest_crown_z``.
+    so a trunk 0.9 m or wider hides one from the tower. Proved at z = 1.8.
+  * the crown must not roof the lane over. Nothing of the crown -- no leaf, no
+    branch, no socket -- sits below CROWN_MIN_Z = 3.0 m, so the guard's shallow
+    look down the lane passes under every canopy and only the narrow trunks
+    break it. Proved as ``lowest_crown_z``.
 
 Material, palette and atlas are the forest's own: this file imports
 ``forest_tree_build`` (which is where forest_build.py's atlas lives) and uses
@@ -68,7 +50,7 @@ for _root in (os.path.dirname(_HOME), os.path.dirname(os.path.dirname(_HOME))): 
 
 import forest_tree_build as ft  # noqa: E402  the forest atlas, the mesh library
 from forest_tree_build import (_Mesh, _Rng, UP, DOWN, add, sub, norm, dot, cross,  # noqa: E402
-                               lerp, bez, tube, clump_end, socket_ring, loft, frames, _at)
+                               lerp, bez, tube, clump_end, socket_ring, loft, frames)
 
 if bpy is not None:
     import mdl  # noqa: E402
@@ -89,41 +71,22 @@ GROUND_COLOR = [0.36, 0.40, 0.21, 1.0]     # the lane's grass, for the render ba
 MAX_TRIS = 2000             # the contract's ceiling per variant
 
 
-def _limb(on, band, bearing, out, up, r, pad, sides=5, patch=(1, 2), segs=5):
-    """One canopy limb. ``on`` is None (it grows from the trunk) or the index
-    of an earlier limb in the list (it grows from that limb). ``band`` is the
-    index of the quad band of the host it sockets into: band k is the ring of
-    quads between host ring k and host ring k+1. ``patch`` is (bands, sides)
-    of host quads the socket claims, centred on the side nearest ``bearing``.
-    The limb RISES: it leaves the host square, climbs ``up`` metres and sweeps
-    out ``out`` metres along ``bearing`` to a level knee, then hooks up into
-    its ``pad`` = (radius, squash, metres above the tip): the flat leaf lens
-    that closes it. ``r`` is (root, tip) radius; ``segs`` bezier segments."""
+def _limb(on, band, bearing, out, up, r, clump, sides=5, patch=(1, 2)):
+    """One branch. ``on`` is None (it grows from the trunk) or the index of an
+    earlier limb in the list (it grows from that limb). ``band`` is the index of
+    the quad band of the host it sockets into: band k is the ring of quads
+    between host ring k and host ring k+1. ``patch`` is (bands, sides) of host
+    quads the socket claims, centred on the side nearest ``bearing``.
+    ``out``/``up`` are metres horizontally along ``bearing`` and vertically from
+    the socket centre to the tip. ``clump`` is (radius, metres beyond the tip)."""
     return {"on": on, "band": band, "bearing": bearing, "out": out, "up": up,
-            "r": r, "pad": pad, "sides": sides, "patch": patch, "segs": segs}
+            "r": r, "clump": clump, "sides": sides, "patch": patch}
 
-
-def _leader(bearing, out, up, r_tip, pad, rise=0.7, segs=5):
-    """The trunk's own top carrying on: rises ``rise`` straight, then the same
-    climb-and-sweep to a knee ``up`` higher and ``out`` along ``bearing``."""
-    return {"bearing": bearing, "out": out, "up": up, "r_tip": r_tip, "pad": pad,
-            "rise": rise, "segs": segs}
-
-
-# Pads: (radius, squash, metres above the tip). A main limb's lens is 3 m
-# across, a twig's 2.2 m, the leader's 3.2 m; all 0.3 squashed, so 0.7 m thick.
-PAD_MAIN = (1.50, 0.30, 0.35)
-PAD_TWIG = (1.10, 0.30, 0.28)
-PAD_TOP = (1.60, 0.30, 0.35)
 
 VARIANTS = {
 
     # ---- a: the slim one. 0.90 m across at chest height -- exactly enough to
-    # hide a standing runner, and nothing to spare. Straight; the first seven
-    # rings are the old trunk (and the collider), then it climbs to 11.2 m
-    # tapering slowly. Four limbs off bands 7..10, staggered so their knees
-    # land at 11.6, 12.4, 13.4 and 14.2 m; a twig off each bend; the leader
-    # tops out at 17.6 m.
+    # hide a standing runner, and nothing to spare. Straight, a high airy crown.
     "a": {
         "letter": "a",
         "name": "forest_tree_prop_a",
@@ -133,35 +96,27 @@ VARIANTS = {
         "sides": 10,
         "path": [(0.00, 0.00, -0.35), (0.00, 0.00, 0.00), (0.02, 0.01, 0.75),
                  (0.06, 0.02, 1.80), (0.12, 0.01, 3.00), (0.18, -0.03, 4.10),
-                 (0.25, -0.06, 5.00), (0.31, -0.08, 5.90), (0.36, -0.10, 7.30),
-                 (0.40, -0.11, 8.70), (0.43, -0.11, 10.00), (0.45, -0.10, 11.20)],
-        "radii": [0.70, 0.55, 0.49, 0.474, 0.41, 0.355, 0.30, 0.28, 0.26, 0.24, 0.22, 0.20],
+                 (0.25, -0.06, 5.00), (0.31, -0.08, 5.90)],
+        "radii": [0.70, 0.55, 0.49, 0.474, 0.41, 0.355, 0.30, 0.23],
         "wob": 0.055,
         "ang_jag": 0.05,
         "z_jag": 0.05,
-        "clump_wob": 0.18,
+        "clump_wob": 0.16,
         "limbs": [
-            _limb(None, 7, 30.0, 2.60, 5.00, (0.16, 0.09), PAD_MAIN, sides=6, patch=(1, 4)),
-            _limb(None, 8, 150.0, 2.40, 4.40, (0.16, 0.09), PAD_MAIN, sides=6, patch=(1, 4)),
-            _limb(None, 9, 270.0, 2.60, 4.05, (0.16, 0.09), PAD_MAIN, sides=6, patch=(1, 4)),
-            _limb(None, 10, 80.0, 2.20, 3.60, (0.15, 0.08), PAD_MAIN, sides=6, patch=(1, 4)),
-            # twigs off the bends, forking sideways
-            _limb(0, 3, 335.0, 1.70, 2.40, (0.08, 0.045), PAD_TWIG, segs=4),
-            _limb(1, 3, 205.0, 1.60, 2.10, (0.08, 0.045), PAD_TWIG, segs=4),
-            _limb(2, 3, 320.0, 1.60, 2.40, (0.08, 0.045), PAD_TWIG, segs=4),
-            _limb(3, 3, 130.0, 1.40, 2.00, (0.08, 0.045), PAD_TWIG, segs=4),
-            _limb(0, 5, 75.0, 1.50, 1.80, (0.08, 0.04), PAD_TWIG, segs=4),
+            _limb(None, 4, 20.0, 0.85, 0.95, (0.19, 0.11), (1.05, 0.30)),
+            _limb(None, 5, 145.0, 0.95, 0.85, (0.20, 0.12), (1.15, 0.32), patch=(1, 3)),
+            _limb(None, 5, 265.0, 0.80, 1.00, (0.18, 0.11), (1.00, 0.30), patch=(1, 3)),
+            _limb(None, 6, 70.0, 0.75, 1.05, (0.17, 0.10), (1.10, 0.30), patch=(1, 3)),
+            _limb(None, 6, 200.0, 0.70, 1.10, (0.16, 0.10), (1.05, 0.30), patch=(1, 3)),
         ],
-        "leader": _leader(330.0, 1.60, 4.30, 0.10, PAD_TOP),
+        "top_clump": (1.45, 0.95),
         "coll_sides": 8,
         "coll_inset": 0.96,
         "coll_top_band": 7,
     },
 
     # ---- b: the fat one. 1.60 m across: a runner can stand behind it sideways
-    # on and be gone. The heavy flare, then a stout column to 11 m; four thick
-    # limbs, knees at 11.5, 12.6, 13.6 and 14.4 m, a twig off each; the leader
-    # to 17.5 m.
+    # on and be gone. Shorter, stouter, a heavy flare and a full low crown.
     "b": {
         "letter": "b",
         "name": "forest_tree_prop_b",
@@ -171,35 +126,29 @@ VARIANTS = {
         "sides": 12,
         "path": [(0.00, 0.00, -0.40), (0.00, 0.00, 0.00), (-0.02, 0.02, 0.70),
                  (-0.04, 0.03, 1.80), (-0.05, 0.02, 2.90), (-0.04, 0.00, 3.80),
-                 (-0.02, -0.02, 4.60), (0.00, -0.03, 5.30), (0.03, -0.03, 6.80),
-                 (0.06, -0.02, 8.30), (0.08, 0.00, 9.70), (0.09, 0.02, 11.00)],
-        "radii": [1.28, 0.97, 0.85, 0.828, 0.72, 0.62, 0.52, 0.46, 0.41, 0.36, 0.31, 0.26],
+                 (-0.02, -0.02, 4.60), (0.00, -0.03, 5.30)],
+        "radii": [1.28, 0.97, 0.85, 0.828, 0.72, 0.62, 0.52, 0.40],
         "wob": 0.06,
         "ang_jag": 0.06,
         "z_jag": 0.06,
-        "clump_wob": 0.18,
+        "clump_wob": 0.16,
         "limbs": [
-            _limb(None, 7, 45.0, 2.80, 5.40, (0.22, 0.11), PAD_MAIN, sides=6, patch=(1, 4)),
-            _limb(None, 8, 165.0, 2.60, 5.00, (0.22, 0.11), PAD_MAIN, sides=6, patch=(1, 4)),
-            _limb(None, 9, 285.0, 2.80, 4.60, (0.21, 0.10), PAD_MAIN, sides=6, patch=(1, 4)),
-            _limb(None, 10, 105.0, 2.40, 4.00, (0.20, 0.10), PAD_MAIN, sides=6, patch=(1, 4)),
-            _limb(0, 4, 350.0, 1.80, 2.50, (0.09, 0.05), PAD_TWIG, segs=4),
-            _limb(1, 3, 225.0, 1.70, 2.20, (0.09, 0.05), PAD_TWIG, segs=4),
-            _limb(2, 3, 340.0, 1.70, 2.40, (0.09, 0.05), PAD_TWIG, segs=4),
-            _limb(3, 3, 160.0, 1.50, 2.00, (0.09, 0.05), PAD_TWIG, segs=4),
+            _limb(None, 5, 35.0, 1.05, 0.85, (0.26, 0.15), (1.25, 0.34), patch=(1, 3)),
+            _limb(None, 5, 195.0, 1.00, 0.90, (0.25, 0.15), (1.20, 0.34), patch=(1, 3)),
+            _limb(None, 6, 110.0, 0.95, 0.95, (0.24, 0.14), (1.25, 0.32), patch=(1, 3)),
+            _limb(None, 6, 290.0, 0.90, 1.00, (0.23, 0.14), (1.20, 0.32), patch=(1, 3)),
         ],
-        "leader": _leader(15.0, 1.70, 4.50, 0.12, PAD_TOP),
+        "top_clump": (1.60, 1.00),
         "coll_sides": 8,
         "coll_inset": 0.96,
         "coll_top_band": 7,
     },
 
-    # ---- c: the leaner. Leans ~17 deg off the vertical to 5 m, then eases
-    # back toward upright by 11.3 m (a 12 m column at 17 deg would read as
-    # falling). The fork stays: two thick limbs out of bands 6 and 7, one
-    # carrying the lean, one throwing back against it, both rising to the roof;
-    # two more off the upper trunk. Hand-place this one with its lean across
-    # the path, not along it -- the fork hangs 3 m out that way.
+    # ---- c: the leaner. Leans ~17 deg off the vertical and forks at 4 m into
+    # two limbs, each with its own crown: cover you can stand behind AND an
+    # overhang that reads as a landmark from down the lane. The lean carries the
+    # crown 4.6 m out over the lane, so hand-place this one with its lean across
+    # the path, not along it.
     "c": {
         "letter": "c",
         "name": "forest_tree_prop_c",
@@ -209,33 +158,29 @@ VARIANTS = {
         "sides": 10,
         "path": [(-0.10, 0.02, -0.38), (-0.05, 0.01, 0.00), (0.12, -0.02, 0.80),
                  (0.42, -0.06, 1.80), (0.80, -0.10, 2.80), (1.12, -0.12, 3.60),
-                 (1.42, -0.13, 4.40), (1.70, -0.13, 5.15), (1.98, -0.13, 6.60),
-                 (2.20, -0.12, 8.20), (2.36, -0.11, 9.80), (2.45, -0.10, 11.30)],
-        "radii": [0.86, 0.68, 0.612, 0.605, 0.52, 0.45, 0.36, 0.32, 0.29, 0.26, 0.23, 0.20],
+                 (1.42, -0.13, 4.40), (1.70, -0.13, 5.15)],
+        "radii": [0.86, 0.68, 0.612, 0.605, 0.52, 0.45, 0.36, 0.26],
         "wob": 0.06,
         "ang_jag": 0.05,
         "z_jag": 0.05,
-        "clump_wob": 0.18,
+        "clump_wob": 0.16,
         "limbs": [
-            # the fork
-            _limb(None, 6, 8.0, 3.00, 7.60, (0.20, 0.10), PAD_MAIN, sides=6, patch=(1, 4)),
-            _limb(None, 7, 188.0, 2.60, 7.00, (0.19, 0.10), PAD_MAIN, sides=6, patch=(1, 4)),
-            # the upper trunk's own
-            _limb(None, 9, 100.0, 2.40, 4.20, (0.16, 0.09), PAD_MAIN, sides=6, patch=(1, 4)),
-            _limb(None, 10, 280.0, 2.20, 3.40, (0.15, 0.08), PAD_MAIN, sides=6, patch=(1, 4)),
-            _limb(0, 4, 60.0, 1.80, 2.40, (0.10, 0.05), PAD_TWIG, segs=4),
-            _limb(0, 4, 319.0, 1.60, 2.20, (0.08, 0.045), PAD_TWIG, segs=4),
-            _limb(1, 4, 240.0, 1.70, 2.20, (0.09, 0.05), PAD_TWIG, segs=4),
-            _limb(2, 3, 150.0, 1.50, 2.10, (0.08, 0.045), PAD_TWIG, segs=4),
-            _limb(3, 3, 330.0, 1.40, 2.00, (0.08, 0.045), PAD_TWIG, segs=4),
+            # the fork: two thick limbs out of the last two bands, one carrying on
+            # the lean, one throwing back against it
+            _limb(None, 5, 8.0, 1.90, 2.00, (0.30, 0.18), (1.25, 0.45),
+                  sides=6, patch=(1, 3)),
+            _limb(None, 5, 188.0, 1.55, 1.75, (0.27, 0.16), (1.15, 0.42),
+                  sides=6, patch=(1, 3)),
+            # twigs off each fork limb
+            _limb(0, 1, 95.0, 0.55, 0.60, (0.13, 0.08), (0.90, 0.26), sides=5, patch=(1, 2)),
+            _limb(1, 1, 265.0, 0.50, 0.60, (0.12, 0.08), (0.85, 0.26), sides=5, patch=(1, 2)),
         ],
-        "leader": _leader(20.0, 1.40, 4.20, 0.10, PAD_TOP),
+        "top_clump": (0.95, 0.70),
         "coll_sides": 8,
         "coll_inset": 0.96,
         "coll_top_band": 7,
     },
 }
-
 
 FACING_YAW = 0.0            # authored facing +X; "front" looks down -X
 
@@ -324,8 +269,9 @@ def build_trunk(m, rng, spec):
 # PART 2 -- THE CROWN: limbs welded into the trunk's own surface
 # =============================================================================
 
+BEZ_SEGS = 6            # bezier segments after the collar
 STUB = 0.90             # collar length out of the host, in root radii
-FLAT_MAX = 2.40         # the collar is never more than 2.4x as tall as wide
+FLAT_MAX = 1.70         # the collar is never more than 1.7x as tall as wide
 FLOOR_HEADROOM = 0.10   # metres the collar keeps clear of CROWN_MIN_Z
 
 
@@ -455,87 +401,31 @@ def _by_azimuth(m, ring, centre):
                                                  m.verts[v][0] - centre[0]) % (2.0 * math.pi))
 
 
-RISE_CTRL = 0.25            # the sweep's control point sits this far out along the run
-HOOK = (0.22, 0.22, 0.33)   # out, up, then straight up: the tip turns vertical into its pad
-
-
-def _rise(start, d, out, up, segs):
-    """The climb-and-sweep after ``start``: a bezier that leaves it climbing and
-    arrives level at the knee ``up`` higher and ``out`` along ``d``, then the
-    hook, whose last leg is vertical so the tip ring lies flat under its pad."""
-    ctrl = add(add(start, d, out * RISE_CTRL), UP, up)
-    knee = add(ctrl, d, out * (1.0 - RISE_CTRL))
-    pts = bez(start, ctrl, knee, segs)[1:]
-    h1 = add(add(knee, d, HOOK[0]), UP, HOOK[1])
-    return pts + [h1, add(h1, UP, HOOK[2])]
-
-
-PAD_FLARE = (0.25, 0.05)    # the tip first flares to this share of the pad's radius, this high
-
-
-def _pad(m, rng, spec, ring, tip, pad, zone="leaf"):
-    """Close a vertical tube end with a flat leaf lens: ``pad`` = (radius,
-    squash, metres above the tip). The tip flares to a collar ring first --
-    straight from a 0.05 m tip edge to a 1 m lens ring is a sliver -- and the
-    lens's first band off that collar is its flat underside."""
-    centre = add(tip, UP, pad[2])
-    tip_ring = _by_azimuth(m, ring, tip)
-    fr = pad[0] * PAD_FLARE[0]
-    flare = []
-    for v in tip_ring:
-        a = math.atan2(m.verts[v][1] - tip[1], m.verts[v][0] - tip[0])
-        rr = fr * (1.0 + spec["clump_wob"] * rng.sf())
-        flare.append(m.v((tip[0] + rr * math.cos(a), tip[1] + rr * math.sin(a),
-                          tip[2] + PAD_FLARE[1])))
-    loft(m, [tip_ring, flare], zone, want_fn=lambda c: (c[0] - tip[0], c[1] - tip[1], -0.5))
-    clump_end(m, _by_azimuth(m, flare, centre), centre, pad[0], zone, rng,
-              squash=pad[1], wob=spec["clump_wob"])
-    return centre
-
-
-def _leader_part(m, rng, spec, trunk):
-    """The trunk's top ring carried on as a leader. Its rings keep the trunk
-    ring's angular phase, so the band off the top ring is a clean loft."""
-    lead = spec["leader"]
-    top_c, top_ring, n = trunk["top_centre"], trunk["top_ring"], spec["sides"]
-    d = _dir_of(lead["bearing"])
-    start = add(top_c, UP, lead["rise"])
-    path = [start] + _rise(start, d, lead["out"], lead["up"], lead["segs"])
-    v0 = m.verts[top_ring[0]]
-    # frames() puts ring angle 0 at world azimuth -90 deg for a vertical start
-    phase = math.atan2(v0[1] - top_c[1], v0[0] - top_c[0]) + 0.5 * math.pi
-    radii = (trunk["top_r"] * 0.95, lead["r_tip"])
-    rings = [list(top_ring)]
-    for i, ((t, ex, ez), p) in enumerate(zip(frames(path), path)):
-        r = _at(radii, i / float(len(path) - 1))
-        ring = []
-        for s in range(n):
-            a = 2.0 * math.pi * s / n + phase
-            rr = r * (1.0 + spec["wob"] * rng.sf())
-            ring.append(m.v(add(add(p, ex, rr * math.cos(a)), ez, rr * math.sin(a))))
-        rings.append(ring)
-    centres = [top_c] + path
-    for k in range(len(rings) - 1):
-        mid = lerp(centres[k], centres[k + 1], 0.5)
-        loft(m, [rings[k], rings[k + 1]], "bark", want_fn=lambda c, mid=mid: sub(c, mid))
-    return _pad(m, rng, spec, rings[-1], path[-1], lead["pad"])
+def _clump(m, rng, spec, rings, tip, tangent, clump, zone="leaf"):
+    """Close an open tube end with a leaf ball ``clump[1]`` metres beyond the
+    tip along ``tangent``, radius ``clump[0]``."""
+    centre = add(tip, tangent, clump[1])
+    clump_end(m, _by_azimuth(m, rings[-1], centre), centre, clump[0], zone, rng,
+              wob=spec["clump_wob"])
 
 
 # ---- the part ---------------------------------------------------------------
 
 def build_crown(m, rng, spec, trunk):
-    """PART 2. Grow every limb in ``spec["limbs"]`` and the leader into ``m``,
-    limbs in the "bark" zone and their pads in the "leaf" zone.
+    """PART 2. Grow every limb in ``spec["limbs"]`` and the top clump into ``m``,
+    branches in the "bark" zone and leaf clumps in the "leaf" zone.
 
     A limb sockets into its host: ``on`` None means the trunk (``trunk["rings"]``),
     an int means limb number ``on`` in the same list, whose rings this function
     returned earlier. It claims ``patch`` = (bands, sides) registered host quads
     starting at band ``band``, centred on the side whose outward direction is
     nearest ``bearing`` degrees, welds a ring there with ``socket_ring`` and
-    runs a ``tube`` out of it: a short collar square to the patch, then
-    ``_rise`` -- climbing ``up`` and sweeping ``out`` along the bearing to a
-    level knee, hooking up -- and ``_pad`` closes it with a flat leaf lens.
-    The trunk's open top ring carries on as ``spec["leader"]`` the same way.
+    runs a ``tube`` out of it along a slight upward bezier to the tip at
+    (socket centre + out metres along ``bearing`` + up metres in z), radii read
+    from ``r`` = (root, tip). ``clump_end`` closes it with a leaf ball of radius
+    ``clump[0]`` centred ``clump[1]`` metres beyond the tip, wobble
+    ``spec["clump_wob"]``. The trunk's open top ring is closed the same way with
+    ``spec["top_clump"]`` = (radius, metres above the top ring).
 
     HARD RULE: no vertex this function creates, and no socket it claims, may sit
     below CROWN_MIN_Z (3.0 m). Assert it. The guard has to see the lane.
@@ -547,11 +437,9 @@ def build_crown(m, rng, spec, trunk):
         "crown_r"     the greatest horizontal distance from the trunk's foot
                       (path[0] x,y) of anything this function made
         "top_z"       the highest z
-        "pad_z"       (lowest, highest) pad centre: where the leaf lattice lives
     """
     first_v = len(m.verts)
     limb_rings = []
-    pads = []
 
     for i, limb in enumerate(spec["limbs"]):
         host = trunk["rings"] if limb["on"] is None else limb_rings[limb["on"]]
@@ -559,14 +447,17 @@ def build_crown(m, rng, spec, trunk):
         bands, count = limb["patch"]
         quads, root, plane_n = _patch(m, host, limb["band"], bands, count,
                                       limb["bearing"])
+
         d = _dir_of(limb["bearing"])
+        elbow = add(root, d, limb["out"])                    # out along the bearing
+        tip = (elbow[0], elbow[1], elbow[2] + limb["up"])    # then up
         # leave square to the plane the ring is projected onto, the way _arch
         # leaves a pier: project_ring slides the ring along the tube's start
         # tangent, so a start that is not the plane's normal shears the ring
         # out over the patch boundary and socket() then bridges a fold. One
-        # short stub square out, THEN the climb and the sweep.
+        # short stub square out, THEN the bend out along the bearing and up.
         collar = add(root, plane_n, STUB * limb["r"][0])
-        path = [root, collar] + _rise(collar, d, limb["out"], limb["up"], limb["segs"])
+        path = [root, collar] + bez(collar, elbow, tip, BEZ_SEGS)[1:]
 
         sides = limb["sides"]
         flat = _collar(m, quads, limb["bearing"], root, limb["r"][0])
@@ -574,10 +465,14 @@ def build_crown(m, rng, spec, trunk):
                             at_start=True)
         rings = tube(m, path, tuple(limb["r"]), sides, "bark", caps=(False, False),
                      wob=spec["wob"], rng=rng, first_ring=ring0)
-        pads.append(_pad(m, rng, spec, rings[-1], path[-1], limb["pad"]))
+        _clump(m, rng, spec, rings, path[-1], frames(path)[-1][0], limb["clump"])
         limb_rings.append(rings)
 
-    pads.append(_leader_part(m, rng, spec, trunk))
+    # the trunk's open top ring, closed by its own clump
+    top_c = trunk["top_centre"]
+    top = (top_c[0], top_c[1], top_c[2] + spec["top_clump"][1])
+    clump_end(m, _by_azimuth(m, trunk["top_ring"], top), top, spec["top_clump"][0],
+              "leaf", rng, wob=spec["clump_wob"])
 
     made = m.verts[first_v:]
     assert made, "the crown made no geometry"
@@ -589,9 +484,7 @@ def build_crown(m, rng, spec, trunk):
     return {"limb_rings": limb_rings,
             "lowest_z": lowest,
             "crown_r": max(math.hypot(p[0] - foot[0], p[1] - foot[1]) for p in made),
-            "top_z": max(p[2] for p in made),
-            "pad_z": (min(p[2] for p in pads), max(p[2] for p in pads))}
-
+            "top_z": max(p[2] for p in made)}
 
 
 # =============================================================================
@@ -831,7 +724,7 @@ def _check(letters):
                 ("coll_open", col["open_edges"] == 0, "closed collider"),
                 ("cover", w18 >= 0.88, "hides a 0.6 m runner at 1.8 m"),
                 ("crown_min", crown["lowest_z"] >= CROWN_MIN_Z, "crown above 3.0 m"),
-                ("height", 16.5 <= max(zs) <= 19.0, "16.5..19 m: into the roof at every scene scale"),
+                ("height", 6.0 <= max(zs) <= 9.0, "6..9 m tall"),
         ):
             if not cond:
                 ok = False
