@@ -33,6 +33,7 @@ const JUMP_SLOW_FRACTION: float = 0.6
 const EDGE_SAMPLE_METRES: float = 1.5
 const TAKEOFF_INSET_METRES: float = 0.35
 const LAND_MARGIN_METRES: float = 0.45
+const LAND_PROBES: int = 8
 const LAND_HEIGHT_TOLERANCE_METRES: float = 2.5
 const LINK_DEDUPE_METRES: float = 1.2
 const LINK_MAX: int = 400
@@ -926,7 +927,7 @@ func _try_jump(takeoff: Vector3, direction: Vector3) -> void:
 		if is_nan(height):
 			continue
 		var point: Vector3 = Vector3(probe.x, height, probe.z)
-		if boundary_distance(point, 1.0) >= LAND_MARGIN_METRES and not _on_pad(point, PAD_CLEARANCE_METRES):
+		if _landing_clear(point) and not _on_pad(point, PAD_CLEARANCE_METRES):
 			landing = point
 			break
 	if not is_finite(landing.x):
@@ -953,6 +954,22 @@ func _try_jump(takeoff: Vector3, direction: Vector3) -> void:
 		HARD_JUMP_TRAVEL_COST if hard else JUMP_TRAVEL_COST,
 	)
 	_jumps += 1
+
+
+## True when [param point] is LAND_MARGIN from the mesh edge, or from the real rim where the
+## mesh was eroded back from a ledge: every probe that far out finds safe floor within a climb.
+func _landing_clear(point: Vector3) -> bool:
+	if boundary_distance(point, 1.0) >= LAND_MARGIN_METRES:
+		return true
+	var ground: Vector3 = _floor_under(point)
+	if not is_finite(ground.x) or _space == null:
+		return false
+	for index: int in LAND_PROBES:
+		var angle: float = TAU * float(index) / float(LAND_PROBES)
+		var probe: Vector3 = _floor_under(ground + Vector3(cos(angle), 0.0, sin(angle)) * LAND_MARGIN_METRES)
+		if not is_finite(probe.x) or absf(probe.y - ground.y) > AGENT_MAX_CLIMB or is_lethal(probe, LETHAL_INFLATION_METRES):
+			return false
+	return true
 
 
 ## True when the straight line between the ends passes over ground with no mesh and no safe floor.
