@@ -216,17 +216,13 @@ FALL_CAP = 3.0                        # tallest fall row
 FALL_WAVE_ROW = 1.0                   # ... and the pit fall's drawn rows, so the lava
                                       # shader's ripple bends it (maps/bentham_ring/materials/lava_wave.gdshader)
 
-# The run, from the player's numbers (11 m/s run, 7 m/s jump, gravity 22): a level
-# jump carries 7.0 m. Tops lie along the ring in two lanes, end to end, so a hop is ~25 deg.
-PLAT_OUT_R = 54.8                     # outer lane centre line
-PLAT_IN_R = 51.1                      # inner lane: 1.2 m of lava between the lanes' facing edges
-PLAT_LEN = 5.50                       # top length along the run
-PLAT_WID = 2.50                       # ... and across it
-PLAT_END_GAP = 1.70                   # deck lip to the first and last top's end
-PLAT_B0 = LAKE_A0 + math.degrees((PLAT_END_GAP + 0.5 * PLAT_LEN) / PLAT_OUT_R)
-PLAT_STEP = (LAKE_A0 + LAKE_A1 - 2.0 * PLAT_B0) / 6.0   # degrees between tops, lanes alternating
+PLAT_OUT_R = 54.8                     # the run: 7 platforms, 7.00 m apart
+PLAT_IN_R = 50.2
+PLAT_STEP = 5.7676
+PLAT_B0 = 298.0
 PLAT_TOP_Z = 23.00                    # deck height, exactly
-PLAT_YAW = 1.5                        # degrees off the run direction, at most
+PLAT_HALF = 1.20                      # a 2.4 x 2.4 m square top
+PLAT_YAW = 8.0                        # degrees off the run direction, at most
 FIN_R = 48.50
 FIN_TOP_Z = 27.30
 FIN_HALF_T = 1.70
@@ -1829,11 +1825,12 @@ def _platforms():
 
 
 def _plat_sect(r):
-    """A PLAT_LEN x PLAT_WID top, long along the ring, eight boundary points so
-    the sides facet and the top stays exact. Yawed by at most PLAT_YAW degrees."""
-    hr, ht = 0.5 * PLAT_WID, 0.5 * PLAT_LEN
-    pts = [(hr, -ht), (hr, 0.0), (hr, ht), (0.0, ht),
-           (-hr, ht), (-hr, 0.0), (-hr, -ht), (0.0, -ht)]
+    """A square top, eight boundary points so the sides can facet without the
+    top ever ceasing to be square. Yawed off the run direction by at most
+    PLAT_YAW degrees."""
+    h = PLAT_HALF
+    pts = [(h, -h), (h, 0.0), (h, h), (0.0, h),
+           (-h, h), (-h, 0.0), (-h, -h), (0.0, -h)]
     a = math.radians(PLAT_YAW * r.sf())
     ca, sa = math.cos(a), math.sin(a)
     return [(x * ca - y * sa, x * sa + y * ca) for (x, y) in pts]
@@ -2794,16 +2791,14 @@ def _lake_collider(c, r):
     """What a body stands on: the river surface, flat, minus the platform
     footprints, then the platform tops and sides and the fins. Both walls keep
     the flat collision the rock had -- the TrapVolume owns the kill."""
+    cols = [LAKE_A0 + 1.0 * k for k in range(int(LAKE_A1 - LAKE_A0) + 1)]
     plats = [(b, rad, LAKE_SECTS[k][0]) for k, (b, rad, _i) in enumerate(_platforms())]
-    ends = [b + s * math.degrees(0.5 * PLAT_LEN / rad) for (b, rad, _s) in plats for s in (-1, 1)]
-    cols = _merge_cols([LAKE_A0 + 1.0 * k for k in range(int(LAKE_A1 - LAKE_A0) + 1)], ends, 0.15)
-    rst = sorted(set([LAVA_COLL_RST[0], LAVA_COLL_RST[1], LAVA_COLL_RST[-1]]
-                     + [rr + s * 0.5 * PLAT_WID for rr in (PLAT_IN_R, PLAT_OUT_R) for s in (-1, 1)]))
-    nr = len(rst)                     # grid lines on the tops' edges, so holes match footprints
-    grid = [[c.v(pol(b, rr, LAKE_LAVA_Z)) for rr in rst] for b in cols]
+    nr = len(LAVA_COLL_RST)
+    grid = [[c.v(pol(b, rr, LAKE_LAVA_Z)) for rr in LAVA_COLL_RST] for b in cols]
     for i in range(len(cols) - 1):
         for j in range(nr - 1):
-            mid = pol(0.5 * (cols[i] + cols[i + 1]), 0.5 * (rst[j] + rst[j + 1]), 0.0)
+            mid = pol(0.5 * (cols[i] + cols[i + 1]),
+                      0.5 * (LAVA_COLL_RST[j] + LAVA_COLL_RST[j + 1]), 0.0)
             if any(_in_platform(mid, *p) for p in plats):
                 continue
             c.quad(grid[i][j], grid[i + 1][j], grid[i + 1][j + 1], grid[i][j + 1],
@@ -8281,8 +8276,8 @@ def build():
           % (LAKE_A0, LAKE_A1, LAKE_LAVA_Z, river[0], LAKE_BANK, RECESS_R,
              WALL_A0, WALL_A1, WALL_LAVA_TOP, river[1]))
     for k, (b, rad, inner) in enumerate(_platforms()):
-        print("MDL STATS platform%d bearing=%.3f r=%.1f top=%.2f size=%.1fx%.1f %s"
-              % (k + 1, b, rad, PLAT_TOP_Z, PLAT_LEN, PLAT_WID, "inner+fin" if inner else "outer"))
+        print("MDL STATS platform%d bearing=%.3f r=%.1f top=%.2f square=%.1f %s"
+              % (k + 1, b, rad, PLAT_TOP_Z, 2.0 * PLAT_HALF, "inner+fin" if inner else "outer"))
     _s2_stats(s2)
     _s3_stats()
     _s4_stats()
