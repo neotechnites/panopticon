@@ -1,7 +1,7 @@
 shader_type spatial;
 render_mode cull_back;
 
-// Every lava surface on map 1 (sea, river, falls, S3 cracks), waving. Offsets are a function of
+// Every lava surface on map 1 (sea, river, falls, S3 cracks, S5 lake), waving. Offsets are a function of
 // position only (world xyz, and UV2.x baked per position: 0 on every lava edge), so faces stay welded.
 
 uniform sampler2D albedo_texture : source_color, filter_nearest_mipmap_anisotropic, repeat_enable;
@@ -18,6 +18,7 @@ uniform vec2 ring_centre = vec2(0.0);   // world xz the falls' walls are round
 uniform float river_y = 22.7;           // the river, S2, S4 and the cracks: world y
 uniform float shelf_y = 28.8;           // the flat lava over the outer fall
 uniform float sea_y = -11.05;           // the pit sea (its crust swells 0.6 m either way)
+uniform float lake_y = 21.70;           // S5's platform-run lake floor
 uniform float river_amp = 1.75;         // metres crest to trough on flat lava
 uniform float fall_amp = 1.5;           // metres a fall moves out and back
 uniform float speed = 0.55;             // rad/s: one heavy swell every ~11 s
@@ -26,7 +27,8 @@ float flat_w(float y) {
 	float a = 1.0 - smoothstep(0.25, 0.9, abs(y - river_y));
 	float b = 1.0 - smoothstep(0.25, 0.9, abs(y - shelf_y));
 	float c = 1.0 - smoothstep(0.9, 1.6, abs(y - sea_y));
-	return max(max(a, b), c);
+	float d = 1.0 - smoothstep(0.25, 0.9, abs(y - lake_y));
+	return max(max(a, b), max(c, d));
 }
 
 void vertex() {
