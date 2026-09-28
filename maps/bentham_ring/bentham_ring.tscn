@@ -23,7 +23,6 @@
 [ext_resource type="PackedScene" path="res://maps/bentham_ring/models/map_base_gate.glb" id="10_map_base_gate"]
 [ext_resource type="PackedScene" path="res://maps/bentham_ring/props/portal.tscn" id="19_portal"]
 [ext_resource type="PackedScene" path="res://maps/bentham_ring/props/torch.tscn" id="21_torch"]
-[ext_resource type="PackedScene" path="res://maps/bentham_ring/props/demon_pad.tscn" id="23_demon_pad_scene"]
 [ext_resource type="PackedScene" path="res://maps/bentham_ring/props/lava_crack.tscn" id="23_lava_crack_scene"]
 [ext_resource type="PackedScene" path="res://props/speed_powerup.tscn" id="24_speed_powerup_scene"]
 [ext_resource type="Script" uid="uid://bqujt25fif0uv" path="res://scripts/match/trap_volume.gd" id="26_trap_volume"]
@@ -400,16 +399,16 @@ transform = Transform3D(0.895712, 0, -0.444635, 0, 1, 0, 0.444635, 0, 0.895712, 
 
 [node name="S4_DemonRun" type="Node3D" parent="Sections" unique_id=203383202]
 
-[node name="DemonPad_212deg" parent="Sections/S4_DemonRun" unique_id=1866480373 instance=ExtResource("23_demon_pad_scene")]
+[node name="LavaCrack_212deg" parent="Sections/S4_DemonRun" unique_id=1866480373 instance=ExtResource("23_lava_crack_scene")]
 transform = Transform3D(0.857713, 0, -0.514129, 0, 1, 0, 0.514129, 0, 0.857713, -44.6061, 23, -27.8757)
 
-[node name="DemonPad_227deg" parent="Sections/S4_DemonRun" unique_id=190270639 instance=ExtResource("23_demon_pad_scene")]
+[node name="LavaCrack_227deg" parent="Sections/S4_DemonRun" unique_id=190270639 instance=ExtResource("23_lava_crack_scene")]
 transform = Transform3D(0.550779, 0, -0.834651, 0, 1, 0, 0.834651, 0, 0.550779, -37.0701, 23.2, -39.8437)
 
-[node name="DemonPad_242deg" parent="Sections/S4_DemonRun" unique_id=636700118 instance=ExtResource("23_demon_pad_scene")]
+[node name="LavaCrack_242deg" parent="Sections/S4_DemonRun" unique_id=636700118 instance=ExtResource("23_lava_crack_scene")]
 transform = Transform3D(0.400811, 0, -0.916161, 0, 1, 0, 0.916161, 0, 0.400811, -25.1778, 23.4, -47.5481)
 
-[node name="DemonPad_258deg" parent="Sections/S4_DemonRun" unique_id=1814737606 instance=ExtResource("23_demon_pad_scene")]
+[node name="LavaCrack_258deg" parent="Sections/S4_DemonRun" unique_id=1814737606 instance=ExtResource("23_lava_crack_scene")]
 transform = Transform3D(-0.041656, 0, -0.999132, 0, 1, 0, 0.999132, 0, -0.041656, -11.6431, 23.1, -53.1255)
 
 [node name="TrapVolume" type="Area3D" parent="Sections/S4_DemonRun" unique_id=1475256291]

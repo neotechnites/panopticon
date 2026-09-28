@@ -1,10 +1,76 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=13 format=3]
 
 [ext_resource type="Script" uid="uid://yhqfmlgdyomt" path="res://scripts/match/boost_pad.gd" id="1_boost_pad"]
 [ext_resource type="Script" path="res://scripts/ring/lava_haze.gd" id="2_lava_haze"]
 
+[sub_resource type="Gradient" id="Gradient_ember_dot"]
+offsets = PackedFloat32Array(0, 0.3, 0.62, 1)
+colors = PackedColorArray(1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0.3, 1, 1, 1, 0)
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_ember_dot"]
+gradient = SubResource("Gradient_ember_dot")
+width = 16
+height = 16
+fill = 2
+fill_from = Vector2(0.5, 0.5)
+fill_to = Vector2(1, 0.5)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ember"]
+transparency = 1
+blend_mode = 1
+shading_mode = 0
+disable_fog = true
+vertex_color_use_as_albedo = true
+albedo_color = Color(1.8, 1.8, 1.8, 1)
+albedo_texture = SubResource("GradientTexture2D_ember_dot")
+billboard_mode = 3
+billboard_keep_scale = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_ember"]
+material = SubResource("StandardMaterial3D_ember")
+size = Vector2(0.2, 0.2)
+
+[sub_resource type="Gradient" id="Gradient_ember_birth"]
+offsets = PackedFloat32Array(0, 0.55, 1)
+colors = PackedColorArray(1, 0.306, 0.012, 1, 0.69, 0.196, 0.027, 1, 0.6, 0.125, 0.043, 0.55)
+
+[sub_resource type="Gradient" id="Gradient_ember_life"]
+offsets = PackedFloat32Array(0, 0.12, 0.6, 1)
+colors = PackedColorArray(1, 0.5, 0.15, 0, 1, 1, 1, 1, 0.6, 0.125, 0.043, 0.7, 0.44, 0.004, 0.004, 0)
+
+[sub_resource type="Curve" id="Curve_ember_shrink"]
+_data = [Vector2(0, 0.55), 0.0, 0.0, 0, 0, Vector2(0.2, 1), 0.0, 0.0, 0, 0, Vector2(1, 0.2), 0.0, 0.0, 0, 0]
+point_count = 3
+
+[sub_resource type="GradientTexture1D" id="GradientTexture1D_ember_birth"]
+gradient = SubResource("Gradient_ember_birth")
+width = 32
+
+[sub_resource type="GradientTexture1D" id="GradientTexture1D_ember_life"]
+gradient = SubResource("Gradient_ember_life")
+width = 32
+
+[sub_resource type="CurveTexture" id="CurveTexture_ember_shrink"]
+width = 32
+curve = SubResource("Curve_ember_shrink")
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_ember"]
+lifetime_randomness = 0.45
+emission_shape = 3
+emission_box_extents = Vector3(0.7, 0.05, 0.7)
+direction = Vector3(0, 1, 0)
+spread = 14.0
+initial_velocity_min = 1.4
+initial_velocity_max = 3.2
+gravity = Vector3(0, 0.9, 0)
+scale_min = 0.35
+scale_max = 1.6
+scale_curve = SubResource("CurveTexture_ember_shrink")
+color_ramp = SubResource("GradientTexture1D_ember_life")
+color_initial_ramp = SubResource("GradientTexture1D_ember_birth")
+
 [node name="LavaCrack" type="Area3D"]
-editor_description = "A lava crack, drag-in/Ctrl+D/rotate to aim/move: a boost pad with wavy hotness instead of a model."
+editor_description = "A lava crack, drag-in/Ctrl+D/rotate to aim/move: a boost pad with wavy hotness instead of a model. Embers and heat wisps vent up out of it (Embers), and the haze carries a vent band up its middle."
 collision_layer = 0
 collision_mask = 1048577
 monitorable = false
@@ -15,3 +81,13 @@ footprint_metres = Vector3(2.5, 1, 2.5)
 
 [node name="Haze" type="MeshInstance3D" parent="."]
 script = ExtResource("2_lava_haze")
+
+[node name="Embers" type="GPUParticles3D" parent="."]
+editor_description = "Rising embers and heat wisps out of the crack: 24 soft dots, one additive material, no light, no shadow. Small bright ones read as embers, big dim ones as wisps."
+cast_shadow = 0
+amount = 24
+lifetime = 1.6
+preprocess = 1.6
+visibility_aabb = AABB(-1.6, -0.2, -1.6, 3.2, 5.0, 3.2)
+process_material = SubResource("ParticleProcessMaterial_ember")
+draw_pass_1 = SubResource("QuadMesh_ember")

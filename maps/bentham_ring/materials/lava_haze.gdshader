@@ -24,6 +24,14 @@ uniform float edge_fade : hint_range(0.01, 0.5, 0.01) = 0.28;
 // How much the dark end of the screen copy is lifted back, in colour units
 // (4/255 as measured; 0 on a renderer whose copy comes back exact).
 uniform float dark_lift : hint_range(0.0, 0.05, 0.001) = 0.0157;
+// The vent: a column up the middle of the quad where the heat rises harder
+// and faster, its ripples stretched tall, so the crack visibly throws heat up.
+// Peak displacement in the band, added to the base shimmer.
+uniform float vent_strength : hint_range(0.0, 0.08, 0.0005) = 0.016;
+// Half width of the band, in UV, measured from the quad's middle.
+uniform float vent_width : hint_range(0.02, 0.5, 0.01) = 0.16;
+// How fast the band's plume climbs, in metres per second.
+uniform float vent_rise_metres_per_second : hint_range(0.0, 6.0, 0.05) = 1.6;
 
 float hash(vec2 p) {
 	return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
@@ -63,6 +71,19 @@ void fragment() {
 	mask *= smoothstep(0.0, edge_fade, 1.0 - UV.x);
 	offset *= mask;
 
+	// The vent band: noise squeezed across and stretched up, walked upwards
+	// faster, in a column that fades only at the very top and its two sides.
+	float vent_rise = TIME * vent_rise_metres_per_second / haze_height_metres;
+	vec2 q = vec2(UV.x * wave_scale * 0.6, (UV.y - vent_rise) * wave_scale * 2.2);
+	vec2 vent = vec2(
+		haze_noise(q),
+		haze_noise(q + vec2(19.3, 53.1))
+	);
+	vent = (vent - vec2(0.5)) * 2.0 * vent_strength;
+	float band = 1.0 - smoothstep(0.0, vent_width, abs(UV.x - 0.5));
+	band *= smoothstep(0.0, 0.2, UV.y);
+	offset += vent * band;
+
 	vec3 behind = texture(screen, SCREEN_UV + offset).rgb;
 	// The screen copy comes back a shade darker at the dark end than the
 	// pixels it was copied from (measured on the PC, RX 6600 XT under GL
@@ -74,6 +95,6 @@ void fragment() {
 	ALBEDO = behind;
 	// The quad is only there where it shimmers: fully drawn at its base
 	// and middle, fading to nothing at the top and both sides, so it has no
-	// edge of its own.
-	ALPHA = mask;
+	// edge of its own. The vent band keeps the quad drawn up to its top.
+	ALPHA = max(mask, band);
 }
