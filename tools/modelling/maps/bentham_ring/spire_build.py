@@ -58,8 +58,8 @@ COL_TOP_R = 0.10
 COL_TOP_T = 0.92
 
 SEED = 7130921
-TEX_ALBEDO   = "hell_rock_albedo"
-TEX_EMISSIVE = "hell_rock_emissive"
+TEX_ALBEDO   = "hell_rock_atlas_albedo"
+TEX_EMISSIVE = "hell_rock_atlas_emissive"
 UV_SCALE = 0.30         # facets are ~0.5 m: chunkier than the tower's 0.13
 FACING_YAW = 0.0
 

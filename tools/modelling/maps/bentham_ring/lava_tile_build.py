@@ -37,8 +37,9 @@ SAG = (-0.06, 0.02)               # interior vertex z offset range: molten, not 
 SEED = 7720133
 
 TEX_SIZE = 128
-TEX_ALBEDO = "lava_tile_albedo"
-TEX_EMISSIVE = "lava_tile_emissive"
+TEX_ALBEDO = "hell_rock_atlas_albedo"   # a window of hell_rock_albedo.png
+TEX_EMISSIVE = "lava_tile_emissive"             # painted only; the rock does not glow
+OWN_TEXTURE = "lava_tile_atlas"   # its own quarter: lava_tile_albedo.png, its own glow
 TEX_SEED = 6661031
 ROCK_ROUGHNESS = 0.95
 ROCK_METALLIC = 0.0
@@ -210,11 +211,15 @@ def rock_material(name, albedo, emissive):
     nt = mat.node_tree
     bsdf = nt.nodes.get("Principled BSDF")
     for img, socket, y in ((albedo, "Base Color", 260), (emissive, "Emission Color", -220)):
+        if img is None:
+            continue
         node = nt.nodes.new("ShaderNodeTexImage")
         node.image = img
         node.interpolation = "Closest"          # hard texels; this is the look
         node.location = (-460, y)
         nt.links.new(node.outputs["Color"], bsdf.inputs[socket])
+    if emissive is None:
+        bsdf.inputs["Emission Color"].default_value = (0.0, 0.0, 0.0, 1.0)
     bsdf.inputs["Roughness"].default_value = ROCK_ROUGHNESS
     bsdf.inputs["Metallic"].default_value = ROCK_METALLIC
     bsdf.inputs["Emission Strength"].default_value = 1.0   # 1.0: no KHR_materials_emissive_strength, no Godot warning
@@ -403,7 +408,9 @@ def build():
 
     ob = slab.object(OBJECT_NAME)
     unwrap(ob, slab.zones)
-    mdl.finish(ob, rock_material("LavaTile", albedo, emissive), strip_uvs=False)
+    mdl.finish(ob, rock_material("HellRock", albedo, None), strip_uvs=False)
+    own = mdl.view_image(OWN_TEXTURE)
+    mdl.split_zone(ob, rock_material("LavaTile", own, own), ZONE_LAVA)
     print("MDL STATS visual_tris=%d collision_tris=0" % len(ob.data.polygons))
     xs = [v[0] for v in slab.verts]
     zs = [v[2] for v in slab.verts]

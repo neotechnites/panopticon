@@ -169,8 +169,8 @@ BODY_R = 0.40
 
 # ---- material / texture (HellRock atlas, as tower_build.py) ------------------
 TEX_SIZE      = 128
-TEX_ALBEDO    = "hell_rock_albedo"
-TEX_EMISSIVE  = "hell_rock_emissive"
+TEX_ALBEDO    = "hell_rock_atlas_albedo"
+TEX_EMISSIVE  = "hell_rock_atlas_emissive"
 TEX_SEED      = 6661031
 ROCK_ROUGHNESS = 0.95
 ROCK_METALLIC  = 0.0

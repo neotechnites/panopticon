@@ -131,6 +131,31 @@ def externalize(path, uri_of):
     return moved
 
 
+def transform(path, xform_of):
+    """Give each material texture slot whose image name has xform_of(name) = (offset, scale)
+    a KHR_texture_transform. Returns how many slots."""
+    js, binary = read(path)
+    n = 0
+    for mat in js.get("materials", []):
+        infos = [mat.get("pbrMetallicRoughness", {}).get("baseColorTexture"), mat.get("emissiveTexture")]
+        for info in infos:
+            if not info:
+                continue
+            im = js["images"][js["textures"][info["index"]]["source"]]
+            xf = xform_of(im.get("name", ""))
+            if xf is None:
+                continue
+            info.setdefault("extensions", {})["KHR_texture_transform"] = {
+                "offset": list(xf[0]), "scale": list(xf[1])}
+            n += 1
+    if n:
+        used = js.setdefault("extensionsUsed", [])
+        if "KHR_texture_transform" not in used:
+            used.append("KHR_texture_transform")
+        write(path, js, binary)
+    return n
+
+
 def embed(src, dst, root, home):
     """A self-contained copy of src (its uris read from root) for a scratch import check."""
     js, binary = read(src)

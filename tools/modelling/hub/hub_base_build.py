@@ -105,8 +105,8 @@ EYE_H = 1.65
 USE_TEXTURE_FILES = True
 TEX_DIR = "textures"
 TEX_SIZE = 128
-TEX_ALBEDO = "map_base_atlas_albedo"
-TEX_EMISSIVE = "map_base_atlas_emissive"
+TEX_ALBEDO = "hell_rock_glowatlas_albedo"
+TEX_EMISSIVE = "hell_rock_glowatlas_emissive"
 TEX_SEED = 6661031
 ROCK_ROUGHNESS = 0.95
 ROCK_METALLIC = 0.0
@@ -1296,7 +1296,7 @@ def build():
     albedo, emissive = build_texture()
     mdl.save_texture(albedo)
     mdl.save_texture(emissive)
-    river_albedo, river_emissive = _sheet("lava", _river_texture)   # the arena's lava tile
+    river_albedo, river_emissive = _sheet("hell_lava", _river_texture)   # the arena's lava tile
     mdl.save_texture(river_albedo)
     mdl.save_texture(river_emissive)
     stone_albedo, stone_emissive = build_stone_texture()
