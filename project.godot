@@ -16,13 +16,13 @@ run/main_scene="res://ui/main_menu.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 config/icon="res://icon.svg"
 
-[autoload]
-
-MacLiftLayer="*res://scripts/fx/mac_lift.gd"
-
 [audio]
 
 buses/default_bus_layout="uid://svp8whkdkunr"
+
+[autoload]
+
+MacLiftLayer="*res://scripts/fx/mac_lift.gd"
 
 [debug]
 
@@ -176,4 +176,3 @@ renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
 textures/vram_compression/import_etc2_astc=true
 limits/opengl/max_lights_per_object=32
-lights_and_shadows/positional_shadow/atlas_quadrant_0_subdiv=1
