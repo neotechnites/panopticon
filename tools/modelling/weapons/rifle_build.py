@@ -1,16 +1,17 @@
 """
-PANOPTICON -- guard's .50 cal (Barrett M82 flavoured) low-poly view model.
+PANOPTICON -- the warden's rifle: an old-prison bolt-action, low-poly view model.
 
-HELL SKIN: scorched iron, brimstone cracks, bone furniture, rusted etchings.
-The 128x128 PS1-style texture is generated procedurally by this script (no
-gradients, hard texels, nearest-neighbour filtering) and written to
-assets/textures/ alongside a matching emissive map for the ember glow.
+A long rifle with a heavy walnut stock, blued iron, a brass peep sight and a
+hand-worn finish; institutional, not military. Marked with the panopticon's
+eye stamped on the left of the receiver and a numbered brass plate let into
+the left of the butt -- the side the shooter sees. The 128x128 PS1-style atlas
+is painted procedurally here (hard texels, four palettes, no gradients) and
+lands in weapons/textures/ as the albedo the .glb links; there is no emissive.
 
 Run through the pipeline (from the Mac, from the repo root)::
 
-    tools/modelling/model build rifle --cpu --samples 36
+    tools/modelling/model build rifle --views none --regen-texture all
     tools/modelling/model look  rifle --views side --res 1600x760
-    tools/modelling/model look  rifle --cam 180,8,35      # first person
 
 COORDINATES
 -----------
@@ -23,22 +24,21 @@ Authored in BLENDER space, then glTF-exported (Blender X,Y,Z -> glTF X,Z,-Y):
 ORIGIN
 ------
 (0,0,0) sits ON THE BORE LINE at the REAR FACE OF THE RECEIVER, where the
-stock meets it. Chosen because:
-  * y=0 is the bore, so the shot line is the model's own local -Z axis and the
-    scope sits directly above the origin -- aiming maths needs no fudge factor.
-  * The stock runs BACK from the origin into +Z (toward the camera) and the
-    barrel runs FORWARD into -Z, so parenting this under Head and nudging it
-    down/right gives a right-handed view model with no rotation at all.
-  * The muzzle lands at a round local (0, 0, -MUZZLE_Z) for the tracer origin.
-It is centred on x=0 (bore centreline), NOT pre-offset to the right, so the
-game owns the hand offset.
+stock wrist meets it. y=0 is the bore, so the shot line is the model's own
+local -Z axis and the peep sight sits directly above the origin; the stock
+runs BACK into +Z (toward the camera) and the barrel FORWARD into -Z, so
+parenting this under Head needs no rotation. The muzzle lands at a round
+local (0, 0, -MUZZLE_Z) for the tracer origin. Centred on x=0 (bore
+centreline): the game owns the hand offset.
 
 TEXTURING
 ---------
-One 128x128 atlas, quartered into four 64x64 zones. Every primitive declares
-which zone it lives in; UVs are a per-face planar projection into a random
-window of that zone, so faces get texel variety without a single seam and
-without an unwrap. Nearest filtering, one material, one surface.
+One 128x128 atlas: walnut and blued steel in the top half (64x64 each), brass
+and hand-worn walnut in the bottom left (32x64 each), and the two marks -- the
+eye stamp and the number plate -- in the bottom right, reached only by the two
+faces that FIT onto them. Every other face takes a random window of its
+material's zone (per-face planar projection, long axis of the gun along u so
+wood grain runs the length of the stock). Nearest filtering, one material.
 """
 
 import math
@@ -66,89 +66,51 @@ OBJECT_NAME = "Rifle"   # the MeshInstance3D name weapons/rifle.tscn sees
 
 # ---- material / texture -----------------------------------------------------
 TEX_SIZE      = 128         # PS1 budget: one small square atlas
-TEX_ALBEDO    = "rifle_hell_albedo"
-TEX_EMISSIVE  = "rifle_hell_emissive"
+TEX_ALBEDO    = "rifle_hell_albedo"   # file name kept: the .tscn and the sheet know it
 TEX_SEED      = 6660613
-BODY_ROUGHNESS = 0.74
+BODY_ROUGHNESS = 0.68
 BODY_METALLIC  = 0.0
 UV_SCALE      = 7.0         # texels-per-metre feel: face_size * UV_SCALE of a zone
 UV_PAD        = 1.5 / TEX_SIZE   # half-texel gutter so zones never bleed
 
 # Atlas zones as (u0, v0, u1, v1). v=0 is the BOTTOM row of the image.
-ZONE_IRON  = (0.0, 0.5, 0.5, 1.0)   # scorched, pitted gun iron
-ZONE_EMBER = (0.5, 0.5, 1.0, 1.0)   # cooled basalt split by brimstone cracks
-ZONE_BONE  = (0.0, 0.0, 0.5, 0.5)   # grimy bone furniture
-ZONE_RUST  = (0.5, 0.0, 1.0, 0.5)   # rust with crude etched marks
+ZONE_WALNUT = (0.0,  0.5, 0.5,  1.0)   # dark oiled walnut, grain along u
+ZONE_BLUED  = (0.5,  0.5, 1.0,  1.0)   # blued steel, edge wear and pits
+ZONE_BRASS  = (0.0,  0.0, 0.25, 0.5)   # turned brass, tarnish
+ZONE_WORN   = (0.25, 0.0, 0.5,  0.5)   # walnut rubbed pale by a hand or a cheek
+# The marks, in texels (x0, y0, x1, y1): each is FIT onto exactly one face.
+EYE_RECT   = (64, 40, 112, 64)         # 48x24: the eye, stamped in the steel
+PLATE_RECT = (64, 16, 120, 36)         # 56x20: the brass number plate
+MARKS_BOX  = (64, 0, 128, 64)          # the rest of that quarter is plain blued steel
 
 # ---- master proportions (metres, Blender space: +Y forward, +Z up) ----------
-BUTT_Y        = -0.340   # rear face of the recoil pad
-RECEIVER_Y0   = -0.020   # receiver/stock junction  == THE ORIGIN PLANE
-RECEIVER_Y1   =  0.520   # front face of the receiver
-BARREL_Y1     =  1.020   # where the barrel meets the muzzle brake
-MUZZLE_Y      =  1.150   # tip of the brake  -> Godot local z = -1.150
+BUTT_Y        = -0.340   # rear face of the butt plate
+RECEIVER_Y0   = -0.020   # receiver/wrist junction  == THE ORIGIN PLANE
+RECEIVER_Y1   =  0.300   # front ring of the receiver, where the barrel screws in
+MUZZLE_Y      =  1.150   # tip of the barrel  -> Godot local z = -1.150
                           # overall length = MUZZLE_Y - BUTT_Y = 1.49 m
 
-RECEIVER_HALF_W = 0.047
-RECEIVER_Z0     = -0.050  # bore sits above centre of the upper receiver
-RECEIVER_Z1     =  0.056
+RECEIVER_HALF_W = 0.026  # flat-sided lower receiver
+RECEIVER_Z0     = -0.032
+RECEIVER_Z1     =  0.012
+RECEIVER_RING_R = 0.024  # the round top of the action, 8-gon on the bore
 
-BARREL_R        = 0.0330  # 12-gon, alternating radii to SUGGEST fluting
-BARREL_R_FLUTE  = 0.0280
-BARREL_SIDES    = 12
-CHAMBER_R       = 0.043   # heavier section just ahead of the receiver
+BARREL_R0       = 0.024  # at the receiver ring
+BARREL_R1       = 0.015  # at the muzzle
+BARREL_SIDES    = 8
 
-BRAKE_HALF_W_REAR  = 0.032
-BRAKE_HALF_W_FRONT = 0.026
-BRAKE_WING_SPAN    = 0.084   # half-span of the arrow "wings"
-BRAKE_WING_HALF_H  = 0.031
+FOREND_Y1       = 0.860  # the wood stops here; bare barrel to the muzzle
+BAND_Y          = ((0.560, 0.582), (0.832, 0.858))   # iron barrel bands
 
-RAIL_Z0, RAIL_Z1 = 0.056, 0.072
+BOLT_Y          = (0.044, 0.066)   # bolt handle root, closed, above the trigger
+BOLT_KNOB_X     = (0.070, 0.102)
 
-# ---- scope: a BRICK, not a tube and not a cube ------------------------------
-# Halo 3 sniper flavour: one long heavy slab bolted FLUSH to the rail. It used
-# to be a short square body floating on two ring posts, which read as a box on
-# stilts; the posts are gone and the body now sits with its underside ON the
-# rail (SCOPE_BOT_Z == RAIL_Z1), so the only gap is the rail's own 16 mm.
-# Keep it much longer than it is tall -- that ratio is the whole look.
-SCOPE_BOT_Z     = RAIL_Z1          # underside sits ON the rail: no stilts
-SCOPE_HEIGHT    = 0.078            # slab depth
-SCOPE_TOP_Z     = SCOPE_BOT_Z + SCOPE_HEIGHT
-SCOPE_Z         = 0.5 * (SCOPE_BOT_Z + SCOPE_TOP_Z)   # bore-relative centre
-SCOPE_Y0        = -0.090           # main slab, rear
-SCOPE_Y1        =  0.290           # main slab, front  -> 0.380 long
-# Wider than the receiver it sits on (RECEIVER_HALF_W = 0.047, full 0.094 m),
-# not just wider than its own old self -- overhangs the receiver by 13 mm a
-# side so it reads as a heavy chunk bolted on top, not a rail accessory.
-# Height and length are untouched.
-SCOPE_HALF_W    = RECEIVER_HALF_W + 0.013   # 0.060 -> full 0.120 m
-
-SCOPE_OBJ_LEN   = 0.058            # front lens shroud: a lip, not a second lump
-SCOPE_OBJ_HALF  = 0.037
-SCOPE_OBJ_Z0    = SCOPE_BOT_Z - 0.006
-SCOPE_OBJ_Z1    = SCOPE_TOP_Z + 0.006
-
-SCOPE_EYE_LEN   = 0.058            # rear cup, sits down onto the cheek rest
-SCOPE_EYE_HALF  = 0.034
-SCOPE_EYE_Z0    = SCOPE_BOT_Z + 0.004
-SCOPE_EYE_Z1    = SCOPE_TOP_Z - 0.004
-# overall scope length = EYE_LEN + (Y1-Y0) + OBJ_LEN = 0.496 m, 6.4 : 1 on height
-
-# ---- magazine: seats UP INTO the receiver through the magwell ---------------
-LOWER_Y1     = 0.370            # trigger housing / magwell runs this far fwd
-MAG_HALF_W   = 0.030
-MAG_TOP_Z    = RECEIVER_Z0      # mouth ends flush with the receiver floor
-MAG_TOP_Y    = (0.185, 0.345)   # magwell mouth, INSIDE the lower housing
-MAG_BOT_Y    = (0.235, 0.390)   # rakes FORWARD as it drops -- M82 signature
-MAG_BOT_Z    = -0.260
-
-BIPOD_FOOT_Z   = -0.290
-BIPOD_SPLAY_X  = 0.120          # how far the feet splay outboard
+PEEP_Z          = 0.080  # aperture centre above the bore
+PEEP_R_OUT      = 0.014
+PEEP_R_IN       = 0.006
 
 # ---- views ------------------------------------------------------------------
-# The muzzle points +Y in Blender, so the model's "front" is half a turn from
-# Blender's. With this set, `--views front` looks down the barrel and
-# `--views side` gives the profile, which is the shot that matters for a gun.
-FACING_YAW = 180.0
+FACING_YAW = 180.0       # the muzzle points +Y: "front" looks down the barrel
 
 
 # =============================================================================
@@ -166,10 +128,7 @@ class _Rng(object):
         return self.s
 
     def bits(self):
-        # An LCG's LOW bits are short-period -- taking n() % 4 straight gives a
-        # dither that repeats every 4 texels, which renders as corduroy. Use
-        # the high bits.
-        return self.n() >> 12
+        return self.n() >> 12          # the low bits are short-period: corduroy
 
     def f(self):
         return self.n() / float(0x7FFFFFFF)
@@ -195,33 +154,35 @@ class _Canvas(object):
         self.w = self.h = size
         n = size * size * 4
         self.alb = [0.0] * n
-        self.emi = [0.0] * n
         for i in range(size * size):
             self.alb[i * 4 + 3] = 1.0
-            self.emi[i * 4 + 3] = 1.0
+        self.clip = (0, 0, size, size)
 
-    def put(self, x, y, rgb, glow=None):
-        if not (0 <= x < self.w and 0 <= y < self.h):
+    def put(self, x, y, rgb):
+        x0, y0, x1, y1 = self.clip
+        if not (x0 <= x < x1 and y0 <= y < y1):
             return
         o = (y * self.w + x) * 4
-        r, g, b = _s2l(rgb)
-        self.alb[o], self.alb[o + 1], self.alb[o + 2] = r, g, b
-        if glow is not None:
-            r, g, b = _s2l(glow)
-            self.emi[o], self.emi[o + 1], self.emi[o + 2] = r, g, b
+        self.alb[o], self.alb[o + 1], self.alb[o + 2] = _s2l(rgb)
 
-    def hline(self, x, y, n, rgb, glow=None):
+    def hline(self, x, y, n, rgb):
         for d in range(n):
-            self.put(x + d, y, rgb, glow)
+            self.put(x + d, y, rgb)
 
-    def vline(self, x, y, n, rgb, glow=None):
+    def vline(self, x, y, n, rgb):
         for d in range(n):
-            self.put(x, y + d, rgb, glow)
+            self.put(x, y + d, rgb)
 
-    def rect(self, x0, y0, x1, y1, rgb, glow=None):
+    def rect(self, x0, y0, x1, y1, rgb):
         for y in range(y0, y1):
             for x in range(x0, x1):
-                self.put(x, y, rgb, glow)
+                self.put(x, y, rgb)
+
+    def disc(self, cx, cy, rad, rgb):
+        for dy in range(-rad, rad + 1):
+            for dx in range(-rad, rad + 1):
+                if dx * dx + dy * dy <= rad * rad + rad * 0.5:
+                    self.put(cx + dx, cy + dy, rgb)
 
 
 def _rect_of(zone, size):
@@ -229,144 +190,201 @@ def _rect_of(zone, size):
     return (int(u0 * size), int(v0 * size), int(u1 * size), int(v1 * size))
 
 
-def _paint_iron(c, r, box):
-    """Scorched, pitted gun iron: cold charcoal eaten into by heat and rust."""
+# ---- palettes: four or five shades a material, nothing between them ---------
+PAL_WALNUT  = [(88, 52, 28), (100, 62, 34), (76, 44, 24), (112, 72, 42)]
+GRAIN       = [(52, 28, 14), (46, 24, 12), (130, 90, 50)]
+PAL_WORN    = [(118, 84, 48), (130, 94, 56), (106, 74, 42), (140, 106, 64)]
+WORN_GRAIN  = [(94, 62, 34), (166, 130, 84)]
+PAL_BLUED   = [(46, 50, 60), (40, 44, 53), (52, 57, 68), (34, 37, 45)]
+STEEL_WEAR  = [(104, 108, 114), (84, 88, 94), (126, 130, 136)]
+PAL_BRASS   = [(170, 134, 54), (186, 150, 66), (152, 118, 44), (200, 166, 82)]
+BRASS_DARK  = [(120, 92, 38), (98, 74, 30)]
+BRASS_LIGHT = [(224, 194, 112)]
+INK         = (44, 30, 12)             # engraved into brass
+IRIS        = (128, 24, 18)            # the eye's iris, tower/models/eye.glb's red
+IRIS_RIM    = (86, 14, 12)
+SCLERA      = (22, 22, 26)             # its dark ball
+PUPIL       = (8, 6, 8)
+
+
+def _fill(c, r, box, shades):
     x0, y0, x1, y1 = box
-    shades = [(38, 35, 36), (48, 43, 42), (28, 26, 27), (58, 52, 49), (33, 30, 31)]
     for y in range(y0, y1):
         for x in range(x0, x1):
             c.put(x, y, r.pick(shades))
-    for _ in range(26):                                   # heat bloom / rust bloom
-        x, y = r.i(x0, x1 - 7), r.i(y0, y1 - 6)
-        col = r.pick([(96, 46, 20), (72, 32, 14), (118, 62, 26), (20, 18, 19)])
-        c.rect(x, y, x + r.i(3, 7), y + r.i(2, 6), col)
-    for _ in range(18):                                   # soot streaks
+
+
+def _grain(c, r, box, count, shades, wander):
+    """Grain the whole width of the box along u, wandering a texel in v now and then."""
+    x0, y0, x1, y1 = box
+    for _ in range(count):
         y = r.i(y0, y1 - 1)
-        x = r.i(x0, x1 - 8)
-        c.hline(x, y, min(r.i(10, 30), x1 - x), r.pick(
-            [(15, 14, 15), (86, 40, 17), (66, 60, 55)]))
-    for _ in range(14):                                   # bayonet scratches
-        x = r.i(x0, x1 - 1)
-        y = r.i(y0, y1 - 9)
-        c.vline(x, y, min(r.i(4, 9), y1 - y), r.pick([(84, 78, 72), (18, 16, 17)]))
-    for _ in range(26):                                   # pits and rivets
-        x, y = r.i(x0, x1 - 2), r.i(y0, y1 - 2)
-        c.rect(x, y, x + 2, y + 2, r.pick([(11, 10, 11), (78, 72, 66)]))
-    for _ in range(9):                                    # embers in the pits
-        x, y = r.i(x0 + 2, x1 - 3), r.i(y0 + 2, y1 - 3)
-        c.rect(x, y, x + 2, y + 2, (196, 70, 14), (176, 52, 6))
-
-
-def _paint_ember(c, r, box):
-    """Cooled basalt cracked wide open by brimstone. The only real light here."""
-    x0, y0, x1, y1 = box
-    shades = [(24, 17, 15), (34, 23, 18), (14, 10, 10), (44, 29, 21)]
-    for y in range(y0, y1):
+        col = r.pick(shades)
         for x in range(x0, x1):
-            c.put(x, y, r.pick(shades))
-    for _ in range(16):                                   # crack random-walks
-        x, y = r.i(x0, x1 - 1), r.i(y0, y1 - 1)
-        for _step in range(52):
-            for dx in (-1, 0, 1):                         # 3x3 glowing halo
-                for dy in (-1, 0, 1):
-                    if x0 <= x + dx < x1 and y0 <= y + dy < y1:
-                        c.put(x + dx, y + dy, (146, 48, 10), (104, 26, 3))
-            hot = r.pick([(255, 152, 32), (255, 208, 84), (244, 104, 16)])
-            c.put(x, y, hot, hot)
-            x += r.i(-1, 1)
-            y += r.i(-1, 1)
-            if not (x0 <= x < x1 and y0 <= y < y1):
-                break
-    for _ in range(40):                                   # cold slag flecks
-        c.put(r.i(x0, x1 - 1), r.i(y0, y1 - 1), (8, 6, 7))
+            c.put(x, y, col)
+            if r.f() < wander:
+                y = min(max(y + r.i(-1, 1), y0), y1 - 1)
 
 
-def _paint_bone(c, r, box):
-    """Bone furniture: pale ivory, dirt worked into the grain, one kill tally."""
+def _paint_walnut(c, r, box):
+    """Dark oiled walnut: long grain, a knot or two, oil-dark patches."""
+    c.clip = box
     x0, y0, x1, y1 = box
-    shades = [(198, 188, 162), (178, 166, 138), (213, 205, 183), (163, 150, 123)]
-    for y in range(y0, y1):
-        for x in range(x0, x1):
-            c.put(x, y, r.pick(shades))
-    for _ in range(30):                                   # grime and old blood
-        x, y = r.i(x0, x1 - 5), r.i(y0, y1 - 5)
-        c.rect(x, y, x + r.i(2, 5), y + r.i(2, 5),
-               r.pick([(124, 106, 80), (92, 74, 52), (146, 126, 96),
-                       (108, 52, 34), (86, 38, 26)]))
-    for _ in range(9):                                    # short grain cracks
-        x, y = r.i(x0, x1 - 1), r.i(y0 + 2, y1 - 6)
-        c.vline(x, y, r.i(2, 5), (84, 70, 52))
-    for _ in range(6):                                    # scorch on the edges
+    _fill(c, r, box, PAL_WALNUT)
+    _grain(c, r, box, 22, GRAIN, 0.12)
+    for _ in range(6):                                    # oil-dark figure
+        x, y = r.i(x0, x1 - 8), r.i(y0, y1 - 3)
+        c.rect(x, y, x + r.i(4, 9), y + r.i(1, 3), (62, 36, 20))
+    for _ in range(2):                                    # knots: rings in the grain
+        kx, ky = r.i(x0 + 6, x1 - 7), r.i(y0 + 4, y1 - 5)
+        c.disc(kx, ky, 3, (56, 32, 16))
+        c.disc(kx, ky, 2, (104, 66, 36))
+        c.disc(kx, ky, 1, (46, 24, 12))
+    for _ in range(10):                                   # dings
+        c.put(r.i(x0, x1 - 1), r.i(y0, y1 - 1), (44, 22, 12))
+
+
+def _paint_worn(c, r, box):
+    """The same walnut rubbed pale where a hand and a cheek have lived on it."""
+    c.clip = box
+    x0, y0, x1, y1 = box
+    _fill(c, r, box, PAL_WORN)
+    _grain(c, r, box, 9, WORN_GRAIN, 0.10)
+    for _ in range(7):                                    # polished high spots
+        x, y = r.i(x0, x1 - 6), r.i(y0, y1 - 2)
+        c.rect(x, y, x + r.i(3, 7), y + r.i(1, 2), (172, 134, 86))
+    for _ in range(6):                                    # dirt in the pores
+        x, y = r.i(x0, x1 - 3), r.i(y0, y1 - 2)
+        c.rect(x, y, x + r.i(1, 3), y + 1, (90, 58, 32))
+
+
+def _paint_blued(c, r, box, marks=False):
+    """Blued steel: blue-black, machining lines, silver wear where hands and holsters rubbed."""
+    c.clip = box
+    x0, y0, x1, y1 = box
+    _fill(c, r, box, PAL_BLUED)
+    for _ in range(5):                                    # turning marks
+        y = r.i(y0, y1 - 1)
+        c.hline(x0, y, x1 - x0, (56, 61, 72))
+    if marks:
+        return
+    for _ in range(12):                                   # bright wear
+        x, y = r.i(x0, x1 - 8), r.i(y0, y1 - 1)
+        c.hline(x, y, r.i(3, 8), r.pick(STEEL_WEAR))
+    for _ in range(6):                                    # worn-through patches
         x, y = r.i(x0, x1 - 4), r.i(y0, y1 - 3)
-        c.rect(x, y, x + r.i(2, 4), y + 2, (58, 44, 34))
-    for k in range(5):                                    # kill tally, one corner
-        c.vline(x0 + 4 + k * 3, y0 + 4, 7, (46, 34, 26))
-    c.hline(x0 + 2, y0 + 7, 15, (46, 34, 26))
+        c.rect(x, y, x + r.i(2, 4), y + r.i(1, 2), (84, 88, 94))
+    for _ in range(16):                                   # pits
+        c.put(r.i(x0, x1 - 1), r.i(y0, y1 - 1), (18, 20, 24))
+    for _ in range(4):                                    # a little rust in the pits
+        x, y = r.i(x0, x1 - 2), r.i(y0, y1 - 2)
+        c.rect(x, y, x + 2, y + 1, (78, 48, 30))
 
 
-def _paint_rust(c, r, box):
-    """Rust, and the sigil somebody scratched into the mag with a bayonet."""
+def _paint_brass(c, r, box):
+    """Turned brass: warm, tarnished in patches, a bright line where it was polished."""
+    c.clip = box
     x0, y0, x1, y1 = box
-    shades = [(94, 43, 18), (122, 59, 22), (66, 29, 12), (142, 76, 29), (80, 35, 15)]
-    for y in range(y0, y1):
-        for x in range(x0, x1):
-            c.put(x, y, r.pick(shades))
-    for _ in range(18):                                   # scabs of deep rust
-        x, y = r.i(x0, x1 - 5), r.i(y0, y1 - 5)
-        c.rect(x, y, x + r.i(3, 5), y + r.i(2, 5),
-               r.pick([(52, 22, 9), (158, 90, 36), (38, 16, 8)]))
-    ink = (17, 12, 10)
-    cx, cy = x0 + 32, y0 + 32                             # inverted cross
-    c.vline(cx, cy - 20, 40, ink)
-    c.vline(cx + 1, cy - 20, 40, ink)
-    c.hline(cx - 9, cy - 11, 20, ink)
-    for k in range(8):                                    # ring of hash marks
-        a = 2.0 * math.pi * k / 8.0
-        hx = int(cx + 25 * math.cos(a))
-        hy = int(cy + 25 * math.sin(a))
-        c.vline(hx, hy, 3, ink)
-    for _ in range(8):                                    # still-warm scratches
-        x, y = r.i(x0, x1 - 4), r.i(y0, y1 - 1)
-        c.hline(x, y, 3, (206, 92, 22), (150, 46, 6))
+    _fill(c, r, box, PAL_BRASS)
+    for _ in range(8):                                    # tarnish
+        x, y = r.i(x0, x1 - 5), r.i(y0, y1 - 4)
+        c.rect(x, y, x + r.i(2, 5), y + r.i(2, 4), r.pick(BRASS_DARK))
+    for _ in range(6):                                    # lathe lines
+        y = r.i(y0, y1 - 1)
+        c.hline(x0, y, x1 - x0, r.pick(BRASS_DARK + BRASS_LIGHT))
+    for _ in range(10):                                   # glints
+        c.put(r.i(x0, x1 - 1), r.i(y0, y1 - 1), BRASS_LIGHT[0])
+
+
+def _paint_eye(c, r, rect):
+    """The panopticon's eye struck into the receiver: a lens outline, dark ball, red iris, black pupil."""
+    c.clip = rect
+    x0, y0, x1, y1 = rect
+    cx, cy = (x0 + x1) // 2, (y0 + y1) // 2
+    half_w, half_h = 22, 10
+    for dx in range(-half_w, half_w + 1):
+        h = int(round(half_h * (1.0 - (dx / float(half_w)) ** 2)))
+        c.vline(cx + dx, cy - h, 2 * h + 1, SCLERA)
+        c.put(cx + dx, cy + h + 1, (108, 112, 122))        # light catches the struck edge
+        c.put(cx + dx, cy - h - 1, (108, 112, 122))
+        c.put(cx + dx, cy + h, (12, 13, 16))
+        c.put(cx + dx, cy - h, (12, 13, 16))
+    c.disc(cx, cy, 8, IRIS_RIM)
+    c.disc(cx, cy, 7, IRIS)
+    c.disc(cx, cy, 4, PUPIL)
+    c.put(cx - 3, cy + 4, (188, 96, 84))                  # one glint
+
+
+_FONT = {                                                  # 3x5, rows top -> bottom
+    "N": ["#.#", "###", "###", "#.#", "#.#"],
+    "o": ["...", ".#.", "#.#", "#.#", ".#."],
+    "0": ["###", "#.#", "#.#", "#.#", "###"],
+    "7": ["###", "..#", ".#.", ".#.", ".#."],
+    " ": ["...", "...", "...", "...", "..."],
+}
+
+
+def _glyphs(c, text, x, y_top, scale, rgb):
+    for ch in text:
+        rows = _FONT[ch]
+        for ri, row in enumerate(rows):
+            for ci, bit in enumerate(row):
+                if bit == "#":
+                    c.rect(x + ci * scale, y_top - (ri + 1) * scale + 1,
+                           x + (ci + 1) * scale, y_top - ri * scale + 1, rgb)
+        x += (3 + 1) * scale
+
+
+def _paint_plate(c, r, rect):
+    """The numbered brass plate: bordered, four screws, the number engraved."""
+    c.clip = rect
+    x0, y0, x1, y1 = rect
+    _fill(c, r, rect, PAL_BRASS)
+    c.rect(x0, y0, x1, y0 + 1, BRASS_DARK[1])
+    c.rect(x0, y1 - 1, x1, y1, BRASS_LIGHT[0])
+    c.rect(x0, y0, x0 + 1, y1, BRASS_LIGHT[0])
+    c.rect(x1 - 1, y0, x1, y1, BRASS_DARK[1])
+    for sx in (x0 + 3, x1 - 4):
+        for sy in (y0 + 3, y1 - 4):
+            c.put(sx, sy, BRASS_DARK[1])
+            c.put(sx + 1, sy + 1, BRASS_LIGHT[0])
+    _glyphs(c, "No 7", x0 + 12, y1 - 5, 2, INK)
 
 
 def build_texture():
-    """Paint the atlas and hand back (albedo_image, emissive_image)."""
+    """Paint the atlas and hand back the albedo image."""
     c = _Canvas(TEX_SIZE)
     r = _Rng(TEX_SEED)
-    _paint_iron(c, r, _rect_of(ZONE_IRON, TEX_SIZE))
-    _paint_ember(c, r, _rect_of(ZONE_EMBER, TEX_SIZE))
-    _paint_bone(c, r, _rect_of(ZONE_BONE, TEX_SIZE))
-    _paint_rust(c, r, _rect_of(ZONE_RUST, TEX_SIZE))
+    _paint_walnut(c, r, _rect_of(ZONE_WALNUT, TEX_SIZE))
+    _paint_blued(c, r, _rect_of(ZONE_BLUED, TEX_SIZE))
+    _paint_brass(c, r, _rect_of(ZONE_BRASS, TEX_SIZE))
+    _paint_worn(c, r, _rect_of(ZONE_WORN, TEX_SIZE))
+    _paint_blued(c, r, MARKS_BOX, marks=True)
+    _paint_eye(c, r, EYE_RECT)
+    _paint_plate(c, r, PLATE_RECT)
 
-    images = []
-    for name, buf in ((TEX_ALBEDO, c.alb), (TEX_EMISSIVE, c.emi)):
-        img = bpy.data.images.new(name, TEX_SIZE, TEX_SIZE, alpha=False)
-        img.colorspace_settings.name = "sRGB"
-        img.pixels.foreach_set(buf)
-        img.update()
-        images.append(img)
-    return images[0], images[1]
+    img = bpy.data.images.new(TEX_ALBEDO, TEX_SIZE, TEX_SIZE, alpha=False)
+    img.colorspace_settings.name = "sRGB"
+    img.pixels.foreach_set(c.alb)
+    img.update()
+    return img
 
 
-def hell_material(name, albedo, emissive):
+def warden_material(name, albedo):
     mat = bpy.data.materials.new(name)
     mat.use_nodes = True
     nt = mat.node_tree
     bsdf = nt.nodes.get("Principled BSDF")
-    for img, socket, y in ((albedo, "Base Color", 260), (emissive, "Emission Color", -220)):
-        node = nt.nodes.new("ShaderNodeTexImage")
-        node.image = img
-        node.interpolation = "Closest"          # hard texels; this is the look
-        node.location = (-460, y)
-        nt.links.new(node.outputs["Color"], bsdf.inputs[socket])
+    node = nt.nodes.new("ShaderNodeTexImage")
+    node.image = albedo
+    node.interpolation = "Closest"          # hard texels; this is the look
+    node.location = (-460, 260)
+    nt.links.new(node.outputs["Color"], bsdf.inputs["Base Color"])
     bsdf.inputs["Roughness"].default_value = BODY_ROUGHNESS
     bsdf.inputs["Metallic"].default_value = BODY_METALLIC
-    # Exactly 1.0 keeps glTF from writing KHR_materials_emissive_strength,
-    # which Godot's importer would warn about -- and the verify bar is zero
-    # warnings, not "no errors".
-    bsdf.inputs["Emission Strength"].default_value = 1.0
-    mat.diffuse_color = (0.22, 0.14, 0.12, 1.0)
+    bsdf.inputs["Emission Color"].default_value = (0.0, 0.0, 0.0, 1.0)
+    bsdf.inputs["Emission Strength"].default_value = 1.0   # exactly 1.0: no KHR warning
+    mat.diffuse_color = (0.22, 0.14, 0.10, 1.0)
     return mat
 
 
@@ -377,11 +395,15 @@ def hell_material(name, albedo, emissive):
 # for the final join -- and tagged with the atlas zone it is skinned from.
 
 _OBJECTS = []
-_ZONE = ZONE_IRON          # every primitive built lands in this zone
+_ZONE = ZONE_BLUED         # every primitive built lands in this zone
 
 
-def _reg(ob):
+def _reg(ob, top=None, fit=None):
     ob["zone"] = _ZONE
+    if top is not None:
+        ob["zone_top"] = top       # upward faces take this zone instead (a cheek rest)
+    if fit is not None:
+        ob["fit"] = fit            # every face stretches over this texel rect (a mark)
     _OBJECTS.append(ob)
     return ob
 
@@ -391,11 +413,42 @@ def zone(z):
     _ZONE = z
 
 
-def frustum(name, a, b):                  return _reg(mdl.frustum(name, a, b))
-def prism(name, y0, y1, r0, r1=None):     return _reg(mdl.prism(name, y0, y1, r0, r1))
-def plate_z(name, quad, z0, z1):          return _reg(mdl.plate_z(name, quad, z0, z1))
+def frustum(name, a, b):                       return _reg(mdl.frustum(name, a, b))
+def prism(name, y0, y1, r0, r1=None, **kw):    return _reg(mdl.prism(name, y0, y1, r0, r1), **kw)
 def tube(name, y0, y1, radii, cz=0.0, cx=0.0, sides=8):
     return _reg(mdl.tube(name, y0, y1, radii, cz=cz, cx=cx, sides=sides))
+
+
+def taper(name, y0, y1, r0, r1, sides=8, cz=0.0):
+    """An n-gon tube along +Y whose radius runs r0 -> r1: the barrel."""
+    verts = []
+    for y, rad in ((y0, r0), (y1, r1)):
+        for i in range(sides):
+            t = 2.0 * math.pi * i / sides
+            verts.append((rad * math.sin(t), y, cz + rad * math.cos(t)))
+    faces = [(i, (i + 1) % sides, sides + (i + 1) % sides, sides + i) for i in range(sides)]
+    faces.append(tuple(reversed(range(sides))))
+    faces.append(tuple(range(sides, 2 * sides)))
+    return _reg(mdl.mesh(name, verts, faces))
+
+
+def washer(name, y0, y1, r_out, r_in, cz, sides=8):
+    """A flat ring standing across the bore line, with a real hole: the peep."""
+    verts = []
+    for y in (y0, y1):
+        for rad in (r_out, r_in):
+            for i in range(sides):
+                t = 2.0 * math.pi * i / sides
+                verts.append((rad * math.sin(t), y, cz + rad * math.cos(t)))
+    o0, i0, o1, i1 = 0, sides, 2 * sides, 3 * sides
+    faces = []
+    for i in range(sides):
+        j = (i + 1) % sides
+        faces.append((o0 + i, o0 + j, o1 + j, o1 + i))          # outer wall
+        faces.append((i1 + i, i1 + j, i0 + j, i0 + i))          # bore wall, facing in
+        faces.append((o1 + i, o1 + j, i1 + j, i1 + i))          # front
+        faces.append((o0 + j, o0 + i, i0 + i, i0 + j))          # back
+    return _reg(mdl.mesh(name, verts, faces))
 
 
 def guard_u(name, half_w, outline):
@@ -410,26 +463,42 @@ def guard_u(name, half_w, outline):
 def unwrap(ob, seed=0):
     """Per-face planar projection into a random window of the object's zone.
 
-    Each face is projected on its own dominant axis and dropped somewhere
-    inside its 64x64 zone. No shared UV space between faces means no seams to
-    reason about and no unwrap to maintain, and the random window is what stops
-    456 triangles all showing the same 8 texels.
+    Each face is projected on its own dominant axis with the gun's long axis
+    (Blender +Y) along u, so grain runs the length of the wood on every face,
+    and dropped somewhere inside its zone. A "fit" object instead stretches
+    every face over one texel rect, mirrored on -X faces so a mark reads the
+    right way round from the shooter's side.
     """
     me = ob.data
     uvl = me.uv_layers.new(name="UVMap")
-    u0, v0, u1, v1 = ob["zone"]
-    span_u = (u1 - u0) - 2.0 * UV_PAD
-    span_v = (v1 - v0) - 2.0 * UV_PAD
+    fit = ob.get("fit")
     r = _Rng(TEX_SEED + seed * 7919 + len(me.polygons))
     for poly in me.polygons:
         n = poly.normal
         ax = max(range(3), key=lambda i: abs(n[i]))
-        ii, jj = ((1, 2), (0, 2), (0, 1))[ax]
+        ii, jj = ((1, 2), (0, 2), (1, 0))[ax]
         cos = [me.vertices[me.loops[li].vertex_index].co for li in poly.loop_indices]
         mi = min(co[ii] for co in cos)
         mj = min(co[jj] for co in cos)
-        w = min((max(co[ii] for co in cos) - mi) * UV_SCALE, 1.0)
-        h = min((max(co[jj] for co in cos) - mj) * UV_SCALE, 1.0)
+        wi = max(co[ii] for co in cos) - mi
+        wj = max(co[jj] for co in cos) - mj
+        if fit is not None:
+            tx0, ty0, tx1, ty1 = fit
+            flip = ax == 0 and n[0] < 0.0
+            for li, co in zip(poly.loop_indices, cos):
+                s = (co[ii] - mi) / wi if wi > 1e-9 else 0.0
+                t = (co[jj] - mj) / wj if wj > 1e-9 else 0.0
+                if flip:
+                    s = 1.0 - s
+                uvl.data[li].uv = ((tx0 + 0.5 + s * (tx1 - tx0 - 1.0)) / TEX_SIZE,
+                                   (ty0 + 0.5 + t * (ty1 - ty0 - 1.0)) / TEX_SIZE)
+            continue
+        z = ob["zone_top"] if (ob.get("zone_top") is not None and n[2] > 0.7) else ob["zone"]
+        u0, v0, u1, v1 = z
+        span_u = (u1 - u0) - 2.0 * UV_PAD
+        span_v = (v1 - v0) - 2.0 * UV_PAD
+        w = min(wi * UV_SCALE, 1.0)
+        h = min(wj * UV_SCALE, 1.0)
         ou = r.f() * (1.0 - w)
         ov = r.f() * (1.0 - h)
         for li, co in zip(poly.loop_indices, cos):
@@ -442,113 +511,80 @@ def unwrap(ob, seed=0):
 def _geometry():
     RW = RECEIVER_HALF_W
 
-    # ---- receiver -----------------------------------------------------------
-    zone(ZONE_IRON)
-    prism("receiver_upper", RECEIVER_Y0, RECEIVER_Y1,
-          (-RW, RW, RECEIVER_Z0, RECEIVER_Z1))
+    # ---- receiver: flat-sided lower, round action on top ----------------------
+    zone(ZONE_BLUED)
+    prism("receiver", RECEIVER_Y0, RECEIVER_Y1, (-RW, RW, RECEIVER_Z0, RECEIVER_Z1))
+    tube("action", RECEIVER_Y0, RECEIVER_Y1, RECEIVER_RING_R, sides=8)
+    # the eye, struck into the left wall -- the wall the shooter looks at
+    prism("eye_stamp", 0.090, 0.174, (-RW - 0.0008, -RW + 0.004, -0.031, 0.011), fit=EYE_RECT)
 
-    # ejection port + charging handle: right side, cheap silhouette breakers
-    prism("rib_r", 0.020, 0.480, (RW, RW + 0.006, -0.032, -0.012))
-    prism("rib_l", 0.020, 0.480, (-RW - 0.006, -RW, -0.032, -0.012))
-    prism("ejection_port", 0.060, 0.200, (RW, RW + 0.010, -0.018, 0.030))
-    prism("charging_handle", 0.210, 0.250, (RW, RW + 0.028, 0.005, 0.028))
+    # ---- bolt: shroud out the back, handle down the right side ----------------
+    tube("bolt_shroud", -0.062, RECEIVER_Y0, 0.016, cz=0.003, sides=8)
+    by0, by1 = BOLT_Y
+    frustum("bolt_handle",
+            [(RW - 0.004, by0, 0.014), (RW - 0.004, by1, 0.014),
+             (RW - 0.004, by1, -0.008), (RW - 0.004, by0, -0.008)],
+            [(BOLT_KNOB_X[0] + 0.008, by0 + 0.002, -0.030), (BOLT_KNOB_X[0] + 0.008, by1 - 0.002, -0.030),
+             (BOLT_KNOB_X[0] + 0.008, by1 - 0.002, -0.048), (BOLT_KNOB_X[0] + 0.008, by0 + 0.002, -0.048)])
+    prism("bolt_knob", by0 - 0.007, by1 + 0.007, (BOLT_KNOB_X[0], BOLT_KNOB_X[1], -0.072, -0.034))
 
-    # ---- trigger housing / MAGWELL -----------------------------------------
-    # Runs the full length from the receiver rear to past the magazine mouth,
-    # so the magazine is seated into the gun instead of hanging off the guard.
-    zone(ZONE_RUST)
-    prism("lower_housing", RECEIVER_Y0, LOWER_Y1,
-          (-0.042, 0.042, -0.098, -0.045))
+    # ---- barrel, front sight ----------------------------------------------------
+    taper("barrel", RECEIVER_Y1, MUZZLE_Y, BARREL_R0, BARREL_R1, sides=BARREL_SIDES)
+    prism("sight_base", 1.070, 1.110, (-0.008, 0.008, 0.006, 0.020))
+    prism("sight_blade", 1.085, 1.095, (-0.003, 0.003, 0.012, 0.038))
 
-    # ---- grip / trigger group ----------------------------------------------
-    zone(ZONE_BONE)
-    frustum("pistol_grip",
-            [(-0.021, -0.020, -0.245), (0.021, -0.020, -0.245),
-             (0.021,  0.050, -0.245), (-0.021, 0.050, -0.245)],
-            [(-0.024,  0.020, -0.088), (0.024, 0.020, -0.088),
-             (0.024,  0.092, -0.088), (-0.024, 0.092, -0.088)])
-    zone(ZONE_IRON)
-    guard_u("trigger_guard", 0.017, [(0.088, -0.156), (0.206, -0.156), (0.206, -0.096),
-                                     (0.188, -0.096), (0.188, -0.136), (0.106, -0.136),
-                                     (0.106, -0.096), (0.088, -0.096)])
-    prism("trigger", 0.112, 0.130, (-0.008, 0.008, -0.130, -0.090))
+    # ---- peep sight: brass post and ring on the tang ---------------------------
+    zone(ZONE_BRASS)
+    prism("peep_post", -0.006, 0.010, (-0.005, 0.005, 0.020, PEEP_Z - PEEP_R_OUT + 0.004))
+    washer("peep_ring", -0.004, 0.008, PEEP_R_OUT, PEEP_R_IN, PEEP_Z)
 
-    # ---- magazine: mouth ends INSIDE the magwell, body rakes forward -------
-    zone(ZONE_RUST)
-    frustum("magazine",
-            [(-MAG_HALF_W, MAG_BOT_Y[0], MAG_BOT_Z), (MAG_HALF_W, MAG_BOT_Y[0], MAG_BOT_Z),
-             (MAG_HALF_W, MAG_BOT_Y[1], MAG_BOT_Z), (-MAG_HALF_W, MAG_BOT_Y[1], MAG_BOT_Z)],
-            [(-MAG_HALF_W, MAG_TOP_Y[0], MAG_TOP_Z), (MAG_HALF_W, MAG_TOP_Y[0], MAG_TOP_Z),
-             (MAG_HALF_W, MAG_TOP_Y[1], MAG_TOP_Z), (-MAG_HALF_W, MAG_TOP_Y[1], MAG_TOP_Z)])
+    # ---- stock: wrist, comb, butt -- one piece of walnut ----------------------
+    zone(ZONE_WORN)
+    prism("wrist", -0.120, RECEIVER_Y0,
+          (-0.021, 0.021, -0.058, 0.012),
+          (-RW, RW, -0.040, 0.004))
+    zone(ZONE_WALNUT)
+    prism("comb", -0.200, -0.120,
+          (-0.024, 0.024, -0.082, 0.044),
+          (-0.021, 0.021, -0.058, 0.012), top=ZONE_WORN)
+    prism("butt", -0.328, -0.200,
+          (-0.024, 0.024, -0.100, 0.046),
+          (-0.024, 0.024, -0.082, 0.044))
+    zone(ZONE_BLUED)
+    prism("butt_plate", BUTT_Y, -0.328, (-0.025, 0.025, -0.102, 0.048))
+    zone(ZONE_BRASS)
+    prism("number_plate", -0.292, -0.240, (-0.0248, -0.022, -0.040, -0.022), fit=PLATE_RECT)
 
-    # ---- stock --------------------------------------------------------------
-    zone(ZONE_BONE)
-    prism("stock_body", BUTT_Y + 0.040, RECEIVER_Y0,
-          (-0.038, 0.038, -0.055, 0.042),
-          (-0.045, 0.045, -0.075, 0.050))
-    zone(ZONE_IRON)
-    prism("butt_pad", BUTT_Y, BUTT_Y + 0.040, (-0.038, 0.038, -0.054, 0.046))
-    zone(ZONE_BONE)
-    prism("cheek_rest", -0.285, -0.060, (-0.034, 0.034, 0.042, 0.074))
+    # ---- belly and forend: the wood the action beds into, out to the bands ----
+    zone(ZONE_WALNUT)
+    prism("belly", RECEIVER_Y0, RECEIVER_Y1, (-RW - 0.001, RW + 0.001, -0.052, -0.030))
+    prism("forend", RECEIVER_Y1 - 0.002, FOREND_Y1,
+          (-RW - 0.001, RW + 0.001, -0.052, 0.002),
+          (-0.020, 0.020, -0.036, 0.004))
+    zone(ZONE_BLUED)
+    prism("band_rear", BAND_Y[0][0], BAND_Y[0][1], (-0.027, 0.027, -0.050, 0.025))
+    prism("band_front", BAND_Y[1][0], BAND_Y[1][1], (-0.022, 0.022, -0.040, 0.022))
 
-    # ---- top: rail, carry handle, BOX scope ---------------------------------
-    zone(ZONE_IRON)
-    prism("rail", -0.040, 0.420, (-0.017, 0.017, RAIL_Z0, RAIL_Z1))
-    # No carry handle and no scope rings any more -- the slab is the top of the
-    # gun, and both would sit entirely inside it.
-    prism("scope_body", SCOPE_Y0, SCOPE_Y1,
-          (-SCOPE_HALF_W, SCOPE_HALF_W, SCOPE_BOT_Z, SCOPE_TOP_Z))
-    zone(ZONE_EMBER)
-    prism("scope_objective", SCOPE_Y1, SCOPE_Y1 + SCOPE_OBJ_LEN,
-          (-SCOPE_OBJ_HALF, SCOPE_OBJ_HALF, SCOPE_OBJ_Z0, SCOPE_OBJ_Z1))
-    prism("scope_eyepiece", SCOPE_Y0 - SCOPE_EYE_LEN, SCOPE_Y0,
-          (-SCOPE_EYE_HALF, SCOPE_EYE_HALF, SCOPE_EYE_Z0, SCOPE_EYE_Z1))
-
-    # ---- barrel -------------------------------------------------------------
-    zone(ZONE_IRON)
-    tube("chamber", 0.440, 0.580, CHAMBER_R, sides=8)
-    flute = [BARREL_R if (i % 2 == 0) else BARREL_R_FLUTE for i in range(BARREL_SIDES)]
-    tube("barrel", 0.560, BARREL_Y1, flute, sides=BARREL_SIDES)
-
-    # ---- muzzle brake: the arrow ------------------------------------------
-    prism("brake_body", BARREL_Y1 - 0.020, MUZZLE_Y,
-          (-BRAKE_HALF_W_REAR, BRAKE_HALF_W_REAR, -BRAKE_HALF_W_REAR, BRAKE_HALF_W_REAR),
-          (-BRAKE_HALF_W_FRONT, BRAKE_HALF_W_FRONT, -BRAKE_HALF_W_FRONT, BRAKE_HALF_W_FRONT))
-    zone(ZONE_EMBER)
-    wing_r = [(0.028, MUZZLE_Y - 0.050),
-              (BRAKE_WING_SPAN, BARREL_Y1 - 0.012),
-              (BRAKE_WING_SPAN, BARREL_Y1 - 0.040),
-              (0.028, MUZZLE_Y - 0.100)]
-    plate_z("brake_wing_r", wing_r, -BRAKE_WING_HALF_H, BRAKE_WING_HALF_H)
-    plate_z("brake_wing_l", [(-x, y) for (x, y) in wing_r],
-            -BRAKE_WING_HALF_H, BRAKE_WING_HALF_H)
-
-    # ---- bipod --------------------------------------------------------------
-    zone(ZONE_RUST)
-    prism("bipod_mount", 0.500, 0.560, (-0.030, 0.030, -0.095, -0.045))
-    for side, sgn in (("r", 1.0), ("l", -1.0)):
-        top = [(sgn * 0.018, 0.505, -0.080), (sgn * 0.040, 0.505, -0.080),
-               (sgn * 0.040, 0.545, -0.080), (sgn * 0.018, 0.545, -0.080)]
-        foot_x0 = sgn * (BIPOD_SPLAY_X - 0.018)
-        foot_x1 = sgn * BIPOD_SPLAY_X
-        bot = [(foot_x0, 0.575, BIPOD_FOOT_Z), (foot_x1, 0.575, BIPOD_FOOT_Z),
-               (foot_x1, 0.612, BIPOD_FOOT_Z), (foot_x0, 0.612, BIPOD_FOOT_Z)]
-        frustum("bipod_leg_" + side, bot, top)
+    # ---- trigger group and magazine floorplate ---------------------------------
+    guard_u("trigger_guard", 0.011, [(0.000, -0.050), (0.125, -0.050), (0.125, -0.092),
+                                     (0.110, -0.092), (0.110, -0.064), (0.015, -0.064),
+                                     (0.015, -0.092), (0.000, -0.092)])
+    prism("trigger", 0.044, 0.058, (-0.005, 0.005, -0.082, -0.052))
+    prism("floorplate", 0.135, 0.265, (-0.020, 0.020, -0.060, -0.050))
 
 
 def build():
     _OBJECTS.clear()
     _geometry()
 
-    albedo, emissive = build_texture()
+    albedo = build_texture()
     mdl.save_texture(albedo)
-    mdl.save_texture(emissive)
 
     for i, ob in enumerate(_OBJECTS):
         unwrap(ob, seed=i)
 
     ob = mdl.join(_OBJECTS, OBJECT_NAME)
-    mdl.finish(ob, hell_material("RifleHell", albedo, emissive), strip_uvs=False)
+    mdl.finish(ob, warden_material("RifleWarden", albedo), strip_uvs=False)
     print("MDL STATS overall_length=%.3f muzzle_local_godot=(0, 0, %.3f)"
           % (MUZZLE_Y - BUTT_Y, -MUZZLE_Y))
     print("MDL STATS uv_layers=%d atlas=%dx%d" % (len(ob.data.uv_layers), TEX_SIZE, TEX_SIZE))

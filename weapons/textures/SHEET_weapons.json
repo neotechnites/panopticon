@@ -1,7 +1,7 @@
 {
   "canvas": [
     128,
-    274
+    135
   ],
   "textures": [
     {
@@ -11,17 +11,6 @@
       "rect": [
         0,
         7,
-        128,
-        128
-      ]
-    },
-    {
-      "file": "rifle_hell_emissive.png",
-      "kind": "emissive",
-      "mode": "RGB",
-      "rect": [
-        0,
-        146,
         128,
         128
       ]
