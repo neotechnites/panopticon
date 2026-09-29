@@ -9,13 +9,17 @@
 # ssh session lands in session 0 where there is no OpenGL context at all -- godot
 # there fails to create a window and hangs -- so the run is handed to a scheduled
 # task with an Interactive principal, which puts it in the logged-on console
-# session with the GPU. And Movie Maker records the ROOT VIEWPORT, sized by
-# run_clip.gd's own --viewport arg now, not a project.godot override.cfg.
+# session with the GPU. And Movie Maker records the ROOT VIEWPORT at whatever
+# size project.godot's own override.cfg says (--resolution and a runtime resize
+# both leave the recorded frame at the project's authored size, tested).
 #
 # Concurrency: --write-movie renders offline, so two Godot instances on the PC's
-# console session are fine. Each run gets its own scheduled-task name, output
-# .avi and log, so nothing shared races; MAX_PARALLEL (default 2) is a Mac-side
-# mkdir semaphore, so a third run waits its turn rather than piling onto the PC.
+# console session are fine, but override.cfg is one file per project directory.
+# Each run gets a throwaway project directory instead: every entry of the real
+# project junction/hardlinked in (no copy, no reimport) except a fresh
+# override.cfg, so two runs never see the same file. Each run also gets its own
+# scheduled-task name, output .avi and log. MAX_PARALLEL (default 2) is a
+# Mac-side mkdir semaphore; a third run waits its turn.
 #
 # Overridable by environment: PC_PROJECT PC_GODOT PC_HOST FPS SIZE SEED BOTS DELAY LOOK STAGE POV AUDIO MAX_PARALLEL.
 set -euo pipefail
@@ -40,7 +44,10 @@ POV=${POV:-}
 AUDIO=${AUDIO:-near}
 MAX_PARALLEL=${MAX_PARALLEL:-2}
 
-RUNID="$$_${RANDOM}"   # unique per invocation: task name, temp .avi, log never collide
+WIDTH=${SIZE%%x*}
+HEIGHT=${SIZE##*x}
+RUNID="$$_${RANDOM}"   # unique per invocation: project dir, task name, .avi, log never collide
+RUN_PROJECT="C:\\dev\\.capture_runs\\${RUNID}"
 PC_DIR='C:\Users\ddd\Desktop\panopticon-renders\clips'
 PC_AVI="${PC_DIR}\\${SHOT}.avi"
 PC_AVI_RUN="${PC_DIR}\\.run_${RUNID}_${SHOT}.avi"
@@ -64,9 +71,9 @@ release_slot() { [ -n "${SLOT}" ] && rmdir "${SLOT}" 2>/dev/null; true; }
 trap release_slot EXIT
 acquire_slot
 
-CMD="${GODOT} --path ${PROJECT} --script res://tools/capture/run_clip.gd"
+CMD="${GODOT} --path ${RUN_PROJECT} --script res://tools/capture/run_clip.gd"
 CMD="${CMD} --write-movie ${PC_AVI_RUN} --fixed-fps ${FPS} --resolution ${SIZE}"
-CMD="${CMD} -- --shot=${SHOT} --seconds=${SECS} --delay=${DELAY} --look=${LOOK} --stage=${STAGE} --pov=${POV} --audio=${AUDIO} --seed=${SEED} --bots=${BOTS} --viewport=${SIZE}"
+CMD="${CMD} -- --shot=${SHOT} --seconds=${SECS} --delay=${DELAY} --look=${LOOK} --stage=${STAGE} --pov=${POV} --audio=${AUDIO} --seed=${SEED} --bots=${BOTS}"
 
 echo "PC> ${CMD}"
 mkdir -p "${MAC_DIR}"
@@ -74,16 +81,31 @@ mkdir -p "${MAC_DIR}"
 ssh "${HOST}" "\$ErrorActionPreference = 'Stop'
 New-Item -ItemType Directory -Force -Path '${PC_DIR}' | Out-Null
 Remove-Item '${PC_AVI_RUN}' -ErrorAction SilentlyContinue
-\$action = New-ScheduledTaskAction -Execute 'cmd.exe' -Argument '/c ${CMD} > ${PC_LOG} 2>&1'
-\$who = New-ScheduledTaskPrincipal -UserId \$env:USERNAME -LogonType Interactive
-Register-ScheduledTask -TaskName '${TASK}' -Action \$action -Principal \$who -Force | Out-Null
-Start-ScheduledTask -TaskName '${TASK}'
-while ((Get-ScheduledTask -TaskName '${TASK}').State -eq 'Running') { Start-Sleep -Seconds 2 }
-\$code = (Get-ScheduledTaskInfo -TaskName '${TASK}').LastTaskResult
-Unregister-ScheduledTask -TaskName '${TASK}' -Confirm:\$false
-Get-Content '${PC_LOG}' -ErrorAction SilentlyContinue | Select-Object -Last 12
-if (\$code -ne 0) { Write-Output \"godot exit \$code\"; Remove-Item '${PC_AVI_RUN}' -ErrorAction SilentlyContinue; exit \$code }
-Move-Item -Force '${PC_AVI_RUN}' '${PC_AVI}'"
+New-Item -ItemType Directory -Force -Path '${RUN_PROJECT}' | Out-Null
+Get-ChildItem -Force -LiteralPath '${PROJECT}' | Where-Object { \$_.Name -ne 'override.cfg' } | ForEach-Object {
+  \$t = Join-Path '${RUN_PROJECT}' \$_.Name
+  if (\$_.PSIsContainer) { cmd /c mklink /J \"\$t\" \"\$(\$_.FullName)\" | Out-Null } else { cmd /c mklink /H \"\$t\" \"\$(\$_.FullName)\" | Out-Null }
+}
+Set-Content -Path '${RUN_PROJECT}\override.cfg' -Value @('[display]','window/size/viewport_width=${WIDTH}','window/size/viewport_height=${HEIGHT}')
+try {
+  \$action = New-ScheduledTaskAction -Execute 'cmd.exe' -Argument '/c ${CMD} > ${PC_LOG} 2>&1'
+  \$who = New-ScheduledTaskPrincipal -UserId \$env:USERNAME -LogonType Interactive
+  Register-ScheduledTask -TaskName '${TASK}' -Action \$action -Principal \$who -Force | Out-Null
+  Start-ScheduledTask -TaskName '${TASK}'
+  while ((Get-ScheduledTask -TaskName '${TASK}').State -eq 'Running') { Start-Sleep -Seconds 2 }
+  \$code = (Get-ScheduledTaskInfo -TaskName '${TASK}').LastTaskResult
+  Unregister-ScheduledTask -TaskName '${TASK}' -Confirm:\$false
+  Get-Content '${PC_LOG}' -ErrorAction SilentlyContinue | Select-Object -Last 12
+  if (\$code -ne 0) { Write-Output \"godot exit \$code\"; Remove-Item '${PC_AVI_RUN}' -ErrorAction SilentlyContinue; exit \$code }
+  Move-Item -Force '${PC_AVI_RUN}' '${PC_AVI}'
+} finally {
+  # rmdir on a junction removes only the link; Remove-Item -Recurse must never
+  # touch this tree, or it can delete the real project's files through it.
+  Get-ChildItem -Force -LiteralPath '${RUN_PROJECT}' -ErrorAction SilentlyContinue | ForEach-Object {
+    if (\$_.PSIsContainer) { cmd /c rmdir \"\$(\$_.FullName)\" | Out-Null } else { Remove-Item -Force -LiteralPath \$_.FullName -ErrorAction SilentlyContinue }
+  }
+  Remove-Item -Force -LiteralPath '${RUN_PROJECT}' -ErrorAction SilentlyContinue
+}"
 
 # Clips stay on the PC (Ryan: nothing lands on the Mac unless it is being posted).
 # Pass --pull to copy this one clip to the Mac.

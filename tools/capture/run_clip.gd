@@ -53,8 +53,6 @@ extends SceneTree
 ## --map=ID         a MapCatalog id (bentham_ring, marble, forest); the match
 ##                  is filmed on it instead of the map the saved rules name
 ## --out=DIR        directory the clip is destined for; created if missing
-## --viewport=WxH   root viewport size set in code; no shared override.cfg,
-##                  so two runs against the same project never race one file
 ## [/codeblock]
 ##
 ## The whole path always plays, stretched or squeezed to [code]--seconds[/code],
@@ -213,11 +211,7 @@ func _initialize() -> void:
 		"bots": 7,
 		"map": "",
 		"out": "",
-		"viewport": "",
 	})
-	var viewport_arg: PackedStringArray = String(_options.get("viewport", "")).split("x")
-	if viewport_arg.size() == 2:
-		root.size = Vector2i(int(viewport_arg[0]), int(viewport_arg[1]))
 
 
 ## The world is built on the first iteration rather than in
