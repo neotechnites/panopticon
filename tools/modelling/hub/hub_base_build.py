@@ -1296,7 +1296,7 @@ def build():
     albedo, emissive = build_texture()
     mdl.save_texture(albedo)
     mdl.save_texture(emissive)
-    river_albedo, river_emissive = _sheet("river", _river_texture)
+    river_albedo, river_emissive = _sheet("lava", _river_texture)   # the arena's lava tile
     mdl.save_texture(river_albedo)
     mdl.save_texture(river_emissive)
     stone_albedo, stone_emissive = build_stone_texture()

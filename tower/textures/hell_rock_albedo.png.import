@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cl7fpu385hb3r"
-path="res://.godot/imported/spire_rock_emissive.png-492a866d3cc7a9ba199100ae92c25924.ctex"
+uid="uid://mi164c6dtgu0"
+path="res://.godot/imported/hell_rock_albedo.png-9fe47a395f606254540cf8d53164c8e9.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://maps/bentham_ring/textures/spire_rock_emissive.png"
-dest_files=["res://.godot/imported/spire_rock_emissive.png-492a866d3cc7a9ba199100ae92c25924.ctex"]
+source_file="res://tower/textures/hell_rock_albedo.png"
+dest_files=["res://.godot/imported/hell_rock_albedo.png-9fe47a395f606254540cf8d53164c8e9.ctex"]
 
 [params]
 

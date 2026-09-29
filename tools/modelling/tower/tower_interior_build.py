@@ -134,8 +134,8 @@ SEED = 20260914
 # ---- atlas: tower_build.py's painter, same seed, so it is the same rock -----
 TEX_SIZE       = 128
 TEX_SEED       = 6661031
-TEX_ALBEDO     = "tower_interior_rock_albedo"
-TEX_EMISSIVE   = "tower_interior_rock_emissive"
+TEX_ALBEDO     = "hell_rock_albedo"
+TEX_EMISSIVE   = "hell_rock_emissive"
 ROCK_ROUGHNESS = 0.95
 ROCK_METALLIC  = 0.0
 UV_SCALE       = 0.13

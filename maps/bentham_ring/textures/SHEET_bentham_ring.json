@@ -1,6 +1,6 @@
 {
   "canvas": [
-    2616,
+    1828,
     530
   ],
   "textures": [
@@ -16,22 +16,11 @@
       ]
     },
     {
-      "file": "boulder_rock_albedo.png",
-      "kind": "albedo",
-      "mode": "RGB",
-      "rect": [
-        132,
-        7,
-        128,
-        128
-      ]
-    },
-    {
       "file": "demon_pad_albedo.png",
       "kind": "albedo",
       "mode": "RGB",
       "rect": [
-        264,
+        132,
         7,
         128,
         128
@@ -42,7 +31,7 @@
       "kind": "albedo",
       "mode": "RGBA",
       "rect": [
-        396,
+        264,
         7,
         256,
         256
@@ -53,7 +42,7 @@
       "kind": "albedo",
       "mode": "RGB",
       "rect": [
-        656,
+        524,
         7,
         128,
         128
@@ -64,7 +53,7 @@
       "kind": "albedo",
       "mode": "RGB",
       "rect": [
-        788,
+        656,
         7,
         128,
         128
@@ -75,7 +64,7 @@
       "kind": "albedo",
       "mode": "RGB",
       "rect": [
-        920,
+        788,
         7,
         256,
         256
@@ -86,7 +75,7 @@
       "kind": "albedo",
       "mode": "RGB",
       "rect": [
-        1180,
+        1048,
         7,
         256,
         256
@@ -97,7 +86,7 @@
       "kind": "albedo",
       "mode": "RGB",
       "rect": [
-        1440,
+        1308,
         7,
         256,
         256
@@ -108,51 +97,7 @@
       "kind": "albedo",
       "mode": "RGB",
       "rect": [
-        1700,
-        7,
-        128,
-        128
-      ]
-    },
-    {
-      "file": "river_albedo.png",
-      "kind": "albedo",
-      "mode": "RGBA",
-      "rect": [
-        1832,
-        7,
-        256,
-        256
-      ]
-    },
-    {
-      "file": "rock_wall_rock_albedo.png",
-      "kind": "albedo",
-      "mode": "RGB",
-      "rect": [
-        2092,
-        7,
-        128,
-        128
-      ]
-    },
-    {
-      "file": "slab_rock_albedo.png",
-      "kind": "albedo",
-      "mode": "RGB",
-      "rect": [
-        2224,
-        7,
-        128,
-        128
-      ]
-    },
-    {
-      "file": "spire_rock_albedo.png",
-      "kind": "albedo",
-      "mode": "RGB",
-      "rect": [
-        2356,
+        1568,
         7,
         128,
         128
@@ -163,14 +108,14 @@
       "kind": "albedo",
       "mode": "RGB",
       "rect": [
-        2488,
+        1700,
         7,
         128,
         128
       ]
     },
     {
-      "file": "block_rock_emissive.png",
+      "file": "demon_pad_emissive.png",
       "kind": "emissive",
       "mode": "RGB",
       "rect": [
@@ -181,7 +126,7 @@
       ]
     },
     {
-      "file": "boulder_rock_emissive.png",
+      "file": "lava_tile_emissive.png",
       "kind": "emissive",
       "mode": "RGB",
       "rect": [
@@ -192,7 +137,7 @@
       ]
     },
     {
-      "file": "demon_pad_emissive.png",
+      "file": "map_base_atlas_emissive.png",
       "kind": "emissive",
       "mode": "RGB",
       "rect": [
@@ -203,33 +148,11 @@
       ]
     },
     {
-      "file": "lava_tile_emissive.png",
-      "kind": "emissive",
-      "mode": "RGB",
-      "rect": [
-        396,
-        274,
-        128,
-        128
-      ]
-    },
-    {
-      "file": "map_base_atlas_emissive.png",
-      "kind": "emissive",
-      "mode": "RGB",
-      "rect": [
-        528,
-        274,
-        128,
-        128
-      ]
-    },
-    {
       "file": "map_base_ember_emissive.png",
       "kind": "emissive",
       "mode": "RGB",
       "rect": [
-        660,
+        396,
         274,
         256,
         256
@@ -240,7 +163,7 @@
       "kind": "emissive",
       "mode": "RGB",
       "rect": [
-        920,
+        656,
         274,
         256,
         256
@@ -251,7 +174,7 @@
       "kind": "emissive",
       "mode": "RGB",
       "rect": [
-        1180,
+        916,
         274,
         256,
         256
@@ -262,7 +185,7 @@
       "kind": "emissive",
       "mode": "RGB",
       "rect": [
-        1440,
+        1176,
         274,
         256,
         256
@@ -273,40 +196,7 @@
       "kind": "emissive",
       "mode": "RGB",
       "rect": [
-        1700,
-        274,
-        128,
-        128
-      ]
-    },
-    {
-      "file": "rock_wall_rock_emissive.png",
-      "kind": "emissive",
-      "mode": "RGB",
-      "rect": [
-        1832,
-        274,
-        128,
-        128
-      ]
-    },
-    {
-      "file": "slab_rock_emissive.png",
-      "kind": "emissive",
-      "mode": "RGB",
-      "rect": [
-        1964,
-        274,
-        128,
-        128
-      ]
-    },
-    {
-      "file": "spire_rock_emissive.png",
-      "kind": "emissive",
-      "mode": "RGB",
-      "rect": [
-        2096,
+        1436,
         274,
         128,
         128
@@ -317,7 +207,7 @@
       "kind": "emissive",
       "mode": "RGB",
       "rect": [
-        2228,
+        1568,
         274,
         128,
         128

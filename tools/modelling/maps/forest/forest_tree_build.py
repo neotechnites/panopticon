@@ -590,7 +590,7 @@ def sheet(stem, painted):
     alb = image_file(stem + "_albedo.png") if USE_TEXTURE_FILES else None
     if alb is None:
         return painted()
-    return alb, (image_file(stem + "_emissive.png") or alb)
+    return alb, (image_file(stem + "_emissive.png") or painted()[1])   # black: mdl drops it
 
 
 def atlas_material(name, albedo, emissive, cull=True):

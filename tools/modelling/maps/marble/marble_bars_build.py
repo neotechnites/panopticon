@@ -335,9 +335,9 @@ SHEETS = {
     "shade": _stone("shade", _sheet_shade, 3),                                 # ledge, reveals, soffits, sill
     "plinth": _stone("plinth", _sheet_plinth, 4, V0_PLINTH),                   # the socle
     "band": tx.Sheet("band", mb._sheet_band, mode="fit_v", width=256, size=64,
-                     roughness=mb.ROUGHNESS, seed=5),                          # the cornice's mouldings
+                     roughness=mb.ROUGHNESS, seed=10, stem="marble_band"),                          # the cornice's mouldings
     "column": tx.Sheet("column", mb._sheet_column, mode="fit_u", width=64, size=256,
-                       roughness=mb.ROUGHNESS, seed=6),                        # the fluted pilasters
+                       roughness=mb.ROUGHNESS, seed=9, stem="marble_column"),                        # the fluted pilasters
     "iron": tx.Sheet("iron", _sheet_iron, mpt=IRON_MPT, width=IRON_PX, size=256,
                      mode="box", phase=(IRON_U0, 0.0),
                      roughness=mb.ROUGHNESS, seed=7),                          # the portcullis

@@ -53,8 +53,8 @@ EMBER_BIAS = -0.09
 COL_H = 1.55            # collider box top; the top's average height
 
 SEED = 8221407
-TEX_ALBEDO   = "slab_rock_albedo"
-TEX_EMISSIVE = "slab_rock_emissive"
+TEX_ALBEDO   = "hell_rock_albedo"
+TEX_EMISSIVE = "hell_rock_emissive"
 UV_SCALE = 0.30
 FACING_YAW = 0.0
 

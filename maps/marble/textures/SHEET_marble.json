@@ -1,6 +1,6 @@
 {
   "canvas": [
-    4945,
+    3834,
     540
   ],
   "textures": [
@@ -27,33 +27,11 @@
       ]
     },
     {
-      "file": "marble_bars_band_albedo.png",
-      "kind": "albedo",
-      "mode": "RGB",
-      "rect": [
-        520,
-        7,
-        256,
-        64
-      ]
-    },
-    {
-      "file": "marble_bars_column_albedo.png",
-      "kind": "albedo",
-      "mode": "RGB",
-      "rect": [
-        780,
-        7,
-        64,
-        256
-      ]
-    },
-    {
       "file": "marble_bars_iron_albedo.png",
       "kind": "albedo",
       "mode": "RGB",
       "rect": [
-        899,
+        520,
         7,
         58,
         256
@@ -64,7 +42,7 @@
       "kind": "albedo",
       "mode": "RGB",
       "rect": [
-        1010,
+        631,
         7,
         65,
         261
@@ -75,7 +53,7 @@
       "kind": "albedo",
       "mode": "RGB",
       "rect": [
-        1133,
+        754,
         7,
         65,
         261
@@ -86,7 +64,7 @@
       "kind": "albedo",
       "mode": "RGB",
       "rect": [
-        1252,
+        873,
         7,
         65,
         261
@@ -97,7 +75,7 @@
       "kind": "albedo",
       "mode": "RGB",
       "rect": [
-        1371,
+        992,
         7,
         65,
         261
@@ -108,7 +86,7 @@
       "kind": "albedo",
       "mode": "RGB",
       "rect": [
-        1486,
+        1107,
         7,
         128,
         261
@@ -119,7 +97,7 @@
       "kind": "albedo",
       "mode": "RGB",
       "rect": [
-        1618,
+        1239,
         7,
         64,
         256
@@ -130,7 +108,7 @@
       "kind": "albedo",
       "mode": "RGB",
       "rect": [
-        1717,
+        1338,
         7,
         128,
         64
@@ -141,7 +119,7 @@
       "kind": "albedo",
       "mode": "RGB",
       "rect": [
-        1849,
+        1470,
         7,
         256,
         256
@@ -152,7 +130,7 @@
       "kind": "albedo",
       "mode": "RGB",
       "rect": [
-        2109,
+        1730,
         7,
         64,
         64
@@ -163,7 +141,7 @@
       "kind": "albedo",
       "mode": "RGB",
       "rect": [
-        2204,
+        1825,
         7,
         256,
         64
@@ -174,7 +152,7 @@
       "kind": "albedo",
       "mode": "RGB",
       "rect": [
-        2464,
+        2085,
         7,
         64,
         256
@@ -185,7 +163,7 @@
       "kind": "albedo",
       "mode": "RGB",
       "rect": [
-        2555,
+        2176,
         7,
         128,
         261
@@ -196,7 +174,7 @@
       "kind": "albedo",
       "mode": "RGB",
       "rect": [
-        2687,
+        2308,
         7,
         128,
         261
@@ -207,7 +185,7 @@
       "kind": "albedo",
       "mode": "RGB",
       "rect": [
-        2819,
+        2440,
         7,
         256,
         256
@@ -218,7 +196,7 @@
       "kind": "albedo",
       "mode": "RGB",
       "rect": [
-        3079,
+        2700,
         7,
         128,
         261
@@ -229,21 +207,10 @@
       "kind": "albedo",
       "mode": "RGB",
       "rect": [
-        3211,
+        2832,
         7,
         256,
         256
-      ]
-    },
-    {
-      "file": "marble_tower_band_albedo.png",
-      "kind": "albedo",
-      "mode": "RGB",
-      "rect": [
-        3471,
-        7,
-        256,
-        64
       ]
     },
     {
@@ -251,54 +218,10 @@
       "kind": "albedo",
       "mode": "RGB",
       "rect": [
-        3731,
+        3092,
         7,
         60,
         34
-      ]
-    },
-    {
-      "file": "marble_tower_column_albedo.png",
-      "kind": "albedo",
-      "mode": "RGB",
-      "rect": [
-        3854,
-        7,
-        64,
-        256
-      ]
-    },
-    {
-      "file": "marble_tower_dome_albedo.png",
-      "kind": "albedo",
-      "mode": "RGB",
-      "rect": [
-        3977,
-        7,
-        60,
-        261
-      ]
-    },
-    {
-      "file": "marble_tower_floor_albedo.png",
-      "kind": "albedo",
-      "mode": "RGB",
-      "rect": [
-        4092,
-        7,
-        64,
-        64
-      ]
-    },
-    {
-      "file": "marble_tower_iron_albedo.png",
-      "kind": "albedo",
-      "mode": "RGB",
-      "rect": [
-        4211,
-        7,
-        64,
-        256
       ]
     },
     {
@@ -306,7 +229,7 @@
       "kind": "albedo",
       "mode": "RGB",
       "rect": [
-        4326,
+        3215,
         7,
         35,
         261
@@ -317,7 +240,7 @@
       "kind": "albedo",
       "mode": "RGB",
       "rect": [
-        4453,
+        3342,
         7,
         64,
         64
@@ -328,7 +251,7 @@
       "kind": "albedo",
       "mode": "RGB",
       "rect": [
-        4588,
+        3477,
         7,
         60,
         261
@@ -339,7 +262,7 @@
       "kind": "albedo",
       "mode": "RGB",
       "rect": [
-        4711,
+        3600,
         7,
         60,
         261
@@ -350,7 +273,7 @@
       "kind": "albedo",
       "mode": "RGB",
       "rect": [
-        4830,
+        3719,
         7,
         60,
         261
