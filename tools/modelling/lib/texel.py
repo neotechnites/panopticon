@@ -327,13 +327,15 @@ class Sheet(object):
     stem       image stem when the class wears another model's texture (default <map>_<name>)
     mpt_u      metres per texel across, when one drawing spans another model's repeat
     tint       linear RGB multiplied over the albedo (glTF baseColorFactor): one drawing, another palette
+    rect       (u0, v0, u1, v1): the projected UVs squeezed into this part of the image (an atlas cell)
     """
 
     def __init__(self, name, paint=None, mpt=MPT, size=TILE, ref_r=None, phase=(0.0, 0.0),
                  mode="cyl", roughness=ROUGHNESS, metallic=METALLIC, cull=True, seed=0,
-                 emissive=False, width=None, stem=None, mpt_u=None, tint=None):
+                 emissive=False, width=None, stem=None, mpt_u=None, tint=None, rect=None):
         self.name = name
         self.tint = tint
+        self.rect = rect
         self.stem = stem
         self.paint = paint
         self.mpt = mpt
@@ -549,6 +551,9 @@ def unwrap(ob, classes, sheets, seed=0, face_uv=None, groups=None, custom=None):
                     uvs = [fitted[gid][me.loops[li].vertex_index] for li in loops]
                 else:
                     uvs = fit_uv(cos, tuple(poly.normal), sheet, sheet.mode)
+        if sheet.rect is not None:
+            a0, b0, a1, b1 = sheet.rect
+            uvs = [(a0 + u * (a1 - a0), b0 + v * (b1 - b0)) for (u, v) in uvs]
         for li, uv in zip(loops, uvs):
             uvl.data[li].uv = uv
     return uvl

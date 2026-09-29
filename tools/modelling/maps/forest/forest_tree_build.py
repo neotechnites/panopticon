@@ -40,14 +40,14 @@ coordinates (Blender z = Godot y) and shifted on export.
                     below y 32.7: the guard's eye is 28.7 and his downward
                     sightline to the lane is clear.
 
-One material (the forest atlas, painted or textures/forest_atlas_albedo.png),
+forest_tiles' leaf and bark (tinted per zone in COLOR_0),
 one mesh, no rig. ForestTreeCollision rides as a `-colonly` node: the trunk
 cylinder r 5, the floor, the rim, the canopy's outer slope, and the sheet as a
 24-gon ring on every forest_seam.SHEET radius, so a shot fired up over the
 ravine stops on the dome's own curve. Nothing else is touched.
 
 This file also holds what forest_build.py shares: the rng, the face
-accumulator, the atlas painter, the tube/blob helpers, the unwrap.
+accumulator, the tube/blob helpers, image_file and tint_material.
 
     tools/modelling/model build forest_tree
     python3 tools/modelling/maps/forest/forest_tree_build.py --check
@@ -70,6 +70,8 @@ for _root in (os.path.dirname(_HOME), os.path.dirname(os.path.dirname(_HOME))): 
         sys.path[1:1] = [d for d, _, _ in os.walk(_root) if "__pycache__" not in d]
         break
 import forest_seam  # noqa: E402   the ring the level's roof and this crown share
+import texel  # noqa: E402,F401  forest_tiles needs it beside every forest build
+import forest_tiles  # noqa: E402  the eight texture files, tinted per zone
 if bpy is not None:
     import mdl  # noqa: E402
     mdl.DEFAULTS["ground"] = False
@@ -222,27 +224,9 @@ ROOM_R = 11.2
 SEED = 3140271
 EYE_H = 1.65
 
-# ---- the forest atlas (shared with forest_build.py) -------------------------
-USE_TEXTURE_FILES = True        # textures/forest_atlas_albedo.png replaces the painted sheet
+# ---- textures: forest_tiles.py's eight files ---------------------------------
+USE_TEXTURE_FILES = True        # textures/forest_<tile>_albedo.png replaces a painted tile
 TEX_DIR = "textures"
-TEX_SIZE = 256
-TEX_SEED = 7710233
-TPM = 12.0                      # texels per metre on the atlas
-ZONES = {                       # (u0, v0, u1, v1)
-    "grass": (0.0, 0.0, 0.5, 0.25),
-    "verge": (0.0, 0.25, 0.5, 0.375),
-    "path": (0.0, 0.375, 0.5, 0.5),
-    "leaf": (0.5, 0.5, 1.0, 1.0),
-    "shade": (0.0, 0.5, 0.25, 0.75),
-    "sun": (0.25, 0.5, 0.5, 0.75),
-    "fern": (0.0, 0.75, 0.25, 1.0),
-    "edge": (0.25, 0.75, 0.5, 1.0),
-    "bark": (0.5, 0.0, 0.75, 0.25),
-    "earth": (0.75, 0.0, 1.0, 0.25),
-    "cell": (0.5, 0.25, 0.75, 0.5),
-    "root": (0.75, 0.25, 1.0, 0.5),
-}
-UV_PAD = 1.5 / TEX_SIZE
 ROUGHNESS = 0.95
 
 
@@ -279,300 +263,6 @@ class _Rng(object):
         return seq[self.bits() % len(seq)]
 
 
-def _s2l(rgb):
-    out = []
-    for c in rgb:
-        c /= 255.0
-        out.append(c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4)
-    return out
-
-
-class _Canvas(object):
-    def __init__(self, size):
-        self.w = self.h = size
-        n = size * size * 4
-        self.alb = [0.0] * n
-        self.emi = [0.0] * n
-        for i in range(size * size):
-            self.alb[i * 4 + 3] = 1.0
-            self.emi[i * 4 + 3] = 1.0
-
-    def put(self, x, y, rgb, glow=None):
-        if not (0 <= x < self.w and 0 <= y < self.h):
-            return
-        o = (y * self.w + x) * 4
-        r, g, b = _s2l(rgb)
-        self.alb[o], self.alb[o + 1], self.alb[o + 2] = r, g, b
-        if glow is not None:
-            r, g, b = _s2l(glow)
-            self.emi[o], self.emi[o + 1], self.emi[o + 2] = r, g, b
-
-    def wrap(self, x, y, rgb, glow=None):
-        self.put(x % self.w, y % self.h, rgb, glow)
-
-    def rect(self, x0, y0, x1, y1, rgb, glow=None):
-        for y in range(y0, y1):
-            for x in range(x0, x1):
-                self.put(x, y, rgb, glow)
-
-
-def _rect_of(zone, size):
-    u0, v0, u1, v1 = zone
-    return (int(u0 * size), int(v0 * size), int(u1 * size), int(v1 * size))
-
-
-def _fill(c, r, box, shades):
-    x0, y0, x1, y1 = box
-    for y in range(y0, y1):
-        for x in range(x0, x1):
-            c.put(x, y, r.pick(shades))
-
-
-def _blotch(c, r, box, shades, count, minsz, maxsz):
-    x0, y0, x1, y1 = box
-    for _ in range(count):
-        w = r.i(minsz, maxsz)
-        h = max(minsz, min(maxsz, w + r.i(-1, 1)))
-        x, y = r.i(x0, x1 - w - 1), r.i(y0, y1 - h - 1)
-        c.rect(x, y, x + w, y + h, r.pick(shades))
-
-
-def _leaves(c, r, box, base, shades, lit, count, sz):
-    """Dense foliage: a dark ground, many small leaf blobs, a lit pixel on each."""
-    _fill(c, r, box, base)
-    x0, y0, x1, y1 = box
-    for _ in range(count):
-        w = r.i(sz[0], sz[1])
-        h = max(2, w - r.i(0, 1))
-        x, y = r.i(x0, x1 - w - 1), r.i(y0, y1 - h - 1)
-        s = r.pick(shades)
-        c.rect(x, y, x + w, y + h, s)
-        c.put(x, y + h - 1, lit)
-        if w > 3:
-            c.put(x + 1, y + h - 1, lit)
-
-
-# The palette, leaning Ocarina of Time (Kokiri Forest: gold-olive grass under a
-# misty gold-green sky, grey-brown trunks, foliage that goes dark and blue-green
-# in the shade) and away from Castle Crashers' flat saturated green. Sampled
-# from the refs (BotW Korok forest: lit grass #99c03d, shaded #679030, ferns
-# #63843f, canopy in shade #5a7c54; OoT Kokiri: grass #696910, mist #92934b,
-# trunks #75745e, deep foliage #353b24) and then muted a step darker so the sun
-# shafts and the lit leaf tops carry the light. Every hex is in
-# docs/maps/forest.md. Every lane zone is painted as fine noise over these (a
-# smooth field picks the green, a per-texel jitter breaks it up), never as
-# blotches: the deck is unwrapped a quad at a time at a random offset, and any
-# shape bigger than a texel or two reads as that quad's own patch.
-LANE_GREENS = ((138, 148, 64), (122, 138, 60), (102, 128, 58))     # #8a9440 #7a8a3c #66803a
-PATH_TONES = ((124, 116, 72), (110, 98, 68), (111, 126, 66))       # #7c7448 #6e6244 #6f7e42
-VERGE_TONES = ((134, 144, 62), (120, 130, 60), (118, 112, 68))     # #86903e #78823c #767044
-EDGE_GREENS = ((108, 124, 60), (92, 110, 56), (78, 96, 52))        # #6c7c3c #5c6e38 #4e6034
-LEAF_BASE = ((58, 74, 44), (52, 68, 42), (64, 80, 48))             # #3a4a2c #344428 #405030
-LEAF_BLOBS = ((92, 112, 64), (104, 122, 72), (80, 102, 56), (90, 110, 62))   # #5c7040 #687a48 #506638 #5a6e3e
-LEAF_LIT = (138, 152, 86)                                          # #8a9856
-SHADE_BASE = ((38, 50, 31), (34, 44, 28))                          # #26321f #222c1c
-SHADE_BLOBS = ((56, 72, 44), (48, 64, 42), (60, 78, 48))           # #38482c #30402a #3c4e30
-SHADE_LIT = (76, 94, 58)                                           # #4c5e3a
-SUN_BASE = ((102, 120, 62), (96, 114, 58))                         # #66783e #60723a
-SUN_BLOBS = ((134, 150, 80), (152, 166, 92), (122, 140, 74), (142, 158, 86))  # #869650 #98a65c #7a8c4a #8e9e56
-SUN_LIT = (176, 184, 108)                                          # #b0b86c
-FERN_BASE = ((74, 98, 54), (68, 92, 50), (80, 106, 58))            # #4a6236 #445c32 #506a3a
-FERN_FROND = ((108, 136, 72), (124, 150, 82))                      # #6c8848 #7c9652
-FERN_DARK = (52, 72, 42)                                           # #34482a
-BARK_BASE = ((94, 84, 64), (88, 78, 60), (100, 90, 70))            # #5e5440 #584e3c #645a46
-BARK_STREAKS = ((72, 64, 48), (112, 102, 80), (66, 58, 44))        # #484030 #706650 #423a2c
-BARK_CRACK = (50, 44, 32)                                          # #322c20
-BARK_MOSS = (84, 104, 60)                                          # #54683c
-EARTH_BASE = ((74, 62, 46), (68, 56, 42), (80, 68, 50), (62, 52, 40))   # #4a3e2e #44382a #504432 #3e3428
-EARTH_BLOTCH = ((60, 50, 38), (90, 78, 58), (56, 46, 36))          # #3c3226 #5a4e3a #382e24
-EARTH_ROOT = (96, 82, 60)                                          # #60523c
-EARTH_STONE = (104, 98, 86)                                        # #686256
-EARTH_MOSS = (66, 90, 50)                                          # #425a32
-ROOT_BASE = ((98, 80, 58), (92, 74, 54), (106, 88, 64))            # #62503a #5c4a36 #6a5840
-
-
-def _value_field(r, w, h, cell):
-    """Smooth value noise over a w x h texel box: a random lattice every
-    ``cell`` texels, bilinear between, wrapping so the box tiles."""
-    nx, ny = max(1, w // cell), max(1, h // cell)
-    lat = [[r.f() for _ in range(nx)] for _ in range(ny)]
-    out = [[0.0] * w for _ in range(h)]
-    for y in range(h):
-        fy = y * ny / float(h)
-        j0 = int(fy) % ny
-        j1 = (j0 + 1) % ny
-        ty = fy - int(fy)
-        ty = ty * ty * (3.0 - 2.0 * ty)
-        for x in range(w):
-            fx = x * nx / float(w)
-            i0 = int(fx) % nx
-            i1 = (i0 + 1) % nx
-            tx = fx - int(fx)
-            tx = tx * tx * (3.0 - 2.0 * tx)
-            a = lat[j0][i0] + (lat[j0][i1] - lat[j0][i0]) * tx
-            b = lat[j1][i0] + (lat[j1][i1] - lat[j1][i0]) * tx
-            out[y][x] = a + (b - a) * ty
-    return out
-
-
-def _noise_fill(c, r, box, tones, cuts=(0.38, 0.66), jitter=0.22, dither=4):
-    """Fine noise in two or three tones: a two-octave field plus a per-texel
-    jitter picks the tone by ``cuts``; ``dither`` shifts every texel's value
-    a little so no two neighbours are quite the same."""
-    x0, y0, x1, y1 = box
-    w, h = x1 - x0, y1 - y0
-    f1 = _value_field(r, w, h, 10)
-    f2 = _value_field(r, w, h, 4)
-    for y in range(h):
-        for x in range(w):
-            v = 0.65 * f1[y][x] + 0.35 * f2[y][x] + r.u(-jitter, jitter)
-            k = 0
-            for cut in cuts:
-                if v >= cut:
-                    k += 1
-            tone = tones[min(k, len(tones) - 1)]
-            d = r.i(-dither, dither)
-            c.put(x0 + x, y0 + y, tuple(max(0, min(255, ch + d)) for ch in tone))
-
-
-def _blades(c, r, box, count, shades):
-    """Single texels, a lighter or darker blade tip each."""
-    x0, y0, x1, y1 = box
-    for _ in range(count):
-        c.put(r.i(x0, x1 - 1), r.i(y0, y1 - 1), r.pick(shades))
-
-
-def _paint_grass(c, r, box):
-    _noise_fill(c, r, box, LANE_GREENS)
-    _blades(c, r, box, 160, [(168, 172, 82), (160, 160, 70), (86, 102, 58)])
-
-
-def _paint_verge(c, r, box):
-    """Between the grass and the path: the greens with the path's worn tone
-    creeping in, so the path has no hard shoulder."""
-    _noise_fill(c, r, box, VERGE_TONES, cuts=(0.42, 0.74))
-    _blades(c, r, box, 60, [(160, 164, 78), (112, 104, 60)])
-
-
-def _paint_path(c, r, box):
-    """The worn line down the middle of the lane: brown-green, bare earth showing."""
-    _noise_fill(c, r, box, PATH_TONES, cuts=(0.40, 0.72))
-    _blades(c, r, box, 70, [(118, 96, 58), (104, 88, 54), (132, 140, 70)])
-
-
-def _paint_edge(c, r, box):
-    """The lip, the wall foot, hummocks and cell floors: the lane's greens in shade."""
-    _noise_fill(c, r, box, EDGE_GREENS)
-    _blades(c, r, box, 60, [(130, 140, 68), (58, 44, 30)])
-
-
-def _paint_leaf(c, r, box):
-    _leaves(c, r, box, list(LEAF_BASE), list(LEAF_BLOBS), LEAF_LIT, 520, (3, 5))
-
-
-def _paint_shade(c, r, box):
-    _leaves(c, r, box, list(SHADE_BASE), list(SHADE_BLOBS), SHADE_LIT, 110, (3, 5))
-
-
-def _paint_sun(c, r, box):
-    _leaves(c, r, box, list(SUN_BASE), list(SUN_BLOBS), SUN_LIT, 110, (3, 5))
-
-
-def _paint_fern(c, r, box):
-    _fill(c, r, box, list(FERN_BASE))
-    x0, y0, x1, y1 = box
-    for _ in range(9):                       # fronds: a stem with side ticks
-        x, y = r.i(x0 + 4, x1 - 5), r.i(y0 + 2, y1 - 2)
-        n = r.i(8, 16)
-        dx = r.pick([-1, 1])
-        for k in range(n):
-            xx, yy = x + (k * dx) // 2, y + k
-            if not (x0 <= xx < x1 and y0 <= yy < y1):
-                break
-            c.put(xx, yy, FERN_FROND[0])
-            if k % 2 == 0:
-                c.put(xx - 1, yy, FERN_FROND[1])
-                c.put(xx + 1, yy, FERN_FROND[1])
-    for _ in range(30):
-        c.put(r.i(x0, x1 - 1), r.i(y0, y1 - 1), FERN_DARK)
-
-
-def _paint_bark(c, r, box, base=BARK_BASE):
-    _fill(c, r, box, list(base))
-    x0, y0, x1, y1 = box
-    for _ in range(26):                      # vertical streaks
-        x, y = r.i(x0, x1 - 2), r.i(y0, y1 - 8)
-        c.rect(x, y, x + r.i(1, 2), min(y1, y + r.i(6, 18)), r.pick(list(BARK_STREAKS)))
-    for _ in range(12):                      # cracks
-        x, y = r.i(x0, x1 - 1), r.i(y0, y1 - 6)
-        for k in range(r.i(4, 9)):
-            c.put(x, y + k, BARK_CRACK)
-            x += r.i(-1, 1)
-    for _ in range(8):
-        x, y = r.i(x0, x1 - 3), r.i(y0, y1 - 3)
-        c.rect(x, y, x + 2, y + 2, BARK_MOSS)    # moss
-
-
-def _paint_earth(c, r, box):
-    _fill(c, r, box, list(EARTH_BASE))
-    _blotch(c, r, box, list(EARTH_BLOTCH), 30, 3, 9)
-    x0, y0, x1, y1 = box
-    for _ in range(8):                       # root streaks
-        x, y = r.i(x0 + 1, x1 - 2), y0
-        for k in range(y1 - y0):
-            c.put(x, y + k, EARTH_ROOT)
-            if k % 3 == 0:
-                x += r.i(-1, 1)
-            x = max(x0, min(x1 - 1, x))
-    for _ in range(14):                      # stones
-        x, y = r.i(x0, x1 - 3), r.i(y0, y1 - 3)
-        c.rect(x, y, x + 2, y + 2, EARTH_STONE)
-    for _ in range(10):
-        x, y = r.i(x0, x1 - 3), r.i(y0, y1 - 3)
-        c.rect(x, y, x + 2, y + 2, EARTH_MOSS)    # moss
-
-
-def _paint_cell(c, r, box):
-    _fill(c, r, box, [(14, 16, 12), (18, 20, 14), (12, 14, 10), (20, 24, 16)])
-    _blotch(c, r, box, [(24, 28, 18), (10, 12, 8)], 12, 3, 8)
-    x0, y0, x1, y1 = box
-    for _ in range(3):                       # something pale, far back
-        x, y = r.i(x0 + 4, x1 - 6), r.i(y0 + 4, y1 - 6)
-        c.rect(x, y, x + 2, y + 1, (52, 60, 44))
-
-
-def _paint_root(c, r, box):
-    _paint_bark(c, r, box, base=ROOT_BASE)
-
-
-PAINTERS = {
-    "grass": _paint_grass, "verge": _paint_verge, "path": _paint_path, "edge": _paint_edge, "leaf": _paint_leaf,
-    "shade": _paint_shade, "sun": _paint_sun, "fern": _paint_fern,
-    "bark": _paint_bark, "earth": _paint_earth, "cell": _paint_cell,
-    "root": _paint_root,
-}
-
-
-def _images(c, size, names):
-    out = []
-    for name, buf in ((names[0], c.alb), (names[1], c.emi)):
-        img = bpy.data.images.new(name, size, size, alpha=False)
-        img.colorspace_settings.name = "sRGB"
-        img.pixels.foreach_set(buf)
-        img.update()
-        out.append(img)
-    return out[0], out[1]
-
-
-def paint_atlas():
-    """The forest atlas: every zone painted in place; returns (albedo, emissive)."""
-    c = _Canvas(TEX_SIZE)
-    r = _Rng(TEX_SEED)
-    for zone, fn in sorted(PAINTERS.items()):
-        fn(c, r, _rect_of(ZONES[zone], TEX_SIZE))
-    return _images(c, TEX_SIZE, ("forest_atlas_albedo", "forest_atlas_emissive"))
-
-
 def image_file(name):
     """<home>/textures/<name> from anywhere in the repo; None if absent or regenerating."""
     path = mdl.texture_file(name)
@@ -583,33 +273,6 @@ def image_file(name):
     img.pack()
     print("MDL TEXTURE %s from %s" % (img.name, path))
     return img
-
-
-def sheet(stem, painted):
-    """(albedo, emissive): the files when opted in and present, else painted."""
-    alb = image_file(stem + "_albedo.png") if USE_TEXTURE_FILES else None
-    if alb is None:
-        return painted()
-    return alb, (image_file(stem + "_emissive.png") or painted()[1])   # black: mdl drops it
-
-
-def atlas_material(name, albedo, emissive, cull=True):
-    mat = bpy.data.materials.new(name)
-    mat.use_nodes = True
-    nt = mat.node_tree
-    bsdf = nt.nodes.get("Principled BSDF")
-    for img, socket, y in ((albedo, "Base Color", 260), (emissive, "Emission Color", -220)):
-        node = nt.nodes.new("ShaderNodeTexImage")
-        node.image = img
-        node.interpolation = "Closest"
-        node.location = (-460, y)
-        nt.links.new(node.outputs["Color"], bsdf.inputs[socket])
-    bsdf.inputs["Roughness"].default_value = ROUGHNESS
-    bsdf.inputs["Metallic"].default_value = 0.0
-    bsdf.inputs["Emission Strength"].default_value = 1.0   # exactly 1.0: no KHR warning
-    mat.use_backface_culling = cull
-    mat.diffuse_color = (0.3, 0.45, 0.2, 1.0)
-    return mat
 
 
 # =============================================================================
@@ -1857,6 +1520,46 @@ def _prune(m):
     return m
 
 
+def orient(m, skip=()):
+    """Wind every face as its neighbours do, per connected patch, the majority by area: a face whose
+    ``want`` guessed wrong turns round and reads from the side the rest does. ``skip`` keeps its winding."""
+    skip = set(skip)
+    edges = {}
+    for fi, f in enumerate(m.faces):
+        if f is None or fi in skip:
+            continue
+        for k in range(len(f)):
+            a, b = f[k], f[(k + 1) % len(f)]
+            edges.setdefault((min(a, b), max(a, b)), []).append((fi, a))
+    flip = {}
+    for seed in range(len(m.faces)):
+        if m.faces[seed] is None or seed in skip or seed in flip:
+            continue
+        flip[seed], patch, stack = False, [seed], [seed]
+        while stack:
+            fi = stack.pop()
+            f = m.faces[fi]
+            for k in range(len(f)):
+                a, b = f[k], f[(k + 1) % len(f)]
+                twins = edges[(min(a, b), max(a, b))]
+                if len(twins) != 2:
+                    continue
+                gj, ga = twins[1] if twins[0][0] == fi else twins[0]
+                if gj not in flip:          # a neighbour agrees when it runs the shared edge the other way
+                    flip[gj] = flip[fi] != (ga == a)
+                    patch.append(gj)
+                    stack.append(gj)
+        area = lambda fi: math.sqrt(sum(c * c for c in _newell([m.verts[i] for i in m.faces[fi]])))
+        wrong = sum(area(fi) for fi in patch if flip[fi])
+        if wrong * 2.0 > sum(area(fi) for fi in patch):
+            for fi in patch:
+                flip[fi] = not flip[fi]
+    for fi, fl in flip.items():
+        if fl:
+            m.faces[fi] = tuple(reversed(m.faces[fi]))
+    return m
+
+
 def build_tree_collider():
     """Trunk cylinder r 5 (foot to floor), the flat floor, the rim, the
     canopy's outer slope."""
@@ -1884,77 +1587,18 @@ def build_tree_collider():
 
 
 # =============================================================================
-# UNWRAP -- per-face planar projection into a random window of its zone
+# DRESS -- forest_tiles: tiles, COLOR_0 tints, the canopy's seam fade
 # =============================================================================
-
-def unwrap(ob, zones, seed=0, water_fn=None):
-    me = ob.data
-    uvl = me.uv_layers.new(name="UVMap")
-    r = _Rng(TEX_SEED + seed * 7919 + len(me.polygons))
-    for pi, poly in enumerate(me.polygons):
-        zone = zones[pi]
-        if zone == "water" and water_fn:
-            water_fn(me, uvl, poly)
-            continue
-        u0, v0, u1, v1 = ZONES[zone]
-        span_u = (u1 - u0) - 2.0 * UV_PAD
-        span_v = (v1 - v0) - 2.0 * UV_PAD
-        scale = TPM / ((u1 - u0) * TEX_SIZE)      # metres -> fraction of the zone, each axis its own
-        scale_v = TPM / ((v1 - v0) * TEX_SIZE)    # (the lane's zones are wider than tall)
-        nrm = poly.normal
-        ax = max(range(3), key=lambda i: abs(nrm[i]))
-        ii, jj = ((1, 2), (0, 2), (0, 1))[ax]
-        fu = -1.0 if r.i(0, 1) else 1.0
-        fv = -1.0 if (ax == 2 and r.i(0, 1)) else 1.0
-        cos = [me.vertices[me.loops[li].vertex_index].co for li in poly.loop_indices]
-        mi = min(co[ii] for co in cos)
-        mj = min(co[jj] for co in cos)
-        w = min((max(co[ii] for co in cos) - mi) * scale, 1.0)
-        h = min((max(co[jj] for co in cos) - mj) * scale_v, 1.0)
-        ou = r.f() * (1.0 - w)
-        ov = r.f() * (1.0 - h)
-        for li, co in zip(poly.loop_indices, cos):
-            s = min(ou + (co[ii] - mi) * scale, 1.0)
-            t = min(ov + (co[jj] - mj) * scale_v, 1.0)
-            if fu < 0.0:
-                s = 1.0 - s
-            if fv < 0.0:
-                t = 1.0 - t
-            uvl.data[li].uv = (u0 + UV_PAD + s * span_u, v0 + UV_PAD + t * span_v)
-
-
-# =============================================================================
-# BUILD / CHECK
-# =============================================================================
-
-def _zone_means(names):
-    """Linear mean albedo of each painted atlas zone, from a canvas painted as paint_atlas does."""
-    c = _Canvas(TEX_SIZE)
-    r = _Rng(TEX_SEED)
-    for zone, fn in sorted(PAINTERS.items()):
-        fn(c, r, _rect_of(ZONES[zone], TEX_SIZE))
-    out = {}
-    for zone in names:
-        x0, y0, x1, y1 = _rect_of(ZONES[zone], TEX_SIZE)
-        s, n = [0.0, 0.0, 0.0], 0
-        for y in range(y0, y1):
-            for x in range(x0, x1):
-                o = (y * c.w + x) * 4
-                s = [s[k] + c.alb[o + k] for k in range(3)]
-                n += 1
-        out[zone] = [v / n for v in s]
-    return out
 
 
 def seam_tint(ob, zones):
     """Ryan: "a hard line from the color of the roof to the color of the wall". Over
     SEAM_TINT the canopy's shade and sun fade, per corner in COLOR_0, to the drum's leaf, lifting by SEAM_LIFT."""
-    mean = _zone_means(("leaf", "shade", "sun"))
-    k = {z: [mean["leaf"][c] / mean[z][c] for c in range(3)] for z in ("shade", "sun")}
+    leaf = forest_tiles.zone_tint("atlas", "leaf")
     me = ob.data
-    col = me.color_attributes.new(name="Col", type="FLOAT_COLOR", domain="CORNER")
-    flat = [1.0] * (len(me.loops) * 4)
-    out = list(zones)
+    col = forest_tiles.colours(ob)
+    flat = [0.0] * (len(me.loops) * 4)
+    col.data.foreach_get("color", flat)
     for pi, poly in enumerate(me.polygons):
         zone = zones[pi]
         if zone not in ("leaf", "shade", "sun"):
@@ -1963,22 +1607,18 @@ def seam_tint(ob, zones):
               for li in poly.loop_indices]
         if max(ts) <= 0.0:
             continue
-        if zone == "shade":             # the leaf's texels darkened to the shade, lifting to leaf
-            out[pi] = "leaf"
+        own = forest_tiles.zone_tint("atlas", zone)
         for li, t in zip(poly.loop_indices, ts):
             lift = 1.0 + (SEAM_LIFT - 1.0) * t
-            for c in range(3):
-                if zone == "shade":
-                    f = (1.0 / k[zone][c]) * (1.0 - t) + t
-                elif zone == "sun":
-                    f = 1.0 + (k[zone][c] - 1.0) * t
-                else:
-                    f = 1.0
-                flat[li * 4 + c] = f * lift
+            for c in range(3):                  # own tint -> the leaf's, lifting
+                flat[li * 4 + c] *= (1.0 + (leaf[c] / own[c] - 1.0) * t) * lift
     col.data.foreach_set("color", flat)
-    me.color_attributes.active_color_index = 0
-    me.color_attributes.render_color_index = 0
-    return out
+
+
+def dress(ob, zones):
+    """forest_tiles' tiles and tints, then the seam fade over them."""
+    forest_tiles.dress(ob, zones, "atlas")
+    seam_tint(ob, zones)
 
 
 def tint_material(mat):
@@ -2003,27 +1643,20 @@ def tint_material(mat):
     return mat
 
 
-def build_render_copy(albedo=None, emissive=None):
+def build_render_copy():
     """The tree in WORLD coordinates for another model's review renders."""
     m = build_tree_geometry()
     ob = m.object("ReviewTree")
-    unwrap(ob, seam_tint(ob, m.zones))
-    if albedo is None:
-        albedo, emissive = sheet("forest_atlas", paint_atlas)
-    mdl.finish(ob, tint_material(atlas_material("ForestAtlasTree", albedo, emissive)), strip_uvs=False)
+    dress(ob, m.zones)
     return ob
 
 
 def build():
     m = build_tree_geometry()
     c = build_tree_collider()
-    albedo, emissive = sheet("forest_atlas", paint_atlas)
-    mdl.save_texture(albedo)
-    mdl.save_texture(emissive)
     shift = (0.0, 0.0, -ORIGIN_Y)
     ob = m.object(OBJECT_NAME, shift)
-    unwrap(ob, seam_tint(ob, m.zones))
-    mdl.finish(ob, tint_material(atlas_material("ForestAtlas", albedo, emissive)), strip_uvs=False)
+    dress(ob, m.zones)
     coll = c.object(COLLIDER_NAME, shift)
     coll.hide_render = True
     print("MDL STATS visual_tris=%d collision_tris=%d floor_y=%.2f eye_y=%.2f apex_y=%.1f"

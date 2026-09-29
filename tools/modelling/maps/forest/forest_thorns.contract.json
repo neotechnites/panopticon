@@ -10,6 +10,6 @@
     "ForestThornsStripCollision",
     "ForestThornsStripCollision/CollisionShape3D"
   ],
-  "surfaces": 2,
+  "surfaces": 4,
   "max_tris": 2000
 }

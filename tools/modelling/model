@@ -697,7 +697,7 @@ case "$CMD" in
     if [ "$WHERE" = "local" ]; then
       stage_blender_local
       OUT="$TMP/out"
-      GLB_SRC="$TMP/out/${NAME}.glb"
+      GLB_SRC="$TMP/out/${FULL}.glb"
       if [ "$DO_VERIFY" = "1" ] && [ ! -f "$OUT/${NAME}.chunks.json" ]; then stage_verify_local; fi
       stage_fetch_local
     else
@@ -705,7 +705,7 @@ case "$CMD" in
       stage_blender
       stage_fetch
       OUT="$TMP"
-      GLB_SRC="$TMP/${NAME}.glb"
+      GLB_SRC="$TMP/${FULL}.glb"
       if [ "$DO_VERIFY" = "1" ] && [ ! -f "$OUT/${NAME}.chunks.json" ]; then stage_verify; fi
     fi
     if [ -f "$OUT/${NAME}.chunks.json" ]; then

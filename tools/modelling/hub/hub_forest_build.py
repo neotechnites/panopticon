@@ -9,7 +9,7 @@ and builds it into the one hub rock. See _Theme in hub_base_build.py.
         face a jagged leaf sheet; one barred cell near bearing 96
     three ferns on the grass, each in its own hole in the floor grid
 
-Every zone is ("forest", <ft.ZONES name>): the forest atlas, one material.
+Every zone is ("forest", <forest_tiles zone>): its tile, tinted in COLOR_0.
 
     python3 tools/modelling/hub/hub_base_build.py --check
 """
@@ -23,6 +23,8 @@ sys.path.insert(0, HERE)
 
 import hub_base_build as hb  # noqa: E402
 import forest_tree_build as ft  # noqa: E402
+import forest_tiles  # noqa: E402  the forest's tiles, tinted per zone
+import texel as tx  # noqa: E402
 
 # =============================================================================
 # TUNABLES
@@ -384,43 +386,33 @@ class ForestTheme(hb._Theme):
             _tube(m, path, (BAR_R, BAR_R * 0.85), BAR_SIDES, Z("bark"), ring, wob=0.15, rng=r)
         return ([Fv[u] for u in U if 0.0 < u < 0.5], [Fv[u] for u in U if 0.5 < u < 1.0])
 
-    # -- material ------------------------------------------------------------
+    # -- material: forest_tiles, one material per tile, tints in COLOR_0 ------
     def images(self):
-        return ft.sheet("forest_atlas", ft.paint_atlas)
+        return ()               # not None: hub_base_build routes this key's faces to unwrap()
 
-    def material(self, albedo, emissive):
-        return ft.atlas_material("ForestAtlas", albedo, emissive)
+    def materials(self):
+        """[(tile key, material)]: every tile a forest zone here wears."""
+        keys = sorted(set(forest_tiles.MAP["atlas"][z] for z in ZONES))
+        return [(k, forest_tiles.material(k)) for k in keys]
+
+    def slot_key(self, zone):
+        return forest_tiles.MAP["atlas"][zone[1]]
 
     def unwrap(self, me, uvl, polys, zone, r):
-        """forest_tree_build.unwrap's per-polygon body: a planar projection
-        into a random window of the zone at TPM texels per metre."""
-        u0, v0, u1, v1 = ft.ZONES[zone[1]]
-        span_u = (u1 - u0) - 2.0 * ft.UV_PAD
-        span_v = (v1 - v0) - 2.0 * ft.UV_PAD
-        scale = ft.TPM / ((u1 - u0) * ft.TEX_SIZE)
-        scale_v = ft.TPM / ((v1 - v0) * ft.TEX_SIZE)
+        """World box projection at texel.MPT into the zone's tile; its tint into COLOR_0."""
+        sheet = forest_tiles.BOX[self.slot_key(zone)]
+        col = me.color_attributes.get("Col")
+        if col is None:
+            col = me.color_attributes.new(name="Col", type="FLOAT_COLOR", domain="CORNER")
+            col.data.foreach_set("color", [1.0] * (len(me.loops) * 4))
+        tint = forest_tiles.zone_tint("atlas", zone[1])
         for pi in polys:
             poly = me.polygons[pi]
-            nrm = poly.normal
-            ax = max(range(3), key=lambda i: abs(nrm[i]))
-            ii, jj = ((1, 2), (0, 2), (0, 1))[ax]
-            fu = -1.0 if r.i(0, 1) else 1.0
-            fv = -1.0 if (ax == 2 and r.i(0, 1)) else 1.0
-            cos = [me.vertices[me.loops[li].vertex_index].co for li in poly.loop_indices]
-            mi = min(co[ii] for co in cos)
-            mj = min(co[jj] for co in cos)
-            w = min((max(co[ii] for co in cos) - mi) * scale, 1.0)
-            hh = min((max(co[jj] for co in cos) - mj) * scale_v, 1.0)
-            ou = r.f() * (1.0 - w)
-            ov = r.f() * (1.0 - hh)
-            for li, co in zip(poly.loop_indices, cos):
-                s = min(ou + (co[ii] - mi) * scale, 1.0)
-                t = min(ov + (co[jj] - mj) * scale_v, 1.0)
-                if fu < 0.0:
-                    s = 1.0 - s
-                if fv < 0.0:
-                    t = 1.0 - t
-                uvl.data[li].uv = (u0 + ft.UV_PAD + s * span_u, v0 + ft.UV_PAD + t * span_v)
+            cos = [tuple(me.vertices[me.loops[li].vertex_index].co) for li in poly.loop_indices]
+            for li, uv in zip(poly.loop_indices, tx.box_uv(cos, tuple(poly.normal), sheet)):
+                uvl.data[li].uv = uv
+                col.data[li].color = (tint[0], tint[1], tint[2], 1.0)
 
 
+ZONES = ("grass", "path", "verge", "edge", "shade", "leaf", "cell", "bark", "fern")
 THEME = ForestTheme()
