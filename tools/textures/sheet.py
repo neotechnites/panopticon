@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Pack/unpack a home's textures/*.png into one SHEET_<name>.png for editing in Aseprite.
 
-    sheet.py pack   [home...]   # default: all 8 homes below
+    sheet.py pack   [home...]   # default: every home below
     sheet.py unpack [home...]
 
 A home is a directory holding a textures/ folder (e.g. "maps/forest", "hub").
@@ -18,7 +18,7 @@ REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__fi
 
 DEFAULT_HOMES = [
     "maps/bentham_ring", "maps/forest", "maps/marble",
-    "characters", "tower", "weapons", "props", "hub",
+    "characters", "weapons", "props", "hub",
 ]
 
 GUTTER = 4                      # magenta gutter, px

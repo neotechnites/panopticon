@@ -36,7 +36,7 @@ COLL_SIDES = 8
 
 TEX_SIZE = 128
 TEX_ALBEDO = "demon_pad_albedo"
-TEX_EMISSIVE = "demon_pad_emissive"
+TEX_EMISSIVE = "hell_rock_emissive"   # the tower's: the rock's specks glow as its do
 TEX_SEED = 6661031
 ROCK_ROUGHNESS = 0.95
 ROCK_METALLIC = 0.0
@@ -412,11 +412,11 @@ def build():
 
     albedo, emissive = build_texture()
     mdl.save_texture(albedo)
-    mdl.save_texture(emissive)
 
     ob = pad.object(OBJECT_NAME)
     unwrap(ob, pad.zones)
-    mdl.finish(ob, rock_material("DemonPad", albedo, emissive), strip_uvs=False)
+    mdl.finish(ob, rock_material("HellRock", albedo, emissive), strip_uvs=False)
+    mdl.split_zone(ob, rock_material("DemonPad", albedo, albedo), ZONE_SIGIL)   # it glows its own albedo
 
     coll_ob = coll.object(COLLIDER_NAME)
     coll_ob.hide_render = True

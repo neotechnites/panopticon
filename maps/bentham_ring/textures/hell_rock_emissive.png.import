@@ -2,20 +2,22 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://ccyvwbv1pptih"
-path="res://.godot/imported/torch_emissive.png-8d9554df9d753b43419317a23fc78844.ctex"
+uid="uid://deitj653m3m3n"
+path.s3tc="res://.godot/imported/hell_rock_emissive.png-f33ffd67cff6da4b5e56af996222e6a4.s3tc.ctex"
+path.etc2="res://.godot/imported/hell_rock_emissive.png-f33ffd67cff6da4b5e56af996222e6a4.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 
 [deps]
 
-source_file="res://maps/bentham_ring/textures/torch_emissive.png"
-dest_files=["res://.godot/imported/torch_emissive.png-8d9554df9d753b43419317a23fc78844.ctex"]
+source_file="res://maps/bentham_ring/textures/hell_rock_emissive.png"
+dest_files=["res://.godot/imported/hell_rock_emissive.png-f33ffd67cff6da4b5e56af996222e6a4.s3tc.ctex", "res://.godot/imported/hell_rock_emissive.png-f33ffd67cff6da4b5e56af996222e6a4.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

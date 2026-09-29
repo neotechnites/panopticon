@@ -37,7 +37,7 @@ CHAMFER_IN = 0.06         # inward inset of the chamfer ring, metres
 CORNER_JAG = 0.035        # per-corner xy jitter: a few cm, corners not square
 
 SEED = 3320119
-TEX_ALBEDO = "block_rock_albedo"
+TEX_ALBEDO = "hell_rock_albedo"          # the tower's atlas: one hell rock file
 TEX_EMISSIVE = "block_rock_emissive"
 UV_SCALE = 0.35
 FACING_YAW = 0.0

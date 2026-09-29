@@ -530,6 +530,22 @@ def externalize_textures(objects):
         print("MDL TEXTURE %s -> %s" % (stem, rel))
 
 
+def split_zone(ob, material, zone):
+    """Faces whose UVs all lie in zone (u0, v0, u1, v1) take material, in a slot of their own."""
+    me = ob.data
+    me.materials.append(material)
+    slot = len(me.materials) - 1
+    uvl = me.uv_layers.active.data
+    u0, v0, u1, v1 = zone
+    n = 0
+    for p in me.polygons:
+        if all(u0 <= uvl[li].uv[0] <= u1 and v0 <= uvl[li].uv[1] <= v1 for li in p.loop_indices):
+            p.material_index = slot
+            n += 1
+    print("MDL STATS %s: %d face(s) wear %s" % (ob.name, n, material.name))
+    return n
+
+
 def join(objects, name):
     """Join into one object. Returns it, with the mesh datablock renamed too."""
     for ob in bpy.context.selected_objects:

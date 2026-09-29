@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bbwcr6iyqmit6"
-path="res://.godot/imported/lava_tile_emissive.png-bf6dd53c4ee8b8dbecb97bef34840c6b.ctex"
+uid="uid://bm1vmfe0mncif"
+path="res://.godot/imported/crack_glow_emissive.png-35409c4a4ec807af3bd1dc2f3eb0f04d.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://maps/bentham_ring/textures/lava_tile_emissive.png"
-dest_files=["res://.godot/imported/lava_tile_emissive.png-bf6dd53c4ee8b8dbecb97bef34840c6b.ctex"]
+source_file="res://maps/bentham_ring/textures/crack_glow_emissive.png"
+dest_files=["res://.godot/imported/crack_glow_emissive.png-35409c4a4ec807af3bd1dc2f3eb0f04d.ctex"]
 
 [params]
 
