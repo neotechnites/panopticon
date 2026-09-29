@@ -44,8 +44,8 @@ window. The shaft's courses therefore run round all sixteen facets at one
 height, on the same world 1 m grid the rotunda's wall courses use, and their
 vertical joints stand on the facet corners; the dome is a "custom" sheet
 whose v is the meridian's ARC LENGTH, so a coffer is the same size at the
-spring and at the crown. USE_TEXTURE_FILES swaps a painted class for
-textures/marble_tower_<class>_albedo.png when one is there.
+spring and at the crown. The stone, band, column, iron and floor are the
+rotunda's shared files; only the coffer and medallion are the tower's own.
 ONE CONTIGUOUS MESH: mb._Mesh welds coincident vertices; the columns' feet
 are cut out of the floor's outer band, the screen's head is SOLID corner to
 corner (so the ring beam has no exposed underside -- its two faces carry the
@@ -147,22 +147,22 @@ GUARD_EYE = FLOOR_Z + DAIS_H + mb.EYE_H   # 3.95: world 29.3 (pass 3: 28.7)
 # The tower wears the rotunda's stone at the rotunda's density: WALL_MPT
 # (0.046 m) a texel, a sheet 12 courses of 1.0 m tall, phased on FOOT_Z -- the
 # spike floor -- so every course line lands on the world 1 m grid the wall's
-# own courses use (tower local z = world y - 25.35). Across, a shaft sheet is
-# 60 texels = 2.761 m and texel's ring() closes that at exactly 16 repeats
-# round r 7.0: ONE REPEAT PER FACET, its vertical joints on the facet corners
-# (U0_SHAFT puts u = 0 there), 2.749/60 = 0.0458 m a texel, 0.4 % off the
-# vertical. The balcony's sheet is 35 texels = 1.611 m: 32 repeats at r 8.2,
-# one per post facet. Band, column, iron and the floor slab are fitted to the
-# face exactly as the rotunda fits them; the dome is "custom" (see _dome_vs).
+# own courses use (tower local z = world y - 25.35). Across, the rotunda's stone
+# file (mb.STONE) spans STONE_REP shaft facets (8 repeats round r 7.0, u = 0
+# on a facet corner) and BAL_REP balcony facets (8 round r 8.2); the shaft's
+# warmer stone, plinth and shade are that file tinted (mb.tint). Band, column,
+# iron and the floor slab are fitted as the rotunda fits them; the dome is
+# "custom" (see _dome_vs).
 
 USE_TEXTURE_FILES = True
 TEX_DIR = mb.TEX_DIR
 MPT = mb.WALL_MPT                    # 0.046019 m a texel: the rotunda's wall density
 SHEET_H = mb.WALL_H                  # 261 texels = 12 courses of 1.0 m
 SHEET_M = SHEET_H * MPT              # 12.01 m: the sheet's period up
-COURSES = 12
 SHAFT_PX = 60                        # one facet across at r 7.0 -> ring() closes at 16
 BAL_PX = 35                          # one balcony facet across at r 8.2 -> 32 repeats
+STONE_REP = 2                        # shaft facets under one width of the stone file
+BAL_REP = 4                          # ... balcony facets
 U0_SHAFT = SHAFT_R * math.radians(-(COL_PHASE + 180.0 / NS))       # u = 0 on a facet corner
 U0_BAL = BALCONY_R * math.radians(-(POST_PHASE + 180.0 / NB))      # ... on a balcony corner
 V0 = FOOT_Z                          # v = 0 on the spike floor: courses on the world grid
@@ -211,43 +211,6 @@ def _dome_vs(rad, rise, cls):
 
 # ---- the painters: the palette docs/maps/marble.md records, unchanged -------
 
-def _ashlar(c, r, shades, joint, verticals=True, courses=COURSES):
-    """Coursed blocks on a sheet one facet wide: a joint line on every course,
-    a vertical joint on the facet corner (u = 0) every course, the courses
-    half-bonded between, so a joint never stops at a face edge."""
-    tx.fill(c, r, c.box, shades)
-    rows = [int(round(k * c.h / float(courses))) for k in range(courses)]
-    for k, y0 in enumerate(rows):
-        y1 = rows[k + 1] if k + 1 < len(rows) else c.h
-        c.rect(0, y0, c.w, y0 + 1, joint)
-        if not verticals:
-            continue
-        for x in ([0, c.w // 2] if k % 2 == 0 else [0, c.w // 4, (3 * c.w) // 4]):
-            c.rect(x, y0 + 1, x + 1, y1, joint)
-    tx.shatter(c, r, c.box, [shades[0], shades[-1]], 16, 4, 9)
-
-
-def _sheet_stone(c, r, s):
-    """The shaft: tower ashlar #8b8160, joints #625b44."""
-    _ashlar(c, r, [(139, 129, 96), (135, 125, 92), (143, 133, 100), (137, 127, 94)], (98, 91, 68))
-
-
-def _sheet_plinth(c, r, s):
-    _ashlar(c, r, [(146, 142, 112), (142, 138, 108), (150, 146, 116), (144, 140, 110)], (108, 105, 80))
-
-
-def _sheet_shade(c, r, s):
-    """Grey-olive #6b6b55: reveals, soffits, undersides. Courses only."""
-    _ashlar(c, r, [(107, 107, 85), (103, 103, 81), (111, 111, 89), (99, 99, 78)], (80, 80, 66),
-            verticals=False)
-
-
-def _sheet_marble2(c, r, s):
-    """The balcony ledge, one repeat a post facet."""
-    _ashlar(c, r, [(146, 142, 112), (142, 138, 108), (150, 146, 116), (138, 134, 104)], (102, 99, 74),
-            courses=COURSES)
-
-
 def _sheet_coffer(c, r, s):
     """One sunk coffer, a whole cell of the sheet: #9a9676 stepping down to
     #565542 with a boss, in a grey-olive rib the next coffer shares."""
@@ -290,32 +253,32 @@ def _sheet_medallion(c, r, s):
     tx.blades(c, r, c.box, 40, [(140, 136, 108)])
 
 
-def _wall(name, paint, seed, width=SHAFT_PX, ref_r=SHAFT_R, u0=U0_SHAFT):
-    return tx.Sheet(name, paint, mpt=MPT, size=SHEET_H, width=width, ref_r=ref_r,
-                    phase=(u0, V0), roughness=mb.ROUGHNESS, seed=seed)
+def _wall(name, width=SHAFT_PX * STONE_REP, ref_r=SHAFT_R, u0=U0_SHAFT):
+    return tx.Sheet(name, mb._sheet_marble, mpt=MPT, size=SHEET_H, width=width, ref_r=ref_r,
+                    phase=(u0, V0), roughness=mb.ROUGHNESS, seed=1, stem=mb.STONE)
 
 
 SHEETS = {
-    "stone": _wall("stone", _sheet_stone, 1),                                  # the shaft, the spandrels
-    "plinth": _wall("plinth", _sheet_plinth, 2),                               # foot, steps, room floor band, dais
-    "shade": _wall("shade", _sheet_shade, 3),                                  # reveals, soffits, undersides
-    "marble2": _wall("marble2", _sheet_marble2, 4, BAL_PX, BALCONY_R, U0_BAL),  # the ledge
+    "stone": _wall("stone"),                                                   # the shaft, the spandrels
+    "plinth": _wall("plinth"),                                                 # foot, steps, room floor band, dais
+    "shade": _wall("shade"),                                                   # reveals, soffits, undersides
+    "marble2": _wall("marble2", BAL_PX * BAL_REP, BALCONY_R, U0_BAL),           # the ledge
     "band": tx.Sheet("band", mb._sheet_band, mode="fit_v", width=256, size=64,
                      roughness=mb.ROUGHNESS, seed=10, stem="marble_band"),                          # ring beam, slab edge
     "column": tx.Sheet("column", mb._sheet_column, mode="fit_u", width=64, size=256,
                        roughness=mb.ROUGHNESS, seed=9, stem="marble_column"),
     "iron": tx.Sheet("iron", mb._sheet_iron, mode="fit_u", width=64, size=256,
-                     roughness=mb.ROUGHNESS, seed=11, stem="marble_iron"),
+                     roughness=mb.ROUGHNESS, seed=11, stem=mb.IRON),
     "floor": tx.Sheet("floor", mb._sheet_floor, mode="custom", size=64, mpt=2.7 / 64.0,
-                      roughness=mb.ROUGHNESS, seed=7, stem="marble_floor"),                         # one paving cell a ring band, UVs per vertex
+                      roughness=mb.ROUGHNESS, seed=7, stem=mb.FLOOR),                       # one paving cell a ring band, UVs per vertex
     "medallion": tx.Sheet("medallion", _sheet_medallion, mode="box", size=64,
                           mpt=2.0 * PAVING_RS[0] / 64.0,
                           phase=(-PAVING_RS[0], -PAVING_RS[0]),
                           roughness=mb.ROUGHNESS, seed=9),
     "coffer": tx.Sheet("coffer", _sheet_coffer, mpt=MPT, size=COFFER_PX, width=SHAFT_PX,
                        mode="custom", roughness=mb.ROUGHNESS, seed=10),        # the dome inside
-    "dome": tx.Sheet("dome", _sheet_stone, mpt=MPT, size=SHEET_H, width=SHAFT_PX,
-                     mode="custom", roughness=mb.ROUGHNESS, seed=1, stem="marble_tower_stone"),          # ... and outside
+    "dome": tx.Sheet("dome", mb._sheet_marble, mpt=MPT, size=SHEET_H, width=SHAFT_PX * STONE_REP,
+                     mode="custom", roughness=mb.ROUGHNESS, seed=1, stem=mb.STONE),          # ... and outside
 }
 # Two faces wear a class their zone does not name, because their PROJECTION
 # differs, not their stone: the dome's skin (zone "shade") is "dome", and the
@@ -723,6 +686,7 @@ def _crown(m, coll=False):
     for (rad, rise, outward, zone, cls) in ((SHAFT_R, DOME_RISE, True, "shade", "dome"),
                                             (R_INSET, DOME_RISE - DOME_T, False, "coffer", "coffer")):
         vs = _dome_vs(rad, rise, cls)
+        us = 1.0 if cls == "coffer" else 1.0 / STONE_REP          # the skin: the stone file spans STONE_REP facets
         prof = _dome_profile(rad, rise)[0]
         prev = _ringz(m, rad, z1)
         for k in range(1, DOME_RINGS):
@@ -736,13 +700,13 @@ def _crown(m, coll=False):
                     w = (-w[0], -w[1], -w[2])
                 # a cell fans from its centre: one diagonal kinks a trapezoid's texture, four keep it straight
                 cell = (prev[i], prev[j], ring[j], ring[i])
-                cuv = ((float(i), vs[k - 1]), (i + 1.0, vs[k - 1]), (i + 1.0, vs[k]), (float(i), vs[k]))
+                cuv = ((i * us, vs[k - 1]), ((i + 1.0) * us, vs[k - 1]), ((i + 1.0) * us, vs[k]), (i * us, vs[k]))
                 c = m.v(tuple(sum(m.verts[x][d] for x in cell) / 4.0 for d in range(3)))
                 for e in range(4):
                     a, b = cell[e], cell[(e + 1) % 4]
                     n0 = len(m.faces)
                     m.tri(a, b, c, w, zone)
-                    m.face_uv[n0] = {a: cuv[e], b: cuv[(e + 1) % 4], c: (i + 0.5, 0.5 * (vs[k - 1] + vs[k]))}
+                    m.face_uv[n0] = {a: cuv[e], b: cuv[(e + 1) % 4], c: ((i + 0.5) * us, 0.5 * (vs[k - 1] + vs[k]))}
                     _classify(m, n0, cls)
             prev = ring
         apex = m.v((0.0, 0.0, z1 + rise))
@@ -755,8 +719,8 @@ def _crown(m, coll=False):
                 m.face_uv[n0] = {x: (0.05 + 0.03 * m.verts[x][0] / crown_r, 0.05 + 0.03 * m.verts[x][1] / crown_r)
                                  for x in (prev[i], prev[j], apex)}
             else:
-                m.face_uv[n0] = {prev[i]: (float(i), vs[-2]), prev[j]: (i + 1.0, vs[-2]),
-                                 apex: (i + 0.5, vs[-1])}
+                m.face_uv[n0] = {prev[i]: (i * us, vs[-2]), prev[j]: ((i + 1.0) * us, vs[-2]),
+                                 apex: ((i + 0.5) * us, vs[-1])}
             _classify(m, n0, cls)
 
 
@@ -867,6 +831,8 @@ def build():
     mats = tx.materials(NAME, SHEETS, use_files=USE_TEXTURE_FILES, tex_dir=os.path.join(HERE, TEX_DIR))
     for mat in mats.values():
         mat.diffuse_color = (0.78, 0.76, 0.72, 1.0)
+    mb.tint(mats, {"stone": "tower", "dome": "tower", "plinth": "plinth", "marble2": "plinth",
+                   "shade": "shade"})
     order = tx.finish(ob, classes, mats)
     tx.report(SHEETS)
     print("MDL STATS surfaces=%d order=%s" % (len(ob.data.materials), ",".join(order)))
