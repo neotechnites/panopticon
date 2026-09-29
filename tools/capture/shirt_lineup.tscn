@@ -1,0 +1,39 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://tools/capture/shirt_lineup_setup.gd" id="1_setup"]
+
+[sub_resource type="ProceduralSkyMaterial" id="SkyMat"]
+sky_top_color = Color(0.28, 0.34, 0.42, 1.0)
+sky_horizon_color = Color(0.58, 0.6, 0.62, 1.0)
+ground_bottom_color = Color(0.16, 0.16, 0.17, 1.0)
+ground_horizon_color = Color(0.4, 0.4, 0.42, 1.0)
+
+[sub_resource type="Sky" id="Sky"]
+sky_material = SubResource("SkyMat")
+
+[sub_resource type="Environment" id="Env"]
+background_mode = 2
+sky = SubResource("Sky")
+ambient_light_source = 3
+ambient_light_energy = 0.6
+tonemap_mode = 2
+
+[sub_resource type="StandardMaterial3D" id="MatGround"]
+albedo_color = Color(0.34, 0.35, 0.37, 1.0)
+roughness = 0.95
+
+[node name="ShirtLineup" type="Node3D"]
+script = ExtResource("1_setup")
+editor_description = "Capture-only: three live prisoner avatars wearing the shipped runner palette's shirt tint, for the shirt-tone pass. Not part of any match."
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Env")
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.819152, -0.469846, 0.330366, 0.0, 0.573576, 0.819152, -0.573576, -0.67101, 0.469846, 0.0, 3.0, 0.0)
+light_energy = 1.0
+
+[node name="Ground" type="CSGBox3D" parent="."]
+use_collision = false
+size = Vector3(20.0, 0.2, 10.0)
+material = SubResource("MatGround")

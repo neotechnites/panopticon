@@ -29,16 +29,18 @@ extends Resource
 ## One entry per seat, in match order, worn on the shirt. Chosen to stay
 ## readable at 35-60 m against dark red rock and lava: no reds, oranges or
 ## browns, nothing that could be mistaken for the arena or for a trap. Wraps
-## rather than runs out -- see [method color_for_index].
+## rather than runs out -- see [method color_for_index]. Darkened and
+## desaturated (~55% saturation, ~52% brightness of the original neon set) so
+## the shirt reads as dyed prison cloth rather than a jersey.
 @export var runner_colors: Array[Color] = [
-	Color(0.98, 0.85, 0.10, 1.0), # yellow
-	Color(0.10, 0.92, 0.92, 1.0), # cyan
-	Color(0.50, 0.95, 0.15, 1.0), # lime
-	Color(0.95, 0.20, 0.85, 1.0), # magenta
-	Color(0.92, 0.94, 0.88, 1.0), # off-white
-	Color(0.25, 0.60, 1.00, 1.0), # sky blue
-	Color(0.62, 0.35, 0.98, 1.0), # violet
-	Color(0.45, 1.00, 0.72, 1.0), # mint
+	Color(0.51, 0.48, 0.26, 1.0), # yellow
+	Color(0.25, 0.48, 0.48, 1.0), # cyan
+	Color(0.37, 0.50, 0.27, 1.0), # lime
+	Color(0.50, 0.28, 0.47, 1.0), # magenta
+	Color(0.49, 0.49, 0.48, 1.0), # off-white
+	Color(0.31, 0.41, 0.53, 1.0), # sky blue
+	Color(0.41, 0.33, 0.51, 1.0), # violet
+	Color(0.37, 0.53, 0.44, 1.0), # mint
 ]
 
 ## Alpha a ghost's own runner colour is painted at. Not a separate hue -- see
