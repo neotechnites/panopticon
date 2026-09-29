@@ -491,7 +491,7 @@ class _Ground(object):
         self.pit = []       # pit[j][i], j over PIT
         self.wall = []      # wall[j][i], j over WALL
         self.gal = []       # gal[k][i], k over fc.GALLERY_R: the lane's roof; gal[-1] is the drum's foot
-        self.eave = []      # eave[k][i], k over fc.EAVE_R: the roof's edge past the lip, lifting over the pit
+        self.eave = []      # eave[k][i], k over fc.ROLL: the roof's edge rolling under at the lip
         self.upper = []     # upper[j][i], j over UPPER: the cell drum on that rim; upper[-1] IS the seam
         self.wall_cells = []
         self.upper_cells = []
@@ -1044,7 +1044,7 @@ class _Ground(object):
         self._pit_rows()
         self._wall_rows()
         fc.gallery_rows(self)       # the lane's roof, off the wall's top row, in to the drum
-        fc.eave_rows(self)          # the roof's edge past the lip: lifting over the pit, off the drum's foot
+        fc.eave_rows(self)          # the roof's edge: rolling under off the drum's foot, back up into the sheet
         self._upper_rows()          # the cell drum, off that roof's inner rim, up to the seam
         self._deck_faces()
         self._pit_faces()

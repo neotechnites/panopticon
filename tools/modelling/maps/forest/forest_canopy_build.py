@@ -31,9 +31,13 @@ the way a broadleaf is:
             cluster is a broad SHALLOW lobe (CLUSTER), all "leaf", its rim over
             the roof's highest point under it, so no facet faces the sun.
     deck    nothing of a crown passes the pit lip or the wall foot: tips stay
-            over the lane, clusters are centred in and clipped to the deck
-            annulus (forest_build.INNER_R..OUTER_R), and the roof's own dips
-            (forest_ceiling_build.deck_window) end there too.
+            over the lane (TIP_R), clusters are centred in and clipped to
+            CROWN_IN..OUTER_R (off the lip's fern band), and the roof's own dips
+            (forest_ceiling_build.deck_window) end there too. Ryan: "the trees
+            are still completely fucked at the edge": a tree within LIP_NEAR of
+            the lip grows ONE-SIDED -- a limb aimed over the pit is turned to run
+            along the lip (LIP_ALONG off the tangent, toward the lane), so its
+            pit side carries nothing but the trunk.
     fringe  Ryan: "a huge gap on the wall side of the flat roof, and on the ring
             side there's still a very clear corner ... it should look like one
             surface modelled with intention." Past the crowns' clipped rims the
@@ -42,13 +46,10 @@ the way a broadleaf is:
             never shows flat, thinning as they go (LIFT). Outward they run over the
             roof's cove (forest_ceiling_build.COVE_R) and down it into the
             wall's head, each hung along the cove's normal so the mass curves
-            over and down with it; inward they end ON the lip (Ryan: "the edge
-            side has these trees just overspilling again"): a rim stops at
-            r 46.7 and the hang fades to nothing there (LIP_FADE), so the mass
-            sinks into the sheet and nothing is past the lip below the roof
-            plane. Past it the roof itself lifts away over the pit
-            (forest_ceiling_build.EAVE_R). No straight line, no corner, no flat
-            plane beside a mass, nothing low over the lip or the pit.
+            over and down with it; inward the roof itself ends the mass: at the
+            lip the sheet rolls under and back (forest_ceiling_build.ROLL), so
+            the last row stops where the roll begins. No straight line, no
+            corner, no flat plane beside a mass, nothing low over the lip or the pit.
     uv      every face is unwrapped flat in its own plane, foliage at LEAF_TPM
             (leaf clumps at the wall ivy's scale, readable from the lane), bark
             at the atlas's density so its grain runs up the wood.
@@ -112,8 +113,11 @@ TREES = ("tree_a", "tree_b", "tree_c")
 LETTER = {"tree_a": "a", "tree_b": "b", "tree_c": "c"}
 
 DECK_R = (fb.INNER_R, fb.OUTER_R)   # the walkable annulus: every crown lives over it
-DECK_EDGE = 0.25            # ... and comes no nearer its lip or its wall foot than this (world m)
-TIP_R = (fb.INNER_R + 1.8, fb.OUTER_R - 1.8)   # where a limb may end: over the lane, inside its own cluster's clipped rim
+DECK_EDGE = 0.25            # ... and comes no nearer its wall foot than this (world m)
+CROWN_IN = fb.INNER_R + 0.9  # ... nor its lip than this: a crown's rim stops outside the lip's fern band
+TIP_R = (fb.INNER_R + 2.3, fb.OUTER_R - 1.8)   # where a limb may end: over the lane, inside its own cluster's clipped rim
+LIP_NEAR = 3.0              # a tree standing this near the lip (world m) grows one-sided ...
+LIP_ALONG = 15.0            # ... a limb of its aimed over the pit runs along the lip instead, this far off the tangent toward the lane
 
 FLARE = {"a": (1.22, 1.12, 0.18, 4), "b": (1.15, 1.08, 0.16, 5), "c": (1.22, 1.12, 0.18, 4)}
                             # (ring-1 swell, flare-ring swell, buttress ridge amplitude, ridges)
@@ -193,24 +197,21 @@ SEED = 4471021
 # The fringe: rows of smaller clusters past the crowns' clipped rims, each row
 # (seed index, centre radius, radial jitter), WORLD sizes ((short radius lo, hi), (depth lo, hi)),
 # the step along the lane in metres (lo, hi) and the share of its places left empty.
-# Ryan: "the edge side has these trees just overspilling again." The lip row is gone
-# and the inner row ends ON the lip: its rims stop there, and its hang fades to nothing
-# over LIP_FADE, so a cluster's lip side sinks into the roof sheet -- one-sided, the way
-# a tree at a cliff edge is. Nothing hangs past r 46.7 below the roof plane; past it the
-# roof itself lifts away (forest_ceiling_build.EAVE_R). The wall side is untouched.
+# Ryan: "the edge side has these trees just overspilling again." No row over the lip
+# band: the roof's own roll ends the mass there (forest_ceiling_build.ROLL) and the
+# inner row's rims stop at CROWN_IN, their hang fading toward the lip over LIP_FADE.
+# Nothing hangs past r 46.7 below the roof plane. The wall side is untouched.
 # The lane rows (mid1..3) carpet the roof between the crowns: shallow lobes every few
 # metres, overlapping, so no flat sheet shows between one crown and the next.
 FRINGE = (
-    ("in",   0, (48.3, 0.6), ((1.2, 1.8), (0.6, 1.0)), (2.4, 4.0), 0.12),   # over the lip band, under the crowns' rims
     ("mid1", 4, (50.3, 0.6), ((1.4, 2.1), (0.7, 1.1)), (2.2, 3.6), 0.10),
     ("mid2", 5, (52.3, 0.6), ((1.4, 2.1), (0.7, 1.1)), (2.2, 3.6), 0.10),
     ("mid3", 6, (54.3, 0.6), ((1.4, 2.1), (0.7, 1.1)), (2.2, 3.6), 0.10),
     ("out",  2, (56.6, 0.5), ((1.3, 1.9), (0.6, 1.0)), (2.4, 4.0), 0.12),   # where the roof turns down into the cove
     ("cove", 3, (58.3, 0.4), ((0.9, 1.4), (0.4, 0.7)), (1.8, 3.0), 0.15),   # down the cove, thinning into the wall's head
 )
-LIP_EDGE = 0.02             # a fringe rim stops this far outside the lip: its chords never cross it
 LIP_FADE = 1.6              # a fringe vertex's hang fades from full to nothing over this much approaching the lip
-FRINGE_BAND = (fb.INNER_R + LIP_EDGE, 58.9)   # a fringe rim reaches the lip and this far down the cove (y ~36.7 there)
+FRINGE_BAND = (CROWN_IN, 58.9)   # a fringe rim reaches the lip's fern band and this far down the cove (y ~36.7 there)
 LIFT = ((46.7, 0.4), (49.0, 1.0), (56.5, 1.0), (58.0, 0.55), (58.9, 0.2))
                             # (world radius, share of a fringe cluster's depth): full over the lane, thinning
                             # toward the lip and down the cove: nothing low over the pit or the cells
@@ -298,6 +299,7 @@ class _Place(object):
         rr = math.hypot(fx, fy)
         tx, ty = -fy / rr, fx / rr                    # the lane's tangent at the foot, world ...
         self.tangent_a = math.atan2(-self.s * tx + self.c * ty, self.c * tx + self.s * ty)   # ... as a local angle
+        self.lip = rr < DECK_R[0] + LIP_NEAR          # a lip tree: one-sided (_aim)
 
     def __call__(self, p):
         x = self.foot[0] + self.k * (self.c * p[0] - self.s * p[1])
@@ -342,18 +344,24 @@ def _fit_tip(place, tip_xy, band=TIP_R):
 
 def _aim(place, roof, root_xy, d, out, margin):
     """A limb that would leave the lane (over the drop or into the wall) is
-    mirrored across the lane's tangent before its socket is chosen; one over a
-    sun well is turned off it."""
+    mirrored across the lane's tangent before its socket is chosen; a lip tree's
+    limb aimed over the pit runs along the lip instead; one over a sun well is turned off it."""
     def world_ok(dd):
         wx, wy = place.xy(root_xy[0] + dd[0] * out, root_xy[1] + dd[1] * out)
         rad = math.hypot(wx, wy)
         return TIP_R[0] <= rad <= TIP_R[1]
-    if not world_ok(d):
-        fx, fy = place.foot[0], place.foot[1]
-        rr = math.hypot(fx, fy)
-        radial = (fx / rr, fy / rr)
-        wd = (place.c * d[0] - place.s * d[1], place.s * d[0] + place.c * d[1])   # world direction
-        k = wd[0] * radial[0] + wd[1] * radial[1]
+    fx, fy = place.foot[0], place.foot[1]
+    rr = math.hypot(fx, fy)
+    radial = (fx / rr, fy / rr)
+    wd = (place.c * d[0] - place.s * d[1], place.s * d[0] + place.c * d[1])   # world direction
+    k = wd[0] * radial[0] + wd[1] * radial[1]
+    if place.lip and k < math.sin(math.radians(LIP_ALONG)):
+        t = wd[0] * -radial[1] + wd[1] * radial[0]                              # its tangential sense
+        t = 1.0 if t >= 0.0 else -1.0
+        ca, sa = math.cos(math.radians(LIP_ALONG)), math.sin(math.radians(LIP_ALONG))
+        wd = (sa * radial[0] - ca * t * radial[1], sa * radial[1] + ca * t * radial[0])
+        d = (place.c * wd[0] + place.s * wd[1], -place.s * wd[0] + place.c * wd[1], 0.0)
+    elif not world_ok(d):
         wd = (wd[0] - 2.0 * k * radial[0], wd[1] - 2.0 * k * radial[1])          # radial part flipped
         d = (place.c * wd[0] + place.s * wd[1], -place.s * wd[0] + place.c * wd[1], 0.0)
     for _ in range(6):
@@ -555,12 +563,12 @@ def _cluster(m, rng, place, roof, centre, kind, fringe=None):
     R_w, depth_w = rng.u(r_lo, r_hi), rng.u(d_lo, d_hi)
     hang = DOWN
     if fringe is None:
-        reach = R_w * (1.0 + LOBE_WOB) + DECK_EDGE
-        if DECK_R[1] - DECK_R[0] < 2.0 * reach:
-            R_w = 0.5 * (DECK_R[1] - DECK_R[0] - 2.0 * DECK_EDGE) / (1.0 + LOBE_WOB)
-            reach = R_w * (1.0 + LOBE_WOB) + DECK_EDGE
-        cx, cy = _clip(place, centre[0], centre[1], (DECK_R[0] + reach, DECK_R[1] - reach))
-        edge = (DECK_R[0] + DECK_EDGE, DECK_R[1] - DECK_EDGE)
+        edge = (CROWN_IN, DECK_R[1] - DECK_EDGE)
+        reach = R_w * (1.0 + LOBE_WOB)
+        if edge[1] - edge[0] < 2.0 * reach:
+            R_w = 0.5 * (edge[1] - edge[0]) / (1.0 + LOBE_WOB)
+            reach = R_w * (1.0 + LOBE_WOB)
+        cx, cy = _clip(place, centre[0], centre[1], (edge[0] + reach, edge[1] - reach))
     else:
         cx, cy = centre
         edge = FRINGE_BAND
