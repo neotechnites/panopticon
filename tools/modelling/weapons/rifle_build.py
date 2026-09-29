@@ -572,9 +572,11 @@ def _geometry():
         lathe("scope_ring%d" % k, [(ry - 0.007, _tube_r(ry - 0.007)), (ry - 0.007, rt + 0.0035),
                                    (ry + 0.007, rt + 0.0035)], zs)
         prism("ring_post%d" % k, ry - 0.006, ry + 0.006, (-0.009, 0.009, 0.028, zs - rt + 0.002))
-    tr = _tube_r(-0.015)
-    prism("turret_top", -0.024, -0.006, (-0.009, 0.009, zs + tr - 0.005, zs + tr + 0.015))
-    prism("turret_side", -0.024, -0.006, (tr - 0.005, tr + 0.015, zs - 0.009, zs + 0.009))
+    t0, t1, tr = -0.024, -0.006, _tube_r(-0.024) - 0.0015   # turrets sit ON the tube, out of the cone
+    frustum("turret_top", [(-0.004, t0, zs + tr), (0.004, t0, zs + tr), (0.004, t1, zs + tr), (-0.004, t1, zs + tr)],
+            [(-0.009, t0, zs + tr + 0.016), (0.009, t0, zs + tr + 0.016), (0.009, t1, zs + tr + 0.016), (-0.009, t1, zs + tr + 0.016)])
+    frustum("turret_side", [(tr, t0, zs - 0.004), (tr, t0, zs + 0.004), (tr, t1, zs + 0.004), (tr, t1, zs - 0.004)],
+            [(tr + 0.016, t0, zs - 0.009), (tr + 0.016, t0, zs + 0.009), (tr + 0.016, t1, zs + 0.009), (tr + 0.016, t1, zs - 0.009)])
     lathe("ocular_glass", [(OCULAR_Y[0], hole), (OCULAR_Y[0], 0.017)], zs)["fit"] = GLASS_RECT
     lathe("objective_glass", [(BELL_Y[1], LENS_R)], zs, cap=True)["fit"] = GLASS_RECT
 
