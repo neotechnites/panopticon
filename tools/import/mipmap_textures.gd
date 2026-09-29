@@ -10,6 +10,10 @@ const WAVE_MATERIALS := [&"LavaRiver", &"LavaSea", &"LavaCrack"]
 const LAVA_WAVE_SHADER := "res://maps/bentham_ring/materials/lava_wave.gdshader"
 ## No torches on the ring any more: the lava itself carries that light, boosted here.
 const LAVA_EMISSION_BOOST := 1.4
+## Forest leaves: wrapped diffuse, no specular sheen, a green backlight where the sun comes through.
+const FOLIAGE_HOME := "res://maps/forest/"
+const FOLIAGE_MATERIALS := [&"ForestLeaf"]
+const FOLIAGE_BACKLIGHT := Color(0.45, 0.5, 0.18)
 
 const TEXTURE_PROPERTIES := [
 	&"albedo_texture",
@@ -75,6 +79,16 @@ func _fix_material(material: Material) -> void:
 
 	base.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST_WITH_MIPMAPS_ANISOTROPIC
 	_materials_refiltered += 1
+	if get_source_file().begins_with(FOLIAGE_HOME) and FOLIAGE_MATERIALS.has(StringName(base.resource_name)):
+		_foliage(base)
+
+
+## Leaf shading that has no hard terminator: the wrap lifts faces turned from the sun.
+func _foliage(base: BaseMaterial3D) -> void:
+	base.diffuse_mode = BaseMaterial3D.DIFFUSE_LAMBERT_WRAP
+	base.specular_mode = BaseMaterial3D.SPECULAR_DISABLED
+	base.backlight_enabled = true
+	base.backlight = FOLIAGE_BACKLIGHT
 
 
 ## Returns a mipmapped stand-in for `texture`, or null when nothing is needed.
