@@ -36,11 +36,9 @@ lane, pit cone, water floor, flat wall with a prism per trunk, flat ceiling
 annulus. The leafy visual mesh is never its own
 collider.
 
-Textures: one tiling sheet per class (lib/texel.py, SHEETS below: grass,
-verge, path, edge, leaf, shade, sun, fern, bark, earth, cell, root), painted
-here in forest_tree_build's palette, world-projected at texel.MPT m per texel;
-textures/forest_<class>_albedo.png (+ _emissive.png) replaces a painted sheet
-when ft.USE_TEXTURE_FILES is on. The props keep the forest atlas.
+Textures: forest_tiles' 64 px tiles (grass, path, leaf, bark, fern, dark and
+the ornament's lamp glow), world-projected at texel.MPT m per texel; the other
+zones are COLOR_0 tints of those (SHEETS below). The props wear the same tiles.
 The leaf ceiling (the lane's roof sheet and its sun wells) is forest_ceiling_build;
 the pit's dark floor, fog layers (ForestFog: stacked translucent discs, alpha in
 COLOR_0, for GL Compatibility) and thorny brambles are forest_pit_build.
@@ -73,6 +71,7 @@ if bpy is not None:
     mdl.DEFAULTS["world_strength"] = 0.95
 
 import forest_tree_build as ft  # noqa: E402
+import forest_tiles  # noqa: E402  the forest's tiles, tinted per zone
 from forest_tree_build import (_Mesh, _Rng, UP, DOWN, pol, radial, tangent, add, sub, norm, dot,  # noqa: E402
                                lerp, bez, loft, zipper, plane_of)
 import forest_seam as fs  # noqa: E402  the ring Map 3's two models share
@@ -237,7 +236,7 @@ BAR_SEG = 1.2               # metres per bar segment
 # 0.025: the mouth was exactly as bright as the wall around it, which is what
 # "no light" looks like. So the lamp has to BE the lit pixels, not cast them:
 #
-#   1. the emission is an order of magnitude up (LAMP_GLOW below), because at
+#   1. the emission is an order of magnitude up (forest_tiles.GLOW), because at
 #      sRGB 44 it was ~2% of white under a tonemapper that compresses;
 #   2. LAMP_ZONE is worn by the whole REAR HALF of the pocket -- back wall,
 #      floor, roof and both jambs from the BAR_SHELF line back -- so the falloff
@@ -1175,111 +1174,8 @@ def _ray_object(m, name):
 # =============================================================================
 
 # =============================================================================
-# SHEETS -- the forest's classes, one tiling image each (lib/texel.py)
+# SHEETS -- forest_tiles' tiles, cyl-projected round the ring (lib/texel.py)
 # =============================================================================
-# Counts and sizes carry the atlas cells' density per metre: a 64 px cell at
-# 12 texels/m was 5.33 m; a sheet at texel.MPT is 12.8 m square.
-_CELL_M = 64.0 / ft.TPM
-_K = (tx.TILE * tx.MPT / _CELL_M) ** 2         # sheet area / cell area: 5.76
-_S = (1.0 / ft.TPM) / tx.MPT                   # old texel / new texel: 1.67
-
-
-def _n(count, cell_px=64):
-    return int(round(count * _K * (64.0 / cell_px) ** 2))
-
-
-def _sz(texels):
-    return max(1, int(round(texels * _S)))
-
-
-def _noise(tones, cuts, nblades, blade_shades, cell_px=(128, 64)):
-    def paint(c, r, s):
-        tx.noise_fill(c, r, c.box, tones, cuts=cuts, cells=(_sz(10), _sz(4)))
-        tx.blades(c, r, c.box, int(round(nblades * (c.w * c.h) / float(cell_px[0] * cell_px[1]))), blade_shades)
-    return paint
-
-
-def _leaves(base, blobs, lit, count, sz, cell_px):
-    def paint(c, r, s):
-        tx.fill(c, r, c.box, list(base))
-        for _ in range(_n(count, cell_px)):
-            w = r.i(_sz(sz[0]), _sz(sz[1]))
-            h = max(2, w - r.i(0, 2))
-            x, y = r.i(0, c.w - 1), r.i(0, c.h - 1)
-            c.rect(x, y, x + w, y + h, r.pick(list(blobs)))
-            c.rect(x, y + h - 1, x + max(2, w // 2), y + h, lit)      # the lit edge of every leaf
-    return paint
-
-
-def _sheet_fern(c, r, s):
-    tx.fill(c, r, c.box, list(ft.FERN_BASE))
-    for _ in range(_n(9)):                       # fronds: a stem with side ticks
-        x, y = r.i(0, c.w - 1), r.i(0, c.h - 1)
-        n = r.i(_sz(8), _sz(16))
-        dx = r.pick([-1, 1])
-        for k in range(n):
-            xx, yy = x + (k * dx) // 2, y + k
-            c.put(xx, yy, ft.FERN_FROND[0])
-            if k % 2 == 0:
-                c.put(xx - 1, yy, ft.FERN_FROND[1])
-                c.put(xx + 1, yy, ft.FERN_FROND[1])
-    tx.blades(c, r, c.box, _n(30), [ft.FERN_DARK])
-
-
-def _bark(base):
-    def paint(c, r, s):
-        tx.fill(c, r, c.box, list(base))
-        tx.streaks(c, r, c.box, _n(26), list(ft.BARK_STREAKS), (_sz(6), _sz(18)), (1, _sz(2)))
-        tx.streaks(c, r, c.box, _n(12), [ft.BARK_CRACK], (_sz(4), _sz(9)), (1, 1), wander=1)
-        for _ in range(_n(8)):
-            x, y = r.i(0, c.w - 1), r.i(0, c.h - 1)
-            c.rect(x, y, x + _sz(2), y + _sz(2), ft.BARK_MOSS)
-    return paint
-
-
-def _sheet_earth(c, r, s):
-    tx.fill(c, r, c.box, list(ft.EARTH_BASE))
-    tx.shatter(c, r, c.box, list(ft.EARTH_BLOTCH), _n(30), _sz(3), _sz(9))
-    for _ in range(_n(8)):                       # root streaks, top to bottom, wrapping
-        x = r.i(0, c.w - 1)
-        for k in range(c.h):
-            c.put(x, k, ft.EARTH_ROOT)
-            if k % 3 == 0:
-                x += r.i(-1, 1)
-    for count, col in ((14, ft.EARTH_STONE), (10, ft.EARTH_MOSS)):
-        for _ in range(_n(count)):
-            x, y = r.i(0, c.w - 1), r.i(0, c.h - 1)
-            c.rect(x, y, x + _sz(2), y + _sz(2), col)
-
-
-def _sheet_lamp(c, r, s):
-    """The back wall of a cell, and the only thing in the forest that gives off
-    light: dark stone rubbed with a low, warm glow, brightest in a couple of
-    patches so a mouth reads as lit rather than as a flat panel. The albedo
-    stays nearly as dark as `cell` -- what the lane sees is the EMISSION, and a
-    pale albedo would make the back read as a bright wall in daylight too."""
-    base = [(16, 15, 12), (20, 19, 14), (13, 12, 10), (24, 22, 16)]
-    for y in range(c.h):
-        for x in range(c.w):
-            k = r.pick(base)
-            c.put(x, y, k, LAMP_GLOW)
-    for _ in range(_n(7)):                       # the warmer patches: a lamp is not even
-        x, y = r.i(0, c.w - 1), r.i(0, c.h - 1)
-        w, hh = _sz(3), _sz(2)
-        c.rect(x, y, x + w, y + hh, (30, 27, 19), LAMP_GLOW_HOT)
-    for _ in range(_n(18)):                      # soot and cracks: the glow is not uniform.
-        x, y = r.i(0, c.w - 1), r.i(0, c.h - 1)   # bumped from 6 -- at the brightness the
-        w = _sz(3) if r.f() < 0.4 else _sz(1)     # mouth needs, a sparse sheet read as one
-        c.rect(x, y, x + w, y + _sz(1), (10, 9, 7), LAMP_GLOW_DIM)
-
-
-def _sheet_cell(c, r, s):
-    tx.fill(c, r, c.box, [(14, 16, 12), (18, 20, 14), (12, 14, 10), (20, 24, 16)])
-    tx.shatter(c, r, c.box, [(24, 28, 18), (10, 12, 8)], _n(12), _sz(3), _sz(8))
-    for _ in range(_n(3)):                       # something pale, far back
-        x, y = r.i(0, c.w - 1), r.i(0, c.h - 1)
-        c.rect(x, y, x + _sz(2), y + 1, (52, 60, 44))
-
 
 def _forest_ref(centre):
     """The radius a face's arc is measured at, by region, so every region's
@@ -1305,49 +1201,15 @@ def _forest_ref(centre):
     return 45.0                                  # the pit bank and floor
 
 
-def _sheet(name, paint, **kw):
-    return tx.Sheet(name, paint, ref_r=_forest_ref, roughness=ft.ROUGHNESS, **kw)
+def _sheet(key):
+    return tx.Sheet(key, None, size=forest_tiles.TILE, ref_r=_forest_ref, roughness=ft.ROUGHNESS)
 
 
-# The cell lamp's emission, sRGB as the painters write it. Dim on purpose (Ryan:
-# "a pretty dim one"): the forest's sun is 0.85 and the shafts are the brightest
-# thing in frame, so a lamp that read as a lantern would out-light the wood. This
-# is a glow you see IN the mouth, not a lamp that lights the lane.
-LAMP_GLOW = (132, 100, 54)
-LAMP_GLOW_HOT = (184, 144, 82)   # ... the warmer patches
-LAMP_GLOW_DIM = (70, 52, 30)     # ... and the soot
-
-# The roof's own hollows. Ryan: "the texture on the roof is so dark that it looks
-# weird when it goes right to the corner of the wall." The lane's lid is the ONLY
-# thing wearing class "shade" in this map (forest_ceiling_build._leafy picks it in
-# the hollows between the underside's bulges), and it was painted from
-# forest_tree_build.SHADE_*, a palette that sits at 0.62 of the leaf wall's value.
-# Against the wall's "leaf" at the corner that read as a black band rather than as
-# canopy. These are ft.SHADE_* scaled 1.45 in sRGB -- the same base/blob/lit split,
-# the same hue, the hollows still darker than the bulges so the roof still modulates,
-# but 0.90 of the wall instead of 0.62 so the corner is a change of light, not a cut.
-# Local on purpose: ft.SHADE_* is forest_tree.glb's own sheet and is not ours to move.
-ROOF_BASE = ((55, 73, 45), (49, 64, 41))
-ROOF_BLOBS = ((81, 104, 64), (70, 93, 61), (87, 113, 70))
-ROOF_LIT = (110, 136, 84)
-
-_BLADES = [(168, 172, 82), (160, 160, 70), (86, 102, 58)]
-SHEETS = {
-    "grass": _sheet("grass", _noise(ft.LANE_GREENS, (0.38, 0.66), 160, _BLADES), seed=1),
-    "verge": _sheet("verge", _noise(ft.VERGE_TONES, (0.42, 0.74), 60, [(160, 164, 78), (112, 104, 60)]), seed=2),
-    "path": _sheet("path", _noise(ft.PATH_TONES, (0.40, 0.72), 70, [(118, 96, 58), (104, 88, 54), (132, 140, 70)]), seed=3),
-    "edge": _sheet("edge", _noise(ft.EDGE_GREENS, (0.38, 0.66), 60, [(130, 140, 68), (58, 44, 30)], (64, 64)), seed=4),
-    "leaf": _sheet("leaf", _leaves(ft.LEAF_BASE, ft.LEAF_BLOBS, ft.LEAF_LIT, 520, (3, 5), 128), seed=5),
-    "shade": _sheet("shade", _leaves(ROOF_BASE, ROOF_BLOBS, ROOF_LIT, 110, (3, 5), 64), seed=6),
-    "sun": _sheet("sun", _leaves(ft.SUN_BASE, ft.SUN_BLOBS, ft.SUN_LIT, 110, (3, 5), 64), seed=7),
-    "fern": _sheet("fern", _sheet_fern, seed=8),
-    "bark": _sheet("bark", _bark(ft.BARK_BASE), seed=9),
-    "earth": _sheet("earth", _sheet_earth, seed=10),
-    "cell": _sheet("cell", _sheet_cell, seed=11, stem="forest_dark"),
-    "root": _sheet("root", _bark(ft.ROOT_BASE), seed=12),
-    # cell and lamp are one near-black stone (forest_dark_albedo); only the lamp glows
-    "lamp": _sheet("lamp", _sheet_lamp, seed=13, emissive=True, stem="forest_dark", glow_stem="forest_lamp"),
-}
+# A zone wears its forest_tiles key (grass: verge, edge; path: earth; leaf: shade, sun;
+# bark: root; dark: cell) times its tint in COLOR_0. The lamp is the ornament's glow
+# half, fitted per face: albedo tinted to the dark stone, the glow its own pixels.
+SHEETS = {k: _sheet(k) for k in ("grass", "path", "leaf", "bark", "fern", "dark")}
+SHEETS["lamp"] = forest_tiles.BOX["lamp"]
 
 
 def build_collider():
@@ -1485,7 +1347,7 @@ def _forest_render(spec, objects):
     con = fill.constraints.new(type="TRACK_TO")
     con.target, con.track_axis, con.up_axis = aim, "TRACK_NEGATIVE_Z", "UP_Y"
 
-    tree = ft.build_render_copy(INFO["albedo"], INFO["emissive"])
+    tree = ft.build_render_copy()
     rays = {ob.name: ob for ob in objects if ob.name in (RAYS_SOLID_NAME, RAYS_SOFT_NAME)}
     solid, soft = rays.get(RAYS_SOLID_NAME), rays.get(RAYS_SOFT_NAME)
     for ob in objects:              # the fog stays in every shot
@@ -1690,13 +1552,21 @@ def build_geometry():
     return m, build_collider(), rays
 
 
+def dress(ob, classes):
+    """forest_tiles' tiles and tints on the ground, then the drum's shade over them."""
+    order = forest_tiles.dress(ob, classes, "ground", sheets=SHEETS)
+    drum_shade(ob)
+    return order
+
+
 def drum_shade(ob):
     """The canopy's shadow on the drum: every corner over the lane roof, inside DRUM_SHADE_R, darkens
     up the drum to DRUM_SHADE at its seam height, so the lane's light fades into the roof's shade.
     The wall's head does the same up the cove: its leaf darkens to COVE_SHADE where the roof begins."""
     me = ob.data
-    col = me.color_attributes.new(name="Col", type="FLOAT_COLOR", domain="CORNER")
-    flat = [1.0] * (len(me.loops) * 4)
+    col = forest_tiles.colours(ob)
+    flat = [0.0] * (len(me.loops) * 4)
+    col.data.foreach_get("color", flat)
     for li, loop in enumerate(me.loops):
         x, y, z = me.vertices[loop.vertex_index].co
         rad = math.hypot(x, y)
@@ -1706,33 +1576,21 @@ def drum_shade(ob):
             f = 1.0 - (1.0 - COVE_SHADE) * ft._ramp(z, *COVE_SHADE_Z) * ft._ramp(rad, *COVE_SHADE_R)
         else:
             continue
-        flat[li * 4:li * 4 + 3] = [f, f, f]
+        flat[li * 4:li * 4 + 3] = [flat[li * 4 + k] * f for k in range(3)]
     col.data.foreach_set("color", flat)
-    me.color_attributes.active_color_index = 0
-    me.color_attributes.render_color_index = 0
-    for mat in me.materials:
-        ft.tint_material(mat)
 
 
 def build():
     m, c, rays = build_geometry()
-    albedo, emissive = ft.sheet("forest_atlas", ft.paint_atlas)
-    mdl.save_texture(albedo)
-    mdl.save_texture(emissive)
-    INFO["albedo"], INFO["emissive"] = albedo, emissive
-
     keep = [k for k, f in enumerate(m.faces) if f is not None]      # m.object compacts: the roof's faces by their compacted index
     soft = [i for i, k in enumerate(keep) if k in getattr(m, "roof_faces", ())]
     ob = m.object(OBJECT_NAME)
     classes = list(m.zones)
-    tx.unwrap(ob, classes, SHEETS, seed=1)
-    mats = tx.materials(NAME, SHEETS, use_files=ft.USE_TEXTURE_FILES, tex_dir=os.path.join(HERE, ft.TEX_DIR))
-    order = tx.finish(ob, classes, mats)
+    order = dress(ob, classes)
     for i in soft:              # Ryan: "ugly sharp edges": the roof's leaf mass shades smooth, the rock stays flat
         ob.data.polygons[i].use_smooth = True
     ob.data.update()
     print("MDL STATS roof smooth_polys=%d" % len(soft))
-    drum_shade(ob)
     tx.report(SHEETS)
     print("MDL STATS surfaces=%d order=%s" % (len(ob.data.materials), ",".join(order)))
 

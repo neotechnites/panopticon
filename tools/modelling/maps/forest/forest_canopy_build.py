@@ -50,9 +50,8 @@ the way a broadleaf is:
             lip the sheet rolls under and back (forest_ceiling_build.ROLL), so
             the last row stops where the roll begins. No straight line, no
             corner, no flat plane beside a mass, nothing low over the lip or the pit.
-    uv      every face is unwrapped flat in its own plane, foliage at LEAF_TPM
-            (leaf clumps at the wall ivy's scale, readable from the lane), bark
-            at the atlas's density so its grain runs up the wood.
+    uv      forest_tiles.dress: box-projected at texel.MPT, the map's own density;
+            leaf and bark tiles, tinted per zone in COLOR_0.
     shade   Ryan: "the trees still have ugly sharp edges." Nothing here is
             flat-shaded: the chunk shades smooth (a bough is a rounded limb),
             and every cluster's normals lean out and DOWN from a centre above its
@@ -88,6 +87,7 @@ for _root in (os.path.dirname(_HOME), os.path.dirname(os.path.dirname(_HOME))): 
         break
 
 import forest_tree_build as ft  # noqa: E402  the forest atlas, the mesh library
+import forest_tiles  # noqa: E402  the forest's tiles, tinted per zone
 from forest_tree_build import (_Mesh, _Rng, UP, DOWN, add, sub, bez, tube,  # noqa: E402
                                socket_ring, pol)
 import forest_tree_prop_build as ftp  # noqa: E402  the variants: trunk, sockets, collider
@@ -188,7 +188,6 @@ LOBE_SAG = 0.15             # a mid-ring vertex's hang wobbles this share of its
 KEEL_LIFT = 0.12            # a keel vertex rides up to this share of the depth: no flat underside
 SOFT_OUT = 0.65             # a cluster vertex's normal: this much radial from its centre, the rest smooth
 SOFT_ABOVE = 1.0            # that centre sits this many radii ABOVE the rim: every normal leans out and DOWN, none up into the sun
-LEAF_TPM = 4.0              # texels a metre on foliage (bark keeps ft.TPM): leaf clumps 25..75 cm, the wall's ivy scale, readable from the lane
 LID_BURY = 0.10             # world metres a rim sits up inside the roof sheet
 WELL_CLEAR = 0.5            # a fork keeps this far outside a sun well's blob (plus its cluster's radius)
 CROWN_MIN_Z = ftp.CROWN_MIN_Z
@@ -736,46 +735,6 @@ def build_tree(m, rng, spec, place, roof):
     return shells
 
 
-# =============================================================================
-# UV -- every face flat in its own plane
-# =============================================================================
-
-def _unwrap(ob, zones):
-    """Each face laid flat in its own plane at ft.TPM texels a metre, in-plane up
-    along v: leaf pixels read at every slope, bark grain runs up the wood."""
-    from mathutils import Vector
-    me = ob.data
-    uvl = me.uv_layers.new(name="UVMap")
-    r = _Rng(ft.TEX_SEED + 31 + len(me.polygons))
-    up_v, x_v = Vector((0.0, 0.0, 1.0)), Vector((1.0, 0.0, 0.0))
-    for pi, poly in enumerate(me.polygons):
-        u0, v0, u1, v1 = ft.ZONES[zones[pi]]
-        span_u = (u1 - u0) - 2.0 * ft.UV_PAD
-        span_v = (v1 - v0) - 2.0 * ft.UV_PAD
-        tpm = ft.TPM if zones[pi] == "bark" else LEAF_TPM
-        su = tpm / ((u1 - u0) * ft.TEX_SIZE)
-        sv = tpm / ((v1 - v0) * ft.TEX_SIZE)
-        n = poly.normal
-        ex = up_v.cross(n) if abs(n.z) < 0.95 else x_v.cross(n)
-        ex.normalize()
-        ey = n.cross(ex)
-        cos = [me.vertices[me.loops[li].vertex_index].co for li in poly.loop_indices]
-        ss = [co.dot(ex) * su for co in cos]
-        ts = [co.dot(ey) * sv for co in cos]
-        s0, t0 = min(ss), min(ts)
-        w = min(max(ss) - s0, 1.0)
-        h = min(max(ts) - t0, 1.0)
-        ou = r.f() * (1.0 - w)
-        ov = r.f() * (1.0 - h)
-        flip = r.i(0, 1)
-        for li, s_, t_ in zip(poly.loop_indices, ss, ts):
-            s_ = min(ou + s_ - s0, 1.0)
-            t_ = min(ov + t_ - t0, 1.0)
-            if flip:
-                s_ = 1.0 - s_
-            uvl.data[li].uv = (u0 + ft.UV_PAD + s_ * span_u, v0 + ft.UV_PAD + t_ * span_v)
-
-
 def _soften(ob, clusters):
     """Smooth shading over the whole chunk (a bough is a rounded limb); every leaf
     cluster's vertex normals lean SOFT_OUT from its centre, so it shades as one soft volume."""
@@ -873,12 +832,8 @@ def build_geometry():
 
 def build():
     m, c, stats = build_geometry()
-    albedo, emissive = ft.sheet("forest_atlas", ft.paint_atlas)
-    mdl.save_texture(albedo)
-    mdl.save_texture(emissive)
     ob = m.object(OBJECT_NAME)
-    _unwrap(ob, m.zones)
-    mdl.finish(ob, ft.atlas_material("ForestAtlas", albedo, emissive), flat=False, strip_uvs=False)
+    forest_tiles.dress(ob, m.zones, "atlas", flat=False)
     _soften(ob, m.clusters)
     coll = c.object(COLLIDER_NAME)
     coll.hide_render = True
@@ -921,7 +876,7 @@ def post(spec, objects):
     for ob in ground:
         if ob.name == fb.RAYS_SOLID_NAME:
             ob.hide_render = True
-    tower = ft.build_render_copy(fb.INFO["albedo"], fb.INFO["emissive"])
+    tower = ft.build_render_copy()
 
     world = bpy.data.worlds.new("ForestSky")
     scene.world = world

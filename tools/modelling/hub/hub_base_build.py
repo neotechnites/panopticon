@@ -1318,6 +1318,12 @@ def build():
         imgs = th.images()
         if imgs is None:
             continue
+        if hasattr(th, "materials"):        # a theme with a material per tile
+            for sub, mat in th.materials():
+                slot[(th.key, sub)] = len(ob.data.materials)
+                names.append("%s_%s" % (th.key, sub))
+                ob.data.materials.append(mat)
+            continue
         alb, emi = imgs
         mdl.save_texture(alb)
         mdl.save_texture(emi)
@@ -1325,8 +1331,11 @@ def build():
         names.append(th.key)
         ob.data.materials.append(th.material(alb, emi))
     counts = [0] * len(names)
+    by_key = dict((th.key, th) for th in themes)
     for pi, poly in enumerate(ob.data.polygons):
-        idx = slot.get(rock.zones[pi][0], 0)
+        zone = rock.zones[pi]
+        th = by_key.get(zone[0])
+        idx = slot.get((zone[0], th.slot_key(zone)) if hasattr(th, "slot_key") else zone[0], 0)
         poly.material_index = idx
         counts[idx] += 1
     for th in themes:

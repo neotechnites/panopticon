@@ -5,6 +5,6 @@
     "ForestTreePropCCollision",
     "ForestTreePropCCollision/CollisionShape3D"
   ],
-  "surfaces": 1,
+  "surfaces": 2,
   "max_tris": 2000
 }
