@@ -8,6 +8,8 @@ const SharedMaterials := preload("res://tools/import/shared_materials.gd")
 ## Surfaces whose glTF material is named here get the waving lava shader instead.
 const WAVE_MATERIALS := [&"LavaRiver", &"LavaSea", &"LavaCrack"]
 const LAVA_WAVE_SHADER := "res://maps/bentham_ring/materials/lava_wave.gdshader"
+## A surface whose texture repeats inside a window of a shared sheet (uv1_scale under 1).
+const ROCK_WINDOW_SHADER := "res://maps/bentham_ring/materials/rock_window.gdshader"
 ## No torches on the ring any more: the lava itself carries that light, boosted here.
 const LAVA_EMISSION_BOOST := 1.4
 
@@ -21,6 +23,7 @@ const TEXTURE_PROPERTIES := [
 var _texture_cache: Dictionary = {}
 var _seen_materials: Dictionary = {}
 var _wave_cache: Dictionary = {}
+var _window_cache: Dictionary = {}
 var _textures_mipped: int = 0
 var _materials_refiltered: int = 0
 
@@ -29,6 +32,7 @@ func _post_import(scene: Node) -> Object:
 	_texture_cache.clear()
 	_seen_materials.clear()
 	_wave_cache.clear()
+	_window_cache.clear()
 	_textures_mipped = 0
 	_materials_refiltered = 0
 
@@ -54,6 +58,10 @@ func _walk(node: Node) -> void:
 			var wave := _wave_material(mesh_instance.mesh.surface_get_material(i))
 			if wave != null:
 				mesh_instance.mesh.surface_set_material(i, wave)
+				continue
+			var window := _window_material(mesh_instance.mesh.surface_get_material(i))
+			if window != null:
+				mesh_instance.mesh.surface_set_material(i, window)
 	for child in node.get_children():
 		_walk(child)
 
@@ -128,5 +136,34 @@ func _wave_material(material: Material) -> Material:
 	wave.set_shader_parameter(&"metallic", base.metallic)
 	wave.set_shader_parameter(&"uv1_scale", base.uv1_scale)
 	wave.set_shader_parameter(&"uv1_offset", base.uv1_offset)
+	wave.set_shader_parameter(&"glow_from_albedo", base.emission_texture != null
+			and base.albedo_texture != null
+			and base.emission_texture.resource_path == base.albedo_texture.resource_path)
 	_wave_cache[material_id] = wave
 	return wave
+
+
+## The rock window ShaderMaterial for a surface whose texture repeats inside a window of its
+## sheet (glTF KHR_texture_transform, uv1_scale under 1), or null for any other.
+func _window_material(material: Material) -> Material:
+	var base := material as BaseMaterial3D
+	if base == null or (base.uv1_scale.x >= 1.0 and base.uv1_scale.y >= 1.0):
+		return null
+	var material_id := base.get_instance_id()
+	if _window_cache.has(material_id):
+		return _window_cache[material_id]
+	var window := ShaderMaterial.new()
+	window.resource_name = base.resource_name
+	window.shader = load(ROCK_WINDOW_SHADER)
+	window.set_shader_parameter(&"albedo_texture", base.albedo_texture)
+	window.set_shader_parameter(&"albedo_color", base.albedo_color)
+	window.set_shader_parameter(&"emission_texture", base.emission_texture)
+	window.set_shader_parameter(&"emission_color", base.emission if base.emission_enabled else Color.BLACK)
+	window.set_shader_parameter(&"emission_energy", base.emission_energy_multiplier)
+	window.set_shader_parameter(&"roughness", base.roughness)
+	window.set_shader_parameter(&"metallic", base.metallic)
+	window.set_shader_parameter(&"specular", base.metallic_specular)
+	window.set_shader_parameter(&"window_offset", Vector2(base.uv1_offset.x, base.uv1_offset.y))
+	window.set_shader_parameter(&"window_scale", Vector2(base.uv1_scale.x, base.uv1_scale.y))
+	_window_cache[material_id] = window
+	return window
