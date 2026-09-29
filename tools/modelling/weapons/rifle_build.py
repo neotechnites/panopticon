@@ -1,8 +1,8 @@
 """
 PANOPTICON -- the warden's rifle: an old-prison bolt-action, low-poly view model.
 
-A long rifle with a heavy walnut stock, blued iron, a telescopic scope on two
-rings and a hand-worn finish; institutional, not military. Marked with the panopticon's
+A long rifle with a heavy walnut stock, blued iron, a low one-inch riflescope
+on two short rings and a hand-worn finish; institutional, not military. Marked with the panopticon's
 eye stamped on the left of the receiver and a numbered brass plate let into
 the left of the butt -- the side the shooter sees. The 128x128 PS1-style atlas
 is painted procedurally here (hard texels, four palettes, no gradients) and
@@ -106,20 +106,30 @@ BAND_Y          = ((0.560, 0.582), (0.832, 0.858))   # iron barrel bands
 BOLT_Y          = (0.044, 0.066)   # bolt handle root, closed, above the trigger
 BOLT_KNOB_X     = (0.070, 0.102)
 
-# The scope's axis is the ADS eye (scripts/weapon/rifle_ads.gd aim pose over scale 0.75).
-# Culled interior; every rear-facing face sits outside the vignette's clear cone from the eye.
+# The scope's axis is the ADS eye (scripts/weapon/rifle_ads.gd aim pose over scale 0.75): a real
+# scope height, 45 mm over the bore. Rear faces near the eye sit outside its clear cone; the saddle ramps up.
 ADS_SCALE       = 0.75
-SCOPE_Z         = 0.083 / ADS_SCALE      # eye height above the bore, model metres
-EYE_Y           = -0.200 / ADS_SCALE     # eye, behind the origin
+SCOPE_Z         = 0.03375 / ADS_SCALE    # eye height above the bore, model metres (0.045)
+EYE_Y           = -0.14625 / ADS_SCALE   # eye, behind the origin, just ahead of the comb
 CLEAR_TAN       = 0.475 * math.tan(math.radians(10.0)) * 1.06 / math.cos(math.pi / 8)
                                          # vignette clear+soft at 20 deg fov, 8-gon vertex, margin
-OCULAR_Y        = (-0.160, -0.118)       # eyepiece: 8 cm (world) of eye relief
-OCULAR_R        = 0.022
-TUBE_Y          = (-0.100, 0.050)        # tapered tube, riding just outside the clear cone
-BELL_Y          = (0.050, 0.135)         # objective bell
-BELL_R          = 0.040
-LENS_R          = 0.034                  # objective glass inside the bell's rim
-RING_Y          = (-0.050, 0.020)        # ring centres
+TUBE_R          = 0.0127                 # the one-inch (25 mm) main tube
+OCULAR_Y        = (-0.110, -0.090)       # eyepiece bell; its taper ends at OCULAR_TAPER
+OCULAR_TAPER    = -0.074
+OCULAR_R        = 0.0175
+SADDLE_RAMP     = -0.046                 # the tube swells into the saddle from here, slope under R/d
+SADDLE_Y        = (-0.008, 0.024)        # turret saddle between the rings
+SADDLE_R        = 0.0155
+FLARE_Y         = 0.150                  # the tube eases out into the objective from here
+BELL_Y          = 0.300                  # objective front, over the receiver ring; slope under R/d
+BELL_R          = 0.0175
+RING_Y          = ((-0.062, -0.050), (0.070, 0.082))   # the two rings, back to front
+RING_R          = 0.0150                 # clamp outside; inside just clears the tube
+KNOB_Y          = 0.004                  # elevation up, windage right, on the saddle's flats
+KNOB_R          = 0.0060
+KNOB_H          = 0.008
+BASE_Y          = (-0.068, 0.088)        # one low base, bolt shroud to action top
+BASE_Z          = (0.018, 0.026)
 
 # ---- views ------------------------------------------------------------------
 FACING_YAW = 180.0       # the muzzle points +Y: "front" looks down the barrel
@@ -458,12 +468,13 @@ def taper(name, y0, y1, r0, r1, sides=8, cz=0.0):
     return _reg(mdl.mesh(name, verts, faces))
 
 
-def lathe(name, profile, cz, sides=8, cap=False):
-    """An OPEN n-gon shell along +Y through (y, r) profile points; cap closes the last ring facing +Y."""
+def lathe(name, profile, cz, sides=8, cap=False, turn=0.0):
+    """An OPEN n-gon shell along +Y through (y, r) profile points; cap closes the last ring facing +Y.
+    turn=0.5 puts a flat, not a vertex, at the top and the right, so a knob can sit on it."""
     verts = []
     for y, rad in profile:
         for i in range(sides):
-            t = 2.0 * math.pi * i / sides
+            t = 2.0 * math.pi * (i + turn) / sides
             verts.append((rad * math.sin(t), y, cz + rad * math.cos(t)))
     faces = []
     for k in range(len(profile) - 1):
@@ -476,9 +487,33 @@ def lathe(name, profile, cz, sides=8, cap=False):
     return ob
 
 
-def _tube_r(y):
-    """Scope tube radius at y: just outside the eye's clear cone."""
-    return CLEAR_TAN * (y - EYE_Y) + 0.0008
+def knob(name, base, axis, rad, height, sides=6):
+    """An n-gon turret knob standing on ``base`` along +Z ("z") or +X ("x"); its buried foot is left open."""
+    bx, by, bz = base
+    verts = []
+    for h in (0.0, height):
+        for i in range(sides):
+            t = 2.0 * math.pi * (i + 0.5) / sides
+            if axis == "z":
+                verts.append((bx + rad * math.cos(t), by + rad * math.sin(t), bz + h))
+            else:
+                verts.append((bx + h, by + rad * math.cos(t), bz + rad * math.sin(t)))
+    faces = [(i, (i + 1) % sides, sides + (i + 1) % sides, sides + i) for i in range(sides)]
+    faces.append(tuple(range(sides, 2 * sides)))
+    ob = _reg(mdl.mesh(name, verts, faces))
+    ob["open"] = True
+    return ob
+
+
+def sleeve(name, y0, y1, rect):
+    """A box's four walls along +Y, no ends: a ring foot whose top and bottom are buried."""
+    x0, x1, z0, z1 = rect
+    verts = [(x0, y0, z0), (x1, y0, z0), (x1, y0, z1), (x0, y0, z1),
+             (x0, y1, z0), (x1, y1, z0), (x1, y1, z1), (x0, y1, z1)]
+    faces = [(0, 1, 2, 3), (5, 4, 7, 6), (1, 5, 6, 2), (4, 0, 3, 7)]
+    ob = _reg(mdl.mesh(name, verts, faces))
+    ob["open"] = True
+    return ob
 
 
 def guard_u(name, half_w, outline):
@@ -561,24 +596,22 @@ def _geometry():
     # ---- barrel, front sight ----------------------------------------------------
     taper("barrel", RECEIVER_Y1, MUZZLE_Y, BARREL_R0, BARREL_R1, sides=BARREL_SIDES)
 
-    # ---- scope: base, two rings, tapered tube, turrets, objective bell --------
-    zs, hole = SCOPE_Z, CLEAR_TAN * (OCULAR_Y[0] - EYE_Y)
-    prism("scope_base", -0.068, 0.040, (-0.012, 0.012, 0.016, 0.030))
-    lathe("scope_body", [(OCULAR_Y[0], 0.017), (OCULAR_Y[0], OCULAR_R), (OCULAR_Y[1], OCULAR_R),
-                         (TUBE_Y[0], _tube_r(TUBE_Y[0])), (TUBE_Y[1], _tube_r(TUBE_Y[1])),
-                         (BELL_Y[0], BELL_R), (BELL_Y[1], BELL_R), (BELL_Y[1], LENS_R)], zs)
-    for k, ry in enumerate(RING_Y):
-        rt = _tube_r(ry + 0.007)
-        lathe("scope_ring%d" % k, [(ry - 0.007, _tube_r(ry - 0.007)), (ry - 0.007, rt + 0.0035),
-                                   (ry + 0.007, rt + 0.0035)], zs)
-        prism("ring_post%d" % k, ry - 0.006, ry + 0.006, (-0.009, 0.009, 0.028, zs - rt + 0.002))
-    t0, t1, tr = -0.024, -0.006, _tube_r(-0.024) - 0.0015   # turrets sit ON the tube, out of the cone
-    frustum("turret_top", [(-0.004, t0, zs + tr), (0.004, t0, zs + tr), (0.004, t1, zs + tr), (-0.004, t1, zs + tr)],
-            [(-0.009, t0, zs + tr + 0.016), (0.009, t0, zs + tr + 0.016), (0.009, t1, zs + tr + 0.016), (-0.009, t1, zs + tr + 0.016)])
-    frustum("turret_side", [(tr, t0, zs - 0.004), (tr, t0, zs + 0.004), (tr, t1, zs + 0.004), (tr, t1, zs - 0.004)],
-            [(tr + 0.016, t0, zs - 0.009), (tr + 0.016, t0, zs + 0.009), (tr + 0.016, t1, zs + 0.009), (tr + 0.016, t1, zs - 0.009)])
-    lathe("ocular_glass", [(OCULAR_Y[0], hole), (OCULAR_Y[0], 0.017)], zs)["fit"] = GLASS_RECT
-    lathe("objective_glass", [(BELL_Y[1], LENS_R)], zs, cap=True)["fit"] = GLASS_RECT
+    # ---- scope: low base, two short rings, eyepiece bell, saddle with knobs, one-inch tube ----
+    zs, hole, flat = SCOPE_Z, CLEAR_TAN * (OCULAR_Y[0] - EYE_Y), math.cos(math.pi / 8)
+    prism("scope_base", BASE_Y[0], BASE_Y[1], (-0.010, 0.010, BASE_Z[0], BASE_Z[1]))
+    lathe("scope_body", [(OCULAR_Y[0], OCULAR_R), (OCULAR_Y[1], OCULAR_R),
+                         (OCULAR_TAPER, TUBE_R), (SADDLE_RAMP, TUBE_R), (SADDLE_Y[0], SADDLE_R),
+                         (SADDLE_Y[1], SADDLE_R), (SADDLE_Y[1], TUBE_R), (FLARE_Y, TUBE_R),
+                         (BELL_Y, BELL_R)], zs, turn=0.5)
+    for k, (y0, y1) in enumerate(RING_Y):
+        rin = TUBE_R + 0.0002
+        lathe("ring%d" % k, [(y0, rin), (y0, RING_R), (y1, RING_R)], zs, turn=0.5)
+        sleeve("ring_foot%d" % k, y0 + 0.001, y1 - 0.001,
+               (-0.007, 0.007, BASE_Z[1] - 0.001, zs - RING_R * flat + 0.0005))
+    knob("knob_elev", (0.0, KNOB_Y, zs + SADDLE_R * flat - 0.0005), "z", KNOB_R, KNOB_H)
+    knob("knob_wind", (SADDLE_R * flat - 0.0005, KNOB_Y, zs), "x", KNOB_R, KNOB_H)
+    lathe("ocular_glass", [(OCULAR_Y[0], hole), (OCULAR_Y[0], OCULAR_R)], zs, turn=0.5)["fit"] = GLASS_RECT
+    lathe("objective_glass", [(BELL_Y, BELL_R)], zs, cap=True, turn=0.5)["fit"] = GLASS_RECT
 
     # ---- stock: wrist, comb, butt -- one piece of walnut ----------------------
     zone(ZONE_WORN)
