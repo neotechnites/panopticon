@@ -103,6 +103,14 @@ extends Node
 var _hip: Transform3D = Transform3D.IDENTITY
 var _has_hip: bool = false
 
+## Progress past which the model is hidden outright -- the eye is inside the
+## scope's own solid tube by then. See [method _update_visual_visibility].
+const MODEL_HIDE_PROGRESS: float = 0.9
+
+## [code]ViewModel/Model[/code], resolved once so hiding it never touches
+## [code]Muzzle[/code], its sibling under [member view_model].
+var _visual: Node3D = null
+
 
 func _ready() -> void:
 	if view_model == null:
@@ -110,6 +118,7 @@ func _ready() -> void:
 		return
 	_hip = view_model.transform
 	_has_hip = true
+	_visual = view_model.get_node_or_null(^"Model")
 
 
 ## The hip/aim blend for the current instant, with no recoil in it -- read every
@@ -122,6 +131,7 @@ func get_current_base_pose() -> Transform3D:
 	if view_model == null:
 		return _hip
 	var t: float = 0.0 if optic == null else optic.get_shaped_progress()
+	_update_visual_visibility(t)
 	if t <= 0.0:
 		return _hip
 	if t >= 1.0:
@@ -159,6 +169,13 @@ func get_zoom_profile() -> ZoomProfile:
 	if optic == null:
 		return null
 	return optic.profile
+
+
+## Hides the mesh past [constant MODEL_HIDE_PROGRESS] and shows it again below
+## it, so the eye never sees the scope's solid tube from inside.
+func _update_visual_visibility(t: float) -> void:
+	if _visual != null:
+		_visual.visible = t < MODEL_HIDE_PROGRESS
 
 
 ## [member aim_position], [member aim_rotation_degrees] and [member aim_scale]
