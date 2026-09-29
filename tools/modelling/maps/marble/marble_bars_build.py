@@ -67,9 +67,8 @@ face normal's largest axis, in the gate's own frame -- and its courses are
 therefore level lines at the gate's own heights: a joint on the ledge (0.85,
 the socle is exactly one course) and on the sill (1.0), then on up the world 1 m
 grid the rotunda's wall courses stand on. The iron is on the PORTCULLIS' OWN
-MODULE (see _sheet_iron), so every upright wears the cells' lit rim.
-USE_TEXTURE_FILES swaps a painted class for textures/marble_bars_<class>_albedo.png
-when one is there.
+MODULE (see _sheet_iron), so every upright wears the cells' lit rim. The
+spandrel, socle and shade wear the tower's files (mb.ashlar_sheet).
 
     python3 tools/modelling/maps/marble/marble_bars_build.py --check
     tools/modelling/model build marble_bars
@@ -244,6 +243,7 @@ def widest_gap():
 # joint on the gate's centre line (behind the iron), on the mouth's two jambs
 # (+-2.991, 9 mm -- a fifth of a texel -- off the +-3.0 arris) and behind the
 # pilasters (+-5.98), so every one of them falls on an edge or on nothing.
+# marble2, shade and plinth are mb.ASHLAR's shared files spanned across STONE_M.
 #
 # The iron is the cells' iron, on the portcullis' own module: see _sheet_iron.
 
@@ -255,6 +255,7 @@ COURSES = 12
 COURSE_PX = int(round(SHEET_H / float(COURSES)))   # 22 texels
 COURSE_M = COURSE_PX * MPT              # 1.0124 m: the course, to the nearest texel
 STONE_PX = int(round(3.0 / MPT))        # 65 texels = 2.991 m across: 1.50 m blocks
+STONE_M = STONE_PX * MPT                # 2.991 m: one repeat across
 U0 = 0.0                                # u = 0 on the gate's centre line
 V0 = SILL_Z - COURSE_M                  # a joint exactly on the sill, then a course at a time
 V0_PLINTH = SOCLE_Z - COURSE_M          # ... and the socle's one joint on the ledge
@@ -268,45 +269,10 @@ IRON_U0 = bar_x(0) - BAR_HW             # u = 0 on EVERY upright's left edge
 
 # ---- the painters: the palette docs/maps/marble.md records, unchanged -------
 
-def _ashlar(c, r, shades, joint, verticals=True, courses=COURSES):
-    """Coursed blocks: a joint line on every course, a vertical joint on the
-    sheet's own edge every course and the courses half-bonded between, so a
-    joint runs across a face edge instead of stopping at it."""
-    tx.fill(c, r, c.box, shades)
-    rows = [int(round(k * c.h / float(courses))) for k in range(courses)]
-    for k, y0 in enumerate(rows):
-        y1 = rows[k + 1] if k + 1 < len(rows) else c.h
-        c.rect(0, y0, c.w, y0 + 1, joint)
-        if not verticals:
-            continue
-        for x in ([0, c.w // 2] if k % 2 == 0 else [0, c.w // 4, (3 * c.w) // 4]):
-            c.rect(x, y0 + 1, x + 1, y1, joint)
-    tx.shatter(c, r, c.box, [shades[0], shades[-1]], 16, 4, 9)
-
-
 def _sheet_marble(c, r, s):
     """The screen's ashlar field: #9a9676 in #6c6950 mortar."""
-    _ashlar(c, r, [(154, 150, 118), (150, 146, 114), (158, 154, 122), (146, 142, 110)],
-            (108, 105, 80))
-
-
-def _sheet_marble2(c, r, s):
-    """The spandrel over the head: the second sheet, #928e70 in #66634a."""
-    _ashlar(c, r, [(146, 142, 112), (142, 138, 108), (150, 146, 116), (138, 134, 104)],
-            (102, 99, 74))
-
-
-def _sheet_shade(c, r, s):
-    """Grey-olive #6b6b55 in #505042: ledge, reveals, soffits, sill, the
-    cornice's top. Courses only -- an underside shows no vertical joint."""
-    _ashlar(c, r, [(107, 107, 85), (103, 103, 81), (111, 111, 89), (99, 99, 78)],
-            (80, 80, 66), verticals=False)
-
-
-def _sheet_plinth(c, r, s):
-    """The socle: #928e70 in #6c6950, one course tall (V0_PLINTH)."""
-    _ashlar(c, r, [(146, 142, 112), (142, 138, 108), (150, 146, 116), (144, 140, 110)],
-            (108, 105, 80))
+    mb.facet_ashlar(c, r, [(154, 150, 118), (150, 146, 114), (158, 154, 122), (146, 142, 110)],
+                    (108, 105, 80))
 
 
 def _sheet_iron(c, r, s):
@@ -329,11 +295,15 @@ def _stone(name, paint, seed, v0=V0):
                     phase=(U0, v0), roughness=mb.ROUGHNESS, seed=seed)
 
 
+def _shared(name, v0=V0):
+    return mb.ashlar_sheet(name, name, STONE_M, mode="box", phase=(U0, v0))
+
+
 SHEETS = {
     "marble": _stone("marble", _sheet_marble, 1),                              # the screen's field
-    "marble2": _stone("marble2", _sheet_marble2, 2),                           # the spandrel
-    "shade": _stone("shade", _sheet_shade, 3),                                 # ledge, reveals, soffits, sill
-    "plinth": _stone("plinth", _sheet_plinth, 4, V0_PLINTH),                   # the socle
+    "marble2": _shared("marble2"),                                             # the spandrel
+    "shade": _shared("shade"),                                                 # ledge, reveals, soffits, sill
+    "plinth": _shared("plinth", V0_PLINTH),                                    # the socle
     "band": tx.Sheet("band", mb._sheet_band, mode="fit_v", width=256, size=64,
                      roughness=mb.ROUGHNESS, seed=10, stem="marble_band"),                          # the cornice's mouldings
     "column": tx.Sheet("column", mb._sheet_column, mode="fit_u", width=64, size=256,

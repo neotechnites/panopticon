@@ -325,15 +325,17 @@ class Sheet(object):
     mode       "cyl" | "fit" | "fit_u" | "fit_v" | "window" | "custom"
     emissive   force an emissive image even if the painter drew none
     stem       image stem when the class wears another model's texture (default <map>_<name>)
+    mpt_u      metres per texel across, when one drawing spans another model's repeat
     """
 
     def __init__(self, name, paint=None, mpt=MPT, size=TILE, ref_r=None, phase=(0.0, 0.0),
                  mode="cyl", roughness=ROUGHNESS, metallic=METALLIC, cull=True, seed=0,
-                 emissive=False, width=None, stem=None):
+                 emissive=False, width=None, stem=None, mpt_u=None):
         self.name = name
         self.stem = stem
         self.paint = paint
         self.mpt = mpt
+        self.mpt_u = mpt_u or mpt
         self.size = size
         self.width = width or size          # non-square sheets: width x size
         self.ref_r = ref_r
@@ -357,9 +359,9 @@ class Sheet(object):
 
     @property
     def metres_u(self):
-        """The sheet's period in metres across (u): width * mpt. A sheet
+        """The sheet's period in metres across (u): width * mpt_u. A sheet
         wider than tall can hold one bay across and N courses up."""
-        return self.width * self.mpt
+        return self.width * self.mpt_u
 
     def px(self, metres):
         """A metre pitch in texels."""

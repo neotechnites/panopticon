@@ -151,8 +151,9 @@ GUARD_EYE = FLOOR_Z + DAIS_H + mb.EYE_H   # 3.95: world 29.3 (pass 3: 28.7)
 # 60 texels = 2.761 m and texel's ring() closes that at exactly 16 repeats
 # round r 7.0: ONE REPEAT PER FACET, its vertical joints on the facet corners
 # (U0_SHAFT puts u = 0 there), 2.749/60 = 0.0458 m a texel, 0.4 % off the
-# vertical. The balcony's sheet is 35 texels = 1.611 m: 32 repeats at r 8.2,
-# one per post facet. Band, column, iron and the floor slab are fitted to the
+# vertical. The balcony's repeat is 35 texels = 1.611 m: 32 at r 8.2, one per
+# post facet. Plinth, shade and the ledge wear mb.ASHLAR's shared files, spanned
+# across those repeats. Band, column, iron and the floor slab are fitted to the
 # face exactly as the rotunda fits them; the dome is "custom" (see _dome_vs).
 
 USE_TEXTURE_FILES = True
@@ -160,7 +161,6 @@ TEX_DIR = mb.TEX_DIR
 MPT = mb.WALL_MPT                    # 0.046019 m a texel: the rotunda's wall density
 SHEET_H = mb.WALL_H                  # 261 texels = 12 courses of 1.0 m
 SHEET_M = SHEET_H * MPT              # 12.01 m: the sheet's period up
-COURSES = 12
 SHAFT_PX = 60                        # one facet across at r 7.0 -> ring() closes at 16
 BAL_PX = 35                          # one balcony facet across at r 8.2 -> 32 repeats
 U0_SHAFT = SHAFT_R * math.radians(-(COL_PHASE + 180.0 / NS))       # u = 0 on a facet corner
@@ -211,41 +211,9 @@ def _dome_vs(rad, rise, cls):
 
 # ---- the painters: the palette docs/maps/marble.md records, unchanged -------
 
-def _ashlar(c, r, shades, joint, verticals=True, courses=COURSES):
-    """Coursed blocks on a sheet one facet wide: a joint line on every course,
-    a vertical joint on the facet corner (u = 0) every course, the courses
-    half-bonded between, so a joint never stops at a face edge."""
-    tx.fill(c, r, c.box, shades)
-    rows = [int(round(k * c.h / float(courses))) for k in range(courses)]
-    for k, y0 in enumerate(rows):
-        y1 = rows[k + 1] if k + 1 < len(rows) else c.h
-        c.rect(0, y0, c.w, y0 + 1, joint)
-        if not verticals:
-            continue
-        for x in ([0, c.w // 2] if k % 2 == 0 else [0, c.w // 4, (3 * c.w) // 4]):
-            c.rect(x, y0 + 1, x + 1, y1, joint)
-    tx.shatter(c, r, c.box, [shades[0], shades[-1]], 16, 4, 9)
-
-
 def _sheet_stone(c, r, s):
     """The shaft: tower ashlar #8b8160, joints #625b44."""
-    _ashlar(c, r, [(139, 129, 96), (135, 125, 92), (143, 133, 100), (137, 127, 94)], (98, 91, 68))
-
-
-def _sheet_plinth(c, r, s):
-    _ashlar(c, r, [(146, 142, 112), (142, 138, 108), (150, 146, 116), (144, 140, 110)], (108, 105, 80))
-
-
-def _sheet_shade(c, r, s):
-    """Grey-olive #6b6b55: reveals, soffits, undersides. Courses only."""
-    _ashlar(c, r, [(107, 107, 85), (103, 103, 81), (111, 111, 89), (99, 99, 78)], (80, 80, 66),
-            verticals=False)
-
-
-def _sheet_marble2(c, r, s):
-    """The balcony ledge, one repeat a post facet."""
-    _ashlar(c, r, [(146, 142, 112), (142, 138, 108), (150, 146, 116), (138, 134, 104)], (102, 99, 74),
-            courses=COURSES)
+    mb.facet_ashlar(c, r, [(139, 129, 96), (135, 125, 92), (143, 133, 100), (137, 127, 94)], (98, 91, 68))
 
 
 def _sheet_coffer(c, r, s):
@@ -295,11 +263,15 @@ def _wall(name, paint, seed, width=SHAFT_PX, ref_r=SHAFT_R, u0=U0_SHAFT):
                     phase=(u0, V0), roughness=mb.ROUGHNESS, seed=seed)
 
 
+def _shared(name, px=SHAFT_PX, ref_r=SHAFT_R, u0=U0_SHAFT):
+    return mb.ashlar_sheet(name, name, px * MPT, ref_r=ref_r, phase=(u0, V0))
+
+
 SHEETS = {
     "stone": _wall("stone", _sheet_stone, 1),                                  # the shaft, the spandrels
-    "plinth": _wall("plinth", _sheet_plinth, 2),                               # foot, steps, room floor band, dais
-    "shade": _wall("shade", _sheet_shade, 3),                                  # reveals, soffits, undersides
-    "marble2": _wall("marble2", _sheet_marble2, 4, BAL_PX, BALCONY_R, U0_BAL),  # the ledge
+    "plinth": _shared("plinth"),                                               # foot, steps, room floor band, dais
+    "shade": _shared("shade"),                                                 # reveals, soffits, undersides
+    "marble2": _shared("marble2", BAL_PX, BALCONY_R, U0_BAL),                  # the ledge
     "band": tx.Sheet("band", mb._sheet_band, mode="fit_v", width=256, size=64,
                      roughness=mb.ROUGHNESS, seed=10, stem="marble_band"),                          # ring beam, slab edge
     "column": tx.Sheet("column", mb._sheet_column, mode="fit_u", width=64, size=256,

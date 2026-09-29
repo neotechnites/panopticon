@@ -60,8 +60,8 @@ Temple of Time palette (docs/maps/marble.md). The wall sheets are one bay
 wide (128 px = 5.89 m) and twelve 1 m courses tall, phased to the floor, so
 every course line lands on a tier base or a sill and every vertical joint on
 a pier edge; the floor keeps its 3 x 3 slabs per facet. USE_TEXTURE_FILES:
-drop textures/marble_<class>_albedo.png (+ _emissive.png) beside the script
-and that class's painted sheet is replaced. The props keep the 256 px atlas.
+drop textures/marble_<class>_albedo.png beside the script and that class's
+painted sheet is replaced. The props keep the 256 px atlas.
 
     python3 tools/modelling/maps/marble/marble_build.py --check     # geometry + contiguity, no Blender
     tools/modelling/model build marble                  # the pipeline
@@ -162,7 +162,6 @@ USE_TEXTURE_FILES = True
 TEX_DIR = "textures"
 TEX_SIZE = 256
 TEX_ALBEDO = "marble_albedo"
-TEX_EMISSIVE = "marble_emissive"
 TEX_SEED = 9021131
 ROUGHNESS = 0.55
 METALLIC = 0.0
@@ -183,7 +182,7 @@ ZONES = {                   # atlas column, row (row 0 is the bottom of the imag
     "marble2": _cell(1, 0),  # ... a second sheet of it
     "shade": _cell(2, 0),    # grey marble: reveals, podium walls, dome cap
     "floor": _cell(3, 0),    # the lane: 3 x 3 slabs, one facet per cell
-    "cellin": _cell(0, 1),   # cell interior, faintly emissive
+    "cellin": _cell(0, 1),   # cell interior
     "frieze": _cell(1, 1),   # Greek key, one bay per cell
     "coffer": _cell(2, 1),   # dome coffer, one facet per cell
     "spike": _cell(3, 1),
@@ -390,15 +389,14 @@ def _paint_floor(c, r, box):
 
 
 def _paint_cell(c, r, box):
-    """The dark of a cell: near-black grey-olive, faintly emissive so the
-    mouths never go pure black under the tower's shadow."""
-    _fill(c, r, box, [(47, 48, 40), (43, 44, 36), (51, 52, 44), (39, 40, 33)], (10, 11, 9))
+    """The dark of a cell: near-black grey-olive, a pale slit or two in it."""
+    _fill(c, r, box, [(47, 48, 40), (43, 44, 36), (51, 52, 44), (39, 40, 33)])
     _shatter(c, r, box, [(35, 36, 30), (56, 57, 48)], 12, 4, 10)
     x0, y0, x1, y1 = box
     for _ in range(4):                             # a pale slit: a figure, a cot, a window
         x, w = r.i(x0 + 4, x1 - 6), r.i(1, 2)
         yy, h = r.i(y0 + 6, y1 - 16), r.i(6, 14)
-        c.rect(x, yy, x + w, yy + h, (70, 71, 60), (22, 23, 20))
+        c.rect(x, yy, x + w, yy + h, (70, 71, 60))
 
 
 def _paint_frieze(c, r, box):
@@ -608,12 +606,12 @@ def _sheet_plinth(c, r, s):
 
 
 def _sheet_cellin(c, r, s):
-    tx.fill(c, r, c.box, [(47, 48, 40), (43, 44, 36), (51, 52, 44), (39, 40, 33)], (10, 11, 9))
+    tx.fill(c, r, c.box, [(47, 48, 40), (43, 44, 36), (51, 52, 44), (39, 40, 33)])
     tx.shatter(c, r, c.box, [(35, 36, 30), (56, 57, 48)], 60, 8, 22)
     for _ in range(20):                            # a pale slit: a figure, a cot, a window
         x, w = r.i(0, c.w - 1), r.i(1, 3)
         yy, h = r.i(0, c.h - 1), r.i(12, 30)
-        c.rect(x, yy, x + w, yy + h, (70, 71, 60), (22, 23, 20))
+        c.rect(x, yy, x + w, yy + h, (70, 71, 60))
 
 
 def _sheet_field(c, r, s):
@@ -672,6 +670,56 @@ def _sheet_dome(c, r, s):
     _paint_dome(c, r, c.box)
 
 
+# ---- the facet ashlar: the tower's and the gate's stones --------------------
+# One drawing per stone and one file each (marble_ashlar_<stone>); a model spans
+# a file across its own repeat with mpt_u, so its joints stay where they were.
+
+def facet_ashlar(c, r, shades, joint, verticals=True, courses=COURSES):
+    """Coursed blocks: a joint line on every course, a vertical joint on the
+    sheet's own edge every course and the courses half-bonded between, so a
+    joint runs across a face edge instead of stopping at it."""
+    tx.fill(c, r, c.box, shades)
+    rows = [int(round(k * c.h / float(courses))) for k in range(courses)]
+    for k, y0 in enumerate(rows):
+        y1 = rows[k + 1] if k + 1 < len(rows) else c.h
+        c.rect(0, y0, c.w, y0 + 1, joint)
+        if not verticals:
+            continue
+        for x in ([0, c.w // 2] if k % 2 == 0 else [0, c.w // 4, (3 * c.w) // 4]):
+            c.rect(x, y0 + 1, x + 1, y1, joint)
+    tx.shatter(c, r, c.box, [shades[0], shades[-1]], 16, 4, 9)
+
+
+def _sheet_ashlar_plinth(c, r, s):
+    """Socles and steps: #928e70 in #6c6950."""
+    facet_ashlar(c, r, [(146, 142, 112), (142, 138, 108), (150, 146, 116), (144, 140, 110)], JOINT)
+
+
+def _sheet_ashlar_shade(c, r, s):
+    """Grey-olive #6b6b55 in #505042: reveals, soffits, undersides. Courses only."""
+    facet_ashlar(c, r, [(107, 107, 85), (103, 103, 81), (111, 111, 89), (99, 99, 78)], (80, 80, 66),
+                 verticals=False)
+
+
+def _sheet_ashlar_marble2(c, r, s):
+    """Spandrels and ledges: #928e70 in #66634a."""
+    facet_ashlar(c, r, [(146, 142, 112), (142, 138, 108), (150, 146, 116), (138, 134, 104)], (102, 99, 74))
+
+
+ASHLAR = {                               # stone -> (painter, texels across, seed)
+    "plinth": (_sheet_ashlar_plinth, 60, 2),
+    "shade": (_sheet_ashlar_shade, 60, 3),
+    "marble2": (_sheet_ashlar_marble2, 65, 2),
+}
+
+
+def ashlar_sheet(name, stone, across, **kw):
+    """Class `name` wearing ASHLAR[stone], one file width spanning `across` metres."""
+    paint, px, seed = ASHLAR[stone]
+    return tx.Sheet(name, paint, mpt=WALL_MPT, mpt_u=across / px, size=WALL_H, width=px,
+                    roughness=ROUGHNESS, seed=seed, stem="marble_ashlar_" + stone, **kw)
+
+
 def _wall(name, paint, **kw):
     return tx.Sheet(name, paint, mpt=WALL_MPT, size=WALL_H, width=WALL_PX, ref_r=WALL_R,
                     phase=(0.0, FLOOR_Z), roughness=ROUGHNESS, **kw)
@@ -717,15 +765,14 @@ def paint_atlas():
 
 
 def build_texture():
+    """(albedo, None): the props glow nothing. The file carries marble_portal's
+    swirl in cell (2, 3), so regenerate marble_albedo from that build."""
     c = paint_atlas()
-    out = []
-    for name, buf in ((TEX_ALBEDO, c.alb), (TEX_EMISSIVE, c.emi)):
-        img = bpy.data.images.new(name, TEX_SIZE, TEX_SIZE, alpha=False)
-        img.colorspace_settings.name = "sRGB"
-        img.pixels.foreach_set(buf)
-        img.update()
-        out.append(img)
-    return out[0], out[1]
+    img = bpy.data.images.new(TEX_ALBEDO, TEX_SIZE, TEX_SIZE, alpha=False)
+    img.colorspace_settings.name = "sRGB"
+    img.pixels.foreach_set(c.alb)
+    img.update()
+    return img, None
 
 
 def _image_file(name):
@@ -744,7 +791,7 @@ def _sheet(stem, painted):
     alb = _image_file(stem + "_albedo.png") if USE_TEXTURE_FILES else None
     if alb is None:
         return painted()
-    return alb, (_image_file(stem + "_emissive.png") or alb)
+    return alb, _image_file(stem + "_emissive.png")
 
 
 def stone_material(name, albedo, emissive):
@@ -753,6 +800,9 @@ def stone_material(name, albedo, emissive):
     nt = mat.node_tree
     bsdf = nt.nodes.get("Principled BSDF")
     for img, socket, y in ((albedo, "Base Color", 260), (emissive, "Emission Color", -220)):
+        if img is None:
+            bsdf.inputs[socket].default_value = (0.0, 0.0, 0.0, 1.0)
+            continue
         node = nt.nodes.new("ShaderNodeTexImage")
         node.image = img
         node.interpolation = "Closest"

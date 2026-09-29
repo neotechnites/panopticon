@@ -1,7 +1,7 @@
 {
   "canvas": [
-    3834,
-    540
+    3229,
+    535
   ],
   "textures": [
     {
@@ -16,11 +16,44 @@
       ]
     },
     {
-      "file": "marble_band_albedo.png",
+      "file": "marble_ashlar_marble2_albedo.png",
       "kind": "albedo",
       "mode": "RGB",
       "rect": [
         260,
+        7,
+        65,
+        261
+      ]
+    },
+    {
+      "file": "marble_ashlar_plinth_albedo.png",
+      "kind": "albedo",
+      "mode": "RGB",
+      "rect": [
+        391,
+        7,
+        60,
+        261
+      ]
+    },
+    {
+      "file": "marble_ashlar_shade_albedo.png",
+      "kind": "albedo",
+      "mode": "RGB",
+      "rect": [
+        518,
+        7,
+        60,
+        261
+      ]
+    },
+    {
+      "file": "marble_band_albedo.png",
+      "kind": "albedo",
+      "mode": "RGB",
+      "rect": [
+        641,
         7,
         256,
         64
@@ -31,21 +64,10 @@
       "kind": "albedo",
       "mode": "RGB",
       "rect": [
-        520,
+        901,
         7,
         58,
         256
-      ]
-    },
-    {
-      "file": "marble_bars_marble2_albedo.png",
-      "kind": "albedo",
-      "mode": "RGB",
-      "rect": [
-        631,
-        7,
-        65,
-        261
       ]
     },
     {
@@ -53,29 +75,7 @@
       "kind": "albedo",
       "mode": "RGB",
       "rect": [
-        754,
-        7,
-        65,
-        261
-      ]
-    },
-    {
-      "file": "marble_bars_plinth_albedo.png",
-      "kind": "albedo",
-      "mode": "RGB",
-      "rect": [
-        873,
-        7,
-        65,
-        261
-      ]
-    },
-    {
-      "file": "marble_bars_shade_albedo.png",
-      "kind": "albedo",
-      "mode": "RGB",
-      "rect": [
-        992,
+        1012,
         7,
         65,
         261
@@ -86,7 +86,7 @@
       "kind": "albedo",
       "mode": "RGB",
       "rect": [
-        1107,
+        1131,
         7,
         128,
         261
@@ -97,7 +97,7 @@
       "kind": "albedo",
       "mode": "RGB",
       "rect": [
-        1239,
+        1263,
         7,
         64,
         256
@@ -108,7 +108,7 @@
       "kind": "albedo",
       "mode": "RGB",
       "rect": [
-        1338,
+        1362,
         7,
         128,
         64
@@ -119,7 +119,7 @@
       "kind": "albedo",
       "mode": "RGB",
       "rect": [
-        1470,
+        1494,
         7,
         256,
         256
@@ -130,7 +130,7 @@
       "kind": "albedo",
       "mode": "RGB",
       "rect": [
-        1730,
+        1754,
         7,
         64,
         64
@@ -141,7 +141,7 @@
       "kind": "albedo",
       "mode": "RGB",
       "rect": [
-        1825,
+        1849,
         7,
         256,
         64
@@ -152,7 +152,7 @@
       "kind": "albedo",
       "mode": "RGB",
       "rect": [
-        2085,
+        2109,
         7,
         64,
         256
@@ -163,7 +163,7 @@
       "kind": "albedo",
       "mode": "RGB",
       "rect": [
-        2176,
+        2200,
         7,
         128,
         261
@@ -174,21 +174,10 @@
       "kind": "albedo",
       "mode": "RGB",
       "rect": [
-        2308,
+        2332,
         7,
         128,
         261
-      ]
-    },
-    {
-      "file": "marble_portal_albedo.png",
-      "kind": "albedo",
-      "mode": "RGB",
-      "rect": [
-        2440,
-        7,
-        256,
-        256
       ]
     },
     {
@@ -196,7 +185,7 @@
       "kind": "albedo",
       "mode": "RGB",
       "rect": [
-        2700,
+        2464,
         7,
         128,
         261
@@ -207,7 +196,7 @@
       "kind": "albedo",
       "mode": "RGB",
       "rect": [
-        2832,
+        2596,
         7,
         256,
         256
@@ -218,21 +207,10 @@
       "kind": "albedo",
       "mode": "RGB",
       "rect": [
-        3092,
+        2856,
         7,
         60,
         34
-      ]
-    },
-    {
-      "file": "marble_tower_marble2_albedo.png",
-      "kind": "albedo",
-      "mode": "RGB",
-      "rect": [
-        3215,
-        7,
-        35,
-        261
       ]
     },
     {
@@ -240,32 +218,10 @@
       "kind": "albedo",
       "mode": "RGB",
       "rect": [
-        3342,
+        2979,
         7,
         64,
         64
-      ]
-    },
-    {
-      "file": "marble_tower_plinth_albedo.png",
-      "kind": "albedo",
-      "mode": "RGB",
-      "rect": [
-        3477,
-        7,
-        60,
-        261
-      ]
-    },
-    {
-      "file": "marble_tower_shade_albedo.png",
-      "kind": "albedo",
-      "mode": "RGB",
-      "rect": [
-        3600,
-        7,
-        60,
-        261
       ]
     },
     {
@@ -273,32 +229,10 @@
       "kind": "albedo",
       "mode": "RGB",
       "rect": [
-        3719,
+        3114,
         7,
         60,
         261
-      ]
-    },
-    {
-      "file": "marble_cellin_emissive.png",
-      "kind": "emissive",
-      "mode": "RGB",
-      "rect": [
-        0,
-        279,
-        128,
-        261
-      ]
-    },
-    {
-      "file": "marble_emissive.png",
-      "kind": "emissive",
-      "mode": "RGB",
-      "rect": [
-        132,
-        279,
-        256,
-        256
       ]
     },
     {
@@ -306,7 +240,7 @@
       "kind": "emissive",
       "mode": "RGB",
       "rect": [
-        392,
+        0,
         279,
         256,
         256
