@@ -326,15 +326,15 @@ class Sheet(object):
     emissive   force an emissive image even if the painter drew none
     stem       image stem when the class wears another model's texture (default <map>_<name>)
     mpt_u      metres per texel across, when one drawing spans another model's repeat
-    glow_stem  emissive image stem when the albedo file is shared and only this class glows
+    tint       linear RGB multiplied over the albedo (glTF baseColorFactor): one drawing, another palette
     """
 
     def __init__(self, name, paint=None, mpt=MPT, size=TILE, ref_r=None, phase=(0.0, 0.0),
                  mode="cyl", roughness=ROUGHNESS, metallic=METALLIC, cull=True, seed=0,
-                 emissive=False, width=None, stem=None, mpt_u=None, glow_stem=None):
+                 emissive=False, width=None, stem=None, mpt_u=None, tint=None):
         self.name = name
+        self.tint = tint
         self.stem = stem
-        self.glow_stem = glow_stem
         self.paint = paint
         self.mpt = mpt
         self.mpt_u = mpt_u or mpt
@@ -580,22 +580,22 @@ def images(prefix, sheet, use_files=False, tex_dir=None):
     """(albedo, emissive-or-None) for a Sheet: the files when opted in and
     present (<prefix>_<name>_albedo.png), else painted."""
     stem = sheet.stem or "%s_%s" % (prefix, sheet.name)
-    glow = sheet.glow_stem or stem
     if use_files and tex_dir:
         alb = _image_file(os.path.join(tex_dir, stem + "_albedo.png"))
         if alb is not None:
-            return alb, _image_file(os.path.join(tex_dir, glow + "_emissive.png"))
+            return alb, _image_file(os.path.join(tex_dir, stem + "_emissive.png"))
     c = Canvas(sheet.width, sheet.size)
     r = Rng(0x7E11 + sheet.seed)
     if sheet.paint is not None:
         sheet.paint(c, r, sheet)
     alb = _image(stem + "_albedo", c.w, c.h, c.alb)
-    emi = _image(glow + "_emissive", c.w, c.h, c.emi) if (c.glows or sheet.emissive) else None
+    emi = _image(stem + "_emissive", c.w, c.h, c.emi) if (c.glows or sheet.emissive) else None
     return alb, emi
 
 
-def material(name, albedo, emissive, roughness=ROUGHNESS, metallic=METALLIC, cull=True):
-    """Principled, nearest-sampled, REPEAT: the same PS1 finish the atlases had."""
+def material(name, albedo, emissive, roughness=ROUGHNESS, metallic=METALLIC, cull=True, tint=None):
+    """Principled, nearest-sampled, REPEAT: the same PS1 finish the atlases had.
+    tint: a Multiply over the albedo, which the glTF exporter writes as baseColorFactor."""
     mat = bpy.data.materials.new(name)
     mat.use_nodes = True
     nt = mat.node_tree
@@ -609,7 +609,17 @@ def material(name, albedo, emissive, roughness=ROUGHNESS, metallic=METALLIC, cul
         node.interpolation = "Closest"
         node.extension = "REPEAT"
         node.location = (-460, y)
-        nt.links.new(node.outputs["Color"], bsdf.inputs[socket])
+        out = node.outputs["Color"]
+        if tint is not None and socket == "Base Color":
+            mix = nt.nodes.new("ShaderNodeMix")
+            mix.data_type = "RGBA"
+            mix.blend_type = "MULTIPLY"
+            mix.inputs["Factor"].default_value = 1.0
+            mix.inputs[7].default_value = (tint[0], tint[1], tint[2], 1.0)
+            mix.location = (-200, y)
+            nt.links.new(out, mix.inputs[6])
+            out = mix.outputs[2]
+        nt.links.new(out, bsdf.inputs[socket])
     if emissive is None:
         bsdf.inputs["Emission Color"].default_value = (0.0, 0.0, 0.0, 1.0)
     bsdf.inputs["Roughness"].default_value = roughness
@@ -627,7 +637,7 @@ def materials(prefix, sheets, use_files=False, tex_dir=None, names=None):
         sh = sheets[cls]
         alb, emi = images(prefix, sh, use_files, tex_dir)
         out[cls] = material(names.get(cls, "%s_%s" % (prefix, cls)), alb, emi,
-                            sh.roughness, sh.metallic, sh.cull)
+                            sh.roughness, sh.metallic, sh.cull, sh.tint)
     return out
 
 

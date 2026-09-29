@@ -2,22 +2,20 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://gchyu1kc6f0i"
-path.s3tc="res://.godot/imported/marble_ashlar_plinth_albedo.png-351d0d27f763db3e71d993d2a0a8592f.s3tc.ctex"
-path.etc2="res://.godot/imported/marble_ashlar_plinth_albedo.png-351d0d27f763db3e71d993d2a0a8592f.etc2.ctex"
+uid="uid://pswj74j3v1xg"
+path="res://.godot/imported/marble_stone_albedo.png-4c9ad58124ab30460fef599f2515e375.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
-"vram_texture": true
+"vram_texture": false
 }
 
 [deps]
 
-source_file="res://maps/marble/textures/marble_ashlar_plinth_albedo.png"
-dest_files=["res://.godot/imported/marble_ashlar_plinth_albedo.png-351d0d27f763db3e71d993d2a0a8592f.s3tc.ctex", "res://.godot/imported/marble_ashlar_plinth_albedo.png-351d0d27f763db3e71d993d2a0a8592f.etc2.ctex"]
+source_file="res://maps/marble/textures/marble_stone_albedo.png"
+dest_files=["res://.godot/imported/marble_stone_albedo.png-4c9ad58124ab30460fef599f2515e375.ctex"]
 
 [params]
 
-compress/mode=2
+compress/mode=0
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

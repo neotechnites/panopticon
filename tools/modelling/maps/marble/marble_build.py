@@ -671,8 +671,8 @@ def _sheet_dome(c, r, s):
 
 
 # ---- the facet ashlar: the tower's and the gate's stones --------------------
-# One drawing per stone and one file each (marble_ashlar_<stone>); a model spans
-# a file across its own repeat with mpt_u, so its joints stay where they were.
+# ONE drawing, one file (marble_stone); a model spans it across its own repeat
+# with mpt_u, so its joints stay where they were, and tints it to its palette.
 
 def facet_ashlar(c, r, shades, joint, verticals=True, courses=COURSES):
     """Coursed blocks: a joint line on every course, a vertical joint on the
@@ -690,34 +690,29 @@ def facet_ashlar(c, r, shades, joint, verticals=True, courses=COURSES):
     tx.shatter(c, r, c.box, [shades[0], shades[-1]], 16, 4, 9)
 
 
-def _sheet_ashlar_plinth(c, r, s):
-    """Socles and steps: #928e70 in #6c6950."""
+def _sheet_stone(c, r, s):
+    """The facet ashlar, fallback painter for marble_stone: #928e70 in #6c6950."""
     facet_ashlar(c, r, [(146, 142, 112), (142, 138, 108), (150, 146, 116), (144, 140, 110)], JOINT)
 
 
-def _sheet_ashlar_shade(c, r, s):
-    """Grey-olive #6b6b55 in #505042: reveals, soffits, undersides. Courses only."""
-    facet_ashlar(c, r, [(107, 107, 85), (103, 103, 81), (111, 111, 89), (99, 99, 78)], (80, 80, 66),
-                 verticals=False)
+STONE_PX = 60                            # marble_stone's width: one tower facet
+# Linear multipliers over marble_stone, each the palette its class's own file had.
+TINT_PLINTH = (0.8040, 0.8179, 0.7647)
+TINT_MARBLE2 = (0.7704, 0.7814, 0.7230)
+TINT_BARS = (0.9741, 0.9929, 0.8950)
+TINT_TOWER = (0.6527, 0.5414, 0.4369)
 
 
-def _sheet_ashlar_marble2(c, r, s):
-    """Spandrels and ledges: #928e70 in #66634a."""
-    facet_ashlar(c, r, [(146, 142, 112), (142, 138, 108), (150, 146, 116), (138, 134, 104)], (102, 99, 74))
+def ashlar_sheet(name, across, tint=None, **kw):
+    """Class `name` wearing marble_stone, its width spanning `across` metres."""
+    return tx.Sheet(name, _sheet_stone, mpt=WALL_MPT, mpt_u=across / STONE_PX, size=WALL_H,
+                    width=STONE_PX, roughness=ROUGHNESS, seed=2, stem="marble_stone", tint=tint, **kw)
 
 
-ASHLAR = {                               # stone -> (painter, texels across, seed)
-    "plinth": (_sheet_ashlar_plinth, 60, 2),
-    "shade": (_sheet_ashlar_shade, 60, 3),
-    "marble2": (_sheet_ashlar_marble2, 65, 2),
-}
-
-
-def ashlar_sheet(name, stone, across, **kw):
-    """Class `name` wearing ASHLAR[stone], one file width spanning `across` metres."""
-    paint, px, seed = ASHLAR[stone]
-    return tx.Sheet(name, paint, mpt=WALL_MPT, mpt_u=across / px, size=WALL_H, width=px,
-                    roughness=ROUGHNESS, seed=seed, stem="marble_ashlar_" + stone, **kw)
+def shade_sheet(name, **kw):
+    """Class `name` wearing marble_shade at the wall's own density."""
+    return tx.Sheet(name, _sheet_shade, mpt=WALL_MPT, size=WALL_H, width=WALL_PX,
+                    roughness=ROUGHNESS, seed=2, stem="marble_shade", **kw)
 
 
 def _wall(name, paint, **kw):
