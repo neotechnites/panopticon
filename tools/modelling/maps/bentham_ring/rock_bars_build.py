@@ -24,7 +24,7 @@ ground. forest_bars and marble_bars keep the old 10.6 m envelope; they are not t
 
 TEXTURE: map 1's own rock sheets through lib/texel.py, not an atlas (Ryan: "the
 texturing on the gate is bad, you seemed to fix it for the maps generally").
-Same painters, same seeds, same tx.MPT = 0.05 m per texel as map_base's walls,
+The same hell rock tile, same tx.MPT = 0.05 m per texel as map_base's walls,
 world-projected in the model's own frame ("box"), so marks run across face
 edges instead of each face carrying its own cut-off window. The RockBars node
 is unscaled, so the texels are 0.05 m in the world, as map 1's walls are.
@@ -117,56 +117,21 @@ COLL_HD_MIN = 0.16      # a collider box is as deep as the rock it stands for, a
 SEED = 7130951
 
 # ---- texture: map 1's rock sheets, lib/texel.py, no atlas -------------------
-TEX_PREFIX = "map_base"          # so Ryan's map 1 rock PNGs, if he drops them
-TEX_DIR = "textures"             # in, dress the gate and the map together
+TEX_PREFIX = "map_base"          # the sheets name their stem: hell_rock, map 1's own
+TEX_DIR = "textures"
 USE_TEXTURE_FILES = True
 ROCK_ROUGHNESS = 0.95
 
 
 # =============================================================================
-# THE ROCK SHEETS -- map_base_build.py's painters, same seeds, same density
+# THE ROCK SHEETS -- map_base_build.py's: the one hell rock tile, a factor per class
 # =============================================================================
-
-_K = (tx.TILE * tx.MPT / 8.0) ** 2      # sheet area / the old atlas cell's: 2.56
-_S = 0.125 / tx.MPT                     # old texel / new texel: 2.5
-
-
-def _n(count):
-    return int(round(count * _K))
-
-
-def _sz(texels):
-    return max(1, int(round(texels * _S)))
-
-
-def _specks(c, r, count, size, rgb, glow):
-    for _ in range(_n(count)):
-        x, y = r.i(0, c.w - 1), r.i(0, c.h - 1)
-        c.rect(x, y, x + size, y + size, rgb, glow)
-
-
-def _sheet_rock(c, r, s):
-    tx.fill(c, r, c.box, [(74, 27, 25), (58, 20, 19), (90, 35, 30), (46, 16, 16)])
-    tx.shatter(c, r, c.box, [(96, 40, 33), (48, 16, 16), (110, 48, 38)], _n(20), _sz(6), _sz(15))
-    tx.shatter(c, r, c.box, [(32, 11, 12), (118, 56, 43)], _n(12), _sz(4), _sz(9))
-    _specks(c, r, 6, _sz(2), (172, 44, 12), (114, 22, 3))
-
-
-def _sheet_shade(c, r, s):
-    tx.fill(c, r, c.box, [(34, 12, 12), (24, 8, 9), (44, 17, 15), (17, 6, 7)])
-    tx.shatter(c, r, c.box, [(42, 16, 15), (10, 3, 4)], _n(20), _sz(4), _sz(11))
-    _specks(c, r, 4, _sz(2), (140, 34, 9), (92, 16, 2))
-
 
 # Two sheets and no more. map_base has a third, `ember`, for rock split open by
 # brimstone, and five glowing reveal faces did look good in here -- but the Ring
 # measures materials=16 on main against test_map_draw_budgets' ceiling of 18, so
-# a third material for ten triangles would spend the map's last slot on a detail
-# the rock sheet's own emissive specks already carry.
-SHEETS = {
-    "rock": tx.Sheet("rock", _sheet_rock, mode="box", roughness=ROCK_ROUGHNESS, seed=1),
-    "shade": tx.Sheet("shade", _sheet_shade, mode="box", roughness=ROCK_ROUGHNESS, seed=2),
-}
+# a third material for ten triangles would spend the map's last slot on a detail.
+SHEETS = {cls: tx.hell_sheet(cls, mode="box", roughness=ROCK_ROUGHNESS) for cls in ("rock", "shade")}
 MAT_NAMES = {"rock": "HellRock", "shade": "HellShade"}
 
 

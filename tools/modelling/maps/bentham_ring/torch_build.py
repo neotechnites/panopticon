@@ -22,6 +22,7 @@ for _root in (os.path.dirname(_HOME), os.path.dirname(os.path.dirname(_HOME))): 
         break
 
 import mdl  # noqa: E402
+import texel as tx  # noqa: E402
 
 # =============================================================================
 # TUNABLES
@@ -484,15 +485,16 @@ def _torch(r):
 
 
 def build():
-    albedo, emissive = build_texture()
-    mdl.save_texture(albedo)
+    albedo, _emissive = build_texture()
+    glow = tx.props_image('torch', albedo, ZONE_FLAME)   # its quarter of hell_props
     rock = _torch(_Rng(SEED))
     ob = rock.object(OBJECT_NAME)
     fx = 0.16
     unwrap(ob, rock.zones, count=rock.uv_faces,
            planar={ZONE_FLAME: (0, 2, -fx, FLAME_RINGS[0][0], fx, FLAME_TIP)})
-    mdl.finish(ob, rock_material("HellRock", albedo, emissive), strip_uvs=False)
-    mdl.split_zone(ob, rock_material("TorchFlame", albedo, albedo), ZONE_FLAME)   # it glows its own albedo
+    mdl.finish(ob, bpy.data.materials.new("HellRock"), strip_uvs=False)
+    tx.retile(ob, tx.hell_atlas_material(ROCK_ROUGHNESS),
+              glow=('torch', ZONE_FLAME, rock_material("TorchFlame", glow, glow)))   # it glows its own albedo
     print("MDL STATS visual_tris=%d collision_tris=0 bracket=%.2f flame=%.2f"
           % (len(ob.data.polygons), 2.0 * PLATE_HH, FLAME_TIP - FLAME_RINGS[0][0]))
     return [ob]

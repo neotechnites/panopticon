@@ -24,6 +24,7 @@ for _root in (os.path.dirname(_HOME), os.path.dirname(os.path.dirname(_HOME))): 
         break
 
 import mdl  # noqa: E402
+import texel as tx  # noqa: E402
 
 # The model hangs 37 m below its origin, so mdl's ground plane lands above the
 # camera at low elevations and renders a black frame. World light replaces it.
@@ -797,6 +798,8 @@ def build():
     m = _measure(rock)
     n_uv = unwrap(rock, uvname, m["ceil"])
     mdl.finish(rock, mat, flat=True, strip_uvs=False)
+    tx.retile(rock, tx.hell_atlas_material(cull=mat.use_backface_culling),
+              src=(mat.name.split(".")[0],))   # the one hell rock tile
 
     coll_ob, spans = _collider(m)
     coll_ob.hide_render = True

@@ -327,12 +327,14 @@ class Sheet(object):
     stem       image stem when the class wears another model's texture (default <map>_<name>)
     mpt_u      metres per texel across, when one drawing spans another model's repeat
     tint       linear RGB multiplied over the albedo (glTF baseColorFactor): one drawing, another palette
+    glow       False: never bind an emissive image, though the stem has one (another class's glow)
     """
 
     def __init__(self, name, paint=None, mpt=MPT, size=TILE, ref_r=None, phase=(0.0, 0.0),
                  mode="cyl", roughness=ROUGHNESS, metallic=METALLIC, cull=True, seed=0,
-                 emissive=False, width=None, stem=None, mpt_u=None, tint=None):
+                 emissive=False, width=None, stem=None, mpt_u=None, tint=None, glow=True):
         self.name = name
+        self.glow = glow
         self.tint = tint
         self.stem = stem
         self.paint = paint
@@ -576,21 +578,29 @@ def _image_file(path):
     return img
 
 
+_IMAGES = {}         # stem -> (albedo, emissive-or-None): classes sharing a drawing share its images
+
+
 def images(prefix, sheet, use_files=False, tex_dir=None):
     """(albedo, emissive-or-None) for a Sheet: the files when opted in and
     present (<prefix>_<name>_albedo.png), else painted."""
     stem = sheet.stem or "%s_%s" % (prefix, sheet.name)
-    if use_files and tex_dir:
-        alb = _image_file(os.path.join(tex_dir, stem + "_albedo.png"))
-        if alb is not None:
-            return alb, _image_file(os.path.join(tex_dir, stem + "_emissive.png"))
-    c = Canvas(sheet.width, sheet.size)
-    r = Rng(0x7E11 + sheet.seed)
-    if sheet.paint is not None:
-        sheet.paint(c, r, sheet)
-    alb = _image(stem + "_albedo", c.w, c.h, c.alb)
-    emi = _image(stem + "_emissive", c.w, c.h, c.emi) if (c.glows or sheet.emissive) else None
-    return alb, emi
+    if stem not in _IMAGES:
+        pair = None
+        if use_files and tex_dir:
+            alb = _image_file(os.path.join(tex_dir, stem + "_albedo.png"))
+            if alb is not None:
+                pair = (alb, _image_file(os.path.join(tex_dir, stem + "_emissive.png")))
+        if pair is None:
+            c = Canvas(sheet.width, sheet.size)
+            r = Rng(0x7E11 + sheet.seed)
+            if sheet.paint is not None:
+                sheet.paint(c, r, sheet)
+            pair = (_image(stem + "_albedo", c.w, c.h, c.alb),
+                    _image(stem + "_emissive", c.w, c.h, c.emi) if (c.glows or sheet.emissive) else None)
+        _IMAGES[stem] = pair
+    alb, emi = _IMAGES[stem]
+    return alb, (emi if sheet.glow else None)
 
 
 def material(name, albedo, emissive, roughness=ROUGHNESS, metallic=METALLIC, cull=True, tint=None):
@@ -668,6 +678,191 @@ def report(sheets):
         rings = ", ".join("r%.1f: %.3f m x%d" % (k, v[0], v[1]) for k, v in sorted(sh.per_rev().items()))
         print("TEXEL %-10s %dx%d %.4f m/texel period %.2f x %.2f m mode=%s %s"
               % (cls, sh.width, sh.size, sh.mpt, sh.metres_u, sh.metres, sh.mode, rings))
+
+
+# =============================================================================
+# HELL ROCK -- one drawing; rock, shade, carve and ember are colour factors on it
+# =============================================================================
+# The tile is map 1's rock drawing lifted by HELL_SCALE (linear) so that every
+# class's factor is <= 1 (glTF clamps baseColorFactor): carve is greyer than rock.
+# Ember keeps its glowing veins as the tile's one emissive image.
+
+HELL_STEM = "hell_rock"
+HELL_SCALE = (1.0, 2.121, 2.383)
+HELL_TINT = {"rock": (1.0, 0.4715, 0.4196), "shade": (0.1159, 0.0847, 0.1299),
+             "carve": (0.6409, 1.0, 1.0), "ember": (0.036, 0.0296, 0.0361)}
+HELL_ZONES = (((0.0, 0.5, 0.5, 1.0), "rock"), ((0.5, 0.5, 1.0, 1.0), "shade"),
+              ((0.5, 0.0, 1.0, 0.5), "carve"), ((0.0, 0.0, 0.5, 0.5), "ember"))   # the old 128 atlas
+HELL_ATLAS_UV = 1.25    # an old atlas UV onto the tile: 128 texels at 0.125 m -> 256 at 0.05 m
+HELL_NAMES = {"rock": "HellRock", "shade": "HellShade", "carve": "HellCarve", "ember": "HellEmber"}
+PROPS_STEM = "hell_props"   # the props' own glow quarters, one 128 atlas
+PROPS_QUARTER = {"demon_pad": (0.0, 0.0), "portal": (0.5, 0.0), "torch": (0.0, 0.5), "lava_tile": (0.5, 0.5)}
+
+
+def _l2s1(v):
+    v = max(0.0, min(1.0, v))
+    return v * 12.92 if v <= 0.0031308 else 1.055 * v ** (1.0 / 2.4) - 0.055
+
+
+def _s2l1(v):
+    return v / 12.92 if v <= 0.04045 else ((v + 0.055) / 1.055) ** 2.4
+
+
+def paint_hell_rock(c, r, sheet):
+    """The hell rock tile: the rock drawing, lifted by HELL_SCALE; the ember veins as its glow."""
+    k = (TILE * MPT / 8.0) ** 2
+    s = 0.125 / MPT
+
+    def n(count):
+        return int(round(count * k))
+
+    def sz(t):
+        return max(1, int(round(t * s)))
+
+    def specks(cv, rr, count, size, rgb, glow):
+        for _ in range(n(count)):
+            x, y = rr.i(0, cv.w - 1), rr.i(0, cv.h - 1)
+            cv.rect(x, y, x + size, y + size, rgb, glow)
+    r = Rng(0x7E11 + 1)
+    fill(c, r, c.box, [(74, 27, 25), (58, 20, 19), (90, 35, 30), (46, 16, 16)])
+    shatter(c, r, c.box, [(96, 40, 33), (48, 16, 16), (110, 48, 38)], n(20), sz(6), sz(15))
+    shatter(c, r, c.box, [(32, 11, 12), (118, 56, 43)], n(12), sz(4), sz(9))
+    specks(c, r, 6, sz(2), (172, 44, 12), None)
+    for o in range(0, len(c.alb), 4):
+        for ch in range(3):
+            c.alb[o + ch] = _l2s1(_s2l1(c.alb[o + ch]) * HELL_SCALE[ch])
+    e = Canvas(c.w, c.h)
+    r = Rng(0x7E11 + 4)
+    fill(e, r, e.box, [(11, 4, 5), (16, 6, 6), (7, 2, 3), (20, 8, 7)])
+    halo = sz(1)
+    for _ in range(n(15)):                    # hot veins: a random walk with a dim halo
+        x, y = r.i(0, e.w - 1), r.i(0, e.h - 1)
+        for _step in range(int(60 * s)):
+            e.rect(x - halo, y - halo, x + halo + 1, y + halo + 1, (58, 15, 4), (74, 15, 1))
+            hot = r.pick([(255, 150, 30), (255, 212, 88), (248, 100, 14)])
+            e.rect(x, y, x + 2, y + 2, hot, hot)
+            x += r.i(-1, 1)
+            y += r.i(-1, 1)
+    specks(e, r, 30, 2, (7, 3, 4), None)
+    specks(e, r, 10, sz(2), (236, 92, 18), (194, 54, 5))
+    c.emi = e.emi
+    c.glows = True
+
+
+def hell_sheet(cls, **kw):
+    """A texel Sheet for one hell rock class: the one tile, the class's factor, ember alone glows."""
+    return Sheet(cls, paint_hell_rock, stem=HELL_STEM, tint=HELL_TINT[cls], glow=(cls == "ember"), **kw)
+
+
+def hell_atlas_material(roughness=ROUGHNESS, cull=False, name="HellRock"):
+    """The one tile for a model once on the old atlas: its class factors ride in the Col attribute (COLOR_0)."""
+    sh = hell_sheet("rock", mode="box", roughness=roughness, cull=cull)
+    alb, _emi = images("", sh, use_files=True, tex_dir="textures")
+    mat = material(name, alb, None, sh.roughness, sh.metallic, sh.cull)
+    nt = mat.node_tree
+    bsdf = nt.nodes.get("Principled BSDF")
+    tex = next(n for n in nt.nodes if n.type == "TEX_IMAGE")
+    col = nt.nodes.new("ShaderNodeVertexColor")
+    col.layer_name = "Col"
+    mix = nt.nodes.new("ShaderNodeMix")
+    mix.data_type = "RGBA"
+    mix.blend_type = "MULTIPLY"
+    mix.inputs["Factor"].default_value = 1.0
+    nt.links.new(tex.outputs["Color"], mix.inputs[6])
+    nt.links.new(col.outputs["Color"], mix.inputs[7])
+    nt.links.new(mix.outputs[2], bsdf.inputs["Base Color"])
+    mat.diffuse_color = (0.13, 0.04, 0.04, 1.0)
+    return mat
+
+
+def props_image(prop, painted, zone):
+    """hell_props_albedo: the file, else this prop's painted zone pasted into its quarter of it."""
+    import mdl
+    img = _image_file(PROPS_STEM + "_albedo.png")
+    if img is not None:
+        return img
+    import glb_textures
+    root = mdl._tex_spec()[0]
+    rel = glb_textures.find(root, PROPS_STEM + "_albedo") if root else None
+    w, h = painted.size
+    buf = [0.0, 0.0, 0.0, 1.0] * (w * h)
+    if rel:                                   # regenerating: keep the other props' quarters
+        old = bpy.data.images.load(os.path.join(root, rel))
+        if tuple(old.size) == (w, h):
+            old.pixels.foreach_get(buf)
+    src = [0.0] * (w * h * 4)
+    painted.pixels.foreach_get(src)
+    qu, qv = PROPS_QUARTER[prop]
+    x0, y0, x1, y1 = [int(round(t * w)) for t in zone]
+    dx, dy = int(round(qu * w)) - x0, int(round(qv * h)) - y0
+    for y in range(y0, y1):
+        for x in range(x0, x1):
+            o, d = (y * w + x) * 4, ((y + dy) * w + x + dx) * 4
+            buf[d:d + 4] = src[o:o + 4]
+    return _image(PROPS_STEM + "_albedo", w, h, buf)
+
+
+def retile(ob, mat, src=("HellRock",), glow=None):
+    """Faces on the old 128 hell atlas move onto the one tile (mat, from hell_atlas_material):
+    UVs scaled by HELL_ATLAS_UV, the quadrant's class factor into Col. glow = (prop, zone,
+    material) sends that zone's faces to the prop's quarter of hell_props. Returns {class: faces}."""
+    me = ob.data
+    uvl = me.uv_layers.active.data
+    old = list(me.materials)
+    base = [m.name.split(".")[0] if m is not None else None for m in old]
+    order, keep = [], {}
+    for i, (m, b) in enumerate(zip(old, base)):          # the tile takes the first src slot's place
+        if b not in src:
+            keep[i] = len(order)
+            order.append(m)
+        elif mat not in order:
+            keep[i] = len(order)
+            order.append(mat)
+        else:
+            keep[i] = order.index(mat)
+    want, count = {}, {}
+    white = (1.0, 1.0, 1.0)
+    colour = [white] * len(me.loops)
+    for p in me.polygons:
+        if base[p.material_index] not in src:
+            continue
+        loops = list(p.loop_indices)
+        uvs = [tuple(uvl[li].uv) for li in loops]
+        if glow is not None:
+            u0, v0, u1, v1 = glow[1]
+            if all(u0 - EPS <= u <= u1 + EPS and v0 - EPS <= v <= v1 + EPS for u, v in uvs):
+                qu, qv = PROPS_QUARTER[glow[0]]
+                for li, (u, v) in zip(loops, uvs):
+                    uvl[li].uv = (u - u0 + qu, v - v0 + qv)
+                want[p.index] = "glow"
+                count["glow"] = count.get("glow", 0) + 1
+                continue
+        cu = sum(u for u, _v in uvs) / len(uvs)
+        cv = sum(v for _u, v in uvs) / len(uvs)
+        cls = next((c for z, c in HELL_ZONES if z[0] <= cu <= z[2] and z[1] <= cv <= z[3]), "rock")
+        for li, (u, v) in zip(loops, uvs):
+            uvl[li].uv = (u * HELL_ATLAS_UV, v * HELL_ATLAS_UV)
+            colour[li] = HELL_TINT[cls]
+        want[p.index] = "rock"
+        count[cls] = count.get(cls, 0) + 1
+    slot = {"rock": order.index(mat)}
+    if "glow" in count:
+        slot["glow"] = len(order)
+        order.append(glow[2])
+    idx = [keep[p.material_index] if p.index not in want else slot[want[p.index]] for p in me.polygons]
+    me.materials.clear()
+    for m in order:
+        me.materials.append(m)
+    for p, i in zip(me.polygons, idx):
+        p.material_index = i
+    for m in old:
+        if m is not None and m is not mat and m.name.split(".")[0] in src and m.users == 0:
+            bpy.data.materials.remove(m)
+    mat.name = src[0]
+    attr = me.color_attributes.new("Col", "FLOAT_COLOR", "CORNER")
+    attr.data.foreach_set("color", [v for c in colour for v in (c[0], c[1], c[2], 1.0)])
+    print("MDL STATS %s retiled: %s" % (ob.name, " ".join("%s=%d" % kv for kv in sorted(count.items()))))
+    return count
 
 
 # =============================================================================

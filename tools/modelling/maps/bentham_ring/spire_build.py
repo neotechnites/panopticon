@@ -23,6 +23,7 @@ for _root in (os.path.dirname(_HOME), os.path.dirname(os.path.dirname(_HOME))): 
         break
 
 import mdl  # noqa: E402
+import texel as tx  # noqa: E402
 
 # =============================================================================
 # TUNABLES
@@ -399,13 +400,11 @@ def _drop_faces(ob, idx):
 
 def _finish(rock, coll):
     """Texture, unwrap, material and the `-colonly` collider; returns [visual, collider]."""
-    albedo, emissive = build_texture()
-    mdl.save_texture(albedo)
-    mdl.save_texture(emissive)
     ob = rock.object(OBJECT_NAME)
     unwrap(ob, rock.zones)
     _drop_faces(ob, rock.buried)
-    mdl.finish(ob, rock_material("HellRock", albedo, emissive), strip_uvs=False)
+    mdl.finish(ob, bpy.data.materials.new("HellRock"), strip_uvs=False)
+    tx.retile(ob, tx.hell_atlas_material(ROCK_ROUGHNESS))   # the one hell rock tile
     coll_ob = coll.object(COLLIDER_NAME)     # Godot: StaticBody3D + ConcavePolygonShape3D
     coll_ob.hide_render = True
     print("MDL STATS visual_tris=%d collision_tris=%d"

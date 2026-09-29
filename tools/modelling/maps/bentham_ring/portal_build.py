@@ -25,6 +25,7 @@ for _root in (os.path.dirname(_HOME), os.path.dirname(os.path.dirname(_HOME))): 
         break
 
 import mdl  # noqa: E402
+import texel as tx  # noqa: E402
 
 # =============================================================================
 # TUNABLES
@@ -480,14 +481,15 @@ def _collider():
 
 
 def build():
-    albedo, emissive = build_texture()
-    mdl.save_texture(albedo)
+    albedo, _emissive = build_texture()
+    glow = tx.props_image('portal', albedo, ZONE_PORTAL)   # its quarter of hell_props
     rock = _portal(_Rng(SEED))
     ob = rock.object(OBJECT_NAME)
     unwrap(ob, rock.zones, count=rock.uv_faces,
            planar={ZONE_PORTAL: (0, 2, -IN_HALF_W, 0.0, IN_HALF_W, IN_SPRING + IN_RISE)})
-    mdl.finish(ob, rock_material("HellRock", albedo, emissive), strip_uvs=False)
-    mdl.split_zone(ob, rock_material("PortalGlow", albedo, albedo), ZONE_PORTAL)   # it glows its own albedo
+    mdl.finish(ob, bpy.data.materials.new("HellRock"), strip_uvs=False)
+    tx.retile(ob, tx.hell_atlas_material(ROCK_ROUGHNESS),
+              glow=('portal', ZONE_PORTAL, rock_material("PortalGlow", glow, glow)))   # it glows its own albedo
     coll_ob = _collider().object(COLLIDER_NAME)   # Godot: StaticBody3D + ConcavePolygonShape3D
     coll_ob.hide_render = True
     print("MDL STATS visual_tris=%d collision_tris=%d width=%.2f height=%.2f depth=%.2f"

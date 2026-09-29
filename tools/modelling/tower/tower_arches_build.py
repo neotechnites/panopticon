@@ -28,6 +28,7 @@ for _root in (os.path.dirname(_HOME), os.path.dirname(os.path.dirname(_HOME))): 
         break
 
 import mdl  # noqa: E402
+import texel as tx  # noqa: E402
 
 mdl.DEFAULTS["ground"] = False
 mdl.DEFAULTS["world_grey"] = 0.30
@@ -1252,7 +1253,7 @@ def _shell(ob):
     return n
 
 
-def build():
+def build(retile=True):
     rock, mat, uvname = _append_rock()
 
     bm = bmesh.new()
@@ -1339,6 +1340,9 @@ def build():
     n_uv = unwrap(rock, uvname)
     n_fleck = unfleck(rock, uvname, mat, m["floor"])
     mdl.finish(rock, mat, flat=True, strip_uvs=False)
+    if retile:                                     # tower_hollow retiles after its cuts
+        tx.retile(rock, tx.hell_atlas_material(cull=mat.use_backface_culling),
+                  src=(mat.name.split(".")[0],))   # the one hell rock tile
 
     coll_ob, spans = _collider(m, plan)
     coll_ob.hide_render = True

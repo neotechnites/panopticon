@@ -33,6 +33,7 @@ for _root in (os.path.dirname(_HOME), os.path.dirname(os.path.dirname(_HOME))): 
         break
 
 import mdl  # noqa: E402
+import texel as tx  # noqa: E402
 import tower_arches_build as ta  # noqa: E402
 import tower_interior_build as ti  # noqa: E402
 
@@ -532,7 +533,7 @@ def _extra_renders(spec, objects):
 # =============================================================================
 
 def build():
-    rock, old_coll = ta.build()
+    rock, old_coll = ta.build(retile=False)
     old_me = old_coll.data
     bpy.data.objects.remove(old_coll, do_unlink=True)
     bpy.data.meshes.remove(old_me)
@@ -596,6 +597,7 @@ def build():
     n_uv = ta.unwrap(rock, uvname)
     mdl.finish(rock, mat, flat=True, strip_uvs=False)
     mat.use_backface_culling = culling
+    tx.retile(rock, tx.hell_atlas_material(cull=culling), src=(mat.name.split(".")[0],))   # the one hell rock tile
 
     cut = _cut_faces(rock, surfaces)
     coll_ob = _collider(m, plan, hole, cut)

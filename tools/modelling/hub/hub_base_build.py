@@ -44,6 +44,7 @@ if bpy is not None:
     mdl.DEFAULTS["ground"] = False
     mdl.DEFAULTS["world_grey"] = 0.30
     mdl.DEFAULTS["world_strength"] = 0.90
+import texel as tx  # noqa: E402
 
 # =============================================================================
 # TUNABLES
@@ -1293,9 +1294,6 @@ def build():
     rock, spikes = _rock()
     coll = _collider()
 
-    albedo, emissive = build_texture()
-    mdl.save_texture(albedo)
-    mdl.save_texture(emissive)
     river_albedo, river_emissive = _sheet("lava", _river_texture)   # the arena's lava tile
     mdl.save_texture(river_albedo)
     mdl.save_texture(river_emissive)
@@ -1309,7 +1307,7 @@ def build():
             themes.append(th)
     ob = rock.object(OBJECT_NAME)
     unwrap(ob, rock.zones, rock.groups, themes)
-    mdl.finish(ob, rock_material("HellRock", albedo, emissive), strip_uvs=False)
+    mdl.finish(ob, bpy.data.materials.new("HellRock"), strip_uvs=False)
     ob.data.materials.append(rock_material("Lava", river_albedo, river_emissive))
     ob.data.materials.append(rock_material("HubStone", stone_albedo, stone_emissive))
     slot = {"river": 1, "stone": 2}
@@ -1329,6 +1327,7 @@ def build():
         idx = slot.get(rock.zones[pi][0], 0)
         poly.material_index = idx
         counts[idx] += 1
+    tx.retile(ob, tx.hell_atlas_material(ROCK_ROUGHNESS))   # the one hell rock tile
 
     coll_ob = coll.object(COLLIDER_NAME)
     coll_ob.hide_render = True

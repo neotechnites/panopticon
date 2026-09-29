@@ -23,6 +23,7 @@ for _root in (os.path.dirname(_HOME), os.path.dirname(os.path.dirname(_HOME))): 
         break
 
 import mdl  # noqa: E402
+import texel as tx  # noqa: E402
 
 # =============================================================================
 # TUNABLES
@@ -397,13 +398,14 @@ def _slab(r):
 def build():
     slab = _slab(_Rng(SEED))
 
-    albedo, emissive = build_texture()
-    mdl.save_texture(albedo)
+    albedo, _emissive = build_texture()
+    glow = tx.props_image('lava_tile', albedo, ZONE_LAVA)   # its quarter of hell_props
 
     ob = slab.object(OBJECT_NAME)
     unwrap(ob, slab.zones)
-    mdl.finish(ob, rock_material("HellRock", albedo, emissive), strip_uvs=False)
-    mdl.split_zone(ob, rock_material("LavaTile", albedo, albedo), ZONE_LAVA)   # it glows its own albedo
+    mdl.finish(ob, bpy.data.materials.new("HellRock"), strip_uvs=False)
+    tx.retile(ob, tx.hell_atlas_material(ROCK_ROUGHNESS),
+              glow=('lava_tile', ZONE_LAVA, rock_material("LavaTile", glow, glow)))   # it glows its own albedo
     print("MDL STATS visual_tris=%d collision_tris=0" % len(ob.data.polygons))
     xs = [v[0] for v in slab.verts]
     zs = [v[2] for v in slab.verts]

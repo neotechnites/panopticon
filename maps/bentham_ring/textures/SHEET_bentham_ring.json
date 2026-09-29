@@ -1,6 +1,6 @@
 {
   "canvas": [
-    1783,
+    735,
     530
   ],
   "textures": [
@@ -16,7 +16,7 @@
       ]
     },
     {
-      "file": "demon_pad_albedo.png",
+      "file": "hell_props_albedo.png",
       "kind": "albedo",
       "mode": "RGB",
       "rect": [
@@ -33,8 +33,8 @@
       "rect": [
         219,
         7,
-        128,
-        128
+        256,
+        256
       ]
     },
     {
@@ -42,87 +42,10 @@
       "kind": "albedo",
       "mode": "RGBA",
       "rect": [
-        351,
+        479,
         7,
         256,
         256
-      ]
-    },
-    {
-      "file": "lava_tile_albedo.png",
-      "kind": "albedo",
-      "mode": "RGB",
-      "rect": [
-        611,
-        7,
-        128,
-        128
-      ]
-    },
-    {
-      "file": "map_base_ember_albedo.png",
-      "kind": "albedo",
-      "mode": "RGB",
-      "rect": [
-        743,
-        7,
-        256,
-        256
-      ]
-    },
-    {
-      "file": "map_base_rock_albedo.png",
-      "kind": "albedo",
-      "mode": "RGB",
-      "rect": [
-        1003,
-        7,
-        256,
-        256
-      ]
-    },
-    {
-      "file": "map_base_shade_albedo.png",
-      "kind": "albedo",
-      "mode": "RGB",
-      "rect": [
-        1263,
-        7,
-        256,
-        256
-      ]
-    },
-    {
-      "file": "portal_albedo.png",
-      "kind": "albedo",
-      "mode": "RGB",
-      "rect": [
-        1523,
-        7,
-        128,
-        128
-      ]
-    },
-    {
-      "file": "torch_albedo.png",
-      "kind": "albedo",
-      "mode": "RGB",
-      "rect": [
-        1655,
-        7,
-        128,
-        128
-      ]
-    },
-    {
-      "file": "crack_glow_emissive.png",
-      "kind": "emissive",
-      "mode": "RGB",
-      "rect": [
-        0,
-        274,
-        64,
-        32
       ]
     },
     {
@@ -130,18 +53,7 @@
       "kind": "emissive",
       "mode": "RGB",
       "rect": [
-        95,
-        274,
-        128,
-        128
-      ]
-    },
-    {
-      "file": "map_base_ember_emissive.png",
-      "kind": "emissive",
-      "mode": "RGB",
-      "rect": [
-        227,
+        0,
         274,
         256,
         256
@@ -152,29 +64,7 @@
       "kind": "emissive",
       "mode": "RGB",
       "rect": [
-        487,
-        274,
-        256,
-        256
-      ]
-    },
-    {
-      "file": "map_base_rock_emissive.png",
-      "kind": "emissive",
-      "mode": "RGB",
-      "rect": [
-        747,
-        274,
-        256,
-        256
-      ]
-    },
-    {
-      "file": "map_base_shade_emissive.png",
-      "kind": "emissive",
-      "mode": "RGB",
-      "rect": [
-        1007,
+        260,
         274,
         256,
         256
