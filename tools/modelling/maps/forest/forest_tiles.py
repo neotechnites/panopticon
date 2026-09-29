@@ -29,6 +29,7 @@ import texel as tx  # noqa: E402
 
 TILE = 64                       # texels a side: TILE * tx.MPT = 3.2 m before a tile repeats
 SEED = 0x7E11
+MOTTLE = (8, 4)                 # grass, path and rock noise cells: 0.4 m mottles, none on a tile corner
 
 # Palettes: the bytes the files hold, sampled from the 256 px sheets they replace.
 GRASS = ((36, 59, 12), (51, 67, 11), (66, 77, 12), (77, 87, 16), (31, 49, 10))
@@ -90,6 +91,15 @@ OLD = {
              "moss": (0.00607, 0.01242, 0.00285), "lichen": (0.02972, 0.03328, 0.01902)},
 }
 
+# Ryan: "in the shade it looks like a solid colour": shade sat ~15x under sun. Leaf and shade now
+# step down from SUN per channel (red fastest, blue slowest: cooler as it darkens); sun/shade is 2.8x.
+LEAF_STEP = {"leaf": (1.9, 1.7, 1.35), "shade": (3.3, 2.8, 1.9)}
+for _fam in ("ground", "atlas"):
+    for _z, _d in LEAF_STEP.items():
+        OLD[_fam][_z] = tuple(OLD[_fam]["sun"][k] / _d[k] for k in range(3))
+LEAF_ZONES = tuple(LEAF_STEP) + ("sun",)   # the zones soften() blends: the leaf tile's tints
+SOFT_PASSES = 3                 # neighbour-average passes: the sun/shade step spreads over ~3 face rings
+
 
 # =============================================================================
 # PAINT -- byte-exact canvases (the files hold these colours, not their linear)
@@ -103,13 +113,20 @@ class _Raw(tx.Canvas):
         self.alb[o], self.alb[o + 1], self.alb[o + 2] = rgb[0] / 255.0, rgb[1] / 255.0, rgb[2] / 255.0
 
 
+def _mottle(c, r, tones, cuts, cells):
+    """Ryan: "a big fat circle at every corner": a 16-texel lattice put one round blob ON the tile's
+    corner. Finer cells, drawn from half a cell in, so no lattice node sits on a corner or an edge."""
+    o = cells[0] // 2
+    tx.noise_fill(c, r, (o, o, o + c.w, o + c.h), tones, cuts=cuts, dither=0, cells=cells)
+
+
 def _grass(c, r):
-    tx.noise_fill(c, r, c.box, GRASS[:3], cuts=(0.38, 0.66), dither=0, cells=(16, 6))
+    _mottle(c, r, GRASS[:3], (0.38, 0.66), MOTTLE)
     tx.blades(c, r, c.box, 110, GRASS[3:])
 
 
 def _path(c, r):
-    tx.noise_fill(c, r, c.box, PATH[:3], cuts=(0.40, 0.72), dither=0, cells=(16, 6))
+    _mottle(c, r, PATH[:3], (0.40, 0.72), MOTTLE)
     tx.blades(c, r, c.box, 70, PATH[3:])
 
 
@@ -147,7 +164,7 @@ def _fern(c, r):
 
 
 def _rock(c, r):
-    tx.noise_fill(c, r, c.box, ROCK[:3], cuts=(0.34, 0.66), dither=0, cells=(16, 5))
+    _mottle(c, r, ROCK[:3], (0.34, 0.66), MOTTLE)
     tx.blades(c, r, c.box, 70, [ROCK[3]])       # feldspar
     tx.blades(c, r, c.box, 90, [ROCK[4]])       # biotite
     tx.blades(c, r, c.box, 60, [ROCK[5]])       # the forest's green cast
@@ -325,6 +342,40 @@ def dress(ob, zones, family, sheets=None, flat=True, cull=True, custom=None, pre
     print("MDL STATS tiles %s: %s" % (ob.name, " ".join(
         "%s=%s" % (z, ",".join("%.3f" % v for v in tints[z])) for z in sorted(tints))))
     return order
+
+
+def soften(ob, zones, passes=SOFT_PASSES):
+    """Ryan: "a very hard line" where sun meets shade: blend the per-face leaf tints in COLOR_0 per
+    welded vertex over the leaf faces, an open boundary (a seam ring) pinned."""
+    me = ob.data
+    col = colours(ob)
+    flat = [0.0] * (len(me.loops) * 4)
+    col.data.foreach_get("color", flat)
+    key = lambda vi: tuple(round(c, 4) for c in me.vertices[vi].co)
+    loops, nbr, edge_n = {}, {}, {}
+    for pi, poly in enumerate(me.polygons):
+        if zones[pi] not in LEAF_ZONES:
+            continue
+        ks = [key(me.loops[li].vertex_index) for li in poly.loop_indices]
+        for li, k in zip(poly.loop_indices, ks):
+            loops.setdefault(k, []).append(li)
+        for a, b in zip(ks, ks[1:] + ks[:1]):
+            nbr.setdefault(a, set()).add(b)
+            nbr.setdefault(b, set()).add(a)
+            e = (a, b) if a < b else (b, a)
+            edge_n[e] = edge_n.get(e, 0) + 1
+    pinned = {k for e, n in edge_n.items() if n == 1 for k in e}
+    val = {k: [sum(flat[li * 4 + c] for li in ls) / len(ls) for c in range(3)] for k, ls in loops.items()}
+    for _ in range(passes):
+        val = {k: v if k in pinned else [(v[c] + sum(val[o][c] for o in nbr[k])) / (1 + len(nbr[k]))
+                                         for c in range(3)] for k, v in val.items()}
+    for k, ls in loops.items():
+        if k in pinned:
+            continue
+        for li in ls:
+            flat[li * 4:li * 4 + 3] = val[k]
+    col.data.foreach_set("color", flat)
+    print("MDL STATS soften %s: verts=%d pinned=%d passes=%d" % (ob.name, len(loops), len(pinned), passes))
 
 
 # =============================================================================
