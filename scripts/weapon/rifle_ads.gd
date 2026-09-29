@@ -50,20 +50,8 @@ extends Node
 ## see [code]tools/_scratch/ads_view.gd[/code], which is the harness that
 ## produced the pictures, and docs/MODELLING.md for how it is run on the PC.
 ##
-## [b]Why the scope is not centred on the eye[/b]
-##
-## Because it cannot be. The scope
-## ([code]tools/modelling/weapons/rifle_build.py[/code], the SCOPE_ block) is a solid
-## brick 0.12 m wide and 0.078 m deep whose rear cup now runs 58 mm further
-## back than it used to; it has no bore through it and no glass in it, and
-## putting its optical axis on the view axis therefore puts an opaque slab
-## across the middle of the screen -- which is exactly what the previous
-## numbers did. Ryan settled the question directly: "the scope doesnt actually
-## need to be see through". So the rifle comes up UNDER the sight line: the
-## whole model sits just below the eye, running away to the vanishing point,
-## with the field the shot goes through left clear above it, and [ScopeVignette]
-## supplies the optic. That is the same trade every game that does not render a
-## second view through its scope makes.
+## [b]The scope is centred on the eye.[/b] rifle_build.py puts its ocular on this aim
+## pose's eye; its culled interior clears the [ScopeVignette] circle, so changing aim_position moves the scope off-axis.
 
 ## The node this blends: [code]Rifle/ViewModel[/code]. Its transform at
 ## [method _ready] is captured as the hip pose -- the same authored value
@@ -87,7 +75,7 @@ extends Node
 ## aiming brings it in front of the face, and the symmetry is most of what
 ## reads as "aimed" at a glance.
 ##
-## [b]y = -0.083[/b] -- THE SCOPE ON THE EYE LINE.: the model's origin is on the bore line, so this is how
+## [b]y = -0.083[/b] -- THE SCOPE ON THE EYE LINE: the model's origin is on the bore line, so this is how
 ## far the barrel sits below the eye. It is the number that decides how much of
 ## the screen the rifle eats. Raise it (toward zero) and the model climbs over
 ## the crosshair; drop it further and the rifle stops looking like it came up

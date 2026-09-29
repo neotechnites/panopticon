@@ -1,8 +1,8 @@
 """
 PANOPTICON -- the warden's rifle: an old-prison bolt-action, low-poly view model.
 
-A long rifle with a heavy walnut stock, blued iron, a brass peep sight and a
-hand-worn finish; institutional, not military. Marked with the panopticon's
+A long rifle with a heavy walnut stock, blued iron, a telescopic scope on two
+rings and a hand-worn finish; institutional, not military. Marked with the panopticon's
 eye stamped on the left of the receiver and a numbered brass plate let into
 the left of the butt -- the side the shooter sees. The 128x128 PS1-style atlas
 is painted procedurally here (hard texels, four palettes, no gradients) and
@@ -25,7 +25,7 @@ ORIGIN
 ------
 (0,0,0) sits ON THE BORE LINE at the REAR FACE OF THE RECEIVER, where the
 stock wrist meets it. y=0 is the bore, so the shot line is the model's own
-local -Z axis and the peep sight sits directly above the origin; the stock
+local -Z axis and the scope sits directly above the origin; the stock
 runs BACK into +Z (toward the camera) and the barrel FORWARD into -Z, so
 parenting this under Head needs no rotation. The muzzle lands at a round
 local (0, 0, -MUZZLE_Z) for the tracer origin. Centred on x=0 (bore
@@ -81,6 +81,7 @@ ZONE_WORN   = (0.25, 0.0, 0.5,  0.5)   # walnut rubbed pale by a hand or a cheek
 # The marks, in texels (x0, y0, x1, y1): each is FIT onto exactly one face.
 EYE_RECT   = (64, 40, 112, 64)         # 48x24: the eye, stamped in the steel
 PLATE_RECT = (64, 16, 120, 36)         # 56x20: the brass number plate
+GLASS_RECT = (64, 2, 96, 14)           # 32x12: the scope's dark lens glass
 MARKS_BOX  = (64, 0, 128, 64)          # the rest of that quarter is plain blued steel
 
 # ---- master proportions (metres, Blender space: +Y forward, +Z up) ----------
@@ -105,9 +106,20 @@ BAND_Y          = ((0.560, 0.582), (0.832, 0.858))   # iron barrel bands
 BOLT_Y          = (0.044, 0.066)   # bolt handle root, closed, above the trigger
 BOLT_KNOB_X     = (0.070, 0.102)
 
-PEEP_Z          = 0.080  # aperture centre above the bore
-PEEP_R_OUT      = 0.014
-PEEP_R_IN       = 0.006
+# The scope's axis is the ADS eye (scripts/weapon/rifle_ads.gd aim pose over scale 0.75).
+# Culled interior; every rear-facing face sits outside the vignette's clear cone from the eye.
+ADS_SCALE       = 0.75
+SCOPE_Z         = 0.083 / ADS_SCALE      # eye height above the bore, model metres
+EYE_Y           = -0.200 / ADS_SCALE     # eye, behind the origin
+CLEAR_TAN       = 0.475 * math.tan(math.radians(10.0)) * 1.06 / math.cos(math.pi / 8)
+                                         # vignette clear+soft at 20 deg fov, 8-gon vertex, margin
+OCULAR_Y        = (-0.160, -0.118)       # eyepiece: 8 cm (world) of eye relief
+OCULAR_R        = 0.022
+TUBE_Y          = (-0.100, 0.050)        # tapered tube, riding just outside the clear cone
+BELL_Y          = (0.050, 0.135)         # objective bell
+BELL_R          = 0.040
+LENS_R          = 0.034                  # objective glass inside the bell's rim
+RING_Y          = (-0.050, 0.020)        # ring centres
 
 # ---- views ------------------------------------------------------------------
 FACING_YAW = 180.0       # the muzzle points +Y: "front" looks down the barrel
@@ -205,6 +217,8 @@ IRIS        = (128, 24, 18)            # the eye's iris, tower/models/eye.glb's 
 IRIS_RIM    = (86, 14, 12)
 SCLERA      = (22, 22, 26)             # its dark ball
 PUPIL       = (8, 6, 8)
+PAL_GLASS   = [(14, 20, 30), (10, 15, 24), (18, 26, 38)]
+GLASS_GLINT = [(70, 96, 120), (44, 62, 84)]
 
 
 def _fill(c, r, box, shades):
@@ -324,6 +338,16 @@ _FONT = {                                                  # 3x5, rows top -> bo
 }
 
 
+def _paint_glass(c, r, rect):
+    """Coated lens glass: blue-black with a couple of cold glints."""
+    c.clip = rect
+    x0, y0, x1, y1 = rect
+    _fill(c, r, rect, PAL_GLASS)
+    c.hline(x0 + 4, y1 - 3, 6, GLASS_GLINT[0])
+    c.hline(x0 + 5, y1 - 4, 3, GLASS_GLINT[1])
+    c.put(x1 - 6, y0 + 3, GLASS_GLINT[1])
+
+
 def _glyphs(c, text, x, y_top, scale, rgb):
     for ch in text:
         rows = _FONT[ch]
@@ -362,6 +386,7 @@ def build_texture():
     _paint_blued(c, r, MARKS_BOX, marks=True)
     _paint_eye(c, r, EYE_RECT)
     _paint_plate(c, r, PLATE_RECT)
+    _paint_glass(c, r, GLASS_RECT)
 
     img = bpy.data.images.new(TEX_ALBEDO, TEX_SIZE, TEX_SIZE, alpha=False)
     img.colorspace_settings.name = "sRGB"
@@ -373,6 +398,7 @@ def build_texture():
 def warden_material(name, albedo):
     mat = bpy.data.materials.new(name)
     mat.use_nodes = True
+    mat.use_backface_culling = True        # the scope's open interior must cull from the ADS eye
     nt = mat.node_tree
     bsdf = nt.nodes.get("Principled BSDF")
     node = nt.nodes.new("ShaderNodeTexImage")
@@ -432,23 +458,27 @@ def taper(name, y0, y1, r0, r1, sides=8, cz=0.0):
     return _reg(mdl.mesh(name, verts, faces))
 
 
-def washer(name, y0, y1, r_out, r_in, cz, sides=8):
-    """A flat ring standing across the bore line, with a real hole: the peep."""
+def lathe(name, profile, cz, sides=8, cap=False):
+    """An OPEN n-gon shell along +Y through (y, r) profile points; cap closes the last ring facing +Y."""
     verts = []
-    for y in (y0, y1):
-        for rad in (r_out, r_in):
-            for i in range(sides):
-                t = 2.0 * math.pi * i / sides
-                verts.append((rad * math.sin(t), y, cz + rad * math.cos(t)))
-    o0, i0, o1, i1 = 0, sides, 2 * sides, 3 * sides
+    for y, rad in profile:
+        for i in range(sides):
+            t = 2.0 * math.pi * i / sides
+            verts.append((rad * math.sin(t), y, cz + rad * math.cos(t)))
     faces = []
-    for i in range(sides):
-        j = (i + 1) % sides
-        faces.append((o0 + i, o0 + j, o1 + j, o1 + i))          # outer wall
-        faces.append((i1 + i, i1 + j, i0 + j, i0 + i))          # bore wall, facing in
-        faces.append((o1 + i, o1 + j, i1 + j, i1 + i))          # front
-        faces.append((o0 + j, o0 + i, i0 + i, i0 + j))          # back
-    return _reg(mdl.mesh(name, verts, faces))
+    for k in range(len(profile) - 1):
+        a, b = k * sides, (k + 1) * sides
+        faces += [(a + i, a + (i + 1) % sides, b + (i + 1) % sides, b + i) for i in range(sides)]
+    if cap:
+        faces.append(tuple(range((len(profile) - 1) * sides, len(profile) * sides)))
+    ob = _reg(mdl.mesh(name, verts, faces))
+    ob["open"] = True
+    return ob
+
+
+def _tube_r(y):
+    """Scope tube radius at y: just outside the eye's clear cone."""
+    return CLEAR_TAN * (y - EYE_Y) + 0.0008
 
 
 def guard_u(name, half_w, outline):
@@ -530,13 +560,25 @@ def _geometry():
 
     # ---- barrel, front sight ----------------------------------------------------
     taper("barrel", RECEIVER_Y1, MUZZLE_Y, BARREL_R0, BARREL_R1, sides=BARREL_SIDES)
-    prism("sight_base", 1.070, 1.110, (-0.008, 0.008, 0.006, 0.020))
-    prism("sight_blade", 1.085, 1.095, (-0.003, 0.003, 0.012, 0.038))
 
-    # ---- peep sight: brass post and ring on the tang ---------------------------
-    zone(ZONE_BRASS)
-    prism("peep_post", -0.006, 0.010, (-0.005, 0.005, 0.020, PEEP_Z - PEEP_R_OUT + 0.004))
-    washer("peep_ring", -0.004, 0.008, PEEP_R_OUT, PEEP_R_IN, PEEP_Z)
+    # ---- scope: base, two rings, tapered tube, turrets, objective bell --------
+    zs, hole = SCOPE_Z, CLEAR_TAN * (OCULAR_Y[0] - EYE_Y)
+    prism("scope_base", -0.068, 0.040, (-0.012, 0.012, 0.016, 0.030))
+    lathe("scope_body", [(OCULAR_Y[0], 0.017), (OCULAR_Y[0], OCULAR_R), (OCULAR_Y[1], OCULAR_R),
+                         (TUBE_Y[0], _tube_r(TUBE_Y[0])), (TUBE_Y[1], _tube_r(TUBE_Y[1])),
+                         (BELL_Y[0], BELL_R), (BELL_Y[1], BELL_R), (BELL_Y[1], LENS_R)], zs)
+    for k, ry in enumerate(RING_Y):
+        rt = _tube_r(ry + 0.007)
+        lathe("scope_ring%d" % k, [(ry - 0.007, _tube_r(ry - 0.007)), (ry - 0.007, rt + 0.0035),
+                                   (ry + 0.007, rt + 0.0035)], zs)
+        prism("ring_post%d" % k, ry - 0.006, ry + 0.006, (-0.009, 0.009, 0.028, zs - rt + 0.002))
+    t0, t1, tr = -0.024, -0.006, _tube_r(-0.024) - 0.0015   # turrets sit ON the tube, out of the cone
+    frustum("turret_top", [(-0.004, t0, zs + tr), (0.004, t0, zs + tr), (0.004, t1, zs + tr), (-0.004, t1, zs + tr)],
+            [(-0.009, t0, zs + tr + 0.016), (0.009, t0, zs + tr + 0.016), (0.009, t1, zs + tr + 0.016), (-0.009, t1, zs + tr + 0.016)])
+    frustum("turret_side", [(tr, t0, zs - 0.004), (tr, t0, zs + 0.004), (tr, t1, zs + 0.004), (tr, t1, zs - 0.004)],
+            [(tr + 0.016, t0, zs - 0.009), (tr + 0.016, t0, zs + 0.009), (tr + 0.016, t1, zs + 0.009), (tr + 0.016, t1, zs - 0.009)])
+    lathe("ocular_glass", [(OCULAR_Y[0], hole), (OCULAR_Y[0], 0.017)], zs)["fit"] = GLASS_RECT
+    lathe("objective_glass", [(BELL_Y[1], LENS_R)], zs, cap=True)["fit"] = GLASS_RECT
 
     # ---- stock: wrist, comb, butt -- one piece of walnut ----------------------
     zone(ZONE_WORN)
@@ -573,6 +615,16 @@ def _geometry():
     prism("floorplate", 0.135, 0.265, (-0.020, 0.020, -0.060, -0.050))
 
 
+def _outward(ob):
+    """Closed solids get outward normals so back-face culling never eats one."""
+    import bmesh
+    bm = bmesh.new()
+    bm.from_mesh(ob.data)
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    bm.to_mesh(ob.data)
+    bm.free()
+
+
 def build():
     _OBJECTS.clear()
     _geometry()
@@ -581,6 +633,8 @@ def build():
     mdl.save_texture(albedo)
 
     for i, ob in enumerate(_OBJECTS):
+        if not ob.get("open"):
+            _outward(ob)
         unwrap(ob, seed=i)
 
     ob = mdl.join(_OBJECTS, OBJECT_NAME)
