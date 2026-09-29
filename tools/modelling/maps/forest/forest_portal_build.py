@@ -18,8 +18,8 @@ not move.
     clear hole .... |x| <= 1.30 from the ground to z 2.8, nothing solid in it:
                     portal.glb's collider hole, to the centimetre
 
-One mesh (the forest atlas, its "earth" quarter repainted as the swirl), one
-surface, one UV set, flat shaded. ForestPortalCollision rides as a `-colonly`
+One mesh, two surfaces: the forest atlas, and the disc ("earth" zone) on the
+swirl's own file, its albedo and its glow. One UV set, flat shaded. ForestPortalCollision rides as a `-colonly`
 node: the same two jambs and the same arched head, coarsened -- not a box.
 
 The disc does NOT float: the frame's inner face carries a vertex row at y = 0
@@ -145,8 +145,10 @@ COL_JAMB_N = 3          # collider stations up each straight jamb
 SEED = 5140973
 
 # =============================================================================
-# TEXTURE -- the forest atlas with portal_build.py's swirl painted over "earth"
+# TEXTURE -- portal_build.py's swirl, its own file; the frame wears the forest atlas
 # =============================================================================
+
+SWIRL_STEM = "forest_portal_swirl_albedo"   # albedo and glow are the same pixels
 
 SWIRL_ARMS  = 3
 SWIRL_TURNS = 2.6       # how many times an arm wraps from the rim to the core
@@ -179,17 +181,25 @@ def _paint_swirl(c, r, box):
             c.put(x, y, col, col)
 
 
-def build_atlas():
-    """The forest atlas, with the sun swirl replacing the earth zone.
-
-    Returns (albedo_image, emissive_image).
-    """
-    c = ft._Canvas(ft.TEX_SIZE)
+def build_swirl():
+    """The swirl as one image: the file when present, else painted over the atlas's
+    earth zone with the atlas's own draws (the pixels it always had) and cut out."""
+    img = ft.image_file(SWIRL_STEM + ".png") if ft.USE_TEXTURE_FILES else None
+    if img is not None:
+        return img
+    big = ft._Canvas(ft.TEX_SIZE)
     r = ft._Rng(ft.TEX_SEED)
     for zone, fn in sorted(ft.PAINTERS.items()):
-        fn(c, r, ft._rect_of(ft.ZONES[zone], ft.TEX_SIZE))
-    _paint_swirl(c, r, ft._rect_of(ft.ZONES["earth"], ft.TEX_SIZE))
-    return ft._images(c, ft.TEX_SIZE, ("forest_portal_albedo", "forest_portal_emissive"))
+        fn(big, r, ft._rect_of(ft.ZONES[zone], ft.TEX_SIZE))
+    x0, y0, x1, y1 = ft._rect_of(ft.ZONES["earth"], ft.TEX_SIZE)
+    _paint_swirl(big, r, (x0, y0, x1, y1))
+    n = x1 - x0
+    c = ft._Canvas(n)
+    for y in range(n):
+        for x in range(n):
+            d, o = (y * n + x) * 4, ((y0 + y) * ft.TEX_SIZE + x0 + x) * 4
+            c.alb[d:d + 4] = big.alb[o:o + 4]
+    return ft._images(c, n, (SWIRL_STEM, SWIRL_STEM + "_unused"))[0]
 
 
 # =============================================================================
@@ -634,15 +644,23 @@ def _in_scene_render(spec, objects):
 def build():
     m = build_geometry()
     c = build_collider()
-    albedo, emissive = build_atlas()
-    mdl.save_texture(albedo)
-    mdl.save_texture(emissive)
+    albedo, emissive = ft.sheet("forest_atlas", ft.paint_atlas)   # the frame: the forest's own atlas
+    swirl = build_swirl()
     ob = m.object(OBJECT_NAME)
     unwrap(ob, m.zones, count=len(m.faces) - m.back_fill,      # the seed the exporter-dropped back fill left
            planar={"earth": (0, 2, -IN_HALF_W, 0.0, IN_HALF_W, APEX_Z)})
     # cull=False, as portal.glb's HellRock; the disc is a closed lens now, both faces kept.
     mdl.finish(ob, ft.atlas_material("ForestPortalAtlas", albedo, emissive, cull=False),
                strip_uvs=False)
+    ob.data.materials.append(ft.atlas_material("ForestPortalSwirl", swirl, swirl, cull=False))
+    u0, v0, u1, v1 = ft.ZONES["earth"]
+    uvl = ob.data.uv_layers["UVMap"]
+    for pi, poly in enumerate(ob.data.polygons):      # the disc: the earth zone's UVs -> the swirl file's 0..1
+        if m.zones[pi] == "earth":
+            poly.material_index = 1
+            for li in poly.loop_indices:
+                u, v = uvl.data[li].uv
+                uvl.data[li].uv = ((u - u0) / (u1 - u0), (v - v0) / (v1 - v0))
     coll = c.object(COLLIDER_NAME)     # Godot: StaticBody3D + ConcavePolygonShape3D
     coll.hide_render = True
     size = [max(v[k] for v in m.verts) - min(v[k] for v in m.verts) for k in range(3)]

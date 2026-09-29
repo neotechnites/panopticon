@@ -1,6 +1,6 @@
 {
   "canvas": [
-    4028,
+    3631,
     530
   ],
   "textures": [
@@ -27,7 +27,7 @@
       ]
     },
     {
-      "file": "forest_cell_albedo.png",
+      "file": "forest_dark_albedo.png",
       "kind": "albedo",
       "mode": "RGB",
       "rect": [
@@ -82,7 +82,7 @@
       ]
     },
     {
-      "file": "forest_lamp_albedo.png",
+      "file": "forest_leaf_albedo.png",
       "kind": "albedo",
       "mode": "RGB",
       "rect": [
@@ -93,7 +93,7 @@
       ]
     },
     {
-      "file": "forest_leaf_albedo.png",
+      "file": "forest_path_albedo.png",
       "kind": "albedo",
       "mode": "RGB",
       "rect": [
@@ -104,25 +104,14 @@
       ]
     },
     {
-      "file": "forest_path_albedo.png",
+      "file": "forest_portal_swirl_albedo.png",
       "kind": "albedo",
       "mode": "RGB",
       "rect": [
         2340,
         7,
-        256,
-        256
-      ]
-    },
-    {
-      "file": "forest_portal_albedo.png",
-      "kind": "albedo",
-      "mode": "RGB",
-      "rect": [
-        2600,
-        7,
-        256,
-        256
+        64,
+        64
       ]
     },
     {
@@ -130,7 +119,7 @@
       "kind": "albedo",
       "mode": "RGB",
       "rect": [
-        2860,
+        2463,
         7,
         128,
         128
@@ -141,7 +130,7 @@
       "kind": "albedo",
       "mode": "RGB",
       "rect": [
-        2992,
+        2595,
         7,
         256,
         256
@@ -152,7 +141,7 @@
       "kind": "albedo",
       "mode": "RGB",
       "rect": [
-        3252,
+        2855,
         7,
         256,
         256
@@ -163,7 +152,7 @@
       "kind": "albedo",
       "mode": "RGB",
       "rect": [
-        3512,
+        3115,
         7,
         256,
         256
@@ -174,7 +163,7 @@
       "kind": "albedo",
       "mode": "RGB",
       "rect": [
-        3772,
+        3375,
         7,
         256,
         256
@@ -186,17 +175,6 @@
       "mode": "RGB",
       "rect": [
         0,
-        274,
-        256,
-        256
-      ]
-    },
-    {
-      "file": "forest_portal_emissive.png",
-      "kind": "emissive",
-      "mode": "RGB",
-      "rect": [
-        260,
         274,
         256,
         256

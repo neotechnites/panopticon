@@ -326,13 +326,15 @@ class Sheet(object):
     emissive   force an emissive image even if the painter drew none
     stem       image stem when the class wears another model's texture (default <map>_<name>)
     mpt_u      metres per texel across, when one drawing spans another model's repeat
+    glow_stem  emissive image stem when the albedo file is shared and only this class glows
     """
 
     def __init__(self, name, paint=None, mpt=MPT, size=TILE, ref_r=None, phase=(0.0, 0.0),
                  mode="cyl", roughness=ROUGHNESS, metallic=METALLIC, cull=True, seed=0,
-                 emissive=False, width=None, stem=None, mpt_u=None):
+                 emissive=False, width=None, stem=None, mpt_u=None, glow_stem=None):
         self.name = name
         self.stem = stem
+        self.glow_stem = glow_stem
         self.paint = paint
         self.mpt = mpt
         self.mpt_u = mpt_u or mpt
@@ -578,16 +580,17 @@ def images(prefix, sheet, use_files=False, tex_dir=None):
     """(albedo, emissive-or-None) for a Sheet: the files when opted in and
     present (<prefix>_<name>_albedo.png), else painted."""
     stem = sheet.stem or "%s_%s" % (prefix, sheet.name)
+    glow = sheet.glow_stem or stem
     if use_files and tex_dir:
         alb = _image_file(os.path.join(tex_dir, stem + "_albedo.png"))
         if alb is not None:
-            return alb, _image_file(os.path.join(tex_dir, stem + "_emissive.png"))
+            return alb, _image_file(os.path.join(tex_dir, glow + "_emissive.png"))
     c = Canvas(sheet.width, sheet.size)
     r = Rng(0x7E11 + sheet.seed)
     if sheet.paint is not None:
         sheet.paint(c, r, sheet)
     alb = _image(stem + "_albedo", c.w, c.h, c.alb)
-    emi = _image(stem + "_emissive", c.w, c.h, c.emi) if (c.glows or sheet.emissive) else None
+    emi = _image(glow + "_emissive", c.w, c.h, c.emi) if (c.glows or sheet.emissive) else None
     return alb, emi
 
 

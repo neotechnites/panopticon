@@ -285,13 +285,13 @@ def unwrap(ob, zones):
 
 def build():
     shell = _build_shell()
-    albedo, emissive = build_texture()
+    albedo, _emissive = build_texture()
     mdl.save_texture(albedo)
-    mdl.save_texture(emissive)
 
     ob = shell.object(OBJECT_NAME)
     unwrap(ob, shell.zones)
-    mdl.finish(ob, ember_material("SpeedOrb", albedo, emissive), strip_uvs=False)
+    # one file: the ember glows its own albedo (the soot differs by <= 4/255)
+    mdl.finish(ob, ember_material("SpeedOrb", albedo, albedo), strip_uvs=False)
 
     print("MDL STATS visual_tris=%d" % len(ob.data.polygons))
     print("MDL STATS diameter=%.3f" % (2.0 * RADIUS))
