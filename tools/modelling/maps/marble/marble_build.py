@@ -55,13 +55,10 @@ floor, the slab (top, inner face, underside), the plain wall face, the dome.
 The spikes and bars are NOT colliders: a body that leaves the walkway is dead
 by the kill cylinder before it lands.
 
-Texture: one tiling sheet per class (lib/texel.py, SHEETS below), the same
-Temple of Time palette (docs/maps/marble.md). The wall sheets are one bay
-wide (128 px = 5.89 m) and twelve 1 m courses tall, phased to the floor, so
-every course line lands on a tier base or a sill and every vertical joint on
-a pier edge; the floor keeps its 3 x 3 slabs per facet. USE_TEXTURE_FILES:
-drop textures/marble_<class>_albedo.png beside the script and that class's
-painted sheet is replaced. The props keep the 256 px atlas.
+Texture: four images, one per material (lib/texel.py, SHEETS below), the
+Temple of Time palette (docs/maps/marble.md): marble_stone the one brick
+drawing (one bay by twelve 1 m courses, every model scaling and tinting it),
+marble the ornament atlas, marble_dark the cells and the iron, marble_field.
 
     python3 tools/modelling/maps/marble/marble_build.py --check     # geometry + contiguity, no Blender
     tools/modelling/model build marble                  # the pipeline
@@ -161,6 +158,7 @@ BARS_B = 353.0
 USE_TEXTURE_FILES = True
 TEX_DIR = "textures"
 TEX_SIZE = 256
+TEX_W = 320                 # the atlas: 256 square of cells, then the column strip
 TEX_ALBEDO = "marble_albedo"
 TEX_SEED = 9021131
 ROUGHNESS = 0.55
@@ -177,7 +175,8 @@ def _cell(i, j):
     return (i * CELL_UV, j * CELL_UV, (i + 1) * CELL_UV, (j + 1) * CELL_UV)
 
 
-ZONES = {                   # atlas column, row (row 0 is the bottom of the image)
+ZONES = {                   # the windowed zones' rects, re-pointed at ATLAS / marble_dark after it;
+                            # the bricks' windows are re-projected onto marble_stone by prop_finish
     "marble": _cell(0, 0),   # white marble
     "marble2": _cell(1, 0),  # ... a second sheet of it
     "shade": _cell(2, 0),    # grey marble: reveals, podium walls, dome cap
@@ -323,24 +322,6 @@ def _paint_marble(c, r, box, base, blotch, vein):
 # light (#9a9676 .. #9e9a7a), darker mortar joints (#5e5c44), cool grey-olive
 # in shadow (#6b6b55). Sampled 8-bit sRGB; see docs/maps/marble.md.
 
-def _paint_white(c, r, box):
-    _paint_blocks(c, r, box, [(154, 150, 118), (150, 146, 114), (158, 154, 122), (146, 142, 110)],
-                  (108, 105, 80), 16)
-    _shatter(c, r, box, [(140, 136, 108)], 4, 2, 5)
-
-
-def _paint_white2(c, r, box):
-    _paint_blocks(c, r, box, [(146, 142, 112), (142, 138, 108), (150, 146, 116), (138, 134, 104)],
-                  (102, 99, 74), 16)
-    _shatter(c, r, box, [(134, 130, 102)], 4, 2, 5)
-
-
-def _paint_shade(c, r, box):
-    _paint_blocks(c, r, box, [(107, 107, 85), (103, 103, 81), (111, 111, 89), (99, 99, 78)],
-                  (80, 80, 66), 16)
-    _shatter(c, r, box, [(94, 94, 74)], 5, 3, 7)
-
-
 def _paint_spike(c, r, box):
     _fill(c, r, box, [(168, 164, 136), (164, 160, 132), (172, 168, 140), (166, 162, 134)])
     x0, y0, x1, y1 = box
@@ -386,54 +367,6 @@ def _paint_floor(c, r, box):
             gem = (188, 174, 130) if (k, l) == (1, 1) else (125, 122, 98)
             c.rect(cx - d, cy - 1, cx + d, cy + 1, gem)
             c.rect(cx - 1, cy - d, cx + 1, cy + d, gem)
-
-
-def _paint_cell(c, r, box):
-    """The dark of a cell: near-black grey-olive, a pale slit or two in it."""
-    _fill(c, r, box, [(47, 48, 40), (43, 44, 36), (51, 52, 44), (39, 40, 33)])
-    _shatter(c, r, box, [(35, 36, 30), (56, 57, 48)], 12, 4, 10)
-    x0, y0, x1, y1 = box
-    for _ in range(4):                             # a pale slit: a figure, a cot, a window
-        x, w = r.i(x0 + 4, x1 - 6), r.i(1, 2)
-        yy, h = r.i(y0 + 6, y1 - 16), r.i(6, 14)
-        c.rect(x, yy, x + w, yy + h, (70, 71, 60))
-
-
-def _paint_frieze(c, r, box):
-    """A Greek key: two hooks across the cell, one bay per cell."""
-    _fill(c, r, box, [(154, 150, 118), (150, 146, 114), (158, 154, 122)])
-    x0, y0, x1, y1 = box
-    n = x1 - x0
-    unit = n // 2
-    key = (69, 70, 58)
-    s = max(2, n // 16)                            # stroke
-    lo, hi = y0 + n // 6, y1 - n // 6              # the band the key lives in
-    for k in range(2):
-        u = x0 + k * unit
-        c.rect(u, hi - s, u + unit, hi, key)                       # top bar
-        c.rect(u + unit - 2 * s, lo, u + unit - s, hi, key)        # right descender
-        c.rect(u + s, lo, u + unit - s, lo + s, key)               # bottom bar
-        c.rect(u + s, lo, u + 2 * s, hi - 3 * s, key)              # inner riser
-        c.rect(u + s, hi - 4 * s, u + unit - 4 * s, hi - 3 * s, key)   # inner top
-        c.rect(u + unit - 5 * s, lo + 2 * s, u + unit - 4 * s, hi - 3 * s, key)   # inner drop
-    c.rect(x0, lo - s - 1, x1, lo - s + 1, (107, 107, 85))        # rules above and below
-    c.rect(x0, hi + s - 1, x1, hi + s + 1, (107, 107, 85))
-
-
-def _paint_coffer(c, r, box):
-    """A sunk square: nested steps darkening inward, a boss at the centre."""
-    x0, y0, x1, y1 = box
-    n = x1 - x0
-    steps = [(154, 150, 118), (130, 127, 100), (108, 106, 84), (86, 85, 66), (96, 95, 76)]
-    for k, col in enumerate(steps):
-        d = (n * k) // 10
-        c.rect(x0 + d, y0 + d, x1 - d, y1 - d, col)
-    m = n // 2
-    b = max(2, n // 10)
-    c.rect(x0 + m - b, y0 + m - b, x0 + m + b, y0 + m + b, (146, 142, 112))
-    c.rect(x0 + m - b // 2, y0 + m - b // 2, x0 + m + b // 2, y0 + m + b // 2, (170, 166, 131))
-    for _ in range(40):
-        c.put(r.i(x0, x1 - 1), r.i(y0, y1 - 1), r.pick(steps[:2]))
 
 
 def _paint_dome(c, r, box):
@@ -523,36 +456,12 @@ def _paint_iron(c, r, box):
         c.put(x, yy, pr.pick([(16, 18, 23), (34, 36, 42)]) if x >= x0 + rim else (92, 98, 110))
 
 
-def _paint_blocks(c, r, box, shades, joint, course):
-    """Ashlar: courses this many pixels high, joints staggered."""
-    _fill(c, r, box, shades)
-    x0, y0, x1, y1 = box
-    n = x1 - x0
-    row = 0
-    for y in range(y0, y1, course):
-        c.rect(x0, y, x1, y + 1, joint)
-        off = (row % 2) * course                      # half-bond: each course's joints over the block below
-        for x in range(x0 + off, x1, course * 2):
-            c.rect(x, y + 1, x + 1, min(y1, y + course), joint)
-        row += 1
-    _shatter(c, r, box, [shades[0], shades[-1]], 6, 2, 4)
-
-
-def _paint_stone(c, r, box):
-    _paint_blocks(c, r, box, [(139, 129, 96), (135, 125, 92), (143, 133, 100), (137, 127, 94)],
-                  (98, 91, 68), 16)
-
-
-def _paint_plinth(c, r, box):
-    _paint_blocks(c, r, box, [(146, 142, 112), (142, 138, 108), (150, 146, 116), (144, 140, 110)],
-                  (108, 105, 80), 16)
-
-
 # ---- the sheets (lib/texel.py) --------------------------------------------
-# Wall classes: one bay across (u = i at station i), 12 courses of 1.0 m up
-# from FLOOR_Z, so joints meet the tiers (8 courses), the sills (+1) and the
-# pier edges (PILASTER_W/2 either side of a station); reveals (side faces) get
-# the courses only. The floor's 3 x 3 slabs still fit one facet each.
+# Four images. marble_stone is the ONE brick drawing: one bay across, 12
+# courses of 1.0 m up from FLOOR_Z, joints on the tiers, the sills and the
+# pier edges; every other model spans it by UV scale and tints it. marble is
+# the ornament atlas (the props' cells, the swirl, every small motif);
+# marble_dark the cell interiors and the iron; marble_field the beds.
 BAY_M = TWO_PI * WALL_R / NSIDE          # 5.89 m
 WALL_PX = 128                            # texels across a bay: 0.046 m per texel
 WALL_MPT = BAY_M / WALL_PX
@@ -570,39 +479,11 @@ def _course_rows():
     return [int(round(k * WALL_H / float(COURSES))) for k in range(COURSES)]
 
 
-def _ashlar(c, r, shades, joint, verticals=True, courses=COURSES, mouth=False):
-    """Coursed blocks on a bay-wide sheet: a joint line on every course, the
-    verticals at the pier edges (and the cell mouth's edges when ``mouth``),
-    alternate courses split once more between them."""
-    tx.fill(c, r, c.box, shades)
-    rows = [int(round(k * c.h / float(courses))) for k in range(courses)]
+def _sheet_brick(c, r, s):
+    """The brick drawing, #9a9676 blocks in #6c6950 joints."""
     pier = _px_u(PILASTER_W / 2.0)
-    edge = [_px_u(BAY_M / 2.0 - ARCH_W / 2.0), _px_u(BAY_M / 2.0 + ARCH_W / 2.0)] if mouth else [pier, c.w - pier]
-    mid = c.w // 2
-    quarter = [(edge[0] + mid) // 2, (mid + edge[1]) // 2]
-    for k, y0 in enumerate(rows):
-        y1 = rows[k + 1] if k + 1 < len(rows) else c.h
-        c.rect(0, y0, c.w, y0 + 1, joint)
-        if not verticals:
-            continue
-        xs = edge + ([mid] if k % 2 == 0 else quarter)
-        for x in xs:
-            c.rect(x, y0, x + 1, y1, joint)
-
-
-def _sheet_marble(c, r, s):
-    _ashlar(c, r, [(154, 150, 118), (150, 146, 114), (158, 154, 122), (146, 142, 110)], JOINT)
-    tx.shatter(c, r, c.box, [(140, 136, 108)], 20, 6, 14)
-
-
-def _sheet_shade(c, r, s):
-    _ashlar(c, r, [(107, 107, 85), (103, 103, 81), (111, 111, 89), (99, 99, 78)], (80, 80, 66), verticals=False)
-    tx.shatter(c, r, c.box, [(94, 94, 74)], 24, 6, 16)
-
-
-def _sheet_plinth(c, r, s):
-    _ashlar(c, r, [(146, 142, 112), (142, 138, 108), (150, 146, 116), (144, 140, 110)], JOINT,
-            courses=COURSES * 2, mouth=True)
+    tx.bricks(c, r, [(154, 150, 118), (150, 146, 114), (158, 154, 122), (146, 142, 110)], JOINT,
+              COURSES, [pier, c.w - pier], [(140, 136, 108)])
 
 
 def _sheet_cellin(c, r, s):
@@ -623,11 +504,6 @@ def _sheet_field(c, r, s):
         c.rect(0, y, c.w, y + 1, grid)
     for x in range(0, c.w, pitch):
         c.rect(x, 0, x + 1, c.h, grid)
-
-
-def _sheet_spike(c, r, s):
-    tx.fill(c, r, c.box, [(168, 164, 136), (164, 160, 132), (172, 168, 140), (166, 162, 134)])
-    tx.streaks(c, r, c.box, 66, [(140, 137, 112), (150, 147, 120)], (20, 60), (1, 3))
 
 
 def _sheet_frieze(c, r, s):
@@ -654,10 +530,6 @@ def _sheet_column(c, r, s):
     _paint_column(c, r, c.box)
 
 
-def _sheet_band(c, r, s):
-    _paint_band(c, r, c.box)
-
-
 def _sheet_iron(c, r, s):
     _paint_iron(c, r, c.box)
 
@@ -670,104 +542,284 @@ def _sheet_dome(c, r, s):
     _paint_dome(c, r, c.box)
 
 
-# ---- the facet ashlar: the tower's and the gate's stones --------------------
-# ONE drawing, one file (marble_stone); a model spans it across its own repeat
-# with mpt_u, so its joints stay where they were, and tints it to its palette.
-
-def facet_ashlar(c, r, shades, joint, verticals=True, courses=COURSES):
-    """Coursed blocks: a joint line on every course, a vertical joint on the
-    sheet's own edge every course and the courses half-bonded between, so a
-    joint runs across a face edge instead of stopping at it."""
-    tx.fill(c, r, c.box, shades)
-    rows = [int(round(k * c.h / float(courses))) for k in range(courses)]
-    for k, y0 in enumerate(rows):
-        y1 = rows[k + 1] if k + 1 < len(rows) else c.h
-        c.rect(0, y0, c.w, y0 + 1, joint)
-        if not verticals:
-            continue
-        for x in ([0, c.w // 2] if k % 2 == 0 else [0, c.w // 4, (3 * c.w) // 4]):
-            c.rect(x, y0 + 1, x + 1, y1, joint)
-    tx.shatter(c, r, c.box, [shades[0], shades[-1]], 16, 4, 9)
+def _sheet_coffer(c, r, s):
+    """One sunk coffer, a whole cell of the sheet: #9a9676 stepping down to
+    #565542 with a boss, in a grey-olive rib the next coffer shares."""
+    W, H = c.w, c.h
+    steps = [(154, 150, 118), (130, 127, 100), (108, 106, 84), (86, 85, 66), (96, 95, 76)]
+    tx.fill(c, r, c.box, [(107, 107, 85), (103, 103, 81)])
+    mx, my = max(2, W // 10), max(2, H // 10)
+    for k, col in enumerate(steps):
+        dx, dy = mx + (W // 2 - mx) * k // 6, my + (H // 2 - my) * k // 6
+        c.rect(dx, dy, W - dx, H - dy, col)
+    bw, bh = max(2, W // 14), max(2, H // 14)
+    c.rect(W // 2 - bw, H // 2 - bh, W // 2 + bw, H // 2 + bh, (146, 142, 112))
+    c.rect(W // 2 - bw // 2, H // 2 - bh // 2, W // 2 + bw // 2, H // 2 + bh // 2, (170, 166, 131))
+    tx.blades(c, r, c.box, 30, [(140, 136, 108), (96, 95, 76)])
 
 
-def _sheet_stone(c, r, s):
-    """The facet ashlar, fallback painter for marble_stone: #928e70 in #6c6950."""
-    facet_ashlar(c, r, [(146, 142, 112), (142, 138, 108), (150, 146, 116), (144, 140, 110)], JOINT)
+def _sheet_medallion(c, r, s):
+    """The tower dais' centre, drawn ONCE in a 1 m box the disc fills: a
+    rosette of sixteen spokes."""
+    W, H = c.w, c.h
+    cx, cy = W / 2.0, H / 2.0
+    pale, olive, mid, dark = (154, 150, 118), (107, 107, 85), (146, 142, 112), (86, 85, 66)
+    for y in range(H):
+        for x in range(W):
+            dx, dy = x + 0.5 - cx, y + 0.5 - cy
+            d = math.hypot(dx, dy) / (W * 0.5)
+            spoke = int((math.atan2(dy, dx) + math.pi) / (math.pi / 8)) % 2
+            if d > 0.94:
+                col = olive
+            elif d > 0.82:
+                col = pale
+            elif d > 0.30:
+                col = olive if spoke else mid
+            elif d > 0.17:
+                col = dark
+            else:
+                col = pale
+            c.put(x, y, col)
+    tx.blades(c, r, c.box, 40, [(140, 136, 108)])
 
 
-STONE_PX = 60                            # marble_stone's width: one tower facet
-# Linear multipliers over marble_stone, each the palette its class's own file had.
-TINT_PLINTH = (0.8040, 0.8179, 0.7647)
-TINT_MARBLE2 = (0.7704, 0.7814, 0.7230)
-TINT_BARS = (0.9741, 0.9929, 0.8950)
-TINT_TOWER = (0.6527, 0.5414, 0.4369)
+SWIRL_ARMS = 3              # the portal's effect surface, Map 1's numbers: three arms ...
+SWIRL_TURNS = 2.6           # ... wrapping this many times from the rim to the core ...
+SWIRL_WIDTH = 0.42          # ... and this much of each band bright
+SWIRL_CY = 1.5 / 3.15       # the centre, up the mouth: the disc's height over the apex
+
+
+def _paint_swirl(c, r, box):
+    """A spiral of pale blue-white arms on deep blue-grey, near-white core,
+    dark rim: the portal's surface, glowing its own albedo."""
+    x0, y0, x1, y1 = box
+    w, h = x1 - x0, y1 - y0
+    cx = x0 + w / 2.0
+    cy = y0 + h * SWIRL_CY
+    for y in range(y0, y1):
+        for x in range(x0, x1):
+            dx, dy = (x + 0.5 - cx) / (w / 2.0), (y + 0.5 - cy) / (h / 2.0)
+            rad = math.hypot(dx, dy)
+            ang = math.atan2(dy, dx)
+            band = (ang * SWIRL_ARMS / (2.0 * math.pi) + rad * SWIRL_TURNS) % 1.0
+            band = min(band, 1.0 - band) * 2.0            # 0 on the arm, 1 between
+            if rad < 0.14:
+                col = r.pick([(236, 242, 252), (214, 226, 244)])
+            elif band < SWIRL_WIDTH * (1.0 - 0.5 * rad):
+                col = r.pick([(152, 164, 186), (136, 150, 176), (170, 182, 202)])
+            elif band < SWIRL_WIDTH * (1.0 - 0.5 * rad) + 0.22:
+                col = r.pick([(104, 110, 122), (92, 100, 114)])
+            else:
+                col = r.pick([(54, 58, 70), (46, 50, 60), (60, 64, 76)])
+            if rad > 0.9:
+                col = tuple(int(v * 0.45) for v in col)
+            c.put(x, y, col)
+
+
+# ---- the ornament atlas: ATLAS[name] = (x, y, w, h) texels, row 0 the bottom --
+COFFER_W, COFFER_H = 60, 34              # the tower's coffer: one facet by one ring band
+ATLAS = {
+    "frieze": (0, 0, 256, 64),
+    "dome": (0, 64, 128, 64),
+    "coffer": (128, 64, COFFER_W, COFFER_H),
+    "spike": (192, 64, 64, 64),
+    "column": (256, 0, 64, 256),      # the full height: its v repeats as its own file did
+    "band": (64, 128, 64, 64),
+    "floor": (128, 128, 64, 64),
+    "medallion": (192, 128, 64, 64),
+    "field": (64, 192, 64, 64),
+    "portal": (128, 192, 64, 64),
+}
+# drawn by a lib/texel painter at its own seed (the drawing its old file had) ...
+_ATLAS_SHEETS = {"frieze": (_sheet_frieze, 8), "dome": (_sheet_dome, 12), "coffer": (_sheet_coffer, 10),
+                 "floor": (_sheet_floor, 7), "medallion": (_sheet_medallion, 9),
+                 "column": (_sheet_column, 9)}
+# ... or by a props painter into its box
+_ATLAS_CELLS = {"spike": _paint_spike, "band": _paint_band, "field": _paint_field,
+                "portal": _paint_swirl}
+_PLAIN = [(150, 146, 114), (146, 142, 110), (154, 150, 118)]   # the spare texels: plain stone
+
+
+def paint_atlas(c=None):
+    """The ornament atlas, whole, into a tx.Canvas (TEX_W x TEX_SIZE)."""
+    c = c or tx.Canvas(TEX_W, TEX_SIZE)
+    r = _Rng(TEX_SEED)
+    tx.fill(c, r, c.box, _PLAIN)
+    for name in sorted(ATLAS):
+        x, y, w, h = ATLAS[name]
+        if name in _ATLAS_SHEETS:
+            paint, seed = _ATLAS_SHEETS[name]
+            sub = tx.Canvas(w, h)
+            paint(sub, tx.Rng(0x7E11 + seed), None)
+            tx.paste(c, sub, x, y)
+        else:
+            _ATLAS_CELLS[name](c, _Rng(TEX_SEED if name == "portal" else TEX_SEED + 1 + sorted(ATLAS).index(name)),
+                               (x, y, x + w, y + h))
+    return c
+
+
+def _atlas_sheet(c, r, s):
+    paint_atlas(c)
+
+
+def _dark_sheet(c, r, s):
+    """marble_dark: the cells' dark (seed 4) beside the iron (seed 11)."""
+    for name, paint, seed in (("cellin", _sheet_cellin, 4), ("iron", _sheet_iron, 11)):
+        x, w = DARK[name]
+        sub = tx.Canvas(w, c.h)
+        paint(sub, tx.Rng(0x7E11 + seed), None)
+        tx.paste(c, sub, x, 0)
+
+
+DARK = {"cellin": (0, WALL_PX), "iron": (WALL_PX, 64)}     # (x, width): both the full height
+DARK_W = WALL_PX + 64
+
+
+def region(name):
+    """(u0, v0, u1, v1) of an ATLAS entry."""
+    x, y, w, h = ATLAS[name]
+    return (x / float(TEX_W), y / float(TEX_SIZE), (x + w) / float(TEX_W), (y + h) / float(TEX_SIZE))
+
+
+def ornament(name, mode, w, h, mpt=tx.MPT, **kw):
+    """Class `name` wearing its ATLAS region of the marble atlas."""
+    return tx.Sheet(name, _atlas_sheet, mode=mode, width=w, size=h, mpt=mpt, roughness=ROUGHNESS,
+                    stem="marble", region=region(kw.pop("cell", name)), canvas=(TEX_W, TEX_SIZE), **kw)
+
+
+def dark(name, **kw):
+    """Class `name` wearing its column of marble_dark."""
+    x, w = DARK[name]
+    return tx.Sheet(name, _dark_sheet, size=WALL_H, width=w, roughness=ROUGHNESS, stem="marble_dark",
+                    region=(x / float(DARK_W), 0.0, (x + w) / float(DARK_W), 1.0), canvas=(DARK_W, WALL_H), **kw)
+
+
+def band_sheet():
+    return ornament("band", "fit_v", 64, 64, mpt=12.8 / 64.0)            # u: 12.8 m a repeat, as it was
+
+
+def column_sheet():
+    return ornament("column", "fit_u", 64, 256)                          # v: 12.8 m a repeat, as it was
+
+
+def iron_sheet():
+    return dark("iron", mode="fit_u", mpt=12.8 / WALL_H)
+
+
+# Linear multipliers over marble_stone: each class's old mean colour.
+TINT_SHADE = (0.2265, 0.2547, 0.3146)
+TINT_PLINTH_WALL = (0.8106, 0.8086, 0.8369)
+TINT_PLINTH = (0.8285, 0.8293, 0.8617)
+TINT_MARBLE2 = (0.7939, 0.7923, 0.8147)
+TINT_TOWER = (0.6726, 0.5490, 0.4923)
+TINT_BARS = None
+
+
+def brick(name, mpt_u=WALL_MPT, mpt_v=WALL_MPT, tint=None, **kw):
+    """Class `name` wearing marble_stone at mpt_u across and mpt_v up."""
+    return tx.Sheet(name, _sheet_brick, mpt=mpt_v, mpt_u=mpt_u, size=WALL_H, width=WALL_PX,
+                    roughness=ROUGHNESS, seed=1, stem="marble_stone", tint=tint, **kw)
 
 
 def ashlar_sheet(name, across, tint=None, **kw):
-    """Class `name` wearing marble_stone, its width spanning `across` metres."""
-    return tx.Sheet(name, _sheet_stone, mpt=WALL_MPT, mpt_u=across / STONE_PX, size=WALL_H,
-                    width=STONE_PX, roughness=ROUGHNESS, seed=2, stem="marble_stone", tint=tint, **kw)
+    """Class `name` wearing marble_stone, one repeat spanning `across` metres."""
+    return brick(name, across / WALL_PX, WALL_MPT, tint, **kw)
 
 
 def shade_sheet(name, **kw):
-    """Class `name` wearing marble_shade at the wall's own density."""
-    return tx.Sheet(name, _sheet_shade, mpt=WALL_MPT, size=WALL_H, width=WALL_PX,
-                    roughness=ROUGHNESS, seed=2, stem="marble_shade", **kw)
+    """Class `name` wearing marble_stone in the shade's palette."""
+    return brick(name, tint=TINT_SHADE, **kw)
 
 
-def _wall(name, paint, **kw):
-    return tx.Sheet(name, paint, mpt=WALL_MPT, size=WALL_H, width=WALL_PX, ref_r=WALL_R,
-                    phase=(0.0, FLOOR_Z), roughness=ROUGHNESS, **kw)
-
-
+_WALL = dict(ref_r=WALL_R, phase=(0.0, FLOOR_Z))
 SHEETS = {
-    "marble": _wall("marble", _sheet_marble, seed=1),
-    "shade": _wall("shade", _sheet_shade, seed=2),
-    "plinth": _wall("plinth", _sheet_plinth, seed=3),
-    "cellin": _wall("cellin", _sheet_cellin, seed=4),
+    "marble": brick("marble", **_WALL),
+    "shade": brick("shade", tint=TINT_SHADE, **_WALL),
+    "plinth": brick("plinth", mpt_v=WALL_MPT / 2.0, tint=TINT_PLINTH_WALL, **_WALL),   # 0.5 m courses
+    "cellin": dark("cellin", mpt=WALL_MPT, seed=4, **_WALL),
     "field": tx.Sheet("field", _sheet_field, mode="box", roughness=ROUGHNESS, seed=5),
-    "spike": tx.Sheet("spike", _sheet_spike, mode="box", roughness=ROUGHNESS, seed=6),
-    "floor": tx.Sheet("floor", _sheet_floor, mode="fit", size=64, mpt=2.7 / 64.0, roughness=ROUGHNESS, seed=7),
-    "frieze": tx.Sheet("frieze", _sheet_frieze, mode="fit", width=256, size=64, mpt=BAY_M / 256.0, roughness=ROUGHNESS, seed=8),
-    "column": tx.Sheet("column", _sheet_column, mode="fit_u", width=64, size=256, roughness=ROUGHNESS, seed=9),
-    "band": tx.Sheet("band", _sheet_band, mode="fit_v", width=256, size=64, roughness=ROUGHNESS, seed=10),
-    "iron": tx.Sheet("iron", _sheet_iron, mode="fit_u", width=64, size=256, roughness=ROUGHNESS, seed=11),
-    "dome": tx.Sheet("dome", _sheet_dome, mode="custom", width=128, size=64, roughness=ROUGHNESS, seed=12),
+    "spike": ornament("spike", "box", 64, 64, local=True),
+    "floor": ornament("floor", "fit", 64, 64, mpt=2.7 / 64.0),
+    "frieze": ornament("frieze", "fit", 256, 64, mpt=BAY_M / 256.0),
+    "column": column_sheet(),
+    "band": band_sheet(),
+    "iron": iron_sheet(),
+    "dome": ornament("dome", "custom", 128, 64),
 }
 _CLASS = {"marble2": "marble", "collar": "band"}
 
 
-PAINTERS = {
-    "marble": _paint_white, "marble2": _paint_white2, "shade": _paint_shade, "floor": _paint_floor,
-    "cellin": _paint_cell, "frieze": _paint_frieze, "coffer": _paint_coffer, "spike": _paint_spike,
-    "dome": _paint_dome,
-    "column": _paint_column, "band": _paint_band, "iron": _paint_iron, "stone": _paint_stone,
-    "plinth": _paint_plinth, "field": _paint_field,
-}
-
-
-def paint_atlas():
-    """The painted atlas as (albedo, emissive) pixel buffers: a _Canvas."""
-    c = _Canvas(TEX_SIZE)
-    r = _Rng(TEX_SEED)
-    done = set()
-    for name in sorted(ZONES):
-        if name not in PAINTERS or ZONES[name] in done:      # "collar" wears "band"'s cell: painted once
-            continue
-        done.add(ZONES[name])
-        PAINTERS[name](c, r, _rect_of(ZONES[name], TEX_SIZE))
-    return c
+# ---- the props: the atlas for ornament, marble_stone for their bricks -------
+# A prop's cell drew 16 px courses at UV_SCALE: 3.97 m. Its bricks keep that.
+PROP_COURSE_M = 16.0 / (UV_SCALE * (CELL_UV - 2.0 * UV_PAD) * TEX_SIZE)
+PROP_MPT = PROP_COURSE_M / (WALL_H / float(COURSES))
+PROP_BRICKS = {"marble": None, "marble2": TINT_MARBLE2, "shade": TINT_SHADE, "plinth": TINT_PLINTH}
+GLOW_ZONES = ("portal",)
+DARK_ZONES = ("cellin", "iron")          # windowed in marble_dark as the 64 px cells they were
+for _z in ("floor", "frieze", "coffer", "dome", "spike", "band", "field"):
+    ZONES[_z] = region(_z)               # the windowed zones now: the atlas' own regions ...
+ZONES["collar"] = ZONES["band"]
+ZONES["column"] = region("column")[:3] + (64.0 / TEX_SIZE,)                    # a 64 px window of the strip
+ZONES["cellin"] = (0.0, 0.0, 64.0 / DARK_W, 64.0 / WALL_H)                     # ... marble_dark's
+ZONES["iron"] = (DARK["iron"][0] / float(DARK_W), 0.0, 1.0, 64.0 / WALL_H)
 
 
 def build_texture():
-    """(albedo, None): the props glow nothing. The file carries marble_portal's
-    swirl in cell (2, 3), so regenerate marble_albedo from that build."""
+    """(albedo, None): the atlas painted, when its file is not there."""
     c = paint_atlas()
-    img = bpy.data.images.new(TEX_ALBEDO, TEX_SIZE, TEX_SIZE, alpha=False)
+    img = bpy.data.images.new(TEX_ALBEDO, TEX_W, TEX_SIZE, alpha=False)
     img.colorspace_settings.name = "sRGB"
     img.pixels.foreach_set(c.alb)
     img.update()
     return img, None
+
+
+def prop_finish(ob, zones, name, atlas_index=None):
+    """An atlas-windowed model's materials, after unwrap(): brick zones re-projected onto
+    marble_stone (world box, PROP_MPT, tinted), dark zones on marble_dark, glow zones on an
+    emissive twin of the atlas, the rest on the atlas. zones[pi] None leaves that face
+    alone; atlas_index reuses an atlas slot the model already has (the hub)."""
+    me = ob.data
+    uvl = me.uv_layers["UVMap"]
+    sheets = {z: brick(z, PROP_MPT, PROP_MPT, t, mode="box") for z, t in PROP_BRICKS.items()}
+    faces = {}
+    for pi, poly in enumerate(me.polygons):
+        z = zones[pi]
+        if z is None:
+            continue
+        cls = z if z in sheets else ("~dark" if z in DARK_ZONES else ("~glow" if z in GLOW_ZONES else ""))
+        if z in sheets:
+            loops = list(poly.loop_indices)
+            cos = [tuple(me.vertices[me.loops[li].vertex_index].co) for li in loops]
+            for li, uv in zip(loops, tx.box_uv(cos, tuple(poly.normal), sheets[z])):
+                uvl.data[li].uv = uv
+        faces.setdefault(cls, []).append(pi)
+    tex_dir = os.path.join(HERE, TEX_DIR)
+    albedo = _sheet("marble", build_texture)[0]
+    if atlas_index is None:
+        me.materials.clear()
+    for cls in sorted(faces):
+        if cls == "" and atlas_index is not None:
+            idx = atlas_index
+        else:
+            if cls == "":
+                mat = stone_material(name, albedo, None)
+            elif cls == "~glow":
+                mat = stone_material(name + "Glow", albedo, albedo)
+            elif cls == "~dark":
+                dark_img = tx.images("marble", SHEETS["cellin"], USE_TEXTURE_FILES, tex_dir)[0]
+                mat = stone_material(name + "Dark", dark_img, None)
+            else:
+                alb = tx.images("marble", sheets[cls], USE_TEXTURE_FILES, tex_dir)[0]
+                mat = tx.material("%s_%s" % (name, cls), alb, None, ROUGHNESS, METALLIC, False, sheets[cls].tint)
+                mat.diffuse_color = (0.78, 0.76, 0.72, 1.0)
+            idx = len(me.materials)
+            me.materials.append(mat)
+        for pi in faces[cls]:
+            me.polygons[pi].material_index = idx
+    if atlas_index is None:
+        me.shade_flat()
+    return sorted(faces)
 
 
 def _image_file(name):

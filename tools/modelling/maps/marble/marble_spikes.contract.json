@@ -5,7 +5,7 @@
     "MarbleSpikesCollision",
     "MarbleSpikesCollision/CollisionShape3D"
   ],
-  "surfaces": 1,
+  "surfaces": 3,
   "max_tris": 120,
   "height": 2.22
 }

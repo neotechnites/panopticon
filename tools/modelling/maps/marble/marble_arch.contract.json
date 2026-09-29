@@ -5,6 +5,6 @@
     "MarbleArchCollision",
     "MarbleArchCollision/CollisionShape3D"
   ],
-  "surfaces": 1,
+  "surfaces": 5,
   "max_tris": 800
 }

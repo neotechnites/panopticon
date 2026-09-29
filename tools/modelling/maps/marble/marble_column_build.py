@@ -319,12 +319,9 @@ def build(variant):
     coll = _collider(variant)
     a = _prove(m, coll, variant)
 
-    albedo, emissive = mb._sheet("marble", mb.build_texture)
-    mdl.save_texture(albedo)
-    mdl.save_texture(emissive)
     ob = m.object(cfg["object"])
     unwrap(ob, m.zones, m.groups)
-    mdl.finish(ob, mb.stone_material("Marble", albedo, emissive), strip_uvs=False)
+    mb.prop_finish(ob, m.zones, "Marble")
     coll_ob = coll.object(cfg["collider"])
     coll_ob.hide_render = True
 
