@@ -72,6 +72,7 @@ for _root in (os.path.dirname(_HOME), os.path.dirname(os.path.dirname(_HOME))): 
         break
 
 import mdl  # noqa: E402
+import texel as tx  # noqa: E402
 
 # Same rig override as tower_build.py: the model hangs 36 m below its origin,
 # so mdl's ground plane would sit under the lowangle camera and the frame
@@ -897,14 +898,11 @@ def _drop_faces(ob, idx):
 def build():
     rock, coll = _rock(_Rng(SEED))
 
-    albedo, emissive = build_texture()
-    mdl.save_texture(albedo)
-    mdl.save_texture(emissive)
-
     ob = rock.object(OBJECT_NAME)
     unwrap(ob, rock.zones, seed=0)
     _drop_faces(ob, rock.buried)
-    mdl.finish(ob, rock_material("HellRock", albedo, emissive), strip_uvs=False)
+    mdl.finish(ob, bpy.data.materials.new("HellRock"), strip_uvs=False)
+    tx.retile(ob, tx.hell_atlas_material(ROCK_ROUGHNESS))   # the one hell rock tile
 
     # The collider rides in the same .glb: Godot reads `-colonly` off the node
     # name, makes a StaticBody3D + ConcavePolygonShape3D and drops the mesh.

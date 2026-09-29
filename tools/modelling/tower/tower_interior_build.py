@@ -38,6 +38,7 @@ for _root in (os.path.dirname(_HOME), os.path.dirname(os.path.dirname(_HOME))): 
         break
 
 import mdl  # noqa: E402
+import texel as tx  # noqa: E402
 
 mdl.DEFAULTS["ground"] = False
 mdl.DEFAULTS["world_grey"] = 0.30
@@ -1600,12 +1601,10 @@ def build():
     coll = _collider(m, p)
     clear, head = _measure_stair(m, p)
 
-    albedo, emissive = build_texture()
-    mdl.save_texture(albedo)
-    mdl.save_texture(emissive)
     ob = m.object(OBJECT_NAME)
     unwrap(ob, m.zones)
-    mdl.finish(ob, rock_material("HellRock", albedo, emissive), strip_uvs=False)
+    mdl.finish(ob, bpy.data.materials.new("HellRock"), strip_uvs=False)
+    tx.retile(ob, tx.hell_atlas_material(ROCK_ROUGHNESS, cull=True))   # the one hell rock tile
     coll_ob = coll.object(COLLIDER_NAME)
     coll_ob.hide_render = True
     PLAN["plan"], PLAN["rock"] = p, rock

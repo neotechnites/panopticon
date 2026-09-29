@@ -21,6 +21,7 @@ for _root in (os.path.dirname(_HOME), os.path.dirname(os.path.dirname(_HOME))): 
         break
 
 import mdl  # noqa: E402
+import texel as tx  # noqa: E402
 
 # =============================================================================
 # TUNABLES
@@ -410,13 +411,14 @@ def build():
     pad = _disc(SIDES, RADIUS, THICK, ("full", ZONE_SIGIL, RADIUS), ZONE_CARVE, False)
     coll = _disc(COLL_SIDES, RADIUS, THICK, ZONE_CARVE, ZONE_CARVE, True)
 
-    albedo, emissive = build_texture()
-    mdl.save_texture(albedo)
+    albedo, _emissive = build_texture()
+    glow = tx.props_image('demon_pad', albedo, ZONE_SIGIL)   # its quarter of hell_props
 
     ob = pad.object(OBJECT_NAME)
     unwrap(ob, pad.zones)
-    mdl.finish(ob, rock_material("HellRock", albedo, emissive), strip_uvs=False)
-    mdl.split_zone(ob, rock_material("DemonPad", albedo, albedo), ZONE_SIGIL)   # it glows its own albedo
+    mdl.finish(ob, bpy.data.materials.new("HellRock"), strip_uvs=False)
+    tx.retile(ob, tx.hell_atlas_material(ROCK_ROUGHNESS),
+              glow=('demon_pad', ZONE_SIGIL, rock_material("DemonPad", glow, glow)))   # it glows its own albedo
 
     coll_ob = coll.object(COLLIDER_NAME)
     coll_ob.hide_render = True

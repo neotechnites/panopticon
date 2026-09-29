@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://brwva8mlq3c7"
-path="res://.godot/imported/map_base_shade_emissive.png-9f72c8fab519f4971f0d22225592afc8.ctex"
+uid="uid://bbr56eas1esx1"
+path="res://.godot/imported/hell_props_albedo.png-181f3677203d237c4dcc6bf95b917dbf.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://maps/bentham_ring/textures/map_base_shade_emissive.png"
-dest_files=["res://.godot/imported/map_base_shade_emissive.png-9f72c8fab519f4971f0d22225592afc8.ctex"]
+source_file="res://maps/bentham_ring/textures/hell_props_albedo.png"
+dest_files=["res://.godot/imported/hell_props_albedo.png-181f3677203d237c4dcc6bf95b917dbf.ctex"]
 
 [params]
 

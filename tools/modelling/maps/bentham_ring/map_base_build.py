@@ -67,11 +67,11 @@ mdl.DEFAULTS["world_strength"] = 0.90
 # else the albedo glows); lava_albedo.png is the pit sea's, tiled every
 # LAVA_TILE_M metres (lava_emissive.png beside it, else the emissive is
 # DERIVED from the albedo: the bright orange glows, the dark crust stays
-# dark). The rock is one tiling sheet per class through lib/texel.py --
-# map_base_<class>_albedo.png (+ _emissive.png) for rock, shade, carve, ember
-# -- world-projected at TEXEL_MPT m per texel, no atlas windows. The S3
-# cracks wear the atlas's glow cell, cut out as crack_glow_albedo.png (+
-# _emissive.png). Otherwise the painted sheets below are used.
+# dark). The rock is ONE tiling drawing, hell_rock_albedo.png, every class
+# (rock, shade, carve, ember) a colour factor on it (lib/texel.py HELL_TINT),
+# world-projected at TEXEL_MPT m per texel; ember alone glows, with
+# hell_rock_emissive.png. The S3 cracks and the cells wear the atlas's glow
+# cell, crack_glow_albedo.png, as albedo and glow. Else the painters are used.
 
 NAME = "map_base"
 OBJECT_NAME = "MapBaseRock"
@@ -128,7 +128,7 @@ ZONE_EMBER  = (0.0, 0.0, 0.5, 0.5)
 ZONE_GLOW   = (0.5, 0.0, 1.0, 0.25)   # cell interiors: painted over the unused
                                       # lower half of CARVE, after the four
                                       # tower zones, so those stay byte-identical
-CRACK_STEM  = "crack_glow"            # ZONE_GLOW cut out: crack_glow_albedo/_emissive.png
+CRACK_STEM  = "crack_glow"            # ZONE_GLOW cut out: crack_glow_albedo.png, albedo and glow
 
 # The deck is the one surface the red sun hits square on, so the wall tone
 # read washed out on it. It takes SHADE (the darker hell-rock) at its own,
@@ -691,65 +691,11 @@ def build_texture():
     return images[0], images[1]
 
 
-# ---- the rock's tiling sheets (lib/texel.py): one per class, world-projected --
-# Every class at TEXEL_MPT m per texel; a sheet repeats every TEXEL_TILE texels
-# (12.8 m) and closes on itself round the ring. Painted at the same metre
-# sizes the atlas cells had (an 8 m cell of 64 texels), so the rock reads the
-# same from 6 m and stops smearing at 1 m.
+# ---- the rock's tiling sheet (lib/texel.py): one drawing, a factor per class --
+# Every class at TEXEL_MPT m per texel; the sheet repeats every TEXEL_TILE texels
+# (12.8 m) and closes on itself round the ring.
 TEXEL_MPT = tx.MPT
 TEXEL_TILE = tx.TILE
-_K = (TEXEL_TILE * TEXEL_MPT / 8.0) ** 2      # sheet area / old cell area: 2.56
-_S = 0.125 / TEXEL_MPT                        # old texel / new texel: 2.5
-
-
-def _n(count):
-    return int(round(count * _K))
-
-
-def _sz(texels):
-    return max(1, int(round(texels * _S)))
-
-
-def _specks(c, r, count, size, rgb, glow):
-    for _ in range(_n(count)):
-        x, y = r.i(0, c.w - 1), r.i(0, c.h - 1)
-        c.rect(x, y, x + size, y + size, rgb, glow)
-
-
-def _sheet_rock(c, r, s):
-    tx.fill(c, r, c.box, [(74, 27, 25), (58, 20, 19), (90, 35, 30), (46, 16, 16)])
-    tx.shatter(c, r, c.box, [(96, 40, 33), (48, 16, 16), (110, 48, 38)], _n(20), _sz(6), _sz(15))
-    tx.shatter(c, r, c.box, [(32, 11, 12), (118, 56, 43)], _n(12), _sz(4), _sz(9))
-    _specks(c, r, 6, _sz(2), (172, 44, 12), (114, 22, 3))
-
-
-def _sheet_shade(c, r, s):
-    tx.fill(c, r, c.box, [(34, 12, 12), (24, 8, 9), (44, 17, 15), (17, 6, 7)])
-    tx.shatter(c, r, c.box, [(42, 16, 15), (10, 3, 4)], _n(20), _sz(4), _sz(11))
-    _specks(c, r, 4, _sz(2), (140, 34, 9), (92, 16, 2))
-
-
-def _sheet_carve(c, r, s):
-    tx.fill(c, r, c.box, [(84, 58, 53), (72, 48, 44), (96, 69, 63), (64, 42, 39)])
-    tx.shatter(c, r, c.box, [(66, 43, 40), (102, 74, 68), (56, 35, 33)], _n(14), _sz(5), _sz(14))
-    tx.shatter(c, r, c.box, [(74, 38, 27), (46, 27, 25)], _n(10), _sz(4), _sz(10))
-    _specks(c, r, 10, _sz(2), (52, 32, 30), None)
-    _specks(c, r, 3, _sz(2), (152, 48, 14), (88, 18, 2))
-
-
-def _sheet_ember(c, r, s):
-    tx.fill(c, r, c.box, [(11, 4, 5), (16, 6, 6), (7, 2, 3), (20, 8, 7)])
-    halo = _sz(1)
-    for _ in range(_n(15)):                    # hot veins: a random walk with a dim halo
-        x, y = r.i(0, c.w - 1), r.i(0, c.h - 1)
-        for _step in range(int(60 * _S)):
-            c.rect(x - halo, y - halo, x + halo + 1, y + halo + 1, (58, 15, 4), (74, 15, 1))
-            hot = r.pick([(255, 150, 30), (255, 212, 88), (248, 100, 14)])
-            c.rect(x, y, x + 2, y + 2, hot, hot)
-            x += r.i(-1, 1)
-            y += r.i(-1, 1)
-    _specks(c, r, 30, 2, (7, 3, 4), None)
-    _specks(c, r, 10, _sz(2), (236, 92, 18), (194, 54, 5))
 
 
 def _hell_ref(centre):
@@ -764,12 +710,8 @@ def _hell_ref(centre):
     return 47.0 if z >= CEIL_Z + 0.5 else 45.0 # the shaft above the gallery | the pit below it
 
 
-SHEETS = {
-    "rock": tx.Sheet("rock", _sheet_rock, ref_r=_hell_ref, roughness=ROCK_ROUGHNESS, seed=1),
-    "shade": tx.Sheet("shade", _sheet_shade, ref_r=_hell_ref, roughness=ROCK_ROUGHNESS, seed=2),
-    "carve": tx.Sheet("carve", _sheet_carve, ref_r=_hell_ref, roughness=ROCK_ROUGHNESS, seed=3),
-    "ember": tx.Sheet("ember", _sheet_ember, ref_r=_hell_ref, roughness=ROCK_ROUGHNESS, seed=4),
-}
+SHEETS = {cls: tx.hell_sheet(cls, ref_r=_hell_ref, roughness=ROCK_ROUGHNESS)
+          for cls in ("rock", "shade", "carve", "ember")}
 _ZONE_CLASS = {ZONE_ROCK: "rock", ZONE_SHADE: "shade", ZONE_CARVE: "carve",
                ZONE_EMBER: "ember", ZONE_GLOW: "glow"}
 
@@ -933,12 +875,13 @@ def _lava_sheet():
     return alb, (_image_file("lava_emissive.png") or _lava_emissive_from(alb))
 
 
-def _crack_cell(atlas, kind):
-    """The cracks' glow cell (ZONE_GLOW) of one atlas image: its file, else cut from the paint."""
-    name = "%s_%s" % (CRACK_STEM, kind)
+def _crack_cell():
+    """The cracks' glow cell (ZONE_GLOW): its file, else cut from the painted atlas."""
+    name = "%s_albedo" % CRACK_STEM
     img = _image_file(name + ".png") if USE_TEXTURE_FILES else None
     if img is not None:
         return img
+    atlas = build_texture()[0]
     x0, y0, x1, y1 = [int(round(k * TEX_SIZE)) for k in ZONE_GLOW]
     src = [0.0] * (TEX_SIZE * TEX_SIZE * 4)
     atlas.pixels.foreach_get(src)
@@ -950,6 +893,37 @@ def _crack_cell(atlas, kind):
     img.pixels.foreach_set(out)
     img.update()
     return img
+
+
+def _crack_face_uv(me, uvl, poly):
+    """A crack or cell face's window of the glow cell, as main's unwrap cut it, but drawn
+    from an Rng seeded by the face's own position: no edit elsewhere moves it."""
+    c = poly.center
+    key = [int(round(c[k] * 1000.0)) for k in range(3)]
+    r = _Rng(TEX_SEED + 73856093 * key[0] + 19349663 * key[1] + 83492791 * key[2])
+    u0, v0, u1, v1 = ZONE_GLOW
+    span_u = (u1 - u0) - 2.0 * UV_PAD
+    span_v = (v1 - v0) - 2.0 * UV_PAD
+    nrm = poly.normal
+    ax = max(range(3), key=lambda i: abs(nrm[i]))
+    ii, jj = ((1, 2), (0, 2), (0, 1))[ax]
+    fu = -1.0 if r.i(0, 1) else 1.0
+    fv = -1.0 if r.i(0, 1) else 1.0
+    cos = [me.vertices[me.loops[li].vertex_index].co for li in poly.loop_indices]
+    mi = min(co[ii] for co in cos)
+    mj = min(co[jj] for co in cos)
+    w = min((max(co[ii] for co in cos) - mi) * UV_SCALE, 1.0)
+    h = min((max(co[jj] for co in cos) - mj) * UV_SCALE, 1.0)
+    ou = r.f() * (1.0 - w)
+    ov = r.f() * (1.0 - h)
+    for li, co in zip(poly.loop_indices, cos):
+        s_ = min(ou + (co[ii] - mi) * UV_SCALE, 1.0)
+        t_ = min(ov + (co[jj] - mj) * UV_SCALE, 1.0)
+        if fu < 0.0:
+            s_ = 1.0 - s_
+        if fv < 0.0:
+            t_ = 1.0 - t_
+        uvl.data[li].uv = _crack_uv((u0 + UV_PAD + s_ * span_u, v0 + UV_PAD + t_ * span_v))
 
 
 def _crack_uv(uv):
@@ -7581,7 +7555,7 @@ def _shelf_box(c):
 
 
 # =============================================================================
-# UV -- per-face planar projection into a random window of its zone
+# UV -- the lava's own projections; the rock's are lib/texel.py's
 # =============================================================================
 
 def _lava_uv(me, uvl, poly):
@@ -7618,122 +7592,6 @@ def _flow_uv_along(me, uvl, poly):
     """S2's river runs ALONG the deck: it lies flat, so it takes the sea's own
     world x,y projection at the sea's scale, like every other flat lava face."""
     _lava_uv(me, uvl, poly)
-
-
-def _deck_uv(me, uvl, poly, zone, r):
-    """Deck facets project in (radius, arc), not world x-y: a facet's own extent
-    sets its texel density, so the ring's grain is even all the way round."""
-    u0, v0, u1, v1 = zone
-    span_u = (u1 - u0) - 2.0 * UV_PAD
-    span_v = (v1 - v0) - 2.0 * UV_PAD
-    cos = [me.vertices[me.loops[li].vertex_index].co for li in poly.loop_indices]
-    ac = math.atan2(sum(c[1] for c in cos), sum(c[0] for c in cos))
-    rc = sum(math.hypot(c[0], c[1]) for c in cos) / len(cos)
-    pts = []
-    for co in cos:
-        rad = math.hypot(co[0], co[1])
-        th = math.atan2(co[1], co[0])
-        th = ac + (th - ac + math.pi) % TWO_PI - math.pi
-        pts.append((rad * DECK_UV_SCALE, (th - ac) * rc * DECK_UV_SCALE))
-    mi = min(p[0] for p in pts)
-    mj = min(p[1] for p in pts)
-    w = max(p[0] for p in pts) - mi
-    h = max(p[1] for p in pts) - mj
-    k = min(1.0, 1.0 / max(w, h, EPS))     # widest deck facets: coarsen, never smear
-    pts = [(k * (p[0] - mi), k * (p[1] - mj)) for p in pts]
-    mi = mj = 0.0
-    w, h = k * w, k * h
-    ou, ov = r.f() * (1.0 - w), r.f() * (1.0 - h)
-    fu = -1.0 if r.i(0, 1) else 1.0
-    fv = -1.0 if r.i(0, 1) else 1.0
-    for li, p in zip(poly.loop_indices, pts):
-        s = min(ou + p[0] - mi, 1.0)
-        t = min(ov + p[1] - mj, 1.0)
-        if fu < 0.0:
-            s = 1.0 - s
-        if fv < 0.0:
-            t = 1.0 - t
-        uvl.data[li].uv = (u0 + UV_PAD + s * span_u, v0 + UV_PAD + t * span_v)
-
-
-def _wallface_uv(me, uvl, poly, zone):
-    """A steep S3 wall facet: u along the wall's arc, v up its height, at
-    UV_SCALE, the window chosen by where the facet starts along the wall so
-    neighbouring facets share it; a seam only where a window runs out."""
-    u0, v0, u1, v1 = zone
-    span_u = (u1 - u0) - 2.0 * UV_PAD
-    span_v = (v1 - v0) - 2.0 * UV_PAD
-    cos = [me.vertices[me.loops[li].vertex_index].co for li in poly.loop_indices]
-    ac = math.atan2(sum(c[1] for c in cos), sum(c[0] for c in cos))
-    arcs, zs = [], []
-    for co in cos:
-        th = math.atan2(co[1], co[0])
-        th = ac + (th - ac + math.pi) % TWO_PI - math.pi
-        arcs.append(th * WALLFACE_R * UV_SCALE)
-        zs.append((co[2] - DECK_Z) * UV_SCALE)
-    lo = min(arcs)
-    ou = (lo % span_u)
-    if ou + (max(arcs) - lo) > span_u:           # the window runs out: start it over
-        ou = 0.0
-    for li, a, z in zip(poly.loop_indices, arcs, zs):
-        s = min(max(ou + (a - lo), 0.0), span_u)
-        t = min(max(z, 0.0), span_v)
-        uvl.data[li].uv = (u0 + UV_PAD + s, v0 + UV_PAD + t)
-
-
-def unwrap(ob, zones, seed=0):
-    """Identical to tower_build.py's unwrap: fixed UV_SCALE texel density, no
-    per-face scale reduction. Every face here is now <=3 m, so nothing needs
-    the density dropped to fit -- that drop was the washed-out-grey bug.
-    """
-    me = ob.data
-    uvl = me.uv_layers.new(name="UVMap")
-    r = _Rng(TEX_SEED + seed * 7919 + len(me.polygons))
-    for pi, poly in enumerate(me.polygons):
-        zone = zones[pi]
-        if zone[0] == "lava":                    # own sheet, tiled in world x,y
-            for _draw in range(4):               # the four draws the atlas path spends per
-                r.n()                            # face (flip u, flip v, window u, window v):
-            _lava_uv(me, uvl, poly)              # burned, so every other face keeps the
-            continue                             # window it had before the sea left the atlas
-        if zone[0] == "river":                   # the river: streaked along the flow
-            _flow_uv(me, uvl, poly, False)
-            continue
-        if zone[0] == "fall":
-            _flow_uv(me, uvl, poly, True)
-            continue
-        if zone[0] == "river_t":
-            _flow_uv_along(me, uvl, poly)
-            continue
-        if zone[0] == "deck":                    # radial/tangential, finer tiling
-            _deck_uv(me, uvl, poly, zone[1:], r)
-            continue
-        if zone[0] == "wallface":                # along the wall, one window per stretch
-            _wallface_uv(me, uvl, poly, zone[1:])
-            continue
-        u0, v0, u1, v1 = zone
-        span_u = (u1 - u0) - 2.0 * UV_PAD
-        span_v = (v1 - v0) - 2.0 * UV_PAD
-        nrm = poly.normal
-        ax = max(range(3), key=lambda i: abs(nrm[i]))
-        ii, jj = ((1, 2), (0, 2), (0, 1))[ax]
-        fu = -1.0 if r.i(0, 1) else 1.0
-        fv = -1.0 if r.i(0, 1) else 1.0
-        cos = [me.vertices[me.loops[li].vertex_index].co for li in poly.loop_indices]
-        mi = min(co[ii] for co in cos)
-        mj = min(co[jj] for co in cos)
-        w = min((max(co[ii] for co in cos) - mi) * UV_SCALE, 1.0)
-        h = min((max(co[jj] for co in cos) - mj) * UV_SCALE, 1.0)
-        ou = r.f() * (1.0 - w)
-        ov = r.f() * (1.0 - h)
-        for li, co in zip(poly.loop_indices, cos):
-            s = min(ou + (co[ii] - mi) * UV_SCALE, 1.0)
-            t = min(ov + (co[jj] - mj) * UV_SCALE, 1.0)
-            if fu < 0.0:
-                s = 1.0 - s
-            if fv < 0.0:
-                t = 1.0 - t
-            uvl.data[li].uv = (u0 + UV_PAD + s * span_u, v0 + UV_PAD + t * span_v)
 
 
 # =============================================================================
@@ -8236,29 +8094,18 @@ def build():
     lava_albedo, lava_emissive = _lava_sheet()
     mdl.save_texture(lava_albedo)
     mdl.save_texture(lava_emissive)
-    albedo, emissive = build_texture()             # the atlas: the S3 cracks' cell
 
     ob = rock.object(OBJECT_NAME)
-    # The atlas is painted for the S3 cracks alone: main's unwrap runs into a
-    # scratch layer and the crack faces copy their windows from it, so their
-    # UVs and texels are exactly what they were. Every other rock face is a
-    # texel sheet; the sea and the falls are both Ryan's tile, at one scale.
+    # Every rock face is the one texel sheet; the sea and the falls are both
+    # Ryan's tile, at one scale; the cracks and cells take a window of the glow
+    # cell drawn from their own position, so a rebuild never moves them.
     me = ob.data
-    unwrap(ob, rock.zones)
-    scratch = me.uv_layers[-1]
-    scratch.name = "Scratch"
     classes = ["crack" if fi in rock.crack else _class_of(z) for fi, z in enumerate(rock.zones)]
-
-    def _from_scratch(me_, uvl, poly):
-        for li in poly.loop_indices:
-            uvl.data[li].uv = _crack_uv(scratch.data[li].uv)
-
     custom = {"river": lambda me_, uvl, poly: _flow_uv(me_, uvl, poly, False),
               "fall": lambda me_, uvl, poly: _flow_uv(me_, uvl, poly, True),
-              "river_t": _flow_uv_along, "lava": _lava_uv, "glow": _from_scratch,
-              "crack": _from_scratch}
+              "river_t": _flow_uv_along, "lava": _lava_uv, "glow": _crack_face_uv,
+              "crack": _crack_face_uv}
     tx.unwrap(ob, classes, SHEETS, seed=1, custom=custom)
-    me.uv_layers.remove(me.uv_layers["Scratch"])
     me.uv_layers[0].name = "UVMap"
     me.uv_layers[0].active = True
     me.uv_layers[0].active_render = True
@@ -8268,11 +8115,11 @@ def build():
                                "ember": "HellEmber"})
     for m in mats.values():
         m.diffuse_color = (0.13, 0.04, 0.04, 1.0)
-    crack, crack_glow = _crack_cell(albedo, "albedo"), _crack_cell(emissive, "emissive")
-    mats["glow"] = rock_material("HellGlow", crack, crack_glow)
+    crack = _crack_cell()                                           # it glows its own albedo
+    mats["glow"] = rock_material("HellGlow", crack, crack)
     mats["river"] = river_material("LavaRiver", lava_albedo, lava_emissive)
     mats["lava"] = rock_material("LavaSea", lava_albedo, lava_emissive)
-    mats["crack"] = rock_material("LavaCrack", crack, crack_glow)   # the atlas's glow cell, as before
+    mats["crack"] = rock_material("LavaCrack", crack, crack)        # the atlas's glow cell, as before
     slots = ["river" if c in ("river", "fall", "river_t") else c for c in classes]   # one LavaRiver slot
     order = tx.finish(ob, slots, mats)
     _wave_uv(me)
