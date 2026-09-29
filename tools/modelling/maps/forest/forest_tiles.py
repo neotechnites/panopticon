@@ -27,8 +27,6 @@ import texel as tx  # noqa: E402
 # TUNABLES
 # =============================================================================
 
-LEAF_ZONES = ("leaf", "shade", "sun")  # zones soften() blends: the leaf tile's tints
-SOFT_PASSES = 3                 # neighbour-average passes: the sun/shade step spreads over ~3 face rings
 TILE = 64                       # texels a side: TILE * tx.MPT = 3.2 m before a tile repeats
 SEED = 0x7E11
 
@@ -327,40 +325,6 @@ def dress(ob, zones, family, sheets=None, flat=True, cull=True, custom=None, pre
     print("MDL STATS tiles %s: %s" % (ob.name, " ".join(
         "%s=%s" % (z, ",".join("%.3f" % v for v in tints[z])) for z in sorted(tints))))
     return order
-
-
-def soften(ob, zones, passes=SOFT_PASSES):
-    """Ryan: "the tree leaf thing". The per-face sun/leaf/shade step in COLOR_0 was the hard line on
-    the leaves; blend it per welded vertex over the leaf faces, the open boundary (a seam ring) pinned."""
-    me = ob.data
-    col = colours(ob)
-    flat = [0.0] * (len(me.loops) * 4)
-    col.data.foreach_get("color", flat)
-    key = lambda vi: tuple(round(c, 4) for c in me.vertices[vi].co)
-    loops, nbr, edge_n = {}, {}, {}
-    for pi, poly in enumerate(me.polygons):
-        if zones[pi] not in LEAF_ZONES:
-            continue
-        ks = [key(me.loops[li].vertex_index) for li in poly.loop_indices]
-        for li, k in zip(poly.loop_indices, ks):
-            loops.setdefault(k, []).append(li)
-        for a, b in zip(ks, ks[1:] + ks[:1]):
-            nbr.setdefault(a, set()).add(b)
-            nbr.setdefault(b, set()).add(a)
-            e = (a, b) if a < b else (b, a)
-            edge_n[e] = edge_n.get(e, 0) + 1
-    pinned = {k for e, n in edge_n.items() if n == 1 for k in e}
-    val = {k: [sum(flat[li * 4 + c] for li in ls) / len(ls) for c in range(3)] for k, ls in loops.items()}
-    for _ in range(passes):
-        val = {k: v if k in pinned else [(v[c] + sum(val[o][c] for o in nbr[k])) / (1 + len(nbr[k]))
-                                         for c in range(3)] for k, v in val.items()}
-    for k, ls in loops.items():
-        if k in pinned:
-            continue
-        for li in ls:
-            flat[li * 4:li * 4 + 3] = val[k]
-    col.data.foreach_set("color", flat)
-    print("MDL STATS soften %s: verts=%d pinned=%d passes=%d" % (ob.name, len(loops), len(pinned), passes))
 
 
 # =============================================================================
