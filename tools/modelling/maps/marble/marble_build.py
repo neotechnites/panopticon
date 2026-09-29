@@ -597,6 +597,16 @@ def _sheet_marble(c, r, s):
     tx.shatter(c, r, c.box, [(140, 136, 108)], 20, 6, 14)
 
 
+def _sheet_shade(c, r, s):
+    _ashlar(c, r, [(107, 107, 85), (103, 103, 81), (111, 111, 89), (99, 99, 78)], (80, 80, 66), verticals=False)
+    tx.shatter(c, r, c.box, [(94, 94, 74)], 24, 6, 16)
+
+
+def _sheet_plinth(c, r, s):
+    _ashlar(c, r, [(146, 142, 112), (142, 138, 108), (150, 146, 116), (144, 140, 110)], JOINT,
+            courses=COURSES * 2, mouth=True)
+
+
 def _sheet_cellin(c, r, s):
     tx.fill(c, r, c.box, [(47, 48, 40), (43, 44, 36), (51, 52, 44), (39, 40, 33)], (10, 11, 9))
     tx.shatter(c, r, c.box, [(35, 36, 30), (56, 57, 48)], 60, 8, 22)
@@ -604,6 +614,17 @@ def _sheet_cellin(c, r, s):
         x, w = r.i(0, c.w - 1), r.i(1, 3)
         yy, h = r.i(0, c.h - 1), r.i(12, 30)
         c.rect(x, yy, x + w, yy + h, (70, 71, 60), (22, 23, 20))
+
+
+def _sheet_field(c, r, s):
+    tx.fill(c, r, c.box, [(125, 122, 98), (122, 119, 95), (128, 125, 101), (124, 121, 97)])
+    tx.shatter(c, r, c.box, [(110, 107, 85), (138, 135, 108)], 110, 15, 45)
+    tx.blades(c, r, c.box, 180, [(110, 107, 85)])
+    grid, pitch = (85, 83, 63), s.px(0.8)          # a dark tile grid, 0.8 m
+    for y in range(0, c.h, pitch):
+        c.rect(0, y, c.w, y + 1, grid)
+    for x in range(0, c.w, pitch):
+        c.rect(x, 0, x + 1, c.h, grid)
 
 
 def _sheet_spike(c, r, s):
@@ -656,66 +677,18 @@ def _wall(name, paint, **kw):
                     phase=(0.0, FLOOR_Z), roughness=ROUGHNESS, **kw)
 
 
-# ---- one stone, one file (Ryan: "all the textures need consolidation") ------
-# Every marble model's ashlar is textures/marble_stone_albedo.png; a darker or
-# warmer stone is a base-colour factor on it (tint()), the palette's own ratio.
-STONE = "marble_stone"
-FLOOR = "marble_floor"
-IRON = "marble_iron"
-
-
-def _ratio(rgb, base):
-    a, b = tx.s2l(rgb), tx.s2l(base)
-    return tuple(a[i] / b[i] for i in range(3))
-
-
-_MARBLE_RGB = (152.0, 148.0, 116.0)                          # _sheet_marble's mean fill
-TINTS = {
-    "marble": None,
-    "shade": _ratio((105.0, 105.0, 83.25), _MARBLE_RGB),     # grey-olive reveals, soffits
-    "plinth": _ratio((145.5, 141.5, 111.5), _MARBLE_RGB),    # socles, spandrels, ledges (marble2)
-    "tower": _ratio((138.5, 128.5, 95.5), _MARBLE_RGB),      # the tower's shaft ashlar
-    "field": _ratio((124.75, 121.75, 97.75), (170.0, 166.0, 131.0)),   # the beds' floor, on the paving
-}
-
-
-def tint(mats, which):
-    """Multiply each class's albedo by TINTS[which[cls]]; the glTF exporter
-    writes a Mix/Multiply by a constant as baseColorFactor."""
-    for cls, key in which.items():
-        f = TINTS[key]
-        if f is None or cls not in mats:
-            continue
-        nt = mats[cls].node_tree
-        bsdf = nt.nodes.get("Principled BSDF")
-        link = bsdf.inputs["Base Color"].links[0]
-        mix = nt.nodes.new("ShaderNodeMix")
-        mix.data_type = "RGBA"
-        mix.blend_type = "MULTIPLY"
-        mix.inputs["Factor"].default_value = 1.0
-        mix.inputs[7].default_value = (f[0], f[1], f[2], 1.0)
-        mix.location = (-200, 260)
-        src = link.from_socket
-        nt.links.remove(link)
-        nt.links.new(src, mix.inputs[6])
-        nt.links.new(mix.outputs[2], bsdf.inputs["Base Color"])
-
-
 SHEETS = {
-    "marble": _wall("marble", _sheet_marble, seed=1, stem=STONE),
-    "shade": _wall("shade", _sheet_marble, seed=1, stem=STONE),
-    "plinth": tx.Sheet("plinth", _sheet_marble, mpt=WALL_MPT / 2.0, size=WALL_H, width=2 * WALL_PX,
-                       ref_r=WALL_R, phase=(0.0, FLOOR_Z), roughness=ROUGHNESS, seed=1,
-                       stem=STONE),                          # the stone at half-metre courses
+    "marble": _wall("marble", _sheet_marble, seed=1),
+    "shade": _wall("shade", _sheet_shade, seed=2),
+    "plinth": _wall("plinth", _sheet_plinth, seed=3),
     "cellin": _wall("cellin", _sheet_cellin, seed=4),
-    "field": tx.Sheet("field", _sheet_floor, mode="box", size=64, mpt=2.4 / 64.0, roughness=ROUGHNESS,
-                      seed=7, stem=FLOOR),                   # the paving at 0.8 m slabs, tinted
+    "field": tx.Sheet("field", _sheet_field, mode="box", roughness=ROUGHNESS, seed=5),
     "spike": tx.Sheet("spike", _sheet_spike, mode="box", roughness=ROUGHNESS, seed=6),
     "floor": tx.Sheet("floor", _sheet_floor, mode="fit", size=64, mpt=2.7 / 64.0, roughness=ROUGHNESS, seed=7),
     "frieze": tx.Sheet("frieze", _sheet_frieze, mode="fit", width=256, size=64, mpt=BAY_M / 256.0, roughness=ROUGHNESS, seed=8),
     "column": tx.Sheet("column", _sheet_column, mode="fit_u", width=64, size=256, roughness=ROUGHNESS, seed=9),
     "band": tx.Sheet("band", _sheet_band, mode="fit_v", width=256, size=64, roughness=ROUGHNESS, seed=10),
-    "iron": tx.Sheet("iron", _sheet_iron, mode="fit_u", width=64, size=256, roughness=ROUGHNESS, seed=11, stem=IRON),
+    "iron": tx.Sheet("iron", _sheet_iron, mode="fit_u", width=64, size=256, roughness=ROUGHNESS, seed=11),
     "dome": tx.Sheet("dome", _sheet_dome, mode="custom", width=128, size=64, roughness=ROUGHNESS, seed=12),
 }
 _CLASS = {"marble2": "marble", "collar": "band"}
@@ -1525,7 +1498,6 @@ def build():
     mats = tx.materials(NAME, SHEETS, use_files=USE_TEXTURE_FILES, tex_dir=os.path.join(HERE, TEX_DIR))
     for mat in mats.values():
         mat.diffuse_color = (0.78, 0.76, 0.72, 1.0)
-    tint(mats, {"shade": "shade", "plinth": "plinth", "field": "field"})
     order = tx.finish(ob, classes, mats)
     tx.report(SHEETS)
     print("MDL STATS surfaces=%d order=%s" % (len(ob.data.materials), ",".join(order)))

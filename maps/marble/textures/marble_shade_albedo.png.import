@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cna65b5yybdmu"
-path="res://.godot/imported/marble_stone_albedo.png-4c9ad58124ab30460fef599f2515e375.ctex"
+uid="uid://c3o5fsr8w22aw"
+path="res://.godot/imported/marble_shade_albedo.png-a3a6471126e1546d9fa29c22a134da3e.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://maps/marble/textures/marble_stone_albedo.png"
-dest_files=["res://.godot/imported/marble_stone_albedo.png-4c9ad58124ab30460fef599f2515e375.ctex"]
+source_file="res://maps/marble/textures/marble_shade_albedo.png"
+dest_files=["res://.godot/imported/marble_shade_albedo.png-a3a6471126e1546d9fa29c22a134da3e.ctex"]
 
 [params]
 
