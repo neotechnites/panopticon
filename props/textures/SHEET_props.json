@@ -1,0 +1,30 @@
+{
+  "canvas": [
+    87,
+    146
+  ],
+  "textures": [
+    {
+      "file": "speed_orb_albedo.png",
+      "kind": "albedo",
+      "mode": "RGB",
+      "rect": [
+        0,
+        7,
+        64,
+        64
+      ]
+    },
+    {
+      "file": "speed_orb_emissive.png",
+      "kind": "emissive",
+      "mode": "RGB",
+      "rect": [
+        0,
+        82,
+        64,
+        64
+      ]
+    }
+  ]
+}
