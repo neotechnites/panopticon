@@ -2,5 +2,5 @@
   "_comment": "weapons/rifle.tscn instances this .glb at identity and its editor_description pins the numbers: one textured material (128x128 warden atlas, no emissive), one UV set, no skin, no animation.",
   "node_paths": ["Rifle"],
   "surfaces": 1,
-  "max_tris": 470
+  "max_tris": 580
 }
