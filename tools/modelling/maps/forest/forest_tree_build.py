@@ -1619,6 +1619,7 @@ def dress(ob, zones):
     """forest_tiles' tiles and tints, then the seam fade over them."""
     forest_tiles.dress(ob, zones, "atlas")
     seam_tint(ob, zones)
+    forest_tiles.soften(ob, zones)
 
 
 def tint_material(mat):

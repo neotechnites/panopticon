@@ -489,6 +489,7 @@ def build():
 
     ob = m.object(OBJECT_NAME)
     forest_tiles.dress(ob, m.zones, "atlas")
+    forest_tiles.soften(ob, m.zones)
 
     coll = c.object(COLLIDER_NAME)
     coll.hide_render = True
