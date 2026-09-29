@@ -67,8 +67,8 @@ face normal's largest axis, in the gate's own frame -- and its courses are
 therefore level lines at the gate's own heights: a joint on the ledge (0.85,
 the socle is exactly one course) and on the sill (1.0), then on up the world 1 m
 grid the rotunda's wall courses stand on. The iron is on the PORTCULLIS' OWN
-MODULE (see _sheet_iron), so every upright wears the cells' lit rim. The
-spandrel, socle and shade wear the tower's files (mb.ashlar_sheet).
+MODULE (see _iron_uv): the cells' own sheet fitted across each upright, so
+every upright wears the cells' lit rim. Stone is marble_stone, shade marble_shade.
 
     python3 tools/modelling/maps/marble/marble_bars_build.py --check
     tools/modelling/model build marble_bars
@@ -243,9 +243,9 @@ def widest_gap():
 # joint on the gate's centre line (behind the iron), on the mouth's two jambs
 # (+-2.991, 9 mm -- a fifth of a texel -- off the +-3.0 arris) and behind the
 # pilasters (+-5.98), so every one of them falls on an edge or on nothing.
-# marble2, shade and plinth are mb.ASHLAR's shared files spanned across STONE_M.
-#
-# The iron is the cells' iron, on the portcullis' own module: see _sheet_iron.
+# marble, marble2 and plinth wear marble_stone spanned across STONE_M, tinted to
+# their palettes; shade wears marble_shade. The iron is the cells' marble_iron:
+# see _iron_uv.
 
 USE_TEXTURE_FILES = True
 TEX_DIR = mb.TEX_DIR
@@ -259,58 +259,42 @@ STONE_M = STONE_PX * MPT                # 2.991 m: one repeat across
 U0 = 0.0                                # u = 0 on the gate's centre line
 V0 = SILL_Z - COURSE_M                  # a joint exactly on the sill, then a course at a time
 V0_PLINTH = SOCLE_Z - COURSE_M          # ... and the socle's one joint on the ledge
-
-IRON_MOD = BAR_PITCH + 2.0 * BAR_HW     # 0.4715 m: the uprights' centre-to-centre pitch
-IRON_PX = 58                            # texels across one module -> the bar is 16 of them
-IRON_MPT = IRON_MOD / IRON_PX           # 0.008130 m a texel
-BAR_PX = int(round(2.0 * BAR_HW / IRON_MPT))       # 16
-IRON_U0 = bar_x(0) - BAR_HW             # u = 0 on EVERY upright's left edge
+IRON_BASE = (0.2, 0.85)                 # marble_iron's u span clear of the rim and the shadow
 
 
-# ---- the painters: the palette docs/maps/marble.md records, unchanged -------
-
-def _sheet_marble(c, r, s):
-    """The screen's ashlar field: #9a9676 in #6c6950 mortar."""
-    mb.facet_ashlar(c, r, [(154, 150, 118), (150, 146, 114), (158, 154, 122), (146, 142, 110)],
-                    (108, 105, 80))
+def _shared(name, v0=V0, tint=None):
+    return mb.ashlar_sheet(name, STONE_M, tint, mode="box", phase=(U0, v0))
 
 
-def _sheet_iron(c, r, s):
-    """The cell bars' iron -- near-black #181a1f with the lit rim #686e7a --
-    drawn on the PORTCULLIS' OWN MODULE. The uprights' centres are exactly
-    IRON_MOD apart, so with u = 0 on bar 0's left edge EVERY upright's face
-    falls on texels 0 .. BAR_PX of the sheet and every cross-bar segment --
-    which spans a gap between two uprights -- falls on the rest. So each
-    upright wears the rim down its left arris and the shadow down its right,
-    exactly as a cell bar does, and the cross-bars wear the base iron."""
-    tx.fill(c, r, c.box, [(24, 26, 31), (20, 22, 27), (28, 30, 35), (22, 24, 29)])
-    c.rect(0, 0, 2, c.h, (104, 110, 122))              # the lit rim
-    c.rect(2, 0, 3, c.h, (80, 85, 96))                 # ... stepping down to the base
-    c.rect(BAR_PX - 2, 0, BAR_PX, c.h, (58, 62, 72))   # the shadow edge
-    tx.blades(c, r, c.box, 40, [(16, 18, 23), (34, 36, 42)])
-
-
-def _stone(name, paint, seed, v0=V0):
-    return tx.Sheet(name, paint, mpt=MPT, size=SHEET_H, width=STONE_PX, mode="box",
-                    phase=(U0, v0), roughness=mb.ROUGHNESS, seed=seed)
-
-
-def _shared(name, v0=V0):
-    return mb.ashlar_sheet(name, name, STONE_M, mode="box", phase=(U0, v0))
+def _iron_uv(me, uvl, poly):
+    """Upright faces fit the cells' iron across (rim left, shadow right); a
+    cross-bar spans a gap, so it wears only the base iron between them."""
+    sheet = SHEETS["iron"]
+    loops = list(poly.loop_indices)
+    cos = [tuple(me.vertices[me.loops[li].vertex_index].co) for li in loops]
+    cx = sum(c[0] for c in cos) / len(cos)
+    if any(xl - 1e-6 <= cx <= xr + 1e-6 for xl, xr in (bar_span(k) for k in range(N_BAR))):
+        uvs = tx.fit_uv(cos, tuple(poly.normal), sheet, "fit_u")
+    else:
+        x0, x1 = min(c[0] for c in cos), max(c[0] for c in cos)
+        flat = abs(poly.normal[2]) > 0.5
+        uvs = [(IRON_BASE[0] + (IRON_BASE[1] - IRON_BASE[0]) * (c[0] - x0) / max(x1 - x0, 1e-9),
+                (c[1] if flat else c[2]) / sheet.metres) for c in cos]
+    for li, uv in zip(loops, uvs):
+        uvl.data[li].uv = uv
 
 
 SHEETS = {
-    "marble": _stone("marble", _sheet_marble, 1),                              # the screen's field
-    "marble2": _shared("marble2"),                                             # the spandrel
-    "shade": _shared("shade"),                                                 # ledge, reveals, soffits, sill
-    "plinth": _shared("plinth", V0_PLINTH),                                    # the socle
+    "marble": _shared("marble", tint=mb.TINT_BARS),                           # the screen's field
+    "marble2": _shared("marble2", tint=mb.TINT_MARBLE2),                       # the spandrel
+    "shade": mb.shade_sheet("shade", mode="box", phase=(U0, V0)),              # ledge, reveals, soffits, sill
+    "plinth": _shared("plinth", V0_PLINTH, mb.TINT_PLINTH),                    # the socle
     "band": tx.Sheet("band", mb._sheet_band, mode="fit_v", width=256, size=64,
                      roughness=mb.ROUGHNESS, seed=10, stem="marble_band"),                          # the cornice's mouldings
     "column": tx.Sheet("column", mb._sheet_column, mode="fit_u", width=64, size=256,
                        roughness=mb.ROUGHNESS, seed=9, stem="marble_column"),                        # the fluted pilasters
-    "iron": tx.Sheet("iron", _sheet_iron, mpt=IRON_MPT, width=IRON_PX, size=256,
-                     mode="box", phase=(IRON_U0, 0.0),
-                     roughness=mb.ROUGHNESS, seed=7),                          # the portcullis
+    "iron": tx.Sheet("iron", mb._sheet_iron, mode="fit_u", width=64, size=256,
+                     roughness=mb.ROUGHNESS, seed=11, stem="marble_iron"),     # the portcullis
 }
 
 
@@ -740,7 +724,7 @@ def build():
     gate, counts = _gate()
     coll = _collider()
     ob = gate.object(OBJECT_NAME)
-    tx.unwrap(ob, gate.zones, SHEETS, seed=SEED, groups=gate.groups)
+    tx.unwrap(ob, gate.zones, SHEETS, seed=SEED, groups=gate.groups, custom={"iron": _iron_uv})
     mats = tx.materials(NAME, SHEETS, use_files=USE_TEXTURE_FILES,
                         tex_dir=os.path.join(HERE, TEX_DIR))
     for mat in mats.values():

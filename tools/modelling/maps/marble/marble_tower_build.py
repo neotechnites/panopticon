@@ -152,8 +152,8 @@ GUARD_EYE = FLOOR_Z + DAIS_H + mb.EYE_H   # 3.95: world 29.3 (pass 3: 28.7)
 # round r 7.0: ONE REPEAT PER FACET, its vertical joints on the facet corners
 # (U0_SHAFT puts u = 0 there), 2.749/60 = 0.0458 m a texel, 0.4 % off the
 # vertical. The balcony's repeat is 35 texels = 1.611 m: 32 at r 8.2, one per
-# post facet. Plinth, shade and the ledge wear mb.ASHLAR's shared files, spanned
-# across those repeats. Band, column, iron and the floor slab are fitted to the
+# post facet. Stone, dome, plinth and the ledge wear marble_stone spanned across
+# those repeats and tinted to their palettes; shade wears marble_shade. Band, column, iron and the floor slab are fitted to the
 # face exactly as the rotunda fits them; the dome is "custom" (see _dome_vs).
 
 USE_TEXTURE_FILES = True
@@ -258,20 +258,15 @@ def _sheet_medallion(c, r, s):
     tx.blades(c, r, c.box, 40, [(140, 136, 108)])
 
 
-def _wall(name, paint, seed, width=SHAFT_PX, ref_r=SHAFT_R, u0=U0_SHAFT):
-    return tx.Sheet(name, paint, mpt=MPT, size=SHEET_H, width=width, ref_r=ref_r,
-                    phase=(u0, V0), roughness=mb.ROUGHNESS, seed=seed)
-
-
-def _shared(name, px=SHAFT_PX, ref_r=SHAFT_R, u0=U0_SHAFT):
-    return mb.ashlar_sheet(name, name, px * MPT, ref_r=ref_r, phase=(u0, V0))
+def _shared(name, px=SHAFT_PX, ref_r=SHAFT_R, u0=U0_SHAFT, tint=None):
+    return mb.ashlar_sheet(name, px * MPT, tint, ref_r=ref_r, phase=(u0, V0))
 
 
 SHEETS = {
-    "stone": _wall("stone", _sheet_stone, 1),                                  # the shaft, the spandrels
-    "plinth": _shared("plinth"),                                               # foot, steps, room floor band, dais
-    "shade": _shared("shade"),                                                 # reveals, soffits, undersides
-    "marble2": _shared("marble2", BAL_PX, BALCONY_R, U0_BAL),                  # the ledge
+    "stone": _shared("stone", tint=mb.TINT_TOWER),                             # the shaft, the spandrels
+    "plinth": _shared("plinth", tint=mb.TINT_PLINTH),                          # foot, steps, room floor band, dais
+    "shade": mb.shade_sheet("shade", ref_r=SHAFT_R, phase=(U0_SHAFT, V0)),     # reveals, soffits, undersides
+    "marble2": _shared("marble2", BAL_PX, BALCONY_R, U0_BAL, mb.TINT_MARBLE2),  # the ledge
     "band": tx.Sheet("band", mb._sheet_band, mode="fit_v", width=256, size=64,
                      roughness=mb.ROUGHNESS, seed=10, stem="marble_band"),                          # ring beam, slab edge
     "column": tx.Sheet("column", mb._sheet_column, mode="fit_u", width=64, size=256,
@@ -286,8 +281,8 @@ SHEETS = {
                           roughness=mb.ROUGHNESS, seed=9),
     "coffer": tx.Sheet("coffer", _sheet_coffer, mpt=MPT, size=COFFER_PX, width=SHAFT_PX,
                        mode="custom", roughness=mb.ROUGHNESS, seed=10),        # the dome inside
-    "dome": tx.Sheet("dome", _sheet_stone, mpt=MPT, size=SHEET_H, width=SHAFT_PX,
-                     mode="custom", roughness=mb.ROUGHNESS, seed=1, stem="marble_tower_stone"),          # ... and outside
+    "dome": tx.Sheet("dome", _sheet_stone, mpt=MPT, size=SHEET_H, width=SHAFT_PX, mode="custom",
+                     roughness=mb.ROUGHNESS, seed=1, stem="marble_stone", tint=mb.TINT_TOWER),  # ... and outside
 }
 # Two faces wear a class their zone does not name, because their PROJECTION
 # differs, not their stone: the dome's skin (zone "shade") is "dome", and the

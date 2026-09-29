@@ -326,12 +326,14 @@ class Sheet(object):
     emissive   force an emissive image even if the painter drew none
     stem       image stem when the class wears another model's texture (default <map>_<name>)
     mpt_u      metres per texel across, when one drawing spans another model's repeat
+    tint       linear RGB multiplied over the albedo (glTF baseColorFactor): one drawing, another palette
     """
 
     def __init__(self, name, paint=None, mpt=MPT, size=TILE, ref_r=None, phase=(0.0, 0.0),
                  mode="cyl", roughness=ROUGHNESS, metallic=METALLIC, cull=True, seed=0,
-                 emissive=False, width=None, stem=None, mpt_u=None):
+                 emissive=False, width=None, stem=None, mpt_u=None, tint=None):
         self.name = name
+        self.tint = tint
         self.stem = stem
         self.paint = paint
         self.mpt = mpt
@@ -591,8 +593,9 @@ def images(prefix, sheet, use_files=False, tex_dir=None):
     return alb, emi
 
 
-def material(name, albedo, emissive, roughness=ROUGHNESS, metallic=METALLIC, cull=True):
-    """Principled, nearest-sampled, REPEAT: the same PS1 finish the atlases had."""
+def material(name, albedo, emissive, roughness=ROUGHNESS, metallic=METALLIC, cull=True, tint=None):
+    """Principled, nearest-sampled, REPEAT: the same PS1 finish the atlases had.
+    tint: a Multiply over the albedo, which the glTF exporter writes as baseColorFactor."""
     mat = bpy.data.materials.new(name)
     mat.use_nodes = True
     nt = mat.node_tree
@@ -606,7 +609,17 @@ def material(name, albedo, emissive, roughness=ROUGHNESS, metallic=METALLIC, cul
         node.interpolation = "Closest"
         node.extension = "REPEAT"
         node.location = (-460, y)
-        nt.links.new(node.outputs["Color"], bsdf.inputs[socket])
+        out = node.outputs["Color"]
+        if tint is not None and socket == "Base Color":
+            mix = nt.nodes.new("ShaderNodeMix")
+            mix.data_type = "RGBA"
+            mix.blend_type = "MULTIPLY"
+            mix.inputs["Factor"].default_value = 1.0
+            mix.inputs[7].default_value = (tint[0], tint[1], tint[2], 1.0)
+            mix.location = (-200, y)
+            nt.links.new(out, mix.inputs[6])
+            out = mix.outputs[2]
+        nt.links.new(out, bsdf.inputs[socket])
     if emissive is None:
         bsdf.inputs["Emission Color"].default_value = (0.0, 0.0, 0.0, 1.0)
     bsdf.inputs["Roughness"].default_value = roughness
@@ -624,7 +637,7 @@ def materials(prefix, sheets, use_files=False, tex_dir=None, names=None):
         sh = sheets[cls]
         alb, emi = images(prefix, sh, use_files, tex_dir)
         out[cls] = material(names.get(cls, "%s_%s" % (prefix, cls)), alb, emi,
-                            sh.roughness, sh.metallic, sh.cull)
+                            sh.roughness, sh.metallic, sh.cull, sh.tint)
     return out
 
 
