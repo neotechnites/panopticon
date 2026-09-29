@@ -53,7 +53,7 @@ COL_UP_W  = 0.95        # upright box width, from the outer edge in
 COL_UP_H  = 2.8
 SEED = 7130941
 TEX_ALBEDO   = "portal_albedo"
-TEX_EMISSIVE = "portal_emissive"
+TEX_EMISSIVE = "hell_rock_emissive"   # the tower's: the rock's specks glow as its do
 UV_SCALE = 0.30
 FACING_YAW = 0.0
 
@@ -482,12 +482,12 @@ def _collider():
 def build():
     albedo, emissive = build_texture()
     mdl.save_texture(albedo)
-    mdl.save_texture(emissive)
     rock = _portal(_Rng(SEED))
     ob = rock.object(OBJECT_NAME)
     unwrap(ob, rock.zones, count=rock.uv_faces,
            planar={ZONE_PORTAL: (0, 2, -IN_HALF_W, 0.0, IN_HALF_W, IN_SPRING + IN_RISE)})
     mdl.finish(ob, rock_material("HellRock", albedo, emissive), strip_uvs=False)
+    mdl.split_zone(ob, rock_material("PortalGlow", albedo, albedo), ZONE_PORTAL)   # it glows its own albedo
     coll_ob = _collider().object(COLLIDER_NAME)   # Godot: StaticBody3D + ConcavePolygonShape3D
     coll_ob.hide_render = True
     print("MDL STATS visual_tris=%d collision_tris=%d width=%.2f height=%.2f depth=%.2f"

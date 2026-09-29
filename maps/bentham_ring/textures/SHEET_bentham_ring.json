@@ -1,18 +1,18 @@
 {
   "canvas": [
-    1828,
+    1783,
     530
   ],
   "textures": [
     {
-      "file": "block_rock_albedo.png",
+      "file": "crack_glow_albedo.png",
       "kind": "albedo",
       "mode": "RGB",
       "rect": [
         0,
         7,
-        128,
-        128
+        64,
+        32
       ]
     },
     {
@@ -20,7 +20,18 @@
       "kind": "albedo",
       "mode": "RGB",
       "rect": [
-        132,
+        87,
+        7,
+        128,
+        128
+      ]
+    },
+    {
+      "file": "hell_rock_albedo.png",
+      "kind": "albedo",
+      "mode": "RGB",
+      "rect": [
+        219,
         7,
         128,
         128
@@ -31,7 +42,7 @@
       "kind": "albedo",
       "mode": "RGBA",
       "rect": [
-        264,
+        351,
         7,
         256,
         256
@@ -42,18 +53,7 @@
       "kind": "albedo",
       "mode": "RGB",
       "rect": [
-        524,
-        7,
-        128,
-        128
-      ]
-    },
-    {
-      "file": "map_base_atlas_albedo.png",
-      "kind": "albedo",
-      "mode": "RGB",
-      "rect": [
-        656,
+        611,
         7,
         128,
         128
@@ -64,7 +64,7 @@
       "kind": "albedo",
       "mode": "RGB",
       "rect": [
-        788,
+        743,
         7,
         256,
         256
@@ -75,7 +75,7 @@
       "kind": "albedo",
       "mode": "RGB",
       "rect": [
-        1048,
+        1003,
         7,
         256,
         256
@@ -86,7 +86,7 @@
       "kind": "albedo",
       "mode": "RGB",
       "rect": [
-        1308,
+        1263,
         7,
         256,
         256
@@ -97,7 +97,7 @@
       "kind": "albedo",
       "mode": "RGB",
       "rect": [
-        1568,
+        1523,
         7,
         128,
         128
@@ -108,40 +108,29 @@
       "kind": "albedo",
       "mode": "RGB",
       "rect": [
-        1700,
+        1655,
         7,
         128,
         128
       ]
     },
     {
-      "file": "demon_pad_emissive.png",
+      "file": "crack_glow_emissive.png",
       "kind": "emissive",
       "mode": "RGB",
       "rect": [
         0,
         274,
-        128,
-        128
+        64,
+        32
       ]
     },
     {
-      "file": "lava_tile_emissive.png",
+      "file": "hell_rock_emissive.png",
       "kind": "emissive",
       "mode": "RGB",
       "rect": [
-        132,
-        274,
-        128,
-        128
-      ]
-    },
-    {
-      "file": "map_base_atlas_emissive.png",
-      "kind": "emissive",
-      "mode": "RGB",
-      "rect": [
-        264,
+        95,
         274,
         128,
         128
@@ -152,7 +141,7 @@
       "kind": "emissive",
       "mode": "RGB",
       "rect": [
-        396,
+        227,
         274,
         256,
         256
@@ -163,7 +152,7 @@
       "kind": "emissive",
       "mode": "RGB",
       "rect": [
-        656,
+        487,
         274,
         256,
         256
@@ -174,7 +163,7 @@
       "kind": "emissive",
       "mode": "RGB",
       "rect": [
-        916,
+        747,
         274,
         256,
         256
@@ -185,32 +174,10 @@
       "kind": "emissive",
       "mode": "RGB",
       "rect": [
-        1176,
+        1007,
         274,
         256,
         256
-      ]
-    },
-    {
-      "file": "portal_emissive.png",
-      "kind": "emissive",
-      "mode": "RGB",
-      "rect": [
-        1436,
-        274,
-        128,
-        128
-      ]
-    },
-    {
-      "file": "torch_emissive.png",
-      "kind": "emissive",
-      "mode": "RGB",
-      "rect": [
-        1568,
-        274,
-        128,
-        128
       ]
     }
   ]

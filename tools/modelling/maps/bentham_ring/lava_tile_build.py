@@ -38,7 +38,7 @@ SEED = 7720133
 
 TEX_SIZE = 128
 TEX_ALBEDO = "lava_tile_albedo"
-TEX_EMISSIVE = "lava_tile_emissive"
+TEX_EMISSIVE = "hell_rock_emissive"   # the tower's: the rock's specks glow as its do
 TEX_SEED = 6661031
 ROCK_ROUGHNESS = 0.95
 ROCK_METALLIC = 0.0
@@ -399,11 +399,11 @@ def build():
 
     albedo, emissive = build_texture()
     mdl.save_texture(albedo)
-    mdl.save_texture(emissive)
 
     ob = slab.object(OBJECT_NAME)
     unwrap(ob, slab.zones)
-    mdl.finish(ob, rock_material("LavaTile", albedo, emissive), strip_uvs=False)
+    mdl.finish(ob, rock_material("HellRock", albedo, emissive), strip_uvs=False)
+    mdl.split_zone(ob, rock_material("LavaTile", albedo, albedo), ZONE_LAVA)   # it glows its own albedo
     print("MDL STATS visual_tris=%d collision_tris=0" % len(ob.data.polygons))
     xs = [v[0] for v in slab.verts]
     zs = [v[2] for v in slab.verts]

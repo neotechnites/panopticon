@@ -69,9 +69,9 @@ mdl.DEFAULTS["world_strength"] = 0.90
 # DERIVED from the albedo: the bright orange glows, the dark crust stays
 # dark). The rock is one tiling sheet per class through lib/texel.py --
 # map_base_<class>_albedo.png (+ _emissive.png) for rock, shade, carve, ember
-# -- world-projected at TEXEL_MPT m per texel, no atlas windows; the atlas
-# stays only for the S3 cracks' glow cell. Otherwise the painted sheets below
-# are used.
+# -- world-projected at TEXEL_MPT m per texel, no atlas windows. The S3
+# cracks wear the atlas's glow cell, cut out as crack_glow_albedo.png (+
+# _emissive.png). Otherwise the painted sheets below are used.
 
 NAME = "map_base"
 OBJECT_NAME = "MapBaseRock"
@@ -128,6 +128,7 @@ ZONE_EMBER  = (0.0, 0.0, 0.5, 0.5)
 ZONE_GLOW   = (0.5, 0.0, 1.0, 0.25)   # cell interiors: painted over the unused
                                       # lower half of CARVE, after the four
                                       # tower zones, so those stay byte-identical
+CRACK_STEM  = "crack_glow"            # ZONE_GLOW cut out: crack_glow_albedo/_emissive.png
 
 # The deck is the one surface the red sun hits square on, so the wall tone
 # read washed out on it. It takes SHADE (the darker hell-rock) at its own,
@@ -930,6 +931,34 @@ def _lava_sheet():
     if alb is None:
         return _lava_texture()
     return alb, (_image_file("lava_emissive.png") or _lava_emissive_from(alb))
+
+
+def _crack_cell(atlas, kind):
+    """The cracks' glow cell (ZONE_GLOW) of one atlas image: its file, else cut from the paint."""
+    name = "%s_%s" % (CRACK_STEM, kind)
+    img = _image_file(name + ".png") if USE_TEXTURE_FILES else None
+    if img is not None:
+        return img
+    x0, y0, x1, y1 = [int(round(k * TEX_SIZE)) for k in ZONE_GLOW]
+    src = [0.0] * (TEX_SIZE * TEX_SIZE * 4)
+    atlas.pixels.foreach_get(src)
+    out = []
+    for y in range(y0, y1):
+        out.extend(src[(y * TEX_SIZE + x0) * 4:(y * TEX_SIZE + x1) * 4])
+    img = bpy.data.images.new(name, x1 - x0, y1 - y0, alpha=False)
+    img.colorspace_settings.name = "sRGB"
+    img.pixels.foreach_set(out)
+    img.update()
+    return img
+
+
+def _crack_uv(uv):
+    """An atlas UV inside ZONE_GLOW, moved into the crack cell's own 0..1."""
+    u0, v0, u1, v1 = ZONE_GLOW
+    u, v = (uv[0] - u0) / (u1 - u0), (uv[1] - v0) / (v1 - v0)
+    if not (-1e-6 <= u <= 1.0 + 1e-6 and -1e-6 <= v <= 1.0 + 1e-6):
+        raise RuntimeError("crack face UV %r is outside the glow cell" % (tuple(uv),))
+    return (u, v)
 
 
 def river_material(name, albedo, emissive):
@@ -8208,8 +8237,6 @@ def build():
     mdl.save_texture(lava_albedo)
     mdl.save_texture(lava_emissive)
     albedo, emissive = build_texture()             # the atlas: the S3 cracks' cell
-    mdl.save_texture(albedo)
-    mdl.save_texture(emissive)
 
     ob = rock.object(OBJECT_NAME)
     # The atlas is painted for the S3 cracks alone: main's unwrap runs into a
@@ -8224,7 +8251,7 @@ def build():
 
     def _from_scratch(me_, uvl, poly):
         for li in poly.loop_indices:
-            uvl.data[li].uv = scratch.data[li].uv
+            uvl.data[li].uv = _crack_uv(scratch.data[li].uv)
 
     custom = {"river": lambda me_, uvl, poly: _flow_uv(me_, uvl, poly, False),
               "fall": lambda me_, uvl, poly: _flow_uv(me_, uvl, poly, True),
@@ -8241,10 +8268,11 @@ def build():
                                "ember": "HellEmber"})
     for m in mats.values():
         m.diffuse_color = (0.13, 0.04, 0.04, 1.0)
-    mats["glow"] = rock_material("HellGlow", albedo, emissive)
+    crack, crack_glow = _crack_cell(albedo, "albedo"), _crack_cell(emissive, "emissive")
+    mats["glow"] = rock_material("HellGlow", crack, crack_glow)
     mats["river"] = river_material("LavaRiver", lava_albedo, lava_emissive)
     mats["lava"] = rock_material("LavaSea", lava_albedo, lava_emissive)
-    mats["crack"] = rock_material("LavaCrack", albedo, emissive)   # the atlas's glow cell, as before
+    mats["crack"] = rock_material("LavaCrack", crack, crack_glow)   # the atlas's glow cell, as before
     slots = ["river" if c in ("river", "fall", "river_t") else c for c in classes]   # one LavaRiver slot
     order = tx.finish(ob, slots, mats)
     _wave_uv(me)
