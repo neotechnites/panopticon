@@ -75,21 +75,11 @@ extends Node
 ## aiming brings it in front of the face, and the symmetry is most of what
 ## reads as "aimed" at a glance.
 ##
-## [b]y = -0.083[/b] -- THE SCOPE ON THE EYE LINE: the model's origin is on the bore line, so this is how
-## far the barrel sits below the eye. It is the number that decides how much of
-## the screen the rifle eats. Raise it (toward zero) and the model climbs over
-## the crosshair; drop it further and the rifle stops looking like it came up
-## at all. At -0.175 the top of the scope clears the point of aim while still
-## filling the bottom of the frame, and the base of a man at 20 m is the
-## closest thing it hides.
+## [b]y = -0.03375[/b]: the scope axis is 0.045 model metres (x 0.75 scale) above the bore,
+## a real scope height; rifle_build.py centres the ocular on it.
 ##
-## [b]z = -0.24[/b]: 24 cm in front of the eye, well clear of the 0.05 m near
-## plane even with the stock's recoil pad (local +Z 0.34) at the back of the
-## model and the kick shoving it a further few centimetres toward the camera.
-## Pulling it closer drops the model lower in frame rather than making it
-## bigger, because the whole rifle is behind the eye's own plane at that point;
-## pushing it away raises it toward the crosshair.
-@export var aim_position: Vector3 = Vector3(0.0, -0.083, -0.20)
+## [b]z = -0.14625[/b]: the eye sits 0.195 model metres behind the origin, just ahead of the comb.
+@export var aim_position: Vector3 = Vector3(0.0, -0.03375, -0.14625)
 
 ## Euler degrees at full aim, Godot's YXZ order -- the same convention the hip
 ## pose uses. Zero on purpose, and it is load-bearing: see the class notes.
