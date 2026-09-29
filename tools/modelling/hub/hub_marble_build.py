@@ -425,6 +425,10 @@ class MarbleTheme(hb._Theme):
         z = zone[1]
         mb._group_uv(me, uvl, polys, mb.ZONES[z], r, mb.FIT.get(z, ""), z in mb.ANCHORED)
 
+    def finish(self, ob, zones, index):
+        """The wedge's bricks onto marble_stone, its dark onto marble_dark: mb.prop_finish."""
+        mb.prop_finish(ob, [z[1] if z[0] == self.key else None for z in zones], "Marble", atlas_index=index)
+
 
 THEME = MarbleTheme()
 

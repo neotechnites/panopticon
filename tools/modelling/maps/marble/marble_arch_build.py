@@ -605,12 +605,9 @@ def build():
     coll = mb._Mesh()
     coll_quads = collider(coll)
     a = mb.audit(stone, "arch")
-    albedo, emissive = mb._sheet("marble", mb.build_texture)
-    mdl.save_texture(albedo)
-    mdl.save_texture(emissive)
     ob = stone.object(OBJECT_NAME)
     mb.unwrap(ob, stone.zones, stone.groups, seed=5)
-    mdl.finish(ob, mb.stone_material("Marble", albedo, emissive), strip_uvs=False)
+    mb.prop_finish(ob, stone.zones, "Marble")
     coll_ob = coll.object(COLLIDER_NAME)
     coll_ob.hide_render = True
     cl = clearances()

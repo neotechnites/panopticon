@@ -209,55 +209,6 @@ def _dome_vs(rad, rise, cls):
     return [(DOME_Z0 - V0 + s) / SHEET_M for s in arc]
 
 
-# ---- the painters: the palette docs/maps/marble.md records, unchanged -------
-
-def _sheet_stone(c, r, s):
-    """The shaft: tower ashlar #8b8160, joints #625b44."""
-    mb.facet_ashlar(c, r, [(139, 129, 96), (135, 125, 92), (143, 133, 100), (137, 127, 94)], (98, 91, 68))
-
-
-def _sheet_coffer(c, r, s):
-    """One sunk coffer, a whole cell of the sheet: #9a9676 stepping down to
-    #565542 with a boss, in a grey-olive rib the next coffer shares."""
-    W, H = c.w, c.h
-    steps = [(154, 150, 118), (130, 127, 100), (108, 106, 84), (86, 85, 66), (96, 95, 76)]
-    tx.fill(c, r, c.box, [(107, 107, 85), (103, 103, 81)])
-    mx, my = max(2, W // 10), max(2, H // 10)
-    for k, col in enumerate(steps):
-        dx, dy = mx + (W // 2 - mx) * k // 6, my + (H // 2 - my) * k // 6
-        c.rect(dx, dy, W - dx, H - dy, col)
-    bw, bh = max(2, W // 14), max(2, H // 14)
-    c.rect(W // 2 - bw, H // 2 - bh, W // 2 + bw, H // 2 + bh, (146, 142, 112))
-    c.rect(W // 2 - bw // 2, H // 2 - bh // 2, W // 2 + bw // 2, H // 2 + bh // 2, (170, 166, 131))
-    tx.blades(c, r, c.box, 30, [(140, 136, 108), (96, 95, 76)])
-
-
-def _sheet_medallion(c, r, s):
-    """The dais' centre, drawn ONCE in a 1 m box the disc fills: a rosette of
-    sixteen spokes. Its face is a ring of vertices ABOUT the axis, where a
-    polar projection has no frame and would smear one row of texels across it."""
-    W, H = c.w, c.h
-    cx, cy = W / 2.0, H / 2.0
-    pale, olive, mid, dark = (154, 150, 118), (107, 107, 85), (146, 142, 112), (86, 85, 66)
-    for y in range(H):
-        for x in range(W):
-            dx, dy = x + 0.5 - cx, y + 0.5 - cy
-            d = math.hypot(dx, dy) / (W * 0.5)
-            spoke = int((math.atan2(dy, dx) + math.pi) / (math.pi / 8)) % 2
-            if d > 0.94:
-                col = olive
-            elif d > 0.82:
-                col = pale
-            elif d > 0.30:
-                col = olive if spoke else mid
-            elif d > 0.17:
-                col = dark
-            else:
-                col = pale
-            c.put(x, y, col)
-    tx.blades(c, r, c.box, 40, [(140, 136, 108)])
-
-
 def _shared(name, px=SHAFT_PX, ref_r=SHAFT_R, u0=U0_SHAFT, tint=None):
     return mb.ashlar_sheet(name, px * MPT, tint, ref_r=ref_r, phase=(u0, V0))
 
@@ -267,23 +218,16 @@ SHEETS = {
     "plinth": _shared("plinth", tint=mb.TINT_PLINTH),                          # foot, steps, room floor band, dais
     "shade": mb.shade_sheet("shade", ref_r=SHAFT_R, phase=(U0_SHAFT, V0)),     # reveals, soffits, undersides
     "marble2": _shared("marble2", BAL_PX, BALCONY_R, U0_BAL, mb.TINT_MARBLE2),  # the ledge
-    "band": tx.Sheet("band", mb._sheet_band, mode="fit_v", width=256, size=64,
-                     roughness=mb.ROUGHNESS, seed=10, stem="marble_band"),                          # ring beam, slab edge
-    "column": tx.Sheet("column", mb._sheet_column, mode="fit_u", width=64, size=256,
-                       roughness=mb.ROUGHNESS, seed=9, stem="marble_column"),
-    "iron": tx.Sheet("iron", mb._sheet_iron, mode="fit_u", width=64, size=256,
-                     roughness=mb.ROUGHNESS, seed=11, stem="marble_iron"),
-    "floor": tx.Sheet("floor", mb._sheet_floor, mode="custom", size=64, mpt=2.7 / 64.0,
-                      roughness=mb.ROUGHNESS, seed=7, stem="marble_floor"),                         # one paving cell a ring band, UVs per vertex
-    "medallion": tx.Sheet("medallion", _sheet_medallion, mode="box", size=64,
-                          mpt=2.0 * PAVING_RS[0] / 64.0,
-                          phase=(-PAVING_RS[0], -PAVING_RS[0]),
-                          roughness=mb.ROUGHNESS, seed=9),
-    "coffer": tx.Sheet("coffer", _sheet_coffer, mpt=MPT, size=COFFER_PX, width=SHAFT_PX,
-                       mode="custom", roughness=mb.ROUGHNESS, seed=10),        # the dome inside
-    "dome": tx.Sheet("dome", _sheet_stone, mpt=MPT, size=SHEET_H, width=SHAFT_PX, mode="custom",
-                     roughness=mb.ROUGHNESS, seed=1, stem="marble_stone", tint=mb.TINT_TOWER),  # ... and outside
+    "band": mb.band_sheet(),                                                   # ring beam, slab edge
+    "column": mb.column_sheet(),
+    "iron": mb.iron_sheet(),
+    "floor": mb.ornament("floor", "custom", 64, 64, mpt=2.7 / 64.0),           # one paving cell a ring band, UVs per vertex
+    "medallion": mb.ornament("medallion", "box", 64, 64, mpt=2.0 * PAVING_RS[0] / 64.0,
+                             phase=(-PAVING_RS[0], -PAVING_RS[0])),
+    "coffer": mb.ornament("coffer", "custom", SHAFT_PX, COFFER_PX, mpt=MPT),  # the dome inside
+    "dome": mb.brick("dome", tint=mb.TINT_TOWER, mode="custom"),              # ... and outside
 }
+assert (SHAFT_PX, COFFER_PX) == (mb.COFFER_W, mb.COFFER_H), "the atlas' coffer is one facet by one band"
 # Two faces wear a class their zone does not name, because their PROJECTION
 # differs, not their stone: the dome's skin (zone "shade") is "dome", and the
 # dais' centre disc (zone "shade") is "medallion".

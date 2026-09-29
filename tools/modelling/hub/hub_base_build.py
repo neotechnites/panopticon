@@ -1329,6 +1329,9 @@ def build():
         idx = slot.get(rock.zones[pi][0], 0)
         poly.material_index = idx
         counts[idx] += 1
+    for th in themes:
+        if hasattr(th, "finish"):
+            th.finish(ob, rock.zones, slot[th.key])
 
     coll_ob = coll.object(COLLIDER_NAME)
     coll_ob.hide_render = True

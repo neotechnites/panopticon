@@ -243,9 +243,8 @@ def widest_gap():
 # joint on the gate's centre line (behind the iron), on the mouth's two jambs
 # (+-2.991, 9 mm -- a fifth of a texel -- off the +-3.0 arris) and behind the
 # pilasters (+-5.98), so every one of them falls on an edge or on nothing.
-# marble, marble2 and plinth wear marble_stone spanned across STONE_M, tinted to
-# their palettes; shade wears marble_shade. The iron is the cells' marble_iron:
-# see _iron_uv.
+# marble, marble2, plinth and shade wear marble_stone spanned across STONE_M,
+# tinted to their palettes. The iron is marble_dark's iron column: see _iron_uv.
 
 USE_TEXTURE_FILES = True
 TEX_DIR = mb.TEX_DIR
@@ -280,7 +279,7 @@ def _iron_uv(me, uvl, poly):
         flat = abs(poly.normal[2]) > 0.5
         uvs = [(IRON_BASE[0] + (IRON_BASE[1] - IRON_BASE[0]) * (c[0] - x0) / max(x1 - x0, 1e-9),
                 (c[1] if flat else c[2]) / sheet.metres) for c in cos]
-    for li, uv in zip(loops, uvs):
+    for li, uv in zip(loops, tx.to_region(sheet, uvs)[0]):
         uvl.data[li].uv = uv
 
 
@@ -289,12 +288,9 @@ SHEETS = {
     "marble2": _shared("marble2", tint=mb.TINT_MARBLE2),                       # the spandrel
     "shade": mb.shade_sheet("shade", mode="box", phase=(U0, V0)),              # ledge, reveals, soffits, sill
     "plinth": _shared("plinth", V0_PLINTH, mb.TINT_PLINTH),                    # the socle
-    "band": tx.Sheet("band", mb._sheet_band, mode="fit_v", width=256, size=64,
-                     roughness=mb.ROUGHNESS, seed=10, stem="marble_band"),                          # the cornice's mouldings
-    "column": tx.Sheet("column", mb._sheet_column, mode="fit_u", width=64, size=256,
-                       roughness=mb.ROUGHNESS, seed=9, stem="marble_column"),                        # the fluted pilasters
-    "iron": tx.Sheet("iron", mb._sheet_iron, mode="fit_u", width=64, size=256,
-                     roughness=mb.ROUGHNESS, seed=11, stem="marble_iron"),     # the portcullis
+    "band": mb.band_sheet(),                                                   # the cornice's mouldings
+    "column": mb.column_sheet(),                                               # the fluted pilasters
+    "iron": mb.iron_sheet(),                                                   # the portcullis
 }
 
 
