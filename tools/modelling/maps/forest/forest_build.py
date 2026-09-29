@@ -1555,6 +1555,7 @@ def build_geometry():
 def dress(ob, classes):
     """forest_tiles' tiles and tints on the ground, then the drum's shade over them."""
     order = forest_tiles.dress(ob, classes, "ground", sheets=SHEETS)
+    forest_tiles.soften(ob, classes)
     drum_shade(ob)
     return order
 
