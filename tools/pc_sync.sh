@@ -1,18 +1,25 @@
 #!/usr/bin/env bash
 # Push main to the PC play copy safely: never discards Ryan's uncommitted edits there.
-# If Ryan edited a SHEET_*.png in Aseprite, unpack it back to texture PNGs and
-# commit that first, so it survives the "uncommitted tracked edits" refusal below.
+# Aseprite SHEET_ edits are unpacked on the PC, pulled back, and committed only on the Mac.
 set -e
 cd "$(dirname "$0")/.."
+
+sheetMods=$(ssh panopticon-pc git -C C:/dev/panopticon status --porcelain | grep -E 'textures/SHEET_.*\.png$' | grep -v '^\?\?' || true)
+if [ -n "$sheetMods" ]; then
+  ssh panopticon-pc '& "C:\Users\ddd\tools\python\python.exe" C:\dev\panopticon\tools\textures\sheet.py unpack'
+  pngList=$(ssh panopticon-pc git -C C:/dev/panopticon status --porcelain | grep -E '/textures/.*\.png$' | grep -v '^\?\?' | sed -E 's/^...//')
+  for f in $pngList; do
+    scp -q "panopticon-pc:C:/dev/panopticon/$f" "$f"
+  done
+  if [ -n "$pngList" ]; then
+    git add -- $pngList
+    git -c user.name="Ryan" -c user.email="ryan@olympus.local" commit -q -m "Unpack Aseprite texture-sheet edits"
+  fi
+  ssh panopticon-pc "git -C C:/dev/panopticon checkout -- '*/textures/*.png'"
+fi
+
 git push -q pc main:refs/heads/incoming
 ssh panopticon-pc '
-  $sheetMods = git -C C:/dev/panopticon status --porcelain | Where-Object { $_ -match "textures/SHEET_.*\.png$" -and $_ -notmatch "^\?\?" }
-  if ($sheetMods) {
-    & "C:\Users\ddd\tools\python\python.exe" C:\dev\panopticon\tools\textures\sheet.py unpack
-    if ($LASTEXITCODE -ne 0) { Write-Output "SHEET UNPACK FAILED"; exit 4 }
-    git -C C:/dev/panopticon add -A -- "*/textures/*.png"
-    git -C C:/dev/panopticon commit -q -m "Unpack Aseprite texture-sheet edits"
-  }
   $m = git -C C:/dev/panopticon status --porcelain | Where-Object { $_ -notmatch "^\?\?" }
   if ($m) { Write-Output "REFUSED: PC has uncommitted tracked edits:"; $m; exit 2 }
   $incomingFiles = git -C C:/dev/panopticon ls-tree -r --name-only incoming
