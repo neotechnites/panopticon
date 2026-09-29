@@ -273,6 +273,32 @@ def courses(c, r, box, pitch, joint, shades, stagger=True, vpitch=None):
         row += 1
 
 
+def bricks(c, r, shades, joint, courses, piers, blotch=None, count=20, size=(6, 14)):
+    """Coursed ashlar: a joint every course, verticals at `piers` and mid-sheet on even
+    courses, at the quarters between them on odd ones; `blotch` squares over it."""
+    fill(c, r, c.box, shades)
+    rows = [int(round(k * c.h / float(courses))) for k in range(courses)]
+    mid = c.w // 2
+    quarter = [(piers[0] + mid) // 2, (mid + piers[1]) // 2]
+    for k, y0 in enumerate(rows):
+        y1 = rows[k + 1] if k + 1 < len(rows) else c.h
+        c.rect(0, y0, c.w, y0 + 1, joint)
+        for x in list(piers) + ([mid] if k % 2 == 0 else quarter):
+            c.rect(x, y0, x + 1, y1, joint)
+    if blotch:
+        shatter(c, r, c.box, blotch, count, size[0], size[1])
+
+
+def paste(dst, src, x0, y0):
+    """Copy Canvas `src` into `dst` with its bottom-left texel at (x0, y0)."""
+    for y in range(src.h):
+        for x in range(src.w):
+            s = (y * src.w + x) * 4
+            d = (((y0 + y) % dst.h) * dst.w + (x0 + x) % dst.w) * 4
+            dst.alb[d:d + 4] = src.alb[s:s + 4]
+            dst.emi[d:d + 4] = src.emi[s:s + 4]
+
+
 def save_png(c, path, tile=1, emissive=False):
     """Write a Canvas as an sRGB PNG, no Blender: the painter's fast loop.
     tile=2 writes it repeated 2 x 2 so a seam would show."""
@@ -328,13 +354,21 @@ class Sheet(object):
     mpt_u      metres per texel across, when one drawing spans another model's repeat
     tint       linear RGB multiplied over the albedo (glTF baseColorFactor): one drawing, another palette
     glow       False: never bind an emissive image, though the stem has one (another class's glow)
+    region     (u0, v0, u1, v1) of a shared image this class lives in; an axis narrower than the
+               image is wrapped per face (see to_region), a full one still repeats
+    canvas     (w, h) of that whole image, which `paint` draws entire
+    local      a face that straddles a repeat is moved whole into the region (no world phase)
     """
 
     def __init__(self, name, paint=None, mpt=MPT, size=TILE, ref_r=None, phase=(0.0, 0.0),
                  mode="cyl", roughness=ROUGHNESS, metallic=METALLIC, cull=True, seed=0,
-                 emissive=False, width=None, stem=None, mpt_u=None, tint=None, glow=True):
+                 emissive=False, width=None, stem=None, mpt_u=None, tint=None, glow=True,
+                 region=None, canvas=None, local=False):
         self.name = name
         self.glow = glow
+        self.region = region
+        self.canvas = canvas
+        self.local = local
         self.tint = tint
         self.stem = stem
         self.paint = paint
@@ -500,6 +534,30 @@ def window_uv(cos, normal, sheet, r):
     return out
 
 
+def to_region(sheet, uvs):
+    """UVs in repeats -> the sheet's region of its shared image. On a narrow axis the face
+    moves by whole repeats into [0, 1] (or by its own minimum when `local`); returns the
+    UVs and whether the face still overflowed."""
+    if sheet.region is None:
+        return uvs, False
+    out = [list(uv) for uv in uvs]
+    over = False
+    for ax in (0, 1):
+        lo, hi = sheet.region[ax], sheet.region[ax + 2]
+        if hi - lo >= 1.0 - EPS:
+            continue
+        mn = min(uv[ax] for uv in uvs)
+        mx = max(uv[ax] for uv in uvs)
+        k = math.floor(mn + 1e-6)
+        if mx - k > 1.0 + 1e-6 and sheet.local:
+            k = mn
+        over = over or mx - k > 1.0 + 1e-4
+        e = 0.05 / float(sheet.canvas[ax])           # a twentieth of a texel inside the edge
+        for uv in out:
+            uv[ax] = min(max(lo + (uv[ax] - k) * (hi - lo), lo + e), hi - e)
+    return [tuple(uv) for uv in out], over
+
+
 # =============================================================================
 # BLENDER SIDE
 # =============================================================================
@@ -516,6 +574,7 @@ def unwrap(ob, classes, sheets, seed=0, face_uv=None, groups=None, custom=None):
     custom = custom or {}
     fitted = {}
     members = {}
+    pending = {}                                    # region classes, placed per face below
     if groups is not None:
         for q, gid in enumerate(groups):
             members.setdefault(gid, []).append(q)
@@ -528,11 +587,8 @@ def unwrap(ob, classes, sheets, seed=0, face_uv=None, groups=None, custom=None):
         loops = list(poly.loop_indices)
         cos = [tuple(me.vertices[me.loops[li].vertex_index].co) for li in loops]
         if sheet.mode == "custom":
-            for li in loops:
-                u, v = face_uv[pi][me.loops[li].vertex_index]
-                uvl.data[li].uv = (u, v)
-            continue
-        if sheet.mode == "cyl":
+            uvs = [face_uv[pi][me.loops[li].vertex_index] for li in loops]
+        elif sheet.mode == "cyl":
             uvs = cyl_uv(cos, tuple(poly.normal), sheet)
         elif sheet.mode == "box":
             uvs = box_uv(cos, tuple(poly.normal), sheet)
@@ -551,8 +607,24 @@ def unwrap(ob, classes, sheets, seed=0, face_uv=None, groups=None, custom=None):
                     uvs = [fitted[gid][me.loops[li].vertex_index] for li in loops]
                 else:
                     uvs = fit_uv(cos, tuple(poly.normal), sheet, sheet.mode)
+        if sheet.region is not None:
+            key = (cls, groups[pi] if groups is not None else pi)
+            pending.setdefault(key, []).append((loops, uvs))
+            continue
         for li, uv in zip(loops, uvs):
             uvl.data[li].uv = uv
+    over = 0
+    for key in sorted(pending, key=str):
+        faces = pending[key]
+        placed, bad = to_region(sheets[key[0]], [uv for _l, uvs in faces for uv in uvs])
+        over += bad
+        k = 0
+        for loops, uvs in faces:
+            for li in loops:
+                uvl.data[li].uv = placed[k]
+                k += 1
+    if over:
+        print("TEXEL WARNING %d faces overflow their region" % over)
     return uvl
 
 
@@ -592,7 +664,7 @@ def images(prefix, sheet, use_files=False, tex_dir=None):
             if alb is not None:
                 pair = (alb, _image_file(os.path.join(tex_dir, stem + "_emissive.png")))
         if pair is None:
-            c = Canvas(sheet.width, sheet.size)
+            c = Canvas(*(sheet.canvas or (sheet.width, sheet.size)))
             r = Rng(0x7E11 + sheet.seed)
             if sheet.paint is not None:
                 sheet.paint(c, r, sheet)
