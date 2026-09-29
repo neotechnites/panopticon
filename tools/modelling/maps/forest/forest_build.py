@@ -1343,9 +1343,10 @@ SHEETS = {
     "fern": _sheet("fern", _sheet_fern, seed=8),
     "bark": _sheet("bark", _bark(ft.BARK_BASE), seed=9),
     "earth": _sheet("earth", _sheet_earth, seed=10),
-    "cell": _sheet("cell", _sheet_cell, seed=11),
+    "cell": _sheet("cell", _sheet_cell, seed=11, stem="forest_dark"),
     "root": _sheet("root", _bark(ft.ROOT_BASE), seed=12),
-    "lamp": _sheet("lamp", _sheet_lamp, seed=13, emissive=True),
+    # cell and lamp are one near-black stone (forest_dark_albedo); only the lamp glows
+    "lamp": _sheet("lamp", _sheet_lamp, seed=13, emissive=True, stem="forest_dark", glow_stem="forest_lamp"),
 }
 
 

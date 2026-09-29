@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cqxc2e2mqohgo"
-path="res://.godot/imported/speed_orb_emissive.png-b19ae59c22c8ce8f7f6c71460b891974.ctex"
+uid="uid://mrq58kmerwte"
+path="res://.godot/imported/forest_dark_albedo.png-973642fa9cf4016fcfe89d7450f27432.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://props/textures/speed_orb_emissive.png"
-dest_files=["res://.godot/imported/speed_orb_emissive.png-b19ae59c22c8ce8f7f6c71460b891974.ctex"]
+source_file="res://maps/forest/textures/forest_dark_albedo.png"
+dest_files=["res://.godot/imported/forest_dark_albedo.png-973642fa9cf4016fcfe89d7450f27432.ctex"]
 
 [params]
 

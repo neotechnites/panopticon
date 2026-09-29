@@ -1,7 +1,7 @@
 {
   "canvas": [
-    87,
-    146
+    79,
+    71
   ],
   "textures": [
     {
@@ -11,17 +11,6 @@
       "rect": [
         0,
         7,
-        64,
-        64
-      ]
-    },
-    {
-      "file": "speed_orb_emissive.png",
-      "kind": "emissive",
-      "mode": "RGB",
-      "rect": [
-        0,
-        82,
         64,
         64
       ]
