@@ -26,9 +26,10 @@ the way a broadleaf is:
             round the trunk's head, one round every limb's end, two loose ones
             hung between; every one has its rim ON the roof (read off the
             mesh, buried LID_BURY) and hangs a different depth, so the roof is
-            visibly made of crowns, the underside is ragged and deep, and no
-            gap opens between crown and roof anywhere. Flanks are "leaf",
-            undersides "shade".
+            visibly made of crowns, the underside is lobed, and no gap opens
+            between crown and roof anywhere. Ryan: "still sticking out": every
+            cluster is a broad SHALLOW lobe (CLUSTER), all "leaf", its rim over
+            the roof's highest point under it, so no facet faces the sun.
     deck    nothing of a crown passes the pit lip or the wall foot: tips stay
             over the lane, clusters are centred in and clipped to the deck
             annulus (forest_build.INNER_R..OUTER_R), and the roof's own dips
@@ -36,8 +37,9 @@ the way a broadleaf is:
     fringe  Ryan: "a huge gap on the wall side of the flat roof, and on the ring
             side there's still a very clear corner ... it should look like one
             surface modelled with intention." Past the crowns' clipped rims the
-            roof is not left bare: three ragged rows of smaller clusters (FRINGE)
-            hang from it, thinning as they go (LIFT). Outward they run over the
+            roof is not left bare: ragged rows of smaller clusters (FRINGE) hang
+            from it, three carpeting the lane between the crowns so the sheet
+            never shows flat, thinning as they go (LIFT). Outward they run over the
             roof's cove (forest_ceiling_build.COVE_R) and down it into the
             wall's head, each hung along the cove's normal so the mass curves
             over and down with it; inward they end ON the lip (Ryan: "the edge
@@ -47,13 +49,14 @@ the way a broadleaf is:
             plane. Past it the roof itself lifts away over the pit
             (forest_ceiling_build.EAVE_R). No straight line, no corner, no flat
             plane beside a mass, nothing low over the lip or the pit.
-    uv      every face is unwrapped flat in its own plane at the atlas's texel
-            density, so the leaf pixels read on the clusters and bark grain
-            runs up the wood.
+    uv      every face is unwrapped flat in its own plane, foliage at LEAF_TPM
+            (leaf clumps at the wall ivy's scale, readable from the lane), bark
+            at the atlas's density so its grain runs up the wood.
     shade   Ryan: "the trees still have ugly sharp edges." Nothing here is
             flat-shaded: the chunk shades smooth (a bough is a rounded limb),
-            and every cluster's normals lean out from its centre (SOFT_OUT) so
-            the leaf mass shades as a soft volume; its mid rings are lobed
+            and every cluster's normals lean out and DOWN from a centre above its
+            rim (SOFT_OUT, SOFT_ABOVE) so the leaf mass shades as a soft volume
+            the sun never catches; its mid rings are lobed
             (LOBE_BULGE, LOBE_SAG) so the silhouette is ragged from the shape.
 
 Collider: ForestCanopyCollision-colonly, every tree's own prop collider
@@ -110,7 +113,7 @@ LETTER = {"tree_a": "a", "tree_b": "b", "tree_c": "c"}
 
 DECK_R = (fb.INNER_R, fb.OUTER_R)   # the walkable annulus: every crown lives over it
 DECK_EDGE = 0.25            # ... and comes no nearer its lip or its wall foot than this (world m)
-TIP_R = (fb.INNER_R + 1.0, fb.OUTER_R - 1.0)   # where a limb may end: over the lane, clear of its edges
+TIP_R = (fb.INNER_R + 1.8, fb.OUTER_R - 1.8)   # where a limb may end: over the lane, inside its own cluster's clipped rim
 
 FLARE = {"a": (1.22, 1.12, 0.18, 4), "b": (1.15, 1.08, 0.16, 5), "c": (1.22, 1.12, 0.18, 4)}
                             # (ring-1 swell, flare-ring swell, buttress ridge amplitude, ridges)
@@ -151,31 +154,37 @@ TWIG_SIDES = 4
 TWIG_SEGS = 2
 UP_CTRL = 0.45              # a limb bound for the roof bows out this share of its rise before it climbs
 
+# Ryan: "the models in the forest are still sticking out." A cluster is a broad,
+# shallow lobe (depth <= ~0.7 x its radius), never a deep lump: its flanks slope under
+# 52 deg, so the sun (52 deg up, through a roof that casts no shadow) never lights a
+# facet pale, and its rim overlaps its neighbours' -- one lobed underside, no blobs.
 CLUSTER = {                 # WORLD metres: (short radius lo, hi), (depth lo, hi), mid rings
-    "head": ((2.1, 2.6), (2.0, 2.8), 2),
-    "on": ((1.5, 2.2), (1.4, 2.3), 1),
-    "side": ((1.3, 1.9), (1.2, 2.0), 1),
-    "twig": ((1.0, 1.5), (0.8, 1.3), 1),
-    "loose": ((0.9, 1.4), (0.7, 1.1), 1),
+    "head": ((2.3, 2.9), (1.2, 1.7), 2),
+    "on": ((1.7, 2.4), (0.9, 1.3), 1),
+    "side": ((1.4, 2.0), (0.7, 1.1), 1),
+    "twig": ((1.1, 1.6), (0.55, 0.85), 1),
+    "loose": ((1.0, 1.5), (0.5, 0.8), 1),
 }
 LOOSE = 1                   # loose clusters hung between the limbs, per tree
 LOOSE_AT = (1.5, 3.5)       # local m off the trunk's head
 LOBE_N = 7                  # rim vertices
 LOBE_WOB = 0.28             # rim radius wobble
 LOBE_STRETCH = (1.2, 1.6)   # long axis (along the lane) over short (across it)
-LOBE_MID = (0.86, 0.5)      # the mid ring: this share of the rim radius, this share of the depth down
-LOBE_KEEL = (0.32, 4)       # the keel: this share of the rim radius, this many vertices
+LOBE_MID = (0.72, 0.5)      # the mid ring: this share of the rim radius, this share of the depth down
+LOBE_KEEL = (0.36, 4)       # the keel: this share of the rim radius, this many vertices
 LOBE_SKEW = 0.18            # the mid rings and the keel drift sideways this share of the radius
-LOBE_PUSH = 0.35            # a limb's cluster is centred this share of its radius past the tip
+LOBE_PUSH = 0.15            # a limb's cluster is centred this share of its radius past the tip: the tip is well inside its lobe
 # Ryan: "the trees still have ugly sharp edges." A cluster is lobed, not a convex
 # polyhedron: its mid rings swell in and out (a two-lobe swell round the ring plus a
 # per-vertex wobble, off the cluster's own sub-seed so no placement draw moves), and
 # its normals are smooth, leaning out from its centre by SOFT_OUT so it shades as one
 # soft volume the way low-poly crowns do. Boughs and trunks shade smooth along their length.
-LOBE_BULGE = (0.14, 0.20)   # (two-lobe swell, per-vertex wobble) of a mid ring's radius
-LOBE_SAG = 0.22             # a mid-ring vertex's hang wobbles this share of its own depth
+LOBE_BULGE = (0.10, 0.12)   # (two-lobe swell, per-vertex wobble) of a mid ring's radius: never past the rim
+LOBE_SAG = 0.15             # a mid-ring vertex's hang wobbles this share of its own depth
 KEEL_LIFT = 0.12            # a keel vertex rides up to this share of the depth: no flat underside
 SOFT_OUT = 0.65             # a cluster vertex's normal: this much radial from its centre, the rest smooth
+SOFT_ABOVE = 1.0            # that centre sits this many radii ABOVE the rim: every normal leans out and DOWN, none up into the sun
+LEAF_TPM = 4.0              # texels a metre on foliage (bark keeps ft.TPM): leaf clumps 25..75 cm, the wall's ivy scale, readable from the lane
 LID_BURY = 0.10             # world metres a rim sits up inside the roof sheet
 WELL_CLEAR = 0.5            # a fork keeps this far outside a sun well's blob (plus its cluster's radius)
 CROWN_MIN_Z = ftp.CROWN_MIN_Z
@@ -189,10 +198,15 @@ SEED = 4471021
 # over LIP_FADE, so a cluster's lip side sinks into the roof sheet -- one-sided, the way
 # a tree at a cliff edge is. Nothing hangs past r 46.7 below the roof plane; past it the
 # roof itself lifts away (forest_ceiling_build.EAVE_R). The wall side is untouched.
+# The lane rows (mid1..3) carpet the roof between the crowns: shallow lobes every few
+# metres, overlapping, so no flat sheet shows between one crown and the next.
 FRINGE = (
-    ("in",   0, (48.3, 0.6), ((1.1, 1.7), (0.9, 1.5)), (2.4, 4.0), 0.12),   # over the lip band, under the crowns' rims
-    ("out",  2, (57.2, 0.6), ((1.2, 1.8), (1.0, 1.7)), (2.4, 4.0), 0.12),   # where the roof turns down into the cove
-    ("cove", 3, (58.3, 0.4), ((0.8, 1.3), (0.5, 0.9)), (1.8, 3.0), 0.15),   # down the cove, thinning into the wall's head
+    ("in",   0, (48.3, 0.6), ((1.2, 1.8), (0.6, 1.0)), (2.4, 4.0), 0.12),   # over the lip band, under the crowns' rims
+    ("mid1", 4, (50.3, 0.6), ((1.4, 2.1), (0.7, 1.1)), (2.2, 3.6), 0.10),
+    ("mid2", 5, (52.3, 0.6), ((1.4, 2.1), (0.7, 1.1)), (2.2, 3.6), 0.10),
+    ("mid3", 6, (54.3, 0.6), ((1.4, 2.1), (0.7, 1.1)), (2.2, 3.6), 0.10),
+    ("out",  2, (56.6, 0.5), ((1.3, 1.9), (0.6, 1.0)), (2.4, 4.0), 0.12),   # where the roof turns down into the cove
+    ("cove", 3, (58.3, 0.4), ((0.9, 1.4), (0.4, 0.7)), (1.8, 3.0), 0.15),   # down the cove, thinning into the wall's head
 )
 LIP_EDGE = 0.02             # a fringe rim stops this far outside the lip: its chords never cross it
 LIP_FADE = 1.6              # a fringe vertex's hang fades from full to nothing over this much approaching the lip
@@ -203,7 +217,7 @@ LIFT = ((46.7, 0.4), (49.0, 1.0), (56.5, 1.0), (58.0, 0.55), (58.9, 0.2))
 WALL_FLOOR = 36.75          # no fringe keel under this on the cove: the third tier's apex row is 36.6
 FRINGE_SEED = 5570119
 
-MAX_TRIS = 160000           # canopy4 was 138k; the fringe adds ~370 clusters
+MAX_TRIS = 185000           # canopy7 was 147k; the lane rows add ~330 shallow lobes
 
 
 # =============================================================================
@@ -512,13 +526,13 @@ def _lip_taper(rad):
     return u * u * (3.0 - 2.0 * u)
 
 
-def _fringe_rim(place, roof, lx, ly):
+def _fringe_rim(place, roof, lx, ly, near):
     """A fringe rim vertex at local plan (lx, ly): (local z, lx, ly) buried LID_BURY
-    into the roof along its normal (up on the flat, out and up on the cove)."""
+    into the roof (its highest point over ``near``) along its normal (up on the flat, out and up on the cove)."""
     wx, wy = place.xy(lx, ly)
     wr = math.hypot(wx, wy)
     th = math.radians(fc.cove_theta(wr))
-    z = place.lid(roof, lx, ly) + LID_BURY * math.sin(th) / place.k
+    z = max(place.lid(roof, x, y) for (x, y) in near) + LID_BURY * math.sin(th) / place.k
     out = LID_BURY * math.cos(th) / wr
     vx, vy = place.local_xy(wx + out * wx, wy + out * wy)
     return z, vx, vy
@@ -566,23 +580,30 @@ def _cluster(m, rng, place, roof, centre, kind, fringe=None):
     lob = _lobe_rng(place, cx, cy, R_w, depth_w)   # the lobing's own draws: the placement's rng is untouched
     ph = lob.f() * 2.0 * math.pi
     rim, rim_z, offs, taper, angs = [], [], [], [], []
+    plan = []
     for s in range(n):
         a = 2.0 * math.pi * (s + 0.5 * rng.f()) / n
         f = 1.0 + LOBE_WOB * rng.sf()
         ex, ey = math.cos(a) * st, math.sin(a)
         dx, dy = R * f * (ca * ex - sa * ey), R * f * (sa * ex + ca * ey)
-        lx, ly = _clip(place, cx + dx, cy + dy, edge)
+        plan.append(_clip(place, cx + dx, cy + dy, edge))
+        angs.append(a)
+    for s in range(n):
+        lx, ly = plan[s]
+        # the rim sits over the roof's HIGHEST point under its chords and its cap, not just under
+        # its own vertex: a lumped or dipping roof never cuts the cap into a sun-lit sliver below the sheet
+        (px, py), (qx, qy) = plan[s - 1], plan[(s + 1) % n]
+        near = ((lx, ly), (0.5 * (lx + px), 0.5 * (ly + py)), (0.5 * (lx + qx), 0.5 * (ly + qy)), (cx, cy))
         if fringe is None:
-            z = place.lid(roof, lx, ly) + LID_BURY / k
+            z = max(place.lid(roof, x, y) for (x, y) in near) + LID_BURY / k
             rim.append(m.v((lx, ly, z)))
             taper.append(1.0)
         else:
-            z, vx, vy = _fringe_rim(place, roof, lx, ly)
+            z, vx, vy = _fringe_rim(place, roof, lx, ly, near)
             rim.append(m.v((vx, vy, z)))
             taper.append(_lip_taper(math.hypot(*place.xy(lx, ly))))   # the lip side of the hang sinks into the roof
         rim_z.append(z)
         offs.append((lx - cx, ly - cy))
-        angs.append(a)
     if fringe is not None and wr > DECK_R[1]:       # on the cove: the keel stays over the cells' apex row
         floor = (WALL_FLOOR - LANE_Y) / k
         depth = max(0.15 / k, min(depth, (min(rim_z) - floor) / -hang[2]))
@@ -606,18 +627,21 @@ def _cluster(m, rng, place, roof, centre, kind, fringe=None):
     kn = LOBE_KEEL[1]
     kx, ky = cx + skew[0] + hang[0] * dk, cy + skew[1] + hang[1] * dk
     keel = []
+    zk = min(m.verts[v][2] for v in rings[-1])    # under the LOWEST mid vertex: on a sloping roof no keel face tips up into the sun
+    rest = depth * (1.0 - mids / float(mids + 1))
     for s in range(kn):
         a = 2.0 * math.pi * (s + 0.3 * rng.f()) / kn + a0
         f = LOBE_KEEL[0] * R * (1.0 + 0.15 * rng.sf())
         lx, ly = _clip(place, kx + f * math.cos(a) * st, ky + f * math.sin(a), edge)
-        z = min(rim_z) + hang[2] * depth + 0.1 * depth * rng.sf() - hang[2] * KEEL_LIFT * depth * lob.f()
+        z = zk + hang[2] * rest * (1.0 + 0.1 * rng.sf() - KEEL_LIFT * lob.f())
         tk = _lip_taper(math.hypot(*place.xy(lx, ly))) if fringe is not None else 1.0   # each keel vertex by its own radius
         if tk < 1.0:
             zl = place.lid(roof, lx, ly) + LID_BURY / k
             z = zl + (z - zl) * tk
         keel.append(m.v((lx, ly, z)))
-    inner = (cx + skew[0] * 0.6 + hang[0] * dk * 0.45, cy + skew[1] * 0.6 + hang[1] * dk * 0.45,
-             min(rim_z) + hang[2] * dk * 0.45)   # every face points away from here
+    above = SOFT_ABOVE * R
+    inner = (cx + skew[0] * 0.6 - hang[0] * above, cy + skew[1] * 0.6 - hang[1] * above,
+             max(rim_z) - hang[2] * above)     # up inside the roof: every face points away from here, out and DOWN
     if hasattr(m, "clusters"):                  # its normals lean out from here (_soften)
         m.clusters.append((inner, [v for ring in rings for v in ring] + keel))
     for j in range(len(rings) - 1):
@@ -626,8 +650,8 @@ def _cluster(m, rng, place, roof, centre, kind, fringe=None):
             q = (s + 1) % n
             idx = (a_[s], a_[q], b_[q], b_[s])
             m.quad(idx[0], idx[1], idx[2], idx[3], sub(m.centroid(idx), inner), "leaf")
-    _zip(m, rings[-1], keel, inner, "shade", None if hang is DOWN else hang)
-    m.fan(keel, hang, "shade")
+    _zip(m, rings[-1], keel, inner, "leaf", None if hang is DOWN else hang)
+    m.fan(keel, hang, "leaf")
     m.fan(rim, UP, "leaf")
     return 1
 
@@ -720,8 +744,9 @@ def _unwrap(ob, zones):
         u0, v0, u1, v1 = ft.ZONES[zones[pi]]
         span_u = (u1 - u0) - 2.0 * ft.UV_PAD
         span_v = (v1 - v0) - 2.0 * ft.UV_PAD
-        su = ft.TPM / ((u1 - u0) * ft.TEX_SIZE)
-        sv = ft.TPM / ((v1 - v0) * ft.TEX_SIZE)
+        tpm = ft.TPM if zones[pi] == "bark" else LEAF_TPM
+        su = tpm / ((u1 - u0) * ft.TEX_SIZE)
+        sv = tpm / ((v1 - v0) * ft.TEX_SIZE)
         n = poly.normal
         ex = up_v.cross(n) if abs(n.z) < 0.95 else x_v.cross(n)
         ex.normalize()
