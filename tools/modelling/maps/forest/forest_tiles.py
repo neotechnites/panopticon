@@ -29,6 +29,9 @@ import texel as tx  # noqa: E402
 
 TILE = 64                       # texels a side: TILE * tx.MPT = 3.2 m before a tile repeats
 SEED = 0x7E11
+LEAF_GRID = 7                   # leaf blobs a side: 49 on a jittered grid, none piling on a corner
+LEAF_JITTER = 3.0               # texels a blob may leave its grid node
+LEAF_BLOB = (4, 6)              # blob widths: the tile keeps the old mean (44/255 green)
 MOTTLE = (3, 2)                 # grass, path and rock noise cells: 0.15 m grain, no 0.4 m blob to repeat every 3.2 m
 
 # Palettes: the bytes the files hold, sampled from the 256 px sheets they replace.
@@ -131,13 +134,20 @@ def _path(c, r):
 
 
 def _leaf(c, r):
+    """Ryan: "a big fat circle at every corner": 40 blobs thrown at random piled a bright cluster on
+    the tile's corner, which every 3.2 m of wall and roof repeated. Blobs now sit on a jittered grid,
+    one a cell, so the tile is evenly stocked and no spot on it stands out."""
     tx.fill(c, r, c.box, LEAF[:2])
-    for _ in range(40):                          # leaves: a blob and its lit top edge
-        w = r.i(6, 9)
-        h = max(3, w - r.i(0, 2))
-        x, y = r.i(0, c.w - 1), r.i(0, c.h - 1)
-        c.rect(x, y, x + w, y + h, r.pick(LEAF[2:6]))
-        c.rect(x, y + h - 1, x + max(2, w // 2), y + h, LEAF[6])
+    n = LEAF_GRID
+    step = c.w / float(n)
+    for gy in range(n):                          # leaves: a blob and its lit top edge
+        for gx in range(n):
+            w = r.i(LEAF_BLOB[0], LEAF_BLOB[1])
+            h = max(3, w - r.i(0, 2))
+            x = int(gx * step + r.u(-LEAF_JITTER, LEAF_JITTER)) % c.w
+            y = int(gy * step + r.u(-LEAF_JITTER, LEAF_JITTER)) % c.h
+            c.rect(x, y, x + w, y + h, r.pick(LEAF[2:6]))
+            c.rect(x, y + h - 1, x + max(2, w // 2), y + h, LEAF[6])
 
 
 def _bark(c, r):
