@@ -25,7 +25,7 @@ this module grows the roof into g.m, sharing vertices with the wall's top row
                      drum's foot (ROLL), down over the lip, under a belly and
                      back up into its own underside over the lane, so the canopy
                      ends as the rounded end of a hedge, never a cut plane
-    gallery_faces(g) that roof's faces, the eave's, its sun wells and g.rays
+    gallery_faces(g) that roof's faces, the eave's, its five sun wells and g.rays
 
 Heights (world y, the lane is 23.0):
 
@@ -44,8 +44,7 @@ built triangles). Over a crown the quads are "shade", in the open they are
 
 The leaves are unbroken: every quad carries a face, so nothing can read as a
 hole or a bright polygon from below. The shafts come down THROUGH the closed
-leaves from five hand anchors on the sun's side and a generated ring round the
-whole lap (SHAFTS, denser where the roof opens) -- an organic blob of cells round
+leaves from five anchors on the sun's side -- an organic blob of cells round
 each (a wobbly radius round a centre, no two alike), lit as "sun" leaf;
 forest_build._ray_mesh turns g.rays into one soft shaft per anchor. The wall's
 row and the drum's row are never ragged: their vertices are shared with the
@@ -93,35 +92,17 @@ LUMP2_WL = (4.5, 11.0)      # their wavelengths, m
 SHADE_T = 0.45              # tree weight over which a quad is the crown's dark underside
 SUN_GAP = (0.12, 0.25)      # (tree weight under, lump over) which an open quad is lit leaf
 
-SUN = (120.0, 52.0)         # the sun's bearing and elevation: every shaft falls down this line (forest_build.SUN)
-LANE_Z = 23.0               # the grass (forest_build.DECK_Z): where a shaft's foot is aimed
-WALL_R = 57.3               # the leaf wall's foot (forest_build.OUTER_R): where an outward shaft ends
-
-# (bearing, anchor radius, radius in metres, wobble seed, brightness): where a sun well
-# comes down through the leaves, in the flat bands (from the cove's top band in) -- never
-# the cove's steep bands nor the drum's foot band, whose vertices are shared and must not
-# be ragged. A shaft falls toward bearing 300 at 52 deg, so from 15 m up it travels 11.7 m
-# of plan before it reaches the grass: an anchor over the middle of the lane on the sun's
-# side sails past the lip into the ravine. The five hand anchors: three wide of the sun's
-# line (bearings 60, 71 and 168) landing on the lane, two on its line falling into the pit.
-SHAFTS_HAND = [(60.0, 56.7, 2.4, 11, 1.0), (71.0, 56.7, 2.8, 23, 1.0), (104.0, 54.45, 2.0, 37, 1.0),
-               (140.0, 54.45, 2.6, 53, 1.0), (168.0, 56.7, 1.8, 71, 1.0)]
-# Ryan: "add more streams of light". Round the whole lap, every LAP_PITCH of bearing (jittered)
-# a candidate is tried at each LAP_RADII anchor radius; the roof must be open there (tree_weight
-# under LAP_OPEN: a gap in the canopy) and the foot, LAP_FALL of plan down the sun's line, should
-# land on the lane (LAP_FOOT); where no anchor lands on the lane the least wooded one still comes
-# through, into the pit or onto the wall. Width and brightness vary per shaft (LAP_RADIUS,
-# LAP_BRIGHT); anchors keep LAP_GAP apart. Denser where the roof opens, because the trees skip.
-LAP_PITCH = 10.0
-LAP_RADII = (48.8, 50.1, 51.5, 52.8, 54.2, 55.5, 56.7)
-LAP_OPEN = 0.25
-LAP_FOOT = (48.6, 56.4)
-LAP_RADIUS = (1.0, 3.0)
-LAP_BRIGHT = (0.55, 1.35)
-LAP_GAP = 5.0
-LAP_SPARE = 0.75            # share of the off-lane candidates (wall, pit) that still come through
-LAP_SPARE_DROP = 9.0        # a shaft meeting the wall must fall at least this far first: a stub under the cove is no stream
-LAP_PIT_DROP = 10.0         # a pit fall ranks like this much wall drop against the wall candidates
+# (bearing, anchor radius, radius in metres, wobble seed): where a sun well comes down
+# through the leaves. All on the sun's side (SUN bears 120) so they read as one
+# light, and all in the flat bands (from the cove's top band in) -- never the cove's
+# steep bands nor the drum's foot band, whose vertices are shared and must not be ragged.
+# A shaft falls toward bearing 300 at 52 deg, so from 15 m up it travels 11 m of
+# plan before it reaches the grass: an anchor over the middle of the lane sails
+# past the lip into the ravine. Three of the five are therefore anchored wide of
+# the sun's own line (bearings 60, 71 and 168) and high in band 1, where that 11 m
+# still lands on the lane; the other two keep the sun's line and fall into the pit.
+SHAFTS = [(60.0, 56.7, 2.4, 11), (71.0, 56.7, 2.8, 23), (104.0, 54.45, 2.0, 37),
+          (140.0, 54.45, 2.6, 53), (168.0, 56.7, 1.8, 71)]
 SHAFT_BANDS = (COVE_RINGS - 1, len(GALLERY_R) - 2)   # the wells live in the roof's bands, never the cove's steep ones nor the drum's
 SHAFT_RAG = (0.45, 0.35)    # every vertex round a well's mouth is pulled this far in y and in
                             # plan: torn leaf, not a staircase of quads
@@ -129,7 +110,7 @@ SHAFT_LIT = 1               # a well's own cells and the cells this far round th
                             # "sun" leaf: the light falls ON the leaves, never past a cut edge.
                             # One ring here: this grid is fine, a well is only a few cells
 SHAFT_WOB = (0.30, 0.22, 0.14)   # the blob's radius wobbles at 2, 3 and 5 per turn
-SHAFT_HALF = (0.5, 0.5, 2.6)     # the shaft's half width at the top: this x the blob's radius, clamped
+SHAFT_HALF = (0.42, 0.5, 2.2)    # the shaft's half width at the top: this x the blob's radius, clamped
 
 # The roll. Ryan: "a hard, straight, horizontal cut against the open pit." Off the
 # drum's foot (shared, unmoved) the sheet thickens and rolls UNDER: down the outer
@@ -188,50 +169,6 @@ def tree_weight(x, y):
             q = 1.0 - d2 / (reach * reach)
             t += q * q
     return min(1.0, t)
-
-
-def _wall_drop(x, y, fx, fy):
-    """How far under the roof a shaft from (x, y) meets the leaf wall (plan fall fx, fy over the roof's drop)."""
-    d2, k = fx * fx + fy * fy, x * fx + y * fy
-    t = (-k + math.sqrt(max(0.0, k * k - d2 * (x * x + y * y - WALL_R ** 2)))) / d2
-    return (GALLERY_Z - LANE_Z) * min(1.0, max(0.0, t))
-
-
-def _place_shafts():
-    """SHAFTS_HAND plus the lap's generated wells: see LAP_* above."""
-    out = list(SHAFTS_HAND)
-    r = ft._Rng(SEED + 1777)
-    sb, se = SUN
-    fx, fy, _ = pol(sb + 180.0, (GALLERY_Z - LANE_Z) / math.tan(math.radians(se)), 0.0)   # anchor -> foot, plan
-    b = 0.0
-    while b < 360.0:
-        bb = (b + r.sf() * 0.35 * LAP_PITCH) % 360.0
-        b += LAP_PITCH
-        lane, spare = None, None
-        for a_r in LAP_RADII:
-            x, y, _ = pol(bb, a_r, 0.0)
-            w = tree_weight(x, y)
-            if w > LAP_OPEN:
-                continue
-            foot_r = math.hypot(x + fx, y + fy)
-            if LAP_FOOT[0] <= foot_r <= LAP_FOOT[1]:
-                if lane is None or w < lane[1]:
-                    lane = (a_r, w)
-                continue
-            drop = _wall_drop(x, y, fx, fy) if foot_r > LAP_FOOT[1] else LAP_PIT_DROP
-            if drop >= LAP_SPARE_DROP and (spare is None or drop > spare[1]):
-                spare = (a_r, drop)
-        pick = lane or (spare if r.f() < LAP_SPARE else None)
-        if pick is None:
-            continue
-        x, y, _ = pol(bb, pick[0], 0.0)
-        if any(math.hypot(x - q[0], y - q[1]) < LAP_GAP for q in (pol(sh[0], sh[1], 0.0) for sh in out)):
-            continue
-        out.append((bb, pick[0], r.u(*LAP_RADIUS), 100 + len(out), r.u(*LAP_BRIGHT)))
-    return out
-
-
-SHAFTS = _place_shafts()
 
 
 def cove_theta(rad):
@@ -367,7 +304,7 @@ def _shaft_cells(g):
     out = []
     lo, hi = SHAFT_BANDS
     nc = len(g.gal[lo])
-    for (b, anchor_r, radius, seed, bright) in SHAFTS:
+    for (b, anchor_r, radius, seed) in SHAFTS:
         r = ft._Rng(SEED + seed)
         ph = (r.f() * TWO_PI, r.f() * TWO_PI, r.f() * TWO_PI)
         c = pol(b, anchor_r, 0.0)
@@ -388,7 +325,7 @@ def _shaft_cells(g):
             cells = [(i, k)]
             pts = [g.m.centroid(gal_quad_ids(g, k, i))]
         cells, pts = _one_blob(cells, pts, nc)        # no stray speck off to the side
-        out.append({"b": b, "radius": radius, "bright": bright, "cells": cells, "pts": pts,
+        out.append({"b": b, "radius": radius, "cells": cells, "pts": pts,
                     "centre": tuple(sum(p[j] for p in pts) / float(len(pts)) for j in range(3))})
     return out
 
@@ -441,7 +378,7 @@ def _rag_rims(g, cells):
 
 
 def gallery_faces(g):
-    """The roof's faces, facing DOWN, and its sun wells."""
+    """The roof's faces, facing DOWN, and its five sun wells."""
     m = g.m
     nc = _nc(g)
     first = len(m.faces)        # the leaf mass shades smooth (forest_build.build): its faces start here
@@ -476,7 +413,7 @@ def gallery_faces(g):
     m.roof_faces = set(range(first, len(m.faces)))
     for sh in g.shafts:
         half = min(SHAFT_HALF[2], max(SHAFT_HALF[1], SHAFT_HALF[0] * sh["radius"]))
-        g.rays.append((sh["pts"], half, sh["bright"]))
+        g.rays.append((sh["pts"], half))
     roll = [math.hypot(m.verts[v][0], m.verts[v][1]) for row in g.eave for v in row]
     print("MDL STATS roof gallery_y=%.1f r=%.1f..%.1f rings=%d roll_r=%.2f..%.2f roll_depth=%.2f shafts=%d well_cells=%d"
           % (GALLERY_Z, GALLERY_R[-1], GALLERY_R[0], len(g.gal), min(roll), max(roll),

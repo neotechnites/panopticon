@@ -92,14 +92,6 @@ OLD = {
              "moss": (0.00607, 0.01242, 0.00285), "lichen": (0.02972, 0.03328, 0.01902)},
 }
 
-# Ryan: "in the shade it looks like a solid colour, and in light you can see every detail of the
-# texture": shade sat ~15x under sun and the 64 px leaf crushed flat. Leaf and shade now step down
-# from SUN by these per channel (red fastest, blue slowest: darker is cooler); sun/shade is 2.8x.
-LEAF_STEP = {"leaf": (1.9, 1.7, 1.35), "shade": (3.3, 2.8, 1.9)}
-for _fam in ("ground", "atlas"):
-    for _z, _d in LEAF_STEP.items():
-        OLD[_fam][_z] = tuple(OLD[_fam]["sun"][k] / _d[k] for k in range(3))
-
 
 # =============================================================================
 # PAINT -- byte-exact canvases (the files hold these colours, not their linear)

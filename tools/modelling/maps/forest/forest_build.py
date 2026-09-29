@@ -138,8 +138,7 @@ assert fc.GALLERY_R[0] == WALL[-1][0], "the roof's first ring IS the wall's apex
 WALL_BULGE = 0.45           # outward-only on the low rows, both ways above
 WALL_ZJAG = 0.3
 
-SUN = fc.SUN                # the sun's bearing and elevation: rays come from this side
-assert fc.LANE_Z == DECK_Z and fc.WALL_R == OUTER_R, "the roof aims its shafts at the grass and the wall"
+SUN = (120.0, 52.0)         # the sun's bearing and elevation: rays come from this side
 RAY_W = (0.9, 1.15)         # a shaft's half width at the top and at the foot for a 3 m source: 1.8 m,
                             # spreading gently to 2.3 over its fall; the source's own size scales both
 RAY_IN = -0.45              # the shaft starts this far UNDER the closed canopy, so its source is never seen
@@ -518,7 +517,7 @@ class _Ground(object):
         for (cells, rows) in UPPER_TIERS:
             for b in cells:
                 self.hollow["upper"].add((rows[1], (_col_of(b) + 1) % NC))
-        self.rays = []      # (a shaft source's corner points, its half width at the top, its brightness) per shaft: fc fills it
+        self.rays = []      # (a shaft source's four corner points, its half width at the top) per shaft: fc fills it
         self.shafts = []    # fc.gallery_faces's own record of each sun well
 
     def _trunk_push(self, i, j):
@@ -994,7 +993,7 @@ class _Ground(object):
 
     # ---- sun rays ----------------------------------------------------------------
     def ray_lines(self):
-        """(top, foot, S, scale, bright) per shaft, world coordinates: the shaft's axis runs
+        """(top, foot, S, scale) per shaft, world coordinates: the shaft's axis runs
         from ``top`` (RAY_IN up the sun line from the source's centre, so it
         begins under the leaves) down the sun direction to ``foot`` -- the first
         thing it meets, the lane, the lip, the tree, the bank or the pit floor,
@@ -1004,7 +1003,7 @@ class _Ground(object):
         S = (math.cos(math.radians(se)) * math.cos(math.radians(-sb)),
              math.cos(math.radians(se)) * math.sin(math.radians(-sb)),
              math.sin(math.radians(se)))
-        for (pts, half_w, bright) in self.rays:
+        for (pts, half_w) in self.rays:
             c = tuple(sum(p[k] for p in pts) / float(len(pts)) for k in range(3))
             lo, hi, step = 0.0, None, 0.5
             t = 0.0
@@ -1025,7 +1024,7 @@ class _Ground(object):
                     else:
                         hi = mid
                 foot = add(c, S, -lo)
-            out.append((add(c, S, RAY_IN), add(foot, S, -RAY_OVER), S, half_w / RAY_W[0], bright))
+            out.append((add(c, S, RAY_IN), add(foot, S, -RAY_OVER), S, half_w / RAY_W[0]))
         return out
 
     # ---- build -------------------------------------------------------------
@@ -1126,12 +1125,12 @@ class _RayMesh(_Mesh):
 def _ray_mesh(lines, tint, peak):
     """RAY_VANES planes crossed on each shaft's axis, each a strip three vertices
     wide (edge, axis, edge) and four rows long (top, fade-in, fade-out, foot).
-    Alpha is ``peak`` x the shaft's own brightness on the axis between the fade
-    rows and zero everywhere else, so the strip has no visible end and no hard
-    edge; the width tapers RAY_W[0] to RAY_W[1]."""
+    Alpha is ``peak`` on the axis between the fade rows and zero everywhere
+    else, so the strip has no visible end and no hard edge; the width tapers
+    RAY_W[0] to RAY_W[1]."""
     m = _RayMesh()
     rows = (0.0, RAY_FADE[0], RAY_FADE[1], 1.0)
-    for (top, foot, S, wscale, bright) in lines:
+    for (top, foot, S, wscale) in lines:
         axis = sub(foot, top)
         ex = norm(cross3(S, UP))
         ez = norm(cross3(ex, S))
@@ -1142,7 +1141,7 @@ def _ray_mesh(lines, tint, peak):
             for t in rows:
                 w = (RAY_W[0] + (RAY_W[1] - RAY_W[0]) * t) * wscale
                 c = add(top, axis, t)
-                on = peak * bright if RAY_FADE[0] - 1e-9 <= t <= RAY_FADE[1] + 1e-9 else 0.0
+                on = peak if RAY_FADE[0] - 1e-9 <= t <= RAY_FADE[1] + 1e-9 else 0.0
                 grid.append([m.cv(add(c, side, -w), tint + (0.0,)),
                              m.cv(c, tint + (on,)),
                              m.cv(add(c, side, w), tint + (0.0,))])
@@ -1511,12 +1510,12 @@ def seam_line():
 def ray_feet():
     """One line per sun shaft: where its light lands, in map bearings."""
     out = []
-    for k, (top, foot, _s, w, bright) in enumerate(INFO["rays"]):
+    for k, (top, foot, _s, _w) in enumerate(INFO["rays"]):
         out.append("ray%d bearing=%.1f top=(%.1f, %.1f, %.1f) r=%.1f foot=(%.1f, %.1f, %.1f) "
-                   "bearing=%.1f r=%.1f on=%s half=%.2f bright=%.2f"
+                   "bearing=%.1f r=%.1f on=%s"
                    % (k, fc.SHAFTS[k][0], top[0], top[1], top[2], math.hypot(top[0], top[1]),
                       foot[0], foot[1], foot[2], _bearing_of(foot) % 360.0,
-                      math.hypot(foot[0], foot[1]), _lands_on(foot), w * RAY_W[0], bright))
+                      math.hypot(foot[0], foot[1]), _lands_on(foot)))
     return out
 
 
