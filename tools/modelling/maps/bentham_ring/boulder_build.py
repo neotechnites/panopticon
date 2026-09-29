@@ -46,8 +46,8 @@ COLL_TOP_R = 1.25                 # flat landing disc: nearly the full top
 COLL_BASE_R = 1.30
 
 TEX_SIZE = 128
-TEX_ALBEDO = "boulder_rock_albedo"
-TEX_EMISSIVE = "boulder_rock_emissive"
+TEX_ALBEDO = "hell_rock_albedo"
+TEX_EMISSIVE = "hell_rock_emissive"
 TEX_SEED = 6661031
 ROCK_ROUGHNESS = 0.95
 ROCK_METALLIC = 0.0

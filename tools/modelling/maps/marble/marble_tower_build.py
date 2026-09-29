@@ -301,13 +301,13 @@ SHEETS = {
     "shade": _wall("shade", _sheet_shade, 3),                                  # reveals, soffits, undersides
     "marble2": _wall("marble2", _sheet_marble2, 4, BAL_PX, BALCONY_R, U0_BAL),  # the ledge
     "band": tx.Sheet("band", mb._sheet_band, mode="fit_v", width=256, size=64,
-                     roughness=mb.ROUGHNESS, seed=5),                          # ring beam, slab edge
+                     roughness=mb.ROUGHNESS, seed=10, stem="marble_band"),                          # ring beam, slab edge
     "column": tx.Sheet("column", mb._sheet_column, mode="fit_u", width=64, size=256,
-                       roughness=mb.ROUGHNESS, seed=6),
+                       roughness=mb.ROUGHNESS, seed=9, stem="marble_column"),
     "iron": tx.Sheet("iron", mb._sheet_iron, mode="fit_u", width=64, size=256,
-                     roughness=mb.ROUGHNESS, seed=7),
+                     roughness=mb.ROUGHNESS, seed=11, stem="marble_iron"),
     "floor": tx.Sheet("floor", mb._sheet_floor, mode="custom", size=64, mpt=2.7 / 64.0,
-                      roughness=mb.ROUGHNESS, seed=8),                         # one paving cell a ring band, UVs per vertex
+                      roughness=mb.ROUGHNESS, seed=7, stem="marble_floor"),                         # one paving cell a ring band, UVs per vertex
     "medallion": tx.Sheet("medallion", _sheet_medallion, mode="box", size=64,
                           mpt=2.0 * PAVING_RS[0] / 64.0,
                           phase=(-PAVING_RS[0], -PAVING_RS[0]),
@@ -315,7 +315,7 @@ SHEETS = {
     "coffer": tx.Sheet("coffer", _sheet_coffer, mpt=MPT, size=COFFER_PX, width=SHAFT_PX,
                        mode="custom", roughness=mb.ROUGHNESS, seed=10),        # the dome inside
     "dome": tx.Sheet("dome", _sheet_stone, mpt=MPT, size=SHEET_H, width=SHAFT_PX,
-                     mode="custom", roughness=mb.ROUGHNESS, seed=11),          # ... and outside
+                     mode="custom", roughness=mb.ROUGHNESS, seed=1, stem="marble_tower_stone"),          # ... and outside
 }
 # Two faces wear a class their zone does not name, because their PROJECTION
 # differs, not their stone: the dome's skin (zone "shade") is "dome", and the

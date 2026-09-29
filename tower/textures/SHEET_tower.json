@@ -1,11 +1,11 @@
 {
   "canvas": [
-    392,
+    128,
     274
   ],
   "textures": [
     {
-      "file": "tower2_rock_albedo.png",
+      "file": "hell_rock_albedo.png",
       "kind": "albedo",
       "mode": "RGB",
       "rect": [
@@ -16,55 +16,11 @@
       ]
     },
     {
-      "file": "tower_interior_rock_albedo.png",
-      "kind": "albedo",
-      "mode": "RGB",
-      "rect": [
-        132,
-        7,
-        128,
-        128
-      ]
-    },
-    {
-      "file": "tower_rock_albedo.png",
-      "kind": "albedo",
-      "mode": "RGB",
-      "rect": [
-        264,
-        7,
-        128,
-        128
-      ]
-    },
-    {
-      "file": "tower2_rock_emissive.png",
+      "file": "hell_rock_emissive.png",
       "kind": "emissive",
       "mode": "RGB",
       "rect": [
         0,
-        146,
-        128,
-        128
-      ]
-    },
-    {
-      "file": "tower_interior_rock_emissive.png",
-      "kind": "emissive",
-      "mode": "RGB",
-      "rect": [
-        132,
-        146,
-        128,
-        128
-      ]
-    },
-    {
-      "file": "tower_rock_emissive.png",
-      "kind": "emissive",
-      "mode": "RGB",
-      "rect": [
-        264,
         146,
         128,
         128

@@ -402,11 +402,17 @@ def texture_file(name):
     return os.path.join(root, rel) if rel else None
 
 
+# tower.blend bakes the hell rock under its old name; the file is the shared one
+_STEM_ALIAS = {"tower_rock_albedo": "hell_rock_albedo", "tower_rock_emissive": "hell_rock_emissive"}
+
+
 def _stem(img):
     if img.source == "FILE" and img.filepath:
-        return os.path.splitext(os.path.basename(bpy.path.abspath(img.filepath)))[0]
-    name = img.name[:-4] if img.name.endswith(".png") else img.name
-    return re.sub(r"\.\d{3}$", "", name)
+        stem = os.path.splitext(os.path.basename(bpy.path.abspath(img.filepath)))[0]
+    else:
+        name = img.name[:-4] if img.name.endswith(".png") else img.name
+        stem = re.sub(r"\.\d{3}$", "", name)
+    return _STEM_ALIAS.get(stem, stem)
 
 
 def _pixels(img):
@@ -438,6 +444,38 @@ def _save_png(img, path):
     glb_textures.write_png(path, w, h, rows, keep == 4)
 
 
+_BLACK = {}          # image name -> every texel black
+
+
+def _black(img):
+    """True when every texel is black: the image, or the file that replaces it."""
+    root = _tex_spec()[0]
+    stem = _stem(img)
+    rel = glb_textures.find(root, stem) if root and not _regen(stem) else None
+    if rel:
+        img = bpy.data.images.load(os.path.join(root, rel), check_existing=True)
+    if img.name not in _BLACK:
+        px = _pixels(img)
+        ch = len(px) // max(1, img.size[0] * img.size[1])
+        _BLACK[img.name] = not any(v > 0.0 for i, v in enumerate(px) if ch < 4 or i % 4 != 3)
+    return _BLACK[img.name]
+
+
+def _drop_black_emission(objects):
+    """An all-black emissive image glows nothing: unlink it so no black PNG is written."""
+    for ob in objects:
+        for slot in getattr(ob, "material_slots", ()):
+            mat = slot.material
+            if mat is None or not mat.use_nodes:
+                continue
+            nt = mat.node_tree
+            for link in list(nt.links):
+                node, sock = link.from_node, link.to_socket
+                if sock.name == "Emission Color" and node.type == "TEX_IMAGE" and node.image and _black(node.image):
+                    nt.nodes.remove(node)
+                    sock.default_value = (0.0, 0.0, 0.0, 1.0)
+
+
 def _texture_images(objects):
     out = []
     for ob in objects:
@@ -460,6 +498,7 @@ def externalize_textures(objects):
     if not root or not home:
         print("MDL note textures stay embedded: the spec names no tex_root/home")
         return
+    _drop_black_emission(objects)
     claimed = {}
     for img in _texture_images(objects):
         stem = _stem(img)

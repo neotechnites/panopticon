@@ -1,38 +1,16 @@
 {
   "canvas": [
-    388,
-    402
+    128,
+    135
   ],
   "textures": [
-    {
-      "file": "hub_marble_albedo.png",
-      "kind": "albedo",
-      "mode": "RGB",
-      "rect": [
-        0,
-        7,
-        256,
-        256
-      ]
-    },
     {
       "file": "hub_stone_albedo.png",
       "kind": "albedo",
       "mode": "RGB",
       "rect": [
-        260,
-        7,
-        128,
-        128
-      ]
-    },
-    {
-      "file": "hub_stone_emissive.png",
-      "kind": "emissive",
-      "mode": "RGB",
-      "rect": [
         0,
-        274,
+        7,
         128,
         128
       ]

@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://mi164c6dtgu0"
-path="res://.godot/imported/tower_rock_albedo.png-ccee5a40fcd815400bf880ce6764463d.ctex"
+uid="uid://bcfnhnjnfotak"
+path="res://.godot/imported/hell_rock_emissive.png-59de42fcae29346bdeb94963850867f5.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://tower/textures/tower_rock_albedo.png"
-dest_files=["res://.godot/imported/tower_rock_albedo.png-ccee5a40fcd815400bf880ce6764463d.ctex"]
+source_file="res://tower/textures/hell_rock_emissive.png"
+dest_files=["res://.godot/imported/hell_rock_emissive.png-59de42fcae29346bdeb94963850867f5.ctex"]
 
 [params]
 

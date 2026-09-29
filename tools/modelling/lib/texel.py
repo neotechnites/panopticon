@@ -324,12 +324,14 @@ class Sheet(object):
     phase      (u0, v0) metres subtracted before projection: put a joint on a sill
     mode       "cyl" | "fit" | "fit_u" | "fit_v" | "window" | "custom"
     emissive   force an emissive image even if the painter drew none
+    stem       image stem when the class wears another model's texture (default <map>_<name>)
     """
 
     def __init__(self, name, paint=None, mpt=MPT, size=TILE, ref_r=None, phase=(0.0, 0.0),
                  mode="cyl", roughness=ROUGHNESS, metallic=METALLIC, cull=True, seed=0,
-                 emissive=False, width=None):
+                 emissive=False, width=None, stem=None):
         self.name = name
+        self.stem = stem
         self.paint = paint
         self.mpt = mpt
         self.size = size
@@ -573,7 +575,7 @@ def _image_file(path):
 def images(prefix, sheet, use_files=False, tex_dir=None):
     """(albedo, emissive-or-None) for a Sheet: the files when opted in and
     present (<prefix>_<name>_albedo.png), else painted."""
-    stem = "%s_%s" % (prefix, sheet.name)
+    stem = sheet.stem or "%s_%s" % (prefix, sheet.name)
     if use_files and tex_dir:
         alb = _image_file(os.path.join(tex_dir, stem + "_albedo.png"))
         if alb is not None:
