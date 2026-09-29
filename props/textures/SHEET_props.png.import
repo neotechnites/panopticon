@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://f5lcgprw2icu"
-path="res://.godot/imported/forest_rock_albedo.png-964cc2e510bd74fb8e7d44b7b21cd8cf.ctex"
+uid="uid://cpciqqcml8nax"
+path="res://.godot/imported/SHEET_props.png-16854cc3d1e257a92e25509ae9641e64.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://maps/forest/textures/forest_rock_albedo.png"
-dest_files=["res://.godot/imported/forest_rock_albedo.png-964cc2e510bd74fb8e7d44b7b21cd8cf.ctex"]
+source_file="res://props/textures/SHEET_props.png"
+dest_files=["res://.godot/imported/SHEET_props.png-16854cc3d1e257a92e25509ae9641e64.ctex"]
 
 [params]
 
@@ -23,7 +23,7 @@ compress/rdo_quality_loss=0.0
 compress/hdr_compression=1
 compress/normal_map=0
 compress/channel_pack=0
-mipmaps/generate=true
+mipmaps/generate=false
 mipmaps/limit=-1
 roughness/mode=0
 roughness/src_normal=""

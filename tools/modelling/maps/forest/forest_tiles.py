@@ -29,7 +29,7 @@ import texel as tx  # noqa: E402
 
 TILE = 64                       # texels a side: TILE * tx.MPT = 3.2 m before a tile repeats
 SEED = 0x7E11
-MOTTLE = (8, 4)                 # grass, path and rock noise cells: 0.4 m mottles, none on a tile corner
+MOTTLE = (3, 2)                 # grass, path and rock noise cells: 0.15 m grain, no 0.4 m blob to repeat every 3.2 m
 
 # Palettes: the bytes the files hold, sampled from the 256 px sheets they replace.
 GRASS = ((36, 59, 12), (51, 67, 11), (66, 77, 12), (77, 87, 16), (31, 49, 10))
