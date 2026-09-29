@@ -52,8 +52,8 @@ SHADE_BIAS = -0.06      # metres of recess
 EMBER_BIAS = -0.11
 
 SEED = 5510337
-TEX_ALBEDO   = "hell_rock_atlas_albedo"
-TEX_EMISSIVE = "hell_rock_atlas_emissive"
+TEX_ALBEDO   = "hell_rock_albedo"
+TEX_EMISSIVE = "hell_rock_emissive"
 UV_SCALE = 0.30
 FACING_YAW = 0.0
 

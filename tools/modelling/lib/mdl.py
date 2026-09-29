@@ -403,29 +403,7 @@ def texture_file(name):
 
 
 # tower.blend bakes the hell rock under its old name; the file is the shared one
-_STEM_ALIAS = {"tower_rock_albedo": "hell_rock_atlas_albedo", "tower_rock_emissive": "hell_rock_atlas_emissive"}
-
-# A view is a logical image that is a window of a shared file: stem -> (file stem, x, y, w, h, repeats).
-# Pixels are the file's, top row first. A repeating view tiles inside its window (glTF
-# KHR_texture_transform; Godot's region shader); any other has its UVs moved into the file at export.
-_HELL = "hell_rock_albedo"
-_HELL_E = "hell_rock_emissive"
-VIEWS = {
-    "hell_rock_rock_albedo": (_HELL, 16, 16, 256, 256, True),
-    "hell_rock_shade_albedo": (_HELL, 304, 16, 256, 256, True),
-    "hell_rock_ember_albedo": (_HELL, 592, 16, 256, 256, True),
-    "hell_rock_ember_emissive": (_HELL_E, 592, 16, 256, 256, True),
-    "hell_rock_atlas_albedo": (_HELL, 0, 288, 128, 128, False),         # the tower's 2x2 atlas
-    "hell_rock_atlas_emissive": (_HELL_E, 0, 288, 128, 128, False),
-    "hell_rock_glowatlas_albedo": (_HELL, 128, 288, 128, 128, False),   # map 1's: the glow cell in its carve quarter
-    "hell_rock_glowatlas_emissive": (_HELL_E, 128, 288, 128, 128, False),
-    "demon_pad_atlas": ("demon_pad_albedo", 0, -64, 128, 128, False),   # a prop's own quarter: its 64 px file
-    "portal_atlas": ("portal_albedo", 0, -64, 128, 128, False),
-    "torch_atlas": ("torch_albedo", 0, -64, 128, 128, False),
-    "lava_tile_atlas": ("lava_tile_albedo", 0, -64, 128, 128, False),
-}
-_VIEW_IMAGES = {}    # view stem -> its Blender image
-_TEX_XFORM = {}      # glTF image name -> (offset, scale) of a repeating view
+_STEM_ALIAS = {"tower_rock_albedo": "hell_rock_albedo", "tower_rock_emissive": "hell_rock_emissive"}
 
 
 def _stem(img):
@@ -466,97 +444,6 @@ def _save_png(img, path):
     glb_textures.write_png(path, w, h, rows, keep == 4)
 
 
-def _view_file(stem):
-    root = _tex_spec()[0]
-    rel = glb_textures.find(root, VIEWS[stem][0]) if root else None
-    if rel is None:
-        raise RuntimeError("view %s: no %s.png in any textures/" % (stem, VIEWS[stem][0]))
-    return rel, bpy.data.images.load(os.path.join(root, rel), check_existing=True)
-
-
-def view_image(stem):
-    """The Blender image a VIEWS stem stands for: its window of the file, black off the file."""
-    if stem in _VIEW_IMAGES:
-        return _VIEW_IMAGES[stem]
-    _f, x0, y0, w, h, _rep = VIEWS[stem]
-    src = _view_file(stem)[1]
-    sw, sh = src.size
-    px = _pixels(src)
-    ch = len(px) // (sw * sh)
-    out = [0.0, 0.0, 0.0, 1.0] * (w * h)
-    for ly in range(h):
-        fy = y0 + ly
-        if 0 <= fy < sh:
-            for lx in range(max(0, -x0), min(w, sw - x0)):
-                s = ((sh - 1 - fy) * sw + x0 + lx) * ch
-                o = ((h - 1 - ly) * w + lx) * 4
-                out[o:o + 3] = px[s:s + 3]
-    img = bpy.data.images.new(stem, w, h, alpha=False)
-    img.colorspace_settings.name = "sRGB"
-    img.pixels.foreach_set(out)
-    img.update()
-    _VIEW_IMAGES[stem] = img
-    print("MDL TEXTURE %s is a window of %s" % (stem, VIEWS[stem][0]))
-    return img
-
-
-def texture_image(name):
-    """The Blender image for <name>: a view's window, else its textures/ PNG; None when absent."""
-    stem = os.path.splitext(os.path.basename(name))[0]
-    if stem in VIEWS:
-        return view_image(stem)
-    path = texture_file(name)
-    if path is None:
-        return None
-    img = bpy.data.images.load(path)
-    img.colorspace_settings.name = "sRGB"
-    img.pack()
-    print("MDL TEXTURE %s from %s" % (img.name, path))
-    return img
-
-
-def split_zone(ob, material, zone):
-    """Faces whose UVs all lie in zone (u0, v0, u1, v1) take material, in a slot of their own."""
-    me = ob.data
-    me.materials.append(material)
-    slot = len(me.materials) - 1
-    uvl = me.uv_layers.active.data
-    u0, v0, u1, v1 = zone
-    for p in me.polygons:
-        if all(u0 <= uvl[li].uv[0] <= u1 and v0 <= uvl[li].uv[1] <= v1 for li in p.loop_indices):
-            p.material_index = slot
-
-
-def _materials_using(objects, img):
-    out = []
-    for ob in objects:
-        for slot in getattr(ob, "material_slots", ()):
-            mat = slot.material
-            if mat is not None and mat.use_nodes and mat not in out and any(
-                    n.type == "TEX_IMAGE" and n.image == img for n in mat.node_tree.nodes):
-                out.append(mat)
-    return out
-
-
-def _move_uvs(objects, mats, stem, done):
-    """UVs of every face wearing mats, moved from the view's own 0..1 into its file."""
-    _f, x0, y0, w, h, _rep = VIEWS[stem]
-    fw, fh = _view_file(stem)[1].size
-    for ob in objects:
-        if ob.type != "MESH" or not ob.data.uv_layers.active:
-            continue
-        me = ob.data
-        slots = {i for i, s in enumerate(ob.material_slots) if s.material in mats and (me.name, s.material.name) not in done}
-        uvl = me.uv_layers.active.data
-        for p in me.polygons:
-            if p.material_index in slots:
-                for li in p.loop_indices:
-                    u, v = uvl[li].uv
-                    uvl[li].uv = ((x0 + u * w) / fw, 1.0 - (y0 + (1.0 - v) * h) / fh)
-        for i in slots:
-            done.add((me.name, ob.material_slots[i].material.name))
-
-
 _BLACK = {}          # image name -> every texel black
 
 
@@ -564,9 +451,7 @@ def _black(img):
     """True when every texel is black: the image, or the file that replaces it."""
     root = _tex_spec()[0]
     stem = _stem(img)
-    if stem in VIEWS:
-        img = view_image(stem)
-    rel = glb_textures.find(root, stem) if root and not _regen(stem) and stem not in VIEWS else None
+    rel = glb_textures.find(root, stem) if root and not _regen(stem) else None
     if rel:
         img = bpy.data.images.load(os.path.join(root, rel), check_existing=True)
     if img.name not in _BLACK:
@@ -615,29 +500,8 @@ def externalize_textures(objects):
         return
     _drop_black_emission(objects)
     claimed = {}
-    moved = set()
     for img in _texture_images(objects):
         stem = _stem(img)
-        if stem in VIEWS:
-            rel, whole = _view_file(stem)
-            uri = posixpath.relpath(rel, posixpath.join(home, "models"))
-            fstem, x0, y0, w, h, repeats = VIEWS[stem]
-            if repeats:
-                win = view_image(stem)
-                if win is not img:
-                    img.user_remap(win)
-                xf = ((x0 / whole.size[0], y0 / whole.size[1]), (w / whole.size[0], h / whole.size[1]))
-                for key in (stem, win.name, os.path.splitext(win.name)[0]):
-                    _TEX_URIS[key] = uri
-                    _TEX_XFORM[key] = xf
-            else:
-                _move_uvs(objects, _materials_using(objects, img), stem, moved)
-                whole.colorspace_settings.name = "sRGB"
-                img.user_remap(whole)
-                for key in (fstem, whole.name, os.path.splitext(whole.name)[0]):
-                    _TEX_URIS[key] = uri
-            print("MDL TEXTURE %s -> %s (window %d,%d %dx%d)" % (stem, rel, x0, y0, w, h))
-            continue
         if stem in claimed:
             painted, linked = claimed[stem]
             if list(painted.size) != list(img.size) or _pixels(painted) != _pixels(img):
@@ -975,9 +839,6 @@ def export_glb(path, objects):
     if _TEX_URIS:
         linked = glb_textures.externalize(path, lambda n, data: _TEX_URIS.get(data) or _TEX_URIS.get(n))
         print("MDL EXPORT %d image(s) linked to textures/, not embedded" % len(linked))
-    if _TEX_XFORM:
-        n = glb_textures.transform(path, _TEX_XFORM.get)
-        print("MDL EXPORT %d texture slot(s) repeat inside a window of their file" % n)
     return path
 
 

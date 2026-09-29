@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bcfnhnjnfotak"
-path="res://.godot/imported/hell_rock_emissive.png-f33ffd67cff6da4b5e56af996222e6a4.ctex"
+uid="uid://cdwp0d2718nf"
+path="res://.godot/imported/map_base_rock_albedo.png-32327b55ff4be080d2aac205ba8d17fc.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://maps/bentham_ring/textures/hell_rock_emissive.png"
-dest_files=["res://.godot/imported/hell_rock_emissive.png-f33ffd67cff6da4b5e56af996222e6a4.ctex"]
+source_file="res://maps/bentham_ring/textures/map_base_rock_albedo.png"
+dest_files=["res://.godot/imported/map_base_rock_albedo.png-32327b55ff4be080d2aac205ba8d17fc.ctex"]
 
 [params]
 

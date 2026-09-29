@@ -23,7 +23,7 @@ ceiling. The jittered rock mesh is NEVER its own collider.
 Texture: the tower's atlas, same painter, same seed -- byte-identical, so
 this reads as the rock the tower was cut from. Three surfaces: the rock, the
 lava river on its streaked sheet, and the lava sea on the pit floor on Ryan's
-own tile (textures/hell_lava_albedo.png), repeated at world scale.
+own tile (textures/lava_albedo.png), repeated at world scale.
 
     tools/modelling/model look  map_base --cam 35,30,40
     tools/modelling/model build map_base --cam 35,30,40
@@ -62,9 +62,16 @@ mdl.DEFAULTS["world_strength"] = 0.90
 # =============================================================================
 # TUNABLES
 # =============================================================================
-# Texture files (USE_TEXTURE_FILES): hell_lava_albedo.png is the sea and the
-# river, its own glow map; the rock classes and the S3 cracks' atlas are windows
-# of hell_rock_albedo.png (lib/mdl.py VIEWS). Otherwise the painted sheets below.
+# Texture files (opt-in, USE_TEXTURE_FILES): maps/bentham_ring/textures/
+# river_albedo.png is then the river's albedo (river_emissive.png beside it,
+# else the albedo glows); lava_albedo.png is the pit sea's, tiled every
+# LAVA_TILE_M metres (lava_emissive.png beside it, else the emissive is
+# DERIVED from the albedo: the bright orange glows, the dark crust stays
+# dark). The rock is one tiling sheet per class through lib/texel.py --
+# map_base_<class>_albedo.png (+ _emissive.png) for rock, shade, carve, ember
+# -- world-projected at TEXEL_MPT m per texel, no atlas windows; the atlas
+# stays only for the S3 cracks' glow cell. Otherwise the painted sheets below
+# are used.
 
 NAME = "map_base"
 OBJECT_NAME = "MapBaseRock"
@@ -106,9 +113,8 @@ EYE_H = 1.65
 USE_TEXTURE_FILES = True             # True: texture files in TEX_DIR replace the painted sheets
 TEX_DIR       = "textures"            # beside the running script, here or in the PC job dir
 TEX_SIZE      = 128
-TEX_ALBEDO    = "hell_rock_glowatlas_albedo"      # a window of hell_rock_albedo.png (lib/mdl.py VIEWS)
-TEX_EMISSIVE  = "hell_rock_glowatlas_emissive"
-TEX_PREFIX    = "hell_rock"                       # the texel sheets: hell_rock_<class>, windows too
+TEX_ALBEDO    = "map_base_atlas_albedo"
+TEX_EMISSIVE  = "map_base_atlas_emissive"
 TEX_SEED      = 6661031
 ROCK_ROUGHNESS = 0.95
 ROCK_METALLIC  = 0.0
@@ -140,7 +146,7 @@ WALLFACE_R     = 47.2                 # arc metres measured at this radius
 # ---- the lava sea on the floor of the shaft --------------------------------
 # Its own material (LavaSea) and its own TILING sheet -- an atlas cell cannot
 # repeat, and one window stretched over 90 m of floor is what Ryan called
-# "the old texture". The sheet is his tile, textures/hell_lava_albedo.png
+# "the old texture". The sheet is his tile, textures/lava_albedo.png
 # (Lava_tile_2: the dark crust network over orange), laid in world x,y and
 # repeated every LAVA_TILE_M metres. The S3 cracks are NOT this: they keep the
 # atlas's glow cell (Ryan: "i specifically said dont use that texture in the
@@ -148,12 +154,17 @@ WALLFACE_R     = 47.2                 # arc metres measured at this radius
 ZONE_LAVA      = ("lava",)
 LAVA_TILE_M    = 5.0                  # metres one repeat of the tile covers; 256 px -> 19.5 mm/texel.
                                       # The falls are laid at this same scale, in world space
-# The tile is its own glow map; lava_wave.gdshader derives the glow from it (the crust faint).
-LAVA_ALBEDO    = "hell_lava_albedo"
-LAVA_EMISSIVE  = "hell_lava_emissive"      # the painted fallback's only
+LAVA_EMIT_LO   = 112.0 / 255.0        # a texel whose brightest channel is at or under this
+                                      # emits nothing (the crust, (112,1,1))
+LAVA_EMIT_HI   = 176.0 / 255.0        # ... and at or over this emits its whole albedo
+                                      # (the orange, (176,50,7)); smoothstep between
+LAVA_EMIT_FLOOR = 0.25                # the crust still emits this share of its albedo:
+                                      # Ryan, "a faint glow to the lava", even in shadow
+LAVA_ALBEDO    = "map_base_lava_albedo"
+LAVA_EMISSIVE  = "map_base_lava_emissive"
 LAVA_SEED      = 7720133
 LAVA_TEX       = 512                  # the painted FALLBACK, only when there is no
-LAVA_SPAN      = 104.0                # hell_lava_albedo.png: painted for LAVA_SPAN metres
+LAVA_SPAN      = 104.0                # lava_albedo.png: painted for LAVA_SPAN metres
                                       # across, and repeated every LAVA_TILE_M like the file
 LAVA_RINGS     = (1.0, 0.70, 0.42, 0.14)   # radius fractions of the pit foot
 LAVA_SWELL     = 0.6                  # +- metres of slow molten swell
@@ -878,15 +889,47 @@ def _lava_texture():
 
 def _image_file(name):
     """<home>/textures/<name> from anywhere in the repo; None if absent or regenerating."""
-    return mdl.texture_image(name)
+    path = mdl.texture_file(name)
+    if path is None:
+        return None
+    img = bpy.data.images.load(path)
+    img.colorspace_settings.name = "sRGB"
+    img.pack()
+    print("MDL TEXTURE %s from %s" % (img.name, path))
+    return img
+
+
+def _lava_emissive_from(alb):
+    """The sea's emissive, derived from its albedo: each texel emits its own
+    colour scaled by a smoothstep of its brightest channel from LAVA_EMIT_LO
+    (LAVA_EMIT_FLOOR of it) to LAVA_EMIT_HI (all of it), so the glow follows the
+    bright orange and the dark crust only faintly glows. Pixels are the file's own sRGB
+    bytes, as Blender hands them back."""
+    w, h = alb.size
+    src = [0.0] * (w * h * 4)
+    alb.pixels.foreach_get(src)
+    out = list(src)
+    span = max(LAVA_EMIT_HI - LAVA_EMIT_LO, 1e-6)
+    for o in range(0, len(src), 4):
+        t = (max(src[o], src[o + 1], src[o + 2]) - LAVA_EMIT_LO) / span
+        t = min(1.0, max(0.0, t))
+        k = LAVA_EMIT_FLOOR + (1.0 - LAVA_EMIT_FLOOR) * t * t * (3.0 - 2.0 * t)
+        out[o], out[o + 1], out[o + 2] = src[o] * k, src[o + 1] * k, src[o + 2] * k
+        out[o + 3] = 1.0
+    img = bpy.data.images.new(LAVA_EMISSIVE, w, h, alpha=False)
+    img.colorspace_settings.name = "sRGB"
+    img.pixels.foreach_set(out)
+    img.update()
+    return img
 
 
 def _lava_sheet():
-    """(albedo, emissive) for the sea: Ryan's tile, its own glow map, else the painted fallback."""
-    alb = _image_file("hell_lava_albedo.png") if USE_TEXTURE_FILES else None
+    """(albedo, emissive) for the sea: Ryan's tile with a derived emissive,
+    a lava_emissive.png beside it if he draws one, else the painted fallback."""
+    alb = _image_file("lava_albedo.png") if USE_TEXTURE_FILES else None
     if alb is None:
         return _lava_texture()
-    return alb, alb
+    return alb, (_image_file("lava_emissive.png") or _lava_emissive_from(alb))
 
 
 def river_material(name, albedo, emissive):
@@ -8163,6 +8206,7 @@ def build():
 
     lava_albedo, lava_emissive = _lava_sheet()
     mdl.save_texture(lava_albedo)
+    mdl.save_texture(lava_emissive)
     albedo, emissive = build_texture()             # the atlas: the S3 cracks' cell
     mdl.save_texture(albedo)
     mdl.save_texture(emissive)
@@ -8191,7 +8235,7 @@ def build():
     me.uv_layers[0].name = "UVMap"
     me.uv_layers[0].active = True
     me.uv_layers[0].active_render = True
-    mats = tx.materials(TEX_PREFIX, SHEETS, use_files=USE_TEXTURE_FILES,
+    mats = tx.materials(NAME, SHEETS, use_files=USE_TEXTURE_FILES,
                         tex_dir=os.path.join(os.path.dirname(os.path.abspath(__file__)), TEX_DIR),
                         names={"rock": "HellRock", "shade": "HellShade", "carve": "HellCarve",
                                "ember": "HellEmber"})

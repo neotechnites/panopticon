@@ -562,7 +562,14 @@ def _image(name, w, h, buf):
 
 def _image_file(path):
     import mdl
-    return mdl.texture_image(path)
+    path = mdl.texture_file(path)
+    if path is None:
+        return None
+    img = bpy.data.images.load(path)
+    img.colorspace_settings.name = "sRGB"
+    img.pack()
+    print("MDL TEXTURE %s from %s" % (img.name, path))
+    return img
 
 
 def images(prefix, sheet, use_files=False, tex_dir=None):

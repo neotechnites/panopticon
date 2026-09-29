@@ -117,8 +117,8 @@ COLL_HD_MIN = 0.16      # a collider box is as deep as the rock it stands for, a
 SEED = 7130951
 
 # ---- texture: map 1's rock sheets, lib/texel.py, no atlas -------------------
-TEX_PREFIX = "hell_rock"         # windows of hell_rock_albedo.png, as map_base wears
-TEX_DIR = "textures"
+TEX_PREFIX = "map_base"          # so Ryan's map 1 rock PNGs, if he drops them
+TEX_DIR = "textures"             # in, dress the gate and the map together
 USE_TEXTURE_FILES = True
 ROCK_ROUGHNESS = 0.95
 

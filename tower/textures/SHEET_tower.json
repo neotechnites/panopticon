@@ -1,0 +1,30 @@
+{
+  "canvas": [
+    128,
+    274
+  ],
+  "textures": [
+    {
+      "file": "hell_rock_albedo.png",
+      "kind": "albedo",
+      "mode": "RGB",
+      "rect": [
+        0,
+        7,
+        128,
+        128
+      ]
+    },
+    {
+      "file": "hell_rock_emissive.png",
+      "kind": "emissive",
+      "mode": "RGB",
+      "rect": [
+        0,
+        146,
+        128,
+        128
+      ]
+    }
+  ]
+}

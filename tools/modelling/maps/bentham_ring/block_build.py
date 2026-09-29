@@ -37,8 +37,8 @@ CHAMFER_IN = 0.06         # inward inset of the chamfer ring, metres
 CORNER_JAG = 0.035        # per-corner xy jitter: a few cm, corners not square
 
 SEED = 3320119
-TEX_ALBEDO = "hell_rock_atlas_albedo"   # a window of hell_rock_albedo.png
-TEX_EMISSIVE = "block_emissive"             # painted only; the rock does not glow
+TEX_ALBEDO = "block_rock_albedo"
+TEX_EMISSIVE = "block_rock_emissive"
 UV_SCALE = 0.35
 FACING_YAW = 0.0
 
@@ -184,15 +184,11 @@ def rock_material(name, albedo, emissive):
     nt = mat.node_tree
     bsdf = nt.nodes.get("Principled BSDF")
     for img, socket, y in ((albedo, "Base Color", 260), (emissive, "Emission Color", -220)):
-        if img is None:
-            continue
         node = nt.nodes.new("ShaderNodeTexImage")
         node.image = img
         node.interpolation = "Closest"
         node.location = (-460, y)
         nt.links.new(node.outputs["Color"], bsdf.inputs[socket])
-    if emissive is None:
-        bsdf.inputs["Emission Color"].default_value = (0.0, 0.0, 0.0, 1.0)
     bsdf.inputs["Roughness"].default_value = ROCK_ROUGHNESS
     bsdf.inputs["Metallic"].default_value = ROCK_METALLIC
     bsdf.inputs["Emission Strength"].default_value = 1.0
@@ -323,7 +319,7 @@ def _finish(rock, coll):
     ob = rock.object(OBJECT_NAME)
     unwrap(ob, rock.zones)
     _drop_faces(ob, rock.buried)
-    mdl.finish(ob, rock_material("HellRock", albedo, None), strip_uvs=False)
+    mdl.finish(ob, rock_material("HellRock", albedo, emissive), strip_uvs=False)
     coll_ob = coll.object(COLLIDER_NAME)     # Godot: StaticBody3D + CollisionShape3D
     coll_ob.hide_render = True
     print("MDL STATS visual_tris=%d collision_tris=%d"

@@ -51,9 +51,8 @@ FLAME_ANG_JAG = 0.35
 FLAME_LEAN  = 0.05      # per ring, metres: a flame is never plumb
 
 SEED = 7130931
-TEX_ALBEDO   = "hell_rock_atlas_albedo"   # a window of hell_rock_albedo.png
-TEX_EMISSIVE = "torch_emissive"             # painted only; the rock does not glow
-OWN_TEXTURE = "torch_atlas"   # its own quarter: torch_albedo.png, its own glow
+TEX_ALBEDO   = "torch_albedo"
+TEX_EMISSIVE = "torch_emissive"
 UV_SCALE = 0.9          # facets are ~0.1 m: the atlas texels must still read
 FACING_YAW = 0.0
 
@@ -268,15 +267,11 @@ def rock_material(name, albedo, emissive):
     nt = mat.node_tree
     bsdf = nt.nodes.get("Principled BSDF")
     for img, socket, y in ((albedo, "Base Color", 260), (emissive, "Emission Color", -220)):
-        if img is None:
-            continue
         node = nt.nodes.new("ShaderNodeTexImage")
         node.image = img
         node.interpolation = "Closest"          # hard texels; this is the look
         node.location = (-460, y)
         nt.links.new(node.outputs["Color"], bsdf.inputs[socket])
-    if emissive is None:
-        bsdf.inputs["Emission Color"].default_value = (0.0, 0.0, 0.0, 1.0)
     bsdf.inputs["Roughness"].default_value = ROCK_ROUGHNESS
     bsdf.inputs["Metallic"].default_value = ROCK_METALLIC
     bsdf.inputs["Emission Strength"].default_value = 1.0   # exactly 1.0: no KHR ext
@@ -497,9 +492,7 @@ def build():
     fx = 0.16
     unwrap(ob, rock.zones, count=rock.uv_faces,
            planar={ZONE_FLAME: (0, 2, -fx, FLAME_RINGS[0][0], fx, FLAME_TIP)})
-    mdl.finish(ob, rock_material("HellRock", albedo, None), strip_uvs=False)
-    own = mdl.view_image(OWN_TEXTURE)
-    mdl.split_zone(ob, rock_material("Torch", own, own), ZONE_FLAME)
+    mdl.finish(ob, rock_material("HellRock", albedo, emissive), strip_uvs=False)
     print("MDL STATS visual_tris=%d collision_tris=0 bracket=%.2f flame=%.2f"
           % (len(ob.data.polygons), 2.0 * PLATE_HH, FLAME_TIP - FLAME_RINGS[0][0]))
     return [ob]

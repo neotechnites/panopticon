@@ -52,9 +52,8 @@ DISC_BULGE = 0.01       # metres each side: the back fan used to be dropped as a
 COL_UP_W  = 0.95        # upright box width, from the outer edge in
 COL_UP_H  = 2.8
 SEED = 7130941
-TEX_ALBEDO   = "hell_rock_atlas_albedo"   # a window of hell_rock_albedo.png
-TEX_EMISSIVE = "portal_emissive"             # painted only; the rock does not glow
-OWN_TEXTURE = "portal_atlas"   # its own quarter: portal_albedo.png, its own glow
+TEX_ALBEDO   = "portal_albedo"
+TEX_EMISSIVE = "portal_emissive"
 UV_SCALE = 0.30
 FACING_YAW = 0.0
 
@@ -267,15 +266,11 @@ def rock_material(name, albedo, emissive):
     nt = mat.node_tree
     bsdf = nt.nodes.get("Principled BSDF")
     for img, socket, y in ((albedo, "Base Color", 260), (emissive, "Emission Color", -220)):
-        if img is None:
-            continue
         node = nt.nodes.new("ShaderNodeTexImage")
         node.image = img
         node.interpolation = "Closest"          # hard texels; this is the look
         node.location = (-460, y)
         nt.links.new(node.outputs["Color"], bsdf.inputs[socket])
-    if emissive is None:
-        bsdf.inputs["Emission Color"].default_value = (0.0, 0.0, 0.0, 1.0)
     bsdf.inputs["Roughness"].default_value = ROCK_ROUGHNESS
     bsdf.inputs["Metallic"].default_value = ROCK_METALLIC
     bsdf.inputs["Emission Strength"].default_value = 1.0   # exactly 1.0: no KHR ext
@@ -492,9 +487,7 @@ def build():
     ob = rock.object(OBJECT_NAME)
     unwrap(ob, rock.zones, count=rock.uv_faces,
            planar={ZONE_PORTAL: (0, 2, -IN_HALF_W, 0.0, IN_HALF_W, IN_SPRING + IN_RISE)})
-    mdl.finish(ob, rock_material("HellRock", albedo, None), strip_uvs=False)
-    own = mdl.view_image(OWN_TEXTURE)
-    mdl.split_zone(ob, rock_material("Portal", own, own), ZONE_PORTAL)
+    mdl.finish(ob, rock_material("HellRock", albedo, emissive), strip_uvs=False)
     coll_ob = _collider().object(COLLIDER_NAME)   # Godot: StaticBody3D + ConcavePolygonShape3D
     coll_ob.hide_render = True
     print("MDL STATS visual_tris=%d collision_tris=%d width=%.2f height=%.2f depth=%.2f"
