@@ -61,15 +61,15 @@ PP = mb.PILASTER_PROUD
 HW = mb.ARCH_W / 2.0
 BHW = mb.BAR_HW
 BAR_SET = 0.06              # a bar's cap this far past the head's circle: set into the stone
-DOME_COLLAR = 3.2           # metres of arc off the spring ring: the smooth collar, one quad a station
+DOME_COLLAR = 3.2 * mb.DOME_K           # metres of arc off the spring ring: the smooth collar, one quad a station
                             # on the wall's own 192 stations -- nothing is zippered across it
-MOULD_D = 0.25              # the ring moulding at the collar's head: the whole ring this far inward ...
-MOULD_H = 0.7               # ... for this much arc. Its foot is where 192 stations become the dome's
+MOULD_D = 0.25 * mb.DOME_K              # the ring moulding at the collar's head: the whole ring this far inward ...
+MOULD_H = 0.7 * mb.DOME_K               # ... for this much arc. Its foot is where 192 stations become the dome's
                             # 112, on a 0.25 m step that faces down the sphere and is never seen
 DOME_RIBS = 16              # broad meridional ribs, one over every fourth pier
 RIB_HALF = math.radians(3.0)   # half the angular width of a rib: 6 deg of the 22.5 deg sector, the
                             # rest plain panel ...
-RIB_PROUD = 0.85            # ... standing this far inward of the shell (of the moulding, on its ring)
+RIB_PROUD = 0.85 * mb.DOME_K            # ... standing this far inward of the shell (of the moulding, on its ring)
 PANEL_FACETS = 6            # panel facets between two ribs: the panel is SMOOTH, its flutes painted
 DOME_RING_F = (0.0, 0.30, 0.61, 0.89, 1.0)   # r1 .. r5, up the arc from the moulding's head to the
                             # cap: r1 is the moulding's head, r2 where the painted flutes' points reach
@@ -325,7 +325,7 @@ def _bars(m, cell):
 
 def _cell(m, i, tier, zone_face):
     """One cell of bay i on tier `tier`."""
-    bay = _Bay(i)
+    bay = _Bay(i, *mb.tier_ring(tier))
     cell = _Cell(bay, tier)
     c, sp = cell.c, cell.sp
     n_in = bay.n_in
@@ -373,7 +373,7 @@ def _pilaster_half(m, i, bay, u_edge, side_z, left):
     heights. left: this is the bay's left corner."""
     corner = i if left else i + 1
     s = side_z[0]
-    cs = [m.v(mb.corner_pt(corner, z, PP)) for z in side_z]
+    cs = [m.v(mb.corner_pt(corner, z, PP, bay.rad, bay.n)) for z in side_z]
     fs = [m.v(bay.at(u_edge, z, -PP)) for z in side_z]
     es = [m.v(bay.at(u_edge, z)) for z in side_z]
     for k in range(len(side_z) - 1):
@@ -383,16 +383,17 @@ def _pilaster_half(m, i, bay, u_edge, side_z, left):
     m.quad(ws, es[0], fs[0], cs[0], DOWN, "shade")                      # the underside
 
 
-def _cornice(m, i, bay, z1, z2, proud, soffit_full, front=True):
+def _cornice(m, i, bay, z1, z2, proud, soffit_full, front=True, top=True):
     """A cornice over bay i: soffit at z1 (between the pilasters, or the whole
     bay), a front face in three, a top face in three whose back edge is the
     tier above's bottom line. Its front lines are mb.corner_pt and
     bay.at(u, z, -proud) -- for proud BAND_PROUD, mb.slab_stations(). front
     False leaves the front OPEN between the two lines (the slab tier: the
-    lane part's walkway slab closes onto them)."""
+    lane part's walkway slab closes onto them). top False leaves the top
+    open at its front line: the deck (lip) or the corridor's ceiling closes onto it."""
     u0, u1 = PW / 2.0, bay.L - PW / 2.0
-    cl1, cr1 = m.v(mb.corner_pt(i, z1, proud)), m.v(mb.corner_pt(i + 1, z1, proud))
-    cl2, cr2 = m.v(mb.corner_pt(i, z2, proud)), m.v(mb.corner_pt(i + 1, z2, proud))
+    cl1, cr1 = m.v(mb.corner_pt(i, z1, proud, bay.rad, bay.n)), m.v(mb.corner_pt(i + 1, z1, proud, bay.rad, bay.n))
+    cl2, cr2 = m.v(mb.corner_pt(i, z2, proud, bay.rad, bay.n)), m.v(mb.corner_pt(i + 1, z2, proud, bay.rad, bay.n))
     fl1, fr1 = m.v(bay.at(u0, z1, -proud)), m.v(bay.at(u1, z1, -proud))
     fl2, fr2 = m.v(bay.at(u0, z2, -proud)), m.v(bay.at(u1, z2, -proud))
     wl1, wr1 = m.v(bay.at(u0, z1)), m.v(bay.at(u1, z1))
@@ -405,6 +406,8 @@ def _cornice(m, i, bay, z1, z2, proud, soffit_full, front=True):
         m.quad(cl1, fl1, fl2, cl2, n_in, "band")                        # front, in three
         m.quad(fl1, fr1, fr2, fl2, n_in, "band")
         m.quad(fr1, cr1, cr2, fr2, n_in, "band")
+    if not top:
+        return
     bl, bm0, bm1, br = (m.v(bay.at(0.0, z2)), m.v(bay.at(u0, z2)),
                         m.v(bay.at(u1, z2)), m.v(bay.at(bay.L, z2)))
     m.quad(cl2, fl2, bm0, bl, UP, "shade")                              # top, in three
@@ -441,9 +444,9 @@ def _dome(m, coll=False):
     atlas sheet, so the flute band stands on the ring all round and nothing
     smears at the crown. Returns the crown's y. coll=True is the collider's
     dome: five plain NSIDE rings, no ribs."""
-    R = (mb.WALL_R ** 2 + mb.DOME_RISE ** 2) / (2.0 * mb.DOME_RISE)
+    R = (mb.WALL_IN_R ** 2 + mb.DOME_RISE ** 2) / (2.0 * mb.DOME_RISE)
     zc = mb.DOME_Z0 + mb.DOME_RISE - R
-    phi0 = math.asin(mb.WALL_R / R)
+    phi0 = math.asin(mb.WALL_IN_R / R)
     phi_cap = math.asin(mb.DOME_CAP_R / R)
     top = (0.0, 0.0, zc + R * math.cos(phi_cap))
 
@@ -594,6 +597,14 @@ def _dome(m, coll=False):
 # THE WALL
 # =============================================================================
 
+def _ceiling(m):
+    """The corridor's ceiling at CEIL_Z, facing down: the upper tiers' foot out to the lane tier's cornice front."""
+    inner = mb.wall_stations(mb.WALL_IN_R, mb.NSIDE_IN)
+    outer = mb.slab_stations()
+    mb._zipper(m, [m.v(p) for p in mb.station_pts(outer, mb.CEIL_Z)], mb.station_angles(outer),
+               [m.v(p) for p in mb.station_pts(inner, mb.CEIL_Z)], mb.station_angles(inner), DOWN, "shade")
+
+
 def build(m):
     """The wall into m. Returns the numbers."""
     _STATS.clear()
@@ -609,11 +620,12 @@ def build(m):
         s = B + mb.SILL_UP
         band = _tier_band(t)
         z1, z2 = B + band[0], B + band[1]
-        for i in range(mb.NSIDE):
+        rad, n = mb.tier_ring(t)
+        for i in range(n):
             _cell(m, i, t, "marble" if (i + t) % 2 == 0 else "marble2")
         take("tris_cells")
-        for i in range(mb.NSIDE):
-            bay = _Bay(i)
+        for i in range(n):
+            bay = _Bay(i, rad, n)
             # the plinth strips under the pilasters, down to the bottom line
             for (ua, ub) in ((0.0, PW / 2.0), (bay.L - PW / 2.0, bay.L)):
                 m.quad(m.v(bay.at(ua, B)), m.v(bay.at(ub, B)), m.v(bay.at(ub, s)),
@@ -622,22 +634,25 @@ def build(m):
             _pilaster_half(m, i, bay, PW / 2.0, side_z, True)
             _pilaster_half(m, i, bay, bay.L - PW / 2.0, side_z, False)
         take("tris_pilasters")
-        for i in range(mb.NSIDE):
-            _cornice(m, i, _Bay(i), z1, z2, mb.BAND_PROUD, False, front=(t != mb.SLAB_TIER))
+        for i in range(n):
+            _cornice(m, i, _Bay(i, rad, n), z1, z2, mb.BAND_PROUD, False,
+                     top=(t not in (mb.SLAB_TIER, mb.LANE_TIER)))
         take("tris_cornices")
+    _ceiling(m)
+    take("tris_ceiling")
 
     # the frieze and the great cornice over the top tier
     f0, f1 = mb.FRIEZE_Z
-    for i in range(mb.NSIDE):
-        bay = _Bay(i)
+    for i in range(mb.NSIDE_IN):
+        bay = _Bay(i, mb.WALL_IN_R, mb.NSIDE_IN)
         for (ua, ub, zone) in ((0.0, PW / 2.0, "marble"), (PW / 2.0, bay.L - PW / 2.0, "frieze"),
                                (bay.L - PW / 2.0, bay.L, "marble")):
             m.quad(m.v(bay.at(ua, f0)), m.v(bay.at(ub, f0)), m.v(bay.at(ub, f1)),
                    m.v(bay.at(ua, f1)), bay.n_in, zone)
     take("tris_frieze")
     g0, g1 = mb.CORNICE_Z
-    for i in range(mb.NSIDE):
-        _cornice(m, i, _Bay(i), g0, g1, mb.CORNICE_PROUD, True)
+    for i in range(mb.NSIDE_IN):
+        _cornice(m, i, _Bay(i, mb.WALL_IN_R, mb.NSIDE_IN), g0, g1, mb.CORNICE_PROUD, True)
     take("tris_cornices")
     apex = _dome(m)
     take("tris_dome")
@@ -652,22 +667,19 @@ def build(m):
 
 
 def collider(c):
-    """What a body can touch: the wall face under the walkway (r WALL_R), the
-    pilaster line over it (r WALL_R - BAND_PROUD: the cornice fronts and the
-    pilasters), the annulus between the two at DECK_Z (the stone is above it:
-    it faces down), the like annulus at the dome's spring (stone below), and
-    the dome."""
-    lo = mb._ring(c, mb.WALL_R, mb.FLOOR_Z)
-    deck_out = mb._ring(c, mb.WALL_R, mb.DECK_Z)
-    mb._band(c, lo, deck_out, True, "marble")
-    deck_in = mb._ring(c, mb.WALL_R - mb.BAND_PROUD, mb.DECK_Z)
-    hi_in = mb._ring(c, mb.WALL_R - mb.BAND_PROUD, mb.DOME_Z0)
-    mb._band(c, deck_in, hi_in, True, "marble")
-    hi_out = mb._ring(c, mb.WALL_R, mb.DOME_Z0)
+    """What a body can touch, on the pilaster lines (face - BAND_PROUD): the inner tiers
+    under and over the corridor, its back wall, its ceiling, the dome's spring annulus, the dome."""
+    r_in, r_out = mb.WALL_IN_R - mb.BAND_PROUD, mb.WALL_R - mb.BAND_PROUD
+    mb._band(c, mb._ring(c, r_in, mb.FLOOR_Z), mb._ring(c, r_in, mb.DECK_Z), True, "marble")
+    mb._band(c, mb._ring(c, r_out, mb.DECK_Z), mb._ring(c, r_out, mb.CEIL_Z), True, "marble")
+    ceil_in, ceil_out = mb._ring(c, r_in, mb.CEIL_Z), mb._ring(c, r_out, mb.CEIL_Z)
+    hi_in = mb._ring(c, r_in, mb.DOME_Z0)
+    mb._band(c, ceil_in, hi_in, True, "marble")
+    hi_out = mb._ring(c, mb.WALL_IN_R, mb.DOME_Z0)
     n = mb.NSIDE
     for i in range(n):
         j = (i + 1) % n
-        c.quad(deck_in[i], deck_in[j], deck_out[j], deck_out[i], DOWN, "marble")
+        c.quad(ceil_in[i], ceil_in[j], ceil_out[j], ceil_out[i], DOWN, "marble")
         c.quad(hi_in[i], hi_in[j], hi_out[j], hi_out[i], UP, "marble")
     _dome(c, coll=True)
 
@@ -713,7 +725,7 @@ def _frame_audit(tier):
     triangles overlap, none is degenerate, and together they are exactly the
     rectangle less the arch (_Mesh._emit turns each the right way, so areas
     are unsigned here). Returns (ok, min angle, n)."""
-    cell = _Cell(_Bay(0), tier)
+    cell = _Cell(_Bay(0, *mb.tier_ring(tier)), tier)
     pts2 = cell.outline + cell.rect
     tris = [[pts2[i] for i in t] for t in cell.frame]
     areas = [abs(_signed_area(T)) for T in tris]
@@ -744,9 +756,10 @@ def _seam_audit(m):
             free.add(b)
     have = set((round(m.verts[i][0], 4), round(m.verts[i][1], 4), round(m.verts[i][2], 4)) for i in free)
     st, zf = mb.seam_wall_foot()
-    ss, z_soffit, z_top = mb.seam_slab()
+    ss, z_lip = mb.seam_slab()
+    sl, z_lane = mb.seam_lane_foot()
     want = set()
-    for (x, y, z) in mb.station_pts(st, zf) + mb.station_pts(ss, z_soffit) + mb.station_pts(ss, z_top):
+    for (x, y, z) in mb.station_pts(st, zf) + mb.station_pts(ss, z_lip) + mb.station_pts(sl, z_lane):
         want.add((round(x, 4), round(y, 4), round(z, 4)))
     return have == want, len(have), len(want)
 
@@ -777,9 +790,10 @@ if __name__ == "__main__":
     # cornice front and the wall over it. The lane part's walkway slab, closing
     # onto the soffit and top lines, joins them (marble_build --check: 1).
     bars = info["bars"]
-    ok = (a["components"] == 2 and a["boundary_edges"] == 3 * 192 + BAR_OPEN * bars and a["doubled_edges"] == 0
+    seam_n = sorted([3 * mb.NSIDE_IN, 3 * mb.NSIDE_IN, 3 * mb.NSIDE])
+    ok = (a["components"] == 2 and a["boundary_edges"] == sum(seam_n) + BAR_OPEN * bars and a["doubled_edges"] == 0
           and a["over_edges"] == 0 and a["degenerate"] == 0 and a["duplicate_positions"] == 0
-          and len(loops) == 3 + bars and all(n == 192 for (n, _r, _z) in loops[:3])
+          and len(loops) == 3 + bars and sorted(n for (n, _r, _z) in loops[:3]) == seam_n
           and all(n == BAR_OPEN for (n, _r, _z) in loops[3:]) and frames_ok and seams_ok)
     print("WALL PART %s (two pieces alone: the slab tier's cornice front is the lane part's slab)"
           % ("OK" if ok else "NOT OK"))

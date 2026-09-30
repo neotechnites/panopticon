@@ -14,7 +14,9 @@ the wall of cells -- a slab at Map 1's lane height and radii, whose inner
 edge is open: step off it and you drop 24 m onto the spikes. The wall is
 SEVEN tiers of arched cells, three below the walkway down to the spike
 floor and four above it, every cell an open recess with iron bars over the
-arch; a pilaster on every pier, a cornice on every tier, a Greek-key frieze
+arch. The lane tier alone stands back at WALL_R: the tiers under and over
+it stand in at WALL_IN_R, so the walkway is a corridor cut into the wall.
+A pilaster on every pier, a cornice on every tier, a Greek-key frieze
 and a great cornice under a solid ribbed dome. No oculus: the light is the
 tower's gold lantern, and a cool ambient. Nothing on the lane.
 
@@ -28,7 +30,7 @@ Authored in WORLD coordinates so the scene instances it at identity:
     walkway slab ......  y = SLAB_Z0 (22.0) .. DECK_Z (23.0; the runner's feet, Map 1's ring)
     guard-room floor ..  y = 27.05   (the scene's Tower node at 25.35 + 1.70)
     wall top / frieze .  y = 55.0 .. 56.8
-    dome springs ......  y = 57.8, apex 84.8
+    dome springs ......  y = 57.8, apex 79.0 (scaled to r WALL_IN_R)
 
 Blender +Z -> Godot +Y, Blender +Y -> Godot -Z. A game bearing of b degrees
 is Blender angle -b.
@@ -114,7 +116,7 @@ TIER_H = 8.0
 N_BELOW, N_ABOVE = 3, 4     # tiers under the walkway (down to the floor) and over it
 N_TIERS = N_BELOW + N_ABOVE
 TIER_BASE = tuple(FLOOR_Z + k * TIER_H for k in range(N_TIERS))   # -1 7 15 23 31 39 47; top 55
-SLAB_TIER = N_BELOW - 1     # the tier whose cornice is the walkway slab (its front is left open)
+SLAB_TIER = N_BELOW - 1     # the tier whose cornice is the walkway's lip (the deck closes onto it)
 LANE_TIER = N_BELOW         # the tier whose base is the walkway (TIER_BASE[LANE_TIER] == DECK_Z)
 SILL_UP = 1.0               # arch sill over the tier base (a socle under every sill)
 ARCH_W = 4.0                # cell mouth width
@@ -130,12 +132,24 @@ BAND_PROUD = 0.45           # ... as proud as the pilasters, which run up into i
 FRIEZE_Z = (TIER_BASE[-1] + TIER_H, TIER_BASE[-1] + TIER_H + 1.8)     # 55.0 .. 56.8, Greek key
 CORNICE_Z = (FRIEZE_Z[1], FRIEZE_Z[1] + 1.0)                          # 56.8 .. 57.8, the great cornice
 CORNICE_PROUD = 0.8
+# The corridor: the lane tier stays at WALL_R; the tiers under and over it stand in at WALL_IN_R,
+# their cornice fronts on the lip. 50 bays keep one brick drawing a bay at the same texel density.
+WALL_IN_R = INNER_R + BAND_PROUD    # 47.15: the inner tiers' wall face
+NSIDE_IN = 50
+CEIL_Z = TIER_BASE[LANE_TIER + 1]   # 31.0: the corridor's ceiling, the upper tiers' underside
+
+
+def tier_ring(tier):
+    """(face radius, bays) of a tier's wall."""
+    return (WALL_R, NSIDE) if tier == LANE_TIER else (WALL_IN_R, NSIDE_IN)
+
 
 # ---- the dome -------------------------------------------------------------
 DOME_Z0 = CORNICE_Z[1]      # 57.8
-DOME_RISE = 27.0
+DOME_K = WALL_IN_R / WALL_R # the dome scaled whole to the inner tiers' radius
+DOME_RISE = 27.0 * DOME_K
 DOME_RINGS = 8
-DOME_CAP_R = 4.2            # flat medallion at the crown
+DOME_CAP_R = 4.2 * DOME_K   # flat medallion at the crown
 
 # ---- the spike floor ------------------------------------------------------
 SPIKE_SEED = 7702141
@@ -731,7 +745,12 @@ def shade_sheet(name, **kw):
     return brick(name, tint=TINT_SHADE, **kw)
 
 
-_WALL = dict(ref_r=WALL_R, phase=(0.0, FLOOR_Z))
+def _wall_ref(c):
+    """The ring a face's bricks are measured on: the lane tier's and the ceiling at WALL_R, else WALL_IN_R."""
+    return WALL_R if math.hypot(c[0], c[1]) > 0.5 * (WALL_IN_R + WALL_R) or abs(c[2] - CEIL_Z) < 1e-6 else WALL_IN_R
+
+
+_WALL = dict(ref_r=_wall_ref, phase=(0.0, FLOOR_Z))
 SHEETS = {
     "marble": brick("marble", **_WALL),
     "shade": brick("shade", tint=TINT_SHADE, **_WALL),
@@ -979,7 +998,7 @@ def lane_angles():
     return [TWO_PI * i / (NSIDE * DECK_SUB) for i in range(NSIDE * DECK_SUB)]
 
 
-def wall_stations():
+def wall_stations(rad=WALL_R, n=NSIDE):
     """The wall's stations, 192 round: every bay corner and the pilaster edge
     PILASTER_W/2 along the chord on each side of it -- as (angle, x, y), sorted
     by angle. They are CHORD points (_Bay.at), not points on the r 60 circle:
@@ -987,8 +1006,8 @@ def wall_stations():
     The trough's outer ring, every cornice's back edge and the dome's spring
     ring are made of these."""
     out = []
-    for i in range(NSIDE):
-        bay = _Bay(i)
+    for i in range(n):
+        bay = _Bay(i, rad, n)
         for u in (0.0, PILASTER_W / 2.0, bay.L - PILASTER_W / 2.0):
             x, y, _z = bay.at(u, 0.0)
             out.append((math.atan2(y, x) % TWO_PI, x, y))
@@ -1007,24 +1026,24 @@ TOWER_BASE_R = 8.0          # the tower's bottom step: the floor runs in under i
 TOWER_FOOT_Z = FLOOR_Z
 
 
-def corner_pt(i, z, proud):
-    """The pilaster/cornice corner: the radial point r WALL_R - proud on bay
+def corner_pt(i, z, proud, rad=WALL_R, n=NSIDE):
+    """The pilaster/cornice corner: the radial point r rad - proud on bay
     corner i's own bearing, so both bays meeting there use one vertex."""
-    a = ANG[i % NSIDE]
-    r = WALL_R - proud
+    a = TWO_PI * (i % n) / n
+    r = rad - proud
     return (r * math.cos(a), r * math.sin(a), z)
 
 
-def slab_stations():
+def slab_stations(rad=WALL_R, n=NSIDE):
     """The 192 stations of a tier cornice's FRONT line, proud BAND_PROUD of
     the wall: per bay the radial corner point (corner_pt) and the two
     pilaster-edge points (_Bay.at(u, z, -BAND_PROUD)) -- as (angle, x, y),
     sorted by angle. The wall part's cornice fronts are made of exactly these
     points, so the walkway slab welds to the slab tier's cornice lines."""
     out = []
-    for i in range(NSIDE):
-        bay = _Bay(i)
-        x, y, _z = corner_pt(i, 0.0, BAND_PROUD)
+    for i in range(n):
+        bay = _Bay(i, rad, n)
+        x, y, _z = corner_pt(i, 0.0, BAND_PROUD, rad, n)
         out.append((math.atan2(y, x) % TWO_PI, x, y))
         for u in (PILASTER_W / 2.0, bay.L - PILASTER_W / 2.0):
             x, y, _z = bay.at(u, 0.0, -BAND_PROUD)
@@ -1033,21 +1052,23 @@ def slab_stations():
 
 
 def seam_wall_foot():
-    """(stations, y): the wall foot ring at y FLOOR_Z -- the floor ends here, the wall starts."""
-    return wall_stations(), FLOOR_Z
+    """(stations, y): the inner tiers' foot ring at y FLOOR_Z -- the floor ends here, the wall starts."""
+    return wall_stations(WALL_IN_R, NSIDE_IN), FLOOR_Z
 
 
 def seam_slab():
-    """(stations, y_soffit, y_top): the slab tier's cornice front lines at
-    SLAB_Z0 and DECK_Z. The wall part leaves its cornice front OPEN between
-    them on this tier; the lane part's walkway slab closes onto both rings
-    (underside to the lower, deck margin to the upper)."""
-    return slab_stations(), SLAB_Z0, DECK_Z
+    """(stations, y): the slab tier's cornice front top line, the lip: the deck closes onto it."""
+    return slab_stations(WALL_IN_R, NSIDE_IN), DECK_Z
+
+
+def seam_lane_foot():
+    """(stations, y): the lane tier's foot at WALL_R, y DECK_Z: the deck's margin closes onto it."""
+    return wall_stations(), DECK_Z
 
 
 def seam_dome_spring():
     """(stations, y): the great cornice's back edge at y DOME_Z0 -- the dome's spring ring."""
-    return wall_stations(), DOME_Z0
+    return wall_stations(WALL_IN_R, NSIDE_IN), DOME_Z0
 
 
 def _zipper(m, outer, outer_ang, inner, inner_ang, want, zone):
@@ -1111,14 +1132,15 @@ class _Bay(object):
     """One flat facet of the wall: corner P0 at ANG[i], P1 at ANG[i+1], r WALL_R.
     Local (u, z, d): u along the chord, z up, d into the wall."""
 
-    def __init__(self, i, rad=WALL_R):
-        a0, a1 = ANG[i], ANG[(i + 1) % NSIDE]
+    def __init__(self, i, rad=WALL_R, n=NSIDE):
+        a0, a1 = TWO_PI * i / n, TWO_PI * ((i + 1) % n) / n
+        self.rad, self.n = rad, n
         self.p0 = (rad * math.cos(a0), rad * math.sin(a0))
         self.p1 = (rad * math.cos(a1), rad * math.sin(a1))
         dx, dy = self.p1[0] - self.p0[0], self.p1[1] - self.p0[1]
         self.L = math.hypot(dx, dy)
         self.u = (dx / self.L, dy / self.L)
-        am = ANG[i] + math.pi / NSIDE                    # never the wrap-around mean
+        am = a0 + math.pi / n                            # never the wrap-around mean
         self.n_in = (-math.cos(am), -math.sin(am), 0.0)     # toward the axis
         self.n_out = (math.cos(am), math.sin(am), 0.0)
 

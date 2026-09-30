@@ -66,7 +66,7 @@ TIP_CAP = mb.FLOOR_Z + 3.0  # no tip over this
 # nothing stands and nobody alive looks. The outermost is the 64-ring the
 # wall foot zippers from.
 FLOOR_BANDS = ((16.0, 32, mb.SPIKE_PITCH), (30.0, 64, mb.SPIKE_PITCH),
-               (47.0, 128, mb.SPIKE_PITCH), (59.0, 64, 6.0))
+               (47.0, 128, mb.SPIKE_PITCH))
 
 
 def _floor_rings():
@@ -80,7 +80,8 @@ def _floor_rings():
     return tuple(out)
 
 
-FLOOR_RINGS = _floor_rings()
+# the ring at 47.0 (never a spike) would graze the inner tiers' foot: the last ring zips to it instead
+FLOOR_RINGS = tuple(r for r in _floor_rings() if r[0] < mb.INNER_R - 1.0)
 
 UP, DOWN = mb.UP, mb.DOWN
 TWO_PI = mb.TWO_PI
@@ -250,42 +251,46 @@ def _deck(m):
             m.quad(rings[k][i], rings[k][j], rings[k + 1][j], rings[k + 1][i], UP, "floor")
 
 
+def _stitch(m, a, b, want, zone):
+    """Flat triangles between closed rings a (inner) and b (outer), both ascending from angle 0:
+    by angle, but never a folded triangle -- the lip's strip is 0.1 m against 2.3 m stations."""
+    def ok(p, q, r):
+        P, Q, R = m.verts[p], m.verts[q], m.verts[r]
+        return (Q[0] - P[0]) * (R[1] - P[1]) - (Q[1] - P[1]) * (R[0] - P[0]) < -1e-9
+
+    def ang(v, k, n):
+        return math.atan2(m.verts[v][1], m.verts[v][0]) % TWO_PI + (TWO_PI if k >= n else 0.0)
+
+    na, nb = len(a), len(b)
+    ia = ib = 0
+    while ia < na or ib < nb:
+        a0, b0 = a[ia % na], b[ib % nb]
+        can_a = ia < na and ok(a0, a[(ia + 1) % na], b0)
+        can_b = ib < nb and ok(b0, a0, b[(ib + 1) % nb])
+        by_a = ia < na and (ib >= nb or ang(a[(ia + 1) % na], ia + 1, na) < ang(b[(ib + 1) % nb], ib + 1, nb))
+        if can_a and (by_a or not can_b):
+            m.tri(a0, a[(ia + 1) % na], b0, want, zone)
+            ia += 1
+        elif can_b:
+            m.tri(a0, b[(ib + 1) % nb], b0, want, zone)
+            ib += 1
+        else:
+            raise RuntimeError("lip stitch folds")
+
+
 def _edge(m):
-    """The open inner edge: the nosing down from the deck to INNER_R, and the
-    inner face from there down to the slab's underside, facing the axis."""
-    ang = mb.lane_angles()
-    n = len(ang)
-    deck_in = _ring(m, ang, mb.DECK_RS[0], mb.DECK_Z)
-    lip = _ring(m, ang, mb.INNER_R, mb.DECK_Z - mb.LIP)
-    foot = _ring(m, ang, mb.INNER_R, mb.SLAB_Z0)
-    for i in range(n):
-        j = (i + 1) % n
-        e = _er(_mid(ang, i))
-        m.quad(lip[i], lip[j], deck_in[j], deck_in[i], (-e[0], -e[1], 1.0), "shade")
-        m.quad(foot[i], foot[j], lip[j], lip[i], (-e[0], -e[1], 0.0), "shade")
-
-
-def _underside(m):
-    """The slab's soffit at SLAB_Z0, facing down: INNER_R out to OUTER_R on
-    128 stations, then zippered to the cornice's soffit line."""
-    ang = mb.lane_angles()
-    n = len(ang)
-    z = mb.SLAB_Z0
-    inner, outer = _ring(m, ang, mb.INNER_R, z), _ring(m, ang, mb.OUTER_R, z)
-    for i in range(n):
-        j = (i + 1) % n
-        m.quad(inner[i], inner[j], outer[j], outer[i], DOWN, "shade")
-    stations, z_soffit, _z_top = mb.seam_slab()
-    seam = [m.v(p) for p in mb.station_pts(stations, z_soffit)]
-    mb._zipper(m, seam, mb.station_angles(stations), outer, ang, DOWN, "shade")
+    """The open inner edge: the deck's inner ring closed onto the slab tier's cornice front, the lip."""
+    stations, z = mb.seam_slab()
+    seam = [m.v(p) for p in mb.station_pts(stations, z)]
+    _stitch(m, seam, _ring(m, mb.lane_angles(), mb.DECK_RS[0], z), UP, "shade")
 
 
 def _margin(m):
-    """The plain stone between the paving's outer ring and the cornice's top line."""
+    """The plain stone between the paving's outer ring and the lane tier's foot."""
     ang = mb.lane_angles()
-    stations, _z_soffit, z_top = mb.seam_slab()
-    seam = [m.v(p) for p in mb.station_pts(stations, z_top)]
-    deck_out = _ring(m, ang, mb.DECK_RS[-1], z_top)
+    stations, z = mb.seam_lane_foot()
+    seam = [m.v(p) for p in mb.station_pts(stations, z)]
+    deck_out = _ring(m, ang, mb.DECK_RS[-1], z)
     mb._zipper(m, seam, mb.station_angles(stations), deck_out, ang, UP, "marble2")
 
 
@@ -295,7 +300,7 @@ def _margin(m):
 
 def _stages(m, sp):
     return (("floor", lambda: _floor(m, sp)), ("deck", lambda: _deck(m)), ("edge", lambda: _edge(m)),
-            ("underside", lambda: _underside(m)), ("margin", lambda: _margin(m)))
+            ("margin", lambda: _margin(m)))
 
 
 def _info(sp):
@@ -311,8 +316,8 @@ def build(m):
 
 
 def collider(c):
-    """Light and purpose-built: the floor disc, the flat deck, the inner face,
-    the underside. Not required to be one surface -- Godot makes a concave
+    """Light and purpose-built: the floor disc, the flat deck (the inner tiers'
+    collider is its lip face). Not required to be one surface -- Godot makes a concave
     shape of it. The spikes are not colliders: a body that leaves the walkway
     is dead by the kill cylinder before it lands."""
     z = mb.FLOOR_Z
@@ -320,7 +325,7 @@ def collider(c):
     prev = _ring(c, mb.ANG, 30.0, z)
     for i in range(64):
         c.tri(hub, prev[i], prev[(i + 1) % 64], UP, "field")
-    foot = _ring(c, mb.ANG, mb.WALL_R, z)
+    foot = _ring(c, mb.ANG, mb.INNER_R, z)
     for i in range(64):
         j = (i + 1) % 64
         c.quad(prev[i], prev[j], foot[j], foot[i], UP, "field")
@@ -332,12 +337,6 @@ def collider(c):
         for i in range(n):
             j = (i + 1) % n
             c.quad(rings[k][i], rings[k][j], rings[k + 1][j], rings[k + 1][i], UP, "floor")
-    under_in, under_out = _ring(c, ang, mb.INNER_R, mb.SLAB_Z0), _ring(c, ang, r_out, mb.SLAB_Z0)
-    for i in range(n):
-        j = (i + 1) % n
-        e = _er(_mid(ang, i))
-        c.quad(under_in[i], under_in[j], rings[0][j], rings[0][i], (-e[0], -e[1], 0.0), "shade")
-        c.quad(under_in[i], under_in[j], under_out[j], under_out[i], DOWN, "shade")
 
 
 if __name__ == "__main__":
@@ -358,9 +357,10 @@ if __name__ == "__main__":
     c = mb._Mesh()
     collider(c)
     mb.audit(c, "lane_coll")
-    ok = a["components"] == 2 and a["boundary_edges"] == 576 and a["doubled_edges"] == 0 \
+    seam_n = sorted([3 * mb.NSIDE_IN, 3 * mb.NSIDE_IN, 3 * mb.NSIDE])
+    ok = a["components"] == 2 and a["boundary_edges"] == sum(seam_n) and a["doubled_edges"] == 0 \
         and a["over_edges"] == 0 and a["degenerate"] == 0 and a["duplicate_positions"] == 0 \
-        and len(loops) == 3 and all(n == 192 for (n, _r, _z) in loops) \
+        and len(loops) == 3 and sorted(n for (n, _r, _z) in loops) == seam_n \
         and info["tip_max"] <= TIP_CAP + 1e-6
     print("LANE PART %s (pieces=%d: floor + slab; the wall joins them)" % ("OK" if ok else "FAILED", a["components"]))
     sys.exit(0 if ok else 1)
