@@ -96,12 +96,19 @@ const ZOOM_STEP_METRES: float = 1.0
 ## Seconds since the wheel was last touched before the orbit drifts by itself.
 const IDLE_ORBIT_SECONDS: float = 2.0
 
+## Camera height above the tower marker, metres.
+const TOWER_CAMERA_LIFT_METRES: float = 3.0
+## Death-shot turn easing, per second.
+const AIM_SMOOTHING: float = 4.0
+
 var _inert: bool = false
 var _active: bool = false
 
 ## Degrees of automatic drift accumulated since the view came up. Reset on every
 ## entry, so two deaths in a row do not start from a different bearing each time.
 var _drift_degrees: float = 0.0
+## Smoothed death-shot aim; zero until the first frame snaps it.
+var _aim_dir: Vector3 = Vector3.ZERO
 
 ## How far the death orbit is standing off the body, in metres. The wheel.
 var _zoom_metres: float = ZOOM_MIN_METRES
@@ -253,6 +260,7 @@ func _activate(state: MatchController.Spectating) -> void:
 		_drift_degrees = _initial_bearing_degrees(state)
 		_zoom_metres = clampf(profile.death_radius_metres, ZOOM_MIN_METRES, ZOOM_MAX_METRES)
 		_idle_seconds = IDLE_ORBIT_SECONDS
+		_aim_dir = Vector3.ZERO
 		_active = true
 		set_process_unhandled_input(true)
 	camera.fov = profile.field_of_view_degrees
@@ -322,7 +330,7 @@ func _place(_delta: float) -> void:
 	if _state == MatchController.Spectating.ELIMINATED:
 		_place_overlook()
 	else:
-		_place_death_shot()
+		_place_death_shot(_delta)
 
 
 ## The overlook: an orbit in the open pit between the tower and the deck,
@@ -365,36 +373,31 @@ func _place_overlook() -> void:
 		camera.look_at(target, Vector3.UP)
 
 
-## The death shot: an orbit of the spot the body died at, at the distance the
-## wheel is holding. It drifts by itself once nobody has touched the wheel for
-## [constant IDLE_ORBIT_SECONDS].
-##
-## Anchored on [member MatchParticipant.death_position] rather than the body's
-## live transform: the body may already be parked a hundred metres down or back
-## on the start line by the time this runs.
-func _place_death_shot() -> void:
-	var anchor: Vector3 = _focus_point()
-	var bearing: float = deg_to_rad(_drift_degrees)
-	var pitch: float = _default_pitch()
-	var flat: float = cos(pitch) * _zoom_metres
-	camera.global_position = anchor + Vector3(
-		cos(bearing) * flat, sin(pitch) * _zoom_metres, sin(bearing) * flat
-	)
-	var target: Vector3 = _look_target()
-	if camera.global_position.distance_squared_to(target) > 1e-6:
-		camera.look_at(target, Vector3.UP)
+## The death shot: parked above the tower, turning to keep the leading runner
+## centred. Turn rate eases by [constant AIM_SMOOTHING].
+func _place_death_shot(delta: float) -> void:
+	camera.global_position = _tower_top()
+	var to_target: Vector3 = _look_target() - camera.global_position
+	if to_target.length_squared() < 1e-6:
+		return
+	var aim: Vector3 = to_target.normalized()
+	if _aim_dir.length_squared() < 0.5:
+		_aim_dir = aim
+	else:
+		_aim_dir = _aim_dir.slerp(aim, 1.0 - exp(-AIM_SMOOTHING * delta)).normalized()
+	camera.look_at(camera.global_position + _aim_dir, Vector3.UP)
 
 
-## The orbit's elevation: the profile's own standoff and height describe it.
-func _default_pitch() -> float:
-	return atan2(
-		maxf(profile.death_height_metres - profile.death_focus_height_metres, 0.0),
-		maxf(profile.death_radius_metres, 0.01),
-	)
+## The tower's marker, as match_controller reads it, lifted above the roof.
+func _tower_top() -> Vector3:
+	var marker: Node3D = null
+	if controller.arena != null:
+		marker = controller.arena.get_node_or_null(controller.spawn_marker_path) as Node3D
+	var base: Vector3 = marker.global_position if marker != null else Vector3.ZERO
+	return base + Vector3(0.0, TOWER_CAMERA_LIFT_METRES, 0.0)
 
 
-## What the camera's position is anchored on: the body while it is held, or a
-## point out on the deck, in the direction the overlook orbits, once eliminated.
+## What the camera is anchored on: the tower top, or the overlook point once eliminated.
 func _focus_point() -> Vector3:
 	var arena_centre: Vector3 = (
 		controller.arena.global_position if controller.arena != null else Vector3.ZERO
@@ -407,12 +410,7 @@ func _focus_point() -> Vector3:
 			sin(bearing) * profile.overlook_focus_radius_metres,
 		)
 
-	var participant: MatchParticipant = controller.get_human_participant()
-	if participant == null:
-		return arena_centre + Vector3(0.0, profile.overlook_focus_height_metres, 0.0)
-	return participant.death_position + Vector3(
-		0.0, profile.death_focus_height_metres, 0.0
-	)
+	return _tower_top()
 
 
 ## Where the camera turns to look: the living prisoner furthest along the
