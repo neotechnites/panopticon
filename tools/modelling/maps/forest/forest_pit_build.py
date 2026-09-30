@@ -14,16 +14,17 @@ Not a model of its own: forest_build.py calls in here with its _Ground (g).
                          no fog volumes, so the fog is layers
     fog_report()         what those discs do to a ray down the pit: straight down, and
                          oblique from every stand point (FOG_EYES) to every floor point
-    stem_colour(bank_r, p)  a bramble vertex's COLOR_0: the fog's rendered colour up to
-                         the drift field's local fog top, bark STEM_FADE above it, so
-                         every disc crossing a stem meets its own colour on both sides
+    stem_colour(bank_r, p)  a bramble vertex's COLOR_0: dark bark down to the drift
+                         field's local fog top, blending to the mist's colour over
+                         STEM_FADE under it, so a thorn sinks into the mist as a dark
+                         silhouette and no disc draws a line across a stem
 
-No water: the pit is a dark floor under fog, and thorns come out of the fog. The
-floor is not meant to be seen at all -- a pit reads as bottomless only while
-nothing flat at the end of it reaches the eye -- so the fog is built to a number
-rather than to a look: the bottom of the stack is one opaque slab and every ray
-from a stand point to the floor leaves under FOG_PROOF of the floor's own colour. It takes two things
-together. The slab is here; the other half is `disable_fog = true` on FogMat in
+No water: the pit is a pale mist with dark thorns sinking into it. The floor is
+not meant to be seen at all -- a pit reads as bottomless only while nothing flat
+at the end of it reaches the eye -- so the fog is built to a number rather than to
+a look: the bottom of the stack is one opaque slab and every ray from a stand point
+to the floor leaves under FOG_PROOF transmittance (the fraction of the floor's
+light that reaches the eye). It takes two things together. The slab is here; the other half is `disable_fog = true` on FogMat in
 maps/forest/forest.tscn, without which the Environment's depth fog repaints these
 layers AND the floor behind them to one pale colour, and one colour spread over
 one flat plane is exactly what reads as a floor.
@@ -39,12 +40,15 @@ import forest_tree_build as ft
 from forest_tree_build import UP, DOWN, pol, add, sub, norm, dot, lerp, bez, zipper
 
 FOG_NAME = "ForestFog"
-FOG_TINT = (0.26, 0.28, 0.22)   # gold-grey-green, kept dim: a column stacks fourteen layers, and unshaded
-                                # fog brighter than the sunlit lane reads as milk, not gloom. Godot shows
-                                # this x FOG_OVERRIDE, and FOG_DEPTH_DIM takes the floor end near black
-FOG_OVERRIDE = 0.6              # FogMat's albedo alpha in maps/forest/forest.tscn. The scene multiplies every
-                                # vertex alpha by this, so it is the ceiling on what one layer can hide
-                                # (a layer at vertex alpha 1.0 still passes 40 % of what is behind it).
+FOG_TINT = (0.70, 0.74, 0.64)   # a pale grey-green MIST, brighter than anything in the pit, one colour top
+                                # to floor: unshaded, Godot shows this x FOG_ALBEDO. Was (0.26, 0.28, 0.22)
+                                # dimmed to black at depth -- Ryan: "it looks like the colors are inverted,
+                                # not like a bit of brambles shrouded in fog"
+FOG_ALBEDO = 1.0                # FogMat's albedo_color rgb in maps/forest/forest.tscn (a source_color): the
+                                # mist is FOG_TINT x this. Was 0.6 under the dim tint; 1.0 lets a vertex reach pale
+FOG_OVERRIDE = 0.6              # the most of one layer's vertex alpha the proof lets Godot draw. FogMat's
+                                # alpha multiply is 1.0 (albedo_color.a), so the stack is at least this
+                                # opaque; the margin is what d49ecf4 proved against and it stays.
                                 # fog_report() models it: leave it out and the transmittance numbers are fiction
 
 
@@ -107,10 +111,9 @@ FOG_SOLID = 0.70                # ... and the bottom this fraction of the stack 
                                 # gradient, it is the dark; only the top ~1.35 m thins to the bramble tops
 FOG_CURVE = 1.6                 # above the slab the column falls as ((reach - u)/(reach - FOG_SOLID))^this
                                 # to exactly 0 where the column ends
-FOG_DEPTH_DIM = 0.15            # the tint at the floor, as a factor; 1.0 at the top. Deepened from 0.50 now
-                                # that the floor layer is opaque: what an opaque layer shows IS its tint, and
-                                # the bottom of a bottomless pit has to converge on black, not on a colour
-                                # (0.26 x 0.15 x FOG_OVERRIDE = 0.023 linear, against 0.156 up in the haze)
+FOG_DEPTH_DIM = 1.0             # the tint at the floor, as a factor; 1.0 at the top. 1.0: the mist is one pale
+                                # colour top to floor, never darkening with depth (was 0.15, black at the floor:
+                                # a mist that darkens downward reads as a lit floor under it). Still the knob
 FOG_REACH = 0.90                # how high a column of fog climbs, as a fraction of the stack: FOG_REACH in
                                 # the thin places, 1.0 in the thick ones, set by the drift field -- the top
                                 # of the fog ROLLS instead of lying flat, and never reaches past the top
@@ -128,9 +131,9 @@ FOG_RADIAL = (0.16, 2.3, 0.35)         # one more drift term across the radius (
                                        # weight): a 40 m period, two samples a ring apart -- patches, not stripes
 FOG_GAIN = 1.7                         # the sines rarely line up, so the field is scaled to its range and
                                        # clipped: banks with thick middles, not a gentle swell
-FOG_PROOF = 0.005                      # what fog_report() has to beat: the share of the floor that may still
-                                       # reach an eye, straight down the pit AND along every oblique ray from
-                                       # where a player can stand (FOG_EYES) to every floor point it can see
+FOG_PROOF = 0.005                      # what fog_report() has to beat: the transmittance -- the fraction of the
+                                       # floor's light that reaches an eye -- straight down the pit AND along every
+                                       # oblique ray from where a player can stand (FOG_EYES) to every floor point
 FOG_EYES = (("deck_edge", "lip", 0.0),   # (name, where, height over it): the lip's edge, the path, the lane's
             ("lane_path", "path", 0.0),  # outer edge, the guard's floor, and the goblet rim round it. Bearings
             ("lane_wall", "wall", 0.0),  # step FOG_EYE_STEP; the floor is sampled at FOG_FLOOR_STEP
@@ -179,7 +182,10 @@ FORK_R = 0.6                    # ... this fraction of the parent's radius there
 SOCKET_MIN_DEG = 4.0            # a socket whose best bridging makes a smaller angle is not grown
 STEM_ZONE = "stem"              # the brambles' own sheet, plain white and UNLIT: COLOR_0 is the rendered colour, as on the fog
 STEM_BARK = (0.006, 0.006, 0.004)   # the forest_dark tile's mean (sRGB 1.5/255): what the stems rendered as on "cell", black spikes
-STEM_FADE = 0.8                 # metres above the local fog top over which a stem blends from the fog's colour to STEM_BARK
+STEM_FADE = (0.45, 0.9)         # (metres above, metres below) the local fog top over which a stem blends from STEM_BARK
+                                # to the mist's colour; bark above, the mist's colour under (buried in the slab), so the
+                                # thorns sink in as dark silhouettes and no disc crossing a stem draws a line. Was the
+                                # fog's colour up the whole stem: with a dim fog that was the "inverted" look
 STEM_FOG_MIN = 0.02             # a disc drawing under this effective alpha is air to the stems: the local fog top is the
                                 # highest disc at or over it, not the one the curve's tail leaves at a thousandth
 
@@ -542,12 +548,12 @@ def fog_mesh(cls, g):
 
     Every vertex is a column of the drift field (_fog_column): solid to FOG_SOLID
     of the stack, then falling to zero at a height the field rolls between
-    FOG_REACH and the top. So the bottom is not a gradient, it is the dark -- a
+    FOG_REACH and the top. So the bottom is not a gradient, it is opaque mist -- a
     ray straight down the pit comes out under FOG_PROOF -- while the top rolls
     between the bramble tops and the stack's ceiling and is zero at the top layer
     everywhere: no plane anywhere, and the tall brambles come through the thin
-    places. The tint darkens to FOG_DEPTH_DIM at depth, so the dark the slab shows
-    is very nearly black. The bottom layer's vertices come first: the triangle
+    places. The tint is FOG_TINT eased to FOG_DEPTH_DIM of itself at the floor: one
+    pale colour at 1.0. The bottom layer's vertices come first: the triangle
     order is the blend order, seen from above."""
     _bank_r = _host(g)._bank_r
     m = cls()
@@ -578,7 +584,7 @@ def fog_mesh(cls, g):
     return m
 
 
-# ---- the brambles in the fog: COLOR_0 on the stems is the fog's own colour ---------
+# ---- the brambles in the fog: COLOR_0 on the stems, bark sinking into the mist ------
 
 def _s2l(v):
     return v / 12.92 if v <= 0.04045 else ((v + 0.055) / 1.055) ** 2.4
@@ -589,12 +595,12 @@ def _l2s(v):
 
 
 def fog_colour(z):
-    """A disc at height z as Godot draws it, as a COLOR_0 value: Godot reads COLOR_0 as sRGB and FogMat's 0.6 as a
-    source_color, so the disc shows s2l(FOG_TINT x dim) x s2l(FOG_OVERRIDE); this is that, encoded back."""
+    """A disc at height z as Godot draws it, as a COLOR_0 value: Godot reads COLOR_0 as sRGB and FogMat's albedo as
+    a source_color, so the disc shows s2l(FOG_TINT x dim) x s2l(FOG_ALBEDO); this is that, encoded back."""
     z0, z1, _pitch = FOG_Z
     u = max(0.0, min(1.0, (z - z0) / (z1 - z0)))
     dim = FOG_DEPTH_DIM + (1.0 - FOG_DEPTH_DIM) * _ease(u)
-    return tuple(_l2s(_s2l(c * dim) * _s2l(FOG_OVERRIDE)) for c in FOG_TINT)
+    return tuple(_l2s(_s2l(c * dim) * _s2l(FOG_ALBEDO)) for c in FOG_TINT)
 
 
 def fog_top(bank_r, deg, rad):
@@ -608,13 +614,13 @@ def fog_top(bank_r, deg, rad):
 
 
 def stem_colour(bank_r, p):
-    """COLOR_0 for a bramble vertex at p: fog_colour(z) up to the local fog top, blending to STEM_BARK over
-    STEM_FADE above it, so the stems emerge from the fog instead of being cut by every disc they cross."""
+    """COLOR_0 for a bramble vertex at p: STEM_BARK down to STEM_FADE[0] over the local fog top, blending to the
+    mist's colour (fog_colour) STEM_FADE[1] under it and staying there, so no disc draws a line across a stem."""
     x, y, z = p[0], p[1], p[2]
     top = fog_top(bank_r, -math.degrees(math.atan2(y, x)) % 360.0, math.hypot(x, y))
     fog = fog_colour(z)
-    t = max(0.0, min(1.0, (z - top) / STEM_FADE))
-    return tuple(fog[k] + (STEM_BARK[k] - fog[k]) * t for k in range(3))
+    t = max(0.0, min(1.0, (top + STEM_FADE[0] - z) / (STEM_FADE[0] + STEM_FADE[1])))
+    return tuple(STEM_BARK[k] + (fog[k] - STEM_BARK[k]) * t for k in range(3))
 
 
 # ---- the proof: what a ray straight down the pit actually gets through ------------
@@ -643,8 +649,8 @@ def fog_ray(bank_at, deg, rad):
     """A ray straight down the pit at (deg, rad), floor to sky. Returns
     (transmittance, [effective alpha per layer, floor first]) where the effective
     alpha is what Godot draws -- the vertex alpha times FOG_OVERRIDE -- and the
-    transmittance is the product of (1 - that) over every layer: the share of the
-    floor's own colour that still reaches the eye."""
+    transmittance is the product of (1 - that) over every layer: the fraction of
+    the floor's light that still reaches the eye."""
     layers = _fog_layers()
     eff = []
     through = 1.0
