@@ -27,16 +27,8 @@ extends Node3D
 ## dead, and hands the view back by making the player's camera current again. The
 ## player's camera is never written to at all.
 ##
-## [b]Two views, because there are two kinds of dead[/b]
-##
-## [codeblock]
-## RESPAWNING  -> a fixed over-the-shoulder cut on the body you just lost.
-##                Three seconds. You see where you were taken from.
-## ELIMINATED  -> the overlook: high, outside the ring, watching the race
-##                finish. A racer who fell is out for the rest of the race, so
-##                this one can last a while -- and the corpse is buried a
-##                hundred metres under the deck, so there is nothing to orbit.
-## [/codeblock]
+## [b]One view for every kind of dead[/b]
+## Respawning or eliminated: on the tower roof, turning to keep the leading runner centred.
 ##
 ## [b]Why it polls[/b]
 ##
@@ -88,34 +80,18 @@ signal spectating_changed(active: bool)
 
 const HEADLESS_DISPLAY: String = "headless"
 
-## How close and how far the wheel may pull the death orbit, in metres.
-const ZOOM_MIN_METRES: float = 3.0
-const ZOOM_MAX_METRES: float = 12.0
-const ZOOM_STEP_METRES: float = 1.0
-
-## Seconds since the wheel was last touched before the orbit drifts by itself.
-const IDLE_ORBIT_SECONDS: float = 2.0
-
-## Camera height above the tower marker, metres.
-const TOWER_CAMERA_LIFT_METRES: float = 3.0
+## Camera height above the top of the tower's visible geometry, metres.
+const ROOF_LIFT_METRES: float = 2.0
 ## Death-shot turn easing, per second.
 const AIM_SMOOTHING: float = 4.0
 
 var _inert: bool = false
 var _active: bool = false
 
-## Degrees of automatic drift accumulated since the view came up. Reset on every
-## entry, so two deaths in a row do not start from a different bearing each time.
-var _drift_degrees: float = 0.0
 ## Smoothed death-shot aim; zero until the first frame snaps it.
 var _aim_dir: Vector3 = Vector3.ZERO
-
-## How far the death orbit is standing off the body, in metres. The wheel.
-var _zoom_metres: float = ZOOM_MIN_METRES
-
-## Seconds since the wheel was last used. The orbit drifts once this passes
-## [constant IDLE_ORBIT_SECONDS].
-var _idle_seconds: float = IDLE_ORBIT_SECONDS
+## Roof camera spot, measured from the tower's meshes on each activation.
+var _roof_point: Vector3 = Vector3.ZERO
 
 ## What the view is showing right now.
 var _state: MatchController.Spectating = MatchController.Spectating.NONE
@@ -134,7 +110,6 @@ func _ready() -> void:
 	if headless_inert and DisplayServer.get_name() == HEADLESS_DISPLAY:
 		_inert = true
 		set_process(false)
-		set_process_unhandled_input(false)
 		return
 	if profile == null:
 		push_error("FxSpectatorView has no SpectatorProfile; a dead player will stay frozen.")
@@ -207,10 +182,7 @@ func tick(delta: float) -> void:
 	if not _active or wanted != _state:
 		_activate(wanted)
 	_state = wanted
-	_idle_seconds += delta
-	if _idle_seconds >= IDLE_ORBIT_SECONDS:
-		_drift_degrees += _drift_rate() * delta
-	_place(delta)
+	_place_death_shot(delta)
 
 
 # --- Public API ---------------------------------------------------------------
@@ -257,37 +229,13 @@ func _activate(state: MatchController.Spectating) -> void:
 	var was_active: bool = _active
 	_state = state
 	if not was_active:
-		_drift_degrees = _initial_bearing_degrees(state)
-		_zoom_metres = clampf(profile.death_radius_metres, ZOOM_MIN_METRES, ZOOM_MAX_METRES)
-		_idle_seconds = IDLE_ORBIT_SECONDS
 		_aim_dir = Vector3.ZERO
+		_roof_point = _measure_roof()
 		_active = true
-		set_process_unhandled_input(true)
 	camera.fov = profile.field_of_view_degrees
 	camera.current = true
 	if not was_active:
 		spectating_changed.emit(true)
-
-
-## Where the drift starts. The fall spot's own bearing for ELIMINATED, so the
-## first frame looks out from where the racer actually went over rather than a
-## fixed angle that may face the void; zero -- meaning "wherever the tuned
-## angle points" -- for every other state.
-func _initial_bearing_degrees(state: MatchController.Spectating) -> float:
-	if state != MatchController.Spectating.ELIMINATED:
-		return 0.0
-	var participant: MatchParticipant = controller.get_human_participant()
-	if participant == null:
-		return 0.0
-	var centre: Vector3 = (
-		controller.arena.global_position if controller.arena != null else Vector3.ZERO
-	)
-	var offset: Vector2 = Vector2(
-		participant.death_position.x - centre.x, participant.death_position.z - centre.z
-	)
-	if offset.length_squared() < 1e-6:
-		return 0.0
-	return rad_to_deg(atan2(offset.y, offset.x))
 
 
 func _deactivate() -> void:
@@ -319,64 +267,10 @@ func _mute_input(muted: bool) -> void:
 		human_input.set_active(not muted)
 
 
-func _drift_rate() -> float:
-	if _state == MatchController.Spectating.ELIMINATED:
-		return profile.overlook_orbit_degrees_per_second
-	return profile.death_orbit_degrees_per_second
-
-
-## Where the camera goes and where it points, this frame.
-func _place(_delta: float) -> void:
-	if _state == MatchController.Spectating.ELIMINATED:
-		_place_overlook()
-	else:
-		_place_death_shot(_delta)
-
-
-## The overlook: an orbit in the open pit between the tower and the deck,
-## looking outward through the gallery's open inner side. Radius and height
-## are clamped into the pit's own band -- see
-## [member SpectatorProfile.overlook_min_radius_metres] -- so this never sits
-## in the rock the way the old outside-the-ring orbit now would.
-## Height of the deck above the arena origin; the overlook numbers are deck-relative.
-func _deck_y() -> float:
-	if controller == null or not controller.has_method("get_route"):
-		return 0.0
-	var route: RingRoute = controller.get_route()
-	if route == null or route.level_count() <= 0:
-		return 0.0
-	return route.deck_height(route.last_index())
-
-
-func _place_overlook() -> void:
-	var centre: Vector3 = (
-		controller.arena.global_position if controller.arena != null else Vector3.ZERO
-	)
-	var bearing: float = deg_to_rad(_drift_degrees)
-	var cam_radius: float = clampf(
-		profile.overlook_orbit_radius_metres,
-		profile.overlook_min_radius_metres,
-		profile.overlook_max_radius_metres,
-	)
-	var cam_height: float = clampf(
-		centre.y + _deck_y() + profile.overlook_orbit_height_metres,
-		profile.overlook_min_height_metres,
-		profile.overlook_max_height_metres,
-	)
-	camera.global_position = Vector3(
-		centre.x + cos(bearing) * cam_radius,
-		cam_height,
-		centre.z + sin(bearing) * cam_radius,
-	)
-	var target: Vector3 = _look_target()
-	if camera.global_position.distance_squared_to(target) > 1e-6:
-		camera.look_at(target, Vector3.UP)
-
-
-## The death shot: parked above the tower, turning to keep the leading runner
+## The death shot: parked on the tower roof, turning to keep the leading runner
 ## centred. Turn rate eases by [constant AIM_SMOOTHING].
 func _place_death_shot(delta: float) -> void:
-	camera.global_position = _tower_top()
+	camera.global_position = _roof_point
 	var to_target: Vector3 = _look_target() - camera.global_position
 	if to_target.length_squared() < 1e-6:
 		return
@@ -388,29 +282,37 @@ func _place_death_shot(delta: float) -> void:
 	camera.look_at(camera.global_position + _aim_dir, Vector3.UP)
 
 
-## The tower's marker, as match_controller reads it, lifted above the roof.
-func _tower_top() -> Vector3:
-	var marker: Node3D = null
-	if controller.arena != null:
-		marker = controller.arena.get_node_or_null(controller.spawn_marker_path) as Node3D
-	var base: Vector3 = marker.global_position if marker != null else Vector3.ZERO
-	return base + Vector3(0.0, TOWER_CAMERA_LIFT_METRES, 0.0)
+## The tower the guard is placed in: the spawn marker's parent, else the arena's TowerVariant.
+func _tower() -> Node3D:
+	if controller == null or controller.arena == null:
+		return null
+	var marker: Node = controller.arena.get_node_or_null(controller.spawn_marker_path)
+	if marker != null and marker.get_parent() is Node3D and marker.get_parent() != controller.arena:
+		return marker.get_parent() as Node3D
+	for node: Node in controller.arena.find_children("*", "Node3D", true, false):
+		if node is TowerVariant:
+			return node as Node3D
+	return marker as Node3D
 
 
-## What the camera is anchored on: the tower top, or the overlook point once eliminated.
+## On the tower's vertical axis, [constant ROOF_LIFT_METRES] over the top of its visible meshes.
+func _measure_roof() -> Vector3:
+	var tower: Node3D = _tower()
+	if tower == null:
+		return Vector3(0.0, ROOF_LIFT_METRES, 0.0)
+	var top: float = tower.global_position.y
+	for node: Node in tower.find_children("*", "MeshInstance3D", true, false):
+		var mesh: MeshInstance3D = node as MeshInstance3D
+		if mesh.mesh == null or not mesh.is_visible_in_tree():
+			continue
+		var box: AABB = mesh.global_transform * mesh.get_aabb()
+		top = maxf(top, box.end.y)
+	return Vector3(tower.global_position.x, top + ROOF_LIFT_METRES, tower.global_position.z)
+
+
+## What the camera is anchored on: the roof spot.
 func _focus_point() -> Vector3:
-	var arena_centre: Vector3 = (
-		controller.arena.global_position if controller.arena != null else Vector3.ZERO
-	)
-	if _state == MatchController.Spectating.ELIMINATED:
-		var bearing: float = deg_to_rad(_drift_degrees)
-		return arena_centre + Vector3(
-			cos(bearing) * profile.overlook_focus_radius_metres,
-			_deck_y() + profile.overlook_focus_height_metres,
-			sin(bearing) * profile.overlook_focus_radius_metres,
-		)
-
-	return _tower_top()
+	return _roof_point if _active else _measure_roof()
 
 
 ## Where the camera turns to look: the living prisoner furthest along the
@@ -436,29 +338,3 @@ func _leading_runner() -> MatchParticipant:
 			best_progress = progress
 			best = participant
 	return best
-
-
-## The wheel still zooms the death shot in and out. Mouse look is gone -- the
-## camera tracks the front runner instead of the player steering it.
-func _unhandled_input(event: InputEvent) -> void:
-	if not _active or profile == null:
-		return
-	var wheel: InputEventMouseButton = event as InputEventMouseButton
-	if wheel != null and wheel.pressed:
-		if wheel.button_index == MOUSE_BUTTON_WHEEL_UP:
-			_zoom(-ZOOM_STEP_METRES)
-		elif wheel.button_index == MOUSE_BUTTON_WHEEL_DOWN:
-			_zoom(ZOOM_STEP_METRES)
-	# Not marked handled: [PauseMenu] and the settings screen are entitled to see
-	# input while somebody is dead.
-
-
-## Pull the orbit in or push it out, within the band the wheel is allowed.
-func _zoom(by_metres: float) -> void:
-	_zoom_metres = clampf(_zoom_metres + by_metres, ZOOM_MIN_METRES, ZOOM_MAX_METRES)
-	_idle_seconds = 0.0
-
-
-## How far the death orbit is currently standing off, in metres.
-func get_zoom_metres() -> float:
-	return _zoom_metres
