@@ -359,14 +359,16 @@ class Sheet(object):
     canvas     (w, h) of that whole image, which `paint` draws entire
     local      a face that straddles a repeat is moved whole into the region (no world phase)
     rect       (u0, v0, u1, v1): the projected UVs squeezed into this part of the image (an atlas cell)
+    glow_stem  emissive image stem when the albedo file is shared and only this class glows
     """
 
     def __init__(self, name, paint=None, mpt=MPT, size=TILE, ref_r=None, phase=(0.0, 0.0),
                  mode="cyl", roughness=ROUGHNESS, metallic=METALLIC, cull=True, seed=0,
                  emissive=False, width=None, stem=None, mpt_u=None, tint=None, glow=True,
-                 region=None, canvas=None, local=False, rect=None):
+                 region=None, canvas=None, local=False, rect=None, glow_stem=None):
         self.name = name
         self.glow = glow
+        self.glow_stem = glow_stem
         self.region = region
         self.canvas = canvas
         self.local = local
@@ -662,21 +664,22 @@ def images(prefix, sheet, use_files=False, tex_dir=None):
     """(albedo, emissive-or-None) for a Sheet: the files when opted in and
     present (<prefix>_<name>_albedo.png), else painted."""
     stem = sheet.stem or "%s_%s" % (prefix, sheet.name)
-    if stem not in _IMAGES:
+    glow = sheet.glow_stem or stem
+    if (stem, glow) not in _IMAGES:
         pair = None
         if use_files and tex_dir:
             alb = _image_file(os.path.join(tex_dir, stem + "_albedo.png"))
             if alb is not None:
-                pair = (alb, _image_file(os.path.join(tex_dir, stem + "_emissive.png")))
+                pair = (alb, _image_file(os.path.join(tex_dir, glow + "_emissive.png")))
         if pair is None:
             c = Canvas(*(sheet.canvas or (sheet.width, sheet.size)))
             r = Rng(0x7E11 + sheet.seed)
             if sheet.paint is not None:
                 sheet.paint(c, r, sheet)
             pair = (_image(stem + "_albedo", c.w, c.h, c.alb),
-                    _image(stem + "_emissive", c.w, c.h, c.emi) if (c.glows or sheet.emissive) else None)
-        _IMAGES[stem] = pair
-    alb, emi = _IMAGES[stem]
+                    _image(glow + "_emissive", c.w, c.h, c.emi) if (c.glows or sheet.emissive) else None)
+        _IMAGES[(stem, glow)] = pair
+    alb, emi = _IMAGES[(stem, glow)]
     return alb, (emi if sheet.glow else None)
 
 

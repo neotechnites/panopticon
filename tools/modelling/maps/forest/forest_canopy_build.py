@@ -12,10 +12,16 @@ _Ground is grown in this scene (its underside dips over the trees, on the deck
 only) and every crown reads the roof off its actual triangles. A tree is built
 the way a broadleaf is:
 
-    trunk   forest_tree_prop_build's own rings, unchanged where they are cover
-            and collider, with a buttressed FLARE at the foot (one ring more,
-            ridged), then carried on -- thick, straightening -- to the roof
-            itself: its top ring sits up inside the roof sheet.
+    trunk   Ryan: "they're too skinny and weird." A broadleaf at Sacred Grove
+            proportions: TRUNK's own rings, girth in proportion to the ~15 m
+            climb (roughly 1:8 b, 1:10 c, 1:12 a, height to chest diameter), a
+            ROOT FLARE spreading into the deck (two buried rings, the widest)
+            with BUTTRESS fins (RIDGES, fading out by a metre up), a gentle
+            taper and ONE slow bend (BEND, an ogee over the climb) carried on
+            to the roof itself: its top ring sits up inside the roof sheet. The
+            foot stands where the prop stood (the cover footprint); the
+            collider is the same prism at the new girth. A lip tree's roots
+            stop at the lip (LIP_GRIP): nothing hangs over the drop.
     boughs  three or four HEAVY primaries off the carried-on trunk at different
             heights, leaving at ~40 deg and sweeping up to a FORK about half
             way to the roof; past the fork each carries on, bending, to the
@@ -119,22 +125,48 @@ TIP_R = (fb.INNER_R + 2.3, fb.OUTER_R - 1.8)   # where a limb may end: over the 
 LIP_NEAR = 3.0              # a tree standing this near the lip (world m) grows one-sided ...
 LIP_ALONG = 15.0            # ... a limb of its aimed over the pit runs along the lip instead, this far off the tangent toward the lane
 
-FLARE = {"a": (1.22, 1.12, 0.18, 4), "b": (1.15, 1.08, 0.16, 5), "c": (1.22, 1.12, 0.18, 4)}
-                            # (ring-1 swell, flare-ring swell, buttress ridge amplitude, ridges)
-FLARE_Z = 0.32              # the flare ring's height (local m), between the prop's rings 1 and 2
-PROP_TOP = 8                # the prop's top ring's index once the flare ring is in (its rings 0..7 -> 0..8)
-EXT_RINGS = ((0.13, 0.97), (0.27, 0.92), (0.42, 0.85), (0.57, 0.77), (0.72, 0.69), (0.86, 0.61), (1.0, 0.55))
-                            # (share of the climb prop top -> roof, radius / prop top radius): bands short enough not to sliver
-EXT_DRIFT = (0.6, 0.5, 0.35, 0.25, 0.15, 0.08, 0.05)   # the share of the prop's lean each carried-on band keeps: it straightens
-EXT_WANDER = 0.08           # local m of sideways wander per carried-on ring
+# The lower trunk, local metres at scale 1 (the foot ring cap is buried in the lane;
+# rings 0-1 are the root spread under the grass, ring 2 the ground line): its centres
+# (the lean), its radii with the root flare in, and the buttress fins on the foot.
+# Chest (1.8 m) across the flats: a 1.25 m, b 1.75 m, c 1.48 m, against a ~15 m climb. The chunk
+# shades smooth, so a fin reads only in silhouette: "amp" is the fin's reach as a share of the ring's radius.
+TRUNK = {
+    "a": {"sides": 10, "ridges": 5, "amp": 0.90,
+          "path": ((0.00, 0.00, -0.35), (0.00, 0.00, -0.18), (0.00, 0.00, 0.00), (0.01, 0.00, 0.40),
+                   (0.02, 0.01, 0.90), (0.05, 0.02, 1.80), (0.09, 0.01, 3.00), (0.14, -0.02, 4.30),
+                   (0.20, -0.04, 5.70)),
+          "radii": (1.02, 1.06, 0.92, 0.78, 0.70, 0.66, 0.62, 0.58, 0.54)},
+    "b": {"sides": 12, "ridges": 4, "amp": 0.80,
+          "path": ((0.00, 0.00, -0.40), (0.00, 0.00, -0.20), (0.00, 0.00, 0.00), (-0.01, 0.01, 0.40),
+                   (-0.02, 0.02, 0.90), (-0.04, 0.03, 1.80), (-0.05, 0.02, 2.90), (-0.04, 0.00, 4.10),
+                   (-0.02, -0.02, 5.30)),
+          "radii": (1.42, 1.48, 1.30, 1.10, 0.99, 0.92, 0.87, 0.81, 0.75)},
+    "c": {"sides": 10, "ridges": 5, "amp": 0.85,
+          "path": ((-0.10, 0.02, -0.38), (-0.08, 0.02, -0.20), (-0.05, 0.01, 0.00), (0.03, 0.00, 0.40),
+                   (0.15, -0.02, 0.90), (0.42, -0.06, 1.80), (0.80, -0.10, 2.80), (1.18, -0.12, 3.80),
+                   (1.70, -0.13, 5.15)),
+          "radii": (1.20, 1.25, 1.10, 0.93, 0.84, 0.78, 0.73, 0.68, 0.62)},
+}
+PROP_TOP = 8                # the lower trunk's top ring; the carried-on rings follow
+COLL_TOP_BAND = 9           # the collider prism runs to ring 8 (5.3..5.7 m), the same silhouette at the new girth
+RIDGE_FADE = (1.0, 1.0, 1.0, 0.5, 0.2, 0.06)   # a fin's share of "amp" on rings 0..5: a concave sweep from the ground, gone by 2 m up
+RIDGE_GAIN = (0.55, 1.0)    # each fin its own height
+RIDGE_POW = 1.5             # the fin's profile between its ridge and the trough: a fin, not a bulge
+LIP_GRIP = 0.15             # a lip tree's foot vertices stay this far (world m) inside the lip
+EXT_RINGS = ((0.10, 0.95), (0.23, 0.90), (0.41, 0.80), (0.58, 0.68), (0.75, 0.52), (0.88, 0.44), (1.0, 0.38))
+                            # (share of the climb lower top -> roof, radius / lower top radius): the boughs' bands
+                            # (10..13) are the tall ones, so a heavy socket ring sits inside its band at every scale
+EXT_DRIFT = (0.6, 0.5, 0.35, 0.25, 0.15, 0.08, 0.05)   # the share of the lower trunk's lean each carried-on band keeps: it straightens
+EXT_WANDER = 0.06           # local m of sideways wander per carried-on ring
+BEND = {"a": 0.9, "b": 0.7, "c": 0.45}   # the one slow bend: local m the head is carried sideways over the climb, an ogee
 TRUNK_BURY = 0.15           # world m the trunk's top ring sits up inside the roof
 
 BOUGHS = {"a": 3, "b": 4, "c": 3}
-BOUGH_BANDS = {"a": (8, 10, 12), "b": (8, 10, 12, 10), "c": (8, 10, 12)}   # carried-on trunk bands the primaries socket into
-BOUGH_PATCH = {"a": 3, "b": 4, "c": 3}   # trunk sides a primary's socket claims (the ring must sit inside them)
+BOUGH_BANDS = {"a": (10, 11, 12), "b": (10, 11, 12, 13), "c": (10, 11, 12)}   # carried-on trunk bands the primaries socket into: the fork, 8.7..12 m up at scale 1
+BOUGH_PATCH = {"a": 4, "b": 5, "c": 4}   # trunk sides a primary's socket claims (the ring must sit inside them)
 BOUGH_JITTER = 20.0         # degrees off an even spread
-BOUGH_R = 0.66              # a primary's root radius as a share of the trunk's there ...
-BOUGH_TAPER = 0.78          # ... and its radius at the fork as a share of its root
+BOUGH_R = 0.70              # a primary's root radius as a share of the trunk's there: heavy where it leaves ...
+BOUGH_TAPER = 0.80          # ... and its radius at the fork as a share of its root
 BOUGH_OUT = (1.7, 2.6)      # local m out along the bearing to the fork
 FORK_SHARE = (0.28, 0.45)   # the fork sits this share of the climb from the socket to the roof
 BOUGH_CTRL = (0.45, 0.35)   # bezier control to the fork: this far out, this far up -- the bough leaves at ~40 deg
@@ -142,18 +174,18 @@ BOUGH_SIDES = 6
 BOUGH_SEGS = (3, 3)         # bezier segments socket -> fork, fork -> roof
 ON_OUT = (1.4, 2.6)         # past the fork the primary carries on this far out ...
 ON_BEND = (18.0, 38.0)      # ... bending this many degrees either side ...
-ON_TAPER = 0.6              # ... to this share of its fork radius where it enters the roof
+ON_TAPER = 0.7              # ... to this share of its fork radius where it enters the roof
 SIDE_BAND = 3               # the side limb sockets into the band just under the fork ring (path index 4)
 SIDE_OUT = (1.2, 2.4)
 SIDE_ANGLE = (42.0, 75.0)   # degrees off the primary's bearing, away from its bend
-SIDE_R = (0.72, 0.65)       # root as a share of the fork radius, tip as a share of root
+SIDE_R = (0.75, 0.7)        # root as a share of the fork radius, tip as a share of root
 SIDE_SIDES = 5
 SIDE_SEGS = 3
 TWIGS = {"a": 2, "b": 2, "c": 2}   # how many primaries carry a third, thinner limb off the carried-on part
 TWIG_BAND = 5               # the band of the carried-on part it sockets into
 TWIG_OUT = (0.9, 1.8)
 TWIG_ANGLE = (40.0, 70.0)
-TWIG_R = (0.52, 0.7)        # root as a share of the fork radius, tip as a share of root
+TWIG_R = (0.56, 0.72)       # root as a share of the fork radius, tip as a share of root
 TWIG_SIDES = 4
 TWIG_SEGS = 2
 UP_CTRL = 0.45              # a limb bound for the roof bows out this share of its rise before it climbs
@@ -374,33 +406,40 @@ def _aim(place, roof, root_xy, d, out, margin):
 
 # ---- the trunk ---------------------------------------------------------------
 
+def _spec_of(letter):
+    """The prop variant's spec (seed, wobble, collider) wearing TRUNK's rings."""
+    spec = dict(ftp.spec_of(letter))
+    t = TRUNK[letter]
+    spec["sides"] = t["sides"]
+    spec["path"] = [tuple(p) for p in t["path"]]
+    spec["radii"] = list(t["radii"])
+    spec["coll_top_band"] = COLL_TOP_BAND
+    return spec
+
+
 def _trunk_spec(spec, place, roof, rng):
-    """The variant's trunk, its flare ring in, carried on to the roof: the prop's
-    rings keep their place; the extension straightens, wanders, stays over the lane."""
+    """TRUNK's lower rings carried on to the roof: the lean straightens, the
+    trunk takes its one slow bend (BEND), wanders a little, stays over the lane."""
     path = [tuple(p) for p in spec["path"]]
     radii = list(spec["radii"])
-    swell1, swellf, _amp, _n = FLARE[spec["letter"]]
-    p1, p2 = path[1], path[2]
-    t = (FLARE_Z - p1[2]) / (p2[2] - p1[2])
-    path.insert(2, (p1[0] + (p2[0] - p1[0]) * t, p1[1] + (p2[1] - p1[1]) * t, FLARE_Z))
-    radii.insert(2, (radii[1] + (radii[2] - radii[1]) * t) * swellf)
-    radii[1] *= swell1
-    radii[0] *= 0.5 * (1.0 + swell1)
     top, below = path[PROP_TOP], path[PROP_TOP - 1]
     dz = top[2] - below[2]
     lean = ((top[0] - below[0]) / dz, (top[1] - below[1]) / dz)
     wander = [(rng.sf() * EXT_WANDER, rng.sf() * EXT_WANDER) for _ in EXT_RINGS]
+    ba = rng.f() * 2.0 * math.pi
+    bend = (math.cos(ba) * BEND[spec["letter"]], math.sin(ba) * BEND[spec["letter"]])
     h = place.lid(roof, top[0], top[1]) - top[2]      # the climb, local m
     r_top = radii[PROP_TOP]
     f = 1.0
-    for _ in range(8):                                # the lean's share, halved until the head is over the lane
+    for _ in range(8):                                # the lean's and the bend's share, halved until the head is over the lane
         ext, x, y, z = [], top[0], top[1], top[2]
         for (share, rr), drift, (wx, wy) in zip(EXT_RINGS, EXT_DRIFT, wander):
             nz = top[2] + share * h
+            sway = 0.5 * (1.0 - math.cos(math.pi * share))      # the ogee: flat at both ends, one bend between
             x += lean[0] * drift * f * (nz - z) + wx
             y += lean[1] * drift * f * (nz - z) + wy
             z = nz
-            ext.append((x, y, z))
+            ext.append((x + bend[0] * f * sway, y + bend[1] * f * sway, z))
         hx, hy = place.xy(ext[-1][0], ext[-1][1])
         if TIP_R[0] <= math.hypot(hx, hy) <= TIP_R[1]:
             break
@@ -415,16 +454,36 @@ def _trunk_spec(spec, place, roof, rng):
 
 
 def _flare(m, rng, spec, trunk):
-    """Buttress ridges on the foot rings: the flare is not a cone."""
-    _s1, _sf, amp, ridges = FLARE[spec["letter"]]
-    phase = rng.f() * 2.0 * math.pi
-    for k, weight in ((0, 1.0), (1, 1.0), (2, 0.55)):
+    """Buttress fins on the foot rings: a fin every sides/ridges-th side (so no fin
+    falls between vertices), each its own height, fading up the trunk (RIDGE_FADE)."""
+    t = TRUNK[spec["letter"]]
+    n, ridges, amp = t["sides"], t["ridges"], t["amp"]
+    s0 = rng.i(0, n - 1)
+    gains = [rng.u(*RIDGE_GAIN) for _ in range(ridges)]
+    for k, weight in enumerate(RIDGE_FADE):
         cx, cy, _cz = trunk["path"][k]
-        for vid in trunk["rings"][k]:
+        for s, vid in enumerate(trunk["rings"][k]):
+            u = ridges * ((s - s0) % n) / float(n)          # fins' phase: 0, 1, 2 ... at the fin sides
+            j = int(round(u)) % ridges
+            prof = max(0.0, math.cos(2.0 * math.pi * u)) ** RIDGE_POW
             x, y, z = m.verts[vid]
-            a = math.atan2(y - cy, x - cx)
-            f = 1.0 + amp * weight * max(0.0, math.cos(ridges * a + phase)) ** 2
+            f = 1.0 + amp * weight * gains[j] * prof
             m.verts[vid] = (cx + (x - cx) * f, cy + (y - cy) * f, z)
+
+
+def _grip_lip(m, place, ids):
+    """A lip tree's roots stop at the lip: a foot vertex over the drop is drawn
+    back in plan to LIP_GRIP inside it (the collider takes the same pull)."""
+    if not place.lip:
+        return
+    want = DECK_R[0] + LIP_GRIP
+    for vid in ids:
+        p = m.verts[vid]
+        wx, wy, _wz = place(p)
+        rad = math.hypot(wx, wy)
+        if rad < want:
+            lx, ly = place.local_xy(wx * want / rad, wy * want / rad)
+            m.verts[vid] = (lx, ly, p[2])
 
 
 # ---- the limbs ---------------------------------------------------------------
@@ -708,6 +767,7 @@ def build_tree(m, rng, spec, place, roof):
     letter = spec["letter"]
     trunk = ftp.build_trunk(m, rng, _trunk_spec(spec, place, roof, rng))
     _flare(m, rng, spec, trunk)
+    _grip_lip(m, place, [v for ring in trunk["rings"][:len(RIDGE_FADE)] for v in ring])
     m.fan(trunk["top_ring"], UP, "bark")            # closed up inside the roof
     trunk["twigs"] = TWIGS[letter]
     n_trunk = len(trunk["rings"]) * len(trunk["rings"][0]) + 1
@@ -857,7 +917,7 @@ def build_geometry():
     stats["shells"] += stats["fringe"]
     for idx, (section, kind, bearing, radius, aim, spin, scale) in enumerate(tree_rows()):
         assert aim == "radial", aim
-        spec = ftp.spec_of(LETTER[kind])
+        spec = _spec_of(LETTER[kind])
         place = _Place(bearing, radius, spin, scale[0])
         local = _Mesh()
         local.clusters = []
@@ -865,7 +925,9 @@ def build_geometry():
         stats["shells"] += build_tree(local, rng, spec, place, roof)
         local.compact()
         _append(m, local, place)
-        _append(c, ftp.build_collider(spec).compact(), place)
+        coll = ftp.build_collider(spec).compact()
+        _grip_lip(coll, place, [i for i, p in enumerate(coll.verts) if p[2] <= spec["path"][len(RIDGE_FADE) - 1][2]])
+        _append(c, coll, place)
         stats["trees"] += 1
         stats["per_kind"][kind] = stats["per_kind"].get(kind, 0) + 1
     return m, c, stats
