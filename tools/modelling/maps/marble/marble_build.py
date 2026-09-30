@@ -721,7 +721,7 @@ def iron_sheet():
 
 
 # Linear multipliers over marble_stone: each class's old mean colour.
-TINT_SHADE = (0.85, 0.85, 0.85)
+TINT_SHADE = (0.2265, 0.2547, 0.3146)
 TINT_PLINTH_WALL = (0.8106, 0.8086, 0.8369)
 TINT_PLINTH = (0.8285, 0.8293, 0.8617)
 TINT_MARBLE2 = (0.7939, 0.7923, 0.8147)
