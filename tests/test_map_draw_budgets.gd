@@ -137,9 +137,11 @@ const DRAW_BUDGETS: Dictionary = {
 	# so the tris ceiling is left where it was rather than raised to fit a number
 	# that did not change. Lights, transparency and the one shadow caster are
 	# untouched.
+	# 2026-09-30: eight reflector lamps on the tower replace the Skylight (lights 10, +1232 tower tris);
+	# ceilings set from the build's counts, not re-measured here.
 	"marble": {
-		"tris": 90759, "surfaces": 37, "materials": 37,
-		"transparent_tris": 0, "lights": 4, "shadow_casters": 1,
+		"tris": 92500, "surfaces": 37, "materials": 37,
+		"transparent_tris": 0, "lights": 12, "shadow_casters": 1,
 	},
 	# The expensive one: 2.5x the Ring, plus 2196 transparent triangles, plus a
 	# shadow caster. Re-measured after the obstacle course came off the lane

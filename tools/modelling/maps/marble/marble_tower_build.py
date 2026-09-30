@@ -140,6 +140,21 @@ B_INSET = BALCONY_R - POST_W / math.cos(math.pi / NB)
 COLL_RAIL_R = BALCONY_R - 0.08   # the collider: an invisible band here, ledge to rail top
 GUARD_EYE = FLOOR_Z + DAIS_H + mb.EYE_H   # 3.95: world 29.3 (pass 3: 28.7)
 
+# Bentham's reflector lamps: one on the spandrel over every other column, facing out, over the guard's sightlines.
+LAMP_EVERY = 2              # 8 lamps on the 16 columns: bearings 25 + 45k
+LAMP_Z = 6.00               # the flame: world 31.35
+PLATE = (0.11, 5.15, 6.85, 0.08)       # half width, z0, z1, proud: welded out of the column's upper panel
+ARM = (0.04, 5.30, 5.40, 0.04, 0.86)   # half width, z0, z1, d0, d1 (d outward of the facet)
+POST_HW = 0.035             # the stem from the arm to the lantern
+LANTERN_D = 0.80            # the lantern's axis, outward of the facet
+LANTERN = ((0.0, 5.60), (0.26, 5.60), (0.26, 5.68), (0.20, 5.68), (0.20, 6.32), (0.26, 6.32), (0.26, 6.40),
+           (0.0, 6.62))     # (r, z): base, glass, cap
+LANTERN_CLS = ("iron", "iron", "iron", "flame", "iron", "iron", "iron")
+DISH = ((0.06, 0.0), (0.06, 0.10), (0.45, 0.56), (0.45, 0.52), (0.12, 0.09), (0.12, 0.0))   # (d, r)
+DISH_CLS = ("iron", "iron", "iron", "column", "column")
+LAMP_SEG = 6
+FLAME_TEXELS = (157, 220, 163, 226)    # the portal swirl's white core in the marble atlas: the glow tile
+
 
 # =============================================================================
 # TEXTURE  (lib/texel.py: one tiling sheet per class, world cylindrical)
@@ -226,6 +241,10 @@ SHEETS = {
                              phase=(-PAVING_RS[0], -PAVING_RS[0])),
     "coffer": mb.ornament("coffer", "custom", SHAFT_PX, COFFER_PX, mpt=MPT),  # the dome inside
     "dome": mb.brick("dome", tint=mb.TINT_TOWER, mode="custom"),              # ... and outside
+    "flame": tx.Sheet("flame", mb._atlas_sheet, mode="fit", width=8, size=8, roughness=mb.ROUGHNESS, stem="marble",
+                      region=(FLAME_TEXELS[0] / float(mb.TEX_W), FLAME_TEXELS[1] / float(mb.TEX_SIZE),
+                              FLAME_TEXELS[2] / float(mb.TEX_W), FLAME_TEXELS[3] / float(mb.TEX_SIZE)),
+                      canvas=(mb.TEX_W, mb.TEX_SIZE)),                         # the lantern glass
 }
 assert (SHAFT_PX, COFFER_PX) == (mb.COFFER_W, mb.COFFER_H), "the atlas' coffer is one facet by one band"
 # Two faces wear a class their zone does not name, because their PROJECTION
@@ -454,7 +473,7 @@ def _arch_pts(f, w=COL_W):
     return left, right
 
 
-def _screen_face(m, f, want):
+def _screen_face(m, f, want, lamp=False):
     """One face of a facet's pierced screen: the column at the facet's centre
     as two stacked panels split at the springing, and the spandrel over each
     half arch, a strip of quads from the arch curve up to the beam."""
@@ -464,7 +483,10 @@ def _screen_face(m, f, want):
         return m.v(f.at(u, z))
 
     m.quad(P(ua, FLOOR_Z), P(ub, FLOOR_Z), P(ub, SPRING_Z), P(ua, SPRING_Z), want, "column")
-    m.quad(P(ua, SPRING_Z), P(ub, SPRING_Z), P(ub, COL_Z1), P(ua, COL_Z1), want, "column")
+    if lamp:
+        _lamp_plate(m, f, ua, ub)
+    else:
+        m.quad(P(ua, SPRING_Z), P(ub, SPRING_Z), P(ub, COL_Z1), P(ua, COL_Z1), want, "column")
     for half in _arch_pts(f):
         for k in range(ARCH_SEG):
             (u0, z0), (u1, z1) = half[k], half[k + 1]
@@ -480,9 +502,9 @@ def _arcade(m):
     slightly warped ruled surface. The jamb reveals run floor to springing, the
     soffit round the head; the panel's top edge is solid corner to corner, so
     the ring beam has no exposed underside and sits on the arches."""
-    for ac in _centres():
+    for k, ac in enumerate(_centres()):
         f, fi = _Facet(ac, SHAFT_R), _Facet(ac, R_INSET)
-        _screen_face(m, f, f.n_out)
+        _screen_face(m, f, f.n_out, lamp=k % LAMP_EVERY == 0)
         _screen_face(m, fi, fi.n_in)
         ua, ub = f.post_us(COL_W)
         uai, ubi = fi.post_us(COL_W)                       # == ua - COL_W*tan(pi/NS), ub - ...
@@ -497,6 +519,101 @@ def _arcade(m):
                 want = f.dir(cu - 0.5 * (u0 + u1), SPRING_Z - 0.5 * (z0 + z1))       # toward the springing centre
                 m.quad(m.v(f.at(u0, z0)), m.v(f.at(u1, z1)),
                        m.v(fi.at(v1, w1)), m.v(fi.at(v0, w0)), want, "shade")
+
+
+def _lamp_plate(m, f, ua, ub):
+    """The column's upper panel as a frame round the lamp's back plate, and the
+    plate flowing out of it: one mesh with the tower."""
+    hw, z0, z1, pr = PLATE
+    h0, h1 = f.L / 2.0 - hw, f.L / 2.0 + hw
+
+    def P(u, z, d=0.0):
+        return m.v(f.at(u, z, -d))
+
+    n = f.n_out
+    m.quad(P(ua, SPRING_Z), P(ub, SPRING_Z), P(h1, z0), P(h0, z0), n, "column")
+    m.quad(P(ub, SPRING_Z), P(ub, COL_Z1), P(h1, z1), P(h1, z0), n, "column")
+    m.quad(P(ub, COL_Z1), P(ua, COL_Z1), P(h0, z1), P(h1, z1), n, "column")
+    m.quad(P(ua, COL_Z1), P(ua, SPRING_Z), P(h0, z0), P(h0, z1), n, "column")
+    m.quad(P(h0, z0), P(h1, z0), P(h1, z0, pr), P(h0, z0, pr), mb.DOWN, "column")
+    m.quad(P(h0, z1), P(h1, z1), P(h1, z1, pr), P(h0, z1, pr), mb.UP, "column")
+    m.quad(P(h0, z0), P(h0, z1), P(h0, z1, pr), P(h0, z0, pr), f.dir(-1.0, 0.0), "column")
+    m.quad(P(h1, z0), P(h1, z1), P(h1, z1, pr), P(h1, z0, pr), f.dir(1.0, 0.0), "column")
+    m.quad(P(h0, z0, pr), P(h1, z0, pr), P(h1, z1, pr), P(h0, z1, pr), n, "column")
+
+
+def _box(m, f, u0, u1, z0, z1, d0, d1, zone):
+    """A closed box in a facet's frame, d outward of its line."""
+    def P(u, z, d):
+        return m.v(f.at(u, z, -d))
+
+    m.quad(P(u0, z0, d0), P(u1, z0, d0), P(u1, z0, d1), P(u0, z0, d1), mb.DOWN, zone)
+    m.quad(P(u0, z1, d0), P(u1, z1, d0), P(u1, z1, d1), P(u0, z1, d1), mb.UP, zone)
+    m.quad(P(u0, z0, d0), P(u0, z1, d0), P(u0, z1, d1), P(u0, z0, d1), f.dir(-1.0, 0.0), zone)
+    m.quad(P(u1, z0, d0), P(u1, z1, d0), P(u1, z1, d1), P(u1, z0, d1), f.dir(1.0, 0.0), zone)
+    m.quad(P(u0, z0, d0), P(u1, z0, d0), P(u1, z1, d0), P(u0, z1, d0), f.n_in, zone)
+    m.quad(P(u0, z0, d1), P(u1, z0, d1), P(u1, z1, d1), P(u0, z1, d1), f.n_out, zone)
+
+
+def _lathe(m, prof, classes, at, axis, radial):
+    """A closed solid of revolution: prof is (axial, r) from the axis round to
+    the axis, at(axial, r, phi) the point, radial(phi) the unit radius."""
+    phis = [mb.TWO_PI * (k + 0.5) / LAMP_SEG for k in range(LAMP_SEG)]
+    for i in range(len(prof) - 1):
+        (a0, r0), (a1, r1) = prof[i], prof[i + 1]
+        ring = lambda a, r: [m.v(at(a, r, p)) for p in phis]
+        if r0 < 1e-9 and r1 < 1e-9:
+            continue
+        if abs(a1 - a0) < 1e-9 and min(r0, r1) < 1e-9:            # a flat disc on the axis
+            want = tuple(-axis[d] * (r1 - r0) for d in range(3))
+            m.poly(ring(a0, max(r0, r1)), want, classes[i])
+            continue
+        if min(r0, r1) < 1e-9:                                    # a cone to a point on the axis
+            tip = m.v(at(a1 if r1 < 1e-9 else a0, 0.0, 0.0))
+            base = ring(a0, r0) if r1 < 1e-9 else ring(a1, r1)
+        for k in range(LAMP_SEG):
+            j = (k + 1) % LAMP_SEG
+            e = radial(0.5 * (phis[k] + phis[j] + (mb.TWO_PI if j == 0 else 0.0)))
+            want = tuple(e[d] * (a1 - a0) - axis[d] * (r1 - r0) for d in range(3))
+            if min(r0, r1) < 1e-9:
+                m.tri(base[k], base[j], tip, want, classes[i])
+            else:
+                lo, hi = ring(a0, r0), ring(a1, r1)
+                m.quad(lo[k], lo[j], hi[j], hi[k], want, classes[i])
+
+
+def _lamps(m):
+    """Bentham's reflector lamps: on every LAMP_EVERY-th column an iron arm off
+    the plate, a stem, a glowing lantern, and a dish behind the flame."""
+    for k, ac in enumerate(_centres()):
+        if k % LAMP_EVERY:
+            continue
+        f = _Facet(ac, SHAFT_R)
+        uc = f.L / 2.0
+        hw, z0, z1, d0, d1 = ARM
+        _box(m, f, uc - hw, uc + hw, z0, z1, d0, d1, "iron")
+        _box(m, f, uc - POST_HW, uc + POST_HW, z1, LANTERN[0][1], LANTERN_D - POST_HW, LANTERN_D + POST_HW, "iron")
+        up, out, t = (0.0, 0.0, 1.0), f.n_out, (f.u[0], f.u[1], 0.0)
+
+        def rad_l(p):
+            return tuple(math.cos(p) * t[d] + math.sin(p) * out[d] for d in range(3))
+
+        def at_l(z, r, p):
+            c = f.at(uc, z, -LANTERN_D)
+            e = rad_l(p)
+            return tuple(c[d] + r * e[d] for d in range(3))
+
+        _lathe(m, [(z, r) for (r, z) in LANTERN], LANTERN_CLS, at_l, up, rad_l)
+
+        def rad_d(p):
+            return tuple(math.cos(p) * t[d] + math.sin(p) * up[d] for d in range(3))
+
+        def at_d(dd, r, p):
+            c = f.at(uc, LAMP_Z, -dd)
+            e = rad_d(p)
+            return tuple(c[d] + r * e[d] for d in range(3))
+
+        _lathe(m, DISH, DISH_CLS, at_d, out, rad_d)
 
 
 def _head_band(m, f, z0, z1, want, zone):
@@ -683,7 +800,9 @@ def _rock():
     _room(m)
     n3 = len(m.faces)
     _crown(m)
-    return m, {"shaft": n1, "balcony": n2 - n1, "room": n3 - n2, "crown": len(m.faces) - n3}
+    n4 = len(m.faces)
+    _lamps(m)
+    return m, {"shaft": n1, "balcony": n2 - n1, "room": n3 - n2, "crown": n4 - n3, "lamps": len(m.faces) - n4}
 
 
 def _collider():
@@ -778,6 +897,8 @@ def build():
     mats = tx.materials(NAME, SHEETS, use_files=USE_TEXTURE_FILES, tex_dir=os.path.join(HERE, TEX_DIR))
     for mat in mats.values():
         mat.diffuse_color = (0.78, 0.76, 0.72, 1.0)
+    glow = tx.images(NAME, SHEETS["flame"], USE_TEXTURE_FILES, os.path.join(HERE, TEX_DIR))[0]
+    mats["flame"] = mb.stone_material(NAME + "_lamp_glow", glow, glow)     # the portal's glow: albedo as emission
     order = tx.finish(ob, classes, mats)
     tx.report(SHEETS)
     print("MDL STATS surfaces=%d order=%s" % (len(ob.data.materials), ",".join(order)))
@@ -823,7 +944,8 @@ def _check():
     print("coffers: arc %.2f m, %d rows of %.2f m (%d texels), %.4f m/texel up the meridian"
           % (COFFER_ARC, COFFER_ROWS, COFFER_ARC / COFFER_ROWS, COFFER_PX,
              (COFFER_ARC / COFFER_ROWS) / COFFER_PX))
-    ok = a["components"] == 1 and a["boundary_edges"] == NS and a["doubled_edges"] == 0 \
+    lamps = NS // LAMP_EVERY
+    ok = a["components"] == 1 + 4 * lamps and a["boundary_edges"] == NS and a["doubled_edges"] == 0 \
         and a["over_edges"] == 0 and a["degenerate"] == 0 and a["duplicate_positions"] == 0 \
         and c["boundary_edges"] == 0 and c["over_edges"] == 0 and sightline_clearance() > 0.0
     print("CONTIGUOUS %s" % ("YES" if ok else "NO"))

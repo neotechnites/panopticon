@@ -16,7 +16,7 @@ background_mode = 1
 background_color = Color(0.20, 0.21, 0.23, 1)
 ambient_light_source = 2
 ambient_light_color = Color(0.56, 0.60, 0.64, 1)
-ambient_light_energy = 1.7
+ambient_light_energy = 2.1
 tonemap_mode = 1
 tonemap_white = 6.0
 
@@ -25,25 +25,12 @@ editor_description = "MAP 2, MARBLE: the Bentham drawing in white marble, one cl
 
 A prisoner runs one 340 deg lap at r 52 from 5 deg to the portal at 345 deg. THE LANE IS BARE (Ryan, 2026-09-22: \"for the marble level, can you just get rid of all the elements on the ring? just so it looks good for screenshots and trailers and stuff\"): the obstacle course -- 71 placed instances, columns, broken columns, arches, spike patches and strips, pads, the orbs -- came off, and nothing stands on the 340 deg run now but the portal at the finish. The bars at 353 deg stayed, behind the finish and out of every shot of the lane, because the bake and the harness proved them structural rather than scenery: see the Bars node. The models the course used are still in maps/marble/models/; only this scene changed. Off the walkway there is nothing to stand on until the spikes, and SpikeFloor kills before a body reaches them; KillBox below the ground floor catches anything that fell through the world.
 
-The light (2026-09-22, Ryan: \"the lighting in the marble level is absolutely terrible\") is a sunlit temple's, in two parts. The KEY is Environment/Skylight: one warm near-white omni on the axis at y 62, under the dome and over the tower's roof, and it is the map's ONE shadow caster -- so the walkway slab shades the three tiers under it, every cell's bars shade its reveal, the cornices band the wall and the tower stands on its own shadow on the spike floor, all top-down as through an oculus the mesh does not have. The tower's own lamp under the arcade is now a plain UNSHADOWED warm room light with reach enough (90 m) to fill under the walkway where the skylight cannot go; the old arrangement (the tower lamp shadowed at energy 22 over a flat falloff, a cool ambient, nothing above y 35 lit) blew the guard room out to white, threw hard mustard scallops on the lane band and left the top four tiers and the whole dome black. Ambient is a flat warm grey-olive fill for the shadow floor; the tonemap white is lifted so the room floor under the lamp rolls off instead of clipping. No sun, no sky, no oculus."
+The light (2026-09-30, Ryan: \"there's no light on the tower. it's dark.\") is Bentham's own: Tower/Lamps, eight unshadowed reflector lamps on the tower's arcade throwing warm light out across the ring onto every cell, plus the TowerLight in the guard room and a flat ambient fill. No sun, no sky, no light from nowhere."
 
 [node name="Environment" type="Node3D" parent="."]
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="Environment"]
 environment = SubResource("Env")
-
-[node name="Skylight" type="OmniLight3D" parent="Environment"]
-editor_description = "THE KEY LIGHT and the map's one shadow caster: a grey-olive near-white omni on the axis at y 50 (above the tower's dome apex 38.25, well under the dome apex 79 so it paints no spot there; the lost key is made up in ambient), no specular: the stone is matte, so the whole rotunda -- seven tiers, frieze, cornice, dome -- is lit from one high point with a 1/sqrt(d) falloff flat enough that the lane floor (65 m, NdotL 0.6) and the upper tiers (60-77 m, NdotL ~1) sit within a stop of each other. Range 110 covers the wall foot at r 60, y -1 (88 m). 3 m wide with a 2.0 shadow blur so the slab's edge on the tiers below and the bars' shadows in the cells are soft, not drawn lines. Cube shadow mode set here because GL Compatibility rejects dual paraboloid (see TowerLight). Its cube takes the atlas's one quadrant-0 cell, 2048 not the default 1024 (project.godot): at 1024 a texel is ~0.27 m at the wall and every cell's mouth landed on its back wall as a stair-stepped barred window. Cost measured on the PC at the runner's eye: see docs/maps/marble.md."
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 50, 0)
-light_color = Color(0.93, 0.97, 1.0, 1)
-light_energy = 24.0
-light_size = 3.0
-light_specular = 0.0
-shadow_enabled = false
-shadow_blur = 2.0
-omni_range = 110.0
-omni_attenuation = 0.5
-omni_shadow_mode = 1
 
 [node name="MapBase" parent="." instance=ExtResource("10_map_model")]
 editor_description = "maps/marble/models/marble.glb: the whole rotunda, one contiguous mesh -- the spiked ground floor at y -1.0, the gallery walkway r 46.7..59.55 at y 23.0 with its open inner lip, the seven tiers of barred cells (bases -1/7/15/23/31/39/47), the wall top at 55, the dome from 57.8 to the apex at 84.8. Ships its own collision (MarbleCollision-colonly); the spikes are not in it, the volumes kill first."
@@ -159,3 +146,77 @@ omni_attenuation = 0.35
 script = ExtResource("3_tower_light")
 profile = ExtResource("4_tower_light_profile")
 
+[node name="Lamps" type="Node3D" parent="Tower"]
+editor_description = "Bentham's reflector lamps: one OmniLight3D at each lantern the tower model carries on the spandrels over its columns (bearings 25 + 45k, local y 6.0, world 31.35).\nWarm, unshadowed, no specular; range 75 reaches the cell wall at r 60 and spills back onto the arcade, balcony and dome."
+
+[node name="Lamp025" type="OmniLight3D" parent="Tower/Lamps"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6.9473, 6.0, 3.2396)
+light_color = Color(1, 0.86, 0.64, 1)
+light_energy = 3.6
+light_specular = 0.0
+shadow_enabled = false
+omni_range = 75.0
+omni_attenuation = 0.25
+
+[node name="Lamp070" type="OmniLight3D" parent="Tower/Lamps"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.6218, 6.0, 7.2032)
+light_color = Color(1, 0.86, 0.64, 1)
+light_energy = 3.6
+light_specular = 0.0
+shadow_enabled = false
+omni_range = 75.0
+omni_attenuation = 0.25
+
+[node name="Lamp115" type="OmniLight3D" parent="Tower/Lamps"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.2396, 6.0, 6.9473)
+light_color = Color(1, 0.86, 0.64, 1)
+light_energy = 3.6
+light_specular = 0.0
+shadow_enabled = false
+omni_range = 75.0
+omni_attenuation = 0.25
+
+[node name="Lamp160" type="OmniLight3D" parent="Tower/Lamps"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -7.2032, 6.0, 2.6218)
+light_color = Color(1, 0.86, 0.64, 1)
+light_energy = 3.6
+light_specular = 0.0
+shadow_enabled = false
+omni_range = 75.0
+omni_attenuation = 0.25
+
+[node name="Lamp205" type="OmniLight3D" parent="Tower/Lamps"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6.9473, 6.0, -3.2396)
+light_color = Color(1, 0.86, 0.64, 1)
+light_energy = 3.6
+light_specular = 0.0
+shadow_enabled = false
+omni_range = 75.0
+omni_attenuation = 0.25
+
+[node name="Lamp250" type="OmniLight3D" parent="Tower/Lamps"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.6218, 6.0, -7.2032)
+light_color = Color(1, 0.86, 0.64, 1)
+light_energy = 3.6
+light_specular = 0.0
+shadow_enabled = false
+omni_range = 75.0
+omni_attenuation = 0.25
+
+[node name="Lamp295" type="OmniLight3D" parent="Tower/Lamps"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.2396, 6.0, -6.9473)
+light_color = Color(1, 0.86, 0.64, 1)
+light_energy = 3.6
+light_specular = 0.0
+shadow_enabled = false
+omni_range = 75.0
+omni_attenuation = 0.25
+
+[node name="Lamp340" type="OmniLight3D" parent="Tower/Lamps"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7.2032, 6.0, -2.6218)
+light_color = Color(1, 0.86, 0.64, 1)
+light_energy = 3.6
+light_specular = 0.0
+shadow_enabled = false
+omni_range = 75.0
+omni_attenuation = 0.25
