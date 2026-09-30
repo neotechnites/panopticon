@@ -32,6 +32,11 @@ The light (2026-09-30, Ryan: \"there's no light on the tower. it's dark.\") is B
 [node name="WorldEnvironment" type="WorldEnvironment" parent="Environment"]
 environment = SubResource("Env")
 
+[node name="NoSun" type="DirectionalLight3D" parent="Environment"]
+editor_description = "Energy 0: its presence stops the editor's preview sun so the editor matches the game."
+light_energy = 0.0
+shadow_enabled = false
+
 [node name="MapBase" parent="." instance=ExtResource("10_map_model")]
 editor_description = "maps/marble/models/marble.glb: the whole rotunda, one contiguous mesh -- the spiked ground floor at y -1.0, the gallery walkway r 46.7..59.55 at y 23.0 with its open inner lip, the seven tiers of barred cells (bases -1/7/15/23/31/39/47), the wall top at 55, the dome from 57.8 to the apex at 84.8. Ships its own collision (MarbleCollision-colonly); the spikes are not in it, the volumes kill first."
 
@@ -50,15 +55,15 @@ depth_metres = 30.0
 editor_description = "Deliberately empty. KillVolume._build_shape writes a CylinderShape3D over it on ready."
 
 [node name="SpikeFloor" type="Area3D" parent="."]
-editor_description = "THE SPIKED GROUND FLOOR: one cylinder r 46.3 whose roof is at y 23.5, half a metre OVER the walkway, reaching 26.5 m down to y -3.0, two metres under the ground floor at -1.0. The radius is 0.4 m -- a capsule's -- inside the walkway's inner lip at 46.7, so a body standing on the walkway never touches it and a body whose feet have left the lip is dead in the first half-metre of a 24 m fall, long before the spikes; the spikes themselves are not colliders. The roof stands over the walkway on purpose: RingBake carves a lethal volume out of the navigation mesh only across the heights it spans, so a roof under the walkway would leave the bots a walkable mesh right to the edge. The guard's room floor (27.05), the balcony at that level and the eye (28.7) are all above the roof; the tower's shaft down to its foot at -1.0 is the only thing inside the cylinder that is not a spike, and the three cell tiers below the walkway are outside its radius."
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 31.5, 0)
+editor_description = "THE SPIKED GROUND FLOOR: a thin slab at the pit floor, r 47.0 (the inner tiers' wall face is 47.15), y -1.0 up to 2.0 -- just over the spike tips (tallest 2.2 m cone on a 0.12 plinth, tips within y 2.42 of the floor's -1.0 reference, the slab's roof catches the body's feet well before its hips). A body leaves the walkway lip, falls the full 24 m and dies on the spikes; nothing above y 2.0 kills. The tower's shaft is inside the disc but no body is. The spikes themselves are not colliders."
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 10, 0)
 collision_layer = 0
 collision_mask = 1048577
 monitorable = false
 script = ExtResource("1_kill_volume")
-radius_metres = 46.3
+radius_metres = 47.0
 roof_depth_metres = 8.0
-depth_metres = 26.5
+depth_metres = 3.0
 
 [node name="Shape" type="CollisionShape3D" parent="SpikeFloor"]
 
