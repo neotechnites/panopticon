@@ -11,7 +11,7 @@ import zlib
 
 # Chunks a plain PNG needs; the rest (gAMA, cHRM, iCCP, eXIf...) are colour hints we drop.
 _KEEP = (b"IHDR", b"PLTE", b"tRNS", b"IDAT", b"IEND")
-_KNOWN_EXT = {"KHR_materials_specular", "KHR_materials_emissive_strength",
+_KNOWN_EXT = {"KHR_materials_specular", "KHR_materials_emissive_strength", "KHR_materials_unlit",
               "KHR_texture_transform", "OMI_physics_body", "OMI_physics_shape"}
 
 

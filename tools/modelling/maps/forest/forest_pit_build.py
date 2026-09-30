@@ -13,6 +13,9 @@ Not a model of its own: forest_build.py calls in here with its _Ground (g).
                          mixed, vertex colour as albedo -- GL Compatibility has
                          no fog volumes, so the fog is layers
     fog_report()         what those discs do to a ray straight down the pit
+    stem_colour(bank_r, p)  a bramble vertex's COLOR_0: the fog's rendered colour up to
+                         the drift field's local fog top, bark STEM_FADE above it, so
+                         every disc crossing a stem meets its own colour on both sides
 
 No water: the pit is a dark floor under fog, and thorns come out of the fog. The
 floor is not meant to be seen at all -- a pit reads as bottomless only while
@@ -155,7 +158,11 @@ FORK_AT = (0.3, 0.6)            # ... along the stem
 FORK_L = (2.0, 4.0)             # ... this long, climbing and swinging sideways
 FORK_R = 0.6                    # ... this fraction of the parent's radius there
 SOCKET_MIN_DEG = 4.0            # a socket whose best bridging makes a smaller angle is not grown
-STEM_ZONE = "cell"              # the darkest sheet: the thicket reads as black spikes against the fog
+STEM_ZONE = "stem"              # the brambles' own sheet, plain white and UNLIT: COLOR_0 is the rendered colour, as on the fog
+STEM_BARK = (0.006, 0.006, 0.004)   # the forest_dark tile's mean (sRGB 1.5/255): what the stems rendered as on "cell", black spikes
+STEM_FADE = 0.8                 # metres above the local fog top over which a stem blends from the fog's colour to STEM_BARK
+STEM_FOG_MIN = 0.02             # a disc drawing under this effective alpha is air to the stems: the local fog top is the
+                                # highest disc at or over it, not the one the curve's tail leaves at a thousandth
 
 # what the check reports
 INFO = {"brambles": 0, "tall": 0, "forks": 0, "top": (0.0, 0.0), "layers": []}
@@ -550,6 +557,45 @@ def fog_mesh(cls, g):
                 m.quad(rings[i][s], rings[i][q], rings[i + 1][q], rings[i + 1][s], UP, "fog")
         INFO["layers"].append((round(z, 2), round(peak, 3), round(radii[-1][0], 2)))
     return m
+
+
+# ---- the brambles in the fog: COLOR_0 on the stems is the fog's own colour ---------
+
+def _s2l(v):
+    return v / 12.92 if v <= 0.04045 else ((v + 0.055) / 1.055) ** 2.4
+
+
+def _l2s(v):
+    return v * 12.92 if v <= 0.0031308 else 1.055 * v ** (1.0 / 2.4) - 0.055
+
+
+def fog_colour(z):
+    """A disc at height z as Godot draws it, as a COLOR_0 value: Godot reads COLOR_0 as sRGB and FogMat's 0.6 as a
+    source_color, so the disc shows s2l(FOG_TINT x dim) x s2l(FOG_OVERRIDE); this is that, encoded back."""
+    z0, z1, _pitch = FOG_Z
+    u = max(0.0, min(1.0, (z - z0) / (z1 - z0)))
+    dim = FOG_DEPTH_DIM + (1.0 - FOG_DEPTH_DIM) * _ease(u)
+    return tuple(_l2s(_s2l(c * dim) * _s2l(FOG_OVERRIDE)) for c in FOG_TINT)
+
+
+def fog_top(bank_r, deg, rad):
+    """The highest disc drawing at STEM_FOG_MIN or more at (deg, rad): the drift field's local fog top, floor when none."""
+    layers = _fog_layers()
+    top = layers[0]
+    for k, z in enumerate(layers):
+        if FOG_OVERRIDE * _fog_alpha_at(bank_r(z), deg, rad, z, k / float(len(layers) - 1)) >= STEM_FOG_MIN:
+            top = z
+    return top
+
+
+def stem_colour(bank_r, p):
+    """COLOR_0 for a bramble vertex at p: fog_colour(z) up to the local fog top, blending to STEM_BARK over
+    STEM_FADE above it, so the stems emerge from the fog instead of being cut by every disc they cross."""
+    x, y, z = p[0], p[1], p[2]
+    top = fog_top(bank_r, -math.degrees(math.atan2(y, x)) % 360.0, math.hypot(x, y))
+    fog = fog_colour(z)
+    t = max(0.0, min(1.0, (z - top) / STEM_FADE))
+    return tuple(fog[k] + (STEM_BARK[k] - fog[k]) * t for k in range(3))
 
 
 # ---- the proof: what a ray straight down the pit actually gets through ------------

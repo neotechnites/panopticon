@@ -37,7 +37,7 @@ annulus. The leafy visual mesh is never its own
 collider.
 
 Textures: one tiling sheet per class (lib/texel.py, SHEETS below: grass,
-verge, path, edge, leaf, shade, sun, fern, bark, earth, cell, root), painted
+verge, path, edge, leaf, shade, sun, fern, bark, earth, cell, root, stem), painted
 here in forest_tree_build's palette, world-projected at texel.MPT m per texel;
 textures/forest_<class>_albedo.png (+ _emissive.png) replaces a painted sheet
 when ft.USE_TEXTURE_FILES is on. The props keep the forest atlas.
@@ -1281,6 +1281,12 @@ def _sheet_cell(c, r, s):
         c.rect(x, y, x + _sz(2), y + 1, (52, 60, 44))
 
 
+def _sheet_stem(c, r, s):
+    """Plain white, and never exported: the brambles' colour is COLOR_0 alone (forest_pit_build.stem_colour,
+    _unlit), so the class has UVs but no image."""
+    tx.fill(c, r, c.box, [(255, 255, 255)])
+
+
 def _forest_ref(centre):
     """The radius a face's arc is measured at, by region, so every region's
     projection is near-isometric and closes round the ring."""
@@ -1344,6 +1350,7 @@ SHEETS = {
     "bark": _sheet("bark", _bark(ft.BARK_BASE), seed=9),
     "earth": _sheet("earth", _sheet_earth, seed=10),
     "cell": _sheet("cell", _sheet_cell, seed=11, stem="forest_dark"),
+    "stem": _sheet("stem", _sheet_stem, seed=14),
     "root": _sheet("root", _bark(ft.ROOT_BASE), seed=12),
     # cell and lamp are one near-black stone (forest_dark_albedo); only the lamp glows
     "lamp": _sheet("lamp", _sheet_lamp, seed=13, emissive=True, stem="forest_dark", glow_stem="forest_lamp"),
@@ -1690,13 +1697,35 @@ def build_geometry():
     return m, build_collider(), rays
 
 
-def drum_shade(ob):
+def _unlit(mat):
+    """COLOR_0 straight into the output, no sheet: the exporter writes KHR_materials_unlit and no image,
+    so Godot shows COLOR_0 on these faces exactly as it shows the fog's."""
+    nt = mat.node_tree
+    col = [n for n in nt.nodes if n.type == "VERTEX_COLOR"][0]
+    out = [n for n in nt.nodes if n.type == "OUTPUT_MATERIAL"][0]
+    nt.links.new(col.outputs["Color"], out.inputs["Surface"])
+    for n in [n for n in nt.nodes if n.type in ("TEX_IMAGE", "MIX", "BSDF_PRINCIPLED")]:
+        nt.nodes.remove(n)
+
+
+def drum_shade(ob, zones):
     """The canopy's shadow on the drum: every corner over the lane roof, inside DRUM_SHADE_R, darkens
     up the drum to DRUM_SHADE at its seam height, so the lane's light fades into the roof's shade.
-    The wall's head does the same up the cove: its leaf darkens to COVE_SHADE where the roof begins."""
+    The wall's head does the same up the cove: its leaf darkens to COVE_SHADE where the roof begins.
+    The brambles (zone fp.STEM_ZONE) carry the fog's colour up to its local top (fp.stem_colour)."""
     me = ob.data
     col = me.color_attributes.new(name="Col", type="FLOAT_COLOR", domain="CORNER")
     flat = [1.0] * (len(me.loops) * 4)
+    stems = {}
+    for pi, poly in enumerate(me.polygons):
+        if zones[pi] != fp.STEM_ZONE:
+            continue
+        for li in poly.loop_indices:
+            vi = me.loops[li].vertex_index
+            if vi not in stems:
+                stems[vi] = fp.stem_colour(_bank_r, me.vertices[vi].co)
+            flat[li * 4:li * 4 + 3] = stems[vi]
+    print("MDL STATS stem_corners=%d stem_verts=%d" % (sum(1 for z in zones if z == fp.STEM_ZONE) * 3, len(stems)))
     for li, loop in enumerate(me.loops):
         x, y, z = me.vertices[loop.vertex_index].co
         rad = math.hypot(x, y)
@@ -1712,6 +1741,8 @@ def drum_shade(ob):
     me.color_attributes.render_color_index = 0
     for mat in me.materials:
         ft.tint_material(mat)
+        if mat.name == "%s_%s" % (NAME, fp.STEM_ZONE):
+            _unlit(mat)
 
 
 def build():
@@ -1732,7 +1763,7 @@ def build():
         ob.data.polygons[i].use_smooth = True
     ob.data.update()
     print("MDL STATS roof smooth_polys=%d" % len(soft))
-    drum_shade(ob)
+    drum_shade(ob, classes)
     tx.report(SHEETS)
     print("MDL STATS surfaces=%d order=%s" % (len(ob.data.materials), ",".join(order)))
 
