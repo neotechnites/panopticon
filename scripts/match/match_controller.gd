@@ -2935,6 +2935,11 @@ func _place_in_tower(participant: MatchParticipant) -> void:
 	_hold_body(participant)
 	body.global_position = _tower_point
 	body.velocity = Vector3.ZERO
+	# Look at the ring start from the seat, so the first frame shows the runners.
+	var to_start: Vector3 = _start_point - _tower_point
+	to_start.y = 0.0
+	if to_start.length() > 0.01:
+		body.rotation = Vector3(0.0, _heading_of(to_start), 0.0)
 	# Out of the target group, which is the whole of "the tower cannot be shot":
 	# an AI shooter's candidate list IS this group, so a seat holder left in it
 	# would be a legitimate target for the next occupant -- and, but for
