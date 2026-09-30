@@ -19,7 +19,7 @@ while marble's walkway runs r 46.7..59.55 -- headless measurement of the scene,
 body walked round it. The gate is now 12.85 m wide (x -6.425 .. 6.425) and the
 scene stands its centre at r 53.125, so it reaches the inner lip (46.7) and the
 wall (59.55) with nothing to walk round. Everything else is rock_bars' still:
-8.5 m tall (z 0 .. 8.5), 0.5 m deep (y -0.25 .. 0.25). ORIGIN IS THE BASE
+8.0 m tall (z 0 .. 8.0), 0.5 m deep (y -0.25 .. 0.25). ORIGIN IS THE BASE
 CENTRE: z = 0 is the ground. Blender +Z -> Godot +Y, +X -> +X, +Y -> -Z, so the
 screen spans Godot local X across the lane and its thickness is local Z along
 the lane. As rock_bars guarantees, NO GAP ANYWHERE IS WIDER THAN 0.38 m: the
@@ -124,7 +124,7 @@ HALF_W = 0.5 * (WALL_R - LIP_R)   # 6.425: 12.85 m across the lane, WALL to LIP,
                             # no floor to walk round. Was rock_bars' 5.3, which left 2.25 m open
                             # outboard once the scene centred it on the lane at r 52.0.
 CENTRE_R = 0.5 * (WALL_R + LIP_R) # 53.125: where the scene must stand the gate's origin
-HEIGHT = 8.5                # rock_bars' height, unchanged
+HEIGHT = 8.0                # the corridor's clear height: deck 23 to ceiling 31
 PROUD_HD = 0.25             # half depth of socle, pilasters and cornice: 0.5 m of stone, rock_bars' depth
 PROUD = 0.12                # the pilaster stands this far proud of the screen. The rotunda's
                             # mb.PILASTER_PROUD is 0.45 off a 3 m wall; a 0.5 m gate affords 0.12
@@ -136,19 +136,19 @@ XP = HALF_W - PW            # 5.425: the pilasters' inner line, where the screen
 
 SOCLE_Z = 0.85              # the socle's top: the ledge where the frame sets back to FIELD_HD
 SILL_Z = mb.SILL_UP         # 1.0: the sill the bars stand on (the rotunda's sill over a tier base)
-JAMB_H = 3.20               # sill to springing. The cells' mb.ARCH_JAMB is 3.5 on an 8 m tier;
-                            # 8.5 m less a 1.0 socle and a 0.8 cornice leaves the gate 3.2
-SPRING_Z = SILL_Z + JAMB_H  # 4.20: the springing line
+JAMB_H = 2.70               # sill to springing. The cells' mb.ARCH_JAMB is 3.5 on an 8 m tier;
+                            # 8.0 m less a 1.0 socle and a 0.8 cornice leaves the gate 2.7
+SPRING_Z = SILL_Z + JAMB_H  # 3.70: the springing line
 ARCH_HW = 3.0               # the mouth is 6.0 m wide under a SEMICIRCULAR head of radius 3.0 ...
-CROWN_Z = SPRING_Z + ARCH_HW    # 7.20: ... crowning here
-CORN_Z = 7.70               # the cornice's soffit: 0.5 m of spandrel over the crown, 0.8 of cornice over it
+CROWN_Z = SPRING_Z + ARCH_HW    # 6.70: ... crowning here
+CORN_Z = 7.20               # the cornice's soffit: 0.5 m of spandrel over the crown, 0.8 of cornice over it
 HEAD_SEG = mb.HEAD_SEG      # 6 segments in the head, the rotunda's own
 
 BAR_HW = mb.BAR_HW          # 0.065: 0.13 m square iron, the cell bars' section, imported not retuned
 N_BAR = 12                  # vertical bars. 12 is the fewest that keeps every gap under rock_bars'
                             # 0.38 m: the pitch is (6.0 - 12*0.13)/13 = 0.342
 N_XBAR = 3                  # horizontal cross-bars through them ...
-XBAR_TOPS = (2.0, 3.0, 4.0) # ... their top edges, a metre apart, the last 0.2 under the springing
+XBAR_TOPS = (1.7, 2.6, 3.5) # ... their top edges, a metre apart, the last 0.2 under the springing
                             # so the cross-bar's end lands in the FLAT part of the jamb reveal
 
 SEED = 5                    # the atlas unwrap's seed for this model
