@@ -205,12 +205,12 @@ def _make_images(c):
     return images[0], images[1]
 
 
-def rock_material(name, albedo, emissive):
+def rock_material(name, albedo, emissive, glow=False):
     mat = bpy.data.materials.new(name)
     mat.use_nodes = True
     nt = mat.node_tree
     bsdf = nt.nodes.get("Principled BSDF")
-    for img, socket, y in ((albedo, "Base Color", 260),):
+    for img, socket, y in ((albedo, "Base Color", 260),) + (((emissive, "Emission Color", -220),) if glow else ()):
         node = nt.nodes.new("ShaderNodeTexImage")
         node.image = img
         node.interpolation = "Closest"          # hard texels; this is the look
@@ -405,7 +405,7 @@ def build():
     unwrap(ob, slab.zones)
     mdl.finish(ob, bpy.data.materials.new("HellRock"), strip_uvs=False)
     tx.retile(ob, tx.hell_atlas_material(ROCK_ROUGHNESS),
-              glow=('lava_tile', ZONE_LAVA, rock_material("LavaTile", glow, glow)))   # it glows its own albedo
+              glow=('lava_tile', ZONE_LAVA, rock_material("LavaTile", glow, glow, glow=True)))   # it glows its own albedo
     print("MDL STATS visual_tris=%d collision_tris=0" % len(ob.data.polygons))
     xs = [v[0] for v in slab.verts]
     zs = [v[2] for v in slab.verts]

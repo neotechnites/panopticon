@@ -1310,7 +1310,7 @@ def build():
     ob = rock.object(OBJECT_NAME)
     unwrap(ob, rock.zones, rock.groups, themes)
     mdl.finish(ob, rock_material("HellRock", albedo, emissive, glow=False), strip_uvs=False)
-    ob.data.materials.append(rock_material("Lava", river_albedo, river_emissive, glow=False))
+    ob.data.materials.append(rock_material("Lava", river_albedo, river_albedo))
     ob.data.materials.append(rock_material("HubStone", stone_albedo, stone_emissive))
     slot = {"river": 1, "stone": 2}
     names = ["hellrock", "lava", "stone"]

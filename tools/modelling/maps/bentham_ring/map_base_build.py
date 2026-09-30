@@ -725,12 +725,12 @@ def _class_of(zone):
     return _ZONE_CLASS[zone]
 
 
-def rock_material(name, albedo, emissive):
+def rock_material(name, albedo, emissive, glow=False):
     mat = bpy.data.materials.new(name)
     mat.use_nodes = True
     nt = mat.node_tree
     bsdf = nt.nodes.get("Principled BSDF")
-    for img, socket, y in ((albedo, "Base Color", 260),):
+    for img, socket, y in ((albedo, "Base Color", 260),) + (((emissive, "Emission Color", -220),) if glow else ()):
         node = nt.nodes.new("ShaderNodeTexImage")
         node.image = img
         node.interpolation = "Closest"
@@ -948,7 +948,7 @@ def _crack_uv(uv):
 
 def river_material(name, albedo, emissive):
     """The river: single-sided, exactly as the deck and the walls it is cut into."""
-    return rock_material(name, albedo, emissive)
+    return rock_material(name, albedo, emissive, glow=True)
 
 
 # =============================================================================
@@ -8104,7 +8104,6 @@ def build():
 
     lava_albedo, lava_emissive = _lava_sheet()
     mdl.save_texture(lava_albedo)
-    mdl.save_texture(lava_emissive)
 
     ob = rock.object(OBJECT_NAME)
     # Every rock face is the one texel sheet; the sea and the falls are both
@@ -8129,8 +8128,8 @@ def build():
         _no_emission(m)
     crack = _crack_cell()                                           # it glows its own albedo
     mats["glow"] = rock_material("HellGlow", crack, crack)
-    mats["river"] = river_material("LavaRiver", lava_albedo, lava_emissive)
-    mats["lava"] = rock_material("LavaSea", lava_albedo, lava_emissive)
+    mats["river"] = river_material("LavaRiver", lava_albedo, lava_albedo)
+    mats["lava"] = rock_material("LavaSea", lava_albedo, lava_albedo, glow=True)
     mats["crack"] = rock_material("LavaCrack", crack, crack)        # the atlas's glow cell, as before
     slots = ["river" if c in ("river", "fall", "river_t") else c for c in classes]   # one LavaRiver slot
     order = tx.finish(ob, slots, mats)

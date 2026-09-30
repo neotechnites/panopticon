@@ -5,7 +5,10 @@ render_mode cull_back;
 // position only (world xyz, and UV2.x baked per position: 0 on every lava edge), so faces stay welded.
 
 uniform sampler2D albedo_texture : source_color, filter_nearest_mipmap_anisotropic, repeat_enable;
+uniform sampler2D emission_texture : source_color, filter_nearest_mipmap_anisotropic, repeat_enable;
 uniform vec4 albedo_color : source_color = vec4(1.0);
+uniform vec4 emission_color : source_color = vec4(1.0);
+uniform float emission_energy = 1.4;
 uniform float roughness = 1.0;
 uniform float metallic = 0.0;
 uniform vec3 uv1_scale = vec3(1.0);
@@ -51,6 +54,7 @@ void fragment() {
 	vec3 n = normalize(cross(dFdx(VERTEX), dFdy(VERTEX)));
 	NORMAL = dot(n, NORMAL) < 0.0 ? -n : n;
 	ALBEDO = texture(albedo_texture, UV).rgb * albedo_color.rgb;
+	EMISSION = texture(emission_texture, UV).rgb * emission_color.rgb * emission_energy;
 	ROUGHNESS = roughness;
 	METALLIC = metallic;
 }
