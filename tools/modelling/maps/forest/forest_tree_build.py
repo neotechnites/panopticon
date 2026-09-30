@@ -40,14 +40,14 @@ coordinates (Blender z = Godot y) and shifted on export.
                     below y 32.7: the guard's eye is 28.7 and his downward
                     sightline to the lane is clear.
 
-One material (the forest atlas, painted or textures/forest_atlas_albedo.png),
-one mesh, no rig. ForestTreeCollision rides as a `-colonly` node: the trunk
+One material per zone, each a forest keeper tile (TILES) world-tiled at
+TILE_MPT, one mesh, no rig. ForestTreeCollision rides as a `-colonly` node: the trunk
 cylinder r 5, the floor, the rim, the canopy's outer slope, and the sheet as a
 24-gon ring on every forest_seam.SHEET radius, so a shot fired up over the
 ravine stops on the dome's own curve. Nothing else is touched.
 
 This file also holds what forest_build.py shares: the rng, the face
-accumulator, the atlas painter, the tube/blob helpers, the unwrap.
+accumulator, the keeper tiles, the tube/blob helpers, the unwrap.
 
     tools/modelling/model build forest_tree
     python3 tools/modelling/maps/forest/forest_tree_build.py --check
@@ -222,22 +222,27 @@ ROOM_R = 11.2
 SEED = 3140271
 EYE_H = 1.65
 
-# ---- the forest atlas (shared with forest_build.py) -------------------------
-USE_TEXTURE_FILES = True        # textures/forest_atlas_albedo.png replaces the painted sheet
+# ---- the forest's keeper tiles (shared with every forest build) --------------
+USE_TEXTURE_FILES = True        # textures/<stem>_albedo.png replaces a painted sheet (forest_build's classes)
 TEX_DIR = "textures"
-TEX_W = 256                     # the atlas is its five live zones and nothing else
-TEX_H = 128
 TEX_SEED = 7710233
-TPM = 12.0                      # texels per metre on the atlas
-ZONES = {                       # (u0, v0, u1, v1)
-    "leaf": (0.0, 0.0, 0.5, 1.0),
-    "shade": (0.5, 0.0, 0.75, 0.5),
-    "sun": (0.75, 0.0, 1.0, 0.5),
-    "bark": (0.5, 0.5, 0.75, 1.0),
-    "root": (0.75, 0.5, 1.0, 1.0),
+TPM = 12.0                      # texels per metre of the old atlas: forest_build's painters keep their scale by it
+TILE_MPT = 0.05                 # metres per texel on every forest surface (texel.MPT)
+KEEPERS = {                     # group -> (stem, texels per side): one tiling drawing per material
+    "leaf": ("forest_sun", 256),
+    "grass": ("forest_grass", 256),
+    "dirt": ("forest_path", 256),
+    "wood": ("forest_bark", 256),
+    "stone": ("forest_rock", 64),
 }
-UV_PAD_U = 1.5 / TEX_W
-UV_PAD_V = 1.5 / TEX_H
+# zone -> (group, baseColorFactor): the old atlas zone's linear mean over its keeper's, clamped at 1
+TILES = {
+    "leaf": ("leaf", (0.2733, 0.3028, 0.5757)),
+    "shade": ("leaf", (0.0673, 0.0699, 0.2488)),
+    "sun": ("leaf", (1.0, 1.0, 1.0)),
+    "bark": ("wood", (0.9741, 0.9778, 0.9776)),
+    "root": ("wood", (1.0, 0.9002, 0.8096)),
+}
 ROUGHNESS = 0.95
 
 
@@ -438,41 +443,6 @@ def _blades(c, r, box, count, shades):
         c.put(r.i(x0, x1 - 1), r.i(y0, y1 - 1), r.pick(shades))
 
 
-def _paint_leaf(c, r, box):
-    _leaves(c, r, box, list(LEAF_BASE), list(LEAF_BLOBS), LEAF_LIT, 520, (3, 5))
-
-
-def _paint_shade(c, r, box):
-    _leaves(c, r, box, list(SHADE_BASE), list(SHADE_BLOBS), SHADE_LIT, 110, (3, 5))
-
-
-def _paint_sun(c, r, box):
-    _leaves(c, r, box, list(SUN_BASE), list(SUN_BLOBS), SUN_LIT, 110, (3, 5))
-
-
-def _paint_bark(c, r, box, base=BARK_BASE):
-    _fill(c, r, box, list(base))
-    x0, y0, x1, y1 = box
-    for _ in range(26):                      # vertical streaks
-        x, y = r.i(x0, x1 - 2), r.i(y0, y1 - 8)
-        c.rect(x, y, x + r.i(1, 2), min(y1, y + r.i(6, 18)), r.pick(list(BARK_STREAKS)))
-    for _ in range(12):                      # cracks
-        x, y = r.i(x0, x1 - 1), r.i(y0, y1 - 6)
-        for k in range(r.i(4, 9)):
-            c.put(x, y + k, BARK_CRACK)
-            x += r.i(-1, 1)
-    for _ in range(8):
-        x, y = r.i(x0, x1 - 3), r.i(y0, y1 - 3)
-        c.rect(x, y, x + 2, y + 2, BARK_MOSS)    # moss
-
-
-def _paint_root(c, r, box):
-    _paint_bark(c, r, box, base=ROOT_BASE)
-
-
-PAINTERS = {"leaf": _paint_leaf, "shade": _paint_shade, "sun": _paint_sun, "bark": _paint_bark, "root": _paint_root}
-
-
 def _images(c, size, names, h=None):
     h = size if h is None else h
     out = []
@@ -483,15 +453,6 @@ def _images(c, size, names, h=None):
         img.update()
         out.append(img)
     return out[0], out[1]
-
-
-def paint_atlas():
-    """The forest atlas: every zone painted in place; returns (albedo, emissive)."""
-    c = _Canvas(TEX_W, TEX_H)
-    r = _Rng(TEX_SEED)
-    for zone, fn in sorted(PAINTERS.items()):
-        fn(c, r, _rect_of(ZONES[zone], TEX_W, TEX_H))
-    return _images(c, TEX_W, ("forest_atlas_albedo", "forest_atlas_emissive"), TEX_H)
 
 
 def image_file(name):
@@ -506,31 +467,25 @@ def image_file(name):
     return img
 
 
-def sheet(stem, painted):
-    """(albedo, emissive): the files when opted in and present, else painted."""
-    alb = image_file(stem + "_albedo.png") if USE_TEXTURE_FILES else None
-    if alb is None:
-        return painted()
-    return alb, (image_file(stem + "_emissive.png") or painted()[1])   # black: mdl drops it
+def tile_period(zone, table=None):
+    """Metres one repeat of the zone's keeper spans."""
+    return KEEPERS[(table or TILES)[zone][0]][1] * TILE_MPT
 
 
-def atlas_material(name, albedo, emissive, cull=True):
-    mat = bpy.data.materials.new(name)
-    mat.use_nodes = True
-    nt = mat.node_tree
-    bsdf = nt.nodes.get("Principled BSDF")
-    for img, socket, y in ((albedo, "Base Color", 260), (emissive, "Emission Color", -220)):
-        node = nt.nodes.new("ShaderNodeTexImage")
-        node.image = img
-        node.interpolation = "Closest"
-        node.location = (-460, y)
-        nt.links.new(node.outputs["Color"], bsdf.inputs[socket])
-    bsdf.inputs["Roughness"].default_value = ROUGHNESS
-    bsdf.inputs["Metallic"].default_value = 0.0
-    bsdf.inputs["Emission Strength"].default_value = 1.0   # exactly 1.0: no KHR warning
-    mat.use_backface_culling = cull
-    mat.diffuse_color = (0.3, 0.45, 0.2, 1.0)
-    return mat
+def tile_materials(prefix, zones, table=None, cull=True, vertex=False):
+    """{zone: material}: the zone's keeper x its factor, REPEAT; vertex: x COLOR_0 as well."""
+    import texel as tx
+    table = table or TILES
+    out = {}
+    for z in sorted(set(zones)):
+        group, tint = table[z]
+        alb = image_file(KEEPERS[group][0] + "_albedo.png")
+        if alb is None:
+            raise RuntimeError("forest tile %s_albedo.png is missing" % KEEPERS[group][0])
+        mat = tx.material("%s_%s" % (prefix, z), alb, None, ROUGHNESS, 0.0, cull,
+                          None if tuple(tint) == (1.0, 1.0, 1.0) else tint)
+        out[z] = tint_material(mat) if vertex else mat
+    return out
 
 
 # =============================================================================
@@ -1808,40 +1763,22 @@ def build_tree_collider():
 # UNWRAP -- per-face planar projection into a random window of its zone
 # =============================================================================
 
-def unwrap(ob, zones, seed=0, water_fn=None):
+def unwrap(ob, zones, seed=0, water_fn=None, table=None):
+    """Planar by the face's largest normal axis, world-tiled: TILE_MPT on every zone, REPEAT."""
     me = ob.data
     uvl = me.uv_layers.new(name="UVMap")
-    r = _Rng(TEX_SEED + seed * 7919 + len(me.polygons))
     for pi, poly in enumerate(me.polygons):
         zone = zones[pi]
         if zone == "water" and water_fn:
             water_fn(me, uvl, poly)
             continue
-        u0, v0, u1, v1 = ZONES[zone]
-        span_u = (u1 - u0) - 2.0 * UV_PAD_U
-        span_v = (v1 - v0) - 2.0 * UV_PAD_V
-        scale = TPM / ((u1 - u0) * TEX_W)      # metres -> fraction of the zone, each axis its own
-        scale_v = TPM / ((v1 - v0) * TEX_H)    # (the lane's zones are wider than tall)
+        per = tile_period(zone, table)
         nrm = poly.normal
         ax = max(range(3), key=lambda i: abs(nrm[i]))
         ii, jj = ((1, 2), (0, 2), (0, 1))[ax]
-        fu = -1.0 if r.i(0, 1) else 1.0
-        fv = -1.0 if (ax == 2 and r.i(0, 1)) else 1.0
-        cos = [me.vertices[me.loops[li].vertex_index].co for li in poly.loop_indices]
-        mi = min(co[ii] for co in cos)
-        mj = min(co[jj] for co in cos)
-        w = min((max(co[ii] for co in cos) - mi) * scale, 1.0)
-        h = min((max(co[jj] for co in cos) - mj) * scale_v, 1.0)
-        ou = r.f() * (1.0 - w)
-        ov = r.f() * (1.0 - h)
-        for li, co in zip(poly.loop_indices, cos):
-            s = min(ou + (co[ii] - mi) * scale, 1.0)
-            t = min(ov + (co[jj] - mj) * scale_v, 1.0)
-            if fu < 0.0:
-                s = 1.0 - s
-            if fv < 0.0:
-                t = 1.0 - t
-            uvl.data[li].uv = (u0 + UV_PAD_U + s * span_u, v0 + UV_PAD_V + t * span_v)
+        for li in poly.loop_indices:
+            co = me.vertices[me.loops[li].vertex_index].co
+            uvl.data[li].uv = (co[ii] / per, co[jj] / per)
 
 
 # =============================================================================
@@ -1893,10 +1830,13 @@ def seam_tint(ob, zones):
 
 
 def tint_material(mat):
-    """Base Color = atlas x COLOR_0, the pattern the glTF exporter writes as a vertex-coloured texture."""
+    """Base Color = tile x COLOR_0 (x factor), the pattern the glTF exporter writes as a vertex-coloured texture."""
     nt = mat.node_tree
     bsdf = nt.nodes.get("Principled BSDF")
     img = bsdf.inputs["Base Color"].links[0].from_node
+    while img.type != "TEX_IMAGE":           # a factor Mix sits between: COLOR_0 goes in under it
+        img = img.inputs[6].links[0].from_node
+    dest = [l.to_socket for l in img.outputs["Color"].links]
     col = nt.nodes.new("ShaderNodeVertexColor")
     col.layer_name = "Col"
     col.location = (-460, 480)
@@ -1910,31 +1850,35 @@ def tint_material(mat):
     res = [o for o in mix.outputs if o.identifier == "Result_Color"][0]
     nt.links.new(img.outputs["Color"], a_in)
     nt.links.new(col.outputs["Color"], b_in)
-    nt.links.new(res, bsdf.inputs["Base Color"])
+    for sock in dest:
+        nt.links.new(res, sock)
     return mat
 
 
-def build_render_copy(albedo=None, emissive=None):
+def _finish(ob, zones, mats, flat=True):
+    """One slot per zone in sorted order, material_index per face, UVs kept."""
+    import texel as tx
+    return tx.finish(ob, zones, mats, flat)
+
+
+def build_render_copy():
     """The tree in WORLD coordinates for another model's review renders."""
     m = build_tree_geometry()
     ob = m.object("ReviewTree")
-    unwrap(ob, seam_tint(ob, m.zones))
-    if albedo is None:
-        albedo, emissive = sheet("forest_atlas", paint_atlas)
-    mdl.finish(ob, tint_material(atlas_material("ForestAtlasTree", albedo, emissive)), strip_uvs=False)
+    zones = seam_tint(ob, m.zones)
+    unwrap(ob, zones)
+    _finish(ob, zones, tile_materials("ForestTreeCopy", zones, vertex=True))
     return ob
 
 
 def build():
     m = build_tree_geometry()
     c = build_tree_collider()
-    albedo, emissive = sheet("forest_atlas", paint_atlas)
-    mdl.save_texture(albedo)
-    mdl.save_texture(emissive)
     shift = (0.0, 0.0, -ORIGIN_Y)
     ob = m.object(OBJECT_NAME, shift)
-    unwrap(ob, seam_tint(ob, m.zones))
-    mdl.finish(ob, tint_material(atlas_material("ForestAtlas", albedo, emissive)), strip_uvs=False)
+    zones = seam_tint(ob, m.zones)
+    unwrap(ob, zones)
+    _finish(ob, zones, tile_materials("ForestTree", zones, vertex=True))
     coll = c.object(COLLIDER_NAME, shift)
     coll.hide_render = True
     print("MDL STATS visual_tris=%d collision_tris=%d floor_y=%.2f eye_y=%.2f apex_y=%.1f"

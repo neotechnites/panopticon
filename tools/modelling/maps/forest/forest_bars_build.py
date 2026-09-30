@@ -30,8 +30,8 @@ limbs, roots and leaf clumps grow out of sockets in what carries them.
 
 Textures: one tiling sheet per class (lib/texel.py, SHEETS below), exactly as
 forest_build.py does it, and from forest_build's OWN painters and seeds -- so
-`forest_bark`, `forest_leaf` and `forest_root` here are pixel-for-pixel the
-sheets the forest's ground and trunks are wearing, at texel.MPT = 0.05 m per
+`forest_bark`, `forest_leaf` and `forest_root` here are the keeper tiles and
+factors the forest's ground and trunks are wearing, at texel.MPT = 0.05 m per
 texel. The prefix is therefore "forest", not "forest_bars": these are not this
 prop's sheets, they are the forest's, and a bar leaning against a trunk has to
 show the same grain at the same size. This replaces the old per-face atlas
@@ -1910,7 +1910,7 @@ def _sheet(cls):
     src = fb.SHEETS[cls]
     return tx.Sheet(cls, src.paint, mpt=src.mpt, size=src.size, mode="box",
                     roughness=src.roughness, metallic=src.metallic,
-                    cull=src.cull, seed=src.seed, emissive=src.emissive)
+                    cull=src.cull, seed=src.seed, emissive=src.emissive, stem=src.stem, tint=src.tint)
 
 
 SHEETS = {cls: _sheet(cls) for cls in CLASSES}
@@ -1923,11 +1923,6 @@ TEX_ARGS = dict(use_files=ft.USE_TEXTURE_FILES, tex_dir=os.path.join(HERE, ft.TE
 
 def build():
     m, c, strands = build_geometry()
-    albedo, emissive = ft.sheet("forest_atlas", ft.paint_atlas)
-    mdl.save_texture(albedo)
-    mdl.save_texture(emissive)
-    INFO["albedo"], INFO["emissive"] = albedo, emissive   # the in-scene shot's tree copy
-
     ob = m.object(OBJECT_NAME)
     classes = list(m.zones)
     unknown = sorted(set(classes) - set(SHEETS))
@@ -2062,7 +2057,7 @@ def _in_scene_render(spec, objects):
     tx.unwrap(ground, gclasses, fb.SHEETS, seed=1)   # shot answers "does the bark match?"
     tx.finish(ground, gclasses, tx.materials(
         fb.NAME, fb.SHEETS, names={c: "ForestScene_" + c for c in fb.SHEETS}, **TEX_ARGS))
-    keep(ft.build_render_copy(INFO["albedo"], INFO["emissive"]))
+    keep(ft.build_render_copy())
 
     # The fixture on the lane: local +X onto radial(BEARING), local +Y onto tangent.
     for ob in (visual, collider):

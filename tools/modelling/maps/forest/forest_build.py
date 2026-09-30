@@ -36,11 +36,9 @@ lane, pit cone, water floor, flat wall with a prism per trunk, flat ceiling
 annulus. The leafy visual mesh is never its own
 collider.
 
-Textures: one tiling sheet per class (lib/texel.py, SHEETS below: grass,
-verge, path, edge, leaf, shade, sun, fern, bark, earth, cell, root, stem), painted
-here in forest_tree_build's palette, world-projected at texel.MPT m per texel;
-textures/forest_<class>_albedo.png (+ _emissive.png) replaces a painted sheet
-when ft.USE_TEXTURE_FILES is on. The props keep the forest atlas.
+Textures: every class (SHEETS below) wears its group's keeper tile (ft.KEEPERS: grass, dirt,
+leaf, wood, stone) x the class's own colour factor, world-projected at texel.MPT m per texel;
+the lamp's glow is its own file. The props wear the same keepers (ft.TILES).
 The leaf ceiling (the lane's roof sheet and its sun wells) is forest_ceiling_build;
 the pit's dark floor, fog layers (ForestFog: stacked translucent discs, alpha in
 COLOR_0, for GL Compatibility) and thorny brambles are forest_pit_build.
@@ -194,7 +192,7 @@ UPPER_BULGE = 0.35          # the leaf swells this far out mid-drum and fades to
 UPPER_TIER_ROWS = ((1, 2, 3), (4, 5, 6), (7, 8, 9))   # sills 38.5, 42.7, 46.9
 DRUM_SHADE = 0.55           # the drum's head in the canopy's shade: its leaf's share of light at the seam,
 DRUM_SHADE_R = 50.5         # fading from full at the roof's rim, per corner in COLOR_0, out to this radius
-COVE_SHADE = 0.9            # the wall's leaf darkens up the cove to the roof's shade (ROOF_BASE is 0.90 of
+COVE_SHADE = 0.9            # the wall's leaf darkens up the cove to the roof's shade (the roof's factor is 0.90 of
 COVE_SHADE_Z = (35.2, 37.5)  # the wall's leaf) over these heights, per corner in COLOR_0, ...
 COVE_SHADE_R = (54.8, 56.9)  # ... and back to full over these radii once the roof is flat again
 COVE_REF_Z = 36.65          # the tiling's ref step: the cells' apex row is 36.6, the cove's first band above it
@@ -1211,21 +1209,6 @@ def _leaves(base, blobs, lit, count, sz, cell_px):
     return paint
 
 
-def _sheet_fern(c, r, s):
-    tx.fill(c, r, c.box, list(ft.FERN_BASE))
-    for _ in range(_n(9)):                       # fronds: a stem with side ticks
-        x, y = r.i(0, c.w - 1), r.i(0, c.h - 1)
-        n = r.i(_sz(8), _sz(16))
-        dx = r.pick([-1, 1])
-        for k in range(n):
-            xx, yy = x + (k * dx) // 2, y + k
-            c.put(xx, yy, ft.FERN_FROND[0])
-            if k % 2 == 0:
-                c.put(xx - 1, yy, ft.FERN_FROND[1])
-                c.put(xx + 1, yy, ft.FERN_FROND[1])
-    tx.blades(c, r, c.box, _n(30), [ft.FERN_DARK])
-
-
 def _bark(base):
     def paint(c, r, s):
         tx.fill(c, r, c.box, list(base))
@@ -1235,21 +1218,6 @@ def _bark(base):
             x, y = r.i(0, c.w - 1), r.i(0, c.h - 1)
             c.rect(x, y, x + _sz(2), y + _sz(2), ft.BARK_MOSS)
     return paint
-
-
-def _sheet_earth(c, r, s):
-    tx.fill(c, r, c.box, list(ft.EARTH_BASE))
-    tx.shatter(c, r, c.box, list(ft.EARTH_BLOTCH), _n(30), _sz(3), _sz(9))
-    for _ in range(_n(8)):                       # root streaks, top to bottom, wrapping
-        x = r.i(0, c.w - 1)
-        for k in range(c.h):
-            c.put(x, k, ft.EARTH_ROOT)
-            if k % 3 == 0:
-                x += r.i(-1, 1)
-    for count, col in ((14, ft.EARTH_STONE), (10, ft.EARTH_MOSS)):
-        for _ in range(_n(count)):
-            x, y = r.i(0, c.w - 1), r.i(0, c.h - 1)
-            c.rect(x, y, x + _sz(2), y + _sz(2), col)
 
 
 def _sheet_lamp(c, r, s):
@@ -1271,14 +1239,6 @@ def _sheet_lamp(c, r, s):
         x, y = r.i(0, c.w - 1), r.i(0, c.h - 1)   # bumped from 6 -- at the brightness the
         w = _sz(3) if r.f() < 0.4 else _sz(1)     # mouth needs, a sparse sheet read as one
         c.rect(x, y, x + w, y + _sz(1), (10, 9, 7), LAMP_GLOW_DIM)
-
-
-def _sheet_cell(c, r, s):
-    tx.fill(c, r, c.box, [(14, 16, 12), (18, 20, 14), (12, 14, 10), (20, 24, 16)])
-    tx.shatter(c, r, c.box, [(24, 28, 18), (10, 12, 8)], _n(12), _sz(3), _sz(8))
-    for _ in range(_n(3)):                       # something pale, far back
-        x, y = r.i(0, c.w - 1), r.i(0, c.h - 1)
-        c.rect(x, y, x + _sz(2), y + 1, (52, 60, 44))
 
 
 def _sheet_stem(c, r, s):
@@ -1323,37 +1283,29 @@ LAMP_GLOW = (132, 100, 54)
 LAMP_GLOW_HOT = (184, 144, 82)   # ... the warmer patches
 LAMP_GLOW_DIM = (70, 52, 30)     # ... and the soot
 
-# The roof's own hollows. Ryan: "the texture on the roof is so dark that it looks
-# weird when it goes right to the corner of the wall." The lane's lid is the ONLY
-# thing wearing class "shade" in this map (forest_ceiling_build._leafy picks it in
-# the hollows between the underside's bulges), and it was painted from
-# forest_tree_build.SHADE_*, a palette that sits at 0.62 of the leaf wall's value.
-# Against the wall's "leaf" at the corner that read as a black band rather than as
-# canopy. These are ft.SHADE_* scaled 1.45 in sRGB -- the same base/blob/lit split,
-# the same hue, the hollows still darker than the bulges so the roof still modulates,
-# but 0.90 of the wall instead of 0.62 so the corner is a change of light, not a cut.
-# Local on purpose: ft.SHADE_* is forest_tree.glb's own sheet and is not ours to move.
-ROOF_BASE = ((55, 73, 45), (49, 64, 41))
-ROOF_BLOBS = ((81, 104, 64), (70, 93, 61), (87, 113, 70))
-ROOF_LIT = (110, 136, 84)
-
 _BLADES = [(168, 172, 82), (160, 160, 70), (86, 102, 58)]
+# Each class: its group's keeper (ft.KEEPERS) x the class's old tile's linear mean over the keeper's, clamped at 1.
+_GRASS = _noise(ft.LANE_GREENS, (0.38, 0.66), 160, _BLADES)
+_PATH = _noise(ft.PATH_TONES, (0.40, 0.72), 70, [(118, 96, 58), (104, 88, 54), (132, 140, 70)])
+_SUN = _leaves(ft.SUN_BASE, ft.SUN_BLOBS, ft.SUN_LIT, 110, (3, 5), 64)
+_BARK = _bark(ft.BARK_BASE)
+_DARK = (0.0144, 0.0135, 0.015)
 SHEETS = {
-    "grass": _sheet("grass", _noise(ft.LANE_GREENS, (0.38, 0.66), 160, _BLADES), seed=1),
-    "verge": _sheet("verge", _noise(ft.VERGE_TONES, (0.42, 0.74), 60, [(160, 164, 78), (112, 104, 60)]), seed=2),
-    "path": _sheet("path", _noise(ft.PATH_TONES, (0.40, 0.72), 70, [(118, 96, 58), (104, 88, 54), (132, 140, 70)]), seed=3),
-    "edge": _sheet("edge", _noise(ft.EDGE_GREENS, (0.38, 0.66), 60, [(130, 140, 68), (58, 44, 30)], (64, 64)), seed=4),
-    "leaf": _sheet("leaf", _leaves(ft.LEAF_BASE, ft.LEAF_BLOBS, ft.LEAF_LIT, 520, (3, 5), 128), seed=5),
-    "shade": _sheet("shade", _leaves(ROOF_BASE, ROOF_BLOBS, ROOF_LIT, 110, (3, 5), 64), seed=6),
-    "sun": _sheet("sun", _leaves(ft.SUN_BASE, ft.SUN_BLOBS, ft.SUN_LIT, 110, (3, 5), 64), seed=7),
-    "fern": _sheet("fern", _sheet_fern, seed=8),
-    "bark": _sheet("bark", _bark(ft.BARK_BASE), seed=9),
-    "earth": _sheet("earth", _sheet_earth, seed=10),
-    "cell": _sheet("cell", _sheet_cell, seed=11, stem="forest_dark"),
+    "grass": _sheet("grass", _GRASS, seed=1),
+    "verge": _sheet("verge", _GRASS, seed=1, stem="forest_grass", tint=(1.0, 0.8456, 1.0)),
+    "edge": _sheet("edge", _GRASS, seed=1, stem="forest_grass", tint=(0.3516, 0.4017, 0.8407)),
+    "path": _sheet("path", _PATH, seed=3),
+    "earth": _sheet("earth", _PATH, seed=3, stem="forest_path", tint=(0.2615, 0.2112, 0.4746)),
+    "sun": _sheet("sun", _SUN, seed=7),
+    "leaf": _sheet("leaf", _SUN, seed=7, stem="forest_sun", tint=(0.2489, 0.2792, 0.5536)),
+    "shade": _sheet("shade", _SUN, seed=7, stem="forest_sun", tint=(0.1506, 0.1938, 0.5302)),
+    "fern": _sheet("fern", _SUN, seed=7, stem="forest_sun", tint=(0.2197, 0.3329, 0.568)),
+    "bark": _sheet("bark", _BARK, seed=9),
+    "root": _sheet("root", _BARK, seed=9, stem="forest_bark", tint=(1.0, 0.8889, 0.8012)),
+    "cell": _sheet("cell", None, size=64, stem="forest_rock", tint=_DARK),
     "stem": _sheet("stem", _sheet_stem, seed=14),
-    "root": _sheet("root", _bark(ft.ROOT_BASE), seed=12),
-    # cell and lamp are one near-black stone (forest_dark_albedo); only the lamp glows
-    "lamp": _sheet("lamp", _sheet_lamp, seed=13, emissive=True, stem="forest_dark", glow_stem="forest_lamp"),
+    # the lamp keeps the 256 period its glow file was drawn to; its albedo is the stone keeper, near black
+    "lamp": _sheet("lamp", _sheet_lamp, seed=13, emissive=True, stem="forest_rock", glow_stem="forest_lamp", tint=_DARK),
 }
 
 
@@ -1492,7 +1444,7 @@ def _forest_render(spec, objects):
     con = fill.constraints.new(type="TRACK_TO")
     con.target, con.track_axis, con.up_axis = aim, "TRACK_NEGATIVE_Z", "UP_Y"
 
-    tree = ft.build_render_copy(INFO["albedo"], INFO["emissive"])
+    tree = ft.build_render_copy()
     rays = {ob.name: ob for ob in objects if ob.name in (RAYS_SOLID_NAME, RAYS_SOFT_NAME)}
     solid, soft = rays.get(RAYS_SOLID_NAME), rays.get(RAYS_SOFT_NAME)
     for ob in objects:              # the fog stays in every shot
@@ -1747,11 +1699,6 @@ def drum_shade(ob, zones):
 
 def build():
     m, c, rays = build_geometry()
-    albedo, emissive = ft.sheet("forest_atlas", ft.paint_atlas)
-    mdl.save_texture(albedo)
-    mdl.save_texture(emissive)
-    INFO["albedo"], INFO["emissive"] = albedo, emissive
-
     keep = [k for k, f in enumerate(m.faces) if f is not None]      # m.object compacts: the roof's faces by their compacted index
     soft = [i for i, k in enumerate(keep) if k in getattr(m, "roof_faces", ())]
     ob = m.object(OBJECT_NAME)

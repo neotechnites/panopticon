@@ -486,13 +486,9 @@ def build():
     m = build_geometry(p)
     c = build_collider(m, p)
 
-    albedo, emissive = ft.sheet("forest_atlas", ft.paint_atlas)
-    mdl.save_texture(albedo)
-    mdl.save_texture(emissive)
-
     ob = m.object(OBJECT_NAME)
     ft.unwrap(ob, m.zones)
-    mdl.finish(ob, ft.atlas_material("ForestAtlas", albedo, emissive), strip_uvs=False)
+    ft._finish(ob, m.zones, ft.tile_materials("ForestBush", m.zones))
 
     coll = c.object(COLLIDER_NAME)
     coll.hide_render = True

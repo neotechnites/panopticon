@@ -145,13 +145,12 @@ COL_JAMB_N = 3          # collider stations up each straight jamb
 SEED = 5140973
 
 # =============================================================================
-# TEXTURE -- portal_build.py's swirl, its own file; the frame wears the forest atlas
+# TEXTURE -- portal_build.py's swirl, its own file; the frame wears the forest's keeper tiles
 # =============================================================================
 
 SWIRL_STEM = "forest_portal_swirl_albedo"   # albedo and glow are the same pixels
 SWIRL_PX = 64
-EARTH_RECT = (0.0, 0.0, 0.25, 0.5)          # the disc's own UV window (no atlas zone: the swirl file is its texture)
-ZONES = dict(ft.ZONES, earth=EARTH_RECT)
+SWIRL_PAD = 6.0 / 256.0                      # the disc's inset in the swirl file, as the old atlas window left it
 
 SWIRL_ARMS  = 3
 SWIRL_TURNS = 2.6       # how many times an arm wraps from the rim to the core
@@ -184,6 +183,12 @@ def _paint_swirl(c, r, box):
             c.put(x, y, col, col)
 
 
+def _swirl_material(swirl):
+    """The disc: the swirl file as albedo and glow, both faces."""
+    import texel as tx
+    return tx.material("ForestPortalSwirl", swirl, swirl, ft.ROUGHNESS, 0.0, False)
+
+
 def build_swirl():
     """The swirl as one image: the file when present, else painted on a canvas of its own."""
     img = ft.image_file(SWIRL_STEM + ".png") if ft.USE_TEXTURE_FILES else None
@@ -196,50 +201,25 @@ def build_swirl():
 
 
 # =============================================================================
-# UNWRAP -- forest_tree_build.unwrap, plus portal_build's whole-zone planar
-# branch: zones named in ``planar`` map by (axis_i, axis_j) extent instead of
-# a random window, so the swirl lands on the disc once, centred.
+# UNWRAP -- forest_tree_build.unwrap, plus a whole-zone planar branch: zones
+# named in ``planar`` map by (axis_i, axis_j) extent onto the swirl file, once, centred.
 # =============================================================================
 
-def unwrap(ob, zones, planar=None, seed=0, count=None):
+def unwrap(ob, zones, planar=None):
     me = ob.data
-    uvl = me.uv_layers.new(name="UVMap")
-    r = ft._Rng(ft.TEX_SEED + seed * 7919 + (len(me.polygons) if count is None else count))
     planar = planar or {}
+    ft.unwrap(ob, [z if z not in planar else "bark" for z in zones])
+    uvl = me.uv_layers["UVMap"]
+    span = 1.0 - 2.0 * SWIRL_PAD
     for pi, poly in enumerate(me.polygons):
-        zone = zones[pi]
-        u0, v0, u1, v1 = ZONES[zone]
-        span_u = (u1 - u0) - 2.0 * ft.UV_PAD_U
-        span_v = (v1 - v0) - 2.0 * ft.UV_PAD_V
-        cos = [me.vertices[me.loops[li].vertex_index].co for li in poly.loop_indices]
-        if zone in planar:
-            ii, jj, lo_i, lo_j, hi_i, hi_j = planar[zone]
-            for li, co in zip(poly.loop_indices, cos):
-                s = min(max((co[ii] - lo_i) / (hi_i - lo_i), 0.0), 1.0)
-                t = min(max((co[jj] - lo_j) / (hi_j - lo_j), 0.0), 1.0)
-                uvl.data[li].uv = (u0 + ft.UV_PAD_U + s * span_u, v0 + ft.UV_PAD_V + t * span_v)
+        if zones[pi] not in planar:
             continue
-        scale = ft.TPM / ((u1 - u0) * ft.TEX_W)      # metres -> fraction of the zone, each axis its own
-        scale_v = ft.TPM / ((v1 - v0) * ft.TEX_H)    # (the lane's zones are wider than tall)
-        nrm = poly.normal
-        ax = max(range(3), key=lambda i: abs(nrm[i]))
-        ii, jj = ((1, 2), (0, 2), (0, 1))[ax]
-        fu = -1.0 if r.i(0, 1) else 1.0
-        fv = -1.0 if (ax == 2 and r.i(0, 1)) else 1.0
-        mi = min(co[ii] for co in cos)
-        mj = min(co[jj] for co in cos)
-        w = min((max(co[ii] for co in cos) - mi) * scale, 1.0)
-        h = min((max(co[jj] for co in cos) - mj) * scale_v, 1.0)
-        ou = r.f() * (1.0 - w)
-        ov = r.f() * (1.0 - h)
-        for li, co in zip(poly.loop_indices, cos):
-            s = min(ou + (co[ii] - mi) * scale, 1.0)
-            t = min(ov + (co[jj] - mj) * scale_v, 1.0)
-            if fu < 0.0:
-                s = 1.0 - s
-            if fv < 0.0:
-                t = 1.0 - t
-            uvl.data[li].uv = (u0 + ft.UV_PAD_U + s * span_u, v0 + ft.UV_PAD_V + t * span_v)
+        ii, jj, lo_i, lo_j, hi_i, hi_j = planar[zones[pi]]
+        for li in poly.loop_indices:
+            co = me.vertices[me.loops[li].vertex_index].co
+            s_ = min(max((co[ii] - lo_i) / (hi_i - lo_i), 0.0), 1.0)
+            t_ = min(max((co[jj] - lo_j) / (hi_j - lo_j), 0.0), 1.0)
+            uvl.data[li].uv = (SWIRL_PAD + s_ * span, SWIRL_PAD + t_ * span)
 
 
 # =============================================================================
@@ -581,14 +561,13 @@ def _in_scene_render(spec, objects):
     for ob in made:                                 # the proxy is not in the in-scene shot
         ob.hide_render = True
 
-    albedo, emissive = ft.sheet("forest_atlas", ft.paint_atlas)   # the forest's own atlas
     gm, _coll, _rays = fb.build_geometry()
     ground = gm.object(fb.OBJECT_NAME)              # fb.build()'s recipe, minus the export: its own sheets
     tx.unwrap(ground, list(gm.zones), fb.SHEETS, seed=1)
     tx.finish(ground, list(gm.zones), tx.materials(fb.NAME, fb.SHEETS, names={c: "ForestScene_" + c for c in fb.SHEETS},
                                                    use_files=ft.USE_TEXTURE_FILES, tex_dir=os.path.join(HERE, ft.TEX_DIR)))
     made.append(ground)
-    made.append(ft.build_render_copy(albedo, emissive))
+    made.append(ft.build_render_copy())
 
     b = 345.0                                       # the fixture's bearing on the lane
     fixture.rotation_euler = (0.0, 0.0, math.radians(-b))
@@ -637,23 +616,13 @@ def _in_scene_render(spec, objects):
 def build():
     m = build_geometry()
     c = build_collider()
-    albedo, emissive = ft.sheet("forest_atlas", ft.paint_atlas)   # the frame: the forest's own atlas
     swirl = build_swirl()
     ob = m.object(OBJECT_NAME)
-    unwrap(ob, m.zones, count=len(m.faces) - m.back_fill,      # the seed the exporter-dropped back fill left
-           planar={"earth": (0, 2, -IN_HALF_W, 0.0, IN_HALF_W, APEX_Z)})
+    unwrap(ob, m.zones, planar={"earth": (0, 2, -IN_HALF_W, 0.0, IN_HALF_W, APEX_Z)})
     # cull=False, as portal.glb's HellRock; the disc is a closed lens now, both faces kept.
-    mdl.finish(ob, ft.atlas_material("ForestPortalAtlas", albedo, emissive, cull=False),
-               strip_uvs=False)
-    ob.data.materials.append(ft.atlas_material("ForestPortalSwirl", swirl, swirl, cull=False))
-    u0, v0, u1, v1 = EARTH_RECT
-    uvl = ob.data.uv_layers["UVMap"]
-    for pi, poly in enumerate(ob.data.polygons):      # the disc: the earth zone's UVs -> the swirl file's 0..1
-        if m.zones[pi] == "earth":
-            poly.material_index = 1
-            for li in poly.loop_indices:
-                u, v = uvl.data[li].uv
-                uvl.data[li].uv = ((u - u0) / (u1 - u0), (v - v0) / (v1 - v0))
+    mats = ft.tile_materials("ForestPortal", [z for z in m.zones if z != "earth"], cull=False)
+    mats["earth"] = _swirl_material(swirl)
+    ft._finish(ob, m.zones, mats)
     coll = c.object(COLLIDER_NAME)     # Godot: StaticBody3D + ConcavePolygonShape3D
     coll.hide_render = True
     size = [max(v[k] for v in m.verts) - min(v[k] for v in m.verts) for k in range(3)]

@@ -48,7 +48,7 @@ for _root in (os.path.dirname(_HOME), os.path.dirname(os.path.dirname(_HOME))): 
         sys.path[1:1] = [d for d, _, _ in os.walk(_root) if "__pycache__" not in d]
         break
 
-import forest_tree_build as ft  # noqa: E402  the forest atlas, the mesh library
+import forest_tree_build as ft  # noqa: E402  the forest tiles, the mesh library
 from forest_tree_build import (_Mesh, _Rng, UP, DOWN, add, sub, norm, dot, cross,  # noqa: E402
                                lerp, bez, tube, clump_end, socket_ring, loft, frames)
 
@@ -669,13 +669,9 @@ def build():
     m, trunk, crown = build_geometry(spec)
     c = build_collider(spec)
 
-    albedo, emissive = ft.sheet("forest_atlas", ft.paint_atlas)
-    mdl.save_texture(albedo)
-    mdl.save_texture(emissive)
-
     ob = m.object(spec["object"])
     ft.unwrap(ob, m.zones)
-    mdl.finish(ob, ft.atlas_material("ForestAtlas", albedo, emissive), strip_uvs=False)
+    ft._finish(ob, m.zones, ft.tile_materials("ForestTreeProp", m.zones))
 
     coll = c.object(spec["collider"])
     coll.hide_render = True

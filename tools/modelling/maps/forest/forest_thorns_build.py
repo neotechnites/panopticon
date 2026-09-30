@@ -52,7 +52,7 @@ for _root in (os.path.dirname(_HOME), os.path.dirname(os.path.dirname(_HOME))): 
 if bpy is not None:
     import mdl  # noqa: E402
 
-import forest_tree_build as ft  # noqa: E402  the atlas, the rng, the mesh, the unwrap
+import forest_tree_build as ft  # noqa: E402  the tiles, the rng, the mesh, the unwrap
 from forest_tree_build import _Mesh, _Rng, UP, add  # noqa: E402
 import forest_pit_build as fp  # noqa: E402  the bramble generator itself
 # _barbed_tube calls back into the module that owns the mesh (its _host) for
@@ -305,10 +305,7 @@ def _strip_collider():
 # =============================================================================
 
 def build():
-    albedo, emissive = ft.sheet("forest_atlas", ft.paint_atlas)
-    mdl.save_texture(albedo)
-    mdl.save_texture(emissive)
-    mat = ft.atlas_material("ForestAtlasThorns", albedo, emissive)
+    mats = ft.tile_materials("ForestThorns", ("root", "shade"))
     out = []
     stats = []
     for (obj_name, coll_name, builder, collider) in (
@@ -318,7 +315,7 @@ def build():
         zones = [z for z in m.zones if z is not None]
         ob = m.object(obj_name)
         ft.unwrap(ob, zones)
-        mdl.finish(ob, mat, strip_uvs=False)
+        ft._finish(ob, zones, mats)
         co = collider().object(coll_name)
         co.hide_render = True
         out += [ob, co]
