@@ -225,24 +225,19 @@ EYE_H = 1.65
 # ---- the forest atlas (shared with forest_build.py) -------------------------
 USE_TEXTURE_FILES = True        # textures/forest_atlas_albedo.png replaces the painted sheet
 TEX_DIR = "textures"
-TEX_SIZE = 256
+TEX_W = 256                     # the atlas is its five live zones and nothing else
+TEX_H = 128
 TEX_SEED = 7710233
 TPM = 12.0                      # texels per metre on the atlas
 ZONES = {                       # (u0, v0, u1, v1)
-    "grass": (0.0, 0.0, 0.5, 0.25),
-    "verge": (0.0, 0.25, 0.5, 0.375),
-    "path": (0.0, 0.375, 0.5, 0.5),
-    "leaf": (0.5, 0.5, 1.0, 1.0),
-    "shade": (0.0, 0.5, 0.25, 0.75),
-    "sun": (0.25, 0.5, 0.5, 0.75),
-    "fern": (0.0, 0.75, 0.25, 1.0),
-    "edge": (0.25, 0.75, 0.5, 1.0),
-    "bark": (0.5, 0.0, 0.75, 0.25),
-    "earth": (0.75, 0.0, 1.0, 0.25),
-    "cell": (0.5, 0.25, 0.75, 0.5),
-    "root": (0.75, 0.25, 1.0, 0.5),
+    "leaf": (0.0, 0.0, 0.5, 1.0),
+    "shade": (0.5, 0.0, 0.75, 0.5),
+    "sun": (0.75, 0.0, 1.0, 0.5),
+    "bark": (0.5, 0.5, 0.75, 1.0),
+    "root": (0.75, 0.5, 1.0, 1.0),
 }
-UV_PAD = 1.5 / TEX_SIZE
+UV_PAD_U = 1.5 / TEX_W
+UV_PAD_V = 1.5 / TEX_H
 ROUGHNESS = 0.95
 
 
@@ -288,12 +283,12 @@ def _s2l(rgb):
 
 
 class _Canvas(object):
-    def __init__(self, size):
-        self.w = self.h = size
-        n = size * size * 4
+    def __init__(self, size, h=None):
+        self.w, self.h = size, (size if h is None else h)
+        n = self.w * self.h * 4
         self.alb = [0.0] * n
         self.emi = [0.0] * n
-        for i in range(size * size):
+        for i in range(self.w * self.h):
             self.alb[i * 4 + 3] = 1.0
             self.emi[i * 4 + 3] = 1.0
 
@@ -316,9 +311,10 @@ class _Canvas(object):
                 self.put(x, y, rgb, glow)
 
 
-def _rect_of(zone, size):
+def _rect_of(zone, size, h=None):
     u0, v0, u1, v1 = zone
-    return (int(u0 * size), int(v0 * size), int(u1 * size), int(v1 * size))
+    h = size if h is None else h
+    return (int(u0 * size), int(v0 * h), int(u1 * size), int(v1 * h))
 
 
 def _fill(c, r, box, shades):
@@ -442,30 +438,6 @@ def _blades(c, r, box, count, shades):
         c.put(r.i(x0, x1 - 1), r.i(y0, y1 - 1), r.pick(shades))
 
 
-def _paint_grass(c, r, box):
-    _noise_fill(c, r, box, LANE_GREENS)
-    _blades(c, r, box, 160, [(168, 172, 82), (160, 160, 70), (86, 102, 58)])
-
-
-def _paint_verge(c, r, box):
-    """Between the grass and the path: the greens with the path's worn tone
-    creeping in, so the path has no hard shoulder."""
-    _noise_fill(c, r, box, VERGE_TONES, cuts=(0.42, 0.74))
-    _blades(c, r, box, 60, [(160, 164, 78), (112, 104, 60)])
-
-
-def _paint_path(c, r, box):
-    """The worn line down the middle of the lane: brown-green, bare earth showing."""
-    _noise_fill(c, r, box, PATH_TONES, cuts=(0.40, 0.72))
-    _blades(c, r, box, 70, [(118, 96, 58), (104, 88, 54), (132, 140, 70)])
-
-
-def _paint_edge(c, r, box):
-    """The lip, the wall foot, hummocks and cell floors: the lane's greens in shade."""
-    _noise_fill(c, r, box, EDGE_GREENS)
-    _blades(c, r, box, 60, [(130, 140, 68), (58, 44, 30)])
-
-
 def _paint_leaf(c, r, box):
     _leaves(c, r, box, list(LEAF_BASE), list(LEAF_BLOBS), LEAF_LIT, 520, (3, 5))
 
@@ -476,25 +448,6 @@ def _paint_shade(c, r, box):
 
 def _paint_sun(c, r, box):
     _leaves(c, r, box, list(SUN_BASE), list(SUN_BLOBS), SUN_LIT, 110, (3, 5))
-
-
-def _paint_fern(c, r, box):
-    _fill(c, r, box, list(FERN_BASE))
-    x0, y0, x1, y1 = box
-    for _ in range(9):                       # fronds: a stem with side ticks
-        x, y = r.i(x0 + 4, x1 - 5), r.i(y0 + 2, y1 - 2)
-        n = r.i(8, 16)
-        dx = r.pick([-1, 1])
-        for k in range(n):
-            xx, yy = x + (k * dx) // 2, y + k
-            if not (x0 <= xx < x1 and y0 <= yy < y1):
-                break
-            c.put(xx, yy, FERN_FROND[0])
-            if k % 2 == 0:
-                c.put(xx - 1, yy, FERN_FROND[1])
-                c.put(xx + 1, yy, FERN_FROND[1])
-    for _ in range(30):
-        c.put(r.i(x0, x1 - 1), r.i(y0, y1 - 1), FERN_DARK)
 
 
 def _paint_bark(c, r, box, base=BARK_BASE):
@@ -513,50 +466,18 @@ def _paint_bark(c, r, box, base=BARK_BASE):
         c.rect(x, y, x + 2, y + 2, BARK_MOSS)    # moss
 
 
-def _paint_earth(c, r, box):
-    _fill(c, r, box, list(EARTH_BASE))
-    _blotch(c, r, box, list(EARTH_BLOTCH), 30, 3, 9)
-    x0, y0, x1, y1 = box
-    for _ in range(8):                       # root streaks
-        x, y = r.i(x0 + 1, x1 - 2), y0
-        for k in range(y1 - y0):
-            c.put(x, y + k, EARTH_ROOT)
-            if k % 3 == 0:
-                x += r.i(-1, 1)
-            x = max(x0, min(x1 - 1, x))
-    for _ in range(14):                      # stones
-        x, y = r.i(x0, x1 - 3), r.i(y0, y1 - 3)
-        c.rect(x, y, x + 2, y + 2, EARTH_STONE)
-    for _ in range(10):
-        x, y = r.i(x0, x1 - 3), r.i(y0, y1 - 3)
-        c.rect(x, y, x + 2, y + 2, EARTH_MOSS)    # moss
-
-
-def _paint_cell(c, r, box):
-    _fill(c, r, box, [(14, 16, 12), (18, 20, 14), (12, 14, 10), (20, 24, 16)])
-    _blotch(c, r, box, [(24, 28, 18), (10, 12, 8)], 12, 3, 8)
-    x0, y0, x1, y1 = box
-    for _ in range(3):                       # something pale, far back
-        x, y = r.i(x0 + 4, x1 - 6), r.i(y0 + 4, y1 - 6)
-        c.rect(x, y, x + 2, y + 1, (52, 60, 44))
-
-
 def _paint_root(c, r, box):
     _paint_bark(c, r, box, base=ROOT_BASE)
 
 
-PAINTERS = {
-    "grass": _paint_grass, "verge": _paint_verge, "path": _paint_path, "edge": _paint_edge, "leaf": _paint_leaf,
-    "shade": _paint_shade, "sun": _paint_sun, "fern": _paint_fern,
-    "bark": _paint_bark, "earth": _paint_earth, "cell": _paint_cell,
-    "root": _paint_root,
-}
+PAINTERS = {"leaf": _paint_leaf, "shade": _paint_shade, "sun": _paint_sun, "bark": _paint_bark, "root": _paint_root}
 
 
-def _images(c, size, names):
+def _images(c, size, names, h=None):
+    h = size if h is None else h
     out = []
     for name, buf in ((names[0], c.alb), (names[1], c.emi)):
-        img = bpy.data.images.new(name, size, size, alpha=False)
+        img = bpy.data.images.new(name, size, h, alpha=False)
         img.colorspace_settings.name = "sRGB"
         img.pixels.foreach_set(buf)
         img.update()
@@ -566,11 +487,11 @@ def _images(c, size, names):
 
 def paint_atlas():
     """The forest atlas: every zone painted in place; returns (albedo, emissive)."""
-    c = _Canvas(TEX_SIZE)
+    c = _Canvas(TEX_W, TEX_H)
     r = _Rng(TEX_SEED)
     for zone, fn in sorted(PAINTERS.items()):
-        fn(c, r, _rect_of(ZONES[zone], TEX_SIZE))
-    return _images(c, TEX_SIZE, ("forest_atlas_albedo", "forest_atlas_emissive"))
+        fn(c, r, _rect_of(ZONES[zone], TEX_W, TEX_H))
+    return _images(c, TEX_W, ("forest_atlas_albedo", "forest_atlas_emissive"), TEX_H)
 
 
 def image_file(name):
@@ -1897,10 +1818,10 @@ def unwrap(ob, zones, seed=0, water_fn=None):
             water_fn(me, uvl, poly)
             continue
         u0, v0, u1, v1 = ZONES[zone]
-        span_u = (u1 - u0) - 2.0 * UV_PAD
-        span_v = (v1 - v0) - 2.0 * UV_PAD
-        scale = TPM / ((u1 - u0) * TEX_SIZE)      # metres -> fraction of the zone, each axis its own
-        scale_v = TPM / ((v1 - v0) * TEX_SIZE)    # (the lane's zones are wider than tall)
+        span_u = (u1 - u0) - 2.0 * UV_PAD_U
+        span_v = (v1 - v0) - 2.0 * UV_PAD_V
+        scale = TPM / ((u1 - u0) * TEX_W)      # metres -> fraction of the zone, each axis its own
+        scale_v = TPM / ((v1 - v0) * TEX_H)    # (the lane's zones are wider than tall)
         nrm = poly.normal
         ax = max(range(3), key=lambda i: abs(nrm[i]))
         ii, jj = ((1, 2), (0, 2), (0, 1))[ax]
@@ -1920,36 +1841,26 @@ def unwrap(ob, zones, seed=0, water_fn=None):
                 s = 1.0 - s
             if fv < 0.0:
                 t = 1.0 - t
-            uvl.data[li].uv = (u0 + UV_PAD + s * span_u, v0 + UV_PAD + t * span_v)
+            uvl.data[li].uv = (u0 + UV_PAD_U + s * span_u, v0 + UV_PAD_V + t * span_v)
 
 
 # =============================================================================
 # BUILD / CHECK
 # =============================================================================
 
-def _zone_means(names):
-    """Linear mean albedo of each painted atlas zone, from a canvas painted as paint_atlas does."""
-    c = _Canvas(TEX_SIZE)
-    r = _Rng(TEX_SEED)
-    for zone, fn in sorted(PAINTERS.items()):
-        fn(c, r, _rect_of(ZONES[zone], TEX_SIZE))
-    out = {}
-    for zone in names:
-        x0, y0, x1, y1 = _rect_of(ZONES[zone], TEX_SIZE)
-        s, n = [0.0, 0.0, 0.0], 0
-        for y in range(y0, y1):
-            for x in range(x0, x1):
-                o = (y * c.w + x) * 4
-                s = [s[k] + c.alb[o + k] for k in range(3)]
-                n += 1
-        out[zone] = [v / n for v in s]
-    return out
+# Linear mean albedo of leaf / shade / sun as the painters drew them on the old 256 x 256 atlas:
+# the canopy's seam tint is measured off these, so the tint outlives the repack.
+ZONE_MEANS = {
+    "leaf": [0.07279782826225249, 0.1097163984111475, 0.03707095420745521],
+    "shade": [0.025032702695835757, 0.04094508853036712, 0.017297599392390315],
+    "sun": [0.1712341559519998, 0.22837068989036496, 0.06039738519927821],
+}
 
 
 def seam_tint(ob, zones):
     """Ryan: "a hard line from the color of the roof to the color of the wall". Over
     SEAM_TINT the canopy's shade and sun fade, per corner in COLOR_0, to the drum's leaf, lifting by SEAM_LIFT."""
-    mean = _zone_means(("leaf", "shade", "sun"))
+    mean = ZONE_MEANS
     k = {z: [mean["leaf"][c] / mean[z][c] for c in range(3)] for z in ("shade", "sun")}
     me = ob.data
     col = me.color_attributes.new(name="Col", type="FLOAT_COLOR", domain="CORNER")

@@ -149,6 +149,9 @@ SEED = 5140973
 # =============================================================================
 
 SWIRL_STEM = "forest_portal_swirl_albedo"   # albedo and glow are the same pixels
+SWIRL_PX = 64
+EARTH_RECT = (0.0, 0.0, 0.25, 0.5)          # the disc's own UV window (no atlas zone: the swirl file is its texture)
+ZONES = dict(ft.ZONES, earth=EARTH_RECT)
 
 SWIRL_ARMS  = 3
 SWIRL_TURNS = 2.6       # how many times an arm wraps from the rim to the core
@@ -182,23 +185,13 @@ def _paint_swirl(c, r, box):
 
 
 def build_swirl():
-    """The swirl as one image: the file when present, else painted over the atlas's
-    earth zone with the atlas's own draws (the pixels it always had) and cut out."""
+    """The swirl as one image: the file when present, else painted on a canvas of its own."""
     img = ft.image_file(SWIRL_STEM + ".png") if ft.USE_TEXTURE_FILES else None
     if img is not None:
         return img
-    big = ft._Canvas(ft.TEX_SIZE)
-    r = ft._Rng(ft.TEX_SEED)
-    for zone, fn in sorted(ft.PAINTERS.items()):
-        fn(big, r, ft._rect_of(ft.ZONES[zone], ft.TEX_SIZE))
-    x0, y0, x1, y1 = ft._rect_of(ft.ZONES["earth"], ft.TEX_SIZE)
-    _paint_swirl(big, r, (x0, y0, x1, y1))
-    n = x1 - x0
+    n = SWIRL_PX
     c = ft._Canvas(n)
-    for y in range(n):
-        for x in range(n):
-            d, o = (y * n + x) * 4, ((y0 + y) * ft.TEX_SIZE + x0 + x) * 4
-            c.alb[d:d + 4] = big.alb[o:o + 4]
+    _paint_swirl(c, ft._Rng(ft.TEX_SEED), (0, 0, n, n))
     return ft._images(c, n, (SWIRL_STEM, SWIRL_STEM + "_unused"))[0]
 
 
@@ -215,19 +208,19 @@ def unwrap(ob, zones, planar=None, seed=0, count=None):
     planar = planar or {}
     for pi, poly in enumerate(me.polygons):
         zone = zones[pi]
-        u0, v0, u1, v1 = ft.ZONES[zone]
-        span_u = (u1 - u0) - 2.0 * ft.UV_PAD
-        span_v = (v1 - v0) - 2.0 * ft.UV_PAD
+        u0, v0, u1, v1 = ZONES[zone]
+        span_u = (u1 - u0) - 2.0 * ft.UV_PAD_U
+        span_v = (v1 - v0) - 2.0 * ft.UV_PAD_V
         cos = [me.vertices[me.loops[li].vertex_index].co for li in poly.loop_indices]
         if zone in planar:
             ii, jj, lo_i, lo_j, hi_i, hi_j = planar[zone]
             for li, co in zip(poly.loop_indices, cos):
                 s = min(max((co[ii] - lo_i) / (hi_i - lo_i), 0.0), 1.0)
                 t = min(max((co[jj] - lo_j) / (hi_j - lo_j), 0.0), 1.0)
-                uvl.data[li].uv = (u0 + ft.UV_PAD + s * span_u, v0 + ft.UV_PAD + t * span_v)
+                uvl.data[li].uv = (u0 + ft.UV_PAD_U + s * span_u, v0 + ft.UV_PAD_V + t * span_v)
             continue
-        scale = ft.TPM / ((u1 - u0) * ft.TEX_SIZE)      # metres -> fraction of the zone, each axis its own
-        scale_v = ft.TPM / ((v1 - v0) * ft.TEX_SIZE)    # (the lane's zones are wider than tall)
+        scale = ft.TPM / ((u1 - u0) * ft.TEX_W)      # metres -> fraction of the zone, each axis its own
+        scale_v = ft.TPM / ((v1 - v0) * ft.TEX_H)    # (the lane's zones are wider than tall)
         nrm = poly.normal
         ax = max(range(3), key=lambda i: abs(nrm[i]))
         ii, jj = ((1, 2), (0, 2), (0, 1))[ax]
@@ -246,7 +239,7 @@ def unwrap(ob, zones, planar=None, seed=0, count=None):
                 s = 1.0 - s
             if fv < 0.0:
                 t = 1.0 - t
-            uvl.data[li].uv = (u0 + ft.UV_PAD + s * span_u, v0 + ft.UV_PAD + t * span_v)
+            uvl.data[li].uv = (u0 + ft.UV_PAD_U + s * span_u, v0 + ft.UV_PAD_V + t * span_v)
 
 
 # =============================================================================
@@ -653,7 +646,7 @@ def build():
     mdl.finish(ob, ft.atlas_material("ForestPortalAtlas", albedo, emissive, cull=False),
                strip_uvs=False)
     ob.data.materials.append(ft.atlas_material("ForestPortalSwirl", swirl, swirl, cull=False))
-    u0, v0, u1, v1 = ft.ZONES["earth"]
+    u0, v0, u1, v1 = EARTH_RECT
     uvl = ob.data.uv_layers["UVMap"]
     for pi, poly in enumerate(ob.data.polygons):      # the disc: the earth zone's UVs -> the swirl file's 0..1
         if m.zones[pi] == "earth":

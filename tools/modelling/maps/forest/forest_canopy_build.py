@@ -810,11 +810,11 @@ def _unwrap(ob, zones):
     up_v, x_v = Vector((0.0, 0.0, 1.0)), Vector((1.0, 0.0, 0.0))
     for pi, poly in enumerate(me.polygons):
         u0, v0, u1, v1 = ft.ZONES[zones[pi]]
-        span_u = (u1 - u0) - 2.0 * ft.UV_PAD
-        span_v = (v1 - v0) - 2.0 * ft.UV_PAD
+        span_u = (u1 - u0) - 2.0 * ft.UV_PAD_U
+        span_v = (v1 - v0) - 2.0 * ft.UV_PAD_V
         tpm = ft.TPM if zones[pi] == "bark" else LEAF_TPM
-        su = tpm / ((u1 - u0) * ft.TEX_SIZE)
-        sv = tpm / ((v1 - v0) * ft.TEX_SIZE)
+        su = tpm / ((u1 - u0) * ft.TEX_W)
+        sv = tpm / ((v1 - v0) * ft.TEX_H)
         n = poly.normal
         ex = up_v.cross(n) if abs(n.z) < 0.95 else x_v.cross(n)
         ex.normalize()
@@ -833,7 +833,7 @@ def _unwrap(ob, zones):
             t_ = min(ov + t_ - t0, 1.0)
             if flip:
                 s_ = 1.0 - s_
-            uvl.data[li].uv = (u0 + ft.UV_PAD + s_ * span_u, v0 + ft.UV_PAD + t_ * span_v)
+            uvl.data[li].uv = (u0 + ft.UV_PAD_U + s_ * span_u, v0 + ft.UV_PAD_V + t_ * span_v)
 
 
 def _soften(ob, clusters):

@@ -84,7 +84,8 @@ STRIP_COLS, STRIP_ROWS = 12, 4  # 0.5 m cells, so a thorn's socket is the same s
 PLATE_LIFT = 0.012              # the mat's rim over the ground it sits on: clears z-fighting, too low to trip on
 PLATE_CROWN = 0.055             # ... rising to this in the middle: litter heaped, not a machined disc
 PLATE_JITTER = 0.015            # interior vertices only; the rim stays exact so the footprint is a number
-PLATE_ZONE = "earth"            # the pit's own earth: #4a3e2e / #44382a / #504432
+PLATE_ZONE = "root"             # the atlas's brown (#62503a / #5c4a36): the earth zone is gone
+STEM_ZONE = "shade"             # the darkest live zone (the pit's own stem sheet is not on the atlas)
 
 # ---- the plants: forest_pit_build's brambles at knee height -----------------
 # The pit's scrub is 2.5..6.5 m with r 0.2..0.08, thorns 0.35..0.65 out and a
@@ -240,7 +241,7 @@ def _grow(g, rng, quads, count, confine):
         for idx in order[:count]:
             ids, c = quads[idx]
             path = _thorn_path(rng, c, confine)
-            if fp._barbed_tube(g, rng, path, THORN_R, [ids], fp.STEM_ZONE) is not None:
+            if fp._barbed_tube(g, rng, path, THORN_R, [ids], STEM_ZONE) is not None:
                 grown += 1
         return grown
     finally:
