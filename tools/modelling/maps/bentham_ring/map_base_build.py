@@ -736,6 +736,10 @@ def rock_material(name, albedo, emissive, glow=False):
         node.interpolation = "Closest"
         node.location = (-460, y)
         nt.links.new(node.outputs["Color"], bsdf.inputs[socket])
+    if not glow:
+        # Blender's default Emission Color is white: unlinked, it would export as a
+        # flat emissiveFactor [1,1,1] and Godot would render the surface pure white.
+        bsdf.inputs["Emission Color"].default_value = (0.0, 0.0, 0.0, 1.0)
     bsdf.inputs["Roughness"].default_value = ROCK_ROUGHNESS
     bsdf.inputs["Metallic"].default_value = ROCK_METALLIC
     bsdf.inputs["Emission Strength"].default_value = 1.0   # exactly 1.0: no KHR warning
