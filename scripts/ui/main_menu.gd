@@ -65,6 +65,10 @@ signal quit_requested()
 @onready var _settings_screen: SettingsScreen = %SettingsScreen
 
 var _store: SettingsStore = null
+var _mouse_inside: bool = true
+
+## World depth in metres, along the camera ray, at which the mouse aims the eye.
+const EYE_AIM_DEPTH_METRES: float = 68.0
 
 
 func _ready() -> void:
@@ -90,6 +94,24 @@ func _ready() -> void:
 	_settings_screen.closed.connect(_close_settings)
 
 	_show_main()
+
+
+## Aims the tower's eye along the mouse ray; back to idle when the mouse leaves.
+func _process(_delta: float) -> void:
+	var eye: WatchingEye = get_node_or_null("World/Tower/Watcher") as WatchingEye
+	var camera: Camera3D = get_viewport().get_camera_3d()
+	if eye == null or camera == null:
+		return
+	eye.has_look_target = _mouse_inside
+	if _mouse_inside:
+		eye.look_target = camera.project_position(get_viewport().get_mouse_position(), EYE_AIM_DEPTH_METRES)
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_MOUSE_EXIT:
+		_mouse_inside = false
+	elif what == NOTIFICATION_WM_MOUSE_ENTER:
+		_mouse_inside = true
 
 
 func _input(event: InputEvent) -> void:

@@ -163,6 +163,10 @@ const PARALLEL_LIMIT: float = 0.9999
 ## has to mean if it is to mean anything.
 @export var look: WatchingEyeLook
 
+## A world point to watch instead of the camera; unset in matches, used by the menu.
+var look_target: Vector3 = Vector3.ZERO
+var has_look_target: bool = false
+
 
 func _ready() -> void:
 	if profile == null:
@@ -209,6 +213,8 @@ func _process(delta: float) -> void:
 ## run, or a frame before anything is current), which resolves to a zero offset
 ## and so rests the eye rather than pointing it at the origin.
 func viewer_position() -> Vector3:
+	if has_look_target:
+		return look_target
 	var view: Viewport = get_viewport()
 	if view == null:
 		return global_position
