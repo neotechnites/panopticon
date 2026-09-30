@@ -12,4 +12,4 @@ height_metres = 5.6
 shadow_enabled = false
 size_metres = 2.4
 shadow_blur = 3.0
-specular = 0.25
+specular = 0.0

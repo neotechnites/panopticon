@@ -15,8 +15,8 @@
 background_mode = 1
 background_color = Color(0.20, 0.21, 0.23, 1)
 ambient_light_source = 2
-ambient_light_color = Color(0.60, 0.61, 0.55, 1)
-ambient_light_energy = 0.6
+ambient_light_color = Color(0.56, 0.60, 0.64, 1)
+ambient_light_energy = 1.7
 tonemap_mode = 1
 tonemap_white = 6.0
 
@@ -33,12 +33,12 @@ The light (2026-09-22, Ryan: \"the lighting in the marble level is absolutely te
 environment = SubResource("Env")
 
 [node name="Skylight" type="OmniLight3D" parent="Environment"]
-editor_description = "THE KEY LIGHT and the map's one shadow caster: a warm near-white omni on the axis at y 62 (above the tower's dome apex 38.25, below the wall top 55 .. dome spring 57.8 .. apex 84.8), so the whole rotunda -- seven tiers, frieze, cornice, dome -- is lit from one high point with a 1/sqrt(d) falloff flat enough that the lane floor (65 m, NdotL 0.6) and the upper tiers (60-77 m, NdotL ~1) sit within a stop of each other. Range 110 covers the wall foot at r 60, y -1 (88 m). 3 m wide with a 2.0 shadow blur so the slab's edge on the tiers below and the bars' shadows in the cells are soft, not drawn lines. Cube shadow mode set here because GL Compatibility rejects dual paraboloid (see TowerLight). Its cube takes the atlas's one quadrant-0 cell, 2048 not the default 1024 (project.godot): at 1024 a texel is ~0.27 m at the wall and every cell's mouth landed on its back wall as a stair-stepped barred window. Cost measured on the PC at the runner's eye: see docs/maps/marble.md."
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 62, 0)
-light_color = Color(1, 0.96, 0.86, 1)
-light_energy = 22.0
+editor_description = "THE KEY LIGHT and the map's one shadow caster: a grey-olive near-white omni on the axis at y 50 (above the tower's dome apex 38.25, well under the dome apex 79 so it paints no spot there; the lost key is made up in ambient), no specular: the stone is matte, so the whole rotunda -- seven tiers, frieze, cornice, dome -- is lit from one high point with a 1/sqrt(d) falloff flat enough that the lane floor (65 m, NdotL 0.6) and the upper tiers (60-77 m, NdotL ~1) sit within a stop of each other. Range 110 covers the wall foot at r 60, y -1 (88 m). 3 m wide with a 2.0 shadow blur so the slab's edge on the tiers below and the bars' shadows in the cells are soft, not drawn lines. Cube shadow mode set here because GL Compatibility rejects dual paraboloid (see TowerLight). Its cube takes the atlas's one quadrant-0 cell, 2048 not the default 1024 (project.godot): at 1024 a texel is ~0.27 m at the wall and every cell's mouth landed on its back wall as a stair-stepped barred window. Cost measured on the PC at the runner's eye: see docs/maps/marble.md."
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 50, 0)
+light_color = Color(0.93, 0.97, 1.0, 1)
+light_energy = 24.0
 light_size = 3.0
-light_specular = 0.3
+light_specular = 0.0
 shadow_enabled = false
 shadow_blur = 2.0
 omni_range = 110.0
@@ -151,7 +151,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5.6, 0)
 light_color = Color(1, 0.94, 0.8, 1)
 light_energy = 4.0
 light_size = 2.4
-light_specular = 0.25
+light_specular = 0.0
 shadow_enabled = false
 shadow_blur = 3.0
 omni_range = 90.0
