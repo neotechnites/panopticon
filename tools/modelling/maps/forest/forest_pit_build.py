@@ -14,12 +14,10 @@ Not a model of its own: forest_build.py calls in here with its _Ground (g).
                          no fog volumes, so the fog is layers
     fog_report()         what those discs do to a ray down the pit: straight down, and
                          oblique from every stand point (FOG_EYES) to every floor point
-    stem_colour(bank_r, p)  a bramble vertex's COLOR_0: dark bark down to the drift
-                         field's local fog top, blending to the mist's colour over
-                         STEM_FADE under it, so a thorn sinks into the mist as a dark
-                         silhouette and no disc draws a line across a stem
+    stem_colour(bank_r, p)  a bramble vertex's COLOR_0: STEM_BARK, the whole stem;
+                         the opaque fog hides what is under its top
 
-No water: the pit is a pale mist with dark thorns sinking into it. The floor is
+No water: the pit is a dim golden-green mist with dark thorns sinking into it. The floor is
 not meant to be seen at all -- a pit reads as bottomless only while nothing flat
 at the end of it reaches the eye -- so the fog is built to a number rather than to
 a look: the bottom of the stack is one opaque slab and every ray from a stand point
@@ -40,10 +38,11 @@ import forest_tree_build as ft
 from forest_tree_build import UP, DOWN, pol, add, sub, norm, dot, lerp, bez, zipper
 
 FOG_NAME = "ForestFog"
-FOG_TINT = (0.70, 0.74, 0.64)   # a pale grey-green MIST, brighter than anything in the pit, one colour top
-                                # to floor: unshaded, Godot shows this x FOG_ALBEDO. Was (0.26, 0.28, 0.22)
-                                # dimmed to black at depth -- Ryan: "it looks like the colors are inverted,
-                                # not like a bit of brambles shrouded in fog"
+FOG_TINT = (0.34, 0.38, 0.22)   # a dim golden-green MIST in the forest's own palette, one colour top to
+                                # floor: unshaded, Godot shows this x FOG_ALBEDO, near 1:1 on screen. The lit
+                                # ground and leaf render at ~(0.075, 0.097, 0.035) (mean of a deck-edge and a
+                                # lane shot); this keeps that hue, warmed, at about half the old (0.70, 0.74,
+                                # 0.64) -- Ryan: "the white fog is too white, it looks really bad in the scene"
 FOG_ALBEDO = 1.0                # FogMat's albedo_color rgb in maps/forest/forest.tscn (a source_color): the
                                 # mist is FOG_TINT x this. Was 0.6 under the dim tint; 1.0 lets a vertex reach pale
 FOG_OVERRIDE = 0.6              # the most of one layer's vertex alpha the proof lets Godot draw. FogMat's
@@ -182,12 +181,10 @@ FORK_R = 0.6                    # ... this fraction of the parent's radius there
 SOCKET_MIN_DEG = 4.0            # a socket whose best bridging makes a smaller angle is not grown
 STEM_ZONE = "stem"              # the brambles' own sheet, plain white and UNLIT: COLOR_0 is the rendered colour, as on the fog
 STEM_BARK = (0.006, 0.006, 0.004)   # the forest_dark tile's mean (sRGB 1.5/255): what the stems rendered as on "cell", black spikes
-STEM_FADE = (0.45, 0.9)         # (metres above, metres below) the local fog top over which a stem blends from STEM_BARK
-                                # to the mist's colour; bark above, the mist's colour under (buried in the slab), so the
-                                # thorns sink in as dark silhouettes and no disc crossing a stem draws a line. Was the
-                                # fog's colour up the whole stem: with a dim fog that was the "inverted" look
-STEM_FOG_MIN = 0.02             # a disc drawing under this effective alpha is air to the stems: the local fog top is the
-                                # highest disc at or over it, not the one the curve's tail leaves at a thousandth
+                                    # The whole stem, top to root: 71910d1 blended each stem to the mist from 0.45 m
+                                    # over its local fog top and the near thorns washed out -- Ryan: "the thorns close
+                                    # to me look way more foggy in a bad way". A disc cut in the thin top layers is
+                                    # the accepted price
 
 # what the check reports
 INFO = {"brambles": 0, "tall": 0, "forks": 0, "top": (0.0, 0.0), "layers": []}
@@ -584,43 +581,12 @@ def fog_mesh(cls, g):
     return m
 
 
-# ---- the brambles in the fog: COLOR_0 on the stems, bark sinking into the mist ------
-
-def _s2l(v):
-    return v / 12.92 if v <= 0.04045 else ((v + 0.055) / 1.055) ** 2.4
-
-
-def _l2s(v):
-    return v * 12.92 if v <= 0.0031308 else 1.055 * v ** (1.0 / 2.4) - 0.055
-
-
-def fog_colour(z):
-    """A disc at height z as Godot draws it, as a COLOR_0 value: Godot reads COLOR_0 as sRGB and FogMat's albedo as
-    a source_color, so the disc shows s2l(FOG_TINT x dim) x s2l(FOG_ALBEDO); this is that, encoded back."""
-    z0, z1, _pitch = FOG_Z
-    u = max(0.0, min(1.0, (z - z0) / (z1 - z0)))
-    dim = FOG_DEPTH_DIM + (1.0 - FOG_DEPTH_DIM) * _ease(u)
-    return tuple(_l2s(_s2l(c * dim) * _s2l(FOG_ALBEDO)) for c in FOG_TINT)
-
-
-def fog_top(bank_r, deg, rad):
-    """The highest disc drawing at STEM_FOG_MIN or more at (deg, rad): the drift field's local fog top, floor when none."""
-    layers = _fog_layers()
-    top = layers[0]
-    for k, z in enumerate(layers):
-        if FOG_OVERRIDE * _fog_alpha_at(bank_r(z), deg, rad, z, k / float(len(layers) - 1)) >= STEM_FOG_MIN:
-            top = z
-    return top
-
+# ---- the brambles in the fog: COLOR_0 on the stems, bark all the way ---------------
 
 def stem_colour(bank_r, p):
-    """COLOR_0 for a bramble vertex at p: STEM_BARK down to STEM_FADE[0] over the local fog top, blending to the
-    mist's colour (fog_colour) STEM_FADE[1] under it and staying there, so no disc draws a line across a stem."""
-    x, y, z = p[0], p[1], p[2]
-    top = fog_top(bank_r, -math.degrees(math.atan2(y, x)) % 360.0, math.hypot(x, y))
-    fog = fog_colour(z)
-    t = max(0.0, min(1.0, (top + STEM_FADE[0] - z) / (STEM_FADE[0] + STEM_FADE[1])))
-    return tuple(STEM_BARK[k] + (fog[k] - STEM_BARK[k]) * t for k in range(3))
+    """COLOR_0 for a bramble vertex at p: STEM_BARK, top to root. The opaque fog hides the stem under its top;
+    no blend toward the mist, which washed the near thorns."""
+    return STEM_BARK
 
 
 # ---- the proof: what a ray straight down the pit actually gets through ------------

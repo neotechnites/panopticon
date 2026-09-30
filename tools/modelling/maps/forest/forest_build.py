@@ -1712,7 +1712,7 @@ def drum_shade(ob, zones):
     """The canopy's shadow on the drum: every corner over the lane roof, inside DRUM_SHADE_R, darkens
     up the drum to DRUM_SHADE at its seam height, so the lane's light fades into the roof's shade.
     The wall's head does the same up the cove: its leaf darkens to COVE_SHADE where the roof begins.
-    The brambles (zone fp.STEM_ZONE) are bark, blending to the mist under its local top (fp.stem_colour)."""
+    The brambles (zone fp.STEM_ZONE) are bark the whole way (fp.stem_colour)."""
     me = ob.data
     col = me.color_attributes.new(name="Col", type="FLOAT_COLOR", domain="CORNER")
     flat = [1.0] * (len(me.loops) * 4)
