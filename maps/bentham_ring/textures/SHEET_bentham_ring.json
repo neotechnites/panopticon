@@ -1,7 +1,7 @@
 {
   "canvas": [
-    735,
-    530
+    690,
+    263
   ],
   "textures": [
     {
@@ -22,8 +22,8 @@
       "rect": [
         87,
         7,
-        128,
-        128
+        64,
+        64
       ]
     },
     {
@@ -31,7 +31,7 @@
       "kind": "albedo",
       "mode": "RGB",
       "rect": [
-        219,
+        174,
         7,
         256,
         256
@@ -42,19 +42,8 @@
       "kind": "albedo",
       "mode": "RGBA",
       "rect": [
-        479,
+        434,
         7,
-        256,
-        256
-      ]
-    },
-    {
-      "file": "map_base_lava_emissive.png",
-      "kind": "emissive",
-      "mode": "RGB",
-      "rect": [
-        0,
-        274,
         256,
         256
       ]

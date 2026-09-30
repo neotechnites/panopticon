@@ -14,8 +14,7 @@ const HAZE_TRIANGLES: int = 4
 const HAZE_VERTICES: int = 8
 
 
-## The crack IS the pad -- same script, same mask, same footprint as
-## [code]maps/bentham_ring/props/demon_pad.tscn[/code]; only the decoration differs.
+## The crack IS the pad: the BoostPad script, mask and 2.5 m footprint.
 func test_lava_crack_is_a_boost_pad_with_the_pad_footprint() -> void:
 	var crack: Node = _make_crack()
 	add_child(crack)
@@ -24,7 +23,7 @@ func test_lava_crack_is_a_boost_pad_with_the_pad_footprint() -> void:
 	if not assert_not_null(pad, "the crack's root is a BoostPad"):
 		return
 	assert_vec3_almost_eq(
-		pad.footprint_metres, PAD_FOOTPRINT, 1e-6, "with the demon pad's footprint",
+		pad.footprint_metres, PAD_FOOTPRINT, 1e-6, "with the pad footprint",
 	)
 	assert_eq_int(pad.collision_layer, 0, "it is detected by nobody")
 	assert_eq_int(pad.collision_mask, 1048577, "and watches the living and ghost layers")

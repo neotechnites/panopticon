@@ -772,8 +772,7 @@ HELL_ZONES = (((0.0, 0.5, 0.5, 1.0), "rock"), ((0.5, 0.5, 1.0, 1.0), "shade"),
               ((0.5, 0.0, 1.0, 0.5), "carve"), ((0.0, 0.0, 0.5, 0.5), "ember"))   # the old 128 atlas
 HELL_ATLAS_UV = 1.25    # an old atlas UV onto the tile: 128 texels at 0.125 m -> 256 at 0.05 m
 HELL_NAMES = {"rock": "HellRock", "shade": "HellShade", "carve": "HellCarve", "ember": "HellEmber"}
-PROPS_STEM = "hell_props"   # the props' own glow quarters, one 128 atlas
-PROPS_QUARTER = {"demon_pad": (0.0, 0.0), "portal": (0.5, 0.0), "torch": (0.0, 0.5), "lava_tile": (0.5, 0.5)}
+PROPS_STEM = "hell_props"   # the portal swirl, its own file
 
 
 def _l2s1(v):
@@ -852,37 +851,25 @@ def hell_atlas_material(roughness=ROUGHNESS, cull=False, name="HellRock"):
     return mat
 
 
-def props_image(prop, painted, zone):
-    """hell_props_albedo: the file, else this prop's painted zone pasted into its quarter of it."""
-    import mdl
+def props_image(painted, zone):
+    """hell_props_albedo: the file, else the painted zone cropped to an image of its own."""
     img = _image_file(PROPS_STEM + "_albedo.png")
     if img is not None:
         return img
-    import glb_textures
-    root = mdl._tex_spec()[0]
-    rel = glb_textures.find(root, PROPS_STEM + "_albedo") if root else None
     w, h = painted.size
-    buf = [0.0, 0.0, 0.0, 1.0] * (w * h)
-    if rel:                                   # regenerating: keep the other props' quarters
-        old = bpy.data.images.load(os.path.join(root, rel))
-        if tuple(old.size) == (w, h):
-            old.pixels.foreach_get(buf)
+    x0, y0, x1, y1 = [int(round(t * w)) for t in zone]
     src = [0.0] * (w * h * 4)
     painted.pixels.foreach_get(src)
-    qu, qv = PROPS_QUARTER[prop]
-    x0, y0, x1, y1 = [int(round(t * w)) for t in zone]
-    dx, dy = int(round(qu * w)) - x0, int(round(qv * h)) - y0
+    buf = []
     for y in range(y0, y1):
-        for x in range(x0, x1):
-            o, d = (y * w + x) * 4, ((y + dy) * w + x + dx) * 4
-            buf[d:d + 4] = src[o:o + 4]
-    return _image(PROPS_STEM + "_albedo", w, h, buf)
+        buf.extend(src[(y * w + x0) * 4:(y * w + x1) * 4])
+    return _image(PROPS_STEM + "_albedo", x1 - x0, y1 - y0, buf)
 
 
 def retile(ob, mat, src=("HellRock",), glow=None):
     """Faces on the old 128 hell atlas move onto the one tile (mat, from hell_atlas_material):
-    UVs scaled by HELL_ATLAS_UV, the quadrant's class factor into Col. glow = (prop, zone,
-    material) sends that zone's faces to the prop's quarter of hell_props. Returns {class: faces}."""
+    UVs scaled by HELL_ATLAS_UV, the quadrant's class factor into Col. glow = (zone, material)
+    sends that zone's faces onto hell_props, the zone filling it. Returns {class: faces}."""
     me = ob.data
     uvl = me.uv_layers.active.data
     old = list(me.materials)
@@ -906,11 +893,10 @@ def retile(ob, mat, src=("HellRock",), glow=None):
         loops = list(p.loop_indices)
         uvs = [tuple(uvl[li].uv) for li in loops]
         if glow is not None:
-            u0, v0, u1, v1 = glow[1]
+            u0, v0, u1, v1 = glow[0]
             if all(u0 - EPS <= u <= u1 + EPS and v0 - EPS <= v <= v1 + EPS for u, v in uvs):
-                qu, qv = PROPS_QUARTER[glow[0]]
                 for li, (u, v) in zip(loops, uvs):
-                    uvl[li].uv = (u - u0 + qu, v - v0 + qv)
+                    uvl[li].uv = ((u - u0) / (u1 - u0), (v - v0) / (v1 - v0))
                 want[p.index] = "glow"
                 count["glow"] = count.get("glow", 0) + 1
                 continue
@@ -925,7 +911,7 @@ def retile(ob, mat, src=("HellRock",), glow=None):
     slot = {"rock": order.index(mat)}
     if "glow" in count:
         slot["glow"] = len(order)
-        order.append(glow[2])
+        order.append(glow[1])
     idx = [keep[p.material_index] if p.index not in want else slot[want[p.index]] for p in me.polygons]
     me.materials.clear()
     for m in order:

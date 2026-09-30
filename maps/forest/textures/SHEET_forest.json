@@ -1,7 +1,7 @@
 {
   "canvas": [
     3631,
-    530
+    263
   ],
   "textures": [
     {
@@ -165,17 +165,6 @@
       "rect": [
         3375,
         7,
-        256,
-        256
-      ]
-    },
-    {
-      "file": "forest_lamp_emissive.png",
-      "kind": "emissive",
-      "mode": "RGB",
-      "rect": [
-        0,
-        274,
         256,
         256
       ]

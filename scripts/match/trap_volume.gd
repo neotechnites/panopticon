@@ -94,8 +94,7 @@ extends Area3D
 ## When true, a body only converts once its FEET ([code]global_position.y[/code])
 ## are at or below this node's own Y plus 0.05 m, for [member grace_seconds]
 ## running -- overlapping the box from the side does not count. Off by default;
-## [code]maps/bentham_ring/props/lava_tile.tscn[/code] turns it on and places this node's
-## own origin at the lava surface so that Y is the surface height.
+## a lava surface turns it on with this node's origin at the surface height.
 @export var feet_only: bool = false
 
 ## Seconds the feet must stay in before [member feet_only] converts the body.

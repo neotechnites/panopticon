@@ -482,14 +482,14 @@ def _collider():
 
 def build():
     albedo, _emissive = build_texture()
-    glow = tx.props_image('portal', albedo, ZONE_PORTAL)   # its quarter of hell_props
+    glow = tx.props_image(albedo, ZONE_PORTAL)   # hell_props: the swirl, its own file
     rock = _portal(_Rng(SEED))
     ob = rock.object(OBJECT_NAME)
     unwrap(ob, rock.zones, count=rock.uv_faces,
            planar={ZONE_PORTAL: (0, 2, -IN_HALF_W, 0.0, IN_HALF_W, IN_SPRING + IN_RISE)})
     mdl.finish(ob, bpy.data.materials.new("HellRock"), strip_uvs=False)
     tx.retile(ob, tx.hell_atlas_material(ROCK_ROUGHNESS),
-              glow=('portal', ZONE_PORTAL, rock_material("PortalGlow", glow, glow)))   # it glows its own albedo
+              glow=(ZONE_PORTAL, rock_material("PortalGlow", glow, glow)))   # it glows its own albedo
     coll_ob = _collider().object(COLLIDER_NAME)   # Godot: StaticBody3D + ConcavePolygonShape3D
     coll_ob.hide_render = True
     print("MDL STATS visual_tris=%d collision_tris=%d width=%.2f height=%.2f depth=%.2f"

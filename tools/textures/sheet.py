@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Pack/unpack a home's textures/*.png into one SHEET_<name>.png for editing in Aseprite.
+"""Pack/unpack a home's drawn textures/*_albedo.png into one SHEET_<name>.png for editing in Aseprite.
 
     sheet.py pack   [home...]   # default: every home below
     sheet.py unpack [home...]
@@ -7,6 +7,7 @@
 A home is a directory holding a textures/ folder (e.g. "maps/forest", "hub").
 Pack writes textures/SHEET_<name>.png + SHEET_<name>.json (name = home's basename).
 Unpack reads them back and rewrites the individual PNGs, skipping unchanged ones.
+Emissive PNGs are build output, never on a sheet.
 """
 import json
 import os
@@ -91,13 +92,9 @@ def list_textures(home_dir):
     tex_dir = os.path.join(home_dir, "textures")
     names = sorted(
         f for f in os.listdir(tex_dir)
-        if f.endswith(".png") and not f.startswith("SHEET_")
+        if f.endswith(".png") and not f.startswith("SHEET_") and not f.endswith("_emissive.png")
     )
     return tex_dir, names
-
-
-def kind_of(name):
-    return "emissive" if name.endswith("_emissive.png") else "albedo"
 
 
 def pack_home(home):
@@ -105,49 +102,34 @@ def pack_home(home):
     tex_dir, names = list_textures(home_dir)
     name = os.path.basename(home.rstrip("/"))
 
-    blocks = {"albedo": [], "emissive": []}
+    entries = []
     for fname in names:
         img = Image.open(os.path.join(tex_dir, fname))
-        mode = img.mode
-        rgba = img.convert("RGBA")
-        blocks[kind_of(fname)].append({"file": fname, "img": rgba, "mode": mode})
-
-    def layout(entries):
-        x = 0
-        cols = []
-        for e in entries:
-            label_w = len(e["file"]) * CHAR_ADVANCE - 1
-            col_w = max(e["img"].width, label_w)
-            cols.append((x, col_w, e))
-            x += col_w + GUTTER
-        width = x - GUTTER if entries else 0
-        height = (LABEL_H + max(e["img"].height for e in entries)) if entries else 0
-        return cols, width, height
-
-    albedo_cols, albedo_w, albedo_h = layout(blocks["albedo"])
-    emissive_cols, emissive_w, emissive_h = layout(blocks["emissive"])
-
-    canvas_w = max(albedo_w, emissive_w)
-    canvas_h = albedo_h + (GUTTER + emissive_h if blocks["emissive"] else 0)
-    if canvas_w == 0 or canvas_h == 0:
+        entries.append({"file": fname, "img": img.convert("RGBA"), "mode": img.mode})
+    if not entries:
         raise SystemExit(f"sheet.py: no textures found in {tex_dir}")
+
+    x = 0
+    cols = []
+    for e in entries:
+        label_w = len(e["file"]) * CHAR_ADVANCE - 1
+        col_w = max(e["img"].width, label_w)
+        cols.append((x, e))
+        x += col_w + GUTTER
+    canvas_w = x - GUTTER
+    canvas_h = LABEL_H + max(e["img"].height for e in entries)
 
     canvas = Image.new("RGBA", (canvas_w, canvas_h), MAGENTA)
     manifest = {"canvas": [canvas_w, canvas_h], "textures": []}
-
-    block_top = 0
-    for cols, block_h in ((albedo_cols, albedo_h), (emissive_cols, emissive_h)):
-        for x, col_w, e in cols:
-            draw_text(canvas, x, block_top + LABEL_TOP_PAD, e["file"])
-            iy = block_top + LABEL_H
-            canvas.paste(e["img"], (x, iy))
-            manifest["textures"].append({
-                "file": e["file"],
-                "kind": kind_of(e["file"]),
-                "mode": e["mode"],
-                "rect": [x, iy, e["img"].width, e["img"].height],
-            })
-        block_top += block_h + GUTTER
+    for x, e in cols:
+        draw_text(canvas, x, LABEL_TOP_PAD, e["file"])
+        canvas.paste(e["img"], (x, LABEL_H))
+        manifest["textures"].append({
+            "file": e["file"],
+            "kind": "albedo",
+            "mode": e["mode"],
+            "rect": [x, LABEL_H, e["img"].width, e["img"].height],
+        })
 
     out_png = os.path.join(tex_dir, f"SHEET_{name}.png")
     out_json = os.path.join(tex_dir, f"SHEET_{name}.json")
