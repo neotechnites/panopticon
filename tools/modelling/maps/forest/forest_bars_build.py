@@ -28,9 +28,16 @@ together is what holds a real stand together: a root plate, buried below
 z = -0.04 and never visible, that every ground stem is socketed into. Forks,
 limbs, roots and leaf clumps grow out of sockets in what carries them.
 
-Textures: forest_tiles.dress, the tiles the forest's ground and trunks wear
-(bark, leaf; root as a COLOR_0 tint of bark) at texel.MPT = 0.05 m per texel,
-so a bar leaning against a trunk shows the same grain at the same size.
+Textures: one tiling sheet per class (lib/texel.py, SHEETS below), exactly as
+forest_build.py does it, and from forest_build's OWN painters and seeds -- so
+`forest_bark`, `forest_leaf` and `forest_root` here are pixel-for-pixel the
+sheets the forest's ground and trunks are wearing, at texel.MPT = 0.05 m per
+texel. The prefix is therefore "forest", not "forest_bars": these are not this
+prop's sheets, they are the forest's, and a bar leaning against a trunk has to
+show the same grain at the same size. This replaces the old per-face atlas
+window (`ft.unwrap` + `ft.atlas_material`), which gave every face its own
+random patch of a 256 px atlas cell stretched to fit -- the reason the stand
+read as cut off and smeared close up.
 
 The projection is `mode="box"`, not the forest's "cyl". The forest's ground is
 authored in WORLD coordinates and closes round a ring, so its arc length can be
@@ -61,11 +68,11 @@ for _root in (os.path.dirname(_HOME), os.path.dirname(os.path.dirname(_HOME))): 
     if os.path.isfile(os.path.join(_root, "model")) and os.path.isfile(os.path.join(_root, "lib", "mdl.py")):
         sys.path[1:1] = [d for d, _, _ in os.walk(_root) if "__pycache__" not in d]
         break
+import texel as tx  # noqa: E402  one tiling sheet per class, world-projected
 if bpy is not None:
     import mdl  # noqa: E402
 
 import forest_tree_build as ft  # noqa: E402  the shared library: rng, mesh, atlas, tubes
-import forest_tiles  # noqa: E402  the forest's tiles, tinted per zone
 import forest_build as fb  # noqa: E402  _ptube, the SHEET PAINTERS, and the forest for the in-scene shot
 
 # =============================================================================
@@ -1888,13 +1895,47 @@ def _gaps(band, strands, levels=PROOF_LEVELS):
 
 
 # =============================================================================
+# SHEETS -- the forest's own sheets, box-projected (lib/texel.py)
+# =============================================================================
+# The stand's polygons carry exactly three zones: bark (stems, forks, limbs),
+# root (the buttress flares and the buried plate) and leaf (the few clumps).
+# Each takes forest_build's painter AND its seed, so the painted image is the
+# one forest.glb wears -- no second palette to drift, no copy-pasted painter.
+# Only the projection differs: "box", because a prop authored about its own
+# base centre has no ring for "cyl" to close round (see the module docstring).
+CLASSES = ("bark", "leaf", "root")
+
+
+def _sheet(cls):
+    src = fb.SHEETS[cls]
+    return tx.Sheet(cls, src.paint, mpt=src.mpt, size=src.size, mode="box",
+                    roughness=src.roughness, metallic=src.metallic,
+                    cull=src.cull, seed=src.seed, emissive=src.emissive)
+
+
+SHEETS = {cls: _sheet(cls) for cls in CLASSES}
+TEX_ARGS = dict(use_files=ft.USE_TEXTURE_FILES, tex_dir=os.path.join(HERE, ft.TEX_DIR))
+
+
+# =============================================================================
 # BUILD
 # =============================================================================
 
 def build():
     m, c, strands = build_geometry()
+    albedo, emissive = ft.sheet("forest_atlas", ft.paint_atlas)
+    mdl.save_texture(albedo)
+    mdl.save_texture(emissive)
+    INFO["albedo"], INFO["emissive"] = albedo, emissive   # the in-scene shot's tree copy
+
     ob = m.object(OBJECT_NAME)
-    order = forest_tiles.dress(ob, list(m.zones), "ground")
+    classes = list(m.zones)
+    unknown = sorted(set(classes) - set(SHEETS))
+    if unknown:
+        raise ValueError("forest_bars: no Sheet for zone(s) %s" % ", ".join(unknown))
+    tx.unwrap(ob, classes, SHEETS, seed=1)
+    order = tx.finish(ob, classes, tx.materials("forest", SHEETS, **TEX_ARGS))
+    tx.report(SHEETS)
     print("MDL STATS surfaces=%d order=%s" % (len(ob.data.materials), ",".join(order)))
 
     coll = c.object(COLLIDER_NAME)
@@ -2018,8 +2059,10 @@ def _in_scene_render(spec, objects):
     m, _coll, _rays = fb.build_geometry()
     ground = keep(m.object(fb.OBJECT_NAME))
     gclasses = list(m.zones)                 # the ground wears what forest.glb wears, so the
-    fb.dress(ground, gclasses)               # the shot answers "does the bark match?"
-    keep(ft.build_render_copy())
+    tx.unwrap(ground, gclasses, fb.SHEETS, seed=1)   # shot answers "does the bark match?"
+    tx.finish(ground, gclasses, tx.materials(
+        fb.NAME, fb.SHEETS, names={c: "ForestScene_" + c for c in fb.SHEETS}, **TEX_ARGS))
+    keep(ft.build_render_copy(INFO["albedo"], INFO["emissive"]))
 
     # The fixture on the lane: local +X onto radial(BEARING), local +Y onto tangent.
     for ob in (visual, collider):

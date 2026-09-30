@@ -24,9 +24,9 @@ lands on a socket corner's bearing. Those two rules are why `--check` reports
 zero slivers: a sliver here was never bad luck, it was a frame mismatch or a
 long thin stem, and both are gone by construction.
 
-Origin at the base centre, z = 0 is the ground, Blender +Z = Godot +Y. The
-forest's own tiles (forest_tiles: leaf and bark, the lane's and the tree's),
-zoned shade at the foot, leaf
+Origin at the base centre, z = 0 is the ground, Blender +Z = Godot +Y. One
+material: the forest atlas from forest_tree_build (the same sheet the lane,
+the tree and the leaf wall are painted with), zoned shade at the foot, leaf
 through the body, sun on the crown, bark on the stems.
 
 ForestBushCollision rides in the .glb as a `-colonly` node. It is not a box
@@ -63,7 +63,6 @@ if bpy is not None:
     mdl.DEFAULTS["ground_color"] = [0.30, 0.33, 0.20, 1.0]
 
 import forest_tree_build as ft  # noqa: E402
-import forest_tiles  # noqa: E402  the forest's tiles, tinted per zone
 from forest_tree_build import (_Mesh, _Rng, UP, DOWN, add, sub, cross, norm, dot,  # noqa: E402
                                lerp, plane_of)
 
@@ -487,9 +486,13 @@ def build():
     m = build_geometry(p)
     c = build_collider(m, p)
 
+    albedo, emissive = ft.sheet("forest_atlas", ft.paint_atlas)
+    mdl.save_texture(albedo)
+    mdl.save_texture(emissive)
+
     ob = m.object(OBJECT_NAME)
-    forest_tiles.dress(ob, m.zones, "atlas")
-    forest_tiles.soften(ob, m.zones)
+    ft.unwrap(ob, m.zones)
+    mdl.finish(ob, ft.atlas_material("ForestAtlas", albedo, emissive), strip_uvs=False)
 
     coll = c.object(COLLIDER_NAME)
     coll.hide_render = True

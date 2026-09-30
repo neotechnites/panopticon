@@ -23,8 +23,9 @@ Cover contract (docs/maps/forest.md, lane y 23.0, guard eye y 28.7):
     look down the lane passes under every canopy and only the narrow trunks
     break it. Proved as ``lowest_crown_z``.
 
-Tiles and palette are the forest's own (forest_tiles): its "bark" and
-"leaf" zones unchanged. No new colours.
+Material, palette and atlas are the forest's own: this file imports
+``forest_tree_build`` (which is where forest_build.py's atlas lives) and uses
+its "bark" and "leaf" zones unchanged. No new colours.
 
 Authored in Blender space (+Z up = Godot +Y), origin at the foot of the trunk
 on the ground plane (z = 0), so the prop drops onto the lane at identity.
@@ -48,7 +49,6 @@ for _root in (os.path.dirname(_HOME), os.path.dirname(os.path.dirname(_HOME))): 
         break
 
 import forest_tree_build as ft  # noqa: E402  the forest atlas, the mesh library
-import forest_tiles  # noqa: E402  the forest's tiles, tinted per zone
 from forest_tree_build import (_Mesh, _Rng, UP, DOWN, add, sub, norm, dot, cross,  # noqa: E402
                                lerp, bez, tube, clump_end, socket_ring, loft, frames)
 
@@ -669,8 +669,13 @@ def build():
     m, trunk, crown = build_geometry(spec)
     c = build_collider(spec)
 
+    albedo, emissive = ft.sheet("forest_atlas", ft.paint_atlas)
+    mdl.save_texture(albedo)
+    mdl.save_texture(emissive)
+
     ob = m.object(spec["object"])
-    forest_tiles.dress(ob, m.zones, "atlas")
+    ft.unwrap(ob, m.zones)
+    mdl.finish(ob, ft.atlas_material("ForestAtlas", albedo, emissive), strip_uvs=False)
 
     coll = c.object(spec["collider"])
     coll.hide_render = True

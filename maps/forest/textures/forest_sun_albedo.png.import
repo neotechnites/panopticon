@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://fpjnc0ks0loh"
-path="res://.godot/imported/forest_bark_albedo.png-145862d0919c785bb894c6562d37f971.ctex"
+uid="uid://dob3un4f3dsh5"
+path="res://.godot/imported/forest_sun_albedo.png-22f7ae7dd470eb19aa3e42a95b4281b8.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://maps/forest/textures/forest_bark_albedo.png"
-dest_files=["res://.godot/imported/forest_bark_albedo.png-145862d0919c785bb894c6562d37f971.ctex"]
+source_file="res://maps/forest/textures/forest_sun_albedo.png"
+dest_files=["res://.godot/imported/forest_sun_albedo.png-22f7ae7dd470eb19aa3e42a95b4281b8.ctex"]
 
 [params]
 

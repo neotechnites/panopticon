@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://celinsu1m4dek"
-path="res://.godot/imported/forest_ornament_albedo.png-4fc1b5b3ff2b3ab9ce510253eb09793c.ctex"
+uid="uid://outga8ugbt6w"
+path="res://.godot/imported/forest_atlas_albedo.png-2f97c5cf198ca1927d876538b7191c42.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://maps/forest/textures/forest_ornament_albedo.png"
-dest_files=["res://.godot/imported/forest_ornament_albedo.png-4fc1b5b3ff2b3ab9ce510253eb09793c.ctex"]
+source_file="res://maps/forest/textures/forest_atlas_albedo.png"
+dest_files=["res://.godot/imported/forest_atlas_albedo.png-2f97c5cf198ca1927d876538b7191c42.ctex"]
 
 [params]
 

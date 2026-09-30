@@ -1,18 +1,29 @@
 {
   "canvas": [
-    769,
-    71
+    3631,
+    530
   ],
   "textures": [
     {
-      "file": "forest_bark_albedo.png",
+      "file": "forest_atlas_albedo.png",
       "kind": "albedo",
       "mode": "RGB",
       "rect": [
         0,
         7,
-        64,
-        64
+        256,
+        256
+      ]
+    },
+    {
+      "file": "forest_bark_albedo.png",
+      "kind": "albedo",
+      "mode": "RGB",
+      "rect": [
+        260,
+        7,
+        256,
+        256
       ]
     },
     {
@@ -20,10 +31,32 @@
       "kind": "albedo",
       "mode": "RGB",
       "rect": [
-        91,
+        520,
         7,
-        64,
-        64
+        256,
+        256
+      ]
+    },
+    {
+      "file": "forest_earth_albedo.png",
+      "kind": "albedo",
+      "mode": "RGB",
+      "rect": [
+        780,
+        7,
+        256,
+        256
+      ]
+    },
+    {
+      "file": "forest_edge_albedo.png",
+      "kind": "albedo",
+      "mode": "RGB",
+      "rect": [
+        1040,
+        7,
+        256,
+        256
       ]
     },
     {
@@ -31,10 +64,10 @@
       "kind": "albedo",
       "mode": "RGB",
       "rect": [
-        182,
+        1300,
         7,
-        64,
-        64
+        256,
+        256
       ]
     },
     {
@@ -42,10 +75,10 @@
       "kind": "albedo",
       "mode": "RGB",
       "rect": [
-        273,
+        1560,
         7,
-        64,
-        64
+        256,
+        256
       ]
     },
     {
@@ -53,21 +86,10 @@
       "kind": "albedo",
       "mode": "RGB",
       "rect": [
-        368,
+        1820,
         7,
-        64,
-        64
-      ]
-    },
-    {
-      "file": "forest_ornament_albedo.png",
-      "kind": "albedo",
-      "mode": "RGB",
-      "rect": [
-        459,
-        7,
-        128,
-        64
+        256,
+        256
       ]
     },
     {
@@ -75,7 +97,18 @@
       "kind": "albedo",
       "mode": "RGB",
       "rect": [
-        591,
+        2080,
+        7,
+        256,
+        256
+      ]
+    },
+    {
+      "file": "forest_portal_swirl_albedo.png",
+      "kind": "albedo",
+      "mode": "RGB",
+      "rect": [
+        2340,
         7,
         64,
         64
@@ -86,10 +119,65 @@
       "kind": "albedo",
       "mode": "RGB",
       "rect": [
-        682,
+        2463,
         7,
-        64,
-        64
+        128,
+        128
+      ]
+    },
+    {
+      "file": "forest_root_albedo.png",
+      "kind": "albedo",
+      "mode": "RGB",
+      "rect": [
+        2595,
+        7,
+        256,
+        256
+      ]
+    },
+    {
+      "file": "forest_shade_albedo.png",
+      "kind": "albedo",
+      "mode": "RGB",
+      "rect": [
+        2855,
+        7,
+        256,
+        256
+      ]
+    },
+    {
+      "file": "forest_sun_albedo.png",
+      "kind": "albedo",
+      "mode": "RGB",
+      "rect": [
+        3115,
+        7,
+        256,
+        256
+      ]
+    },
+    {
+      "file": "forest_verge_albedo.png",
+      "kind": "albedo",
+      "mode": "RGB",
+      "rect": [
+        3375,
+        7,
+        256,
+        256
+      ]
+    },
+    {
+      "file": "forest_lamp_emissive.png",
+      "kind": "emissive",
+      "mode": "RGB",
+      "rect": [
+        0,
+        274,
+        256,
+        256
       ]
     }
   ]

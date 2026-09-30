@@ -5,6 +5,6 @@
     "ForestBarsCollision",
     "ForestBarsCollision/ForestBarsCollisionShape"
   ],
-  "surfaces": 2,
+  "surfaces": 3,
   "max_tris": 6000
 }
