@@ -8,26 +8,28 @@ Not a model of its own: forest_build.py calls in here with its _Ground (g).
     brambles(g)          thorny branches out of the bank's quads, some arching
                          up over the rim; every one socketed (shares vertices)
     fog_mesh(cls, g)     a separate node (FOG_NAME): stacked discs filling the
-                         pit, tint and alpha in COLOR_0 (cls is
-                         forest_build._RayMesh); the scene shows it unshaded,
-                         mixed, vertex colour as albedo -- GL Compatibility has
-                         no fog volumes, so the fog is layers
+                         pit, alpha in COLOR_0 (cls is forest_build._RayMesh);
+                         the scene draws it through maps/forest/forest_mist.gdshader
+                         (colour, drifting noise, soft edges) -- GL Compatibility
+                         has no fog volumes, so the fog is layers
+    mist_noise(path)     the shader's 64 px tileable greyscale cloud (MIST_NOISE)
     fog_report()         what those discs do to a ray down the pit: straight down, and
                          oblique from every stand point (FOG_EYES) to every floor point
     stem_colour(bank_r, p)  a bramble vertex's COLOR_0: STEM_BARK, the whole stem;
                          the opaque fog hides what is under its top
 
-No water: the pit is a dim golden-green mist with dark thorns sinking into it. The floor is
+No water: the pit is a grey-gold mist with dark thorns sinking into it. The floor is
 not meant to be seen at all -- a pit reads as bottomless only while nothing flat
 at the end of it reaches the eye -- so the fog is built to a number rather than to
 a look: the bottom of the stack is one opaque slab and every ray from a stand point
 to the floor leaves under FOG_PROOF transmittance (the fraction of the floor's
-light that reaches the eye). It takes two things together. The slab is here; the other half is `disable_fog = true` on FogMat in
-maps/forest/forest.tscn, without which the Environment's depth fog repaints these
+light that reaches the eye). It takes two things together. The slab is here; the other half is `fog_disabled` in
+maps/forest/forest_mist.gdshader, without which the Environment's depth fog repaints these
 layers AND the floor behind them to one pale colour, and one colour spread over
 one flat plane is exactly what reads as a floor.
 
     python3 tools/modelling/maps/forest/forest_pit_build.py         the fog's own numbers
+    python3 tools/modelling/maps/forest/forest_pit_build.py --noise maps/forest/textures/forest_mist_albedo.png
     python3 tools/modelling/maps/forest/forest_build.py --check     proves the whole ground
 """
 
@@ -38,17 +40,17 @@ import forest_tree_build as ft
 from forest_tree_build import UP, DOWN, pol, add, sub, norm, dot, lerp, bez, zipper
 
 FOG_NAME = "ForestFog"
-FOG_TINT = (0.34, 0.38, 0.22)   # a dim golden-green MIST in the forest's own palette, one colour top to
-                                # floor: unshaded, Godot shows this x FOG_ALBEDO, near 1:1 on screen. The lit
-                                # ground and leaf render at ~(0.075, 0.097, 0.035) (mean of a deck-edge and a
-                                # lane shot); this keeps that hue, warmed, at about half the old (0.70, 0.74,
-                                # 0.64) -- Ryan: "the white fog is too white, it looks really bad in the scene"
-FOG_ALBEDO = 1.0                # FogMat's albedo_color rgb in maps/forest/forest.tscn (a source_color): the
-                                # mist is FOG_TINT x this. Was 0.6 under the dim tint; 1.0 lets a vertex reach pale
-FOG_OVERRIDE = 0.6              # the most of one layer's vertex alpha the proof lets Godot draw. FogMat's
-                                # alpha multiply is 1.0 (albedo_color.a), so the stack is at least this
-                                # opaque; the margin is what d49ecf4 proved against and it stays.
-                                # fog_report() models it: leave it out and the transmittance numbers are fiction
+FOG_TINT = (0.26, 0.245, 0.20)  # the glb's own review swatch only: the colour is forest_mist.gdshader's
+                                # tint_low..tint_high, and the vertex rgb is white. Was (0.34, 0.38, 0.22) --
+                                # Ryan: "it's a bit too green, but generally just looks weird"
+FOG_OVERRIDE = 0.6              # the least of one layer's vertex alpha the shader draws: its drifting noise
+                                # scales alpha by noise_floor..1 and noise_floor is this. fog_report() models
+                                # it: raise the shader's floor, never lower it under this, or the proof lies
+FOG_SOFT = 1.0                  # forest_mist.gdshader soft_metres: a layer fades to 0 where the depth behind
+                                # it is this close, so no disc draws a hard line on bank, trunk or thorn
+FOG_SOFT_COS = 0.64             # ... that fade reads eye DEPTH, which is the ray's length x at least cos 50
+                                # (half of shot.gd's 100 degree view): fog_report fades by the short one
+MIST_NOISE = (64, 7702113, 5)   # the shader's noise tile: px, seed, highest wave count across the tile
 
 
 # ---- the fog: a stack of translucent discs standing in for a fog volume -----------
@@ -57,7 +59,7 @@ FOG_OVERRIDE = 0.6              # the most of one layer's vertex alpha the proof
 # a rolling, thinning top: solid to FOG_SOLID of the stack, then falling to exactly zero
 # at a drift-varied height, feathered into the trunk and buried in the bank. Two things
 # beat the floor between them -- the slab (which the vertical transmittance measures) and
-# FogMat's disable_fog, without which the Environment's depth fog repaints these layers
+# forest_mist.gdshader's fog_disabled, without which the Environment's depth fog repaints these layers
 # AND the floor behind them to one pale colour, and one colour over one flat plane is
 # exactly what reads as a floor. GL Compatibility has no fog volumes, so the fog is layers.
 FOG_Z = (-11.6, -5.75, 0.45)    # bottom (just under the floor at -11.05), top, pitch: 14 layers, the top
@@ -110,9 +112,6 @@ FOG_SOLID = 0.70                # ... and the bottom this fraction of the stack 
                                 # gradient, it is the dark; only the top ~1.35 m thins to the bramble tops
 FOG_CURVE = 1.6                 # above the slab the column falls as ((reach - u)/(reach - FOG_SOLID))^this
                                 # to exactly 0 where the column ends
-FOG_DEPTH_DIM = 1.0             # the tint at the floor, as a factor; 1.0 at the top. 1.0: the mist is one pale
-                                # colour top to floor, never darkening with depth (was 0.15, black at the floor:
-                                # a mist that darkens downward reads as a lit floor under it). Still the knob
 FOG_REACH = 0.90                # how high a column of fog climbs, as a fraction of the stack: FOG_REACH in
                                 # the thin places, 1.0 in the thick ones, set by the drift field -- the top
                                 # of the fog ROLLS instead of lying flat, and never reaches past the top
@@ -536,6 +535,29 @@ def _fog_column(u, reach, d):
     return max(0.0, min(1.0, base * (1.0 + FOG_DENSE * d * roll)))
 
 
+def _soft(gap):
+    """forest_mist.gdshader's depth fade for a layer this far (metres along the ray) in front of the floor."""
+    x = max(0.0, min(1.0, gap * FOG_SOFT_COS / FOG_SOFT))
+    return x * x * (3.0 - 2.0 * x)
+
+
+def mist_noise(path):
+    """MIST_NOISE: a tileable greyscale cloud, sines on whole wave counts across the tile so it wraps."""
+    import random
+    from PIL import Image
+    px, seed, top = MIST_NOISE
+    rng = random.Random(seed)
+    waves = [(kx, ky, (kx * kx + ky * ky) ** -0.75, rng.uniform(0.0, 2.0 * math.pi))
+             for kx in range(-top, top + 1) for ky in range(0, top + 1)
+             if (ky > 0 or kx > 0) and kx * kx + ky * ky <= top * top]
+    vals = [sum(w * math.cos(2.0 * math.pi * (kx * x + ky * y) / px + ph) for (kx, ky, w, ph) in waves)
+            for y in range(px) for x in range(px)]
+    lo, hi = min(vals), max(vals)
+    img = Image.new("L", (px, px))
+    img.putdata([int(round(255.0 * (v - lo) / (hi - lo))) for v in vals])
+    img.save(path)
+
+
 def fog_mesh(cls, g):
     """The pit's fog: _fog_layers() discs of FOG_N-gons, each five annuli wide --
     a hole round the trunk (alpha 0 at FOG_HOLE[0], full at FOG_HOLE[1]), the body,
@@ -549,8 +571,7 @@ def fog_mesh(cls, g):
     ray straight down the pit comes out under FOG_PROOF -- while the top rolls
     between the bramble tops and the stack's ceiling and is zero at the top layer
     everywhere: no plane anywhere, and the tall brambles come through the thin
-    places. The tint is FOG_TINT eased to FOG_DEPTH_DIM of itself at the floor: one
-    pale colour at 1.0. The bottom layer's vertices come first: the triangle
+    places. The rgb is white: forest_mist.gdshader owns the colour. The bottom layer's vertices come first: the triangle
     order is the blend order, seen from above."""
     _bank_r = _host(g)._bank_r
     m = cls()
@@ -558,8 +579,7 @@ def fog_mesh(cls, g):
     INFO["layers"] = []
     for k, z in enumerate(layers):
         u = k / float(len(layers) - 1)
-        dim = FOG_DEPTH_DIM + (1.0 - FOG_DEPTH_DIM) * _ease(u)
-        tint = (FOG_TINT[0] * dim, FOG_TINT[1] * dim, FOG_TINT[2] * dim)
+        tint = (1.0, 1.0, 1.0)
         radii = _fog_rings(_bank_r(z), u)
         rings = []
         peak = 0.0
@@ -611,10 +631,10 @@ def _fog_alpha_at(bank_r, deg, rad, z, u):
     return 0.0
 
 
-def fog_ray(bank_at, deg, rad):
+def fog_ray(bank_at, deg, rad, soft=True):
     """A ray straight down the pit at (deg, rad), floor to sky. Returns
     (transmittance, [effective alpha per layer, floor first]) where the effective
-    alpha is what Godot draws -- the vertex alpha times FOG_OVERRIDE -- and the
+    alpha is what Godot draws -- the vertex alpha times FOG_OVERRIDE, faded by _soft over the floor -- and the
     transmittance is the product of (1 - that) over every layer: the fraction of
     the floor's light that still reaches the eye."""
     layers = _fog_layers()
@@ -622,7 +642,7 @@ def fog_ray(bank_at, deg, rad):
     through = 1.0
     for k, z in enumerate(layers):
         u = k / float(len(layers) - 1)
-        a = FOG_OVERRIDE * _fog_alpha_at(bank_at(z), deg, rad, z, u)
+        a = FOG_OVERRIDE * _fog_alpha_at(bank_at(z), deg, rad, z, u) * (_soft(z - FLOOR_Z) if soft else 1.0)
         eff.append(a)
         through *= (1.0 - a)
     return through, eff
@@ -661,7 +681,8 @@ def fog_oblique(bank_at, eye, floor):
         p = add(eye, d, t)
         rad = math.hypot(p[0], p[1])
         u = k / float(len(_fog_layers()) - 1)
-        through *= (1.0 - FOG_OVERRIDE * _fog_alpha_at(bank_at(z), _bearing(p[0], p[1]), rad, z, u))
+        gap = math.sqrt(sum((floor[i] - p[i]) ** 2 for i in range(3)))
+        through *= (1.0 - FOG_OVERRIDE * _fog_alpha_at(bank_at(z), _bearing(p[0], p[1]), rad, z, u) * _soft(gap))
         crossed += 1
     return through, crossed
 
@@ -725,9 +746,10 @@ def fog_report():
     for s in range(FOG_N):
         deg = 360.0 * s / FOG_N
         for rad in body:
-            through, eff = fog_ray(fb._bank_r, deg, rad)
+            through, _eff = fog_ray(fb._bank_r, deg, rad)
             if through > worst[0]:
                 worst = (through, deg, rad)
+            _t, eff = fog_ray(fb._bank_r, deg, rad, soft=False)   # the lid check reads the stack, not the fade
             for k in range(len(eff) - 1):
                 if eff[k + 1] - eff[k] > rise[0]:
                     rise = (eff[k + 1] - eff[k], eff[k + 1])
@@ -757,12 +779,14 @@ def fog_report():
         rings = _fog_rings(fb._bank_r(z), u)
         d = _drift(0.0, rings[2][0], z)
         reach = FOG_REACH + (1.0 - FOG_REACH) * (0.5 + 0.5 * d)
-        print("fog layer k=%2d y=%6.2f u=%.3f eff_alpha=%.3f feather=%.2fm body_to_r=%.2f end_r=%.2f dim=%.3f"
+        print("fog layer k=%2d y=%6.2f u=%.3f eff_alpha=%.3f feather=%.2fm body_to_r=%.2f end_r=%.2f soft=%.3f"
               % (k, z, u, FOG_OVERRIDE * FOG_ALPHA * _fog_column(u, reach, d), fog_feather(u),
-                 rings[3][0], rings[5][0],
-                 FOG_DEPTH_DIM + (1.0 - FOG_DEPTH_DIM) * _ease(u)))
+                 rings[3][0], rings[5][0], _soft(z - FLOOR_Z)))
     return ok
 
 
 if __name__ == "__main__":
+    if sys.argv[1:2] == ["--noise"]:
+        mist_noise(sys.argv[2])
+        sys.exit(0)
     sys.exit(0 if fog_report() else 1)

@@ -1,6 +1,6 @@
 {
   "canvas": [
-    3631,
+    3722,
     263
   ],
   "textures": [
@@ -93,11 +93,22 @@
       ]
     },
     {
+      "file": "forest_mist_albedo.png",
+      "kind": "albedo",
+      "mode": "L",
+      "rect": [
+        2080,
+        7,
+        64,
+        64
+      ]
+    },
+    {
       "file": "forest_path_albedo.png",
       "kind": "albedo",
       "mode": "RGB",
       "rect": [
-        2080,
+        2171,
         7,
         256,
         256
@@ -108,7 +119,7 @@
       "kind": "albedo",
       "mode": "RGB",
       "rect": [
-        2340,
+        2431,
         7,
         64,
         64
@@ -119,7 +130,7 @@
       "kind": "albedo",
       "mode": "RGB",
       "rect": [
-        2463,
+        2554,
         7,
         128,
         128
@@ -130,7 +141,7 @@
       "kind": "albedo",
       "mode": "RGB",
       "rect": [
-        2595,
+        2686,
         7,
         256,
         256
@@ -141,7 +152,7 @@
       "kind": "albedo",
       "mode": "RGB",
       "rect": [
-        2855,
+        2946,
         7,
         256,
         256
@@ -152,7 +163,7 @@
       "kind": "albedo",
       "mode": "RGB",
       "rect": [
-        3115,
+        3206,
         7,
         256,
         256
@@ -163,7 +174,7 @@
       "kind": "albedo",
       "mode": "RGB",
       "rect": [
-        3375,
+        3466,
         7,
         256,
         256
