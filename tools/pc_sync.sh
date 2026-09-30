@@ -13,10 +13,10 @@ ssh panopticon-pc '
   }
 '
 
-sheetMods=$(ssh panopticon-pc git -C C:/dev/panopticon status --porcelain | grep -E 'textures/SHEET_.*\.png$' | grep -v '^\?\?' || true)
+sheetMods=$(ssh panopticon-pc git -C C:/dev/panopticon status --porcelain | tr -d '\r' | grep -E 'textures/SHEET_.*\.png$' | grep -v '^\?\?' || true)
 if [ -n "$sheetMods" ]; then
   ssh panopticon-pc '& "C:\Users\ddd\tools\python\python.exe" C:\dev\panopticon\tools\textures\sheet.py unpack'
-  pngList=$(ssh panopticon-pc git -C C:/dev/panopticon status --porcelain | grep -E '/textures/.*\.png$' | grep -v '^\?\?' | sed -E 's/^...//')
+  pngList=$(ssh panopticon-pc git -C C:/dev/panopticon status --porcelain | tr -d '\r' | grep -E '/textures/.*\.png$' | grep -v '^\?\?' | sed -E 's/^...//')
   for f in $pngList; do
     scp -q "panopticon-pc:C:/dev/panopticon/$f" "$f"
   done
