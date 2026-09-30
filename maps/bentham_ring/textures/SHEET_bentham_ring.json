@@ -49,22 +49,11 @@
       ]
     },
     {
-      "file": "hell_rock_emissive.png",
-      "kind": "emissive",
-      "mode": "RGB",
-      "rect": [
-        0,
-        274,
-        256,
-        256
-      ]
-    },
-    {
       "file": "map_base_lava_emissive.png",
       "kind": "emissive",
       "mode": "RGB",
       "rect": [
-        260,
+        0,
         274,
         256,
         256

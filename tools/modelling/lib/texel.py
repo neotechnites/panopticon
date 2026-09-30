@@ -762,7 +762,7 @@ def report(sheets):
 # =============================================================================
 # The tile is map 1's rock drawing lifted by HELL_SCALE (linear) so that every
 # class's factor is <= 1 (glTF clamps baseColorFactor): carve is greyer than rock.
-# Ember keeps its glowing veins as the tile's one emissive image.
+# The rock emits nothing: no class binds the tile's emissive image.
 
 HELL_STEM = "hell_rock"
 HELL_SCALE = (1.0, 2.121, 2.383)
@@ -827,8 +827,8 @@ def paint_hell_rock(c, r, sheet):
 
 
 def hell_sheet(cls, **kw):
-    """A texel Sheet for one hell rock class: the one tile, the class's factor, ember alone glows."""
-    return Sheet(cls, paint_hell_rock, stem=HELL_STEM, tint=HELL_TINT[cls], glow=(cls == "ember"), **kw)
+    """A texel Sheet for one hell rock class: the one tile, the class's factor, no emission."""
+    return Sheet(cls, paint_hell_rock, stem=HELL_STEM, tint=HELL_TINT[cls], glow=False, **kw)
 
 
 def hell_atlas_material(roughness=ROUGHNESS, cull=False, name="HellRock"):
