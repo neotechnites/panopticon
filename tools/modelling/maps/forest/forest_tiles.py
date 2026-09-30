@@ -29,15 +29,20 @@ import texel as tx  # noqa: E402
 
 TILE = 64                       # texels a side: TILE * tx.MPT = 3.2 m before a tile repeats
 SEED = 0x7E11
-LEAF_GRID = 7                   # leaf blobs a side: 49 on a jittered grid, none piling on a corner
-LEAF_JITTER = 3.0               # texels a blob may leave its grid node
-LEAF_BLOB = (4, 6)              # blob widths: the tile keeps the old mean (44/255 green)
+LEAF_GRID = 5                   # leaf clumps a side: 25 on a jittered grid, shingled bottom to top
+LEAF_JITTER = 5.0               # texels a clump may leave its node (odd rows sit half a step over)
+LEAF_CLUMP = (5.5, 10.0)        # clump radius in texels: 0.55..1.0 m masses, not 0.25 m blobs
+LEAF_LOBES = (3, 5)             # circles a clump is the union of: a scalloped, lumpy mass
+LEAF_SHADOW = 3                 # texels of cast shadow under a clump, onto the clump below
+MOTTLE_M = (5.0, 2.2)           # per-vertex leaf mottle periods (m); two octaves over every leaf zone
+MOTTLE_AMP = (0.20, 0.08)       # their amplitudes: +-28 % at the extremes, mean 1, so no tint moves
+MOTTLE_COOL = (1.2, 1.0, 0.7)   # red swings most, blue least: darker patches go cooler (as LEAF_STEP)
 MOTTLE = (3, 2)                 # grass, path and rock noise cells: 0.15 m grain, no 0.4 m blob to repeat every 3.2 m
 
 # Palettes: the bytes the files hold, sampled from the 256 px sheets they replace.
 GRASS = ((36, 59, 12), (51, 67, 11), (66, 77, 12), (77, 87, 16), (31, 49, 10))
 PATH = ((38, 32, 13), (43, 36, 16), (51, 47, 16), (57, 52, 18), (45, 56, 15))
-LEAF = ((20, 29, 11), (24, 33, 11), (44, 66, 19), (58, 78, 22), (78, 98, 31), (60, 80, 24), (144, 155, 44))
+LEAF = ((16, 22, 8), (23, 33, 10), (36, 49, 14), (46, 59, 18), (58, 72, 22), (75, 89, 28), (98, 110, 37))
 BARK = ((28, 20, 12), (31, 23, 13), (35, 26, 16), (17, 13, 8), (44, 34, 20), (8, 6, 4), (23, 35, 12))
 FERN = ((15, 27, 8), (17, 31, 9), (20, 37, 11), (38, 63, 17), (51, 78, 22), (9, 17, 6))
 ROCK = ((43, 46, 36), (52, 55, 42), (60, 63, 47), (74, 76, 57), (31, 34, 27), (45, 54, 37), (21, 23, 18))
@@ -133,21 +138,51 @@ def _path(c, r):
     tx.blades(c, r, c.box, 70, PATH[3:])
 
 
+def _clump(c, r, cx, cy, rad):
+    """The texels of one leaf clump: a union of LEAF_LOBES circles about (cx, cy), wrapped."""
+    mask = set()
+    for _ in range(r.i(*LEAF_LOBES)):
+        ox, oy = cx + r.u(-0.55, 0.55) * rad, cy + r.u(-0.35, 0.35) * rad
+        rr = r.u(0.55, 0.85) * rad
+        for y in range(int(oy - rr), int(oy + rr) + 2):
+            for x in range(int(ox - rr), int(ox + rr) + 2):
+                if math.hypot(x + 0.5 - ox, y + 0.5 - oy) <= rr:
+                    mask.add((x % c.w, y % c.h))
+    return mask
+
+
 def _leaf(c, r):
-    """Ryan: "a big fat circle at every corner": 40 blobs thrown at random piled a bright cluster on
-    the tile's corner, which every 3.2 m of wall and roof repeated. Blobs now sit on a jittered grid,
-    one a cell, so the tile is evenly stocked and no spot on it stands out."""
+    """Ryan: "it looks terrible": 0.25 m blobs at random read as confetti. Leaf MASSES now: 16 lumpy
+    clumps shingled bottom to top, each throwing shadow on the one below, a lit crest along its top."""
     tx.fill(c, r, c.box, LEAF[:2])
-    n = LEAF_GRID
-    step = c.w / float(n)
-    for gy in range(n):                          # leaves: a blob and its lit top edge
+    n, step = LEAF_GRID, c.w / float(LEAF_GRID)
+    clumps = []
+    for gy in range(n):
         for gx in range(n):
-            w = r.i(LEAF_BLOB[0], LEAF_BLOB[1])
-            h = max(3, w - r.i(0, 2))
-            x = int(gx * step + r.u(-LEAF_JITTER, LEAF_JITTER)) % c.w
-            y = int(gy * step + r.u(-LEAF_JITTER, LEAF_JITTER)) % c.h
-            c.rect(x, y, x + w, y + h, r.pick(LEAF[2:6]))
-            c.rect(x, y + h - 1, x + max(2, w // 2), y + h, LEAF[6])
+            clumps.append(((gx + 0.5 + 0.5 * (gy % 2)) * step + r.u(-LEAF_JITTER, LEAF_JITTER),
+                           (gy + 0.5) * step + r.u(-LEAF_JITTER, LEAF_JITTER), r.u(*LEAF_CLUMP)))
+    clumps.sort(key=lambda k: k[1])              # lowest first: the clump above overlaps it
+    for cx, cy, rad in clumps:
+        mask = _clump(c, r, cx, cy, rad)
+        body = r.pick((2, 3, 3))                 # two body tones: a paler clump would stand alone and repeat
+        for x, y in mask:                        # shadow, cast down onto whatever is below
+            for d in range(1, LEAF_SHADOW + 1):
+                if (x, (y - d) % c.h) not in mask:
+                    c.put(x, y - d, LEAF[0 if d < LEAF_SHADOW else 1])
+        for x, y in mask:
+            c.put(x, y, LEAF[body])
+        for x, y in mask:                        # the crest: two texels of light where the sky is
+            if (x, (y + 2) % c.h) not in mask or ((x, (y + 3) % c.h) not in mask and r.f() < 0.4):
+                c.put(x, y, LEAF[min(6, body + 2)])
+        inner = [(x, y) for x, y in mask if (x, (y + 4) % c.h) in mask and (x, (y - 3) % c.h) in mask]
+        for _ in range(r.i(3, 6)):               # a few leaves catching light inside the mass
+            if inner:
+                x, y = r.pick(inner)
+                c.rect(x, y, x + 2, y + 1, LEAF[body + 3])
+        for _ in range(r.i(1, 3)):               # and a few tucked into its shade
+            if inner:
+                x, y = r.pick(inner)
+                c.put(x, y, LEAF[max(1, body - 2)])
 
 
 def _bark(c, r):
@@ -221,7 +256,7 @@ def _ornament(c, r):
 
 
 PAINTERS = {"forest_grass_albedo": (_grass, 1), "forest_path_albedo": (_path, 2),
-            "forest_leaf_albedo": (_leaf, 3), "forest_bark_albedo": (_bark, 4),
+            "forest_leaf_albedo": (_leaf, 44), "forest_bark_albedo": (_bark, 4),
             "forest_fern_albedo": (_fern, 5), "forest_rock_albedo": (_rock, 6),
             "forest_dark_albedo": (_dark, 7), "forest_ornament_albedo": (_ornament, 8)}
 
@@ -328,9 +363,9 @@ def colours(ob):
     return col
 
 
-def dress(ob, zones, family, sheets=None, flat=True, cull=True, custom=None, prefix="Forest"):
-    """UVs (world-locked at tx.MPT), each zone's tint into COLOR_0, one material per
-    key, slots assigned. Returns the slot order."""
+def dress(ob, zones, family, sheets=None, flat=True, cull=True, custom=None, prefix="Forest", offset=(0.0, 0.0, 0.0)):
+    """UVs (world-locked at tx.MPT), each zone's tint into COLOR_0 with the leaf mottle over it, one
+    material per key, slots assigned. offset: the model's origin in the world. Returns the slot order."""
     keys = [MAP[family][z] for z in zones]
     tx.unwrap(ob, keys, sheets or BOX, seed=1, custom=custom)
     me = ob.data
@@ -346,12 +381,50 @@ def dress(ob, zones, family, sheets=None, flat=True, cull=True, custom=None, pre
         for li in poly.loop_indices:
             for k in range(3):
                 flat_c[li * 4 + k] *= t[k]
+    mottle(me, zones, flat_c, offset)
     col.data.foreach_set("color", flat_c)
     mats = {k: material(k, prefix, cull) for k in set(keys)}
     order = tx.finish(ob, keys, mats, flat=flat)
     print("MDL STATS tiles %s: %s" % (ob.name, " ".join(
         "%s=%s" % (z, ",".join("%.3f" % v for v in tints[z])) for z in sorted(tints))))
     return order
+
+
+def _hash01(ix, iy, iz):
+    """A lattice node's value in [0, 1): the same on every machine, no table."""
+    h = (ix * 73856093) ^ (iy * 19349663) ^ (iz * 83492791)
+    h = (h ^ (h >> 13)) * 1274126177 & 0xFFFFFFFF
+    return ((h ^ (h >> 16)) & 0xFFFF) / 65536.0
+
+
+def _vnoise(p, period):
+    """Smooth 3-D value noise in [0, 1] at world point p, one lattice node every period metres."""
+    f = [v / period for v in p]
+    i = [math.floor(v) for v in f]
+    t = [(v - iv) * (v - iv) * (3.0 - 2.0 * (v - iv)) for v, iv in zip(f, i)]
+    v = 0.0
+    for dz in (0, 1):
+        for dy in (0, 1):
+            for dx in (0, 1):
+                w = (t[0] if dx else 1.0 - t[0]) * (t[1] if dy else 1.0 - t[1]) * (t[2] if dz else 1.0 - t[2])
+                v += w * _hash01(i[0] + dx, i[1] + dy, i[2] + dz)
+    return v
+
+
+def mottle(me, zones, flat, offset=(0.0, 0.0, 0.0)):
+    """Ryan: "it looks terrible": one 3.2 m tile over every leaf face repeats. Every leaf-zone corner
+    takes a world-locked two-octave mottle (MOTTLE_M) into COLOR_0, so no two tiles of a mass match."""
+    done = 0
+    for pi, poly in enumerate(me.polygons):
+        if zones[pi] not in LEAF_ZONES:
+            continue
+        for li in poly.loop_indices:
+            p = [a + b for a, b in zip(me.vertices[me.loops[li].vertex_index].co, offset)]
+            n = sum((_vnoise(p, m) - 0.5) * 2.0 * a for m, a in zip(MOTTLE_M, MOTTLE_AMP))
+            for k in range(3):
+                flat[li * 4 + k] = min(1.0, flat[li * 4 + k] * (1.0 + n * MOTTLE_COOL[k]))
+        done += 1
+    print("MDL STATS mottle %s: faces=%d offset=%s" % (me.name, done, ",".join("%.2f" % v for v in offset)))
 
 
 def soften(ob, zones, passes=SOFT_PASSES):

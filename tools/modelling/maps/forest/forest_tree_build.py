@@ -1615,9 +1615,9 @@ def seam_tint(ob, zones):
     col.data.foreach_set("color", flat)
 
 
-def dress(ob, zones):
-    """forest_tiles' tiles and tints, then the seam fade over them."""
-    forest_tiles.dress(ob, zones, "atlas")
+def dress(ob, zones, offset=(0.0, 0.0, 0.0)):
+    """forest_tiles' tiles and tints, then the seam fade over them. offset: the model's origin in the world."""
+    forest_tiles.dress(ob, zones, "atlas", offset=offset)
     seam_tint(ob, zones)
     forest_tiles.soften(ob, zones)
 
@@ -1657,7 +1657,7 @@ def build():
     c = build_tree_collider()
     shift = (0.0, 0.0, -ORIGIN_Y)
     ob = m.object(OBJECT_NAME, shift)
-    dress(ob, m.zones)
+    dress(ob, m.zones, (0.0, 0.0, ORIGIN_Y))
     coll = c.object(COLLIDER_NAME, shift)
     coll.hide_render = True
     print("MDL STATS visual_tris=%d collision_tris=%d floor_y=%.2f eye_y=%.2f apex_y=%.1f"
