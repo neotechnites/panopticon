@@ -725,21 +725,17 @@ def _class_of(zone):
     return _ZONE_CLASS[zone]
 
 
-def rock_material(name, albedo, emissive, glow=False):
+def rock_material(name, albedo, emissive):
     mat = bpy.data.materials.new(name)
     mat.use_nodes = True
     nt = mat.node_tree
     bsdf = nt.nodes.get("Principled BSDF")
-    for img, socket, y in ((albedo, "Base Color", 260),) + (((emissive, "Emission Color", -220),) if glow else ()):
+    for img, socket, y in ((albedo, "Base Color", 260), (emissive, "Emission Color", -220)):
         node = nt.nodes.new("ShaderNodeTexImage")
         node.image = img
         node.interpolation = "Closest"
         node.location = (-460, y)
         nt.links.new(node.outputs["Color"], bsdf.inputs[socket])
-    if not glow:
-        # Blender's default Emission Color is white: unlinked, it would export as a
-        # flat emissiveFactor [1,1,1] and Godot would render the surface pure white.
-        bsdf.inputs["Emission Color"].default_value = (0.0, 0.0, 0.0, 1.0)
     bsdf.inputs["Roughness"].default_value = ROCK_ROUGHNESS
     bsdf.inputs["Metallic"].default_value = ROCK_METALLIC
     bsdf.inputs["Emission Strength"].default_value = 1.0   # exactly 1.0: no KHR warning
@@ -879,17 +875,6 @@ def _lava_sheet():
     return alb, (_image_file("lava_emissive.png") or _lava_emissive_from(alb))
 
 
-def _no_emission(mat):
-    """Hell glows from lights only: unlink the emissive image and zero the colour."""
-    nt = mat.node_tree
-    for link in list(nt.links):
-        if link.to_socket.name == "Emission Color" and link.from_node.type == "TEX_IMAGE":
-            nt.nodes.remove(link.from_node)
-    for n in nt.nodes:
-        if n.type == "BSDF_PRINCIPLED":
-            n.inputs["Emission Color"].default_value = (0.0, 0.0, 0.0, 1.0)
-
-
 def _crack_cell():
     """The cracks' glow cell (ZONE_GLOW): its file, else cut from the painted atlas."""
     name = "%s_albedo" % CRACK_STEM
@@ -952,7 +937,7 @@ def _crack_uv(uv):
 
 def river_material(name, albedo, emissive):
     """The river: single-sided, exactly as the deck and the walls it is cut into."""
-    return rock_material(name, albedo, emissive, glow=True)
+    return rock_material(name, albedo, emissive)
 
 
 # =============================================================================
@@ -8108,6 +8093,7 @@ def build():
 
     lava_albedo, lava_emissive = _lava_sheet()
     mdl.save_texture(lava_albedo)
+    mdl.save_texture(lava_emissive)
 
     ob = rock.object(OBJECT_NAME)
     # Every rock face is the one texel sheet; the sea and the falls are both
@@ -8129,11 +8115,10 @@ def build():
                                "ember": "HellEmber"})
     for m in mats.values():
         m.diffuse_color = (0.13, 0.04, 0.04, 1.0)
-        _no_emission(m)
     crack = _crack_cell()                                           # it glows its own albedo
     mats["glow"] = rock_material("HellGlow", crack, crack)
-    mats["river"] = river_material("LavaRiver", lava_albedo, lava_albedo)
-    mats["lava"] = rock_material("LavaSea", lava_albedo, lava_albedo, glow=True)
+    mats["river"] = river_material("LavaRiver", lava_albedo, lava_emissive)
+    mats["lava"] = rock_material("LavaSea", lava_albedo, lava_emissive)
     mats["crack"] = rock_material("LavaCrack", crack, crack)        # the atlas's glow cell, as before
     slots = ["river" if c in ("river", "fall", "river_t") else c for c in classes]   # one LavaRiver slot
     order = tx.finish(ob, slots, mats)

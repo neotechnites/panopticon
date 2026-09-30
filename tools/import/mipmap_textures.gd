@@ -8,7 +8,7 @@ const SharedMaterials := preload("res://tools/import/shared_materials.gd")
 ## Surfaces whose glTF material is named here get the waving lava shader instead.
 const WAVE_MATERIALS := [&"LavaRiver", &"LavaSea", &"LavaCrack"]
 const LAVA_WAVE_SHADER := "res://maps/bentham_ring/materials/lava_wave.gdshader"
-## The lava itself carries the ring's light: its albedo is its emission, boosted here.
+## No torches on the ring any more: the lava itself carries that light, boosted here.
 const LAVA_EMISSION_BOOST := 1.4
 
 const TEXTURE_PROPERTIES := [
@@ -121,7 +121,7 @@ func _wave_material(material: Material) -> Material:
 	wave.shader = load(LAVA_WAVE_SHADER)
 	wave.set_shader_parameter(&"albedo_texture", base.albedo_texture)
 	wave.set_shader_parameter(&"albedo_color", base.albedo_color)
-	wave.set_shader_parameter(&"emission_texture", base.emission_texture if base.emission_texture else base.albedo_texture)
+	wave.set_shader_parameter(&"emission_texture", base.emission_texture)
 	wave.set_shader_parameter(&"emission_color", base.emission if base.emission_enabled else Color.BLACK)
 	wave.set_shader_parameter(&"emission_energy", base.emission_energy_multiplier * LAVA_EMISSION_BOOST)
 	wave.set_shader_parameter(&"roughness", base.roughness)
