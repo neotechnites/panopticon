@@ -220,3 +220,42 @@ light_specular = 0.0
 shadow_enabled = false
 omni_range = 75.0
 omni_attenuation = 0.25
+
+[node name="BaseFill" type="Node3D" parent="Tower"]
+editor_description = "Downward fill on the tower foot: four warm unshadowed omnis at r 10, world y 10, so the base reads its texture without a hot spot."
+
+[node name="Fill045" type="OmniLight3D" parent="Tower/BaseFill"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7.0711, -15.35, 7.0711)
+light_color = Color(1, 0.86, 0.64, 1)
+light_energy = 0.8
+light_specular = 0.0
+shadow_enabled = false
+omni_range = 30.0
+omni_attenuation = 1.0
+
+[node name="Fill135" type="OmniLight3D" parent="Tower/BaseFill"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7.0711, -15.35, -7.0711)
+light_color = Color(1, 0.86, 0.64, 1)
+light_energy = 0.8
+light_specular = 0.0
+shadow_enabled = false
+omni_range = 30.0
+omni_attenuation = 1.0
+
+[node name="Fill225" type="OmniLight3D" parent="Tower/BaseFill"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -7.0711, -15.35, -7.0711)
+light_color = Color(1, 0.86, 0.64, 1)
+light_energy = 0.8
+light_specular = 0.0
+shadow_enabled = false
+omni_range = 30.0
+omni_attenuation = 1.0
+
+[node name="Fill315" type="OmniLight3D" parent="Tower/BaseFill"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -7.0711, -15.35, 7.0711)
+light_color = Color(1, 0.86, 0.64, 1)
+light_energy = 0.8
+light_specular = 0.0
+shadow_enabled = false
+omni_range = 30.0
+omni_attenuation = 1.0
