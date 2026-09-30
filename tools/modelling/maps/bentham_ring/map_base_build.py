@@ -730,7 +730,7 @@ def rock_material(name, albedo, emissive):
     mat.use_nodes = True
     nt = mat.node_tree
     bsdf = nt.nodes.get("Principled BSDF")
-    for img, socket, y in ((albedo, "Base Color", 260), (emissive, "Emission Color", -220)):
+    for img, socket, y in ((albedo, "Base Color", 260),):
         node = nt.nodes.new("ShaderNodeTexImage")
         node.image = img
         node.interpolation = "Closest"
@@ -873,6 +873,17 @@ def _lava_sheet():
     if alb is None:
         return _lava_texture()
     return alb, (_image_file("lava_emissive.png") or _lava_emissive_from(alb))
+
+
+def _no_emission(mat):
+    """Hell glows from lights only: unlink the emissive image and zero the colour."""
+    nt = mat.node_tree
+    for link in list(nt.links):
+        if link.to_socket.name == "Emission Color" and link.from_node.type == "TEX_IMAGE":
+            nt.nodes.remove(link.from_node)
+    for n in nt.nodes:
+        if n.type == "BSDF_PRINCIPLED":
+            n.inputs["Emission Color"].default_value = (0.0, 0.0, 0.0, 1.0)
 
 
 def _crack_cell():
@@ -8115,6 +8126,7 @@ def build():
                                "ember": "HellEmber"})
     for m in mats.values():
         m.diffuse_color = (0.13, 0.04, 0.04, 1.0)
+        _no_emission(m)
     crack = _crack_cell()                                           # it glows its own albedo
     mats["glow"] = rock_material("HellGlow", crack, crack)
     mats["river"] = river_material("LavaRiver", lava_albedo, lava_emissive)

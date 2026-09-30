@@ -382,12 +382,12 @@ def build_stone_texture():
     return _images(c, STONE_TEX, (STONE_ALBEDO, STONE_EMISSIVE))
 
 
-def rock_material(name, albedo, emissive):
+def rock_material(name, albedo, emissive, glow=True):
     mat = bpy.data.materials.new(name)
     mat.use_nodes = True
     nt = mat.node_tree
     bsdf = nt.nodes.get("Principled BSDF")
-    for img, socket, y in ((albedo, "Base Color", 260), (emissive, "Emission Color", -220)):
+    for img, socket, y in ((albedo, "Base Color", 260),) + (((emissive, "Emission Color", -220),) if glow else ()):
         node = nt.nodes.new("ShaderNodeTexImage")
         node.image = img
         node.interpolation = "Closest"
@@ -1309,8 +1309,8 @@ def build():
             themes.append(th)
     ob = rock.object(OBJECT_NAME)
     unwrap(ob, rock.zones, rock.groups, themes)
-    mdl.finish(ob, rock_material("HellRock", albedo, emissive), strip_uvs=False)
-    ob.data.materials.append(rock_material("Lava", river_albedo, river_emissive))
+    mdl.finish(ob, rock_material("HellRock", albedo, emissive, glow=False), strip_uvs=False)
+    ob.data.materials.append(rock_material("Lava", river_albedo, river_emissive, glow=False))
     ob.data.materials.append(rock_material("HubStone", stone_albedo, stone_emissive))
     slot = {"river": 1, "stone": 2}
     names = ["hellrock", "lava", "stone"]
