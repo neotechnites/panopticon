@@ -28,7 +28,8 @@ extends Node3D
 ## player's camera is never written to at all.
 ##
 ## [b]One view for every kind of dead[/b]
-## Respawning or eliminated: on the tower roof, turning to keep the leading runner centred.
+## Respawning or eliminated: just outside the tower's arcade at guard eye height,
+## sliding round the tower to keep the leading runner in view.
 ##
 ## [b]Why it polls[/b]
 ##
@@ -80,18 +81,28 @@ signal spectating_changed(active: bool)
 
 const HEADLESS_DISPLAY: String = "headless"
 
-## Camera height above the top of the tower's visible geometry, metres.
-const ROOF_LIFT_METRES: float = 2.0
+## Gap between the tower's outer extent and the camera, metres.
+const ARCADE_CLEARANCE_METRES: float = 1.5
+## Vertical band around eye height whose mesh vertices set the tower's radius, metres.
+const RADIUS_BAND_METRES: float = 2.0
+## Eye height used when no body can report one, metres.
+const FALLBACK_EYE_METRES: float = 1.6
 ## Death-shot turn easing, per second.
 const AIM_SMOOTHING: float = 4.0
+## Death-shot orbit easing round the tower, per second.
+const ORBIT_SMOOTHING: float = 2.0
 
 var _inert: bool = false
 var _active: bool = false
 
 ## Smoothed death-shot aim; zero until the first frame snaps it.
 var _aim_dir: Vector3 = Vector3.ZERO
-## Roof camera spot, measured from the tower's meshes on each activation.
-var _roof_point: Vector3 = Vector3.ZERO
+## Tower axis at guard eye height, measured on each activation.
+var _orbit_centre: Vector3 = Vector3.ZERO
+## Camera distance from [member _orbit_centre], measured on each activation.
+var _orbit_radius: float = ARCADE_CLEARANCE_METRES
+## Smoothed bearing round the tower, radians; NAN until the first frame snaps it.
+var _bearing: float = NAN
 
 ## What the view is showing right now.
 var _state: MatchController.Spectating = MatchController.Spectating.NONE
@@ -230,7 +241,8 @@ func _activate(state: MatchController.Spectating) -> void:
 	_state = state
 	if not was_active:
 		_aim_dir = Vector3.ZERO
-		_roof_point = _measure_roof()
+		_bearing = NAN
+		_measure_orbit()
 		_active = true
 	camera.fov = profile.field_of_view_degrees
 	camera.current = true
@@ -267,11 +279,26 @@ func _mute_input(muted: bool) -> void:
 		human_input.set_active(not muted)
 
 
-## The death shot: parked on the tower roof, turning to keep the leading runner
-## centred. Turn rate eases by [constant AIM_SMOOTHING].
+## The death shot: orbits outside the arcade on the bearing to the leading runner,
+## easing by [constant ORBIT_SMOOTHING], aim easing by [constant AIM_SMOOTHING].
 func _place_death_shot(delta: float) -> void:
-	camera.global_position = _roof_point
-	var to_target: Vector3 = _look_target() - camera.global_position
+	var runner: MatchParticipant = _leading_runner()
+	if runner != null and runner.body != null:
+		var flat: Vector3 = runner.body.global_position - _orbit_centre
+		if Vector2(flat.x, flat.z).length_squared() > 1e-4:
+			var wanted: float = atan2(flat.z, flat.x)
+			if is_nan(_bearing):
+				_bearing = wanted
+			else:
+				_bearing = lerp_angle(_bearing, wanted, 1.0 - exp(-ORBIT_SMOOTHING * delta))
+	if is_nan(_bearing):
+		_bearing = 0.0
+	camera.global_position = _focus_point()
+	var outward: Vector3 = Vector3(cos(_bearing), 0.0, sin(_bearing))
+	var target: Vector3 = _look_target()
+	if runner == null or runner.body == null:
+		target = camera.global_position + outward
+	var to_target: Vector3 = target - camera.global_position
 	if to_target.length_squared() < 1e-6:
 		return
 	var aim: Vector3 = to_target.normalized()
@@ -295,24 +322,67 @@ func _tower() -> Node3D:
 	return marker as Node3D
 
 
-## On the tower's vertical axis, [constant ROOF_LIFT_METRES] over the top of its visible meshes.
-func _measure_roof() -> Vector3:
+## Sets the orbit centre (tower axis at spawn marker + guard eye height) and radius
+## (furthest tower vertex within the eye band, else mesh AABB) + clearance.
+func _measure_orbit() -> void:
 	var tower: Node3D = _tower()
-	if tower == null:
-		return Vector3(0.0, ROOF_LIFT_METRES, 0.0)
-	var top: float = tower.global_position.y
-	for node: Node in tower.find_children("*", "MeshInstance3D", true, false):
-		var mesh: MeshInstance3D = node as MeshInstance3D
-		if mesh.mesh == null or not mesh.is_visible_in_tree():
+	var marker: Node3D = null
+	if controller != null and controller.arena != null:
+		marker = controller.arena.get_node_or_null(controller.spawn_marker_path) as Node3D
+	var axis: Vector3 = tower.global_position if tower != null else Vector3.ZERO
+	var base_y: float = marker.global_position.y if marker != null else axis.y
+	_orbit_centre = Vector3(axis.x, base_y + _guard_eye_height(), axis.z)
+	_orbit_radius = _tower_radius(tower, _orbit_centre) + ARCADE_CLEARANCE_METRES
+
+
+## The eye height the guard's body reports, else any body's, else the fallback.
+func _guard_eye_height() -> float:
+	var any_eye: float = -1.0
+	for participant: MatchParticipant in controller.get_participants_ref():
+		if participant.body == null:
 			continue
-		var box: AABB = mesh.global_transform * mesh.get_aabb()
-		top = maxf(top, box.end.y)
-	return Vector3(tower.global_position.x, top + ROOF_LIFT_METRES, tower.global_position.z)
+		if participant.is_shooter:
+			return participant.body.get_eye_height()
+		if any_eye < 0.0:
+			any_eye = participant.body.get_eye_height()
+	return any_eye if any_eye > 0.0 else FALLBACK_EYE_METRES
 
 
-## What the camera is anchored on: the roof spot.
+## Horizontal reach of the tower's visible meshes from [param centre]'s axis, near its height.
+func _tower_radius(tower: Node3D, centre: Vector3) -> float:
+	if tower == null:
+		return 0.0
+	var band_best: float = 0.0
+	var box_best: float = 0.0
+	for node: Node in tower.find_children("*", "MeshInstance3D", true, false):
+		var mi: MeshInstance3D = node as MeshInstance3D
+		if mi.mesh == null or not mi.is_visible_in_tree():
+			continue
+		var box: AABB = mi.global_transform * mi.get_aabb()
+		if box.end.y < centre.y - RADIUS_BAND_METRES or box.position.y > centre.y + RADIUS_BAND_METRES:
+			continue
+		box_best = maxf(box_best, maxf(
+			maxf(absf(box.position.x - centre.x), absf(box.end.x - centre.x)),
+			maxf(absf(box.position.z - centre.z), absf(box.end.z - centre.z))
+		))
+		var xform: Transform3D = mi.global_transform
+		for surface: int in mi.mesh.get_surface_count():
+			var arrays: Array = mi.mesh.surface_get_arrays(surface)
+			if arrays.is_empty() or arrays[Mesh.ARRAY_VERTEX] == null:
+				continue
+			for v: Vector3 in arrays[Mesh.ARRAY_VERTEX] as PackedVector3Array:
+				var w: Vector3 = xform * v
+				if absf(w.y - centre.y) <= RADIUS_BAND_METRES:
+					band_best = maxf(band_best, Vector2(w.x - centre.x, w.z - centre.z).length())
+	return band_best if band_best > 0.0 else box_best
+
+
+## What the camera is anchored on: its spot on the orbit round the tower.
 func _focus_point() -> Vector3:
-	return _roof_point if _active else _measure_roof()
+	if not _active:
+		_measure_orbit()
+	var bearing: float = 0.0 if is_nan(_bearing) else _bearing
+	return _orbit_centre + Vector3(cos(bearing), 0.0, sin(bearing)) * _orbit_radius
 
 
 ## Where the camera turns to look: the living prisoner furthest along the
