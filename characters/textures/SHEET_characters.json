@@ -1,92 +1,15 @@
 {
   "canvas": [
-    620,
+    79,
     39
   ],
   "textures": [
-    {
-      "file": "creature2_albedo.png",
-      "kind": "albedo",
-      "mode": "RGB",
-      "rect": [
-        0,
-        7,
-        32,
-        32
-      ]
-    },
-    {
-      "file": "creature3_albedo.png",
-      "kind": "albedo",
-      "mode": "RGB",
-      "rect": [
-        83,
-        7,
-        32,
-        32
-      ]
-    },
-    {
-      "file": "creature4_albedo.png",
-      "kind": "albedo",
-      "mode": "RGB",
-      "rect": [
-        166,
-        7,
-        32,
-        32
-      ]
-    },
-    {
-      "file": "creature_albedo.png",
-      "kind": "albedo",
-      "mode": "RGB",
-      "rect": [
-        249,
-        7,
-        32,
-        32
-      ]
-    },
-    {
-      "file": "husk_a_albedo.png",
-      "kind": "albedo",
-      "mode": "RGB",
-      "rect": [
-        328,
-        7,
-        32,
-        32
-      ]
-    },
-    {
-      "file": "husk_b_albedo.png",
-      "kind": "albedo",
-      "mode": "RGB",
-      "rect": [
-        399,
-        7,
-        32,
-        32
-      ]
-    },
-    {
-      "file": "husk_c_albedo.png",
-      "kind": "albedo",
-      "mode": "RGB",
-      "rect": [
-        470,
-        7,
-        32,
-        32
-      ]
-    },
     {
       "file": "prisoner2_albedo.png",
       "kind": "albedo",
       "mode": "RGB",
       "rect": [
-        541,
+        0,
         7,
         32,
         32
