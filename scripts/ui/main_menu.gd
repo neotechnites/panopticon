@@ -67,8 +67,8 @@ signal quit_requested()
 var _store: SettingsStore = null
 var _mouse_inside: bool = true
 
-## World depth in metres, along the camera ray, at which the mouse aims the eye.
-const EYE_AIM_DEPTH_METRES: float = 68.0
+## Fraction of the camera-to-eye distance, along the mouse ray, where the aim point sits.
+const EYE_AIM_DEPTH_FRACTION: float = 0.6
 
 
 func _ready() -> void:
@@ -104,7 +104,8 @@ func _process(_delta: float) -> void:
 		return
 	eye.has_look_target = _mouse_inside
 	if _mouse_inside:
-		eye.look_target = camera.project_position(get_viewport().get_mouse_position(), EYE_AIM_DEPTH_METRES)
+		eye.look_target = camera.project_position(get_viewport().get_mouse_position(),
+				camera.global_position.distance_to(eye.global_position) * EYE_AIM_DEPTH_FRACTION)
 
 
 func _notification(what: int) -> void:
