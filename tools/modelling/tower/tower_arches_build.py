@@ -988,6 +988,30 @@ def unwrap(ob, name):
 
 
 # =============================================================================
+# 7c  FLOOR -- the room floor on the one tile at the map's own texel density
+# =============================================================================
+
+def refloor(ob, floor_z, r_in):
+    """Guard-room floor facets projected from the room's own x,y at tx.MPT (his atlas slices ran
+    0.16-0.46 m per texel on the two facets that are half the floor). Runs after retile; Col stays."""
+    me = ob.data
+    uvl = me.uv_layers.active
+    per = tx.TILE * tx.MPT                     # metres per repeat of the tile
+    n = 0
+    for poly in me.polygons:
+        if poly.normal.z < 0.9 or abs(poly.center.z - floor_z) > FLECK_Z:
+            continue
+        if math.hypot(poly.center.x, poly.center.y) > r_in + 0.5:
+            continue
+        for li in poly.loop_indices:
+            co = me.vertices[me.loops[li].vertex_index].co
+            uvl.data[li].uv = (co.x / per, co.y / per)
+        n += 1
+    print("MDL STATS refloored %d facets at %.3f m/texel, %.1f m per repeat" % (n, tx.MPT, per))
+    return n
+
+
+# =============================================================================
 # 7b  FLECKS -- one floor facet magnified a lava fleck into a wedge
 # =============================================================================
 
@@ -1343,6 +1367,7 @@ def build(retile=True):
     if retile:                                     # tower_hollow retiles after its cuts
         tx.retile(rock, tx.hell_atlas_material(cull=mat.use_backface_culling),
                   src=(mat.name.split(".")[0],))   # the one hell rock tile
+        refloor(rock, m["floor"], m["r_in"])
 
     coll_ob, spans = _collider(m, plan)
     coll_ob.hide_render = True
