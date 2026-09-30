@@ -238,7 +238,7 @@ FOOT_PITCH_PHASE = 68.8
 
 ARM_SWING_MID   = -30.0
 ARM_SWING_AMP   =  33.0
-ARM_TUCK        = -14.0
+ARM_TUCK        =   6.0
 ELBOW_MID       = 101.0
 ELBOW_AMP       =  17.0
 
@@ -684,8 +684,8 @@ JUMP_KEYS = [
     (0.25, {"Spine": 10.0, "Neck": -8.0, "Head": -6.0,
             "UpperArm.L": -30.0, "LowerArm.L": -30.0,
             "UpperArm.R": -30.0, "LowerArm.R": -30.0,
-            "Thigh.L": -55.0, "Shin.L": -80.0, "Foot.L": -25.0,
-            "Thigh.R": -55.0, "Shin.R": -80.0, "Foot.R": -25.0,
+            "Thigh.L": 55.0, "Shin.L": -80.0, "Foot.L": -25.0,
+            "Thigh.R": 55.0, "Shin.R": -80.0, "Foot.R": -25.0,
             "Hips": -4.0}),
     (0.45, {"Spine": -8.0, "Neck": 4.0, "Head": 4.0,
             "UpperArm.L": -50.0, "LowerArm.L": -20.0,
@@ -696,13 +696,13 @@ JUMP_KEYS = [
     (0.70, {"Hips": -6.0, "Spine": 10.0, "Neck": -8.0, "Head": -6.0,
             "UpperArm.L": 35.0, "LowerArm.L": -40.0,
             "UpperArm.R": -60.0, "LowerArm.R": -55.0,
-            "Thigh.L": -50.0, "Shin.L": -75.0, "Foot.L": -20.0,
+            "Thigh.L": 50.0, "Shin.L": -75.0, "Foot.L": -20.0,
             "Thigh.R": 18.0, "Shin.R": -60.0, "Foot.R": 15.0}),
     (1.00, {"Spine": 14.0, "Neck": -10.0, "Head": -8.0,
             "UpperArm.L": -20.0, "LowerArm.L": -35.0,
             "UpperArm.R": -20.0, "LowerArm.R": -35.0,
-            "Thigh.L": -60.0, "Shin.L": -95.0, "Foot.L": -30.0,
-            "Thigh.R": -60.0, "Shin.R": -95.0, "Foot.R": -30.0,
+            "Thigh.L": 60.0, "Shin.L": -95.0, "Foot.L": -30.0,
+            "Thigh.R": 60.0, "Shin.R": -95.0, "Foot.R": -30.0,
             "Hips": -8.0}),
 ]
 
