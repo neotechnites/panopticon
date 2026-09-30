@@ -12,7 +12,8 @@ Not a model of its own: forest_build.py calls in here with its _Ground (g).
                          forest_build._RayMesh); the scene shows it unshaded,
                          mixed, vertex colour as albedo -- GL Compatibility has
                          no fog volumes, so the fog is layers
-    fog_report()         what those discs do to a ray straight down the pit
+    fog_report()         what those discs do to a ray down the pit: straight down, and
+                         oblique from every stand point (FOG_EYES) to every floor point
     stem_colour(bank_r, p)  a bramble vertex's COLOR_0: the fog's rendered colour up to
                          the drift field's local fog top, bark STEM_FADE above it, so
                          every disc crossing a stem meets its own colour on both sides
@@ -20,8 +21,8 @@ Not a model of its own: forest_build.py calls in here with its _Ground (g).
 No water: the pit is a dark floor under fog, and thorns come out of the fog. The
 floor is not meant to be seen at all -- a pit reads as bottomless only while
 nothing flat at the end of it reaches the eye -- so the fog is built to a number
-rather than to a look: the bottom of the stack is one opaque slab and a vertical
-ray leaves under FOG_PROOF of the floor's own colour. It takes two things
+rather than to a look: the bottom of the stack is one opaque slab and every ray
+from a stand point to the floor leaves under FOG_PROOF of the floor's own colour. It takes two things
 together. The slab is here; the other half is `disable_fog = true` on FogMat in
 maps/forest/forest.tscn, without which the Environment's depth fog repaints these
 layers AND the floor behind them to one pale colour, and one colour spread over
@@ -66,11 +67,18 @@ FOG_Z = (-11.6, -5.75, 0.45)    # bottom (just under the floor at -11.05), top, 
                                 # tris as before; only the pitch and the ceiling moved
 FOG_N = 36                      # segments round: 14 layers x 5 bands x 36 x 2 = 5040 tris, which is
                                 # what the forest has left under its 130k budget (the fog is a tenth of it)
-FOG_HOLE = (6.8, 13.0)          # round the trunk: alpha 0 at 6.8 (outside the trunk, r <= 6.4 above the
-                                # roots) easing to full at 13.0 -- a wide inner feather, no ring edge
-FOG_BANK = (1.4, 9.0, 0.6)      # the rim feather, which SHRINKS WITH DEPTH: this wide right through the
+FOG_HOLE = (6.8, 7.4)           # round the trunk: alpha 0 at 6.8 (outside the trunk, r <= 6.9 through the
+                                # stack) and full by 7.4, inside the trunk's own foot (r 7.5 at the floor).
+                                # Was 13.0: a six-metre feather here was a window from the tower straight
+                                # onto the bare floor round the roots (r 7.5..11, no brambles). The trunk
+                                # still meets every disc at alpha ~0, so no disc draws a line on the bark
+FOG_BANK = (0.0, 9.0, 0.6)      # the rim feather, which SHRINKS WITH DEPTH: this wide right through the
                                 # slab, this wide at the top layer, and always ending this far INSIDE the bank, so the
-                                # fog stops buried in earth and can never show an edge against it. Nine
+                                # fog stops buried in earth and can never show an edge against it. Zero through
+                                # the slab (was 1.4): the body reaches the bank's foot and the whole feather
+                                # is in the earth, because an eye on the lip sees the foot 40 degrees round
+                                # from it along a ray that never leaves r 41..42 -- with any feather there
+                                # it crossed twelve layers of ramp and 4.1 % of the floor came through. Nine
                                 # metres of feather at the floor left the bank's foot and the floor's outer
                                 # rim (r 33..42 of a 42 m floor) inside the ramp -- and that rim is the
                                 # nearest flat thing to an eye on the lane, half of what read as a floor.
@@ -89,26 +97,27 @@ FOG_FEATHER = 0.55              # alpha at the middle of the rim feather. Raised
 FOG_ALPHA = 1.0                 # the floor layer's alpha: opaque, the most a vertex colour can ask for.
                                 # Anything less cannot win -- FOG_OVERRIDE caps one layer at 0.6, so putting
                                 # a vertical ray under 0.5 % transmittance needs six layers at the ceiling
-FOG_SOLID = 0.39                # ... and the bottom this fraction of the stack holds it: six layers of solid
-                                # dark (y -11.6 to -9.35) that the drift never thins. Six is the number the
-                                # transmittance proof needs (0.4 ** 6), so when the stack was compressed onto
-                                # the thicket this fraction moved with it to keep exactly those six layers
-                                # solid -- the slab is thinner in metres and identical in opacity. Below the roll the fog
-                                # is not a gradient, it is the dark. This is the number the transmittance
-                                # proof moves; the layers above it are the look
+FOG_SOLID = 0.70                # ... and the bottom this fraction of the stack holds it: TEN layers of solid
+                                # dark (y -11.6 to -7.55) that the drift never thins. Was 0.39 (six layers):
+                                # six beat a VERTICAL ray, but an oblique one from the lane to the far bank's
+                                # foot crossed the lowest layers in the rim feather and only three in the
+                                # body -- 2.8 %, the floor. Ryan: "the fog is not strong enough. you can see
+                                # to the bottom." The oblique proof (fog_report) now has every eye's every
+                                # ray through at least seven solid layers. Below the roll the fog is not a
+                                # gradient, it is the dark; only the top ~1.35 m thins to the bramble tops
 FOG_CURVE = 1.6                 # above the slab the column falls as ((reach - u)/(reach - FOG_SOLID))^this
                                 # to exactly 0 where the column ends
 FOG_DEPTH_DIM = 0.15            # the tint at the floor, as a factor; 1.0 at the top. Deepened from 0.50 now
                                 # that the floor layer is opaque: what an opaque layer shows IS its tint, and
                                 # the bottom of a bottomless pit has to converge on black, not on a colour
                                 # (0.26 x 0.15 x FOG_OVERRIDE = 0.023 linear, against 0.156 up in the haze)
-FOG_REACH = 0.65                # how high a column of fog climbs, as a fraction of the stack: FOG_REACH in
+FOG_REACH = 0.90                # how high a column of fog climbs, as a fraction of the stack: FOG_REACH in
                                 # the thin places, 1.0 in the thick ones, set by the drift field -- the top
                                 # of the fog ROLLS instead of lying flat, and never reaches past the top
                                 # layer, which is therefore alpha 0 all the way round: no plane to see.
-                                # 0.65 is 1.5 m -- three and a bit layers -- clear of FOG_SOLID, so the slab's
+                                # 0.90 is 1.2 m -- two and a bit layers -- clear of FOG_SOLID, so the slab's
                                 # own top is always buried under graded fog and is never a surface either.
-                                # In metres: the fog's top rolls between y -7.80 and y -5.75
+                                # In metres: the fog's top rolls between y -6.33 and y -5.75
 FOG_DENSE = 0.30                # ... and the same field thickens and thins the column, +/- this much --
                                 # weighted to the roll and zero in the slab, because a thin spot low down
                                 # is a window onto the floor
@@ -120,7 +129,17 @@ FOG_RADIAL = (0.16, 2.3, 0.35)         # one more drift term across the radius (
 FOG_GAIN = 1.7                         # the sines rarely line up, so the field is scaled to its range and
                                        # clipped: banks with thick middles, not a gentle swell
 FOG_PROOF = 0.005                      # what fog_report() has to beat: the share of the floor that may still
-                                       # reach an eye looking straight down the pit, through the whole stack
+                                       # reach an eye, straight down the pit AND along every oblique ray from
+                                       # where a player can stand (FOG_EYES) to every floor point it can see
+FOG_EYES = (("deck_edge", "lip", 0.0),   # (name, where, height over it): the lip's edge, the path, the lane's
+            ("lane_path", "path", 0.0),  # outer edge, the guard's floor, and the goblet rim round it. Bearings
+            ("lane_wall", "wall", 0.0),  # step FOG_EYE_STEP; the floor is sampled at FOG_FLOOR_STEP
+            ("tower_floor", "tower", 0.0),
+            ("tower_rim", "tower_rim", 0.55))
+FOG_EYE_STEP = 60.0                    # eye bearings: the slab and its feathers are round, only the roll drifts
+FOG_FLOOR_STEP = (10.0, 1.0)           # floor samples: degrees round, metres out, trunk foot to FLOOR_RIM
+FOG_JAG = 0.35                         # the bank wanders this far in plan (forest_build.PIT_JAG): a ray is
+                                       # only counted as buried once it is deeper than this into the profile
 FOG_MONO = 0.005                       # how much a layer may be brighter than the one under it before the
                                        # stack counts as having a lid in it. Not zero: two neighbouring rings
                                        # end at slightly different heights, so where a column runs out the
@@ -637,13 +656,94 @@ def fog_ray(bank_at, deg, rad):
     return through, eff
 
 
+def _trunk_r(z):
+    """The tree's radius at height z (forest_tree_build.TRUNK, no flute, no roots): what a ray hits."""
+    prof = ft.TRUNK[:ft.RIM_TOP]
+    if z <= prof[0][0]:
+        return prof[0][1]
+    for k in range(len(prof) - 1):
+        (z0, r0, _f0), (z1, r1, _f1) = prof[k], prof[k + 1]
+        if z0 <= z <= z1:
+            return r0 + (r1 - r0) * (z - z0) / max(1e-9, z1 - z0)
+    return prof[-1][1]
+
+
+def _bearing(x, y):
+    return -math.degrees(math.atan2(y, x)) % 360.0
+
+
+def fog_oblique(bank_at, eye, floor):
+    """The ray from eye to floor (Blender xyz), as the eye sees it: None when the
+    bank or the trunk is in the way, else (transmittance, layers crossed)."""
+    d = sub(floor, eye)
+    for n in range(1, 60):
+        p = add(eye, d, n / 60.0)
+        rad = math.hypot(p[0], p[1])
+        if rad > bank_at(p[2]) + FOG_JAG or rad < _trunk_r(p[2]):
+            return None
+    through, crossed = 1.0, 0
+    for k, z in enumerate(_fog_layers()):
+        if not (floor[2] < z < eye[2]):
+            continue
+        t = (z - eye[2]) / d[2]
+        p = add(eye, d, t)
+        rad = math.hypot(p[0], p[1])
+        u = k / float(len(_fog_layers()) - 1)
+        through *= (1.0 - FOG_OVERRIDE * _fog_alpha_at(bank_at(z), _bearing(p[0], p[1]), rad, z, u))
+        crossed += 1
+    return through, crossed
+
+
+def _eyes(fb):
+    """FOG_EYES as (name, r, z): where a player's eye can be, from the scene's own numbers."""
+    where = {"lip": (fb.INNER_R, fb.DECK_Z), "path": (0.5 * (fb.PATH_BAND[0] + fb.PATH_BAND[1]), fb.DECK_Z),
+             "wall": (fb.OUTER_R, fb.DECK_Z), "tower": (ft.FLOOR_R, ft.FLOOR_Y),
+             "tower_rim": (ft.TRUNK[ft.RIM_TOP - 2][1], ft.FLOOR_Y)}
+    return [(name, where[key][0], where[key][1] + lift + fb.EYE_H) for (name, key, lift) in FOG_EYES]
+
+
+def fog_oblique_report(fb):
+    """Every eye in FOG_EYES, at FOG_EYE_STEP bearings, to every floor point on a
+    FOG_FLOOR_STEP grid it can see: the worst transmittance per eye, against FOG_PROOF."""
+    ok = True
+    r_lo = _trunk_r(FLOOR_Z)
+    radii = []
+    rad = r_lo
+    while rad < FLOOR_RIM - 1e-6:
+        radii.append(rad)
+        rad += FOG_FLOOR_STEP[1]
+    radii.append(FLOOR_RIM)
+    for (name, er, ez) in _eyes(fb):
+        worst = (0.0, 0.0, 0.0, 0.0, 0)
+        seen = 0
+        eb = 0.0
+        while eb < 360.0 - 1e-6:
+            eye = pol(eb, er, ez)
+            fdeg = 0.0
+            while fdeg < 360.0 - 1e-6:
+                for rad in radii:
+                    got = fog_oblique(fb._bank_r, eye, pol(fdeg, rad, FLOOR_Z))
+                    if got is not None:
+                        seen += 1
+                        if got[0] > worst[0]:
+                            worst = (got[0], eb, fdeg, rad, got[1])
+                fdeg += FOG_FLOOR_STEP[0]
+            eb += FOG_EYE_STEP
+        ok = ok and worst[0] <= FOG_PROOF
+        print("fog oblique eye=%s r=%.1f y=%.2f floor_rays_seen=%d worst=%.5f%% (eye_deg=%.0f floor_deg=%.0f r=%.1f layers=%d) limit=%.3f%% %s"
+              % (name, er, ez, seen, 100.0 * worst[0], worst[1], worst[2], worst[3], worst[4], 100.0 * FOG_PROOF,
+                 "PASS" if worst[0] <= FOG_PROOF else "FAIL"))
+    return ok
+
+
 def fog_report():
     """Prints the numbers the fog is built to hit, for every bearing and every
     radius of floor the fog is meant to cover: the worst vertical transmittance
-    (must beat FOG_PROOF), whether alpha rises with depth everywhere (it must, or
-    the stack has a lid in it somewhere), and the effective alpha and feather
-    width at three depths. No Blender and no Godot: this is arithmetic on the same
-    functions the mesh is built from."""
+    (must beat FOG_PROOF), the worst oblique one from every stand point (the same
+    limit), whether alpha rises with depth everywhere (it must, or the stack has a
+    lid in it somewhere), and the effective alpha and feather width at every depth.
+    No Blender and no Godot: this is arithmetic on the same functions the mesh is
+    built from. Returns True when every proof passes."""
     import forest_build as fb
     layers = _fog_layers()
     body = [FOG_HOLE[1] + 0.5 * j for j in range(0, 55)]          # r 13.0 .. 40.0, the floor under the slab
@@ -668,7 +768,8 @@ def fog_report():
           % (worst[1], worst[2], 100.0 * worst[0], 100.0 * FOG_PROOF,
              "PASS" if worst[0] <= FOG_PROOF else "FAIL"))
     print("fog worst_ray effective_alpha=%s" % ["%.3f" % a for a in eff])
-    print("fog rim_ray r=%.1f transmittance=%.3f%% (the feather: it grades into earth by design)"
+    ok = worst[0] <= FOG_PROOF and fog_oblique_report(fb)
+    print("fog rim_ray r=%.1f transmittance=%.3f%% (the bank's foot: under the slab's body, the feather is in the earth)"
           % (rim[2], 100.0 * rim[0]))
     top = 0.0                                                     # the lid check, read off the top layer itself
     for (rad, w) in _fog_rings(fb._bank_r(layers[-1]), 1.0):
@@ -678,6 +779,7 @@ def fog_report():
             top = max(top, w * FOG_ALPHA * _fog_column(1.0, reach, d))
     print("fog max_rise_with_height=%.5f at_alpha=%.5f limit=%.3f %s   top_layer_alpha=%.6f"
           % (rise[0], rise[1], FOG_MONO, "PASS" if rise[0] <= FOG_MONO else "FAIL", top))
+    ok = ok and rise[0] <= FOG_MONO
     for k, z in enumerate(layers):
         u = k / float(len(layers) - 1)
         rings = _fog_rings(fb._bank_r(z), u)
@@ -687,7 +789,8 @@ def fog_report():
               % (k, z, u, FOG_OVERRIDE * FOG_ALPHA * _fog_column(u, reach, d), fog_feather(u),
                  rings[3][0], rings[5][0],
                  FOG_DEPTH_DIM + (1.0 - FOG_DEPTH_DIM) * _ease(u)))
+    return ok
 
 
 if __name__ == "__main__":
-    fog_report()
+    sys.exit(0 if fog_report() else 1)

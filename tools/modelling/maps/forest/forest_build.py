@@ -1805,6 +1805,7 @@ def _check():
     print("SEAM %s" % seam_line())
     fog = ray_set[fp.FOG_NAME]
     fog.compact()
+    assert fp.fog_report(), "fog proof FAILED: a stand point sees the pit floor (forest_pit_build.FOG_PROOF)"
     for name, mm in (("ground", m), ("coll", c), ("rays", rays), ("fog", fog)):
         degen = 0
         for f in mm.faces:
