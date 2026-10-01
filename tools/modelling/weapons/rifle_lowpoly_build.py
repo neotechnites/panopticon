@@ -29,10 +29,11 @@ def loft(name, sections, cap0=True, cap1=True, top=None):
         a, b = k * n, (k + 1) * n
         faces += [[a + i, a + (i + 1) % n, b + (i + 1) % n, b + i] for i in range(n)]
     caps = []
+    run = 1.0 if sections[-1][0] >= sections[0][0] else -1.0   # a loft may run toward -Y (the stock)
     if cap0:
-        caps.append((list(range(n)), -1.0))
+        caps.append((list(range(n)), -run))
     if cap1:
-        caps.append((list(range((len(sections) - 1) * n, len(sections) * n)), 1.0))
+        caps.append((list(range((len(sections) - 1) * n, len(sections) * n)), run))
     for f in faces:                                    # sides face away from the section centre
         c = [sum(verts[i][d] for i in f) / 4.0 for d in range(3)]
         k = f[0] // n

@@ -22,10 +22,6 @@ const HOTKEYS: Array[Array] = [
 ## Seconds the Extend button adds to the siege clock.
 const EXTEND_SECONDS: float = 30.0
 
-## The signed-off rifle and its low-poly test cut, swapped by the Sniper section's toggle.
-const RIFLE_MODEL: String = "res://weapons/models/rifle.glb"
-const RIFLE_LOWPOLY_MODEL: String = "res://weapons/models/rifle_lowpoly.glb"
-
 ## Set by the pause menu: the menu drives the running match rather than the setup.
 var in_match: bool = false
 
@@ -199,12 +195,6 @@ func _build_sniper() -> void:
 			func(value: float) -> void: _rule(&"guard_skill", value, &"guard_skill"))
 	_toggle("DEBUG_HIT_MARKER", rules.guard_hit_marker,
 			func(on: bool) -> void: _rule(&"guard_hit_marker", on, &"guard_hit_marker"))
-	var rifle_mesh: MeshInstance3D = null
-	if rifle != null:
-		rifle_mesh = rifle.get_node_or_null(^"ViewModel/Model/Rifle") as MeshInstance3D
-	if rifle_mesh != null:
-		_toggle("DEBUG_RIFLE_LOWPOLY", rifle_mesh.mesh == _model_mesh(RIFLE_LOWPOLY_MODEL),
-				func(on: bool) -> void: rifle_mesh.mesh = _model_mesh(RIFLE_LOWPOLY_MODEL if on else RIFLE_MODEL))
 
 
 func _build_runners() -> void:
@@ -289,18 +279,6 @@ func _set_reload(value: float) -> void:
 	_controller.get_rules().reload_seconds_by_turn = by_turn
 	SettingsStore.instance().settings.reload_by_turn = by_turn.duplicate()
 	_controller.debug_refresh_reload()
-
-
-## The rifle mesh inside a rifle model .glb; the import shares it across instances.
-static func _model_mesh(path: String) -> Mesh:
-	var scene: PackedScene = load(path) as PackedScene
-	if scene == null:
-		return null
-	var root: Node = scene.instantiate()
-	var found: MeshInstance3D = root.get_node_or_null(^"Rifle") as MeshInstance3D
-	var mesh: Mesh = found.mesh if found != null else null
-	root.free()
-	return mesh
 
 
 ## Run a phase action and hand the match back.

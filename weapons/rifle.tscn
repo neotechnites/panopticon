@@ -3,7 +3,7 @@
 [ext_resource type="Script" path="res://scripts/weapon/rifle.gd" id="1_rifle"]
 [ext_resource type="Script" path="res://scripts/weapon/weapon_input.gd" id="2_weapon_input"]
 [ext_resource type="Resource" path="res://weapons/default_weapon_profile.tres" id="3_weapon_profile"]
-[ext_resource type="PackedScene" uid="uid://brrytn6tpwbeh" path="res://weapons/models/rifle.glb" id="4_rifle_model"]
+[ext_resource type="PackedScene" uid="uid://brwl54q33wsqq" path="res://weapons/models/rifle_lowpoly.glb" id="4_rifle_model"]
 [ext_resource type="Script" path="res://scripts/weapon/rifle_recoil.gd" id="5_rifle_recoil"]
 [ext_resource type="Script" path="res://scripts/weapon/rifle_ads.gd" id="6_rifle_ads"]
 [ext_resource type="PackedScene" path="res://weapons/scope_vignette.tscn" id="7_scope_vignette"]
@@ -53,7 +53,7 @@ aim axis instead of 24 -- and tests/test_weapon.gd fails on exactly that."
 transform = Transform3D(0.740766, 0.012264, -0.116683, 0, 0.745891, 0.078396, 0.117326, -0.077431, 0.736708, 0.3, -0.24, -0.38)
 
 [node name="Model" parent="ViewModel" instance=ExtResource("4_rifle_model")]
-editor_description = "weapons/models/rifle.glb, untouched and at identity: 456 triangles, one flat material, no UVs, no skin, no animation. Instanced rather than inherited so the model stays a pure import -- reimporting it must never silently rewrite a transform the game depends on.
+editor_description = "weapons/models/rifle_lowpoly.glb, untouched and at identity: about 250 triangles, one textured material, no skin, no animation. Instanced rather than inherited so the model stays a pure import -- reimporting it must never silently rewrite a transform the game depends on.
 
 Its own axes are already the ones the game wants: bore on y=0, shot line down local -Z, scope directly above the origin, stock back toward +Z, muzzle at local (0, 0, -1.150). Bounds are x +/-0.12, y -0.29 (bipod feet) to +0.18 (scope top), z -1.15 to +0.34.
 
