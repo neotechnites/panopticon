@@ -7,8 +7,8 @@ rules: 16:9 1920x1080 (SIZE=1920x1080 shot.sh), no HUD except the guard's scope,
 v2 notes (Ryan on rough_v1): the guard stands at the tower's window, not deep inside; all runners run the course direction; the runner shot is the SAME event as the guard shot (same stage, same seed, two POVs), cut back ~1 s to the man directly behind the victim; clear line of sight when he looks up at the tower; title drops in HARD on the music's drop; music https://www.youtube.com/watch?v=OBPV0lsorwU; real-looking gameplay only (walkable deck and real cover, nobody on lava, nobody looking backwards); max 4 players a shot (1 guard + 3); spread across hell, forest and marble. Added: "EVERY shot is first-person POV -- either the guard's scope/tower view or a prisoner's first-person view. No third-person ... Title/end cards are the only non-POV frames."
 music: external\src\music_v2_OBPV0lsorwU.mp4 -> voice\sr20det.ogg (SOURCES.md). The drop: 0.35 s of silence from 5.36 s, the hit at 5.703 s (sample onset); 170 bpm after it (v3 measured).
 cards: cuts/title_hard.mp4 is v1's title frame looped from frame 0 (v1's title.mp4 opened on two black frames); cuts/end.mp4 is v1's.
-delivery: content\trailer_reveal\final\rough_v4.mp4 (and ~/Desktop/panopticon-renders/trailer_reveal/)
-tag: rough_v4
+delivery: content\trailer_reveal\final\rough_v5.mp4 (and ~/Desktop/panopticon-renders/trailer_reveal/)
+tag: rough_v5
 size: 1920x1080
 v4 (Ryan): "every shot must be exactly reproducible in engine -- run a script and record"; NO CROUCHING anywhere; max 3 prisoners + guard; guard shots on the projectile rifle (led, held over). Every shot plays a TAPE (tape: line): the staged take recorded once, then every input played back -- see ## reshoot.
 
@@ -86,34 +86,34 @@ freeze: waive
 # v3 d3 (05.mp4@4.5 = take 5.5): breaks 5.55, sprints r 49 from ~6.2
 
 ## 9a
-said: v4 "Forest, runner POV shoving another runner off the inner edge into the pit"
+said: v5 "Forest, runner POV: a second runner beside him at the inner edge, a visible shove, he tips over the edge and drops out of frame into the mist"
 capture: --map=forest --shot=pack_lead --stage=trailer_forest_pit --bots=3 --pov=runner --look=social --rifle=projectile --seed=20261001
 tape: forest_pit
-seconds: 2.2
-in: 1.35
+seconds: 2.85
+in: 1.40
 freeze: waive
-# the victim cuts to the lip at 151.6 deg between the lip trunks; the shover comes up outside him and shoves at 2.45 (152.8 deg r 48.0), then looks down; a third stops at r 48.9
+# side by side down the lane, the victim cuts in to the lip (153.4 deg r 46.8) and turns to face him at 2.30; the shove at 2.75 from 1.5 m (arms + the shover's kick), back over the edge, out of frame down the bank ~3.9; a third pulls up behind
 
 ## 9b
-said: v4 "Forest, the shoved runner's POV falling into the pit through the mist, watching the others above"
+said: v5 "Forest, the shoved runner's POV: the edge he was shoved from with the shover on it looking down, falling away, the mist rushing up"
 capture: --map=forest --shot=pack_lead --stage=trailer_forest_pit --bots=3 --pov=runner --look=social --rifle=projectile --set=pov=victim --seed=20261001
 tape: forest_pit
-seconds: 2.2
-in: 2.25
+seconds: 1.45
+in: 3.25
 freeze: waive
-# the forest_pit tape down Runner_1: shoved 2.45, through the mist (y -5.75..-11.6), out at the floor 4.42; the forest kills at y 0 (above the mist), so this stage lowers its KillBox to the floor for the shot only (floor_kill=1; map unchanged)
+# the forest_pit tape down Runner_1, eyes held on the shover: 0.5 s after the shove the lip is 5 m off, then 30 m of drop into the mist (y -5.75) and the cut at 4.67 before the floor (out 4.75); floor_kill=1 lowers the KillBox to the floor for the shot only (map unchanged)
 
 ## 10a
-said: v4 "Marble, runner POV behind a column on the inner edge, shoves the runner beside him out of cover; cut BEFORE the shot"
+said: v5 "Marble, runner POV: two runners both behind the same column on the inner edge, hidden from the tower; he shoves the other out into the open; cut BEFORE the shot"
 capture: --map=marble --shot=pack_lead --stage=trailer_marble_column --bots=2 --pov=runner --look=social --rifle=projectile --seed=20261001
 tape: marble_column
 seconds: 2.2
 in: 1.6
 freeze: waive
-# columns spawned by the stage (marble_column.glb, r 47.5, 116.4-135.6 deg; maps/marble/marble.tscn untouched); shove 3.00 at 126.0 deg, lands in the gap 3.40; the cut ends 3.72, before the squeeze at 3.87
+# columns spawned by the stage (marble_column.glb, r 47.5, 116.4-135.6 deg; maps/marble/marble.tscn untouched); both in the 126 column's shadow from the 126 window, the victim at 126.36 r 48.55, the POV behind him at 125.65 r 49.1; shove 3.00 along the ring, lands in the gap 3.40 (129.0); the cut ends 3.80, before the squeeze at 3.87
 
 ## 10b
-said: v4 "Marble, guard scope, a beat earlier: sees him pushed out from the column, fires, hits"
+said: v5 "Marble, guard scope, the same event: nobody in sight, one shoved out from behind the column, fires, hits"
 capture: --map=marble --shot=pack_lead --stage=trailer_marble_column --bots=2 --pov=guard --hud=crosshair --rifle=projectile --seed=20261001
 tape: marble_column
 seconds: 2.2
@@ -174,7 +174,7 @@ music_db: -3
 music_fade: 0.02 2.5
 captions: none
 # v4: a1+a2 = 5.70 s, the title cuts in on the drop at 5.703 s. After it every cut ends on the 170 bpm grid (beat k at
-# 5.716 + k*0.35294 s): h1 k9, h2 k13, then six beats a shot (5b k19 ... 10b k62), t2 k69, g1 k78, 13 k84, 14 five
+# 5.716 + k*0.35294 s): h1 k9, h2 k13, then six beats a shot (5b k19 ... 10b k62; v5: 9a eight, 9b four), t2 k69, g1 k78, 13 k84, 14 five
 # beats so the end card lands hard on k89, an 8th-beat accent (37.13 s). Lengths are frame-rounded beat boundaries.
 # cuts/NN.mp4 is shot NN's cut from its in: point (shot.sh); 12's white frame is its flash: line (take 4.19, 0.045 s).
 # cuts/title_hard.mp4 and cuts/end_v3.mp4 are the v3 cards (end without the player count), kept on the PC.
@@ -188,8 +188,8 @@ captions: none
 | d1 | cuts/06.mp4@0.4:2.4833 | | | beat 2.4833 | | |
 | d2 | cuts/07.mp4@2.0:2.1167 | | | beat 2.1167 | | |
 | d3 | cuts/08.mp4@0:2.1167 | | | beat 2.1167 | | |
-| p1 | cuts/09a.mp4@0:2.1167 | | | beat 2.1167 | | |
-| p2 | cuts/09b.mp4@0:2.1167 | | | beat 2.1167 | | |
+| p1 | cuts/09a.mp4@0:2.8167 | | | beat 2.8167 | | |
+| p2 | cuts/09b.mp4@0:1.4167 | | | beat 1.4167 | | |
 | m1 | cuts/10a.mp4@0:2.1167 | | | beat 2.1167 | | |
 | m2 | cuts/10b.mp4@0:2.1167 | | | beat 2.1167 | | |
 | t2 | cuts/11.mp4@1.0:2.4667 | | | beat 2.4667 | | |

@@ -1,10 +1,12 @@
 extends "res://tools/capture/stages/stage.gd"
 
-## trailer_marble_column (10a/10b): two prisoners behind a column on marble's inner edge; one shoves
-## the other out into the gap, the guard at the 126 deg window drops him. One take, two POVs.
+## trailer_marble_column (v5 10a/10b): two prisoners both hidden behind the 126 column, one behind the other in
+## its shadow from the 126 window; the back one shoves the front one out into the gap and the guard drops him. Two POVs.
 ## Columns are this shot's own (spawn_columns), never the map's: five at r 47.5, 116.4-135.6 deg.
 ## probe_ring --map=marble --eye=126:5.6:5.8: r 48.6 open 118-133 without the columns.
-## Dials: victim (126.0,48.65), pov (124.85,48.75), shove (clip s, 2.7), impulse (8.5), up (4.0), squeeze (0.45), lead (0: he has stopped).
+## Shadow: the 0.8 m shaft hides a 0.82 m strip behind it; victim 0.3 m along the ring (+), shover 0.3 m back (-), 0.55 m
+## further out; the swing runs 5 deg inboard of the ring so he is 37.5 deg off it (cone 45) and lands in the gap.
+## Dials: victim (126.356,48.55), pov (125.648,49.1), shove (clip s, 2.7), impulse (8.5), up (4.0), squeeze (0.45), lead (0).
 
 const GUARD_HAND := preload("res://tools/capture/stages/guard_hand.gd")
 const COLUMN_SCENE: String = "res://maps/marble/models/marble_column.glb"
@@ -62,8 +64,8 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 	for brain: RunnerBrain in runners:
 		if brain.controller == null:
 			return false
-	var v: Vector3 = LIB.polar(String(option("victim", "126.0,48.65")), LIB.ring_point(126.0, 48.65))
-	var p: Vector3 = LIB.polar(String(option("pov", "124.85,48.75")), LIB.ring_point(124.85, 48.75))
+	var v: Vector3 = LIB.polar(String(option("victim", "126.356,48.55")), LIB.ring_point(126.356, 48.55))
+	var p: Vector3 = LIB.polar(String(option("pov", "125.648,49.1")), LIB.ring_point(125.648, 49.1))
 	var v_deg: float = LIB.bearing_of(v)
 	var p_deg: float = LIB.bearing_of(p)
 	_victim = runners[0].controller
@@ -81,14 +83,14 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 		{"do": "glance", "right": 30.0, "pitch": 4.0, "seconds": 0.45},
 		{"do": "hold", "seconds": 60.0, "sway": 4.0, "period": 2.3},
 	], 0, "ClipColumnVictim")
-	# The rider: a step behind and to the side, eyes on the tower past the column, a look at
-	# him, then square up and shove him along the ring into the gap.
-	var p_face: Vector3 = (LIB.tangent_at(p_deg) * 0.55 - LIB.radial_at(p_deg) * 0.83).normalized()
+	# The rider: tucked in behind him, eyes on the column and the edge of it, a look at him,
+	# then square up and shove him along the ring out of its shadow into the gap.
+	var p_face: Vector3 = (LIB.tangent_at(p_deg) * 0.34 - LIB.radial_at(p_deg) * 0.94).normalized()
 	var at_him: Vector3 = LIB.toward(p, v)
 	var turn: float = _right_of(p_face, at_him)
 	LIB.hide_from_the_rifle(_pov)
-	# The swing goes along the ring, a touch outboard, so he is thrown into the gap, not off the edge.
-	var swing: Vector3 = (LIB.tangent_at(v_deg) + LIB.radial_at(v_deg) * 0.12).normalized()
+	# The swing goes along the ring, 5 deg inboard to keep him in the cone; the edge is r 46.7, he lands ~r 48.
+	var swing: Vector3 = (LIB.tangent_at(v_deg) * cos(deg_to_rad(5.0)) - LIB.radial_at(v_deg) * sin(deg_to_rad(5.0))).normalized()
 	var square: float = _right_of(p_face, swing)
 	drive(runners[1], [
 		{"do": "place", "at": p + Vector3.UP * 0.1, "face": p_face},
@@ -113,7 +115,7 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 		LIB.hide_from_the_rifle(runners[index].controller)
 	victim_body(_victim)
 	stage_body(_pov)
-	say("trailer_marble_column: %s behind the %.1f column, %s beside him" % [_victim.name, v_deg, _pov.name])
+	say("trailer_marble_column: %s behind the %.1f column, %s behind him" % [_victim.name, v_deg, _pov.name])
 	return true
 
 

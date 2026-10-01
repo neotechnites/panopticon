@@ -136,6 +136,8 @@ const STUCK_SPEED: float = 0.6
 ## in a clip, this -- the same whip, at the shove's own scale.
 const FEEDBACK_PROFILE_PATH: String = "res://match/feedback/default_feedback_profile.tres"
 const POV_SHOVED_KICK_SCALE: float = 1.0
+## The shover's own kick, at the scale the game gives a human who shoves (MatchController.SHOVE_KICK_SCALE).
+const POV_SHOVER_KICK_SCALE: float = 0.5
 
 ## The chase ghost runs this much faster than the prisoner it is after. The
 ## shipped ghost is three times faster and would be on them before a lens could
@@ -887,6 +889,8 @@ func _log_events() -> void:
 			])
 			if _pov != "" and victim.body == _pov_body:
 				_kick_the_ridden_camera(-shover.body.global_transform.basis.z)
+			elif _pov != "" and shover.body == _pov_body:
+				_kick_the_ridden_camera(-shover.body.global_transform.basis.z, POV_SHOVER_KICK_SCALE)
 			if _plugin != null:
 				_plugin.on_shove(shover, victim)
 			_flag_the_drivers("shove")
@@ -1110,7 +1114,7 @@ func _wear_the_body(body: PlayerController) -> void:
 
 ## Whip the ridden body's camera the way the game whips a player's: an
 ## [FxCameraKick] on its own camera, with the shipped feedback profile.
-func _kick_the_ridden_camera(direction: Vector3) -> void:
+func _kick_the_ridden_camera(direction: Vector3, scale: float = POV_SHOVED_KICK_SCALE) -> void:
 	var eye: Camera3D = _eye_of(_pov_body)
 	if eye == null:
 		return
@@ -1122,7 +1126,7 @@ func _kick_the_ridden_camera(direction: Vector3) -> void:
 		_pov_kick.camera = eye
 		_pov_kick.profile = load(FEEDBACK_PROFILE_PATH) as FeedbackProfile
 		root.add_child(_pov_kick)
-	_pov_kick.strike(direction, POV_SHOVED_KICK_SCALE)
+	_pov_kick.strike(direction, scale)
 	print("[pov] %5.2f kick" % _elapsed)
 
 
