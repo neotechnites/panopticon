@@ -10,7 +10,8 @@ extends "res://tools/capture/stages/stage.gd"
 ## r 49.1 / 52.4 / 55.6 every ~3.2 deg from 146.6; row 150 is full, the r 52.4 lane is clear
 ## 152.5-157.4, LavaCrack_r04_c1_160deg (159.5, r 52.4) throws ~9 m up the ring onto clear deck.
 ##
-## Dials (--set=): wait (driver seconds the first body holds, 7.39), gap (0.75), jitter (0.12).
+## Dials (--set=): wait (driver seconds the first body holds, 7.39), gap (0.75), jitter (0.12),
+## pov (the body --pov=runner rides, 0).
 
 ## The crack the runners hit, and a point up the lane they push at in the air and stop on.
 const CRACK := Vector3(-49.0508, 23.0, 18.2906)
@@ -68,6 +69,7 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 			{"do": "hold", "seconds": 30.0},
 		], index, "ClipCrackS3Driver%d" % index)
 		_bodies.append(runners[index].controller)
+	stage_body(_bodies[clampi(int(option("pov", 0)), 0, 2)])
 	say("polish_crack_s3: %d prisoners up the S3 lane" % _bodies.size())
 	return true
 

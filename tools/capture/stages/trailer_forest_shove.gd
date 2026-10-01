@@ -10,7 +10,7 @@ extends "res://tools/capture/stages/stage.gd"
 ## trunk at 99.79 r 47.45 and the lane trunk), open 98-99 and 102-103; a lip boulder at
 ## 104.63 hides a crouch (h 0.7) at 104-105, a standing chest (h 1.2) stays open.
 ## Dials: victim (100.8,51.8), shover (95.6,51.8), impulse (8.5), up (4.0), wait (0.9),
-## squeeze (0.3), window (90), win_r (4.6).
+## squeeze (0.3), window (90), win_r (4.6), lead (1.0, of a flying round's flight).
 
 const GUARD_HAND := preload("res://tools/capture/stages/guard_hand.gd")
 
@@ -103,7 +103,7 @@ func _raise_the_hand() -> void:
 	_hand.name = "ClipGuardHand"
 	clip.root.add_child(_hand)
 	_hand.install(guard, controller(), elapsed())
-	_hand.beats.append({"body": _victim, "seconds": 100.0, "fire_at": -1.0, "watch": true})
+	_hand.beats.append({"body": _victim, "seconds": 100.0, "fire_at": -1.0, "watch": true, "lead": float(option("lead", 1.0))})
 	_hand.park = _victim.global_position + Vector3.UP
 	_hand.start_at = elapsed() + 0.2
 

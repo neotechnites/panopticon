@@ -166,6 +166,9 @@ func _physics_process(delta: float) -> void:
 		# second-order lag, so once the hand has settled the crosshair sits on him.
 		var lag_seconds: float = 2.0 * HAND_ZETA / HAND_OMEGA
 		aim += Vector3(body.velocity.x, 0.0, body.velocity.z) * lag_seconds
+		# A round that flies is tracked on its own mark, ahead and above him: the lead and the drop read.
+		if _shot_speed() > 0.0:
+			aim = _mark_for(beat, body) + _velocity_of(body) * lag_seconds
 	# The lead is taken from a velocity MEASURED off the body between frames, not
 	# from PlayerController.velocity: read from outside the controller's own tick
 	# that field is zero on most frames, so a round led by it is led by nothing.
@@ -256,7 +259,10 @@ func _mark_for(beat: Dictionary, body: PlayerController) -> Vector3:
 	# squeeze is scaled; the tracking crosshair still sits on him.
 	var flight: float = mark.distance_to(_eye_position()) / shot_speed
 	var along: Vector3 = _velocity_of(body)
+	flight = (mark + along * flight).distance_to(_eye_position()) / shot_speed
 	mark += along * flight * float(beat.get("lead", 1.0))
+	# The round falls 0.5 g t^2 in that flight: the squeeze holds over by it.
+	mark.y += 0.5 * _gravity() * flight * flight
 	# behind (0.0): metres the round is put behind him on purpose, along his own
 	# line of travel. A miss has to be a fixed size to be filmed: scaling the
 	# lead instead makes the miss whatever his gait happened to be doing at the
@@ -266,6 +272,15 @@ func _mark_for(beat: Dictionary, body: PlayerController) -> Vector3:
 	if behind != 0.0 and along.length_squared() > 0.0001:
 		mark -= along.normalized() * behind
 	return mark
+
+
+func _shot_speed() -> float:
+	return _controller.rifle.get_shot_speed() if _controller.rifle != null else 0.0
+
+
+func _gravity() -> float:
+	var rifle: Rifle = _controller.rifle
+	return rifle.profile.projectile_gravity if rifle != null and rifle.profile != null else 0.0
 
 
 ## Shots this beat has taken.

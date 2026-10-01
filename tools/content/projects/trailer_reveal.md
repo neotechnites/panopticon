@@ -11,15 +11,16 @@ delivery: content\trailer_reveal\final\rough_v2.mp4
 
 ## 1
 said: "guard POV from the tower, runners moving on the ring, scope zooms in, fires" -- v2: "the guard stands where a PLAYER stands -- at the tower's edge/window"
-capture: --shot=s3_open_lane --stage=trailer_open --pov=guard --hud=crosshair --bots=3 --seed=20261001
+capture: --shot=s3_open_lane --stage=trailer_open --pov=guard --hud=crosshair --bots=3 --rifle=projectile --set=fire_at=3.24 --seed=20261001
 seconds: 4.0
 in: 0.9
 freeze: waive
 # hell S2 inner lane; guard at the 115 deg window; zoom at take 1.9, the kill at take 3.60 (victim 114.3 deg r 49.3)
+# v3: the projectile rifle (120 m/s, 22 g), led and held over; squeezed 3.25, lands 3.61 -- v2's beat
 
 ## 2
 said: "cut back in time ~1 s to a runner POV directly behind another runner, the runner ahead is hit and drops; the POV turns to look up at the tower" -- v2: the SAME scenario as shot 1, clear line to the tower
-capture: --shot=s3_open_lane --stage=trailer_open --pov=runner --bots=3 --look=social --seed=20261001
+capture: --shot=s3_open_lane --stage=trailer_open --pov=runner --bots=3 --look=social --rifle=projectile --set=fire_at=3.24 --seed=20261001
 seconds: 5.0
 in: 0.9
 freeze: waive
@@ -27,7 +28,7 @@ freeze: waive
 
 ## 3
 said: "runners moving together between cover under fire" -- v2: first person, forest
-capture: --map=forest --shot=pack_lead --stage=trailer_forest_pack --bots=3 --pov=runner --look=social --seed=20261001
+capture: --map=forest --shot=pack_lead --stage=trailer_forest_pack --bots=3 --pov=runner --look=social --rifle=projectile --set=fire=3.15 --seed=20261001
 seconds: 5.0
 in: 0.9
 freeze: waive
@@ -35,15 +36,15 @@ freeze: waive
 
 ## 4
 said: "the hook's scoped hit" -- v2: the same take as 3 down the scope, guard at the 45 deg window
-capture: --map=forest --shot=pack_lead --stage=trailer_forest_pack --bots=3 --pov=guard --hud=crosshair --set=lift=1 --seed=20261001
+capture: --map=forest --shot=pack_lead --stage=trailer_forest_pack --bots=3 --pov=guard --hud=crosshair --rifle=projectile --set=lift=1;fire=3.15 --seed=20261001
 seconds: 5.0
 in: 0.9
 freeze: waive
-# zoom at take 2.0, the kill at 3.55
+# zoom at take 2.0, the kill at 3.55 (v3: projectile, squeezed 3.15, lands 3.55)
 
 ## 5
 said: "a runner pinned behind cover ... cut on that frame to the runner breaking cover and sprinting" -- v2: his own eyes, real cover (hell's 61.7-71.3 pocket lip wall, no lava)
-capture: --shot=cover_side --stage=trailer_duel2 --bots=1 --pov=runner --look=social --seed=20261001
+capture: --shot=cover_side --stage=trailer_duel2 --bots=1 --pov=runner --look=social --rifle=projectile --seed=20261001
 seconds: 7.5
 in: 1.0
 freeze: waive
@@ -51,19 +52,19 @@ freeze: waive
 
 ## 6
 said: "the scope holding on that cover; the runner peeks; shot hits stone; the scope shows the reload" -- v2: the same take as 5, guard at the 70 deg window
-capture: --shot=cover_side --stage=trailer_duel2 --bots=1 --pov=guard --hud=crosshair --seed=20261001
+capture: --shot=cover_side --stage=trailer_duel2 --bots=1 --pov=guard --hud=crosshair --rifle=projectile --seed=20261001
 seconds: 7.5
 in: 1.0
 freeze: waive
-# squeeze 4.30, rock hit 4.33; the hand tracks the sprint 6.1-8.4 (71-97 deg) without firing
+# squeeze 4.30, rock hit 4.33 (v3 projectile: squeeze 4.36, the rock 4.70); the hand tracks the sprint 6.1-8.4 (71-97 deg) without firing
 
 ## 7
 said: "a prisoner shoves another out of cover into the open, who is shot" -- v2: down the shover's eyes, forest
-capture: --map=forest --shot=pack_lead --stage=trailer_forest_shove --bots=2 --pov=runner --look=social --seed=20261001
+capture: --map=forest --shot=pack_lead --stage=trailer_forest_shove --bots=2 --pov=runner --look=social --rifle=projectile --set=lead=0;squeeze=0 --seed=20261001
 seconds: 4.5
 in: 0.9
 freeze: waive
-# victim crouched 100.8 deg r 51.8 behind the trunk at 100.66 (blocked from the 90 deg window eye 99.5-101.5); shove 2.01, lands 103.3 deg at 2.40, the hand drops him at 2.70
+# victim crouched 100.8 deg r 51.8 behind the trunk at 100.66 (blocked from the 90 deg window eye 99.5-101.5); shove 2.01, lands 103.3 deg at 2.40, the hand drops him at 2.70 (v3 projectile: squeezed on landing 2.42 at where he stands, lands 2.81)
 
 ## 8
 said: "a runner jumping across the lava cracks or a gap, timed between shots" -- v2: first person, three in the line
@@ -75,11 +76,12 @@ freeze: waive
 
 ## 9
 said: "a runner reaches the end, picks up the finisher rifle, shoots the guard (the white-frame hit), POV flips into the tower" -- v2: marble's corridor
-capture: --map=marble --shot=portal --stage=trailer_finish_marble --bots=2 --pov=runner --look=social --seed=20261001
+capture: --map=marble --shot=portal --stage=trailer_finish_marble --bots=2 --pov=runner --look=social --rifle=projectile --seed=20261001
 seconds: 5.0
 in: 0.9
 freeze: waive
 # corridor sprint from 320 deg; armed in the tower at 2.85; kill beat 4.17; seat change 5.34 (cut before it)
+# v3 projectile: kill beat 4.19, seat change 5.38
 
 ## 10
 said: "variety: hell" -- v2: first person in a pack of three
@@ -104,6 +106,54 @@ seconds: 3
 in: 1.2
 freeze: waive
 # down the corridor 300-335 deg
+
+## 13
+said: v3 "the bounce pads -- hell S3/S4 lava cracks launching a runner, first-person"
+capture: --shot=s4_edge --stage=polish_crack_s3 --bots=3 --pov=runner --look=social --rifle=projectile --set=wait=1.6;pov=1 --seed=20261001
+seconds: 4.5
+in: 0.9
+freeze: waive
+# S3 grid lane r 52.4 up onto the 160 crack, down the second man's eyes: the first launches at take 2.71, his own at 3.49
+
+## 14
+said: v3 bounce pads, S3
+capture: --shot=s4_edge --stage=polish_crack_s3 --bots=3 --pov=runner --look=social --rifle=projectile --set=wait=1.6;pov=0 --seed=20261001
+seconds: 4.0
+in: 0.9
+freeze: waive
+# the lead man, a clear lane to the 160 crack; launched at take 2.71
+
+## 15
+said: v3 bounce pads, S4
+capture: --shot=s4_edge --stage=polish_crack_run --bots=3 --pov=runner --look=social --rifle=projectile --set=wait=1.4;pov=0 --seed=20261001
+seconds: 5.5
+in: 0.9
+freeze: waive
+# the lead man up the S4 lane onto the 212 crack (take 2.50), over the lava onto 227 (3.77) and on to 242
+
+## 16
+said: v3 bounce pads, S4
+capture: --shot=s4_edge --stage=polish_crack_run --bots=3 --pov=runner --look=social --rifle=projectile --set=wait=1.4;pov=1 --seed=20261001
+seconds: 5.5
+in: 0.9
+freeze: waive
+# the second man: the lead flies off 212 ahead (2.50); his own 212 at 3.25, 227 at 4.52
+
+## 17
+said: v3 "hell S1's platforming part, first-person" -- read as the hell lake platforms (S1 is the spire forest; the platforms are the S5 lake)
+capture: --shot=lava_parkour --stage=lavaparkour --bots=3 --set=line=3 --pov=runner --look=social --rifle=projectile --seed=20261002
+seconds: 6.0
+in: 1.2
+freeze: waive
+# down the last man's eyes hopping the seven lake platforms
+
+## 18
+said: v3 platforming, a second take
+capture: --shot=lava_parkour --stage=lavaparkour --bots=3 --set=line=3 --pov=runner --look=social --rifle=projectile --seed=20261003
+seconds: 6.0
+in: 1.2
+freeze: waive
+# the same line, another seed
 
 ## script
 size: 1920x1080

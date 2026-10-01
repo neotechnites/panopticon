@@ -45,6 +45,7 @@ extends SceneTree
 ##                  --set=shover_wait=5.0;victim=198.5,49.4
 ## --pads=off       every boost pad switched off (a thrown body over one is relaunched)
 ## --traps=off      every trap volume switched off
+## --rifle=ID       the tower's whole gun from weapons/ID_weapon_profile.tres (projectile)
 ## --pov=guard      the same, down the eyes of whoever holds the tower
 ## --pov=ghost      the same, down the eyes of the staged ghost, through its catch
 ## --audio=near     only sounds made within AUDIO_NEAR_METRES of the camera
@@ -204,6 +205,7 @@ func _initialize() -> void:
 		"hud": "",
 		"pads": "",
 		"traps": "",
+		"rifle": "",
 		"set": "",
 		"track": "",
 		"audio": "",
@@ -397,6 +399,9 @@ func _make_it_bots_only(match_root: Node, bots: int) -> void:
 		# The first shot is at a body still in the air; the second has to land
 		# before the beat is over.
 		rules.base_reload_seconds = 0.9
+	var rifle_id: String = String(_options.get("rifle", ""))
+	if not rifle_id.is_empty():
+		rules.weapon_profile = load("res://weapons/%s_weapon_profile.tres" % rifle_id) as WeaponProfile
 	_controller.rules = rules
 
 	# The placeholder music loop is still feeding the audio server when the

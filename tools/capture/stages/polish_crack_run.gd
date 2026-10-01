@@ -9,7 +9,8 @@ extends "res://tools/capture/stages/polish_sigil.gd"
 ## (cut in 1.2 s, 10 s). Lens and bodies are polish_sigil's; only the beat moves: the first
 ## 227 launch lands at 7.28 s of the cut (L6's first word) after ~7 s of the crack alone.
 ##
-## Dials (--set=): wait (driver seconds the first body holds, 6.10), gap (0.7), jitter (0.12).
+## Dials (--set=): wait (driver seconds the first body holds, 6.10), gap (0.7), jitter (0.12),
+## pov (the body --pov=runner rides, 0).
 
 
 func cast(runners: Array[RunnerBrain]) -> bool:
@@ -28,6 +29,6 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 		var hold: float = wait + gap * float(index) + (rng.randf_range(-jitter, jitter) if index > 0 else 0.0)
 		drive(runners[index], steps_for(index, hold), index, "ClipCrackRunDriver%d" % index)
 		_bodies.append(runners[index].controller)
-	stage_body(_bodies[0])
+	stage_body(_bodies[clampi(int(option("pov", 0)), 0, count - 1)])
 	say("polish_crack_run: %d prisoners up the S4 lane" % _bodies.size())
 	return true
