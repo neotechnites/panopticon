@@ -57,7 +57,8 @@ signal quit_requested()
 @onready var _main_panel: Control = $UI
 @onready var _play_button: Button = %Play
 @onready var _multiplayer_button: Button = %Multiplayer
-@onready var _quick_match_button: Button = %QuickMatch
+@onready var _debug_button: Button = %Debug
+@onready var _debug_menu: DebugMenu = %DebugMenu
 @onready var _settings_button: Button = %Settings
 @onready var _quit_button: Button = %Quit
 @onready var _setup_screen: MatchSetupScreen = %MatchSetupScreen
@@ -84,7 +85,10 @@ func _ready() -> void:
 
 	_play_button.pressed.connect(play_hub)
 	_multiplayer_button.pressed.connect(open_multiplayer)
-	_quick_match_button.pressed.connect(open_match_setup)
+	_debug_button.visible = OS.is_debug_build()
+	_debug_button.pressed.connect(open_debug)
+	_debug_menu.quick_match_requested.connect(open_match_setup)
+	_debug_menu.closed.connect(_show_main)
 	_settings_button.pressed.connect(open_settings)
 	_quit_button.pressed.connect(quit)
 
@@ -116,7 +120,15 @@ func _notification(what: int) -> void:
 
 
 func _input(event: InputEvent) -> void:
+	if _is_debug_key(event) and _main_panel.visible:
+		get_viewport().set_input_as_handled()
+		open_debug()
+		return
 	if not event.is_action_pressed(back_action):
+		return
+	if _debug_menu.visible:
+		get_viewport().set_input_as_handled()
+		_debug_menu.back()
 		return
 	# A rebind in flight owns every key, Escape included.
 	if _settings_screen.is_capturing_input():
@@ -156,10 +168,10 @@ func play_hub() -> void:
 		push_error("MainMenu could not load %s: %s" % [hub_scene_path, error_string(error)])
 
 
-## Show the match setup screen. What the Quick match button does: a match with
-## no hub in front of it.
+## Show the match setup screen: the Debug menu's Quick match, a match with no hub in front of it.
 func open_match_setup() -> void:
 	_main_panel.visible = false
+	_debug_menu.visible = false
 	_settings_screen.visible = false
 	_multiplayer_screen.visible = false
 	_setup_screen.refresh()
@@ -208,6 +220,21 @@ func open_multiplayer() -> void:
 	_multiplayer_screen.focus_start()
 
 
+## Show the Debug menu. F1, backtick, or the Debug button in a debug build.
+func open_debug() -> void:
+	_main_panel.visible = false
+	_setup_screen.visible = false
+	_settings_screen.visible = false
+	_multiplayer_screen.visible = false
+	_debug_menu.open()
+
+
+static func _is_debug_key(event: InputEvent) -> bool:
+	var key: InputEventKey = event as InputEventKey
+	return key != null and key.pressed and not key.echo \
+			and (key.keycode == KEY_F1 or key.keycode == KEY_QUOTELEFT or key.physical_keycode == KEY_QUOTELEFT)
+
+
 ## Write the settings file and exit.
 func quit() -> void:
 	quit_requested.emit()
@@ -236,6 +263,7 @@ func _show_main() -> void:
 	_setup_screen.visible = false
 	_settings_screen.visible = false
 	_multiplayer_screen.visible = false
+	_debug_menu.visible = false
 	_main_panel.visible = true
 	_play_button.grab_focus()
 

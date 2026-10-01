@@ -1,4 +1,4 @@
-[gd_scene load_steps=13 format=3]
+[gd_scene load_steps=17 format=3]
 
 [ext_resource type="Script" path="res://scripts/ui/main_menu.gd" id="1_main_menu"]
 [ext_resource type="Script" path="res://scripts/ui/settings_boot.gd" id="2_settings_boot"]
@@ -12,8 +12,17 @@
 [ext_resource type="Resource" path="res://ui/menu_watching_eye_profile.tres" id="10_watcher_profile"]
 [ext_resource type="Script" path="res://scripts/ui/menu_tower_camera.gd" id="11_menu_camera"]
 [ext_resource type="Theme" path="res://ui/panopticon_menu_theme.tres" id="12_theme"]
+[ext_resource type="PackedScene" path="res://ui/debug_menu.tscn" id="13_debug_menu"]
 [ext_resource type="AudioStream" path="res://audio/music/PLACEHOLDER_menu_theme.ogg" id="90_music"]
 [ext_resource type="Script" path="res://scripts/audio/music_loop.gd" id="90_music_loop"]
+
+[sub_resource type="Gradient" id="Gradient_shade"]
+colors = PackedColorArray(0, 0, 0, 0.82, 0, 0, 0, 0)
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_shade"]
+gradient = SubResource("Gradient_shade")
+width = 256
+height = 4
 
 [sub_resource type="Environment" id="Env_menu"]
 background_mode = 1
@@ -31,7 +40,7 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 theme = ExtResource("12_theme")
-editor_description = "The game's entry point; UI is the Play/Multiplayer/Settings/Quit list over a 3D backdrop, and scripts/ui/main_menu.gd only binds and navigates."
+editor_description = "The game's entry point: the player's list over the watching tower, with a Debug menu for everything else."
 script = ExtResource("1_main_menu")
 
 [node name="SettingsBoot" type="Node" parent="."]
@@ -79,61 +88,98 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 
-[node name="Title" type="Label" parent="UI"]
+[node name="Shade" type="TextureRect" parent="UI"]
+anchors_preset = 9
+anchor_right = 0.55
+anchor_bottom = 1.0
+grow_vertical = 2
+mouse_filter = 2
+texture = SubResource("GradientTexture2D_shade")
+expand_mode = 1
+editor_description = "Darkens the left of the backdrop so the title and list read over the tower."
+
+[node name="TitleBlock" type="VBoxContainer" parent="UI"]
 anchors_preset = 0
-offset_left = 64.0
-offset_top = 40.0
-offset_right = 520.0
-offset_bottom = 108.0
-theme_type_variation = &"MenuTitle"
+offset_left = 72.0
+offset_top = 52.0
+theme_override_constants/separation = 2
+
+[node name="Title" type="Label" parent="UI/TitleBlock"]
+theme_type_variation = &"GameTitle"
 text = "PANOPTICON"
+
+[node name="Rule" type="ColorRect" parent="UI/TitleBlock"]
+custom_minimum_size = Vector2(0, 2)
+mouse_filter = 2
+color = Color(0.8, 0.29, 0.17, 0.85)
 
 [node name="MenuList" type="VBoxContainer" parent="UI"]
 unique_name_in_owner = true
 anchors_preset = 4
 anchor_top = 0.5
 anchor_bottom = 0.5
-offset_left = 88.0
-grow_horizontal = 1
+offset_left = 58.0
+offset_top = -40.0
+offset_right = 420.0
+offset_bottom = 200.0
 grow_vertical = 2
-theme_override_constants/separation = 14
+theme_override_constants/separation = 8
 
 [node name="Play" type="Button" parent="UI/MenuList"]
 unique_name_in_owner = true
-alignment = 0
+theme_type_variation = &"MenuItem"
 text = "MENU_PLAY"
-editor_description = "Opens the hub world, hosting nothing: one body in the ring of wedges, and the host prompt on the hell wedge's dais. The match is started from in there."
+alignment = 0
+editor_description = "Opens the hub world; the match is set up and started from its dais."
 
 [node name="Multiplayer" type="Button" parent="UI/MenuList"]
 unique_name_in_owner = true
-alignment = 0
+theme_type_variation = &"MenuItem"
 text = "MENU_MULTIPLAYER"
-
-[node name="QuickMatch" type="Button" parent="UI/MenuList"]
-unique_name_in_owner = true
 alignment = 0
-text = "MENU_QUICK_MATCH"
-editor_description = "The old Play: straight to the match setup screen and into a match, skipping the hub. For testing a match without walking to it."
 
 [node name="Settings" type="Button" parent="UI/MenuList"]
 unique_name_in_owner = true
-alignment = 0
+theme_type_variation = &"MenuItem"
 text = "MENU_SETTINGS"
+alignment = 0
 
 [node name="Quit" type="Button" parent="UI/MenuList"]
 unique_name_in_owner = true
-alignment = 0
+theme_type_variation = &"MenuItem"
 text = "MENU_QUIT"
+alignment = 0
+
+[node name="Debug" type="Button" parent="UI"]
+unique_name_in_owner = true
+visible = false
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 58.0
+offset_top = -72.0
+offset_right = 260.0
+offset_bottom = -36.0
+grow_vertical = 0
+theme_type_variation = &"MenuItemSmall"
+text = "MENU_DEBUG"
+alignment = 0
+editor_description = "Debug builds only; F1 or backtick opens the same menu."
 
 [node name="MatchSetupScreen" parent="." instance=ExtResource("5_match_setup")]
 unique_name_in_owner = true
 visible = false
+show_all_rules = true
 
 [node name="MultiplayerScreen" parent="." instance=ExtResource("7_multiplayer_screen")]
 unique_name_in_owner = true
 visible = false
 
 [node name="SettingsScreen" parent="." instance=ExtResource("6_settings_screen")]
+unique_name_in_owner = true
+visible = false
+
+[node name="DebugMenu" parent="." instance=ExtResource("13_debug_menu")]
 unique_name_in_owner = true
 visible = false
 

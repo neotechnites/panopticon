@@ -1,0 +1,119 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/debug_menu.gd" id="1_debug_menu"]
+[ext_resource type="PackedScene" path="res://ui/settings_screen.tscn" id="2_settings_screen"]
+
+[node name="DebugMenu" type="Control"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+editor_description = "Every developer tool, out of the player's menus; scripts/ui/debug_menu.gd wires it."
+script = ExtResource("1_debug_menu")
+
+[node name="Frame" type="MarginContainer" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 24
+theme_override_constants/margin_top = 24
+theme_override_constants/margin_right = 24
+theme_override_constants/margin_bottom = 24
+
+[node name="Dialog" type="PanelContainer" parent="Frame"]
+custom_minimum_size = Vector2(820, 0)
+size_flags_horizontal = 4
+size_flags_vertical = 4
+
+[node name="Layout" type="VBoxContainer" parent="Frame/Dialog"]
+theme_override_constants/separation = 10
+
+[node name="Title" type="Label" parent="Frame/Dialog/Layout"]
+theme_type_variation = &"MenuTitle"
+text = "MENU_DEBUG_TITLE"
+
+[node name="Note" type="Label" parent="Frame/Dialog/Layout"]
+theme_type_variation = &"Note"
+text = "MENU_DEBUG_NOTE"
+autowrap_mode = 3
+
+[node name="Divider" type="HSeparator" parent="Frame/Dialog/Layout"]
+
+[node name="Columns" type="HBoxContainer" parent="Frame/Dialog/Layout"]
+theme_override_constants/separation = 32
+
+[node name="Left" type="VBoxContainer" parent="Frame/Dialog/Layout/Columns"]
+size_flags_horizontal = 3
+theme_override_constants/separation = 8
+
+[node name="MatchHeading" type="Label" parent="Frame/Dialog/Layout/Columns/Left"]
+theme_type_variation = &"Heading"
+text = "MENU_DEBUG_MATCH"
+
+[node name="QuickMatch" type="Button" parent="Frame/Dialog/Layout/Columns/Left"]
+unique_name_in_owner = true
+text = "MENU_QUICK_MATCH"
+alignment = 0
+
+[node name="Rules" type="Button" parent="Frame/Dialog/Layout/Columns/Left"]
+unique_name_in_owner = true
+text = "MENU_DEBUG_RULES"
+alignment = 0
+
+[node name="FullRulesCheck" type="CheckBox" parent="Frame/Dialog/Layout/Columns/Left"]
+unique_name_in_owner = true
+text = "MENU_DEBUG_FULL_RULES"
+
+[node name="HotkeysHeading" type="Label" parent="Frame/Dialog/Layout/Columns/Left"]
+theme_type_variation = &"Heading"
+text = "MENU_DEBUG_HOTKEYS"
+
+[node name="Hotkeys" type="Label" parent="Frame/Dialog/Layout/Columns/Left"]
+unique_name_in_owner = true
+theme_type_variation = &"Note"
+text = ""
+
+[node name="Right" type="VBoxContainer" parent="Frame/Dialog/Layout/Columns"]
+size_flags_horizontal = 3
+theme_override_constants/separation = 8
+
+[node name="ScenesHeading" type="Label" parent="Frame/Dialog/Layout/Columns/Right"]
+theme_type_variation = &"Heading"
+text = "MENU_DEBUG_SCENES"
+
+[node name="Playground" type="Button" parent="Frame/Dialog/Layout/Columns/Right"]
+unique_name_in_owner = true
+text = "MENU_DEBUG_PLAYGROUND"
+alignment = 0
+
+[node name="HubTest" type="Button" parent="Frame/Dialog/Layout/Columns/Right"]
+unique_name_in_owner = true
+text = "MENU_DEBUG_HUB_TEST"
+alignment = 0
+
+[node name="TowerInterior" type="Button" parent="Frame/Dialog/Layout/Columns/Right"]
+unique_name_in_owner = true
+text = "MENU_DEBUG_TOWER_INTERIOR"
+alignment = 0
+
+[node name="ShirtLineup" type="Button" parent="Frame/Dialog/Layout/Columns/Right"]
+unique_name_in_owner = true
+text = "MENU_DEBUG_SHIRT_LINEUP"
+alignment = 0
+
+[node name="Divider2" type="HSeparator" parent="Frame/Dialog/Layout"]
+
+[node name="Footer" type="HBoxContainer" parent="Frame/Dialog/Layout"]
+
+[node name="Back" type="Button" parent="Frame/Dialog/Layout/Footer"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(140, 0)
+text = "COMMON_BACK"
+
+[node name="RulesScreen" parent="." instance=ExtResource("2_settings_screen")]
+unique_name_in_owner = true
+visible = false
+debug_mode = true

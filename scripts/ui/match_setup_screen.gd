@@ -110,6 +110,15 @@ const CUSTOM_TITLE: String = "SETUP_CUSTOM"
 ## Item id of that entry. Negative so it can never collide with a preset index.
 const CUSTOM_ID: int = -1
 
+## Grid rows only the debug setup shows: the mode picker sets them for a player.
+const DEBUG_ROWS: Array[String] = ["Lives", "Ghosts", "ShooterWin", "RunnerWin", "Ability"]
+
+## Debug menu toggle: every instance shows every rule, the hub's included. Session only.
+static var show_all_rules_everywhere: bool = false
+
+## True for the Debug menu's quick match: every rule. False is the player's map, players, role.
+@export var show_all_rules: bool = false
+
 @onready var _map_option: OptionButton = %MapOption
 @onready var _map_summary: Label = %MapSummary
 
@@ -159,6 +168,7 @@ func _ready() -> void:
 
 ## Pull every control's value from the store.
 func refresh() -> void:
+	_apply_rule_rows()
 	_syncing = true
 
 	var settings: GameSettings = _store.settings
@@ -179,6 +189,14 @@ func refresh() -> void:
 	_syncing = false
 
 	_update_derived()
+
+
+func _apply_rule_rows() -> void:
+	var grid: Node = $Frame/Dialog/Padding/Layout/Grid
+	for row: String in DEBUG_ROWS:
+		for child: Node in grid.get_children():
+			if child is Control and child.name.begins_with(row):
+				(child as Control).visible = show_all_rules or show_all_rules_everywhere
 
 
 ## Write the settings file and ask the owner to start the match.

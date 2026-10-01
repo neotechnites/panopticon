@@ -48,7 +48,14 @@ const FALLBACK_SEAT_COUNT: int = 2
 ## rather than in the scene because which one is true is a runtime question.
 const RESOLUTION_NOTE: String = "SETTINGS_VIDEO_NOTE_RESOLUTION"
 
+## Index of the rules-and-balance tab, the Debug menu's only one.
+const MATCH_TAB: int = 0
+
+## True for the Debug menu's copy: only the Match tab (rules and balance). Players never see that tab.
+@export var debug_mode: bool = false
+
 @onready var _tabs: TabContainer = $Frame/Dialog/Padding/Layout/Tabs
+@onready var _title: Label = $Frame/Dialog/Padding/Layout/Title
 @onready var _keybind_panel: KeybindPanel = %KeybindPanel
 
 @onready var _ghosts_check: CheckBox = %GhostsCheck
@@ -117,6 +124,7 @@ var _syncing: bool = false
 func _ready() -> void:
 	_store = SettingsStore.instance()
 	_name_tabs()
+	_apply_mode()
 	_configure_ranges()
 	_fill_choices()
 	_connect_controls()
@@ -294,6 +302,15 @@ func _name_tabs() -> void:
 	]
 	for index: int in mini(keys.size(), _tabs.get_tab_count()):
 		_tabs.set_tab_title(index, keys[index])
+
+
+## Player mode hides the Match tab; debug mode shows nothing else.
+func _apply_mode() -> void:
+	_tabs.current_tab = MATCH_TAB if debug_mode else MATCH_TAB + 1
+	for index: int in _tabs.get_tab_count():
+		_tabs.set_tab_hidden(index, (index == MATCH_TAB) != debug_mode)
+	_tabs.tabs_visible = not debug_mode
+	_title.text = "MENU_DEBUG_RULES" if debug_mode else "SETTINGS_TITLE"
 
 
 static func _configure_spin(

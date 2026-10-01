@@ -42,6 +42,7 @@ theme_override_constants/margin_bottom = 12
 theme_override_constants/separation = 8
 
 [node name="Title" type="Label" parent="Frame/Dialog/Padding/Layout"]
+theme_type_variation = &"MenuTitle"
 text = "SETTINGS_TITLE"
 
 [node name="Tabs" type="TabContainer" parent="Frame/Dialog/Padding/Layout"]
@@ -177,6 +178,7 @@ unique_name_in_owner = true
 [node name="VoteSecondsSpacer" type="Control" parent="Frame/Dialog/Padding/Layout/Tabs/Match/Grid"]
 
 [node name="BalanceHeading" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Match"]
+theme_type_variation = &"Heading"
 editor_description = "The levers Ryan tunes the fight with. Every default is the game as it plays today, so an untouched Balance group changes nothing."
 text = "SETTINGS_BALANCE"
 
@@ -363,17 +365,20 @@ unique_name_in_owner = true
 [node name="FinisherHealthSpacer" type="Control" parent="Frame/Dialog/Padding/Layout/Tabs/Match/BalanceScroll/BalanceGrid"]
 
 [node name="BalanceNote" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Match"]
+theme_type_variation = &"Note"
 autowrap_mode = 3
 theme_override_font_sizes/font_size = 15
 text = "SETTINGS_NOTE_SWAY"
 
 [node name="GhostsNote" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Match"]
+theme_type_variation = &"Note"
 autowrap_mode = 3
 theme_override_font_sizes/font_size = 15
 editor_description = "What the mechanic is, for a player who has not met it. Nothing more: this is a description, not a disclaimer."
 text = "SETTINGS_NOTE_GHOSTS"
 
 [node name="RaceNote" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Match"]
+theme_type_variation = &"Note"
 autowrap_mode = 3
 theme_override_font_sizes/font_size = 15
 editor_description = "What skipping costs and what it does not, for a player deciding whether to. The second sentence is the one that matters: the round a skip produces is the round a race would have produced, so a skipped match is still the game."
@@ -447,6 +452,7 @@ unique_name_in_owner = true
 [node name="CrouchSlideSpacer" type="Control" parent="Frame/Dialog/Padding/Layout/Tabs/Game/Grid"]
 
 [node name="Note" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Game"]
+theme_type_variation = &"Note"
 autowrap_mode = 3
 theme_override_font_sizes/font_size = 15
 text = "SETTINGS_NOTE_INPUT"
@@ -527,6 +533,7 @@ text = "SETTINGS_PS1_CRUSH_HINT"
 [node name="CrushSpacer" type="Control" parent="Frame/Dialog/Padding/Layout/Tabs/Audio/Grid"]
 
 [node name="Note" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Audio"]
+theme_type_variation = &"Note"
 unique_name_in_owner = true
 autowrap_mode = 3
 theme_override_font_sizes/font_size = 15
@@ -638,6 +645,7 @@ script = ExtResource("3_brightness_preview")
 [node name="BrightnessPreviewValueSpacer" type="Control" parent="Frame/Dialog/Padding/Layout/Tabs/Video/Grid"]
 
 [node name="VideoNote" type="Label" parent="Frame/Dialog/Padding/Layout/Tabs/Video"]
+theme_type_variation = &"Note"
 unique_name_in_owner = true
 autowrap_mode = 3
 theme_override_font_sizes/font_size = 15
