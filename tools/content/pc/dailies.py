@@ -60,10 +60,15 @@ def dur(path):
     return float(out) if out else 0.0
 
 
-def is_landscape(path):
+def dims(path):
     out = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height",
                           "-of", "csv=p=0", path], capture_output=True, text=True).stdout.strip().split(",")
-    return len(out) == 2 and int(out[0]) > int(out[1])
+    return (int(out[0]), int(out[1])) if len(out) == 2 and out[0].isdigit() and out[1].isdigit() else None
+
+
+def is_landscape(path):
+    wh = dims(path)
+    return bool(wh) and wh[0] > wh[1]
 
 
 def thumb_from_clip(src, jpg):
@@ -127,8 +132,10 @@ def sources(project):
     return found
 
 
-def video(src_rel, poster_rel, mtime, landscape=False):
-    style = ' style="aspect-ratio:16/9"' if landscape else ""
+def video(src_rel, poster_rel, mtime, path=None):
+    """A <video> whose aspect-ratio is the file's own (portrait or wide)."""
+    wh = dims(path) if path else None
+    style = ' style="aspect-ratio:%d/%d"' % wh if wh else ""
     poster = (' poster="%s"' % html.escape(poster_rel)) if poster_rel else ""
     return ('<video controls preload="none" playsinline%s%s src="%s?v=%d-%d"></video>'
             % (poster, style, html.escape(src_rel), int(mtime), BUILD))
@@ -246,7 +253,7 @@ def dailies_cards(project, rows, lines, esc):
         made += hit
         small = small_copy(project, clip_id, clip)
         note = ("720-wide copy of %.0f MB" % (os.path.getsize(clip) / 1e6)) if small else src.rsplit("/", 1)[0]
-        cards.append(card(video(small or page_rel(src), poster, os.path.getmtime(clip)), "%.1f s" % dur(clip), note))
+        cards.append(card(video(small or page_rel(src), poster, os.path.getmtime(clip), clip), "%.1f s" % dur(clip), note))
     return cards, made, pending, shown
 
 
@@ -309,9 +316,9 @@ def cut_block(project, parsed, esc):
         for r in script["rows"]:
             rows += "<tr><td>%s</td><td>%s</td><td>%s</td></tr>" % (
                 esc("%.1f" % starts.get(r["line"], 0.0)), esc(r.get("text", "")), esc(r.get("clip", "")))
-    parts = ['<h3>Latest cut</h3><div class="cut">%s<div><h2 style="margin:0 0 8px;font-size:1.1rem">%s</h2>'
+    parts = ['<h3>Latest cut</h3><div class="cut%s">%s<div><h2 style="margin:0 0 8px;font-size:1.1rem">%s</h2>'
              '<div class="meta"><span>%.1f s</span><span>%s</span></div>'
-             % (video(latest, poster_for(project, tag, src)[0], os.path.getmtime(src)), esc(tag), dur(src),
+             % (" wide" if is_landscape(src) else "", video(latest, poster_for(project, tag, src)[0], os.path.getmtime(src), src), esc(tag), dur(src),
                 time.strftime("%Y-%m-%d %H:%M", time.localtime(os.path.getmtime(src))))]
     if rows:
         parts.append("<table><tr><th>Start</th><th>Line</th><th>Clip</th></tr>%s</table>" % rows)
@@ -337,12 +344,14 @@ def main():
     parts.append("<title>%s dailies</title>" % esc(title))
     parts.append("""<style>
 :root{--bg:#141012;--panel:#1d1719;--ink:#efe6e2;--mute:#a4928c;--line:#3a2b2c;--acc:#ffb15c;--ok:#7fd48a}
-body{background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,sans-serif;padding:0 16px;padding-block:20px 60px;max-width:1100px;margin:0 auto}
+body{background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,sans-serif;padding:0 16px;padding-block:20px 60px;max-width:1312px;margin:0 auto}
 h1{font-size:2rem;text-transform:uppercase;letter-spacing:.02em;margin:0 0 4px}
 h3{text-transform:uppercase;letter-spacing:.04em;font-size:1.1rem;margin:26px 0 12px;color:var(--mute)}
 .sub{color:var(--mute);margin:0 0 22px;font-size:.95rem}
 .cut{display:grid;grid-template-columns:minmax(200px,300px) 1fr;gap:20px;align-items:start;background:var(--panel);border:1px solid var(--line);padding:16px;margin-bottom:28px}
-.cut video,.clip video{width:100%;aspect-ratio:9/16;background:#000;display:block}
+.cut video,.clip video{width:100%;height:auto;max-height:85vh;aspect-ratio:9/16;background:#000;display:block;margin:0 auto}
+.cut.wide{grid-template-columns:1fr}
+.cut.wide video{max-width:1280px}
 pre{font-size:.72rem;line-height:1.35;overflow-x:auto;color:var(--mute);margin:0}
 table{border-collapse:collapse;width:100%;font-size:.85rem;font-variant-numeric:tabular-nums}
 td,th{padding:5px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
@@ -401,7 +410,7 @@ th{color:var(--mute);font-weight:500;text-transform:uppercase;letter-spacing:.06
             info = creds.get(stem, {})
             parts.append('<div class="clip"><div class="id">%s</div>%s<div class="desc">%s</div>'
                          '<div class="meta"><span>%.1f s</span><span>%s</span></div></div>'
-                         % (esc(stem), video("../external/" + name, thumb(name), os.path.getmtime(src), landscape=True),
+                         % (esc(stem), video("../external/" + name, thumb(name), os.path.getmtime(src), src),
                             esc(info.get("credit") or info.get("title") or "no entry in SOURCES.md"), dur(src),
                             "credited" if info.get("credit") else "uncredited"))
         parts.append("</div>")
@@ -423,7 +432,7 @@ th{color:var(--mute);font-weight:500;text-transform:uppercase;letter-spacing:.06
         note = shot.get("note", "")
         cards.append('<div class="clip"><div class="id">%s</div>%s<div class="line"><q>%s</q></div>%s'
                      '<div class="meta"><span>%.1f s</span><span>shot %d</span></div></div>'
-                     % (esc(file_name), video(name, thumb(name), os.path.getmtime(src)), esc(shot.get("said", "")),
+                     % (esc(file_name), video(name, thumb(name), os.path.getmtime(src), src), esc(shot.get("said", "")),
                         ('<div class="desc">%s</div>' % esc(note)) if note else "", dur(src), shot["n"]))
     if cards:
         parts.append('<h3>Shots in brief order</h3><div class="grid">%s</div>' % "".join(cards))
@@ -437,7 +446,7 @@ th{color:var(--mute);font-weight:500;text-transform:uppercase;letter-spacing:.06
             continue
         src = os.path.join(final, name)
         others.append('<div class="clip"><div class="id">%s</div>%s<div class="meta"><span>%.1f s</span><span>%s</span></div></div>'
-                      % (esc(os.path.splitext(name)[0]), video(name, thumb(name), os.path.getmtime(src)), dur(src),
+                      % (esc(os.path.splitext(name)[0]), video(name, thumb(name), os.path.getmtime(src), src), dur(src),
                          time.strftime("%m-%d %H:%M", time.localtime(os.path.getmtime(src)))))
     if others:
         parts.append('<h3>Other takes in final\\</h3><div class="grid">%s</div>' % "".join(others))
