@@ -89,7 +89,7 @@ freeze: waive
 said: v5 "Forest, runner POV: a second runner beside him at the inner edge, a visible shove, he tips over the edge and drops out of frame into the mist"
 capture: --map=forest --shot=pack_lead --stage=trailer_forest_pit --bots=3 --pov=runner --look=social --rifle=projectile --seed=20261001
 tape: forest_pit
-seconds: 2.85
+seconds: 2.5
 in: 1.40
 freeze: waive
 # side by side down the lane (the victim a stride inside), he cuts in to the lip (153.4 deg r 47.25) and turns to face him at 2.30; the shove at 2.75 from 1.0 m (arms + the shover's kick), backwards over the edge and down out of frame; a third pulls up behind
@@ -98,10 +98,10 @@ freeze: waive
 said: v5 "Forest, the shoved runner's POV: the edge he was shoved from with the shover on it looking down, falling away, the mist rushing up"
 capture: --map=forest --shot=pack_lead --stage=trailer_forest_pit --bots=3 --pov=runner --look=social --rifle=projectile --set=pov=victim --seed=20261001
 tape: forest_pit
-seconds: 1.45
-in: 3.14
+seconds: 1.8
+in: 2.86
 freeze: waive
-# the forest_pit tape down Runner_1, eyes on the shover on the lip until the bank hides him (~3.5), then down at the mist rushing up (y -5.75 at 4.49); the cut ends 4.56 in the mist, before the floor (out 4.65); floor_kill=1 lowers the KillBox for the shot only (map unchanged)
+# the forest_pit tape down Runner_1 from 0.1 s after the shove (the shover's arms still out, 1 m off), eyes on him on the lip until the bank hides him (~3.5), then down at the mist rushing up (y -5.75 at 4.49); the cut ends 4.63 in the mist (out 4.65); floor_kill=1 lowers the KillBox for the shot only (map unchanged)
 
 ## 10a
 said: v5 "Marble, runner POV: two runners both behind the same column on the inner edge, hidden from the tower; he shoves the other out into the open; cut BEFORE the shot"
@@ -174,7 +174,7 @@ music_db: -3
 music_fade: 0.02 2.5
 captions: none
 # v4: a1+a2 = 5.70 s, the title cuts in on the drop at 5.703 s. After it every cut ends on the 170 bpm grid (beat k at
-# 5.716 + k*0.35294 s): h1 k9, h2 k13, then six beats a shot (5b k19 ... 10b k62; v5: 9a eight, 9b four), t2 k69, g1 k78, 13 k84, 14 five
+# 5.716 + k*0.35294 s): h1 k9, h2 k13, then six beats a shot (5b k19 ... 10b k62; v5: 9a seven, 9b five), t2 k69, g1 k78, 13 k84, 14 five
 # beats so the end card lands hard on k89, an 8th-beat accent (37.13 s). Lengths are frame-rounded beat boundaries.
 # cuts/NN.mp4 is shot NN's cut from its in: point (shot.sh); 12's white frame is its flash: line (take 4.19, 0.045 s).
 # cuts/title_hard.mp4 and cuts/end_v3.mp4 are the v3 cards (end without the player count), kept on the PC.
@@ -188,8 +188,8 @@ captions: none
 | d1 | cuts/06.mp4@0.4:2.4833 | | | beat 2.4833 | | |
 | d2 | cuts/07.mp4@2.0:2.1167 | | | beat 2.1167 | | |
 | d3 | cuts/08.mp4@0:2.1167 | | | beat 2.1167 | | |
-| p1 | cuts/09a.mp4@0:2.8167 | | | beat 2.8167 | | |
-| p2 | cuts/09b.mp4@0:1.4167 | | | beat 1.4167 | | |
+| p1 | cuts/09a.mp4@0:2.4667 | | | beat 2.4667 | | |
+| p2 | cuts/09b.mp4@0:1.7667 | | | beat 1.7667 | | |
 | m1 | cuts/10a.mp4@0:2.1167 | | | beat 2.1167 | | |
 | m2 | cuts/10b.mp4@0:2.1167 | | | beat 2.1167 | | |
 | t2 | cuts/11.mp4@1.0:2.4667 | | | beat 2.4667 | | |

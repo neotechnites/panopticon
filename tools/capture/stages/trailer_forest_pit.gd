@@ -125,7 +125,7 @@ func tick(_delta: float) -> void:
 		_looked_down = true
 		_drivers_by_body[_victim].retarget([
 			{"do": "steer", "on": true, "rate": 300.0, "gain": 9.0, "pitch_rate": 420.0, "pitch_gain": 11.0},
-			{"do": "hold", "seconds": 60.0, "look_down": 62.0},
+			{"do": "hold", "seconds": 60.0, "look_down": 38.0},
 		])
 	# After the swing his eyes follow the man going over, down to where a player looks.
 	if _shoved and Engine.get_physics_frames() % 3 == 0 and _drivers_by_body[_shover].is_done():
