@@ -185,7 +185,7 @@ SHEET_TOP = ((12.8, 40), (16.0, 40), (21.0, 48), (27.0, 48), (32.0, 56))   # (r,
                             # skin's rings: coarse, no band over SHEET_ASPECT, none near-vertical
 SHEET_TOP_MATCH = 34.0      # past this radius the thinning top skin rides the underside's own
                             # rings, so it stays above it vertex for vertex into the seam
-SHEET_CLUMPS = 16           # leaf masses hung from the sheet's own quads
+SHEET_CLUMPS = 0            # no stem-and-clump masses hung from the sheet over the pit (Ryan)
 SHEET_CLUMP_R = (1.0, 1.8)
 SHEET_CLUMP_HANG = (0.30, 0.55)
 STEM_SIDES = 6
