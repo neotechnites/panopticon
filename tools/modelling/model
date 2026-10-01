@@ -253,6 +253,7 @@ stage_ship() {
   pc "Remove-Item -Path '$JOB_W\\out\\${FULL}_*.png' -ErrorAction SilentlyContinue; 'ok'" >/dev/null
   push "$HERE/lib/mdl.py"        "$JOB/mdl.py"
   push "$HERE/lib/glb_textures.py" "$JOB/glb_textures.py"
+  push "$HERE/lib/texel.py"      "$JOB/texel.py"          # imported lazily too, so the grep below can miss it
   push "$HERE/lib/pcrun.ps1"     "$JOB/pcrun.ps1"
   push "$script"                 "$JOB/${NAME}_build.py"
   # Sibling build scripts the script imports (tower_hollow reads tower_arches
