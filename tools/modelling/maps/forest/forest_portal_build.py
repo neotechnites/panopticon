@@ -18,6 +18,9 @@ not move.
     clear hole .... |x| <= 1.30 from the ground to z 2.8, nothing solid in it:
                     portal.glb's collider hole, to the centimetre
 
+Low poly at the source (~270 drawn tris): a five-sided trunk section on few
+stations, three-sided branches, one-ring leaf clumps, the disc a plain fan.
+
 One mesh, two surfaces: the forest atlas, and the disc ("earth" zone) on the
 swirl's own file, its albedo and its glow. One UV set, flat shaded. ForestPortalCollision rides as a `-colonly`
 node: the same two jambs and the same arched head, coarsened -- not a box.
@@ -77,8 +80,8 @@ DISC_CENTRE_Z = 1.5
 CLEAR_HALF_W = 1.30     # portal.glb's collider hole: |x| <= this ...
 CLEAR_Z      = 2.8      # ... clear from the ground to here. Load-bearing.
 
-SIDE_N   = 5            # stations up each straight jamb, the ground one included
-ARCH_N   = 6            # stations from a springing to the apex, both included
+SIDE_N   = 2            # stations up each straight jamb, the ground one included
+ARCH_N   = 3            # arch bands from a springing to the apex
 ARCH_POW = 2.2          # the arch's shape: 1 is an ellipse, higher is a steeper
                         # pointed arch. 2.2 is what keeps the soffit outside
                         # |x| = 1.30 all the way to z = 2.8, so the visual arch
@@ -101,47 +104,37 @@ D_WOB    = 0.030
 RING_WOB = 0.060
 
 # the trunk's cross section: radial factor (x T, out from the inner face) and
-# depth factor (x D). Vertices 0, 1 and 7 sit ON the inner face, so the opening
-# is exactly IN_HALF_W wide; vertex 0 is the y = 0 row the disc is fanned from.
-SECT_R = (0.0, 0.0, 0.28, 0.74, 1.0, 0.74, 0.28, 0.0)
-SECT_D = (0.0, 0.5, 1.0, 0.72, 0.0, -0.72, -1.0, -0.5)
+# depth factor (x D). Vertex 0 is the inner ridge, ON the opening's edge at
+# y = 0: the row the disc is fanned from. Every other vertex stands back from it.
+SECT_R = (0.0, 0.35, 1.0, 1.0, 0.35)
+SECT_D = (0.0, 1.0, 0.45, -0.45, -1.0)
 
-BR_SIDES = 4            # branch tube sides (and so the leaf clump's segments)
+BR_SIDES = 3            # branch tube sides (and so the leaf clump's segments)
 CLUMP_SQUASH = 0.8
 CLUMP_WOB = 0.10
 
 # Branches, written in LEFT-trunk coordinates (rooted at negative x) and
-# mirrored in x for the right trunk: six a side, twelve in all.
+# mirrored in x for the right trunk: three a side, six in all.
 # (patch bands, segments, control, end, (r0, r1), clump centre, clump r)
-# Band k lies between stations k and k+1; sides 2 and 3 face the back, 4 and 5
-# the front, 6 the front inner bevel. Each root straddles the pair of faces
-# either side of a ridge: a square-ish patch is what bridges without slivers.
-# Sides 0, 1 and 7 are the inner face and
-# are never used: nothing is allowed to hang into the opening. A quad may be
-# claimed once, so every (band, side) below is distinct.
+# Band k lies between stations k and k+1; side 1 faces back-and-out, 2 out,
+# 3 front-and-out. Sides 0 and 4 face the opening and are never used: nothing
+# hangs into it. A quad may be claimed once.
 # The first two swing wide, then run past the centre: left and right braid.
 BRANCHES = (
-    (((4, 4), (4, 5)), 3, (-2.12, -0.24, 3.28), (0.34, -0.10, 3.50),
-     (0.093, 0.060), (0.34, -0.04, 3.70), 0.30),
-    (((4, 2), (4, 3)), 3, (-2.16, 0.24, 3.38), (0.40, 0.10, 3.58),
-     (0.089, 0.058), (0.40, 0.04, 3.76), 0.26),
-    (((3, 3), (3, 4)), 3, (-2.15, 0.02, 2.62), (-1.92, 0.00, 2.98),
-     (0.099, 0.075), (-1.93, 0.00, 3.16), 0.26),
-    (((2, 3), (2, 4)), 3, (-2.12, 0.10, 1.78), (-1.90, 0.06, 2.08),
-     (0.093, 0.068), (-1.95, 0.04, 2.26), 0.26),
-    (((1, 4), (1, 5)), 3, (-2.06, -0.18, 0.96), (-1.86, -0.10, 1.24),
-     (0.083, 0.058), (-1.93, -0.06, 1.41), 0.24),
-    (((0, 2), (0, 3)), 3, (-2.02, 0.20, 0.72), (-1.82, 0.12, 0.98),
-     (0.078, 0.054), (-1.88, 0.08, 1.14), 0.22),
+    (((1, 3),), 2, (-2.12, -0.24, 3.28), (0.34, -0.10, 3.50),
+     (0.093, 0.060), (0.34, -0.04, 3.70), 0.34),
+    (((1, 2),), 2, (-2.16, 0.24, 3.38), (0.40, 0.10, 3.58),
+     (0.089, 0.058), (0.40, 0.04, 3.76), 0.30),
+    (((0, 2),), 1, (-2.12, 0.10, 1.78), (-1.90, 0.06, 2.08),
+     (0.093, 0.068), (-1.92, 0.04, 2.30), 0.32),
 )
 BR_WOB = 0.06
 BR_STUB = 0.09          # a branch leaves its face square, then bends
 
-DISC_IN_N = 11          # the effect surface's intermediate ring ...
-DISC_IN_F = 0.50        # ... this far from the centre toward the rim
 DISC_BULGE = 0.01       # metres each side: the back fill used to be the front's faces twice, and dropped
 
 COL_JAMB_N = 3          # collider stations up each straight jamb
+COL_ARCH_N = 6          # ... and over each half of the arch
 SEED = 5140973
 
 # =============================================================================
@@ -285,6 +278,28 @@ def _axis(stn):
 # THE PORTAL
 # =============================================================================
 
+def _clump(m, last, c, radius, r):
+    """A low-poly leaf clump off a branch's last ring: one wide ring round the
+    centre, offset half a step, and a peak."""
+    n = len(last)
+    ang = [math.atan2(m.verts[v][1] - c[1], m.verts[v][0] - c[0]) for v in last]
+    ring = []
+    for k in range(n):
+        a = ang[k] + math.pi / n
+        rr = radius * (1.0 + CLUMP_WOB * r.sf())
+        ring.append(m.v((c[0] + rr * math.cos(a), c[1] + rr * math.sin(a) * 0.6, c[2])))
+    for k in range(n):
+        q = (k + 1) % n
+        idx = (last[k], last[q], ring[k])
+        m.tri(idx[0], idx[1], idx[2], ft.sub(m.centroid(idx), c), "leaf")
+        idx = (last[q], ring[q], ring[k])
+        m.tri(idx[0], idx[1], idx[2], ft.sub(m.centroid(idx), c), "leaf")
+    top = m.v((c[0], c[1], c[2] + radius * CLUMP_SQUASH * (1.0 + CLUMP_WOB * r.sf())))
+    for k in range(n):
+        idx = (top, ring[k], ring[(k + 1) % n])
+        m.tri(idx[0], idx[1], idx[2], ft.sub(m.centroid(idx), c), "leaf")
+
+
 class _Portal(object):
     def __init__(self, r):
         self.m = ft._Mesh()
@@ -299,7 +314,7 @@ class _Portal(object):
         for stn in self.st:
             P, u, T, D = stn
             ids = []
-            for i in range(8):
+            for i in range(len(SECT_R)):
                 rf, df = SECT_R[i], SECT_D[i]
                 if rf:
                     rf *= 1.0 - r.u(0.0, RING_WOB)       # inward only: the envelope holds
@@ -311,8 +326,9 @@ class _Portal(object):
             a, b = self.rings[k], self.rings[k + 1]
             ax = ft.lerp(_axis(self.st[k]), _axis(self.st[k + 1]), 0.5)
             row = []
-            for s in range(8):
-                q = (s + 1) % 8
+            n = len(SECT_R)
+            for s in range(n):
+                q = (s + 1) % n
                 idx = (a[s], a[q], b[q], b[s])
                 m.quad(idx[0], idx[1], idx[2], idx[3], ft.sub(m.centroid(idx), ax), "bark")
                 row.append(idx)
@@ -321,50 +337,18 @@ class _Portal(object):
         m.fan(self.rings[-1], ft.DOWN, "bark")
 
     # ---- the effect surface ------------------------------------------------
-    def _zip_xz(self, outer, inner, c, want):
-        """Angle-matched zipper in the disc's own plane (xz): ft.zipper sorts in
-        xy, and every vertex here is at y = 0."""
-        m = self.m
-
-        def ang(vid):
-            p = m.verts[vid]
-            return math.atan2(p[2] - c[2], p[0] - c[0])
-
-        O, I = sorted(outer, key=ang), sorted(inner, key=ang)
-        aO, aI = [ang(v) for v in O], [ang(v) for v in I]
-        i = j = 0
-        no, ni = len(O), len(I)
-        while i < no or j < ni:
-            next_o = aO[i + 1] if i + 1 < no else aO[0] + 2.0 * math.pi
-            next_i = aI[j + 1] if j + 1 < ni else aI[0] + 2.0 * math.pi
-            oi, ii = O[i % no], I[j % ni]
-            if (i < no and next_o <= next_i) or j >= ni:
-                m.tri(oi, O[(i + 1) % no], ii, want, "earth")
-                i += 1
-            else:
-                m.tri(oi, I[(j + 1) % ni], ii, want, "earth")
-                j += 1
-
     def disc(self):
-        """The opening's own outline at y = 0, filled from a centre at
-        (0, 0, 1.5), both sides -- off the frame's OWN vertex row, so nothing
-        floats. An intermediate ring carries the fill: a bare fan from the
-        centre makes 1..3 degree slivers where the arch's stations crowd."""
+        """The opening's own outline at y = 0, fanned from a centre at (0, 0, 1.5),
+        both sides -- off the frame's OWN vertex row, so nothing floats."""
         m = self.m
         rim = [ring[0] for ring in self.rings]           # section vertex 0: on the inner face, y = 0
         n = len(rim)
         c = (0.0, 0.0, DISC_CENTRE_Z)
         for want in ((0.0, -1.0, 0.0), (0.0, 1.0, 0.0)):     # each side bulges DISC_BULGE its own way: a lens
-            b, before = want[1] * DISC_BULGE, len(m.faces)
-            centre = m.v((c[0], b, c[2]))
-            inner = []
-            for i in range(DISC_IN_N):
-                p = m.verts[rim[int(round(i * n / float(DISC_IN_N))) % n]]
-                inner.append(m.v((c[0] + (p[0] - c[0]) * DISC_IN_F, b * (1.0 - DISC_IN_F ** 2),
-                                  c[2] + (p[2] - c[2]) * DISC_IN_F)))
-            self._zip_xz(rim, inner, c, want)
-            for i in range(DISC_IN_N):
-                m.tri(inner[i], inner[(i + 1) % DISC_IN_N], centre, want, "earth")
+            before = len(m.faces)
+            centre = m.v((c[0], want[1] * DISC_BULGE, c[2]))
+            for i in range(n):
+                m.tri(rim[i], rim[(i + 1) % n], centre, want, "earth")
         m.back_fill = len(m.faces) - before              # the back fill's tris: see build()
 
     # ---- what grows out of it ----------------------------------------------
@@ -385,12 +369,13 @@ class _Portal(object):
                 p0 = m.centroid(ids)
                 path = [p0] + ft.bez(ft.add(p0, n, BR_STUB),
                                      (mul * ctrl[0], ctrl[1], ctrl[2]),
-                                     (mul * end[0], end[1], end[2]), segs)
+                                     (mul * end[0], end[1], end[2]), segs)[1:]
                 rings = fb._ptube(m, path, radii, BR_SIDES, "bark",
                                   start=(patch, "bark"), caps=(True, False),
                                   wob=BR_WOB, rng=r)
-                ft.clump_end(m, rings[-1], (mul * cc[0], cc[1], cc[2]), crad, "leaf", r,
-                             squash=CLUMP_SQUASH, wob=CLUMP_WOB)
+                _clump(m, rings[-1], (mul * cc[0], cc[1], cc[2]), crad, r)
+
+
 
     def build(self):
         self.frame()
@@ -411,7 +396,7 @@ def build_collider():
     """
     c = ft._Mesh()
     r = ft._Rng(SEED)                                   # unused: the collider takes no wobble
-    st = _stations(r, side_n=COL_JAMB_N, arch_n=ARCH_N, wob=False)
+    st = _stations(r, side_n=COL_JAMB_N, arch_n=COL_ARCH_N, wob=False)
     rings = []
     for (P, u, T, D) in st:
         rings.append([c.v((P[0], -D, P[2])), c.v((P[0], D, P[2])),

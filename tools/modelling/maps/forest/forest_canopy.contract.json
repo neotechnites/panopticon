@@ -6,5 +6,5 @@
     "ForestCanopyCollision/CollisionShape3D"
   ],
   "surfaces": 2,
-  "max_tris": 160000
+  "max_tris": 72000
 }

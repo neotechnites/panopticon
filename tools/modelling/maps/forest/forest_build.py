@@ -214,7 +214,8 @@ BAR_PITCH = 0.5
 PIT_BAR_PITCH = 0.75
 BAR_SET = 0.2               # bars stand this far behind the mouth plane
 BAR_SHELF = 0.45            # the recess floor / roof / jamb strip the bars socket into
-BAR_SEG = 1.2               # metres per bar segment
+BAR_SEG = 4.0               # metres per bar segment: one straight segment (a thin stick, long thin faces)
+BAR_SIDES = 3               # a bar is a 0.06 m stick: three sides read as four at any distance
 
 # Ryan: "also put a small light source, a pretty dim one, in each cell so you can
 # see them better." The cell's lamp is an emissive sheet and not an OmniLight3D
@@ -749,17 +750,17 @@ class _Ground(object):
         nbars = max(3, int(round(width / pitch)))
         bars = [k / float(nbars + 1) for k in range(1, nbars + 1)]
         T = sorted(set([0.0, 0.5, 1.0] + [round(0.5 * (bars[k] + bars[k + 1]), 9) for k in range(nbars - 1)]))
+        TB = (0.0, 0.5, 1.0)
 
         def rail(poly):
-            """Per boundary t: the id on the mouth line (the grid's own at 0, 0.5, 1),
-            its copy BAR_SHELF back and its copy at the back wall."""
-            F, M, B = [], [], []
+            """Per boundary t: the id on the mouth line (the grid's own at 0, 0.5, 1) and
+            its copy BAR_SHELF back; the back wall's copies only at 0, 0.5, 1 (TB)."""
+            F, M = [], []
             for t in T:
                 vid = poly[0] if t == 0.0 else (poly[1] if t == 0.5 else (poly[2] if t == 1.0 else m.v(along(poly, t))))
                 F.append(vid)
                 M.append(m.v(back(P(vid), BAR_SHELF)))
-                B.append(m.v(back(P(vid), depth)))
-            return F, M, B
+            return F, M, [m.v(back(P(vid), depth)) for vid in poly]
 
         fF, fM, fB = rail(sill)
         rF, rM, rB = rail(arch)
@@ -787,11 +788,23 @@ class _Ground(object):
         # jamb at the mouth, glowing pocket behind the bars. It costs no
         # triangle, no light and no draw call -- those quads existed and `lamp`
         # was already one of the thirteen surfaces.
+        def strip(A, B, zn):
+            """Triangles between the shelf rail A (at T) and the back rail B (at TB), merged by t."""
+            i = j = 0
+            while i < len(A) - 1 or j < len(B) - 1:
+                if j >= len(B) - 1 or (i < len(A) - 1 and T[i + 1] <= TB[j + 1] + 1e-9):
+                    tri = (A[i], A[i + 1], B[j])
+                    i += 1
+                else:
+                    tri = (A[i], B[j + 1], B[j])
+                    j += 1
+                m.tri(tri[0], tri[1], tri[2], sub(mc, m.centroid(tri)), zn)
+
         for j in range(len(T) - 1):
             q(fF[j], fF[j + 1], fM[j + 1], fM[j], floor_zone)
-            q(fM[j], fM[j + 1], fB[j + 1], fB[j], LAMP_ZONE)
             q(rF[j], rF[j + 1], rM[j + 1], rM[j], zone)
-            q(rM[j], rM[j + 1], rB[j + 1], rB[j], LAMP_ZONE)
+        strip(fM, fB, LAMP_ZONE)
+        strip(rM, rB, LAMP_ZONE)
         for k in range(h):
             q(left[k], left[k + 1], lM[k + 1], lM[k], zone)
             q(lM[k], lM[k + 1], lB[k + 1], lB[k], LAMP_ZONE)
@@ -813,22 +826,22 @@ class _Ground(object):
             foot = back(along(sill, t), BAR_SET)
             top = back(along(arch, t), BAR_SET)
             mid = add(lerp(foot, top, 0.5), tangent(bmid), r.u(-0.06, 0.06))
-            nseg = max(2, int(math.ceil(dist(foot, top) / BAR_SEG)))
+            nseg = max(1, int(math.ceil(dist(foot, top) / BAR_SEG)))
             path = bez(foot, mid, top, nseg)
             rr = r.u(*bar_r)
-            _ptube(m, path, (rr, rr * 0.85), 4, "bark", start=(fq, floor_zone), end=(rq, zone), wob=0.15, rng=r)
+            _ptube(m, path, (rr, rr * 0.85), BAR_SIDES, "bark", start=(fq, floor_zone), end=(rq, zone), wob=0.15, rng=r)
         if rung:                            # one rung, a little under the jambs
             f = 0.62 * h
             k = min(h - 1, int(f))
             loc = f - k
             a = back(lerp(P(left[k]), P(left[k + 1]), loc), BAR_SET)
             b = back(lerp(P(right[k]), P(right[k + 1]), loc), BAR_SET)
-            path = [a, add(lerp(a, b, 0.5), (0.0, 0.0, -0.03)), b]
-            _ptube(m, path, (BAR_R[1], BAR_R[1]), 4, "bark", wob=0.1, rng=r,
+            path = [a, b]
+            _ptube(m, path, (BAR_R[1], BAR_R[1]), BAR_SIDES, "bark", wob=0.1, rng=r,
                    start=([(left[k], left[k + 1], lM[k + 1], lM[k])], zone),
                    end=([(right[k], right[k + 1], gM[k + 1], gM[k])], zone))
         mouth5 = [sill[0], sill[2], arch[2], arch[1], arch[0]]
-        back5 = [fB[0], fB[-1], rB[-1], rB[len(T) // 2], rB[0]]
+        back5 = [fB[0], fB[-1], rB[-1], rB[1], rB[0]]
         return (mouth5, back5, bmid)
 
     def _pit_faces(self):
@@ -924,7 +937,7 @@ class _Ground(object):
             d2 = (math.cos(a) * math.cos(el * 0.35), math.sin(a) * math.cos(el * 0.35), math.sin(el * 0.35))
             mid = add(bp, d, L * 0.5)
             tip = add(mid, d2, L * 0.5)
-            _ptube(m, [bp, mid, tip], (a0, W * 0.5, W * 0.25), 4, "fern", start=([crown], "fern"),
+            _ptube(m, [bp, mid, tip], (a0, W * 0.5, W * 0.25), 3, "fern", start=([crown], "fern"),
                    flat=(1.0, FERN_FLAT, FERN_FLAT), caps=(False, True))
 
     def _hummock(self, i):

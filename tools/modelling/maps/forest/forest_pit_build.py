@@ -168,7 +168,8 @@ TALL_H = ((9.0, 6.5, 8.5), (38.0, 4.0, 6.0))   # (r, min height, max height) at 
 SCRUB_H = ((9.0, 4.0, 6.5), (38.0, 2.5, 4.5))
 TALL_R = (0.3, 0.24, 0.16, 0.08)
 SCRUB_R = (0.2, 0.15, 0.08)
-RING_STEP = 1.1                 # metres between barbed rings along a plant
+RING_STEP = 1.6                 # metres between barbed rings along a plant ...
+HIDDEN_STEP = (-8.5, 3.0)       # ... and this many under this z, inside the fog's solid slab
 SPIKE = (0.35, 0.65)            # how far the barb vertex stands out of the stem
 PLANT_LEAN = (0.3, 0.7)         # a plant's top sits this fraction of its height sideways from its root
 PLANT_DRIFT = (20.0, 90.0)      # degrees the lean swings round as it climbs (a twist)
@@ -323,9 +324,8 @@ def _plant_path(g, r, c, table):
         if rr < 8.0:
             p = (p[0] * 8.0 / rr, p[1] * 8.0 / rr, p[2])
         raw.append(p)
-    length = sum(math.sqrt(sum((raw[k][i] - raw[k - 1][i]) ** 2 for i in range(3))) for k in range(1, len(raw)))
-    npts = max(3, int(round(length / RING_STEP)) + 1)
-    path = _resample(raw, npts)
+    path = _rings_along(raw)
+    npts = len(path)
     for k in range(2, npts - 1):
         p = path[k]
         bb = -math.degrees(math.atan2(p[1], p[0]))
@@ -401,10 +401,27 @@ def _fork(g, r, rings, path, radii):
     d0 = norm(add(n_out, along, 0.4))
     d1 = norm(add(add(along, n_out, 0.5), UP, 0.9))
     raw = [c, add(c, d0, 0.25 * L), add(add(c, d0, 0.5 * L), d1, 0.2 * L), add(add(c, d0, 0.6 * L), d1, 0.5 * L)]
-    npts = max(3, int(round(L / RING_STEP)) + 1)
-    fpath = _resample(_cubic(raw[0], raw[1], raw[2], raw[3], 24), npts)
+    fpath = _rings_along(_cubic(raw[0], raw[1], raw[2], raw[3], 24))
     rad = ft._at(radii, i / float(n - 1)) * FORK_R
     return _barbed_tube(g, r, fpath, (rad, rad * 0.7, max(0.07, rad * 0.4)), patch, STEM_ZONE)
+
+
+def _rings_along(pts):
+    """Ring points along ``pts``: RING_STEP apart, HIDDEN_STEP[1] while under HIDDEN_STEP[0]; ends kept."""
+    fine = _resample(pts, max(3, int(round(_length(pts) / 0.1)) + 1))
+    out, run = [fine[0]], 0.0
+    for k in range(1, len(fine) - 1):
+        run += math.sqrt(sum((fine[k][i] - fine[k - 1][i]) ** 2 for i in range(3)))
+        if run >= (HIDDEN_STEP[1] if fine[k][2] < HIDDEN_STEP[0] else RING_STEP) - 1e-9:
+            out.append(fine[k])
+            run = 0.0
+    if run < 0.4 * RING_STEP and len(out) > 2:
+        out.pop()
+    return out + [fine[-1]] if len(out) >= 2 else _resample(pts, 3)
+
+
+def _length(pts):
+    return sum(math.sqrt(sum((pts[k][i] - pts[k - 1][i]) ** 2 for i in range(3))) for k in range(1, len(pts)))
 
 
 def _resample(pts, n):

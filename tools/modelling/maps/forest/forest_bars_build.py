@@ -9,8 +9,8 @@ thick ones; eleven of the tall stems fork high up and nine side limbs arc out
 and tangle. Leaves sit only where a real stand would carry them -- on a few
 limb ends and a few short stems -- never as a hedge.
 
-Every cross-section is a 5-, 6-, 7- or 8-gon with a wobbled radius per ring, so
-no silhouette edge reads as a sawn plank.
+Low poly at the source (~1,400 tris): stems are 3- to 5-gons on 3-4 rings
+ending in a point, limbs 3- or 4-gons on 2, every ring radius wobbled.
 
 The stand still blocks. `_gaps()` samples 320 heights through the band a body
 could ever be in -- z 0.05..3.60, the 1.11 m jump apex plus a 1.8 m capsule
@@ -23,10 +23,8 @@ ORIGIN IS THE BASE CENTRE: z = 0 is the ground. Blender +X -> Godot +X,
 +Z -> Godot +Y, +Y -> Godot -Z, so the scene drops it in where rock_bars.glb
 goes and forest.tscn needs no change.
 
-ONE CONTIGUOUS mesh (ForestBars), one surface per material class. What holds it
-together is what holds a real stand together: a root plate, buried below
-z = -0.04 and never visible, that every ground stem is socketed into. Forks,
-limbs, roots and leaf clumps grow out of sockets in what carries them.
+ONE mesh (ForestBars), one surface per material class; each ground stem is
+capped just under the soil, and its forks, limbs, roots and leaves grow out of sockets in it.
 
 Textures: one tiling sheet per class (lib/texel.py, SHEETS below), exactly as
 forest_build.py does it, and from forest_build's OWN painters and seeds -- so
@@ -90,7 +88,14 @@ HALF_T = 0.60               # the stand is 1.2 m through the lane
 BEARING = 353.0             # where forest.tscn puts the barrier
 SEED = 3530417
 
-ROOT_TOP_Z = -0.04          # a ground stem's foot: the root plate's top
+ROOT_TOP_Z = -0.04          # a ground stem's foot, just under the soil
+
+# Low poly at the source: mesh sides by the layout's sides, and how many path
+# points each strand keeps (stems keep the lifted foot point too).
+MESH_SIDES = {8: 5, 7: 5, 6: 4, 5: 3}
+KID_SIDES = {6: 4, 5: 3}
+STEM_PTS = {"tall": 5, "low": 4}
+KID_PTS = 3
 WOB = 0.10                  # per-ring radius wobble; the proof subtracts it
 
 # The two bands the stand is proved over. A body can be no higher than its
@@ -103,18 +108,15 @@ UPPER = (3.60, 8.20, 0.0)          # measured and printed, never a gate: nothing
                                    # is a canopy number, not a way through
 PROOF_LEVELS = 320                 # sample heights per band
 
-PLATE_SIDES = 5             # buried: it never has to be round
-PLATE_R = 0.40
-PLATE_Z = -0.369            # centre; crown at -0.045, so none of it is above ground
-PLATE_PAD = 3.00            # a foot segment is this much longer than its ring
-FOOT_MAX = 0.28             # the widest ring the plate can carry
+PLATE_PAD = 3.00            # foot spacing: a foot ring and its neighbour's
+FOOT_MAX = 0.28             # leave this much room between them; the widest foot
 FOOT_FLAT = 0.20            # the foot ring is an oval: narrow along the stand,
-                            # full width through it, so the plate can carry a
-                            # thick stem without stealing its neighbour's room
+                            # full width through it, so a thick stem does not
+                            # steal its neighbour's room
 
 FLARE_ON = 0.100            # stems thicker than this get buttress roots
                             # (a whip has no buttress: it is a whip)
-FLARE_N = (2, 3)
+FLARE_N = (1, 2)
 FOOT_H = 0.52               # a ground stem's second path point is lifted to here,
                             # so its foot segment is tall enough for the buttress
                             # roots to arch out of it in plain sight
@@ -126,8 +128,8 @@ INFO = {}
 
 
 def plate_y(x):
-    """Where a ground stem's foot sits in y: the buried root plate's centre
-    line. Deterministic -- the stems are laid out on the same curve."""
+    """Where a ground stem's foot sits in y: the stand's foot line.
+    Deterministic -- the stems are laid out on the same curve."""
     return 0.13 * math.sin(0.62 * x + 0.7) + 0.07 * math.sin(1.9 * x - 2.1)
 
 
@@ -1534,20 +1536,18 @@ def limbs(rng, base):
 
 
 # =============================================================================
-# THE MESH -- one root plate, every stem socketed into it, nothing overlapping
+# THE MESH -- every stem capped under the soil, its kids socketed into it
 # =============================================================================
 # ---- TUNABLES ---------------------------------------------------------------
 
-ROOT_SIDES = 5              # NEVER 4: a 4-gon root reads as a sawn edge
-ROOT_SEGS = 2               # bezier segments: out, then down
+ROOT_SIDES = 3              # a buttress root is a ridge; never 4, which reads sawn
+ROOT_SEGS = 1               # one cone from the bark to its buried tip
 ROOT_R = (0.80, 0.30)       # multiples of nominal_r: at the weld .. at the tip
 ROOT_REACH = (0.34, 0.62)   # tip distance from the trunk axis, in xy
-ROOT_DEPTH = (-0.06, -0.02) # tip z: just under the soil, clear of the root plate's
-                            # crown at -0.04, so the whole arch of the root is seen
+ROOT_DEPTH = (-0.06, -0.02) # tip z: just under the soil, so the whole root is seen
 ROOT_SWAY = 0.16            # how far off dead-radial a root may wander
-ROOT_PULL = 0.55            # where along the reach the control point sits
-ROOT_LIFT = -0.30           # control point ABOVE the chord: the root arches out
-                            # of the trunk and comes down, as a buttress root does
+ROOT_PULL = 0.55            # bezier control (unused by a one-segment root)
+ROOT_LIFT = -0.30
 ROOT_WOB = 0.08
 ROOT_CLEAR = 2.2            # tip radii of bark the tip must clear, whatever the reach says
 
@@ -1572,10 +1572,8 @@ def _sides_for(n, count):
 
 
 def flare(m, rng, rings, nominal_r, count):
-    """`count` buttress roots at a trunk's foot: short tapered tubes welded out
-    of separate band quads of segment 0 of the tube `rings`, each arcing
-    outward and DOWN to z in [-0.14, -0.03] (underground) where it is capped.
-    Returns the list of (tip point, tip radius)."""
+    """`count` buttress roots at a trunk's foot: a ring welded into two band quads
+    of segment 0 of `rings`, coned out and down to a tip just under the soil."""
     n = len(rings[0])
     axis = ft._seg_axis(m, rings, 0)                       # the trunk's own line at the foot
     rad_w = nominal_r * ROOT_R[0]
@@ -1603,11 +1601,12 @@ def flare(m, rng, rings, nominal_r, count):
                       ft.DOWN, drop * ROOT_LIFT)           # above the chord: out flat, then down
         path = ft.bez(foot, pull, tip, ROOT_SEGS)
 
-        root = fb._ptube(m, path, (rad_w, rad_t), ROOT_SIDES, "root",
-                         start=(patch, "root"), caps=(True, False),
-                         wob=ROOT_WOB, rng=rng)
-        m.fan(root[-1], ft.norm(ft.sub(path[-1], path[-2])), "root")   # capped underground
-        tips.append((m.centroid(root[-1]), rad_t))
+        t, ex, ez = ft.frames(path)[0]
+        plane = (m.centroid(fb._patch_frame(m, patch)[3]), fb._patch_frame(m, patch)[0])
+        ring, _ph = fb._best_ring(m, patch, lambda ph: ft.project_ring(
+            fb._ring_at(foot, ex, ez, rad_w, ROOT_SIDES, 1.0, ph), t, plane), "root")
+        _cone(m, ring, path[0], path[-1], "root")            # welded ring straight to a buried tip
+        tips.append((path[-1], rad_t))
 
     return tips
 
@@ -1629,7 +1628,7 @@ def _lift_foot(path):
     return path
 
 
-def _fit(m, patch, path, radius, sides, flat, tag):
+def _fit(m, patch, path, radius, sides, flat, tag, record=True):
     """Record how far inside ``patch`` the ring _ptube is about to weld there
     sits, in the patch's own plane, at the best of the 24 phases _best_ring
     will choose from. Positive is inside. Call it BEFORE the patch is claimed:
@@ -1648,40 +1647,87 @@ def _fit(m, patch, path, radius, sides, flat, tag):
         ring = ft.project_ring(fb._ring_at(path[0], ex, ez, radius, sides, flat,
                                            2.0 * math.pi * k / 24.0), t, plane)
         best = max(best, min(ft._margin(poly, flat2(q)) for q in ring))
-    WELDS.append((tag, best))
+    if record:
+        WELDS.append((tag, best))
+    return best
 
 
-def _plate(m, r, feet, foot_r):
-    """The root plate: a buried log along X carrying one segment of its own per
-    stem, sized to that stem's foot ring, with filler segments between. Its top
-    never reaches z = -0.04, so nothing of it is ever seen; it is what makes
-    the stand one mesh, as a root plate makes a stand one plant. Returns
-    (rings, the plate segment index of each stem)."""
-    xs, seg_of = [], []
-    cut = -HALF_W
-    for k, x in enumerate(feet):
-        w = foot_r[k] * FOOT_FLAT * PLATE_PAD
-        lo, hi = x - w, x + w
-        if lo <= cut + 0.01:                       # never let two feet share a boundary
-            lo = cut + 0.01
-        if not xs:
-            xs.append(-HALF_W)
-        xs.append(lo)
-        seg_of.append(len(xs) - 1)
-        xs.append(hi)
-        cut = hi
-    xs.append(HALF_W)
-    path = [(x, plate_y(x), PLATE_Z) for x in xs]
-    # No wobble: a wobbled ring makes the band quads non-planar, their two
-    # triangles can then wind against each other, and m.claim() loses an edge
-    # of the socket boundary -- which tears a hole in the mesh. Nothing of the
-    # plate is ever seen, so it has nothing to gain from being lumpy.
-    return fb._ptube(m, path, (PLATE_R,), PLATE_SIDES, "root", wob=0.0), seg_of
+def _cone(m, ring, a, apex, zone):
+    """Close ``ring`` to a point at ``apex``: a tapered end with no last band."""
+    tip = m.v(apex)
+    for k in range(len(ring)):
+        tri = (tip, ring[k], ring[(k + 1) % len(ring)])
+        c = m.centroid(tri)
+        d = ft.sub(apex, a)
+        f = max(0.0, min(1.0, ft.dot(ft.sub(c, a), d) / max(1e-12, ft.dot(d, d))))
+        m.tri(tri[0], tri[1], tri[2], ft.sub(c, ft.add(a, d, f)), zone)
+
+
+def _ring_at_z(par, rings, z):
+    """_child_patch's ``at`` for the parent ring segment (never the foot's) that
+    holds height z."""
+    path, nseg = par["path"], len(rings) - 1
+    for i in range(1, nseg):
+        if path[i][2] <= z <= path[i + 1][2]:
+            return (i + 0.5) / nseg
+    return (nseg - 0.5) / nseg
+
+
+def _socket_at(m, patch, s):
+    """Where on ``patch``'s middle quad strand ``s`` leaves: nearest the height it
+    grew at, walked back to the quad's middle until its ring fits the patch."""
+    z, path = s["path"][0][2], s["path"]
+    q = sorted(patch[0], key=lambda v: m.verts[v][2])
+    lo, hi = m.centroid(q[:2]), m.centroid(q[2:])
+    e = ft.sub(hi, lo)
+    c = ft._patch_centre(m, patch)
+    f0 = max(0.0, min(1.0, (z - lo[2]) / max(1e-9, e[2])))
+    best = (-9.0, c)
+    for k in range(11):
+        p = ft.add(c, e, (f0 + (0.5 - f0) * k / 10.0) - 0.5)
+        g = _fit(m, patch, [p] + path[1:], s["radii"][0], s["sides"], 1.0, "", record=False)
+        if g >= 0.005:
+            return p
+        best = max(best, (g, p))
+    return best[1]
+
+
+def _coarse(s, count, head, idx=None):
+    """Keep path[0..head] and ``count`` points in all (evenly by index unless
+    ``idx`` names them); radii go with them. Returns the full path and radii."""
+    full = (s["path"], s["radii"])
+    n = len(s["path"])
+    if idx is None:
+        m = count - head - 1
+        idx = list(range(head + 1)) + [int(round(head + (n - 1 - head) * j / float(m)))
+                                       for j in range(1, m + 1)]
+    s["path"] = [full[0][i] for i in idx]
+    s["radii"] = [full[1][i] for i in idx]
+    return full
+
+
+def _pick_rings(base, strands):
+    """Which interior points each stem keeps: coordinate descent on the body
+    band's widest clearance, so dropping rings does not open the stand."""
+    import itertools
+    full = [_coarse(s, STEM_PTS["tall" if s["path"][-1][2] > 7.0 else "low"], 1) for s in base]
+    score = lambda: _gaps(BODY, strands, 72)[0]
+    for _ in range(2):
+        for k, s in enumerate(base):
+            n, m = len(full[k][0]), len(s["path"]) - 3
+            best = (score(), [full[k][0].index(q) for q in s["path"]])
+            for mid in itertools.combinations(range(2, n - 1), m):
+                idx = [0, 1] + list(mid) + [n - 1]
+                s["path"], s["radii"] = [full[k][0][i] for i in idx], [full[k][1][i] for i in idx]
+                g = score()
+                if g < best[0] - 1e-6:
+                    best = (g, idx)
+            s["path"], s["radii"] = [full[k][0][i] for i in best[1]], [full[k][1][i] for i in best[1]]
 
 
 def _foot_radii(feet, radii0):
-    """Each stem's foot ring, shrunk until the plate can carry it and until it
-    and its neighbour's leave the plate a segment each."""
+    """Each stem's foot ring, capped at FOOT_MAX and shrunk until it and its
+    neighbour's leave room between them."""
     out = [min(r0, FOOT_MAX) for r0 in radii0]
     for k in range(len(feet) - 1):
         span = 0.90 * (feet[k + 1] - feet[k]) / (FOOT_FLAT * PLATE_PAD)
@@ -1723,7 +1769,7 @@ def _child_patch(m, rings, taken, at, aim, radius):
 
 def _leaves(m, r, rings, path, radius):
     """A leaf clump grown straight off a twig's last ring, in the TWIG's own
-    frame: four rings up a squashed ball and a fan over the top. ft.clump_end
+    frame: two rings up a squashed ball and a fan over the top. ft.clump_end
     lays its rings out round world Z, which twists -- and tears -- on a limb
     that points sideways; this one closes on the ring it grows from whichever
     way the twig points."""
@@ -1737,7 +1783,7 @@ def _leaves(m, r, rings, path, radius):
     angs = [math.atan2(ft.dot(ft.sub(m.verts[v], tip), ez),
                        ft.dot(ft.sub(m.verts[v], tip), ex)) for v in rings[-1]]
     band = [rings[-1]]
-    for lat in (-38.0, 2.0, 38.0, 66.0):
+    for lat in (-20.0, 45.0):
         cl, sl = math.cos(math.radians(lat)), math.sin(math.radians(lat))
         ring = []
         for a in angs:
@@ -1760,10 +1806,15 @@ def _strand(m, r, s, start, zone="bark", flat=1.0):
     capped at its own 0.02 m tip, which is no cut end anyone can see; a leaf
     end hands its last ring to a clump."""
     leaf = s["tip"] == "leaf"
-    rings = fb._ptube(m, s["path"], s["radii"], s["sides"], zone, flat=flat,
-                      start=start, caps=(start is None, not leaf), wob=WOB, rng=r)
     if leaf:
+        rings = fb._ptube(m, s["path"], s["radii"], s["sides"], zone, flat=flat,
+                          start=start, caps=(start is None, False), wob=WOB, rng=r)
         _leaves(m, r, rings, s["path"], s["tip_r"])
+        return rings
+    fl = flat[:-1] if isinstance(flat, list) else flat
+    rings = fb._ptube(m, s["path"][:-1], s["radii"][:-1], s["sides"], zone, flat=fl,
+                      start=start, caps=(start is None, False), wob=WOB, rng=r)
+    _cone(m, rings[-1], s["path"][-2], s["path"][-1], zone)
     return rings
 
 
@@ -1779,19 +1830,22 @@ def build_geometry():
 
     feet = [s["path"][0][0] for s in base]
     foot_r = _foot_radii(feet, [s["radii"][0] for s in base])
-    plate, seg_of = _plate(m, r, feet, foot_r)
+
+    for k, s in enumerate(base):
+        s["radii"] = [foot_r[k]] + list(s["radii"][1:])
+        s["path"] = _lift_foot(s["path"])
+        s["sides"] = MESH_SIDES[s["sides"]]
+    for s in kids:
+        _coarse(s, KID_PTS, 0)
+        s["sides"] = KID_SIDES[s["sides"]]
+    _pick_rings(base, strands)
+    _thicken(strands)
 
     rings = [None] * len(strands)
     taken = {}
     for k, s in enumerate(base):
-        seg = seg_of[k]
-        patch = ft._patch_mid(m, plate[seg], plate[seg + 1],
-                              ft._facing(m, plate, seg, ft.UP, 3))
-        s["radii"] = [foot_r[k]] + list(s["radii"][1:])
-        s["path"] = _lift_foot(s["path"])
         flat = [FOOT_FLAT] + [1.0] * (len(s["path"]) - 1)
-        _fit(m, patch, s["path"], foot_r[k], s["sides"], FOOT_FLAT, "stem foot")
-        rings[k] = _strand(m, r, s, (patch, "root"), flat=flat)
+        rings[k] = _strand(m, r, s, None, flat=flat)
         taken[k] = set()
         nom = s["radii"][2] if len(s["radii"]) > 2 else s["radii"][-1]
         if nom >= FLARE_ON:
@@ -1803,16 +1857,57 @@ def build_geometry():
     for k, s in enumerate(kids, start=len(base)):
         p = s["parent"]
         aim = ft.norm(ft.sub(s["path"][1], s["path"][0]))
-        patch = _child_patch(m, rings[p], taken[p], s["at"], aim, s["radii"][0])
+        patch = _child_patch(m, rings[p], taken[p], _ring_at_z(strands[p], rings[p], s["path"][0][2]),
+                             aim, s["radii"][0])
         if patch is None:
             raise ValueError("strand %d found no free side on parent %d" % (k, p))
-        s["path"] = [ft._patch_centre(m, patch)] + list(s["path"][1:])
+        s["path"] = [_socket_at(m, patch, s)] + list(s["path"][1:])
         _fit(m, patch, s["path"], s["radii"][0], s["sides"], 1.0, s["kind"] + " root")
         rings[k] = _strand(m, r, s, (patch, "bark"))
         taken[k] = set()
 
     INFO["strands"] = strands
-    return ft.orient(ft._prune(m)), _collider(strands), strands   # socket bridges wound as their neighbours
+    return orient(ft._prune(m)), _collider(strands), strands   # socket bridges wound as their neighbours
+
+
+def orient(m, skip=()):
+    """Wind every face as its connected patch does, majority by area (lost from
+    forest_tree_build in the forest revert). ``skip`` keeps its winding."""
+    skip = set(skip)
+    edges = {}
+    for fi, f in enumerate(m.faces):
+        if f is None or fi in skip:
+            continue
+        for k in range(len(f)):
+            a, b = f[k], f[(k + 1) % len(f)]
+            edges.setdefault((min(a, b), max(a, b)), []).append((fi, a))
+    flip = {}
+    for seed in range(len(m.faces)):
+        if m.faces[seed] is None or seed in skip or seed in flip:
+            continue
+        flip[seed], patch, stack = False, [seed], [seed]
+        while stack:
+            fi = stack.pop()
+            f = m.faces[fi]
+            for k in range(len(f)):
+                a, b = f[k], f[(k + 1) % len(f)]
+                twins = edges[(min(a, b), max(a, b))]
+                if len(twins) != 2:
+                    continue
+                gj, ga = twins[1] if twins[0][0] == fi else twins[0]
+                if gj not in flip:          # a neighbour agrees when it runs the shared edge the other way
+                    flip[gj] = flip[fi] != (ga == a)
+                    patch.append(gj)
+                    stack.append(gj)
+        area = lambda fi: math.sqrt(sum(c * c for c in ft._newell([m.verts[i] for i in m.faces[fi]])))
+        wrong = sum(area(fi) for fi in patch if flip[fi])
+        if wrong * 2.0 > sum(area(fi) for fi in patch):
+            for fi in patch:
+                flip[fi] = not flip[fi]
+    for fi, fl in flip.items():
+        if fl:
+            m.faces[fi] = tuple(reversed(m.faces[fi]))
+    return m
 
 
 # =============================================================================
@@ -1882,6 +1977,26 @@ def _widest(strands, z):
     return g, kind, len(cols)
 
 
+def _thicken(strands, band=BODY):
+    """Coarse rings drift off the solved axes: fatten the two strands either side
+    of the body band's widest clearance, 6 mm at a time, until under limit."""
+    lo, hi, lim = band
+    for _ in range(40):
+        g, z, _k, _n = _gaps(band, strands)
+        if g <= lim - 0.008:
+            return
+        cols = sorted([(c, s) for s in strands for c in _crossings(s, z)], key=lambda q: q[0][0])
+        pairs = ([(None, cols[0])] + [(cols[k], cols[k + 1]) for k in range(len(cols) - 1)] +
+                 [(cols[-1], None)])
+        wid = lambda a, b: (HALF_W - abs((a or b)[0][0]) - (a or b)[0][2] if a is None or b is None
+                            else math.hypot(b[0][0] - a[0][0], b[0][1] - a[0][1]) - a[0][2] - b[0][2])
+        a, b = max(pairs, key=lambda q: wid(*q))
+        for q in (a, b):
+            if q is None:
+                continue
+            q[1]["radii"] = [x + 0.006 for x in q[1]["radii"][:-1]] + q[1]["radii"][-1:]
+
+
 def _gaps(band, strands, levels=PROOF_LEVELS):
     """The widest clearance anywhere in ``band``: (gap, z, kind, strands)."""
     lo, hi = band[0], band[1]
@@ -1898,7 +2013,7 @@ def _gaps(band, strands, levels=PROOF_LEVELS):
 # SHEETS -- the forest's own sheets, box-projected (lib/texel.py)
 # =============================================================================
 # The stand's polygons carry exactly three zones: bark (stems, forks, limbs),
-# root (the buttress flares and the buried plate) and leaf (the few clumps).
+# root (the buttress flares) and leaf (the few clumps).
 # Each takes forest_build's painter AND its seed, so the painted image is the
 # one forest.glb wears -- no second palette to drift, no copy-pasted painter.
 # Only the projection differs: "box", because a prop authored about its own
