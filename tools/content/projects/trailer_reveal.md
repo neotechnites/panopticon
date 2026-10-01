@@ -92,16 +92,16 @@ tape: forest_pit
 seconds: 2.85
 in: 1.40
 freeze: waive
-# side by side down the lane, the victim cuts in to the lip (153.4 deg r 46.8) and turns to face him at 2.30; the shove at 2.75 from 1.5 m (arms + the shover's kick), back over the edge, out of frame down the bank ~3.9; a third pulls up behind
+# side by side down the lane (the victim a stride inside), he cuts in to the lip (153.4 deg r 47.25) and turns to face him at 2.30; the shove at 2.75 from 1.0 m (arms + the shover's kick), backwards over the edge and down out of frame; a third pulls up behind
 
 ## 9b
 said: v5 "Forest, the shoved runner's POV: the edge he was shoved from with the shover on it looking down, falling away, the mist rushing up"
 capture: --map=forest --shot=pack_lead --stage=trailer_forest_pit --bots=3 --pov=runner --look=social --rifle=projectile --set=pov=victim --seed=20261001
 tape: forest_pit
 seconds: 1.45
-in: 3.25
+in: 3.14
 freeze: waive
-# the forest_pit tape down Runner_1, eyes held on the shover: 0.5 s after the shove the lip is 5 m off, then 30 m of drop into the mist (y -5.75) and the cut at 4.67 before the floor (out 4.75); floor_kill=1 lowers the KillBox to the floor for the shot only (map unchanged)
+# the forest_pit tape down Runner_1, eyes on the shover on the lip until the bank hides him (~3.5), then down at the mist rushing up (y -5.75 at 4.49); the cut ends 4.56 in the mist, before the floor (out 4.65); floor_kill=1 lowers the KillBox for the shot only (map unchanged)
 
 ## 10a
 said: v5 "Marble, runner POV: two runners both behind the same column on the inner edge, hidden from the tower; he shoves the other out into the open; cut BEFORE the shot"
