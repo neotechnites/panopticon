@@ -13,7 +13,7 @@ extends "res://tools/capture/stages/stage.gd"
 ## rock. --eye=115:5.6:5.7: r 48.5 and 49.5 open at every bearing 96-128. --eye=deg:49:1.6 for
 ## 108-124: the window (115:5.6:5.7) and the drum (115:3:9) both open. Tower room floor +4.05.
 ## Dials: window (115), start (deg of the victim at the deal, 90), fire_at (3.6), hand_at (1.3),
-## zoom_at (1.9), park (deg ahead the scope rests, 10), up_right (86), up_pitch (8).
+## zoom_at (1.9), park (deg ahead the scope rests, 10), up_right (86), up_pitch (12).
 
 const GUARD_HAND := preload("res://tools/capture/stages/guard_hand.gd")
 
@@ -46,8 +46,8 @@ func tune_rules(rules: MatchRules) -> void:
 func before_start() -> void:
 	LIB.disarm_pads(clip.root)
 	LIB.disarm_traps(clip.root)
-	# A POV carries no fill light: scope_hunt's lift, or the scope reads black.
-	if String(option("pov", "")) == "guard":
+	# A POV carries no fill light: scope_hunt's lift on both, or the scope reads black and the tower is lost.
+	if String(option("pov", "")) != "":
 		var world: WorldEnvironment = LIB.find_node(clip.root, "WorldEnvironment") as WorldEnvironment
 		if world != null and world.environment != null:
 			var env: Environment = world.environment.duplicate() as Environment
@@ -81,7 +81,7 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 			lane["strafes"] = [{"t": 0.5, "strafe": 0.08}, {"t": 1.6, "strafe": -0.06}, {"t": 2.5, "strafe": 0.04}]
 			lane["flinch_on"] = "hit"
 			var up_right: float = float(option("up_right", 86.0))
-			var up_pitch: float = float(option("up_pitch", 8.0))
+			var up_pitch: float = float(option("up_pitch", 12.0))
 			lane["flinch_glances"] = [
 				{"t": 0.0, "right": -7.0, "pitch": 5.0},
 				{"t": 0.1, "right": 5.0, "pitch": -4.0},
@@ -135,7 +135,7 @@ func _raise_the_hand() -> void:
 	clip.root.add_child(_hand)
 	_hand.install(_guard, controller(), elapsed())
 	_hand.start_at = float(option("hand_at", 1.3))
-	_hand.beats.append({"body": _bodies[VICTIM], "seconds": 100.0, "fire_at": float(option("fire_at", 3.6)) - _hand.start_at, "watch": true})
+	_hand.beats.append({"body": _bodies[VICTIM], "seconds": 100.0, "fire_at": float(option("fire_at", 3.6)) - _hand.start_at})
 	_hand.park = LIB.ring_point(_start + float(option("park", 10.0)), 49.0, 0.6)
 	say("guard at the window on %.0f deg; the hand from %.2f s, squeeze at %.2f s" % [float(option("window", 115.0)), _hand.start_at, float(option("fire_at", 3.6))])
 

@@ -51,8 +51,9 @@ var _follow_look: Vector3 = Vector3.ZERO
 var _following: bool = false
 
 
+## The line is the whole field (--set=line=3 is three prisoners and the guard, nobody else).
 func bots() -> int:
-	return 4
+	return int(option("line", 4))
 
 
 static func platform_centre(index: int) -> Vector3:
