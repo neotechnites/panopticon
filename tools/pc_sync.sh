@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # Push main to the PC play copy safely: never discards Ryan's uncommitted edits there.
-# Ryan's Aseprite edits to tracked textures/*.png on the PC are pulled back and committed on the Mac.
+# Ryan's PC edits to tracked textures/*.aseprite and *.png are pulled back, sheets exported, committed on the Mac.
 set -e
 cd "$(dirname "$0")/.."
 
-pngList=$(ssh panopticon-pc git -C C:/dev/panopticon status --porcelain | tr -d '\r' | grep -E '^.M .*/textures/.*\.png$|^M. .*/textures/.*\.png$' | sed -E 's/^...//' || true)
+pngList=$(ssh panopticon-pc git -C C:/dev/panopticon status --porcelain | tr -d '\r' | grep -E '^(.M|M.) .*/textures/.*\.(png|aseprite)$' | sed -E 's/^...//' || true)
 if [ -n "$pngList" ]; then
   for f in $pngList; do
     scp -q "panopticon-pc:C:/dev/panopticon/$f" "$f"
@@ -12,6 +12,12 @@ if [ -n "$pngList" ]; then
   git add -- $pngList
   git -c user.name="Ryan" -c user.email="ryan@olympus.local" commit -q -m "Ryan's texture edits" -- $pngList
   ssh panopticon-pc "git -C C:/dev/panopticon checkout -- $(echo $pngList)"
+fi
+
+tools/textures/export_sheets.sh
+sheetPngs=$(git diff --name-only -- '*/textures/*.png')
+if [ -n "$sheetPngs" ]; then
+  git -c user.name="Ryan" -c user.email="ryan@olympus.local" commit -q -m "Texture sheets exported" -- $sheetPngs
 fi
 
 git push -q pc main:refs/heads/incoming
