@@ -49,9 +49,11 @@ class RangeHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
     server_version = "PanopticonRange/1.0"
     accept_ranges = False
     range_remaining = None
+    cache_headers = None
 
     def handle_one_request(self):
         self.accept_ranges = False
+        self.cache_headers = None
         self.range_remaining = None
         super().handle_one_request()
 
@@ -59,6 +61,8 @@ class RangeHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         # Advertise range support on every file response, 200 and 206 alike.
         if self.accept_ranges:
             self.send_header("Accept-Ranges", "bytes")
+        for name, value in (self.cache_headers or {}).items():
+            self.send_header(name, value)
         super().end_headers()
 
     def resolved_file(self):
@@ -78,6 +82,17 @@ class RangeHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         self.range_remaining = None
         target = self.resolved_file()
         self.accept_ranges = target is not None
+        self.cache_headers = None
+        if target and not target.lower().endswith((".html", ".htm")):
+            st = os.stat(target)
+            etag = '"%x-%x"' % (int(st.st_mtime), st.st_size)
+            self.cache_headers = {"Cache-Control": "public, max-age=86400", "ETag": etag}
+            if self.headers.get("If-None-Match") == etag:
+                self.send_response(HTTPStatus.NOT_MODIFIED)
+                self.end_headers()
+                return None
+        elif target:
+            self.cache_headers = {"Cache-Control": "no-cache"}
         header = self.headers.get("Range") if target else None
         if header is None:
             return super().send_head()
