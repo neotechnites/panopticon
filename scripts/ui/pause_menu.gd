@@ -55,6 +55,9 @@ signal main_menu_requested()
 ## hand back a bare [Control] with none of its controls in it.
 const SETTINGS_SCREEN_SCENE: PackedScene = preload("res://ui/settings_screen.tscn")
 
+## The Debug menu, overlaid on the pause menu in play.
+const DEBUG_MENU_SCENE: PackedScene = preload("res://ui/debug_menu.tscn")
+
 
 ## The action that toggles the menu. Left as an export so a scene can move it
 ## without touching this file.
@@ -82,6 +85,7 @@ var _root: Control = null
 var _main_panel: PanelContainer = null
 var _settings_screen: SettingsScreen = null
 var _resume_button: Button = null
+var _debug_menu: DebugMenu = null
 
 var _is_open: bool = false
 
@@ -103,6 +107,19 @@ func _ready() -> void:
 
 
 func _input(event: InputEvent) -> void:
+	if MainMenu.is_debug_key(event):
+		if _settings_screen != null and _settings_screen.is_capturing_input():
+			return
+		get_viewport().set_input_as_handled()
+		if _debug_menu.visible:
+			_close_debug()
+		else:
+			_open_debug()
+		return
+	if _debug_menu != null and _debug_menu.visible and event.is_action_pressed(toggle_action):
+		get_viewport().set_input_as_handled()
+		_debug_menu.back()
+		return
 	if not event.is_action_pressed(toggle_action):
 		return
 	# A rebind in flight owns every key, Escape included -- it uses it to
@@ -203,12 +220,20 @@ func _build() -> void:
 
 	_resume_button = _add_button(column, tr("PAUSE_RESUME"), close)
 	_add_button(column, tr("PAUSE_SETTINGS"), _open_settings)
+	if OS.is_debug_build():
+		_add_button(column, tr("MENU_DEBUG"), _open_debug)
 	_add_button(column, tr("PAUSE_LEAVE_MATCH"), return_to_main_menu)
 
 	_settings_screen = SETTINGS_SCREEN_SCENE.instantiate()
 	_settings_screen.visible = false
 	_settings_screen.closed.connect(_close_settings)
 	_root.add_child(_settings_screen)
+
+	_debug_menu = DEBUG_MENU_SCENE.instantiate()
+	_debug_menu.visible = false
+	_debug_menu.in_match = true
+	_debug_menu.closed.connect(_close_debug)
+	_root.add_child(_debug_menu)
 
 
 func _add_button(parent: Container, text: String, handler: Callable) -> Button:
@@ -225,9 +250,26 @@ func _add_button(parent: Container, text: String, handler: Callable) -> Button:
 func _show_main() -> void:
 	if _settings_screen != null:
 		_settings_screen.visible = false
+	if _debug_menu != null:
+		_debug_menu.visible = false
 	_main_panel.visible = true
 	if _resume_button != null:
 		_resume_button.grab_focus()
+
+
+## Show the Debug menu over the game, pausing and freeing the mouse like the menu itself.
+func _open_debug() -> void:
+	if not _is_open:
+		open()
+	_main_panel.visible = false
+	_settings_screen.visible = false
+	_debug_menu.open()
+
+
+## Hide the Debug menu and resume play.
+func _close_debug() -> void:
+	_debug_menu.visible = false
+	close()
 
 
 func _open_settings() -> void:

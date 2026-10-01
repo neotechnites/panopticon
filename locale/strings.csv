@@ -6,9 +6,10 @@ MENU_SETTINGS,Settings,[Séttïngs ~~~~]
 MENU_QUIT,Quit,[Qüït ~~~~]
 MENU_DEBUG,Debug,[Débüg ~~~~]
 MENU_DEBUG_TITLE,DEBUG,[DÉBÜG ~~~~]
-MENU_DEBUG_NOTE,"Developer tools, kept out of the player's menus. F1 or ` opens this from the main menu.","[Dévélöpér tööls, képt öüt öf thé pläýér's ménüs. F1 ör ` öpéns thïs fröm thé mäïn ménü. ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~]"
+MENU_DEBUG_NOTE,"Developer tools, kept out of the player's menus. F1 or ` opens this from the main menu or in play.","[Dévélöpér tööls, képt öüt öf thé pläýér's ménüs. F1 ör ` öpéns thïs fröm thé mäïn ménü ör ïn plä. ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~]"
 MENU_DEBUG_MATCH,Match,[Mätch ~~~~]
 MENU_DEBUG_RULES,Match rules and balance,[Mätch rülés änd bäläncé ~~~~ ~~~~]
+MENU_DEBUG_RULES_NEXT,Match rules and balance (next match),[Mätch rülés änd bäläncé (néxt mätch) ~~~~ ~~~~ ~~~~]
 MENU_DEBUG_FULL_RULES,Show every rule in the hub's match setup,[Shöw évérý rülé ïn thé hüb's mätch sétüp ~~~~ ~~~~ ~~~~]
 MENU_DEBUG_HOTKEYS,In-match hotkeys,[Ïn-mätch hötkéýs ~~~~]
 MENU_DEBUG_SCENES,Test scenes,[Tést scénés ~~~~]

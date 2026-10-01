@@ -120,7 +120,7 @@ func _notification(what: int) -> void:
 
 
 func _input(event: InputEvent) -> void:
-	if _is_debug_key(event) and _main_panel.visible:
+	if is_debug_key(event) and _main_panel.visible:
 		get_viewport().set_input_as_handled()
 		open_debug()
 		return
@@ -229,7 +229,8 @@ func open_debug() -> void:
 	_debug_menu.open()
 
 
-static func _is_debug_key(event: InputEvent) -> bool:
+## True for the keys that open the Debug menu: F1 and backtick.
+static func is_debug_key(event: InputEvent) -> bool:
 	var key: InputEventKey = event as InputEventKey
 	return key != null and key.pressed and not key.echo \
 			and (key.keycode == KEY_F1 or key.keycode == KEY_QUOTELEFT or key.physical_keycode == KEY_QUOTELEFT)

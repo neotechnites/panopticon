@@ -2,7 +2,7 @@ class_name DebugMenu
 extends Control
 
 ## Developer tools kept out of the player's menus: quick match, rules and balance, test scenes, hotkeys.
-## Opened from the main menu by F1 or backtick, or its Debug button in debug builds.
+## Opened by F1 or backtick from the main menu or in play, or a Debug button in debug builds.
 
 ## Emitted when Back or Escape leaves the menu.
 signal closed()
@@ -29,6 +29,9 @@ const HOTKEYS: Array[Array] = [
 	[PlayerActions.FREECAM_UP, "MENU_DEBUG_KEY_FREECAM_UP"],
 	[PlayerActions.FREECAM_DOWN, "MENU_DEBUG_KEY_FREECAM_DOWN"],
 ]
+
+## Set by the pause menu: match-start rules are labelled "next match", Quick match is hidden.
+var in_match: bool = false
 
 @onready var _frame: Control = $Frame
 @onready var _quick_match: Button = %QuickMatch
@@ -59,7 +62,9 @@ func open() -> void:
 	visible = true
 	_rules_screen.visible = false
 	_frame.visible = true
-	_quick_match.grab_focus()
+	_quick_match.visible = not in_match
+	_rules.text = tr("MENU_DEBUG_RULES_NEXT") if in_match else tr("MENU_DEBUG_RULES")
+	(_quick_match if not in_match else _rules).grab_focus()
 
 
 ## Back one step: out of the rules screen, else out of the menu.
@@ -84,6 +89,8 @@ func launch(path: String) -> void:
 		push_error("DebugMenu could not load %s" % path)
 		return
 	SettingsStore.instance().save_to_disk()
+	get_tree().paused = false
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	var scene: Node = packed.instantiate()
 	if scene.find_children("*", "PauseMenu", true, false).is_empty():
 		scene.add_child(PAUSE_MENU_SCENE.instantiate())
