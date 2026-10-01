@@ -45,6 +45,7 @@ mouse_filter = 2
 theme_override_constants/separation = 10
 
 [node name="Round" type="Label" parent="Root/Frame/Layout"]
+theme_type_variation = &"Headline"
 unique_name_in_owner = true
 mouse_filter = 2
 theme_override_colors/font_outline_color = Color(0, 0, 0, 0.9)

@@ -179,23 +179,24 @@ func _build() -> void:
 	_root.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(_root)
 
+	var dim: ColorRect = ColorRect.new()
+	dim.color = Color(0.0, 0.0, 0.0, 0.55)
+	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_root.add_child(dim)
+
 	_main_panel = PanelContainer.new()
 	_main_panel.set_anchors_preset(Control.PRESET_CENTER)
 	_main_panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	_main_panel.grow_vertical = Control.GROW_DIRECTION_BOTH
 	_root.add_child(_main_panel)
 
-	var margin: MarginContainer = MarginContainer.new()
-	margin.add_theme_constant_override(&"margin_left", 24)
-	margin.add_theme_constant_override(&"margin_right", 24)
-	margin.add_theme_constant_override(&"margin_top", 16)
-	margin.add_theme_constant_override(&"margin_bottom", 16)
-	_main_panel.add_child(margin)
-
 	var column: VBoxContainer = VBoxContainer.new()
-	margin.add_child(column)
+	column.add_theme_constant_override(&"separation", 10)
+	_main_panel.add_child(column)
 
 	var title: Label = Label.new()
+	title.theme_type_variation = &"MenuTitle"
 	title.text = tr("PAUSE_TITLE")
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	column.add_child(title)
@@ -213,7 +214,7 @@ func _build() -> void:
 func _add_button(parent: Container, text: String, handler: Callable) -> Button:
 	var button: Button = Button.new()
 	button.text = text
-	button.custom_minimum_size = Vector2(220.0, 0.0)
+	button.custom_minimum_size = Vector2(280.0, 0.0)
 	button.pressed.connect(handler)
 	parent.add_child(button)
 	return button

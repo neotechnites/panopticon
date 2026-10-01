@@ -1,4 +1,4 @@
-[gd_scene load_steps=26 format=3]
+[gd_scene load_steps=27 format=3]
 
 [ext_resource type="PackedScene" path="res://hub/models/hub_base.glb" id="1_hub_base"]
 [ext_resource type="Script" uid="uid://gwfatmklmjcr" path="res://scripts/ring/tower_variant.gd" id="2_tower_variant"]
@@ -17,6 +17,7 @@
 [ext_resource type="PackedScene" path="res://ui/match_setup_screen.tscn" id="16_match_setup"]
 [ext_resource type="PackedScene" path="res://ui/pause_menu.tscn" id="17_pause_menu"]
 [ext_resource type="Theme" path="res://ui/panopticon_menu_theme.tres" id="18_menu_theme"]
+[ext_resource type="FontVariation" path="res://ui/fonts/display_font.tres" id="40_sign_font"]
 [ext_resource type="Resource" path="res://match/rules/default_match_rules.tres" id="19_rules"]
 [ext_resource type="Resource" path="res://match/rules/default_runner_palette.tres" id="20_palette"]
 [ext_resource type="PackedScene" path="res://maps/bentham_ring/bentham_ring.tscn" id="21_map1"]
@@ -113,6 +114,7 @@ no_depth_test = true
 fixed_size = false
 pixel_size = 0.02
 font_size = 64
+font = ExtResource("40_sign_font")
 outline_size = 12
 modulate = Color(1, 0.78, 0.55, 1)
 outline_modulate = Color(0, 0, 0, 0.85)
@@ -144,6 +146,7 @@ no_depth_test = true
 fixed_size = false
 pixel_size = 0.02
 font_size = 64
+font = ExtResource("40_sign_font")
 outline_size = 12
 modulate = Color(1, 0.78, 0.55, 1)
 outline_modulate = Color(0, 0, 0, 0.85)
@@ -175,6 +178,7 @@ no_depth_test = true
 fixed_size = false
 pixel_size = 0.02
 font_size = 64
+font = ExtResource("40_sign_font")
 outline_size = 12
 modulate = Color(1, 0.78, 0.55, 1)
 outline_modulate = Color(0, 0, 0, 0.85)
@@ -203,6 +207,7 @@ no_depth_test = true
 fixed_size = false
 pixel_size = 0.02
 font_size = 64
+font = ExtResource("40_sign_font")
 outline_size = 12
 modulate = Color(1, 0.78, 0.55, 1)
 outline_modulate = Color(0, 0, 0, 0.85)
@@ -222,6 +227,7 @@ no_depth_test = true
 fixed_size = false
 pixel_size = 0.02
 font_size = 64
+font = ExtResource("40_sign_font")
 outline_size = 12
 modulate = Color(1, 0.78, 0.55, 1)
 outline_modulate = Color(0, 0, 0, 0.85)
@@ -241,6 +247,7 @@ no_depth_test = true
 fixed_size = false
 pixel_size = 0.02
 font_size = 64
+font = ExtResource("40_sign_font")
 outline_size = 12
 modulate = Color(1, 0.78, 0.55, 1)
 outline_modulate = Color(0, 0, 0, 0.85)
@@ -260,6 +267,7 @@ no_depth_test = true
 fixed_size = false
 pixel_size = 0.02
 font_size = 64
+font = ExtResource("40_sign_font")
 outline_size = 12
 modulate = Color(1, 0.78, 0.55, 1)
 outline_modulate = Color(0, 0, 0, 0.85)
@@ -279,6 +287,7 @@ no_depth_test = true
 fixed_size = false
 pixel_size = 0.02
 font_size = 64
+font = ExtResource("40_sign_font")
 outline_size = 12
 modulate = Color(1, 0.78, 0.55, 1)
 outline_modulate = Color(0, 0, 0, 0.85)
@@ -298,6 +307,7 @@ no_depth_test = true
 fixed_size = false
 pixel_size = 0.02
 font_size = 64
+font = ExtResource("40_sign_font")
 outline_size = 12
 modulate = Color(1, 0.78, 0.55, 1)
 outline_modulate = Color(0, 0, 0, 0.85)
@@ -317,6 +327,7 @@ no_depth_test = true
 fixed_size = false
 pixel_size = 0.02
 font_size = 64
+font = ExtResource("40_sign_font")
 outline_size = 12
 modulate = Color(1, 0.78, 0.55, 1)
 outline_modulate = Color(0, 0, 0, 0.85)
@@ -395,7 +406,7 @@ offset_right = 260.0
 offset_bottom = 42.0
 theme_override_colors/font_outline_color = Color(0, 0, 0, 0.9)
 theme_override_constants/outline_size = 4
-theme_override_font_sizes/font_size = 14
+theme_override_font_sizes/font_size = 17
 text = ""
 
 [node name="Hint" type="Label" parent="HUD/Root"]
@@ -404,10 +415,10 @@ offset_left = 24.0
 offset_top = 42.0
 offset_right = 320.0
 offset_bottom = 62.0
-modulate = Color(1, 1, 1, 0.55)
+modulate = Color(1, 1, 1, 0.7)
 theme_override_colors/font_outline_color = Color(0, 0, 0, 0.9)
 theme_override_constants/outline_size = 4
-theme_override_font_sizes/font_size = 12
+theme_override_font_sizes/font_size = 15
 text = "HUB_TAB_HINT"
 
 [node name="Prompt" type="Label" parent="HUD/Root"]
@@ -422,7 +433,7 @@ offset_bottom = 34.0
 grow_horizontal = 2
 theme_override_colors/font_outline_color = Color(0, 0, 0, 0.9)
 theme_override_constants/outline_size = 6
-theme_override_font_sizes/font_size = 22
+theme_override_font_sizes/font_size = 26
 text = ""
 horizontal_alignment = 1
 
@@ -437,7 +448,7 @@ offset_bottom = 60.0
 grow_horizontal = 2
 theme_override_colors/font_outline_color = Color(0, 0, 0, 0.9)
 theme_override_constants/outline_size = 4
-theme_override_font_sizes/font_size = 14
+theme_override_font_sizes/font_size = 17
 text = ""
 horizontal_alignment = 1
 editor_description = "The vote readout: timer and a count per decided wedge. Hidden while no vote is open."

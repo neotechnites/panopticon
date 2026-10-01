@@ -220,6 +220,7 @@ func _build() -> void:
 	_band.add_child(column)
 
 	_title = _make_label("Title", TITLE_SIZE, TITLE_COLOR)
+	_title.theme_type_variation = &"Headline"
 	column.add_child(_title)
 	_countdown = _make_label("Countdown", COUNTDOWN_SIZE, COUNTDOWN_COLOR)
 	column.add_child(_countdown)

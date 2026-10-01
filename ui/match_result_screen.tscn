@@ -41,6 +41,7 @@ alignment = 1
 theme_override_constants/separation = 8
 
 [node name="BeatVerdict" type="Label" parent="Beat/Band/Layout"]
+theme_type_variation = &"Headline"
 unique_name_in_owner = true
 theme_override_font_sizes/font_size = 72
 text = "RESULT_VICTORY"
@@ -110,6 +111,7 @@ theme_override_constants/margin_bottom = 20
 theme_override_constants/separation = 12
 
 [node name="Verdict" type="Label" parent="Root/Frame/Dialog/Padding/Layout"]
+theme_type_variation = &"Headline"
 unique_name_in_owner = true
 theme_override_font_sizes/font_size = 40
 text = "RESULT_MATCH_OVER"

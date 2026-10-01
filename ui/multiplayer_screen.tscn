@@ -41,6 +41,7 @@ theme_override_constants/margin_bottom = 12
 theme_override_constants/separation = 8
 
 [node name="Title" type="Label" parent="Frame/Dialog/Padding/Layout"]
+theme_type_variation = &"MenuTitle"
 text = "MP_TITLE"
 
 [node name="NameRow" type="HBoxContainer" parent="Frame/Dialog/Padding/Layout"]
@@ -70,6 +71,7 @@ size_flags_horizontal = 3
 theme_override_constants/separation = 8
 
 [node name="HostTitle" type="Label" parent="Frame/Dialog/Padding/Layout/ConnectPanels/HostPanel"]
+theme_type_variation = &"Heading"
 text = "MP_HOST"
 
 [node name="PortRow" type="HBoxContainer" parent="Frame/Dialog/Padding/Layout/ConnectPanels/HostPanel"]
@@ -109,6 +111,7 @@ size_flags_horizontal = 3
 theme_override_constants/separation = 8
 
 [node name="JoinTitle" type="Label" parent="Frame/Dialog/Padding/Layout/ConnectPanels/JoinPanel"]
+theme_type_variation = &"Heading"
 text = "MP_JOIN"
 
 [node name="AddressRow" type="HBoxContainer" parent="Frame/Dialog/Padding/Layout/ConnectPanels/JoinPanel"]
@@ -150,6 +153,7 @@ size_flags_vertical = 3
 theme_override_constants/separation = 8
 
 [node name="LobbyTitle" type="Label" parent="Frame/Dialog/Padding/Layout/LobbyPanel"]
+theme_type_variation = &"Heading"
 unique_name_in_owner = true
 text = "MP_LOBBY"
 
