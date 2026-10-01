@@ -146,7 +146,7 @@ func _physics_process(delta: float) -> void:
 		if entry != null:
 			body = _body_of(entry)
 	var aim: Vector3
-	if _spent(k, beat) and bool(beat.get("watch", false)) and body != null and is_instance_valid(body):
+	if _spent(k, beat) and bool(beat.get("watch", false)) and body != null and is_instance_valid(body) and body.is_visible_in_tree():
 		# watch (false): after the squeeze the hand stays ON the man and rides the
 		# kick back down, which is what a player does -- he takes the shot and
 		# watches it land. With a round that travels it is the difference between

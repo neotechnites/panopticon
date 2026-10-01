@@ -35,7 +35,7 @@ freeze: waive
 
 ## 4
 said: "the hook's scoped hit" -- v2: the same take as 3 down the scope, guard at the 45 deg window
-capture: --map=forest --shot=pack_lead --stage=trailer_forest_pack --bots=3 --pov=guard --hud=crosshair --seed=20261001
+capture: --map=forest --shot=pack_lead --stage=trailer_forest_pack --bots=3 --pov=guard --hud=crosshair --set=lift=1 --seed=20261001
 seconds: 5.0
 in: 0.9
 freeze: waive
