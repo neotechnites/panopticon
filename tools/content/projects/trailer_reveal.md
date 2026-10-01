@@ -49,6 +49,78 @@ in: 0.9
 freeze: waive
 # the forest_pack tape down the scope; zoom at take 2.0, squeezed 3.15, lands 3.55
 
+## 5b
+said: v4 "Marble, guard POV scoped in, tracking runners"
+capture: --map=marble --shot=pack_lead --stage=trailer_marble_track --bots=3 --pov=guard --hud=crosshair --rifle=projectile --seed=20261001
+tape: marble_track
+seconds: 2.2
+in: 1.6
+freeze: waive
+# guard at the 126 deg window, scope in at take 0.8 on the lead, swings back to the man behind at 2.4; three past the stage-spawned column run 1.7-3.7; no shot
+
+## 6
+said: v4 "Hell, runner POV behind a rock, peeking out -- standing (d1, re-filmed without crouch)"
+capture: --shot=cover_side --stage=trailer_duel2 --bots=1 --pov=runner --look=social --rifle=projectile --seed=20261001
+tape: duel
+seconds: 7.5
+in: 1.0
+freeze: waive
+# standing at 68.8 deg r 50.6 behind the pocket lip wall (hidden from the 70 deg window at h 1.0-1.8); out in the open 2.9-4.3; breaks 5.55
+
+## 7
+said: v4 "Hell, guard scope holding on that rock; the shot hits rock (d2)"
+capture: --shot=cover_side --stage=trailer_duel2 --bots=1 --pov=guard --hud=crosshair --rifle=projectile --seed=20261001
+tape: duel
+seconds: 7.5
+in: 1.0
+freeze: waive
+# the duel tape down the scope at the 70 deg window: squeeze 4.38, the round hits MapBaseLip066Collision at 4.72
+
+## 8
+said: v4 "Hell, runner POV breaking cover and sprinting (d3 -- Ryan: \"perfect\", keep its framing)"
+capture: --shot=cover_side --stage=trailer_duel2 --bots=1 --pov=runner --look=social --rifle=projectile --seed=20261001
+tape: duel
+seconds: 2.2
+in: 5.5
+freeze: waive
+# v3 d3 (05.mp4@4.5 = take 5.5): breaks 5.55, sprints r 49 from ~6.2
+
+## 9a
+said: v4 "Forest, runner POV shoving another runner off the inner edge into the pit"
+capture: --map=forest --shot=pack_lead --stage=trailer_forest_pit --bots=3 --pov=runner --look=social --rifle=projectile --seed=20261001
+tape: forest_pit
+seconds: 2.2
+in: 1.35
+freeze: waive
+# the victim cuts to the lip at 151.6 deg between the lip trunks; the shover comes up outside him and shoves at 2.45 (152.8 deg r 48.0), then looks down; a third stops at r 48.9
+
+## 9b
+said: v4 "Forest, the shoved runner's POV falling into the pit through the mist, watching the others above"
+capture: --map=forest --shot=pack_lead --stage=trailer_forest_pit --bots=3 --pov=runner --look=social --rifle=projectile --set=pov=victim --seed=20261001
+tape: forest_pit
+seconds: 2.2
+in: 2.25
+freeze: waive
+# the forest_pit tape down Runner_1: shoved 2.45, through the mist (y -5.75..-11.6), out at the floor 4.42; the forest kills at y 0 (above the mist), so this stage lowers its KillBox to the floor for the shot only (floor_kill=1; map unchanged)
+
+## 10a
+said: v4 "Marble, runner POV behind a column on the inner edge, shoves the runner beside him out of cover; cut BEFORE the shot"
+capture: --map=marble --shot=pack_lead --stage=trailer_marble_column --bots=2 --pov=runner --look=social --rifle=projectile --seed=20261001
+tape: marble_column
+seconds: 2.2
+in: 1.6
+freeze: waive
+# columns spawned by the stage (marble_column.glb, r 47.5, 116.4-135.6 deg; maps/marble/marble.tscn untouched); shove 3.00 at 126.0 deg, lands in the gap 3.40; the cut ends 3.72, before the squeeze at 3.87
+
+## 10b
+said: v4 "Marble, guard scope, a beat earlier: sees him pushed out from the column, fires, hits"
+capture: --map=marble --shot=pack_lead --stage=trailer_marble_column --bots=2 --pov=guard --hud=crosshair --rifle=projectile --seed=20261001
+tape: marble_column
+seconds: 2.2
+in: 2.6
+freeze: waive
+# the marble_column tape down the scope at the 126 deg window: shove 3.00, squeeze 3.87 (lead 0, 0.45 s after he lands), hit 4.22
+
 ## 11
 said: v4 "Hell, lake platforming (t2)"
 capture: --shot=lava_parkour --stage=lavaparkour --bots=3 --set=line=3 --pov=runner --look=social --seed=20261001
@@ -68,6 +140,24 @@ in: 0.9
 freeze: waive
 # corridor sprint from 320 deg; armed in the tower at 2.85; the kill beat 4.19 (the white frame); seat change 5.38 (cut before it)
 
+## 13
+said: v4 "Hell S3, runner POV running through and bouncing on a crack"
+capture: --shot=s4_edge --stage=trailer_crack --bots=2 --pov=runner --look=social --rifle=projectile --seed=20261001
+tape: crack
+seconds: 2.2
+in: 1.7
+freeze: waive
+# behind the 139 deg lip rock, breaks across the gap at 2.05; the round lands where he was at 2.55; launched off the crack at 148.3 deg at 2.60, peaks 3.8 m up ~3.2
+
+## 14
+said: v4 "Same moment from the guard scope: fires, misses, the runner launches up out of cover"
+capture: --shot=s4_edge --stage=trailer_crack --bots=2 --pov=guard --hud=crosshair --rifle=projectile --seed=20261001
+tape: crack
+seconds: 2.0
+in: 1.85
+freeze: waive
+# the crack tape down the scope at the 150 deg window: squeeze 2.22, miss into MapBaseS3Collision 2.55, launch 2.60
+
 ## reshoot
 # Every shot is a stage (tools/capture/stages/) played from its tape (tools/content/projects/trailer_reveal/tapes/<tape>.json):
 # seed, map, rifle, spawns, every body's intent per physics tick, every outside write (place, launch, the guard's aim
@@ -83,34 +173,27 @@ music: voice/sr20det.ogg
 music_db: -3
 music_fade: 0.02 2.5
 captions: none
-# a1+a2 = 5.70 s: the title cuts in on the drop at 5.703 s. cuts/09f.mp4 is 09 with a white frame 3.30-3.345 (the kill beat, take 4.20).
-# v3 tail on the beat grid: 170.0 bpm, beat k at 5.716 + k*0.35294 s (librosa percussive onsets, kicks on integer k);
-# g1 ends on k61 (27.25), cuts every 2 beats to k77 then every beat, the end card hard on k81 (34.30), the
-# strongest accent (every 8th beat from k73). Lengths are the frame-rounded beat boundaries.
-# cuts/end_v3.mp4 is end.mp4 without "1-8 players" (Wishlist on Steam moved up into its line); in at 0.4, past the fade.
+# v4: a1+a2 = 5.70 s, the title cuts in on the drop at 5.703 s. After it every cut ends on the 170 bpm grid (beat k at
+# 5.716 + k*0.35294 s): h1 k9, h2 k13, then six beats a shot (5b k19 ... 10b k62), t2 k69, g1 k78, 13 k84, 14 five
+# beats so the end card lands hard on k89, an 8th-beat accent (37.13 s). Lengths are frame-rounded beat boundaries.
+# cuts/NN.mp4 is shot NN's cut from its in: point (shot.sh); 12's white frame is its flash: line (take 4.19, 0.045 s).
+# cuts/title_hard.mp4 and cuts/end_v3.mp4 are the v3 cards (end without the player count), kept on the PC.
 | line | clip | in | len | fit | speed | text |
 | a1 | cuts/01.mp4@0.35:2.70 | | | beat 2.70 | | |
 | a2 | cuts/02.mp4@1.70:3.00 | | | beat 3.00 | | |
 | a3 | cuts/title_hard.mp4@0:1.5 | | | beat 1.5 | | |
-| h1 | cuts/03.mp4@0.9:1.7 | | | beat 1.7 | | |
-| h2 | cuts/04.mp4@1.6:1.5 | | | beat 1.5 | | |
-| d1 | cuts/05.mp4@0.4:2.4 | | | beat 2.4 | | |
-| d2 | cuts/06.mp4@2.0:2.1 | | | beat 2.1 | | |
-| d3 | cuts/05.mp4@4.5:2.2 | | | beat 2.2 | | |
-| d4 | cuts/06.mp4@5.2:2.0 | | | beat 2.0 | | |
-| t1 | cuts/07.mp4@0.2:2.4 | | | beat 2.4 | | |
-| t2 | cuts/08.mp4@1.0:2.6 | | | beat 2.6 | | |
-| g1 | cuts/09f.mp4@0.6:3.15 | | | beat 3.15 | | |
-| c1 | cuts/14.mp4@1.45:0.7 | | | beat 0.7 | | |
-| c2 | cuts/17.mp4@1.0:0.7 | | | beat 0.7 | | |
-| c3 | cuts/16.mp4@1.25:0.7167 | | | beat 0.7167 | | |
-| c4 | cuts/15.mp4@1.25:0.7 | | | beat 0.7 | | |
-| c5 | cuts/18.mp4@1.5:0.7 | | | beat 0.7 | | |
-| c6 | cuts/13.mp4@2.23:0.7167 | | | beat 0.7167 | | |
-| c7 | cuts/15.mp4@2.52:0.7 | | | beat 0.7 | | |
-| c8 | cuts/17.mp4@3.0:0.7167 | | | beat 0.7167 | | |
-| c9 | cuts/16.mp4@3.47:0.35 | | | beat 0.35 | | |
-| c10 | cuts/18.mp4@3.5:0.35 | | | beat 0.35 | | |
-| c11 | cuts/13.mp4@3.0:0.35 | | | beat 0.35 | | |
-| c12 | cuts/15.mp4@3.95:0.35 | | | beat 0.35 | | |
+| h1 | cuts/04.mp4@0.9:1.7 | | | beat 1.7 | | |
+| h2 | cuts/05.mp4@1.6:1.4 | | | beat 1.4 | | |
+| m0 | cuts/05b.mp4@0:2.1167 | | | beat 2.1167 | | |
+| d1 | cuts/06.mp4@0.4:2.4833 | | | beat 2.4833 | | |
+| d2 | cuts/07.mp4@2.0:2.1167 | | | beat 2.1167 | | |
+| d3 | cuts/08.mp4@0:2.1167 | | | beat 2.1167 | | |
+| p1 | cuts/09a.mp4@0:2.1167 | | | beat 2.1167 | | |
+| p2 | cuts/09b.mp4@0:2.1167 | | | beat 2.1167 | | |
+| m1 | cuts/10a.mp4@0:2.1167 | | | beat 2.1167 | | |
+| m2 | cuts/10b.mp4@0:2.1167 | | | beat 2.1167 | | |
+| t2 | cuts/11.mp4@1.0:2.4667 | | | beat 2.4667 | | |
+| g1 | cuts/12.mp4@0.6:3.1833 | | | beat 3.1833 | | |
+| k1 | cuts/13.mp4@0:2.1167 | | | beat 2.1167 | | |
+| k2 | cuts/14.mp4@0:1.7667 | | | beat 1.7667 | | |
 | e1 | cuts/end_v3.mp4@0.4:3.2 | | | beat 3.2 | | |

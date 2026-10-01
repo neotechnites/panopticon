@@ -6,10 +6,11 @@ extends "res://tools/capture/stages/trailer_duel.gd"
 ## (the scope), same seed, same events. The guard stands at the 70 deg window
 ## (LIB.guard_to_window, r 5.6). probe_ring --eye=70:5.6:5.85: r 51 BLOCKED by
 ## MapBaseLip066 at 68-70 deg (h 0.7-1.6), open from 70.5 (h 1.6) and 71; r 49 open every
-## 3 deg from 72 to 99 (rock; S2's lava is r 50.3+ from ~74 deg). He crouches at 68.8/50.6
+## 3 deg from 72 to 99 (rock; S2's lava is r 50.3+ from ~74 deg). v4, no crouch: he STANDS at 68.8/50.6
+## (--los at h 1.0-1.8 all BLOCKED by MapBaseLip066)
 ## facing the rock, side-steps left (+bearing) past its end with his eyes on the tower,
 ## steps back as the round cracks the rock, turns to the course and sprints r 49.
-## Dials: at, peek_seconds (0.5), back_seconds (1.15), hidden_by (70.0 deg: the squeeze), break_to, window (70).
+## Dials: at, peek_at (2.15), peek_seconds (0.5), peek_strafe (0.4), back_seconds (1.15), back_strafe (0.45), hidden_by (70.0 deg: the squeeze), covered_seconds (0.65), break_to, window (70).
 
 const AT: String = "68.8,50.6"
 const BREAK_TO: String = "100,49.0"
@@ -19,7 +20,7 @@ const STEP_COVERED: int = 7
 const STEP_TURN: int = 8
 
 
-## Crouched facing the rock, a side-step out and back, then down the course; eyes never behind him.
+## Standing facing the rock, a side-step out and back, then down the course; eyes never behind him.
 func cast(runners: Array[RunnerBrain]) -> bool:
 	if runners.is_empty() or runners[0].controller == null:
 		return false
@@ -33,11 +34,11 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 		{"do": "place", "at": _spot + Vector3.UP * 0.1, "face": face},
 		{"do": "human", "on": true},
 		{"do": "steer", "on": true, "rate": 240.0, "gain": 10.0},
-		{"do": "until", "t": 1.9, "crouch": true, "sway": 4.0, "period": 2.6, "look_down": -16.0},
-		{"do": "hold", "seconds": float(option("peek_seconds", 0.5)), "strafe": -0.55, "look_down": -6.0},
+		{"do": "until", "t": float(option("peek_at", 2.15)), "sway": 4.0, "period": 2.6, "look_down": -16.0, "fidget": true},
+		{"do": "hold", "seconds": float(option("peek_seconds", 0.5)), "strafe": -float(option("peek_strafe", 0.4)), "look_down": -6.0},
 		{"do": "hold", "seconds": 0.45, "look_down": -6.0},
-		{"do": "hold", "seconds": float(option("back_seconds", 1.15)), "strafe": 0.7, "crouch": true, "look_down": -10.0},
-		{"do": "hold", "seconds": 0.9, "crouch": true, "look_down": -12.0},
+		{"do": "hold", "seconds": float(option("back_seconds", 1.15)), "strafe": float(option("back_strafe", 0.45)), "look_down": -10.0},
+		{"do": "hold", "seconds": float(option("covered_seconds", 0.65)), "look_down": -12.0, "fidget": true},
 		{"do": "glance", "right": -78.0, "pitch": 4.0, "seconds": 0.35},
 		{"do": "lane", "to": LIB.bearing_of(away), "r": LIB.radius_of(away), "dir": 1, "speed": 1.0, "weave": 0.04, "period": 1.2, "timeout": 8.0,
 			"glances": [{"t": 0.0, "right": 0.0, "pitch": -2.0}, {"t": 0.9, "right": 34.0, "pitch": 6.0}, {"t": 1.3, "right": 3.0, "pitch": -1.0}]},
@@ -45,7 +46,7 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 	], 0, "ClipDuelDriver")
 	victim_body(_runner)
 	stage_body(_runner)
-	say("trailer_duel2: %s crouched at %.1f deg r %.1f behind the lip wall" % [_runner.name, deg, LIB.radius_of(_spot)])
+	say("trailer_duel2: %s standing at %.1f deg r %.1f behind the lip wall" % [_runner.name, deg, LIB.radius_of(_spot)])
 	return true
 
 
