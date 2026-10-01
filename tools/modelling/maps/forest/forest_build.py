@@ -236,7 +236,7 @@ BAR_SIDES = 3               # a bar is a 0.06 m stick: three sides read as four 
 # 0.025: the mouth was exactly as bright as the wall around it, which is what
 # "no light" looks like. So the lamp has to BE the lit pixels, not cast them:
 #
-#   1. the emission is an order of magnitude up (LAMP_GLOW below), because at
+#   1. the emission is an order of magnitude up (forest_lamp_emissive), because at
 #      sRGB 44 it was ~2% of white under a tonemapper that compresses;
 #   2. LAMP_ZONE is worn by the whole REAR HALF of the pocket -- back wall,
 #      floor, roof and both jambs from the BAR_SHELF line back -- so the falloff
@@ -1188,77 +1188,6 @@ def _ray_object(m, name):
 # =============================================================================
 # SHEETS -- the forest's classes, one tiling image each (lib/texel.py)
 # =============================================================================
-# Counts and sizes carry the atlas cells' density per metre: a 64 px cell at
-# 12 texels/m was 5.33 m; a sheet at texel.MPT is 12.8 m square.
-_CELL_M = 64.0 / ft.TPM
-_K = (tx.TILE * tx.MPT / _CELL_M) ** 2         # sheet area / cell area: 5.76
-_S = (1.0 / ft.TPM) / tx.MPT                   # old texel / new texel: 1.67
-
-
-def _n(count, cell_px=64):
-    return int(round(count * _K * (64.0 / cell_px) ** 2))
-
-
-def _sz(texels):
-    return max(1, int(round(texels * _S)))
-
-
-def _noise(tones, cuts, nblades, blade_shades, cell_px=(128, 64)):
-    def paint(c, r, s):
-        tx.noise_fill(c, r, c.box, tones, cuts=cuts, cells=(_sz(10), _sz(4)))
-        tx.blades(c, r, c.box, int(round(nblades * (c.w * c.h) / float(cell_px[0] * cell_px[1]))), blade_shades)
-    return paint
-
-
-def _leaves(base, blobs, lit, count, sz, cell_px):
-    def paint(c, r, s):
-        tx.fill(c, r, c.box, list(base))
-        for _ in range(_n(count, cell_px)):
-            w = r.i(_sz(sz[0]), _sz(sz[1]))
-            h = max(2, w - r.i(0, 2))
-            x, y = r.i(0, c.w - 1), r.i(0, c.h - 1)
-            c.rect(x, y, x + w, y + h, r.pick(list(blobs)))
-            c.rect(x, y + h - 1, x + max(2, w // 2), y + h, lit)      # the lit edge of every leaf
-    return paint
-
-
-def _bark(base):
-    def paint(c, r, s):
-        tx.fill(c, r, c.box, list(base))
-        tx.streaks(c, r, c.box, _n(26), list(ft.BARK_STREAKS), (_sz(6), _sz(18)), (1, _sz(2)))
-        tx.streaks(c, r, c.box, _n(12), [ft.BARK_CRACK], (_sz(4), _sz(9)), (1, 1), wander=1)
-        for _ in range(_n(8)):
-            x, y = r.i(0, c.w - 1), r.i(0, c.h - 1)
-            c.rect(x, y, x + _sz(2), y + _sz(2), ft.BARK_MOSS)
-    return paint
-
-
-def _sheet_lamp(c, r, s):
-    """The back wall of a cell, and the only thing in the forest that gives off
-    light: dark stone rubbed with a low, warm glow, brightest in a couple of
-    patches so a mouth reads as lit rather than as a flat panel. The albedo
-    stays nearly as dark as `cell` -- what the lane sees is the EMISSION, and a
-    pale albedo would make the back read as a bright wall in daylight too."""
-    base = [(16, 15, 12), (20, 19, 14), (13, 12, 10), (24, 22, 16)]
-    for y in range(c.h):
-        for x in range(c.w):
-            k = r.pick(base)
-            c.put(x, y, k, LAMP_GLOW)
-    for _ in range(_n(7)):                       # the warmer patches: a lamp is not even
-        x, y = r.i(0, c.w - 1), r.i(0, c.h - 1)
-        w, hh = _sz(3), _sz(2)
-        c.rect(x, y, x + w, y + hh, (30, 27, 19), LAMP_GLOW_HOT)
-    for _ in range(_n(18)):                      # soot and cracks: the glow is not uniform.
-        x, y = r.i(0, c.w - 1), r.i(0, c.h - 1)   # bumped from 6 -- at the brightness the
-        w = _sz(3) if r.f() < 0.4 else _sz(1)     # mouth needs, a sparse sheet read as one
-        c.rect(x, y, x + w, y + _sz(1), (10, 9, 7), LAMP_GLOW_DIM)
-
-
-def _sheet_stem(c, r, s):
-    """Plain white, and never exported: the brambles' colour is COLOR_0 alone (forest_pit_build.stem_colour,
-    _unlit), so the class has UVs but no image."""
-    tx.fill(c, r, c.box, [(255, 255, 255)])
-
 
 def _forest_ref(centre):
     """The radius a face's arc is measured at, by region, so every region's
@@ -1284,41 +1213,30 @@ def _forest_ref(centre):
     return 45.0                                  # the pit bank and floor
 
 
-def _sheet(name, paint, **kw):
-    return tx.Sheet(name, paint, ref_r=_forest_ref, roughness=ft.ROUGHNESS, **kw)
+def _sheet(name, **kw):
+    return tx.Sheet(name, ref_r=_forest_ref, roughness=ft.ROUGHNESS, **kw)
 
 
-# The cell lamp's emission, sRGB as the painters write it. Dim on purpose (Ryan:
-# "a pretty dim one"): the forest's sun is 0.85 and the shafts are the brightest
-# thing in frame, so a lamp that read as a lantern would out-light the wood. This
-# is a glow you see IN the mouth, not a lamp that lights the lane.
-LAMP_GLOW = (132, 100, 54)
-LAMP_GLOW_HOT = (184, 144, 82)   # ... the warmer patches
-LAMP_GLOW_DIM = (70, 52, 30)     # ... and the soot
-
-_BLADES = [(168, 172, 82), (160, 160, 70), (86, 102, 58)]
 # Each class: its group's keeper (ft.KEEPERS) x the class's old tile's linear mean over the keeper's, clamped at 1.
-_GRASS = _noise(ft.LANE_GREENS, (0.38, 0.66), 160, _BLADES)
-_PATH = _noise(ft.PATH_TONES, (0.40, 0.72), 70, [(118, 96, 58), (104, 88, 54), (132, 140, 70)])
-_SUN = _leaves(ft.SUN_BASE, ft.SUN_BLOBS, ft.SUN_LIT, 110, (3, 5), 64)
-_BARK = _bark(ft.BARK_BASE)
 _DARK = (0.0144, 0.0135, 0.015)
 SHEETS = {
-    "grass": _sheet("grass", _GRASS, seed=1),
-    "verge": _sheet("verge", _GRASS, seed=1, stem="forest_grass", tint=(1.0, 0.8456, 1.0)),
-    "edge": _sheet("edge", _GRASS, seed=1, stem="forest_grass", tint=(0.3516, 0.4017, 0.8407)),
-    "path": _sheet("path", _PATH, seed=3),
-    "earth": _sheet("earth", _PATH, seed=3, stem="forest_path", tint=(0.2615, 0.2112, 0.4746)),
-    "sun": _sheet("sun", _SUN, seed=7),
-    "leaf": _sheet("leaf", _SUN, seed=7, stem="forest_sun", tint=(0.2489, 0.2792, 0.5536)),
-    "shade": _sheet("shade", _SUN, seed=7, stem="forest_sun", tint=(0.1506, 0.1938, 0.5302)),
-    "fern": _sheet("fern", _SUN, seed=7, stem="forest_sun", tint=(0.2197, 0.3329, 0.568)),
-    "bark": _sheet("bark", _BARK, seed=9),
-    "root": _sheet("root", _BARK, seed=9, stem="forest_bark", tint=(1.0, 0.8889, 0.8012)),
-    "cell": _sheet("cell", None, size=64, stem="forest_rock", tint=_DARK),
-    "stem": _sheet("stem", _sheet_stem, seed=14),
-    # the lamp keeps the 256 period its glow file was drawn to; its albedo is the stone keeper, near black
-    "lamp": _sheet("lamp", _sheet_lamp, seed=13, emissive=True, stem="forest_rock", glow_stem="forest_lamp", tint=_DARK),
+    "grass": _sheet("grass"),
+    "verge": _sheet("verge", stem="forest_grass", tint=(1.0, 0.8456, 1.0)),
+    "edge": _sheet("edge", stem="forest_grass", tint=(0.3516, 0.4017, 0.8407)),
+    "path": _sheet("path"),
+    "earth": _sheet("earth", stem="forest_path", tint=(0.2615, 0.2112, 0.4746)),
+    "sun": _sheet("sun"),
+    "leaf": _sheet("leaf", stem="forest_sun", tint=(0.2489, 0.2792, 0.5536)),
+    "shade": _sheet("shade", stem="forest_sun", tint=(0.1506, 0.1938, 0.5302)),
+    "fern": _sheet("fern", stem="forest_sun", tint=(0.2197, 0.3329, 0.568)),
+    "bark": _sheet("bark"),
+    "root": _sheet("root", stem="forest_bark", tint=(1.0, 0.8889, 0.8012)),
+    "cell": _sheet("cell", size=ft.png_size("forest_rock_albedo")[1], stem="forest_rock", tint=_DARK),
+    # the brambles are COLOR_0 alone (_unlit drops the image): the bark only stands in for one
+    "stem": _sheet("stem", stem="forest_bark"),
+    # the lamp keeps the period its glow file was drawn to; its albedo is the stone keeper, near black
+    "lamp": _sheet("lamp", size=ft.png_size("forest_lamp_emissive")[1], stem="forest_rock", glow_stem="forest_lamp",
+                   tint=_DARK),
 }
 
 
@@ -1717,7 +1635,7 @@ def build():
     ob = m.object(OBJECT_NAME)
     classes = list(m.zones)
     tx.unwrap(ob, classes, SHEETS, seed=1)
-    mats = tx.materials(NAME, SHEETS, use_files=ft.USE_TEXTURE_FILES, tex_dir=os.path.join(HERE, ft.TEX_DIR))
+    mats = tx.materials(NAME, SHEETS)
     order = tx.finish(ob, classes, mats)
     for i in soft:              # Ryan: "ugly sharp edges": the roof's leaf mass shades smooth, the rock stays flat
         ob.data.polygons[i].use_smooth = True

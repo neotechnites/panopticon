@@ -223,17 +223,13 @@ SEED = 3140271
 EYE_H = 1.65
 
 # ---- the forest's keeper tiles (shared with every forest build) --------------
-USE_TEXTURE_FILES = True        # textures/<stem>_albedo.png replaces a painted sheet (forest_build's classes)
-TEX_DIR = "textures"
-TEX_SEED = 7710233
-TPM = 12.0                      # texels per metre of the old atlas: forest_build's painters keep their scale by it
 TILE_MPT = 0.05                 # metres per texel on every forest surface (texel.MPT)
-KEEPERS = {                     # group -> (stem, texels per side): one tiling drawing per material
-    "leaf": ("forest_sun", 256),
-    "grass": ("forest_grass", 256),
-    "dirt": ("forest_path", 256),
-    "wood": ("forest_bark", 256),
-    "stone": ("forest_rock", 64),
+KEEPERS = {                     # group -> image stem: one tiling drawing per material
+    "leaf": "forest_sun",
+    "grass": "forest_grass",
+    "dirt": "forest_path",
+    "wood": "forest_bark",
+    "stone": "forest_rock",
 }
 # zone -> (group, baseColorFactor): the old atlas zone's linear mean over its keeper's, clamped at 1
 TILES = {
@@ -247,7 +243,7 @@ ROUGHNESS = 0.95
 
 
 # =============================================================================
-# RNG, CANVAS, ATLAS
+# RNG, TILES
 # =============================================================================
 
 class _Rng(object):
@@ -279,197 +275,24 @@ class _Rng(object):
         return seq[self.bits() % len(seq)]
 
 
-def _s2l(rgb):
-    out = []
-    for c in rgb:
-        c /= 255.0
-        out.append(c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4)
-    return out
+def png_size(stem):
+    """(w, h) of textures/<stem>.png, read from the file; without Blender (--check) found from this checkout."""
+    if bpy is not None:
+        return mdl.texture_size(stem)
+    import glb_textures
+    root = os.path.normpath(os.path.join(HERE, "..", "..", "..", ".."))
+    return glb_textures.png_size(os.path.join(root, glb_textures.find(root, stem)))
 
 
-class _Canvas(object):
-    def __init__(self, size, h=None):
-        self.w, self.h = size, (size if h is None else h)
-        n = self.w * self.h * 4
-        self.alb = [0.0] * n
-        self.emi = [0.0] * n
-        for i in range(self.w * self.h):
-            self.alb[i * 4 + 3] = 1.0
-            self.emi[i * 4 + 3] = 1.0
-
-    def put(self, x, y, rgb, glow=None):
-        if not (0 <= x < self.w and 0 <= y < self.h):
-            return
-        o = (y * self.w + x) * 4
-        r, g, b = _s2l(rgb)
-        self.alb[o], self.alb[o + 1], self.alb[o + 2] = r, g, b
-        if glow is not None:
-            r, g, b = _s2l(glow)
-            self.emi[o], self.emi[o + 1], self.emi[o + 2] = r, g, b
-
-    def wrap(self, x, y, rgb, glow=None):
-        self.put(x % self.w, y % self.h, rgb, glow)
-
-    def rect(self, x0, y0, x1, y1, rgb, glow=None):
-        for y in range(y0, y1):
-            for x in range(x0, x1):
-                self.put(x, y, rgb, glow)
-
-
-def _rect_of(zone, size, h=None):
-    u0, v0, u1, v1 = zone
-    h = size if h is None else h
-    return (int(u0 * size), int(v0 * h), int(u1 * size), int(v1 * h))
-
-
-def _fill(c, r, box, shades):
-    x0, y0, x1, y1 = box
-    for y in range(y0, y1):
-        for x in range(x0, x1):
-            c.put(x, y, r.pick(shades))
-
-
-def _blotch(c, r, box, shades, count, minsz, maxsz):
-    x0, y0, x1, y1 = box
-    for _ in range(count):
-        w = r.i(minsz, maxsz)
-        h = max(minsz, min(maxsz, w + r.i(-1, 1)))
-        x, y = r.i(x0, x1 - w - 1), r.i(y0, y1 - h - 1)
-        c.rect(x, y, x + w, y + h, r.pick(shades))
-
-
-def _leaves(c, r, box, base, shades, lit, count, sz):
-    """Dense foliage: a dark ground, many small leaf blobs, a lit pixel on each."""
-    _fill(c, r, box, base)
-    x0, y0, x1, y1 = box
-    for _ in range(count):
-        w = r.i(sz[0], sz[1])
-        h = max(2, w - r.i(0, 1))
-        x, y = r.i(x0, x1 - w - 1), r.i(y0, y1 - h - 1)
-        s = r.pick(shades)
-        c.rect(x, y, x + w, y + h, s)
-        c.put(x, y + h - 1, lit)
-        if w > 3:
-            c.put(x + 1, y + h - 1, lit)
-
-
-# The palette, leaning Ocarina of Time (Kokiri Forest: gold-olive grass under a
-# misty gold-green sky, grey-brown trunks, foliage that goes dark and blue-green
-# in the shade) and away from Castle Crashers' flat saturated green. Sampled
-# from the refs (BotW Korok forest: lit grass #99c03d, shaded #679030, ferns
-# #63843f, canopy in shade #5a7c54; OoT Kokiri: grass #696910, mist #92934b,
-# trunks #75745e, deep foliage #353b24) and then muted a step darker so the sun
-# shafts and the lit leaf tops carry the light. Every hex is in
-# docs/maps/forest.md. Every lane zone is painted as fine noise over these (a
-# smooth field picks the green, a per-texel jitter breaks it up), never as
-# blotches: the deck is unwrapped a quad at a time at a random offset, and any
-# shape bigger than a texel or two reads as that quad's own patch.
-LANE_GREENS = ((138, 148, 64), (122, 138, 60), (102, 128, 58))     # #8a9440 #7a8a3c #66803a
-PATH_TONES = ((124, 116, 72), (110, 98, 68), (111, 126, 66))       # #7c7448 #6e6244 #6f7e42
-VERGE_TONES = ((134, 144, 62), (120, 130, 60), (118, 112, 68))     # #86903e #78823c #767044
-EDGE_GREENS = ((108, 124, 60), (92, 110, 56), (78, 96, 52))        # #6c7c3c #5c6e38 #4e6034
-LEAF_BASE = ((58, 74, 44), (52, 68, 42), (64, 80, 48))             # #3a4a2c #344428 #405030
-LEAF_BLOBS = ((92, 112, 64), (104, 122, 72), (80, 102, 56), (90, 110, 62))   # #5c7040 #687a48 #506638 #5a6e3e
-LEAF_LIT = (138, 152, 86)                                          # #8a9856
-SHADE_BASE = ((38, 50, 31), (34, 44, 28))                          # #26321f #222c1c
-SHADE_BLOBS = ((56, 72, 44), (48, 64, 42), (60, 78, 48))           # #38482c #30402a #3c4e30
-SHADE_LIT = (76, 94, 58)                                           # #4c5e3a
-SUN_BASE = ((102, 120, 62), (96, 114, 58))                         # #66783e #60723a
-SUN_BLOBS = ((134, 150, 80), (152, 166, 92), (122, 140, 74), (142, 158, 86))  # #869650 #98a65c #7a8c4a #8e9e56
-SUN_LIT = (176, 184, 108)                                          # #b0b86c
-FERN_BASE = ((74, 98, 54), (68, 92, 50), (80, 106, 58))            # #4a6236 #445c32 #506a3a
-FERN_FROND = ((108, 136, 72), (124, 150, 82))                      # #6c8848 #7c9652
-FERN_DARK = (52, 72, 42)                                           # #34482a
-BARK_BASE = ((94, 84, 64), (88, 78, 60), (100, 90, 70))            # #5e5440 #584e3c #645a46
-BARK_STREAKS = ((72, 64, 48), (112, 102, 80), (66, 58, 44))        # #484030 #706650 #423a2c
-BARK_CRACK = (50, 44, 32)                                          # #322c20
-BARK_MOSS = (84, 104, 60)                                          # #54683c
-EARTH_BASE = ((74, 62, 46), (68, 56, 42), (80, 68, 50), (62, 52, 40))   # #4a3e2e #44382a #504432 #3e3428
-EARTH_BLOTCH = ((60, 50, 38), (90, 78, 58), (56, 46, 36))          # #3c3226 #5a4e3a #382e24
-EARTH_ROOT = (96, 82, 60)                                          # #60523c
-EARTH_STONE = (104, 98, 86)                                        # #686256
-EARTH_MOSS = (66, 90, 50)                                          # #425a32
-ROOT_BASE = ((98, 80, 58), (92, 74, 54), (106, 88, 64))            # #62503a #5c4a36 #6a5840
-
-
-def _value_field(r, w, h, cell):
-    """Smooth value noise over a w x h texel box: a random lattice every
-    ``cell`` texels, bilinear between, wrapping so the box tiles."""
-    nx, ny = max(1, w // cell), max(1, h // cell)
-    lat = [[r.f() for _ in range(nx)] for _ in range(ny)]
-    out = [[0.0] * w for _ in range(h)]
-    for y in range(h):
-        fy = y * ny / float(h)
-        j0 = int(fy) % ny
-        j1 = (j0 + 1) % ny
-        ty = fy - int(fy)
-        ty = ty * ty * (3.0 - 2.0 * ty)
-        for x in range(w):
-            fx = x * nx / float(w)
-            i0 = int(fx) % nx
-            i1 = (i0 + 1) % nx
-            tx = fx - int(fx)
-            tx = tx * tx * (3.0 - 2.0 * tx)
-            a = lat[j0][i0] + (lat[j0][i1] - lat[j0][i0]) * tx
-            b = lat[j1][i0] + (lat[j1][i1] - lat[j1][i0]) * tx
-            out[y][x] = a + (b - a) * ty
-    return out
-
-
-def _noise_fill(c, r, box, tones, cuts=(0.38, 0.66), jitter=0.22, dither=4):
-    """Fine noise in two or three tones: a two-octave field plus a per-texel
-    jitter picks the tone by ``cuts``; ``dither`` shifts every texel's value
-    a little so no two neighbours are quite the same."""
-    x0, y0, x1, y1 = box
-    w, h = x1 - x0, y1 - y0
-    f1 = _value_field(r, w, h, 10)
-    f2 = _value_field(r, w, h, 4)
-    for y in range(h):
-        for x in range(w):
-            v = 0.65 * f1[y][x] + 0.35 * f2[y][x] + r.u(-jitter, jitter)
-            k = 0
-            for cut in cuts:
-                if v >= cut:
-                    k += 1
-            tone = tones[min(k, len(tones) - 1)]
-            d = r.i(-dither, dither)
-            c.put(x0 + x, y0 + y, tuple(max(0, min(255, ch + d)) for ch in tone))
-
-
-def _blades(c, r, box, count, shades):
-    """Single texels, a lighter or darker blade tip each."""
-    x0, y0, x1, y1 = box
-    for _ in range(count):
-        c.put(r.i(x0, x1 - 1), r.i(y0, y1 - 1), r.pick(shades))
-
-
-def _images(c, size, names, h=None):
-    h = size if h is None else h
-    out = []
-    for name, buf in ((names[0], c.alb), (names[1], c.emi)):
-        img = bpy.data.images.new(name, size, h, alpha=False)
-        img.colorspace_settings.name = "sRGB"
-        img.pixels.foreach_set(buf)
-        img.update()
-        out.append(img)
-    return out[0], out[1]
-
-
-def image_file(name):
-    """<home>/textures/<name> from anywhere in the repo; None if absent or regenerating."""
-    path = mdl.texture_file(name)
-    if path is None:
-        return None
-    img = bpy.data.images.load(path)
-    img.colorspace_settings.name = "sRGB"
-    img.pack()
-    print("MDL TEXTURE %s from %s" % (img.name, path))
-    return img
+_PERIOD = {}         # keeper stem -> metres per repeat
 
 
 def tile_period(zone, table=None):
-    """Metres one repeat of the zone's keeper spans."""
-    return KEEPERS[(table or TILES)[zone][0]][1] * TILE_MPT
+    """Metres one repeat of the zone's keeper spans: its PNG's height in texels at TILE_MPT."""
+    stem = KEEPERS[(table or TILES)[zone][0]]
+    if stem not in _PERIOD:
+        _PERIOD[stem] = png_size(stem + "_albedo")[1] * TILE_MPT
+    return _PERIOD[stem]
 
 
 def tile_materials(prefix, zones, table=None, cull=True, vertex=False):
@@ -479,9 +302,7 @@ def tile_materials(prefix, zones, table=None, cull=True, vertex=False):
     out = {}
     for z in sorted(set(zones)):
         group, tint = table[z]
-        alb = image_file(KEEPERS[group][0] + "_albedo.png")
-        if alb is None:
-            raise RuntimeError("forest tile %s_albedo.png is missing" % KEEPERS[group][0])
+        alb = tx.image(KEEPERS[group] + "_albedo")
         mat = tx.material("%s_%s" % (prefix, z), alb, None, ROUGHNESS, 0.0, cull,
                           None if tuple(tint) == (1.0, 1.0, 1.0) else tint)
         out[z] = tint_material(mat) if vertex else mat
@@ -1760,7 +1581,7 @@ def build_tree_collider():
 
 
 # =============================================================================
-# UNWRAP -- per-face planar projection into a random window of its zone
+# UNWRAP -- per-face planar projection, world-tiled
 # =============================================================================
 
 def unwrap(ob, zones, seed=0, water_fn=None, table=None):
@@ -1785,8 +1606,7 @@ def unwrap(ob, zones, seed=0, water_fn=None, table=None):
 # BUILD / CHECK
 # =============================================================================
 
-# Linear mean albedo of leaf / shade / sun as the painters drew them on the old 256 x 256 atlas:
-# the canopy's seam tint is measured off these, so the tint outlives the repack.
+# Linear mean albedo of leaf / shade / sun on the old 256 x 256 atlas: the canopy's seam tint is measured off these.
 ZONE_MEANS = {
     "leaf": [0.07279782826225249, 0.1097163984111475, 0.03707095420745521],
     "shade": [0.025032702695835757, 0.04094508853036712, 0.017297599392390315],

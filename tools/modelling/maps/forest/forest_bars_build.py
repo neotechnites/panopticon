@@ -27,7 +27,7 @@ ONE mesh (ForestBars), one surface per material class; each ground stem is
 capped just under the soil, and its forks, limbs, roots and leaves grow out of sockets in it.
 
 Textures: one tiling sheet per class (lib/texel.py, SHEETS below), exactly as
-forest_build.py does it, and from forest_build's OWN painters and seeds -- so
+forest_build.py does it, and from forest_build's OWN sheets -- so
 `forest_bark`, `forest_leaf` and `forest_root` here are the keeper tiles and
 factors the forest's ground and trunks are wearing, at texel.MPT = 0.05 m per
 texel. The prefix is therefore "forest", not "forest_bars": these are not this
@@ -71,7 +71,7 @@ if bpy is not None:
     import mdl  # noqa: E402
 
 import forest_tree_build as ft  # noqa: E402  the shared library: rng, mesh, atlas, tubes
-import forest_build as fb  # noqa: E402  _ptube, the SHEET PAINTERS, and the forest for the in-scene shot
+import forest_build as fb  # noqa: E402  _ptube, the SHEETS, and the forest for the in-scene shot
 
 # =============================================================================
 # TUNABLES
@@ -2014,8 +2014,7 @@ def _gaps(band, strands, levels=PROOF_LEVELS):
 # =============================================================================
 # The stand's polygons carry exactly three zones: bark (stems, forks, limbs),
 # root (the buttress flares) and leaf (the few clumps).
-# Each takes forest_build's painter AND its seed, so the painted image is the
-# one forest.glb wears -- no second palette to drift, no copy-pasted painter.
+# Each takes forest_build's sheet, so the image and factor are the ones forest.glb wears.
 # Only the projection differs: "box", because a prop authored about its own
 # base centre has no ring for "cyl" to close round (see the module docstring).
 CLASSES = ("bark", "leaf", "root")
@@ -2023,13 +2022,12 @@ CLASSES = ("bark", "leaf", "root")
 
 def _sheet(cls):
     src = fb.SHEETS[cls]
-    return tx.Sheet(cls, src.paint, mpt=src.mpt, size=src.size, mode="box",
+    return tx.Sheet(cls, mpt=src.mpt, size=src.size, mode="box",
                     roughness=src.roughness, metallic=src.metallic,
-                    cull=src.cull, seed=src.seed, emissive=src.emissive, stem=src.stem, tint=src.tint)
+                    cull=src.cull, stem=src.stem, tint=src.tint)
 
 
 SHEETS = {cls: _sheet(cls) for cls in CLASSES}
-TEX_ARGS = dict(use_files=ft.USE_TEXTURE_FILES, tex_dir=os.path.join(HERE, ft.TEX_DIR))
 
 
 # =============================================================================
@@ -2044,7 +2042,7 @@ def build():
     if unknown:
         raise ValueError("forest_bars: no Sheet for zone(s) %s" % ", ".join(unknown))
     tx.unwrap(ob, classes, SHEETS, seed=1)
-    order = tx.finish(ob, classes, tx.materials("forest", SHEETS, **TEX_ARGS))
+    order = tx.finish(ob, classes, tx.materials("forest", SHEETS))
     tx.report(SHEETS)
     print("MDL STATS surfaces=%d order=%s" % (len(ob.data.materials), ",".join(order)))
 
@@ -2171,7 +2169,7 @@ def _in_scene_render(spec, objects):
     gclasses = list(m.zones)                 # the ground wears what forest.glb wears, so the
     tx.unwrap(ground, gclasses, fb.SHEETS, seed=1)   # shot answers "does the bark match?"
     tx.finish(ground, gclasses, tx.materials(
-        fb.NAME, fb.SHEETS, names={c: "ForestScene_" + c for c in fb.SHEETS}, **TEX_ARGS))
+        fb.NAME, fb.SHEETS, names={c: "ForestScene_" + c for c in fb.SHEETS}))
     keep(ft.build_render_copy())
 
     # The fixture on the lane: local +X onto radial(BEARING), local +Y onto tangent.

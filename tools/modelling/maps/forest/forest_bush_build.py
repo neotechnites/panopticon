@@ -26,7 +26,7 @@ long thin stem, and both are gone by construction.
 
 Origin at the base centre, z = 0 is the ground, Blender +Z = Godot +Y. One
 material: the forest atlas from forest_tree_build (the same sheet the lane,
-the tree and the leaf wall are painted with), zoned shade at the foot, leaf
+the tree and the leaf wall wear), zoned shade at the foot, leaf
 through the body, sun on the crown, bark on the stems.
 
 ForestBushCollision rides in the .glb as a `-colonly` node. It is not a box

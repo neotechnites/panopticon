@@ -1,7 +1,7 @@
 """speed_orb -- the race power-up: a fist-sized ember/soul orb, floating.
 
 A faceted icosahedron (20 tris) so the geometry itself reads as a cracked
-shell; the atlas paints each facet as a bright emissive ember core scarred by
+shell; the atlas draws each facet as a bright emissive ember core scarred by
 dark, non-emissive crack lines. Origin at the centre -- it is a pickup a
 script spins and bobs about its own middle, not a floor object.
 
@@ -36,16 +36,8 @@ TEX_SIZE = 64
 TEX_SEED = 5551212
 UV_SCALE = 12.0             # face edges (~0.055 m) fill most of the atlas
 UV_PAD = 1.5 / TEX_SIZE
-CRACK_COUNT = 12
-CRACK_STEPS = (28, 46)
-
 ROUGHNESS = 0.65
 METALLIC = 0.0
-
-CORE_SHADES = [(255, 150, 30), (255, 120, 24), (255, 96, 14), (230, 70, 6)]
-CORE_HOT = [(255, 210, 120), (255, 170, 70)]
-SHELL_DARK = [(28, 10, 9), (18, 6, 6), (36, 13, 11)]
-MOTE = (255, 255, 210)
 
 FACING_YAW = 0.0
 
@@ -119,7 +111,7 @@ def _build_shell():
 
 
 # =============================================================================
-# TEXTURE -- a bright emissive ember core scarred by dark, unlit crack lines.
+# TEXTURE -- speed_orb_albedo.png, glowing its own albedo
 # =============================================================================
 
 class _Rng(object):
@@ -137,100 +129,6 @@ class _Rng(object):
 
     def i(self, a, b):
         return a + int(self.f() * (b - a + 1))
-
-    def pick(self, seq):
-        return seq[self.i(0, len(seq) - 1)]
-
-
-def _s2l(rgb):
-    out = []
-    for c in rgb:
-        c /= 255.0
-        out.append(c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4)
-    return out
-
-
-class _Canvas(object):
-    def __init__(self, size):
-        self.w = self.h = size
-        n = size * size * 4
-        self.alb = [0.0] * n
-        self.emi = [0.0] * n
-        for i in range(size * size):
-            self.alb[i * 4 + 3] = 1.0
-            self.emi[i * 4 + 3] = 1.0
-
-    def put(self, x, y, rgb, glow=None):
-        if not (0 <= x < self.w and 0 <= y < self.h):
-            return
-        o = (y * self.w + x) * 4
-        r, g, b = _s2l(rgb)
-        self.alb[o], self.alb[o + 1], self.alb[o + 2] = r, g, b
-        if glow is not None:
-            r, g, b = _s2l(glow)
-            self.emi[o], self.emi[o + 1], self.emi[o + 2] = r, g, b
-
-    def rect(self, x0, y0, x1, y1, rgb, glow=None):
-        for y in range(y0, y1):
-            for x in range(x0, x1):
-                self.put(x, y, rgb, glow)
-
-
-def _fill(c, r, box, shades, glow=None):
-    x0, y0, x1, y1 = box
-    for y in range(y0, y1):
-        for x in range(x0, x1):
-            k = r.i(0, len(shades) - 1)
-            c.put(x, y, shades[k], glow[k] if glow else None)
-
-
-def _shatter(c, r, box, shades, count, minsz, maxsz, glow=None):
-    x0, y0, x1, y1 = box
-    for _ in range(count):
-        w = r.i(minsz, maxsz)
-        h = max(minsz, min(maxsz, w + r.i(-1, 1)))
-        x, y = r.i(x0, x1 - w - 1), r.i(y0, y1 - h - 1)
-        k = r.i(0, len(shades) - 1)
-        c.rect(x, y, x + w, y + h, shades[k], glow[k] if glow else None)
-
-
-def _walk_crack(c, r, x0, y0, steps):
-    """A dark, non-emissive fissure -- the shell showing through the glow."""
-    x, y = x0, y0
-    for _ in range(steps):
-        for dx in (-1, 0, 1):
-            for dy in (-1, 0, 1):
-                if dx == 0 and dy == 0 or r.f() < 0.5:
-                    c.put(x + dx, y + dy, r.pick(SHELL_DARK), (0, 0, 0))
-        x += r.i(-1, 1)
-        y += r.i(-1, 1)
-        if not (0 <= x < c.w and 0 <= y < c.h):
-            break
-
-
-def _make_images(c):
-    images = []
-    for name, buf in (("speed_orb_albedo", c.alb), ("speed_orb_emissive", c.emi)):
-        img = bpy.data.images.new(name, TEX_SIZE, TEX_SIZE, alpha=False)
-        img.colorspace_settings.name = "sRGB"
-        img.pixels.foreach_set(buf)
-        img.update()
-        images.append(img)
-    return images[0], images[1]
-
-
-def build_texture():
-    c = _Canvas(TEX_SIZE)
-    r = _Rng(TEX_SEED)
-    box = (0, 0, TEX_SIZE, TEX_SIZE)
-    _fill(c, r, box, CORE_SHADES, CORE_SHADES)
-    _shatter(c, r, box, CORE_HOT, 16, 3, 8, CORE_HOT)
-    for _ in range(CRACK_COUNT):
-        _walk_crack(c, r, r.i(0, TEX_SIZE - 1), r.i(0, TEX_SIZE - 1), r.i(*CRACK_STEPS))
-    for _ in range(4):
-        x, y = r.i(0, TEX_SIZE - 2), r.i(0, TEX_SIZE - 2)
-        c.rect(x, y, x + 2, y + 2, MOTE, MOTE)
-    return _make_images(c)
 
 
 def ember_material(name, albedo, emissive):
@@ -285,8 +183,7 @@ def unwrap(ob, zones):
 
 def build():
     shell = _build_shell()
-    albedo, _emissive = build_texture()
-    mdl.save_texture(albedo)
+    albedo = mdl.texture(NAME + "_albedo")
 
     ob = shell.object(OBJECT_NAME)
     unwrap(ob, shell.zones)

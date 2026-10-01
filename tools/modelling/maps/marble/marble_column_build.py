@@ -16,8 +16,8 @@ Blender +Z -> Godot +Y. Authored 16-sided, because a 16-gon's radial
 directions at 22.5 deg include the square plinth's four corners, so the
 plinth top welds to the shaft's foot ring one-to-one with no T-junction.
 
-FLUTING IS PAINTED, NOT CUT. The shaft borrows marble_build.py's own atlas --
-the same painted 256 px Temple of Time sheet the rotunda is dressed in, so the
+FLUTING IS DRAWN, NOT CUT. The shaft borrows marble_build.py's own atlas --
+the same drawn Temple of Time sheet the rotunda is dressed in, so the
 prop cannot drift from the map -- and each of the 16 facets takes a quarter of
 the ``column`` cell, two flutes wide. 32 flutes on a 0.8 m shaft for 352
 triangles; cutting them would cost thousands.
@@ -46,7 +46,7 @@ for _root in (os.path.dirname(_HOME), os.path.dirname(os.path.dirname(_HOME))): 
 if bpy is not None:
     import mdl  # noqa: E402
 
-# The map this prop belongs to: its atlas, its painters, its palette, its mesh
+# The map this prop belongs to: its atlas, its palette, its mesh
 # accumulator and its contiguity audit. Column-0 `import x_build as y`:
 # tools/modelling/model ships the siblings it sees written exactly like that.
 import marble_build as mb  # noqa: E402
@@ -289,7 +289,7 @@ def unwrap(ob, zones, groups):
         z = zones[polys[0]]
         rect = mb.ZONES[z]
         if z == "column":
-            # The `column` cell paints eight flutes. A facet takes a window of
+            # The `column` cell draws eight flutes. A facet takes a window of
             # FLUTES_PER_FACET of them, on a flute boundary so the arrises meet
             # the geometry's own arrises at the facet edges.
             u0, _v0, u1, _v1 = rect

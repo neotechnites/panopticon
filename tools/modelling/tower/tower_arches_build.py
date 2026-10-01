@@ -996,7 +996,7 @@ def refloor(ob, floor_z, r_in):
     0.16-0.46 m per texel on the two facets that are half the floor). Runs after retile; Col stays."""
     me = ob.data
     uvl = me.uv_layers.active
-    per = tx.TILE * tx.MPT                     # metres per repeat of the tile
+    per = tx.png_size(tx.HELL_STEM + "_albedo")[0] * tx.MPT   # metres per repeat of the tile
     n = 0
     for poly in me.polygons:
         if poly.normal.z < 0.9 or abs(poly.center.z - floor_z) > FLECK_Z:

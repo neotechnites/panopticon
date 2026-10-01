@@ -70,9 +70,9 @@ DOME_RIBS = 16              # broad meridional ribs, one over every fourth pier
 RIB_HALF = math.radians(3.0)   # half the angular width of a rib: 6 deg of the 22.5 deg sector, the
                             # rest plain panel ...
 RIB_PROUD = 0.85 * mb.DOME_K            # ... standing this far inward of the shell (of the moulding, on its ring)
-PANEL_FACETS = 6            # panel facets between two ribs: the panel is SMOOTH, its flutes painted
+PANEL_FACETS = 6            # panel facets between two ribs: the panel is SMOOTH, its flutes drawn
 DOME_RING_F = (0.0, 0.30, 0.61, 0.89, 1.0)   # r1 .. r5, up the arc from the moulding's head to the
-                            # cap: r1 is the moulding's head, r2 where the painted flutes' points reach
+                            # cap: r1 is the moulding's head, r2 where the drawn flutes' points reach
 SIDE_SPLITS = 1             # the frame's side margins, pilaster fronts and returns in this many stacked quads
 SIDE_SWITCH = 0.5           # head angle where the frame's fan moves from the middle side point to the top corner
 UP, DOWN = mb.UP, mb.DOWN
@@ -437,7 +437,7 @@ def _dome(m, coll=False):
     A sector is [a0, a1, p1 .. p5]: the rib's two shell edges, then five
     panel stations. The rib is a box on a0/a1: two proud vertices a ring, a
     top, two sides, a foot on the moulding and a head at the cap. The panel
-    is SMOOTH and wears the drawing's flutes painted (Ryan: "only the
+    is SMOOTH and wears the drawing's flutes (Ryan: "only the
     triangles ... they just painted on the roof"): every panel quad states
     its own (u, v) per vertex -- u across the panel between its two ribs, v
     up the arc from the moulding's head to the crown -- into the "dome"
@@ -556,7 +556,7 @@ def _dome(m, coll=False):
         return {S(k, s): (u_s, DOME_RING_F[k]), S(k, t): (u_t, DOME_RING_F[k]),
                 S(k + 1, t): (u_t, DOME_RING_F[k + 1]), S(k + 1, s): (u_s, DOME_RING_F[k + 1])}
 
-    # THE BANDS r1 .. r5: the ribs' boxes and the smooth painted panels
+    # THE BANDS r1 .. r5: the ribs' boxes and the smooth drawn panels
     for k in range(len(phis) - 1):
         for s in range(N):
             t = (s + 1) % N

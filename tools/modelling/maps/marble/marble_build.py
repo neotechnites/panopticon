@@ -83,12 +83,21 @@ for _root in (os.path.dirname(_HOME), os.path.dirname(os.path.dirname(_HOME))): 
         sys.path[1:1] = [d for d, _, _ in os.walk(_root) if "__pycache__" not in d]
         break
 import texel as tx  # noqa: E402  one tiling sheet per class, world-projected
+import glb_textures  # noqa: E402
 if bpy is not None:
     import mdl  # noqa: E402
     mdl.DEFAULTS["ground"] = False
     mdl.DEFAULTS["world_grey"] = 0.30
     mdl.DEFAULTS["world_strength"] = 0.90
     mdl.DEFAULTS["views"] = []            # closed dome: the outside says nothing
+
+
+def _png_size(stem):
+    """(w, h) of a drawn texture: via the build's spec in Blender, else this checkout's file."""
+    if bpy is not None:
+        return tx.png_size(stem)
+    root = os.path.normpath(os.path.join(HERE, "..", "..", "..", ".."))
+    return glb_textures.png_size(os.path.join(root, glb_textures.find(root, stem)))
 
 # =============================================================================
 # TUNABLES
@@ -169,19 +178,13 @@ LANE_R = 52.0
 BARS_B = 353.0
 
 # ---- texture ------------------------------------------------------------------
-USE_TEXTURE_FILES = True
-TEX_DIR = "textures"
-TEX_SIZE = 256
-TEX_W = 320                 # the atlas: 256 square of cells, then the column strip
 TEX_ALBEDO = "marble_albedo"
-TEX_SEED = 9021131
+TEX_W, TEX_SIZE = _png_size(TEX_ALBEDO)    # 320 x 256: the 256 square of cells, then the column strip
+TEX_SEED = 9021131          # the window unwrap's random stream
 ROUGHNESS = 1.0
 METALLIC = 0.0
 UV_SCALE = 0.066            # image units per metre: a 64 px cell spans 3.8 m
 UV_PAD = 1.5 / TEX_SIZE
-DOME_FLUTES = 7             # painted flutes across a dome panel (Ryan: "there should be 7, and they
-                            # can be a solid color, not split")
-DOME_FLUTE_V = 0.30         # ... standing on the ring moulding, their points this far up the arc
 CELL_UV = 0.25
 
 
@@ -206,7 +209,7 @@ ZONES = {                   # the windowed zones' rects, re-pointed at ATLAS / m
     "stone": _cell(3, 2),    # the tower shaft's blocks
     "plinth": _cell(0, 3),   # ashlar under the sills
     "field": _cell(1, 3),    # the beds' floor
-    "dome": (0.5, 0.75, 1.0, 1.0),   # a dome PANEL between two ribs, the flutes PAINTED: the two spare
+    "dome": (0.5, 0.75, 1.0, 1.0),   # a dome PANEL between two ribs, the flutes DRAWN: the two spare
                              # cells as one 128 x 64 sheet -- u across the panel, v ring to crown
 }
 FIT = {"floor": "uv", "frieze": "uv", "coffer": "uv",   # the whole face onto the whole cell
@@ -222,7 +225,7 @@ DOWN = (0.0, 0.0, -1.0)
 
 
 # =============================================================================
-# TEXTURE -- painted 256 px atlas
+# TEXTURE -- the drawn files in maps/marble/textures/, referenced, never written
 # =============================================================================
 
 class _Rng(object):
@@ -251,383 +254,13 @@ class _Rng(object):
         return seq[self.bits() % len(seq)]
 
 
-def _s2l(rgb):
-    out = []
-    for c in rgb:
-        c /= 255.0
-        out.append(c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4)
-    return out
-
-
-class _Canvas(object):
-    def __init__(self, size):
-        self.w = self.h = size
-        n = size * size * 4
-        self.alb = [0.0] * n
-        self.emi = [0.0] * n
-        for i in range(size * size):
-            self.alb[i * 4 + 3] = 1.0
-            self.emi[i * 4 + 3] = 1.0
-
-    def put(self, x, y, rgb, glow=None):
-        if not (0 <= x < self.w and 0 <= y < self.h):
-            return
-        o = (y * self.w + x) * 4
-        r, g, b = _s2l(rgb)
-        self.alb[o], self.alb[o + 1], self.alb[o + 2] = r, g, b
-        if glow is not None:
-            r, g, b = _s2l(glow)
-            self.emi[o], self.emi[o + 1], self.emi[o + 2] = r, g, b
-
-    def rect(self, x0, y0, x1, y1, rgb, glow=None):
-        for y in range(y0, y1):
-            for x in range(x0, x1):
-                self.put(x, y, rgb, glow)
-
-
-def _rect_of(zone, size):
-    u0, v0, u1, v1 = zone
-    return (int(round(u0 * size)), int(round(v0 * size)),
-            int(round(u1 * size)), int(round(v1 * size)))
-
-
-def _fill(c, r, box, shades, glow=None):
-    x0, y0, x1, y1 = box
-    for y in range(y0, y1):
-        for x in range(x0, x1):
-            c.put(x, y, r.pick(shades), glow)
-
-
-def _shatter(c, r, box, shades, count, minsz, maxsz):
-    x0, y0, x1, y1 = box
-    for _ in range(count):
-        w = r.i(minsz, maxsz)
-        h = max(minsz, min(maxsz, w + r.i(-1, 1)))
-        x, y = r.i(x0, x1 - w - 1), r.i(y0, y1 - h - 1)
-        c.rect(x, y, x + w, y + h, r.pick(shades))
-
-
-def _veins(c, r, box, shades, count, steps):
-    """Thin wandering lines: marble veining."""
-    x0, y0, x1, y1 = box
-    for _ in range(count):
-        x, y = r.i(x0, x1 - 1), r.i(y0, y1 - 1)
-        dx, dy = r.pick([-1, 1]), r.pick([-1, 0, 1])
-        col = r.pick(shades)
-        for _s in range(steps):
-            c.put(x, y, col)
-            if r.f() < 0.3:
-                dy = r.pick([-1, 0, 1])
-            if r.f() < 0.1:
-                dx = -dx
-            x += dx
-            y += dy
-            if not (x0 <= x < x1 and y0 <= y < y1):
-                break
-
-
-def _paint_marble(c, r, box, base, blotch, vein):
-    _fill(c, r, box, base)
-    _shatter(c, r, box, blotch, 8, 6, 16)
-    _veins(c, r, box, vein, 3, 30)
-
-
-# Palette: the Temple of Time's stone -- warm sandy grey-green ashlar in the
-# light (#9a9676 .. #9e9a7a), darker mortar joints (#5e5c44), cool grey-olive
-# in shadow (#6b6b55). Sampled 8-bit sRGB; see docs/maps/marble.md.
-
-def _paint_spike(c, r, box):
-    _fill(c, r, box, [(168, 164, 136), (164, 160, 132), (172, 168, 140), (166, 162, 134)])
-    x0, y0, x1, y1 = box
-    for _ in range(6):                            # vertical streaks: the stone's grain
-        x, w = r.i(x0, x1 - 3), r.i(1, 2)
-        yy, h = r.i(y0, y1 - 8), r.i(8, 24)
-        c.rect(x, yy, x + w, min(y1, yy + h), r.pick([(140, 137, 112), (150, 147, 120)]))
-
-
-def _paint_field(c, r, box):
-    _fill(c, r, box, [(125, 122, 98), (122, 119, 95), (128, 125, 101), (124, 121, 97)])
-    _shatter(c, r, box, [(110, 107, 85), (138, 135, 108)], 10, 3, 9)
-    x0, y0, x1, y1 = box
-    for _ in range(16):
-        c.put(r.i(x0, x1 - 1), r.i(y0, y1 - 1), (110, 107, 85))
-    grid = (85, 83, 63)
-    for y in range(y0, y1, 16):                    # a dark tile grid
-        c.rect(x0, y, x1, y + 1, grid)
-    for x in range(x0, x1, 16):
-        c.rect(x, y0, x + 1, y1, grid)
-
-
-def _paint_floor(c, r, box):
-    """Three by three slabs with an inlaid border: the lane's paving, one facet
-    per cell. A touch lighter than the walls, the centre diamond gilt."""
-    _paint_marble(c, r, box, [(170, 166, 131), (166, 162, 127), (174, 170, 135)],
-                  [(160, 156, 122), (178, 174, 139)], [(148, 144, 112)])
-    x0, y0, x1, y1 = box
-    n = x1 - x0
-    joint = (102, 99, 74)
-    for k in (1, 2):
-        p = x0 + (n * k) // 3
-        c.rect(p - 1, y0, p + 1, y1, joint)
-        q = y0 + (n * k) // 3
-        c.rect(x0, q - 1, x1, q + 1, joint)
-    c.rect(x0, y0, x1, y0 + 1, joint)
-    c.rect(x0, y0, x0 + 1, y1, joint)
-    for k in range(3):                             # a mosaic diamond in each slab
-        for l in range(3):
-            cx = x0 + (n * (2 * k + 1)) // 6
-            cy = y0 + (n * (2 * l + 1)) // 6
-            d = max(2, n // 24)
-            gem = (188, 174, 130) if (k, l) == (1, 1) else (125, 122, 98)
-            c.rect(cx - d, cy - 1, cx + d, cy + 1, gem)
-            c.rect(cx - 1, cy - d, cx + 1, cy + d, gem)
-
-
-def _paint_dome(c, r, box):
-    """One dome panel between two ribs, the drawing's flutes PAINTED (Ryan:
-    "only the triangles ... they just painted on the roof"): standing on the
-    ring moulding a band of DOME_FLUTES pointed flutes, each one flat solid
-    colour, a line where their points reach, plain stone above. u is
-    across the panel, v up the arc (row y0 the moulding's head, y1 the crown).
-    A texel here is 0.14 m across and 0.9 m up the arc, so the ground's grain
-    is laid ALONG the rows -- a dot would smear into a streak."""
-    x0, y0, x1, y1 = box
-    W, H = x1 - x0, y1 - y0
-    dark = (78, 78, 60)
-    for y in range(y0, y1):
-        x = x0
-        while x < x1:
-            run = r.i(3, 9)
-            c.rect(x, y, min(x + run, x1), y + 1,
-                   r.pick([(150, 146, 114), (146, 142, 110), (154, 150, 118), (142, 138, 106)]))
-            x += run
-    fb, ft, n = y0 + 1, y0 + int(round(DOME_FLUTE_V * H)), DOME_FLUTES
-    c.rect(x0, y0, x1, fb, dark)                                  # the shadow under the ring
-    for y in range(fb, ft):
-        t = (y - fb) / float(ft - fb)                            # 0 at the foot, 1 at the points
-        hw = (W / float(n)) * 0.5 * (1.0 - t)
-        for k in range(n):
-            cx = x0 + (k + 0.5) * W / float(n)
-            for x in range(int(math.floor(cx - hw)), int(math.ceil(cx + hw))):
-                if abs(x + 0.5 - cx) < hw:
-                    c.put(x, y, dark)
-    c.rect(x0, ft, x1, ft + 1, dark)                              # the line the points reach
-
-
-def _paint_column(c, r, box):
-    """Fluting: vertical stripes, a shadow line at each arris."""
-    x0, y0, x1, y1 = box
-    n = x1 - x0
-    w = max(4, n // 8)
-    for x in range(x0, x1):
-        k = (x - x0) // w
-        rel = (x - x0) % w
-        if rel == 0:
-            col = (100, 99, 78)
-        elif rel < w // 2:
-            col = (158, 154, 122) if k % 2 == 0 else (150, 146, 114)
-        else:
-            col = (128, 125, 100)
-        for y in range(y0, y1):
-            c.put(x, y, col)
-    _shatter(c, r, box, [(162, 158, 126)], 10, 2, 5)
-
-
-def _paint_band(c, r, box):
-    """Cornice moulding: horizontal fillets, dark under the drips."""
-    x0, y0, x1, y1 = box
-    n = y1 - y0
-    rows = [(0.00, 0.12, (110, 108, 86)), (0.12, 0.22, (162, 158, 126)), (0.22, 0.30, (94, 92, 68)),
-            (0.30, 0.48, (150, 146, 114)), (0.48, 0.56, (110, 108, 86)), (0.56, 0.74, (162, 158, 126)),
-            (0.74, 0.82, (94, 92, 68)), (0.82, 1.00, (150, 146, 114))]
-    for a, b, col in rows:
-        c.rect(x0, y0 + int(a * n), x1, y0 + int(b * n), col)
-    _shatter(c, r, box, [(154, 150, 118)], 8, 2, 4)
-
-
-def _paint_iron(c, r, box):
-    """Dark iron, fitted across the cell in u (FIT): a lit rim down the left
-    edge, a near-black cool base, a mid shadow edge at the right -- so every
-    bar face reads as a rounded dark rod against the cell's dark, not as a
-    smudge of the same grey."""
-    _fill(c, r, box, [(24, 26, 31), (20, 22, 27), (28, 30, 35), (22, 24, 29)])
-    x0, y0, x1, y1 = box
-    n = x1 - x0
-    rim, edge = max(4, (n * 9) // 64), max(2, (n * 5) // 64)
-    hi, mid = (104, 110, 122), (58, 62, 72)
-    fade = [(80, 85, 96), (52, 56, 65)]           # the highlight's last 2 px, stepping down to the base
-    for x in range(x0, x0 + rim):
-        k = x0 + rim - x                           # px left in the rim, 1 at its inner edge
-        col = fade[2 - k] if k <= 2 else hi
-        for y in range(y0, y1):
-            c.put(x, y, col)
-    for x in range(x1 - edge, x1):                 # the shadow edge
-        for y in range(y0, y1):
-            c.put(x, y, mid)
-    pr = _Rng(TEX_SEED + 11)                       # its own stream: the cells painted after it keep their grain
-    for _ in range(24):                            # pitting along the rod, base and rim alike
-        x, yy = pr.i(x0, x1 - 1), pr.i(y0, y1 - 1)
-        c.put(x, yy, pr.pick([(16, 18, 23), (34, 36, 42)]) if x >= x0 + rim else (92, 98, 110))
-
-
 # ---- the sheets (lib/texel.py) --------------------------------------------
-# Four images. marble_stone is the ONE brick drawing: one bay across, 12
-# courses of 1.0 m up from FLOOR_Z, joints on the tiers, the sills and the
-# pier edges; every other model spans it by UV scale and tints it. marble is
-# the ornament atlas (the props' cells, the swirl, every small motif);
-# marble_dark the cell interiors and the iron; marble_field the beds.
+# marble_stone the brick drawing (a bay across, COURSES of 1 m up), marble the ornament
+# atlas, marble_dark the cells and the iron, marble_field the beds.
 BAY_M = TWO_PI * WALL_R / NSIDE          # 5.89 m
-WALL_PX = 128                            # texels across a bay: 0.046 m per texel
+WALL_PX, WALL_H = _png_size("marble_stone_albedo")   # 128 x 261: a bay across, 0.046 m per texel
 WALL_MPT = BAY_M / WALL_PX
-COURSE_M = 1.0
 COURSES = 12                             # 12.0 m up before the sheet repeats
-WALL_H = int(round(COURSES * COURSE_M / WALL_MPT))   # 261 texels
-JOINT = (108, 105, 80)
-
-
-def _px_u(metres):
-    return int(round(metres / BAY_M * WALL_PX))
-
-
-def _course_rows():
-    return [int(round(k * WALL_H / float(COURSES))) for k in range(COURSES)]
-
-
-def _sheet_brick(c, r, s):
-    """The brick drawing, #9a9676 blocks in #6c6950 joints."""
-    pier = _px_u(PILASTER_W / 2.0)
-    tx.bricks(c, r, [(154, 150, 118), (150, 146, 114), (158, 154, 122), (146, 142, 110)], JOINT,
-              COURSES, [pier, c.w - pier], [(140, 136, 108)])
-
-
-def _sheet_cellin(c, r, s):
-    tx.fill(c, r, c.box, [(47, 48, 40), (43, 44, 36), (51, 52, 44), (39, 40, 33)])
-    tx.shatter(c, r, c.box, [(35, 36, 30), (56, 57, 48)], 60, 8, 22)
-    for _ in range(20):                            # a pale slit: a figure, a cot, a window
-        x, w = r.i(0, c.w - 1), r.i(1, 3)
-        yy, h = r.i(0, c.h - 1), r.i(12, 30)
-        c.rect(x, yy, x + w, yy + h, (70, 71, 60))
-
-
-def _sheet_field(c, r, s):
-    tx.fill(c, r, c.box, [(125, 122, 98), (122, 119, 95), (128, 125, 101), (124, 121, 97)])
-    tx.shatter(c, r, c.box, [(110, 107, 85), (138, 135, 108)], 110, 15, 45)
-    tx.blades(c, r, c.box, 180, [(110, 107, 85)])
-    grid, pitch = (85, 83, 63), s.px(0.8)          # a dark tile grid, 0.8 m
-    for y in range(0, c.h, pitch):
-        c.rect(0, y, c.w, y + 1, grid)
-    for x in range(0, c.w, pitch):
-        c.rect(x, 0, x + 1, c.h, grid)
-
-
-def _sheet_frieze(c, r, s):
-    """A Greek key: two hooks across the bay, the face fitted to the sheet."""
-    tx.fill(c, r, c.box, [(154, 150, 118), (150, 146, 114), (158, 154, 122)])
-    W, H = c.w, c.h
-    unit = W // 2
-    key = (69, 70, 58)
-    st = max(2, H // 8)
-    lo, hi = H // 6, H - H // 6
-    for k in range(2):
-        u = k * unit
-        c.rect(u, hi - st, u + unit, hi, key)
-        c.rect(u + unit - 2 * st, lo, u + unit - st, hi, key)
-        c.rect(u + st, lo, u + unit - st, lo + st, key)
-        c.rect(u + st, lo, u + 2 * st, hi - 3 * st, key)
-        c.rect(u + st, hi - 4 * st, u + unit - 4 * st, hi - 3 * st, key)
-        c.rect(u + unit - 5 * st, lo + 2 * st, u + unit - 4 * st, hi - 3 * st, key)
-    c.rect(0, lo - st - 1, W, lo - st + 1, (107, 107, 85))
-    c.rect(0, hi + st - 1, W, hi + st + 1, (107, 107, 85))
-
-
-def _sheet_column(c, r, s):
-    _paint_column(c, r, c.box)
-
-
-def _sheet_iron(c, r, s):
-    _paint_iron(c, r, c.box)
-
-
-def _sheet_floor(c, r, s):
-    _paint_floor(c, r, c.box)
-
-
-def _sheet_dome(c, r, s):
-    _paint_dome(c, r, c.box)
-
-
-def _sheet_coffer(c, r, s):
-    """One sunk coffer, a whole cell of the sheet: #9a9676 stepping down to
-    #565542 with a boss, in a grey-olive rib the next coffer shares."""
-    W, H = c.w, c.h
-    steps = [(154, 150, 118), (130, 127, 100), (108, 106, 84), (86, 85, 66), (96, 95, 76)]
-    tx.fill(c, r, c.box, [(107, 107, 85), (103, 103, 81)])
-    mx, my = max(2, W // 10), max(2, H // 10)
-    for k, col in enumerate(steps):
-        dx, dy = mx + (W // 2 - mx) * k // 6, my + (H // 2 - my) * k // 6
-        c.rect(dx, dy, W - dx, H - dy, col)
-    bw, bh = max(2, W // 14), max(2, H // 14)
-    c.rect(W // 2 - bw, H // 2 - bh, W // 2 + bw, H // 2 + bh, (146, 142, 112))
-    c.rect(W // 2 - bw // 2, H // 2 - bh // 2, W // 2 + bw // 2, H // 2 + bh // 2, (170, 166, 131))
-    tx.blades(c, r, c.box, 30, [(140, 136, 108), (96, 95, 76)])
-
-
-def _sheet_medallion(c, r, s):
-    """The tower dais' centre, drawn ONCE in a 1 m box the disc fills: a
-    rosette of sixteen spokes."""
-    W, H = c.w, c.h
-    cx, cy = W / 2.0, H / 2.0
-    pale, olive, mid, dark = (154, 150, 118), (107, 107, 85), (146, 142, 112), (86, 85, 66)
-    for y in range(H):
-        for x in range(W):
-            dx, dy = x + 0.5 - cx, y + 0.5 - cy
-            d = math.hypot(dx, dy) / (W * 0.5)
-            spoke = int((math.atan2(dy, dx) + math.pi) / (math.pi / 8)) % 2
-            if d > 0.94:
-                col = olive
-            elif d > 0.82:
-                col = pale
-            elif d > 0.30:
-                col = olive if spoke else mid
-            elif d > 0.17:
-                col = dark
-            else:
-                col = pale
-            c.put(x, y, col)
-    tx.blades(c, r, c.box, 40, [(140, 136, 108)])
-
-
-SWIRL_ARMS = 3              # the portal's effect surface, Map 1's numbers: three arms ...
-SWIRL_TURNS = 2.6           # ... wrapping this many times from the rim to the core ...
-SWIRL_WIDTH = 0.42          # ... and this much of each band bright
-SWIRL_CY = 1.5 / 3.15       # the centre, up the mouth: the disc's height over the apex
-
-
-def _paint_swirl(c, r, box):
-    """A spiral of pale blue-white arms on deep blue-grey, near-white core,
-    dark rim: the portal's surface, glowing its own albedo."""
-    x0, y0, x1, y1 = box
-    w, h = x1 - x0, y1 - y0
-    cx = x0 + w / 2.0
-    cy = y0 + h * SWIRL_CY
-    for y in range(y0, y1):
-        for x in range(x0, x1):
-            dx, dy = (x + 0.5 - cx) / (w / 2.0), (y + 0.5 - cy) / (h / 2.0)
-            rad = math.hypot(dx, dy)
-            ang = math.atan2(dy, dx)
-            band = (ang * SWIRL_ARMS / (2.0 * math.pi) + rad * SWIRL_TURNS) % 1.0
-            band = min(band, 1.0 - band) * 2.0            # 0 on the arm, 1 between
-            if rad < 0.14:
-                col = r.pick([(236, 242, 252), (214, 226, 244)])
-            elif band < SWIRL_WIDTH * (1.0 - 0.5 * rad):
-                col = r.pick([(152, 164, 186), (136, 150, 176), (170, 182, 202)])
-            elif band < SWIRL_WIDTH * (1.0 - 0.5 * rad) + 0.22:
-                col = r.pick([(104, 110, 122), (92, 100, 114)])
-            else:
-                col = r.pick([(54, 58, 70), (46, 50, 60), (60, 64, 76)])
-            if rad > 0.9:
-                col = tuple(int(v * 0.45) for v in col)
-            c.put(x, y, col)
 
 
 # ---- the ornament atlas: ATLAS[name] = (x, y, w, h) texels, row 0 the bottom --
@@ -644,49 +277,8 @@ ATLAS = {
     "field": (64, 192, 64, 64),
     "portal": (128, 192, 64, 64),
 }
-# drawn by a lib/texel painter at its own seed (the drawing its old file had) ...
-_ATLAS_SHEETS = {"frieze": (_sheet_frieze, 8), "dome": (_sheet_dome, 12), "coffer": (_sheet_coffer, 10),
-                 "floor": (_sheet_floor, 7), "medallion": (_sheet_medallion, 9),
-                 "column": (_sheet_column, 9)}
-# ... or by a props painter into its box
-_ATLAS_CELLS = {"spike": _paint_spike, "band": _paint_band, "field": _paint_field,
-                "portal": _paint_swirl}
-_PLAIN = [(150, 146, 114), (146, 142, 110), (154, 150, 118)]   # the spare texels: plain stone
-
-
-def paint_atlas(c=None):
-    """The ornament atlas, whole, into a tx.Canvas (TEX_W x TEX_SIZE)."""
-    c = c or tx.Canvas(TEX_W, TEX_SIZE)
-    r = _Rng(TEX_SEED)
-    tx.fill(c, r, c.box, _PLAIN)
-    for name in sorted(ATLAS):
-        x, y, w, h = ATLAS[name]
-        if name in _ATLAS_SHEETS:
-            paint, seed = _ATLAS_SHEETS[name]
-            sub = tx.Canvas(w, h)
-            paint(sub, tx.Rng(0x7E11 + seed), None)
-            tx.paste(c, sub, x, y)
-        else:
-            _ATLAS_CELLS[name](c, _Rng(TEX_SEED if name == "portal" else TEX_SEED + 1 + sorted(ATLAS).index(name)),
-                               (x, y, x + w, y + h))
-    return c
-
-
-def _atlas_sheet(c, r, s):
-    paint_atlas(c)
-
-
-def _dark_sheet(c, r, s):
-    """marble_dark: the cells' dark (seed 4) beside the iron (seed 11)."""
-    for name, paint, seed in (("cellin", _sheet_cellin, 4), ("iron", _sheet_iron, 11)):
-        x, w = DARK[name]
-        sub = tx.Canvas(w, c.h)
-        paint(sub, tx.Rng(0x7E11 + seed), None)
-        tx.paste(c, sub, x, 0)
-
-
-DARK = {"cellin": (0, WALL_PX), "iron": (WALL_PX, 64)}     # (x, width): both the full height
-DARK_W = WALL_PX + 64
+DARK_W, DARK_H = _png_size("marble_dark_albedo")      # 192 x 261
+DARK = {"cellin": (0, WALL_PX), "iron": (WALL_PX, DARK_W - WALL_PX)}     # (x, width): both the full height
 
 
 def region(name):
@@ -697,15 +289,15 @@ def region(name):
 
 def ornament(name, mode, w, h, mpt=tx.MPT, **kw):
     """Class `name` wearing its ATLAS region of the marble atlas."""
-    return tx.Sheet(name, _atlas_sheet, mode=mode, width=w, size=h, mpt=mpt, roughness=ROUGHNESS,
+    return tx.Sheet(name, mode=mode, width=w, size=h, mpt=mpt, roughness=ROUGHNESS,
                     stem="marble", region=region(kw.pop("cell", name)), canvas=(TEX_W, TEX_SIZE), **kw)
 
 
 def dark(name, **kw):
     """Class `name` wearing its column of marble_dark."""
     x, w = DARK[name]
-    return tx.Sheet(name, _dark_sheet, size=WALL_H, width=w, roughness=ROUGHNESS, stem="marble_dark",
-                    region=(x / float(DARK_W), 0.0, (x + w) / float(DARK_W), 1.0), canvas=(DARK_W, WALL_H), **kw)
+    return tx.Sheet(name, size=DARK_H, width=w, roughness=ROUGHNESS, stem="marble_dark",
+                    region=(x / float(DARK_W), 0.0, (x + w) / float(DARK_W), 1.0), canvas=(DARK_W, DARK_H), **kw)
 
 
 def band_sheet():
@@ -731,8 +323,8 @@ TINT_BARS = None
 
 def brick(name, mpt_u=WALL_MPT, mpt_v=WALL_MPT, tint=None, **kw):
     """Class `name` wearing marble_stone at mpt_u across and mpt_v up."""
-    return tx.Sheet(name, _sheet_brick, mpt=mpt_v, mpt_u=mpt_u, size=WALL_H, width=WALL_PX,
-                    roughness=ROUGHNESS, seed=1, stem="marble_stone", tint=tint, **kw)
+    return tx.Sheet(name, mpt=mpt_v, mpt_u=mpt_u, size=WALL_H, width=WALL_PX,
+                    roughness=ROUGHNESS, stem="marble_stone", tint=tint, **kw)
 
 
 def ashlar_sheet(name, across, tint=None, **kw):
@@ -755,8 +347,8 @@ SHEETS = {
     "marble": brick("marble", **_WALL),
     "shade": brick("shade", tint=TINT_SHADE, **_WALL),
     "plinth": brick("plinth", mpt_v=WALL_MPT / 2.0, tint=TINT_PLINTH_WALL, **_WALL),   # 0.5 m courses
-    "cellin": dark("cellin", mpt=WALL_MPT, seed=4, **_WALL),
-    "field": tx.Sheet("field", _sheet_field, mode="box", roughness=ROUGHNESS, seed=5),
+    "cellin": dark("cellin", mpt=WALL_MPT, **_WALL),
+    "field": tx.Sheet("field", mode="box", roughness=ROUGHNESS),
     "spike": ornament("spike", "box", 64, 64, local=True),
     "floor": ornament("floor", "fit", 64, 64, mpt=2.7 / 64.0),
     "frieze": ornament("frieze", "fit", 256, 64, mpt=BAY_M / 256.0),
@@ -784,13 +376,8 @@ ZONES["iron"] = (DARK["iron"][0] / float(DARK_W), 0.0, 1.0, 64.0 / WALL_H)
 
 
 def build_texture():
-    """(albedo, None): the atlas painted, when its file is not there."""
-    c = paint_atlas()
-    img = bpy.data.images.new(TEX_ALBEDO, TEX_W, TEX_SIZE, alpha=False)
-    img.colorspace_settings.name = "sRGB"
-    img.pixels.foreach_set(c.alb)
-    img.update()
-    return img, None
+    """(albedo, None): the ornament atlas, marble_albedo.png."""
+    return tx.image(TEX_ALBEDO), None
 
 
 def prop_finish(ob, zones, name, atlas_index=None):
@@ -813,8 +400,7 @@ def prop_finish(ob, zones, name, atlas_index=None):
             for li, uv in zip(loops, tx.box_uv(cos, tuple(poly.normal), sheets[z])):
                 uvl.data[li].uv = uv
         faces.setdefault(cls, []).append(pi)
-    tex_dir = os.path.join(HERE, TEX_DIR)
-    albedo = _sheet("marble", build_texture)[0]
+    albedo = build_texture()[0]
     if atlas_index is None:
         me.materials.clear()
     for cls in sorted(faces):
@@ -826,10 +412,10 @@ def prop_finish(ob, zones, name, atlas_index=None):
             elif cls == "~glow":
                 mat = stone_material(name + "Glow", albedo, albedo)
             elif cls == "~dark":
-                dark_img = tx.images("marble", SHEETS["cellin"], USE_TEXTURE_FILES, tex_dir)[0]
+                dark_img = tx.images("marble", SHEETS["cellin"])[0]
                 mat = stone_material(name + "Dark", dark_img, None)
             else:
-                alb = tx.images("marble", sheets[cls], USE_TEXTURE_FILES, tex_dir)[0]
+                alb = tx.images("marble", sheets[cls])[0]
                 mat = tx.material("%s_%s" % (name, cls), alb, None, ROUGHNESS, METALLIC, False, sheets[cls].tint)
                 mat.diffuse_color = (0.78, 0.76, 0.72, 1.0)
             idx = len(me.materials)
@@ -839,25 +425,6 @@ def prop_finish(ob, zones, name, atlas_index=None):
     if atlas_index is None:
         me.shade_flat()
     return sorted(faces)
-
-
-def _image_file(name):
-    path = mdl.texture_file(name)
-    if path is None:
-        return None
-    img = bpy.data.images.load(path)
-    img.colorspace_settings.name = "sRGB"
-    img.pack()
-    print("MDL TEXTURE %s from %s" % (img.name, path))
-    return img
-
-
-def _sheet(stem, painted):
-    """(albedo, emissive): the files when opted in and present, else painted."""
-    alb = _image_file(stem + "_albedo.png") if USE_TEXTURE_FILES else None
-    if alb is None:
-        return painted()
-    return alb, _image_file(stem + "_emissive.png")
 
 
 def stone_material(name, albedo, emissive):
@@ -1614,7 +1181,7 @@ def build():
     ob = stone.object(OBJECT_NAME)
     classes = [_CLASS.get(z, z) for z in stone.zones]
     tx.unwrap(ob, classes, SHEETS, seed=1, face_uv=stone.face_uv, groups=stone.groups)
-    mats = tx.materials(NAME, SHEETS, use_files=USE_TEXTURE_FILES, tex_dir=os.path.join(HERE, TEX_DIR))
+    mats = tx.materials(NAME, SHEETS)
     for mat in mats.values():
         mat.diffuse_color = (0.78, 0.76, 0.72, 1.0)
     order = tx.finish(ob, classes, mats)
@@ -1656,8 +1223,6 @@ def _check():
     ok = a["components"] == 1 and a["doubled_edges"] == 0 and a["over_edges"] == 0 \
         and a["degenerate"] == 0 and a["duplicate_positions"] == 0 and a["boundary_edges"] == _bar_open(info)
     print("CONTIGUOUS %s" % ("YES" if ok else "NO"))
-    c = paint_atlas()
-    print("atlas %dx%d painted" % (c.w, c.h))
     return ok
 
 

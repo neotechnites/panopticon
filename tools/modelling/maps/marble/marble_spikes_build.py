@@ -29,7 +29,7 @@ not colliders, exactly as they are not in the pit: a body runs onto the patch
 and the scene's lethal volume kills it. The volume the map scene must put
 over each footprint is written into the contract file.
 
-Palette and atlas: marble_build's, imported, not copied -- one painted 256 px
+Palette and atlas: marble_build's, imported, not copied -- one drawn 320 x 256
 atlas, zones "field" (the pit floor's stone: slab top and every pedestal),
 "spike", "plinth" (the slab's side) and "shade" (its underside). Sampled off
 the Temple of Time; see docs/maps/marble.md.
@@ -533,9 +533,6 @@ def _check():
           % (lo, hi, max(v[2] for v in stone.verts)))
     ok = _proof(a, "stone") and _proof(ac, "coll")
     print("CONTIGUOUS %s" % ("YES" if ok else "NO"))
-    if bpy is None:
-        c = mb.paint_atlas()
-        print("atlas %dx%d painted" % (c.w, c.h))
     return ok
 
 

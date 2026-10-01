@@ -12,7 +12,6 @@ Not a model of its own: forest_build.py calls in here with its _Ground (g).
                          the scene draws it through maps/forest/forest_mist.gdshader
                          (colour, drifting noise, soft edges) -- GL Compatibility
                          has no fog volumes, so the fog is layers
-    mist_noise(path)     the shader's 64 px tileable greyscale cloud (MIST_NOISE)
     fog_report()         what those discs do to a ray down the pit: straight down, and
                          oblique from every stand point (FOG_EYES) to every floor point
     stem_colour(bank_r, p)  a bramble vertex's COLOR_0: STEM_BARK, the whole stem;
@@ -29,7 +28,6 @@ layers AND the floor behind them to one pale colour, and one colour spread over
 one flat plane is exactly what reads as a floor.
 
     python3 tools/modelling/maps/forest/forest_pit_build.py         the fog's own numbers
-    python3 tools/modelling/maps/forest/forest_pit_build.py --noise maps/forest/textures/forest_mist_albedo.png
     python3 tools/modelling/maps/forest/forest_build.py --check     proves the whole ground
 """
 
@@ -50,7 +48,6 @@ FOG_SOFT = 1.0                  # forest_mist.gdshader soft_metres: a layer fade
                                 # it is this close, so no disc draws a hard line on bank, trunk or thorn
 FOG_SOFT_COS = 0.64             # ... that fade reads eye DEPTH, which is the ray's length x at least cos 50
                                 # (half of shot.gd's 100 degree view): fog_report fades by the short one
-MIST_NOISE = (64, 7702113, 5)   # the shader's noise tile: px, seed, highest wave count across the tile
 
 
 # ---- the fog: a stack of translucent discs standing in for a fog volume -----------
@@ -558,23 +555,6 @@ def _soft(gap):
     return x * x * (3.0 - 2.0 * x)
 
 
-def mist_noise(path):
-    """MIST_NOISE: a tileable greyscale cloud, sines on whole wave counts across the tile so it wraps."""
-    import random
-    from PIL import Image
-    px, seed, top = MIST_NOISE
-    rng = random.Random(seed)
-    waves = [(kx, ky, (kx * kx + ky * ky) ** -0.75, rng.uniform(0.0, 2.0 * math.pi))
-             for kx in range(-top, top + 1) for ky in range(0, top + 1)
-             if (ky > 0 or kx > 0) and kx * kx + ky * ky <= top * top]
-    vals = [sum(w * math.cos(2.0 * math.pi * (kx * x + ky * y) / px + ph) for (kx, ky, w, ph) in waves)
-            for y in range(px) for x in range(px)]
-    lo, hi = min(vals), max(vals)
-    img = Image.new("L", (px, px))
-    img.putdata([int(round(255.0 * (v - lo) / (hi - lo))) for v in vals])
-    img.save(path)
-
-
 def fog_mesh(cls, g):
     """The pit's fog: _fog_layers() discs of FOG_N-gons, each five annuli wide --
     a hole round the trunk (alpha 0 at FOG_HOLE[0], full at FOG_HOLE[1]), the body,
@@ -803,7 +783,4 @@ def fog_report():
 
 
 if __name__ == "__main__":
-    if sys.argv[1:2] == ["--noise"]:
-        mist_noise(sys.argv[2])
-        sys.exit(0)
     sys.exit(0 if fog_report() else 1)

@@ -2,7 +2,7 @@
 PANOPTICON -- a stylized low-poly cut of the warden's rifle, a test beside the signed-off rifle.glb.
 
 Same silhouette, origin, muzzle and scope axis as rifle_build.py, same atlas and texel density (its
-texture, material and unwrap are reused, never repainted); fewer, chunkier flat facets, ~250 tris.
+texture, material and unwrap are reused); fewer, chunkier flat facets, ~250 tris.
 
     tools/modelling/model build rifle_lowpoly
 """
@@ -135,7 +135,7 @@ def _geometry():
 def build():
     rb._OBJECTS.clear()
     _geometry()
-    albedo = rb.build_texture()          # links the existing PNG on export; never repainted here
+    albedo = rb.build_texture()
     for i, ob in enumerate(rb._OBJECTS):
         if not ob.get("open"):
             rb._outward(ob)

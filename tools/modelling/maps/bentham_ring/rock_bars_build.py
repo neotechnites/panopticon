@@ -118,8 +118,6 @@ SEED = 7130951
 
 # ---- texture: map 1's rock sheets, lib/texel.py, no atlas -------------------
 TEX_PREFIX = "map_base"          # the sheets name their stem: hell_rock, map 1's own
-TEX_DIR = "textures"
-USE_TEXTURE_FILES = True
 ROCK_ROUGHNESS = 0.95
 
 
@@ -447,9 +445,7 @@ def _finish(wall, coll):
     ob = wall.object(OBJECT_NAME)
     classes = list(wall.zones)
     tx.unwrap(ob, classes, SHEETS, seed=1)
-    mats = tx.materials(TEX_PREFIX, SHEETS, use_files=USE_TEXTURE_FILES,
-                        tex_dir=os.path.join(os.path.dirname(os.path.abspath(__file__)), TEX_DIR),
-                        names=MAT_NAMES)
+    mats = tx.materials(TEX_PREFIX, SHEETS, names=MAT_NAMES)
     for mat in mats.values():
         mat.diffuse_color = (0.13, 0.04, 0.04, 1.0)
     order = tx.finish(ob, classes, mats)

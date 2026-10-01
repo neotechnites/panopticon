@@ -44,8 +44,7 @@ window. The shaft's courses therefore run round all sixteen facets at one
 height, on the same world 1 m grid the rotunda's wall courses use, and their
 vertical joints stand on the facet corners; the dome is a "custom" sheet
 whose v is the meridian's ARC LENGTH, so a coffer is the same size at the
-spring and at the crown. USE_TEXTURE_FILES swaps a painted class for
-textures/marble_tower_<class>_albedo.png when one is there.
+spring and at the crown.
 ONE CONTIGUOUS MESH: mb._Mesh welds coincident vertices; the columns' feet
 are cut out of the floor's outer band, the screen's head is SOLID corner to
 corner (so the ring beam has no exposed underside -- its two faces carry the
@@ -171,8 +170,6 @@ FLAME_TEXELS = (157, 220, 163, 226)    # the portal swirl's white core in the ma
 # those repeats and tinted to their palettes; shade wears marble_shade. Band, column, iron and the floor slab are fitted to the
 # face exactly as the rotunda fits them; the dome is "custom" (see _dome_vs).
 
-USE_TEXTURE_FILES = True
-TEX_DIR = mb.TEX_DIR
 MPT = mb.WALL_MPT                    # 0.046019 m a texel: the rotunda's wall density
 SHEET_H = mb.WALL_H                  # 261 texels = 12 courses of 1.0 m
 SHEET_M = SHEET_H * MPT              # 12.01 m: the sheet's period up
@@ -241,7 +238,7 @@ SHEETS = {
                              phase=(-PAVING_RS[0], -PAVING_RS[0])),
     "coffer": mb.ornament("coffer", "custom", SHAFT_PX, COFFER_PX, mpt=MPT),  # the dome inside
     "dome": mb.brick("dome", tint=mb.TINT_TOWER, mode="custom"),              # ... and outside
-    "flame": tx.Sheet("flame", mb._atlas_sheet, mode="fit", width=8, size=8, roughness=mb.ROUGHNESS, stem="marble",
+    "flame": tx.Sheet("flame", mode="fit", width=8, size=8, roughness=mb.ROUGHNESS, stem="marble",
                       region=(FLAME_TEXELS[0] / float(mb.TEX_W), FLAME_TEXELS[1] / float(mb.TEX_SIZE),
                               FLAME_TEXELS[2] / float(mb.TEX_W), FLAME_TEXELS[3] / float(mb.TEX_SIZE)),
                       canvas=(mb.TEX_W, mb.TEX_SIZE)),                         # the lantern glass
@@ -894,10 +891,10 @@ def build():
     ob = rock.object(OBJECT_NAME)
     classes = [rock.face_class.get(pi, z) for pi, z in enumerate(rock.zones)]
     tx.unwrap(ob, classes, SHEETS, seed=3, face_uv=rock.face_uv, groups=rock.groups)
-    mats = tx.materials(NAME, SHEETS, use_files=USE_TEXTURE_FILES, tex_dir=os.path.join(HERE, TEX_DIR))
+    mats = tx.materials(NAME, SHEETS)
     for mat in mats.values():
         mat.diffuse_color = (0.78, 0.76, 0.72, 1.0)
-    glow = tx.images(NAME, SHEETS["flame"], USE_TEXTURE_FILES, os.path.join(HERE, TEX_DIR))[0]
+    glow = tx.images(NAME, SHEETS["flame"])[0]
     mats["flame"] = mb.stone_material(NAME + "_lamp_glow", glow, glow)     # the portal's glow: albedo as emission
     order = tx.finish(ob, classes, mats)
     tx.report(SHEETS)

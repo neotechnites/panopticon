@@ -15,9 +15,8 @@ Blender +Z -> Godot +Y, Blender +Y -> Godot -Z.
 
 One manifold rock; collision rides in the .glb as a `-colonly` node: flat
 deck cut where the pool is, plinth, wall, dais pucks, pool banks and floor,
-stalagmite stacks. Five materials: HellRock (painted atlas, byte-identical
-to the arena's), Lava (the arena's river sheet), HubStone (painted grey),
-Marble and ForestAtlas (the two maps' own painted atlases).
+stalagmite stacks. Five materials: HellRock (the arena's rock), Lava (the
+arena's lava tile), HubStone (grey), Marble and the forest's keeper tiles.
 
     tools/modelling/model build hub_base
     python3 tools/modelling/hub/hub_base_build.py --check     # geometry only, no Blender
@@ -101,12 +100,9 @@ POOL_SEED = 5140737
 WALL_SEED = 7331
 EYE_H = 1.65
 
-# ---- HellRock atlas -- identical to map_base_build.py --------------------
-USE_TEXTURE_FILES = True
-TEX_DIR = "textures"
-TEX_SIZE = 128
+# ---- HellRock atlas -- the UV windows of map_base_build.py's old 128 atlas --
+TEX_SIZE = 128                          # the old atlas's texels: UV_PAD's unit, not the file's size
 TEX_ALBEDO = "hell_rock_albedo"         # the tower's atlas: the hub wears its rock cell
-TEX_EMISSIVE = "hell_rock_emissive"
 TEX_SEED = 6661031
 ROCK_ROUGHNESS = 0.95
 ROCK_METALLIC = 0.0
@@ -117,24 +113,17 @@ ZONE_ROCK = (0.0, 0.5, 0.5, 1.0)
 ZONE_SHADE = (0.5, 0.5, 1.0, 1.0)
 ZONE_CARVE = (0.5, 0.0, 1.0, 0.5)
 ZONE_EMBER = (0.0, 0.0, 0.5, 0.5)
-ZONE_GLOW = (0.5, 0.0, 1.0, 0.25)
 ZONE_DECK = ("deck",) + ZONE_ROCK      # the lighter cell: SHADE goes black under neutral light
 DECK_UV_SCALE = 0.34
 
-# ---- the lava pool: the arena's river sheet ------------------------------
+# ---- the lava pool: the arena's lava tile ---------------------------------
 ZONE_RIVER = ("river",)
-RIVER_TEX = 256
-RIVER_ALBEDO = "map_base_river_albedo"
-RIVER_EMISSIVE = "map_base_river_emissive"
-RIVER_SEED = 7720133
+RIVER_ALBEDO = "lava_albedo"            # albedo and glow are the same pixels
 FLOW_SPAN = 10.0
 CROSS_SPAN = 10.0
 
 # ---- HubStone: the undecided wedges ---------------------------------------
-STONE_TEX = 128
 STONE_ALBEDO = "hub_stone_albedo"
-STONE_EMISSIVE = "hub_stone_emissive"
-STONE_SEED = 2718281
 ZONE_STONE = ("stone", 0.0, 0.5, 0.5, 1.0)     # the wedge floor
 ZONE_SEAM = ("stone", 0.5, 0.5, 1.0, 1.0)      # the inlaid band
 ZONE_SIDE = ("stone", 0.5, 0.0, 1.0, 0.5)      # wall, slab
@@ -168,7 +157,7 @@ EPS = 1e-9
 
 
 # =============================================================================
-# TEXTURE -- copied from map_base_build.py so the atlas is the same rock
+# RNG, MATERIALS
 # =============================================================================
 
 class _Rng(object):
@@ -197,191 +186,6 @@ class _Rng(object):
         return seq[self.bits() % len(seq)]
 
 
-def _s2l(rgb):
-    out = []
-    for c in rgb:
-        c /= 255.0
-        out.append(c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4)
-    return out
-
-
-class _Canvas(object):
-    def __init__(self, size):
-        self.w = self.h = size
-        n = size * size * 4
-        self.alb = [0.0] * n
-        self.emi = [0.0] * n
-        for i in range(size * size):
-            self.alb[i * 4 + 3] = 1.0
-            self.emi[i * 4 + 3] = 1.0
-
-    def put(self, x, y, rgb, glow=None):
-        if not (0 <= x < self.w and 0 <= y < self.h):
-            return
-        o = (y * self.w + x) * 4
-        r, g, b = _s2l(rgb)
-        self.alb[o], self.alb[o + 1], self.alb[o + 2] = r, g, b
-        if glow is not None:
-            r, g, b = _s2l(glow)
-            self.emi[o], self.emi[o + 1], self.emi[o + 2] = r, g, b
-
-    def wrap(self, x, y, rgb, glow=None):
-        self.put(x % self.w, y % self.h, rgb, glow)
-
-    def rect(self, x0, y0, x1, y1, rgb, glow=None):
-        for y in range(y0, y1):
-            for x in range(x0, x1):
-                self.put(x, y, rgb, glow)
-
-
-def _rect_of(zone, size):
-    u0, v0, u1, v1 = zone
-    return (int(u0 * size), int(v0 * size), int(u1 * size), int(v1 * size))
-
-
-def _fill(c, r, box, shades):
-    x0, y0, x1, y1 = box
-    for y in range(y0, y1):
-        for x in range(x0, x1):
-            c.put(x, y, r.pick(shades))
-
-
-def _shatter(c, r, box, shades, count, minsz, maxsz):
-    """Squarish blotches with no preferred direction."""
-    x0, y0, x1, y1 = box
-    for _ in range(count):
-        w = r.i(minsz, maxsz)
-        h = max(minsz, min(maxsz, w + r.i(-1, 1)))
-        x, y = r.i(x0, x1 - w - 1), r.i(y0, y1 - h - 1)
-        c.rect(x, y, x + w, y + h, r.pick(shades))
-
-
-def _paint_rock(c, r, box):
-    _fill(c, r, box, [(74, 27, 25), (58, 20, 19), (90, 35, 30), (46, 16, 16)])
-    _shatter(c, r, box, [(96, 40, 33), (48, 16, 16), (110, 48, 38)], 20, 6, 15)
-    _shatter(c, r, box, [(32, 11, 12), (118, 56, 43)], 12, 4, 9)
-    x0, y0, x1, y1 = box
-    for _ in range(6):
-        x, y = r.i(x0 + 2, x1 - 4), r.i(y0 + 2, y1 - 4)
-        c.rect(x, y, x + 2, y + 2, (172, 44, 12), (114, 22, 3))
-
-
-def _paint_shade(c, r, box):
-    _fill(c, r, box, [(34, 12, 12), (24, 8, 9), (44, 17, 15), (17, 6, 7)])
-    _shatter(c, r, box, [(42, 16, 15), (10, 3, 4)], 20, 4, 11)
-    x0, y0, x1, y1 = box
-    for _ in range(4):
-        x, y = r.i(x0 + 2, x1 - 4), r.i(y0 + 2, y1 - 4)
-        c.rect(x, y, x + 2, y + 2, (140, 34, 9), (92, 16, 2))
-
-
-def _paint_carve(c, r, box):
-    _fill(c, r, box, [(84, 58, 53), (72, 48, 44), (96, 69, 63), (64, 42, 39)])
-    _shatter(c, r, box, [(66, 43, 40), (102, 74, 68), (56, 35, 33)], 14, 5, 14)
-    _shatter(c, r, box, [(74, 38, 27), (46, 27, 25)], 10, 4, 10)
-    x0, y0, x1, y1 = box
-    for _ in range(10):
-        x, y = r.i(x0, x1 - 2), r.i(y0, y1 - 2)
-        c.rect(x, y, x + 2, y + 2, (52, 32, 30))
-    for _ in range(3):
-        x, y = r.i(x0 + 2, x1 - 4), r.i(y0 + 2, y1 - 4)
-        c.rect(x, y, x + 2, y + 2, (152, 48, 14), (88, 18, 2))
-
-
-def _paint_ember(c, r, box):
-    x0, y0, x1, y1 = box
-    _fill(c, r, box, [(11, 4, 5), (16, 6, 6), (7, 2, 3), (20, 8, 7)])
-    for _ in range(15):
-        x, y = r.i(x0, x1 - 1), r.i(y0, y1 - 1)
-        for _step in range(60):
-            for dx in (-1, 0, 1):
-                for dy in (-1, 0, 1):
-                    if x0 <= x + dx < x1 and y0 <= y + dy < y1:
-                        c.put(x + dx, y + dy, (58, 15, 4), (74, 15, 1))
-            hot = r.pick([(255, 150, 30), (255, 212, 88), (248, 100, 14)])
-            c.put(x, y, hot, hot)
-            x += r.i(-1, 1)
-            y += r.i(-1, 1)
-            if not (x0 <= x < x1 and y0 <= y < y1):
-                break
-    for _ in range(30):
-        c.put(r.i(x0, x1 - 1), r.i(y0, y1 - 1), (7, 3, 4))
-    for _ in range(10):
-        x, y = r.i(x0, x1 - 2), r.i(y0, y1 - 2)
-        c.rect(x, y, x + 2, y + 2, (236, 92, 18), (194, 54, 5))
-
-
-def _paint_glow(c, r, box):
-    x0, y0, x1, y1 = box
-    shades = [(214, 44, 8), (196, 34, 6), (232, 60, 14), (178, 28, 6)]
-    for y in range(y0, y1):
-        for x in range(x0, x1):
-            s = r.pick(shades)
-            c.put(x, y, s, s)
-    for _ in range(14):
-        x, w = r.i(x0, x1 - 3), r.i(1, 2)
-        yy, h = r.i(y0, y1 - 6), r.i(4, 10)
-        c.rect(x, yy, x + w, min(y1, yy + h), (128, 18, 4), (104, 12, 2))
-    for _ in range(12):
-        x, y = r.i(x0, x1 - 2), r.i(y0, y1 - 2)
-        c.rect(x, y, x + 2, y + 2, (255, 128, 34), (255, 128, 34))
-
-
-def _images(c, size, names):
-    out = []
-    for name, buf in ((names[0], c.alb), (names[1], c.emi)):
-        img = bpy.data.images.new(name, size, size, alpha=False)
-        img.colorspace_settings.name = "sRGB"
-        img.pixels.foreach_set(buf)
-        img.update()
-        out.append(img)
-    return out[0], out[1]
-
-
-def build_texture():
-    """Paint the hell-rock atlas; byte-identical to the arena's."""
-    c = _Canvas(TEX_SIZE)
-    r = _Rng(TEX_SEED)
-    _paint_rock(c, r, _rect_of(ZONE_ROCK, TEX_SIZE))
-    _paint_shade(c, r, _rect_of(ZONE_SHADE, TEX_SIZE))
-    _paint_carve(c, r, _rect_of(ZONE_CARVE, TEX_SIZE))
-    _paint_ember(c, r, _rect_of(ZONE_EMBER, TEX_SIZE))
-    _paint_glow(c, r, _rect_of(ZONE_GLOW, TEX_SIZE))
-    return _images(c, TEX_SIZE, (TEX_ALBEDO, TEX_EMISSIVE))
-
-
-def _paint_stone(c, r, box):
-    _fill(c, r, box, [(112, 110, 105), (106, 104, 99), (118, 116, 111), (100, 98, 94)])
-    _shatter(c, r, box, [(122, 120, 114), (96, 94, 90), (110, 108, 103)], 20, 6, 15)
-    _shatter(c, r, box, [(92, 90, 87), (126, 124, 118)], 12, 4, 9)
-
-
-def _paint_seam(c, r, box):
-    _fill(c, r, box, [(48, 46, 44), (42, 40, 39), (54, 52, 50), (38, 36, 35)])
-    _shatter(c, r, box, [(58, 56, 53), (34, 32, 31)], 14, 3, 8)
-
-
-def _paint_side(c, r, box):
-    _fill(c, r, box, [(86, 84, 80), (80, 78, 75), (92, 90, 86), (74, 72, 69)])
-    _shatter(c, r, box, [(98, 96, 91), (66, 64, 62)], 20, 5, 14)
-
-
-def _paint_dais(c, r, box):
-    _fill(c, r, box, [(142, 140, 134), (136, 134, 128), (148, 146, 140), (130, 128, 122)])
-    _shatter(c, r, box, [(154, 152, 145), (124, 122, 116)], 16, 4, 10)
-
-
-def build_stone_texture():
-    """Neutral grey stone, no emission: floor, seam band, sides, dais."""
-    c = _Canvas(STONE_TEX)
-    r = _Rng(STONE_SEED)
-    _paint_stone(c, r, _rect_of(ZONE_STONE[1:], STONE_TEX))
-    _paint_seam(c, r, _rect_of(ZONE_SEAM[1:], STONE_TEX))
-    _paint_side(c, r, _rect_of(ZONE_SIDE[1:], STONE_TEX))
-    _paint_dais(c, r, _rect_of(ZONE_DAIS[1:], STONE_TEX))
-    return _images(c, STONE_TEX, (STONE_ALBEDO, STONE_EMISSIVE))
-
-
 def rock_material(name, albedo, emissive, glow=True):
     mat = bpy.data.materials.new(name)
     mat.use_nodes = True
@@ -400,69 +204,6 @@ def rock_material(name, albedo, emissive, glow=True):
     bsdf.inputs["Emission Strength"].default_value = 1.0   # exactly 1.0: no KHR warning
     mat.diffuse_color = (0.13, 0.04, 0.04, 1.0)
     return mat
-
-
-def _river_texture():
-    """The river sheet: molten, streaked along +U, tiling both ways."""
-    c = _Canvas(RIVER_TEX)
-    r = _Rng(RIVER_SEED)
-    n = RIVER_TEX
-    hot = [(232, 74, 10), (255, 110, 22), (212, 56, 6), (255, 140, 34)]
-    warm = [(178, 46, 6), (150, 34, 4), (200, 58, 10)]
-    crust = [(34, 12, 10), (24, 8, 8), (46, 18, 14)]
-    for y in range(n):
-        for x in range(n):
-            s = r.pick(hot)
-            c.put(x, y, s, s)
-    for _ in range(90):
-        x, y = r.i(0, n - 1), r.i(0, n - 1)
-        w, h = r.i(18, 70), r.i(2, 7)
-        sh = r.pick(crust)
-        for dy in range(h):
-            for dx in range(w):
-                c.wrap(x + dx, y + dy + (dx // 26), sh, (0, 0, 0))
-    for _ in range(150):
-        x, y = r.i(0, n - 1), r.i(0, n - 1)
-        sh = r.pick(crust)
-        for dx in range(r.i(30, 110)):
-            c.wrap(x + dx, y, sh, (6, 2, 2))
-            if r.i(0, 6) == 0:
-                y += r.i(-1, 1)
-    for _ in range(200):
-        x, y = r.i(0, n - 1), r.i(0, n - 1)
-        sh = r.pick(warm)
-        for dx in range(r.i(20, 90)):
-            c.wrap(x + dx, y, sh, sh)
-            if r.i(0, 8) == 0:
-                y += r.i(-1, 1)
-    for _ in range(120):
-        x, y = r.i(0, n - 1), r.i(0, n - 1)
-        core = r.pick([(255, 216, 104), (255, 184, 64), (255, 232, 150)])
-        for dx in range(r.i(8, 46)):
-            c.wrap(x + dx, y, core, core)
-            if r.i(0, 10) == 0:
-                y += r.i(-1, 1)
-    return _images(c, RIVER_TEX, (RIVER_ALBEDO, RIVER_EMISSIVE))
-
-
-def _image_file(name):
-    """<home>/textures/<name> from anywhere in the repo; None if absent or regenerating."""
-    path = mdl.texture_file(name)
-    if path is None:
-        return None
-    img = bpy.data.images.load(path)
-    img.colorspace_settings.name = "sRGB"
-    img.pack()
-    print("MDL TEXTURE %s from %s" % (img.name, path))
-    return img
-
-
-def _sheet(stem, painted):
-    """(albedo, emissive): the files when opted in and present, else painted."""
-    alb = _image_file(stem + "_albedo.png") if USE_TEXTURE_FILES else None
-    if alb is None:
-        return painted()
-    return alb, (_image_file(stem + "_emissive.png") or alb)
 
 
 # =============================================================================
@@ -1295,15 +1036,9 @@ def build():
     rock, spikes = _rock()
     coll = _collider()
 
-    albedo, emissive = build_texture()
-    mdl.save_texture(albedo)
-    mdl.save_texture(emissive)
-    river_albedo, river_emissive = _sheet("lava", _river_texture)   # the arena's lava tile
-    mdl.save_texture(river_albedo)
-    mdl.save_texture(river_emissive)
-    stone_albedo, stone_emissive = build_stone_texture()
-    mdl.save_texture(stone_albedo)
-    mdl.save_texture(stone_emissive)
+    albedo = mdl.texture(TEX_ALBEDO)
+    river = mdl.texture(RIVER_ALBEDO)
+    stone_albedo = mdl.texture(STONE_ALBEDO)
 
     themes = []
     for th in _themes():
@@ -1311,9 +1046,9 @@ def build():
             themes.append(th)
     ob = rock.object(OBJECT_NAME)
     unwrap(ob, rock.zones, rock.groups, themes)
-    mdl.finish(ob, rock_material("HellRock", albedo, emissive, glow=False), strip_uvs=False)
-    ob.data.materials.append(rock_material("Lava", river_albedo, river_emissive))
-    ob.data.materials.append(rock_material("HubStone", stone_albedo, stone_emissive))
+    mdl.finish(ob, rock_material("HellRock", albedo, None, glow=False), strip_uvs=False)
+    ob.data.materials.append(rock_material("Lava", river, river))
+    ob.data.materials.append(rock_material("HubStone", stone_albedo, None, glow=False))
     slot = {"river": 1, "stone": 2}
     names = ["hellrock", "lava", "stone"]
     for th in themes:
@@ -1327,8 +1062,6 @@ def build():
                 ob.data.materials.append(mat)
             continue
         alb, emi = imgs
-        mdl.save_texture(alb)
-        mdl.save_texture(emi)
         slot[th.key] = len(ob.data.materials)
         names.append(th.key)
         ob.data.materials.append(th.material(alb, emi))

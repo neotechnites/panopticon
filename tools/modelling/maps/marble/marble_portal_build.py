@@ -32,7 +32,7 @@ runner passes through it along Godot local Z, exactly as on Map 1.
 ONE CLOSED MANIFOLD SOLID. The opening is not a hole: the two effect-surface
 faces stand at y = -0.02 and y = +0.02 and each side's reveal runs from its own
 outer face IN to that plane, so the mouth is plugged by a 0.04 m lens and every
-edge has exactly two faces. The surface is mb._paint_swirl --
+edge has exactly two faces. The surface is the atlas' swirl --
 Map 1's spiral in the rotunda's cold palette -- in marble's atlas, its
 material glowing that same file at emission strength exactly 1.0.
 
@@ -94,13 +94,13 @@ SURF_D = 0.02               # the effect surface: one face at -0.02, one at +0.0
 IN_HALF_W = 1.35            # the opening: 2.7 m clear at the ground (portal_build's IN_HALF_W)
 IN_SPRING = 2.6             # ... the head springs here (portal_build's IN_SPRING)
 IN_APEX = 3.15              # ... and crowns here (portal_build's IN_SPRING + IN_RISE)
-DISC_CENTRE_Z = 1.5         # the swirl's centre: the painter puts it at this height of the mouth
+DISC_CENTRE_Z = 1.5         # the swirl's centre: the drawing has it at this height of the mouth
 ARCH_SEG = mb.HEAD_SEG      # 6 chords over the head, the wall's own resolution
 
 PLINTH_H = 0.32             # the plinth's top wash: the base course the jambs stand on
 CORN_Z = 3.52               # the cornice soffit: 0.48 m of moulding over it, 0.37 m over the crown
 
-PORTAL_CELL = mb.region("portal")   # the atlas' swirl (mb._paint_swirl)
+PORTAL_CELL = mb.region("portal")   # the atlas' swirl
 mb.ZONES["portal"] = PORTAL_CELL
 mb.FIT["portal"] = "uv"        # the whole effect surface onto the whole cell, no offset, no flip
 

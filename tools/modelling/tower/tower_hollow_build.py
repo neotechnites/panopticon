@@ -428,11 +428,10 @@ def _extra_renders(spec, objects):
     ti._floor(m, p, r)
     ti._chamber(m, p)
     ti._drips(m, p, r)
-    albedo, emissive = ti.build_texture()
     interior = m.object("InteriorPreview")
     ti.unwrap(interior, m.zones)
-    mdl.finish(interior, ti.rock_material("HellRockPreview", albedo, emissive),
-               strip_uvs=False)
+    mdl.finish(interior, bpy.data.materials.new("HellRock"), strip_uvs=False)
+    tx.retile(interior, tx.hell_atlas_material(name="HellRockPreview"))
     culled = [(mat, mat.use_backface_culling) for mat in rock.data.materials if mat]
     for mat, _ in culled:
         mat.use_backface_culling = True

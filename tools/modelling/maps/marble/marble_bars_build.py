@@ -246,8 +246,6 @@ def widest_gap():
 # marble, marble2, plinth and shade wear marble_stone spanned across STONE_M,
 # tinted to their palettes. The iron is marble_dark's iron column: see _iron_uv.
 
-USE_TEXTURE_FILES = True
-TEX_DIR = mb.TEX_DIR
 MPT = mb.WALL_MPT                       # 0.046019 m a texel: the rotunda's wall density
 SHEET_H = mb.WALL_H                     # 261 texels = 12 courses of 1.0 m
 COURSES = 12
@@ -721,8 +719,7 @@ def build():
     coll = _collider()
     ob = gate.object(OBJECT_NAME)
     tx.unwrap(ob, gate.zones, SHEETS, seed=SEED, groups=gate.groups, custom={"iron": _iron_uv})
-    mats = tx.materials(NAME, SHEETS, use_files=USE_TEXTURE_FILES,
-                        tex_dir=os.path.join(HERE, TEX_DIR))
+    mats = tx.materials(NAME, SHEETS)
     for mat in mats.values():
         mat.diffuse_color = (0.78, 0.76, 0.72, 1.0)
     order = tx.finish(ob, gate.zones, mats)

@@ -5,12 +5,11 @@ A long rifle with a heavy walnut stock, blued iron, a low one-inch riflescope
 on two short rings and a hand-worn finish; institutional, not military. Marked with the panopticon's
 eye stamped on the left of the receiver and a numbered brass plate let into
 the left of the butt -- the side the shooter sees. The 128x128 PS1-style atlas
-is painted procedurally here (hard texels, four palettes, no gradients) and
-lands in weapons/textures/ as the albedo the .glb links; there is no emissive.
+is weapons/textures/rifle_hell_albedo.png, drawn by hand; there is no emissive.
 
 Run through the pipeline (from the Mac, from the repo root)::
 
-    tools/modelling/model build rifle --views none --regen-texture all
+    tools/modelling/model build rifle --views none
     tools/modelling/model look  rifle --views side --res 1600x760
 
 COORDINATES
@@ -82,7 +81,6 @@ ZONE_WORN   = (0.25, 0.0, 0.5,  0.5)   # walnut rubbed pale by a hand or a cheek
 EYE_RECT   = (64, 40, 112, 64)         # 48x24: the eye, stamped in the steel
 PLATE_RECT = (64, 16, 120, 36)         # 56x20: the brass number plate
 GLASS_RECT = (64, 2, 96, 14)           # 32x12: the scope's dark lens glass
-MARKS_BOX  = (64, 0, 128, 64)          # the rest of that quarter is plain blued steel
 
 # ---- master proportions (metres, Blender space: +Y forward, +Z up) ----------
 BUTT_Y        = -0.340   # rear face of the butt plate
@@ -136,11 +134,11 @@ FACING_YAW = 180.0       # the muzzle points +Y: "front" looks down the barrel
 
 
 # =============================================================================
-# TEXTURE -- hand-written texels, no gradients, no filtering
+# TEXTURE -- the drawn atlas, referenced
 # =============================================================================
 
 class _Rng(object):
-    """Tiny deterministic LCG so the atlas is byte-identical every rebuild."""
+    """Tiny deterministic LCG: the unwrap's windows are the same every rebuild."""
 
     def __init__(self, seed):
         self.s = seed & 0x7FFFFFFF
@@ -149,260 +147,13 @@ class _Rng(object):
         self.s = (1103515245 * self.s + 12345) & 0x7FFFFFFF
         return self.s
 
-    def bits(self):
-        return self.n() >> 12          # the low bits are short-period: corduroy
-
     def f(self):
         return self.n() / float(0x7FFFFFFF)
 
-    def i(self, a, b):
-        return a + self.bits() % (b - a + 1)
-
-    def pick(self, seq):
-        return seq[self.bits() % len(seq)]
-
-
-def _s2l(rgb):
-    """sRGB 0-255 -> scene-linear, which is what image.pixels wants."""
-    out = []
-    for c in rgb:
-        c /= 255.0
-        out.append(c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4)
-    return out
-
-
-class _Canvas(object):
-    def __init__(self, size):
-        self.w = self.h = size
-        n = size * size * 4
-        self.alb = [0.0] * n
-        for i in range(size * size):
-            self.alb[i * 4 + 3] = 1.0
-        self.clip = (0, 0, size, size)
-
-    def put(self, x, y, rgb):
-        x0, y0, x1, y1 = self.clip
-        if not (x0 <= x < x1 and y0 <= y < y1):
-            return
-        o = (y * self.w + x) * 4
-        self.alb[o], self.alb[o + 1], self.alb[o + 2] = _s2l(rgb)
-
-    def hline(self, x, y, n, rgb):
-        for d in range(n):
-            self.put(x + d, y, rgb)
-
-    def vline(self, x, y, n, rgb):
-        for d in range(n):
-            self.put(x, y + d, rgb)
-
-    def rect(self, x0, y0, x1, y1, rgb):
-        for y in range(y0, y1):
-            for x in range(x0, x1):
-                self.put(x, y, rgb)
-
-    def disc(self, cx, cy, rad, rgb):
-        for dy in range(-rad, rad + 1):
-            for dx in range(-rad, rad + 1):
-                if dx * dx + dy * dy <= rad * rad + rad * 0.5:
-                    self.put(cx + dx, cy + dy, rgb)
-
-
-def _rect_of(zone, size):
-    u0, v0, u1, v1 = zone
-    return (int(u0 * size), int(v0 * size), int(u1 * size), int(v1 * size))
-
-
-# ---- palettes: four or five shades a material, nothing between them ---------
-PAL_WALNUT  = [(88, 52, 28), (100, 62, 34), (76, 44, 24), (112, 72, 42)]
-GRAIN       = [(52, 28, 14), (46, 24, 12), (130, 90, 50)]
-PAL_WORN    = [(118, 84, 48), (130, 94, 56), (106, 74, 42), (140, 106, 64)]
-WORN_GRAIN  = [(94, 62, 34), (166, 130, 84)]
-PAL_BLUED   = [(46, 50, 60), (40, 44, 53), (52, 57, 68), (34, 37, 45)]
-STEEL_WEAR  = [(104, 108, 114), (84, 88, 94), (126, 130, 136)]
-PAL_BRASS   = [(170, 134, 54), (186, 150, 66), (152, 118, 44), (200, 166, 82)]
-BRASS_DARK  = [(120, 92, 38), (98, 74, 30)]
-BRASS_LIGHT = [(224, 194, 112)]
-INK         = (44, 30, 12)             # engraved into brass
-IRIS        = (128, 24, 18)            # the eye's iris, tower/models/eye.glb's red
-IRIS_RIM    = (86, 14, 12)
-SCLERA      = (22, 22, 26)             # its dark ball
-PUPIL       = (8, 6, 8)
-PAL_GLASS   = [(14, 20, 30), (10, 15, 24), (18, 26, 38)]
-GLASS_GLINT = [(70, 96, 120), (44, 62, 84)]
-
-
-def _fill(c, r, box, shades):
-    x0, y0, x1, y1 = box
-    for y in range(y0, y1):
-        for x in range(x0, x1):
-            c.put(x, y, r.pick(shades))
-
-
-def _grain(c, r, box, count, shades, wander):
-    """Grain the whole width of the box along u, wandering a texel in v now and then."""
-    x0, y0, x1, y1 = box
-    for _ in range(count):
-        y = r.i(y0, y1 - 1)
-        col = r.pick(shades)
-        for x in range(x0, x1):
-            c.put(x, y, col)
-            if r.f() < wander:
-                y = min(max(y + r.i(-1, 1), y0), y1 - 1)
-
-
-def _paint_walnut(c, r, box):
-    """Dark oiled walnut: long grain, a knot or two, oil-dark patches."""
-    c.clip = box
-    x0, y0, x1, y1 = box
-    _fill(c, r, box, PAL_WALNUT)
-    _grain(c, r, box, 22, GRAIN, 0.12)
-    for _ in range(6):                                    # oil-dark figure
-        x, y = r.i(x0, x1 - 8), r.i(y0, y1 - 3)
-        c.rect(x, y, x + r.i(4, 9), y + r.i(1, 3), (62, 36, 20))
-    for _ in range(2):                                    # knots: rings in the grain
-        kx, ky = r.i(x0 + 6, x1 - 7), r.i(y0 + 4, y1 - 5)
-        c.disc(kx, ky, 3, (56, 32, 16))
-        c.disc(kx, ky, 2, (104, 66, 36))
-        c.disc(kx, ky, 1, (46, 24, 12))
-    for _ in range(10):                                   # dings
-        c.put(r.i(x0, x1 - 1), r.i(y0, y1 - 1), (44, 22, 12))
-
-
-def _paint_worn(c, r, box):
-    """The same walnut rubbed pale where a hand and a cheek have lived on it."""
-    c.clip = box
-    x0, y0, x1, y1 = box
-    _fill(c, r, box, PAL_WORN)
-    _grain(c, r, box, 9, WORN_GRAIN, 0.10)
-    for _ in range(7):                                    # polished high spots
-        x, y = r.i(x0, x1 - 6), r.i(y0, y1 - 2)
-        c.rect(x, y, x + r.i(3, 7), y + r.i(1, 2), (172, 134, 86))
-    for _ in range(6):                                    # dirt in the pores
-        x, y = r.i(x0, x1 - 3), r.i(y0, y1 - 2)
-        c.rect(x, y, x + r.i(1, 3), y + 1, (90, 58, 32))
-
-
-def _paint_blued(c, r, box, marks=False):
-    """Blued steel: blue-black, machining lines, silver wear where hands and holsters rubbed."""
-    c.clip = box
-    x0, y0, x1, y1 = box
-    _fill(c, r, box, PAL_BLUED)
-    for _ in range(5):                                    # turning marks
-        y = r.i(y0, y1 - 1)
-        c.hline(x0, y, x1 - x0, (56, 61, 72))
-    if marks:
-        return
-    for _ in range(12):                                   # bright wear
-        x, y = r.i(x0, x1 - 8), r.i(y0, y1 - 1)
-        c.hline(x, y, r.i(3, 8), r.pick(STEEL_WEAR))
-    for _ in range(6):                                    # worn-through patches
-        x, y = r.i(x0, x1 - 4), r.i(y0, y1 - 3)
-        c.rect(x, y, x + r.i(2, 4), y + r.i(1, 2), (84, 88, 94))
-    for _ in range(16):                                   # pits
-        c.put(r.i(x0, x1 - 1), r.i(y0, y1 - 1), (18, 20, 24))
-    for _ in range(4):                                    # a little rust in the pits
-        x, y = r.i(x0, x1 - 2), r.i(y0, y1 - 2)
-        c.rect(x, y, x + 2, y + 1, (78, 48, 30))
-
-
-def _paint_brass(c, r, box):
-    """Turned brass: warm, tarnished in patches, a bright line where it was polished."""
-    c.clip = box
-    x0, y0, x1, y1 = box
-    _fill(c, r, box, PAL_BRASS)
-    for _ in range(8):                                    # tarnish
-        x, y = r.i(x0, x1 - 5), r.i(y0, y1 - 4)
-        c.rect(x, y, x + r.i(2, 5), y + r.i(2, 4), r.pick(BRASS_DARK))
-    for _ in range(6):                                    # lathe lines
-        y = r.i(y0, y1 - 1)
-        c.hline(x0, y, x1 - x0, r.pick(BRASS_DARK + BRASS_LIGHT))
-    for _ in range(10):                                   # glints
-        c.put(r.i(x0, x1 - 1), r.i(y0, y1 - 1), BRASS_LIGHT[0])
-
-
-def _paint_eye(c, r, rect):
-    """The panopticon's eye struck into the receiver: a lens outline, dark ball, red iris, black pupil."""
-    c.clip = rect
-    x0, y0, x1, y1 = rect
-    cx, cy = (x0 + x1) // 2, (y0 + y1) // 2
-    half_w, half_h = 22, 10
-    for dx in range(-half_w, half_w + 1):
-        h = int(round(half_h * (1.0 - (dx / float(half_w)) ** 2)))
-        c.vline(cx + dx, cy - h, 2 * h + 1, SCLERA)
-        c.put(cx + dx, cy + h + 1, (108, 112, 122))        # light catches the struck edge
-        c.put(cx + dx, cy - h - 1, (108, 112, 122))
-        c.put(cx + dx, cy + h, (12, 13, 16))
-        c.put(cx + dx, cy - h, (12, 13, 16))
-    c.disc(cx, cy, 8, IRIS_RIM)
-    c.disc(cx, cy, 7, IRIS)
-    c.disc(cx, cy, 4, PUPIL)
-    c.put(cx - 3, cy + 4, (188, 96, 84))                  # one glint
-
-
-_FONT = {                                                  # 3x5, rows top -> bottom
-    "N": ["#.#", "###", "###", "#.#", "#.#"],
-    "o": ["...", ".#.", "#.#", "#.#", ".#."],
-    "0": ["###", "#.#", "#.#", "#.#", "###"],
-    "7": ["###", "..#", ".#.", ".#.", ".#."],
-    " ": ["...", "...", "...", "...", "..."],
-}
-
-
-def _paint_glass(c, r, rect):
-    """Coated lens glass: blue-black with a couple of cold glints."""
-    c.clip = rect
-    x0, y0, x1, y1 = rect
-    _fill(c, r, rect, PAL_GLASS)
-    c.hline(x0 + 4, y1 - 3, 6, GLASS_GLINT[0])
-    c.hline(x0 + 5, y1 - 4, 3, GLASS_GLINT[1])
-    c.put(x1 - 6, y0 + 3, GLASS_GLINT[1])
-
-
-def _glyphs(c, text, x, y_top, scale, rgb):
-    for ch in text:
-        rows = _FONT[ch]
-        for ri, row in enumerate(rows):
-            for ci, bit in enumerate(row):
-                if bit == "#":
-                    c.rect(x + ci * scale, y_top - (ri + 1) * scale + 1,
-                           x + (ci + 1) * scale, y_top - ri * scale + 1, rgb)
-        x += (3 + 1) * scale
-
-
-def _paint_plate(c, r, rect):
-    """The numbered brass plate: bordered, four screws, the number engraved."""
-    c.clip = rect
-    x0, y0, x1, y1 = rect
-    _fill(c, r, rect, PAL_BRASS)
-    c.rect(x0, y0, x1, y0 + 1, BRASS_DARK[1])
-    c.rect(x0, y1 - 1, x1, y1, BRASS_LIGHT[0])
-    c.rect(x0, y0, x0 + 1, y1, BRASS_LIGHT[0])
-    c.rect(x1 - 1, y0, x1, y1, BRASS_DARK[1])
-    for sx in (x0 + 3, x1 - 4):
-        for sy in (y0 + 3, y1 - 4):
-            c.put(sx, sy, BRASS_DARK[1])
-            c.put(sx + 1, sy + 1, BRASS_LIGHT[0])
-    _glyphs(c, "No 7", x0 + 12, y1 - 5, 2, INK)
-
 
 def build_texture():
-    """Paint the atlas and hand back the albedo image."""
-    c = _Canvas(TEX_SIZE)
-    r = _Rng(TEX_SEED)
-    _paint_walnut(c, r, _rect_of(ZONE_WALNUT, TEX_SIZE))
-    _paint_blued(c, r, _rect_of(ZONE_BLUED, TEX_SIZE))
-    _paint_brass(c, r, _rect_of(ZONE_BRASS, TEX_SIZE))
-    _paint_worn(c, r, _rect_of(ZONE_WORN, TEX_SIZE))
-    _paint_blued(c, r, MARKS_BOX, marks=True)
-    _paint_eye(c, r, EYE_RECT)
-    _paint_plate(c, r, PLATE_RECT)
-    _paint_glass(c, r, GLASS_RECT)
-
-    img = bpy.data.images.new(TEX_ALBEDO, TEX_SIZE, TEX_SIZE, alpha=False)
-    img.colorspace_settings.name = "sRGB"
-    img.pixels.foreach_set(c.alb)
-    img.update()
-    return img
+    """The albedo image, weapons/textures/rifle_hell_albedo.png."""
+    return mdl.texture(TEX_ALBEDO)
 
 
 def warden_material(name, albedo):
@@ -663,7 +414,6 @@ def build():
     _geometry()
 
     albedo = build_texture()
-    mdl.save_texture(albedo)
 
     for i, ob in enumerate(_OBJECTS):
         if not ob.get("open"):

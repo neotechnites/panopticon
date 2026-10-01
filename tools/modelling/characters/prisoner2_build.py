@@ -59,24 +59,12 @@ TEX_SEED = 23
 ROUGHNESS = 0.88
 SPECULAR = 0.18
 
-# (x0, y0, x1, y1) zones of the atlas, and the colour each is dithered around.
+# (x0, y0, x1, y1) zones of the atlas.
 ZONE_SKIN    = (0, 0, 16, 16)
 ZONE_SHIRT   = (16, 0, 32, 16)
 ZONE_TROUSER = (0, 16, 16, 32)
 ZONE_DARK    = (16, 16, 32, 32)
 
-SKIN    = (150, 156, 162)      # desaturated blue-grey
-SHIRT   = (198, 200, 202)      # near-neutral: the team tint rides on this
-TROUSER = (52, 56, 64)
-DARK    = (28, 30, 36)
-
-ZONE_SPOTS = {
-    ZONE_SKIN:    [(138, 144, 152), (162, 168, 174), (128, 134, 142)],
-    ZONE_SHIRT:   [(186, 188, 190), (212, 214, 216), (178, 180, 182)],
-    ZONE_TROUSER: [(44, 48, 56), (62, 66, 74), (38, 42, 50)],
-    ZONE_DARK:    [(22, 24, 30), (36, 38, 44), (18, 20, 26)],
-}
-JITTER = 7                     # per-texel dither, +/- this many 8-bit steps
 DARK_DOWNFACING = -0.62        # faces looking this far down take the dark zone
 
 PART_ZONE = {
@@ -486,40 +474,6 @@ def build_mesh():
 # ATLAS
 # =============================================================================
 
-def _s2l(rgb):
-    out = []
-    for c in rgb:
-        c /= 255.0
-        out.append(c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4)
-    return out
-
-
-def paint_atlas():
-    """Four flat zones, each dithered with a little per-texel noise and grit."""
-    r = random.Random(TEX_SEED)
-    buf = [1.0] * (TEX_SIZE * TEX_SIZE * 4)
-
-    def put(x, y, rgb):
-        o = (y * TEX_SIZE + x) * 4
-        buf[o:o + 3] = _s2l(rgb)
-
-    for zone, base in ((ZONE_SKIN, SKIN), (ZONE_SHIRT, SHIRT),
-                       (ZONE_TROUSER, TROUSER), (ZONE_DARK, DARK)):
-        x0, y0, x1, y1 = zone
-        for y in range(y0, y1):
-            for x in range(x0, x1):
-                j = r.randint(-JITTER, JITTER)
-                put(x, y, tuple(max(0, min(255, c + j)) for c in base))
-        for _ in range(40):
-            put(r.randrange(x0, x1), r.randrange(y0, y1), r.choice(ZONE_SPOTS[zone]))
-
-    img = bpy.data.images.new(NAME + "_albedo", TEX_SIZE, TEX_SIZE, alpha=False)
-    img.colorspace_settings.name = "sRGB"
-    img.pixels.foreach_set(buf)
-    img.update()
-    return img
-
-
 def _tex_material(name, img):
     mat = bpy.data.materials.new(name)
     mat.use_nodes = True
@@ -805,8 +759,7 @@ def shove_curves():
 def build():
     arm = build_armature()
     body, groups, zones = build_mesh()
-    albedo = paint_atlas()
-    mdl.save_texture(albedo)
+    albedo = mdl.texture(NAME + "_albedo")
     final_zones = unwrap(body, zones)
     mdl.finish(body, skin_material(albedo), strip_uvs=False)
     split_shirt(body, final_zones, shirt_material(albedo))

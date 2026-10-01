@@ -1,7 +1,7 @@
 """
 PANOPTICON -- boulder: a rock platform standing in lava. 2.0 m across, 1.2 m
 tall, a flat-ish top you land on, rough jittered sides. Origin at base centre,
-Blender +Z = Godot +Y. Same 128x128 hell-rock atlas as tower_build.py.
+Blender +Z = Godot +Y. Textured with hell_rock_albedo.png, the one hell rock tile.
 
 Contract: one mesh `Boulder` (1 surface), plus `BoulderCollision-colonly`, a
 plain 8-sided frustum with a dead-flat top at z=1.2 so the player never snags.
@@ -47,23 +47,19 @@ COLL_TOP_R = 1.25                 # flat landing disc: nearly the full top
 COLL_BASE_R = 1.30
 
 TEX_SIZE = 128
-TEX_ALBEDO = "hell_rock_albedo"
-TEX_EMISSIVE = "hell_rock_emissive"
 TEX_SEED = 6661031
 ROCK_ROUGHNESS = 0.95
-ROCK_METALLIC = 0.0
 UV_SCALE = 0.45                   # facets are ~1 m here, not 5 m
 UV_PAD = 1.5 / TEX_SIZE
 
 ZONE_ROCK  = (0.0, 0.5, 0.5, 1.0)
 ZONE_SHADE = (0.5, 0.5, 1.0, 1.0)
-ZONE_CARVE = (0.5, 0.0, 1.0, 0.5)
 ZONE_EMBER = (0.0, 0.0, 0.5, 0.5)
 
 FACING_YAW = 0.0
 
 # =============================================================================
-# TEXTURE -- the tower's hell-rock atlas painter (tower_build.py), same palette
+# RNG -- seeded, so every rebuild lays the same UVs
 # =============================================================================
 
 class _Rng(object):
@@ -87,149 +83,6 @@ class _Rng(object):
 
     def pick(self, seq):
         return seq[self.i(0, len(seq) - 1)]
-
-
-def _s2l(rgb):
-    """sRGB 0-255 -> scene-linear, which is what image.pixels wants."""
-    out = []
-    for c in rgb:
-        c /= 255.0
-        out.append(c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4)
-    return out
-
-
-class _Canvas(object):
-    def __init__(self, size):
-        self.w = self.h = size
-        n = size * size * 4
-        self.alb = [0.0] * n
-        self.emi = [0.0] * n
-        for i in range(size * size):
-            self.alb[i * 4 + 3] = 1.0
-            self.emi[i * 4 + 3] = 1.0
-
-    def put(self, x, y, rgb, glow=None):
-        if not (0 <= x < self.w and 0 <= y < self.h):
-            return
-        o = (y * self.w + x) * 4
-        r, g, b = _s2l(rgb)
-        self.alb[o], self.alb[o + 1], self.alb[o + 2] = r, g, b
-        if glow is not None:
-            r, g, b = _s2l(glow)
-            self.emi[o], self.emi[o + 1], self.emi[o + 2] = r, g, b
-
-    def rect(self, x0, y0, x1, y1, rgb, glow=None):
-        for y in range(y0, y1):
-            for x in range(x0, x1):
-                self.put(x, y, rgb, glow)
-
-
-def _rect_of(zone, size):
-    u0, v0, u1, v1 = zone
-    return (int(u0 * size), int(v0 * size), int(u1 * size), int(v1 * size))
-
-
-def _fill(c, r, box, shades, glow=None):
-    x0, y0, x1, y1 = box
-    for y in range(y0, y1):
-        for x in range(x0, x1):
-            k = r.i(0, len(shades) - 1)
-            c.put(x, y, shades[k], glow[k] if glow else None)
-
-
-def _shatter(c, r, box, shades, count, minsz, maxsz, glow=None):
-    """Squarish blotches with no preferred direction (no courses, no streaks)."""
-    x0, y0, x1, y1 = box
-    for _ in range(count):
-        w = r.i(minsz, maxsz)
-        h = max(minsz, min(maxsz, w + r.i(-1, 1)))
-        x, y = r.i(x0, x1 - w - 1), r.i(y0, y1 - h - 1)
-        c.rect(x, y, x + w, y + h, r.pick(shades), glow)
-
-
-def _paint_rock(c, r, box):
-    """The body: dark red going to near-black, a few coals still in it."""
-    _fill(c, r, box, [(74, 27, 25), (58, 20, 19), (90, 35, 30), (46, 16, 16)])
-    _shatter(c, r, box, [(96, 40, 33), (48, 16, 16), (110, 48, 38)], 20, 6, 15)
-    _shatter(c, r, box, [(32, 11, 12), (118, 56, 43)], 12, 4, 9)
-    x0, y0, x1, y1 = box
-    for _ in range(6):
-        x, y = r.i(x0 + 2, x1 - 4), r.i(y0 + 2, y1 - 4)
-        c.rect(x, y, x + 2, y + 2, (172, 44, 12), (114, 22, 3))
-
-
-def _paint_shade(c, r, box):
-    """Near-black, for facets that sit recessed."""
-    _fill(c, r, box, [(34, 12, 12), (24, 8, 9), (44, 17, 15), (17, 6, 7)])
-    _shatter(c, r, box, [(42, 16, 15), (10, 3, 4)], 20, 4, 11)
-    x0, y0, x1, y1 = box
-    for _ in range(4):
-        x, y = r.i(x0 + 2, x1 - 4), r.i(y0 + 2, y1 - 4)
-        c.rect(x, y, x + 2, y + 2, (140, 34, 9), (92, 16, 2))
-
-
-def _paint_carve(c, r, box):
-    """Dressed stone, worn: greyer and flatter than the living rock."""
-    _fill(c, r, box, [(84, 58, 53), (72, 48, 44), (96, 69, 63), (64, 42, 39)])
-    _shatter(c, r, box, [(66, 43, 40), (102, 74, 68), (56, 35, 33)], 14, 5, 14)
-    _shatter(c, r, box, [(74, 38, 27), (46, 27, 25)], 10, 4, 10)
-    x0, y0, x1, y1 = box
-    for _ in range(10):
-        x, y = r.i(x0, x1 - 2), r.i(y0, y1 - 2)
-        c.rect(x, y, x + 2, y + 2, (52, 32, 30))
-
-
-def _paint_ember(c, r, box):
-    """Rock split open by brimstone: random-walked cracks, dull halo, hot core."""
-    x0, y0, x1, y1 = box
-    _fill(c, r, box, [(11, 4, 5), (16, 6, 6), (7, 2, 3), (20, 8, 7)])
-    for _ in range(15):
-        x, y = r.i(x0, x1 - 1), r.i(y0, y1 - 1)
-        for _step in range(60):
-            for dx in (-1, 0, 1):
-                for dy in (-1, 0, 1):
-                    if x0 <= x + dx < x1 and y0 <= y + dy < y1:
-                        c.put(x + dx, y + dy, (58, 15, 4), (74, 15, 1))
-            hot = r.pick([(255, 150, 30), (255, 212, 88), (248, 100, 14)])
-            c.put(x, y, hot, hot)
-            x += r.i(-1, 1)
-            y += r.i(-1, 1)
-            if not (x0 <= x < x1 and y0 <= y < y1):
-                break
-    for _ in range(30):
-        c.put(r.i(x0, x1 - 1), r.i(y0, y1 - 1), (7, 3, 4))
-    for _ in range(10):
-        x, y = r.i(x0, x1 - 2), r.i(y0, y1 - 2)
-        c.rect(x, y, x + 2, y + 2, (236, 92, 18), (194, 54, 5))
-
-
-def _make_images(c):
-    images = []
-    for name, buf in ((TEX_ALBEDO, c.alb), (TEX_EMISSIVE, c.emi)):
-        img = bpy.data.images.new(name, TEX_SIZE, TEX_SIZE, alpha=False)
-        img.colorspace_settings.name = "sRGB"
-        img.pixels.foreach_set(buf)
-        img.update()
-        images.append(img)
-    return images[0], images[1]
-
-
-def rock_material(name, albedo, emissive):
-    mat = bpy.data.materials.new(name)
-    mat.use_nodes = True
-    nt = mat.node_tree
-    bsdf = nt.nodes.get("Principled BSDF")
-    for img, socket, y in ((albedo, "Base Color", 260), (emissive, "Emission Color", -220)):
-        node = nt.nodes.new("ShaderNodeTexImage")
-        node.image = img
-        node.interpolation = "Closest"          # hard texels; this is the look
-        node.location = (-460, y)
-        nt.links.new(node.outputs["Color"], bsdf.inputs[socket])
-    bsdf.inputs["Roughness"].default_value = ROCK_ROUGHNESS
-    bsdf.inputs["Metallic"].default_value = ROCK_METALLIC
-    bsdf.inputs["Emission Strength"].default_value = 1.0   # 1.0: no KHR_materials_emissive_strength, no Godot warning
-    mat.diffuse_color = (0.13, 0.04, 0.04, 1.0)
-    return mat
 
 
 # =============================================================================
@@ -332,16 +185,6 @@ def unwrap(ob, zones, seed=0):
                 t = 1.0 - t
             uvl.data[li].uv = (u0 + UV_PAD + s * span_u,
                                v0 + UV_PAD + t * span_v)
-
-
-def build_texture():
-    c = _Canvas(TEX_SIZE)
-    r = _Rng(TEX_SEED)
-    _paint_rock(c, r, _rect_of(ZONE_ROCK, TEX_SIZE))
-    _paint_shade(c, r, _rect_of(ZONE_SHADE, TEX_SIZE))
-    _paint_carve(c, r, _rect_of(ZONE_CARVE, TEX_SIZE))
-    _paint_ember(c, r, _rect_of(ZONE_EMBER, TEX_SIZE))
-    return _make_images(c)
 
 
 def _rock(r):

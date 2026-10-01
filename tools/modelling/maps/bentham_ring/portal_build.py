@@ -1,7 +1,7 @@
 """portal -- the finish line. A ragged rock arch with an emissive swirling disc in it.
 
-Low-poly PS1 hell rock, flat shaded, the tower's atlas with the ember quarter
-repainted as the portal swirl (deep red to bright orange, all emissive).
+Low-poly PS1 hell rock, flat shaded, the hell rock tile; the disc wears
+hell_props_albedo.png, the swirl, as albedo and emission.
 4.5 m wide, 4.0 m tall, 0.8 m deep. ORIGIN IS THE BASE CENTRE: z=0 is the
 ground. The disc lies in the Blender XZ plane (Godot local XY) at y=0, so a
 runner passes through along Godot local Z. Blender +Z -> Godot +Y, +Y -> -Z.
@@ -53,12 +53,10 @@ DISC_BULGE = 0.01       # metres each side: the back fan used to be dropped as a
 COL_UP_W  = 0.95        # upright box width, from the outer edge in
 COL_UP_H  = 2.8
 SEED = 7130941
-TEX_ALBEDO   = "portal_albedo"
-TEX_EMISSIVE = "hell_rock_emissive"   # the tower's: the rock's specks glow as its do
 UV_SCALE = 0.30
 FACING_YAW = 0.0
 
-# ---- atlas: tower_build.py's painter, same seed, so it is the same rock -----
+# ---- UVs laid on the old 128 atlas; tx.retile moves them onto hell_rock ------
 TEX_SIZE       = 128
 TEX_SEED       = 6661031
 ROCK_ROUGHNESS = 0.95
@@ -67,16 +65,11 @@ UV_PAD         = 1.5 / TEX_SIZE
 
 ZONE_ROCK   = (0.0, 0.5, 0.5, 1.0)   # dark red rock, the body
 ZONE_SHADE  = (0.5, 0.5, 1.0, 1.0)   # near-black: recessed facets, the inner faces
-ZONE_CARVE  = (0.5, 0.0, 1.0, 0.5)   # dressed stone (unused; atlas layout kept)
-ZONE_PORTAL = (0.0, 0.0, 0.5, 0.5)   # the ember quarter, repainted as the swirl
-
-SWIRL_ARMS  = 3
-SWIRL_TURNS = 2.6       # how many times an arm wraps from the rim to the core
-SWIRL_WIDTH = 0.42      # fraction of an arm's band that is bright
+ZONE_PORTAL = (0.0, 0.0, 0.5, 0.5)   # the old ember quarter: retile sends it onto hell_props
 
 
 # =============================================================================
-# TEXTURE -- copied from tower_build.py; do not retune here
+# RNG -- seeded, so every rebuild lays the same UVs
 # =============================================================================
 
 class _Rng(object):
@@ -103,162 +96,6 @@ class _Rng(object):
 
     def pick(self, seq):
         return seq[self.bits() % len(seq)]
-
-
-def _s2l(rgb):
-    """sRGB 0-255 -> scene-linear."""
-    out = []
-    for c in rgb:
-        c /= 255.0
-        out.append(c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4)
-    return out
-
-
-class _Canvas(object):
-    def __init__(self, size):
-        self.w = self.h = size
-        n = size * size * 4
-        self.alb = [0.0] * n
-        self.emi = [0.0] * n
-        for i in range(size * size):
-            self.alb[i * 4 + 3] = 1.0
-            self.emi[i * 4 + 3] = 1.0
-
-    def put(self, x, y, rgb, glow=None):
-        if not (0 <= x < self.w and 0 <= y < self.h):
-            return
-        o = (y * self.w + x) * 4
-        r, g, b = _s2l(rgb)
-        self.alb[o], self.alb[o + 1], self.alb[o + 2] = r, g, b
-        if glow is not None:
-            r, g, b = _s2l(glow)
-            self.emi[o], self.emi[o + 1], self.emi[o + 2] = r, g, b
-
-    def rect(self, x0, y0, x1, y1, rgb, glow=None):
-        for y in range(y0, y1):
-            for x in range(x0, x1):
-                self.put(x, y, rgb, glow)
-
-
-def _rect_of(zone, size):
-    u0, v0, u1, v1 = zone
-    return (int(u0 * size), int(v0 * size), int(u1 * size), int(v1 * size))
-
-
-def _fill(c, r, box, shades):
-    x0, y0, x1, y1 = box
-    for y in range(y0, y1):
-        for x in range(x0, x1):
-            c.put(x, y, r.pick(shades))
-
-
-def _shatter(c, r, box, shades, count, minsz, maxsz):
-    """Squarish blotches with no preferred direction."""
-    x0, y0, x1, y1 = box
-    for _ in range(count):
-        w = r.i(minsz, maxsz)
-        h = max(minsz, min(maxsz, w + r.i(-1, 1)))
-        x, y = r.i(x0, x1 - w - 1), r.i(y0, y1 - h - 1)
-        c.rect(x, y, x + w, y + h, r.pick(shades))
-
-
-def _paint_rock(c, r, box):
-    _fill(c, r, box, [(74, 27, 25), (58, 20, 19), (90, 35, 30), (46, 16, 16)])
-    _shatter(c, r, box, [(96, 40, 33), (48, 16, 16), (110, 48, 38)], 20, 6, 15)
-    _shatter(c, r, box, [(32, 11, 12), (118, 56, 43)], 12, 4, 9)
-    x0, y0, x1, y1 = box
-    for _ in range(6):
-        x, y = r.i(x0 + 2, x1 - 4), r.i(y0 + 2, y1 - 4)
-        c.rect(x, y, x + 2, y + 2, (172, 44, 12), (114, 22, 3))
-
-
-def _paint_shade(c, r, box):
-    _fill(c, r, box, [(34, 12, 12), (24, 8, 9), (44, 17, 15), (17, 6, 7)])
-    _shatter(c, r, box, [(42, 16, 15), (10, 3, 4)], 20, 4, 11)
-    x0, y0, x1, y1 = box
-    for _ in range(4):
-        x, y = r.i(x0 + 2, x1 - 4), r.i(y0 + 2, y1 - 4)
-        c.rect(x, y, x + 2, y + 2, (140, 34, 9), (92, 16, 2))
-
-
-def _paint_carve(c, r, box):
-    _fill(c, r, box, [(84, 58, 53), (72, 48, 44), (96, 69, 63), (64, 42, 39)])
-    _shatter(c, r, box, [(66, 43, 40), (102, 74, 68), (56, 35, 33)], 14, 5, 14)
-    _shatter(c, r, box, [(74, 38, 27), (46, 27, 25)], 10, 4, 10)
-    x0, y0, x1, y1 = box
-    for _ in range(10):
-        x, y = r.i(x0, x1 - 2), r.i(y0, y1 - 2)
-        c.rect(x, y, x + 2, y + 2, (52, 32, 30))
-    for _ in range(3):
-        x, y = r.i(x0 + 2, x1 - 4), r.i(y0 + 2, y1 - 4)
-        c.rect(x, y, x + 2, y + 2, (152, 48, 14), (88, 18, 2))
-
-
-def _paint_ember(c, r, box):
-    x0, y0, x1, y1 = box
-    _fill(c, r, box, [(11, 4, 5), (16, 6, 6), (7, 2, 3), (20, 8, 7)])
-    for _ in range(15):
-        x, y = r.i(x0, x1 - 1), r.i(y0, y1 - 1)
-        for _step in range(60):
-            for dx in (-1, 0, 1):
-                for dy in (-1, 0, 1):
-                    if x0 <= x + dx < x1 and y0 <= y + dy < y1:
-                        c.put(x + dx, y + dy, (58, 15, 4), (74, 15, 1))
-            hot = r.pick([(255, 150, 30), (255, 212, 88), (248, 100, 14)])
-            c.put(x, y, hot, hot)
-            x += r.i(-1, 1)
-            y += r.i(-1, 1)
-            if not (x0 <= x < x1 and y0 <= y < y1):
-                break
-    for _ in range(30):
-        c.put(r.i(x0, x1 - 1), r.i(y0, y1 - 1), (7, 3, 4))
-    for _ in range(10):
-        x, y = r.i(x0, x1 - 2), r.i(y0, y1 - 2)
-        c.rect(x, y, x + 2, y + 2, (236, 92, 18), (194, 54, 5))
-
-
-def _paint_swirl(c, r, box):
-    """A spiral of bright orange arms on deep red, white-hot core, dark rim. Emissive."""
-    x0, y0, x1, y1 = box
-    w, h = x1 - x0, y1 - y0
-    cx = x0 + w / 2.0
-    cy = y0 + h * (DISC_CENTRE_Z / (IN_SPRING + IN_RISE))
-    for y in range(y0, y1):
-        for x in range(x0, x1):
-            dx, dy = (x + 0.5 - cx) / (w / 2.0), (y + 0.5 - cy) / (h / 2.0)
-            rad = math.hypot(dx, dy)
-            ang = math.atan2(dy, dx)
-            band = (ang * SWIRL_ARMS / (2.0 * math.pi) + rad * SWIRL_TURNS) % 1.0
-            band = min(band, 1.0 - band) * 2.0            # 0 on the arm, 1 between
-            if rad < 0.14:
-                col = r.pick([(255, 226, 120), (255, 244, 170)])
-            elif band < SWIRL_WIDTH * (1.0 - 0.5 * rad):
-                col = r.pick([(255, 128, 20), (255, 96, 12), (255, 160, 40)])
-            elif band < SWIRL_WIDTH * (1.0 - 0.5 * rad) + 0.22:
-                col = r.pick([(190, 40, 8), (210, 52, 10)])
-            else:
-                col = r.pick([(112, 8, 6), (92, 6, 6), (128, 12, 8)])
-            if rad > 0.9:
-                col = tuple(int(v * 0.45) for v in col)
-            c.put(x, y, col, col)
-
-
-def build_texture():
-    """Paint the atlas and hand back (albedo_image, emissive_image)."""
-    c = _Canvas(TEX_SIZE)
-    r = _Rng(TEX_SEED)
-    _paint_rock(c, r, _rect_of(ZONE_ROCK, TEX_SIZE))
-    _paint_shade(c, r, _rect_of(ZONE_SHADE, TEX_SIZE))
-    _paint_carve(c, r, _rect_of(ZONE_CARVE, TEX_SIZE))
-    _paint_swirl(c, r, _rect_of(ZONE_PORTAL, TEX_SIZE))
-    images = []
-    for name, buf in ((TEX_ALBEDO, c.alb), (TEX_EMISSIVE, c.emi)):
-        img = bpy.data.images.new(name, TEX_SIZE, TEX_SIZE, alpha=False)
-        img.colorspace_settings.name = "sRGB"
-        img.pixels.foreach_set(buf)
-        img.update()
-        images.append(img)
-    return images[0], images[1]
 
 
 def rock_material(name, albedo, emissive):
@@ -481,8 +318,7 @@ def _collider():
 
 
 def build():
-    albedo, _emissive = build_texture()
-    glow = tx.props_image(albedo, ZONE_PORTAL)   # hell_props: the swirl, its own file
+    glow = tx.props_image()   # hell_props: the swirl, its own file
     rock = _portal(_Rng(SEED))
     ob = rock.object(OBJECT_NAME)
     unwrap(ob, rock.zones, count=rock.uv_faces,
