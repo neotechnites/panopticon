@@ -455,6 +455,9 @@ const SHOVE_KICK_SCALE: float = 0.5
 ## who is driving which body.
 const GUARD_GROUP: StringName = &"tower_guard"
 
+## Debug menu: true freezes the siege clock where it stands.
+var debug_clock_paused: bool = false
+
 ## Physics frames left before the bodies placed by the last arming are woken.
 var _settle_frames: int = 0
 
@@ -3829,6 +3832,8 @@ func _tick_hold(delta: float) -> void:
 		# not a siege, it is a bug that looks like one.
 		_warn_unwinnable("hold_duration_seconds is unset")
 		return
+	if debug_clock_paused:
+		return
 	if _hold_remaining <= 0.0:
 		# Armed by a round that started before the rules named this condition.
 		# Arm it now rather than winning instantly on a clock nobody set.
@@ -4044,3 +4049,98 @@ func _apply_air_control() -> void:
 func _on_look_settings_applied() -> void:
 	if _air_control_profile != null:
 		SettingsStore.instance().settings.apply_to_movement_profile(_air_control_profile)
+
+
+# --- Debug control -------------------------------------------------------------
+#
+# The Debug menu's live levers. Host only: a mirror refuses, as every decision here does.
+
+## End the phase now: the race hands the opening seat the tower, a round passes the seat on.
+func debug_skip_phase() -> void:
+	if _mirror or hub_mode or _participants.is_empty():
+		return
+	match _phase:
+		Phase.RACE:
+			take_seat(_participants[_opening_seat()])
+			start_round()
+		Phase.ROUND:
+			debug_next_round()
+		_:
+			start_match()
+
+
+## Re-arm the phase running now with the same seat holder.
+func debug_restart_round() -> void:
+	if _mirror or hub_mode or _participants.is_empty():
+		return
+	if _phase == Phase.RACE:
+		start_race()
+	elif _phase == Phase.ROUND:
+		_clear_kill_beat()
+		start_round()
+
+
+## Resolve this round and seat the next player in roster order.
+func debug_next_round() -> void:
+	if _mirror or hub_mode or _participants.is_empty():
+		return
+	if _phase != Phase.ROUND or _seat == null:
+		debug_skip_phase()
+		return
+	_clear_kill_beat()
+	var next: MatchParticipant = _participants[(_participants.find(_seat) + 1) % _participants.size()]
+	_outcome = Outcome.IN_PROGRESS
+	_score_and_restart(next)
+
+
+## Add [param seconds] to the siege clock running now.
+func debug_extend_clock(seconds: float) -> void:
+	if _mirror or get_hold_remaining_seconds() <= 0.0:
+		return
+	_hold_remaining = maxf(_hold_remaining + seconds, 1.0)
+
+
+## Re-read the pace levers onto every body in play: runner speed and jump, ghost speed.
+func debug_refresh_pace() -> void:
+	var active: MatchRules = get_rules()
+	for participant: MatchParticipant in _participants:
+		if participant.body == null:
+			continue
+		if participant.is_ghost:
+			participant.body.speed_scale = maxf(get_ghost_profile().speed_multiplier, 0.0)
+		elif participant.is_running:
+			_apply_runner_multipliers(participant.body, active)
+
+
+## Re-read the health rules: the guard, the finisher and every runner start over at them.
+func debug_refresh_health() -> void:
+	if _mirror:
+		return
+	var active: MatchRules = get_rules()
+	for participant: MatchParticipant in _participants:
+		if participant.is_shooter:
+			participant.health = maxi(active.guard_health, 1)
+		elif participant.is_finisher:
+			participant.health = maxi(active.finisher_health, 1)
+		elif participant.is_running and not participant.is_ghost:
+			participant.lives = maxi(active.prisoner_lives, 1)
+			participant.health = participant.lives
+
+
+## Re-read the reload for the seat holder's turn without forcing the rifle ready.
+func debug_refresh_reload() -> void:
+	if rifle == null or rifle.profile == null:
+		return
+	var turn: int = _seat.get_turn_index() if _seat != null else 0
+	rifle.reload_seconds = get_rules().get_reload_seconds_for_turn(
+		turn, rifle.profile.base_reload_seconds, rifle.profile.min_reload_seconds
+	)
+
+
+## Every weapon profile in play: the tower rifle's and the finisher's, once each.
+func debug_weapon_profiles() -> Array[WeaponProfile]:
+	var found: Array[WeaponProfile] = []
+	for weapon: Rifle in [rifle, _finisher_rifle]:
+		if weapon != null and weapon.profile != null and not found.has(weapon.profile):
+			found.append(weapon.profile)
+	return found

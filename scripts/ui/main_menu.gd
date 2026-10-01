@@ -59,6 +59,8 @@ signal quit_requested()
 @onready var _multiplayer_button: Button = %Multiplayer
 @onready var _debug_button: Button = %Debug
 @onready var _debug_menu: DebugMenu = %DebugMenu
+@onready var _test_scenes_button: Button = %TestScenes
+@onready var _test_scenes_menu: TestScenesMenu = %TestScenesMenu
 @onready var _settings_button: Button = %Settings
 @onready var _quit_button: Button = %Quit
 @onready var _setup_screen: MatchSetupScreen = %MatchSetupScreen
@@ -89,6 +91,9 @@ func _ready() -> void:
 	_debug_button.pressed.connect(open_debug)
 	_debug_menu.quick_match_requested.connect(open_match_setup)
 	_debug_menu.closed.connect(_show_main)
+	_test_scenes_button.visible = OS.is_debug_build()
+	_test_scenes_button.pressed.connect(open_test_scenes)
+	_test_scenes_menu.closed.connect(_show_main)
 	_settings_button.pressed.connect(open_settings)
 	_quit_button.pressed.connect(quit)
 
@@ -129,6 +134,10 @@ func _input(event: InputEvent) -> void:
 	if _debug_menu.visible:
 		get_viewport().set_input_as_handled()
 		_debug_menu.back()
+		return
+	if _test_scenes_menu.visible:
+		get_viewport().set_input_as_handled()
+		_test_scenes_menu.close()
 		return
 	# A rebind in flight owns every key, Escape included.
 	if _settings_screen.is_capturing_input():
@@ -229,6 +238,12 @@ func open_debug() -> void:
 	_debug_menu.open()
 
 
+## Show the Test Scenes menu. Debug builds only, never in a match.
+func open_test_scenes() -> void:
+	_main_panel.visible = false
+	_test_scenes_menu.open()
+
+
 ## True for the keys that open the Debug menu: F1 and backtick.
 static func is_debug_key(event: InputEvent) -> bool:
 	var key: InputEventKey = event as InputEventKey
@@ -265,6 +280,7 @@ func _show_main() -> void:
 	_settings_screen.visible = false
 	_multiplayer_screen.visible = false
 	_debug_menu.visible = false
+	_test_scenes_menu.visible = false
 	_main_panel.visible = true
 	_play_button.grab_focus()
 

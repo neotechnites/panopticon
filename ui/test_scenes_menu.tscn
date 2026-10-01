@@ -1,16 +1,15 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=2 format=3]
 
-[ext_resource type="Script" path="res://scripts/ui/debug_menu.gd" id="1_debug_menu"]
-[ext_resource type="PackedScene" path="res://ui/settings_screen.tscn" id="2_settings_screen"]
+[ext_resource type="Script" path="res://scripts/ui/test_scenes_menu.gd" id="1_test_scenes"]
 
-[node name="DebugMenu" type="Control"]
+[node name="TestScenesMenu" type="Control"]
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-editor_description = "Live match control in play, quick match and rules from the main menu; scripts/ui/debug_menu.gd builds the body."
-script = ExtResource("1_debug_menu")
+editor_description = "Test scene launchers, main menu only in debug builds; scripts/ui/test_scenes_menu.gd wires it."
+script = ExtResource("1_test_scenes")
 
 [node name="Frame" type="MarginContainer" parent="."]
 anchors_preset = 15
@@ -24,7 +23,7 @@ theme_override_constants/margin_right = 24
 theme_override_constants/margin_bottom = 24
 
 [node name="Dialog" type="PanelContainer" parent="Frame"]
-custom_minimum_size = Vector2(820, 0)
+custom_minimum_size = Vector2(480, 0)
 size_flags_horizontal = 4
 size_flags_vertical = 4
 
@@ -33,22 +32,12 @@ theme_override_constants/separation = 10
 
 [node name="Title" type="Label" parent="Frame/Dialog/Layout"]
 theme_type_variation = &"MenuTitle"
-text = "MENU_DEBUG_TITLE"
-
-[node name="Note" type="Label" parent="Frame/Dialog/Layout"]
-theme_type_variation = &"Note"
-text = "MENU_DEBUG_NOTE"
-autowrap_mode = 3
+text = "MENU_TEST_SCENES_TITLE"
 
 [node name="Divider" type="HSeparator" parent="Frame/Dialog/Layout"]
 
-[node name="Scroll" type="ScrollContainer" parent="Frame/Dialog/Layout"]
-custom_minimum_size = Vector2(0, 560)
-horizontal_scroll_mode = 0
-
-[node name="Body" type="VBoxContainer" parent="Frame/Dialog/Layout/Scroll"]
+[node name="List" type="VBoxContainer" parent="Frame/Dialog/Layout"]
 unique_name_in_owner = true
-size_flags_horizontal = 3
 theme_override_constants/separation = 8
 
 [node name="Divider2" type="HSeparator" parent="Frame/Dialog/Layout"]
@@ -59,8 +48,3 @@ theme_override_constants/separation = 8
 unique_name_in_owner = true
 custom_minimum_size = Vector2(140, 0)
 text = "COMMON_BACK"
-
-[node name="RulesScreen" parent="." instance=ExtResource("2_settings_screen")]
-unique_name_in_owner = true
-visible = false
-debug_mode = true

@@ -1,4 +1,4 @@
-[gd_scene load_steps=17 format=3]
+[gd_scene load_steps=18 format=3]
 
 [ext_resource type="Script" path="res://scripts/ui/main_menu.gd" id="1_main_menu"]
 [ext_resource type="Script" path="res://scripts/ui/settings_boot.gd" id="2_settings_boot"]
@@ -13,6 +13,7 @@
 [ext_resource type="Script" path="res://scripts/ui/menu_tower_camera.gd" id="11_menu_camera"]
 [ext_resource type="Theme" path="res://ui/panopticon_menu_theme.tres" id="12_theme"]
 [ext_resource type="PackedScene" path="res://ui/debug_menu.tscn" id="13_debug_menu"]
+[ext_resource type="PackedScene" path="res://ui/test_scenes_menu.tscn" id="14_test_scenes"]
 [ext_resource type="AudioStream" path="res://audio/music/PLACEHOLDER_menu_theme.ogg" id="90_music"]
 [ext_resource type="Script" path="res://scripts/audio/music_loop.gd" id="90_music_loop"]
 
@@ -166,6 +167,22 @@ text = "MENU_DEBUG"
 alignment = 0
 editor_description = "Debug builds only; F1 or backtick opens the same menu."
 
+[node name="TestScenes" type="Button" parent="UI"]
+unique_name_in_owner = true
+visible = false
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 58.0
+offset_top = -112.0
+offset_right = 260.0
+offset_bottom = -76.0
+grow_vertical = 0
+theme_type_variation = &"MenuItemSmall"
+text = "MENU_TEST_SCENES"
+alignment = 0
+editor_description = "Debug builds only; the standalone test scenes."
+
 [node name="MatchSetupScreen" parent="." instance=ExtResource("5_match_setup")]
 unique_name_in_owner = true
 visible = false
@@ -180,6 +197,10 @@ unique_name_in_owner = true
 visible = false
 
 [node name="DebugMenu" parent="." instance=ExtResource("13_debug_menu")]
+unique_name_in_owner = true
+visible = false
+
+[node name="TestScenesMenu" parent="." instance=ExtResource("14_test_scenes")]
 unique_name_in_owner = true
 visible = false
 
