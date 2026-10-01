@@ -3,7 +3,9 @@
 #
 #   tools/content/shot.sh <project> <n> [--crosshair]
 #
-# Entry fields it reads: capture (run_clip args) or still (shot.gd args), seconds,
+# Entry fields it reads: capture (run_clip args) or still (shot.gd args), tape (a
+# recorded take, tools/content/tape.sh: every input played back, the same shot every
+# time), flash (take seconds and length of a white frame burned in), seconds,
 # in (seconds into the take the cut starts), gap, at (git ref for a before/after
 # pair), hold (seconds a still is held), takes, motion and freeze (gate
 # overrides: motion is the floor, freeze the stretches allowed, or "waive" for a
@@ -51,9 +53,12 @@ TAKES_MAX=$(brief_field "${BRIEF}" "${N}" takes "${TAKES_MAX}")
 MOTION_MIN=$(brief_field "${BRIEF}" "${N}" motion "${MOTION_MIN}")
 FREEZE_ALLOWED=$(brief_field "${BRIEF}" "${N}" freeze 0)   # stretches frozen >= 0.75 s allowed; "waive" skips the gate
 HUD=$(brief_field "${BRIEF}" "${N}" hud)
+TAPE=$(brief_field "${BRIEF}" "${N}" tape)
+FLASH=$(brief_field "${BRIEF}" "${N}" flash)
 [ "${CROSSHAIR}" = 1 ] && HUD=crosshair
 SAID=$(brief_field "${BRIEF}" "${N}" said)
 FILE=$(brief_field "${BRIEF}" "${N}" file)      # also deliver this cut as final\<file>.mp4
+SIZE=$(brief_head "${BRIEF}" size "${SIZE}")   # a brief may pin its frame (16:9 1920x1080)
 ASPECT=$(brief_head "${BRIEF}" aspect "$([ "${KIND}" = devlog ] && echo 16:9 || echo 9:16)")
 # A 9:16 short is filmed 9:16: the viewport is a phone's, the lens composes for
 # it, and nothing is cropped afterwards. Ryan: "the frame should consider the
@@ -65,6 +70,11 @@ else
   MASTER="scale=${SIZE%%x*}:${SIZE##*x}"; GATE_SCALE="scale=160:90"
 fi
 [ -n "${CAPTURE}${STILL}" ] || die "shot ${N} of ${NAME} has no capture: or still: line"
+if [ -n "${TAPE}" ]; then CAPTURE="${CAPTURE} --tape=$(tape_res "${NAME}" "${TAPE}")"; fi
+if [ -n "${FLASH}" ]; then
+  read -r FLASH_AT FLASH_LEN <<< "${FLASH}"
+  MASTER="${MASTER},drawbox=c=white:t=fill:enable='between(t,$(python3 -c "print(${FLASH_AT} - ${IN})"),$(python3 -c "print(${FLASH_AT} - ${IN} + ${FLASH_LEN:-0.045})"))'"
+fi
 # No HUD on any shot unless the entry asks: hud: crosshair (a guard POV) or hud: on.
 if [ -n "${HUD}" ] && [[ "${CAPTURE}" != *--hud=* ]]; then CAPTURE="${CAPTURE} --hud=${HUD}"; fi
 echo "shot ${NN}: ${SAID}"

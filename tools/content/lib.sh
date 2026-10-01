@@ -76,7 +76,11 @@ brief_field() {
   echo "${value:-${4:-}}"
 }
 
-pad2() { printf '%02d' "$1"; }
+# A shot id is a number with an optional letter (5b): 05b.
+pad2() { local n="${1%%[!0-9]*}"; printf '%02d%s' "$((10#${n}))" "${1#"${n}"}"; }
+
+# The tape a brief entry plays (tools/capture/clip_tape.gd), in the repo next to the brief.
+tape_res() { echo "res://tools/content/projects/$1/tapes/$2.json"; }
 
 # --- The project folder on the PC ----------------------------------------------
 # Every project is one folder, content\<project>\, split by what a file is:

@@ -31,9 +31,9 @@ def parse(path):
         if line.startswith("# ") and "title" not in head and section == "head":
             head["title"] = line[2:].strip()
             continue
-        m = re.match(r"^## (\d+)\s*$", line)
+        m = re.match(r"^## (\d+)([a-z]?)\s*$", line)
         if m:
-            current = {"n": int(m.group(1))}
+            current = {"n": int(m.group(1)) if not m.group(2) else m.group(1) + m.group(2)}
             shots.append(current)
             section = "shot"
             continue

@@ -471,12 +471,12 @@ th{color:var(--mute);font-weight:500;text-transform:uppercase;letter-spacing:.06
         src = os.path.join(final, name)
         covered.add(name)
         if not os.path.exists(src):
-            cards.append('<div class="clip"><div class="id">%s</div><div class="desc">not rendered yet: tools/content/shot.sh %s %d</div></div>'
+            cards.append('<div class="clip"><div class="id">%s</div><div class="desc">not rendered yet: tools/content/shot.sh %s %s</div></div>'
                          % (esc(file_name), esc(title), shot["n"]))
             continue
         note = shot.get("note", "")
         cards.append('<div class="clip"><div class="id">%s</div>%s<div class="line"><q>%s</q></div>%s'
-                     '<div class="meta"><span>%.1f s</span><span>shot %d</span></div></div>'
+                     '<div class="meta"><span>%.1f s</span><span>shot %s</span></div></div>'
                      % (esc(file_name), video(name, thumb(name), os.path.getmtime(src), src, project), esc(shot.get("said", "")),
                         ('<div class="desc">%s</div>' % esc(note)) if note else "", dur(src), shot["n"]))
     if cards:

@@ -226,6 +226,8 @@ func _fire(k: int) -> void:
 	if rifle == null:
 		printerr("[event] %6.2f  no rifle to fire on beat %d" % [_elapsed, k])
 		return
+	if Engine.get_meta(&"clip_tape_playing", false):
+		return
 	if not rifle.can_fire():
 		printerr("[event] %6.2f  rifle not ready (%s) on beat %d" % [_elapsed, rifle.get_state_name(), k])
 		return

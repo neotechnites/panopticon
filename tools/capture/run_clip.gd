@@ -54,6 +54,8 @@ extends SceneTree
 ## --map=ID         a MapCatalog id (bentham_ring, marble, forest); the match
 ##                  is filmed on it instead of the map the saved rules name
 ## --out=DIR        directory the clip is destined for; created if missing
+## --record=PATH    write the take's tape (tools/capture/clip_tape.gd) to PATH
+## --tape=PATH      play a recorded tape: every input and trigger pull from it, no brains
 ## [/codeblock]
 ##
 ## The whole path always plays, stretched or squeezed to [code]--seconds[/code],
@@ -79,6 +81,7 @@ extends SceneTree
 
 const SHOTS := preload("res://tools/capture/shot_paths.gd")
 const CHAIN_STAGE := preload("res://tools/capture/chain_stage.gd")
+const CLIP_TAPE := preload("res://tools/capture/clip_tape.gd")
 const STAGE_DRIVER := preload("res://tools/capture/stage_driver.gd")
 const STAGE_LIB := preload("res://tools/capture/stages/lib.gd")
 const STAGES_DIR: String = "res://tools/capture/stages/"
@@ -184,6 +187,7 @@ var _staged: PlayerController = null
 var _plugin: RefCounted = null
 var _plugin_cast: bool = false
 var _dials: Dictionary = {}
+var _tape: RefCounted = null
 var _built: bool = false
 var _done: bool = false
 var _exit_code: int = EXIT_OK
@@ -213,6 +217,8 @@ func _initialize() -> void:
 		"bots": 7,
 		"map": "",
 		"out": "",
+		"record": "",
+		"tape": "",
 	})
 
 
@@ -252,6 +258,8 @@ func _process(delta: float) -> bool:
 			_aim_camera(_key_start + progress * _key_span)
 		_turn_the_eye(delta)
 	if _elapsed >= _delay + _seconds:
+		if _tape != null:
+			_tape.finish()
 		_hush()
 		_done = true
 	return false
@@ -358,6 +366,8 @@ func _build() -> void:
 	if _plugin != null:
 		_plugin.before_start()
 	_controller.start_match()
+	if not _install_the_tape(match_root):
+		return
 	# A guard only exists in a round: the race has nobody in the tower, so a
 	# POV clip that waits for one films an empty chamber for a minute, and a
 	# runner filmed in the race is never shot at.
@@ -373,6 +383,24 @@ func _build() -> void:
 	if _pov == "":
 		_aim_camera(_key_start)
 	_announce(shot)
+
+
+## --record or --tape: the take's inputs written to, or played from, a tape.
+func _install_the_tape(match_root: Node) -> bool:
+	var record: String = String(_options.get("record", ""))
+	var play: String = String(_options.get("tape", ""))
+	if record.is_empty() and play.is_empty():
+		return true
+	_tape = CLIP_TAPE.new()
+	_tape.header = {
+		"shot": _options.get("shot", ""), "stage": _stage, "map": _options.get("map", ""),
+		"rifle": _options.get("rifle", ""), "bots": _options.get("bots", 7), "set": _options.get("set", ""),
+		"seed": _options.get("seed", 0), "seconds": _seconds,
+	}
+	if not _tape.install(root, match_root, _controller, play if not play.is_empty() else record, not play.is_empty()):
+		_fail("The tape %s would not load; nothing was filmed." % play)
+		return false
+	return true
 
 
 ## Take the human out of the roster and switch off the layers that serve one.
