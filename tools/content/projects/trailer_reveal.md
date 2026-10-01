@@ -104,3 +104,28 @@ seconds: 3
 in: 1.2
 freeze: waive
 # down the corridor 300-335 deg
+
+## script
+size: 1920x1080
+music: voice/sr20det.ogg
+music_db: -3
+music_fade: 0.02 2.5
+captions: none
+# a1+a2 = 5.70 s: the title cuts in on the drop at 5.703 s. cuts/09f.mp4 is 09 with a white frame 3.27-3.315 (the kill beat, take 4.17).
+| line | clip | in | len | fit | speed | text |
+| a1 | cuts/01.mp4@0.35:2.70 | | | beat 2.70 | | |
+| a2 | cuts/02.mp4@1.70:3.00 | | | beat 3.00 | | |
+| a3 | cuts/title_hard.mp4@0:1.5 | | | beat 1.5 | | |
+| h1 | cuts/03.mp4@0.9:1.7 | | | beat 1.7 | | |
+| h2 | cuts/04.mp4@1.6:1.5 | | | beat 1.5 | | |
+| d1 | cuts/05.mp4@0.4:2.4 | | | beat 2.4 | | |
+| d2 | cuts/06.mp4@2.0:2.1 | | | beat 2.1 | | |
+| d3 | cuts/05.mp4@4.5:2.2 | | | beat 2.2 | | |
+| d4 | cuts/06.mp4@5.2:2.0 | | | beat 2.0 | | |
+| t1 | cuts/07.mp4@0.2:2.4 | | | beat 2.4 | | |
+| t2 | cuts/08.mp4@1.0:2.6 | | | beat 2.6 | | |
+| g1 | cuts/09f.mp4@0.6:3.2 | | | beat 3.2 | | |
+| v1 | cuts/10.mp4@0.2:1.3 | | | beat 1.3 | | |
+| v2 | cuts/11.mp4@0.2:1.3 | | | beat 1.3 | | |
+| v3 | cuts/12.mp4@0.2:1.3 | | | beat 1.3 | | |
+| e1 | cuts/end.mp4@0:3.6 | | | beat 3.6 | | |
