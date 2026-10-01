@@ -423,10 +423,11 @@ rifle = NodePath("../../Player/Head/Rifle")
 controller = NodePath("../../MatchController")
 owner_body = NodePath("../../Player")
 
-[node name="HitReaction" parent="FeedbackRig" index="3" node_paths=PackedStringArray("rifle", "body")]
+[node name="HitReaction" parent="FeedbackRig" index="3" node_paths=PackedStringArray("rifle", "body", "controller")]
 editor_description = "body is the human's capsule, and it is the opposite test to owner_body above: this node fires when the human is the one who was SHOT, not the one who fired, so it compares the reported collider against this body and ignores every hit on anybody else."
 rifle = NodePath("../../Player/Head/Rifle")
 body = NodePath("../../Player")
+controller = NodePath("../../MatchController")
 
 [node name="CatchReaction" parent="FeedbackRig" index="4" node_paths=PackedStringArray("controller", "body")]
 editor_description = "Both exports are load-bearing and for opposite reasons. controller is the event AND the identity: MatchController.ghost_caught is the only announcement a catch makes, and MatchController.get_runner_palette() is where the other player's colour comes from -- the colour is how you know WHO, since there is no text on this. body is the filter: a catch has two participants, bots catch and are caught constantly, and without this every bot-on-bot swap in the round would paint the human's screen. With it a catch neither of whose sides is this body costs one pointer comparison and returns."

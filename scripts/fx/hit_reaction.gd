@@ -59,6 +59,10 @@ signal struck(world_direction: Vector3)
 ## mine when the struck collider is this node or anything under it.
 @export var body: CollisionObject3D
 
+## Optional. When set, the finisher's rifle is listened to as well, so the guard
+## shot by it gets this same reaction as a prisoner shot by the tower's rifle.
+@export var controller: MatchController
+
 ## Tunables.
 @export var profile: FeedbackProfile
 
@@ -109,6 +113,8 @@ func _ready() -> void:
 		return
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	rifle.target_hit.connect(_on_target_hit)
+	if controller != null:
+		controller.finisher_armed.connect(_listen_to)
 
 
 func _process(delta: float) -> void:
@@ -258,6 +264,12 @@ func _draw() -> void:
 
 
 # --- Signals ------------------------------------------------------------------
+
+## Hear the finisher's rifle too; it arrives each round and is armed repeatedly.
+func _listen_to(weapon: Rifle) -> void:
+	if weapon != null and not weapon.target_hit.is_connected(_on_target_hit):
+		weapon.target_hit.connect(_on_target_hit)
+
 
 func _on_target_hit(collider: Node3D, _hit_position: Vector3, hit_normal: Vector3) -> void:
 	if not _is_me(collider):
