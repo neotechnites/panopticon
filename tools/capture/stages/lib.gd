@@ -106,6 +106,16 @@ static func stand_down(seat: BotTowerSeat) -> TowerShooter:
 	return shooter
 
 
+## The guard where a player stands: at the window on [param degrees], [param radius] off the
+## axis on his own floor, facing out (Ryan: "at the tower's edge/window ... not deep inside").
+static func guard_to_window(guard: PlayerController, degrees: float, radius: float = 5.6) -> void:
+	var at: Vector3 = ring_point(degrees, radius)
+	guard.global_position = Vector3(at.x, guard.global_position.y, at.z)
+	guard.velocity = Vector3.ZERO
+	var out: Vector3 = radial_at(degrees)
+	guard.rotation = Vector3(0.0, atan2(-out.x, -out.z), 0.0)
+
+
 ## The only place the guard looks first. [param only] drops the ring's own
 ## watch points, or the dwell on them is where the rifle is when the beat lands.
 static func watch(root: Node, degrees: float, radius: float, only: bool = false) -> void:

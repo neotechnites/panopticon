@@ -431,7 +431,7 @@ func _run_gazing(step: Dictionary, delta: float, direction: Vector3) -> bool:
 		_gaze_flinched = true
 		var now: float = _clock
 		var side: float = float(step.get("flinch_side", 1.0))
-		_gaze_schedule = [
+		_gaze_schedule = _after_flinch(step.get("flinch_glances", []), now) if step.has("flinch_glances") else [
 			{"t": now, "right": 22.0 * side, "pitch": 4.0},
 			{"t": now + 0.12, "right": 40.0 * side, "pitch": -3.0},
 			{"t": now + 0.32, "right": 124.0 * side, "pitch": -12.0},   # over the shoulder: he is behind us now
@@ -475,6 +475,16 @@ func _run_gazing(step: Dictionary, delta: float, direction: Vector3) -> bool:
 	var wish: Vector3 = direction * speed + lane_right * strafe
 	_intent.move_direction = Vector2(wish.dot(right), wish.dot(forward))
 	return false
+
+
+## "flinch_glances" in place of the stock flinch: the stage's own glances, "t" seconds after the flag.
+static func _after_flinch(glances: Array, now: float) -> Array:
+	var out: Array = []
+	for glance: Dictionary in glances:
+		var copy: Dictionary = glance.duplicate()
+		copy["t"] = now + float(glance.get("t", 0.0))
+		out.append(copy)
+	return out
 
 
 ## In flight ("land"): keep the eyes on where the body is going, hold the stick
