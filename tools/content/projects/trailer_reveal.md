@@ -101,7 +101,7 @@ tape: forest_pit
 seconds: 1.8
 in: 2.86
 freeze: waive
-# the forest_pit tape down Runner_1 from 0.1 s after the shove (the shover's arms still out, 1 m off), eyes on him on the lip until the bank hides him (~3.5), then down at the mist rushing up (y -5.75 at 4.49); the cut ends 4.63 in the mist (out 4.65); floor_kill=1 lowers the KillBox for the shot only (map unchanged)
+# the forest_pit tape down Runner_1 from 0.1 s after the shove (the shover's arms still out, 1 m off), eyes held up on him: the lip shrinks above until the bank closes over it (~3.5), the mist at y -5.75 (4.49) greys it out; the cut ends 4.63 in the mist (out 4.65); floor_kill=1 lowers the KillBox for the shot only (map unchanged)
 
 ## 10a
 said: v5 "Marble, runner POV: two runners both behind the same column on the inner edge, hidden from the tower; he shoves the other out into the open; cut BEFORE the shot"

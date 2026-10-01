@@ -6,7 +6,7 @@ extends "res://tools/capture/stages/stage.gd"
 ## Lip trunks r 47.45 at 148.28 and 155.82 (probe: trunk 148-149.2 to r 49.5); the lip 149.6-154.8 is clear, flat to
 ## r 47, the bank -0.6 at r 46 and near-vertical inside r 45. The KillBox roof is y 0; floor_kill lowers it (shot only).
 ## Dials: pov (shover|victim), at (152.0 deg, the lip he stops on), floor_kill (1), impulse (8), up (2),
-## turn_t (clip s the victim turns to the shover, 2.30), shove_t (clip s, 2.75), down_after (s, 0.8: his look down).
+## turn_t (clip s the victim turns to the shover, 2.30), shove_t (clip s, 2.75).
 
 ## Run targets: each body carries on ~1 m past where its run lets go, onto 153.4/46.8 and ~153/48.2.
 const LIP_R: float = 47.9
@@ -19,8 +19,6 @@ var _drivers_by_body: Dictionary = {}
 var _looked: bool = false
 var _swung: bool = false
 var _shoved: bool = false
-var _shoved_at: float = 0.0
-var _looked_down: bool = false
 
 
 func bots() -> int:
@@ -120,13 +118,6 @@ func tick(_delta: float) -> void:
 			{"do": "shove", "victim": _victim},
 			{"do": "hold", "seconds": 0.12},
 		])
-	# The lip is gone behind the bank (~0.75 s down): the faller snaps his eyes down at the mist coming up.
-	if _shoved and not _looked_down and elapsed() >= _shoved_at + float(option("down_after", 0.8)):
-		_looked_down = true
-		_drivers_by_body[_victim].retarget([
-			{"do": "steer", "on": true, "rate": 300.0, "gain": 9.0, "pitch_rate": 420.0, "pitch_gain": 11.0},
-			{"do": "hold", "seconds": 60.0, "look_down": 38.0},
-		])
 	# After the swing his eyes follow the man going over, down to where a player looks.
 	if _shoved and Engine.get_physics_frames() % 3 == 0 and _drivers_by_body[_shover].is_done():
 		_drivers_by_body[_shover].retarget([{"do": "hold", "seconds": 0.05, "look_at": _chest_of(_victim)}])
@@ -161,9 +152,8 @@ func on_shove(_from: MatchParticipant, victim: MatchParticipant) -> void:
 	if _shoved or victim.body != _victim:
 		return
 	_shoved = true
-	_shoved_at = elapsed()
 	say("shove: %s over the lip at %.1f deg r %.2f" % [_victim.name, LIB.bearing_of(_victim.global_position), LIB.radius_of(_victim.global_position)])
-	# The faller: eyes on the man who did it, up at the lip as it pulls away.
+	# The faller: eyes on the man who did it, up at the lip as it pulls away and the bank closes over it.
 	_drivers_by_body[_victim].retarget([
 		{"do": "hold", "seconds": 60.0, "look_at": _head_of(_shover)},
 	])
