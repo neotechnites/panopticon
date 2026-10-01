@@ -363,43 +363,57 @@ def flat_material(name, color, roughness=0.9, metallic=0.0, specular=None):
     return mat
 
 
-def save_texture(img):
-    """Kept for the build scripts: main() swaps every image for its textures/ PNG before export."""
-    return img
-
-
 # =============================================================================
 # TEXTURES -- every image is a PNG in a home's textures/; the .glb links it
 # =============================================================================
 
 _SPEC = None
 _TEX_URIS = {}       # glTF image name or PNG bytes -> uri relative to <home>/models
-_TEX_WRITTEN = []    # repo-relative PNGs this run wrote
 
 
 def _tex_spec():
-    """(repo root, model's home, regen set) from the spec; the root defaults to this checkout."""
+    """(repo root, model's home) from the spec; the root defaults to this checkout."""
     spec = _SPEC if _SPEC is not None else _spec_from_argv()
     root = spec.get("tex_root")
     if not root:
         guess = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", ".."))
         root = guess if os.path.isfile(os.path.join(guess, "project.godot")) else None
-    return root, spec.get("home"), set(spec.get("regen_textures") or ())
-
-
-def _regen(stem):
-    regen = _tex_spec()[2]
-    return "all" in regen or stem in regen
+    return root, spec.get("home")
 
 
 def texture_file(name):
-    """Path of <home>/textures/<name> anywhere in the repo; None when absent or regenerating."""
+    """Path of <home>/textures/<name> anywhere in the repo; None when absent."""
     stem = os.path.splitext(os.path.basename(name))[0]
     root = _tex_spec()[0]
-    if not root or _regen(stem):
-        return None
-    rel = glb_textures.find(root, stem)
+    rel = glb_textures.find(root, stem) if root else None
     return os.path.join(root, rel) if rel else None
+
+
+def _texture_path(name):
+    path = texture_file(name)
+    if path is None:
+        raise RuntimeError("no textures/%s.png: textures are drawn files, the build never writes one"
+                           % os.path.splitext(os.path.basename(name))[0])
+    return path
+
+
+def texture(name):
+    """The image <home>/textures/<name>.png (sRGB, packed); an error when the file is missing."""
+    img = bpy.data.images.load(_texture_path(name), check_existing=True)
+    img.colorspace_settings.name = "sRGB"
+    img.pack()
+    print("MDL TEXTURE %s from %s" % (img.name, img.filepath))
+    return img
+
+
+def texture_size(name):
+    """(w, h) of <home>/textures/<name>.png, read from the file."""
+    return glb_textures.png_size(_texture_path(name))
+
+
+def texture_mean(name):
+    """Linear mean RGB of <home>/textures/<name>.png, read from the file."""
+    return glb_textures.png_mean(_texture_path(name))
 
 
 # tower.blend bakes the hell rock under its old name; the file is the shared one
@@ -421,29 +435,6 @@ def _pixels(img):
     return buf
 
 
-def _save_png(img, path):
-    """The image's own bytes (byte buffer) or their sRGB encoding (float), top row first."""
-    w, h = img.size
-    px = _pixels(img)
-    ch = len(px) // (w * h)
-    keep = 4 if img.depth in (32, 128) and ch == 4 else 3
-
-    def byte(v):
-        v = max(0.0, min(1.0, v))
-        if img.is_float:
-            v = v * 12.92 if v <= 0.0031308 else 1.055 * v ** (1.0 / 2.4) - 0.055
-        return int(round(v * 255.0))
-    rows = []
-    for y in range(h - 1, -1, -1):
-        row = []
-        for x in range(w):
-            o = (y * w + x) * ch
-            texel = px[o:o + ch] if ch >= 3 else [px[o]] * 3 + [1.0]
-            row.extend(byte(v) for v in texel[:keep])
-        rows.append(row)
-    glb_textures.write_png(path, w, h, rows, keep == 4)
-
-
 _BLACK = {}          # image name -> every texel black
 
 
@@ -451,7 +442,7 @@ def _black(img):
     """True when every texel is black: the image, or the file that replaces it."""
     root = _tex_spec()[0]
     stem = _stem(img)
-    rel = glb_textures.find(root, stem) if root and not _regen(stem) else None
+    rel = glb_textures.find(root, stem) if root else None
     if rel:
         img = bpy.data.images.load(os.path.join(root, rel), check_existing=True)
     if img.name not in _BLACK:
@@ -492,9 +483,8 @@ def _texture_images(objects):
 
 
 def externalize_textures(objects):
-    """Swap every image for <home>/textures/<stem>.png: an existing PNG is the source, never
-    overwritten; a missing one, or one named in regen_textures, is written from the paint first."""
-    root, home, _ = _tex_spec()
+    """Point every image at <home>/textures/<stem>.png, the drawn source; a missing PNG is an error."""
+    root, home = _tex_spec()
     if not root or not home:
         print("MDL note textures stay embedded: the spec names no tex_root/home")
         return
@@ -509,11 +499,8 @@ def externalize_textures(objects):
             img.user_remap(linked)
             continue
         rel = glb_textures.find(root, stem)
-        if rel is None or _regen(stem):
-            rel = rel or posixpath.join(home, "textures", stem + ".png")
-            _save_png(img, os.path.join(root, rel))
-            _TEX_WRITTEN.append(rel)
-            print("MDL TEXTURE %s written" % rel)
+        if rel is None:
+            raise RuntimeError("image %s has no textures/%s.png: the build never writes one" % (img.name, stem))
         path = os.path.join(root, rel)
         linked = bpy.data.images.load(path, check_existing=True)
         linked.colorspace_settings.name = "sRGB"
@@ -1228,8 +1215,6 @@ def main(name, build, facing_yaw=0.0, glb_name=None, post=None, export=None):
 
     out_dir = spec.get("out_dir", ".")
     os.makedirs(out_dir, exist_ok=True)
-    with open(os.path.join(out_dir, "textures.txt"), "w") as fh:
-        fh.write("".join(rel + "\n" for rel in _TEX_WRITTEN))
     if spec.get("glb", True) and export:
         stats["glbs"] = export(out_dir, objects, spec)
     elif spec.get("glb", True):

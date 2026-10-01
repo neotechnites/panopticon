@@ -22,7 +22,6 @@
 #   tools/modelling/model build runner --variant slab       # a variant of one build script
 #   tools/modelling/model build map_base --chunk s3         # a chunked map: rebuild one chunk's .glb
 #   tools/modelling/model build map_base --views none       # no renders at all
-#   tools/modelling/model build torch --regen-texture torch_albedo  # repaint a textures/ PNG (or "all")
 #   tools/modelling/model look   runner --cam 120,25        # renders only, no install
 #   tools/modelling/model look   runner --rest              # rest pose, to debug a rig
 #   tools/modelling/model verify runner                     # re-check the shipped .glb
@@ -116,7 +115,6 @@ PREVIEW=0
 PROP=0
 WHERE=""            # "" = decide, "local" = this Mac, "pc" = the Windows box
 CHUNK=""            # a chunked map (writes <name>.chunks.json): export only this chunk
-REGEN=""            # textures/ PNGs to repaint over (comma list or "all"); others are the source
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -129,7 +127,6 @@ while [ $# -gt 0 ]; do
     --light)      LIGHT="$2"; shift 2 ;;
     --variant)    VARIANT="$2"; shift 2 ;;
     --chunk)      CHUNK="$2"; shift 2 ;;
-    --regen-texture) REGEN="$2"; shift 2 ;;
     --gpu)        ENGINE="eevee"; shift ;;
     --preview)    PREVIEW=1; shift ;;
     --prop)       PROP=1; shift ;;
@@ -178,7 +175,7 @@ TASK="PanopticonModelling_${FULL:-none}"
 # -----------------------------------------------------------------------------
 
 json_spec() {
-  # $1 = out_dir, $2 = the repo tree the build reads and writes textures/ PNGs in
+  # $1 = out_dir, $2 = the repo tree the build reads textures/ PNGs from
   python3 - "$1" "$2" <<PY
 import json, sys
 spec = {
@@ -188,7 +185,6 @@ spec = {
     "turntable": int("$TURNTABLE"),
     "tex_root": sys.argv[2],
     "home": "$HOME_REL",
-    "regen_textures": [t.strip() for t in "$REGEN".split(",") if t.strip()],
 }
 if "$VARIANT":
     spec["variant"] = "$VARIANT"
@@ -254,7 +250,7 @@ stage_ship() {
   # a view set you are no longer asking for and you compare against a stale png.
   # -Path, not -LiteralPath: LiteralPath treats the * as part of the filename
   # and silently deletes nothing, which is exactly the stale-render trap.
-  pc "Remove-Item -Path '$JOB_W\\out\\${FULL}_*.png','$JOB_W\\out\\textures.txt' -ErrorAction SilentlyContinue; 'ok'" >/dev/null
+  pc "Remove-Item -Path '$JOB_W\\out\\${FULL}_*.png' -ErrorAction SilentlyContinue; 'ok'" >/dev/null
   push "$HERE/lib/mdl.py"        "$JOB/mdl.py"
   push "$HERE/lib/glb_textures.py" "$JOB/glb_textures.py"
   push "$HERE/lib/pcrun.ps1"     "$JOB/pcrun.ps1"
@@ -291,7 +287,7 @@ stage_ship() {
       push "$src" "$JOB/${dep}.py"
     done
   done
-  # Every home's textures/ PNGs, at their repo paths: an existing PNG is what the build uses.
+  # Every home's textures/ PNGs, at their repo paths: the build references them.
   ( cd "$REPO" && COPYFILE_DISABLE=1 tar -cf "$TMP/textures.tar" $(ls -d */textures maps/*/textures 2>/dev/null) )
   pc "Remove-Item -Recurse -Force -Path '$JOB_W\\tree' -ErrorAction SilentlyContinue; New-Item -ItemType Directory -Force -Path '$JOB_W\\tree' | Out-Null; 'ok'" >/dev/null
   push "$TMP/textures.tar" "$JOB/textures.tar"
@@ -417,22 +413,6 @@ stage_fetch() {
     esac
   done <<< "$listing"
   say "$got render(s) -> $RENDERS"
-  local rel
-  pull "$JOB/out/textures.txt" "$TMP/textures.txt" 2>/dev/null || : > "$TMP/textures.txt"
-  while IFS= read -r rel; do
-    rel="${rel%$'\r'}"
-    [ -n "$rel" ] || continue
-    mkdir -p "$REPO/$(dirname "$rel")"
-    pull "$JOB/tree/$rel" "$REPO/$rel"
-    texture_import "$REPO/$rel"
-    say "texture written: $rel"
-  done < "$TMP/textures.txt"
-}
-
-# A new textures/ PNG imports pixel-exact (lossless, never VRAM-compressed) with mipmaps.
-texture_import() {
-  [ -f "$1.import" ] && return 0
-  printf '[remap]\n\nimporter="texture"\ntype="CompressedTexture2D"\n\n[params]\n\ncompress/mode=0\nmipmaps/generate=true\nmipmaps/limit=-1\nprocess/fix_alpha_border=true\ndetect_3d/compress_to=0\n' > "$1.import"
 }
 
 # A chunked map writes <name>.chunks.json: one .glb per chunk, each with its
@@ -584,10 +564,6 @@ stage_fetch_local() {
     got=$((got + 1))
   done
   say "$got render(s) -> $RENDERS"
-  [ -f "$TMP/out/textures.txt" ] || return 0
-  while IFS= read -r f; do
-    [ -n "$f" ] && texture_import "$REPO/$f" && say "texture written: $f"
-  done < "$TMP/out/textures.txt"
 }
 
 # -----------------------------------------------------------------------------

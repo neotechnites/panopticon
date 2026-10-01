@@ -35,17 +35,67 @@ def plain_png(data):
     return b"".join(out)
 
 
-def write_png(path, w, h, rows, alpha):
-    """rows: top-first lists of 0..255 ints, RGB or RGBA."""
-    raw = b"".join(b"\x00" + bytes(r) for r in rows)
+def read_png(path):
+    """(w, h, rows): an 8-bit PNG decoded to top-first rows of (r, g, b) 0..255."""
+    with open(path, "rb") as fh:
+        data = fh.read()
+    i, idat, plte = 8, b"", None
+    while i < len(data):
+        n, tag = struct.unpack(">I4s", data[i:i + 8])
+        body = data[i + 8:i + 8 + n]
+        if tag == b"IHDR":
+            w, h, depth, ctype, _c, _f, inter = struct.unpack(">IIBBBBB", body)
+        elif tag == b"PLTE":
+            plte = [tuple(body[k:k + 3]) for k in range(0, n, 3)]
+        elif tag == b"IDAT":
+            idat += body
+        i += 12 + n
+    if depth != 8 or inter:
+        raise RuntimeError("%s: only 8-bit, non-interlaced PNGs are read" % path)
+    bpp = {0: 1, 2: 3, 3: 1, 4: 2, 6: 4}[ctype]
+    raw, stride, prev, rows, o = zlib.decompress(idat), w * bpp, bytearray(w * bpp), [], 0
+    for _y in range(h):
+        ft, line = raw[o], bytearray(raw[o + 1:o + 1 + stride])
+        o += 1 + stride
+        for x in range(stride):
+            a = line[x - bpp] if x >= bpp else 0
+            b, c = prev[x], prev[x - bpp] if x >= bpp else 0
+            if ft == 1:
+                line[x] = (line[x] + a) & 255
+            elif ft == 2:
+                line[x] = (line[x] + b) & 255
+            elif ft == 3:
+                line[x] = (line[x] + (a + b) // 2) & 255
+            elif ft == 4:
+                p = a + b - c
+                pa, pb, pc = abs(p - a), abs(p - b), abs(p - c)
+                line[x] = (line[x] + (a if pa <= pb and pa <= pc else b if pb <= pc else c)) & 255
+        prev = line
+        if ctype == 3:
+            rows.append([plte[v] for v in line])
+        elif ctype in (0, 4):
+            rows.append([(line[k],) * 3 for k in range(0, stride, bpp)])
+        else:
+            rows.append([tuple(line[k:k + 3]) for k in range(0, stride, bpp)])
+    return w, h, rows
 
-    def chunk(tag, body):
-        return struct.pack(">I", len(body)) + tag + body + struct.pack(">I", zlib.crc32(tag + body) & 0xFFFFFFFF)
-    png = b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", w, h, 8, 6 if alpha else 2, 0, 0, 0))
-    png += chunk(b"IDAT", zlib.compress(raw, 9)) + chunk(b"IEND", b"")
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path, "wb") as fh:
-        fh.write(png)
+
+def png_size(path):
+    with open(path, "rb") as fh:
+        head = fh.read(24)
+    return struct.unpack(">II", head[16:24])
+
+
+def png_mean(path):
+    """Linear mean (r, g, b) over every texel."""
+    lin = [v / 12.92 if v <= 0.04045 else ((v + 0.055) / 1.055) ** 2.4 for v in (k / 255.0 for k in range(256))]
+    w, h, rows = read_png(path)
+    acc = [0.0, 0.0, 0.0]
+    for row in rows:
+        for px in row:
+            for ch in range(3):
+                acc[ch] += lin[px[ch]]
+    return tuple(a / (w * h) for a in acc)
 
 
 def read(path):
