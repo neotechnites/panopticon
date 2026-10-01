@@ -32,6 +32,14 @@ func tune_rules(rules: MatchRules) -> void:
 func before_start() -> void:
 	LIB.disarm_pads(clip.root)
 	LIB.disarm_traps(clip.root)
+	# A POV carries no fill light: scope_hunt's lift, or the scope reads black.
+	if String(option("pov", "")) == "guard":
+		var world: WorldEnvironment = LIB.find_node(clip.root, "WorldEnvironment") as WorldEnvironment
+		if world != null and world.environment != null:
+			var env: Environment = world.environment.duplicate() as Environment
+			env.tonemap_exposure = 3.8
+			env.ambient_light_energy = 3.6
+			world.environment = env
 
 
 func cast(runners: Array[RunnerBrain]) -> bool:

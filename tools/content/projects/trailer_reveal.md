@@ -5,6 +5,7 @@ format: Steam reveal trailer, ROUGH CUT for structure (one take per shot, first 
 ryan: "Make a ROUGH CUT of PANOPTICON's reveal trailer so Ryan can get a read on the structure. Not final quality -- speed over polish."
 rules: 16:9 1920x1080 (SIZE=1920x1080 shot.sh), no HUD except the guard's scope, under 45 s, no voice, no text but the title and end cards, the match theme as the bed, game SFX off.
 cards: cuts/title.mp4 and cuts/end.mp4 are PIL stills in ui/fonts/IMFellEnglish-Regular.ttf (ink #E8E0CC on #080706), pushed to the PC; not captured.
+flash: cuts/08f.mp4 is cuts/08.mp4 with a white frame drawn 2.80-2.85 s (the finisher kill beat at take 3.70; the game draws its white frame only for a human guard)
 delivery: content\trailer_reveal\final\rough_v1.mp4
 
 ## 1
@@ -37,6 +38,7 @@ capture: --shot=cover_side --stage=trailer_duel --bots=1 --look=social
 seconds: 6.5
 in: 0.9
 freeze: waive
+# shot 5 (POV) gets scope_hunt's exposure lift; first take was near black
 # CoverS4 pocket 212.6 deg r 52 (the 198.5 rock is behind S3's lip from the tower on main). Lens 205.6/55.2/1.3 -> 212.2/51.6/0.9, fov 56.
 # smoke: peek ~2.5-3.95, round into CoverS4 at take 4.06, breaks at 4.98 toward the lens
 
@@ -107,11 +109,11 @@ captions: none
 | d1 | cuts/04.mp4@0.0:1.6 | | | beat 1.6 | | |
 | d2 | cuts/05.mp4@1.3:2.4 | | | beat 2.4 | | |
 | d3 | cuts/04.mp4@3.7:2.6 | | | beat 2.6 | | |
-| d4 | cuts/01.mp4@5.1:2.85 | | | beat 2.85 | | |
+| d4 | cuts/01.mp4@5.0:2.6 | | | beat 2.6 | | |
 | t1 | cuts/06.mp4@4.1:3.4 | | | beat 3.4 | | |
 | t2 | cuts/07.mp4@0.3:3.4 | | | beat 3.4 | | |
 | g1 | cuts/08f.mp4@0.2:5.4 | | | beat 5.4 | | |
 | v1 | cuts/09.mp4@0.3:1.3 | | | beat 1.3 | | |
-| v2 | cuts/10.mp4@0.3:1.3 | | | beat 1.3 | | |
+| v2 | cuts/10.mp4@0.0:1.3 | | | beat 1.3 | | |
 | v3 | cuts/11.mp4@0.3:1.3 | | | beat 1.3 | | |
 | e1 | cuts/end.mp4@0:3.6 | | | beat 3.6 | | |
