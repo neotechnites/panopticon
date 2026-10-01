@@ -1,30 +1,17 @@
 #!/usr/bin/env bash
 # Push main to the PC play copy safely: never discards Ryan's uncommitted edits there.
-# Aseprite SHEET_ edits are unpacked on the PC, pulled back, and committed only on the Mac.
+# Ryan's Aseprite edits to tracked textures/*.png on the PC are pulled back and committed on the Mac.
 set -e
 cd "$(dirname "$0")/.."
 
-# Pull any Aseprite SHEET_ edits from the desktop folder that are newer than their repo copy.
-ssh panopticon-pc '
-  $desk = "C:\Users\ddd\Desktop\panopticon-renders\textures"
-  Get-ChildItem "$desk\SHEET_*.png" -ErrorAction SilentlyContinue | ForEach-Object {
-    $repo = Get-ChildItem "C:\dev\panopticon\*\textures\$($_.Name)","C:\dev\panopticon\maps\*\textures\$($_.Name)" -ErrorAction SilentlyContinue | Select-Object -First 1
-    if ($repo -and $_.LastWriteTime -gt $repo.LastWriteTime) { Copy-Item $_.FullName $repo.FullName -Force }
-  }
-'
-
-sheetMods=$(ssh panopticon-pc git -C C:/dev/panopticon status --porcelain | tr -d '\r' | grep -E 'textures/SHEET_.*\.png$' | grep -v '^\?\?' || true)
-if [ -n "$sheetMods" ]; then
-  ssh panopticon-pc '& "C:\Users\ddd\tools\python\python.exe" C:\dev\panopticon\tools\textures\sheet.py unpack'
-  pngList=$(ssh panopticon-pc git -C C:/dev/panopticon status --porcelain | tr -d '\r' | grep -E '/textures/.*\.png$' | grep -v '^\?\?' | sed -E 's/^...//')
+pngList=$(ssh panopticon-pc git -C C:/dev/panopticon status --porcelain | tr -d '\r' | grep -E '^.M .*/textures/.*\.png$|^M. .*/textures/.*\.png$' | sed -E 's/^...//' || true)
+if [ -n "$pngList" ]; then
   for f in $pngList; do
     scp -q "panopticon-pc:C:/dev/panopticon/$f" "$f"
   done
-  if [ -n "$pngList" ]; then
-    git add -- $pngList
-    git -c user.name="Ryan" -c user.email="ryan@olympus.local" commit -q -m "Unpack Aseprite texture-sheet edits"
-  fi
-  ssh panopticon-pc "git -C C:/dev/panopticon checkout -- '*/textures/*.png'"
+  git add -- $pngList
+  git -c user.name="Ryan" -c user.email="ryan@olympus.local" commit -q -m "Ryan's texture edits" -- $pngList
+  ssh panopticon-pc "git -C C:/dev/panopticon checkout -- $(echo $pngList)"
 fi
 
 git push -q pc main:refs/heads/incoming
@@ -40,10 +27,6 @@ ssh panopticon-pc '
   }
   git -C C:/dev/panopticon merge --ff-only -q incoming
   if ($LASTEXITCODE -ne 0) { Write-Output "SYNC FAILED"; exit 3 }
-  # Keep the desktop SHEET_ copies matching the repo so a re-pack after a rebuild reaches Ryan.
-  Get-ChildItem "C:\dev\panopticon\*\textures\SHEET_*.png","C:\dev\panopticon\maps\*\textures\SHEET_*.png" -ErrorAction SilentlyContinue | ForEach-Object {
-    Copy-Item $_.FullName (Join-Path "C:\Users\ddd\Desktop\panopticon-renders\textures" $_.Name) -Force
-  }
   $hook = "res://tools/import/mipmap_textures.gd"
   Get-ChildItem C:\dev\panopticon -Recurse -Filter *.glb.import | ForEach-Object {
     $t = Get-Content $_.FullName -Raw
