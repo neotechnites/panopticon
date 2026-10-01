@@ -74,3 +74,11 @@ a caption is the one line a player would type.
 20. **one guard, everyone else runs.** `teaser_lap` full lap, stop, turn to the
     tower; voice over the last 3 s only. No stage. Tests: the premise in one
     sentence, cinematic, 11 s.
+
+- 2026-09-30 (Ryan): a prisoner gets shot, explodes, and the video lags like crazy (the lag is the joke).
+
+- 2026-09-30 (Ryan) REVEAL TRAILER: in-engine, semi-cinematic. A prisoner wakes up in a cell, sees the guard in the tower, and "escapes".
+
+- 2026-09-30 (Ryan) TRAILER BEAT: a prisoner shoves another out of cover, he gets shot and dies; the shover laughs, runs forward, and gets shot and dies.
+
+- 2026-09-30 (Ryan) RELEASE TRAILER opener: first shot from the sniper POV, firing; hard cut to behind a prisoner as they get shot, watching them go down.

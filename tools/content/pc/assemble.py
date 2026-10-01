@@ -49,7 +49,7 @@ a slowed clip is measured as what it plays, not as what it holds.
 
 Script header: music: <path under the project>  music_db: -18  music_fade: 1 1.5
 pad: 0.2  captions: pop|none  captions_font: Impact  captions_size: 64
-captions_y: 0.72 (fraction of the height)  game: 0.25 (each take's own sound
+captions_y: 0.72 (fraction of the height)  size: 1920x1080 (default 1080x1920)  game: 0.25 (each take's own sound
 under the voice, linear, tempo-matched to a slowed picture; 0 or absent is
 silent)  copy_720: yes (also write final\<tag>_720.mp4).
 
@@ -232,6 +232,9 @@ def main():
     if not script:
         raise SystemExit("assemble: the brief has no ## script section")
     head = script["head"]
+    # size: 1920x1080 for a landscape cut (a Steam trailer); portrait by default.
+    global W, H
+    W, H = (int(v) for v in head.get("size", "%dx%d" % (W, H)).split("x"))
     pad = float(head.get("pad", 0.2))
     cache = os.path.join(project, "cuts", "_cache")
     work = os.path.join(project, "cuts", "_work", tag)

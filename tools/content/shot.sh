@@ -62,7 +62,7 @@ if [ "${ASPECT}" = 9:16 ]; then
   [ "${SIZE}" = 1280x720 ] && SIZE=1080x1920
   MASTER="scale=1080:1920"; GATE_SCALE="scale=90:160"
 else
-  MASTER="scale=1280:720"; GATE_SCALE="scale=160:90"
+  MASTER="scale=${SIZE%%x*}:${SIZE##*x}"; GATE_SCALE="scale=160:90"
 fi
 [ -n "${CAPTURE}${STILL}" ] || die "shot ${N} of ${NAME} has no capture: or still: line"
 # No HUD on any shot unless the entry asks: hud: crosshair (a guard POV) or hud: on.
