@@ -1,0 +1,6 @@
+{
+  "_comment": "The low-poly test cut of rifle.glb: same node, one textured material on the warden atlas, one UV set.",
+  "node_paths": ["Rifle"],
+  "surfaces": 1,
+  "max_tris": 260
+}
