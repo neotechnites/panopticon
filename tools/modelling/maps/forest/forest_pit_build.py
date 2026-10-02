@@ -9,7 +9,7 @@ Not a model of its own: forest_build.py calls in here with its _Ground (g).
                          up over the rim; every one socketed (shares vertices)
     fog_mesh(cls, g)     a separate node (FOG_NAME): stacked discs filling the
                          pit, alpha in COLOR_0 (cls is forest_build._RayMesh);
-                         the scene draws it through maps/forest/forest_mist.gdshader
+                         the scene draws it through maps/forest/materials/forest_mist.gdshader
                          (colour, drifting noise, soft edges) -- GL Compatibility
                          has no fog volumes, so the fog is layers
     fog_report()         what those discs do to a ray down the pit: straight down, and
@@ -23,7 +23,7 @@ at the end of it reaches the eye -- so the fog is built to a number rather than 
 a look: the bottom of the stack is one opaque slab and every ray from a stand point
 to the floor leaves under FOG_PROOF transmittance (the fraction of the floor's
 light that reaches the eye). It takes two things together. The slab is here; the other half is `fog_disabled` in
-maps/forest/forest_mist.gdshader, without which the Environment's depth fog repaints these
+maps/forest/materials/forest_mist.gdshader, without which the Environment's depth fog repaints these
 layers AND the floor behind them to one pale colour, and one colour spread over
 one flat plane is exactly what reads as a floor.
 
