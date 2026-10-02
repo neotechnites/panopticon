@@ -1,1 +1,1 @@
-Edit prisoner.aseprite; slices export to the PNGs on sync.
+Edit prisoner.ase; slices export to the PNGs on sync.

@@ -1,1 +1,1 @@
-Edit props.aseprite; slices export to the PNGs on sync.
+Edit props.ase; slices export to the PNGs on sync.

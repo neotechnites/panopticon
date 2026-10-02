@@ -1,1 +1,1 @@
-Edit marble.aseprite; slices export to the PNGs on sync.
+Edit marble.ase; slices export to the PNGs on sync.

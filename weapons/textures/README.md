@@ -1,1 +1,1 @@
-Edit rifle.aseprite; slices export to the PNGs on sync.
+Edit rifle.ase; slices export to the PNGs on sync.
