@@ -98,6 +98,9 @@ class _Rng(object):
         return seq[self.bits() % len(seq)]
 
 
+PORTAL_ALPHA = 0.55
+
+
 def rock_material(name, albedo, emissive):
     mat = bpy.data.materials.new(name)
     mat.use_nodes = True
@@ -113,6 +116,10 @@ def rock_material(name, albedo, emissive):
     bsdf.inputs["Metallic"].default_value = ROCK_METALLIC
     bsdf.inputs["Emission Strength"].default_value = 1.0   # exactly 1.0: no KHR ext
     mat.diffuse_color = (0.13, 0.04, 0.04, 1.0)
+    bsdf.inputs["Alpha"].default_value = PORTAL_ALPHA   # see-through swirl: glTF BLEND
+    mat.blend_method = "BLEND"
+    mat.show_transparent_back = False                   # no depth write: no mote sorting flicker
+    mat.use_backface_culling = False                    # drawn from both sides
     return mat
 
 
