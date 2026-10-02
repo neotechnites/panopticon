@@ -261,7 +261,8 @@ func _mark_for(beat: Dictionary, body: PlayerController) -> Vector3:
 	# it, so it crosses behind him and the miss is one you can read. Only the
 	# squeeze is scaled; the tracking crosshair still sits on him.
 	var flight: float = mark.distance_to(_eye_position()) / shot_speed
-	var along: Vector3 = _velocity_of(body)
+	# now (false): lead off this frame's step, for a man flung the instant before the squeeze.
+	var along: Vector3 = _step_of(body) if bool(beat.get("now", false)) else _velocity_of(body)
 	flight = (mark + along * flight).distance_to(_eye_position()) / shot_speed
 	mark += along * flight * float(beat.get("lead", 1.0))
 	# The round falls 0.5 g t^2 in that flight: the squeeze holds over by it.
@@ -323,11 +324,12 @@ func _measure(body: PlayerController, delta: float) -> void:
 	var key: int = body.get_instance_id()
 	var here: Vector3 = body.global_position
 	if not _seen.has(key):
-		_seen[key] = {"at": here, "slow": Vector3.ZERO, "fast": Vector3.ZERO}
+		_seen[key] = {"at": here, "slow": Vector3.ZERO, "fast": Vector3.ZERO, "now": Vector3.ZERO}
 		return
 	var row: Dictionary = _seen[key]
 	var step: Vector3 = (here - row["at"]) / delta
 	row["at"] = here
+	row["now"] = step
 	row["slow"] = (row["slow"] as Vector3).lerp(step, clampf(delta / VELOCITY_WINDOW, 0.0, 1.0))
 	row["fast"] = (row["fast"] as Vector3).lerp(step, clampf(delta / FAST_WINDOW, 0.0, 1.0))
 
@@ -338,6 +340,14 @@ func _velocity_of(body: PlayerController) -> Vector3:
 		return Vector3.ZERO
 	var slow: Vector3 = _seen[body.get_instance_id()]["slow"]
 	return Vector3(slow.x, 0.0, slow.z)
+
+
+## The velocity of his last frame's step, flattened.
+func _step_of(body: PlayerController) -> Vector3:
+	if body == null or not _seen.has(body.get_instance_id()):
+		return Vector3.ZERO
+	var now: Vector3 = _seen[body.get_instance_id()].get("now", Vector3.ZERO)
+	return Vector3(now.x, 0.0, now.z)
 
 
 ## True when he is running the same way he was: the fast average and the slow

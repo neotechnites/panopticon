@@ -6,8 +6,8 @@ extends "res://tools/capture/stages/stage.gd"
 ## probe_ring --map=marble --eye=126:5.6:5.8: r 48.6 open 118-133 without the columns.
 ## Shadow: the 3.12 m shaft wall hides ~1.6 m each side of 126 at r 48.6; victim 0.45 m along the ring (+), shover 0.4 m
 ## back (-), 0.2 m further out; the swing runs 5 deg inboard of the ring and lands him past the wall in the open.
-## Dials: victim (126.531,48.55), pov (125.53,48.75), shove (clip s, 2.7), impulse (8.5), up (4.0), squeeze (0.65), lead (1.0),
-## kick (0.3), run (r 48.3 to 165 deg: he scrambles on down the course once shoved).
+## Dials: victim (126.531,48.55), pov (125.53,48.75), shove (clip s, 2.7), impulse (8.5), up (4.0), lead (0.7: he stops dead on landing), kick (0.3), edge (127.1).
+## v8 (Ryan): "he needs to get shot WHILE he's being shoved out": no recovery; the squeeze the first frame he is in the open.
 
 const GUARD_HAND := preload("res://tools/capture/stages/guard_hand.gd")
 const COLUMN_SCENE: String = "res://maps/marble/models/marble_column.glb"
@@ -23,7 +23,7 @@ var _hand: Node = null
 var _guard: PlayerController = null
 var _shoved: bool = false
 var _shoved_at: float = 0.0
-var _landed: bool = false
+var _exposed: bool = false
 
 
 ## Three marble columns, shafts touching, on the inner edge for this shot only; the map scene is untouched.
@@ -141,10 +141,11 @@ func tick(_delta: float) -> void:
 		var optic: WeaponOptic = _guard.get_node_or_null(^"Optic") as WeaponOptic
 		if optic != null:
 			optic.set_zoomed(false)
-	if _shoved and not _landed and elapsed() > _shoved_at + 0.25 and is_instance_valid(_victim) and _victim.is_on_floor():
-		_landed = true
-		_hand.beats[0]["fire_at"] = elapsed() - _hand.start_at + float(option("squeeze", 0.65))
-		say("victim landed at %.1f deg r %.2f; squeeze in %.2f s" % [LIB.bearing_of(_victim.global_position), LIB.radius_of(_victim.global_position), float(option("squeeze", 0.65))])
+	# Exposed: his shoulder clears the wall's edge (edge, deg); the round is already led into the open.
+	if _shoved and not _exposed and is_instance_valid(_victim) and LIB.bearing_of(_victim.global_position) >= float(option("edge", 127.1)):
+		_exposed = true
+		_hand.beats[0]["fire_at"] = elapsed() - _hand.start_at
+		say("victim exposed %.2f s after the shove at %.1f deg r %.2f; squeeze now" % [elapsed() - _shoved_at, LIB.bearing_of(_victim.global_position), LIB.radius_of(_victim.global_position)])
 
 
 ## The guard at the 126 window, a hand resting on the column he hides behind.
@@ -159,7 +160,7 @@ func _raise_the_hand() -> void:
 	_hand.name = "ClipGuardHand"
 	clip.root.add_child(_hand)
 	_hand.install(_guard, controller(), elapsed())
-	_hand.beats.append({"body": _victim, "seconds": 100.0, "fire_at": -1.0, "watch": true, "lead": float(option("lead", 1.0)), "kick": float(option("kick", 0.3))})
+	_hand.beats.append({"body": _victim, "seconds": 100.0, "fire_at": -1.0, "watch": true, "lead": float(option("lead", 0.7)), "now": true, "kick": float(option("kick", 0.3))})
 	_hand.park = LIB.ring_point(128.6, 48.6, 1.3)
 	_hand.start_at = elapsed() + 0.3
 	if OS.has_environment("STAGE_DEBUG") and controller().rifle != null:
@@ -175,12 +176,8 @@ func on_shove(_shover: MatchParticipant, victim: MatchParticipant) -> void:
 	_shoved = true
 	_shoved_at = elapsed()
 	if _victim_driver != null:
-		# He lands running: on down the course, so the scope leads a moving man.
-		_victim_driver.retarget([
-			{"do": "human", "on": true},
-			{"do": "lane", "to": 165.0, "r": float(option("run", 48.3)), "speed": 1.0, "timeout": 30.0},
-			{"do": "hold", "seconds": 60.0},
-		])
+		# Still stumbling from the push when the round arrives: no input, no recovery.
+		_victim_driver.retarget([{"do": "hold", "seconds": 60.0}])
 	say("shove landed on %s" % victim.body.name)
 
 
