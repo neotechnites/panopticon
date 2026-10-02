@@ -1,12 +1,14 @@
 extends "res://tools/capture/stages/stage.gd"
 
 ## trailer_marble_track (5b): the guard at marble's 126 deg window, scoped in, tracks three runners
-## past the inner-edge columns (trailer_marble_column's, this shot only); swings from one to the next, no shot.
+## past five inner-edge columns (this shot's own, v5's set); swings from one to the next, no shot.
 ## probe_ring --map=marble --eye=126:5.6:5.8: r 48.6-52 open 118-140 bar the columns in front.
 ## Dials: start (106.5), zoom (0.8), swing (clip s the hand leaves the lead, 2.4).
 
 const GUARD_HAND := preload("res://tools/capture/stages/guard_hand.gd")
 const COLUMNS := preload("res://tools/capture/stages/trailer_marble_column.gd")
+## Five columns at r 47.5, this section only (10a/10b's wall is at 216).
+const COLUMN_DEGREES: Array[float] = [116.4, 121.2, 126.0, 130.8, 135.6]
 
 ## Per body, ahead to behind: bearing offset from start, radius, pace, weave, period.
 const OFFSET: Array[float] = [5.6, 2.1, 0.0]
@@ -36,7 +38,7 @@ func tune_rules(rules: MatchRules) -> void:
 func before_start() -> void:
 	LIB.disarm_pads(clip.root)
 	LIB.disarm_traps(clip.root)
-	COLUMNS.spawn_columns(controller().arena if controller().arena != null else clip.root)
+	COLUMNS.spawn_columns(controller().arena if controller().arena != null else clip.root, COLUMN_DEGREES)
 
 
 func cast(runners: Array[RunnerBrain]) -> bool:

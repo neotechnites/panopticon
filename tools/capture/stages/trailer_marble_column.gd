@@ -1,20 +1,20 @@
 extends "res://tools/capture/stages/stage.gd"
 
-## trailer_marble_column (v6 10a/10b): two prisoners side by side behind a wall of three columns, hidden from the 126
+## trailer_marble_column (v11 10a/10b): two prisoners side by side behind a wall of three columns, hidden from the 216
 ## window; one shoves the other along the ring out into the open and the guard drops him. Two POVs.
 ## Columns are this shot's own (spawn_columns), never the map's: three at r 47.5, shafts touching (1.04 m, 1.2545 deg).
-## probe_ring --map=marble --eye=126:5.6:5.8: r 48.6 open 118-133 without the columns.
-## Shadow: the 3.12 m shaft wall hides ~1.6 m each side of 126 at r 48.6; victim 0.45 m along the ring (+), shover 0.4 m
+## v11: the 216 section, 90 deg on from 5b's columns at 126 (lamps and fills repeat every 90: the v8 frame, turned).
+## Shadow: the 3.12 m shaft wall hides ~1.6 m each side of the window at r 48.6; victim 0.45 m along the ring (+), shover 0.4 m
 ## back (-), 0.2 m further out; the swing runs 5 deg inboard of the ring and lands him past the wall in the open.
-## Dials: victim (126.531,48.55), pov (125.53,48.75), shove (clip s, 2.7), impulse (8.5), up (4.0), lead (0.7: he stops dead on landing), kick (0.3), edge (127.1).
+## Dials: victim (216.531,48.55), pov (215.53,48.75), shove (clip s, 2.7), impulse (8.5), up (4.0), lead (0.7: he stops dead on landing), kick (0.3), edge (217.1).
 ## v8 (Ryan): "he needs to get shot WHILE he's being shoved out": no recovery; the squeeze the first frame he is in the open.
 
 const GUARD_HAND := preload("res://tools/capture/stages/guard_hand.gd")
 const COLUMN_SCENE: String = "res://maps/marble/models/marble_column.glb"
-const COLUMN_DEGREES: Array[float] = [124.7455, 126.0, 127.2545]
+const COLUMN_DEGREES: Array[float] = [214.7455, 216.0, 217.2545]
 const COLUMN_R: float = 47.5
 ## The window the guard stands at: centred between the tower room's columns at 115 and 137.5.
-const WINDOW: float = 126.0
+const WINDOW: float = 216.0
 
 var _victim: PlayerController = null
 var _pov: PlayerController = null
@@ -26,13 +26,13 @@ var _shoved_at: float = 0.0
 var _exposed: bool = false
 
 
-## Three marble columns, shafts touching, on the inner edge for this shot only; the map scene is untouched.
-static func spawn_columns(map: Node) -> void:
+## Marble columns at [param degrees] on the inner edge for one shot only; the map scene is untouched.
+static func spawn_columns(map: Node, degrees: Array[float]) -> void:
 	var packed: PackedScene = load(COLUMN_SCENE) as PackedScene
 	if map == null or packed == null:
 		printerr("[stage] no marble map or no column; nothing spawned")
 		return
-	for deg: float in COLUMN_DEGREES:
+	for deg: float in degrees:
 		var column: Node3D = packed.instantiate() as Node3D
 		column.name = "ClipColumn%d" % int(deg * 10.0)
 		map.add_child(column)
@@ -57,7 +57,7 @@ func tune_rules(rules: MatchRules) -> void:
 func before_start() -> void:
 	LIB.disarm_pads(clip.root)
 	LIB.disarm_traps(clip.root)
-	spawn_columns(controller().arena if controller().arena != null else clip.root)
+	spawn_columns(controller().arena if controller().arena != null else clip.root, COLUMN_DEGREES)
 
 
 func cast(runners: Array[RunnerBrain]) -> bool:
@@ -66,8 +66,8 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 	for brain: RunnerBrain in runners:
 		if brain.controller == null:
 			return false
-	var v: Vector3 = LIB.polar(String(option("victim", "126.531,48.55")), LIB.ring_point(126.531, 48.55))
-	var p: Vector3 = LIB.polar(String(option("pov", "125.53,48.75")), LIB.ring_point(125.53, 48.75))
+	var v: Vector3 = LIB.polar(String(option("victim", "216.531,48.55")), LIB.ring_point(216.531, 48.55))
+	var p: Vector3 = LIB.polar(String(option("pov", "215.53,48.75")), LIB.ring_point(215.53, 48.75))
 	var v_deg: float = LIB.bearing_of(v)
 	var p_deg: float = LIB.bearing_of(p)
 	_victim = runners[0].controller
@@ -142,13 +142,13 @@ func tick(_delta: float) -> void:
 		if optic != null:
 			optic.set_zoomed(false)
 	# Exposed: his shoulder clears the wall's edge (edge, deg); the round is already led into the open.
-	if _shoved and not _exposed and is_instance_valid(_victim) and LIB.bearing_of(_victim.global_position) >= float(option("edge", 127.1)):
+	if _shoved and not _exposed and is_instance_valid(_victim) and LIB.bearing_of(_victim.global_position) >= float(option("edge", 217.1)):
 		_exposed = true
 		_hand.beats[0]["fire_at"] = elapsed() - _hand.start_at
 		say("victim exposed %.2f s after the shove at %.1f deg r %.2f; squeeze now" % [elapsed() - _shoved_at, LIB.bearing_of(_victim.global_position), LIB.radius_of(_victim.global_position)])
 
 
-## The guard at the 126 window, a hand resting on the column he hides behind.
+## The guard at the 216 window, a hand resting on the column he hides behind.
 func _raise_the_hand() -> void:
 	var shooter: TowerShooter = LIB.stand_down(seat())
 	if shooter == null or shooter.controller == null:
@@ -161,7 +161,7 @@ func _raise_the_hand() -> void:
 	clip.root.add_child(_hand)
 	_hand.install(_guard, controller(), elapsed())
 	_hand.beats.append({"body": _victim, "seconds": 100.0, "fire_at": -1.0, "watch": true, "lead": float(option("lead", 0.7)), "now": true, "kick": float(option("kick", 0.3))})
-	_hand.park = LIB.ring_point(128.6, 48.6, 1.3)
+	_hand.park = LIB.ring_point(218.6, 48.6, 1.3)
 	_hand.start_at = elapsed() + 0.3
 	if OS.has_environment("STAGE_DEBUG") and controller().rifle != null:
 		controller().rifle.target_hit.connect(func(c: Node3D, at: Vector3, _n: Vector3) -> void:
