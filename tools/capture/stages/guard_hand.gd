@@ -214,7 +214,8 @@ func _physics_process(delta: float) -> void:
 		_apply_head()
 		_fire(k)
 		# The kick lands the frame after the shot line is resolved.
-		_rate = Vector2(RECOIL_YAW_RATE * (1.0 if k % 2 == 0 else -1.0), RECOIL_PITCH_RATE)
+		# kick (1.0): the recoil's share, so a tight scope keeps the man in frame through the hit.
+		_rate = Vector2(RECOIL_YAW_RATE * (1.0 if k % 2 == 0 else -1.0), RECOIL_PITCH_RATE) * float(beat.get("kick", 1.0))
 		return
 	_apply_head()
 

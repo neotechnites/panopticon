@@ -40,7 +40,8 @@ func tune_rules(rules: MatchRules) -> void:
 	rules.map_id = &"bentham_ring"
 	rules.guard_projectile_speed = 0.0
 	rules.base_reload_seconds = 1.0
-	rules.ghost_behaviour = MatchRules.GhostBehaviour.NONE
+	# The shipped rule: a shot man plays his death and lies where he fell, not parked out of the world.
+	rules.ghost_behaviour = MatchRules.GhostBehaviour.CATCH_AND_SWAP
 
 
 func before_start() -> void:
