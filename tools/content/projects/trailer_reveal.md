@@ -119,7 +119,7 @@ tape: marble_column
 seconds: 2.2
 in: 2.75
 freeze: waive
-# the marble_column tape down the scope at the 126 deg window: the shove at 3.00, he lands running on down the course; the scope leads and holds over him, squeeze 0.5 s after he lands, the round in flight, hit, he dies where he falls
+# the marble_column tape down the scope at the 126 deg window: the shove at 3.00, he lands running on down the course; the scope leads and holds over him, squeeze 0.65 s after he lands (fired 4.07), the round in flight, hit 4.42, hit, he dies where he falls
 # v7 (Ryan on 10b): "there's no visible projectile. he just shoots, isn't aimed right, and the guy disappears." Every kill stage now runs the shipped ghost rule (death pose, body held), not NONE (parked out of the world)
 
 ## 11

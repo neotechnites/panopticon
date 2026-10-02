@@ -6,7 +6,7 @@ extends "res://tools/capture/stages/stage.gd"
 ## probe_ring --map=marble --eye=126:5.6:5.8: r 48.6 open 118-133 without the columns.
 ## Shadow: the 3.12 m shaft wall hides ~1.6 m each side of 126 at r 48.6; victim 0.45 m along the ring (+), shover 0.4 m
 ## back (-), 0.2 m further out; the swing runs 5 deg inboard of the ring and lands him past the wall in the open.
-## Dials: victim (126.531,48.55), pov (125.53,48.75), shove (clip s, 2.7), impulse (8.5), up (4.0), squeeze (0.5), lead (1.0),
+## Dials: victim (126.531,48.55), pov (125.53,48.75), shove (clip s, 2.7), impulse (8.5), up (4.0), squeeze (0.65), lead (1.0),
 ## kick (0.3), run (r 48.3 to 165 deg: he scrambles on down the course once shoved).
 
 const GUARD_HAND := preload("res://tools/capture/stages/guard_hand.gd")
@@ -143,8 +143,8 @@ func tick(_delta: float) -> void:
 			optic.set_zoomed(false)
 	if _shoved and not _landed and elapsed() > _shoved_at + 0.25 and is_instance_valid(_victim) and _victim.is_on_floor():
 		_landed = true
-		_hand.beats[0]["fire_at"] = elapsed() - _hand.start_at + float(option("squeeze", 0.5))
-		say("victim landed at %.1f deg r %.2f; squeeze in %.2f s" % [LIB.bearing_of(_victim.global_position), LIB.radius_of(_victim.global_position), float(option("squeeze", 0.5))])
+		_hand.beats[0]["fire_at"] = elapsed() - _hand.start_at + float(option("squeeze", 0.65))
+		say("victim landed at %.1f deg r %.2f; squeeze in %.2f s" % [LIB.bearing_of(_victim.global_position), LIB.radius_of(_victim.global_position), float(option("squeeze", 0.65))])
 
 
 ## The guard at the 126 window, a hand resting on the column he hides behind.
