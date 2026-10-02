@@ -29,10 +29,9 @@ Blender +Z -> Godot +Y, Blender +Y -> Godot -Z, Blender +X -> Godot +X. The
 effect surface lies in the Blender XZ plane at y ~ 0 -- Godot local XY -- so a
 runner passes through it along Godot local Z, exactly as on Map 1.
 
-ONE CLOSED MANIFOLD SOLID. The opening is not a hole: the two effect-surface
-faces stand at y = -0.02 and y = +0.02 and each side's reveal runs from its own
-outer face IN to that plane, so the mouth is plugged by a 0.04 m lens and every
-edge has exactly two faces. The surface is the atlas' swirl --
+THE STONE IS ONE CLOSED MANIFOLD SOLID: each side's reveal runs from its own outer
+face in to y = 0, where the effect surface hangs -- portal_build's one waving,
+see-through sheet, its rim welded to the reveals. The surface is the atlas' swirl --
 Map 1's spiral in the rotunda's cold palette -- in marble's atlas, its
 material glowing that same file at emission strength exactly 1.0.
 
@@ -69,6 +68,7 @@ import marble_build as mb  # noqa: E402
 # PC only when a column-0 `import x_build as y` names them in THIS script.
 import marble_lane_build as _ml  # noqa: E402, F401
 import marble_wall_build as _mw  # noqa: E402, F401
+import portal_disc as pd  # noqa: E402
 
 if bpy is not None:
     import mdl  # noqa: E402
@@ -89,7 +89,7 @@ HALF_W = 2.25               # 4.5 m wide, portal.glb's own footprint
 HEIGHT = 4.0                # 4.0 m tall
 HALF_D = 0.40               # 0.8 m deep: the plinth and the cornice, the proudest stone
 FACE_D = 0.30               # the pilaster fronts and the spandrel, 0.10 m back from the plinth line
-SURF_D = 0.02               # the effect surface: one face at -0.02, one at +0.02, the mouth plugged
+OLD_TRIS = 172             # the plugged mouth's tri count: it still seeds the stone's atlas windows
 
 IN_HALF_W = 1.35            # the opening: 2.7 m clear at the ground (portal_build's IN_HALF_W)
 IN_SPRING = 2.6             # ... the head springs here (portal_build's IN_SPRING)
@@ -132,8 +132,6 @@ OUT = ([(-IN_HALF_W, 0.0), (-IN_HALF_W, PLINTH_H)] + ARCH
        + [(IN_HALF_W, PLINTH_H), (IN_HALF_W, 0.0)])
 N_OUT = len(OUT)                                # 11 points, 10 reveal segments
 PLINTH_SEGS = (0, N_OUT - 2)                    # the two segments that start at the plinth face
-CROWN_K = 2 + APEX_K                            # OUT index of the crown
-RING = OUT[CROWN_K:] + OUT[:CROWN_K]            # the surface's fan starts at the crown: no sliver
 
 
 # =============================================================================
@@ -211,12 +209,20 @@ def _face(m, s):
     for k in range(N_OUT - 1):
         (x0, z0), (x1, z1) = OUT[k], OUT[k + 1]
         w = _inward(0.5 * (x0 + x1), 0.5 * (z0 + z1))
-        ys = [od, fd, s * SURF_D] if k in PLINTH_SEGS else [fd, s * SURF_D]
+        ys = [od, fd, 0.0] if k in PLINTH_SEGS else [fd, 0.0]
         for j in range(len(ys) - 1):
             m.quad(m.v((x0, ys[j], z0)), m.v((x1, ys[j], z1)),
                    m.v((x1, ys[j + 1], z1)), m.v((x0, ys[j + 1], z0)), w, "shade")
-    # the effect surface: the mouth's own outline, one face, one atlas window
-    m.poly(_xz(m, RING, s * SURF_D), n, "portal")
+    if s < 0.0:                         # the swirl sheet, once, where the front plug was
+        _sheet(m)
+
+
+def _sheet(m):
+    """portal_build's waving see-through sheet on the mouth's outline at y = 0, one atlas window."""
+    k0 = len(m.faces)
+    m.rim_xz = [(x, z) for (x, z, _k) in pd.rim(OUT)]
+    pd.sheet(m, _xz(m, m.rim_xz, 0.0), m.rim_xz, DISC_CENTRE_Z, "portal")
+    _one_face(m, k0)
 
 
 def _shell(m):
@@ -239,11 +245,11 @@ def _shell(m):
     for k in range(3):
         m.quad(m.v((xs[k], -HALF_D, HEIGHT)), m.v((xs[k + 1], -HALF_D, HEIGHT)),
                m.v((xs[k + 1], HALF_D, HEIGHT)), m.v((xs[k], HALF_D, HEIGHT)), mb.UP, "marble2")
-    # the underside, capped: the two jamb feet, each carrying the reveal's and
-    # the plug's depth stations on its inner edge, and the plug between them
+    # the underside, capped: the two jamb feet, each carrying the reveal's
+    # depth stations on its inner edge
     for sx in (-1.0, 1.0):
         xo, xi = sx * HALF_W, sx * IN_HALF_W
-        inner = [(xi, y) for y in (-HALF_D, -FACE_D, -SURF_D, SURF_D, FACE_D, HALF_D)]
+        inner = [(xi, y) for y in (-HALF_D, -FACE_D, 0.0, FACE_D, HALF_D)]
         if sx > 0.0:
             inner.reverse()
         ring = [(xo, -HALF_D if sx < 0.0 else HALF_D)] + inner + \
@@ -251,8 +257,6 @@ def _shell(m):
         k0 = len(m.faces)
         m.poly(_xy(m, ring, 0.0), mb.DOWN, "shade")
         _one_face(m, k0)
-    m.quad(m.v((-IN_HALF_W, -SURF_D, 0.0)), m.v((IN_HALF_W, -SURF_D, 0.0)),
-           m.v((IN_HALF_W, SURF_D, 0.0)), m.v((-IN_HALF_W, SURF_D, 0.0)), mb.DOWN, "shade")
 
 
 def _stone():
@@ -261,6 +265,7 @@ def _stone():
     _face(m, -1.0)
     n1 = len(m.faces)
     _face(m, 1.0)
+    m.burn_gid = len(m.groups)          # the back plug's atlas window was drawn here
     n2 = len(m.faces)
     _shell(m)
     return m, {"front": n1 - n0, "back": n2 - n1, "shell": len(m.faces) - n2}
@@ -450,8 +455,11 @@ def build():
     stone, counts = _stone()
     coll = _collider()
     ob = stone.object(OBJECT_NAME)
-    mb.unwrap(ob, stone.zones, stone.groups, seed=11)
+    _unwrap(ob, stone, seed=11)
     mb.prop_finish(ob, stone.zones, "Marble")
+    glow = [mt for mt in ob.data.materials if mt.name.split(".")[0] == "MarbleGlow"][0]
+    pd.see_through(glow)
+    pd.wave_uv(ob, "MarbleGlow", stone.rim_xz)
     coll_ob = coll.object(COLLIDER_NAME)          # Godot: StaticBody3D + ConcavePolygonShape3D
     coll_ob.hide_render = True
     a = mb.audit(stone, "portal")
@@ -469,11 +477,32 @@ def build():
     return [ob, coll_ob]
 
 
+def _unwrap(ob, stone, seed):
+    """mb.unwrap with the plugged mouth's seed and draws, so every stone window stays put."""
+    me = ob.data
+    uvl = me.uv_layers.new(name="UVMap")
+    r = mb._Rng(mb.TEX_SEED + seed * 7919 + OLD_TRIS)
+    by_group = {}
+    for pi in range(len(me.polygons)):
+        by_group.setdefault(stone.groups[pi], []).append(pi)
+    burnt = False
+    for gid in sorted(by_group):
+        if gid >= stone.burn_gid and not burnt:
+            r.f(), r.f(), r.i(0, 1), r.i(0, 1)
+            burnt = True
+        z = stone.zones[by_group[gid][0]]
+        mb._group_uv(me, uvl, by_group[gid], mb.ZONES[z], r, mb.FIT.get(z, ""),
+                     z in mb.ANCHORED, z in mb.WALL_PROJECT)
+
+
 def _check():
-    """--check: build without Blender; prove one closed contiguous mesh."""
+    """--check: build without Blender; prove the stone (the sheet aside) one closed contiguous mesh."""
     stone, counts = _stone()
     coll = _collider()
-    a = mb.audit(stone, "portal")
+    solid = mb._Mesh()
+    solid.verts = stone.verts
+    solid.faces = [f for f, z in zip(stone.faces, stone.zones) if z != "portal"]
+    a = mb.audit(solid, "portal")
     c = mb.audit(coll, "coll")
     xs = [v[0] for v in stone.verts]
     ys = [v[1] for v in stone.verts]
