@@ -8,6 +8,8 @@ const SharedMaterials := preload("res://tools/import/shared_materials.gd")
 ## Surfaces whose glTF material is named here get the waving lava shader instead.
 const WAVE_MATERIALS := [&"LavaRiver", &"LavaSea", &"LavaCrack"]
 const LAVA_WAVE_SHADER := "res://maps/bentham_ring/materials/lava_wave.gdshader"
+## The hell portal's swirl takes the same wave, see-through: its glTF alpha is kept, its glow unboosted.
+const SEE_THROUGH_WAVE := {&"PortalGlow": "res://maps/bentham_ring/materials/portal_wave.gdshader"}
 ## No torches on the ring any more: the lava itself carries that light, boosted here.
 const LAVA_EMISSION_BOOST := 1.4
 ## Marble's stone is fully matte: no sheen, whatever roughness the .glb carries.
@@ -119,19 +121,20 @@ func _mipped_texture(texture: Texture2D) -> Texture2D:
 ## (its mipped textures and factors carried over), or null for any other.
 func _wave_material(material: Material) -> Material:
 	var base := material as BaseMaterial3D
-	if base == null or not WAVE_MATERIALS.has(StringName(base.resource_name)):
+	var mat_name := StringName(base.resource_name) if base != null else &""
+	if not WAVE_MATERIALS.has(mat_name) and not SEE_THROUGH_WAVE.has(mat_name):
 		return null
 	var material_id := base.get_instance_id()
 	if _wave_cache.has(material_id):
 		return _wave_cache[material_id]
 	var wave := ShaderMaterial.new()
 	wave.resource_name = base.resource_name
-	wave.shader = load(LAVA_WAVE_SHADER)
+	wave.shader = load(SEE_THROUGH_WAVE.get(mat_name, LAVA_WAVE_SHADER))
 	wave.set_shader_parameter(&"albedo_texture", base.albedo_texture)
 	wave.set_shader_parameter(&"albedo_color", base.albedo_color)
 	wave.set_shader_parameter(&"emission_texture", base.emission_texture)
 	wave.set_shader_parameter(&"emission_color", base.emission if base.emission_enabled else Color.BLACK)
-	wave.set_shader_parameter(&"emission_energy", base.emission_energy_multiplier * LAVA_EMISSION_BOOST)
+	wave.set_shader_parameter(&"emission_energy", base.emission_energy_multiplier * (1.0 if SEE_THROUGH_WAVE.has(mat_name) else LAVA_EMISSION_BOOST))
 	wave.set_shader_parameter(&"roughness", base.roughness)
 	wave.set_shader_parameter(&"metallic", base.metallic)
 	wave.set_shader_parameter(&"uv1_scale", base.uv1_scale)

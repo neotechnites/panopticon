@@ -6,7 +6,7 @@ hell_props_albedo.png, the swirl, as albedo and emission.
 ground. The disc lies in the Blender XZ plane (Godot local XY) at y=0, so a
 runner passes through along Godot local Z. Blender +Z -> Godot +Y, +Y -> -Z.
 
-Contract: one mesh "Portal" (one surface, one UV set), plus "PortalCollision"
+Contract: one mesh "Portal" (UVMap, plus "Wave": the lava wave's share), plus "PortalCollision"
 -- three boxes (two uprights, a lintel) shipped as a `-colonly` node. The
 disc has NO collision.
 """
@@ -99,6 +99,7 @@ class _Rng(object):
 
 
 PORTAL_ALPHA = 0.55
+WAVE_RAMP = 2.5         # metres in from the rim the wave reaches full height: the lava's own ramp
 
 
 def rock_material(name, albedo, emissive):
@@ -315,6 +316,31 @@ def _portal(r):
     return m
 
 
+def _wave_uv(ob):
+    """UV2.x: the lava wave's share, 0 on the disc's rim (and all rock), rising WAVE_RAMP in."""
+    me = ob.data
+    glow = {i for i, mt in enumerate(me.materials) if mt.name.split(".")[0] == "PortalGlow"}
+    disc = {v for p in me.polygons if p.material_index in glow for v in p.vertices}
+    rim = [me.vertices[v].co for v in disc if abs(me.vertices[v].co.y) < 1e-6]
+    ring = sorted(rim, key=lambda c: math.atan2(c.z - DISC_CENTRE_Z, c.x))
+
+    def seg(px, pz, a, b):
+        ex, ez = b.x - a.x, b.z - a.z
+        t = max(0.0, min(1.0, ((px - a.x) * ex + (pz - a.z) * ez) / max(ex * ex + ez * ez, 1e-12)))
+        return math.hypot(px - a.x - t * ex, pz - a.z - t * ez)
+
+    w = {}
+    for v in disc:
+        co = me.vertices[v].co
+        d = min(seg(co.x, co.z, ring[k], ring[(k + 1) % len(ring)]) for k in range(len(ring)))
+        w[v] = min(1.0, d / WAVE_RAMP)
+    layer = me.uv_layers.new(name="Wave")
+    layer.data.foreach_set("uv", [c for lp in me.loops for c in (w.get(lp.vertex_index, 0.0), 0.0)])
+    me.uv_layers[0].active = True
+    me.uv_layers[0].active_render = True
+    print("MDL STATS wave disc_verts=%d peak=%.2f" % (len(disc), max(w.values())))
+
+
 def _collider():
     """Two uprights and a lintel: 36 tris. The disc is not here."""
     c = _Mesh()
@@ -333,6 +359,7 @@ def build():
     mdl.finish(ob, bpy.data.materials.new("HellRock"), strip_uvs=False)
     tx.retile(ob, tx.hell_atlas_material(ROCK_ROUGHNESS),
               glow=(ZONE_PORTAL, rock_material("PortalGlow", glow, glow)))   # it glows its own albedo
+    _wave_uv(ob)
     coll_ob = _collider().object(COLLIDER_NAME)   # Godot: StaticBody3D + ConcavePolygonShape3D
     coll_ob.hide_render = True
     print("MDL STATS visual_tris=%d collision_tris=%d width=%.2f height=%.2f depth=%.2f"
