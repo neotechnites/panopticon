@@ -309,10 +309,22 @@ const FirstPersonHead: GDScript = preload("res://scripts/player/first_person_hea
 ## and the run cycle is parked rather than played.
 @export var idle_speed: float = 0.5
 
-## Ceiling on the playback rate, as a multiple of the authored rate. Air strafing
-## has no speed limit, and without this a fast enough prisoner's legs become a
-## strobe.
-@export var max_playback_scale: float = 2.5
+## Ceiling on the run's speed ratio (speed over ground speed). Air strafing has
+## no speed limit, and without this a fast enough prisoner's legs become a strobe.
+@export var max_playback_scale: float = 1.6
+
+## Full run cycles (two footfalls) per second at [member MovementProfile.ground_speed];
+## the rate scales linearly with actual speed below and above it.
+@export var run_strides_per_second: float = 3.2
+
+## Playback rates for every other clip, as multiples of the authored rate.
+@export var idle_rate: float = 1.4
+@export var jump_rate: float = 1.5
+@export var death_rate: float = 1.4
+@export var aim_rate: float = 1.3
+@export var shove_rate: float = 1.5
+## Slide and crouch are held poses, so this only quickens their cross-fades.
+@export var pose_rate: float = 1.5
 
 ## Ground speed used when the body has no [MovementProfile] to divide by. Only a
 ## body that is already broken can reach it -- [PlayerController] refuses to move
@@ -611,7 +623,7 @@ func _process(delta: float) -> void:
 				_in_air = false
 				_in_aim = false
 				_running = false
-				animation.speed_scale = 1.0
+				animation.speed_scale = death_rate
 				animation.play(death_clip, blend_time)
 			return
 
@@ -634,7 +646,7 @@ func _process(delta: float) -> void:
 			_in_crouch = false
 			_in_air = false
 			_running = false
-			animation.speed_scale = 1.0
+			animation.speed_scale = aim_rate
 			animation.play(aim_clip, blend_time)
 		return
 
@@ -661,7 +673,7 @@ func _process(delta: float) -> void:
 			# The pose holds no motion, so the rate only governs how fast the
 			# cross-fade into it runs; a scale left over from the run cycle
 			# would make the snap arrive at a speed-dependent moment.
-			animation.speed_scale = 1.0
+			animation.speed_scale = pose_rate
 			animation.play(slide_clip, slide_blend_time)
 		return
 
@@ -690,7 +702,7 @@ func _process(delta: float) -> void:
 			# The pose holds no motion, so a speed_scale left over from the run
 			# cycle would only make the cross-fade arrive at a speed-dependent
 			# moment.
-			animation.speed_scale = 1.0
+			animation.speed_scale = pose_rate
 			animation.play(crouch_clip, blend_time)
 		return
 
@@ -715,7 +727,7 @@ func _process(delta: float) -> void:
 			_running = false
 			# The pose holds no motion, so a scale left over from the run cycle
 			# would only make the cross-fade arrive at a speed-dependent moment.
-			animation.speed_scale = 1.0
+			animation.speed_scale = jump_rate
 			animation.play(jump_clip, jump_blend_time)
 		return
 
@@ -746,7 +758,8 @@ func _process(delta: float) -> void:
 		_running = true
 		animation.play(run_clip, blend_time)
 
-	animation.speed_scale = minf(speed / reference, max_playback_scale)
+	var run_rate: float = run_strides_per_second * animation.get_animation(run_clip).length
+	animation.speed_scale = minf(speed / reference, max_playback_scale) * run_rate
 
 
 ## Switch to the standing idle, cross-fading in over [member blend_time]. Only
@@ -757,7 +770,7 @@ func _go_idle() -> void:
 	if not _has_idle:
 		_park()
 		return
-	animation.speed_scale = 1.0
+	animation.speed_scale = idle_rate
 	if animation.current_animation != idle_clip:
 		animation.play(idle_clip, blend_time)
 
@@ -805,13 +818,13 @@ func _on_body_died() -> void:
 func _on_body_shoved() -> void:
 	if not _has_shove or _dead:
 		return
-	_shove_remaining = animation.get_animation(shove_clip).length
+	_shove_remaining = animation.get_animation(shove_clip).length / maxf(shove_rate, 0.01)
 	_in_slide = false
 	_in_crouch = false
 	_in_air = false
 	_in_aim = false
 	_running = false
-	animation.speed_scale = 1.0
+	animation.speed_scale = shove_rate
 	animation.play(shove_clip, shove_blend_time)
 
 
