@@ -41,7 +41,7 @@ point_count = 3
 editor_description = "Nether-portal motes: glowing squares swirling across the opening (this node) and drawn in from round the frame (Drawn). Each portal scene sets `color`; the script copies it to Drawn. Local coords, so gravity's Z is the swirl axis in the portal's own frame."
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.55, 0)
 cast_shadow = 0
-amount = 150
+amount = 75
 lifetime = 2.6
 preprocess = 2.6
 randomness = 0.5
@@ -70,7 +70,7 @@ script = ExtResource("1_motes")
 [node name="Drawn" type="CPUParticles3D" parent="."]
 editor_description = "Motes spawned round the frame and pulled into the disc centre, swirling as they fall in."
 cast_shadow = 0
-amount = 110
+amount = 55
 lifetime = 1.8
 preprocess = 1.8
 randomness = 0.4
