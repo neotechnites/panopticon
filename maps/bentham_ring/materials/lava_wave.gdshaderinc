@@ -21,9 +21,16 @@ uniform float river_amp = 1.75;         // metres crest to trough on flat lava
 #define WAVE_SPEED 0.55
 #define WAVE_SCALE 1.0
 #endif
+#ifdef WAVE_SEE_THROUGH
+// Consts, not uniforms: an imported material can never keep a stale copy of the portal's wave.
+const float fall_amp = WAVE_FALL_AMP;
+const float speed = WAVE_SPEED;
+const float wave_scale = WAVE_SCALE;
+#else
 uniform float fall_amp = WAVE_FALL_AMP;  // metres a fall moves out and back
 uniform float speed = WAVE_SPEED;        // rad/s: one heavy swell every ~11 s
 uniform float wave_scale = WAVE_SCALE;   // the falls' spatial frequency: 1.0 is the lava's
+#endif
 
 float flat_w(float y) {
 	float a = 1.0 - smoothstep(0.25, 0.9, abs(y - river_y));
