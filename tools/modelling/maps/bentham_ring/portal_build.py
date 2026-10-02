@@ -48,7 +48,8 @@ JAG_XZ  = 0.13          # metres, in the arch plane; ground points stay on the g
 JAG_Y   = 0.09          # metres, depth: the faces are not planar
 SHADE_BIAS = 0.04       # front/back facets pushed back this much go dark
 DISC_CENTRE_Z = 1.5
-DISC_BULGE = 0.01       # metres each side: the back fan used to be dropped as a duplicate
+DISC_RINGS = 6          # the disc: rings in from the rim, so the wave has vertices to travel over
+DISC_SEGS = 24          # rim vertices: the arch's corners plus points along its edges
 
 COL_UP_W  = 0.95        # upright box width, from the outer edge in
 COL_UP_H  = 2.8
@@ -99,7 +100,7 @@ class _Rng(object):
 
 
 PORTAL_ALPHA = 0.55
-WAVE_RAMP = 2.5         # metres in from the rim the wave reaches full height: the lava's own ramp
+WAVE_RAMP = 0.5         # metres in from the rim the wave reaches full height; the rim is pinned
 
 
 def rock_material(name, albedo, emissive):
@@ -307,27 +308,45 @@ def _portal(r):
         m.quad(o_f[k], o_f[k + 1], o_b[k + 1], o_b[k], (ox, 0.0, oz), ZONE_ROCK)
         m.quad(i_f[k], i_f[k + 1], i_b[k + 1], i_b[k], (-ox, 0.0, -oz),
                ZONE_SHADE if k % 3 else ZONE_ROCK)
-    # the disc: the opening's own outline at y=0, fanned to a centre each side;
-    # the centres stand DISC_BULGE apart so the two fans are a closed lens, not one face twice
-    rim = [m.v((x, 0.0, z)) for (x, z) in inner]
-    m.fan(rim, (0.0, -1.0, 0.0), ZONE_PORTAL, centre=m.v((0.0, -DISC_BULGE, DISC_CENTRE_Z)))
-    m.uv_faces = len(m.faces)
-    m.fan(rim, (0.0, 1.0, 0.0), ZONE_PORTAL, centre=m.v((0.0, DISC_BULGE, DISC_CENTRE_Z)))
+    # the disc: one sheet at y=0 (drawn double-sided), rings shrinking to a centre;
+    # the old front fan's count still seeds the rock UVs, so they stay as they were
+    m.uv_faces = len(m.faces) + n
+    m.rim = _rim(inner)
+    rings = [[m.v((x, 0.0, z)) for (x, z) in m.rim]]
+    for k in range(1, DISC_RINGS):
+        f = 1.0 - k / float(DISC_RINGS)
+        rings.append([m.v((x * f, 0.0, DISC_CENTRE_Z + (z - DISC_CENTRE_Z) * f)) for (x, z) in m.rim])
+    for a, b in zip(rings, rings[1:]):
+        for j in range(DISC_SEGS):
+            jj = (j + 1) % DISC_SEGS
+            m.quad(a[j], a[jj], b[jj], b[j], (0.0, -1.0, 0.0), ZONE_PORTAL)
+    m.fan(rings[-1], (0.0, -1.0, 0.0), ZONE_PORTAL, centre=m.v((0.0, 0.0, DISC_CENTRE_Z)))
     return m
 
 
-def _wave_uv(ob):
+def _rim(outline):
+    """The opening's outline as DISC_SEGS points: every corner kept, the longest edges split."""
+    cuts = [1] * len(outline)
+    seg = lambda i: math.dist(outline[i], outline[(i + 1) % len(outline)]) / cuts[i]
+    for _ in range(DISC_SEGS - len(outline)):
+        cuts[max(range(len(outline)), key=seg)] += 1
+    pts = []
+    for i, (ax, az) in enumerate(outline):
+        bx, bz = outline[(i + 1) % len(outline)]
+        pts += [(ax + (bx - ax) * c / cuts[i], az + (bz - az) * c / cuts[i]) for c in range(cuts[i])]
+    return pts
+
+
+def _wave_uv(ob, ring):
     """UV2.x: the lava wave's share, 0 on the disc's rim (and all rock), rising WAVE_RAMP in."""
     me = ob.data
     glow = {i for i, mt in enumerate(me.materials) if mt.name.split(".")[0] == "PortalGlow"}
     disc = {v for p in me.polygons if p.material_index in glow for v in p.vertices}
-    rim = [me.vertices[v].co for v in disc if abs(me.vertices[v].co.y) < 1e-6]
-    ring = sorted(rim, key=lambda c: math.atan2(c.z - DISC_CENTRE_Z, c.x))
 
     def seg(px, pz, a, b):
-        ex, ez = b.x - a.x, b.z - a.z
-        t = max(0.0, min(1.0, ((px - a.x) * ex + (pz - a.z) * ez) / max(ex * ex + ez * ez, 1e-12)))
-        return math.hypot(px - a.x - t * ex, pz - a.z - t * ez)
+        ex, ez = b[0] - a[0], b[1] - a[1]
+        t = max(0.0, min(1.0, ((px - a[0]) * ex + (pz - a[1]) * ez) / max(ex * ex + ez * ez, 1e-12)))
+        return math.hypot(px - a[0] - t * ex, pz - a[1] - t * ez)
 
     w = {}
     for v in disc:
@@ -359,7 +378,7 @@ def build():
     mdl.finish(ob, bpy.data.materials.new("HellRock"), strip_uvs=False)
     tx.retile(ob, tx.hell_atlas_material(ROCK_ROUGHNESS),
               glow=(ZONE_PORTAL, rock_material("PortalGlow", glow, glow)))   # it glows its own albedo
-    _wave_uv(ob)
+    _wave_uv(ob, rock.rim)
     coll_ob = _collider().object(COLLIDER_NAME)   # Godot: StaticBody3D + ConcavePolygonShape3D
     coll_ob.hide_render = True
     print("MDL STATS visual_tris=%d collision_tris=%d width=%.2f height=%.2f depth=%.2f"

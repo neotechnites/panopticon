@@ -16,8 +16,14 @@ uniform float river_y = 22.7;           // the river, S2, S4 and the cracks: wor
 uniform float shelf_y = 28.8;           // the flat lava over the outer fall
 uniform float sea_y = -11.05;           // the pit sea (its crust swells 0.6 m either way)
 uniform float river_amp = 1.75;         // metres crest to trough on flat lava
-uniform float fall_amp = 1.5;           // metres a fall moves out and back
-uniform float speed = 0.55;             // rad/s: one heavy swell every ~11 s
+#ifndef WAVE_FALL_AMP
+#define WAVE_FALL_AMP 1.5
+#define WAVE_SPEED 0.55
+#define WAVE_SCALE 1.0
+#endif
+uniform float fall_amp = WAVE_FALL_AMP;  // metres a fall moves out and back
+uniform float speed = WAVE_SPEED;        // rad/s: one heavy swell every ~11 s
+uniform float wave_scale = WAVE_SCALE;   // the falls' spatial frequency: 1.0 is the lava's
 
 float flat_w(float y) {
 	float a = 1.0 - smoothstep(0.25, 0.9, abs(y - river_y));
@@ -37,11 +43,14 @@ void vertex() {
 #endif
 	float t = TIME * speed;
 	float fl = flat_w(w.y);
+#ifdef WAVE_SEE_THROUGH
+	fl = 0.0;                                        // the disc only moves off its face
+#endif
 	float edge = clamp(UV2.x, 0.0, 1.0);             // pinned on banks, walls, rocks and the tower foot
 	// flat: a long swell rolling toward the pit, crossed by a second, slower one
 	float sr = 0.6 * sin(0.4 * r + t) + 0.4 * sin(0.2 * w.x + 0.27 * w.z + 0.7 * t);
 	// falls: rings running down the face, slightly wobbled across it
-	float sf = 0.75 * sin(0.45 * w.y + 1.3 * t) + 0.25 * sin(0.3 * (w.x - w.z) + 0.6 * t);
+	float sf = 0.75 * sin(0.45 * wave_scale * w.y + 1.3 * t) + 0.25 * sin(0.3 * wave_scale * (w.x - w.z) + 0.6 * t);
 	// centred on the rest surface; the pinned edges keep it tucked in, never gapped
 	float up = 0.5 * river_amp * edge * fl * sr;
 	float bulge = 0.5 * fall_amp * edge * (1.0 - fl) * sf;
