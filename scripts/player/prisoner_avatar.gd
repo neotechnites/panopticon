@@ -315,7 +315,7 @@ const FirstPersonHead: GDScript = preload("res://scripts/player/first_person_hea
 
 ## Full run cycles (two footfalls) per second at [member MovementProfile.ground_speed];
 ## the rate scales linearly with actual speed below and above it.
-@export var run_strides_per_second: float = 3.2
+@export var run_strides_per_second: float = 2.8
 
 ## Playback rates for every other clip, as multiples of the authored rate.
 @export var idle_rate: float = 1.4
