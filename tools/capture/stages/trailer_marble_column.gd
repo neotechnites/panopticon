@@ -1,16 +1,16 @@
 extends "res://tools/capture/stages/stage.gd"
 
-## trailer_marble_column (v5 10a/10b): two prisoners both hidden behind the 126 column, one behind the other in
-## its shadow from the 126 window; the back one shoves the front one out into the gap and the guard drops him. Two POVs.
-## Columns are this shot's own (spawn_columns), never the map's: five at r 47.5, 116.4-135.6 deg.
+## trailer_marble_column (v6 10a/10b): two prisoners side by side behind a wall of three columns, hidden from the 126
+## window; one shoves the other along the ring out into the open and the guard drops him. Two POVs.
+## Columns are this shot's own (spawn_columns), never the map's: three at r 47.5, shafts touching (1.04 m, 1.2545 deg).
 ## probe_ring --map=marble --eye=126:5.6:5.8: r 48.6 open 118-133 without the columns.
-## Shadow: the 0.8 m shaft hides a 0.82 m strip behind it; victim 0.3 m along the ring (+), shover 0.3 m back (-), 0.55 m
-## further out; the swing runs 5 deg inboard of the ring so he is 37.5 deg off it (cone 45) and lands in the gap.
-## Dials: victim (126.356,48.55), pov (125.648,49.1), shove (clip s, 2.7), impulse (8.5), up (4.0), squeeze (0.45), lead (0).
+## Shadow: the 3.12 m shaft wall hides ~1.6 m each side of 126 at r 48.6; victim 0.45 m along the ring (+), shover 0.4 m
+## back (-), 0.2 m further out; the swing runs 5 deg inboard of the ring and lands him past the wall in the open.
+## Dials: victim (126.531,48.55), pov (125.53,48.75), shove (clip s, 2.7), impulse (8.5), up (4.0), squeeze (0.45), lead (0).
 
 const GUARD_HAND := preload("res://tools/capture/stages/guard_hand.gd")
 const COLUMN_SCENE: String = "res://maps/marble/models/marble_column.glb"
-const COLUMN_DEGREES: Array[float] = [116.4, 121.2, 126.0, 130.8, 135.6]
+const COLUMN_DEGREES: Array[float] = [124.7455, 126.0, 127.2545]
 const COLUMN_R: float = 47.5
 ## The window the guard stands at: centred between the tower room's columns at 115 and 137.5.
 const WINDOW: float = 126.0
@@ -25,7 +25,7 @@ var _shoved_at: float = 0.0
 var _landed: bool = false
 
 
-## Five marble columns on the inner edge for this shot only; the map scene is untouched.
+## Three marble columns, shafts touching, on the inner edge for this shot only; the map scene is untouched.
 static func spawn_columns(map: Node) -> void:
 	var packed: PackedScene = load(COLUMN_SCENE) as PackedScene
 	if map == null or packed == null:
@@ -64,8 +64,8 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 	for brain: RunnerBrain in runners:
 		if brain.controller == null:
 			return false
-	var v: Vector3 = LIB.polar(String(option("victim", "126.356,48.55")), LIB.ring_point(126.356, 48.55))
-	var p: Vector3 = LIB.polar(String(option("pov", "125.648,49.1")), LIB.ring_point(125.648, 49.1))
+	var v: Vector3 = LIB.polar(String(option("victim", "126.531,48.55")), LIB.ring_point(126.531, 48.55))
+	var p: Vector3 = LIB.polar(String(option("pov", "125.53,48.75")), LIB.ring_point(125.53, 48.75))
 	var v_deg: float = LIB.bearing_of(v)
 	var p_deg: float = LIB.bearing_of(p)
 	_victim = runners[0].controller
@@ -158,7 +158,7 @@ func _raise_the_hand() -> void:
 	clip.root.add_child(_hand)
 	_hand.install(_guard, controller(), elapsed())
 	_hand.beats.append({"body": _victim, "seconds": 100.0, "fire_at": -1.0, "watch": true, "lead": float(option("lead", 0.0))})
-	_hand.park = LIB.ring_point(127.5, 48.6, 1.3)
+	_hand.park = LIB.ring_point(128.6, 48.6, 1.3)
 	_hand.start_at = elapsed() + 0.3
 	if OS.has_environment("STAGE_DEBUG") and controller().rifle != null:
 		controller().rifle.target_hit.connect(func(c: Node3D, at: Vector3, _n: Vector3) -> void:
