@@ -72,7 +72,7 @@ The hub's three wedges wear the hell, marble and forest textures from those maps
 
 | Texture | Looks like | Worn by |
 |---|---|---|
-| prisoner2_albedo | four flat swatches: brown, grey, pale skin, mint | the prisoner and guard body; the shirt is coloured per team in the match |
+| prisoner2_albedo | 128 px sheet (4x of the old 32), four flat swatches: brown, grey, pale skin, mint | the prisoner and guard body; the shirt is coloured per team in the match |
 
 ### Weapons: `weapons/textures/` (`rifle.ase`)
 
