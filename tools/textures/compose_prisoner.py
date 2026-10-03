@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Composes prisoner2_albedo.png from Ryan's 4-swatch prisoner.ase: each UV island of prisoner2.glb gets its
-swatch tiled 1:1 (nearest, +3 px margin). His pixels are copied verbatim; island masks come from the glb's UVs."""
+swatch (a quarter of the sheet, any sheet size) tiled 1:1 (nearest, +3 px margin). His pixels are copied verbatim; island masks come from the glb's UVs."""
 import json, os, struct, subprocess
 import numpy as np
 from PIL import Image
@@ -108,7 +108,8 @@ def main():
     out = np.zeros_like(sheet)
     ys, xs = np.nonzero(owner >= 0)
     for y, x in zip(ys, xs):
-        sx, sy, sw, sh = swatch[owner[y, x]]
+        fx, fy, fw, fh = swatch[owner[y, x]]
+        sx, sy, sw, sh = round(fx * size), round(fy * size), round(fw * size), round(fh * size)
         out[y, x] = sheet[sy + y % sh, sx + x % sw]
     Image.fromarray(out).save(ALBEDO)
     print("composed %d islands -> %s" % (len(swatch), os.path.relpath(ALBEDO, ROOT)))
