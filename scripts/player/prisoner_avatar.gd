@@ -503,7 +503,7 @@ func _ready() -> void:
 		return
 
 	mesh.layers = visual_layers
-	_self_light_skin()
+	_unlight_skin()
 	if body_material != null:
 		mesh.material_override = body_material
 
@@ -1253,21 +1253,12 @@ func _build_crouch_animation() -> void:
 	library.add_animation(crouch_clip, crouch_anim)
 
 
-## Skin and trousers glow faintly with their own texture so the arena's red
-## light does not turn the whole body red.
-func _self_light_skin() -> void:
-	if mesh == null or mesh.mesh == null:
+## Skin and trousers draw unlit, at their painted colour, in every map. Set on the
+## shared authored material, so a match's surface overrides and ghost fades keep it.
+func _unlight_skin() -> void:
+	if mesh.mesh == null:
 		return
 	for index: int in mesh.mesh.get_surface_count():
 		var authored: BaseMaterial3D = mesh.mesh.surface_get_material(index) as BaseMaterial3D
-		if authored == null or authored.resource_name.begins_with("Shirt"):
-			continue
-		if mesh.get_surface_override_material(index) != null:
-			continue
-		var lit: BaseMaterial3D = authored.duplicate() as BaseMaterial3D
-		lit.emission_enabled = true
-		lit.emission_texture = lit.albedo_texture
-		lit.emission_operator = BaseMaterial3D.EMISSION_OP_MULTIPLY
-		lit.emission = Color.WHITE
-		lit.emission_energy_multiplier = 1.1
-		mesh.set_surface_override_material(index, lit)
+		if authored != null and not authored.resource_name.begins_with("Shirt"):
+			authored.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
