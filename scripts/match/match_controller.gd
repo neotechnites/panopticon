@@ -549,6 +549,9 @@ var _default_palette: RunnerPalette = null
 ## _tinted_material]: every body wearing the same model and the same colour
 ## shares one tint, so a seat change repaints rather than allocates.
 var _tint_cache: Dictionary[String, Material] = {}
+## How the standing arena's suns light the bodies; rebuilt when the arena changes.
+var _character_light: CharacterLight = null
+var _character_light_arena: int = 0
 
 # Arena geometry, cached at match start. The arena does not move.
 var _centre: Vector3 = Vector3.ZERO
@@ -2514,7 +2517,7 @@ func _tint_body(participant: MatchParticipant, material: Material) -> void:
 	# authored one (characters/bots/ring_runner.tscn used to paint a flat orange) is
 	# exactly the one-colour prisoner this replaces.
 	mesh.material_override = null
-	mesh.set_surface_override_material(shirt, material)
+	mesh.set_surface_override_material(shirt, _lit(material))
 	_fade_body(mesh, shirt, _alpha_of(material))
 
 
@@ -2524,12 +2527,21 @@ func _fade_body(mesh: MeshInstance3D, shirt: int, alpha: float) -> void:
 	for index: int in mesh.mesh.get_surface_count():
 		if index == shirt:
 			continue
+		var authored: BaseMaterial3D = _authored_material_of(mesh, index)
 		if alpha >= 1.0:
-			mesh.set_surface_override_material(index, null)
+			var lit: Material = _lit(authored)
+			mesh.set_surface_override_material(index, null if lit == authored else lit)
 		else:
-			mesh.set_surface_override_material(
-				index, _faded_material(_authored_material_of(mesh, index), alpha)
-			)
+			mesh.set_surface_override_material(index, _lit(_faded_material(authored, alpha)))
+
+
+## [param material] as the standing arena's suns light it; itself on a map that does not.
+func _lit(material: Material) -> Material:
+	var arena_id: int = 0 if arena == null else arena.get_instance_id()
+	if _character_light == null or _character_light_arena != arena_id:
+		_character_light = CharacterLight.for_arena(arena)
+		_character_light_arena = arena_id
+	return _character_light.apply(material)
 
 
 ## [param material]'s alpha, or fully opaque for anything that has no albedo.
