@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Composes prisoner2_albedo.png from Ryan's 4-swatch prisoner.ase: each face of prisoner2.glb gets the swatch (shoes quarter is skin: no shoes) it had
-on the old model (prisoner_faces.json), tiled 1:1 across its current UVs (nearest, +3 px margin)."""
+"""Composes prisoner2_albedo.png from Ryan's 4-swatch prisoner.ase: each face of prisoner2.glb gets the swatch it had on the old model
+(prisoner_faces.json; old shoes quarter is skin, its eyes/mouth/soles dark skin), tiled 1:1 across its UVs (+3 px margin)."""
 import json, os, struct, subprocess
 import numpy as np
 from PIL import Image
@@ -14,7 +14,8 @@ ALBEDO = os.path.join(ROOT, "characters/textures/prisoner2_albedo.png")  # what 
 GLB = os.path.join(ROOT, "characters/models/prisoner2.glb")
 TABLE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "prisoner_faces.json")
 OLD = "870c757:characters/models/prisoner2.glb"   # Ryan's old model: its UV quarters are the authoritative materials
-SWATCHES = {"trousers": [0, 0, 0.5, 0.5], "skin": [0, 0.5, 0.5, 0.5], "shirt": [0.5, 0.5, 0.5, 0.5]}
+SWATCHES = {"trousers": [0, 0, 0.5, 0.5], "skin": [0, 0.5, 0.5, 0.5], "shirt": [0.5, 0.5, 0.5, 0.5],
+            "dark_skin": [0.5, 0, 0.5, 0.5]}
 MARGIN = 3
 TYPES = {5121: np.uint8, 5123: np.uint16, 5125: np.uint32, 5126: np.float32}
 WIDTH = {"SCALAR": 1, "VEC2": 2, "VEC3": 3}
@@ -49,14 +50,25 @@ def key(pos):
     return ",".join("%.4f" % v for vert in sorted(map(tuple, np.round(pos, 4) + 0.0)) for v in vert)
 
 
+def shoes(p):
+    """Old shoes face: dark skin if an eye, the mouth below the nose, or a sole; else skin."""
+    (x, y, z), n = p.mean(0), np.cross(p[1] - p[0], p[2] - p[0])
+    n = n / (np.linalg.norm(n) + 1e-12)
+    eye = 1.60 < y < 1.64 and z > 0.2 and n[2] > 0.5
+    mouth = 1.43 < y < 1.50 and z > 0.19 and abs(x) < 0.05 and n[2] > 0.5
+    sole = y < 0.01 and n[1] < -0.9
+    return "dark_skin" if eye or mouth or sole else "skin"
+
+
 def build_table():
     """Per-face swatch from the old model (870c757): the quarter its old UVs sat in is its material."""
     old = subprocess.run(["git", "-C", ROOT, "show", OLD], capture_output=True, check=True).stdout
     tmp = os.path.join(ROOT, ".godot", "prisoner_old.glb")
     os.makedirs(os.path.dirname(tmp), exist_ok=True)
     open(tmp, "wb").write(old)
-    quarter = {(0, 0): "trousers", (1, 0): "skin", (0, 1): "skin", (1, 1): "shirt"}
-    faces = {key(p): quarter[tuple(int(c >= 0.5) for c in uv.mean(0))] for p, uv in triangles(tmp)}
+    quarter = {(0, 0): "trousers", (1, 0): "shoes", (0, 1): "skin", (1, 1): "shirt"}
+    faces = {key(p): shoes(p) if q == "shoes" else q
+             for p, uv in triangles(tmp) for q in [quarter[tuple(int(c >= 0.5) for c in uv.mean(0))]]}
     os.remove(tmp)
     table = {"_note": "Face (sorted vertex positions) -> swatch, read from the old UVs at " + OLD + ".",
              "swatches": SWATCHES, "faces": faces}
