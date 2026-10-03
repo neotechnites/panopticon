@@ -32,15 +32,21 @@ The forest and the prisoner each have an alternate sheet built from Ryan's photo
 `prisoner_photo.ase`; same slices as the live sheet). The tool only crops, scales, tones and quantises a photo.
 
 1. Drop photos in `~/Desktop/panopticon-renders/textures/photos/<forest|prisoner>/`, named after the slice
-   (forest: `bark grass path sun portal_swirl rock lamp_emissive`; prisoner: `prisoner2`), e.g. `grass.jpg`.
+   (forest: `bark grass path sun portal_swirl rock lamp_emissive`, also `leaf` = sun, `dirt` = path;
+   prisoner: `prisoner2` or `body`, the whole body sheet), e.g. `grass.jpg`.
 2. `python3 tools/textures/photo_to_texture.py batch forest` rebuilds `forest_photo.ase`: slices without a
    photo are copied from the hand-drawn sheet. 8x previews land in `photos/<home>/preview/`.
 3. `tools/textures/use_sheet.sh forest photo` makes the photo sheet live (the hand sheet is kept as
    `forest_hand.ase`) and exports; `use_sheet.sh forest hand` swaps back. Lossless both ways.
+4. Commit the sheets and PNGs, then `bash tools/pc_sync.sh`.
+
+Example: `leaf.jpg dirt.jpg bark.jpg grass.jpg` in `photos/forest/` → `batch forest` → check
+`photos/forest/preview/*_8x.png` → `use_sheet.sh forest photo` → commit → `pc_sync.sh`.
 
 One photo: `photo_to_texture.py one <photo> --home forest` (`--size 32|64|128|256`, `--crop x y w h`,
 `--tile blend|mirror|off`, `--palette <.pal|.png|.ase>` or `--colors N`, `--dither`, `--levels`, `--contrast`
-(default 0.7), `--gamma`, `--rotate`). Defaults: 64 px, forest tiled, each locked to `tools/textures/palettes/<home>.pal`
+(default 0.7), `--gamma`, `--rotate`). Defaults: forest 128 px tiled, prisoner 64 px; a texture smaller than its
+slice is placed nearest-upscaled (chunkier, same UVs and density), each locked to `tools/textures/palettes/<home>.pal`
 (`photo_to_texture.py palette <home>` rewrites it from the live sheet). Runs on the Mac (the PC has no Python).
 
 ## The textures

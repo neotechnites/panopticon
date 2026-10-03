@@ -11,8 +11,10 @@ ASEPRITE = os.path.expanduser(
     "~/Library/Application Support/Steam/steamapps/common/Aseprite/Aseprite.app/Contents/MacOS/aseprite")
 PHOTO_EXT = (".jpg", ".jpeg", ".png", ".heic", ".heif", ".tif", ".tiff", ".webp")
 HOMES = {   # live sheet (repo-relative), per-home defaults
-    "forest": {"sheet": "maps/forest/textures/forest.ase", "size": 64, "tile": "blend"},
-    "prisoner": {"sheet": "characters/textures/prisoner.ase", "size": 64, "tile": None},
+    "forest": {"sheet": "maps/forest/textures/forest.ase", "size": 128, "tile": "blend",
+               "alias": {"leaf": "forest_sun_albedo", "leaves": "forest_sun_albedo", "dirt": "forest_path_albedo"}},
+    "prisoner": {"sheet": "characters/textures/prisoner.ase", "size": 64, "tile": None,
+                 "alias": {"body": "prisoner2_albedo", "prisoner": "prisoner2_albedo"}},
 }
 BAYER4 = [[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]]
 
@@ -176,20 +178,25 @@ def batch(a):
     by_stem = {}
     for sl in bounds:
         by_stem[sl], by_stem[short_name(home, sl)] = sl, sl
+    for stem_, sl in cfg["alias"].items():
+        if sl in bounds:
+            by_stem.setdefault(stem_, sl)
     pairs, unmatched, tmp = [], [], tempfile.mkdtemp()
     for f in sorted(os.listdir(folder)):
         if not f.lower().endswith(PHOTO_EXT):
             continue
-        sl = by_stem.get(os.path.splitext(f)[0].lower())
+        key = os.path.splitext(f)[0].lower()
+        hits = [s for s in bounds if key in s]
+        sl = by_stem.get(key) or (hits[0] if len(hits) == 1 else None)   # else unique slice containing it
         if not sl:
             unmatched.append(f)
             continue
-        im = convert(os.path.join(folder, f), a)
         w, h = bounds[sl][2:]
+        im = convert(os.path.join(folder, f), argparse.Namespace(**dict(vars(a), size=min(a.size, w, h))))
         write(im, os.path.join(folder, "out", sl + ".png"), os.path.join(folder, "preview"))
         if w % im.width or h % im.height:
             print("note: %s is %dx%d, not a multiple of %d; scaled nearest anyway" % (sl, w, h, im.width))
-        big = im.resize((w, h), Image.NEAREST)
+        big = im.resize((w, h), Image.NEAREST)   # smaller than the slice: chunkier pixels, same UVs and density
         path = os.path.join(tmp, sl + ".png")
         big.save(path)
         pairs.append("%s=%s" % (sl, path))
@@ -203,7 +210,8 @@ def batch(a):
     print("%d photo(s) placed into %s" % (len(pairs), os.path.relpath(alt, ROOT)))
     if unmatched:
         print("UNMATCHED (rename to a slice name): " + ", ".join(unmatched))
-        print("slice names: " + ", ".join(short_name(home, s) for s in bounds))
+        print("slice names: " + ", ".join(short_name(home, s) for s in bounds) +
+              " (also: " + ", ".join(sorted(cfg["alias"])) + ")")
 
 
 def write_palette(home):
