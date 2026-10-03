@@ -46,7 +46,7 @@ fog_height_density = 0.1
 
 [sub_resource type="ShaderMaterial" id="RaySoftMat"]
 shader = ExtResource("20_ray_shader")
-shader_parameter/tint = Color(1, 0.85, 0.6, 1)
+shader_parameter/tint = Color(1, 0.76, 0.2, 1)
 shader_parameter/alpha_gain = 4.0
 
 [sub_resource type="StandardMaterial3D" id="RaySolidMat"]
