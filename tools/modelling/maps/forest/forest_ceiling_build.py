@@ -102,7 +102,14 @@ SUN_GAP = (0.12, 0.25)      # (tree weight under, lump over) which an open quad 
 # the sun's own line (bearings 60, 71 and 168) and high in band 1, where that 11 m
 # still lands on the lane; the other two keep the sun's line and fall into the pit.
 SHAFTS = [(60.0, 56.7, 2.4, 11), (71.0, 56.7, 2.8, 23), (104.0, 54.45, 2.0, 37),
-          (140.0, 54.45, 2.6, 53), (168.0, 56.7, 1.8, 71)]
+          (140.0, 54.45, 2.6, 53), (168.0, 56.7, 1.8, 71),
+          # Ryan: "add more light streaks ... all over." Nine more round the whole ring, each a
+          # steep shaft (5th: its own sun bearing, elevation) so it lands on the lane under it.
+          (12.0, 52.0, 2.2, 83, (140.0, 82.0)), (36.0, 55.0, 1.9, 89, (200.0, 79.0)),
+          (122.0, 51.0, 2.4, 97, (330.0, 83.0)), (190.0, 53.5, 2.5, 101, (20.0, 80.0)),
+          (214.0, 50.5, 2.0, 107, (250.0, 84.0)), (238.0, 55.5, 2.7, 113, (60.0, 78.0)),
+          (262.0, 52.0, 1.8, 127, (310.0, 82.0)), (286.0, 54.0, 2.4, 131, (90.0, 80.0)),
+          (310.0, 51.0, 2.2, 137, (180.0, 83.0)), (334.0, 55.0, 2.6, 139, (270.0, 79.0))]
 SHAFT_BANDS = (COVE_RINGS - 1, len(GALLERY_R) - 2)   # the wells live in the roof's bands, never the cove's steep ones nor the drum's
 SHAFT_RAG = (0.45, 0.35)    # every vertex round a well's mouth is pulled this far in y and in
                             # plan: torn leaf, not a staircase of quads
@@ -304,7 +311,7 @@ def _shaft_cells(g):
     out = []
     lo, hi = SHAFT_BANDS
     nc = len(g.gal[lo])
-    for (b, anchor_r, radius, seed) in SHAFTS:
+    for (b, anchor_r, radius, seed, *axis) in SHAFTS:
         r = ft._Rng(SEED + seed)
         ph = (r.f() * TWO_PI, r.f() * TWO_PI, r.f() * TWO_PI)
         c = pol(b, anchor_r, 0.0)
@@ -325,7 +332,7 @@ def _shaft_cells(g):
             cells = [(i, k)]
             pts = [g.m.centroid(gal_quad_ids(g, k, i))]
         cells, pts = _one_blob(cells, pts, nc)        # no stray speck off to the side
-        out.append({"b": b, "radius": radius, "cells": cells, "pts": pts,
+        out.append({"b": b, "radius": radius, "cells": cells, "pts": pts, "sun": axis[0] if axis else None,
                     "centre": tuple(sum(p[j] for p in pts) / float(len(pts)) for j in range(3))})
     return out
 
@@ -413,7 +420,7 @@ def gallery_faces(g):
     m.roof_faces = set(range(first, len(m.faces)))
     for sh in g.shafts:
         half = min(SHAFT_HALF[2], max(SHAFT_HALF[1], SHAFT_HALF[0] * sh["radius"]))
-        g.rays.append((sh["pts"], half))
+        g.rays.append((sh["pts"], half, sh["sun"]))
     roll = [math.hypot(m.verts[v][0], m.verts[v][1]) for row in g.eave for v in row]
     print("MDL STATS roof gallery_y=%.1f r=%.1f..%.1f rings=%d roll_r=%.2f..%.2f roll_depth=%.2f shafts=%d well_cells=%d"
           % (GALLERY_Z, GALLERY_R[-1], GALLERY_R[0], len(g.gal), min(roll), max(roll),

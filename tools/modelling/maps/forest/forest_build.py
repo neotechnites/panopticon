@@ -1011,11 +1011,11 @@ class _Ground(object):
         thing it meets, the lane, the lip, the tree, the bank or the pit floor,
         plus RAY_OVER into it."""
         out = []
-        sb, se = SUN
-        S = (math.cos(math.radians(se)) * math.cos(math.radians(-sb)),
-             math.cos(math.radians(se)) * math.sin(math.radians(-sb)),
-             math.sin(math.radians(se)))
-        for (pts, half_w) in self.rays:
+        for (pts, half_w, sun) in self.rays:
+            sb, se = sun or SUN
+            S = (math.cos(math.radians(se)) * math.cos(math.radians(-sb)),
+                 math.cos(math.radians(se)) * math.sin(math.radians(-sb)),
+                 math.sin(math.radians(se)))
             c = tuple(sum(p[k] for p in pts) / float(len(pts)) for k in range(3))
             lo, hi, step = 0.0, None, 0.5
             t = 0.0
