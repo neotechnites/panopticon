@@ -9,6 +9,8 @@ uniform float wall_radius = 0.0;
 uniform float gap = 0.39;
 uniform float cell = 1.0;
 uniform float soft = 0.14;
+uniform float sway = 0.12;        // metres the holes drift back and forth, as leaves in a light wind
+uniform float sway_speed = 1.0;   // radians per second: about a 6 s swing
 
 varying vec3 world;
 
@@ -30,7 +32,8 @@ float vnoise(vec2 p) {
 void fragment() {
 	// Noise across the sun's rays (shadow camera rotation), so stacked leaf layers share one set of holes.
 	vec2 q = (mat3(VIEW_MATRIX) * world).xy;
-	float n = 0.65 * vnoise(q / cell) + 0.35 * vnoise(q / (cell * 0.45) + 17.0);
+	vec2 s = q + sway * vec2(sin(TIME * sway_speed), 0.6 * sin(TIME * sway_speed * 0.73 + 1.3));
+	float n = 0.65 * vnoise(s / cell) + 0.35 * vnoise(s / (cell * 0.45) + 17.0);
 	float r = length(world.xz);
 	float wall = step(wall_radius, r) * (1.0 - step(solid_below_y, world.y));
 	float open = step(roof_radius, r) * (1.0 - wall);
