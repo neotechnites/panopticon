@@ -11,6 +11,8 @@ const LAVA_WAVE_SHADER := "res://maps/bentham_ring/materials/lava_wave.gdshader"
 ## Every finish portal's swirl gets the one rippling see-through shader: its glTF alpha is kept, its glow unboosted.
 const PORTAL_WAVE_SHADER := "res://maps/bentham_ring/materials/portal_wave.gdshader"
 const SEE_THROUGH_WAVE := {&"PortalGlow": PORTAL_WAVE_SHADER, &"ForestPortalSwirl": PORTAL_WAVE_SHADER, &"MarbleGlow": PORTAL_WAVE_SHADER}
+## Swirl glow scale per see-through material; unlisted ones keep their glTF energy.
+const SWIRL_GLOW := {&"ForestPortalSwirl": 0.5}
 ## No torches on the ring any more: the lava itself carries that light, boosted here.
 const LAVA_EMISSION_BOOST := 1.4
 ## Marble's stone is fully matte: no sheen, whatever roughness the .glb carries.
@@ -139,7 +141,7 @@ func _wave_material(material: Material) -> Material:
 	wave.set_shader_parameter(&"albedo_color", base.albedo_color)
 	wave.set_shader_parameter(&"emission_texture", base.emission_texture)
 	wave.set_shader_parameter(&"emission_color", base.emission if base.emission_enabled else Color.BLACK)
-	wave.set_shader_parameter(&"emission_energy", base.emission_energy_multiplier * (1.0 if SEE_THROUGH_WAVE.has(mat_name) else LAVA_EMISSION_BOOST))
+	wave.set_shader_parameter(&"emission_energy", base.emission_energy_multiplier * (SWIRL_GLOW.get(mat_name, 1.0) if SEE_THROUGH_WAVE.has(mat_name) else LAVA_EMISSION_BOOST))
 	wave.set_shader_parameter(&"roughness", base.roughness)
 	wave.set_shader_parameter(&"metallic", base.metallic)
 	wave.set_shader_parameter(&"uv1_scale", base.uv1_scale)

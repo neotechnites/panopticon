@@ -1,4 +1,4 @@
-[gd_scene load_steps=26 format=3]
+[gd_scene load_steps=27 format=3]
 
 [ext_resource type="Script" path="res://scripts/match/kill_volume.gd" id="1_kill_volume"]
 [ext_resource type="Script" path="res://scripts/ring/ring_route.gd" id="2_ring_route"]
@@ -13,6 +13,7 @@
 [ext_resource type="PackedScene" path="res://maps/forest/models/forest_rock_boulder.glb" id="15_boulder"]
 [ext_resource type="PackedScene" path="res://maps/forest/models/forest_rock_outcrop.glb" id="17_outcrop"]
 [ext_resource type="Shader" path="res://maps/forest/materials/forest_mist.gdshader" id="18_mist_shader"]
+[ext_resource type="Shader" path="res://maps/forest/materials/forest_ray.gdshader" id="20_ray_shader"]
 [ext_resource type="Texture2D" path="res://maps/forest/textures/forest_mist_albedo.png" id="19_mist_noise"]
 [ext_resource type="Shader" path="res://maps/forest/materials/forest_crown_shadow.gdshader" id="20_crown_shadow"]
 
@@ -43,13 +44,10 @@ fog_sky_affect = 0.4
 fog_height = -5.75
 fog_height_density = 0.1
 
-[sub_resource type="StandardMaterial3D" id="RaySoftMat"]
-transparency = 1
-blend_mode = 1
-cull_mode = 2
-shading_mode = 0
-vertex_color_use_as_albedo = true
-albedo_color = Color(0.35, 0.35, 0.35, 1)
+[sub_resource type="ShaderMaterial" id="RaySoftMat"]
+shader = ExtResource("20_ray_shader")
+shader_parameter/tint = Color(1, 0.85, 0.6, 1)
+shader_parameter/alpha_gain = 4.0
 
 [sub_resource type="StandardMaterial3D" id="RaySolidMat"]
 transparency = 1
@@ -90,7 +88,7 @@ environment = SubResource("Env")
 editor_description = "One of two equal suns 75 deg up, 180 deg apart: every wall faces one and turns from the other, so no half of the ring is lit; steep, so walls only graze."
 transform = Transform3D(0.866025, -0.482963, 0.12941, 0, 0.258819, 0.965926, -0.5, -0.836516, 0.224144, 0, 30, 0)
 light_color = Color(1, 0.85, 0.6, 1)
-light_energy = 0.35
+light_energy = 0.175
 shadow_enabled = true
 shadow_blur = 3.0
 shadow_bias = 0.06
@@ -101,7 +99,7 @@ directional_shadow_max_distance = 200.0
 editor_description = "Sun's twin from the opposite yaw; same energy, same casters."
 transform = Transform3D(-0.866025, 0.482963, -0.12941, 0, 0.258819, 0.965926, 0.5, 0.836516, -0.224144, 0, 30, 0)
 light_color = Color(1, 0.85, 0.6, 1)
-light_energy = 0.35
+light_energy = 0.175
 shadow_enabled = true
 shadow_blur = 3.0
 shadow_bias = 0.06
