@@ -333,48 +333,43 @@ editor_description = "The 15 sun streaks (maps/forest/props/forest_ray.tscn): mo
 
 [node name="Streak01" parent="LightStreaks" unique_id=897930284 instance=ExtResource("21_ray")]
 transform = Transform3D(-0.881434, 17.0445, -0.416863, 0, 48.6841, 0.583781, 0.508896, 29.5219, -0.722028, 30.6491, 37.1427, 40.9934)
-instance_shader_parameters/brightness = 0.864138
 
 [node name="Streak05" parent="LightStreaks" unique_id=564316919 instance=ExtResource("21_ray")]
 transform = Transform3D(-0.78836894, 14.445912, -0.3728489, 0, 41.261784, 0.52214384, 0.455165, 25.02104, -0.6457938, 45.205296, 39.47315, 24.083544)
-instance_shader_parameters/brightness = 1.0499
 
 [node name="Streak06" parent="LightStreaks" unique_id=1129375312 instance=ExtResource("21_ray")]
 transform = Transform3D(-0.856197, 18.1412, -0.404928, 0, 51.8167, 0.567067, 0.494326, 31.4215, -0.701356, 16.6101, 40.2752, -0.219524)
-instance_shader_parameters/brightness = 0.875774
 
 [node name="Streak07" parent="LightStreaks" unique_id=521857887 instance=ExtResource("21_ray")]
 transform = Transform3D(-0.988791, 15.4766, -0.467637, 0, 44.2056, 0.654886, 0.570879, 26.8062, -0.809971, -16.356424, 43.5275, -9.9064665)
-instance_shader_parameters/brightness = 1.11022
 
 [node name="Streak08" parent="LightStreaks" unique_id=727901147 instance=ExtResource("21_ray")]
 transform = Transform3D(-1.01021, 11.0219, -0.477768, 0, 31.4818, 0.669074, 0.583247, 19.0905, -0.827519, 7.5779285, 50.079315, -25.24916)
-instance_shader_parameters/brightness = 1.08575
 
 [node name="Streak09" parent="LightStreaks" unique_id=1155382250 instance=ExtResource("21_ray")]
 transform = Transform3D(-0.893978, 23.0249, -0.422796, 0, 65.766, 0.59209, 0.516139, 39.8803, -0.732304, 2.45078, 54.2245, 41.4793)
-instance_shader_parameters/brightness = 1.0739
 
 [node name="Streak10" parent="LightStreaks" unique_id=1419682066 instance=ExtResource("21_ray")]
 transform = Transform3D(-0.924691, 10.5452, -0.437321, 0, 30.1203, 0.612431, 0.533871, 18.2649, -0.757463, -6.982409, 48.27325, -20.273884)
-instance_shader_parameters/brightness = 0.955319
 
 [node name="Streak11" parent="LightStreaks" unique_id=29429347 instance=ExtResource("21_ray")]
 transform = Transform3D(-0.781921, 22.9619, -0.3698, 0, 65.586, 0.517874, 0.451443, 39.7712, -0.640513, 39.566, 54.0445, 4.09075)
-instance_shader_parameters/brightness = 0.887512
 
 [node name="Streak12" parent="LightStreaks" unique_id=333177263 instance=ExtResource("21_ray")]
 transform = Transform3D(-0.95418, 21.172, -0.451268, 0, 60.4736, 0.631962, 0.550896, 36.671, -0.781619, -12.4504, 48.9321, 24.5801)
-instance_shader_parameters/brightness = 0.931543
 
 [node name="Streak13" parent="LightStreaks" unique_id=512072457 instance=ExtResource("21_ray")]
 transform = Transform3D(-0.85192, 8.51075, -0.402905, 0, 24.3092, 0.564234, 0.491856, 14.7411, -0.697852, 10.9302, 46.1729, 21.1605)
-instance_shader_parameters/brightness = 1.03322
 
 [node name="Streak14" parent="LightStreaks" unique_id=1108288562 instance=ExtResource("21_ray")]
 transform = Transform3D(-0.931656, 10.915, -0.440615, 0, 31.1764, 0.617044, 0.537892, 18.9053, -0.763168, -30.778137, 53.4855, 9.831542)
-instance_shader_parameters/brightness = 1.01436
 
 [node name="Streak15" parent="LightStreaks" unique_id=1444729733 instance=ExtResource("21_ray")]
 transform = Transform3D(-1.02322, 15.8555, -0.483919, 0, 45.288, 0.677687, 0.590756, 27.4626, -0.838172, 26.2501, 50.5913, -14.7151)
-instance_shader_parameters/brightness = 0.979215
+
+[editable path="ForestMap"]
+[editable path="MapShadow"]
+[editable path="Sections/Canopy"]
+[editable path="Sections/CanopyShadow"]
+[editable path="Tower/Tree"]
+[editable path="Tower/TreeShadow"]
