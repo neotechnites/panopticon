@@ -1,0 +1,20 @@
+{
+  "_note": "Island -> swatch of Ryan's 4-swatch prisoner.ase, voted per face against the old UVs at 870c757. Islands match by 3D centroid.",
+  "swatches": {"trousers": [0, 0, 64, 64], "shoes": [64, 0, 64, 64], "skin": [0, 64, 64, 64], "shirt": [64, 64, 64, 64]},
+  "islands": [
+    {"name": "head front", "centroid": [0.0, 1.57, 0.19], "swatch": "skin"},
+    {"name": "head back", "centroid": [0.0, 1.56, 0.0], "swatch": "shoes"},
+    {"name": "torso front", "centroid": [0.0, 1.16, 0.11], "swatch": "shirt"},
+    {"name": "torso back", "centroid": [0.0, 1.17, 0.0], "swatch": "shirt"},
+    {"name": "arm L", "centroid": [0.15, 0.95, 0.08], "swatch": "skin"},
+    {"name": "arm R", "centroid": [-0.15, 0.95, 0.08], "swatch": "skin"},
+    {"name": "leg L", "centroid": [0.1, 0.47, 0.0], "swatch": "trousers"},
+    {"name": "leg R", "centroid": [-0.11, 0.46, 0.0], "swatch": "trousers"},
+    {"name": "foot L", "centroid": [0.12, 0.02, 0.06], "swatch": "shoes"},
+    {"name": "foot R", "centroid": [-0.12, 0.02, 0.06], "swatch": "shoes"},
+    {"name": "hand back L", "centroid": [0.21, 0.57, 0.07], "swatch": "skin"},
+    {"name": "hand back R", "centroid": [-0.21, 0.57, 0.07], "swatch": "skin"},
+    {"name": "palm L", "centroid": [0.17, 0.58, 0.07], "swatch": "skin"},
+    {"name": "palm R", "centroid": [-0.17, 0.58, 0.07], "swatch": "skin"}
+  ]
+}

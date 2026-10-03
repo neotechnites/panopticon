@@ -93,6 +93,10 @@ The hub's three wedges wear the hell, marble and forest textures from those maps
 
 ### Characters: `characters/textures/` (`prisoner.ase`)
 
+Paint the four 64 px regions of `prisoner.ase`: trousers (top left), shoes (top right), skin (bottom left), shirt (bottom right).
+Export (`tools/textures/export_sheets.sh`) composes them onto the body: `compose_prisoner.py` tiles each region 1:1
+across its UV islands (`prisoner_islands.json`) into `prisoner2_albedo.png`; the raw sheet is `prisoner_sheet.png`.
+
 | Texture | Looks like | Worn by |
 |---|---|---|
 | prisoner2_albedo | 128 px sheet (4x of the old 32), four flat swatches: brown, grey, pale skin, mint | the prisoner and guard body; the shirt is coloured per team in the match |

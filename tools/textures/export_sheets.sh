@@ -7,3 +7,4 @@ for s in $(git ls-files '*/textures/*.ase'; git ls-files --others --exclude-stan
   case "$s" in *_photo.ase|*_hand.ase) continue;; esac   # alternate sheets: tools/textures/use_sheet.sh
   "$A" -b "$s" --split-slices --save-as "$(dirname "$s")/{slice}.png" >/dev/null
 done
+python3 tools/textures/compose_prisoner.py >/dev/null   # his 4-swatch sheet -> the body's UV islands
