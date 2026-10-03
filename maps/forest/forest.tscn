@@ -1,4 +1,4 @@
-[gd_scene format=3 uid="uid://1dnpri7uksqx"]
+[gd_scene format=3 uid="uid://bt3lsgilscbpt"]
 
 [ext_resource type="Script" uid="uid://bafv02t70cxx3" path="res://scripts/match/kill_volume.gd" id="1_kill_volume"]
 [ext_resource type="Script" uid="uid://c567e7nxnq0i" path="res://scripts/ring/ring_route.gd" id="2_ring_route"]
@@ -12,30 +12,10 @@
 [ext_resource type="PackedScene" uid="uid://di40e002w10ft" path="res://maps/forest/models/forest_bush_tall.glb" id="14_bush_tall"]
 [ext_resource type="PackedScene" uid="uid://o7t8nmaosa7q" path="res://maps/forest/models/forest_rock_boulder.glb" id="15_boulder"]
 [ext_resource type="PackedScene" uid="uid://cjxn6pe4m3t15" path="res://maps/forest/models/forest_rock_outcrop.glb" id="17_outcrop"]
-[ext_resource type="PackedScene" path="res://maps/forest/props/forest_ray.tscn" id="21_ray"]
 [ext_resource type="Shader" uid="uid://cc4r6v1r6an5c" path="res://maps/forest/materials/forest_mist.gdshader" id="18_mist_shader"]
 [ext_resource type="Texture2D" uid="uid://l1ad41n7wtqk" path="res://maps/forest/textures/forest_mist_albedo.png" id="19_mist_noise"]
 [ext_resource type="Shader" uid="uid://bl23a3g5yy33q" path="res://maps/forest/materials/forest_crown_shadow.gdshader" id="20_crown_shadow"]
-
-[sub_resource type="ShaderMaterial" id="FogMat"]
-shader = ExtResource("18_mist_shader")
-shader_parameter/mist_noise = ExtResource("19_mist_noise")
-
-[sub_resource type="ShaderMaterial" id="CrownShadowMat"]
-shader = ExtResource("20_crown_shadow")
-shader_parameter/gap = 0.33
-
-[sub_resource type="ShaderMaterial" id="RingLeafShadowMat"]
-shader = ExtResource("20_crown_shadow")
-shader_parameter/solid_below_y = 34.25
-shader_parameter/wall_radius = 56.5
-
-[sub_resource type="ShaderMaterial" id="BossLeafShadowMat"]
-shader = ExtResource("20_crown_shadow")
-
-[sub_resource type="ShaderMaterial" id="SolidShadowMat"]
-shader = ExtResource("20_crown_shadow")
-shader_parameter/gap = 0.0
+[ext_resource type="PackedScene" path="res://maps/forest/props/forest_ray.tscn" id="21_ray"]
 
 [sub_resource type="ProceduralSkyMaterial" id="SkyMat"]
 sky_top_color = Color(0.47, 0.393, 0.262, 1)
@@ -63,6 +43,71 @@ fog_density = 0.006
 fog_sky_affect = 0.4
 fog_height = -5.75
 fog_height_density = 0.1
+
+[sub_resource type="ShaderMaterial" id="FogMat"]
+render_priority = 0
+shader = ExtResource("18_mist_shader")
+shader_parameter/mist_noise = ExtResource("19_mist_noise")
+shader_parameter/tint_low = Color(0.17, 0.165, 0.15, 1)
+shader_parameter/tint_high = Color(0.26, 0.245, 0.2, 1)
+shader_parameter/hue = Color(1, 0.88, 0.58, 1)
+shader_parameter/stack = Vector3(-11.6, -5.75, 0.45)
+shader_parameter/cloud_metres = 12.0
+shader_parameter/fine_metres = 4.5
+shader_parameter/drift_speed = Vector2(0.12, 0.32)
+shader_parameter/noise_floor = 0.6
+shader_parameter/shade = 0.35
+shader_parameter/soft_metres = 1.0
+shader_parameter/shadow_metres = 6.0
+shader_parameter/shadow = 0.65
+
+[sub_resource type="ShaderMaterial" id="SolidShadowMat"]
+render_priority = 0
+shader = ExtResource("20_crown_shadow")
+shader_parameter/roof_radius = 8.7
+shader_parameter/solid_below_y = -1000.0
+shader_parameter/wall_radius = 0.0
+shader_parameter/gap = 0.0
+shader_parameter/cell = 1.0
+shader_parameter/soft = 0.14
+shader_parameter/sway = 0.12
+shader_parameter/sway_speed = 1.0
+
+[sub_resource type="ShaderMaterial" id="RingLeafShadowMat"]
+render_priority = 0
+shader = ExtResource("20_crown_shadow")
+shader_parameter/roof_radius = 8.7
+shader_parameter/solid_below_y = 34.25
+shader_parameter/wall_radius = 56.5
+shader_parameter/gap = 0.39
+shader_parameter/cell = 1.0
+shader_parameter/soft = 0.14
+shader_parameter/sway = 0.12
+shader_parameter/sway_speed = 1.0
+
+[sub_resource type="ShaderMaterial" id="BossLeafShadowMat"]
+render_priority = 0
+shader = ExtResource("20_crown_shadow")
+shader_parameter/roof_radius = 8.7
+shader_parameter/solid_below_y = -1000.0
+shader_parameter/wall_radius = 0.0
+shader_parameter/gap = 0.39
+shader_parameter/cell = 1.0
+shader_parameter/soft = 0.14
+shader_parameter/sway = 0.12
+shader_parameter/sway_speed = 1.0
+
+[sub_resource type="ShaderMaterial" id="CrownShadowMat"]
+render_priority = 0
+shader = ExtResource("20_crown_shadow")
+shader_parameter/roof_radius = 8.7
+shader_parameter/solid_below_y = -1000.0
+shader_parameter/wall_radius = 0.0
+shader_parameter/gap = 0.33
+shader_parameter/cell = 1.0
+shader_parameter/soft = 0.14
+shader_parameter/sway = 0.12
+shader_parameter/sway_speed = 1.0
 
 [node name="Forest" type="Node3D" unique_id=1124951831]
 editor_description = "MAP 3, THE FOREST: maps/forest/models/forest.glb at identity (grass lane r 46.7..57.3 at y 23.0 round a foggy ravine: an earth bank down to a floor at y -11.05 that is BURIED in fog and never drawn, a thicket of some 1140 barbed brambles in the dark under it, a leaf wall carrying three tiers of lane-facing cells up to the lane roof at y 38.0 -- 15 m over the grass -- and on that roof's inner rim the cell drum, r 46.7..47.6, three tiers of 17 barred mouths climbing to the seam at y 50.0, so a runner on the lane has a ring of cells above them all the way round). The seam is a 240-vertex ring shared float for float with forest_tree.glb, where the great tree's crown takes over and sweeps INWARD AND DOWN to its rim at y 34.1: the roof is a dome that is high at the ring and collapses in the middle, onto the tree. Ryan: \"make the roof higher, so make it like a dome that collapses in the middle where the tree is, and so theres still like a ring of cells above where the player runs.\" The pit reads bottomless: ForestFog is fourteen layers of grey-gold mist (maps/forest/materials/forest_mist.gdshader: drifting cloud per layer, darkening and fading where it meets bank, trunk or thorn) whose alpha rises with depth to a solid slab low down and whose shader sets fog_disabled, so the Environment's depth fog cannot repaint the mist and the floor behind it to one plane -- a vertical ray reaches the floor at 0.20 % transmittance, and the brambles sink into the mist as dark bark. Its top is the thicket's floor, y -7.80..-5.75, 3.0 m under the tallest thorn, so the brambles stand out of it. Each of the 144 cells carries its own small dim light as an emissive back face (the `lamp` sheet), not a Light3D: one mesh cannot bind 144 of them. The sun rays are two nodes in the glb, three crossed vanes per sun well with the tint and the feather in their vertex colour: ForestRaysSolid (pale yellow, alpha 0.35, mixed, the mesh-only look) and ForestRaysSoft (faint, additive, shown here under the Sun light). Nothing is hung under the wells any more. Flip their visibility to compare."
@@ -97,18 +142,24 @@ directional_shadow_max_distance = 200.0
 [node name="ForestMap" parent="." unique_id=1646746285 instance=ExtResource("6_forest_model")]
 editor_description = "maps/forest/models/forest.glb: lane, pit bank and its buried floor, brambles, leaf wall with three lane-facing cell tiers, the lane roof at y 38.0, the cell drum climbing off its inner rim to the seam at y 50.0, and the pit cells; ForestFog and the ray nodes ride in it. Ships its own collision (ForestCollision-colonly)."
 
-[node name="ForestGround" parent="ForestMap"]
-editor_description = "Casts no shadow itself; MapShadow casts it."
-cast_shadow = 0
-
-[node name="ForestFog" parent="ForestMap"]
+[node name="ForestFog" parent="ForestMap" index="1" unique_id=1798805809]
 editor_description = "The pit's mist, and the reason the pit has no bottom: fourteen layers y -11.6..-5.75, grey-gold, darker and greyer low (maps/forest/materials/forest_mist.gdshader, unshaded: a 64 px noise tile drifting at its own speed and heading per layer lightens, darkens and thins each layer, never under 0.6 of its vertex alpha; each layer fades out over 1 m of depth and darkens over 6 m where it meets bank, trunk or thorn, so the mist has no lit rim), opaque (vertex alpha 1.0; the proof assumes the shader draws at least 0.6 of it, faded as the shader fades it over the floor) through the bottom TEN, then falling to exactly 0 over the top ~1.35 m at a height the drift field rolls (no top plane anywhere), with the rim feather narrowing from 9 m up top to nothing through the slab (its body reaches the bank's foot, the feather is in the earth) and the hole round the trunk closed to 0.6 m. Transmittance -- the fraction of the floor's light reaching an eye -- is 0.20 % straight down and at worst 0.20 % along any oblique ray from a stand point (lip edge, lane, guard's floor and rim -- forest_pit_build.FOG_EYES), so the floor is not a thing anyone sees: what they see is mist, and the brambles sink into it as dark bark (COLOR_0, forest_pit_build.stem_colour: bark the whole stem, no blend toward the mist -- that washed the near thorns; the opaque fog hides them under its top). fog_disabled in the shader is load-bearing: without it the Environment's depth fog repaints these layers AND the floor behind them to one colour, and one colour over one flat plane is a floor. Run tools/modelling/maps/forest/forest_pit_build.py for the numbers. The stack's ceiling is set by the THICKET, not by the pit: the tallest thorn stands at y -2.78, and a stack that ended at y 4.0 buried the thicket whole -- not one bramble vertex cleared even the thinnest column. The top rolls between y -7.80 and y -5.75, so the brambles come OUT of the mist. Environment height fog moved with it (fog_height -5.75, fog_height_density 0.1): Godot thickens height fog BELOW fog_height, so leaving it at 8 would have left haze standing in the 13 m of ravine air the fog just vacated and washed out the very thorn tips this pass uncovered. Above y -5.75 the ravine air is clear and the spikes read hard; below it the haze thickens into the layers."
 surface_material_override/0 = SubResource("FogMat")
+
+[node name="ForestGround" parent="ForestMap" index="2" unique_id=1332283899]
+editor_description = "Casts no shadow itself; MapShadow casts it."
+cast_shadow = 0
 
 [node name="MapShadow" parent="." unique_id=654465025 instance=ExtResource("6_forest_model")]
 editor_description = "A shadows-only copy of forest.glb: leaf, edge, shade and sun surfaces break the sun like the crown, solid on the wall (r > 56.5) below y 34.25, its lower three quarters; bark, cells, earth and the rest solid."
 
-[node name="ForestGround" parent="MapShadow"]
+[node name="ForestCollision" parent="MapShadow" index="0" unique_id=1633732260]
+process_mode = 4
+
+[node name="ForestFog" parent="MapShadow" index="1" unique_id=1798805809]
+visible = false
+
+[node name="ForestGround" parent="MapShadow" index="2" unique_id=1332283899]
 cast_shadow = 3
 surface_material_override/0 = SubResource("SolidShadowMat")
 surface_material_override/1 = SubResource("SolidShadowMat")
@@ -124,12 +175,6 @@ surface_material_override/10 = SubResource("RingLeafShadowMat")
 surface_material_override/11 = SubResource("SolidShadowMat")
 surface_material_override/12 = SubResource("RingLeafShadowMat")
 surface_material_override/13 = SubResource("SolidShadowMat")
-
-[node name="ForestFog" parent="MapShadow"]
-visible = false
-
-[node name="ForestCollision" parent="MapShadow"]
-process_mode = 4
 
 [node name="KillBox" type="Area3D" parent="." unique_id=1254703304]
 editor_description = "Roof at y 0.0, 23 m under the lane and just over the thicket's tallest thorns (y -2.8), r 62, 30 m deep: anything that drops into the ravine dies. Unchanged by the bottomless-pit pass -- the floor is buried in fog, not moved, so the fall and the kill are exactly what they were."
@@ -275,19 +320,19 @@ transform = Transform3D(-0.492424, 0, -0.870356, 0, 1, 0, 0.870356, 0, -0.492424
 [node name="Canopy" parent="Sections" unique_id=1273029496 instance=ExtResource("10_canopy")]
 editor_description = "Every tree of the wood as one chunk of map geometry (forest_canopy.glb): the trunks rise into the lane roof and their limbs end in leaf bosses on it; the collider is the same trunk prisms the props carried."
 
-[node name="ForestCanopy" parent="Sections/Canopy"]
+[node name="ForestCanopy" parent="Sections/Canopy" index="0" unique_id=592905908]
 editor_description = "Casts no shadow itself; Sections/CanopyShadow casts it."
 cast_shadow = 0
 
 [node name="CanopyShadow" parent="Sections" unique_id=1094002188 instance=ExtResource("10_canopy")]
 editor_description = "A shadows-only copy of forest_canopy.glb: trunks solid, leaf bosses broken like the crown."
 
-[node name="ForestCanopy" parent="Sections/CanopyShadow"]
+[node name="ForestCanopy" parent="Sections/CanopyShadow" index="0" unique_id=592905908]
 cast_shadow = 3
 surface_material_override/0 = SubResource("SolidShadowMat")
 surface_material_override/1 = SubResource("BossLeafShadowMat")
 
-[node name="ForestCanopyCollision" parent="Sections/CanopyShadow"]
+[node name="ForestCanopyCollision" parent="Sections/CanopyShadow" index="1" unique_id=1216714157]
 process_mode = 4
 
 [node name="Route" type="Node3D" parent="." unique_id=1734535616]
@@ -310,18 +355,18 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 25.35, 0)
 [node name="Tree" parent="Tower" unique_id=472629347 instance=ExtResource("7_forest_tree")]
 editor_description = "maps/forest/models/forest_tree.glb: goblet trunk, the platform, eight piers and pointed arches (the windows), the vaulted canopy over it, and the crown grown outward as the sagging middle of the level's roof -- from the rim at r 11, y 34.1 it sweeps UP and OUT 15.9 m to the seam ring at r 47.6, y 50.0, shared vertex for vertex with forest.glb's cell drum, eight great limbs rising under it. Ships its own collision (ForestTreeCollision-colonly), the canopy sheet included."
 
-[node name="ForestTree" parent="Tower/Tree"]
+[node name="ForestTree" parent="Tower/Tree" index="0" unique_id=1057893921]
 editor_description = "Casts no shadow itself; Tower/TreeShadow casts it: solid only under the roof over the guard, broken through every leaf."
 cast_shadow = 0
 
 [node name="TreeShadow" parent="Tower" unique_id=1152206277 instance=ExtResource("7_forest_tree")]
 editor_description = "A shadows-only copy of the tree (forest_crown_shadow.gdshader): solid under the roof (r < 8.7) and the trunk; the leaves let the sun through in patches everywhere else."
 
-[node name="ForestTree" parent="Tower/TreeShadow"]
-cast_shadow = 3
+[node name="ForestTree" parent="Tower/TreeShadow" index="0" unique_id=1057893921]
 material_override = SubResource("CrownShadowMat")
+cast_shadow = 3
 
-[node name="ForestTreeCollision" parent="Tower/TreeShadow"]
+[node name="ForestTreeCollision" parent="Tower/TreeShadow" index="1" unique_id=856887202]
 process_mode = 4
 
 [node name="TowerSpawn" type="Marker3D" parent="Tower" unique_id=87595286]
