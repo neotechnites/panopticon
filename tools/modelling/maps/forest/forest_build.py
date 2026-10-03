@@ -1219,6 +1219,7 @@ def _sheet(name, **kw):
 
 # Each class: its group's keeper (ft.KEEPERS) x the class's old tile's linear mean over the keeper's, clamped at 1.
 _DARK = (0.0144, 0.0135, 0.015)
+LEAF_SHADE = ft.TILES["shade"][1]
 SHEETS = {
     "grass": _sheet("grass"),
     "verge": _sheet("verge", stem="forest_grass", tint=(1.0, 0.8456, 1.0)),
@@ -1226,9 +1227,10 @@ SHEETS = {
     "path": _sheet("path"),
     "earth": _sheet("earth", stem="forest_path", tint=(0.2615, 0.2112, 0.4746)),
     "sun": _sheet("sun"),
-    "leaf": _sheet("leaf", stem="forest_sun", tint=(0.2489, 0.2792, 0.5536)),
-    "shade": _sheet("shade", stem="forest_sun", tint=(0.1506, 0.1938, 0.5302)),
-    "fern": _sheet("fern", stem="forest_sun", tint=(0.2197, 0.3329, 0.568)),
+    # leaves wear Ryan's photo untinted; shade only dims it, never shifts its hue
+    "leaf": _sheet("leaf", stem="forest_sun"),
+    "shade": _sheet("shade", stem="forest_sun", tint=LEAF_SHADE),
+    "fern": _sheet("fern", stem="forest_sun"),
     "bark": _sheet("bark"),
     "root": _sheet("root", stem="forest_bark", tint=(1.0, 0.8889, 0.8012)),
     "cell": _sheet("cell", size=ft.png_size("forest_rock_albedo")[1], stem="forest_rock", tint=_DARK),

@@ -16,12 +16,12 @@
 [ext_resource type="Texture2D" path="res://maps/forest/textures/forest_mist_albedo.png" id="19_mist_noise"]
 
 [sub_resource type="ProceduralSkyMaterial" id="SkyMat"]
-sky_top_color = Color(0.4, 0.45, 0.37, 1)
-sky_horizon_color = Color(0.5, 0.52, 0.37, 1)
+sky_top_color = Color(0.95, 0.88, 0.62, 1)
+sky_horizon_color = Color(0.98, 0.86, 0.58, 1)
 sky_curve = 0.2
 sky_energy_multiplier = 1.0
-ground_bottom_color = Color(0.09, 0.14, 0.07, 1)
-ground_horizon_color = Color(0.24, 0.3, 0.18, 1)
+ground_bottom_color = Color(0.55, 0.45, 0.26, 1)
+ground_horizon_color = Color(0.75, 0.64, 0.4, 1)
 sun_angle_max = 0.0
 
 [sub_resource type="Sky" id="Sky"]
@@ -31,13 +31,15 @@ sky_material = SubResource("SkyMat")
 background_mode = 2
 sky = SubResource("Sky")
 ambient_light_source = 3
-ambient_light_color = Color(0.3, 0.34, 0.23, 1)
-ambient_light_energy = 0.55
+ambient_light_color = Color(1, 0.85, 0.58, 1)
+ambient_light_sky_contribution = 0.6
+ambient_light_energy = 5.0
 tonemap_mode = 1
 fog_enabled = true
-fog_light_color = Color(0.34, 0.38, 0.27, 1)
-fog_light_energy = 0.5
-fog_density = 0.006
+fog_light_color = Color(1, 0.82, 0.5, 1)
+fog_light_energy = 0.3
+fog_sun_scatter = 0.2
+fog_density = 0.0045
 fog_sky_affect = 0.4
 fog_height = -5.75
 fog_height_density = 0.1
@@ -72,8 +74,8 @@ environment = SubResource("Env")
 [node name="Sun" type="DirectionalLight3D" parent="Environment"]
 editor_description = "The light-variant rays: the sun from bearing 120 at 52 deg, through the canopy gaps."
 transform = Transform3D(0.866025, 0.394, -0.3078, 0, 0.6157, 0.788, 0.5, -0.6824, 0.5332, 0, 30, 0)
-light_color = Color(1, 0.95, 0.8, 1)
-light_energy = 0.85
+light_color = Color(1, 0.86, 0.58, 1)
+light_energy = 2.5
 shadow_enabled = true
 shadow_bias = 0.06
 directional_shadow_mode = 0
