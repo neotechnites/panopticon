@@ -77,6 +77,8 @@ def rgb(values):
 def main():
     sheet_of = {}                                   # textures/<png> repo path -> sheet file name
     for sheet in git_files("*/textures/*.ase"):
+        if sheet.endswith(("_photo.ase", "_hand.ase")):   # alternate sheets (use_sheet.sh), never exported
+            continue
         for name in slices(os.path.join(ROOT, sheet)):
             sheet_of[posixpath.join(posixpath.dirname(sheet), name + ".png")] = posixpath.basename(sheet)
 

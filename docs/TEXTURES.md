@@ -26,6 +26,23 @@ its own: it wears hell's. Map notes are in `docs/maps/`.
 A new texture is a new slice in the home's sheet. `python3 tools/textures/audit.py` rewrites the tables
 below and fails when a model uses a texture that is in no sheet.
 
+## Textures from photos
+
+The forest and the prisoner each have an alternate sheet built from Ryan's photos (`forest_photo.ase`,
+`prisoner_photo.ase`; same slices as the live sheet). The tool only crops, scales, tones and quantises a photo.
+
+1. Drop photos in `~/Desktop/panopticon-renders/textures/photos/<forest|prisoner>/`, named after the slice
+   (forest: `bark grass path sun portal_swirl rock lamp_emissive`; prisoner: `prisoner2`), e.g. `grass.jpg`.
+2. `python3 tools/textures/photo_to_texture.py batch forest` rebuilds `forest_photo.ase`: slices without a
+   photo are copied from the hand-drawn sheet. 8x previews land in `photos/<home>/preview/`.
+3. `tools/textures/use_sheet.sh forest photo` makes the photo sheet live (the hand sheet is kept as
+   `forest_hand.ase`) and exports; `use_sheet.sh forest hand` swaps back. Lossless both ways.
+
+One photo: `photo_to_texture.py one <photo> --home forest` (`--size 32|64|128|256`, `--crop x y w h`,
+`--tile blend|mirror|off`, `--palette <.pal|.png|.ase>` or `--colors N`, `--dither`, `--levels`, `--contrast`
+(default 0.7), `--gamma`, `--rotate`). Defaults: 64 px, forest tiled, each locked to `tools/textures/palettes/<home>.pal`
+(`photo_to_texture.py palette <home>` rewrites it from the live sheet). Runs on the Mac (the PC has no Python).
+
 ## The textures
 
 ### Hell: `maps/bentham_ring/textures/` (`hell.ase`)
