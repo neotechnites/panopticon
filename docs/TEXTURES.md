@@ -99,7 +99,7 @@ across its UV islands (`prisoner_islands.json`) into `prisoner2_albedo.png`; the
 
 | Texture | Looks like | Worn by |
 |---|---|---|
-| prisoner2_albedo | 256 px sheet (2x upscale of the 128), four flat swatches: brown, grey, pale skin, mint | the prisoner and guard body; the shirt is coloured per team in the match |
+| prisoner2_albedo | 512 px sheet (2x upscale of the 256; four 256 px regions), four flat swatches: brown, grey, pale skin, mint | the prisoner and guard body; the shirt is coloured per team in the match |
 
 ### Weapons: `weapons/textures/` (`rifle.ase`)
 
