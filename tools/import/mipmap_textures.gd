@@ -1,7 +1,7 @@
 @tool
 extends EditorScenePostImport
 
-## Refilters an imported .glb's materials to nearest-with-mipmaps and mips any embedded texture.
+## Refilters an imported .glb's materials to nearest-with-mipmaps (forest: linear) and mips any embedded texture.
 ## Textures from a home's textures/ PNGs stay linked to that file, so editing the PNG edits the model.
 
 const SharedMaterials := preload("res://tools/import/shared_materials.gd")
@@ -15,6 +15,8 @@ const SEE_THROUGH_WAVE := {&"PortalGlow": PORTAL_WAVE_SHADER, &"ForestPortalSwir
 const LAVA_EMISSION_BOOST := 1.4
 ## Marble's stone is fully matte: no sheen, whatever roughness the .glb carries.
 const MATTE_PREFIX := "res://maps/marble/"
+## The forest's soft sheet filters bilinear with mips; every other home stays nearest.
+const BILINEAR_PREFIX := "res://maps/forest/"
 
 const TEXTURE_PROPERTIES := [
 	&"albedo_texture",
@@ -29,6 +31,7 @@ var _wave_cache: Dictionary = {}
 var _textures_mipped: int = 0
 var _materials_refiltered: int = 0
 var _matte: bool = false
+var _filter: BaseMaterial3D.TextureFilter = BaseMaterial3D.TEXTURE_FILTER_NEAREST_WITH_MIPMAPS_ANISOTROPIC
 
 
 func _post_import(scene: Node) -> Object:
@@ -38,12 +41,13 @@ func _post_import(scene: Node) -> Object:
 	_textures_mipped = 0
 	_materials_refiltered = 0
 	_matte = get_source_file().begins_with(MATTE_PREFIX)
+	_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC if get_source_file().begins_with(BILINEAR_PREFIX) else BaseMaterial3D.TEXTURE_FILTER_NEAREST_WITH_MIPMAPS_ANISOTROPIC
 
 	_walk(scene)
 	SharedMaterials.share(scene, get_source_file())
 
-	print("MIPMAP %s: %d textures gained mips, %d materials refiltered to NEAREST_WITH_MIPMAPS_ANISOTROPIC" % [
-		get_source_file().get_file(), _textures_mipped, _materials_refiltered,
+	print("MIPMAP %s: %d textures gained mips, %d materials refiltered to filter %d" % [
+		get_source_file().get_file(), _textures_mipped, _materials_refiltered, _filter,
 	])
 	return scene
 
@@ -80,7 +84,7 @@ func _fix_material(material: Material) -> void:
 		if replacement != null:
 			base.set(property, replacement)
 
-	base.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST_WITH_MIPMAPS_ANISOTROPIC
+	base.texture_filter = _filter
 	if _matte:
 		base.roughness = 1.0
 		base.metallic = 0.0
