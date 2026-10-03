@@ -1,6 +1,8 @@
 // Every lava surface on map 1 (sea, river, falls, S3 cracks), waving. Offsets are a function of
 // position only (world xyz, and UV2.x baked per position: 0 on every lava edge), so faces stay welded.
 
+#include "res://scripts/fx/ps1.gdshaderinc"
+
 uniform sampler2D albedo_texture : source_color, filter_nearest_mipmap_anisotropic, repeat_enable;
 uniform sampler2D emission_texture : source_color, filter_nearest_mipmap_anisotropic, repeat_enable;
 uniform vec4 albedo_color : source_color = vec4(1.0);
@@ -63,18 +65,20 @@ void vertex() {
 	float bulge = 0.5 * fall_amp * edge * (1.0 - fl) * sf;
 	w += vec3(out_dir.x * bulge, up, out_dir.y * bulge);
 	VERTEX = (inverse(MODEL_MATRIX) * vec4(w, 1.0)).xyz;
+	PS1_VERTEX
 }
 
 void fragment() {
 	// flat face normal of the bent surface, kept on the side the mesh faces
 	vec3 n = normalize(cross(dFdx(VERTEX), dFdy(VERTEX)));
 	NORMAL = dot(n, NORMAL) < 0.0 ? -n : n;
-	vec4 albedo_tex = texture(albedo_texture, UV);
+	vec2 uv = PS1_UV(UV);
+	vec4 albedo_tex = PS1_TEXTURE(albedo_texture, uv);
 	ALBEDO = albedo_tex.rgb * albedo_color.rgb;
 #ifdef WAVE_SEE_THROUGH
 	ALPHA = albedo_tex.a * albedo_color.a;
 #endif
-	EMISSION = texture(emission_texture, UV).rgb * emission_color.rgb * emission_energy;
+	EMISSION = PS1_TEXTURE(emission_texture, uv).rgb * emission_color.rgb * emission_energy;
 	ROUGHNESS = roughness;
 	METALLIC = metallic;
 }

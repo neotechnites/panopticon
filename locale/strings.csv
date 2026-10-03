@@ -76,6 +76,16 @@ DEBUG_UNIT_ACCEL,%s m/s²,%s m/s²
 DEBUG_UNIT_DEGREES,%s°,%s°
 DEBUG_UNIT_HZ,%s Hz,%s Hz
 DEBUG_UNIT_TIMES,×%s,×%s
+DEBUG_SECTION_PS1,PS1 look,[PS1 löök ~~~~]
+DEBUG_PS1,PS1 look on,[PS1 löök ön ~~~~]
+DEBUG_PS1_LINES,3D lines,[3D lïnés ~~~~]
+DEBUG_PS1_LINES_240,240 lines,[240 lïnés ~~~~]
+DEBUG_PS1_LINES_270,270 lines,[270 lïnés ~~~~]
+DEBUG_PS1_LINES_360,360 lines,[360 lïnés ~~~~]
+DEBUG_PS1_SNAP,Vertex snap,[Vértéx snäp ~~~~]
+DEBUG_PS1_AFFINE,Affine textures,[Äffïné téxtürés ~~~~ ~~~~]
+DEBUG_PS1_DITHER,Colour dither,[Cölöür dïthér ~~~~]
+DEBUG_UNIT_PIXELS,%s px,%s px
 DEBUG_UNIT_FRACTION,%s of 1,%s of 1
 DEBUG_SPEED_WEAPON,Weapon's own,[Wéäpön's öwn ~~~~]
 PAUSE_TITLE,PAUSED,[PÅÜSÉD ~~~~]
