@@ -25,7 +25,7 @@ this module grows the roof into g.m, sharing vertices with the wall's top row
                      drum's foot (ROLL), down over the lip, under a belly and
                      back up into its own underside over the lane, so the canopy
                      ends as the rounded end of a hedge, never a cut plane
-    gallery_faces(g) that roof's faces, the eave's, its five sun wells and g.rays
+    gallery_faces(g) that roof's faces, the eave's, its five sun wells
 
 Heights (world y, the lane is 23.0):
 
@@ -46,7 +46,7 @@ The leaves are unbroken: every quad carries a face, so nothing can read as a
 hole or a bright polygon from below. The shafts come down THROUGH the closed
 leaves from five anchors on the sun's side -- an organic blob of cells round
 each (a wobbly radius round a centre, no two alike), lit as "sun" leaf;
-forest_build._ray_mesh turns g.rays into one soft shaft per anchor. The wall's
+(forest_build.ray_lines places the shafts apart from them.) The wall's
 row and the drum's row are never ragged: their vertices are shared with the
 leaf wall and with the drum standing on them.
 
@@ -110,7 +110,6 @@ SHAFT_LIT = 1               # a well's own cells and the cells this far round th
                             # "sun" leaf: the light falls ON the leaves, never past a cut edge.
                             # One ring here: this grid is fine, a well is only a few cells
 SHAFT_WOB = (0.30, 0.22, 0.14)   # the blob's radius wobbles at 2, 3 and 5 per turn
-SHAFT_HALF = (0.42, 0.5, 2.2)    # the shaft's half width at the top: this x the blob's radius, clamped
 
 # The roll. Ryan: "a hard, straight, horizontal cut against the open pit." Off the
 # drum's foot (shared, unmoved) the sheet thickens and rolls UNDER: down the outer
@@ -411,9 +410,6 @@ def gallery_faces(g):
             want = (dz * a[0] / ra, dz * a[1] / ra, -dr)
             m.quad(ids[0], ids[1], ids[2], ids[3], want, _leafy(g, ids))
     m.roof_faces = set(range(first, len(m.faces)))
-    for sh in g.shafts:
-        half = min(SHAFT_HALF[2], max(SHAFT_HALF[1], SHAFT_HALF[0] * sh["radius"]))
-        g.rays.append((sh["pts"], half))
     roll = [math.hypot(m.verts[v][0], m.verts[v][1]) for row in g.eave for v in row]
     print("MDL STATS roof gallery_y=%.1f r=%.1f..%.1f rings=%d roll_r=%.2f..%.2f roll_depth=%.2f shafts=%d well_cells=%d"
           % (GALLERY_Z, GALLERY_R[-1], GALLERY_R[0], len(g.gal), min(roll), max(roll),

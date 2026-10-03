@@ -1,5 +1,5 @@
--- Packs PNGs into one .aseprite sheet, 2 px gaps, one named slice per PNG (basename).
--- Params: out=<sheet.aseprite> pngs=<a.png;b.png;...>
+-- Packs PNGs into one .ase sheet, 2 px gaps, one named slice per PNG (basename).
+-- Params: out=<sheet.ase> pngs=<a.png;b.png;...>
 local out, list = app.params["out"], app.params["pngs"]
 local imgs, maxRow, x, y, rowH, w, h = {}, 1024, 0, 0, 0, 0, 0
 for p in string.gmatch(list, "[^;]+") do

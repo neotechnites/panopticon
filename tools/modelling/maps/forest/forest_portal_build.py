@@ -18,15 +18,15 @@ not move.
     clear hole .... |x| <= 1.30 from the ground to z 2.8, nothing solid in it:
                     portal.glb's collider hole, to the centimetre
 
-Low poly at the source (~270 drawn tris): a five-sided trunk section on few
-stations, three-sided branches, one-ring leaf clumps, the disc a plain fan.
+Low poly at the source: a five-sided trunk section on few stations, three-sided
+branches, one-ring leaf clumps; the disc is portal_build's waving see-through sheet.
 
 One mesh, two surfaces: the forest atlas, and the disc ("earth" zone) on the
 swirl's own file, its albedo and its glow. One UV set, flat shaded. ForestPortalCollision rides as a `-colonly`
 node: the same two jambs and the same arched head, coarsened -- not a box.
 
 The disc does NOT float: the frame's inner face carries a vertex row at y = 0
-and the disc is fanned from those exact ids, so the whole model is one
+and the sheet's rim corners are those exact ids, so the whole model is one
 connected component.
 
     tools/modelling/model build forest_portal --views threequarter,front
@@ -55,6 +55,7 @@ if bpy is not None:
 import forest_tree_build as ft  # noqa: E402
 import texel as tx  # noqa: E402  the in-scene shot's ground wears forest.glb's sheets
 import forest_build as fb  # noqa: E402
+import portal_disc as pd  # noqa: E402
 
 if bpy is not None:
     mdl.DEFAULTS["ground"] = True         # ft's import turns it off; a portal stands on something
@@ -131,7 +132,6 @@ BRANCHES = (
 BR_WOB = 0.06
 BR_STUB = 0.09          # a branch leaves its face square, then bends
 
-DISC_BULGE = 0.01       # metres each side: the back fill used to be the front's faces twice, and dropped
 
 COL_JAMB_N = 3          # collider stations up each straight jamb
 COL_ARCH_N = 6          # ... and over each half of the arch
@@ -302,18 +302,14 @@ class _Portal(object):
 
     # ---- the effect surface ------------------------------------------------
     def disc(self):
-        """The opening's own outline at y = 0, fanned from a centre at (0, 0, 1.5),
-        both sides -- off the frame's OWN vertex row, so nothing floats."""
+        """portal_build's swirl sheet in the opening at y = 0: its rim corners are the
+        frame's OWN vertex row (section vertex 0), so nothing floats."""
         m = self.m
-        rim = [ring[0] for ring in self.rings]           # section vertex 0: on the inner face, y = 0
-        n = len(rim)
-        c = (0.0, 0.0, DISC_CENTRE_Z)
-        for want in ((0.0, -1.0, 0.0), (0.0, 1.0, 0.0)):     # each side bulges DISC_BULGE its own way: a lens
-            before = len(m.faces)
-            centre = m.v((c[0], want[1] * DISC_BULGE, c[2]))
-            for i in range(n):
-                m.tri(rim[i], rim[(i + 1) % n], centre, want, "earth")
-        m.back_fill = len(m.faces) - before              # the back fill's tris: see build()
+        corners = [ring[0] for ring in self.rings]
+        pts = pd.rim([(m.verts[i][0], m.verts[i][2]) for i in corners])
+        self.rim_xz = [(x, z) for (x, z, _k) in pts]
+        ids = [corners[k] if k is not None else m.v((x, 0.0, z)) for (x, z, k) in pts]
+        pd.sheet(m, ids, self.rim_xz, DISC_CENTRE_Z, "earth")
 
     # ---- what grows out of it ----------------------------------------------
     def branches(self):
@@ -350,7 +346,9 @@ class _Portal(object):
 
 def build_geometry():
     p = _Portal(ft._Rng(SEED))
-    return ft._prune(p.build().compact())
+    m = ft._prune(p.build().compact())
+    m.rim_xz = p.rim_xz
+    return m
 
 
 def build_collider():
@@ -567,10 +565,12 @@ def build():
     swirl = build_swirl()
     ob = m.object(OBJECT_NAME)
     unwrap(ob, m.zones, planar={"earth": (0, 2, -IN_HALF_W, 0.0, IN_HALF_W, APEX_Z)})
-    # cull=False, as portal.glb's HellRock; the disc is a closed lens now, both faces kept.
+    # cull=False, as portal.glb's HellRock; the disc is one double-sided sheet.
     mats = ft.tile_materials("ForestPortal", [z for z in m.zones if z != "earth"], cull=False)
     mats["earth"] = _swirl_material(swirl)
+    pd.see_through(mats["earth"])
     ft._finish(ob, m.zones, mats)
+    pd.wave_uv(ob, "ForestPortalSwirl", m.rim_xz)
     coll = c.object(COLLIDER_NAME)     # Godot: StaticBody3D + ConcavePolygonShape3D
     coll.hide_render = True
     size = [max(v[k] for v in m.verts) - min(v[k] for v in m.verts) for k in range(3)]

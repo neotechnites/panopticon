@@ -977,7 +977,7 @@ LANE_UP_AHEAD = 11.0        # ... looking this many degrees on round the lane ..
 LANE_UP_RISE = 8.0          # ... at a point this far over the grass
 LANE_UP_LENS = 18.0
 LANE_UP_RES = (1400, 1500)
-PC_OUT = r"C:\Users\ddd\Desktop\panopticon-renders\forest-canopy4"
+PC_OUT = r"C:\Users\ddd\Desktop\panopticon-renders\proofs\forest\canopy4"
 
 
 def post(spec, objects):

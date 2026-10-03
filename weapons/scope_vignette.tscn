@@ -1,7 +1,7 @@
 [gd_scene load_steps=4 format=3]
 
 [ext_resource type="Script" path="res://scripts/optics/scope_vignette.gd" id="1_scope_vignette"]
-[ext_resource type="Shader" path="res://weapons/scope_vignette.gdshader" id="2_scope_shader"]
+[ext_resource type="Shader" path="res://weapons/materials/scope_vignette.gdshader" id="2_scope_shader"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_scope_vignette"]
 shader = ExtResource("2_scope_shader")
@@ -25,7 +25,7 @@ script = ExtResource("1_scope_vignette")
 overlay = NodePath("Glass")
 
 [node name="Glass" type="ColorRect" parent="."]
-editor_description = "The whole screen, painted by weapons/scope_vignette.gdshader. mouse_filter IGNORE so it can never eat a click meant for the pause menu, and hidden outright whenever the vignette's amount is zero, so hipfire pays nothing for it."
+editor_description = "The whole screen, painted by weapons/materials/scope_vignette.gdshader. mouse_filter IGNORE so it can never eat a click meant for the pause menu, and hidden outright whenever the vignette's amount is zero, so hipfire pays nothing for it."
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0

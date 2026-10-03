@@ -233,8 +233,8 @@ KEEPERS = {                     # group -> image stem: one tiling drawing per ma
 }
 # zone -> (group, baseColorFactor): the old atlas zone's linear mean over its keeper's, clamped at 1
 TILES = {
-    "leaf": ("leaf", (0.2733, 0.3028, 0.5757)),
-    "shade": ("leaf", (0.0673, 0.0699, 0.2488)),
+    "leaf": ("leaf", (1.0, 1.0, 1.0)),      # Ryan's photo leaf untinted: the old blue-heavy factors hid it
+    "shade": ("leaf", (0.6, 0.6, 0.6)),     # a neutral dim for creases, never a hue shift
     "sun": ("leaf", (1.0, 1.0, 1.0)),
     "bark": ("wood", (0.9741, 0.9778, 0.9776)),
     "root": ("wood", (1.0, 0.9002, 0.8096)),

@@ -9,6 +9,8 @@ uniform sampler2D scene_depth : hint_depth_texture, filter_nearest;
 // Grey-gold, a shade darker and greyer low, warmer where the mist thins up top.
 uniform vec3 tint_low : source_color = vec3(0.17, 0.165, 0.15);
 uniform vec3 tint_high : source_color = vec3(0.26, 0.245, 0.20);
+// Hue shift toward the warm light; divided by its own luma so lightness stays put.
+uniform vec3 hue : source_color = vec3(1.0, 0.88, 0.58);
 // The stack: forest_pit_build.FOG_Z (bottom, top, pitch), so each disc knows its own layer.
 uniform vec3 stack = vec3(-11.6, -5.75, 0.45);
 // Metres one noise tile spans, the broad cloud and the fine one.
@@ -53,6 +55,7 @@ void fragment() {
 
 	float up = clamp((world.y - stack.x) / (stack.y - stack.x), 0.0, 1.0);
 	ALBEDO = mix(tint_low, tint_high, up) * mix(1.0 - shade, 1.0 + shade, cloud)
-			* mix(1.0 - shadow, 1.0, smoothstep(0.0, shadow_metres, gap));
+			* mix(1.0 - shadow, 1.0, smoothstep(0.0, shadow_metres, gap))
+			* hue / dot(hue, vec3(0.2126, 0.7152, 0.0722));
 	ALPHA = COLOR.a * mix(noise_floor, 1.0, cloud) * soft;
 }

@@ -8,7 +8,7 @@ Authored in WORLD coordinates so the scene instances it at identity
 (Blender +Z -> Godot +Y, Blender +Y -> Godot -Z; bearings as map 1's pol()):
 
     pit floor ........  y -11.05  dark earth under the fog, r 42 (map 1's sea height)
-    lane .............  y 23.0    grass, r 46.7..57.3, as map 1; a worn path down its middle
+    lane .............  y 23.0    grass, r 46.7..57.3, as map 1; its middle band (zone path) grass too
     leaf wall ........  r 57.3 at the foot, 60 at the roof; bark pilasters bulge out, three
                         tiers of barred cells cut into it, the top one right over the lane
     lane roof ........  y 38.0    dense leaf, r 60 in to the pit lip at 46.7: the lane's lid,
@@ -86,7 +86,7 @@ OBJECT_NAME = "ForestGround"
 COLLIDER_NAME = "ForestCollision-colonly"
 RAYS_SOLID_NAME = "ForestRaysSolid"
 RAYS_SOFT_NAME = "ForestRaysSoft"
-MESH_RAYS = True            # export the ray wedges (both nodes) in the .glb
+MESH_RAYS = False           # streaks now live in forest.tscn (LightStreaks, forest_ray_build.py)
 FACING_YAW = 0.0
 
 NC = 240                    # columns round the ring: 1.5 deg, 1.5 m at the wall foot
@@ -144,6 +144,18 @@ RAY_IN = -0.45              # the shaft starts this far UNDER the closed canopy,
 RAY_OVER = 0.6              # ... and runs this far into whatever it lands on
 RAY_FADE = (0.18, 0.82)     # along the shaft, alpha ramps up to here and back down from here
 RAY_VANES = 3               # planes crossed on the axis: something faces every camera
+RAY_SUN = (60.0, 55.0)      # every shaft's bearing and elevation, parallel: 20 deg flatter than the first Sun (60, 75)
+RAY_ORIGIN_SUN = (60.0, 75.0)   # the direction the origins were picked along, so they stay where they were
+RAY_RING, RAY_PIT = 5, 10   # shafts off the lane's leaf roof and off the crown over the pit (about their areas, 35 : 65)
+RAY_LANE_BANDS = (3, 4, 5, 6)   # gallery bands r 56.2..50.8: flat roof, clear of the cove and the rolled eave
+RAY_PIT_R = (13.0, 44.0)    # the crown sheet's reach for an origin: past the tree's disc, inside the drum
+RAY_FOOT_R = (8.0, 56.7)    # a foot lands between the trunk and the wall, never in either
+RAY_APART = 14.0            # ring shafts keep this far apart in plan
+RAY_TRIES = 40              # candidates per pit shaft: the one farthest from the rest wins
+RAY_SHEET_IN = 0.9          # a crown origin starts this far up inside the sheet (it billows 0.6 either way)
+RAY_WIDTH = (0.9, 1.2)      # per shaft: scale on RAY_W
+RAY_GAIN = (0.85, 1.15)     # per shaft: scale on the peak alpha
+RAY_SEED = 40417
 RAY_SOLID = ((1.0, 0.93, 0.60), 0.14)   # tint, peak alpha PER VANE: three vanes overlap on the axis,
 RAY_SOFT = ((1.0, 0.95, 0.72), 0.05)    # so a shaft reads at 0.25..0.35 (solid) and faint (soft)
 
@@ -517,7 +529,6 @@ class _Ground(object):
         for (cells, rows) in UPPER_TIERS:
             for b in cells:
                 self.hollow["upper"].add((rows[1], (_col_of(b) + 1) % NC))
-        self.rays = []      # (a shaft source's four corner points, its half width at the top) per shaft: fc fills it
         self.shafts = []    # fc.gallery_faces's own record of each sun well
 
     def _trunk_push(self, i, j):
@@ -1005,38 +1016,55 @@ class _Ground(object):
 
     # ---- sun rays ----------------------------------------------------------------
     def ray_lines(self):
-        """(top, foot, S, scale) per shaft, world coordinates: the shaft's axis runs
-        from ``top`` (RAY_IN up the sun line from the source's centre, so it
-        begins under the leaves) down the sun direction to ``foot`` -- the first
-        thing it meets, the lane, the lip, the tree, the bank or the pit floor,
-        plus RAY_OVER into it."""
-        out = []
-        sb, se = SUN
-        S = (math.cos(math.radians(se)) * math.cos(math.radians(-sb)),
-             math.cos(math.radians(se)) * math.sin(math.radians(-sb)),
-             math.sin(math.radians(se)))
-        for (pts, half_w) in self.rays:
-            c = tuple(sum(p[k] for p in pts) / float(len(pts)) for k in range(3))
-            lo, hi, step = 0.0, None, 0.5
-            t = 0.0
-            while t < 140.0 and not _open(add(c, S, -t)):   # a well over lifted leaf sits above the nominal roof: enter the air first
-                t += step
-            while t < 140.0:
-                t += step
-                if not _open(add(c, S, -t)):
-                    lo, hi = t - step, t
+        """(top, foot, S, scale, gain) per shaft, world coordinates: RAY_RING origins on the lane's
+        leaf roof and RAY_PIT on the crown over the pit, all falling along RAY_SUN to the first
+        ground they meet, never a wall, the drum, the tree or the trunk."""
+        S = _ray_dir()
+        S0 = _ray_dir(RAY_ORIGIN_SUN)
+        r = _Rng(RAY_SEED)
+        out, plan = [], []
+
+        def take(c, rin):
+            foot0 = _fall(c, S0)
+            if foot0 is None or math.hypot(foot0[0], foot0[1]) < RAY_FOOT_R[0] or math.hypot(foot0[0], foot0[1]) > RAY_FOOT_R[1] \
+                    or foot0[2] > DECK_Z + 0.3:
+                return False
+            foot = _fall(c, S)              # the flatter shaft stops at the first solid surface it meets
+            if foot is None:
+                return False
+            out.append((add(c, S, rin), add(foot, S, -RAY_OVER), S, r.u(*RAY_WIDTH), r.u(*RAY_GAIN)))
+            plan.append((c[0], c[1]))
+            return True
+
+        def far(x, y):
+            return min([math.hypot(x - q[0], y - q[1]) for q in plan] or [1e9])
+
+        for j in range(RAY_RING):                  # one per sector of the ring, anywhere across the lane
+            lo = j * NC // RAY_RING
+            for _ in range(400):
+                k, i = r.pick(RAY_LANE_BANDS), (lo + r.i(0, NC // RAY_RING - 1)) % NC
+                c = self.m.centroid(fc.gal_quad_ids(self, k, i))
+                if far(c[0], c[1]) >= RAY_APART and take(c, RAY_IN):
                     break
-            if hi is None:
-                foot = add(c, S, -t)
-            else:
-                for _ in range(30):
-                    mid = 0.5 * (lo + hi)
-                    if _open(add(c, S, -mid)):
-                        lo = mid
-                    else:
-                        hi = mid
-                foot = add(c, S, -lo)
-            out.append((add(c, S, RAY_IN), add(foot, S, -RAY_OVER), S, half_w / RAY_W[0]))
+        for _ in range(RAY_PIT):                   # best of a handful, area-uniform over the crown
+            best = None
+            for _t in range(RAY_TRIES):
+                rad = math.sqrt(r.u(RAY_PIT_R[0] ** 2, RAY_PIT_R[1] ** 2))
+                th = r.u(0.0, 2.0 * math.pi)
+                x, y = rad * math.cos(th), rad * math.sin(th)
+                c = (x, y, fs.sheet_z(rad))
+                if _fall(c, S0) is None:
+                    continue
+                f = _fall(c, S0)
+                if f is None:
+                    continue
+                if math.hypot(f[0], f[1]) < RAY_FOOT_R[0] or math.hypot(f[0], f[1]) > RAY_FOOT_R[1] or f[2] > DECK_Z + 0.3:
+                    continue
+                d = far(x, y)
+                if best is None or d > best[0]:
+                    best = (d, c)
+            assert best, "no pit shaft found"
+            take(best[1], RAY_SHEET_IN)
         return out
 
     # ---- build -------------------------------------------------------------
@@ -1060,7 +1088,7 @@ class _Ground(object):
         self._deck_faces()
         self._pit_faces()
         self._wall_faces()
-        fc.gallery_faces(self)      # the roof and its organic sun wells (self.rays)
+        fc.gallery_faces(self)      # the roof and its organic sun wells
         self._upper_faces()         # three more tiers of cells over the ravine
         fp.pit_floor(self)          # the dark floor grown inward off the bank's last row
         self._ferns()
@@ -1118,6 +1146,33 @@ def _open(p):
     return rad <= _bank_r(z)
 
 
+def _ray_dir(sun=None):
+    """The shaft axis: unit vector from the ground up toward the sun, Blender coordinates."""
+    sb, se = sun or RAY_SUN
+    return (math.cos(math.radians(se)) * math.cos(math.radians(-sb)),
+            math.cos(math.radians(se)) * math.sin(math.radians(-sb)),
+            math.sin(math.radians(se)))
+
+
+def _fall(c, S):
+    """Where a shaft from c along -S first meets something solid, or None."""
+    t, step = 0.0, 0.5
+    while t < 140.0 and not _open(add(c, S, -t)):
+        t += step
+    while t < 140.0:
+        t += step
+        if not _open(add(c, S, -t)):
+            lo, hi = t - step, t
+            for _ in range(30):
+                mid = 0.5 * (lo + hi)
+                if _open(add(c, S, -mid)):
+                    lo = mid
+                else:
+                    hi = mid
+            return add(c, S, -lo)
+    return None
+
+
 def cross3(p, q):
     return (p[1] * q[2] - p[2] * q[1], p[2] * q[0] - p[0] * q[2], p[0] * q[1] - p[1] * q[0])
 
@@ -1142,7 +1197,7 @@ def _ray_mesh(lines, tint, peak):
     RAY_W[0] to RAY_W[1]."""
     m = _RayMesh()
     rows = (0.0, RAY_FADE[0], RAY_FADE[1], 1.0)
-    for (top, foot, S, wscale) in lines:
+    for (top, foot, S, wscale, gain) in lines:
         axis = sub(foot, top)
         ex = norm(cross3(S, UP))
         ez = norm(cross3(ex, S))
@@ -1153,7 +1208,7 @@ def _ray_mesh(lines, tint, peak):
             for t in rows:
                 w = (RAY_W[0] + (RAY_W[1] - RAY_W[0]) * t) * wscale
                 c = add(top, axis, t)
-                on = peak if RAY_FADE[0] - 1e-9 <= t <= RAY_FADE[1] + 1e-9 else 0.0
+                on = peak * gain if RAY_FADE[0] - 1e-9 <= t <= RAY_FADE[1] + 1e-9 else 0.0
                 grid.append([m.cv(add(c, side, -w), tint + (0.0,)),
                              m.cv(c, tint + (on,)),
                              m.cv(add(c, side, w), tint + (0.0,))])
@@ -1219,16 +1274,19 @@ def _sheet(name, **kw):
 
 # Each class: its group's keeper (ft.KEEPERS) x the class's old tile's linear mean over the keeper's, clamped at 1.
 _DARK = (0.0144, 0.0135, 0.015)
+LEAF_SHADE = ft.TILES["shade"][1]
 SHEETS = {
     "grass": _sheet("grass"),
     "verge": _sheet("verge", stem="forest_grass", tint=(1.0, 0.8456, 1.0)),
     "edge": _sheet("edge", stem="forest_grass", tint=(0.3516, 0.4017, 0.8407)),
-    "path": _sheet("path"),
+    # the lane's middle wears the grass (Ryan: "replace it with the grass texture"); slot kept for MapShadow's overrides
+    "path": _sheet("path", stem="forest_grass"),
     "earth": _sheet("earth", stem="forest_path", tint=(0.2615, 0.2112, 0.4746)),
     "sun": _sheet("sun"),
-    "leaf": _sheet("leaf", stem="forest_sun", tint=(0.2489, 0.2792, 0.5536)),
-    "shade": _sheet("shade", stem="forest_sun", tint=(0.1506, 0.1938, 0.5302)),
-    "fern": _sheet("fern", stem="forest_sun", tint=(0.2197, 0.3329, 0.568)),
+    # leaves wear Ryan's photo untinted; shade only dims it, never shifts its hue
+    "leaf": _sheet("leaf", stem="forest_sun"),
+    "shade": _sheet("shade", stem="forest_sun", tint=LEAF_SHADE),
+    "fern": _sheet("fern", stem="forest_sun"),
     "bark": _sheet("bark"),
     "root": _sheet("root", stem="forest_bark", tint=(1.0, 0.8889, 0.8012)),
     "cell": _sheet("cell", size=ft.png_size("forest_rock_albedo")[1], stem="forest_rock", tint=_DARK),
@@ -1538,10 +1596,10 @@ def seam_line():
 def ray_feet():
     """One line per sun shaft: where its light lands, in map bearings."""
     out = []
-    for k, (top, foot, _s, _w) in enumerate(INFO["rays"]):
+    for k, (top, foot, _s, _w, _g) in enumerate(INFO["rays"]):
         out.append("ray%d bearing=%.1f top=(%.1f, %.1f, %.1f) r=%.1f foot=(%.1f, %.1f, %.1f) "
                    "bearing=%.1f r=%.1f on=%s"
-                   % (k, fc.SHAFTS[k][0], top[0], top[1], top[2], math.hypot(top[0], top[1]),
+                   % (k, _bearing_of(top) % 360.0, top[0], top[1], top[2], math.hypot(top[0], top[1]),
                       foot[0], foot[1], foot[2], _bearing_of(foot) % 360.0,
                       math.hypot(foot[0], foot[1]), _lands_on(foot)))
     return out
@@ -1665,7 +1723,7 @@ def build():
           "seam_r=%.1f seam_y=%.1f wall_cells=%d upper_cells=%d pit_cells=%d trunks=%d shafts=%d sun=%s"
           % (INNER_R, OUTER_R, DECK_Z, WATER_Z, WATER_R, fc.GALLERY_Z, fs.DRUM_R, fs.SEAM_R, fs.SEAM_Z,
              sum(len(t) for (t, _rows) in WALL_TIERS), sum(len(t) for t in UPPER_CELLS),
-             len(PIT_CELLS), len(TRUNKS), len(fc.SHAFTS), SUN))
+             len(PIT_CELLS), len(TRUNKS), len(INFO["rays"]), RAY_SUN))
     for line in ray_feet():
         print("MDL STATS %s" % line)
     return out

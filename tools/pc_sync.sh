@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # Push main to the PC play copy safely: never discards Ryan's uncommitted edits there.
-# Ryan's PC edits to tracked textures/*.aseprite and *.png are pulled back, sheets exported, committed on the Mac.
+# Ryan's PC edits to tracked textures/*.ase and *.png are pulled back, sheets exported, committed on the Mac.
 set -e
 cd "$(dirname "$0")/.."
 
-pngList=$(ssh panopticon-pc git -C C:/dev/panopticon status --porcelain | tr -d '\r' | grep -E '^(.M|M.) .*/textures/.*\.(png|aseprite)$' | sed -E 's/^...//' || true)
+pngList=$(ssh panopticon-pc git -C C:/dev/panopticon status --porcelain | tr -d '\r' | grep -E '^(.M|M.) .*/textures/.*\.(png|ase)$' | sed -E 's/^...//' || true)
 if [ -n "$pngList" ]; then
   for f in $pngList; do
     scp -q "panopticon-pc:C:/dev/panopticon/$f" "$f"

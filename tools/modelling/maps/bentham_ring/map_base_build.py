@@ -113,6 +113,7 @@ ZONE_CARVE  = (0.5, 0.0, 1.0, 0.5)
 ZONE_EMBER  = (0.0, 0.0, 0.5, 0.5)
 ZONE_GLOW   = (0.5, 0.0, 1.0, 0.25)   # cell interiors: the old atlas's glow cell
 CRACK_STEM  = "crack_glow"            # crack_glow_albedo.png, albedo and glow
+CRACK_TILES_U = 2.0                  # the glow cell is 64 x 32 texels; the tile is its left 32 x 32
 
 # The deck is the one surface the red sun hits square on, so the wall tone
 # read washed out on it. It takes SHADE (the darker hell-rock) at its own,
@@ -608,12 +609,13 @@ def _crack_face_uv(me, uvl, poly):
 
 
 def _crack_uv(uv):
-    """An atlas UV inside ZONE_GLOW, moved into the crack cell's own 0..1."""
+    """An atlas UV inside ZONE_GLOW, moved onto the 32 px crack tile: the old cell was two
+    tiles wide, so u doubles (same texels per metre) and a wide face repeats the tile."""
     u0, v0, u1, v1 = ZONE_GLOW
     u, v = (uv[0] - u0) / (u1 - u0), (uv[1] - v0) / (v1 - v0)
     if not (-1e-6 <= u <= 1.0 + 1e-6 and -1e-6 <= v <= 1.0 + 1e-6):
         raise RuntimeError("crack face UV %r is outside the glow cell" % (tuple(uv),))
-    return (u, v)
+    return (u * CRACK_TILES_U, v)
 
 
 def river_material(name, albedo, emissive):
