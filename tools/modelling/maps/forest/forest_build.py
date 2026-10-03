@@ -8,7 +8,7 @@ Authored in WORLD coordinates so the scene instances it at identity
 (Blender +Z -> Godot +Y, Blender +Y -> Godot -Z; bearings as map 1's pol()):
 
     pit floor ........  y -11.05  dark earth under the fog, r 42 (map 1's sea height)
-    lane .............  y 23.0    grass, r 46.7..57.3, as map 1; a worn path down its middle
+    lane .............  y 23.0    grass, r 46.7..57.3, as map 1; its middle band (zone path) grass too
     leaf wall ........  r 57.3 at the foot, 60 at the roof; bark pilasters bulge out, three
                         tiers of barred cells cut into it, the top one right over the lane
     lane roof ........  y 38.0    dense leaf, r 60 in to the pit lip at 46.7: the lane's lid,
@@ -1279,7 +1279,8 @@ SHEETS = {
     "grass": _sheet("grass"),
     "verge": _sheet("verge", stem="forest_grass", tint=(1.0, 0.8456, 1.0)),
     "edge": _sheet("edge", stem="forest_grass", tint=(0.3516, 0.4017, 0.8407)),
-    "path": _sheet("path"),
+    # the lane's middle wears the grass (Ryan: "replace it with the grass texture"); slot kept for MapShadow's overrides
+    "path": _sheet("path", stem="forest_grass"),
     "earth": _sheet("earth", stem="forest_path", tint=(0.2615, 0.2112, 0.4746)),
     "sun": _sheet("sun"),
     # leaves wear Ryan's photo untinted; shade only dims it, never shifts its hue

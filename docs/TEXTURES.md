@@ -276,7 +276,7 @@ Up to four commonest colours and the share of vertices wearing each; many colour
 | maps/forest/models/forest.glb | forest_grass | maps/forest/textures/forest_grass_albedo.png | forest.ase / forest_grass_albedo | - | - |
 | maps/forest/models/forest.glb | forest_lamp | maps/forest/textures/forest_rock_albedo.png | forest.ase / forest_rock_albedo | (0.0144, 0.0135, 0.015) | forest_lamp_emissive.png |
 | maps/forest/models/forest.glb | forest_leaf | maps/forest/textures/forest_sun_albedo.png | forest.ase / forest_sun_albedo | (0.249, 0.279, 0.554) | - |
-| maps/forest/models/forest.glb | forest_path | maps/forest/textures/forest_path_albedo.png | forest.ase / forest_path_albedo | - | - |
+| maps/forest/models/forest.glb | forest_path | maps/forest/textures/forest_grass_albedo.png | forest.ase / forest_grass_albedo | - | - |
 | maps/forest/models/forest.glb | forest_root | maps/forest/textures/forest_bark_albedo.png | forest.ase / forest_bark_albedo | (1, 0.889, 0.801) | - |
 | maps/forest/models/forest.glb | forest_shade | maps/forest/textures/forest_sun_albedo.png | forest.ase / forest_sun_albedo | (0.151, 0.194, 0.53) | - |
 | maps/forest/models/forest.glb | forest_stem | none | - | - | - |
