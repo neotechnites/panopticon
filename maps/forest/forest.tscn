@@ -70,13 +70,13 @@ editor_description = "MAP 3, THE FOREST: maps/forest/models/forest.glb at identi
 environment = SubResource("Env")
 
 [node name="Sun" type="DirectionalLight3D" parent="Environment"]
-editor_description = "Straight down, no side: the dappled canopy light. Forest lit materials (maps/forest/materials/forest_dapple.gdshaderinc, set by the import hook) break it into leaf pools by a world-XZ mask cut from the leaf sheet, so it is the same everywhere; the roof, canopy and great tree cast no shadow from it (they would black the whole lane), the props cast soft ones beneath them."
+editor_description = "Straight down, no side: the canopy light. The tower and the trees cast soft shadows from it (each tree through ForestCanopyShade, its head cluster shrunk, so it shades round its trunk; the closed canopy and the lane roof cast none); forest lit materials (maps/forest/materials/forest_dapple.gdshaderinc, set by the import hook) break what passes into soft leaf pools on up-facing ground, walls and trunks taking it even."
 transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, 0, 60, 0)
 light_color = Color(1, 0.86, 0.6, 1)
-light_energy = 0.15
+light_energy = 0.19
 shadow_enabled = true
 shadow_bias = 0.06
-shadow_blur = 2.5
+shadow_blur = 3.0
 directional_shadow_mode = 0
 directional_shadow_max_distance = 80.0
 
@@ -153,6 +153,9 @@ editor_description = "Every tree of the wood as one chunk of map geometry (fores
 
 [node name="ForestCanopy" parent="Sections/Canopy"]
 cast_shadow = 0
+
+[node name="ForestCanopyShade" parent="Sections/Canopy"]
+cast_shadow = 3
 
 [node name="BushLow_039deg" parent="Sections/Lip" instance=ExtResource("13_bush_low")]
 transform = Transform3D(0.29354, 0, 0.955947, 0, 1, 0, -0.955947, 0, 0.29354, 36.7082, 22.95, 30.0667)
@@ -263,9 +266,6 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 25.35, 0)
 
 [node name="Tree" parent="Tower" instance=ExtResource("7_forest_tree")]
 editor_description = "maps/forest/models/forest_tree.glb: goblet trunk, the platform, eight piers and pointed arches (the windows), the vaulted canopy over it, and the crown grown outward as the sagging middle of the level's roof -- from the rim at r 11, y 34.1 it sweeps UP and OUT 15.9 m to the seam ring at r 47.6, y 50.0, shared vertex for vertex with forest.glb's cell drum, eight great limbs rising under it. Ships its own collision (ForestTreeCollision-colonly), the canopy sheet included."
-
-[node name="ForestTree" parent="Tower/Tree"]
-cast_shadow = 0
 
 [node name="TowerSpawn" type="Marker3D" parent="Tower"]
 editor_description = "On the platform floor (+1.70), 0.25 m up."

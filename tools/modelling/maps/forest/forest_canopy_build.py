@@ -112,6 +112,9 @@ else:
 NAME = "forest_canopy"
 OBJECT_NAME = "ForestCanopy"
 COLLIDER_NAME = "ForestCanopyCollision-colonly"
+# Shadow-only: each tree's head cluster shrunk in plan, so a tree shades a pool round its trunk and light falls between.
+SHADE_NAME = "ForestCanopyShade"
+SHADE_SCALE = 0.6
 FACING_YAW = 0.0
 LANE_Y = forest_trees.LANE_Y        # the props sank 0.05 m into the lane's relief; so do these
 TREES = ("tree_a", "tree_b", "tree_c")
@@ -817,7 +820,9 @@ def build_tree(m, rng, spec, place, roof):
         bearing = base + 360.0 * i / count + rng.sf() * BOUGH_JITTER
         tips += _primary(m, rng, spec, trunk, BOUGH_BANDS[letter][i], bearing, place, roof)
     head = trunk["top_centre"]
+    head_faces = len(m.faces)
     shells += _cluster(m, rng, place, roof, (head[0], head[1]), "head")
+    m.head = (head_faces, len(m.faces), head[0], head[1])
     for (tx, ty, d, kind) in tips:
         R = 0.5 * sum(CLUSTER[kind][0]) / place.k
         shells += _cluster(m, rng, place, roof, (tx + d[0] * LOBE_PUSH * R, ty + d[1] * LOBE_PUSH * R), kind)
@@ -927,10 +932,27 @@ def build_fringe(m, roof):
     return shells, clipped
 
 
+def _shade_of(local):
+    """The tree's head cluster as its own shell, shrunk SHADE_SCALE in plan about the head."""
+    f0, f1, hx, hy = local.head
+    out, ids = _Mesh(), {}
+    for f in local.faces[f0:f1]:
+        if f is None:
+            continue
+        for i in f:
+            if i not in ids:
+                x, y, z = local.verts[i]
+                ids[i] = len(out.verts)
+                out.v((hx + (x - hx) * SHADE_SCALE, hy + (y - hy) * SHADE_SCALE, z))
+        out.faces.append(tuple(ids[i] for i in f))
+        out.zones.append("leaf")
+    return out
+
+
 def build_geometry():
-    """(canopy mesh, collider mesh, stats)."""
+    """(canopy mesh, collider mesh, stats); stats["shade"] is the shadow-only mesh."""
     roof = _Roof()
-    m, c = _Mesh(), _Mesh()
+    m, c, shade = _Mesh(), _Mesh(), _Mesh()
     m.clusters = []             # (centre, vertex ids) per leaf cluster, for _soften
     stats = {"trees": 0, "shells": 0, "per_kind": {}, "roof_top": roof.top}
     stats["fringe"], stats["lip_clipped"] = build_fringe(m, roof)
@@ -943,6 +965,7 @@ def build_geometry():
         local.clusters = []
         rng = _Rng(SEED + spec["seed"] + 7919 * idx)
         stats["shells"] += build_tree(local, rng, spec, place, roof)
+        _append(shade, _shade_of(local), place)
         local.compact()
         _append(m, local, place)
         coll = ftp.build_collider(spec).compact()
@@ -950,6 +973,7 @@ def build_geometry():
         _append(c, coll, place)
         stats["trees"] += 1
         stats["per_kind"][kind] = stats["per_kind"].get(kind, 0) + 1
+    stats["shade"] = shade
     return m, c, stats
 
 
@@ -959,13 +983,16 @@ def build():
     _unwrap(ob, m.zones)
     ft._finish(ob, m.zones, ft.tile_materials("ForestCanopy", m.zones), flat=False)
     _soften(ob, m.clusters)
+    sh = stats["shade"].object(SHADE_NAME)
+    _unwrap(sh, stats["shade"].zones)
+    ft._finish(sh, stats["shade"].zones, ft.tile_materials("ForestCanopy", stats["shade"].zones), flat=True)
     coll = c.object(COLLIDER_NAME)
     coll.hide_render = True
     zs = [v[2] for v in m.verts]
     print("MDL STATS trees=%d shells=%d fringe=%d lip_clipped=%d %s visual_tris=%d collision_tris=%d top_y=%.2f roof_y=%.1f"
           % (stats["trees"], stats["shells"], stats["fringe"], stats["lip_clipped"], stats["per_kind"],
              len(ob.data.polygons), len(coll.data.polygons), max(zs), fc.GALLERY_Z))
-    return [ob, coll]
+    return [ob, sh, coll]
 
 
 # =============================================================================
