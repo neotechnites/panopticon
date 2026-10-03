@@ -138,7 +138,6 @@ The game multiplies the texture by this colour (linear RGB). The recoloured look
 | maps/forest/textures/forest_bark_albedo.png | (1, 0.889, 0.801) | forest.glb: forest_root; forest_bars.glb: forest_root |
 | maps/forest/textures/forest_bark_albedo.png | (1, 0.9, 0.81) | forest_thorns.glb: ForestThorns_root; forest_tree.glb: ForestTree_root |
 | maps/forest/textures/forest_grass_albedo.png | (0.352, 0.402, 0.841) | forest.glb: forest_edge |
-| maps/forest/textures/forest_grass_albedo.png | (1, 0.846, 1) | forest.glb: forest_verge |
 | maps/forest/textures/forest_path_albedo.png | (0.262, 0.211, 0.475) | forest.glb: forest_earth |
 | maps/forest/textures/forest_rock_albedo.png | (0.0144, 0.0135, 0.015) | hub_base.glb: ForestDark; forest.glb: forest_cell; forest.glb: forest_lamp |
 | maps/forest/textures/forest_rock_albedo.png | (0.191, 0.359, 0.135) | forest_rock_boulder.glb: ForestGranite_moss; forest_rock_outcrop.glb: ForestGranite_moss; forest_rock_slab.glb: ForestGranite_moss |
@@ -291,7 +290,7 @@ Up to four commonest colours and the share of vertices wearing each; many colour
 | maps/forest/models/forest.glb | forest_shade | maps/forest/textures/forest_sun_albedo.png | forest.ase / forest_sun_albedo | (0.151, 0.194, 0.53) | - |
 | maps/forest/models/forest.glb | forest_stem | none | - | - | - |
 | maps/forest/models/forest.glb | forest_sun | maps/forest/textures/forest_sun_albedo.png | forest.ase / forest_sun_albedo | - | - |
-| maps/forest/models/forest.glb | forest_verge | maps/forest/textures/forest_grass_albedo.png | forest.ase / forest_grass_albedo | (1, 0.846, 1) | - |
+| maps/forest/models/forest.glb | forest_verge | maps/forest/textures/forest_grass_albedo.png | forest.ase / forest_grass_albedo | - | - |
 | maps/forest/models/forest.glb | ForestRaysSoftMat | none | - | (0, 0, 0) | - |
 | maps/forest/models/forest.glb | ForestRaysSolidMat | none | - | (0, 0, 0) | - |
 | maps/forest/models/forest_bars.glb | forest_bark | maps/forest/textures/forest_bark_albedo.png | forest.ase / forest_bark_albedo | - | - |

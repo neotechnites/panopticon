@@ -1277,7 +1277,8 @@ _DARK = (0.0144, 0.0135, 0.015)
 LEAF_SHADE = ft.TILES["shade"][1]
 SHEETS = {
     "grass": _sheet("grass"),
-    "verge": _sheet("verge", stem="forest_grass", tint=(1.0, 0.8456, 1.0)),
+    # the old path's verges wear the grass untinted, matching it exactly; slot kept for MapShadow's overrides
+    "verge": _sheet("verge", stem="forest_grass"),
     "edge": _sheet("edge", stem="forest_grass", tint=(0.3516, 0.4017, 0.8407)),
     # the lane's middle wears the grass (Ryan: "replace it with the grass texture"); slot kept for MapShadow's overrides
     "path": _sheet("path", stem="forest_grass"),
