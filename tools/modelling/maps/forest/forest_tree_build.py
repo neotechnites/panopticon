@@ -1681,6 +1681,28 @@ def _finish(ob, zones, mats, flat=True):
     return tx.finish(ob, zones, mats, flat)
 
 
+def _underside_normals(ob, zones):
+    """The crown's down-facing leaf past the rim takes level normals, as the leaf walls have: no sun
+    or lower sky reaches a face pointing down, so it read black under the dome."""
+    me = ob.data
+    out = []
+    for pi, poly in enumerate(me.polygons):
+        n = poly.normal
+        c = poly.center
+        r = math.hypot(c[0], c[1])
+        if zones[pi] in ("leaf", "shade", "sun") and n[2] < 0.0 and r > CANOPY_R:
+            hx, hy = n[0], n[1]
+            if math.hypot(hx, hy) < 0.2:
+                hx, hy = hx + 0.2 * c[0] / r, hy + 0.2 * c[1] / r
+            k = math.hypot(hx, hy)
+            v = (hx / k, hy / k, 0.0)
+        else:
+            v = tuple(n)
+        out.extend([v] * poly.loop_total)
+    me.shade_smooth()
+    me.normals_split_custom_set(out)
+
+
 def build_render_copy():
     """The tree in WORLD coordinates for another model's review renders."""
     m = build_tree_geometry()
@@ -1698,7 +1720,8 @@ def build():
     ob = m.object(OBJECT_NAME, shift)
     zones = seam_tint(ob, m.zones)
     unwrap(ob, zones)
-    _finish(ob, zones, tile_materials("ForestTree", zones, vertex=True))
+    order = _finish(ob, zones, tile_materials("ForestTree", zones, vertex=True))
+    _underside_normals(ob, [order[p.material_index] for p in ob.data.polygons])
     coll = c.object(COLLIDER_NAME, shift)
     coll.hide_render = True
     print("MDL STATS visual_tris=%d collision_tris=%d floor_y=%.2f eye_y=%.2f apex_y=%.1f"
