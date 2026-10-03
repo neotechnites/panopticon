@@ -23,7 +23,7 @@ void vertex() {
 
 void fragment() {
 	vec2 uv = PS1_UV(UV);
-	vec4 albedo = texture(albedo_texture, uv) * albedo_color;
+	vec4 albedo = PS1_TEXTURE(albedo_texture, uv) * albedo_color;
 	if (use_vertex_color) {
 		albedo *= COLOR;
 	}
@@ -31,7 +31,7 @@ void fragment() {
 #ifdef PS1_ALPHA
 	ALPHA = albedo.a;
 #endif
-	vec3 glow = texture(emission_texture, uv).rgb;
+	vec3 glow = PS1_TEXTURE(emission_texture, uv).rgb;
 	EMISSION = (emission_multiply ? emission_color.rgb * glow : emission_color.rgb + glow) * emission_energy;
 	ROUGHNESS = roughness;
 	METALLIC = metallic;

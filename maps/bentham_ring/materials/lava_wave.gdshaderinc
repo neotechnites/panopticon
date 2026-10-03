@@ -73,12 +73,12 @@ void fragment() {
 	vec3 n = normalize(cross(dFdx(VERTEX), dFdy(VERTEX)));
 	NORMAL = dot(n, NORMAL) < 0.0 ? -n : n;
 	vec2 uv = PS1_UV(UV);
-	vec4 albedo_tex = texture(albedo_texture, uv);
+	vec4 albedo_tex = PS1_TEXTURE(albedo_texture, uv);
 	ALBEDO = albedo_tex.rgb * albedo_color.rgb;
 #ifdef WAVE_SEE_THROUGH
 	ALPHA = albedo_tex.a * albedo_color.a;
 #endif
-	EMISSION = texture(emission_texture, uv).rgb * emission_color.rgb * emission_energy;
+	EMISSION = PS1_TEXTURE(emission_texture, uv).rgb * emission_color.rgb * emission_energy;
 	ROUGHNESS = roughness;
 	METALLIC = metallic;
 }

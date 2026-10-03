@@ -192,3 +192,7 @@ ps1_affine={
 "type": "float",
 "value": 0.0
 }
+ps1_mip_bias={
+"type": "float",
+"value": 0.0
+}

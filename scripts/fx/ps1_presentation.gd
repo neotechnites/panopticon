@@ -30,6 +30,11 @@ const LINE_CHOICES: PackedInt32Array = [240, 270, 360]
 	set(value):
 		affine_amount = value
 		_apply()
+## How sharp textures stay: 1 picks mips as the window's resolution would, 0 as the low-res buffer would (blurrier).
+@export_range(0.0, 1.0, 0.05) var texture_sharpness: float = 1.0:
+	set(value):
+		texture_sharpness = value
+		_apply()
 @export var dither: bool = true:
 	set(value):
 		dither = value
@@ -85,6 +90,7 @@ func _apply() -> void:
 		_owning = false
 		RenderingServer.global_shader_parameter_set(&"ps1_snap_grid", Vector2.ZERO)
 		RenderingServer.global_shader_parameter_set(&"ps1_affine", 0.0)
+		RenderingServer.global_shader_parameter_set(&"ps1_mip_bias", 0.0)
 		return
 	var divisor: int = maxi(1, roundi(float(_window_size.y) / float(lines)))
 	var low: Vector2 = Vector2(_window_size) / float(divisor)
@@ -97,6 +103,7 @@ func _apply() -> void:
 	RenderingServer.global_shader_parameter_set(
 			&"ps1_snap_grid", low / snap_strength if snap_strength > 0.0 else Vector2.ZERO)
 	RenderingServer.global_shader_parameter_set(&"ps1_affine", affine_amount if affine else 0.0)
+	RenderingServer.global_shader_parameter_set(&"ps1_mip_bias", -log(float(divisor)) / log(2.0) * texture_sharpness)
 	_material.set_shader_parameter(&"low_size", low)
 	_material.set_shader_parameter(&"levels", colour_levels)
 	_material.set_shader_parameter(&"dither", 1.0 if dither else 0.0)
