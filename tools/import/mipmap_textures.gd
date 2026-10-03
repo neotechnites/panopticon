@@ -17,10 +17,6 @@ const LAVA_EMISSION_BOOST := 1.4
 const MATTE_PREFIX := "res://maps/marble/"
 ## The forest's soft sheet filters bilinear with mips; every other home stays nearest.
 const BILINEAR_PREFIX := "res://maps/forest/"
-## The forest's opaque lit surfaces take the dappled overhead light, its leaves (the leaf sheet) none; glow and see-through keep their own.
-const DAPPLE_SHADER := "res://maps/forest/materials/forest_dapple.gdshader"
-const DAPPLE_TWO_SIDED_SHADER := "res://maps/forest/materials/forest_dapple_two_sided.gdshader"
-const DAPPLE_TEXTURE := "res://maps/forest/textures/forest_sun_albedo.png"
 
 const TEXTURE_PROPERTIES := [
 	&"albedo_texture",
@@ -32,8 +28,6 @@ const TEXTURE_PROPERTIES := [
 var _texture_cache: Dictionary = {}
 var _seen_materials: Dictionary = {}
 var _wave_cache: Dictionary = {}
-var _dapple_cache: Dictionary = {}
-var _dapple: bool = false
 var _textures_mipped: int = 0
 var _materials_refiltered: int = 0
 var _matte: bool = false
@@ -44,8 +38,6 @@ func _post_import(scene: Node) -> Object:
 	_texture_cache.clear()
 	_seen_materials.clear()
 	_wave_cache.clear()
-	_dapple_cache.clear()
-	_dapple = get_source_file().begins_with(BILINEAR_PREFIX)
 	_textures_mipped = 0
 	_materials_refiltered = 0
 	_matte = get_source_file().begins_with(MATTE_PREFIX)
@@ -73,9 +65,6 @@ func _walk(node: Node) -> void:
 			var wave := _wave_material(mesh_instance.mesh.surface_get_material(i))
 			if wave != null:
 				mesh_instance.mesh.surface_set_material(i, wave)
-			var dappled := _dapple_material(mesh_instance.mesh.surface_get_material(i))
-			if dappled != null:
-				mesh_instance.mesh.surface_set_material(i, dappled)
 	for child in node.get_children():
 		_walk(child)
 
@@ -157,32 +146,3 @@ func _wave_material(material: Material) -> Material:
 	wave.set_shader_parameter(&"uv1_offset", base.uv1_offset)
 	_wave_cache[material_id] = wave
 	return wave
-
-
-## The dappled ShaderMaterial standing in for a forest surface's own (texture and factors carried over), or null
-## for glowing, unshaded or see-through surfaces and every other home.
-func _dapple_material(material: Material) -> Material:
-	var base := material as BaseMaterial3D
-	if not _dapple or base == null:
-		return null
-	if base.transparency != BaseMaterial3D.TRANSPARENCY_DISABLED or base.shading_mode == BaseMaterial3D.SHADING_MODE_UNSHADED or base.emission_enabled:
-		return null
-	if base.albedo_texture == null:
-		return null
-	var material_id := base.get_instance_id()
-	if _dapple_cache.has(material_id):
-		return _dapple_cache[material_id]
-	var dappled := ShaderMaterial.new()
-	dappled.resource_name = base.resource_name
-	dappled.shader = load(DAPPLE_TWO_SIDED_SHADER if base.cull_mode == BaseMaterial3D.CULL_DISABLED else DAPPLE_SHADER)
-	dappled.set_shader_parameter(&"albedo_texture", base.albedo_texture)
-	dappled.set_shader_parameter(&"albedo_color", base.albedo_color)
-	dappled.set_shader_parameter(&"use_vertex_color", base.vertex_color_use_as_albedo)
-	dappled.set_shader_parameter(&"vertex_color_srgb", base.vertex_color_is_srgb)
-	dappled.set_shader_parameter(&"roughness", base.roughness)
-	dappled.set_shader_parameter(&"uv1_scale", base.uv1_scale)
-	dappled.set_shader_parameter(&"uv1_offset", base.uv1_offset)
-	dappled.set_shader_parameter(&"dapple_texture", load(DAPPLE_TEXTURE))
-	dappled.set_shader_parameter(&"overhead", 0.0 if base.albedo_texture.resource_path == DAPPLE_TEXTURE else 1.0)
-	_dapple_cache[material_id] = dappled
-	return dappled
