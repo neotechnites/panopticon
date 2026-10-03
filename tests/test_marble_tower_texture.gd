@@ -88,7 +88,7 @@ var _tower: Node3D
 ## in the order the mesh walk found them. Deduplicated by identity: eleven
 ## materials over eleven surfaces, and a material shared by two surfaces is one
 ## sheet to report on, not two identical failures.
-var _sheets: Array[Material] = []
+var _sheets: Array[BaseMaterial3D] = []
 
 
 func before_each() -> void:
@@ -128,9 +128,9 @@ func test_every_sheet_carries_a_mip_chain() -> void:
 
 	var flat: int = 0
 	var levels_total: int = 0
-	for material: Material in _sheets:
+	for material: BaseMaterial3D in _sheets:
 		var sheet: String = _name_of(material)
-		var texture: Texture2D = _albedo_of(material)
+		var texture: Texture2D = material.albedo_texture
 		var image: Image = texture.get_image()
 		if not assert_not_null(image, "%s: its albedo sheet hands back an image" % sheet):
 			continue
@@ -168,8 +168,8 @@ func test_minification_is_mipmapped_and_magnification_is_nearest() -> void:
 		return
 
 	var wanted: String = _filter_name(REQUIRED_FILTER)
-	for material: Material in _sheets:
-		var filter: int = _filter_of(material)
+	for material: BaseMaterial3D in _sheets:
+		var filter: int = int(material.texture_filter)
 		assert_eq_int(
 			filter, REQUIRED_FILTER,
 			"%s: filter is %s, wanted %s -- minification has to read the mip chain, and NEAREST has to survive that fix: magnification is the art's deliberate pixel look, and only minification was ever broken" % [
@@ -190,8 +190,8 @@ func test_minification_is_mipmapped_and_magnification_is_nearest() -> void:
 ## else.
 func test_the_tower_still_ships_every_sheet() -> void:
 	var seen: Dictionary = {}
-	for material: Material in _sheets:
-		var texture: Texture2D = _albedo_of(material)
+	for material: BaseMaterial3D in _sheets:
+		var texture: Texture2D = material.albedo_texture
 		seen[texture.get_instance_id()] = true
 
 	assert_eq_int(
@@ -234,8 +234,8 @@ static func _material_on(instance: MeshInstance3D, surface: int, mesh: Mesh) -> 
 ## every [MeshInstance3D] in the tower. The [code]-colonly[/code] collision node
 ## contributes nothing: Godot turns it into a [StaticBody3D] and drops its mesh,
 ## so what is walked here is only what is drawn.
-func _textured_materials() -> Array[Material]:
-	var out: Array[Material] = []
+func _textured_materials() -> Array[BaseMaterial3D]:
+	var out: Array[BaseMaterial3D] = []
 	var seen: Dictionary = {}
 	for node: Node in _descendants(_tower):
 		var instance: MeshInstance3D = node as MeshInstance3D
@@ -245,8 +245,8 @@ func _textured_materials() -> Array[Material]:
 		if mesh == null:
 			continue
 		for surface: int in mesh.get_surface_count():
-			var base: Material = _material_on(instance, surface, mesh)
-			if base == null or _albedo_of(base) == null:
+			var base: BaseMaterial3D = _material_on(instance, surface, mesh) as BaseMaterial3D
+			if base == null or base.albedo_texture == null:
 				continue
 			var id: int = base.get_instance_id()
 			if seen.has(id):
@@ -257,28 +257,9 @@ func _textured_materials() -> Array[Material]:
 
 
 ## What to call a material in a failure message.
-static func _name_of(material: Material) -> String:
+static func _name_of(material: BaseMaterial3D) -> String:
 	var named: String = material.resource_name
 	return named if not named.is_empty() else UNNAMED_MATERIAL
-
-
-## The albedo sheet a surface samples: a BaseMaterial3D's, or the PS1 shader's (tools/import/mipmap_textures.gd).
-static func _albedo_of(material: Material) -> Texture2D:
-	if material is ShaderMaterial:
-		return (material as ShaderMaterial).get_shader_parameter(&"albedo_texture") as Texture2D
-	var base: BaseMaterial3D = material as BaseMaterial3D
-	return base.albedo_texture if base != null else null
-
-
-## The filter a surface samples with; the PS1 shader declares it on its sampler.
-static func _filter_of(material: Material) -> int:
-	var shaded: ShaderMaterial = material as ShaderMaterial
-	if shaded == null:
-		return int((material as BaseMaterial3D).texture_filter)
-	var code: String = FileAccess.get_file_as_string("res://scripts/fx/ps1_standard.gdshaderinc")
-	if shaded.shader.code.contains("ps1_standard.gdshaderinc") and code.contains("albedo_texture : source_color, hint_default_white, filter_nearest_mipmap_anisotropic"):
-		return REQUIRED_FILTER
-	return -1
 
 
 ## What to call a texture filter in a failure message.

@@ -23,7 +23,6 @@ buses/default_bus_layout="uid://svp8whkdkunr"
 [autoload]
 
 MacLiftLayer="*res://scripts/fx/mac_lift.gd"
-PS1="*res://scripts/fx/ps1_presentation.gd"
 
 [debug]
 
@@ -181,18 +180,3 @@ renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
 textures/vram_compression/import_etc2_astc=true
 limits/opengl/max_lights_per_object=32
-
-[shader_globals]
-
-ps1_snap_grid={
-"type": "vec2",
-"value": Vector2(0, 0)
-}
-ps1_affine={
-"type": "float",
-"value": 0.0
-}
-ps1_mip_bias={
-"type": "float",
-"value": 0.0
-}

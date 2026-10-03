@@ -97,7 +97,6 @@ func _rebuild() -> void:
 		_build_sniper()
 		_build_runners()
 		_build_health()
-	_build_presentation()
 	_heading("MENU_DEBUG_HOTKEYS")
 	_note(_hotkey_text())
 
@@ -233,21 +232,6 @@ func _build_health() -> void:
 		ghosts.speed_multiplier = value
 		_controller.debug_refresh_pace()
 	_slider("DEBUG_GHOST_SPEED", 0.5, 4.0, 0.05, "DEBUG_UNIT_TIMES", ghosts.speed_multiplier, set_ghost_speed)
-
-
-## The PS1 look, written live into the one autoload that holds it.
-func _build_presentation() -> void:
-	_heading("DEBUG_SECTION_PS1")
-	_toggle("DEBUG_PS1", PS1.enabled, func(on: bool) -> void: PS1.enabled = on)
-	var titles: PackedStringArray = []
-	for count: int in PS1Presentation.LINE_CHOICES:
-		titles.append("DEBUG_PS1_LINES_%d" % count)
-	_choice("DEBUG_PS1_LINES", titles, maxi(PS1Presentation.LINE_CHOICES.find(PS1.lines), 0),
-			func(index: int) -> void: PS1.lines = PS1Presentation.LINE_CHOICES[index])
-	_slider("DEBUG_PS1_SNAP", 0.0, 4.0, 0.25, "DEBUG_UNIT_PIXELS", PS1.snap_strength,
-			func(value: float) -> void: PS1.snap_strength = value)
-	_toggle("DEBUG_PS1_AFFINE", PS1.affine, func(on: bool) -> void: PS1.affine = on)
-	_toggle("DEBUG_PS1_DITHER", PS1.dither, func(on: bool) -> void: PS1.dither = on)
 
 
 # --- Live writes ---------------------------------------------------------------
