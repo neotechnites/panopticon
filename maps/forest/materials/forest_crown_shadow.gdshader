@@ -6,8 +6,9 @@ render_mode unshaded, cull_disabled, shadows_disabled;
 uniform float roof_radius = 8.7;
 uniform float solid_below_y = -1000.0;
 uniform float wall_radius = 0.0;
-uniform float gap = 0.5;
-uniform float cell = 1.4;
+uniform float gap = 0.39;
+uniform float cell = 1.0;
+uniform float soft = 0.14;
 
 varying vec3 world;
 
@@ -33,7 +34,9 @@ void fragment() {
 	float r = length(world.xz);
 	float wall = step(wall_radius, r) * (1.0 - step(solid_below_y, world.y));
 	float open = step(roof_radius, r) * (1.0 - wall);
-	if (n < gap * open) {
+	// A dithered fringe (fixed in world, fine grain) the shadow filter averages into a soft edge.
+	float d = (hash(floor(q * 9.0)) - 0.5) * soft;
+	if ((n + d) * open < gap * open) {
 		discard;
 	}
 	ALBEDO = vec3(0.0);
