@@ -90,23 +90,32 @@ func _process(_delta: float) -> void:
 	if not enabled:
 		return
 	var camera: Camera3D = root.get_camera_3d()
-	_rect.visible = camera != null
+	if _rect.visible != (camera != null):
+		_rect.visible = camera != null
 	if camera == null:
 		return
-	_eye.global_transform = camera.global_transform
-	_eye.projection = camera.projection
-	_eye.fov = camera.fov
-	_eye.size = camera.size
-	_eye.near = camera.near
-	_eye.far = camera.far
-	_eye.keep_aspect = camera.keep_aspect
-	_eye.h_offset = camera.h_offset
-	_eye.v_offset = camera.v_offset
-	_eye.frustum_offset = camera.frustum_offset
-	_eye.cull_mask = camera.cull_mask
-	_eye.environment = camera.environment
-	_eye.attributes = camera.attributes
-
+	var pose: Transform3D = camera.global_transform
+	if pose != _eye.global_transform:
+		_eye.global_transform = pose
+	if camera.fov != _eye.fov or camera.near != _eye.near or camera.far != _eye.far \
+			or camera.projection != _eye.projection or camera.size != _eye.size:
+		_eye.projection = camera.projection
+		_eye.fov = camera.fov
+		_eye.size = camera.size
+		_eye.near = camera.near
+		_eye.far = camera.far
+	if camera.h_offset != _eye.h_offset or camera.v_offset != _eye.v_offset \
+			or camera.frustum_offset != _eye.frustum_offset or camera.keep_aspect != _eye.keep_aspect:
+		_eye.h_offset = camera.h_offset
+		_eye.v_offset = camera.v_offset
+		_eye.frustum_offset = camera.frustum_offset
+		_eye.keep_aspect = camera.keep_aspect
+	if camera.cull_mask != _eye.cull_mask:
+		_eye.cull_mask = camera.cull_mask
+	if camera.environment != _eye.environment:
+		_eye.environment = camera.environment
+	if camera.attributes != _eye.attributes:
+		_eye.attributes = camera.attributes
 
 func _apply() -> void:
 	if _rect == null or not is_inside_tree():
