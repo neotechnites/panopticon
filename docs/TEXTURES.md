@@ -93,7 +93,7 @@ The hub's three wedges wear the hell, marble and forest textures from those maps
 
 ### Characters: `characters/textures/` (`prisoner.ase`)
 
-Paint the four 64 px regions of `prisoner.ase`: trousers (top left), shoes (top right), skin (bottom left), shirt (bottom right).
+Paint the four 64 px regions of `prisoner.ase`: trousers (top left), top right UNUSED (no shoes: those faces are skin), skin (bottom left), shirt (bottom right).
 Export (`tools/textures/export_sheets.sh`) composes them onto the body: `compose_prisoner.py` tiles each region 1:1
 onto each face by its old-model material (`prisoner_faces.json`) into `prisoner2_albedo.png`; the raw sheet is `prisoner_sheet.png`.
 

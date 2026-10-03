@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Composes prisoner2_albedo.png from Ryan's 4-swatch prisoner.ase: each face of prisoner2.glb gets the swatch it had
+"""Composes prisoner2_albedo.png from Ryan's 4-swatch prisoner.ase: each face of prisoner2.glb gets the swatch (shoes quarter is skin: no shoes) it had
 on the old model (prisoner_faces.json), tiled 1:1 across its current UVs (nearest, +3 px margin)."""
 import json, os, struct, subprocess
 import numpy as np
@@ -14,7 +14,7 @@ ALBEDO = os.path.join(ROOT, "characters/textures/prisoner2_albedo.png")  # what 
 GLB = os.path.join(ROOT, "characters/models/prisoner2.glb")
 TABLE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "prisoner_faces.json")
 OLD = "870c757:characters/models/prisoner2.glb"   # Ryan's old model: its UV quarters are the authoritative materials
-SWATCHES = {"trousers": [0, 0, 0.5, 0.5], "shoes": [0.5, 0, 0.5, 0.5], "skin": [0, 0.5, 0.5, 0.5], "shirt": [0.5, 0.5, 0.5, 0.5]}
+SWATCHES = {"trousers": [0, 0, 0.5, 0.5], "skin": [0, 0.5, 0.5, 0.5], "shirt": [0.5, 0.5, 0.5, 0.5]}
 MARGIN = 3
 TYPES = {5121: np.uint8, 5123: np.uint16, 5125: np.uint32, 5126: np.float32}
 WIDTH = {"SCALAR": 1, "VEC2": 2, "VEC3": 3}
@@ -55,7 +55,7 @@ def build_table():
     tmp = os.path.join(ROOT, ".godot", "prisoner_old.glb")
     os.makedirs(os.path.dirname(tmp), exist_ok=True)
     open(tmp, "wb").write(old)
-    quarter = {(0, 0): "trousers", (1, 0): "shoes", (0, 1): "skin", (1, 1): "shirt"}
+    quarter = {(0, 0): "trousers", (1, 0): "skin", (0, 1): "skin", (1, 1): "shirt"}
     faces = {key(p): quarter[tuple(int(c >= 0.5) for c in uv.mean(0))] for p, uv in triangles(tmp)}
     os.remove(tmp)
     table = {"_note": "Face (sorted vertex positions) -> swatch, read from the old UVs at " + OLD + ".",
