@@ -70,17 +70,21 @@ editor_description = "MAP 3, THE FOREST: maps/forest/models/forest.glb at identi
 environment = SubResource("Env")
 
 [node name="Sun" type="DirectionalLight3D" parent="Environment"]
-editor_description = "Off (energy 0, no shadows): a sun through the canopy gaps lit random patches of the ring; the sky ambient carries it evenly."
-transform = Transform3D(0.866025, 0.394, -0.3078, 0, 0.6157, 0.788, 0.5, -0.6824, 0.5332, 0, 30, 0)
-light_color = Color(1, 0.95, 0.8, 1)
-light_energy = 0.0
-shadow_enabled = false
+editor_description = "Straight down, no side: the dappled canopy light. Forest lit materials (maps/forest/materials/forest_dapple.gdshaderinc, set by the import hook) break it into leaf pools by a world-XZ mask cut from the leaf sheet, so it is the same everywhere; the roof, canopy and great tree cast no shadow from it (they would black the whole lane), the props cast soft ones beneath them."
+transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, 0, 60, 0)
+light_color = Color(1, 0.86, 0.6, 1)
+light_energy = 0.15
+shadow_enabled = true
 shadow_bias = 0.06
+shadow_blur = 2.5
 directional_shadow_mode = 0
-directional_shadow_max_distance = 200.0
+directional_shadow_max_distance = 80.0
 
 [node name="ForestMap" parent="." instance=ExtResource("6_forest_model")]
 editor_description = "maps/forest/models/forest.glb: lane, pit bank and its buried floor, brambles, leaf wall with three lane-facing cell tiers, the lane roof at y 38.0, the cell drum climbing off its inner rim to the seam at y 50.0, and the pit cells; ForestFog and the ray nodes ride in it. Ships its own collision (ForestCollision-colonly)."
+
+[node name="ForestGround" parent="ForestMap"]
+cast_shadow = 0
 
 [node name="ForestRaysSolid" parent="ForestMap"]
 visible = false
@@ -146,6 +150,9 @@ editor_description = "The wall line: trees and undergrowth in the wall-foot fern
 
 [node name="Canopy" parent="Sections" instance=ExtResource("10_canopy")]
 editor_description = "Every tree of the wood as one chunk of map geometry (forest_canopy.glb): the trunks rise into the lane roof and their limbs end in leaf bosses on it; the collider is the same trunk prisms the props carried."
+
+[node name="ForestCanopy" parent="Sections/Canopy"]
+cast_shadow = 0
 
 [node name="BushLow_039deg" parent="Sections/Lip" instance=ExtResource("13_bush_low")]
 transform = Transform3D(0.29354, 0, 0.955947, 0, 1, 0, -0.955947, 0, 0.29354, 36.7082, 22.95, 30.0667)
@@ -256,6 +263,9 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 25.35, 0)
 
 [node name="Tree" parent="Tower" instance=ExtResource("7_forest_tree")]
 editor_description = "maps/forest/models/forest_tree.glb: goblet trunk, the platform, eight piers and pointed arches (the windows), the vaulted canopy over it, and the crown grown outward as the sagging middle of the level's roof -- from the rim at r 11, y 34.1 it sweeps UP and OUT 15.9 m to the seam ring at r 47.6, y 50.0, shared vertex for vertex with forest.glb's cell drum, eight great limbs rising under it. Ships its own collision (ForestTreeCollision-colonly), the canopy sheet included."
+
+[node name="ForestTree" parent="Tower/Tree"]
+cast_shadow = 0
 
 [node name="TowerSpawn" type="Marker3D" parent="Tower"]
 editor_description = "On the platform floor (+1.70), 0.25 m up."
