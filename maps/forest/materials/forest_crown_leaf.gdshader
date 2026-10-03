@@ -6,7 +6,7 @@ render_mode blend_mix, depth_draw_opaque, cull_back, diffuse_burley, specular_sc
 uniform sampler2D albedo_texture : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
 uniform vec3 tint = vec3(1.0);    // the glTF baseColorFactor, linear
 uniform float roughness = 0.95;
-uniform vec3 fill = vec3(0.085, 0.0723, 0.051);   // linear light on the underside: the suns' warm tone
+uniform vec3 fill = vec3(0.80, 0.68, 0.48);   // linear light on the underside: the suns' warm tone
 uniform float fill_radius = 11.0;  // the crown's rim; the guard's canopy inside it stays as it was
 
 varying vec3 world;
