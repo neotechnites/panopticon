@@ -14,7 +14,7 @@ the shipped one. Default: maps/bentham_ring/models/map_base_s1.glb.
 
 It imports that map .glb at identity and tower/models/tower.glb at its
 guard-room datum, then writes three shots into
-~/Desktop/panopticon-renders/map1/sections/ --
+~/Desktop/panopticon-renders/proofs/map1/sections/ --
 
     map_base_<tag>_lane.png     runner eye on the lane at bearing 12, looking
                                 up the lap into the cave: what the runner sees
@@ -68,7 +68,7 @@ REPO = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                     os.pardir, os.pardir, os.pardir, os.pardir))
 MAP_GLB = os.path.join(REPO, "maps", "bentham_ring", "models", "map_base_s1.glb")
 TOWER_GLB = os.path.join(REPO, "tower", "models", "tower.glb")
-OUT_DIR = os.path.expanduser("~/Desktop/panopticon-renders/map1/sections")
+OUT_DIR = os.path.expanduser("~/Desktop/panopticon-renders/proofs/map1/sections")
 
 TOWER_Y = 25.35                 # tower.glb's origin is the guard-room DATUM --
                                 # bentham_ring.tscn's Tower node stands there

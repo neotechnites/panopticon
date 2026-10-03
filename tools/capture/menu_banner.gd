@@ -31,7 +31,7 @@ func _arg(name: String, fallback: String) -> String:
 
 
 func _initialize() -> void:
-	var out_dir: String = _arg("out", "C:/Users/ddd/Desktop/panopticon-renders/brand")
+	var out_dir: String = _arg("out", "C:/Users/ddd/Desktop/panopticon-renders/proofs/brand")
 	var packed: PackedScene = load(SCENE) as PackedScene
 	if packed == null:
 		push_error("menu_banner.gd could not load %s" % SCENE)

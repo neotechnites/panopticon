@@ -9,7 +9,7 @@ here to export: this file is the camera crew, and it runs on its own --
 
 It imports the shipped maps/bentham_ring/models/map_base_*.glb at identity and
 tower/models/tower.glb at its guard-room datum, then writes two shots per
-wall into ~/Desktop/panopticon-renders/map1/sections/ --
+wall into ~/Desktop/panopticon-renders/proofs/map1/sections/ --
 
     map_base_lipwall_<name>_approach.png  eye level on the lane, 9 deg back
                                           down the lap, looking at the wall
@@ -56,7 +56,7 @@ REPO = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                     os.pardir, os.pardir, os.pardir, os.pardir))
 MAP_GLBS = [os.path.join(REPO, "maps", "bentham_ring", "models", "map_base_%s.glb" % c) for c in mb.CHUNKS]
 TOWER_GLB = os.path.join(REPO, "tower", "models", "tower.glb")
-OUT_DIR = os.path.expanduser("~/Desktop/panopticon-renders/map1/sections")
+OUT_DIR = os.path.expanduser("~/Desktop/panopticon-renders/proofs/map1/sections")
 
 TOWER_Y = 25.35                 # tower.glb's origin is the guard-room DATUM --
                                 # bentham_ring.tscn's Tower node stands there

@@ -389,7 +389,7 @@ EOF
 }
 
 stage_fetch() {
-  mkdir -p "$RENDERS"
+  OUT="$RENDERS/proofs/models/$NAME"; mkdir -p "$OUT"
   local listing
   listing=$(pc "Get-ChildItem '$JOB_W\\out' -Filter '${FULL}*' | Select-Object -ExpandProperty Name")
   local got=0
@@ -398,10 +398,10 @@ stage_fetch() {
     [ -n "$f" ] || continue
     case "$f" in
       *.png)
-        pull "$JOB/out/$f" "$RENDERS/$f"
+        pull "$JOB/out/$f" "$OUT/$f"
         if [ "$KEEP" = "1" ]; then
-          mkdir -p "$RENDERS/archive"
-          cp "$RENDERS/$f" "$RENDERS/archive/${f%.png}_$(date +%Y%m%d-%H%M%S).png"
+          mkdir -p "$OUT/archive"
+          cp "$OUT/$f" "$OUT/archive/${f%.png}_$(date +%Y%m%d-%H%M%S).png"
         fi
         got=$((got + 1))
         ;;
@@ -413,7 +413,7 @@ stage_fetch() {
         ;;
     esac
   done <<< "$listing"
-  say "$got render(s) -> $RENDERS"
+  say "$got render(s) -> $OUT"
 }
 
 # A chunked map writes <name>.chunks.json: one .glb per chunk, each with its
@@ -553,18 +553,18 @@ EOF
 }
 
 stage_fetch_local() {
-  mkdir -p "$RENDERS"
+  OUT="$RENDERS/proofs/models/$NAME"; mkdir -p "$OUT"
   local got=0 f
   for f in "$TMP"/out/"$NAME"_*.png; do
     [ -f "$f" ] || continue
-    cp "$f" "$RENDERS/$(basename "$f")"
+    cp "$f" "$OUT/$(basename "$f")"
     if [ "$KEEP" = "1" ]; then
-      mkdir -p "$RENDERS/archive"
-      cp "$f" "$RENDERS/archive/$(basename "${f%.png}")_$(date +%Y%m%d-%H%M%S).png"
+      mkdir -p "$OUT/archive"
+      cp "$f" "$OUT/archive/$(basename "${f%.png}")_$(date +%Y%m%d-%H%M%S).png"
     fi
     got=$((got + 1))
   done
-  say "$got render(s) -> $RENDERS"
+  say "$got render(s) -> $OUT"
 }
 
 # -----------------------------------------------------------------------------
@@ -770,7 +770,7 @@ PY
     ;;
 
   open)
-    open "$RENDERS"
+    open "$RENDERS/proofs/models"
     ;;
 
   doctor)
