@@ -17,12 +17,12 @@
 [ext_resource type="Shader" path="res://maps/forest/materials/forest_crown_shadow.gdshader" id="20_crown_shadow"]
 
 [sub_resource type="ProceduralSkyMaterial" id="SkyMat"]
-sky_top_color = Color(0.43, 0.36, 0.24, 1)
-sky_horizon_color = Color(0.5, 0.41, 0.27, 1)
-sky_curve = 0.2
+sky_top_color = Color(0.47, 0.393, 0.262, 1)
+sky_horizon_color = Color(0.129, 0.106, 0.07, 1)
+sky_curve = 0.35
 sky_energy_multiplier = 0.765
-ground_bottom_color = Color(0.12, 0.1, 0.055, 1)
-ground_horizon_color = Color(0.27, 0.225, 0.14, 1)
+ground_bottom_color = Color(0.018, 0.015, 0.008, 1)
+ground_horizon_color = Color(0.035, 0.029, 0.018, 1)
 sun_angle_max = 0.0
 
 [sub_resource type="Sky" id="Sky"]
@@ -77,7 +77,7 @@ environment = SubResource("Env")
 editor_description = "The sun straight down, so no half of the ring is favoured; sky carries the ambient."
 transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, 0, 30, 0)
 light_color = Color(1, 0.85, 0.6, 1)
-light_energy = 1.8
+light_energy = 1.0
 shadow_enabled = true
 shadow_bias = 0.06
 directional_shadow_mode = 0
@@ -262,11 +262,11 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 25.35, 0)
 editor_description = "maps/forest/models/forest_tree.glb: goblet trunk, the platform, eight piers and pointed arches (the windows), the vaulted canopy over it, and the crown grown outward as the sagging middle of the level's roof -- from the rim at r 11, y 34.1 it sweeps UP and OUT 15.9 m to the seam ring at r 47.6, y 50.0, shared vertex for vertex with forest.glb's cell drum, eight great limbs rising under it. Ships its own collision (ForestTreeCollision-colonly), the canopy sheet included."
 
 [node name="ForestTree" parent="Tower/Tree"]
-editor_description = "Casts no shadow itself; Tower/TreeShadow casts it, solid over the guard's floor, broken over the pit."
+editor_description = "Casts no shadow itself; Tower/TreeShadow casts it: solid only under the roof over the guard, broken through every leaf."
 cast_shadow = 0
 
 [node name="TreeShadow" parent="Tower" instance=ExtResource("7_forest_tree")]
-editor_description = "A shadows-only copy of the tree (forest_crown_shadow.gdshader): the roof shades the guard's floor, the crown lets the sun through onto the pit in patches."
+editor_description = "A shadows-only copy of the tree (forest_crown_shadow.gdshader): the solid roof (r < 8.7) shades the guard's floor; the leaves let the sun through in patches everywhere else."
 
 [node name="ForestTree" parent="Tower/TreeShadow"]
 cast_shadow = 3

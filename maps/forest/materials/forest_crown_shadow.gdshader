@@ -1,10 +1,9 @@
-// The great tree's shadow, drawn by a shadows-only copy of forest_tree.glb: solid over the guard's floor,
-// broken past solid_radius by world-XZ noise so the sun falls through the crown onto the pit in patches.
+// The great tree's shadow, drawn by a shadows-only copy of forest_tree.glb: solid only under the tower's roof
+// (r < roof_radius); every leaf beyond it lets the sun through in world-XZ noise patches.
 shader_type spatial;
 render_mode unshaded, cull_disabled, shadows_disabled;
 
-uniform float solid_radius = 11.0;
-uniform float ramp = 4.0;
+uniform float roof_radius = 8.7;
 uniform float gap = 0.5;
 uniform float cell = 2.6;
 
@@ -27,7 +26,7 @@ float vnoise(vec2 p) {
 
 void fragment() {
 	float n = 0.65 * vnoise(world.xz / cell) + 0.35 * vnoise(world.xz / (cell * 0.45) + 17.0);
-	if (n < gap * smoothstep(solid_radius, solid_radius + ramp, length(world.xz))) {
+	if (n < gap * step(roof_radius, length(world.xz))) {
 		discard;
 	}
 	ALBEDO = vec3(0.0);
