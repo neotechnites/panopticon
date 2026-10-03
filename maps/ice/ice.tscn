@@ -1,0 +1,138 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/match/kill_volume.gd" id="1_kill_volume"]
+[ext_resource type="Script" path="res://scripts/ring/tower_light.gd" id="3_tower_light"]
+[ext_resource type="Resource" path="res://maps/ice/ice_tower_light_profile.tres" id="4_tower_light_profile"]
+[ext_resource type="Script" path="res://scripts/ring/ring_route.gd" id="5_ring_route"]
+[ext_resource type="Script" path="res://scripts/ring/ring_level.gd" id="6_ring_level"]
+[ext_resource type="Script" path="res://scripts/ring/tower_variant.gd" id="8c_tower_variant"]
+[ext_resource type="PackedScene" path="res://maps/ice/models/ice_tower.glb" id="8_tower_model"]
+[ext_resource type="PackedScene" path="res://maps/ice/models/ice.glb" id="10_map_model"]
+[ext_resource type="PackedScene" path="res://maps/ice/props/ice_portal.tscn" id="19_portal"]
+[ext_resource type="PackedScene" path="res://maps/ice/models/ice_gate.glb" id="20_ice_gate"]
+
+[sub_resource type="ProceduralSkyMaterial" id="SkyMat"]
+sky_top_color = Color(0.3, 0.48, 0.7, 1)
+sky_horizon_color = Color(0.62, 0.76, 0.86, 1)
+sky_curve = 0.3
+ground_bottom_color = Color(0.2, 0.3, 0.4, 1)
+ground_horizon_color = Color(0.55, 0.68, 0.78, 1)
+sun_angle_max = 0.0
+
+[sub_resource type="Sky" id="Sky"]
+sky_material = SubResource("SkyMat")
+
+[sub_resource type="Environment" id="Env"]
+background_mode = 2
+sky = SubResource("Sky")
+ambient_light_source = 2
+ambient_light_color = Color(0.78, 0.88, 1, 1)
+ambient_light_energy = 0.9
+tonemap_mode = 1
+
+[node name="Ice" type="Node3D"]
+editor_description = "MAP 4, THE ICE DOME (first blockout, a clean shell to build on): maps/ice/models/ice.glb at identity -- Map 1's ring in blue ice: a flat lane r 46.7..57.3 at y 23.0 with its inner edge open over the pit, the pit's dark-ice floor at y -11.0, the ice wall at r 57.3 up to y 35.0, and from the wall head one blue, slightly see-through ice dome (apex 65.0) that flows out of the wall in a broad cove. Nothing on the lane: no cover, no props (Ryan places those). The sky is a plain cold gradient, seen faintly through the dome. Lighting is cool and even: a flat ambient, one unshadowed light from above, the tower lamp."
+
+[node name="Environment" type="Node3D" parent="."]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="Environment"]
+environment = SubResource("Env")
+
+[node name="Sun" type="DirectionalLight3D" parent="Environment"]
+editor_description = "Cool, soft and unshadowed, steep from above: floors read lighter than walls, nothing goes black."
+transform = Transform3D(0.866025, -0.453154, 0.211309, 0, 0.422618, 0.906308, -0.5, -0.784886, 0.365998, 0, 70, 0)
+light_color = Color(0.9, 0.95, 1, 1)
+light_energy = 0.5
+light_specular = 0.0
+shadow_enabled = false
+
+[node name="MapBase" parent="." instance=ExtResource("10_map_model")]
+editor_description = "maps/ice/models/ice.glb: the whole shell, one contiguous mesh -- pit floor, bank, lane, wall and the see-through dome (alpha blend, 0.83 opaque). Ships its own collision (IceCollision-colonly)."
+
+[node name="KillBox" type="Area3D" parent="."]
+editor_description = "Map 1's kill box: roof at y -8.0, 34 m deep, r 62. A body that drops off the lane's open edge falls onto the pit floor at -11.0 inside it. Trigger only, mask 1048577 (living bodies and ghosts); scripts/match/kill_volume.gd hands whatever entered to MatchController.handle_fall()."
+collision_layer = 0
+collision_mask = 1048577
+monitorable = false
+script = ExtResource("1_kill_volume")
+radius_metres = 62.0
+roof_depth_metres = 8.0
+depth_metres = 34.0
+
+[node name="Shape" type="CollisionShape3D" parent="KillBox"]
+editor_description = "Deliberately empty. KillVolume._build_shape writes a CylinderShape3D over it on ready."
+
+[node name="StartEnd" type="Node3D" parent="."]
+editor_description = "One level, one lap, as Map 1: start at 5 deg, finish at 345 deg on the lane at y 23.0, the gate at 353 deg between them."
+
+[node name="PrisonerStart" type="Marker3D" parent="StartEnd"]
+editor_description = "5.0 deg on the lane, y 23.0. Its ANGLE places the field; its height is load-bearing."
+transform = Transform3D(-0.996195, 0, 0.0871557, 0, 1, 0, -0.0871557, 0, -0.996195, 51.8021, 23, 4.5321)
+
+[node name="PrisonerEnd" type="Marker3D" parent="StartEnd"]
+editor_description = "345.0 deg on the lane, matching the portal's own transform. Reaching it takes the tower."
+transform = Transform3D(0.965926, 0, 0.258819, 0, 1, 0, -0.258819, 0, 0.965926, 50.2281, 23, -13.4586)
+
+[node name="Portal" parent="StartEnd" instance=ExtResource("19_portal")]
+editor_description = "The finish at 345 deg: maps/ice/props/ice_portal.tscn, portal.tscn node for node. Local Z is the pass-through axis, local X the span across the lane."
+transform = Transform3D(0.965926, 0, 0.258819, 0, 1, 0, -0.258819, 0, 0.965926, 50.2281, 23, -13.4586)
+
+[node name="Bars" parent="." instance=ExtResource("20_ice_gate")]
+editor_description = "The barrier across the lane at 353 deg, between the finish (345) and the start (5), in the place every map gives its bars: without it RingBake links the start to the finish the short way, backwards. maps/ice/models/ice_gate.glb, a plain solid ice slab (no see-through cover on this map), 10.9 m across from the lane's open edge 0.3 m into the wall, 8.5 m tall. Local X runs radially across the lane."
+transform = Transform3D(0.992546, 0, 0.121869, 0, 1, 0, -0.121869, 0, 0.992546, 51.7613, 23, -6.35547)
+
+[node name="Sections" type="Node3D" parent="."]
+
+[node name="Watch" type="Node3D" parent="Sections"]
+editor_description = "Where the AI guard's scan rests: Map 1's three points round the lane, at head height over this flat lane."
+
+[node name="Lane102" type="Marker3D" parent="Sections/Watch" groups=["guard_watch"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -10.4, 24, 48.9)
+
+[node name="Lane242" type="Marker3D" parent="Sections/Watch" groups=["guard_watch"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -25.2, 24, -47.5)
+
+[node name="Lane315" type="Marker3D" parent="Sections/Watch" groups=["guard_watch"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 38.2, 24, -38.2)
+
+[node name="Route" type="Node3D" parent="."]
+editor_description = "WHAT PROGRESS IS: the arc swept on the one lap at the lane radius. MatchLapTracker, RingRunner, the HUD and the round card read it from here."
+script = ExtResource("5_ring_route")
+
+[node name="Level1" type="Node3D" parent="Route"]
+editor_description = "Level 1, as Map 1: lane y 23.0, r 46.7..57.3, lane r 52.0, 5 deg to 335 deg. Its exit is the finish of the whole route."
+script = ExtResource("6_ring_level")
+deck_height = 23.0
+inner_radius = 46.7
+outer_radius = 57.3
+lane_radius = 52.0
+entry_angle_degrees = 5.0
+exit_angle_degrees = 335.0
+
+[node name="Tower" type="Node3D" parent="."]
+editor_description = "The tower, origin the guard-room datum at y 25.35 as Map 1. maps/ice/models/ice_tower.glb is a PLACEHOLDER plain ice drum: room floor 1.70 over the datum (y 27.05, the guard's eye 28.7), room r 6.86, eight openings at 25 + 45k from a 0.65 m sill to 7.00, ceiling 7.25, top 9.60, foot on the pit floor. TowerVariant's plugs fit it (same inner radius, same grid). Both variant slots hold it."
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 25.35, 0)
+script = ExtResource("8c_tower_variant")
+
+[node name="Rock" parent="Tower" instance=ExtResource("8_tower_model")]
+editor_description = "The carved slot: the same ice tower, so a match run with tower_variant 0 has a tower."
+visible = false
+
+[node name="RockArches" parent="Tower" instance=ExtResource("8_tower_model")]
+editor_description = "The live tower. Carries its own collision (IceTowerCollision-colonly): the drum with a 1.25 m kerb in each opening the guard cannot jump."
+
+[node name="TowerSpawn" type="Marker3D" parent="Tower"]
+editor_description = "On the room floor (+1.70), 0.25 m up so the capsule never starts inside the collision plane."
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.95, 0)
+
+[node name="TowerLight" type="OmniLight3D" parent="Tower"]
+editor_description = "A soft cool lamp in the guard room, unshadowed. Every number is ice_tower_light_profile.tres'; the light_* properties mirror it for the editor view."
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5.6, 0)
+light_color = Color(0.85, 0.93, 1, 1)
+light_energy = 2.0
+light_specular = 0.0
+shadow_enabled = false
+omni_range = 30.0
+omni_attenuation = 1.0
+script = ExtResource("3_tower_light")
+profile = ExtResource("4_tower_light_profile")

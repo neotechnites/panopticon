@@ -10,9 +10,9 @@ const WAVE_MATERIALS := [&"LavaRiver", &"LavaSea", &"LavaCrack"]
 const LAVA_WAVE_SHADER := "res://maps/bentham_ring/materials/lava_wave.gdshader"
 ## Every finish portal's swirl gets the one rippling see-through shader: its glTF alpha is kept, its glow unboosted.
 const PORTAL_WAVE_SHADER := "res://maps/bentham_ring/materials/portal_wave.gdshader"
-const SEE_THROUGH_WAVE := {&"PortalGlow": PORTAL_WAVE_SHADER, &"ForestPortalSwirl": PORTAL_WAVE_SHADER, &"MarbleGlow": PORTAL_WAVE_SHADER}
+const SEE_THROUGH_WAVE := {&"PortalGlow": PORTAL_WAVE_SHADER, &"ForestPortalSwirl": PORTAL_WAVE_SHADER, &"MarbleGlow": PORTAL_WAVE_SHADER, &"IcePortalSwirl": PORTAL_WAVE_SHADER}
 ## Swirl glow scale per see-through material; unlisted ones keep their glTF energy.
-const SWIRL_GLOW := {&"ForestPortalSwirl": 0.25}
+const SWIRL_GLOW := {&"ForestPortalSwirl": 0.25, &"IcePortalSwirl": 0.5}
 ## No torches on the ring any more: the lava itself carries that light, boosted here.
 const LAVA_EMISSION_BOOST := 1.4
 ## Marble's stone is fully matte: no sheen, whatever roughness the .glb carries.

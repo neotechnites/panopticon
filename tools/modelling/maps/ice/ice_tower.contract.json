@@ -1,0 +1,10 @@
+{
+  "_comment": "Map 4's PLACEHOLDER tower: a plain ice drum on Map 1's guard platform datum -- origin the guard-room datum (scene Tower node at y 25.35), foot z -36.35 on the pit floor, room floor z 1.70, room r 6.86, drum r 7.80, eight 40 deg openings at bearings 25 + 45k from the sill at 2.35 to a flat head at 7.00, ceiling 7.25, top 9.60. One closed contiguous mesh, one ice surface. IceTowerCollision (`-colonly`) is the same drum with its sills raised to a 1.25 m kerb.",
+  "node_paths": [
+    "IceTower",
+    "IceTowerCollision",
+    "IceTowerCollision/CollisionShape3D"
+  ],
+  "surfaces": 1,
+  "max_tris": 1800
+}

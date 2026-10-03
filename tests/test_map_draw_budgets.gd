@@ -199,6 +199,12 @@ const DRAW_BUDGETS: Dictionary = {
 		"tris": 299778, "surfaces": 183, "materials": 33,
 		"transparent_tris": 6264, "lights": 3, "shadow_casters": 1,
 	},
+	# Map 4, the ice dome, first blockout (2026-10-03): shell, placeholder tower, gate,
+	# portal; the dome is the transparent pass (3968 tris). Measured + 20 %, casters exact.
+	"ice": {
+		"tris": 11096, "surfaces": 9, "materials": 9,
+		"transparent_tris": 4762, "lights": 4, "shadow_casters": 0,
+	},
 }
 
 ## The keys every row carries, in the order the [code]BUDGET[/code] line prints

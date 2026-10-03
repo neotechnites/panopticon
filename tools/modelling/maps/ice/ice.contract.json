@@ -1,0 +1,10 @@
+{
+  "_comment": "Map 4, the ice dome, first blockout: one closed contiguous shell turned from one profile, authored in WORLD coordinates (instance at identity) on Map 1's ring -- dark-ice pit floor at y -11.0, the pit bank, a flat ice lane r 46.7..57.3 at y 23.0 with its inner edge open, the ice wall at r 57.3 to y 35.0, and from the wall head a blue see-through ice dome (quarter ellipse, apex 65.0) whose tangent at the spring is the wall's, so the join is one broad cove. Three surfaces on lib/texel.py sheets at 20 px/m: ice (bank, lane, wall), dark (pit floor), dome (alpha-blended, 0.83 opaque, smooth-shaded). IceCollision rides as a `-colonly` node: pit floor, bank, lane and wall to the spring. max_tris counts shell and collider together.",
+  "node_paths": [
+    "IceShell",
+    "IceCollision",
+    "IceCollision/CollisionShape3D"
+  ],
+  "surfaces": 3,
+  "max_tris": 12500
+}

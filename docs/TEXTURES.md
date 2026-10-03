@@ -83,6 +83,16 @@ slice is placed nearest-upscaled (chunkier, same UVs and density), each locked t
 | marble_dark_albedo | near-black stone with an iron column | cell interiors, iron bars |
 | marble_field_albedo | olive camouflage flagstones | the field floor |
 
+### Ice: `maps/ice/textures/` (`ice.ase`)
+
+| Texture | Looks like | Worn by |
+|---|---|---|
+| ice_albedo | flat ice blue (placeholder) | lane, bank, wall, tower, gate, portal frame |
+| ice_dark_albedo | flat dark ice blue (placeholder) | the pit floor |
+| ice_dome_albedo | flat pale ice blue (placeholder) | the see-through dome |
+| ice_snow_albedo | flat snow white (placeholder) | nothing yet |
+| ice_portal_swirl_albedo | flat pale cyan (placeholder) | the portal's swirl |
+
 ### Hub: `hub/textures/` (`hub.ase`)
 
 | Texture | Looks like | Worn by |
@@ -325,6 +335,13 @@ Up to four commonest colours and the share of vertices wearing each; many colour
 | maps/forest/models/forest_tree_prop_b.glb | ForestTreeProp_leaf | maps/forest/textures/forest_sun_albedo.png | forest.ase / forest_sun_albedo | (0.273, 0.303, 0.576) | - |
 | maps/forest/models/forest_tree_prop_c.glb | ForestTreeProp_bark | maps/forest/textures/forest_bark_albedo.png | forest.ase / forest_bark_albedo | (0.974, 0.978, 0.978) | - |
 | maps/forest/models/forest_tree_prop_c.glb | ForestTreeProp_leaf | maps/forest/textures/forest_sun_albedo.png | forest.ase / forest_sun_albedo | (0.273, 0.303, 0.576) | - |
+| maps/ice/models/ice.glb | ice_dark | maps/ice/textures/ice_dark_albedo.png | ice.ase / ice_dark_albedo | - | - |
+| maps/ice/models/ice.glb | ice_dome | maps/ice/textures/ice_dome_albedo.png | ice.ase / ice_dome_albedo | - | - |
+| maps/ice/models/ice.glb | ice_ice | maps/ice/textures/ice_albedo.png | ice.ase / ice_albedo | - | - |
+| maps/ice/models/ice_gate.glb | ice_gate_ice | maps/ice/textures/ice_albedo.png | ice.ase / ice_albedo | - | - |
+| maps/ice/models/ice_portal.glb | ice_portal_ice | maps/ice/textures/ice_albedo.png | ice.ase / ice_albedo | - | - |
+| maps/ice/models/ice_portal.glb | IcePortalSwirl | maps/ice/textures/ice_portal_swirl_albedo.png | ice.ase / ice_portal_swirl_albedo | - | ice_portal_swirl_albedo.png |
+| maps/ice/models/ice_tower.glb | ice_tower_ice | maps/ice/textures/ice_albedo.png | ice.ase / ice_albedo | - | - |
 | maps/marble/models/marble.glb | marble_band | maps/marble/textures/marble_albedo.png | marble.ase / marble_albedo | - | - |
 | maps/marble/models/marble.glb | marble_cellin | maps/marble/textures/marble_dark_albedo.png | marble.ase / marble_dark_albedo | - | - |
 | maps/marble/models/marble.glb | marble_column | maps/marble/textures/marble_albedo.png | marble.ase / marble_albedo | - | - |
