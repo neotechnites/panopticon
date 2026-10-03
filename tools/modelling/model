@@ -389,7 +389,7 @@ EOF
 }
 
 stage_fetch() {
-  OUT="$RENDERS/proofs/models/$NAME"; mkdir -p "$OUT"
+  local OUT="$RENDERS/proofs/models/$NAME"; mkdir -p "$OUT"
   local listing
   listing=$(pc "Get-ChildItem '$JOB_W\\out' -Filter '${FULL}*' | Select-Object -ExpandProperty Name")
   local got=0
@@ -553,7 +553,7 @@ EOF
 }
 
 stage_fetch_local() {
-  OUT="$RENDERS/proofs/models/$NAME"; mkdir -p "$OUT"
+  local OUT="$RENDERS/proofs/models/$NAME"; mkdir -p "$OUT"
   local got=0 f
   for f in "$TMP"/out/"$NAME"_*.png; do
     [ -f "$f" ] || continue
