@@ -16,8 +16,6 @@
 [ext_resource type="Texture2D" uid="uid://l1ad41n7wtqk" path="res://maps/forest/textures/forest_mist_albedo.png" id="19_mist_noise"]
 [ext_resource type="Shader" uid="uid://bl23a3g5yy33q" path="res://maps/forest/materials/forest_crown_shadow.gdshader" id="20_crown_shadow"]
 [ext_resource type="PackedScene" path="res://maps/forest/props/forest_ray.tscn" id="21_ray"]
-[ext_resource type="Shader" path="res://maps/forest/materials/forest_crown_leaf.gdshader" id="22_crown_leaf"]
-[ext_resource type="Texture2D" uid="uid://dob3un4f3dsh5" path="res://maps/forest/textures/forest_sun_albedo.png" id="23_leaf_tex"]
 
 [sub_resource type="ProceduralSkyMaterial" id="SkyMat"]
 sky_top_color = Color(0.47, 0.393, 0.262, 1)
@@ -110,17 +108,6 @@ shader_parameter/cell = 1.0
 shader_parameter/soft = 0.14
 shader_parameter/sway = 0.12
 shader_parameter/sway_speed = 1.0
-
-[sub_resource type="ShaderMaterial" id="CrownLeafMat"]
-render_priority = 0
-shader = ExtResource("22_crown_leaf")
-shader_parameter/albedo_texture = ExtResource("23_leaf_tex")
-
-[sub_resource type="ShaderMaterial" id="CrownShadeMat"]
-render_priority = 0
-shader = ExtResource("22_crown_leaf")
-shader_parameter/albedo_texture = ExtResource("23_leaf_tex")
-shader_parameter/tint = Vector3(0.6, 0.6, 0.6)
 
 [node name="Forest" type="Node3D" unique_id=1124951831]
 editor_description = "MAP 3, THE FOREST: maps/forest/models/forest.glb at identity (grass lane r 46.7..57.3 at y 23.0 round a foggy ravine: an earth bank down to a floor at y -11.05 that is BURIED in fog and never drawn, a thicket of some 1140 barbed brambles in the dark under it, a leaf wall carrying three tiers of lane-facing cells up to the lane roof at y 38.0 -- 15 m over the grass -- and on that roof's inner rim the cell drum, r 46.7..47.6, three tiers of 17 barred mouths climbing to the seam at y 50.0, so a runner on the lane has a ring of cells above them all the way round). The seam is a 240-vertex ring shared float for float with forest_tree.glb, where the great tree's crown takes over and sweeps INWARD AND DOWN to its rim at y 34.1: the roof is a dome that is high at the ring and collapses in the middle, onto the tree. Ryan: \"make the roof higher, so make it like a dome that collapses in the middle where the tree is, and so theres still like a ring of cells above where the player runs.\" The pit reads bottomless: ForestFog is fourteen layers of grey-gold mist (maps/forest/materials/forest_mist.gdshader: drifting cloud per layer, darkening and fading where it meets bank, trunk or thorn) whose alpha rises with depth to a solid slab low down and whose shader sets fog_disabled, so the Environment's depth fog cannot repaint the mist and the floor behind it to one plane -- a vertical ray reaches the floor at 0.20 % transmittance, and the brambles sink into the mist as dark bark. Its top is the thicket's floor, y -7.80..-5.75, 3.0 m under the tallest thorn, so the brambles stand out of it. Each of the 144 cells carries its own small dim light as an emissive back face (the `lamp` sheet), not a Light3D: one mesh cannot bind 144 of them. The sun rays are two nodes in the glb, three crossed vanes per sun well with the tint and the feather in their vertex colour: ForestRaysSolid (pale yellow, alpha 0.35, mixed, the mesh-only look) and ForestRaysSoft (faint, additive, shown here under the Sun light). Nothing is hung under the wells any more. Flip their visibility to compare."
@@ -371,9 +358,6 @@ editor_description = "maps/forest/models/forest_tree.glb: goblet trunk, the plat
 [node name="ForestTree" parent="Tower/Tree" index="0" unique_id=1057893921]
 editor_description = "Casts no shadow itself; Tower/TreeShadow casts it: solid only under the roof over the guard, broken through every leaf."
 cast_shadow = 0
-surface_material_override/1 = SubResource("CrownLeafMat")
-surface_material_override/3 = SubResource("CrownShadeMat")
-surface_material_override/4 = SubResource("CrownLeafMat")
 
 [node name="TreeShadow" parent="Tower" unique_id=1152206277 instance=ExtResource("7_forest_tree")]
 editor_description = "A shadows-only copy of the tree (forest_crown_shadow.gdshader): solid under the roof (r < 8.7) and the trunk; the leaves let the sun through in patches everywhere else."
