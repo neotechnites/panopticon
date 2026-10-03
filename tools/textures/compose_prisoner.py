@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Composes prisoner2_albedo.png from Ryan's 4-swatch prisoner.ase: each UV island of prisoner2.glb gets its
-swatch (a quarter of the sheet, any sheet size) tiled 1:1 (nearest, +3 px margin). His pixels are copied verbatim; island masks come from the glb's UVs."""
+"""Composes prisoner2_albedo.png from Ryan's 4-swatch prisoner.ase: each face of prisoner2.glb gets the swatch it had
+on the old model (prisoner_faces.json), tiled 1:1 across its current UVs (nearest, +3 px margin)."""
 import json, os, struct, subprocess
 import numpy as np
 from PIL import Image
@@ -12,7 +12,9 @@ ASE = os.path.join(ROOT, "characters/textures/prisoner.ase")
 SHEET = os.path.join(ROOT, "characters/textures/prisoner_sheet.png")    # his sheet, flattened, as painted
 ALBEDO = os.path.join(ROOT, "characters/textures/prisoner2_albedo.png")  # what the glb samples
 GLB = os.path.join(ROOT, "characters/models/prisoner2.glb")
-TABLE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "prisoner_islands.json")
+TABLE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "prisoner_faces.json")
+OLD = "870c757:characters/models/prisoner2.glb"   # Ryan's old model: its UV quarters are the authoritative materials
+SWATCHES = {"trousers": [0, 0, 0.5, 0.5], "shoes": [0.5, 0, 0.5, 0.5], "skin": [0, 0.5, 0.5, 0.5], "shirt": [0.5, 0.5, 0.5, 0.5]}
 MARGIN = 3
 TYPES = {5121: np.uint8, 5123: np.uint16, 5125: np.uint32, 5126: np.float32}
 WIDTH = {"SCALAR": 1, "VEC2": 2, "VEC3": 3}
@@ -42,42 +44,50 @@ def triangles(path):
     return out
 
 
-def islands(tris):
-    """Triangles that share a UV point are one island."""
-    parent = list(range(len(tris)))
-
-    def root(x):
-        while parent[x] != x:
-            parent[x] = parent[parent[x]]
-            x = parent[x]
-        return x
-
-    seen = {}
-    for i, (_, uv) in enumerate(tris):
-        for u in uv:
-            k = tuple(np.round(u * 1024, 0))
-            if k in seen:
-                parent[root(i)] = root(seen[k])
-            else:
-                seen[k] = i
-    groups = {}
-    for i in range(len(tris)):
-        groups.setdefault(root(i), []).append(i)
-    return list(groups.values())
+def key(pos):
+    """Face key: its three vertex positions, sorted, so reordered faces still match."""
+    return ",".join("%.4f" % v for vert in sorted(map(tuple, np.round(pos, 4) + 0.0)) for v in vert)
 
 
-def raster(uvs, size):
-    """Pixels whose centre lies in any of the UV triangles."""
+def build_table():
+    """Per-face swatch from the old model (870c757): the quarter its old UVs sat in is its material."""
+    old = subprocess.run(["git", "-C", ROOT, "show", OLD], capture_output=True, check=True).stdout
+    tmp = os.path.join(ROOT, ".godot", "prisoner_old.glb")
+    os.makedirs(os.path.dirname(tmp), exist_ok=True)
+    open(tmp, "wb").write(old)
+    quarter = {(0, 0): "trousers", (1, 0): "shoes", (0, 1): "skin", (1, 1): "shirt"}
+    faces = {key(p): quarter[tuple(int(c >= 0.5) for c in uv.mean(0))] for p, uv in triangles(tmp)}
+    os.remove(tmp)
+    table = {"_note": "Face (sorted vertex positions) -> swatch, read from the old UVs at " + OLD + ".",
+             "swatches": SWATCHES, "faces": faces}
+    json.dump(table, open(TABLE, "w"), indent=0)
+    return table
+
+
+def lookup(table, pos):
+    k = key(pos)
+    if k in table["faces"]:
+        return table["faces"][k]
+    want = np.array([float(v) for v in k.split(",")])
+    best = min(table["faces"], key=lambda f: np.abs(np.array([float(v) for v in f.split(",")]) - want).max())
+    assert np.abs(np.array([float(v) for v in best.split(",")]) - want).max() < 1e-3, "face not in table: " + k
+    return table["faces"][best]
+
+
+def raster(uv, size):
+    """Pixels whose centre lies in the UV triangle."""
     m = np.zeros((size, size), bool)
-    ys, xs = np.mgrid[0:size, 0:size] + 0.5
-    for uv in uvs:
-        (ax, ay), (bx, by), (cx, cy) = uv * size
-        d = (by - cy) * (ax - cx) + (cx - bx) * (ay - cy)
-        if abs(d) < 1e-12:
-            continue
-        l1 = ((by - cy) * (xs - cx) + (cx - bx) * (ys - cy)) / d
-        l2 = ((cy - ay) * (xs - cx) + (ax - cx) * (ys - cy)) / d
-        m |= (l1 >= -1e-6) & (l2 >= -1e-6) & (1 - l1 - l2 >= -1e-6)
+    t = uv * size
+    (ax, ay), (bx, by), (cx, cy) = t
+    d = (by - cy) * (ax - cx) + (cx - bx) * (ay - cy)
+    if abs(d) < 1e-12:
+        return m
+    x0, y0 = np.clip(np.floor(t.min(0)).astype(int), 0, size)
+    x1, y1 = np.clip(np.ceil(t.max(0)).astype(int) + 1, 0, size)
+    ys, xs = np.mgrid[y0:y1, x0:x1] + 0.5
+    l1 = ((by - cy) * (xs - cx) + (cx - bx) * (ys - cy)) / d
+    l2 = ((cy - ay) * (xs - cx) + (ax - cx) * (ys - cy)) / d
+    m[y0:y1, x0:x1] = (l1 >= -1e-6) & (l2 >= -1e-6) & (1 - l1 - l2 >= -1e-6)
     return m
 
 
@@ -92,27 +102,28 @@ def main():
     subprocess.run([ASEPRITE, "-b", ASE, "--save-as", SHEET], check=True, capture_output=True)
     sheet = np.array(Image.open(SHEET).convert("RGBA"))
     size = sheet.shape[0]
-    table = json.load(open(TABLE))
+    table = json.load(open(TABLE)) if os.path.exists(TABLE) else build_table()
     tris = triangles(GLB)
+    names = list(SWATCHES)
+    face = [names.index(lookup(table, p)) for p, _ in tris]
+    masks = [np.zeros((size, size), bool) for _ in names]
+    for (_, uv), k in zip(tris, face):
+        masks[k] |= raster(uv, size)
     owner = np.full((size, size), -1)
-    masks, swatch = [], []
-    for isl in islands(tris):
-        c = np.concatenate([tris[i][0] for i in isl]).mean(0)
-        entry = min(table["islands"], key=lambda e: np.linalg.norm(np.array(e["centroid"]) - c))
-        masks.append(raster([tris[i][1] for i in isl], size))
-        swatch.append(table["swatches"][entry["swatch"]])
-    for _ in range(MARGIN + 1):   # ring by ring, so a margin never covers another island
+    for _ in range(MARGIN + 1):   # ring by ring, so a margin never covers another swatch's faces
         for k, m in enumerate(masks):
             owner[m & (owner < 0)] = k
         masks = [grow(m) for m in masks]
     out = np.zeros_like(sheet)
     ys, xs = np.nonzero(owner >= 0)
     for y, x in zip(ys, xs):
-        fx, fy, fw, fh = swatch[owner[y, x]]
+        fx, fy, fw, fh = SWATCHES[names[owner[y, x]]]
         sx, sy, sw, sh = round(fx * size), round(fy * size), round(fw * size), round(fh * size)
         out[y, x] = sheet[sy + y % sh, sx + x % sw]
     Image.fromarray(out).save(ALBEDO)
-    print("composed %d islands -> %s" % (len(swatch), os.path.relpath(ALBEDO, ROOT)))
+    old = {n: list(table["faces"].values()).count(n) for n in names}
+    now = {n: face.count(n_i) for n_i, n in enumerate(names)}
+    print("composed %d faces per face -> %s | old %s | now %s" % (len(tris), os.path.relpath(ALBEDO, ROOT), old, now))
 
 
 if __name__ == "__main__":
