@@ -1,7 +1,7 @@
 class_name PS1Presentation
 extends CanvasLayer
-## The PS1 look, the one place it is tuned: 3D drawn at a few hundred lines and scaled up nearest,
-## vertices snapped, UVs affine, colour cut to 5 bits a channel. The Debug menu writes these live.
+## The PS1 look, tuned here alone: the live camera's 3D drawn into a few-hundred-line SubViewport, shown
+## nearest under the UI and cut to 5 bits a channel; vertices snapped, UVs affine. The Debug menu writes these live.
 
 const QUANTISE: Shader = preload("res://scripts/fx/ps1_quantise.gdshader")
 ## Line counts the Debug menu offers.
@@ -45,12 +45,11 @@ const LINE_CHOICES: PackedInt32Array = [240, 270, 360]
 		colour_levels = maxf(value, 1.0)
 		_apply()
 
-var _rect: ColorRect = null
+var _rect: TextureRect = null
 var _material: ShaderMaterial = null
+var _view: SubViewport = null
+var _eye: Camera3D = null
 var _window_size: Vector2i = Vector2i.ZERO
-var _scale: float = 1.0
-var _restore_scale: float = 1.0
-var _owning: bool = false
 
 
 func _ready() -> void:
@@ -58,9 +57,24 @@ func _ready() -> void:
 		queue_free()
 		return
 	layer = -100
+	process_priority = 1000
+	var root: Window = get_tree().root
+	_view = SubViewport.new()
+	_view.world_3d = root.find_world_3d()
+	_view.positional_shadow_atlas_size = root.positional_shadow_atlas_size
+	_view.positional_shadow_atlas_16_bits = root.positional_shadow_atlas_16_bits
+	_view.msaa_3d = root.msaa_3d
+	_view.use_debanding = root.use_debanding
+	_eye = Camera3D.new()
+	_view.add_child(_eye)
+	add_child(_view)
 	_material = ShaderMaterial.new()
 	_material.shader = QUANTISE
-	_rect = ColorRect.new()
+	_rect = TextureRect.new()
+	_rect.texture = _view.get_texture()
+	_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_rect.stretch_mode = TextureRect.STRETCH_SCALE
+	_rect.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	_rect.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_rect.material = _material
@@ -68,13 +82,30 @@ func _ready() -> void:
 	_apply()
 
 
-## Follows the window's size, and takes the 3D scale back from anything that set it while on.
+## Last in the frame: the low-res eye takes the live camera's pose and lens, so it never lags a frame.
 func _process(_delta: float) -> void:
 	var root: Window = get_tree().root
-	if root.size != _window_size or (enabled and not is_equal_approx(root.scaling_3d_scale, _scale)):
-		if enabled and not is_equal_approx(root.scaling_3d_scale, _scale):
-			_restore_scale = root.scaling_3d_scale
+	if root.size != _window_size:
 		_apply()
+	if not enabled:
+		return
+	var camera: Camera3D = root.get_camera_3d()
+	_rect.visible = camera != null
+	if camera == null:
+		return
+	_eye.global_transform = camera.global_transform
+	_eye.projection = camera.projection
+	_eye.fov = camera.fov
+	_eye.size = camera.size
+	_eye.near = camera.near
+	_eye.far = camera.far
+	_eye.keep_aspect = camera.keep_aspect
+	_eye.h_offset = camera.h_offset
+	_eye.v_offset = camera.v_offset
+	_eye.frustum_offset = camera.frustum_offset
+	_eye.cull_mask = camera.cull_mask
+	_eye.environment = camera.environment
+	_eye.attributes = camera.attributes
 
 
 func _apply() -> void:
@@ -82,24 +113,17 @@ func _apply() -> void:
 		return
 	var root: Window = get_tree().root
 	_window_size = root.size
+	root.disable_3d = enabled
 	_rect.visible = enabled
+	_view.render_target_update_mode = SubViewport.UPDATE_ALWAYS if enabled else SubViewport.UPDATE_DISABLED
 	if not enabled:
-		if _owning:
-			root.scaling_3d_mode = Viewport.SCALING_3D_MODE_BILINEAR
-			root.scaling_3d_scale = _restore_scale
-		_owning = false
 		RenderingServer.global_shader_parameter_set(&"ps1_snap_grid", Vector2.ZERO)
 		RenderingServer.global_shader_parameter_set(&"ps1_affine", 0.0)
 		RenderingServer.global_shader_parameter_set(&"ps1_mip_bias", 0.0)
 		return
 	var divisor: int = maxi(1, roundi(float(_window_size.y) / float(lines)))
-	var low: Vector2 = Vector2(_window_size) / float(divisor)
-	_scale = 1.0 / float(divisor)
-	if not _owning:
-		_restore_scale = root.scaling_3d_scale
-		_owning = true
-	root.scaling_3d_mode = Viewport.SCALING_3D_MODE_NEAREST
-	root.scaling_3d_scale = _scale
+	_view.size = Vector2i(maxi(1, roundi(float(_window_size.x) / float(divisor))), maxi(1, roundi(float(_window_size.y) / float(divisor))))
+	var low: Vector2 = Vector2(_view.size)
 	RenderingServer.global_shader_parameter_set(
 			&"ps1_snap_grid", low / snap_strength if snap_strength > 0.0 else Vector2.ZERO)
 	RenderingServer.global_shader_parameter_set(&"ps1_affine", affine_amount if affine else 0.0)
