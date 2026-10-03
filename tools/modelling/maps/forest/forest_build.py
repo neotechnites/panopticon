@@ -144,7 +144,8 @@ RAY_IN = -0.45              # the shaft starts this far UNDER the closed canopy,
 RAY_OVER = 0.6              # ... and runs this far into whatever it lands on
 RAY_FADE = (0.18, 0.82)     # along the shaft, alpha ramps up to here and back down from here
 RAY_VANES = 3               # planes crossed on the axis: something faces every camera
-RAY_SUN = (60.0, 75.0)      # every shaft's bearing and elevation: the first Sun's own direction (Sun in forest.tscn), parallel
+RAY_SUN = (60.0, 55.0)      # every shaft's bearing and elevation, parallel: 20 deg flatter than the first Sun (60, 75)
+RAY_ORIGIN_SUN = (60.0, 75.0)   # the direction the origins were picked along, so they stay where they were
 RAY_RING, RAY_PIT = 5, 10   # shafts off the lane's leaf roof and off the crown over the pit (about their areas, 35 : 65)
 RAY_LANE_BANDS = (3, 4, 5, 6)   # gallery bands r 56.2..50.8: flat roof, clear of the cove and the rolled eave
 RAY_PIT_R = (13.0, 44.0)    # the crown sheet's reach for an origin: past the tree's disc, inside the drum
@@ -1019,13 +1020,17 @@ class _Ground(object):
         leaf roof and RAY_PIT on the crown over the pit, all falling along RAY_SUN to the first
         ground they meet, never a wall, the drum, the tree or the trunk."""
         S = _ray_dir()
+        S0 = _ray_dir(RAY_ORIGIN_SUN)
         r = _Rng(RAY_SEED)
         out, plan = [], []
 
         def take(c, rin):
-            foot = _fall(c, S)
-            if foot is None or math.hypot(foot[0], foot[1]) < RAY_FOOT_R[0] or math.hypot(foot[0], foot[1]) > RAY_FOOT_R[1] \
-                    or foot[2] > DECK_Z + 0.3:
+            foot0 = _fall(c, S0)
+            if foot0 is None or math.hypot(foot0[0], foot0[1]) < RAY_FOOT_R[0] or math.hypot(foot0[0], foot0[1]) > RAY_FOOT_R[1] \
+                    or foot0[2] > DECK_Z + 0.3:
+                return False
+            foot = _fall(c, S)              # the flatter shaft stops at the first solid surface it meets
+            if foot is None:
                 return False
             out.append((add(c, S, rin), add(foot, S, -RAY_OVER), S, r.u(*RAY_WIDTH), r.u(*RAY_GAIN)))
             plan.append((c[0], c[1]))
@@ -1048,9 +1053,11 @@ class _Ground(object):
                 th = r.u(0.0, 2.0 * math.pi)
                 x, y = rad * math.cos(th), rad * math.sin(th)
                 c = (x, y, fs.sheet_z(rad))
-                if _fall(c, S) is None:
+                if _fall(c, S0) is None:
                     continue
-                f = _fall(c, S)
+                f = _fall(c, S0)
+                if f is None:
+                    continue
                 if math.hypot(f[0], f[1]) < RAY_FOOT_R[0] or math.hypot(f[0], f[1]) > RAY_FOOT_R[1] or f[2] > DECK_Z + 0.3:
                     continue
                 d = far(x, y)
@@ -1139,9 +1146,9 @@ def _open(p):
     return rad <= _bank_r(z)
 
 
-def _ray_dir():
+def _ray_dir(sun=None):
     """The shaft axis: unit vector from the ground up toward the sun, Blender coordinates."""
-    sb, se = RAY_SUN
+    sb, se = sun or RAY_SUN
     return (math.cos(math.radians(se)) * math.cos(math.radians(-sb)),
             math.cos(math.radians(se)) * math.sin(math.radians(-sb)),
             math.sin(math.radians(se)))
