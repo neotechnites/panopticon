@@ -7,7 +7,7 @@
 render_priority = 1
 shader = ExtResource("2_ray_shader")
 shader_parameter/tint = Color(1, 0.805, 0.4, 1)
-shader_parameter/alpha_gain = 0.2
+shader_parameter/alpha_gain = 0.5
 
 [node name="ForestRay" type="MeshInstance3D"]
 editor_description = "One light streak: origin at its top, shaft down local -Y. Scale Y = length (m), X/Z = width; Instance Shader Parameters > brightness."
