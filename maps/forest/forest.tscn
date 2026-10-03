@@ -13,6 +13,12 @@
 [ext_resource type="PackedScene" uid="uid://o7t8nmaosa7q" path="res://maps/forest/models/forest_rock_boulder.glb" id="15_boulder"]
 [ext_resource type="PackedScene" uid="uid://cjxn6pe4m3t15" path="res://maps/forest/models/forest_rock_outcrop.glb" id="17_outcrop"]
 [ext_resource type="PackedScene" path="res://maps/forest/props/forest_ray.tscn" id="21_ray"]
+[ext_resource type="Shader" uid="uid://cc4r6v1r6an5c" path="res://maps/forest/materials/forest_mist.gdshader" id="18_mist_shader"]
+[ext_resource type="Texture2D" uid="uid://l1ad41n7wtqk" path="res://maps/forest/textures/forest_mist_albedo.png" id="19_mist_noise"]
+
+[sub_resource type="ShaderMaterial" id="FogMat"]
+shader = ExtResource("18_mist_shader")
+shader_parameter/mist_noise = ExtResource("19_mist_noise")
 
 [sub_resource type="ProceduralSkyMaterial" id="SkyMat"]
 sky_top_color = Color(0.47, 0.393, 0.262, 1)
@@ -74,8 +80,14 @@ directional_shadow_max_distance = 200.0
 [node name="ForestMap" parent="." unique_id=1646746285 instance=ExtResource("6_forest_model")]
 editor_description = "maps/forest/models/forest.glb: lane, pit bank and its buried floor, brambles, leaf wall with three lane-facing cell tiers, the lane roof at y 38.0, the cell drum climbing off its inner rim to the seam at y 50.0, and the pit cells; ForestFog and the ray nodes ride in it. Ships its own collision (ForestCollision-colonly)."
 
+[node name="ForestFog" parent="ForestMap"]
+surface_material_override/0 = SubResource("FogMat")
+
 [node name="MapShadow" parent="." unique_id=654465025 instance=ExtResource("6_forest_model")]
 editor_description = "A shadows-only copy of forest.glb: leaf, edge, shade and sun surfaces break the sun like the crown, solid on the wall (r > 56.5) below y 34.25, its lower three quarters; bark, cells, earth and the rest solid."
+
+[node name="ForestFog" parent="MapShadow"]
+visible = false
 
 [node name="KillBox" type="Area3D" parent="." unique_id=1254703304]
 editor_description = "Roof at y 0.0, 23 m under the lane and just over the thicket's tallest thorns (y -2.8), r 62, 30 m deep: anything that drops into the ravine dies. Unchanged by the bottomless-pit pass -- the floor is buried in fog, not moved, so the fall and the kill are exactly what they were."
