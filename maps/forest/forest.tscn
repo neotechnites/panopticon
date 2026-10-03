@@ -17,12 +17,12 @@
 [ext_resource type="Shader" path="res://maps/forest/materials/forest_crown_shadow.gdshader" id="20_crown_shadow"]
 
 [sub_resource type="ProceduralSkyMaterial" id="SkyMat"]
-sky_top_color = Color(0.45, 0.43, 0.32, 1)
-sky_horizon_color = Color(0.54, 0.5, 0.34, 1)
+sky_top_color = Color(0.43, 0.36, 0.24, 1)
+sky_horizon_color = Color(0.5, 0.41, 0.27, 1)
 sky_curve = 0.2
 sky_energy_multiplier = 0.765
-ground_bottom_color = Color(0.12, 0.125, 0.065, 1)
-ground_horizon_color = Color(0.28, 0.285, 0.17, 1)
+ground_bottom_color = Color(0.12, 0.1, 0.055, 1)
+ground_horizon_color = Color(0.27, 0.225, 0.14, 1)
 sun_angle_max = 0.0
 
 [sub_resource type="Sky" id="Sky"]
@@ -33,11 +33,11 @@ background_mode = 2
 sky = SubResource("Sky")
 ambient_light_source = 3
 ambient_light_color = Color(0.32, 0.32, 0.215, 1)
-ambient_light_energy = 0.4675
+ambient_light_energy = 0.56
 tonemap_mode = 1
 fog_enabled = true
-fog_light_color = Color(0.39, 0.36, 0.25, 1)
-fog_light_energy = 0.08
+fog_light_color = Color(0.3, 0.25, 0.15, 1)
+fog_light_energy = 0.06
 fog_density = 0.006
 fog_sky_affect = 0.4
 fog_height = -5.75
@@ -76,8 +76,8 @@ environment = SubResource("Env")
 [node name="Sun" type="DirectionalLight3D" parent="Environment"]
 editor_description = "The sun straight down, so no half of the ring is favoured; sky carries the ambient."
 transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, 0, 30, 0)
-light_color = Color(1, 0.89, 0.7, 1)
-light_energy = 1.445
+light_color = Color(1, 0.85, 0.6, 1)
+light_energy = 1.8
 shadow_enabled = true
 shadow_bias = 0.06
 directional_shadow_mode = 0
