@@ -1,0 +1,17 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="ArrayMesh" path="res://maps/forest/models/forest_ray.tres" id="1_ray_mesh"]
+[ext_resource type="Shader" path="res://maps/forest/materials/forest_ray.gdshader" id="2_ray_shader"]
+
+[sub_resource type="ShaderMaterial" id="RayMat"]
+render_priority = 1
+shader = ExtResource("2_ray_shader")
+shader_parameter/tint = Color(1, 0.805, 0.4, 1)
+shader_parameter/alpha_gain = 0.2
+
+[node name="ForestRay" type="MeshInstance3D"]
+editor_description = "One light streak: origin at its top, shaft down local -Y. Scale Y = length (m), X/Z = width; Instance Shader Parameters > brightness."
+mesh = ExtResource("1_ray_mesh")
+cast_shadow = 0
+instance_shader_parameters/brightness = 1.0
+surface_material_override/0 = SubResource("RayMat")

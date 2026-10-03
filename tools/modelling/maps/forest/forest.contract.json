@@ -4,10 +4,8 @@
     "ForestGround",
     "ForestCollision",
     "ForestCollision/CollisionShape3D",
-    "ForestRaysSolid",
-    "ForestRaysSoft",
     "ForestFog"
   ],
-  "surfaces": 17,
+  "surfaces": 15,
   "max_tris": 96000
 }

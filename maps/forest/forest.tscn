@@ -1,4 +1,4 @@
-[gd_scene load_steps=27 format=3]
+[gd_scene load_steps=25 format=3]
 
 [ext_resource type="Script" path="res://scripts/match/kill_volume.gd" id="1_kill_volume"]
 [ext_resource type="Script" path="res://scripts/ring/ring_route.gd" id="2_ring_route"]
@@ -13,7 +13,7 @@
 [ext_resource type="PackedScene" path="res://maps/forest/models/forest_rock_boulder.glb" id="15_boulder"]
 [ext_resource type="PackedScene" path="res://maps/forest/models/forest_rock_outcrop.glb" id="17_outcrop"]
 [ext_resource type="Shader" path="res://maps/forest/materials/forest_mist.gdshader" id="18_mist_shader"]
-[ext_resource type="Shader" path="res://maps/forest/materials/forest_ray.gdshader" id="20_ray_shader"]
+[ext_resource type="PackedScene" path="res://maps/forest/props/forest_ray.tscn" id="21_ray"]
 [ext_resource type="Texture2D" path="res://maps/forest/textures/forest_mist_albedo.png" id="19_mist_noise"]
 [ext_resource type="Shader" path="res://maps/forest/materials/forest_crown_shadow.gdshader" id="20_crown_shadow"]
 
@@ -43,18 +43,6 @@ fog_density = 0.006
 fog_sky_affect = 0.4
 fog_height = -5.75
 fog_height_density = 0.1
-
-[sub_resource type="ShaderMaterial" id="RaySoftMat"]
-shader = ExtResource("20_ray_shader")
-shader_parameter/tint = Color(1, 0.805, 0.4, 1)
-shader_parameter/alpha_gain = 4.0
-
-[sub_resource type="StandardMaterial3D" id="RaySolidMat"]
-transparency = 1
-cull_mode = 2
-shading_mode = 0
-vertex_color_use_as_albedo = true
-albedo_color = Color(0.75, 0.75, 0.75, 1)
 
 [sub_resource type="ShaderMaterial" id="FogMat"]
 shader = ExtResource("18_mist_shader")
@@ -113,13 +101,6 @@ editor_description = "maps/forest/models/forest.glb: lane, pit bank and its buri
 editor_description = "Casts no shadow itself; MapShadow casts it."
 cast_shadow = 0
 
-[node name="ForestRaysSolid" parent="ForestMap"]
-visible = false
-surface_material_override/0 = SubResource("RaySolidMat")
-
-[node name="ForestRaysSoft" parent="ForestMap"]
-surface_material_override/0 = SubResource("RaySoftMat")
-
 [node name="ForestFog" parent="ForestMap"]
 editor_description = "The pit's mist, and the reason the pit has no bottom: fourteen layers y -11.6..-5.75, grey-gold, darker and greyer low (maps/forest/materials/forest_mist.gdshader, unshaded: a 64 px noise tile drifting at its own speed and heading per layer lightens, darkens and thins each layer, never under 0.6 of its vertex alpha; each layer fades out over 1 m of depth and darkens over 6 m where it meets bank, trunk or thorn, so the mist has no lit rim), opaque (vertex alpha 1.0; the proof assumes the shader draws at least 0.6 of it, faded as the shader fades it over the floor) through the bottom TEN, then falling to exactly 0 over the top ~1.35 m at a height the drift field rolls (no top plane anywhere), with the rim feather narrowing from 9 m up top to nothing through the slab (its body reaches the bank's foot, the feather is in the earth) and the hole round the trunk closed to 0.6 m. Transmittance -- the fraction of the floor's light reaching an eye -- is 0.20 % straight down and at worst 0.20 % along any oblique ray from a stand point (lip edge, lane, guard's floor and rim -- forest_pit_build.FOG_EYES), so the floor is not a thing anyone sees: what they see is mist, and the brambles sink into it as dark bark (COLOR_0, forest_pit_build.stem_colour: bark the whole stem, no blend toward the mist -- that washed the near thorns; the opaque fog hides them under its top). fog_disabled in the shader is load-bearing: without it the Environment's depth fog repaints these layers AND the floor behind them to one colour, and one colour over one flat plane is a floor. Run tools/modelling/maps/forest/forest_pit_build.py for the numbers. The stack's ceiling is set by the THICKET, not by the pit: the tallest thorn stands at y -2.78, and a stack that ended at y 4.0 buried the thicket whole -- not one bramble vertex cleared even the thinnest column. The top rolls between y -7.80 and y -5.75, so the brambles come OUT of the mist. Environment height fog moved with it (fog_height -5.75, fog_height_density 0.1): Godot thickens height fog BELOW fog_height, so leaving it at 8 would have left haze standing in the 13 m of ravine air the fog just vacated and washed out the very thorn tips this pass uncovered. Above y -5.75 the ravine air is clear and the spikes read hard; below it the haze thickens into the layers."
 surface_material_override/0 = SubResource("FogMat")
@@ -145,12 +126,6 @@ surface_material_override/12 = SubResource("RingLeafShadowMat")
 surface_material_override/13 = SubResource("SolidShadowMat")
 
 [node name="ForestFog" parent="MapShadow"]
-visible = false
-
-[node name="ForestRaysSoft" parent="MapShadow"]
-visible = false
-
-[node name="ForestRaysSolid" parent="MapShadow"]
 visible = false
 
 [node name="ForestCollision" parent="MapShadow"]
@@ -353,3 +328,68 @@ process_mode = 4
 editor_description = "On the platform floor (+1.70), 0.25 m up."
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.95, 0)
 
+[node name="LightStreaks" type="Node3D" parent="."]
+editor_description = "The 15 sun streaks (maps/forest/props/forest_ray.tscn): move, rotate and scale each freely."
+
+MDL STATS leaf_wall rows=10 head_y=36.6 tiers=12@y23.3/22@y28.6/23@y33.0 cells=57 depth=2.5
+MDL STATS roof gallery_y=38.0 r=46.7..59.0 rings=11 roll_r=45.50..51.34 roll_depth=4.64 shafts=5 well_cells=39
+MDL STATS drum rows=11 r=46.7..47.6 y=38.0..50.0 tiers=17@y38.5/17@y42.7/17@y46.9 cells=51 depth=2.0
+[node name="Streak01" parent="LightStreaks" instance=ExtResource("21_ray")]
+transform = Transform3D(-0.881434, 17.0445, -0.416863, 0, 48.6841, 0.583781, 0.508896, 29.5219, -0.722028, 30.6491, 37.1427, 40.9934)
+instance_shader_parameters/brightness = 0.864138
+
+[node name="Streak02" parent="LightStreaks" instance=ExtResource("21_ray")]
+transform = Transform3D(-0.967091, 5.21803, -0.457374, 0, 14.9042, 0.640513, 0.55835, 9.03789, -0.792194, -28.7079, 37.4127, 42.5478)
+instance_shader_parameters/brightness = 0.889754
+
+[node name="Streak03" parent="LightStreaks" instance=ExtResource("21_ray")]
+transform = Transform3D(-1.03661, 3.9124, -0.490253, 0, 11.175, 0.686558, 0.598489, 6.77647, -0.849144, -52.8838, 37.2375, -2.29627)
+instance_shader_parameters/brightness = 1.00755
+
+[node name="Streak04" parent="LightStreaks" instance=ExtResource("21_ray")]
+transform = Transform3D(-0.947204, 2.36092, -0.447969, 0, 6.74348, 0.627342, 0.546869, 4.08923, -0.775904, -14.4599, 36.8806, -51.0368)
+instance_shader_parameters/brightness = 0.996153
+
+[node name="Streak05" parent="LightStreaks" instance=ExtResource("21_ray")]
+transform = Transform3D(-0.788369, 4.96808, -0.372849, 0, 14.1903, 0.522144, 0.455165, 8.60496, -0.645794, 48.9079, 36.6988, -19.7873)
+instance_shader_parameters/brightness = 1.0499
+
+[node name="Streak06" parent="LightStreaks" instance=ExtResource("21_ray")]
+transform = Transform3D(-0.856197, 18.1412, -0.404928, 0, 51.8167, 0.567067, 0.494326, 31.4215, -0.701356, 16.6101, 40.2752, -0.219524)
+instance_shader_parameters/brightness = 0.875774
+
+[node name="Streak07" parent="LightStreaks" instance=ExtResource("21_ray")]
+transform = Transform3D(-0.988791, 15.4766, -0.467637, 0, 44.2056, 0.654886, 0.570879, 26.8062, -0.809971, -19.6656, 43.5275, 2.14452)
+instance_shader_parameters/brightness = 1.11022
+
+[node name="Streak08" parent="LightStreaks" instance=ExtResource("21_ray")]
+transform = Transform3D(-1.01021, 11.0219, -0.477768, 0, 31.4818, 0.669074, 0.583247, 19.0905, -0.827519, 16.9006, 53.9903, -34.9991)
+instance_shader_parameters/brightness = 1.08575
+
+[node name="Streak09" parent="LightStreaks" instance=ExtResource("21_ray")]
+transform = Transform3D(-0.893978, 23.0249, -0.422796, 0, 65.766, 0.59209, 0.516139, 39.8803, -0.732304, 2.45078, 54.2245, 41.4793)
+instance_shader_parameters/brightness = 1.0739
+
+[node name="Streak10" parent="LightStreaks" instance=ExtResource("21_ray")]
+transform = Transform3D(-0.924691, 10.5452, -0.437321, 0, 30.1203, 0.612431, 0.533871, 18.2649, -0.757463, -21.0189, 52.6288, -26.6473)
+instance_shader_parameters/brightness = 0.955319
+
+[node name="Streak11" parent="LightStreaks" instance=ExtResource("21_ray")]
+transform = Transform3D(-0.781921, 22.9619, -0.3698, 0, 65.586, 0.517874, 0.451443, 39.7712, -0.640513, 39.566, 54.0445, 4.09075)
+instance_shader_parameters/brightness = 0.887512
+
+[node name="Streak12" parent="LightStreaks" instance=ExtResource("21_ray")]
+transform = Transform3D(-0.95418, 21.172, -0.451268, 0, 60.4736, 0.631962, 0.550896, 36.671, -0.781619, -12.4504, 48.9321, 24.5801)
+instance_shader_parameters/brightness = 0.931543
+
+[node name="Streak13" parent="LightStreaks" instance=ExtResource("21_ray")]
+transform = Transform3D(-0.85192, 8.51075, -0.402905, 0, 24.3092, 0.564234, 0.491856, 14.7411, -0.697852, 10.9302, 46.1729, 21.1605)
+instance_shader_parameters/brightness = 1.03322
+
+[node name="Streak14" parent="LightStreaks" instance=ExtResource("21_ray")]
+transform = Transform3D(-0.931656, 10.915, -0.440615, 0, 31.1764, 0.617044, 0.537892, 18.9053, -0.763168, -34.9724, 53.4855, 11.7304)
+instance_shader_parameters/brightness = 1.01436
+
+[node name="Streak15" parent="LightStreaks" instance=ExtResource("21_ray")]
+transform = Transform3D(-1.02322, 15.8555, -0.483919, 0, 45.288, 0.677687, 0.590756, 27.4626, -0.838172, 26.2501, 50.5913, -14.7151)
+instance_shader_parameters/brightness = 0.979215

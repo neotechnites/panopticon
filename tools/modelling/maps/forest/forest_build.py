@@ -86,7 +86,7 @@ OBJECT_NAME = "ForestGround"
 COLLIDER_NAME = "ForestCollision-colonly"
 RAYS_SOLID_NAME = "ForestRaysSolid"
 RAYS_SOFT_NAME = "ForestRaysSoft"
-MESH_RAYS = True            # export the ray wedges (both nodes) in the .glb
+MESH_RAYS = False           # streaks now live in forest.tscn (LightStreaks, forest_ray_build.py)
 FACING_YAW = 0.0
 
 NC = 240                    # columns round the ring: 1.5 deg, 1.5 m at the wall foot
