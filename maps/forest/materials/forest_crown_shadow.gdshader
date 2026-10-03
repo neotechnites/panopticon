@@ -1,11 +1,13 @@
-// The great tree's shadow, drawn by a shadows-only copy of forest_tree.glb: solid only under the tower's roof
-// (r < roof_radius); every leaf beyond it lets the sun through in world-XZ noise patches.
+// Leaf shadow, drawn by shadows-only copies of the tree, the map and the canopy: solid under the tower's roof
+// (r < roof_radius) and on the ring's wall (r > wall_radius) below solid_below_y; elsewhere noise lets light through.
 shader_type spatial;
 render_mode unshaded, cull_disabled, shadows_disabled;
 
 uniform float roof_radius = 8.7;
+uniform float solid_below_y = -1000.0;
+uniform float wall_radius = 0.0;
 uniform float gap = 0.5;
-uniform float cell = 2.6;
+uniform float cell = 1.4;
 
 varying vec3 world;
 
@@ -25,8 +27,13 @@ float vnoise(vec2 p) {
 }
 
 void fragment() {
-	float n = 0.65 * vnoise(world.xz / cell) + 0.35 * vnoise(world.xz / (cell * 0.45) + 17.0);
-	if (n < gap * step(roof_radius, length(world.xz))) {
+	// Noise across the sun's rays (shadow camera rotation), so stacked leaf layers share one set of holes.
+	vec2 q = (mat3(VIEW_MATRIX) * world).xy;
+	float n = 0.65 * vnoise(q / cell) + 0.35 * vnoise(q / (cell * 0.45) + 17.0);
+	float r = length(world.xz);
+	float wall = step(wall_radius, r) * (1.0 - step(solid_below_y, world.y));
+	float open = step(roof_radius, r) * (1.0 - wall);
+	if (n < gap * open) {
 		discard;
 	}
 	ALBEDO = vec3(0.0);
