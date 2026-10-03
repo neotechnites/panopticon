@@ -257,6 +257,10 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 25.35, 0)
 [node name="Tree" parent="Tower" instance=ExtResource("7_forest_tree")]
 editor_description = "maps/forest/models/forest_tree.glb: goblet trunk, the platform, eight piers and pointed arches (the windows), the vaulted canopy over it, and the crown grown outward as the sagging middle of the level's roof -- from the rim at r 11, y 34.1 it sweeps UP and OUT 15.9 m to the seam ring at r 47.6, y 50.0, shared vertex for vertex with forest.glb's cell drum, eight great limbs rising under it. Ships its own collision (ForestTreeCollision-colonly), the canopy sheet included."
 
+[node name="ForestTree" parent="Tower/Tree"]
+editor_description = "Casts no shadow, like the ring's roof, so the sun reaches the pit and the guard's floor."
+cast_shadow = 0
+
 [node name="TowerSpawn" type="Marker3D" parent="Tower"]
 editor_description = "On the platform floor (+1.70), 0.25 m up."
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.95, 0)
