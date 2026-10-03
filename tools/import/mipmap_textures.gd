@@ -15,6 +15,10 @@ const SEE_THROUGH_WAVE := {&"PortalGlow": PORTAL_WAVE_SHADER, &"ForestPortalSwir
 const LAVA_EMISSION_BOOST := 1.4
 ## Marble's stone is fully matte: no sheen, whatever roughness the .glb carries.
 const MATTE_PREFIX := "res://maps/marble/"
+## Every other surface draws through the PS1 shader (vertex snap, affine UVs) but these, whose
+## BaseMaterial3Ds the game recolours at runtime (body tints, the eye's sclera).
+const PS1_STANDARD := "res://scripts/fx/ps1_standard.gdshaderinc"
+const PS1_KEEP_PREFIXES := ["res://characters/", "res://tower/models/eye.glb"]
 
 const TEXTURE_PROPERTIES := [
 	&"albedo_texture",
@@ -26,6 +30,9 @@ const TEXTURE_PROPERTIES := [
 var _texture_cache: Dictionary = {}
 var _seen_materials: Dictionary = {}
 var _wave_cache: Dictionary = {}
+var _ps1_cache: Dictionary = {}
+var _ps1_shaders: Dictionary = {}
+var _ps1: bool = false
 var _textures_mipped: int = 0
 var _materials_refiltered: int = 0
 var _matte: bool = false
@@ -35,6 +42,8 @@ func _post_import(scene: Node) -> Object:
 	_texture_cache.clear()
 	_seen_materials.clear()
 	_wave_cache.clear()
+	_ps1_cache.clear()
+	_ps1 = not PS1_KEEP_PREFIXES.any(func(prefix: String) -> bool: return get_source_file().begins_with(prefix))
 	_textures_mipped = 0
 	_materials_refiltered = 0
 	_matte = get_source_file().begins_with(MATTE_PREFIX)
@@ -59,6 +68,8 @@ func _walk(node: Node) -> void:
 			_fix_material(mesh_instance.mesh.surface_get_material(i))
 			_fix_material(mesh_instance.get_surface_override_material(i))
 			var wave := _wave_material(mesh_instance.mesh.surface_get_material(i))
+			if wave == null and _ps1:
+				wave = _ps1_material(mesh_instance.mesh.surface_get_material(i))
 			if wave != null:
 				mesh_instance.mesh.surface_set_material(i, wave)
 	for child in node.get_children():
@@ -142,3 +153,47 @@ func _wave_material(material: Material) -> Material:
 	wave.set_shader_parameter(&"uv1_offset", base.uv1_offset)
 	_wave_cache[material_id] = wave
 	return wave
+
+
+## The PS1 ShaderMaterial drawing what `material` drew, or null when it uses a feature the shader lacks.
+func _ps1_material(material: Material) -> Material:
+	var base := material as BaseMaterial3D
+	if base == null or base.normal_enabled or base.billboard_mode != BaseMaterial3D.BILLBOARD_DISABLED:
+		return null
+	if not [BaseMaterial3D.TRANSPARENCY_DISABLED, BaseMaterial3D.TRANSPARENCY_ALPHA,
+			BaseMaterial3D.TRANSPARENCY_ALPHA_DEPTH_PRE_PASS].has(base.transparency):
+		return null
+	var material_id := base.get_instance_id()
+	if _ps1_cache.has(material_id):
+		return _ps1_cache[material_id]
+	var modes: PackedStringArray = [["cull_back", "cull_front", "cull_disabled"][base.cull_mode]]
+	if base.shading_mode == BaseMaterial3D.SHADING_MODE_UNSHADED:
+		modes.append("unshaded")
+	if base.transparency == BaseMaterial3D.TRANSPARENCY_ALPHA_DEPTH_PRE_PASS:
+		modes.append("depth_prepass_alpha")
+	var see_through := base.transparency != BaseMaterial3D.TRANSPARENCY_DISABLED
+	var code := "shader_type spatial;\nrender_mode %s;\n%s#include \"%s\"\n" % [
+		", ".join(modes), "#define PS1_ALPHA\n" if see_through else "", PS1_STANDARD]
+	if not _ps1_shaders.has(code):
+		var shader := Shader.new()
+		shader.code = code
+		_ps1_shaders[code] = shader
+	var ps1 := ShaderMaterial.new()
+	ps1.resource_name = base.resource_name
+	ps1.shader = _ps1_shaders[code]
+	var glow := base.emission_texture if base.emission_enabled else null
+	ps1.set_shader_parameter(&"albedo_texture", base.albedo_texture)
+	ps1.set_shader_parameter(&"albedo_color", base.albedo_color)
+	ps1.set_shader_parameter(&"use_vertex_color", base.vertex_color_use_as_albedo)
+	ps1.set_shader_parameter(&"emission_texture", glow)
+	ps1.set_shader_parameter(&"emission_color", base.emission if base.emission_enabled else Color.BLACK)
+	ps1.set_shader_parameter(&"emission_energy", base.emission_energy_multiplier)
+	ps1.set_shader_parameter(&"emission_multiply", glow != null and base.emission_operator == BaseMaterial3D.EMISSION_OP_MULTIPLY)
+	ps1.set_shader_parameter(&"roughness", base.roughness)
+	ps1.set_shader_parameter(&"metallic", base.metallic)
+	ps1.set_shader_parameter(&"specular", base.metallic_specular)
+	ps1.set_shader_parameter(&"uv1_scale", base.uv1_scale)
+	ps1.set_shader_parameter(&"uv1_offset", base.uv1_offset)
+	ps1.render_priority = base.render_priority
+	_ps1_cache[material_id] = ps1
+	return ps1
