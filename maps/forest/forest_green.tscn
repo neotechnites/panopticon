@@ -6,9 +6,8 @@
 [ext_resource type="Texture2D" path="res://maps/forest/textures/forest_bark_albedo.png" id="4_bark"]
 [ext_resource type="Shader" path="res://maps/forest/materials/forest_mist.gdshader" id="5_mist"]
 [ext_resource type="Texture2D" path="res://maps/forest/textures/forest_mist_albedo.png" id="6_mist_noise"]
-[ext_resource type="Shader" path="res://maps/forest/materials/forest_ray.gdshader" id="7_ray"]
-[ext_resource type="Shader" path="res://maps/forest/materials/forest_ray_blend_reset.gdshader" id="8_ray_reset"]
 [ext_resource type="Shader" path="res://maps/forest/materials/forest_green_crown_under.gdshader" id="9_under"]
+[ext_resource type="Shader" path="res://maps/forest/materials/forest_crown_shadow.gdshader" id="10_crown_shadow"]
 
 [sub_resource type="ProceduralSkyMaterial" id="SkyGreen"]
 sky_top_color = Color(0.45, 0.62, 0.62, 1)
@@ -27,7 +26,7 @@ background_mode = 2
 sky = SubResource("SkyGreenSky")
 ambient_light_source = 3
 ambient_light_color = Color(0.2, 0.34, 0.32, 1)
-ambient_light_energy = 0.8
+ambient_light_energy = 0.72
 tonemap_mode = 1
 fog_enabled = true
 fog_light_color = Color(0.12, 0.3, 0.36, 1)
@@ -54,15 +53,41 @@ shader_parameter/soft_metres = 1.0
 shader_parameter/shadow_metres = 6.0
 shader_parameter/shadow = 0.65
 
-[sub_resource type="ShaderMaterial" id="RayResetGreen"]
-shader = ExtResource("8_ray_reset")
+[sub_resource type="ShaderMaterial" id="RingLeafShadowGreen"]
+render_priority = 0
+shader = ExtResource("10_crown_shadow")
+shader_parameter/roof_radius = 8.7
+shader_parameter/solid_below_y = 34.25
+shader_parameter/wall_radius = 56.5
+shader_parameter/gap = 0.3
+shader_parameter/cell = 1.0
+shader_parameter/soft = 0.14
+shader_parameter/sway = 0.12
+shader_parameter/sway_speed = 1.0
 
-[sub_resource type="ShaderMaterial" id="RayGreen"]
-render_priority = 1
-next_pass = SubResource("RayResetGreen")
-shader = ExtResource("7_ray")
-shader_parameter/tint = Color(0.8, 1.0, 0.9, 1)
-shader_parameter/alpha_gain = 0.1
+[sub_resource type="ShaderMaterial" id="BossLeafShadowGreen"]
+render_priority = 0
+shader = ExtResource("10_crown_shadow")
+shader_parameter/roof_radius = 8.7
+shader_parameter/solid_below_y = -1000.0
+shader_parameter/wall_radius = 0.0
+shader_parameter/gap = 0.3
+shader_parameter/cell = 1.0
+shader_parameter/soft = 0.14
+shader_parameter/sway = 0.12
+shader_parameter/sway_speed = 1.0
+
+[sub_resource type="ShaderMaterial" id="CrownShadowGreen"]
+render_priority = 0
+shader = ExtResource("10_crown_shadow")
+shader_parameter/roof_radius = 8.7
+shader_parameter/solid_below_y = -1000.0
+shader_parameter/wall_radius = 0.0
+shader_parameter/gap = 0.25
+shader_parameter/cell = 1.0
+shader_parameter/soft = 0.14
+shader_parameter/sway = 0.12
+shader_parameter/sway_speed = 1.0
 
 [sub_resource type="ShaderMaterial" id="CrownUnderGreen"]
 render_priority = 0
@@ -147,11 +172,11 @@ environment = SubResource("EnvGreen")
 
 [node name="Sun" parent="Environment" index="1"]
 light_color = Color(0.88, 1.0, 0.94, 1)
-light_energy = 0.3
+light_energy = 0.27
 
 [node name="Sun2" parent="Environment" index="2"]
 light_color = Color(0.88, 1.0, 0.94, 1)
-light_energy = 0.3
+light_energy = 0.27
 
 [node name="ForestFog" parent="ForestMap" index="1"]
 surface_material_override/0 = SubResource("FogGreen")
@@ -274,41 +299,20 @@ surface_material_override/2 = SubResource("RootGreen")
 surface_material_override/3 = SubResource("ShadeGreen")
 surface_material_override/4 = SubResource("CrownUnderGreen")
 
-[node name="Streak01" parent="LightStreaks" index="0"]
-surface_material_override/0 = SubResource("RayGreen")
+[node name="LightStreaks" parent="." index="9"]
+visible = false
 
-[node name="Streak05" parent="LightStreaks" index="1"]
-surface_material_override/0 = SubResource("RayGreen")
+[node name="ForestGround" parent="MapShadow" index="2"]
+surface_material_override/3 = SubResource("RingLeafShadowGreen")
+surface_material_override/7 = SubResource("RingLeafShadowGreen")
+surface_material_override/10 = SubResource("RingLeafShadowGreen")
+surface_material_override/12 = SubResource("RingLeafShadowGreen")
 
-[node name="Streak06" parent="LightStreaks" index="2"]
-surface_material_override/0 = SubResource("RayGreen")
+[node name="ForestCanopy" parent="Sections/CanopyShadow" index="0"]
+surface_material_override/1 = SubResource("BossLeafShadowGreen")
 
-[node name="Streak07" parent="LightStreaks" index="3"]
-surface_material_override/0 = SubResource("RayGreen")
-
-[node name="Streak08" parent="LightStreaks" index="4"]
-surface_material_override/0 = SubResource("RayGreen")
-
-[node name="Streak09" parent="LightStreaks" index="5"]
-surface_material_override/0 = SubResource("RayGreen")
-
-[node name="Streak10" parent="LightStreaks" index="6"]
-surface_material_override/0 = SubResource("RayGreen")
-
-[node name="Streak11" parent="LightStreaks" index="7"]
-surface_material_override/0 = SubResource("RayGreen")
-
-[node name="Streak12" parent="LightStreaks" index="8"]
-surface_material_override/0 = SubResource("RayGreen")
-
-[node name="Streak13" parent="LightStreaks" index="9"]
-surface_material_override/0 = SubResource("RayGreen")
-
-[node name="Streak14" parent="LightStreaks" index="10"]
-surface_material_override/0 = SubResource("RayGreen")
-
-[node name="Streak15" parent="LightStreaks" index="11"]
-surface_material_override/0 = SubResource("RayGreen")
+[node name="ForestTree" parent="Tower/TreeShadow" index="0"]
+material_override = SubResource("CrownShadowGreen")
 
 [editable path="ForestMap"]
 [editable path="Bars"]
