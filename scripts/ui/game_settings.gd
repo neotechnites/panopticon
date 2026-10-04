@@ -1,6 +1,9 @@
 class_name GameSettings
 extends RefCounted
 
+## A capture owns the window: saved video settings leave its mode and size alone.
+static var window_held: bool = false
+
 ## Every non-keybind player preference, as one typed, self-validating object.
 ##
 ## This holds values and knows how to push them at the engine; it does not know
@@ -1065,7 +1068,7 @@ func apply_locale() -> void:
 ## do: a player who picks a size off the list means it even if the number is the
 ## one already stored.
 func apply_video(force: bool = false) -> void:
-	if is_headless():
+	if is_headless() or window_held:
 		return
 
 	var window_mode: DisplayServer.WindowMode = DisplayServer.WINDOW_MODE_WINDOWED

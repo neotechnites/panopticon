@@ -205,6 +205,7 @@ func _initialize() -> void:
 	# Maker records the VIEWPORT. Disabling the stretch lets --resolution decide
 	# the recorded size. No UI is drawn in a clip, so nothing is scaled by it.
 	root.content_scale_mode = Window.CONTENT_SCALE_MODE_DISABLED
+	GameSettings.window_held = true
 	_options = BotHarness.parse_arguments({
 		"shot": "",
 		"seconds": 0.0,

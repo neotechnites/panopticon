@@ -213,7 +213,7 @@ try {
 \$ErrorActionPreference = 'Continue'
 Get-Content '${raw}.err' -ErrorAction SilentlyContinue | Select-Object -Last 4
 Get-Content '${log}' -ErrorAction SilentlyContinue | Where-Object { \$_ -match '^(shot |look |\\[stage\\]|\\[event\\]|\\[pov\\]|SCRIPT ERROR|SHOT )' } | Select-Object -Last 14
-\$d = ffmpeg -hide_banner -nostats -i '${raw}' -an -vf 'negate,blackdetect=d=0.25:pix_th=0.05:pic_th=0.98' -f null - 2>&1 | Select-String 'black_end:([0-9.]+)' | Select-Object -First 1
+\$d = ffmpeg -hide_banner -nostats -i '${raw}' -an -vf 'negate,blackdetect=d=0.25:pix_th=0.05:pic_th=0.98' -f null - 2>&1 | Select-String 'black_end:([0-9.]+)' | Select-Object -Last 1
 if (-not \$d) { Write-Output 'rough: no sync frames in the recording'; exit 3 }
 \$t0 = [double]::Parse(\$d.Matches[0].Groups[1].Value, [Globalization.CultureInfo]::InvariantCulture) - 1.0 / ${FPS}
 Set-Content -Path '${raw}.sync' -Value \$t0.ToString([Globalization.CultureInfo]::InvariantCulture)
