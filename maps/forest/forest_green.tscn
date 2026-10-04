@@ -172,11 +172,11 @@ environment = SubResource("EnvGreen")
 
 [node name="Sun" parent="Environment" index="1"]
 light_color = Color(0.88, 1.0, 0.94, 1)
-light_energy = 0.27
+light_energy = 0.405
 
 [node name="Sun2" parent="Environment" index="2"]
 light_color = Color(0.88, 1.0, 0.94, 1)
-light_energy = 0.27
+light_energy = 0.405
 
 [node name="ForestFog" parent="ForestMap" index="1"]
 surface_material_override/0 = SubResource("FogGreen")
