@@ -25,9 +25,9 @@ The balcony floor is FLAT with the room floor (Ryan, pass 4): one level,
 FLOOR_Z, through the columns onto a 1.2 m ledge on a 0.35 m slab. Its
 railing is 32 posts 0.10 square, a top rail 1.00 m over the ledge and a mid
 rail. The rail top (2.70) would cross the guard's sight line from a seat on
-the floor, so the seat stands on a 0.6 m DAIS (the floor's rosette, r 2.2):
-the eye at 3.95 (world 29.3) clears the rail top by 0.14 m to the lane's
-inner edge, 0.26 m to the lane. The collider
+the floor, so the seat stands on a 0.6 m DAIS, in the collider only (the
+drawn floor is flat): the eye at 3.95 (world 29.3) clears the rail top by
+0.14 m to the lane's inner edge, 0.26 m to the lane. The collider
 carries an invisible band at COLL_RAIL_R from the ledge to the rail top: the
 railing is functional, nobody walks off.
 
@@ -128,7 +128,7 @@ DOME_RINGS = 6
 R_INSET = SHAFT_R - COL_W / math.cos(math.pi / NS)   # the columns' inner line at the corners: the room's wall line
 PAVING_RS = (0.5, 2.2, 4.25, 6.3)  # the room floor: a grey rosette, two EQUAL rings of slabs, a plain margin to the columns
 PAVE_SUB = 3                # a paving cell is 3 x 3 slabs: its joints are real edges on true rings and radials
-DAIS_H = 0.6                # the rosette is a DAIS: the seat stands on it, so the guard's eye clears the rail top
+DAIS_H = 0.6                # the collider's DAIS under the seat, so the guard's eye clears the rail top; not drawn
 DAIS_R = PAVING_RS[1]
 # ---- the railing ---------------------------------------------------------------
 POST_W = 0.10               # posts 0.10 square, one at every balcony facet's centre, flush with its edge
@@ -152,7 +152,6 @@ LANTERN_CLS = ("iron", "iron", "iron", "flame", "iron", "iron", "iron")
 DISH = ((0.06, 0.0), (0.06, 0.10), (0.45, 0.56), (0.45, 0.52), (0.12, 0.09), (0.12, 0.0))   # (d, r)
 DISH_CLS = ("iron", "iron", "iron", "column", "column")
 LAMP_SEG = 6
-FLAME_TEXELS = (157, 220, 163, 226)    # the portal swirl's white core in the marble atlas: the glow tile
 
 
 # =============================================================================
@@ -167,12 +166,13 @@ FLAME_TEXELS = (157, 220, 163, 226)    # the portal swirl's white core in the ma
 # (U0_SHAFT puts u = 0 there), 2.749/60 = 0.0458 m a texel, 0.4 % off the
 # vertical. The balcony's repeat is 35 texels = 1.611 m: 32 at r 8.2, one per
 # post facet. Stone, dome, plinth and the ledge wear marble_stone spanned across
-# those repeats and tinted to their palettes; shade wears marble_shade. Band, column, iron and the floor slab are fitted to the
-# face exactly as the rotunda fits them; the dome is "custom" (see _dome_vs).
+# those repeats and tinted to their palettes (the brick tile is two bays, so a repeat is two facets).
+# Band, column, iron and the floor slab are fitted to the face exactly as the rotunda fits them;
+# the dome is "custom" (see _dome_vs), its underside the plain stone.
 
 MPT = mb.WALL_MPT                    # 0.046019 m a texel: the rotunda's wall density
-SHEET_H = mb.WALL_H                  # 261 texels = 12 courses of 1.0 m
-SHEET_M = SHEET_H * MPT              # 12.01 m: the sheet's period up
+SHEET_H = mb.WALL_H                  # 256 texels = 12 courses of 1.0 m
+SHEET_M = SHEET_H * mb.COURSE_MPT    # 12.0 m: the sheet's period up
 SHAFT_PX = 60                        # one facet across at r 7.0 -> ring() closes at 16
 BAL_PX = 35                          # one balcony facet across at r 8.2 -> 32 repeats
 U0_SHAFT = SHAFT_R * math.radians(-(COL_PHASE + 180.0 / NS))       # u = 0 on a facet corner
@@ -204,21 +204,20 @@ def _dome_profile(rad, rise):
 
 
 DOME_ARC = _dome_profile(SHAFT_R, DOME_RISE)[1][-1]                     # the skin's meridian
-COFFER_ARC = _dome_profile(R_INSET, DOME_RISE - DOME_T)[1][-2]          # the coffered soffit's, to the crown
-COFFER_ROWS = DOME_RINGS - 1                                            # one coffer a ring band; the crown is plain
-COFFER_PX = int(round((COFFER_ARC / COFFER_ROWS) / MPT))                # ... at MPT up the arc
 
 
 def _dome_vs(rad, rise, cls):
     """v per ring for a dome shell: the meridian's ARC LENGTH at the sheet's
     own density, so a texel is the same size at the spring and at the crown
     (an angle would stretch it, a face fit would shrink it toward the apex).
-    The skin continues the shaft's courses across the beam; the coffers start
-    a row at the spring and close one at the apex."""
+    Both shells continue the shaft's brick courses up from the spring."""
     arc = _dome_profile(rad, rise)[1]
-    if cls == "coffer":
-        return [float(k) for k in range(len(arc))]      # ring k IS coffer row k: joints on the rings
     return [(DOME_Z0 - V0 + s) / SHEET_M for s in arc]
+
+
+def _dome_us(rad, rise, cls):
+    """u a facet per ring: the brick, one bay a facet."""
+    return [0.5] * (DOME_RINGS + 1)
 
 
 def _shared(name, px=SHAFT_PX, ref_r=SHAFT_R, u0=U0_SHAFT, tint=None):
@@ -233,20 +232,15 @@ SHEETS = {
     "band": mb.band_sheet(),                                                   # ring beam, slab edge
     "column": mb.column_sheet(),
     "iron": mb.iron_sheet(),
-    "floor": mb.ornament("floor", "custom", 64, 64, mpt=2.7 / 64.0),           # one paving cell a ring band, UVs per vertex
-    "medallion": mb.ornament("medallion", "box", 64, 64, mpt=2.0 * PAVING_RS[0] / 64.0,
-                             phase=(-PAVING_RS[0], -PAVING_RS[0])),
-    "coffer": mb.ornament("coffer", "custom", SHAFT_PX, COFFER_PX, mpt=MPT),  # the dome inside
+    "floor": mb.tile("floor", "marble_floor", "custom", 64, 64, mpt=2.7 / 64.0),   # one paving cell a ring band
+    "plain": mb.stone("plain", mode="box"),                                    # the floor's centre
+    "coffer": mb.brick("coffer", tint=mb.TINT_TOWER, mode="custom"),           # the dome inside
     "dome": mb.brick("dome", tint=mb.TINT_TOWER, mode="custom"),              # ... and outside
-    "flame": tx.Sheet("flame", mode="fit", width=8, size=8, roughness=mb.ROUGHNESS, stem="marble",
-                      region=(FLAME_TEXELS[0] / float(mb.TEX_W), FLAME_TEXELS[1] / float(mb.TEX_SIZE),
-                              FLAME_TEXELS[2] / float(mb.TEX_W), FLAME_TEXELS[3] / float(mb.TEX_SIZE)),
-                      canvas=(mb.TEX_W, mb.TEX_SIZE)),                         # the lantern glass
 }
-assert (SHAFT_PX, COFFER_PX) == (mb.COFFER_W, mb.COFFER_H), "the atlas' coffer is one facet by one band"
-# Two faces wear a class their zone does not name, because their PROJECTION
+# Faces that wear a class their zone does not name, because their PROJECTION
 # differs, not their stone: the dome's skin (zone "shade") is "dome", and the
-# dais' centre disc (zone "shade") is "medallion".
+# floor's centre disc (zone "shade") is "plain". The lantern glass ("flame") is a
+# flat warm glow, no texture: _flame_material.
 
 
 def _classify(m, n0, cls):
@@ -706,18 +700,9 @@ def _room(m, coll=False):
         _zip(m, line, _joints(rings[-1]), mb.UP, "shade")                          # the plain margin, on the slab joints
         for k in range(len(rings) - 1, 1, -1):                                     # radial slabs, one cell each
             _paving(m, rings[k - 1], rings[k])
-        foot, head = _joints(ring(DAIS_R, FLOOR_Z)), ring(DAIS_R, top)             # the dais' wall, its foot on the joints ...
-        for i in range(NS):
-            j, q = (i + 1) % NS, PAVE_SUB
-            pts = [head[j], head[i]] + foot[i * q:i * q + q] + [foot[(j * q) % len(foot)]]
-            m.poly([m.v(p) for p in pts], mb._unit((head[i][0] + head[j][0], head[i][1] + head[j][1], 0.0)), "plinth")
-        a, b = [m.v(p) for p in ring(PAVING_RS[0], top)], [m.v(p) for p in ring(DAIS_R, top)]
-        for i in range(NS):                                                        # ... its top: the rosette's wedges, plain grey
-            j = (i + 1) % NS
-            m.quad(a[i], a[j], b[j], b[i], mb.UP, "shade")
         n0 = len(m.faces)
-        m.poly(a, mb.UP, "shade")                                                  # its centre: no vertex on the axis,
-        _classify(m, n0, "medallion")                                              # where the polar unwrap has no frame
+        _disc(m, _joints(rings[1]), FLOOR_Z, mb.UP, "shade")                       # the centre, flat on the joints
+        _classify(m, n0, "plain")
     if coll:
         _posts(m, NS, COL_PHASE, SHAFT_R, COL_W, [FLOOR_Z, COL_Z1], (), "column", top=False)
     else:
@@ -747,7 +732,7 @@ def _crown(m, coll=False):
     # pole vertex with one UV is what smears a crown.
     for (rad, rise, outward, zone, cls) in ((SHAFT_R, DOME_RISE, True, "shade", "dome"),
                                             (R_INSET, DOME_RISE - DOME_T, False, "coffer", "coffer")):
-        vs = _dome_vs(rad, rise, cls)
+        vs, us = _dome_vs(rad, rise, cls), _dome_us(rad, rise, cls)
         prof = _dome_profile(rad, rise)[0]
         prev = _ringz(m, rad, z1)
         for k in range(1, DOME_RINGS):
@@ -761,28 +746,39 @@ def _crown(m, coll=False):
                     w = (-w[0], -w[1], -w[2])
                 # a cell fans from its centre: one diagonal kinks a trapezoid's texture, four keep it straight
                 cell = (prev[i], prev[j], ring[j], ring[i])
-                cuv = ((float(i), vs[k - 1]), (i + 1.0, vs[k - 1]), (i + 1.0, vs[k]), (float(i), vs[k]))
+                cen, ua, ub = (i + 0.5) * us[0], 0.5 * us[k - 1], 0.5 * us[k]   # each facet about its own centre: no shear
+                cuv = ((cen - ua, vs[k - 1]), (cen + ua, vs[k - 1]), (cen + ub, vs[k]), (cen - ub, vs[k]))
                 c = m.v(tuple(sum(m.verts[x][d] for x in cell) / 4.0 for d in range(3)))
                 for e in range(4):
                     a, b = cell[e], cell[(e + 1) % 4]
                     n0 = len(m.faces)
                     m.tri(a, b, c, w, zone)
-                    m.face_uv[n0] = {a: cuv[e], b: cuv[(e + 1) % 4], c: (i + 0.5, 0.5 * (vs[k - 1] + vs[k]))}
+                    m.face_uv[n0] = {a: cuv[e], b: cuv[(e + 1) % 4],
+                                     c: (cen, 0.5 * (vs[k - 1] + vs[k]))}
                     _classify(m, n0, cls)
             prev = ring
         apex = m.v((0.0, 0.0, z1 + rise))
-        crown_r = prof[-2][0]
         for i in range(NS):
             j = (i + 1) % NS
             n0 = len(m.faces)
             m.tri(prev[i], prev[j], apex, mb.UP if outward else mb.DOWN, "shade")
-            if cls == "coffer":        # the crown is plain rib stone, laid flat: a coffer squeezed to a point is pinched
-                m.face_uv[n0] = {x: (0.05 + 0.03 * m.verts[x][0] / crown_r, 0.05 + 0.03 * m.verts[x][1] / crown_r)
-                                 for x in (prev[i], prev[j], apex)}
-            else:
-                m.face_uv[n0] = {prev[i]: (float(i), vs[-2]), prev[j]: (i + 1.0, vs[-2]),
-                                 apex: (i + 0.5, vs[-1])}
+            cen, ua = (i + 0.5) * us[0], 0.5 * us[DOME_RINGS - 1]
+            m.face_uv[n0] = {prev[i]: (cen - ua, vs[-2]), prev[j]: (cen + ua, vs[-2]), apex: (cen, vs[-1])}
             _classify(m, n0, cls)
+
+
+def _flame_material():
+    """The lantern glass: a flat warm glow, the lantern's gold as albedo and emission, no texture."""
+    mat = bpy.data.materials.new(NAME + "_lamp_glow")
+    mat.use_nodes = True
+    bsdf = mat.node_tree.nodes.get("Principled BSDF")
+    rgba = mb.LANTERN_RGB + (1.0,)
+    bsdf.inputs["Base Color"].default_value = rgba
+    bsdf.inputs["Emission Color"].default_value = rgba
+    bsdf.inputs["Emission Strength"].default_value = 1.0   # exactly 1.0: no KHR warning
+    bsdf.inputs["Roughness"].default_value = mb.ROUGHNESS
+    mat.diffuse_color = rgba
+    return mat
 
 
 def _rock():
@@ -890,12 +886,12 @@ def build():
     coll = _collider()
     ob = rock.object(OBJECT_NAME)
     classes = [rock.face_class.get(pi, z) for pi, z in enumerate(rock.zones)]
-    tx.unwrap(ob, classes, SHEETS, seed=3, face_uv=rock.face_uv, groups=rock.groups)
+    tx.unwrap(ob, classes, SHEETS, seed=3, face_uv=rock.face_uv, groups=rock.groups,
+              custom={"flame": lambda me, uvl, poly: None})
     mats = tx.materials(NAME, SHEETS)
     for mat in mats.values():
         mat.diffuse_color = (0.78, 0.76, 0.72, 1.0)
-    glow = tx.images(NAME, SHEETS["flame"])[0]
-    mats["flame"] = mb.stone_material(NAME + "_lamp_glow", glow, glow)     # the portal's glow: albedo as emission
+    mats["flame"] = _flame_material()
     order = tx.finish(ob, classes, mats)
     tx.report(SHEETS)
     print("MDL STATS surfaces=%d order=%s" % (len(ob.data.materials), ",".join(order)))
@@ -938,9 +934,6 @@ def _check():
     tx.report(SHEETS)
     print("dome skin: arc %.2f m, %.4f m/texel up the meridian, %.4f m across at the spring"
           % (DOME_ARC, SHEET_M / SHEET_H, mb.TWO_PI * SHAFT_R / NS / SHAFT_PX))
-    print("coffers: arc %.2f m, %d rows of %.2f m (%d texels), %.4f m/texel up the meridian"
-          % (COFFER_ARC, COFFER_ROWS, COFFER_ARC / COFFER_ROWS, COFFER_PX,
-             (COFFER_ARC / COFFER_ROWS) / COFFER_PX))
     lamps = NS // LAMP_EVERY
     ok = a["components"] == 1 + 4 * lamps and a["boundary_edges"] == NS and a["doubled_edges"] == 0 \
         and a["over_edges"] == 0 and a["degenerate"] == 0 and a["duplicate_positions"] == 0 \

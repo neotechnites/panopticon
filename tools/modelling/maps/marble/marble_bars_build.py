@@ -66,9 +66,8 @@ FLAT SLAB, not a ring, so the stone is projected "box" -- world x/y/z by the
 face normal's largest axis, in the gate's own frame -- and its courses are
 therefore level lines at the gate's own heights: a joint on the ledge (0.85,
 the socle is exactly one course) and on the sill (1.0), then on up the world 1 m
-grid the rotunda's wall courses stand on. The iron is on the PORTCULLIS' OWN
-MODULE (see _iron_uv): the cells' own sheet fitted across each upright, so
-every upright wears the cells' lit rim. Stone is marble_stone, shade marble_shade.
+grid the rotunda's wall courses stand on. Stone is the brick tile, tinted per
+class; the iron is the plain stone darkened, world-boxed like the cells' bars.
 
     python3 tools/modelling/maps/marble/marble_bars_build.py --check
     tools/modelling/model build marble_bars
@@ -243,42 +242,22 @@ def widest_gap():
 # joint on the gate's centre line (behind the iron), on the mouth's two jambs
 # (+-2.991, 9 mm -- a fifth of a texel -- off the +-3.0 arris) and behind the
 # pilasters (+-5.98), so every one of them falls on an edge or on nothing.
-# marble, marble2, plinth and shade wear marble_stone spanned across STONE_M,
-# tinted to their palettes. The iron is marble_dark's iron column: see _iron_uv.
+# marble, marble2, plinth and shade wear the brick, a bay spanned across STONE_M,
+# tinted to their palettes. The iron is mb.iron_sheet.
 
 MPT = mb.WALL_MPT                       # 0.046019 m a texel: the rotunda's wall density
-SHEET_H = mb.WALL_H                     # 261 texels = 12 courses of 1.0 m
+SHEET_H = mb.WALL_H                     # 256 texels = 12 courses of 1.0 m
 COURSES = 12
-COURSE_PX = int(round(SHEET_H / float(COURSES)))   # 22 texels
-COURSE_M = COURSE_PX * MPT              # 1.0124 m: the course, to the nearest texel
+COURSE_M = SHEET_H * mb.COURSE_MPT / COURSES        # 1.0 m: the course
 STONE_PX = int(round(3.0 / MPT))        # 65 texels = 2.991 m across: 1.50 m blocks
 STONE_M = STONE_PX * MPT                # 2.991 m: one repeat across
 U0 = 0.0                                # u = 0 on the gate's centre line
 V0 = SILL_Z - COURSE_M                  # a joint exactly on the sill, then a course at a time
 V0_PLINTH = SOCLE_Z - COURSE_M          # ... and the socle's one joint on the ledge
-IRON_BASE = (0.2, 0.85)                 # marble_iron's u span clear of the rim and the shadow
 
 
 def _shared(name, v0=V0, tint=None):
     return mb.ashlar_sheet(name, STONE_M, tint, mode="box", phase=(U0, v0))
-
-
-def _iron_uv(me, uvl, poly):
-    """Upright faces fit the cells' iron across (rim left, shadow right); a
-    cross-bar spans a gap, so it wears only the base iron between them."""
-    sheet = SHEETS["iron"]
-    loops = list(poly.loop_indices)
-    cos = [tuple(me.vertices[me.loops[li].vertex_index].co) for li in loops]
-    cx = sum(c[0] for c in cos) / len(cos)
-    if any(xl - 1e-6 <= cx <= xr + 1e-6 for xl, xr in (bar_span(k) for k in range(N_BAR))):
-        uvs = tx.fit_uv(cos, tuple(poly.normal), sheet, "fit_u")
-    else:
-        x0, x1 = min(c[0] for c in cos), max(c[0] for c in cos)
-        flat = abs(poly.normal[2]) > 0.5
-        uvs = [(IRON_BASE[0] + (IRON_BASE[1] - IRON_BASE[0]) * (c[0] - x0) / max(x1 - x0, 1e-9),
-                (c[1] if flat else c[2]) / sheet.metres) for c in cos]
-    for li, uv in zip(loops, tx.to_region(sheet, uvs)[0]):
-        uvl.data[li].uv = uv
 
 
 SHEETS = {
@@ -718,7 +697,7 @@ def build():
     gate, counts = _gate()
     coll = _collider()
     ob = gate.object(OBJECT_NAME)
-    tx.unwrap(ob, gate.zones, SHEETS, seed=SEED, groups=gate.groups, custom={"iron": _iron_uv})
+    tx.unwrap(ob, gate.zones, SHEETS, seed=SEED, groups=gate.groups)
     mats = tx.materials(NAME, SHEETS)
     for mat in mats.values():
         mat.diffuse_color = (0.78, 0.76, 0.72, 1.0)
