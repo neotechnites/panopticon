@@ -2,7 +2,7 @@ extends "res://tools/capture/stages/trailer_duel.gd"
 
 ## trailer_duel2: the duel behind real cover -- hell's pocket lip wall (rock r 47-48,
 ## 2.4-3.0 m tall over 66-70 deg, 0.4 m by 71), not S4's lava. Both captures are POV:
-## [code]--pov=runner --look=social[/code] (his eyes) and [code]--pov=guard --hud=crosshair[/code]
+## [code]--pov=runner[/code] (his eyes) and [code]--pov=guard --hud=crosshair[/code]
 ## (the scope), same seed, same events. The guard stands at the 70 deg window
 ## (LIB.guard_to_window, r 5.6). probe_ring --eye=70:5.6:5.85: r 51 BLOCKED by
 ## MapBaseLip066 at 68-70 deg (h 0.7-1.6), open from 70.5 (h 1.6) and 71; r 49 open every
@@ -50,18 +50,10 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 	return true
 
 
-## Either POV is lit like the scope (trailer_duel's lift): a ridden body carries no fill.
+## Lit at the game's own environment: no exposure or ambient lift on either POV.
 func before_start() -> void:
 	LIB.disarm_pads(clip.root)
 	LIB.disarm_traps(clip.root)
-	if String(option("pov", "")) == "":
-		return
-	var world: WorldEnvironment = LIB.find_node(clip.root, "WorldEnvironment") as WorldEnvironment
-	if world != null and world.environment != null:
-		var env: Environment = world.environment.duplicate() as Environment
-		env.tonemap_exposure = 3.8
-		env.ambient_light_energy = 3.6
-		world.environment = env
 
 
 ## The squeeze as he steps back behind the rock (it takes the rock), then the hand rides his sprint.

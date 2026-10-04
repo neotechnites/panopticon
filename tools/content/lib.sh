@@ -172,6 +172,55 @@ try {
 EOF
 }
 
+# pc_rough <run_clip-args> <log-path> <raw-path> : the same take at real speed. Godot
+# plays borderless at 0,0 (--fixed-fps and --max-fps 60) and ffmpeg records that
+# 1920x1080 of the screen (ddagrab, no cursor, h264_amf) to <raw-path>. The take's
+# white sync frames (run_clip --sync) put its t=0 in <raw-path>.sync, in seconds.
+pc_rough() {
+  local args="$1" log="$2" raw="$3" task="panopticon_content_$$"
+  local width="${SIZE%%x*}" height="${SIZE##*x}" runner="${3%.*}.ps1"
+  pc <<EOF
+\$ErrorActionPreference = 'Stop'
+Set-Content -Path '${PC_PROJECT}\\override.cfg' -Value @('[display]','window/size/viewport_width=${width}','window/size/viewport_height=${height}','window/size/borderless=true','window/size/always_on_top=true')
+Set-Content -Path '${runner}' -Value @'
+\$g = New-Object System.Diagnostics.ProcessStartInfo 'cmd.exe', '/c ${PC_GODOT} --path ${PC_PROJECT} --fixed-fps ${FPS} --max-fps ${FPS} --resolution ${SIZE} --position 0,0 ${args} > ${log} 2>&1'
+\$g.UseShellExecute = \$false; \$g.CreateNoWindow = \$true
+\$gp = [System.Diagnostics.Process]::Start(\$g)
+\$deadline = (Get-Date).AddSeconds(90)
+do {
+  Start-Sleep -Milliseconds 50
+  \$kid = Get-CimInstance Win32_Process -Filter "ParentProcessId=\$(\$gp.Id)" | Where-Object Name -like 'godot*' | Select-Object -First 1
+  \$win = if (\$kid) { (Get-Process -Id \$kid.ProcessId -ErrorAction SilentlyContinue).MainWindowHandle } else { 0 }
+} until ((\$win -ne 0) -or \$gp.HasExited -or ((Get-Date) -gt \$deadline))
+\$f = New-Object System.Diagnostics.ProcessStartInfo 'cmd.exe', '/c ffmpeg -hide_banner -loglevel error -y -f lavfi -i ddagrab=output_idx=0:framerate=${FPS}:video_size=${SIZE}:offset_x=0:offset_y=0:draw_mouse=0 -vf hwdownload,format=bgra,scale=out_range=tv:out_color_matrix=bt709,format=yuv420p -c:v h264_amf -quality quality -rc cqp -qp_i 14 -qp_p 14 -color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 ${raw} 2> ${raw}.err'
+\$f.UseShellExecute = \$false; \$f.CreateNoWindow = \$true; \$f.RedirectStandardInput = \$true
+\$fp = [System.Diagnostics.Process]::Start(\$f)
+if (-not \$gp.WaitForExit(600000) -and \$kid) { Stop-Process -Id \$kid.ProcessId -Force }
+\$fp.StandardInput.Write('q'); \$fp.StandardInput.Close()
+if (-not \$fp.WaitForExit(30000)) { Stop-Process -Id \$fp.Id -Force }
+'@
+try {
+  \$action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument '-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File ${runner}'
+  \$who = New-ScheduledTaskPrincipal -UserId \$env:USERNAME -LogonType Interactive
+  Register-ScheduledTask -TaskName '${task}' -Action \$action -Principal \$who -Force | Out-Null
+  Start-ScheduledTask -TaskName '${task}'
+  Start-Sleep -Seconds 2
+  while ((Get-ScheduledTask -TaskName '${task}').State -eq 'Running') { Start-Sleep -Seconds 1 }
+} finally {
+  Unregister-ScheduledTask -TaskName '${task}' -Confirm:\$false -ErrorAction SilentlyContinue
+  Remove-Item '${PC_PROJECT}\\override.cfg' -ErrorAction SilentlyContinue
+}
+\$ErrorActionPreference = 'Continue'
+Get-Content '${raw}.err' -ErrorAction SilentlyContinue | Select-Object -Last 4
+Get-Content '${log}' -ErrorAction SilentlyContinue | Where-Object { \$_ -match '^(shot |look |\\[stage\\]|\\[event\\]|\\[pov\\]|SCRIPT ERROR|SHOT )' } | Select-Object -Last 14
+\$d = ffmpeg -hide_banner -nostats -i '${raw}' -an -vf 'negate,blackdetect=d=0.25:pix_th=0.05:pic_th=0.98' -f null - 2>&1 | Select-String 'black_end:([0-9.]+)' | Select-Object -First 1
+if (-not \$d) { Write-Output 'rough: no sync frames in the recording'; exit 3 }
+\$t0 = [double]::Parse(\$d.Matches[0].Groups[1].Value, [Globalization.CultureInfo]::InvariantCulture) - 1.0 / ${FPS}
+Set-Content -Path '${raw}.sync' -Value \$t0.ToString([Globalization.CultureInfo]::InvariantCulture)
+Write-Output ('rough: take t=0 at ' + \$t0.ToString('0.000') + ' s of the recording')
+EOF
+}
+
 # PowerShell that imports C:\dev\verify. Godot never re-imports a .glb when only
 # the import hook changed, so a changed tools\import\ drops every .glb's md5 and the
 # filesystem cache (which otherwise skips the test) and imports twice (stale UIDs).
@@ -187,6 +236,16 @@ if (-not (Test-Path $stamp) -or (Get-Content $stamp -Raw).Trim() -ne $hook) {
 }
 for ($i = 0; $i -lt $passes; $i++) { cmd /c "C:\tools\godot\godot.exe --headless --import --path C:\dev\verify > C:\dev\content_import.txt 2>&1" }
 Set-Content -Path $stamp -Value $hook
+# A .glb re-import rewrites its extracted textures' .import with defaults (no mips, new
+# uid); the committed ones are what the game runs, so they go back and import again.
+$bent = @(git -C C:/dev/verify diff --name-only -- '*.import')
+if ($bent) {
+  git -C C:/dev/verify checkout -- $bent
+  foreach ($b in $bent) { Get-ChildItem C:\dev\verify\.godot\imported -Filter ((Split-Path $b -Leaf) -replace '\.import$', '-*.md5') -ErrorAction SilentlyContinue | Remove-Item -Force }
+  Get-ChildItem C:\dev\verify\.godot\editor -Filter 'filesystem_cache*' -ErrorAction SilentlyContinue | Remove-Item -Force
+  cmd /c "C:\tools\godot\godot.exe --headless --import --path C:\dev\verify > C:\dev\content_import.txt 2>&1"
+  Write-Output ('committed .import restored: ' + $bent.Count)
+}
 PS
 )
 

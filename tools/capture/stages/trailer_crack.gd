@@ -35,13 +35,6 @@ func tune_rules(rules: MatchRules) -> void:
 ## Traps only: the cracks are pads and they are the beat.
 func before_start() -> void:
 	LIB.disarm_traps(clip.root)
-	if String(option("pov", "")) != "":
-		var world: WorldEnvironment = LIB.find_node(clip.root, "WorldEnvironment") as WorldEnvironment
-		if world != null and world.environment != null:
-			var env: Environment = world.environment.duplicate() as Environment
-			env.tonemap_exposure = 3.8
-			env.ambient_light_energy = 3.6
-			world.environment = env
 
 
 func cast(runners: Array[RunnerBrain]) -> bool:

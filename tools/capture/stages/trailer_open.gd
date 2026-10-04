@@ -7,7 +7,7 @@ extends "res://tools/capture/stages/stage.gd"
 ## the course (+bearing); the guard at the window on 115 deg zooms, tracks the middle man and
 ## drops him; the man a step behind him flinches and looks up at the tower.
 ##   guard:  --shot=s3_open_lane --stage=trailer_open --pov=guard --hud=crosshair --bots=3 --seed=20261001
-##   runner: --shot=s3_open_lane --stage=trailer_open --pov=runner --bots=3 --look=social --seed=20261001
+##   runner: --shot=s3_open_lane --stage=trailer_open --pov=runner --bots=3 --seed=20261001
 ## Probe (probe_ring.gd): floor at r 46.5 is the lip, S2's cover wall stands r 50.5-51.5 from
 ## 90 to 128 deg with the lava past it (TrapVolume boxes r 50.3-57.5), so the lane is r 48.5-49.5
 ## rock. --eye=115:5.6:5.7: r 48.5 and 49.5 open at every bearing 96-128. --eye=deg:49:1.6 for
@@ -47,14 +47,6 @@ func tune_rules(rules: MatchRules) -> void:
 func before_start() -> void:
 	LIB.disarm_pads(clip.root)
 	LIB.disarm_traps(clip.root)
-	# A POV carries no fill light: scope_hunt's lift on both, or the scope reads black and the tower is lost.
-	if String(option("pov", "")) != "":
-		var world: WorldEnvironment = LIB.find_node(clip.root, "WorldEnvironment") as WorldEnvironment
-		if world != null and world.environment != null:
-			var env: Environment = world.environment.duplicate() as Environment
-			env.tonemap_exposure = 3.8
-			env.ambient_light_energy = 3.6
-			world.environment = env
 
 
 func cast(runners: Array[RunnerBrain]) -> bool:
