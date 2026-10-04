@@ -7,7 +7,7 @@ extends "res://tools/capture/stages/stage.gd"
 # Probe (--heights 0.5 deg x 0.25 m): lane trees 134-135.5 (r 49-50.75) and 135-136 (r 54.25+), so the run-up
 # threads r 51-54 there; lip trees 147.5-149.5 and 155-156.5 (to r 49.75), the lip between them flat to r 46.75.
 # Dials: pov (shover|victim), from (124.3), back (2.2 deg), pace (0.93), turn_at (144.0), at (148.9),
-# follow (0.55 s), whip (0.15 s), on_him (0.21 s), lip (152.2 deg), floor_kill (1), impulse (16) and up (7): the shipped shove.
+# follow (0.55 s), flinch (1.6 deg before the shove), on_him (0.3 s), lip (152.2 deg), floor_kill (1), impulse (16) and up (7): the shipped shove.
 
 const VICTIM_R: float = 50.0
 const SHOVER_R: float = 51.0
@@ -29,6 +29,7 @@ var _third: PlayerController = null
 var _drivers_by_body: Dictionary = {}
 var _turned_in: bool = false
 var _swung: bool = false
+var _flinched: bool = false
 var _shoved_at: float = -1.0
 var _eyes_front: bool = false
 var _lip: Node3D = null
@@ -143,16 +144,26 @@ func tick(_delta: float) -> void:
 		var aim: Vector2 = _aim_at_victim()
 		var pitch: float = -11.0 if _shoved_at < 0.0 else clampf(aim.y - 5.0, -24.0, 6.0)
 		_drivers_by_body[_shover].glance_now([{"t": 0.0, "right": minf(aim.x, 88.0), "pitch": pitch}])
+	# The man beside him sees it coming a stride too late: his head snaps round onto the shover, his feet still running.
+	if _turned_in and not _flinched and at >= float(option("at", 148.9)) - float(option("flinch", 1.6)):
+		_flinched = true
+		var back: Vector3 = _shover.global_position - _victim.global_position
+		back.y = 0.0
+		_drivers_by_body[_victim].glance_now([{"t": 0.0, "right": _right_of(_lane_of(_victim, VICTIM_R), back.normalized()), "pitch": -4.0}])
 	# The swing lands as they clear the lip tree, his eyes already on him.
 	if _turned_in and not _swung and at >= float(option("at", 148.9)):
 		_swung = true
 		_drivers_by_body[_shover].press_shove()
 
 
-## The shover's lane heading, as his lane step steers it.
+## A body's lane heading at radius [param r], as its lane step steers it.
+static func _lane_of(body: PlayerController, r: float) -> Vector3:
+	var ahead: Vector3 = LIB.ring_point(LIB.bearing_of(body.global_position) + 5.0, r, 0.0)
+	return Vector3(ahead.x - body.global_position.x, 0.0, ahead.z - body.global_position.z).normalized()
+
+
 func _lane_of_shover() -> Vector3:
-	var ahead: Vector3 = LIB.ring_point(LIB.bearing_of(_shover.global_position) + 5.0, SHOVER_R, 0.0)
-	return Vector3(ahead.x - _shover.global_position.x, 0.0, ahead.z - _shover.global_position.z).normalized()
+	return _lane_of(_shover, SHOVER_R)
 
 
 ## Degrees right of the shover's lane and degrees up to the victim's chest.
@@ -167,20 +178,6 @@ func _ahead_of_shover() -> float:
 	return (_victim.global_position - _shover.global_position).dot(_lane_of_shover())
 
 
-## A glance that turns [param body]'s eyes onto [param point] over [param seconds].
-func _glance_onto(body: PlayerController, point: Vector3, seconds: float) -> Dictionary:
-	var facing: Vector3 = -body.global_transform.basis.z
-	var flat: Vector3 = Vector3(point.x - body.global_position.x, 0.0, point.z - body.global_position.z)
-	var eye: Vector3 = body.global_position + Vector3.UP * 1.6
-	var up: float = rad_to_deg(atan2(point.y - eye.y, maxf(flat.length(), 0.1)))
-	var now: float = rad_to_deg(body.head.rotation.x) if body.head != null else 0.0
-	return {"do": "glance", "right": _right_of(facing, flat.normalized()), "pitch": up - now, "seconds": seconds}
-
-
-static func _head_of(body: PlayerController) -> Vector3:
-	return body.global_position + Vector3.UP * 1.55
-
-
 ## Degrees to the body's right that turn [param from] onto [param to] (a positive turn is right).
 static func _right_of(from: Vector3, to: Vector3) -> float:
 	var yaw_from: float = atan2(-from.x, -from.z)
@@ -193,14 +190,10 @@ func on_shove(_from: MatchParticipant, victim: MatchParticipant) -> void:
 		return
 	_shoved_at = elapsed()
 	say("shove: %s off the lane at %.1f deg r %.2f, %.2f m from %s" % [_victim.name, LIB.bearing_of(_victim.global_position), LIB.radius_of(_victim.global_position), _victim.global_position.distance_to(_shover.global_position), _shover.name])
-	# The faller: his head whips round onto the man who did it, arms still out; then his eyes stay on the lip
-	# he left, and the two left run through them and on.
-	var whip: float = float(option("whip", 0.15))
-	var thrown: Vector3 = -_shover.global_transform.basis.z * float(option("impulse", 16.0)) * whip * 0.88
-	var seen: Vector3 = _head_of(_shover) + _lane_of_shover() * _shover.velocity.length() * whip - thrown - Vector3.UP * 0.8
+	# The faller: his eyes are on the man who did it, arms still out; then they stay on the lip he left, and the
+	# two left run through them and on.
 	_drivers_by_body[_victim].retarget([
-		_glance_onto(_victim, seen, whip),
-		{"do": "watch", "body": _shover, "seconds": float(option("on_him", 0.21)), "height": 1.3},
+		{"do": "watch", "body": _shover, "seconds": float(option("on_him", 0.3)), "height": 1.3},
 		{"do": "watch", "body": _lip, "seconds": 60.0, "height": 1.2},
 	])
 	# The third never breaks stride: a look across at the pit and on.
