@@ -234,6 +234,7 @@ func _initialize() -> void:
 		var white := ColorRect.new()
 		white.color = Color.WHITE
 		white.set_anchors_preset(Control.PRESET_FULL_RECT)
+		RenderingServer.set_default_clear_color(Color.WHITE)
 		_sync_cover.add_child(white)
 		root.add_child(_sync_cover)
 
@@ -247,6 +248,11 @@ func _hold_window() -> void:
 	if DisplayServer.window_get_size() != want:
 		DisplayServer.window_set_size(want)
 		DisplayServer.window_set_position(Vector2i.ZERO)
+	# The sync cover fills the held window, whatever size the window had when it was made.
+	if _sync_cover != null and _sync_cover.get_child_count() > 0:
+		var white: Control = _sync_cover.get_child(0) as Control
+		white.position = Vector2.ZERO
+		white.size = Vector2(want)
 
 
 func _process(delta: float) -> bool:
@@ -264,6 +270,7 @@ func _process(delta: float) -> bool:
 	if _sync_cover != null:
 		_sync_cover.free()
 		_sync_cover = null
+		RenderingServer.set_default_clear_color(Color.BLACK)
 
 	_elapsed += delta
 	_log_the_rifle()
