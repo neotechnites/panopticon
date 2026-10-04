@@ -241,7 +241,16 @@ func _initialize() -> void:
 ## The world is built on the first iteration rather than in
 ## [method _initialize], where nothing is in the tree yet and every
 ## global_position reads back as the origin.
+## The player's saved resolution resizes the window after boot; a take holds the size it was asked for.
+func _hold_window() -> void:
+	var want: Vector2i = Vector2i(int(ProjectSettings.get_setting("display/window/size/viewport_width")), int(ProjectSettings.get_setting("display/window/size/viewport_height")))
+	if DisplayServer.window_get_size() != want:
+		DisplayServer.window_set_size(want)
+		DisplayServer.window_set_position(Vector2i.ZERO)
+
+
 func _process(delta: float) -> bool:
+	_hold_window()
 	if _done:
 		quit(_exit_code)
 		return true
