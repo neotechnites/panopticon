@@ -173,14 +173,15 @@ EOF
 }
 
 # PowerShell that imports C:\dev\verify. Godot never re-imports a .glb when only
-# the import hook changed, so a changed tools\import\ drops every .glb's md5 first
-# and imports twice (the first pass reports stale UIDs).
+# the import hook changed, so a changed tools\import\ drops every .glb's md5 and the
+# filesystem cache (which otherwise skips the test) and imports twice (stale UIDs).
 PC_IMPORT=$(cat <<'PS'
 $hook = (Get-ChildItem C:\dev\verify\tools\import -Filter '*.gd' | Sort-Object Name | Get-FileHash | ForEach-Object Hash) -join ''
 $stamp = 'C:\dev\verify\.godot\import_hook.stamp'
 $passes = 1
 if (-not (Test-Path $stamp) -or (Get-Content $stamp -Raw).Trim() -ne $hook) {
   Get-ChildItem C:\dev\verify\.godot\imported -Filter '*.glb-*.md5' -ErrorAction SilentlyContinue | Remove-Item -Force
+  Get-ChildItem C:\dev\verify\.godot\editor -Filter 'filesystem_cache*' -ErrorAction SilentlyContinue | Remove-Item -Force
   $passes = 2
   Write-Output 'import hook changed: every .glb re-imported'
 }
