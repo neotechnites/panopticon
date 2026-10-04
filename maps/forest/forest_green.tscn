@@ -1,0 +1,334 @@
+[gd_scene format=3 uid="uid://dq4f7greenw2"]
+
+[ext_resource type="PackedScene" path="res://maps/forest/forest.tscn" id="1_base"]
+[ext_resource type="Texture2D" path="res://maps/forest/textures/forest_sun_albedo.png" id="2_leaf"]
+[ext_resource type="Texture2D" path="res://maps/forest/textures/forest_grass_albedo.png" id="3_grass"]
+[ext_resource type="Texture2D" path="res://maps/forest/textures/forest_bark_albedo.png" id="4_bark"]
+[ext_resource type="Shader" path="res://maps/forest/materials/forest_mist.gdshader" id="5_mist"]
+[ext_resource type="Texture2D" path="res://maps/forest/textures/forest_mist_albedo.png" id="6_mist_noise"]
+[ext_resource type="Shader" path="res://maps/forest/materials/forest_ray.gdshader" id="7_ray"]
+[ext_resource type="Shader" path="res://maps/forest/materials/forest_ray_blend_reset.gdshader" id="8_ray_reset"]
+[ext_resource type="Shader" path="res://maps/forest/materials/forest_green_crown_under.gdshader" id="9_under"]
+
+[sub_resource type="ProceduralSkyMaterial" id="SkyGreen"]
+sky_top_color = Color(0.45, 0.62, 0.62, 1)
+sky_horizon_color = Color(0.16, 0.26, 0.26, 1)
+sky_curve = 0.35
+sky_energy_multiplier = 1.0
+ground_bottom_color = Color(0.008, 0.02, 0.022, 1)
+ground_horizon_color = Color(0.02, 0.05, 0.05, 1)
+sun_angle_max = 0.0
+
+[sub_resource type="Sky" id="SkyGreenSky"]
+sky_material = SubResource("SkyGreen")
+
+[sub_resource type="Environment" id="EnvGreen"]
+background_mode = 2
+sky = SubResource("SkyGreenSky")
+ambient_light_source = 3
+ambient_light_color = Color(0.2, 0.34, 0.32, 1)
+ambient_light_energy = 0.8
+tonemap_mode = 1
+fog_enabled = true
+fog_light_color = Color(0.12, 0.3, 0.36, 1)
+fog_light_energy = 0.35
+fog_density = 0.006
+fog_sky_affect = 0.4
+fog_height = -5.75
+fog_height_density = 0.1
+
+[sub_resource type="ShaderMaterial" id="FogGreen"]
+render_priority = 0
+shader = ExtResource("5_mist")
+shader_parameter/mist_noise = ExtResource("6_mist_noise")
+shader_parameter/tint_low = Color(0.12, 0.17, 0.18, 1)
+shader_parameter/tint_high = Color(0.18, 0.27, 0.28, 1)
+shader_parameter/hue = Color(0.55, 0.92, 1.0, 1)
+shader_parameter/stack = Vector3(-11.6, -5.75, 0.45)
+shader_parameter/cloud_metres = 12.0
+shader_parameter/fine_metres = 4.5
+shader_parameter/drift_speed = Vector2(0.12, 0.32)
+shader_parameter/noise_floor = 0.6
+shader_parameter/shade = 0.35
+shader_parameter/soft_metres = 1.0
+shader_parameter/shadow_metres = 6.0
+shader_parameter/shadow = 0.65
+
+[sub_resource type="ShaderMaterial" id="RayResetGreen"]
+shader = ExtResource("8_ray_reset")
+
+[sub_resource type="ShaderMaterial" id="RayGreen"]
+render_priority = 1
+next_pass = SubResource("RayResetGreen")
+shader = ExtResource("7_ray")
+shader_parameter/tint = Color(0.8, 1.0, 0.9, 1)
+shader_parameter/alpha_gain = 0.1
+
+[sub_resource type="ShaderMaterial" id="CrownUnderGreen"]
+render_priority = 0
+shader = ExtResource("9_under")
+shader_parameter/albedo_texture = ExtResource("2_leaf")
+shader_parameter/glow = 0.3
+shader_parameter/tint = Vector3(0.25, 1.6, 2.0)
+
+[sub_resource type="StandardMaterial3D" id="LeafGreen"]
+vertex_color_use_as_albedo = true
+albedo_color = Color(0.3811, 0.8323, 1.7441, 1)
+albedo_texture = ExtResource("2_leaf")
+roughness = 0.95
+texture_filter = 5
+
+[sub_resource type="StandardMaterial3D" id="ShadeGreen"]
+vertex_color_use_as_albedo = true
+albedo_color = Color(0.2577, 0.6343, 1.4956, 1)
+albedo_texture = ExtResource("2_leaf")
+roughness = 0.95
+texture_filter = 5
+
+[sub_resource type="StandardMaterial3D" id="SunGreen"]
+vertex_color_use_as_albedo = true
+albedo_color = Color(0.5064, 0.9547, 1.6125, 1)
+albedo_texture = ExtResource("2_leaf")
+roughness = 0.95
+texture_filter = 5
+
+[sub_resource type="StandardMaterial3D" id="FernGreen"]
+vertex_color_use_as_albedo = true
+albedo_color = Color(0.4236, 0.8962, 1.6125, 1)
+albedo_texture = ExtResource("2_leaf")
+roughness = 0.95
+texture_filter = 5
+
+[sub_resource type="StandardMaterial3D" id="GrassGreen"]
+vertex_color_use_as_albedo = true
+albedo_color = Color(0.7014, 1.0427, 0.8095, 1)
+albedo_texture = ExtResource("3_grass")
+roughness = 0.95
+texture_filter = 5
+
+[sub_resource type="StandardMaterial3D" id="PathGreen"]
+vertex_color_use_as_albedo = true
+albedo_color = Color(0.7977, 0.9777, 0.7674, 1)
+albedo_texture = ExtResource("3_grass")
+roughness = 0.95
+texture_filter = 5
+
+[sub_resource type="StandardMaterial3D" id="VergeGreen"]
+vertex_color_use_as_albedo = true
+albedo_color = Color(0.7354, 1.0087, 0.7858, 1)
+albedo_texture = ExtResource("3_grass")
+roughness = 0.95
+texture_filter = 5
+
+[sub_resource type="StandardMaterial3D" id="EdgeGreen"]
+vertex_color_use_as_albedo = true
+albedo_color = Color(0.4563, 0.7498, 0.615, 1)
+albedo_texture = ExtResource("3_grass")
+roughness = 0.95
+texture_filter = 5
+
+[sub_resource type="StandardMaterial3D" id="BarkGreen"]
+albedo_color = Color(1.1588, 0.9063, 0.7014, 1)
+albedo_texture = ExtResource("4_bark")
+roughness = 0.95
+texture_filter = 5
+
+[sub_resource type="StandardMaterial3D" id="RootGreen"]
+vertex_color_use_as_albedo = true
+albedo_color = Color(1.1588, 0.8603, 0.6347, 1)
+albedo_texture = ExtResource("4_bark")
+roughness = 0.95
+texture_filter = 5
+
+[node name="Forest" instance=ExtResource("1_base")]
+
+[node name="WorldEnvironment" parent="Environment" index="0"]
+environment = SubResource("EnvGreen")
+
+[node name="Sun" parent="Environment" index="1"]
+light_color = Color(0.88, 1.0, 0.94, 1)
+light_energy = 0.3
+
+[node name="Sun2" parent="Environment" index="2"]
+light_color = Color(0.88, 1.0, 0.94, 1)
+light_energy = 0.3
+
+[node name="ForestFog" parent="ForestMap" index="1"]
+surface_material_override/0 = SubResource("FogGreen")
+
+[node name="ForestGround" parent="ForestMap" index="2"]
+surface_material_override/0 = SubResource("BarkGreen")
+surface_material_override/3 = SubResource("EdgeGreen")
+surface_material_override/4 = SubResource("FernGreen")
+surface_material_override/5 = SubResource("GrassGreen")
+surface_material_override/7 = SubResource("LeafGreen")
+surface_material_override/8 = SubResource("PathGreen")
+surface_material_override/9 = SubResource("RootGreen")
+surface_material_override/10 = SubResource("ShadeGreen")
+surface_material_override/12 = SubResource("SunGreen")
+surface_material_override/13 = SubResource("VergeGreen")
+
+[node name="ForestBars" parent="Bars" index="0"]
+surface_material_override/0 = SubResource("BarkGreen")
+surface_material_override/1 = SubResource("LeafGreen")
+surface_material_override/2 = SubResource("RootGreen")
+
+[node name="ForestBush" parent="Sections/Lip/BushLow_039deg" index="0"]
+surface_material_override/0 = SubResource("BarkGreen")
+surface_material_override/1 = SubResource("LeafGreen")
+surface_material_override/2 = SubResource("ShadeGreen")
+surface_material_override/3 = SubResource("SunGreen")
+
+[node name="ForestBush" parent="Sections/Lip/BushLow_047deg" index="0"]
+surface_material_override/0 = SubResource("BarkGreen")
+surface_material_override/1 = SubResource("LeafGreen")
+surface_material_override/2 = SubResource("ShadeGreen")
+surface_material_override/3 = SubResource("SunGreen")
+
+[node name="ForestBush" parent="Sections/Lip/BushLow_052deg" index="0"]
+surface_material_override/0 = SubResource("BarkGreen")
+surface_material_override/1 = SubResource("LeafGreen")
+surface_material_override/2 = SubResource("ShadeGreen")
+surface_material_override/3 = SubResource("SunGreen")
+
+[node name="ForestBush" parent="Sections/Lip/BushLow_064deg" index="0"]
+surface_material_override/0 = SubResource("BarkGreen")
+surface_material_override/1 = SubResource("LeafGreen")
+surface_material_override/2 = SubResource("ShadeGreen")
+surface_material_override/3 = SubResource("SunGreen")
+
+[node name="ForestBush" parent="Sections/Lip/BushLow_071deg" index="0"]
+surface_material_override/0 = SubResource("BarkGreen")
+surface_material_override/1 = SubResource("LeafGreen")
+surface_material_override/2 = SubResource("ShadeGreen")
+surface_material_override/3 = SubResource("SunGreen")
+
+[node name="ForestBush" parent="Sections/Lip/BushLow_082deg" index="0"]
+surface_material_override/0 = SubResource("BarkGreen")
+surface_material_override/1 = SubResource("LeafGreen")
+surface_material_override/2 = SubResource("ShadeGreen")
+surface_material_override/3 = SubResource("SunGreen")
+
+[node name="ForestBush" parent="Sections/Lip/BushLow_119deg" index="0"]
+surface_material_override/0 = SubResource("BarkGreen")
+surface_material_override/1 = SubResource("LeafGreen")
+surface_material_override/2 = SubResource("ShadeGreen")
+surface_material_override/3 = SubResource("SunGreen")
+
+[node name="ForestBush" parent="Sections/Lip/BushLow_132deg" index="0"]
+surface_material_override/0 = SubResource("BarkGreen")
+surface_material_override/1 = SubResource("LeafGreen")
+surface_material_override/2 = SubResource("ShadeGreen")
+surface_material_override/3 = SubResource("SunGreen")
+
+[node name="ForestBush" parent="Sections/Lip/BushLow_180deg" index="0"]
+surface_material_override/0 = SubResource("BarkGreen")
+surface_material_override/1 = SubResource("LeafGreen")
+surface_material_override/2 = SubResource("ShadeGreen")
+surface_material_override/3 = SubResource("SunGreen")
+
+[node name="ForestBush" parent="Sections/Lane/BushLow_108deg" index="0"]
+surface_material_override/0 = SubResource("BarkGreen")
+surface_material_override/1 = SubResource("LeafGreen")
+surface_material_override/2 = SubResource("ShadeGreen")
+surface_material_override/3 = SubResource("SunGreen")
+
+[node name="ForestBush" parent="Sections/Lane/BushTall_208deg" index="0"]
+surface_material_override/0 = SubResource("BarkGreen")
+surface_material_override/1 = SubResource("LeafGreen")
+surface_material_override/2 = SubResource("ShadeGreen")
+surface_material_override/3 = SubResource("SunGreen")
+
+[node name="ForestBush" parent="Sections/Lane/BushLow_297deg" index="0"]
+surface_material_override/0 = SubResource("BarkGreen")
+surface_material_override/1 = SubResource("LeafGreen")
+surface_material_override/2 = SubResource("ShadeGreen")
+surface_material_override/3 = SubResource("SunGreen")
+
+[node name="ForestBush" parent="Sections/Wall/BushTall_181deg" index="0"]
+surface_material_override/0 = SubResource("BarkGreen")
+surface_material_override/1 = SubResource("LeafGreen")
+surface_material_override/2 = SubResource("ShadeGreen")
+surface_material_override/3 = SubResource("SunGreen")
+
+[node name="ForestBush" parent="Sections/Wall/BushTall_251deg" index="0"]
+surface_material_override/0 = SubResource("BarkGreen")
+surface_material_override/1 = SubResource("LeafGreen")
+surface_material_override/2 = SubResource("ShadeGreen")
+surface_material_override/3 = SubResource("SunGreen")
+
+[node name="ForestBush" parent="Sections/Wall/BushTall_276deg" index="0"]
+surface_material_override/0 = SubResource("BarkGreen")
+surface_material_override/1 = SubResource("LeafGreen")
+surface_material_override/2 = SubResource("ShadeGreen")
+surface_material_override/3 = SubResource("SunGreen")
+
+[node name="ForestCanopy" parent="Sections/Canopy" index="0"]
+surface_material_override/0 = SubResource("BarkGreen")
+surface_material_override/1 = SubResource("LeafGreen")
+
+[node name="ForestTree" parent="Tower/Tree" index="0"]
+surface_material_override/0 = SubResource("BarkGreen")
+surface_material_override/1 = SubResource("LeafGreen")
+surface_material_override/2 = SubResource("RootGreen")
+surface_material_override/3 = SubResource("ShadeGreen")
+surface_material_override/4 = SubResource("CrownUnderGreen")
+
+[node name="Streak01" parent="LightStreaks" index="0"]
+surface_material_override/0 = SubResource("RayGreen")
+
+[node name="Streak05" parent="LightStreaks" index="1"]
+surface_material_override/0 = SubResource("RayGreen")
+
+[node name="Streak06" parent="LightStreaks" index="2"]
+surface_material_override/0 = SubResource("RayGreen")
+
+[node name="Streak07" parent="LightStreaks" index="3"]
+surface_material_override/0 = SubResource("RayGreen")
+
+[node name="Streak08" parent="LightStreaks" index="4"]
+surface_material_override/0 = SubResource("RayGreen")
+
+[node name="Streak09" parent="LightStreaks" index="5"]
+surface_material_override/0 = SubResource("RayGreen")
+
+[node name="Streak10" parent="LightStreaks" index="6"]
+surface_material_override/0 = SubResource("RayGreen")
+
+[node name="Streak11" parent="LightStreaks" index="7"]
+surface_material_override/0 = SubResource("RayGreen")
+
+[node name="Streak12" parent="LightStreaks" index="8"]
+surface_material_override/0 = SubResource("RayGreen")
+
+[node name="Streak13" parent="LightStreaks" index="9"]
+surface_material_override/0 = SubResource("RayGreen")
+
+[node name="Streak14" parent="LightStreaks" index="10"]
+surface_material_override/0 = SubResource("RayGreen")
+
+[node name="Streak15" parent="LightStreaks" index="11"]
+surface_material_override/0 = SubResource("RayGreen")
+
+[editable path="ForestMap"]
+[editable path="Bars"]
+[editable path="Sections/Lip/BushLow_039deg"]
+[editable path="Sections/Lip/BushLow_047deg"]
+[editable path="Sections/Lip/BushLow_052deg"]
+[editable path="Sections/Lip/BushLow_064deg"]
+[editable path="Sections/Lip/BushLow_071deg"]
+[editable path="Sections/Lip/BushLow_082deg"]
+[editable path="Sections/Lip/BushLow_119deg"]
+[editable path="Sections/Lip/BushLow_132deg"]
+[editable path="Sections/Lip/BushLow_180deg"]
+[editable path="Sections/Lane/BushLow_108deg"]
+[editable path="Sections/Lane/BushTall_208deg"]
+[editable path="Sections/Lane/BushLow_297deg"]
+[editable path="Sections/Wall/BushTall_181deg"]
+[editable path="Sections/Wall/BushTall_251deg"]
+[editable path="Sections/Wall/BushTall_276deg"]
+[editable path="Sections/Canopy"]
+[editable path="Tower/Tree"]
+[editable path="MapShadow"]
+[editable path="Sections/CanopyShadow"]
+[editable path="Tower/TreeShadow"]
