@@ -9,6 +9,7 @@ music: external\src\music_v2_OBPV0lsorwU.mp4 -> voice\sr20det.ogg (SOURCES.md). 
 cards: cuts/title_hard.mp4 is v1's title frame looped from frame 0 (v1's title.mp4 opened on two black frames); cuts/end.mp4 is v1's.
 delivery: content\trailer_reveal\final\rough_v20.mp4 (and ~/Desktop/panopticon-renders/trailer_reveal/)
 tag: rough_v20
+alt: rough_v20_green (v20 with the forest shots filmed in the green forest: 4g 5g 9ag 9bg, ## script rough_v20_green)
 size: 1920x1080
 v4 (Ryan): "every shot must be exactly reproducible in engine -- run a script and record"; NO CROUCHING anywhere; max 3 prisoners + guard; guard shots on the projectile rifle (led, held over). Every shot plays a TAPE (tape: line): the staged take recorded once, then every input played back -- see ## reshoot.
 
@@ -171,6 +172,42 @@ freeze: waive
 # the crack tape down the scope at the 150 deg window: squeeze 2.22, miss into MapBaseS3Collision 2.55, launch 2.60
 # v19 (Ryan): "the sniper shoots a guy behind cover, even though theres guys actually bouncing above it, his focus should be there." The scope rests on the wall's top; the first man up (2.23) is snapped onto and led, squeeze 2.75, the round a metre ahead of him (ground 3.17); the second man up at 2.60 rises through the scope; the hand rides them down
 
+## 4g
+said: v4 "Forest, runner POV running between trees (h1)"
+capture: --map=res://maps/forest/forest_green.tscn --shot=pack_lead --stage=trailer_forest_pack --bots=3 --pov=runner --look=social --rifle=projectile --set=fire=3.15 --seed=20261001
+tape: forest_pack
+seconds: 5.0
+in: 0.9
+freeze: waive
+# rough_v20_green: shot 4 in the green forest (forest_green.tscn, same geometry), same stage and tape
+
+## 5g
+said: v4 "Forest, guard scope: the kill (h2)"
+capture: --map=res://maps/forest/forest_green.tscn --shot=pack_lead --stage=trailer_forest_pack --bots=3 --pov=guard --hud=crosshair --rifle=projectile --set=lift=1;fire=3.15 --seed=20261001
+tape: forest_pack
+seconds: 5.0
+in: 0.9
+freeze: waive
+# rough_v20_green: shot 5 in the green forest (forest_green.tscn, same geometry), same stage and tape
+
+## 9ag
+said: v5 "Forest, runner POV: a second runner beside him at the inner edge, a visible shove, he tips over the edge and drops out of frame into the mist"
+capture: --map=res://maps/forest/forest_green.tscn --shot=pack_lead --stage=trailer_forest_pit --bots=3 --pov=runner --look=social --rifle=projectile --seed=20261001
+tape: forest_pit
+seconds: 2.5
+in: 1.04
+freeze: waive
+# rough_v20_green: shot 9a in the green forest (forest_green.tscn, same geometry), same stage and tape
+
+## 9bg
+said: v5 "Forest, the shoved runner's POV: the edge he was shoved from with the shover on it looking down, falling away, the mist rushing up"
+capture: --map=res://maps/forest/forest_green.tscn --shot=pack_lead --stage=trailer_forest_pit --bots=3 --pov=runner --look=social --rifle=projectile --set=pov=victim --seed=20261001
+tape: forest_pit
+seconds: 1.8
+in: 2.96
+freeze: waive
+# rough_v20_green: shot 9b in the green forest (forest_green.tscn, same geometry), same stage and tape
+
 ## reshoot
 # Every shot is a stage (tools/capture/stages/) played from its tape (tools/content/projects/trailer_reveal/tapes/<tape>.json):
 # seed, map, rifle, spawns, every body's intent per physics tick, every outside write (place, launch, the guard's aim
@@ -212,6 +249,34 @@ captions: none
 | d3 | cuts/08.mp4@0:2.1167 | | | beat 2.1167 | | |
 | p1 | cuts/09a.mp4@0:2.4667 | | | beat 2.4667 | | |
 | p2 | cuts/09b.mp4@0:1.7667 | | | beat 1.7667 | | |
+| m1 | cuts/10a.mp4@0:2.1167 | | | beat 2.1167 | | |
+| m2 | cuts/10b.mp4@0:2.1167 | | | beat 2.1167 | | |
+| t2 | cuts/11.mp4@2.0:2.4667 | | | beat 2.4667 | | |
+| k1 | cuts/13.mp4@0:2.1167 | | | beat 2.1167 | | |
+| k2 | cuts/14.mp4@0:1.7667 | | | beat 1.7667 | | |
+| g1 | cuts/12.mp4@0.15:3.1833 | | | beat 3.1833 | | |
+| e1 | cuts/end_v3.mp4@0.4:3.2 | | | beat 3.2 | | |
+
+## script rough_v20_green
+size: 1920x1080
+music: voice/sr20det.ogg
+music_db: -3
+music_fade: 0.02 2.5
+captions: none
+# The alternate cut (Ryan: "a version of the trailer with the green forest, as a alt not a revision"): v20's edit, h1 h2 p1 p2 from the green forest takes.
+| line | clip | in | len | fit | speed | text |
+| a1 | cuts/01.mp4@0.35:2.70 | | | beat 2.70 | | |
+| a2 | cuts/02.mp4@1.70:3.00 | | | beat 3.00 | | |
+| a3 | cuts/title_zoom10.mp4@0:2.1333 | | | beat 2.1333 | | |
+| a4 | cuts/card2_zoom10.mp4@0:2.4667 | | | beat 2.4667 | | |
+| h1 | cuts/04g.mp4@0.9:1.7667 | | | beat 1.7667 | | |
+| h2 | cuts/05g.mp4@1.6:1.4 | | | beat 1.4 | | |
+| m0 | cuts/05b.mp4@0:2.1167 | | | beat 2.1167 | | |
+| d1 | cuts/06.mp4@0.4:2.4833 | | | beat 2.4833 | | |
+| d2 | cuts/07.mp4@1.6:2.1167 | | | beat 2.1167 | | |
+| d3 | cuts/08.mp4@0:2.1167 | | | beat 2.1167 | | |
+| p1 | cuts/09ag.mp4@0:2.4667 | | | beat 2.4667 | | |
+| p2 | cuts/09bg.mp4@0:1.7667 | | | beat 1.7667 | | |
 | m1 | cuts/10a.mp4@0:2.1167 | | | beat 2.1167 | | |
 | m2 | cuts/10b.mp4@0:2.1167 | | | beat 2.1167 | | |
 | t2 | cuts/11.mp4@2.0:2.4667 | | | beat 2.4667 | | |

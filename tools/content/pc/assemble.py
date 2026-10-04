@@ -234,7 +234,7 @@ def main():
     project, brief_path, tag = sys.argv[1], sys.argv[2], sys.argv[3]
     captions_wanted = "--no-captions" not in sys.argv[4:]
     parsed = brief_mod.parse(brief_path)
-    script = parsed["script"]
+    script = parsed["scripts"].get(tag) or parsed["script"]   # ## script <tag>: an alternate cut
     if not script:
         raise SystemExit("assemble: the brief has no ## script section")
     head = script["head"]

@@ -13,6 +13,7 @@ and, optionally, a `## script` section -- header lines then a pipe table:
     | line | clip | in | len | fit | speed | text |
     | l0 | final/f10_lava_parkour.mp4 | | | line | | I added this to my game. |
 
+`## script <tag>` is an alternate cut's own table: assemble.py uses it for that tag.
 Everything after a `#` outside the table is a comment. Table cells are
 stripped; an empty cell is "".
 """
@@ -21,7 +22,8 @@ import sys
 
 
 def parse(path):
-    head, shots, script = {}, [], None
+    head, shots, script, scripts = {}, [], None, {}
+    table = None
     section = "head"
     current = None
     with open(path, encoding="utf-8") as f:
@@ -31,14 +33,19 @@ def parse(path):
         if line.startswith("# ") and "title" not in head and section == "head":
             head["title"] = line[2:].strip()
             continue
-        m = re.match(r"^## (\d+)([a-z]?)\s*$", line)
+        m = re.match(r"^## (\d+)([a-z]*)\s*$", line)
         if m:
             current = {"n": int(m.group(1)) if not m.group(2) else m.group(1) + m.group(2)}
             shots.append(current)
             section = "shot"
             continue
-        if re.match(r"^## script\s*$", line):
-            script = {"head": {}, "rows": []}
+        m = re.match(r"^## script(?:\s+(\S+))?\s*$", line)
+        if m:
+            table = {"head": {}, "rows": []}
+            if m.group(1):
+                scripts[m.group(1)] = table
+            else:
+                script = table
             section = "script"
             continue
         if line.startswith("## "):
@@ -49,13 +56,13 @@ def parse(path):
             if not cells or set(cells[0]) <= set("-: ") and len(cells) > 1 and all(set(c) <= set("-: ") for c in cells):
                 continue
             if cells[0].lower() == "line":
-                script["columns"] = [c.lower() for c in cells]
+                table["columns"] = [c.lower() for c in cells]
                 continue
-            cols = script.get("columns") or ["line", "clip", "in", "len", "fit", "speed", "text"]
+            cols = table.get("columns") or ["line", "clip", "in", "len", "fit", "speed", "text"]
             row = {k: "" for k in cols}
             for k, v in zip(cols, cells):
                 row[k] = v
-            script["rows"].append(row)
+            table["rows"].append(row)
             continue
         m = re.match(r"^([A-Za-z_][A-Za-z0-9_]*):\s*(.*)$", line)
         if m:
@@ -63,15 +70,15 @@ def parse(path):
             # A trailing "# comment" is dropped; the said: line keeps everything.
             if key != "said" and key != "text":
                 value = re.split(r"\s+#\s", value)[0].strip()
-            target = head if section == "head" else current if section == "shot" else script["head"] if section == "script" else None
+            target = head if section == "head" else current if section == "shot" else table["head"] if section == "script" else None
             if target is not None:
                 target[key] = value
-    return {"head": head, "shots": shots, "script": script}
+    return {"head": head, "shots": shots, "script": script, "scripts": scripts}
 
 
 def voice_rows(script):
     """Rows that carry a voice line (text and not a beat)."""
-    return [r for r in script["rows"] if r.get("text") and not r.get("fit", "").startswith("beat")]
+    return [r for r in table["rows"] if r.get("text") and not r.get("fit", "").startswith("beat")]
 
 
 if __name__ == "__main__":
