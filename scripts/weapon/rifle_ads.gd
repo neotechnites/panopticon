@@ -111,6 +111,9 @@ const MODEL_HIDE_PROGRESS: float = 0.9
 ## [code]Muzzle[/code], its sibling under [member view_model].
 var _visual: Node3D = null
 
+## The rifle this blends, for whose body is holding it.
+var _rifle: Rifle = null
+
 
 func _ready() -> void:
 	if view_model == null:
@@ -119,6 +122,7 @@ func _ready() -> void:
 	_hip = view_model.transform
 	_has_hip = true
 	_visual = view_model.get_node_or_null(^"Model")
+	_rifle = get_parent() as Rifle
 
 
 ## The hip/aim blend for the current instant, with no recoil in it -- read every
@@ -171,11 +175,14 @@ func get_zoom_profile() -> ZoomProfile:
 	return optic.profile
 
 
-## Hides the mesh past [constant MODEL_HIDE_PROGRESS] and shows it again below
-## it, so the eye never sees the scope's solid tube from inside.
+## Hides the mesh past [constant MODEL_HIDE_PROGRESS] for the eye looking out of
+## the holder only, so nobody sees the scope's solid tube from inside and everyone else still sees the gun.
 func _update_visual_visibility(t: float) -> void:
-	if _visual != null:
-		_visual.visible = t < MODEL_HIDE_PROGRESS
+	if _visual == null:
+		return
+	var holder: PlayerController = _rifle.shooter_body as PlayerController if _rifle != null else null
+	var eye_in_scope: bool = holder == null or PrisonerAvatar.is_body_viewed(holder)
+	_visual.visible = t < MODEL_HIDE_PROGRESS or not eye_in_scope
 
 
 ## [member aim_position], [member aim_rotation_degrees] and [member aim_scale]

@@ -199,6 +199,11 @@ signal projectile_launched(origin: Vector3, direction: Vector3, speed: float)
 ## [member aim_source].
 @export var muzzle: Node3D
 
+## Where the holder's palms go, under ViewModel: +Y the fingers, +Z the palm's
+## normal. The trigger hand on the grip, the support hand under the fore-end.
+@export var grip_hand: Node3D
+@export var fore_hand: Node3D
+
 ## The shooter's own body, excluded from the raycast. Without it a rifle
 ## parented inside a [CharacterBody3D] shoots its owner's collider at point
 ## blank and every shot is a self-hit.

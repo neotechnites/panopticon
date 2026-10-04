@@ -9,10 +9,12 @@
 [ext_resource type="PackedScene" path="res://weapons/scope_vignette.tscn" id="7_scope_vignette"]
 [ext_resource type="Script" path="res://scripts/weapon/rifle_sway.gd" id="8_rifle_sway"]
 
-[node name="Rifle" type="Node3D" node_paths=PackedStringArray("muzzle")]
+[node name="Rifle" type="Node3D" node_paths=PackedStringArray("muzzle", "grip_hand", "fore_hand")]
 script = ExtResource("1_rifle")
 profile = ExtResource("3_weapon_profile")
 muzzle = NodePath("ViewModel/Muzzle")
+grip_hand = NodePath("ViewModel/GripHand")
+fore_hand = NodePath("ViewModel/ForeHand")
 
 [node name="ViewModel" type="Node3D" parent="."]
 editor_description = "The rifle you can see, and the ONLY node in the game that decides where the guard's hands are.
@@ -66,6 +68,14 @@ A sibling of Model rather than a child of it, at the model's own muzzle coordina
 
 This is NOT where shots go. Rifle._resolve_shot takes its ray origin and direction from aim_source -- the holder's Camera -- so the shot line is the eye's and there is no muzzle-to-crosshair parallax to explain away. Moving this marker moves the tracer and nothing else. tests/test_weapon.gd holds that line down."
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -1.15)
+
+[node name="GripHand" type="Marker3D" parent="ViewModel"]
+editor_description = "The trigger hand's palm, flat on the right of the stock's wrist, fingers forward and up to the trigger. +Y is the fingers, +Z the palm's normal. A sibling of Model, like Muzzle, so recoil, the raise and the hip pose carry it; PrisonerAvatar reaches the holder's right arm here, in both views."
+transform = Transform3D(0, 0, 1, -0.8924128, 0.45121995, 0, -0.45121995, -0.8924128, 0, 0.048, -0.028, 0.075)
+
+[node name="ForeHand" type="Marker3D" parent="ViewModel"]
+editor_description = "The support hand's palm, up under the fore-end, fingers forward. Same axes as GripHand."
+transform = Transform3D(0.93714607, 0.34893736, 0, 0, 0, 1, 0.34893736, -0.93714607, 0, 0, -0.07, -0.5)
 
 [node name="HumanTrigger" type="Node" parent="." node_paths=PackedStringArray("weapon")]
 script = ExtResource("2_weapon_input")
