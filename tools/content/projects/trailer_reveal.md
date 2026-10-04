@@ -67,6 +67,7 @@ seconds: 7.5
 in: 1.0
 freeze: waive
 # standing at 68.8 deg r 50.6 behind the pocket lip wall (hidden from the 70 deg window at h 1.0-1.8); out in the open 2.9-4.3; breaks 5.55
+# v19: out in the open at 72.8 deg 3.28-3.75, runs back 3.75, behind the rock again (68.8) by 4.2; breaks 5.55 from the same spot
 
 ## 7
 said: v4 "Hell, guard scope holding on that rock; the shot hits rock (d2)"
@@ -76,6 +77,7 @@ seconds: 7.5
 in: 1.0
 freeze: waive
 # the duel tape down the scope at the 70 deg window: squeeze 4.38, the round hits MapBaseLip066Collision at 4.72
+# v19 (Ryan): "the sniper should not shoot the cover, they should shoot where the player was before the ran behind cover." Squeeze 3.83 on him in the open as he goes (lead 0); the round lands where he stood at 4.25 (MapBaseS2Collision), the rock untouched
 
 ## 8
 said: v4 "Hell, runner POV breaking cover and sprinting (d3 -- Ryan: \"perfect\", keep its framing)"
@@ -94,6 +96,7 @@ seconds: 2.5
 in: 0.90
 freeze: waive
 # side by side down the lane (the victim a stride inside), he cuts in to the lip (153.4 deg r 47.25) and turns to face him at 2.30; the shove at 2.75 from 1.0 m (arms + the shover's kick), backwards over the edge and down out of frame; a third pulls up behind
+# v19 (Ryan): "they shouldnt walk to the edge, look back, and get shoved ... they shold be running, and get shoved to the side". All three sprint the lane from 137.6 deg; the shover's head whips in 64 deg at 1.72 and the shipped shove lands mid-stride at 1.87 (151.6 deg r 50); he goes over the lip sideways at ~153; the shover's eyes come back to the lane and he runs on
 
 ## 9b
 said: v5 "Forest, the shoved runner's POV: the edge he was shoved from with the shover on it looking down, falling away, the mist rushing up"
@@ -103,6 +106,7 @@ seconds: 1.8
 in: 1.95
 freeze: waive
 # the forest_pit tape down Runner_1 from 0.1 s after the shove (the shover's arms still out, 1 m off), eyes held up on him: the lip shrinks above until the bank closes over it (~3.5), the mist at y -5.75 (4.49) greys it out; the cut ends 4.63 in the mist (out 4.65); floor_kill=1 lowers the KillBox for the shot only (map unchanged)
+# v19 (Ryan): "the other players shouldnt just be looking at him fall, they should be running." From 0.08 s after the shove: his head comes round to the lip, the shover and the third sprint on along it (to 2.7), the bank closes over them, out at 4.02
 
 ## 10a
 said: v5 "Marble, runner POV: two runners both behind the same column on the inner edge, hidden from the tower; he shoves the other out into the open; cut BEFORE the shot"
@@ -133,6 +137,7 @@ seconds: 5.5
 in: 1.2
 freeze: waive
 # hell S5 lake: three hopping the platforms, bodies only on the platforms and banks
+# v19 (Ryan): "the lava parkour scene doesnt relaly look human." The POV's eyes are his own: on the landing, then round onto the next platform before he is down, one turn a hop; every landing off-centre, so the run-ups differ (leaps at take 1.83, 2.63, 3.57, 4.25, 5.20, 6.03); a check on the second top, a stumble on the fourth (4.98); the two ahead land off-centre too
 
 ## 12
 said: v4 "Marble, corridor -> portal -> rifle -> shooting the guard, white frame (g1)"
@@ -152,6 +157,7 @@ seconds: 2.2
 in: 1.7
 freeze: waive
 # behind the 139 deg lip rock, breaks across the gap at 2.05; the round lands where he was at 2.55; launched off the crack at 148.3 deg at 2.60, peaks 3.8 m up ~3.2
+# v19: his eyes go up after the mate thrown off the crack ahead (2.23); launched himself 2.60; the round crosses ahead of the mate ~3.1, a look across at the tower, down for the landing
 
 ## 14
 said: v4 "Same moment from the guard scope: fires, misses, the runner launches up out of cover"
@@ -161,6 +167,7 @@ seconds: 2.0
 in: 1.95
 freeze: waive
 # the crack tape down the scope at the 150 deg window: squeeze 2.22, miss into MapBaseS3Collision 2.55, launch 2.60
+# v19 (Ryan): "the sniper shoots a guy behind cover, even though theres guys actually bouncing above it, his focus should be there." The scope rests on the wall's top; the first man up (2.23) is snapped onto and led, squeeze 2.75, the round a metre ahead of him (ground 3.17); the second man up at 2.60 rises through the scope; the hand rides them down
 
 ## reshoot
 # Every shot is a stage (tools/capture/stages/) played from its tape (tools/content/projects/trailer_reveal/tapes/<tape>.json):
@@ -187,6 +194,7 @@ captions: none
 # v13 (Ryan): the streaks "flash" opaque in the pit fall -- 4, 5, 9a, 9b reshot from their tapes on main ab13665 (streak blend fix); the edit is v11's.
 # v14 (Ryan): "reshoot all the hell shots and reedit the trailer just like we did for the forest" -- 1, 2, 6, 7, 8, 11, 13, 14 reshot from their tapes on main 826cc0f (hell rock and lava textures, glow map, bilinear); the edit is v13's.
 # v15 (Ryan): "screen recorded real time of the game"; hell "blown the fuck out" -- 1, 2, 6, 7, 8, 11, 13, 14 reshot in rough mode (real time, screen recorded) at the game's own lighting (no stage exposure/ambient lift); the edit is v14's.
+# v19 (Ryan's notes on v18): duel, forest pit, crack and lake restaged and re-taped, 6 7 8 9a 9b 11 13 14 refilmed in rough mode; d2 in 1.6 (the peek, the shot, the miss), t2 in 2.0 (the check, the quick hop, the stumble); lengths and the grid are v18's.
 # cuts/title_hard.mp4 and cuts/end_v3.mp4 are the v3 cards (end without the player count), kept on the PC.
 | line | clip | in | len | fit | speed | text |
 | a1 | cuts/01.mp4@0.35:2.70 | | | beat 2.70 | | |
@@ -203,7 +211,7 @@ captions: none
 | p2 | cuts/09b.mp4@0:1.7667 | | | beat 1.7667 | | |
 | m1 | cuts/10a.mp4@0:2.1167 | | | beat 2.1167 | | |
 | m2 | cuts/10b.mp4@0:2.1167 | | | beat 2.1167 | | |
-| t2 | cuts/11.mp4@1.0:2.4667 | | | beat 2.4667 | | |
+| t2 | cuts/11.mp4@2.0:2.4667 | | | beat 2.4667 | | |
 | k1 | cuts/13.mp4@0:2.1167 | | | beat 2.1167 | | |
 | k2 | cuts/14.mp4@0:1.7667 | | | beat 1.7667 | | |
 | g1 | cuts/12.mp4@0.15:3.1833 | | | beat 3.1833 | | |
