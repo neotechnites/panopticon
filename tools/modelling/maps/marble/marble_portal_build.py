@@ -31,8 +31,8 @@ runner passes through it along Godot local Z, exactly as on Map 1.
 
 THE STONE IS ONE CLOSED MANIFOLD SOLID: each side's reveal runs from its own outer
 face in to y = 0, where the effect surface hangs -- portal_build's one waving,
-see-through sheet, its rim welded to the reveals. The surface is the atlas' swirl --
-Map 1's spiral in the rotunda's cold palette -- in marble's atlas, its
+see-through sheet, its rim welded to the reveals. The surface is the swirl tile --
+Map 1's spiral in the rotunda's cold palette -- marble_portal_swirl, its
 material glowing that same file at emission strength exactly 1.0.
 
 MarblePortalCollision is a separate `-colonly` object: the marble uprights and
@@ -100,9 +100,6 @@ ARCH_SEG = mb.HEAD_SEG      # 6 chords over the head, the wall's own resolution
 PLINTH_H = 0.32             # the plinth's top wash: the base course the jambs stand on
 CORN_Z = 3.52               # the cornice soffit: 0.48 m of moulding over it, 0.37 m over the crown
 
-PORTAL_CELL = mb.region("portal")   # the atlas' swirl
-mb.ZONES["portal"] = PORTAL_CELL
-mb.FIT["portal"] = "uv"        # the whole effect surface onto the whole cell, no offset, no flip
 
 # the head: the circle through (+-IN_HALF_W, IN_SPRING) and (0, IN_APEX)
 _RISE = IN_APEX - IN_SPRING

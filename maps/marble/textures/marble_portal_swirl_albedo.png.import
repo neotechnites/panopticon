@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://b4pw8pqtfdabt"
-path="res://.godot/imported/marble_field_albedo.png-a86327623d82c5a1857d7f8c0163b9c3.ctex"
+uid="uid://b0lsc5tkfel64"
+path="res://.godot/imported/marble_portal_swirl_albedo.png-307c001edcb6612fee07948b55545c9b.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://maps/marble/textures/marble_field_albedo.png"
-dest_files=["res://.godot/imported/marble_field_albedo.png-a86327623d82c5a1857d7f8c0163b9c3.ctex"]
+source_file="res://maps/marble/textures/marble_portal_swirl_albedo.png"
+dest_files=["res://.godot/imported/marble_portal_swirl_albedo.png-307c001edcb6612fee07948b55545c9b.ctex"]
 
 [params]
 

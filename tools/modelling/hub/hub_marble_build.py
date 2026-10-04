@@ -416,7 +416,7 @@ class MarbleTheme(hb._Theme):
         self.arches = _wall(m, J, foot, top_in, top_out, bot_out, cols)
 
     def images(self):
-        return mb.build_texture()              # the marble map's own atlas, shared
+        return mb.tx.image("marble_brick_albedo"), None     # the slot the untinted brick takes
 
     def material(self, albedo, emissive):
         return mb.stone_material("Marble", albedo, emissive)
@@ -426,7 +426,7 @@ class MarbleTheme(hb._Theme):
         mb._group_uv(me, uvl, polys, mb.ZONES[z], r, mb.FIT.get(z, ""), z in mb.ANCHORED)
 
     def finish(self, ob, zones, index):
-        """The wedge's bricks onto marble_stone, its dark onto marble_dark: mb.prop_finish."""
+        """The wedge's bricks world-boxed, every other zone on its own tile: mb.prop_finish."""
         mb.prop_finish(ob, [z[1] if z[0] == self.key else None for z in zones], "Marble", atlas_index=index)
 
 

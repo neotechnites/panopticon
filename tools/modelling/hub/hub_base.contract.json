@@ -5,6 +5,6 @@
     "HubBaseCollision",
     "HubBaseCollision/CollisionShape3D"
   ],
-  "surfaces": 15,
+  "surfaces": 18,
   "max_tris": 40000
 }

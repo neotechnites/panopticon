@@ -40,7 +40,7 @@ extends TestCase
 const TOWER_PATH: String = "res://maps/marble/models/marble_tower.glb"
 
 ## How many albedo sheets the tower ships. Eleven material classes, one tiling
-## sheet each (band, coffer, column, dome, floor, iron, marble2, medallion,
+## sheet each (band, coffer, column, dome, floor, iron, marble2, plain,
 ## plinth, shade, stone), one texture apiece -- the count the contract in
 ## tools/modelling/maps/marble/marble_tower.contract.json calls "ELEVEN surfaces". An import
 ## change that quietly folds two together, or drops one, is a change to the art,

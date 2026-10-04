@@ -439,10 +439,9 @@ def _dome(m, coll=False):
     top, two sides, a foot on the moulding and a head at the cap. The panel
     is SMOOTH and wears the drawing's flutes (Ryan: "only the
     triangles ... they just painted on the roof"): every panel quad states
-    its own (u, v) per vertex -- u across the panel between its two ribs, v
-    up the arc from the moulding's head to the crown -- into the "dome"
-    atlas sheet, so the flute band stands on the ring all round and nothing
-    smears at the crown. Returns the crown's y. coll=True is the collider's
+    its own (u, v) per vertex: the first band fills the triangle tile ("dome"),
+    the bands above wear the plain stone in metres ("vault"), so the flute
+    band stands on the ring all round and nothing smears at the crown. Returns the crown's y. coll=True is the collider's
     dome: five plain NSIDE rings, no ribs."""
     R = (mb.WALL_IN_R ** 2 + mb.DOME_RISE ** 2) / (2.0 * mb.DOME_RISE)
     zc = mb.DOME_Z0 + mb.DOME_RISE - R
@@ -553,8 +552,12 @@ def _dome(m, coll=False):
         a_hi = TWO_PI * (i + 1) / DOME_RIBS - RIB_HALF           # the next rib's a0
         u_s = (az[s][0] - a_lo) / (a_hi - a_lo)
         u_t = 1.0 if t == ((i + 1) * per) % N else (az[t][0] - a_lo) / (a_hi - a_lo)
-        return {S(k, s): (u_s, DOME_RING_F[k]), S(k, t): (u_t, DOME_RING_F[k]),
-                S(k + 1, t): (u_t, DOME_RING_F[k + 1]), S(k + 1, s): (u_s, DOME_RING_F[k + 1])}
+        if k == 0:                                               # the triangle row fills the first band
+            return {S(k, s): (u_s, 0.0), S(k, t): (u_t, 0.0), S(k + 1, t): (u_t, 1.0), S(k + 1, s): (u_s, 1.0)}
+
+        def st(q, u):                                            # the plain stone above it, in metres
+            return ((u - 0.5) * (a_hi - a_lo) * R * math.sin(phis[q]) / mb.STONE_M, (phis[0] - phis[q]) * R / mb.STONE_M)
+        return {S(k, s): st(k, u_s), S(k, t): st(k, u_t), S(k + 1, t): st(k + 1, u_t), S(k + 1, s): st(k + 1, u_s)}
 
     # THE BANDS r1 .. r5: the ribs' boxes and the smooth drawn panels
     for k in range(len(phis) - 1):
@@ -573,7 +576,7 @@ def _dome(m, coll=False):
             else:
                 m.quad(S(k, s), S(k, t), S(k + 1, t), S(k + 1, s),
                        want(m.verts[S(k, s)], m.verts[S(k, t)], m.verts[S(k + 1, t)], m.verts[S(k + 1, s)]),
-                       "dome", panel_uv(k, s, t))
+                       "dome" if k == 0 else "vault", panel_uv(k, s, t))
 
     # EVERY RIB'S FOOT ON THE MOULDING AND HEAD AT THE CAP, closed across its
     # mouth: the foot faces down the sphere, the head up it

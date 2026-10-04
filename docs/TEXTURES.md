@@ -78,10 +78,12 @@ slice is placed nearest-upscaled (chunkier, same UVs and density), each locked t
 
 | Texture | Looks like | Worn by |
 |---|---|---|
-| marble_albedo | olive stone atlas: bands, friezes, medallion, column flutes, portal swirl | bands, columns, dome, floor, spikes, lamp glow, portal |
-| marble_stone_albedo | olive ashlar courses | walls, plinths, tower shaft and dome, props |
-| marble_dark_albedo | near-black stone with an iron column | cell interiors, iron bars |
-| marble_field_albedo | olive camouflage flagstones | the field floor |
+| marble_brick_albedo | olive ashlar, two bays by twelve courses | walls, plinths, the tower's stone and dome, props; (massively darkened) cell interiors |
+| marble_stone_albedo | plain olive stone | pit floor, spikes, dome, frieze, the tower's roof underside and floor centre; (darkened) iron bars and gate |
+| marble_floor_albedo | 3 x 3 slabs with dowel dots | lane floor, the tower's paving |
+| marble_triangle_albedo | a row of dark triangles under a line | the dome's foot |
+| marble_column_albedo | vertical flutes | columns; (turned 90 deg) bands and collar |
+| marble_portal_swirl_albedo | pale spiral on black | the portal's swirl |
 
 ### Ice: `maps/ice/textures/` (`ice.ase`)
 
@@ -155,12 +157,16 @@ The game multiplies the texture by this colour (linear RGB). The recoloured look
 | maps/ice/textures/ice_deep_albedo.png | (0.6, 0.7, 0.86) | ice_ground.glb: ice_floor |
 | maps/ice/textures/ice_lake_albedo.png | (0.55, 0.72, 0.92) | ice_ground.glb: ice_lane |
 | maps/ice/textures/ice_snow_albedo.png | (0.8, 0.88, 0.97) | ice_gate.glb: ice_snow; ice_ground.glb: ice_snow; ice_wall.glb: ice_snow |
-| maps/marble/textures/marble_stone_albedo.png | (0.227, 0.255, 0.315) | hub_base.glb: Marble_shade; marble_arch.glb: Marble_shade; marble_bars.glb: marble_bars_shade; marble_column.glb: Marble_shade; marble_column_broken.glb: Marble_shade; marble_spikes.glb: MarbleSpikes_shade; marble_spikes_strip.glb: MarbleSpikes_shade |
-| maps/marble/textures/marble_stone_albedo.png | (0.673, 0.549, 0.492) | marble_tower.glb: marble_tower_dome; marble_tower.glb: marble_tower_stone |
-| maps/marble/textures/marble_stone_albedo.png | (0.794, 0.792, 0.815) | hub_base.glb: Marble_marble2; marble_arch.glb: Marble_marble2; marble_bars.glb: marble_bars_marble2; marble_portal.glb: Marble_marble2; marble_tower.glb: marble_tower_marble2 |
-| maps/marble/textures/marble_stone_albedo.png | (0.811, 0.809, 0.837) | marble.glb: marble_plinth |
-| maps/marble/textures/marble_stone_albedo.png | (0.829, 0.829, 0.862) | hub_base.glb: Marble_plinth; marble_arch.glb: Marble_plinth; marble_bars.glb: marble_bars_plinth; marble_column.glb: Marble_plinth; marble_column_broken.glb: Marble_plinth; marble_portal.glb: Marble_plinth; marble_spikes.glb: MarbleSpikes_plinth; marble_spikes_strip.glb: MarbleSpikes_plinth; marble_tower.glb: marble_tower_plinth |
-| maps/marble/textures/marble_stone_albedo.png | (0.85, 0.85, 0.85) | marble.glb: marble_shade; marble_portal.glb: Marble_shade; marble_tower.glb: marble_tower_shade |
+| maps/marble/textures/marble_brick_albedo.png | (0.028, 0.0329, 0.0643) | marble.glb: marble_cellin |
+| maps/marble/textures/marble_brick_albedo.png | (0.673, 0.549, 0.492) | marble_tower.glb: marble_tower_dome; marble_tower.glb: marble_tower_stone |
+| maps/marble/textures/marble_brick_albedo.png | (0.794, 0.792, 0.815) | marble_arch.glb: Marble_marble2; marble_bars.glb: marble_bars_marble2; marble_portal.glb: Marble_marble2; marble_tower.glb: marble_tower_marble2 |
+| maps/marble/textures/marble_brick_albedo.png | (0.811, 0.809, 0.837) | marble.glb: marble_plinth |
+| maps/marble/textures/marble_brick_albedo.png | (0.829, 0.829, 0.862) | marble_arch.glb: Marble_plinth; marble_bars.glb: marble_bars_plinth; marble_column.glb: Marble_plinth; marble_column_broken.glb: Marble_plinth; marble_portal.glb: Marble_plinth; marble_spikes.glb: MarbleSpikes_plinth; marble_spikes_strip.glb: MarbleSpikes_plinth; marble_tower.glb: marble_tower_plinth |
+| maps/marble/textures/marble_brick_albedo.png | (0.85, 0.85, 0.85) | marble.glb: marble_shade; marble_arch.glb: Marble_shade; marble_bars.glb: marble_bars_shade; marble_column.glb: Marble_shade; marble_column_broken.glb: Marble_shade; marble_portal.glb: Marble_shade; marble_spikes.glb: MarbleSpikes_shade; marble_spikes_strip.glb: MarbleSpikes_shade; marble_tower.glb: marble_tower_shade |
+| maps/marble/textures/marble_stone_albedo.png | (0.0366, 0.0499, 0.204) | marble.glb: marble_iron; marble_bars.glb: marble_bars_iron; marble_tower.glb: marble_tower_iron |
+| maps/marble/textures/marble_stone_albedo.png | (0.227, 0.255, 0.315) | hub_base.glb: Marble_shade |
+| maps/marble/textures/marble_stone_albedo.png | (0.794, 0.792, 0.815) | hub_base.glb: Marble_marble2 |
+| maps/marble/textures/marble_stone_albedo.png | (0.829, 0.829, 0.862) | hub_base.glb: Marble_plinth |
 
 ## Recolours: one texture, a colour painted per vertex (COLOR_0)
 
@@ -222,6 +228,7 @@ Up to four commonest colours and the share of vertices wearing each; many colour
 | characters/models/runner.glb | runner_body | (0.3, 0.312, 0.33) |
 | maps/forest/models/forest.glb | ForestFogMat | (0, 0, 0) |
 | maps/forest/models/forest.glb | forest_stem | (1, 1, 1) |
+| maps/marble/models/marble_tower.glb | marble_tower_lamp_glow | (1, 0.9, 0.66) |
 | tower/models/eye.glb | M_Iris | (0.6, 0.01, 0.008) |
 | tower/models/eye.glb | M_Pupil | (0.006, 0.004, 0.006) |
 | tower/models/eye.glb | M_Sclera | (0.03, 0.03, 0.038) |
@@ -236,7 +243,7 @@ Up to four commonest colours and the share of vertices wearing each; many colour
 | hub/models/hub_base.glb | HellRock | maps/bentham_ring/textures/hell_rock_albedo.png | hell.ase / hell_rock_albedo | - | - |
 | hub/models/hub_base.glb | Lava | maps/bentham_ring/textures/lava_albedo.png | standalone PNG | - | lava_albedo.png |
 | hub/models/hub_base.glb | HubStone | hub/textures/hub_stone_albedo.png | hub.ase / hub_stone_albedo | - | - |
-| hub/models/hub_base.glb | Marble | maps/marble/textures/marble_albedo.png | marble.ase / marble_albedo | - | - |
+| hub/models/hub_base.glb | Marble | maps/marble/textures/marble_albedo.png | NOT IN A SHEET | - | - |
 | hub/models/hub_base.glb | ForestBark | maps/forest/textures/forest_bark_albedo.png | forest.ase / forest_bark_albedo | - | - |
 | hub/models/hub_base.glb | ForestDark | maps/forest/textures/forest_rock_albedo.png | forest.ase / forest_rock_albedo | (0.0144, 0.0135, 0.015) | - |
 | hub/models/hub_base.glb | ForestFern | maps/forest/textures/forest_sun_albedo.png | forest.ase / forest_sun_albedo | (0.22, 0.333, 0.568) | - |
@@ -247,7 +254,7 @@ Up to four commonest colours and the share of vertices wearing each; many colour
 | hub/models/hub_base.glb | Marble_marble2 | maps/marble/textures/marble_stone_albedo.png | marble.ase / marble_stone_albedo | (0.794, 0.792, 0.815) | - |
 | hub/models/hub_base.glb | Marble_plinth | maps/marble/textures/marble_stone_albedo.png | marble.ase / marble_stone_albedo | (0.828, 0.829, 0.862) | - |
 | hub/models/hub_base.glb | Marble_shade | maps/marble/textures/marble_stone_albedo.png | marble.ase / marble_stone_albedo | (0.227, 0.255, 0.315) | - |
-| hub/models/hub_base.glb | MarbleDark | maps/marble/textures/marble_dark_albedo.png | marble.ase / marble_dark_albedo | - | - |
+| hub/models/hub_base.glb | MarbleDark | maps/marble/textures/marble_dark_albedo.png | NOT IN A SHEET | - | - |
 | maps/bentham_ring/models/block.glb | HellRock | maps/bentham_ring/textures/hell_rock_albedo.png | hell.ase / hell_rock_albedo | - | - |
 | maps/bentham_ring/models/boulder.glb | HellRock | maps/bentham_ring/textures/hell_rock_albedo.png | hell.ase / hell_rock_albedo | - | - |
 | maps/bentham_ring/models/map_base_cover_s2.glb | HellEmber | maps/bentham_ring/textures/hell_rock_albedo.png | hell.ase / hell_rock_albedo | (0.036, 0.0296, 0.0361) | - |
@@ -387,60 +394,62 @@ Up to four commonest colours and the share of vertices wearing each; many colour
 | maps/ice/models/ice_wall.glb | ice_glow | maps/ice/textures/ice_glow_albedo.png | ice.ase / ice_glow_albedo | - | ice_glow_albedo.png |
 | maps/ice/models/ice_wall.glb | ice_icicle | maps/ice/textures/ice_icicle_albedo.png | ice.ase / ice_icicle_albedo | - | - |
 | maps/ice/models/ice_wall.glb | ice_snow | maps/ice/textures/ice_snow_albedo.png | ice.ase / ice_snow_albedo | (0.8, 0.88, 0.97) | - |
-| maps/marble/models/marble.glb | marble_band | maps/marble/textures/marble_albedo.png | marble.ase / marble_albedo | - | - |
-| maps/marble/models/marble.glb | marble_cellin | maps/marble/textures/marble_dark_albedo.png | marble.ase / marble_dark_albedo | - | - |
-| maps/marble/models/marble.glb | marble_column | maps/marble/textures/marble_albedo.png | marble.ase / marble_albedo | - | - |
-| maps/marble/models/marble.glb | marble_dome | maps/marble/textures/marble_albedo.png | marble.ase / marble_albedo | - | - |
-| maps/marble/models/marble.glb | marble_field | maps/marble/textures/marble_field_albedo.png | marble.ase / marble_field_albedo | - | - |
-| maps/marble/models/marble.glb | marble_floor | maps/marble/textures/marble_albedo.png | marble.ase / marble_albedo | - | - |
-| maps/marble/models/marble.glb | marble_frieze | maps/marble/textures/marble_albedo.png | marble.ase / marble_albedo | - | - |
-| maps/marble/models/marble.glb | marble_iron | maps/marble/textures/marble_dark_albedo.png | marble.ase / marble_dark_albedo | - | - |
-| maps/marble/models/marble.glb | marble_marble | maps/marble/textures/marble_stone_albedo.png | marble.ase / marble_stone_albedo | - | - |
-| maps/marble/models/marble.glb | marble_plinth | maps/marble/textures/marble_stone_albedo.png | marble.ase / marble_stone_albedo | (0.811, 0.809, 0.837) | - |
-| maps/marble/models/marble.glb | marble_shade | maps/marble/textures/marble_stone_albedo.png | marble.ase / marble_stone_albedo | (0.85, 0.85, 0.85) | - |
-| maps/marble/models/marble.glb | marble_spike | maps/marble/textures/marble_albedo.png | marble.ase / marble_albedo | - | - |
-| maps/marble/models/marble_arch.glb | Marble | maps/marble/textures/marble_albedo.png | marble.ase / marble_albedo | - | - |
-| maps/marble/models/marble_arch.glb | Marble_marble | maps/marble/textures/marble_stone_albedo.png | marble.ase / marble_stone_albedo | - | - |
-| maps/marble/models/marble_arch.glb | Marble_marble2 | maps/marble/textures/marble_stone_albedo.png | marble.ase / marble_stone_albedo | (0.794, 0.792, 0.815) | - |
-| maps/marble/models/marble_arch.glb | Marble_plinth | maps/marble/textures/marble_stone_albedo.png | marble.ase / marble_stone_albedo | (0.828, 0.829, 0.862) | - |
-| maps/marble/models/marble_arch.glb | Marble_shade | maps/marble/textures/marble_stone_albedo.png | marble.ase / marble_stone_albedo | (0.227, 0.255, 0.315) | - |
-| maps/marble/models/marble_bars.glb | marble_bars_band | maps/marble/textures/marble_albedo.png | marble.ase / marble_albedo | - | - |
-| maps/marble/models/marble_bars.glb | marble_bars_column | maps/marble/textures/marble_albedo.png | marble.ase / marble_albedo | - | - |
-| maps/marble/models/marble_bars.glb | marble_bars_iron | maps/marble/textures/marble_dark_albedo.png | marble.ase / marble_dark_albedo | - | - |
-| maps/marble/models/marble_bars.glb | marble_bars_marble | maps/marble/textures/marble_stone_albedo.png | marble.ase / marble_stone_albedo | - | - |
-| maps/marble/models/marble_bars.glb | marble_bars_marble2 | maps/marble/textures/marble_stone_albedo.png | marble.ase / marble_stone_albedo | (0.794, 0.792, 0.815) | - |
-| maps/marble/models/marble_bars.glb | marble_bars_plinth | maps/marble/textures/marble_stone_albedo.png | marble.ase / marble_stone_albedo | (0.828, 0.829, 0.862) | - |
-| maps/marble/models/marble_bars.glb | marble_bars_shade | maps/marble/textures/marble_stone_albedo.png | marble.ase / marble_stone_albedo | (0.227, 0.255, 0.315) | - |
-| maps/marble/models/marble_column.glb | Marble | maps/marble/textures/marble_albedo.png | marble.ase / marble_albedo | - | - |
-| maps/marble/models/marble_column.glb | Marble_plinth | maps/marble/textures/marble_stone_albedo.png | marble.ase / marble_stone_albedo | (0.828, 0.829, 0.862) | - |
-| maps/marble/models/marble_column.glb | Marble_shade | maps/marble/textures/marble_stone_albedo.png | marble.ase / marble_stone_albedo | (0.227, 0.255, 0.315) | - |
-| maps/marble/models/marble_column_broken.glb | Marble | maps/marble/textures/marble_albedo.png | marble.ase / marble_albedo | - | - |
-| maps/marble/models/marble_column_broken.glb | Marble_plinth | maps/marble/textures/marble_stone_albedo.png | marble.ase / marble_stone_albedo | (0.828, 0.829, 0.862) | - |
-| maps/marble/models/marble_column_broken.glb | Marble_shade | maps/marble/textures/marble_stone_albedo.png | marble.ase / marble_stone_albedo | (0.227, 0.255, 0.315) | - |
-| maps/marble/models/marble_portal.glb | Marble | maps/marble/textures/marble_albedo.png | marble.ase / marble_albedo | - | - |
-| maps/marble/models/marble_portal.glb | Marble_marble | maps/marble/textures/marble_stone_albedo.png | marble.ase / marble_stone_albedo | - | - |
-| maps/marble/models/marble_portal.glb | Marble_marble2 | maps/marble/textures/marble_stone_albedo.png | marble.ase / marble_stone_albedo | (0.794, 0.792, 0.815) | - |
-| maps/marble/models/marble_portal.glb | Marble_plinth | maps/marble/textures/marble_stone_albedo.png | marble.ase / marble_stone_albedo | (0.828, 0.829, 0.862) | - |
-| maps/marble/models/marble_portal.glb | Marble_shade | maps/marble/textures/marble_stone_albedo.png | marble.ase / marble_stone_albedo | (0.85, 0.85, 0.85) | - |
-| maps/marble/models/marble_portal.glb | MarbleGlow | maps/marble/textures/marble_albedo.png | marble.ase / marble_albedo | - | marble_albedo.png |
-| maps/marble/models/marble_spikes.glb | MarbleSpikes | maps/marble/textures/marble_albedo.png | marble.ase / marble_albedo | - | - |
-| maps/marble/models/marble_spikes.glb | MarbleSpikes_plinth | maps/marble/textures/marble_stone_albedo.png | marble.ase / marble_stone_albedo | (0.828, 0.829, 0.862) | - |
-| maps/marble/models/marble_spikes.glb | MarbleSpikes_shade | maps/marble/textures/marble_stone_albedo.png | marble.ase / marble_stone_albedo | (0.227, 0.255, 0.315) | - |
-| maps/marble/models/marble_spikes_strip.glb | MarbleSpikes | maps/marble/textures/marble_albedo.png | marble.ase / marble_albedo | - | - |
-| maps/marble/models/marble_spikes_strip.glb | MarbleSpikes_plinth | maps/marble/textures/marble_stone_albedo.png | marble.ase / marble_stone_albedo | (0.828, 0.829, 0.862) | - |
-| maps/marble/models/marble_spikes_strip.glb | MarbleSpikes_shade | maps/marble/textures/marble_stone_albedo.png | marble.ase / marble_stone_albedo | (0.227, 0.255, 0.315) | - |
-| maps/marble/models/marble_tower.glb | marble_tower_band | maps/marble/textures/marble_albedo.png | marble.ase / marble_albedo | - | - |
-| maps/marble/models/marble_tower.glb | marble_tower_coffer | maps/marble/textures/marble_albedo.png | marble.ase / marble_albedo | - | - |
-| maps/marble/models/marble_tower.glb | marble_tower_column | maps/marble/textures/marble_albedo.png | marble.ase / marble_albedo | - | - |
-| maps/marble/models/marble_tower.glb | marble_tower_dome | maps/marble/textures/marble_stone_albedo.png | marble.ase / marble_stone_albedo | (0.673, 0.549, 0.492) | - |
-| maps/marble/models/marble_tower.glb | marble_tower_lamp_glow | maps/marble/textures/marble_albedo.png | marble.ase / marble_albedo | - | marble_albedo.png |
-| maps/marble/models/marble_tower.glb | marble_tower_floor | maps/marble/textures/marble_albedo.png | marble.ase / marble_albedo | - | - |
-| maps/marble/models/marble_tower.glb | marble_tower_iron | maps/marble/textures/marble_dark_albedo.png | marble.ase / marble_dark_albedo | - | - |
-| maps/marble/models/marble_tower.glb | marble_tower_marble2 | maps/marble/textures/marble_stone_albedo.png | marble.ase / marble_stone_albedo | (0.794, 0.792, 0.815) | - |
-| maps/marble/models/marble_tower.glb | marble_tower_medallion | maps/marble/textures/marble_albedo.png | marble.ase / marble_albedo | - | - |
-| maps/marble/models/marble_tower.glb | marble_tower_plinth | maps/marble/textures/marble_stone_albedo.png | marble.ase / marble_stone_albedo | (0.828, 0.829, 0.862) | - |
-| maps/marble/models/marble_tower.glb | marble_tower_shade | maps/marble/textures/marble_stone_albedo.png | marble.ase / marble_stone_albedo | (0.85, 0.85, 0.85) | - |
-| maps/marble/models/marble_tower.glb | marble_tower_stone | maps/marble/textures/marble_stone_albedo.png | marble.ase / marble_stone_albedo | (0.673, 0.549, 0.492) | - |
+| maps/marble/models/marble.glb | marble_band | maps/marble/textures/marble_column_albedo.png | marble.ase / marble_column_albedo | - | - |
+| maps/marble/models/marble.glb | marble_cellin | maps/marble/textures/marble_brick_albedo.png | marble.ase / marble_brick_albedo | (0.028, 0.0329, 0.0643) | - |
+| maps/marble/models/marble.glb | marble_column | maps/marble/textures/marble_column_albedo.png | marble.ase / marble_column_albedo | - | - |
+| maps/marble/models/marble.glb | marble_dome | maps/marble/textures/marble_triangle_albedo.png | marble.ase / marble_triangle_albedo | - | - |
+| maps/marble/models/marble.glb | marble_field | maps/marble/textures/marble_stone_albedo.png | marble.ase / marble_stone_albedo | - | - |
+| maps/marble/models/marble.glb | marble_floor | maps/marble/textures/marble_floor_albedo.png | marble.ase / marble_floor_albedo | - | - |
+| maps/marble/models/marble.glb | marble_frieze | maps/marble/textures/marble_stone_albedo.png | marble.ase / marble_stone_albedo | - | - |
+| maps/marble/models/marble.glb | marble_iron | maps/marble/textures/marble_stone_albedo.png | marble.ase / marble_stone_albedo | (0.0366, 0.0499, 0.204) | - |
+| maps/marble/models/marble.glb | marble_marble | maps/marble/textures/marble_brick_albedo.png | marble.ase / marble_brick_albedo | - | - |
+| maps/marble/models/marble.glb | marble_plinth | maps/marble/textures/marble_brick_albedo.png | marble.ase / marble_brick_albedo | (0.811, 0.809, 0.837) | - |
+| maps/marble/models/marble.glb | marble_shade | maps/marble/textures/marble_brick_albedo.png | marble.ase / marble_brick_albedo | (0.85, 0.85, 0.85) | - |
+| maps/marble/models/marble.glb | marble_spike | maps/marble/textures/marble_stone_albedo.png | marble.ase / marble_stone_albedo | - | - |
+| maps/marble/models/marble.glb | marble_vault | maps/marble/textures/marble_stone_albedo.png | marble.ase / marble_stone_albedo | - | - |
+| maps/marble/models/marble_arch.glb | Marble_marble | maps/marble/textures/marble_brick_albedo.png | marble.ase / marble_brick_albedo | - | - |
+| maps/marble/models/marble_arch.glb | Marble_marble2 | maps/marble/textures/marble_brick_albedo.png | marble.ase / marble_brick_albedo | (0.794, 0.792, 0.815) | - |
+| maps/marble/models/marble_arch.glb | Marble_plinth | maps/marble/textures/marble_brick_albedo.png | marble.ase / marble_brick_albedo | (0.828, 0.829, 0.862) | - |
+| maps/marble/models/marble_arch.glb | Marble_shade | maps/marble/textures/marble_brick_albedo.png | marble.ase / marble_brick_albedo | (0.85, 0.85, 0.85) | - |
+| maps/marble/models/marble_arch.glb | Marble_column | maps/marble/textures/marble_column_albedo.png | marble.ase / marble_column_albedo | - | - |
+| maps/marble/models/marble_bars.glb | marble_bars_band | maps/marble/textures/marble_column_albedo.png | marble.ase / marble_column_albedo | - | - |
+| maps/marble/models/marble_bars.glb | marble_bars_column | maps/marble/textures/marble_column_albedo.png | marble.ase / marble_column_albedo | - | - |
+| maps/marble/models/marble_bars.glb | marble_bars_iron | maps/marble/textures/marble_stone_albedo.png | marble.ase / marble_stone_albedo | (0.0366, 0.0499, 0.204) | - |
+| maps/marble/models/marble_bars.glb | marble_bars_marble | maps/marble/textures/marble_brick_albedo.png | marble.ase / marble_brick_albedo | - | - |
+| maps/marble/models/marble_bars.glb | marble_bars_marble2 | maps/marble/textures/marble_brick_albedo.png | marble.ase / marble_brick_albedo | (0.794, 0.792, 0.815) | - |
+| maps/marble/models/marble_bars.glb | marble_bars_plinth | maps/marble/textures/marble_brick_albedo.png | marble.ase / marble_brick_albedo | (0.828, 0.829, 0.862) | - |
+| maps/marble/models/marble_bars.glb | marble_bars_shade | maps/marble/textures/marble_brick_albedo.png | marble.ase / marble_brick_albedo | (0.85, 0.85, 0.85) | - |
+| maps/marble/models/marble_column.glb | Marble_plinth | maps/marble/textures/marble_brick_albedo.png | marble.ase / marble_brick_albedo | (0.828, 0.829, 0.862) | - |
+| maps/marble/models/marble_column.glb | Marble_shade | maps/marble/textures/marble_brick_albedo.png | marble.ase / marble_brick_albedo | (0.85, 0.85, 0.85) | - |
+| maps/marble/models/marble_column.glb | Marble_column | maps/marble/textures/marble_column_albedo.png | marble.ase / marble_column_albedo | - | - |
+| maps/marble/models/marble_column_broken.glb | Marble_plinth | maps/marble/textures/marble_brick_albedo.png | marble.ase / marble_brick_albedo | (0.828, 0.829, 0.862) | - |
+| maps/marble/models/marble_column_broken.glb | Marble_shade | maps/marble/textures/marble_brick_albedo.png | marble.ase / marble_brick_albedo | (0.85, 0.85, 0.85) | - |
+| maps/marble/models/marble_column_broken.glb | Marble_column | maps/marble/textures/marble_column_albedo.png | marble.ase / marble_column_albedo | - | - |
+| maps/marble/models/marble_column_broken.glb | Marble_stone | maps/marble/textures/marble_stone_albedo.png | marble.ase / marble_stone_albedo | - | - |
+| maps/marble/models/marble_portal.glb | Marble_marble | maps/marble/textures/marble_brick_albedo.png | marble.ase / marble_brick_albedo | - | - |
+| maps/marble/models/marble_portal.glb | Marble_marble2 | maps/marble/textures/marble_brick_albedo.png | marble.ase / marble_brick_albedo | (0.794, 0.792, 0.815) | - |
+| maps/marble/models/marble_portal.glb | Marble_plinth | maps/marble/textures/marble_brick_albedo.png | marble.ase / marble_brick_albedo | (0.828, 0.829, 0.862) | - |
+| maps/marble/models/marble_portal.glb | Marble_shade | maps/marble/textures/marble_brick_albedo.png | marble.ase / marble_brick_albedo | (0.85, 0.85, 0.85) | - |
+| maps/marble/models/marble_portal.glb | Marble_column | maps/marble/textures/marble_column_albedo.png | marble.ase / marble_column_albedo | - | - |
+| maps/marble/models/marble_portal.glb | MarbleGlow | maps/marble/textures/marble_portal_swirl_albedo.png | marble.ase / marble_portal_swirl_albedo | - | marble_portal_swirl_albedo.png |
+| maps/marble/models/marble_spikes.glb | MarbleSpikes_plinth | maps/marble/textures/marble_brick_albedo.png | marble.ase / marble_brick_albedo | (0.828, 0.829, 0.862) | - |
+| maps/marble/models/marble_spikes.glb | MarbleSpikes_shade | maps/marble/textures/marble_brick_albedo.png | marble.ase / marble_brick_albedo | (0.85, 0.85, 0.85) | - |
+| maps/marble/models/marble_spikes.glb | MarbleSpikes_stone | maps/marble/textures/marble_stone_albedo.png | marble.ase / marble_stone_albedo | - | - |
+| maps/marble/models/marble_spikes_strip.glb | MarbleSpikes_plinth | maps/marble/textures/marble_brick_albedo.png | marble.ase / marble_brick_albedo | (0.828, 0.829, 0.862) | - |
+| maps/marble/models/marble_spikes_strip.glb | MarbleSpikes_shade | maps/marble/textures/marble_brick_albedo.png | marble.ase / marble_brick_albedo | (0.85, 0.85, 0.85) | - |
+| maps/marble/models/marble_spikes_strip.glb | MarbleSpikes_stone | maps/marble/textures/marble_stone_albedo.png | marble.ase / marble_stone_albedo | - | - |
+| maps/marble/models/marble_tower.glb | marble_tower_band | maps/marble/textures/marble_column_albedo.png | marble.ase / marble_column_albedo | - | - |
+| maps/marble/models/marble_tower.glb | marble_tower_coffer | maps/marble/textures/marble_stone_albedo.png | marble.ase / marble_stone_albedo | - | - |
+| maps/marble/models/marble_tower.glb | marble_tower_column | maps/marble/textures/marble_column_albedo.png | marble.ase / marble_column_albedo | - | - |
+| maps/marble/models/marble_tower.glb | marble_tower_dome | maps/marble/textures/marble_brick_albedo.png | marble.ase / marble_brick_albedo | (0.673, 0.549, 0.492) | - |
+| maps/marble/models/marble_tower.glb | marble_tower_lamp_glow | none | - | (1, 0.9, 0.66) | - |
+| maps/marble/models/marble_tower.glb | marble_tower_floor | maps/marble/textures/marble_floor_albedo.png | marble.ase / marble_floor_albedo | - | - |
+| maps/marble/models/marble_tower.glb | marble_tower_iron | maps/marble/textures/marble_stone_albedo.png | marble.ase / marble_stone_albedo | (0.0366, 0.0499, 0.204) | - |
+| maps/marble/models/marble_tower.glb | marble_tower_marble2 | maps/marble/textures/marble_brick_albedo.png | marble.ase / marble_brick_albedo | (0.794, 0.792, 0.815) | - |
+| maps/marble/models/marble_tower.glb | marble_tower_plain | maps/marble/textures/marble_stone_albedo.png | marble.ase / marble_stone_albedo | - | - |
+| maps/marble/models/marble_tower.glb | marble_tower_plinth | maps/marble/textures/marble_brick_albedo.png | marble.ase / marble_brick_albedo | (0.828, 0.829, 0.862) | - |
+| maps/marble/models/marble_tower.glb | marble_tower_shade | maps/marble/textures/marble_brick_albedo.png | marble.ase / marble_brick_albedo | (0.85, 0.85, 0.85) | - |
+| maps/marble/models/marble_tower.glb | marble_tower_stone | maps/marble/textures/marble_brick_albedo.png | marble.ase / marble_brick_albedo | (0.673, 0.549, 0.492) | - |
 | props/models/speed_orb.glb | SpeedOrb | props/textures/speed_orb_albedo.png | props.ase / speed_orb_albedo | - | speed_orb_albedo.png |
 | tower/models/eye.glb | M_Iris | none | - | (0.6, 0.01, 0.008) | - |
 | tower/models/eye.glb | M_Pupil | none | - | (0.006, 0.004, 0.006) | - |
@@ -455,7 +464,7 @@ Up to four commonest colours and the share of vertices wearing each; many colour
 
 ## Check
 
-- Materials: 222 in 61 models; 216 textured, 6 flat colour.
-- Textured materials with a multiplier other than white: 102 (27 distinct texture x multiplier).
-- Live textures: 29; missing or in no sheet (the three standalone PNGs aside): 0.
+- Materials: 224 in 61 models; 217 textured, 7 flat colour.
+- Textured materials with a multiplier other than white: 106 (31 distinct texture x multiplier).
+- Live textures: 33; missing or in no sheet (the three standalone PNGs aside): 4.
 - Drawn PNGs nothing uses: characters/textures/prisoner_sheet.png, characters/textures/prisoner_uv_guide.png.

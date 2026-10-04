@@ -57,10 +57,10 @@ floor, the slab (top, inner face, underside), the plain wall face, the dome.
 The spikes and bars are NOT colliders: a body that leaves the walkway is dead
 by the kill cylinder before it lands.
 
-Texture: four images, one per material (lib/texel.py, SHEETS below), the
-Temple of Time palette (docs/maps/marble.md): marble_stone the one brick
-drawing (one bay by twelve 1 m courses, every model scaling and tinting it),
-marble the ornament atlas, marble_dark the cells and the iron, marble_field.
+Texture: one small tile per material, repeated by UV (lib/texel.py, SHEETS
+below): marble_brick (two bays by twelve 1 m courses, tinted per class, the
+cells and iron darkened), marble_stone, marble_floor, marble_triangle,
+marble_column, marble_portal_swirl.
 
     python3 tools/modelling/maps/marble/marble_build.py --check     # geometry + contiguity, no Blender
     tools/modelling/model build marble                  # the pipeline
@@ -178,41 +178,20 @@ LANE_R = 52.0
 BARS_B = 353.0
 
 # ---- texture ------------------------------------------------------------------
-TEX_ALBEDO = "marble_albedo"
-TEX_W, TEX_SIZE = _png_size(TEX_ALBEDO)    # 320 x 256: the 256 square of cells, then the column strip
 TEX_SEED = 9021131          # the window unwrap's random stream
 ROUGHNESS = 1.0
 METALLIC = 0.0
-UV_SCALE = 0.066            # image units per metre: a 64 px cell spans 3.8 m
-UV_PAD = 1.5 / TEX_SIZE
-CELL_UV = 0.25
+UV_SCALE = 0.066            # window unwrap: cell units a metre (a cell is a 64 px window)
+UV_PAD = 1.5 / 64.0         # ... kept this far inside its window, as a fraction of it
+CELL_PX = 64.0
 
-
-def _cell(i, j):
-    return (i * CELL_UV, j * CELL_UV, (i + 1) * CELL_UV, (j + 1) * CELL_UV)
-
-
-ZONES = {                   # the windowed zones' rects, re-pointed at ATLAS / marble_dark after it;
-                            # the bricks' windows are re-projected onto marble_stone by prop_finish
-    "marble": _cell(0, 0),   # white marble
-    "marble2": _cell(1, 0),  # ... a second sheet of it
-    "shade": _cell(2, 0),    # grey marble: reveals, podium walls, dome cap
-    "floor": _cell(3, 0),    # the lane: 3 x 3 slabs, one facet per cell
-    "cellin": _cell(0, 1),   # cell interior
-    "frieze": _cell(1, 1),   # Greek key, one bay per cell
-    "coffer": _cell(2, 1),   # dome coffer, one facet per cell
-    "spike": _cell(3, 1),
-    "column": _cell(0, 2),   # fluting
-    "band": _cell(1, 2),     # cornice moulding
-    "collar": _cell(1, 2),   # ... the dome's collar and ring moulding wear the same cell
-    "iron": _cell(2, 2),
-    "stone": _cell(3, 2),    # the tower shaft's blocks
-    "plinth": _cell(0, 3),   # ashlar under the sills
-    "field": _cell(1, 3),    # the beds' floor
-    "dome": (0.5, 0.75, 1.0, 1.0),   # a dome PANEL between two ribs, the flutes DRAWN: the two spare
-                             # cells as one 128 x 64 sheet -- u across the panel, v ring to crown
-}
-FIT = {"floor": "uv", "frieze": "uv", "coffer": "uv",   # the whole face onto the whole cell
+# The windowed zones (props, the hub): each zone's window in its own tile, the 64 px
+# cell it had on the old atlas -- (u0, v0, u1, v1) of the file TILE_OF names.
+ZONES = {z: (0.0, 0.0, 1.0, 1.0) for z in ("marble", "marble2", "shade", "plinth", "floor", "portal",
+                                           "spike", "field", "stone", "coffer", "frieze", "iron")}
+ZONES["column"] = ZONES["band"] = ZONES["collar"] = (0.0, 0.0, 1.0, 0.25)   # 64 px of the 256 strip
+ZONES["cellin"] = (0.0, 0.0, 0.25, 0.25)                                     # 64 px of the brick
+FIT = {"floor": "uv", "frieze": "uv", "coffer": "uv", "portal": "uv",   # the whole face onto the whole cell
        "band": "v", "collar": "v", "column": "u", "iron": "u"}   # ... on one axis only
 ANCHORED = ("stone", "plinth", "band", "collar")        # courses stay level: no v offset, no flips
 WALL_PROJECT = ("collar",)                              # unwrapped along-the-face/up whatever the tilt: the
@@ -254,86 +233,68 @@ class _Rng(object):
         return seq[self.bits() % len(seq)]
 
 
-# ---- the sheets (lib/texel.py) --------------------------------------------
-# marble_stone the brick drawing (a bay across, COURSES of 1 m up), marble the ornament
-# atlas, marble_dark the cells and the iron, marble_field the beds.
+# ---- the tiles (lib/texel.py) ----------------------------------------------
+# One small tile per material, repeated by UV: brick (two bays by twelve 1 m courses),
+# plain stone, the floor, the triangle row, the column, the portal swirl.
 BAY_M = TWO_PI * WALL_R / NSIDE          # 5.89 m
-WALL_PX, WALL_H = _png_size("marble_stone_albedo")   # 128 x 261: a bay across, 0.046 m per texel
+BRICK_W, BRICK_H = _png_size("marble_brick_albedo")   # 256 x 256: two bays across
+WALL_PX = BRICK_W // 2                   # 128 texels a bay: 0.046 m a texel
 WALL_MPT = BAY_M / WALL_PX
-COURSES = 12                             # 12.0 m up before the sheet repeats
+COURSES = 12                             # 12.0 m up before the tile repeats
+WALL_H = BRICK_H
+COURSE_MPT = COURSES / float(BRICK_H)    # metres a texel up: the courses on the world 1 m grid
+STONE_PX = _png_size("marble_stone_albedo")[0]
+STONE_M = STONE_PX * WALL_MPT            # the plain stone's repeat
+COL_W, COL_H = _png_size("marble_column_albedo")
 
 
-# ---- the ornament atlas: ATLAS[name] = (x, y, w, h) texels, row 0 the bottom --
-COFFER_W, COFFER_H = 60, 34              # the tower's coffer: one facet by one ring band
-ATLAS = {
-    "frieze": (0, 0, 256, 64),
-    "dome": (0, 64, 128, 64),
-    "coffer": (128, 64, COFFER_W, COFFER_H),
-    "spike": (192, 64, 64, 64),
-    "column": (256, 0, 64, 256),      # the full height: its v repeats as its own file did
-    "band": (64, 128, 64, 64),
-    "floor": (128, 128, 64, 64),
-    "medallion": (192, 128, 64, 64),
-    "field": (64, 192, 64, 64),
-    "portal": (128, 192, 64, 64),
-}
-DARK_W, DARK_H = _png_size("marble_dark_albedo")      # 192 x 261
-DARK = {"cellin": (0, WALL_PX), "iron": (WALL_PX, DARK_W - WALL_PX)}     # (x, width): both the full height
+def tile(name, stem, mode, w, h, mpt=tx.MPT, **kw):
+    """Class `name` wearing maps/marble/textures/<stem>_albedo.png, w x h texels."""
+    return tx.Sheet(name, mode=mode, width=w, size=h, mpt=mpt, roughness=ROUGHNESS, stem=stem, **kw)
 
 
-def region(name):
-    """(u0, v0, u1, v1) of an ATLAS entry."""
-    x, y, w, h = ATLAS[name]
-    return (x / float(TEX_W), y / float(TEX_SIZE), (x + w) / float(TEX_W), (y + h) / float(TEX_SIZE))
-
-
-def ornament(name, mode, w, h, mpt=tx.MPT, **kw):
-    """Class `name` wearing its ATLAS region of the marble atlas."""
-    return tx.Sheet(name, mode=mode, width=w, size=h, mpt=mpt, roughness=ROUGHNESS,
-                    stem="marble", region=region(kw.pop("cell", name)), canvas=(TEX_W, TEX_SIZE), **kw)
-
-
-def dark(name, **kw):
-    """Class `name` wearing its column of marble_dark."""
-    x, w = DARK[name]
-    return tx.Sheet(name, size=DARK_H, width=w, roughness=ROUGHNESS, stem="marble_dark",
-                    region=(x / float(DARK_W), 0.0, (x + w) / float(DARK_W), 1.0), canvas=(DARK_W, DARK_H), **kw)
+def stone(name, mode="cyl", mpt=WALL_MPT, **kw):
+    """Class `name` wearing the plain stone."""
+    return tile(name, "marble_stone", mode, STONE_PX, STONE_PX, mpt, **kw)
 
 
 def band_sheet():
-    return ornament("band", "fit_v", 64, 64, mpt=12.8 / 64.0)            # u: 12.8 m a repeat, as it was
+    """The column tile turned 90 deg: the flutes run along the band, the band's height fits across them."""
+    return tile("band", "marble_column", "fit_v", COL_H, COL_W, turn=True)
 
 
 def column_sheet():
-    return ornament("column", "fit_u", 64, 256)                          # v: 12.8 m a repeat, as it was
+    return tile("column", "marble_column", "fit_u", COL_W, COL_H)        # v: 12.8 m a repeat
 
 
-def iron_sheet():
-    return dark("iron", mode="fit_u", mpt=12.8 / WALL_H)
-
-
-# Linear multipliers over marble_stone: each class's old mean colour.
+# Linear multipliers over the brick: each class's old mean colour.
 TINT_SHADE = (0.85, 0.85, 0.85)
 TINT_PLINTH_WALL = (0.8106, 0.8086, 0.8369)
 TINT_PLINTH = (0.8285, 0.8293, 0.8617)
 TINT_MARBLE2 = (0.7939, 0.7923, 0.8147)
 TINT_TOWER = (0.6726, 0.5490, 0.4923)
 TINT_BARS = None
+TINT_CELL = (0.0280, 0.0329, 0.0643)     # the brick massively darkened: the old cell interiors' mean
+TINT_IRON = (0.0366, 0.0499, 0.2038)     # the plain stone darkened: the old iron's mean
 
 
-def brick(name, mpt_u=WALL_MPT, mpt_v=WALL_MPT, tint=None, **kw):
-    """Class `name` wearing marble_stone at mpt_u across and mpt_v up."""
-    return tx.Sheet(name, mpt=mpt_v, mpt_u=mpt_u, size=WALL_H, width=WALL_PX,
-                    roughness=ROUGHNESS, stem="marble_stone", tint=tint, **kw)
+def iron_sheet():
+    return stone("iron", mode="box", tint=TINT_IRON)
+
+
+def brick(name, mpt_u=WALL_MPT, mpt_v=COURSE_MPT, tint=None, **kw):
+    """Class `name` wearing the brick at mpt_u across and mpt_v up."""
+    return tx.Sheet(name, mpt=mpt_v, mpt_u=mpt_u, size=BRICK_H, width=BRICK_W,
+                    roughness=ROUGHNESS, stem="marble_brick", tint=tint, **kw)
 
 
 def ashlar_sheet(name, across, tint=None, **kw):
-    """Class `name` wearing marble_stone, one repeat spanning `across` metres."""
-    return brick(name, across / WALL_PX, WALL_MPT, tint, **kw)
+    """Class `name` wearing the brick, one bay spanning `across` metres."""
+    return brick(name, across / WALL_PX, COURSE_MPT, tint, **kw)
 
 
 def shade_sheet(name, **kw):
-    """Class `name` wearing marble_stone in the shade's palette."""
+    """Class `name` wearing the brick in the shade's palette."""
     return brick(name, tint=TINT_SHADE, **kw)
 
 
@@ -346,78 +307,84 @@ _WALL = dict(ref_r=_wall_ref, phase=(0.0, FLOOR_Z))
 SHEETS = {
     "marble": brick("marble", **_WALL),
     "shade": brick("shade", tint=TINT_SHADE, **_WALL),
-    "plinth": brick("plinth", mpt_v=WALL_MPT / 2.0, tint=TINT_PLINTH_WALL, **_WALL),   # 0.5 m courses
-    "cellin": dark("cellin", mpt=WALL_MPT, **_WALL),
-    "field": tx.Sheet("field", mode="box", roughness=ROUGHNESS),
-    "spike": ornament("spike", "box", 64, 64, local=True),
-    "floor": ornament("floor", "fit", 64, 64, mpt=2.7 / 64.0),
-    "frieze": ornament("frieze", "fit", 256, 64, mpt=BAY_M / 256.0),
+    "plinth": brick("plinth", mpt_v=COURSE_MPT / 2.0, tint=TINT_PLINTH_WALL, **_WALL),   # 0.5 m courses
+    "cellin": brick("cellin", tint=TINT_CELL, **_WALL),
+    "field": stone("field", mode="box", mpt=tx.MPT),                     # the pit floor
+    "spike": stone("spike", mode="box", mpt=tx.MPT),
+    "floor": tile("floor", "marble_floor", "fit", 64, 64, mpt=2.7 / 64.0),
+    "frieze": stone("frieze", ref_r=WALL_IN_R),   # unruled; the Greek key was tile("frieze", <its file>, "fit", 256, 64)
     "column": column_sheet(),
     "band": band_sheet(),
     "iron": iron_sheet(),
-    "dome": ornament("dome", "custom", 128, 64),
+    "dome": tile("dome", "marble_triangle", "custom", 128, 20),          # the triangle row round the dome's foot
+    "vault": stone("vault", mode="custom"),                              # ... and plain stone above it
 }
 _CLASS = {"marble2": "marble", "collar": "band"}
 
 
-# ---- the props: the atlas for ornament, marble_stone for their bricks -------
+# ---- the props: windowed zones on their own tiles, the brick world-boxed -----
 # A prop's cell drew 16 px courses at UV_SCALE: 3.97 m. Its bricks keep that.
-PROP_COURSE_M = 16.0 / (UV_SCALE * (CELL_UV - 2.0 * UV_PAD) * TEX_SIZE)
+PROP_COURSE_M = 16.0 / (UV_SCALE * CELL_PX * (1.0 - 2.0 * UV_PAD))
 PROP_MPT = PROP_COURSE_M / (WALL_H / float(COURSES))
 PROP_BRICKS = {"marble": None, "marble2": TINT_MARBLE2, "shade": TINT_SHADE, "plinth": TINT_PLINTH}
-GLOW_ZONES = ("portal",)
-DARK_ZONES = ("cellin", "iron")          # windowed in marble_dark as the 64 px cells they were
-for _z in ("floor", "frieze", "coffer", "dome", "spike", "band", "field"):
-    ZONES[_z] = region(_z)               # the windowed zones now: the atlas' own regions ...
-ZONES["collar"] = ZONES["band"]
-ZONES["column"] = region("column")[:3] + (64.0 / TEX_SIZE,)                    # a 64 px window of the strip
-ZONES["cellin"] = (0.0, 0.0, 64.0 / DARK_W, 64.0 / WALL_H)                     # ... marble_dark's
-ZONES["iron"] = (DARK["iron"][0] / float(DARK_W), 0.0, 1.0, 64.0 / WALL_H)
-
-
-def build_texture():
-    """(albedo, None): the ornament atlas, marble_albedo.png."""
-    return tx.image(TEX_ALBEDO), None
+TILE_OF = {                              # zone: (material key, stem, tint, glows)
+    "floor": ("floor", "marble_floor", None, False),
+    "portal": ("glow", "marble_portal_swirl", None, True),
+    "column": ("column", "marble_column", None, False),
+    "band": ("column", "marble_column", None, False),
+    "collar": ("column", "marble_column", None, False),
+    "cellin": ("cellin", "marble_brick", TINT_CELL, False),
+    "iron": ("iron", "marble_stone", TINT_IRON, False),
+}
+TURNED = ("band", "collar")              # the column's window turned: flutes along the band
 
 
 def prop_finish(ob, zones, name, atlas_index=None):
-    """An atlas-windowed model's materials, after unwrap(): brick zones re-projected onto
-    marble_stone (world box, PROP_MPT, tinted), dark zones on marble_dark, glow zones on an
-    emissive twin of the atlas, the rest on the atlas. zones[pi] None leaves that face
-    alone; atlas_index reuses an atlas slot the model already has (the hub)."""
+    """A window-unwrapped model's materials, after unwrap(): brick zones re-projected onto the
+    brick (world box, PROP_MPT, tinted), every other zone on its own tile (TILE_OF, else the
+    plain stone), its window already in it. zones[pi] None leaves that face alone; atlas_index
+    is the slot the model already has for the untinted brick (the hub)."""
     me = ob.data
     uvl = me.uv_layers["UVMap"]
     sheets = {z: brick(z, PROP_MPT, PROP_MPT, t, mode="box") for z, t in PROP_BRICKS.items()}
-    faces = {}
+    faces, kind = {}, {}
     for pi, poly in enumerate(me.polygons):
         z = zones[pi]
         if z is None:
             continue
-        cls = z if z in sheets else ("~dark" if z in DARK_ZONES else ("~glow" if z in GLOW_ZONES else ""))
+        loops = list(poly.loop_indices)
         if z in sheets:
-            loops = list(poly.loop_indices)
             cos = [tuple(me.vertices[me.loops[li].vertex_index].co) for li in loops]
             for li, uv in zip(loops, tx.box_uv(cos, tuple(poly.normal), sheets[z])):
                 uvl.data[li].uv = uv
+            cls = z
+        else:
+            spec = TILE_OF.get(z, ("stone", "marble_stone", None, False))
+            if z in TURNED:
+                u0, v0, u1, v1 = ZONES[z]
+                for li in loops:
+                    u, v = uvl.data[li].uv
+                    uvl.data[li].uv = (u0 + (v - v0) / (v1 - v0) * (u1 - u0), v0 + (u - u0) / (u1 - u0) * (v1 - v0))
+            cls = "~" + spec[0]
+            kind[cls] = spec
         faces.setdefault(cls, []).append(pi)
-    albedo = build_texture()[0]
     if atlas_index is None:
         me.materials.clear()
     for cls in sorted(faces):
-        if cls == "" and atlas_index is not None:
+        if cls == "marble" and atlas_index is not None:
             idx = atlas_index
         else:
-            if cls == "":
-                mat = stone_material(name, albedo, None)
-            elif cls == "~glow":
-                mat = stone_material(name + "Glow", albedo, albedo)
-            elif cls == "~dark":
-                dark_img = tx.images("marble", SHEETS["cellin"])[0]
-                mat = stone_material(name + "Dark", dark_img, None)
+            if cls in kind:
+                key, stem, tint, glows = kind[cls]
+                img = tx.image(stem + "_albedo")
+                if glows:
+                    mat = stone_material(name + "Glow", img, img)
+                else:
+                    mat = tx.material("%s_%s" % (name, key), img, None, ROUGHNESS, METALLIC, False, tint)
             else:
                 alb = tx.images("marble", sheets[cls])[0]
                 mat = tx.material("%s_%s" % (name, cls), alb, None, ROUGHNESS, METALLIC, False, sheets[cls].tint)
-                mat.diffuse_color = (0.78, 0.76, 0.72, 1.0)
+            mat.diffuse_color = (0.78, 0.76, 0.72, 1.0)
             idx = len(me.materials)
             me.materials.append(mat)
         for pi in faces[cls]:
@@ -917,8 +884,9 @@ def _group_uv(me, uvl, polys, zone, r, fit, anchored, wall=False):
     """One atlas window for a whole emitted face (both triangles of a quad,
     every triangle of a fan), so no seam runs down a quad's diagonal."""
     u0, v0, u1, v1 = zone
-    span_u = (u1 - u0) - 2.0 * UV_PAD
-    span_v = (v1 - v0) - 2.0 * UV_PAD
+    pad_u, pad_v = UV_PAD * (u1 - u0), UV_PAD * (v1 - v0)
+    span_u = (u1 - u0) - 2.0 * pad_u
+    span_v = (v1 - v0) - 2.0 * pad_v
     nrm = me.polygons[polys[0]].normal
     loops = [li for pi in polys for li in me.polygons[pi].loop_indices]
     cos_list = [me.vertices[me.loops[li].vertex_index].co for li in loops]
@@ -945,7 +913,7 @@ def _group_uv(me, uvl, polys, zone, r, fit, anchored, wall=False):
             s = 1.0 - s
         if fv < 0.0:
             t = 1.0 - t
-        uvl.data[li].uv = (u0 + UV_PAD + s * span_u, v0 + UV_PAD + t * span_v)
+        uvl.data[li].uv = (u0 + pad_u + s * span_u, v0 + pad_v + t * span_v)
 
 
 def unwrap(ob, zones, groups, seed=0, face_uv=None):
@@ -960,10 +928,10 @@ def unwrap(ob, zones, groups, seed=0, face_uv=None):
     for pi in range(len(me.polygons)):
         if pi in face_uv:
             u0, v0, u1, v1 = ZONES[zones[pi]]
-            su, sv = (u1 - u0) - 2.0 * UV_PAD, (v1 - v0) - 2.0 * UV_PAD
+            su, sv = (u1 - u0) * (1.0 - 2.0 * UV_PAD), (v1 - v0) * (1.0 - 2.0 * UV_PAD)
             for li in me.polygons[pi].loop_indices:
                 u, v = face_uv[pi][me.loops[li].vertex_index]
-                uvl.data[li].uv = (u0 + UV_PAD + u * su, v0 + UV_PAD + v * sv)
+                uvl.data[li].uv = (u0 + UV_PAD * (u1 - u0) + u * su, v0 + UV_PAD * (v1 - v0) + v * sv)
             continue
         by_group.setdefault(groups[pi], []).append(pi)
     for gid in sorted(by_group):

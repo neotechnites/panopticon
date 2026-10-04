@@ -113,13 +113,15 @@ class Sheet(object):
     local      a face that straddles a repeat is moved whole into the region (no world phase)
     rect       (u0, v0, u1, v1): the projected UVs squeezed into this part of the image (an atlas cell)
     glow_stem  emissive image stem when the albedo file is shared and only this class glows
+    turn       u and v swapped after projection: an upright drawing laid along a band
     """
 
     def __init__(self, name, mpt=MPT, size=TILE, ref_r=None, phase=(0.0, 0.0),
                  mode="cyl", roughness=ROUGHNESS, metallic=METALLIC, cull=True,
                  width=None, stem=None, mpt_u=None, tint=None, glow=True,
-                 region=None, canvas=None, local=False, rect=None, glow_stem=None):
+                 region=None, canvas=None, local=False, rect=None, glow_stem=None, turn=False):
         self.name = name
+        self.turn = turn
         self.glow = glow
         self.glow_stem = glow_stem
         self.region = region
@@ -361,6 +363,8 @@ def unwrap(ob, classes, sheets, seed=0, face_uv=None, groups=None, custom=None):
                     uvs = [fitted[gid][me.loops[li].vertex_index] for li in loops]
                 else:
                     uvs = fit_uv(cos, tuple(poly.normal), sheet, sheet.mode)
+        if sheet.turn:
+            uvs = [(v, u) for (u, v) in uvs]
         if sheet.rect is not None:
             a0, b0, a1, b1 = sheet.rect
             uvs = [(a0 + u * (a1 - a0), b0 + v * (b1 - b0)) for (u, v) in uvs]
