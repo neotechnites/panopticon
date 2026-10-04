@@ -133,6 +133,7 @@ extends Node3D
 const FirstPersonHead: GDScript = preload("res://scripts/player/first_person_head.gd")
 ## The held-rifle pose stages, preloaded for the same reason.
 const RifleHold: GDScript = preload("res://scripts/player/rifle_hold.gd")
+const FirstPersonArms: GDScript = preload("res://scripts/player/first_person_arms.gd")
 
 @export var body: PlayerController
 
@@ -426,11 +427,13 @@ var _arm_hiders: Array[FirstPersonHead] = []
 ## The rifle on this body's head, or null; its hands are laid on its anchors.
 var _held: Rifle = null
 var _held_model: Node3D = null
-## Lean, arm IK, hands, and the first-person forearm restore, in that order.
+## Lean, arm IK and hands, in that order.
 var _hold_lean: RifleHold = null
 var _hold_ik: TwoBoneIK3D = null
 var _hold_hands: RifleHold = null
-var _hold_restore: RifleHold = null
+## The owner's own rifle arms on the eye, drawn in place of the body's while it is looked out of.
+var _fp_arms: FirstPersonArms = null
+var _fp_arms_mesh: MeshInstance3D = null
 
 ## Whether each of those is collapsed right now. Edges, like [member _in_slide].
 var _spine_hidden: bool = false
@@ -867,10 +870,15 @@ func tick_first_person() -> void:
 
 	# Redundant while the spine is down, and not while the shove has it back.
 	var hide_arms: bool = hide_spine and (body.is_guard or body.is_armed)
-	# A held rifle that is drawn keeps its forearms on it; a third-person one sits at the drawn eye.
+	# A drawn rifle is held by the eye's own arms; a third-person one sits at the drawn eye.
 	if _hold_lean != null:
-		_hold_lean.restore_arms = hide_arms and _held_model != null and _held_model.is_visible_in_tree()
 		_hold_lean.follow_eye = not want
+	if _fp_arms != null:
+		var drawn: bool = hide_arms and _held_model != null and _held_model.is_visible_in_tree()
+		if drawn != _fp_arms.active:
+			_fp_arms.active = drawn
+			_fp_arms_mesh.visible = drawn
+			_fp_arms_mesh.material_override = mesh.material_override
 	if hide_arms != _arms_hidden:
 		_arms_hidden = hide_arms
 		for hider: FirstPersonHead in _arm_hiders:
@@ -894,7 +902,7 @@ func _build_head_hider() -> void:
 		if arm != null:
 			_arm_hiders.append(arm)
 	if _hold_lean != null:
-		_hold_restore = _add_hold_stage(skeleton, RifleHold.Stage.RESTORE, "RifleHoldRestore")
+		_build_first_person_arms(skeleton)
 
 
 ## One inactive [FirstPersonHead] on [param bone_name], or null if the rig has
@@ -932,6 +940,36 @@ func _build_rifle_hold(skeleton: Skeleton3D) -> void:
 		_hold_ik.set_target_node(i, _hold_ik.get_path_to(_hold_lean.targets[i]))
 		_hold_ik.set_pole_node(i, _hold_ik.get_path_to(_hold_lean.poles[i]))
 	_hold_hands = _add_hold_stage(skeleton, RifleHold.Stage.HANDS, "RifleHoldHands")
+
+
+## A copy of [param skeleton] and this mesh on the body's head, hidden until it holds a drawn rifle in first person.
+func _build_first_person_arms(skeleton: Skeleton3D) -> void:
+	if body == null or body.head == null:
+		return
+	var arms: Skeleton3D = Skeleton3D.new()
+	arms.name = "FirstPersonArms"
+	arms.transform = Transform3D(Basis(Vector3.UP, PI), Vector3.ZERO)
+	for bone in skeleton.get_bone_count():
+		arms.add_bone(skeleton.get_bone_name(bone))
+	for bone in skeleton.get_bone_count():
+		arms.set_bone_parent(bone, skeleton.get_bone_parent(bone))
+		arms.set_bone_rest(bone, skeleton.get_bone_rest(bone))
+		arms.set_bone_pose(bone, skeleton.get_bone_rest(bone))
+	body.head.add_child(arms)
+	_fp_arms_mesh = MeshInstance3D.new()
+	_fp_arms_mesh.name = "Mesh"
+	_fp_arms_mesh.mesh = mesh.mesh
+	_fp_arms_mesh.skin = mesh.skin
+	_fp_arms_mesh.layers = first_person_layers
+	_fp_arms_mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_fp_arms_mesh.visible = false
+	arms.add_child(_fp_arms_mesh)
+	_fp_arms_mesh.skeleton = _fp_arms_mesh.get_path_to(arms)
+	_fp_arms = FirstPersonArms.new()
+	_fp_arms.name = "Pose"
+	_fp_arms.active = false
+	arms.add_child(_fp_arms)
+	_fp_arms.bind(arms, [&"UpperArm.R", &"UpperArm.L", &"LowerArm.R", &"LowerArm.L", &"Hand.R", &"Hand.L"])
 
 
 func _add_hold_stage(skeleton: Skeleton3D, stage: int, node_name: String) -> RifleHold:
@@ -979,10 +1017,14 @@ func _hold(rifle: Rifle) -> void:
 	_hold_lean.anchors[1] = rifle.fore_hand if holding else null
 	_hold_lean.pitch_source = body.head
 	_hold_lean.rifle = rifle
-	_hold_lean.restore_arms = false
-	for stage: SkeletonModifier3D in [_hold_lean, _hold_ik, _hold_hands, _hold_restore]:
+	for stage: SkeletonModifier3D in [_hold_lean, _hold_ik, _hold_hands]:
 		if stage != null:
 			stage.active = holding
+	if _fp_arms != null:
+		_fp_arms.anchors[0] = _hold_lean.anchors[0]
+		_fp_arms.anchors[1] = _hold_lean.anchors[1]
+		_fp_arms.active = false
+		_fp_arms_mesh.visible = false
 
 
 ## Freeze the run cycle on its first frame. The fallback for a body with no
