@@ -174,7 +174,7 @@ EOF
 
 # pc_rough <run_clip-args> <log-path> <raw-path> : the same take at real speed. Godot
 # plays borderless at 0,0 (--fixed-fps and --max-fps 60) and ffmpeg records that
-# 1920x1080 of the screen (ddagrab, no cursor, h264_amf) to <raw-path>. The take's
+# 1920x1080 of the screen (ddagrab, no cursor, lossless RGB utvideo) to <raw-path>. The take's
 # white sync frames (run_clip --sync) put its t=0 in <raw-path>.sync, in seconds.
 pc_rough() {
   local args="$1" log="$2" raw="$3" task="panopticon_content_$$"
@@ -192,7 +192,7 @@ do {
   \$kid = Get-CimInstance Win32_Process -Filter "ParentProcessId=\$(\$gp.Id)" | Where-Object Name -like 'godot*' | Select-Object -First 1
   \$win = if (\$kid) { (Get-Process -Id \$kid.ProcessId -ErrorAction SilentlyContinue).MainWindowHandle } else { 0 }
 } until ((\$win -ne 0) -or \$gp.HasExited -or ((Get-Date) -gt \$deadline))
-\$f = New-Object System.Diagnostics.ProcessStartInfo 'cmd.exe', '/c ffmpeg -hide_banner -loglevel error -y -f lavfi -i ddagrab=output_idx=0:framerate=${FPS}:video_size=${SIZE}:offset_x=0:offset_y=0:draw_mouse=0 -vf hwdownload,format=bgra,scale=out_range=tv:out_color_matrix=bt709,format=yuv420p -c:v h264_amf -quality quality -rc cqp -qp_i 14 -qp_p 14 -color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 ${raw} 2> ${raw}.err'
+\$f = New-Object System.Diagnostics.ProcessStartInfo 'cmd.exe', '/c ffmpeg -hide_banner -loglevel error -y -f lavfi -i ddagrab=output_idx=0:framerate=${FPS}:video_size=${SIZE}:offset_x=0:offset_y=0:draw_mouse=0 -vf hwdownload,format=bgra,format=gbrp -c:v utvideo ${raw} 2> ${raw}.err'
 \$f.UseShellExecute = \$false; \$f.CreateNoWindow = \$true; \$f.RedirectStandardInput = \$true
 \$fp = [System.Diagnostics.Process]::Start(\$f)
 if (-not \$gp.WaitForExit(600000) -and \$kid) { Stop-Process -Id \$kid.ProcessId -Force }

@@ -77,10 +77,11 @@ import brief as brief_mod  # noqa: E402
 FPS = 60
 W, H = 1080, 1920
 FF = ["ffmpeg", "-nostdin", "-hide_banner", "-y", "-loglevel", "error"]
-# Every segment leaves limited-range BT.709, tagged, whatever its source was (a take is
-# full-range BT.601 MJPEG, a card untagged): players then show the game's own colours.
-TO_709 = "scale=out_range=tv:out_color_matrix=bt709:flags=lanczos"
-TAIL = ",format=yuv420p,setparams=range=tv:colorspace=bt709:color_primaries=bt709:color_trc=bt709"
+# Every segment is lossless RGB, decoded by its source's own tags: the edit adds no generation.
+# One near-lossless 4:4:4 copy (<tag>_view.mp4) is made at the end for browsers.
+TO_709 = "format=rgb24"
+TAIL = ",format=rgb24"
+LOSSLESS = ["-c:v", "libx264rgb", "-preset", "veryfast", "-qp", "0"]
 TAGS = ["-color_range", "tv", "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709"]
 MUSIC_DUCK = 0.3      # music ramp-down before a window's audio
 MUSIC_BACK = 0.5      # music ramp-up after it
@@ -463,10 +464,10 @@ def main():
                     pic = vf.replace(TAIL, "", 1)
                     args += ["-loop", "1", "-i", card_png, "-filter_complex",
                              "[0:v]" + pic + "[pic];[1:v]format=rgba[card];[pic][card]overlay="
-                             + card_over + TAIL + "[v]", "-map", "[v]"]
+                             + card_over + ":format=rgb" + TAIL + "[v]", "-map", "[v]"]
                 else:
                     args += ["-vf", vf]
-                args += ["-t", "%.4f" % out_len, "-an", "-c:v", "libx264", "-preset", "fast", "-crf", "18", "-pix_fmt", "yuv420p"] + TAGS + [seg]
+                args += ["-t", "%.4f" % out_len, "-an"] + LOSSLESS + [seg]
                 run(args)
                 fit += "  [rendered]" if i == 0 else ""
             segments.append(seg)
@@ -512,8 +513,7 @@ def main():
         if not os.path.exists(captioned):
             # libass reads the path itself: relative, forward slashes, from the project dir.
             rel = os.path.relpath(ass_path, project).replace("\\", "/")
-            run(FF + ["-i", picture, "-vf", f"subtitles={rel}", "-an", "-c:v", "libx264", "-preset", "medium",
-                      "-crf", "18", "-pix_fmt", "yuv420p"] + TAGS + [captioned], cwd=project)
+            run(FF + ["-i", picture, "-vf", f"subtitles={rel}", "-an"] + LOSSLESS + [captioned], cwd=project)
             cap_info += "  [burned]"
         video_in = captioned
     t_captions = time.time() - t0
@@ -583,6 +583,10 @@ def main():
     out = os.path.join(project, "final", f"{tag}.mp4")
     run(FF + inputs + ["-filter_complex", graph, "-map", "0:v", "-map", "[out]", "-c:v", "copy", "-c:a", "aac",
                        "-b:a", "192k", "-movflags", "+faststart", out])
+    view = os.path.join(project, "final", f"{tag}_view.mp4")
+    run(FF + ["-i", out, "-vf", "scale=out_range=tv:out_color_matrix=bt709,format=yuv444p", "-c:v", "libx264",
+              "-preset", "medium", "-crf", "10"] + TAGS + ["-c:a", "copy", "-movflags", "+faststart", view])
+    summary.append("view copy: %s" % view)
     small = ""
     if str(head.get("copy_720", "no")).strip().lower() in ("yes", "true", "1"):
         small = os.path.join(project, "final", f"{tag}_720.mp4")

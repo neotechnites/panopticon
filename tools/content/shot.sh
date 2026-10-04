@@ -83,7 +83,9 @@ fi
 [ "${MODE}" = rough ] && [ "${SIZE##*x}" -gt 1440 ] && MODE=movie
 if [ "${MODE}" = rough ]; then TAKE_EXT=mkv; IN_SPEC="in_range=tv:in_color_matrix=bt709"
 else TAKE_EXT=avi; IN_SPEC="in_range=pc:in_color_matrix=bt601"; fi
-MASTER="${MASTER}:${IN_SPEC}:out_range=tv:out_color_matrix=bt709:flags=lanczos"
+# The cut is lossless RGB (no generation loss): the take is decoded by its own tags.
+MASTER="${MASTER}:flags=lanczos,format=rgb24"
+VLOSSLESS="-c:v libx264rgb -preset veryfast -qp 0"
 TAGS="-color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709"
 [ -n "${CAPTURE}${STILL}" ] || die "shot ${N} of ${NAME} has no capture: or still: line"
 if [ -n "${TAPE}" ]; then CAPTURE="${CAPTURE} --tape=$(tape_res "${NAME}" "${TAPE}")"; fi
@@ -171,7 +173,7 @@ render_take() {  # render_take <tag> <out-mp4> <cut-seconds> <mute-from-seconds>
 $(ss_ps "${DIR}\\takes\\${tag}.${TAKE_EXT}")
 \$audio = ffprobe -v error -select_streams a -show_entries stream=codec_type -of csv=p=0 \$src
 \$af = if (\$audio) { @('-af', "volume=enable='gte(t,${mute})':volume=0", '-c:a', 'aac', '-ar', '48000', '-b:a', '160k') } else { @('-f', 'lavfi', '-i', 'anullsrc=r=48000:cl=stereo', '-shortest', '-c:a', 'aac') }
-ffmpeg -hide_banner -loglevel error -y -ss \$ss -i \$src @(\$af) -t ${cut} -c:v libx264 -preset veryfast -crf 16 -pix_fmt yuv420p ${TAGS} -r ${FPS} -vf "${MASTER}" '${out}'
+ffmpeg -hide_banner -loglevel error -y -ss \$ss -i \$src @(\$af) -t ${cut} ${VLOSSLESS} -r ${FPS} -vf "${MASTER}" '${out}'
 Write-Output ('rendered ' + (Get-Item '${out}').Length)
 EOF
 }
