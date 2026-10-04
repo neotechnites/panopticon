@@ -24,7 +24,7 @@ freeze: waive
 
 ## 2
 said: v4 "Hell, the same event from the runner behind: the man ahead drops, he looks up at the tower (keep a2)"
-capture: --shot=s3_open_lane --stage=trailer_open --pov=runner --bots=3 --look=social --rifle=projectile --set=fire_at=3.24 --seed=20261001
+capture: --shot=s3_open_lane --stage=trailer_open --pov=runner --bots=3 --rifle=projectile --set=fire_at=3.24 --seed=20261001
 tape: open
 seconds: 5.0
 in: 0.9
@@ -61,7 +61,7 @@ freeze: waive
 
 ## 6
 said: v4 "Hell, runner POV behind a rock, peeking out -- standing (d1, re-filmed without crouch)"
-capture: --shot=cover_side --stage=trailer_duel2 --bots=1 --pov=runner --look=social --rifle=projectile --seed=20261001
+capture: --shot=cover_side --stage=trailer_duel2 --bots=1 --pov=runner --rifle=projectile --seed=20261001
 tape: duel
 seconds: 7.5
 in: 1.0
@@ -79,7 +79,7 @@ freeze: waive
 
 ## 8
 said: v4 "Hell, runner POV breaking cover and sprinting (d3 -- Ryan: \"perfect\", keep its framing)"
-capture: --shot=cover_side --stage=trailer_duel2 --bots=1 --pov=runner --look=social --rifle=projectile --seed=20261001
+capture: --shot=cover_side --stage=trailer_duel2 --bots=1 --pov=runner --rifle=projectile --seed=20261001
 tape: duel
 seconds: 2.2
 in: 5.5
@@ -127,7 +127,7 @@ freeze: waive
 
 ## 11
 said: v4 "Hell, lake platforming (t2)"
-capture: --shot=lava_parkour --stage=lavaparkour --bots=3 --set=line=3 --pov=runner --look=social --seed=20261001
+capture: --shot=lava_parkour --stage=lavaparkour --bots=3 --set=line=3 --pov=runner --seed=20261001
 tape: lake
 seconds: 5.5
 in: 1.2
@@ -146,7 +146,7 @@ freeze: waive
 
 ## 13
 said: v4 "Hell S3, runner POV running through and bouncing on a crack"
-capture: --shot=s4_edge --stage=trailer_crack --bots=2 --pov=runner --look=social --rifle=projectile --seed=20261001
+capture: --shot=s4_edge --stage=trailer_crack --bots=2 --pov=runner --rifle=projectile --seed=20261001
 tape: crack
 seconds: 2.2
 in: 1.7

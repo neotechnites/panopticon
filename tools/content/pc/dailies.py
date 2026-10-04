@@ -177,17 +177,18 @@ def preview_for(project, path):
     os.makedirs(out, exist_ok=True)
     prev = os.path.join(out, os.path.splitext(os.path.basename(path))[0] + ".preview.mp4")
     if not (os.path.exists(prev) and os.path.getmtime(prev) >= os.path.getmtime(path)):
-        scale = "scale='if(lt(iw,ih),min(1080,iw),-2)':'if(lt(iw,ih),-2,min(1080,ih))'"
+        scale = "scale='if(lt(iw,ih),min(1080,iw),-2)':'if(lt(iw,ih),-2,min(1080,ih))':out_range=tv:out_color_matrix=bt709"
         subprocess.run(["ffmpeg", "-nostdin", "-hide_banner", "-y", "-loglevel", "error", "-i", path, "-vf", scale,
                         "-c:v", "libx264", "-b:v", "4500k", "-maxrate", "5000k", "-bufsize", "10000k",
-                        "-preset", "medium", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "128k",
+                        "-preset", "medium", "-pix_fmt", "yuv420p", "-color_range", "tv", "-colorspace", "bt709",
+                        "-color_primaries", "bt709", "-color_trc", "bt709", "-c:a", "aac", "-b:a", "128k",
                         "-movflags", "+faststart", prev])
     return prev if os.path.exists(prev) and os.path.getsize(prev) > 0 else ""
 
 
-def video(src_rel, poster_rel, mtime, path=None, project=None):
+def video(src_rel, poster_rel, mtime, path=None, project=None, full=False):
     """A <video> whose aspect-ratio is the file's own. With a path it plays the
-    light preview when there is one and links the original as "full quality"."""
+    light preview when there is one (never with full) and links the original."""
     wh = dims(path) if path else None
     style = ' style="aspect-ratio:%d/%d"' % wh if wh else ""
     poster = (' poster="%s"' % html.escape(poster_rel)) if poster_rel else ""
@@ -195,7 +196,7 @@ def video(src_rel, poster_rel, mtime, path=None, project=None):
     if path:
         ensure_faststart(path)
         mtime = os.path.getmtime(path)
-        prev = preview_for(project or os.path.dirname(os.path.dirname(path)), path) if path else ""
+        prev = "" if full else preview_for(project or os.path.dirname(os.path.dirname(path)), path)
         if prev:
             play = "preview/" + os.path.relpath(prev, os.path.join(project or os.path.dirname(os.path.dirname(path)), "final", "preview")).replace("\\", "/")
             link = '<div class="meta"><a href="%s?v=%d" target="_blank">full quality</a></div>' % (html.escape(src_rel), int(mtime))
@@ -362,7 +363,7 @@ def cut_block(project, parsed, esc):
                 esc("%.1f" % starts.get(r["line"], 0.0)), esc(r.get("text", "")), esc(r.get("clip", "")))
     parts = ['<h3>Latest cut</h3><div class="cut%s">%s<div><h2 style="margin:0 0 8px;font-size:1.1rem">%s</h2>'
              '<div class="meta"><span>%.1f s</span><span>%s</span></div>'
-             % (" wide" if is_landscape(src) else "", video(latest, poster_for(project, tag, src)[0], os.path.getmtime(src), src, project), esc(tag), dur(src),
+             % (" wide" if is_landscape(src) else "", video(latest, poster_for(project, tag, src)[0], os.path.getmtime(src), src, project, full=True), esc(tag), dur(src),
                 time.strftime("%Y-%m-%d %H:%M", time.localtime(os.path.getmtime(src))))]
     if rows:
         parts.append("<table><tr><th>Start</th><th>Line</th><th>Clip</th></tr>%s</table>" % rows)
@@ -388,14 +389,14 @@ def main():
     parts.append("<title>%s dailies</title>" % esc(title))
     parts.append("""<style>
 :root{--bg:#141012;--panel:#1d1719;--ink:#efe6e2;--mute:#a4928c;--line:#3a2b2c;--acc:#ffb15c;--ok:#7fd48a}
-body{background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,sans-serif;padding:0 16px;padding-block:20px 60px;max-width:1312px;margin:0 auto}
+body{background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,sans-serif;padding:0 16px;padding-block:20px 60px;max-width:1952px;margin:0 auto}
 h1{font-size:2rem;text-transform:uppercase;letter-spacing:.02em;margin:0 0 4px}
 h3{text-transform:uppercase;letter-spacing:.04em;font-size:1.1rem;margin:26px 0 12px;color:var(--mute)}
 .sub{color:var(--mute);margin:0 0 22px;font-size:.95rem}
 .cut{display:grid;grid-template-columns:minmax(200px,300px) 1fr;gap:20px;align-items:start;background:var(--panel);border:1px solid var(--line);padding:16px;margin-bottom:28px}
 .cut video,.clip video{width:100%;height:auto;max-height:85vh;aspect-ratio:9/16;background:#000;display:block;margin:0 auto}
 .cut.wide{grid-template-columns:1fr}
-.cut.wide video{max-width:1280px}
+.cut.wide video{max-width:1920px}
 pre{font-size:.72rem;line-height:1.35;overflow-x:auto;color:var(--mute);margin:0}
 table{border-collapse:collapse;width:100%;font-size:.85rem;font-variant-numeric:tabular-nums}
 td,th{padding:5px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}

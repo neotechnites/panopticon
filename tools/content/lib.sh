@@ -18,6 +18,7 @@ PC_CONTENT="${PC_RENDERS}\content"
 PC_BRANCH=${PC_BRANCH:-work-content}
 FPS=${FPS:-60}
 SIZE=${SIZE:-1280x720}
+MJPEG_QUALITY=${MJPEG_QUALITY:-0.95}
 MAC_STILLS=${MAC_STILLS:-$HOME/.claude/jobs/070eaa3c/tmp/content}
 
 # Take gate: a take is kept when at least MOTION_MIN of its pixels change between
@@ -146,13 +147,14 @@ EOF
 
 # pc_godot <args-after-godot> <log-path> : run Godot in the logged-on console
 # session (Movie Maker needs a window and a GPU) via a scheduled task, wait, and
-# print the log tail. A temporary override.cfg pins the recorded viewport size.
+# print the log tail. A temporary override.cfg pins the recorded viewport size and
+# the take's JPEG quality (Godot's 0.75 smears the rock the game shows clean).
 pc_godot() {
   local args="$1" log="$2" task="panopticon_content_$$"
   local width="${SIZE%%x*}" height="${SIZE##*x}"
   pc <<EOF
 \$ErrorActionPreference = 'Stop'
-Set-Content -Path '${PC_PROJECT}\\override.cfg' -Value @('[display]','window/size/viewport_width=${width}','window/size/viewport_height=${height}')
+Set-Content -Path '${PC_PROJECT}\\override.cfg' -Value @('[display]','window/size/viewport_width=${width}','window/size/viewport_height=${height}','[editor]','movie_writer/mjpeg_quality=${MJPEG_QUALITY}')
 try {
   \$action = New-ScheduledTaskAction -Execute 'cmd.exe' -Argument '/c ${PC_GODOT} --path ${PC_PROJECT} ${args} > ${log} 2>&1'
   \$who = New-ScheduledTaskPrincipal -UserId \$env:USERNAME -LogonType Interactive
@@ -170,12 +172,29 @@ try {
 EOF
 }
 
+# PowerShell that imports C:\dev\verify. Godot never re-imports a .glb when only
+# the import hook changed, so a changed tools\import\ drops every .glb's md5 first
+# and imports twice (the first pass reports stale UIDs).
+PC_IMPORT=$(cat <<'PS'
+$hook = (Get-ChildItem C:\dev\verify\tools\import -Filter '*.gd' | Sort-Object Name | Get-FileHash | ForEach-Object Hash) -join ''
+$stamp = 'C:\dev\verify\.godot\import_hook.stamp'
+$passes = 1
+if (-not (Test-Path $stamp) -or (Get-Content $stamp -Raw).Trim() -ne $hook) {
+  Get-ChildItem C:\dev\verify\.godot\imported -Filter '*.glb-*.md5' -ErrorAction SilentlyContinue | Remove-Item -Force
+  $passes = 2
+  Write-Output 'import hook changed: every .glb re-imported'
+}
+for ($i = 0; $i -lt $passes; $i++) { cmd /c "C:\tools\godot\godot.exe --headless --import --path C:\dev\verify > C:\dev\content_import.txt 2>&1" }
+Set-Content -Path $stamp -Value $hook
+PS
+)
+
 # pc_checkout <ref> : put the scratch worktree at <ref> and import it. Only ever
 # C:\dev\verify; the real checkout is never touched.
 pc_checkout() {
   pc <<EOF
 git -C C:/dev/verify checkout -q $1
-cmd /c "${PC_GODOT} --headless --import --path ${PC_PROJECT} > C:\\dev\\content_import.txt 2>&1"
+${PC_IMPORT}
 Write-Output ('verify at ' + (git -C C:/dev/verify log --oneline -1))
 EOF
 }

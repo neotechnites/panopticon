@@ -77,6 +77,11 @@ import brief as brief_mod  # noqa: E402
 FPS = 60
 W, H = 1080, 1920
 FF = ["ffmpeg", "-nostdin", "-hide_banner", "-y", "-loglevel", "error"]
+# Every segment leaves limited-range BT.709, tagged, whatever its source was (a take is
+# full-range BT.601 MJPEG, a card untagged): players then show the game's own colours.
+TO_709 = "scale=out_range=tv:out_color_matrix=bt709:flags=lanczos"
+TAIL = ",format=yuv420p,setparams=range=tv:colorspace=bt709:color_primaries=bt709:color_trc=bt709"
+TAGS = ["-color_range", "tv", "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709"]
 MUSIC_DUCK = 0.3      # music ramp-down before a window's audio
 MUSIC_BACK = 0.5      # music ramp-up after it
 WINDOW_FADE = 0.3     # the window audio's own fade-out, ending at `end`
@@ -435,7 +440,7 @@ def main():
             vf = ""
             if abs(w["speed"] - 1.0) > 1e-9:
                 vf += "setpts={:.6f}*PTS,".format(1.0 / w["speed"])
-            vf += fit_filter(w["src"]) + f",fps={FPS},format=yuv420p"
+            vf += fit_filter(w["src"]) + f",fps={FPS}," + TO_709 + TAIL
             if w["hold"] > 0.005:
                 vf += ",tpad=stop_mode=clone:stop_duration={:.4f}".format(w["hold"])
             out_len = w["out"] + w["hold"]
@@ -455,13 +460,13 @@ def main():
                 if card_over:
                     # the pixel format is set after the overlay, so the card's alpha
                     # is still there to blend with
-                    pic = vf[:-len(",format=yuv420p")] if vf.endswith(",format=yuv420p") else vf
+                    pic = vf.replace(TAIL, "", 1)
                     args += ["-loop", "1", "-i", card_png, "-filter_complex",
                              "[0:v]" + pic + "[pic];[1:v]format=rgba[card];[pic][card]overlay="
-                             + card_over + ",format=yuv420p[v]", "-map", "[v]"]
+                             + card_over + TAIL + "[v]", "-map", "[v]"]
                 else:
                     args += ["-vf", vf]
-                args += ["-t", "%.4f" % out_len, "-an", "-c:v", "libx264", "-preset", "fast", "-crf", "18", seg]
+                args += ["-t", "%.4f" % out_len, "-an", "-c:v", "libx264", "-preset", "fast", "-crf", "18", "-pix_fmt", "yuv420p"] + TAGS + [seg]
                 run(args)
                 fit += "  [rendered]" if i == 0 else ""
             segments.append(seg)
@@ -508,7 +513,7 @@ def main():
             # libass reads the path itself: relative, forward slashes, from the project dir.
             rel = os.path.relpath(ass_path, project).replace("\\", "/")
             run(FF + ["-i", picture, "-vf", f"subtitles={rel}", "-an", "-c:v", "libx264", "-preset", "medium",
-                      "-crf", "18", "-pix_fmt", "yuv420p", captioned], cwd=project)
+                      "-crf", "18", "-pix_fmt", "yuv420p"] + TAGS + [captioned], cwd=project)
             cap_info += "  [burned]"
         video_in = captioned
     t_captions = time.time() - t0
@@ -582,7 +587,7 @@ def main():
     if str(head.get("copy_720", "no")).strip().lower() in ("yes", "true", "1"):
         small = os.path.join(project, "final", f"{tag}_720.mp4")
         run(FF + ["-i", out, "-vf", "scale=720:-2", "-c:v", "libx264", "-preset", "medium", "-crf", "20",
-                  "-pix_fmt", "yuv420p", "-c:a", "copy", "-movflags", "+faststart", small])
+                  "-pix_fmt", "yuv420p"] + TAGS + ["-c:a", "copy", "-movflags", "+faststart", small])
         summary.append("720p copy: %s" % small)
     t_audio = time.time() - t0
 

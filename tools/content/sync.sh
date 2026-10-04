@@ -15,7 +15,7 @@ if (\$m) { Write-Output 'verify worktree has tracked edits; stashing them'; git 
 # Scratch worktree: untracked generated files (.uid/.import/extracted png) may block a checkout.
 git -C C:/dev/verify clean -fq
 git -C C:/dev/verify checkout -q -B ${PC_BRANCH} content-incoming
-cmd /c "${PC_GODOT} --headless --import --path ${PC_PROJECT} > C:\dev\content_import.txt 2>&1"
+${PC_IMPORT}
 \$e = (Select-String -Path C:\dev\content_import.txt -Pattern 'ERROR' | Measure-Object -Line).Lines
 Write-Output ('verify at ' + (git -C C:/dev/verify log --oneline -1) + ' | import errors: ' + \$e)
 PS

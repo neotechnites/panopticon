@@ -69,6 +69,10 @@ if [ "${ASPECT}" = 9:16 ]; then
 else
   MASTER="scale=${SIZE%%x*}:${SIZE##*x}"; GATE_SCALE="scale=160:90"
 fi
+# A take is MJPEG: full-range BT.601. Players read untagged or full-range H.264 as
+# limited and blow it out, so every master is converted to limited BT.709 and tagged.
+MASTER="${MASTER}:in_range=pc:in_color_matrix=bt601:out_range=tv:out_color_matrix=bt709:flags=lanczos"
+TAGS="-color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709"
 [ -n "${CAPTURE}${STILL}" ] || die "shot ${N} of ${NAME} has no capture: or still: line"
 if [ -n "${TAPE}" ]; then CAPTURE="${CAPTURE} --tape=$(tape_res "${NAME}" "${TAPE}")"; fi
 if [ -n "${FLASH}" ]; then
@@ -142,7 +146,7 @@ render_take() {  # render_take <tag> <out-mp4> <cut-seconds> <mute-from-seconds>
 \$src = '${DIR}\\takes\\${tag}.avi'
 \$audio = ffprobe -v error -select_streams a -show_entries stream=codec_type -of csv=p=0 \$src
 \$af = if (\$audio) { @('-af', "volume=enable='gte(t,${mute})':volume=0", '-c:a', 'aac', '-ar', '48000', '-b:a', '160k') } else { @('-f', 'lavfi', '-i', 'anullsrc=r=48000:cl=stereo', '-shortest', '-c:a', 'aac') }
-ffmpeg -hide_banner -loglevel error -y -ss ${IN} -i \$src @(\$af) -t ${cut} -c:v libx264 -preset veryfast -crf 18 -pix_fmt yuv420p -r ${FPS} -vf "${MASTER}" '${out}'
+ffmpeg -hide_banner -loglevel error -y -ss ${IN} -i \$src @(\$af) -t ${cut} -c:v libx264 -preset veryfast -crf 16 -pix_fmt yuv420p ${TAGS} -r ${FPS} -vf "${MASTER}" '${out}'
 Write-Output ('rendered ' + (Get-Item '${out}').Length)
 EOF
 }
@@ -152,11 +156,12 @@ deliver_take() {  # deliver_take <tag> <cut-seconds>
   [ -n "${FILE}" ] || return 0
   local tag="$1" cut="$2" out="${DIR}\\final\\${FILE}.mp4" geometry
   [ "${ASPECT}" = 9:16 ] && geometry="scale=1080:1920" || geometry="scale=1920:1080"
+  geometry="${geometry}:in_range=pc:in_color_matrix=bt601:out_range=tv:out_color_matrix=bt709:flags=lanczos"
   pc <<EOF
 \$src = '${DIR}\\takes\\${tag}.avi'
 \$audio = ffprobe -v error -select_streams a -show_entries stream=codec_type -of csv=p=0 \$src
 \$af = if (\$audio) { @('-c:a', 'aac', '-ar', '48000', '-b:a', '160k') } else { @('-f', 'lavfi', '-i', 'anullsrc=r=48000:cl=stereo', '-shortest', '-c:a', 'aac') }
-ffmpeg -hide_banner -loglevel error -y -ss ${IN} -i \$src @(\$af) -t ${cut} -c:v libx264 -preset veryfast -crf 18 -pix_fmt yuv420p -r ${FPS} -vf "${geometry}" -movflags +faststart '${out}'
+ffmpeg -hide_banner -loglevel error -y -ss ${IN} -i \$src @(\$af) -t ${cut} -c:v libx264 -preset veryfast -crf 16 -pix_fmt yuv420p ${TAGS} -r ${FPS} -vf "${geometry}" -movflags +faststart '${out}'
 \$len = ffprobe -v error -show_entries format=duration -of csv=p=0 '${out}'
 Write-Output ('clip ' + '${out}' + ' ' + [math]::Round([double]\$len, 2) + ' s ' + (Get-Item '${out}').Length)
 EOF
@@ -171,7 +176,7 @@ if [ -n "${STILL}" ]; then
   echo "  still: godot $(since "$T0")"
   T0=$(now_ms)
   pc <<EOF
-ffmpeg -hide_banner -loglevel error -y -loop 1 -i '${DIR}\\frames\\${NN}.png' -f lavfi -i anullsrc=r=48000:cl=stereo -t ${HOLD} -r ${FPS} -vf "${MASTER}" -c:v libx264 -preset veryfast -crf 18 -pix_fmt yuv420p -c:a aac -shortest '${DIR}\\cuts\\${NN}.mp4'
+ffmpeg -hide_banner -loglevel error -y -loop 1 -i '${DIR}\\frames\\${NN}.png' -f lavfi -i anullsrc=r=48000:cl=stereo -t ${HOLD} -r ${FPS} -vf "${MASTER}" -c:v libx264 -preset veryfast -crf 16 -pix_fmt yuv420p ${TAGS} -c:a aac -shortest '${DIR}\\cuts\\${NN}.mp4'
 Write-Output ('rendered ' + (Get-Item '${DIR}\\cuts\\${NN}.mp4').Length)
 EOF
   echo "  still: render $(since "$T0")"
