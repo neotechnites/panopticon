@@ -7,8 +7,8 @@ rules: 16:9 1920x1080 (SIZE=1920x1080 shot.sh), no HUD except the guard's scope,
 v2 notes (Ryan on rough_v1): the guard stands at the tower's window, not deep inside; all runners run the course direction; the runner shot is the SAME event as the guard shot (same stage, same seed, two POVs), cut back ~1 s to the man directly behind the victim; clear line of sight when he looks up at the tower; title drops in HARD on the music's drop; music https://www.youtube.com/watch?v=OBPV0lsorwU; real-looking gameplay only (walkable deck and real cover, nobody on lava, nobody looking backwards); max 4 players a shot (1 guard + 3); spread across hell, forest and marble. Added: "EVERY shot is first-person POV -- either the guard's scope/tower view or a prisoner's first-person view. No third-person ... Title/end cards are the only non-POV frames."
 music: external\src\music_v2_OBPV0lsorwU.mp4 -> voice\sr20det.ogg (SOURCES.md). The drop: 0.35 s of silence from 5.36 s, the hit at 5.703 s (sample onset); 170 bpm after it (v3 measured).
 cards: cuts/title_hard.mp4 is v1's title frame looped from frame 0 (v1's title.mp4 opened on two black frames); cuts/end.mp4 is v1's.
-delivery: content\trailer_reveal\final\rough_v18.mp4 (and ~/Desktop/panopticon-renders/trailer_reveal/)
-tag: rough_v18
+delivery: content\trailer_reveal\final\rough_v19.mp4 (and ~/Desktop/panopticon-renders/trailer_reveal/)
+tag: rough_v19
 size: 1920x1080
 v4 (Ryan): "every shot must be exactly reproducible in engine -- run a script and record"; NO CROUCHING anywhere; max 3 prisoners + guard; guard shots on the projectile rifle (led, held over). Every shot plays a TAPE (tape: line): the staged take recorded once, then every input played back -- see ## reshoot.
 
@@ -91,7 +91,7 @@ said: v5 "Forest, runner POV: a second runner beside him at the inner edge, a vi
 capture: --map=forest --shot=pack_lead --stage=trailer_forest_pit --bots=3 --pov=runner --look=social --rifle=projectile --seed=20261001
 tape: forest_pit
 seconds: 2.5
-in: 1.40
+in: 0.90
 freeze: waive
 # side by side down the lane (the victim a stride inside), he cuts in to the lip (153.4 deg r 47.25) and turns to face him at 2.30; the shove at 2.75 from 1.0 m (arms + the shover's kick), backwards over the edge and down out of frame; a third pulls up behind
 
@@ -100,7 +100,7 @@ said: v5 "Forest, the shoved runner's POV: the edge he was shoved from with the 
 capture: --map=forest --shot=pack_lead --stage=trailer_forest_pit --bots=3 --pov=runner --look=social --rifle=projectile --set=pov=victim --seed=20261001
 tape: forest_pit
 seconds: 1.8
-in: 2.86
+in: 1.95
 freeze: waive
 # the forest_pit tape down Runner_1 from 0.1 s after the shove (the shover's arms still out, 1 m off), eyes held up on him: the lip shrinks above until the bank closes over it (~3.5), the mist at y -5.75 (4.49) greys it out; the cut ends 4.63 in the mist (out 4.65); floor_kill=1 lowers the KillBox for the shot only (map unchanged)
 
@@ -197,7 +197,7 @@ captions: none
 | h2 | cuts/05.mp4@1.6:1.4 | | | beat 1.4 | | |
 | m0 | cuts/05b.mp4@0:2.1167 | | | beat 2.1167 | | |
 | d1 | cuts/06.mp4@0.4:2.4833 | | | beat 2.4833 | | |
-| d2 | cuts/07.mp4@2.0:2.1167 | | | beat 2.1167 | | |
+| d2 | cuts/07.mp4@1.6:2.1167 | | | beat 2.1167 | | |
 | d3 | cuts/08.mp4@0:2.1167 | | | beat 2.1167 | | |
 | p1 | cuts/09a.mp4@0:2.4667 | | | beat 2.4667 | | |
 | p2 | cuts/09b.mp4@0:1.7667 | | | beat 1.7667 | | |

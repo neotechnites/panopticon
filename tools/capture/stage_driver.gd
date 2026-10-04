@@ -32,6 +32,7 @@ extends Node
 ## {"do": "steer", "on": true, "rate": 720.0, "gain": 14.0}   # yaw through the mouse, not snapped
 ## {"do": "human", "on": true}    # mouse drift, eased turns with an overshoot and settle, a wavering walk, fidget on holds
 ## {"do": "slowfeet", "floor": 0.5}              # a private movement profile whose friction floor lets it creep
+## {"do": "watch", "body": PlayerController, "seconds": 2.0, "height": 1.4}   # eyes on a moving body (steered)
 ## {"do": "release"}     # hand the body back to its own brain
 ## [/codeblock]
 ##
@@ -93,6 +94,14 @@ var _gaze_step_index: int = 0
 var _gaze_schedule: Array = []
 var _gaze_strafes: Array = []
 var _gaze_flinched: bool = false
+## Eyes of their own ([method eyes]): a point the head chases on a spring while the steps move the feet.
+const EYES_OMEGA: float = 10.5
+const EYES_ZETA: float = 0.62
+const EYES_MAX_RATE: float = deg_to_rad(420.0)
+var _eyes_on: bool = false
+var _eyes_point: Vector3 = Vector3.ZERO
+var _eyes_rate: Vector2 = Vector2.ZERO
+var _shove_next: bool = false
 ## brawl: this body's own cadence.
 var _brawl_target: PlayerController = null
 var _brawl_reach: float = 2.2
@@ -246,6 +255,16 @@ func _physics_process(delta: float) -> void:
 			var inverted: bool = _body.profile != null and _body.profile.invert_look_y
 			_intent.look_delta = Vector2(0.0, -down if inverted else down)
 			finished = _clock >= over
+		"watch":
+			var seen: Node3D = step.get("body") as Node3D
+			if seen != null and is_instance_valid(seen):
+				var seen_at: Vector3 = seen.global_position + Vector3.UP * float(step.get("height", 1.4))
+				var seen_flat: Vector3 = Vector3(seen_at.x - _body.global_position.x, 0.0, seen_at.z - _body.global_position.z)
+				if seen_flat.length() > 0.3:
+					_face(seen_flat.normalized())
+				_pitch_goal = rad_to_deg(atan2(_body.global_position.y + 1.6 - seen_at.y, maxf(seen_flat.length(), 0.1)))
+				_has_pitch_goal = true
+			finished = _clock >= float(step.get("seconds", 1.0))
 		"wait_flag":
 			finished = _flags.get(String(step.get("flag", "")), false) or _clock > float(step.get("timeout", 10.0))
 		"slowfeet":
@@ -256,7 +275,9 @@ func _physics_process(delta: float) -> void:
 			return
 		_:
 			finished = true
-	if _steer and _has_pitch_goal and _body.head != null:
+	if _eyes_on:
+		_look_with_the_eyes(delta)
+	elif _steer and _has_pitch_goal and _body.head != null:
 		var down_now: float = -rad_to_deg(_body.head.rotation.x)
 		var err: float = _pitch_goal - down_now
 		var by_pitch: float = clampf(err * _pitch_gain * delta, -_pitch_rate * delta, _pitch_rate * delta)
@@ -264,6 +285,9 @@ func _physics_process(delta: float) -> void:
 		_intent.look_delta.y += deg_to_rad(-by_pitch if inverted_pitch else by_pitch)
 	if _human:
 		_intent.look_delta += _mouse_drift(delta)
+	if _shove_next:
+		_shove_next = false
+		_intent.shove_pressed = true
 	_body.set_intent(_intent)
 	if finished:
 		if OS.has_environment("STAGE_DEBUG"):
@@ -271,6 +295,46 @@ func _physics_process(delta: float) -> void:
 		_index += 1
 		_clock = 0.0
 		_hop_clock = 0.0
+		_forget_the_glances()
+
+
+## The next gazing step reads its own "glances" from the top.
+func _forget_the_glances() -> void:
+	_gaze_schedule = []
+	_gaze_strafes = []
+	_gaze_index = 0
+	_gaze_step_index = 0
+	_gaze_flinched = false
+
+
+## Swap the running step's glance schedule for [param glances], their "t" counted from now.
+func glance_now(glances: Array) -> void:
+	_gaze_schedule = _after_flinch(glances, _clock)
+	_gaze_index = 0
+
+
+## Tap shove on the next tick, whatever step is running (a shove thrown mid-stride).
+func press_shove() -> void:
+	_shove_next = true
+
+
+## Eyes onto [param point]: from now the head chases it on a spring and no step turns the body.
+func eyes(point: Vector3) -> void:
+	_eyes_on = true
+	_eyes_point = point
+
+
+## The spring that carries the head onto the eyes' point: quick out, a little past, back.
+func _look_with_the_eyes(delta: float) -> void:
+	var eye: Vector3 = _body.global_position + Vector3.UP * 1.6
+	var d: Vector3 = _eyes_point - eye
+	var want := Vector2(atan2(-d.x, -d.z), clampf(atan2(d.y, maxf(Vector2(d.x, d.z).length(), 0.1)), deg_to_rad(-36.0), deg_to_rad(24.0)))
+	var pitch_now: float = _body.head.rotation.x if _body.head != null else 0.0
+	var error := Vector2(wrapf(want.x - _body.rotation.y, -PI, PI), want.y - pitch_now)
+	_eyes_rate += (error * EYES_OMEGA * EYES_OMEGA - _eyes_rate * 2.0 * EYES_ZETA * EYES_OMEGA) * delta
+	_eyes_rate = _eyes_rate.limit_length(EYES_MAX_RATE)
+	var inverted: bool = _body.profile != null and _body.profile.invert_look_y
+	_intent.look_delta = Vector2(-_eyes_rate.x * delta, (_eyes_rate.y if inverted else -_eyes_rate.y) * delta)
 
 
 # --- Macros -------------------------------------------------------------------
@@ -401,7 +465,7 @@ func _run(step: Dictionary, delta: float, to: Vector3, within: float) -> bool:
 	# the target in the body's own frame (a strafe-run), so the feet go where the
 	# step says while the head is still coming round.
 	var local: Vector2 = Vector2(0.0, 1.0)
-	if _steer:
+	if _steer or _eyes_on:
 		local = Vector2(_body.global_transform.basis.x.dot(direction), (-_body.global_transform.basis.z).dot(direction))
 		if local.length_squared() > 0.0001:
 			local = local.normalized()
@@ -504,7 +568,13 @@ func _in_flight(step: Dictionary, delta: float) -> void:
 			_has_pitch_goal = true
 	if _clock > float(step.get("stick_after", 0.3)):
 		_intent.move_direction = Vector2(float(step.get("strafe", 0.0)), 0.6)
-	if _human and step.has("correct"):
+		if _eyes_on and step.has("look_at"):
+			# The head is elsewhere: the stick still leans at the landing, in the body's own frame.
+			var lean: Vector3 = Vector3((step["look_at"] as Vector3).x - _body.global_position.x, 0.0, (step["look_at"] as Vector3).z - _body.global_position.z)
+			if lean.length() > 0.3:
+				lean = lean.normalized()
+				_intent.move_direction = Vector2(_body.global_transform.basis.x.dot(lean), (-_body.global_transform.basis.z).dot(lean)) * 0.6
+	if _human and step.has("correct") and not _eyes_on:
 		if _clock - delta <= 0.0:
 			_correction = _rng.randf_range(-float(step["correct"]), float(step["correct"]))
 			_correction_done = 0.0
@@ -520,7 +590,8 @@ func _leap(target: Vector3, speed: float, lock: float = 0.9) -> void:
 	var velocity: Vector3 = launch_velocity(_body, target, speed)
 	if velocity == Vector3.ZERO:
 		return
-	_snap_face(Vector3(velocity.x, 0.0, velocity.z).normalized())
+	if not _eyes_on:
+		_snap_face(Vector3(velocity.x, 0.0, velocity.z).normalized())
 	_body.launch(velocity, flight_seconds(_body, target, speed) * lock)
 
 
@@ -769,6 +840,7 @@ func retarget(steps: Array) -> void:
 	_index = 0
 	_clock = 0.0
 	_hop_clock = 0.0
+	_forget_the_glances()
 
 
 ## Give the body back to its brain now, whatever step it was on.
@@ -785,6 +857,8 @@ func _release() -> void:
 
 
 func _face(direction: Vector3) -> void:
+	if _eyes_on:
+		return
 	if not _steer:
 		_snap_face(direction)
 		return

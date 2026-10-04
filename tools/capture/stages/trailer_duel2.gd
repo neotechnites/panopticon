@@ -9,8 +9,10 @@ extends "res://tools/capture/stages/trailer_duel.gd"
 ## 3 deg from 72 to 99 (rock; S2's lava is r 50.3+ from ~74 deg). v4, no crouch: he STANDS at 68.8/50.6
 ## (--los at h 1.0-1.8 all BLOCKED by MapBaseLip066)
 ## facing the rock, side-steps left (+bearing) past its end with his eyes on the tower,
-## steps back as the round cracks the rock, turns to the course and sprints r 49.
-## Dials: at, peek_at (2.15), peek_seconds (0.5), peek_strafe (0.4), back_seconds (1.15), back_strafe (0.45), hidden_by (70.0 deg: the squeeze), covered_seconds (0.65), break_to, window (70).
+## runs back behind it, turns to the course and sprints r 49.
+## v19 (Ryan): "the sniper should not shoot the cover, they should shoot where the player was before the ran behind
+## cover": the squeeze is on him in the open as he goes (lead 0); the round lands where he stood, the rock untouched.
+## Dials: at, peek_at (2.15), peek_seconds (0.5), peek_strafe (0.4), back_seconds (0.23), back_strafe (1.0), react (0.08 s after he moves: the squeeze), covered_seconds (1.55), break_to, window (70).
 
 const AT: String = "68.8,50.6"
 const BREAK_TO: String = "100,49.0"
@@ -37,8 +39,8 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 		{"do": "until", "t": float(option("peek_at", 2.15)), "sway": 4.0, "period": 2.6, "look_down": -16.0, "fidget": true},
 		{"do": "hold", "seconds": float(option("peek_seconds", 0.5)), "strafe": -float(option("peek_strafe", 0.4)), "look_down": -6.0},
 		{"do": "hold", "seconds": 0.45, "look_down": -6.0},
-		{"do": "hold", "seconds": float(option("back_seconds", 1.15)), "strafe": float(option("back_strafe", 0.45)), "look_down": -10.0},
-		{"do": "hold", "seconds": float(option("covered_seconds", 0.65)), "look_down": -12.0, "fidget": true},
+		{"do": "hold", "seconds": float(option("back_seconds", 0.23)), "strafe": float(option("back_strafe", 1.0)), "look_down": -10.0},
+		{"do": "hold", "seconds": float(option("covered_seconds", 1.55)), "look_down": -12.0},
 		{"do": "glance", "right": -78.0, "pitch": 4.0, "seconds": 0.35},
 		{"do": "lane", "to": LIB.bearing_of(away), "r": LIB.radius_of(away), "dir": 1, "speed": 1.0, "weave": 0.04, "period": 1.2, "timeout": 8.0,
 			"glances": [{"t": 0.0, "right": 0.0, "pitch": -2.0}, {"t": 0.9, "right": 34.0, "pitch": 6.0}, {"t": 1.3, "right": 3.0, "pitch": -1.0}]},
@@ -56,7 +58,7 @@ func before_start() -> void:
 	LIB.disarm_traps(clip.root)
 
 
-## The squeeze as he steps back behind the rock (it takes the rock), then the hand rides his sprint.
+## The squeeze on him in the open as he starts back (no lead: it lands where he stood), then the hand rides his sprint.
 func tick(_delta: float) -> void:
 	if _runner == null:
 		return
@@ -64,10 +66,10 @@ func tick(_delta: float) -> void:
 		_raise_the_hand()
 		return
 	var step: int = int(_driver.get("_index")) if _driver != null else 0
-	if not _fired and step >= STEP_BACK and LIB.bearing_of(_runner.global_position) <= float(option("hidden_by", 70.0)):
+	if not _fired and step >= STEP_BACK:
 		_fired = true
-		_hand.beats[0]["fire_at"] = elapsed() - _hand.start_at + 0.05
-		say("he steps back behind the rock: squeeze")
+		_hand.beats[0]["fire_at"] = elapsed() - _hand.start_at + float(option("react", 0.08))
+		say("he runs back for the rock: squeeze at %.1f deg" % LIB.bearing_of(_runner.global_position))
 	if _fired and not _broke and step >= STEP_TURN:
 		_broke = true
 		_hand.beats[0]["watch"] = true
@@ -88,7 +90,7 @@ func _raise_the_hand() -> void:
 	_hand.name = "ClipGuardHand"
 	clip.root.add_child(_hand)
 	_hand.install(_guard, controller(), elapsed())
-	_hand.beats.append({"body": _runner, "seconds": 100.0, "fire_at": -1.0})
+	_hand.beats.append({"body": _runner, "seconds": 100.0, "fire_at": -1.0, "lead": 0.0})
 	_hand.park = LIB.ring_point(70.6, 49.0, 1.2)
 	_hand.start_at = elapsed() + 0.2
 	say("guard at the %.0f deg window %v; the hand holds on the rock's end" % [float(option("window", 70.0)), _guard.global_position])

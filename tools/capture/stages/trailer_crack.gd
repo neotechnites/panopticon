@@ -1,12 +1,15 @@
 extends "res://tools/capture/stages/stage.gd"
 
-## trailer_crack (v4 13/14): hell S3, one take, two POVs. A runner behind the lip rock at 139
-## breaks across the open gap, the guard fires and misses, a crack throws him up out of cover.
+## trailer_crack (v4 13/14): hell S3, one take, two POVs. A runner behind the lip rock at 139 breaks across the
+## gap after his mate; the cracks throw both up over the wall, and the guard's scope goes to the man in the air.
+## v19 (Ryan): "the sniper shoots a guy behind cover, even though theres guys actually bouncing above it, his
+## focus should be there": the scope rests on the wall's top, swings onto the first man up, leads him, misses.
 ## Probe (--eye=150:5.6:5.85 --los, h 1.2): hidden 140-142.5 r 48.6-49.5 (MapBaseLip139), open
 ## 143-144.5 r 49.5-51.5, the S3 wall (+2.5 m at r 47-47.5) hides the lane from 145. Cracks are
 ## BoostPads (pads stay live): r00_c0 146.6 r 49.2 (143.9-149.3, r 46.8-51.5), r01_c1 149.8 r 52.4.
 ## Dials: hide (141.2,49.3), go (t of the break, driver s, 1.45), to (153,52.3), mate (145.3,52.4),
-## window (150), lead (1.0), squeeze (0.0 s after he clears the rock).
+## window (150), lead (1.0), park (148.6,51.0,2.6: the wall's top), react (0.1 s after the first launch),
+## squeeze (0.5 s after it), behind (1.3 m: the miss).
 
 const GUARD_HAND := preload("res://tools/capture/stages/guard_hand.gd")
 
@@ -58,21 +61,24 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 		{"do": "glance", "right": -44.0, "pitch": -7.0, "seconds": 0.32},
 		{"do": "until", "t": go, "fidget": true},
 		{"do": "run", "to": to, "within": 0.8, "timeout": 3.0, "speed": 1.0, "weave": 0.05, "period": 1.3,
+			# Eyes down the gap, then up after the mate as the crack throws him, and his own launch.
 			"glances": [
 				{"t": 0.0, "right": -6.0, "pitch": -4.0},
-				{"t": 0.22, "right": 30.0, "pitch": 7.0},
-				{"t": 0.5, "right": 4.0, "pitch": -2.0},
+				{"t": 0.2, "right": 5.0, "pitch": 9.0},
+				{"t": 0.46, "right": 3.0, "pitch": 15.0},
+				{"t": 0.74, "right": 6.0, "pitch": 6.0},
 			],
-			"strafes": [{"t": 0.1, "strafe": 0.06}, {"t": 0.6, "strafe": -0.05}],
-			"flinch_on": "miss", "flinch_side": 1.0,
-			"flinch_glances": [
-				{"t": 0.0, "right": 14.0, "pitch": 6.0},
-				{"t": 0.14, "right": 58.0, "pitch": 16.0},
-				{"t": 0.75, "right": 46.0, "pitch": 9.0},
-				{"t": 1.1, "right": 3.0, "pitch": -3.0},
-			]},
+			"strafes": [{"t": 0.1, "strafe": 0.06}, {"t": 0.6, "strafe": -0.05}]},
+		# In the air: the round crosses ahead of him; a look across at the tower, then down for the landing.
 		{"do": "lane", "to": 178.0, "r": 52.4, "speed": 0.95, "weave": 0.04, "period": 1.1, "timeout": 8.0,
-			"glances": [{"t": 0.0, "right": 2.0, "pitch": -3.0}, {"t": 0.9, "right": 22.0, "pitch": 4.0}, {"t": 1.3, "right": -3.0, "pitch": -2.0}]},
+			"glances": [{"t": 0.0, "right": 5.0, "pitch": 4.0}, {"t": 0.5, "right": 2.0, "pitch": -12.0}, {"t": 1.0, "right": -3.0, "pitch": -2.0}],
+			"flinch_on": "hit", "flinch_side": 1.0,
+			"flinch_glances": [
+				{"t": 0.0, "right": 12.0, "pitch": 5.0},
+				{"t": 0.12, "right": 44.0, "pitch": 3.0},
+				{"t": 0.5, "right": 8.0, "pitch": -12.0},
+				{"t": 0.95, "right": -2.0, "pitch": -3.0},
+			]},
 		{"do": "hold", "seconds": 60.0},
 	], 0, "ClipCrackRunner")
 	# A second man already behind the wall, off a beat ahead of him: up the lane onto the 150 crack.
@@ -99,19 +105,22 @@ func tick(_delta: float) -> void:
 	if _hand == null:
 		_raise_the_hand()
 		return
-	if not _fired and LIB.bearing_of(_runner.global_position) >= float(option("open_from", 143.3)):
-		_fired = true
-		_hand.beats[0]["fire_at"] = elapsed() - _hand.start_at + float(option("squeeze", 0.0))
-		say("he clears the rock: squeeze")
 	if OS.has_environment("STAGE_DEBUG") and Engine.get_physics_frames() % 6 == 0:
 		say("runner %.1f deg r %.2f h %.2f; mate %.1f r %.2f h %.2f" % [LIB.bearing_of(_runner.global_position), LIB.radius_of(_runner.global_position), _runner.global_position.y - LIB.DECK_Y, LIB.bearing_of(_mate.global_position), LIB.radius_of(_mate.global_position), _mate.global_position.y - LIB.DECK_Y])
 	for body: PlayerController in [_runner, _mate]:
 		if is_instance_valid(body) and body.velocity.y > 6.0 and not _launched.has(body.name):
 			_launched[body.name] = elapsed()
 			say("launch %s at %.1f deg r %.1f" % [body.name, LIB.bearing_of(body.global_position), LIB.radius_of(body.global_position)])
+			if not _fired:
+				# The first man over the wall: the scope leaves the wall for him, and the squeeze follows.
+				_fired = true
+				_hand.beats[0]["body"] = body
+				_hand.start_at = elapsed() + float(option("react", 0.1))
+				_hand.beats[0]["fire_at"] = float(option("squeeze", 0.5)) - float(option("react", 0.1))
+				say("%s is up over the wall: the scope goes to him" % body.name)
 
 
-## The guard at the 150 window, the scope resting on the rock's end; the hand rides him after the shot.
+## The guard at the 150 window, the scope resting on the wall's top; the hand rides the man in the air.
 func _raise_the_hand() -> void:
 	var shooter: TowerShooter = LIB.stand_down(seat())
 	if shooter == null or shooter.controller == null:
@@ -123,10 +132,10 @@ func _raise_the_hand() -> void:
 	_hand.name = "ClipGuardHand"
 	clip.root.add_child(_hand)
 	_hand.install(_guard, controller(), elapsed())
-	_hand.beats.append({"body": _runner, "seconds": 100.0, "fire_at": -1.0, "watch": true, "lead": float(option("lead", 1.0)), "behind": float(option("behind", 0.0))})
-	_hand.park = LIB.ring_point(143.4, 50.0, 1.2)
-	_hand.start_at = elapsed() + 0.2
-	say("guard at the %.0f deg window; the hand on the rock's end" % float(option("window", 150.0)))
+	_hand.beats.append({"body": _mate, "seconds": 100.0, "fire_at": -1.0, "watch": true, "lead": float(option("lead", 1.0)), "behind": float(option("behind", 1.3))})
+	_hand.park = LIB.polar(String(option("park", "148.6,51.0,2.6")), LIB.ring_point(148.6, 51.0, 2.6))
+	_hand.start_at = INF
+	say("guard at the %.0f deg window; the hand on the wall's top" % float(option("window", 150.0)))
 
 
 func on_hit(collider: Node3D) -> void:
