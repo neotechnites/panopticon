@@ -38,7 +38,7 @@ uniform float wave_scale = WAVE_SCALE;   // the falls' spatial frequency: 1.0 is
 uniform float flow_speed = 0.012;   // tiles per second each lava layer drifts
 uniform float layer_scale = 0.61;   // the second layer's size against the first
 uniform float downstream = 0.0;     // 1: river and falls, the tile runs in to the pit and down the falls
-uniform float stream_speed = 0.06;  // tiles per second downstream (falls run twice as fast, stretched)
+uniform float stream_speed = 0.06;  // tiles per second downstream (falls a third faster, stretched)
 varying vec3 rest_w;
 #endif
 
@@ -97,7 +97,7 @@ void fragment() {
 		float r2 = max(dot(d, d), 0.01);
 		float turn = atan(d.y, d.x) / TAU;
 		vec2 dturn = vec2(d.x * dFdx(d.y) - d.y * dFdx(d.x), d.x * dFdy(d.y) - d.y * dFdy(d.x)) / (r2 * TAU);
-		float s = (sqrt(r2) + 0.5 * rest_w.y) / 5.0;
+		float s = (sqrt(r2) + 0.75 * rest_w.y) / 5.0;
 		vec2 ds = vec2(dFdx(s), dFdy(s));
 		ua = vec2(turn * 65.0, s + stream_speed * TIME);
 		ub = vec2(turn * 40.0 + 0.37, s * layer_scale + stream_speed * 0.7 * TIME);
