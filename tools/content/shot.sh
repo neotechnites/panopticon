@@ -76,13 +76,10 @@ if [ "${ASPECT}" = 9:16 ]; then
 else
   MASTER="scale=${SIZE%%x*}:${SIZE##*x}"; GATE_SCALE="scale=160:90"
 fi
-# A movie take is MJPEG: full-range BT.601; a rough take is recorded limited BT.709.
-# Players read untagged or full-range H.264 as limited and blow it out, so every
-# master is converted to limited BT.709 and tagged.
 # The screen is 2560x1440: a portrait frame does not fit it, so a short films --movie.
 [ "${MODE}" = rough ] && [ "${SIZE##*x}" -gt 1440 ] && MODE=movie
-if [ "${MODE}" = rough ]; then TAKE_EXT=mkv; IN_SPEC="in_range=tv:in_color_matrix=bt709"
-else TAKE_EXT=avi; IN_SPEC="in_range=pc:in_color_matrix=bt601"; fi
+# Both modes leave a lossless RGB take: rough records it, movie packs Movie Maker's PNG frames.
+TAKE_EXT=mkv; IN_SPEC="in_range=pc"
 # The cut is lossless RGB (no generation loss): the take is decoded by its own tags.
 MASTER="${MASTER}:flags=lanczos,format=rgb24"
 VLOSSLESS="-c:v libx264rgb -preset veryfast -qp 0"
@@ -117,7 +114,12 @@ take() {  # take <tag> <seed> <seconds>
   if [ "${MODE}" = rough ]; then
     pc_rough "--script res://tools/capture/run_clip.gd -- ${args} --seconds=${secs} --sync=90" "${log}" "${avi}" | sed 's/^/  | /'
   else
-    pc_godot "--script res://tools/capture/run_clip.gd --write-movie ${avi} --fixed-fps ${FPS} --resolution ${SIZE} -- ${args} --seconds=${secs}" "${log}" | sed 's/^/  | /'
+    local frames="${DIR}\\takes\\${tag}_f"
+    pc_godot "--script res://tools/capture/run_clip.gd --write-movie ${frames}.png --fixed-fps ${FPS} --resolution ${SIZE} -- ${args} --seconds=${secs}" "${log}" | sed 's/^/  | /'
+    pc <<EOF
+ffmpeg -hide_banner -loglevel error -y -framerate ${FPS} -i '${frames}%08d.png' -i '${frames}.wav' -vf format=gbrp -c:v utvideo -c:a pcm_s16le '${avi}'
+Remove-Item '${frames}*.png', '${frames}.wav' -ErrorAction SilentlyContinue
+EOF
   fi
   echo "  take ${tag}: godot $(since "$t0")" >&2
   t0=$(now_ms)
