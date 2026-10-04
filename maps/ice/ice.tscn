@@ -1,0 +1,191 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/match/kill_volume.gd" id="1_kill_volume"]
+[ext_resource type="Script" path="res://scripts/ring/tower_light.gd" id="3_tower_light"]
+[ext_resource type="Resource" path="res://maps/ice/ice_tower_light_profile.tres" id="4_tower_light_profile"]
+[ext_resource type="Script" path="res://scripts/ring/ring_route.gd" id="5_ring_route"]
+[ext_resource type="Script" path="res://scripts/ring/ring_level.gd" id="6_ring_level"]
+[ext_resource type="Script" path="res://scripts/ring/tower_variant.gd" id="8c_tower_variant"]
+[ext_resource type="PackedScene" path="res://maps/ice/models/ice_tower.glb" id="8_tower_model"]
+[ext_resource type="PackedScene" path="res://maps/ice/models/ice_ground.glb" id="10_ground"]
+[ext_resource type="PackedScene" path="res://maps/ice/models/ice_wall.glb" id="11_wall"]
+[ext_resource type="PackedScene" path="res://maps/ice/models/ice_gate.glb" id="12_gate"]
+[ext_resource type="PackedScene" path="res://maps/ice/models/ice_roof.glb" id="13_roof"]
+[ext_resource type="Shader" path="res://maps/ice/materials/ice_roof.gdshader" id="14_roof_shader"]
+[ext_resource type="Texture2D" path="res://maps/ice/textures/ice_roof_albedo.png" id="15_roof_tile"]
+[ext_resource type="Texture2D" path="res://maps/ice/textures/ice_snow_albedo.png" id="16_snow_tile"]
+[ext_resource type="PackedScene" path="res://maps/ice/props/ice_portal.tscn" id="19_portal"]
+[ext_resource type="PackedScene" path="res://maps/ice/props/ice_ray.tscn" id="20_ray"]
+
+[sub_resource type="Environment" id="Env"]
+background_mode = 1
+background_color = Color(0.62, 0.78, 0.9, 1)
+ambient_light_source = 2
+ambient_light_color = Color(0.66, 0.8, 1, 1)
+ambient_light_energy = 0.7
+tonemap_mode = 1
+fog_enabled = true
+fog_light_color = Color(0.5, 0.7, 0.88, 1)
+fog_light_energy = 0.8
+fog_density = 0.003
+fog_height = 6.0
+fog_height_density = 0.06
+
+[sub_resource type="ShaderMaterial" id="RoofMat"]
+shader = ExtResource("14_roof_shader")
+shader_parameter/albedo_texture = ExtResource("15_roof_tile")
+shader_parameter/glow = 3.4
+shader_parameter/graze_opacity = 0.35
+shader_parameter/graze_tint = Color(0.55, 0.78, 0.95, 1)
+
+[sub_resource type="StandardMaterial3D" id="ShellMat"]
+shading_mode = 0
+vertex_color_use_as_albedo = true
+albedo_texture = ExtResource("16_snow_tile")
+disable_fog = true
+
+[node name="Ice" type="Node3D"]
+editor_description = "Map 4, the ice chamber: one sculpt in four chunks (ground, wall, gate, roof) at identity. Notes in docs/maps/ice.md."
+
+[node name="Environment" type="Node3D" parent="."]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="Environment"]
+environment = SubResource("Env")
+
+[node name="Sun" type="DirectionalLight3D" parent="Environment"]
+editor_description = "Cold daylight through the roof from bearing 150, 62 deg up."
+transform = Transform3D(0.5, 0.764655, -0.406574, 0, 0.469472, 0.882948, 0.866025, -0.441474, 0.234736, 0, 70, 0)
+light_color = Color(0.92, 0.97, 1, 1)
+light_energy = 0.55
+light_specular = 0.6
+shadow_enabled = true
+shadow_bias = 0.06
+shadow_blur = 3.0
+directional_shadow_mode = 0
+directional_shadow_max_distance = 200.0
+
+[node name="MapBase" type="Node3D" parent="."]
+
+[node name="Ground" parent="MapBase" instance=ExtResource("10_ground")]
+
+[node name="Wall" parent="MapBase" instance=ExtResource("11_wall")]
+
+[node name="Gate" parent="MapBase" instance=ExtResource("12_gate")]
+editor_description = "The ridge across the lane at 353 deg, between the finish (345) and the start (5)."
+
+[node name="Roof" parent="MapBase" instance=ExtResource("13_roof")]
+
+[node name="IceRoof" parent="MapBase/Roof" index="0"]
+cast_shadow = 0
+surface_material_override/0 = SubResource("RoofMat")
+
+[node name="IceRoofOuter" parent="MapBase/Roof" index="3"]
+cast_shadow = 0
+surface_material_override/0 = SubResource("ShellMat")
+
+[node name="KillBox" type="Area3D" parent="."]
+editor_description = "Map 1's kill box: roof at y -8, 34 m deep, r 62."
+collision_layer = 0
+collision_mask = 1048577
+monitorable = false
+script = ExtResource("1_kill_volume")
+radius_metres = 62.0
+roof_depth_metres = 8.0
+depth_metres = 34.0
+
+[node name="Shape" type="CollisionShape3D" parent="KillBox"]
+
+[node name="StartEnd" type="Node3D" parent="."]
+
+[node name="PrisonerStart" type="Marker3D" parent="StartEnd"]
+transform = Transform3D(-0.996195, 0, 0.0871557, 0, 1, 0, -0.0871557, 0, -0.996195, 51.8021, 23, 4.5321)
+
+[node name="PrisonerEnd" type="Marker3D" parent="StartEnd"]
+transform = Transform3D(0.965926, 0, 0.258819, 0, 1, 0, -0.258819, 0, 0.965926, 50.2281, 23, -13.4586)
+
+[node name="Portal" parent="StartEnd" instance=ExtResource("19_portal")]
+transform = Transform3D(0.965926, 0, 0.258819, 0, 1, 0, -0.258819, 0, 0.965926, 50.2281, 23, -13.4586)
+
+[node name="Sections" type="Node3D" parent="."]
+
+[node name="Watch" type="Node3D" parent="Sections"]
+editor_description = "Where the AI guard's scan rests: map 1's three points round the lane."
+
+[node name="Lane102" type="Marker3D" parent="Sections/Watch" groups=["guard_watch"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -10.4, 24, 48.9)
+
+[node name="Lane242" type="Marker3D" parent="Sections/Watch" groups=["guard_watch"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -25.2, 24, -47.5)
+
+[node name="Lane315" type="Marker3D" parent="Sections/Watch" groups=["guard_watch"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 38.2, 24, -38.2)
+
+[node name="LightStreaks" type="Node3D" parent="."]
+editor_description = "Shafts of daylight under the roof's thinnest cells (maps/ice/props/ice_ray.tscn): move, rotate and scale each freely."
+
+[node name="Streak01" parent="LightStreaks" instance=ExtResource("20_ray")]
+transform = Transform3D(2.0689, -32.16, 0.22363, 0.95267, 69.841, -0.48564, -0, 18.568, 2.2141, 10.268, 59.749, 3.7373)
+
+[node name="Streak02" parent="LightStreaks" instance=ExtResource("20_ray")]
+transform = Transform3D(1.6386, -33.99, 0.17711, 0.75451, 73.814, -0.38463, -0, 19.624, 1.7535, -1.8931, 62.197, -5.2013)
+
+[node name="Streak03" parent="LightStreaks" instance=ExtResource("20_ray")]
+transform = Transform3D(1.7709, -32.973, 0.19142, 0.81545, 71.607, -0.41569, -0, 19.037, 1.8951, -1.9087, 59.995, 10.825)
+
+[node name="Streak04" parent="LightStreaks" instance=ExtResource("20_ray")]
+transform = Transform3D(1.6817, -32.973, 0.18177, 0.77438, 71.607, -0.39476, -0, 19.037, 1.7997, -14.412, 59.886, -8.321)
+
+[node name="Streak05" parent="LightStreaks" instance=ExtResource("20_ray")]
+transform = Transform3D(2.0526, -30.737, 0.22186, 0.94516, 66.751, -0.48181, -0, 17.746, 2.1966, -27.405, 55.007, -18.684)
+
+[node name="Streak06" parent="LightStreaks" instance=ExtResource("20_ray")]
+transform = Transform3D(1.6834, -29.924, 0.18195, 0.77514, 64.985, -0.39514, -0, 17.277, 1.8015, -22.219, 53.274, 32.274)
+
+[node name="Streak07" parent="LightStreaks" instance=ExtResource("20_ray")]
+transform = Transform3D(1.7149, -29.314, 0.18536, 0.78967, 63.661, -0.40255, -0, 16.924, 1.8352, -38.441, 52.013, -6.7782)
+
+[node name="Streak08" parent="LightStreaks" instance=ExtResource("20_ray")]
+transform = Transform3D(2.1038, -14.474, 0.2274, 0.96875, 31.433, -0.49384, -0, 8.3566, 2.2514, 34.7, 53.563, -18.592)
+
+[node name="Streak09" parent="LightStreaks" instance=ExtResource("20_ray")]
+transform = Transform3D(1.9346, -14.474, 0.20911, 0.89084, 31.433, -0.45413, -0, 8.3566, 2.0704, -2.4686, 53.566, -38.844)
+
+[node name="Route" type="Node3D" parent="."]
+script = ExtResource("5_ring_route")
+
+[node name="Level1" type="Node3D" parent="Route"]
+editor_description = "One lap, as map 1: lane y 23.0, r 46.7..57.3, lane r 52, 5 deg to 335 deg."
+script = ExtResource("6_ring_level")
+deck_height = 23.0
+inner_radius = 46.7
+outer_radius = 57.3
+lane_radius = 52.0
+entry_angle_degrees = 5.0
+exit_angle_degrees = 335.0
+
+[node name="Tower" type="Node3D" parent="."]
+editor_description = "The ice tower; origin the guard-room datum at y 25.35, as map 1. Both variant slots hold it."
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 25.35, 0)
+script = ExtResource("8c_tower_variant")
+
+[node name="Rock" parent="Tower" instance=ExtResource("8_tower_model")]
+visible = false
+
+[node name="RockArches" parent="Tower" instance=ExtResource("8_tower_model")]
+
+[node name="TowerSpawn" type="Marker3D" parent="Tower"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.95, 0)
+
+[node name="TowerLight" type="OmniLight3D" parent="Tower"]
+editor_description = "The chamber's cold glow; every number is ice_tower_light_profile.tres'."
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5.6, 0)
+light_color = Color(0.72, 0.9, 1, 1)
+light_energy = 2.4
+light_specular = 0.0
+shadow_enabled = false
+omni_range = 44.0
+omni_attenuation = 0.8
+script = ExtResource("3_tower_light")
+profile = ExtResource("4_tower_light_profile")
+
+[editable path="MapBase/Roof"]

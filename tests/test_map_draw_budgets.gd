@@ -199,6 +199,12 @@ const DRAW_BUDGETS: Dictionary = {
 		"tris": 299778, "surfaces": 183, "materials": 33,
 		"transparent_tris": 6264, "lights": 3, "shadow_casters": 1,
 	},
+	# Map 4, the ice cavern (2026-10-03): counted off the built glbs and the scene (63004 tris, 37 surfaces,
+	# 29 materials, 5863 transparent: roof, swirl, shafts) + 20 %, not yet measured on this suite.
+	"ice": {
+		"tris": 75605, "surfaces": 45, "materials": 35,
+		"transparent_tris": 7036, "lights": 4, "shadow_casters": 1,
+	},
 }
 
 ## The keys every row carries, in the order the [code]BUDGET[/code] line prints

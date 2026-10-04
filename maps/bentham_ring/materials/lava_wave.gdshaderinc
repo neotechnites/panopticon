@@ -1,8 +1,11 @@
 // Every lava surface on map 1 (sea, river, falls, S3 cracks), waving. Offsets are a function of
 // position only (world xyz, and UV2.x baked per position: 0 on every lava edge), so faces stay welded.
 
-uniform sampler2D albedo_texture : source_color, filter_nearest_mipmap_anisotropic, repeat_enable;
-uniform sampler2D emission_texture : source_color, filter_nearest_mipmap_anisotropic, repeat_enable;
+#ifndef WAVE_FILTER
+#define WAVE_FILTER filter_nearest_mipmap_anisotropic
+#endif
+uniform sampler2D albedo_texture : source_color, WAVE_FILTER, repeat_enable;
+uniform sampler2D emission_texture : source_color, WAVE_FILTER, repeat_enable;
 uniform vec4 albedo_color : source_color = vec4(1.0);
 uniform vec4 emission_color : source_color = vec4(1.0);
 uniform float emission_energy = 1.4;

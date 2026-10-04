@@ -83,6 +83,19 @@ slice is placed nearest-upscaled (chunkier, same UVs and density), each locked t
 | marble_dark_albedo | near-black stone with an iron column | cell interiors, iron bars |
 | marble_field_albedo | olive camouflage flagstones | the field floor |
 
+### Ice: `maps/ice/textures/` (`ice.ase`)
+
+| Texture | Looks like | Worn by |
+|---|---|---|
+| ice_blue_albedo | faceted blue ice: overlapping bevelled shards, hairline fractures, bubbles | every wall, the pit's upper faces, the gate, the tower, the portal |
+| ice_deep_albedo | the same shards in dark blue | the wall's head, cell reveals and bars, the pit's depths and floor |
+| ice_lake_albedo | pale frosted plates parted by dark leads, star cracks | the lane |
+| ice_snow_albedo | wind-packed snow, long drift lenses | drifts, cell sills, cornices, the bright shell over the roof |
+| ice_roof_albedo | scalloped ice-cave ceiling, a rime crescent on each cup's lip | the roof |
+| ice_icicle_albedo | an icicle curtain, mirrored: the top half hangs rail to tips | icicles |
+| ice_glow_albedo | pale cyan-white light, a 32 px tile | the cells' light (albedo and glow) |
+| ice_portal_swirl_albedo | blue spiral on black | the portal's swirl |
+
 ### Hub: `hub/textures/` (`hub.ase`)
 
 | Texture | Looks like | Worn by |
@@ -128,23 +141,26 @@ The game multiplies the texture by this colour (linear RGB). The recoloured look
 | maps/forest/textures/forest_bark_albedo.png | (1, 0.889, 0.801) | forest.glb: forest_root; forest_bars.glb: forest_root |
 | maps/forest/textures/forest_bark_albedo.png | (1, 0.9, 0.81) | forest_thorns.glb: ForestThorns_root; forest_tree.glb: ForestTree_root |
 | maps/forest/textures/forest_grass_albedo.png | (0.352, 0.402, 0.841) | forest.glb: forest_edge |
-| maps/forest/textures/forest_grass_albedo.png | (1, 0.846, 1) | forest.glb: forest_verge |
 | maps/forest/textures/forest_path_albedo.png | (0.262, 0.211, 0.475) | forest.glb: forest_earth |
 | maps/forest/textures/forest_rock_albedo.png | (0.0144, 0.0135, 0.015) | hub_base.glb: ForestDark; forest.glb: forest_cell; forest.glb: forest_lamp |
 | maps/forest/textures/forest_rock_albedo.png | (0.191, 0.359, 0.135) | forest_rock_boulder.glb: ForestGranite_moss; forest_rock_outcrop.glb: ForestGranite_moss; forest_rock_slab.glb: ForestGranite_moss |
 | maps/forest/textures/forest_rock_albedo.png | (0.416, 0.44, 0.501) | forest_rock_boulder.glb: ForestGranite_shade; forest_rock_outcrop.glb: ForestGranite_shade; forest_rock_slab.glb: ForestGranite_shade |
 | maps/forest/textures/forest_rock_albedo.png | (0.936, 0.961, 0.898) | forest_rock_boulder.glb: ForestGranite_lichen; forest_rock_outcrop.glb: ForestGranite_lichen; forest_rock_slab.glb: ForestGranite_lichen |
-| maps/forest/textures/forest_sun_albedo.png | (0.0673, 0.0699, 0.249) | forest_bush_low.glb: ForestBush_shade; forest_bush_tall.glb: ForestBush_shade; forest_thorns.glb: ForestThorns_shade; forest_tree.glb: ForestTree_shade |
-| maps/forest/textures/forest_sun_albedo.png | (0.151, 0.194, 0.53) | forest.glb: forest_shade |
-| maps/forest/textures/forest_sun_albedo.png | (0.22, 0.333, 0.568) | hub_base.glb: ForestFern; forest.glb: forest_fern |
-| maps/forest/textures/forest_sun_albedo.png | (0.249, 0.279, 0.554) | hub_base.glb: ForestLeaf; forest.glb: forest_leaf; forest_bars.glb: forest_leaf |
-| maps/forest/textures/forest_sun_albedo.png | (0.273, 0.303, 0.576) | forest_bush_low.glb: ForestBush_leaf; forest_bush_tall.glb: ForestBush_leaf; forest_canopy.glb: ForestCanopy_leaf; forest_portal.glb: ForestPortal_leaf; forest_tree.glb: ForestTree_leaf; forest_tree_prop_a.glb: ForestTreeProp_leaf; forest_tree_prop_b.glb: ForestTreeProp_leaf; forest_tree_prop_c.glb: ForestTreeProp_leaf |
-| maps/marble/textures/marble_stone_albedo.png | (0.227, 0.255, 0.315) | hub_base.glb: Marble_shade; marble_arch.glb: Marble_shade; marble_bars.glb: marble_bars_shade; marble_column.glb: Marble_shade; marble_column_broken.glb: Marble_shade; marble_portal.glb: Marble_shade; marble_spikes.glb: MarbleSpikes_shade; marble_spikes_strip.glb: MarbleSpikes_shade |
+| maps/forest/textures/forest_sun_albedo.png | (0.0673, 0.0699, 0.249) | forest_thorns.glb: ForestThorns_shade |
+| maps/forest/textures/forest_sun_albedo.png | (0.22, 0.333, 0.568) | hub_base.glb: ForestFern |
+| maps/forest/textures/forest_sun_albedo.png | (0.249, 0.279, 0.554) | hub_base.glb: ForestLeaf |
+| maps/forest/textures/forest_sun_albedo.png | (0.273, 0.303, 0.576) | forest_portal.glb: ForestPortal_leaf |
+| maps/forest/textures/forest_sun_albedo.png | (0.6, 0.6, 0.6) | forest.glb: forest_shade; forest_bush_low.glb: ForestBush_shade; forest_bush_tall.glb: ForestBush_shade; forest_tree.glb: ForestTree_shade |
+| maps/ice/textures/ice_blue_albedo.png | (0.58, 0.74, 0.96) | ice_gate.glb: ice_blue; ice_ground.glb: ice_blue; ice_wall.glb: ice_blue |
+| maps/ice/textures/ice_deep_albedo.png | (0.6, 0.7, 0.86) | ice_ground.glb: ice_floor |
+| maps/ice/textures/ice_lake_albedo.png | (0.55, 0.72, 0.92) | ice_ground.glb: ice_lane |
+| maps/ice/textures/ice_snow_albedo.png | (0.8, 0.88, 0.97) | ice_gate.glb: ice_snow; ice_ground.glb: ice_snow; ice_wall.glb: ice_snow |
+| maps/marble/textures/marble_stone_albedo.png | (0.227, 0.255, 0.315) | hub_base.glb: Marble_shade; marble_arch.glb: Marble_shade; marble_bars.glb: marble_bars_shade; marble_column.glb: Marble_shade; marble_column_broken.glb: Marble_shade; marble_spikes.glb: MarbleSpikes_shade; marble_spikes_strip.glb: MarbleSpikes_shade |
 | maps/marble/textures/marble_stone_albedo.png | (0.673, 0.549, 0.492) | marble_tower.glb: marble_tower_dome; marble_tower.glb: marble_tower_stone |
 | maps/marble/textures/marble_stone_albedo.png | (0.794, 0.792, 0.815) | hub_base.glb: Marble_marble2; marble_arch.glb: Marble_marble2; marble_bars.glb: marble_bars_marble2; marble_portal.glb: Marble_marble2; marble_tower.glb: marble_tower_marble2 |
 | maps/marble/textures/marble_stone_albedo.png | (0.811, 0.809, 0.837) | marble.glb: marble_plinth |
 | maps/marble/textures/marble_stone_albedo.png | (0.829, 0.829, 0.862) | hub_base.glb: Marble_plinth; marble_arch.glb: Marble_plinth; marble_bars.glb: marble_bars_plinth; marble_column.glb: Marble_plinth; marble_column_broken.glb: Marble_plinth; marble_portal.glb: Marble_plinth; marble_spikes.glb: MarbleSpikes_plinth; marble_spikes_strip.glb: MarbleSpikes_plinth; marble_tower.glb: marble_tower_plinth |
-| maps/marble/textures/marble_stone_albedo.png | (0.85, 0.85, 0.85) | marble.glb: marble_shade; marble_tower.glb: marble_tower_shade |
+| maps/marble/textures/marble_stone_albedo.png | (0.85, 0.85, 0.85) | marble.glb: marble_shade; marble_portal.glb: Marble_shade; marble_tower.glb: marble_tower_shade |
 
 ## Recolours: one texture, a colour painted per vertex (COLOR_0)
 
@@ -162,15 +178,37 @@ Up to four commonest colours and the share of vertices wearing each; many colour
 | maps/bentham_ring/models/rock_wall.glb | HellRock | hell_rock_albedo.png | 1: (1, 0.47, 0.42) 100% |
 | maps/bentham_ring/models/slab.glb | HellRock | hell_rock_albedo.png | 1: (1, 0.47, 0.42) 100% |
 | maps/bentham_ring/models/spire.glb | HellRock | hell_rock_albedo.png | 2: (1, 0.47, 0.42) 90%, (0.12, 0.08, 0.13) 9% |
-| maps/forest/models/forest.glb | forest_bark | forest_bark_albedo.png | 19: (1, 1, 1) 74%, (0.56, 0.56, 0.56) 3%, (0.99, 0.99, 0.99) 2%, (0.97, 0.97, 0.97) 2% |
-| maps/forest/models/forest.glb | forest_cell | forest_rock_albedo.png | 26: (1, 1, 1) 62%, (0.56, 0.56, 0.56) 7%, (0.96, 0.96, 0.96) 3%, (0.98, 0.98, 0.98) 2% |
-| maps/forest/models/forest.glb | forest_edge | forest_grass_albedo.png | 7: (1, 1, 1) 80%, (0.85, 0.85, 0.85) 6%, (0.62, 0.62, 0.62) 5%, (0.63, 0.63, 0.63) 3% |
-| maps/forest/models/forest.glb | forest_lamp | forest_rock_albedo.png | 28: (1, 1, 1) 65%, (0.56, 0.56, 0.56) 5%, (0.85, 0.85, 0.85) 3%, (0.62, 0.62, 0.62) 3% |
-| maps/forest/models/forest.glb | forest_leaf | forest_sun_albedo.png | 28: (1, 1, 1) 46%, (0.56, 0.56, 0.56) 10%, (0.9, 0.9, 0.9) 5%, (0.67, 0.67, 0.67) 4% |
-| maps/forest/models/forest.glb | forest_shade | forest_sun_albedo.png | 4: (1, 1, 1) 91%, (0.93, 0.93, 0.93) 4%, (0.9, 0.9, 0.9) 3%, (0.99, 0.99, 0.99) 0% |
-| maps/forest/models/forest.glb | forest_sun | forest_sun_albedo.png | 9: (1, 1, 1) 81%, (0.9, 0.9, 0.9) 5%, (0.93, 0.93, 0.93) 5%, (0.99, 0.99, 0.99) 4% |
-| maps/forest/models/forest_tree.glb | ForestTree_leaf | forest_sun_albedo.png | 17: (1, 1, 1) 48%, (1.11, 1.11, 1.11) 7%, (1.08, 1.08, 1.08) 6%, (1.05, 1.05, 1.05) 6% |
-| maps/forest/models/forest_tree.glb | ForestTree_sun | forest_sun_albedo.png | 8: (1, 1, 1) 81%, (0.75, 0.78, 0.86) 3%, (0.65, 0.69, 0.8) 3%, (0.92, 0.93, 0.95) 2% |
+| maps/forest/models/forest.glb | forest_bark | forest_bark_albedo.png | 14: (1, 1, 1) 74%, (0.97, 0.97, 0.97) 4%, (0.95, 0.95, 0.95) 3%, (0.85, 0.85, 0.85) 3% |
+| maps/forest/models/forest.glb | forest_cell | forest_rock_albedo.png | 15: (1, 1, 1) 62%, (0.97, 0.97, 0.97) 7%, (0.85, 0.85, 0.85) 5%, (0.98, 0.98, 0.98) 5% |
+| maps/forest/models/forest.glb | forest_edge | forest_grass_albedo.png | 5: (1, 1, 1) 81%, (0.88, 0.88, 0.88) 8%, (0.95, 0.95, 0.95) 5%, (0.96, 0.96, 0.96) 3% |
+| maps/forest/models/forest.glb | forest_lamp | forest_rock_albedo.png | 15: (1, 1, 1) 65%, (0.88, 0.88, 0.88) 4%, (0.96, 0.96, 0.96) 4%, (0.93, 0.93, 0.93) 3% |
+| maps/forest/models/forest.glb | forest_leaf | forest_sun_albedo.png | 14: (1, 1, 1) 47%, (0.85, 0.85, 0.85) 8%, (0.9, 0.9, 0.9) 6%, (0.86, 0.86, 0.86) 5% |
+| maps/forest/models/forest.glb | forest_shade | forest_sun_albedo.png | 3: (1, 1, 1) 91%, (0.93, 0.93, 0.93) 4%, (0.9, 0.9, 0.9) 3% |
+| maps/forest/models/forest.glb | forest_sun | forest_sun_albedo.png | 8: (1, 1, 1) 86%, (0.9, 0.9, 0.9) 5%, (0.93, 0.93, 0.93) 5%, (0.92, 0.92, 0.92) 1% |
+| maps/forest/models/forest_tree.glb | ForestTree_leaf | forest_sun_albedo.png | 9: (1, 1, 1) 31%, (1.15, 1.15, 1.15) 20%, (1.14, 1.14, 1.14) 7%, (1.05, 1.05, 1.05) 7% |
+| maps/forest/models/forest_tree.glb | ForestTree_under | forest_sun_albedo.png | 626: (0.85, 0.85, 0.85) 3%, (0.6, 0.6, 0.6) 2%, (0.87, 0.84, 0.79) 1%, (0.65, 0.61, 0.54) 1% |
+| maps/ice/models/ice_gate.glb | ice_blue | ice_blue_albedo.png | 101: (0.8, 0.86, 0.89) 4%, (0.75, 0.81, 0.84) 3%, (0.76, 0.82, 0.84) 3%, (0.81, 0.87, 0.9) 3% |
+| maps/ice/models/ice_gate.glb | ice_deep | ice_deep_albedo.png | 42: (0.88, 0.95, 0.98) 6%, (0.71, 0.77, 0.79) 6%, (0.87, 0.94, 0.97) 5%, (0.72, 0.77, 0.8) 5% |
+| maps/ice/models/ice_gate.glb | ice_snow | ice_snow_albedo.png | 70: (0.72, 0.78, 0.8) 6%, (0.8, 0.86, 0.89) 5%, (0.67, 0.72, 0.74) 4%, (0.65, 0.7, 0.72) 4% |
+| maps/ice/models/ice_ground.glb | ice_blue | ice_blue_albedo.png | 169: (0.56, 0.59, 0.61) 4%, (0.59, 0.62, 0.64) 4%, (0.55, 0.58, 0.6) 3%, (0.58, 0.61, 0.63) 3% |
+| maps/ice/models/ice_ground.glb | ice_deep | ice_deep_albedo.png | 164: (0.5, 0.64, 0.84) 6%, (0.72, 0.8, 0.9) 6%, (0.42, 0.46, 0.5) 4%, (0.32, 0.34, 0.35) 3% |
+| maps/ice/models/ice_ground.glb | ice_floor | ice_deep_albedo.png | 2: (0.4, 0.44, 0.5) 85%, (0.42, 0.46, 0.5) 14% |
+| maps/ice/models/ice_ground.glb | ice_glow | ice_glow_albedo.png | 20: (0.72, 0.8, 0.9) 50%, (1, 1, 1) 12%, (0.83, 0.88, 0.94) 10%, (0.99, 0.99, 1) 6% |
+| maps/ice/models/ice_ground.glb | ice_icicle | ice_icicle_albedo.png | 93: (0.92, 0.98, 1) 33%, (0.59, 0.62, 0.64) 3%, (0.56, 0.59, 0.61) 3%, (0.6, 0.63, 0.65) 3% |
+| maps/ice/models/ice_ground.glb | ice_lane | ice_lake_albedo.png | 479: (0.68, 0.68, 0.68) 7%, (0.67, 0.67, 0.67) 7%, (0.66, 0.66, 0.66) 6%, (0.69, 0.69, 0.69) 6% |
+| maps/ice/models/ice_ground.glb | ice_snow | ice_snow_albedo.png | 266: (0.72, 0.8, 0.9) 14%, (0.54, 0.57, 0.59) 4%, (0.55, 0.58, 0.6) 3%, (0.59, 0.62, 0.64) 2% |
+| maps/ice/models/ice_roof.glb | ice_roof | ice_roof_albedo.png | 200: (0.07, 0.2, 0.4) 7%, (0.05, 0.16, 0.34) 7%, (0.43, 0.54, 0.64) 4%, (0.1, 0.21, 0.38) 4% |
+| maps/ice/models/ice_roof.glb | ice_icicle | ice_icicle_albedo.png | 63: (0.92, 0.98, 1) 33%, (0.05, 0.16, 0.34) 32%, (0.08, 0.19, 0.36) 2%, (0.09, 0.2, 0.37) 2% |
+| maps/ice/models/ice_roof.glb | ice_sky | ice_snow_albedo.png | 130: (0.82, 0.95, 1) 5%, (0.37, 0.51, 0.7) 2%, (0.4, 0.54, 0.72) 2%, (0.36, 0.5, 0.69) 2% |
+| maps/ice/models/ice_tower.glb | IceTower_blue | ice_blue_albedo.png | 422: (0.88, 0.97, 1) 19%, (0.93, 1, 1) 12%, (0.3, 0.44, 0.8) 4%, (0.72, 0.8, 0.82) 2% |
+| maps/ice/models/ice_tower.glb | IceTower_deep | ice_deep_albedo.png | 200: (0.7, 0.8, 0.98) 33%, (0.93, 1, 1) 31%, (0.3, 0.44, 0.8) 10%, (0.62, 0.72, 0.9) 10% |
+| maps/ice/models/ice_tower.glb | IceTower_floor | ice_blue_albedo.png | 2: (0.8, 0.9, 1) 66%, (0.7, 0.8, 0.98) 33% |
+| maps/ice/models/ice_tower.glb | IceTower_icicle | ice_icicle_albedo.png | 24: (0.95, 1, 1) 33%, (0.62, 0.72, 0.9) 31%, (0.93, 1, 1) 29%, (0.9, 0.99, 1) 2% |
+| maps/ice/models/ice_wall.glb | ice_blue | ice_blue_albedo.png | 713: (0.82, 0.88, 0.91) 1%, (0.62, 0.67, 0.69) 1%, (0.66, 0.71, 0.73) 1%, (0.61, 0.66, 0.68) 1% |
+| maps/ice/models/ice_wall.glb | ice_deep | ice_deep_albedo.png | 544: (0.5, 0.64, 0.84) 17%, (0.72, 0.8, 0.9) 16%, (1, 1, 1) 6%, (0.07, 0.2, 0.4) 4% |
+| maps/ice/models/ice_wall.glb | ice_glow | ice_glow_albedo.png | 20: (0.72, 0.8, 0.9) 50%, (0.83, 0.88, 0.94) 12%, (1, 1, 1) 11%, (0.99, 0.99, 1) 4% |
+| maps/ice/models/ice_wall.glb | ice_icicle | ice_icicle_albedo.png | 522: (0.92, 0.98, 1) 33%, (0.6, 0.66, 0.7) 0%, (0.64, 0.69, 0.71) 0%, (0.75, 0.81, 0.84) 0% |
+| maps/ice/models/ice_wall.glb | ice_snow | ice_snow_albedo.png | 283: (0.72, 0.8, 0.9) 32%, (0.82, 0.88, 0.91) 1%, (0.8, 0.86, 0.89) 1%, (0.68, 0.68, 0.68) 1% |
 | tower/models/tower.glb | HellRock | hell_rock_albedo.png | 4: (1, 0.47, 0.42) 51%, (0.12, 0.08, 0.13) 44%, (0.64, 1, 1) 3%, (0.04, 0.03, 0.04) 0% |
 | tower/models/tower2.glb | HellRock | hell_rock_albedo.png | 4: (1, 0.47, 0.42) 43%, (0.12, 0.08, 0.13) 39%, (0.64, 1, 1) 15%, (0.04, 0.03, 0.04) 1% |
 | tower/models/tower_arches.glb | HellRock | hell_rock_albedo.png | 4: (1, 0.47, 0.42) 79%, (0.12, 0.08, 0.13) 18%, (0.64, 1, 1) 2%, (0.04, 0.03, 0.04) 0% |
@@ -184,8 +222,6 @@ Up to four commonest colours and the share of vertices wearing each; many colour
 | characters/models/runner.glb | runner_body | (0.3, 0.312, 0.33) |
 | maps/forest/models/forest.glb | ForestFogMat | (0, 0, 0) |
 | maps/forest/models/forest.glb | forest_stem | (1, 1, 1) |
-| maps/forest/models/forest.glb | ForestRaysSoftMat | (0, 0, 0) |
-| maps/forest/models/forest.glb | ForestRaysSolidMat | (0, 0, 0) |
 | tower/models/eye.glb | M_Iris | (0.6, 0.01, 0.008) |
 | tower/models/eye.glb | M_Pupil | (0.006, 0.004, 0.006) |
 | tower/models/eye.glb | M_Sclera | (0.03, 0.03, 0.038) |
@@ -272,31 +308,29 @@ Up to four commonest colours and the share of vertices wearing each; many colour
 | maps/forest/models/forest.glb | forest_cell | maps/forest/textures/forest_rock_albedo.png | forest.ase / forest_rock_albedo | (0.0144, 0.0135, 0.015) | - |
 | maps/forest/models/forest.glb | forest_earth | maps/forest/textures/forest_path_albedo.png | forest.ase / forest_path_albedo | (0.262, 0.211, 0.475) | - |
 | maps/forest/models/forest.glb | forest_edge | maps/forest/textures/forest_grass_albedo.png | forest.ase / forest_grass_albedo | (0.352, 0.402, 0.841) | - |
-| maps/forest/models/forest.glb | forest_fern | maps/forest/textures/forest_sun_albedo.png | forest.ase / forest_sun_albedo | (0.22, 0.333, 0.568) | - |
+| maps/forest/models/forest.glb | forest_fern | maps/forest/textures/forest_sun_albedo.png | forest.ase / forest_sun_albedo | - | - |
 | maps/forest/models/forest.glb | forest_grass | maps/forest/textures/forest_grass_albedo.png | forest.ase / forest_grass_albedo | - | - |
 | maps/forest/models/forest.glb | forest_lamp | maps/forest/textures/forest_rock_albedo.png | forest.ase / forest_rock_albedo | (0.0144, 0.0135, 0.015) | forest_lamp_emissive.png |
-| maps/forest/models/forest.glb | forest_leaf | maps/forest/textures/forest_sun_albedo.png | forest.ase / forest_sun_albedo | (0.249, 0.279, 0.554) | - |
+| maps/forest/models/forest.glb | forest_leaf | maps/forest/textures/forest_sun_albedo.png | forest.ase / forest_sun_albedo | - | - |
 | maps/forest/models/forest.glb | forest_path | maps/forest/textures/forest_grass_albedo.png | forest.ase / forest_grass_albedo | - | - |
 | maps/forest/models/forest.glb | forest_root | maps/forest/textures/forest_bark_albedo.png | forest.ase / forest_bark_albedo | (1, 0.889, 0.801) | - |
-| maps/forest/models/forest.glb | forest_shade | maps/forest/textures/forest_sun_albedo.png | forest.ase / forest_sun_albedo | (0.151, 0.194, 0.53) | - |
+| maps/forest/models/forest.glb | forest_shade | maps/forest/textures/forest_sun_albedo.png | forest.ase / forest_sun_albedo | (0.6, 0.6, 0.6) | - |
 | maps/forest/models/forest.glb | forest_stem | none | - | - | - |
 | maps/forest/models/forest.glb | forest_sun | maps/forest/textures/forest_sun_albedo.png | forest.ase / forest_sun_albedo | - | - |
-| maps/forest/models/forest.glb | forest_verge | maps/forest/textures/forest_grass_albedo.png | forest.ase / forest_grass_albedo | (1, 0.846, 1) | - |
-| maps/forest/models/forest.glb | ForestRaysSoftMat | none | - | (0, 0, 0) | - |
-| maps/forest/models/forest.glb | ForestRaysSolidMat | none | - | (0, 0, 0) | - |
+| maps/forest/models/forest.glb | forest_verge | maps/forest/textures/forest_grass_albedo.png | forest.ase / forest_grass_albedo | - | - |
 | maps/forest/models/forest_bars.glb | forest_bark | maps/forest/textures/forest_bark_albedo.png | forest.ase / forest_bark_albedo | - | - |
-| maps/forest/models/forest_bars.glb | forest_leaf | maps/forest/textures/forest_sun_albedo.png | forest.ase / forest_sun_albedo | (0.249, 0.279, 0.554) | - |
+| maps/forest/models/forest_bars.glb | forest_leaf | maps/forest/textures/forest_sun_albedo.png | forest.ase / forest_sun_albedo | - | - |
 | maps/forest/models/forest_bars.glb | forest_root | maps/forest/textures/forest_bark_albedo.png | forest.ase / forest_bark_albedo | (1, 0.889, 0.801) | - |
 | maps/forest/models/forest_bush_low.glb | ForestBush_bark | maps/forest/textures/forest_bark_albedo.png | forest.ase / forest_bark_albedo | (0.974, 0.978, 0.978) | - |
-| maps/forest/models/forest_bush_low.glb | ForestBush_leaf | maps/forest/textures/forest_sun_albedo.png | forest.ase / forest_sun_albedo | (0.273, 0.303, 0.576) | - |
-| maps/forest/models/forest_bush_low.glb | ForestBush_shade | maps/forest/textures/forest_sun_albedo.png | forest.ase / forest_sun_albedo | (0.0673, 0.0699, 0.249) | - |
+| maps/forest/models/forest_bush_low.glb | ForestBush_leaf | maps/forest/textures/forest_sun_albedo.png | forest.ase / forest_sun_albedo | - | - |
+| maps/forest/models/forest_bush_low.glb | ForestBush_shade | maps/forest/textures/forest_sun_albedo.png | forest.ase / forest_sun_albedo | (0.6, 0.6, 0.6) | - |
 | maps/forest/models/forest_bush_low.glb | ForestBush_sun | maps/forest/textures/forest_sun_albedo.png | forest.ase / forest_sun_albedo | - | - |
 | maps/forest/models/forest_bush_tall.glb | ForestBush_bark | maps/forest/textures/forest_bark_albedo.png | forest.ase / forest_bark_albedo | (0.974, 0.978, 0.978) | - |
-| maps/forest/models/forest_bush_tall.glb | ForestBush_leaf | maps/forest/textures/forest_sun_albedo.png | forest.ase / forest_sun_albedo | (0.273, 0.303, 0.576) | - |
-| maps/forest/models/forest_bush_tall.glb | ForestBush_shade | maps/forest/textures/forest_sun_albedo.png | forest.ase / forest_sun_albedo | (0.0673, 0.0699, 0.249) | - |
+| maps/forest/models/forest_bush_tall.glb | ForestBush_leaf | maps/forest/textures/forest_sun_albedo.png | forest.ase / forest_sun_albedo | - | - |
+| maps/forest/models/forest_bush_tall.glb | ForestBush_shade | maps/forest/textures/forest_sun_albedo.png | forest.ase / forest_sun_albedo | (0.6, 0.6, 0.6) | - |
 | maps/forest/models/forest_bush_tall.glb | ForestBush_sun | maps/forest/textures/forest_sun_albedo.png | forest.ase / forest_sun_albedo | - | - |
 | maps/forest/models/forest_canopy.glb | ForestCanopy_bark | maps/forest/textures/forest_bark_albedo.png | forest.ase / forest_bark_albedo | (0.974, 0.978, 0.978) | - |
-| maps/forest/models/forest_canopy.glb | ForestCanopy_leaf | maps/forest/textures/forest_sun_albedo.png | forest.ase / forest_sun_albedo | (0.273, 0.303, 0.576) | - |
+| maps/forest/models/forest_canopy.glb | ForestCanopy_leaf | maps/forest/textures/forest_sun_albedo.png | forest.ase / forest_sun_albedo | - | - |
 | maps/forest/models/forest_portal.glb | ForestPortal_bark | maps/forest/textures/forest_bark_albedo.png | forest.ase / forest_bark_albedo | (0.974, 0.978, 0.978) | - |
 | maps/forest/models/forest_portal.glb | ForestPortalSwirl | maps/forest/textures/forest_portal_swirl_albedo.png | forest.ase / forest_portal_swirl_albedo | - | forest_portal_swirl_albedo.png |
 | maps/forest/models/forest_portal.glb | ForestPortal_leaf | maps/forest/textures/forest_sun_albedo.png | forest.ase / forest_sun_albedo | (0.273, 0.303, 0.576) | - |
@@ -315,16 +349,44 @@ Up to four commonest colours and the share of vertices wearing each; many colour
 | maps/forest/models/forest_thorns.glb | ForestThorns_root | maps/forest/textures/forest_bark_albedo.png | forest.ase / forest_bark_albedo | (1, 0.9, 0.81) | - |
 | maps/forest/models/forest_thorns.glb | ForestThorns_shade | maps/forest/textures/forest_sun_albedo.png | forest.ase / forest_sun_albedo | (0.0673, 0.0699, 0.249) | - |
 | maps/forest/models/forest_tree.glb | ForestTree_bark | maps/forest/textures/forest_bark_albedo.png | forest.ase / forest_bark_albedo | (0.974, 0.978, 0.978) | - |
-| maps/forest/models/forest_tree.glb | ForestTree_leaf | maps/forest/textures/forest_sun_albedo.png | forest.ase / forest_sun_albedo | (0.273, 0.303, 0.576) | - |
+| maps/forest/models/forest_tree.glb | ForestTree_leaf | maps/forest/textures/forest_sun_albedo.png | forest.ase / forest_sun_albedo | - | - |
 | maps/forest/models/forest_tree.glb | ForestTree_root | maps/forest/textures/forest_bark_albedo.png | forest.ase / forest_bark_albedo | (1, 0.9, 0.81) | - |
-| maps/forest/models/forest_tree.glb | ForestTree_shade | maps/forest/textures/forest_sun_albedo.png | forest.ase / forest_sun_albedo | (0.0673, 0.0699, 0.249) | - |
-| maps/forest/models/forest_tree.glb | ForestTree_sun | maps/forest/textures/forest_sun_albedo.png | forest.ase / forest_sun_albedo | - | - |
+| maps/forest/models/forest_tree.glb | ForestTree_shade | maps/forest/textures/forest_sun_albedo.png | forest.ase / forest_sun_albedo | (0.6, 0.6, 0.6) | - |
+| maps/forest/models/forest_tree.glb | ForestTree_under | maps/forest/textures/forest_sun_albedo.png | forest.ase / forest_sun_albedo | - | - |
 | maps/forest/models/forest_tree_prop_a.glb | ForestTreeProp_bark | maps/forest/textures/forest_bark_albedo.png | forest.ase / forest_bark_albedo | (0.974, 0.978, 0.978) | - |
-| maps/forest/models/forest_tree_prop_a.glb | ForestTreeProp_leaf | maps/forest/textures/forest_sun_albedo.png | forest.ase / forest_sun_albedo | (0.273, 0.303, 0.576) | - |
+| maps/forest/models/forest_tree_prop_a.glb | ForestTreeProp_leaf | maps/forest/textures/forest_sun_albedo.png | forest.ase / forest_sun_albedo | - | - |
 | maps/forest/models/forest_tree_prop_b.glb | ForestTreeProp_bark | maps/forest/textures/forest_bark_albedo.png | forest.ase / forest_bark_albedo | (0.974, 0.978, 0.978) | - |
-| maps/forest/models/forest_tree_prop_b.glb | ForestTreeProp_leaf | maps/forest/textures/forest_sun_albedo.png | forest.ase / forest_sun_albedo | (0.273, 0.303, 0.576) | - |
+| maps/forest/models/forest_tree_prop_b.glb | ForestTreeProp_leaf | maps/forest/textures/forest_sun_albedo.png | forest.ase / forest_sun_albedo | - | - |
 | maps/forest/models/forest_tree_prop_c.glb | ForestTreeProp_bark | maps/forest/textures/forest_bark_albedo.png | forest.ase / forest_bark_albedo | (0.974, 0.978, 0.978) | - |
-| maps/forest/models/forest_tree_prop_c.glb | ForestTreeProp_leaf | maps/forest/textures/forest_sun_albedo.png | forest.ase / forest_sun_albedo | (0.273, 0.303, 0.576) | - |
+| maps/forest/models/forest_tree_prop_c.glb | ForestTreeProp_leaf | maps/forest/textures/forest_sun_albedo.png | forest.ase / forest_sun_albedo | - | - |
+| maps/ice/models/ice_gate.glb | ice_blue | maps/ice/textures/ice_blue_albedo.png | ice.ase / ice_blue_albedo | (0.58, 0.74, 0.96) | - |
+| maps/ice/models/ice_gate.glb | ice_deep | maps/ice/textures/ice_deep_albedo.png | ice.ase / ice_deep_albedo | - | - |
+| maps/ice/models/ice_gate.glb | ice_snow | maps/ice/textures/ice_snow_albedo.png | ice.ase / ice_snow_albedo | (0.8, 0.88, 0.97) | - |
+| maps/ice/models/ice_ground.glb | ice_blue | maps/ice/textures/ice_blue_albedo.png | ice.ase / ice_blue_albedo | (0.58, 0.74, 0.96) | - |
+| maps/ice/models/ice_ground.glb | ice_deep | maps/ice/textures/ice_deep_albedo.png | ice.ase / ice_deep_albedo | - | - |
+| maps/ice/models/ice_ground.glb | ice_floor | maps/ice/textures/ice_deep_albedo.png | ice.ase / ice_deep_albedo | (0.6, 0.7, 0.86) | - |
+| maps/ice/models/ice_ground.glb | ice_glow | maps/ice/textures/ice_glow_albedo.png | ice.ase / ice_glow_albedo | - | ice_glow_albedo.png |
+| maps/ice/models/ice_ground.glb | ice_icicle | maps/ice/textures/ice_icicle_albedo.png | ice.ase / ice_icicle_albedo | - | - |
+| maps/ice/models/ice_ground.glb | ice_lane | maps/ice/textures/ice_lake_albedo.png | ice.ase / ice_lake_albedo | (0.55, 0.72, 0.92) | - |
+| maps/ice/models/ice_ground.glb | ice_snow | maps/ice/textures/ice_snow_albedo.png | ice.ase / ice_snow_albedo | (0.8, 0.88, 0.97) | - |
+| maps/ice/models/ice_portal.glb | IcePortal_blue | maps/ice/textures/ice_blue_albedo.png | ice.ase / ice_blue_albedo | - | - |
+| maps/ice/models/ice_portal.glb | IcePortal_deep | maps/ice/textures/ice_deep_albedo.png | ice.ase / ice_deep_albedo | - | - |
+| maps/ice/models/ice_portal.glb | IcePortalSwirl | maps/ice/textures/ice_portal_swirl_albedo.png | ice.ase / ice_portal_swirl_albedo | - | ice_portal_swirl_albedo.png |
+| maps/ice/models/ice_portal.glb | IcePortal_icicle | maps/ice/textures/ice_icicle_albedo.png | ice.ase / ice_icicle_albedo | - | - |
+| maps/ice/models/ice_portal.glb | IcePortal_snow | maps/ice/textures/ice_snow_albedo.png | ice.ase / ice_snow_albedo | - | - |
+| maps/ice/models/ice_roof.glb | ice_roof | maps/ice/textures/ice_roof_albedo.png | ice.ase / ice_roof_albedo | - | - |
+| maps/ice/models/ice_roof.glb | ice_icicle | maps/ice/textures/ice_icicle_albedo.png | ice.ase / ice_icicle_albedo | - | - |
+| maps/ice/models/ice_roof.glb | ice_sky | maps/ice/textures/ice_snow_albedo.png | ice.ase / ice_snow_albedo | - | - |
+| maps/ice/models/ice_tower.glb | IceTower_blue | maps/ice/textures/ice_blue_albedo.png | ice.ase / ice_blue_albedo | - | - |
+| maps/ice/models/ice_tower.glb | IceTower_deep | maps/ice/textures/ice_deep_albedo.png | ice.ase / ice_deep_albedo | - | - |
+| maps/ice/models/ice_tower.glb | IceTower_floor | maps/ice/textures/ice_blue_albedo.png | ice.ase / ice_blue_albedo | - | - |
+| maps/ice/models/ice_tower.glb | IceTower_icicle | maps/ice/textures/ice_icicle_albedo.png | ice.ase / ice_icicle_albedo | - | - |
+| maps/ice/models/ice_tower.glb | IceTower_snow | maps/ice/textures/ice_snow_albedo.png | ice.ase / ice_snow_albedo | - | - |
+| maps/ice/models/ice_wall.glb | ice_blue | maps/ice/textures/ice_blue_albedo.png | ice.ase / ice_blue_albedo | (0.58, 0.74, 0.96) | - |
+| maps/ice/models/ice_wall.glb | ice_deep | maps/ice/textures/ice_deep_albedo.png | ice.ase / ice_deep_albedo | - | - |
+| maps/ice/models/ice_wall.glb | ice_glow | maps/ice/textures/ice_glow_albedo.png | ice.ase / ice_glow_albedo | - | ice_glow_albedo.png |
+| maps/ice/models/ice_wall.glb | ice_icicle | maps/ice/textures/ice_icicle_albedo.png | ice.ase / ice_icicle_albedo | - | - |
+| maps/ice/models/ice_wall.glb | ice_snow | maps/ice/textures/ice_snow_albedo.png | ice.ase / ice_snow_albedo | (0.8, 0.88, 0.97) | - |
 | maps/marble/models/marble.glb | marble_band | maps/marble/textures/marble_albedo.png | marble.ase / marble_albedo | - | - |
 | maps/marble/models/marble.glb | marble_cellin | maps/marble/textures/marble_dark_albedo.png | marble.ase / marble_dark_albedo | - | - |
 | maps/marble/models/marble.glb | marble_column | maps/marble/textures/marble_albedo.png | marble.ase / marble_albedo | - | - |
@@ -359,7 +421,7 @@ Up to four commonest colours and the share of vertices wearing each; many colour
 | maps/marble/models/marble_portal.glb | Marble_marble | maps/marble/textures/marble_stone_albedo.png | marble.ase / marble_stone_albedo | - | - |
 | maps/marble/models/marble_portal.glb | Marble_marble2 | maps/marble/textures/marble_stone_albedo.png | marble.ase / marble_stone_albedo | (0.794, 0.792, 0.815) | - |
 | maps/marble/models/marble_portal.glb | Marble_plinth | maps/marble/textures/marble_stone_albedo.png | marble.ase / marble_stone_albedo | (0.828, 0.829, 0.862) | - |
-| maps/marble/models/marble_portal.glb | Marble_shade | maps/marble/textures/marble_stone_albedo.png | marble.ase / marble_stone_albedo | (0.227, 0.255, 0.315) | - |
+| maps/marble/models/marble_portal.glb | Marble_shade | maps/marble/textures/marble_stone_albedo.png | marble.ase / marble_stone_albedo | (0.85, 0.85, 0.85) | - |
 | maps/marble/models/marble_portal.glb | MarbleGlow | maps/marble/textures/marble_albedo.png | marble.ase / marble_albedo | - | marble_albedo.png |
 | maps/marble/models/marble_spikes.glb | MarbleSpikes | maps/marble/textures/marble_albedo.png | marble.ase / marble_albedo | - | - |
 | maps/marble/models/marble_spikes.glb | MarbleSpikes_plinth | maps/marble/textures/marble_stone_albedo.png | marble.ase / marble_stone_albedo | (0.828, 0.829, 0.862) | - |
@@ -393,7 +455,7 @@ Up to four commonest colours and the share of vertices wearing each; many colour
 
 ## Check
 
-- Materials: 196 in 55 models; 188 textured, 8 flat colour.
-- Textured materials with a multiplier other than white: 105 (24 distinct texture x multiplier).
-- Live textures: 21; missing or in no sheet (the three standalone PNGs aside): 0.
-- Drawn PNGs nothing uses: none.
+- Materials: 222 in 61 models; 216 textured, 6 flat colour.
+- Textured materials with a multiplier other than white: 102 (27 distinct texture x multiplier).
+- Live textures: 29; missing or in no sheet (the three standalone PNGs aside): 0.
+- Drawn PNGs nothing uses: characters/textures/prisoner_sheet.png, characters/textures/prisoner_uv_guide.png.

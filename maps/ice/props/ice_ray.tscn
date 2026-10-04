@@ -1,0 +1,21 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="ArrayMesh" path="res://maps/forest/models/forest_ray.tres" id="1_ray_mesh"]
+[ext_resource type="Shader" path="res://maps/forest/materials/forest_ray.gdshader" id="2_ray_shader"]
+[ext_resource type="Shader" path="res://maps/forest/materials/forest_ray_blend_reset.gdshader" id="3_blend_reset"]
+
+[sub_resource type="ShaderMaterial" id="RayBlendReset"]
+shader = ExtResource("3_blend_reset")
+
+[sub_resource type="ShaderMaterial" id="RayMat"]
+render_priority = 1
+next_pass = SubResource("RayBlendReset")
+shader = ExtResource("2_ray_shader")
+shader_parameter/tint = Color(0.62, 0.86, 1, 1)
+shader_parameter/alpha_gain = 0.085
+
+[node name="IceRay" type="MeshInstance3D"]
+editor_description = "One shaft of cold daylight (the forest streak's mesh and shader): origin at its top, shaft down local -Y; scale Y = length (m), X/Z = width."
+mesh = ExtResource("1_ray_mesh")
+cast_shadow = 0
+surface_material_override/0 = SubResource("RayMat")
