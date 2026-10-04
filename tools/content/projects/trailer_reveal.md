@@ -97,7 +97,7 @@ in: 1.04
 freeze: waive
 # side by side down the lane (the victim a stride inside), he cuts in to the lip (153.4 deg r 47.25) and turns to face him at 2.30; the shove at 2.75 from 1.0 m (arms + the shover's kick), backwards over the edge and down out of frame; a third pulls up behind
 # v19 (Ryan): "they shouldnt walk to the edge, look back, and get shoved ... they shold be running, and get shoved to the side". All three sprint the lane from 137.6 deg; the shover's head whips in 64 deg at 1.72 and the shipped shove lands mid-stride at 1.87 (151.6 deg r 50); he goes over the lip sideways at ~153; the shover's eyes come back to the lane and he runs on
-# v20 (Ryan): "now the shove doesnt read right, its not clear whats happeneding, and tht its two shots of the same event." A longer run-up (from 124.3 deg, threading the 134-136 trees): the shover comes up on his shoulder (2.2 m to 0.5 m), a check on him at 2.3, his head turns onto him at 2.55 and holds (the man filling the frame, 1.1 m), the shove at 2.93 between the lip trees (149.9 deg), his eyes follow him out over the lip; the cut ends on that look (3.41)
+# v20 (Ryan): "now the shove doesnt read right, its not clear whats happeneding, and tht its two shots of the same event." A longer run-up (from 124.3 deg, threading the 134-136 trees): the shover comes up on his shoulder (2.2 m to 0.5 m), a check on him at 2.3, his head turns onto him at 2.55 and holds (1.1 m off), the man's head snaps round to him at 2.8, the shove at 2.93 between the lip trees (149.9 deg), his eyes follow him out over the lip; the cut ends on that look (a rough take runs 0.09 s behind: in 1.04 ends it 0.49 s after the shove)
 
 ## 9b
 said: v5 "Forest, the shoved runner's POV: the edge he was shoved from with the shover on it looking down, falling away, the mist rushing up"
@@ -108,7 +108,7 @@ in: 2.96
 freeze: waive
 # the forest_pit tape down Runner_1 from 0.1 s after the shove (the shover's arms still out, 1 m off), eyes held up on him: the lip shrinks above until the bank closes over it (~3.5), the mist at y -5.75 (4.49) greys it out; the cut ends 4.63 in the mist (out 4.65); floor_kill=1 lowers the KillBox for the shot only (map unchanged)
 # v19 (Ryan): "the other players shouldnt just be looking at him fall, they should be running." From 0.08 s after the shove: his head comes round to the lip, the shover and the third sprint on along it (to 2.7), the bank closes over them, out at 4.02
-# v20: from 0.03 s after the shove: his head whips round (0.15 s) onto the shover, arms still out, 2.4 m off, then stays on the lip between its two trees; the shover turns front and runs out of it, the third runs through it (3.2-3.7), the bank closes over it (~3.9), out at 5.08
+# v20: opens on the shove (in 2.96, the rough take 0.09 s behind): his eyes already on the shover, arms out, 1.1 m off, then on the lip between its two trees; the shover turns front and runs out of it, the third runs through it (3.2-3.7), the bank closes over it (~3.9), out at 5.08
 
 ## 10a
 said: v5 "Marble, runner POV: two runners both behind the same column on the inner edge, hidden from the tower; he shoves the other out into the open; cut BEFORE the shot"
