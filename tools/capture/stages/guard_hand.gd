@@ -121,6 +121,8 @@ func _physics_process(delta: float) -> void:
 		k += 1
 	var beat: Dictionary = beats[k]
 	var fire_at: float = float(beat.get("fire_at", -1.0))
+	# omega (HAND_OMEGA): how quick the hand is on this beat; a man who pops up is snapped onto.
+	var omega: float = float(beat.get("omega", HAND_OMEGA))
 	var body: PlayerController = beat.get("body") as PlayerController
 	# from ([]): a beat may name a pool of men instead of one. Until it fires,
 	# the hand keeps swinging onto whichever of them is in the open and nearest
@@ -164,7 +166,7 @@ func _physics_process(delta: float) -> void:
 		_last_aim[k] = aim
 		# Tracking a runner is aiming where he is going: the lead cancels the
 		# second-order lag, so once the hand has settled the crosshair sits on him.
-		var lag_seconds: float = 2.0 * HAND_ZETA / HAND_OMEGA
+		var lag_seconds: float = 2.0 * HAND_ZETA / omega
 		aim += Vector3(body.velocity.x, 0.0, body.velocity.z) * lag_seconds
 		# A round that flies is tracked on its own mark, ahead and above him: the lead and the drop read.
 		if _shot_speed() > 0.0:
@@ -184,7 +186,7 @@ func _physics_process(delta: float) -> void:
 		var sway: float = deg_to_rad(SWAY_DEGREES) * settling
 		wanted += Vector2(sin(t * TAU * SWAY_HZ) * sway, sin(t * TAU * SWAY_HZ * 1.7 + 1.0) * sway * 0.6)
 	var error := Vector2(angle_difference(_yaw, wanted.x), wanted.y - _pitch)
-	var accel: Vector2 = error * (HAND_OMEGA * HAND_OMEGA) - _rate * (2.0 * HAND_ZETA * HAND_OMEGA)
+	var accel: Vector2 = error * (omega * omega) - _rate * (2.0 * HAND_ZETA * omega)
 	_rate += accel * delta
 	_rate = _rate.limit_length(HAND_MAX_RATE)
 	_yaw = wrapf(_yaw + _rate.x * delta, -PI, PI)

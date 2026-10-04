@@ -9,16 +9,16 @@ extends "res://tools/capture/stages/stage.gd"
 ## (cut 0.9 s in, 7 s): the lens rides ~4.3 m behind and 3.3 m over the last
 ## body in the line, which sits large in the lower middle of the tall frame,
 ## the others hop away up the frame, lava fills the bottom. POV:
-## [code]--pov=runner[/code] rides the last body, the only one played through
-## the human layer: the steering is a wrist (300 deg/s), the eyes go up the line
-## to the platform after the next for the first 0.3 s of every flight and then
-## down onto the landing, a small yaw flick mid-air lines it up, one stumble on
-## the fourth landing (a dead stop, the head dipping, then on).
+## [code]--pov=runner[/code] rides the last body, played as a person (v19, Ryan: "the lava
+## parkour scene doesnt relaly look human"): his eyes are his own (stage_driver.eyes), on
+## the landing for the first half of a flight and round onto the next platform before he
+## is down, one turn a hop on a spring; he never lands on the same spot twice (POV_PLAN),
+## so no two run-ups are the same length; a check on one top, a stumble on another.
 ##
 ## Geometry from tools/modelling/maps/bentham_ring/map_base_build.py: the lake runs 292.3-338.3
 ## deg, floor 0.3 m under the deck, seven 2.4 m platforms at deck height from
 ## 298 deg every 5.7676 deg, alternating r 54.8 / r 50.2 (7.0 m apart). Each
-## hop is an exact ballistic leap at 10.5 m/s, the shipped jump's own arc.
+## hop is an exact ballistic leap in the shipped jump's own air time (0.636 s: 7 m/s up, 22 down).
 ##
 ## Dials (--set=): line (4, runners in the line), stagger (0.2 s between them).
 
@@ -30,6 +30,23 @@ const PLAT_OUT_R: float = 54.8
 const PLAT_IN_R: float = 50.2
 const PLAT_COUNT: int = 7
 const LEAP_SPEED: float = 10.5
+## The shipped jump: 2 * jump_velocity / gravity.
+const JUMP_SECONDS: float = 0.636
+## The POV's landings, platform by platform: metres past the centre along his line and to its right, how far
+## out he launches from, a "hold" on the top (seconds) and whether his eyes drop to his feet for it ("dip").
+const POV_PLAN: Array = [
+	{"along": 0.2, "side": 0.15, "edge": 0.8},
+	{"along": 0.4, "side": -0.2, "edge": 0.95, "hold": 0.1},
+	{"along": -0.15, "side": 0.25, "edge": 0.7},
+	{"along": -0.5, "side": -0.1, "edge": 0.9, "hold": 0.17, "dip": true},
+	{"along": 0.3, "side": 0.2, "edge": 0.85},
+	{"along": 0.0, "side": -0.25, "edge": 1.0, "hold": 0.08},
+	{"along": 0.2, "side": 0.1, "edge": 0.75},
+]
+## Share of a flight his eyes stay on the landing before they go to the next platform, hop by hop.
+const POV_EYES_SHARE: Array = [0.5, 0.42, 0.6, 0.5, 0.66, 0.45, 0.55, 0.5]
+## How far toward the platform after it the look at the next one is pulled (a turn short of square).
+const POV_EYES_ON: float = 0.22
 ## The edge a runner launches from: this far from a platform's centre toward
 ## the next (the top is 1.2 m to the edge).
 const EDGE: float = 0.85
@@ -49,6 +66,12 @@ var _line: Array = []
 var _follow_pos: Vector3 = Vector3.ZERO
 var _follow_look: Vector3 = Vector3.ZERO
 var _following: bool = false
+## The POV body's driver, where each of its hops comes down, and what each of its steps is.
+var _pov_driver: Node = null
+var _pov_lands: Array = []
+var _pov_meta: Array = []
+var _pov_step: int = -1
+var _pov_flight: float = 7.0
 
 
 ## The line is the whole field (--set=line=3 is three prisoners and the guard, nobody else).
@@ -72,42 +95,74 @@ static func stops() -> Array:
 
 ## Runner [param index] of the line: placed on the bank, off after its stagger,
 ## then edge, leap, land, edge, leap ... to the far bank and on up the lane.
-static func steps_for(index: int, human: bool, stagger: float) -> Array:
+## [param plan] moves each landing and launch off the centre line; [param meta], when given, is filled
+## step for step with {"hop", "phase"} so a stage can tell where in the line of hops the body is.
+static func steps_for(index: int, human: bool, stagger: float, plan: Array = [], meta: Array = []) -> Array:
 	var hops: Array = stops()
+	var lands: Array = landings(plan)
 	var start: Vector3 = LIB.ring_point(START_DEGREES - SPACING_DEGREES * float(index), START_R, 0.1)
 	var steps: Array = [
 		{"do": "place", "at": start, "face": LIB.toward(start, hops[0])},
 		{"do": "hold", "seconds": 0.25 + stagger * float(index), "look_down": 6.0},
 	]
 	if human:
-		steps.append({"do": "steer", "on": true, "rate": 300.0, "gain": 7.0, "pitch_rate": 140.0, "pitch_gain": 6.0})
 		steps.append({"do": "human", "on": true})
 	else:
 		steps.append({"do": "steer", "on": true, "rate": 720.0, "gain": 14.0})
 	steps.append({"do": "run", "to": hops[0], "within": 0.45, "timeout": 4.0, "look_at": hops[1]})
+	while meta.size() < steps.size():
+		meta.append({"hop": 0, "phase": "ground"})
+	var from: Vector3 = hops[0]
 	for hop: int in range(1, hops.size()):
-		var target: Vector3 = hops[hop]
-		steps.append({"do": "leap", "to": target, "speed": LEAP_SPEED, "lock": 0.45 if human else 0.9})
+		var target: Vector3 = lands[hop]
+		var speed: float = Vector2(target.x - from.x, target.z - from.z).length() / JUMP_SECONDS if not plan.is_empty() else LEAP_SPEED
+		steps.append({"do": "leap", "to": target, "speed": speed, "lock": 0.45 if human else 0.9})
+		meta.append({"hop": hop, "phase": "air"})
 		var land: Dictionary = {"do": "land", "look_at": target + Vector3.UP * 0.2}
 		if human:
-			land["correct"] = 5.0
 			land["stick_after"] = 0.42
-			if hop + 1 < hops.size():
-				land["look_ahead"] = hops[hop + 1] + Vector3.UP * 0.8
-				land["ahead_until"] = 0.3
 		steps.append(land)
+		meta.append({"hop": hop, "phase": "air"})
 		if hop == hops.size() - 1:
 			break
-		if human and hop == 4:
-			# The stumble: a dead stop on the landing, the head dipping, then on.
-			steps.append({"do": "hold", "seconds": 0.17, "look_down": 30.0})
-		var next: Vector3 = hops[hop + 1]
-		var edge: Vector3 = target + LIB.toward(target, next) * EDGE
-		steps.append({"do": "run", "to": edge, "within": 0.3, "timeout": 2.5, "look_at": next + Vector3.UP * 0.6})
+		var entry: Dictionary = plan[hop - 1] if hop - 1 < plan.size() else {}
+		if float(entry.get("hold", 0.0)) > 0.0:
+			steps.append({"do": "hold", "seconds": float(entry["hold"]), "look_down": 30.0})
+			meta.append({"hop": hop, "phase": "dip" if bool(entry.get("dip", false)) else "ground"})
+		var next: Vector3 = lands[hop + 1]
+		from = hops[hop] + LIB.toward(hops[hop], next) * float(entry.get("edge", EDGE))
+		steps.append({"do": "run", "to": from, "within": 0.3, "timeout": 2.5, "look_at": next + Vector3.UP * 0.6})
+		meta.append({"hop": hop, "phase": "ground"})
 	# Off the far bank and on up the lane, short of the portal at 345.
 	steps.append({"do": "run", "to": LIB.ring_point(342.0, 52.5, 0.0), "within": 0.5, "timeout": 4.0, "look_down": 4.0})
 	steps.append({"do": "hold", "seconds": 8.0, "look_down": 4.0})
+	while meta.size() < steps.size():
+		meta.append({"hop": hops.size() - 1, "phase": "ground"})
 	return steps
+
+
+## Where each hop comes down: the stop itself, moved by [param plan] along the line in and to its right.
+static func landings(plan: Array) -> Array:
+	var hops: Array = stops()
+	var out: Array = [hops[0]]
+	for hop: int in range(1, hops.size()):
+		var entry: Dictionary = plan[hop - 1] if hop - 1 < plan.size() else {}
+		var line: Vector3 = LIB.toward(hops[hop - 1], hops[hop])
+		out.append(hops[hop] + line * float(entry.get("along", 0.0)) + Vector3(-line.z, 0.0, line.x) * float(entry.get("side", 0.0)))
+	return out
+
+
+## A plan for a body that is not the POV: seeded off the take and its place in the line, small, and no two alike.
+static func plan_for(take_seed: int, index: int) -> Array:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = take_seed * 31 + index
+	var out: Array = []
+	for hop: int in PLAT_COUNT:
+		var entry: Dictionary = {"along": rng.randf_range(-0.3, 0.3), "side": rng.randf_range(-0.25, 0.25), "edge": rng.randf_range(0.7, 0.95)}
+		if rng.randf() < 0.2:
+			entry["hold"] = rng.randf_range(0.05, 0.1)
+		out.append(entry)
+	return out
 
 
 func cast(runners: Array[RunnerBrain]) -> bool:
@@ -122,14 +177,52 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 	var pov_index: int = count - 1
 	for index: int in count:
 		var human: bool = pov and index == pov_index
-		drive(runners[index], steps_for(index, human, stagger), index, "ClipParkourDriver%d" % index)
+		var plan: Array = POV_PLAN if human else plan_for(int(clip._options.get("seed", 0)), index)
+		var driver: Node = drive(runners[index], steps_for(index, human, stagger, plan, _pov_meta if human else []), index, "ClipParkourDriver%d" % index)
 		_line.append(runners[index].controller)
 		if human:
+			_pov_driver = driver
+			_pov_lands = landings(plan)
 			stage_body(runners[index].controller)
 	if not pov:
 		stage_body(_line[0])
 	say("lavaparkour: %d in line, %s leads%s" % [_line.size(), _line[0].name, (", riding " + _line[pov_index].name) if pov else ""])
 	return true
+
+
+## The POV's eyes, every tick: the landing while it is still to be made, then the next platform, never square on it.
+func tick(_delta: float) -> void:
+	if _pov_driver == null or not is_instance_valid(_pov_driver):
+		return
+	var body: PlayerController = _pov_driver.body()
+	var step: int = int(_pov_driver.get("_index"))
+	var index: int = mini(step, _pov_meta.size() - 1)
+	var hop: int = int(_pov_meta[index]["hop"])
+	var phase: String = String(_pov_meta[index]["phase"])
+	var point: Vector3 = _look_at_hop(hop + 1)
+	if phase == "air":
+		var here: Vector3 = body.global_position
+		var left: float = Vector2(_pov_lands[hop].x - here.x, _pov_lands[hop].z - here.z).length()
+		if _pov_meta[maxi(mini(_pov_step, _pov_meta.size() - 1), 0)]["phase"] != "air":
+			_pov_flight = maxf(left, 0.1)
+		if 1.0 - left / _pov_flight < float(POV_EYES_SHARE[(hop - 1) % POV_EYES_SHARE.size()]):
+			point = _pov_lands[hop] + Vector3.UP * 0.1
+	elif phase == "dip":
+		point = body.global_position - body.global_transform.basis.z * 1.4 + Vector3.UP * 0.2
+	_pov_step = step
+	_pov_driver.eyes(point)
+	if OS.has_environment("STAGE_DEBUG") and Engine.get_physics_frames() % 6 == 0:
+		say("pov %.1f deg r %.2f h %.2f hop %d %s yaw %.0f pitch %.0f floor %s" % [LIB.bearing_of(body.global_position), LIB.radius_of(body.global_position), body.global_position.y - LIB.DECK_Y, hop, phase, rad_to_deg(body.rotation.y), rad_to_deg(body.head.rotation.x), body.is_on_floor()])
+
+
+## Where he looks when hop [param hop] is the next one: its landing, pulled a little toward the one after, and
+## off the lake up the lane once the bank is all that is left.
+func _look_at_hop(hop: int) -> Vector3:
+	var last: int = _pov_lands.size() - 1
+	if hop > last:
+		return LIB.ring_point(345.0, 52.5, 1.2)
+	var after: Vector3 = _pov_lands[hop + 1] if hop < last else LIB.ring_point(345.0, 52.5, 0.0)
+	return (_pov_lands[hop] as Vector3).lerp(after, POV_EYES_ON) + Vector3.UP * 0.3
 
 
 ## The chase lens over the lake: behind and above the last body in the line,

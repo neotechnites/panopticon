@@ -132,7 +132,7 @@ func _raise_the_hand() -> void:
 	_hand.name = "ClipGuardHand"
 	clip.root.add_child(_hand)
 	_hand.install(_guard, controller(), elapsed())
-	_hand.beats.append({"body": _mate, "seconds": 100.0, "fire_at": -1.0, "watch": true, "lead": float(option("lead", 1.0)), "behind": float(option("behind", 1.3))})
+	_hand.beats.append({"body": _mate, "seconds": 100.0, "fire_at": -1.0, "watch": true, "lead": float(option("lead", 1.0)), "behind": float(option("behind", 1.3)), "omega": 11.0, "kick": 0.5})
 	_hand.park = LIB.polar(String(option("park", "148.6,51.0,2.6")), LIB.ring_point(148.6, 51.0, 2.6))
 	_hand.start_at = INF
 	say("guard at the %.0f deg window; the hand on the wall's top" % float(option("window", 150.0)))
