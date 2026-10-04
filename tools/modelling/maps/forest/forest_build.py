@@ -193,16 +193,16 @@ WALL_CELL_D = 2.5
 # tier, then one plain row under the head. UPPER[0] IS fc's last gallery ring and
 # the head is forest_seam.seam_ring() itself, appended in _upper_rows.
 UPPER = [(46.70, fc.GALLERY_Z), (46.73, 38.50), (46.85, 40.50), (46.92, 41.70),
-         (46.99, 42.70), (47.11, 44.70), (47.18, 45.90),
-         (47.24, 46.90), (47.36, 48.90), (47.50, 49.20)]
+         (46.96, 42.40), (47.09, 44.40), (47.16, 45.60),
+         (47.25, 46.30), (47.46, 48.30), (47.56, 49.50)]     # the top tier whole under the head, easing plumb into the cove
 UPPER_BULGE = 0.35          # the leaf swells this far out mid-drum and fades to nothing at
                             # both rings (sin^2 of the way up), so no leaf stands outside
                             # the seam and none overhangs the roof it grows out of.
                             # The rows need no jag of their own: each one carries the roof's
                             # lumps at the foot and the seam's harmonics at the head, blended
                             # by how far up the drum it is, so no band can ever fold shut.
-UPPER_TIER_ROWS = ((1, 2, 3), (4, 5, 6), (7, 8, 9))   # sills 38.5, 42.7, 46.9
-DRUM_SHADE = 0.55           # the drum's head in the canopy's shade: its leaf's share of light at the seam,
+UPPER_TIER_ROWS = ((1, 2, 3), (4, 5, 6), (7, 8, 9))   # sills 38.5, 42.4, 46.3
+DRUM_SHADE = 0.85           # the drum's head under the lit canopy: its leaf's share of light at the seam (ft.SEAM_SHADE),
 DRUM_SHADE_R = 50.5         # fading from full at the roof's rim, per corner in COLOR_0, out to this radius
 COVE_SHADE = 0.9            # the wall's leaf darkens up the cove to the roof's shade (the roof's factor is 0.90 of
 COVE_SHADE_Z = (35.2, 37.5)  # the wall's leaf) over these heights, per corner in COLOR_0, ...

@@ -208,6 +208,21 @@ CROWN_FADE_IN = (12.0, 15.0)   # tops fade in off the crown's rim ...
 CROWN_FADE_OUT = (45.0, 47.6)  # ... and over the drum's head: they grow on over the wall, clear of its top cells
 SEAM_TINT = (35.6, 47.6)    # radius band over which the canopy's shade and sun fade to the drum's leaf
 SEAM_LIFT = 1.15            # and the roof's leaf brightens this much by the seam, meeting the drum's shaded head
+COVE_BANDS = 5              # the cove off the drum's head (forest_seam.COVE): its bands, set by angle
+COVE_LIT = (20.0, 90.0)     # degrees round the cove over which the glow hands over to lit leaf, the drum's own
+SEAM_SHADE = 0.85           # forest_build.DRUM_SHADE: the drum's head the cove lands on
+SEAM_TILT = 0.1             # the drum's last band leans out this much: its normal's lift, the cove's lit normal
+RIM_SHADE = 0.6             # TILES["shade"]: the skirt the sheet grows out of
+# Ryan: "a surface with light filtering through it". The underside is lit from behind, per vertex (under_light):
+GLOW_DEPTH = 1.6            # metres of leaf (the sheet's own thickness and the top hung under it) that pass 1/e of the light
+GLOW_FLOOR = 0.5            # what the deepest top still passes, as a share of the thinnest leaf's light
+GLOW_THIN = (1.0, 0.78, 0.50)    # the light through thin leaf: warm
+GLOW_THICK = (0.82, 0.78, 0.50)  # and through a deep top: greener
+GLOW_BILLOW = 0.10          # the sheet's own billow in the light
+GLOW_SUN = 1.12             # a top in the lighter leaf passes this much more
+LIMBS = (3, 5)              # limbs per top, dark across the light
+LIMB_W = (0.5, 0.09)        # a limb's half width at the hub: metres, plus this share of the top's radius
+LIMB_DARK = 0.35            # what a limb or the hub takes from the light
 CROWN_LEAF = (2.5, 5.0)    # the leafy lumps on a top: their wavelengths, m
 CROWN_LUMP = 0.12           # and their share of its depth
 CROWN_EDGE = 0.12           # a face hung less than this share of its top's depth is a crease: shade
@@ -236,6 +251,7 @@ TILES = {
     "leaf": ("leaf", (1.0, 1.0, 1.0)),      # Ryan's photo leaf untinted: the old blue-heavy factors hid it
     "shade": ("leaf", (0.6, 0.6, 0.6)),     # a neutral dim for creases, never a hue shift
     "sun": ("leaf", (1.0, 1.0, 1.0)),
+    "under": ("leaf", (1.0, 1.0, 1.0)),     # the crown's underside: its light is COLOR_0 (under_light)
     "bark": ("wood", (0.9741, 0.9778, 0.9776)),
     "root": ("wood", (1.0, 0.9002, 0.8096)),
 }
@@ -711,7 +727,7 @@ def blob(m, centre, radius, zone, rng, segs=7, squash=0.75, wob=0.28):
 
 def zipper(m, outer, inner, want, zone, centre=None):
     """Triangles between two closed loops of any two counts, matched by angle
-    round ``centre`` (default the inner loop's centroid) in the xy plane."""
+    round ``centre`` (default the inner loop's centroid) in the xy plane; ``want`` a vector or fn(centroid)."""
     c = centre or m.centroid(inner)
 
     def ang(vid):
@@ -727,11 +743,12 @@ def zipper(m, outer, inner, want, zone, centre=None):
         next_o = aO[i + 1] if i + 1 < no else aO[0] + 2.0 * math.pi
         next_i = aI[j + 1] if j + 1 < ni else aI[0] + 2.0 * math.pi
         oi, ii = O[i % no], I[j % ni]
-        if (i < no and next_o <= next_i) or j >= ni:
-            m.tri(oi, O[(i + 1) % no], ii, want, zone)
+        take_o = (i < no and next_o <= next_i) or j >= ni
+        third = O[(i + 1) % no] if take_o else I[(j + 1) % ni]
+        m.tri(oi, third, ii, want(m.centroid((oi, third, ii))) if callable(want) else want, zone)
+        if take_o:
             i += 1
         else:
-            m.tri(oi, I[(j + 1) % ni], ii, want, zone)
             j += 1
 
 
@@ -1126,15 +1143,6 @@ def _spend(r, n):
 
 # ---- the roof sheet: the crown becomes the ravine's roof --------------------
 
-def _leaf_zone(f):
-    """Leaf where the sheet bulges down into the light, shade in the hollows
-    (forest_ceiling_build._leafy, so both sides of the seam read the same)."""
-    def z(pts):
-        n = float(len(pts))
-        return "leaf" if f(sum(p[0] for p in pts) / n, sum(p[1] for p in pts) / n) < 0.0 else "shade"
-    return z
-
-
 def _sheet_slope(rad):
     """dz/dr of the contract's profile at radius rad: how steeply the dome climbs
     (or, past the crest, falls) there."""
@@ -1191,16 +1199,21 @@ def _sheet_profile():
     own wave can open up between their two blends, and a ring takes SHEET_FOLD of
     the smaller clearance either side."""
     S = forest_seam.SHEET
+    end = forest_seam.SEAM_R - forest_seam.COVE     # the cove's own rings are set by angle, below
     radii, rad, run, dr = [S[0][0]], S[0][0], 0.0, 0.01
-    while rad < S[-1][0] - 1e-9:        # walk the curve: a ring every SHEET_STEP of slant, closer where rings are narrow
-        nxt = min(S[-1][0], rad + dr)
+    while rad < end - 1e-9:             # walk the curve: a ring every SHEET_STEP of slant, closer where rings are narrow
+        nxt = min(end, rad + dr)
         run += math.hypot(nxt - rad, forest_seam.sheet_z(nxt) - forest_seam.sheet_z(rad))
         rad = nxt
         if run >= min(SHEET_STEP, SHEET_ASPECT * forest_seam.TWO_PI * radii[-1] / SHEET_N):
             radii.append(rad)
             run = 0.0
-    if radii[-1] < S[-1][0] - 1e-9:     # the last short piece joins the band before it
-        radii[-1] = S[-1][0]
+    if end - radii[-1] > 0.5 * SHEET_STEP:
+        radii.append(end)
+    else:                               # the last short piece joins the band before it
+        radii[-1] = end
+    radii += [end + forest_seam.COVE * math.sin(0.5 * math.pi * k / COVE_BANDS) for k in range(1, COVE_BANDS)]
+    radii.append(S[-1][0])
     prof = [(rad, forest_seam.sheet_z(rad)) for rad in radii[:-1]] + [(S[-1][0], S[-1][1])]
     swing = sum(amp for (_k, amp, _ph) in forest_seam.SEAM_WAVES)   # the seam's whole wave
     blend = [_sheet_blend(rad) for (rad, _z) in prof]
@@ -1255,7 +1268,12 @@ def _place_crowns():
                          "k": r.i(*CROWN_LOBES[0]), "amp": r.u(*CROWN_LOBES[1]), "ph": r.u(0.0, 6.28),
                          "zone": "sun" if r.f() < CROWN_SUN else "leaf"})
             break
-    return tops, _field(r, 6, CROWN_LEAF)
+    field = _field(r, 6, CROWN_LEAF)
+    for i, t in enumerate(tops):        # its own rng: the tops' draws stay put
+        lr = _Rng(CROWN_SEED + 7919 * (i + 1))
+        n, a0 = lr.i(*LIMBS), lr.u(0.0, 2.0 * math.pi)
+        t["limbs"] = [a0 + 2.0 * math.pi * (k + 0.35 * lr.sf()) / n for k in range(n)]
+    return tops, field
 
 
 CROWNS, CROWN_FIELD = _place_crowns()
@@ -1288,19 +1306,13 @@ def _canopy_at(x, y):
     return fade * best * (1.0 + CROWN_LUMP * CROWN_FIELD(x, y)), top, best / top["D"]
 
 
-def _canopy_zone(f):
-    """The top's own leaf in its middle, shade in the creases where tops meet; off
-    the canopy's span the sheet's old billow picks, as the lane roof's does."""
-    old = _leaf_zone(f)
+def _cove_phi(rad):
+    """Degrees round the cove at radius rad: 0 where it leaves the dome, 90 plumb on the seam."""
+    return math.degrees(math.asin(max(0.0, min(1.0, (rad - forest_seam.SEAM_R + forest_seam.COVE) / forest_seam.COVE))))
 
-    def z(pts):
-        n = float(len(pts))
-        x, y = sum(p[0] for p in pts) / n, sum(p[1] for p in pts) / n
-        if _crown_fade(math.hypot(x, y)) < 0.5:
-            return old(pts)
-        _drop, top, share = _canopy_at(x, y)
-        return "shade" if top is None or share < CROWN_EDGE else top["zone"]
-    return z
+
+def _cove_level(rad):
+    return math.cos(math.radians(_cove_phi(rad)))
 
 
 def _sheet_under(f, rad, th, tops=True):
@@ -1312,8 +1324,9 @@ def _sheet_under(f, rad, th, tops=True):
         return forest_seam.seam_z(th)
     t = _sheet_blend(rad)
     x, y = rad * math.cos(th), rad * math.sin(th)
-    own = _sheet_amp(rad) * f(x, y)
-    drop = _canopy_at(x, y)[0] if tops else 0.0
+    k = _cove_level(rad)                # z lumps slide along a plumb face: they fade as the cove turns down
+    own = _sheet_amp(rad) * f(x, y) * k
+    drop = _canopy_at(x, y)[0] * k if tops else 0.0
     return forest_seam.sheet_z(rad) + (1.0 - t) * own + t * (forest_seam.seam_z(th) - forest_seam.SEAM_Z) - drop
 
 
@@ -1339,7 +1352,17 @@ def _sheet(m, r, disc):
     on the disc's last ring, so the sheet is a closed leaf mass: every
     edge still carries two faces. Returns (underside rings, seam ids, field)."""
     f = _field(r)
-    zone = _canopy_zone(f)
+    zone = "under"
+    cove = forest_seam.SEAM_R - forest_seam.COVE
+
+    def down(c):                        # a plumb face has no "down": round the cove it is down and in
+        rad = math.hypot(c[0], c[1])
+        return DOWN if rad < cove else (-c[0], -c[1], -rad)
+
+    def up(c):
+        rad = math.hypot(c[0], c[1])
+        return UP if rad < cove else (c[0], c[1], rad)
+
     rings = []
     for (rad, _z, _amp) in SHEET_RINGS[1:-1]:
         ring = []
@@ -1351,8 +1374,8 @@ def _sheet(m, r, disc):
         rings.append(ring)
     seam = [m.v(p) for p in forest_seam.seam_ring()]       # verbatim, in seam order
     zipper(m, disc[2], rings[0], DOWN, zone)
-    loft(m, rings, zone, want_fn=lambda c: DOWN)
-    zipper(m, rings[-1], seam, DOWN, zone)
+    loft(m, rings, zone, want_fn=down)
+    zipper(m, rings[-1], seam, down, zone)
     top = []
     grid = [(rad, n) for (rad, n) in SHEET_TOP] + [(rad, SHEET_N) for (rad, _z, _a) in SHEET_RINGS[1:-1] if rad >= SHEET_TOP_MATCH]
     for (rad, n) in grid:
@@ -1364,8 +1387,8 @@ def _sheet(m, r, disc):
         top.append(ring)
     zipper(m, disc[3], top[0], UP, "leaf")        # the leaf mass's top: it faces out, up, like the rest of it
     for i in range(len(top) - 1):
-        zipper(m, top[i], top[i + 1], UP, "leaf")
-    zipper(m, top[-1], seam, UP, "leaf")
+        zipper(m, top[i], top[i + 1], up, "leaf")
+    zipper(m, top[-1], seam, up, "leaf")
     _PROOF["bands"] = (("under", [disc[2]] + rings + [seam]), ("top", [disc[3]] + top + [seam]))
     return rings, seam, f
 
@@ -1517,6 +1540,7 @@ def build_tree_geometry():
     _spend(r, ROOF_DRAWS)
     _PROOF["first_new"] = len(m.verts)
     sheet, seam, field = _sheet(m, r, disc)
+    m.field = field
     _PROOF["first_limb"] = len(m.verts)
     _PROOF["clumps"] = _sheet_clumps(m, r, sheet)
     _PROOF["seam"] = [m.verts[i] for i in seam]
@@ -1648,6 +1672,62 @@ def seam_tint(ob, zones):
     return out
 
 
+def _glow(f, x, y):
+    """The light through the leaf at (x, y), rgb: warm and full where the mass is thin, greener and
+    dimmer under a deep top, darker again at its hub and where its limbs cross."""
+    drop, top, _share = _canopy_at(x, y)
+    r0, r1 = forest_seam.CROWN_RIM[0], forest_seam.SEAM_R
+    mass = drop + SHEET_THICK * max(0.0, min(1.0, (r1 - math.hypot(x, y)) / (r1 - r0)))
+    thin = math.exp(-mass / GLOW_DEPTH)
+    lvl = (GLOW_FLOOR + (1.0 - GLOW_FLOOR) * thin) * (1.0 + GLOW_BILLOW * f(x, y))
+    if top is not None:
+        if top["zone"] == "sun":
+            lvl *= GLOW_SUN
+        dx, dy = x - top["x"], y - top["y"]
+        d, a = math.hypot(dx, dy), math.atan2(dy, dx)
+        w = LIMB_W[0] + LIMB_W[1] * top["R"]
+        dark = math.exp(-(d / (1.5 * w)) ** 2)
+        reach = max(0.0, 1.0 - d / top["R"])
+        for la in top["limbs"]:
+            if math.cos(a - la) > 0.0:
+                wl = w * (0.4 + 0.6 * reach)
+                dark = max(dark, _smooth01(2.0 * wl, wl, d * abs(math.sin(a - la))) * math.sqrt(reach))
+        lvl *= 1.0 - LIMB_DARK * dark * (1.0 - thin)
+    return [min(1.0, (GLOW_THICK[c] + (GLOW_THIN[c] - GLOW_THICK[c]) * thin) * lvl) for c in range(3)]
+
+
+def _lit(rad, th):
+    """(share, shade) of an underside vertex: how much of it is lit leaf rather than glow, and that
+    leaf's shade -- the skirt's at the crown's rim, the drum head's at the seam."""
+    rim = 1.0 - _smooth01(UNDER_BAND[0], UNDER_BAND[1], rad - _sheet_lobe(rad, th))
+    cove = _smooth01(COVE_LIT[0], COVE_LIT[1], _cove_phi(rad))
+    return (rim, RIM_SHADE) if rim >= cove else (cove, SEAM_SHADE)
+
+
+def under_light(ob, zones, f):
+    """The underside's light, per corner: COLOR_0 the glow through the leaf, UV2.x ("Lit") the share
+    that is lit leaf instead (forest_crown_under.gdshader reads both)."""
+    me = ob.data
+    lit = me.uv_layers.new(name="Lit", do_init=False)
+    me.uv_layers.active = me.uv_layers["UVMap"]
+    me.uv_layers["UVMap"].active_render = True
+    col = me.color_attributes["Col"]
+    seen = {}
+    for pi, poly in enumerate(me.polygons):
+        for li in poly.loop_indices:
+            if zones[pi] != "under":
+                lit.data[li].uv = (0.0, 0.0)
+                continue
+            vi = me.loops[li].vertex_index
+            if vi not in seen:
+                x, y = me.vertices[vi].co[:2]
+                share, shade = _lit(math.hypot(x, y), math.atan2(y, x))
+                seen[vi] = (share, [g * (1.0 - share) + shade * share for g in _glow(f, x, y)])
+            share, rgb = seen[vi]
+            col.data[li].color = (rgb[0], rgb[1], rgb[2], 1.0)
+            lit.data[li].uv = (share, 0.0)
+
+
 def tint_material(mat):
     """Base Color = tile x COLOR_0 (x factor), the pattern the glTF exporter writes as a vertex-coloured texture."""
     nt = mat.node_tree
@@ -1691,8 +1771,8 @@ def _smooth01(a, b, x):
 
 
 def _underside_normals(ob, zones):
-    """The crown's down-facing leaf past the rim takes smooth near-level normals, as the leaf walls
-    have: no sun or lower sky reaches a face pointing down, so it read black under the dome."""
+    """The normals the underside's lit share is shaded with: turning level off the crown's rim, and
+    the drum's own round the cove. Where it only glows they are not read."""
     me = ob.data
     lit = []
     for v in me.vertices:
@@ -1705,12 +1785,18 @@ def _underside_normals(ob, zones):
         hx, hy = n[0] + 0.6 * c[0] / r, n[1] + 0.6 * c[1] / r
         k = math.hypot(hx, hy)
         lit.append((w, (hx / k, hy / k, UNDER_TILT * (1.0 - _smooth01(UNDER_SEAM[0], UNDER_SEAM[1], r)))))
+    cove = forest_seam.SEAM_R - forest_seam.COVE
     out = []
     for pi, poly in enumerate(me.polygons):
         fn = tuple(poly.normal)
-        leafy = zones[pi] in ("leaf", "shade", "sun")
+        leafy = zones[pi] in ("leaf", "shade", "sun", "under")
         for li in poly.loop_indices:
             w, t = lit[me.loops[li].vertex_index]
+            c = me.vertices[me.loops[li].vertex_index].co
+            r = math.hypot(c[0], c[1])
+            if zones[pi] == "under" and r > cove:      # the cove's lit share is the drum's leaf: its normal too
+                out.append(norm((-c[0] / r, -c[1] / r, SEAM_TILT)))
+                continue
             if not leafy or t is None:
                 out.append(fn)
                 continue
@@ -1727,6 +1813,7 @@ def build_render_copy():
     ob = m.object("ReviewTree")
     zones = seam_tint(ob, m.zones)
     unwrap(ob, zones)
+    under_light(ob, zones, m.field)
     _finish(ob, zones, tile_materials("ForestTreeCopy", zones, vertex=True))
     return ob
 
@@ -1738,6 +1825,7 @@ def build():
     ob = m.object(OBJECT_NAME, shift)
     zones = seam_tint(ob, m.zones)
     unwrap(ob, zones)
+    under_light(ob, zones, m.field)
     order = _finish(ob, zones, tile_materials("ForestTree", zones, vertex=True))
     _underside_normals(ob, [order[p.material_index] for p in ob.data.polygons])
     coll = c.object(COLLIDER_NAME, shift)

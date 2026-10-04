@@ -58,7 +58,8 @@ CROWN_RIM = (11.0, 34.1)    # (r, y) where the tower's leaf disc rim is and the 
 # like a dome off its wall, crests here, and curves down to the crown's rim.
 CREST = (41.5, 53.5)
 CREST_IN = 1.7              # the inner fall's power: flat at the crest, 1.08 at the rim
-CREST_OUT = 2.6             # the springing's power: flat at the crest, 56 degrees at the seam
+COVE = CREST[1] - SEAM_Z    # the springing is a quarter-round of this radius: level at the crest's
+                            # height, plumb on the drum's head, so roof and wall are one surface
 SHEET_R = (11.0, 13.0, 15.5, 18.5, 22.0, 26.0, 30.0, 34.0, 37.5, 40.0, 41.5, 43.5, 45.5, 46.7, SEAM_R)
 SETTLE_ULPS = 64            # how far settle() may walk to find a shared float (~0.25 mm at y 50)
 SHEET_LUMP = 0.6            # the tower sheet billows this much (rings between the rim and the seam only)
@@ -126,7 +127,7 @@ def seam_ring():
 
 def sheet_z(rad):
     """The tower sheet's nominal underside at radius rad, crown rim to seam: one
-    smooth curve, concave from below, cresting at CREST."""
+    smooth curve, cresting at CREST and rolling down a COVE onto the drum's head."""
     (r0, z0), (rc, zc) = CROWN_RIM, CREST
     if rad <= r0:
         return z0
@@ -134,7 +135,9 @@ def sheet_z(rad):
         return SEAM_Z
     if rad <= rc:
         return zc - (zc - z0) * ((rc - rad) / (rc - r0)) ** CREST_IN
-    return zc - (zc - SEAM_Z) * ((rad - rc) / (SEAM_R - rc)) ** CREST_OUT
+    if rad <= SEAM_R - COVE:
+        return zc
+    return SEAM_Z + math.sqrt(max(0.0, COVE * COVE - (rad - (SEAM_R - COVE)) ** 2))
 
 
 SHEET = [(rad, sheet_z(rad)) for rad in SHEET_R]   # the curve sampled: the collider's rings, the sheet's splits
