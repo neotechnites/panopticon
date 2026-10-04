@@ -149,5 +149,7 @@ func _wave_material(material: Material) -> Material:
 	wave.set_shader_parameter(&"metallic", base.metallic)
 	wave.set_shader_parameter(&"uv1_scale", base.uv1_scale)
 	wave.set_shader_parameter(&"uv1_offset", base.uv1_offset)
+	if mat_name == &"LavaRiver":
+		wave.set_shader_parameter(&"downstream", 1.0)
 	_wave_cache[material_id] = wave
 	return wave
