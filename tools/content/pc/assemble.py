@@ -78,7 +78,7 @@ FPS = 60
 W, H = 1080, 1920
 FF = ["ffmpeg", "-nostdin", "-hide_banner", "-y", "-loglevel", "error"]
 # Every segment is lossless RGB, decoded by its source's own tags: the edit adds no generation.
-# One near-lossless 4:4:4 copy (<tag>_view.mp4) is made at the end for browsers.
+# final\\<tag>.mp4 is one H.264 4:2:0 encode of the lossless master (final\\master\\<tag>.mkv).
 TO_709 = "format=rgb24"
 TAIL = ",format=rgb24"
 LOSSLESS = ["-c:v", "libx264rgb", "-preset", "veryfast", "-qp", "0"]
@@ -580,13 +580,15 @@ def main():
     if n_in == 0:
         raise SystemExit("assemble: nothing to mix (no voice, no music)")
     graph = ";".join(filters) + ";" + mix + "amix=inputs={}:normalize=0:duration=longest,atrim=0:{:.3f}[out]".format(n_in, total)
-    out = os.path.join(project, "final", f"{tag}.mp4")
+    # The lossless master is an archive file; the one file anyone plays is a standard H.264 made from it once.
+    os.makedirs(os.path.join(project, "final", "master"), exist_ok=True)
+    master = os.path.join(project, "final", "master", f"{tag}.mkv")
     run(FF + inputs + ["-filter_complex", graph, "-map", "0:v", "-map", "[out]", "-c:v", "copy", "-c:a", "aac",
-                       "-b:a", "192k", "-movflags", "+faststart", out])
-    view = os.path.join(project, "final", f"{tag}_view.mp4")
-    run(FF + ["-i", out, "-vf", "scale=out_range=tv:out_color_matrix=bt709,format=yuv444p", "-c:v", "libx264",
-              "-preset", "medium", "-crf", "10"] + TAGS + ["-c:a", "copy", "-movflags", "+faststart", view])
-    summary.append("view copy: %s" % view)
+                       "-b:a", "192k", master])
+    out = os.path.join(project, "final", f"{tag}.mp4")
+    run(FF + ["-i", master, "-vf", "scale=out_range=tv:out_color_matrix=bt709:flags=lanczos,format=yuv420p", "-c:v", "libx264",
+              "-preset", "medium", "-crf", "12"] + TAGS + ["-c:a", "copy", "-movflags", "+faststart", out])
+    summary.append("master: %s" % master)
     small = ""
     if str(head.get("copy_720", "no")).strip().lower() in ("yes", "true", "1"):
         small = os.path.join(project, "final", f"{tag}_720.mp4")

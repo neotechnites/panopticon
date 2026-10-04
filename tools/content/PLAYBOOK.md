@@ -169,10 +169,10 @@ lossless take; frame by frame, exact to the frame, about 80 s for a 5 s shot (30
 ### Nothing is compressed twice
 
 Take (lossless RGB) -> cut `cuts\NN.mp4` (lossless RGB H.264) -> edit segments (lossless RGB) ->
-`final\<tag>.mp4` (lossless RGB, the master). `final\<tag>_view.mp4` is ONE near-lossless 4:4:4 encode
-of the master for the browser (Chrome plays both; Safari and QuickTime play neither). Never add a
-lossy step between the take and the master, and never deliver 4:2:0 from this pipeline: red on black
-(hell) turns to fuzz.
+`final\master\<tag>.mkv` (lossless RGB, the archive master; no browser plays it) -> `final\<tag>.mp4`,
+ONE standard H.264 4:2:0 encode (crf 12, BT.709 tagged) that every browser and player handles. Never
+add a lossy step before the master. RGB and 4:4:4 files showed green and stuttered in Chrome on
+Ryan's Mac (v18): the file he watches is plain H.264 4:2:0, nothing else.
 
 ### Rules learned the hard way
 
