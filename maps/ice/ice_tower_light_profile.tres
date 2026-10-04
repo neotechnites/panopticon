@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="TowerLightProfile" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/ring/tower_light_profile.gd" id="1_tower_light_profile"]
+
+[resource]
+script = ExtResource("1_tower_light_profile")
+color = Color(1, 0.84, 0.56, 1)
+energy = 3.0
+range_metres = 48.0
+attenuation = 0.8
+height_metres = 5.6
+shadow_enabled = false
+specular = 0.0
