@@ -7,8 +7,8 @@ rules: 16:9 1920x1080 (SIZE=1920x1080 shot.sh), no HUD except the guard's scope,
 v2 notes (Ryan on rough_v1): the guard stands at the tower's window, not deep inside; all runners run the course direction; the runner shot is the SAME event as the guard shot (same stage, same seed, two POVs), cut back ~1 s to the man directly behind the victim; clear line of sight when he looks up at the tower; title drops in HARD on the music's drop; music https://www.youtube.com/watch?v=OBPV0lsorwU; real-looking gameplay only (walkable deck and real cover, nobody on lava, nobody looking backwards); max 4 players a shot (1 guard + 3); spread across hell, forest and marble. Added: "EVERY shot is first-person POV -- either the guard's scope/tower view or a prisoner's first-person view. No third-person ... Title/end cards are the only non-POV frames."
 music: external\src\music_v2_OBPV0lsorwU.mp4 -> voice\sr20det.ogg (SOURCES.md). The drop: 0.35 s of silence from 5.36 s, the hit at 5.703 s (sample onset); 170 bpm after it (v3 measured).
 cards: cuts/title_hard.mp4 is v1's title frame looped from frame 0 (v1's title.mp4 opened on two black frames); cuts/end.mp4 is v1's.
-delivery: content\trailer_reveal\final\rough_v19.mp4 (and ~/Desktop/panopticon-renders/trailer_reveal/)
-tag: rough_v19
+delivery: content\trailer_reveal\final\rough_v20.mp4 (and ~/Desktop/panopticon-renders/trailer_reveal/)
+tag: rough_v20
 size: 1920x1080
 v4 (Ryan): "every shot must be exactly reproducible in engine -- run a script and record"; NO CROUCHING anywhere; max 3 prisoners + guard; guard shots on the projectile rifle (led, held over). Every shot plays a TAPE (tape: line): the staged take recorded once, then every input played back -- see ## reshoot.
 
@@ -93,20 +93,22 @@ said: v5 "Forest, runner POV: a second runner beside him at the inner edge, a vi
 capture: --map=forest --shot=pack_lead --stage=trailer_forest_pit --bots=3 --pov=runner --look=social --rifle=projectile --seed=20261001
 tape: forest_pit
 seconds: 2.5
-in: 0.90
+in: 0.94
 freeze: waive
 # side by side down the lane (the victim a stride inside), he cuts in to the lip (153.4 deg r 47.25) and turns to face him at 2.30; the shove at 2.75 from 1.0 m (arms + the shover's kick), backwards over the edge and down out of frame; a third pulls up behind
 # v19 (Ryan): "they shouldnt walk to the edge, look back, and get shoved ... they shold be running, and get shoved to the side". All three sprint the lane from 137.6 deg; the shover's head whips in 64 deg at 1.72 and the shipped shove lands mid-stride at 1.87 (151.6 deg r 50); he goes over the lip sideways at ~153; the shover's eyes come back to the lane and he runs on
+# v20 (Ryan): "now the shove doesnt read right, its not clear whats happeneding, and tht its two shots of the same event." A longer run-up (from 124.3 deg, threading the 134-136 trees): the shover comes up on his shoulder (2.2 m to 0.5 m), a check on him at 2.3, his head turns onto him at 2.55 and holds (the man filling the frame, 1.1 m), the shove at 2.93 between the lip trees (149.9 deg), his eyes follow him out over the lip; the cut ends on that look (3.41)
 
 ## 9b
 said: v5 "Forest, the shoved runner's POV: the edge he was shoved from with the shover on it looking down, falling away, the mist rushing up"
 capture: --map=forest --shot=pack_lead --stage=trailer_forest_pit --bots=3 --pov=runner --look=social --rifle=projectile --set=pov=victim --seed=20261001
 tape: forest_pit
 seconds: 1.8
-in: 1.95
+in: 2.96
 freeze: waive
 # the forest_pit tape down Runner_1 from 0.1 s after the shove (the shover's arms still out, 1 m off), eyes held up on him: the lip shrinks above until the bank closes over it (~3.5), the mist at y -5.75 (4.49) greys it out; the cut ends 4.63 in the mist (out 4.65); floor_kill=1 lowers the KillBox for the shot only (map unchanged)
 # v19 (Ryan): "the other players shouldnt just be looking at him fall, they should be running." From 0.08 s after the shove: his head comes round to the lip, the shover and the third sprint on along it (to 2.7), the bank closes over them, out at 4.02
+# v20: from 0.03 s after the shove: his head whips round (0.15 s) onto the shover, arms still out, 2.4 m off, then stays on the lip between its two trees; the shover turns front and runs out of it, the third runs through it (3.2-3.7), the bank closes over it (~3.9), out at 5.08
 
 ## 10a
 said: v5 "Marble, runner POV: two runners both behind the same column on the inner edge, hidden from the tower; he shoves the other out into the open; cut BEFORE the shot"
@@ -195,6 +197,7 @@ captions: none
 # v14 (Ryan): "reshoot all the hell shots and reedit the trailer just like we did for the forest" -- 1, 2, 6, 7, 8, 11, 13, 14 reshot from their tapes on main 826cc0f (hell rock and lava textures, glow map, bilinear); the edit is v13's.
 # v15 (Ryan): "screen recorded real time of the game"; hell "blown the fuck out" -- 1, 2, 6, 7, 8, 11, 13, 14 reshot in rough mode (real time, screen recorded) at the game's own lighting (no stage exposure/ambient lift); the edit is v14's.
 # v19 (Ryan's notes on v18): duel, forest pit, crack and lake restaged and re-taped, 6 7 8 9a 9b 11 13 14 refilmed in rough mode; d2 in 1.6 (the peek, the shot, the miss), t2 in 2.0 (the check, the quick hop, the stumble); lengths and the grid are v18's.
+# v20 (Ryan on v19): the forest shove restaged and re-taped, 9a 9b refilmed in rough mode; every other shot and the edit are v19's.
 # cuts/title_hard.mp4 and cuts/end_v3.mp4 are the v3 cards (end without the player count), kept on the PC.
 | line | clip | in | len | fit | speed | text |
 | a1 | cuts/01.mp4@0.35:2.70 | | | beat 2.70 | | |

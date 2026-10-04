@@ -1,20 +1,22 @@
 extends "res://tools/capture/stages/stage.gd"
 
-## trailer_forest_pit (v5 9a/9b): three sprint the lane past the pit; the outside man turns in mid-stride and shoves
-## the one beside him sideways over the lip; nobody stops, the two left run on. One take, the shover's eyes or the faller's.
-## v19 (Ryan): "they shold be running, and get shoved to the side"; "the other players shouldnt just be looking at
-## him fall, they should be running."
-## Lip trunks r 47.45 at 148.28 and 155.82 (probe: trunk 148-149.2 to r 49.5); the lip 149.6-154.8 is clear, flat to
-## r 47, the bank -0.6 at r 46 and near-vertical inside r 45. The KillBox roof is y 0; floor_kill lowers it (shot only).
-## Lane (probe --heights, 0.5 deg x 0.25 m): r 50-51.3 clear 137.5-157 (trunks r <= 49.25 at 140-141.5 and 147.5-149,
-## r >= 52.5 at 141.5-143.5 and 149.5-150.5); on past the lip, outside the 163.5-165.5 tree (r 48.5-52.25), inside 170.5-172.5 (r 52.5+).
-## Dials: pov (shover|victim), at (147.8 deg, where the swing starts), from (11.0 deg back: the run-up), floor_kill (1),
-## impulse (16) and up (7): the shipped shove, turn (64 deg right of the lane: the shove's line), swing (0.15 s from the turn to the shove).
+## trailer_forest_pit (9a/9b): three sprint the lane; the outside man comes up on the inside man's shoulder, turns
+## onto him and shoves him sideways through the gap in the lip trees. One take, the shover's eyes or the faller's.
+# Ryan v19: "they shold be running, and get shoved to the side"; "the other players shouldnt just be looking at
+# him fall, they should be running." v20: "the shove doesnt read right ... tht its two shots of the same event."
+# Probe (--heights 0.5 deg x 0.25 m): lane trees 134-135.5 (r 49-50.75) and 135-136 (r 54.25+), so the run-up
+# threads r 51-54 there; lip trees 147.5-149.5 and 155-156.5 (to r 49.75), the lip between them flat to r 46.75.
+# Dials: pov (shover|victim), from (124.3), back (2.2 deg), pace (0.93), turn_at (144.0), at (148.9),
+# follow (0.55 s), whip (0.15 s), on_him (0.21 s), lip (152.2 deg), floor_kill (1), impulse (16) and up (7): the shipped shove.
 
 const VICTIM_R: float = 50.0
-const SHOVER_R: float = 51.2
-const THIRD_R: float = 51.3
-## The way on past the lip: out round the 164 tree, back in before the 171 one.
+const SHOVER_R: float = 51.0
+const THIRD_R: float = 51.4
+const GATE: float = 136.5
+const VICTIM_GATE_R: float = 51.6
+const SHOVER_GATE_R: float = 52.5
+const THIRD_GATE_R: float = 52.1
+# The way on past the lip: out round the 164 tree, back in before the 171 one.
 const OUT_FROM: float = 155.5
 const OUT_R: float = 53.6
 const IN_FROM: float = 166.3
@@ -25,9 +27,11 @@ var _victim: PlayerController = null
 var _shover: PlayerController = null
 var _third: PlayerController = null
 var _drivers_by_body: Dictionary = {}
-var _swing_at: float = -1.0
+var _turned_in: bool = false
 var _swung: bool = false
-var _shoved: bool = false
+var _shoved_at: float = -1.0
+var _eyes_front: bool = false
+var _lip: Node3D = null
 
 
 func bots() -> int:
@@ -55,73 +59,112 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 	for brain: RunnerBrain in runners:
 		if brain.controller == null:
 			return false
-	var from: float = float(option("at", 147.8)) - float(option("from", 11.0))
+	var from: float = float(option("from", 124.3))
+	var back: float = float(option("back", 2.2))
+	var pace: float = float(option("pace", 0.93))
 	_victim = runners[0].controller
 	_shover = runners[1].controller
 	_third = runners[2].controller
-	# The victim: flat out down the inside of the lane, eyes on the course, a stride ahead of the man outside him.
+	# The victim: down the inside of the lane, eyes on the course, a little off the pace.
 	_drivers_by_body[_victim] = drive(runners[0], [
-		{"do": "place", "deg": from, "r": VICTIM_R, "h": 0.1, "face": LIB.tangent_at(from)},
+		{"do": "place", "deg": from, "r": VICTIM_GATE_R, "h": 0.1, "face": LIB.tangent_at(from)},
 		{"do": "human", "on": true},
 		{"do": "steer", "on": true, "rate": 420.0, "gain": 9.0},
-		{"do": "lane", "to": ON_TO, "r": VICTIM_R, "speed": 1.0, "weave": 0.03, "period": 1.3, "timeout": 9.0,
-			"glances": [{"t": 0.0, "right": 0.0, "pitch": -3.0}, {"t": 0.7, "right": -7.0, "pitch": 1.0}, {"t": 1.15, "right": 3.0, "pitch": -3.0}]},
+		{"do": "lane", "to": GATE, "r": VICTIM_GATE_R, "speed": pace, "weave": 0.02, "period": 1.3, "timeout": 9.0,
+			"glances": [{"t": 0.0, "right": 0.0, "pitch": -3.0}]},
+		{"do": "lane", "to": ON_TO, "r": VICTIM_R, "speed": pace, "weave": 0.02, "period": 1.3, "timeout": 9.0,
+			"glances": [{"t": 0.0, "right": 2.0, "pitch": -3.0}, {"t": 0.5, "right": -6.0, "pitch": 1.0}, {"t": 0.95, "right": 3.0, "pitch": -3.0}]},
 		{"do": "hold", "seconds": 60.0},
 	], 0, "ClipPitVictim")
-	# The shover: outside him and a stride behind, checking him across his shoulder as they run.
+	# The shover: outside him and behind, flat out, closing on his shoulder with a check on him as he comes.
 	_drivers_by_body[_shover] = drive(runners[1], [
-		{"do": "place", "deg": from - 1.1, "r": SHOVER_R, "h": 0.1, "face": LIB.tangent_at(from - 1.1)},
+		{"do": "place", "deg": from - back, "r": SHOVER_GATE_R, "h": 0.1, "face": LIB.tangent_at(from - back)},
 		{"do": "human", "on": true},
-		{"do": "lane", "to": OUT_FROM, "r": SHOVER_R, "speed": 1.0, "weave": 0.03, "period": 1.1, "timeout": 9.0,
-			"glances": [{"t": 0.0, "right": 6.0, "pitch": -3.0}, {"t": 0.35, "right": 22.0, "pitch": -5.0}, {"t": 0.75, "right": 8.0, "pitch": -2.0}]},
+		{"do": "lane", "to": GATE, "r": SHOVER_GATE_R, "speed": 1.0, "weave": 0.02, "period": 1.1, "timeout": 9.0,
+			"glances": [{"t": 0.0, "right": 5.0, "pitch": -3.0}, {"t": 0.5, "right": 13.0, "pitch": -4.0}, {"t": 0.9, "right": 3.0, "pitch": -2.0}]},
+		{"do": "lane", "to": OUT_FROM, "r": SHOVER_R, "speed": 1.0, "weave": 0.02, "period": 1.1, "timeout": 9.0,
+			"glances": [{"t": 0.0, "right": 8.0, "pitch": -4.0}, {"t": 0.25, "right": 19.0, "pitch": -6.0}, {"t": 0.5, "right": 6.0, "pitch": -3.0}]},
 		{"do": "lane", "to": IN_FROM, "r": OUT_R, "speed": 1.0, "weave": 0.03, "period": 1.1, "timeout": 9.0,
 			"glances": [{"t": 0.0, "right": 3.0, "pitch": -3.0}, {"t": 0.3, "right": -9.0, "pitch": -1.0}, {"t": 0.7, "right": 4.0, "pitch": -2.0}]},
 		{"do": "lane", "to": ON_TO, "r": IN_R, "speed": 1.0, "weave": 0.03, "period": 1.1, "timeout": 9.0,
 			"glances": [{"t": 0.0, "right": 6.0, "pitch": -2.0}, {"t": 0.6, "right": -3.0, "pitch": -1.0}]},
 		{"do": "hold", "seconds": 60.0},
 	], 1, "ClipPitShover")
-	# The third: a few strides back down the lane; he runs on past the lip like the shover does.
+	# The third: three metres behind the shover; he runs on past the lip like the shover does.
+	var third_from: float = from - back - 3.3
 	_drivers_by_body[_third] = drive(runners[2], [
-		{"do": "place", "deg": from - 5.4, "r": THIRD_R, "h": 0.1, "face": LIB.tangent_at(from - 5.4)},
+		{"do": "place", "deg": third_from, "r": THIRD_GATE_R, "h": 0.1, "face": LIB.tangent_at(third_from)},
 		{"do": "human", "on": true},
-		{"do": "lane", "to": OUT_FROM, "r": THIRD_R, "speed": 0.97, "weave": 0.05, "period": 1.4, "timeout": 9.0,
-			"glances": [{"t": 0.0, "right": 0.0, "pitch": -2.0}, {"t": 0.8, "right": -9.0, "pitch": 2.0}, {"t": 1.2, "right": 5.0, "pitch": -1.0}]},
-		{"do": "lane", "to": IN_FROM, "r": OUT_R, "speed": 0.97, "weave": 0.05, "period": 1.4, "timeout": 9.0,
+		{"do": "lane", "to": GATE, "r": THIRD_GATE_R, "speed": 1.0, "weave": 0.03, "period": 1.4, "timeout": 9.0,
+			"glances": [{"t": 0.0, "right": 0.0, "pitch": -2.0}]},
+		{"do": "lane", "to": OUT_FROM, "r": THIRD_R, "speed": 1.0, "weave": 0.04, "period": 1.4, "timeout": 9.0,
+			"glances": [{"t": 0.0, "right": 0.0, "pitch": -2.0}, {"t": 0.6, "right": -8.0, "pitch": 2.0}, {"t": 1.0, "right": 5.0, "pitch": -1.0}]},
+		{"do": "lane", "to": IN_FROM, "r": OUT_R, "speed": 1.0, "weave": 0.05, "period": 1.4, "timeout": 9.0,
 			"glances": [{"t": 0.0, "right": -6.0, "pitch": -2.0}, {"t": 0.5, "right": 3.0, "pitch": -1.0}]},
-		{"do": "lane", "to": ON_TO, "r": IN_R, "speed": 0.97, "weave": 0.05, "period": 1.4, "timeout": 9.0,
+		{"do": "lane", "to": ON_TO, "r": IN_R, "speed": 1.0, "weave": 0.05, "period": 1.4, "timeout": 9.0,
 			"glances": [{"t": 0.0, "right": 5.0, "pitch": -2.0}, {"t": 0.6, "right": -2.0, "pitch": -1.0}]},
 		{"do": "hold", "seconds": 60.0},
 	], 2, "ClipPitThird")
 	for body: PlayerController in [_shover, _third]:
 		LIB.hide_from_the_rifle(body)
+	# The lip he goes over, between its two trees: where the faller's eyes stay.
+	_lip = Node3D.new()
+	_lip.name = "ClipPitLip"
+	clip.root.add_child(_lip)
+	_lip.global_position = LIB.ring_point(float(option("lip", 152.2)), 50.8, 0.0)
 	victim_body(_victim)
 	stage_body(_victim if String(option("pov", "shover")) == "victim" else _shover)
-	say("trailer_forest_pit: %s shoves %s off the lip at a run from %.1f deg; %s behind" % [_shover.name, _victim.name, float(option("at", 147.8)), _third.name])
+	say("trailer_forest_pit: %s shoves %s off the lip at a run at %.1f deg; %s behind" % [_shover.name, _victim.name, float(option("at", 148.9)), _third.name])
 	return true
 
 
 func tick(_delta: float) -> void:
 	if _victim == null or not is_instance_valid(_victim):
 		return
-	if OS.has_environment("STAGE_DEBUG") and Engine.get_physics_frames() % 6 == 0:
-		var line: String = ""
+	var at: float = LIB.bearing_of(_shover.global_position)
+	if OS.has_environment("STAGE_DEBUG") and Engine.get_physics_frames() % 3 == 0:
+		var line: String = " gap %.2f aim %.0f yaw %.0f" % [_ahead_of_shover(), _aim_at_victim().x, _right_of(_lane_of_shover(), -_shover.global_transform.basis.z)]
 		for body: PlayerController in [_victim, _shover, _third]:
 			line += " %s %.1f/%.2f y%.2f p%.0f" % [body.name, LIB.bearing_of(body.global_position), LIB.radius_of(body.global_position), body.global_position.y, rad_to_deg(body.head.rotation.x)]
 		say("at" + line)
-	# Past the lip trunk: the shover's head whips in on the man beside him, his feet still on the lane.
-	if _swing_at < 0.0 and LIB.bearing_of(_shover.global_position) >= float(option("at", 147.8)):
-		_swing_at = elapsed()
-		var turn: float = float(option("turn", 64.0))
+	if not _turned_in and at >= float(option("turn_at", 144.0)):
+		_turned_in = true
+	if not _turned_in or _eyes_front:
+		pass
+	elif _shoved_at >= 0.0 and elapsed() >= _shoved_at + float(option("follow", 0.55)):
+		# Eyes front: he never broke stride.
+		_eyes_front = true
 		_drivers_by_body[_shover].glance_now([
-			{"t": 0.0, "right": turn, "pitch": -6.0},
-			{"t": 0.42, "right": turn * 0.55, "pitch": -15.0},   # a beat on him going over
-			{"t": 0.72, "right": 4.0, "pitch": -3.0},            # eyes front, still running
-			{"t": 1.5, "right": -6.0, "pitch": -1.0},
+			{"t": 0.0, "right": 5.0, "pitch": -3.0},
+			{"t": 0.7, "right": -6.0, "pitch": -1.0},
 		])
-	# The swing lands as the turn does.
-	if _swing_at >= 0.0 and not _swung and elapsed() >= _swing_at + float(option("swing", 0.15)):
+	else:
+		# His head is on the man beside him from the turn until he has gone over, his feet still on the lane.
+		var aim: Vector2 = _aim_at_victim()
+		var pitch: float = -11.0 if _shoved_at < 0.0 else clampf(aim.y - 5.0, -24.0, 6.0)
+		_drivers_by_body[_shover].glance_now([{"t": 0.0, "right": minf(aim.x, 88.0), "pitch": pitch}])
+	# The swing lands as they clear the lip tree, his eyes already on him.
+	if _turned_in and not _swung and at >= float(option("at", 148.9)):
 		_swung = true
 		_drivers_by_body[_shover].press_shove()
+
+
+## The shover's lane heading, as his lane step steers it.
+func _lane_of_shover() -> Vector3:
+	var ahead: Vector3 = LIB.ring_point(LIB.bearing_of(_shover.global_position) + 5.0, SHOVER_R, 0.0)
+	return Vector3(ahead.x - _shover.global_position.x, 0.0, ahead.z - _shover.global_position.z).normalized()
+
+
+## Degrees right of the shover's lane and degrees up to the victim's chest.
+func _aim_at_victim() -> Vector2:
+	var to: Vector3 = _victim.global_position + Vector3.UP * 1.1 - (_shover.global_position + Vector3.UP * 1.6)
+	var flat: Vector3 = Vector3(to.x, 0.0, to.z)
+	return Vector2(_right_of(_lane_of_shover(), flat.normalized()), rad_to_deg(atan2(to.y, maxf(flat.length(), 0.1))))
+
+
+## Metres the victim is ahead of the shover along the lane.
+func _ahead_of_shover() -> float:
+	return (_victim.global_position - _shover.global_position).dot(_lane_of_shover())
 
 
 ## A glance that turns [param body]'s eyes onto [param point] over [param seconds].
@@ -146,19 +189,23 @@ static func _right_of(from: Vector3, to: Vector3) -> float:
 
 
 func on_shove(_from: MatchParticipant, victim: MatchParticipant) -> void:
-	if _shoved or victim.body != _victim:
+	if _shoved_at >= 0.0 or victim.body != _victim:
 		return
-	_shoved = true
-	say("shove: %s off the lane at %.1f deg r %.2f" % [_victim.name, LIB.bearing_of(_victim.global_position), LIB.radius_of(_victim.global_position)])
-	# The faller: his head comes round to the lip he left and stays on the man who did it, running on along it.
+	_shoved_at = elapsed()
+	say("shove: %s off the lane at %.1f deg r %.2f, %.2f m from %s" % [_victim.name, LIB.bearing_of(_victim.global_position), LIB.radius_of(_victim.global_position), _victim.global_position.distance_to(_shover.global_position), _shover.name])
+	# The faller: his head whips round onto the man who did it, arms still out; then his eyes stay on the lip
+	# he left, and the two left run through them and on.
+	var whip: float = float(option("whip", 0.15))
+	var thrown: Vector3 = -_shover.global_transform.basis.z * float(option("impulse", 16.0)) * whip * 0.88
+	var seen: Vector3 = _head_of(_shover) + _lane_of_shover() * _shover.velocity.length() * whip - thrown - Vector3.UP * 0.8
 	_drivers_by_body[_victim].retarget([
-		{"do": "hold", "seconds": 0.1},
-		_glance_onto(_victim, _head_of(_shover) + LIB.tangent_at(LIB.bearing_of(_shover.global_position)) * 2.5, 0.34),
-		{"do": "watch", "body": _shover, "seconds": 60.0, "height": 1.3},
+		_glance_onto(_victim, seen, whip),
+		{"do": "watch", "body": _shover, "seconds": float(option("on_him", 0.21)), "height": 1.3},
+		{"do": "watch", "body": _lip, "seconds": 60.0, "height": 1.2},
 	])
 	# The third never breaks stride: a look across at the pit and on.
 	_drivers_by_body[_third].glance_now([
-		{"t": 0.25, "right": 26.0, "pitch": -6.0},
+		{"t": 0.25, "right": 14.0, "pitch": -4.0},
 		{"t": 0.7, "right": 3.0, "pitch": -2.0},
 	])
 
