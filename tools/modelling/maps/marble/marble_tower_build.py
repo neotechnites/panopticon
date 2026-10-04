@@ -210,18 +210,13 @@ def _dome_vs(rad, rise, cls):
     """v per ring for a dome shell: the meridian's ARC LENGTH at the sheet's
     own density, so a texel is the same size at the spring and at the crown
     (an angle would stretch it, a face fit would shrink it toward the apex).
-    The skin continues the shaft's courses across the beam; the underside is
-    the plain stone from the spring."""
+    Both shells continue the shaft's brick courses up from the spring."""
     arc = _dome_profile(rad, rise)[1]
-    if cls == "coffer":
-        return [s / mb.STONE_M for s in arc]
     return [(DOME_Z0 - V0 + s) / SHEET_M for s in arc]
 
 
 def _dome_us(rad, rise, cls):
-    """u a facet per ring: the brick one bay a facet, the plain stone in metres round each ring."""
-    if cls == "coffer":
-        return [mb.TWO_PI * r / NS / mb.STONE_M for (r, _z) in _dome_profile(rad, rise)[0]]
+    """u a facet per ring: the brick, one bay a facet."""
     return [0.5] * (DOME_RINGS + 1)
 
 
@@ -239,7 +234,7 @@ SHEETS = {
     "iron": mb.iron_sheet(),
     "floor": mb.tile("floor", "marble_floor", "custom", 64, 64, mpt=2.7 / 64.0),   # one paving cell a ring band
     "plain": mb.stone("plain", mode="box"),                                    # the floor's centre
-    "coffer": mb.stone("coffer", mode="custom"),                               # the dome inside
+    "coffer": mb.brick("coffer", tint=mb.TINT_TOWER, mode="custom"),           # the dome inside
     "dome": mb.brick("dome", tint=mb.TINT_TOWER, mode="custom"),              # ... and outside
 }
 # Faces that wear a class their zone does not name, because their PROJECTION

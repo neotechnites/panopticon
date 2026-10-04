@@ -309,7 +309,7 @@ SHEETS = {
     "shade": brick("shade", tint=TINT_SHADE, **_WALL),
     "plinth": brick("plinth", mpt_v=COURSE_MPT / 2.0, tint=TINT_PLINTH_WALL, **_WALL),   # 0.5 m courses
     "cellin": brick("cellin", tint=TINT_CELL, **_WALL),
-    "field": stone("field", mode="box", mpt=tx.MPT),                     # the pit floor
+    "field": brick("field", mode="box"),                                 # the pit floor
     "spike": stone("spike", mode="box", mpt=tx.MPT),
     "floor": tile("floor", "marble_floor", "fit", 64, 64, mpt=2.7 / 64.0),
     "frieze": stone("frieze", ref_r=WALL_IN_R),   # unruled; the Greek key was tile("frieze", <its file>, "fit", 256, 64)
