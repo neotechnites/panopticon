@@ -34,6 +34,10 @@ uniform float fall_amp = WAVE_FALL_AMP;  // metres a fall moves out and back
 uniform float speed = WAVE_SPEED;        // rad/s: one heavy swell every ~11 s
 uniform float wave_scale = WAVE_SCALE;   // the falls' spatial frequency: 1.0 is the lava's
 #endif
+#ifndef WAVE_SEE_THROUGH
+uniform float flow_speed = 0.012;   // tiles per second each lava layer drifts
+uniform float layer_scale = 0.61;   // the second layer's size against the first
+#endif
 
 float flat_w(float y) {
 	float a = 1.0 - smoothstep(0.25, 0.9, abs(y - river_y));
@@ -72,12 +76,21 @@ void fragment() {
 	// flat face normal of the bent surface, kept on the side the mesh faces
 	vec3 n = normalize(cross(dFdx(VERTEX), dFdy(VERTEX)));
 	NORMAL = dot(n, NORMAL) < 0.0 ? -n : n;
-	vec4 albedo_tex = texture(albedo_texture, UV);
-	ALBEDO = albedo_tex.rgb * albedo_color.rgb;
 #ifdef WAVE_SEE_THROUGH
+	vec4 albedo_tex = texture(albedo_texture, UV);
+	vec3 emission_tex = texture(emission_texture, UV).rgb;
 	ALPHA = albedo_tex.a * albedo_color.a;
+#else
+	// two drifting layers of the one tile, turned and scaled apart so the repeat never lines up
+	vec2 ua = UV + vec2(0.6, 0.8) * flow_speed * TIME;
+	vec2 ub = mat2(vec2(0.799, 0.602), vec2(-0.602, 0.799)) * UV * layer_scale - vec2(0.8, -0.6) * flow_speed * 0.7 * TIME;
+	vec3 albedo_mean = textureLod(albedo_texture, UV, 16.0).rgb;
+	vec3 emission_mean = textureLod(emission_texture, UV, 16.0).rgb;
+	vec4 albedo_tex = vec4(clamp(albedo_mean + 0.75 * (texture(albedo_texture, ua).rgb + texture(albedo_texture, ub).rgb - 2.0 * albedo_mean), 0.0, 1.0), 1.0);
+	vec3 emission_tex = clamp(emission_mean + 0.75 * (texture(emission_texture, ua).rgb + texture(emission_texture, ub).rgb - 2.0 * emission_mean), 0.0, 1.0);
 #endif
-	EMISSION = texture(emission_texture, UV).rgb * emission_color.rgb * emission_energy;
+	ALBEDO = albedo_tex.rgb * albedo_color.rgb;
+	EMISSION = emission_tex * emission_color.rgb * emission_energy;
 	ROUGHNESS = roughness;
 	METALLIC = metallic;
 }
