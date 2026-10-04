@@ -37,6 +37,9 @@ uniform float wave_scale = WAVE_SCALE;   // the falls' spatial frequency: 1.0 is
 #ifndef WAVE_SEE_THROUGH
 uniform float flow_speed = 0.012;   // tiles per second each lava layer drifts
 uniform float layer_scale = 0.61;   // the second layer's size against the first
+uniform float downstream = 0.0;     // 1: river and falls, the tile runs in to the pit and down the falls
+uniform float stream_speed = 0.06;  // tiles per second downstream (falls run twice as fast, stretched)
+varying vec3 rest_w;
 #endif
 
 float flat_w(float y) {
@@ -54,6 +57,9 @@ void vertex() {
 	vec2 out_dir = r > 0.001 ? -d / r : vec2(0.0);   // off the wall, into the ring
 #ifdef WAVE_SEE_THROUGH
 	out_dir = normalize((MODEL_MATRIX * vec4(0.0, 0.0, 1.0, 0.0)).xz);   // an upright disc: off its face
+#endif
+#ifndef WAVE_SEE_THROUGH
+	rest_w = w;
 #endif
 	float t = TIME * speed;
 	float fl = flat_w(w.y);
@@ -84,10 +90,24 @@ void fragment() {
 	// two drifting layers of the one tile, turned and scaled apart so the repeat never lines up
 	vec2 ua = UV + vec2(0.6, 0.8) * flow_speed * TIME;
 	vec2 ub = mat2(vec2(0.799, 0.602), vec2(-0.602, 0.799)) * UV * layer_scale - vec2(0.8, -0.6) * flow_speed * 0.7 * TIME;
+	vec2 ax = dFdx(ua), ay = dFdy(ua), bx = dFdx(ub), by = dFdy(ub);
+	if (downstream > 0.5) {
+		// round the ring (65 tiles a turn) by distance downstream: in to the pit on the flat, down the falls
+		vec2 d = rest_w.xz - ring_centre;
+		float r2 = max(dot(d, d), 0.01);
+		float turn = atan(d.y, d.x) / TAU;
+		vec2 dturn = vec2(d.x * dFdx(d.y) - d.y * dFdx(d.x), d.x * dFdy(d.y) - d.y * dFdy(d.x)) / (r2 * TAU);
+		float s = (sqrt(r2) + 0.5 * rest_w.y) / 5.0;
+		vec2 ds = vec2(dFdx(s), dFdy(s));
+		ua = vec2(turn * 65.0, s + stream_speed * TIME);
+		ub = vec2(turn * 40.0 + 0.37, s * layer_scale + stream_speed * 0.7 * TIME);
+		ax = vec2(dturn.x * 65.0, ds.x); ay = vec2(dturn.y * 65.0, ds.y);
+		bx = vec2(dturn.x * 40.0, ds.x * layer_scale); by = vec2(dturn.y * 40.0, ds.y * layer_scale);
+	}
 	vec3 albedo_mean = textureLod(albedo_texture, UV, 16.0).rgb;
 	vec3 emission_mean = textureLod(emission_texture, UV, 16.0).rgb;
-	vec4 albedo_tex = vec4(clamp(albedo_mean + 0.75 * (texture(albedo_texture, ua).rgb + texture(albedo_texture, ub).rgb - 2.0 * albedo_mean), 0.0, 1.0), 1.0);
-	vec3 emission_tex = clamp(emission_mean + 0.75 * (texture(emission_texture, ua).rgb + texture(emission_texture, ub).rgb - 2.0 * emission_mean), 0.0, 1.0);
+	vec4 albedo_tex = vec4(clamp(albedo_mean + 0.75 * (textureGrad(albedo_texture, ua, ax, ay).rgb + textureGrad(albedo_texture, ub, bx, by).rgb - 2.0 * albedo_mean), 0.0, 1.0), 1.0);
+	vec3 emission_tex = clamp(emission_mean + 0.75 * (textureGrad(emission_texture, ua, ax, ay).rgb + textureGrad(emission_texture, ub, bx, by).rgb - 2.0 * emission_mean), 0.0, 1.0);
 #endif
 	ALBEDO = albedo_tex.rgb * albedo_color.rgb;
 	EMISSION = emission_tex * emission_color.rgb * emission_energy;
