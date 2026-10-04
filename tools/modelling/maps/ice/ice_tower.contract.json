@@ -1,10 +1,10 @@
 {
-  "_comment": "ice_tower: Map 4's guard tower, a Lake Michigan pier light encased in wind-driven ice (windward bearing 200). Conical red riveted-steel shaft r 10 -> 6.9 with three proud iron plate bands and three framed portholes on the lee; four tiered icicle curtains stacked down the windward half, icicles leaning ~31 deg downwind, rime fingers and patches cut on their own polyline into the paint; corbelled gallery deck (top z 0.3, r 9.6) with the rail iced into a fringe (top <= 1.45), horizontal streamers and a leaning curtain from the deck edge; lantern room on map 1's datum (floor 1.70, r 6.86 / 7.80, eight 40 deg openings at 25 + 45k, sill 2.35, head 7.00, ceiling 7.25, iron mullions); ribbed ogee cupola with a two-lobed windward cap, long icicles only in front of the mullions, ventilator ball and rod; faceted frozen-spray mound with leeward shards running 0.4 m below the pit floor (z -36.8). One contiguous art mesh IceTower, COLOR_0 over the ice tiles (iron twice: cylindrical and box-projected); IceTowerCollision-colonly purpose-built.",
+  "_comment": "ice_tower: Map 4's guard tower, map 1's tower in ice. A fused, fluted, faceted ice column (three merged stalagmite lobes at the foot, refrozen bulges, flow ribs under the piers) from 0.4 m below the pit floor (z -36.8) to a frozen ledge under the sill with an icicle fringe; the drum on map 1's datum (floor 1.70, r 6.86 / ~7.78, eight round-headed 40 deg openings at 25 + 45k, sill 2.35, crown 7.00, ceiling 7.25); an ice cornice with drips (tips >= 6.85 over openings, long ones in front of the piers) and a low faceted dome with a snow cap to z 10.22. One closed contiguous art mesh IceTower, COLOR_0 over ice_blue (cyl and box), ice_deep, ice_snow, ice_icicle; IceTowerCollision-colonly purpose-built.",
   "node_paths": [
     "IceTower",
     "IceTowerCollision",
     "IceTowerCollision/CollisionShape3D"
   ],
-  "surfaces": 7,
+  "surfaces": 5,
   "max_tris": 12000
 }

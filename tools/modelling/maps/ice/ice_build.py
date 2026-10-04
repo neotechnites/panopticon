@@ -1,12 +1,13 @@
 """
-PANOPTICON -- ice: Map 4. A glacier chamber under an ice-cave roof: a shelf of lake ice round a
-crevassed pit, a wall of seracs and buttresses, a scalloped see-through roof, and a serac ridge
-across the lane at 353 deg. ONE sculpt (one mesh, shared vertices), exported per chunk:
+PANOPTICON -- ice: Map 4. An ice cavern: what map 1 does in rock, in ice. A shelf of lake ice round
+a crevassed pit, a wall of flat-faced blue ice with tiers of barred cells cut into it, a scalloped
+see-through roof, and a slotted ice screen across the lane at 353 deg. ONE sculpt (one mesh, shared
+vertices), exported per chunk:
 
-    ice_ground.glb   pit floor, pit wall, the crevassed rim, the lane       IceGround
-    ice_wall.glb     the serac wall, lane edge to the roof's spring ring    IceWall
-    ice_gate.glb     the ridge across the lane (the lane's own surface)     IceGate
-    ice_roof.glb     the scalloped roof and the bright shell seen through   IceRoof, IceRoofOuter
+    ice_ground.glb   pit floor, pit wall and its cells, the crevassed rim, the lane   IceGround
+    ice_wall.glb     the ice wall and its cells, lane edge to the roof's spring ring  IceWall
+    ice_gate.glb     the slotted screen across the lane (the lane's own surface)      IceGate
+    ice_roof.glb     the scalloped roof and the bright shell seen through             IceRoof, IceRoofOuter
 
 World coordinates, instanced at identity (Blender +Z -> Godot +Y, +Y -> Godot -Z; bearings as
 map 1's pol()). Map 1's ring: lane y 23.0, never narrower than r 46.7..57.3; pit floor y -11.05.
@@ -34,7 +35,7 @@ for _root in (os.path.dirname(_HOME), os.path.dirname(os.path.dirname(_HOME))):
 import texel as tx  # noqa: E402
 import ice_lib as il  # noqa: E402
 from ice_lib import (Mesh, Rng, UP, DOWN, pol, bearing_of, rad_of, lerp, lerp3, clamp, smooth, ramp,  # noqa: E402
-                     angdiff, interp, h2, vnoise, fbm, ring_noise, worley)
+                     angdiff, interp, h2, vnoise, fbm, ring_noise, worley, add, sub, scale, dot, cross, unit)
 if bpy is not None:
     import mdl  # noqa: E402
 
@@ -79,37 +80,60 @@ FLOOR_NC = 120
 FLOOR_APRON = (1.0, 1.6)    # rubble apron at the wall's foot: least, extra
 FLOOR_PLATE = 7.0           # pressure plates on the frozen pool
 
-# -- the serac wall: flat-faced blocks en echelon; rows over the lane, the foot cove, the lean
-# into the roof's spring ring
-WALL_DZ = [0.0, 0.4, 1.1, 2.3, 3.9, 5.8, 8.4, 10.4, 12.0, 13.2, 14.2]
-WALL_COVE = [0.0, 0.5, 0.9, 1.1, 1.15, 1.15, 1.15, 1.15, 1.15, 1.15, 1.15]
-WALL_DRIFT = [0.0, 0.9, 1.75, 2.05, 1.9, 1.5, 1.2, 1.15, 1.15, 1.15, 1.15]   # the cove under a snow bank
-WALL_SPRING = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.1, 0.3, 0.6, 0.85, 1.0]
+# -- the ice wall: flat faces en echelon between the roof's piers, leaning in to its spring ring
+PIERS = [(348, 358), (380, 385), (413, 421), (460, 468), (494, 502), (523, 530), (553, 558), (596, 602),
+         (642, 647), (675, 681)]                     # the piers the roof's keels spring from (fixed: the roof stays)
+VAULTS = [(358, 380, 0.9731223312762178), (385, 413, 0.8154195803904033), (421, 460, 0.8662097354185265),
+          (468, 494, 0.9177147528785172), (502, 523, 0.6621493413626363), (530, 553, 0.8298627412155559),
+          (558, 596, 0.5964138622777299), (602, 642, 0.8676478824195721), (647, 675, 0.6873061582215021),
+          (681, 708, 0.5949651473719058)]            # the roof's rise between two piers (fixed with them)
+WALL_DZ = [0.0, 0.45, 1.1, 3.4, 4.9, 6.1, 8.1, 9.4, 10.3, 10.8, 11.2, 11.6]     # rows over the lane at a pier
+WALL_RISE = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.12, 0.5, 0.8, 1.0]      # share of the vault's rise a row takes
+WALL_COVE = [0.0, 0.55, 0.95, 1.1, 1.1, 1.1, 1.1, 1.1, 1.1, 1.1, 1.1, 1.1]     # the face stands back off its foot
+WALL_DRIFT = [0.0, 0.9, 1.45, 1.3, 1.1, 1.1, 1.1, 1.1, 1.1, 1.1, 1.1, 1.1]     # the cove under a snow bank
 WALL_CLEAR_ROWS = 3         # rows a body can touch: these only ever stand back from the foot line
-FOOT_MIN = 57.6             # the wall foot where a serac stands furthest forward
-PROW_GAP = (28, 48)         # degrees between two prows: the piers the roof's keels spring from
-PROW_W = (5, 8)
-MASSIF_BACK = (0.3, 2.6)    # how far the wall between two prows stands back
-# a massif's style: serac width (deg), skew (deg), cleft share, ledge share, step between neighbours
-STYLES = {"towers": ((6, 12), 15.0, 0.85, 0.3, 1.4), "shattered": ((2, 4), 20.0, 0.6, 0.6, 1.1),
-          "sheer": ((9, 16), 8.0, 0.3, 0.2, 0.6)}
-CLEFT_BACK = (1.3, 2.6)     # how far a cleft column stands behind its seracs
-SERAC_LEAN = (-0.05, 0.09)  # radius per metre of height: negative leans out over the lane
-LEDGE_ROWS = (4, 5, 6)      # a serac's snow ledge: one of these rows and the next sit on one line
-LEDGE_BACK = (0.8, 1.9)
-OVERHANG = (0.5, 1.0)       # a serac whose head stands forward of its foot
-PROW_LEAN = [0.0, 0.0, 0.0, 0.0, 0.2, 0.5, 0.8, 1.1, 1.2, 0.9, 0.0]
-SPRING_R = (55.6, 0.8, 1.2)  # the spring ring: radius, wander, pull-in at a prow
-SPRING_Z = (34.6, 5.2)      # its height at a prow, and the rise of the vault between two prows
+LEAN_FROM = 4.0             # metres over the lane where the wall starts in toward the spring ring ...
+LEAN_POW = 1.7              # ... and how late it gets there
+FOOT_MIN = 57.6             # the wall foot where a face stands furthest forward
+FACE_W = (6, 11)            # degrees of wall a face holds
+FACE_SKEW = 8.0             # degrees a face is turned off the ring's tangent, either way
+BAY_BACK = (0.4, 2.2)       # how far the wall between two piers stands back
+FACE_STEP = 0.9             # ... and how far its faces step past one another
+SPRING_R = (55.6, 0.8, 1.2)  # the spring ring: radius, wander, pull-in at a pier
+SPRING_Z = (34.6, 5.2)      # its height at a pier, and the rise of the vault between two piers
 
-# -- the ridge across the lane (the gate): the lane's own surface rising between two columns
+# -- cells: an arched mouth cut through the ice, a reveal back to a screen of ice bars, cold light behind
+TIERS = ((2, 3, 4), (5, 6, 7), (8, 9, 10))           # wall rows: sill, springing, head
+TIER_SHARE = (0.9, 0.8, 1.0)                         # share of a tier's places that hold a cell
+TIER_RISE = 3.0             # the top tier only where the vault has risen this far
+CELL_W = (2, 4)             # columns a wall cell is wide
+PIT_TIERS = ((5, 4, 3), (8, 7, 6), (11, 10, 9))      # PIT_Y rows: sill, springing, head
+PIT_SHARE = (0.9, 0.8, 0.6)
+PIT_CELL_W = (3, 5)
+CELL_DZ = (0.25, 0.3)       # a cell's sill and head wander this far off their rows
+CELL_BACK = (0.45, 0.8)     # the screen stands this far behind the mouth's deepest point
+CELL_SPLAY = 0.93           # ... and is this share of the mouth: the reveals splay
+ARCH_H = (0.78, 0.95)       # the arch's crown, as a share of the way to the head row
+ARCH_P = (1.7, 2.6)         # its superellipse power: 2 is round, less is pointed
+BAR_W = (0.2, 0.3)          # an ice bar's width ...
+BAR_GAP = (0.3, 0.42)       # ... and the light between two
+BAR_PROUD = (0.08, 0.15, 0.24)      # how far its ridge stands off the screen: foot, middle, head
+GLOW_COL = ((0.72, 0.8, 0.9, 1.0), (1.0, 1.0, 1.0, 1.0))      # the light at a cell's sill and head
+BAR_COL = (0.5, 0.64, 0.84, 1.0)
+
+# -- the screen across the lane (the gate): the lane's own surface rising into a wall of fused ice
+# columns with slots cut clean through it; no slot wider than GATE_SLOT[1]
 GATE_B = 353.0
 GATE_COLS = (351, 355)
-GATE_ROWS = 6               # wall rows 0..6: crest 8.4 m over the lane
-GATE_HALF = [2.0, 1.5, 1.2, 1.05, 0.95, 0.8, 0.55]   # half width in degrees per row
-GATE_PROW = 0.6             # the pit end leans this far out over the lip
-GATE_CREST = (0.8, 1.22)    # the ridge's crest wanders between these shares of its height
-GATE_FACET = 0.28           # degrees a face block stands in or out
+GATE_ROWS = 7               # wall rows 0..7: crest 9.4 m over the lane
+GATE_HALF = [2.0, 0.95, 0.6, 0.48, 0.46, 0.5, 0.62, 0.42]      # half thickness in degrees per row
+GATE_RIDGE = 0.22           # degrees a column's ridge stands proud of its edges
+GATE_SLOT = (0.34, 0.44)    # metres of light between two columns
+GATE_COLUMN = (0.5, 0.95)   # a column's width
+GATE_END = 1.0              # the column at the lip
+GATE_FLARE = 2.0            # metres of solid ice where the screen grows out of the wall
+GATE_SLOT_ROWS = ((2, 5), (2, 6), (2, 5), (3, 6), (2, 4))      # rows a slot runs between
+GATE_CREST = 0.7            # the crest's wander, metres
 
 # -- icicles: spikes grown out of the faces they hang from
 ICICLE_WALL = (0.3, 1.0, 3.2)     # share of the wall's overhanging faces that carry one; length least, most
@@ -192,54 +216,32 @@ def _slabs():
     return out
 
 
-def _seracs():
-    """The wall: prows (the piers) with a massif of seracs between each pair. Each serac is a flat
-    face set back, skewed and leaned; "cleft" opens one at b0. Returns (seracs, prows, vaults)."""
+def _faces():
+    """The wall in plan: the piers, and between each pair a bay of flat faces set back, skewed
+    and stepped past one another."""
     r = Rng(SEED + 3)
-    centres = [353]
-    while 353 + 360 - centres[-1] > PROW_GAP[1] + PROW_GAP[0]:
-        centres.append(centres[-1] + r.i(*PROW_GAP))
-    if 353 + 360 - centres[-1] > PROW_GAP[1]:
-        centres.append((centres[-1] + 353 + 360) // 2)
-    spans = [(348, 358)] + [(c - w // 2, c - w // 2 + w) for c in centres[1:] for w in (r.i(*PROW_W),)]
-    out, vaults = [], []
-
-    def serac(b0, b1, kind, near, skew, cleft, ledge, drift_):
-        seg = {"b0": b0, "b1": b1, "psi": 0.5 * (b0 + b1) + skew, "near": near, "kind": kind, "h": r.f(),
-               "cleft": r.f() < cleft, "back": r.u(*CLEFT_BACK), "lean": r.u(*SERAC_LEAN),
-               "cz": ((-9.0, 99.0), (-9.0, r.u(5.0, 10.0)), (r.u(3.0, 7.0), 99.0))[r.i(0, 2)],
-               "ledge": None, "over": 0.0, "drift": drift_}
-        roll = r.f()
-        if roll < ledge and b1 - b0 >= 3:
-            seg["ledge"] = (LEDGE_ROWS[r.i(0, 2)], r.u(*LEDGE_BACK))
-        elif roll > 0.72:
-            seg["over"] = r.u(*OVERHANG)
-        return seg
-
-    names = sorted(STYLES)
-    for k, (p0, p1) in enumerate(spans):
-        prow = serac(p0, p1, "prow", FOOT_MIN + r.u(0.0, 0.4), 0.0 if k == 0 else r.u(-6.0, 6.0), 1.0, 0.0, 0.0)
-        prow["lean"], prow["over"] = 0.0, 0.0
-        out.append(prow)
-        nxt = spans[(k + 1) % len(spans)][0] + (360 if k + 1 == len(spans) else 0)
-        style = names[r.i(0, 2)]
-        (w0, w1), skew, cleft, ledge, step = STYLES[style]
-        back = r.u(*MASSIF_BACK)
-        vaults.append((p1, nxt, r.u(0.55, 1.0)))
+    out = []
+    n = len(PIERS)
+    for k, (p0, p1) in enumerate(PIERS):
+        out.append({"b0": p0, "b1": p1, "psi": 0.5 * (p0 + p1) + (0.0 if k == 0 else r.u(-5.0, 5.0)),
+                    "near": FOOT_MIN + r.u(0.0, 0.35), "kind": "pier", "h": r.f(), "drift": 0.0})
+        nxt = PIERS[(k + 1) % n][0] + (360 if k + 1 == n else 0)
+        back = r.u(*BAY_BACK)
         b = p1
         while b < nxt:
-            w = min(r.i(w0, w1), nxt - b)
-            if nxt - (b + w) < w0:
+            w = min(r.i(*FACE_W), nxt - b)
+            if nxt - (b + w) < FACE_W[0]:
                 w = nxt - b
-            out.append(serac(b, b + w, style, FOOT_MIN + back + r.u(0.0, step), r.u(-skew, skew), cleft, ledge,
-                             1.0 if back > 1.3 and r.f() < 0.75 else 0.0))
+            out.append({"b0": b, "b1": b + w, "psi": b + 0.5 * w + r.u(-FACE_SKEW, FACE_SKEW),
+                        "near": FOOT_MIN + back + r.u(0.0, FACE_STEP), "kind": "face", "h": r.f(),
+                        "drift": 1.0 if back > 1.3 and r.f() < 0.6 else 0.0})
             b += w
-    prows = [(0.5 * (p0 + p1) % 360.0, 0.5 * (p1 - p0)) for p0, p1 in spans]
-    return out, prows, vaults
+    return out
 
 
 SLABS = _slabs()
-SERACS, PROWS, VAULTS = _seracs()
+FACES = _faces()
+PROWS = [(0.5 * (p0 + p1) % 360.0, 0.5 * (p1 - p0)) for p0, p1 in PIERS]
 
 
 def _seg_of(segs, i):
@@ -288,35 +290,17 @@ def buttress(b):
     return best
 
 
-def wall_r(i, b, z, k):
-    """(radius, crack 0..1, serac) of the wall's face at column i, height z, row k, before the cove."""
-    seg, edge, prev, ii = _seg_of(SERACS, i)
-
-    def face(sg, bb):
-        dz = z - DECK_Z
-        r = _chord(sg, bb) + sg["lean"] * dz
-        if k <= WALL_CLEAR_ROWS:
-            r = max(r, _chord(sg, bb))
-        if sg["ledge"] and k > sg["ledge"][0]:
-            r += sg["ledge"][1]
-        if sg["over"] and k >= 5:
-            r -= sg["over"] * ramp(k, 4, 7)
-        return r
-
+def face_r(i, b):
+    """(radius, face) of the wall's plan line at column i (bearing b): its face's chord, the mean of two at a crease."""
+    seg, edge, prev, ii = _seg_of(FACES, i)
     if edge:
-        a, c = face(seg, ii), face(prev, prev["b1"])
-        if seg["cleft"]:
-            dz = z - DECK_Z
-            open_ = ramp(dz, seg["cz"][0] - 1.5, seg["cz"][0]) * (1.0 - ramp(dz, seg["cz"][1], seg["cz"][1] + 1.5))
-            deep = max(a, c) + seg["back"] * (0.55 if k == 0 else 1.0)
-            return lerp(0.5 * (a + c), deep, open_), open_, seg
-        return 0.5 * (a + c), 0.0, seg
-    return face(seg, _seg_b(seg, b)), 0.0, seg
+        return 0.5 * (_chord(seg, ii) + _chord(prev, prev["b1"])), seg
+    return _chord(seg, _seg_b(seg, b)), seg
 
 
 def foot(i):
     """The wall's foot line at column i: the lane's outer edge."""
-    return wall_r(i, float(i), DECK_Z, 0)[0]
+    return face_r(i, float(i))[0]
 
 
 def vault(b):
@@ -332,6 +316,78 @@ def spring(b):
     """(r, z) of the roof's spring ring: the seam the wall and the roof share."""
     r = SPRING_R[0] + SPRING_R[1] * ring_noise(b, SEED + 7) - SPRING_R[2] * buttress(b)
     return r, SPRING_Z[0] + SPRING_Z[1] * vault(b)
+
+
+def bench(b):
+    """(0..1 share, height) of a calved shelf on the pit wall at bearing b."""
+    m_ = ramp(ring_noise(b, SEED + 31, ((3, 1.0), (8, 0.7))), 0.12, 0.42)
+    return m_, BENCH_Y[0] + BENCH_Y[1] * ring_noise(b, SEED + 32, ((2, 1.0), (5, 0.6)))
+
+
+def _cell(r, i0, w, rows):
+    return {"i0": i0, "w": w, "rows": rows, "seed": r.i(1, 1 << 20),
+            "dz": (r.u(-CELL_DZ[0], CELL_DZ[0]), r.u(-CELL_DZ[1], CELL_DZ[1]))}
+
+
+def _wall_cells():
+    """Cells packed along each face of the wall, a column of ice between two; the top tier only
+    under a risen vault."""
+    out = []
+    for seg in FACES:
+        if seg["kind"] != "face":
+            continue
+        for t, share in enumerate(TIER_SHARE):
+            r = Rng(SEED + 400 + 131 * t + seg["b0"])
+            cur = seg["b0"] + 1 + r.i(0, 1)
+            while True:
+                w = r.i(*CELL_W) if t < 2 else CELL_W[0]
+                if cur + w > seg["b1"] - 1:
+                    break
+                rise = min(SPRING_Z[1] * vault(float(i)) for i in range(cur, cur + w + 1))
+                if r.f() < share and (t < 2 or rise >= TIER_RISE):
+                    out.append(_cell(r, cur, w, TIERS[t]))
+                cur += w + r.i(1, 2)
+    return out
+
+
+def _pit_cells():
+    """Cells in the pit wall's slabs, clear of the crevasse notches and the calved shelves."""
+    out = []
+    for k, seg in enumerate(SLABS):
+        if k == 0:
+            continue
+        nxt = SLABS[(k + 1) % len(SLABS)]
+        lo = seg["b0"] + (3 if seg["notch"] else 1)
+        hi = seg["b1"] - (3 if nxt["notch"] else 1)
+        for t, share in enumerate(PIT_SHARE):
+            r = Rng(SEED + 500 + 131 * t + seg["b0"])
+            cur = lo + r.i(0, 1)
+            while True:
+                w = r.i(*PIT_CELL_W)
+                if cur + w > hi:
+                    break
+                if r.f() < share and all(bench(float(i))[0] <= 0.0 for i in range(cur - 1, cur + w + 2)):
+                    out.append(_cell(r, cur, w, PIT_TIERS[t]))
+                cur += w + r.i(1, 2)
+    return out
+
+
+def _mask(cells, quad_rows):
+    """({(column, row): the row's lift there}, {(grid row, column)} of the quads a cell replaces)."""
+    verts, holes = {}, set()
+    for c in cells:
+        ks, km, kh = c["rows"]
+        for j in range(c["w"] + 1):
+            i = (c["i0"] + j) % NC
+            verts[(i, ks)], verts[(i, km)], verts[(i, kh)] = c["dz"][0], 0.5 * c["dz"][1], c["dz"][1]
+        for j in range(c["w"]):
+            for q in quad_rows(c["rows"]):
+                holes.add((q, (c["i0"] + j) % NC))
+    return verts, holes
+
+
+WALL_CELLS = _wall_cells()
+PIT_CELLS = _pit_cells()
 
 
 def _keels():
@@ -439,10 +495,12 @@ class Sculpt(object):
     def __init__(self):
         self.m = Mesh()
         self.cleft = {}          # vertex id -> 0..1 depth into a crack
-        self._blue = {}          # vertex id -> its slab's or serac's hash
+        self._blue = {}          # vertex id -> its slab's firn line, deep line and cornice
         self.lane = []           # rows lip .. wall foot, NC vertices each
         self.wall = []           # rows foot .. spring
         self.pit = []            # rows lip .. floor join
+        self.wall_mask, self.wall_holes = _mask(WALL_CELLS, lambda rows: (rows[0], rows[1]))
+        self.pit_mask, self.pit_holes = _mask(PIT_CELLS, lambda rows: (rows[2] + 1, rows[1] + 1))
 
     # -- lane ---------------------------------------------------------------
     def build_lane(self):
@@ -491,23 +549,22 @@ class Sculpt(object):
 
     def _lane_zone(self, n, c, ids):
         b, r = bearing_of(c), rad_of(c)
-        seg = _seg_of(SERACS, int(round(b)))[0]
+        seg = _seg_of(FACES, int(round(b)))[0]
         if seg["drift"] and r > foot(int(round(b))) - 1.2 - 1.0 * fbm(c[0] / 3.0, c[1] / 3.0, SEED + 23):
             return "snow"
         return "lane"
 
     # -- pit wall and floor ---------------------------------------------------
-    def _bench(self, b):
-        m_ = ramp(ring_noise(b, SEED + 31, ((3, 1.0), (8, 0.7))), 0.12, 0.42)
-        return m_, BENCH_Y[0] + BENCH_Y[1] * ring_noise(b, SEED + 32, ((2, 1.0), (5, 0.6)))
-
     def _pit_point(self, i, k):
         y0 = PIT_Y[k]
         soft = ramp(y0, 22.3, 19.0)                      # the cornice rows keep their line
         seg, edge, prev, ii = _seg_of(SLABS, i)
+        cell = self.pit_mask.get((i, k))
+        if cell is not None:                             # this vertex frames a cell: it keeps its slab's plane
+            soft, y0 = 0.0, y0 + cell
         b = i + (0.0 if edge else _jb(i, 60 + k, 0.28) * soft)
         y = y0 + _jb(i, 80 + k, 0.45) * soft
-        bm, by = self._bench(b)
+        bm, by = bench(b)
         kb = next((q for q, yy in enumerate(PIT_Y) if yy <= by + 1.3), len(PIT_Y))
         out = 0.0
         if bm > 0.0:
@@ -557,7 +614,12 @@ class Sculpt(object):
         rows.append(join)
         self.pit = rows
         inward = lambda c: (-c[0], -c[1], 0.0)
-        m.grid(rows, inward, self._pit_zone, "ground")
+        m.grid(rows, inward, self._pit_zone, "ground", skip=lambda r, i: (r, i) in self.pit_holes)
+        for c in PIT_CELLS:
+            ks, km, kh = (q + 1 for q in c["rows"])
+            cols = [(c["i0"] + j) % NC for j in range(c["w"] + 1)]
+            self.carve([rows[ks][i] for i in cols], [rows[kh][i] for i in cols], rows[km][cols[0]],
+                       rows[km][cols[-1]], "ground", c["seed"], self._pit_zone)
         rings = []
         for rad in FLOOR_R:
             ring = []
@@ -585,12 +647,12 @@ class Sculpt(object):
     def _pit_zone(self, n, c, ids):
         if n[2] > 0.55:
             return "snow"
-        firn, deep, corn = max((self._blue[v] for v in ids if v in self._blue), default=(21.0, 1.0, False))
+        _firn, deep, corn = max((self._blue[v] for v in ids if v in self._blue), default=(21.0, 1.0, False))
         if corn and c[2] > 22.2:
             return "snow"
         if min(self.cleft.get(v, 0.0) for v in ids) > 0.3 or c[2] < deep:
             return "deep"
-        return "glacier" if c[2] > firn else "blue"
+        return "blue"
 
     def _floor_zone(self, n, c, ids):
         return "floor" if n[2] > 0.8 else "deep"
@@ -599,40 +661,29 @@ class Sculpt(object):
     def _wall_point(self, i, k):
         if k == 0:
             return self.lane[-1][i]
-        seg, edge, _prev, _ii = _seg_of(SERACS, i)
-        top = k >= len(WALL_DZ) - 1
-        soft = 0.0 if (top or edge or (_gate_col(i) and k <= GATE_ROWS)) else 1.0
+        last = len(WALL_DZ) - 1
+        seg, edge, _prev, _ii = _seg_of(FACES, i)
+        cell = self.wall_mask.get((i, k))
+        soft = 0.0 if (k == last or edge or cell is not None or (_gate_col(i) and k <= GATE_ROWS)) else 1.0
         b = i + _jb(i, 200 + k, 0.3) * soft
         rs, zs = spring(b)
-        w = WALL_SPRING[k]
-        z = DECK_Z + WALL_DZ[k]
-        if k >= 2:
-            z += _jb(i, 220 + k, 0.24) * (WALL_DZ[k] - WALL_DZ[k - 1]) * soft
-        if seg["ledge"] and not edge:
-            lr = seg["ledge"][0]
-            if k == lr:
-                z = DECK_Z + WALL_DZ[lr] + 0.55
-            elif k == lr + 1:
-                z = DECK_Z + WALL_DZ[lr] + 0.85
-        z = lerp(z, zs - (WALL_DZ[-1] - WALL_DZ[k]), w)
-        r, crack, _seg = wall_r(i, b, z, k)
-        r += lerp(WALL_COVE[k], WALL_DRIFT[k], seg["drift"] * (0.0 if edge else 1.0))
-        r -= buttress(b) * PROW_LEAN[k]
-        fc = FACET[2] * facet(b, z, 58.0, SEED + 43) * soft * (1.0 - w)
+        if k == last:
+            return self.m.v(pol(b, rs, zs), RIM_COL)     # the seam: the roof's rim, in its colour
+        z = DECK_Z + WALL_DZ[k] + WALL_RISE[k] * (zs - SPRING_Z[0])
+        if cell is not None:                             # this vertex frames a cell: it keeps its face's plane
+            z += cell
+        elif k >= 2:
+            z += _jb(i, 220 + k, 0.2) * min(WALL_DZ[k] - WALL_DZ[k - 1], 1.2) * soft
+        r = face_r(i, b)[0] + lerp(WALL_COVE[k], WALL_DRIFT[k], seg["drift"] * (0.0 if edge else 1.0))
+        t = clamp((z - DECK_Z - LEAN_FROM) / (zs - DECK_Z - LEAN_FROM)) ** LEAN_POW
+        fc = FACET[2] * facet(b, z, 58.0, SEED + 43) * soft * (1.0 - t)
         r += max(fc, 0.0) if k <= WALL_CLEAR_ROWS else fc
-        if not seg["drift"] and k in (1, 2):                      # ice rubble along the foot
-            r += 0.35 * h2(i, 300 + k, SEED + 44) * soft
-            z += 0.3 * (h2(i, 310 + k, SEED + 44) - 0.5) * soft
-        r = lerp(r, rs, w)
-        tone = 0.88 + 0.24 * (seg["h"] - 0.5)
-        f = _strata(z, b) * tone * lerp(1.0, 0.6, crack)
-        f *= lerp(1.0, 0.55, ramp(z, zs - 4.5, zs))               # darker into the roof's thick rim
-        tint = lerp3((0.86, 0.94, 1.0), (0.55, 0.78, 1.0), ramp(z, zs - 5.5, zs))
-        col = lerp3((f * tint[0], f * tint[1], f * tint[2], 1.0), RIM_COL, w ** 2)   # the seam wears the roof's rim
-        vid = self.m.v(pol(b, r, z), col)
-        self.cleft[vid] = crack
-        self._blue[vid] = seg["h"]
-        return vid
+        r = lerp(r, rs, t)
+        tone = 0.9 + 0.2 * (seg["h"] - 0.5)
+        f = _strata(z, b) * tone * (1.14 if edge else 1.0)            # an arris is thin ice: it carries more light
+        f *= lerp(1.0, 0.6, ramp(z, zs - 4.5, zs))                    # darker into the roof's thick rim
+        tint = lerp3((0.9, 0.97, 1.0), (0.6, 0.8, 1.0), ramp(z, zs - 5.5, zs))
+        return self.m.v(pol(b, r, z), lerp3((f * tint[0], f * tint[1], f * tint[2], 1.0), RIM_COL, t * t))
 
     def build_wall(self):
         rows = [[self._wall_point(i, k) for i in range(NC)] for k in range(len(WALL_DZ))]
@@ -640,78 +691,177 @@ class Sculpt(object):
         inward = lambda c: (-c[0], -c[1], 0.0)
         g0, g1 = GATE_COLS
         self.m.grid(rows, inward, self._wall_zone, "wall",
-                    skip=lambda r, i: g0 <= i < g1 and r < GATE_ROWS)
+                    skip=lambda r, i: (g0 <= i < g1 and r < GATE_ROWS) or (r, i) in self.wall_holes)
+        for c in WALL_CELLS:
+            ks, km, kh = c["rows"]
+            cols = [(c["i0"] + j) % NC for j in range(c["w"] + 1)]
+            self.carve([rows[ks][i] for i in cols], [rows[kh][i] for i in cols], rows[km][cols[0]],
+                       rows[km][cols[-1]], "wall", c["seed"], self._wall_zone)
 
     def _wall_zone(self, n, c, ids):
         if n[2] > 0.5 and c[2] < 33.5:
             return "snow"
-        if max(self.cleft.get(v, 0.0) for v in ids) > 0.5:
-            return "deep"
-        if c[2] > spring(bearing_of(c))[1] - 2.4:
-            return "deep"
-        return "blue" if _seg_of(SERACS, int(math.floor(bearing_of(c))))[0]["h"] > 0.5 else "glacier"
+        return "deep" if c[2] > spring(bearing_of(c))[1] - 2.2 else "blue"
+
+    # -- cells ----------------------------------------------------------------
+    def carve(self, bot, top, spl, spr, chunk, seed, host):
+        """A cell in the hole framed by bot (sill), top (head) and the springing vertices spl, spr:
+        spandrels to an arched mouth, splayed reveals back to a screen, ice bars standing off it and
+        cold light between them. Every seam shares its vertices."""
+        m = self.m
+        V = m.verts
+        r = Rng(seed)
+        BL, BR, TL, TR, SL, SR = V[bot[0]], V[bot[-1]], V[top[0]], V[top[-1]], V[spl], V[spr]
+        X = unit(sub(BR, BL))
+        Y = unit(add(sub(TL, BL), sub(TR, BR)))
+        into = unit(cross(X, Y))
+        cen = tuple(sum(p[k] for p in (BL, BR, TL, TR, SL, SR)) / 6.0 for k in range(3))
+        if into[0] * cen[0] + into[1] * cen[1] < 0.0:
+            into = scale(into, -1.0)
+        front = scale(into, -1.0)
+        # the lines up the screen: a jamb, then each bar's edge, ridge, edge, then the far jamb
+        width = math.dist(BL, BR) * CELL_SPLAY
+        nb = max(2, int((width - BAR_GAP[0]) / (0.5 * (BAR_W[0] + BAR_W[1] + BAR_GAP[0] + BAR_GAP[1]))))
+        spans = [r.u(*BAR_GAP)]
+        for _ in range(nb):
+            w_ = r.u(*BAR_W)
+            spans += [0.5 * w_, 0.5 * w_, r.u(*BAR_GAP)]
+        us, acc = [0.0], 0.0
+        for sp in spans:
+            acc += sp
+            us.append(acc / sum(spans))
+        us[-1] = 1.0
+        n = len(us) - 1
+        hh, pw, skew = r.u(*ARCH_H), r.u(*ARCH_P), r.u(0.88, 1.14)
+
+        def arch(u):
+            return hh * max(0.0, 1.0 - abs(2.0 * u ** skew - 1.0) ** pw) ** (1.0 / pw)
+
+        def at(u, v):
+            return lerp3(lerp3(SL, SR, u), lerp3(TL, TR, u), v)
+
+        A = [spl] + [m.v(at(u, arch(u)), _shade(lerp3(m.cols[spl], m.cols[spr], u), 0.92)) for u in us[1:-1]] + [spr]
+        nt = len(top) - 1.0
+        m.zipper([spl] + list(top) + [spr], [0.0] + [j / nt for j in range(len(top))] + [1.0], A, us, front, host, chunk)
+        mouth = [V[v] for v in bot] + [V[v] for v in A]
+        depth = max(dot(sub(p, cen), into) for p in mouth) + r.u(*CELL_BACK)
+        mc = lerp3(lerp3(BL, BR, 0.5), at(0.5, arch(0.5)), 0.5)
+
+        def proj(p):
+            q = add(p, scale(into, depth - dot(sub(p, cen), into)))
+            return lerp3(add(mc, scale(into, depth - dot(sub(mc, cen), into))), q, CELL_SPLAY)
+
+        Bp = [m.v(proj(lerp3(BL, BR, u)), GLOW_COL[0]) for u in us]
+        Tp = [m.v(proj(V[a]), lerp3(GLOW_COL[0], GLOW_COL[1], 0.4 + 0.6 * arch(u) / hh)) for a, u in zip(A, us)]
+        sill = lambda nrm, c, ids: "snow" if nrm[2] > 0.5 else "reveal"
+        m.zipper(bot, [j / (len(bot) - 1.0) for j in range(len(bot))], Bp, us, Y, sill, chunk)
+        m.quad(bot[0], spl, Tp[0], Bp[0], X, "reveal", chunk)
+        m.quad(bot[-1], spr, Tp[-1], Bp[-1], scale(X, -1.0), "reveal", chunk)
+        for j in range(n):
+            m.quad(A[j], A[j + 1], Tp[j + 1], Tp[j], sub(mc, lerp3(V[A[j]], V[A[j + 1]], 0.5)), "reveal", chunk)
+        j = 0
+        while j < n:
+            if j % 3 == 0:                               # the light between two bars
+                m.quad(Bp[j], Bp[j + 1], Tp[j + 1], Tp[j], front, "glow", chunk)
+                j += 1
+                continue
+            lo, hi = V[Bp[j + 1]], V[Tp[j + 1]]          # a bar: two faces meeting on a ridge that stands off the screen
+            wob = r.u(-0.06, 0.06)
+            ridge = [Bp[j + 1]]
+            for f, proud in zip((0.14, 0.5, 0.86), BAR_PROUD):
+                p_ = add(lerp3(lo, hi, f), add(scale(front, proud * r.u(0.8, 1.3)), scale(X, wob * math.sin(3.1 * f))))
+                ridge.append(m.v(p_, BAR_COL))
+            ridge.append(Tp[j + 1])
+            tr = [0.0, 0.14, 0.5, 0.86, 1.0]
+            m.zipper([Bp[j], Tp[j]], [0.0, 1.0], ridge, tr, add(front, scale(X, -0.7)), "bar", chunk)
+            m.zipper(ridge, tr, [Bp[j + 2], Tp[j + 2]], [0.0, 1.0], add(front, scale(X, 0.7)), "bar", chunk)
+            j += 2
+        INFO["cells"] = INFO.get("cells", 0) + 1
 
     # -- gate ---------------------------------------------------------------
     def build_gate(self):
-        """The ridge across the lane: the lane's own surface rising between two columns into a
-        ragged serac fin, its sides the wall's own columns where it meets the wall."""
+        """The screen across the lane: the lane's own surface rising between two columns into a wall
+        of fused ice columns with slots cut clean through it; its wall end is the wall's own columns."""
         m = self.m
         g0 = GATE_COLS[0]
         S, K = len(self.lane) - 1, GATE_ROWS
+        r = Rng(SEED + 50)
+        lip_r_ = [rad_of(m.verts[self.lane[0][g0 + c]]) for c in range(5)]
+        foot_r = [rad_of(m.verts[self.lane[S][g0 + c]]) for c in range(5)]
+        span = foot_r[2] - lip_r_[2]
+        # the lines along the screen: (metres from the lip, kind); a slot lies between an "R" and the next "L"
+        lines = [(0.0, "E"), (0.5 * GATE_END, "M"), (GATE_END, "R")]
+        slots = {}
+        pos = GATE_END
+        while True:
+            sw, cw = r.u(*GATE_SLOT), r.u(*GATE_COLUMN)
+            if pos + sw + cw > span - GATE_FLARE:
+                break
+            slots[len(lines) - 1] = GATE_SLOT_ROWS[r.i(0, len(GATE_SLOT_ROWS) - 1)]
+            lines += [(pos + sw, "L"), (pos + sw + 0.5 * cw, "M"), (pos + sw + cw, "R")]
+            pos += sw + cw
+        nf = max(2, int(round((span - pos) / 1.1)))
+        lines += [(pos + (span - pos) * (q + 1.0) / nf, "F") for q in range(nf)]
+        J = len(lines) - 1
         cache = {}
-        crest = [lerp(GATE_CREST[0], GATE_CREST[1], h2(s, 5, SEED + 50)) for s in range(S)] + [1.0]
-        crest[0] = 0.86
 
-        def block(s, c, h):
-            """One value across a 2 x 2 patch of a face: the patch stands in or out as one facet."""
-            return h2(s // 2 * 31 + (0 if c < 2 else 1), (h + s % 2) // 2, SEED + 51)
-
-        def gv(s, c, h):
-            if h == 0:
-                return self.lane[s][g0 + c]
-            if s == S:
+        def gv(j, c, h):
+            if j == J:
                 return self.wall[h][g0 + c]
-            if (s, c, h) not in cache:
-                base = m.verts[self.lane[s][g0 + c]]
-                rad = rad_of(base)
-                t = h / float(K)
+            if h == 0:
+                return self.lane[0][g0 + c]              # only the lip end reaches the lane along a line
+            if (j, c, h) not in cache:
+                d, kind = lines[j]
+                flare = smooth((d - (span - GATE_FLARE)) / GATE_FLARE)
                 side = (c - 2) * 0.5
-                half = GATE_HALF[h] * (0.85 + 0.3 * h2(s, 9, SEED + 57))
-                b = GATE_B + side * half
-                if c in (0, 4) and h < K:
-                    b -= side * 2.0 * GATE_FACET * (block(s, c, h) - 0.5) * 2.0 * min(1.0, h / 2.0)
-                if s == 0:
-                    rad -= GATE_PROW * t ** 0.7 + 0.25 * (h2(c, h, SEED + 52) - 0.5)
-                else:
-                    rad += 0.35 * (h2(s * 5 + c, h, SEED + 53) - 0.5)
-                z = DECK_Z + WALL_DZ[h] * (crest[s] if h > 2 else 1.0)
-                z += 0.3 * (h2(s, h * 5 + c, SEED + 54) - 0.5) * t
+                half = GATE_HALF[h] * (0.9 + 0.2 * h2(j, h, SEED + 51))
+                if kind == "M" and h < K:
+                    half += GATE_RIDGE * (0.6 + 0.8 * h2(j, h, SEED + 52))
+                rad = lerp(lip_r_[c], foot_r[c], d / span)
+                z = DECK_Z + WALL_DZ[h]
+                if h >= 2:
+                    rad += 0.06 * (h2(j, h, SEED + 53) - 0.5) * (1.0 - flare)
+                    z += 0.5 * (h2(j, h, SEED + 54) - 0.5) * (1.0 - flare)
+                if j == 0:
+                    rad += 0.3 * h / float(K)             # the lip end stands back off the drop as it rises
                 if h == K:
-                    z += 0.5 * (1.0 - abs(side)) + 0.5 * (h2(s, c, SEED + 58) - 0.5)
-                f = _strata(z, b) * (0.86 + 0.2 * block(s, c, h))
-                cache[(s, c, h)] = m.v(pol(b, rad, z), (f * 0.9, f * 0.96, f, 1.0))
-                self._blue[cache[(s, c, h)]] = block(s, c, h)
-            return cache[(s, c, h)]
+                    z += (GATE_CREST * (h2(j, 7, SEED + 58) - 0.5) + 0.35 * (1.0 - abs(side))) * (1.0 - flare)
+                b = GATE_B + side * lerp(half, 2.0, flare)
+                f = _strata(z, b) * (0.86 + 0.2 * h2(j // 3, 3, SEED + 55)) * (1.12 if kind == "M" else 1.0)
+                cache[(j, c, h)] = m.v(pol(b, rad, z), (f * 0.9, f * 0.97, f, 1.0))
+            return cache[(j, c, h)]
 
         t0, t1 = pol(GATE_B - 1.0, 1.0, 0.0), pol(GATE_B + 1.0, 1.0, 0.0)
-        along = il.unit((t1[0] - t0[0], t1[1] - t0[1], 0.0))
-        back = (-along[0], -along[1], 0.0)
-
-        def zone(n, c, ids):
-            if n[2] > 0.55:
-                return "snow"
-            return "blue" if min(self._blue.get(v, 0.5) for v in ids) > 0.6 else "glacier"
-
-        for s in range(S):
-            for h in range(K):
-                m.quad(gv(s, 0, h), gv(s + 1, 0, h), gv(s + 1, 0, h + 1), gv(s, 0, h + 1), back, zone, "gate")
-                m.quad(gv(s, 4, h), gv(s + 1, 4, h), gv(s + 1, 4, h + 1), gv(s, 4, h + 1), along, zone, "gate")
+        along = unit((t1[0] - t0[0], t1[1] - t0[1], 0.0))
+        back = scale(along, -1.0)
+        out = unit(pol(GATE_B, 1.0, 0.0))
+        zone = lambda n, c, ids: "snow" if n[2] > 0.6 else "blue"
+        for j in range(J):
+            sl = slots.get(j)
+            for h in range(1, K):
+                if sl and sl[0] <= h < sl[1]:
+                    continue
+                m.quad(gv(j, 0, h), gv(j + 1, 0, h), gv(j + 1, 0, h + 1), gv(j, 0, h + 1), back, zone, "gate")
+                m.quad(gv(j, 4, h), gv(j + 1, 4, h), gv(j + 1, 4, h + 1), gv(j, 4, h + 1), along, zone, "gate")
+            if sl:                                           # the slot's own walls, sill and head, through the ice
+                for h in range(sl[0], sl[1]):
+                    m.quad(gv(j, 0, h), gv(j, 4, h), gv(j, 4, h + 1), gv(j, 0, h + 1), out, "reveal", "gate")
+                    m.quad(gv(j + 1, 0, h), gv(j + 1, 4, h), gv(j + 1, 4, h + 1), gv(j + 1, 0, h + 1),
+                           scale(out, -1.0), "reveal", "gate")
+                m.quad(gv(j, 0, sl[0]), gv(j + 1, 0, sl[0]), gv(j + 1, 4, sl[0]), gv(j, 4, sl[0]), UP, "reveal", "gate")
+                m.quad(gv(j, 0, sl[1]), gv(j + 1, 0, sl[1]), gv(j + 1, 4, sl[1]), gv(j, 4, sl[1]), DOWN, "reveal", "gate")
             for c in range(4):
-                m.quad(gv(s, c, K), gv(s, c + 1, K), gv(s + 1, c + 1, K), gv(s + 1, c, K), UP, zone, "gate")
+                m.quad(gv(j, c, K), gv(j, c + 1, K), gv(j + 1, c + 1, K), gv(j + 1, c, K), UP, zone, "gate")
+        for c, want in ((0, back), (4, along)):              # the cove: the lane's own edge up to the screen's foot
+            lane_ids = [self.lane[s][g0 + c] for s in range(S + 1)]
+            fine = [gv(j, c, 1) for j in range(J + 1)]
+            m.zipper(lane_ids, [rad_of(m.verts[v]) for v in lane_ids], fine, [rad_of(m.verts[v]) for v in fine],
+                     add(want, (0.0, 0.0, 0.6)), zone, "gate")
         inward = lambda c: (-c[0], -c[1], 0.0)
         for c in range(4):
             for h in range(K):
                 m.quad(gv(0, c, h), gv(0, c + 1, h), gv(0, c + 1, h + 1), gv(0, c, h + 1), inward, zone, "gate")
+        INFO["slots"] = len(slots)
 
     # -- roof ---------------------------------------------------------------
     def _roof_col(self, x, y, crest):
@@ -763,10 +913,10 @@ class Sculpt(object):
             c = tuple(sum(p[k] for p in pts) / 3.0 for k in range(3))
             roll = h2(int(c[0] * 7.0) + 4096, int(c[1] * 7.0) + int(c[2] * 3.0) + 4096, SEED + 80)
             size = h2(int(c[0] * 5.0) + 4096, int(c[1] * 5.0) + 4096, SEED + 81)
-            if (chunk == "wall" and zone != "snow" and n[2] < -0.22 and c[2] > DECK_Z + 4.0
+            if (chunk == "wall" and zone in ("blue", "deep") and n[2] < -0.3 and c[2] > DECK_Z + 4.0
                     and c[2] < spring(bearing_of(c))[1] - 2.6):
                 share, lo, hi = ICICLE_WALL
-            elif chunk == "ground" and n[2] < -0.12 and 20.5 < c[2] < 22.6:
+            elif chunk == "ground" and zone != "glow" and n[2] < -0.12 and 20.5 < c[2] < 22.6:
                 share, lo, hi = ICICLE_LIP
             elif chunk == "roof" and keel(c[0], c[1])[0] > 0.45:
                 share, lo, hi = ICICLE_ROOF
@@ -850,7 +1000,7 @@ def build_colliders(s):
     gt = Mesh()
     ring_lo, ring_hi = [], []
     top = DECK_Z + WALL_DZ[GATE_ROWS]
-    for b, r in ((GATE_B - 1.0, 43.6), (GATE_B + 1.0, 43.6), (GATE_B + 0.8, 58.8), (GATE_B - 0.8, 58.8)):
+    for b, r in ((GATE_B - 0.9, 45.2), (GATE_B + 0.9, 45.2), (GATE_B + 0.8, 58.8), (GATE_B - 0.8, 58.8)):
         ring_lo.append(gt.v(pol(b, r, DECK_Z - 0.5)))
         ring_hi.append(gt.v(pol(b, r, top)))
     cen = pol(GATE_B, 51.0, DECK_Z + 4.0)
@@ -896,16 +1046,17 @@ def _ref(centre):
 
 
 SHEETS = {
-    "lane": tx.Sheet("lane", stem="ice_lake", ref_r=_ref, tint=(0.34, 0.58, 0.9), roughness=0.5),
+    "lane": tx.Sheet("lane", stem="ice_lake", ref_r=_ref, tint=(0.55, 0.72, 0.92), roughness=0.4),
     "snow": tx.Sheet("snow", stem="ice_snow", ref_r=_ref, tint=(0.8, 0.88, 0.97), roughness=0.95),
-    "glacier": tx.Sheet("glacier", stem="ice_glacier", ref_r=_ref, tint=(0.72, 0.88, 1.0), roughness=0.6),
-    "blue": tx.Sheet("blue", stem="ice_blue", ref_r=_ref, tint=(0.7, 0.82, 1.0), roughness=0.45),
-    "deep": tx.Sheet("deep", stem="ice_deep", ref_r=_ref, roughness=0.5),
-    "icicle": tx.Sheet("icicle", stem="ice_icicle", mode="fit_v", rect=(0.0, 0.5, 1.0, 1.0), roughness=0.4),
-    "floor": tx.Sheet("floor", stem="ice_deep", mode="box", tint=(0.42, 0.48, 0.62), roughness=0.35),
+    "blue": tx.Sheet("blue", stem="ice_blue", ref_r=_ref, tint=(0.58, 0.74, 0.96), roughness=0.35),
+    "deep": tx.Sheet("deep", stem="ice_deep", ref_r=_ref, roughness=0.4),
+    "icicle": tx.Sheet("icicle", stem="ice_icicle", mode="fit_v", rect=(0.0, 0.5, 1.0, 1.0), roughness=0.35),
+    "floor": tx.Sheet("floor", stem="ice_deep", mode="box", tint=(0.6, 0.7, 0.86), roughness=0.3),
+    "glow": tx.Sheet("glow", stem="ice_glow", size=32, mode="box", roughness=1.0),
     "roof": tx.Sheet("roof", stem="ice_roof", mode="box", roughness=0.4),
     "sky": tx.Sheet("sky", stem="ice_snow", mode="box", roughness=1.0),
 }
+ZONE_CLASS = {"reveal": "deep", "bar": "deep"}        # a cell's reveals and bars wear the dark ice
 CHUNKS = ["ground", "wall", "gate", "roof"]
 VIS = {"ground": "IceGround", "wall": "IceWall", "gate": "IceGate", "roof": "IceRoof"}
 SHELL_NAME = "IceRoofOuter"
@@ -942,6 +1093,13 @@ def _tint(mat, alpha=False):
         mdl._try(mat, "blend_method", "BLEND")
 
 
+def _emit(mat):
+    """The cells' light: the tile is its own emission, as map 1's cell glow is."""
+    nt = mat.node_tree
+    img = next(n for n in nt.nodes if n.type == "TEX_IMAGE")
+    nt.links.new(img.outputs["Color"], nt.nodes.get("Principled BSDF").inputs["Emission Color"])
+
+
 def _object(name, verts, cols, faces, zones, mats):
     """A textured, vertex-coloured, flat-shaded object."""
     ob = mdl.mesh(name, verts, faces)
@@ -969,7 +1127,7 @@ def _part(m, chunk, name, mats, keep=None):
                 cols.append(m.cols[vi])
             g.append(remap[vi])
         faces.append(tuple(g))
-        zones.append(z)
+        zones.append(ZONE_CLASS.get(z, z))
     return _object(name, verts, cols, faces, zones, mats)
 
 
@@ -978,6 +1136,7 @@ def build():
     mats = tx.materials(NAME, SHEETS)
     for cls, mat in mats.items():
         _tint(mat, alpha=cls == "roof")
+    _emit(mats["glow"])
     out = []
     for chunk in CHUNKS:
         # the roof is see-through and its icicles are not: COLOR_0 keeps its alpha only on a
@@ -994,8 +1153,9 @@ def build():
     sv, sc, sf = shell.used()
     out.append(_object(SHELL_NAME, sv, sc, sf, list(shell.zones), mats))
     tx.report(SHEETS)
-    print("MDL STATS roof_sites=%d slabs=%d notches=%d seracs=%d icicles=%d"
-          % (INFO.get("roof_sites", 0), len(SLABS), len(NOTCHES), len(SERACS), INFO.get("icicles", 0)))
+    print("MDL STATS roof_sites=%d slabs=%d notches=%d faces=%d cells=%d+%d slots=%d icicles=%d"
+          % (INFO.get("roof_sites", 0), len(SLABS), len(NOTCHES), len(FACES), len(WALL_CELLS), len(PIT_CELLS),
+             INFO.get("slots", 0), INFO.get("icicles", 0)))
     return out
 
 
@@ -1039,8 +1199,9 @@ def _check():
     il.report(shell, "shell")
     lip = [rad_of(m.verts[v]) for v in s.lane[0]]
     ft = [rad_of(m.verts[v]) for v in s.lane[-1]]
-    print("lip r=%.2f..%.2f (<= %.1f)  foot r=%.2f..%.2f (>= %.1f)  roof_sites=%d"
-          % (min(lip), max(lip), INNER_R, min(ft), max(ft), OUTER_R, INFO.get("roof_sites", 0)))
+    print("lip r=%.2f..%.2f (<= %.1f)  foot r=%.2f..%.2f (>= %.1f)  roof_sites=%d  cells wall=%d pit=%d  slots=%d"
+          % (min(lip), max(lip), INNER_R, min(ft), max(ft), OUTER_R, INFO.get("roof_sites", 0), len(WALL_CELLS),
+             len(PIT_CELLS), INFO.get("slots", 0)))
 
 
 if __name__ == "__main__":

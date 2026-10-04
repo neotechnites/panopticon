@@ -7,7 +7,7 @@
 size = Vector3(4.0, 3.6, 1.0)
 
 [node name="Portal" type="Node3D"]
-editor_description = "Map 4's finish portal: maps/bentham_ring/props/portal.tscn node for node, with the glacier arch and the ice's own cyan-white effect surface."
+editor_description = "Map 4's finish portal: maps/bentham_ring/props/portal.tscn node for node, with the ice arch and the ice's own cyan-white effect surface."
 
 [node name="PortalModel" parent="." instance=ExtResource("1_ice_portal_model")]
 

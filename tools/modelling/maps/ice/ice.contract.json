@@ -1,5 +1,9 @@
 {
-  "_comment": "ice: Map 4, one sculpt exported as four chunks (ice_build.py writes ice.chunks.json, which carries each chunk's own node_paths): ice_ground.glb (IceGround: pit floor, pit wall, crevassed rim, lane), ice_wall.glb (IceWall: seracs, lane edge to the roof's spring ring), ice_gate.glb (IceGate: the ridge across the lane at 353 deg) and ice_roof.glb (IceRoof: the scalloped see-through roof, COLOR_0 rgba; IceRoofIcicles; IceRoofOuter: the bright shell seen through it). Each chunk ships its own `-colonly` collider. World coordinates, instanced at identity. Notes in docs/maps/ice.md.",
-  "node_paths": ["IceGround", "IceGroundCollision", "IceGroundCollision/CollisionShape3D"],
+  "_comment": "ice: Map 4, an ice cavern, one sculpt exported as four chunks (ice_build.py writes ice.chunks.json, which carries each chunk's own node_paths): ice_ground.glb (IceGround: pit floor, pit wall and its cells, crevassed rim, lane), ice_wall.glb (IceWall: flat-faced ice wall with tiers of barred cells, lane edge to the roof's spring ring), ice_gate.glb (IceGate: the slotted ice screen across the lane at 353 deg) and ice_roof.glb (IceRoof: the scalloped see-through roof, COLOR_0 rgba; IceRoofIcicles; IceRoofOuter: the bright shell seen through it). Each chunk ships its own `-colonly` collider. World coordinates, instanced at identity. Notes in docs/maps/ice.md.",
+  "node_paths": [
+    "IceGround",
+    "IceGroundCollision",
+    "IceGroundCollision/CollisionShape3D"
+  ],
   "max_tris": 40000
 }

@@ -164,7 +164,7 @@ entry_angle_degrees = 5.0
 exit_angle_degrees = 335.0
 
 [node name="Tower" type="Node3D" parent="."]
-editor_description = "The iced lighthouse; origin the guard-room datum at y 25.35, as map 1. Both variant slots hold it."
+editor_description = "The ice tower; origin the guard-room datum at y 25.35, as map 1. Both variant slots hold it."
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 25.35, 0)
 script = ExtResource("8c_tower_variant")
 
@@ -177,13 +177,13 @@ visible = false
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.95, 0)
 
 [node name="TowerLight" type="OmniLight3D" parent="Tower"]
-editor_description = "The lighthouse lamp; every number is ice_tower_light_profile.tres'."
+editor_description = "The chamber's cold glow; every number is ice_tower_light_profile.tres'."
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5.6, 0)
-light_color = Color(1, 0.84, 0.56, 1)
-light_energy = 3.0
+light_color = Color(0.72, 0.9, 1, 1)
+light_energy = 2.4
 light_specular = 0.0
 shadow_enabled = false
-omni_range = 48.0
+omni_range = 44.0
 omni_attenuation = 0.8
 script = ExtResource("3_tower_light")
 profile = ExtResource("4_tower_light_profile")

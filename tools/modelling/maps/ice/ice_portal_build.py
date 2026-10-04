@@ -104,8 +104,8 @@ ICICLE_FLOOR = 2.83      # no tip inside |x| < CLEAR_HALF_W drops below this
 COL_SIDES = 4            # the collider's prism section
 
 SHEETS = {
-    "glacier": tx.Sheet("glacier", mode="box", stem="ice_glacier", roughness=0.55, cull=False),
-    "blue": tx.Sheet("blue", mode="box", stem="ice_blue", roughness=0.45, cull=False),
+    "blue": tx.Sheet("blue", mode="box", stem="ice_blue", roughness=0.4, cull=False),
+    "deep": tx.Sheet("deep", mode="box", stem="ice_deep", roughness=0.4, cull=False),
     "icicle": tx.Sheet("icicle", mode="custom", stem="ice_icicle", roughness=0.4, cull=False),
     "snow": tx.Sheet("snow", mode="box", stem="ice_snow", cull=False),
 }
@@ -165,22 +165,22 @@ class _Portal(object):
                 idx = (a[s], a[q], b[q], b[s])
                 m.quad(idx[0], idx[1], idx[2], idx[3], ft.sub(m.centroid(idx), ax),
                        self._zone(k, s, q))
-        m.fan(self.rings[0], ft.DOWN, "glacier")      # the feet, under the lane ice
-        m.fan(self.rings[-1], ft.DOWN, "glacier")
+        m.fan(self.rings[0], ft.DOWN, "blue")      # the feet, under the lane ice
+        m.fan(self.rings[-1], ft.DOWN, "blue")
 
     def _zone(self, k, s, q):
         """Whole faces: the inner reveal blue, named fracture bands blue, ledge tops snow."""
         if s == 0 or q == 0:
-            return "blue"
+            return "deep"
         if k in BLUE_BANDS:
-            return "blue"
+            return "deep"
         if k not in SNOW_BANDS:
-            return "glacier"
+            return "blue"
 
         def z(pts):
             n = ft._newell(pts)
             ln = math.sqrt(n[0] ** 2 + n[1] ** 2 + n[2] ** 2) or 1.0
-            return "snow" if n[2] / ln > SNOW_NZ else "glacier"
+            return "snow" if n[2] / ln > SNOW_NZ else "blue"
         return z
 
     def fringe(self):
@@ -233,9 +233,9 @@ def build_collider():
         for s in range(COL_SIDES):
             q = (s + 1) % COL_SIDES
             idx = (a[s], a[q], b[q], b[s])
-            c.quad(idx[0], idx[1], idx[2], idx[3], ft.sub(c.centroid(idx), ax), "glacier")
-    c.fan(rings[0], ft.DOWN, "glacier")
-    c.fan(rings[-1], ft.DOWN, "glacier")
+            c.quad(idx[0], idx[1], idx[2], idx[3], ft.sub(c.centroid(idx), ax), "blue")
+    c.fan(rings[0], ft.DOWN, "blue")
+    c.fan(rings[-1], ft.DOWN, "blue")
     return c
 
 

@@ -61,6 +61,26 @@ def interp(table, x):
     return table[-1][1]
 
 
+def add(a, b):
+    return (a[0] + b[0], a[1] + b[1], a[2] + b[2])
+
+
+def sub(a, b):
+    return (a[0] - b[0], a[1] - b[1], a[2] - b[2])
+
+
+def scale(a, f):
+    return (a[0] * f, a[1] * f, a[2] * f)
+
+
+def dot(a, b):
+    return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
+
+
+def cross(a, b):
+    return (a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0])
+
+
 def newell(pts):
     n = [0.0, 0.0, 0.0]
     for i in range(len(pts)):
@@ -256,6 +276,17 @@ class Mesh(object):
                 i += 1
             else:
                 self.tri(a[i % na], b[(j + 1) % nb], b[j % nb], want, zone, chunk)
+                j += 1
+
+    def zipper(self, a, ta, b, tb, want, zone, chunk):
+        """Triangles between two open polylines, each advanced by its own parameter (ta, tb rising)."""
+        i = j = 0
+        while i < len(a) - 1 or j < len(b) - 1:
+            if j >= len(b) - 1 or (i < len(a) - 1 and ta[i + 1] <= tb[j + 1]):
+                self.tri(a[i], a[i + 1], b[j], want, zone, chunk)
+                i += 1
+            else:
+                self.tri(a[i], b[j + 1], b[j], want, zone, chunk)
                 j += 1
 
     def spike(self, fi, tip, zone, inset=0.55, col=(1.0, 1.0, 1.0, 1.0)):

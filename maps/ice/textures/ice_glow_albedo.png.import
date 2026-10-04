@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://baxma453q5pe"
-path="res://.godot/imported/ice_paint_albedo.png-b8cbe09f30282f323a77651dad91e8ce.ctex"
+uid="uid://dq3ic7glow4m1"
+path="res://.godot/imported/ice_glow_albedo.png-c797020748bed01a4cf2220e87208065.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://maps/ice/textures/ice_paint_albedo.png"
-dest_files=["res://.godot/imported/ice_paint_albedo.png-b8cbe09f30282f323a77651dad91e8ce.ctex"]
+source_file="res://maps/ice/textures/ice_glow_albedo.png"
+dest_files=["res://.godot/imported/ice_glow_albedo.png-c797020748bed01a4cf2220e87208065.ctex"]
 
 [params]
 
