@@ -133,3 +133,59 @@ caption fix 67 s with every segment cached.
 
 ## Never slow a clip down
 Ryan, 2026-09-22, on a cut with clips at 0.4x–0.8x: "never slow down clips its looks terrible." A slowed clip repeats frames and stutters. A line that outruns its picture gets MORE picture (the next take, the alternate, the next clip), then a hold on live action for the last fraction of a second; never a rate under 1x, never a freeze. Game audio is off in every clip: voice and the music bed only.
+
+## Refilming a trailer (measured 2026-10-04, reveal trailer v18)
+
+One procedure, two film modes. Every shot is a `## N` entry in `projects/<project>.md` with a
+`capture:` line and a tape; one command refilms it exactly.
+
+### The fast way (rough cuts, the default)
+
+```
+cd ~/Documents/olympus/pano-trailer                 # branch work-trailer-reveal
+git merge main                                      # today's game into the trailer branch
+# set `tag: rough_vNN` (and the delivery line) in tools/content/projects/trailer_reveal.md, commit
+tools/content/sync.sh                               # branch -> C:\dev\verify, imported (about 9 s)
+for id in 1 2 6 7 8 11 13 14; do tools/content/shot.sh trailer_reveal $id; done    # about 30 s a shot
+tools/content/assemble.sh trailer_reveal --tag rough_vNN                             # about 1 min
+tools/content/dailies.sh trailer_reveal                                              # the page
+scp "panopticon-pc:C:/Users/ddd/Desktop/panopticon-renders/content/trailer_reveal/final/rough_vNN*.mp4" \
+    ~/Desktop/panopticon-renders/trailer_reveal/
+```
+
+Shots by map (reveal trailer): hell `1 2 6 7 8 11 13 14`, forest `4 5 9a 9b`, marble `5b 10a 10b 12`.
+Refilm only the map that changed. Eight hell shots and the cut: about five minutes.
+
+What it does: the game plays the shot at real speed in a borderless 1920x1080 window at 0,0 and
+ffmpeg records that part of the screen (`lib.sh pc_rough`: ddagrab, lossless RGB utvideo). The take
+opens on white frames; the last white frame is the take's t=0. Page: http://127.0.0.1:8765/final/index.html
+(`tools/content/serve.sh trailer_reveal` if it is down).
+
+### The final way
+
+`tools/content/shot.sh <project> <n> --movie`: Godot's Movie Maker, frame by frame, slow, exact to the
+frame. Use it for the final trailer only (Ryan, 2026-10-04). Real-time takes run about 0.1 s behind it.
+
+### Nothing is compressed twice
+
+Take (lossless RGB) -> cut `cuts\NN.mp4` (lossless RGB H.264) -> edit segments (lossless RGB) ->
+`final\<tag>.mp4` (lossless RGB, the master). `final\<tag>_view.mp4` is ONE near-lossless 4:4:4 encode
+of the master for the browser (Chrome plays both; Safari and QuickTime play neither). Never add a
+lossy step between the take and the master, and never deliver 4:2:0 from this pipeline: red on black
+(hell) turns to fuzz.
+
+### Rules learned the hard way
+
+- Film the game as it is: no exposure, ambient or fill lift in a stage script. (Hell stages once set
+  exposure 3.8 and ambient 3.6; the trailer looked blown out.) Forest and marble shots still carry
+  `--look=social`; remove it when Ryan asks for them refilmed.
+- The PC's saved game settings are windowed 1280x720. `GameSettings.window_held` (set by `run_clip.gd`)
+  keeps them off a capture window. Without it the take is a corner of the screen and every cut starts
+  about 2 s early.
+- `sync.sh` re-imports the .glb files when the import hook changed; a changed hook alone does not.
+- A screen recording records whatever is on top: Ryan leaves the PC alone while the windows are up.
+  His editor may stay open. Never kill a process the pipeline did not start.
+- Before telling Ryan a cut is ready, compare it to the previous cut at one frame per second
+  (`ffmpeg -i X.mp4 -vf "fps=1,scale=240:135,tile=15x3" -frames:v 1 sheet.png`): same shot in every
+  cell, game filling the frame. No other checks unless he asks.
+- No builder for a refilm. It is the six commands above.
