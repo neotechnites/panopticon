@@ -158,7 +158,7 @@ said: v4 "Same moment from the guard scope: fires, misses, the runner launches u
 capture: --shot=s4_edge --stage=trailer_crack --bots=2 --pov=guard --hud=crosshair --rifle=projectile --seed=20261001
 tape: crack
 seconds: 2.0
-in: 1.85
+in: 1.95
 freeze: waive
 # the crack tape down the scope at the 150 deg window: squeeze 2.22, miss into MapBaseS3Collision 2.55, launch 2.60
 

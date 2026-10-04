@@ -109,6 +109,9 @@ func _physics_process(delta: float) -> void:
 			_yaw = angles.x
 			_pitch = angles.y
 		_rate = Vector2.ZERO
+		# Parked, the eye still reads every man it is about to be on: a lead needs his speed from the first frame.
+		for waiting: Dictionary in beats:
+			_measure(waiting.get("body") as PlayerController, delta)
 		_apply_head()
 		return
 	while _last_aim.size() < beats.size():

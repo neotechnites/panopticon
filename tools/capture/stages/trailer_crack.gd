@@ -9,7 +9,7 @@ extends "res://tools/capture/stages/stage.gd"
 ## BoostPads (pads stay live): r00_c0 146.6 r 49.2 (143.9-149.3, r 46.8-51.5), r01_c1 149.8 r 52.4.
 ## Dials: hide (141.2,49.3), go (t of the break, driver s, 1.45), to (153,52.3), mate (145.3,52.4),
 ## window (150), lead (1.0), park (148.6,51.0,2.6: the wall's top), react (0.1 s after the first launch),
-## squeeze (0.5 s after it), behind (1.3 m: the miss).
+## squeeze (0.5 s after it), behind (-1.0 m: the round crosses a metre ahead of him; behind him it finds the second man).
 
 const GUARD_HAND := preload("res://tools/capture/stages/guard_hand.gd")
 
@@ -132,7 +132,7 @@ func _raise_the_hand() -> void:
 	_hand.name = "ClipGuardHand"
 	clip.root.add_child(_hand)
 	_hand.install(_guard, controller(), elapsed())
-	_hand.beats.append({"body": _mate, "seconds": 100.0, "fire_at": -1.0, "watch": true, "lead": float(option("lead", 1.0)), "behind": float(option("behind", 1.3)), "omega": 11.0, "kick": 0.5})
+	_hand.beats.append({"body": _mate, "seconds": 100.0, "fire_at": -1.0, "watch": true, "lead": float(option("lead", 1.0)), "behind": float(option("behind", -1.0)), "omega": 11.0, "kick": 0.5})
 	_hand.park = LIB.polar(String(option("park", "148.6,51.0,2.6")), LIB.ring_point(148.6, 51.0, 2.6))
 	_hand.start_at = INF
 	say("guard at the %.0f deg window; the hand on the wall's top" % float(option("window", 150.0)))
