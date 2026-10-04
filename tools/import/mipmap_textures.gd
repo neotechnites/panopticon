@@ -1,7 +1,7 @@
 @tool
 extends EditorScenePostImport
 
-## Refilters an imported .glb's materials to nearest-with-mipmaps (forest, ice: linear) and mips any embedded texture.
+## Refilters an imported .glb's materials to nearest-with-mipmaps (forest, hell: linear) and mips any embedded texture.
 ## Textures from a home's textures/ PNGs stay linked to that file, so editing the PNG edits the model.
 
 const SharedMaterials := preload("res://tools/import/shared_materials.gd")
@@ -17,8 +17,8 @@ const SWIRL_GLOW := {&"ForestPortalSwirl": 0.25, &"IcePortalSwirl": 0.5}
 const LAVA_EMISSION_BOOST := 1.4
 ## Marble's stone is fully matte: no sheen, whatever roughness the .glb carries.
 const MATTE_PREFIX := "res://maps/marble/"
-## The forest's soft sheets filter bilinear with mips; every other home stays nearest.
-const BILINEAR_PREFIXES := ["res://maps/forest/"]
+## Forest and hell (with its tower) filter bilinear with mips; every other home stays nearest.
+const BILINEAR_PREFIXES := ["res://maps/forest/", "res://maps/bentham_ring/", "res://tower/"]
 
 const TEXTURE_PROPERTIES := [
 	&"albedo_texture",
