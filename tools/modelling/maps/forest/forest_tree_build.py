@@ -1617,8 +1617,7 @@ ZONE_MEANS = {
 def seam_tint(ob, zones):
     """Ryan: "a hard line from the color of the roof to the color of the wall". Over
     SEAM_TINT the canopy's shade and sun fade, per corner in COLOR_0, to the drum's leaf, lifting by SEAM_LIFT."""
-    mean = ZONE_MEANS
-    k = {z: [mean["leaf"][c] / mean[z][c] for c in range(3)] for z in ("shade", "sun")}
+    k = {z: [TILES["leaf"][1][c] / TILES[z][1][c] for c in range(3)] for z in ("shade", "sun")}   # the tiles' own factors: the old atlas means blacked the band's first creases
     me = ob.data
     col = me.color_attributes.new(name="Col", type="FLOAT_COLOR", domain="CORNER")
     flat = [1.0] * (len(me.loops) * 4)
@@ -1681,6 +1680,47 @@ def _finish(ob, zones, mats, flat=True):
     return tx.finish(ob, zones, mats, flat)
 
 
+UNDER_BAND = (11.0, 13.5)   # radius over which the crown's underside hands over to the walls' light
+UNDER_TILT = 0.15           # the level normal's lift, so no facing turns away from both suns
+UNDER_SEAM = (42.0, 47.6)   # and it falls to level by the seam, where the thin leaf mass casts no dapple
+
+
+def _smooth01(a, b, x):
+    t = min(1.0, max(0.0, (x - a) / (b - a)))
+    return t * t * (3.0 - 2.0 * t)
+
+
+def _underside_normals(ob, zones):
+    """The crown's down-facing leaf past the rim takes smooth near-level normals, as the leaf walls
+    have: no sun or lower sky reaches a face pointing down, so it read black under the dome."""
+    me = ob.data
+    lit = []
+    for v in me.vertices:
+        n, c = v.normal, v.co
+        r = math.hypot(c[0], c[1])
+        w = _smooth01(UNDER_BAND[0], UNDER_BAND[1], r) * _smooth01(0.25, -0.25, n[2])
+        if w <= 0.0:
+            lit.append((0.0, None))
+            continue
+        hx, hy = n[0] + 0.6 * c[0] / r, n[1] + 0.6 * c[1] / r
+        k = math.hypot(hx, hy)
+        lit.append((w, (hx / k, hy / k, UNDER_TILT * (1.0 - _smooth01(UNDER_SEAM[0], UNDER_SEAM[1], r)))))
+    out = []
+    for pi, poly in enumerate(me.polygons):
+        fn = tuple(poly.normal)
+        leafy = zones[pi] in ("leaf", "shade", "sun")
+        for li in poly.loop_indices:
+            w, t = lit[me.loops[li].vertex_index]
+            if not leafy or t is None:
+                out.append(fn)
+                continue
+            q = [fn[i] * (1.0 - w) + t[i] * w for i in range(3)]
+            k = math.sqrt(q[0] ** 2 + q[1] ** 2 + q[2] ** 2) or 1.0
+            out.append((q[0] / k, q[1] / k, q[2] / k))
+    me.shade_smooth()
+    me.normals_split_custom_set(out)
+
+
 def build_render_copy():
     """The tree in WORLD coordinates for another model's review renders."""
     m = build_tree_geometry()
@@ -1698,7 +1738,8 @@ def build():
     ob = m.object(OBJECT_NAME, shift)
     zones = seam_tint(ob, m.zones)
     unwrap(ob, zones)
-    _finish(ob, zones, tile_materials("ForestTree", zones, vertex=True))
+    order = _finish(ob, zones, tile_materials("ForestTree", zones, vertex=True))
+    _underside_normals(ob, [order[p.material_index] for p in ob.data.polygons])
     coll = c.object(COLLIDER_NAME, shift)
     coll.hide_render = True
     print("MDL STATS visual_tris=%d collision_tris=%d floor_y=%.2f eye_y=%.2f apex_y=%.1f"
