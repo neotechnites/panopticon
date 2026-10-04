@@ -163,8 +163,8 @@ opens on white frames; the last white frame is the take's t=0. Page: http://127.
 
 ### The final way
 
-`tools/content/shot.sh <project> <n> --movie`: Godot's Movie Maker, frame by frame, slow, exact to the
-frame. Use it for the final trailer only (Ryan, 2026-10-04). Real-time takes run about 0.1 s behind it.
+`tools/content/shot.sh <project> <n> --movie`: Godot's Movie Maker writing PNG frames, packed into a
+lossless take; frame by frame, exact to the frame, about 80 s for a 5 s shot (30 s in rough mode). Use it for the final trailer only (Ryan, 2026-10-04). Real-time takes run about 0.1 s behind it.
 
 ### Nothing is compressed twice
 
