@@ -9,6 +9,27 @@ const RIFLE_SCENE: PackedScene = preload("res://weapons/rifle.tscn")
 const NODE_NAME: String = "Mannequins"
 ## The procedural layers under the avatar's skeleton, by node name.
 const LAYERS: Array[StringName] = [&"BodyLook", &"BodySpring", &"BodyContact", &"FootPlant"]
+## Tunable strengths: the node under the avatar, its export, and the menu's label key.
+const TUNING: Array[Array] = [
+	["BodySpring", "lean_degrees", "DEBUG_MQ_T_SPRING_LEAN"],
+	["BodySpring", "trail_share", "DEBUG_MQ_T_SPRING_TRAIL"],
+	["BodySpring", "bounce_centimetres", "DEBUG_MQ_T_SPRING_BOUNCE"],
+	["BodySpring", "spring_hertz", "DEBUG_MQ_T_SPRING_HERTZ"],
+	["BodySpring", "damping", "DEBUG_MQ_T_SPRING_DAMPING"],
+	["BodyContact", "squash_centimetres", "DEBUG_MQ_T_CONTACT_SQUASH"],
+	["BodyContact", "reel_degrees", "DEBUG_MQ_T_CONTACT_REEL"],
+	["BodyContact", "flinch_degrees", "DEBUG_MQ_T_CONTACT_FLINCH"],
+	["BodyContact", "spring_hertz", "DEBUG_MQ_T_CONTACT_HERTZ"],
+	["BodyContact", "damping", "DEBUG_MQ_T_CONTACT_DAMPING"],
+	["BodyLook", "twist_limit_degrees", "DEBUG_MQ_T_LOOK_TWIST"],
+	["BodyLook", "follow_rate", "DEBUG_MQ_T_LOOK_FOLLOW"],
+	["BodyLook", "pitch_share", "DEBUG_MQ_T_LOOK_PITCH"],
+	["Ragdoll", "flop_throw", "DEBUG_MQ_T_FLOP_THROW"],
+	["Ragdoll", "flop_limpness", "DEBUG_MQ_T_FLOP_LIMP"],
+	["Ragdoll", "flop_get_up_seconds", "DEBUG_MQ_T_FLOP_GET_UP"],
+	["Ragdoll", "impulse", "DEBUG_MQ_T_DEATH_IMPULSE"],
+	["Ragdoll", "buckle", "DEBUG_MQ_T_DEATH_BUCKLE"],
+]
 ## Physics layer 2: solid to the world and each other, unseen by the hub's dais triggers (mask 1).
 const BODY_LAYER: int = 2
 const BODY_MASK: int = 3
@@ -225,6 +246,57 @@ func is_ragdoll_on() -> bool:
 	for avatar: PrisonerAvatar in _avatars():
 		return avatar.get(&"_ragdoll") != null
 	return true
+
+
+# --- Tuning ---------------------------------------------------------------------
+
+func _tuned_node(avatar: PrisonerAvatar, node_name: String) -> Node:
+	return avatar.find_child(node_name, true, false)
+
+
+## The export's (low, high, step) on the first target's avatar, or zeros when there is none.
+func tuning_range(node_name: String, property: String) -> Vector3:
+	for avatar: PrisonerAvatar in _avatars():
+		var node: Node = _tuned_node(avatar, node_name)
+		if node == null:
+			continue
+		for info: Dictionary in node.get_property_list():
+			if info["name"] == property:
+				var parts: PackedStringArray = String(info["hint_string"]).split(",")
+				return Vector3(float(parts[0]), float(parts[1]), float(parts[2]))
+	return Vector3.ZERO
+
+
+func tuning_value(node_name: String, property: String) -> float:
+	for avatar: PrisonerAvatar in _avatars():
+		var node: Node = _tuned_node(avatar, node_name)
+		if node != null:
+			return float(node.get(property))
+	return 0.0
+
+
+func set_tuning(node_name: String, property: String, value: float) -> void:
+	for avatar: PrisonerAvatar in _avatars():
+		var node: Node = _tuned_node(avatar, node_name)
+		if node != null:
+			node.set(property, value)
+
+
+## Put every tuned export back to its script default.
+func reset_tuning() -> void:
+	for row: Array in TUNING:
+		for avatar: PrisonerAvatar in _avatars():
+			var node: Node = _tuned_node(avatar, String(row[0]))
+			if node != null:
+				node.set(String(row[1]), (node.get_script() as Script).get_property_default_value(String(row[1])))
+
+
+## The current values as plain `name = value` lines.
+func tuning_text() -> String:
+	var lines: PackedStringArray = []
+	for row: Array in TUNING:
+		lines.append("%s.%s = %s" % [row[0], row[1], String.num(tuning_value(String(row[0]), String(row[1])), 3)])
+	return "\n".join(lines)
 
 
 ## Engine time at a quarter, or back to what it was.

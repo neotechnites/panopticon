@@ -3,9 +3,9 @@ extends Node
 ## at rest once and simulated only while limp. Cosmetic, local; a flop pins pelvis and chest to the capsule.
 
 ## Shove along the shot at the struck bone, in newton-seconds.
-@export var impulse: float = 70.0
+@export_range(0.0, 200.0, 1.0) var impulse: float = 70.0
 ## How fast the pelvis drops at the kill, m/s: the legs give out instead of the body tipping like a plank.
-@export var buckle: float = 2.5
+@export_range(0.0, 8.0, 0.1) var buckle: float = 2.5
 ## How much of the run's velocity the body keeps as it goes down (1 = all).
 @export var carry_velocity: float = 1.0
 ## The whole body's mass, in kg, shared across the parts by fixed weights.
