@@ -8,6 +8,11 @@ extends IntentSource
 @export var rest_seconds: float = 2.0
 ## Yaw sweep per second while walking, radians.
 @export var yaw_rate: float = 0.15
+## Pitch sweep per second while walking, radians; the sign flips each burst.
+@export var pitch_rate: float = 0.0
+
+## Emitted on the tick this source pulls the trigger.
+signal trigger_pulled
 ## First trigger pull, seconds after start; 0 or less never fires.
 @export var fire_at: float = 4.0
 ## Pull again this often after the first; 0 never repeats.
@@ -33,12 +38,14 @@ func poll(delta: float) -> MoveIntent:
 	var cycle: float = fmod(_elapsed - 1.0, walk_seconds + rest_seconds)
 	if cycle < walk_seconds:
 		_intent.move_direction = Vector2(0.0, 1.0)
-		_intent.look_delta = Vector2(yaw_rate * delta, 0.0)
+		var burst: int = int((_elapsed - 1.0) / (walk_seconds + rest_seconds))
+		_intent.look_delta = Vector2(yaw_rate * delta, pitch_rate * delta * (1.0 if burst % 2 == 0 else -1.0))
 	if ability_slot > 0 and not _ability_pressed and _elapsed >= ability_at:
 		_intent.ability_pressed = true
 		_intent.ability_slot = ability_slot
 		_ability_pressed = true
 	if _next_fire > 0.0 and _elapsed >= _next_fire:
 		_intent.fire_pressed = true
+		trigger_pulled.emit()
 		_next_fire = _elapsed + fire_every if fire_every > 0.0 else -1.0
 	return _intent

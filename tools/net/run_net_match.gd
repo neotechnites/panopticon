@@ -40,7 +40,7 @@ func _initialize() -> void:
 		"role": "server", "address": "127.0.0.1", "port": 27960, "seconds": 90.0,
 		"log": "", "seats": 6, "tower": 1, "name": "", "humans": 3, "fire-every": 0.0,
 		"screen": false, "preset": "classic", "press-ability": 0, "press-at": 6.0,
-		"press-fire": 4.0, "arm-finisher": 0.0, "kill-guard": 0.0,
+		"press-fire": 4.0, "arm-finisher": 0.0, "kill-guard": 0.0, "pitch-rate": 0.0,
 	})
 	Engine.max_fps = 60
 	_started_ms = Time.get_ticks_msec()
@@ -269,6 +269,8 @@ func _hook_match(match_scene: Node) -> void:
 	scripted.fire_every = float(_o.get("fire-every", 0.0))
 	scripted.ability_slot = int(_o.get("press-ability", 0))
 	scripted.ability_at = float(_o.get("press-at", 6.0))
+	scripted.pitch_rate = float(_o.get("pitch-rate", 0.0))
+	scripted.trigger_pulled.connect(_on_trigger_pulled)
 	_net_match.add_child(scripted)
 	_net_match.set_local_source(scripted)
 
@@ -292,8 +294,11 @@ func _hook_controller() -> void:
 		_line("EV round_resolved round=%d outcome=%s" % [_controller.get_round_number(), String(MatchController.Outcome.keys()[outcome])]))
 	_controller.match_won.connect(func(p: MatchParticipant) -> void: _line("EV match_won who=%s" % _who(p)))
 	if _controller.rifle != null:
-		_controller.rifle.fired.connect(func(origin: Vector3, _end: Vector3) -> void:
-			_line("RIFLE fired by=%s from=%.1f,%.1f,%.1f" % [_who(_controller.get_seat_participant()), origin.x, origin.y, origin.z]))
+		_controller.rifle.fired.connect(func(origin: Vector3, end_point: Vector3) -> void:
+			var aim: Vector3 = (end_point - origin).normalized()
+			_line("RIFLE fired by=%s from=%.1f,%.1f,%.1f aim_yaw=%.3f aim_pitch=%.3f" % [
+				_who(_controller.get_seat_participant()), origin.x, origin.y, origin.z,
+				atan2(-aim.x, -aim.z), asin(clampf(aim.y, -1.0, 1.0))]))
 		_controller.rifle.target_hit.connect(func(collider: Node3D, _at: Vector3, _n: Vector3) -> void:
 			_line("RIFLE hit=%s" % _who(_controller.resolve_participant(collider))))
 	_controller.finisher_armed.connect(_on_finisher_armed)
@@ -302,6 +307,16 @@ func _hook_controller() -> void:
 	if transition != null:
 		transition.transition_shown.connect(func(round_number: int) -> void:
 			_line("EV card_shown round=%d paused=%s" % [round_number, str(paused)]))
+
+
+## Where this machine's own body is looking on the tick its trigger goes, to set against the host's shot line.
+func _on_trigger_pulled() -> void:
+	var mine: MatchParticipant = _controller.get_human_participant() if _controller != null else null
+	if mine == null or mine.body == null:
+		return
+	var aim: Vector3 = -mine.body.get_node(^"Head/Camera").global_transform.basis.z
+	_line("TRIGGER who=%s guard=%s aim_yaw=%.3f aim_pitch=%.3f" % [
+		_who(mine), str(mine.body.is_guard), atan2(-aim.x, -aim.z), asin(clampf(aim.y, -1.0, 1.0))])
 
 
 ## What a client has to be able to see: the second rifle on its own body, and
@@ -352,7 +367,7 @@ func _sample() -> void:
 		var at: Vector3 = p.body.global_position if p.body != null else Vector3.ZERO
 		parts.append("%d=%s:%.1f,%.1f,%.1f rot=%.2f,%.2f,%.2f clip=%s floor=%s" % [
 			p.index, p.get_role_name(), at.x, at.y, at.z,
-			p.body.rotation.x if p.body != null else 0.0,
+			p.body.head.rotation.x if p.body != null and p.body.head != null else 0.0,
 			p.body.rotation.y if p.body != null else 0.0,
 			p.body.rotation.z if p.body != null else 0.0,
 			_clip_of(p), str(p.body.is_grounded()) if p.body != null else "?",

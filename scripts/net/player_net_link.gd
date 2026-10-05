@@ -158,6 +158,8 @@ var _recent_count: int = 0
 ## The bytes last sent by [method _send_intent]. See
 ## [method get_last_intent_packet].
 var _last_packet: PackedByteArray = PackedByteArray()
+## Every look delta this body has turned by, wrapped to a turn: the counter a lost intent cannot lose.
+var _look_total: Vector2 = Vector2.ZERO
 
 ## Intent packets taken from this seat's owner on the current authority tick.
 ## See [member NetSettings.max_intent_packets_per_tick].
@@ -289,14 +291,14 @@ func _physics_process(delta: float) -> void:
 	if not _owns_locally():
 		return
 	if not _predicting:
-		_send_intent()
+		_send_intent(true)
 		return
 	if not controller.is_physics_processing():
 		# The match has parked this body -- a round break, a kill beat, a ghost
 		# settling. There is nothing to predict until it is woken, and the
 		# replicator mirrors it in the meantime.
 		reset_prediction()
-		_send_intent()
+		_send_intent(false)
 		return
 	if controller.net_floor >= 0:
 		# Mirrored while it was parked. Its own physics answers for it again.
@@ -305,7 +307,7 @@ func _physics_process(delta: float) -> void:
 	# tell the authority what it was asked to do, then take whatever answer
 	# arrived since and put the body right.
 	_record_tick()
-	_send_intent()
+	_send_intent(true)
 	if _has_pending_state:
 		_has_pending_state = false
 		_reconcile(delta)
@@ -479,7 +481,8 @@ func _participant() -> MatchParticipant:
 
 # --- Sending ------------------------------------------------------------------
 
-func _send_intent() -> void:
+## [param acted]: the body turned by this intent, so its look joins [member _look_total].
+func _send_intent(acted: bool) -> void:
 	if local_source == null or not session.is_established():
 		return
 	# A predicting body has already polled the source on this tick, through the
@@ -490,11 +493,16 @@ func _send_intent() -> void:
 	else:
 		_scratch_intent.copy_from(local_source.poll(get_physics_process_delta_time()))
 	_scratch_intent.normalise()
+	if acted:
+		_look_total = Vector2(
+			fposmod(_look_total.x + _scratch_intent.look_delta.x, TAU),
+			fposmod(_look_total.y + _scratch_intent.look_delta.y, TAU),
+		)
 	var redundancy: int = clampi(
 		session.get_settings().intent_redundancy, 1, NetCodec.MAX_INTENT_REDUNDANCY
 	)
 	_remember_intent(_scratch_intent, redundancy)
-	_last_packet = NetCodec.pack_intents(_tick, _recent_intents, _recent_count)
+	_last_packet = NetCodec.pack_intents(_tick, _recent_intents, _recent_count, _look_total)
 	rpc_id(session.get_authority_peer_id(), &"_receive_intent", _last_packet)
 
 
@@ -574,6 +582,12 @@ func accept_intent_payload(sender_id: int, payload: PackedByteArray) -> void:
 
 	var limit: float = settings.max_look_delta_radians
 	var source: RemoteIntentSource = _ensure_remote_source()
+	source.max_look_delta = limit
+	# The packet's look total is through its newest intent; walk it back to each older one.
+	var look: Vector2 = NetCodec.unpack_intent_look_total(payload)
+	for i: int in range(count - 1, 0, -1):
+		if NetCodec.unpack_intent_at(payload, i, _scratch_intent) >= 0:
+			look -= _scratch_intent.look_delta
 	var newest: int = -1
 	# Oldest first. The repeats the authority has already had are refused by
 	# accept(); the ones it missed fill the hole the dropped packet left.
@@ -581,11 +595,13 @@ func accept_intent_payload(sender_id: int, payload: PackedByteArray) -> void:
 		var tick: int = NetCodec.unpack_intent_at(payload, i, _scratch_intent)
 		if tick < 0:
 			continue
+		if i > 0:
+			look += _scratch_intent.look_delta
 		_scratch_intent.look_delta = _scratch_intent.look_delta.clampf(-limit, limit)
 		if not settings.accept_remote_ability_slot:
 			# A dev test key, and a power picked this way skips the rules.
 			_scratch_intent.ability_slot = 0
-		if source.accept(tick, _scratch_intent):
+		if source.accept(tick, _scratch_intent, look):
 			newest = tick
 	if newest >= 0:
 		intent_received.emit(sender_id, newest)

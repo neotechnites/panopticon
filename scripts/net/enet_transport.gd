@@ -245,8 +245,17 @@ func _apply_timeout(peer_id: int) -> void:
 	packet_peer.set_timeout(TIMEOUT_RETRANSMISSIONS, ceiling_ms / 4, ceiling_ms)
 
 
+## Never let ENet's RTT throttle drop unreliable sends: a headless pair lost a
+## third of all intent to it, and with it the look deltas the aim is built from.
+func _apply_throttle(peer_id: int) -> void:
+	var packet_peer: ENetPacketPeer = _peer.get_peer(peer_id) if _peer != null else null
+	if packet_peer != null:
+		packet_peer.throttle_configure(5000, 32, 0)  # ENet's interval; full scale, never decelerate.
+
+
 func _on_peer_connected(peer_id: int) -> void:
 	_apply_timeout(peer_id)
+	_apply_throttle(peer_id)
 	peer_connected.emit(peer_id)
 
 
@@ -256,6 +265,7 @@ func _on_peer_disconnected(peer_id: int) -> void:
 
 func _on_connected_to_server() -> void:
 	_apply_timeout(AUTHORITY_PEER_ID)
+	_apply_throttle(AUTHORITY_PEER_ID)
 	_set_state(ConnectionState.CONNECTED)
 
 
