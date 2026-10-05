@@ -4103,17 +4103,30 @@ func _on_look_settings_applied() -> void:
 # The Debug menu's live levers. Host only: a mirror refuses, as every decision here does.
 
 ## End the phase now: the race hands the opening seat the tower, a round passes the seat on.
+## Never onto the local player, so a runner skips and stays a runner.
 func debug_skip_phase() -> void:
 	if _mirror or hub_mode or _participants.is_empty():
 		return
 	match _phase:
 		Phase.RACE:
-			take_seat(_participants[_opening_seat()])
+			take_seat(_debug_seat_from(_opening_seat()))
 			start_round()
 		Phase.ROUND:
-			debug_next_round()
+			_clear_kill_beat()
+			_outcome = Outcome.IN_PROGRESS
+			_score_and_restart(_debug_seat_from(_participants.find(_seat) + 1))
 		_:
 			start_match()
+
+
+## The first participant from roster slot [param start], wrapping, who is not the local human.
+func _debug_seat_from(start: int) -> MatchParticipant:
+	var local: MatchParticipant = get_human_participant()
+	for step: int in _participants.size():
+		var candidate: MatchParticipant = _participants[(start + step) % _participants.size()]
+		if candidate != local:
+			return candidate
+	return _participants[start % _participants.size()]
 
 
 ## Re-arm the phase running now with the same seat holder.
