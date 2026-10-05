@@ -180,6 +180,7 @@ func test_a_snapshot_claiming_more_bodies_than_a_session_holds_is_refused() -> v
 	var forged: PackedByteArray = PackedByteArray()
 	forged.resize(NetCodec.SNAPSHOT_HEADER_SIZE)
 	forged.encode_u32(0, 1)
+	# Count sits after the u32 tick and the u32 scene epoch.
 	forged.encode_u8(8, NetTransport.MAX_PLAYERS + 1)
 
 	var got: WorldSnapshot = WorldSnapshot.new()

@@ -37,6 +37,7 @@ extends TestCase
 
 const EYE_SCENE_PATH: String = "res://tower/watching_eye.tscn"
 const PROFILE_PATH: String = "res://tower/default_watching_eye_profile.tres"
+const MENU_SCENE_PATH: String = "res://ui/main_menu.tscn"
 
 ## The two files that make up the watching eye. Read as text below, because "it
 ## cannot refer to the guard" is a fact about the source rather than about any
@@ -51,16 +52,6 @@ const EYE_SOURCE_PATHS: Array[String] = [
 ## [code]tools/modelling/tower/eye.contract.json[/code] pins these names and
 ## [code]lib/verify_glb.gd[/code] enforces them on every build of the model.
 const EYE_PART_NAMES: Array[StringName] = [&"Eye_Sclera", &"Eye_Iris", &"Eye_Pupil"]
-
-## The per-map looks, by the [MapDefinition] id whose arena wears them.
-##
-## Map 1 is deliberately absent: [i]"Map 1's eye is unchanged"[/i], which here
-## means its [code]Watcher[/code] sets no look at all and its eyeball draws the
-## materials that came out of the glTF.
-const LOOK_PATHS: Dictionary = {
-	&"forest": "res://maps/forest/forest_watching_eye_look.tres",
-	&"marble": "res://maps/marble/marble_watching_eye_look.tres",
-}
 
 ## Somewhere out on the deck: the running channel is r=41.75 to r=46.75, so this
 ## is a prisoner in the middle of it, at head height.
@@ -342,23 +333,15 @@ func test_the_gaze_reads_a_position_and_never_a_direction() -> void:
 			"where the viewer is facing must make no difference to the eye")
 
 
-## The eyeball is the only thing in the tower that turns.
-##
-## The box of eyes that used to stand here was deleted on Ryan's instruction --
-## "you can remove the box of eyes obfuscating the shooter" -- because the guard
-## is being put inside a hollow chamber and walls hide better than a mirror. Its
-## own assertions went with it. What survives is the boundary those assertions
-## were really protecting: nothing else in the tower may acquire a bearing that
-## points, because a thing on the axis that turns towards a prisoner and a thing
-## on the axis that turns towards the guard's target look identical from the
-## deck. So: the watching eye is the only [WatchingEye] there is, and no other
-## node in the tower is one.
+## The eyeball is the only thing in the (main menu's) tower that turns: nothing
+## else there may acquire a bearing that points.
 func test_the_eyeball_is_the_only_thing_that_turns() -> void:
-	var arena: Node3D = TestFixtures.make_arena()
-	add_child(arena)
+	# Ryan, 2026-09-23: "get rid of the eyes other than the one in the main menu."
+	var menu: Node = (load(MENU_SCENE_PATH) as PackedScene).instantiate()
+	add_child(menu)
 
-	var tower: Node3D = arena.get_node_or_null(^"Tower") as Node3D
-	if not assert_not_null(tower, "the arena should carry a Tower"):
+	var tower: Node3D = menu.get_node_or_null(^"World/Tower") as Node3D
+	if not assert_not_null(tower, "the main menu should carry a Tower"):
 		return
 
 	var watchers: int = 0
@@ -555,58 +538,26 @@ func test_the_profile_is_the_source_of_truth() -> void:
 
 # --- Where it hangs -----------------------------------------------------------
 
-## It is in the arena, on the tower, above the guard and under the light --
-## and it rides the tower if somebody raises it.
-##
-## The last of those is the point of parenting it under Tower rather than placing
-## it in world coordinates. Another agent is rebuilding the ring; the eyeball has
-## to come along, and so this asserts against the box and the light as they
-## actually are in the scene rather than against numbers copied out of it.
+## The arena carries no eye; the main menu's eye hangs in its tower's space and rides it.
 func test_it_hangs_between_the_box_and_the_light_and_rides_the_tower() -> void:
+	# The arena's eye was removed on Ryan's order; only the menu's rides a tower now.
 	var arena: Node3D = TestFixtures.make_arena()
 	add_child(arena)
+	assert_null(arena.get_node_or_null(^"Tower/Watcher"), "the arena's tower carries no Watcher any more")
 
-	var watcher: WatchingEye = arena.get_node_or_null(^"Tower/Watcher") as WatchingEye
-	if not assert_not_null(watcher, "the arena's tower should carry a Watcher"):
+	var menu: Node = (load(MENU_SCENE_PATH) as PackedScene).instantiate()
+	add_child(menu)
+	var watcher: WatchingEye = menu.get_node_or_null(^"World/Tower/Watcher") as WatchingEye
+	if not assert_not_null(watcher, "the main menu's tower should carry a Watcher"):
 		return
-
-	assert_almost_eq(watcher.global_position.x, 0.0, 0.0001, "the eyeball should be on the tower's axis in X")
-	assert_almost_eq(watcher.global_position.z, 0.0, 0.0001, "the eyeball should be on the tower's axis in Z")
-
-	# The box of eyes it used to be measured against is gone, so the floor of the
-	# gap is now the guard themselves: a spawned body's crown at the apex of a
-	# jump. An eyeball hanging lower than that is an eyeball the guard's head
-	# goes through.
-	var spawn: Marker3D = arena.get_node_or_null(TestFixtures.TOWER_SPAWN_PATH) as Marker3D
-	if not assert_not_null(spawn, "the arena should carry a TowerSpawn"):
-		return
-	var crown: float = spawn.global_position.y + 1.8 + 1.11
-
-	# KeyLight, not TowerLight. TowerLight overwrites its own height from
-	# TowerLightProfile.height_metres on ready, and that number is currently 2.2 --
-	# the omni was shrunk into a local glow and now sits INSIDE the eye box
-	# (y=-0.35..4.15), so it is no longer the light anything is "under". KeyLight is
-	# the light above the tower, at y=20, and it is the one the gap is measured to.
-	var light: Node3D = arena.get_node_or_null(^"Tower/KeyLight") as Node3D
-	if not assert_not_null(light, "the arena's tower should still carry the light above it"):
-		return
-
-	var radius: float = watcher.profile.radius_metres
-	assert_gt(watcher.global_position.y - radius, crown,
-		"the eyeball should hang clear over the guard rather than sink onto them")
-	assert_lt(watcher.global_position.y + radius, light.global_position.y,
-		"the eyeball should stay under the light it is supposed to hang below")
-
 	assert_almost_eq(watcher.position.y, watcher.profile.height_metres, 0.0001,
 		"the eyeball should be placed in the tower's space, not the world's")
 
-	var tower: Node3D = arena.get_node_or_null(^"Tower") as Node3D
-	if not assert_not_null(tower, "the arena should have a Tower"):
-		return
+	var tower: Node3D = menu.get_node_or_null(^"World/Tower") as Node3D
 	var before: Vector3 = watcher.global_position
 	tower.position += Vector3(3.0, 9.0, -2.0)
 	assert_vec3_almost_eq(watcher.global_position, before + Vector3(3.0, 9.0, -2.0), 0.0001,
-		"the eyeball should ride the tower, or a raised ring leaves it behind in mid-air")
+		"the eyeball should ride the tower, or a raised tower leaves it behind in mid-air")
 
 
 # --- What it is made of -------------------------------------------------------
@@ -674,41 +625,15 @@ func test_without_a_look_the_glb_is_drawn_unchanged() -> void:
 				"%s should keep the glTF's own material when no look is set" % node.name)
 
 
-## Every map wears its own eye, and no two maps wear the same one.
-##
-## The eye is per-map DATA -- a resource named by the arena's own
-## [code]Watcher[/code] node -- and this file is where that stays true. A forest
-## look accidentally pointed at the marble resource, or a map that lost its look
-## in a merge, is invisible in a diff and obvious here.
+## No playable map carries an eye over its tower: only the main menu keeps one.
 func test_each_map_wears_its_own_eye() -> void:
-	var seen: Dictionary = {}
+	# Ryan, 2026-09-23: "get rid of the eyes other than the one in the main menu."
 	for map: MapDefinition in MapCatalog.all():
 		if map == null or not map.is_playable():
 			continue
 		var arena: Node3D = (load(map.scene_path) as PackedScene).instantiate() as Node3D
 		add_child(arena)
-
-		var watcher: WatchingEye = arena.get_node_or_null(^"Tower/Watcher") as WatchingEye
-		if not assert_not_null(watcher, "%s should carry an eye over its tower" % map.id):
-			arena.queue_free()
-			continue
-
-		if not LOOK_PATHS.has(map.id):
-			assert_null(watcher.look, "%s was not given a look and must draw the glTF's own" % map.id)
-			arena.queue_free()
-			continue
-
-		if assert_not_null(watcher.look, "%s should name its own eye look" % map.id):
-			assert_eq_string(watcher.look.resource_path, String(LOOK_PATHS[map.id]),
-				"%s should wear the look its own map names" % map.id)
-			assert_false(seen.has(watcher.look.resource_path),
-				"%s shares an eye look with another map" % map.id)
-			seen[watcher.look.resource_path] = true
-
-			var painted: Dictionary = _painted_parts(watcher)
-			for part: StringName in EYE_PART_NAMES:
-				assert_true(painted.has(part) and painted[part] != null,
-					"%s: %s should be painted in the map's own colours" % [map.id, part])
+		assert_null(arena.get_node_or_null(^"Tower/Watcher"), "%s should carry no eye over its tower" % map.id)
 		arena.queue_free()
 
 
