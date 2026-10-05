@@ -120,7 +120,9 @@ onto each face by its old-model material (`prisoner_faces.json`) into `prisoner2
 
 | Texture | Looks like | Worn by |
 |---|---|---|
-| rifle_hell_albedo | wood grain, brass, dark metal, an eye and "No 7" plate | the rifle |
+| rifle_wood_albedo | placeholder: painted brown wood, grain along the tile, 32 px | the rifle's stock |
+| rifle_metal_albedo | placeholder: dark steel with soft sheen bands, 32 px | the rifle's barrel, action, scope and fittings |
+| rifle_hell_albedo | wood grain, brass, dark metal, an eye and "No 7" plate | the old rifle (rifle_classic.tscn) |
 
 ### Props: `props/textures/` (`props.ase`)
 

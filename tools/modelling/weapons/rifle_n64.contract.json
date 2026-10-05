@@ -1,0 +1,6 @@
+{
+  "_comment": "The rifle weapons/rifle.tscn instances: one mesh, two tiling materials (wood, metal), one UV set, no skin, no animation.",
+  "node_paths": ["Rifle"],
+  "surfaces": 2,
+  "max_tris": 520
+}

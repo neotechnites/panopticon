@@ -1,0 +1,11 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://tools/capture/rifle_lineup.gd" id="1_lineup"]
+[ext_resource type="PackedScene" path="res://weapons/rifle_classic.tscn" id="2_old"]
+[ext_resource type="PackedScene" path="res://weapons/rifle.tscn" id="3_new"]
+
+[node name="RifleLineup" type="Node3D"]
+script = ExtResource("1_lineup")
+map_scene = "res://maps/bentham_ring/bentham_ring.tscn"
+old_rifle = ExtResource("2_old")
+new_rifle = ExtResource("3_new")

@@ -1,0 +1,54 @@
+[gd_scene load_steps=9 format=3]
+
+[ext_resource type="Script" path="res://scripts/weapon/rifle.gd" id="1_rifle"]
+[ext_resource type="Script" path="res://scripts/weapon/weapon_input.gd" id="2_weapon_input"]
+[ext_resource type="Resource" path="res://weapons/default_weapon_profile.tres" id="3_weapon_profile"]
+[ext_resource type="PackedScene" uid="uid://brwl54q33wsqq" path="res://weapons/models/rifle_lowpoly.glb" id="4_rifle_model"]
+[ext_resource type="Script" path="res://scripts/weapon/rifle_recoil.gd" id="5_rifle_recoil"]
+[ext_resource type="Script" path="res://scripts/weapon/rifle_ads.gd" id="6_rifle_ads"]
+[ext_resource type="PackedScene" path="res://weapons/scope_vignette.tscn" id="7_scope_vignette"]
+[ext_resource type="Script" path="res://scripts/weapon/rifle_sway.gd" id="8_rifle_sway"]
+
+[node name="Rifle" type="Node3D" node_paths=PackedStringArray("muzzle", "grip_hand", "fore_hand")]
+editor_description = "The rifle as it was before rifle_n64: weapons/rifle.tscn with rifle_lowpoly.glb as its Model."
+script = ExtResource("1_rifle")
+profile = ExtResource("3_weapon_profile")
+muzzle = NodePath("ViewModel/Muzzle")
+grip_hand = NodePath("ViewModel/GripHand")
+fore_hand = NodePath("ViewModel/ForeHand")
+
+[node name="ViewModel" type="Node3D" parent="."]
+transform = Transform3D(0.740766, 0.012264, -0.116683, 0, 0.745891, 0.078396, 0.117326, -0.077431, 0.736708, 0.3, -0.24, -0.38)
+
+[node name="Model" parent="ViewModel" instance=ExtResource("4_rifle_model")]
+
+[node name="Muzzle" type="Marker3D" parent="ViewModel"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -1.15)
+
+[node name="GripHand" type="Marker3D" parent="ViewModel"]
+transform = Transform3D(0, 0, 1, -0.8924128, 0.45121995, 0, -0.45121995, -0.8924128, 0, 0.048, -0.028, 0.075)
+
+[node name="ForeHand" type="Marker3D" parent="ViewModel"]
+transform = Transform3D(0.93714607, 0.34893736, 0, 0, 0, 1, 0.34893736, -0.93714607, 0, 0, -0.07, -0.5)
+
+[node name="HumanTrigger" type="Node" parent="." node_paths=PackedStringArray("weapon")]
+script = ExtResource("2_weapon_input")
+weapon = NodePath("..")
+
+[node name="Recoil" type="Node" parent="." node_paths=PackedStringArray("rifle", "view_model", "pose_source")]
+script = ExtResource("5_rifle_recoil")
+rifle = NodePath("..")
+view_model = NodePath("../ViewModel")
+pose_source = NodePath("../Ads")
+
+[node name="Ads" type="Node" parent="." node_paths=PackedStringArray("view_model")]
+script = ExtResource("6_rifle_ads")
+view_model = NodePath("../ViewModel")
+
+[node name="ScopeVignette" parent="." node_paths=PackedStringArray("ads", "trigger") instance=ExtResource("7_scope_vignette")]
+ads = NodePath("../Ads")
+trigger = NodePath("../HumanTrigger")
+
+[node name="Sway" type="Node" parent="." node_paths=PackedStringArray("rifle")]
+script = ExtResource("8_rifle_sway")
+rifle = NodePath("..")

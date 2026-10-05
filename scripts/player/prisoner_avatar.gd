@@ -1042,6 +1042,8 @@ func tick_first_person() -> void:
 			_fp_arms.active = drawn
 			_fp_arms_mesh.visible = drawn
 			_fp_arms_mesh.material_override = mesh.material_override
+			for surface: int in mesh.mesh.get_surface_count():
+				_fp_arms_mesh.set_surface_override_material(surface, mesh.get_surface_override_material(surface))
 	if hide_arms != _arms_hidden:
 		_arms_hidden = hide_arms
 		for hider: FirstPersonHead in _arm_hiders:
