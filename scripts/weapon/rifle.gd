@@ -152,6 +152,10 @@ static var _hit_points: PackedVector3Array = PackedVector3Array([Vector3.ZERO, V
 static var _hit_directions: PackedVector3Array = PackedVector3Array([Vector3.ZERO, Vector3.ZERO, Vector3.ZERO, Vector3.ZERO])
 static var _hit_msec: PackedInt64Array = PackedInt64Array([-1, -1, -1, -1])
 static var _hit_next: int = 0
+## The newest shot's line and a count of shots, on every machine: what a body near the line flinches at.
+static var _shot_serial: int = 0
+static var _shot_origin: Vector3 = Vector3.ZERO
+static var _shot_end: Vector3 = Vector3.ZERO
 ## Where the last shot this rifle showed started, for a replayed hit's direction.
 var _last_shot_origin: Vector3 = Vector3.ZERO
 var _has_shot_origin: bool = false
@@ -797,6 +801,7 @@ func _resolve_shot(charge: float) -> void:
 		# instant rides along on the round so the trail that lands later still
 		# starts where the shot left, not where the tower has since walked to.
 		_launch(origin, direction, travel_range, charge, muzzle_node.global_position)
+		_note_shot(origin, far_point)
 		fired.emit(origin, far_point)
 		return
 
@@ -813,6 +818,7 @@ func _resolve_shot(charge: float) -> void:
 
 	_spawn_tracer(muzzle_node.global_position, end_point)
 
+	_note_shot(origin, end_point)
 	fired.emit(origin, end_point)
 	if collider != null:
 		_note_hit(collider, end_point, direction)
@@ -843,6 +849,7 @@ func show_remote_shot(origin: Vector3, end_point: Vector3, reload: float) -> voi
 		_launch_visual(origin, end_point, muzzle_node.global_position)
 	else:
 		_spawn_tracer(muzzle_node.global_position, end_point)
+	_note_shot(origin, end_point)
 	fired.emit(origin, end_point)
 	_set_state(State.FIRING)
 
@@ -855,6 +862,26 @@ func show_remote_hit(collider: Node3D, at: Vector3, normal: Vector3) -> void:
 	if collider != null:
 		_note_hit(collider, at, direction)
 	target_hit.emit(collider, at, normal)
+
+
+## Remember the newest shot's line; see [method shot_serial].
+func _note_shot(origin: Vector3, end_point: Vector3) -> void:
+	_shot_origin = origin
+	_shot_end = end_point
+	_shot_serial += 1
+
+
+## Counts every shot drawn on this machine; a change means [method shot_origin] and [method shot_end] are new.
+static func shot_serial() -> int:
+	return _shot_serial
+
+
+static func shot_origin() -> Vector3:
+	return _shot_origin
+
+
+static func shot_end() -> Vector3:
+	return _shot_end
 
 
 ## Remember a hit in the shared ring; see [constant RECENT_HITS].
