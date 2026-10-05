@@ -70,13 +70,13 @@ DEBUG_FINISHER_HEALTH,Finisher health,[Fïnïshér héälth ~~~~]
 DEBUG_FINISHER_HUNTS,Finisher hunts the guard,[Fïnïshér hünts thé güärd ~~~~ ~~~~]
 DEBUG_GHOSTS,Ghosts,[Ghösts ~~~~]
 DEBUG_GHOST_SPEED,Ghost speed,[Ghöst spééd ~~~~]
-DEBUG_UNIT_SECONDS,%s s,%s s
-DEBUG_UNIT_SPEED,%s m/s,%s m/s
-DEBUG_UNIT_ACCEL,%s m/s²,%s m/s²
-DEBUG_UNIT_DEGREES,%s°,%s°
-DEBUG_UNIT_HZ,%s Hz,%s Hz
-DEBUG_UNIT_TIMES,×%s,×%s
-DEBUG_UNIT_FRACTION,%s of 1,%s of 1
+DEBUG_UNIT_SECONDS,%s s,[%s s ~~~~]
+DEBUG_UNIT_SPEED,%s m/s,[%s m/s ~~~~]
+DEBUG_UNIT_ACCEL,%s m/s²,[%s m/s² ~~~~]
+DEBUG_UNIT_DEGREES,%s°,[%s° ~~~~]
+DEBUG_UNIT_HZ,%s Hz,[%s Hz ~~~~]
+DEBUG_UNIT_TIMES,×%s,[×%s ~~~~]
+DEBUG_UNIT_FRACTION,%s of 1,[%s öf 1 ~~~~]
 DEBUG_SPEED_WEAPON,Weapon's own,[Wéäpön's öwn ~~~~]
 PAUSE_TITLE,PAUSED,[PÅÜSÉD ~~~~]
 PAUSE_RESUME,Resume,[Résümé ~~~~]

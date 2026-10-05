@@ -22,6 +22,9 @@ const REACH_METRES: float = 1.2
 ## And where one is stood to be out of reach.
 const OUT_OF_REACH_METRES: float = 6.0
 
+## How far behind the shover the other prisoners are stood, in metres.
+const BYSTANDER_METRES: float = 3.0
+
 ## Horizontal speed a launched body must still carry the tick after. One tick of
 ## ground friction is already off it, so this is the shipped 7 m/s minus slack.
 const LAUNCHED_SPEED: float = 4.0
@@ -175,7 +178,25 @@ func _face(shover: MatchParticipant, victim: MatchParticipant, metres: float) ->
 	forward = forward.normalized()
 	victim.body.global_position = here + forward * metres
 	victim.body.velocity = Vector3.ZERO
+	_clear_bystanders(shover, victim, forward)
 	return forward
+
+
+## Stand every other live prisoner behind [param shover], out of its facing cone,
+## so where the bots ran during the settle cannot put a third body in reach.
+func _clear_bystanders(
+	shover: MatchParticipant, victim: MatchParticipant, forward: Vector3
+) -> void:
+	var side: Vector3 = Vector3(-forward.z, 0.0, forward.x)
+	var slot: int = 0
+	for other: MatchParticipant in _controller.get_live_participants():
+		if other == shover or other == victim:
+			continue
+		_still(other)
+		slot += 1
+		other.body.global_position = (
+			shover.body.global_position - forward * BYSTANDER_METRES + side * float(slot)
+		)
 
 
 ## Press shove on [param participant]'s own intent source, as a hand would.

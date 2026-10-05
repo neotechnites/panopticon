@@ -183,7 +183,7 @@ editor_description = "The levers Ryan tunes the fight with. Every default is the
 text = "SETTINGS_BALANCE"
 
 [node name="BalanceScroll" type="ScrollContainer" parent="Frame/Dialog/Padding/Layout/Tabs/Match"]
-custom_minimum_size = Vector2(0, 200)
+custom_minimum_size = Vector2(0, 140)
 size_flags_vertical = 3
 horizontal_scroll_mode = 0
 editor_description = "A bounded window on the Balance rows. Thirteen more rows in the tab itself would grow this shrink-centred dialog past 720p and take its footer off the screen; scrolling them keeps every lever reachable at every resolution the video tab offers."

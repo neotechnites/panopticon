@@ -113,6 +113,9 @@ const CUSTOM_ID: int = -1
 ## Grid rows only the debug setup shows: the mode picker sets them for a player.
 const DEBUG_ROWS: Array[String] = ["Lives", "Ghosts", "ShooterWin", "RunnerWin", "Ability"]
 
+## Tallest the rules grid stands before it scrolls, so the footer stays on a 900-high screen.
+const GRID_MAX_HEIGHT: float = 200.0
+
 ## Debug menu toggle: every instance shows every rule, the hub's included. Session only.
 static var show_all_rules_everywhere: bool = false
 
@@ -192,11 +195,19 @@ func refresh() -> void:
 
 
 func _apply_rule_rows() -> void:
-	var grid: Node = $Frame/Dialog/Padding/Layout/Grid
+	var grid: GridContainer = $Frame/Dialog/Padding/Layout/GridScroll/Grid
 	for row: String in DEBUG_ROWS:
 		for child: Node in grid.get_children():
 			if child is Control and child.name.begins_with(row):
 				(child as Control).visible = show_all_rules or show_all_rules_everywhere
+	_fit_grid_scroll.call_deferred()
+
+
+## Size the grid's scroll to the visible rows, up to the cap; deferred so the row changes have settled.
+func _fit_grid_scroll() -> void:
+	var grid: GridContainer = $Frame/Dialog/Padding/Layout/GridScroll/Grid
+	var scroll: ScrollContainer = $Frame/Dialog/Padding/Layout/GridScroll
+	scroll.custom_minimum_size.y = minf(grid.get_combined_minimum_size().y, GRID_MAX_HEIGHT)
 
 
 ## Write the settings file and ask the owner to start the match.

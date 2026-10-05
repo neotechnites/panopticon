@@ -190,10 +190,10 @@ func _press() -> void:
 	_input.command.ability_pressed = false
 
 
-## The rifle's own ray, from 6 m ahead of the body to its chest.
+## The rifle's own ray, from 6 m over the body down to its chest: the bots run
+## ahead of the standing body, so a ray from in front could stop on one of them.
 func _cast_at_body() -> Dictionary:
-	var forward: Vector3 = -_body.global_transform.basis.z
-	var from: Vector3 = _body.global_position + forward * RAY_STANDOFF_METRES + Vector3.UP * CHEST_HEIGHT
+	var from: Vector3 = _body.global_position + Vector3.UP * (CHEST_HEIGHT + RAY_STANDOFF_METRES)
 	var to: Vector3 = _body.global_position + Vector3.UP * CHEST_HEIGHT
 	var query: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(from, to)
 	query.collision_mask = _rifle.profile.hit_mask
