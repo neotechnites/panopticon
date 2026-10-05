@@ -4,7 +4,9 @@ extends "res://tools/capture/stages/stage.gd"
 ## r 52) off the last lake platform, is handed the finisher rifle in the tower room, shoots the guard, and
 ## after the kill beat holds the tower. Reveal trailer shot 12:
 ## [code]--shot=portal --stage=trailer_finish --pov=runner --bots=2[/code].
-## Arrival is called here (the lap tracker never saw a lap). Dials: from (332.6,54.8).
+## Arrival is called here (the lap tracker never saw a lap). Dials: from (332.6,54.8), turn_after (0.15 s after he
+## arrives the guard starts round), turn_seconds (0.9: he faces the finisher before the trigger is live).
+# v26 (Ryan): "int the final scence, the gaurd should turn around fully before getting shot."
 
 const PORTAL_DEG: float = 345.0
 const PORTAL_R: float = 52.0
@@ -16,6 +18,8 @@ var _armed: bool = false
 var _armed_at: float = 0.0
 var _hunter: TowerShooter = null
 var _unlocked: bool = false
+var _guard: PlayerController = null
+var _turn_from: Vector2 = Vector2.ZERO
 
 
 func bots() -> int:
@@ -69,6 +73,7 @@ func tick(_delta: float) -> void:
 		_hunter.profile.shot_confidence_threshold = 0.15
 		_hunter.profile.sure_shot_confidence = 0.0
 		say("finisher trigger unlocked")
+	_turn_the_guard()
 	if _runner == null or _armed or int(_driver.get("_index")) < 5:
 		return
 	if _runner.global_position.distance_to(LIB.ring_point(PORTAL_DEG, PORTAL_R, 0.0)) > ARRIVE_METRES:
@@ -88,6 +93,33 @@ func tick(_delta: float) -> void:
 		if vignette != null:
 			vignette.set_local_holder(true)
 	say("arrived; finisher armed: %s" % (controller().get_finisher() != null))
+
+
+## The guard hears him arrive and comes round to face him: one eased turn, his rifle with it, done before the shot.
+func _turn_the_guard() -> void:
+	if not _armed or _runner == null:
+		return
+	var into: float = elapsed() - _armed_at - float(option("turn_after", 0.15))
+	if into < 0.0:
+		return
+	if _guard == null:
+		var shooter: TowerShooter = LIB.stand_down(seat())
+		if shooter == null or shooter.controller == null or shooter.controller == _runner:
+			return
+		_guard = shooter.controller
+		_turn_from = Vector2(_guard.rotation.y, _guard.head.rotation.x if _guard.head != null else 0.0)
+	var to: Vector3 = _runner.global_position - _guard.global_position
+	var want := Vector2(atan2(-to.x, -to.z), atan2(to.y, maxf(Vector2(to.x, to.z).length(), 0.1)))
+	if into < 0.02:
+		say("the guard (%s) turns %.0f deg to face him, %.1f m off" % [_guard.name, rad_to_deg(angle_difference(_turn_from.x, want.x)), to.length()])
+	var u: float = clampf(into / maxf(float(option("turn_seconds", 0.9)), 0.05), 0.0, 1.0)
+	var share: float = u * u * (3.0 - 2.0 * u)
+	var pitch: float = lerpf(_turn_from.y, want.y, share)
+	_guard.rotation = Vector3(0.0, lerp_angle(_turn_from.x, want.x, share), 0.0)
+	if _guard.head != null:
+		_guard.head.rotation.x = pitch
+	# The controller keeps its own pitch and would snap the head back on the next look input.
+	_guard.set(&"_pitch", pitch)
 
 
 func on_hit(collider: Node3D) -> void:

@@ -101,10 +101,10 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 		{"do": "glance", "right": -9.0, "pitch": 6.0, "seconds": 0.45},
 		{"do": "hold", "seconds": 0.3},
 		{"do": "glance", "right": turn * 0.6 + 9.0, "pitch": -7.0, "seconds": 0.4},
-		{"do": "hold", "seconds": 0.2},
-		{"do": "glance", "right": -turn * 0.3, "pitch": 3.0, "seconds": 0.3},
-		{"do": "until", "t": float(option("shove", 2.7)) - 0.6 - 0.3},
-		{"do": "glance", "right": square - turn * 0.3, "pitch": -4.0, "seconds": 0.28},
+		# v26 (Ryan): "a random cut for nor eason before the player gets shoved": the square-up was a 45 deg flick in six
+		# frames. His head comes round onto him over half a second, eased, and the shove lands as it arrives.
+		{"do": "until", "t": float(option("shove", 2.7)) - float(option("square_lead", 0.85))},
+		{"do": "glance", "right": square - turn * 0.6, "pitch": -1.0, "seconds": 0.5, "smooth": true},
 		{"do": "shove", "face": swing},
 		{"do": "hold", "seconds": 0.25},
 		{"do": "glance", "right": 18.0, "pitch": -2.0, "seconds": 0.4},

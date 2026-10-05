@@ -26,6 +26,7 @@ extends Node
 ## {"do": "pitch", "down": 12.0, "seconds": 0.0}
 ## {"do": "turn", "degrees": -140.0, "seconds": 0.5}   # yaw the body over seconds; positive is to its right
 ## {"do": "glance", "right": -52.0, "pitch": -4.0, "seconds": 0.4}   # a turn and a pitch together
+##     ... "smooth": true   # eased in and out over the whole time (a head coming round), not a flick
 ## {"do": "look_back", "degrees": -140.0, "seconds": 0.42, "hold": 0.3, "back": 0.6}   # over the shoulder and back
 ## {"do": "hesitate", "seconds": 0.3}            # a fidgeting pause, its length jittered
 ## {"do": "flinch", "right": 22.0}               # a jerk, a look over the shoulder, eyes front (macro)
@@ -241,7 +242,7 @@ func _physics_process(delta: float) -> void:
 		"turn", "glance":
 			# PlayerController yaws by -look_delta.x: a positive turn is to the right.
 			var over_turn: float = float(step.get("seconds", 0.0))
-			var share: float = _share(over_turn, delta)
+			var share: float = _share(over_turn, delta, bool(step.get("smooth", false)))
 			var by: float = deg_to_rad(float(step.get("degrees", step.get("right", 0.0)))) * share
 			var up: float = deg_to_rad(float(step.get("pitch", 0.0))) * share
 			var inverted_look: bool = _body.profile != null and _body.profile.invert_look_y
@@ -374,11 +375,13 @@ static func expand(steps: Array) -> Array:
 ## The share of a timed look this tick delivers: a flat rate when scripted, and
 ## when human a flick -- an ease-out to a little past the mark over most of the
 ## time, then a settle back onto it.
-func _share(over: float, delta: float) -> float:
+func _share(over: float, delta: float, smooth: bool = false) -> float:
 	if over <= 0.0:
 		return 1.0 if _clock - delta <= 0.0 else 0.0
 	var u1: float = clampf(_clock / over, 0.0, 1.0)
 	var u0: float = clampf((_clock - delta) / over, 0.0, 1.0)
+	if smooth:
+		return smoothstep(0.0, 1.0, u1) - smoothstep(0.0, 1.0, u0)
 	if not _human:
 		return u1 - u0
 	return _flick(u1) - _flick(u0)

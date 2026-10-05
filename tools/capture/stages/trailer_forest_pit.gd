@@ -6,6 +6,8 @@ extends "res://tools/capture/stages/stage.gd"
 # him fall, they should be running." v20: "the shove doesnt read right ... tht its two shots of the same event."
 # Probe (--heights 0.5 deg x 0.25 m): lane trees 134-135.5 (r 49-50.75) and 135-136 (r 54.25+), so the run-up
 # threads r 51-54 there; lip trees 147.5-149.5 and 155-156.5 (to r 49.75), the lip between them flat to r 46.75.
+# v26 (Ryan): "theres just a random cut for nor eason before the player gets shoved": each lane join snapped the head onto the
+# new lane in one tick (19 deg at the gate, 1.06 s before the shove). Every join is carried now (stage_driver "carry").
 # Dials: pov (shover|victim), from (124.3), back (2.2 deg), pace (0.93), turn_at (144.0), at (148.9),
 # follow (0.55 s), flinch (1.6 deg before the shove), on_him (0.3 s), lip (152.2 deg), floor_kill (1), impulse (16) and up (7): the shipped shove.
 
@@ -73,7 +75,7 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 		{"do": "steer", "on": true, "rate": 420.0, "gain": 9.0},
 		{"do": "lane", "to": GATE, "r": VICTIM_GATE_R, "speed": pace, "weave": 0.02, "period": 1.3, "timeout": 9.0,
 			"glances": [{"t": 0.0, "right": 0.0, "pitch": -3.0}]},
-		{"do": "lane", "to": ON_TO, "r": VICTIM_R, "speed": pace, "weave": 0.02, "period": 1.3, "timeout": 9.0,
+		{"do": "lane", "to": ON_TO, "r": VICTIM_R, "speed": pace, "weave": 0.02, "period": 1.3, "timeout": 9.0, "carry": true,
 			"glances": [{"t": 0.0, "right": 2.0, "pitch": -3.0}, {"t": 0.5, "right": -6.0, "pitch": 1.0}, {"t": 0.95, "right": 3.0, "pitch": -3.0}]},
 		{"do": "hold", "seconds": 60.0},
 	], 0, "ClipPitVictim")
@@ -83,11 +85,11 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 		{"do": "human", "on": true},
 		{"do": "lane", "to": GATE, "r": SHOVER_GATE_R, "speed": 1.0, "weave": 0.02, "period": 1.1, "timeout": 9.0,
 			"glances": [{"t": 0.0, "right": 5.0, "pitch": -3.0}, {"t": 0.5, "right": 13.0, "pitch": -4.0}, {"t": 0.9, "right": 3.0, "pitch": -2.0}]},
-		{"do": "lane", "to": OUT_FROM, "r": SHOVER_R, "speed": 1.0, "weave": 0.02, "period": 1.1, "timeout": 9.0,
+		{"do": "lane", "to": OUT_FROM, "r": SHOVER_R, "speed": 1.0, "weave": 0.02, "period": 1.1, "timeout": 9.0, "carry": true,
 			"glances": [{"t": 0.0, "right": 8.0, "pitch": -4.0}, {"t": 0.25, "right": 19.0, "pitch": -6.0}, {"t": 0.5, "right": 6.0, "pitch": -3.0}]},
-		{"do": "lane", "to": IN_FROM, "r": OUT_R, "speed": 1.0, "weave": 0.03, "period": 1.1, "timeout": 9.0,
+		{"do": "lane", "to": IN_FROM, "r": OUT_R, "speed": 1.0, "weave": 0.03, "period": 1.1, "timeout": 9.0, "carry": true,
 			"glances": [{"t": 0.0, "right": 3.0, "pitch": -3.0}, {"t": 0.3, "right": -9.0, "pitch": -1.0}, {"t": 0.7, "right": 4.0, "pitch": -2.0}]},
-		{"do": "lane", "to": ON_TO, "r": IN_R, "speed": 1.0, "weave": 0.03, "period": 1.1, "timeout": 9.0,
+		{"do": "lane", "to": ON_TO, "r": IN_R, "speed": 1.0, "weave": 0.03, "period": 1.1, "timeout": 9.0, "carry": true,
 			"glances": [{"t": 0.0, "right": 6.0, "pitch": -2.0}, {"t": 0.6, "right": -3.0, "pitch": -1.0}]},
 		{"do": "hold", "seconds": 60.0},
 	], 1, "ClipPitShover")
@@ -98,11 +100,11 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 		{"do": "human", "on": true},
 		{"do": "lane", "to": GATE, "r": THIRD_GATE_R, "speed": 1.0, "weave": 0.03, "period": 1.4, "timeout": 9.0,
 			"glances": [{"t": 0.0, "right": 0.0, "pitch": -2.0}]},
-		{"do": "lane", "to": OUT_FROM, "r": THIRD_R, "speed": 1.0, "weave": 0.04, "period": 1.4, "timeout": 9.0,
+		{"do": "lane", "to": OUT_FROM, "r": THIRD_R, "speed": 1.0, "weave": 0.04, "period": 1.4, "timeout": 9.0, "carry": true,
 			"glances": [{"t": 0.0, "right": 0.0, "pitch": -2.0}, {"t": 0.6, "right": -8.0, "pitch": 2.0}, {"t": 1.0, "right": 5.0, "pitch": -1.0}]},
-		{"do": "lane", "to": IN_FROM, "r": OUT_R, "speed": 1.0, "weave": 0.05, "period": 1.4, "timeout": 9.0,
+		{"do": "lane", "to": IN_FROM, "r": OUT_R, "speed": 1.0, "weave": 0.05, "period": 1.4, "timeout": 9.0, "carry": true,
 			"glances": [{"t": 0.0, "right": -6.0, "pitch": -2.0}, {"t": 0.5, "right": 3.0, "pitch": -1.0}]},
-		{"do": "lane", "to": ON_TO, "r": IN_R, "speed": 1.0, "weave": 0.05, "period": 1.4, "timeout": 9.0,
+		{"do": "lane", "to": ON_TO, "r": IN_R, "speed": 1.0, "weave": 0.05, "period": 1.4, "timeout": 9.0, "carry": true,
 			"glances": [{"t": 0.0, "right": 5.0, "pitch": -2.0}, {"t": 0.6, "right": -2.0, "pitch": -1.0}]},
 		{"do": "hold", "seconds": 60.0},
 	], 2, "ClipPitThird")

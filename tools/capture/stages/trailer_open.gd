@@ -78,9 +78,9 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 			lane["flinch_glances"] = [
 				{"t": 0.0, "right": -7.0, "pitch": 5.0},
 				{"t": 0.1, "right": 5.0, "pitch": -4.0},
+				# v26 (Ryan): "he does it, then looks ever so slightly left, it looks bad": his eyes stay on the tower.
 				{"t": 0.32, "right": up_right, "pitch": up_pitch},
-				{"t": 1.15, "right": up_right - 6.0, "pitch": up_pitch - 1.5},
-				{"t": 1.9, "right": 6.0, "pitch": -1.0},
+				{"t": 2.1, "right": 6.0, "pitch": -1.0},
 			]
 		var steps: Array = [
 			{"do": "place", "at": LIB.ring_point(deg, RADII[index], 0.1), "face": LIB.tangent_at(deg)},
