@@ -26,7 +26,7 @@ background_mode = 2
 sky = SubResource("SkyGreenSky")
 ambient_light_source = 3
 ambient_light_color = Color(0.2, 0.34, 0.32, 1)
-ambient_light_energy = 0.222
+ambient_light_energy = 0.111
 tonemap_mode = 1
 fog_enabled = true
 fog_light_color = Color(0.12, 0.3, 0.36, 1)
@@ -172,11 +172,11 @@ environment = SubResource("EnvGreen")
 
 [node name="Sun" parent="Environment" index="1"]
 light_color = Color(0.88, 1.0, 0.94, 1)
-light_energy = 0.463
+light_energy = 0.476
 
 [node name="Sun2" parent="Environment" index="2"]
 light_color = Color(0.88, 1.0, 0.94, 1)
-light_energy = 0.463
+light_energy = 0.476
 
 [node name="ForestFog" parent="ForestMap" index="1"]
 surface_material_override/0 = SubResource("FogGreen")
