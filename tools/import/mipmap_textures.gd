@@ -18,8 +18,8 @@ const SWIRL_GLOW := {&"ForestPortalSwirl": 0.25, &"IcePortalSwirl": 0.5}
 const LAVA_EMISSION_BOOST := 1.4
 ## Marble's stone is fully matte: no sheen, whatever roughness the .glb carries.
 const MATTE_PREFIX := "res://maps/marble/"
-## Forest, hell (with its tower) and the characters filter bilinear with mips; every other home stays nearest.
-const BILINEAR_PREFIXES := ["res://maps/", "res://tower/", "res://characters/"]
+## Forest, hell (with its tower), the characters and the rifle filter bilinear with mips; every other home stays nearest.
+const BILINEAR_PREFIXES := ["res://maps/", "res://tower/", "res://characters/", "res://weapons/models/rifle_n64"]
 
 const TEXTURE_PROPERTIES := [
 	&"albedo_texture",
