@@ -102,6 +102,23 @@ func test_every_routine_moves_the_body() -> void:
 	assert_lt(body.get_horizontal_speed(), 0.5, "stop stands it still")
 
 
+func test_tuning_sliders_change_the_layer_and_reset_restores_it() -> void:
+	var body: PlayerController = await _spawn()
+	if not assert_not_null(body, "a mannequin spawns"):
+		return
+	var skeleton: Node = _avatar(body).find_child("Skeleton3D", true, false)
+	for row: Array in MannequinStage.TUNING:
+		var span: Vector3 = _stage.tuning_range(String(row[0]), String(row[1]))
+		assert_gt(span.z, 0.0, "%s.%s has a range" % [row[0], row[1]])
+	var spring: Node = skeleton.get_node("BodySpring")
+	var span: Vector3 = _stage.tuning_range("BodySpring", "spring_hertz")
+	_stage.set_tuning("BodySpring", "spring_hertz", span.y)
+	assert_almost_eq(float(spring.get(&"spring_hertz")), span.y, 0.001, "the slider sets the export")
+	assert_true(_stage.tuning_text().contains("BodySpring.spring_hertz = %s" % String.num(span.y, 3)), "and the copy shows it")
+	_stage.reset_tuning()
+	assert_almost_eq(float(spring.get(&"spring_hertz")), float(spring.get_script().get_property_default_value(&"spring_hertz")), 0.001, "reset restores the default")
+
+
 func test_switches_change_the_layers() -> void:
 	var body: PlayerController = await _spawn()
 	if not assert_not_null(body, "a mannequin spawns"):

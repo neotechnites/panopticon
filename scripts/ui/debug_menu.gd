@@ -322,6 +322,22 @@ func _build_mannequins(hub: MatchController) -> void:
 	_toggle("DEBUG_MQ_SLOW", stage.is_slow(), stage.set_slow, reach)
 	_toggle("DEBUG_MQ_WATCH", stage.is_watching(), stage.watch, reach)
 
+	_heading("DEBUG_MQ_TUNING")
+	for tune: Array in MannequinStage.TUNING:
+		var span: Vector3 = stage.tuning_range(String(tune[0]), String(tune[1]))
+		if span.z > 0.0:
+			_slider(String(tune[2]), span.x, span.y, span.z, "", stage.tuning_value(String(tune[0]), String(tune[1])),
+				func(v: float) -> void:
+					stage.set_tuning(String(tune[0]), String(tune[1]), v))
+	var tuning: HBoxContainer = _row()
+	_button(tuning, "DEBUG_MQ_RESET", func() -> void:
+		stage.reset_tuning()
+		_rebuild())
+	_button(tuning, "DEBUG_MQ_COPY", func() -> void:
+		var text: String = stage.tuning_text()
+		DisplayServer.clipboard_set(text)
+		print(text))
+
 
 # --- Live writes ---------------------------------------------------------------
 
