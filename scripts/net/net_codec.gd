@@ -538,6 +538,46 @@ static func roster_epoch(payload: PackedByteArray) -> int:
 	return payload.decode_u16(1)
 
 
+# --- Gamestate: authority to a late client ------------------------------------
+
+## Ints in the gamestate header: phase, round, seat, finisher, outcome, winner, participants.
+const GAMESTATE_HEADER: int = 7
+## Ints per participant: flags (running, ghost, shooter), rounds won, turns in the tower.
+const GAMESTATE_PARTICIPANT: int = 3
+const GAMESTATE_RUNNING: int = 1
+const GAMESTATE_GHOST: int = 2
+const GAMESTATE_SHOOTER: int = 4
+
+
+## The whole match state a client binding late converges to (Quake's gamestate). Indices are
+## participant slots, -1 for none.
+static func pack_gamestate(controller: MatchController) -> PackedInt32Array:
+	var participants: Array[MatchParticipant] = controller.get_participants()
+	var out: PackedInt32Array = PackedInt32Array([
+		int(controller.get_phase()), controller.get_round_number(),
+		_slot_or_none(controller.get_seat_participant()), _slot_or_none(controller.get_finisher()),
+		int(controller.get_outcome()), _slot_or_none(controller.get_match_winner()), participants.size(),
+	])
+	for p: MatchParticipant in participants:
+		var flags: int = (GAMESTATE_RUNNING if p.is_running else 0) | (GAMESTATE_GHOST if p.is_ghost else 0)
+		out.append(flags | (GAMESTATE_SHOOTER if p.is_shooter else 0))
+		out.append(p.rounds_won)
+		out.append(p.turns_in_tower)
+	return out
+
+
+## True when [param state] is a whole gamestate for [param participant_count] participants.
+static func is_gamestate(state: PackedInt32Array, participant_count: int) -> bool:
+	return (
+		state.size() == GAMESTATE_HEADER + participant_count * GAMESTATE_PARTICIPANT
+		and state.size() >= GAMESTATE_HEADER and state[6] == participant_count
+	)
+
+
+static func _slot_or_none(p: MatchParticipant) -> int:
+	return p.index if p != null else -1
+
+
 ## A display name fit to store, draw and send on: no control characters, no
 ## surrounding whitespace, and no longer than [param max_bytes] of UTF-8.
 ##

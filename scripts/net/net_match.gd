@@ -509,23 +509,12 @@ func _on_seat_vacated(_seat_index: int, _peer_id: int) -> void:
 		_start_now.call_deferred()
 
 
-## Tell one peer what it missed by binding after the start.
-##
-## The match events are one-shots on a reliable channel, which delivers them to
-## whoever is listening AT THE TIME -- and a client still loading is not. Two
-## messages cover it: the match is running, and this is the round it is on. The
-## bodies themselves need nothing, because a snapshot is absolute and the next
-## one puts every one of them right.
+## Send one peer that bound after the start the whole match state (Quake's gamestate); the
+## events after it ride the same ordered channel. Bodies need nothing: snapshots are absolute.
 func _catch_up(peer_id: int) -> void:
 	if peer_id <= 0 or peer_id == NetTransport.AUTHORITY_PEER_ID:
 		return
-	rpc_id(peer_id, &"_ev_match_started")
-	var seat: MatchParticipant = controller.get_seat_participant()
-	if seat == null:
-		# Nobody in the tower yet: the opening race is still running.
-		rpc_id(peer_id, &"_ev_race_started")
-		return
-	rpc_id(peer_id, &"_ev_round_started", seat.index, controller.get_round_number())
+	rpc_id(peer_id, &"_ev_gamestate", NetCodec.pack_gamestate(controller))
 
 
 ## The host went away. There is no migration -- see [ENetTransport] -- so this
@@ -546,6 +535,36 @@ func _ev_match_started() -> void:
 	if not _started:
 		_started = true
 		match_bound.emit(false)
+
+
+## Converge a freshly bound match on the server's state through the same transitions the events run.
+@rpc("authority", "reliable", "call_remote", 0)
+func _ev_gamestate(state: PackedInt32Array) -> void:
+	if not _replays():
+		return
+	_ev_match_started()
+	if not NetCodec.is_gamestate(state, controller.get_participants().size()):
+		return
+	var phase: MatchController.Phase = state[0] as MatchController.Phase
+	if phase == MatchController.Phase.RACE:
+		controller.net_start_race()
+	elif state[2] >= 0:
+		controller.net_start_round(state[2], state[1])
+	if state[3] >= 0:
+		controller.net_arm_finisher(state[3])
+	var participants: Array[MatchParticipant] = controller.get_participants()
+	for i: int in participants.size():
+		var flags: int = state[NetCodec.GAMESTATE_HEADER + i * NetCodec.GAMESTATE_PARTICIPANT]
+		if flags & (NetCodec.GAMESTATE_RUNNING | NetCodec.GAMESTATE_SHOOTER) == 0 and participants[i].is_running:
+			_ev_removed(i)
+	for i: int in participants.size():
+		var at: int = NetCodec.GAMESTATE_HEADER + i * NetCodec.GAMESTATE_PARTICIPANT
+		participants[i].rounds_won = state[at + 1]
+		participants[i].turns_in_tower = state[at + 2]
+	if state[4] != int(MatchController.Outcome.IN_PROGRESS):
+		controller.net_resolve(state[4] as MatchController.Outcome)
+	if phase == MatchController.Phase.MATCH_OVER and state[5] >= 0:
+		controller.net_win(state[5])
 
 
 @rpc("authority", "reliable", "call_remote", 0)
