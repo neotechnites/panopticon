@@ -51,6 +51,8 @@ const OFF_MESH_METRES: float = 0.6
 const CHASE_SHOVE_SLACK_SECONDS: float = 0.1
 ## A hunt stops closing at this share of the shove's reach.
 const HUNT_REACH_SHARE: float = 0.6
+## Seconds a hunt waits before its first shove.
+const HUNT_FIRST_SHOVE_SECONDS: float = 0.6
 ## A shoved body flies about this far with no air control; it must come down on safe mesh.
 const SHOVE_THROW_METRES: float = 12.0
 const SHOVE_CLEARANCE_METRES: float = 2.0
@@ -229,6 +231,8 @@ func begin_chase(target_group: StringName) -> void:
 func begin_hunt(target_group: StringName) -> void:
 	begin_chase(target_group)
 	_direct = _chasing
+	# A beat to take in the room before the shove, as a player would.
+	_shove_rest = HUNT_FIRST_SHOVE_SECONDS
 
 
 ## Stop chasing and drop the controls.
