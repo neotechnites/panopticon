@@ -1,8 +1,12 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene load_steps=8 format=3]
 
 [ext_resource type="PackedScene" path="res://characters/models/prisoner2.glb" id="1_model"]
 [ext_resource type="Script" path="res://scripts/player/prisoner_avatar.gd" id="2_avatar"]
 [ext_resource type="Script" path="res://scripts/player/death_ragdoll.gd" id="3_ragdoll"]
+[ext_resource type="Script" path="res://scripts/player/body_look.gd" id="4_look"]
+[ext_resource type="Script" path="res://scripts/player/body_spring.gd" id="5_spring"]
+[ext_resource type="Script" path="res://scripts/player/body_contact.gd" id="6_contact"]
+[ext_resource type="Script" path="res://scripts/player/foot_plant.gd" id="7_feet"]
 
 [node name="Avatar" node_paths=PackedStringArray("mesh", "animation") instance=ExtResource("1_model")]
 editor_description = "What a prisoner looks like: the imported runner.glb -- 544 triangles, one material, a 16-joint skin and one 20-frame Run cycle -- wrapped so the rest of the game can hang it on a body and forget it is a glTF. Instanced rather than inherited into characters/player/player.tscn so that the model, its scale and its facing are decided ONCE, here, instead of in every scene that wants a person.
@@ -18,3 +22,19 @@ animation = NodePath("AnimationPlayer")
 [node name="Ragdoll" type="Node" parent="."]
 editor_description = "The limp body a rifle kill gets: its exports are the knock, the mass, the damping and the joint limits. Built on the skeleton at ready; simulated from the kill until the body is reused."
 script = ExtResource("3_ragdoll")
+
+[node name="BodyLook" type="SkeletonModifier3D" parent="Armature/Skeleton3D"]
+editor_description = "Head and torso follow the look; the feet catch up a beat later."
+script = ExtResource("4_look")
+
+[node name="BodySpring" type="SkeletonModifier3D" parent="Armature/Skeleton3D"]
+editor_description = "Lean into a start, a stop and a turn; head and arms trail and settle; a dip on each footfall."
+script = ExtResource("5_spring")
+
+[node name="BodyContact" type="SkeletonModifier3D" parent="Armature/Skeleton3D"]
+editor_description = "Landing squash, the reel of a shove, the flinch at a near miss."
+script = ExtResource("6_contact")
+
+[node name="FootPlant" type="SkeletonModifier3D" parent="Armature/Skeleton3D"]
+editor_description = "Each foot finds the ground under it; the hips drop to keep both legs in reach."
+script = ExtResource("7_feet")
