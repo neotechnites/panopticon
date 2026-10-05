@@ -39,6 +39,12 @@ const EYE_SCENE_PATH: String = "res://tower/watching_eye.tscn"
 const PROFILE_PATH: String = "res://tower/default_watching_eye_profile.tres"
 const MENU_SCENE_PATH: String = "res://ui/main_menu.tscn"
 
+## The one map that wears an eye, and the resources its Watcher must name (Ryan, 2026-10-05: "itll be a hell specific thing").
+const EYE_MAP: StringName = &"bentham_ring"
+const HELL_PROFILE_PATH: String = "res://maps/bentham_ring/bentham_ring_watching_eye_profile.tres"
+const HELL_LOOK_PATH: String = "res://maps/bentham_ring/bentham_ring_watching_eye_look.tres"
+const EYE_TEXTURE_DIR: String = "res://tower/textures/"
+
 ## The two files that make up the watching eye. Read as text below, because "it
 ## cannot refer to the guard" is a fact about the source rather than about any
 ## value it happens to hold at runtime.
@@ -333,22 +339,21 @@ func test_the_gaze_reads_a_position_and_never_a_direction() -> void:
 			"where the viewer is facing must make no difference to the eye")
 
 
-## The eyeball is the only thing in the (main menu's) tower that turns: nothing
-## else there may acquire a bearing that points.
+## The eyeball is the only thing in a tower that turns, in hell and on the main menu alike.
 func test_the_eyeball_is_the_only_thing_that_turns() -> void:
-	# Ryan, 2026-09-23: "get rid of the eyes other than the one in the main menu."
+	var arena: Node3D = TestFixtures.make_arena()
+	add_child(arena)
 	var menu: Node = (load(MENU_SCENE_PATH) as PackedScene).instantiate()
 	add_child(menu)
 
-	var tower: Node3D = menu.get_node_or_null(^"World/Tower") as Node3D
-	if not assert_not_null(tower, "the main menu should carry a Tower"):
-		return
-
-	var watchers: int = 0
-	for node: Node in _descendants_of(tower):
-		if node as WatchingEye != null:
-			watchers += 1
-	assert_eq_int(watchers, 1, "exactly one node in the tower may track a viewer")
+	for tower: Node in [arena.get_node_or_null(^"Tower"), menu.get_node_or_null(^"World/Tower")]:
+		if not assert_not_null(tower, "hell and the main menu should each carry a Tower"):
+			continue
+		var watchers: int = 0
+		for node: Node in _descendants_of(tower):
+			if node as WatchingEye != null:
+				watchers += 1
+		assert_eq_int(watchers, 1, "exactly one node in the tower may track a viewer")
 
 	for node: Node in _descendants_of(_eye):
 		assert_null(node as Camera3D, "%s: the eyeball must not carry a camera" % node.name)
@@ -538,26 +543,59 @@ func test_the_profile_is_the_source_of_truth() -> void:
 
 # --- Where it hangs -----------------------------------------------------------
 
-## The arena carries no eye; the main menu's eye hangs in its tower's space and rides it.
+## Hell's eye floats on the tower's axis, clear above its stone and its guard, and rides the tower; so does the menu's.
 func test_it_hangs_between_the_box_and_the_light_and_rides_the_tower() -> void:
-	# The arena's eye was removed on Ryan's order; only the menu's rides a tower now.
 	var arena: Node3D = TestFixtures.make_arena()
 	add_child(arena)
-	assert_null(arena.get_node_or_null(^"Tower/Watcher"), "the arena's tower carries no Watcher any more")
-
 	var menu: Node = (load(MENU_SCENE_PATH) as PackedScene).instantiate()
 	add_child(menu)
-	var watcher: WatchingEye = menu.get_node_or_null(^"World/Tower/Watcher") as WatchingEye
-	if not assert_not_null(watcher, "the main menu's tower should carry a Watcher"):
-		return
-	assert_almost_eq(watcher.position.y, watcher.profile.height_metres, 0.0001,
-		"the eyeball should be placed in the tower's space, not the world's")
 
-	var tower: Node3D = menu.get_node_or_null(^"World/Tower") as Node3D
-	var before: Vector3 = watcher.global_position
-	tower.position += Vector3(3.0, 9.0, -2.0)
-	assert_vec3_almost_eq(watcher.global_position, before + Vector3(3.0, 9.0, -2.0), 0.0001,
-		"the eyeball should ride the tower, or a raised tower leaves it behind in mid-air")
+	var hell: WatchingEye = arena.get_node_or_null(^"Tower/Watcher") as WatchingEye
+	if assert_not_null(hell, "hell's tower should carry a Watcher"):
+		var tower: Node3D = arena.get_node_or_null(^"Tower") as Node3D
+		assert_almost_eq(hell.global_position.x, tower.global_position.x, 0.0001, "the eyeball should be on the tower's axis in X")
+		assert_almost_eq(hell.global_position.z, tower.global_position.z, 0.0001, "the eyeball should be on the tower's axis in Z")
+
+		var underside: float = hell.global_position.y - hell.profile.radius_metres
+		var stone_top: float = _top_of_the_stone(tower, hell)
+		assert_gt(stone_top, tower.global_position.y, "the tower should draw stone above its own floor, or this measures nothing")
+		assert_gt(underside, stone_top,
+			"the eyeball should float clear above the tower's stone, not sit inside it")
+		var spawn: Marker3D = arena.get_node_or_null(TestFixtures.TOWER_SPAWN_PATH) as Marker3D
+		if assert_not_null(spawn, "the arena should carry a TowerSpawn"):
+			assert_gt(underside, spawn.global_position.y + 1.8 + 1.11,
+				"the eyeball should hang clear over a jumping guard's crown")
+
+		# The guard's room is inside the column the eye refuses to watch, so it rests looking up for them.
+		assert_vec3_almost_eq(hell.gaze_direction_for(spawn.global_position + Vector3(0.0, 1.65, 0.0)), Vector3.UP, 0.0001,
+			"a viewer in hell's guard room must not be watched")
+		var start: Vector3 = (arena.get_node(^"StartEnd/PrisonerStart") as Node3D).global_position
+		assert_vec3_almost_eq(hell.gaze_direction_for(start), (start - hell.global_position).normalized(), 0.0001,
+			"a runner on hell's deck must be watched")
+
+	for pair: Array in [[arena.get_node_or_null(^"Tower"), hell], [menu.get_node_or_null(^"World/Tower"), menu.get_node_or_null(^"World/Tower/Watcher")]]:
+		var tower: Node3D = pair[0] as Node3D
+		var watcher: WatchingEye = pair[1] as WatchingEye
+		if not assert_not_null(watcher, "hell's tower and the main menu's should each carry a Watcher"):
+			continue
+		assert_almost_eq(watcher.position.y, watcher.profile.height_metres, 0.0001,
+			"the eyeball should be placed in the tower's space, not the world's")
+		var before: Vector3 = watcher.global_position
+		tower.position += Vector3(3.0, 9.0, -2.0)
+		assert_vec3_almost_eq(watcher.global_position, before + Vector3(3.0, 9.0, -2.0), 0.0001,
+			"the eyeball should ride the tower, or a raised tower leaves it behind in mid-air")
+
+
+## World height of the highest drawn stone under [param tower], the eye's own meshes left out.
+func _top_of_the_stone(tower: Node3D, eye: Node) -> float:
+	var top: float = -INF
+	for node: Node in _descendants_of(tower):
+		var surface: MeshInstance3D = node as MeshInstance3D
+		if surface == null or not surface.is_visible_in_tree() or eye.is_ancestor_of(surface):
+			continue
+		var box: AABB = surface.global_transform * surface.get_aabb()
+		top = maxf(top, box.end.y)
+	return top
 
 
 # --- What it is made of -------------------------------------------------------
@@ -625,22 +663,49 @@ func test_without_a_look_the_glb_is_drawn_unchanged() -> void:
 				"%s should keep the glTF's own material when no look is set" % node.name)
 
 
-## No playable map carries an eye over its tower: only the main menu keeps one.
+## Hell wears the eye, in its own profile and its own painted look; no other map carries one.
 func test_each_map_wears_its_own_eye() -> void:
-	# Ryan, 2026-09-23: "get rid of the eyes other than the one in the main menu."
+	var wearers: int = 0
 	for map: MapDefinition in MapCatalog.all():
 		if map == null or not map.is_playable():
 			continue
 		var arena: Node3D = (load(map.scene_path) as PackedScene).instantiate() as Node3D
 		add_child(arena)
-		assert_null(arena.get_node_or_null(^"Tower/Watcher"), "%s should carry no eye over its tower" % map.id)
+		var watchers: Array[Node] = arena.find_children("*", "WatchingEye", true, false)
+		if map.id != EYE_MAP:
+			assert_eq_int(watchers.size(), 0, "%s should carry no eye: the eye is hell's alone" % map.id)
+			arena.queue_free()
+			continue
+
+		wearers += 1
+		assert_eq_int(watchers.size(), 1, "%s should carry exactly one eye" % map.id)
+		var watcher: WatchingEye = arena.get_node_or_null(^"Tower/Watcher") as WatchingEye
+		if assert_not_null(watcher, "%s should carry its eye over its tower" % map.id):
+			assert_eq_string(watcher.profile.resource_path, HELL_PROFILE_PATH, "hell's eye should be sized by hell's own profile")
+			if assert_not_null(watcher.look, "hell's eye should name hell's own look"):
+				assert_eq_string(watcher.look.resource_path, HELL_LOOK_PATH, "hell's eye should wear hell's own look")
+			var painted: Dictionary = _painted_parts(watcher)
+			for part: StringName in EYE_PART_NAMES:
+				var paint: BaseMaterial3D = painted.get(part) as BaseMaterial3D
+				if assert_not_null(paint, "%s should be painted by hell's look" % part):
+					assert_true(paint.albedo_texture != null and paint.albedo_texture.resource_path.begins_with(EYE_TEXTURE_DIR),
+						"%s should be drawn from a slice of tower/textures/eye.ase" % part)
 		arena.queue_free()
+	assert_eq_int(wearers, 1, "the catalog should hold the one map that wears the eye")
 
 
-## The material actually on each of the eyeball's three parts, by node name.
-##
-## Reads the SURFACE OVERRIDE and not the mesh's material, because the override
-## is what the renderer takes and what the draw-budget gate counts.
+## The model's own materials (the main menu's eye) are painted from the same sheet, one slice per part.
+func test_the_model_is_painted_from_its_sheet() -> void:
+	for node: Node in _descendants_of(_eye):
+		var surface: MeshInstance3D = node as MeshInstance3D
+		if surface == null or not EYE_PART_NAMES.has(StringName(node.name)):
+			continue
+		var paint: BaseMaterial3D = surface.mesh.surface_get_material(0) as BaseMaterial3D
+		if assert_not_null(paint, "%s should carry a material" % node.name):
+			assert_true(paint.albedo_texture != null and paint.albedo_texture.resource_path.begins_with(EYE_TEXTURE_DIR),
+				"%s should be drawn from a slice of tower/textures/eye.ase" % node.name)
+
+
 func _painted_parts(eye: WatchingEye) -> Dictionary:
 	var found: Dictionary = {}
 	for node: Node in _descendants_of(eye):

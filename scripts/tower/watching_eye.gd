@@ -156,11 +156,8 @@ const PARALLEL_LIMIT: float = 0.9999
 ## textures for the eye, one for the forest level thats green, and one for the
 ## marble level that matches the color palette."[/i]
 ##
-## NULL IS THE HELL EYE, and deliberately so rather than a fourth resource that
-## restates the glTF. [code]maps/bentham_ring/bentham_ring.tscn[/code] sets no look, so
-## Map 1's eyeball is drawn by the materials the importer built and is not
-## touched by a single line below -- which is what "Map 1's eye is unchanged"
-## has to mean if it is to mean anything.
+## Null draws the model's own materials (the main menu's eye). Hell names its own look,
+## [code]maps/bentham_ring/bentham_ring_watching_eye_look.tres[/code], over the same painted slices.
 @export var look: WatchingEyeLook
 
 ## A world point to watch instead of the camera; unset in matches, used by the menu.

@@ -85,6 +85,8 @@ const DRAW_BUDGETS: Dictionary = {
 	# frame; ceiling 173 (144 + 20 %). Lights measured 19, inside the 24 it had.
 	# 2026-10-05: the one-sculpt chunked export (64b380a, decision 84) splits the map into 15 .glbs;
 	# surfaces measured 90, ceiling 108 (+20 %).
+	# 2026-10-05: the eye is back over hell's tower, and only hell's (368 tris, 3 surfaces, 3 materials):
+	# measured tris 97283, surfaces 93, materials 15. Every ceiling is unchanged.
 	"bentham_ring": {
 		"tris": 107595, "surfaces": 108, "materials": 18,
 		"transparent_tris": 173, "lights": 24, "shadow_casters": 0,

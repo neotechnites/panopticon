@@ -25,6 +25,9 @@
 [ext_resource type="PackedScene" path="res://maps/bentham_ring/props/lava_crack.tscn" id="23_lava_crack_scene"]
 [ext_resource type="PackedScene" path="res://props/speed_powerup.tscn" id="24_speed_powerup_scene"]
 [ext_resource type="Script" uid="uid://bqujt25fif0uv" path="res://scripts/match/trap_volume.gd" id="26_trap_volume"]
+[ext_resource type="PackedScene" path="res://tower/watching_eye.tscn" id="27_watching_eye"]
+[ext_resource type="Resource" path="res://maps/bentham_ring/bentham_ring_watching_eye_profile.tres" id="28_watcher_profile"]
+[ext_resource type="Resource" path="res://maps/bentham_ring/bentham_ring_watching_eye_look.tres" id="29_watcher_look"]
 
 [sub_resource type="ProceduralSkyMaterial" id="SkyMat"]
 sky_top_color = Color(0.54, 0.110700026, 0.054000016, 1)
@@ -617,4 +620,9 @@ shadow_enabled = true
 omni_range = 25.0
 script = ExtResource("3_tower_light")
 profile = ExtResource("4_tower_light_profile")
+
+[node name="Watcher" parent="Tower" instance=ExtResource("27_watching_eye")]
+editor_description = "The eye over hell's tower, and hell's alone (Ryan, 2026-10-05: \"lets put the eye back in hell. itll be a hell specific thing\"). Size, height and the guard's excluded column are bentham_ring_watching_eye_profile.tres; its materials are bentham_ring_watching_eye_look.tres."
+profile = ExtResource("28_watcher_profile")
+look = ExtResource("29_watcher_look")
 
