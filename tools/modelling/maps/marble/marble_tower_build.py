@@ -128,7 +128,7 @@ DOME_RINGS = 6
 R_INSET = SHAFT_R - COL_W / math.cos(math.pi / NS)   # the columns' inner line at the corners: the room's wall line
 PAVING_RS = (0.5, 2.2, 4.25, 6.3)  # the room floor: a grey rosette, two EQUAL rings of slabs, a plain margin to the columns
 PAVE_SUB = 3                # a paving cell is 3 x 3 slabs: its joints are real edges on true rings and radials
-DAIS_H = 0.6                # the collider's DAIS under the seat, so the guard's eye clears the rail top; not drawn
+DAIS_H = 0.0                # no dais: the collider's floor is the drawn floor
 DAIS_R = PAVING_RS[1]
 # ---- the railing ---------------------------------------------------------------
 POST_W = 0.10               # posts 0.10 square, one at every balcony facet's centre, flush with its edge
@@ -137,7 +137,7 @@ RAILS = ((BALCONY_Z + 0.45, BALCONY_Z + 0.51), (POST_TOP - 0.10, POST_TOP))   # 
 POST_ZS = sorted(set([BALCONY_Z, POST_TOP] + [z for r in RAILS for z in r]))
 B_INSET = BALCONY_R - POST_W / math.cos(math.pi / NB)
 COLL_RAIL_R = BALCONY_R - 0.08   # the collider: an invisible band here, ledge to rail top
-GUARD_EYE = FLOOR_Z + DAIS_H + mb.EYE_H   # 3.95: world 29.3 (pass 3: 28.7)
+GUARD_EYE = FLOOR_Z + DAIS_H + mb.EYE_H   # 3.35: world 28.7
 
 # Bentham's reflector lamps: one on the spandrel over every other column, facing out, over the guard's sightlines.
 LAMP_EVERY = 2              # 8 lamps on the 16 columns: bearings 25 + 45k
@@ -692,9 +692,8 @@ def _room(m, coll=False):
     ring = lambda r, z: [(r * math.cos(a), r * math.sin(a), z) for a in _corners()]
     top = FLOOR_Z + DAIS_H
     if coll:
-        _zip(m, line, ring(DAIS_R, FLOOR_Z), mb.UP, "floor")
-        _band(m, _ringz(m, DAIS_R, FLOOR_Z), _ringz(m, DAIS_R, top), True, "plinth")
-        _disc(m, ring(DAIS_R, top), top, mb.UP, "floor")
+        _zip(m, line, ring(DAIS_R, FLOOR_Z), mb.UP, "floor")   # flat: no dais
+        _disc(m, ring(DAIS_R, FLOOR_Z), FLOOR_Z, mb.UP, "floor")
     else:
         rings = [ring(r, FLOOR_Z) for r in PAVING_RS]
         _zip(m, line, _joints(rings[-1]), mb.UP, "shade")                          # the plain margin, on the slab joints

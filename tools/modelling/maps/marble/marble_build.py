@@ -168,7 +168,7 @@ SPIKE_H = (1.4, 2.8)        # spike height, short .. tall
 SMALL_EVERY = 3             # a small spike at the foot of every third one
 SMALL_H = 0.45              # ... this fraction of its height
 BASE_K = (0.08, 0.14)       # base half-width = BASE_K[0] + BASE_K[1] * H: sharp
-GUARD_EYE_Z = 29.3          # tower floor 27.05 + the 0.6 m dais + 1.65
+GUARD_EYE_Z = 28.7          # tower floor 27.05 + 1.65
 LANE_R = 52.0
 
 # ---- the bars between finish and start ---------------------------------------
