@@ -19,6 +19,12 @@ const HOTKEYS: Array[Array] = [
 	[PlayerActions.FREECAM_DOWN, "MENU_DEBUG_KEY_FREECAM_DOWN"],
 ]
 
+## The readout's name for each match phase, by Phase key.
+const PHASE_KEYS: Dictionary = {
+	"IDLE": "DEBUG_PHASE_IDLE", "RACE": "DEBUG_PHASE_RACE", "ROUND": "DEBUG_PHASE_ROUND",
+	"MATCH_OVER": "DEBUG_PHASE_MATCH_OVER", "HUB": "DEBUG_PHASE_HUB",
+}
+
 ## Seconds the Extend button adds to the siege clock.
 const EXTEND_SECONDS: float = 30.0
 
@@ -293,7 +299,7 @@ func _refresh_readout() -> void:
 	var seat: MatchParticipant = _controller.get_seat_participant()
 	var clock: float = _controller.get_hold_remaining_seconds()
 	_readout.text = tr("DEBUG_READOUT").format({
-		"phase": tr("DEBUG_PHASE_" + _controller.get_phase_name()),
+		"phase": tr(String(PHASE_KEYS.get(_controller.get_phase_name(), "DEBUG_PHASE_IDLE"))),
 		"round": _controller.get_round_number(),
 		"seat": seat.display_name if seat != null else "-",
 		"clock": (tr("DEBUG_UNIT_SECONDS") % String.num(clock, 1)) if clock > 0.0 else "-",

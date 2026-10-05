@@ -14,7 +14,7 @@ autowrap_mode = 3
 text = "KEYBIND_INTRO"
 
 [node name="Scroll" type="ScrollContainer" parent="Layout"]
-custom_minimum_size = Vector2(0, 460)
+custom_minimum_size = Vector2(0, 506)
 size_flags_vertical = 3
 horizontal_scroll_mode = 0
 editor_description = "Horizontal scrolling is off because the table is built to fit the panel width; only a long list needs to scroll, and only downwards. The minimum height is what asks the dialog for enough room to show all thirteen rows at the shipped theme, so the list does not arrive already scrolled by one row. Nothing lines up because of this number -- the grid owns the columns -- so a larger font simply scrolls instead of breaking the table."
@@ -22,7 +22,7 @@ editor_description = "Horizontal scrolling is off because the table is built to 
 [node name="Table" type="GridContainer" parent="Layout/Scroll"]
 size_flags_horizontal = 3
 theme_override_constants/h_separation = 8
-theme_override_constants/v_separation = 4
+theme_override_constants/v_separation = 2
 columns = 4
 editor_description = "One GridContainer, not nine HBoxContainers. A grid shares its column widths across every row, so the name, the two slots and Reset stay in line whatever the bindings are called and whatever the theme font measures. One authored row per action, in the order the player reads them -- movement, then jump/crouch, then fire/aim -- which is also what stops Godot's own ui_* actions from ever appearing here."
 

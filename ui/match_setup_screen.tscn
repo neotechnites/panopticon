@@ -107,118 +107,123 @@ editor_description = "What the selected mode IS, in one sentence, from MatchPres
 theme_type_variation = &"Heading"
 text = "SETUP_RULES"
 
-[node name="Grid" type="GridContainer" parent="Frame/Dialog/Padding/Layout"]
+[node name="GridScroll" type="ScrollContainer" parent="Frame/Dialog/Padding/Layout"]
+horizontal_scroll_mode = 0
+editor_description = "Caps the rules grid's height: the debug setup's full rule list plus every note would push the footer off a 900-high screen. The script sizes it to the grid, up to that cap."
+
+[node name="Grid" type="GridContainer" parent="Frame/Dialog/Padding/Layout/GridScroll"]
+size_flags_horizontal = 3
 theme_override_constants/h_separation = 8
 theme_override_constants/v_separation = 4
 columns = 3
 editor_description = "Three shared columns -- name, control, readout -- so every row lines up by construction rather than by each row guessing the same magic pixel width. Same layout rule as every grid on the settings screen."
 
-[node name="PrisonersName" type="Label" parent="Frame/Dialog/Padding/Layout/Grid"]
+[node name="PrisonersName" type="Label" parent="Frame/Dialog/Padding/Layout/GridScroll/Grid"]
 size_flags_vertical = 1
 vertical_alignment = 1
 text = "COMMON_PRISONERS"
 
-[node name="PrisonerCountSpin" type="SpinBox" parent="Frame/Dialog/Padding/Layout/Grid"]
+[node name="PrisonerCountSpin" type="SpinBox" parent="Frame/Dialog/Padding/Layout/GridScroll/Grid"]
 custom_minimum_size = Vector2(240, 0)
 size_flags_horizontal = 0
 unique_name_in_owner = true
 editor_description = "Range set by the script from GameSettings.MIN_PRISONER_COUNT and MAX_PRISONER_COUNT, so what this box can be dragged to and what a loaded settings file is clamped to are the same two numbers rather than two copies that can drift."
 
-[node name="PrisonersReadout" type="Label" parent="Frame/Dialog/Padding/Layout/Grid"]
+[node name="PrisonersReadout" type="Label" parent="Frame/Dialog/Padding/Layout/GridScroll/Grid"]
 size_flags_vertical = 1
 vertical_alignment = 1
 unique_name_in_owner = true
 
-[node name="OpeningName" type="Label" parent="Frame/Dialog/Padding/Layout/Grid"]
+[node name="OpeningName" type="Label" parent="Frame/Dialog/Padding/Layout/GridScroll/Grid"]
 size_flags_vertical = 1
 vertical_alignment = 1
 text = "SETUP_OPENING"
 
-[node name="OpeningOption" type="OptionButton" parent="Frame/Dialog/Padding/Layout/Grid"]
+[node name="OpeningOption" type="OptionButton" parent="Frame/Dialog/Padding/Layout/GridScroll/Grid"]
 custom_minimum_size = Vector2(240, 0)
 size_flags_horizontal = 0
 unique_name_in_owner = true
 editor_description = "One control over two rules. Race for the tower is MatchRules.open_with_race; the other two skip the race and hand the tower to seat 0 (you, the guard) or to a bot (you, on the ring). Filled by the script."
 
-[node name="OpeningReadout" type="Label" parent="Frame/Dialog/Padding/Layout/Grid"]
+[node name="OpeningReadout" type="Label" parent="Frame/Dialog/Padding/Layout/GridScroll/Grid"]
 size_flags_vertical = 1
 vertical_alignment = 1
 unique_name_in_owner = true
 
-[node name="LivesName" type="Label" parent="Frame/Dialog/Padding/Layout/Grid"]
+[node name="LivesName" type="Label" parent="Frame/Dialog/Padding/Layout/GridScroll/Grid"]
 size_flags_vertical = 1
 vertical_alignment = 1
 text = "SETUP_HITS_TO_CONVERT"
 
-[node name="LivesOption" type="OptionButton" parent="Frame/Dialog/Padding/Layout/Grid"]
+[node name="LivesOption" type="OptionButton" parent="Frame/Dialog/Padding/Layout/GridScroll/Grid"]
 custom_minimum_size = Vector2(240, 0)
 size_flags_horizontal = 0
 unique_name_in_owner = true
 
-[node name="LivesSpacer" type="Control" parent="Frame/Dialog/Padding/Layout/Grid"]
+[node name="LivesSpacer" type="Control" parent="Frame/Dialog/Padding/Layout/GridScroll/Grid"]
 
-[node name="GhostsName" type="Label" parent="Frame/Dialog/Padding/Layout/Grid"]
+[node name="GhostsName" type="Label" parent="Frame/Dialog/Padding/Layout/GridScroll/Grid"]
 size_flags_vertical = 1
 vertical_alignment = 1
 text = "COMMON_GHOSTS"
 
-[node name="GhostsCheck" type="CheckBox" parent="Frame/Dialog/Padding/Layout/Grid"]
+[node name="GhostsCheck" type="CheckBox" parent="Frame/Dialog/Padding/Layout/GridScroll/Grid"]
 size_flags_horizontal = 0
 unique_name_in_owner = true
 text = "COMMON_CATCH_AND_SWAP"
 
-[node name="GhostsSpacer" type="Control" parent="Frame/Dialog/Padding/Layout/Grid"]
+[node name="GhostsSpacer" type="Control" parent="Frame/Dialog/Padding/Layout/GridScroll/Grid"]
 
-[node name="ShooterWinName" type="Label" parent="Frame/Dialog/Padding/Layout/Grid"]
+[node name="ShooterWinName" type="Label" parent="Frame/Dialog/Padding/Layout/GridScroll/Grid"]
 size_flags_vertical = 1
 vertical_alignment = 1
 text = "SETUP_TOWER_WINS_BY"
 
-[node name="ShooterWinOption" type="OptionButton" parent="Frame/Dialog/Padding/Layout/Grid"]
+[node name="ShooterWinOption" type="OptionButton" parent="Frame/Dialog/Padding/Layout/GridScroll/Grid"]
 custom_minimum_size = Vector2(240, 0)
 size_flags_horizontal = 0
 unique_name_in_owner = true
 editor_description = "Filled from MatchRules.ShooterWinCondition, with the members the round does not implement present but disabled. Shown rather than hidden because the design space is worth seeing; disabled rather than selectable because choosing one produces a round the tower cannot win."
 
-[node name="ShooterWinSpacer" type="Control" parent="Frame/Dialog/Padding/Layout/Grid"]
+[node name="ShooterWinSpacer" type="Control" parent="Frame/Dialog/Padding/Layout/GridScroll/Grid"]
 
-[node name="RunnerWinName" type="Label" parent="Frame/Dialog/Padding/Layout/Grid"]
+[node name="RunnerWinName" type="Label" parent="Frame/Dialog/Padding/Layout/GridScroll/Grid"]
 size_flags_vertical = 1
 vertical_alignment = 1
 text = "SETUP_PRISONERS_WIN_BY"
 
-[node name="RunnerWinOption" type="OptionButton" parent="Frame/Dialog/Padding/Layout/Grid"]
+[node name="RunnerWinOption" type="OptionButton" parent="Frame/Dialog/Padding/Layout/GridScroll/Grid"]
 custom_minimum_size = Vector2(240, 0)
 size_flags_horizontal = 0
 unique_name_in_owner = true
 editor_description = "Both members of MatchRules.RunnerWinCondition are implemented, so unlike the tower's list every entry here is selectable."
 
-[node name="RunnerWinSpacer" type="Control" parent="Frame/Dialog/Padding/Layout/Grid"]
+[node name="RunnerWinSpacer" type="Control" parent="Frame/Dialog/Padding/Layout/GridScroll/Grid"]
 
-[node name="AbilityName" type="Label" parent="Frame/Dialog/Padding/Layout/Grid"]
+[node name="AbilityName" type="Label" parent="Frame/Dialog/Padding/Layout/GridScroll/Grid"]
 size_flags_vertical = 1
 vertical_alignment = 1
 text = "SETUP_PRISONER_POWER"
 
-[node name="AbilityOption" type="OptionButton" parent="Frame/Dialog/Padding/Layout/Grid"]
+[node name="AbilityOption" type="OptionButton" parent="Frame/Dialog/Padding/Layout/GridScroll/Grid"]
 custom_minimum_size = Vector2(240, 0)
 size_flags_horizontal = 0
 unique_name_in_owner = true
 editor_description = "Filled from MatchRules.RunnerAbility; None is the default."
 
-[node name="AbilitySpacer" type="Control" parent="Frame/Dialog/Padding/Layout/Grid"]
+[node name="AbilitySpacer" type="Control" parent="Frame/Dialog/Padding/Layout/GridScroll/Grid"]
 
-[node name="RoundsName" type="Label" parent="Frame/Dialog/Padding/Layout/Grid"]
+[node name="RoundsName" type="Label" parent="Frame/Dialog/Padding/Layout/GridScroll/Grid"]
 size_flags_vertical = 1
 vertical_alignment = 1
 text = "SETUP_ROUNDS_TO_WIN"
 
-[node name="RoundsSpin" type="SpinBox" parent="Frame/Dialog/Padding/Layout/Grid"]
+[node name="RoundsSpin" type="SpinBox" parent="Frame/Dialog/Padding/Layout/GridScroll/Grid"]
 custom_minimum_size = Vector2(240, 0)
 size_flags_horizontal = 0
 unique_name_in_owner = true
 
-[node name="RoundsReadout" type="Label" parent="Frame/Dialog/Padding/Layout/Grid"]
+[node name="RoundsReadout" type="Label" parent="Frame/Dialog/Padding/Layout/GridScroll/Grid"]
 size_flags_vertical = 1
 vertical_alignment = 1
 unique_name_in_owner = true
