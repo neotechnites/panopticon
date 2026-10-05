@@ -1521,7 +1521,7 @@ func get_body_color(participant: MatchParticipant) -> Color:
 	var mesh: MeshInstance3D = _body_mesh_of(participant.body)
 	if mesh == null:
 		return Color.BLACK
-	var material: BaseMaterial3D = _painted_material_of(mesh) as BaseMaterial3D
+	var material: BaseMaterial3D = CharacterLight.base_of(_painted_material_of(mesh))
 	if material == null:
 		return Color.BLACK
 	return material.albedo_color

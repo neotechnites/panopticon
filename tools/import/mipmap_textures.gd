@@ -1,10 +1,11 @@
 @tool
 extends EditorScenePostImport
 
-## Refilters an imported .glb's materials to nearest-with-mipmaps (forest, hell: linear) and mips any embedded texture.
+## Refilters an imported .glb's materials to nearest-with-mipmaps (forest, hell, characters: linear) and mips any embedded texture.
 ## Textures from a home's textures/ PNGs stay linked to that file, so editing the PNG edits the model.
 
 const SharedMaterials := preload("res://tools/import/shared_materials.gd")
+const SmoothNormals := preload("res://tools/import/smooth_normals.gd")
 ## Surfaces whose glTF material is named here get the waving lava shader instead.
 const WAVE_MATERIALS := [&"LavaRiver", &"LavaSea", &"LavaCrack"]
 const LAVA_WAVE_SHADER := "res://maps/bentham_ring/materials/lava_wave.gdshader"
@@ -17,8 +18,8 @@ const SWIRL_GLOW := {&"ForestPortalSwirl": 0.25, &"IcePortalSwirl": 0.5}
 const LAVA_EMISSION_BOOST := 1.4
 ## Marble's stone is fully matte: no sheen, whatever roughness the .glb carries.
 const MATTE_PREFIX := "res://maps/marble/"
-## Forest and hell (with its tower) filter bilinear with mips; every other home stays nearest.
-const BILINEAR_PREFIXES := ["res://maps/forest/", "res://maps/bentham_ring/", "res://tower/"]
+## Forest, hell (with its tower) and the characters filter bilinear with mips; every other home stays nearest.
+const BILINEAR_PREFIXES := ["res://maps/forest/", "res://maps/bentham_ring/", "res://tower/", "res://characters/"]
 
 const TEXTURE_PROPERTIES := [
 	&"albedo_texture",
@@ -50,6 +51,7 @@ func _post_import(scene: Node) -> Object:
 
 	_walk(scene)
 	SharedMaterials.share(scene, get_source_file())
+	SmoothNormals.smooth(scene, get_source_file())
 
 	print("MIPMAP %s: %d textures gained mips, %d materials refiltered to filter %d" % [
 		get_source_file().get_file(), _textures_mipped, _materials_refiltered, _filter,
