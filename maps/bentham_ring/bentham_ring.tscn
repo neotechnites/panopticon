@@ -46,7 +46,7 @@ background_mode = 2
 sky = SubResource("Sky")
 ambient_light_source = 2
 ambient_light_color = Color(0.64, 0.38, 0.33, 1)
-ambient_light_energy = 0.76
+ambient_light_energy = 0.4
 tonemap_mode = 1
 
 [node name="BenthamRing" type="Node3D" unique_id=1690039206]
@@ -595,19 +595,25 @@ editor_description = "On the chamber floor, 0.25 m up. The clearance is delibera
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.95, 0)
 
 [node name="KeyLight" type="DirectionalLight3D" parent="Tower" unique_id=788049124]
-editor_description = "Fire from the hole above, angled 20 degrees off vertical (about 70 deg below horizontal) into the pit rather than the flat noon light of an office. Hidden while its energy is 0: an unlit light still costs every lit pixel a pass."
-transform = Transform3D(1, 0, 0, 0, 0.34202, 0.939693, 0, -0.939693, 0.34202, 0, 20, 0)
-light_color = Color(1, 0.45, 0.15, 1)
-visible = false
-light_energy = 0.0
+editor_description = "Hell's key: fire from above, 50 deg below horizontal, so every face is lit or shaded and the rock reads; ambient is only fill. No shadows: the gallery ceiling would black out the whole lap."
+transform = Transform3D(0.819152, -0.439385, 0.368688, 0, 0.642788, 0.766044, -0.573576, -0.627507, 0.526541, 0, 20, 0)
+light_color = Color(1, 0.42, 0.25, 1)
+light_energy = 0.37
 shadow_bias = 0.08
 directional_shadow_mode = 0
 directional_shadow_max_distance = 180.0
 
+[node name="CounterLight" type="DirectionalLight3D" parent="Tower"]
+editor_description = "The key's weaker opposite: the side of every rock the KeyLight misses still shows its facets above the ambient fill. No shadows."
+transform = Transform3D(-0.819152, 0.32899, -0.469846, 0, 0.819152, 0.573576, 0.573576, 0.469846, -0.67101, 0, 20, 0)
+light_color = Color(1, 0.42, 0.25, 1)
+light_energy = 0.19
+
 [node name="HellFlood" type="OmniLight3D" parent="Tower" unique_id=1424319747]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 300, 0)
 light_color = Color(1, 0.28, 0.06, 1)
-light_energy = 3.74
+visible = false
+light_energy = 0.0
 omni_range = 700.0
 omni_attenuation = 0.6
 
@@ -615,6 +621,7 @@ omni_attenuation = 0.6
 editor_description = "LOCAL GLOW ONLY, not the arena's main light -- see KeyLight. A small hot point above the platform so the tower still visibly reads as a light source up close. Colour, energy, range, attenuation and height are TowerLightProfile fields applied by TowerLight.gd at ready; the light_* properties here are placeholders for the editor view. It rides the tower's rise, which is the point."
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 10, 0)
 light_color = Color(0.9, 0.14, 0.08, 1)
+visible = false
 light_energy = 30.0
 shadow_enabled = true
 omni_range = 25.0
