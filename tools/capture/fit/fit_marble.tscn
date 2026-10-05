@@ -1,0 +1,8 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://tools/capture/fit_lineup.gd" id="1_lineup"]
+
+[node name="FitLineup" type="Node3D"]
+script = ExtResource("1_lineup")
+map_scene = "res://maps/marble/marble.tscn"
+bearing_degrees = 44.2
