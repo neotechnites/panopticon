@@ -294,6 +294,7 @@ music: voice/sr20det.ogg
 music_db: -3
 music_fade: 0.02 2.5
 captions: none
+grade_hell: lift 2.6 3
 # v4: a1+a2 = 5.70 s, the title cuts in on the drop at 5.703 s. After it every cut ends on the 170 bpm grid (beat k at
 # 5.716 + k*0.35294 s): h1 k9, h2 k13, then six beats a shot (5b k19 ... 10b k62; v5: 9a seven, 9b five), t2 k69, g1 k78, 13 k84, 14 five
 # beats so the end card lands hard on k89, an 8th-beat accent (37.13 s). Lengths are frame-rounded beat boundaries.
@@ -313,26 +314,29 @@ captions: none
 # marble_column, lake and finish restaged and re-taped; every shot refilmed in rough mode on main 6547970 (the green forest's new light; its scope reticle and rifle are
 # in every shot, not one). The edit is v24's but for d1: in 1.10 (take 2.10, behind the rock), five beats not seven (k28 to k33), so every cut after it is two beats
 # earlier, still on the grid (the end card on k96, 39.60 s; 42.80 s). In-points follow each new take's frame lag against its v24 take (a2 d1 p2 m2 +1, t2 -4).
-| line | clip | in | len | fit | speed | text |
-| a1 | cuts/01.mp4@0.35:2.70 | | | beat 2.70 | | |
-| a2 | cuts/02.mp4@1.7167:3.00 | | | beat 3.00 | | |
-| a3 | cuts/title_zoom10.mp4@0:2.1333 | | | beat 2.1333 | | |
-| a4 | cuts/card2_zoom10.mp4@0:2.4667 | | | beat 2.4667 | | |
-| h1 | cuts/04g.mp4@0.4:1.7667 | | | beat 1.7667 | | |
-| h2 | cuts/05g.mp4@1.6:1.4 | | | beat 1.4 | | |
-| m0 | cuts/05b.mp4@0:2.1167 | | | beat 2.1167 | | |
-| d1 | cuts/06.mp4@1.1167:1.7833 | | | beat 1.7833 | | |
-| d2 | cuts/07.mp4@1.6:2.1167 | | | beat 2.1167 | | |
-| d3 | cuts/08.mp4@0:2.1167 | | | beat 2.1167 | | |
-| p1 | cuts/09ag.mp4@0:2.4667 | | | beat 2.4667 | | |
-| p2 | cuts/09bg.mp4@0.0167:1.7667 | | | beat 1.7667 | | |
-| m1 | cuts/10a.mp4@0:2.1167 | | | beat 2.1167 | | |
-| m2 | cuts/10b.mp4@0.0167:2.1167 | | | beat 2.1167 | | |
-| t2 | cuts/11.mp4@1.9333:2.4667 | | | beat 2.4667 | | |
-| k1 | cuts/13.mp4@0:2.1167 | | | beat 2.1167 | | |
-| k2 | cuts/14.mp4@0:1.7667 | | | beat 1.7667 | | |
-| g1 | cuts/12.mp4@0.15:3.1833 | | | beat 3.1833 | | |
-| e1 | cuts/end_v3.mp4@0.4:3.2 | | | beat 3.2 | | |
+# Hell grade (Ryan): "for the trailer, we have to make hell a bit birhter to match the other two maps, without making it looks blown out". Trailer only, at assembly
+# (assemble.py grade): every hell line's RGB times 1 + 1.6 * (1 - max)^3 -- rock and bodies up to 2.6x, lava and embers held, hue kept, black and white fixed.
+# Crosshair (Ryan): "the crosshair in v26 needs to be updated": game commit 40f846c cherry-picked; 1 1v 5g 5b 5h 7 7v 10b 10v 14 refilmed with the four-arm cross.
+| line | clip | in | len | fit | speed | text | grade |
+| a1 | cuts/01.mp4@0.35:2.70 | | | beat 2.70 | | | hell |
+| a2 | cuts/02.mp4@1.7127:3.00 | | | beat 3.00 | | | hell |
+| a3 | cuts/title_zoom10.mp4@0:2.1333 | | | beat 2.1333 | | |  |
+| a4 | cuts/card2_zoom10.mp4@0:2.4667 | | | beat 2.4667 | | |  |
+| h1 | cuts/04g.mp4@0.4:1.7667 | | | beat 1.7667 | | |  |
+| h2 | cuts/05g.mp4@1.6:1.4 | | | beat 1.4 | | |  |
+| m0 | cuts/05b.mp4@0:2.1167 | | | beat 2.1167 | | |  |
+| d1 | cuts/06.mp4@1.1127:1.7833 | | | beat 1.7833 | | | hell |
+| d2 | cuts/07.mp4@1.6127:2.1167 | | | beat 2.1167 | | | hell |
+| d3 | cuts/08.mp4@0:2.1167 | | | beat 2.1167 | | | hell |
+| p1 | cuts/09ag.mp4@0:2.4667 | | | beat 2.4667 | | |  |
+| p2 | cuts/09bg.mp4@0.0127:1.7667 | | | beat 1.7667 | | |  |
+| m1 | cuts/10a.mp4@0:2.1167 | | | beat 2.1167 | | |  |
+| m2 | cuts/10b.mp4@0.0127:2.1167 | | | beat 2.1167 | | |  |
+| t2 | cuts/11.mp4@1.9293:2.4667 | | | beat 2.4667 | | | hell |
+| k1 | cuts/13.mp4@0:2.1167 | | | beat 2.1167 | | | hell |
+| k2 | cuts/14.mp4@0:1.7667 | | | beat 1.7667 | | | hell |
+| g1 | cuts/12.mp4@0.15:3.1833 | | | beat 3.1833 | | |  |
+| e1 | cuts/end_v3.mp4@0.4:3.2 | | | beat 3.2 | | |  |
 
 ## script rough_v24
 size: 1920x1080
@@ -552,6 +556,7 @@ music: voice/vivaldi_summer_presto_v25.flac
 music_db: 3.7
 music_fade: 0.02 2.5
 captions: none
+grade_hell: lift 2.6 3
 # rough_v25_vivaldi with Ryan's seven notes ("cut a veriosn of vivaldi with the fixes"; "i love the beat that it ends on, so if possible, it should still end on that beat").
 # Every cut point, length and beat is v25's (## script rough_v25_vivaldi has the plan in full); the end card is on bar 29 beat 1, 37.450. The picture is the v26 takes:
 # the restaged shots (2, 4g, 5g, 5h, 9ag, 10a, 10v, 11, 12) and every other shot refilmed on main 6547970. In-points move by each new take's frame lag against the
@@ -576,26 +581,29 @@ captions: none
 # k2    25.2+1/8  32.800   26.3      1.533   hell, guard scope: fires at the men in the air, misses; first man up 25.3 32.983 (-36), rifle fired 26.1 33.483 (+18), second man up 26.1+1/16 33.567 (-8), round lands 26.2 33.917 (+14)
 # g1    26.3      34.333   29.1      3.117   marble, corridor, portal, rifle, the guard shot (white frames); through the portal 28.1 36.133 (+30), kill flash 29.1 37.417 (-34)
 # e1    29.1      37.450   end       3.200   end card
-| line | clip | in | len | fit | speed | text |
-| a1 | cuts/01v.mp4@0.1127:4.1000 | | | beat 4.1000 | | |
-| a2 | cuts/02.mp4@1.9127:2.6167 | | | beat 2.6167 | | |
-| a3 | cuts/title_zoom25.mp4@0.0000:2.6167 | | | beat 2.6167 | | |
-| a4 | cuts/card2_zoom25.mp4@0.0000:3.8833 | | | beat 3.8833 | | |
-| h1 | cuts/04g.mp4@0.4960:1.3500 | | | beat 1.3500 | | |
-| h2 | cuts/05g.mp4@1.3627:1.8167 | | | beat 1.8167 | | |
-| m0 | cuts/05h.mp4@0.2627:2.2833 | | | beat 2.2833 | | |
-| d1 | cuts/06.mp4@1.5127:1.3667 | | | beat 1.3667 | | |
-| d2 | cuts/07v.mp4@0.3960:1.3833 | | | beat 1.3833 | | |
-| d3 | cuts/08.mp4@0.0293:1.3500 | | | beat 1.3500 | | |
-| p1 | cuts/09ag.mp4@0.6460:1.8000 | | | beat 1.8000 | | |
-| p2 | cuts/09bg.mp4@0.0127:1.3500 | | | beat 1.3500 | | |
-| m1 | cuts/10a.mp4@0.8627:1.1000 | | | beat 1.1000 | | |
-| m2 | cuts/10v.mp4@0.0627:2.4333 | | | beat 2.4333 | | |
-| t2 | cuts/11.mp4@2.3627:1.5667 | | | beat 1.5667 | | |
-| k1 | cuts/13.mp4@0.2960:1.7833 | | | beat 1.7833 | | |
-| k2 | cuts/14.mp4@0.1793:1.5333 | | | beat 1.5333 | | |
-| g1 | cuts/12.mp4@0.2127:3.1167 | | | beat 3.1167 | | |
-| e1 | cuts/end_v3.mp4@0.3960:3.2000 | | | beat 3.2000 | | |
+# Hell grade (Ryan): "for the trailer, we have to make hell a bit birhter to match the other two maps, without making it looks blown out". Trailer only, at assembly
+# (assemble.py grade): every hell line's RGB times 1 + 1.6 * (1 - max)^3 -- rock and bodies up to 2.6x, lava and embers held, hue kept, black and white fixed.
+# Crosshair (Ryan): "the crosshair in v26 needs to be updated": game commit 40f846c cherry-picked; 1 1v 5g 5b 5h 7 7v 10b 10v 14 refilmed with the four-arm cross.
+| line | clip | in | len | fit | speed | text | grade |
+| a1 | cuts/01v.mp4@0.0960:4.1000 | | | beat 4.1000 | | | hell |
+| a2 | cuts/02.mp4@1.9127:2.6167 | | | beat 2.6167 | | | hell |
+| a3 | cuts/title_zoom25.mp4@0.0000:2.6167 | | | beat 2.6167 | | |  |
+| a4 | cuts/card2_zoom25.mp4@0.0000:3.8833 | | | beat 3.8833 | | |  |
+| h1 | cuts/04g.mp4@0.4960:1.3500 | | | beat 1.3500 | | |  |
+| h2 | cuts/05g.mp4@1.3460:1.8167 | | | beat 1.8167 | | |  |
+| m0 | cuts/05h.mp4@0.2460:2.2833 | | | beat 2.2833 | | |  |
+| d1 | cuts/06.mp4@1.5127:1.3667 | | | beat 1.3667 | | | hell |
+| d2 | cuts/07v.mp4@0.3960:1.3833 | | | beat 1.3833 | | | hell |
+| d3 | cuts/08.mp4@0.0293:1.3500 | | | beat 1.3500 | | | hell |
+| p1 | cuts/09ag.mp4@0.6460:1.8000 | | | beat 1.8000 | | |  |
+| p2 | cuts/09bg.mp4@0.0127:1.3500 | | | beat 1.3500 | | |  |
+| m1 | cuts/10a.mp4@0.8627:1.1000 | | | beat 1.1000 | | |  |
+| m2 | cuts/10v.mp4@0.0627:2.4333 | | | beat 2.4333 | | |  |
+| t2 | cuts/11.mp4@2.3627:1.5667 | | | beat 1.5667 | | | hell |
+| k1 | cuts/13.mp4@0.2960:1.7833 | | | beat 1.7833 | | | hell |
+| k2 | cuts/14.mp4@0.1793:1.5333 | | | beat 1.5333 | | | hell |
+| g1 | cuts/12.mp4@0.2127:3.1167 | | | beat 3.1167 | | |  |
+| e1 | cuts/end_v3.mp4@0.3960:3.2000 | | | beat 3.2000 | | |  |
 
 ## script rough_v24_castcadia
 size: 1920x1080

@@ -7,7 +7,7 @@ Runs ON THE PC (tools/content/assemble.sh pushes it):
 The brief's ## script table maps every voice line to a clip and says how the
 clip fits the line (the v6 retime of the shove short, generalised):
 
-    | line | clip | in | len | fit | speed | text | card |
+    | line | clip | in | len | fit | speed | text | card | grade |
 
   clip   one clip, or several comma separated -- `path[@in[:len]]` each -- played
          back to back as one slot, so a line whose voice outlasts the first clip
@@ -43,6 +43,10 @@ clip fits the line (the v6 retime of the shove short, generalised):
          `in` seconds at the line's first word, out to the left over `out`
          seconds at its last word, with the drop shadow baked in by card.py.
          Swapping the png is a one-file replacement.
+
+  grade  a grade named in the script header, applied to this line's picture only:
+         `grade_hell: lift 2.6 3` scales RGB by 1 + (2.6 - 1) * (1 - max)^3 --
+         shadows and mids up, hue and saturation kept, black and white fixed.
 
 A fit compares the clip's seconds ON SCREEN (source / speed) with the slot, so
 a slowed clip is measured as what it plays, not as what it holds.
@@ -125,6 +129,28 @@ def fit_filter(path):
         return (f"split[a][b];[a]scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},boxblur=24:4[bg];"
                 f"[b]scale={W}:-2[fg];[bg][fg]overlay=(W-w)/2:(H-h)/2")
     return f"scale={W}:{H}"
+
+
+def grade_filter(spec, cache):
+    """`lift G P` as a lut3d over a .cube in the cache: RGB times 1 + (G - 1) * (1 - max)^P."""
+    kind, *numbers = spec.split()
+    if kind != "lift" or len(numbers) != 2:
+        raise SystemExit(f"assemble: unknown grade '{spec}' (lift <gain> <power>)")
+    gain, power = float(numbers[0]), float(numbers[1])
+    name = "grade_%s.cube" % sha("lift", gain, power)
+    path = os.path.join(cache, name)
+    if not os.path.exists(path):
+        size = 33
+        with open(path, "w", encoding="ascii") as f:
+            f.write(f"LUT_3D_SIZE {size}\n")
+            for b in range(size):
+                for g in range(size):
+                    for r in range(size):
+                        rgb = (r / (size - 1), g / (size - 1), b / (size - 1))
+                        k = 1.0 + (gain - 1.0) * (1.0 - max(rgb)) ** power
+                        f.write("%.6f %.6f %.6f\n" % tuple(min(c * k, 1.0) for c in rgb))
+    # Relative to the project folder (the segment encode runs there): a drive colon would end the filter option.
+    return "lut3d=file=cuts/_cache/%s:interp=tetrahedral" % name
 
 
 def snap(seconds):
@@ -441,7 +467,13 @@ def main():
             vf = ""
             if abs(w["speed"] - 1.0) > 1e-9:
                 vf += "setpts={:.6f}*PTS,".format(1.0 / w["speed"])
-            vf += fit_filter(w["src"]) + f",fps={FPS}," + TO_709 + TAIL
+            vf += fit_filter(w["src"]) + f",fps={FPS}," + TO_709
+            grade = (row.get("grade", "") or "").strip()
+            if grade:
+                if not head.get("grade_" + grade):
+                    raise SystemExit(f"assemble: {key}: no grade_{grade}: line in the script header")
+                vf += "," + grade_filter(head["grade_" + grade], cache)
+            vf += TAIL
             if w["hold"] > 0.005:
                 vf += ",tpad=stop_mode=clone:stop_duration={:.4f}".format(w["hold"])
             out_len = w["out"] + w["hold"]
@@ -468,7 +500,7 @@ def main():
                 else:
                     args += ["-vf", vf]
                 args += ["-t", "%.4f" % out_len, "-an"] + LOSSLESS + [seg]
-                run(args)
+                run(args, cwd=project)
                 fit += "  [rendered]" if i == 0 else ""
             segments.append(seg)
             if game_vol > 0 and mode != "window" and has_audio(w["src"]):
