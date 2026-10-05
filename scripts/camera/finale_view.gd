@@ -10,8 +10,8 @@ extends Node3D
 ## How fast the view swings onto the thrown body: higher is tighter.
 @export_range(1.0, 40.0, 0.5) var follow_rate: float = 12.0
 ## Where the camera rides, metres behind the throw and above the body.
-@export_range(0.0, 20.0, 0.1) var chase_back: float = 4.0
-@export_range(0.0, 10.0, 0.1) var chase_up: float = 1.4
+@export_range(0.0, 20.0, 0.1) var chase_back: float = 2.8
+@export_range(0.0, 10.0, 0.1) var chase_up: float = 0.8
 ## Seconds held at the shover's eye to see the shove land, then to swing in behind.
 @export_range(0.0, 1.0, 0.01) var hold_seconds: float = 0.12
 @export_range(0.01, 1.0, 0.01) var swing_seconds: float = 0.3

@@ -142,6 +142,8 @@ const RAGDOLL_WAIT_MSEC: int = 400
 const REUSED_DISTANCE: float = 1.5
 ## A shove lands on the drawn body nearest its point, within this, metres.
 const SHOVE_CLAIM_METRES: float = 2.5
+## Metres above the feet the finale shove strikes a thrown body.
+const THROWN_STRIKE_HEIGHT: float = 1.5
 ## A shoved body flops once it is seen thrown (rising this fast, or jolted this much, m/s), or after the wait.
 const FLOP_RISE: float = 2.0
 const FLOP_JOLT: float = 5.0
@@ -584,7 +586,8 @@ func throw_out(throw: Vector3) -> void:
 	_ragdoll_pending = false
 	_death_position = body.global_position
 	animation.pause()
-	_ragdoll.start(throw, Vector3.ZERO, Vector3.ZERO)
+	# Struck high along the throw, so he tumbles and flails rather than sailing out standing.
+	_ragdoll.start(throw, body.global_position + Vector3.UP * THROWN_STRIKE_HEIGHT, throw)
 
 
 ## Where the body is drawn: the ragdoll's pelvis while limp, else the capsule's middle.
