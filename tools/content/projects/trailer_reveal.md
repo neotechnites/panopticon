@@ -10,6 +10,8 @@ cards: cuts/title_hard.mp4 is v1's title frame looped from frame 0 (v1's title.m
 delivery: content\trailer_reveal\final\rough_v22.mp4 (and ~/Desktop/panopticon-renders/trailer_reveal/)
 tag: rough_v22
 alt: rough_v20_green (v20 with the forest shots filmed in the green forest: 4g 5g 9ag 9bg, ## script rough_v20_green)
+alt: rough_v22_vivaldi (v22's picture with Vivaldi, Summer RV 315 III. Presto from the top, ## script rough_v22_vivaldi)
+music_vivaldi: The Modena Chamber Orchestra (Musopen), Vivaldi's Summer RV 315 III. Presto, Public Domain Mark (owner), https://commons.wikimedia.org/wiki/File:The_Modena_Chamber_Orchestra_-_Vivaldi%27s_Summer,_RV_315_-_III._Presto.ogg -> external\src\modena_summer_presto.ogg, voice\vivaldi_summer_presto.flac (0.402 s of silence added at the head).
 size: 1920x1080
 v4 (Ryan): "every shot must be exactly reproducible in engine -- run a script and record"; NO CROUCHING anywhere; max 3 prisoners + guard; guard shots on the projectile rifle (led, held over). Every shot plays a TAPE (tape: line): the staged take recorded once, then every input played back -- see ## reshoot.
 
@@ -276,6 +278,35 @@ captions: none
 | a3 | cuts/title_zoom10.mp4@0:2.1333 | | | beat 2.1333 | | |
 | a4 | cuts/card2_zoom10.mp4@0:2.4667 | | | beat 2.4667 | | |
 | h1 | cuts/04g.mp4@0.9:1.7667 | | | beat 1.7667 | | |
+| h2 | cuts/05g.mp4@1.6:1.4 | | | beat 1.4 | | |
+| m0 | cuts/05b.mp4@0:2.1167 | | | beat 2.1167 | | |
+| d1 | cuts/06.mp4@0.4:2.4833 | | | beat 2.4833 | | |
+| d2 | cuts/07.mp4@1.6:2.1167 | | | beat 2.1167 | | |
+| d3 | cuts/08.mp4@0:2.1167 | | | beat 2.1167 | | |
+| p1 | cuts/09ag.mp4@0:2.4667 | | | beat 2.4667 | | |
+| p2 | cuts/09bg.mp4@0:1.7667 | | | beat 1.7667 | | |
+| m1 | cuts/10a.mp4@0:2.1167 | | | beat 2.1167 | | |
+| m2 | cuts/10b.mp4@0:2.1167 | | | beat 2.1167 | | |
+| t2 | cuts/11.mp4@2.0:2.4667 | | | beat 2.4667 | | |
+| k1 | cuts/13.mp4@0:2.1167 | | | beat 2.1167 | | |
+| k2 | cuts/14.mp4@0:1.7667 | | | beat 1.7667 | | |
+| g1 | cuts/12.mp4@0.15:3.1833 | | | beat 3.1833 | | |
+| e1 | cuts/end_v3.mp4@0.4:3.2 | | | beat 3.2 | | |
+
+## script rough_v22_vivaldi
+size: 1920x1080
+music: voice/vivaldi_summer_presto.flac
+music_db: 3.7
+music_fade: 0.02 2.5
+captions: none
+# v22's edit, Vivaldi from the top: the onset at 5.298 s in the recording (the second strong beat near 5 s, after 4.328) lands on the title card's first frame (5.70); file padded 0.402 s.
+# music_db 3.7: the programme at -14 LUFS integrated. Other strong beats: 3.984, 4.328, 6.127 s (recording time).
+| line | clip | in | len | fit | speed | text |
+| a1 | cuts/01.mp4@0.35:2.70 | | | beat 2.70 | | |
+| a2 | cuts/02.mp4@1.70:3.00 | | | beat 3.00 | | |
+| a3 | cuts/title_zoom10.mp4@0:2.1333 | | | beat 2.1333 | | |
+| a4 | cuts/card2_zoom10.mp4@0:2.4667 | | | beat 2.4667 | | |
+| h1 | cuts/04g.mp4@0.4:1.7667 | | | beat 1.7667 | | |
 | h2 | cuts/05g.mp4@1.6:1.4 | | | beat 1.4 | | |
 | m0 | cuts/05b.mp4@0:2.1167 | | | beat 2.1167 | | |
 | d1 | cuts/06.mp4@0.4:2.4833 | | | beat 2.4833 | | |
