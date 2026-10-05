@@ -1,0 +1,8 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://tools/capture/reticle_stills/scope_reticle_still.gd" id="1_still"]
+[ext_resource type="PackedScene" path="res://maps/ice/ice.tscn" id="2_map"]
+
+[node name="ScopeReticleStill" type="Node3D"]
+script = ExtResource("1_still")
+map = ExtResource("2_map")
