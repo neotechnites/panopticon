@@ -21,11 +21,11 @@ const FOOT_GAP: float = 0.12
 const BOB_PACE: float = 0.2
 
 ## Degrees the whole body leans when its speed changes by its whole ground speed in a beat.
-@export_range(0.0, 30.0, 0.5) var lean_degrees: float = 14.0
+@export_range(0.0, 30.0, 0.5) var lean_degrees: float = 18.2
 ## How much of the lean the head, chest and arms arrive late by, then swing past (0 rides rigid).
-@export_range(0.0, 2.0, 0.05) var trail_share: float = 1.0
+@export_range(0.0, 2.0, 0.05) var trail_share: float = 1.3
 ## Centimetres the hips dip on each footfall at full pace.
-@export_range(0.0, 10.0, 0.1) var bounce_centimetres: float = 3.0
+@export_range(0.0, 10.0, 0.1) var bounce_centimetres: float = 3.9
 ## The lean spring: cycles a second, and how soon it settles (1 never overshoots).
 @export_range(0.5, 8.0, 0.1) var spring_hertz: float = 2.2
 @export_range(0.1, 1.5, 0.05) var damping: float = 0.5

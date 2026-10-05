@@ -1418,10 +1418,11 @@ func net_kill_beat(guard_index: int) -> void:
 	guard.body.died.emit()
 
 
-## The server says a shove landed on somebody at [param at]. The cue only: the
-## victim's launch rides the snapshot.
+## The server says a shove landed on somebody at [param at]. The cue and the drawn
+## flop only: the victim's launch rides the snapshot.
 func net_shove_landed(at: Vector3) -> void:
 	AudioDirector.post_event_at(AudioEvents.PLAYER_CATCH_MADE, at)
+	PrisonerAvatar.shove_landed(at)
 
 
 ## A human seat became a bot's mid-match: the body stays, the brain takes over.
@@ -2016,6 +2017,7 @@ func apply_shove(shover: MatchParticipant) -> MatchParticipant:
 		match_rules.shove_air_lock_seconds,
 	)
 	AudioDirector.post_event_at(AudioEvents.PLAYER_CATCH_MADE, victim.body.global_position)
+	PrisonerAvatar.shove_landed(victim.body.global_position)
 	participant_shoved.emit(shover, victim)
 	# THE CATCH. A ghost takes a spot by shoving the prisoner who holds it and by
 	# nothing else -- touching them does nothing -- so it is ruled on here, after
@@ -4163,6 +4165,37 @@ func debug_refresh_reload() -> void:
 	rifle.reload_seconds = get_rules().get_reload_seconds_for_turn(
 		turn, rifle.profile.base_reload_seconds, rifle.profile.min_reload_seconds
 	)
+
+
+## Seat a debug body in the hub, running, so a real shove reaches it. Host only; never on the wire.
+func debug_add_hub_body(body: PlayerController) -> MatchParticipant:
+	if _mirror or not hub_mode or body == null or _participant_by_body_id.has(body.get_instance_id()):
+		return null
+	var participant: MatchParticipant = MatchParticipant.new()
+	participant.kind = MatchParticipant.Kind.AI
+	participant.display_name = String(body.name)
+	participant.body = body
+	participant.home_collision_layer = body.collision_layer
+	participant.home_collision_mask = body.collision_mask
+	participant.is_running = true
+	participant.index = _participants.size()
+	_participants.append(participant)
+	_participant_by_body_id[body.get_instance_id()] = participant
+	_assign_runner_color(participant)
+	return participant
+
+
+## Unseat a body [method debug_add_hub_body] seated; the others keep their order.
+func debug_remove_hub_body(body: PlayerController) -> void:
+	if body == null or not _participant_by_body_id.has(body.get_instance_id()):
+		return
+	var participant: MatchParticipant = _participant_by_body_id[body.get_instance_id()]
+	if participant.is_human() or not hub_mode:
+		return
+	_participant_by_body_id.erase(body.get_instance_id())
+	_participants.erase(participant)
+	for index: int in _participants.size():
+		_participants[index].index = index
 
 
 ## Every weapon profile in play: the tower rifle's and the finisher's, once each.

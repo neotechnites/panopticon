@@ -86,6 +86,18 @@ func _find_controller() -> MatchController:
 	return null
 
 
+## The hub's controller when this machine decides for it; a joining client gets none.
+func _find_hub() -> MatchController:
+	var scene: Node = get_tree().current_scene
+	if scene == null or (multiplayer.has_multiplayer_peer() and not multiplayer.is_server()):
+		return null
+	for found: Node in scene.find_children("*", "MatchController", true, false):
+		var controller: MatchController = found as MatchController
+		if controller != null and controller.hub_mode and not controller.is_mirror():
+			return controller
+	return null
+
+
 # --- Building ------------------------------------------------------------------
 
 func _rebuild() -> void:
@@ -97,7 +109,11 @@ func _rebuild() -> void:
 	if not in_match:
 		_build_setup()
 	elif _controller == null:
-		_note("MENU_DEBUG_NO_MATCH")
+		var hub: MatchController = _find_hub()
+		if hub != null:
+			_build_mannequins(hub)
+		else:
+			_note("MENU_DEBUG_NO_MATCH")
 	else:
 		_build_phase()
 		_build_sniper()
@@ -238,6 +254,89 @@ func _build_health() -> void:
 		ghosts.speed_multiplier = value
 		_controller.debug_refresh_pace()
 	_slider("DEBUG_GHOST_SPEED", 0.5, 4.0, 0.05, "DEBUG_UNIT_TIMES", ghosts.speed_multiplier, set_ghost_speed)
+
+
+## Mannequins: avatar bodies in the hub to drive, push, shoot and switch layers on.
+func _build_mannequins(hub: MatchController) -> void:
+	var scene: Node = get_tree().current_scene
+	var stage: MannequinStage = MannequinStage.find(scene, hub, false)
+	_heading("DEBUG_SECTION_MANNEQUIN")
+	var count: int = stage.bodies().size() if stage != null else 0
+	var status: String = tr("DEBUG_MQ_COUNT").format({"count": count})
+	if stage != null and not stage.note.is_empty():
+		status += "  " + tr(stage.note)
+	_note(status)
+	var make: HBoxContainer = _row()
+	_button(make, "DEBUG_MQ_SPAWN", func() -> void:
+		MannequinStage.find(scene, hub, true).spawn()
+		_rebuild())
+	if count == 0:
+		return
+	_button(make, "DEBUG_MQ_REMOVE", func() -> void:
+		stage.remove_selected()
+		_rebuild())
+	_button(make, "DEBUG_MQ_REMOVE_ALL", func() -> void:
+		stage.remove_all()
+		_rebuild())
+	var names: PackedStringArray = [tr("DEBUG_MQ_ALL")]
+	for i: int in count:
+		names.append(tr("DEBUG_MQ_NAME").format({"n": i + 1}))
+	_choice("DEBUG_MQ_TARGET", names, stage.selected + 1, func(index: int) -> void:
+		stage.selected = index - 1
+		_rebuild())
+
+	_heading("DEBUG_MQ_DOES")
+	var does: HBoxContainer = _row()
+	_button(does, "DEBUG_MQ_LOOK", _act.bind(stage.run.bind(MannequinIntent.Routine.LOOK)))
+	_button(does, "DEBUG_MQ_WALK", _act.bind(stage.run.bind(MannequinIntent.Routine.WALK)))
+	_button(does, "DEBUG_MQ_SPRINT", _act.bind(stage.run.bind(MannequinIntent.Routine.SPRINT)))
+	_button(does, "DEBUG_MQ_JUMP", _act.bind(stage.run.bind(MannequinIntent.Routine.JUMP)))
+	var more: HBoxContainer = _row()
+	_button(more, "DEBUG_MQ_LEDGE", _act.bind(stage.run.bind(MannequinIntent.Routine.LEDGE)))
+	_button(more, "DEBUG_MQ_SLOPE", _act.bind(stage.run.bind(MannequinIntent.Routine.SLOPE)))
+	_button(more, "DEBUG_MQ_GUARD", _act.bind(stage.run.bind(MannequinIntent.Routine.GUARD)))
+	_button(more, "DEBUG_MQ_FOLLOW", _act.bind(stage.run.bind(MannequinIntent.Routine.FOLLOW)))
+	_button(more, "DEBUG_MQ_STOP", _act.bind(stage.run.bind(MannequinIntent.Routine.STAND)))
+
+	_heading("DEBUG_MQ_DONE_TO")
+	var shoves: HBoxContainer = _row()
+	_button(shoves, "DEBUG_MQ_SHOVE_FRONT", _act.bind(stage.shove_from.bind(Vector3.FORWARD)))
+	_button(shoves, "DEBUG_MQ_SHOVE_BACK", _act.bind(stage.shove_from.bind(Vector3.BACK)))
+	_button(shoves, "DEBUG_MQ_SHOVE_LEFT", _act.bind(stage.shove_from.bind(Vector3.LEFT)))
+	_button(shoves, "DEBUG_MQ_SHOVE_RIGHT", _act.bind(stage.shove_from.bind(Vector3.RIGHT)))
+	var shots: HBoxContainer = _row()
+	_button(shots, "DEBUG_MQ_NEAR_MISS", _act.bind(stage.near_miss))
+	_button(shots, "DEBUG_MQ_SHOOT", _act.bind(stage.shoot))
+	_button(shots, "DEBUG_MQ_STAND_UP", _act.bind(stage.stand_up))
+
+	_heading("DEBUG_MQ_SWITCHES")
+	var switches: HBoxContainer = _row()
+	_toggle("DEBUG_MQ_LAYER_LOOK", stage.is_layer_on(&"BodyLook"), stage.set_layer.bind(&"BodyLook"), switches)
+	_toggle("DEBUG_MQ_LAYER_SPRING", stage.is_layer_on(&"BodySpring"), stage.set_layer.bind(&"BodySpring"), switches)
+	_toggle("DEBUG_MQ_LAYER_CONTACT", stage.is_layer_on(&"BodyContact"), stage.set_layer.bind(&"BodyContact"), switches)
+	_toggle("DEBUG_MQ_LAYER_FEET", stage.is_layer_on(&"FootPlant"), stage.set_layer.bind(&"FootPlant"), switches)
+	var reach: HBoxContainer = _row()
+	_toggle("DEBUG_MQ_RAGDOLL", stage.is_ragdoll_on(), stage.set_ragdoll, reach)
+	_toggle("DEBUG_MQ_EVERY_BODY", stage.reach_every_body, func(on: bool) -> void:
+		stage.reach_every_body = on, reach)
+	_toggle("DEBUG_MQ_SLOW", stage.is_slow(), stage.set_slow, reach)
+	_toggle("DEBUG_MQ_WATCH", stage.is_watching(), stage.watch, reach)
+
+	_heading("DEBUG_MQ_TUNING")
+	for tune: Array in MannequinStage.TUNING:
+		var span: Vector3 = stage.tuning_range(String(tune[0]), String(tune[1]))
+		if span.z > 0.0:
+			_slider(String(tune[2]), span.x, span.y, span.z, "", stage.tuning_value(String(tune[0]), String(tune[1])),
+				func(v: float) -> void:
+					stage.set_tuning(String(tune[0]), String(tune[1]), v))
+	var tuning: HBoxContainer = _row()
+	_button(tuning, "DEBUG_MQ_RESET", func() -> void:
+		stage.reset_tuning()
+		_rebuild())
+	_button(tuning, "DEBUG_MQ_COPY", func() -> void:
+		var text: String = stage.tuning_text()
+		DisplayServer.clipboard_set(text)
+		print(text))
 
 
 # --- Live writes ---------------------------------------------------------------

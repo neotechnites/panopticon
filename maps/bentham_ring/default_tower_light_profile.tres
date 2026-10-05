@@ -4,7 +4,7 @@
 
 [resource]
 script = ExtResource("1_tower_light_profile")
-energy = 22.0
+energy = 24.2
 range_metres = 8.0
 attenuation = 0.6
 shadow_enabled = false

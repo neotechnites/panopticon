@@ -43,7 +43,7 @@ background_mode = 2
 sky = SubResource("Sky")
 ambient_light_source = 2
 ambient_light_color = Color(0.5, 0.47, 0.44, 1)
-ambient_light_energy = 0.389
+ambient_light_energy = 0.428
 tonemap_mode = 1
 
 [node name="BenthamRing" type="Node3D" unique_id=1690039206]
@@ -65,19 +65,19 @@ environment = SubResource("Env")
 [node name="S2_LavaShelf" type="OmniLight3D" parent="Ring/LavaGlow" unique_id=220250157]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -11.2549, 24.5, 50.7674)
 light_color = Color(1, 0.35, 0.05, 1)
-light_energy = 3.4
+light_energy = 3.74
 omni_range = 12.0
 
 [node name="S4_DemonRun_Inner" type="OmniLight3D" parent="Ring/LavaGlow" unique_id=1658816305]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -35.4639, 24.5, -38.0304)
 light_color = Color(1, 0.35, 0.05, 1)
-light_energy = 3.4
+light_energy = 3.74
 omni_range = 12.0
 
 [node name="S4_DemonRun_Outer" type="OmniLight3D" parent="Ring/LavaGlow" unique_id=1751733702]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -11.6975, 24.5, -50.6672)
 light_color = Color(1, 0.35, 0.05, 1)
-light_energy = 3.4
+light_energy = 3.74
 omni_range = 12.0
 
 [node name="MapBase" type="Node3D" parent="." unique_id=23449969]
@@ -604,7 +604,7 @@ directional_shadow_max_distance = 180.0
 [node name="HellFlood" type="OmniLight3D" parent="Tower" unique_id=1424319747]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 300, 0)
 light_color = Color(1, 0.28, 0.06, 1)
-light_energy = 3.4
+light_energy = 3.74
 omni_range = 700.0
 omni_attenuation = 0.6
 

@@ -32,12 +32,12 @@ const REEL_ARMS: float = -1.0
 const REEL_SPREAD: float = 0.9
 
 ## Centimetres the hips drop per m/s of landing speed, and the most they drop.
-@export_range(0.0, 5.0, 0.1) var squash_centimetres: float = 1.5
-@export_range(0.0, 50.0, 1.0) var squash_limit_centimetres: float = 26.0
+@export_range(0.0, 5.0, 0.1) var squash_centimetres: float = 1.95
+@export_range(0.0, 50.0, 1.0) var squash_limit_centimetres: float = 34.0
 ## Degrees a full shove reels the body.
-@export_range(0.0, 60.0, 1.0) var reel_degrees: float = 30.0
+@export_range(0.0, 60.0, 1.0) var reel_degrees: float = 39.0
 ## Degrees the chest and head duck at a round passing dead close, and how close counts, metres.
-@export_range(0.0, 45.0, 1.0) var flinch_degrees: float = 28.0
+@export_range(0.0, 60.0, 1.0) var flinch_degrees: float = 36.4
 @export_range(0.0, 5.0, 0.1) var near_miss_metres: float = 1.6
 ## The recovery spring: cycles a second, and how soon it settles (1 never overshoots).
 @export_range(0.5, 10.0, 0.1) var spring_hertz: float = 2.6
@@ -127,6 +127,8 @@ func _watch_for_a_throw(delta: float) -> void:
 	_landing = maxf(_landing - delta, 0.0)
 	var change: Vector3 = motion.step
 	var flat: Vector3 = Vector3(change.x, 0.0, change.z)
+	if motion.shoved:
+		return
 	var rose: bool = change.y >= THROWN_RISE and motion.velocity.y > 0.0 and not _jumped
 	var jolted: bool = flat.length() >= THROWN_JOLT and _landing <= 0.0
 	if not (rose or jolted) or motion.speed < THROWN_SPEED:
