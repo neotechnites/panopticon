@@ -86,7 +86,7 @@ func test_one_finale_shove_throws_the_guard_out_and_the_round_turns_over() -> vo
 	var forward: Vector3 = -finisher.body.global_transform.basis.z
 	forward = Vector3(forward.x, 0.0, forward.z).normalized()
 	var ordinary: Vector3 = forward * _rules.shove_impulse + Vector3.UP * _rules.shove_up_impulse
-	assert_vec3_almost_eq(_beat_throw, ordinary * 3.0, 0.01, "thrown at three times an ordinary shove")
+	assert_vec3_almost_eq(_beat_throw, ordinary * 2.0, 0.01, "thrown at twice an ordinary shove")
 	assert_true(_controller.is_tower_open(), "the tower's collision is off on the shove")
 	for wall: Node in walls:
 		assert_eq_int((wall as StaticBody3D).collision_layer, MatchController.OPEN_TOWER_LAYER, "%s is off" % wall.name)
@@ -108,7 +108,7 @@ func test_one_finale_shove_throws_the_guard_out_and_the_round_turns_over() -> vo
 
 
 func test_the_tracking_shot_holds_the_view_for_the_beat() -> void:
-	assert_almost_eq(MatchRules.new().kill_beat_seconds, 1.0, 1e-6, "one second by default")
+	assert_almost_eq(MatchRules.new().kill_beat_seconds, 2.0, 1e-6, "two seconds by default")
 	var view: FinaleView = _match.get_node("FinaleView") as FinaleView
 	var pair: Array[MatchParticipant] = await _to_the_finale()
 	_controller.apply_shove(pair[1])

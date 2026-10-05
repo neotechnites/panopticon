@@ -287,7 +287,7 @@ enum MapPickMode {
 
 ## Seconds every view follows the guard thrown out of the tower before the next
 ## round starts. [b]LIVE.[/b] Zero resolves on the shove with no shot.
-@export_range(0.0, 10.0, 0.1, "or_greater") var kill_beat_seconds: float = 1.0
+@export_range(0.0, 10.0, 0.1, "or_greater") var kill_beat_seconds: float = 2.0
 
 # --- The rifle ----------------------------------------------------------------
 

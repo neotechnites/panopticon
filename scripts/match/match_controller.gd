@@ -392,7 +392,7 @@ const TINT_WHITE_BLEND: float = 0.0
 const DEFAULT_SHOOTER_PROFILE_PATH: String = "res://characters/bots/default_shooter_profile.tres"
 
 ## The finale shove's force against an ordinary shove's: Ryan's "turned up 3x".
-const FINALE_SHOVE_SCALE: float = 3.0
+const FINALE_SHOVE_SCALE: float = 2.0
 
 ## Where the finale parks the tower's colliders: a layer no mask in the game
 ## reaches, so nothing collides with it, while the tracking shot can still see it.
