@@ -73,6 +73,7 @@ freeze: waive
 # guard at the 126 deg window, scope in at take 0.8 on the lead, swings back to the man behind at 2.4; three past the stage-spawned column run 1.7-3.7; no shot
 # v26 (Ryan): "in the running shots in the forest and marble, they look to robotic, because there all just following a line, they should look more like players
 # runnign around." Each his own line (human_run.gd): the lead cuts in r 51.0 to 49.8, the second hugs the columns and swings out round his heels, the third starts late outside and cuts in behind.
+# The hand reads the man behind while it is still on the lead (guard_hand), so the swing at 2.4 lands on him: before, it led him by the 1.7 s gap and the scope sat empty.
 # v11 (Ryan): "the marble shot used to be behind multiple columns ... They should be two different sections of the marble map." Its own five columns again, as v5 (r 47.5, 116.4-135.6 deg); the shove wall moved to 216
 
 ## 6
@@ -313,7 +314,7 @@ grade_hell: lift 2.6 3
 # v26 (Ryan's seven notes on v24 and v25_vivaldi, quoted on shots 2, 5b, 5h, 5g, 6, 9ag, 10a, 11, 12): open (the look only), forest_pack, marble_track, forest_pit,
 # marble_column, lake and finish restaged and re-taped; every shot refilmed in rough mode on main 6547970 (the green forest's new light; its scope reticle and rifle are
 # in every shot, not one). The edit is v24's but for d1: in 1.10 (take 2.10, behind the rock), five beats not seven (k28 to k33), so every cut after it is two beats
-# earlier, still on the grid (the end card on k96, 39.60 s; 42.80 s). In-points follow each new take's frame lag against its v24 take (a2 d1 p2 m2 +1, t2 -4).
+# earlier, still on the grid (the end card on k96, 39.60 s; 42.80 s). In-points follow each new take's frame lag against its v24 take (a2 d1 d2 p2 m2 +1, t2 -4), a frame less 4 ms.
 # Hell grade (Ryan): "for the trailer, we have to make hell a bit birhter to match the other two maps, without making it looks blown out". Trailer only, at assembly
 # (assemble.py grade): every hell line's RGB times 1 + 1.6 * (1 - max)^3 -- rock and bodies up to 2.6x, lava and embers held, hue kept, black and white fixed.
 # Crosshair (Ryan): "the crosshair in v26 needs to be updated": game commit 40f846c cherry-picked; 1 1v 5g 5b 5h 7 7v 10b 10v 14 refilmed with the four-arm cross.
