@@ -12,6 +12,7 @@ extends Node
 ## {"do": "run", "to": Vector3, "weave": 0.9, "period": 1.1, "hop": 1.6, "within": 0.6, "timeout": 8.0, "speed": 1.0, "look_at": Vector3}
 ## {"do": "lane", "to": deg, "r": 52.0, "dir": 1, "speed": 1.0, ...run's weave/period/hop}   # along the ring; dir -1 runs it backwards
 ##     ... "glances": [{"t": 0.7, "right": -52.0, "pitch": -4.0}, ...], "flinch_on": "hit"   # look around while running (see _gaze)
+##     ... "carry": true   # with glances: the head starts where the step before left it, no snap onto the lane
 ## {"do": "leap", "to": Vector3, "speed": 8.0, "lock": 0.9}
 ## {"do": "land", "look_at": Vector3, "look_ahead": Vector3, "ahead_until": 0.3, "correct": 5.0, "stick_after": 0.3}
 ## {"do": "wait_launch", "timeout": 6.0}        # until the body is thrown off the floor
@@ -490,6 +491,10 @@ func _run_gazing(step: Dictionary, delta: float, direction: Vector3) -> bool:
 	if _gaze_schedule.is_empty() and _gaze_index == 0 and not _gaze_flinched:
 		_gaze_schedule = step.get("glances", [])
 		_gaze_strafes = step.get("strafes", [])
+	if _clock - delta <= 0.0 and bool(step.get("carry", false)):
+		# One take: the head starts where the step before left it and the spring brings it round.
+		_gaze = Vector2(wrapf(_body.rotation.y - atan2(-direction.x, -direction.z), -PI, PI), _body.head.rotation.x if _body.head != null else 0.0)
+		_gaze_rate = Vector2.ZERO
 	var flinch_flag: String = String(step.get("flinch_on", ""))
 	if flinch_flag != "" and not _gaze_flinched and _flags.get(flinch_flag, false):
 		_gaze_flinched = true

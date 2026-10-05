@@ -12,6 +12,8 @@ extends "res://tools/capture/stages/trailer_duel.gd"
 ## runs back behind it, turns to the course and sprints r 49.
 ## v19 (Ryan): "the sniper should not shoot the cover, they should shoot where the player was before the ran behind
 ## cover": the squeeze is on him in the open as he goes (lead 0); the round lands where he stood, the rock untouched.
+## v22 (Ryan): the look left and the ring run "are clearly not the same shot, when they should be": the break is one
+## carried move (stage_driver "carry"), the head swinging onto the lane as he goes; the look over at the tower follows.
 ## Dials: at, peek_at (2.15), peek_seconds (0.5), peek_strafe (0.4), back_seconds (0.23), back_strafe (1.0), react (0.08 s after he moves: the squeeze), covered_seconds (1.55), break_to, window (70).
 
 const AT: String = "68.8,50.6"
@@ -41,9 +43,9 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 		{"do": "hold", "seconds": 0.45, "look_down": -6.0},
 		{"do": "hold", "seconds": float(option("back_seconds", 0.23)), "strafe": float(option("back_strafe", 1.0)), "look_down": -10.0},
 		{"do": "hold", "seconds": float(option("covered_seconds", 1.55)), "look_down": -12.0},
-		{"do": "glance", "right": -78.0, "pitch": 4.0, "seconds": 0.35},
-		{"do": "lane", "to": LIB.bearing_of(away), "r": LIB.radius_of(away), "dir": 1, "speed": 1.0, "weave": 0.04, "period": 1.2, "timeout": 8.0,
-			"glances": [{"t": 0.0, "right": 0.0, "pitch": -2.0}, {"t": 0.9, "right": 34.0, "pitch": 6.0}, {"t": 1.3, "right": 3.0, "pitch": -1.0}]},
+		# One take (v22): no standing flick and no snap onto the lane -- his head comes round left as his feet break.
+		{"do": "lane", "to": LIB.bearing_of(away), "r": LIB.radius_of(away), "dir": 1, "speed": 1.0, "weave": 0.04, "period": 1.2, "timeout": 8.0, "carry": true,
+			"glances": [{"t": 0.0, "right": 0.0, "pitch": -2.0}, {"t": 1.25, "right": 34.0, "pitch": 6.0}, {"t": 1.65, "right": 3.0, "pitch": -1.0}]},
 		{"do": "hold", "seconds": 60.0},
 	], 0, "ClipDuelDriver")
 	victim_body(_runner)

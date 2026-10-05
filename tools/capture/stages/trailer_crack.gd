@@ -9,7 +9,7 @@ extends "res://tools/capture/stages/stage.gd"
 ## BoostPads (pads stay live): r00_c0 146.6 r 49.2 (143.9-149.3, r 46.8-51.5), r01_c1 149.8 r 52.4.
 ## Dials: hide (141.2,49.3), go (t of the break, driver s, 1.45), to (153,52.3), mate (145.3,52.4),
 ## window (150), lead (1.0), park (148.6,51.0,2.6: the wall's top), react (0.1 s after the first launch),
-## squeeze (0.5 s after it), behind (-1.0 m: the round crosses a metre ahead of him; behind him it finds the second man).
+## run_seconds (0.8: the run hands over to the lane in the air, carried), squeeze (0.5 s after it), behind (-1.0 m: the round crosses a metre ahead of him; behind him it finds the second man).
 
 const GUARD_HAND := preload("res://tools/capture/stages/guard_hand.gd")
 
@@ -55,12 +55,14 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 		{"do": "place", "at": hide + Vector3.UP * 0.1, "face": (LIB.tangent_at(deg) * 0.9 - LIB.radial_at(deg) * 0.3).normalized()},
 		{"do": "human", "on": true},
 		{"do": "steer", "on": true, "rate": 260.0, "gain": 11.0},
-		{"do": "hold", "seconds": 0.35, "fidget": true, "look_down": 2.0},
-		{"do": "glance", "right": 38.0, "pitch": 9.0, "seconds": 0.38},
-		{"do": "hold", "seconds": 0.28, "fidget": true},
-		{"do": "glance", "right": -44.0, "pitch": -7.0, "seconds": 0.32},
+		# v22: his eyes are back down the gap before the cut opens (driver 1.0), not whipping round in its first frames.
+		{"do": "hold", "seconds": 0.25, "fidget": true, "look_down": 2.0},
+		{"do": "glance", "right": 38.0, "pitch": 9.0, "seconds": 0.3},
+		{"do": "hold", "seconds": 0.1, "fidget": true},
+		{"do": "glance", "right": -44.0, "pitch": -7.0, "seconds": 0.28},
 		{"do": "until", "t": go, "fidget": true},
-		{"do": "run", "to": to, "within": 0.8, "timeout": 3.0, "speed": 1.0, "weave": 0.05, "period": 1.3,
+		# One take (v22): the run aims well past `to` on the same line (no swing as he flies by it) and every join is carried.
+		{"do": "run", "to": hide + (to - hide) * 2.5, "within": 0.8, "timeout": float(option("run_seconds", 0.8)), "speed": 1.0, "weave": 0.05, "period": 1.3, "carry": true,
 			# Eyes down the gap, then up after the mate as the crack throws him, and his own launch.
 			"glances": [
 				{"t": 0.0, "right": -6.0, "pitch": -4.0},
@@ -70,7 +72,7 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 			],
 			"strafes": [{"t": 0.1, "strafe": 0.06}, {"t": 0.6, "strafe": -0.05}]},
 		# In the air: the round crosses ahead of him; a look across at the tower, then down for the landing.
-		{"do": "lane", "to": 178.0, "r": 52.4, "speed": 0.95, "weave": 0.04, "period": 1.1, "timeout": 8.0,
+		{"do": "lane", "to": 178.0, "r": 52.4, "speed": 0.95, "weave": 0.04, "period": 1.1, "timeout": 8.0, "carry": true,
 			"glances": [{"t": 0.0, "right": 5.0, "pitch": 4.0}, {"t": 0.5, "right": 2.0, "pitch": -12.0}, {"t": 1.0, "right": -3.0, "pitch": -2.0}],
 			"flinch_on": "hit", "flinch_side": 1.0,
 			"flinch_glances": [

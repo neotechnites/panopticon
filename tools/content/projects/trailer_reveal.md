@@ -7,8 +7,8 @@ rules: 16:9 1920x1080 (SIZE=1920x1080 shot.sh), no HUD except the guard's scope,
 v2 notes (Ryan on rough_v1): the guard stands at the tower's window, not deep inside; all runners run the course direction; the runner shot is the SAME event as the guard shot (same stage, same seed, two POVs), cut back ~1 s to the man directly behind the victim; clear line of sight when he looks up at the tower; title drops in HARD on the music's drop; music https://www.youtube.com/watch?v=OBPV0lsorwU; real-looking gameplay only (walkable deck and real cover, nobody on lava, nobody looking backwards); max 4 players a shot (1 guard + 3); spread across hell, forest and marble. Added: "EVERY shot is first-person POV -- either the guard's scope/tower view or a prisoner's first-person view. No third-person ... Title/end cards are the only non-POV frames."
 music: external\src\music_v2_OBPV0lsorwU.mp4 -> voice\sr20det.ogg (SOURCES.md). The drop: 0.35 s of silence from 5.36 s, the hit at 5.703 s (sample onset); 170 bpm after it (v3 measured).
 cards: cuts/title_hard.mp4 is v1's title frame looped from frame 0 (v1's title.mp4 opened on two black frames); cuts/end.mp4 is v1's.
-delivery: content\trailer_reveal\final\rough_v21.mp4 (and ~/Desktop/panopticon-renders/trailer_reveal/)
-tag: rough_v21
+delivery: content\trailer_reveal\final\rough_v22.mp4 (and ~/Desktop/panopticon-renders/trailer_reveal/)
+tag: rough_v22
 alt: rough_v20_green (v20 with the forest shots filmed in the green forest: 4g 5g 9ag 9bg, ## script rough_v20_green)
 size: 1920x1080
 v4 (Ryan): "every shot must be exactly reproducible in engine -- run a script and record"; NO CROUCHING anywhere; max 3 prisoners + guard; guard shots on the projectile rifle (led, held over). Every shot plays a TAPE (tape: line): the staged take recorded once, then every input played back -- see ## reshoot.
@@ -88,6 +88,7 @@ seconds: 2.2
 in: 5.5
 freeze: waive
 # v3 d3 (05.mp4@4.5 = take 5.5): breaks 5.55, sprints r 49 from ~6.2
+# v22 (Ryan): "he looks left, then it cuts to what is clearly a new shot of him running the ring and looking over ... the two shots are clearly not the same shot, when they should be." The join was a one-tick snap of the head onto the lane after a standing flick. Now one carried move from 5.55: his head swings left off the rock onto the lane as his feet break, the look over at the tower at ~6.8; duel re-taped (identical to 5.55)
 
 ## 9a
 said: v5 "Forest, runner POV: a second runner beside him at the inner edge, a visible shove, he tips over the edge and drops out of frame into the mist"
@@ -151,6 +152,7 @@ seconds: 5.0
 in: 0.9
 freeze: waive
 # corridor sprint from 320 deg; armed in the tower at 2.85; the kill beat 4.19 (the white frame); seat change 5.38 (cut before it)
+# v22 (Ryan): "the sniper guy at the very end, is floating because we changes the map to not have the raised platform." The tower's collider still has a 0.6 m dais (r 2.2) the drawn floor does not; the stage lowers it for the shot (map unchanged), the guard stands on the room floor (y 27.05); finish re-taped
 
 ## 13
 said: v4 "Hell S3, runner POV running through and bouncing on a crack"
@@ -161,6 +163,7 @@ in: 1.7
 freeze: waive
 # behind the 139 deg lip rock, breaks across the gap at 2.05; the round lands where he was at 2.55; launched off the crack at 148.3 deg at 2.60, peaks 3.8 m up ~3.2
 # v19: his eyes go up after the mate thrown off the crack ahead (2.23); launched himself 2.60; the round crosses ahead of the mate ~3.1, a look across at the tower, down for the landing
+# v22 (Ryan): "some of that exact same jankiness in the runner pov bouncing guys shot." Three joins: a flick left in the cut's first frames (now done before it opens), a snap at the break, and in the air a whip left as he passed his run target then a snap onto the lane (~3.1). The run aims past the target and every join is carried; launched 2.63, lands ~3.78; crack re-taped (the mate, the squeeze 2.75 and the miss 3.17 unchanged)
 
 ## 14
 said: v4 "Same moment from the guard scope: fires, misses, the runner launches up out of cover"
@@ -180,6 +183,7 @@ seconds: 5.0
 in: 0.9
 freeze: waive
 # rough_v20_green: shot 4 in the green forest (forest_green.tscn, same geometry), same stage and tape
+# v22 (Ryan): "not have the shot from the pov fo the runner. it should just be a running shot". Same take and tape; the edit uses take 1.3-3.07, out before the squeeze (3.15): nobody is hit and no round is seen. Refilmed on main 3a8cefd (the darker shade)
 
 ## 5g
 said: v4 "Forest, guard scope: the kill (h2)"
@@ -236,13 +240,14 @@ captions: none
 # v19 (Ryan's notes on v18): duel, forest pit, crack and lake restaged and re-taped, 6 7 8 9a 9b 11 13 14 refilmed in rough mode; d2 in 1.6 (the peek, the shot, the miss), t2 in 2.0 (the check, the quick hop, the stumble); lengths and the grid are v18's.
 # v20 (Ryan on v19): the forest shove restaged and re-taped, 9a 9b refilmed in rough mode; every other shot and the edit are v19's.
 # v21 (Ryan): "reshooting any of the trailer that is not up to date with the game ... use the green forest" -- every shot refilmed in rough mode on main 18f6445, the forest lines from 4g 5g 9ag 9bg (gold forest no longer used); the edit is v20's.
+# v22 (Ryan's notes on v21): h1 in 0.4 (a plain running shot, out before the squeeze; h2 is the first sight of the hit); duel, crack and finish re-taped (the joins carried, the guard on the room floor); 4g 8 13 14 12 refilmed, every other cut is v21's file; lengths and the grid are v21's.
 # cuts/title_hard.mp4 and cuts/end_v3.mp4 are the v3 cards (end without the player count), kept on the PC.
 | line | clip | in | len | fit | speed | text |
 | a1 | cuts/01.mp4@0.35:2.70 | | | beat 2.70 | | |
 | a2 | cuts/02.mp4@1.70:3.00 | | | beat 3.00 | | |
 | a3 | cuts/title_zoom10.mp4@0:2.1333 | | | beat 2.1333 | | |
 | a4 | cuts/card2_zoom10.mp4@0:2.4667 | | | beat 2.4667 | | |
-| h1 | cuts/04g.mp4@0.9:1.7667 | | | beat 1.7667 | | |
+| h1 | cuts/04g.mp4@0.4:1.7667 | | | beat 1.7667 | | |
 | h2 | cuts/05g.mp4@1.6:1.4 | | | beat 1.4 | | |
 | m0 | cuts/05b.mp4@0:2.1167 | | | beat 2.1167 | | |
 | d1 | cuts/06.mp4@0.4:2.4833 | | | beat 2.4833 | | |
