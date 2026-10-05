@@ -232,6 +232,9 @@ func _ready() -> void:
 
 
 func _exit_tree() -> void:
+	# A scene change leaves this link detached but alive, and the engine still routes RPCs to it;
+	# out of the tree it has no multiplayer to answer them with, so it simulates nothing.
+	_is_authority = false
 	if replicator != null:
 		replicator.unregister(self)
 
