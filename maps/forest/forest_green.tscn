@@ -13,7 +13,7 @@
 sky_top_color = Color(0.45, 0.62, 0.62, 1)
 sky_horizon_color = Color(0.16, 0.26, 0.26, 1)
 sky_curve = 0.35
-sky_energy_multiplier = 1.0
+sky_energy_multiplier = 0.63
 ground_bottom_color = Color(0.008, 0.02, 0.022, 1)
 ground_horizon_color = Color(0.02, 0.05, 0.05, 1)
 sun_angle_max = 0.0
@@ -26,7 +26,7 @@ background_mode = 2
 sky = SubResource("SkyGreenSky")
 ambient_light_source = 3
 ambient_light_color = Color(0.2, 0.34, 0.32, 1)
-ambient_light_energy = 0.111
+ambient_light_energy = 0.72
 tonemap_mode = 1
 fog_enabled = true
 fog_light_color = Color(0.12, 0.3, 0.36, 1)
@@ -172,11 +172,11 @@ environment = SubResource("EnvGreen")
 
 [node name="Sun" parent="Environment" index="1"]
 light_color = Color(0.88, 1.0, 0.94, 1)
-light_energy = 0.476
+light_energy = 0.429
 
 [node name="Sun2" parent="Environment" index="2"]
 light_color = Color(0.88, 1.0, 0.94, 1)
-light_energy = 0.476
+light_energy = 0.429
 
 [node name="ForestFog" parent="ForestMap" index="1"]
 surface_material_override/0 = SubResource("FogGreen")
