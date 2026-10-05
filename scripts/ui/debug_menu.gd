@@ -141,10 +141,12 @@ func _build_phase() -> void:
 	_body.add_child(_readout)
 	_refresh_readout()
 	var row: HBoxContainer = _row()
-	_button(row, "DEBUG_SKIP_PHASE", _act.bind(_controller.debug_skip_phase))
+	var settings: GameSettings = SettingsStore.instance().settings
+	_button(row, "DEBUG_SKIP_PHASE", _act.bind(func() -> void: _controller.debug_skip_phase(settings.debug_tower_seat)))
 	_button(row, "DEBUG_RESTART_ROUND", _act.bind(_controller.debug_restart_round))
 	_button(row, "DEBUG_NEXT_ROUND", _act.bind(_controller.debug_next_round))
 	_button(row, "DEBUG_RESTART_MATCH", _act.bind(_controller.restart))
+	_build_tower_choice(settings)
 	var clock: HBoxContainer = _row()
 	_toggle("DEBUG_PAUSE_CLOCK", _controller.debug_clock_paused, _pause_clock, clock)
 	_button(clock, "DEBUG_EXTEND_CLOCK", _extend_clock)
@@ -170,6 +172,19 @@ func _build_phase() -> void:
 			_slider("DEBUG_ROUND_CARD", 0.0, 10.0, 0.1, "DEBUG_UNIT_SECONDS", card.round_card_seconds,
 					func(value: float) -> void: card.round_card_seconds = value)
 			break
+
+
+## Who Skip Phase seats: me, the next bot, or a named participant. Saved in the dev settings.
+func _build_tower_choice(settings: GameSettings) -> void:
+	var ids: Array[int] = [GameSettings.DEBUG_TOWER_ME, GameSettings.DEBUG_TOWER_BOT]
+	var titles: PackedStringArray = [tr("DEBUG_TOWER_ME"), tr("DEBUG_TOWER_BOT")]
+	var roster: Array[MatchParticipant] = _controller.get_participants()
+	for index: int in roster.size():
+		ids.append(index)
+		titles.append(roster[index].display_name)
+	var selected: int = maxi(ids.find(settings.debug_tower_seat), 1)
+	_choice("DEBUG_TOWER_SEAT", titles, selected, func(index: int) -> void:
+		settings.debug_tower_seat = ids[index])
 
 
 func _build_sniper() -> void:

@@ -4048,21 +4048,30 @@ func _on_look_settings_applied() -> void:
 #
 # The Debug menu's live levers. Host only: a mirror refuses, as every decision here does.
 
-## End the phase now: the race hands the opening seat the tower, a round passes the seat on.
-## Never onto the local player, so a runner skips and stays a runner.
-func debug_skip_phase() -> void:
+## End the phase now, seating [param tower]: a roster index, or a [code]GameSettings.DEBUG_TOWER_*[/code] choice.
+## The default is the next bot from the opening seat (race) or the current one (round).
+func debug_skip_phase(tower: int = GameSettings.DEBUG_TOWER_BOT) -> void:
 	if _mirror or hub_mode or _participants.is_empty():
 		return
 	match _phase:
 		Phase.RACE:
-			take_seat(_debug_seat_from(_opening_seat()))
+			take_seat(_debug_tower(tower, _opening_seat()))
 			start_round()
 		Phase.ROUND:
 			_clear_kill_beat()
 			_outcome = Outcome.IN_PROGRESS
-			_score_and_restart(_debug_seat_from(_participants.find(_seat) + 1))
+			_score_and_restart(_debug_tower(tower, _participants.find(_seat) + 1))
 		_:
 			start_match()
+
+
+## Who [param tower] names: the local player, a roster index, else the next bot from [param start].
+func _debug_tower(tower: int, start: int) -> MatchParticipant:
+	if tower == GameSettings.DEBUG_TOWER_ME and get_human_participant() != null:
+		return get_human_participant()
+	if tower >= 0 and tower < _participants.size():
+		return _participants[tower]
+	return _debug_seat_from(start)
 
 
 ## The first participant from roster slot [param start], wrapping, who is not the local human.

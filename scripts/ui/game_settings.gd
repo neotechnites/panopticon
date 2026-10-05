@@ -149,6 +149,10 @@ const MAX_RELOAD_BY_TURN: float = 15.0
 ## exists only so a corrupt file cannot put an absurd number into the config.
 const MAX_TOWER_SEAT_INDEX: int = 31
 
+## Debug Skip Phase's tower choices besides a roster index: the next bot, or the local player.
+const DEBUG_TOWER_BOT: int = -1
+const DEBUG_TOWER_ME: int = -2
+
 ## How many prisoners a match started from this menu puts on the ring. Agrees
 ## with [member MatchRules.prisoner_count] and with the shipped
 ## [code]match/rules/default_match_rules.tres[/code], for the same reason
@@ -580,6 +584,9 @@ var join_port: int = 27960
 ## the pseudo-locale, for seeing which layouts break under longer text.
 var locale: String = ""
 
+## Dev: who debug Skip Phase seats; a roster index or a [code]DEBUG_TOWER_*[/code] choice.
+var debug_tower_seat: int = DEBUG_TOWER_BOT
+
 ## True when the last window resize [method apply_video] asked for was ignored
 ## outright -- the size before the call and the size after it are the same, and
 ## neither is the size asked for.
@@ -659,6 +666,7 @@ func reset() -> void:
 	join_address = DEFAULT_JOIN_ADDRESS
 	join_port = 27960
 	locale = ""
+	debug_tower_seat = DEBUG_TOWER_BOT
 
 
 ## Force every value inside its documented range. Called after every read, so
@@ -676,6 +684,7 @@ func clamp_all() -> void:
 	render_scale = clampf(render_scale, MIN_RENDER_SCALE, MAX_RENDER_SCALE)
 	brightness = clampf(brightness, MIN_BRIGHTNESS, MAX_BRIGHTNESS)
 	tower_seat_index = clampi(tower_seat_index, 0, MAX_TOWER_SEAT_INDEX)
+	debug_tower_seat = clampi(debug_tower_seat, DEBUG_TOWER_ME, MAX_TOWER_SEAT_INDEX)
 	# A file holding the wrong number of entries is a build mismatch or a hand
 	# edit, not a partial preference worth salvaging.
 	if reload_by_turn.size() != RELOAD_BY_TURN_COUNT:
@@ -810,6 +819,7 @@ func copy_from(other: GameSettings) -> void:
 	join_address = other.join_address
 	join_port = other.join_port
 	locale = other.locale
+	debug_tower_seat = other.debug_tower_seat
 
 
 ## True when every value matches [param other]. Used by the verification harness
@@ -864,6 +874,7 @@ func equals(other: GameSettings) -> bool:
 		and join_address == other.join_address
 		and join_port == other.join_port
 		and locale == other.locale
+		and debug_tower_seat == other.debug_tower_seat
 	)
 
 
@@ -939,6 +950,7 @@ func write_to(config: ConfigFile) -> void:
 	config.set_value(SECTION_NET, "join_port", join_port)
 
 	config.set_value(SECTION_DEV, "locale", locale)
+	config.set_value(SECTION_DEV, "debug_tower_seat", debug_tower_seat)
 
 
 ## Read every value out of [param config], substituting the current value --
@@ -1031,6 +1043,7 @@ func read_from(config: ConfigFile) -> void:
 	join_port = read_int(config, SECTION_NET, "join_port", join_port)
 
 	locale = String(read_string_name(config, SECTION_DEV, "locale", locale))
+	debug_tower_seat = read_int(config, SECTION_DEV, "debug_tower_seat", debug_tower_seat)
 
 	clamp_all()
 
