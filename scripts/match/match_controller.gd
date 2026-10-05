@@ -830,6 +830,7 @@ func start_match() -> void:
 	# Every body in this match, human and bots alike, on the shipped air
 	# control. See [method _apply_air_control].
 	_apply_air_control()
+	debug_refresh_movement()
 
 	for participant: MatchParticipant in _participants:
 		participant.turns_in_tower = 0
@@ -886,6 +887,7 @@ func start_hub() -> void:
 	if _participants.is_empty():
 		return
 	_apply_air_control()
+	debug_refresh_movement()
 	_settle_frames = SETTLE_PHYSICS_FRAMES
 	var spawns: Array[Marker3D] = _hub_spawns()
 	for index: int in _participants.size():
@@ -4157,6 +4159,15 @@ func debug_refresh_pace() -> void:
 			_apply_runner_multipliers(participant.body, active)
 
 
+## Write the crouch and slide rules onto every body, bots and humans alike.
+func debug_refresh_movement() -> void:
+	var active: MatchRules = get_rules()
+	for participant: MatchParticipant in _participants:
+		if participant.body != null:
+			participant.body.crouch_enabled = active.crouch_enabled
+			participant.body.slide_enabled = active.slide_enabled
+
+
 ## Re-read the health rules: the guard, the finisher and every runner start over at them.
 func debug_refresh_health() -> void:
 	if _mirror:
@@ -4197,6 +4208,8 @@ func debug_add_hub_body(body: PlayerController) -> MatchParticipant:
 	_participants.append(participant)
 	_participant_by_body_id[body.get_instance_id()] = participant
 	_assign_runner_color(participant)
+	body.crouch_enabled = get_rules().crouch_enabled
+	body.slide_enabled = get_rules().slide_enabled
 	return participant
 
 

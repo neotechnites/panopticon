@@ -111,6 +111,7 @@ func _rebuild() -> void:
 	elif _controller == null:
 		var hub: MatchController = _find_hub()
 		if hub != null:
+			_build_movement(hub)
 			_build_mannequins(hub)
 		else:
 			_note("MENU_DEBUG_NO_MATCH")
@@ -129,6 +130,7 @@ func _build_setup() -> void:
 	_button(_body, "MENU_DEBUG_RULES", _open_rules)
 	_toggle("MENU_DEBUG_FULL_RULES", MatchSetupScreen.show_all_rules_everywhere,
 			func(on: bool) -> void: MatchSetupScreen.show_all_rules_everywhere = on)
+	_build_movement(null)
 
 
 func _build_phase() -> void:
@@ -237,6 +239,20 @@ func _build_runners() -> void:
 			func(value: float) -> void: rules.shove_cooldown_seconds = value)
 	_slider("DEBUG_LIVES", GameSettings.MIN_PRISONER_LIVES, GameSettings.MAX_PRISONER_LIVES, 1.0, "",
 			rules.prisoner_lives, _rule_then.bind(&"prisoner_lives", true, _controller.debug_refresh_health))
+	_build_movement(_controller)
+
+
+## Crouch and slide, saved; with [param controller], written into its rules and bodies now too.
+func _build_movement(controller: MatchController) -> void:
+	var settings: GameSettings = SettingsStore.instance().settings
+	for pair: Array in [["DEBUG_CROUCH", &"crouch_enabled"], ["DEBUG_SLIDE", &"slide_enabled"]]:
+		var field: StringName = pair[1]
+		var now: bool = bool(settings.get(field) if controller == null else controller.get_rules().get(field))
+		_toggle(String(pair[0]), now, func(on: bool) -> void:
+			settings.set(field, on)
+			if controller != null:
+				controller.get_rules().set(field, on)
+				controller.debug_refresh_movement())
 
 
 func _build_health() -> void:

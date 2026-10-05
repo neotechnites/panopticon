@@ -132,6 +132,11 @@ var run_speed_scale: float = 1.0
 ## is scaled by the square root and a 2.0 here really is twice as high.
 var jump_scale: float = 1.0
 
+## Whether the crouch/slide key may crouch / may slide, from [member MatchRules.crouch_enabled]
+## and [member MatchRules.slide_enabled]. [MatchController] writes both; off, the key does nothing.
+var crouch_enabled: bool = false
+var slide_enabled: bool = false
+
 ## True while Armor Lock holds the body: no movement, no turning, this tick's
 ## intent still readable through [method get_intent].
 var movement_locked: bool = false
@@ -372,11 +377,6 @@ func _physics_process(delta: float) -> void:
 ## before the physics tick that should act on it.
 func set_intent(intent: MoveIntent) -> void:
 	_intent.copy_from(intent)
-	# The one gate for the crouch-and-slide setting: off, a live human's press
-	# of the key is dropped here. A bot or a replay is not a [HumanIntentSource].
-	if intent_source is HumanIntentSource and not SettingsStore.instance().settings.crouch_slide_enabled:
-		_intent.slide_pressed = false
-		_intent.slide_held = false
 
 
 ## The intent this tick was driven by. Owned by the controller; read, do not keep.
@@ -767,7 +767,7 @@ func _tick_slide_timers(delta: float) -> void:
 ## way past, so a press made in the air while turning still opens the slide on
 ## the tick the body is finally pointing where it is going.
 func _try_begin_slide(on_floor: bool) -> void:
-	if _sliding:
+	if _sliding or not slide_enabled:
 		return
 	if not on_floor or _slide_cooldown_timer > 0.0 or _slide_buffer_timer <= 0.0:
 		return
@@ -823,6 +823,8 @@ func _update_slide_exit(delta: float) -> void:
 		# is what stops a slide from being a flight mode with no gravity branch.
 		_end_slide()
 	elif profile.slide_requires_hold and not _intent.slide_held:
+		_end_slide()
+	elif not slide_enabled:
 		_end_slide()
 	elif _slide_timer + delta * 0.5 >= profile.slide_max_duration:
 		# Half a tick of slack, so the deadline rounds to the nearest tick
@@ -931,7 +933,7 @@ func _update_crouch(on_floor: bool) -> void:
 	# phase bit-for-bit what it was -- same wish speed, same capsule, same
 	# saturation against max_air_speed -- so nothing about air strafing or
 	# slide-hopping can be changed by a key that happens to still be down.
-	var wants: bool = _intent.slide_held and not _sliding and on_floor
+	var wants: bool = crouch_enabled and _intent.slide_held and not _sliding and on_floor
 	if not wants and _crouching and not _has_headroom_to_stand():
 		return
 	_set_crouched(wants)

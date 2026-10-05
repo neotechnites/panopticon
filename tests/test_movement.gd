@@ -56,6 +56,8 @@ var _measured_speed: float = 0.0
 func before_each() -> void:
 	_profile = TestFixtures.movement_profile()
 	_body = TestFixtures.make_bot_player(_profile)
+	_body.crouch_enabled = true
+	_body.slide_enabled = true
 	add_child(_body)
 	_input = TestFixtures.bot_input_of(_body)
 

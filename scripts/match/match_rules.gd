@@ -695,6 +695,12 @@ enum MapPickMode {
 ## true, which is today's feedback. Off leaves the guard to read the ring.
 @export var guard_hit_marker: bool = true
 
+## Whether the crouch/slide key crouches. [b]LIVE[/b], default false: off, the key never crouches.
+@export var crouch_enabled: bool = false
+
+## Whether the crouch/slide key slides. [b]LIVE[/b], default false: off, the key never slides.
+@export var slide_enabled: bool = false
+
 ## Multiplier on a prisoner's ground speed. [b]LIVE[/b], default 1.0 = the
 ## [MovementProfile]'s own pace.
 ##
