@@ -1,8 +1,7 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=4 format=3]
 
 [ext_resource type="Script" path="res://scripts/optics/scope_vignette.gd" id="1_scope_vignette"]
 [ext_resource type="Shader" path="res://weapons/materials/scope_vignette.gdshader" id="2_scope_shader"]
-[ext_resource type="Script" path="res://scripts/optics/scope_reticle.gd" id="3_scope_reticle"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_scope_vignette"]
 shader = ExtResource("2_scope_shader")
@@ -13,7 +12,7 @@ shader_parameter/softness = 0.3
 shader_parameter/aspect = 1.7777778
 shader_parameter/tint = Color(0, 0, 0, 1)
 
-[node name="ScopeVignette" type="CanvasLayer" node_paths=PackedStringArray("overlay", "reticle")]
+[node name="ScopeVignette" type="CanvasLayer" node_paths=PackedStringArray("overlay")]
 editor_description = "The optic, as a picture on the screen instead of a lens on the model.
 
 Instanced into weapons/rifle.tscn, so it travels with the rifle onto whichever head holds the tower and needs no wiring from MatchController at all -- it asks the Ads node beside it for the transition it is already running, and asks HumanTrigger beside it whether the HUMAN is the one holding this rifle. A bot in the tower runs every line of scripts/optics/scope_vignette.gd and draws nothing, because that second answer is false.
@@ -24,7 +23,6 @@ Every number is on ZoomProfile's Scope vignette group -- weapons/default_zoom_pr
 layer = 0
 script = ExtResource("1_scope_vignette")
 overlay = NodePath("Glass")
-reticle = NodePath("Reticle")
 
 [node name="Glass" type="ColorRect" parent="."]
 editor_description = "The whole screen, painted by weapons/materials/scope_vignette.gdshader. mouse_filter IGNORE so it can never eat a click meant for the pause menu, and hidden outright whenever the vignette's amount is zero, so hipfire pays nothing for it."
@@ -36,14 +34,3 @@ grow_vertical = 2
 mouse_filter = 2
 material = SubResource("ShaderMaterial_scope_vignette")
 color = Color(1, 1, 1, 1)
-
-[node name="Reticle" type="Control" parent="."]
-editor_description = "Duplex crosshair with holdover marks, drawn by scripts/optics/scope_reticle.gd over the Glass. Shown and faded with the vignette; every look value is exported there."
-visible = false
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 2
-script = ExtResource("3_scope_reticle")

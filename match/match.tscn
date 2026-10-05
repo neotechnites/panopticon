@@ -1,4 +1,4 @@
-[gd_scene load_steps=30 format=3]
+[gd_scene load_steps=31 format=3]
 
 [ext_resource type="PackedScene" path="res://maps/bentham_ring/bentham_ring.tscn" id="1_arena"]
 [ext_resource type="PackedScene" path="res://characters/player/player.tscn" id="2_player"]
@@ -25,6 +25,7 @@
 [ext_resource type="PackedScene" path="res://ui/round_transition_screen.tscn" id="22_round_transition"]
 [ext_resource type="Script" path="res://scripts/net/net_match.gd" id="23_net_match"]
 [ext_resource type="Theme" path="res://ui/panopticon_menu_theme.tres" id="24_menu_theme"]
+[ext_resource type="Script" path="res://scripts/match/hud_crosshair.gd" id="25_crosshair"]
 [ext_resource type="AudioStream" path="res://audio/music/PLACEHOLDER_match_theme.ogg" id="90_music"]
 [ext_resource type="Script" path="res://scripts/audio/music_loop.gd" id="90_music_loop"]
 
@@ -116,18 +117,15 @@ dev_label = NodePath("Dev")
 free_camera = NodePath("../../FreeCamera")
 readout = ExtResource("21_readout")
 
-[node name="Crosshair" type="ColorRect" parent="HUD/Root"]
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -1.5
-offset_top = -1.5
-offset_right = 1.5
-offset_bottom = 1.5
+[node name="Crosshair" type="Control" parent="HUD/Root"]
+editor_description = "A small plain cross at the centre of the screen, drawn by scripts/match/hud_crosshair.gd; every size and colour is exported there. The shot line is the eye's, so the centre is where the round goes, scoped or not."
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 mouse_filter = 2
-color = Color(1, 1, 1, 0.85)
-editor_description = "A 3 px dot. The centre of the screen belongs to the arena."
+script = ExtResource("25_crosshair")
 
 [node name="Status" type="PanelContainer" parent="HUD/Root"]
 anchor_left = 0.5
