@@ -135,6 +135,7 @@ const FirstPersonHead: GDScript = preload("res://scripts/player/first_person_hea
 const RifleHold: GDScript = preload("res://scripts/player/rifle_hold.gd")
 const FirstPersonArms: GDScript = preload("res://scripts/player/first_person_arms.gd")
 const DeathRagdoll: GDScript = preload("res://scripts/player/death_ragdoll.gd")
+const BodyMotion: GDScript = preload("res://scripts/player/body_motion.gd")
 ## How long a death waits for its rifle hit (a client hears the kill first), and
 ## how far a dead body moves before it counts as reused.
 const RAGDOLL_WAIT_MSEC: int = 400
@@ -413,6 +414,9 @@ var _death_position: Vector3 = Vector3.ZERO
 var _seen_velocity: Vector3 = Vector3.ZERO
 var _last_position: Vector3 = Vector3.ZERO
 
+## What the procedural layers under the skeleton read, sampled once a frame.
+var _motion: BodyMotion = BodyMotion.new()
+
 ## Whether [member aim_clip] was found in the glTF.
 var _has_aim: bool = false
 
@@ -586,6 +590,7 @@ func _ready() -> void:
 	if body != null:
 		_camera = body.get_node_or_null(^"Head/Camera") as Camera3D
 	_build_head_hider()
+	_bind_layers()
 	_watch_for_a_rifle()
 
 	# The signal is the fast path into the airborne pose, not the only one --
@@ -644,6 +649,7 @@ func _process(delta: float) -> void:
 	_tick_air(delta)
 	tick_first_person()
 	_watch_velocity(delta)
+	_sample_motion(delta)
 
 	# Death outranks everything: whatever the body was doing when it was shot
 	# is no longer happening. It holds until the body moves under its own power
@@ -880,6 +886,25 @@ func _try_ragdoll() -> void:
 func _is_reused() -> bool:
 	return _ragdoll != null and _ragdoll.is_active() \
 		and body.global_position.distance_to(_death_position) > REUSED_DISTANCE
+
+
+## Hand this body and the shared motion to every procedural layer authored under the skeleton.
+func _bind_layers() -> void:
+	var found: Array = _resolve_skeleton()
+	if found.is_empty() or body == null:
+		return
+	for child: Node in (found[1] as Skeleton3D).get_children():
+		if child.has_method(&"bind_body"):
+			child.bind_body(body, _motion)
+
+
+## One read of the body a frame, for every layer; dead fades them, the ragdoll stops them.
+func _sample_motion(delta: float) -> void:
+	var reference: float = body.profile.ground_speed if body.profile != null else fallback_ground_speed
+	_motion.sample(body, global_transform.basis, reference, delta)
+	_motion.live = not (_has_death and _dead)
+	_motion.limp = _ragdoll != null and _ragdoll.is_active()
+	_motion.holding = _held != null
 
 
 ## Track the drawn velocity; a jump bigger than a sprint is a placement, not motion.
