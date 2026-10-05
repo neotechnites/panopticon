@@ -499,8 +499,8 @@ def report(sheets):
 # The rock emits nothing: no class binds the tile's emissive image.
 
 HELL_STEM = "hell_rock"
-HELL_TINT = {"rock": (1.0, 0.4715, 0.4196), "shade": (0.5, 0.2358, 0.2098),
-             "carve": (1.0, 0.4715, 0.4196), "ember": (0.3, 0.1415, 0.1259)}
+HELL_TINT = {"rock": (1.0, 0.4715, 0.4196), "shade": (0.72, 0.3395, 0.3021),
+             "carve": (1.0, 0.4715, 0.4196), "ember": (0.57, 0.2688, 0.2392)}
 HELL_ZONES = (((0.0, 0.5, 0.5, 1.0), "rock"), ((0.5, 0.5, 1.0, 1.0), "shade"),
               ((0.5, 0.0, 1.0, 0.5), "carve"), ((0.0, 0.0, 0.5, 0.5), "ember"))   # the old 128 atlas
 HELL_ATLAS_UV = 1.25    # an old atlas UV onto the tile: 128 texels at 0.125 m -> 256 at 0.05 m
