@@ -19,7 +19,7 @@ const LAVA_EMISSION_BOOST := 1.4
 ## Marble's stone is fully matte: no sheen, whatever roughness the .glb carries.
 const MATTE_PREFIX := "res://maps/marble/"
 ## Forest, hell (with its tower) and the characters filter bilinear with mips; every other home stays nearest.
-const BILINEAR_PREFIXES := ["res://maps/forest/", "res://maps/bentham_ring/", "res://tower/", "res://characters/", "res://maps/marble/"]
+const BILINEAR_PREFIXES := ["res://maps/", "res://tower/", "res://characters/"]
 
 const TEXTURE_PROPERTIES := [
 	&"albedo_texture",
