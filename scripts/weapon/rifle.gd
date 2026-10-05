@@ -144,6 +144,18 @@ signal charge_released(charge: float)
 ## the lead a runner is worth gets measured.
 signal projectile_launched(origin: Vector3, direction: Vector3, speed: float)
 
+## The last few hits from every rifle on this machine, for cosmetics that react
+## to who was struck where (a death ragdoll). Written before [signal target_hit].
+const RECENT_HITS: int = 4
+static var _hit_bodies: Array[Node3D] = [null, null, null, null]
+static var _hit_points: PackedVector3Array = PackedVector3Array([Vector3.ZERO, Vector3.ZERO, Vector3.ZERO, Vector3.ZERO])
+static var _hit_directions: PackedVector3Array = PackedVector3Array([Vector3.ZERO, Vector3.ZERO, Vector3.ZERO, Vector3.ZERO])
+static var _hit_msec: PackedInt64Array = PackedInt64Array([-1, -1, -1, -1])
+static var _hit_next: int = 0
+## Where the last shot this rifle showed started, for a replayed hit's direction.
+var _last_shot_origin: Vector3 = Vector3.ZERO
+var _has_shot_origin: bool = false
+
 ## Tunables. Without one the rifle cannot fire and says so rather than falling
 ## back on invented numbers.
 ##
@@ -803,6 +815,7 @@ func _resolve_shot(charge: float) -> void:
 
 	fired.emit(origin, end_point)
 	if collider != null:
+		_note_hit(collider, end_point, direction)
 		target_hit.emit(collider, end_point, normal)
 	else:
 		missed.emit(end_point)
@@ -824,6 +837,8 @@ func show_remote_shot(origin: Vector3, end_point: Vector3, reload: float) -> voi
 	var muzzle_node: Node3D = muzzle if muzzle != null else (aim_source if aim_source != null else self)
 	if reload > 0.0:
 		reload_seconds = reload
+	_last_shot_origin = origin
+	_has_shot_origin = true
 	if is_travelling_shot():
 		_launch_visual(origin, end_point, muzzle_node.global_position)
 	else:
@@ -834,7 +849,42 @@ func show_remote_shot(origin: Vector3, end_point: Vector3, reload: float) -> voi
 
 ## Cosmetic replay of a hit the authority scored. See [method show_remote_shot].
 func show_remote_hit(collider: Node3D, at: Vector3, normal: Vector3) -> void:
+	var direction: Vector3 = -normal
+	if _has_shot_origin and not at.is_equal_approx(_last_shot_origin):
+		direction = (at - _last_shot_origin).normalized()
+	if collider != null:
+		_note_hit(collider, at, direction)
 	target_hit.emit(collider, at, normal)
+
+
+## Remember a hit in the shared ring; see [constant RECENT_HITS].
+func _note_hit(collider: Node3D, at: Vector3, direction: Vector3) -> void:
+	_hit_bodies[_hit_next] = collider
+	_hit_points[_hit_next] = at
+	_hit_directions[_hit_next] = direction.normalized()
+	_hit_msec[_hit_next] = Time.get_ticks_msec()
+	_hit_next = (_hit_next + 1) % RECENT_HITS
+
+
+## The ring slot of the newest hit on [param body] (or a node under it) since
+## [param since_msec], or -1.
+static func recent_hit_on(body: Node3D, since_msec: int) -> int:
+	var best: int = -1
+	for i: int in RECENT_HITS:
+		if _hit_msec[i] < since_msec or not is_instance_valid(_hit_bodies[i]):
+			continue
+		var struck: Node3D = _hit_bodies[i]
+		if (struck == body or body.is_ancestor_of(struck)) and (best < 0 or _hit_msec[i] > _hit_msec[best]):
+			best = i
+	return best
+
+
+static func recent_hit_point(slot: int) -> Vector3:
+	return _hit_points[slot]
+
+
+static func recent_hit_direction(slot: int) -> Vector3:
+	return _hit_directions[slot]
 
 
 ## Cosmetic replay of a miss the authority resolved. The twin of
@@ -1024,6 +1074,10 @@ func _step_projectiles(delta: float) -> void:
 func _report(round_shot: WeaponProjectile) -> void:
 	_spawn_tracer(round_shot.muzzle_origin, round_shot.get_end_point())
 	if round_shot.has_hit():
+		_note_hit(
+			round_shot.get_collider(), round_shot.get_end_point(),
+			round_shot.get_end_point() - round_shot.muzzle_origin
+		)
 		target_hit.emit(
 			round_shot.get_collider(), round_shot.get_end_point(), round_shot.get_normal()
 		)
