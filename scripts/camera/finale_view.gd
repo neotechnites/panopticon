@@ -13,8 +13,10 @@ extends Node3D
 @export_range(0.0, 20.0, 0.1) var chase_back: float = 2.8
 @export_range(0.0, 10.0, 0.1) var chase_up: float = 0.8
 ## Seconds held at the shover's eye to see the shove land, then to swing in behind.
-@export_range(0.0, 1.0, 0.01) var hold_seconds: float = 0.12
-@export_range(0.01, 1.0, 0.01) var swing_seconds: float = 0.3
+@export_range(0.0, 1.0, 0.01) var hold_seconds: float = 0.03
+## The lens it narrows to as it swings in, degrees.
+@export_range(20.0, 120.0, 1.0) var fov_degrees: float = 55.0
+@export_range(0.01, 1.0, 0.01) var swing_seconds: float = 0.2
 
 var _avatar: PrisonerAvatar = null
 var _guard: PlayerController = null
@@ -24,6 +26,7 @@ var _remaining: float = 0.0
 var _clock: float = 0.0
 var _start: Vector3 = Vector3.ZERO
 var _away: Vector3 = Vector3.FORWARD
+var _start_fov: float = 75.0
 
 
 func _ready() -> void:
@@ -60,6 +63,7 @@ func _on_guard_thrown(guard: MatchParticipant, seconds: float, throw: Vector3) -
 		camera.global_transform = _previous.global_transform
 		camera.fov = _previous.fov
 	_start = camera.global_position
+	_start_fov = camera.fov
 	var flat: Vector3 = Vector3(throw.x, 0.0, throw.z)
 	_away = flat.normalized() if flat.length_squared() > 1e-6 else -camera.global_basis.z
 	_clock = 0.0
@@ -86,6 +90,7 @@ func tick(delta: float) -> void:
 	var behind: Vector3 = focus - _away * chase_back + Vector3.UP * chase_up
 	var swing: float = smoothstep(0.0, 1.0, (_clock - hold_seconds) / swing_seconds)
 	camera.global_position = _start.lerp(behind, swing)
+	camera.fov = lerpf(_start_fov, fov_degrees, swing)
 	var to_focus: Vector3 = focus - camera.global_position
 	if to_focus.length_squared() < 1e-4 or absf(to_focus.normalized().y) > 0.999:
 		return
