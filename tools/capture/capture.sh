@@ -21,7 +21,7 @@
 # scheduled-task name, output .avi and log. MAX_PARALLEL (default 2) is a
 # Mac-side mkdir semaphore; a third run waits its turn.
 #
-# Overridable by environment: PC_PROJECT PC_GODOT PC_HOST FPS SIZE SEED BOTS DELAY LOOK STAGE POV AUDIO MAX_PARALLEL.
+# Overridable by environment: PC_PROJECT PC_GODOT PC_HOST FPS SIZE SEED BOTS DELAY LOOK STAGE POV HUD MAP AUDIO MAX_PARALLEL.
 set -euo pipefail
 
 PULL=0
@@ -41,6 +41,8 @@ DELAY=${DELAY:-0}   # seconds of match played before the path starts
 LOOK=${LOOK:-social}
 STAGE=${STAGE:-}
 POV=${POV:-}
+HUD=${HUD:-}
+MAP=${MAP:-}   # a MapCatalog id; empty films the map the saved rules name
 AUDIO=${AUDIO:-near}
 MAX_PARALLEL=${MAX_PARALLEL:-2}
 
@@ -73,7 +75,7 @@ acquire_slot
 
 CMD="${GODOT} --path ${RUN_PROJECT} --script res://tools/capture/run_clip.gd"
 CMD="${CMD} --write-movie ${PC_AVI_RUN} --fixed-fps ${FPS} --resolution ${SIZE}"
-CMD="${CMD} -- --shot=${SHOT} --seconds=${SECS} --delay=${DELAY} --look=${LOOK} --stage=${STAGE} --pov=${POV} --audio=${AUDIO} --seed=${SEED} --bots=${BOTS}"
+CMD="${CMD} -- --shot=${SHOT} --seconds=${SECS} --delay=${DELAY} --look=${LOOK} --stage=${STAGE} --pov=${POV} --hud=${HUD} --map=${MAP} --audio=${AUDIO} --seed=${SEED} --bots=${BOTS}"
 
 echo "PC> ${CMD}"
 mkdir -p "${MAC_DIR}"
