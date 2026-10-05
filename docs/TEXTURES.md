@@ -120,9 +120,15 @@ onto each face by its old-model material (`prisoner_faces.json`) into `prisoner2
 
 | Texture | Looks like | Worn by |
 |---|---|---|
-| rifle_wood_albedo | placeholder: painted brown wood, grain along the tile, 32 px | the rifle's stock |
-| rifle_metal_albedo | placeholder: dark steel with soft sheen bands, 32 px | the rifle's barrel, action, scope and fittings |
+| rifle_side_albedo | placeholder: a side-on scoped bolt-action rifle, 256 x 64, shading painted in; five small cells top left (butt plate, steel bar, muzzle, end grain, turret cap) | the whole rifle, projected from the side onto both flanks |
+| rifle_wood_albedo | painted brown wood, grain along the tile, 32 px | nothing now (the rifle before the side picture) |
+| rifle_metal_albedo | dark steel with soft sheen bands, 32 px | nothing now (the rifle before the side picture) |
 | rifle_hell_albedo | wood grain, brass, dark metal, an eye and "No 7" plate | the old rifle (rifle_classic.tscn) |
+
+`rifle_side_albedo` is built by `python3 tools/textures/rifle_side_picture.py` from a public-domain U.S. Army photograph
+(source and licence in `tools/modelling/weapons/rifle_n64_trace.py`); running it again overwrites the slice. Repaint inside
+the slice freely: the model's UVs are the picture's own pixels, so no rebuild is needed. Keep each part's edge colour
+running two pixels past its outline.
 
 ### Tower: `tower/textures/` (`eye.ase`)
 
@@ -473,6 +479,7 @@ Up to four commonest colours and the share of vertices wearing each; many colour
 | tower/models/tower_interior.glb | HellRock.001 | maps/bentham_ring/textures/hell_rock_albedo.png | hell.ase / hell_rock_albedo | - | - |
 | weapons/models/rifle.glb | RifleWarden | weapons/textures/rifle_hell_albedo.png | rifle.ase / rifle_hell_albedo | - | - |
 | weapons/models/rifle_lowpoly.glb | RifleWarden | weapons/textures/rifle_hell_albedo.png | rifle.ase / rifle_hell_albedo | - | - |
+| weapons/models/rifle_n64.glb | RifleSide | weapons/textures/rifle_side_albedo.png | rifle.ase / rifle_side_albedo | - | - |
 
 ## Check
 
