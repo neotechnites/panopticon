@@ -22,9 +22,9 @@ const NUDGE: float = 0.001
 
 ## The barrel end the tracer leaves from, in the model's own coordinates.
 ##
-## Taken from tools/modelling/weapons/rifle_build.py, which puts the tip of the muzzle
-## brake at MUZZLE_Y = 1.150 along Blender's forward axis -- Godot local -Z.
-const MODEL_MUZZLE: Vector3 = Vector3(0.0, 0.0, -1.150)
+## Taken from tools/modelling/weapons/rifle_n64_build.py, which puts the barrel end
+## at MUZZLE_Y = 0.9265 along Blender's forward axis -- Godot local -Z.
+const MODEL_MUZZLE: Vector3 = Vector3(0.0, 0.0, -0.9265)
 
 ## How far off the aim axis the barrel end must sit, in degrees, seen from the
 ## eye. A view model in the lower corner is normal; one whose muzzle creeps onto
