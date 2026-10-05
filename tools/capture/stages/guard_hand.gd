@@ -183,6 +183,11 @@ func _physics_process(delta: float) -> void:
 	_measure(body, delta)
 	for one: Variant in pool:
 		_measure(_body_of(one), delta)
+	# The men of the beats still to come are read too: a swing onto a man last read seconds ago leads him by that gap.
+	for later: int in range(k + 1, beats.size()):
+		var next_body: PlayerController = beats[later].get("body") as PlayerController
+		if next_body != body and (later == k + 1 or next_body != beats[later - 1].get("body")):
+			_measure(next_body, delta)
 	var wanted: Vector2 = _angles_to(aim)
 	if not _spent(k, beat):
 		var settling: float = 1.0 if fire_at < 0.0 else clampf((fire_at - into) / SETTLE_SECONDS, 0.0, 1.0)
