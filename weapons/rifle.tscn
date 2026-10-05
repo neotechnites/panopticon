@@ -22,11 +22,11 @@ editor_description = "The rifle you can see, and the ONLY node in the game that 
 MatchController._attach_rifle parents this scene's root to the holder's Head with an IDENTITY transform, and Head/Camera is also at identity, so this node's local space IS camera space: (0,0,0) is the eye, -Z is where the guard is looking. Everything below is therefore read directly as \"right, down, forward of the eye\".
 
 TUNABLES (this transform, in the order you will want to touch them):
-  scale     0.75 uniform -- the model is 1.49 m end to end at 1.0, which eats
+  scale     0.75 uniform -- the model is 1.19 m end to end at 1.0, which eats
                             the frame at a 100 degree fov. Change this first.
   position  (0.30, -0.24, -0.38) -- right of the bore line, below the eye so you
                             look DOWN onto the scope, far enough forward that the
-                            recoil pad (local +Z 0.34) clears the 0.05 m near
+                            recoil pad (local +Z 0.27) clears the 0.05 m near
                             plane with room to spare. Nearest vertex to camera
                             sits at about 0.13 m.
   rotation  (-6, -9, 0) degrees, Godot's YXZ euler -- muzzle nudged down and to
@@ -60,10 +60,10 @@ editor_description = "weapons/models/rifle_n64.glb at identity; swap the ext_res
 [node name="Muzzle" type="Marker3D" parent="ViewModel"]
 editor_description = "Where a shot LOOKS like it came from. Rifle.muzzle points here.
 
-A sibling of Model rather than a child of it, at the model's own muzzle coordinate (0, 0, -1.150), so ViewModel's transform carries both: retune the position, rotation or scale above and the tracer origin follows the barrel end automatically, with no second number to remember.
+A sibling of Model rather than a child of it, at the model's own muzzle coordinate (0, 0, -0.9265), so ViewModel's transform carries both: retune the position, rotation or scale above and the tracer origin follows the barrel end automatically, with no second number to remember.
 
 This is NOT where shots go. Rifle._resolve_shot takes its ray origin and direction from aim_source -- the holder's Camera -- so the shot line is the eye's and there is no muzzle-to-crosshair parallax to explain away. Moving this marker moves the tracer and nothing else. tests/test_weapon.gd holds that line down."
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -1.15)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.9265)
 
 [node name="GripHand" type="Marker3D" parent="ViewModel"]
 editor_description = "The trigger hand's palm, flat on the right of the stock's wrist, fingers forward and up to the trigger. +Y is the fingers, +Z the palm's normal. A sibling of Model, like Muzzle, so recoil, the raise and the hip pose carry it; PrisonerAvatar reaches the holder's right arm here, in both views."

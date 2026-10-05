@@ -1,8 +1,8 @@
 """
 PANOPTICON -- the guard's rifle in the game's own style: rounded low-poly forms, smooth shaded.
 
-The same bolt-action as rifle_lowpoly_build.py: its origin, bore, muzzle, scope axis, wrist and
-fore-end are that model's, so weapons/rifle.tscn's muzzle, aim pose and palm anchors hold.
+The same bolt-action as rifle_lowpoly_build.py, shortened: its origin, bore, scope axis, eyepiece, wrist
+and fore-end grip are that model's, so the aim pose and palm anchors hold; the muzzle is MUZZLE_Y.
 Two tiling tiles (wood, metal) at the maps' 0.05 m per texel, grain along the gun.
 
     tools/modelling/model build rifle_n64
@@ -41,21 +41,43 @@ SHARP_DEGREES = 70.0        # an edge bent further than this stays hard; everyth
 
 WOOD, METAL = "wood", "metal"
 
+# ---- Ryan's three: the whole rifle's length, the scope's length, the scope's diameter (1.0 = as first built)
+LENGTH_SCALE = 0.80
+SCOPE_LENGTH_SCALE = 0.80
+SCOPE_DIAMETER_SCALE = 1.35
+
 # ---- held by the scene: do not move without moving weapons/rifle.tscn ----------
-BUTT_Y = -0.340             # rear face of the butt
+_CUT = (1.0 - LENGTH_SCALE) * (1.150 + 0.340)     # metres off the first build's 1.49
+STOCK_SHARE = 0.25          # of the cut, off the butt; the rest off the barrel. Wrist and fore-end grip stay.
+BUTT_Y = -0.340 + _CUT * STOCK_SHARE                # rear face of the butt
 RECEIVER_Y = (-0.020, 0.300)
-MUZZLE_Y = 1.150            # Godot local (0, 0, -1.150): ViewModel/Muzzle
-FOREND_Y = 0.860            # the wood stops here
+MUZZLE_Y = 1.150 - _CUT * (1.0 - STOCK_SHARE)       # Godot local (0, 0, -MUZZLE_Y): ViewModel/Muzzle
+BARE_BARREL = 0.130         # barrel showing past the wood once it is shortened
+FOREND_Y = min(0.860, MUZZLE_Y - BARE_BARREL)       # the wood stops here
 SCOPE_Z = 0.045             # the aim pose's eye height over the bore (rifle_ads.gd)
-OCULAR_R = 0.0175
-TUBE_R = 0.0127
-BELL_R = 0.0175
+SCOPE_REAR = -0.110         # the eyepiece: fixed, so rifle_ads.gd's aim pose holds
+OCULAR_R = 0.0175 * SCOPE_DIAMETER_SCALE
+TUBE_R = 0.0127 * SCOPE_DIAMETER_SCALE
+BELL_R = 0.0175 * SCOPE_DIAMETER_SCALE
+
+
+def scope_y(y):
+    """A first-build scope y, shortened about the eyepiece."""
+    return SCOPE_REAR + (y - SCOPE_REAR) * SCOPE_LENGTH_SCALE
+
+
+def butt_y(y):
+    """A first-build stock y behind the wrist, squeezed so the butt lands on BUTT_Y."""
+    return y if y >= -0.120 else -0.120 + (y + 0.120) * (-0.120 - BUTT_Y) / 0.220
+
+
 # The scope's profile, (y, radius); open at both ends so the eye looks through it on the raise.
-SCOPE = ((-0.110, OCULAR_R), (-0.090, OCULAR_R), (-0.074, TUBE_R), (0.150, TUBE_R), (0.300, BELL_R))
+SCOPE = tuple((scope_y(y), r) for (y, r) in
+              ((-0.110, OCULAR_R), (-0.090, OCULAR_R), (-0.074, TUBE_R), (0.150, TUBE_R), (0.300, BELL_R)))
 
 # ---- the stock: (y, half width, bottom, top, chamfer); GripHand sits on the wrist, ForeHand under 0.5
-STOCK = (
-    (BUTT_Y, 0.022, -0.100, 0.040, 0.010),
+STOCK = tuple((butt_y(row[0]),) + row[1:] for row in (
+    (-0.340, 0.022, -0.100, 0.040, 0.010),
     (-0.325, 0.025, -0.104, 0.046, 0.011),
     (-0.200, 0.024, -0.083, 0.042, 0.011),
     (-0.120, 0.021, -0.058, 0.012, 0.009),
@@ -64,7 +86,7 @@ STOCK = (
     (0.300, 0.028, -0.052, -0.004, 0.010),
     (0.560, 0.024, -0.0445, 0.000, 0.009),
     (FOREND_Y, 0.019, -0.036, 0.002, 0.008),
-)
+))
 
 # ---- receiver (an 8-point section, from the lower right round over the top) and barrel
 RECEIVER = ((0.026, -0.020), (0.026, 0.006), (0.014, 0.024), (-0.014, 0.024),
@@ -77,13 +99,13 @@ BOLT_KNOB = (0.084, 0.055, -0.050)
 BOLT_R = (0.0065, 0.0050)
 KNOB_R = 0.015
 
-MOUNT_Y = ((-0.062, -0.048), (0.068, 0.082))        # two blocks under the tube
-MOUNT_HALF_W = 0.007
-TURRET_Y = 0.004
-TURRET_R = 0.0075
-TURRET_H = 0.010
+MOUNT_Y = tuple((scope_y(a), scope_y(b)) for (a, b) in ((-0.062, -0.048), (0.068, 0.082)))   # two blocks under the tube
+MOUNT_HALF_W = 0.007 * SCOPE_DIAMETER_SCALE
+TURRET_Y = scope_y(0.004)
+TURRET_R = 0.0075 * SCOPE_DIAMETER_SCALE
+TURRET_H = 0.010 * SCOPE_DIAMETER_SCALE
 
-BANDS = ((0.560, 0.582, 0.027, -0.048, 0.023), (0.834, 0.862, 0.022, -0.040, 0.021))   # y0, y1, half w, bottom, top
+BANDS = ((0.560, 0.582, 0.027, -0.048, 0.023), (FOREND_Y - 0.026, FOREND_Y + 0.002, 0.022, -0.040, 0.021))   # y0, y1, half w, bottom, top
 GUARD = ((0.000, -0.050), (0.012, -0.082), (0.040, -0.094), (0.092, -0.094), (0.120, -0.078), (0.130, -0.050))
 GUARD_HALF_W = 0.008
 TRIGGER = ((0.062, -0.050), (0.056, -0.068), (0.062, -0.082))

@@ -20,7 +20,7 @@ const TARGET_HALF_DEPTH: float = 0.5
 
 ## The barrel end in the model's own coordinates. See
 ## [code]tests/test_weapon.gd[/code]'s [code]MODEL_MUZZLE[/code].
-const MODEL_MUZZLE: Vector3 = Vector3(0.0, 0.0, -1.150)
+const MODEL_MUZZLE: Vector3 = Vector3(0.0, 0.0, -0.9265)
 
 var _rifle: Rifle
 var _profile: WeaponProfile
