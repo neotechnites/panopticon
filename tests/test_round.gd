@@ -617,6 +617,23 @@ func test_nobody_holds_the_tower_during_the_opening_race() -> void:
 		)
 
 
+## Debug skip phase as a runner: the race and then every round end, and the seat never lands on the human.
+func test_skip_phase_works_with_the_local_player_as_a_runner() -> void:
+	_controller.start_race()
+	await step_ticks(SETTLE_TICKS)
+	_controller.debug_skip_phase()
+	assert_eq_int(int(_controller.get_phase()), int(MatchController.Phase.ROUND), "skip ended the race")
+	assert_true(_human.is_running, "the human is still a runner after skipping the race")
+	for skip: int in _participants.size():
+		var round_before: int = _controller.get_round_number()
+		var seat_before: MatchParticipant = _controller.get_seat_participant()
+		_controller.debug_skip_phase()
+		await step_ticks(5)
+		assert_eq_int(_controller.get_round_number(), round_before + 1, "skip %d armed the next round" % skip)
+		assert_true(_controller.get_seat_participant() != seat_before, "skip %d passed the seat on" % skip)
+		assert_true(_human.is_running and not _human.is_shooter, "skip %d left the human a runner" % skip)
+
+
 # --- Helpers ------------------------------------------------------------------
 
 ## The tower is 8 m across and the deck starts at 36 m, so "on the tower" and "on
