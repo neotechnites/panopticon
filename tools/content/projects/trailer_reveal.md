@@ -7,8 +7,8 @@ rules: 16:9 1920x1080 (SIZE=1920x1080 shot.sh), no HUD except the guard's scope,
 v2 notes (Ryan on rough_v1): the guard stands at the tower's window, not deep inside; all runners run the course direction; the runner shot is the SAME event as the guard shot (same stage, same seed, two POVs), cut back ~1 s to the man directly behind the victim; clear line of sight when he looks up at the tower; title drops in HARD on the music's drop; music https://www.youtube.com/watch?v=OBPV0lsorwU; real-looking gameplay only (walkable deck and real cover, nobody on lava, nobody looking backwards); max 4 players a shot (1 guard + 3); spread across hell, forest and marble. Added: "EVERY shot is first-person POV -- either the guard's scope/tower view or a prisoner's first-person view. No third-person ... Title/end cards are the only non-POV frames."
 music: external\src\music_v2_OBPV0lsorwU.mp4 -> voice\sr20det.ogg (SOURCES.md). The drop: 0.35 s of silence from 5.36 s, the hit at 5.703 s (sample onset); 170 bpm after it (v3 measured).
 cards: cuts/title_hard.mp4 is v1's title frame looped from frame 0 (v1's title.mp4 opened on two black frames); cuts/end.mp4 is v1's.
-delivery: content\trailer_reveal\final\rough_v20.mp4 (and ~/Desktop/panopticon-renders/trailer_reveal/)
-tag: rough_v20
+delivery: content\trailer_reveal\final\rough_v21.mp4 (and ~/Desktop/panopticon-renders/trailer_reveal/)
+tag: rough_v21
 alt: rough_v20_green (v20 with the forest shots filmed in the green forest: 4g 5g 9ag 9bg, ## script rough_v20_green)
 size: 1920x1080
 v4 (Ryan): "every shot must be exactly reproducible in engine -- run a script and record"; NO CROUCHING anywhere; max 3 prisoners + guard; guard shots on the projectile rifle (led, held over). Every shot plays a TAPE (tape: line): the staged take recorded once, then every input played back -- see ## reshoot.
@@ -235,20 +235,21 @@ captions: none
 # v15 (Ryan): "screen recorded real time of the game"; hell "blown the fuck out" -- 1, 2, 6, 7, 8, 11, 13, 14 reshot in rough mode (real time, screen recorded) at the game's own lighting (no stage exposure/ambient lift); the edit is v14's.
 # v19 (Ryan's notes on v18): duel, forest pit, crack and lake restaged and re-taped, 6 7 8 9a 9b 11 13 14 refilmed in rough mode; d2 in 1.6 (the peek, the shot, the miss), t2 in 2.0 (the check, the quick hop, the stumble); lengths and the grid are v18's.
 # v20 (Ryan on v19): the forest shove restaged and re-taped, 9a 9b refilmed in rough mode; every other shot and the edit are v19's.
+# v21 (Ryan): "reshooting any of the trailer that is not up to date with the game ... use the green forest" -- every shot refilmed in rough mode on main 18f6445, the forest lines from 4g 5g 9ag 9bg (gold forest no longer used); the edit is v20's.
 # cuts/title_hard.mp4 and cuts/end_v3.mp4 are the v3 cards (end without the player count), kept on the PC.
 | line | clip | in | len | fit | speed | text |
 | a1 | cuts/01.mp4@0.35:2.70 | | | beat 2.70 | | |
 | a2 | cuts/02.mp4@1.70:3.00 | | | beat 3.00 | | |
 | a3 | cuts/title_zoom10.mp4@0:2.1333 | | | beat 2.1333 | | |
 | a4 | cuts/card2_zoom10.mp4@0:2.4667 | | | beat 2.4667 | | |
-| h1 | cuts/04.mp4@0.9:1.7667 | | | beat 1.7667 | | |
-| h2 | cuts/05.mp4@1.6:1.4 | | | beat 1.4 | | |
+| h1 | cuts/04g.mp4@0.9:1.7667 | | | beat 1.7667 | | |
+| h2 | cuts/05g.mp4@1.6:1.4 | | | beat 1.4 | | |
 | m0 | cuts/05b.mp4@0:2.1167 | | | beat 2.1167 | | |
 | d1 | cuts/06.mp4@0.4:2.4833 | | | beat 2.4833 | | |
 | d2 | cuts/07.mp4@1.6:2.1167 | | | beat 2.1167 | | |
 | d3 | cuts/08.mp4@0:2.1167 | | | beat 2.1167 | | |
-| p1 | cuts/09a.mp4@0:2.4667 | | | beat 2.4667 | | |
-| p2 | cuts/09b.mp4@0:1.7667 | | | beat 1.7667 | | |
+| p1 | cuts/09ag.mp4@0:2.4667 | | | beat 2.4667 | | |
+| p2 | cuts/09bg.mp4@0:1.7667 | | | beat 1.7667 | | |
 | m1 | cuts/10a.mp4@0:2.1167 | | | beat 2.1167 | | |
 | m2 | cuts/10b.mp4@0:2.1167 | | | beat 2.1167 | | |
 | t2 | cuts/11.mp4@2.0:2.4667 | | | beat 2.4667 | | |
