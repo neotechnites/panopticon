@@ -185,6 +185,14 @@ min_value = 1.0
 max_value = 8.0
 value = 3.0
 
+[node name="MapLabel" type="Label" parent="Frame/Dialog/Padding/Layout/LobbyPanel/RulesRow"]
+vertical_alignment = 1
+text = "SETUP_MAP"
+
+[node name="MapOption" type="OptionButton" parent="Frame/Dialog/Padding/Layout/LobbyPanel/RulesRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(200, 0)
+
 [node name="RulesSummary" type="Label" parent="Frame/Dialog/Padding/Layout/LobbyPanel"]
 unique_name_in_owner = true
 autowrap_mode = 3
