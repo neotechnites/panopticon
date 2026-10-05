@@ -127,6 +127,8 @@ func _watch_for_a_throw(delta: float) -> void:
 	_landing = maxf(_landing - delta, 0.0)
 	var change: Vector3 = motion.step
 	var flat: Vector3 = Vector3(change.x, 0.0, change.z)
+	if motion.shoved:
+		return
 	var rose: bool = change.y >= THROWN_RISE and motion.velocity.y > 0.0 and not _jumped
 	var jolted: bool = flat.length() >= THROWN_JOLT and _landing <= 0.0
 	if not (rose or jolted) or motion.speed < THROWN_SPEED:

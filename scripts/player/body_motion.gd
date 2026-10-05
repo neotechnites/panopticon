@@ -10,6 +10,8 @@ const SURGE_SECONDS: float = 0.28
 var live: bool = true
 ## True while the ragdoll owns the skeleton; every layer stops at once.
 var limp: bool = false
+## A shove's flop is waiting, limp or getting up: the ragdoll shows the throw, not the reel.
+var shoved: bool = false
 var grounded: bool = true
 var sliding: bool = false
 ## A rifle is in the hands, so the hold owns the pitch.

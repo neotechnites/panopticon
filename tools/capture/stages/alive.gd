@@ -2,6 +2,7 @@ extends "res://tools/capture/stages/stage.gd"
 
 ## alive: proof clips of the procedural body layers on the flat S3 lane. --shot=s3_face_side --stage=alive --set=beat=NAME (;layers=off for the clip alone).
 ## Beats: sprint, look, drop, shove, miss (three rounds past a standing runner), slope (ramp, platform, steps), guard (add --pov=guard), pack (--bots=7).
+## Flop beats: shove_edge (off a 1.6 m ledge), shove_wall (into a wall), shove_kill (shot mid-flop, at the miss spot).
 
 const GUARD_HAND := preload("res://tools/capture/stages/guard_hand.gd")
 ## The flat S3 lane; the miss beat plays at 276 deg, where the tower sees the deck.
@@ -10,6 +11,12 @@ const MISS_DEG: float = 276.0
 const RADIUS: float = 52.0
 const SPARE_DEG: float = 8.0
 const LENS_EASE: float = 0.06
+## The flop props: the ledge's height and how far the victim stands from its edge; the wall's distance ahead.
+const LEDGE: float = 1.6
+const LEDGE_EDGE: float = 0.6
+const WALL_AHEAD: float = 3.2
+## Seconds of flop before the guard's round, in shove_kill.
+const KILL_AFTER: float = 0.35
 ## The ramp prop: rise and run of the slope, the platform, then steps down.
 const RAMP_RISE: float = 1.5
 const RAMP_RUN: float = 3.7
@@ -32,6 +39,11 @@ var _hand: Node = null
 var _shots_fired: int = 0
 ## --set=layers=off films the clip alone, for a before and after.
 var _layers_on: bool = true
+## The flop as measured: seconds limp, and the furthest the drawn pelvis or chest got from the capsule's line.
+var _flop_seconds: float = 0.0
+var _flop_worst: float = 0.0
+var _flop_reported: bool = false
+var _killed: bool = false
 
 
 func bots() -> int:
@@ -44,7 +56,7 @@ func tune_rules(rules: MatchRules) -> void:
 
 func before_start() -> void:
 	_beat = String(option("beat", "sprint"))
-	_deg = float(option("deg", MISS_DEG if _beat == "miss" else DEG))
+	_deg = float(option("deg", MISS_DEG if _beat == "miss" or _beat == "shove_kill" else DEG))
 	_centre = LIB.ring_point(_deg, RADIUS, 0.1)
 	_along = LIB.tangent_at(_deg)
 	_out = LIB.radial_at(_deg)
@@ -59,6 +71,10 @@ func before_start() -> void:
 		world.environment = env
 	if _beat == "slope":
 		_build_ramp()
+	elif _beat == "shove_edge":
+		_build_block(_centre - _along * (6.0 - LEDGE_EDGE) * 0.5 + _along * LEDGE_EDGE * 0.5 + Vector3.UP * LEDGE * 0.5, Vector3(6.0, LEDGE, 3.0))
+	elif _beat == "shove_wall":
+		_build_block(_centre + _along * WALL_AHEAD + Vector3.UP * 1.5, Vector3(0.6, 3.0, 4.0))
 	_layers_on = String(option("layers", "on")) != "off"
 
 
@@ -96,14 +112,16 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 				{"do": "leap", "to": c + _along * 3.0, "speed": 7.0}, {"do": "land"}, {"do": "hold", "seconds": 1.2},
 				{"do": "place", "at": c + Vector3.UP * 6.0, "face": -_out}, {"do": "hold", "seconds": 60.0},
 			]
-		"shove":
+		"shove", "shove_wall", "shove_kill", "shove_edge":
+			if _beat == "shove_edge":
+				c += Vector3.UP * LEDGE
 			steps = [
 				{"do": "place", "at": c, "face": _along}, {"do": "hold", "seconds": 0.5},
 				{"do": "wait_launch", "timeout": 6.0}, {"do": "land"}, {"do": "hold", "seconds": 0.8},
 				{"do": "chase", "victim": _other, "range": 2.4, "timeout": 6.0}, {"do": "hold", "seconds": 60.0},
 			]
 			spare = [
-				{"do": "place", "at": c - _along * 2.2, "face": _along}, {"do": "hold", "seconds": 2.0},
+				{"do": "place", "at": c - _along * 2.2 + (Vector3.UP * LEDGE if _beat == "shove_edge" else Vector3.ZERO), "face": _along}, {"do": "hold", "seconds": 2.0},
 				{"do": "shove", "face": _along}, {"do": "face_hold", "victim": _body, "seconds": 8.0},
 				{"do": "land"}, {"do": "hold", "seconds": 60.0},
 			]
@@ -151,8 +169,10 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 	return true
 
 
-func tick(_delta: float) -> void:
-	if _beat != "miss" and _beat != "guard":
+func tick(delta: float) -> void:
+	if _beat.begins_with("shove"):
+		_watch_flop(delta)
+	if _beat != "miss" and _beat != "guard" and _beat != "shove_kill":
 		return
 	if _guard == null:
 		var shooter: TowerShooter = LIB.stand_down(seat())
@@ -161,8 +181,52 @@ func tick(_delta: float) -> void:
 		_guard = shooter.controller
 	if _beat == "guard":
 		_sweep()
+	elif _beat == "shove_kill":
+		_kill_mid_flop()
 	elif _body != null:
 		_near_misses()
+
+
+## Measure the flop: the drawn pelvis and chest against the capsule's centre line, said once it ends.
+func _watch_flop(delta: float) -> void:
+	if _body == null or _flop_reported:
+		return
+	var ragdoll: Node = _body.get_node_or_null(^"Avatar/Ragdoll")
+	if ragdoll == null:
+		return
+	var limp: bool = ragdoll.is_flopping() or (_killed and ragdoll.is_active())
+	if not limp:
+		if _flop_seconds > 0.0 and not _killed:
+			_flop_reported = true
+			say("flop: %.2f s limp, pelvis/chest at most %.3f m off the capsule line" % [_flop_seconds, _flop_worst])
+		return
+	_flop_seconds += delta
+	if not ragdoll.is_flopping():
+		if _flop_seconds > 2.5:
+			_flop_reported = true
+			say("flop: killed, pelvis/chest at most %.3f m off the capsule line while it flopped" % _flop_worst)
+		return
+	var feet: Vector3 = _body.global_position
+	var parts: PackedVector3Array = ragdoll.part_positions()
+	for i: int in mini(parts.size(), 2):
+		var on_line: Vector3 = Geometry3D.get_closest_point_to_segment(parts[i], feet + Vector3.UP * 0.4, feet + Vector3.UP * 1.4)
+		_flop_worst = maxf(_flop_worst, parts[i].distance_to(on_line))
+
+
+## The guard's round into the victim's chest, once he has been limp a moment.
+func _kill_mid_flop() -> void:
+	if _killed or _body == null or _flop_seconds < KILL_AFTER:
+		return
+	var rifle: Rifle = controller().rifle
+	if rifle == null or not rifle.can_fire():
+		return
+	var eye: Node3D = _guard.get_node_or_null(^"Head/Camera") as Node3D
+	var d: Vector3 = _body.global_position + Vector3.UP * 1.1 + _body.velocity * 0.02 - eye.global_position
+	_guard.rotation = Vector3(0.0, atan2(-d.x, -d.z), 0.0)
+	_guard.head.rotation.x = atan2(d.y, Vector2(d.x, d.z).length())
+	_guard.set(&"_pitch", _guard.head.rotation.x)
+	_killed = rifle.try_fire()
+	say("mid-flop round %s" % ("fired" if _killed else "refused"))
 
 
 ## Three rounds past the standing runner: beside the chest, the other side, over the head.
@@ -220,9 +284,12 @@ func lens(delta: float) -> bool:
 		"drop":
 			offset = -_out * 4.2 + _along * 1.0 + Vector3.UP * 1.3
 			fov = 55.0
-		"shove":
+		"shove", "shove_wall", "shove_kill", "shove_edge":
 			offset = -_out * 4.3 + _along * 3.0 + Vector3.UP * 1.4
 			fov = 60.0
+			if _beat == "shove_wall":
+				# From the near side, short of the wall, so it never stands between the lens and the body.
+				offset = -_out * 4.6 - _along * 1.5 + Vector3.UP * 1.4
 		"slope":
 			offset = -_out * 4.0 + Vector3.UP * 0.9
 			height = 0.7
@@ -272,6 +339,17 @@ func _build_ramp() -> void:
 		var tall: float = RAMP_RISE - STEP_RISE * float(i + 1)
 		_add_box(prop, paint, Vector3(STEP_RUN, tall, PROP_WIDTH),
 			Transform3D(Basis.IDENTITY, Vector3(RAMP_RUN + PLATFORM + STEP_RUN * (float(i) + 0.5), tall * 0.5, 0.0)))
+
+
+## One grey block on the deck: the ledge or the wall a flop is thrown off or into.
+func _build_block(centre: Vector3, size: Vector3) -> void:
+	var prop: StaticBody3D = StaticBody3D.new()
+	prop.name = "ClipBlock"
+	clip.root.add_child(prop)
+	prop.global_transform = Transform3D(Basis(_along, Vector3.UP, _along.cross(Vector3.UP)), centre)
+	var paint: StandardMaterial3D = StandardMaterial3D.new()
+	paint.albedo_color = Color(0.2, 0.18, 0.16)
+	_add_box(prop, paint, size, Transform3D.IDENTITY)
 
 
 func _add_box(prop: StaticBody3D, paint: Material, size: Vector3, at: Transform3D) -> void:

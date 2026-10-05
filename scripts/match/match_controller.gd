@@ -1418,10 +1418,11 @@ func net_kill_beat(guard_index: int) -> void:
 	guard.body.died.emit()
 
 
-## The server says a shove landed on somebody at [param at]. The cue only: the
-## victim's launch rides the snapshot.
+## The server says a shove landed on somebody at [param at]. The cue and the drawn
+## flop only: the victim's launch rides the snapshot.
 func net_shove_landed(at: Vector3) -> void:
 	AudioDirector.post_event_at(AudioEvents.PLAYER_CATCH_MADE, at)
+	PrisonerAvatar.shove_landed(at)
 
 
 ## A human seat became a bot's mid-match: the body stays, the brain takes over.
@@ -2016,6 +2017,7 @@ func apply_shove(shover: MatchParticipant) -> MatchParticipant:
 		match_rules.shove_air_lock_seconds,
 	)
 	AudioDirector.post_event_at(AudioEvents.PLAYER_CATCH_MADE, victim.body.global_position)
+	PrisonerAvatar.shove_landed(victim.body.global_position)
 	participant_shoved.emit(shover, victim)
 	# THE CATCH. A ghost takes a spot by shoving the prisoner who holds it and by
 	# nothing else -- touching them does nothing -- so it is ruled on here, after

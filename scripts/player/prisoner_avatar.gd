@@ -140,6 +140,15 @@ const BodyMotion: GDScript = preload("res://scripts/player/body_motion.gd")
 ## how far a dead body moves before it counts as reused.
 const RAGDOLL_WAIT_MSEC: int = 400
 const REUSED_DISTANCE: float = 1.5
+## A shove lands on the drawn body nearest its point, within this, metres.
+const SHOVE_CLAIM_METRES: float = 2.5
+## A shoved body flops once it is seen thrown (rising this fast, or jolted this much, m/s), or after the wait.
+const FLOP_RISE: float = 2.0
+const FLOP_JOLT: float = 5.0
+const FLOP_WAIT_SECONDS: float = 0.35
+## The least a flop lasts, and how long he must be down before getting up, seconds.
+const FLOP_LEAST_SECONDS: float = 0.3
+const FLOP_DOWN_SECONDS: float = 0.12
 
 @export var body: PlayerController
 
@@ -478,6 +487,15 @@ static var _viewed_body: PlayerController = null
 ## whichever body's own head camera is current is the one being looked out of.
 static var _view_claimed: bool = false
 
+## Every avatar in the tree, for a shove to find its body by.
+static var _drawn: Array[PrisonerAvatar] = []
+
+## Seconds since a shove was claimed by this body and its throw not yet seen, or below zero for none.
+var _flop_wait: float = -1.0
+var _flop_before: Vector3 = Vector3.ZERO
+var _flop_clock: float = 0.0
+var _flop_down: float = 0.0
+
 
 ## Claim the view for [param viewing_body], null while no body holds it.
 ## Called by whoever made a camera current.
@@ -528,6 +546,58 @@ func is_spine_hidden() -> bool:
 
 func are_arms_hidden() -> bool:
 	return _arms_hidden
+
+
+func _enter_tree() -> void:
+	if not _drawn.has(self):
+		_drawn.append(self)
+
+
+## A shove landed at [param at]: the living runner drawn nearest it flops. Called on every machine from its own shove.
+static func shove_landed(at: Vector3) -> void:
+	var best: PrisonerAvatar = null
+	var best_distance: float = SHOVE_CLAIM_METRES * SHOVE_CLAIM_METRES
+	for avatar: PrisonerAvatar in _drawn:
+		if avatar.body == null or avatar._dead or avatar.body.is_guard or avatar._ragdoll == null:
+			continue
+		var distance: float = avatar.body.global_position.distance_squared_to(at)
+		if distance < best_distance:
+			best_distance = distance
+			best = avatar
+	if best != null and best._ragdoll.flop_enabled:
+		best._flop_wait = 0.0
+		best._flop_before = best.body.velocity
+
+
+## The shoved body's limp spell: wait to see the throw, flop with it, get up once down and the throw is spent.
+func _tick_flop(delta: float) -> void:
+	if _ragdoll == null:
+		return
+	if _flop_wait >= 0.0:
+		_flop_wait += delta
+		var now: Vector3 = body.velocity
+		var change: Vector3 = now - _flop_before
+		var thrown: bool = now.y >= FLOP_RISE or Vector2(change.x, change.z).length() >= FLOP_JOLT
+		if not thrown and _flop_wait < FLOP_WAIT_SECONDS:
+			return
+		_flop_wait = -1.0
+		if _dead or _ragdoll.is_active():
+			return
+		_ragdoll.flop(self, now)
+		_flop_clock = 0.0
+		_flop_down = 0.0
+		return
+	if not _ragdoll.is_thrown():
+		return
+	_flop_clock += delta
+	_flop_down = _flop_down + delta if body.is_grounded() else 0.0
+	if _flop_clock >= FLOP_LEAST_SECONDS and _flop_down >= FLOP_DOWN_SECONDS:
+		_ragdoll.get_up()
+
+
+## Whether a shove's flop is waiting, limp or getting up on this body.
+func is_flopping() -> bool:
+	return _flop_wait >= 0.0 or (_ragdoll != null and _ragdoll.is_flopping())
 
 
 func _ready() -> void:
@@ -635,6 +705,7 @@ func _keep_the_run_cycle_looping() -> void:
 
 ## Never leave a body that is going away holding the view.
 func _exit_tree() -> void:
+	_drawn.erase(self)
 	if _view_claimed and body != null and _viewed_body == body:
 		release_viewed_body()
 
@@ -649,6 +720,7 @@ func _process(delta: float) -> void:
 	_tick_air(delta)
 	tick_first_person()
 	_watch_velocity(delta)
+	_tick_flop(delta)
 	_sample_motion(delta)
 
 	# Death outranks everything: whatever the body was doing when it was shot
@@ -862,6 +934,7 @@ func _on_body_jumped() -> void:
 func _on_body_died() -> void:
 	_dead = true
 	_shove_remaining = 0.0
+	_flop_wait = -1.0
 	if _ragdoll == null or _ragdoll.is_active():
 		return
 	_ragdoll_pending = true
@@ -903,7 +976,8 @@ func _sample_motion(delta: float) -> void:
 	var reference: float = body.profile.ground_speed if body.profile != null else fallback_ground_speed
 	_motion.sample(body, global_transform.basis, reference, delta)
 	_motion.live = not (_has_death and _dead)
-	_motion.limp = _ragdoll != null and _ragdoll.is_active()
+	_motion.limp = _ragdoll != null and (_ragdoll.is_active() or _ragdoll.is_flopping())
+	_motion.shoved = is_flopping()
 	_motion.holding = _held != null
 
 
