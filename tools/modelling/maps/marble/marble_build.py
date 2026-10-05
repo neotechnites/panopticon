@@ -189,7 +189,7 @@ CELL_PX = 64.0
 # cell it had on the old atlas -- (u0, v0, u1, v1) of the file TILE_OF names.
 ZONES = {z: (0.0, 0.0, 1.0, 1.0) for z in ("marble", "marble2", "shade", "plinth", "floor", "portal",
                                            "spike", "field", "stone", "coffer", "frieze", "iron")}
-ZONES["column"] = ZONES["band"] = ZONES["collar"] = (0.0, 0.0, 1.0, 0.25)   # 64 px of the 256 strip
+ZONES["column"] = ZONES["band"] = ZONES["collar"] = (0.0, 0.0, 1.0, 1.0)   # the whole 64 px column tile
 ZONES["cellin"] = (0.0, 0.0, 0.25, 0.25)                                     # 64 px of the brick
 FIT = {"floor": "uv", "frieze": "uv", "coffer": "uv", "portal": "uv",   # the whole face onto the whole cell
        "band": "v", "collar": "v", "column": "u", "iron": "u"}   # ... on one axis only
@@ -264,7 +264,7 @@ def band_sheet():
 
 
 def column_sheet():
-    return tile("column", "marble_column", "fit_u", COL_W, COL_H)        # v: 12.8 m a repeat
+    return tile("column", "marble_column", "fit_u", COL_W, COL_H)        # v: 3.2 m a repeat
 
 
 # Linear multipliers over the brick: each class's old mean colour.
@@ -309,7 +309,8 @@ SHEETS = {
     "shade": brick("shade", tint=TINT_SHADE, **_WALL),
     "plinth": brick("plinth", mpt_v=COURSE_MPT / 2.0, tint=TINT_PLINTH_WALL, **_WALL),   # 0.5 m courses
     "cellin": brick("cellin", tint=TINT_CELL, **_WALL),
-    "field": brick("field", mode="box"),                                 # the pit floor
+    "field": tx.Sheet("field", mpt=COURSE_MPT, mpt_u=WALL_MPT, size=BRICK_H, width=BRICK_W,
+                      roughness=ROUGHNESS, stem="marble_pit", mode="box"),   # the pit floor: its own tile, brick density
     "spike": stone("spike", mode="box", mpt=tx.MPT),
     "floor": tile("floor", "marble_floor", "fit", 64, 64, mpt=2.7 / 64.0),
     "frieze": stone("frieze", ref_r=WALL_IN_R),   # unruled; the Greek key was tile("frieze", <its file>, "fit", 256, 64)
