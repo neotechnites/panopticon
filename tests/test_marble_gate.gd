@@ -90,14 +90,14 @@ const RUN_RADIUS_MAX: float = 59.15
 const RUN_RADIUS_COUNT: int = 9
 
 ## The ray sweep. Radius at 2 cm across the whole annulus, 45 height bands from
-## just over the deck to just under the gate's 8.5 m head: 643 x 45 = 28,935
+## just over the deck to just under the gate's 8.0 m head (35f270f): 643 x 45 = 28,935
 ## rays, and every one of them fired through the gate along its own local Z.
 ## Each sample owns a cell of its own step, so an opening of n cells measures
 ## n * step -- the convention both axes are read with below.
 const RADIUS_STEP_METRES: float = 0.02
 const BAND_COUNT: int = 45
 const BAND_LOW_METRES: float = 0.05
-const BAND_HIGH_METRES: float = 8.45
+const BAND_HIGH_METRES: float = 7.95
 const BAND_STEP_METRES: float = (BAND_HIGH_METRES - BAND_LOW_METRES) / float(BAND_COUNT - 1)
 const RAY_HALF_LENGTH_METRES: float = 1.0
 

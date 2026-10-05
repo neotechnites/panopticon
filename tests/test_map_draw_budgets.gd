@@ -83,8 +83,10 @@ const DRAW_BUDGETS: Dictionary = {
 	# spatial shader that reads the screen (hint_screen_texture) and writes
 	# ALPHA, so it is 144 triangles in the sorted pass plus one screen copy a
 	# frame; ceiling 173 (144 + 20 %). Lights measured 19, inside the 24 it had.
+	# 2026-10-05: the one-sculpt chunked export (64b380a, decision 84) splits the map into 15 .glbs;
+	# surfaces measured 90, ceiling 108 (+20 %).
 	"bentham_ring": {
-		"tris": 107595, "surfaces": 78, "materials": 18,
+		"tris": 107595, "surfaces": 108, "materials": 18,
 		"transparent_tris": 173, "lights": 24, "shadow_casters": 0,
 	},
 	# THE LANE IS BARE AGAIN (Ryan, 2026-09-22: "for the marble level, can you
@@ -139,9 +141,11 @@ const DRAW_BUDGETS: Dictionary = {
 	# untouched.
 	# 2026-09-30: eight reflector lamps on the tower replace the Skylight (lights 10, +1232 tower tris);
 	# ceilings set from the build's counts, not re-measured here.
+	# 2026-10-05: four base-fill omnis (dadc5ac) and NoSun (a9152c7) make lights 15; the pit floor's own
+	# tile (d569188) makes surfaces and materials 38. Ceilings measured + 20 %.
 	"marble": {
-		"tris": 92500, "surfaces": 37, "materials": 37,
-		"transparent_tris": 0, "lights": 12, "shadow_casters": 1,
+		"tris": 92500, "surfaces": 46, "materials": 46,
+		"transparent_tris": 0, "lights": 18, "shadow_casters": 1,
 	},
 	# The expensive one: 2.5x the Ring, plus 2196 transparent triangles, plus a
 	# shadow caster. Re-measured after the obstacle course came off the lane
@@ -195,9 +199,11 @@ const DRAW_BUDGETS: Dictionary = {
 	# measured: the paragraph above is still exactly true after this pass.
 	# Ceilings unchanged again -- all six fit, and a 0.035 % move in tris is not
 	# a reason to hand back 20 % of fresh headroom.
+	# 2026-10-05: the canopy lighting pass (shadow-only copies a013c5f/a92357d, two shadowed suns 8a35c7a,
+	# crown underside 1797a79) measures tris 370678, materials 49, shadow_casters 2; +20 %, casters exact.
 	"forest": {
-		"tris": 299778, "surfaces": 183, "materials": 33,
-		"transparent_tris": 6264, "lights": 3, "shadow_casters": 1,
+		"tris": 444814, "surfaces": 183, "materials": 59,
+		"transparent_tris": 6264, "lights": 3, "shadow_casters": 2,
 	},
 	# Map 4, the ice cavern (2026-10-03): counted off the built glbs and the scene (63004 tris, 37 surfaces,
 	# 29 materials, 5863 transparent: roof, swirl, shafts) + 20 %, not yet measured on this suite.
