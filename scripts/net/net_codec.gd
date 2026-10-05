@@ -17,8 +17,8 @@ extends RefCounted
 ## cannot be forgotten in a second place. Decoding never trusts the payload: a
 ## wrong length returns failure and the caller drops the packet. Note what this
 ## does [i]not[/i] do -- it does not bound the values inside a well-formed
-## packet. A client can still send a look delta of a thousand radians; clamping
-## that is the authority's job, in [PlayerNetLink], because the sane range
+## packet. A client can still send a pitch of a thousand radians; clamping
+## that is the authority's job, in [PlayerController], because the sane range
 ## comes from [MovementProfile] and the codec has no business knowing about
 ## tunables. The one exception is [method sanitise_name], and it is here
 ## because a display name has no sane range to consult -- only a length and a
@@ -37,7 +37,7 @@ extends RefCounted
 ##
 ## A snapshot body carries no float. Position and velocity are centimetres in
 ## an [code]i16[/code], angles are a fixed fraction of a turn, timers are
-## tenths. That is 26 bytes a body against 42 for the same fields as floats,
+## tenths. That is 28 bytes a body against 46 for the same fields as floats,
 ## and the error it costs -- five millimetres of position, five millimetres a
 ## second of speed -- is under the noise floor of a body that is drawn
 ## interpolated and corrected thirty times a second.
@@ -55,12 +55,11 @@ extends RefCounted
 ## which is cheap; it is listed as a gap rather than a feature because it is a
 ## habit that stops being cheap at a player count this game will never reach.
 
-## Bytes of intent header: u32 newest tick, u8 how many intents follow, 2 floats
-## of look total (every look delta through the newest tick, wrapped to a turn).
-const INTENT_HEADER_SIZE: int = 13
+## Bytes of intent header: u32 newest tick, u8 how many intents follow.
+const INTENT_HEADER_SIZE: int = 5
 
-## Bytes per intent: 4 floats, a flag byte, the ability slot and a second flag
-## byte.
+## Bytes per intent: 2 floats of move, 2 of absolute view (yaw, pitch), a flag
+## byte, the ability slot and a second flag byte.
 const INTENT_BODY_SIZE: int = 19
 
 ## Bytes in a packet carrying one intent.
@@ -73,7 +72,7 @@ const MAX_INTENT_REDUNDANCY: int = 4
 const SNAPSHOT_HEADER_SIZE: int = 5
 
 ## Bytes per body inside a snapshot: u8 seat, 3 i16 of position, 3 i16 of
-## velocity, u16 yaw, i16 pitch, 1 flag byte, u8 running ability, u8 tenths left
+## velocity, u16 yaw, i16 pitch, u16 view base, 1 flag byte, u8 running ability, u8 tenths left
 ## on it, u8 tenths of its cooldown, u8 hit points and u32 acknowledged intent
 ## tick. The seat is a byte and not a peer id because seats are what bodies are
 ## named by -- see [PlayerState].
@@ -81,7 +80,7 @@ const SNAPSHOT_HEADER_SIZE: int = 5
 ## The size IS the version: [method unpack_snapshot] refuses any payload that is
 ## not a header plus a whole number of bodies this wide, so a build that grew a
 ## field cannot half-read one that did not.
-const SNAPSHOT_BODY_SIZE: int = 26
+const SNAPSHOT_BODY_SIZE: int = 28
 
 ## Centimetres to the metre: the unit position and velocity are sent in.
 ##
@@ -179,15 +178,11 @@ static func pack_intent(tick: int, intent: MoveIntent) -> PackedByteArray:
 ## the redundancy invisible to the authority. The authority's own
 ## [method RemoteIntentSource.accept] drops the repeats it has already had, so
 ## nothing downstream has to know this is happening.
-static func pack_intents(
-	newest_tick: int, intents: Array[MoveIntent], count: int, look_total: Vector2 = Vector2.ZERO
-) -> PackedByteArray:
+static func pack_intents(newest_tick: int, intents: Array[MoveIntent], count: int) -> PackedByteArray:
 	var used: int = clampi(mini(count, intents.size()), 1, MAX_INTENT_REDUNDANCY)
 	var buffer: StreamPeerBuffer = StreamPeerBuffer.new()
 	buffer.put_u32(newest_tick % TICK_MODULUS)
 	buffer.put_u8(used)
-	buffer.put_float(look_total.x)
-	buffer.put_float(look_total.y)
 	for i: int in used:
 		_put_intent(buffer, intents[i])
 	return buffer.data_array
@@ -196,8 +191,8 @@ static func pack_intents(
 static func _put_intent(buffer: StreamPeerBuffer, intent: MoveIntent) -> void:
 	buffer.put_float(intent.move_direction.x)
 	buffer.put_float(intent.move_direction.y)
-	buffer.put_float(intent.look_delta.x)
-	buffer.put_float(intent.look_delta.y)
+	buffer.put_float(intent.view_angles.x)
+	buffer.put_float(intent.view_angles.y)
 	var flags: int = 0
 	if intent.jump_pressed:
 		flags |= _FLAG_JUMP_PRESSED
@@ -243,13 +238,6 @@ static func intent_count(payload: PackedByteArray) -> int:
 	return count
 
 
-## The packet's look total, or a non-finite vector when it has none to trust.
-static func unpack_intent_look_total(payload: PackedByteArray) -> Vector2:
-	if intent_count(payload) == 0:
-		return Vector2(NAN, NAN)
-	return Vector2(payload.decode_float(5), payload.decode_float(9))
-
-
 ## Decode the intent at [param index], 0 being the oldest in the packet, into
 ## [param out]. Returns that intent's tick, or -1 when there is no such intent.
 static func unpack_intent_at(payload: PackedByteArray, index: int, out: MoveIntent) -> int:
@@ -262,18 +250,20 @@ static func unpack_intent_at(payload: PackedByteArray, index: int, out: MoveInte
 	buffer.seek(INTENT_HEADER_SIZE + index * INTENT_BODY_SIZE)
 	var move_x: float = buffer.get_float()
 	var move_y: float = buffer.get_float()
-	var look_x: float = buffer.get_float()
-	var look_y: float = buffer.get_float()
+	var view_yaw: float = buffer.get_float()
+	var view_pitch: float = buffer.get_float()
 	var flags: int = buffer.get_u8()
 	var slot: int = buffer.get_u8()
 	var flags2: int = buffer.get_u8()
 	# NaN and infinity survive a float round-trip and poison a physics body on
 	# contact, so they are rejected here rather than clamped: there is no
 	# sensible value to substitute, and a peer sending them is not playing.
-	if not (is_finite(move_x) and is_finite(move_y) and is_finite(look_x) and is_finite(look_y)):
+	if not (is_finite(move_x) and is_finite(move_y) and is_finite(view_yaw) and is_finite(view_pitch)):
 		return -1
 	out.move_direction = Vector2(move_x, move_y)
-	out.look_delta = Vector2(look_x, look_y)
+	out.look_delta = Vector2.ZERO
+	out.view_angles = Vector2(view_yaw, view_pitch)
+	out.view_absolute = true
 	out.jump_pressed = (flags & _FLAG_JUMP_PRESSED) != 0
 	out.jump_held = (flags & _FLAG_JUMP_HELD) != 0
 	out.slide_pressed = (flags & _FLAG_SLIDE_PRESSED) != 0
@@ -307,6 +297,7 @@ static func pack_snapshot(snapshot: WorldSnapshot) -> PackedByteArray:
 		_put_metres(buffer, state.velocity)
 		buffer.put_u16(quantise_turn(state.yaw))
 		buffer.put_16(clampi(roundi(state.pitch * _PITCH_SCALE), -32768, 32767))
+		buffer.put_u16(quantise_turn(state.view_base))
 		var flags: int = _pack_jump_counter(state.jump_counter)
 		if state.on_floor:
 			flags |= _FLAG_ON_FLOOR
@@ -360,6 +351,7 @@ static func unpack_snapshot(payload: PackedByteArray, out: WorldSnapshot) -> boo
 		var velocity: Vector3 = _get_metres(buffer)
 		var yaw: float = float(buffer.get_u16()) / float(_YAW_STEPS) * TAU
 		var pitch: float = float(buffer.get_16()) / _PITCH_SCALE
+		var view_base: float = wrapf(float(buffer.get_u16()) / float(_YAW_STEPS) * TAU, -PI, PI)
 		var flags: int = buffer.get_u8()
 		# An ability byte from a build with more powers than this one is clamped
 		# rather than refused: it costs one body's effect, not the whole world's
@@ -375,6 +367,7 @@ static func unpack_snapshot(payload: PackedByteArray, out: WorldSnapshot) -> boo
 		state.velocity = velocity
 		state.yaw = yaw
 		state.pitch = pitch
+		state.view_base = view_base
 		state.on_floor = (flags & _FLAG_ON_FLOOR) != 0
 		state.ability = ability
 		state.ability_remaining = float(ability_tenths) * 0.1

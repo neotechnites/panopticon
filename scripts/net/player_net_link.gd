@@ -158,8 +158,10 @@ var _recent_count: int = 0
 ## The bytes last sent by [method _send_intent]. See
 ## [method get_last_intent_packet].
 var _last_packet: PackedByteArray = PackedByteArray()
-## Every look delta this body has turned by, wrapped to a turn: the counter a lost intent cannot lose.
-var _look_total: Vector2 = Vector2.ZERO
+## The authority's [member PlayerController.view_base] for this body, off its snapshots.
+var _view_base: float = 0.0
+## A client's own view (yaw less [member _view_base], pitch) when it is not predicting.
+var _view: Vector2 = Vector2.ZERO
 
 ## Intent packets taken from this seat's owner on the current authority tick.
 ## See [member NetSettings.max_intent_packets_per_tick].
@@ -263,6 +265,7 @@ func refresh_role() -> void:
 		controller.intent_source = null
 		controller.set_physics_process(false)
 		reset_prediction()
+		_view = controller.get_view_angles()
 		return
 
 	if _predicting:
@@ -294,14 +297,14 @@ func _physics_process(delta: float) -> void:
 	if not _owns_locally():
 		return
 	if not _predicting:
-		_send_intent(true)
+		_send_intent()
 		return
 	if not controller.is_physics_processing():
 		# The match has parked this body -- a round break, a kill beat, a ghost
 		# settling. There is nothing to predict until it is woken, and the
 		# replicator mirrors it in the meantime.
 		reset_prediction()
-		_send_intent(false)
+		_send_intent()
 		return
 	if controller.net_floor >= 0:
 		# Mirrored while it was parked. Its own physics answers for it again.
@@ -310,7 +313,7 @@ func _physics_process(delta: float) -> void:
 	# tell the authority what it was asked to do, then take whatever answer
 	# arrived since and put the body right.
 	_record_tick()
-	_send_intent(true)
+	_send_intent()
 	if _has_pending_state:
 		_has_pending_state = false
 		_reconcile(delta)
@@ -378,6 +381,7 @@ func sample_state(out: PlayerState) -> void:
 	out.velocity = controller.velocity
 	out.yaw = controller.rotation.y
 	out.pitch = controller.head.rotation.x if controller.head != null else 0.0
+	out.view_base = controller.view_base
 	out.on_floor = controller.is_on_floor()
 	var power: RunnerPower = RunnerPower.of(controller)
 	out.ability = int(power.get_active()) if power != null else 0
@@ -416,6 +420,7 @@ func apply_state(state: PlayerState) -> void:
 	controller.global_position = state.position
 	controller.rotation.y = state.yaw
 	controller.velocity = state.velocity
+	_view_base = state.view_base
 	controller.net_floor = 1 if state.on_floor else 0
 	controller.net_slide = 1 if state.sliding else 0
 	controller.net_crouch = 1 if state.crouching else 0
@@ -484,8 +489,7 @@ func _participant() -> MatchParticipant:
 
 # --- Sending ------------------------------------------------------------------
 
-## [param acted]: the body turned by this intent, so its look joins [member _look_total].
-func _send_intent(acted: bool) -> void:
+func _send_intent() -> void:
 	if local_source == null or not session.is_established():
 		return
 	# A predicting body has already polled the source on this tick, through the
@@ -493,19 +497,21 @@ func _send_intent(acted: bool) -> void:
 	# input the body never acted on.
 	if _predicting:
 		_scratch_intent.copy_from(controller.get_intent())
+		var view: Vector2 = controller.get_view_angles()
+		_scratch_intent.view_angles = Vector2(wrapf(view.x - _view_base, -PI, PI), view.y)
 	else:
 		_scratch_intent.copy_from(local_source.poll(get_physics_process_delta_time()))
+		_view = controller.turned_view(_view, _scratch_intent.look_delta)
+		_scratch_intent.view_angles = _view
+	# The view goes as absolute angles, Quake's usercmd: a lost packet costs no aim.
+	_scratch_intent.view_absolute = true
+	_scratch_intent.look_delta = Vector2.ZERO
 	_scratch_intent.normalise()
-	if acted:
-		_look_total = Vector2(
-			fposmod(_look_total.x + _scratch_intent.look_delta.x, TAU),
-			fposmod(_look_total.y + _scratch_intent.look_delta.y, TAU),
-		)
 	var redundancy: int = clampi(
 		session.get_settings().intent_redundancy, 1, NetCodec.MAX_INTENT_REDUNDANCY
 	)
 	_remember_intent(_scratch_intent, redundancy)
-	_last_packet = NetCodec.pack_intents(_tick, _recent_intents, _recent_count, _look_total)
+	_last_packet = NetCodec.pack_intents(_tick, _recent_intents, _recent_count)
 	rpc_id(session.get_authority_peer_id(), &"_receive_intent", _last_packet)
 
 
@@ -583,14 +589,7 @@ func accept_intent_payload(sender_id: int, payload: PackedByteArray) -> void:
 	if count == 0:
 		return
 
-	var limit: float = settings.max_look_delta_radians
 	var source: RemoteIntentSource = _ensure_remote_source()
-	source.max_look_delta = limit
-	# The packet's look total is through its newest intent; walk it back to each older one.
-	var look: Vector2 = NetCodec.unpack_intent_look_total(payload)
-	for i: int in range(count - 1, 0, -1):
-		if NetCodec.unpack_intent_at(payload, i, _scratch_intent) >= 0:
-			look -= _scratch_intent.look_delta
 	var newest: int = -1
 	# Oldest first. The repeats the authority has already had are refused by
 	# accept(); the ones it missed fill the hole the dropped packet left.
@@ -598,13 +597,10 @@ func accept_intent_payload(sender_id: int, payload: PackedByteArray) -> void:
 		var tick: int = NetCodec.unpack_intent_at(payload, i, _scratch_intent)
 		if tick < 0:
 			continue
-		if i > 0:
-			look += _scratch_intent.look_delta
-		_scratch_intent.look_delta = _scratch_intent.look_delta.clampf(-limit, limit)
 		if not settings.accept_remote_ability_slot:
 			# A dev test key, and a power picked this way skips the rules.
 			_scratch_intent.ability_slot = 0
-		if source.accept(tick, _scratch_intent, look):
+		if source.accept(tick, _scratch_intent):
 			newest = tick
 	if newest >= 0:
 		intent_received.emit(sender_id, newest)
@@ -651,15 +647,13 @@ func _write_result(entry: PredictedTick) -> void:
 ## Rewind to the authority's state, replay what it has not seen, and hand the
 ## difference to the view.
 ##
-## The POSITION rewound to is the authority's. The AIM rewound to is this
-## machine's own, recorded at the same tick: yaw is the player's own integration
-## of the look deltas the authority is integrating too, so taking it off a
-## snapshot would drag the mouse a round trip into the past thirty times a
-## second. It must still be rewound to something, though -- the replay turns by
-## every unacknowledged look delta again, and a replay that starts from the yaw
-## it has already reached turns the player twice for every correction.
+## The POSITION rewound to is the authority's; the AIM is this machine's own,
+## the view it sends, turned by whatever facing the match has set since.
 func _reconcile(delta: float) -> void:
 	_apply_presentation(_pending_state)
+	var rebase: float = angle_difference(_view_base, _pending_state.view_base)
+	_view_base = _pending_state.view_base
+	controller.rotation.y = wrapf(controller.rotation.y + rebase, -PI, PI)
 	var acked: int = _pending_state.last_intent_tick
 	if acked < 0:
 		# The authority has run none of this client's input yet. There is
@@ -691,15 +685,7 @@ func _reconcile(delta: float) -> void:
 	var before: Vector3 = controller.global_position
 	controller.global_position = _pending_state.position
 	controller.velocity = _pending_state.velocity
-	# Whose facing to rewind to. In steady running it is this machine's own,
-	# recorded at the same tick, because yaw is the player's own integration of
-	# the look deltas the authority is integrating too and taking it off a
-	# snapshot would drag the mouse a round trip into the past thirty times a
-	# second. After an event the authority has re-placed the body and its facing
-	# is a fact about the match, so that one is taken instead -- and the replay
-	# turns it by every unacknowledged look delta again, so being shoved never
-	# also takes the mouse.
-	controller.rotation.y = _pending_state.yaw if snapped else predicted.yaw
+	controller.rotation.y = wrapf(predicted.yaw + rebase, -PI, PI)
 	controller.restore_motion_state(predicted.motion)
 	# The replayed ticks are this body's own past. Their signals were heard when
 	# they happened; heard again they would fire the last hundred milliseconds
@@ -739,24 +725,10 @@ func _first_unacknowledged(acked: int) -> int:
 ## buffer straddles but does not hold. A correction that is merely LARGE is not
 ## one of these -- see [method _reconcile].
 func _snap_to(state: PlayerState) -> void:
-	# The turning done since the authority sampled this is still the player's.
-	# The yaw comes back from the authority -- a body the match has re-placed is
-	# facing where the match put it -- and the unacknowledged look deltas are
-	# turned onto it again, so being shoved never also takes the mouse.
-	var turned: float = _unacknowledged_yaw(state.last_intent_tick)
+	# The view stays the player's own, already turned by any facing the match set.
 	reset_prediction()
 	controller.global_position = state.position
 	controller.velocity = state.velocity
-	controller.rotation.y = state.yaw - turned
-
-
-## Yaw the player has asked for since [param acked_tick], in radians of
-## [method Node3D.rotate_y] input.
-func _unacknowledged_yaw(acked_tick: int) -> float:
-	var turned: float = 0.0
-	for i: int in range(_first_unacknowledged(acked_tick), _predicted_count):
-		turned += _slot(i).intent.look_delta.x
-	return turned
 
 
 ## Add to the error the view still owes, capped so a snap-sized mistake that

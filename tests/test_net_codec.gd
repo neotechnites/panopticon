@@ -24,7 +24,7 @@ const NAME_CAP: int = 8
 func _make_intent() -> MoveIntent:
 	var intent: MoveIntent = MoveIntent.new()
 	intent.move_direction = Vector2(0.6, -0.8)
-	intent.look_delta = Vector2(0.125, -0.0625)
+	intent.view_angles = Vector2(0.125, -0.0625)
 	intent.jump_pressed = true
 	intent.jump_held = false
 	intent.slide_pressed = false
@@ -63,7 +63,8 @@ func test_an_intent_survives_the_round_trip() -> void:
 	var got: MoveIntent = MoveIntent.new()
 	assert_eq_int(NetCodec.unpack_intent(packed, got), 4242, "the tick comes back")
 	assert_vec2_eq(got.move_direction, sent.move_direction, "move direction")
-	assert_vec2_eq(got.look_delta, sent.look_delta, "look delta")
+	assert_vec2_eq(got.view_angles, sent.view_angles, "view angles")
+	assert_true(got.view_absolute, "the wire's view is absolute")
 	assert_true(got.jump_pressed, "jump_pressed")
 	assert_false(got.jump_held, "jump_held")
 	assert_false(got.slide_pressed, "slide_pressed")

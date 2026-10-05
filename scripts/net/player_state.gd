@@ -48,6 +48,10 @@ var yaw: float = 0.0
 ## not look where it shoots reads as broken.
 var pitch: float = 0.0
 
+## [member PlayerController.view_base]: yaw the match turned this body by on top of its
+## owner's view. Its owner adds it to the view it predicts, as Quake 3's delta_angles.
+var view_base: float = 0.0
+
 ## Whether the authority had this body on the floor. Drives footsteps and
 ## landing effects on remote machines, which otherwise have to guess from a
 ## position delta and guess wrong on ramps.
@@ -97,6 +101,7 @@ func clear() -> void:
 	velocity = Vector3.ZERO
 	yaw = 0.0
 	pitch = 0.0
+	view_base = 0.0
 	on_floor = false
 	ability = 0
 	ability_remaining = 0.0
@@ -117,6 +122,7 @@ func copy_from(other: PlayerState) -> void:
 	velocity = other.velocity
 	yaw = other.yaw
 	pitch = other.pitch
+	view_base = other.view_base
 	on_floor = other.on_floor
 	ability = other.ability
 	ability_remaining = other.ability_remaining
@@ -154,6 +160,7 @@ func interpolate_from(from: PlayerState, to: PlayerState, weight: float) -> void
 	jump_counter = to.jump_counter
 	sliding = to.sliding
 	crouching = to.crouching
+	view_base = to.view_base
 	position = from.position.lerp(to.position, t)
 	velocity = from.velocity.lerp(to.velocity, t)
 	yaw = lerp_angle(from.yaw, to.yaw, t)

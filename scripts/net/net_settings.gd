@@ -164,20 +164,6 @@ extends Resource
 ## a pulled cable as a movement tech.
 @export_range(2, 120, 1) var stale_intent_ticks: int = 12
 
-## Largest per-tick look delta the authority will accept from a client, in
-## radians.
-##
-## A client's packet is hostile input. [NetCodec] rejects a malformed one and
-## rejects NaN; a well-formed packet claiming a thousand radians of yaw in one
-## tick is what an aimbot sends, and it is clamped here because the sane range
-## is a gameplay question the codec has no business knowing.
-##
-## PI is a half turn in a single tick -- beyond any real flick, and still short
-## of a rotation large enough to alias the yaw. Note the limit of this: it
-## bounds ONE tick. Sustained impossible movement is a server-side movement
-## audit and is not implemented.
-@export_range(0.1, 12.566, 0.001) var max_look_delta_radians: float = PI
-
 ## Authority ticks a client holds a snapshot before drawing it: the jitter
 ## buffer's floor.
 ##
