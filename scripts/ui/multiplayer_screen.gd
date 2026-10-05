@@ -37,6 +37,7 @@ const CUSTOM_ID: int = -1
 @onready var _lobby_title: Label = %LobbyTitle
 @onready var _player_list: VBoxContainer = %PlayerList
 @onready var _preset_option: OptionButton = %PresetOption
+@onready var _map_option: OptionButton = %MapOption
 @onready var _prisoner_count_spin: SpinBox = %PrisonerCountSpin
 @onready var _rules_summary: Label = %RulesSummary
 @onready var _ready_toggle: CheckButton = %ReadyToggle
@@ -67,6 +68,7 @@ func _ready() -> void:
 	_join_button.pressed.connect(func() -> void: join_game())
 	_preset_option.item_selected.connect(_on_preset_selected)
 	_prisoner_count_spin.value_changed.connect(_on_prisoner_count_changed)
+	_map_option.item_selected.connect(_on_map_selected)
 	_ready_toggle.toggled.connect(func(pressed: bool) -> void: set_ready(pressed))
 	_start_match_button.pressed.connect(func() -> void: start_match())
 	_leave_button.pressed.connect(leave)
@@ -340,6 +342,11 @@ func _configure_controls() -> void:
 		_preset_option.add_item(tr(presets[index].title), index)
 	_preset_option.add_item(tr("MP_CUSTOM"), CUSTOM_ID)
 	_preset_option.set_item_disabled(_preset_option.item_count - 1, true)
+	_map_option.clear()
+	var maps: Array[MapDefinition] = MapCatalog.all()
+	for map_index: int in maps.size():
+		if maps[map_index] != null:
+			_map_option.add_item(maps[map_index].title, map_index)
 
 
 func _on_name_changed(text: String) -> void:
@@ -360,6 +367,17 @@ func _on_preset_selected(index: int) -> void:
 	select_preset(presets[id].id)
 
 
+func _on_map_selected(index: int) -> void:
+	if _syncing or not is_host():
+		return
+	var maps: Array[MapDefinition] = MapCatalog.all()
+	var id: int = _map_option.get_item_id(index)
+	if id < 0 or id >= maps.size() or maps[id] == null:
+		return
+	_store.settings.map_id = maps[id].id
+	_publish_rules()
+
+
 func _on_prisoner_count_changed(value: float) -> void:
 	if _syncing:
 		return
@@ -376,6 +394,7 @@ func _show_lobby(in_lobby: bool) -> void:
 		_start_match_button.visible = host
 		_prisoner_count_spin.editable = host
 		_preset_option.disabled = not host
+		_map_option.disabled = not host
 
 
 func _render_addresses(port: int) -> void:
@@ -450,6 +469,7 @@ func _render_rules() -> void:
 	var presets: Array[MatchPresets.Preset] = MatchPresets.all()
 	_syncing = true
 	_prisoner_count_spin.value = float(_rules.prisoner_count)
+	_map_option.selected = _index_of(_map_option, MapCatalog.index_of(_rules.map_id))
 	_preset_option.selected = _index_of(_preset_option, presets.find(found) if found != null else CUSTOM_ID)
 	_syncing = false
 	_rules_summary.text = tr("MP_RULES_SUMMARY").format({
