@@ -86,7 +86,7 @@ func test_one_finale_shove_throws_the_guard_out_and_the_round_turns_over() -> vo
 	var forward: Vector3 = -finisher.body.global_transform.basis.z
 	forward = Vector3(forward.x, 0.0, forward.z).normalized()
 	var ordinary: Vector3 = forward * _rules.shove_impulse + Vector3.UP * _rules.shove_up_impulse
-	assert_vec3_almost_eq(_beat_throw, ordinary * 1.5, 0.01, "thrown at one and a half times an ordinary shove")
+	assert_vec3_almost_eq(_beat_throw, ordinary * 2.0, 0.01, "thrown at twice an ordinary shove")
 	assert_true(_controller.is_tower_open(), "the tower's collision is off on the shove")
 	for wall: Node in walls:
 		assert_eq_int((wall as StaticBody3D).collision_layer, MatchController.OPEN_TOWER_LAYER, "%s is off" % wall.name)

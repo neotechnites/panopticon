@@ -46,8 +46,9 @@ background_mode = 2
 sky = SubResource("Sky")
 ambient_light_source = 2
 ambient_light_color = Color(0.64, 0.38, 0.33, 1)
-ambient_light_energy = 0.4
+ambient_light_energy = 0.6
 tonemap_mode = 1
+tonemap_white = 2.0
 
 [node name="BenthamRing" type="Node3D" unique_id=1690039206]
 editor_description = "THE BENTHAM RING, one level, built on maps/bentham_ring/models/map_base_*.glb -- deck annulus r=44 to r=60 at y=23.0, pit wall down to the courtyard at y=-11.0, outer wall up to the rim. The model ships its own collision, so this generator adds no deck CSG, walls, ramps or trench for it: only the tower, cover, traps, pits, lights and markers.
@@ -598,7 +599,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.95, 0)
 editor_description = "Hell's key: fire from above, 50 deg below horizontal, so every face is lit or shaded and the rock reads; ambient is only fill. No shadows: the gallery ceiling would black out the whole lap."
 transform = Transform3D(0.819152, -0.439385, 0.368688, 0, 0.642788, 0.766044, -0.573576, -0.627507, 0.526541, 0, 20, 0)
 light_color = Color(1, 0.42, 0.25, 1)
-light_energy = 0.37
+light_energy = 2.9
 shadow_bias = 0.08
 directional_shadow_mode = 0
 directional_shadow_max_distance = 180.0
@@ -607,7 +608,7 @@ directional_shadow_max_distance = 180.0
 editor_description = "The key's weaker opposite: the side of every rock the KeyLight misses still shows its facets above the ambient fill. No shadows."
 transform = Transform3D(-0.819152, 0.32899, -0.469846, 0, 0.819152, 0.573576, 0.573576, 0.469846, -0.67101, 0, 20, 0)
 light_color = Color(1, 0.42, 0.25, 1)
-light_energy = 0.19
+light_energy = 1.45
 
 [node name="HellFlood" type="OmniLight3D" parent="Tower" unique_id=1424319747]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 300, 0)
