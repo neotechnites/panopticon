@@ -3,7 +3,8 @@ extends "res://tools/capture/stages/stage.gd"
 ## trailer_marble_track (5b): the guard at marble's 126 deg window, scoped in, tracks three runners
 ## past five inner-edge columns (this shot's own, v5's set); swings from one to the next, no shot.
 ## probe_ring --map=marble --eye=126:5.6:5.8: r 48.6-52 open 118-140 bar the columns in front.
-## Dials: start (106.5), zoom (0.8), swing (clip s the hand leaves the lead, 2.4).
+## Dials: start (106.5), zoom (0.8), swing (clip s the hand leaves the lead, 2.4), fire (clip s: the hand
+## rides the man behind from the start and squeezes on him then; -1 no shot: 5b), lead (1.0).
 
 const GUARD_HAND := preload("res://tools/capture/stages/guard_hand.gd")
 const COLUMNS := preload("res://tools/capture/stages/trailer_marble_column.gd")
@@ -33,6 +34,10 @@ func tune_rules(rules: MatchRules) -> void:
 	rules.map_id = &"marble"
 	rules.guard_projectile_speed = 0.0
 	rules.ghost_behaviour = MatchRules.GhostBehaviour.NONE
+	if _fires():
+		rules.base_reload_seconds = 1.0
+		# The shipped rule: a shot man goes limp where he was hit, not parked out of the world.
+		rules.ghost_behaviour = MatchRules.GhostBehaviour.CATCH_AND_SWAP
 
 
 func before_start() -> void:
@@ -69,6 +74,11 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 		drive(runners[index], steps, index)
 		_bodies.append(runners[index].controller)
 	stage_body(_bodies[FIRST])
+	if _fires():
+		for index: int in range(3):
+			if index != SECOND:
+				LIB.hide_from_the_rifle(_bodies[index])
+		victim_body(_bodies[SECOND])
 	say("trailer_marble_track: three from %.1f deg past the columns" % start)
 	return true
 
@@ -105,8 +115,28 @@ func _raise_the_hand() -> void:
 	_hand.install(_guard, controller(), elapsed())
 	_hand.start_at = elapsed() + 0.1
 	_hand.park = LIB.ring_point(float(option("start", 106.5)) + 6.0, 50.0, 1.0)
-	_hand.beats.append({"body": _bodies[FIRST], "seconds": float(option("swing", 2.4)) - _hand.start_at})
-	_hand.beats.append({"body": _bodies[SECOND], "seconds": 100.0})
+	if _fires():
+		# One man from the start: the lead is read off a speed the eye has measured the whole way.
+		_hand.beats.append({"body": _bodies[SECOND], "seconds": 100.0, "watch": true,
+			"fire_at": float(option("fire", -1.0)) - _hand.start_at, "lead": float(option("lead", 1.0))})
+	else:
+		_hand.beats.append({"body": _bodies[FIRST], "seconds": float(option("swing", 2.4)) - _hand.start_at})
+		_hand.beats.append({"body": _bodies[SECOND], "seconds": 100.0})
+	if OS.has_environment("STAGE_DEBUG") and controller().rifle != null:
+		controller().rifle.target_hit.connect(func(c: Node3D, at: Vector3, _n: Vector3) -> void:
+			say("round struck %s at %.1f deg r %.2f y %.2f" % [c.name if c != null else "?", LIB.bearing_of(at), LIB.radius_of(at), at.y]))
+
+
+func _fires() -> bool:
+	return float(option("fire", -1.0)) >= 0.0
+
+
+func on_hit(collider: Node3D) -> void:
+	say("round hit %s" % (collider.name if collider != null else "nothing"))
+
+
+func on_out(participant: MatchParticipant) -> void:
+	say("out: %s at %.1f deg r %.1f" % [participant.body.name, LIB.bearing_of(participant.body.global_position), LIB.radius_of(participant.body.global_position)])
 
 
 func lens(_delta: float) -> bool:

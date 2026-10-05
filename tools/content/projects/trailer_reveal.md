@@ -14,6 +14,7 @@ alt: rough_v22_vivaldi (v22's picture with Vivaldi, Summer RV 315 III. Presto fr
 alt: rough_v23 (every shot refilmed on main 9c1502c, Vivaldi with the re-entry after the silence on the title card; ## script rough_v23)
 alt: rough_v24_castcadia (v24 picture, music audition, UNLICENSED, private evaluation only: CASTCADIA, ZEROCORE (castcadia.bandcamp.com/track/zerocore), stretched 171.9 -> 170 bpm, drop on the title card; ## script rough_v24_castcadia)
 alt: rough_v24_mil3sperhour (v24 picture, music audition, UNLICENSED, private evaluation only: MIL3SPERHOUR, RIVER RUINS (soundcloud.com/mil3sperhour/river-ruins), 170 bpm, drop on the title card; ## script rough_v24_mil3sperhour)
+alt: rough_v25_vivaldi (the Vivaldi cut with every cut and event on the recording's measured beats: trailer_reveal.vivaldi_beats.csv; ## script rough_v25_vivaldi)
 alt: rough_v24_yet (v24 picture, music audition, UNLICENSED, private evaluation only: YET soundsystem, SIBERIA (yetsoundsystem.bandcamp.com/track/siberia), stretched 164.7 -> 170 bpm, drop on the title card; ## script rough_v24_yet)
 music_vivaldi: The Modena Chamber Orchestra (Musopen), Vivaldi's Summer RV 315 III. Presto, Public Domain Mark (owner), https://commons.wikimedia.org/wiki/File:The_Modena_Chamber_Orchestra_-_Vivaldi%27s_Summer,_RV_315_-_III._Presto.ogg -> external\src\modena_summer_presto.ogg, voice\vivaldi_summer_presto.flac (head trimmed 2.60 s: the re-entry after the silence lands on the title card at 5.70 s; the first alignment is voice\vivaldi_summer_presto_beat5298.flac).
 size: 1920x1080
@@ -217,6 +218,25 @@ seconds: 1.8
 in: 2.96
 freeze: waive
 # rough_v20_green: shot 9b in the green forest (forest_green.tscn, same geometry), same stage and tape
+
+## 1v
+said: v25 "first thing to do for it, extend the first shot a little further so we can start the song like on second earlier."
+capture: --shot=s3_open_lane --stage=trailer_open --pov=guard --hud=crosshair --bots=3 --rifle=projectile --set=fire_at=3.24 --seed=20261001
+tape: open
+seconds: 4.8
+in: 0.75
+freeze: waive
+# rough_v25_vivaldi: shot 1 on a longer window (take 0.75-5.55), same stage and tape; cuts/01.mp4 stays v24's
+
+## 5h
+said: v25 "then, in the marble runnign shot, have someone get hit, again, on the beat."
+capture: --map=marble --shot=pack_lead --stage=trailer_marble_track --bots=3 --pov=guard --hud=crosshair --rifle=projectile --set=fire=2.6 --seed=20261001
+tape: marble_hit
+seconds: 3.0
+in: 1.8
+freeze: waive
+# rough_v25_vivaldi: 5b restaged with a real rifle hit. The hand rides the man behind (Runner_2) from the start; squeeze 2.62 as he
+# nears the 126 column, the round meets him in the gap at 128.0 deg (hit 2.97), the shipped ghost rule (he goes limp). 5b keeps its tape.
 
 ## reshoot
 # Every shot is a stage (tools/capture/stages/) played from its tape (tools/content/projects/trailer_reveal/tapes/<tape>.json):
