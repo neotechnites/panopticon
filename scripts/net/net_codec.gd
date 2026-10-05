@@ -69,8 +69,8 @@ const INTENT_SIZE: int = INTENT_HEADER_SIZE + INTENT_BODY_SIZE
 ## Most intents one packet may carry. See [method pack_intents].
 const MAX_INTENT_REDUNDANCY: int = 4
 
-## Bytes of snapshot header: u32 tick, u8 body count.
-const SNAPSHOT_HEADER_SIZE: int = 5
+## Bytes of snapshot header: u32 tick, u32 scene, u8 body count.
+const SNAPSHOT_HEADER_SIZE: int = 9
 
 ## Bytes per body inside a snapshot: u8 seat, 3 i16 of position, 3 i16 of
 ## velocity, u16 yaw, i16 pitch, 1 flag byte, u8 running ability, u8 tenths left
@@ -299,6 +299,7 @@ static func unpack_intent_at(payload: PackedByteArray, index: int, out: MoveInte
 static func pack_snapshot(snapshot: WorldSnapshot) -> PackedByteArray:
 	var buffer: StreamPeerBuffer = StreamPeerBuffer.new()
 	buffer.put_u32(snapshot.tick % TICK_MODULUS)
+	buffer.put_u32(snapshot.scene & 0xFFFFFFFF)
 	buffer.put_u8(snapshot.count)
 	for i: int in snapshot.count:
 		var state: PlayerState = snapshot.states[i]
@@ -345,6 +346,7 @@ static func unpack_snapshot(payload: PackedByteArray, out: WorldSnapshot) -> boo
 	var buffer: StreamPeerBuffer = StreamPeerBuffer.new()
 	buffer.data_array = payload
 	var tick: int = buffer.get_u32()
+	var scene: int = buffer.get_u32()
 	var count: int = buffer.get_u8()
 	if count > NetTransport.MAX_PLAYERS:
 		return false
@@ -353,6 +355,7 @@ static func unpack_snapshot(payload: PackedByteArray, out: WorldSnapshot) -> boo
 
 	out.clear()
 	out.tick = tick
+	out.scene = scene
 	for _i: int in count:
 		var state: PlayerState = out.next_slot()
 		var seat_index: int = buffer.get_u8()

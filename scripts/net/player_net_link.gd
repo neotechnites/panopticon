@@ -69,6 +69,9 @@ extends Node
 ## far to replay and the body was moved whole. Telemetry; nothing reacts to it.
 signal prediction_corrected(metres: float, snapped: bool)
 
+## A client took the authority's first state for this body: until then it neither simulates nor counts as placed.
+signal placed()
+
 ## The authority accepted an intent packet for this seat. Authority-only. The
 ## seam for telemetry, input logging and a future server-side movement audit.
 signal intent_received(peer_id: int, tick: int)
@@ -197,6 +200,9 @@ var _tick: int = 0
 ## through a frame.
 var _is_authority: bool = false
 
+## True once the authority's state for this body has landed on this machine; the authority places its own.
+var _placed: bool = false
+
 ## How many times this body has jumped. An edge has no state to read back off
 ## the controller, so it is counted off the signal; the count goes out and is
 ## never cleared, which is what lets a mirror notice a jump whose snapshot was
@@ -251,6 +257,7 @@ func refresh_role() -> void:
 	_is_authority = session.is_authority()
 	_predicting = (
 		not _is_authority
+		and _placed
 		and _owns_locally()
 		and local_source != null
 		and session.get_settings().predict_local_body
@@ -259,8 +266,9 @@ func refresh_role() -> void:
 	controller.net_predicted = _predicting
 	if not _is_authority and not _predicting:
 		# Somebody else's body on a client owns no simulation. Leaving its
-		# physics running would fight every snapshot that arrives.
-		controller.intent_source = null
+		# physics running would fight every snapshot that arrives. Our own unplaced body keeps its source.
+		if not _owns_locally():
+			controller.intent_source = null
 		controller.set_physics_process(false)
 		reset_prediction()
 		return
@@ -422,6 +430,10 @@ func apply_state(state: PlayerState) -> void:
 	if controller.head != null:
 		controller.head.rotation.x = state.pitch
 	_present_events(state)
+	if not _placed:
+		_placed = true
+		refresh_role()
+		placed.emit()
 
 
 ## The half of a state that is drawn rather than simulated: the power, the
