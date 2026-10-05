@@ -31,7 +31,7 @@ const RAW_ALLOWLIST: Array[String] = ["PANOPTICON"]
 ## A quoted token counts as a key only under one of these namespaces.
 const KEY_PREFIXES: Array[String] = [
 	"MENU_", "PAUSE_", "COMMON_", "DEATH_", "RESULT_", "ROUND_", "SETUP_",
-	"MP_", "SETTINGS_", "KEYBIND_", "HUD_", "HUB_", "MAP_",
+	"MP_", "SETTINGS_", "KEYBIND_", "HUD_", "HUB_", "MAP_", "DEBUG_",
 ]
 
 ## Trailing comment that marks a dev-only readout left raw on purpose.

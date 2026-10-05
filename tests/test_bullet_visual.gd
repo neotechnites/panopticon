@@ -78,6 +78,8 @@ func before_each() -> void:
 	_world.add_child(floor_body)
 
 	_profile = TestFixtures.weapon_profile()
+	# Bullet drop is its own setting (d303cc3); these rigs measure a straight line.
+	_profile.projectile_gravity = 0.0
 	_rules = TestFixtures.match_rules()
 
 	_rifle = (load(TestFixtures.RIFLE_SCENE_PATH) as PackedScene).instantiate() as Rifle

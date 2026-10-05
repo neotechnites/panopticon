@@ -33,33 +33,19 @@ extends TestCase
 ##
 ## [b]What this file therefore asserts[/b] is what the importer produced, on the
 ## resource the game loads: a mip chain on every sheet, the one filter that uses
-## it, and eleven sheets still there.
+## it, and every sheet still there.
 
 ## The tower as the game loads it: the imported .glb. Not the PNGs on disk --
 ## those were never the thing that was wrong.
 const TOWER_PATH: String = "res://maps/marble/models/marble_tower.glb"
 
-## How many albedo sheets the tower ships. Eleven material classes, one tiling
-## sheet each (band, coffer, column, dome, floor, iron, marble2, plain,
-## plinth, shade, stone), one texture apiece -- the count the contract in
-## tools/modelling/maps/marble/marble_tower.contract.json calls "ELEVEN surfaces". An import
-## change that quietly folds two together, or drops one, is a change to the art,
-## and this number is how that gets noticed instead of shipping.
-const SHEET_COUNT: int = 11
+## How many distinct albedo sheets the tower ships: since Marble's tile set was cut to six
+## (14e63eb, the dome brick since 3a8223c) its classes share four tile PNGs.
+const SHEET_COUNT: int = 4
 
-## The only filter the tower may ship, and the whole fix.
-##
-## [b]NEAREST must survive.[/b] Magnification is the art's deliberate pixel
-## look: close up, a texel is meant to be a visible square, and LINEAR would
-## smear the masonry into porridge and throw away the model's style to fix a
-## problem it does not have. Only MINIFICATION was ever broken, and mipmaps are
-## the part that fixes it. ANISOTROPIC is here because the shaft is a near-
-## vertical cylinder seen almost edge-on from the lane: its texels are minified
-## hard round the silhouette and barely at all up the axis, and an isotropic mip
-## choice has to serve both with one level, blurring the courses to kill the
-## crawl. So: nearest when magnified, mipmapped when minified, anisotropic about
-## which mip.
-const REQUIRED_FILTER: int = BaseMaterial3D.TEXTURE_FILTER_NEAREST_WITH_MIPMAPS_ANISOTROPIC
+## The only filter the tower may ship: mipmapped minification, bilinear magnification,
+## by Ryan's standing order of a soft filter on every map (582fc02).
+const REQUIRED_FILTER: int = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
 
 ## Every texture filter by its own enum value, so a failure says which filter is
 ## set rather than printing a bare integer at whoever has to read it. Keyed off
@@ -154,14 +140,7 @@ func test_every_sheet_carries_a_mip_chain() -> void:
 
 # --- The filter ---------------------------------------------------------------
 
-## Minified through the mip chain, magnified nearest.
-##
-## The chain existing is half of it; being read is the other half. Every
-## material on the tower must ask for
-## [constant BaseMaterial3D.TEXTURE_FILTER_NEAREST_WITH_MIPMAPS_ANISOTROPIC] --
-## see [constant REQUIRED_FILTER] for why each of those three words is load-
-## bearing, and in particular why NEAREST is not the bug and must not be
-## "fixed" to LINEAR.
+## Minified through the mip chain, magnified bilinear (see [constant REQUIRED_FILTER]).
 func test_minification_is_mipmapped_and_magnification_is_nearest() -> void:
 	if _sheets.is_empty():
 		fail("no textured materials on the tower to check")
@@ -172,7 +151,7 @@ func test_minification_is_mipmapped_and_magnification_is_nearest() -> void:
 		var filter: int = int(material.texture_filter)
 		assert_eq_int(
 			filter, REQUIRED_FILTER,
-			"%s: filter is %s, wanted %s -- minification has to read the mip chain, and NEAREST has to survive that fix: magnification is the art's deliberate pixel look, and only minification was ever broken" % [
+			"%s: filter is %s, wanted %s -- minification has to read the mip chain, and every map filters bilinear" % [
 				_name_of(material), _filter_name(filter), wanted,
 			],
 		)
@@ -182,7 +161,7 @@ func test_minification_is_mipmapped_and_magnification_is_nearest() -> void:
 
 # --- The inventory ------------------------------------------------------------
 
-## The tower still ships all eleven sheets.
+## The tower still ships all its sheets.
 ##
 ## Distinct albedo textures, counted by identity. The two tests above are both
 ## "every sheet ...", which a tower that lost ten of them would pass in silence;
