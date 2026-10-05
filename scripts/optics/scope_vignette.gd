@@ -64,6 +64,9 @@ const HEADLESS_DISPLAY: String = "headless"
 ## [code]weapons/scope_vignette.tscn[/code]; nothing here builds it.
 @export var overlay: Control
 
+## The crosshair drawn over [member overlay]; shown and faded with it.
+@export var reticle: ScopeReticle
+
 ## Go inert with no display server, exactly as the feedback rig's nodes do, so
 ## a headless bot match or a sweep pays nothing at all for this.
 @export var headless_inert: bool = true
@@ -99,6 +102,8 @@ var _applied_aspect: float = -1.0
 
 
 func _ready() -> void:
+	if reticle != null:
+		reticle.ads = ads
 	if headless_inert and DisplayServer.get_name() == HEADLESS_DISPLAY:
 		set_process(false)
 		_hide_overlay()
@@ -223,6 +228,9 @@ func _apply(amount: float) -> void:
 	# outright rather than blended at zero alpha, so the 99% of the match that
 	# is not aimed pays for no full-screen blend at all.
 	overlay.visible = amount > 0.0
+	if reticle != null:
+		reticle.visible = amount > 0.0
+		reticle.modulate.a = amount
 	if amount <= 0.0:
 		return
 
@@ -251,6 +259,8 @@ func _viewport_aspect() -> float:
 func _hide_overlay() -> void:
 	if overlay != null:
 		overlay.visible = false
+	if reticle != null:
+		reticle.visible = false
 	# Never leave a rifle hidden on a screen that is no longer aiming it.
 	if ads != null and ads.view_model != null:
 		ads.view_model.visible = true
