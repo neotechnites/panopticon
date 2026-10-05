@@ -72,6 +72,15 @@ func _ready() -> void:
 		_started = true
 		match_bound.emit(_session.is_authority())
 		return
+	# The controller installs the chosen map on the scene's ready, after this node's.
+	if controller.is_armed():
+		_bind_match()
+	else:
+		controller.armed.connect(_bind_match, CONNECT_ONE_SHOT)
+
+
+## Bodies, the opening, and the start or the launch acknowledgement, on a map that stands.
+func _bind_match() -> void:
 	_build_bodies()
 	_apply_opening()
 	if _session.is_authority():

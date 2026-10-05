@@ -165,6 +165,9 @@ enum Outcome {
 ## starts. Carries how many players are in it.
 signal match_started(participant_count: int)
 
+## The chosen map is installed and the rifle wired: a match may start from here on.
+signal armed()
+
 ## Emitted when the opening race is armed: no shooter, everyone on the ring.
 signal race_started()
 
@@ -569,6 +572,7 @@ var _route: RingRoute = null
 var _route_is_ours: bool = false
 
 var _geometry_ready: bool = false
+var _armed: bool = false
 
 ## Seat-indexed bodies handed in by the net layer; empty means solo (player + bots).
 var _net_bodies: Array[PlayerController] = []
@@ -642,8 +646,15 @@ func _arm() -> void:
 		return
 	rifle.target_hit.connect(_on_target_hit)
 	rifle.missed.connect(_on_rifle_missed)
+	_armed = true
+	armed.emit()
 	if auto_start:
 		start_match()
+
+
+## True once [signal armed] has fired.
+func is_armed() -> bool:
+	return _armed
 
 
 ## Wakes the bodies the last arming placed, once the physics server has caught
