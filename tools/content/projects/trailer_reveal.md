@@ -247,6 +247,16 @@ in: 2.75
 freeze: waive
 # rough_v25_vivaldi: 10b on a longer window (take 2.75-5.95), same stage and tape: the shot holds on him to the next downbeat
 
+## 7v
+said: v25a "the shot with the cover doesnt read anymore. they peak out, cut straight to the shot, where the player isnt even in fram. for it to read right, the player has to be in frame and we need to watch the dodge."
+capture: --shot=cover_side --stage=trailer_duel2 --bots=1 --pov=guard --hud=crosshair --rifle=projectile --set=kick=0.3 --seed=20261001
+tape: duel_dodge
+seconds: 2.4
+in: 3.0
+freeze: waive
+# rough_v25_vivaldi: 7 with the scope held down through the shot (the hand's kick 0.3, as the marble scope): he stands in the open under
+# the crosshair, bolts for the rock, the round lands on the ground he left. The runner and every time are the duel tape's; 7 keeps its tape.
+
 ## reshoot
 # Every shot is a stage (tools/capture/stages/) played from its tape (tools/content/projects/trailer_reveal/tapes/<tape>.json):
 # seed, map, rifle, spawns, every body's intent per physics tick, every outside write (place, launch, the guard's aim

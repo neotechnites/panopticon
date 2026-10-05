@@ -14,7 +14,7 @@ extends "res://tools/capture/stages/trailer_duel.gd"
 ## cover": the squeeze is on him in the open as he goes (lead 0); the round lands where he stood, the rock untouched.
 ## v22 (Ryan): the look left and the ring run "are clearly not the same shot, when they should be": the break is one
 ## carried move (stage_driver "carry"), the head swinging onto the lane as he goes; the look over at the tower follows.
-## Dials: at, peek_at (2.15), peek_seconds (0.5), peek_strafe (0.4), back_seconds (0.23), back_strafe (1.0), react (0.08 s after he moves: the squeeze), covered_seconds (1.55), break_to, window (70).
+## Dials: at, peek_at (2.15), peek_seconds (0.5), peek_strafe (0.4), back_seconds (0.23), back_strafe (1.0), react (0.08 s after he moves: the squeeze), covered_seconds (1.55), break_to, window (70), kick (1.0: the recoil's share; 0.3 keeps him and the ground he left in the scope through the miss).
 
 const AT: String = "68.8,50.6"
 const BREAK_TO: String = "100,49.0"
@@ -92,7 +92,7 @@ func _raise_the_hand() -> void:
 	_hand.name = "ClipGuardHand"
 	clip.root.add_child(_hand)
 	_hand.install(_guard, controller(), elapsed())
-	_hand.beats.append({"body": _runner, "seconds": 100.0, "fire_at": -1.0, "lead": 0.0})
+	_hand.beats.append({"body": _runner, "seconds": 100.0, "fire_at": -1.0, "lead": 0.0, "kick": float(option("kick", 1.0))})
 	_hand.park = LIB.ring_point(70.6, 49.0, 1.2)
 	_hand.start_at = elapsed() + 0.2
 	say("guard at the %.0f deg window %v; the hand holds on the rock's end" % [float(option("window", 70.0)), _guard.global_position])
