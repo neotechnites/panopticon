@@ -17,7 +17,7 @@ extends Node3D
 ## The fallback when every side-on spot is blocked: this high over the arc.
 @export_range(2.0, 60.0, 0.5) var wide_height: float = 14.0
 ## Share of the frame's height the guard is kept at, and the lens limits that may take.
-@export_range(0.05, 0.9, 0.01) var subject_share: float = 0.3
+@export_range(0.05, 0.9, 0.01) var subject_share: float = 0.15
 @export_range(10.0, 120.0, 1.0) var min_fov: float = 12.0
 @export_range(10.0, 120.0, 1.0) var max_fov: float = 70.0
 ## Where along the predicted arc (0 the hit, 1 the end of the beat) the camera is set against.
