@@ -154,6 +154,14 @@ var _intent: MoveIntent = MoveIntent.new()
 ## clamp cannot drift through repeated euler conversions.
 var _pitch: float = 0.0
 
+## Yaw the match has turned this body by on top of its owner's absolute view (Quake 3's
+## delta_angles): a spawn or teleport facing survives the view commands already in flight.
+var view_base: float = 0.0
+## Yaw the last absolute view put on the body, or NAN before one; a mismatch is a re-placement.
+var _aimed_yaw: float = NAN
+## Below this, radians, the body is where the last view put it.
+const _REPLACED_EPSILON: float = 0.0001
+
 ## Time left in which a jump is still allowed after leaving the ground.
 var _coyote_timer: float = 0.0
 ## Velocity a boost pad asked for, applied on the next physics tick. See launch().
@@ -271,7 +279,10 @@ func _physics_process(delta: float) -> void:
 	# Quake's PM_UpdateViewAngles runs ahead of the move for the same reason:
 	# a strafe turn must take effect on the frame the mouse moved, or the whole
 	# air-strafe technique fights a frame of input lag.
-	_apply_look(_intent.look_delta)
+	if _intent.view_absolute:
+		_aim_at(_intent.view_angles)
+	else:
+		_apply_look(_intent.look_delta)
 
 	var on_floor: bool = is_on_floor()
 	_tick_jump_timers(on_floor, delta)
@@ -611,13 +622,40 @@ func _apply_look(look_delta: Vector2) -> void:
 	# Yaw is unclamped and lives on the body, so basis vectors used for the wish
 	# direction rotate with the view for free.
 	rotate_y(-look_delta.x)
+	_set_pitch(turned_view(Vector2(0.0, _pitch), look_delta).y)
 
+
+## [param view] (yaw, pitch) turned by [param look_delta] under this body's profile: where a
+## mouse turn becomes an angle, for this body and for a client that sends its view.
+func turned_view(view: Vector2, look_delta: Vector2) -> Vector2:
 	var pitch_delta: float = look_delta.y if profile.invert_look_y else -look_delta.y
-	_pitch = clampf(
-		_pitch + pitch_delta,
-		deg_to_rad(profile.pitch_min_degrees),
-		deg_to_rad(profile.pitch_max_degrees),
-	)
+	return Vector2(wrapf(view.x - look_delta.x, -PI, PI), _clamp_pitch(view.y + pitch_delta))
+
+
+## This body's view as (yaw, head pitch), radians.
+func get_view_angles() -> Vector2:
+	return Vector2(rotation.y, _pitch)
+
+
+## Face an absolute view: yaw plus [member view_base], pitch clamped to the profile.
+func _aim_at(view: Vector2) -> void:
+	if is_nan(_aimed_yaw):
+		view_base = angle_difference(view.x, rotation.y)
+	else:
+		var moved: float = angle_difference(_aimed_yaw, rotation.y)
+		if absf(moved) > _REPLACED_EPSILON:
+			view_base = wrapf(view_base + moved, -PI, PI)
+	rotation.y = wrapf(view.x + view_base, -PI, PI)
+	_aimed_yaw = rotation.y
+	_set_pitch(view.y)
+
+
+func _clamp_pitch(pitch: float) -> float:
+	return clampf(pitch, deg_to_rad(profile.pitch_min_degrees), deg_to_rad(profile.pitch_max_degrees))
+
+
+func _set_pitch(pitch: float) -> void:
+	_pitch = _clamp_pitch(pitch)
 	if head != null:
 		head.rotation.x = _pitch
 

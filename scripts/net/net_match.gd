@@ -51,6 +51,8 @@ var _finisher_fire_was_held: bool = false
 ## object every time, so [method Signal.is_connected] cannot answer this.
 var _watched_rifles: Dictionary[int, bool] = {}
 var _bound: bool = false
+## The lobby epoch this scene was loaded for, or 0 before the lobby has named it.
+var _epoch: int = 0
 
 
 func _ready() -> void:
@@ -67,8 +69,8 @@ func _ready() -> void:
 	_bound = true
 	# Nothing of this scene is drawn until this machine's body has been placed in it.
 	_show_world(false)
-	if not _session.is_authority():
-		_session.replicator.bind_scene(_scene_id())
+	_lobby.roster_changed.connect(_bind_epoch)
+	_bind_epoch()
 	if hub_mode:
 		# No opening role, no event subscriptions and no ready handshake: a hub
 		# decides nothing, so there is nothing for a client to wait for.
@@ -107,16 +109,22 @@ func _exit_tree() -> void:
 	_show_world(true)
 
 
-## This scene's name on the wire: the same on every machine that loaded it, never 0.
-func _scene_id() -> int:
-	var path: String = owner.scene_file_path if owner != null else ""
-	return maxi(path.hash(), 1)
+## Stamp and accept only this scene's epoch, adopted the first time the lobby names this kind of
+## scene and dropped once it moves on: a client at once, the authority once it has placed bodies.
+func _bind_epoch() -> void:
+	if not is_inside_tree():
+		return
+	if _epoch == 0:
+		_epoch = _lobby.get_epoch_for(hub_mode)
+	if _session.is_authority() and not _started:
+		return
+	_session.replicator.bind_scene(_epoch if _lobby.get_epoch() == _epoch else 0)
 
 
 ## The authority has placed every body: what it sends from now on is this scene's.
 func _bind_placed() -> void:
 	if _session.is_authority():
-		_session.replicator.bind_scene(_scene_id())
+		_bind_epoch()
 		_show_world(true)
 
 
@@ -315,6 +323,8 @@ func _watch_rifle(weapon: Rifle, which: int) -> void:
 	if weapon == null or _watched_rifles.has(weapon.get_instance_id()):
 		return
 	_watched_rifles[weapon.get_instance_id()] = true
+	weapon.rewind_world = _session.replicator.rewind
+	weapon.restore_world = _session.replicator.restore
 	weapon.fired.connect(_on_rifle_fired.bind(weapon, which))
 	weapon.target_hit.connect(_on_rifle_hit.bind(which))
 	weapon.missed.connect(func(end_point: Vector3) -> void: _event(&"_ev_rifle_missed", [which, end_point]))
@@ -383,13 +393,18 @@ func _drive_trigger(who: MatchParticipant, weapon: Rifle, was_held: bool) -> boo
 	var pressed: bool = source.take_fire()
 	var held: bool = source.is_fire_held()
 	var charged: bool = weapon.profile != null and weapon.profile.charge_enabled
-	if charged:
-		if pressed:
-			weapon.begin_charge()
-		elif was_held and not held:
+	if charged and pressed:
+		weapon.begin_charge()
+	elif (charged and was_held and not held) or (not charged and (pressed or held) and weapon.can_fire()):
+		# The shot is traced against the world as this shooter was drawing it.
+		weapon.lag_ticks = _session.replicator.get_lag_ticks(
+			source.fire_view_tick if pressed else source.command.view_tick
+		)
+		if charged:
 			weapon.release_charge()
-	elif pressed or held:
-		weapon.try_fire()
+		else:
+			weapon.try_fire()
+		weapon.lag_ticks = 0
 	return held
 
 
@@ -494,23 +509,12 @@ func _on_seat_vacated(_seat_index: int, _peer_id: int) -> void:
 		_start_now.call_deferred()
 
 
-## Tell one peer what it missed by binding after the start.
-##
-## The match events are one-shots on a reliable channel, which delivers them to
-## whoever is listening AT THE TIME -- and a client still loading is not. Two
-## messages cover it: the match is running, and this is the round it is on. The
-## bodies themselves need nothing, because a snapshot is absolute and the next
-## one puts every one of them right.
+## Send one peer that bound after the start the whole match state (Quake's gamestate); the
+## events after it ride the same ordered channel. Bodies need nothing: snapshots are absolute.
 func _catch_up(peer_id: int) -> void:
 	if peer_id <= 0 or peer_id == NetTransport.AUTHORITY_PEER_ID:
 		return
-	rpc_id(peer_id, &"_ev_match_started")
-	var seat: MatchParticipant = controller.get_seat_participant()
-	if seat == null:
-		# Nobody in the tower yet: the opening race is still running.
-		rpc_id(peer_id, &"_ev_race_started")
-		return
-	rpc_id(peer_id, &"_ev_round_started", seat.index, controller.get_round_number())
+	rpc_id(peer_id, &"_ev_gamestate", NetCodec.pack_gamestate(controller))
 
 
 ## The host went away. There is no migration -- see [ENetTransport] -- so this
@@ -531,6 +535,36 @@ func _ev_match_started() -> void:
 	if not _started:
 		_started = true
 		match_bound.emit(false)
+
+
+## Converge a freshly bound match on the server's state through the same transitions the events run.
+@rpc("authority", "reliable", "call_remote", 0)
+func _ev_gamestate(state: PackedInt32Array) -> void:
+	if not _replays():
+		return
+	_ev_match_started()
+	if not NetCodec.is_gamestate(state, controller.get_participants().size()):
+		return
+	var phase: MatchController.Phase = state[0] as MatchController.Phase
+	if phase == MatchController.Phase.RACE:
+		controller.net_start_race()
+	elif state[2] >= 0:
+		controller.net_start_round(state[2], state[1])
+	if state[3] >= 0:
+		controller.net_arm_finisher(state[3])
+	var participants: Array[MatchParticipant] = controller.get_participants()
+	for i: int in participants.size():
+		var flags: int = state[NetCodec.GAMESTATE_HEADER + i * NetCodec.GAMESTATE_PARTICIPANT]
+		if flags & (NetCodec.GAMESTATE_RUNNING | NetCodec.GAMESTATE_SHOOTER) == 0 and participants[i].is_running:
+			_ev_removed(i)
+	for i: int in participants.size():
+		var at: int = NetCodec.GAMESTATE_HEADER + i * NetCodec.GAMESTATE_PARTICIPANT
+		participants[i].rounds_won = state[at + 1]
+		participants[i].turns_in_tower = state[at + 2]
+	if state[4] != int(MatchController.Outcome.IN_PROGRESS):
+		controller.net_resolve(state[4] as MatchController.Outcome)
+	if phase == MatchController.Phase.MATCH_OVER and state[5] >= 0:
+		controller.net_win(state[5])
 
 
 @rpc("authority", "reliable", "call_remote", 0)

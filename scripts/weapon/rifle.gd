@@ -265,6 +265,13 @@ var _charging: bool = false
 ## single-shot cycle unless the reload is shorter than the flight time.
 var _projectiles: Array[WeaponProjectile] = []
 
+## Server-side lag compensation (Source's): ticks behind the authority the shooter saw the
+## world, set by the net layer for a remote shooter's shot; its traces run with
+## [member rewind_world] (ticks back, shooter) and [member restore_world] around them.
+var lag_ticks: int = 0
+var rewind_world: Callable
+var restore_world: Callable
+
 ## Rounds a client is flying purely to be seen, one per replayed remote shot.
 ##
 ## Kept apart from [member _projectiles] because these hold no authority at all:
@@ -781,7 +788,9 @@ func _resolve_shot(charge: float) -> void:
 		fired.emit(origin, far_point)
 		return
 
+	_rewind(lag_ticks)
 	var hit: Dictionary = _cast(origin, far_point)
+	_restore()
 	var end_point: Vector3 = far_point
 	var collider: Node3D = null
 	var normal: Vector3 = -direction
@@ -832,6 +841,16 @@ func show_remote_hit(collider: Node3D, at: Vector3, normal: Vector3) -> void:
 ## [method show_remote_hit]: a miss is just as loud.
 func show_remote_miss(end_point: Vector3) -> void:
 	missed.emit(end_point)
+
+
+func _rewind(ticks: int) -> void:
+	if ticks > 0 and rewind_world.is_valid():
+		rewind_world.call(ticks, shooter_body)
+
+
+func _restore() -> void:
+	if restore_world.is_valid():
+		restore_world.call()
 
 
 func _cast(from: Vector3, to: Vector3) -> Dictionary:
@@ -964,7 +983,12 @@ func _step_projectiles(delta: float) -> void:
 		var round_shot: WeaponProjectile = _projectiles[index]
 		if not is_instance_valid(round_shot):
 			_projectiles.remove_at(index)
-		elif round_shot.advance(delta):
+			index -= 1
+			continue
+		_rewind(round_shot.lag_ticks)
+		var landed: bool = round_shot.advance(delta)
+		_restore()
+		if landed:
 			_projectiles.remove_at(index)
 			_report(round_shot)
 			round_shot.queue_free()
@@ -1031,6 +1055,7 @@ func _launch(
 		parent, origin, direction, speed, travel_range, profile, exclude
 	)
 	round_shot.muzzle_origin = muzzle_position
+	round_shot.lag_ticks = lag_ticks
 	_projectiles.append(round_shot)
 	projectile_launched.emit(origin, direction, speed)
 

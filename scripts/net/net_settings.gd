@@ -63,8 +63,8 @@ extends Resource
 ## What it does NOT cost is hit registration: shots are resolved on the
 ## authority against the authority's own 60 Hz bodies, so a client never shoots
 ## at an interpolated position and a lower snapshot rate cannot make a hit into
-## a miss. It can make a hit FEEL like a miss, which is a lag compensation
-## problem and is not solved here -- see [PlayerNetLink].
+## a miss: a client's shot is traced against the bodies rewound to what it drew
+## (see [NetReplicator], lag compensation).
 ##
 ## Raise this first if aiming at remote bodies feels wrong. If 60 does not fix
 ## it, the problem was never the snapshot rate.
@@ -152,20 +152,6 @@ extends Resource
 ## -- long enough to ride out a burst of loss, short enough that nobody can use
 ## a pulled cable as a movement tech.
 @export_range(2, 120, 1) var stale_intent_ticks: int = 12
-
-## Largest per-tick look delta the authority will accept from a client, in
-## radians.
-##
-## A client's packet is hostile input. [NetCodec] rejects a malformed one and
-## rejects NaN; a well-formed packet claiming a thousand radians of yaw in one
-## tick is what an aimbot sends, and it is clamped here because the sane range
-## is a gameplay question the codec has no business knowing.
-##
-## PI is a half turn in a single tick -- beyond any real flick, and still short
-## of a rotation large enough to alias the yaw. Note the limit of this: it
-## bounds ONE tick. Sustained impossible movement is a server-side movement
-## audit and is not implemented.
-@export_range(0.1, 12.566, 0.001) var max_look_delta_radians: float = PI
 
 ## Authority ticks a client holds a snapshot before drawing it: the jitter
 ## buffer's floor.

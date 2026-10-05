@@ -25,6 +25,11 @@ signal power_pressed(slot: int)
 ## Then the next slot (1..4, wrapping) this often, each key held; 0 presses once.
 @export var ability_every: float = 0.0
 
+## When set, returns the (yaw, pitch) to face this tick, or a non-finite vector for none;
+## [member body] is the body whose view is turned onto it.
+var aim: Callable
+var body: PlayerController = null
+
 var _elapsed: float = 0.0
 var _next_fire: float = -1.0
 var _ability_pressed: bool = false
@@ -46,6 +51,12 @@ func poll(delta: float) -> MoveIntent:
 		_intent.move_direction = Vector2(0.0, 1.0)
 		var burst: int = int((_elapsed - 1.0) / (walk_seconds + rest_seconds))
 		_intent.look_delta = Vector2(yaw_rate * delta, pitch_rate * delta * (1.0 if burst % 2 == 0 else -1.0))
+	if aim.is_valid():
+		var want: Vector2 = aim.call()
+		if want.is_finite() and body != null:
+			var view: Vector2 = body.get_view_angles()
+			_intent.move_direction = Vector2.ZERO
+			_intent.look_delta = Vector2(angle_difference(want.x, view.x), -(want.y - view.y))
 	if ability_slot > 0 and not _ability_pressed and _elapsed >= ability_at:
 		_intent.ability_slot = ability_slot
 		_slot = ability_slot

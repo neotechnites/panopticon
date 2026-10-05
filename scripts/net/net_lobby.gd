@@ -118,6 +118,10 @@ var _rules: MatchRules = null
 ## replicated: every peer works its own out of the roster it receives.
 var _local_seat_index: int = -1
 
+## The scene epoch: bumped by the host whenever the scene everyone should be in changes
+## (open, launch, back to the hub), replicated with the roster. 0 means none yet.
+var _epoch: int = 0
+
 ## Winner of the match just played, or -1. Not replicated, and not a score: see
 ## [method conclude_match] for why the lobby keeps so little of a result.
 var _last_winning_seat: int = -1
@@ -155,6 +159,18 @@ func get_local_seat() -> LobbySeat:
 
 func get_local_seat_index() -> int:
 	return _local_seat_index
+
+
+## The current scene epoch; see [member _epoch].
+func get_epoch() -> int:
+	return _epoch
+
+
+## The epoch of the scene this machine is in, or 0 while the lobby names another scene.
+func get_epoch_for(hub_scene: bool) -> int:
+	var hub_phase: bool = _phase == Phase.GATHERING
+	var match_phase: bool = _phase == Phase.LAUNCHING or _phase == Phase.IN_MATCH or _phase == Phase.POST_MATCH
+	return _epoch if (hub_scene and hub_phase) or (not hub_scene and match_phase) else 0
 
 
 ## The host's rules, or null before the host has published any.
@@ -268,6 +284,7 @@ func open(local_display_name: String) -> bool:
 	if not _is_authority():
 		return false
 	_reset_seats()
+	_bump_epoch()
 
 	var host_seat: LobbySeat = seats[0]
 	host_seat.occupancy = LobbySeat.Occupancy.HUMAN
@@ -311,6 +328,7 @@ func set_rules(source: MatchRules) -> bool:
 func close() -> void:
 	_reset_seats()
 	_local_seat_index = -1
+	_epoch = 0
 	_rules = null
 	_set_phase(Phase.IDLE)
 	roster_changed.emit()
@@ -472,6 +490,7 @@ func launch() -> bool:
 	if not can_launch():
 		return false
 	_launched.clear()
+	_bump_epoch()
 	_set_phase(Phase.LAUNCHING)
 	_publish()
 	match_launching.emit()
@@ -547,6 +566,7 @@ func return_to_lobby() -> bool:
 	for seat: LobbySeat in seats:
 		seat.role = LobbySeat.Role.UNASSIGNED
 		seat.is_ready = seat.is_bot()
+	_bump_epoch()
 	_set_phase(Phase.GATHERING)
 	_publish()
 	return true
@@ -632,6 +652,7 @@ func _receive_roster(payload: PackedByteArray) -> void:
 	if phase < 0 or phase > int(Phase.POST_MATCH):
 		return
 	_relearn_local_seat()
+	_epoch = NetCodec.roster_epoch(payload)
 
 	var previous: Phase = _phase
 	_phase = phase as Phase
@@ -853,6 +874,10 @@ func _send_rules_to(peer_id: int) -> void:
 	rpc_id(peer_id, &"_receive_rules", NetCodec.pack_rules(_rules))
 
 
+func _bump_epoch() -> void:
+	_epoch = _epoch % (NetCodec.EPOCH_MODULUS - 1) + 1
+
+
 func _set_phase(phase: Phase) -> void:
 	if _phase == phase:
 		return
@@ -867,4 +892,4 @@ func _publish() -> void:
 		return
 	roster_changed.emit()
 	if session.is_established() and session.get_peer_count() > 1:
-		rpc(&"_receive_roster", NetCodec.pack_roster(int(_phase), seats, _settings().max_name_bytes))
+		rpc(&"_receive_roster", NetCodec.pack_roster(int(_phase), seats, _settings().max_name_bytes, _epoch))

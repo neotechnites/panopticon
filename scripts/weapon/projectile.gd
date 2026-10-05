@@ -56,6 +56,9 @@ var muzzle_origin: Vector3 = Vector3.ZERO:
 		_muzzle_offset = value - _origin
 
 ## Metres per second, direction included. Gravity bends it in flight.
+## Ticks the world is rewound by while this round flies; see [member Rifle.lag_ticks].
+var lag_ticks: int = 0
+
 var _velocity: Vector3 = Vector3.ZERO
 
 ## Downward acceleration, m/s^2. 0.0 is a perfectly flat shot.

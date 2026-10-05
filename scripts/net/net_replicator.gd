@@ -56,12 +56,12 @@ extends Node
 ## that keeps running and is corrected reads as a body that kept running; a body
 ## that freezes and teleports reads as a broken game.
 ##
+## [b]Lag compensation[/b] (Source's): the authority keeps every body's position for
+## [constant HISTORY_TICKS] ticks; a client's shot is traced with the others moved back to the
+## tick its intent says it was drawing ([method rewind], [method restore]).
+##
 ## What is still missing:
 ##
-## - [b]No lag compensation.[/b] Shots are resolved against where the authority
-##   thinks bodies are now, not where the shooter saw them. On a listen server
-##   that quietly favours the host, and it is a design question rather than a
-##   bug -- see the report.
 ## - [b]No delta compression and no interest management.[/b] Every field of
 ##   every body goes every snapshot to everybody, quantised but not differenced.
 ##   Cheap at eight players; not a habit to keep.
@@ -140,6 +140,14 @@ var _interval_ticks: float = 0.0
 ## Ticks the clock is held behind the newest snapshot. Recomputed per arrival.
 var _delay_ticks: float = 2.0
 
+## Authority ticks of body positions kept for lag compensation: Source's sv_maxunlag, one second.
+const HISTORY_TICKS: int = 64
+## Position of seat s at the tick in slot i is _history[s * HISTORY_TICKS + i].
+var _history: PackedVector3Array = PackedVector3Array()
+var _history_ticks: PackedInt32Array = PackedInt32Array()
+## Where each rewound body really is, keyed by seat, while a shot is being traced.
+var _rewound: Dictionary[int, Vector3] = {}
+
 ## Weight the jitter estimate gives a new sample.
 const _JITTER_ALPHA: float = 0.1
 
@@ -172,8 +180,8 @@ var _decoy_epoch: int = 0
 
 var _is_authority: bool = false
 
-## The scene this machine's bodies belong to: stamped on what the authority sends, required of what
-## a client takes, so a body is never drawn from another scene's states. 0 is none.
+## The scene epoch this machine's bodies belong to ([method NetLobby.get_epoch]): stamped on what
+## the authority sends, required of what a client takes and of every intent. 0 is none.
 var _scene: int = 0
 
 
@@ -201,8 +209,8 @@ func refresh_role() -> void:
 		link.refresh_role()
 
 
-## Name the scene whose bodies are registered: the authority once it has placed them, a client
-## once it has loaded it. Whatever a client held from another scene is dropped.
+## Name the scene epoch whose bodies are registered: the authority once it has placed them, a
+## client once it has loaded it. Whatever a client held from another scene is dropped.
 func bind_scene(scene: int) -> void:
 	if scene == _scene:
 		return
@@ -246,6 +254,11 @@ func get_link_count() -> int:
 	return _links.size()
 
 
+## The bound scene epoch, or 0 when none is.
+func get_scene() -> int:
+	return _scene
+
+
 ## The authority's current tick. Stamped on outgoing snapshots and handed to
 ## [PlayerNetLink] so intent and state carry the same clock.
 func get_tick() -> int:
@@ -281,12 +294,13 @@ func _physics_process(delta: float) -> void:
 		_advance_clock(delta)
 		return
 	_tick += 1
-	if session == null or not session.is_established() or session.get_peer_count() <= 1:
+	if session == null or not session.is_established() or session.get_peer_count() <= 1 or _scene == 0:
 		# Offline -- single player, or the headless bot harness -- is
 		# authoritative with nobody to tell. A lone host has the same shape.
 		# The tick still advances: it is the authority's clock, not a counter of
 		# packets sent.
 		return
+	_record_history()
 
 	# Every tick, not at the snapshot rate: a hologram is a body the tower is
 	# shooting at, and one drawn 33 ms behind is one a client's shot misses.
@@ -324,6 +338,65 @@ func _send_snapshot() -> void:
 		return
 	rpc(&"_receive_snapshot", NetCodec.pack_snapshot(_outgoing))
 	snapshot_sent.emit(_outgoing.tick, _outgoing.count)
+
+
+# --- Lag compensation ---------------------------------------------------------
+
+## Keep where every body is on this tick, after it has moved.
+func _record_history() -> void:
+	if _history.is_empty():
+		_history.resize(NetTransport.MAX_PLAYERS * HISTORY_TICKS)
+		_history_ticks.resize(HISTORY_TICKS)
+		_history_ticks.fill(-1)
+	var slot: int = _tick % HISTORY_TICKS
+	_history_ticks[slot] = _tick
+	for link: PlayerNetLink in _links:
+		if link.is_replicable() and link.seat_index < NetTransport.MAX_PLAYERS:
+			_history[link.seat_index * HISTORY_TICKS + slot] = link.controller.global_position
+
+
+## The authority tick a client is drawing remote bodies at, for its intent; -1 on the authority
+## or before the first snapshot.
+func get_view_tick() -> int:
+	if _is_authority or not _have_clock or _playback_count == 0:
+		return -1
+	return posmod(_newest().tick - maxi(roundi(_render_lag), 0), NetCodec.TICK_MODULUS)
+
+
+## Authority ticks between [param view_tick] (an intent's) and now, within the history kept; 0 for none.
+func get_lag_ticks(view_tick: int) -> int:
+	if view_tick < 0:
+		return 0
+	return clampi(NetCodec.tick_delta(view_tick, _tick), 0, HISTORY_TICKS - 1)
+
+
+## Move every body but [param shooter] back to where it stood [param back] ticks ago, clamped to
+## the history kept. Undo with [method restore] before the next physics step.
+func rewind(back: int, shooter: Node) -> void:
+	restore()
+	if not _is_authority or back <= 0 or _history.is_empty():
+		return
+	back = mini(back, HISTORY_TICKS - 1)
+	var slot: int = (_tick - back) % HISTORY_TICKS
+	if _history_ticks[slot] != _tick - back:
+		return
+	for link: PlayerNetLink in _links:
+		var body: PlayerController = link.controller
+		if not link.is_replicable() or body == shooter or link.seat_index >= NetTransport.MAX_PLAYERS:
+			continue
+		_rewound[link.seat_index] = body.global_position
+		body.global_position = _history[link.seat_index * HISTORY_TICKS + slot]
+		body.force_update_transform()
+
+
+## Put every body [method rewind] moved back where it really is.
+func restore() -> void:
+	for seat: int in _rewound:
+		var link: PlayerNetLink = find_link(seat)
+		if link != null and link.is_replicable():
+			link.controller.global_position = _rewound[seat]
+			link.controller.force_update_transform()
+	_rewound.clear()
 
 
 # --- Holograms ----------------------------------------------------------------
@@ -441,7 +514,7 @@ func _receive_snapshot(payload: PackedByteArray) -> void:
 		# impersonating the server, and the right response is to ignore it
 		# rather than to move every body in the world.
 		return
-	if not NetCodec.unpack_snapshot(payload, _incoming) or _incoming.scene != _scene:
+	if _scene == 0 or not NetCodec.unpack_snapshot(payload, _incoming) or _incoming.scene != _scene:
 		return
 	if _playback_count > 0 and not NetCodec.is_newer_tick(_incoming.tick, _newest().tick):
 		# Reordered by UDP and older than one already buffered.
