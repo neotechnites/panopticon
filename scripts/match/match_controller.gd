@@ -3456,6 +3456,20 @@ func _attach_rifle(participant: MatchParticipant) -> void:
 	# The vignette is presentation, so it follows the holder, not the authority.
 	_set_human_trigger(local_holder and not _mirror)
 	_set_local_holder(rifle, local_holder)
+	_light_weapon(rifle)
+
+
+## Dress [param weapon]'s model as the standing arena lights the hands that hold it.
+func _light_weapon(weapon: Rifle) -> void:
+	var model: Node = weapon.get_node_or_null(^"ViewModel/Model")
+	if model == null:
+		return
+	for node: Node in model.find_children("*", "MeshInstance3D", true, false):
+		var mesh: MeshInstance3D = node as MeshInstance3D
+		for surface: int in mesh.mesh.get_surface_count():
+			var authored: Material = mesh.mesh.surface_get_material(surface)
+			var lit: Material = _lit(authored)
+			mesh.set_surface_override_material(surface, null if lit == authored else lit)
 
 
 ## Take the rifle out of everyone's hands. The opening race has no shooter, and
@@ -3637,6 +3651,7 @@ func _attach_finisher_rifle(participant: MatchParticipant, weapon: Rifle) -> voi
 	var local_holder: bool = participant.is_human() and participant.index == _local_index
 	_set_trigger(weapon, local_holder and not _mirror)
 	_set_local_holder(weapon, local_holder)
+	_light_weapon(weapon)
 	finisher_armed.emit(weapon)
 
 
