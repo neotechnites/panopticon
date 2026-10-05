@@ -66,8 +66,8 @@ This is NOT where shots go. Rifle._resolve_shot takes its ray origin and directi
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.9265)
 
 [node name="GripHand" type="Marker3D" parent="ViewModel"]
-editor_description = "The trigger hand's palm, flat on the right of the stock's wrist, fingers forward and up to the trigger. +Y is the fingers, +Z the palm's normal. A sibling of Model, like Muzzle, so recoil, the raise and the hip pose carry it; PrisonerAvatar reaches the holder's right arm here, in both views."
-transform = Transform3D(0, 0, 1, -0.8924128, 0.45121995, 0, -0.45121995, -0.8924128, 0, 0.048, -0.028, 0.075)
+editor_description = "The trigger hand, wrapping the stock's wrist from the right and slightly below, just behind the trigger guard, fingers forward to the trigger. +Y is the fingers, +X the back of the right hand (the mitten is thin along X, wide along Z). A sibling of Model, like Muzzle, so recoil, the raise and the hip pose carry it; PrisonerAvatar reaches the holder's right arm here, in both views."
+transform = Transform3D(0.8283303, 0, 0.56024, -0.5411503, 0.258819, 0.8001057, -0.1450008, -0.9659258, 0.2143877, 0.042, -0.081, 0.105)
 
 [node name="ForeHand" type="Marker3D" parent="ViewModel"]
 editor_description = "The support hand's palm, up under the fore-end, fingers forward. Same axes as GripHand."
