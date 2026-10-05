@@ -134,6 +134,11 @@ const FirstPersonHead: GDScript = preload("res://scripts/player/first_person_hea
 ## The held-rifle pose stages, preloaded for the same reason.
 const RifleHold: GDScript = preload("res://scripts/player/rifle_hold.gd")
 const FirstPersonArms: GDScript = preload("res://scripts/player/first_person_arms.gd")
+const DeathRagdoll: GDScript = preload("res://scripts/player/death_ragdoll.gd")
+## How long a death waits for its rifle hit (a client hears the kill first), and
+## how far a dead body moves before it counts as reused.
+const RAGDOLL_WAIT_MSEC: int = 400
+const REUSED_DISTANCE: float = 1.5
 
 @export var body: PlayerController
 
@@ -397,6 +402,17 @@ var _dead: bool = false
 ## reason [member _in_slide] is one.
 var _in_death: bool = false
 
+## A rifle kill's limp body (the scene's Ragdoll child), or null to keep the clip.
+var _ragdoll: DeathRagdoll = null
+## Waiting, after a death, for the rifle hit that caused it; see [constant RAGDOLL_WAIT_MSEC].
+var _ragdoll_pending: bool = false
+var _death_msec: int = 0
+var _death_velocity: Vector3 = Vector3.ZERO
+var _death_position: Vector3 = Vector3.ZERO
+## The body's velocity as drawn, so a mirror's kill carries its run too.
+var _seen_velocity: Vector3 = Vector3.ZERO
+var _last_position: Vector3 = Vector3.ZERO
+
 ## Whether [member aim_clip] was found in the glTF.
 var _has_aim: bool = false
 
@@ -553,6 +569,12 @@ func _ready() -> void:
 	if not _has_death:
 		push_error("PrisonerAvatar cannot find \"%s\"; a killed body will not visibly react." % death_clip)
 
+	_ragdoll = get_node_or_null(^"Ragdoll") as DeathRagdoll
+	if _ragdoll != null:
+		var rig: Array = _resolve_skeleton()
+		if rig.is_empty() or not _ragdoll.build(rig[1]):
+			_ragdoll = null
+
 	_has_aim = animation.has_animation(aim_clip)
 	if not _has_aim:
 		push_error("PrisonerAvatar cannot find \"%s\"; the guard will be drawn running or standing idle." % aim_clip)
@@ -621,16 +643,23 @@ func _process(delta: float) -> void:
 	# would start counting its fall from whenever the slide happened to close.
 	_tick_air(delta)
 	tick_first_person()
+	_watch_velocity(delta)
 
 	# Death outranks everything: whatever the body was doing when it was shot
 	# is no longer happening. It holds until the body moves under its own power
 	# again -- a respawned ghost picking the chase back up -- rather than on a
 	# timer, because nothing else here knows how long the respawn hold lasts.
 	if _has_death and _dead:
-		if body.get_horizontal_speed() >= run_resume_speed:
+		if body.get_horizontal_speed() >= run_resume_speed or _is_reused():
 			_dead = false
 			_in_death = false
+			_ragdoll_pending = false
+			if _ragdoll != null and _ragdoll.is_active():
+				_ragdoll.stop()
+				_go_idle()
 		else:
+			if _ragdoll_pending:
+				_try_ragdoll()
 			if not _in_death:
 				_in_death = true
 				_in_slide = false
@@ -638,8 +667,9 @@ func _process(delta: float) -> void:
 				_in_air = false
 				_in_aim = false
 				_running = false
-				animation.speed_scale = death_rate
-				animation.play(death_clip, blend_time)
+				if _ragdoll == null or not _ragdoll.is_active():
+					animation.speed_scale = death_rate
+					animation.play(death_clip, blend_time)
 			return
 
 	# The guard's stance, asked for rather than inferred exactly like the slide
@@ -826,6 +856,40 @@ func _on_body_jumped() -> void:
 func _on_body_died() -> void:
 	_dead = true
 	_shove_remaining = 0.0
+	if _ragdoll == null or _ragdoll.is_active():
+		return
+	_ragdoll_pending = true
+	_death_msec = Time.get_ticks_msec()
+	_death_position = body.global_position
+	# The host still has the run's velocity on this tick; a mirror has what was seen.
+	_death_velocity = body.velocity if body.velocity.length() > _seen_velocity.length() else _seen_velocity
+
+
+## Go limp if a rifle hit on this body has come in; give up after the wait and keep the clip.
+func _try_ragdoll() -> void:
+	var slot: int = Rifle.recent_hit_on(body, _death_msec - RAGDOLL_WAIT_MSEC)
+	if slot >= 0:
+		_ragdoll_pending = false
+		animation.pause()
+		_ragdoll.start(_death_velocity, Rifle.recent_hit_point(slot), Rifle.recent_hit_direction(slot))
+	elif Time.get_ticks_msec() - _death_msec > RAGDOLL_WAIT_MSEC:
+		_ragdoll_pending = false
+
+
+## A dead body placed somewhere else (a respawn, a new round) is no longer the corpse.
+func _is_reused() -> bool:
+	return _ragdoll != null and _ragdoll.is_active() \
+		and body.global_position.distance_to(_death_position) > REUSED_DISTANCE
+
+
+## Track the drawn velocity; a jump bigger than a sprint is a placement, not motion.
+func _watch_velocity(delta: float) -> void:
+	var here: Vector3 = body.global_position
+	if delta > 0.0:
+		var step: Vector3 = (here - _last_position) / delta
+		if step.length() < 40.0:
+			_seen_velocity = _seen_velocity.lerp(step, minf(delta * 12.0, 1.0))
+	_last_position = here
 
 
 ## This body just shoved somebody. Take the clip over whatever was playing and

@@ -131,11 +131,11 @@ editor_description = "maps/marble/models/marble_tower.glb, the carved slot: the 
 visible = false
 
 [node name="RockArches" parent="Tower" instance=ExtResource("8_tower_model")]
-editor_description = "maps/marble/models/marble_tower.glb: the live tower. Carries its own collision (MarbleTowerCollision-colonly): foot, steps, shaft, balcony slab and ledge, an invisible band in the railing's place, room floor, dais, columns, ring beam closed with a flat ceiling."
+editor_description = "maps/marble/models/marble_tower.glb: the live tower. Carries its own collision (MarbleTowerCollision-colonly): foot, steps, shaft, balcony slab and ledge, an invisible band in the railing's place, room floor, columns, ring beam closed with a flat ceiling."
 
 [node name="TowerSpawn" type="Marker3D" parent="Tower"]
-editor_description = "On the dais at the room's centre (the room floor 1.70 over the origin plus the 0.6 m dais), 0.25 m up so the capsule never starts inside the collision plane. The dais lifts the guard's eye to y 29.3, over the balcony's rail top (28.05)."
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.55, 0)
+editor_description = "On the room floor's centre (1.70 over the origin), 0.25 m up so the capsule never starts inside the collision plane."
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.95, 0)
 
 [node name="TowerLight" type="OmniLight3D" parent="Tower"]
 editor_description = "The tower's own lamp under the arcade, UNSHADOWED since 2026-09-22: it hangs at 5.6 over the datum -- world 30.95, over the guard's head and under the arches' crowns -- as a warm room light, and because nothing occludes it, it reaches out through the shaft and the walkway slab to the three cell tiers under the lane (90 m) that the shadowed Skylight cannot light. It is a SOFT lamp (Ryan, 2026-09-16: \"it's way way harsh in the middle of the tower\"): 2.4 m wide, energy 4 over a nearly flat falloff (attenuation 0.35), so the room floor 3 m under it rolls off at the tonemap white instead of clipping. Every number is marble_tower_light_profile.tres'; the light_* properties here mirror it for the editor view."

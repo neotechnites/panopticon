@@ -1,0 +1,233 @@
+extends Node
+## A rifle kill's limp body: physical bones on the avatar's own skeleton, built at
+## rest once and simulated only from the kill to the body's reuse. Cosmetic, local.
+
+## Shove along the shot at the struck bone, in newton-seconds.
+@export var impulse: float = 70.0
+## How fast the pelvis drops at the kill, m/s: the legs give out instead of the body tipping like a plank.
+@export var buckle: float = 2.5
+## How much of the run's velocity the body keeps as it goes down (1 = all).
+@export var carry_velocity: float = 1.0
+## The whole body's mass, in kg, shared across the parts by fixed weights.
+@export var body_mass: float = 70.0
+## Damping every part carries; higher reads heavier and stops sooner, lower floppier.
+@export var linear_damp: float = 0.05
+@export var angular_damp: float = 0.6
+@export var friction: float = 0.9
+## Joint limits, degrees: swing is how far a ball joint leans, twist how far it turns.
+@export var neck_swing: float = 35.0
+@export var neck_twist: float = 30.0
+@export var spine_swing: float = 30.0
+@export var spine_twist: float = 20.0
+@export var shoulder_swing: float = 80.0
+@export var shoulder_twist: float = 40.0
+@export var hip_swing: float = 45.0
+@export var hip_twist: float = 20.0
+@export var elbow_bend: float = 135.0
+@export var knee_bend: float = 125.0
+## Joint give, 0..1 (Godot physics only; Jolt holds its limits hard).
+@export var joint_softness: float = 0.8
+@export var joint_bias: float = 0.3
+## What the parts land on: the map's layers. The parts are on no layer, so no ray sees them.
+@export_flags_3d_physics var collision_mask: int = 1
+
+## bone, tail bone (or none), extra length past the tail, radius, parent-joint kind, mass weight.
+const PARTS: Array = [
+	[&"Hips", &"Spine", 0.06, 0.13, &"none", 0.15],
+	[&"Spine", &"Neck", 0.04, 0.14, &"spine", 0.30],
+	[&"Head", &"", 0.24, 0.11, &"neck", 0.08],
+	[&"UpperArm.L", &"LowerArm.L", 0.0, 0.05, &"shoulder", 0.03],
+	[&"LowerArm.L", &"Hand.L", 0.09, 0.045, &"elbow", 0.025],
+	[&"UpperArm.R", &"LowerArm.R", 0.0, 0.05, &"shoulder", 0.03],
+	[&"LowerArm.R", &"Hand.R", 0.09, 0.045, &"elbow", 0.025],
+	[&"Thigh.L", &"Shin.L", 0.0, 0.08, &"hip", 0.10],
+	[&"Shin.L", &"Foot.L", 0.0, 0.06, &"knee", 0.055],
+	[&"Thigh.R", &"Shin.R", 0.0, 0.08, &"hip", 0.10],
+	[&"Shin.R", &"Foot.R", 0.0, 0.06, &"knee", 0.055],
+]
+## The chest, struck when the hit point is unknown.
+const CHEST_PART: int = 1
+
+var _skeleton: Skeleton3D = null
+var _simulator: PhysicalBoneSimulator3D = null
+var _bones: Array[PhysicalBone3D] = []
+var _active: bool = false
+
+
+## Build the bones on [param skeleton] from its rest pose. Call once, before the
+## first animated frame; false when the rig lacks a bone.
+func build(skeleton: Skeleton3D) -> bool:
+	_skeleton = skeleton
+	for part: Array in PARTS:
+		if skeleton.find_bone(String(part[0])) < 0:
+			push_error("DeathRagdoll: the rig has no bone \"%s\"; a shot body will play its clip." % part[0])
+			return false
+	_simulator = PhysicalBoneSimulator3D.new()
+	_simulator.name = "DeathRagdoll"
+	_simulator.active = false
+	skeleton.add_child(_simulator)
+	var total: float = 0.0
+	for part: Array in PARTS:
+		total += float(part[5])
+	for part: Array in PARTS:
+		_bones.append(_make_part(part, float(part[5]) / total))
+	# Joints are made against the rest pose, so every limit is measured from standing.
+	var saved: Array[Transform3D] = []
+	for i: int in skeleton.get_bone_count():
+		saved.append(skeleton.get_bone_pose(i))
+	skeleton.reset_bone_poses()
+	for bone: PhysicalBone3D in _bones:
+		bone.global_transform = skeleton.global_transform \
+			* skeleton.get_bone_global_pose(skeleton.find_bone(bone.bone_name)) * bone.body_offset
+	for i: int in _bones.size():
+		_set_joint(_bones[i], PARTS[i][4])
+	for i: int in skeleton.get_bone_count():
+		skeleton.set_bone_pose(i, saved[i])
+	return true
+
+
+func is_active() -> bool:
+	return _active
+
+
+## Go limp now, from the pose on screen, moving at [param velocity] and struck at
+## [param at] along [param direction] (zero direction: no strike, chest if no point).
+func start(velocity: Vector3, at: Vector3, direction: Vector3) -> void:
+	if _simulator == null or _active:
+		return
+	_active = true
+	_skeleton.move_child(_simulator, _skeleton.get_child_count() - 1)
+	_simulator.active = true
+	_simulator.influence = 1.0
+	# Live bodies share the map's layer; a pack running over a corpse would bulldoze it.
+	var walkers: Array[Node] = get_tree().root.find_children("*", "CharacterBody3D", true, false)
+	for bone: PhysicalBone3D in _bones:
+		bone.collision_mask = collision_mask
+		for walker: Node in walkers:
+			bone.add_collision_exception_with(walker)
+	_simulator.physical_bones_start_simulation()
+	var carried: Vector3 = velocity * carry_velocity
+	for bone: PhysicalBone3D in _bones:
+		bone.linear_velocity = carried
+	_bones[0].linear_velocity = carried + Vector3.DOWN * buckle
+	if direction.is_zero_approx():
+		return
+	var struck: PhysicalBone3D = _nearest_part(at)
+	struck.apply_impulse(direction.normalized() * impulse, at - struck.global_position)
+
+
+## Hand the skeleton back to the animation; the parts stay where they fell, inert.
+func stop() -> void:
+	if not _active:
+		return
+	_active = false
+	_simulator.physical_bones_stop_simulation()
+	_simulator.active = false
+	for bone: PhysicalBone3D in _bones:
+		bone.collision_mask = 0
+
+
+func _exit_tree() -> void:
+	stop()
+
+
+func _make_part(part: Array, share: float) -> PhysicalBone3D:
+	var bone_index: int = _skeleton.find_bone(String(part[0]))
+	var head: Transform3D = _skeleton.get_bone_global_rest(bone_index)
+	var along: Vector3
+	var tail_index: int = -1 if part[1] == &"" else _skeleton.find_bone(String(part[1]))
+	if tail_index >= 0:
+		along = _skeleton.get_bone_global_rest(tail_index).origin - head.origin
+	else:
+		along = head.basis.y.normalized() * 0.001
+	var length: float = along.length() + float(part[2])
+	var dir: Vector3 = along.normalized()
+	# Body frame in skeleton space: -Z down the bone, X the body's own sideways.
+	var z: Vector3 = -dir
+	var x: Vector3 = (Vector3.RIGHT - z * z.dot(Vector3.RIGHT)).normalized()
+	var y: Vector3 = z.cross(x)
+	var frame: Transform3D = Transform3D(Basis(x, y, z), head.origin + dir * length * 0.5)
+
+	var body: PhysicalBone3D = PhysicalBone3D.new()
+	body.name = String(part[0])
+	body.bone_name = String(part[0])
+	body.body_offset = head.affine_inverse() * frame
+	body.joint_offset = Transform3D(Basis.IDENTITY, Vector3(0.0, 0.0, length * 0.5))
+	body.mass = maxf(body_mass * share, 0.1)
+	body.friction = friction
+	body.bounce = 0.0
+	body.linear_damp = linear_damp
+	body.angular_damp = angular_damp
+	# Off every layer and mask until it falls; see start().
+	body.collision_layer = 0
+	body.collision_mask = 0
+	var radius: float = float(part[3])
+	var shape: CollisionShape3D = CollisionShape3D.new()
+	if length <= radius * 2.0:
+		var ball: SphereShape3D = SphereShape3D.new()
+		ball.radius = radius
+		shape.shape = ball
+	else:
+		var capsule: CapsuleShape3D = CapsuleShape3D.new()
+		capsule.radius = radius
+		capsule.height = length
+		shape.shape = capsule
+		shape.transform = Transform3D(Basis(Vector3.RIGHT, PI * 0.5), Vector3.ZERO)
+	body.add_child(shape)
+	_simulator.add_child(body)
+	return body
+
+
+## The joint to the parent part. Cones twist about the bone; hinges turn about X.
+func _set_joint(bone: PhysicalBone3D, kind: StringName) -> void:
+	var half: Vector3 = bone.joint_offset.origin
+	match kind:
+		&"none":
+			return
+		&"elbow", &"knee":
+			# Hinge axis (joint Z) on the body's sideways X.
+			bone.joint_offset = Transform3D(Basis(Vector3.BACK, Vector3.DOWN, Vector3.RIGHT), half)
+			bone.joint_type = PhysicalBone3D.JOINT_TYPE_HINGE
+			var bend: float = elbow_bend if kind == &"elbow" else knee_bend
+			bone.set(&"joint_constraints/angular_limit_enabled", true)
+			if kind == &"knee":
+				bone.set(&"joint_constraints/angular_limit_upper", 2.0)
+				bone.set(&"joint_constraints/angular_limit_lower", -bend)
+			else:
+				bone.set(&"joint_constraints/angular_limit_upper", bend)
+				bone.set(&"joint_constraints/angular_limit_lower", -2.0)
+			bone.set(&"joint_constraints/angular_limit_softness", joint_softness)
+			bone.set(&"joint_constraints/angular_limit_bias", joint_bias)
+		_:
+			# Twist axis (joint X) down the bone.
+			bone.joint_offset = Transform3D(Basis(Vector3.FORWARD, Vector3.UP, Vector3.RIGHT), half)
+			bone.joint_type = PhysicalBone3D.JOINT_TYPE_CONE
+			var swing: float = spine_swing
+			var twist: float = spine_twist
+			match kind:
+				&"neck":
+					swing = neck_swing
+					twist = neck_twist
+				&"shoulder":
+					swing = shoulder_swing
+					twist = shoulder_twist
+				&"hip":
+					swing = hip_swing
+					twist = hip_twist
+			bone.set(&"joint_constraints/swing_span", swing)
+			bone.set(&"joint_constraints/twist_span", twist)
+			bone.set(&"joint_constraints/softness", joint_softness)
+			bone.set(&"joint_constraints/bias", joint_bias)
+
+
+func _nearest_part(at: Vector3) -> PhysicalBone3D:
+	if at.is_zero_approx():
+		return _bones[CHEST_PART]
+	var best: PhysicalBone3D = null
+	var best_distance: float = INF
+	for bone: PhysicalBone3D in _bones:
+		var d: float = bone.global_position.distance_squared_to(at)
+		if d < best_distance:
+			best_distance = d
+			best = bone
+	return best

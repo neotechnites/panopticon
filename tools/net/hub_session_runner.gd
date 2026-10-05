@@ -1,7 +1,8 @@
 extends Node
 
 ## Host or client through the real MultiplayerScreen into the hub; the host starts the first decided wedge
-## once --humans are in, --win ends it, --back returns to the hub. Logs every body's position. Stdout.
+## once --humans are in, --win ends it, --back returns to the hub, --again starts the next map from it.
+## --loss/--delay-ms condition the wire. Logs every body's position and snapshots taken. Stdout.
 
 const SCREEN_SCENE: String = "res://ui/multiplayer_screen.tscn"
 
@@ -21,12 +22,15 @@ var _won: bool = false
 var _back_ms: int = -1
 var _hub_again_ms: int = -1
 var _hub_visits: int = 0
+var _snaps: int = 0
+var _matches: int = 0
 
 
 func _ready() -> void:
 	_o = BotHarness.parse_arguments({"role": "server", "address": "127.0.0.1", "port": 27960,
 		"seconds": 20.0, "humans": 2, "wait": 3.0, "limit": 120.0, "map": "", "walk": false, "name": "", "press": true, "press_key": true,
-		"win": -1.0, "back": -1.0, "hub_seconds": 6.0, "trace": 1.5, "guard": -1})
+		"win": -1.0, "back": -1.0, "hub_seconds": 6.0, "trace": 1.5, "guard": -1,
+		"again": false, "loss": 0.0, "delay-ms": 0})
 	_t0 = Time.get_ticks_msec()
 	_boot.call_deferred()
 
@@ -45,6 +49,7 @@ func _boot() -> void:
 	tree.current_scene = _screen
 	_session = _screen.ensure_session()
 	_lobby = _session.lobby
+	_session.replicator.snapshot_received.connect(func(_tick: int, _count: int) -> void: _snaps += 1)
 	_lobby.roster_changed.connect(func() -> void: _line("ROSTER " + _lobby.describe().replace("\n", " | ")))
 	if not String(_o.name).is_empty():
 		_screen.set_player_name(String(_o.name))
@@ -58,6 +63,10 @@ func _boot() -> void:
 	else:
 		_screen.set_join_target(String(_o.address), port)
 		_line("JOIN " + error_string(_screen.join_game()))
+	var enet: ENetMultiplayerPeer = _session.multiplayer.multiplayer_peer as ENetMultiplayerPeer
+	if enet != null and (float(_o.loss) > 0.0 or int(_o["delay-ms"]) > 0):
+		_session.multiplayer.multiplayer_peer = LossyPeer.new(enet, float(_o.loss), 7, int(_o["delay-ms"]))
+		_line("WIRE loss=%.2f delay_ms=%d" % [float(_o.loss), int(_o["delay-ms"])])
 
 
 func _process(_delta: float) -> void:
@@ -74,6 +83,13 @@ func _process(_delta: float) -> void:
 			_hub_visits += 1
 			if _hub_visits >= 2:
 				_hub_again_ms = _scene_ms
+			if bool(_o.again):
+				_started = false
+		elif scene == "res://match/match.tscn":
+			_matches += 1
+			_match_ms = -1
+			_won = false
+			_back_ms = -1
 	var elapsed: float = (Time.get_ticks_msec() - _t0) / 1000.0
 	if bool(_o.walk):
 		_walk(elapsed)
@@ -91,10 +107,12 @@ func _process(_delta: float) -> void:
 	if _match_ms < 0 and scene == "res://match/match.tscn":
 		_match_ms = Time.get_ticks_msec()
 		_line("MATCH loaded")
-	if _match_ms >= 0 and _hub_visits < 2:
+	if _match_ms >= 0 and (_hub_visits < 2 or bool(_o.again)) and scene == "res://match/match.tscn":
 		_finish_match(scene_node)
 	var seconds: float = float(_o.hub_seconds) if float(_o.back) >= 0.0 else float(_o.seconds)
 	var since: int = _hub_again_ms if float(_o.back) >= 0.0 else _match_ms
+	if bool(_o.again):
+		since = _match_ms if _matches >= 2 else -1
 	if since >= 0 and (Time.get_ticks_msec() - since) / 1000.0 > seconds:
 		_line("END ok phase=%s" % String(NetLobby.Phase.keys()[_lobby.get_phase()]))
 		tree.quit(0)
@@ -203,4 +221,5 @@ func _trace() -> void:
 		parts.append("s%d(%.2f,%.2f,%.2f)%s%s%s" % [link.seat_index, p.x, p.y, p.z,
 			"" if body.is_visible_in_tree() else " hidden", " sim" if body.is_physics_processing() else "",
 			" floor" if body.is_on_floor() else ""])
-	_line("POS %s%s %s" % [scene_node.scene_file_path.get_file(), " 3d-off" if get_viewport().disable_3d else "", " ".join(parts)])
+	_line("POS %s%s epoch=%d snaps=%d %s" % [scene_node.scene_file_path.get_file(), " 3d-off" if get_viewport().disable_3d else "",
+		_session.replicator.get_scene(), _snaps, " ".join(parts)])

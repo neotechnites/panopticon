@@ -10,6 +10,12 @@ extends SceneTree
 ## --press-fire is when the scripted human first pulls the trigger.
 ## --map picks the map; --bind-delay holds this machine's match scene back that many
 ## seconds after launch; --stall-at/--stall-ms freeze this process once mid-match.
+## --loss drops that fraction of this machine's outgoing unreliable packets; --delay-ms holds
+## every outgoing packet that long;
+## --enet-throttle=true puts ENet's own RTT throttle back. --aim=true turns this machine's view
+## onto the nearest running body it can see, as drawn here, every tick.
+
+var _aimed: MatchParticipant = null
 
 const MATCH_SCENE: String = "res://match/match.tscn"
 const SESSION_SCENE: String = "res://match/net/net_session.tscn"
@@ -38,6 +44,9 @@ var _killed_guard: bool = false
 ## Per body, the power last seen drawn, so every change is logged on its frame.
 var _shown_powers: Dictionary[int, int] = {}
 var _stalled: bool = false
+var _lossy: LossyPeer = null
+var _enet: ENetMultiplayerPeer = null
+var _intents_in: int = 0
 
 
 func _initialize() -> void:
@@ -47,6 +56,7 @@ func _initialize() -> void:
 		"screen": false, "preset": "classic", "press-ability": 0, "press-at": 6.0, "press-every": 0.0,
 		"press-fire": 4.0, "arm-finisher": 0.0, "kill-guard": 0.0, "pitch-rate": 0.0,
 		"map": "", "bind-delay": 0.0, "stall-at": 0.0, "stall-ms": 0,
+		"loss": 0.0, "delay-ms": 0, "enet-throttle": false, "aim": false,
 	})
 	Engine.max_fps = 60
 	_started_ms = Time.get_ticks_msec()
@@ -69,6 +79,8 @@ func _boot() -> void:
 	else:
 		_session = (load(SESSION_SCENE) as PackedScene).instantiate() as NetSession
 		_session.name = "NetSession"
+		# This harness adds the match scene itself on launch.
+		_session.level.follows = false
 		root.add_child(_session)
 	var map: String = String(_o.get("map", ""))
 	if not map.is_empty():
@@ -98,10 +110,33 @@ func _boot() -> void:
 	elif _is_server():
 		var error: Error = _session.host(port)
 		_line("HOST port=%d result=%s" % [port, error_string(error)])
+		_condition_wire()
 		_lobby.open(_display_name())
 	else:
 		var error: Error = _session.join(address, port)
 		_line("JOIN port=%d result=%s" % [port, error_string(error)])
+		_condition_wire()
+
+
+## Wrap the live peer in [LossyPeer] when --loss asks for it.
+func _condition_wire() -> void:
+	var api: MultiplayerAPI = _session.multiplayer
+	_enet = api.multiplayer_peer as ENetMultiplayerPeer
+	var loss: float = float(_o.get("loss", 0.0))
+	var delay_ms: int = int(_o.get("delay-ms", 0))
+	if (loss <= 0.0 and delay_ms <= 0) or _enet == null:
+		return
+	_lossy = LossyPeer.new(_enet, loss, 7 if _is_server() else 11, delay_ms)
+	api.multiplayer_peer = _lossy
+	_line("WIRE loss=%.2f delay_ms=%d" % [loss, delay_ms])
+
+
+## ENet's default throttle (interval 5 s, accelerate 2, decelerate 2) on every live peer.
+func _restore_enet_throttle() -> void:
+	if _enet == null or _enet.host == null:
+		return
+	for packet_peer: ENetPacketPeer in _enet.host.get_peers():
+		packet_peer.throttle_configure(5000, 2, 2)
 
 
 func _process(_delta: float) -> bool:
@@ -115,6 +150,8 @@ func _process(_delta: float) -> bool:
 		_drive_lobby()
 	if _launched and _match == null and current_scene != null and current_scene.has_node("MatchController"):
 		_hook_match(current_scene)
+	if bool(_o.get("enet-throttle", false)):
+		_restore_enet_throttle()
 	if _match_ms >= 0:
 		var in_match: float = float(Time.get_ticks_msec() - _match_ms) / 1000.0
 		var bucket: int = _tick() / SAMPLE_TICKS
@@ -247,6 +284,10 @@ func _drive_lobby() -> void:
 			_line("START result=%s" % str(_screen.start_match()))
 		return
 	if _lobby.get_occupant_count() < int(_o.get("seats", 6)):
+		# Publish the host's rules, as the hub does, so every machine loads the same map.
+		var rules: MatchRules = (load("res://match/rules/default_match_rules.tres") as MatchRules).duplicate() as MatchRules
+		SettingsStore.instance().settings.apply_to_match_rules(rules)
+		_lobby.set_rules(rules)
 		_lobby.fill_with_bots(int(_o.get("seats", 6)))
 		var tower: int = int(_o.get("tower", 1))
 		if tower >= 0:
@@ -302,6 +343,8 @@ func _hook_match(match_scene: Node) -> void:
 	scripted.power_pressed.connect(_on_power_pressed)
 	scripted.pitch_rate = float(_o.get("pitch-rate", 0.0))
 	scripted.trigger_pulled.connect(_on_trigger_pulled)
+	if bool(_o.get("aim", false)):
+		scripted.aim = _aim_view.bind(scripted)
 	_net_match.add_child(scripted)
 	_net_match.set_local_source(scripted)
 
@@ -324,6 +367,8 @@ func _hook_controller() -> void:
 	_controller.round_resolved.connect(func(outcome: MatchController.Outcome) -> void:
 		_line("EV round_resolved round=%d outcome=%s" % [_controller.get_round_number(), String(MatchController.Outcome.keys()[outcome])]))
 	_controller.match_won.connect(func(p: MatchParticipant) -> void: _line("EV match_won who=%s" % _who(p)))
+	if _controller.rifle != null and _is_server():
+		_controller.rifle.projectile_launched.connect(_on_round_launched)
 	if _controller.rifle != null:
 		_controller.rifle.fired.connect(func(origin: Vector3, end_point: Vector3) -> void:
 			var aim: Vector3 = (end_point - origin).normalized()
@@ -348,11 +393,65 @@ func _on_power_pressed(slot: int) -> void:
 		str(mine.body.is_physics_processing()) if mine != null and mine.body != null else "?"])
 
 
+## Where the host traces a remote shooter's round against: every runner rewound by its lag.
+func _on_round_launched(_origin: Vector3, _direction: Vector3, _speed: float) -> void:
+	var lag: int = _controller.rifle.lag_ticks
+	var replicator: NetReplicator = _session.replicator
+	replicator.rewind(lag, _controller.rifle.shooter_body)
+	var parts: PackedStringArray = PackedStringArray()
+	for p: MatchParticipant in _controller.get_participants():
+		if p.is_running and p.body != null:
+			parts.append("%d=%.2f,%.2f" % [p.index, p.body.global_position.x, p.body.global_position.z])
+	replicator.restore()
+	var now: PackedStringArray = PackedStringArray()
+	for p: MatchParticipant in _controller.get_participants():
+		if p.is_running and p.body != null:
+			now.append("%d=%.2f,%.2f" % [p.index, p.body.global_position.x, p.body.global_position.z])
+	_line("ROUND lag_ticks=%d rewound %s now %s" % [lag, " ".join(parts), " ".join(now)])
+
+
+## The view that puts this machine's camera on the chest of the nearest running body it can see.
+func _aim_view(scripted: ScriptedIntentSource) -> Vector2:
+	_aimed = null
+	var mine: MatchParticipant = _controller.get_human_participant() if _controller != null else null
+	if mine == null or mine.body == null:
+		return Vector2.INF
+	scripted.body = mine.body
+	var eye: Vector3 = (mine.body.get_node(^"Head/Camera") as Node3D).global_position
+	var best: float = INF
+	var at: Vector3 = Vector3.INF
+	for p: MatchParticipant in _controller.get_participants():
+		if p == mine or p.body == null or not p.is_running:
+			continue
+		var chest: Vector3 = p.body.global_position + Vector3.UP * 0.9
+		var query: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(eye, chest)
+		query.exclude = [mine.body.get_rid()]
+		var hit: Dictionary = mine.body.get_world_3d().direct_space_state.intersect_ray(query)
+		if hit.is_empty() or hit.collider != p.body or eye.distance_to(chest) >= best:
+			continue
+		best = eye.distance_to(chest)
+		at = chest
+		_aimed = p
+	if _aimed == null:
+		return Vector2.INF
+	# Lead a travelling shot the way the tower bot does: flight time, then the fall over it.
+	var speed: float = _controller.rifle.get_shot_speed() if _controller.rifle != null else 0.0
+	if speed > 0.0:
+		var velocity: Vector3 = _aimed.body.velocity
+		var flight: float = (at - eye + velocity * ((at - eye).length() / speed)).length() / speed
+		at += velocity * flight
+		at.y += 0.5 * _controller.rifle.profile.projectile_gravity * flight * flight
+	var dir: Vector3 = (at - eye).normalized()
+	return Vector2(atan2(-dir.x, -dir.z), asin(clampf(dir.y, -1.0, 1.0)))
+
+
 ## Where this machine's own body is looking on the tick its trigger goes, to set against the host's shot line.
 func _on_trigger_pulled() -> void:
 	var mine: MatchParticipant = _controller.get_human_participant() if _controller != null else null
 	if mine == null or mine.body == null:
 		return
+	if _aimed != null:
+		_line("AIMED at=%s drawn=%s" % [_who(_aimed), str(_aimed.body.global_position)])
 	var aim: Vector3 = -mine.body.get_node(^"Head/Camera").global_transform.basis.z
 	_line("TRIGGER who=%s guard=%s aim_yaw=%.3f aim_pitch=%.3f" % [
 		_who(mine), str(mine.body.is_guard), atan2(-aim.x, -aim.z), asin(clampf(aim.y, -1.0, 1.0))])
@@ -404,7 +503,7 @@ func _sample() -> void:
 	var parts: PackedStringArray = PackedStringArray()
 	for p: MatchParticipant in _controller.get_participants():
 		var at: Vector3 = p.body.global_position if p.body != null else Vector3.ZERO
-		parts.append("%d=%s:%.1f,%.1f,%.1f rot=%.2f,%.2f,%.2f clip=%s floor=%s" % [
+		parts.append("%d=%s:%.1f,%.1f,%.1f rot=%.4f,%.4f,%.2f clip=%s floor=%s" % [
 			p.index, p.get_role_name(), at.x, at.y, at.z,
 			p.body.head.rotation.x if p.body != null and p.body.head != null else 0.0,
 			p.body.rotation.y if p.body != null else 0.0,
@@ -423,6 +522,7 @@ func _sample() -> void:
 		_line("TRACK arena=%s gate_valid=%s gate_in_arena=%s" % [
 			_controller.arena.scene_file_path, str(is_instance_valid(gate)),
 			str(is_instance_valid(gate) and _controller.arena.is_ancestor_of(gate))])
+	_sample_wire()
 	var mine: MatchParticipant = _controller.get_human_participant()
 	if mine != null and mine.body != null:
 		var source: IntentSource = mine.body.intent_source
@@ -431,6 +531,21 @@ func _sample() -> void:
 			source.get_class() if source != null else "null",
 			mine.body.collision_layer, mine.body.velocity.length(),
 		])
+
+
+## Unreliable packets sent and dropped here, and intent packets the host took in.
+func _sample_wire() -> void:
+	if _is_server():
+		for node: Node in _match.find_children("*", "PlayerNetLink", true, false):
+			var link: PlayerNetLink = node as PlayerNetLink
+			if not link.intent_received.is_connected(_on_intent_in):
+				link.intent_received.connect(_on_intent_in)
+	_line("WIRE sent=%d dropped=%d intents_in=%d" % [
+		_lossy.sent if _lossy != null else -1, _lossy.dropped if _lossy != null else -1, _intents_in])
+
+
+func _on_intent_in(_peer: int, _tick_number: int) -> void:
+	_intents_in += 1
 
 
 ## What each body is drawing of the runner powers: the authority's own effect,

@@ -72,6 +72,9 @@ signal session_ended(failed: bool)
 ## The per-tick traffic pump. Optional for the same reason as [member lobby].
 @export var replicator: NetReplicator
 
+## Loads the scene the lobby names on each new epoch. Optional for the same reason.
+@export var level: NetLevel
+
 ## Everyone in the session, this machine included, in join order with the
 ## authority first. Rebuilt from transport signals, never from the multiplayer
 ## API's own list, so a backend that numbers peers differently only has to

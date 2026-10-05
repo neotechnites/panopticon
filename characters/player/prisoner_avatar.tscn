@@ -1,7 +1,8 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=4 format=3]
 
 [ext_resource type="PackedScene" path="res://characters/models/prisoner2.glb" id="1_model"]
 [ext_resource type="Script" path="res://scripts/player/prisoner_avatar.gd" id="2_avatar"]
+[ext_resource type="Script" path="res://scripts/player/death_ragdoll.gd" id="3_ragdoll"]
 
 [node name="Avatar" node_paths=PackedStringArray("mesh", "animation") instance=ExtResource("1_model")]
 editor_description = "What a prisoner looks like: the imported runner.glb -- 544 triangles, one material, a 16-joint skin and one 20-frame Run cycle -- wrapped so the rest of the game can hang it on a body and forget it is a glTF. Instanced rather than inherited into characters/player/player.tscn so that the model, its scale and its facing are decided ONCE, here, instead of in every scene that wants a person.
@@ -13,3 +14,7 @@ transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, 0, 0, 0)
 script = ExtResource("2_avatar")
 mesh = NodePath("Armature/Skeleton3D/Runner")
 animation = NodePath("AnimationPlayer")
+
+[node name="Ragdoll" type="Node" parent="."]
+editor_description = "The limp body a rifle kill gets: its exports are the knock, the mass, the damping and the joint limits. Built on the skeleton at ready; simulated from the kill until the body is reused."
+script = ExtResource("3_ragdoll")

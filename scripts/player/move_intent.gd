@@ -17,6 +17,15 @@ var move_direction: Vector2 = Vector2.ZERO
 ## scaled by sensitivity -- the controller applies it verbatim.
 var look_delta: Vector2 = Vector2.ZERO
 
+## Absolute view (yaw, head pitch) in radians, from the machine that owns it; the wire's
+## form of aim, as Quake's usercmd angles. Applied instead of [member look_delta] when set.
+var view_angles: Vector2 = Vector2.ZERO
+var view_absolute: bool = false
+
+## The authority tick of the world the sender was drawing when it made this intent, or -1;
+## what the authority rewinds other bodies to for its shot (Source's lag compensation).
+var view_tick: int = -1
+
 ## True on the tick jump was first requested. Edge-triggered; feeds the jump
 ## buffer.
 var jump_pressed: bool = false
@@ -61,6 +70,9 @@ var godmode: bool = false
 func clear() -> void:
 	move_direction = Vector2.ZERO
 	look_delta = Vector2.ZERO
+	view_angles = Vector2.ZERO
+	view_absolute = false
+	view_tick = -1
 	jump_pressed = false
 	jump_held = false
 	slide_pressed = false
@@ -85,6 +97,9 @@ func normalise() -> void:
 func copy_from(other: MoveIntent) -> void:
 	move_direction = other.move_direction
 	look_delta = other.look_delta
+	view_angles = other.view_angles
+	view_absolute = other.view_absolute
+	view_tick = other.view_tick
 	jump_pressed = other.jump_pressed
 	jump_held = other.jump_held
 	slide_pressed = other.slide_pressed

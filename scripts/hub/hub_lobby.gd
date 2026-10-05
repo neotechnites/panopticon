@@ -545,7 +545,8 @@ func _begin(map_id: StringName) -> void:
 	_launched = true
 	HubLobby.returns_to_hub = true
 	match_starting.emit(map_id)
-	if not changes_scene:
+	if not changes_scene or _lobby != null:
+		# Networked, [NetLevel] loads the match on every machine.
 		return
 	# Deferred: change_scene_to_file takes the hub out of the tree the moment it
 	# is called, and this runs inside the hub's own input frame.

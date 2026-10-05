@@ -59,7 +59,7 @@ func test_the_authority_runs_a_power_key_a_client_pressed() -> void:
 	var asking: MoveIntent = MoveIntent.new()
 	asking.ability_slot = 3
 
-	link.accept_intent_payload(owner, NetCodec.pack_intent(1, asking))
+	link.accept_intent_payload(owner, NetCodec.pack_intent(1, asking, link.replicator.get_scene()))
 	var source: RemoteIntentSource = link.get_remote_source()
 	if not assert_not_null(source, "the link has a network-fed source"):
 		return
@@ -118,7 +118,7 @@ func test_the_authority_stops_reading_a_flood_of_intent() -> void:
 
 	var intent: MoveIntent = MoveIntent.new()
 	for i: int in budget * 4:
-		link.accept_intent_payload(owner, NetCodec.pack_intent(100 + i, intent))
+		link.accept_intent_payload(owner, NetCodec.pack_intent(100 + i, intent, link.replicator.get_scene()))
 	assert_eq_int(
 		accepted.size(), budget, "the host reads its budget of packets and drops the rest"
 	)
@@ -126,7 +126,7 @@ func test_the_authority_stops_reading_a_flood_of_intent() -> void:
 	# And the budget comes back on the next tick, or a peer on a jittery line
 	# would be throttled for being bursty rather than for flooding.
 	await step_ticks(1)
-	link.accept_intent_payload(owner, NetCodec.pack_intent(1000, intent))
+	link.accept_intent_payload(owner, NetCodec.pack_intent(1000, intent, link.replicator.get_scene()))
 	assert_eq_int(accepted.size(), budget + 1, "the allowance is per tick, not per session")
 
 
@@ -363,3 +363,14 @@ func test_every_per_tick_message_fits_in_one_datagram() -> void:
 		float(ENetTransport.SAFE_PAYLOAD_BYTES),
 		"nor a hologram's transform",
 	)
+
+
+func test_intent_from_another_scene_epoch_is_refused() -> void:
+	var owner: int = 77
+	var link: PlayerNetLink = _authority_link(owner)
+	await step_ticks(1)
+	var accepted: Array[int] = []
+	link.intent_received.connect(func(_peer: int, tick: int) -> void: accepted.append(tick))
+	var stale: int = link.replicator.get_scene() + 1
+	link.accept_intent_payload(owner, NetCodec.pack_intent(5, MoveIntent.new(), stale))
+	assert_eq_int(accepted.size(), 0, "an intent stamped with another scene's epoch drives nothing")
