@@ -12,7 +12,6 @@ signal match_launching()
 const SESSION_SCENE_PATH: String = "res://match/net/net_session.tscn"
 const SESSION_NAME: StringName = &"NetSession"
 const RULES_PATH: String = "res://match/rules/default_match_rules.tres"
-const MATCH_SCENE_PATH: String = "res://match/match.tscn"
 const HUB_SCENE_PATH: String = "res://hub/hub.tscn"
 const CUSTOM_ID: int = -1
 
@@ -304,10 +303,8 @@ func _on_launching() -> void:
 		return
 	_launched = true
 	_store.save_to_disk()
+	# [NetLevel] loads the match.
 	match_launching.emit()
-	var error: Error = get_tree().change_scene_to_file(MATCH_SCENE_PATH)
-	if error != OK:
-		push_error("MultiplayerScreen could not load %s: %s" % [MATCH_SCENE_PATH, error_string(error)])
 
 
 func _publish_rules() -> void:

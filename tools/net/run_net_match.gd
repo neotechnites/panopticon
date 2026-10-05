@@ -76,6 +76,8 @@ func _boot() -> void:
 	else:
 		_session = (load(SESSION_SCENE) as PackedScene).instantiate() as NetSession
 		_session.name = "NetSession"
+		# This harness adds the match scene itself on launch.
+		_session.level.follows = false
 		root.add_child(_session)
 	var map: String = String(_o.get("map", ""))
 	if not map.is_empty():

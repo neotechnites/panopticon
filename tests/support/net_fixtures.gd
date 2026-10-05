@@ -94,6 +94,8 @@ static func make_peer(case: Node, branch_name: String, net_settings: NetSettings
 
 	var session: NetSession = (load(SESSION_SCENE_PATH) as PackedScene).instantiate() as NetSession
 	session.settings = net_settings
+	# Tests stand their own scenes up; the tree's scene is the test runner's.
+	session.level.follows = false
 	branch.add_child(session)
 	return session
 
