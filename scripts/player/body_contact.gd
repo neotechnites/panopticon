@@ -32,16 +32,16 @@ const REEL_ARMS: float = -1.0
 const REEL_SPREAD: float = 0.9
 
 ## Centimetres the hips drop per m/s of landing speed, and the most they drop.
-@export_range(0.0, 5.0, 0.1) var squash_centimetres: float = 3.0
-@export_range(0.0, 50.0, 1.0) var squash_limit_centimetres: float = 40.0
+@export_range(0.0, 5.0, 0.1) var squash_centimetres: float = 1.95
+@export_range(0.0, 50.0, 1.0) var squash_limit_centimetres: float = 34.0
 ## Degrees a full shove reels the body.
-@export_range(0.0, 60.0, 1.0) var reel_degrees: float = 60.0
+@export_range(0.0, 60.0, 1.0) var reel_degrees: float = 39.0
 ## Degrees the chest and head duck at a round passing dead close, and how close counts, metres.
-@export_range(0.0, 60.0, 1.0) var flinch_degrees: float = 56.0
+@export_range(0.0, 60.0, 1.0) var flinch_degrees: float = 36.4
 @export_range(0.0, 5.0, 0.1) var near_miss_metres: float = 1.6
 ## The recovery spring: cycles a second, and how soon it settles (1 never overshoots).
-@export_range(0.5, 10.0, 0.1) var spring_hertz: float = 2.2
-@export_range(0.1, 1.5, 0.05) var damping: float = 0.4
+@export_range(0.5, 10.0, 0.1) var spring_hertz: float = 2.6
+@export_range(0.1, 1.5, 0.05) var damping: float = 0.55
 
 var _hips: int = -1
 var _spine: int = -1
