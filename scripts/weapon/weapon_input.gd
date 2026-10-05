@@ -62,7 +62,7 @@ func _ready() -> void:
 		set_process(false)
 		return
 	if capture_mouse_on_ready:
-		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+		MouseFocus.set_play_wants(true)
 
 
 ## Polled rather than event-driven, matching [HumanIntentSource]. An event

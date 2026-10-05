@@ -128,7 +128,6 @@ var _wedge_here: MapWedge = null
 var _overlay_open: bool = false
 var _launched: bool = false
 var _prompt: String = ""
-var _mouse_before_overlay: Input.MouseMode = Input.MOUSE_MODE_CAPTURED
 
 var _wedges: Array[MapWedge] = []
 var _wedge_triggers: Array[Area3D] = []
@@ -609,14 +608,12 @@ func _apply_overlay(open: bool) -> void:
 			Node.PROCESS_MODE_INHERIT if open else Node.PROCESS_MODE_DISABLED
 		)
 	if open:
-		_mouse_before_overlay = Input.mouse_mode
-		if DisplayServer.get_name() != "headless":
-			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		MouseFocus.hold(self)
 		if setup_screen != null:
 			setup_screen.refresh()
 			setup_screen.focus_start()
-	elif DisplayServer.get_name() != "headless":
-		Input.mouse_mode = _mouse_before_overlay
+	else:
+		MouseFocus.release(self)
 	_set_body_input(not open)
 	_refresh()
 	overlay_toggled.emit(open)
