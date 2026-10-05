@@ -33,13 +33,15 @@ var _finished: bool = false
 var _errors: int = 0
 var _armed_finisher: bool = false
 var _killed_guard: bool = false
+## Per body, the power last seen drawn, so every change is logged on its frame.
+var _shown_powers: Dictionary[int, int] = {}
 
 
 func _initialize() -> void:
 	_o = BotHarness.parse_arguments({
 		"role": "server", "address": "127.0.0.1", "port": 27960, "seconds": 90.0,
 		"log": "", "seats": 6, "tower": 1, "name": "", "humans": 3, "fire-every": 0.0,
-		"screen": false, "preset": "classic", "press-ability": 0, "press-at": 6.0,
+		"screen": false, "preset": "classic", "press-ability": 0, "press-at": 6.0, "press-every": 0.0,
 		"press-fire": 4.0, "arm-finisher": 0.0, "kill-guard": 0.0, "pitch-rate": 0.0,
 	})
 	Engine.max_fps = 60
@@ -113,6 +115,7 @@ func _process(_delta: float) -> bool:
 			_last_bucket = bucket
 			_sample()
 		_run_debug_hooks(in_match)
+		_watch_powers()
 		if in_match >= float(_o.get("seconds", 90.0)):
 			_finish("time budget")
 	elif elapsed > 60.0:
@@ -269,6 +272,8 @@ func _hook_match(match_scene: Node) -> void:
 	scripted.fire_every = float(_o.get("fire-every", 0.0))
 	scripted.ability_slot = int(_o.get("press-ability", 0))
 	scripted.ability_at = float(_o.get("press-at", 6.0))
+	scripted.ability_every = float(_o.get("press-every", 0.0))
+	scripted.power_pressed.connect(_on_power_pressed)
 	scripted.pitch_rate = float(_o.get("pitch-rate", 0.0))
 	scripted.trigger_pulled.connect(_on_trigger_pulled)
 	_net_match.add_child(scripted)
@@ -307,6 +312,14 @@ func _hook_controller() -> void:
 	if transition != null:
 		transition.transition_shown.connect(func(round_number: int) -> void:
 			_line("EV card_shown round=%d paused=%s" % [round_number, str(paused)]))
+
+
+func _on_power_pressed(slot: int) -> void:
+	var mine: MatchParticipant = _controller.get_human_participant() if _controller != null else null
+	var power: RunnerPower = RunnerPower.of(mine.body) if mine != null and mine.body != null else null
+	_line("PRESS power slot=%d who=%s running=%s armed=%s phys=%s" % [slot, _who(mine),
+		str(mine.is_running) if mine != null else "?", str(power != null and power.rules != null),
+		str(mine.body.is_physics_processing()) if mine != null and mine.body != null else "?"])
 
 
 ## Where this machine's own body is looking on the tick its trigger goes, to set against the host's shot line.
@@ -399,6 +412,19 @@ func _sample_powers() -> void:
 			_who(p), int(power.get_shown()), power.get_remaining(),
 			str(power.get_shield() != null), str(power.get_decoy() != null),
 		])
+
+
+## Every change in what a body's power is drawing, on the frame it happens.
+func _watch_powers() -> void:
+	if _controller == null:
+		return
+	for p: MatchParticipant in _controller.get_participants():
+		var power: RunnerPower = RunnerPower.of(p.body) if p.body != null else null
+		var shown: int = int(power.get_shown()) if power != null else 0
+		if shown != _shown_powers.get(p.index, 0):
+			_shown_powers[p.index] = shown
+			_line("POWER_SHOWN who=%s ability=%d left=%.1f immune=%s camo=%s" % [
+				_who(p), shown, power.get_remaining(), str(power.is_hit_immune()), str(power.is_camouflaged())])
 
 
 ## The clip the body is drawing, for confirming a mirrored body is not stuck dead.

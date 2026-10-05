@@ -143,17 +143,6 @@ extends Resource
 ## packet a tick with the jitter of a bad line will ever need.
 @export_range(1, 32, 1) var max_intent_packets_per_tick: int = 4
 
-## Whether the authority honours [member MoveIntent.ability_slot] from a client.
-##
-## [b]Off, and it is a cheat gate, not a tuning knob.[/b] The slot is a dev test
-## key: it picks a runner power DIRECTLY, skipping the fallback to
-## [member MatchRules.runner_ability], so a modified client that sets it every
-## tick gets Armor Lock -- and with it rifle immunity -- in a match whose rules
-## say abilities are off. The host zeroes the field unless this is on. It exists
-## at all because the headless harness drives abilities through it, and a
-## harness flag is better than a second code path.
-@export var accept_remote_ability_slot: bool = false
-
 ## Authority ticks a body's [RemoteIntentSource] holds its last packet before
 ## deciding the peer has gone quiet and releasing every held button.
 ##
