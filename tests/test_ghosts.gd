@@ -594,6 +594,9 @@ func test_a_bot_ghost_shoves_the_prisoner_it_is_chasing() -> void:
 	quarry.body.set_physics_process(false)
 	quarry.body.velocity = Vector3.ZERO
 	ghost.shove_cooldown_remaining = 0.0
+	# A chase restarted as the match starts one, so a tap the ghost spent on the
+	# way over does not leave its brain resting through the whole window.
+	ghost.brain.begin_chase(MatchController.RUNNER_GROUP)
 	# The grace is spent by hand: it runs from the moment the ghost landed, and a
 	# real chase spends it on the way over. See GhostProfile.catch_grace_seconds.
 	ghost.ghost_grace_remaining = 0.0
@@ -1049,6 +1052,9 @@ func test_a_bot_and_a_human_are_held_for_the_same_time() -> void:
 		return
 	if not assert_true(_human.is_running, "and the human is a prisoner who can be shot"):
 		return
+	# The guard faces the start from its first frame now (0b7bf92), so a live bot
+	# guard would take the last prisoner and end the round inside the hold.
+	_hold_fire(bot_seat)
 
 	var bot: MatchParticipant = null
 	for candidate: MatchParticipant in _controller.get_live_participants():
@@ -1234,6 +1240,15 @@ func _shove_catch(ghost: MatchParticipant) -> MatchParticipant:
 ##
 ## Polled rather than slept for a flat [member GhostProfile.respawn_delay_seconds]
 ## so that a test which retunes the delay, or turns it off, needs no second edit.
+## Stop a bot guard's trigger, so a test about the hold is not ended by the round.
+func _hold_fire(guard: MatchParticipant) -> void:
+	if guard.tower_brain == null:
+		return
+	guard.tower_brain.set_physics_process(false)
+	if guard.tower_brain.input != null:
+		guard.tower_brain.input.command.clear()
+
+
 func _await_respawn(participant: MatchParticipant) -> void:
 	for _tick: int in HOLD_BUDGET_TICKS:
 		if not _controller.is_awaiting_respawn(participant):

@@ -11,9 +11,9 @@ extends TestCase
 ## match:
 ##
 ## [codeblock]
-## FxSpectatorView   -> a camera of its own, made current while you are dead.
-##                      Orbits your body for the respawn hold; goes up on the
-##                      overlook for a racer who is out for the rest of a race.
+## FxSpectatorView   -> a camera of its own, made current while you are dead:
+##                      outside the tower arcade, turned on the leader, for
+##                      every kind of dead.
 ## MatchDeathScreen  -> DOWN, and a countdown; or OUT OF THE RACE, and no
 ##                      countdown, because a race has no deadline to compute.
 ## [/codeblock]
@@ -155,20 +155,9 @@ func test_a_shot_player_gets_a_camera_and_a_countdown() -> void:
 	assert_false(_player_camera.current, "and the frozen body's camera is not")
 	assert_eq_int(_activations, 1, "the change was announced once")
 
-	# Aimed at the body it just came off, at about head height -- so the player
-	# sees the spot they were taken from.
-	assert_vec3_almost_eq(
-		_view.get_focus_point(),
-		_human.body.global_position + Vector3(0.0, _profile.death_focus_height_metres, 0.0),
-		1e-4,
-		"the camera is looking at the body it just left",
-	)
-	assert_almost_eq(
-		_view_camera.global_position.distance_to(_view.get_focus_point()),
-		Vector2(_profile.death_radius_metres, _profile.death_height_metres).length(),
-		FOCUS_TOLERANCE_METRES,
-		"from the distance the profile asks for",
-	)
+	# Ryan's later call (bbbe72b): no orbit of the corpse any more -- every
+	# death view sits just outside the tower arcade, turned on the leader.
+	_assert_on_the_tower_orbit("the respawn view")
 	assert_gt(
 		_view_camera.global_position.y, _human.body.global_position.y,
 		"and from above it, not from inside the floor",
@@ -362,33 +351,9 @@ func test_a_racer_who_is_out_gets_the_overlook_and_no_countdown() -> void:
 	)
 	assert_true(_view_camera.current, "its camera is current")
 
-	# Up, outside the ring, looking out at the DECK -- not at a body buried
-	# under it. The overlook orbits the pit and looks through the gallery's open
-	# inner side, so the focus is a point out on the racing deck at
-	# overlook_focus_radius_metres, never the arena axis and never the corpse.
+	# The same one view as the respawn hold (bbbe72b), not a separate overlook.
 	var arena: Node3D = _match.get_node("Arena") as Node3D
-	var route: RingRoute = _controller.get_route()
-	var focus: Vector3 = _view.get_focus_point()
-	var out_from_axis: Vector3 = focus - arena.global_position
-	assert_almost_eq(
-		Vector2(out_from_axis.x, out_from_axis.z).length(),
-		_profile.overlook_focus_radius_metres,
-		1e-3,
-		"the overlook watches the deck, not the corpse",
-	)
-	assert_almost_eq(
-		focus.y,
-		arena.global_position.y
-			+ route.deck_height(route.last_index())
-			+ _profile.overlook_focus_height_metres,
-		1e-3,
-		"at deck height, the height a runner is actually seen at",
-	)
-	assert_gt(
-		_view_camera.global_position.y - arena.global_position.y,
-		_profile.overlook_height_metres * 0.5,
-		"and watches it from above",
-	)
+	_assert_on_the_tower_orbit("the out-of-race view")
 	assert_lt(
 		_human.body.global_position.y, arena.global_position.y - 50.0,
 		"which is just as well, because the body is buried in the pen",
@@ -523,6 +488,42 @@ func _build_screen() -> void:
 ## Not a single tick: the view deliberately waits out
 ## [member SpectatorProfile.enter_delay_seconds] so the hit reaction can play
 ## from inside the victim's own eyes first. That wait has its own test.
+## The view sits on the orbit round the tower at guard eye height and faces the
+## living prisoner furthest along the route.
+func _assert_on_the_tower_orbit(label: String) -> void:
+	var marker: Node3D = _controller.arena.get_node(_controller.spawn_marker_path) as Node3D
+	var tower: Node3D = marker.get_parent() as Node3D
+	var eye: float = -1.0
+	var leader: MatchParticipant = null
+	for participant: MatchParticipant in _controller.get_participants():
+		if participant.body == null:
+			continue
+		if participant.is_shooter or eye < 0.0:
+			eye = participant.body.get_eye_height()
+		if participant.is_running and participant.tracker != null and (
+			leader == null or participant.tracker.get_progress() > leader.tracker.get_progress()
+		):
+			leader = participant
+	var focus: Vector3 = _view.get_focus_point()
+	assert_vec3_almost_eq(_view_camera.global_position, focus, 1e-3, label + " stands on its orbit")
+	assert_almost_eq(focus.y, marker.global_position.y + eye, 1e-3, label + " is at guard eye height")
+	var flat: Vector2 = Vector2(focus.x - tower.global_position.x, focus.z - tower.global_position.z)
+	assert_gt(
+		flat.length(), FxSpectatorView.ARCADE_CLEARANCE_METRES,
+		label + " is outside the tower, not inside it",
+	)
+	if not assert_not_null(leader, "somebody is still running to watch"):
+		return
+	var to_leader: Vector3 = (
+		leader.body.global_position + Vector3(0.0, leader.body.get_eye_height(), 0.0)
+		- _view_camera.global_position
+	).normalized()
+	assert_gt(
+		(-_view_camera.global_transform.basis.z).dot(to_leader), 0.99,
+		label + " faces the leading prisoner",
+	)
+
+
 func _take_the_view() -> void:
 	for _tick: int in HOLD_BUDGET_TICKS:
 		_view.tick(SIM_DELTA)
