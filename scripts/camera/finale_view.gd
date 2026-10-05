@@ -8,7 +8,7 @@ extends Node3D
 ## This node's own camera. Never the player's.
 @export var camera: Camera3D
 ## How fast the lens pans and zooms onto the thrown body: higher is tighter.
-@export_range(1.0, 40.0, 0.5) var follow_rate: float = 8.0
+@export_range(1.0, 40.0, 0.5) var follow_rate: float = 30.0
 ## Metres off the arc, side-on, the camera stands; tried nearest first.
 @export var side_distances: PackedFloat32Array = PackedFloat32Array([14.0, 20.0, 9.0])
 ## Metres above the arc and back toward the tower the side-on camera sits.
@@ -17,8 +17,8 @@ extends Node3D
 ## The fallback when every side-on spot is blocked: this high over the arc.
 @export_range(2.0, 60.0, 0.5) var wide_height: float = 14.0
 ## Share of the frame's height the guard is kept at, and the lens limits that may take.
-@export_range(0.05, 0.9, 0.01) var subject_share: float = 0.22
-@export_range(10.0, 120.0, 1.0) var min_fov: float = 22.0
+@export_range(0.05, 0.9, 0.01) var subject_share: float = 0.3
+@export_range(10.0, 120.0, 1.0) var min_fov: float = 12.0
 @export_range(10.0, 120.0, 1.0) var max_fov: float = 70.0
 ## Where along the predicted arc (0 the hit, 1 the end of the beat) the camera is set against.
 @export_range(0.0, 1.0, 0.01) var anchor_share: float = 0.4
