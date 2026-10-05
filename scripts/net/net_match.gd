@@ -50,6 +50,7 @@ var _finisher_fire_was_held: bool = false
 ## Instance ids of the rifles already subscribed to. A bound Callable is a new
 ## object every time, so [method Signal.is_connected] cannot answer this.
 var _watched_rifles: Dictionary[int, bool] = {}
+var _bound: bool = false
 
 
 func _ready() -> void:
@@ -63,6 +64,11 @@ func _ready() -> void:
 		return
 	_session.session_ended.connect(_on_session_ended)
 	controller.auto_start = false
+	_bound = true
+	# Nothing of this scene is drawn until this machine's body has been placed in it.
+	_show_world(false)
+	if not _session.is_authority():
+		_session.replicator.bind_scene(_scene_id())
 	if hub_mode:
 		# No opening role, no event subscriptions and no ready handshake: a hub
 		# decides nothing, so there is nothing for a client to wait for.
@@ -70,8 +76,18 @@ func _ready() -> void:
 		_build_bodies()
 		controller.start_hub()
 		_started = true
+		_bind_placed()
 		match_bound.emit(_session.is_authority())
 		return
+	# The controller installs the chosen map on the scene's ready, after this node's.
+	if controller.is_armed():
+		_bind_match()
+	else:
+		controller.armed.connect(_bind_match, CONNECT_ONE_SHOT)
+
+
+## Bodies, the opening, and the start or the launch acknowledgement, on a map that stands.
+func _bind_match() -> void:
 	_build_bodies()
 	_apply_opening()
 	if _session.is_authority():
@@ -82,6 +98,37 @@ func _ready() -> void:
 			_start_now()
 	else:
 		_lobby.acknowledge_launch()
+
+
+func _exit_tree() -> void:
+	if not _bound:
+		return
+	_session.replicator.bind_scene(0)
+	_show_world(true)
+
+
+## This scene's name on the wire: the same on every machine that loaded it, never 0.
+func _scene_id() -> int:
+	var path: String = owner.scene_file_path if owner != null else ""
+	return maxi(path.hash(), 1)
+
+
+## The authority has placed every body: what it sends from now on is this scene's.
+func _bind_placed() -> void:
+	if _session.is_authority():
+		_session.replicator.bind_scene(_scene_id())
+		_show_world(true)
+
+
+## Draw the 3D world or not. A client's world comes on with its own body's first placement.
+func _show_world(shown: bool) -> void:
+	var viewport: Viewport = get_viewport()
+	if viewport != null:
+		viewport.disable_3d = not shown
+
+
+func _on_local_placed() -> void:
+	_show_world(true)
 
 
 func is_active() -> bool:
@@ -196,6 +243,8 @@ func _add_link(seat: LobbySeat, body: PlayerController, is_local: bool) -> void:
 	link.match_controller = controller
 	if is_local or (seat.is_bot() and _session.is_authority()):
 		link.local_source = body.intent_source
+	if is_local and not _session.is_authority():
+		link.placed.connect(_on_local_placed)
 	add_child(link)
 	_links.append(link)
 
@@ -276,6 +325,7 @@ func _start_now() -> void:
 		return
 	_started = true
 	controller.start_match()
+	_bind_placed()
 	_begin_if_launched()
 	match_bound.emit(true)
 

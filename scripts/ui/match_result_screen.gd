@@ -100,6 +100,9 @@ signal main_menu_requested()
 ## [member main_menu_scene_path] and does the same work itself.
 @export var pause_menu: PauseMenu
 
+## The match's net layer, when it has one: a lost host ends the match on this screen.
+@export var net_match: NetMatch
+
 ## Where Main Menu goes when [member pause_menu] is unset. A path rather than a
 ## [PackedScene] for the same reason [MainMenu] and [PauseMenu] use one: the menu
 ## names the match and the match carries this node, so a [PackedScene] here would
@@ -150,7 +153,6 @@ var _beat_elapsed: float = 0.0
 var _fallback_announcements: MatchAnnouncementProfile = null
 
 ## Mouse mode in force before the screen appeared, restored by Play Again.
-var _mouse_mode_before_show: Input.MouseMode = Input.MOUSE_MODE_CAPTURED
 
 
 func _ready() -> void:
@@ -172,11 +174,8 @@ func _ready() -> void:
 	# between frames. Everything the screen SAYS is polled in show_result().
 	controller.match_won.connect(_on_match_won)
 	controller.match_started.connect(_on_match_started)
-
-	if pause_menu != null:
-		# PauseMenu restores the mouse mode the match was using -- captured --
-		# when it closes, which is right for a match and wrong on top of this.
-		pause_menu.closed.connect(_on_pause_menu_closed)
+	if net_match != null:
+		net_match.host_lost.connect(show_host_lost)
 
 	# A screen added to a match that is ALREADY over -- a scene reload, a test
 	# that drives the controller before wiring this up -- still shows itself.
@@ -206,6 +205,20 @@ func show_result() -> void:
 		_apply_visibility(true)
 		result_shown.emit(controller.get_match_winner())
 	_play_again_button.grab_focus()
+
+
+## The host is gone, so the match is over here too; the only way out is the menu.
+func show_host_lost() -> void:
+	_cancel_beat()
+	_verdict_label.text = tr("RESULT_HOST_LOST")
+	_headline_label.text = tr("RESULT_HOST_LOST_DETAIL")
+	_detail_label.text = ""
+	_play_again_button.visible = false
+	if not _is_showing:
+		_is_showing = true
+		_release_mouse()
+		_apply_visibility(true)
+	_main_menu_button.grab_focus()
 
 
 ## Take the screen down without touching the match or the mouse.
@@ -535,15 +548,7 @@ func _on_match_started(_participant_count: int) -> void:
 	hide_result()
 
 
-## PauseMenu puts back the mouse mode the MATCH was using when it closes, which
-## is normally captured. Correct for a match, wrong over a result screen.
-func _on_pause_menu_closed() -> void:
-	if not _is_showing or GameSettings.is_headless():
-		return
-	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-
-
-## Remember the mouse the match was using and put a cursor on screen.
+## Put a cursor on screen.
 ##
 ## A no-op with no display server. The bot harness and the test suite run
 ## headless, there is no mouse there to release, and a suite that left
@@ -551,15 +556,14 @@ func _on_pause_menu_closed() -> void:
 func _release_mouse() -> void:
 	if GameSettings.is_headless():
 		return
-	_mouse_mode_before_show = Input.mouse_mode
-	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	MouseFocus.hold(self)
 
 
-## Put back exactly the mouse mode the match was using before the screen appeared.
+## Let the mouse go back to whatever the open menus and play decide.
 func _restore_mouse() -> void:
 	if GameSettings.is_headless():
 		return
-	Input.mouse_mode = _mouse_mode_before_show
+	MouseFocus.release(self)
 
 
 func _apply_visibility(visible_now: bool) -> void:

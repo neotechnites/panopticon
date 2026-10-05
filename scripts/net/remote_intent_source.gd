@@ -46,6 +46,9 @@ extends IntentSource
 ## session -- a test, a replay -- gets.
 @export_range(2, 120, 1) var stale_after_ticks: int = 12
 
+## Largest turn one tick may make, radians; set from [member NetSettings.max_look_delta_radians].
+var max_look_delta: float = PI
+
 ## The most recent intent received, held between packets.
 var command: MoveIntent = MoveIntent.new()
 
@@ -75,6 +78,10 @@ var applied_tick: int = -1
 const BUFFER_SIZE: int = 4
 var _buffer: Array[MoveIntent] = []
 var _buffer_ticks: PackedInt32Array = PackedInt32Array()
+## The sender's look total through each buffered tick; see [method accept].
+var _buffer_looks: PackedVector2Array = PackedVector2Array()
+## Look total through the last tick simulated, or NaN before the first.
+var _applied_look: Vector2 = Vector2(NAN, NAN)
 var _buffer_start: int = 0
 var _buffer_count: int = 0
 
@@ -92,13 +99,15 @@ var _fire_latched: bool = false
 ## applied, which is how out-of-order UDP delivery is discarded -- an unreliable
 ## channel reorders, and applying a stale packet after a newer one rewinds the
 ## player's input for a tick.
-func accept(tick: int, intent: MoveIntent) -> bool:
+## [param look_total] is a counter: the look of ticks lost or dropped comes back on the next one polled.
+func accept(tick: int, intent: MoveIntent, look_total: Vector2 = Vector2(NAN, NAN)) -> bool:
 	if last_tick >= 0 and not NetCodec.is_newer_tick(tick, last_tick):
 		return false
 	last_tick = tick
 	if _buffer.is_empty():
 		_buffer.resize(BUFFER_SIZE)
 		_buffer_ticks.resize(BUFFER_SIZE)
+		_buffer_looks.resize(BUFFER_SIZE)
 		for i: int in BUFFER_SIZE:
 			_buffer[i] = MoveIntent.new()
 	if _buffer_count >= BUFFER_SIZE:
@@ -109,6 +118,7 @@ func accept(tick: int, intent: MoveIntent) -> bool:
 	var slot: int = (_buffer_start + _buffer_count) % BUFFER_SIZE
 	_buffer[slot].copy_from(intent)
 	_buffer_ticks[slot] = tick
+	_buffer_looks[slot] = look_total
 	_buffer_count += 1
 	if intent.fire_pressed:
 		_fire_latched = true
@@ -129,6 +139,12 @@ func poll(_delta: float) -> MoveIntent:
 	if _buffer_count > 0:
 		command.copy_from(_buffer[_buffer_start])
 		applied_tick = _buffer_ticks[_buffer_start]
+		var look: Vector2 = _buffer_looks[_buffer_start]
+		if look.is_finite() and _applied_look.is_finite():
+			command.look_delta = Vector2(
+				wrapf(look.x - _applied_look.x, -PI, PI), wrapf(look.y - _applied_look.y, -PI, PI)
+			).clampf(-max_look_delta, max_look_delta)
+		_applied_look = look
 		_buffer_start = (_buffer_start + 1) % BUFFER_SIZE
 		_buffer_count -= 1
 	elif _ticks_since_packet > stale_after_ticks and not _stale:
@@ -168,3 +184,4 @@ func reset() -> void:
 	_buffer_count = 0
 	_ticks_since_packet = 0
 	_stale = false
+	_applied_look = Vector2(NAN, NAN)

@@ -172,6 +172,10 @@ var _decoy_epoch: int = 0
 
 var _is_authority: bool = false
 
+## The scene this machine's bodies belong to: stamped on what the authority sends, required of what
+## a client takes, so a body is never drawn from another scene's states. 0 is none.
+var _scene: int = 0
+
 
 func _ready() -> void:
 	if session == null:
@@ -195,6 +199,16 @@ func refresh_role() -> void:
 		_clear_playback()
 	for link: PlayerNetLink in _links:
 		link.refresh_role()
+
+
+## Name the scene whose bodies are registered: the authority once it has placed them, a client
+## once it has loaded it. Whatever a client held from another scene is dropped.
+func bind_scene(scene: int) -> void:
+	if scene == _scene:
+		return
+	_scene = scene
+	if not _is_authority:
+		_clear_playback()
 
 
 # --- Registry -----------------------------------------------------------------
@@ -291,6 +305,7 @@ func _physics_process(delta: float) -> void:
 func _send_snapshot() -> void:
 	_outgoing.clear()
 	_outgoing.tick = _tick
+	_outgoing.scene = _scene
 	for link: PlayerNetLink in _links:
 		if not link.is_replicable():
 			continue
@@ -426,7 +441,7 @@ func _receive_snapshot(payload: PackedByteArray) -> void:
 		# impersonating the server, and the right response is to ignore it
 		# rather than to move every body in the world.
 		return
-	if not NetCodec.unpack_snapshot(payload, _incoming):
+	if not NetCodec.unpack_snapshot(payload, _incoming) or _incoming.scene != _scene:
 		return
 	if _playback_count > 0 and not NetCodec.is_newer_tick(_incoming.tick, _newest().tick):
 		# Reordered by UDP and older than one already buffered.

@@ -488,10 +488,11 @@ controller = NodePath("../MatchController")
 pause_menu = NodePath("../PauseMenu")
 announcements = ExtResource("20_announcements")
 
-[node name="ResultScreen" parent="." node_paths=PackedStringArray("controller", "pause_menu") instance=ExtResource("13_result_screen")]
+[node name="ResultScreen" parent="." node_paths=PackedStringArray("controller", "pause_menu", "net_match") instance=ExtResource("13_result_screen")]
 editor_description = "The end of the match, told to the player. MatchController already knew who had won and froze the world; until this node existed it told nobody, and a second match meant relaunching the game. It listens for match_won, reads the winner and every number off the controller -- it keeps no score of its own -- and offers Play Again (MatchController.restart(), the same call the R key makes, so no scene is reloaded and no state is rebuilt that a reset already reaches) and Main Menu. pause_menu is named so the main-menu teardown is PauseMenu's one implementation rather than a second copy of the same four steps; it is also how the screen knows to take the mouse back when a pause menu closed over the top of it and restored the match's captured mouse. Placed BEFORE PauseMenu in child order deliberately: PauseMenu must stay the last child to keep first refusal on GUI input, and its layer 128 draws over this screen's 64 either way."
 controller = NodePath("../MatchController")
 pause_menu = NodePath("../PauseMenu")
+net_match = NodePath("../NetMatch")
 announcements = ExtResource("20_announcements")
 
 [node name="PauseMenu" parent="." node_paths=PackedStringArray("camera") instance=ExtResource("8_pause_menu")]

@@ -90,7 +90,6 @@ var _debug_menu: DebugMenu = null
 var _is_open: bool = false
 
 ## Mouse mode in force before the menu opened, restored on close.
-var _mouse_mode_before_open: Input.MouseMode = Input.MOUSE_MODE_VISIBLE
 
 
 func _ready() -> void:
@@ -147,8 +146,7 @@ func open() -> void:
 	if _is_open:
 		return
 	_is_open = true
-	_mouse_mode_before_open = Input.mouse_mode
-	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	MouseFocus.hold(self)
 	if not _is_networked():
 		get_tree().paused = true
 	_apply_visibility(true)
@@ -166,7 +164,7 @@ func close() -> void:
 		_settings_screen.close()
 	_apply_visibility(false)
 	get_tree().paused = false
-	Input.mouse_mode = _mouse_mode_before_open
+	MouseFocus.release(self)
 	closed.emit()
 
 
@@ -300,9 +298,8 @@ func _close_settings() -> void:
 ##   4. change scene              -- frees the match at the end of the frame
 ## [/codeblock]
 ## The mouse is forced visible rather than restored to
-## [member _mouse_mode_before_open], because that value is whatever the match
-## was using -- normally [constant Input.MOUSE_MODE_CAPTURED] -- and a menu is
-## not a match. [method close] is not reused for the same reason.
+## play's wish, because a menu is not a match. [method close] is not reused for
+## the same reason.
 func return_to_main_menu() -> void:
 	if main_menu_scene_path.is_empty():
 		push_error("PauseMenu has no main_menu_scene_path; staying in the match.")
@@ -319,7 +316,8 @@ func return_to_main_menu() -> void:
 
 	var tree: SceneTree = get_tree()
 	tree.paused = false
-	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	MouseFocus.release(self)
+	MouseFocus.set_play_wants(false)
 	closed.emit()
 	main_menu_requested.emit()
 

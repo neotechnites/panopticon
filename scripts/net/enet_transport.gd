@@ -227,14 +227,8 @@ func _apply_compression(peer: ENetMultiplayerPeer) -> void:
 	)
 
 
-## Stop waiting for a peer that has gone silent, rather than ENet's own default.
-##
-## ENet gives a dead peer up to thirty seconds before it calls it gone. In a 1v1
-## that is half a minute of a player standing in an empty ring waiting for
-## somebody whose line died. The three numbers ENet wants are a retransmission
-## limit and a floor and ceiling in milliseconds; the ceiling is what actually
-## decides, and the floor is set to a quarter of it so a brief stall is not a
-## disconnection.
+## Drop a peer only after [member NetSettings.peer_timeout_seconds] of silence, never sooner:
+## a hitching machine is still a player, and a quarter-ceiling floor dropped one in 3 s.
 func _apply_timeout(peer_id: int) -> void:
 	if _peer == null:
 		return
@@ -242,11 +236,20 @@ func _apply_timeout(peer_id: int) -> void:
 	if packet_peer == null:
 		return
 	var ceiling_ms: int = int(get_settings().peer_timeout_seconds * 1000.0)
-	packet_peer.set_timeout(TIMEOUT_RETRANSMISSIONS, ceiling_ms / 4, ceiling_ms)
+	packet_peer.set_timeout(TIMEOUT_RETRANSMISSIONS, ceiling_ms, ceiling_ms)
+
+
+## Never let ENet's RTT throttle drop unreliable sends: a headless pair lost a
+## third of all intent to it, and with it the look deltas the aim is built from.
+func _apply_throttle(peer_id: int) -> void:
+	var packet_peer: ENetPacketPeer = _peer.get_peer(peer_id) if _peer != null else null
+	if packet_peer != null:
+		packet_peer.throttle_configure(5000, 32, 0)  # ENet's interval; full scale, never decelerate.
 
 
 func _on_peer_connected(peer_id: int) -> void:
 	_apply_timeout(peer_id)
+	_apply_throttle(peer_id)
 	peer_connected.emit(peer_id)
 
 
@@ -256,6 +259,7 @@ func _on_peer_disconnected(peer_id: int) -> void:
 
 func _on_connected_to_server() -> void:
 	_apply_timeout(AUTHORITY_PEER_ID)
+	_apply_throttle(AUTHORITY_PEER_ID)
 	_set_state(ConnectionState.CONNECTED)
 
 

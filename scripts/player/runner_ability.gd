@@ -86,7 +86,9 @@ func _physics_process(delta: float) -> void:
 	if _active != MatchRules.RunnerAbility.NONE:
 		_remaining -= delta
 		var released: bool = _active == MatchRules.RunnerAbility.ARMOR_LOCK and not intent.ability_held
-		if _remaining <= 0.0 or released:
+		# A predicting client's power runs out on the authority's word, not its own clock.
+		var expired: bool = _remaining <= 0.0 and not body.net_predicted
+		if expired or released:
 			_end()
 		return
 	if intent.ability_slot > 0:
@@ -118,7 +120,8 @@ func activate(which: MatchRules.RunnerAbility = MatchRules.RunnerAbility.NONE) -
 		MatchRules.RunnerAbility.BUBBLE_SHIELD:
 			_raise_shield()
 		MatchRules.RunnerAbility.HOLOGRAM:
-			_spawn_decoy()
+			# A predicting client draws its decoy where the authority's one walks.
+			_spawn_decoy(body.net_predicted)
 		MatchRules.RunnerAbility.ARMOR_LOCK:
 			_lock()
 		MatchRules.RunnerAbility.ACTIVE_CAMO:
@@ -165,6 +168,21 @@ func present(
 			_raise_shell()
 		MatchRules.RunnerAbility.ACTIVE_CAMO:
 			_cloak()
+
+
+## [method present] for a client's own predicted power, once the authority has
+## run the press: it confirms the prediction, or ends it and draws its own.
+func reconcile(
+	which: MatchRules.RunnerAbility, remaining: float, cooldown: float = 0.0
+) -> void:
+	if _active == MatchRules.RunnerAbility.NONE:
+		present(which, remaining, cooldown)
+		return
+	if which == _active:
+		_remaining = maxf(remaining, 0.0)
+		return
+	cancel()
+	present(which, remaining, cooldown)
 
 
 func get_ability() -> MatchRules.RunnerAbility:

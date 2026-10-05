@@ -165,6 +165,9 @@ enum Outcome {
 ## starts. Carries how many players are in it.
 signal match_started(participant_count: int)
 
+## The chosen map is installed and the rifle wired: a match may start from here on.
+signal armed()
+
 ## Emitted when the opening race is armed: no shooter, everyone on the ring.
 signal race_started()
 
@@ -569,6 +572,7 @@ var _route: RingRoute = null
 var _route_is_ours: bool = false
 
 var _geometry_ready: bool = false
+var _armed: bool = false
 
 ## Seat-indexed bodies handed in by the net layer; empty means solo (player + bots).
 var _net_bodies: Array[PlayerController] = []
@@ -642,8 +646,15 @@ func _arm() -> void:
 		return
 	rifle.target_hit.connect(_on_target_hit)
 	rifle.missed.connect(_on_rifle_missed)
+	_armed = true
+	armed.emit()
 	if auto_start:
 		start_match()
+
+
+## True once [signal armed] has fired.
+func is_armed() -> bool:
+	return _armed
 
 
 ## Wakes the bodies the last arming placed, once the physics server has caught
@@ -1269,6 +1280,11 @@ func configure_net(
 ## themselves belong to [NetMatch], which frees them; this only drops the
 ## controller's hold on them.
 func release_roster() -> void:
+	# A body still held by an arming leaves with its authored collision, or the next roster reads 0 as home.
+	for participant: MatchParticipant in _participants:
+		if participant.body != null:
+			participant.body.collision_layer = participant.home_collision_layer
+			participant.body.collision_mask = participant.home_collision_mask
 	_participants.clear()
 	_participant_by_body_id.clear()
 	_net_bodies.clear()
@@ -1521,7 +1537,7 @@ func get_body_color(participant: MatchParticipant) -> Color:
 	var mesh: MeshInstance3D = _body_mesh_of(participant.body)
 	if mesh == null:
 		return Color.BLACK
-	var material: BaseMaterial3D = _painted_material_of(mesh) as BaseMaterial3D
+	var material: BaseMaterial3D = CharacterLight.base_of(_painted_material_of(mesh))
 	if material == null:
 		return Color.BLACK
 	return material.albedo_color

@@ -69,6 +69,9 @@ extends Node
 ## far to replay and the body was moved whole. Telemetry; nothing reacts to it.
 signal prediction_corrected(metres: float, snapped: bool)
 
+## A client took the authority's first state for this body: until then it neither simulates nor counts as placed.
+signal placed()
+
 ## The authority accepted an intent packet for this seat. Authority-only. The
 ## seam for telemetry, input logging and a future server-side movement audit.
 signal intent_received(peer_id: int, tick: int)
@@ -158,6 +161,8 @@ var _recent_count: int = 0
 ## The bytes last sent by [method _send_intent]. See
 ## [method get_last_intent_packet].
 var _last_packet: PackedByteArray = PackedByteArray()
+## Every look delta this body has turned by, wrapped to a turn: the counter a lost intent cannot lose.
+var _look_total: Vector2 = Vector2.ZERO
 
 ## Intent packets taken from this seat's owner on the current authority tick.
 ## See [member NetSettings.max_intent_packets_per_tick].
@@ -182,6 +187,10 @@ var _has_pending_state: bool = false
 ## Prediction error still to be drawn away, in world metres. See
 ## [member PlayerController.view_offset].
 var _view_error: Vector3 = Vector3.ZERO
+## The power this client last predicted, and the intent tick it changed on: the
+## authority's word on it waits until that tick is acknowledged.
+var _predicted_power: int = 0
+var _power_tick: int = -1
 
 ## This machine's own tick count, for stamping outgoing intent. Ordering only:
 ## it is not synchronised with the authority's and means nothing across
@@ -194,6 +203,9 @@ var _tick: int = 0
 ## queried per tick, so a session state change cannot flip the role halfway
 ## through a frame.
 var _is_authority: bool = false
+
+## True once the authority's state for this body has landed on this machine; the authority places its own.
+var _placed: bool = false
 
 ## How many times this body has jumped. An edge has no state to read back off
 ## the controller, so it is counted off the signal; the count goes out and is
@@ -232,6 +244,9 @@ func _ready() -> void:
 
 
 func _exit_tree() -> void:
+	# A scene change leaves this link detached but alive, and the engine still routes RPCs to it;
+	# out of the tree it has no multiplayer to answer them with, so it simulates nothing.
+	_is_authority = false
 	if replicator != null:
 		replicator.unregister(self)
 
@@ -246,6 +261,7 @@ func refresh_role() -> void:
 	_is_authority = session.is_authority()
 	_predicting = (
 		not _is_authority
+		and _placed
 		and _owns_locally()
 		and local_source != null
 		and session.get_settings().predict_local_body
@@ -254,8 +270,9 @@ func refresh_role() -> void:
 	controller.net_predicted = _predicting
 	if not _is_authority and not _predicting:
 		# Somebody else's body on a client owns no simulation. Leaving its
-		# physics running would fight every snapshot that arrives.
-		controller.intent_source = null
+		# physics running would fight every snapshot that arrives. Our own unplaced body keeps its source.
+		if not _owns_locally():
+			controller.intent_source = null
 		controller.set_physics_process(false)
 		reset_prediction()
 		return
@@ -289,14 +306,14 @@ func _physics_process(delta: float) -> void:
 	if not _owns_locally():
 		return
 	if not _predicting:
-		_send_intent()
+		_send_intent(true)
 		return
 	if not controller.is_physics_processing():
 		# The match has parked this body -- a round break, a kill beat, a ghost
 		# settling. There is nothing to predict until it is woken, and the
 		# replicator mirrors it in the meantime.
 		reset_prediction()
-		_send_intent()
+		_send_intent(false)
 		return
 	if controller.net_floor >= 0:
 		# Mirrored while it was parked. Its own physics answers for it again.
@@ -305,7 +322,8 @@ func _physics_process(delta: float) -> void:
 	# tell the authority what it was asked to do, then take whatever answer
 	# arrived since and put the body right.
 	_record_tick()
-	_send_intent()
+	_note_predicted_power()
+	_send_intent(true)
 	if _has_pending_state:
 		_has_pending_state = false
 		_reconcile(delta)
@@ -417,15 +435,25 @@ func apply_state(state: PlayerState) -> void:
 	if controller.head != null:
 		controller.head.rotation.x = state.pitch
 	_present_events(state)
+	if not _placed:
+		_placed = true
+		refresh_role()
+		placed.emit()
 
 
 ## The half of a state that is drawn rather than simulated: the power, the
 ## rifle and the participant's own facts. A predicted body takes this and moves
 ## itself; a mirrored one takes this and the transform with it.
-func _apply_presentation(state: PlayerState) -> void:
+func _apply_presentation(state: PlayerState, predicted: bool = false) -> void:
 	var power: RunnerPower = RunnerPower.of(controller)
-	if power != null:
+	if power != null and not predicted:
 		power.present(
+			state.ability as MatchRules.RunnerAbility,
+			state.ability_remaining,
+			state.cooldown_remaining,
+		)
+	elif power != null and not _power_unacknowledged(state.last_intent_tick):
+		power.reconcile(
 			state.ability as MatchRules.RunnerAbility,
 			state.ability_remaining,
 			state.cooldown_remaining,
@@ -479,7 +507,8 @@ func _participant() -> MatchParticipant:
 
 # --- Sending ------------------------------------------------------------------
 
-func _send_intent() -> void:
+## [param acted]: the body turned by this intent, so its look joins [member _look_total].
+func _send_intent(acted: bool) -> void:
 	if local_source == null or not session.is_established():
 		return
 	# A predicting body has already polled the source on this tick, through the
@@ -490,11 +519,16 @@ func _send_intent() -> void:
 	else:
 		_scratch_intent.copy_from(local_source.poll(get_physics_process_delta_time()))
 	_scratch_intent.normalise()
+	if acted:
+		_look_total = Vector2(
+			fposmod(_look_total.x + _scratch_intent.look_delta.x, TAU),
+			fposmod(_look_total.y + _scratch_intent.look_delta.y, TAU),
+		)
 	var redundancy: int = clampi(
 		session.get_settings().intent_redundancy, 1, NetCodec.MAX_INTENT_REDUNDANCY
 	)
 	_remember_intent(_scratch_intent, redundancy)
-	_last_packet = NetCodec.pack_intents(_tick, _recent_intents, _recent_count)
+	_last_packet = NetCodec.pack_intents(_tick, _recent_intents, _recent_count, _look_total)
 	rpc_id(session.get_authority_peer_id(), &"_receive_intent", _last_packet)
 
 
@@ -574,6 +608,12 @@ func accept_intent_payload(sender_id: int, payload: PackedByteArray) -> void:
 
 	var limit: float = settings.max_look_delta_radians
 	var source: RemoteIntentSource = _ensure_remote_source()
+	source.max_look_delta = limit
+	# The packet's look total is through its newest intent; walk it back to each older one.
+	var look: Vector2 = NetCodec.unpack_intent_look_total(payload)
+	for i: int in range(count - 1, 0, -1):
+		if NetCodec.unpack_intent_at(payload, i, _scratch_intent) >= 0:
+			look -= _scratch_intent.look_delta
 	var newest: int = -1
 	# Oldest first. The repeats the authority has already had are refused by
 	# accept(); the ones it missed fill the hole the dropped packet left.
@@ -581,11 +621,10 @@ func accept_intent_payload(sender_id: int, payload: PackedByteArray) -> void:
 		var tick: int = NetCodec.unpack_intent_at(payload, i, _scratch_intent)
 		if tick < 0:
 			continue
+		if i > 0:
+			look += _scratch_intent.look_delta
 		_scratch_intent.look_delta = _scratch_intent.look_delta.clampf(-limit, limit)
-		if not settings.accept_remote_ability_slot:
-			# A dev test key, and a power picked this way skips the rules.
-			_scratch_intent.ability_slot = 0
-		if source.accept(tick, _scratch_intent):
+		if source.accept(tick, _scratch_intent, look):
 			newest = tick
 	if newest >= 0:
 		intent_received.emit(sender_id, newest)
@@ -601,6 +640,20 @@ func accept_intent_payload(sender_id: int, payload: PackedByteArray) -> void:
 func receive_authoritative(state: PlayerState) -> void:
 	_pending_state.copy_from(state)
 	_has_pending_state = true
+
+
+## Mark the tick this client's own power started or stopped, if it did.
+func _note_predicted_power() -> void:
+	var power: RunnerPower = RunnerPower.of(controller)
+	var active: int = int(power.get_active()) if power != null else 0
+	if active != _predicted_power:
+		_predicted_power = active
+		_power_tick = _tick
+
+
+## True while the authority has not yet run the intent that changed this power.
+func _power_unacknowledged(acked: int) -> bool:
+	return _power_tick >= 0 and (acked < 0 or NetCodec.is_newer_tick(_power_tick, acked))
 
 
 ## Keep this tick: the intent the body was driven by, and where it ended up.
@@ -640,7 +693,7 @@ func _write_result(entry: PredictedTick) -> void:
 ## every unacknowledged look delta again, and a replay that starts from the yaw
 ## it has already reached turns the player twice for every correction.
 func _reconcile(delta: float) -> void:
-	_apply_presentation(_pending_state)
+	_apply_presentation(_pending_state, true)
 	var acked: int = _pending_state.last_intent_tick
 	if acked < 0:
 		# The authority has run none of this client's input yet. There is

@@ -55,8 +55,9 @@ extends RefCounted
 ## which is cheap; it is listed as a gap rather than a feature because it is a
 ## habit that stops being cheap at a player count this game will never reach.
 
-## Bytes of intent header: u32 newest tick, u8 how many intents follow.
-const INTENT_HEADER_SIZE: int = 5
+## Bytes of intent header: u32 newest tick, u8 how many intents follow, 2 floats
+## of look total (every look delta through the newest tick, wrapped to a turn).
+const INTENT_HEADER_SIZE: int = 13
 
 ## Bytes per intent: 4 floats, a flag byte, the ability slot and a second flag
 ## byte.
@@ -68,8 +69,8 @@ const INTENT_SIZE: int = INTENT_HEADER_SIZE + INTENT_BODY_SIZE
 ## Most intents one packet may carry. See [method pack_intents].
 const MAX_INTENT_REDUNDANCY: int = 4
 
-## Bytes of snapshot header: u32 tick, u8 body count.
-const SNAPSHOT_HEADER_SIZE: int = 5
+## Bytes of snapshot header: u32 tick, u32 scene, u8 body count.
+const SNAPSHOT_HEADER_SIZE: int = 9
 
 ## Bytes per body inside a snapshot: u8 seat, 3 i16 of position, 3 i16 of
 ## velocity, u16 yaw, i16 pitch, 1 flag byte, u8 running ability, u8 tenths left
@@ -178,11 +179,15 @@ static func pack_intent(tick: int, intent: MoveIntent) -> PackedByteArray:
 ## the redundancy invisible to the authority. The authority's own
 ## [method RemoteIntentSource.accept] drops the repeats it has already had, so
 ## nothing downstream has to know this is happening.
-static func pack_intents(newest_tick: int, intents: Array[MoveIntent], count: int) -> PackedByteArray:
+static func pack_intents(
+	newest_tick: int, intents: Array[MoveIntent], count: int, look_total: Vector2 = Vector2.ZERO
+) -> PackedByteArray:
 	var used: int = clampi(mini(count, intents.size()), 1, MAX_INTENT_REDUNDANCY)
 	var buffer: StreamPeerBuffer = StreamPeerBuffer.new()
 	buffer.put_u32(newest_tick % TICK_MODULUS)
 	buffer.put_u8(used)
+	buffer.put_float(look_total.x)
+	buffer.put_float(look_total.y)
 	for i: int in used:
 		_put_intent(buffer, intents[i])
 	return buffer.data_array
@@ -238,6 +243,13 @@ static func intent_count(payload: PackedByteArray) -> int:
 	return count
 
 
+## The packet's look total, or a non-finite vector when it has none to trust.
+static func unpack_intent_look_total(payload: PackedByteArray) -> Vector2:
+	if intent_count(payload) == 0:
+		return Vector2(NAN, NAN)
+	return Vector2(payload.decode_float(5), payload.decode_float(9))
+
+
 ## Decode the intent at [param index], 0 being the oldest in the packet, into
 ## [param out]. Returns that intent's tick, or -1 when there is no such intent.
 static func unpack_intent_at(payload: PackedByteArray, index: int, out: MoveIntent) -> int:
@@ -287,6 +299,7 @@ static func unpack_intent_at(payload: PackedByteArray, index: int, out: MoveInte
 static func pack_snapshot(snapshot: WorldSnapshot) -> PackedByteArray:
 	var buffer: StreamPeerBuffer = StreamPeerBuffer.new()
 	buffer.put_u32(snapshot.tick % TICK_MODULUS)
+	buffer.put_u32(snapshot.scene & 0xFFFFFFFF)
 	buffer.put_u8(snapshot.count)
 	for i: int in snapshot.count:
 		var state: PlayerState = snapshot.states[i]
@@ -333,6 +346,7 @@ static func unpack_snapshot(payload: PackedByteArray, out: WorldSnapshot) -> boo
 	var buffer: StreamPeerBuffer = StreamPeerBuffer.new()
 	buffer.data_array = payload
 	var tick: int = buffer.get_u32()
+	var scene: int = buffer.get_u32()
 	var count: int = buffer.get_u8()
 	if count > NetTransport.MAX_PLAYERS:
 		return false
@@ -341,6 +355,7 @@ static func unpack_snapshot(payload: PackedByteArray, out: WorldSnapshot) -> boo
 
 	out.clear()
 	out.tick = tick
+	out.scene = scene
 	for _i: int in count:
 		var state: PlayerState = out.next_slot()
 		var seat_index: int = buffer.get_u8()

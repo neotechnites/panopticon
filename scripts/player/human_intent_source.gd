@@ -142,4 +142,4 @@ func is_frozen() -> bool:
 
 
 func _set_mouse_captured(captured: bool) -> void:
-	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED if captured else Input.MOUSE_MODE_VISIBLE
+	MouseFocus.set_play_wants(captured)
