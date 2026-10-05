@@ -55,8 +55,9 @@ extends RefCounted
 ## which is cheap; it is listed as a gap rather than a feature because it is a
 ## habit that stops being cheap at a player count this game will never reach.
 
-## Bytes of intent header: u32 newest tick, u8 how many intents follow.
-const INTENT_HEADER_SIZE: int = 5
+## Bytes of intent header: u32 newest tick, u8 how many intents follow, 2 floats
+## of look total (every look delta through the newest tick, wrapped to a turn).
+const INTENT_HEADER_SIZE: int = 13
 
 ## Bytes per intent: 4 floats, a flag byte, the ability slot and a second flag
 ## byte.
@@ -178,11 +179,15 @@ static func pack_intent(tick: int, intent: MoveIntent) -> PackedByteArray:
 ## the redundancy invisible to the authority. The authority's own
 ## [method RemoteIntentSource.accept] drops the repeats it has already had, so
 ## nothing downstream has to know this is happening.
-static func pack_intents(newest_tick: int, intents: Array[MoveIntent], count: int) -> PackedByteArray:
+static func pack_intents(
+	newest_tick: int, intents: Array[MoveIntent], count: int, look_total: Vector2 = Vector2.ZERO
+) -> PackedByteArray:
 	var used: int = clampi(mini(count, intents.size()), 1, MAX_INTENT_REDUNDANCY)
 	var buffer: StreamPeerBuffer = StreamPeerBuffer.new()
 	buffer.put_u32(newest_tick % TICK_MODULUS)
 	buffer.put_u8(used)
+	buffer.put_float(look_total.x)
+	buffer.put_float(look_total.y)
 	for i: int in used:
 		_put_intent(buffer, intents[i])
 	return buffer.data_array
@@ -236,6 +241,13 @@ static func intent_count(payload: PackedByteArray) -> int:
 	if payload.size() != INTENT_HEADER_SIZE + count * INTENT_BODY_SIZE:
 		return 0
 	return count
+
+
+## The packet's look total, or a non-finite vector when it has none to trust.
+static func unpack_intent_look_total(payload: PackedByteArray) -> Vector2:
+	if intent_count(payload) == 0:
+		return Vector2(NAN, NAN)
+	return Vector2(payload.decode_float(5), payload.decode_float(9))
 
 
 ## Decode the intent at [param index], 0 being the oldest in the packet, into
