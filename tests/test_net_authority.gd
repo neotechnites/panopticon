@@ -51,11 +51,8 @@ func test_the_wire_never_carries_a_dev_key() -> void:
 	assert_almost_eq(got.move_direction.y, 1.0, 0.001, "the rest of the intent is untouched")
 
 
-func test_the_authority_refuses_a_power_a_client_picked_for_itself() -> void:
-	# ability_slot is a dev test key: it picks a runner power DIRECTLY, skipping
-	# the fallback to the match's own rules, so a client that sets it every tick
-	# gets Armor Lock -- and rifle immunity with it -- in a match whose rules say
-	# abilities are off.
+func test_the_authority_runs_a_power_key_a_client_pressed() -> void:
+	# Keys 1-4 are the power keys; the host runs a client's press as it runs its own.
 	var owner: int = 77
 	var link: PlayerNetLink = _authority_link(owner)
 	await step_ticks(1)
@@ -66,17 +63,7 @@ func test_the_authority_refuses_a_power_a_client_picked_for_itself() -> void:
 	var source: RemoteIntentSource = link.get_remote_source()
 	if not assert_not_null(source, "the link has a network-fed source"):
 		return
-	assert_eq_int(
-		source.poll(SIM_DELTA).ability_slot, 0, "the host zeroes a power the client picked"
-	)
-
-	# And the harness, which drives abilities through exactly this field, can
-	# still have it -- by the host's choice, on a flag, not by a client's.
-	_host.get_settings().accept_remote_ability_slot = true
-	link.accept_intent_payload(owner, NetCodec.pack_intent(2, asking))
-	assert_eq_int(
-		source.poll(SIM_DELTA).ability_slot, 3, "unless the host has opted in to it"
-	)
+	assert_eq_int(source.poll(SIM_DELTA).ability_slot, 3, "the press reaches the host's body")
 
 
 # --- Edges --------------------------------------------------------------------

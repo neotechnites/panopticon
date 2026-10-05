@@ -187,6 +187,10 @@ var _has_pending_state: bool = false
 ## Prediction error still to be drawn away, in world metres. See
 ## [member PlayerController.view_offset].
 var _view_error: Vector3 = Vector3.ZERO
+## The power this client last predicted, and the intent tick it changed on: the
+## authority's word on it waits until that tick is acknowledged.
+var _predicted_power: int = 0
+var _power_tick: int = -1
 
 ## This machine's own tick count, for stamping outgoing intent. Ordering only:
 ## it is not synchronised with the authority's and means nothing across
@@ -318,6 +322,7 @@ func _physics_process(delta: float) -> void:
 	# tell the authority what it was asked to do, then take whatever answer
 	# arrived since and put the body right.
 	_record_tick()
+	_note_predicted_power()
 	_send_intent(true)
 	if _has_pending_state:
 		_has_pending_state = false
@@ -439,10 +444,16 @@ func apply_state(state: PlayerState) -> void:
 ## The half of a state that is drawn rather than simulated: the power, the
 ## rifle and the participant's own facts. A predicted body takes this and moves
 ## itself; a mirrored one takes this and the transform with it.
-func _apply_presentation(state: PlayerState) -> void:
+func _apply_presentation(state: PlayerState, predicted: bool = false) -> void:
 	var power: RunnerPower = RunnerPower.of(controller)
-	if power != null:
+	if power != null and not predicted:
 		power.present(
+			state.ability as MatchRules.RunnerAbility,
+			state.ability_remaining,
+			state.cooldown_remaining,
+		)
+	elif power != null and not _power_unacknowledged(state.last_intent_tick):
+		power.reconcile(
 			state.ability as MatchRules.RunnerAbility,
 			state.ability_remaining,
 			state.cooldown_remaining,
@@ -613,9 +624,6 @@ func accept_intent_payload(sender_id: int, payload: PackedByteArray) -> void:
 		if i > 0:
 			look += _scratch_intent.look_delta
 		_scratch_intent.look_delta = _scratch_intent.look_delta.clampf(-limit, limit)
-		if not settings.accept_remote_ability_slot:
-			# A dev test key, and a power picked this way skips the rules.
-			_scratch_intent.ability_slot = 0
 		if source.accept(tick, _scratch_intent, look):
 			newest = tick
 	if newest >= 0:
@@ -632,6 +640,20 @@ func accept_intent_payload(sender_id: int, payload: PackedByteArray) -> void:
 func receive_authoritative(state: PlayerState) -> void:
 	_pending_state.copy_from(state)
 	_has_pending_state = true
+
+
+## Mark the tick this client's own power started or stopped, if it did.
+func _note_predicted_power() -> void:
+	var power: RunnerPower = RunnerPower.of(controller)
+	var active: int = int(power.get_active()) if power != null else 0
+	if active != _predicted_power:
+		_predicted_power = active
+		_power_tick = _tick
+
+
+## True while the authority has not yet run the intent that changed this power.
+func _power_unacknowledged(acked: int) -> bool:
+	return _power_tick >= 0 and (acked < 0 or NetCodec.is_newer_tick(_power_tick, acked))
 
 
 ## Keep this tick: the intent the body was driven by, and where it ended up.
@@ -671,7 +693,7 @@ func _write_result(entry: PredictedTick) -> void:
 ## every unacknowledged look delta again, and a replay that starts from the yaw
 ## it has already reached turns the player twice for every correction.
 func _reconcile(delta: float) -> void:
-	_apply_presentation(_pending_state)
+	_apply_presentation(_pending_state, true)
 	var acked: int = _pending_state.last_intent_tick
 	if acked < 0:
 		# The authority has run none of this client's input yet. There is
