@@ -172,8 +172,8 @@ var _decoy_epoch: int = 0
 
 var _is_authority: bool = false
 
-## The scene this machine's bodies belong to: stamped on what the authority sends, required of what
-## a client takes, so a body is never drawn from another scene's states. 0 is none.
+## The scene epoch this machine's bodies belong to ([method NetLobby.get_epoch]): stamped on what
+## the authority sends, required of what a client takes and of every intent. 0 is none.
 var _scene: int = 0
 
 
@@ -201,8 +201,8 @@ func refresh_role() -> void:
 		link.refresh_role()
 
 
-## Name the scene whose bodies are registered: the authority once it has placed them, a client
-## once it has loaded it. Whatever a client held from another scene is dropped.
+## Name the scene epoch whose bodies are registered: the authority once it has placed them, a
+## client once it has loaded it. Whatever a client held from another scene is dropped.
 func bind_scene(scene: int) -> void:
 	if scene == _scene:
 		return
@@ -246,6 +246,11 @@ func get_link_count() -> int:
 	return _links.size()
 
 
+## The bound scene epoch, or 0 when none is.
+func get_scene() -> int:
+	return _scene
+
+
 ## The authority's current tick. Stamped on outgoing snapshots and handed to
 ## [PlayerNetLink] so intent and state carry the same clock.
 func get_tick() -> int:
@@ -281,7 +286,7 @@ func _physics_process(delta: float) -> void:
 		_advance_clock(delta)
 		return
 	_tick += 1
-	if session == null or not session.is_established() or session.get_peer_count() <= 1:
+	if session == null or not session.is_established() or session.get_peer_count() <= 1 or _scene == 0:
 		# Offline -- single player, or the headless bot harness -- is
 		# authoritative with nobody to tell. A lone host has the same shape.
 		# The tick still advances: it is the authority's clock, not a counter of
@@ -441,7 +446,7 @@ func _receive_snapshot(payload: PackedByteArray) -> void:
 		# impersonating the server, and the right response is to ignore it
 		# rather than to move every body in the world.
 		return
-	if not NetCodec.unpack_snapshot(payload, _incoming) or _incoming.scene != _scene:
+	if _scene == 0 or not NetCodec.unpack_snapshot(payload, _incoming) or _incoming.scene != _scene:
 		return
 	if _playback_count > 0 and not NetCodec.is_newer_tick(_incoming.tick, _newest().tick):
 		# Reordered by UDP and older than one already buffered.

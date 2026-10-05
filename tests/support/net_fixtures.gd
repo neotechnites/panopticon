@@ -139,6 +139,8 @@ static func add_seat_body(
 	body.collision_layer = 0
 	body.collision_mask = 0
 	session.get_parent().add_child(body)
+	# What NetMatch does for a real scene: name the epoch these bodies belong to.
+	session.replicator.bind_scene(1)
 
 	var link: PlayerNetLink = (load(LINK_SCENE_PATH) as PackedScene).instantiate() as PlayerNetLink
 	link.session = session

@@ -10,7 +10,8 @@ extends SceneTree
 ## --press-fire is when the scripted human first pulls the trigger.
 ## --map picks the map; --bind-delay holds this machine's match scene back that many
 ## seconds after launch; --stall-at/--stall-ms freeze this process once mid-match.
-## --loss drops that fraction of this machine's outgoing unreliable packets;
+## --loss drops that fraction of this machine's outgoing unreliable packets; --delay-ms holds
+## every outgoing packet that long;
 ## --enet-throttle=true puts ENet's own RTT throttle back.
 
 const MATCH_SCENE: String = "res://match/match.tscn"
@@ -52,7 +53,7 @@ func _initialize() -> void:
 		"screen": false, "preset": "classic", "press-ability": 0, "press-at": 6.0, "press-every": 0.0,
 		"press-fire": 4.0, "arm-finisher": 0.0, "kill-guard": 0.0, "pitch-rate": 0.0,
 		"map": "", "bind-delay": 0.0, "stall-at": 0.0, "stall-ms": 0,
-		"loss": 0.0, "enet-throttle": false,
+		"loss": 0.0, "delay-ms": 0, "enet-throttle": false,
 	})
 	Engine.max_fps = 60
 	_started_ms = Time.get_ticks_msec()
@@ -117,11 +118,12 @@ func _condition_wire() -> void:
 	var api: MultiplayerAPI = _session.multiplayer
 	_enet = api.multiplayer_peer as ENetMultiplayerPeer
 	var loss: float = float(_o.get("loss", 0.0))
-	if loss <= 0.0 or _enet == null:
+	var delay_ms: int = int(_o.get("delay-ms", 0))
+	if (loss <= 0.0 and delay_ms <= 0) or _enet == null:
 		return
-	_lossy = LossyPeer.new(_enet, loss, 7 if _is_server() else 11)
+	_lossy = LossyPeer.new(_enet, loss, 7 if _is_server() else 11, delay_ms)
 	api.multiplayer_peer = _lossy
-	_line("WIRE loss=%.2f" % loss)
+	_line("WIRE loss=%.2f delay_ms=%d" % [loss, delay_ms])
 
 
 ## ENet's default throttle (interval 5 s, accelerate 2, decelerate 2) on every live peer.

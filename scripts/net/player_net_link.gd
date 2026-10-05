@@ -534,7 +534,7 @@ func _send_intent() -> void:
 		session.get_settings().intent_redundancy, 1, NetCodec.MAX_INTENT_REDUNDANCY
 	)
 	_remember_intent(_scratch_intent, redundancy)
-	_last_packet = NetCodec.pack_intents(_tick, _recent_intents, _recent_count)
+	_last_packet = NetCodec.pack_intents(_tick, _recent_intents, _recent_count, _epoch())
 	rpc_id(session.get_authority_peer_id(), &"_receive_intent", _last_packet)
 
 
@@ -609,7 +609,8 @@ func accept_intent_payload(sender_id: int, payload: PackedByteArray) -> void:
 		# spend the host's CPU proving it.
 		return
 	var count: int = NetCodec.intent_count(payload)
-	if count == 0:
+	if count == 0 or NetCodec.intent_epoch(payload) != _epoch():
+		# Malformed, or sent from another scene (Quake's serverId check).
 		return
 
 	var source: RemoteIntentSource = _ensure_remote_source()
@@ -801,6 +802,11 @@ func _drop_through(index: int) -> void:
 
 
 # --- Internals ----------------------------------------------------------------
+
+## The scene epoch this body's packets are stamped with and checked against.
+func _epoch() -> int:
+	return replicator.get_scene() if replicator != null else 0
+
 
 ## True when this machine's own input drives this body.
 ##

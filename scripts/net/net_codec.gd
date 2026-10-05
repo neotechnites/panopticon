@@ -55,8 +55,8 @@ extends RefCounted
 ## which is cheap; it is listed as a gap rather than a feature because it is a
 ## habit that stops being cheap at a player count this game will never reach.
 
-## Bytes of intent header: u32 newest tick, u8 how many intents follow.
-const INTENT_HEADER_SIZE: int = 5
+## Bytes of intent header: u32 newest tick, u16 scene epoch, u8 how many intents follow.
+const INTENT_HEADER_SIZE: int = 7
 
 ## Bytes per intent: 2 floats of move, 2 of absolute view (yaw, pitch), a flag
 ## byte, the ability slot and a second flag byte.
@@ -68,7 +68,7 @@ const INTENT_SIZE: int = INTENT_HEADER_SIZE + INTENT_BODY_SIZE
 ## Most intents one packet may carry. See [method pack_intents].
 const MAX_INTENT_REDUNDANCY: int = 4
 
-## Bytes of snapshot header: u32 tick, u32 scene, u8 body count.
+## Bytes of snapshot header: u32 tick, u32 scene epoch, u8 body count.
 const SNAPSHOT_HEADER_SIZE: int = 9
 
 ## Bytes per body inside a snapshot: u8 seat, 3 i16 of position, 3 i16 of
@@ -101,8 +101,11 @@ const _YAW_STEPS: int = 1 << 16
 ## Radians to the step for pitch, which is signed and never leaves a half turn.
 const _PITCH_SCALE: float = 10000.0
 
-## Bytes of roster header: u8 phase, u8 seat count.
-const ROSTER_HEADER_SIZE: int = 2
+## Bytes of roster header: u8 phase, u16 scene epoch, u8 seat count.
+const ROSTER_HEADER_SIZE: int = 4
+
+## Scene epochs wrap here; 0 is never a live epoch (Quake's serverId).
+const EPOCH_MODULUS: int = 1 << 16
 
 ## Bytes of the fixed part of a roster seat: u8 index, u8 occupancy, u8 role,
 ## u8 flags, u32 peer id, u8 name length. The name follows, that many bytes.
@@ -161,9 +164,9 @@ const NO_INTENT_ACK: int = 0xFFFFFFFF
 # --- Intent: client to authority ----------------------------------------------
 
 ## One intent, as a packet of one.
-static func pack_intent(tick: int, intent: MoveIntent) -> PackedByteArray:
+static func pack_intent(tick: int, intent: MoveIntent, epoch: int = 0) -> PackedByteArray:
 	var one: Array[MoveIntent] = [intent]
-	return pack_intents(tick, one, 1)
+	return pack_intents(tick, one, 1, epoch)
 
 
 ## The last [param count] intents in one packet, [param intents] oldest first
@@ -178,10 +181,13 @@ static func pack_intent(tick: int, intent: MoveIntent) -> PackedByteArray:
 ## the redundancy invisible to the authority. The authority's own
 ## [method RemoteIntentSource.accept] drops the repeats it has already had, so
 ## nothing downstream has to know this is happening.
-static func pack_intents(newest_tick: int, intents: Array[MoveIntent], count: int) -> PackedByteArray:
+static func pack_intents(
+	newest_tick: int, intents: Array[MoveIntent], count: int, epoch: int = 0
+) -> PackedByteArray:
 	var used: int = clampi(mini(count, intents.size()), 1, MAX_INTENT_REDUNDANCY)
 	var buffer: StreamPeerBuffer = StreamPeerBuffer.new()
 	buffer.put_u32(newest_tick % TICK_MODULUS)
+	buffer.put_u16(epoch % EPOCH_MODULUS)
 	buffer.put_u8(used)
 	for i: int in used:
 		_put_intent(buffer, intents[i])
@@ -230,12 +236,17 @@ static func unpack_intent(payload: PackedByteArray, out: MoveIntent) -> int:
 static func intent_count(payload: PackedByteArray) -> int:
 	if payload.size() < INTENT_HEADER_SIZE:
 		return 0
-	var count: int = payload.decode_u8(4)
+	var count: int = payload.decode_u8(6)
 	if count < 1 or count > MAX_INTENT_REDUNDANCY:
 		return 0
 	if payload.size() != INTENT_HEADER_SIZE + count * INTENT_BODY_SIZE:
 		return 0
 	return count
+
+
+## The scene epoch [param payload] was sent from, or -1 when it is not a well-formed packet.
+static func intent_epoch(payload: PackedByteArray) -> int:
+	return payload.decode_u16(4) if intent_count(payload) > 0 else -1
 
 
 ## Decode the intent at [param index], 0 being the oldest in the packet, into
@@ -445,9 +456,12 @@ static func _unpack_jump_counter(flags: int) -> int:
 ## -- a handful of times a match. Buying a delta encoding with the possibility
 ## of two machines disagreeing about who is in the game would be a bad trade at
 ## any price, and this one is free.
-static func pack_roster(phase: int, seats: Array[LobbySeat], max_name_bytes: int) -> PackedByteArray:
+static func pack_roster(
+	phase: int, seats: Array[LobbySeat], max_name_bytes: int, epoch: int = 0
+) -> PackedByteArray:
 	var buffer: StreamPeerBuffer = StreamPeerBuffer.new()
 	buffer.put_u8(phase)
+	buffer.put_u16(epoch % EPOCH_MODULUS)
 	buffer.put_u8(seats.size())
 	for seat: LobbySeat in seats:
 		var name_bytes: PackedByteArray = sanitise_name(seat.display_name, max_name_bytes).to_utf8_buffer()
@@ -476,6 +490,7 @@ static func unpack_roster(
 	var buffer: StreamPeerBuffer = StreamPeerBuffer.new()
 	buffer.data_array = payload
 	var phase: int = buffer.get_u8()
+	buffer.get_u16()
 	var seat_count: int = buffer.get_u8()
 	if seat_count > NetTransport.MAX_PLAYERS:
 		return -1
@@ -513,6 +528,11 @@ static func unpack_roster(
 			out_seats[i] = LobbySeat.new()
 		out_seats[i].copy_from(decoded[i])
 	return phase
+
+
+## The scene epoch a roster names. Read only after [method unpack_roster] took it.
+static func roster_epoch(payload: PackedByteArray) -> int:
+	return payload.decode_u16(1)
 
 
 ## A display name fit to store, draw and send on: no control characters, no

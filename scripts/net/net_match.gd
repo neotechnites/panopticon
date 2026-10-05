@@ -51,6 +51,8 @@ var _finisher_fire_was_held: bool = false
 ## object every time, so [method Signal.is_connected] cannot answer this.
 var _watched_rifles: Dictionary[int, bool] = {}
 var _bound: bool = false
+## The lobby epoch this scene was loaded for, or 0 before the lobby has named it.
+var _epoch: int = 0
 
 
 func _ready() -> void:
@@ -67,8 +69,8 @@ func _ready() -> void:
 	_bound = true
 	# Nothing of this scene is drawn until this machine's body has been placed in it.
 	_show_world(false)
-	if not _session.is_authority():
-		_session.replicator.bind_scene(_scene_id())
+	_lobby.roster_changed.connect(_bind_epoch)
+	_bind_epoch()
 	if hub_mode:
 		# No opening role, no event subscriptions and no ready handshake: a hub
 		# decides nothing, so there is nothing for a client to wait for.
@@ -107,16 +109,22 @@ func _exit_tree() -> void:
 	_show_world(true)
 
 
-## This scene's name on the wire: the same on every machine that loaded it, never 0.
-func _scene_id() -> int:
-	var path: String = owner.scene_file_path if owner != null else ""
-	return maxi(path.hash(), 1)
+## Stamp and accept only this scene's epoch, adopted the first time the lobby names this kind of
+## scene and dropped once it moves on: a client at once, the authority once it has placed bodies.
+func _bind_epoch() -> void:
+	if not is_inside_tree():
+		return
+	if _epoch == 0:
+		_epoch = _lobby.get_epoch_for(hub_mode)
+	if _session.is_authority() and not _started:
+		return
+	_session.replicator.bind_scene(_epoch if _lobby.get_epoch() == _epoch else 0)
 
 
 ## The authority has placed every body: what it sends from now on is this scene's.
 func _bind_placed() -> void:
 	if _session.is_authority():
-		_session.replicator.bind_scene(_scene_id())
+		_bind_epoch()
 		_show_world(true)
 
 
