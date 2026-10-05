@@ -10,6 +10,8 @@ extends SceneTree
 ## --press-fire is when the scripted human first pulls the trigger.
 ## --map picks the map; --bind-delay holds this machine's match scene back that many
 ## seconds after launch; --stall-at/--stall-ms freeze this process once mid-match.
+## --loss drops that fraction of this machine's outgoing unreliable packets;
+## --enet-throttle=true puts ENet's own RTT throttle back.
 
 const MATCH_SCENE: String = "res://match/match.tscn"
 const SESSION_SCENE: String = "res://match/net/net_session.tscn"
@@ -38,6 +40,9 @@ var _killed_guard: bool = false
 ## Per body, the power last seen drawn, so every change is logged on its frame.
 var _shown_powers: Dictionary[int, int] = {}
 var _stalled: bool = false
+var _lossy: LossyPeer = null
+var _enet: ENetMultiplayerPeer = null
+var _intents_in: int = 0
 
 
 func _initialize() -> void:
@@ -47,6 +52,7 @@ func _initialize() -> void:
 		"screen": false, "preset": "classic", "press-ability": 0, "press-at": 6.0, "press-every": 0.0,
 		"press-fire": 4.0, "arm-finisher": 0.0, "kill-guard": 0.0, "pitch-rate": 0.0,
 		"map": "", "bind-delay": 0.0, "stall-at": 0.0, "stall-ms": 0,
+		"loss": 0.0, "enet-throttle": false,
 	})
 	Engine.max_fps = 60
 	_started_ms = Time.get_ticks_msec()
@@ -98,10 +104,32 @@ func _boot() -> void:
 	elif _is_server():
 		var error: Error = _session.host(port)
 		_line("HOST port=%d result=%s" % [port, error_string(error)])
+		_condition_wire()
 		_lobby.open(_display_name())
 	else:
 		var error: Error = _session.join(address, port)
 		_line("JOIN port=%d result=%s" % [port, error_string(error)])
+		_condition_wire()
+
+
+## Wrap the live peer in [LossyPeer] when --loss asks for it.
+func _condition_wire() -> void:
+	var api: MultiplayerAPI = _session.multiplayer
+	_enet = api.multiplayer_peer as ENetMultiplayerPeer
+	var loss: float = float(_o.get("loss", 0.0))
+	if loss <= 0.0 or _enet == null:
+		return
+	_lossy = LossyPeer.new(_enet, loss, 7 if _is_server() else 11)
+	api.multiplayer_peer = _lossy
+	_line("WIRE loss=%.2f" % loss)
+
+
+## ENet's default throttle (interval 5 s, accelerate 2, decelerate 2) on every live peer.
+func _restore_enet_throttle() -> void:
+	if _enet == null or _enet.host == null:
+		return
+	for packet_peer: ENetPacketPeer in _enet.host.get_peers():
+		packet_peer.throttle_configure(5000, 2, 2)
 
 
 func _process(_delta: float) -> bool:
@@ -115,6 +143,8 @@ func _process(_delta: float) -> bool:
 		_drive_lobby()
 	if _launched and _match == null and current_scene != null and current_scene.has_node("MatchController"):
 		_hook_match(current_scene)
+	if bool(_o.get("enet-throttle", false)):
+		_restore_enet_throttle()
 	if _match_ms >= 0:
 		var in_match: float = float(Time.get_ticks_msec() - _match_ms) / 1000.0
 		var bucket: int = _tick() / SAMPLE_TICKS
@@ -404,7 +434,7 @@ func _sample() -> void:
 	var parts: PackedStringArray = PackedStringArray()
 	for p: MatchParticipant in _controller.get_participants():
 		var at: Vector3 = p.body.global_position if p.body != null else Vector3.ZERO
-		parts.append("%d=%s:%.1f,%.1f,%.1f rot=%.2f,%.2f,%.2f clip=%s floor=%s" % [
+		parts.append("%d=%s:%.1f,%.1f,%.1f rot=%.4f,%.4f,%.2f clip=%s floor=%s" % [
 			p.index, p.get_role_name(), at.x, at.y, at.z,
 			p.body.head.rotation.x if p.body != null and p.body.head != null else 0.0,
 			p.body.rotation.y if p.body != null else 0.0,
@@ -423,6 +453,7 @@ func _sample() -> void:
 		_line("TRACK arena=%s gate_valid=%s gate_in_arena=%s" % [
 			_controller.arena.scene_file_path, str(is_instance_valid(gate)),
 			str(is_instance_valid(gate) and _controller.arena.is_ancestor_of(gate))])
+	_sample_wire()
 	var mine: MatchParticipant = _controller.get_human_participant()
 	if mine != null and mine.body != null:
 		var source: IntentSource = mine.body.intent_source
@@ -431,6 +462,21 @@ func _sample() -> void:
 			source.get_class() if source != null else "null",
 			mine.body.collision_layer, mine.body.velocity.length(),
 		])
+
+
+## Unreliable packets sent and dropped here, and intent packets the host took in.
+func _sample_wire() -> void:
+	if _is_server():
+		for node: Node in _match.find_children("*", "PlayerNetLink", true, false):
+			var link: PlayerNetLink = node as PlayerNetLink
+			if not link.intent_received.is_connected(_on_intent_in):
+				link.intent_received.connect(_on_intent_in)
+	_line("WIRE sent=%d dropped=%d intents_in=%d" % [
+		_lossy.sent if _lossy != null else -1, _lossy.dropped if _lossy != null else -1, _intents_in])
+
+
+func _on_intent_in(_peer: int, _tick_number: int) -> void:
+	_intents_in += 1
 
 
 ## What each body is drawing of the runner powers: the authority's own effect,
