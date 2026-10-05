@@ -100,6 +100,9 @@ signal main_menu_requested()
 ## [member main_menu_scene_path] and does the same work itself.
 @export var pause_menu: PauseMenu
 
+## The match's net layer, when it has one: a lost host ends the match on this screen.
+@export var net_match: NetMatch
+
 ## Where Main Menu goes when [member pause_menu] is unset. A path rather than a
 ## [PackedScene] for the same reason [MainMenu] and [PauseMenu] use one: the menu
 ## names the match and the match carries this node, so a [PackedScene] here would
@@ -171,6 +174,8 @@ func _ready() -> void:
 	# between frames. Everything the screen SAYS is polled in show_result().
 	controller.match_won.connect(_on_match_won)
 	controller.match_started.connect(_on_match_started)
+	if net_match != null:
+		net_match.host_lost.connect(show_host_lost)
 
 	# A screen added to a match that is ALREADY over -- a scene reload, a test
 	# that drives the controller before wiring this up -- still shows itself.
@@ -200,6 +205,20 @@ func show_result() -> void:
 		_apply_visibility(true)
 		result_shown.emit(controller.get_match_winner())
 	_play_again_button.grab_focus()
+
+
+## The host is gone, so the match is over here too; the only way out is the menu.
+func show_host_lost() -> void:
+	_cancel_beat()
+	_verdict_label.text = tr("RESULT_HOST_LOST")
+	_headline_label.text = tr("RESULT_HOST_LOST_DETAIL")
+	_detail_label.text = ""
+	_play_again_button.visible = false
+	if not _is_showing:
+		_is_showing = true
+		_release_mouse()
+		_apply_visibility(true)
+	_main_menu_button.grab_focus()
 
 
 ## Take the screen down without touching the match or the mouse.

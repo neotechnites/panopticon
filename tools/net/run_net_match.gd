@@ -8,6 +8,8 @@ extends SceneTree
 ## remote prisoner the second rifle without making it run a lap, and --kill-guard
 ## lands a shot on the guard. Both exist to exercise what a CLIENT is shown.
 ## --press-fire is when the scripted human first pulls the trigger.
+## --map picks the map; --bind-delay holds this machine's match scene back that many
+## seconds after launch; --stall-at/--stall-ms freeze this process once mid-match.
 
 const MATCH_SCENE: String = "res://match/match.tscn"
 const SESSION_SCENE: String = "res://match/net/net_session.tscn"
@@ -35,6 +37,7 @@ var _armed_finisher: bool = false
 var _killed_guard: bool = false
 ## Per body, the power last seen drawn, so every change is logged on its frame.
 var _shown_powers: Dictionary[int, int] = {}
+var _stalled: bool = false
 
 
 func _initialize() -> void:
@@ -43,6 +46,7 @@ func _initialize() -> void:
 		"log": "", "seats": 6, "tower": 1, "name": "", "humans": 3, "fire-every": 0.0,
 		"screen": false, "preset": "classic", "press-ability": 0, "press-at": 6.0, "press-every": 0.0,
 		"press-fire": 4.0, "arm-finisher": 0.0, "kill-guard": 0.0, "pitch-rate": 0.0,
+		"map": "", "bind-delay": 0.0, "stall-at": 0.0, "stall-ms": 0,
 	})
 	Engine.max_fps = 60
 	_started_ms = Time.get_ticks_msec()
@@ -66,6 +70,9 @@ func _boot() -> void:
 		_session = (load(SESSION_SCENE) as PackedScene).instantiate() as NetSession
 		_session.name = "NetSession"
 		root.add_child(_session)
+	var map: String = String(_o.get("map", ""))
+	if not map.is_empty():
+		SettingsStore.instance().settings.map_id = StringName(map)
 	_lobby = _session.lobby
 	_lobby.rules_changed.connect(_on_rules_changed)
 	_lobby.phase_changed.connect(func(phase: NetLobby.Phase) -> void:
@@ -76,7 +83,7 @@ func _boot() -> void:
 	_session.session_ended.connect(func(failed: bool) -> void:
 		_line("SESSION ended failed=%s" % str(failed))
 		if not _finished:
-			_finish("session ended"))
+			_end_after_session.call_deferred())
 	var port: int = int(_o.get("port", 27960))
 	var address: String = String(_o.get("address", "127.0.0.1"))
 	if _use_screen():
@@ -116,6 +123,7 @@ func _process(_delta: float) -> bool:
 			_sample()
 		_run_debug_hooks(in_match)
 		_watch_powers()
+		_stall_once(in_match)
 		if in_match >= float(_o.get("seconds", 90.0)):
 			_finish("time budget")
 	elif elapsed > 60.0:
@@ -151,6 +159,17 @@ func _run_debug_hooks(in_match: float) -> void:
 		_line("DEBUG kill-guard guard=%s finisher=%s" % [
 			_who(guard), _who(_controller.get_finisher())])
 		_controller.apply_guard_hit(guard)
+
+
+## Freeze this whole process once, the way a hitching machine does.
+func _stall_once(in_match: float) -> void:
+	var at: float = float(_o.get("stall-at", 0.0))
+	if _stalled or at <= 0.0 or in_match < at:
+		return
+	_stalled = true
+	_line("DEBUG stall ms=%d" % int(_o.get("stall-ms", 0)))
+	OS.delay_msec(int(_o.get("stall-ms", 0)))
+	_line("DEBUG stall over")
 
 
 ## A prisoner some other peer is driving: the one whose client this run is about.
@@ -246,6 +265,10 @@ func _on_launching() -> void:
 	_line("LAUNCH local_seat=%d" % _lobby.get_local_seat_index())
 	if _use_screen():
 		return
+	var delay: float = float(_o.get("bind-delay", 0.0))
+	if delay > 0.0:
+		await create_timer(delay).timeout
+		_line("BIND after delay=%.1f" % delay)
 	_match = (load(MATCH_SCENE) as PackedScene).instantiate()
 	root.add_child(_match)
 	current_scene = _match
@@ -260,6 +283,9 @@ func _hook_match(match_scene: Node) -> void:
 	_line("MATCH rules prisoners=%d ghosts=%s race=%s map=%s" % [
 		rules.prisoner_count, str(rules.has_ghosts()), str(rules.open_with_race), String(rules.map_id)])
 	_hook_controller()
+	_net_match.host_lost.connect(func() -> void: _line("NET host_lost"))
+	_lobby.seat_occupancy_changed.connect(func(seat: int, occupancy: LobbySeat.Occupancy) -> void:
+		_line("LOBBY seat=%d occupancy=%s" % [seat, String(LobbySeat.Occupancy.keys()[occupancy])]))
 	_net_match.match_bound.connect(func(authority: bool) -> void:
 		_match_ms = Time.get_ticks_msec()
 		_line("MATCH bound authority=%s" % str(authority)))
@@ -391,6 +417,12 @@ func _sample() -> void:
 		_who(_controller.get_seat_participant()), str(paused), " ".join(parts),
 	])
 	_sample_powers()
+	var lead: MatchParticipant = _controller.get_participants()[0] if not _controller.get_participants().is_empty() else null
+	if lead != null and lead.tracker != null:
+		var gate: Variant = lead.tracker.get("_gate")
+		_line("TRACK arena=%s gate_valid=%s gate_in_arena=%s" % [
+			_controller.arena.scene_file_path, str(is_instance_valid(gate)),
+			str(is_instance_valid(gate) and _controller.arena.is_ancestor_of(gate))])
 	var mine: MatchParticipant = _controller.get_human_participant()
 	if mine != null and mine.body != null:
 		var source: IntentSource = mine.body.intent_source
@@ -448,6 +480,13 @@ func _line(text: String) -> void:
 	if _log != null:
 		_log.store_line(stamped)
 		_log.flush()
+
+
+## After the match scene has had its own say about the session ending.
+func _end_after_session() -> void:
+	var screen: MatchResultScreen = _match.get_node_or_null(^"ResultScreen") as MatchResultScreen if _match != null else null
+	_line("RESULT showing=%s" % (str(screen.is_showing()) if screen != null else "none"))
+	_finish("session ended")
 
 
 func _finish(reason: String) -> void:
