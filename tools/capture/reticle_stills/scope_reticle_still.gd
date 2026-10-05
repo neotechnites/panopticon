@@ -33,6 +33,7 @@ func _ready() -> void:
 	vignette.overlay.visible = true
 	(vignette.overlay.material as ShaderMaterial).set_shader_parameter("amount", 1.0)
 	vignette.reticle.visible = true
+	vignette.reticle.modulate.a = 1.0
 	(_rifle.get_node(^"ViewModel") as Node3D).visible = false
 
 
