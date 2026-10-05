@@ -323,6 +323,8 @@ func _watch_rifle(weapon: Rifle, which: int) -> void:
 	if weapon == null or _watched_rifles.has(weapon.get_instance_id()):
 		return
 	_watched_rifles[weapon.get_instance_id()] = true
+	weapon.rewind_world = _session.replicator.rewind
+	weapon.restore_world = _session.replicator.restore
 	weapon.fired.connect(_on_rifle_fired.bind(weapon, which))
 	weapon.target_hit.connect(_on_rifle_hit.bind(which))
 	weapon.missed.connect(func(end_point: Vector3) -> void: _event(&"_ev_rifle_missed", [which, end_point]))
@@ -391,13 +393,18 @@ func _drive_trigger(who: MatchParticipant, weapon: Rifle, was_held: bool) -> boo
 	var pressed: bool = source.take_fire()
 	var held: bool = source.is_fire_held()
 	var charged: bool = weapon.profile != null and weapon.profile.charge_enabled
-	if charged:
-		if pressed:
-			weapon.begin_charge()
-		elif was_held and not held:
+	if charged and pressed:
+		weapon.begin_charge()
+	elif (charged and was_held and not held) or (not charged and (pressed or held) and weapon.can_fire()):
+		# The shot is traced against the world as this shooter was drawing it.
+		weapon.lag_ticks = _session.replicator.get_lag_ticks(
+			source.fire_view_tick if pressed else source.command.view_tick
+		)
+		if charged:
 			weapon.release_charge()
-	elif pressed or held:
-		weapon.try_fire()
+		else:
+			weapon.try_fire()
+		weapon.lag_ticks = 0
 	return held
 
 

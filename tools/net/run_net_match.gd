@@ -12,7 +12,10 @@ extends SceneTree
 ## seconds after launch; --stall-at/--stall-ms freeze this process once mid-match.
 ## --loss drops that fraction of this machine's outgoing unreliable packets; --delay-ms holds
 ## every outgoing packet that long;
-## --enet-throttle=true puts ENet's own RTT throttle back.
+## --enet-throttle=true puts ENet's own RTT throttle back. --aim=true turns this machine's view
+## onto the nearest running body it can see, as drawn here, every tick.
+
+var _aimed: MatchParticipant = null
 
 const MATCH_SCENE: String = "res://match/match.tscn"
 const SESSION_SCENE: String = "res://match/net/net_session.tscn"
@@ -53,7 +56,7 @@ func _initialize() -> void:
 		"screen": false, "preset": "classic", "press-ability": 0, "press-at": 6.0, "press-every": 0.0,
 		"press-fire": 4.0, "arm-finisher": 0.0, "kill-guard": 0.0, "pitch-rate": 0.0,
 		"map": "", "bind-delay": 0.0, "stall-at": 0.0, "stall-ms": 0,
-		"loss": 0.0, "delay-ms": 0, "enet-throttle": false,
+		"loss": 0.0, "delay-ms": 0, "enet-throttle": false, "aim": false,
 	})
 	Engine.max_fps = 60
 	_started_ms = Time.get_ticks_msec()
@@ -281,6 +284,10 @@ func _drive_lobby() -> void:
 			_line("START result=%s" % str(_screen.start_match()))
 		return
 	if _lobby.get_occupant_count() < int(_o.get("seats", 6)):
+		# Publish the host's rules, as the hub does, so every machine loads the same map.
+		var rules: MatchRules = (load("res://match/rules/default_match_rules.tres") as MatchRules).duplicate() as MatchRules
+		SettingsStore.instance().settings.apply_to_match_rules(rules)
+		_lobby.set_rules(rules)
 		_lobby.fill_with_bots(int(_o.get("seats", 6)))
 		var tower: int = int(_o.get("tower", 1))
 		if tower >= 0:
@@ -336,6 +343,8 @@ func _hook_match(match_scene: Node) -> void:
 	scripted.power_pressed.connect(_on_power_pressed)
 	scripted.pitch_rate = float(_o.get("pitch-rate", 0.0))
 	scripted.trigger_pulled.connect(_on_trigger_pulled)
+	if bool(_o.get("aim", false)):
+		scripted.aim = _aim_view.bind(scripted)
 	_net_match.add_child(scripted)
 	_net_match.set_local_source(scripted)
 
@@ -358,6 +367,8 @@ func _hook_controller() -> void:
 	_controller.round_resolved.connect(func(outcome: MatchController.Outcome) -> void:
 		_line("EV round_resolved round=%d outcome=%s" % [_controller.get_round_number(), String(MatchController.Outcome.keys()[outcome])]))
 	_controller.match_won.connect(func(p: MatchParticipant) -> void: _line("EV match_won who=%s" % _who(p)))
+	if _controller.rifle != null and _is_server():
+		_controller.rifle.projectile_launched.connect(_on_round_launched)
 	if _controller.rifle != null:
 		_controller.rifle.fired.connect(func(origin: Vector3, end_point: Vector3) -> void:
 			var aim: Vector3 = (end_point - origin).normalized()
@@ -382,11 +393,65 @@ func _on_power_pressed(slot: int) -> void:
 		str(mine.body.is_physics_processing()) if mine != null and mine.body != null else "?"])
 
 
+## Where the host traces a remote shooter's round against: every runner rewound by its lag.
+func _on_round_launched(_origin: Vector3, _direction: Vector3, _speed: float) -> void:
+	var lag: int = _controller.rifle.lag_ticks
+	var replicator: NetReplicator = _session.replicator
+	replicator.rewind(lag, _controller.rifle.shooter_body)
+	var parts: PackedStringArray = PackedStringArray()
+	for p: MatchParticipant in _controller.get_participants():
+		if p.is_running and p.body != null:
+			parts.append("%d=%.2f,%.2f" % [p.index, p.body.global_position.x, p.body.global_position.z])
+	replicator.restore()
+	var now: PackedStringArray = PackedStringArray()
+	for p: MatchParticipant in _controller.get_participants():
+		if p.is_running and p.body != null:
+			now.append("%d=%.2f,%.2f" % [p.index, p.body.global_position.x, p.body.global_position.z])
+	_line("ROUND lag_ticks=%d rewound %s now %s" % [lag, " ".join(parts), " ".join(now)])
+
+
+## The view that puts this machine's camera on the chest of the nearest running body it can see.
+func _aim_view(scripted: ScriptedIntentSource) -> Vector2:
+	_aimed = null
+	var mine: MatchParticipant = _controller.get_human_participant() if _controller != null else null
+	if mine == null or mine.body == null:
+		return Vector2.INF
+	scripted.body = mine.body
+	var eye: Vector3 = (mine.body.get_node(^"Head/Camera") as Node3D).global_position
+	var best: float = INF
+	var at: Vector3 = Vector3.INF
+	for p: MatchParticipant in _controller.get_participants():
+		if p == mine or p.body == null or not p.is_running:
+			continue
+		var chest: Vector3 = p.body.global_position + Vector3.UP * 0.9
+		var query: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(eye, chest)
+		query.exclude = [mine.body.get_rid()]
+		var hit: Dictionary = mine.body.get_world_3d().direct_space_state.intersect_ray(query)
+		if hit.is_empty() or hit.collider != p.body or eye.distance_to(chest) >= best:
+			continue
+		best = eye.distance_to(chest)
+		at = chest
+		_aimed = p
+	if _aimed == null:
+		return Vector2.INF
+	# Lead a travelling shot the way the tower bot does: flight time, then the fall over it.
+	var speed: float = _controller.rifle.get_shot_speed() if _controller.rifle != null else 0.0
+	if speed > 0.0:
+		var velocity: Vector3 = _aimed.body.velocity
+		var flight: float = (at - eye + velocity * ((at - eye).length() / speed)).length() / speed
+		at += velocity * flight
+		at.y += 0.5 * _controller.rifle.profile.projectile_gravity * flight * flight
+	var dir: Vector3 = (at - eye).normalized()
+	return Vector2(atan2(-dir.x, -dir.z), asin(clampf(dir.y, -1.0, 1.0)))
+
+
 ## Where this machine's own body is looking on the tick its trigger goes, to set against the host's shot line.
 func _on_trigger_pulled() -> void:
 	var mine: MatchParticipant = _controller.get_human_participant() if _controller != null else null
 	if mine == null or mine.body == null:
 		return
+	if _aimed != null:
+		_line("AIMED at=%s drawn=%s" % [_who(_aimed), str(_aimed.body.global_position)])
 	var aim: Vector3 = -mine.body.get_node(^"Head/Camera").global_transform.basis.z
 	_line("TRIGGER who=%s guard=%s aim_yaw=%.3f aim_pitch=%.3f" % [
 		_who(mine), str(mine.body.is_guard), atan2(-aim.x, -aim.z), asin(clampf(aim.y, -1.0, 1.0))])

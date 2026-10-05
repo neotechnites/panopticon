@@ -84,8 +84,10 @@ var _ticks_since_packet: int = 0
 ## True once staleness has zeroed the command, so it is only zeroed once.
 var _stale: bool = false
 
-## A trigger press that arrived and has not been taken by the rifle yet.
+## A trigger press that arrived and has not been taken by the rifle yet, and the tick the
+## sender was drawing when it pressed (see [member MoveIntent.view_tick]).
 var _fire_latched: bool = false
+var fire_view_tick: int = -1
 
 
 ## Take a decoded packet. Returns false if it is older than one already
@@ -110,8 +112,6 @@ func accept(tick: int, intent: MoveIntent) -> bool:
 	_buffer[slot].copy_from(intent)
 	_buffer_ticks[slot] = tick
 	_buffer_count += 1
-	if intent.fire_pressed:
-		_fire_latched = true
 	_ticks_since_packet = 0
 	_stale = false
 	return true
@@ -131,6 +131,10 @@ func poll(_delta: float) -> MoveIntent:
 		applied_tick = _buffer_ticks[_buffer_start]
 		_buffer_start = (_buffer_start + 1) % BUFFER_SIZE
 		_buffer_count -= 1
+		if command.fire_pressed:
+			# Latched as the command runs, so the shot goes with that command's aim and view tick.
+			_fire_latched = true
+			fire_view_tick = command.view_tick
 	elif _ticks_since_packet > stale_after_ticks and not _stale:
 		_stale = true
 		command.clear()

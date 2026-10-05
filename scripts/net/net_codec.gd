@@ -50,7 +50,7 @@ extends RefCounted
 ##
 ## [b]What is deliberately not here[/b]
 ##
-## Nothing about lag compensation or delta compression. Every field of every
+## Nothing about delta compression. Every field of every
 ## body goes every snapshot. At eight players that is about 210 bytes a packet,
 ## which is cheap; it is listed as a gap rather than a feature because it is a
 ## habit that stops being cheap at a player count this game will never reach.
@@ -58,9 +58,9 @@ extends RefCounted
 ## Bytes of intent header: u32 newest tick, u16 scene epoch, u8 how many intents follow.
 const INTENT_HEADER_SIZE: int = 7
 
-## Bytes per intent: 2 floats of move, 2 of absolute view (yaw, pitch), a flag
-## byte, the ability slot and a second flag byte.
-const INTENT_BODY_SIZE: int = 19
+## Bytes per intent: 2 floats of move, 2 of absolute view (yaw, pitch), u32 view tick,
+## a flag byte, the ability slot and a second flag byte.
+const INTENT_BODY_SIZE: int = 23
 
 ## Bytes in a packet carrying one intent.
 const INTENT_SIZE: int = INTENT_HEADER_SIZE + INTENT_BODY_SIZE
@@ -199,6 +199,7 @@ static func _put_intent(buffer: StreamPeerBuffer, intent: MoveIntent) -> void:
 	buffer.put_float(intent.move_direction.y)
 	buffer.put_float(intent.view_angles.x)
 	buffer.put_float(intent.view_angles.y)
+	buffer.put_u32(NO_INTENT_ACK if intent.view_tick < 0 else intent.view_tick % TICK_MODULUS)
 	var flags: int = 0
 	if intent.jump_pressed:
 		flags |= _FLAG_JUMP_PRESSED
@@ -263,6 +264,7 @@ static func unpack_intent_at(payload: PackedByteArray, index: int, out: MoveInte
 	var move_y: float = buffer.get_float()
 	var view_yaw: float = buffer.get_float()
 	var view_pitch: float = buffer.get_float()
+	var view_tick: int = buffer.get_u32()
 	var flags: int = buffer.get_u8()
 	var slot: int = buffer.get_u8()
 	var flags2: int = buffer.get_u8()
@@ -275,6 +277,7 @@ static func unpack_intent_at(payload: PackedByteArray, index: int, out: MoveInte
 	out.look_delta = Vector2.ZERO
 	out.view_angles = Vector2(view_yaw, view_pitch)
 	out.view_absolute = true
+	out.view_tick = -1 if view_tick == NO_INTENT_ACK else view_tick
 	out.jump_pressed = (flags & _FLAG_JUMP_PRESSED) != 0
 	out.jump_held = (flags & _FLAG_JUMP_HELD) != 0
 	out.slide_pressed = (flags & _FLAG_SLIDE_PRESSED) != 0

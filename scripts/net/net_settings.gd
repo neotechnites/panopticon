@@ -63,8 +63,8 @@ extends Resource
 ## What it does NOT cost is hit registration: shots are resolved on the
 ## authority against the authority's own 60 Hz bodies, so a client never shoots
 ## at an interpolated position and a lower snapshot rate cannot make a hit into
-## a miss. It can make a hit FEEL like a miss, which is a lag compensation
-## problem and is not solved here -- see [PlayerNetLink].
+## a miss: a client's shot is traced against the bodies rewound to what it drew
+## (see [NetReplicator], lag compensation).
 ##
 ## Raise this first if aiming at remote bodies feels wrong. If 60 does not fix
 ## it, the problem was never the snapshot rate.

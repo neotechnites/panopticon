@@ -528,6 +528,7 @@ func _send_intent() -> void:
 		_scratch_intent.view_angles = _view
 	# The view goes as absolute angles, Quake's usercmd: a lost packet costs no aim.
 	_scratch_intent.view_absolute = true
+	_scratch_intent.view_tick = replicator.get_view_tick() if replicator != null else -1
 	_scratch_intent.look_delta = Vector2.ZERO
 	_scratch_intent.normalise()
 	var redundancy: int = clampi(
