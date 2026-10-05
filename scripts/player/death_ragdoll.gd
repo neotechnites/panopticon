@@ -259,6 +259,11 @@ func _physics_process(delta: float) -> void:
 	PhysicsServer3D.body_set_state(_bones[CHEST_PART].get_rid(), PhysicsServer3D.BODY_STATE_TRANSFORM, tumble * frame * _chest_local)
 
 
+## The pelvis, world space.
+func centre() -> Vector3:
+	return _bones[0].global_position if not _bones.is_empty() else Vector3.ZERO
+
+
 ## Every part's centre, world space; the pelvis first, the chest second.
 func part_positions() -> PackedVector3Array:
 	var out: PackedVector3Array = PackedVector3Array()

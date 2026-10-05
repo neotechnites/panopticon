@@ -15,9 +15,8 @@ signal host_lost()
 const SESSION_PATH: NodePath = ^"/root/NetSession"
 const LINK_SCENE_PATH: String = "res://match/net/player_net_link.tscn"
 
-## Which of the two rifles a shot event belongs to.
+## Which rifle a shot event belongs to: the tower's is the only one.
 const TOWER_RIFLE: int = 0
-const FINISHER_RIFLE: int = 1
 
 @export var controller: MatchController
 @export var player: PlayerController
@@ -46,7 +45,6 @@ var _seat_of_slot: PackedInt32Array = PackedInt32Array()
 var _wait_seconds: float = 0.0
 var _started: bool = false
 var _fire_was_held: bool = false
-var _finisher_fire_was_held: bool = false
 ## Instance ids of the rifles already subscribed to. A bound Callable is a new
 ## object every time, so [method Signal.is_connected] cannot answer this.
 var _watched_rifles: Dictionary[int, bool] = {}
@@ -304,7 +302,8 @@ func _subscribe_server() -> void:
 	controller.participant_shoved.connect(_on_participant_shoved)
 	controller.finisher_armed.connect(_on_finisher_armed)
 	controller.kill_beat_started.connect(
-		func(guard: MatchParticipant, _seconds: float) -> void: _event(&"_ev_kill_beat", [guard.index])
+		func(guard: MatchParticipant, _seconds: float, throw: Vector3) -> void:
+			_event(&"_ev_kill_beat", [guard.index, throw])
 	)
 	controller.ghost_respawned.connect(
 		func(participant: MatchParticipant) -> void: _event(&"_ev_ghost_respawned", [participant.index])
@@ -318,7 +317,7 @@ func _subscribe_server() -> void:
 
 
 ## Send one weapon's shots on, [param which] naming the gun so a client replays
-## them on the same one. Idempotent: the finisher's rifle is armed every round.
+## them on the same one. Idempotent.
 func _watch_rifle(weapon: Rifle, which: int) -> void:
 	if weapon == null or _watched_rifles.has(weapon.get_instance_id()):
 		return
@@ -370,14 +369,10 @@ func _physics_process(delta: float) -> void:
 	_drive_remote_trigger()
 
 
-## A remote human in the tower or holding the finisher's rifle fires through its
-## intent; the server pulls the trigger.
+## A remote human in the tower fires through its intent; the server pulls the trigger.
 func _drive_remote_trigger() -> void:
 	_fire_was_held = _drive_trigger(
 		controller.get_seat_participant(), controller.rifle, _fire_was_held
-	)
-	_finisher_fire_was_held = _drive_trigger(
-		controller.get_finisher(), controller.get_finisher_rifle(), _finisher_fire_was_held
 	)
 
 
@@ -436,11 +431,9 @@ func _event(method: StringName, args: Array = []) -> void:
 			callv(&"rpc_id", [peer, method] + args)
 
 
-## The finisher's rifle exists only once one has been armed, so it is subscribed
-## to here rather than at [method _subscribe_server].
-func _on_finisher_armed(weapon: Rifle) -> void:
+## The finisher is in the tower; every peer is told who, for the role.
+func _on_finisher_armed(_weapon: Rifle) -> void:
 	var who: MatchParticipant = controller.get_finisher()
-	_watch_rifle(weapon, FINISHER_RIFLE)
 	_event(&"_ev_finisher_armed", [who.index if who != null else -1])
 
 
@@ -658,10 +651,10 @@ func _ev_finisher_armed(index: int) -> void:
 
 
 @rpc("authority", "reliable", "call_remote", 0)
-func _ev_kill_beat(guard_index: int) -> void:
-	if not _replays():
+func _ev_kill_beat(guard_index: int, throw: Vector3) -> void:
+	if not _replays() or not throw.is_finite():
 		return
-	controller.net_kill_beat(guard_index)
+	controller.net_kill_beat(guard_index, throw)
 
 
 @rpc("authority", "reliable", "call_remote", 0)
@@ -671,10 +664,10 @@ func _ev_shove_landed(at: Vector3) -> void:
 	controller.net_shove_landed(at)
 
 
-## Which gun an event names. Null before a finisher has been armed. Callers have
+## Which gun an event names, or null for one this build has not got. Callers have
 ## already refused the authority; see [method _replays].
 func _weapon_of(which: int) -> Rifle:
-	return controller.get_finisher_rifle() if which == FINISHER_RIFLE else controller.rifle
+	return controller.rifle if which == TOWER_RIFLE else null
 
 
 @rpc("authority", "reliable", "call_remote", 0)

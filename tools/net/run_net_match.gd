@@ -195,7 +195,9 @@ func _run_debug_hooks(in_match: float) -> void:
 		var guard: MatchParticipant = _controller.get_seat_participant()
 		_line("DEBUG kill-guard guard=%s finisher=%s" % [
 			_who(guard), _who(_controller.get_finisher())])
-		_controller.apply_guard_hit(guard)
+		var finisher: MatchParticipant = _controller.get_finisher()
+		if guard != null and finisher != null and finisher.body != null and guard.body != null:
+			_controller.throw_guard(guard, guard.body.global_position - finisher.body.global_position)
 
 
 ## Freeze this whole process once, the way a hitching machine does.
@@ -457,23 +459,11 @@ func _on_trigger_pulled() -> void:
 		_who(mine), str(mine.body.is_guard), atan2(-aim.x, -aim.z), asin(clampf(aim.y, -1.0, 1.0))])
 
 
-## What a client has to be able to see: the second rifle on its own body, and
-## every shot it takes.
-func _on_finisher_armed(weapon: Rifle) -> void:
+## Who was put in the tower for the finale, on the server.
+func _on_finisher_armed(_weapon: Rifle) -> void:
 	var who: MatchParticipant = _controller.get_finisher()
 	var mine: bool = who != null and who == _controller.get_human_participant()
-	var head: Node = weapon.get_parent()
-	_line("FINISHER armed who=%s mine=%s rifle_under=%s health=%d armed_flag=%s" % [
-		_who(who), str(mine), head.get_path() if head != null else "none",
-		_controller.get_health(who), str(who.body.is_armed) if who != null and who.body != null else "?",
-	])
-	weapon.fired.connect(func(origin: Vector3, end_point: Vector3) -> void:
-		_line("FINISHER fired from=%.1f,%.1f,%.1f to=%.1f,%.1f,%.1f" % [
-			origin.x, origin.y, origin.z, end_point.x, end_point.y, end_point.z]))
-	weapon.target_hit.connect(func(collider: Node3D, _at: Vector3, _n: Vector3) -> void:
-		_line("FINISHER hit=%s" % _who(_controller.resolve_participant(collider))))
-	weapon.missed.connect(func(end_point: Vector3) -> void:
-		_line("FINISHER missed at=%.1f,%.1f,%.1f" % [end_point.x, end_point.y, end_point.z]))
+	_line("FINISHER in tower who=%s mine=%s" % [_who(who), str(mine)])
 
 
 ## The kill beat is a death clip on the guard, wherever it is run.

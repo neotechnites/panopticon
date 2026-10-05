@@ -225,12 +225,13 @@ signal ghost_caught(ghost: MatchParticipant, caught: MatchParticipant)
 ## Emitted on the tick one prisoner shoves another. [param victim] has already
 ## been launched when it fires.
 signal participant_shoved(shover: MatchParticipant, victim: MatchParticipant)
-## The finisher just received a rifle.
+## The finisher came through the portal and stands in the tower, invincible.
+## [param weapon] is null: the finale is a shove, not a second rifle.
 signal finisher_armed(weapon: Rifle)
 
-## The killing shot landed and the beat has started. [param guard] is the body
-## playing its death.
-signal kill_beat_started(guard: MatchParticipant, seconds: float)
+## The finale shove landed: [param guard] is thrown out of the open tower at
+## [param throw] (world m/s), and every view follows him for [param seconds].
+signal kill_beat_started(guard: MatchParticipant, seconds: float, throw: Vector3)
 
 ## Every design parameter of the match: how many players, on what track, at what
 ## pace, with what reload escalation, and what counts as a win.
@@ -390,10 +391,8 @@ const TINT_WHITE_BLEND: float = 0.0
 ## was tuned as rather than a second, quietly different default.
 const DEFAULT_SHOOTER_PROFILE_PATH: String = "res://characters/bots/default_shooter_profile.tres"
 
-## The finisher's rifle, instanced from the SAME scene the guard's is authored
-## from, so the prisoner who reaches the end gets the guard's gun -- model,
-## optic, recoil, reload -- and not a second weapon that could drift from it.
-const FINISHER_RIFLE_SCENE_PATH: String = "res://weapons/rifle.tscn"
+## The finale shove's force against an ordinary shove's: Ryan's "turned up 3x".
+const FINALE_SHOVE_SCALE: float = 3.0
 
 ## Physics priority given to the first-scored lap tracker; the rest count up from
 ## it. See [method _order_the_scoring].
@@ -410,8 +409,8 @@ const TRACKER_PRIORITY_BASE: int = 1
 ## and two frames is correct from either. See [method _place_body_at].
 const SETTLE_PHYSICS_FRAMES: int = 2
 
-## Metres the armed finisher stands from the guard's own spawn point, so the two
-## are not put inside the same capsule. See [method _place_finisher_in_tower].
+## Metres the finisher stands from the guard's own spawn point, inside one
+## shove's reach. See [method _place_finisher_in_tower].
 const FINISHER_TOWER_OFFSET: float = 2.5
 
 ## Scene-tree group holding exactly the bodies that are RUNNING right now.
@@ -536,13 +535,13 @@ var _default_ghost_profile: GhostProfile = null
 ## Ghost swaps this controller has performed. A readout, nothing branches on it.
 var _catch_count: int = 0
 
-## The prisoner who reached the end and is hunting the guard, or null. At most
-## one: the round ends the moment either of them dies.
+## The prisoner who came through the portal and is in the tower to shove the
+## guard out, or null. At most one: the round ends on that shove.
 var _finisher: MatchParticipant = null
 
-## The second rifle, built on the first arming and kept for the match. Parked on
-## this node between hunts, exactly as the guard's is during the race.
-var _finisher_rifle: Rifle = null
+## The tower's bodies the finale shove switched off, with the layer each had.
+## Empty except between that shove and the next round.
+var _opened_tower: Dictionary[StaticBody3D, int] = {}
 
 ## The shipped default palette, loaded on first use when [member palette] names
 ## none. See [method get_runner_palette].
@@ -1394,30 +1393,28 @@ func net_shove_felt(forward: Vector3) -> void:
 		human.body.shoved.emit()
 
 
-## The server armed [param index] as the finisher: the rifle, the viewmodel and
-## the hit points, with the trigger left on the authority.
+## The server put [param index] in the tower as the finisher. Their body rides
+## the snapshot; this is the role.
 func net_arm_finisher(index: int) -> void:
 	var participant: MatchParticipant = _participant_at(index)
 	if participant == null or participant == _finisher or participant.body == null:
-		return
-	var weapon: Rifle = _finisher_weapon()
-	if weapon == null:
 		return
 	_disarm_finisher()
 	_finisher = participant
 	participant.is_finisher = true
 	participant.health = maxi(get_rules().finisher_health, 1)
-	participant.body.is_armed = true
-	_attach_finisher_rifle(participant, weapon)
 
 
-## The server's killing shot: the guard plays its death and the round waits.
-## What the beat resolves into arrives on the ordinary round flow.
-func net_kill_beat(guard_index: int) -> void:
+## The server's finale shove: the tower opens, the guard is thrown out limp at
+## [param throw] and this machine's views follow him. The round end arrives on the ordinary flow.
+func net_kill_beat(guard_index: int, throw: Vector3) -> void:
 	var guard: MatchParticipant = _participant_at(guard_index)
 	if guard == null or guard.body == null:
 		return
-	guard.body.died.emit()
+	if _finisher != null and _finisher == get_human_participant():
+		net_shove_felt(Vector3(throw.x, 0.0, throw.z).normalized())
+	_throw_guard_out(guard, throw)
+	kill_beat_started.emit(guard, maxf(get_rules().kill_beat_seconds, 0.0), throw)
 
 
 ## The server says a shove landed on somebody at [param at]. The cue and the drawn
@@ -1511,14 +1508,14 @@ func is_awaiting_respawn(participant: MatchParticipant) -> bool:
 
 
 ## Ghost swaps this controller has performed since the match started.
-## The prisoner hunting the guard, or null when nobody has reached the end.
+## The prisoner in the tower to shove the guard out, or null.
 func get_finisher() -> MatchParticipant:
 	return _finisher
 
 
-## The finisher's rifle, or null until one has been armed this match.
-func get_finisher_rifle() -> Rifle:
-	return _finisher_rifle
+## True from the finale shove until the next round: the tower's collision is off.
+func is_tower_open() -> bool:
+	return not _opened_tower.is_empty()
 
 
 ## Hit points [param participant] has left. See [member MatchParticipant.health].
@@ -1687,17 +1684,10 @@ func apply_hit(participant: MatchParticipant) -> bool:
 	var ability: RunnerPower = RunnerPower.of(participant.body)
 	if ability != null and ability.is_hit_immune():
 		return false
-	if participant.body.get_intent().godmode:
+	if participant.body.get_intent().godmode or participant.is_finisher:
+		# The finisher is invincible from the portal to the end of the round.
 		return false
 	participant.death_cause = MatchParticipant.DeathCause.SHOT
-	if participant.is_finisher:
-		# Hit points, not lives: the ghost/park path below is not reached until
-		# MatchRules.finisher_health of the guard's shots have landed.
-		participant.health -= 1
-		if participant.health > 0:
-			return false
-		_disarm_finisher()
-		return convert_participant(participant)
 	participant.lives -= 1
 	if participant.lives > 0:
 		# A life that is spent but not the last one puts the prisoner back on the
@@ -1710,32 +1700,36 @@ func apply_hit(participant: MatchParticipant) -> bool:
 	return convert_participant(participant)
 
 
-## Land one finisher shot on the guard, spending a hit point. Returns true if
-## that shot took the tower.
-##
-## The mirror of [method apply_hit] and the finisher's half of the new ending:
-## at the shipped [member MatchRules.guard_health] of 1 the first shot on the
-## guard resolves the round for the finisher exactly as reaching the portal used
-## to, through the same [method _score_and_restart].
-func apply_guard_hit(guard: MatchParticipant) -> bool:
+## The finale shove along [param forward]: one kills the guard, his ragdoll is thrown out of the
+## open tower and the round resolves after the beat. His capsule is held, so no fall rules on him.
+func throw_guard(guard: MatchParticipant, forward: Vector3) -> bool:
 	if guard == null or is_resolved() or _phase != Phase.ROUND:
 		return false
 	if not guard.is_shooter or _refuses_local_decision() or _in_kill_beat():
 		return false
-	guard.health -= 1
-	if guard.health > 0:
-		return false
 	var scorer: MatchParticipant = _finisher
 	if scorer == null:
-		_disarm_finisher()
 		return false
+	var flat: Vector3 = Vector3(forward.x, 0.0, forward.z)
+	if flat.length_squared() < 1e-6:
+		return false
+	var throw: Vector3 = get_finale_throw(flat.normalized())
+	guard.health = 0
+	guard.death_cause = MatchParticipant.DeathCause.SHOT
 	var beat: float = maxf(get_rules().kill_beat_seconds, 0.0)
 	if beat <= 0.0:
 		_disarm_finisher()
 		_score_and_restart(scorer)
 		return true
-	_begin_kill_beat(guard, scorer, beat)
+	_begin_kill_beat(guard, scorer, beat, throw)
 	return true
+
+
+## The velocity the finale shove throws the guard at along [param forward]: an
+## ordinary shove's launch, [constant FINALE_SHOVE_SCALE] times over.
+func get_finale_throw(forward: Vector3) -> Vector3:
+	var match_rules: MatchRules = get_rules()
+	return (forward * match_rules.shove_impulse + Vector3.UP * match_rules.shove_up_impulse) * FINALE_SHOVE_SCALE
 
 
 ## Drop any beat in progress, giving the bodies it froze their controls back.
@@ -1755,21 +1749,65 @@ func _in_kill_beat() -> bool:
 	return _kill_beat_remaining > 0.0
 
 
-## Let the kill land before the seat changes hands: the guard plays its death,
-## both bodies stand still where they are, and the finisher keeps its own camera
-## pointed at what it just did. The authority owns this clock -- a mirror runs no
-## beat and sees the snapshot.
-func _begin_kill_beat(guard: MatchParticipant, scorer: MatchParticipant, seconds: float) -> void:
+## Hold both bodies, open the tower and throw the guard's ragdoll out of it while
+## every view follows. The authority owns this clock -- a mirror runs no beat.
+func _begin_kill_beat(guard: MatchParticipant, scorer: MatchParticipant, seconds: float, throw: Vector3) -> void:
 	_kill_beat_remaining = seconds
 	_kill_beat_scorer = scorer
 	_kill_beat_guard = guard
-	_set_trigger(_finisher_rifle, false)
 	_freeze_for_kill_beat(guard)
+	# Held, collision and physics off, so the finisher cannot fall out of the open tower.
 	_freeze_for_kill_beat(scorer)
-	if guard.body != null:
-		# The death clip: PrisonerAvatar arms on this signal and on nothing else.
-		guard.body.died.emit()
-	kill_beat_started.emit(guard, seconds)
+	if shove_camera_kick != null and scorer == get_human_participant():
+		shove_camera_kick.strike(Vector3(throw.x, 0.0, throw.z).normalized(), SHOVE_KICK_SCALE)
+	if scorer.body != null:
+		scorer.body.shoved.emit()
+	_throw_guard_out(guard, throw)
+	kill_beat_started.emit(guard, seconds, throw)
+
+
+## Every machine's half of the finale: the tower's collision off, the guard dead
+## and limp, thrown at [param throw] (world m/s).
+func _throw_guard_out(guard: MatchParticipant, throw: Vector3) -> void:
+	_open_tower()
+	if guard.body == null:
+		return
+	AudioDirector.post_event_at(AudioEvents.PLAYER_CATCH_MADE, guard.body.global_position)
+	# The death first: PrisonerAvatar arms on this signal, then goes limp with the throw.
+	guard.body.died.emit()
+	var avatar: PrisonerAvatar = PrisonerAvatar.of(guard.body)
+	if avatar != null:
+		avatar.throw_out(throw)
+
+
+## Switch every collider the tower carries off, remembering each one's layer.
+## One concave shape per map carries floor and wall alike, so all of it goes.
+func _open_tower() -> void:
+	if not _opened_tower.is_empty():
+		return
+	var tower: Node = _tower_node()
+	if tower == null:
+		return
+	for node: Node in tower.find_children("*", "StaticBody3D", true, false):
+		var body: StaticBody3D = node as StaticBody3D
+		_opened_tower[body] = body.collision_layer
+		body.collision_layer = 0
+
+
+## Put back exactly the layers [method _open_tower] took, plugs and the dead variant included.
+func _close_tower() -> void:
+	for body: StaticBody3D in _opened_tower:
+		if is_instance_valid(body):
+			body.collision_layer = _opened_tower[body]
+	_opened_tower.clear()
+
+
+## The node the guard's spawn hangs off: the tower, on every map.
+func _tower_node() -> Node:
+	if arena == null:
+		return null
+	var spawn: Node = arena.get_node_or_null(spawn_marker_path)
+	return spawn.get_parent() if spawn != null else null
 
 
 ## One body, inert for the length of the beat. The same hold every placement in
@@ -1864,6 +1902,10 @@ func handle_fall(participant: MatchParticipant, from_pit: bool = false) -> bool:
 		Phase.ROUND:
 			if participant.is_shooter:
 				return _return_seat_holder_to_tower()
+			if participant.is_finisher:
+				# Invincible: a finisher who leaves the tower is put back in it.
+				_place_finisher_in_tower(participant)
+				return true
 			if participant.is_ghost:
 				_place_ghost_at_start(participant)
 				return true
@@ -1990,7 +2032,7 @@ func apply_shove(shover: MatchParticipant) -> MatchParticipant:
 		# A ghost that is held or still settling is not in the world to swing.
 		return null
 	if shover.body.is_armed:
-		# Click fires the rifle for an armed finisher.
+		# Click fires the rifle for an armed body.
 		return null
 	if shover.shove_cooldown_remaining > 0.0:
 		return null
@@ -2002,6 +2044,11 @@ func apply_shove(shover: MatchParticipant) -> MatchParticipant:
 	forward = forward.normalized()
 
 	var match_rules: MatchRules = get_rules()
+	if shover == _finisher and _phase == Phase.ROUND:
+		# The finale: the finisher's shove is for the guard, and one is the round.
+		var guard: MatchParticipant = _guard_in_reach(shover, forward, match_rules.shove_range_metres)
+		if guard != null and throw_guard(guard, forward):
+			return guard
 	var victim: MatchParticipant = _shovable_from(shover, forward, match_rules.shove_range_metres)
 	shover.shove_cooldown_remaining = maxf(match_rules.shove_cooldown_seconds, 0.0)
 	# A whiff still swings: the arms punch and the cooldown runs.
@@ -2027,6 +2074,19 @@ func apply_shove(shover: MatchParticipant) -> MatchParticipant:
 	if shover.is_ghost and shover.ghost_grace_remaining <= 0.0 and _is_catchable(victim):
 		_swap_with_ghost(shover, victim)
 	return victim
+
+
+## The guard, when within [param radius] metres of [param shover] and inside its
+## facing cone; else null. The same reach and cone as every other shove.
+func _guard_in_reach(shover: MatchParticipant, forward: Vector3, radius: float) -> MatchParticipant:
+	if _seat == null or _seat.body == null or _seat == shover:
+		return null
+	var offset: Vector3 = _seat.body.global_position - shover.body.global_position
+	offset.y = 0.0
+	var distance: float = offset.length()
+	if distance > radius or distance < 1e-3 or forward.dot(offset / distance) < SHOVE_FACING_DOT:
+		return null
+	return _seat
 
 
 ## The nearest living prisoner within [param radius] metres of [param shover]
@@ -2086,10 +2146,10 @@ func _tick_ghosts(delta: float) -> void:
 
 
 ## Whether [param other] holds a spot a ghost may take: a living prisoner with a
-## body, not standing behind godmode. The shooter is never a candidate -- only
+## body, not standing behind godmode, not the invincible finisher. The shooter is never a candidate -- only
 ## [member MatchParticipant.is_running] participants are.
 func _is_catchable(other: MatchParticipant) -> bool:
-	if other == null or not other.is_running or other.body == null:
+	if other == null or not other.is_running or other.body == null or other.is_finisher:
 		return false
 	return not other.body.get_intent().godmode
 
@@ -3550,47 +3610,25 @@ func _apply_turn_reload(participant: MatchParticipant) -> void:
 
 # --- The finisher -------------------------------------------------------------
 
-## Hand [param participant] a rifle instead of the tower.
-##
-## Everything else about them is unchanged: they stay [member
-## MatchParticipant.is_running] and stay in [constant RUNNER_GROUP], so the guard
-## may still shoot them and every count of the round still counts them. What they
-## gain is a gun and [member MatchRules.finisher_health] hit points; what they
-## lose is the portal win.
+## Put [param participant], through the portal, in the tower with the guard: invincible
+## (still running) until the round ends, with one shove to win it. See [method throw_guard].
 func _arm_the_finisher(participant: MatchParticipant) -> void:
-	# One finisher at a time: there is one second rifle, and the round ends the
-	# moment the hunt does. A later arrival stands at the portal unarmed.
+	# One finisher at a time: the round ends on their shove. A later arrival
+	# stands at the portal.
 	if participant == null or _finisher != null or _seat == null or _mirror:
 		return
-	var weapon: Rifle = _finisher_weapon()
-	if weapon == null:
-		# Nothing to arm them with: the round ends the way it used to rather
-		# than leaving a finisher standing at a portal that does nothing.
-		_score_and_restart(participant)
-		return
-
 	_finisher = participant
 	participant.is_finisher = true
 	participant.health = maxi(get_rules().finisher_health, 1)
-	participant.body.is_armed = true
 	# They have arrived; a lap brain still steering would walk them off the end.
 	_silence_brain(participant)
-	# Into the room with the guard, BEFORE the rifle and the brain: both read the
-	# body where it is standing.
 	_place_finisher_in_tower(participant)
-	_attach_finisher_rifle(participant, weapon)
-	_hunt_the_guard(participant, weapon)
+	_hunt_the_guard(participant)
+	finisher_armed.emit(null)
 
 
-## Put the armed finisher in the tower room, [constant FINISHER_TOWER_OFFSET]
-## metres off the guard's own spawn and facing it.
-##
-## The race is unchanged -- this happens after the portal, not instead of it --
-## and the move goes through [method _hold_body] like every other placement, so
-## the velocity is zeroed, the physics server is not handed a 300 m sweep, and
-## [method _wake_settled_ghosts] gives the body back its collision two frames
-## later. Human or bot: a finisher that had to walk to the tower would be shot
-## on the way.
+## Put the finisher in the tower room, [constant FINISHER_TOWER_OFFSET] metres off the
+## guard's spawn and facing it, through [method _hold_body] like every other placement.
 func _place_finisher_in_tower(participant: MatchParticipant) -> void:
 	var body: PlayerController = participant.body
 	if body == null or not _geometry_ready:
@@ -3606,115 +3644,23 @@ func _place_finisher_in_tower(participant: MatchParticipant) -> void:
 	participant.ghost_settle_frames = SETTLE_PHYSICS_FRAMES
 
 
-## The second rifle, built on first use and kept for the life of the match.
-func _finisher_weapon() -> Rifle:
-	if _finisher_rifle != null and is_instance_valid(_finisher_rifle):
-		return _finisher_rifle
-	var scene: PackedScene = load(FINISHER_RIFLE_SCENE_PATH) as PackedScene
-	var weapon: Rifle = scene.instantiate() as Rifle if scene != null else null
-	if weapon == null:
-		push_error(
-			"MatchController cannot load %s; the finisher will stand unarmed."
-			% FINISHER_RIFLE_SCENE_PATH
-		)
-		return null
-	weapon.name = "FinisherRifle"
-	weapon.tracer_parent = rifle.tracer_parent if rifle != null else null
-	add_child(weapon)
-	# The scene's own trigger is live from _ready, and this gun is nobody's yet.
-	_set_trigger(weapon, false)
-	weapon.target_hit.connect(_on_finisher_hit)
-	_finisher_rifle = weapon
-	return weapon
-
-
-## Move the finisher's rifle onto their head and point it at their eye.
-## [method _attach_rifle] for the tower's gun, with the same wiring.
-func _attach_finisher_rifle(participant: MatchParticipant, weapon: Rifle) -> void:
-	var body: PlayerController = participant.body
-	var head: Node3D = body.head if body.head != null else body
-	if weapon.get_parent() != head:
-		var parent: Node = weapon.get_parent()
-		if parent != null:
-			parent.remove_child(weapon)
-		head.add_child(weapon)
-	weapon.transform = Transform3D.IDENTITY
-
-	var camera: Camera3D = head.get_node_or_null(^"Camera") as Camera3D
-	weapon.aim_source = camera if camera != null else head
-	weapon.shooter_body = body
-	weapon.rules = get_rules()
-	var ads: RifleAds = weapon.get_node_or_null(^"Ads") as RifleAds
-	if ads != null:
-		ads.optic = body.get_node_or_null(^"Optic") as WeaponOptic
-	weapon.tick(FORCE_READY_SECONDS)
-
-	# The human's trigger, the same one the tower's rifle hands the mouse.
-	var local_holder: bool = participant.is_human() and participant.index == _local_index
-	_set_trigger(weapon, local_holder and not _mirror)
-	_set_local_holder(weapon, local_holder)
-	_light_weapon(weapon)
-	finisher_armed.emit(weapon)
-
-
-## Point a bot finisher at the guard with the brain it plays the tower on.
-##
-## The same [TowerShooter] the participant would hold the seat with, re-pointed
-## at [constant GUARD_GROUP] and at the finisher's own rifle -- which is exactly
-## what [method _arm_tower_brain] does to it on a seat change, so a brain reused
-## here is re-pointed rather than left carrying the hunt. The bot stands where it
-## finished and shoots; it does not close the range.
-func _hunt_the_guard(participant: MatchParticipant, weapon: Rifle) -> void:
-	if participant.is_human() or _mirror:
+## Point a bot finisher's own brain at the guard: close on him and shove.
+func _hunt_the_guard(participant: MatchParticipant) -> void:
+	if participant.is_human() or _mirror or participant.brain == null:
 		return
-	var hunter: TowerShooter = _tower_brain_of(participant)
-	if hunter == null:
-		return
-	var body: PlayerController = participant.body
-	hunter.rifle = weapon
-	hunter.rules = get_rules()
-	hunter.target_group = GUARD_GROUP
-	hunter.camera = body.get_node_or_null(^"Head/Camera") as Camera3D
-	hunter.optic = body.get_node_or_null(^"Optic") as WeaponOptic
-	# Where the body ALREADY is: configure() writes global_position, and on a
-	# woken body that is motion rather than a teleport. See [method _hold_body].
-	hunter.configure(body.global_position, body.rotation.y)
+	participant.brain.rules = get_rules()
+	participant.brain.begin_hunt(GUARD_GROUP)
 
 
-## End the hunt and take the second rifle back. Idempotent, and safe to call on a
-## match that never armed a finisher.
+## End the finale: the finisher is a prisoner again and the tower is closed.
+## Idempotent, and safe to call on a match that never armed a finisher.
 func _disarm_finisher() -> void:
-	if _finisher != null:
-		_finisher.is_finisher = false
-		if _finisher.body != null:
-			_finisher.body.is_armed = false
-		_silence_tower_brain(_finisher)
-		_finisher = null
-	if _finisher_rifle == null or not is_instance_valid(_finisher_rifle):
+	_close_tower()
+	if _finisher == null:
 		return
-	_set_trigger(_finisher_rifle, false)
-	_set_local_holder(_finisher_rifle, false)
-	if _finisher_rifle.get_parent() != self:
-		var parent: Node = _finisher_rifle.get_parent()
-		if parent != null:
-			parent.remove_child(_finisher_rifle)
-		add_child(_finisher_rifle)
-	_finisher_rifle.aim_source = null
-	_finisher_rifle.shooter_body = null
-	var ads: RifleAds = _finisher_rifle.get_node_or_null(^"Ads") as RifleAds
-	if ads != null:
-		ads.optic = null
-
-
-## A shot from the finisher's rifle landed. Only the guard is worth anything.
-func _on_finisher_hit(collider: Node3D, _hit_position: Vector3, _hit_normal: Vector3) -> void:
-	if _phase != Phase.ROUND or is_resolved() or _mirror:
-		return
-	var hit: MatchParticipant = resolve_participant(collider)
-	if hit == null or not hit.is_shooter:
-		RunnerPower.shatter(RunnerPower.decoy_of(collider))
-		return
-	apply_guard_hit(hit)
+	_finisher.is_finisher = false
+	_end_chase(_finisher)
+	_finisher = null
 
 
 # --- Resolution ---------------------------------------------------------------
@@ -4239,10 +4185,9 @@ func debug_remove_hub_body(body: PlayerController) -> void:
 		_participants[index].index = index
 
 
-## Every weapon profile in play: the tower rifle's and the finisher's, once each.
+## Every weapon profile in play: the tower rifle's.
 func debug_weapon_profiles() -> Array[WeaponProfile]:
 	var found: Array[WeaponProfile] = []
-	for weapon: Rifle in [rifle, _finisher_rifle]:
-		if weapon != null and weapon.profile != null and not found.has(weapon.profile):
-			found.append(weapon.profile)
+	if rifle != null and rifle.profile != null:
+		found.append(rifle.profile)
 	return found
