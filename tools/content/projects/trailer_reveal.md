@@ -429,6 +429,11 @@ captions: none
 # same rate, 2.7 s and 4.0 s). Every other cut is v23's file on a new in-point. In-points are a frame less 4 ms (a seek lands on the frame).
 # Off a beat by more than a frame: m2's squeeze (5 frames after the shove it follows), k2's first man up (36 ms), g1's white frames (they
 # start two frames before the end card, which is on the beat).
+# v25a (Ryan): "the shot with the cover doesnt read anymore. they peak out, cut straight to the shot, where the player isnt even in fram. for it
+# to read right, the player has to be in frame and we need to watch the dodge." and "i love the beat that it ends on". d2 opened on the squeeze and
+# the kick threw him out of the scope. Now d2 is 7v (the same event, the scope held down through the shot) from a beat before the squeeze: him in
+# the crosshair, the shot a beat in, the round on the ground a beat later, then d3 breaks on the accent. d1, d3 and all three cut points are
+# unchanged; nothing was traded, every line after d2 is where it was (the end card on 29.1, 37.450).
 # The plan. Beats are bar.beat of trailer_reveal.vivaldi_beats.csv (3/4; +1/8 the eighth after, +1/16 the sixteenth); times are seconds into the cut;
 # (+N) is how far the frame sits from the measured beat, in ms. Every cut is the frame nearest its beat.
 # line  in beat   at       out beat  len     picture; events
@@ -440,7 +445,7 @@ captions: none
 # h2    12.1      14.567   13.2      1.817   forest, guard scope: the kill; rifle fired 12.3 15.500 (+29), runner hit 13.1 15.900 (-29)
 # m0    13.2      16.383   15.1      2.283   marble, guard scope past the columns: the man behind is hit (5h); rifle fired 13.3+1/16 16.950 (-14), runner hit 14.1 17.300 (-7)
 # d1    15.1      18.667   16.1      1.367   hell, runner POV: out from behind the rock
-# d2    16.1      20.033   17.1      1.383   hell, guard scope: fires at him as he goes, the round lands where he stood; rifle fired 16.1 20.067 (+26), round lands 16.2 20.483 (-20)
+# d2    16.1      20.033   17.1      1.383   hell, guard scope (7v): he stands in the open under the crosshair, bolts for the rock as the rifle fires, the round lands on the ground he left; rifle fired 16.2 20.517 (+14), round lands 16.3 20.933 (-24)
 # d3    17.1      21.417   18.1      1.350   hell, runner POV: breaks cover and sprints; breaks cover 17.1 21.433 (+24)
 # p1    18.1      22.767   19.2      1.800   forest, the shover's eyes: the shove at a run; shove 19.1 24.117 (-0)
 # p2    19.2      24.567   20.2      1.350   forest, the shoved man's eyes: opens on the shove, falls; shove (his view) 19.2 24.567 (-6)
@@ -460,7 +465,7 @@ captions: none
 | h2 | cuts/05g.mp4@1.3627:1.8167 | | | beat 1.8167 | | |
 | m0 | cuts/05h.mp4@0.2960:2.2833 | | | beat 2.2833 | | |
 | d1 | cuts/06.mp4@1.4960:1.3667 | | | beat 1.3667 | | |
-| d2 | cuts/07.mp4@2.8293:1.3833 | | | beat 1.3833 | | |
+| d2 | cuts/07v.mp4@0.3793:1.3833 | | | beat 1.3833 | | |
 | d3 | cuts/08.mp4@0.0793:1.3500 | | | beat 1.3500 | | |
 | p1 | cuts/09ag.mp4@0.6627:1.8000 | | | beat 1.8000 | | |
 | p2 | cuts/09bg.mp4@0.0000:1.3500 | | | beat 1.3500 | | |
