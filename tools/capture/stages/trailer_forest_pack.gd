@@ -17,12 +17,38 @@ extends "res://tools/capture/stages/stage.gd"
 
 const GUARD_HAND := preload("res://tools/capture/stages/guard_hand.gd")
 
-## Start bearing, radius, pace and weave per body: lead, victim, tail.
-const STARTS: Array[float] = [9.4, 7.6, 5.2]
-const RADII: Array[float] = [52.3, 51.7, 52.0]
-const PACE: Array[float] = [0.71, 0.70, 0.705]
-const WEAVE: Array[float] = [0.05, 0.04, 0.06]
-const PERIOD: Array[float] = [1.2, 1.45, 1.0]
+const HUMAN_RUN := preload("res://tools/capture/stages/human_run.gd")
+
+## Start bearing and radius per body: lead, victim, tail. The tail (the POV) keeps one lane.
+const STARTS: Array[float] = [10.4, 7.4, 5.2]
+const START_R: Array[float] = [52.9, 52.6, 52.0]
+const TAIL_PACE: float = 0.705
+const TAIL_WEAVE: float = 0.06
+const TAIL_PERIOD: float = 1.0
+## v26 (Ryan): "they look to robotic, because there all just following a line, they should look more like players
+## runnign around." Each man his own line (probe --heights: outer deck free to r 55.5; trunks 29/r 56.5, 33/r 53.8, 39/r 53.8).
+## The lead: quick away, drifts out, a look up at the tower, then wide round the outside of the 33 and 39 trunks and back in.
+const LEAD_LEGS: Array = [
+	{"to": 17.0, "r": 52.4, "speed": 0.80, "weave": 0.05, "period": 1.2,
+		"glances": [{"t": 0.0, "right": 0.0, "pitch": -1.0}, {"t": 0.5, "right": -10.0, "pitch": -2.0}]},
+	{"to": 23.5, "r": 53.7, "speed": 0.74, "weave": 0.04, "period": 1.2,
+		"glances": [{"t": 0.0, "right": 3.0, "pitch": -1.0}, {"t": 0.3, "right": 40.0, "pitch": 7.0}, {"t": 0.75, "right": 2.0, "pitch": -1.0}]},
+	{"to": 28.5, "r": 56.0, "speed": 0.68, "weave": 0.0,
+		"glances": [{"t": 0.0, "right": -7.0, "pitch": -2.0}]},
+	{"to": 41.0, "r": 55.25, "speed": 0.70, "weave": 0.03, "period": 1.3,
+		"glances": [{"t": 0.0, "right": 4.0, "pitch": -1.0}, {"t": 0.5, "right": 12.0, "pitch": 1.0}, {"t": 1.0, "right": 2.0, "pitch": -1.0}]},
+	{"to": 80.0, "r": 52.6, "speed": 0.75, "weave": 0.05, "period": 1.2,
+		"glances": [{"t": 0.0, "right": 6.0, "pitch": -1.0}, {"t": 0.6, "right": -2.0, "pitch": -1.0}]},
+]
+## The victim: off the outside, cuts in across the tail's line close round the 20.7 trunk, then steady on r 51.7 for the hand.
+const VICTIM_LEGS: Array = [
+	{"to": 13.5, "r": 52.5, "speed": 0.75, "weave": 0.03, "period": 1.45,
+		"glances": [{"t": 0.0, "right": 0.0, "pitch": -1.0}, {"t": 0.45, "right": 9.0, "pitch": -2.0}]},
+	{"to": 21.5, "r": 51.4, "speed": 0.70, "weave": 0.0,
+		"glances": [{"t": 0.0, "right": 6.0, "pitch": -2.0}, {"t": 0.55, "right": -5.0, "pitch": -1.0}]},
+	{"to": 80.0, "r": 51.7, "speed": 0.70, "weave": 0.04, "period": 1.45,
+		"glances": [{"t": 0.0, "right": 0.0, "pitch": -1.0}, {"t": 0.5, "right": 8.0, "pitch": 2.0}, {"t": 1.2, "right": -3.0, "pitch": -1.0}]},
+]
 const VICTIM: int = 1
 ## The ridden body: the tail, 2.4 deg (2.2 m) behind the victim and 0.3 m outside him.
 const POV: int = 2
@@ -62,43 +88,36 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 			return false
 	for index: int in STARTS.size():
 		var body: PlayerController = runners[index].controller
-		# Eyes up the lane, a glance at the trees either side; never behind.
-		var glances: Array = [
-			{"t": 0.0, "right": 0.0, "pitch": -1.0},
-			{"t": 0.8 + 0.3 * index, "right": -18.0 + 9.0 * index, "pitch": -2.0},
-			{"t": 1.5 + 0.2 * index, "right": 4.0, "pitch": -1.0},
-			{"t": 2.4 + 0.25 * index, "right": 14.0 - 6.0 * index, "pitch": 2.0},
-			{"t": 3.1 + 0.2 * index, "right": -3.0, "pitch": -1.0},
-		]
-		var lane: Dictionary = {"do": "lane", "to": 80.0, "r": RADII[index], "speed": PACE[index], "weave": WEAVE[index],
-			"period": PERIOD[index], "timeout": 30.0, "glances": glances}
+		var run: Array = HUMAN_RUN.steps(LEAD_LEGS if index == 0 else VICTIM_LEGS)
 		if index == POV:
 			# The rider: a look left at the lead, right at the victim ahead; when he drops,
 			# a jerk, then up and right at the tower he came from; eyes front. Never behind.
-			lane["glances"] = [
-				{"t": 0.0, "right": 0.0, "pitch": -2.0},
-				{"t": 0.6, "right": -24.0, "pitch": -3.0},
-				{"t": 1.05, "right": -6.0, "pitch": -2.0},
-				{"t": 1.6, "right": 12.0, "pitch": -3.0},
-				{"t": 2.2, "right": 3.0, "pitch": -2.0},
-				{"t": 2.65, "right": 9.0, "pitch": -4.0},
-			]
-			lane["strafes"] = [{"t": 0.5, "strafe": 0.12}, {"t": 1.4, "strafe": -0.08}, {"t": 2.3, "strafe": 0.06}]
-			lane["flinch_on"] = "hit"
-			lane["flinch_glances"] = [
-				{"t": 0.0, "right": 6.0, "pitch": 5.0},
-				{"t": 0.12, "right": 14.0, "pitch": -6.0},
-				{"t": 0.4, "right": 80.0, "pitch": 10.0},
-				{"t": 1.15, "right": 76.0, "pitch": 8.0},
-				{"t": 1.5, "right": 4.0, "pitch": -2.0},
-				{"t": 2.2, "right": -8.0, "pitch": -2.0},
-			]
-		drive(runners[index], [
-			{"do": "place", "at": LIB.ring_point(STARTS[index], RADII[index], 0.1), "face": LIB.tangent_at(STARTS[index])},
+			run = [{"do": "lane", "to": 80.0, "r": START_R[index], "speed": TAIL_PACE, "weave": TAIL_WEAVE, "period": TAIL_PERIOD, "timeout": 30.0,
+				"glances": [
+					{"t": 0.0, "right": 0.0, "pitch": -2.0},
+					{"t": 0.6, "right": -24.0, "pitch": -3.0},
+					{"t": 1.05, "right": -6.0, "pitch": -2.0},
+					{"t": 1.6, "right": 12.0, "pitch": -3.0},
+					{"t": 2.2, "right": 3.0, "pitch": -2.0},
+					{"t": 2.65, "right": 9.0, "pitch": -4.0},
+				],
+				"strafes": [{"t": 0.5, "strafe": 0.12}, {"t": 1.4, "strafe": -0.08}, {"t": 2.3, "strafe": 0.06}],
+				"flinch_on": "hit",
+				"flinch_glances": [
+					{"t": 0.0, "right": 6.0, "pitch": 5.0},
+					{"t": 0.12, "right": 14.0, "pitch": -6.0},
+					{"t": 0.4, "right": 80.0, "pitch": 10.0},
+					{"t": 1.15, "right": 76.0, "pitch": 8.0},
+					{"t": 1.5, "right": 4.0, "pitch": -2.0},
+					{"t": 2.2, "right": -8.0, "pitch": -2.0},
+				]}]
+		var steps: Array = [
+			{"do": "place", "at": LIB.ring_point(STARTS[index], START_R[index], 0.1), "face": LIB.tangent_at(STARTS[index])},
 			{"do": "human", "on": true},
-			lane,
-			{"do": "hold", "seconds": 60.0},
-		], index)
+		]
+		steps.append_array(run)
+		steps.append({"do": "hold", "seconds": 60.0})
+		drive(runners[index], steps, index)
 		if index != VICTIM:
 			LIB.hide_from_the_rifle(body)
 		_pack.append(body)
@@ -111,9 +130,11 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 func tick(_delta: float) -> void:
 	if _pack.is_empty():
 		return
-	if OS.has_environment("STAGE_DEBUG") and Engine.get_physics_frames() % 15 == 0:
-		var v: Vector3 = _pack[VICTIM].global_position
-		say("victim at %.1f deg r %.1f" % [LIB.bearing_of(v), LIB.radius_of(v)])
+	if OS.has_environment("STAGE_DEBUG") and Engine.get_physics_frames() % 6 == 0:
+		var line: String = ""
+		for body: PlayerController in _pack:
+			line += " %s %.1f/%.2f" % [body.name, LIB.bearing_of(body.global_position), LIB.radius_of(body.global_position)]
+		say("at" + line)
 	if _hand == null:
 		_raise_the_hand()
 		return
