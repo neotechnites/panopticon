@@ -354,7 +354,7 @@ def cut_block(project, parsed, esc):
         timing = f.read()
     rows = ""
     lines_path = os.path.join(cuts, tag + "_lines.json")
-    script = parsed["script"]
+    script = parsed["scripts"].get(tag) or parsed["script"]   # an alternate cut's own table
     if script and os.path.exists(lines_path):
         with open(lines_path, encoding="utf-8") as f:
             starts = json.load(f)

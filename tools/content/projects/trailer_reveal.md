@@ -238,6 +238,15 @@ freeze: waive
 # rough_v25_vivaldi: 5b restaged with a real rifle hit. The hand rides the man behind (Runner_2) from the start; squeeze 2.62 as he
 # nears the 126 column, the round meets him in the gap at 128.0 deg (hit 2.97), the shipped ghost rule (he goes limp). 5b keeps its tape.
 
+## 10v
+said: v25 "have the shove line up with a beat of the song. both shoves, and every shot."
+capture: --map=marble --shot=pack_lead --stage=trailer_marble_column --bots=2 --pov=guard --hud=crosshair --rifle=projectile --seed=20261001
+tape: marble_column
+seconds: 3.2
+in: 2.75
+freeze: waive
+# rough_v25_vivaldi: 10b on a longer window (take 2.75-5.95), same stage and tape: the shot holds on him to the next downbeat
+
 ## reshoot
 # Every shot is a stage (tools/capture/stages/) played from its tape (tools/content/projects/trailer_reveal/tapes/<tape>.json):
 # seed, map, rifle, spawns, every body's intent per physics tick, every outside write (place, launch, the guard's aim
@@ -387,6 +396,71 @@ captions: none
 | k2 | cuts/14.mp4@0:1.7667 | | | beat 1.7667 | | |
 | g1 | cuts/12.mp4@0.15:3.1833 | | | beat 3.1833 | | |
 | e1 | cuts/end_v3.mp4@0.4:3.2 | | | beat 3.2 | | |
+
+## script rough_v25_vivaldi
+size: 1920x1080
+music: voice/vivaldi_summer_presto_v25.flac
+music_db: 3.7
+music_fade: 0.02 2.5
+captions: none
+# Ryan on v23: "extend the first shot a little further so we can start the song like on second earlier. then, extend the section title card
+# 'Online...' a litte more out so it hits the beat of the song. then hold it, until the song moves again, then start in with the forest shot.
+# then, in the marble runnign shot, have someone get hit, again, on the beat. and the running forest shot should make sure the shot also
+# happens on the beat. then the hwole cover shot is way too long for the tempo of this song ... this can be as short as it needs to. have the
+# shove line up with a beat of the song. both shoves, and every shot. pretty much, take the trailer as it is, but put everything on the beat."
+# Music: voice/vivaldi_summer_presto_v25.flac is the recording from 1.2013 s (v23's file started at 2.197 s): the first note at 0.17 s,
+# the re-entry on the title card at 6.717 s. The beats are measured from the audio (the tempo drifts, 137 to 132 bpm):
+# tools/content/projects/trailer_reveal.vivaldi_beats.csv. The check file is final/vivaldi_beats_check.m4a (a click a beat, louder on accents).
+# Read as: "hits the beat" is the phrase's last note (bar 9 beat 3, 11.51 s) with the card still up; "moves again" is the tutti re-entry with
+# the bass (bar 11, 13.22 s), where the forest starts. The cover sequence is one bar a shot (4.10 s, was 6.72 s). Hits, shoves and the
+# launch are on beats; a round flies 0.35 to 0.42 s against a 0.44 to 0.46 s beat, so where the hit is on the beat the squeeze is a
+# sixteenth off it (a1, m0) or both are split inside a frame and a half of their beats (h2, d2, k2).
+# New picture: 1v and 10v (shots 1 and 10b on longer windows), 5h (the marble shot with a real hit), title_zoom25 and card2_zoom25 (the v10 push-in at the
+# same rate, 2.7 s and 4.0 s). Every other cut is v23's file on a new in-point. In-points are a frame less 4 ms (a seek lands on the frame).
+# Off a beat by more than a frame: m2's squeeze (5 frames after the shove it follows), k2's first man up (36 ms), g1's white frames (they
+# start two frames before the end card, which is on the beat).
+# The plan. Beats are bar.beat of trailer_reveal.vivaldi_beats.csv (3/4; +1/8 the eighth after, +1/16 the sixteenth); times are seconds into the cut;
+# (+N) is how far the frame sits from the measured beat, in ms. Every cut is the frame nearest its beat.
+# line  in beat   at       out beat  len     picture; events
+# a1    start      0.000   4.1       4.100   hell, guard scope: zooms in, fires, the middle runner drops; rifle fired 2.3+1/16 2.450 (-21), runner hit 3.1 2.800 (+1)
+# a2    4.1        4.100   6.1       2.617   hell, the runner behind: the man ahead drops, he looks up at the tower; runner hit (his view) 4.3 4.950 (-5)
+# a3    6.1        6.717   8.1       2.617   PANOPTICON
+# a4    8.1        9.333   11.1      3.883   ONLINE ASYMMETRIC MULTIPLAYER, held through the phrase's last note and the lead-in
+# h1    11.1      13.217   12.1      1.350   forest, runner POV between the trees
+# h2    12.1      14.567   13.2      1.817   forest, guard scope: the kill; rifle fired 12.3 15.500 (+29), runner hit 13.1 15.900 (-29)
+# m0    13.2      16.383   15.1      2.283   marble, guard scope past the columns: the man behind is hit (5h); rifle fired 13.3+1/16 16.950 (-14), runner hit 14.1 17.300 (-7)
+# d1    15.1      18.667   16.1      1.367   hell, runner POV: out from behind the rock
+# d2    16.1      20.033   17.1      1.383   hell, guard scope: fires at him as he goes, the round lands where he stood; rifle fired 16.1 20.067 (+26), round lands 16.2 20.483 (-20)
+# d3    17.1      21.417   18.1      1.350   hell, runner POV: breaks cover and sprints; breaks cover 17.1 21.433 (+24)
+# p1    18.1      22.767   19.2      1.800   forest, the shover's eyes: the shove at a run; shove 19.1 24.117 (-0)
+# p2    19.2      24.567   20.2      1.350   forest, the shoved man's eyes: opens on the shove, falls; shove (his view) 19.2 24.567 (-6)
+# m1    20.2      25.917   21.1+1/8  1.100   marble, the shover's eyes behind the columns; shove 21.1 26.800 (+2)
+# m2    21.1+1/8  27.017   23.1      2.433   marble, guard scope: shoved out, fired on, hit (10v); shoved out 21.2 27.242 (-0), rifle fired 21.2 27.317 (+75), runner hit 21.3 27.683 (-1)
+# t2    23.1      29.450   24.1+1/8  1.567   hell, lake platforming: opens on a leap; leap 23.1 29.433 (-15), lands and leaps 23.2+1/8 30.108 (-14), lands 24.1 30.817 (+25)
+# k1    24.1+1/8  31.017   25.2+1/8  1.783   hell, runner POV: launched off the crack; launched off the crack 24.3 31.683 (+1)
+# k2    25.2+1/8  32.800   26.3      1.533   hell, guard scope: fires at the men in the air, misses; first man up 25.3 32.983 (-36), rifle fired 26.1 33.483 (+18), second man up 26.1+1/16 33.567 (-8), round lands 26.2 33.917 (+14)
+# g1    26.3      34.333   29.1      3.117   marble, corridor, portal, rifle, the guard shot (white frames); through the portal 28.1 36.133 (+30), kill flash 29.1 37.417 (-34)
+# e1    29.1      37.450   end       3.200   end card
+| line | clip | in | len | fit | speed | text |
+| a1 | cuts/01v.mp4@0.0960:4.1000 | | | beat 4.1000 | | |
+| a2 | cuts/02.mp4@1.8960:2.6167 | | | beat 2.6167 | | |
+| a3 | cuts/title_zoom25.mp4@0.0000:2.6167 | | | beat 2.6167 | | |
+| a4 | cuts/card2_zoom25.mp4@0.0000:3.8833 | | | beat 3.8833 | | |
+| h1 | cuts/04g.mp4@0.4960:1.3500 | | | beat 1.3500 | | |
+| h2 | cuts/05g.mp4@1.3627:1.8167 | | | beat 1.8167 | | |
+| m0 | cuts/05h.mp4@0.2960:2.2833 | | | beat 2.2833 | | |
+| d1 | cuts/06.mp4@1.4960:1.3667 | | | beat 1.3667 | | |
+| d2 | cuts/07.mp4@2.8293:1.3833 | | | beat 1.3833 | | |
+| d3 | cuts/08.mp4@0.0793:1.3500 | | | beat 1.3500 | | |
+| p1 | cuts/09ag.mp4@0.6627:1.8000 | | | beat 1.8000 | | |
+| p2 | cuts/09bg.mp4@0.0000:1.3500 | | | beat 1.3500 | | |
+| m1 | cuts/10a.mp4@0.9127:1.1000 | | | beat 1.1000 | | |
+| m2 | cuts/10v.mp4@0.0627:2.4333 | | | beat 2.4333 | | |
+| t2 | cuts/11.mp4@2.4293:1.5667 | | | beat 1.5667 | | |
+| k1 | cuts/13.mp4@0.2960:1.7833 | | | beat 1.7833 | | |
+| k2 | cuts/14.mp4@0.1793:1.5333 | | | beat 1.5333 | | |
+| g1 | cuts/12.mp4@0.2127:3.1167 | | | beat 3.1167 | | |
+| e1 | cuts/end_v3.mp4@0.3960:3.2000 | | | beat 3.2000 | | |
 
 ## script rough_v24_castcadia
 size: 1920x1080
