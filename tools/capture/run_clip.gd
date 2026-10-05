@@ -928,6 +928,10 @@ func _fail(message: String) -> void:
 ## being ridden is taken. The body's camera is never written to: only made
 ## current, which is what [FxSpectatorView] does for a dead player.
 func _ride_a_body() -> void:
+	# The finale's tracking shot holds the view; the ride takes it back after.
+	var finale: FinaleView = _controller.get_node_or_null(^"../FinaleView") as FinaleView
+	if finale != null and finale.is_active():
+		return
 	# A shot prisoner is not freed, it is buried a hundred metres under the deck,
 	# so "still valid" is not "still worth watching": the same standing test that
 	# picks a body has to keep deciding whether to stay on it.

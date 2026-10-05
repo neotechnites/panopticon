@@ -569,6 +569,31 @@ static func shove_landed(at: Vector3) -> void:
 		best._flop_before = best.body.velocity
 
 
+## The drawn avatar of [param of_body], or null.
+static func of(of_body: PlayerController) -> PrisonerAvatar:
+	for avatar: PrisonerAvatar in _drawn:
+		if avatar.body == of_body:
+			return avatar
+	return null
+
+
+## Dead and limp now, thrown at [param throw] (world m/s): the finale shove out of the tower.
+func throw_out(throw: Vector3) -> void:
+	if _ragdoll == null or _ragdoll.is_active():
+		return
+	_ragdoll_pending = false
+	_death_position = body.global_position
+	animation.pause()
+	_ragdoll.start(throw, Vector3.ZERO, Vector3.ZERO)
+
+
+## Where the body is drawn: the ragdoll's pelvis while limp, else the capsule's middle.
+func drawn_centre() -> Vector3:
+	if _ragdoll != null and _ragdoll.is_active():
+		return _ragdoll.centre()
+	return body.global_position + Vector3.UP
+
+
 ## The shoved body's limp spell: wait to see the throw, flop with it, get up once down and the throw is spent.
 func _tick_flop(delta: float) -> void:
 	if _ragdoll == null:

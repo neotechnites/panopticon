@@ -49,6 +49,8 @@ const STUCK_DISTANCE_METRES: float = 1.0
 const RECOVER_BURST_SECONDS: float = 1.0
 const OFF_MESH_METRES: float = 0.6
 const CHASE_SHOVE_SLACK_SECONDS: float = 0.1
+## A hunt stops closing at this share of the shove's reach.
+const HUNT_REACH_SHARE: float = 0.6
 ## A shoved body flies about this far with no air control; it must come down on safe mesh.
 const SHOVE_THROW_METRES: float = 12.0
 const SHOVE_CLEARANCE_METRES: float = 2.0
@@ -119,6 +121,8 @@ var _recover_tries: int = 0
 
 var _chasing: bool = false
 var _chase_group: StringName = &""
+## Hunting in a room off the route: straight at the quarry, no lap path.
+var _direct: bool = false
 var _shove_rest: float = 0.0
 
 var _flights: int = 0
@@ -210,6 +214,7 @@ func begin_chase(target_group: StringName) -> void:
 		return
 	_chase_group = target_group
 	_chasing = true
+	_direct = false
 	_shove_rest = 0.0
 	_link = null
 	_set_state(State.RUN)
@@ -217,6 +222,13 @@ func begin_chase(target_group: StringName) -> void:
 	_has_path = false
 	_reset_stuck()
 	set_physics_process(true)
+
+
+## [method begin_chase] for a quarry in a room the route does not reach: walk
+## straight at the nearest body in [param target_group] and shove it.
+func begin_hunt(target_group: StringName) -> void:
+	begin_chase(target_group)
+	_direct = _chasing
 
 
 ## Stop chasing and drop the controls.
@@ -856,6 +868,9 @@ func _tick_stuck(delta: float) -> void:
 
 ## Path to the living prisoner the least route ahead, never turning round.
 func _tick_chase(delta: float) -> void:
+	if _direct:
+		_tick_hunt(delta)
+		return
 	if _state == State.CROSS:
 		_tick_cross(delta)
 		return
@@ -875,6 +890,17 @@ func _tick_chase(delta: float) -> void:
 	_follow(delta)
 	_maybe_shove(quarry, delta)
 	_tick_stuck(delta)
+
+
+## Face the quarry, close to inside the shove's reach, and shove.
+func _tick_hunt(delta: float) -> void:
+	var quarry: Node3D = _nearest_ahead()
+	if quarry == null or rules == null:
+		input.command.move_direction = Vector2.ZERO
+		return
+	_face(quarry.global_position, delta)
+	_drive_towards(quarry.global_position, rules.shove_range_metres * HUNT_REACH_SHARE)
+	_maybe_shove(quarry, delta)
 
 
 ## Tap shove once the quarry is in the match's reach and in front of this ghost.

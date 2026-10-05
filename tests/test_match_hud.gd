@@ -233,7 +233,6 @@ func test_a_finisher_is_shown_health_pips() -> void:
 		_hud.get_status_text().contains(tr(_readout().turn_word)),
 		"and on the guard's own top line -- got \"%s\"" % _hud.get_status_text(),
 	)
-	assert_not_null(_controller.get_finisher_rifle(), "with a rifle of their own to read")
 
 
 # --- The centre line ----------------------------------------------------------

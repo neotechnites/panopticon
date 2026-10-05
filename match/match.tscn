@@ -1,4 +1,4 @@
-[gd_scene load_steps=31 format=3]
+[gd_scene load_steps=32 format=3]
 
 [ext_resource type="PackedScene" path="res://maps/bentham_ring/bentham_ring.tscn" id="1_arena"]
 [ext_resource type="PackedScene" path="res://characters/player/player.tscn" id="2_player"]
@@ -19,6 +19,7 @@
 [ext_resource type="Resource" path="res://match/feedback/default_spectator_profile.tres" id="16_spectator_profile"]
 [ext_resource type="Script" path="res://scripts/ui/death_screen.gd" id="17_death_screen"]
 [ext_resource type="Script" path="res://scripts/camera/seat_handover_view.gd" id="18_handover"]
+[ext_resource type="Script" path="res://scripts/camera/finale_view.gd" id="18_finale_view"]
 [ext_resource type="Resource" path="res://match/default_seat_handover_profile.tres" id="19_handover_profile"]
 [ext_resource type="Resource" path="res://match/rules/default_match_announcement.tres" id="20_announcements"]
 [ext_resource type="Resource" path="res://match/rules/default_match_readout.tres" id="21_readout"]
@@ -473,6 +474,16 @@ profile = ExtResource("19_handover_profile")
 
 [node name="Camera" type="Camera3D" parent="SeatHandover"]
 editor_description = "The handover's own camera, deliberately NOT current as authored. It is switched in for about a second when the seat changes hands and switched straight back out. Its fov is written every frame of the flight from the player camera's own value plus SeatHandoverProfile.fov_surge_degrees, so the player's display-FOV setting survives the trip."
+current = false
+
+[node name="FinaleView" type="Node3D" parent="." node_paths=PackedStringArray("controller", "camera")]
+editor_description = "The finale shove's tracking shot. Ryan: \"he is thrown out the tower and the camera tracks him for a second, then the next round starts.\" On MatchController.kill_beat_started, on every machine, its own camera takes the view from wherever it was and turns to follow the guard's ragdoll; the next round_started hands the view back to the camera that had it. Duration is MatchRules.kill_beat_seconds."
+script = ExtResource("18_finale_view")
+controller = NodePath("../MatchController")
+camera = NodePath("Camera")
+
+[node name="Camera" type="Camera3D" parent="FinaleView"]
+editor_description = "The tracking shot's own camera, NOT current as authored."
 current = false
 
 [node name="DeathScreen" type="CanvasLayer" parent="." node_paths=PackedStringArray("controller")]
