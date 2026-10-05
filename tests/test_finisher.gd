@@ -89,7 +89,7 @@ func test_one_finale_shove_throws_the_guard_out_and_the_round_turns_over() -> vo
 	assert_vec3_almost_eq(_beat_throw, ordinary * 3.0, 0.01, "thrown at three times an ordinary shove")
 	assert_true(_controller.is_tower_open(), "the tower's collision is off on the shove")
 	for wall: Node in walls:
-		assert_eq_int((wall as StaticBody3D).collision_layer, 0, "%s is off" % wall.name)
+		assert_eq_int((wall as StaticBody3D).collision_layer, MatchController.OPEN_TOWER_LAYER, "%s is off" % wall.name)
 	assert_true(finisher.body.movement_locked, "the finisher is held; they cannot fall out")
 	assert_null(_controller.apply_shove(finisher), "a second shove does nothing")
 
@@ -114,6 +114,11 @@ func test_the_tracking_shot_holds_the_view_for_the_beat() -> void:
 	_controller.apply_shove(pair[1])
 	assert_true(view.is_active(), "the tracking shot takes the view")
 	assert_true(view.camera.current, "on its own camera")
+	var spawn: Node3D = _controller.arena.get_node(_controller.spawn_marker_path) as Node3D
+	var off_axis: Vector3 = view.camera.global_position - spawn.global_position
+	assert_gt(Vector2(off_axis.x, off_axis.z).length(), 7.0, "cut to a camera outside the tower")
+	assert_false(view._in_room(view.camera.global_position), "not inside the tower's room")
+	assert_gt(view.get_predicted_arc().size(), 2, "set against the arc he is thrown along")
 	await step_seconds(_rules.kill_beat_seconds + 0.2)
 	assert_false(view.is_active(), "and gives it back when the next round starts")
 	assert_false(view.camera.current, "its camera stood down")

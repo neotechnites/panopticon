@@ -394,6 +394,10 @@ const DEFAULT_SHOOTER_PROFILE_PATH: String = "res://characters/bots/default_shoo
 ## The finale shove's force against an ordinary shove's: Ryan's "turned up 3x".
 const FINALE_SHOVE_SCALE: float = 3.0
 
+## Where the finale parks the tower's colliders: a layer no mask in the game
+## reaches, so nothing collides with it, while the tracking shot can still see it.
+const OPEN_TOWER_LAYER: int = 1 << 31
+
 ## Physics priority given to the first-scored lap tracker; the rest count up from
 ## it. See [method _order_the_scoring].
 ##
@@ -1791,7 +1795,7 @@ func _open_tower() -> void:
 	for node: Node in tower.find_children("*", "StaticBody3D", true, false):
 		var body: StaticBody3D = node as StaticBody3D
 		_opened_tower[body] = body.collision_layer
-		body.collision_layer = 0
+		body.collision_layer = OPEN_TOWER_LAYER
 
 
 ## Put back exactly the layers [method _open_tower] took, plugs and the dead variant included.
