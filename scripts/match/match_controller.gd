@@ -1269,6 +1269,11 @@ func configure_net(
 ## themselves belong to [NetMatch], which frees them; this only drops the
 ## controller's hold on them.
 func release_roster() -> void:
+	# A body still held by an arming leaves with its authored collision, or the next roster reads 0 as home.
+	for participant: MatchParticipant in _participants:
+		if participant.body != null:
+			participant.body.collision_layer = participant.home_collision_layer
+			participant.body.collision_mask = participant.home_collision_mask
 	_participants.clear()
 	_participant_by_body_id.clear()
 	_net_bodies.clear()

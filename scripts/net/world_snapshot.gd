@@ -27,6 +27,9 @@ extends RefCounted
 ## is the point: see the class docs.
 var tick: int = 0
 
+## The authority's scene these states belong to (see [method NetReplicator.bind_scene]); 0 is none.
+var scene: int = 0
+
 ## How many of [member states] are meaningful this snapshot.
 var count: int = 0
 
@@ -43,6 +46,7 @@ func _init() -> void:
 ## Drop every body without dropping the storage.
 func clear() -> void:
 	tick = 0
+	scene = 0
 	count = 0
 
 
@@ -85,6 +89,7 @@ func find_seat(seat_index: int) -> PlayerState:
 
 func copy_from(other: WorldSnapshot) -> void:
 	tick = other.tick
+	scene = other.scene
 	count = other.count
 	for i: int in count:
 		states[i].copy_from(other.states[i])
