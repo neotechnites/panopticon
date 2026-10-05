@@ -7,8 +7,8 @@ rules: 16:9 1920x1080 (SIZE=1920x1080 shot.sh), no HUD except the guard's scope,
 v2 notes (Ryan on rough_v1): the guard stands at the tower's window, not deep inside; all runners run the course direction; the runner shot is the SAME event as the guard shot (same stage, same seed, two POVs), cut back ~1 s to the man directly behind the victim; clear line of sight when he looks up at the tower; title drops in HARD on the music's drop; music https://www.youtube.com/watch?v=OBPV0lsorwU; real-looking gameplay only (walkable deck and real cover, nobody on lava, nobody looking backwards); max 4 players a shot (1 guard + 3); spread across hell, forest and marble. Added: "EVERY shot is first-person POV -- either the guard's scope/tower view or a prisoner's first-person view. No third-person ... Title/end cards are the only non-POV frames."
 music: external\src\music_v2_OBPV0lsorwU.mp4 -> voice\sr20det.ogg (SOURCES.md). The drop: 0.35 s of silence from 5.36 s, the hit at 5.703 s (sample onset); 170 bpm after it (v3 measured).
 cards: cuts/title_hard.mp4 is v1's title frame looped from frame 0 (v1's title.mp4 opened on two black frames); cuts/end.mp4 is v1's.
-delivery: content\trailer_reveal\final\rough_v22.mp4 (and ~/Desktop/panopticon-renders/trailer_reveal/)
-tag: rough_v22
+delivery: content\trailer_reveal\final\rough_v23.mp4 (and ~/Desktop/panopticon-renders/trailer_reveal/)
+tag: rough_v23
 alt: rough_v20_green (v20 with the forest shots filmed in the green forest: 4g 5g 9ag 9bg, ## script rough_v20_green)
 alt: rough_v22_vivaldi (v22's picture with Vivaldi, Summer RV 315 III. Presto from the top, ## script rough_v22_vivaldi)
 music_vivaldi: The Modena Chamber Orchestra (Musopen), Vivaldi's Summer RV 315 III. Presto, Public Domain Mark (owner), https://commons.wikimedia.org/wiki/File:The_Modena_Chamber_Orchestra_-_Vivaldi%27s_Summer,_RV_315_-_III._Presto.ogg -> external\src\modena_summer_presto.ogg, voice\vivaldi_summer_presto.flac (0.402 s of silence added at the head).
@@ -225,8 +225,8 @@ freeze: waive
 
 ## script
 size: 1920x1080
-music: voice/sr20det.ogg
-music_db: -3
+music: voice/vivaldi_summer_presto.flac
+music_db: 3.7
 music_fade: 0.02 2.5
 captions: none
 # v4: a1+a2 = 5.70 s, the title cuts in on the drop at 5.703 s. After it every cut ends on the 170 bpm grid (beat k at
