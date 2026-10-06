@@ -8,7 +8,8 @@ const CHUNK_PREFIX := "res://maps/bentham_ring/models/map_base_"
 const TEXEL := 0.6
 const BAKE_FLAG := "res://.lightmap_bake"
 ## The stand-in's glow against the wave shader's emission_energy: the one knob the bake's brightness turns on.
-const BAKE_GLOW := 4.0
+## 36 puts the tower's baked red where x4 put it before the stand-in multiplied (ADD added white).
+const BAKE_GLOW := 36.0
 
 
 ## Splits and unwraps every art mesh under [param scene] when it is a hell chunk; returns how many.
