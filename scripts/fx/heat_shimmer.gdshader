@@ -9,7 +9,7 @@ uniform sampler2D noise_tex : filter_linear, repeat_enable;
 uniform float strength = 1.0;
 uniform float speed = 1.0;
 // Peak UV offset at strength 1, as a fraction of screen height.
-uniform float amplitude = 0.02;
+uniform float amplitude = 0.045;
 // Metres one noise texture tile spans (about five waves), broad and fine layer.
 uniform float tile_broad = 30.0;
 uniform float tile_fine = 15.0;
@@ -53,7 +53,7 @@ void fragment() {
 	vec3 w = (INV_VIEW_MATRIX * vec4(v, 1.0)).xyz;
 	float t = TIME * speed;
 	vec2 n = field(w, tile_broad, t * rise_broad, vec2(0.0));
-	n += field(w, tile_fine, t * rise_fine, vec2(0.41, 0.17)) * 0.35;
+	n += field(w, tile_fine, t * rise_fine, vec2(0.41, 0.17)) * 0.5;
 	float low = 1.0 + bottom_boost * smoothstep(0.25, 1.0, 1.0 - uv.y);
 	float down = clamp(INV_VIEW_MATRIX[2].y, 0.0, 1.0) * look_down_boost;
 	// Far rock is small on screen, so its noise reads tight; ease it off with distance.
