@@ -89,9 +89,10 @@ const DRAW_BUDGETS: Dictionary = {
 	# measured tris 97283, surfaces 93, materials 15. Every ceiling is unchanged.
 	# 2026-10-05: PitKey over the tower replaced by fire from the pit mouth: two cube-shadowed
 	# PitFire omnis (forest casts 2) and eight unshadowed MouthGlow; shadow_casters 2 (exact).
+	# 2026-10-05: the light is the lava's, baked (LavaLightmap); PitFire, MouthGlow and LavaGlow gone: lights 5, shadow_casters 0.
 	"bentham_ring": {
 		"tris": 107595, "surfaces": 108, "materials": 18,
-		"transparent_tris": 173, "lights": 24, "shadow_casters": 2,
+		"transparent_tris": 173, "lights": 24, "shadow_casters": 0,
 	},
 	# THE LANE IS BARE AGAIN (Ryan, 2026-09-22: "for the marble level, can you
 	# just get rid of all the elements on the ring?"). The obstacle course --
