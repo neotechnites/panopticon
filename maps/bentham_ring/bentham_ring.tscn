@@ -28,6 +28,8 @@
 [ext_resource type="PackedScene" path="res://tower/watching_eye.tscn" id="27_watching_eye"]
 [ext_resource type="Resource" path="res://maps/bentham_ring/bentham_ring_watching_eye_profile.tres" id="28_watcher_profile"]
 [ext_resource type="Resource" path="res://maps/bentham_ring/bentham_ring_watching_eye_look.tres" id="29_watcher_look"]
+[ext_resource type="Script" path="res://scripts/ring/lava_light_wave.gd" id="30_lava_light_wave"]
+[ext_resource type="Script" path="res://scripts/ring/lava_haze_field.gd" id="31_lava_haze_field"]
 
 [sub_resource type="ProceduralSkyMaterial" id="SkyMat"]
 sky_top_color = Color(0.54, 0.110700026, 0.054000016, 1)
@@ -45,8 +47,8 @@ sky_material = SubResource("SkyMat")
 background_mode = 2
 sky = SubResource("Sky")
 ambient_light_source = 2
-ambient_light_color = Color(0.5, 0.45, 0.42, 1)
-ambient_light_energy = 0.15
+ambient_light_color = Color(1, 0.42, 0.2, 1)
+ambient_light_energy = 0.11
 tonemap_mode = 1
 tonemap_white = 2.0
 
@@ -65,24 +67,384 @@ environment = SubResource("Env")
 [node name="Ring" type="Node3D" parent="." unique_id=215463693]
 
 [node name="LavaGlow" type="Node3D" parent="Ring" unique_id=661152170]
+editor_description = "Every lava light, laid out from the lava by tools/modelling/maps/bentham_ring/lava_light_layout.py: an even ring of glows over the sea, and short lights hung just over each river, shelf and fall bank. LavaLightWave swells them, and the pit fires, with the lava."
+script = ExtResource("30_lava_light_wave")
+also_wave = Array[NodePath]([NodePath("../../Environment/PitFireE"), NodePath("../../Environment/PitFireN")])
 
-[node name="S2_LavaShelf" type="OmniLight3D" parent="Ring/LavaGlow" unique_id=220250157]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -11.2549, 24.5, 50.7674)
-light_color = Color(1, 0.35, 0.05, 1)
-light_energy = 3.74
-omni_range = 12.0
+[node name="Sea00" type="OmniLight3D" parent="Ring/LavaGlow"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 32.336, -8.500, 10.507)
+light_color = Color(1, 0.32, 0.08, 1)
+light_energy = 4.4
+light_specular = 0.0
+omni_range = 60.0
+omni_attenuation = 1.0
 
-[node name="S4_DemonRun_Inner" type="OmniLight3D" parent="Ring/LavaGlow" unique_id=1658816305]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -35.4639, 24.5, -38.0304)
-light_color = Color(1, 0.35, 0.05, 1)
-light_energy = 3.74
-omni_range = 12.0
+[node name="Sea01" type="OmniLight3D" parent="Ring/LavaGlow"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 19.985, -8.500, 27.507)
+light_color = Color(1, 0.32, 0.08, 1)
+light_energy = 4.4
+light_specular = 0.0
+omni_range = 60.0
+omni_attenuation = 1.0
 
-[node name="S4_DemonRun_Outer" type="OmniLight3D" parent="Ring/LavaGlow" unique_id=1751733702]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -11.6975, 24.5, -50.6672)
-light_color = Color(1, 0.35, 0.05, 1)
-light_energy = 3.74
-omni_range = 12.0
+[node name="Sea02" type="OmniLight3D" parent="Ring/LavaGlow"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.000, -8.500, 34.000)
+light_color = Color(1, 0.32, 0.08, 1)
+light_energy = 4.4
+light_specular = 0.0
+omni_range = 60.0
+omni_attenuation = 1.0
+
+[node name="Sea03" type="OmniLight3D" parent="Ring/LavaGlow"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -19.985, -8.500, 27.507)
+light_color = Color(1, 0.32, 0.08, 1)
+light_energy = 4.4
+light_specular = 0.0
+omni_range = 60.0
+omni_attenuation = 1.0
+
+[node name="Sea04" type="OmniLight3D" parent="Ring/LavaGlow"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -32.336, -8.500, 10.507)
+light_color = Color(1, 0.32, 0.08, 1)
+light_energy = 4.4
+light_specular = 0.0
+omni_range = 60.0
+omni_attenuation = 1.0
+
+[node name="Sea05" type="OmniLight3D" parent="Ring/LavaGlow"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -32.336, -8.500, -10.507)
+light_color = Color(1, 0.32, 0.08, 1)
+light_energy = 4.4
+light_specular = 0.0
+omni_range = 60.0
+omni_attenuation = 1.0
+
+[node name="Sea06" type="OmniLight3D" parent="Ring/LavaGlow"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -19.985, -8.500, -27.507)
+light_color = Color(1, 0.32, 0.08, 1)
+light_energy = 4.4
+light_specular = 0.0
+omni_range = 60.0
+omni_attenuation = 1.0
+
+[node name="Sea07" type="OmniLight3D" parent="Ring/LavaGlow"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.000, -8.500, -34.000)
+light_color = Color(1, 0.32, 0.08, 1)
+light_energy = 4.4
+light_specular = 0.0
+omni_range = 60.0
+omni_attenuation = 1.0
+
+[node name="Sea08" type="OmniLight3D" parent="Ring/LavaGlow"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 19.985, -8.500, -27.507)
+light_color = Color(1, 0.32, 0.08, 1)
+light_energy = 4.4
+light_specular = 0.0
+omni_range = 60.0
+omni_attenuation = 1.0
+
+[node name="Sea09" type="OmniLight3D" parent="Ring/LavaGlow"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 32.336, -8.500, -10.507)
+light_color = Color(1, 0.32, 0.08, 1)
+light_energy = 4.4
+light_specular = 0.0
+omni_range = 60.0
+omni_attenuation = 1.0
+
+[node name="S2_River00" type="OmniLight3D" parent="Ring/LavaGlow"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10.076, 24.196, 52.761)
+light_color = Color(1, 0.35, 0.06, 1)
+light_energy = 2.5
+light_specular = 0.0
+omni_range = 8.0
+omni_attenuation = 1.0
+
+[node name="S2_River01" type="OmniLight3D" parent="Ring/LavaGlow"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.849, 24.210, 53.620)
+light_color = Color(1, 0.35, 0.06, 1)
+light_energy = 2.5
+light_specular = 0.0
+omni_range = 8.0
+omni_attenuation = 1.0
+
+[node name="S2_River02" type="OmniLight3D" parent="Ring/LavaGlow"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4.453, 24.199, 53.829)
+light_color = Color(1, 0.35, 0.06, 1)
+light_energy = 2.5
+light_specular = 0.0
+omni_range = 8.0
+omni_attenuation = 1.0
+
+[node name="S2_River03" type="OmniLight3D" parent="Ring/LavaGlow"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -11.679, 24.203, 52.682)
+light_color = Color(1, 0.35, 0.06, 1)
+light_energy = 2.5
+light_specular = 0.0
+omni_range = 8.0
+omni_attenuation = 1.0
+
+[node name="S2_River04" type="OmniLight3D" parent="Ring/LavaGlow"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -18.615, 24.217, 50.402)
+light_color = Color(1, 0.35, 0.06, 1)
+light_energy = 2.5
+light_specular = 0.0
+omni_range = 8.0
+omni_attenuation = 1.0
+
+[node name="S2_River05" type="OmniLight3D" parent="Ring/LavaGlow"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -25.300, 24.207, 47.500)
+light_color = Color(1, 0.35, 0.06, 1)
+light_energy = 2.5
+light_specular = 0.0
+omni_range = 8.0
+omni_attenuation = 1.0
+
+[node name="S2_River06" type="OmniLight3D" parent="Ring/LavaGlow"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -31.590, 24.203, 43.781)
+light_color = Color(1, 0.35, 0.06, 1)
+light_energy = 2.5
+light_specular = 0.0
+omni_range = 8.0
+omni_attenuation = 1.0
+
+[node name="S4_River00" type="OmniLight3D" parent="Ring/LavaGlow"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -41.863, 24.111, -30.762)
+light_color = Color(1, 0.35, 0.06, 1)
+light_energy = 2.5
+light_specular = 0.0
+omni_range = 8.0
+omni_attenuation = 1.0
+
+[node name="S4_River01" type="OmniLight3D" parent="Ring/LavaGlow"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -37.593, 24.104, -35.683)
+light_color = Color(1, 0.35, 0.06, 1)
+light_energy = 2.5
+light_specular = 0.0
+omni_range = 8.0
+omni_attenuation = 1.0
+
+[node name="S4_River02" type="OmniLight3D" parent="Ring/LavaGlow"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -32.958, 24.129, -40.272)
+light_color = Color(1, 0.35, 0.06, 1)
+light_energy = 2.5
+light_specular = 0.0
+omni_range = 8.0
+omni_attenuation = 1.0
+
+[node name="S4_River03" type="OmniLight3D" parent="Ring/LavaGlow"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -27.594, 24.133, -43.990)
+light_color = Color(1, 0.35, 0.06, 1)
+light_energy = 2.5
+light_specular = 0.0
+omni_range = 8.0
+omni_attenuation = 1.0
+
+[node name="S4_River04" type="OmniLight3D" parent="Ring/LavaGlow"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -21.907, 24.102, -47.192)
+light_color = Color(1, 0.35, 0.06, 1)
+light_energy = 2.5
+light_specular = 0.0
+omni_range = 8.0
+omni_attenuation = 1.0
+
+[node name="S4_River05" type="OmniLight3D" parent="Ring/LavaGlow"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -15.760, 24.119, -49.370)
+light_color = Color(1, 0.35, 0.06, 1)
+light_energy = 2.5
+light_specular = 0.0
+omni_range = 8.0
+omni_attenuation = 1.0
+
+[node name="S4_River06" type="OmniLight3D" parent="Ring/LavaGlow"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -9.470, 24.104, -51.062)
+light_color = Color(1, 0.35, 0.06, 1)
+light_energy = 2.5
+light_specular = 0.0
+omni_range = 8.0
+omni_attenuation = 1.0
+
+[node name="S4_River07" type="OmniLight3D" parent="Ring/LavaGlow"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.995, 24.104, -51.803)
+light_color = Color(1, 0.35, 0.06, 1)
+light_energy = 2.5
+light_specular = 0.0
+omni_range = 8.0
+omni_attenuation = 1.0
+
+[node name="S4_FallBankA0" type="OmniLight3D" parent="Ring/LavaGlow"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -37.869, 3.000, -25.065)
+light_color = Color(1, 0.35, 0.06, 1)
+light_energy = 2.5
+light_specular = 0.0
+omni_range = 9.0
+omni_attenuation = 1.0
+
+[node name="S4_FallBankA1" type="OmniLight3D" parent="Ring/LavaGlow"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -37.869, 15.000, -25.065)
+light_color = Color(1, 0.35, 0.06, 1)
+light_energy = 2.5
+light_specular = 0.0
+omni_range = 9.0
+omni_attenuation = 1.0
+
+[node name="S4_FallBankB0" type="OmniLight3D" parent="Ring/LavaGlow"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.382, 3.000, -43.829)
+light_color = Color(1, 0.35, 0.06, 1)
+light_energy = 2.5
+light_specular = 0.0
+omni_range = 9.0
+omni_attenuation = 1.0
+
+[node name="S4_FallBankB1" type="OmniLight3D" parent="Ring/LavaGlow"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.382, 15.000, -43.829)
+light_color = Color(1, 0.35, 0.06, 1)
+light_energy = 2.5
+light_specular = 0.0
+omni_range = 9.0
+omni_attenuation = 1.0
+
+[node name="S5_River00" type="OmniLight3D" parent="Ring/LavaGlow"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 22.248, 24.117, -47.067)
+light_color = Color(1, 0.35, 0.06, 1)
+light_energy = 2.5
+light_specular = 0.0
+omni_range = 8.0
+omni_attenuation = 1.0
+
+[node name="S5_River01" type="OmniLight3D" parent="Ring/LavaGlow"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 28.634, 24.099, -43.791)
+light_color = Color(1, 0.35, 0.06, 1)
+light_energy = 2.5
+light_specular = 0.0
+omni_range = 8.0
+omni_attenuation = 1.0
+
+[node name="S5_River02" type="OmniLight3D" parent="Ring/LavaGlow"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 34.211, 24.150, -39.273)
+light_color = Color(1, 0.35, 0.06, 1)
+light_energy = 2.5
+light_specular = 0.0
+omni_range = 8.0
+omni_attenuation = 1.0
+
+[node name="S5_River03" type="OmniLight3D" parent="Ring/LavaGlow"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 39.355, 24.176, -34.283)
+light_color = Color(1, 0.35, 0.06, 1)
+light_energy = 2.5
+light_specular = 0.0
+omni_range = 8.0
+omni_attenuation = 1.0
+
+[node name="S5_River04" type="OmniLight3D" parent="Ring/LavaGlow"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 43.511, 24.134, -28.450)
+light_color = Color(1, 0.35, 0.06, 1)
+light_energy = 2.5
+light_specular = 0.0
+omni_range = 8.0
+omni_attenuation = 1.0
+
+[node name="S5_River05" type="OmniLight3D" parent="Ring/LavaGlow"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 46.870, 24.161, -22.155)
+light_color = Color(1, 0.35, 0.06, 1)
+light_energy = 2.5
+light_specular = 0.0
+omni_range = 8.0
+omni_attenuation = 1.0
+
+[node name="S5_Shelf00" type="OmniLight3D" parent="Ring/LavaGlow"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 24.768, 30.124, -53.230)
+light_color = Color(1, 0.35, 0.06, 1)
+light_energy = 2.5
+light_specular = 0.0
+omni_range = 8.0
+omni_attenuation = 1.0
+
+[node name="S5_Shelf01" type="OmniLight3D" parent="Ring/LavaGlow"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 33.903, 30.124, -48.014)
+light_color = Color(1, 0.35, 0.06, 1)
+light_energy = 2.5
+light_specular = 0.0
+omni_range = 8.0
+omni_attenuation = 1.0
+
+[node name="S5_Shelf02" type="OmniLight3D" parent="Ring/LavaGlow"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 42.042, 30.113, -41.315)
+light_color = Color(1, 0.35, 0.06, 1)
+light_energy = 2.5
+light_specular = 0.0
+omni_range = 8.0
+omni_attenuation = 1.0
+
+[node name="S5_Shelf03" type="OmniLight3D" parent="Ring/LavaGlow"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 48.519, 30.124, -33.006)
+light_color = Color(1, 0.35, 0.06, 1)
+light_energy = 2.5
+light_specular = 0.0
+omni_range = 8.0
+omni_attenuation = 1.0
+
+[node name="S5_Shelf04" type="OmniLight3D" parent="Ring/LavaGlow"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 53.512, 30.124, -23.772)
+light_color = Color(1, 0.35, 0.06, 1)
+light_energy = 2.5
+light_specular = 0.0
+omni_range = 8.0
+omni_attenuation = 1.0
+
+[node name="S5_FallBankA0" type="OmniLight3D" parent="Ring/LavaGlow"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 17.102, 3.000, -41.288)
+light_color = Color(1, 0.35, 0.06, 1)
+light_energy = 2.5
+light_specular = 0.0
+omni_range = 9.0
+omni_attenuation = 1.0
+
+[node name="S5_FallBankA1" type="OmniLight3D" parent="Ring/LavaGlow"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 17.102, 15.000, -41.288)
+light_color = Color(1, 0.35, 0.06, 1)
+light_energy = 2.5
+light_specular = 0.0
+omni_range = 9.0
+omni_attenuation = 1.0
+
+[node name="S5_FallBankB0" type="OmniLight3D" parent="Ring/LavaGlow"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 41.438, 3.000, -17.164)
+light_color = Color(1, 0.35, 0.06, 1)
+light_energy = 2.5
+light_specular = 0.0
+omni_range = 9.0
+omni_attenuation = 1.0
+
+[node name="S5_FallBankB1" type="OmniLight3D" parent="Ring/LavaGlow"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 41.438, 15.000, -17.164)
+light_color = Color(1, 0.35, 0.06, 1)
+light_energy = 2.5
+light_specular = 0.0
+omni_range = 9.0
+omni_attenuation = 1.0
+
+[node name="LavaHaze" type="Node3D" parent="Ring"]
+
+[node name="Sea" type="MeshInstance3D" parent="Ring/LavaHaze"]
+editor_description = "Heat off the lava sea: the crack's haze at 2.5x, in rings round the tower."
+script = ExtResource("31_lava_haze_field")
+panels = PackedVector4Array(18.00, -11.90, 0.00, 0.000, 13.79, -11.90, 11.57, 2.094, 3.13, -11.90, 17.73, 4.189, -9.00, -11.90, 15.59, 6.283, -16.91, -11.90, 6.16, 8.378, -16.91, -11.90, -6.16, 10.472, -9.00, -11.90, -15.59, 12.566, 3.13, -11.90, -17.73, 14.661, 13.79, -11.90, -11.57, 16.755, 26.32, -11.90, 6.01, 0.673, 21.11, -11.90, 16.83, 2.020, 11.71, -11.90, 24.33, 3.366, 0.00, -11.90, 27.00, 4.712, -11.71, -11.90, 24.33, 6.059, -21.11, -11.90, 16.83, 7.405, -26.32, -11.90, 6.01, 8.752, -26.32, -11.90, -6.01, 10.098, -21.11, -11.90, -16.83, 11.444, -11.71, -11.90, -24.33, 12.791, -0.00, -11.90, -27.00, 14.137, 11.71, -11.90, -24.33, 15.484, 21.11, -11.90, -16.83, 16.830, 26.32, -11.90, -6.01, 18.176, 36.00, -11.90, 0.00, 0.000, 34.05, -11.90, 11.69, 0.992, 28.41, -11.90, 22.11, 1.984, 19.69, -11.90, 30.14, 2.976, 8.84, -11.90, 34.90, 3.968, -2.97, -11.90, 35.88, 4.960, -14.46, -11.90, 32.97, 5.952, -24.38, -11.90, 26.49, 6.945, -31.66, -11.90, 17.13, 7.937, -35.51, -11.90, 5.93, 8.929, -35.51, -11.90, -5.93, 9.921, -31.66, -11.90, -17.13, 10.913, -24.38, -11.90, -26.49, 11.905, -14.46, -11.90, -32.97, 12.897, -2.97, -11.90, -35.88, 13.889, 8.84, -11.90, -34.90, 14.881, 19.69, -11.90, -30.14, 15.873, 28.41, -11.90, -22.11, 16.865, 34.05, -11.90, -11.69, 17.857, 44.40, -11.90, 3.04, 0.205, 41.93, -11.90, 14.90, 1.024, 36.36, -11.90, 25.66, 1.844, 28.08, -11.90, 34.52, 2.664, 17.73, -11.90, 40.82, 3.483, 6.06, -11.90, 44.09, 4.303, -6.06, -11.90, 44.09, 5.122, -17.73, -11.90, 40.82, 5.942, -28.08, -11.90, 34.52, 6.761, -36.36, -11.90, 25.66, 7.581, -41.93, -11.90, 14.90, 8.400, -44.40, -11.90, 3.04, 9.220, -43.57, -11.90, -9.05, 10.039, -39.51, -11.90, -20.47, 10.859, -32.52, -11.90, -30.37, 11.679, -23.12, -11.90, -38.02, 12.498, -12.01, -11.90, -42.85, 13.318, -0.00, -11.90, -44.50, 14.137, 12.01, -11.90, -42.85, 14.957, 23.12, -11.90, -38.02, 15.776, 32.52, -11.90, -30.37, 16.596, 39.51, -11.90, -20.47, 17.415, 43.57, -11.90, -9.05, 18.235)
+panel_scale = 2.5
+crossed = true
+
+[node name="Rivers" type="MeshInstance3D" parent="Ring/LavaHaze"]
+editor_description = "Heat off the S2, S4 and S5 rivers and the S5 shelf, down their length."
+script = ExtResource("31_lava_haze_field")
+panels = PackedVector4Array(11.09, 21.80, 52.73, 3.512, 6.06, 21.78, 53.57, 3.702, 0.98, 21.79, 53.76, 3.891, -4.12, 21.80, 53.86, 4.080, -9.18, 21.80, 53.18, 4.269, -14.13, 21.79, 51.99, 4.458, -18.93, 21.82, 50.29, 4.647, -23.71, 21.82, 48.52, 4.836, -28.16, 21.80, 46.02, 5.025, -32.42, 21.79, 43.22, 5.214, -40.64, 21.71, -28.67, 8.298, -37.66, 21.72, -32.13, 8.481, -34.61, 21.73, -35.49, 8.665, -31.26, 21.73, -38.58, 8.848, -27.55, 21.72, -41.22, 9.032, -23.65, 21.73, -43.56, 9.215, -19.56, 21.70, -45.56, 9.399, -15.27, 21.72, -47.04, 9.582, -10.95, 21.68, -48.51, 9.766, -6.43, 21.70, -49.04, 9.950, -1.91, 21.70, -49.54, 10.133, -42.72, 21.71, -33.33, 8.394, -39.49, 21.70, -37.07, 8.576, -36.15, 21.71, -40.75, 8.759, -32.29, 21.70, -43.88, 8.941, -28.05, 21.73, -46.47, 9.124, -23.79, 21.68, -49.03, 9.307, -19.11, 21.73, -50.70, 9.489, -14.44, 21.71, -52.32, 9.672, -9.61, 21.70, -53.44, 9.854, -4.69, 21.70, -53.99, 10.037, 20.34, 21.75, -45.27, 11.055, 24.34, 21.73, -43.21, 11.236, 28.26, 21.71, -40.97, 11.418, 31.74, 21.75, -38.09, 11.599, 35.20, 21.74, -35.20, 11.781, 38.20, 21.74, -31.83, 11.962, 40.84, 21.72, -28.17, 12.144, 42.98, 21.76, -24.22, 12.326, 45.11, 21.70, -20.27, 12.507, 24.70, 21.71, -48.58, 11.151, 29.07, 21.74, -46.33, 11.331, 33.02, 21.75, -43.41, 11.511, 36.82, 21.71, -40.29, 11.691, 40.38, 21.75, -36.90, 11.871, 43.56, 21.74, -33.14, 12.051, 46.06, 21.73, -28.90, 12.231, 48.36, 21.76, -24.59, 12.411, 24.77, 27.72, -53.23, 11.081, 28.15, 27.72, -51.43, 11.212, 31.55, 27.71, -49.67, 11.342, 34.65, 27.72, -47.41, 11.472, 37.62, 27.73, -44.99, 11.603, 40.57, 27.72, -42.56, 11.733, 43.29, 27.73, -39.85, 11.864, 45.79, 27.72, -36.95, 11.994, 48.07, 27.72, -33.86, 12.124, 49.87, 27.73, -30.47, 12.255, 51.67, 27.72, -27.12, 12.385, 53.51, 27.72, -23.77, 12.516)
+panel_scale = 1.5
+crossed = true
+
+[node name="Falls" type="MeshInstance3D" parent="Ring/LavaHaze"]
+editor_description = "Heat rising up the S4 and S5 falls: one face-on panel each, stacked."
+script = ExtResource("31_lava_haze_field")
+panels = PackedVector4Array(-36.75, -11.00, -27.89, -5.362, -36.75, -3.50, -27.89, -5.362, -36.75, 4.00, -27.89, -5.362, -36.75, 11.50, -27.89, -5.362, -32.87, -11.00, -31.90, -5.483, -32.87, -3.50, -31.90, -5.483, -32.87, 4.00, -31.90, -5.483, -32.87, 11.50, -31.90, -5.483, -28.79, -11.00, -35.66, -5.604, -28.79, -3.50, -35.66, -5.604, -28.79, 4.00, -35.66, -5.604, -28.79, 11.50, -35.66, -5.604, -24.21, -11.00, -38.78, -5.725, -24.21, -3.50, -38.78, -5.725, -24.21, 4.00, -38.78, -5.725, -24.21, 11.50, -38.78, -5.725, -19.42, -11.00, -41.59, -5.846, -19.42, -3.50, -41.59, -5.846, -19.42, 4.00, -41.59, -5.846, -19.42, 11.50, -41.59, -5.846, -14.16, -11.00, -43.37, -5.968, -14.16, -3.50, -43.37, -5.968, -14.16, 4.00, -43.37, -5.968, -14.16, 11.50, -43.37, -5.968, -8.76, -11.00, -44.47, -6.089, -8.76, -3.50, -44.47, -6.089, -8.76, 4.00, -44.47, -6.089, -8.76, 11.50, -44.47, -6.089, -3.27, -11.00, -44.57, -6.210, -3.27, -3.50, -44.57, -6.210, -3.27, 4.00, -44.57, -6.210, -3.27, 11.50, -44.57, -6.210, 19.89, -11.00, -40.34, -6.741, 19.89, -3.50, -40.34, -6.741, 19.89, 4.00, -40.34, -6.741, 19.89, 11.50, -40.34, -6.741, 25.50, -11.00, -38.16, -6.872, 25.50, -3.50, -38.16, -6.872, 25.50, 4.00, -38.16, -6.872, 25.50, 11.50, -38.16, -6.872, 30.12, -11.00, -34.35, -7.003, 30.12, -3.50, -34.35, -7.003, 30.12, 4.00, -34.35, -7.003, 30.12, 11.50, -34.35, -7.003, 34.16, -11.00, -29.96, -7.134, 34.16, -3.50, -29.96, -7.134, 34.16, 4.00, -29.96, -7.134, 34.16, 11.50, -29.96, -7.134, 36.63, -11.00, -24.47, -7.265, 36.63, -3.50, -24.47, -7.265, 36.63, 4.00, -24.47, -7.265, 36.63, 11.50, -24.47, -7.265, 40.52, -11.00, -19.98, -7.396, 40.52, -3.50, -19.98, -7.396, 40.52, 4.00, -19.98, -7.396, 40.52, 11.50, -19.98, -7.396)
+panel_scale = 2.5
+crossed = false
 
 [node name="MapBase" type="Node3D" parent="." unique_id=23449969]
 editor_description = "The one deck -- annulus, pit wall down to the courtyard, outer wall up to the rim -- from one sculpt (tools/modelling/maps/bentham_ring/map_base_build.py), exported per chunk: maps/bentham_ring/models/map_base_<chunk>.glb, each at identity here with its own collision. Rebuild one: tools/modelling/model build map_base --chunk <name>."
@@ -612,10 +974,10 @@ visible = false
 light_energy = 0.0
 
 [node name="PitFireE" type="OmniLight3D" parent="Environment"]
-editor_description = "Fire rising out of the pit mouth, 4 m under the deck lip between the tower and the pit wall: it lights the ceiling, walls and anything standing from below and throws their shadows up and out. Two, opposite, so the tower's own shadow from one is filled by the other."
+editor_description = "Fire rising out of the pit mouth, 4 m under the deck lip between the tower and the pit wall: it lights the ceiling, walls and anything standing from below and throws their shadows up and out. Two, a quarter turn apart (bearings 0 and 270): each lights the gallery side-on and leaves its own bearing (the deck lip) and the far one (the tower) dark, so together they sum even round the ring."
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 30, -8.5, 0)
 light_color = Color(1, 0.3, 0.08, 1)
-light_energy = 9.0
+light_energy = 7.5
 light_specular = 0.2
 shadow_enabled = true
 shadow_bias = 0.1
@@ -624,11 +986,11 @@ omni_range = 140.0
 omni_attenuation = 0.6
 omni_shadow_mode = 1
 
-[node name="PitFireW" type="OmniLight3D" parent="Environment"]
-editor_description = "Fire rising out of the pit mouth, 4 m under the deck lip between the tower and the pit wall: it lights the ceiling, walls and anything standing from below and throws their shadows up and out. Two, opposite, so the tower's own shadow from one is filled by the other."
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -30, -8.5, 0)
+[node name="PitFireN" type="OmniLight3D" parent="Environment"]
+editor_description = "Fire rising out of the pit mouth, 4 m under the deck lip between the tower and the pit wall: it lights the ceiling, walls and anything standing from below and throws their shadows up and out. Two, a quarter turn apart (bearings 0 and 270): each lights the gallery side-on and leaves its own bearing (the deck lip) and the far one (the tower) dark, so together they sum even round the ring."
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -8.5, -30)
 light_color = Color(1, 0.3, 0.08, 1)
-light_energy = 9.0
+light_energy = 7.5
 light_specular = 0.2
 shadow_enabled = true
 shadow_bias = 0.1
@@ -636,70 +998,6 @@ shadow_blur = 2.0
 omni_range = 140.0
 omni_attenuation = 0.6
 omni_shadow_mode = 1
-
-[node name="MouthGlow0" type="OmniLight3D" parent="Environment"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 40.651, -9.0, 16.838)
-light_color = Color(1, 0.32, 0.08, 1)
-light_energy = 6.0
-light_specular = 0.0
-omni_range = 55.0
-omni_attenuation = 1.0
-
-[node name="MouthGlow1" type="OmniLight3D" parent="Environment"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 16.838, -9.0, 40.651)
-light_color = Color(1, 0.32, 0.08, 1)
-light_energy = 6.0
-light_specular = 0.0
-omni_range = 55.0
-omni_attenuation = 1.0
-
-[node name="MouthGlow2" type="OmniLight3D" parent="Environment"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -16.838, -9.0, 40.651)
-light_color = Color(1, 0.32, 0.08, 1)
-light_energy = 6.0
-light_specular = 0.0
-omni_range = 55.0
-omni_attenuation = 1.0
-
-[node name="MouthGlow3" type="OmniLight3D" parent="Environment"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -40.651, -9.0, 16.838)
-light_color = Color(1, 0.32, 0.08, 1)
-light_energy = 6.0
-light_specular = 0.0
-omni_range = 55.0
-omni_attenuation = 1.0
-
-[node name="MouthGlow4" type="OmniLight3D" parent="Environment"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -40.651, -9.0, -16.838)
-light_color = Color(1, 0.32, 0.08, 1)
-light_energy = 6.0
-light_specular = 0.0
-omni_range = 55.0
-omni_attenuation = 1.0
-
-[node name="MouthGlow5" type="OmniLight3D" parent="Environment"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -16.838, -9.0, -40.651)
-light_color = Color(1, 0.32, 0.08, 1)
-light_energy = 6.0
-light_specular = 0.0
-omni_range = 55.0
-omni_attenuation = 1.0
-
-[node name="MouthGlow6" type="OmniLight3D" parent="Environment"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 16.838, -9.0, -40.651)
-light_color = Color(1, 0.32, 0.08, 1)
-light_energy = 6.0
-light_specular = 0.0
-omni_range = 55.0
-omni_attenuation = 1.0
-
-[node name="MouthGlow7" type="OmniLight3D" parent="Environment"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 40.651, -9.0, -16.838)
-light_color = Color(1, 0.32, 0.08, 1)
-light_energy = 6.0
-light_specular = 0.0
-omni_range = 55.0
-omni_attenuation = 1.0
 
 [node name="HellFlood" type="OmniLight3D" parent="Tower" unique_id=1424319747]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 300, 0)
