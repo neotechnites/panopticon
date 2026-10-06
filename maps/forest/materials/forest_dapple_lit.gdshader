@@ -42,6 +42,11 @@ void fragment() {
 	ROUGHNESS = roughness;
 }
 
+// Height (world y) where the dapple starts fading to its mean, gone dapple_top_fade m higher; high = never.
+uniform float dapple_top = 10000.0;
+uniform float dapple_top_fade = 3.0;
+uniform float dapple_mean = 0.14;
+
 void light() {
 	float sun = 1.0;
 	if (LIGHT_IS_DIRECTIONAL) {
@@ -49,6 +54,7 @@ void light() {
 		vec2 p = world.xz - l.xz / max(l.y, 0.2) * world.y;
 		vec2 d = vec2(texture(dapple, (p + drift) / dapple_metres).r, texture(dapple, (p + fleck_drift) / dapple_metres).g);
 		sun = dapple_light * mix(1.0, clamp(d.r + (d.g - 0.5 - fleck_bias) * 2.0 * fleck_strength, 0.0, 1.0), dapple_strength);
+		sun = mix(sun, dapple_light * dapple_mean, smoothstep(dapple_top, dapple_top + dapple_top_fade, world.y));
 	}
 	DIFFUSE_LIGHT += clamp(dot(NORMAL, LIGHT), 0.0, 1.0) * ATTENUATION * LIGHT_COLOR / PI * sun;
 }
