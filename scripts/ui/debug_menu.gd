@@ -34,6 +34,8 @@ var in_match: bool = false
 var _controller: MatchController = null
 var _readout: Label = null
 var _first: Control = null
+var _tower_option: OptionButton = null
+var _tower_ids: Array[int] = []
 
 @onready var _frame: Control = $Frame
 @onready var _body: VBoxContainer = %Body
@@ -106,11 +108,13 @@ func _rebuild() -> void:
 		child.queue_free()
 	_first = null
 	_readout = null
+	_tower_option = null
 	if not in_match:
 		_build_setup()
 	elif _controller == null:
 		var hub: MatchController = _find_hub()
 		if hub != null:
+			_build_bots(null)
 			_build_movement(hub)
 			_build_mannequins(hub)
 		else:
@@ -146,6 +150,8 @@ func _build_phase() -> void:
 	_button(row, "DEBUG_RESTART_ROUND", _act.bind(_controller.debug_restart_round))
 	_button(row, "DEBUG_NEXT_ROUND", _act.bind(_controller.debug_next_round))
 	_button(row, "DEBUG_RESTART_MATCH", _act.bind(_controller.restart))
+	if multiplayer.multiplayer_peer == null or multiplayer.multiplayer_peer is OfflineMultiplayerPeer:
+		_build_bots(_controller)
 	_build_tower_choice(settings)
 	var clock: HBoxContainer = _row()
 	_toggle("DEBUG_PAUSE_CLOCK", _controller.debug_clock_paused, _pause_clock, clock)
@@ -176,15 +182,58 @@ func _build_phase() -> void:
 
 ## Who Skip Phase seats: me, the next bot, or a named participant. Saved in the dev settings.
 func _build_tower_choice(settings: GameSettings) -> void:
-	var ids: Array[int] = [GameSettings.DEBUG_TOWER_ME, GameSettings.DEBUG_TOWER_BOT]
+	_tower_option = _choice("DEBUG_TOWER_SEAT", PackedStringArray(), 0, func(index: int) -> void:
+		settings.debug_tower_seat = _tower_ids[index])
+	_fill_tower_choice()
+
+
+## Refill the Tower list from the roster in force now; a seat it no longer has falls back to Bot.
+func _fill_tower_choice() -> void:
+	if _tower_option == null or _controller == null:
+		return
+	var settings: GameSettings = SettingsStore.instance().settings
+	_tower_ids = [GameSettings.DEBUG_TOWER_ME, GameSettings.DEBUG_TOWER_BOT]
 	var titles: PackedStringArray = [tr("DEBUG_TOWER_ME"), tr("DEBUG_TOWER_BOT")]
 	var roster: Array[MatchParticipant] = _controller.get_participants()
 	for index: int in roster.size():
-		ids.append(index)
+		_tower_ids.append(index)
 		titles.append(roster[index].display_name)
-	var selected: int = maxi(ids.find(settings.debug_tower_seat), 1)
-	_choice("DEBUG_TOWER_SEAT", titles, selected, func(index: int) -> void:
-		settings.debug_tower_seat = ids[index])
+	if not _tower_ids.has(settings.debug_tower_seat):
+		settings.debug_tower_seat = GameSettings.DEBUG_TOWER_BOT
+	_tower_option.clear()
+	for title: String in titles:
+		_tower_option.add_item(title)
+	_tower_option.selected = maxi(_tower_ids.find(settings.debug_tower_seat), 1)
+
+
+## Bots on the ring, saved as the prisoner count. In a match, [param controller] restarts with them.
+func _build_bots(controller: MatchController) -> void:
+	var settings: GameSettings = SettingsStore.instance().settings
+	var row: HBoxContainer = _row()
+	row.add_child(_row_label("DEBUG_BOTS"))
+	var spin: SpinBox = SpinBox.new()
+	spin.min_value = GameSettings.MIN_PRISONER_COUNT
+	spin.max_value = GameSettings.MAX_PRISONER_COUNT
+	spin.step = 1.0
+	spin.value = settings.prisoner_count if controller == null else controller.get_rules().prisoner_count
+	spin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	spin.value_changed.connect(func(value: float) -> void:
+		var rules: MatchRules = controller.get_rules() if controller != null else null
+		DebugMenu.write_bot_count(settings, int(value), rules)
+		if controller != null:
+			controller.restart()
+			_fill_tower_choice()
+			_refresh_readout())
+	row.add_child(spin)
+
+
+## Write [param count] bots as the prisoner count, clamped, with the shutout pulled under it.
+static func write_bot_count(settings: GameSettings, count: int, rules: MatchRules = null) -> void:
+	settings.prisoner_count = clampi(count, GameSettings.MIN_PRISONER_COUNT, GameSettings.MAX_PRISONER_COUNT)
+	settings.shutout_count = mini(settings.shutout_count, settings.prisoner_count)
+	if rules != null:
+		rules.prisoner_count = settings.prisoner_count
+		rules.shutout_count = mini(rules.shutout_count, rules.prisoner_count)
 
 
 func _build_sniper() -> void:
@@ -480,7 +529,7 @@ func _toggle(key: String, on: bool, handler: Callable, parent: Control = null) -
 	(parent if parent != null else _body).add_child(check)
 
 
-func _choice(key: String, titles: PackedStringArray, selected: int, handler: Callable) -> void:
+func _choice(key: String, titles: PackedStringArray, selected: int, handler: Callable) -> OptionButton:
 	var row: HBoxContainer = _row()
 	row.add_child(_row_label(key))
 	var option: OptionButton = OptionButton.new()
@@ -490,6 +539,7 @@ func _choice(key: String, titles: PackedStringArray, selected: int, handler: Cal
 	option.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	option.item_selected.connect(handler)
 	row.add_child(option)
+	return option
 
 
 ## A labelled slider whose readout shows the value in [param unit], a format key ("" for a count).
