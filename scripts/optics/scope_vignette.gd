@@ -154,6 +154,8 @@ func tick() -> void:
 		_held = true
 
 	var amount: float = _applied if _held else compute_amount()
+	if not _looking_through_it():
+		amount = 0.0
 	_apply(amount)
 	_show_or_hide_the_model(amount)
 
@@ -209,6 +211,15 @@ func _holder_is_the_human() -> bool:
 
 
 # --- Internals ----------------------------------------------------------------
+
+## False while another camera has the screen (the finale's cinematic of the thrown guard): no scope drawn over it.
+func _looking_through_it() -> bool:
+	if ads == null or ads.optic == null or ads.optic.camera == null:
+		return true
+	var viewport: Viewport = get_viewport()
+	var shown: Camera3D = viewport.get_camera_3d() if viewport != null else null
+	return shown == null or shown == ads.optic.camera
+
 
 func _apply(amount: float) -> void:
 	if _material == null or overlay == null:
