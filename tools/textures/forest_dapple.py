@@ -38,5 +38,11 @@ lit = (n < GAP).astype(np.float64)
 k = np.fft.fftfreq(SIZE, d=PERIOD / SIZE)
 g = np.exp(-2 * (np.pi * SIGMA) ** 2 * (k[:, None] ** 2 + k[None, :] ** 2))
 soft = np.real(np.fft.ifft2(np.fft.fft2(lit) * g)).clip(0, 1)
-Image.fromarray((soft * 255 + 0.5).astype(np.uint8), "L").save(OUT)
-print(f"{OUT}: lit fraction {soft.mean():.3f}")
+# Second layer (G): fine, low-contrast, even flecks, zero-mean around 0.5. The shader adds it on top, so
+# pools of sun get dark flecks and pools of shade get light flecks, while the big pattern (R) is untouched.
+f = 0.6 * vnoise(int(round(PERIOD / 0.6))) + 0.4 * vnoise(int(round(PERIOD / 0.3)))
+f = (f - f.mean()) / (f.std() * 3.0)          # roughly -0.5..0.5
+fine = (np.real(np.fft.ifft2(np.fft.fft2(f) * np.exp(-2 * (np.pi * 0.05) ** 2 * (k[:, None] ** 2 + k[None, :] ** 2)))) + 0.5).clip(0, 1)
+rgb = np.stack([soft, fine, np.zeros_like(soft)], axis=-1)
+Image.fromarray((rgb * 255 + 0.5).astype(np.uint8), "RGB").save(OUT)
+print(f"{OUT}: lit fraction {soft.mean():.3f}, fleck mean {fine.mean():.3f}")
