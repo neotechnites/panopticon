@@ -9,8 +9,8 @@ from PIL import Image
 
 PERIOD = 27.0      # metres per tile: whole lattices for both octaves (1.0 m and 0.45 m cells)
 SIZE = 512         # pixels per tile, ~5 cm
-GAP = 0.38         # hole threshold: more holes than the shader's 0.3, the lit area its stacked casters let through
-SIGMA = 0.12       # metres of Gaussian blur: the soft edge
+GAP = 0.32         # hole threshold: more holes than the shader's 0.3, the lit area its stacked casters let through
+SIGMA = 0.156       # metres of Gaussian blur: the soft edge
 OUT = "maps/forest/textures/forest_dapple.png"
 
 rng = np.random.default_rng(20261006)
