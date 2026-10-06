@@ -1267,6 +1267,8 @@ func _meet_the_eye() -> void:
 	var away: Vector3 = _eye.call(&"gaze_direction_for", elsewhere)
 	var onto: Vector3 = _eye.call(&"gaze_direction_for", viewer.global_position)
 	_eye.call(&"turn_toward", away.slerp(onto, smoothstep(0.0, 1.0, swing)).normalized(), 0.0)
+	if OS.has_environment("STAGE_DEBUG") and Engine.get_physics_frames() % 6 == 0:
+		print("[eye] %5.2f swing %.2f away-onto %.1f deg gaze-viewer %.1f deg" % [_elapsed, swing, rad_to_deg(away.angle_to(onto)), rad_to_deg((_eye.call(&"gaze_direction") as Vector3).angle_to(viewer.global_position - _eye.global_position))])
 
 
 ## Look down the ring, then come round onto the camera as the pan settles.
