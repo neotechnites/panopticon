@@ -397,6 +397,39 @@ grade_hell: lift 2.6 3
 | g1 | cuts/12.mp4@0.15:3.1833 | | | beat 3.1833 | | |  |
 | e1 | cuts/end_v3.mp4@0.4:3.2 | | | beat 3.2 | | |  |
 
+## script rough_v29
+size: 1920x1080
+music: voice/pineberry_rush_v27.flac
+music_db: -0.5
+music_fade: 0.02 2.5
+captions: none
+# v29 (Ryan on v28): h2 (the forest hit) held half a bar longer, taken off the end of m0; the cut moves 0.70 s later, onto the bar 6 downbeat (14.06). Nothing else moves.
+# v28 (Ryan on v27): cut for Pineberry Rush's structure, not the grid. Mapped from the recording (beat k = 5.703 + k*0.3483 s, bar = 4 beats):
+# the intro builds -4..0, the drop on the title (k0, 5.70); phrase one runs k0-k28 (a lift at k16 and a fill k24-27); a held, thinner bar
+# k28-35 (the music sits: d1/d2 hold); phrase two k36-60 (the forest shove section on its downbeats); the break k60-67 (marble shove held
+# across it); the busy run k68-91 (lava, crack, quick cuts on the rolls); the second held bar k92-95 (the finale's shove at 38.0 on k93
+# territory); the end card on the k96 downbeat, 39.13 s. Title hit kept at 5.70. Every cut is on a downbeat or the bar's 3; hits sit on beats.
+| line | clip | in | len | fit | speed | text |
+| a1 | cuts/01.mp4@0.5300:2.9167 | | | beat 2.9167 | | |
+| a2 | cuts/02.mp4@1.9070:2.7833 | | | beat 2.7833 | | |
+| a3 | cuts/title_zoom10.mp4@0.0000:2.1000 | | | beat 2.1000 | | |
+| a4 | cuts/card2_zoom10.mp4@0.0000:2.0833 | | | beat 2.0833 | | |
+| h1 | cuts/04t.mp4@0.7000:2.0833 | | | beat 2.0833 | | |
+| h2 | cuts/05g.mp4@1.7560:2.1000 | | | beat 2.1000 | | |
+| m0 | cuts/05h.mp4@0.6240:1.8167 | | | beat 1.8167 | | |
+| d1 | cuts/06.mp4@1.2500:1.4000 | | | beat 1.4000 | | |
+| d2 | cuts/07.mp4@2.4500:1.3000 | | | beat 1.3000 | | |
+| d3 | cuts/08.mp4@0.1000:2.1000 | | | beat 2.1000 | | |
+| p1 | cuts/09ag.mp4@0.3100:2.0833 | | | beat 2.0833 | | |
+| p2 | cuts/09bg.mp4@0.0127:1.8833 | | | beat 1.8833 | | |
+| m1 | cuts/10a.mp4@0.0000:2.0000 | | | beat 2.0000 | | |
+| m2 | cuts/10b.mp4@0.7000:2.5833 | | | beat 2.5833 | | |
+| t2 | cuts/11.mp4@1.4300:2.9333 | | | beat 2.9333 | | |
+| k1 | cuts/13.mp4@0.7300:2.8000 | | | beat 2.8000 | | |
+| k2 | cuts/14.mp4@0.2800:1.8500 | | | beat 1.8500 | | |
+| g1 | cuts/12f.mp4@2.0500:2.3167 | | | beat 2.3167 | | |
+| e1 | cuts/end_v3.mp4@0.4000:3.2000 | | | beat 3.2000 | | |
+
 ## script rough_v28
 size: 1920x1080
 music: voice/pineberry_rush_v27.flac
