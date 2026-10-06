@@ -34,6 +34,13 @@ void vertex() {
 	fleck_drift = sway * vec2(0.7 * sin(TIME * sway_speed * 1.37 + 2.1), sin(TIME * sway_speed * 0.59 + 0.4));
 }
 
+// Soft fake AO where trunks meet the ground, from forest_contact.png (tools/textures/forest_contact.py).
+// 0 = off. Darkens within contact_radius m of a trunk and up to contact_height m above its ground.
+uniform float contact_strength = 0.0;
+uniform float contact_radius = 1.5;
+uniform float contact_height = 1.0;
+uniform sampler2D contact_mask : hint_default_white, filter_linear, repeat_disable;
+
 void fragment() {
 	vec4 tex = texture(albedo_texture, UV);
 	vec3 base = albedo_color.rgb * tex.rgb;
@@ -41,6 +48,13 @@ void fragment() {
 		base *= COLOR.rgb;
 	}
 	base = mix(vec3(dot(base, vec3(0.2126, 0.7152, 0.0722))), base, saturation);
+	if (contact_strength > 0.0) {
+		vec2 m = texture(contact_mask, world.xz / 120.0 + 0.5).rg;
+		float h = world.y - (13.0 + 20.0 * m.g);
+		float ring = 1.0 - smoothstep(0.0, contact_radius, m.r * 4.0);
+		float rise = 1.0 - smoothstep(0.0, contact_height, h);
+		base *= 1.0 - contact_strength * ring * rise * step(-1.5, h);
+	}
 	ALBEDO = base;
 	ROUGHNESS = roughness;
 }
