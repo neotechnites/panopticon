@@ -1,3 +1,4 @@
+@tool
 class_name LavaHazeField
 extends MeshInstance3D
 
@@ -18,10 +19,24 @@ static var _materials: Dictionary = {}
 
 
 func _ready() -> void:
+	_dress()
+	cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	gi_mode = GeometryInstance3D.GI_MODE_DISABLED
+	add_to_group(&"lava_haze")
+
+
+## Built in the editor too, so the shimmer shows there; stripped for a save so the scene never stores it.
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_EDITOR_PRE_SAVE:
+		mesh = null
+		material_override = null
+	elif what == NOTIFICATION_EDITOR_POST_SAVE:
+		_dress()
+
+
+func _dress() -> void:
 	mesh = _build_mesh()
 	material_override = material_for(panel_scale)
-	cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	add_to_group(&"lava_haze")
 
 
 ## The crack's material, its rise height scaled so a bigger panel rises at the same speed in metres.

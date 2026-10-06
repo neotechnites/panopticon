@@ -6,6 +6,7 @@ extends EditorScenePostImport
 
 const SharedMaterials := preload("res://tools/import/shared_materials.gd")
 const SmoothNormals := preload("res://tools/import/smooth_normals.gd")
+const LightmapSplit := preload("res://tools/import/lightmap_split.gd")
 ## Surfaces whose glTF material is named here get the waving lava shader instead.
 const WAVE_MATERIALS := [&"LavaRiver", &"LavaSea", &"LavaCrack"]
 const LAVA_WAVE_SHADER := "res://maps/bentham_ring/materials/lava_wave.gdshader"
@@ -52,6 +53,7 @@ func _post_import(scene: Node) -> Object:
 	_walk(scene)
 	SharedMaterials.share(scene, get_source_file())
 	SmoothNormals.smooth(scene, get_source_file())
+	LightmapSplit.split(scene, get_source_file(), WAVE_MATERIALS)
 
 	print("MIPMAP %s: %d textures gained mips, %d materials refiltered to filter %d" % [
 		get_source_file().get_file(), _textures_mipped, _materials_refiltered, _filter,

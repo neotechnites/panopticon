@@ -1,3 +1,4 @@
+@tool
 class_name LavaHaze
 extends MeshInstance3D
 
@@ -52,7 +53,21 @@ static func _build_mesh() -> ArrayMesh:
 
 
 func _ready() -> void:
+	_dress()
+	cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	gi_mode = GeometryInstance3D.GI_MODE_DISABLED
+	add_to_group(&"lava_haze")
+
+
+## Dressed in the editor too, so the shimmer shows there; stripped for a save so no scene stores it.
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_EDITOR_PRE_SAVE:
+		mesh = null
+		material_override = null
+	elif what == NOTIFICATION_EDITOR_POST_SAVE:
+		_dress()
+
+
+func _dress() -> void:
 	mesh = shared_mesh()
 	material_override = preload("res://maps/bentham_ring/materials/lava_haze_material.tres")
-	cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	add_to_group(&"lava_haze")
