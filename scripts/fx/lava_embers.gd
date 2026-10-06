@@ -55,10 +55,10 @@ func _rebuild() -> void:
 			remove_child(child)
 			child.queue_free()
 	var ember_mat: StandardMaterial3D = _material(true)
-	var sea: ParticleProcessMaterial = _ember_motion(2.2, 4.2)
+	var sea: ParticleProcessMaterial = _ember_motion(4.0, 6.5)
 	_ring(sea)
 	sea.scale_curve = _shrink()
-	_emitter(&"SeaEmbers", SEA_EMBERS * density, 11.0, sea, ember_mat, sea_ember_size)
+	_emitter(&"SeaEmbers", SEA_EMBERS * density, 9.0, sea, ember_mat, sea_ember_size)
 	if not river_points.is_empty():
 		var river: ParticleProcessMaterial = _ember_motion(1.2, 2.6)
 		river.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_POINTS
