@@ -16,8 +16,11 @@ const TIME_ROLLOVER: float = 3600.0
 
 ## Energy swing either way, as a fraction of the light's own energy.
 @export_range(0.0, 0.3, 0.01) var energy_swing: float = 0.3
-## Metres a light over flat lava rides up and down with the swell.
+## Metres a light over flat lava rides up and down with the swell: it rises 2x this from rest, never below,
+## so a shadowed pit fire never dips into the courtyard floor (shadow artifacts under the tower).
 @export_range(0.0, 12.0, 0.05) var bob_metres: float = 9.6
+## The lights' swell runs this much faster than the lava shader's own.
+@export_range(0.1, 4.0, 0.05) var light_speed: float = 1.4
 ## Lights elsewhere in the scene that swell too (the shadowed pit fires).
 @export var also_wave: Array[NodePath] = []
 
@@ -85,7 +88,7 @@ func _rest_lights() -> void:
 
 func _process(_delta: float) -> void:
 	var now: float = fmod(Time.get_ticks_msec() * 0.001, TIME_ROLLOVER)
-	var t: float = now * SPEED
+	var t: float = now * SPEED * light_speed
 	for i: int in _lights.size():
 		var light: Light3D = _lights[i]
 		if not is_equal_approx(light.light_energy, _set_energy[i]):
@@ -101,4 +104,4 @@ func _process(_delta: float) -> void:
 		light.light_energy = maxf(0.0, _base_energy[i] * (1.0 + energy_swing * (0.9 * swell + 0.1 * own)))
 		_set_energy[i] = light.light_energy
 		if _bob[i] == 1:
-			light.position.y = _base_y[i] + bob_metres * fl * sr
+			light.position.y = _base_y[i] + bob_metres * fl * (sr + 1.0)
