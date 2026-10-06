@@ -232,18 +232,19 @@ freeze: waive
 
 ## 9ag
 said: v5 "Forest, runner POV: a second runner beside him at the inner edge, a visible shove, he tips over the edge and drops out of frame into the mist"
-capture: --map=res://maps/forest/forest_green.tscn --shot=pack_lead --stage=trailer_forest_pit --bots=3 --pov=runner --look=social --rifle=projectile --seed=20261001
+capture: --map=res://maps/forest/forest_green.tscn --shot=pack_lead --stage=trailer_forest_pit --bots=3 --pov=runner --look=social --rifle=projectile --set=third=0 --seed=20261001
 tape: forest_pit
 seconds: 2.5
 in: 1.04
 freeze: waive
 # rough_v20_green: shot 9a in the green forest (forest_green.tscn, same geometry), same stage and tape
+# v27 (Ryan): "no purple player running in the background, since they aren't in the previous scene": third=0, the third man parked and hidden; forest_pit re-taped.
 # v26 (Ryan): "in ths shove scene, theres just a random cut for nor eason before the player gets shoved." No edit lands there: his head snapped 19 deg in ONE
 # tick at the gate (take 1.96, 1.06 s before the shove), a jump cut inside the take. Every lane join is carried now; the shove (2.93, 149.9 deg) is unchanged.
 
 ## 9bg
 said: v5 "Forest, the shoved runner's POV: the edge he was shoved from with the shover on it looking down, falling away, the mist rushing up"
-capture: --map=res://maps/forest/forest_green.tscn --shot=pack_lead --stage=trailer_forest_pit --bots=3 --pov=runner --look=social --rifle=projectile --set=pov=victim --seed=20261001
+capture: --map=res://maps/forest/forest_green.tscn --shot=pack_lead --stage=trailer_forest_pit --bots=3 --pov=runner --look=social --rifle=projectile --set=pov=victim;third=0 --seed=20261001
 tape: forest_pit
 seconds: 1.8
 in: 2.96

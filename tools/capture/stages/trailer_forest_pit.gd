@@ -94,20 +94,28 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 		{"do": "hold", "seconds": 60.0},
 	], 1, "ClipPitShover")
 	# The third: three metres behind the shover; he runs on past the lip like the shover does.
+	# v27 (Ryan): "no purple player running in the background, since they aren't in the previous scene": third=0 parks him far round the ring.
 	var third_from: float = from - back - 3.3
-	_drivers_by_body[_third] = drive(runners[2], [
-		{"do": "place", "deg": third_from, "r": THIRD_GATE_R, "h": 0.1, "face": LIB.tangent_at(third_from)},
-		{"do": "human", "on": true},
-		{"do": "lane", "to": GATE, "r": THIRD_GATE_R, "speed": 1.0, "weave": 0.03, "period": 1.4, "timeout": 9.0,
-			"glances": [{"t": 0.0, "right": 0.0, "pitch": -2.0}]},
-		{"do": "lane", "to": OUT_FROM, "r": THIRD_R, "speed": 1.0, "weave": 0.04, "period": 1.4, "timeout": 9.0, "carry": true,
-			"glances": [{"t": 0.0, "right": 0.0, "pitch": -2.0}, {"t": 0.6, "right": -8.0, "pitch": 2.0}, {"t": 1.0, "right": 5.0, "pitch": -1.0}]},
-		{"do": "lane", "to": IN_FROM, "r": OUT_R, "speed": 1.0, "weave": 0.05, "period": 1.4, "timeout": 9.0, "carry": true,
-			"glances": [{"t": 0.0, "right": -6.0, "pitch": -2.0}, {"t": 0.5, "right": 3.0, "pitch": -1.0}]},
-		{"do": "lane", "to": ON_TO, "r": IN_R, "speed": 1.0, "weave": 0.05, "period": 1.4, "timeout": 9.0, "carry": true,
-			"glances": [{"t": 0.0, "right": 5.0, "pitch": -2.0}, {"t": 0.6, "right": -2.0, "pitch": -1.0}]},
-		{"do": "hold", "seconds": 60.0},
-	], 2, "ClipPitThird")
+	if int(option("third", 1)) == 0:
+		_drivers_by_body[_third] = drive(runners[2], [
+			{"do": "place", "deg": 300.0, "r": 52.0, "h": 0.1, "face": LIB.tangent_at(300.0)},
+			{"do": "hold", "seconds": 60.0},
+		], 2, "ClipPitThirdParked")
+		runners[2].controller.visible = false
+	else:
+		_drivers_by_body[_third] = drive(runners[2], [
+			{"do": "place", "deg": third_from, "r": THIRD_GATE_R, "h": 0.1, "face": LIB.tangent_at(third_from)},
+			{"do": "human", "on": true},
+			{"do": "lane", "to": GATE, "r": THIRD_GATE_R, "speed": 1.0, "weave": 0.03, "period": 1.4, "timeout": 9.0,
+				"glances": [{"t": 0.0, "right": 0.0, "pitch": -2.0}]},
+			{"do": "lane", "to": OUT_FROM, "r": THIRD_R, "speed": 1.0, "weave": 0.04, "period": 1.4, "timeout": 9.0, "carry": true,
+				"glances": [{"t": 0.0, "right": 0.0, "pitch": -2.0}, {"t": 0.6, "right": -8.0, "pitch": 2.0}, {"t": 1.0, "right": 5.0, "pitch": -1.0}]},
+			{"do": "lane", "to": IN_FROM, "r": OUT_R, "speed": 1.0, "weave": 0.05, "period": 1.4, "timeout": 9.0, "carry": true,
+				"glances": [{"t": 0.0, "right": -6.0, "pitch": -2.0}, {"t": 0.5, "right": 3.0, "pitch": -1.0}]},
+			{"do": "lane", "to": ON_TO, "r": IN_R, "speed": 1.0, "weave": 0.05, "period": 1.4, "timeout": 9.0, "carry": true,
+				"glances": [{"t": 0.0, "right": 5.0, "pitch": -2.0}, {"t": 0.6, "right": -2.0, "pitch": -1.0}]},
+			{"do": "hold", "seconds": 60.0},
+		], 2, "ClipPitThird")
 	for body: PlayerController in [_shover, _third]:
 		LIB.hide_from_the_rifle(body)
 	# The lip he goes over, between its two trees: where the faller's eyes stay.
@@ -199,6 +207,8 @@ func on_shove(_from: MatchParticipant, victim: MatchParticipant) -> void:
 		{"do": "watch", "body": _lip, "seconds": 60.0, "height": 1.2},
 	])
 	# The third never breaks stride: a look across at the pit and on.
+	if int(option("third", 1)) == 0:
+		return
 	_drivers_by_body[_third].glance_now([
 		{"t": 0.25, "right": 14.0, "pitch": -4.0},
 		{"t": 0.7, "right": 3.0, "pitch": -2.0},
