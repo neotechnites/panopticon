@@ -681,9 +681,10 @@ look = ExtResource("29_watcher_look")
 [node name="LavaLightmap" type="LightmapGI" parent="."]
 editor_description = "The lava's glow on the rock: sea, rivers, falls and cracks emit in the bake (tools/import/lightmap_split.gd's lit stand-in), with occlusion and bounce, and its probes light the players. Rebake: tools/pc_bake_lightmap.sh. Every real light is bake_mode Disabled."
 quality = 2
-bounces = 2
+bounces = 1
+bounce_indirect_energy = 0.5
 directional = true
-texel_scale = 1.5
+denoiser_strength = 0.05
 interior = false
 environment_mode = 0
 light_data = ExtResource("32_lava_lightmap")
