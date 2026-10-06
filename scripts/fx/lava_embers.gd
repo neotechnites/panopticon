@@ -19,10 +19,15 @@ extends Node3D
 	set(value):
 		ash = value
 		_rebuild()
-## Ember quad size in metres.
-@export_range(0.02, 0.6, 0.01) var ember_size: float = 0.28:
+## River and fall ember size in metres (they rise beside the runners).
+@export_range(0.02, 1.0, 0.01) var ember_size: float = 0.3:
 	set(value):
 		ember_size = value
+		_rebuild()
+## Sea ember size in metres at birth; they shrink as they rise, so they read 30 m down.
+@export_range(0.05, 2.0, 0.01) var sea_ember_size: float = 0.8:
+	set(value):
+		sea_ember_size = value
 		_rebuild()
 ## Sea emitter: centre height, inner and outer radius round the tower.
 @export var sea_y: float = -10.6
@@ -52,7 +57,8 @@ func _rebuild() -> void:
 	var ember_mat: StandardMaterial3D = _material(true)
 	var sea: ParticleProcessMaterial = _ember_motion(2.2, 4.2)
 	_ring(sea)
-	_emitter(&"SeaEmbers", SEA_EMBERS * density, 11.0, sea, ember_mat, ember_size)
+	sea.scale_curve = _shrink()
+	_emitter(&"SeaEmbers", SEA_EMBERS * density, 11.0, sea, ember_mat, sea_ember_size)
 	if not river_points.is_empty():
 		var river: ParticleProcessMaterial = _ember_motion(1.2, 2.6)
 		river.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_POINTS
@@ -76,7 +82,8 @@ func _rebuild() -> void:
 	flecks.color_ramp = _ramp(PackedFloat32Array([0.0, 0.1, 0.75, 1.0]), [
 		Color(0.22, 0.2, 0.19, 0.0), Color(0.22, 0.2, 0.19, 0.85),
 		Color(0.3, 0.28, 0.27, 0.6), Color(0.3, 0.28, 0.27, 0.0)])
-	_emitter(&"Ash", ASH_FLECKS * ash, 16.0, flecks, _material(false), ember_size * 1.3)
+	flecks.scale_curve = _shrink()
+	_emitter(&"Ash", ASH_FLECKS * ash, 16.0, flecks, _material(false), sea_ember_size * 0.7)
 
 
 func _emitter(node_name: StringName, count: float, life: float, process: ParticleProcessMaterial,
@@ -134,6 +141,15 @@ func _ember_motion(v_min: float, v_max: float) -> ParticleProcessMaterial:
 	return m
 
 
+func _shrink() -> CurveTexture:
+	var c: Curve = Curve.new()
+	c.add_point(Vector2(0.0, 1.0))
+	c.add_point(Vector2(1.0, 0.35))
+	var tex: CurveTexture = CurveTexture.new()
+	tex.curve = c
+	return tex
+
+
 func _ramp(offsets: PackedFloat32Array, colors: Array) -> GradientTexture1D:
 	var g: Gradient = Gradient.new()
 	g.offsets = offsets
@@ -158,8 +174,8 @@ func _points_texture(points: PackedVector3Array) -> ImageTexture:
 # Unshaded billboard dot; embers blend additive, ash blends over.
 func _material(glow: bool) -> StandardMaterial3D:
 	var dot: Gradient = Gradient.new()
-	dot.offsets = PackedFloat32Array([0.0, 0.35, 1.0])
-	dot.colors = PackedColorArray([Color(1, 1, 1, 1), Color(1, 1, 1, 0.8), Color(1, 1, 1, 0)])
+	dot.offsets = PackedFloat32Array([0.0, 0.45, 0.75, 1.0])
+	dot.colors = PackedColorArray([Color(1, 1, 1, 1), Color(1, 1, 1, 1), Color(1, 1, 1, 0.3), Color(1, 1, 1, 0)])
 	var tex: GradientTexture2D = GradientTexture2D.new()
 	tex.gradient = dot
 	tex.width = 16
