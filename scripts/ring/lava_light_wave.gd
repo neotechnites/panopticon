@@ -17,7 +17,7 @@ const TIME_ROLLOVER: float = 3600.0
 ## Energy swing either way, as a fraction of the light's own energy.
 @export_range(0.0, 0.3, 0.01) var energy_swing: float = 0.3
 ## Metres a light over flat lava rides up and down with the swell.
-@export_range(0.0, 3.0, 0.05) var bob_metres: float = 2.4
+@export_range(0.0, 12.0, 0.05) var bob_metres: float = 9.6
 ## Lights elsewhere in the scene that swell too (the shadowed pit fires).
 @export var also_wave: Array[NodePath] = []
 
