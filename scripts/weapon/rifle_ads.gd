@@ -50,8 +50,8 @@ extends Node
 ## see [code]tools/_scratch/ads_view.gd[/code], which is the harness that
 ## produced the pictures, and docs/MODELLING.md for how it is run on the PC.
 ##
-## [b]The eye ends at the eyepiece.[/b] The scope swings onto the view axis first
-## ([member lateral_arrive]), then slides straight back until its rear face is at the eye, where the model hides.
+## [b]The scope comes up to the eye.[/b] It swings onto the view axis first ([member lateral_arrive]), then slides
+## straight back to the eye; at [member ZoomProfile.vignette_onset] the model hides and the screen cuts to the vignette.
 
 ## The node this blends: [code]Rifle/ViewModel[/code]. Its transform at
 ## [method _ready] is captured as the hip pose -- the same authored value
@@ -78,8 +78,9 @@ extends Node
 ## [b]y = -0.03375[/b]: the scope axis is 0.045 model metres (x 0.75 scale) above the bore,
 ## a real scope height; rifle_build.py centres the ocular on it.
 ##
-## [b]z = -0.0825[/b]: the eyepiece's rear face (rifle_n64_trace.SCOPE_REAR, 0.110 model metres behind the origin) is at the eye.
-@export var aim_position: Vector3 = Vector3(0.0, -0.03375, -0.0825)
+## [b]z = -0.1425[/b]: the eyepiece's rear face (rifle_n64_trace.SCOPE_REAR, 0.110 model metres behind the origin)
+## sits 0.06 m ahead of the eye, just past the 0.05 m near plane, so its dark lens is never sliced open.
+@export var aim_position: Vector3 = Vector3(0.0, -0.03375, -0.1425)
 
 ## Euler degrees at full aim, Godot's YXZ order -- the same convention the hip
 ## pose uses. Zero on purpose, and it is load-bearing: see the class notes.
@@ -106,10 +107,6 @@ extends Node
 ## the same reason.
 var _hip: Transform3D = Transform3D.IDENTITY
 var _has_hip: bool = false
-
-## Progress at which the model is hidden outright: only at full aim, when the eyepiece is on the eye and the
-## tube's own opening is nearly [ScopeVignette]'s circle, so the hand-off barely moves. See [method _update_visual_visibility].
-const MODEL_HIDE_PROGRESS: float = 1.0
 
 ## [code]ViewModel/Model[/code], resolved once so hiding it never touches
 ## [code]Muzzle[/code], its sibling under [member view_model].
@@ -190,14 +187,15 @@ func get_zoom_profile() -> ZoomProfile:
 	return optic.profile
 
 
-## Hides the mesh at [constant MODEL_HIDE_PROGRESS] for the eye looking out of
+## Hides the mesh from [member ZoomProfile.vignette_onset], the cut to the scope view, for the eye looking out of
 ## the holder only, so nobody sees the scope's solid tube from inside and everyone else still sees the gun.
 func _update_visual_visibility(t: float) -> void:
 	if _visual == null:
 		return
 	var holder: PlayerController = _rifle.shooter_body as PlayerController if _rifle != null else null
 	var eye_in_scope: bool = holder == null or PrisonerAvatar.is_body_viewed(holder)
-	_visual.visible = t < MODEL_HIDE_PROGRESS or not eye_in_scope
+	var cut: float = optic.profile.vignette_onset if optic != null and optic.profile != null else 1.0
+	_visual.visible = t < cut or not eye_in_scope
 
 
 ## [member aim_position], [member aim_rotation_degrees] and [member aim_scale]

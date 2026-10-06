@@ -142,12 +142,11 @@ func test_the_shipped_profile_zooms_in_over_half_a_second() -> void:
 const EYEPIECE: Vector3 = Vector3(0.0, 0.045, 0.110)
 
 
-## Ryan: "when zooming, the eye does not go to the back of the scope." At full aim it is exactly there.
-func test_full_aim_puts_the_eye_on_the_eyepiece() -> void:
-	assert_vec3_almost_eq(
-		_expected_aim_transform() * EYEPIECE, Vector3.ZERO, 0.0005,
-		"the eyepiece's rear face must sit on the camera at full aim",
-	)
+## Ryan: "the eye does not go to the back of the scope." At full aim the eyepiece is centred just past the near plane.
+func test_full_aim_puts_the_eyepiece_on_the_eye() -> void:
+	var eyepiece: Vector3 = _expected_aim_transform() * EYEPIECE
+	assert_vec3_almost_eq(eyepiece, Vector3(0.0, 0.0, -0.06), 0.0005, "eyepiece centred, 6 cm ahead, at full aim")
+	assert_true(-eyepiece.z > _camera.near, "and never inside the near plane, so its lens is never sliced open")
 
 
 ## The scope is on the view axis by [member RifleAds.lateral_arrive], ahead of the eye, then only comes straight back.
