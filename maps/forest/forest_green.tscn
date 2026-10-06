@@ -33,10 +33,14 @@ ambient_light_color = Color(0.2, 0.34, 0.32, 1)
 ambient_light_energy = 0.72
 tonemap_mode = 1
 fog_enabled = true
-fog_light_color = Color(0.12, 0.3, 0.36, 1)
-fog_light_energy = 0.35
-fog_density = 0.006
+fog_mode = 1
+fog_light_color = Color(0.4, 0.6, 0.58, 1)
+fog_light_energy = 0.55
+fog_density = 0.715
 fog_sky_affect = 0.4
+fog_depth_curve = 1.4
+fog_depth_begin = 14.0
+fog_depth_end = 120.0
 fog_height = -5.75
 fog_height_density = 0.1
 
@@ -96,6 +100,7 @@ shader_parameter/sway_speed = 1.0
 [sub_resource type="ShaderMaterial" id="CrownUnderGreen"]
 render_priority = 0
 shader = ExtResource("9_under")
+shader_parameter/saturation = 0.55
 shader_parameter/albedo_texture = ExtResource("2_leaf")
 shader_parameter/glow = 0.6
 shader_parameter/canopy_brightness = 0.7
@@ -108,6 +113,7 @@ shader_parameter/dapple_top_fade = 12.0
 [sub_resource type="ShaderMaterial" id="LeafGreenDrum"]
 render_priority = 0
 shader = ExtResource("11_dapple_lit")
+shader_parameter/saturation = 0.55
 shader_parameter/albedo_color = Color(0.3811, 0.8323, 1.7441, 1)
 shader_parameter/albedo_texture = ExtResource("2_leaf")
 shader_parameter/use_vertex_color = true
@@ -119,6 +125,7 @@ shader_parameter/dapple_top_fade = 12.0
 [sub_resource type="ShaderMaterial" id="LeafGreen"]
 render_priority = 0
 shader = ExtResource("11_dapple_lit")
+shader_parameter/saturation = 0.55
 shader_parameter/albedo_color = Color(0.3811, 0.8323, 1.7441, 1)
 shader_parameter/albedo_texture = ExtResource("2_leaf")
 shader_parameter/use_vertex_color = true
@@ -128,6 +135,7 @@ shader_parameter/dapple = ExtResource("12_dapple")
 [sub_resource type="ShaderMaterial" id="ShadeGreen"]
 render_priority = 0
 shader = ExtResource("11_dapple_lit")
+shader_parameter/saturation = 0.55
 shader_parameter/albedo_color = Color(0.2577, 0.6343, 1.4956, 1)
 shader_parameter/albedo_texture = ExtResource("2_leaf")
 shader_parameter/use_vertex_color = true
@@ -137,6 +145,7 @@ shader_parameter/dapple = ExtResource("12_dapple")
 [sub_resource type="ShaderMaterial" id="SunGreen"]
 render_priority = 0
 shader = ExtResource("11_dapple_lit")
+shader_parameter/saturation = 0.55
 shader_parameter/albedo_color = Color(0.5064, 0.9547, 1.6125, 1)
 shader_parameter/albedo_texture = ExtResource("2_leaf")
 shader_parameter/use_vertex_color = true
@@ -146,6 +155,7 @@ shader_parameter/dapple = ExtResource("12_dapple")
 [sub_resource type="ShaderMaterial" id="FernGreen"]
 render_priority = 0
 shader = ExtResource("11_dapple_lit")
+shader_parameter/saturation = 0.55
 shader_parameter/albedo_color = Color(0.4236, 0.8962, 1.6125, 1)
 shader_parameter/albedo_texture = ExtResource("2_leaf")
 shader_parameter/use_vertex_color = true
@@ -155,7 +165,7 @@ shader_parameter/dapple = ExtResource("12_dapple")
 [sub_resource type="ShaderMaterial" id="GrassGreen"]
 render_priority = 0
 shader = ExtResource("11_dapple_lit")
-shader_parameter/albedo_color = Color(0.7014, 1.0427, 0.8095, 1)
+shader_parameter/albedo_color = Color(0.2996, 0.4000, 0.3314, 1)
 shader_parameter/albedo_texture = ExtResource("3_grass")
 shader_parameter/use_vertex_color = true
 shader_parameter/roughness = 0.95
@@ -164,7 +174,7 @@ shader_parameter/dapple = ExtResource("12_dapple")
 [sub_resource type="ShaderMaterial" id="PathGreen"]
 render_priority = 0
 shader = ExtResource("11_dapple_lit")
-shader_parameter/albedo_color = Color(0.7977, 0.9777, 0.7674, 1)
+shader_parameter/albedo_color = Color(0.3251, 0.3780, 0.3162, 1)
 shader_parameter/albedo_texture = ExtResource("3_grass")
 shader_parameter/use_vertex_color = true
 shader_parameter/roughness = 0.95
@@ -173,7 +183,7 @@ shader_parameter/dapple = ExtResource("12_dapple")
 [sub_resource type="ShaderMaterial" id="VergeGreen"]
 render_priority = 0
 shader = ExtResource("11_dapple_lit")
-shader_parameter/albedo_color = Color(0.7354, 1.0087, 0.7858, 1)
+shader_parameter/albedo_color = Color(0.3078, 0.3882, 0.3226, 1)
 shader_parameter/albedo_texture = ExtResource("3_grass")
 shader_parameter/use_vertex_color = true
 shader_parameter/roughness = 0.95
@@ -182,7 +192,7 @@ shader_parameter/dapple = ExtResource("12_dapple")
 [sub_resource type="ShaderMaterial" id="EdgeGreen"]
 render_priority = 0
 shader = ExtResource("11_dapple_lit")
-shader_parameter/albedo_color = Color(0.4563, 0.7498, 0.615, 1)
+shader_parameter/albedo_color = Color(0.2006, 0.2869, 0.2472, 1)
 shader_parameter/albedo_texture = ExtResource("3_grass")
 shader_parameter/use_vertex_color = true
 shader_parameter/roughness = 0.95
@@ -250,6 +260,88 @@ shader_parameter/albedo_texture = ExtResource("14_rock")
 shader_parameter/use_vertex_color = false
 shader_parameter/roughness = 0.95
 shader_parameter/dapple = ExtResource("12_dapple")
+
+[sub_resource type="Gradient" id="PollenDot"]
+offsets = PackedFloat32Array(0, 0.3, 1)
+colors = PackedColorArray(1, 1, 1, 1, 1, 1, 1, 0.45, 1, 1, 1, 0)
+
+[sub_resource type="GradientTexture2D" id="PollenDotTex"]
+gradient = SubResource("PollenDot")
+width = 32
+height = 32
+fill = 1
+fill_from = Vector2(0.5, 0.5)
+fill_to = Vector2(1, 0.5)
+
+[sub_resource type="StandardMaterial3D" id="PollenMat"]
+transparency = 1
+blend_mode = 1
+shading_mode = 0
+disable_fog = true
+vertex_color_use_as_albedo = true
+albedo_color = Color(1.0, 0.96, 0.72, 1)
+albedo_texture = SubResource("PollenDotTex")
+billboard_mode = 3
+billboard_keep_scale = true
+
+[sub_resource type="QuadMesh" id="PollenQuad"]
+material = SubResource("PollenMat")
+size = Vector2(0.22, 0.22)
+
+[sub_resource type="Gradient" id="PollenFade"]
+offsets = PackedFloat32Array(0, 0.2, 0.5, 0.8, 1)
+colors = PackedColorArray(1, 1, 1, 0, 1, 1, 1, 0.9, 1, 1, 1, 0.6, 1, 1, 1, 0.9, 1, 1, 1, 0)
+
+[sub_resource type="GradientTexture1D" id="PollenFadeTex"]
+gradient = SubResource("PollenFade")
+
+[sub_resource type="ParticleProcessMaterial" id="PollenProcess"]
+emission_shape = 6
+emission_ring_axis = Vector3(0, 1, 0)
+emission_ring_height = 14.0
+emission_ring_radius = 58.0
+emission_ring_inner_radius = 22.0
+direction = Vector3(0, 1, 0)
+spread = 180.0
+initial_velocity_min = 0.1
+initial_velocity_max = 0.45
+gravity = Vector3(0, 0.03, 0)
+damping_min = 0.02
+damping_max = 0.05
+scale_min = 0.9
+scale_max = 2.0
+color_ramp = SubResource("PollenFadeTex")
+turbulence_enabled = true
+turbulence_noise_strength = 1.0
+turbulence_noise_scale = 6.0
+turbulence_noise_speed = Vector3(0.1, 0.25, 0.1)
+turbulence_noise_speed_random = 0.3
+turbulence_influence_min = 0.08
+turbulence_influence_max = 0.15
+
+[sub_resource type="ParticleProcessMaterial" id="PollenRingProcess"]
+emission_shape = 6
+emission_ring_axis = Vector3(0, 1, 0)
+emission_ring_height = 10.0
+emission_ring_radius = 57.0
+emission_ring_inner_radius = 45.0
+direction = Vector3(0, 1, 0)
+spread = 180.0
+initial_velocity_min = 0.1
+initial_velocity_max = 0.45
+gravity = Vector3(0, 0.03, 0)
+damping_min = 0.02
+damping_max = 0.05
+scale_min = 0.9
+scale_max = 2.0
+color_ramp = SubResource("PollenFadeTex")
+turbulence_enabled = true
+turbulence_noise_strength = 1.0
+turbulence_noise_scale = 6.0
+turbulence_noise_speed = Vector3(0.1, 0.25, 0.1)
+turbulence_noise_speed_random = 0.3
+turbulence_influence_min = 0.08
+turbulence_influence_max = 0.15
 
 [node name="Forest" instance=ExtResource("1_base")]
 
@@ -388,6 +480,34 @@ surface_material_override/4 = SubResource("CrownUnderGreen")
 
 [node name="LightStreaks" parent="." index="9"]
 visible = false
+
+[node name="Pollen" type="GPUParticles3D" parent="."]
+editor_description = "Kokiri-style pollen: soft pale motes drifting and bobbing in the lane air and over the pit. Tune amount, speed_scale, and size on draw_pass_1's quad."
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 30, 0)
+cast_shadow = 0
+gi_mode = 0
+amount = 320
+lifetime = 12.0
+preprocess = 12.0
+speed_scale = 1.0
+randomness = 0.5
+visibility_aabb = AABB(-62, -12, -62, 124, 24, 124)
+process_material = SubResource("PollenProcess")
+draw_pass_1 = SubResource("PollenQuad")
+
+[node name="PollenRing" type="GPUParticles3D" parent="."]
+editor_description = "Extra pollen at running height in the lane ring (r 45-57, y 23-33): the main Pollen band sits mostly above head height and its top third is inside the leaf roof over the lane, so the lane read sparser than the pit."
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 28, 0)
+cast_shadow = 0
+gi_mode = 0
+amount = 160
+lifetime = 12.0
+preprocess = 12.0
+speed_scale = 1.0
+randomness = 0.5
+visibility_aabb = AABB(-62, -12, -62, 124, 24, 124)
+process_material = SubResource("PollenRingProcess")
+draw_pass_1 = SubResource("PollenQuad")
 
 [node name="ForestGround" parent="MapShadow" index="2"]
 surface_material_override/3 = SubResource("RingLeafShadowGreen")
