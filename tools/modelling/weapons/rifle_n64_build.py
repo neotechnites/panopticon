@@ -213,8 +213,11 @@ def _geometry():
     ball = [tuple(path[2][d] + axis[d] * KNOB_R * k for d in range(3)) for k in (-1.0, -math.sin(lat), math.sin(lat), 1.0)]
     cell_tube(s, ball, (KNOB_R * 0.05, KNOB_R * math.cos(lat), KNOB_R * math.cos(lat), KNOB_R * 0.05), 6, "steel")
 
-    # ---- the scope: one open tube on the aim axis, bells both ends, a saddle and two turrets
-    loft(s, [round_ring(x, top, bottom, y, r, T.SCOPE_Z, SCOPE_SIDES) for (x, top, bottom, y, r) in T.SCOPE])
+    # ---- the scope: one tube on the aim axis, bells both ends glazed shut, a saddle and two turrets
+    scope = [round_ring(x, top, bottom, y, r, T.SCOPE_Z, SCOPE_SIDES) for (x, top, bottom, y, r) in T.SCOPE]
+    loft(s, scope)
+    cap(s, scope[0], "bore", _centre(scope[1]))     # dark lenses: the scope is solid, never a tube to look through
+    cap(s, scope[-1], "bore", _centre(scope[-2]))
     (tx0, tx1), (ty0, ty1), turret_y, turret_r, turret_h = T.TURRET
     saddle_r = max(r for (_x, _t, _b, y, r) in T.SCOPE if abs(y - turret_y) < 0.02)
     foot = T.SCOPE_Z + saddle_r * math.cos(math.pi / SCOPE_SIDES) - 0.001

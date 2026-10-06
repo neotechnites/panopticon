@@ -34,6 +34,8 @@ var _flat: PackedFloat32Array = PackedFloat32Array()
 var _bob: PackedByteArray = PackedByteArray()
 ## The energy each light was last given, so an inspector edit in the editor becomes its new rest.
 var _set_energy: PackedFloat32Array = PackedFloat32Array()
+## Game time, not the wall clock, so offline (Movie Maker) captures run the wave at its real speed.
+var _clock: float = 0.0
 
 
 func _ready() -> void:
@@ -86,8 +88,9 @@ func _rest_lights() -> void:
 			_lights[i].position.y = _base_y[i]
 
 
-func _process(_delta: float) -> void:
-	var now: float = fmod(Time.get_ticks_msec() * 0.001, TIME_ROLLOVER)
+func _process(delta: float) -> void:
+	_clock = fmod(_clock + delta, TIME_ROLLOVER)
+	var now: float = _clock
 	var t: float = now * SPEED * light_speed
 	for i: int in _lights.size():
 		var light: Light3D = _lights[i]

@@ -1,7 +1,7 @@
 extends Node3D
 
 ## Capture-only: one map with two guards and two finishers in the tower room, each pair holding the old rifle and the new.
-## tools/shot.gd poses it by camera x: 8000 is relative to the tower spawn, 8200+100n to body n alone, 9000+n looks out of body n (y = raise).
+## tools/shot.gd poses it by camera x: 8000 is relative to the tower spawn, 8200+100n to body n alone, 9000+n looks out of body n (y = raise, the optic's linear progress).
 
 const RUNNER: PackedScene = preload("res://characters/bots/ring_runner.tscn")
 const PALETTE: RunnerPalette = preload("res://match/rules/default_runner_palette.tres")
@@ -115,6 +115,8 @@ func _stand(row: Array, light: CharacterLight) -> PlayerController:
 	rifle.aim_source = body.get_node(^"Head/Camera") as Node3D
 	rifle.shooter_body = body
 	(rifle.get_node(^"Ads") as RifleAds).optic = body.get_node(^"Optic") as WeaponOptic
+	# The new rifle's scope draws as it does for the human at the keyboard, so a look out of it shows the vignette too.
+	(rifle.get_node(^"ScopeVignette") as ScopeVignette).set_local_holder(is_new)
 	var avatar: PrisonerAvatar = body.get_node(^"Avatar") as PrisonerAvatar
 	_dress(avatar.mesh, PALETTE.guard_color if is_guard else PALETTE.color_for_index(1), light)
 	# The old rifle stays as main draws it; the new one is lit as MatchController._light_weapon lights it.

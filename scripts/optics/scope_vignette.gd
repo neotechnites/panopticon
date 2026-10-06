@@ -68,9 +68,9 @@ const HEADLESS_DISPLAY: String = "headless"
 ## a headless bot match or a sweep pays nothing at all for this.
 @export var headless_inert: bool = true
 
-## Vignette amount past which the rifle stops being drawn. Negative keeps the
-## model on screen at every zoom, which is the old behaviour.
-@export var hide_model_above: float = 0.55
+## Vignette amount past which the rifle stops being drawn; the amount is a cut, 0 or 1, so any value in
+## between hides it on the cut frame. Negative keeps the model on screen at every zoom.
+@export var hide_model_above: float = 0.5
 
 ## The material actually written to, a private duplicate of the authored one.
 ## See [method _ready] for why it is not the scene's own resource.
@@ -175,10 +175,8 @@ func _show_or_hide_the_model(amount: float) -> void:
 	ads.view_model.visible = not (hide_model_above >= 0.0 and amount > hide_model_above)
 
 
-## How much vignette belongs on screen right now, from 0.0 (none) to 1.0
-## (fully closed). The whole decision, in one pure function of the optic's
-## progress and the profile, so a test can assert the shape of the ramp without
-## a viewport.
+## How much vignette belongs on screen right now: 0.0 before [member ZoomProfile.vignette_onset], 1.0 from it.
+## One pure function of the optic's progress and the profile, so a test needs no viewport.
 func compute_amount() -> float:
 	if ads == null:
 		return 0.0
@@ -188,8 +186,7 @@ func compute_amount() -> float:
 	if profile == null:
 		return 0.0
 	var progress: float = ads.get_aim_progress()
-	var onset: float = clampf(profile.vignette_onset, 0.0, 0.99)
-	return clampf((progress - onset) / (1.0 - onset), 0.0, 1.0)
+	return 1.0 if progress >= clampf(profile.vignette_onset, 0.0, 1.0) else 0.0
 
 
 ## The amount last written to the shader. For a test, and for anything that

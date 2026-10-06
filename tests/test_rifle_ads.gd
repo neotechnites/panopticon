@@ -136,6 +136,28 @@ func test_the_shipped_profile_zooms_in_over_half_a_second() -> void:
 	)
 
 
+# --- The eye at the eyepiece -------------------------------------------------
+
+## The eyepiece's rear face, in rifle_n64.glb's Godot space (rifle_n64_trace.SCOPE_Z over SCOPE_REAR).
+const EYEPIECE: Vector3 = Vector3(0.0, 0.045, 0.110)
+
+
+## Ryan: "the eye does not go to the back of the scope." At full aim the eyepiece is centred just past the near plane.
+func test_full_aim_puts_the_eyepiece_on_the_eye() -> void:
+	var eyepiece: Vector3 = _expected_aim_transform() * EYEPIECE
+	assert_vec3_almost_eq(eyepiece, Vector3(0.0, 0.0, -0.06), 0.0005, "eyepiece centred, 6 cm ahead, at full aim")
+	assert_true(-eyepiece.z > _camera.near, "and never inside the near plane, so its lens is never sliced open")
+
+
+## Ryan: "moves the scope in front of their face, away from the eye, then moves it in." It only ever closes in.
+func test_the_eyepiece_only_ever_closes_on_the_eye() -> void:
+	var last: float = (_ads.pose_at(0.0) * EYEPIECE).length()
+	for i: int in range(1, 101):
+		var now: float = (_ads.pose_at(i / 100.0) * EYEPIECE).length()
+		assert_true(now < last, "the eyepiece must get nearer the eye at every step, t=%.2f" % (i / 100.0))
+		last = now
+
+
 # --- The shot line ----------------------------------------------------------
 
 ## The single most important guarantee: raising the model toward the eye must

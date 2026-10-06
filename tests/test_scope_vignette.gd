@@ -107,7 +107,7 @@ func test_no_vignette_at_the_hip() -> void:
 	)
 
 
-func test_the_vignette_closes_only_over_the_back_of_the_raise_and_arrives_with_it() -> void:
+func test_the_vignette_cuts_in_at_the_end_of_the_raise_and_out_at_the_start_of_the_lower() -> void:
 	_zoom_all_the_way_in()
 	assert_true(_optic.is_fully_zoomed(), "the optic must have actually arrived")
 	assert_almost_eq(
@@ -115,12 +115,9 @@ func test_the_vignette_closes_only_over_the_back_of_the_raise_and_arrives_with_i
 		"the border must be fully closed at exactly the moment the zoom settles",
 	)
 
-	# Wind back out and sample: nothing at all before the profile's onset, and
-	# strictly increasing after it. The vignette is a function of the SHARED
-	# progress, so this is a statement about the optic's own clock too.
+	# Wind back out and sample: fully on from the onset, nothing below it, never in between.
 	_optic.zoom_out()
 	var previous: float = 1.0
-	var saw_a_partial: bool = false
 	var remaining: float = _zoom_profile.zoom_out_seconds
 	while remaining > 0.0:
 		var step: float = minf(ODD_DELTA, remaining)
@@ -134,18 +131,17 @@ func test_the_vignette_closes_only_over_the_back_of_the_raise_and_arrives_with_i
 				amount, 0.0, 0.0001,
 				"there must be no vignette at all below ZoomProfile.vignette_onset",
 			)
-		elif amount > 0.0 and amount < 1.0:
-			saw_a_partial = true
+		else:
+			assert_almost_eq(amount, 1.0, 0.0001, "from the onset the scope view is fully on: a cut, not a fade")
 	_optic.tick(0.001)
 
-	assert_true(saw_a_partial, "the border must actually close gradually, not snap")
 	assert_almost_eq(
 		_vignette.compute_amount(), 0.0, 0.0001,
 		"and must be gone entirely once the scope is down",
 	)
 
 
-## The onset is a remap of the shared progress, not a second timer: at any
+## The onset is a step on the shared progress, not a second timer: at any
 ## progress the amount is exactly what the profile says it is.
 func test_the_amount_is_a_pure_function_of_the_shared_progress() -> void:
 	_optic.zoom_in()
@@ -155,10 +151,10 @@ func test_the_amount_is_a_pure_function_of_the_shared_progress() -> void:
 		elapsed += ODD_DELTA
 		var progress: float = _optic.get_shaped_progress()
 		var onset: float = _zoom_profile.vignette_onset
-		var expected: float = clampf((progress - onset) / (1.0 - onset), 0.0, 1.0)
+		var expected: float = 1.0 if progress >= onset else 0.0
 		assert_almost_eq(
 			_vignette.compute_amount(), expected, 0.0001,
-			"the vignette must be the optic's own progress remapped, and nothing else",
+			"the vignette must be the optic's own progress stepped at the onset, and nothing else",
 		)
 
 
