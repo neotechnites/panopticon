@@ -11,9 +11,9 @@ uniform float dapple_metres = 27.0;
 // 0 leaves the sun whole, 1 is the full dapple.
 uniform float dapple_strength = 1.0;
 // The fine second layer (the texture's G): small flecks of light in shade and of shade in light.
-uniform float fleck_strength = 0.14;
+uniform float fleck_strength = 0.245;
 // Pulls the flecks dark: total sun 13%, a little under the big pattern alone (14%).
-uniform float fleck_bias = 0.25;
+uniform float fleck_bias = 0.22;
 // Leaves in a light wind: the pattern drifts back and forth (as forest_crown_shadow.gdshader's holes did).
 uniform float sway = 0.35;
 uniform float sway_speed = 1.0;
