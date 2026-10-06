@@ -404,9 +404,10 @@ music_db: -0.5
 music_fade: 0.02 2.5
 captions: none
 # v33: v32 with 4t 5g 9ag 9bg refilmed in the green forest (forest_green.tscn) on main 4b1ca5f3+ (depth haze, pollen, darker grass, leaves 0.55, dapple, canopy blend), same tapes.
+# v33 title: back to the plain-text PANOPTICON card (title_zoom10, as v30), same timing.
 # v32: v31 with 4t 5g 9ag 9bg refilmed in the golden forest (maps/forest/forest.tscn; the game itself still loads forest_green) from the same tapes.
 # v31: v30's edit; forest shots (4t 5g 9ag 9bg) refilmed on current main (green forest dapple, flecks, sway, canopy blend). Hell and marble are v30's takes.
-# v31 title: the title screen's wordmark (ui/main_menu.tscn GameTitle: IM Fell English, glyph spacing 14, cream, dark red shadow 4 px down, outline 6), scaled to the old card's width; frames/title_logo.png, the same 4% push-in -> cuts/title_zoom31.mp4.
+# v31 title: the title screen's wordmark (ui/main_menu.tscn GameTitle: IM Fell English, glyph spacing 14, cream, dark red shadow 4 px down, outline 6), scaled to the old card's width; frames/title_logo.png, the same 4% push-in -> cuts/title_zoom10.mp4.
 # v30: v29's edit; every hell shot (1 2 6 7 8 11 13 14) refilmed on main c0c5f2b1 (lava ash and sparks, pit-fire shadow wave 2048, softer shadow filter, lightmap BAKE_GLOW 61, shimmer by distance and zoom, lava that kills); trailer shimmer 0.06, 0 on the lava parkour. Forest and marble are v29's takes.
 # v29 (Ryan on v28): h2 (the forest hit) held half a bar longer, taken off the end of m0; the cut moves 0.70 s later, onto the bar 6 downbeat (14.06). Nothing else moves.
 # v28 (Ryan on v27): cut for Pineberry Rush's structure, not the grid. Mapped from the recording (beat k = 5.703 + k*0.3483 s, bar = 4 beats):
@@ -417,7 +418,7 @@ captions: none
 | line | clip | in | len | fit | speed | text |
 | a1 | cuts/01.mp4@0.5300:2.9167 | | | beat 2.9167 | | |
 | a2 | cuts/02.mp4@1.9070:2.7833 | | | beat 2.7833 | | |
-| a3 | cuts/title_zoom31.mp4@0.0000:2.1000 | | | beat 2.1000 | | |
+| a3 | cuts/title_zoom10.mp4@0.0000:2.1000 | | | beat 2.1000 | | |
 | a4 | cuts/card2_zoom10.mp4@0.0000:2.0833 | | | beat 2.0833 | | |
 | h1 | cuts/04t.mp4@0.7000:2.0833 | | | beat 2.0833 | | |
 | h2 | cuts/05g.mp4@1.7560:2.1000 | | | beat 2.1000 | | |
