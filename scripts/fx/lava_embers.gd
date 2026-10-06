@@ -19,6 +19,16 @@ extends Node3D
 	set(value):
 		ash = value
 		_rebuild()
+## River, shelf and fall ash multiplier, on top of ash.
+@export_range(0.0, 4.0, 0.05) var river_ash: float = 1.0:
+	set(value):
+		river_ash = value
+		_rebuild()
+## Sea ash multiplier, on top of ash.
+@export_range(0.0, 4.0, 0.05) var sea_ash: float = 1.0:
+	set(value):
+		sea_ash = value
+		_rebuild()
 ## Ash flake size in metres off the rivers, shelf and falls (seen 5-15 m from the deck).
 @export_range(0.02, 1.0, 0.01) var ember_size: float = 0.3:
 	set(value):
@@ -38,10 +48,11 @@ extends Node3D
 ## World points on the S4/S5 lava falls, every 3.5 m, from the LavaRiver surfaces.
 @export var fall_points: PackedVector3Array = PackedVector3Array()
 
-const SEA_ASH: int = 700
-const RIVER_ASH: int = 1000
-const FALL_ASH: int = 300
-const SPARKS: int = 30
+const SEA_ASH: int = 525
+const RIVER_ASH: int = 500
+const FALL_ASH: int = 150
+const SPARKS: int = 55
+const SEA_SPARKS: int = 40
 ## Every particle stays inside this box round the ring (node space): the pit, the deck and above.
 const BOUNDS: AABB = AABB(Vector3(-64.0, -14.0, -64.0), Vector3(128.0, 74.0, 128.0))
 
@@ -60,26 +71,32 @@ func _rebuild() -> void:
 	var flake: StandardMaterial3D = _ash_material()
 	var sea: ParticleProcessMaterial = _ash_motion(4.0, 6.0, 2.0)
 	_ring(sea)
-	_emitter(&"SeaAsh", SEA_ASH * ash, 14.0, sea, flake, sea_ember_size)
+	_emitter(&"SeaAsh", SEA_ASH * ash * sea_ash, 14.0, sea, flake, sea_ember_size)
 	if not river_points.is_empty():
 		var river: ParticleProcessMaterial = _ash_motion(0.6, 1.4, 0.8)
 		_points(river, river_points)
-		_emitter(&"RiverAsh", RIVER_ASH * ash, 7.0, river, flake, ember_size)
+		_emitter(&"RiverAsh", RIVER_ASH * ash * river_ash, 7.0, river, flake, ember_size)
 	if not fall_points.is_empty():
 		var fall: ParticleProcessMaterial = _ash_motion(0.8, 1.8, 1.0)
 		_points(fall, fall_points)
-		_emitter(&"FallAsh", FALL_ASH * ash, 8.0, fall, flake, ember_size)
+		_emitter(&"FallAsh", FALL_ASH * ash * river_ash, 8.0, fall, flake, ember_size)
 	var sparks: ParticleProcessMaterial = _spark_motion()
 	var all_points: PackedVector3Array = river_points + fall_points
 	if all_points.is_empty():
 		_ring(sparks)
 	else:
 		_points(sparks, all_points)
-	_emitter(&"Sparks", SPARKS * density, 1.6, sparks, _spark_material(), ember_size * 0.5)
+	var spark_mat: StandardMaterial3D = _spark_material()
+	_emitter(&"Sparks", SPARKS * density, 2.2, sparks, spark_mat, ember_size * 0.35, 4.0)
+	var sea_sparks: ParticleProcessMaterial = _spark_motion()
+	sea_sparks.initial_velocity_min = 6.0 * speed
+	sea_sparks.initial_velocity_max = 10.0 * speed
+	_ring(sea_sparks)
+	_emitter(&"SeaSparks", SEA_SPARKS * density, 3.5, sea_sparks, spark_mat, sea_ember_size * 0.4, 4.0)
 
 
 func _emitter(node_name: StringName, count: float, life: float, process: ParticleProcessMaterial,
-		mat: StandardMaterial3D, size: float) -> void:
+		mat: StandardMaterial3D, size: float, stretch: float = 1.0) -> void:
 	var p: GPUParticles3D = GPUParticles3D.new()
 	p.name = node_name
 	p.set_meta(&"lava_embers", true)
@@ -95,7 +112,7 @@ func _emitter(node_name: StringName, count: float, life: float, process: Particl
 	p.visibility_aabb = BOUNDS
 	p.process_material = process
 	var quad: QuadMesh = QuadMesh.new()
-	quad.size = Vector2(size, size)
+	quad.size = Vector2(size, size * stretch)
 	quad.material = mat
 	p.draw_pass_1 = quad
 	add_child(p)
@@ -157,8 +174,8 @@ func _spark_motion() -> ParticleProcessMaterial:
 	m.scale_max = 1.2
 	m.lifetime_randomness = 0.6
 	m.color_ramp = _ramp(PackedFloat32Array([0.0, 0.15, 0.3, 0.45, 0.6, 1.0]), [
-		Color(1.0, 0.98, 0.8, 1.0), Color(1.0, 0.8, 0.35, 1.0), Color(1.0, 0.5, 0.1, 0.5),
-		Color(1.0, 0.45, 0.08, 0.9), Color(0.7, 0.2, 0.03, 0.6), Color(0.2, 0.03, 0.0, 0.0)])
+		Color(1.0, 0.95, 0.7, 1.0), Color(1.0, 0.75, 0.3, 1.0), Color(1.0, 0.5, 0.1, 0.75),
+		Color(1.0, 0.45, 0.08, 1.0), Color(0.9, 0.28, 0.04, 0.8), Color(0.4, 0.06, 0.0, 0.0)])
 	return m
 
 
@@ -219,7 +236,7 @@ func _ash_material() -> StandardMaterial3D:
 
 func _spark_material() -> StandardMaterial3D:
 	var dot: Gradient = Gradient.new()
-	dot.offsets = PackedFloat32Array([0.0, 0.55, 1.0])
+	dot.offsets = PackedFloat32Array([0.0, 0.7, 1.0])
 	dot.colors = PackedColorArray([Color(1, 1, 1, 1), Color(1, 1, 1, 0.6), Color(1, 1, 1, 0)])
 	var tex: GradientTexture2D = GradientTexture2D.new()
 	tex.gradient = dot
@@ -234,7 +251,7 @@ func _spark_material() -> StandardMaterial3D:
 	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	m.disable_fog = true
 	m.vertex_color_use_as_albedo = true
-	m.albedo_color = Color(2.0, 2.0, 2.0, 1.0)
+	m.albedo_color = Color(3.0, 3.0, 3.0, 1.0)
 	m.albedo_texture = tex
 	m.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
 	m.billboard_keep_scale = true
