@@ -12,6 +12,8 @@
 [ext_resource type="Texture2D" path="res://maps/forest/textures/forest_dapple.png" id="12_dapple"]
 [ext_resource type="Texture2D" path="res://maps/forest/textures/forest_path_albedo.png" id="13_path"]
 [ext_resource type="Texture2D" path="res://maps/forest/textures/forest_rock_albedo.png" id="14_rock"]
+[ext_resource type="Shader" path="res://maps/forest/materials/forest_ray_blend_reset.gdshader" id="15_blend_reset"]
+[ext_resource type="Texture2D" path="res://maps/forest/textures/forest_contact.png" id="16_contact"]
 
 [sub_resource type="ProceduralSkyMaterial" id="SkyGreen"]
 sky_top_color = Color(0.45, 0.62, 0.62, 1)
@@ -131,6 +133,10 @@ shader_parameter/albedo_texture = ExtResource("2_leaf")
 shader_parameter/use_vertex_color = true
 shader_parameter/roughness = 0.95
 shader_parameter/dapple = ExtResource("12_dapple")
+shader_parameter/contact_mask = ExtResource("16_contact")
+shader_parameter/contact_strength = 0.65
+shader_parameter/contact_radius = 2.0
+shader_parameter/contact_height = 1.0
 
 [sub_resource type="ShaderMaterial" id="ShadeGreen"]
 render_priority = 0
@@ -141,6 +147,10 @@ shader_parameter/albedo_texture = ExtResource("2_leaf")
 shader_parameter/use_vertex_color = true
 shader_parameter/roughness = 0.95
 shader_parameter/dapple = ExtResource("12_dapple")
+shader_parameter/contact_mask = ExtResource("16_contact")
+shader_parameter/contact_strength = 0.65
+shader_parameter/contact_radius = 2.0
+shader_parameter/contact_height = 1.0
 
 [sub_resource type="ShaderMaterial" id="SunGreen"]
 render_priority = 0
@@ -151,6 +161,10 @@ shader_parameter/albedo_texture = ExtResource("2_leaf")
 shader_parameter/use_vertex_color = true
 shader_parameter/roughness = 0.95
 shader_parameter/dapple = ExtResource("12_dapple")
+shader_parameter/contact_mask = ExtResource("16_contact")
+shader_parameter/contact_strength = 0.65
+shader_parameter/contact_radius = 2.0
+shader_parameter/contact_height = 1.0
 
 [sub_resource type="ShaderMaterial" id="FernGreen"]
 render_priority = 0
@@ -170,6 +184,10 @@ shader_parameter/albedo_texture = ExtResource("3_grass")
 shader_parameter/use_vertex_color = true
 shader_parameter/roughness = 0.95
 shader_parameter/dapple = ExtResource("12_dapple")
+shader_parameter/contact_mask = ExtResource("16_contact")
+shader_parameter/contact_strength = 0.5
+shader_parameter/contact_radius = 1.95
+shader_parameter/contact_height = 3.0
 
 [sub_resource type="ShaderMaterial" id="PathGreen"]
 render_priority = 0
@@ -179,6 +197,10 @@ shader_parameter/albedo_texture = ExtResource("3_grass")
 shader_parameter/use_vertex_color = true
 shader_parameter/roughness = 0.95
 shader_parameter/dapple = ExtResource("12_dapple")
+shader_parameter/contact_mask = ExtResource("16_contact")
+shader_parameter/contact_strength = 0.5
+shader_parameter/contact_radius = 1.95
+shader_parameter/contact_height = 3.0
 
 [sub_resource type="ShaderMaterial" id="VergeGreen"]
 render_priority = 0
@@ -188,6 +210,10 @@ shader_parameter/albedo_texture = ExtResource("3_grass")
 shader_parameter/use_vertex_color = true
 shader_parameter/roughness = 0.95
 shader_parameter/dapple = ExtResource("12_dapple")
+shader_parameter/contact_mask = ExtResource("16_contact")
+shader_parameter/contact_strength = 0.5
+shader_parameter/contact_radius = 1.95
+shader_parameter/contact_height = 3.0
 
 [sub_resource type="ShaderMaterial" id="EdgeGreen"]
 render_priority = 0
@@ -197,6 +223,10 @@ shader_parameter/albedo_texture = ExtResource("3_grass")
 shader_parameter/use_vertex_color = true
 shader_parameter/roughness = 0.95
 shader_parameter/dapple = ExtResource("12_dapple")
+shader_parameter/contact_mask = ExtResource("16_contact")
+shader_parameter/contact_strength = 0.5
+shader_parameter/contact_radius = 1.95
+shader_parameter/contact_height = 3.0
 
 [sub_resource type="ShaderMaterial" id="BarkGreen"]
 render_priority = 0
@@ -206,6 +236,10 @@ shader_parameter/albedo_texture = ExtResource("4_bark")
 shader_parameter/use_vertex_color = false
 shader_parameter/roughness = 0.95
 shader_parameter/dapple = ExtResource("12_dapple")
+shader_parameter/contact_mask = ExtResource("16_contact")
+shader_parameter/contact_strength = 0.65
+shader_parameter/contact_radius = 2.0
+shader_parameter/contact_height = 1.0
 
 [sub_resource type="ShaderMaterial" id="RootGreen"]
 render_priority = 0
@@ -215,6 +249,10 @@ shader_parameter/albedo_texture = ExtResource("4_bark")
 shader_parameter/use_vertex_color = true
 shader_parameter/roughness = 0.95
 shader_parameter/dapple = ExtResource("12_dapple")
+shader_parameter/contact_mask = ExtResource("16_contact")
+shader_parameter/contact_strength = 0.65
+shader_parameter/contact_radius = 2.0
+shader_parameter/contact_height = 1.0
 
 [sub_resource type="ShaderMaterial" id="EarthGreen"]
 render_priority = 0
@@ -224,6 +262,10 @@ shader_parameter/albedo_texture = ExtResource("13_path")
 shader_parameter/use_vertex_color = true
 shader_parameter/roughness = 0.95
 shader_parameter/dapple = ExtResource("12_dapple")
+shader_parameter/contact_mask = ExtResource("16_contact")
+shader_parameter/contact_strength = 0.5
+shader_parameter/contact_radius = 1.95
+shader_parameter/contact_height = 3.0
 
 [sub_resource type="ShaderMaterial" id="RockGranite"]
 render_priority = 0
@@ -233,6 +275,10 @@ shader_parameter/albedo_texture = ExtResource("14_rock")
 shader_parameter/use_vertex_color = false
 shader_parameter/roughness = 0.95
 shader_parameter/dapple = ExtResource("12_dapple")
+shader_parameter/contact_mask = ExtResource("16_contact")
+shader_parameter/contact_strength = 0.65
+shader_parameter/contact_radius = 2.0
+shader_parameter/contact_height = 1.0
 
 [sub_resource type="ShaderMaterial" id="RockLichen"]
 render_priority = 0
@@ -242,6 +288,10 @@ shader_parameter/albedo_texture = ExtResource("14_rock")
 shader_parameter/use_vertex_color = false
 shader_parameter/roughness = 0.95
 shader_parameter/dapple = ExtResource("12_dapple")
+shader_parameter/contact_mask = ExtResource("16_contact")
+shader_parameter/contact_strength = 0.65
+shader_parameter/contact_radius = 2.0
+shader_parameter/contact_height = 1.0
 
 [sub_resource type="ShaderMaterial" id="RockMoss"]
 render_priority = 0
@@ -251,6 +301,10 @@ shader_parameter/albedo_texture = ExtResource("14_rock")
 shader_parameter/use_vertex_color = false
 shader_parameter/roughness = 0.95
 shader_parameter/dapple = ExtResource("12_dapple")
+shader_parameter/contact_mask = ExtResource("16_contact")
+shader_parameter/contact_strength = 0.65
+shader_parameter/contact_radius = 2.0
+shader_parameter/contact_height = 1.0
 
 [sub_resource type="ShaderMaterial" id="RockShade"]
 render_priority = 0
@@ -260,6 +314,10 @@ shader_parameter/albedo_texture = ExtResource("14_rock")
 shader_parameter/use_vertex_color = false
 shader_parameter/roughness = 0.95
 shader_parameter/dapple = ExtResource("12_dapple")
+shader_parameter/contact_mask = ExtResource("16_contact")
+shader_parameter/contact_strength = 0.65
+shader_parameter/contact_radius = 2.0
+shader_parameter/contact_height = 1.0
 
 [sub_resource type="Gradient" id="PollenDot"]
 offsets = PackedFloat32Array(0, 0.3, 1)
@@ -273,7 +331,12 @@ fill = 1
 fill_from = Vector2(0.5, 0.5)
 fill_to = Vector2(1, 0.5)
 
+[sub_resource type="ShaderMaterial" id="PollenBlendReset"]
+shader = ExtResource("15_blend_reset")
+
 [sub_resource type="StandardMaterial3D" id="PollenMat"]
+render_priority = 1
+next_pass = SubResource("PollenBlendReset")
 transparency = 1
 blend_mode = 1
 shading_mode = 0

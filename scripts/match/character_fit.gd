@@ -21,3 +21,9 @@ extends Resource
 @export_range(0.0, 1.0, 0.01) var shirt_hue: float = 0.0
 ## A thin edge of the light's colour round the silhouette, so a body separates from dark ground.
 @export_range(0.0, 2.0, 0.01) var rim: float = 0.0
+## The map's leaf dapple texture, laid on the players' sun as on its ground; null for none.
+@export var dapple: Texture2D = null
+## The ground's dapple shader, whose defaults (scale, light, flecks, sway) the players take.
+@export var dapple_shader: Shader = null
+## The body's level in full leaf shade, 1 = untouched; its ambient stays so it never goes black.
+@export_range(0.0, 1.0, 0.01) var dapple_shade: float = 1.0

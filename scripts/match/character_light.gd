@@ -15,6 +15,9 @@ const FITS: Dictionary[String, String] = {
 const SHADER: Shader = preload("res://characters/materials/character_light.gdshader")
 const FADE_SHADER: Shader = preload("res://characters/materials/character_light_fade.gdshader")
 
+## The ground dapple shader's values the players share.
+const DAPPLE_PARAMS: Array[StringName] = [&"dapple_metres", &"dapple_strength", &"dapple_light", &"fleck_strength", &"fleck_bias", &"sway", &"sway_speed", &"dapple_top", &"dapple_top_fade", &"dapple_mean"]
+
 ## Faces turned from a sun still take this much of it.
 const SUN_WRAP: float = 0.5
 ## Where [method apply] keeps the material it dressed, for [method base_of].
@@ -26,6 +29,8 @@ var fit: CharacterFit = null
 var axis: Vector2 = Vector2.ZERO
 ## Scales the wrapped facing term so an upright body facing a sun gets all of it.
 var sun_facing_gain: float = 0.0
+## Toward the map's first two suns (world), where the dapple is read for the body's own level.
+var suns: Array[Vector3] = []
 ## The strongest sun's luminous energy: a patch is one sun through the leaves, so that sun alone gives the full lift.
 var sun_energy: float = 1.0
 
@@ -43,6 +48,7 @@ static func for_arena(arena: Node) -> CharacterLight:
 		light.axis = Vector2(arena_3d.global_position.x, arena_3d.global_position.z)
 	var energy: float = 0.0
 	var facing: float = 0.0
+	var suns: Array[Vector3] = []
 	for node: Node in arena.find_children("*", "DirectionalLight3D", true, false):
 		var sun: DirectionalLight3D = node as DirectionalLight3D
 		if not sun.visible:
@@ -52,7 +58,9 @@ static func for_arena(arena: Node) -> CharacterLight:
 		var frame: Transform3D = sun.global_transform if sun.is_inside_tree() else sun.transform
 		var toward: Vector3 = frame.basis.z.normalized()
 		energy = maxf(energy, e)
+		suns.append(toward)
 		facing = maxf(facing, e * maxf(Vector2(toward.x, toward.z).length(), SUN_WRAP))
+	light.suns = suns
 	if energy > 0.0:
 		light.sun_energy = energy
 		# An upright body faces a sun at its elevation, so that facing reaches the full lift.
@@ -106,5 +114,23 @@ func apply(material: Material) -> Material:
 	lit.set_shader_parameter(&"sun_facing_gain", sun_facing_gain)
 	lit.set_shader_parameter(&"sun_energy", sun_energy)
 	lit.set_shader_parameter(&"sun_wrap", SUN_WRAP)
+	_dress_dapple(lit)
 	_cache[key] = lit
 	return lit
+
+
+## The ground's leaf dapple on [param lit]: the fit's texture, every other value read off the ground's shader.
+func _dress_dapple(lit: ShaderMaterial) -> void:
+	if fit.dapple == null:
+		return
+	lit.set_shader_parameter(&"dapple_on", true)
+	lit.set_shader_parameter(&"dapple", fit.dapple)
+	lit.set_shader_parameter(&"dapple_shade", fit.dapple_shade)
+	if fit.dapple_shader != null:
+		for param: StringName in DAPPLE_PARAMS:
+			var value: Variant = RenderingServer.shader_get_parameter_default(fit.dapple_shader.get_rid(), param)
+			if value != null:
+				lit.set_shader_parameter(param, value)
+	if not suns.is_empty():
+		lit.set_shader_parameter(&"dapple_sun_a", suns[0])
+		lit.set_shader_parameter(&"dapple_sun_b", suns[mini(1, suns.size() - 1)])
