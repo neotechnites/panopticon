@@ -1,31 +1,31 @@
 @tool
 class_name LavaEmbers
 extends Node3D
-## Hell's embers and ash rising off the lava: a ring over the sea, points on the rivers and falls.
+## Hell's sparks and ash: short hot streaks gusting up off the sea, rivers and falls; dark flakes tumbling down.
 ## Builds its GPUParticles3D at ready (shows in the editor too); tune the exports on this node.
 
-## Ember count multiplier; 0 turns the embers off.
+## Spark count multiplier; 0 turns the sparks off.
 @export_range(0.0, 4.0, 0.05) var density: float = 1.0:
 	set(value):
 		density = value
 		_rebuild()
-## Rise speed multiplier (also scales the swirl).
+## Updraft speed multiplier (sparks and ash both).
 @export_range(0.1, 4.0, 0.05) var speed: float = 1.0:
 	set(value):
 		speed = value
 		_rebuild()
-## Ash fleck count multiplier; 0 turns the ash off.
+## Ash flake count multiplier; 0 turns the ash off.
 @export_range(0.0, 4.0, 0.05) var ash: float = 1.0:
 	set(value):
 		ash = value
 		_rebuild()
-## River and fall ember size in metres (they rise beside the runners).
-@export_range(0.02, 1.0, 0.01) var ember_size: float = 0.45:
+## River and fall spark streak length in metres (they fly beside the runners).
+@export_range(0.02, 1.0, 0.01) var ember_size: float = 0.22:
 	set(value):
 		ember_size = value
 		_rebuild()
-## Sea ember size in metres at birth; they shrink as they rise, so they read 30 m down.
-@export_range(0.05, 2.0, 0.01) var sea_ember_size: float = 1.6:
+## Sea spark streak length in metres (seen 30 m down the pit).
+@export_range(0.05, 2.0, 0.01) var sea_ember_size: float = 0.45:
 	set(value):
 		sea_ember_size = value
 		_rebuild()
@@ -36,9 +36,11 @@ extends Node3D
 ## World points on the S2/S4/S5 rivers and falls, sampled from the LavaRiver surfaces.
 @export var river_points: PackedVector3Array = PackedVector3Array()
 
-const SEA_EMBERS: int = 120
-const RIVER_EMBERS: int = 60
-const ASH_FLECKS: int = 26
+const SEA_SPARKS: int = 45
+const RIVER_SPARKS: int = 24
+const ASH_FLAKES: int = 70
+## Streak width as a fraction of its length.
+const STREAK_WIDTH: float = 0.12
 ## Every particle stays inside this box round the ring (node space): the pit, the deck and above.
 const BOUNDS: AABB = AABB(Vector3(-64.0, -14.0, -64.0), Vector3(128.0, 74.0, 128.0))
 
@@ -54,40 +56,46 @@ func _rebuild() -> void:
 		if child.has_meta(&"lava_embers"):
 			remove_child(child)
 			child.queue_free()
-	var ember_mat: StandardMaterial3D = _material(true)
-	var sea: ParticleProcessMaterial = _ember_motion(4.0, 6.5)
-	_ring(sea)
-	sea.scale_curve = _shrink()
-	_emitter(&"SeaEmbers", SEA_EMBERS * density, 9.0, sea, ember_mat, sea_ember_size)
+	var spark_mat: StandardMaterial3D = _spark_material()
+	var sea: ParticleProcessMaterial = _spark_motion(7.0, 12.0)
+	_ring(sea, 0.6, sea_y)
+	_emitter(&"SeaSparks", SEA_SPARKS * density, 2.6, sea, spark_mat,
+		Vector2(sea_ember_size * STREAK_WIDTH, sea_ember_size))
 	if not river_points.is_empty():
-		var river: ParticleProcessMaterial = _ember_motion(1.2, 2.6)
+		var river: ParticleProcessMaterial = _spark_motion(3.0, 6.0)
 		river.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_POINTS
 		river.emission_point_texture = _points_texture(river_points)
 		river.emission_point_count = river_points.size()
-		_emitter(&"RiverEmbers", RIVER_EMBERS * density, 6.0, river, ember_mat, ember_size)
-	var flecks: ParticleProcessMaterial = ParticleProcessMaterial.new()
-	_ring(flecks)
-	flecks.direction = Vector3.UP
-	flecks.spread = 25.0
-	flecks.initial_velocity_min = 0.8 * speed
-	flecks.initial_velocity_max = 1.8 * speed
-	flecks.gravity = Vector3(0.0, 0.25 * speed, 0.0)
-	flecks.tangential_accel_min = 0.05 * speed
-	flecks.tangential_accel_max = 0.2 * speed
-	flecks.damping_min = 0.05
-	flecks.damping_max = 0.15
-	flecks.angular_velocity_min = -90.0
-	flecks.angular_velocity_max = 90.0
-	flecks.lifetime_randomness = 0.4
-	flecks.color_ramp = _ramp(PackedFloat32Array([0.0, 0.1, 0.75, 1.0]), [
-		Color(0.22, 0.2, 0.19, 0.0), Color(0.22, 0.2, 0.19, 0.85),
-		Color(0.3, 0.28, 0.27, 0.6), Color(0.3, 0.28, 0.27, 0.0)])
-	flecks.scale_curve = _shrink()
-	_emitter(&"Ash", ASH_FLECKS * ash, 16.0, flecks, _material(false), sea_ember_size * 0.7)
+		_emitter(&"RiverSparks", RIVER_SPARKS * density, 1.4, river, spark_mat,
+			Vector2(ember_size * STREAK_WIDTH, ember_size))
+	# Ash fills the pit and the ring, sinking and swirling on the gusts.
+	var flakes: ParticleProcessMaterial = ParticleProcessMaterial.new()
+	_ring(flakes, 36.0, 12.0)
+	flakes.emission_ring_inner_radius = 10.0
+	flakes.emission_ring_radius = 58.0
+	flakes.direction = Vector3(1.0, 0.0, 0.0)
+	flakes.spread = 180.0
+	flakes.initial_velocity_min = 0.1
+	flakes.initial_velocity_max = 0.5 * speed
+	flakes.gravity = Vector3(0.0, -0.18 * speed, 0.0)
+	flakes.damping_min = 0.3
+	flakes.damping_max = 0.6
+	_turbulence(flakes, 1.2, 0.6)
+	flakes.angle_min = -180.0
+	flakes.angle_max = 180.0
+	flakes.angular_velocity_min = -160.0
+	flakes.angular_velocity_max = 160.0
+	flakes.scale_min = 0.5
+	flakes.scale_max = 1.3
+	flakes.lifetime_randomness = 0.3
+	flakes.color_ramp = _ramp(PackedFloat32Array([0.0, 0.15, 0.85, 1.0]), [
+		Color(0.16, 0.14, 0.13, 0.0), Color(0.16, 0.14, 0.13, 0.9),
+		Color(0.22, 0.2, 0.19, 0.8), Color(0.22, 0.2, 0.19, 0.0)])
+	_emitter(&"Ash", ASH_FLAKES * ash, 14.0, flakes, _ash_material(), Vector2(0.09, 0.07))
 
 
 func _emitter(node_name: StringName, count: float, life: float, process: ParticleProcessMaterial,
-		mat: StandardMaterial3D, size: float) -> void:
+		mat: StandardMaterial3D, size: Vector2) -> void:
 	var p: GPUParticles3D = GPUParticles3D.new()
 	p.name = node_name
 	p.set_meta(&"lava_embers", true)
@@ -99,52 +107,62 @@ func _emitter(node_name: StringName, count: float, life: float, process: Particl
 	p.visible = count > 0.0
 	p.lifetime = life / speed
 	p.preprocess = p.lifetime
-	p.randomness = 0.6
+	p.randomness = 0.8
 	p.visibility_aabb = BOUNDS
 	p.process_material = process
 	var quad: QuadMesh = QuadMesh.new()
-	quad.size = Vector2(size, size)
+	quad.size = size
 	quad.material = mat
 	p.draw_pass_1 = quad
 	add_child(p)
 
 
-func _ring(m: ParticleProcessMaterial) -> void:
+func _ring(m: ParticleProcessMaterial, height: float, y: float) -> void:
 	m.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_RING
-	m.emission_shape_offset = Vector3(0.0, sea_y, 0.0)
+	m.emission_shape_offset = Vector3(0.0, y, 0.0)
 	m.emission_ring_axis = Vector3.UP
-	m.emission_ring_height = 0.6
+	m.emission_ring_height = height
 	m.emission_ring_radius = sea_outer
 	m.emission_ring_inner_radius = sea_inner
 
 
-# Rise, a gentle swirl round the tower, flicker and fade.
-func _ember_motion(v_min: float, v_max: float) -> ParticleProcessMaterial:
+func _turbulence(m: ParticleProcessMaterial, strength: float, gust: float) -> void:
+	m.turbulence_enabled = true
+	m.turbulence_noise_strength = strength
+	m.turbulence_noise_scale = 6.0
+	m.turbulence_noise_speed = Vector3(0.6, 0.3, 0.0) * gust * speed
+	m.turbulence_noise_speed_random = 0.4
+	m.turbulence_influence_min = 0.05
+	m.turbulence_influence_max = 0.25
+
+
+# Fast, gusty spark: velocity-aligned streak, white-yellow cooling through orange to dark, flickering out.
+func _spark_motion(v_min: float, v_max: float) -> ParticleProcessMaterial:
 	var m: ParticleProcessMaterial = ParticleProcessMaterial.new()
+	m.particle_flag_align_y = true
 	m.direction = Vector3.UP
-	m.spread = 20.0
+	m.spread = 30.0
 	m.initial_velocity_min = v_min * speed
 	m.initial_velocity_max = v_max * speed
-	m.gravity = Vector3(0.0, 0.4 * speed, 0.0)
-	m.tangential_accel_min = 0.1 * speed
-	m.tangential_accel_max = 0.3 * speed
-	m.damping_min = 0.0
-	m.damping_max = 0.2
-	m.scale_min = 0.5
+	m.gravity = Vector3(0.0, -1.5, 0.0)
+	m.damping_min = 0.5
+	m.damping_max = 2.0
+	_turbulence(m, 2.5, 1.5)
+	m.scale_min = 0.6
 	m.scale_max = 1.2
-	m.lifetime_randomness = 0.4
-	m.color_initial_ramp = _ramp(PackedFloat32Array([0.0, 1.0]), [Color(1.0, 0.6, 0.15), Color(1.0, 0.95, 0.55)])
-	m.color_ramp = _ramp(PackedFloat32Array([0.0, 0.06, 0.2, 0.3, 0.45, 0.55, 0.7, 0.85, 1.0]), [
-		Color(1, 1, 1, 0.0), Color(1, 1, 1, 1.0), Color(1, 1, 1, 0.55), Color(1, 1, 1, 1.0),
-		Color(1, 1, 1, 0.5), Color(1, 1, 1, 0.9), Color(0.9, 0.6, 0.5, 0.45), Color(0.8, 0.4, 0.3, 0.6),
-		Color(0.6, 0.2, 0.1, 0.0)])
+	m.scale_curve = _shrink()
+	m.lifetime_randomness = 0.6
+	m.color_ramp = _ramp(PackedFloat32Array([0.0, 0.1, 0.25, 0.35, 0.5, 0.6, 0.8, 1.0]), [
+		Color(1.0, 0.98, 0.85, 1.0), Color(1.0, 0.9, 0.5, 1.0), Color(1.0, 0.6, 0.15, 0.6),
+		Color(1.0, 0.55, 0.1, 1.0), Color(0.95, 0.35, 0.05, 0.5), Color(0.9, 0.3, 0.04, 0.85),
+		Color(0.5, 0.1, 0.02, 0.4), Color(0.2, 0.03, 0.0, 0.0)])
 	return m
 
 
 func _shrink() -> CurveTexture:
 	var c: Curve = Curve.new()
 	c.add_point(Vector2(0.0, 1.0))
-	c.add_point(Vector2(1.0, 0.4))
+	c.add_point(Vector2(1.0, 0.3))
 	var tex: CurveTexture = CurveTexture.new()
 	tex.curve = c
 	return tex
@@ -171,13 +189,30 @@ func _points_texture(points: PackedVector3Array) -> ImageTexture:
 	return ImageTexture.create_from_image(img)
 
 
-# Unshaded billboard dot; embers blend additive, ash blends over.
-func _material(glow: bool) -> StandardMaterial3D:
-	var dot: Gradient = Gradient.new()
-	dot.offsets = PackedFloat32Array([0.0, 0.55, 0.8, 1.0])
-	dot.colors = PackedColorArray([Color(1, 1, 1, 1), Color(1, 1, 1, 1), Color(1, 1, 1, 0.3), Color(1, 1, 1, 0)])
+# Additive, unshaded streak; fixed-Y billboard so the long axis follows the spark's velocity.
+func _spark_material() -> StandardMaterial3D:
+	var m: StandardMaterial3D = _soft_material(true)
+	m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	m.albedo_color = Color(1.8, 1.8, 1.8, 1.0)
+	m.billboard_mode = BaseMaterial3D.BILLBOARD_FIXED_Y
+	return m
+
+
+# Alpha-blended dark flake, camera-facing, tumbling by particle angle.
+func _ash_material() -> StandardMaterial3D:
+	var m: StandardMaterial3D = _soft_material(false)
+	m.blend_mode = BaseMaterial3D.BLEND_MODE_MIX
+	m.albedo_color = Color(1, 1, 1, 1)
+	m.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	return m
+
+
+func _soft_material(glow: bool) -> StandardMaterial3D:
+	var edge: Gradient = Gradient.new()
+	edge.offsets = PackedFloat32Array([0.0, 0.6, 1.0]) if glow else PackedFloat32Array([0.0, 0.8, 1.0])
+	edge.colors = PackedColorArray([Color(1, 1, 1, 1), Color(1, 1, 1, 0.6), Color(1, 1, 1, 0)])
 	var tex: GradientTexture2D = GradientTexture2D.new()
-	tex.gradient = dot
+	tex.gradient = edge
 	tex.width = 16
 	tex.height = 16
 	tex.fill = GradientTexture2D.FILL_RADIAL
@@ -185,12 +220,9 @@ func _material(glow: bool) -> StandardMaterial3D:
 	tex.fill_to = Vector2(1.0, 0.5)
 	var m: StandardMaterial3D = StandardMaterial3D.new()
 	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD if glow else BaseMaterial3D.BLEND_MODE_MIX
 	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	m.disable_fog = glow
 	m.vertex_color_use_as_albedo = true
-	m.albedo_color = Color(2.5, 2.5, 2.5, 1.0) if glow else Color(1, 1, 1, 1)
 	m.albedo_texture = tex
-	m.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
 	m.billboard_keep_scale = true
 	return m
