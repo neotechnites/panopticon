@@ -27,7 +27,8 @@ var _base_energy: PackedFloat32Array = PackedFloat32Array()
 var _base_y: PackedFloat32Array = PackedFloat32Array()
 var _phase: PackedFloat32Array = PackedFloat32Array()
 var _flat: PackedFloat32Array = PackedFloat32Array()
-var _bob: PackedFloat32Array = PackedFloat32Array()
+## 1 for a light that bobs; its height reads bob_metres live, so an inspector edit shows at once.
+var _bob: PackedByteArray = PackedByteArray()
 ## The energy each light was last given, so an inspector edit in the editor becomes its new rest.
 var _set_energy: PackedFloat32Array = PackedFloat32Array()
 
@@ -56,7 +57,7 @@ func _add(light: Light3D, bobs: bool) -> void:
 	# Deterministic from position, so neighbours never pulse together.
 	_phase.append(fposmod(at.x * 12.9898 + at.z * 78.233, TAU))
 	_flat.append(maxf(maxf(_flat_w(at.y, RIVER_Y), _flat_w(at.y, SHELF_Y)), _flat_w(at.y, SEA_Y)))
-	_bob.append(bob_metres if bobs else 0.0)
+	_bob.append(1 if bobs else 0)
 	_set_energy.append(light.light_energy)
 
 
@@ -78,7 +79,7 @@ func _rest_lights() -> void:
 	for i: int in _lights.size():
 		_lights[i].light_energy = _base_energy[i]
 		_set_energy[i] = _base_energy[i]
-		if _bob[i] > 0.0:
+		if _bob[i] == 1:
 			_lights[i].position.y = _base_y[i]
 
 
@@ -99,5 +100,5 @@ func _process(_delta: float) -> void:
 		var own: float = sin(0.9 * t + _phase[i])
 		light.light_energy = maxf(0.0, _base_energy[i] * (1.0 + energy_swing * (0.9 * swell + 0.1 * own)))
 		_set_energy[i] = light.light_energy
-		if _bob[i] > 0.0:
-			light.position.y = _base_y[i] + _bob[i] * fl * sr
+		if _bob[i] == 1:
+			light.position.y = _base_y[i] + bob_metres * fl * sr
