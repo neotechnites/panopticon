@@ -21,6 +21,19 @@ SLIVER = 5.0       # degrees
 SOFT = 10.0
 TINY = 0.005       # m^2
 FOLD = 100.0       # degrees between neighbouring facets
+FOOT_Y = 2.5       # below this (floor, kerb, pier feet) the guard stands close...
+FOOT_TOL = 0.05    # ...so the fans there may move this far
+FOOT_TURN = (15.0, 30.0)  # ...and turn this much (large, small facets)
+FOOT_SLIVER = 10.0 # ...and a fan blade thinner than this is a sliver there
+NEEDLE_ANGLE = 5.0 # degrees: a blade this thin reads as a crack wherever it is
+STRIPE_ANGLE = 3.0 # degrees, and...
+STRIPE_LEN = 1.0   # ...metres: a blade this thin and long is a stripe of the wrong shade up a pier
+STRIPE_TOL = 0.18  # ...closed onto the corner it runs along
+STRIPE_TURN = (30.0, 45.0)
+CREASE = 40.0      # degrees: facets meeting gentler than this shade as one surface
+FLOOR_Y = 1.65     # the guard-room floor, glTF y
+FLOOR_UP = 0.97    # a floor facet's normal y
+FLOOR_STEP = 1.2   # metres between the points the floor is re-cut through
 
 
 def read_glb(path):
@@ -362,7 +375,7 @@ def uv_agree(m, i, j, a, b):
     return all(np.abs(uv_at(m, i, m.V[v]) - uv_at(m, j, m.V[v])).max() < 1e-3 for v in (a, b))
 
 
-def repair(m, tol):
+def repair(m, tol, zone=None):
     applied = {"flip": 0, "collapse": 0, "placed": 0}
     for _ in range(60):
         work = []
@@ -370,7 +383,7 @@ def repair(m, tol):
             if not m.alive[i] or m.frozen[i]:
                 continue
             b = m.bad(i)
-            if b > 0:
+            if b > 0 and (zone is None or zone(m.pts(i))):
                 work.append((-b, i))
         work.sort()
         changed = 0
@@ -416,6 +429,253 @@ def repair(m, tol):
     return applied
 
 
+def manifold_at(m, verts):
+    """Every edge round these verts has exactly two faces running opposite ways, and each vert one fan."""
+    for v in verts:
+        fs = [i for i in m.vf[v] if m.alive[i]]
+        if not fs:
+            continue
+        out = {}
+        for i in fs:
+            f = m.F[i]
+            k = f.index(v)
+            out.setdefault(f[(k + 1) % 3], []).append(f[(k + 2) % 3])
+        if any(len(x) != 1 for x in out.values()):
+            return False
+        start = next(iter(out))
+        cur, n = start, 0
+        while True:
+            cur = out.get(cur, [None])[0]
+            n += 1
+            if cur is None or cur not in out:
+                return False
+            if cur == start:
+                break
+        if n != len(out):
+            return False
+        for u in out:
+            d = sum(1 for i in m.vf[v] & m.vf[u] if m.alive[i])
+            if d != 2:
+                return False
+    return True
+
+
+def fins(m, limit=170.0, tol=0.10):
+    """Faces folded flat back onto a neighbour (a zero-thickness flap: its back shows through) are merged away."""
+    done = 0
+    for _ in range(10):
+        found = False
+        for i in range(len(m.F)):
+            if not m.alive[i] or m.frozen[i]:
+                continue
+            f = m.F[i]
+            for k in range(3):
+                a, b = f[k], f[(k + 1) % 3]
+                fs = m.edge_faces(a, b)
+                if len(fs) != 2:
+                    continue
+                n0, n1 = tri_normal(m.pts(fs[0]))[0], tri_normal(m.pts(fs[1]))[0]
+                if float(n0 @ n1) > math.cos(math.radians(limit)):
+                    continue
+                vs = sorted(set(m.F[fs[0]]) | set(m.F[fs[1]]))
+                best = None
+                for v in vs:
+                    for w in vs:
+                        if v == w or v in m.locked or w not in m.nbrs(v):
+                            continue
+                        r = cancel_collapse(m, v, w, tol)
+                        if r is not None and (best is None or r < best[0]):
+                            best = (r, v, w)
+                if best:
+                    cancel_collapse(m, best[1], best[2], tol, apply=True)
+                    done += 1
+                    found = True
+                    break
+        if not found:
+            break
+    return done
+
+
+def cancel_collapse(m, v, w, tol, apply=False):
+    """Collapse v into w, deleting faces left back to back; returns the surface gap or None."""
+    star = [i for i in m.vf[v] if m.alive[i]]
+    if any(m.frozen[i] for i in star):
+        return None
+    old = [m.pts(i).copy() for i in star]
+    q = m.V[v].copy()
+    rec = m.collapse(v, w)
+    gone = []
+    bykey = {}
+    for i in [k for k in m.vf[w] if m.alive[k]]:
+        bykey.setdefault(frozenset(m.F[i]), []).append(i)
+    for key, fs in bykey.items():
+        if len(fs) == 2:
+            for i in fs:
+                m.alive[i] = False
+                for u in m.F[i]:
+                    m.vf[u].discard(i)
+                gone.append(i)
+    region = set(u for i in star for u in m.F[i]) | {w}
+    ok = manifold_at(m, region)
+    new = [i for i in star if m.alive[i]]
+    err = None
+    if ok and new:
+        err = min(pt_tri(q, *m.pts(i)) for i in new)
+        for i in new:
+            p = m.pts(i)
+            if tri_normal(p)[1] < 1e-9:
+                err = None
+                break
+            for s in (p.mean(0), (p[0] + p[1]) / 2, (p[1] + p[2]) / 2, (p[2] + p[0]) / 2):
+                err = max(err, min(pt_tri(s, *o) for o in old))
+        if err is not None and err > tol:
+            err = None
+    if apply and err is not None:
+        return err
+    for i in gone:
+        m.alive[i] = True
+        for u in m.F[i]:
+            m.vf[u].add(i)
+    m.undo(rec)
+    return err
+
+
+def _in2(q, p):
+    """Barycentrics of q in triangle p, in the floor's plan (x, z)."""
+    (ax, az), (bx, bz), (cx, cz) = p[0][[0, 2]], p[1][[0, 2]], p[2][[0, 2]]
+    det = (bz - cz) * (ax - cx) + (cx - bx) * (az - cz)
+    if abs(det) < 1e-12:
+        return None
+    l0 = ((bz - cz) * (q[0] - cx) + (cx - bx) * (q[2] - cz)) / det
+    l1 = ((cz - az) * (q[0] - cx) + (ax - cx) * (q[2] - cz)) / det
+    return np.array([l0, l1, 1.0 - l0 - l1])
+
+
+def _ccw2(a, b, c):
+    return (b[0] - a[0]) * (c[2] - a[2]) - (b[2] - a[2]) * (c[0] - a[0])
+
+
+def _incircle(a, b, c, d):
+    """> 0 when d lies inside the circumcircle of a, b, c (plan view, either winding)."""
+    m = np.array([[a[0] - d[0], a[2] - d[2], (a[0] - d[0]) ** 2 + (a[2] - d[2]) ** 2],
+                  [b[0] - d[0], b[2] - d[2], (b[0] - d[0]) ** 2 + (b[2] - d[2]) ** 2],
+                  [c[0] - d[0], c[2] - d[2], (c[0] - d[0]) ** 2 + (c[2] - d[2]) ** 2]])
+    return np.linalg.det(m) * (1.0 if _ccw2(a, b, c) > 0 else -1.0)
+
+
+def refloor(m, spacing=FLOOR_STEP):
+    """The guard-room floor's long fan re-cut: points laid on his floor a stride apart, Delaunay in plan."""
+    region = set()
+    for i in range(len(m.F)):
+        if m.alive[i] and not m.frozen[i]:
+            n, _ = tri_normal(m.pts(i))
+            if n[1] > FLOOR_UP and abs(m.pts(i)[:, 1].mean() - FLOOR_Y) < 0.35:
+                region.add(i)
+    bverts = set()
+    for i in region:
+        f = m.F[i]
+        for k in range(3):
+            a, b = f[k], f[(k + 1) % 3]
+            if not all(j in region for j in m.edge_faces(a, b)):
+                bverts.update((a, b))
+    bpts = m.V[sorted(bverts)]
+    lo, hi = m.V[[u for i in region for u in m.F[i]]].min(0), m.V[[u for i in region for u in m.F[i]]].max(0)
+    pts, row = [], 0
+    z = lo[2]
+    while z <= hi[2]:
+        x = lo[0] + (spacing * 0.5 if row % 2 else 0.0)
+        while x <= hi[0]:
+            pts.append((x, z))
+            x += spacing
+        z += spacing * math.sqrt(3) / 2
+        row += 1
+    added = 0
+    for x, z in pts:
+        q = np.array([x, 0.0, z])
+        if np.min(np.hypot(bpts[:, 0] - x, bpts[:, 2] - z)) < spacing * 0.6:
+            continue
+        host = None
+        for i in region:
+            if m.alive[i]:
+                l = _in2(q, m.pts(i))
+                if l is not None and l.min() > 0.02:
+                    host = (i, l)
+                    break
+        if host is None:
+            continue
+        i, l = host
+        q = l @ m.pts(i)                                # on his floor
+        if not all(_edge_clear(m, region, q, spacing * 0.45)):
+            continue
+        region |= _split(m, i, q)
+        added += 1
+    flips = _delaunay(m, region)
+    return added, flips
+
+
+def _edge_clear(m, region, q, d):
+    for i in region:
+        if m.alive[i]:
+            for v in m.F[i]:
+                yield math.hypot(m.V[v][0] - q[0], m.V[v][2] - q[2]) >= d
+
+
+def _split(m, i, q):
+    v = len(m.V)
+    m.V = np.vstack([m.V, q])
+    m.vf.append(set())
+    m.moved.add(v)
+    a, b, c = m.F[i]
+    new = []
+    for tri in ((a, b, v), (b, c, v), (c, a, v)):
+        if not new:
+            for u in m.F[i]:
+                m.vf[u].discard(i)
+            m.F[i] = list(tri)
+            k = i
+        else:
+            k = len(m.F)
+            m.F.append(list(tri))
+            m.orig.append(m.orig[i])
+            m.alive.append(True)
+            m.frozen.append(False)
+        for u in tri:
+            m.vf[u].add(k)
+        new.append(k)
+    return set(new)
+
+
+def _delaunay(m, region):
+    flips = 0
+    for _ in range(200):
+        changed = 0
+        for i in list(region):
+            if not m.alive[i]:
+                continue
+            f = m.F[i]
+            for k in range(3):
+                a, b = f[k], f[(k + 1) % 3]
+                fs = m.edge_faces(a, b)
+                if len(fs) != 2 or not all(j in region for j in fs):
+                    continue
+                j = fs[0] if fs[1] == i else fs[1]
+                c = [u for u in m.F[i] if u not in (a, b)][0]
+                d = [u for u in m.F[j] if u not in (a, b)][0]
+                if c in m.nbrs(d):
+                    continue
+                A, B, C, D = m.V[a], m.V[b], m.V[c], m.V[d]
+                if _ccw2(C, D, A) * _ccw2(C, D, B) >= 0:     # quad not convex in plan
+                    continue
+                if _incircle(A, B, C, D) > 1e-9:
+                    m.flip(i, j, a, b)
+                    changed += 1
+                    break
+        flips += changed
+        if not changed:
+            break
+    return flips
+
+
 def components(m):
     par = list(range(len(m.V)))
 
@@ -446,19 +706,35 @@ def write(j, b, m, at, F, path):
             seen[k] = len(P)
             P.append(p), N.append(n), T.append(t), C.append(c)
         return seen[k]
+    fn = {i: tri_normal(m.V[f])[0] for i, f in enumerate(m.F) if m.alive[i]}
+
+    def smooth(i, v):
+        """Angle-weighted normal over the facets at v that meet facet i gentler than CREASE: one stone, carved edges kept."""
+        if v in m.locked:
+            return fn[i]
+        acc = np.zeros(3)
+        for j in m.vf[v]:
+            if m.alive[j] and float(fn[i] @ fn[j]) >= math.cos(math.radians(CREASE)):
+                f = m.F[j]
+                k = f.index(v)
+                e1, e2 = m.V[f[(k + 1) % 3]] - m.V[v], m.V[f[(k + 2) % 3]] - m.V[v]
+                ang = math.acos(max(-1.0, min(1.0, float(e1 @ e2) / max(np.linalg.norm(e1) * np.linalg.norm(e2), 1e-15))))
+                acc += ang * fn[j]
+        L = np.linalg.norm(acc)
+        return acc / L if L > 1e-12 else fn[i]
     for i, f in enumerate(m.F):
         if not m.alive[i]:
             continue
         o = m.orig[i]
-        if f == list(m.base[o][1]) and not m.moved.intersection(f):
+        if m.frozen[i]:
             for k in range(3):
                 ci = F[o][k]
                 idx.append(corner(at["POSITION"][ci], at["NORMAL"][ci], at["TEXCOORD_0"][ci], at["COLOR_0"][ci]))
             continue
-        n, _ = tri_normal(m.V[f])
-        n32 = n.astype(np.float32)
         for v in f:
-            idx.append(corner(m.V[v].astype(np.float32) if v in m.moved else m.V32[v], n32, uv_at(m, i, m.V[v]).astype(np.float32), at["COLOR_0"][F[o][0]]))
+            p32 = m.V[v].astype(np.float32) if v in m.moved else m.V32[v]
+            idx.append(corner(p32, smooth(i, v).astype(np.float32), uv_at(m, i, m.V[v]).astype(np.float32),
+                              at["COLOR_0"][F[o][0]]))
     P, N, T, C = (np.array(x, dtype=np.float32) for x in (P, N, T, C))
     I = np.array(idx, dtype=np.uint16 if len(P) < 65536 else np.uint32)
     prim = j["meshes"][1]["primitives"][0]
@@ -495,7 +771,7 @@ def write(j, b, m, at, F, path):
 
 def main():
     global UV, COLOR, CORNER
-    tol = float(sys.argv[1]) if len(sys.argv) > 1 else TOL
+    tol = float(sys.argv[1]) if len(sys.argv) > 1 and __name__ == "__main__" else TOL
     j, b = read_glb(SRC)
     prim = j["meshes"][1]["primitives"][0]
     at = {k: accessor(j, b, v) for k, v in prim["attributes"].items()}
@@ -510,9 +786,24 @@ def main():
         for u in m.F[i]:
             m.vf[u].discard(i)
     print("floating shards removed: %d components, %d tris" % (len(comps) - 1, len(shards)))
+    print("fins merged: %d" % fins(m))
     print("edits:", repair(m, tol))
-    write(j, b, m, at, F, DST)
-    print("wrote", DST)
+    print("fins merged after: %d" % fins(m))
+    print("floor re-cut: %d points, %d flips" % refloor(m))
+    global NORMAL_TOL, SMALL_TURN, SLIVER, SOFT
+    NORMAL_TOL, SMALL_TURN = FOOT_TURN
+    SLIVER, SOFT = FOOT_SLIVER, 2.0 * FOOT_SLIVER       # the kerb and pier feet: long fans, seen close
+    print("feet:", repair(m, FOOT_TOL, lambda p: p[:, 1].mean() < FOOT_Y))
+    SLIVER, SOFT = NEEDLE_ANGLE, NEEDLE_ANGLE           # last: needles anywhere above the shaft, the cracks seen close
+    print("needles:", repair(m, FOOT_TOL))
+    NORMAL_TOL, SMALL_TURN = STRIPE_TURN                # long blades up a pier corner: sky-lit stripes
+    SLIVER, SOFT = STRIPE_ANGLE, STRIPE_ANGLE
+    print("stripes:", repair(m, STRIPE_TOL, lambda p: max(np.linalg.norm(p[k] - p[k - 1]) for k in range(3)) > STRIPE_LEN))
+    print("fins merged last: %d" % fins(m))
+    if not os.environ.get("REPAIR_DRY"):
+        write(j, b, m, at, F, DST)
+        print("wrote", DST)
+    return m
 
 
 if __name__ == "__main__":
