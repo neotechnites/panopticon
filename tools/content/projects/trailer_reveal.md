@@ -122,7 +122,7 @@ freeze: waive
 said: v4 "Hell, runner POV breaking cover and sprinting (d3 -- Ryan: \"perfect\", keep its framing)"
 capture: --shot=cover_side --stage=trailer_duel2 --bots=1 --pov=runner --rifle=projectile --set=shimmer=0.06 --seed=20261001
 tape: duel
-seconds: 2.2
+seconds: 2.6
 in: 5.5
 freeze: waive
 # v3 d3 (05.mp4@4.5 = take 5.5): breaks 5.55, sprints r 49 from ~6.2
@@ -234,7 +234,7 @@ freeze: waive
 said: v4 "Hell S3, runner POV running through and bouncing on a crack"
 capture: --shot=s4_edge --stage=trailer_crack --bots=2 --pov=runner --rifle=projectile --set=shimmer=0.06;skip=1;skip_go=1.3;skip_from=142.6,52.4;skip_pace=1.1 --seed=20261001
 tape: crack
-seconds: 3.2
+seconds: 3.5
 in: 1.7
 freeze: waive
 # v28 (Ryan): "put the green runner in front of the POV. Green does NOT bounce on the pads; they jump over them" (skip=1): the mate
@@ -311,7 +311,7 @@ freeze: waive
 said: v25 "then, in the marble runnign shot, have someone get hit, again, on the beat."
 capture: --map=marble --shot=pack_lead --stage=trailer_marble_track --bots=3 --pov=guard --hud=crosshair --rifle=projectile --set=fire=2.6 --seed=20261001
 tape: marble_hit
-seconds: 3.0
+seconds: 3.4
 in: 1.8
 freeze: waive
 # rough_v25_vivaldi: 5b restaged with a real rifle hit. The hand rides the man behind (Runner_2) from the start; squeeze 2.62 as he
