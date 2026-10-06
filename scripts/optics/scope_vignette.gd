@@ -68,9 +68,9 @@ const HEADLESS_DISPLAY: String = "headless"
 ## a headless bot match or a sweep pays nothing at all for this.
 @export var headless_inert: bool = true
 
-## Vignette amount past which the rifle stops being drawn. Negative keeps the
-## model on screen at every zoom, which is the old behaviour.
-@export var hide_model_above: float = 0.55
+## Vignette amount past which the rifle stops being drawn: full aim only, the eyepiece on the eye
+## (RifleAds.MODEL_HIDE_PROGRESS). Negative keeps the model on screen at every zoom.
+@export var hide_model_above: float = 0.99
 
 ## The material actually written to, a private duplicate of the authored one.
 ## See [method _ready] for why it is not the scene's own resource.
