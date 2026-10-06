@@ -3,12 +3,13 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-path="res://.godot/imported/tower_arches_repaired.glb.scn"
+uid="uid://cnd4q231ihppv"
+path="res://.godot/imported/tower_arches_repaired.glb-e92bc1c4eb920d1a35e137d599b4b8c6.scn"
 
 [deps]
 
 source_file="res://tower/models/tower_arches_repaired.glb"
-dest_files=["res://.godot/imported/tower_arches_repaired.glb.scn"]
+dest_files=["res://.godot/imported/tower_arches_repaired.glb-e92bc1c4eb920d1a35e137d599b4b8c6.scn"]
 
 [params]
 
