@@ -59,7 +59,7 @@ shader = ExtResource("10_crown_shadow")
 shader_parameter/roof_radius = 8.7
 shader_parameter/solid_below_y = 34.25
 shader_parameter/wall_radius = 56.5
-shader_parameter/gap = 0.315
+shader_parameter/gap = 0.335
 shader_parameter/cell = 1.0
 shader_parameter/soft = 0.0
 shader_parameter/sway = 0.12
@@ -71,7 +71,7 @@ shader = ExtResource("10_crown_shadow")
 shader_parameter/roof_radius = 8.7
 shader_parameter/solid_below_y = -1000.0
 shader_parameter/wall_radius = 0.0
-shader_parameter/gap = 0.315
+shader_parameter/gap = 0.335
 shader_parameter/cell = 1.0
 shader_parameter/soft = 0.0
 shader_parameter/sway = 0.12
@@ -83,7 +83,7 @@ shader = ExtResource("10_crown_shadow")
 shader_parameter/roof_radius = 8.7
 shader_parameter/solid_below_y = -1000.0
 shader_parameter/wall_radius = 0.0
-shader_parameter/gap = 0.265
+shader_parameter/gap = 0.285
 shader_parameter/cell = 1.0
 shader_parameter/soft = 0.0
 shader_parameter/sway = 0.12
@@ -173,10 +173,14 @@ environment = SubResource("EnvGreen")
 [node name="Sun" parent="Environment" index="1"]
 light_color = Color(0.88, 1.0, 0.94, 1)
 light_energy = 0.74
+directional_shadow_mode = 1
+directional_shadow_blend_splits = true
 
 [node name="Sun2" parent="Environment" index="2"]
 light_color = Color(0.88, 1.0, 0.94, 1)
 light_energy = 0.74
+directional_shadow_mode = 1
+directional_shadow_blend_splits = true
 
 [node name="ForestFog" parent="ForestMap" index="1"]
 surface_material_override/0 = SubResource("FogGreen")
