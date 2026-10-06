@@ -45,6 +45,8 @@ ssh panopticon-pc '
     [IO.File]::WriteAllText($_.FullName, $t)
   }
   Remove-Item C:\dev\panopticon\.godot\uid_cache.bin -ErrorAction SilentlyContinue
+  # Hell chunks always reimport: lightmap_split.gd is code, not an import param, and a chunk imported without it misses the bake's UV2.
+  Remove-Item C:\dev\panopticon\.godot\imported\map_base_* -ErrorAction SilentlyContinue
   cmd /c "C:\tools\godot\godot.exe --headless --import --path C:\dev\panopticon > C:\dev\import.txt 2>&1"
   $e = (Select-String -Path C:\dev\import.txt -Pattern "ERROR" | Measure-Object -Line).Lines
   Write-Output ("PC at " + (git -C C:/dev/panopticon log --oneline -1) + " | import errors: " + $e)
