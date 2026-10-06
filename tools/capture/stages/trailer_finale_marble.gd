@@ -28,8 +28,10 @@ func before_start() -> void:
 
 func tick(_delta: float) -> void:
 	if OS.has_environment("STAGE_DEBUG") and _runner != null and Engine.get_physics_frames() % 15 == 0:
-		say("at %.1f deg r %.2f y %.2f" % [LIB.bearing_of(_runner.global_position), LIB.radius_of(_runner.global_position), _runner.global_position.y])
-	if _guard == null:
+		var optic: WeaponOptic = _guard.get_node_or_null(^"Optic") as WeaponOptic if _guard != null else null
+		say("at %.1f deg r %.2f y %.2f; scope asked %s full %s" % [LIB.bearing_of(_runner.global_position), LIB.radius_of(_runner.global_position), _runner.global_position.y, optic != null and optic.is_zoom_requested(), optic != null and optic.is_fully_zoomed()])
+	# After the cast, as every scope stage does: the tape only writes down a hand raised on bodies it has collected.
+	if _guard == null and _runner != null and elapsed() > 0.75:
 		_post_the_guard()
 	if _runner == null or _armed or _driver == null or int(_driver.get("_index")) < 5:
 		return
