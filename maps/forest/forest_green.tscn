@@ -104,7 +104,7 @@ shader_parameter/albedo_texture = ExtResource("2_leaf")
 shader_parameter/glow = 0.6
 shader_parameter/canopy_brightness = 0.7
 shader_parameter/glow_ramp = 12.0
-shader_parameter/tint = Color(0.3811, 0.8323, 1.7441, 1)
+shader_parameter/tint = Color(0.4305, 0.7999, 3.7720, 1)
 shader_parameter/dapple = ExtResource("12_dapple")
 shader_parameter/dapple_top = 38.0
 shader_parameter/dapple_top_fade = 12.0
@@ -112,7 +112,7 @@ shader_parameter/dapple_top_fade = 12.0
 [sub_resource type="ShaderMaterial" id="LeafGreenDrum"]
 render_priority = 0
 shader = ExtResource("11_dapple_lit")
-shader_parameter/albedo_color = Color(0.3811, 0.8323, 1.7441, 1)
+shader_parameter/albedo_color = Color(0.4305, 0.7999, 3.7720, 1)
 shader_parameter/albedo_texture = ExtResource("2_leaf")
 shader_parameter/use_vertex_color = true
 shader_parameter/roughness = 0.95
@@ -123,7 +123,7 @@ shader_parameter/dapple_top_fade = 12.0
 [sub_resource type="ShaderMaterial" id="LeafGreen"]
 render_priority = 0
 shader = ExtResource("11_dapple_lit")
-shader_parameter/albedo_color = Color(0.3811, 0.8323, 1.7441, 1)
+shader_parameter/albedo_color = Color(0.4305, 0.7999, 3.7720, 1)
 shader_parameter/albedo_texture = ExtResource("2_leaf")
 shader_parameter/use_vertex_color = true
 shader_parameter/roughness = 0.95
@@ -132,7 +132,7 @@ shader_parameter/dapple = ExtResource("12_dapple")
 [sub_resource type="ShaderMaterial" id="ShadeGreen"]
 render_priority = 0
 shader = ExtResource("11_dapple_lit")
-shader_parameter/albedo_color = Color(0.2577, 0.6343, 1.4956, 1)
+shader_parameter/albedo_color = Color(0.3019, 0.6077, 2.9728, 1)
 shader_parameter/albedo_texture = ExtResource("2_leaf")
 shader_parameter/use_vertex_color = true
 shader_parameter/roughness = 0.95
@@ -141,7 +141,7 @@ shader_parameter/dapple = ExtResource("12_dapple")
 [sub_resource type="ShaderMaterial" id="SunGreen"]
 render_priority = 0
 shader = ExtResource("11_dapple_lit")
-shader_parameter/albedo_color = Color(0.5064, 0.9547, 1.6125, 1)
+shader_parameter/albedo_color = Color(0.5490, 0.9215, 4.0913, 1)
 shader_parameter/albedo_texture = ExtResource("2_leaf")
 shader_parameter/use_vertex_color = true
 shader_parameter/roughness = 0.95
@@ -150,7 +150,7 @@ shader_parameter/dapple = ExtResource("12_dapple")
 [sub_resource type="ShaderMaterial" id="FernGreen"]
 render_priority = 0
 shader = ExtResource("11_dapple_lit")
-shader_parameter/albedo_color = Color(0.4236, 0.8962, 1.6125, 1)
+shader_parameter/albedo_color = Color(0.4739, 0.8618, 3.8697, 1)
 shader_parameter/albedo_texture = ExtResource("2_leaf")
 shader_parameter/use_vertex_color = true
 shader_parameter/roughness = 0.95
