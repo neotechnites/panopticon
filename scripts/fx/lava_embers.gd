@@ -2,7 +2,7 @@
 class_name LavaEmbers
 extends Node3D
 ## Hell's embers and ash rising off the lava: a ring over the sea, points on the rivers and falls.
-## Builds its CPUParticles3D at ready (shows in the editor too); tune the exports on this node.
+## Builds its GPUParticles3D at ready (shows in the editor too); tune the exports on this node.
 
 ## Ember count multiplier; 0 turns the embers off.
 @export_range(0.0, 4.0, 0.05) var density: float = 1.0:
@@ -34,6 +34,8 @@ extends Node3D
 const SEA_EMBERS: int = 120
 const RIVER_EMBERS: int = 60
 const ASH_FLECKS: int = 26
+## Every particle stays inside this box round the ring (node space): the pit, the deck and above.
+const BOUNDS: AABB = AABB(Vector3(-64.0, -14.0, -64.0), Vector3(128.0, 74.0, 128.0))
 
 
 func _ready() -> void:
@@ -48,16 +50,16 @@ func _rebuild() -> void:
 			remove_child(child)
 			child.queue_free()
 	var ember_mat: StandardMaterial3D = _material(true)
-	var ash_mat: StandardMaterial3D = _material(false)
-	var sea: CPUParticles3D = _emitter(&"SeaEmbers", SEA_EMBERS * density, 11.0, ember_mat, ember_size)
+	var sea: ParticleProcessMaterial = _ember_motion(2.2, 4.2)
 	_ring(sea)
-	_ember_motion(sea, 2.2, 4.2)
+	_emitter(&"SeaEmbers", SEA_EMBERS * density, 11.0, sea, ember_mat, ember_size)
 	if not river_points.is_empty():
-		var river: CPUParticles3D = _emitter(&"RiverEmbers", RIVER_EMBERS * density, 6.0, ember_mat, ember_size)
-		river.emission_shape = CPUParticles3D.EMISSION_SHAPE_POINTS
-		river.emission_points = river_points
-		_ember_motion(river, 1.2, 2.6)
-	var flecks: CPUParticles3D = _emitter(&"Ash", ASH_FLECKS * ash, 16.0, ash_mat, ember_size * 1.3)
+		var river: ParticleProcessMaterial = _ember_motion(1.2, 2.6)
+		river.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_POINTS
+		river.emission_point_texture = _points_texture(river_points)
+		river.emission_point_count = river_points.size()
+		_emitter(&"RiverEmbers", RIVER_EMBERS * density, 6.0, river, ember_mat, ember_size)
+	var flecks: ParticleProcessMaterial = ParticleProcessMaterial.new()
 	_ring(flecks)
 	flecks.direction = Vector3.UP
 	flecks.spread = 25.0
@@ -70,13 +72,16 @@ func _rebuild() -> void:
 	flecks.damping_max = 0.15
 	flecks.angular_velocity_min = -90.0
 	flecks.angular_velocity_max = 90.0
+	flecks.lifetime_randomness = 0.4
 	flecks.color_ramp = _ramp(PackedFloat32Array([0.0, 0.1, 0.75, 1.0]), [
 		Color(0.22, 0.2, 0.19, 0.0), Color(0.22, 0.2, 0.19, 0.85),
 		Color(0.3, 0.28, 0.27, 0.6), Color(0.3, 0.28, 0.27, 0.0)])
+	_emitter(&"Ash", ASH_FLECKS * ash, 16.0, flecks, _material(false), ember_size * 1.3)
 
 
-func _emitter(node_name: StringName, count: float, life: float, mat: StandardMaterial3D, size: float) -> CPUParticles3D:
-	var p: CPUParticles3D = CPUParticles3D.new()
+func _emitter(node_name: StringName, count: float, life: float, process: ParticleProcessMaterial,
+		mat: StandardMaterial3D, size: float) -> void:
+	var p: GPUParticles3D = GPUParticles3D.new()
 	p.name = node_name
 	p.set_meta(&"lava_embers", true)
 	p.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -88,55 +93,73 @@ func _emitter(node_name: StringName, count: float, life: float, mat: StandardMat
 	p.lifetime = life / speed
 	p.preprocess = p.lifetime
 	p.randomness = 0.6
-	p.lifetime_randomness = 0.4
+	p.visibility_aabb = BOUNDS
+	p.process_material = process
 	var quad: QuadMesh = QuadMesh.new()
 	quad.size = Vector2(size, size)
 	quad.material = mat
-	p.mesh = quad
+	p.draw_pass_1 = quad
 	add_child(p)
-	return p
 
 
-func _ring(p: CPUParticles3D) -> void:
-	p.position = Vector3(0.0, sea_y, 0.0)
-	p.emission_shape = CPUParticles3D.EMISSION_SHAPE_RING
-	p.emission_ring_axis = Vector3.UP
-	p.emission_ring_height = 0.6
-	p.emission_ring_radius = sea_outer
-	p.emission_ring_inner_radius = sea_inner
+func _ring(m: ParticleProcessMaterial) -> void:
+	m.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_RING
+	m.emission_shape_offset = Vector3(0.0, sea_y, 0.0)
+	m.emission_ring_axis = Vector3.UP
+	m.emission_ring_height = 0.6
+	m.emission_ring_radius = sea_outer
+	m.emission_ring_inner_radius = sea_inner
 
 
 # Rise, a gentle swirl round the tower, flicker and fade.
-func _ember_motion(p: CPUParticles3D, v_min: float, v_max: float) -> void:
-	p.direction = Vector3.UP
-	p.spread = 20.0
-	p.initial_velocity_min = v_min * speed
-	p.initial_velocity_max = v_max * speed
-	p.gravity = Vector3(0.0, 0.4 * speed, 0.0)
-	p.tangential_accel_min = 0.1 * speed
-	p.tangential_accel_max = 0.3 * speed
-	p.damping_min = 0.0
-	p.damping_max = 0.2
-	p.scale_amount_min = 0.5
-	p.scale_amount_max = 1.2
-	p.color_initial_ramp = _ramp(PackedFloat32Array([0.0, 1.0]), [Color(1.0, 0.6, 0.15), Color(1.0, 0.95, 0.55)])
-	p.color_ramp = _ramp(PackedFloat32Array([0.0, 0.06, 0.2, 0.3, 0.45, 0.55, 0.7, 0.85, 1.0]), [
+func _ember_motion(v_min: float, v_max: float) -> ParticleProcessMaterial:
+	var m: ParticleProcessMaterial = ParticleProcessMaterial.new()
+	m.direction = Vector3.UP
+	m.spread = 20.0
+	m.initial_velocity_min = v_min * speed
+	m.initial_velocity_max = v_max * speed
+	m.gravity = Vector3(0.0, 0.4 * speed, 0.0)
+	m.tangential_accel_min = 0.1 * speed
+	m.tangential_accel_max = 0.3 * speed
+	m.damping_min = 0.0
+	m.damping_max = 0.2
+	m.scale_min = 0.5
+	m.scale_max = 1.2
+	m.lifetime_randomness = 0.4
+	m.color_initial_ramp = _ramp(PackedFloat32Array([0.0, 1.0]), [Color(1.0, 0.6, 0.15), Color(1.0, 0.95, 0.55)])
+	m.color_ramp = _ramp(PackedFloat32Array([0.0, 0.06, 0.2, 0.3, 0.45, 0.55, 0.7, 0.85, 1.0]), [
 		Color(1, 1, 1, 0.0), Color(1, 1, 1, 1.0), Color(1, 1, 1, 0.55), Color(1, 1, 1, 1.0),
 		Color(1, 1, 1, 0.5), Color(1, 1, 1, 0.9), Color(0.9, 0.6, 0.5, 0.45), Color(0.8, 0.4, 0.3, 0.6),
 		Color(0.6, 0.2, 0.1, 0.0)])
+	return m
 
 
-func _ramp(offsets: PackedFloat32Array, colors: Array) -> Gradient:
+func _ramp(offsets: PackedFloat32Array, colors: Array) -> GradientTexture1D:
 	var g: Gradient = Gradient.new()
 	g.offsets = offsets
 	g.colors = PackedColorArray(colors)
-	return g
+	var tex: GradientTexture1D = GradientTexture1D.new()
+	tex.gradient = g
+	return tex
+
+
+# One texel per emission point, xyz in rgb.
+func _points_texture(points: PackedVector3Array) -> ImageTexture:
+	var data: PackedFloat32Array = PackedFloat32Array()
+	data.resize(points.size() * 3)
+	for i: int in points.size():
+		data[i * 3] = points[i].x
+		data[i * 3 + 1] = points[i].y
+		data[i * 3 + 2] = points[i].z
+	var img: Image = Image.create_from_data(points.size(), 1, false, Image.FORMAT_RGBF, data.to_byte_array())
+	return ImageTexture.create_from_image(img)
 
 
 # Unshaded billboard dot; embers blend additive, ash blends over.
 func _material(glow: bool) -> StandardMaterial3D:
-	var dot: Gradient = _ramp(PackedFloat32Array([0.0, 0.35, 1.0]),
-		[Color(1, 1, 1, 1), Color(1, 1, 1, 0.8), Color(1, 1, 1, 0)])
+	var dot: Gradient = Gradient.new()
+	dot.offsets = PackedFloat32Array([0.0, 0.35, 1.0])
+	dot.colors = PackedColorArray([Color(1, 1, 1, 1), Color(1, 1, 1, 0.8), Color(1, 1, 1, 0)])
 	var tex: GradientTexture2D = GradientTexture2D.new()
 	tex.gradient = dot
 	tex.width = 16
