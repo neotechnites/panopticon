@@ -96,8 +96,8 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 	], 0, "ClipColumnVictim")
 	# The rider: tucked in behind him, eyes on the column and the edge of it, a look at him,
 	# then square up and shove him along the ring out of its shadow into the gap.
-	# Late: turned 40 deg off the wall toward him, so the gap to the tower is never in his eyes.
-	var p_face: Vector3 = (LIB.tangent_at(p_deg) * (0.64 if _late() else 0.34) - LIB.radial_at(p_deg) * (0.77 if _late() else 0.94)).normalized()
+	# Late: turned 60 deg off the wall toward him, so the gap to the tower is never in his eyes.
+	var p_face: Vector3 = (LIB.tangent_at(p_deg) * (0.87 if _late() else 0.34) - LIB.radial_at(p_deg) * (0.5 if _late() else 0.94)).normalized()
 	var at_him: Vector3 = LIB.toward(p, v)
 	var turn: float = _right_of(p_face, at_him)
 	LIB.hide_from_the_rifle(_pov)
