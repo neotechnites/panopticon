@@ -406,6 +406,7 @@ music_db: -0.5
 music_fade: 0.02 2.5
 captions: none
 # v34: v33 refilmed on main fd90f016 (forest contact shadows, player dapple, haze, pollen with the scope fix b6bdd878, leaf-green fog); h1/h2 moved to the foliage-dense 55-95 stretch (zone=2), same timing; shot 2's look-up smoothed on the tape.
+# Ryan: hell and marble stay v33's takes: those lines are cut from v33's own lossless master at the same times; only a2 and the forest lines are new.
 # v33: v32 with 4t 5g 9ag 9bg refilmed in the green forest (forest_green.tscn) on main 4b1ca5f3+ (depth haze, pollen, darker grass, leaves 0.55, dapple, canopy blend), same tapes.
 # v33 title: back to the plain-text PANOPTICON card (title_zoom10, as v30), same timing.
 # v32: v31 with 4t 5g 9ag 9bg refilmed in the golden forest (maps/forest/forest.tscn; the game itself still loads forest_green) from the same tapes.
@@ -419,25 +420,25 @@ captions: none
 # across it); the busy run k68-91 (lava, crack, quick cuts on the rolls); the second held bar k92-95 (the finale's shove at 38.0 on k93
 # territory); the end card on the k96 downbeat, 39.13 s. Title hit kept at 5.70. Every cut is on a downbeat or the bar's 3; hits sit on beats.
 | line | clip | in | len | fit | speed | text |
-| a1 | cuts/01.mp4@0.5300:2.9167 | | | beat 2.9167 | | |
+| a1 | final/master/rough_v33.mkv@0.0000:2.9167 | | | beat 2.9167 | | |
 | a2 | cuts/02.mp4@1.9070:2.7833 | | | beat 2.7833 | | |
-| a3 | cuts/title_zoom10.mp4@0.0000:2.1000 | | | beat 2.1000 | | |
-| a4 | cuts/card2_zoom10.mp4@0.0000:2.0833 | | | beat 2.0833 | | |
+| a3 | final/master/rough_v33.mkv@5.7000:2.1000 | | | beat 2.1000 | | |
+| a4 | final/master/rough_v33.mkv@7.8000:2.0833 | | | beat 2.0833 | | |
 | h1 | cuts/04t.mp4@0.7000:2.0833 | | | beat 2.0833 | | |
 | h2 | cuts/05g.mp4@1.7560:2.1000 | | | beat 2.1000 | | |
-| m0 | cuts/05h.mp4@0.6240:1.8167 | | | beat 1.8167 | | |
-| d1 | cuts/06.mp4@1.2500:1.4000 | | | beat 1.4000 | | |
-| d2 | cuts/07.mp4@2.4500:1.3000 | | | beat 1.3000 | | |
-| d3 | cuts/08.mp4@0.1000:2.1000 | | | beat 2.1000 | | |
+| m0 | final/master/rough_v33.mkv@14.0666:1.8167 | | | beat 1.8167 | | |
+| d1 | final/master/rough_v33.mkv@15.8833:1.4000 | | | beat 1.4000 | | |
+| d2 | final/master/rough_v33.mkv@17.2833:1.3000 | | | beat 1.3000 | | |
+| d3 | final/master/rough_v33.mkv@18.5833:2.1000 | | | beat 2.1000 | | |
 | p1 | cuts/09ag.mp4@0.3100:2.0833 | | | beat 2.0833 | | |
 | p2 | cuts/09bg.mp4@0.0127:1.8833 | | | beat 1.8833 | | |
-| m1 | cuts/10a.mp4@0.0000:2.0000 | | | beat 2.0000 | | |
-| m2 | cuts/10b.mp4@0.7000:2.5833 | | | beat 2.5833 | | |
-| t2 | cuts/11.mp4@1.4300:2.9333 | | | beat 2.9333 | | |
-| k1 | cuts/13.mp4@0.7300:2.8000 | | | beat 2.8000 | | |
-| k2 | cuts/14.mp4@0.2800:1.8500 | | | beat 1.8500 | | |
-| g1 | cuts/12f.mp4@2.0500:2.3167 | | | beat 2.3167 | | |
-| e1 | cuts/end_v3.mp4@0.4000:3.2000 | | | beat 3.2000 | | |
+| m1 | final/master/rough_v33.mkv@24.6499:2.0000 | | | beat 2.0000 | | |
+| m2 | final/master/rough_v33.mkv@26.6499:2.5833 | | | beat 2.5833 | | |
+| t2 | final/master/rough_v33.mkv@29.2332:2.9333 | | | beat 2.9333 | | |
+| k1 | final/master/rough_v33.mkv@32.1665:2.8000 | | | beat 2.8000 | | |
+| k2 | final/master/rough_v33.mkv@34.9665:1.8500 | | | beat 1.8500 | | |
+| g1 | final/master/rough_v33.mkv@36.8165:2.3167 | | | beat 2.3167 | | |
+| e1 | final/master/rough_v33.mkv@39.1332:3.2000 | | | beat 3.2000 | | |
 
 ## script rough_v33
 size: 1920x1080
