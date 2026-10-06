@@ -8,6 +8,10 @@
 [ext_resource type="Texture2D" path="res://maps/forest/textures/forest_mist_albedo.png" id="6_mist_noise"]
 [ext_resource type="Shader" path="res://maps/forest/materials/forest_green_crown_under.gdshader" id="9_under"]
 [ext_resource type="Shader" path="res://maps/forest/materials/forest_crown_shadow.gdshader" id="10_crown_shadow"]
+[ext_resource type="Shader" path="res://maps/forest/materials/forest_dapple_lit.gdshader" id="11_dapple_lit"]
+[ext_resource type="Texture2D" path="res://maps/forest/textures/forest_dapple.png" id="12_dapple"]
+[ext_resource type="Texture2D" path="res://maps/forest/textures/forest_path_albedo.png" id="13_path"]
+[ext_resource type="Texture2D" path="res://maps/forest/textures/forest_rock_albedo.png" id="14_rock"]
 
 [sub_resource type="ProceduralSkyMaterial" id="SkyGreen"]
 sky_top_color = Color(0.45, 0.62, 0.62, 1)
@@ -59,7 +63,7 @@ shader = ExtResource("10_crown_shadow")
 shader_parameter/roof_radius = 8.7
 shader_parameter/solid_below_y = 34.25
 shader_parameter/wall_radius = 56.5
-shader_parameter/gap = 0.315
+shader_parameter/gap = 2.0
 shader_parameter/cell = 1.0
 shader_parameter/soft = 0.0
 shader_parameter/sway = 0.12
@@ -71,7 +75,7 @@ shader = ExtResource("10_crown_shadow")
 shader_parameter/roof_radius = 8.7
 shader_parameter/solid_below_y = -1000.0
 shader_parameter/wall_radius = 0.0
-shader_parameter/gap = 0.315
+shader_parameter/gap = 2.0
 shader_parameter/cell = 1.0
 shader_parameter/soft = 0.0
 shader_parameter/sway = 0.12
@@ -83,7 +87,7 @@ shader = ExtResource("10_crown_shadow")
 shader_parameter/roof_radius = 8.7
 shader_parameter/solid_below_y = -1000.0
 shader_parameter/wall_radius = 0.0
-shader_parameter/gap = 0.265
+shader_parameter/gap = 2.0
 shader_parameter/cell = 1.0
 shader_parameter/soft = 0.0
 shader_parameter/sway = 0.12
@@ -96,74 +100,140 @@ shader_parameter/albedo_texture = ExtResource("2_leaf")
 shader_parameter/glow = 0.3
 shader_parameter/tint = Vector3(0.25, 1.6, 2.0)
 
-[sub_resource type="StandardMaterial3D" id="LeafGreen"]
-vertex_color_use_as_albedo = true
-albedo_color = Color(0.3811, 0.8323, 1.7441, 1)
-albedo_texture = ExtResource("2_leaf")
-roughness = 0.95
-texture_filter = 5
+[sub_resource type="ShaderMaterial" id="LeafGreen"]
+render_priority = 0
+shader = ExtResource("11_dapple_lit")
+shader_parameter/albedo_color = Color(0.3811, 0.8323, 1.7441, 1)
+shader_parameter/albedo_texture = ExtResource("2_leaf")
+shader_parameter/use_vertex_color = true
+shader_parameter/roughness = 0.95
+shader_parameter/dapple = ExtResource("12_dapple")
 
-[sub_resource type="StandardMaterial3D" id="ShadeGreen"]
-vertex_color_use_as_albedo = true
-albedo_color = Color(0.2577, 0.6343, 1.4956, 1)
-albedo_texture = ExtResource("2_leaf")
-roughness = 0.95
-texture_filter = 5
+[sub_resource type="ShaderMaterial" id="ShadeGreen"]
+render_priority = 0
+shader = ExtResource("11_dapple_lit")
+shader_parameter/albedo_color = Color(0.2577, 0.6343, 1.4956, 1)
+shader_parameter/albedo_texture = ExtResource("2_leaf")
+shader_parameter/use_vertex_color = true
+shader_parameter/roughness = 0.95
+shader_parameter/dapple = ExtResource("12_dapple")
 
-[sub_resource type="StandardMaterial3D" id="SunGreen"]
-vertex_color_use_as_albedo = true
-albedo_color = Color(0.5064, 0.9547, 1.6125, 1)
-albedo_texture = ExtResource("2_leaf")
-roughness = 0.95
-texture_filter = 5
+[sub_resource type="ShaderMaterial" id="SunGreen"]
+render_priority = 0
+shader = ExtResource("11_dapple_lit")
+shader_parameter/albedo_color = Color(0.5064, 0.9547, 1.6125, 1)
+shader_parameter/albedo_texture = ExtResource("2_leaf")
+shader_parameter/use_vertex_color = true
+shader_parameter/roughness = 0.95
+shader_parameter/dapple = ExtResource("12_dapple")
 
-[sub_resource type="StandardMaterial3D" id="FernGreen"]
-vertex_color_use_as_albedo = true
-albedo_color = Color(0.4236, 0.8962, 1.6125, 1)
-albedo_texture = ExtResource("2_leaf")
-roughness = 0.95
-texture_filter = 5
+[sub_resource type="ShaderMaterial" id="FernGreen"]
+render_priority = 0
+shader = ExtResource("11_dapple_lit")
+shader_parameter/albedo_color = Color(0.4236, 0.8962, 1.6125, 1)
+shader_parameter/albedo_texture = ExtResource("2_leaf")
+shader_parameter/use_vertex_color = true
+shader_parameter/roughness = 0.95
+shader_parameter/dapple = ExtResource("12_dapple")
 
-[sub_resource type="StandardMaterial3D" id="GrassGreen"]
-vertex_color_use_as_albedo = true
-albedo_color = Color(0.7014, 1.0427, 0.8095, 1)
-albedo_texture = ExtResource("3_grass")
-roughness = 0.95
-texture_filter = 5
+[sub_resource type="ShaderMaterial" id="GrassGreen"]
+render_priority = 0
+shader = ExtResource("11_dapple_lit")
+shader_parameter/albedo_color = Color(0.7014, 1.0427, 0.8095, 1)
+shader_parameter/albedo_texture = ExtResource("3_grass")
+shader_parameter/use_vertex_color = true
+shader_parameter/roughness = 0.95
+shader_parameter/dapple = ExtResource("12_dapple")
 
-[sub_resource type="StandardMaterial3D" id="PathGreen"]
-vertex_color_use_as_albedo = true
-albedo_color = Color(0.7977, 0.9777, 0.7674, 1)
-albedo_texture = ExtResource("3_grass")
-roughness = 0.95
-texture_filter = 5
+[sub_resource type="ShaderMaterial" id="PathGreen"]
+render_priority = 0
+shader = ExtResource("11_dapple_lit")
+shader_parameter/albedo_color = Color(0.7977, 0.9777, 0.7674, 1)
+shader_parameter/albedo_texture = ExtResource("3_grass")
+shader_parameter/use_vertex_color = true
+shader_parameter/roughness = 0.95
+shader_parameter/dapple = ExtResource("12_dapple")
 
-[sub_resource type="StandardMaterial3D" id="VergeGreen"]
-vertex_color_use_as_albedo = true
-albedo_color = Color(0.7354, 1.0087, 0.7858, 1)
-albedo_texture = ExtResource("3_grass")
-roughness = 0.95
-texture_filter = 5
+[sub_resource type="ShaderMaterial" id="VergeGreen"]
+render_priority = 0
+shader = ExtResource("11_dapple_lit")
+shader_parameter/albedo_color = Color(0.7354, 1.0087, 0.7858, 1)
+shader_parameter/albedo_texture = ExtResource("3_grass")
+shader_parameter/use_vertex_color = true
+shader_parameter/roughness = 0.95
+shader_parameter/dapple = ExtResource("12_dapple")
 
-[sub_resource type="StandardMaterial3D" id="EdgeGreen"]
-vertex_color_use_as_albedo = true
-albedo_color = Color(0.4563, 0.7498, 0.615, 1)
-albedo_texture = ExtResource("3_grass")
-roughness = 0.95
-texture_filter = 5
+[sub_resource type="ShaderMaterial" id="EdgeGreen"]
+render_priority = 0
+shader = ExtResource("11_dapple_lit")
+shader_parameter/albedo_color = Color(0.4563, 0.7498, 0.615, 1)
+shader_parameter/albedo_texture = ExtResource("3_grass")
+shader_parameter/use_vertex_color = true
+shader_parameter/roughness = 0.95
+shader_parameter/dapple = ExtResource("12_dapple")
 
-[sub_resource type="StandardMaterial3D" id="BarkGreen"]
-albedo_color = Color(1.1588, 0.9063, 0.7014, 1)
-albedo_texture = ExtResource("4_bark")
-roughness = 0.95
-texture_filter = 5
+[sub_resource type="ShaderMaterial" id="BarkGreen"]
+render_priority = 0
+shader = ExtResource("11_dapple_lit")
+shader_parameter/albedo_color = Color(1.1588, 0.9063, 0.7014, 1)
+shader_parameter/albedo_texture = ExtResource("4_bark")
+shader_parameter/use_vertex_color = false
+shader_parameter/roughness = 0.95
+shader_parameter/dapple = ExtResource("12_dapple")
 
-[sub_resource type="StandardMaterial3D" id="RootGreen"]
-vertex_color_use_as_albedo = true
-albedo_color = Color(1.1588, 0.8603, 0.6347, 1)
-albedo_texture = ExtResource("4_bark")
-roughness = 0.95
-texture_filter = 5
+[sub_resource type="ShaderMaterial" id="RootGreen"]
+render_priority = 0
+shader = ExtResource("11_dapple_lit")
+shader_parameter/albedo_color = Color(1.1588, 0.8603, 0.6347, 1)
+shader_parameter/albedo_texture = ExtResource("4_bark")
+shader_parameter/use_vertex_color = true
+shader_parameter/roughness = 0.95
+shader_parameter/dapple = ExtResource("12_dapple")
+
+[sub_resource type="ShaderMaterial" id="EarthGreen"]
+render_priority = 0
+shader = ExtResource("11_dapple_lit")
+shader_parameter/albedo_color = Color(0.5483, 0.4969, 0.7184, 1)
+shader_parameter/albedo_texture = ExtResource("13_path")
+shader_parameter/use_vertex_color = true
+shader_parameter/roughness = 0.95
+shader_parameter/dapple = ExtResource("12_dapple")
+
+[sub_resource type="ShaderMaterial" id="RockGranite"]
+render_priority = 0
+shader = ExtResource("11_dapple_lit")
+shader_parameter/albedo_color = Color(1.0000, 1.0000, 1.0000, 1)
+shader_parameter/albedo_texture = ExtResource("14_rock")
+shader_parameter/use_vertex_color = false
+shader_parameter/roughness = 0.95
+shader_parameter/dapple = ExtResource("12_dapple")
+
+[sub_resource type="ShaderMaterial" id="RockLichen"]
+render_priority = 0
+shader = ExtResource("11_dapple_lit")
+shader_parameter/albedo_color = Color(0.9716, 0.9826, 0.9538, 1)
+shader_parameter/albedo_texture = ExtResource("14_rock")
+shader_parameter/use_vertex_color = false
+shader_parameter/roughness = 0.95
+shader_parameter/dapple = ExtResource("12_dapple")
+
+[sub_resource type="ShaderMaterial" id="RockMoss"]
+render_priority = 0
+shader = ExtResource("11_dapple_lit")
+shader_parameter/albedo_color = Color(0.4744, 0.6331, 0.4027, 1)
+shader_parameter/albedo_texture = ExtResource("14_rock")
+shader_parameter/use_vertex_color = false
+shader_parameter/roughness = 0.95
+shader_parameter/dapple = ExtResource("12_dapple")
+
+[sub_resource type="ShaderMaterial" id="RockShade"]
+render_priority = 0
+shader = ExtResource("11_dapple_lit")
+shader_parameter/albedo_color = Color(0.6768, 0.6942, 0.7361, 1)
+shader_parameter/albedo_texture = ExtResource("14_rock")
+shader_parameter/use_vertex_color = false
+shader_parameter/roughness = 0.95
+shader_parameter/dapple = ExtResource("12_dapple")
 
 [node name="Forest" instance=ExtResource("1_base")]
 
@@ -183,6 +253,7 @@ surface_material_override/0 = SubResource("FogGreen")
 
 [node name="ForestGround" parent="ForestMap" index="2"]
 surface_material_override/0 = SubResource("BarkGreen")
+surface_material_override/2 = SubResource("EarthGreen")
 surface_material_override/3 = SubResource("EdgeGreen")
 surface_material_override/4 = SubResource("FernGreen")
 surface_material_override/5 = SubResource("GrassGreen")
@@ -314,6 +385,96 @@ surface_material_override/1 = SubResource("BossLeafShadowGreen")
 [node name="ForestTree" parent="Tower/TreeShadow" index="0"]
 material_override = SubResource("CrownShadowGreen")
 
+[node name="ForestRock" parent="Sections/Lip/Boulder_056deg" index="0"]
+surface_material_override/0 = SubResource("RockGranite")
+surface_material_override/1 = SubResource("RockLichen")
+surface_material_override/2 = SubResource("RockMoss")
+surface_material_override/3 = SubResource("RockShade")
+
+[node name="ForestRock" parent="Sections/Lip/Boulder_092deg" index="0"]
+surface_material_override/0 = SubResource("RockGranite")
+surface_material_override/1 = SubResource("RockLichen")
+surface_material_override/2 = SubResource("RockMoss")
+surface_material_override/3 = SubResource("RockShade")
+
+[node name="ForestRock" parent="Sections/Lip/Boulder_105deg" index="0"]
+surface_material_override/0 = SubResource("RockGranite")
+surface_material_override/1 = SubResource("RockLichen")
+surface_material_override/2 = SubResource("RockMoss")
+surface_material_override/3 = SubResource("RockShade")
+
+[node name="ForestRock" parent="Sections/Lip/Boulder_162deg" index="0"]
+surface_material_override/0 = SubResource("RockGranite")
+surface_material_override/1 = SubResource("RockLichen")
+surface_material_override/2 = SubResource("RockMoss")
+surface_material_override/3 = SubResource("RockShade")
+
+[node name="ForestRock" parent="Sections/Lip/Boulder_233deg" index="0"]
+surface_material_override/0 = SubResource("RockGranite")
+surface_material_override/1 = SubResource("RockLichen")
+surface_material_override/2 = SubResource("RockMoss")
+surface_material_override/3 = SubResource("RockShade")
+
+[node name="ForestRock" parent="Sections/Lip/Boulder_276deg" index="0"]
+surface_material_override/0 = SubResource("RockGranite")
+surface_material_override/1 = SubResource("RockLichen")
+surface_material_override/2 = SubResource("RockMoss")
+surface_material_override/3 = SubResource("RockShade")
+
+[node name="ForestRock" parent="Sections/Lip/Boulder_280deg" index="0"]
+surface_material_override/0 = SubResource("RockGranite")
+surface_material_override/1 = SubResource("RockLichen")
+surface_material_override/2 = SubResource("RockMoss")
+surface_material_override/3 = SubResource("RockShade")
+
+[node name="ForestRock" parent="Sections/Lip/Boulder_298deg" index="0"]
+surface_material_override/0 = SubResource("RockGranite")
+surface_material_override/1 = SubResource("RockLichen")
+surface_material_override/2 = SubResource("RockMoss")
+surface_material_override/3 = SubResource("RockShade")
+
+[node name="ForestRock" parent="Sections/Lip/Boulder_332deg" index="0"]
+surface_material_override/0 = SubResource("RockGranite")
+surface_material_override/1 = SubResource("RockLichen")
+surface_material_override/2 = SubResource("RockMoss")
+surface_material_override/3 = SubResource("RockShade")
+
+[node name="ForestRock" parent="Sections/Lip/Boulder_340deg" index="0"]
+surface_material_override/0 = SubResource("RockGranite")
+surface_material_override/1 = SubResource("RockLichen")
+surface_material_override/2 = SubResource("RockMoss")
+surface_material_override/3 = SubResource("RockShade")
+
+[node name="ForestRock" parent="Sections/Lane/Boulder_120deg" index="0"]
+surface_material_override/0 = SubResource("RockGranite")
+surface_material_override/1 = SubResource("RockLichen")
+surface_material_override/2 = SubResource("RockMoss")
+surface_material_override/3 = SubResource("RockShade")
+
+[node name="ForestRock" parent="Sections/Lane/Boulder_201deg" index="0"]
+surface_material_override/0 = SubResource("RockGranite")
+surface_material_override/1 = SubResource("RockLichen")
+surface_material_override/2 = SubResource("RockMoss")
+surface_material_override/3 = SubResource("RockShade")
+
+[node name="ForestRock" parent="Sections/Lane/Boulder_280deg" index="0"]
+surface_material_override/0 = SubResource("RockGranite")
+surface_material_override/1 = SubResource("RockLichen")
+surface_material_override/2 = SubResource("RockMoss")
+surface_material_override/3 = SubResource("RockShade")
+
+[node name="ForestRock" parent="Sections/Lane/Boulder_312deg" index="0"]
+surface_material_override/0 = SubResource("RockGranite")
+surface_material_override/1 = SubResource("RockLichen")
+surface_material_override/2 = SubResource("RockMoss")
+surface_material_override/3 = SubResource("RockShade")
+
+[node name="ForestRock" parent="Sections/Lane/Outcrop_249deg" index="0"]
+surface_material_override/0 = SubResource("RockGranite")
+surface_material_override/1 = SubResource("RockLichen")
+surface_material_override/2 = SubResource("RockMoss")
+surface_material_override/3 = SubResource("RockShade")
+
 [editable path="ForestMap"]
 [editable path="Bars"]
 [editable path="Sections/Lip/BushLow_039deg"]
@@ -336,3 +497,18 @@ material_override = SubResource("CrownShadowGreen")
 [editable path="MapShadow"]
 [editable path="Sections/CanopyShadow"]
 [editable path="Tower/TreeShadow"]
+[editable path="Sections/Lip/Boulder_056deg"]
+[editable path="Sections/Lip/Boulder_092deg"]
+[editable path="Sections/Lip/Boulder_105deg"]
+[editable path="Sections/Lip/Boulder_162deg"]
+[editable path="Sections/Lip/Boulder_233deg"]
+[editable path="Sections/Lip/Boulder_276deg"]
+[editable path="Sections/Lip/Boulder_280deg"]
+[editable path="Sections/Lip/Boulder_298deg"]
+[editable path="Sections/Lip/Boulder_332deg"]
+[editable path="Sections/Lip/Boulder_340deg"]
+[editable path="Sections/Lane/Boulder_120deg"]
+[editable path="Sections/Lane/Boulder_201deg"]
+[editable path="Sections/Lane/Boulder_280deg"]
+[editable path="Sections/Lane/Boulder_312deg"]
+[editable path="Sections/Lane/Outcrop_249deg"]
