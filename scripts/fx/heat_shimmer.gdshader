@@ -23,6 +23,8 @@ uniform float heat_full = 30.0;
 uniform float noise_distance = 25.0;
 uniform float bottom_boost = 0.7;
 uniform float look_down_boost = 0.8;
+// The game camera's unzoomed vertical FOV: a scope magnifies the warp by its zoom over this.
+uniform float base_fov = 100.0;
 uniform vec3 warm : source_color = vec3(1.0, 0.55, 0.25);
 uniform float warm_lift = 0.06;
 // The screen copy reads back darker at the dark end (measured, see lava_haze.gdshader); lift it back.
@@ -59,7 +61,8 @@ void fragment() {
 	n += field(centre, tile_fine, t * rise_fine, vec2(0.41, 0.17)) * 0.5;
 	float low = 1.0 + bottom_boost * smoothstep(0.25, 1.0, 1.0 - uv.y);
 	float down = clamp(INV_VIEW_MATRIX[2].y, 0.0, 1.0) * look_down_boost;
-	float amp = amplitude * strength * heat * low * (1.0 + down);
+	float zoom = PROJECTION_MATRIX[1][1] * tan(radians(base_fov * 0.5));
+	float amp = amplitude * strength * heat * low * (1.0 + down) * zoom;
 	vec2 off = n * amp * vec2(0.7 / aspect, 1.2);
 	vec3 c = texture(screen_tex, clamp(uv + off, px, vec2(1.0) - px)).rgb;
 	c += vec3(dark_lift * clamp(1.45 - 6.37 * c, 0.0, 1.0));
