@@ -61,7 +61,10 @@ var _age: float = 0.0
 var _lifetime: float = 0.0
 var _fade_exponent: float = 1.0
 var _color: Color = Color.WHITE
-var _material: StandardMaterial3D = null
+var _material: ShaderMaterial = null
+
+## The streak's look; a quad seen edge-on fades out (no hairline down the shooter's own line).
+const STREAK_SHADER: Shader = preload("res://scripts/weapon/tracer_streak.gdshader")
 
 
 ## Create a tracer along [param from] -> [param to] in world space, parent it to
@@ -199,15 +202,10 @@ static func add_quad(mesh_out: ImmediateMesh, axis: Vector3, half_width: Vector3
 ## the pale deck, against the sky and over the near-white face of the eye alike,
 ## which no additive colour can do. The cost is that it no longer blooms; the
 ## brightness that bought is worth less than being seen at all.
-static func build_material(color: Color) -> StandardMaterial3D:
-	var material: StandardMaterial3D = StandardMaterial3D.new()
-	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	material.blend_mode = BaseMaterial3D.BLEND_MODE_MIX
-	material.cull_mode = BaseMaterial3D.CULL_DISABLED
-	material.no_depth_test = false
-	material.disable_receive_shadows = true
-	material.albedo_color = color
+static func build_material(color: Color) -> ShaderMaterial:
+	var material: ShaderMaterial = ShaderMaterial.new()
+	material.shader = STREAK_SHADER
+	material.set_shader_parameter("albedo", color)
 	return material
 
 
@@ -217,7 +215,7 @@ func _apply_fade() -> void:
 	var remaining: float = 1.0 if _lifetime <= 0.0 else clampf(1.0 - _age / _lifetime, 0.0, 1.0)
 	var faded: Color = _color
 	faded.a = _color.a * pow(remaining, _fade_exponent)
-	_material.albedo_color = faded
+	_material.set_shader_parameter("albedo", faded)
 
 
 ## Current alpha, 1.0 at the shot and 0.0 when spent. Exposed so a headless
