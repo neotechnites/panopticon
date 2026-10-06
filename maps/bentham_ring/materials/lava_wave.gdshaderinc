@@ -42,6 +42,8 @@ uniform float stream_speed = 0.06;  // tiles per second downstream (falls a thir
 varying vec3 rest_w;
 #endif
 
+#include "res://maps/bentham_ring/materials/lava_swell.gdshaderinc"
+
 float flat_w(float y) {
 	float a = 1.0 - smoothstep(0.25, 0.9, abs(y - river_y));
 	float b = 1.0 - smoothstep(0.25, 0.9, abs(y - shelf_y));
@@ -68,7 +70,7 @@ void vertex() {
 #endif
 	float edge = clamp(UV2.x, 0.0, 1.0);             // pinned on banks, walls, rocks and the tower foot
 	// flat: a long swell rolling toward the pit, crossed by a second, slower one
-	float sr = 0.6 * sin(0.4 * r + t) + 0.4 * sin(0.2 * w.x + 0.27 * w.z + 0.7 * t);
+	float sr = lava_swell(w.xz, ring_centre, t);
 	// falls: rings running down the face, slightly wobbled across it
 	float sf = 0.75 * sin(0.45 * wave_scale * w.y + 1.3 * t) + 0.25 * sin(0.3 * wave_scale * (w.x - w.z) + 0.6 * t);
 	// centred on the rest surface; the pinned edges keep it tucked in, never gapped

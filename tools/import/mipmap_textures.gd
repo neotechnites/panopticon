@@ -15,6 +15,10 @@ const PORTAL_WAVE_SHADER := "res://maps/bentham_ring/materials/portal_wave.gdsha
 const SEE_THROUGH_WAVE := {&"PortalGlow": PORTAL_WAVE_SHADER, &"ForestPortalSwirl": PORTAL_WAVE_SHADER, &"MarbleGlow": PORTAL_WAVE_SHADER, &"IcePortalSwirl": PORTAL_WAVE_SHADER}
 ## Swirl glow scale per see-through material; unlisted ones keep their glTF energy.
 const SWIRL_GLOW := {&"ForestPortalSwirl": 0.25, &"IcePortalSwirl": 0.5}
+## Hell's rock on the chunks gets the heated-rim shader (not in the lightmap bake, where it would light the map).
+const HOT_ROCK_MATERIALS := [&"HellRock", &"HellShade", &"HellEmber"]
+const HOT_ROCK_SHADER := "res://maps/bentham_ring/materials/hot_rock.gdshader"
+const HOT_ROCK_MASK := "res://maps/bentham_ring/textures/hot_rock_mask.png"
 ## No torches on the ring any more: the lava itself carries that light, boosted here.
 const LAVA_EMISSION_BOOST := 1.4
 ## Marble's stone is fully matte: no sheen, whatever roughness the .glb carries.
@@ -32,6 +36,7 @@ const TEXTURE_PROPERTIES := [
 var _texture_cache: Dictionary = {}
 var _seen_materials: Dictionary = {}
 var _wave_cache: Dictionary = {}
+var _hot_rock: bool = false
 var _textures_mipped: int = 0
 var _materials_refiltered: int = 0
 var _matte: bool = false
@@ -42,6 +47,7 @@ func _post_import(scene: Node) -> Object:
 	_texture_cache.clear()
 	_seen_materials.clear()
 	_wave_cache.clear()
+	_hot_rock = get_source_file().begins_with(LightmapSplit.CHUNK_PREFIX) and not FileAccess.file_exists(LightmapSplit.BAKE_FLAG)
 	_textures_mipped = 0
 	_materials_refiltered = 0
 	_matte = get_source_file().begins_with(MATTE_PREFIX)
@@ -72,6 +78,8 @@ func _walk(node: Node) -> void:
 			_fix_material(mesh_instance.mesh.surface_get_material(i))
 			_fix_material(mesh_instance.get_surface_override_material(i))
 			var wave := _wave_material(mesh_instance.mesh.surface_get_material(i))
+			if wave == null and _hot_rock:
+				wave = _hot_rock_material(mesh_instance.mesh.surface_get_material(i))
 			if wave != null:
 				mesh_instance.mesh.surface_set_material(i, wave)
 	for child in node.get_children():
@@ -157,3 +165,26 @@ func _wave_material(material: Material) -> Material:
 		wave.set_shader_parameter(&"downstream", 1.0)
 	_wave_cache[material_id] = wave
 	return wave
+
+
+## The heated-rock ShaderMaterial for a HOT_ROCK_MATERIALS surface (its look carried over), or null.
+func _hot_rock_material(material: Material) -> Material:
+	var base := material as BaseMaterial3D
+	if base == null or not HOT_ROCK_MATERIALS.has(StringName(base.resource_name.get_slice(".", 0))):
+		return null
+	var material_id := base.get_instance_id()
+	if _wave_cache.has(material_id):
+		return _wave_cache[material_id]
+	var hot := ShaderMaterial.new()
+	hot.resource_name = base.resource_name
+	hot.shader = load(HOT_ROCK_SHADER)
+	hot.set_shader_parameter(&"albedo_texture", base.albedo_texture)
+	hot.set_shader_parameter(&"albedo_color", base.albedo_color)
+	hot.set_shader_parameter(&"roughness", base.roughness)
+	hot.set_shader_parameter(&"metallic", base.metallic)
+	hot.set_shader_parameter(&"specular", base.metallic_specular)
+	hot.set_shader_parameter(&"uv1_scale", base.uv1_scale)
+	hot.set_shader_parameter(&"uv1_offset", base.uv1_offset)
+	hot.set_shader_parameter(&"heat_mask", load(HOT_ROCK_MASK))
+	_wave_cache[material_id] = hot
+	return hot
