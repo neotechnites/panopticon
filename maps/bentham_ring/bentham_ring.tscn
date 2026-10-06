@@ -665,7 +665,9 @@ interior = false
 environment_mode = 0
 light_data = ExtResource("32_lava_lightmap")
 
-[node name="HeatShimmer" type="CanvasLayer" parent="."]
-editor_description = "Level-wide heat shimmer (Ryan, 2026-10-05: \"a heat effect across the whole level that makes it seem very, very, very hot\"). One full-screen pass under the HUD; tune strength, speed, look_down_boost and warm_lift here."
-layer = -1
+[node name="HeatShimmer" type="MeshInstance3D" parent="."]
+editor_description = "Level-wide heat shimmer (Ryan, 2026-10-05: \"a heat effect across the whole level that makes it seem very, very, very hot\"). A clip-space quad built by its script, so it also shows in the editor viewport; tune strength, speed, look_down_boost and warm_lift here."
+cast_shadow = 0
+extra_cull_margin = 16384.0
+gi_mode = 0
 script = ExtResource("33_heat_shimmer")

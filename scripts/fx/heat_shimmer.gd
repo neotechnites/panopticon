@@ -1,11 +1,10 @@
 @tool
 class_name HeatShimmer
-extends CanvasLayer
-## Hell's level-wide heat shimmer: one full-screen pass warping the 3D frame with rising noise.
-## Layer -1 sits under the HUD (1) and MacLift (100), so the crosshair stays sharp.
+extends MeshInstance3D
+## Hell's level-wide heat shimmer: a clip-space quad warping the 3D frame with rising noise.
+## Draws in the editor viewport too; the CanvasLayer HUD and MacLift stay on top, unwarped.
 
 const SHADER: Shader = preload("res://scripts/fx/heat_shimmer.gdshader")
-const LOOK_DOWN: StringName = &"look_down"
 
 ## Overall warp; 0 turns the effect off.
 @export_range(0.0, 4.0, 0.05) var strength: float = 1.0:
@@ -18,7 +17,10 @@ const LOOK_DOWN: StringName = &"look_down"
 		speed = value
 		_push()
 ## Extra warp when the camera looks straight down (added on top of strength).
-@export_range(0.0, 2.0, 0.05) var look_down_boost: float = 0.8
+@export_range(0.0, 2.0, 0.05) var look_down_boost: float = 0.8:
+	set(value):
+		look_down_boost = value
+		_push()
 ## Faint warm lift multiplied into the frame; keeps blacks black.
 @export_range(0.0, 0.3, 0.01) var warm_lift: float = 0.06:
 	set(value):
@@ -26,14 +28,9 @@ const LOOK_DOWN: StringName = &"look_down"
 		_push()
 
 var _material: ShaderMaterial = null
-var _rect: ColorRect = null
 
 
 func _ready() -> void:
-	layer = -1
-	if DisplayServer.get_name() == "headless":
-		set_process(false)
-		return
 	var noise: FastNoiseLite = FastNoiseLite.new()
 	noise.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
 	noise.frequency = 0.02
@@ -45,27 +42,26 @@ func _ready() -> void:
 	tex.noise = noise
 	_material = ShaderMaterial.new()
 	_material.shader = SHADER
+	# First in the transparent pass, so later see-through surfaces draw over it unwarped.
+	_material.render_priority = Material.RENDER_PRIORITY_MIN
 	_material.set_shader_parameter(&"noise_tex", tex)
-	_rect = ColorRect.new()
-	_rect.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_rect.material = _material
-	add_child(_rect)
+	var quad: QuadMesh = QuadMesh.new()
+	quad.size = Vector2(2.0, 2.0)
+	quad.material = _material
+	mesh = quad
 	_push()
 
 
-func _process(_delta: float) -> void:
-	var camera: Camera3D = get_viewport().get_camera_3d()
-	var down: float = 0.0
-	if camera != null:
-		down = clampf(camera.global_basis.z.y, 0.0, 1.0) * look_down_boost
-	_material.set_shader_parameter(LOOK_DOWN, down)
+# The quad is built here, so the scene never stores it.
+func _validate_property(property: Dictionary) -> void:
+	if property.name == "mesh":
+		property.usage &= ~PROPERTY_USAGE_STORAGE
 
 
 func _push() -> void:
 	if _material == null:
 		return
-	_rect.visible = strength > 0.0
 	_material.set_shader_parameter(&"strength", strength)
 	_material.set_shader_parameter(&"speed", speed)
+	_material.set_shader_parameter(&"look_down_boost", look_down_boost)
 	_material.set_shader_parameter(&"warm_lift", warm_lift)
