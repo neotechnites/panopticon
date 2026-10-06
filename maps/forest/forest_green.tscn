@@ -98,8 +98,20 @@ render_priority = 0
 shader = ExtResource("9_under")
 shader_parameter/albedo_texture = ExtResource("2_leaf")
 shader_parameter/glow = 0.6
+shader_parameter/canopy_brightness = 0.7
 shader_parameter/tint = Color(0.3811, 0.8323, 1.7441, 1)
 shader_parameter/dapple = ExtResource("12_dapple")
+shader_parameter/dapple_top = 44.0
+
+[sub_resource type="ShaderMaterial" id="LeafGreenDrum"]
+render_priority = 0
+shader = ExtResource("11_dapple_lit")
+shader_parameter/albedo_color = Color(0.3811, 0.8323, 1.7441, 1)
+shader_parameter/albedo_texture = ExtResource("2_leaf")
+shader_parameter/use_vertex_color = true
+shader_parameter/roughness = 0.95
+shader_parameter/dapple = ExtResource("12_dapple")
+shader_parameter/dapple_top = 44.0
 
 [sub_resource type="ShaderMaterial" id="LeafGreen"]
 render_priority = 0
@@ -258,7 +270,7 @@ surface_material_override/2 = SubResource("EarthGreen")
 surface_material_override/3 = SubResource("EdgeGreen")
 surface_material_override/4 = SubResource("FernGreen")
 surface_material_override/5 = SubResource("GrassGreen")
-surface_material_override/7 = SubResource("LeafGreen")
+surface_material_override/7 = SubResource("LeafGreenDrum")
 surface_material_override/8 = SubResource("PathGreen")
 surface_material_override/9 = SubResource("RootGreen")
 surface_material_override/10 = SubResource("ShadeGreen")
