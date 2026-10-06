@@ -20,12 +20,12 @@ extends Node3D
 		ash = value
 		_rebuild()
 ## River and fall spark streak length in metres (they fly beside the runners).
-@export_range(0.02, 1.0, 0.01) var ember_size: float = 0.22:
+@export_range(0.02, 1.0, 0.01) var ember_size: float = 0.35:
 	set(value):
 		ember_size = value
 		_rebuild()
 ## Sea spark streak length in metres (seen 30 m down the pit).
-@export_range(0.05, 2.0, 0.01) var sea_ember_size: float = 0.45:
+@export_range(0.05, 2.0, 0.01) var sea_ember_size: float = 0.8:
 	set(value):
 		sea_ember_size = value
 		_rebuild()
@@ -40,7 +40,7 @@ const SEA_SPARKS: int = 45
 const RIVER_SPARKS: int = 24
 const ASH_FLAKES: int = 70
 ## Streak width as a fraction of its length.
-const STREAK_WIDTH: float = 0.12
+const STREAK_WIDTH: float = 0.15
 ## Every particle stays inside this box round the ring (node space): the pit, the deck and above.
 const BOUNDS: AABB = AABB(Vector3(-64.0, -14.0, -64.0), Vector3(128.0, 74.0, 128.0))
 
@@ -91,7 +91,7 @@ func _rebuild() -> void:
 	flakes.color_ramp = _ramp(PackedFloat32Array([0.0, 0.15, 0.85, 1.0]), [
 		Color(0.16, 0.14, 0.13, 0.0), Color(0.16, 0.14, 0.13, 0.9),
 		Color(0.22, 0.2, 0.19, 0.8), Color(0.22, 0.2, 0.19, 0.0)])
-	_emitter(&"Ash", ASH_FLAKES * ash, 14.0, flakes, _ash_material(), Vector2(0.09, 0.07))
+	_emitter(&"Ash", ASH_FLAKES * ash, 14.0, flakes, _ash_material(), Vector2(0.14, 0.1))
 
 
 func _emitter(node_name: StringName, count: float, life: float, process: ParticleProcessMaterial,
