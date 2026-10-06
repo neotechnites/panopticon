@@ -167,7 +167,7 @@ shader_parameter/dapple = ExtResource("12_dapple")
 [sub_resource type="ShaderMaterial" id="GrassGreen"]
 render_priority = 0
 shader = ExtResource("11_dapple_lit")
-shader_parameter/albedo_color = Color(0.4494, 0.6000, 0.4971, 1)
+shader_parameter/albedo_color = Color(0.2996, 0.4000, 0.3314, 1)
 shader_parameter/albedo_texture = ExtResource("3_grass")
 shader_parameter/use_vertex_color = true
 shader_parameter/roughness = 0.95
@@ -180,7 +180,7 @@ shader_parameter/contact_height = 3.0
 [sub_resource type="ShaderMaterial" id="PathGreen"]
 render_priority = 0
 shader = ExtResource("11_dapple_lit")
-shader_parameter/albedo_color = Color(0.4877, 0.5670, 0.4743, 1)
+shader_parameter/albedo_color = Color(0.3251, 0.3780, 0.3162, 1)
 shader_parameter/albedo_texture = ExtResource("3_grass")
 shader_parameter/use_vertex_color = true
 shader_parameter/roughness = 0.95
@@ -193,7 +193,7 @@ shader_parameter/contact_height = 3.0
 [sub_resource type="ShaderMaterial" id="VergeGreen"]
 render_priority = 0
 shader = ExtResource("11_dapple_lit")
-shader_parameter/albedo_color = Color(0.4617, 0.5823, 0.4839, 1)
+shader_parameter/albedo_color = Color(0.3078, 0.3882, 0.3226, 1)
 shader_parameter/albedo_texture = ExtResource("3_grass")
 shader_parameter/use_vertex_color = true
 shader_parameter/roughness = 0.95
@@ -206,7 +206,7 @@ shader_parameter/contact_height = 3.0
 [sub_resource type="ShaderMaterial" id="EdgeGreen"]
 render_priority = 0
 shader = ExtResource("11_dapple_lit")
-shader_parameter/albedo_color = Color(0.3009, 0.4304, 0.3708, 1)
+shader_parameter/albedo_color = Color(0.2006, 0.2869, 0.2472, 1)
 shader_parameter/albedo_texture = ExtResource("3_grass")
 shader_parameter/use_vertex_color = true
 shader_parameter/roughness = 0.95
