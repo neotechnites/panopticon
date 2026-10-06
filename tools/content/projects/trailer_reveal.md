@@ -208,7 +208,7 @@ freeze: waive
 
 ## 12f
 said: v27 (Ryan) "Ending: the guard getting shoved out of the tower, including the guard's POV of being flung" -- the finisher's eyes
-capture: --map=marble --shot=portal --stage=trailer_finale_marble --bots=2 --pov=runner --look=social --rifle=projectile --seed=20261001
+capture: --map=marble --shot=portal --stage=trailer_finale_marble --bots=2 --pov=runner --look=social --rifle=projectile --set=wait=0 --seed=20261001
 tape: finale
 seconds: 5.2
 in: 0.9
@@ -216,10 +216,13 @@ freeze: waive
 # corridor sprint from 320 deg into the portal (arrives 2.85), in the room behind the guard, scoped at the 126 window: 0.35 s, then
 # straight at him; the shipped finale shove at 3.83 throws him out of the open tower (2x an ordinary shove) and the game's
 # cinematic (FinaleView) takes every view for the 2.0 s kill beat. The cut ends on the shove.
+# v28 (Ryan): "The cut between the runner going into the tower and walking over to push the sniper must be one continuous action with no
+# random cut" and "remove the sniper vignette ... no scope view in the ending". The portal is a teleport, so g1 opens in the room on his
+# arrival and he goes for the guard at once (wait=0): one take from the room, through the shove, into the game's own cinematic. 12g unused.
 
 ## 12g
 said: v27 (Ryan) "including the guard's POV of being flung" -- the guard's own screen: his scope on the ring, the shove, the game's cinematic of the throw
-capture: --map=marble --shot=portal --stage=trailer_finale_marble --bots=2 --pov=guard --hud=crosshair --rifle=projectile --seed=20261001
+capture: --map=marble --shot=portal --stage=trailer_finale_marble --bots=2 --pov=guard --hud=crosshair --rifle=projectile --set=wait=0 --seed=20261001
 tape: finale
 seconds: 3.6
 in: 2.6
