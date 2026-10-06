@@ -1,11 +1,10 @@
 @tool
 class_name HeatShimmer
 extends MeshInstance3D
-## Hell's heat shimmer over lava: a clip-space quad warping the frame by hot air along each view ray.
+## Hell's level-wide heat shimmer: a clip-space quad warping the frame more the farther you look.
 ## Draws in the editor viewport too; the CanvasLayer HUD and MacLift stay on top, unwarped.
 
 const SHADER: Shader = preload("res://scripts/fx/heat_shimmer.gdshader")
-const MASK: Texture2D = preload("res://maps/bentham_ring/materials/heat_mask.png")
 
 ## Overall warp; 0 turns the effect off.
 @export_range(0.0, 4.0, 0.05) var strength: float = 1.0:
@@ -46,7 +45,6 @@ func _ready() -> void:
 	# First in the transparent pass, so later see-through surfaces draw over it unwarped.
 	_material.render_priority = Material.RENDER_PRIORITY_MIN
 	_material.set_shader_parameter(&"noise_tex", tex)
-	_material.set_shader_parameter(&"mask_tex", MASK)
 	var quad: QuadMesh = QuadMesh.new()
 	quad.size = Vector2(2.0, 2.0)
 	quad.material = _material
