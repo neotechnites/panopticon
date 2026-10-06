@@ -35,7 +35,7 @@ freeze: waive
 
 ## 2
 said: v4 "Hell, the same event from the runner behind: the man ahead drops, he looks up at the tower (keep a2)"
-capture: --shot=s3_open_lane --stage=trailer_open --pov=runner --bots=3 --rifle=projectile --set=fire_at=3.24;eye_at=4.0;eye_swing=0.35;eye_from=116.3:49.3 --seed=20261001
+capture: --shot=s3_open_lane --stage=trailer_open --pov=runner --bots=3 --rifle=projectile --set=fire_at=3.24;eye_at=4.05;eye_swing=0.4;eye_from=60:49 --seed=20261001
 tape: open
 seconds: 5.0
 in: 0.9
