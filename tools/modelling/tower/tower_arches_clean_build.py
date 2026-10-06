@@ -28,12 +28,15 @@ CEIL = 7.25             # ceiling (collider)
 CEIL_WALL = 7.10        # inner wall top: the ceiling cove starts here
 CEIL_IN = 6.70          # ...and lands on the ceiling here
 FLOOR_COVE = 0.35       # floor-to-wall cove radius
-BANDS = ((2.10, 0.25, 0.07),)   # the sill course as a swell under the sill line: centre, half height, proud
+COURSES = ((2.07, 2.35, 0.08), (4.29, 4.57, 0.08))   # sill and springing courses: bottom, top, proud
+COURSE_CH = 0.08        # their carved chamfer, top and bottom
+KEY = (0.42, 6.74, 7.18, 0.20, 0.10)   # keystone: half width, bottom, top, proud, chamfer
+CHISEL = ((1.30, 0.07, 11), (0.55, 0.035, 23))   # wobble octaves: cell metres, amplitude, seed
 BLEND = 1.6             # metres over which the shaft's own surface hands over to the crown's
 R_REF = 7.7             # unwrap radius for the outer wall's 2D domain
 DMIN = 0.20             # lattice points closer than this to a constraint are dropped
 UV_M = 12.8             # metres per tile repeat
-ROWS = 0.42             # lattice row pitch
+ROWS = 0.50             # lattice row pitch: coarse, so the stone reads as dressed facets
 APEX_Z = 10.17
 
 TAU = 2.0 * math.pi
@@ -82,6 +85,33 @@ def fourier_fit(th, r, order=4):
             v += c[2 * k - 1] * math.cos(k * t) + c[2 * k] * math.sin(k * t)
         return float(v)
     return f
+
+
+def _hash(i, j, s):
+    h = (i * 374761393 + j * 668265263 + s * 2246822519) & 0xffffffff
+    h = ((h ^ (h >> 13)) * 1274126177) & 0xffffffff
+    return ((h ^ (h >> 16)) & 0xffff) / 32767.5 - 1.0
+
+
+def vnoise(u, v, cell, seed, wrap):
+    """Smooth value noise in metres; u wraps every `wrap` metres (the ring)."""
+    n = max(1, int(round(wrap / cell)))
+    x, y = u / (wrap / n), v / cell
+    i, j = math.floor(x), math.floor(y)
+    fx, fy = x - i, y - j
+    sx, sy = fx * fx * (3 - 2 * fx), fy * fy * (3 - 2 * fy)
+    a = _hash(i % n, j, seed) + (_hash((i + 1) % n, j, seed) - _hash(i % n, j, seed)) * sx
+    b = _hash(i % n, j + 1, seed) + (_hash((i + 1) % n, j + 1, seed) - _hash(i % n, j + 1, seed)) * sx
+    return a + (b - a) * sy
+
+
+def chisel(t, z, r):
+    return sum(a * vnoise(t * r, z, c, sd, TAU * r) for c, a, sd in CHISEL)
+
+
+def plateau(x, lo, hi, ch):
+    """1 on [lo+ch, hi-ch], 0 outside [lo, hi], straight chamfers between."""
+    return max(0.0, min(1.0, (x - lo) / ch, (hi - x) / ch))
 
 
 def smoothstep(t):
@@ -223,7 +253,7 @@ def build():
                 if r:
                     st.append(t)
                     sr.append(r)
-    R_base = fourier_fit(st, sr, 4)
+    R_base = fourier_fit(st, sr, 8)
     dome_z = [7.8, 8.1, 8.4, 8.7, 9.0, 9.3, 9.6]
     dome_f = []
     for z in dome_z:
@@ -234,22 +264,7 @@ def build():
             if r:
                 tt.append(t)
                 rr.append(r)
-        dome_f.append(fourier_fit(tt, rr, 4))
-
-    qs = [sum(f(c * TAU / 64) / R_base(c * TAU / 64) for c in range(64)) / 64.0 for f in dome_f]
-    best = None
-    for p in np.arange(1.2, 4.01, 0.05):
-        for q in np.arange(1.2, 4.01, 0.05):
-            e = sum(((1.0 - min(1.0, ((z - TOP_Z) / (APEX_Z - TOP_Z))) ** q) ** (1.0 / p) - v) ** 2
-                    for z, v in zip(dome_z, qs))
-            if best is None or e < best[0]:
-                best = (e, float(p), float(q))
-    _e, DP, DQ = best
-    print("TOWER roof superellipse p=%.2f q=%.2f rms=%.3f" % (DP, DQ, math.sqrt(_e / len(qs))))
-
-    def dome_r(t, z):
-        u = max(0.0, min(1.0, (z - TOP_Z) / (APEX_Z - TOP_Z)))
-        return R_base(t) * (1.0 - u ** DQ) ** (1.0 / DP)
+        dome_f.append(fourier_fit(tt, rr, 6))
 
     seam_t = [s[1] for s in seam] + [seam[0][1] + TAU]
     seam_z = [s[2] for s in seam] + [seam[0][2]]
@@ -261,23 +276,30 @@ def build():
         f = (t - seam_t[k]) / (seam_t[k + 1] - seam_t[k])
         return seam_z[k] + f * (seam_z[k + 1] - seam_z[k]), seam_r[k] + f * (seam_r[k + 1] - seam_r[k])
 
-    def bands(z):
-        s = 0.0
-        for zc, h, p in BANDS:
-            u = (z - zc) / h
-            if abs(u) < 1.0:
-                s += p * math.cos(0.5 * math.pi * u) ** 2
-        return s
+    def bands(t, z):
+        v = sum(p * plateau(z, lo, hi, COURSE_CH) for lo, hi, p in COURSES)
+        kw, k0, k1, kp, kc = KEY
+        for b in BEAR:
+            x = abs(((t - b) + math.pi) % TAU - math.pi) * R_REF
+            v += kp * plateau(x, -kw, kw, kc) * plateau(z, k0, k1, kc)
+        return v
+
+    def crown(t, z):
+        return R_base(t) + bands(t, z) + chisel(t, z, R_REF)
 
     def R_out(t, z):
-        """His shaft's own surface at the seam, handing over to the crown's radius across BLEND."""
-        crown = R_base(t) + bands(z)
+        """His shaft's own surface at the seam, handing over to the carved crown across BLEND."""
+        c = crown(t, z)
         zs, _rs = seam_at(t)
         w = smoothstep((z - zs) / BLEND)
         if w >= 1.0:
-            return crown
+            return c
         ro = r_at(t, z)
-        return crown if ro is None else ro + (crown - ro) * w
+        return c if ro is None else ro + (c - ro) * w
+
+    def R_in(t, z):
+        w = plateau(z, 2.0, CEIL_WALL, 0.35)
+        return R_W + w * (0.03 + 0.5 * chisel(t, z + 40.0, R_W))
 
     pool = Pool()
     faces = []          # (i, j, k, region)
@@ -287,18 +309,26 @@ def build():
 
     # ---- opening outlines: one closed section per bay, on either face
     def section():
+        """Chunky voussoirs; jamb rows land on the springing course, head points on the keystone's edges."""
         out = []
-        n_s, n_c, n_j, n_h = 6, 2, 6, 24
+        n_s, n_c, n_h = 5, 2, 12
+        zc = SILL + CORNER
+        lo, hi, _p = COURSES[1]
+        jz = [3.2, 3.75, lo, 0.5 * (lo + hi)]
+        ja = [(z - zc) / (SPRING - zc) for z in jz]
+        kx = [KEY[0]]
+        heads = sorted(set([math.pi * i / n_h for i in range(n_h + 1)]
+                           + [math.acos(sg * x / (HW_IN + 0.9 * TAN)) for x in kx for sg in (1, -1)]))
         for i in range(n_s + 1):
             out.append(("sill", i / n_s))
         for i in range(1, n_c + 1):
             out.append(("corner", 0.5 * math.pi * i / n_c))
-        for i in range(1, n_j):
-            out.append(("jamb", i / n_j))
-        for i in range(n_h + 1):
-            out.append(("head", math.pi * i / n_h))
-        for i in range(n_j - 1, 0, -1):
-            out.append(("jambL", i / n_j))
+        for a in ja:
+            out.append(("jamb", a))
+        for a in heads:
+            out.append(("head", a))
+        for a in reversed(ja):
+            out.append(("jambL", a))
         for i in range(n_c, 0, -1):
             out.append(("cornerL", 0.5 * math.pi * i / n_c))
         for i in range(n_s, 0, -1):
@@ -319,7 +349,7 @@ def build():
             x, z = h * math.cos(a), SPRING + HEAD_R * math.sin(a)
         if kind.endswith("L"):
             x = -x
-        return x, z
+        return x + WOB[0], z + WOB[1]
 
     def on_face(b, kind, a, surf):
         y = R_W
@@ -333,12 +363,16 @@ def build():
         return (er[0] * y + et[0] * x, er[1] * y + et[1] * x, z), y
 
     outlines_in, outlines_out = [], []
+    WOB = [0.0, 0.0]
     for k, b in enumerate(BEAR):
         oi, oo = [], []
         for s, (kind, a) in enumerate(SEC):
             if kind == "sillL" and a == 0.0:
                 continue
-            pi_, yi = on_face(b, kind, a, lambda t, z: R_W)
+            flat_ = kind.startswith("sill")
+            WOB[0] = 0.0 if flat_ else 0.03 * _hash(k, s, 5)
+            WOB[1] = 0.03 * _hash(k, s, 7) if kind == "head" else 0.0
+            pi_, yi = on_face(b, kind, a, R_in)
             po, yo = on_face(b, kind, a, R_out)
             oi.append(pool.add(("oin", k, s), pi_))
             oo.append(pool.add(("oout", k, s), po))
@@ -368,9 +402,13 @@ def build():
         hole2 = [[uv[kid[k]] for k in h] for h in holes]
         extra = []
         for p in lattice:
-            if not inside(p, domain) or any(inside(p, h) for h in hole2):
+            if not inside(p[:2], domain) or any(inside(p[:2], h) for h in hole2):
                 continue
-            if min(seg_dist(p, a, b) for a, b in segs) < DMIN:
+            dmin = p[2] if len(p) > 2 else DMIN
+            p = p[:2]
+            if min(seg_dist(p, a, b) for a, b in segs) < dmin:
+                continue
+            if any(abs(p[0] - q[0]) < 0.05 and abs(p[1] - q[1]) < 0.05 for q in extra):
                 continue
             extra.append(p)
         allp = uv + extra
@@ -409,8 +447,8 @@ def build():
         return base + (t - base) % TAU
 
     rows = [round(float(z), 3) for z in np.arange(-1.6, TOP_Z - 0.1, ROWS)]
-    band_rows = [zc + d * h for zc, h, _ in BANDS for d in (-1.0, -0.5, 0.0, 0.5, 1.0)]
-    rows = sorted([z for z in rows if all(abs(z - q) > 0.12 for q in band_rows)] + band_rows)
+    band_rows = [z for lo, hi, _ in COURSES for z in (lo, lo + COURSE_CH, hi - COURSE_CH, hi)]
+    rows = sorted([z for z in rows if all(abs(z - q) > 0.16 for q in band_rows)] + band_rows)
 
     bp = {}
     outer = []
@@ -434,7 +472,7 @@ def build():
         u = (t_cut + (t - t_cut) % TAU) if i < N_TOP else t_cut + TAU
         if i == 0:
             u = t_cut
-        bp[("top", i)] = (u * R_REF, TOP_Z, ("otop", i % N_TOP), P(t, R_base(t), TOP_Z))
+        bp[("top", i)] = (u * R_REF, TOP_Z, ("otop", i % N_TOP), P(t, crown(t, TOP_Z), TOP_Z))
         outer.append(("top", i))
     for ri in range(len(cut) - 1, -1, -1):
         t, z = cut[ri]
@@ -451,8 +489,13 @@ def build():
         holes.append(h)
     lat = []
     for z in rows:
-        for c in range(128):
-            lat.append(((PIER0 + TAU * c / 128) * R_REF, z))
+        for c in range(120):
+            lat.append(((PIER0 + TAU * c / 120) * R_REF, z))
+    kw, k0, k1, kp, kc = KEY
+    for b in BEAR:
+        for x in (-kw, -kw + kc, -0.12, 0.12, kw - kc, kw):
+            for z in (k1 - kc, k1):
+                lat.append((unwrap(b, th0) * R_REF + x, z, 0.06))
 
     def out3d(p):
         t = p[0] / R_REF
@@ -554,9 +597,9 @@ def build():
     ilat = []
     irows = [float(z) for z in np.arange(co0[2] + ROWS, CEIL_WALL - 0.1, ROWS)]
     for z in irows:
-        for c in range(128):
-            ilat.append(((PIER0 + TAU * c / 128) * R_W, z))
-    cdt_patch(ib, iouter, [], iholes, ilat, "iwall", lambda p: P(p[0] / R_W, R_W, p[1]), True)
+        for c in range(96):
+            ilat.append(((PIER0 + TAU * c / 96) * R_W, z))
+    cdt_patch(ib, iouter, [], iholes, ilat, "iwall", lambda p: P(p[0] / R_W, R_in(p[0] / R_W, p[1]), p[1]), True)
 
     # ---- ceiling cove and ceiling disk
     c_rows = []
@@ -581,24 +624,46 @@ def build():
             clat.append((float(gx) + (0.45 if gi % 2 else 0.0), float(gy)))
     cdt_patch(cb, cring, [], [], clat, "ceiling", lambda p: (p[0], p[1], CEIL), True)
 
-    # ---- roof: shoulder rows to the apex
-    d_rows = [TOP_Z, 7.55, 7.70, 7.85, 8.00, 8.15, 8.30, 8.50, 8.70, 8.90, 9.10, 9.30, 9.50, 9.70, 9.85]
+    # ---- roof: his own roof rings, carved, up to his apex
+    knots = [(7.8, dome_f[0]), (8.1, dome_f[1]), (8.4, dome_f[2]), (8.7, dome_f[3]),
+             (9.0, dome_f[4]), (9.3, dome_f[5]), (9.6, dome_f[6])]
+    apex_co = max(bpos, key=lambda p: p[2])
+    d_rows = [TOP_Z, 7.6] + [z for z, _ in knots] + [9.85]
     rows3 = []
+    prev = None
     for ri, z in enumerate(d_rows):
-        mean_r = sum(dome_r(t, z) for t in top_t) / N_TOP
-        n = 64 if mean_r > 4.2 else 32 if mean_r > 2.0 else 16 if mean_r > 0.9 else 8
+        if z == 7.6:
+            rad = lambda t: 0.5 * (crown(t, TOP_Z) + dome_f[0](t))
+        elif z == 9.85:
+            rad = None
+        else:
+            rad = next((f for zz, f in knots if zz == z), None)
+        if rad is None and ri:
+            pts = [(apex_co[0] + 0.45 * (pool.co[v][0] - apex_co[0]), apex_co[1] + 0.45 * (pool.co[v][1] - apex_co[1]))
+                   for v in prev]
+            mean_r = sum(math.hypot(x - apex_co[0], y - apex_co[1]) for x, y in pts) / len(pts)
+        else:
+            mean_r = sum((rad(t) if ri else 7.6) for t in top_t) / N_TOP
+        n = 64 if mean_r > 4.2 else 32 if mean_r > 1.8 else 16 if mean_r > 0.8 else 8
         step = N_TOP // n
         row = []
         for i in range(0, N_TOP, step):
             t = top_t[i]
-            key = ("otop", i) if ri == 0 else ("dome", ri, i)
-            row.append(pool.add(key, P(t, R_base(t) if ri == 0 else dome_r(t, z), z)))
+            if ri == 0:
+                row.append(pool.add(("otop", i), P(t, crown(t, TOP_Z), TOP_Z)))
+            elif rad is None:
+                src = pool.co[prev[i // (N_TOP // len(prev))]]
+                jz = 0.03 * _hash(ri, i, 3)
+                row.append(pool.add(("dome", ri, i), (apex_co[0] + 0.45 * (src[0] - apex_co[0]),
+                                                     apex_co[1] + 0.45 * (src[1] - apex_co[1]), z + jz)))
+            else:
+                r = rad(t) + chisel(t, z * 1.7 + 20.0, R_REF) * 0.9
+                row.append(pool.add(("dome", ri, i), P(t, r, z + 0.04 * _hash(ri, i, 9))))
         rows3.append(row)
+        prev = row
     _rings(faces, rows3, "dome", flip=False)
     last = rows3[-1]
-    cx = sum(pool.co[v][0] for v in last) / len(last)
-    cy = sum(pool.co[v][1] for v in last) / len(last)
-    apex = pool.add(("apex",), (cx, cy, APEX_Z))
+    apex = pool.add(("apex",), tuple(apex_co))
     for i in range(len(last)):
         faces.append(((last[i], last[(i + 1) % len(last)], apex), "dome", None))
 
