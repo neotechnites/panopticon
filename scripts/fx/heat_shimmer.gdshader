@@ -75,10 +75,10 @@ void fragment() {
 	float hot = 0.0;
 	vec3 centre = vec3(0.0);
 	for (int i = 0; i < 6; i++) {
-		vec3 p = mix(eye, w, (float(i) + j) / 6.0);
-		float h = heat_at(p);
+		float h = heat_at(mix(eye, w, (float(i) + j) / 6.0));
 		hot += h;
-		centre += p * h;
+		// Unjittered, so the noise point does not sparkle from pixel to pixel.
+		centre += mix(eye, w, (float(i) + 0.5) / 6.0) * h;
 	}
 	centre = hot > 0.001 ? centre / hot : w;
 	float air = hot * length(w - eye) / 6.0;
