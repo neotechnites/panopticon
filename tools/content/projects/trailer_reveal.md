@@ -376,6 +376,43 @@ grade_hell: lift 2.6 3
 | g1 | cuts/12.mp4@0.15:3.1833 | | | beat 3.1833 | | |  |
 | e1 | cuts/end_v3.mp4@0.4:3.2 | | | beat 3.2 | | |  |
 
+## script rough_v27
+size: 1920x1080
+music: voice/pineberry_rush_v27.flac
+music_db: -0.5
+music_fade: 0.02 2.5
+captions: none
+# v27 (Ryan's ten notes, decision 292): v26's structure refilmed on the current game (main b649c64 + the tracer and scope fixes), no hell grade.
+# Music: Mejer "Pineberry Rush" (UNLICENSED, private evaluation only; the file stays out of git): voice/pineberry_rush_v27.flac is the
+# track from 13.72 s (on the beat) placed at 0.08 s, so song 19.34 s lands on the title card's first frame (5.70); fade out 2.5 s.
+# Every cut after the title is on the song's beat, 172.3 bpm: beat k at 5.703 + k * 0.348299 s, frame-rounded. The beat counts are v26's
+# (a3 k0, a4 k6, h1 k13 ... k2 k82, the end card was k96); g1 k87 and g2 k95 are the new finale, the end card on k100 (40.53).
+# Notes: 1 g1 12f (the finisher's eyes to the shove) + g2 12g (the guard's scope, then the game's cinematic of the throw); 2 h1 4s
+# (full sprint, own line, opens at speed); 3 m0 05h (the lead hit); 4 forest_pit third=0; 5 10a late=1 (eyes low, turned off the
+# gap); 6 10b late=1 (thrown 8 m clear, the scope comes off the wall onto him, then the hit); 7 lake solo=1; 8 k1 opens on the run;
+# 9 the tracer/round tail no longer drawn edge-on (game fix); 10 shot 2's eye holds on the course and turns onto him after his look.
+| line | clip | in | len | fit | speed | text |
+| a1 | cuts/01.mp4@0.35:2.70 | | | beat 2.70 | | |
+| a2 | cuts/02.mp4@1.50:3.00 | | | beat 3.00 | | |
+| a3 | cuts/title_zoom10.mp4@0:2.1000 | | | beat 2.1000 | | |
+| a4 | cuts/card2_zoom10.mp4@0:2.4333 | | | beat 2.4333 | | |
+| h1 | cuts/04s.mp4@0.65:1.7333 | | | beat 1.7333 | | |
+| h2 | cuts/05g.mp4@1.6:1.4000 | | | beat 1.4000 | | |
+| m0 | cuts/05h.mp4@0.15:2.0833 | | | beat 2.0833 | | |
+| d1 | cuts/06.mp4@1.1127:1.7500 | | | beat 1.7500 | | |
+| d2 | cuts/07.mp4@1.6127:2.0833 | | | beat 2.0833 | | |
+| d3 | cuts/08.mp4@0:2.1000 | | | beat 2.1000 | | |
+| p1 | cuts/09ag.mp4@0.15:2.4333 | | | beat 2.4333 | | |
+| p2 | cuts/09bg.mp4@0.0127:1.7333 | | | beat 1.7333 | | |
+| m1 | cuts/10a.mp4@0.1:2.1000 | | | beat 2.1000 | | |
+| m2 | cuts/10b.mp4@0.35:2.0833 | | | beat 2.0833 | | |
+| t2 | cuts/11.mp4@1.9293:2.4333 | | | beat 2.4333 | | |
+| k1 | cuts/13.mp4@0.6:2.1000 | | | beat 2.1000 | | |
+| k2 | cuts/14.mp4@0:1.7333 | | | beat 1.7333 | | |
+| g1 | cuts/12f.mp4@0.217:2.7833 | | | beat 2.7833 | | |
+| g2 | cuts/12g.mp4@0.85:1.7500 | | | beat 1.7500 | | |
+| e1 | cuts/end_v3.mp4@0.4:3.2 | | | beat 3.2 | | |
+
 ## script rough_v24
 size: 1920x1080
 music: voice/sr20det.ogg
