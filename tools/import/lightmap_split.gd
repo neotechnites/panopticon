@@ -60,6 +60,7 @@ static func _stand_in(material: Material) -> Material:
 	lit.resource_name = material.resource_name
 	lit.albedo_color = Color.BLACK
 	lit.emission_enabled = true
+	lit.emission_operator = BaseMaterial3D.EMISSION_OP_MULTIPLY   # colour x texture, as the wave shader; ADD lit the rock white
 	lit.emission_texture = wave.get_shader_parameter(&"emission_texture")
 	lit.emission = wave.get_shader_parameter(&"emission_color")
 	lit.emission_energy_multiplier = float(wave.get_shader_parameter(&"emission_energy")) * BAKE_GLOW
