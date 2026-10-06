@@ -6,6 +6,8 @@ uniform vec4 albedo_color : source_color = vec4(1.0);
 uniform sampler2D albedo_texture : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
 uniform bool use_vertex_color = true;
 uniform float roughness = 0.95;
+// 1 = the tile x tint as is; lower greys the surface's own colour toward its brightness.
+uniform float saturation = 1.0;
 uniform sampler2D dapple : hint_default_white, filter_linear_mipmap, repeat_enable;
 uniform float dapple_metres = 27.0;
 // 0 leaves the sun whole, 1 is the full dapple.
@@ -38,6 +40,7 @@ void fragment() {
 	if (use_vertex_color) {
 		base *= COLOR.rgb;
 	}
+	base = mix(vec3(dot(base, vec3(0.2126, 0.7152, 0.0722))), base, saturation);
 	ALBEDO = base;
 	ROUGHNESS = roughness;
 }

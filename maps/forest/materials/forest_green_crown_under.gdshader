@@ -7,6 +7,8 @@ uniform sampler2D albedo_texture : source_color, filter_linear_mipmap_anisotropi
 uniform float glow = 0.3;
 // LeafGreen's albedo_color, so the underside is the walls' leaf where it lands on them.
 uniform vec4 tint : source_color = vec4(1.0);
+// As forest_dapple_lit.gdshader's saturation, so the underside greys with the walls.
+uniform float saturation = 1.0;
 // The glow rolls in over this many metres of radius in from the walls' head (seam_r), lit leaf giving way.
 uniform float seam_r = 47.6;
 uniform float glow_ramp = 6.0;
@@ -33,6 +35,7 @@ void vertex() {
 
 void fragment() {
 	vec3 tile = texture(albedo_texture, UV).rgb * tint.rgb;
+	tile = mix(vec3(dot(tile, vec3(0.2126, 0.7152, 0.0722))), tile, saturation);
 	float lit = clamp(UV2.x, 0.0, 1.0);
 	float g = smoothstep(seam_r, seam_r - glow_ramp, length(world.xz));
 	float leaf = max(lit, 1.0 - g);
