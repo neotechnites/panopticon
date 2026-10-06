@@ -43,6 +43,7 @@ func _advance() -> void:
 				return
 			EditorInterface.edit_node(found[0])
 		2:
+			set_process(false)   # the bake pumps the main loop; it must not start again
 			_bake()
 	_step += 1
 
