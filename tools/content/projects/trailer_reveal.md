@@ -182,13 +182,14 @@ freeze: waive
 
 ## 11
 said: v4 "Hell, lake platforming (t2)"
-capture: --shot=lava_parkour --stage=lavaparkour --bots=3 --set=line=3;solo=1;shimmer=0.06 --pov=runner --seed=20261001
+capture: --shot=lava_parkour --stage=lavaparkour --bots=3 --set=line=3;solo=1;shimmer=0.0 --pov=runner --seed=20261001
 tape: lake
 seconds: 5.5
 in: 1.2
 freeze: waive
 # hell S5 lake: three hopping the platforms, bodies only on the platforms and banks
 # v19 (Ryan): "the lava parkour scene doesnt relaly look human." The POV's eyes are his own: on the landing, then round onto the next platform before he is down, one turn a hop; every landing off-centre, so the run-ups differ (leaps at take 1.83, 2.63, 3.57, 4.25, 5.20, 6.03); a check on the second top, a stumble on the fourth (4.98); the two ahead land off-centre too
+# v28 (Ryan): "It must not distort the lava parkour shot or the eye": shimmer=0.0 here (0.06 on every other hell shot) -- at 0.06 the near lava still smeared.
 # v27 (Ryan): "Lava parkour shot: POV only, no other player." solo=1: the two ahead parked out of sight on S2; the POV is tick for tick the old take; lake re-taped.
 # v26 (Ryan): "the parkour scene also looks a bit robotic. not the pov, but the other runners." The two ahead are two players: the leader two tops ahead with a look
 # up at the tower on the fifth, the middle man held up on the second top (3.22-3.80, eyes on his feet) then quick; 0.03-0.58 s a top, landings to 0.63 m off centre, eyes on a spring. The POV is tick for tick the old take.
