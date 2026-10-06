@@ -192,6 +192,9 @@ var _fall_speed: float = 0.0
 
 var _was_on_floor: bool = true
 
+## Seconds left in which releasing the direction after a carried landing sticks it.
+var _landing_release_timer: float = 0.0
+
 ## True while the slide state owns the movement. See [method _update_slide].
 var _sliding: bool = false
 
@@ -349,6 +352,7 @@ func _physics_process(delta: float) -> void:
 		# at the point of use -- profile.ground_acceleration itself is never
 		# touched, so a boost cannot bleed into the slide or air phases, which
 		# read wish_speed and the profile unscaled.
+		_tick_landing_release(delta)
 		_apply_friction(profile.friction, delta)
 		var boost: float = maxf(_speed_boost_multiplier, TURBO_MULTIPLIER if _intent.turbo_held else 1.0)
 		_accelerate(
@@ -466,7 +470,7 @@ var net_predicted: bool = false
 var view_offset: Vector3 = Vector3.ZERO
 
 ## Floats in a captured motion state. See [method capture_motion_state].
-const MOTION_STATE_SIZE: int = 19
+const MOTION_STATE_SIZE: int = 20
 
 
 ## This body's mutable movement state -- the timers, the stance, the slide and
@@ -497,6 +501,7 @@ func capture_motion_state(out: PackedFloat32Array) -> void:
 	out[16] = _pending_launch.x
 	out[17] = _pending_launch.y
 	out[18] = _pending_launch.z
+	out[19] = _landing_release_timer
 
 
 ## Put a state from [method capture_motion_state] back on the body. A wrongly
@@ -521,6 +526,7 @@ func restore_motion_state(values: PackedFloat32Array) -> void:
 	_pitch = values[14]
 	_has_pending_launch = values[15] > 0.5
 	_pending_launch = Vector3(values[16], values[17], values[18])
+	_landing_release_timer = values[19]
 	if head != null:
 		head.rotation.x = _pitch
 	# The capsule is sized from the stance, so a restored crouch has to resize
@@ -1219,10 +1225,25 @@ func _update_floor_state() -> void:
 ## Scale horizontal speed on touchdown: a full stop with no input, a mild
 ## carry with a direction held, untouched when a bunny hop is about to fire.
 func _apply_landing_speed_scale() -> void:
+	_landing_release_timer = 0.0
 	var jump_queued: bool = _jump_buffer_timer > 0.0 or (profile.auto_bunny_hop and _intent.jump_held)
 	if jump_queued:
 		return
 	var moving: bool = _intent.move_direction.length() >= 0.2
 	var factor: float = profile.landing_carry_factor if moving else profile.landing_stop_factor
+	if moving:
+		_landing_release_timer = profile.landing_release_window
 	velocity.x *= factor
 	velocity.z *= factor
+
+
+## Inside [member MovementProfile.landing_release_window] of a carried landing, a
+## released direction sticks the landing as if it had never been held.
+func _tick_landing_release(delta: float) -> void:
+	if _landing_release_timer <= 0.0:
+		return
+	_landing_release_timer = maxf(_landing_release_timer - delta, 0.0)
+	if _intent.move_direction.length() < 0.2:
+		_landing_release_timer = 0.0
+		velocity.x *= profile.landing_stop_factor
+		velocity.z *= profile.landing_stop_factor

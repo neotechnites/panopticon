@@ -104,6 +104,10 @@ extends Resource
 ## is held. Milder than [member landing_stop_factor] so input still carries speed.
 @export_range(0.0, 1.0, 0.01) var landing_carry_factor: float = 0.85
 
+## Seconds after a carried landing in which letting go of the direction still sticks
+## it with [member landing_stop_factor]: land holding forward, release, and stop.
+@export_range(0.0, 0.5, 0.01) var landing_release_window: float = 0.1
+
 # --- Gravity ------------------------------------------------------------------
 
 ## Base downward acceleration (Quake/HL sv_gravity, 800 u/s^2 -> 20.3 m/s^2;

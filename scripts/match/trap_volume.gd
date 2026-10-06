@@ -91,13 +91,13 @@ extends Area3D
 ## enough to hop would be a timing puzzle, and a timing puzzle is fancy.
 @export var size_metres: Vector3 = Vector3(5.0, 2.2, 2.0)
 
-## When true, a body only converts once its FEET ([code]global_position.y[/code])
-## are at or below this node's own Y plus 0.05 m, for [member grace_seconds]
-## running -- overlapping the box from the side does not count. Off by default;
-## a lava surface turns it on with this node's origin at the surface height.
+## When true, a body converts once its FEET ([code]global_position.y[/code]) have
+## been at or below this node's own Y plus 0.05 m -- overlapping the box from the
+## side does not count. Off by default; a lava surface turns it on.
 @export var feet_only: bool = false
 
-## Seconds the feet must stay in before [member feet_only] converts the body.
+## Seconds from the feet's first touch to the kill; hopping out does not stop it,
+## only standing on ground clear of the trap does.
 @export_range(0.0, 2.0, 0.005) var grace_seconds: float = 0.15
 
 ## Tolerance below the surface a body's feet may sit at and still count as in.
@@ -105,10 +105,11 @@ const _FEET_DEPTH: float = 0.05
 
 var _controller: MatchController = null
 
-## Per-body seconds spent with feet in, [member feet_only] only.
-var _feet_timers: Dictionary = {}
+## Bodies whose feet have touched and the seconds since, [member feet_only] only.
+var _touched: Array[Node3D] = []
+var _clock: PackedFloat32Array = PackedFloat32Array()
 
-## Bodies currently overlapping, [member feet_only] only. Empty means asleep.
+## Bodies currently overlapping, [member feet_only] only. Empty with no touch means asleep.
 var _inside: Array[Node3D] = []
 
 
@@ -122,35 +123,50 @@ func _ready() -> void:
 	set_physics_process(false)
 
 
-## Feet-depth check, run every physics tick while a body is standing in the volume.
-##
-## Driven off the enter/exit signals rather than polling
-## [method Area3D.get_overlapping_bodies], which allocates a fresh array per
-## call: the ring carries twenty-two of these and none of them has anybody in
-## it on almost every frame of a match.
+## Feet-depth check while a body overlaps, then the kill clock until it lands clear.
+## Driven off enter/exit rather than get_overlapping_bodies(), which allocates per call.
 func _physics_process(delta: float) -> void:
+	var surface: float = global_transform.origin.y + _FEET_DEPTH
 	for index: int in range(_inside.size() - 1, -1, -1):
 		var body: Node3D = _inside[index]
 		if not is_instance_valid(body):
 			_inside.remove_at(index)
+		elif body.global_position.y <= surface and not _touched.has(body):
+			_touched.append(body)
+			_clock.append(0.0)
+	for index: int in range(_touched.size() - 1, -1, -1):
+		var body: Node3D = _touched[index]
+		if not _still_pending(body, surface):
+			_touched.remove_at(index)
+			_clock.remove_at(index)
 			continue
-		if body.global_position.y <= global_transform.origin.y + _FEET_DEPTH:
-			var elapsed: float = _feet_timers.get(body, 0.0) + delta
-			_feet_timers[body] = elapsed
-			if elapsed >= grace_seconds:
-				_feet_timers.erase(body)
-				# Dealt with. A body held where it died never moves, so the
-				# physics server never re-pairs it and body_exited never comes.
-				_inside.remove_at(index)
-				_convert(body)
-		else:
-			_feet_timers.erase(body)
+		_clock[index] += delta
+		if _clock[index] >= grace_seconds:
+			_touched.remove_at(index)
+			_clock.remove_at(index)
+			# A body held where it died never moves, so body_exited never comes.
+			_inside.erase(body)
+			_convert(body)
+	set_physics_process(not _inside.is_empty() or not _touched.is_empty())
+
+
+## False once [param body] is gone, off this trap's layers (held or parked by a
+## death elsewhere), or standing on a floor above the surface or outside the box.
+func _still_pending(body: Node3D, surface: float) -> bool:
+	if not is_instance_valid(body):
+		return false
+	var solid: CollisionObject3D = body as CollisionObject3D
+	if solid != null and (solid.collision_layer & collision_mask) == 0:
+		return false
+	var walker: CharacterBody3D = body as CharacterBody3D
+	if walker == null or not walker.is_on_floor():
+		return true
+	return body.global_position.y <= surface and _inside.has(body)
 
 
 func _on_body_exited(body: Node3D) -> void:
-	_feet_timers.erase(body)
+	# The clock keeps running: a hop out of the lava is still a touch.
 	_inside.erase(body)
-	set_physics_process(not _inside.is_empty())
 
 
 # --- Geometry -----------------------------------------------------------------
