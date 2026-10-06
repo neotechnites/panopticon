@@ -1258,7 +1258,7 @@ func _take_the_eye(match_root: Node) -> void:
 func _meet_the_eye() -> void:
 	if _eye == null or not _dials.has("eye_at"):
 		return
-	var viewer: Camera3D = get_viewport().get_camera_3d() if get_viewport() != null else null
+	var viewer: Camera3D = root.get_camera_3d()
 	if viewer == null:
 		return
 	var from: PackedStringArray = String(_dials.get("eye_from", "%f:52" % EYE_ELSEWHERE_DEGREES)).split(":")
