@@ -10,6 +10,8 @@ uniform sampler2D dapple : hint_default_white, filter_linear_mipmap, repeat_enab
 uniform float dapple_metres = 27.0;
 // 0 leaves the sun whole, 1 is the full dapple.
 uniform float dapple_strength = 1.0;
+// Brightness of the sun that gets through the dapple (1 = the suns' full light). Only dappled surfaces.
+uniform float dapple_light = 0.8;
 // The fine second layer (the texture's G): small flecks of light in shade and of shade in light.
 uniform float fleck_strength = 0.245;
 // Pulls the flecks dark: total sun 13%, a little under the big pattern alone (14%).
@@ -46,7 +48,7 @@ void light() {
 		vec3 l = (INV_VIEW_MATRIX * vec4(LIGHT, 0.0)).xyz;
 		vec2 p = world.xz - l.xz / max(l.y, 0.2) * world.y;
 		vec2 d = vec2(texture(dapple, (p + drift) / dapple_metres).r, texture(dapple, (p + fleck_drift) / dapple_metres).g);
-		sun = mix(1.0, clamp(d.r + (d.g - 0.5 - fleck_bias) * 2.0 * fleck_strength, 0.0, 1.0), dapple_strength);
+		sun = dapple_light * mix(1.0, clamp(d.r + (d.g - 0.5 - fleck_bias) * 2.0 * fleck_strength, 0.0, 1.0), dapple_strength);
 	}
 	DIFFUSE_LIGHT += clamp(dot(NORMAL, LIGHT), 0.0, 1.0) * ATTENUATION * LIGHT_COLOR / PI * sun;
 }
