@@ -64,26 +64,6 @@ environment = SubResource("Env")
 
 [node name="Ring" type="Node3D" parent="." unique_id=215463693]
 
-[node name="LavaGlow" type="Node3D" parent="Ring" unique_id=661152170]
-
-[node name="S2_LavaShelf" type="OmniLight3D" parent="Ring/LavaGlow" unique_id=220250157]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -11.2549, 24.5, 50.7674)
-light_color = Color(1, 0.35, 0.05, 1)
-light_energy = 3.74
-omni_range = 12.0
-
-[node name="S4_DemonRun_Inner" type="OmniLight3D" parent="Ring/LavaGlow" unique_id=1658816305]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -35.4639, 24.5, -38.0304)
-light_color = Color(1, 0.35, 0.05, 1)
-light_energy = 3.74
-omni_range = 12.0
-
-[node name="S4_DemonRun_Outer" type="OmniLight3D" parent="Ring/LavaGlow" unique_id=1751733702]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -11.6975, 24.5, -50.6672)
-light_color = Color(1, 0.35, 0.05, 1)
-light_energy = 3.74
-omni_range = 12.0
-
 [node name="MapBase" type="Node3D" parent="." unique_id=23449969]
 editor_description = "The one deck -- annulus, pit wall down to the courtyard, outer wall up to the rim -- from one sculpt (tools/modelling/maps/bentham_ring/map_base_build.py), exported per chunk: maps/bentham_ring/models/map_base_<chunk>.glb, each at identity here with its own collision. Rebuild one: tools/modelling/model build map_base --chunk <name>."
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.014858246, 0, -0.01688385)
@@ -599,6 +579,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.95, 0)
 editor_description = "Top-down fill under PitKey: unshadowed (the gallery ceiling would black out the lap), kept low so floors read above walls and shadows stay deep."
 transform = Transform3D(0.819152, -0.439385, 0.368688, 0, 0.642788, 0.766044, -0.573576, -0.627507, 0.526541, 0, 20, 0)
 light_color = Color(1, 0.45, 0.3, 1)
+light_bake_mode = 0
 light_energy = 0.55
 shadow_bias = 0.08
 directional_shadow_mode = 0
@@ -608,102 +589,14 @@ directional_shadow_max_distance = 180.0
 editor_description = "Retired with KeyLight. Hidden while its energy is 0."
 transform = Transform3D(-0.819152, 0.32899, -0.469846, 0, 0.819152, 0.573576, 0.573576, 0.469846, -0.67101, 0, 20, 0)
 light_color = Color(1, 0.42, 0.25, 1)
+light_bake_mode = 0
 visible = false
 light_energy = 0.0
-
-[node name="PitFireE" type="OmniLight3D" parent="Environment"]
-editor_description = "Fire rising out of the pit mouth, 4 m under the deck lip between the tower and the pit wall: it lights the ceiling, walls and anything standing from below and throws their shadows up and out. Two, opposite, so the tower's own shadow from one is filled by the other."
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 30, 19, 0)
-light_color = Color(1, 0.3, 0.08, 1)
-light_energy = 6.0
-light_specular = 0.2
-shadow_enabled = true
-shadow_bias = 0.1
-shadow_blur = 2.0
-omni_range = 90.0
-omni_attenuation = 0.6
-omni_shadow_mode = 1
-
-[node name="PitFireW" type="OmniLight3D" parent="Environment"]
-editor_description = "Fire rising out of the pit mouth, 4 m under the deck lip between the tower and the pit wall: it lights the ceiling, walls and anything standing from below and throws their shadows up and out. Two, opposite, so the tower's own shadow from one is filled by the other."
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -30, 19, 0)
-light_color = Color(1, 0.3, 0.08, 1)
-light_energy = 6.0
-light_specular = 0.2
-shadow_enabled = true
-shadow_bias = 0.1
-shadow_blur = 2.0
-omni_range = 90.0
-omni_attenuation = 0.6
-omni_shadow_mode = 1
-
-[node name="MouthGlow0" type="OmniLight3D" parent="Environment"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 40.651, 24.0, 16.838)
-light_color = Color(1, 0.32, 0.08, 1)
-light_energy = 4.0
-light_specular = 0.0
-omni_range = 22.0
-omni_attenuation = 1.0
-
-[node name="MouthGlow1" type="OmniLight3D" parent="Environment"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 16.838, 24.0, 40.651)
-light_color = Color(1, 0.32, 0.08, 1)
-light_energy = 4.0
-light_specular = 0.0
-omni_range = 22.0
-omni_attenuation = 1.0
-
-[node name="MouthGlow2" type="OmniLight3D" parent="Environment"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -16.838, 24.0, 40.651)
-light_color = Color(1, 0.32, 0.08, 1)
-light_energy = 4.0
-light_specular = 0.0
-omni_range = 22.0
-omni_attenuation = 1.0
-
-[node name="MouthGlow3" type="OmniLight3D" parent="Environment"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -40.651, 24.0, 16.838)
-light_color = Color(1, 0.32, 0.08, 1)
-light_energy = 4.0
-light_specular = 0.0
-omni_range = 22.0
-omni_attenuation = 1.0
-
-[node name="MouthGlow4" type="OmniLight3D" parent="Environment"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -40.651, 24.0, -16.838)
-light_color = Color(1, 0.32, 0.08, 1)
-light_energy = 4.0
-light_specular = 0.0
-omni_range = 22.0
-omni_attenuation = 1.0
-
-[node name="MouthGlow5" type="OmniLight3D" parent="Environment"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -16.838, 24.0, -40.651)
-light_color = Color(1, 0.32, 0.08, 1)
-light_energy = 4.0
-light_specular = 0.0
-omni_range = 22.0
-omni_attenuation = 1.0
-
-[node name="MouthGlow6" type="OmniLight3D" parent="Environment"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 16.838, 24.0, -40.651)
-light_color = Color(1, 0.32, 0.08, 1)
-light_energy = 4.0
-light_specular = 0.0
-omni_range = 22.0
-omni_attenuation = 1.0
-
-[node name="MouthGlow7" type="OmniLight3D" parent="Environment"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 40.651, 24.0, -16.838)
-light_color = Color(1, 0.32, 0.08, 1)
-light_energy = 4.0
-light_specular = 0.0
-omni_range = 22.0
-omni_attenuation = 1.0
 
 [node name="HellFlood" type="OmniLight3D" parent="Tower" unique_id=1424319747]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 300, 0)
 light_color = Color(1, 0.28, 0.06, 1)
+light_bake_mode = 0
 visible = false
 light_energy = 0.0
 omni_range = 700.0
@@ -713,6 +606,7 @@ omni_attenuation = 0.6
 editor_description = "LOCAL GLOW ONLY, not the arena's main light -- see KeyLight. A small hot point above the platform so the tower still visibly reads as a light source up close. Colour, energy, range, attenuation and height are TowerLightProfile fields applied by TowerLight.gd at ready; the light_* properties here are placeholders for the editor view. It rides the tower's rise, which is the point."
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 10, 0)
 light_color = Color(0.9, 0.14, 0.08, 1)
+light_bake_mode = 0
 visible = false
 light_energy = 30.0
 shadow_enabled = true
@@ -725,3 +619,10 @@ editor_description = "The eye over hell's tower, and hell's alone (Ryan, 2026-10
 profile = ExtResource("28_watcher_profile")
 look = ExtResource("29_watcher_look")
 
+[node name="LavaLightmap" type="LightmapGI" parent="."]
+editor_description = "Hell's light is the lava's: the sea, river, falls and cracks glow and this bake carries that glow onto the rock, with bounce and occlusion, and into probes that light the players. Rebake: tools/pc_bake_lightmap.sh. Every light of this scene is bake_mode Disabled, so they add nothing to it."
+quality = 1
+bounces = 3
+directional = false
+interior = false
+environment_mode = 0
