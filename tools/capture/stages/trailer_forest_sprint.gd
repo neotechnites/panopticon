@@ -42,6 +42,20 @@ const OUTSIDE: Array = [
 ## Start bearings: the POV, the man ahead on his line, the outside man.
 const STARTS: Array[float] = [2.5, 5.3, 6.4]
 const START_R: Array[float] = [51.4, 51.4, 55.2]
+## v34 (Ryan: "a section of the forest with more foliage in frame"), --set=zone=2: the 57-95 stretch, trunks every 6 deg both sides, the
+## lip bushes at 64/71/82 and the outer bushes; probe --heights: IN 61-62 r 49-52, 67.5-68.5 r 49.5-50.5, 91.5-93.5 r 47-50.5; OUT 74.5-76
+## r 53.5-54.5, 80.5-82 r 53-54.5, 85-86.5 r 53-56.5. The outer verge is trunk-thick, so the third man runs the thread too, a step behind.
+const THREAD2: Array = [
+	{"to": 60.0, "r": 52.7},
+	{"to": 64.0, "r": 52.7},   # 0.7 m off the 61.5 trunk
+	{"to": 70.5, "r": 51.3},   # 0.8 m off the 68 trunk
+	{"to": 77.0, "r": 52.6},   # 0.9 m inside the 75 trunk
+	{"to": 83.0, "r": 52.3},   # past the 81 trunk
+	{"to": 88.5, "r": 52.2},   # past the 85.5 trunk
+	{"to": 120.0, "r": 51.6},
+]
+const STARTS2: Array[float] = [54.0, 56.8, 58.4]
+const START_R2: Array[float] = [52.6, 52.6, 52.7]
 
 var _bodies: Array[PlayerController] = []
 
@@ -68,18 +82,22 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 	for brain: RunnerBrain in runners:
 		if brain.controller == null:
 			return false
+	var zone2: bool = int(option("zone", 1)) == 2
+	var thread: Array = THREAD2 if zone2 else THREAD
+	var starts: Array[float] = STARTS2 if zone2 else STARTS
+	var start_r: Array[float] = START_R2 if zone2 else START_R
 	for index: int in 3:
 		var legs: Array = []
-		if index == 2:
+		if index == 2 and not zone2:
 			for leg: Dictionary in OUTSIDE:
 				legs.append({"to": leg["to"], "r": leg["r"], "speed": 1.0, "glances": [{"t": 0.0, "right": -3.0, "pitch": -2.0}]})
 		else:
-			for k: int in THREAD.size():
-				var leg: Dictionary = THREAD[k]
-				var eyes: Array = POV_EYES[k] if index == 0 else [{"t": 0.0, "right": 0.0, "pitch": -2.0}]
+			for k: int in thread.size():
+				var leg: Dictionary = thread[k]
+				var eyes: Array = POV_EYES[mini(k, POV_EYES.size() - 1)] if index == 0 else [{"t": 0.0, "right": 0.0, "pitch": -2.0}]
 				legs.append({"to": leg["to"], "r": leg["r"], "speed": 1.0, "glances": eyes})
 		var steps: Array = [
-			{"do": "place", "at": LIB.ring_point(STARTS[index], START_R[index], 0.1), "face": LIB.tangent_at(STARTS[index])},
+			{"do": "place", "at": LIB.ring_point(starts[index], start_r[index], 0.1), "face": LIB.tangent_at(starts[index])},
 			{"do": "human", "on": true},
 		]
 		steps.append_array(HUMAN_RUN.steps(legs))

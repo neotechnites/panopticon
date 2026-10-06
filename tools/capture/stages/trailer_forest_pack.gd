@@ -62,6 +62,27 @@ const TAIL_SPRINT_LEGS: Array = [
 	{"to": 80.0, "r": 52.1, "speed": 1.0, "weave": 0.02, "period": 1.2,
 		"glances": [{"t": 0.0, "right": -2.0, "pitch": -3.0}, {"t": 0.5, "right": 4.0, "pitch": -2.0}]},
 ]
+## v34 (Ryan: "move it to a section of the forest with more foliage in frame"), --set=zone=2: the 55-95 stretch (trunks every
+## 6 deg both sides, lip bushes 64/71/82, outer bushes), the three on a corridor r 51.4-52.7 between the IN and OUT trunks.
+const STARTS2: Array[float] = [60.4, 57.4, 55.2]
+const START_R2: Array[float] = [52.6, 52.6, 52.7]
+const LEAD_LEGS2: Array = [
+	{"to": 70.0, "r": 52.4, "speed": 0.80, "weave": 0.04, "period": 1.2,
+		"glances": [{"t": 0.0, "right": 0.0, "pitch": -1.0}, {"t": 0.5, "right": -10.0, "pitch": -2.0}]},
+	{"to": 77.0, "r": 52.6, "speed": 0.74, "weave": 0.03, "period": 1.2,
+		"glances": [{"t": 0.0, "right": 3.0, "pitch": -1.0}, {"t": 0.3, "right": 40.0, "pitch": 7.0}, {"t": 0.75, "right": 2.0, "pitch": -1.0}]},
+	{"to": 90.0, "r": 52.3, "speed": 0.70, "weave": 0.03, "period": 1.3,
+		"glances": [{"t": 0.0, "right": 4.0, "pitch": -1.0}, {"t": 0.6, "right": -3.0, "pitch": -1.0}]},
+	{"to": 140.0, "r": 51.8, "speed": 0.75, "weave": 0.05, "period": 1.2},
+]
+const VICTIM_LEGS2: Array = [
+	{"to": 66.0, "r": 52.6, "speed": 0.75, "weave": 0.03, "period": 1.45,
+		"glances": [{"t": 0.0, "right": 0.0, "pitch": -1.0}, {"t": 0.45, "right": 9.0, "pitch": -2.0}]},
+	{"to": 72.0, "r": 51.4, "speed": 0.70, "weave": 0.0,
+		"glances": [{"t": 0.0, "right": 6.0, "pitch": -2.0}, {"t": 0.55, "right": -5.0, "pitch": -1.0}]},
+	{"to": 140.0, "r": 51.9, "speed": 0.70, "weave": 0.04, "period": 1.45,
+		"glances": [{"t": 0.0, "right": 0.0, "pitch": -1.0}, {"t": 0.5, "right": 8.0, "pitch": 2.0}, {"t": 1.2, "right": -3.0, "pitch": -1.0}]},
+]
 const VICTIM: int = 1
 ## The ridden body: the tail, 2.4 deg (2.2 m) behind the victim and 0.3 m outside him.
 const POV: int = 2
@@ -94,6 +115,7 @@ func before_start() -> void:
 
 
 func cast(runners: Array[RunnerBrain]) -> bool:
+	var zone2: bool = int(option("zone", 1)) == 2
 	if runners.size() < STARTS.size():
 		return false
 	for brain: RunnerBrain in runners:
@@ -102,13 +124,15 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 	for index: int in STARTS.size():
 		var body: PlayerController = runners[index].controller
 		var sprint: bool = int(option("sprint", 0)) == 1
-		var run: Array = HUMAN_RUN.steps(_paced(LEAD_LEGS if index == 0 else VICTIM_LEGS, SPRINT_PACE if sprint else 1.0))
+		var lead_legs: Array = LEAD_LEGS2 if zone2 else LEAD_LEGS
+		var victim_legs: Array = VICTIM_LEGS2 if zone2 else VICTIM_LEGS
+		var run: Array = HUMAN_RUN.steps(_paced(lead_legs if index == 0 else victim_legs, SPRINT_PACE if sprint else 1.0))
 		if index == POV and sprint:
 			run = HUMAN_RUN.steps(TAIL_SPRINT_LEGS)
 		elif index == POV:
 			# The rider: a look left at the lead, right at the victim ahead; when he drops,
 			# a jerk, then up and right at the tower he came from; eyes front. Never behind.
-			run = [{"do": "lane", "to": 80.0, "r": START_R[index], "speed": TAIL_PACE, "weave": TAIL_WEAVE, "period": TAIL_PERIOD, "timeout": 30.0,
+			run = [{"do": "lane", "to": 140.0 if zone2 else 80.0, "r": (START_R2 if zone2 else START_R)[index], "speed": TAIL_PACE, "weave": TAIL_WEAVE, "period": TAIL_PERIOD, "timeout": 30.0,
 				"glances": [
 					{"t": 0.0, "right": 0.0, "pitch": -2.0},
 					{"t": 0.6, "right": -24.0, "pitch": -3.0},
@@ -128,7 +152,7 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 					{"t": 2.2, "right": -8.0, "pitch": -2.0},
 				]}]
 		var steps: Array = [
-			{"do": "place", "at": LIB.ring_point(STARTS[index], START_R[index], 0.1), "face": LIB.tangent_at(STARTS[index])},
+			{"do": "place", "at": LIB.ring_point((STARTS2 if zone2 else STARTS)[index], (START_R2 if zone2 else START_R)[index], 0.1), "face": LIB.tangent_at((STARTS2 if zone2 else STARTS)[index])},
 			{"do": "human", "on": true},
 		]
 		steps.append_array(run)
@@ -177,14 +201,15 @@ func _raise_the_hand() -> void:
 	if shooter == null or shooter.controller == null:
 		return
 	_guard = shooter.controller
-	LIB.guard_to_window(_guard, float(option("window", 45.0)), float(option("win_r", 4.6)))
+	var zone2: bool = int(option("zone", 1)) == 2
+	LIB.guard_to_window(_guard, float(option("window", 92.0 if zone2 else 45.0)), float(option("win_r", 4.6)))
 	LIB.open_the_scope(_guard, float(option("clear", 0.74)))
 	_hand = GUARD_HAND.new()
 	_hand.name = "ClipGuardHand"
 	clip.root.add_child(_hand)
 	_hand.install(_guard, controller(), elapsed())
 	_hand.start_at = elapsed() + 0.6
-	_hand.park = LIB.ring_point(30.0, 52.0, 1.0)
+	_hand.park = LIB.ring_point(78.0 if zone2 else 30.0, 52.0, 1.0)
 	_hand.beats.append({"body": _pack[VICTIM], "seconds": 100.0, "fire_at": float(option("fire", 3.55)) - _hand.start_at, "watch": true})
 	say("guard at the %.0f deg window; squeeze at %.2f s" % [float(option("window", 45.0)), float(option("fire", 3.55))])
 
