@@ -69,7 +69,9 @@ func on_phase(phase: int) -> void:
 		if _bodies.is_empty():
 			_collect()
 		_watch_rifle("guard", _controller.rifle)
-		_watch_rifle("finisher", _controller.get_finisher_rifle())
+		# The finale is a shove now; a controller without a finisher rifle has none to watch.
+		if _controller.has_method(&"get_finisher_rifle"):
+			_watch_rifle("finisher", _controller.call(&"get_finisher_rifle"))
 	if playing and phase != MID:
 		_lock_brains()
 	if _bodies.is_empty():
