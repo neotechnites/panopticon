@@ -28,6 +28,7 @@
 [ext_resource type="PackedScene" path="res://tower/watching_eye.tscn" id="27_watching_eye"]
 [ext_resource type="Resource" path="res://maps/bentham_ring/bentham_ring_watching_eye_profile.tres" id="28_watcher_profile"]
 [ext_resource type="Resource" path="res://maps/bentham_ring/bentham_ring_watching_eye_look.tres" id="29_watcher_look"]
+[ext_resource type="LightmapGIData" path="res://maps/bentham_ring/bentham_ring.lmbake" id="30_lava_lightmap"]
 
 [sub_resource type="ProceduralSkyMaterial" id="SkyMat"]
 sky_top_color = Color(0.54, 0.110700026, 0.054000016, 1)
@@ -626,3 +627,4 @@ bounces = 3
 directional = false
 interior = false
 environment_mode = 0
+light_data = ExtResource("30_lava_lightmap")
