@@ -197,9 +197,10 @@ freeze: waive
 said: v4 "Hell S3, runner POV running through and bouncing on a crack"
 capture: --shot=s4_edge --stage=trailer_crack --bots=2 --pov=runner --rifle=projectile --seed=20261001
 tape: crack
-seconds: 2.2
+seconds: 3.2
 in: 1.7
 freeze: waive
+# v27 (Ryan): "cut the POV wind-up before running at the pad. Start already running." The take runs to 4.9; k1 opens after the break, him at a run.
 # behind the 139 deg lip rock, breaks across the gap at 2.05; the round lands where he was at 2.55; launched off the crack at 148.3 deg at 2.60, peaks 3.8 m up ~3.2
 # v19: his eyes go up after the mate thrown off the crack ahead (2.23); launched himself 2.60; the round crosses ahead of the mate ~3.1, a look across at the tower, down for the landing
 # v22 (Ryan): "some of that exact same jankiness in the runner pov bouncing guys shot." Three joins: a flick left in the cut's first frames (now done before it opens), a snap at the break, and in the air a whip left as he passed his run target then a snap onto the lane (~3.1). The run aims past the target and every join is carried; launched 2.63, lands ~3.78; crack re-taped (the mate, the squeeze 2.75 and the miss 3.17 unchanged)
