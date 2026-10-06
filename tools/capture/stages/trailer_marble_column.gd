@@ -29,6 +29,7 @@ var _shoved_at: float = 0.0
 var _exposed: bool = false
 var _exposed_at: float = 0.0
 var _reacted: bool = false
+var _squeezed: bool = false
 
 
 ## Marble columns at [param degrees] on the inner edge for one shot only; the map scene is untouched.
@@ -160,12 +161,17 @@ func tick(_delta: float) -> void:
 		if not _late():
 			_hand.beats[0]["fire_at"] = elapsed() - _hand.start_at
 		say("victim exposed %.2f s after the shove at %.1f deg r %.2f%s" % [elapsed() - _shoved_at, LIB.bearing_of(_victim.global_position), LIB.radius_of(_victim.global_position), "" if _late() else "; squeeze now"])
-	# Late: he sees the man come out, a beat to react, then the hand swings off the wall onto him.
+	# Late: he sees the man come out, a beat to react, then the hand comes off the wall onto him and rides him while he is down;
+	# the squeeze as he breaks back for the wall (back_fire s after the break), led on his run.
 	if _late() and _exposed and not _reacted and elapsed() >= _exposed_at + float(option("react", 0.3)):
 		_reacted = true
-		_hand.beats = [{"body": _victim, "seconds": 100.0, "fire_at": float(option("settle", 0.8)), "watch": true, "lead": float(option("lead", 1.0)), "now": int(option("now", 0)) == 1, "kick": float(option("kick", 0.3))}]
+		_hand.beats = [{"body": _victim, "seconds": 100.0, "fire_at": -1.0, "watch": true, "lead": float(option("lead", 1.0)), "now": int(option("now", 0)) == 1, "kick": float(option("kick", 0.3))}]
 		_hand.start_at = elapsed()
-		say("the guard reacts at %.2f s; squeeze at %.2f" % [elapsed(), elapsed() + float(option("settle", 0.8))])
+		say("the guard reacts at %.2f s" % elapsed())
+	if _late() and _reacted and not _squeezed and elapsed() >= _shoved_at + float(option("run_after", 1.25)) + float(option("back_fire", 0.25)):
+		_squeezed = true
+		_hand.beats[0]["fire_at"] = elapsed() - _hand.start_at
+		say("he breaks for the wall; squeeze at %.2f s" % elapsed())
 
 
 ## The guard at the 216 window, a hand resting on the column he hides behind.
@@ -201,11 +207,12 @@ func on_shove(_shover: MatchParticipant, victim: MatchParticipant) -> void:
 	_shoved = true
 	_shoved_at = elapsed()
 	if _victim_driver != null and _late():
-		# Thrown clear of the wall, he finds his feet and runs for it down the course.
-		var on: float = LIB.bearing_of(_victim.global_position) + 40.0
+		# v28 (Ryan): "after the shove the runner starts running the ring instead of going back behind cover. He must duck back
+		# behind cover." He lies where the throw puts him until he is up (no input on a flopping body), then sprints back for the wall.
 		_victim_driver.retarget([
-			{"do": "hold", "seconds": float(option("run_after", 0.55))},
-			{"do": "lane", "to": on, "r": 49.0, "speed": 1.0, "timeout": 8.0, "glances": [{"t": 0.0, "right": 0.0, "pitch": -2.0}]},
+			{"do": "hold", "seconds": float(option("run_after", 1.25))},
+			{"do": "lane", "to": float(option("cover", 216.9)), "dir": -1, "r": 48.6, "speed": float(option("back_pace", 1.0)), "timeout": 4.0,
+				"glances": [{"t": 0.0, "right": 0.0, "pitch": -3.0}]},
 			{"do": "hold", "seconds": 60.0},
 		])
 	elif _victim_driver != null:

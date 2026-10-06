@@ -142,7 +142,7 @@ freeze: waive
 
 ## 10a
 said: v5 "Marble, runner POV: two runners both behind the same column on the inner edge, hidden from the tower; he shoves the other out into the open; cut BEFORE the shot"
-capture: --map=marble --shot=pack_lead --stage=trailer_marble_column --bots=2 --pov=runner --look=social --rifle=projectile --set=late=1;lead=1.0;now=1 --seed=20261001
+capture: --map=marble --shot=pack_lead --stage=trailer_marble_column --bots=2 --pov=runner --look=social --rifle=projectile --set=late=1;lead=1.1;now=1;back_fire=0.1 --seed=20261001
 tape: marble_column
 seconds: 2.2
 in: 1.3
@@ -152,11 +152,14 @@ freeze: waive
 
 ## 10b
 said: v5 "Marble, guard scope, the same event: nobody in sight, one shoved out from behind the column, fires, hits"
-capture: --map=marble --shot=pack_lead --stage=trailer_marble_column --bots=2 --pov=guard --hud=crosshair --rifle=projectile --set=late=1;lead=1.0;now=1 --seed=20261001
+capture: --map=marble --shot=pack_lead --stage=trailer_marble_column --bots=2 --pov=guard --hud=crosshair --rifle=projectile --set=late=1;lead=1.1;now=1;back_fire=0.1 --seed=20261001
 tape: marble_column
 seconds: 3.4
 in: 2.5
 freeze: waive
+# v28 (Ryan): "the shoved ragdoll freaks out" (game fix: a flop's limbs no longer start 7 m/s behind the torso) "and after the shove the runner
+# starts running the ring instead of going back behind cover. He must duck back behind cover." He lies where the throw puts him, gets up and
+# sprints back for the wall (4.26); the scope, on him since 3.38, squeezes 0.1 s into his break, led; hit at 4.73, 218.5 deg, a metre short.
 # v27 (Ryan): "The player gets shoved further, the sniper visibly reacts (re-aims), and then hits the shot." late=1: the shipped shove (16/7) throws him
 # ~8 m clear of the wall; the scope rests on the wall's far side (215 deg); he clears the edge 3.07, the hand comes off the wall onto him at 3.37, he finds
 # his feet and runs, squeeze 4.17 led on his run, hit 4.53 at 234.3 deg. marble_column re-taped.
