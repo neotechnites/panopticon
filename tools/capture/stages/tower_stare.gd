@@ -10,14 +10,14 @@ extends "res://tools/capture/stages/stage.gd"
 ## cut: "you can't see the lava sea" -- the sea fills the lower third, the tower
 ## crown at ~40% from the top, wall and slits above, a fairly wide lens.
 ##
-## So: the lens stands at the rim edge, 100 deg r 47.0, 4 m over the deck (y 27),
-## pitched onto (0, 22.9, 0): the sea (y -11.9) runs from the tower's foot to the
-## far shore. Sway is two slow sines per axis (a breath ~0.23 Hz, a drift ~0.07
+## So: the lens stands back on the deck, 100 deg r 50.3, 2.6 m up, pitched onto
+## (0, 22.35, 0): the rim edge along the bottom, the sea beyond it, then the tower.
+## Ryan, retake: the shimmer "down a bit" -- 0.12 here, the game keeps 0.2. Sway is two slow sines per axis (a breath ~0.23 Hz, a drift ~0.07
 ## Hz), under a degree. The eye's own _process is handed back (run_clip parks it),
 ## so it tracks the current camera exactly as in a match. The guard is hidden;
 ## both prisoners stand on the deck behind the lens. S2's traps are off.
 ##
-## Dials (--set=): deg (100), r (47.0), h (4.0), aim_y (22.9), fov (75, vertical),
+## Dials (--set=): deg (100), r (50.3), h (2.6), aim_y (22.35), shimmer (0.12), fov (75, vertical),
 ## yaw (0.6), pitch (0.4), both degrees of sway.
 
 var _guard_hidden: bool = false
@@ -35,6 +35,9 @@ func before_start() -> void:
 		clip._eye = null
 	if controller().arena != null:
 		LIB.disarm_traps(controller().arena, ^"Sections/S2_LavaShelf")
+		var shimmer: Node = LIB.find_node(controller().arena, "HeatShimmer")
+		if shimmer != null:
+			shimmer.set("strength", float(option("shimmer", 0.12)))
 	say("tower_stare: eye handed back to its own tracking")
 
 
@@ -63,9 +66,9 @@ func lens(delta: float) -> bool:
 		return false
 	_t += delta
 	var deg: float = float(option("deg", 100.0))
-	var at: Vector3 = LIB.ring_point(deg, float(option("r", 47.0)), float(option("h", 4.0)))
+	var at: Vector3 = LIB.ring_point(deg, float(option("r", 50.3)), float(option("h", 2.6)))
 	lens_camera.global_position = at
-	lens_camera.look_at(Vector3(0.0, float(option("aim_y", 22.9)), 0.0), Vector3.UP)
+	lens_camera.look_at(Vector3(0.0, float(option("aim_y", 22.35)), 0.0), Vector3.UP)
 	var yaw: float = float(option("yaw", 0.6))
 	var pitch: float = float(option("pitch", 0.4))
 	var y: float = yaw * (0.55 * sin(TAU * 0.071 * _t + 0.4) + 0.3 * sin(TAU * 0.19 * _t + 1.7) + 0.15 * sin(TAU * 0.43 * _t))
