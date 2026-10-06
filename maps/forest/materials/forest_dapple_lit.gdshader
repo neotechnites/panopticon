@@ -13,7 +13,10 @@ uniform float dapple_strength = 1.0;
 // The fine second layer (the texture's G): small flecks of light in shade and of shade in light.
 uniform float fleck_strength = 0.35;
 // Pulls the flecks dark so the lit share stays where the big pattern put it (14%).
-uniform float fleck_bias = 0.18;
+uniform float fleck_bias = 0.165;
+// Leaves in a light wind: the pattern drifts back and forth (as forest_crown_shadow.gdshader's holes did).
+uniform float sway = 0.12;
+uniform float sway_speed = 1.0;
 
 varying vec3 world;
 
@@ -36,6 +39,7 @@ void light() {
 	if (LIGHT_IS_DIRECTIONAL) {
 		vec3 l = (INV_VIEW_MATRIX * vec4(LIGHT, 0.0)).xyz;
 		vec2 p = world.xz - l.xz / max(l.y, 0.2) * world.y;
+		p += sway * vec2(sin(TIME * sway_speed), 0.6 * sin(TIME * sway_speed * 0.73 + 1.3));
 		vec2 d = texture(dapple, p / dapple_metres).rg;
 		sun = mix(1.0, clamp(d.r + (d.g - 0.5 - fleck_bias) * 2.0 * fleck_strength, 0.0, 1.0), dapple_strength);
 	}

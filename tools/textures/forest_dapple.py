@@ -8,9 +8,9 @@ import numpy as np
 from PIL import Image
 
 PERIOD = 27.0      # metres per tile: whole lattices for both octaves (1.0 m and 0.45 m cells)
-SIZE = 512         # pixels per tile, ~5 cm
+SIZE = 1024        # pixels per tile, ~2.6 cm
 BIG = 0.4         # weight of the clumping octave
-GAP = 0.378        # hole threshold: more holes than the shader's 0.3, the lit area its stacked casters let through
+GAP = 0.370        # hole threshold: more holes than the shader's 0.3, the lit area its stacked casters let through
 SIGMA = 0.156       # metres of Gaussian blur: the soft edge
 OUT = "maps/forest/textures/forest_dapple.png"
 
@@ -22,7 +22,7 @@ def vnoise(cells: int) -> np.ndarray:
     t = np.arange(SIZE) * cells / SIZE
     i = np.floor(t).astype(int)
     f = t - i
-    u = f * f * (3 - 2 * f)
+    u = f * f * f * (f * (f * 6 - 15) + 10)   # quintic: no creases at the lattice lines
     i0, i1 = i % cells, (i + 1) % cells
     a = lat[np.ix_(i0, i0)]; b = lat[np.ix_(i0, i1)]
     c = lat[np.ix_(i1, i0)]; d = lat[np.ix_(i1, i1)]
@@ -42,7 +42,7 @@ soft = np.real(np.fft.ifft2(np.fft.fft2(lit) * g)).clip(0, 1)
 # pools of sun get dark flecks and pools of shade get light flecks, while the big pattern (R) is untouched.
 f = 0.6 * vnoise(int(round(PERIOD / 0.6))) + 0.4 * vnoise(int(round(PERIOD / 0.3)))
 f = (f - f.mean()) / (f.std() * 3.0)          # roughly -0.5..0.5
-fine = (np.real(np.fft.ifft2(np.fft.fft2(f) * np.exp(-2 * (np.pi * 0.05) ** 2 * (k[:, None] ** 2 + k[None, :] ** 2)))) + 0.5).clip(0, 1)
+fine = (np.real(np.fft.ifft2(np.fft.fft2(f) * np.exp(-2 * (np.pi * 0.09) ** 2 * (k[:, None] ** 2 + k[None, :] ** 2)))) + 0.5).clip(0, 1)
 rgb = np.stack([soft, fine, np.zeros_like(soft)], axis=-1)
 Image.fromarray((rgb * 255 + 0.5).astype(np.uint8), "RGB").save(OUT)
 print(f"{OUT}: lit fraction {soft.mean():.3f}, fleck mean {fine.mean():.3f}")
