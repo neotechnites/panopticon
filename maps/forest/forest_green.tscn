@@ -175,7 +175,7 @@ shader_parameter/roughness = 0.95
 shader_parameter/dapple = ExtResource("12_dapple")
 shader_parameter/contact_mask = ExtResource("16_contact")
 shader_parameter/contact_strength = 0.5
-shader_parameter/contact_radius = 1.5
+shader_parameter/contact_radius = 1.95
 shader_parameter/contact_height = 3.0
 
 [sub_resource type="ShaderMaterial" id="PathGreen"]
@@ -189,7 +189,7 @@ shader_parameter/roughness = 0.95
 shader_parameter/dapple = ExtResource("12_dapple")
 shader_parameter/contact_mask = ExtResource("16_contact")
 shader_parameter/contact_strength = 0.5
-shader_parameter/contact_radius = 1.5
+shader_parameter/contact_radius = 1.95
 shader_parameter/contact_height = 3.0
 
 [sub_resource type="ShaderMaterial" id="VergeGreen"]
@@ -203,7 +203,7 @@ shader_parameter/roughness = 0.95
 shader_parameter/dapple = ExtResource("12_dapple")
 shader_parameter/contact_mask = ExtResource("16_contact")
 shader_parameter/contact_strength = 0.5
-shader_parameter/contact_radius = 1.5
+shader_parameter/contact_radius = 1.95
 shader_parameter/contact_height = 3.0
 
 [sub_resource type="ShaderMaterial" id="EdgeGreen"]
@@ -217,7 +217,7 @@ shader_parameter/roughness = 0.95
 shader_parameter/dapple = ExtResource("12_dapple")
 shader_parameter/contact_mask = ExtResource("16_contact")
 shader_parameter/contact_strength = 0.5
-shader_parameter/contact_radius = 1.5
+shader_parameter/contact_radius = 1.95
 shader_parameter/contact_height = 3.0
 
 [sub_resource type="ShaderMaterial" id="BarkGreen"]
@@ -229,7 +229,7 @@ shader_parameter/use_vertex_color = false
 shader_parameter/roughness = 0.95
 shader_parameter/dapple = ExtResource("12_dapple")
 shader_parameter/contact_mask = ExtResource("16_contact")
-shader_parameter/contact_strength = 0.55
+shader_parameter/contact_strength = 1.0
 shader_parameter/contact_radius = 2.0
 shader_parameter/contact_height = 1.0
 
@@ -242,7 +242,7 @@ shader_parameter/use_vertex_color = true
 shader_parameter/roughness = 0.95
 shader_parameter/dapple = ExtResource("12_dapple")
 shader_parameter/contact_mask = ExtResource("16_contact")
-shader_parameter/contact_strength = 0.55
+shader_parameter/contact_strength = 1.0
 shader_parameter/contact_radius = 2.0
 shader_parameter/contact_height = 1.0
 
@@ -256,7 +256,7 @@ shader_parameter/roughness = 0.95
 shader_parameter/dapple = ExtResource("12_dapple")
 shader_parameter/contact_mask = ExtResource("16_contact")
 shader_parameter/contact_strength = 0.5
-shader_parameter/contact_radius = 1.5
+shader_parameter/contact_radius = 1.95
 shader_parameter/contact_height = 3.0
 
 [sub_resource type="ShaderMaterial" id="RockGranite"]
