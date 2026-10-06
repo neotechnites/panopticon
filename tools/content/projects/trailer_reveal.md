@@ -54,6 +54,16 @@ in: 0.9
 freeze: waive
 # forest 14-40 deg between the lane trunks, the tail 2.2 m behind the victim; hit at take 3.55
 
+## 4s
+said: v27 (Ryan) "Forest runner-POV running shot: it looks slow and unfinished" -- refilm fast and complete: full sprint, a good line, no dead start
+capture: --map=res://maps/forest/forest_green.tscn --shot=pack_lead --stage=trailer_forest_pack --bots=3 --pov=runner --look=social --rifle=projectile --set=sprint=1;fire=99 --seed=20261001
+tape: forest_sprint
+seconds: 4.5
+in: 0.0
+freeze: waive
+# h1 for v27: the forest_pack stage with sprint=1, every man at a full run (pace x1.42, capped at 1.0; the tail at 1.0 on its own S line
+# between the 20.7 lane trunk and the 32.9 outer trunk); no shot (fire=99). The cut opens a second into the run, the pack already at speed.
+
 ## 5
 said: v4 "Forest, guard scope: the kill (h2)"
 capture: --map=forest --shot=pack_lead --stage=trailer_forest_pack --bots=3 --pov=guard --hud=crosshair --rifle=projectile --set=lift=1;fire=3.15 --seed=20261001

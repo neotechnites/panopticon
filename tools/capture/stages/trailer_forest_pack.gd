@@ -49,6 +49,19 @@ const VICTIM_LEGS: Array = [
 	{"to": 80.0, "r": 51.7, "speed": 0.70, "weave": 0.04, "period": 1.45,
 		"glances": [{"t": 0.0, "right": 0.0, "pitch": -1.0}, {"t": 0.5, "right": 8.0, "pitch": 2.0}, {"t": 1.2, "right": -3.0, "pitch": -1.0}]},
 ]
+## v27 (Ryan): the forest POV run "looks slow and unfinished". --set=sprint=1: every man at full run (a player holds W),
+## the tail on his own line, an S between the 20.7 lane trunk and the 32.9 outer trunk, eyes on the line ahead and the men.
+const SPRINT_PACE: float = 1.42
+const TAIL_SPRINT_LEGS: Array = [
+	{"to": 13.0, "r": 52.3, "speed": 1.0, "weave": 0.02, "period": 1.1,
+		"glances": [{"t": 0.0, "right": 2.0, "pitch": -3.0}, {"t": 0.35, "right": -9.0, "pitch": -3.0}]},
+	{"to": 22.0, "r": 51.6, "speed": 1.0, "weave": 0.0,
+		"glances": [{"t": 0.0, "right": -4.0, "pitch": -3.0}, {"t": 0.4, "right": 7.0, "pitch": -2.0}]},
+	{"to": 30.0, "r": 52.5, "speed": 1.0, "weave": 0.0,
+		"glances": [{"t": 0.0, "right": 5.0, "pitch": -2.0}, {"t": 0.45, "right": -5.0, "pitch": -3.0}]},
+	{"to": 80.0, "r": 52.1, "speed": 1.0, "weave": 0.02, "period": 1.2,
+		"glances": [{"t": 0.0, "right": -2.0, "pitch": -3.0}, {"t": 0.5, "right": 4.0, "pitch": -2.0}]},
+]
 const VICTIM: int = 1
 ## The ridden body: the tail, 2.4 deg (2.2 m) behind the victim and 0.3 m outside him.
 const POV: int = 2
@@ -88,8 +101,11 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 			return false
 	for index: int in STARTS.size():
 		var body: PlayerController = runners[index].controller
-		var run: Array = HUMAN_RUN.steps(LEAD_LEGS if index == 0 else VICTIM_LEGS)
-		if index == POV:
+		var sprint: bool = int(option("sprint", 0)) == 1
+		var run: Array = HUMAN_RUN.steps(_paced(LEAD_LEGS if index == 0 else VICTIM_LEGS, SPRINT_PACE if sprint else 1.0))
+		if index == POV and sprint:
+			run = HUMAN_RUN.steps(TAIL_SPRINT_LEGS)
+		elif index == POV:
 			# The rider: a look left at the lead, right at the victim ahead; when he drops,
 			# a jerk, then up and right at the tower he came from; eyes front. Never behind.
 			run = [{"do": "lane", "to": 80.0, "r": START_R[index], "speed": TAIL_PACE, "weave": TAIL_WEAVE, "period": TAIL_PERIOD, "timeout": 30.0,
@@ -125,6 +141,16 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 	stage_body(_pack[POV])
 	say("trailer_forest_pack: three from %.1f deg, victim %s" % [STARTS[0], _pack[VICTIM].name])
 	return true
+
+
+## [param legs] with every pace times [param by], never past a full run.
+static func _paced(legs: Array, by: float) -> Array:
+	var out: Array = []
+	for leg: Dictionary in legs:
+		var copy: Dictionary = leg.duplicate()
+		copy["speed"] = minf(float(copy["speed"]) * by, 1.0)
+		out.append(copy)
+	return out
 
 
 func tick(_delta: float) -> void:
