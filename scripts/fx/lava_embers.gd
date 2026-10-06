@@ -20,12 +20,12 @@ extends Node3D
 		ash = value
 		_rebuild()
 ## Ash flake size in metres off the rivers, shelf and falls (seen 5-15 m from the deck).
-@export_range(0.02, 1.0, 0.01) var ember_size: float = 0.2:
+@export_range(0.02, 1.0, 0.01) var ember_size: float = 0.3:
 	set(value):
 		ember_size = value
 		_rebuild()
 ## Ash flake size in metres off the sea (seen from the tower and down the pit).
-@export_range(0.05, 2.0, 0.01) var sea_ember_size: float = 0.35:
+@export_range(0.05, 2.0, 0.01) var sea_ember_size: float = 0.55:
 	set(value):
 		sea_ember_size = value
 		_rebuild()
@@ -38,9 +38,9 @@ extends Node3D
 ## World points on the S4/S5 lava falls, every 3.5 m, from the LavaRiver surfaces.
 @export var fall_points: PackedVector3Array = PackedVector3Array()
 
-const SEA_ASH: int = 260
-const RIVER_ASH: int = 300
-const FALL_ASH: int = 120
+const SEA_ASH: int = 700
+const RIVER_ASH: int = 1000
+const FALL_ASH: int = 300
 const SPARKS: int = 30
 ## Every particle stays inside this box round the ring (node space): the pit, the deck and above.
 const BOUNDS: AABB = AABB(Vector3(-64.0, -14.0, -64.0), Vector3(128.0, 74.0, 128.0))
