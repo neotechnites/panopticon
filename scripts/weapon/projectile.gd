@@ -103,7 +103,7 @@ const HEAD_BACK_WIDTHS: float = 1.0
 const TAIL_TAPER: float = 0.25
 
 ## One material and one mesh per look, shared by every round in the air.
-static var _visual_material: StandardMaterial3D = null
+static var _visual_material: ShaderMaterial = null
 static var _visual_meshes: Dictionary = {}
 
 ## Nearer than this to the viewer's eye the bullet is not drawn: the trigger
@@ -393,10 +393,10 @@ static func visual_mesh_for(profile: WeaponProfile) -> Mesh:
 
 
 ## The one bullet material: the tracer's unshaded alpha blend, coloured by the vertices.
-static func visual_material() -> StandardMaterial3D:
+static func visual_material() -> ShaderMaterial:
 	if _visual_material == null:
 		_visual_material = Tracer.build_material(Color.WHITE)
-		_visual_material.vertex_color_use_as_albedo = true
+		_visual_material.set_shader_parameter("use_vertex_color", true)
 	return _visual_material
 
 
@@ -425,12 +425,10 @@ static func _build_bullet_mesh(length: float, width: float, tint: Color) -> Arra
 
 
 static func _add_triangle(tool: SurfaceTool, color: Color, a: Vector3, b: Vector3, c: Vector3) -> void:
-	tool.set_color(color)
-	tool.add_vertex(a)
-	tool.set_color(color)
-	tool.add_vertex(b)
-	tool.set_color(color)
-	tool.add_vertex(c)
+	for corner: Vector3 in [a, b, c]:
+		tool.set_color(color)
+		tool.set_uv(Vector2.ZERO)
+		tool.add_vertex(corner)
 
 
 ## One tail quad from [param near] to [param far], [param half_width] wide at the head
@@ -443,15 +441,10 @@ static func _add_tail_quad(
 	var near_b: Vector3 = near + half_width
 	var far_a: Vector3 = far - far_half
 	var far_b: Vector3 = far + far_half
-	tool.set_color(near_color)
-	tool.add_vertex(near_a)
-	tool.set_color(near_color)
-	tool.add_vertex(near_b)
-	tool.set_color(far_color)
-	tool.add_vertex(far_b)
-	tool.set_color(near_color)
-	tool.add_vertex(near_a)
-	tool.set_color(far_color)
-	tool.add_vertex(far_b)
-	tool.set_color(far_color)
-	tool.add_vertex(far_a)
+	# UV.x 1 marks the tail: the shader fades it when seen edge-on, the head never.
+	var corners: Array[Vector3] = [near_a, near_b, far_b, near_a, far_b, far_a]
+	var colors: Array[Color] = [near_color, near_color, far_color, near_color, far_color, far_color]
+	for index: int in corners.size():
+		tool.set_color(colors[index])
+		tool.set_uv(Vector2(1.0, 0.0))
+		tool.add_vertex(corners[index])
