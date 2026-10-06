@@ -1279,7 +1279,9 @@ func _meet_the_eye() -> void:
 	var swing: float = clampf((_elapsed - float(_dials["eye_at"])) / maxf(float(_dials.get("eye_swing", 0.4)), 0.01), 0.0, 1.0)
 	var away: Vector3 = _eye.call(&"gaze_direction_for", elsewhere)
 	var onto: Vector3 = _eye.call(&"gaze_direction_for", viewer.global_position)
-	_eye.call(&"turn_toward", away.slerp(onto, smoothstep(0.0, 1.0, swing)).normalized(), 0.0)
+	# eye_onto (0.93): a hair short of dead on, as the game's lagging eye is; dead on, its pupil and iris caps fight.
+	var share: float = smoothstep(0.0, 1.0, swing) * float(_dials.get("eye_onto", 0.93))
+	_eye.call(&"turn_toward", away.slerp(onto, share).normalized(), 0.0)
 	if OS.has_environment("STAGE_DEBUG") and Engine.get_physics_frames() % 6 == 0:
 		print("[eye] %5.2f swing %.2f away-onto %.1f deg gaze-viewer %.1f deg" % [_elapsed, swing, rad_to_deg(away.angle_to(onto)), rad_to_deg((_eye.call(&"gaze_direction") as Vector3).angle_to(viewer.global_position - _eye.global_position))])
 
