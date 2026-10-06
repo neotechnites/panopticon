@@ -109,8 +109,13 @@ void fragment() {
 	vec4 albedo_tex = vec4(clamp(albedo_mean + 0.75 * (textureGrad(albedo_texture, ua, ax, ay).rgb + textureGrad(albedo_texture, ub, bx, by).rgb - 2.0 * albedo_mean), 0.0, 1.0), 1.0);
 	vec3 emission_tex = clamp(emission_mean + 0.75 * (textureGrad(emission_texture, ua, ax, ay).rgb + textureGrad(emission_texture, ub, bx, by).rgb - 2.0 * emission_mean), 0.0, 1.0);
 #endif
+#ifdef WAVE_SELF_LIT
+	// Unshaded: its own light only, the albedo at WAVE_SELF_LIT plus the glow, never lit by the fire it casts.
+	ALBEDO = albedo_tex.rgb * albedo_color.rgb * WAVE_SELF_LIT + emission_tex * emission_color.rgb * emission_energy;
+#else
 	ALBEDO = albedo_tex.rgb * albedo_color.rgb;
 	EMISSION = emission_tex * emission_color.rgb * emission_energy;
+#endif
 	ROUGHNESS = roughness;
 	METALLIC = metallic;
 }
