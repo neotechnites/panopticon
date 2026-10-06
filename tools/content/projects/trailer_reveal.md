@@ -154,8 +154,8 @@ freeze: waive
 said: v5 "Marble, guard scope, the same event: nobody in sight, one shoved out from behind the column, fires, hits"
 capture: --map=marble --shot=pack_lead --stage=trailer_marble_column --bots=2 --pov=guard --hud=crosshair --rifle=projectile --set=late=1;lead=1.0;now=1 --seed=20261001
 tape: marble_column
-seconds: 2.2
-in: 2.75
+seconds: 3.4
+in: 2.5
 freeze: waive
 # v27 (Ryan): "The player gets shoved further, the sniper visibly reacts (re-aims), and then hits the shot." late=1: the shipped shove (16/7) throws him
 # ~8 m clear of the wall; the scope rests on the wall's far side (215 deg); he clears the edge 3.07, the hand comes off the wall onto him at 3.37, he finds
