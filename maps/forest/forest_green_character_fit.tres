@@ -1,6 +1,8 @@
-[gd_resource type="Resource" script_class="CharacterFit" load_steps=2 format=3]
+[gd_resource type="Resource" script_class="CharacterFit" load_steps=4 format=3]
 
 [ext_resource type="Script" path="res://scripts/match/character_fit.gd" id="1_character_fit"]
+[ext_resource type="Texture2D" path="res://maps/forest/textures/forest_dapple.png" id="2_dapple"]
+[ext_resource type="Shader" path="res://maps/forest/materials/forest_dapple_lit.gdshader" id="3_dapple_lit"]
 
 [resource]
 script = ExtResource("1_character_fit")
@@ -8,8 +10,11 @@ shade = Color(0.42, 0.52, 0.48, 1)
 light = Color(0.9, 1, 0.86, 1)
 light_from = Vector2(0.5, 0.85)
 wrap = 0.5
-sun = 0.35
+sun = 0.6
 body = Color(1, 1, 1, 1)
 shirt = 1.4
 shirt_hue = 0.3
 rim = 0.0
+dapple = ExtResource("2_dapple")
+dapple_shader = ExtResource("3_dapple_lit")
+dapple_shade = 0.6
