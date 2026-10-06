@@ -176,6 +176,7 @@ var _stuck_for: float = 0.0
 var _seat: BotTowerSeat = null
 var _fill: OmniLight3D = null
 var _eye: Node3D = null
+var _cross: CanvasItem = null
 var _chain: Node = null
 var _driver: Node = null
 var _victim_driver: Node = null
@@ -292,6 +293,7 @@ func _process(delta: float) -> bool:
 	if _pov != "":
 		_ride_a_body()
 		_meet_the_eye()
+		_crosshair_only_through_the_eye()
 	else:
 		if _plugin == null or not _plugin.lens(delta):
 			var progress: float = clampf((_elapsed - _delay) / _seconds, 0.0, 1.0)
@@ -1135,6 +1137,17 @@ func _eye_of(body: Node3D) -> Camera3D:
 ## True while [param body] is on the deck or in the tower, not buried under them.
 func _is_standing(body: Node3D) -> bool:
 	return absf(body.global_position.y - DECK_Y) <= 6.0
+
+
+## --hud=crosshair: the cross belongs to the ridden eye; while another camera has the screen (the finale's cinematic) it is off.
+func _crosshair_only_through_the_eye() -> void:
+	if String(_options.get("hud", "")) != "crosshair" or _pov_body == null or not is_instance_valid(_pov_body):
+		return
+	if _cross == null:
+		var hud: Node = STAGE_LIB.find_node(root, "HUD")
+		_cross = hud.get_node_or_null(^"Root/Crosshair") as CanvasItem if hud != null else null
+	if _cross != null:
+		_cross.visible = root.get_camera_3d() == _eye_of(_pov_body)
 
 
 ## Tell the game this bot is the body being looked out of.
