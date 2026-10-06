@@ -7,8 +7,8 @@ rules: 16:9 1920x1080 (SIZE=1920x1080 shot.sh), no HUD except the guard's scope,
 v2 notes (Ryan on rough_v1): the guard stands at the tower's window, not deep inside; all runners run the course direction; the runner shot is the SAME event as the guard shot (same stage, same seed, two POVs), cut back ~1 s to the man directly behind the victim; clear line of sight when he looks up at the tower; title drops in HARD on the music's drop; music https://www.youtube.com/watch?v=OBPV0lsorwU; real-looking gameplay only (walkable deck and real cover, nobody on lava, nobody looking backwards); max 4 players a shot (1 guard + 3); spread across hell, forest and marble. Added: "EVERY shot is first-person POV -- either the guard's scope/tower view or a prisoner's first-person view. No third-person ... Title/end cards are the only non-POV frames."
 music: external\src\music_v2_OBPV0lsorwU.mp4 -> voice\sr20det.ogg (SOURCES.md). The drop: 0.35 s of silence from 5.36 s, the hit at 5.703 s (sample onset); 170 bpm after it (v3 measured).
 cards: cuts/title_hard.mp4 is v1's title frame looped from frame 0 (v1's title.mp4 opened on two black frames); cuts/end.mp4 is v1's.
-delivery: content\trailer_reveal\final\rough_v26.mp4 (and ~/Desktop/panopticon-renders/trailer_reveal/)
-tag: rough_v26
+delivery: content\trailer_reveal\final\rough_v27.mp4 (and ~/Desktop/panopticon-renders/trailer_reveal/)
+tag: rough_v27
 alt: rough_v24 (the SR20DET cut before Ryan's seven notes; ## script rough_v24)
 alt: rough_v26_vivaldi (rough_v25_vivaldi with the seven notes, every cut and event on the same beats; ## script rough_v26_vivaldi)
 kept: cuts\_v25\NN.mp4 are the shot files rough_v24 and rough_v25_vivaldi were cut from (every shot was refilmed for v26 on main 6547970).
@@ -35,7 +35,7 @@ freeze: waive
 
 ## 2
 said: v4 "Hell, the same event from the runner behind: the man ahead drops, he looks up at the tower (keep a2)"
-capture: --shot=s3_open_lane --stage=trailer_open --pov=runner --bots=3 --rifle=projectile --set=fire_at=3.24 --seed=20261001
+capture: --shot=s3_open_lane --stage=trailer_open --pov=runner --bots=3 --rifle=projectile --set=fire_at=3.24;eye_at=4.0;eye_swing=0.35;eye_from=116.3:49.3 --seed=20261001
 tape: open
 seconds: 5.0
 in: 0.9

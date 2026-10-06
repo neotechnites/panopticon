@@ -291,6 +291,7 @@ func _process(delta: float) -> bool:
 		return false
 	if _pov != "":
 		_ride_a_body()
+		_meet_the_eye()
 	else:
 		if _plugin == null or not _plugin.lens(delta):
 			var progress: float = clampf((_elapsed - _delay) / _seconds, 0.0, 1.0)
@@ -1250,6 +1251,22 @@ func _take_the_eye(match_root: Node) -> void:
 		_eye = null
 		return
 	_eye.process_mode = Node.PROCESS_MODE_DISABLED
+
+
+## POV with --set=eye_at=T: the eye holds on eye_from (deg:r, the victim's spot) and only
+## at take T swings onto the POV's eyes over eye_swing s, after he has looked up at it.
+func _meet_the_eye() -> void:
+	if _eye == null or not _dials.has("eye_at"):
+		return
+	var viewer: Camera3D = get_viewport().get_camera_3d() if get_viewport() != null else null
+	if viewer == null:
+		return
+	var from: PackedStringArray = String(_dials.get("eye_from", "%f:52" % EYE_ELSEWHERE_DEGREES)).split(":")
+	var elsewhere: Vector3 = SHOTS.ring_point(float(from[0]), float(from[1]) if from.size() > 1 else 52.0, 1.0)
+	var swing: float = clampf((_elapsed - float(_dials["eye_at"])) / maxf(float(_dials.get("eye_swing", 0.4)), 0.01), 0.0, 1.0)
+	var away: Vector3 = _eye.call(&"gaze_direction_for", elsewhere)
+	var onto: Vector3 = _eye.call(&"gaze_direction_for", viewer.global_position)
+	_eye.call(&"turn_toward", away.slerp(onto, smoothstep(0.0, 1.0, swing)).normalized(), 0.0)
 
 
 ## Look down the ring, then come round onto the camera as the pan settles.
