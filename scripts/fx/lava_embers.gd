@@ -20,7 +20,7 @@ extends Node3D
 		ash = value
 		_rebuild()
 ## Ember quad size in metres.
-@export_range(0.02, 0.6, 0.01) var ember_size: float = 0.14:
+@export_range(0.02, 0.6, 0.01) var ember_size: float = 0.28:
 	set(value):
 		ember_size = value
 		_rebuild()
@@ -31,9 +31,9 @@ extends Node3D
 ## World points on the S2/S4/S5 rivers and falls, sampled from the LavaRiver surfaces.
 @export var river_points: PackedVector3Array = PackedVector3Array()
 
-const SEA_EMBERS: int = 70
-const RIVER_EMBERS: int = 44
-const ASH_FLECKS: int = 22
+const SEA_EMBERS: int = 100
+const RIVER_EMBERS: int = 60
+const ASH_FLECKS: int = 26
 
 
 func _ready() -> void:
@@ -119,7 +119,7 @@ func _ember_motion(p: CPUParticles3D, v_min: float, v_max: float) -> void:
 	p.damping_max = 0.2
 	p.scale_amount_min = 0.5
 	p.scale_amount_max = 1.2
-	p.color_initial_ramp = _ramp(PackedFloat32Array([0.0, 1.0]), [Color(1.0, 0.35, 0.05), Color(1.0, 0.8, 0.3)])
+	p.color_initial_ramp = _ramp(PackedFloat32Array([0.0, 1.0]), [Color(1.0, 0.45, 0.08), Color(1.0, 0.85, 0.4)])
 	p.color_ramp = _ramp(PackedFloat32Array([0.0, 0.06, 0.2, 0.3, 0.45, 0.55, 0.7, 0.85, 1.0]), [
 		Color(1, 1, 1, 0.0), Color(1, 1, 1, 1.0), Color(1, 1, 1, 0.55), Color(1, 1, 1, 1.0),
 		Color(1, 1, 1, 0.5), Color(1, 1, 1, 0.9), Color(0.9, 0.6, 0.5, 0.45), Color(0.8, 0.4, 0.3, 0.6),
