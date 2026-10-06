@@ -194,18 +194,18 @@ func test_the_wheel_changes_the_fly_speed() -> void:
 func test_h_hides_the_whole_hud_and_shows_it_again() -> void:
 	_hud.tick()
 	assert_true(_hud.is_readout_showing(), "the human is a prisoner and has a readout")
-	assert_true(_hud.crosshair.is_visible_in_tree(), "the dot is on screen")
+	assert_true(_hud.status_panel.is_visible_in_tree(), "the readout is on screen")
 
 	_hud.set_hud_hidden(true)
 	_hud.tick()
 	assert_true(_hud.is_hud_hidden(), "the HUD is hidden")
 	assert_false(_hud.visible, "the whole readout is off the screen")
-	assert_false(_hud.crosshair.is_visible_in_tree(), "and the crosshair went with it")
+	assert_false(_hud.status_panel.is_visible_in_tree(), "and the readout went with it")
 
 	_hud.set_hud_hidden(false)
 	_hud.tick()
 	assert_false(_hud.is_hud_hidden(), "H again brings it back")
-	assert_true(_hud.crosshair.is_visible_in_tree(), "dot included")
+	assert_true(_hud.status_panel.is_visible_in_tree(), "readout included")
 
 
 ## FREECAM reads out next to INVINCIBLE and TURBO while the view is detached.
