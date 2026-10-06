@@ -36,7 +36,7 @@ func tune_rules(rules: MatchRules) -> void:
 func before_start() -> void:
 	LIB.disarm_pads(clip.root)
 	LIB.disarm_traps(clip.root)
-	controller().kill_beat_started.connect(func(_guard: MatchParticipant, _seconds: float) -> void: say("kill beat: the finisher's round took the guard"))
+	controller().kill_beat_started.connect(func(_guard: MatchParticipant, _seconds: float, _throw: Vector3 = Vector3.ZERO) -> void: say("kill beat: the guard is down"))
 
 
 func cast(runners: Array[RunnerBrain]) -> bool:

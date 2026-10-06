@@ -193,6 +193,26 @@ freeze: waive
 # v26 (Ryan): "int the final scence, the gaurd should turn around fully before getting shot." He hears the finisher arrive (2.85) and comes round 120 deg to face
 # him, rifle with him, one eased turn 3.02-3.92; the kill beat is still 4.20.
 
+## 12f
+said: v27 (Ryan) "Ending: the guard getting shoved out of the tower, including the guard's POV of being flung" -- the finisher's eyes
+capture: --map=marble --shot=portal --stage=trailer_finale_marble --bots=2 --pov=runner --look=social --rifle=projectile --seed=20261001
+tape: finale
+seconds: 5.2
+in: 0.9
+freeze: waive
+# corridor sprint from 320 deg into the portal (arrives 2.85), in the room behind the guard, scoped at the 126 window: 0.35 s, then
+# straight at him; the shipped finale shove at 3.83 throws him out of the open tower (2x an ordinary shove) and the game's
+# cinematic (FinaleView) takes every view for the 2.0 s kill beat. The cut ends on the shove.
+
+## 12g
+said: v27 (Ryan) "including the guard's POV of being flung" -- the guard's own screen: his scope on the ring, the shove, the game's cinematic of the throw
+capture: --map=marble --shot=portal --stage=trailer_finale_marble --bots=2 --pov=guard --hud=crosshair --rifle=projectile --seed=20261001
+tape: finale
+seconds: 3.6
+in: 2.6
+freeze: waive
+# the finale tape down the guard's eyes: scoped on the ring at 126, the shove at 3.83, then FinaleView side-on to the throw.
+
 ## 13
 said: v4 "Hell S3, runner POV running through and bouncing on a crack"
 capture: --shot=s4_edge --stage=trailer_crack --bots=2 --pov=runner --rifle=projectile --seed=20261001
