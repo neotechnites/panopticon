@@ -112,6 +112,10 @@ metadata/_edit_lock_ = true
 [node name="MapBaseCoverS4" parent="MapBase" unique_id=1799092588 instance=ExtResource("10_map_base_cover_s4")]
 metadata/_edit_lock_ = true
 
+[node name="MapBaseCoverS4Rock" parent="MapBase/MapBaseCoverS4"]
+editor_description = "Visual layer 4 only: the pit fires (light_cull_mask) skip it, so PitFireN, right under these rocks, no longer floods out the lava's baked glow on them."
+layers = 8
+
 [node name="MapBaseGate" parent="MapBase" unique_id=432265109 instance=ExtResource("10_map_base_gate")]
 editor_description = "The cave wall with slots (rock_bars_build.py) across the lane at 350 deg, built into the sculpt where RockBars stood."
 metadata/_edit_lock_ = true
@@ -613,6 +617,7 @@ shadow_blur = 2.0
 omni_range = 140.0
 omni_attenuation = 0.6
 omni_shadow_mode = 1
+light_cull_mask = 4294967287
 
 [node name="PitFireN" type="OmniLight3D" parent="Environment"]
 editor_description = "Fire rising out of the pit mouth, 4 m under the deck lip between the tower and the pit wall: it lights the ceiling, walls and anything standing from below and throws their shadows up and out. Two, a quarter turn apart (bearings 0 and 270): each lights the gallery side-on and leaves its own bearing (the deck lip) and the far one (the tower) dark, so together they sum even round the ring."
@@ -627,6 +632,7 @@ shadow_blur = 2.0
 omni_range = 140.0
 omni_attenuation = 0.6
 omni_shadow_mode = 1
+light_cull_mask = 4294967287
 
 [node name="HellFlood" type="OmniLight3D" parent="Tower" unique_id=1424319747]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 300, 0)
