@@ -8,6 +8,9 @@ extends "res://tools/capture/stages/stage.gd"
 ## back (-), 0.2 m further out; the swing runs 5 deg inboard of the ring and lands him past the wall in the open.
 ## Dials: victim (216.531,48.55), pov (215.53,48.75), shove (clip s, 2.7), impulse (8.5), up (4.0), lead (0.7: he stops dead on landing), kick (0.3), edge (217.1).
 ## v8 (Ryan): "he needs to get shot WHILE he's being shoved out": no recovery; the squeeze the first frame he is in the open.
+## v27 (Ryan): "the player gets shoved further, the sniper visibly reacts (re-aims), and then hits the shot" (late=1): the shipped
+## shove, the scope resting on the wall's far side (rest, deg), he scrambles on (run_after s), the hand comes onto him react s after
+## he clears the wall and fires settle s later. And "the runner must NOT look over at the tower" (late=1): the rider's eyes stay low.
 
 const GUARD_HAND := preload("res://tools/capture/stages/guard_hand.gd")
 const COLUMN_SCENE: String = "res://maps/marble/models/marble_column.glb"
@@ -24,6 +27,8 @@ var _guard: PlayerController = null
 var _shoved: bool = false
 var _shoved_at: float = 0.0
 var _exposed: bool = false
+var _exposed_at: float = 0.0
+var _reacted: bool = false
 
 
 ## Marble columns at [param degrees] on the inner edge for one shot only; the map scene is untouched.
@@ -44,10 +49,14 @@ func bots() -> int:
 	return 2
 
 
+func _late() -> bool:
+	return int(option("late", 0)) == 1
+
+
 func tune_rules(rules: MatchRules) -> void:
 	rules.map_id = &"marble"
-	rules.shove_impulse = float(option("impulse", 8.5))
-	rules.shove_up_impulse = float(option("up", 4.0))
+	rules.shove_impulse = float(option("impulse", 16.0 if _late() else 8.5))
+	rules.shove_up_impulse = float(option("up", 7.0 if _late() else 4.0))
 	rules.guard_projectile_speed = 0.0
 	rules.base_reload_seconds = 1.0
 	# The shipped rule: a shot man plays his death and lies where he fell, not parked out of the world.
@@ -94,11 +103,12 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 	# The swing goes along the ring, 5 deg inboard to keep him in the cone; the edge is r 46.7, he lands ~r 48.
 	var swing: Vector3 = (LIB.tangent_at(v_deg) * cos(deg_to_rad(5.0)) - LIB.radial_at(v_deg) * sin(deg_to_rad(5.0))).normalized()
 	var square: float = _right_of(p_face, swing)
+	var late: bool = _late()
 	drive(runners[1], [
 		{"do": "place", "at": p + Vector3.UP * 0.1, "face": p_face},
 		{"do": "human", "on": true},
 		{"do": "hold", "seconds": 0.35},
-		{"do": "glance", "right": -9.0, "pitch": 6.0, "seconds": 0.45},
+		{"do": "glance", "right": -9.0, "pitch": -4.0 if late else 6.0, "seconds": 0.45},
 		{"do": "hold", "seconds": 0.3},
 		{"do": "glance", "right": turn * 0.6 + 9.0, "pitch": -7.0, "seconds": 0.4},
 		# v26 (Ryan): "a random cut for nor eason before the player gets shoved": the square-up was a 45 deg flick in six
@@ -109,7 +119,8 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 		{"do": "hold", "seconds": 0.25},
 		{"do": "glance", "right": 18.0, "pitch": -2.0, "seconds": 0.4},
 		{"do": "hold", "seconds": 0.5},
-		{"do": "glance", "right": -40.0, "pitch": 7.0, "seconds": 0.5},
+		# Late: his eyes follow the man out along the ring and stay low; never up past the wall at the tower.
+		{"do": "glance", "right": 8.0 if late else -40.0, "pitch": -5.0 if late else 7.0, "seconds": 0.5},
 		{"do": "hold", "seconds": 60.0, "fidget": true},
 	], 1, "ClipColumnShover")
 	for index: int in range(2, runners.size()):
@@ -144,8 +155,16 @@ func tick(_delta: float) -> void:
 	# Exposed: his shoulder clears the wall's edge (edge, deg); the round is already led into the open.
 	if _shoved and not _exposed and is_instance_valid(_victim) and LIB.bearing_of(_victim.global_position) >= float(option("edge", 217.1)):
 		_exposed = true
-		_hand.beats[0]["fire_at"] = elapsed() - _hand.start_at
-		say("victim exposed %.2f s after the shove at %.1f deg r %.2f; squeeze now" % [elapsed() - _shoved_at, LIB.bearing_of(_victim.global_position), LIB.radius_of(_victim.global_position)])
+		_exposed_at = elapsed()
+		if not _late():
+			_hand.beats[0]["fire_at"] = elapsed() - _hand.start_at
+		say("victim exposed %.2f s after the shove at %.1f deg r %.2f%s" % [elapsed() - _shoved_at, LIB.bearing_of(_victim.global_position), LIB.radius_of(_victim.global_position), "" if _late() else "; squeeze now"])
+	# Late: he sees the man come out, a beat to react, then the hand swings off the wall onto him.
+	if _late() and _exposed and not _reacted and elapsed() >= _exposed_at + float(option("react", 0.3)):
+		_reacted = true
+		_hand.beats = [{"body": _victim, "seconds": 100.0, "fire_at": float(option("settle", 0.8)), "watch": true, "lead": float(option("lead", 1.0)), "now": int(option("now", 0)) == 1, "kick": float(option("kick", 0.3))}]
+		_hand.start_at = elapsed()
+		say("the guard reacts at %.2f s; squeeze at %.2f" % [elapsed(), elapsed() + float(option("settle", 0.8))])
 
 
 ## The guard at the 216 window, a hand resting on the column he hides behind.
@@ -160,8 +179,13 @@ func _raise_the_hand() -> void:
 	_hand.name = "ClipGuardHand"
 	clip.root.add_child(_hand)
 	_hand.install(_guard, controller(), elapsed())
-	_hand.beats.append({"body": _victim, "seconds": 100.0, "fire_at": -1.0, "watch": true, "lead": float(option("lead", 0.7)), "now": true, "kick": float(option("kick", 0.3))})
-	_hand.park = LIB.ring_point(218.6, 48.6, 1.3)
+	if _late():
+		# Resting on the wall's far side where a man would peek; the shove comes out of the other.
+		_hand.beats.append({"at": LIB.ring_point(float(option("rest", 215.0)), 48.6, 1.3), "seconds": 100.0})
+		_hand.park = LIB.ring_point(float(option("rest", 215.0)), 48.6, 1.3)
+	else:
+		_hand.beats.append({"body": _victim, "seconds": 100.0, "fire_at": -1.0, "watch": true, "lead": float(option("lead", 0.7)), "now": true, "kick": float(option("kick", 0.3))})
+		_hand.park = LIB.ring_point(218.6, 48.6, 1.3)
 	_hand.start_at = elapsed() + 0.3
 	if OS.has_environment("STAGE_DEBUG") and controller().rifle != null:
 		controller().rifle.target_hit.connect(func(c: Node3D, at: Vector3, _n: Vector3) -> void:
@@ -175,7 +199,15 @@ func on_shove(_shover: MatchParticipant, victim: MatchParticipant) -> void:
 		return
 	_shoved = true
 	_shoved_at = elapsed()
-	if _victim_driver != null:
+	if _victim_driver != null and _late():
+		# Thrown clear of the wall, he finds his feet and runs for it down the course.
+		var on: float = LIB.bearing_of(_victim.global_position) + 40.0
+		_victim_driver.retarget([
+			{"do": "hold", "seconds": float(option("run_after", 0.55))},
+			{"do": "lane", "to": on, "r": 49.0, "speed": 1.0, "timeout": 8.0, "glances": [{"t": 0.0, "right": 0.0, "pitch": -2.0}]},
+			{"do": "hold", "seconds": 60.0},
+		])
+	elif _victim_driver != null:
 		# Still stumbling from the push when the round arrives: no input, no recovery.
 		_victim_driver.retarget([{"do": "hold", "seconds": 60.0}])
 	say("shove landed on %s" % victim.body.name)

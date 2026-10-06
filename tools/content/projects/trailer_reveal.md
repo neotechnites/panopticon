@@ -142,20 +142,24 @@ freeze: waive
 
 ## 10a
 said: v5 "Marble, runner POV: two runners both behind the same column on the inner edge, hidden from the tower; he shoves the other out into the open; cut BEFORE the shot"
-capture: --map=marble --shot=pack_lead --stage=trailer_marble_column --bots=2 --pov=runner --look=social --rifle=projectile --seed=20261001
+capture: --map=marble --shot=pack_lead --stage=trailer_marble_column --bots=2 --pov=runner --look=social --rifle=projectile --set=late=1;lead=1.0;now=1 --seed=20261001
 tape: marble_column
 seconds: 2.2
 in: 1.3
 freeze: waive
+# v27 (Ryan): "the runner must NOT look over at the tower. They can't see it from behind cover." late=1: the rider's eyes stay low and follow the man out.
 # v6 (Ryan): "THREE marble_column instances next to each other ... a solid wall of cover wide enough for two runners". Spawned by the stage (marble_column.glb, r 47.5, 124.75/126.0/127.25 deg, shafts touching; maps/marble/marble.tscn untouched); both side by side in the wall's shadow from the 126 window, the victim at 126.53 r 48.55, the POV at 125.53 r 48.75; shoved along the ring out past the wall into the open
 
 ## 10b
 said: v5 "Marble, guard scope, the same event: nobody in sight, one shoved out from behind the column, fires, hits"
-capture: --map=marble --shot=pack_lead --stage=trailer_marble_column --bots=2 --pov=guard --hud=crosshair --rifle=projectile --seed=20261001
+capture: --map=marble --shot=pack_lead --stage=trailer_marble_column --bots=2 --pov=guard --hud=crosshair --rifle=projectile --set=late=1;lead=1.0;now=1 --seed=20261001
 tape: marble_column
 seconds: 2.2
 in: 2.75
 freeze: waive
+# v27 (Ryan): "The player gets shoved further, the sniper visibly reacts (re-aims), and then hits the shot." late=1: the shipped shove (16/7) throws him
+# ~8 m clear of the wall; the scope rests on the wall's far side (215 deg); he clears the edge 3.07, the hand comes off the wall onto him at 3.37, he finds
+# his feet and runs, squeeze 4.17 led on his run, hit 4.53 at 234.3 deg. marble_column re-taped.
 # the marble_column tape down the scope at the 126 deg window: the shove at 3.00, he lands running on down the course; the scope leads and holds over him, squeeze 0.65 s after he lands (fired 4.07), the round in flight, hit 4.42, hit, he dies where he falls
 # v7 (Ryan on 10b): "there's no visible projectile. he just shoots, isn't aimed right, and the guy disappears." Every kill stage now runs the shipped ghost rule (death pose, body held), not NONE (parked out of the world)
 # v11: the wall, both runners, the guard and the tape moved 90 deg on to the 216 window (columns 214.75/216.0/217.25, victim 216.53, POV 215.53); 5b keeps 126
