@@ -299,7 +299,9 @@ class DrawCounts:
 	## by vertex; anything that is not a triangle list (a line gizmo, a point
 	## cloud) draws no triangles and is counted as none.
 	static func _triangles_on(mesh: Mesh, surface: int) -> int:
-		if mesh.surface_get_primitive_type(surface) != Mesh.PRIMITIVE_TRIANGLES:
+		# Only an ArrayMesh can say; a PrimitiveMesh (hell's heat-shimmer QuadMesh) is always triangles.
+		var array_mesh: ArrayMesh = mesh as ArrayMesh
+		if array_mesh != null and array_mesh.surface_get_primitive_type(surface) != Mesh.PRIMITIVE_TRIANGLES:
 			return 0
 		var arrays: Array = mesh.surface_get_arrays(surface)
 		if arrays.size() <= Mesh.ARRAY_INDEX:
