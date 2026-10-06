@@ -8,7 +8,7 @@ v2 notes (Ryan on rough_v1): the guard stands at the tower's window, not deep in
 music: external\src\music_v2_OBPV0lsorwU.mp4 -> voice\sr20det.ogg (SOURCES.md). The drop: 0.35 s of silence from 5.36 s, the hit at 5.703 s (sample onset); 170 bpm after it (v3 measured).
 cards: cuts/title_hard.mp4 is v1's title frame looped from frame 0 (v1's title.mp4 opened on two black frames); cuts/end.mp4 is v1's.
 delivery: content\trailer_reveal\final\rough_v27.mp4 (and ~/Desktop/panopticon-renders/trailer_reveal/)
-tag: rough_v34
+tag: rough_v35
 alt: rough_v24 (the SR20DET cut before Ryan's seven notes; ## script rough_v24)
 alt: rough_v26_vivaldi (rough_v25_vivaldi with the seven notes, every cut and event on the same beats; ## script rough_v26_vivaldi)
 kept: cuts\_v25\NN.mp4 are the shot files rough_v24 and rough_v25_vivaldi were cut from (every shot was refilmed for v26 on main 6547970).
@@ -398,6 +398,48 @@ grade_hell: lift 2.6 3
 | k2 | cuts/14.mp4@0:1.7667 | | | beat 1.7667 | | | hell |
 | g1 | cuts/12.mp4@0.15:3.1833 | | | beat 3.1833 | | |  |
 | e1 | cuts/end_v3.mp4@0.4:3.2 | | | beat 3.2 | | |  |
+
+## script rough_v35
+size: 1920x1080
+music: voice/pineberry_rush_v27.flac
+music_db: -0.5
+music_fade: 0.02 2.5
+captions: none
+# v35 (Ryan): v33 exactly, picture cut from v33's lossless master, except the forest lines (h1 h2 p1 p2), refilmed on his new forest lighting.
+# v34: v33 refilmed on main fd90f016 (forest contact shadows, player dapple, haze, pollen with the scope fix b6bdd878, leaf-green fog); h1/h2 moved to the foliage-dense 55-95 stretch (zone=2), same timing; shot 2's look-up smoothed on the tape.
+# Ryan: hell and marble stay v33's takes: those lines are cut from v33's own lossless master at the same times; only a2 and the forest lines are new.
+# v33: v32 with 4t 5g 9ag 9bg refilmed in the green forest (forest_green.tscn) on main 4b1ca5f3+ (depth haze, pollen, darker grass, leaves 0.55, dapple, canopy blend), same tapes.
+# v33 title: back to the plain-text PANOPTICON card (title_zoom10, as v30), same timing.
+# v32: v31 with 4t 5g 9ag 9bg refilmed in the golden forest (maps/forest/forest.tscn; the game itself still loads forest_green) from the same tapes.
+# v31: v30's edit; forest shots (4t 5g 9ag 9bg) refilmed on current main (green forest dapple, flecks, sway, canopy blend). Hell and marble are v30's takes.
+# v31 title: the title screen's wordmark (ui/main_menu.tscn GameTitle: IM Fell English, glyph spacing 14, cream, dark red shadow 4 px down, outline 6), scaled to the old card's width; frames/title_logo.png, the same 4% push-in -> cuts/title_zoom10.mp4.
+# v30: v29's edit; every hell shot (1 2 6 7 8 11 13 14) refilmed on main c0c5f2b1 (lava ash and sparks, pit-fire shadow wave 2048, softer shadow filter, lightmap BAKE_GLOW 61, shimmer by distance and zoom, lava that kills); trailer shimmer 0.06, 0 on the lava parkour. Forest and marble are v29's takes.
+# v29 (Ryan on v28): h2 (the forest hit) held half a bar longer, taken off the end of m0; the cut moves 0.70 s later, onto the bar 6 downbeat (14.06). Nothing else moves.
+# v28 (Ryan on v27): cut for Pineberry Rush's structure, not the grid. Mapped from the recording (beat k = 5.703 + k*0.3483 s, bar = 4 beats):
+# the intro builds -4..0, the drop on the title (k0, 5.70); phrase one runs k0-k28 (a lift at k16 and a fill k24-27); a held, thinner bar
+# k28-35 (the music sits: d1/d2 hold); phrase two k36-60 (the forest shove section on its downbeats); the break k60-67 (marble shove held
+# across it); the busy run k68-91 (lava, crack, quick cuts on the rolls); the second held bar k92-95 (the finale's shove at 38.0 on k93
+# territory); the end card on the k96 downbeat, 39.13 s. Title hit kept at 5.70. Every cut is on a downbeat or the bar's 3; hits sit on beats.
+| line | clip | in | len | fit | speed | text |
+| a1 | final/master/rough_v33.mkv@0.0000:2.9167 | | | beat 2.9167 | | |
+| a2 | final/master/rough_v33.mkv@2.9167:2.7833 | | | beat 2.7833 | | |
+| a3 | final/master/rough_v33.mkv@5.7000:2.1000 | | | beat 2.1000 | | |
+| a4 | final/master/rough_v33.mkv@7.8000:2.0833 | | | beat 2.0833 | | |
+| h1 | cuts/04t.mp4@0.7000:2.0833 | | | beat 2.0833 | | |
+| h2 | cuts/05g.mp4@1.7560:2.1000 | | | beat 2.1000 | | |
+| m0 | final/master/rough_v33.mkv@14.0666:1.8167 | | | beat 1.8167 | | |
+| d1 | final/master/rough_v33.mkv@15.8833:1.4000 | | | beat 1.4000 | | |
+| d2 | final/master/rough_v33.mkv@17.2833:1.3000 | | | beat 1.3000 | | |
+| d3 | final/master/rough_v33.mkv@18.5833:2.1000 | | | beat 2.1000 | | |
+| p1 | cuts/09ag.mp4@0.3100:2.0833 | | | beat 2.0833 | | |
+| p2 | cuts/09bg.mp4@0.0127:1.8833 | | | beat 1.8833 | | |
+| m1 | final/master/rough_v33.mkv@24.6499:2.0000 | | | beat 2.0000 | | |
+| m2 | final/master/rough_v33.mkv@26.6499:2.5833 | | | beat 2.5833 | | |
+| t2 | final/master/rough_v33.mkv@29.2332:2.9333 | | | beat 2.9333 | | |
+| k1 | final/master/rough_v33.mkv@32.1665:2.8000 | | | beat 2.8000 | | |
+| k2 | final/master/rough_v33.mkv@34.9665:1.8500 | | | beat 1.8500 | | |
+| g1 | final/master/rough_v33.mkv@36.8165:2.3167 | | | beat 2.3167 | | |
+| e1 | final/master/rough_v33.mkv@39.1332:3.2000 | | | beat 3.2000 | | |
 
 ## script rough_v34
 size: 1920x1080
