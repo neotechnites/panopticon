@@ -152,7 +152,7 @@ func tick() -> void:
 		_hide_all()
 		return
 
-	_show(crosshair, true)
+	_show(crosshair, role != Role.PRISONER)   # a runner carries no rifle
 	_show(status_panel, true)
 	_write(status_label, _status_text(role), _readout().neutral_color)
 	_write_dev()
