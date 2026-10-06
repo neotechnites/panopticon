@@ -43,6 +43,7 @@ ssh -o ConnectTimeout=20 "$PC" "
   git -C '$CLONE' reset -q --hard incoming
   Remove-Item '$CLONE_W\\lmbake.result' -ErrorAction SilentlyContinue
   Set-Content -Path '$CLONE_W\\.lightmap_bake' -Value 'bake'
+  Remove-Item '$CLONE_W\\.godot\\imported\\map_base_*' -ErrorAction SilentlyContinue   # the stand-in's glow is code, not an import param
   \$p = '$CLONE_W\\project.godot'
   \$t = Get-Content \$p -Raw
   \$t = \$t -replace 'enabled=PackedStringArray\\(', 'enabled=PackedStringArray(\"res://addons/lightmap_bake/plugin.cfg\", '
