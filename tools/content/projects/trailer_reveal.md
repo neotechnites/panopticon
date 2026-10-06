@@ -154,8 +154,8 @@ freeze: waive
 said: v5 "Marble, runner POV: two runners both behind the same column on the inner edge, hidden from the tower; he shoves the other out into the open; cut BEFORE the shot"
 capture: --map=marble --shot=pack_lead --stage=trailer_marble_column --bots=2 --pov=runner --look=social --rifle=projectile --set=late=1;lead=1.0;now=1;back_fire=0.1 --seed=20261001
 tape: marble_column
-seconds: 2.2
-in: 1.3
+seconds: 2.6
+in: 1.2
 freeze: waive
 # v27 (Ryan): "the runner must NOT look over at the tower. They can't see it from behind cover." late=1: the rider's eyes stay low and follow the man out.
 # v6 (Ryan): "THREE marble_column instances next to each other ... a solid wall of cover wide enough for two runners". Spawned by the stage (marble_column.glb, r 47.5, 124.75/126.0/127.25 deg, shafts touching; maps/marble/marble.tscn untouched); both side by side in the wall's shadow from the 126 window, the victim at 126.53 r 48.55, the POV at 125.53 r 48.75; shoved along the ring out past the wall into the open
@@ -209,7 +209,7 @@ freeze: waive
 
 ## 12f
 said: v27 (Ryan) "Ending: the guard getting shoved out of the tower, including the guard's POV of being flung" -- the finisher's eyes
-capture: --map=marble --shot=portal --stage=trailer_finale_marble --bots=2 --pov=runner --look=social --rifle=projectile --set=wait=0 --seed=20261001
+capture: --map=marble --shot=portal --stage=trailer_finale_marble --bots=2 --pov=runner --look=social --rifle=projectile --set=wait=0.25 --seed=20261001
 tape: finale
 seconds: 5.2
 in: 0.9
@@ -250,7 +250,7 @@ freeze: waive
 said: v4 "Same moment from the guard scope: fires, misses, the runner launches up out of cover"
 capture: --shot=s4_edge --stage=trailer_crack --bots=2 --pov=guard --hud=crosshair --rifle=projectile --set=shimmer=0.06;skip=1;skip_go=1.3;skip_from=142.6,52.4;skip_pace=1.1 --seed=20261001
 tape: crack
-seconds: 2.0
+seconds: 2.6
 in: 1.95
 freeze: waive
 # the crack tape down the scope at the 150 deg window: squeeze 2.22, miss into MapBaseS3Collision 2.55, launch 2.60
@@ -293,7 +293,7 @@ freeze: waive
 said: v5 "Forest, the shoved runner's POV: the edge he was shoved from with the shover on it looking down, falling away, the mist rushing up"
 capture: --map=res://maps/forest/forest_green.tscn --shot=pack_lead --stage=trailer_forest_pit --bots=3 --pov=runner --look=social --rifle=projectile --set=pov=victim;third=0 --seed=20261001
 tape: forest_pit
-seconds: 1.8
+seconds: 2.3
 in: 2.96
 freeze: waive
 # rough_v20_green: shot 9b in the green forest (forest_green.tscn, same geometry), same stage and tape
