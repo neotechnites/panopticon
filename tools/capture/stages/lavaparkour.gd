@@ -210,8 +210,19 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 	var pov: bool = String(option("pov", "")) == "runner"
 	var stagger: float = float(option("stagger", 0.2))
 	var pov_index: int = count - 1
+	# v27 (Ryan): "Lava parkour shot: POV only, no other player." solo=1: the men ahead are parked back up the lane, unseen.
+	var solo: bool = int(option("solo", 0)) == 1
 	for index: int in count:
 		var human: bool = pov and index == pov_index
+		if solo and pov and not human:
+			drive(runners[index], [
+				{"do": "place", "at": LIB.ring_point(100.0 + 3.0 * float(index), 49.0, 0.1)},
+				{"do": "hold", "seconds": 60.0},
+			], index, "ClipParkourParked%d" % index)
+			runners[index].controller.visible = false
+			LIB.hide_from_the_rifle(runners[index].controller)
+			_line.append(runners[index].controller)
+			continue
 		var plan: Array = POV_PLAN if human else plan_for(int(clip._options.get("seed", 0)), index)
 		# The two nearest ahead of the POV are people too; the leader keeps his start on a top only with nobody before him.
 		var lead: Dictionary = AHEAD[pov_index - index - 1] if pov and index < pov_index and pov_index - index <= AHEAD.size() else {}
