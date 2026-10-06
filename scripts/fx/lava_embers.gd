@@ -20,12 +20,12 @@ extends Node3D
 		ash = value
 		_rebuild()
 ## River and fall ember size in metres (they rise beside the runners).
-@export_range(0.02, 1.0, 0.01) var ember_size: float = 0.3:
+@export_range(0.02, 1.0, 0.01) var ember_size: float = 0.45:
 	set(value):
 		ember_size = value
 		_rebuild()
 ## Sea ember size in metres at birth; they shrink as they rise, so they read 30 m down.
-@export_range(0.05, 2.0, 0.01) var sea_ember_size: float = 0.8:
+@export_range(0.05, 2.0, 0.01) var sea_ember_size: float = 1.6:
 	set(value):
 		sea_ember_size = value
 		_rebuild()
@@ -144,7 +144,7 @@ func _ember_motion(v_min: float, v_max: float) -> ParticleProcessMaterial:
 func _shrink() -> CurveTexture:
 	var c: Curve = Curve.new()
 	c.add_point(Vector2(0.0, 1.0))
-	c.add_point(Vector2(1.0, 0.35))
+	c.add_point(Vector2(1.0, 0.4))
 	var tex: CurveTexture = CurveTexture.new()
 	tex.curve = c
 	return tex
@@ -174,7 +174,7 @@ func _points_texture(points: PackedVector3Array) -> ImageTexture:
 # Unshaded billboard dot; embers blend additive, ash blends over.
 func _material(glow: bool) -> StandardMaterial3D:
 	var dot: Gradient = Gradient.new()
-	dot.offsets = PackedFloat32Array([0.0, 0.45, 0.75, 1.0])
+	dot.offsets = PackedFloat32Array([0.0, 0.55, 0.8, 1.0])
 	dot.colors = PackedColorArray([Color(1, 1, 1, 1), Color(1, 1, 1, 1), Color(1, 1, 1, 0.3), Color(1, 1, 1, 0)])
 	var tex: GradientTexture2D = GradientTexture2D.new()
 	tex.gradient = dot
@@ -189,7 +189,7 @@ func _material(glow: bool) -> StandardMaterial3D:
 	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	m.disable_fog = glow
 	m.vertex_color_use_as_albedo = true
-	m.albedo_color = Color(2.0, 2.0, 2.0, 1.0) if glow else Color(1, 1, 1, 1)
+	m.albedo_color = Color(2.5, 2.5, 2.5, 1.0) if glow else Color(1, 1, 1, 1)
 	m.albedo_texture = tex
 	m.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
 	m.billboard_keep_scale = true
