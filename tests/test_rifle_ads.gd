@@ -142,23 +142,20 @@ func test_the_shipped_profile_zooms_in_over_half_a_second() -> void:
 const EYEPIECE: Vector3 = Vector3(0.0, 0.045, 0.110)
 
 
-## Ryan: "when zooming, the eye does not go to the back of the scope." At full aim it is exactly there.
-func test_full_aim_puts_the_eye_on_the_eyepiece() -> void:
-	assert_vec3_almost_eq(
-		_expected_aim_transform() * EYEPIECE, Vector3.ZERO, 0.0005,
-		"the eyepiece's rear face must sit on the camera at full aim",
-	)
+## Ryan: "the eye does not go to the back of the scope." At full aim the eyepiece is centred just past the near plane.
+func test_full_aim_puts_the_eyepiece_on_the_eye() -> void:
+	var eyepiece: Vector3 = _expected_aim_transform() * EYEPIECE
+	assert_vec3_almost_eq(eyepiece, Vector3(0.0, 0.0, -0.06), 0.0005, "eyepiece centred, 6 cm ahead, at full aim")
+	assert_true(-eyepiece.z > _camera.near, "and never inside the near plane, so its lens is never sliced open")
 
 
-## The scope is on the view axis by [member RifleAds.lateral_arrive], ahead of the eye, then only comes straight back.
-func test_the_scope_is_on_axis_before_it_reaches_the_eye() -> void:
-	for t: float in [_ads.lateral_arrive, 0.8, 0.95]:
-		var eyepiece: Vector3 = _ads.pose_at(t) * EYEPIECE
-		assert_almost_eq(eyepiece.x, 0.0, 0.0005, "eyepiece centred left-right at t=%.2f" % t)
-		assert_almost_eq(eyepiece.y, 0.0, 0.0005, "eyepiece centred up-down at t=%.2f" % t)
-		assert_true(eyepiece.z < 0.0, "and still ahead of the eye at t=%.2f" % t)
-	var nearer: float = (_ads.pose_at(0.8) * EYEPIECE).z
-	assert_true((_ads.pose_at(0.95) * EYEPIECE).z > nearer, "the last stretch closes on the eye")
+## Ryan: "moves the scope in front of their face, away from the eye, then moves it in." It only ever closes in.
+func test_the_eyepiece_only_ever_closes_on_the_eye() -> void:
+	var last: float = (_ads.pose_at(0.0) * EYEPIECE).length()
+	for i: int in range(1, 101):
+		var now: float = (_ads.pose_at(i / 100.0) * EYEPIECE).length()
+		assert_true(now < last, "the eyepiece must get nearer the eye at every step, t=%.2f" % (i / 100.0))
+		last = now
 
 
 # --- The shot line ----------------------------------------------------------

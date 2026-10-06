@@ -58,6 +58,23 @@ func _validate_property(property: Dictionary) -> void:
 		property.usage &= ~PROPERTY_USAGE_STORAGE
 
 
+## Mirrors the live environment's tonemap into the shader each frame (the brightness setting moves exposure).
+func _process(_delta: float) -> void:
+	if _material == null:
+		return
+	var env: Environment = get_world_3d().environment
+	var mode: int = 0
+	var white: float = 1.0
+	var exposure: float = 1.0
+	if env != null:
+		mode = 1 if env.tonemap_mode == Environment.TONE_MAPPER_REINHARDT else 0
+		white = env.tonemap_white
+		exposure = env.tonemap_exposure
+	_material.set_shader_parameter(&"tonemap_mode", mode)
+	_material.set_shader_parameter(&"tonemap_white", white)
+	_material.set_shader_parameter(&"tonemap_exposure", exposure)
+
+
 func _push() -> void:
 	if _material == null:
 		return

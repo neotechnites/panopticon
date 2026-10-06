@@ -158,15 +158,6 @@ enum Activation {
 ## tube; large is a soft fall-off that reads more like a camera than a scope.
 @export_range(0.01, 1.5, 0.01) var vignette_softness: float = 0.30
 
-## The transition progress at which the border STARTS to close, 0.0 to 1.0.
-##
-## Ryan asked for the vignette to appear as the aim completes rather than to
-## fade in over the whole raise, so this remaps the shared progress instead of
-## introducing a clock: below it there is no vignette at all, and from it to
-## 1.0 the border closes the rest of the way. 0.55 puts the whole of the
-## overlay in the back half of the raise, arriving exactly as the pose and the
-## field of view do -- there is no second timer that could arrive late.
-##
-## 0.0 fades it in across the entire transition; values near 1.0 snap it on at
-## the very end.
-@export_range(0.0, 0.99, 0.01) var vignette_onset: float = 0.55
+## The transition progress at which the view CUTS from the raised rifle to the scope: the model hides and the
+## vignette is on in full on that frame, BO1-style. Ryan: "you just scope up to an opaque scope, then it cuts to the vignette."
+@export_range(0.0, 1.0, 0.01) var vignette_onset: float = 0.97
