@@ -51,7 +51,7 @@ func _rebuild() -> void:
 	var ash_mat: StandardMaterial3D = _material(false)
 	var sea: CPUParticles3D = _emitter(&"SeaEmbers", SEA_EMBERS * density, 11.0, ember_mat, ember_size)
 	_ring(sea)
-	_ember_motion(sea, 1.6, 3.4)
+	_ember_motion(sea, 2.2, 4.2)
 	if not river_points.is_empty():
 		var river: CPUParticles3D = _emitter(&"RiverEmbers", RIVER_EMBERS * density, 6.0, ember_mat, ember_size)
 		river.emission_shape = CPUParticles3D.EMISSION_SHAPE_POINTS
@@ -112,7 +112,7 @@ func _ember_motion(p: CPUParticles3D, v_min: float, v_max: float) -> void:
 	p.spread = 20.0
 	p.initial_velocity_min = v_min * speed
 	p.initial_velocity_max = v_max * speed
-	p.gravity = Vector3(0.0, 0.2 * speed, 0.0)
+	p.gravity = Vector3(0.0, 0.4 * speed, 0.0)
 	p.tangential_accel_min = 0.1 * speed
 	p.tangential_accel_max = 0.3 * speed
 	p.damping_min = 0.0
