@@ -9,7 +9,7 @@ uniform sampler2D noise_tex : filter_linear, repeat_enable;
 uniform float strength = 1.0;
 uniform float speed = 1.0;
 // Peak UV offset at strength 1, as a fraction of screen height.
-uniform float amplitude = 0.009;
+uniform float amplitude = 0.02;
 // Metres one noise texture tile spans (about five waves), broad and fine layer.
 uniform float tile_broad = 30.0;
 uniform float tile_fine = 15.0;
@@ -17,7 +17,7 @@ uniform float tile_fine = 15.0;
 uniform float rise_broad = 0.7;
 uniform float rise_fine = 1.0;
 // Sky and far rock are pinned at this distance so the noise there does not alias.
-uniform float max_distance = 150.0;
+uniform float max_distance = 40.0;
 uniform float bottom_boost = 0.7;
 uniform float look_down_boost = 0.8;
 uniform vec3 warm : source_color = vec3(1.0, 0.55, 0.25);
@@ -53,11 +53,13 @@ void fragment() {
 	vec3 w = (INV_VIEW_MATRIX * vec4(v, 1.0)).xyz;
 	float t = TIME * speed;
 	vec2 n = field(w, tile_broad, t * rise_broad, vec2(0.0));
-	n += field(w, tile_fine, t * rise_fine, vec2(0.41, 0.17)) * 0.5;
-	float low = 1.0 + bottom_boost * smoothstep(0.25, 1.0, uv.y);
+	n += field(w, tile_fine, t * rise_fine, vec2(0.41, 0.17)) * 0.35;
+	float low = 1.0 + bottom_boost * smoothstep(0.25, 1.0, 1.0 - uv.y);
 	float down = clamp(INV_VIEW_MATRIX[2].y, 0.0, 1.0) * look_down_boost;
-	float amp = amplitude * strength * low * (1.0 + down);
-	vec2 off = n * 0.5 * amp * vec2(0.7 / aspect, 1.2);
+	// Far rock is small on screen, so its noise reads tight; ease it off with distance.
+	float far = mix(1.0, 0.35, smoothstep(8.0, max_distance, dist));
+	float amp = amplitude * strength * low * far * (1.0 + down);
+	vec2 off = n * amp * vec2(0.7 / aspect, 1.2);
 	vec3 c = texture(screen_tex, clamp(uv + off, px, vec2(1.0) - px)).rgb;
 	c += vec3(dark_lift * clamp(1.45 - 6.37 * c, 0.0, 1.0));
 	ALBEDO = c * (vec3(1.0) + warm * warm_lift * strength);
