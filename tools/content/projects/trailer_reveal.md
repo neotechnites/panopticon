@@ -64,6 +64,16 @@ freeze: waive
 # h1 for v27: the forest_pack stage with sprint=1, every man at a full run (pace x1.42, capped at 1.0; the tail at 1.0 on its own S line
 # between the 20.7 lane trunk and the 32.9 outer trunk); no shot (fire=99). The cut opens a second into the run, the pack already at speed.
 
+## 4t
+said: v28 (Ryan) on 4s: "you did nothing about it" -- the forest POV run must read fast, intentional and finished
+capture: --map=res://maps/forest/forest_green.tscn --shot=pack_lead --stage=trailer_forest_sprint --bots=3 --pov=runner --look=social --rifle=projectile --seed=20261001
+tape: forest_thread
+seconds: 3.6
+in: 0.8
+freeze: waive
+# trailer_forest_sprint: a line picked through the trees at full run, close past every lane trunk, the man ahead takes it first,
+# through the two-metre gap between the 32.9 and 34.5 trunks, out past the 39 trunk. See the stage header for why 4s read slow.
+
 ## 5
 said: v4 "Forest, guard scope: the kill (h2)"
 capture: --map=forest --shot=pack_lead --stage=trailer_forest_pack --bots=3 --pov=guard --hud=crosshair --rifle=projectile --set=lift=1;fire=3.15 --seed=20261001
