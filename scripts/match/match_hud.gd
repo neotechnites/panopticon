@@ -152,7 +152,7 @@ func tick() -> void:
 		_hide_all()
 		return
 
-	_show(crosshair, true)
+	_show(crosshair, role != Role.PRISONER)   # a runner carries no rifle
 	_show(status_panel, true)
 	_write(status_label, _status_text(role), _readout().neutral_color)
 	_write_dev()
@@ -261,10 +261,10 @@ func _tower_rifle() -> Rifle:
 	return null if controller.get_seat_participant() == null else rifle
 
 
-## The rifle in this player's hands: the tower's, or the finisher's.
+## The rifle in this player's hands: the tower's, or none for the finisher.
 func _own_rifle() -> Rifle:
 	if get_role() == Role.FINISHER:
-		return controller.get_finisher_rifle()
+		return null
 	return rifle
 
 

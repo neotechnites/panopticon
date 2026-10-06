@@ -95,6 +95,7 @@ func _unlimit_movement_cues() -> void:
 
 func _make_body(where: Vector3) -> PlayerController:
 	var body: PlayerController = TestFixtures.make_bot_player(TestFixtures.movement_profile())
+	body.slide_enabled = true
 	body.position = where
 	add_child(body)
 	return body

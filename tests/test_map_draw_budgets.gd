@@ -85,9 +85,17 @@ const DRAW_BUDGETS: Dictionary = {
 	# frame; ceiling 173 (144 + 20 %). Lights measured 19, inside the 24 it had.
 	# 2026-10-05: the one-sculpt chunked export (64b380a, decision 84) splits the map into 15 .glbs;
 	# surfaces measured 90, ceiling 108 (+20 %).
+	# 2026-10-05: the eye is back over hell's tower, and only hell's (368 tris, 3 surfaces, 3 materials):
+	# measured tris 97283, surfaces 93, materials 15. Every ceiling is unchanged.
+	# 2026-10-05: PitKey over the tower replaced by fire from the pit mouth: two cube-shadowed
+	# PitFire omnis (forest casts 2) and eight unshadowed MouthGlow; shadow_casters 2 (exact).
+	# 2026-10-05: lava lights laid out from the lava (44 unshadowed omnis) and the crack haze over
+	# sea, rivers and falls (3 LavaHazeField meshes): measured lights 51, transparent_tris 772; +20 %.
+	# 2026-10-05: lava light baked (LavaLightmap); the 44 LavaGlow omnis out: lights 7.
+	# 2026-10-05: the lava haze meshes out (Ryan): transparent_tris back to the cracks' 173.
 	"bentham_ring": {
 		"tris": 107595, "surfaces": 108, "materials": 18,
-		"transparent_tris": 173, "lights": 24, "shadow_casters": 0,
+		"transparent_tris": 173, "lights": 7, "shadow_casters": 2,
 	},
 	# THE LANE IS BARE AGAIN (Ryan, 2026-09-22: "for the marble level, can you
 	# just get rid of all the elements on the ring?"). The obstacle course --
@@ -291,7 +299,9 @@ class DrawCounts:
 	## by vertex; anything that is not a triangle list (a line gizmo, a point
 	## cloud) draws no triangles and is counted as none.
 	static func _triangles_on(mesh: Mesh, surface: int) -> int:
-		if mesh.surface_get_primitive_type(surface) != Mesh.PRIMITIVE_TRIANGLES:
+		# Only an ArrayMesh can say; a PrimitiveMesh (hell's heat-shimmer QuadMesh) is always triangles.
+		var array_mesh: ArrayMesh = mesh as ArrayMesh
+		if array_mesh != null and array_mesh.surface_get_primitive_type(surface) != Mesh.PRIMITIVE_TRIANGLES:
 			return 0
 		var arrays: Array = mesh.surface_get_arrays(surface)
 		if arrays.size() <= Mesh.ARRAY_INDEX:

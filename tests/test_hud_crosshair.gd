@@ -47,9 +47,9 @@ func test_the_scope_draws_no_reticle_and_sits_under_the_cross() -> void:
 	assert_gt(hud_layer.layer, vignette.layer, "the cross draws over the scoped view")
 
 
-func test_a_prisoner_sees_it_and_a_ghost_does_not() -> void:
+func test_a_runner_carries_no_rifle_so_sees_no_cross() -> void:
 	await _arm(false)
-	assert_true(_hud.crosshair.is_visible_in_tree(), "a running prisoner sees the cross")
+	assert_false(_hud.crosshair.is_visible_in_tree(), "a running prisoner has no rifle and no cross")
 	assert_true(_controller.apply_hit(_human), "the rifle converts the human")
 	_hud.tick()
 	assert_false(_hud.crosshair.is_visible_in_tree(), "a ghost does not")

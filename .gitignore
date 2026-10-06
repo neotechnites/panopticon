@@ -28,3 +28,6 @@ __pycache__/
 
 # Map 1 chunk materials, written by the import hook (tools/import/shared_materials.gd).
 maps/bentham_ring/materials/imported/
+
+# Unlicensed music: local only, never commit.
+audio/music/unlicensed/

@@ -132,6 +132,11 @@ var run_speed_scale: float = 1.0
 ## is scaled by the square root and a 2.0 here really is twice as high.
 var jump_scale: float = 1.0
 
+## Whether the crouch/slide key may crouch / may slide, from [member MatchRules.crouch_enabled]
+## and [member MatchRules.slide_enabled]. [MatchController] writes both; off, the key does nothing.
+var crouch_enabled: bool = false
+var slide_enabled: bool = false
+
 ## True while Armor Lock holds the body: no movement, no turning, this tick's
 ## intent still readable through [method get_intent].
 var movement_locked: bool = false
@@ -186,6 +191,9 @@ var _speed_boost_timer: float = 0.0
 var _fall_speed: float = 0.0
 
 var _was_on_floor: bool = true
+
+## Seconds left in which releasing the direction after a carried landing sticks it.
+var _landing_release_timer: float = 0.0
 
 ## True while the slide state owns the movement. See [method _update_slide].
 var _sliding: bool = false
@@ -344,6 +352,7 @@ func _physics_process(delta: float) -> void:
 		# at the point of use -- profile.ground_acceleration itself is never
 		# touched, so a boost cannot bleed into the slide or air phases, which
 		# read wish_speed and the profile unscaled.
+		_tick_landing_release(delta)
 		_apply_friction(profile.friction, delta)
 		var boost: float = maxf(_speed_boost_multiplier, TURBO_MULTIPLIER if _intent.turbo_held else 1.0)
 		_accelerate(
@@ -372,11 +381,6 @@ func _physics_process(delta: float) -> void:
 ## before the physics tick that should act on it.
 func set_intent(intent: MoveIntent) -> void:
 	_intent.copy_from(intent)
-	# The one gate for the crouch-and-slide setting: off, a live human's press
-	# of the key is dropped here. A bot or a replay is not a [HumanIntentSource].
-	if intent_source is HumanIntentSource and not SettingsStore.instance().settings.crouch_slide_enabled:
-		_intent.slide_pressed = false
-		_intent.slide_held = false
 
 
 ## The intent this tick was driven by. Owned by the controller; read, do not keep.
@@ -466,7 +470,7 @@ var net_predicted: bool = false
 var view_offset: Vector3 = Vector3.ZERO
 
 ## Floats in a captured motion state. See [method capture_motion_state].
-const MOTION_STATE_SIZE: int = 19
+const MOTION_STATE_SIZE: int = 20
 
 
 ## This body's mutable movement state -- the timers, the stance, the slide and
@@ -497,6 +501,7 @@ func capture_motion_state(out: PackedFloat32Array) -> void:
 	out[16] = _pending_launch.x
 	out[17] = _pending_launch.y
 	out[18] = _pending_launch.z
+	out[19] = _landing_release_timer
 
 
 ## Put a state from [method capture_motion_state] back on the body. A wrongly
@@ -521,6 +526,7 @@ func restore_motion_state(values: PackedFloat32Array) -> void:
 	_pitch = values[14]
 	_has_pending_launch = values[15] > 0.5
 	_pending_launch = Vector3(values[16], values[17], values[18])
+	_landing_release_timer = values[19]
 	if head != null:
 		head.rotation.x = _pitch
 	# The capsule is sized from the stance, so a restored crouch has to resize
@@ -767,7 +773,7 @@ func _tick_slide_timers(delta: float) -> void:
 ## way past, so a press made in the air while turning still opens the slide on
 ## the tick the body is finally pointing where it is going.
 func _try_begin_slide(on_floor: bool) -> void:
-	if _sliding:
+	if _sliding or not slide_enabled:
 		return
 	if not on_floor or _slide_cooldown_timer > 0.0 or _slide_buffer_timer <= 0.0:
 		return
@@ -823,6 +829,8 @@ func _update_slide_exit(delta: float) -> void:
 		# is what stops a slide from being a flight mode with no gravity branch.
 		_end_slide()
 	elif profile.slide_requires_hold and not _intent.slide_held:
+		_end_slide()
+	elif not slide_enabled:
 		_end_slide()
 	elif _slide_timer + delta * 0.5 >= profile.slide_max_duration:
 		# Half a tick of slack, so the deadline rounds to the nearest tick
@@ -931,7 +939,7 @@ func _update_crouch(on_floor: bool) -> void:
 	# phase bit-for-bit what it was -- same wish speed, same capsule, same
 	# saturation against max_air_speed -- so nothing about air strafing or
 	# slide-hopping can be changed by a key that happens to still be down.
-	var wants: bool = _intent.slide_held and not _sliding and on_floor
+	var wants: bool = crouch_enabled and _intent.slide_held and not _sliding and on_floor
 	if not wants and _crouching and not _has_headroom_to_stand():
 		return
 	_set_crouched(wants)
@@ -1217,10 +1225,25 @@ func _update_floor_state() -> void:
 ## Scale horizontal speed on touchdown: a full stop with no input, a mild
 ## carry with a direction held, untouched when a bunny hop is about to fire.
 func _apply_landing_speed_scale() -> void:
+	_landing_release_timer = 0.0
 	var jump_queued: bool = _jump_buffer_timer > 0.0 or (profile.auto_bunny_hop and _intent.jump_held)
 	if jump_queued:
 		return
 	var moving: bool = _intent.move_direction.length() >= 0.2
 	var factor: float = profile.landing_carry_factor if moving else profile.landing_stop_factor
+	if moving:
+		_landing_release_timer = profile.landing_release_window
 	velocity.x *= factor
 	velocity.z *= factor
+
+
+## Inside [member MovementProfile.landing_release_window] of a carried landing, a
+## released direction sticks the landing as if it had never been held.
+func _tick_landing_release(delta: float) -> void:
+	if _landing_release_timer <= 0.0:
+		return
+	_landing_release_timer = maxf(_landing_release_timer - delta, 0.0)
+	if _intent.move_direction.length() < 0.2:
+		_landing_release_timer = 0.0
+		velocity.x *= profile.landing_stop_factor
+		velocity.z *= profile.landing_stop_factor

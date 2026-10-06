@@ -71,6 +71,8 @@ func test_a_leap_lands_where_it_was_aimed() -> void:
 
 func test_a_hold_with_crouch_crouches_the_body() -> void:
 	var body: PlayerController = _body(LIB.ring_point(40.0, 52.0, 0.1))
+	body.crouch_enabled = true
+	body.slide_enabled = true
 	_drive(body, [{"do": "hold", "seconds": 5.0, "crouch": true}])
 	await step_ticks(20)
 	assert_true(body.is_crouching() or body.is_sliding(), "the slide key is held for the whole hold")

@@ -142,6 +142,8 @@ const RAGDOLL_WAIT_MSEC: int = 400
 const REUSED_DISTANCE: float = 1.5
 ## A shove lands on the drawn body nearest its point, within this, metres.
 const SHOVE_CLAIM_METRES: float = 2.5
+## Metres above the feet the finale shove strikes a thrown body.
+const THROWN_STRIKE_HEIGHT: float = 1.5
 ## A shoved body flops once it is seen thrown (rising this fast, or jolted this much, m/s), or after the wait.
 const FLOP_RISE: float = 2.0
 const FLOP_JOLT: float = 5.0
@@ -567,6 +569,32 @@ static func shove_landed(at: Vector3) -> void:
 	if best != null and best._ragdoll.flop_enabled:
 		best._flop_wait = 0.0
 		best._flop_before = best.body.velocity
+
+
+## The drawn avatar of [param of_body], or null.
+static func of(of_body: PlayerController) -> PrisonerAvatar:
+	for avatar: PrisonerAvatar in _drawn:
+		if avatar.body == of_body:
+			return avatar
+	return null
+
+
+## Dead and limp now, thrown at [param throw] (world m/s): the finale shove out of the tower.
+func throw_out(throw: Vector3) -> void:
+	if _ragdoll == null or _ragdoll.is_active():
+		return
+	_ragdoll_pending = false
+	_death_position = body.global_position
+	animation.pause()
+	# Struck high along the throw, so he tumbles and flails rather than sailing out standing.
+	_ragdoll.start(throw, body.global_position + Vector3.UP * THROWN_STRIKE_HEIGHT, throw)
+
+
+## Where the body is drawn: the ragdoll's pelvis while limp, else the capsule's middle.
+func drawn_centre() -> Vector3:
+	if _ragdoll != null and _ragdoll.is_active():
+		return _ragdoll.centre()
+	return body.global_position + Vector3.UP
 
 
 ## The shoved body's limp spell: wait to see the throw, flop with it, get up once down and the throw is spent.

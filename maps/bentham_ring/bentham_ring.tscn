@@ -25,6 +25,12 @@
 [ext_resource type="PackedScene" path="res://maps/bentham_ring/props/lava_crack.tscn" id="23_lava_crack_scene"]
 [ext_resource type="PackedScene" path="res://props/speed_powerup.tscn" id="24_speed_powerup_scene"]
 [ext_resource type="Script" uid="uid://bqujt25fif0uv" path="res://scripts/match/trap_volume.gd" id="26_trap_volume"]
+[ext_resource type="PackedScene" path="res://tower/watching_eye.tscn" id="27_watching_eye"]
+[ext_resource type="Resource" path="res://maps/bentham_ring/bentham_ring_watching_eye_profile.tres" id="28_watcher_profile"]
+[ext_resource type="Resource" path="res://maps/bentham_ring/bentham_ring_watching_eye_look.tres" id="29_watcher_look"]
+[ext_resource type="Script" path="res://scripts/ring/lava_light_wave.gd" id="30_lava_light_wave"]
+[ext_resource type="LightmapGIData" path="res://maps/bentham_ring/bentham_ring.lmbake" id="32_lava_lightmap"]
+[ext_resource type="Script" path="res://scripts/fx/heat_shimmer.gd" id="33_heat_shimmer"]
 
 [sub_resource type="ProceduralSkyMaterial" id="SkyMat"]
 sky_top_color = Color(0.54, 0.110700026, 0.054000016, 1)
@@ -42,9 +48,10 @@ sky_material = SubResource("SkyMat")
 background_mode = 2
 sky = SubResource("Sky")
 ambient_light_source = 2
-ambient_light_color = Color(0.5, 0.47, 0.44, 1)
-ambient_light_energy = 0.428
+ambient_light_color = Color(1, 0.42, 0.2, 1)
+ambient_light_energy = 0.11
 tonemap_mode = 1
+tonemap_white = 2.0
 
 [node name="BenthamRing" type="Node3D" unique_id=1690039206]
 editor_description = "THE BENTHAM RING, one level, built on maps/bentham_ring/models/map_base_*.glb -- deck annulus r=44 to r=60 at y=23.0, pit wall down to the courtyard at y=-11.0, outer wall up to the rim. The model ships its own collision, so this generator adds no deck CSG, walls, ramps or trench for it: only the tower, cover, traps, pits, lights and markers.
@@ -61,24 +68,9 @@ environment = SubResource("Env")
 [node name="Ring" type="Node3D" parent="." unique_id=215463693]
 
 [node name="LavaGlow" type="Node3D" parent="Ring" unique_id=661152170]
-
-[node name="S2_LavaShelf" type="OmniLight3D" parent="Ring/LavaGlow" unique_id=220250157]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -11.2549, 24.5, 50.7674)
-light_color = Color(1, 0.35, 0.05, 1)
-light_energy = 3.74
-omni_range = 12.0
-
-[node name="S4_DemonRun_Inner" type="OmniLight3D" parent="Ring/LavaGlow" unique_id=1658816305]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -35.4639, 24.5, -38.0304)
-light_color = Color(1, 0.35, 0.05, 1)
-light_energy = 3.74
-omni_range = 12.0
-
-[node name="S4_DemonRun_Outer" type="OmniLight3D" parent="Ring/LavaGlow" unique_id=1751733702]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -11.6975, 24.5, -50.6672)
-light_color = Color(1, 0.35, 0.05, 1)
-light_energy = 3.74
-omni_range = 12.0
+editor_description = "The lava's light is baked (LavaLightmap); the only real lava lights left are the two shadowed pit fires on the sea, and LavaLightWave swells them with the lava, in the editor too."
+script = ExtResource("30_lava_light_wave")
+also_wave = Array[NodePath]([NodePath("../../Environment/PitFireE"), NodePath("../../Environment/PitFireN")])
 
 [node name="MapBase" type="Node3D" parent="." unique_id=23449969]
 editor_description = "The one deck -- annulus, pit wall down to the courtyard, outer wall up to the rim -- from one sculpt (tools/modelling/maps/bentham_ring/map_base_build.py), exported per chunk: maps/bentham_ring/models/map_base_<chunk>.glb, each at identity here with its own collision. Rebuild one: tools/modelling/model build map_base --chunk <name>."
@@ -592,19 +584,57 @@ editor_description = "On the chamber floor, 0.25 m up. The clearance is delibera
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.95, 0)
 
 [node name="KeyLight" type="DirectionalLight3D" parent="Tower" unique_id=788049124]
-editor_description = "Fire from the hole above, angled 20 degrees off vertical (about 70 deg below horizontal) into the pit rather than the flat noon light of an office. Hidden while its energy is 0: an unlit light still costs every lit pixel a pass."
-transform = Transform3D(1, 0, 0, 0, 0.34202, 0.939693, 0, -0.939693, 0.34202, 0, 20, 0)
-light_color = Color(1, 0.45, 0.15, 1)
-visible = false
-light_energy = 0.0
+editor_description = "Top-down fill under PitKey: unshadowed (the gallery ceiling would black out the lap), kept low so floors read above walls and shadows stay deep."
+transform = Transform3D(0.819152, -0.439385, 0.368688, 0, 0.642788, 0.766044, -0.573576, -0.627507, 0.526541, 0, 20, 0)
+light_color = Color(1, 0.45, 0.3, 1)
+light_bake_mode = 0
+light_energy = 0.55
 shadow_bias = 0.08
 directional_shadow_mode = 0
 directional_shadow_max_distance = 180.0
 
+[node name="CounterLight" type="DirectionalLight3D" parent="Tower"]
+editor_description = "Retired with KeyLight. Hidden while its energy is 0."
+transform = Transform3D(-0.819152, 0.32899, -0.469846, 0, 0.819152, 0.573576, 0.573576, 0.469846, -0.67101, 0, 20, 0)
+light_color = Color(1, 0.42, 0.25, 1)
+light_bake_mode = 0
+visible = false
+light_energy = 0.0
+
+[node name="PitFireE" type="OmniLight3D" parent="Environment"]
+editor_description = "Fire rising out of the pit mouth, 4 m under the deck lip between the tower and the pit wall: it lights the ceiling, walls and anything standing from below and throws their shadows up and out. Two, a quarter turn apart (bearings 0 and 270): each lights the gallery side-on and leaves its own bearing (the deck lip) and the far one (the tower) dark, so together they sum even round the ring."
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 30, -8.5, 0)
+light_color = Color(1, 0.3, 0.08, 1)
+light_bake_mode = 0
+light_energy = 2.5
+light_specular = 0.2
+shadow_enabled = true
+shadow_bias = 0.1
+shadow_blur = 2.0
+omni_range = 140.0
+omni_attenuation = 0.6
+omni_shadow_mode = 1
+
+[node name="PitFireN" type="OmniLight3D" parent="Environment"]
+editor_description = "Fire rising out of the pit mouth, 4 m under the deck lip between the tower and the pit wall: it lights the ceiling, walls and anything standing from below and throws their shadows up and out. Two, a quarter turn apart (bearings 0 and 270): each lights the gallery side-on and leaves its own bearing (the deck lip) and the far one (the tower) dark, so together they sum even round the ring."
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -8.5, -30)
+light_color = Color(1, 0.3, 0.08, 1)
+light_bake_mode = 0
+light_energy = 2.5
+light_specular = 0.2
+shadow_enabled = true
+shadow_bias = 0.1
+shadow_blur = 2.0
+omni_range = 140.0
+omni_attenuation = 0.6
+omni_shadow_mode = 1
+
 [node name="HellFlood" type="OmniLight3D" parent="Tower" unique_id=1424319747]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 300, 0)
 light_color = Color(1, 0.28, 0.06, 1)
-light_energy = 3.74
+light_bake_mode = 0
+visible = false
+light_energy = 0.0
 omni_range = 700.0
 omni_attenuation = 0.6
 
@@ -612,9 +642,33 @@ omni_attenuation = 0.6
 editor_description = "LOCAL GLOW ONLY, not the arena's main light -- see KeyLight. A small hot point above the platform so the tower still visibly reads as a light source up close. Colour, energy, range, attenuation and height are TowerLightProfile fields applied by TowerLight.gd at ready; the light_* properties here are placeholders for the editor view. It rides the tower's rise, which is the point."
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 10, 0)
 light_color = Color(0.9, 0.14, 0.08, 1)
+light_bake_mode = 0
+visible = false
 light_energy = 30.0
 shadow_enabled = true
 omni_range = 25.0
 script = ExtResource("3_tower_light")
 profile = ExtResource("4_tower_light_profile")
 
+[node name="Watcher" parent="Tower" instance=ExtResource("27_watching_eye")]
+editor_description = "The eye over hell's tower, and hell's alone (Ryan, 2026-10-05: \"lets put the eye back in hell. itll be a hell specific thing\"). Size, height and the guard's excluded column are bentham_ring_watching_eye_profile.tres; its materials are bentham_ring_watching_eye_look.tres."
+profile = ExtResource("28_watcher_profile")
+look = ExtResource("29_watcher_look")
+
+[node name="LavaLightmap" type="LightmapGI" parent="."]
+editor_description = "The lava's glow on the rock: sea, rivers, falls and cracks emit in the bake (tools/import/lightmap_split.gd's lit stand-in), with occlusion and bounce, and its probes light the players. Rebake: tools/pc_bake_lightmap.sh. Every real light is bake_mode Disabled."
+quality = 2
+bounces = 1
+bounce_indirect_energy = 0.5
+denoiser_strength = 0.05
+interior = false
+environment_mode = 0
+light_data = ExtResource("32_lava_lightmap")
+
+[node name="HeatShimmer" type="MeshInstance3D" parent="."]
+editor_description = "Level-wide heat shimmer (Ryan, 2026-10-05: \"a heat effect across the whole level that makes it seem very, very, very hot\"). A clip-space quad built by its script, so it also shows in the editor viewport; tune strength, speed, look_down_boost and warm_lift here."
+cast_shadow = 0
+extra_cull_margin = 16384.0
+gi_mode = 0
+script = ExtResource("33_heat_shimmer")
+strength = 0.2

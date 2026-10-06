@@ -103,6 +103,11 @@ func refresh() -> void:
 				continue
 			var button: Button = entry
 			button.text = KeybindMap.describe(_store.keybinds.get_binding(action, slot))
+	# The crouch/slide row is hidden while both are switched off in the debug menu.
+	var crouch_or_slide: bool = _store.settings.crouch_enabled or _store.settings.slide_enabled
+	for cell: Node in _table.get_children():
+		if String(cell.name).begins_with(_row_prefix(PlayerActions.SLIDE)):
+			(cell as Control).visible = crouch_or_slide
 
 
 ## Abort a capture in flight, leaving the binding alone.

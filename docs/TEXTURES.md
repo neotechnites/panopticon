@@ -11,8 +11,8 @@ the Aseprite sheet (`.ase`), the PNGs the game loads, and Godot's `.import` besi
     maps/<map>/materials/  shaders and material .tres
     maps/<map>/props/      prop scenes placed on the map
 
-`characters/`, `weapons/`, `hub/`, `props/` and `tower/` follow the same folders. The tower has no textures of
-its own: it wears hell's. Map notes are in `docs/maps/`.
+`characters/`, `weapons/`, `hub/`, `props/` and `tower/` follow the same folders. The tower's rock wears hell's;
+its watching eye has its own sheet. Map notes are in `docs/maps/`.
 
 ## How to edit
 
@@ -120,9 +120,28 @@ onto each face by its old-model material (`prisoner_faces.json`) into `prisoner2
 
 | Texture | Looks like | Worn by |
 |---|---|---|
-| rifle_wood_albedo | placeholder: painted brown wood, grain along the tile, 32 px | the rifle's stock |
-| rifle_metal_albedo | placeholder: dark steel with soft sheen bands, 32 px | the rifle's barrel, action, scope and fittings |
+| rifle_side_albedo | placeholder: a side-on scoped bolt-action rifle, 256 x 64, shading painted in; five small cells top left (butt plate, steel bar, muzzle, end grain, turret cap) | the whole rifle, projected from the side onto both flanks |
+| rifle_wood_albedo | painted brown wood, grain along the tile, 32 px | nothing now (the rifle before the side picture) |
+| rifle_metal_albedo | dark steel with soft sheen bands, 32 px | nothing now (the rifle before the side picture) |
 | rifle_hell_albedo | wood grain, brass, dark metal, an eye and "No 7" plate | the old rifle (rifle_classic.tscn) |
+
+`rifle_side_albedo` is built by `python3 tools/textures/rifle_side_picture.py` from a public-domain U.S. Army photograph
+(source and licence in `tools/modelling/weapons/rifle_n64_trace.py`); running it again overwrites the slice. Repaint inside
+the slice freely: the model's UVs are the picture's own pixels, so no rebuild is needed. Keep each part's edge colour
+running two pixels past its outline.
+
+### Tower: `tower/textures/` (`eye.ase`)
+
+Each slice is a disc seen head-on down the eye's gaze: centre = the middle of that part, disc edge = its rim.
+
+| Texture | Looks like | Worn by |
+|---|---|---|
+| eye_sclera_albedo | placeholder: dark red flesh, ember veins running in from the edge, 128 px; edge = the ball's equator, the back half mirrors the front | the watching eye's ball (hell, main menu) |
+| eye_iris_albedo | placeholder: red iris, orange radial fibres, dark limbal ring, 64 px | the eye's iris |
+| eye_iris_emissive | placeholder: the same iris as glow; black where it must not shine | the iris's glow |
+| eye_pupil_albedo | placeholder: near black, 32 px | the eye's pupil |
+
+Placeholders are painted by `tools/textures/eye_placeholder.py`; draw over the slices in `eye.ase`.
 
 ### Props: `props/textures/` (`props.ase`)
 
@@ -231,9 +250,6 @@ Up to four commonest colours and the share of vertices wearing each; many colour
 | maps/forest/models/forest.glb | ForestFogMat | (0, 0, 0) |
 | maps/forest/models/forest.glb | forest_stem | (1, 1, 1) |
 | maps/marble/models/marble_tower.glb | marble_tower_lamp_glow | (1, 0.9, 0.66) |
-| tower/models/eye.glb | M_Iris | (0.6, 0.01, 0.008) |
-| tower/models/eye.glb | M_Pupil | (0.006, 0.004, 0.006) |
-| tower/models/eye.glb | M_Sclera | (0.03, 0.03, 0.038) |
 
 ## Every material in every shipped model
 
@@ -453,9 +469,9 @@ Up to four commonest colours and the share of vertices wearing each; many colour
 | maps/marble/models/marble_tower.glb | marble_tower_shade | maps/marble/textures/marble_brick_albedo.png | marble.ase / marble_brick_albedo | (0.85, 0.85, 0.85) | - |
 | maps/marble/models/marble_tower.glb | marble_tower_stone | maps/marble/textures/marble_brick_albedo.png | marble.ase / marble_brick_albedo | (0.673, 0.549, 0.492) | - |
 | props/models/speed_orb.glb | SpeedOrb | props/textures/speed_orb_albedo.png | props.ase / speed_orb_albedo | - | speed_orb_albedo.png |
-| tower/models/eye.glb | M_Iris | none | - | (0.6, 0.01, 0.008) | - |
-| tower/models/eye.glb | M_Pupil | none | - | (0.006, 0.004, 0.006) | - |
-| tower/models/eye.glb | M_Sclera | none | - | (0.03, 0.03, 0.038) | - |
+| tower/models/eye.glb | M_Iris | tower/textures/eye_iris_albedo.png | eye.ase / eye_iris_albedo | - | eye_iris_emissive.png |
+| tower/models/eye.glb | M_Pupil | tower/textures/eye_pupil_albedo.png | eye.ase / eye_pupil_albedo | - | - |
+| tower/models/eye.glb | M_Sclera | tower/textures/eye_sclera_albedo.png | eye.ase / eye_sclera_albedo | - | - |
 | tower/models/tower.glb | HellRock | maps/bentham_ring/textures/hell_rock_albedo.png | hell.ase / hell_rock_albedo | - | - |
 | tower/models/tower2.glb | HellRock | maps/bentham_ring/textures/hell_rock_albedo.png | hell.ase / hell_rock_albedo | - | - |
 | tower/models/tower_arches.glb | HellRock | maps/bentham_ring/textures/hell_rock_albedo.png | hell.ase / hell_rock_albedo | - | - |
@@ -463,6 +479,7 @@ Up to four commonest colours and the share of vertices wearing each; many colour
 | tower/models/tower_interior.glb | HellRock.001 | maps/bentham_ring/textures/hell_rock_albedo.png | hell.ase / hell_rock_albedo | - | - |
 | weapons/models/rifle.glb | RifleWarden | weapons/textures/rifle_hell_albedo.png | rifle.ase / rifle_hell_albedo | - | - |
 | weapons/models/rifle_lowpoly.glb | RifleWarden | weapons/textures/rifle_hell_albedo.png | rifle.ase / rifle_hell_albedo | - | - |
+| weapons/models/rifle_n64.glb | RifleSide | weapons/textures/rifle_side_albedo.png | rifle.ase / rifle_side_albedo | - | - |
 
 ## Check
 

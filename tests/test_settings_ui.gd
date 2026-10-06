@@ -83,6 +83,8 @@ func before_each() -> void:
 	_real_config_path = store.config_path
 	store.config_path = SCRATCH_CONFIG
 	store.keybinds.reset_to_defaults()
+	# The crouch/slide row only shows while one of them is on; these tests lay out every row.
+	store.settings.crouch_enabled = true
 	await _open_settings_at(SMALLEST_SUPPORTED)
 
 
@@ -90,6 +92,7 @@ func after_each() -> void:
 	var store: SettingsStore = SettingsStore.instance()
 	store.erase_file()
 	store.config_path = _real_config_path
+	store.settings.crouch_enabled = GameSettings.DEFAULT_CROUCH_ENABLED
 	store.keybinds.reset_to_defaults()
 	store.keybinds.apply_to_input_map()
 

@@ -284,7 +284,7 @@ both see through it; a naive `cmp` does not.
 |---|---|---|
 | `runner.glb` | `runner_build.py` | 544 tris, 16-joint rig, 21-frame `Run` clip at 30 fps, 1.8 m |
 | `rifle.glb` | `rifle_build.py` | no skin, no animation, muzzle at local `(0, 0, -1.150)` |
-| `eye.glb` | `eye_build.py` | 768 tris, 3 nodes, no rig; the sclera's exported triangle ORDER is not reproducible (see below) |
+| `eye.glb` | `eye_build.py` | 368 tris, 3 nodes, no rig; painted by `tower/textures/eye.ase` |
 
 Each script's own header states the contract it holds to; the tri budget is in
 `<name>.contract.json`.

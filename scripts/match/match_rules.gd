@@ -269,26 +269,24 @@ enum MapPickMode {
 
 # --- The finisher -------------------------------------------------------------
 
-## Whether reaching the end ARMS the prisoner instead of ending the round.
-## [b]LIVE[/b], default true.
+## Whether reaching the end puts the prisoner in the tower for the finale
+## instead of ending the round. [b]LIVE[/b], default true.
 ##
-## True: the finisher is handed the guard's own rifle and the round runs on until
-## one of them is dead. Killing the guard takes the tower exactly as the portal
-## used to. False restores the portal finish. The opening race is unaffected --
-## first through still takes the tower, because there is no guard to kill.
+## True: the finisher arrives in the tower invincible and one shove throws the
+## guard out of it, which takes the tower exactly as the portal used to. False
+## restores the portal finish. The opening race is unaffected.
 @export var finisher_hunts_guard: bool = true
 
-## Hit points an armed finisher absorbs from the guard's rifle. [b]LIVE.[/b]
+## Hit points the finisher is shown with. [b]LIVE.[/b] The finisher is
+## invincible, so nothing spends them.
 @export_range(1, 100, 1, "or_greater") var finisher_health: int = 10
 
-## Hit points the guard absorbs from the finisher's rifle. [b]LIVE[/b], default
-## 1 = one shot takes the tower.
+## Hit points the guard stands on in the tower. [b]LIVE[/b]. The finale shove
+## kills him whatever this is.
 @export_range(1, 100, 1, "or_greater") var guard_health: int = 1
 
-## Seconds the killing shot is held before the round resolves. [b]LIVE.[/b]
-##
-## The guard dies, both bodies stand still and the finisher keeps watching; the
-## seat changes when this runs out. Zero resolves on the shot, as it used to.
+## Seconds every view follows the guard thrown out of the tower before the next
+## round starts. [b]LIVE.[/b] Zero resolves on the shove with no shot.
 @export_range(0.0, 10.0, 0.1, "or_greater") var kill_beat_seconds: float = 2.0
 
 # --- The rifle ----------------------------------------------------------------
@@ -694,6 +692,12 @@ enum MapPickMode {
 ## Whether a confirmed hit raises the guard's hitmarker. [b]LIVE[/b], default
 ## true, which is today's feedback. Off leaves the guard to read the ring.
 @export var guard_hit_marker: bool = true
+
+## Whether the crouch/slide key crouches. [b]LIVE[/b], default false: off, the key never crouches.
+@export var crouch_enabled: bool = false
+
+## Whether the crouch/slide key slides. [b]LIVE[/b], default false: off, the key never slides.
+@export var slide_enabled: bool = false
 
 ## Multiplier on a prisoner's ground speed. [b]LIVE[/b], default 1.0 = the
 ## [MovementProfile]'s own pace.
