@@ -13,6 +13,7 @@ PC_RESOLVE=${PC_RESOLVE:-'C:\Program Files\Blackmagic Design\DaVinci Resolve\Res
 PC_FUSCRIPT=${PC_FUSCRIPT:-'C:\Program Files\Blackmagic Design\DaVinci Resolve\fuscript.exe'}
 PC_PYTHON=${PC_PYTHON:-'C:\Users\ddd\tools\python\python.exe'}   # edge-tts and yt-dlp live here
 PC_SERVE_PORT=${PC_SERVE_PORT:-8765}
+PC_SERVE_HOST=${PC_SERVE_HOST:-${PC_HOST#*@}}   # the PC's Tailscale address: dailies are served on it
 PC_RENDERS='C:\Users\ddd\Desktop\panopticon-renders'
 PC_CONTENT="${PC_RENDERS}\content"
 PC_BRANCH=${PC_BRANCH:-work-content}

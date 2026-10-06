@@ -1,18 +1,18 @@
 #!/usr/bin/env bash
-# Serve a project's folder from the PC to this Mac's browser, over the tunnel.
+# Serve a project's folder from the PC to this Mac's browser, over Tailscale.
 #
 #   tools/content/serve.sh <project>          # then open the URL it prints
-#   tools/content/serve.sh <project> --stop   # stop the server and the tunnel
+#   tools/content/serve.sh <project> --stop   # stop the server
 #
-# On the PC, pc/serve_range.py on 127.0.0.1:8765 serving content\<project>\ --
-# http.server's own handler ignores Range, so a browser cannot scrub an mp4 --
-# started through WMI (Win32_Process.Create) so it outlives the ssh session --
-# Start-Process from an ssh session dies with it -- with stdout and stderr
+# On the PC, pc/serve_range.py (Range/206, keep-alive) on the PC's Tailscale
+# address, ${PC_SERVE_HOST}:8765, serving content\<project>\ -- bound to that
+# address only, so nothing is exposed past Tailscale. Direct, not an ssh -L
+# tunnel: the tunnel measured about half the throughput (0.7-1.2 vs 1.8-2.5
+# MB/s), below a cut's bitrate, so every cut buffered. Started through WMI
+# (Win32_Process.Create) so it outlives the ssh session, with stdout and stderr
 # redirected to notes\serve.log, because a console-less python that writes a
 # request line to a closed stdout crashes on the first click. If a server for
-# another project holds the port, it is stopped first. On the Mac, a
-# background ssh tunnel 8765 -> the PC's loopback (reused if one is up), then
-# a curl check. Loopback only on both ends: nothing is exposed past Tailscale.
+# another project holds the port, it is stopped first; an old tunnel is closed.
 set -euo pipefail
 source "$(dirname "$0")/lib.sh"
 
@@ -21,6 +21,7 @@ BRIEF=$(brief_path "${PROJECT}")
 NAME=$(basename "${BRIEF}" .md)
 DIR=$(project_dir "${NAME}")
 PORT="${PC_SERVE_PORT}"
+HOST="${PC_SERVE_HOST}"
 
 tunnel_pids() { pgrep -f "ssh.*-L ${PORT}:127.0.0.1:${PORT}" || true; }
 
@@ -46,7 +47,7 @@ pc <<PS
 \$srv = Get-CimInstance Win32_Process -Filter "Name = 'python.exe'" | Where-Object { \$_.CommandLine -match '(serve_range\\.py|http\\.server) ${PORT}' }
 \$keep = \$false
 foreach (\$p in \$srv) {
-  if (\$p.CommandLine -match 'serve_range\\.py' -and \$p.CommandLine -match [regex]::Escape('${DIR}')) { \$keep = \$true; Write-Output ('server already up for ${NAME}: pid ' + \$p.ProcessId) }
+  if (\$p.CommandLine -match 'serve_range\\.py' -and \$p.CommandLine -match [regex]::Escape('--bind ${HOST}') -and \$p.CommandLine -match [regex]::Escape('${DIR}')) { \$keep = \$true; Write-Output ('server already up for ${NAME}: pid ' + \$p.ProcessId) }
   else {
     Stop-Process -Id \$p.ProcessId -Force -ErrorAction SilentlyContinue
     Stop-Process -Id \$p.ParentProcessId -Force -ErrorAction SilentlyContinue
@@ -55,21 +56,15 @@ foreach (\$p in \$srv) {
   }
 }
 if (-not \$keep) {
-  \$cmd = 'cmd.exe /c "${PC_PYTHON} -u ${DIR}\\scripts\\serve_range.py ${PORT} --bind 127.0.0.1 --directory ${DIR} > ${DIR}\\notes\\serve.log 2>&1"'
+  \$cmd = 'cmd.exe /c "${PC_PYTHON} -u ${DIR}\\scripts\\serve_range.py ${PORT} --bind ${HOST} --directory ${DIR} > ${DIR}\\notes\\serve.log 2>&1"'
   \$r = Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{ CommandLine = \$cmd }
   Write-Output ('server started for ${NAME}: return ' + \$r.ReturnValue + ', pid ' + \$r.ProcessId)
   Start-Sleep -Seconds 2
 }
-\$code = cmd /c "curl.exe -s -m 5 -o NUL -w %{http_code} http://127.0.0.1:${PORT}/"
-Write-Output ('PC loopback check: HTTP ' + \$code)
+\$code = cmd /c "curl.exe -s -m 5 -o NUL -w %{http_code} http://${HOST}:${PORT}/"
+Write-Output ('PC check: HTTP ' + \$code)
 PS
 
-if [ -z "$(tunnel_pids)" ]; then
-  ssh -i "${PC_KEY}" -o ConnectTimeout=20 -o ExitOnForwardFailure=yes -f -N -L "${PORT}:127.0.0.1:${PORT}" "${PC_HOST}"
-  echo "tunnel opened: 127.0.0.1:${PORT} -> PC"
-else
-  echo "tunnel already up (pid $(tunnel_pids | head -1))"
-fi
-sleep 1
-CODE=$(curl -s -m 8 -o /dev/null -w '%{http_code}' "http://127.0.0.1:${PORT}/final/index.html" || true)
-echo "http://127.0.0.1:${PORT}/final/index.html  (HTTP ${CODE}; 404 means no dailies page yet: tools/content/dailies.sh ${NAME})"
+for pid in $(tunnel_pids); do kill "${pid}" && echo "old tunnel ${pid} closed"; done
+CODE=$(curl -s -m 8 -o /dev/null -w '%{http_code}' "http://${HOST}:${PORT}/final/index.html" || true)
+echo "http://${HOST}:${PORT}/final/index.html  (HTTP ${CODE}; 404 means no dailies page yet: tools/content/dailies.sh ${NAME})"

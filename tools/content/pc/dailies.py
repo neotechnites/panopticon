@@ -17,8 +17,8 @@ clip. The page (default final\index.html):
      quoted, seconds, status;
   4. any other mp4 in final\ (takes made outside the brief), alphabetically.
 
-Every <video> is preload="none" with a poster frame and a cache-busting
-?v=<mtime> on its src, so the browser caches a clip until it changes. One inline <style>, no fonts fetched, dark.
+Every <video> has a poster frame and a cache-busting ?v=<mtime> on its src;
+the latest cut is preload="metadata", the rest preload="none", so the browser caches a clip until it changes. One inline <style>, no fonts fetched, dark.
 
 When the brief carries a `## dailies` pipe table (id | src | line | desc) the
 page is the latest cut (section 1 above) and then that table, in that order;
@@ -186,7 +186,7 @@ def preview_for(project, path):
     return prev if os.path.exists(prev) and os.path.getsize(prev) > 0 else ""
 
 
-def video(src_rel, poster_rel, mtime, path=None, project=None, full=False):
+def video(src_rel, poster_rel, mtime, path=None, project=None, full=False, preload="none"):
     """A <video> whose aspect-ratio is the file's own. With a path it plays the
     light preview when there is one (never with full) and links the original."""
     wh = dims(path) if path else None
@@ -200,8 +200,8 @@ def video(src_rel, poster_rel, mtime, path=None, project=None, full=False):
         if prev:
             play = "preview/" + os.path.relpath(prev, os.path.join(project or os.path.dirname(os.path.dirname(path)), "final", "preview")).replace("\\", "/")
             link = '<div class="meta"><a href="%s?v=%d" target="_blank">full quality</a></div>' % (html.escape(src_rel), int(mtime))
-    return ('<video controls preload="none" playsinline%s%s src="%s?v=%d"></video>%s'
-            % (poster, style, html.escape(play), int(mtime), link))
+    return ('<video controls preload="%s" playsinline%s%s src="%s?v=%d"></video>%s'
+            % (preload, poster, style, html.escape(play), int(mtime), link))
 
 
 # --- The `## dailies` page ------------------------------------------------------
@@ -363,7 +363,7 @@ def cut_block(project, parsed, esc):
                 esc("%.1f" % starts.get(r["line"], 0.0)), esc(r.get("text", "")), esc(r.get("clip", "")))
     parts = ['<h3>Latest cut</h3><div class="cut%s">%s<div><h2 style="margin:0 0 8px;font-size:1.1rem">%s</h2>'
              '<div class="meta"><span>%.1f s</span><span>%s</span></div>'
-             % (" wide" if is_landscape(src) else "", video(latest, poster_for(project, tag, src)[0], os.path.getmtime(src), src, project, full=True), esc(tag), dur(src),
+             % (" wide" if is_landscape(src) else "", video(latest, poster_for(project, tag, src)[0], os.path.getmtime(src), src, project, preload="metadata"), esc(tag), dur(src),
                 time.strftime("%Y-%m-%d %H:%M", time.localtime(os.path.getmtime(src))))]
     if rows:
         parts.append("<table><tr><th>Start</th><th>Line</th><th>Clip</th></tr>%s</table>" % rows)

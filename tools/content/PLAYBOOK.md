@@ -158,7 +158,7 @@ Refilm only the map that changed. Eight hell shots and the cut: about five minut
 
 What it does: the game plays the shot at real speed in a borderless 1920x1080 window at 0,0 and
 ffmpeg records that part of the screen (`lib.sh pc_rough`: ddagrab, lossless RGB utvideo). The take
-opens on white frames; the last white frame is the take's t=0. Page: http://127.0.0.1:8765/final/index.html
+opens on white frames; the last white frame is the take's t=0. Page: http://100.114.41.16:8765/final/index.html
 (`tools/content/serve.sh trailer_reveal` if it is down).
 
 ### The final way

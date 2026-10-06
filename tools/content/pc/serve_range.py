@@ -10,7 +10,7 @@ import socket
 import urllib.parse
 from http import HTTPStatus
 
-COPY_CHUNK = 64 * 1024
+COPY_CHUNK = 1024 * 1024
 INDEX_PAGES = ("index.html", "index.htm")
 
 
@@ -167,7 +167,8 @@ def main():
     http.server.test(HandlerClass=RangeHTTPRequestHandler,
                      ServerClass=DualStackServer,
                      port=args.port,
-                     bind=args.bind)
+                     bind=args.bind,
+                     protocol="HTTP/1.1")   # keep-alive: seeks reuse one connection
 
 
 if __name__ == "__main__":
