@@ -9,7 +9,8 @@ from PIL import Image
 
 PERIOD = 27.0      # metres per tile: whole lattices for both octaves (1.0 m and 0.45 m cells)
 SIZE = 512         # pixels per tile, ~5 cm
-GAP = 0.32         # hole threshold: more holes than the shader's 0.3, the lit area its stacked casters let through
+BIG = 0.4         # weight of the clumping octave
+GAP = 0.378        # hole threshold: more holes than the shader's 0.3, the lit area its stacked casters let through
 SIGMA = 0.156       # metres of Gaussian blur: the soft edge
 OUT = "maps/forest/textures/forest_dapple.png"
 
@@ -29,7 +30,9 @@ def vnoise(cells: int) -> np.ndarray:
     return (a * (1 - ux) + b * ux) * (1 - uy) + (c * (1 - ux) + d * ux) * uy
 
 
-n = 0.65 * vnoise(int(PERIOD / 1.0)) + 0.35 * vnoise(int(round(PERIOD / 0.45)))
+# Clumping: a 4.5 m octave pulls holes together into bigger sunny patches and leaves bigger shaded ones,
+# while the fine octaves keep every patch broken up (no clean skylight holes).
+n = BIG * vnoise(int(PERIOD / 4.5)) + (1 - BIG) * (0.65 * vnoise(int(PERIOD / 1.0)) + 0.35 * vnoise(int(round(PERIOD / 0.45))))
 lit = (n < GAP).astype(np.float64)
 # Periodic Gaussian blur through the FFT, so the tile stays seamless.
 k = np.fft.fftfreq(SIZE, d=PERIOD / SIZE)
