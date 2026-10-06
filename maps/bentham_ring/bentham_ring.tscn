@@ -5,7 +5,7 @@
 [ext_resource type="Resource" uid="uid://ckxvuihvhgxu5" path="res://maps/bentham_ring/default_tower_light_profile.tres" id="4_tower_light_profile"]
 [ext_resource type="Script" uid="uid://c567e7nxnq0i" path="res://scripts/ring/ring_route.gd" id="5_ring_route"]
 [ext_resource type="Script" uid="uid://b37vp7jwips2c" path="res://scripts/ring/ring_level.gd" id="6_ring_level"]
-[ext_resource type="PackedScene" uid="uid://qc0reb2qk6wi" path="res://tower/models/tower_arches.glb" id="8b_tower_arches"]
+[ext_resource type="PackedScene" path="res://tower/models/tower_arches_repaired.glb" id="8b_tower_arches"]
 [ext_resource type="Script" uid="uid://gwfatmklmjcr" path="res://scripts/ring/tower_variant.gd" id="8c_tower_variant"]
 [ext_resource type="PackedScene" uid="uid://cwyjwhfotqv73" path="res://tower/models/tower.glb" id="8_tower_model"]
 [ext_resource type="PackedScene" path="res://maps/bentham_ring/models/map_base_s1.glb" id="10_map_base_s1"]
