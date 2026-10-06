@@ -91,9 +91,10 @@ const DRAW_BUDGETS: Dictionary = {
 	# PitFire omnis (forest casts 2) and eight unshadowed MouthGlow; shadow_casters 2 (exact).
 	# 2026-10-05: lava lights laid out from the lava (44 unshadowed omnis) and the crack haze over
 	# sea, rivers and falls (3 LavaHazeField meshes): measured lights 51, transparent_tris 772; +20 %.
+	# 2026-10-05: lava light baked (LavaLightmap); the 44 LavaGlow omnis out: lights 7.
 	"bentham_ring": {
 		"tris": 107595, "surfaces": 108, "materials": 18,
-		"transparent_tris": 927, "lights": 62, "shadow_casters": 2,
+		"transparent_tris": 927, "lights": 7, "shadow_casters": 2,
 	},
 	# THE LANE IS BARE AGAIN (Ryan, 2026-09-22: "for the marble level, can you
 	# just get rid of all the elements on the ring?"). The obstacle course --
