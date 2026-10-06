@@ -24,7 +24,7 @@ static func names() -> PackedStringArray:
 		"s2_gap", "s3_open_lane", "pad_flight", "s3_pillar", "s4_edge", "portal",
 		"s3_chase", "s1_pack", "pocket_cover", "rim_edge", "lake_bank",
 		"cover_side", "rim_side", "lava_parkour", "pack_lead", "s3_face_side",
-		"s3_face_over", "s3_melee", "s1_run",
+		"s3_face_over", "s3_melee", "s1_run", "hell_s2_tower",
 	])
 
 
@@ -38,7 +38,7 @@ static func get_shot(shot_name: String) -> Dictionary:
 			return _shot(shot_name, _s1_cave())
 		"s1_run":
 			return _shot(shot_name, _s1_run())
-		"s2_chain":
+		"s2_chain", "hell_s2_tower":
 			return _shot(shot_name, _s2_chain())
 		"s4_run":
 			return _shot(shot_name, _s4_run())
