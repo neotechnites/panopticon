@@ -58,9 +58,9 @@ func _rebuild() -> void:
 			remove_child(child)
 			child.queue_free()
 	var flake: StandardMaterial3D = _ash_material()
-	var sea: ParticleProcessMaterial = _ash_motion(2.0, 3.5, 2.0)
+	var sea: ParticleProcessMaterial = _ash_motion(4.0, 6.0, 2.0)
 	_ring(sea)
-	_emitter(&"SeaAsh", SEA_ASH * ash, 13.0, sea, flake, sea_ember_size)
+	_emitter(&"SeaAsh", SEA_ASH * ash, 14.0, sea, flake, sea_ember_size)
 	if not river_points.is_empty():
 		var river: ParticleProcessMaterial = _ash_motion(0.6, 1.4, 0.8)
 		_points(river, river_points)
