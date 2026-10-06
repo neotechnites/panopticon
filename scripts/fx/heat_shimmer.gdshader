@@ -29,6 +29,30 @@ uniform vec3 warm : source_color = vec3(1.0, 0.55, 0.25);
 uniform float warm_lift = 0.06;
 // The screen copy reads back darker at the dark end (measured, see lava_haze.gdshader); lift it back.
 uniform float dark_lift = 0.0157;
+// Measured (PC, Compatibility): the copy reads back sRGB-encoded and this quad's ALBEDO is decoded,
+// tonemapped and re-encoded, so the copy was tonemapped twice; heat_shimmer.gd mirrors the environment.
+uniform int tonemap_mode = 0;
+uniform float tonemap_white = 1.0;
+uniform float tonemap_exposure = 1.0;
+
+vec3 to_linear(vec3 c) {
+	return mix(c / 12.92, pow((c + 0.055) / 1.055, vec3(2.4)), step(0.04045, c));
+}
+
+vec3 to_srgb(vec3 c) {
+	return mix(c * 12.92, 1.055 * pow(c, vec3(1.0 / 2.4)) - 0.055, step(0.0031308, c));
+}
+
+// Undoes Reinhard x(W^2 + x) / (W^2 (1 + x)) and the exposure multiply before it, on linear light.
+vec3 untonemap(vec3 y) {
+	vec3 x = y;
+	if (tonemap_mode == 1) {
+		float w2 = tonemap_white * tonemap_white;
+		vec3 b = w2 * (1.0 - y);
+		x = 0.5 * (sqrt(b * b + 4.0 * w2 * y) - b);
+	}
+	return x / max(tonemap_exposure, 0.0001);
+}
 
 void vertex() {
 	POSITION = vec4(VERTEX.xy, 0.0, 1.0);
@@ -66,5 +90,6 @@ void fragment() {
 	vec2 off = n * amp * vec2(0.7 / aspect, 1.2);
 	vec3 c = texture(screen_tex, clamp(uv + off, px, vec2(1.0) - px)).rgb;
 	c += vec3(dark_lift * clamp(1.45 - 6.37 * c, 0.0, 1.0));
-	ALBEDO = c * (vec3(1.0) + warm * warm_lift * strength);
+	vec3 lit = untonemap(to_linear(clamp(c, 0.0, 1.0))) * (vec3(1.0) + warm * warm_lift * strength);
+	ALBEDO = to_srgb(lit);
 }
