@@ -7,8 +7,9 @@ uniform sampler2D albedo_texture : source_color, filter_linear_mipmap_anisotropi
 uniform float glow = 0.3;
 // LeafGreen's albedo_color, so the underside is the walls' leaf where it lands on them.
 uniform vec4 tint : source_color = vec4(1.0);
-// The glow comes in only this far into the glowing share (UV2.x 1 -> 0): none at the walls.
-uniform float glow_fade = 0.7;
+// The glow rolls in over this many metres of radius in from the walls' head (seam_r), lit leaf giving way.
+uniform float seam_r = 47.6;
+uniform float glow_ramp = 9.0;
 uniform sampler2D dapple : hint_default_white, filter_linear_mipmap, repeat_enable;
 uniform float dapple_metres = 27.0;
 uniform float dapple_strength = 1.0;
@@ -31,9 +32,11 @@ void vertex() {
 void fragment() {
 	vec3 tile = texture(albedo_texture, UV).rgb * tint.rgb;
 	float lit = clamp(UV2.x, 0.0, 1.0);
-	ALBEDO = tile * COLOR.rgb * lit;
+	float g = smoothstep(seam_r, seam_r - glow_ramp, length(world.xz));
+	float leaf = max(lit, 1.0 - g);
+	ALBEDO = tile * COLOR.rgb * leaf;
 	// The glow's strength from COLOR_0 but the walls' hue, not its warm cast.
-	EMISSION = tile * dot(COLOR.rgb, vec3(0.299, 0.587, 0.114)) * smoothstep(0.0, glow_fade, 1.0 - lit) * glow;
+	EMISSION = tile * dot(COLOR.rgb, vec3(0.299, 0.587, 0.114)) * (1.0 - leaf) * glow;
 	ROUGHNESS = 0.95;
 }
 
