@@ -56,6 +56,8 @@ const PARTS: Array = [
 	[&"Thigh.R", &"Shin.R", 0.0, 0.08, &"hip", 0.10],
 	[&"Shin.R", &"Foot.R", 0.0, 0.06, &"knee", 0.055],
 ]
+## Most a flop's limbs start behind the thrown torso, m/s.
+const FLOP_MOST_LAG: float = 2.5
 ## The chest, struck when the hit point is unknown.
 const CHEST_PART: int = 1
 ## A flop's tumble: degrees a second per m/s of throw, the seconds it spins down over, the most it turns.
@@ -173,7 +175,8 @@ func flop(anchor: Node3D, throw: Vector3) -> void:
 	_tumble = 0.0
 	_spin = deg_to_rad(TUMBLE_DEG_PER_MPS) * flat.length() * flop_throw
 	# The limbs are left behind by the launch, by as much as they are limp.
-	var behind: Vector3 = -throw * limp * flop_throw * 0.5
+	# Capped: at a full shove the soft joints let limbs left 7 m/s behind stretch off the torso.
+	var behind: Vector3 = (-throw * limp * flop_throw * 0.5).limit_length(FLOP_MOST_LAG)
 	for i: int in range(2, _bones.size()):
 		_bones[i].linear_velocity = throw + behind
 	set_physics_process(true)
