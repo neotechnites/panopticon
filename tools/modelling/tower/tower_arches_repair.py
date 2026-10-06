@@ -26,10 +26,13 @@ FOOT_TOL = 0.05    # ...so the fans there may move this far
 FOOT_TURN = (15.0, 30.0)  # ...and turn this much (large, small facets)
 FOOT_SLIVER = 10.0 # ...and a fan blade thinner than this is a sliver there
 NEEDLE_ANGLE = 5.0 # degrees: a blade this thin reads as a crack wherever it is
-STRIPE_ANGLE = 3.0 # degrees, and...
-STRIPE_LEN = 1.0   # ...metres: a blade this thin and long is a stripe of the wrong shade up a pier
-STRIPE_TOL = 0.18  # ...closed onto the corner it runs along
-STRIPE_TURN = (30.0, 45.0)
+PLANE_TURN = 12.0  # degrees: a face joins a plane turned less than this...
+PLANE_GAP = 0.05   # ...and lying within this of it
+SMALL_REGION = 0.25  # m^2: a plane smaller than this is a dent or ridge...
+ABSORB_GAP = 0.06  # ...folded into a neighbour it lies within this of
+PLANE_HOLD = 0.02  # how hard a vertex holds its old place against its planes...
+PLANE_MOVE = 0.06  # ...and the furthest it may go per round
+PLANE_ROUNDS = 3
 CREASE = 40.0      # degrees: facets meeting gentler than this shade as one surface
 FLOOR_Y = 1.65     # the guard-room floor, glTF y
 FLOOR_UP = 0.97    # a floor facet's normal y
@@ -676,6 +679,126 @@ def _delaunay(m, region):
     return flips
 
 
+def regions(m):
+    """Faces grown into planes: a seed takes neighbours within PLANE_TURN and PLANE_GAP of its fitted plane."""
+    live = [i for i in range(len(m.F)) if m.alive[i] and not m.frozen[i]]
+    geo = {i: tri_normal(m.pts(i)) for i in live}
+    reg = {}
+    planes = []
+    for seed in sorted(live, key=lambda i: -geo[i][1]):
+        if seed in reg:
+            continue
+        r = len(planes)
+        n_acc = geo[seed][0] * geo[seed][1]
+        c_acc = m.pts(seed).mean(0) * geo[seed][1]
+        a_acc = geo[seed][1]
+        reg[seed] = r
+        todo = [seed]
+        while todo:
+            i = todo.pop()
+            f = m.F[i]
+            n = n_acc / max(np.linalg.norm(n_acc), 1e-15)
+            c = c_acc / max(a_acc, 1e-15)
+            for k in range(3):
+                for j in m.edge_faces(f[k], f[(k + 1) % 3]):
+                    if j in reg or j not in geo:
+                        continue
+                    if float(geo[j][0] @ n) < math.cos(math.radians(PLANE_TURN)):
+                        continue
+                    if np.abs((m.pts(j) - c) @ n).max() > PLANE_GAP:
+                        continue
+                    reg[j] = r
+                    n_acc = n_acc + geo[j][0] * geo[j][1]
+                    c_acc = c_acc + m.pts(j).mean(0) * geo[j][1]
+                    a_acc += geo[j][1]
+                    todo.append(j)
+        planes.append(None)
+    return reg, geo
+
+
+def fit(m, reg, geo):
+    faces = {}
+    for i, r in reg.items():
+        faces.setdefault(r, []).append(i)
+    planes = {}
+    for r, fs in faces.items():
+        a = sum(geo[i][1] for i in fs)
+        n = sum(geo[i][0] * geo[i][1] for i in fs)
+        n = n / max(np.linalg.norm(n), 1e-15)
+        c = sum(m.pts(i).mean(0) * geo[i][1] for i in fs) / max(a, 1e-15)
+        planes[r] = (n, float(n @ c), a, fs)
+    return planes
+
+
+def absorb(m, reg, geo):
+    """Small regions (dents, pinches, ridges) join the neighbouring plane they already nearly lie on."""
+    for _ in range(20):
+        planes = fit(m, reg, geo)
+        merged = 0
+        for r, (n, d, a, fs) in sorted(planes.items(), key=lambda kv: kv[1][2]):
+            if a >= SMALL_REGION or any(reg[i] != r for i in fs):
+                continue
+            verts = set(u for i in fs for u in m.F[i])
+            nbr = set()
+            for i in fs:
+                f = m.F[i]
+                for k in range(3):
+                    for j in m.edge_faces(f[k], f[(k + 1) % 3]):
+                        if j in reg and reg[j] != r:
+                            nbr.add(reg[j])
+            best = None
+            for q in nbr:
+                nq, dq, aq, _ = planes[q]
+                if aq <= a:
+                    continue
+                gap = max(abs(float(nq @ m.V[v]) - dq) for v in verts)
+                if gap <= ABSORB_GAP and (best is None or gap < best[0]):
+                    best = (gap, q)
+            if best:
+                for i in fs:
+                    reg[i] = best[1]
+                merged += 1
+        if not merged:
+            break
+    return reg
+
+
+def planarize(m):
+    """Every region onto its plane; a vertex on two planes onto their line, on three onto their point."""
+    reg, geo = regions(m)
+    reg = absorb(m, reg, geo)
+    planes = fit(m, reg, geo)
+    moved = 0
+    newpos = {}
+    for v in range(len(m.V)):
+        if v in m.locked:
+            continue
+        rs = set(reg[i] for i in m.vf[v] if m.alive[i] and i in reg)
+        if not rs:
+            continue
+        hold = PLANE_HOLD
+        while True:                                     # nearly parallel planes meet far off: hold harder
+            A = hold * np.eye(3)
+            b = hold * m.V[v]
+            for r in rs:
+                n, d = planes[r][0], planes[r][1]
+                A += np.outer(n, n)
+                b += n * d
+            x = np.linalg.solve(A, b)
+            if np.linalg.norm(x - m.V[v]) <= PLANE_MOVE or hold > 1e3:
+                break
+            hold *= 2.0
+        newpos[v] = x
+    old = {i: geo[i][0] for i in geo}
+    for v, x in newpos.items():
+        if np.linalg.norm(x - m.V[v]) > 1e-6:
+            m.V[v] = x
+            m.moved.add(v)
+            moved += 1
+    flipped = [i for i in old if m.alive[i] and float(tri_normal(m.pts(i))[0] @ old[i]) < 0.0]
+    return len(planes), moved, len(flipped), reg
+
+
 def components(m):
     par = list(range(len(m.V)))
 
@@ -796,10 +919,14 @@ def main():
     print("feet:", repair(m, FOOT_TOL, lambda p: p[:, 1].mean() < FOOT_Y))
     SLIVER, SOFT = NEEDLE_ANGLE, NEEDLE_ANGLE           # last: needles anywhere above the shaft, the cracks seen close
     print("needles:", repair(m, FOOT_TOL))
-    NORMAL_TOL, SMALL_TURN = STRIPE_TURN                # long blades up a pier corner: sky-lit stripes
-    SLIVER, SOFT = STRIPE_ANGLE, STRIPE_ANGLE
-    print("stripes:", repair(m, STRIPE_TOL, lambda p: max(np.linalg.norm(p[k] - p[k - 1]) for k in range(3)) > STRIPE_LEN))
     print("fins merged last: %d" % fins(m))
+    NORMAL_TOL, SMALL_TURN = 180.0, 180.0               # from here the planes are the shape
+    for k in range(PLANE_ROUNDS):
+        n_reg, moved, flipped, reg = planarize(m)
+        print("planes: %d regions, %d verts moved, %d faces flipped" % (n_reg, moved, flipped))
+        SLIVER, SOFT = 5.0, 10.0
+        print("tidy:", repair(m, PLANE_GAP))
+        print("fins:", fins(m, 150.0, PLANE_GAP))
     if not os.environ.get("REPAIR_DRY"):
         write(j, b, m, at, F, DST)
         print("wrote", DST)
