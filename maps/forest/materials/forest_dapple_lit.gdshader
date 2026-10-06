@@ -12,6 +12,9 @@ uniform sampler2D dapple : hint_default_white, filter_linear_mipmap, repeat_enab
 uniform float dapple_metres = 27.0;
 // 0 leaves the sun whole, 1 is the full dapple.
 uniform float dapple_strength = 1.0;
+// Lifts the leaf shade: the share of the sun that still reaches shaded spots (0 = shade is ambient only).
+// Set per material, e.g. only on the grass, to show the tile's texture in the shade.
+uniform float shade_lift = 0.0;
 // Brightness of the sun that gets through the dapple (1 = the suns' full light). Only dappled surfaces.
 uniform float dapple_light = 0.8;
 // The fine second layer (the texture's G): small flecks of light in shade and of shade in light.
@@ -72,6 +75,7 @@ void light() {
 		vec2 d = vec2(texture(dapple, (p + drift) / dapple_metres).r, texture(dapple, (p + fleck_drift) / dapple_metres).g);
 		sun = dapple_light * mix(1.0, clamp(d.r + (d.g - 0.5 - fleck_bias) * 2.0 * fleck_strength, 0.0, 1.0), dapple_strength);
 		sun = mix(sun, dapple_light * dapple_mean, smoothstep(dapple_top, dapple_top + dapple_top_fade, world.y));
+		sun = max(sun, shade_lift * dapple_light);
 	}
 	DIFFUSE_LIGHT += clamp(dot(NORMAL, LIGHT), 0.0, 1.0) * ATTENUATION * LIGHT_COLOR / PI * sun;
 }
