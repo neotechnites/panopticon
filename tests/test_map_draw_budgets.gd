@@ -87,11 +87,11 @@ const DRAW_BUDGETS: Dictionary = {
 	# surfaces measured 90, ceiling 108 (+20 %).
 	# 2026-10-05: the eye is back over hell's tower, and only hell's (368 tris, 3 surfaces, 3 materials):
 	# measured tris 97283, surfaces 93, materials 15. Every ceiling is unchanged.
-	# 2026-10-05: PitKey, one cube-shadowed omni over the tower (forest casts 2):
-	# measured lights 9, shadow_casters 1 (exact); every other ceiling unchanged.
+	# 2026-10-05: PitKey over the tower replaced by fire from the pit mouth: two cube-shadowed
+	# PitFire omnis (forest casts 2) and eight unshadowed MouthGlow; shadow_casters 2 (exact).
 	"bentham_ring": {
 		"tris": 107595, "surfaces": 108, "materials": 18,
-		"transparent_tris": 173, "lights": 24, "shadow_casters": 1,
+		"transparent_tris": 173, "lights": 24, "shadow_casters": 2,
 	},
 	# THE LANE IS BARE AGAIN (Ryan, 2026-09-22: "for the marble level, can you
 	# just get rid of all the elements on the ring?"). The obstacle course --
