@@ -50,8 +50,8 @@ extends Node
 ## see [code]tools/_scratch/ads_view.gd[/code], which is the harness that
 ## produced the pictures, and docs/MODELLING.md for how it is run on the PC.
 ##
-## [b]The scope comes up to the eye.[/b] It swings onto the view axis first ([member lateral_arrive]), then slides
-## straight back to the eye; at [member ZoomProfile.vignette_onset] the model hides and the screen cuts to the vignette.
+## [b]The scope comes up to the eye.[/b] The eyepiece travels one straight line from the hip to the eye, never away
+## from it; at [member ZoomProfile.vignette_onset] the model hides and the screen cuts to the vignette.
 
 ## The node this blends: [code]Rifle/ViewModel[/code]. Its transform at
 ## [method _ready] is captured as the hip pose -- the same authored value
@@ -97,9 +97,9 @@ extends Node
 ## different value here is safe rather than merely untested.
 @export var aim_scale: float = 0.75
 
-## Progress by which the sideways and vertical move and the rotation are done, so the scope is
-## on the view axis while the vignette closes; depth runs on the whole progress, so the last stretch is straight back.
-@export_range(0.05, 1.0, 0.01) var lateral_arrive: float = 0.6
+## The eyepiece's rear face in the model's own space (rifle_n64_trace SCOPE_Z over SCOPE_REAR): the point
+## [method pose_at] carries on a straight line from where the hip pose holds it to the eye.
+@export var eyepiece: Vector3 = Vector3(0.0, 0.045, 0.110)
 
 ## ViewModel's transform at [method _ready], before anything has blended it.
 ## The hip end of every blend, and never re-derived from wherever the node
@@ -141,18 +141,16 @@ func get_current_base_pose() -> Transform3D:
 
 
 ## The base pose at shaped progress [param t]: exactly the hip at 0 and the aim at 1.
-## Lateral offset and rotation finish at [member lateral_arrive], eased out; depth lerps over all of [param t].
+## The rotation slerps by [param t] and the origin follows so [member eyepiece] moves on a straight line to the eye.
 func pose_at(t: float) -> Transform3D:
 	if t <= 0.0:
 		return _hip
 	var aim: Transform3D = _aim_transform()
 	if t >= 1.0:
 		return aim
-	var side: float = clampf(t / maxf(lateral_arrive, 0.001), 0.0, 1.0)
-	side = side * (2.0 - side)
-	var turned: Transform3D = _hip.interpolate_with(aim, side)
-	turned.origin.z = lerpf(_hip.origin.z, aim.origin.z, t)
-	return turned
+	var basis: Basis = _hip.interpolate_with(aim, t).basis
+	var at: Vector3 = (_hip * eyepiece).lerp(aim * eyepiece, t)
+	return Transform3D(basis, at - basis * eyepiece)
 
 
 ## ViewModel's authored hip transform, for tests and for anything that would
