@@ -4,7 +4,7 @@ extends RefCounted
 ## With res://.lightmap_bake present (the bake clone only) the lava is unwrapped too and glows as a lit emitter.
 
 const CHUNK_PREFIX := "res://maps/bentham_ring/models/map_base_"
-## Metres per lightmap texel: the lava's glow is soft, so this stays coarse and the bake small.
+## Metres per lightmap texel, soft as the lava's glow; keep each chunk's .glb.import lightmap_texel_size equal (it forces the reimport).
 const TEXEL := 0.6
 const BAKE_FLAG := "res://.lightmap_bake"
 ## The stand-in's glow against the wave shader's emission_energy: the one knob the bake's brightness turns on.

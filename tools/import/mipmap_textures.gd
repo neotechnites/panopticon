@@ -7,8 +7,6 @@ extends EditorScenePostImport
 const SharedMaterials := preload("res://tools/import/shared_materials.gd")
 const SmoothNormals := preload("res://tools/import/smooth_normals.gd")
 const LightmapSplit := preload("res://tools/import/lightmap_split.gd")
-## Moving things take a baked map's light from its probes, which reach only GI_MODE_DYNAMIC meshes.
-const PROBE_LIT_PREFIXES := ["res://characters/", "res://weapons/"]
 ## Surfaces whose glTF material is named here get the waving lava shader instead.
 const WAVE_MATERIALS := [&"LavaRiver", &"LavaSea", &"LavaCrack"]
 const LAVA_WAVE_SHADER := "res://maps/bentham_ring/materials/lava_wave.gdshader"
@@ -56,20 +54,11 @@ func _post_import(scene: Node) -> Object:
 	SharedMaterials.share(scene, get_source_file())
 	SmoothNormals.smooth(scene, get_source_file())
 	LightmapSplit.split(scene, get_source_file(), WAVE_MATERIALS)
-	_probe_lit(scene)
 
 	print("MIPMAP %s: %d textures gained mips, %d materials refiltered to filter %d" % [
 		get_source_file().get_file(), _textures_mipped, _materials_refiltered, _filter,
 	])
 	return scene
-
-
-func _probe_lit(scene: Node) -> void:
-	for prefix: String in PROBE_LIT_PREFIXES:
-		if get_source_file().begins_with(prefix):
-			for node: Node in scene.find_children("*", "GeometryInstance3D", true, false):
-				(node as GeometryInstance3D).gi_mode = GeometryInstance3D.GI_MODE_DYNAMIC
-			return
 
 
 func _walk(node: Node) -> void:
