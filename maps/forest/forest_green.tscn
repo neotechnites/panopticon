@@ -59,9 +59,9 @@ shader = ExtResource("10_crown_shadow")
 shader_parameter/roof_radius = 8.7
 shader_parameter/solid_below_y = 34.25
 shader_parameter/wall_radius = 56.5
-shader_parameter/gap = 0.3
+shader_parameter/gap = 0.325
 shader_parameter/cell = 1.0
-shader_parameter/soft = 0.2
+shader_parameter/soft = 0.07
 shader_parameter/sway = 0.12
 shader_parameter/sway_speed = 1.0
 
@@ -71,9 +71,9 @@ shader = ExtResource("10_crown_shadow")
 shader_parameter/roof_radius = 8.7
 shader_parameter/solid_below_y = -1000.0
 shader_parameter/wall_radius = 0.0
-shader_parameter/gap = 0.3
+shader_parameter/gap = 0.325
 shader_parameter/cell = 1.0
-shader_parameter/soft = 0.2
+shader_parameter/soft = 0.07
 shader_parameter/sway = 0.12
 shader_parameter/sway_speed = 1.0
 
@@ -83,9 +83,9 @@ shader = ExtResource("10_crown_shadow")
 shader_parameter/roof_radius = 8.7
 shader_parameter/solid_below_y = -1000.0
 shader_parameter/wall_radius = 0.0
-shader_parameter/gap = 0.25
+shader_parameter/gap = 0.275
 shader_parameter/cell = 1.0
-shader_parameter/soft = 0.2
+shader_parameter/soft = 0.07
 shader_parameter/sway = 0.12
 shader_parameter/sway_speed = 1.0
 
