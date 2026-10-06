@@ -40,7 +40,7 @@ const OUTSIDE: Array = [
 	{"to": 80.0, "r": 55.4},
 ]
 ## Start bearings: the POV, the man ahead on his line, the outside man.
-const STARTS: Array[float] = [2.5, 6.8, 6.0]
+const STARTS: Array[float] = [2.5, 5.3, 6.4]
 const START_R: Array[float] = [51.4, 51.4, 55.2]
 
 var _bodies: Array[PlayerController] = []
