@@ -661,6 +661,7 @@ quality = 2
 bounces = 1
 bounce_indirect_energy = 0.5
 denoiser_strength = 0.2
+speed = 1.5
 interior = false
 environment_mode = 0
 light_data = ExtResource("32_lava_lightmap")
