@@ -26,7 +26,7 @@ v4 (Ryan): "every shot must be exactly reproducible in engine -- run a script an
 
 ## 1
 said: v4 "Hell, guard POV from the window: zooms in, fires at the middle runner (keep v3 a1 event)"
-capture: --shot=s3_open_lane --stage=trailer_open --pov=guard --hud=crosshair --bots=3 --rifle=projectile --set=fire_at=3.24 --seed=20261001
+capture: --shot=s3_open_lane --stage=trailer_open --pov=guard --hud=crosshair --bots=3 --rifle=projectile --set=fire_at=3.24;shimmer=0.06 --seed=20261001
 tape: open
 seconds: 4.0
 in: 0.9
@@ -35,7 +35,7 @@ freeze: waive
 
 ## 2
 said: v4 "Hell, the same event from the runner behind: the man ahead drops, he looks up at the tower (keep a2)"
-capture: --shot=s3_open_lane --stage=trailer_open --pov=runner --bots=3 --rifle=projectile --set=fire_at=3.24;eye_at=4.05;eye_swing=0.4;eye_from=60:49 --seed=20261001
+capture: --shot=s3_open_lane --stage=trailer_open --pov=runner --bots=3 --rifle=projectile --set=fire_at=3.24;eye_at=4.05;eye_swing=0.4;eye_from=60:49;shimmer=0.06 --seed=20261001
 tape: open
 seconds: 5.0
 in: 0.9
@@ -88,7 +88,7 @@ freeze: waive
 
 ## 6
 said: v4 "Hell, runner POV behind a rock, peeking out -- standing (d1, re-filmed without crouch)"
-capture: --shot=cover_side --stage=trailer_duel2 --bots=1 --pov=runner --rifle=projectile --seed=20261001
+capture: --shot=cover_side --stage=trailer_duel2 --bots=1 --pov=runner --rifle=projectile --set=shimmer=0.06 --seed=20261001
 tape: duel
 seconds: 7.5
 in: 1.0
@@ -100,7 +100,7 @@ freeze: waive
 
 ## 7
 said: v4 "Hell, guard scope holding on that rock; the shot hits rock (d2)"
-capture: --shot=cover_side --stage=trailer_duel2 --bots=1 --pov=guard --hud=crosshair --rifle=projectile --seed=20261001
+capture: --shot=cover_side --stage=trailer_duel2 --bots=1 --pov=guard --hud=crosshair --rifle=projectile --set=shimmer=0.06 --seed=20261001
 tape: duel
 seconds: 7.5
 in: 1.0
@@ -110,7 +110,7 @@ freeze: waive
 
 ## 8
 said: v4 "Hell, runner POV breaking cover and sprinting (d3 -- Ryan: \"perfect\", keep its framing)"
-capture: --shot=cover_side --stage=trailer_duel2 --bots=1 --pov=runner --rifle=projectile --seed=20261001
+capture: --shot=cover_side --stage=trailer_duel2 --bots=1 --pov=runner --rifle=projectile --set=shimmer=0.06 --seed=20261001
 tape: duel
 seconds: 2.2
 in: 5.5
@@ -169,7 +169,7 @@ freeze: waive
 
 ## 11
 said: v4 "Hell, lake platforming (t2)"
-capture: --shot=lava_parkour --stage=lavaparkour --bots=3 --set=line=3;solo=1 --pov=runner --seed=20261001
+capture: --shot=lava_parkour --stage=lavaparkour --bots=3 --set=line=3;solo=1;shimmer=0.06 --pov=runner --seed=20261001
 tape: lake
 seconds: 5.5
 in: 1.2
@@ -215,11 +215,15 @@ freeze: waive
 
 ## 13
 said: v4 "Hell S3, runner POV running through and bouncing on a crack"
-capture: --shot=s4_edge --stage=trailer_crack --bots=2 --pov=runner --rifle=projectile --seed=20261001
+capture: --shot=s4_edge --stage=trailer_crack --bots=2 --pov=runner --rifle=projectile --set=shimmer=0.06;skip=1;skip_go=1.3;skip_from=142.6,52.4;skip_pace=1.1 --seed=20261001
 tape: crack
 seconds: 3.2
 in: 1.7
 freeze: waive
+# v28 (Ryan): "put the green runner in front of the POV. Green does NOT bounce on the pads; they jump over them" (skip=1): the mate
+# runs the r 52.4 pad column 3 deg ahead and jumps each crack (takeoff 146.0 and 156.2 deg, apex 1.05 m, never launched); the POV's
+# path is the old one, his eyes held lower so green stays in frame. In the game a pad costs no forward speed, so green leads by
+# ~3 deg and gains under a degree; he is on the ground running while the POV hangs 3.8 m up.
 # v27 (Ryan): "cut the POV wind-up before running at the pad. Start already running." The take runs to 4.9; k1 opens after the break, him at a run.
 # behind the 139 deg lip rock, breaks across the gap at 2.05; the round lands where he was at 2.55; launched off the crack at 148.3 deg at 2.60, peaks 3.8 m up ~3.2
 # v19: his eyes go up after the mate thrown off the crack ahead (2.23); launched himself 2.60; the round crosses ahead of the mate ~3.1, a look across at the tower, down for the landing
@@ -227,7 +231,7 @@ freeze: waive
 
 ## 14
 said: v4 "Same moment from the guard scope: fires, misses, the runner launches up out of cover"
-capture: --shot=s4_edge --stage=trailer_crack --bots=2 --pov=guard --hud=crosshair --rifle=projectile --seed=20261001
+capture: --shot=s4_edge --stage=trailer_crack --bots=2 --pov=guard --hud=crosshair --rifle=projectile --set=shimmer=0.06;skip=1;skip_go=1.3;skip_from=142.6,52.4;skip_pace=1.1 --seed=20261001
 tape: crack
 seconds: 2.0
 in: 1.95
@@ -279,7 +283,7 @@ freeze: waive
 
 ## 1v
 said: v25 "first thing to do for it, extend the first shot a little further so we can start the song like on second earlier."
-capture: --shot=s3_open_lane --stage=trailer_open --pov=guard --hud=crosshair --bots=3 --rifle=projectile --set=fire_at=3.24 --seed=20261001
+capture: --shot=s3_open_lane --stage=trailer_open --pov=guard --hud=crosshair --bots=3 --rifle=projectile --set=fire_at=3.24;shimmer=0.06 --seed=20261001
 tape: open
 seconds: 4.8
 in: 0.75
@@ -309,7 +313,7 @@ freeze: waive
 
 ## 7v
 said: v25a "the shot with the cover doesnt read anymore. they peak out, cut straight to the shot, where the player isnt even in fram. for it to read right, the player has to be in frame and we need to watch the dodge."
-capture: --shot=cover_side --stage=trailer_duel2 --bots=1 --pov=guard --hud=crosshair --rifle=projectile --set=kick=0.3 --seed=20261001
+capture: --shot=cover_side --stage=trailer_duel2 --bots=1 --pov=guard --hud=crosshair --rifle=projectile --set=kick=0.3;shimmer=0.06 --seed=20261001
 tape: duel_dodge
 seconds: 2.4
 in: 3.0

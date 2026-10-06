@@ -177,6 +177,7 @@ var _seat: BotTowerSeat = null
 var _fill: OmniLight3D = null
 var _eye: Node3D = null
 var _cross: CanvasItem = null
+var _eye_tracking: bool = false
 var _chain: Node = null
 var _driver: Node = null
 var _victim_driver: Node = null
@@ -292,7 +293,7 @@ func _process(delta: float) -> bool:
 		return false
 	if _pov != "":
 		_ride_a_body()
-		_meet_the_eye()
+		_meet_the_eye(delta)
 		_crosshair_only_through_the_eye()
 	else:
 		if _plugin == null or not _plugin.lens(delta):
@@ -376,6 +377,7 @@ func _build() -> void:
 	if String(_options.get("look", "")) == "social":
 		_light_for_social(match_root)
 	_take_the_eye(match_root)
+	_cool_the_shimmer(match_root)
 	_listen_to_audio()
 	if String(_options.get("audio", "")) == "near":
 		_keep_audio_near()
@@ -1253,6 +1255,16 @@ func _keep_audio_near() -> void:
 
 # --- The watcher --------------------------------------------------------------
 
+## --set=shimmer=S: hell's heat shimmer at strength S for this take only (v28, Ryan: the trailer reads it as a warp at the game's 0.2).
+func _cool_the_shimmer(match_root: Node) -> void:
+	if not _dials.has("shimmer"):
+		return
+	var shimmer: Node = _find_node(match_root, "HeatShimmer")
+	if shimmer != null:
+		shimmer.set(&"strength", float(_dials["shimmer"]))
+		print("[stage] heat shimmer strength %s" % _dials["shimmer"])
+
+
 ## Take the tower's eye off its own poll.
 ##
 ## [method WatchingEye._process] points the pupil at whatever camera is current,
@@ -1268,11 +1280,17 @@ func _take_the_eye(match_root: Node) -> void:
 
 ## POV with --set=eye_at=T: the eye holds on eye_from (deg:r, the victim's spot) and only
 ## at take T swings onto the POV's eyes over eye_swing s, after he has looked up at it.
-func _meet_the_eye() -> void:
-	if _eye == null or not _dials.has("eye_at"):
+func _meet_the_eye(delta: float) -> void:
+	if _eye == null:
 		return
 	var viewer: Camera3D = root.get_camera_3d()
 	if viewer == null:
+		return
+	if not _dials.has("eye_at"):
+		# v28 (Ryan): the eye looks at the runner in every shot it is in: the game's own tracking, on from the first frame.
+		var wanted: Vector3 = _eye.call(&"gaze_direction_for", viewer.global_position)
+		_eye.call(&"turn_toward", wanted, delta if _eye_tracking else 0.0)
+		_eye_tracking = true
 		return
 	var from: PackedStringArray = String(_dials.get("eye_from", "%f:52" % EYE_ELSEWHERE_DEGREES)).split(":")
 	var elsewhere: Vector3 = SHOTS.ring_point(float(from[0]), float(from[1]) if from.size() > 1 else 52.0, 1.0)

@@ -47,6 +47,7 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 	var to: Vector3 = LIB.polar(String(option("to", "153,52.3")), LIB.ring_point(153.0, 52.3))
 	var mate: Vector3 = LIB.polar(String(option("mate", "146.0,52.4")), LIB.ring_point(146.0, 52.4))
 	var go: float = float(option("go", 1.45))
+	var skip: bool = int(option("skip", 0)) == 1
 	_runner = runners[0].controller
 	_mate = runners[1].controller
 	var deg: float = LIB.bearing_of(hide)
@@ -66,14 +67,14 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 			# Eyes down the gap, then up after the mate as the crack throws him, and his own launch.
 			"glances": [
 				{"t": 0.0, "right": -6.0, "pitch": -4.0},
-				{"t": 0.2, "right": 5.0, "pitch": 9.0},
-				{"t": 0.46, "right": 3.0, "pitch": 15.0},
-				{"t": 0.74, "right": 6.0, "pitch": 6.0},
+				{"t": 0.2, "right": 5.0, "pitch": -3.0 if skip else 9.0},
+				{"t": 0.46, "right": 3.0, "pitch": -5.0 if skip else 15.0},
+				{"t": 0.74, "right": 6.0, "pitch": -9.0 if skip else 6.0},
 			],
 			"strafes": [{"t": 0.1, "strafe": 0.06}, {"t": 0.6, "strafe": -0.05}]},
 		# In the air: the round crosses ahead of him; a look across at the tower, then down for the landing.
 		{"do": "lane", "to": 178.0, "r": 52.4, "speed": 0.95, "weave": 0.04, "period": 1.1, "timeout": 8.0, "carry": true,
-			"glances": [{"t": 0.0, "right": 5.0, "pitch": 4.0}, {"t": 0.5, "right": 2.0, "pitch": -12.0}, {"t": 1.0, "right": -3.0, "pitch": -2.0}],
+			"glances": [{"t": 0.0, "right": 5.0, "pitch": -10.0 if skip else 4.0}, {"t": 0.5, "right": 2.0, "pitch": -12.0}, {"t": 1.0, "right": -3.0, "pitch": -2.0}],
 			"flinch_on": "hit", "flinch_side": 1.0,
 			"flinch_glances": [
 				{"t": 0.0, "right": 12.0, "pitch": 5.0},
@@ -83,17 +84,31 @@ func cast(runners: Array[RunnerBrain]) -> bool:
 			]},
 		{"do": "hold", "seconds": 60.0},
 	], 0, "ClipCrackRunner")
-	# A second man already behind the wall, off a beat ahead of him: up the lane onto the 150 crack.
-	drive(runners[1], [
-		{"do": "place", "at": mate + Vector3.UP * 0.1, "face": LIB.tangent_at(LIB.bearing_of(mate))},
-		{"do": "human", "on": true},
-		{"do": "glance", "right": 26.0, "pitch": 6.0, "seconds": 0.4},
-		{"do": "until", "t": go - 0.4},
-		{"do": "glance", "right": -24.0, "pitch": -5.0, "seconds": 0.3},
-		{"do": "lane", "to": 176.0, "r": 52.5, "speed": 0.88, "weave": 0.06, "period": 1.4, "timeout": 8.0,
-			"glances": [{"t": 0.0, "right": -4.0, "pitch": -3.0}, {"t": 0.7, "right": 12.0, "pitch": 3.0}, {"t": 1.2, "right": 1.0, "pitch": -2.0}]},
-		{"do": "hold", "seconds": 60.0},
-	], 1, "ClipCrackMate")
+	# v28 (Ryan): "the green runner in front of the POV ... does NOT bounce on the pads; they jump over them, to show that skipping
+	# the pads is the better line" (skip=1): down the r 52.4 pad column from behind him, a jump before each crack (147.4-152.2 and
+	# 157.4-161.6 deg), never launched, on the ground ahead while the POV is still in the air.
+	if skip:
+		var lane_from: Vector3 = LIB.polar(String(option("skip_from", "139.0,52.4")), LIB.ring_point(139.0, 52.4))
+		drive(runners[1], [
+			{"do": "place", "at": lane_from + Vector3.UP * 0.1, "face": LIB.tangent_at(LIB.bearing_of(lane_from))},
+			{"do": "human", "on": true},
+			{"do": "until", "t": float(option("skip_go", 1.6))},
+			{"do": "lane", "to": 178.0, "r": 52.4, "speed": float(option("skip_pace", 1.08)), "timeout": 8.0,
+				"jumps": [float(option("jump1", 146.0)), float(option("jump2", 156.2))],
+				"glances": [{"t": 0.0, "right": 0.0, "pitch": -4.0}, {"t": 0.6, "right": -3.0, "pitch": -6.0}, {"t": 1.3, "right": 2.0, "pitch": -3.0}]},
+			{"do": "hold", "seconds": 60.0},
+		], 1, "ClipCrackSkipper")
+	else:
+		drive(runners[1], [
+			{"do": "place", "at": mate + Vector3.UP * 0.1, "face": LIB.tangent_at(LIB.bearing_of(mate))},
+			{"do": "human", "on": true},
+			{"do": "glance", "right": 26.0, "pitch": 6.0, "seconds": 0.4},
+			{"do": "until", "t": go - 0.4},
+			{"do": "glance", "right": -24.0, "pitch": -5.0, "seconds": 0.3},
+			{"do": "lane", "to": 176.0, "r": 52.5, "speed": 0.88, "weave": 0.06, "period": 1.4, "timeout": 8.0,
+				"glances": [{"t": 0.0, "right": -4.0, "pitch": -3.0}, {"t": 0.7, "right": 12.0, "pitch": 3.0}, {"t": 1.2, "right": 1.0, "pitch": -2.0}]},
+			{"do": "hold", "seconds": 60.0},
+		], 1, "ClipCrackMate")
 	LIB.hide_from_the_rifle(_mate)
 	victim_body(_runner)
 	stage_body(_runner)
@@ -110,7 +125,7 @@ func tick(_delta: float) -> void:
 	if OS.has_environment("STAGE_DEBUG") and Engine.get_physics_frames() % 6 == 0:
 		say("runner %.1f deg r %.2f h %.2f; mate %.1f r %.2f h %.2f" % [LIB.bearing_of(_runner.global_position), LIB.radius_of(_runner.global_position), _runner.global_position.y - LIB.DECK_Y, LIB.bearing_of(_mate.global_position), LIB.radius_of(_mate.global_position), _mate.global_position.y - LIB.DECK_Y])
 	for body: PlayerController in [_runner, _mate]:
-		if is_instance_valid(body) and body.velocity.y > 6.0 and not _launched.has(body.name):
+		if is_instance_valid(body) and body.velocity.y > 9.0 and not _launched.has(body.name):
 			_launched[body.name] = elapsed()
 			say("launch %s at %.1f deg r %.1f" % [body.name, LIB.bearing_of(body.global_position), LIB.radius_of(body.global_position)])
 			if not _fired:

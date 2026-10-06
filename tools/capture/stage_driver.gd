@@ -10,7 +10,7 @@ extends Node
 ## {"do": "hold", "seconds": 2.0, "crouch": true, "sway": 14.0, "period": 2.6, "fidget": true}
 ## {"do": "until", "t": 8.0, "crouch": false}   # hold until the driver's clock reads t (a timed beat)
 ## {"do": "run", "to": Vector3, "weave": 0.9, "period": 1.1, "hop": 1.6, "within": 0.6, "timeout": 8.0, "speed": 1.0, "look_at": Vector3}
-## {"do": "lane", "to": deg, "r": 52.0, "dir": 1, "speed": 1.0, ...run's weave/period/hop}   # along the ring; dir -1 runs it backwards
+## {"do": "lane", "to": deg, "r": 52.0, "dir": 1, "speed": 1.0, "jumps": [deg], ...run's weave/period/hop}   # along the ring; dir -1 runs it backwards
 ##     ... "glances": [{"t": 0.7, "right": -52.0, "pitch": -4.0}, ...], "flinch_on": "hit"   # look around while running (see _gaze)
 ##     ... "carry": true   # with glances: the head starts where the step before left it, no snap onto the lane
 ## {"do": "leap", "to": Vector3, "speed": 8.0, "lock": 0.9}
@@ -53,6 +53,7 @@ var _clock: float = 0.0
 var _total: float = 0.0             # seconds since install: the "until" clock
 var _hop_clock: float = 0.0
 var _intent: MoveIntent = MoveIntent.new()
+var _jumped: Dictionary = {}
 var _released: bool = false
 var _flags: Dictionary = {}
 ## The human layer (see the "human" step): a seeded random walk on the look,
@@ -443,7 +444,13 @@ func _lane(step: Dictionary, delta: float) -> bool:
 	if remaining > 180.0 or remaining < 0.5 or _clock > float(step.get("timeout", 20.0)):
 		return true
 	var ahead: Vector3 = ring_point(bearing + 5.0 * dir, float(step.get("r", 52.0)), 0.0)
-	return _run(step, delta, ahead, 0.0)
+	var done: bool = _run(step, delta, ahead, 0.0)
+	# "jumps": [deg, ...]: a jump the tick the body passes each bearing (a hop over a pad, not a weave).
+	for at: Variant in step.get("jumps", []):
+		if not _jumped.has(at) and fposmod((bearing - float(at)) * dir, 360.0) < 90.0:
+			_jumped[at] = true
+			_intent.jump_pressed = true
+	return done
 
 
 ## Full speed at the target, weaving sideways and hopping if asked. True on arrival.
