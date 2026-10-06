@@ -8,7 +8,7 @@ v2 notes (Ryan on rough_v1): the guard stands at the tower's window, not deep in
 music: external\src\music_v2_OBPV0lsorwU.mp4 -> voice\sr20det.ogg (SOURCES.md). The drop: 0.35 s of silence from 5.36 s, the hit at 5.703 s (sample onset); 170 bpm after it (v3 measured).
 cards: cuts/title_hard.mp4 is v1's title frame looped from frame 0 (v1's title.mp4 opened on two black frames); cuts/end.mp4 is v1's.
 delivery: content\trailer_reveal\final\rough_v27.mp4 (and ~/Desktop/panopticon-renders/trailer_reveal/)
-tag: rough_v31
+tag: rough_v32
 alt: rough_v24 (the SR20DET cut before Ryan's seven notes; ## script rough_v24)
 alt: rough_v26_vivaldi (rough_v25_vivaldi with the seven notes, every cut and event on the same beats; ## script rough_v26_vivaldi)
 kept: cuts\_v25\NN.mp4 are the shot files rough_v24 and rough_v25_vivaldi were cut from (every shot was refilmed for v26 on main 6547970).
@@ -66,7 +66,7 @@ freeze: waive
 
 ## 4t
 said: v28 (Ryan) on 4s: "you did nothing about it" -- the forest POV run must read fast, intentional and finished
-capture: --map=res://maps/forest/forest_green.tscn --shot=pack_lead --stage=trailer_forest_sprint --bots=3 --pov=runner --look=social --rifle=projectile --seed=20261001
+capture: --map=res://maps/forest/forest.tscn --shot=pack_lead --stage=trailer_forest_sprint --bots=3 --pov=runner --look=social --rifle=projectile --seed=20261001
 tape: forest_thread
 seconds: 3.6
 in: 0.8
@@ -268,7 +268,7 @@ freeze: waive
 
 ## 5g
 said: v4 "Forest, guard scope: the kill (h2)"
-capture: --map=res://maps/forest/forest_green.tscn --shot=pack_lead --stage=trailer_forest_pack --bots=3 --pov=guard --hud=crosshair --rifle=projectile --set=lift=1;fire=3.15 --seed=20261001
+capture: --map=res://maps/forest/forest.tscn --shot=pack_lead --stage=trailer_forest_pack --bots=3 --pov=guard --hud=crosshair --rifle=projectile --set=lift=1;fire=3.15 --seed=20261001
 tape: forest_pack
 seconds: 5.0
 in: 0.9
@@ -279,7 +279,7 @@ freeze: waive
 
 ## 9ag
 said: v5 "Forest, runner POV: a second runner beside him at the inner edge, a visible shove, he tips over the edge and drops out of frame into the mist"
-capture: --map=res://maps/forest/forest_green.tscn --shot=pack_lead --stage=trailer_forest_pit --bots=3 --pov=runner --look=social --rifle=projectile --set=third=0 --seed=20261001
+capture: --map=res://maps/forest/forest.tscn --shot=pack_lead --stage=trailer_forest_pit --bots=3 --pov=runner --look=social --rifle=projectile --set=third=0 --seed=20261001
 tape: forest_pit
 seconds: 2.5
 in: 1.04
@@ -291,7 +291,7 @@ freeze: waive
 
 ## 9bg
 said: v5 "Forest, the shoved runner's POV: the edge he was shoved from with the shover on it looking down, falling away, the mist rushing up"
-capture: --map=res://maps/forest/forest_green.tscn --shot=pack_lead --stage=trailer_forest_pit --bots=3 --pov=runner --look=social --rifle=projectile --set=pov=victim;third=0 --seed=20261001
+capture: --map=res://maps/forest/forest.tscn --shot=pack_lead --stage=trailer_forest_pit --bots=3 --pov=runner --look=social --rifle=projectile --set=pov=victim;third=0 --seed=20261001
 tape: forest_pit
 seconds: 2.3
 in: 2.96
@@ -396,6 +396,43 @@ grade_hell: lift 2.6 3
 | k2 | cuts/14.mp4@0:1.7667 | | | beat 1.7667 | | | hell |
 | g1 | cuts/12.mp4@0.15:3.1833 | | | beat 3.1833 | | |  |
 | e1 | cuts/end_v3.mp4@0.4:3.2 | | | beat 3.2 | | |  |
+
+## script rough_v32
+size: 1920x1080
+music: voice/pineberry_rush_v27.flac
+music_db: -0.5
+music_fade: 0.02 2.5
+captions: none
+# v32: v31 with 4t 5g 9ag 9bg refilmed in the golden forest (maps/forest/forest.tscn; the game itself still loads forest_green) from the same tapes.
+# v31: v30's edit; forest shots (4t 5g 9ag 9bg) refilmed on current main (green forest dapple, flecks, sway, canopy blend). Hell and marble are v30's takes.
+# v31 title: the title screen's wordmark (ui/main_menu.tscn GameTitle: IM Fell English, glyph spacing 14, cream, dark red shadow 4 px down, outline 6), scaled to the old card's width; frames/title_logo.png, the same 4% push-in -> cuts/title_zoom31.mp4.
+# v30: v29's edit; every hell shot (1 2 6 7 8 11 13 14) refilmed on main c0c5f2b1 (lava ash and sparks, pit-fire shadow wave 2048, softer shadow filter, lightmap BAKE_GLOW 61, shimmer by distance and zoom, lava that kills); trailer shimmer 0.06, 0 on the lava parkour. Forest and marble are v29's takes.
+# v29 (Ryan on v28): h2 (the forest hit) held half a bar longer, taken off the end of m0; the cut moves 0.70 s later, onto the bar 6 downbeat (14.06). Nothing else moves.
+# v28 (Ryan on v27): cut for Pineberry Rush's structure, not the grid. Mapped from the recording (beat k = 5.703 + k*0.3483 s, bar = 4 beats):
+# the intro builds -4..0, the drop on the title (k0, 5.70); phrase one runs k0-k28 (a lift at k16 and a fill k24-27); a held, thinner bar
+# k28-35 (the music sits: d1/d2 hold); phrase two k36-60 (the forest shove section on its downbeats); the break k60-67 (marble shove held
+# across it); the busy run k68-91 (lava, crack, quick cuts on the rolls); the second held bar k92-95 (the finale's shove at 38.0 on k93
+# territory); the end card on the k96 downbeat, 39.13 s. Title hit kept at 5.70. Every cut is on a downbeat or the bar's 3; hits sit on beats.
+| line | clip | in | len | fit | speed | text |
+| a1 | cuts/01.mp4@0.5300:2.9167 | | | beat 2.9167 | | |
+| a2 | cuts/02.mp4@1.9070:2.7833 | | | beat 2.7833 | | |
+| a3 | cuts/title_zoom31.mp4@0.0000:2.1000 | | | beat 2.1000 | | |
+| a4 | cuts/card2_zoom10.mp4@0.0000:2.0833 | | | beat 2.0833 | | |
+| h1 | cuts/04t.mp4@0.7000:2.0833 | | | beat 2.0833 | | |
+| h2 | cuts/05g.mp4@1.7560:2.1000 | | | beat 2.1000 | | |
+| m0 | cuts/05h.mp4@0.6240:1.8167 | | | beat 1.8167 | | |
+| d1 | cuts/06.mp4@1.2500:1.4000 | | | beat 1.4000 | | |
+| d2 | cuts/07.mp4@2.4500:1.3000 | | | beat 1.3000 | | |
+| d3 | cuts/08.mp4@0.1000:2.1000 | | | beat 2.1000 | | |
+| p1 | cuts/09ag.mp4@0.3100:2.0833 | | | beat 2.0833 | | |
+| p2 | cuts/09bg.mp4@0.0127:1.8833 | | | beat 1.8833 | | |
+| m1 | cuts/10a.mp4@0.0000:2.0000 | | | beat 2.0000 | | |
+| m2 | cuts/10b.mp4@0.7000:2.5833 | | | beat 2.5833 | | |
+| t2 | cuts/11.mp4@1.4300:2.9333 | | | beat 2.9333 | | |
+| k1 | cuts/13.mp4@0.7300:2.8000 | | | beat 2.8000 | | |
+| k2 | cuts/14.mp4@0.2800:1.8500 | | | beat 1.8500 | | |
+| g1 | cuts/12f.mp4@2.0500:2.3167 | | | beat 2.3167 | | |
+| e1 | cuts/end_v3.mp4@0.4000:3.2000 | | | beat 3.2000 | | |
 
 ## script rough_v31
 size: 1920x1080
