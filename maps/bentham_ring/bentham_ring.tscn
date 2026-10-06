@@ -30,6 +30,7 @@
 [ext_resource type="Resource" path="res://maps/bentham_ring/bentham_ring_watching_eye_look.tres" id="29_watcher_look"]
 [ext_resource type="Script" path="res://scripts/ring/lava_light_wave.gd" id="30_lava_light_wave"]
 [ext_resource type="LightmapGIData" path="res://maps/bentham_ring/bentham_ring.lmbake" id="32_lava_lightmap"]
+[ext_resource type="Script" path="res://scripts/fx/heat_shimmer.gd" id="33_heat_shimmer"]
 
 [sub_resource type="ProceduralSkyMaterial" id="SkyMat"]
 sky_top_color = Color(0.54, 0.110700026, 0.054000016, 1)
@@ -605,7 +606,7 @@ editor_description = "Fire rising out of the pit mouth, 4 m under the deck lip b
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 30, -8.5, 0)
 light_color = Color(1, 0.3, 0.08, 1)
 light_bake_mode = 0
-light_energy = 7.5
+light_energy = 2.5
 light_specular = 0.2
 shadow_enabled = true
 shadow_bias = 0.1
@@ -619,7 +620,7 @@ editor_description = "Fire rising out of the pit mouth, 4 m under the deck lip b
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -8.5, -30)
 light_color = Color(1, 0.3, 0.08, 1)
 light_bake_mode = 0
-light_energy = 7.5
+light_energy = 2.5
 light_specular = 0.2
 shadow_enabled = true
 shadow_bias = 0.1
@@ -663,3 +664,10 @@ denoiser_strength = 0.05
 interior = false
 environment_mode = 0
 light_data = ExtResource("32_lava_lightmap")
+
+[node name="HeatShimmer" type="MeshInstance3D" parent="."]
+editor_description = "Level-wide heat shimmer (Ryan, 2026-10-05: \"a heat effect across the whole level that makes it seem very, very, very hot\"). A clip-space quad built by its script, so it also shows in the editor viewport; tune strength, speed, look_down_boost and warm_lift here."
+cast_shadow = 0
+extra_cull_margin = 16384.0
+gi_mode = 0
+script = ExtResource("33_heat_shimmer")
