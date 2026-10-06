@@ -15,9 +15,9 @@ uniform vec3 uv1_scale = vec3(1.0);
 uniform vec3 uv1_offset = vec3(0.0);
 
 // Tuning: change the defaults here to keep them (the imported materials never store these).
-uniform vec3 heat_color : source_color = vec3(1.0, 0.36, 0.1);   // deep ember, the lava's own
-uniform float heat_energy : hint_range(0.0, 4.0, 0.05) = 0.6;    // glow strength right at the lava
-uniform float heat_reach : hint_range(0.25, 4.0, 0.05) = 1.5;    // metres up and away it fades out over
+uniform vec3 heat_color : source_color = vec3(1.0, 0.3, 0.06);    // deep ember, the lava's own
+uniform float heat_energy : hint_range(0.0, 4.0, 0.05) = 1.4;    // glow strength right at the lava
+uniform float heat_reach : hint_range(0.25, 4.0, 0.05) = 2.0;    // metres up and away it fades out over
 uniform float heat_pulse : hint_range(0.0, 1.0, 0.01) = 0.3;     // how much it breathes with the swell
 
 // tools/textures/hot_rock_mask.py: R metres to the nearest lava in xz, G that lava's top y.
