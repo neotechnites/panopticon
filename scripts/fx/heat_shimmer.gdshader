@@ -70,11 +70,12 @@ void fragment() {
 	v *= min(dist, max_distance) / max(dist, 0.001);
 	vec3 w = (INV_VIEW_MATRIX * vec4(v, 1.0)).xyz;
 	vec3 eye = INV_VIEW_MATRIX[3].xyz;
-	// Hot air along the ray, six stratified samples; the warp is pinned where that air is.
+	// Hot air along the ray, six jittered samples; the warp is pinned where that air is.
+	float j = fract(52.9829189 * fract(dot(FRAGCOORD.xy, vec2(0.06711056, 0.00583715))));
 	float hot = 0.0;
 	vec3 centre = vec3(0.0);
 	for (int i = 0; i < 6; i++) {
-		vec3 p = mix(eye, w, (float(i) + 0.5) / 6.0);
+		vec3 p = mix(eye, w, (float(i) + j) / 6.0);
 		float h = heat_at(p);
 		hot += h;
 		centre += p * h;
@@ -91,5 +92,5 @@ void fragment() {
 	vec2 off = n * amp * vec2(0.7 / aspect, 1.2);
 	vec3 c = texture(screen_tex, clamp(uv + off, px, vec2(1.0) - px)).rgb;
 	c += vec3(dark_lift * clamp(1.45 - 6.37 * c, 0.0, 1.0));
-	ALBEDO = c * (vec3(1.0) + warm * warm_lift * strength * heat);
+	ALBEDO = c * (vec3(1.0) + warm * warm_lift * strength);
 }
