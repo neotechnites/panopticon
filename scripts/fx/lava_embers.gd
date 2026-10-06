@@ -20,12 +20,12 @@ extends Node3D
 		ash = value
 		_rebuild()
 ## River and fall spark streak length in metres (they fly beside the runners).
-@export_range(0.02, 1.0, 0.01) var ember_size: float = 0.35:
+@export_range(0.02, 1.0, 0.01) var ember_size: float = 0.4:
 	set(value):
 		ember_size = value
 		_rebuild()
 ## Sea spark streak length in metres (seen 30 m down the pit).
-@export_range(0.05, 2.0, 0.01) var sea_ember_size: float = 0.8:
+@export_range(0.05, 2.0, 0.01) var sea_ember_size: float = 0.9:
 	set(value):
 		sea_ember_size = value
 		_rebuild()
@@ -40,7 +40,7 @@ const SEA_SPARKS: int = 45
 const RIVER_SPARKS: int = 24
 const ASH_FLAKES: int = 70
 ## Streak width as a fraction of its length.
-const STREAK_WIDTH: float = 0.15
+const STREAK_WIDTH: float = 0.2
 ## Every particle stays inside this box round the ring (node space): the pit, the deck and above.
 const BOUNDS: AABB = AABB(Vector3(-64.0, -14.0, -64.0), Vector3(128.0, 74.0, 128.0))
 
@@ -57,9 +57,9 @@ func _rebuild() -> void:
 			remove_child(child)
 			child.queue_free()
 	var spark_mat: StandardMaterial3D = _spark_material()
-	var sea: ParticleProcessMaterial = _spark_motion(7.0, 12.0)
+	var sea: ParticleProcessMaterial = _spark_motion(6.0, 10.0)
 	_ring(sea, 0.6, sea_y)
-	_emitter(&"SeaSparks", SEA_SPARKS * density, 2.6, sea, spark_mat,
+	_emitter(&"SeaSparks", SEA_SPARKS * density, 3.0, sea, spark_mat,
 		Vector2(sea_ember_size * STREAK_WIDTH, sea_ember_size))
 	if not river_points.is_empty():
 		var river: ParticleProcessMaterial = _spark_motion(3.0, 6.0)
@@ -80,7 +80,7 @@ func _rebuild() -> void:
 	flakes.gravity = Vector3(0.0, -0.18 * speed, 0.0)
 	flakes.damping_min = 0.3
 	flakes.damping_max = 0.6
-	_turbulence(flakes, 1.2, 0.6)
+	_turbulence(flakes, 0.5, 0.8)
 	flakes.angle_min = -180.0
 	flakes.angle_max = 180.0
 	flakes.angular_velocity_min = -160.0
@@ -91,7 +91,7 @@ func _rebuild() -> void:
 	flakes.color_ramp = _ramp(PackedFloat32Array([0.0, 0.15, 0.85, 1.0]), [
 		Color(0.16, 0.14, 0.13, 0.0), Color(0.16, 0.14, 0.13, 0.9),
 		Color(0.22, 0.2, 0.19, 0.8), Color(0.22, 0.2, 0.19, 0.0)])
-	_emitter(&"Ash", ASH_FLAKES * ash, 14.0, flakes, _ash_material(), Vector2(0.14, 0.1))
+	_emitter(&"Ash", ASH_FLAKES * ash, 14.0, flakes, _ash_material(), Vector2(0.18, 0.13))
 
 
 func _emitter(node_name: StringName, count: float, life: float, process: ParticleProcessMaterial,
@@ -126,28 +126,23 @@ func _ring(m: ParticleProcessMaterial, height: float, y: float) -> void:
 	m.emission_ring_inner_radius = sea_inner
 
 
+# Gusts: random-signed swirl and push off the tower axis, so neighbours veer apart.
 func _turbulence(m: ParticleProcessMaterial, strength: float, gust: float) -> void:
-	m.turbulence_enabled = true
-	m.turbulence_noise_strength = strength
-	m.turbulence_noise_scale = 6.0
-	m.turbulence_noise_speed = Vector3(0.6, 0.3, 0.0) * gust * speed
-	m.turbulence_noise_speed_random = 0.4
-	m.turbulence_influence_min = 0.05
-	m.turbulence_influence_max = 0.25
+	m.tangential_accel_min = -strength * gust * speed
+	m.tangential_accel_max = strength * gust * speed
+	m.radial_accel_min = -strength * speed
+	m.radial_accel_max = strength * speed
 
 
 # Fast, gusty spark: velocity-aligned streak, white-yellow cooling through orange to dark, flickering out.
 func _spark_motion(v_min: float, v_max: float) -> ParticleProcessMaterial:
 	var m: ParticleProcessMaterial = ParticleProcessMaterial.new()
-	m.particle_flag_align_y = true
 	m.direction = Vector3.UP
-	m.spread = 30.0
+	m.spread = 35.0
 	m.initial_velocity_min = v_min * speed
 	m.initial_velocity_max = v_max * speed
-	m.gravity = Vector3(0.0, -1.5, 0.0)
-	m.damping_min = 0.5
-	m.damping_max = 2.0
-	_turbulence(m, 2.5, 1.5)
+	m.gravity = Vector3(0.0, 0.5, 0.0)
+	_turbulence(m, 1.2, 1.0)
 	m.scale_min = 0.6
 	m.scale_max = 1.2
 	m.scale_curve = _shrink()
@@ -189,12 +184,12 @@ func _points_texture(points: PackedVector3Array) -> ImageTexture:
 	return ImageTexture.create_from_image(img)
 
 
-# Additive, unshaded streak; fixed-Y billboard so the long axis follows the spark's velocity.
+# Additive, unshaded streak, upright on screen (sparks fly mostly up).
 func _spark_material() -> StandardMaterial3D:
 	var m: StandardMaterial3D = _soft_material(true)
 	m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
 	m.albedo_color = Color(1.8, 1.8, 1.8, 1.0)
-	m.billboard_mode = BaseMaterial3D.BILLBOARD_FIXED_Y
+	m.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
 	return m
 
 
