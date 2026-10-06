@@ -30,12 +30,12 @@ extends Node3D
 		sea_ash = value
 		_rebuild()
 ## Ash flake size in metres off the rivers, shelf and falls (seen 5-15 m from the deck).
-@export_range(0.02, 1.0, 0.01) var ember_size: float = 0.3:
+@export_range(0.02, 1.0, 0.01) var ember_size: float = 0.21:
 	set(value):
 		ember_size = value
 		_rebuild()
 ## Ash flake size in metres off the sea (seen from the tower and down the pit).
-@export_range(0.05, 2.0, 0.01) var sea_ember_size: float = 0.55:
+@export_range(0.05, 2.0, 0.01) var sea_ember_size: float = 0.385:
 	set(value):
 		sea_ember_size = value
 		_rebuild()
@@ -49,7 +49,7 @@ extends Node3D
 @export var fall_points: PackedVector3Array = PackedVector3Array()
 
 const SEA_ASH: int = 525
-const RIVER_ASH: int = 500
+const RIVER_ASH: int = 300
 const FALL_ASH: int = 150
 const SPARKS: int = 55
 const SEA_SPARKS: int = 40
@@ -87,12 +87,13 @@ func _rebuild() -> void:
 	else:
 		_points(sparks, all_points)
 	var spark_mat: StandardMaterial3D = _spark_material()
-	_emitter(&"Sparks", SPARKS * density, 2.2, sparks, spark_mat, ember_size * 0.35, 4.0)
+	_emitter(&"Sparks", SPARKS * density, 2.2, sparks, spark_mat, ember_size * 0.5, 4.0)
 	var sea_sparks: ParticleProcessMaterial = _spark_motion()
-	sea_sparks.initial_velocity_min = 6.0 * speed
-	sea_sparks.initial_velocity_max = 10.0 * speed
+	sea_sparks.initial_velocity_min = 12.0 * speed
+	sea_sparks.initial_velocity_max = 16.0 * speed
+	sea_sparks.lifetime_randomness = 0.3
 	_ring(sea_sparks)
-	_emitter(&"SeaSparks", SEA_SPARKS * density, 3.5, sea_sparks, spark_mat, sea_ember_size * 0.4, 4.0)
+	_emitter(&"SeaSparks", SEA_SPARKS * density, 4.5, sea_sparks, spark_mat, sea_ember_size * 0.57, 4.0)
 
 
 func _emitter(node_name: StringName, count: float, life: float, process: ParticleProcessMaterial,
