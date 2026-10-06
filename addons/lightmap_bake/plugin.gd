@@ -6,6 +6,7 @@ extends EditorPlugin
 var _scene := ""
 var _step := 0
 var _wait := 0.0
+var _tries := 0
 
 
 func _enter_tree() -> void:
@@ -30,9 +31,13 @@ func _advance() -> void:
 			EditorInterface.open_scene_from_path(_scene)
 		1:
 			var root := EditorInterface.get_edited_scene_root()
-			var found: Array[Node] = []
-			if root != null:
-				found = root.find_children("*", "LightmapGI", false, true)
+			if root == null or root.scene_file_path != _scene:
+				_tries += 1
+				if _tries < 30:
+					return
+				_finish("could not open %s" % _scene)
+				return
+			var found := root.find_children("*", "LightmapGI", true, false)
 			if found.is_empty():
 				_finish("no LightmapGI in %s" % _scene)
 				return
