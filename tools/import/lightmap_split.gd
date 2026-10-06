@@ -8,8 +8,8 @@ const CHUNK_PREFIX := "res://maps/bentham_ring/models/map_base_"
 const TEXEL := 0.6
 const BAKE_FLAG := "res://.lightmap_bake"
 ## The stand-in's glow against the wave shader's emission_energy: the one knob the bake's brightness turns on.
-## 72 lets the baked lava light carry hell; the pit fires sit low under it.
-const BAKE_GLOW := 72.0
+## 61 lets the baked lava light carry hell without blowing out the pit; the pit fires sit low under it.
+const BAKE_GLOW := 61.0
 
 
 ## Splits and unwraps every art mesh under [param scene] when it is a hell chunk; returns how many.
