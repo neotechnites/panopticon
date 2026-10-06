@@ -15,9 +15,9 @@ const SEA_Y: float = -11.05
 const TIME_ROLLOVER: float = 3600.0
 
 ## Energy swing either way, as a fraction of the light's own energy.
-@export_range(0.0, 0.3, 0.01) var energy_swing: float = 0.12
+@export_range(0.0, 0.3, 0.01) var energy_swing: float = 0.3
 ## Metres a light over flat lava rides up and down with the swell.
-@export_range(0.0, 1.0, 0.05) var bob_metres: float = 0.35
+@export_range(0.0, 1.0, 0.05) var bob_metres: float = 0.6
 ## Lights elsewhere in the scene that swell too (the shadowed pit fires).
 @export var also_wave: Array[NodePath] = []
 
@@ -37,7 +37,7 @@ func _ready() -> void:
 	for path: NodePath in also_wave:
 		var light: Light3D = get_node_or_null(path) as Light3D
 		if light != null:
-			_add(light, false)
+			_add(light, true)
 
 
 func _collect(node: Node) -> void:
@@ -97,7 +97,7 @@ func _process(_delta: float) -> void:
 		var fl: float = _flat[i]
 		var swell: float = fl * sr + (1.0 - fl) * sf
 		var own: float = sin(0.9 * t + _phase[i])
-		light.light_energy = _base_energy[i] * (1.0 + energy_swing * (0.75 * swell + 0.25 * own))
+		light.light_energy = _base_energy[i] * (1.0 + energy_swing * (0.9 * swell + 0.1 * own))
 		_set_energy[i] = light.light_energy
 		if _bob[i] > 0.0:
 			light.position.y = _base_y[i] + _bob[i] * fl * sr
