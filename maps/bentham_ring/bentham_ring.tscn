@@ -671,4 +671,4 @@ cast_shadow = 0
 extra_cull_margin = 16384.0
 gi_mode = 0
 script = ExtResource("33_heat_shimmer")
-strength = 0.35
+strength = 0.5
