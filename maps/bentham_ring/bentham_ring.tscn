@@ -45,8 +45,8 @@ sky_material = SubResource("SkyMat")
 background_mode = 2
 sky = SubResource("Sky")
 ambient_light_source = 2
-ambient_light_color = Color(0.64, 0.38, 0.33, 1)
-ambient_light_energy = 0.6
+ambient_light_color = Color(0.5, 0.45, 0.42, 1)
+ambient_light_energy = 0.15
 tonemap_mode = 1
 tonemap_white = 2.0
 
@@ -596,19 +596,33 @@ editor_description = "On the chamber floor, 0.25 m up. The clearance is delibera
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.95, 0)
 
 [node name="KeyLight" type="DirectionalLight3D" parent="Tower" unique_id=788049124]
-editor_description = "Hell's key: fire from above, 50 deg below horizontal, so every face is lit or shaded and the rock reads; ambient is only fill. No shadows: the gallery ceiling would black out the whole lap."
+editor_description = "Top-down fill under PitKey: unshadowed (the gallery ceiling would black out the lap), kept low so floors read above walls and shadows stay deep."
 transform = Transform3D(0.819152, -0.439385, 0.368688, 0, 0.642788, 0.766044, -0.573576, -0.627507, 0.526541, 0, 20, 0)
-light_color = Color(1, 0.42, 0.25, 1)
-light_energy = 2.9
+light_color = Color(1, 0.7, 0.55, 1)
+light_energy = 0.3
 shadow_bias = 0.08
 directional_shadow_mode = 0
 directional_shadow_max_distance = 180.0
 
 [node name="CounterLight" type="DirectionalLight3D" parent="Tower"]
-editor_description = "The key's weaker opposite: the side of every rock the KeyLight misses still shows its facets above the ambient fill. No shadows."
+editor_description = "Retired with KeyLight. Hidden while its energy is 0."
 transform = Transform3D(-0.819152, 0.32899, -0.469846, 0, 0.819152, 0.573576, 0.573576, 0.469846, -0.67101, 0, 20, 0)
 light_color = Color(1, 0.42, 0.25, 1)
-light_energy = 1.45
+visible = false
+light_energy = 0.0
+
+[node name="PitKey" type="OmniLight3D" parent="Environment"]
+editor_description = "Hell's key and its one shadow caster: fire hanging in the shaft over the tower. It reaches in under the gallery ceiling, so every rock throws its shadow away from the tower."
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 60, 0)
+light_color = Color(1, 0.55, 0.3, 1)
+light_energy = 2.0
+light_specular = 0.2
+shadow_enabled = true
+shadow_bias = 0.1
+shadow_blur = 2.0
+omni_range = 100.0
+omni_attenuation = 0.5
+omni_shadow_mode = 1
 
 [node name="HellFlood" type="OmniLight3D" parent="Tower" unique_id=1424319747]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 300, 0)
