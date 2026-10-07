@@ -207,6 +207,7 @@ func _initialize() -> void:
 		"set": "",
 		"track": "",
 		"audio": "",
+		"shimmer": "1",
 		"seed": BotHarness.DEFAULT_SEED,
 		"bots": 7,
 		"map": "",
