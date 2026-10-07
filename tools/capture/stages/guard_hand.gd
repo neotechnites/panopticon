@@ -247,6 +247,12 @@ func _angles_to(point: Vector3) -> Vector2:
 ## [code]behind[/code] metres when the beat wants a miss of a fixed size.
 func _mark_for(beat: Dictionary, body: PlayerController) -> Vector3:
 	var mark: Vector3 = body.global_position + Vector3.UP * AIM_HEIGHT
+	# miss_by (0.0): metres behind him along his run, hitscan too; a filmed miss.
+	var miss_by: float = float(beat.get("miss_by", 0.0))
+	if miss_by != 0.0:
+		var run: Vector3 = _velocity_of(body)
+		mark -= (run.normalized() if run.length_squared() > 0.01 else Vector3.RIGHT) * miss_by
+		mark.y += 0.25
 	var shot_speed: float = _controller.rifle.get_shot_speed() if _controller.rifle != null else 0.0
 	if shot_speed <= 0.0:
 		return mark

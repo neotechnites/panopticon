@@ -321,6 +321,12 @@ func _build() -> void:
 		root.add_child(_camera)
 		_camera.current = true
 
+	if String(_options.get("shimmer", "1")) == "0":
+		for node: Node in match_root.find_children("*", "", true, false):
+			if node.get_script() != null and node.get_script().resource_path.ends_with("heat_shimmer.gd"):
+				node.set(&"strength", 0.0)
+				(node as Node3D).visible = false
+				print("[rs] heat shimmer off: %s" % node.name)
 	if String(_options.get("look", "")) == "social":
 		_light_for_social(match_root)
 	_take_the_eye(match_root)
