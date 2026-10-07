@@ -1731,11 +1731,10 @@ func throw_guard(guard: MatchParticipant, forward: Vector3) -> bool:
 	return true
 
 
-## The velocity the finale shove throws the guard at along [param forward]: an
-## ordinary shove's launch, [constant FINALE_SHOVE_SCALE] times over.
+## The finale shove's throw along [param forward]: an ordinary shove's push, [constant FINALE_SHOVE_SCALE] times
+## over, and no lift, so from the tower's height he drops below the rim before he reaches it and goes into the pit.
 func get_finale_throw(forward: Vector3) -> Vector3:
-	var match_rules: MatchRules = get_rules()
-	return (forward * match_rules.shove_impulse + Vector3.UP * match_rules.shove_up_impulse) * FINALE_SHOVE_SCALE
+	return forward * get_rules().shove_impulse * FINALE_SHOVE_SCALE
 
 
 ## Drop any beat in progress, giving the bodies it froze their controls back.

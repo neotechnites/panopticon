@@ -294,6 +294,8 @@ func _go_limp() -> void:
 	var walkers: Array[Node] = get_tree().root.find_children("*", "CharacterBody3D", true, false)
 	for bone: PhysicalBone3D in _bones:
 		bone.collision_mask = collision_mask
+		# Swept, so a thrown body meets a wall instead of tunnelling through it.
+		PhysicsServer3D.body_set_enable_continuous_collision_detection(bone.get_rid(), true)
 		for walker: Node in walkers:
 			bone.add_collision_exception_with(walker)
 	_simulator.physical_bones_start_simulation()
