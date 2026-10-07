@@ -511,16 +511,10 @@ func get_base_reload_seconds() -> float:
 	return rules.get_base_reload_seconds(profile.base_reload_seconds)
 
 
-## The floor [member reload_seconds] is clamped to: the higher of the weapon's
-## own [member WeaponProfile.min_reload_seconds] and the match's
-## [member MatchRules.reload_floor_seconds]. A match rule may tighten the bound,
-## never drill through it -- the weapon's floor is a guarantee that the rifle
-## stays single-shot rather than becoming an automatic by sweep.
+## The floor [member reload_seconds] is clamped to: the weapon's own
+## [member WeaponProfile.min_reload_seconds]; the match floor is applied upstream by MatchRules.
 func get_reload_floor_seconds() -> float:
-	var weapon_floor: float = profile.min_reload_seconds if profile != null else 0.0
-	if rules == null:
-		return weapon_floor
-	return rules.get_reload_floor_seconds(weapon_floor)
+	return profile.min_reload_seconds if profile != null else 0.0
 
 
 # --- Reload shape -------------------------------------------------------------

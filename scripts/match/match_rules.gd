@@ -836,15 +836,16 @@ func get_reload_floor_seconds(weapon_floor: float) -> float:
 func get_reload_seconds_for_turn(turn_index: int, weapon_base: float, weapon_floor: float) -> float:
 	var floor_seconds: float = get_reload_floor_seconds(weapon_floor)
 	var explicit_count: int = reload_seconds_by_turn.size()
+	# A per-visit value is played as set; only the weapon's floor applies to it.
 	if turn_index >= 0 and turn_index < explicit_count:
-		return maxf(reload_seconds_by_turn[turn_index], floor_seconds)
+		return maxf(reload_seconds_by_turn[turn_index], weapon_floor)
 	var base: float = get_base_reload_seconds(weapon_base)
 	var turns_reduced: int = maxi(turn_index, 0)
 	if explicit_count > 0:
 		base = reload_seconds_by_turn[explicit_count - 1]
 		turns_reduced = maxi(turn_index - (explicit_count - 1), 0)
 	var reduced: float = base - reload_reduction_per_turn * float(turns_reduced)
-	return maxf(reduced, floor_seconds)
+	return maxf(reduced, maxf(minf(floor_seconds, base), weapon_floor))
 
 
 ## The [ShooterProfile] participant [param index] plays the tower on, or null
