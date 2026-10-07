@@ -201,7 +201,7 @@ func get_reaction_delay() -> float:
 
 
 func get_skill() -> float:
-	return rules.guard_skill if rules != null else 0.5
+	return rules.sniper(SniperKnobs.Knob.GUARD_SKILL) if rules != null else 0.5
 
 
 func is_suspect(body: PlayerController) -> bool:

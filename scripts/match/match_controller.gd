@@ -1080,6 +1080,8 @@ func take_seat(participant: MatchParticipant) -> void:
 	participant.turns_in_tower += 1
 
 	_attach_rifle(participant)
+	get_rules().sniper_visit = participant.get_turn_index()
+	refresh_sniper_profiles()
 	_apply_turn_reload(participant)
 	seat_changed.emit(participant, participant.turns_in_tower)
 
@@ -3516,6 +3518,7 @@ func _attach_rifle(participant: MatchParticipant) -> void:
 		sway.release()
 		sway.optic = body.get_node_or_null(^"Optic") as WeaponOptic
 		sway.aim_node = camera
+	rifle.optic = body.get_node_or_null(^"Optic") as WeaponOptic
 
 	var local_holder: bool = participant.is_human() and participant.index == _local_index
 	# The trigger stays on the host: a client's shots are the host's to fire.
@@ -3550,6 +3553,7 @@ func _stow_rifle() -> void:
 		add_child(rifle)
 	rifle.aim_source = null
 	rifle.shooter_body = null
+	rifle.optic = null
 	var ads: RifleAds = rifle.get_node_or_null(^"Ads") as RifleAds
 	if ads != null:
 		ads.optic = null
@@ -3698,7 +3702,7 @@ func _on_rifle_missed(_end_point: Vector3) -> void:
 func _charge_miss() -> void:
 	if rifle == null:
 		return
-	rifle.add_reload_penalty(maxf(get_rules().guard_miss_penalty_seconds, 0.0))
+	rifle.add_reload_penalty(maxf(get_rules().sniper(SniperKnobs.Knob.MISS_PENALTY), 0.0))
 
 
 ## Somebody reached the end. What that is worth depends entirely on the phase:
@@ -4163,6 +4167,14 @@ func debug_refresh_reload() -> void:
 	rifle.reload_seconds = get_rules().get_reload_seconds_for_turn(
 		turn, rifle.profile.base_reload_seconds, rifle.profile.min_reload_seconds
 	)
+
+
+## Write the seated visit's bullet drop and zoom from [member MatchRules.sniper_by_visit] into the rifle.
+func refresh_sniper_profiles() -> void:
+	if rifle == null:
+		return
+	SniperKnobs.apply_profiles(get_rules().sniper_by_visit, get_rules().sniper_visit, rifle.profile,
+			rifle.optic.profile if rifle.optic != null else null)
 
 
 ## Seat a debug body in the hub, running, so a real shove reaches it. Host only; never on the wire.

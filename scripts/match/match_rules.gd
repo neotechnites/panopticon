@@ -646,7 +646,7 @@ enum MapPickMode {
 
 ## Cycles per second of that figure-eight. [b]LIVE.[/b] One cycle is one full
 ## horizontal sweep and two vertical ones; slow is the point.
-@export_range(0.02, 2.0, 0.01) var scope_sway_hz: float = 0.25
+@export_range(0.02, 6.0, 0.01) var scope_sway_hz: float = 0.25
 
 ## Seconds of held aim over which the drift decays to nothing. [b]LIVE[/b],
 ## default 0.0 = it never settles, which is what makes the amplitude above the
@@ -692,6 +692,15 @@ enum MapPickMode {
 ## Whether a confirmed hit raises the guard's hitmarker. [b]LIVE[/b], default
 ## true, which is today's feedback. Off leaves the guard to read the ring.
 @export var guard_hit_marker: bool = true
+
+## Degrees of random cone on a shot fired with the scope down, none at full zoom. [b]LIVE[/b].
+@export_range(0.0, 30.0, 0.25, "or_greater") var guard_hip_spread_degrees: float = 8.0
+
+## The guard's sniper set per tower visit, laid out by [SniperKnobs]. Empty: the fields above stand.
+@export var sniper_by_visit: PackedFloat32Array = PackedFloat32Array()
+
+## Zero-based tower visit of the guard now seated; set by [method MatchController.take_seat], never synced.
+var sniper_visit: int = 0
 
 ## Whether the crouch/slide key crouches. [b]LIVE[/b], default false: off, the key never crouches.
 @export var crouch_enabled: bool = false
@@ -784,7 +793,7 @@ func get_base_reload_seconds(weapon_base: float) -> float:
 ## ADDS flight to a hitscan weapon: it never takes it away, so a match with no
 ## opinion (0.0) leaves a projectile weapon a projectile weapon.
 func shot_travels(weapon_is_projectile: bool) -> bool:
-	return guard_projectile_speed > 0.0 or weapon_is_projectile
+	return sniper(SniperKnobs.Knob.SHOT_SPEED) > 0.0 or weapon_is_projectile
 
 
 ## The speed a travelling shot leaves at, given what the weapon would do on its
@@ -795,9 +804,15 @@ func shot_travels(weapon_is_projectile: bool) -> bool:
 ## weapon's own value is returned untouched -- the same convention as
 ## [method get_base_reload_seconds].
 func get_projectile_speed(weapon_speed: float) -> float:
-	if guard_projectile_speed <= 0.0:
-		return weapon_speed
-	return guard_projectile_speed
+	var speed: float = sniper(SniperKnobs.Knob.SHOT_SPEED)
+	return weapon_speed if speed <= 0.0 else speed
+
+
+## [param knob] for the seated guard's visit, or its scalar field when no per-visit sets are held.
+func sniper(knob: int) -> float:
+	if sniper_by_visit.size() == SniperKnobs.VISITS * SniperKnobs.COUNT:
+		return sniper_by_visit[SniperKnobs.index(sniper_visit, knob)]
+	return float(get(SniperKnobs.SPECS[knob][0]))
 
 
 ## The effective reload floor: the higher of the match's and the weapon's.

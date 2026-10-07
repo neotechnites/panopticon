@@ -62,7 +62,7 @@ func tick(delta: float) -> void:
 		_rest = node.transform
 
 	var rules: MatchRules = rifle.rules if rifle != null else null
-	var amplitude: float = 0.0 if rules == null else rules.scope_sway_degrees
+	var amplitude: float = 0.0 if rules == null else rules.sniper(SniperKnobs.Knob.SWAY)
 	var progress: float = 0.0 if optic == null else optic.get_shaped_progress()
 	if amplitude <= 0.0 or progress <= 0.0:
 		_elapsed = 0.0
@@ -72,13 +72,13 @@ func tick(delta: float) -> void:
 	_elapsed += delta
 	# A settle of 0 never decays, which is what makes the amplitude the only dial
 	# until somebody wants breath-holding out of it.
-	var settle: float = rules.scope_sway_settle_seconds
+	var settle: float = rules.sniper(SniperKnobs.Knob.SWAY_SETTLE)
 	var decay: float = 1.0 if settle <= 0.0 else clampf(1.0 - _elapsed / settle, 0.0, 1.0)
 	# Scaled by the raise as well, so the drift arrives with the scope rather than
 	# snapping on the tick the button went down.
 	var peak: float = deg_to_rad(amplitude) * progress * decay
 	# A 1:2 Lissajous is the figure eight: one horizontal sweep per two vertical.
-	var w: float = TAU * rules.scope_sway_hz * _elapsed
+	var w: float = TAU * rules.sniper(SniperKnobs.Knob.SWAY_RATE) * _elapsed
 	_write(Vector2(peak * sin(w), peak * 0.5 * sin(2.0 * w)))
 
 

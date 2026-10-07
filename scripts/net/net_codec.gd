@@ -124,6 +124,7 @@ const _FLAG_ABILITY_PRESSED: int = 1 << 6
 const _FLAG_ABILITY_HELD: int = 1 << 7
 ## Second flag byte. The first is full; new intent bits start here.
 const _FLAG2_SHOVE_PRESSED: int = 1 << 0
+const _FLAG2_AIM_HELD: int = 1 << 1
 const _FLAG_ON_FLOOR: int = 1 << 0
 ## The rest of the snapshot flag byte: what a mirror cannot work out for itself
 ## because it runs no physics and takes no match decisions.
@@ -219,7 +220,9 @@ static func _put_intent(buffer: StreamPeerBuffer, intent: MoveIntent) -> void:
 		flags |= _FLAG_ABILITY_HELD
 	buffer.put_u8(flags)
 	buffer.put_u8(clampi(intent.ability_slot, 0, 4))
-	buffer.put_u8(_FLAG2_SHOVE_PRESSED if intent.shove_pressed else 0)
+	buffer.put_u8(
+		(_FLAG2_SHOVE_PRESSED if intent.shove_pressed else 0) | (_FLAG2_AIM_HELD if intent.aim_held else 0)
+	)
 
 
 ## Decode into [param out]. Returns the tick, or -1 if [param payload] is not a
@@ -288,6 +291,7 @@ static func unpack_intent_at(payload: PackedByteArray, index: int, out: MoveInte
 	out.ability_held = (flags & _FLAG_ABILITY_HELD) != 0
 	out.ability_slot = clampi(slot, 0, 4)
 	out.shove_pressed = (flags2 & _FLAG2_SHOVE_PRESSED) != 0
+	out.aim_held = (flags2 & _FLAG2_AIM_HELD) != 0
 	# The dev keys are not on the wire and must not survive on a reused struct
 	# either. [param out] is owned by the caller and lives for the session, so a
 	# field this format does not carry has to be cleared here or it keeps
@@ -647,20 +651,19 @@ static func rules_field_names(rules: MatchRules) -> PackedStringArray:
 	return names
 
 
-## Field holding [member MatchRules.reload_seconds_by_turn]. A
-## [PackedFloat32Array] export, not a scalar, so [method rules_field_names]
-## never picks it up on its own -- packed here explicitly instead.
-const _RELOAD_BY_TURN_FIELD: String = "reload_seconds_by_turn"
+## [PackedFloat32Array] exports of [MatchRules], which [method rules_field_names] never picks up
+## on its own, so they are packed here by name.
+const _PACKED_RULES_FIELDS: Array[String] = ["reload_seconds_by_turn", "sniper_by_visit"]
 
-## Every scalar export of [param rules] as bytes, plus
-## [member MatchRules.reload_seconds_by_turn]. Reliable-channel sized, not
-## per-tick sized.
+## Every scalar export of [param rules] as bytes, plus the [constant _PACKED_RULES_FIELDS].
+## Reliable-channel sized, not per-tick sized.
 static func pack_rules(rules: MatchRules) -> PackedByteArray:
 	var fields: Dictionary = {}
 	for field: String in rules_field_names(rules):
 		var value: Variant = rules.get(field)
 		fields[field] = String(value) if typeof(value) == TYPE_STRING_NAME else value
-	fields[_RELOAD_BY_TURN_FIELD] = rules.reload_seconds_by_turn
+	for field: String in _PACKED_RULES_FIELDS:
+		fields[field] = rules.get(field)
 	return var_to_bytes(fields)
 
 
@@ -692,28 +695,30 @@ static func unpack_rules(payload: PackedByteArray, out: MatchRules) -> bool:
 			TYPE_STRING_NAME:
 				if typeof(value) == TYPE_STRING or typeof(value) == TYPE_STRING_NAME:
 					out.set(field, StringName(String(value)))
-	if fields.has(_RELOAD_BY_TURN_FIELD):
-		var raw: Variant = fields[_RELOAD_BY_TURN_FIELD]
-		if typeof(raw) == TYPE_PACKED_FLOAT32_ARRAY:
-			var reload_by_turn: PackedFloat32Array = raw
-			var all_finite: bool = true
-			for value: float in reload_by_turn:
-				if not is_finite(value):
-					all_finite = false
-					break
-			if all_finite:
-				out.reload_seconds_by_turn = reload_by_turn
+	for field: String in _PACKED_RULES_FIELDS:
+		var raw: Variant = fields.get(field)
+		if typeof(raw) != TYPE_PACKED_FLOAT32_ARRAY:
+			continue
+		var values: PackedFloat32Array = raw
+		var all_finite: bool = true
+		for value: float in values:
+			if not is_finite(value):
+				all_finite = false
+				break
+		if all_finite:
+			out.set(field, values)
 	return true
 
 
-## Copy every scalar export from one rules object onto another, plus
-## [member MatchRules.reload_seconds_by_turn].
+## Copy every scalar export from one rules object onto another, plus the
+## [constant _PACKED_RULES_FIELDS].
 static func copy_rules(from: MatchRules, to: MatchRules) -> void:
 	if from == null or to == null or from == to:
 		return
 	for field: String in rules_field_names(from):
 		to.set(field, from.get(field))
-	to.reload_seconds_by_turn = from.reload_seconds_by_turn
+	for field: String in _PACKED_RULES_FIELDS:
+		to.set(field, from.get(field))
 
 
 # --- Decoy: authority to everyone ---------------------------------------------

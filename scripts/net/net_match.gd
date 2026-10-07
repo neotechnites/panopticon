@@ -385,6 +385,9 @@ func _drive_trigger(who: MatchParticipant, weapon: Rifle, was_held: bool) -> boo
 	var source: RemoteIntentSource = link.get_remote_source() if link != null else null
 	if source == null:
 		return was_held
+	# The scope is the holder's; the host raises the seat's optic with it so sway and hip spread agree.
+	if weapon.optic != null:
+		weapon.optic.set_zoomed(source.command.aim_held)
 	var pressed: bool = source.take_fire()
 	var held: bool = source.is_fire_held()
 	var charged: bool = weapon.profile != null and weapon.profile.charge_enabled

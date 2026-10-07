@@ -138,7 +138,7 @@ const DEFAULT_RELOAD_BY_TURN: PackedFloat32Array = [2.5, 2.5, 2.5, 2.5, 2.5]
 const RELOAD_BY_TURN_COUNT: int = 5
 
 const MIN_RELOAD_BY_TURN: float = 0.1
-const MAX_RELOAD_BY_TURN: float = 15.0
+const MAX_RELOAD_BY_TURN: float = 45.0
 
 ## Highest seat index this file will believe off disk.
 ##
@@ -188,25 +188,6 @@ const MAX_PRISONER_LIVES: int = 3
 # agrees with the [MatchRules] field it is written over -- the two must agree, or
 # the first match of a fresh install is played under a rule set nobody chose.
 
-## Peak degrees of scope drift. 0 is no drift, which is today's aim.
-const DEFAULT_SCOPE_SWAY_DEGREES: float = 0.0
-const MIN_SCOPE_SWAY_DEGREES: float = 0.0
-
-## Ceiling on the saved preference, against the rule's own [code]0..15[/code]. A
-## sniper who cannot hold a man-sized target at 40 m is not a lever any more.
-const MAX_SCOPE_SWAY_DEGREES: float = 5.0
-
-## Cycles per second of that drift. Slow is the point: a fast wobble is a
-## vibration the player fights rather than a drift they lead.
-const DEFAULT_SCOPE_SWAY_HZ: float = 0.25
-const MIN_SCOPE_SWAY_HZ: float = 0.02
-const MAX_SCOPE_SWAY_HZ: float = 2.0
-
-## Seconds of held aim over which the drift decays away. 0 never settles.
-const DEFAULT_SCOPE_SWAY_SETTLE_SECONDS: float = 0.0
-const MIN_SCOPE_SWAY_SETTLE_SECONDS: float = 0.0
-const MAX_SCOPE_SWAY_SETTLE_SECONDS: float = 30.0
-
 ## Which tower the arena raises: 0 carved, 1 arches. 1 is what the shipped arena
 ## already shows, so the default changes nothing.
 const DEFAULT_TOWER_VARIANT: int = 1
@@ -224,25 +205,6 @@ const MAX_VOTE_SECONDS: float = 120.0
 ## Tower openings left open. All of them is the tower as modelled.
 const DEFAULT_TOWER_OPEN_WINDOWS: int = MatchRules.TOWER_WINDOW_COUNT
 
-## Extra reload seconds after a shot that hit nobody. 0 is today's rifle.
-const DEFAULT_GUARD_MISS_PENALTY_SECONDS: float = 0.0
-const MIN_GUARD_MISS_PENALTY_SECONDS: float = 0.0
-
-## Ceiling on the saved preference, against the rule's own [code]0..15[/code].
-## Past the base reload a miss stops being a penalty and becomes a lost turn.
-const MAX_GUARD_MISS_PENALTY_SECONDS: float = 10.0
-
-## Metres per second a guard's bullet flies. 0 is hitscan, today's rifle.
-const DEFAULT_GUARD_PROJECTILE_SPEED: float = 0.0
-const MIN_GUARD_PROJECTILE_SPEED: float = 0.0
-
-## Ceiling on the saved preference. Past it the flight time is under a frame
-## and the shot is hitscan in all but name.
-const MAX_GUARD_PROJECTILE_SPEED: float = 1200.0
-
-## Whether a confirmed hit raises the guard's hitmarker. True is today's game.
-const DEFAULT_GUARD_HIT_MARKER: bool = true
-
 ## Multipliers on a prisoner's pace, jump height and power cooldown. 1.0 is the
 ## profile's and the rules' own numbers, which is today's prisoner.
 const DEFAULT_RUNNER_SPEED_MULTIPLIER: float = 1.0
@@ -259,10 +221,6 @@ const MAX_ABILITY_COOLDOWN_MULTIPLIER: float = 4.0
 
 ## Hit points for the finisher fight. Both agree with [MatchRules]: the guard
 ## falls to one shot and an armed finisher absorbs ten.
-const DEFAULT_GUARD_SKILL: float = 0.5
-const MIN_GUARD_SKILL: float = 0.0
-const MAX_GUARD_SKILL: float = 1.0
-
 const DEFAULT_GUARD_HEALTH: int = 1
 const MIN_GUARD_HEALTH: int = 1
 const MAX_GUARD_HEALTH: int = 20
@@ -501,17 +459,53 @@ var runner_win_condition: MatchRules.RunnerWinCondition = (
 ## [member MatchRules.rounds_to_win_match].
 var rounds_to_win_match: int = DEFAULT_ROUNDS_TO_WIN_MATCH
 
-## Peak degrees of the scope's figure-eight drift. Written over
-## [member MatchRules.scope_sway_degrees].
-var scope_sway_degrees: float = DEFAULT_SCOPE_SWAY_DEGREES
+## The guard's sniper set for each tower visit, laid out by [SniperKnobs]. Written over
+## [member MatchRules.sniper_by_visit].
+var sniper_by_visit: PackedFloat32Array = SniperKnobs.defaults()
 
-## Cycles per second of that drift. Written over
-## [member MatchRules.scope_sway_hz].
-var scope_sway_hz: float = DEFAULT_SCOPE_SWAY_HZ
+# The single-value names below read visit one and write every visit.
 
-## Seconds of held aim over which the drift decays away. Written over
-## [member MatchRules.scope_sway_settle_seconds].
-var scope_sway_settle_seconds: float = DEFAULT_SCOPE_SWAY_SETTLE_SECONDS
+var scope_sway_degrees: float:
+	get:
+		return _visit_one(SniperKnobs.Knob.SWAY)
+	set(value):
+		_set_every_visit(SniperKnobs.Knob.SWAY, value)
+
+var scope_sway_hz: float:
+	get:
+		return _visit_one(SniperKnobs.Knob.SWAY_RATE)
+	set(value):
+		_set_every_visit(SniperKnobs.Knob.SWAY_RATE, value)
+
+var scope_sway_settle_seconds: float:
+	get:
+		return _visit_one(SniperKnobs.Knob.SWAY_SETTLE)
+	set(value):
+		_set_every_visit(SniperKnobs.Knob.SWAY_SETTLE, value)
+
+var guard_miss_penalty_seconds: float:
+	get:
+		return _visit_one(SniperKnobs.Knob.MISS_PENALTY)
+	set(value):
+		_set_every_visit(SniperKnobs.Knob.MISS_PENALTY, value)
+
+var guard_projectile_speed: float:
+	get:
+		return _visit_one(SniperKnobs.Knob.SHOT_SPEED)
+	set(value):
+		_set_every_visit(SniperKnobs.Knob.SHOT_SPEED, value)
+
+var guard_hit_marker: bool:
+	get:
+		return _visit_one(SniperKnobs.Knob.HIT_MARKER) > 0.5
+	set(value):
+		_set_every_visit(SniperKnobs.Knob.HIT_MARKER, 1.0 if value else 0.0)
+
+var guard_skill: float:
+	get:
+		return _visit_one(SniperKnobs.Knob.GUARD_SKILL)
+	set(value):
+		_set_every_visit(SniperKnobs.Knob.GUARD_SKILL, value)
 
 ## Which tower model the arena raises. Written over
 ## [member MatchRules.tower_variant].
@@ -527,18 +521,6 @@ var vote_seconds: float = DEFAULT_VOTE_SECONDS
 ## [member MatchRules.tower_open_windows].
 var tower_open_windows: int = DEFAULT_TOWER_OPEN_WINDOWS
 
-## Extra reload seconds after a miss. Written over
-## [member MatchRules.guard_miss_penalty_seconds].
-var guard_miss_penalty_seconds: float = DEFAULT_GUARD_MISS_PENALTY_SECONDS
-
-## Metres per second a guard's bullet flies, 0 hitscan. Written over
-## [member MatchRules.guard_projectile_speed].
-var guard_projectile_speed: float = DEFAULT_GUARD_PROJECTILE_SPEED
-
-## Whether a confirmed hit raises the hitmarker. Written over
-## [member MatchRules.guard_hit_marker].
-var guard_hit_marker: bool = DEFAULT_GUARD_HIT_MARKER
-
 ## Multiplier on a prisoner's ground speed. Written over
 ## [member MatchRules.runner_speed_multiplier].
 var runner_speed_multiplier: float = DEFAULT_RUNNER_SPEED_MULTIPLIER
@@ -550,10 +532,6 @@ var runner_jump_multiplier: float = DEFAULT_RUNNER_JUMP_MULTIPLIER
 ## Multiplier on a power's cooldown. Written over
 ## [member MatchRules.ability_cooldown_multiplier].
 var ability_cooldown_multiplier: float = DEFAULT_ABILITY_COOLDOWN_MULTIPLIER
-
-## Hit points the guard absorbs from the finisher's rifle. Written over
-## [member MatchRules.guard_skill].
-var guard_skill: float = DEFAULT_GUARD_SKILL
 
 ## [member MatchRules.guard_health].
 var guard_health: int = DEFAULT_GUARD_HEALTH
@@ -645,20 +623,14 @@ func reset() -> void:
 	runner_win_condition = MatchRules.RunnerWinCondition.FIRST_ARRIVAL
 	rounds_to_win_match = DEFAULT_ROUNDS_TO_WIN_MATCH
 	runner_ability = MatchRules.RunnerAbility.NONE
-	scope_sway_degrees = DEFAULT_SCOPE_SWAY_DEGREES
-	scope_sway_hz = DEFAULT_SCOPE_SWAY_HZ
-	scope_sway_settle_seconds = DEFAULT_SCOPE_SWAY_SETTLE_SECONDS
+	sniper_by_visit = SniperKnobs.defaults()
 	tower_variant = DEFAULT_TOWER_VARIANT
 	map_pick_mode = DEFAULT_MAP_PICK_MODE
 	vote_seconds = DEFAULT_VOTE_SECONDS
 	tower_open_windows = DEFAULT_TOWER_OPEN_WINDOWS
-	guard_miss_penalty_seconds = DEFAULT_GUARD_MISS_PENALTY_SECONDS
-	guard_projectile_speed = DEFAULT_GUARD_PROJECTILE_SPEED
-	guard_hit_marker = DEFAULT_GUARD_HIT_MARKER
 	runner_speed_multiplier = DEFAULT_RUNNER_SPEED_MULTIPLIER
 	runner_jump_multiplier = DEFAULT_RUNNER_JUMP_MULTIPLIER
 	ability_cooldown_multiplier = DEFAULT_ABILITY_COOLDOWN_MULTIPLIER
-	guard_skill = DEFAULT_GUARD_SKILL
 	guard_health = DEFAULT_GUARD_HEALTH
 	finisher_health = DEFAULT_FINISHER_HEALTH
 	map_id = DEFAULT_MAP_ID
@@ -716,29 +688,11 @@ func clamp_all() -> void:
 	hold_duration_seconds = clampf(
 		hold_duration_seconds, MIN_HOLD_DURATION_SECONDS, MAX_HOLD_DURATION_SECONDS
 	)
-	scope_sway_degrees = clampf(
-		scope_sway_degrees, MIN_SCOPE_SWAY_DEGREES, MAX_SCOPE_SWAY_DEGREES
-	)
-	scope_sway_hz = clampf(scope_sway_hz, MIN_SCOPE_SWAY_HZ, MAX_SCOPE_SWAY_HZ)
-	scope_sway_settle_seconds = clampf(
-		scope_sway_settle_seconds,
-		MIN_SCOPE_SWAY_SETTLE_SECONDS,
-		MAX_SCOPE_SWAY_SETTLE_SECONDS,
-	)
+	sniper_by_visit = SniperKnobs.clamped(sniper_by_visit)
 	tower_variant = clampi(tower_variant, 0, TOWER_VARIANT_COUNT - 1)
 	map_pick_mode = clampi(map_pick_mode, 0, MAP_PICK_MODE_COUNT - 1)
 	vote_seconds = clampf(vote_seconds, MIN_VOTE_SECONDS, MAX_VOTE_SECONDS)
 	tower_open_windows = clampi(tower_open_windows, 0, MatchRules.TOWER_WINDOW_COUNT)
-	guard_miss_penalty_seconds = clampf(
-		guard_miss_penalty_seconds,
-		MIN_GUARD_MISS_PENALTY_SECONDS,
-		MAX_GUARD_MISS_PENALTY_SECONDS,
-	)
-	guard_projectile_speed = clampf(
-		guard_projectile_speed,
-		MIN_GUARD_PROJECTILE_SPEED,
-		MAX_GUARD_PROJECTILE_SPEED,
-	)
 	runner_speed_multiplier = clampf(
 		runner_speed_multiplier, MIN_RUNNER_SPEED_MULTIPLIER, MAX_RUNNER_SPEED_MULTIPLIER
 	)
@@ -750,7 +704,6 @@ func clamp_all() -> void:
 		MIN_ABILITY_COOLDOWN_MULTIPLIER,
 		MAX_ABILITY_COOLDOWN_MULTIPLIER,
 	)
-	guard_skill = clampf(guard_skill, MIN_GUARD_SKILL, MAX_GUARD_SKILL)
 	guard_health = clampi(guard_health, MIN_GUARD_HEALTH, MAX_GUARD_HEALTH)
 	finisher_health = clampi(finisher_health, MIN_FINISHER_HEALTH, MAX_FINISHER_HEALTH)
 	# A map that is not in the catalog is a file written by an older or newer
@@ -798,20 +751,14 @@ func copy_from(other: GameSettings) -> void:
 	runner_win_condition = other.runner_win_condition
 	rounds_to_win_match = other.rounds_to_win_match
 	runner_ability = other.runner_ability
-	scope_sway_degrees = other.scope_sway_degrees
-	scope_sway_hz = other.scope_sway_hz
-	scope_sway_settle_seconds = other.scope_sway_settle_seconds
+	sniper_by_visit = other.sniper_by_visit.duplicate()
 	tower_variant = other.tower_variant
 	map_pick_mode = other.map_pick_mode
 	vote_seconds = other.vote_seconds
 	tower_open_windows = other.tower_open_windows
-	guard_miss_penalty_seconds = other.guard_miss_penalty_seconds
-	guard_projectile_speed = other.guard_projectile_speed
-	guard_hit_marker = other.guard_hit_marker
 	runner_speed_multiplier = other.runner_speed_multiplier
 	runner_jump_multiplier = other.runner_jump_multiplier
 	ability_cooldown_multiplier = other.ability_cooldown_multiplier
-	guard_skill = other.guard_skill
 	guard_health = other.guard_health
 	finisher_health = other.finisher_health
 	map_id = other.map_id
@@ -844,7 +791,8 @@ func equals(other: GameSettings) -> bool:
 		and ghosts_enabled == other.ghosts_enabled
 		and skip_opening_race == other.skip_opening_race
 		and tower_seat_index == other.tower_seat_index
-		and _reload_by_turn_almost_equal(other.reload_by_turn)
+		and _almost_equal(reload_by_turn, other.reload_by_turn)
+		and _almost_equal(sniper_by_visit, other.sniper_by_visit)
 		and prisoner_count == other.prisoner_count
 		and prisoner_lives == other.prisoner_lives
 		and shooter_win_condition == other.shooter_win_condition
@@ -853,20 +801,13 @@ func equals(other: GameSettings) -> bool:
 		and runner_win_condition == other.runner_win_condition
 		and rounds_to_win_match == other.rounds_to_win_match
 		and runner_ability == other.runner_ability
-		and is_equal_approx(scope_sway_degrees, other.scope_sway_degrees)
-		and is_equal_approx(scope_sway_hz, other.scope_sway_hz)
-		and is_equal_approx(scope_sway_settle_seconds, other.scope_sway_settle_seconds)
 		and tower_variant == other.tower_variant
 		and map_pick_mode == other.map_pick_mode
 		and is_equal_approx(vote_seconds, other.vote_seconds)
 		and tower_open_windows == other.tower_open_windows
-		and is_equal_approx(guard_miss_penalty_seconds, other.guard_miss_penalty_seconds)
-		and is_equal_approx(guard_projectile_speed, other.guard_projectile_speed)
-		and guard_hit_marker == other.guard_hit_marker
 		and is_equal_approx(runner_speed_multiplier, other.runner_speed_multiplier)
 		and is_equal_approx(runner_jump_multiplier, other.runner_jump_multiplier)
 		and is_equal_approx(ability_cooldown_multiplier, other.ability_cooldown_multiplier)
-		and is_equal_approx(guard_skill, other.guard_skill)
 		and guard_health == other.guard_health
 		and finisher_health == other.finisher_health
 		and map_id == other.map_id
@@ -878,15 +819,25 @@ func equals(other: GameSettings) -> bool:
 	)
 
 
-## Element-wise [method is_equal_approx] for [member reload_by_turn], since
-## [PackedFloat32Array] has no built-in tolerance comparison.
-func _reload_by_turn_almost_equal(other: PackedFloat32Array) -> bool:
-	if reload_by_turn.size() != other.size():
+## Element-wise [method is_equal_approx], since [PackedFloat32Array] has no tolerance comparison.
+static func _almost_equal(a: PackedFloat32Array, b: PackedFloat32Array) -> bool:
+	if a.size() != b.size():
 		return false
-	for i: int in reload_by_turn.size():
-		if not is_equal_approx(reload_by_turn[i], other[i]):
+	for i: int in a.size():
+		if not is_equal_approx(a[i], b[i]):
 			return false
 	return true
+
+
+func _visit_one(knob: int) -> float:
+	return sniper_by_visit[knob] if sniper_by_visit.size() > knob else float(SniperKnobs.SPECS[knob][5])
+
+
+func _set_every_visit(knob: int, value: float) -> void:
+	if sniper_by_visit.size() != SniperKnobs.VISITS * SniperKnobs.COUNT:
+		sniper_by_visit = SniperKnobs.defaults()
+	for visit: int in SniperKnobs.VISITS:
+		sniper_by_visit[SniperKnobs.index(visit, knob)] = value
 
 
 # --- Serialisation ------------------------------------------------------------
@@ -923,22 +874,16 @@ func write_to(config: ConfigFile) -> void:
 	config.set_value(SECTION_MATCH, "runner_win_condition", int(runner_win_condition))
 	config.set_value(SECTION_MATCH, "rounds_to_win_match", rounds_to_win_match)
 	config.set_value(SECTION_MATCH, "runner_ability", int(runner_ability))
-	config.set_value(SECTION_MATCH, "scope_sway_degrees", scope_sway_degrees)
-	config.set_value(SECTION_MATCH, "scope_sway_hz", scope_sway_hz)
-	config.set_value(SECTION_MATCH, "scope_sway_settle_seconds", scope_sway_settle_seconds)
+	config.set_value(SECTION_MATCH, "sniper_by_visit", sniper_by_visit)
 	config.set_value(SECTION_MATCH, "tower_variant", tower_variant)
 	config.set_value(SECTION_MATCH, "map_pick_mode", map_pick_mode)
 	config.set_value(SECTION_MATCH, "vote_seconds", vote_seconds)
 	config.set_value(SECTION_MATCH, "tower_open_windows", tower_open_windows)
-	config.set_value(SECTION_MATCH, "guard_miss_penalty_seconds", guard_miss_penalty_seconds)
-	config.set_value(SECTION_MATCH, "guard_projectile_speed", guard_projectile_speed)
-	config.set_value(SECTION_MATCH, "guard_hit_marker", guard_hit_marker)
 	config.set_value(SECTION_MATCH, "crouch_enabled", crouch_enabled)
 	config.set_value(SECTION_MATCH, "slide_enabled", slide_enabled)
 	config.set_value(SECTION_MATCH, "runner_speed_multiplier", runner_speed_multiplier)
 	config.set_value(SECTION_MATCH, "runner_jump_multiplier", runner_jump_multiplier)
 	config.set_value(SECTION_MATCH, "ability_cooldown_multiplier", ability_cooldown_multiplier)
-	config.set_value(SECTION_MATCH, "guard_skill", guard_skill)
 	config.set_value(SECTION_MATCH, "guard_health", guard_health)
 	config.set_value(SECTION_MATCH, "finisher_health", finisher_health)
 	# As a String, not a StringName: ConfigFile writes a StringName as &"x",
@@ -1002,26 +947,12 @@ func read_from(config: ConfigFile) -> void:
 	runner_ability = read_int(
 		config, SECTION_MATCH, "runner_ability", int(runner_ability)
 	) as MatchRules.RunnerAbility
-	scope_sway_degrees = read_float(
-		config, SECTION_MATCH, "scope_sway_degrees", scope_sway_degrees
-	)
-	scope_sway_hz = read_float(config, SECTION_MATCH, "scope_sway_hz", scope_sway_hz)
-	scope_sway_settle_seconds = read_float(
-		config, SECTION_MATCH, "scope_sway_settle_seconds", scope_sway_settle_seconds
-	)
 	tower_variant = read_int(config, SECTION_MATCH, "tower_variant", tower_variant)
 	map_pick_mode = read_int(config, SECTION_MATCH, "map_pick_mode", map_pick_mode)
 	vote_seconds = read_float(config, SECTION_MATCH, "vote_seconds", vote_seconds)
 	tower_open_windows = read_int(
 		config, SECTION_MATCH, "tower_open_windows", tower_open_windows
 	)
-	guard_miss_penalty_seconds = read_float(
-		config, SECTION_MATCH, "guard_miss_penalty_seconds", guard_miss_penalty_seconds
-	)
-	guard_projectile_speed = read_float(
-		config, SECTION_MATCH, "guard_projectile_speed", guard_projectile_speed
-	)
-	guard_hit_marker = read_bool(config, SECTION_MATCH, "guard_hit_marker", guard_hit_marker)
 	crouch_enabled = read_bool(config, SECTION_MATCH, "crouch_enabled", crouch_enabled)
 	slide_enabled = read_bool(config, SECTION_MATCH, "slide_enabled", slide_enabled)
 	runner_speed_multiplier = read_float(
@@ -1033,7 +964,10 @@ func read_from(config: ConfigFile) -> void:
 	ability_cooldown_multiplier = read_float(
 		config, SECTION_MATCH, "ability_cooldown_multiplier", ability_cooldown_multiplier
 	)
-	guard_skill = read_float(config, SECTION_MATCH, "guard_skill", guard_skill)
+	if config.has_section_key(SECTION_MATCH, "sniper_by_visit"):
+		sniper_by_visit = read_packed_float32_array(config, SECTION_MATCH, "sniper_by_visit", sniper_by_visit)
+	else:
+		_read_single_sniper_values(config)
 	guard_health = read_int(config, SECTION_MATCH, "guard_health", guard_health)
 	finisher_health = read_int(config, SECTION_MATCH, "finisher_health", finisher_health)
 	map_id = read_string_name(config, SECTION_MATCH, "map_id", map_id)
@@ -1046,6 +980,23 @@ func read_from(config: ConfigFile) -> void:
 	debug_tower_seat = read_int(config, SECTION_DEV, "debug_tower_seat", debug_tower_seat)
 
 	clamp_all()
+
+
+## A file from before per-visit sets: each old single value goes to every visit.
+func _read_single_sniper_values(config: ConfigFile) -> void:
+	scope_sway_degrees = read_float(config, SECTION_MATCH, "scope_sway_degrees", scope_sway_degrees)
+	scope_sway_hz = read_float(config, SECTION_MATCH, "scope_sway_hz", scope_sway_hz)
+	scope_sway_settle_seconds = read_float(
+		config, SECTION_MATCH, "scope_sway_settle_seconds", scope_sway_settle_seconds
+	)
+	guard_miss_penalty_seconds = read_float(
+		config, SECTION_MATCH, "guard_miss_penalty_seconds", guard_miss_penalty_seconds
+	)
+	guard_projectile_speed = read_float(
+		config, SECTION_MATCH, "guard_projectile_speed", guard_projectile_speed
+	)
+	guard_hit_marker = read_bool(config, SECTION_MATCH, "guard_hit_marker", guard_hit_marker)
+	guard_skill = read_float(config, SECTION_MATCH, "guard_skill", guard_skill)
 
 
 # --- Application --------------------------------------------------------------
@@ -1198,6 +1149,7 @@ func apply_to_match_rules(rules: MatchRules) -> void:
 	# left holding.
 	rules.opening_seat_index = tower_seat_index
 	rules.reload_seconds_by_turn = reload_by_turn.duplicate()
+	rules.sniper_by_visit = sniper_by_visit.duplicate()
 	# Every one of these is written unconditionally too, and for the reason given
 	# above: the rules resource is one shared instance for the whole process, so
 	# a value only written when it is non-default leaves a match started after a
