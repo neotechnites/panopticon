@@ -70,11 +70,17 @@ const STIFF_LINEAR_DAMP: float = 2.0
 const DEATH_BLEND_RATE: float = 8.0
 ## A capsule that moves further than this in one tick was placed, not thrown: the flop ends.
 const PLACED_METRES: float = 4.0
+## Most a limb moves against the torso, m/s, and any part spins, rad/s: a body never flings itself apart.
+const LIMB_MOST_SPEED: float = 5.0
+const PART_MOST_SPIN: float = 15.0
+## Most a rifle hit speeds the struck part alone, m/s; the rest of the knock moves the whole body.
+const STRIKE_MOST_DV: float = 4.0
 
 enum Flop { NONE, THROWN, RISING }
 
 var _skeleton: Skeleton3D = null
 var _simulator: PhysicalBoneSimulator3D = null
+var _lengths: RigidLengths = null
 var _bones: Array[PhysicalBone3D] = []
 var _active: bool = false
 var _flop: Flop = Flop.NONE
@@ -109,6 +115,12 @@ func build(skeleton: Skeleton3D) -> bool:
 	_simulator.name = "DeathRagdoll"
 	_simulator.active = false
 	skeleton.add_child(_simulator)
+	_lengths = RigidLengths.new()
+	_lengths.name = "RagdollLengths"
+	_lengths.active = false
+	for i: int in range(1, PARTS.size()):
+		_lengths.bones.append(skeleton.find_bone(String(PARTS[i][0])))
+	skeleton.add_child(_lengths)
 	var total: float = 0.0
 	for part: Array in PARTS:
 		total += float(part[5])
@@ -151,6 +163,7 @@ func flop(anchor: Node3D, throw: Vector3) -> void:
 	_anchor = anchor
 	_place_simulator_after_layers()
 	_simulator.active = true
+	_follow_simulator()
 	_simulator.influence = 1.0
 	_go_limp()
 	var limp: float = clampf(flop_limpness, 0.0, 1.0)
@@ -201,15 +214,14 @@ func start(velocity: Vector3, at: Vector3, direction: Vector3) -> void:
 	_skeleton.move_child(_simulator, _skeleton.get_child_count() - 1)
 	_simulator.active = true
 	_simulator.influence = 1.0
+	_follow_simulator()
 	_go_limp()
-	var carried: Vector3 = velocity * carry_velocity
+	var carried: Vector3 = velocity * carry_velocity + _strike_share(at, direction)
 	for bone: PhysicalBone3D in _bones:
 		bone.linear_velocity = carried
 	_bones[0].linear_velocity = carried + Vector3.DOWN * buckle
-	if direction.is_zero_approx():
-		return
-	var struck: PhysicalBone3D = _nearest_part(at)
-	struck.apply_impulse(direction.normalized() * impulse, at - struck.global_position)
+	_land_strike(at, direction)
+	set_physics_process(true)
 
 
 ## Hand the skeleton back to the animation; the parts stay where they fell, inert.
@@ -222,6 +234,7 @@ func stop() -> void:
 	_simulator.physical_bones_stop_simulation()
 	_simulator.active = false
 	_simulator.influence = 1.0
+	_lengths.active = false
 	for bone: PhysicalBone3D in _bones:
 		bone.collision_mask = 0
 		bone.angular_damp = angular_damp
@@ -232,8 +245,7 @@ func _physics_process(delta: float) -> void:
 	if _active:
 		# A kill mid-get-up: the blend returns to the corpse instead of popping to it.
 		_simulator.influence = move_toward(_simulator.influence, 1.0, delta * DEATH_BLEND_RATE)
-		if _simulator.influence >= 1.0:
-			set_physics_process(false)
+		_hold_together(_bones[0].linear_velocity, 0)
 		return
 	if _flop == Flop.NONE or _anchor == null:
 		return
@@ -241,6 +253,7 @@ func _physics_process(delta: float) -> void:
 	if frame.origin.distance_to(_last_anchor) > PLACED_METRES:
 		stop()
 		return
+	_hold_together((frame.origin - _last_anchor) / maxf(delta, 0.001), 2)
 	_last_anchor = frame.origin
 	var angle: float = _tumble
 	if _flop == Flop.THROWN:
@@ -291,18 +304,52 @@ func _die_from_flop(velocity: Vector3, at: Vector3, direction: Vector3) -> void:
 	_flop = Flop.NONE
 	_active = true
 	_skeleton.move_child(_simulator, _skeleton.get_child_count() - 1)
+	_follow_simulator()
 	PhysicsServer3D.body_set_mode(_bones[0].get_rid(), PhysicsServer3D.BODY_MODE_RIGID)
 	PhysicsServer3D.body_set_mode(_bones[CHEST_PART].get_rid(), PhysicsServer3D.BODY_MODE_RIGID)
 	for bone: PhysicalBone3D in _bones:
 		bone.angular_damp = angular_damp
 		bone.linear_damp = linear_damp
-	_bones[CHEST_PART].linear_velocity = velocity * carry_velocity
-	_bones[0].linear_velocity = velocity * carry_velocity + Vector3.DOWN * buckle
-	set_physics_process(_simulator.influence < 1.0)
+	var carried: Vector3 = velocity * carry_velocity + _strike_share(at, direction)
+	_bones[CHEST_PART].linear_velocity = carried
+	_bones[0].linear_velocity = carried + Vector3.DOWN * buckle
+	_land_strike(at, direction)
+	set_physics_process(true)
+
+
+## Clamp every simulated part from [param first] on to [param torso]'s motion: limbs trail, never fly off.
+func _hold_together(torso: Vector3, first: int) -> void:
+	for i: int in range(first, _bones.size()):
+		var bone: PhysicalBone3D = _bones[i]
+		var off: Vector3 = bone.linear_velocity - torso
+		if off.length_squared() > LIMB_MOST_SPEED * LIMB_MOST_SPEED:
+			bone.linear_velocity = torso + off.limit_length(LIMB_MOST_SPEED)
+		if bone.angular_velocity.length_squared() > PART_MOST_SPIN * PART_MOST_SPIN:
+			bone.angular_velocity = bone.angular_velocity.limit_length(PART_MOST_SPIN)
+
+
+## The part of a hit's knock the struck part cannot take, as whole-body velocity.
+func _strike_share(at: Vector3, direction: Vector3) -> Vector3:
+	if direction.is_zero_approx():
+		return Vector3.ZERO
+	var push: Vector3 = direction.normalized() * impulse
+	return (push - push.limit_length(_nearest_part(at).mass * STRIKE_MOST_DV)) / maxf(body_mass, 1.0)
+
+
+## The struck part's own kick, after the velocities are set so they cannot overwrite it.
+func _land_strike(at: Vector3, direction: Vector3) -> void:
 	if direction.is_zero_approx():
 		return
 	var struck: PhysicalBone3D = _nearest_part(at)
-	struck.apply_impulse(direction.normalized() * impulse, at - struck.global_position)
+	var kick: Vector3 = (direction.normalized() * impulse).limit_length(struck.mass * STRIKE_MOST_DV)
+	struck.apply_impulse(kick, at - struck.global_position)
+
+
+## The length keeper runs right after the simulator, wherever it sits.
+func _follow_simulator() -> void:
+	var at: int = _simulator.get_index()
+	_skeleton.move_child(_lengths, at if _lengths.get_index() < at else at + 1)
+	_lengths.active = true
 
 
 ## Right after the last body layer and before the first-person hiders, so a viewed body still hides its head.
@@ -419,3 +466,21 @@ func _nearest_part(at: Vector3) -> PhysicalBone3D:
 			best_distance = d
 			best = bone
 	return best
+
+
+## Every ragdoll bone but the pelvis keeps its rest offset from its parent: the drawn body cannot stretch.
+class RigidLengths extends SkeletonModifier3D:
+	var bones: PackedInt32Array = PackedInt32Array()
+
+	func _process_modification_with_delta(_delta: float) -> void:
+		_hold()
+
+	func _process_modification() -> void:
+		_hold()
+
+	func _hold() -> void:
+		var skeleton: Skeleton3D = get_skeleton()
+		if skeleton == null:
+			return
+		for bone: int in bones:
+			skeleton.set_bone_pose_position(bone, skeleton.get_bone_rest(bone).origin)
