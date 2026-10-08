@@ -60,7 +60,7 @@ by the kill cylinder before it lands.
 Texture: one small tile per material, repeated by UV (lib/texel.py, SHEETS
 below): marble_brick (two bays by twelve 1 m courses, tinted per class, the
 cells and iron darkened), marble_stone, marble_floor, marble_triangle,
-marble_column, marble_portal_swirl; marble_tower (the brick's size), marble_tower_floor and marble_tower_stone on the tower.
+marble_column, marble_portal_swirl; marble_tower (the brick's size), marble_tower_column, marble_tower_floor and marble_tower_stone on the tower.
 
     python3 tools/modelling/maps/marble/marble_build.py --check     # geometry + contiguity, no Blender
     tools/modelling/model build marble                  # the pipeline
@@ -263,8 +263,8 @@ def band_sheet():
     return brick("band", mode="box")      # TRIAL: the brick at its wall density
 
 
-def column_sheet():
-    return brick("column", mode="box")    # TRIAL: the brick at its wall density
+def column_sheet(stem="marble_column"):
+    return tile("column", stem, "fit_u", COL_W, COL_H)        # his column tile again (Ryan, 2026-10-08)
 
 
 # Linear multipliers over the brick: each class's old mean colour.
@@ -275,6 +275,7 @@ TINT_MARBLE2 = (0.7939, 0.7923, 0.8147)
 TOWER_STEM = "marble_tower"           # the tower's own tile: his brick pixels, lit by the ambient alone
 TOWER_FLOOR_STEM = "marble_tower_floor"   # the guard room's paving: his floor pixels
 TOWER_PLAIN_STEM = "marble_tower_stone"   # the guard room's centre: his stone pixels
+TOWER_COLUMN_STEM = "marble_tower_column"   # the arcade's columns: his column pixels, lit by the ambient alone
 TINT_BARS = None
 TINT_CELL = (0.143, 0.153, 0.159)        # the brick darkened to the drawing's warm ink, not navy
 TINT_IRON = (0.060, 0.065, 0.075)        # the plain stone darkened to the drawing's dark bars
@@ -350,7 +351,7 @@ def prop_finish(ob, zones, name, atlas_index=None):
     me = ob.data
     uvl = me.uv_layers["UVMap"]
     sheets = {z: brick(z, PROP_MPT, PROP_MPT, t, mode="box") for z, t in PROP_BRICKS.items()}
-    for z in ("column", "band", "collar"):   # TRIAL: the column zones wear the brick at wall density
+    for z in ("band",):   # TRIAL kept for the bands; the column and its collar wear his column tile
         sheets[z] = brick(z, mode="box")
     faces, kind = {}, {}
     for pi, poly in enumerate(me.polygons):

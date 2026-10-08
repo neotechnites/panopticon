@@ -232,7 +232,7 @@ SHEETS = {   # every stone class on the tower's own tile: the lamps do not light
     "shade": mb.brick("shade", ref_r=SHAFT_R, phase=(U0_SHAFT, V0), stem=mb.TOWER_STEM),   # reveals, soffits, undersides: untinted, the ambient is even
     "marble2": _shared("marble2", BAL_PX, BALCONY_R, U0_BAL, mb.TINT_MARBLE2),  # the ledge
     "band": mb.brick("band", mode="box", stem=mb.TOWER_STEM),                 # ring beam, slab edge
-    "column": mb.brick("column", mode="box", stem=mb.TOWER_STEM),
+    "column": mb.column_sheet(mb.TOWER_COLUMN_STEM),                          # his column tile, at the tower's light
     "iron": mb.iron_sheet(),
     "floor": mb.tile("floor", mb.TOWER_FLOOR_STEM, "custom", 64, 64, mpt=2.7 / 64.0),   # one paving cell a ring band
     "plain": mb.tile("plain", mb.TOWER_PLAIN_STEM, "box", mb.STONE_PX, mb.STONE_PX, mb.WALL_MPT),   # the floor's centre
