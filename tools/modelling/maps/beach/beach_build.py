@@ -276,7 +276,7 @@ def bed_depth(b, r):
     t = wl(b) - r - shelf_w(b)
     x, y, _z = pol(b, r, 0.0)
     base = 2.5 + 0.7 * vnoise(x / 20.0, y / 20.0, SEED + 47)
-    mouth = 16.0 * smooth((x + 25.0) / 75.0) ** 1.4
+    mouth = 16.0 * smooth((x + 25.0) / 75.0) ** 1.4 * smooth(t / 22.0)     # never a cliff off the jetty tips
     d = max(1.7, base) + mouth
     run = lerp(3.0, 20.0, smooth((x + 10.0) / 60.0))            # out toward the mouth the slope is long
     old = _kill_profile(b, r)
