@@ -898,7 +898,7 @@ def cooler(m, b, r, yaw, body):
 
 
 def driftwood(m, uv, b, r, length, rad, yaw, seed):
-    """A bleached log half sunk in the sand, bent, tapering, a broken branch stub."""
+    """A bleached log a third sunk in the sand, bent, tapering, a broken branch stub."""
     rr = Rng(seed)
     o, t, n = frame(b, r, yaw)
     pts, radii = [], []
@@ -909,7 +909,7 @@ def driftwood(m, uv, b, r, length, rad, yaw, seed):
         p = at(o, t, n, a, bend * math.sin(math.pi * s) * length * 0.3, 0.0)
         g = ground_z(bearing_of(p), math.hypot(p[0], p[1]))
         rk = rad * lerp(1.0, 0.62, s) * rr.u(0.92, 1.08)
-        pts.append((p[0], p[1], g + rk * 0.35))
+        pts.append((p[0], p[1], g + rk * 0.15))
         radii.append(rk)
     tone = rr.u(0.9, 1.04)
     col = (tone, tone * 0.98, tone * 0.95)
@@ -1065,9 +1065,9 @@ def build_props():
             solids.append(cooler(m, cb, edge(cb) - 0.25, rr.u(-25.0, 25.0), (0.2, 0.48, 0.82) if k % 3 else (0.86, 0.22, 0.2)))
     logs = []
     for k, (b, inset, length) in enumerate(DRIFT):
-        logs.append(driftwood(m, uv, b, wf(b) - inset, length, rr.u(0.12, 0.17), rr.u(-12.0, 12.0), SEED + 830 + k))
+        logs.append(driftwood(m, uv, b, wf(b) - inset, length, rr.u(0.18, 0.25), rr.u(-12.0, 12.0), SEED + 830 + k))
     for k, (b, up, length) in enumerate(DRIFT_SHORE):
-        logs.append(driftwood(m, uv, b, wl(b) + up, length, rr.u(0.1, 0.14), rr.u(-20.0, 20.0), SEED + 850 + k))
+        logs.append(driftwood(m, uv, b, wl(b) + up, length, rr.u(0.14, 0.19), rr.u(-20.0, 20.0), SEED + 850 + k))
     for k in range(SHELLS):
         b = rr.u(ENTRY_B - 4.0, EXIT_B + 4.0)
         shell(m, b, lerp(wl(b) + 0.4, edge(b), rr.f()), SEED + 900 + k)
