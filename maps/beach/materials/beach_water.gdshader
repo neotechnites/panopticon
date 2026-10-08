@@ -144,7 +144,7 @@ void fragment() {
 	float lace2 = texture(foam_texture, world.xz / 1.4 - vec2(0.0, t * 0.03)).r;
 	vec3 bk = breaker(depth, world.xz, t);
 	float crest = exp(-pow((bk.z + 0.015) / 0.03, 2.0)) * bk.y * smoothstep(0.15, 0.45, lace2 + 0.25);
-	float white = step(0.0, bk.z) * (1.0 - smoothstep(0.0, 0.18 * bk.y, bk.z)) * bk.y * smoothstep(0.35, 0.6, lace);
+	float white = step(0.0, bk.z) * (1.0 - smoothstep(0.0, 0.18 * bk.y + 0.001, bk.z)) * bk.y * smoothstep(0.35, 0.6, lace);
 	float sp = fract(swash_phase(world.xz, t));
 	float drain = smoothstep(0.3, 1.0, sp);
 	float front = (1.0 - smoothstep(0.012, 0.03, thick - 0.012 * lace2)) * shore * (1.0 - 0.6 * drain);
