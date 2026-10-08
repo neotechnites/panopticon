@@ -14,7 +14,7 @@ uniform sampler2D foam_texture : filter_linear_mipmap, repeat_enable;
 
 group_uniforms colours;
 uniform vec3 foam_edge_color : source_color = vec3(0.88, 0.98, 0.96);
-uniform vec3 shallow_color : source_color = vec3(0.62, 0.92, 0.86);
+uniform vec3 shallow_color : source_color = vec3(0.4, 0.86, 0.8);
 uniform vec3 turquoise_color : source_color = vec3(0.12, 0.78, 0.86);
 uniform vec3 pit_color : source_color = vec3(0.0, 0.47, 0.6);
 uniform vec3 open_color : source_color = vec3(0.0, 0.56, 0.8);
@@ -87,7 +87,8 @@ void fragment() {
 	// ripples: two scrolling copies of the drawn normal tile, fading out with distance
 	vec3 n1 = texture(ripples, world.xz / 9.0 + t * vec2(0.021, 0.006)).xyz * 2.0 - 1.0;
 	vec3 n2 = texture(ripples, world.xz / 5.3 - t * vec2(0.007, 0.017)).xyz * 2.0 - 1.0;
-	vec2 tilt = (n1.xy + n2.xy) * 0.22 * (0.25 + 0.75 * near);
+	vec3 n3 = texture(ripples, world.xz / 61.0 + t * vec2(0.004, 0.0015)).xyz * 2.0 - 1.0;   // far mottle
+	vec2 tilt = (n1.xy + n2.xy) * 0.22 * (0.25 + 0.75 * near) + n3.xy * 0.12 * (1.0 - near);
 	vec3 n = normalize(swell_normal + vec3(tilt.x, 0.0, tilt.y));
 	vec3 v = normalize(CAMERA_POSITION_WORLD - world);
 	if (!FRONT_FACING) {
@@ -127,7 +128,7 @@ void fragment() {
 	float far = pow(smoothstep(horizon_fade.x, horizon_fade.y, r), 1.4);
 	col = mix(col, sky_horizon, far);
 
-	float alpha = mix(0.38, 0.97, smoothstep(0.12, 2.3, depth));
+	float alpha = mix(0.5, 0.97, smoothstep(0.12, 2.3, depth));
 	alpha = max(alpha, foam);
 	alpha = mix(alpha, 1.0, far);
 	if (!FRONT_FACING) {
