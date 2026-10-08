@@ -25,8 +25,10 @@ the scene's markers (`pol(bearing, r, z)`); the mouth faces bearing 0.
    at sea, a 5.5 m anchorage under the yacht, a few coral patches (low heads, `beach_reef_albedo`).
    Built the way the GameCube drew water (Flipper: fixed-function TEV, 8 stages, ~1 MB texture cache;
    every texture here is 256 px or less):
-   - depth colour and see-through: vertex colour and alpha baked by `beach_build.py` (COLOR, alpha in
-     UV2.x), as Flipper's rasterised vertex colours; the bed's tint and absorption likewise baked into its
+   - depth colour: vertex colour baked by `beach_build.py` (COLOR; dark blue from 6 m beach-side of the
+     yacht out). See-through: per vertex from the length of the view path through the water (depth in
+     UV2.x / sin of the view's elevation, Beer-Lambert; `extinction` = 6 m in `beach_water.gdshader`),
+     as the GameCube's per-vertex fog; the bed's tint and absorption likewise baked into its
      vertex colours, and its caustic weight into UV2.x.
    - refraction: one copy of the frame (EFB copy; `hint_screen_texture`) read through a scrolling offset
      texture (`beach_water_normal`), as Sunshine's indirect texturing.
