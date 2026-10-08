@@ -67,10 +67,10 @@ WET = 1.3                   # metres of wet sand above the waterline
 WALL_R = 74.1               # the wall's foot (10.6 m of sand) ...
 WALL_WANDER = 0.6
 WALL_H = (1.8, 2.15)        # the core's height wanders between these
-WALL_ROWS = ((0.0, 0.0), (0.2, 0.25), (0.45, 0.45), (0.7, 0.62), (0.9, 0.85), (1.0, 1.25))   # (share, metres back)
-CORE_SHADE = 0.55           # the core shows only in the gaps between boulders
-COURSES = ((0.25, 0.0, (1.25, 1.85), 0.8, 0.3), (0.78, 1.05, (0.95, 1.45), 0.72, 0.25))
-#           (metres back of the foot, base over the sand, size range, squash, sink) for the two courses
+WALL_ROWS = ((0.0, 0.0), (0.2, 0.55), (0.45, 0.75), (0.7, 0.9), (0.9, 1.05), (1.0, 1.35))   # (share, metres back)
+CORE_SHADE = 0.42           # the core shows only in the gaps between boulders
+COURSES = ((0.3, 0.0, (1.3, 1.9), 0.8, 0.3), (0.62, 0.8, (1.0, 1.5), 0.72, 0.25), (0.95, 1.45, (0.75, 1.15), 0.7, 0.2))
+#           (metres back of the foot, base over the sand, size range, squash, sink): foot, middle and cap courses
 ISLAND_LIFT = 1.85          # the island's ground behind the lip, over the deck
 
 # -- the island behind the wall
@@ -115,7 +115,7 @@ SKY_FADE = (700.0, 3000.0)
 
 # -- colours carried by the vertices (x the drawn tile; grass and canopy tiles are pale)
 WET_SAND = (0.88, 0.86, 0.79)
-GRASS_VC = (0.5, 0.8, 0.3)
+GRASS_VC = (0.46, 0.74, 0.32)
 JUNGLE_VC = (0.3, 0.64, 0.24)
 HAZE_VC = (0.6, 0.76, 0.8)
 HAZE_D = (120.0, 800.0)                # distance from the bay's centre where the haze starts and is whole
@@ -467,7 +467,7 @@ def build_sea():
 # ROCKS -- faceted boulders, each sunk into what it stands on
 # =============================================================================
 
-def boulder(m, cx, cy, size, seed, sink=0.3, squash=0.7, gz=None, nseg=6):
+def boulder(m, cx, cy, size, seed, sink=0.3, squash=0.7, gz=None, nseg=6, lats=(-0.9, -0.3, 0.3, 0.72)):
     """A faceted boulder of about `size` metres, its base `sink` of its height below gz (the ground)."""
     r = Rng(seed)
     if gz is None:
@@ -477,7 +477,7 @@ def boulder(m, cx, cy, size, seed, sink=0.3, squash=0.7, gz=None, nseg=6):
     yaw = r.u(0.0, TWO_PI)
     sx, sy = size * 0.5 * r.u(0.9, 1.2), size * 0.5 * r.u(0.7, 0.95)
     rings = []
-    for la in (-0.9, -0.3, 0.3, 0.72):
+    for la in lats:
         ring = []
         for k in range(nseg):
             a = (k + 0.5 * (len(rings) % 2)) * TWO_PI / nseg + r.u(-0.2, 0.2)
@@ -510,10 +510,11 @@ def build_rocks():
                 r = wf(b) + back + rr.u(-0.15, 0.15)
                 x, y, _z = pol(b, r, 0.0)
                 gz = sand_z(b, wf(b)) + base + (rr.u(-0.12, 0.12) if c else 0.0)
-                boulder(m, x, y, size, SEED + 2000 + 1000 * c + int(b * 10), sink=sink, squash=squash, gz=gz)
+                boulder(m, x, y, size, SEED + 2000 + 1000 * c + int(b * 10), sink=sink, squash=squash, gz=gz,
+                        lats=(-0.6, 0.15, 0.65))
                 if c == 0:
                     placed.append((x, y, size))
-                b += size * rr.u(0.85, 1.05) / (math.radians(1.0) * r)
+                b += size * rr.u(0.95, 1.15) / (math.radians(1.0) * r)
             else:
                 b += 0.5
     # low rocks in the shallows: never more than 0.5 m over the water
