@@ -30,7 +30,7 @@ background_mode = 2
 sky = SubResource("Sky")
 ambient_light_source = 2
 ambient_light_color = Color(0.9, 0.92, 0.95, 1)
-ambient_light_energy = 0.5
+ambient_light_energy = 0.32
 tonemap_mode = 0
 
 [sub_resource type="StandardMaterial3D" id="WaterMat"]
@@ -54,7 +54,7 @@ environment = SubResource("Env")
 editor_description = "The sky's sun: bearing 20 over the sea, 55 deg up."
 transform = Transform3D(0.342, -0.77, 0.539, 0, 0.5737, 0.819, -0.94, -0.28, 0.196, 0, 80, 0)
 light_color = Color(1, 1, 0.97, 1)
-light_energy = 0.72
+light_energy = 0.26
 shadow_enabled = true
 shadow_bias = 0.06
 shadow_blur = 1.5

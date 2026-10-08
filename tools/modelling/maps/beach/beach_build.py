@@ -66,7 +66,7 @@ WET = 1.3                   # metres of wet sand above the waterline
 WALL_R = 63.6               # the wall's foot ...
 WALL_WANDER = 0.6
 WALL_H = (1.75, 2.3)        # its height wanders between these
-WALL_ROWS = ((0.0, 0.0), (0.3, 0.06), (0.62, 0.16), (0.95, 0.3), (1.25, 0.45), (1.55, 0.58), (1.8, 0.78),
+WALL_ROWS = ((0.0, 0.0), (0.17, 0.06), (0.35, 0.16), (0.53, 0.28), (0.7, 0.4), (0.86, 0.55), (0.97, 0.78),
              (1.0, 1.15))   # (share of the height, metres back); the last is the lip's top
 WALL_JIT = (0.2, 0.08)      # per-vertex wander: metres in/out, share of the height
 ISLAND_LIFT = 1.85          # the island's ground behind the lip, over the deck

@@ -75,10 +75,10 @@ STANCHION = 0.05
 SCREEN_Z = FLOOR_Z + 0.60           # the low forward windscreen's top
 SCREEN_T = 0.03
 SILL_Z = FLOOR_Z + 0.65             # the collider's rail wall top: the towers' sill height
-POSTS = ((-3.0, 1.75), (-3.0, -1.75), (0.2, 1.75), (0.2, -1.75))
+POSTS = ((0.9, 1.70), (0.9, -1.70), (2.9, 1.45), (2.9, -1.45))   # the helm only: none aft of x 0.8
 POST_W = 0.10
-HARDTOP = (-3.2, 0.4, 1.90, 7.35, 7.45)   # x0, x1, half y, underside, top
-RADOME = (-1.4, 0.32, 0.30, 0.25)         # x, radius, drum height, cone height
+HARDTOP = (0.8, 3.6, 1.80, 7.35, 7.45)    # x0, x1, half y, underside, top
+RADOME = (2.2, 0.32, 0.30, 0.25)         # x, radius, drum height, cone height
 TOP_LIMIT = 8.5
 
 COL_STATIONS = (0.0, 0.4, 0.75, 0.9, 1.0)
