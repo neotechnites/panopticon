@@ -13,8 +13,8 @@ uniform sampler2D caustics : filter_linear_mipmap, repeat_enable;
 uniform sampler2D foam_texture : filter_linear_mipmap, repeat_enable;
 
 group_uniforms colours;
-uniform vec3 shallow_color : source_color = vec3(0.45, 0.95, 0.9);
-uniform vec3 turquoise_color : source_color = vec3(0.1, 0.84, 0.86);
+uniform vec3 shallow_color : source_color = vec3(0.36, 0.9, 0.84);    // refs: Emerald 99,203,189; Gelato 44,198,186
+uniform vec3 turquoise_color : source_color = vec3(0.06, 0.78, 0.76);
 uniform vec3 pit_color : source_color = vec3(0.0, 0.47, 0.6);
 uniform vec3 open_color : source_color = vec3(0.0, 0.56, 0.8);
 uniform vec3 sky_top : source_color = vec3(0.26, 0.63, 1.0);
@@ -129,7 +129,7 @@ void fragment() {
 	col = mix(col, sky_horizon, far);
 
 	// the shallows stay see-through (the sand under bright teal) until they deepen, then close over by ~3 m
-	float alpha = mix(0.12, 0.5, smoothstep(0.0, 1.2, depth));
+	float alpha = mix(0.22, 0.68, smoothstep(0.0, 1.0, depth));
 	alpha = mix(alpha, 1.0, smoothstep(1.2, 3.2, depth));
 	alpha = max(alpha, max(foam, clamp(shine, 0.0, 1.0)));
 	alpha = mix(alpha, 1.0, far);
