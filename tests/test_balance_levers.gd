@@ -320,7 +320,7 @@ func test_the_levers_reach_the_rules_and_are_clamped() -> void:
 	settings.clamp_all()
 
 	assert_almost_eq(
-		settings.scope_sway_degrees, GameSettings.MAX_SCOPE_SWAY_DEGREES, 1e-6, "sway clamped"
+		settings.scope_sway_degrees, float(SniperKnobs.SPECS[SniperKnobs.Knob.SWAY][3]), 1e-6, "sway clamped"
 	)
 	assert_eq_int(
 		settings.tower_open_windows, MatchRules.TOWER_WINDOW_COUNT, "window count clamped"
@@ -331,7 +331,7 @@ func test_the_levers_reach_the_rules_and_are_clamped() -> void:
 	)
 	assert_eq_int(settings.guard_health, GameSettings.MIN_GUARD_HEALTH, "guard health clamped")
 	assert_almost_eq(
-		settings.guard_projectile_speed, GameSettings.MAX_GUARD_PROJECTILE_SPEED, 1e-6,
+		settings.guard_projectile_speed, float(SniperKnobs.SPECS[SniperKnobs.Knob.SHOT_SPEED][3]), 1e-6,
 		"the round's speed clamped",
 	)
 

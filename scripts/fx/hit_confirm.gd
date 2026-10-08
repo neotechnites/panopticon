@@ -177,7 +177,7 @@ func _rules_allow_hit_marker() -> bool:
 	if controller == null:
 		return true
 	var rules: MatchRules = controller.get_rules()
-	return rules == null or rules.guard_hit_marker
+	return rules == null or rules.sniper(SniperKnobs.Knob.HIT_MARKER) > 0.5
 
 
 ## Take whatever is on screen down immediately. For a round reset or a seat

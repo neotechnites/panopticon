@@ -59,6 +59,8 @@ var ability_slot: int = 0
 ## True on the tick shove was tapped. Resolved by the authority; see
 ## [method MatchController.apply_shove].
 var shove_pressed: bool = false
+## True while the scope is asked up. Ignored by movement; the host drives the seat's optic with it.
+var aim_held: bool = false
 ## Dev: hold for 300% ground speed. Local only; never on the wire.
 var turbo_held: bool = false
 ## Dev: invincible to the rifle. Local only.
@@ -83,6 +85,7 @@ func clear() -> void:
 	ability_held = false
 	ability_slot = 0
 	shove_pressed = false
+	aim_held = false
 	turbo_held = false
 	godmode = false
 
@@ -110,5 +113,6 @@ func copy_from(other: MoveIntent) -> void:
 	ability_held = other.ability_held
 	ability_slot = other.ability_slot
 	shove_pressed = other.shove_pressed
+	aim_held = other.aim_held
 	turbo_held = other.turbo_held
 	godmode = other.godmode

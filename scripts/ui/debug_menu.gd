@@ -236,53 +236,20 @@ static func write_bot_count(settings: GameSettings, count: int, rules: MatchRule
 		rules.shutout_count = mini(rules.shutout_count, rules.prisoner_count)
 
 
+## The sniper knobs, one tab per tower visit, opened on the seated guard's; edits go live and are saved.
 func _build_sniper() -> void:
 	var rules: MatchRules = _controller.get_rules()
-	var rifle: Rifle = _controller.rifle
 	_heading("DEBUG_SECTION_SNIPER")
-	if rifle != null:
-		_slider("DEBUG_RELOAD", maxf(rifle.get_reload_floor_seconds(), GameSettings.MIN_RELOAD_BY_TURN),
-				GameSettings.MAX_RELOAD_BY_TURN, 0.05, "DEBUG_UNIT_SECONDS", rifle.reload_seconds, _set_reload)
-	_slider("DEBUG_MISS_PENALTY", GameSettings.MIN_GUARD_MISS_PENALTY_SECONDS, GameSettings.MAX_GUARD_MISS_PENALTY_SECONDS,
-			0.1, "DEBUG_UNIT_SECONDS", rules.guard_miss_penalty_seconds,
-			func(value: float) -> void: _rule(&"guard_miss_penalty_seconds", value, &"guard_miss_penalty_seconds"))
-	_slider("DEBUG_SHOT_SPEED", GameSettings.MIN_GUARD_PROJECTILE_SPEED, GameSettings.MAX_GUARD_PROJECTILE_SPEED,
-			5.0, "DEBUG_UNIT_SPEED", rules.guard_projectile_speed,
-			func(value: float) -> void: _rule(&"guard_projectile_speed", value, &"guard_projectile_speed"))
-	var weapons: Array[WeaponProfile] = _controller.debug_weapon_profiles()
-	if not weapons.is_empty():
-		var set_drop: Callable = func(value: float) -> void:
-			for weapon: WeaponProfile in weapons:
-				weapon.projectile_gravity = value
-		_slider("DEBUG_BULLET_DROP", 0.0, 60.0, 0.5, "DEBUG_UNIT_ACCEL", weapons[0].projectile_gravity, set_drop)
-	_slider("DEBUG_SWAY", GameSettings.MIN_SCOPE_SWAY_DEGREES, GameSettings.MAX_SCOPE_SWAY_DEGREES, 0.05,
-			"DEBUG_UNIT_DEGREES", rules.scope_sway_degrees,
-			func(value: float) -> void: _rule(&"scope_sway_degrees", value, &"scope_sway_degrees"))
-	_slider("DEBUG_SWAY_RATE", GameSettings.MIN_SCOPE_SWAY_HZ, GameSettings.MAX_SCOPE_SWAY_HZ, 0.01,
-			"DEBUG_UNIT_HZ", rules.scope_sway_hz,
-			func(value: float) -> void: _rule(&"scope_sway_hz", value, &"scope_sway_hz"))
-	_slider("DEBUG_SWAY_SETTLE", GameSettings.MIN_SCOPE_SWAY_SETTLE_SECONDS, GameSettings.MAX_SCOPE_SWAY_SETTLE_SECONDS,
-			0.5, "DEBUG_UNIT_SECONDS", rules.scope_sway_settle_seconds,
-			func(value: float) -> void: _rule(&"scope_sway_settle_seconds", value, &"scope_sway_settle_seconds"))
-	var zooms: Array[ZoomProfile] = []
-	for optic: Node in get_tree().current_scene.find_children("*", "WeaponOptic", true, false):
-		var zoom: ZoomProfile = (optic as WeaponOptic).profile
-		if zoom != null and not zooms.has(zoom):
-			zooms.append(zoom)
-	if not zooms.is_empty():
-		var set_zoom: Callable = func(value: float) -> void:
-			for zoom: ZoomProfile in zooms:
-				zoom.zoom_factor = 1.0 / value
-		var set_zoom_in: Callable = func(value: float) -> void:
-			for zoom: ZoomProfile in zooms:
-				zoom.zoom_in_seconds = value
-		_slider("DEBUG_ZOOM", 1.0, 10.0, 0.25, "DEBUG_UNIT_TIMES", 1.0 / maxf(zooms[0].zoom_factor, 0.05), set_zoom)
-		_slider("DEBUG_ZOOM_IN", 0.0, 1.0, 0.01, "DEBUG_UNIT_SECONDS", zooms[0].zoom_in_seconds, set_zoom_in)
-	_slider("DEBUG_GUARD_SKILL", GameSettings.MIN_GUARD_SKILL, GameSettings.MAX_GUARD_SKILL, 0.05,
-			"DEBUG_UNIT_FRACTION", rules.guard_skill,
-			func(value: float) -> void: _rule(&"guard_skill", value, &"guard_skill"))
-	_toggle("DEBUG_HIT_MARKER", rules.guard_hit_marker,
-			func(on: bool) -> void: _rule(&"guard_hit_marker", on, &"guard_hit_marker"))
+	var tabs: SniperVisitTabs = SniperVisitTabs.new()
+	tabs.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_body.add_child(tabs)
+	var settings: GameSettings = SettingsStore.instance().settings
+	tabs.setup(settings, rules.sniper_visit)
+	tabs.changed.connect(func() -> void:
+		rules.reload_seconds_by_turn = settings.reload_by_turn.duplicate()
+		rules.sniper_by_visit = settings.sniper_by_visit.duplicate()
+		_controller.debug_refresh_reload()
+		_controller.refresh_sniper_profiles())
 
 
 func _build_runners() -> void:
@@ -454,16 +421,6 @@ func _set_ghosts(on: bool) -> void:
 		MatchRules.GhostBehaviour.CATCH_AND_SWAP if on else MatchRules.GhostBehaviour.NONE
 	)
 	SettingsStore.instance().settings.ghosts_enabled = on
-
-
-## One reload for every turn, written to the rules, the saved settings and the rifle now.
-func _set_reload(value: float) -> void:
-	var by_turn: PackedFloat32Array = PackedFloat32Array()
-	by_turn.resize(GameSettings.RELOAD_BY_TURN_COUNT)
-	by_turn.fill(value)
-	_controller.get_rules().reload_seconds_by_turn = by_turn
-	SettingsStore.instance().settings.reload_by_turn = by_turn.duplicate()
-	_controller.debug_refresh_reload()
 
 
 ## Run a phase action and hand the match back.

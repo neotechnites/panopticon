@@ -48,8 +48,9 @@ const FALLBACK_SEAT_COUNT: int = 2
 ## rather than in the scene because which one is true is a runtime question.
 const RESOLUTION_NOTE: String = "SETTINGS_VIDEO_NOTE_RESOLUTION"
 
-## Index of the rules-and-balance tab, the Debug menu's only one.
+## Index of the rules-and-balance tab; the sniper tab follows it. The Debug menu shows only these two.
 const MATCH_TAB: int = 0
+const SNIPER_TAB: int = 1
 
 ## True for the Debug menu's copy: only the Match tab (rules and balance). Players never see that tab.
 @export var debug_mode: bool = false
@@ -61,27 +62,19 @@ const MATCH_TAB: int = 0
 @onready var _ghosts_check: CheckBox = %GhostsCheck
 @onready var _skip_race_check: CheckBox = %SkipRaceCheck
 @onready var _tower_seat_option: OptionButton = %TowerSeatOption
-@onready var _reload_spins: Array[SpinBox] = [
-	%ReloadSpin1, %ReloadSpin2, %ReloadSpin3, %ReloadSpin4, %ReloadSpin5,
-]
+@onready var _sniper_page: Control = %SniperPage
+var _sniper_tabs: SniperVisitTabs = null
 
 # The Balance group. Every one of these is a rule of the match, so like the
 # ghost toggle above it reaches nothing until a match starts -- SettingsBoot
 # writes the store over the MatchRules on the way in.
-@onready var _sway_spin: SpinBox = %SwaySpin
-@onready var _sway_hz_spin: SpinBox = %SwayHzSpin
-@onready var _sway_settle_spin: SpinBox = %SwaySettleSpin
 @onready var _tower_variant_option: OptionButton = %TowerVariantOption
 @onready var _windows_spin: SpinBox = %WindowsSpin
-@onready var _miss_penalty_spin: SpinBox = %MissPenaltySpin
-@onready var _projectile_speed_spin: SpinBox = %ProjectileSpeedSpin
-@onready var _hit_marker_check: CheckBox = %HitMarkerCheck
 @onready var _map_pick_option: OptionButton = %MapPickOption
 @onready var _vote_seconds_spin: SpinBox = %VoteSecondsSpin
 @onready var _runner_speed_spin: SpinBox = %RunnerSpeedSpin
 @onready var _runner_jump_spin: SpinBox = %RunnerJumpSpin
 @onready var _ability_cooldown_spin: SpinBox = %AbilityCooldownSpin
-@onready var _guard_skill_spin: SpinBox = %GuardSkillSpin
 @onready var _guard_health_spin: SpinBox = %GuardHealthSpin
 @onready var _finisher_health_spin: SpinBox = %FinisherHealthSpin
 
@@ -122,6 +115,11 @@ var _syncing: bool = false
 
 func _ready() -> void:
 	_store = SettingsStore.instance()
+	_sniper_tabs = SniperVisitTabs.new()
+	_sniper_tabs.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_sniper_page.add_child(_sniper_tabs)
+	_sniper_tabs.setup(_store.settings)
+	_sniper_tabs.changed.connect(_after_change)
 	_name_tabs()
 	_apply_mode()
 	_configure_ranges()
@@ -165,22 +163,13 @@ func refresh() -> void:
 	_ghosts_check.button_pressed = settings.ghosts_enabled
 	_skip_race_check.button_pressed = settings.skip_opening_race
 	_tower_seat_option.selected = _seat_index(settings.tower_seat_index)
-	for i: int in _reload_spins.size():
-		_reload_spins[i].value = settings.reload_by_turn[i]
-	_sway_spin.value = settings.scope_sway_degrees
-	_sway_hz_spin.value = settings.scope_sway_hz
-	_sway_settle_spin.value = settings.scope_sway_settle_seconds
 	_tower_variant_option.selected = settings.tower_variant
 	_windows_spin.value = settings.tower_open_windows
-	_miss_penalty_spin.value = settings.guard_miss_penalty_seconds
-	_projectile_speed_spin.value = settings.guard_projectile_speed
-	_hit_marker_check.button_pressed = settings.guard_hit_marker
 	_map_pick_option.selected = settings.map_pick_mode
 	_vote_seconds_spin.value = settings.vote_seconds
 	_runner_speed_spin.value = settings.runner_speed_multiplier
 	_runner_jump_spin.value = settings.runner_jump_multiplier
 	_ability_cooldown_spin.value = settings.ability_cooldown_multiplier
-	_guard_skill_spin.value = settings.guard_skill
 	_guard_health_spin.value = settings.guard_health
 	_finisher_health_spin.value = settings.finisher_health
 	_sensitivity_slider.value = settings.mouse_sensitivity
@@ -196,6 +185,7 @@ func refresh() -> void:
 	_fps_option.selected = int(settings.fps_cap)
 	_render_scale_slider.value = settings.render_scale
 	_brightness_slider.value = settings.brightness
+	_sniper_tabs.refresh()
 
 	_syncing = false
 
@@ -234,35 +224,9 @@ func _configure_ranges() -> void:
 	_brightness_slider.max_value = GameSettings.MAX_BRIGHTNESS
 	_brightness_slider.step = 0.05
 
-	for spin: SpinBox in _reload_spins:
-		spin.min_value = GameSettings.MIN_RELOAD_BY_TURN
-		spin.max_value = GameSettings.MAX_RELOAD_BY_TURN
-		spin.step = 0.1
-		spin.suffix = tr("SETTINGS_UNIT_SECONDS")
-
-	_configure_spin(
-		_sway_spin, GameSettings.MIN_SCOPE_SWAY_DEGREES,
-		GameSettings.MAX_SCOPE_SWAY_DEGREES, 0.05, tr("SETTINGS_UNIT_DEGREES"),
-	)
-	_configure_spin(
-		_sway_hz_spin, GameSettings.MIN_SCOPE_SWAY_HZ,
-		GameSettings.MAX_SCOPE_SWAY_HZ, 0.01, tr("SETTINGS_UNIT_HZ"),
-	)
-	_configure_spin(
-		_sway_settle_spin, GameSettings.MIN_SCOPE_SWAY_SETTLE_SECONDS,
-		GameSettings.MAX_SCOPE_SWAY_SETTLE_SECONDS, 0.1, tr("SETTINGS_UNIT_SECONDS"),
-	)
 	_configure_spin(_windows_spin, 0.0, float(MatchRules.TOWER_WINDOW_COUNT), 1.0, "")
 	_configure_spin(
 		_vote_seconds_spin, GameSettings.MIN_VOTE_SECONDS, GameSettings.MAX_VOTE_SECONDS, 1.0, "s",
-	)
-	_configure_spin(
-		_miss_penalty_spin, GameSettings.MIN_GUARD_MISS_PENALTY_SECONDS,
-		GameSettings.MAX_GUARD_MISS_PENALTY_SECONDS, 0.1, tr("SETTINGS_UNIT_SECONDS"),
-	)
-	_configure_spin(
-		_projectile_speed_spin, GameSettings.MIN_GUARD_PROJECTILE_SPEED,
-		GameSettings.MAX_GUARD_PROJECTILE_SPEED, 10.0, tr("SETTINGS_UNIT_METRES_PER_SECOND"),
 	)
 	_configure_spin(
 		_runner_speed_spin, GameSettings.MIN_RUNNER_SPEED_MULTIPLIER,
@@ -275,9 +239,6 @@ func _configure_ranges() -> void:
 	_configure_spin(
 		_ability_cooldown_spin, GameSettings.MIN_ABILITY_COOLDOWN_MULTIPLIER,
 		GameSettings.MAX_ABILITY_COOLDOWN_MULTIPLIER, 0.05, tr("SETTINGS_UNIT_TIMES"),
-	)
-	_configure_spin(
-		_guard_skill_spin, GameSettings.MIN_GUARD_SKILL, GameSettings.MAX_GUARD_SKILL, 0.05, "",
 	)
 	_configure_spin(
 		_guard_health_spin, float(GameSettings.MIN_GUARD_HEALTH),
@@ -295,19 +256,18 @@ func _configure_ranges() -> void:
 ## Tab titles are keys, translated by the TabBar; the node names stay the paths.
 func _name_tabs() -> void:
 	var keys: Array[String] = [
-		"SETTINGS_TAB_MATCH", "SETTINGS_TAB_GAME", "SETTINGS_TAB_AUDIO",
+		"SETTINGS_TAB_MATCH", "SETTINGS_TAB_SNIPER", "SETTINGS_TAB_GAME", "SETTINGS_TAB_AUDIO",
 		"SETTINGS_TAB_VIDEO", "SETTINGS_TAB_CONTROLS",
 	]
 	for index: int in mini(keys.size(), _tabs.get_tab_count()):
 		_tabs.set_tab_title(index, keys[index])
 
 
-## Player mode hides the Match tab; debug mode shows nothing else.
+## Player mode hides the Match and Sniper tabs; debug mode shows nothing else.
 func _apply_mode() -> void:
-	_tabs.current_tab = MATCH_TAB if debug_mode else MATCH_TAB + 1
+	_tabs.current_tab = MATCH_TAB if debug_mode else SNIPER_TAB + 1
 	for index: int in _tabs.get_tab_count():
-		_tabs.set_tab_hidden(index, (index == MATCH_TAB) != debug_mode)
-	_tabs.tabs_visible = not debug_mode
+		_tabs.set_tab_hidden(index, (index <= SNIPER_TAB) != debug_mode)
 	_title.text = "MENU_DEBUG_RULES" if debug_mode else "SETTINGS_TITLE"
 
 
@@ -376,22 +336,13 @@ func _connect_controls() -> void:
 	_ghosts_check.toggled.connect(_on_ghosts_toggled)
 	_skip_race_check.toggled.connect(_on_skip_race_toggled)
 	_tower_seat_option.item_selected.connect(_on_tower_seat_selected)
-	for i: int in _reload_spins.size():
-		_reload_spins[i].value_changed.connect(_on_reload_by_turn_changed.bind(i))
-	_sway_spin.value_changed.connect(_on_sway_changed)
-	_sway_hz_spin.value_changed.connect(_on_sway_hz_changed)
-	_sway_settle_spin.value_changed.connect(_on_sway_settle_changed)
 	_tower_variant_option.item_selected.connect(_on_tower_variant_selected)
 	_windows_spin.value_changed.connect(_on_windows_changed)
-	_miss_penalty_spin.value_changed.connect(_on_miss_penalty_changed)
-	_projectile_speed_spin.value_changed.connect(_on_projectile_speed_changed)
-	_hit_marker_check.toggled.connect(_on_hit_marker_toggled)
 	_map_pick_option.item_selected.connect(_on_map_pick_selected)
 	_vote_seconds_spin.value_changed.connect(_on_vote_seconds_changed)
 	_runner_speed_spin.value_changed.connect(_on_runner_speed_changed)
 	_runner_jump_spin.value_changed.connect(_on_runner_jump_changed)
 	_ability_cooldown_spin.value_changed.connect(_on_ability_cooldown_changed)
-	_guard_skill_spin.value_changed.connect(_on_guard_skill_changed)
 	_guard_health_spin.value_changed.connect(_on_guard_health_changed)
 	_finisher_health_spin.value_changed.connect(_on_finisher_health_changed)
 	_sensitivity_slider.value_changed.connect(_on_sensitivity_changed)
@@ -446,41 +397,9 @@ func _on_tower_seat_selected(index: int) -> void:
 	_after_change()
 
 
-## Like the ghost toggle, this is a rule of the match: it does not reach
-## anything until a match is started, via [method GameSettings.apply_to_match_rules].
-func _on_reload_by_turn_changed(value: float, turn_index: int) -> void:
-	if _syncing:
-		return
-	var updated: PackedFloat32Array = _store.settings.reload_by_turn.duplicate()
-	updated[turn_index] = value
-	_store.settings.reload_by_turn = updated
-	_after_change()
-
-
 # The Balance group. Thirteen handlers of one shape: write the store, clamp, and
 # let SettingsBoot carry it into the next match. None of them touches a running
 # one -- these are rules of the round, not presentation.
-
-func _on_sway_changed(value: float) -> void:
-	if _syncing:
-		return
-	_store.settings.scope_sway_degrees = value
-	_after_change()
-
-
-func _on_sway_hz_changed(value: float) -> void:
-	if _syncing:
-		return
-	_store.settings.scope_sway_hz = value
-	_after_change()
-
-
-func _on_sway_settle_changed(value: float) -> void:
-	if _syncing:
-		return
-	_store.settings.scope_sway_settle_seconds = value
-	_after_change()
-
 
 func _on_tower_variant_selected(index: int) -> void:
 	if _syncing or index < 0:
@@ -493,27 +412,6 @@ func _on_windows_changed(value: float) -> void:
 	if _syncing:
 		return
 	_store.settings.tower_open_windows = int(roundf(value))
-	_after_change()
-
-
-func _on_miss_penalty_changed(value: float) -> void:
-	if _syncing:
-		return
-	_store.settings.guard_miss_penalty_seconds = value
-	_after_change()
-
-
-func _on_projectile_speed_changed(value: float) -> void:
-	if _syncing:
-		return
-	_store.settings.guard_projectile_speed = value
-	_after_change()
-
-
-func _on_hit_marker_toggled(pressed: bool) -> void:
-	if _syncing:
-		return
-	_store.settings.guard_hit_marker = pressed
 	_after_change()
 
 
@@ -549,13 +447,6 @@ func _on_ability_cooldown_changed(value: float) -> void:
 	if _syncing:
 		return
 	_store.settings.ability_cooldown_multiplier = value
-	_after_change()
-
-
-func _on_guard_skill_changed(value: float) -> void:
-	if _syncing:
-		return
-	_store.settings.guard_skill = value
 	_after_change()
 
 

@@ -100,20 +100,12 @@ VAULT_TOP = 8.02
 FLOOR_RINGS = (4.4, 2.0)
 SNOW_Z = 8.95                              # the dome's snow line (waves +-0.35)
 
-# icicles: (min, max) length
-DRIP_OPEN = (0.30, 0.52)                   # under the eave over an opening: tips stay above 6.85
-DRIP_PIER = (1.9, 3.0)                     # under the eave in front of a pier
-DRIP_LEDGE = (0.9, 4.2)                    # under the ledge, all round
-DRIP_BULGE = (0.6, 1.5)                    # under the shaft's overhangs
-BULGE_DRIPS = 34
-
 ICE = (0.80, 0.90, 1.0)
 RIDGE = (0.93, 1.0, 1.0)
 RECESS = (0.48, 0.62, 0.92)
 TROUGH = (0.30, 0.44, 0.80)
 LIT = (0.88, 0.97, 1.0)
 CORE = (0.70, 0.80, 0.98)
-TIP = (0.95, 1.0, 1.0)
 WHITE = (1.0, 1.0, 1.0)
 
 SHEETS = {
@@ -121,7 +113,6 @@ SHEETS = {
     "floor": tx.Sheet("floor", stem="ice_blue", mode="box"),
     "deep": tx.Sheet("deep", stem="ice_deep", mode="box"),
     "snow": tx.Sheet("snow", stem="ice_snow", mode="box"),
-    "icicle": tx.Sheet("icicle", stem="ice_icicle", mode="fit_v", rect=(0.0, 0.5, 1.0, 1.0)),
 }
 
 TWO_PI = 2.0 * math.pi
@@ -471,34 +462,6 @@ def _arrises(prof):
 
 
 # =============================================================================
-# ICICLES -- grown out of a host quad: a rim in the host's class, a 4-sided cone
-# =============================================================================
-
-def _spike(m, corners, tip, host_cls, inset=0.45):
-    """corners wound outward; the rim and the cone keep that winding."""
-    c = _cen([p for p, _c in corners])
-    outer = [m.v(p, col) for p, col in corners]
-    inner = [m.v(_mix(p, c, inset), _mix(col, RIDGE, 0.5)) for p, col in corners]
-    t = m.v(tip, TIP)
-    for k in range(4):
-        q = (k + 1) % 4
-        m.poly([outer[k], outer[q], inner[q], inner[k]], None, host_cls)
-    for k in range(4):
-        m.poly([inner[k], inner[(k + 1) % 4], t], None, "icicle")
-
-
-def _tip_clear(tip, b):
-    """Push a tip out of the column if it would stand inside it."""
-    r = math.hypot(tip[0], tip[1])
-    near = [flute(i, tip[2]) for i in range(N) if abs(il.angdiff(LINES[i][0], b)) < 9.0]
-    need = shaft_r(b, tip[2]) + max(near + [0.0]) + 0.25
-    if tip[2] > 1.0 or r >= need:
-        return tip
-    k = need / max(r, 1e-6)
-    return (tip[0] * k, tip[1] * k, tip[2])
-
-
-# =============================================================================
 # THE ART MESH
 # =============================================================================
 
@@ -528,7 +491,6 @@ def build_art():
         j = (i + 1) % N
         m.poly([m.v(*prof[i][row]), m.v(*prof[j][row]), m.v(*centre)], want, cls, col)
 
-    drips = 0
     for i in range(N):
         kind = strip_kind(i)
         j = (i + 1) % N
@@ -564,29 +526,6 @@ def build_art():
                 cls = "deep"
             elif ra.startswith("s") and cen[2] < PIT_Z + 1.5 and n[2] > 0.72:
                 cls, col = "snow", WHITE
-            # icicles
-            if ra == "e0":
-                lo, hi = DRIP_PIER if kind == "pier" else DRIP_OPEN
-                L = _lerp(lo, hi, _h(i, 41))
-                tip = (cen[0], cen[1], cen[2] - L)
-                if kind == "open":
-                    tip = (cen[0], cen[1], max(tip[2], SIGHT[2] + 0.05))
-                _spike(m, cs, tip, cls, 0.42 if kind == "pier" else 0.35)
-                continue
-            if ra == "lr" and _h(i, 42) > 0.18:
-                L = _lerp(DRIP_LEDGE[0], DRIP_LEDGE[1], _h(i, 43) ** 1.5)
-                o = _out(cen)
-                tip = _tip_clear((cen[0] + 0.12 * o[0], cen[1] + 0.12 * o[1], cen[2] - L), mid_b)
-                _spike(m, cs, tip, "deep", 0.4)
-                continue
-            if (ra.startswith("s") and ra != "s0" and n[2] < -0.28 and drips < BULGE_DRIPS
-                    and _h(i * 37 + chain.index(ra), 44) > 0.35):
-                L = _lerp(DRIP_BULGE[0], DRIP_BULGE[1], _h(i * 37 + chain.index(ra), 45))
-                o = _out(cen)
-                tip = _tip_clear((cen[0] + 0.2 * o[0], cen[1] + 0.2 * o[1], cen[2] - L), mid_b)
-                _spike(m, cs, tip, "blue", 0.45)
-                drips += 1
-                continue
             m.poly([m.v(p, c) for p, c in cs], None, cls, col)
         fan(i, "s0", (axis(FOOT_Z) + (FOOT_Z,), RECESS), DOWN, "deep")
         fan(i, "d%d" % (len(DOME) - 1), ((APEX[0], APEX[1], DOME_TOP), WHITE), UP, "snow", WHITE)

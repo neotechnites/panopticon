@@ -10,6 +10,7 @@ const FITS: Dictionary[String, String] = {
 	"res://maps/forest/forest_green.tscn": "res://maps/forest/forest_green_character_fit.tres",
 	"res://maps/marble/marble.tscn": "res://maps/marble/marble_character_fit.tres",
 	"res://maps/ice/ice.tscn": "res://maps/ice/ice_character_fit.tres",
+	"res://maps/beach/beach.tscn": "res://maps/beach/beach_character_fit.tres",
 }
 
 const SHADER: Shader = preload("res://characters/materials/character_light.gdshader")

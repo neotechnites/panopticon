@@ -1,0 +1,308 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/match/kill_volume.gd" id="1_kill_volume"]
+[ext_resource type="Script" path="res://scripts/ring/ring_route.gd" id="5_ring_route"]
+[ext_resource type="Script" path="res://scripts/ring/ring_level.gd" id="6_ring_level"]
+[ext_resource type="PackedScene" path="res://maps/beach/models/beach_yacht.glb" id="8_yacht"]
+[ext_resource type="PackedScene" path="res://maps/beach/models/beach_ground.glb" id="10_ground"]
+[ext_resource type="PackedScene" path="res://maps/beach/models/beach_island.glb" id="11_island"]
+[ext_resource type="PackedScene" path="res://maps/beach/models/beach_rocks.glb" id="12_rocks"]
+[ext_resource type="PackedScene" path="res://maps/beach/models/beach_palms.glb" id="13_palms"]
+[ext_resource type="PackedScene" path="res://maps/beach/models/beach_water.glb" id="14_water"]
+[ext_resource type="PackedScene" path="res://maps/beach/models/beach_props.glb" id="28_props"]
+[ext_resource type="Texture2D" path="res://maps/beach/textures/beach_canvas_albedo.png" id="29_canvas_tile"]
+[ext_resource type="Shader" path="res://maps/beach/materials/beach_rock.gdshader" id="30_rock_shader"]
+[ext_resource type="Shader" path="res://maps/beach/materials/beach_sun.gdshader" id="31_sun_shader"]
+[ext_resource type="Shader" path="res://maps/beach/materials/beach_sun_glare.gdshader" id="37_glare_shader"]
+[ext_resource type="Shader" path="res://maps/beach/materials/beach_underwater.gdshader" id="32_under_shader"]
+[ext_resource type="PackedScene" path="res://maps/beach/models/beach_waves.glb" id="33_waves"]
+[ext_resource type="Shader" path="res://maps/beach/materials/beach_waves.gdshader" id="34_waves_shader"]
+[ext_resource type="Texture2D" path="res://maps/beach/textures/beach_wave_albedo.png" id="35_wave_tile"]
+[ext_resource type="Texture2D" path="res://maps/beach/textures/beach_reef_albedo.png" id="36_reef_tile"]
+[ext_resource type="Texture2D" path="res://maps/beach/textures/beach_water_albedo.png" id="15_water_tile"]
+[ext_resource type="Shader" path="res://maps/beach/materials/beach_water.gdshader" id="16_water_shader"]
+[ext_resource type="Texture2D" path="res://maps/beach/textures/beach_water_normal_albedo.png" id="17_ripples"]
+[ext_resource type="Texture2D" path="res://maps/beach/textures/beach_foam_albedo.png" id="18_foam"]
+[ext_resource type="Shader" path="res://maps/beach/materials/beach_sand.gdshader" id="26_sand_shader"]
+[ext_resource type="Texture2D" path="res://maps/beach/textures/beach_sand_albedo.png" id="27_sand_tile"]
+[ext_resource type="PackedScene" path="res://maps/beach/props/beach_portal.tscn" id="19_portal"]
+[ext_resource type="Shader" path="res://maps/beach/materials/beach_sky.gdshader" id="20_sky_shader"]
+[ext_resource type="Texture2D" path="res://maps/beach/textures/beach_rock_albedo.png" id="22_rock_tile"]
+[ext_resource type="Texture2D" path="res://maps/beach/textures/beach_grass_albedo.png" id="23_grass_tile"]
+
+[sub_resource type="ShaderMaterial" id="SkyMat"]
+shader = ExtResource("20_sky_shader")
+
+[sub_resource type="Sky" id="Sky"]
+sky_material = SubResource("SkyMat")
+
+[sub_resource type="Environment" id="Env"]
+background_mode = 2
+sky = SubResource("Sky")
+ambient_light_source = 2
+ambient_light_color = Color(0.9, 0.92, 0.95, 1)
+ambient_light_energy = 0.16
+tonemap_mode = 0
+
+[sub_resource type="ShaderMaterial" id="WaterMat"]
+render_priority = 1
+shader = ExtResource("16_water_shader")
+shader_parameter/ripples = ExtResource("17_ripples")
+shader_parameter/caustics = ExtResource("15_water_tile")
+shader_parameter/foam_texture = ExtResource("18_foam")
+
+[sub_resource type="ShaderMaterial" id="SandMat"]
+shader = ExtResource("26_sand_shader")
+shader_parameter/albedo_texture = ExtResource("27_sand_tile")
+shader_parameter/caustics = ExtResource("15_water_tile")
+
+[sub_resource type="ShaderMaterial" id="ReefMat"]
+shader = ExtResource("30_rock_shader")
+shader_parameter/albedo_texture = ExtResource("36_reef_tile")
+
+[sub_resource type="ShaderMaterial" id="RockMat"]
+shader = ExtResource("30_rock_shader")
+shader_parameter/albedo_texture = ExtResource("22_rock_tile")
+
+[sub_resource type="ShaderMaterial" id="WavesMat"]
+render_priority = 2
+shader = ExtResource("34_waves_shader")
+shader_parameter/foam = ExtResource("35_wave_tile")
+shader_parameter/edge_lace = ExtResource("18_foam")
+
+[sub_resource type="ShaderMaterial" id="SunMat"]
+render_priority = 1
+shader = ExtResource("31_sun_shader")
+
+[sub_resource type="QuadMesh" id="SunQuad"]
+
+[sub_resource type="ShaderMaterial" id="GlareMat"]
+render_priority = 100
+shader = ExtResource("37_glare_shader")
+
+[sub_resource type="SphereMesh" id="UnderSphere"]
+radial_segments = 24
+rings = 12
+
+[sub_resource type="ShaderMaterial" id="UnderFar"]
+render_priority = 2
+shader = ExtResource("32_under_shader")
+shader_parameter/radius = 34.0
+shader_parameter/opacity = 1.0
+
+[sub_resource type="ShaderMaterial" id="UnderOuter"]
+render_priority = 3
+shader = ExtResource("32_under_shader")
+shader_parameter/radius = 22.0
+shader_parameter/opacity = 0.6
+
+[sub_resource type="ShaderMaterial" id="UnderMid"]
+render_priority = 4
+shader = ExtResource("32_under_shader")
+shader_parameter/radius = 12.0
+shader_parameter/opacity = 0.45
+
+[sub_resource type="ShaderMaterial" id="UnderInner"]
+render_priority = 5
+shader = ExtResource("32_under_shader")
+shader_parameter/radius = 6.0
+shader_parameter/opacity = 0.35
+
+[sub_resource type="ShaderMaterial" id="UnderNear"]
+render_priority = 6
+shader = ExtResource("32_under_shader")
+shader_parameter/radius = 2.5
+shader_parameter/opacity = 0.3
+
+[sub_resource type="StandardMaterial3D" id="GrassMat"]
+resource_name = "beach_grass"
+vertex_color_use_as_albedo = true
+albedo_texture = ExtResource("23_grass_tile")
+roughness = 0.95
+texture_filter = 5
+
+[sub_resource type="StandardMaterial3D" id="CanvasMat"]
+resource_name = "beach_canvas"
+cull_mode = 2
+vertex_color_use_as_albedo = true
+albedo_texture = ExtResource("29_canvas_tile")
+roughness = 0.9
+texture_filter = 5
+
+[node name="Beach" type="Node3D"]
+editor_description = "The beach: a bay between two jetties, the island behind a low rock wall, a yacht for the tower. Notes in docs/maps/beach.md."
+
+[node name="Environment" type="Node3D" parent="."]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="Environment"]
+environment = SubResource("Env")
+
+[node name="Sun" type="DirectionalLight3D" parent="Environment"]
+editor_description = "The sun the sky draws: bearing 15 over the sea, 35 deg up."
+transform = Transform3D(0.2588, -0.554, 0.7913, 0, 0.8192, 0.5736, -0.9659, -0.1484, 0.212, 0, 80, 0)
+light_color = Color(1, 1, 0.97, 1)
+light_energy = 0.185
+shadow_enabled = true
+shadow_bias = 0.06
+shadow_blur = 1.5
+directional_shadow_mode = 0
+directional_shadow_max_distance = 200.0
+
+[node name="SunDisc" type="MeshInstance3D" parent="Environment"]
+editor_description = "The sun sprite: core, halo and star rays, 2.5 km out toward the Sun, square to the camera (beach_sun.gdshader)."
+cast_shadow = 0
+custom_aabb = AABB(-8192, -8192, -8192, 16384, 16384, 16384)
+mesh = SubResource("SunQuad")
+surface_material_override/0 = SubResource("SunMat")
+
+[node name="SunGlare" type="MeshInstance3D" parent="Environment"]
+editor_description = "The blinding wash and rays when looking at the sun, cut when it is hidden (beach_sun_glare.gdshader)."
+cast_shadow = 0
+custom_aabb = AABB(-8192, -8192, -8192, 16384, 16384, 16384)
+mesh = SubResource("SunQuad")
+surface_material_override/0 = SubResource("GlareMat")
+
+[node name="Underwater" type="Node3D" parent="Environment"]
+editor_description = "Five shells round the camera, drawn only below the sea: the deep teal fade a sinking runner sees."
+
+[node name="Far" type="MeshInstance3D" parent="Environment/Underwater"]
+cast_shadow = 0
+custom_aabb = AABB(-8192, -8192, -8192, 16384, 16384, 16384)
+mesh = SubResource("UnderSphere")
+surface_material_override/0 = SubResource("UnderFar")
+
+[node name="Outer" type="MeshInstance3D" parent="Environment/Underwater"]
+cast_shadow = 0
+custom_aabb = AABB(-8192, -8192, -8192, 16384, 16384, 16384)
+mesh = SubResource("UnderSphere")
+surface_material_override/0 = SubResource("UnderOuter")
+
+[node name="Mid" type="MeshInstance3D" parent="Environment/Underwater"]
+cast_shadow = 0
+custom_aabb = AABB(-8192, -8192, -8192, 16384, 16384, 16384)
+mesh = SubResource("UnderSphere")
+surface_material_override/0 = SubResource("UnderMid")
+
+[node name="Inner" type="MeshInstance3D" parent="Environment/Underwater"]
+cast_shadow = 0
+custom_aabb = AABB(-8192, -8192, -8192, 16384, 16384, 16384)
+mesh = SubResource("UnderSphere")
+surface_material_override/0 = SubResource("UnderInner")
+
+[node name="Near" type="MeshInstance3D" parent="Environment/Underwater"]
+cast_shadow = 0
+custom_aabb = AABB(-8192, -8192, -8192, 16384, 16384, 16384)
+mesh = SubResource("UnderSphere")
+surface_material_override/0 = SubResource("UnderNear")
+
+[node name="MapBase" type="Node3D" parent="."]
+
+[node name="Ground" parent="MapBase" instance=ExtResource("10_ground")]
+
+[node name="BeachGround" parent="MapBase/Ground" index="0"]
+editor_description = "Surface 0 restated: the importer drops the first surface's vertex colour."
+surface_material_override/0 = SubResource("RockMat")
+surface_material_override/1 = SubResource("SandMat")
+
+[node name="Island" parent="MapBase" instance=ExtResource("11_island")]
+
+[node name="BeachIsland" parent="MapBase/Island" index="0"]
+editor_description = "Surface 0 restated: the importer drops the first surface's vertex colour."
+surface_material_override/0 = SubResource("GrassMat")
+surface_material_override/3 = SubResource("SandMat")
+
+[node name="Rocks" parent="MapBase" instance=ExtResource("12_rocks")]
+
+[node name="BeachRocks" parent="MapBase/Rocks" index="0"]
+editor_description = "Rock and the bay's reef heads, wet where the waves reach: beach_rock.gdshader."
+surface_material_override/0 = SubResource("ReefMat")
+surface_material_override/1 = SubResource("RockMat")
+
+[node name="Palms" parent="MapBase" instance=ExtResource("13_palms")]
+
+[node name="Props" parent="MapBase" instance=ExtResource("28_props")]
+
+[node name="BeachProps" parent="MapBase/Props" index="0"]
+editor_description = "Surface 0 restated: the importer drops the first surface's vertex colour."
+surface_material_override/0 = SubResource("CanvasMat")
+
+[node name="Water" parent="MapBase" instance=ExtResource("14_water")]
+
+[node name="BeachWater" parent="MapBase/Water" index="0"]
+cast_shadow = 0
+surface_material_override/0 = SubResource("WaterMat")
+
+[node name="Waves" parent="MapBase" instance=ExtResource("33_waves")]
+
+[node name="BeachWaves" parent="MapBase/Waves" index="0"]
+editor_description = "The shore's waves: strips on their own clocks (beach_waves.gdshader)."
+cast_shadow = 0
+surface_material_override/0 = SubResource("WavesMat")
+
+[node name="KillBox" type="Area3D" parent="."]
+editor_description = "The deep water: roof 2.0 m under the deck (1.6 m under the surface, past the wadeable shallows)."
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 23, 0)
+collision_layer = 0
+collision_mask = 1048577
+monitorable = false
+script = ExtResource("1_kill_volume")
+radius_metres = 600.0
+roof_depth_metres = 2.0
+depth_metres = 30.0
+
+[node name="Shape" type="CollisionShape3D" parent="KillBox"]
+
+[node name="StartEnd" type="Node3D" parent="."]
+
+[node name="PrisonerStart" type="Marker3D" parent="StartEnd"]
+transform = Transform3D(-0.5, 0, 0.866025, 0, 1, 0, -0.866025, 0, -0.5, 34.25, 23.1, 59.3227)
+
+[node name="PrisonerEnd" type="Marker3D" parent="StartEnd"]
+transform = Transform3D(0.5, 0, 0.866025, 0, 1, 0, -0.866025, 0, 0.5, 34.25, 23.1, -59.3227)
+
+[node name="Portal" parent="StartEnd" instance=ExtResource("19_portal")]
+transform = Transform3D(0.5, 0, 0.866025, 0, 1, 0, -0.866025, 0, 0.5, 34.25, 23.05, -59.3227)
+
+[node name="Sections" type="Node3D" parent="."]
+
+[node name="Watch" type="Node3D" parent="Sections"]
+editor_description = "Where the AI guard's scan rests: three points round the lane."
+
+[node name="Lane120" type="Marker3D" parent="Sections/Watch" groups=["guard_watch"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -34.25, 24, 59.32)
+
+[node name="Lane180" type="Marker3D" parent="Sections/Watch" groups=["guard_watch"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -68.5, 24, 0)
+
+[node name="Lane240" type="Marker3D" parent="Sections/Watch" groups=["guard_watch"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -34.25, 24, -59.32)
+
+[node name="Route" type="Node3D" parent="."]
+script = ExtResource("5_ring_route")
+
+[node name="Level1" type="Node3D" parent="Route"]
+editor_description = "One lap from jetty tip to jetty tip: sand at y 23.0, shelf edge r 60.5 to the wall r 73.6, lane r 68.5, 60 to 300 deg (287 m)."
+script = ExtResource("6_ring_level")
+deck_height = 23.0
+inner_radius = 60.5
+outer_radius = 73.6
+lane_radius = 68.5
+entry_angle_degrees = 60.0
+exit_angle_degrees = 300.0
+
+[node name="Tower" type="Node3D" parent="."]
+editor_description = "The yacht at anchor, broadside to the beach; origin the guard datum at y 25.35 (flybridge floor +1.70)."
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 25.35, 0)
+
+[node name="Yacht" parent="Tower" instance=ExtResource("8_yacht")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 0, -2.75, 0)
+
+[node name="TowerSpawn" type="Marker3D" parent="Tower"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.95, 0)
+
+[editable path="MapBase/Ground"]
+[editable path="MapBase/Island"]
+[editable path="MapBase/Rocks"]
+[editable path="MapBase/Props"]
+[editable path="MapBase/Water"]
+[editable path="MapBase/Waves"]

@@ -60,7 +60,7 @@ by the kill cylinder before it lands.
 Texture: one small tile per material, repeated by UV (lib/texel.py, SHEETS
 below): marble_brick (two bays by twelve 1 m courses, tinted per class, the
 cells and iron darkened), marble_stone, marble_floor, marble_triangle,
-marble_column, marble_portal_swirl.
+marble_column, marble_portal_swirl; marble_tower (the brick's size), marble_tower_column, marble_tower_floor and marble_tower_stone on the tower.
 
     python3 tools/modelling/maps/marble/marble_build.py --check     # geometry + contiguity, no Blender
     tools/modelling/model build marble                  # the pipeline
@@ -258,34 +258,37 @@ def stone(name, mode="cyl", mpt=WALL_MPT, **kw):
     return tile(name, "marble_stone", mode, STONE_PX, STONE_PX, mpt, **kw)
 
 
-def band_sheet():
+def band_sheet(stem="marble_column"):
     """The column tile turned 90 deg: the flutes run along the band, the band's height fits across them."""
-    return tile("band", "marble_column", "fit_v", COL_H, COL_W, turn=True)
+    return tile("band", stem, "fit_v", COL_H, COL_W, turn=True)
 
 
-def column_sheet():
-    return tile("column", "marble_column", "fit_u", COL_W, COL_H)        # v: 3.2 m a repeat
+def column_sheet(stem="marble_column"):
+    return tile("column", stem, "fit_u", COL_W, COL_H)        # his column tile again (Ryan, 2026-10-08)
 
 
 # Linear multipliers over the brick: each class's old mean colour.
-TINT_SHADE = (0.85, 0.85, 0.85)
+TINT_SHADE = (0.85, 0.68, 0.42)        # warm: the undersides see only the cool ambient
 TINT_PLINTH_WALL = (0.8106, 0.8086, 0.8369)
 TINT_PLINTH = (0.8285, 0.8293, 0.8617)
 TINT_MARBLE2 = (0.7939, 0.7923, 0.8147)
-TINT_TOWER = (0.6726, 0.5490, 0.4923)
+TOWER_STEM = "marble_tower"           # the tower's own tile: his brick pixels, lit by the ambient alone
+TOWER_FLOOR_STEM = "marble_tower_floor"   # the guard room's paving: his floor pixels
+TOWER_PLAIN_STEM = "marble_tower_stone"   # the guard room's centre: his stone pixels
+TOWER_COLUMN_STEM = "marble_tower_column"   # the arcade's columns: his column pixels, lit by the ambient alone
 TINT_BARS = None
-TINT_CELL = (0.0280, 0.0329, 0.0643)     # the brick massively darkened: the old cell interiors' mean
-TINT_IRON = (0.0366, 0.0499, 0.2038)     # the plain stone darkened: the old iron's mean
+TINT_CELL = (0.021, 0.026, 0.023)        # the back walls near black, as before the colour passes (Ryan, 2026-10-08)
+TINT_IRON = (0.060, 0.065, 0.075)        # the plain stone darkened to the drawing's dark bars
 
 
 def iron_sheet():
     return stone("iron", mode="box", tint=TINT_IRON)
 
 
-def brick(name, mpt_u=WALL_MPT, mpt_v=COURSE_MPT, tint=None, **kw):
-    """Class `name` wearing the brick at mpt_u across and mpt_v up."""
+def brick(name, mpt_u=WALL_MPT, mpt_v=COURSE_MPT, tint=None, stem="marble_brick", **kw):
+    """Class `name` wearing the brick (or a tile its size, `stem`) at mpt_u across and mpt_v up."""
     return tx.Sheet(name, mpt=mpt_v, mpt_u=mpt_u, size=BRICK_H, width=BRICK_W,
-                    roughness=ROUGHNESS, stem="marble_brick", tint=tint, **kw)
+                    roughness=ROUGHNESS, stem=stem, tint=tint, **kw)
 
 
 def ashlar_sheet(name, across, tint=None, **kw):

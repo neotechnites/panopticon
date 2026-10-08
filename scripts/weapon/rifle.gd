@@ -225,6 +225,9 @@ var _has_shot_origin: bool = false
 ## blank and every shot is a self-hit.
 @export var shooter_body: CollisionObject3D
 
+## The holder's optic, wired by [method MatchController._attach_rifle]. Down (or null) is hip fire.
+var optic: WeaponOptic = null
+
 ## Where tracers and rounds in flight are parented.
 ##
 ## Leave it unset and [method _world_parent] falls back to the running scene's
@@ -508,16 +511,10 @@ func get_base_reload_seconds() -> float:
 	return rules.get_base_reload_seconds(profile.base_reload_seconds)
 
 
-## The floor [member reload_seconds] is clamped to: the higher of the weapon's
-## own [member WeaponProfile.min_reload_seconds] and the match's
-## [member MatchRules.reload_floor_seconds]. A match rule may tighten the bound,
-## never drill through it -- the weapon's floor is a guarantee that the rifle
-## stays single-shot rather than becoming an automatic by sweep.
+## The floor [member reload_seconds] is clamped to: the weapon's own
+## [member WeaponProfile.min_reload_seconds]; the match floor is applied upstream by MatchRules.
 func get_reload_floor_seconds() -> float:
-	var weapon_floor: float = profile.min_reload_seconds if profile != null else 0.0
-	if rules == null:
-		return weapon_floor
-	return rules.get_reload_floor_seconds(weapon_floor)
+	return profile.min_reload_seconds if profile != null else 0.0
 
 
 # --- Reload shape -------------------------------------------------------------
@@ -650,13 +647,21 @@ func cancel_charge() -> void:
 ## the distance costs a raycast.
 func get_current_spread_degrees() -> float:
 	if profile == null or not profile.has_spread():
-		return 0.0
+		return get_hip_spread_degrees()
 	var distance: float = -1.0
 	if profile.needs_range_probe() and is_inside_tree():
 		var source: Node3D = aim_source if aim_source != null else self
 		var aim: Vector3 = -source.global_transform.basis.z.normalized()
 		distance = _probe_distance(source.global_position, aim, profile.max_range)
-	return profile.get_spread_degrees(_motion_speed, _ready_elapsed, distance, _charge)
+	return profile.get_spread_degrees(_motion_speed, _ready_elapsed, distance, _charge) + get_hip_spread_degrees()
+
+
+## The hip-fire cone in degrees: the rule's full spread with the scope down, fading to 0 at full zoom.
+func get_hip_spread_degrees() -> float:
+	if rules == null:
+		return 0.0
+	var scoped: float = optic.get_shaped_progress() if optic != null else 0.0
+	return maxf(rules.sniper(SniperKnobs.Knob.HIP_SPREAD), 0.0) * (1.0 - scoped)
 
 
 ## The shooter's speed in m/s as the weapon measures it. 0.0 unless
@@ -1204,12 +1209,12 @@ func _end_charge(held: float) -> void:
 ## the shipped weapon's contract is that the shot line and the aim line are the
 ## same vector.
 func _scatter(origin: Vector3, aim: Vector3, travel_range: float, charge: float) -> Vector3:
-	if not profile.has_spread():
-		return aim
-	var distance: float = -1.0
-	if profile.needs_range_probe():
-		distance = _probe_distance(origin, aim, travel_range)
-	var cone: float = profile.get_spread_degrees(_motion_speed, _ready_elapsed, distance, charge)
+	var cone: float = get_hip_spread_degrees()
+	if profile.has_spread():
+		var distance: float = -1.0
+		if profile.needs_range_probe():
+			distance = _probe_distance(origin, aim, travel_range)
+		cone += profile.get_spread_degrees(_motion_speed, _ready_elapsed, distance, charge)
 	if cone <= 0.0:
 		return aim
 	return _deflect(aim, deg_to_rad(cone))

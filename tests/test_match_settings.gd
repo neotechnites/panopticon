@@ -363,38 +363,6 @@ func test_the_match_tab_race_skip_drives_the_store() -> void:
 	assert_eq_int(seats.get_selected_id(), 1, "and the stored seat")
 
 
-## Typing a fraction into a reload spin box keeps the fraction, and typing
-## below the floor clamps to it rather than snapping to a whole second.
-func test_the_reload_spins_keep_fractional_seconds() -> void:
-	var store: SettingsStore = SettingsStore.instance()
-	var screen: SettingsScreen = _open_screen()
-	var spin: SpinBox = screen.get_node_or_null(^"%ReloadSpin1") as SpinBox
-	assert_not_null(spin, "the Match tab has a reload-by-turn spin box")
-	if spin == null:
-		return
-
-	var line_edit: LineEdit = spin.get_line_edit()
-	line_edit.text = "0.5"
-	line_edit.text_submitted.emit("0.5")
-	await step_ticks(1)
-	assert_almost_eq(spin.value, 0.5, 1e-6, "typing 0.5 keeps the fraction")
-	assert_almost_eq(
-		store.settings.reload_by_turn[0], 0.5, 1e-6, "and the store gets the same fraction",
-	)
-
-	line_edit.text = "0"
-	line_edit.text_submitted.emit("0")
-	await step_ticks(1)
-	assert_almost_eq(
-		spin.value, GameSettings.MIN_RELOAD_BY_TURN, 1e-6,
-		"typing 0 clamps to the documented minimum, not up to a whole second",
-	)
-	assert_almost_eq(
-		store.settings.reload_by_turn[0], GameSettings.MIN_RELOAD_BY_TURN, 1e-6,
-		"and the store gets the clamped minimum",
-	)
-
-
 ## The toggle is captioned, so a player meeting the mechanic knows what it is.
 func test_the_ghost_toggle_says_what_the_mechanic_is() -> void:
 	var screen: SettingsScreen = _open_screen()

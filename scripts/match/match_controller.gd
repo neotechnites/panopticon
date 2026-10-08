@@ -1080,6 +1080,8 @@ func take_seat(participant: MatchParticipant) -> void:
 	participant.turns_in_tower += 1
 
 	_attach_rifle(participant)
+	get_rules().sniper_visit = participant.get_turn_index()
+	refresh_sniper_profiles()
 	_apply_turn_reload(participant)
 	seat_changed.emit(participant, participant.turns_in_tower)
 
@@ -1729,11 +1731,10 @@ func throw_guard(guard: MatchParticipant, forward: Vector3) -> bool:
 	return true
 
 
-## The velocity the finale shove throws the guard at along [param forward]: an
-## ordinary shove's launch, [constant FINALE_SHOVE_SCALE] times over.
+## The finale shove's throw along [param forward]: an ordinary shove's push, [constant FINALE_SHOVE_SCALE] times
+## over, and no lift, so from the tower's height he drops below the rim before he reaches it and goes into the pit.
 func get_finale_throw(forward: Vector3) -> Vector3:
-	var match_rules: MatchRules = get_rules()
-	return (forward * match_rules.shove_impulse + Vector3.UP * match_rules.shove_up_impulse) * FINALE_SHOVE_SCALE
+	return forward * get_rules().shove_impulse * FINALE_SHOVE_SCALE
 
 
 ## Drop any beat in progress, giving the bodies it froze their controls back.
@@ -2514,12 +2515,6 @@ func _ghost_material_for(participant: MatchParticipant) -> Material:
 	return _tinted_material(participant, runner_color)
 
 
-## The colour the tower seat wears, distinct from every runner colour so the
-## guard reads as a role rather than as whichever runner is sitting there.
-func _guard_material_for(participant: MatchParticipant) -> Material:
-	return _tinted_material(participant, get_runner_palette().guard_color)
-
-
 ## The material the MODEL ships for [param participant]'s shirt -- or surface
 ## 0's on a body with no shirt. Never a tint this file painted over it.
 func _base_material_of(participant: MatchParticipant) -> BaseMaterial3D:
@@ -3027,10 +3022,8 @@ func _place_in_tower(participant: MatchParticipant) -> void:
 	# A ghost can take the tower: they were a prisoner when the seat changed
 	# hands, and the round restarts around them like anybody else.
 	_unmake_ghost(participant)
-	# The guard's own colour, distinct from every runner's -- see
-	# RunnerPalette.guard_color -- so the seat reads as a role and not as
-	# whichever runner happens to be sitting in it.
-	_tint_body(participant, _guard_material_for(participant))
+	# The guard keeps the shirt colour they wore as a runner.
+	_tint_body(participant, _runner_material_for(participant))
 	_hold_body(participant)
 	body.global_position = _tower_point
 	body.velocity = Vector3.ZERO
@@ -3516,6 +3509,7 @@ func _attach_rifle(participant: MatchParticipant) -> void:
 		sway.release()
 		sway.optic = body.get_node_or_null(^"Optic") as WeaponOptic
 		sway.aim_node = camera
+	rifle.optic = body.get_node_or_null(^"Optic") as WeaponOptic
 
 	var local_holder: bool = participant.is_human() and participant.index == _local_index
 	# The trigger stays on the host: a client's shots are the host's to fire.
@@ -3550,6 +3544,7 @@ func _stow_rifle() -> void:
 		add_child(rifle)
 	rifle.aim_source = null
 	rifle.shooter_body = null
+	rifle.optic = null
 	var ads: RifleAds = rifle.get_node_or_null(^"Ads") as RifleAds
 	if ads != null:
 		ads.optic = null
@@ -3698,7 +3693,7 @@ func _on_rifle_missed(_end_point: Vector3) -> void:
 func _charge_miss() -> void:
 	if rifle == null:
 		return
-	rifle.add_reload_penalty(maxf(get_rules().guard_miss_penalty_seconds, 0.0))
+	rifle.add_reload_penalty(maxf(get_rules().sniper(SniperKnobs.Knob.MISS_PENALTY), 0.0))
 
 
 ## Somebody reached the end. What that is worth depends entirely on the phase:
@@ -4163,6 +4158,14 @@ func debug_refresh_reload() -> void:
 	rifle.reload_seconds = get_rules().get_reload_seconds_for_turn(
 		turn, rifle.profile.base_reload_seconds, rifle.profile.min_reload_seconds
 	)
+
+
+## Write the seated visit's bullet drop and zoom from [member MatchRules.sniper_by_visit] into the rifle.
+func refresh_sniper_profiles() -> void:
+	if rifle == null:
+		return
+	SniperKnobs.apply_profiles(get_rules().sniper_by_visit, get_rules().sniper_visit, rifle.profile,
+			rifle.optic.profile if rifle.optic != null else null)
 
 
 ## Seat a debug body in the hub, running, so a real shove reaches it. Host only; never on the wire.

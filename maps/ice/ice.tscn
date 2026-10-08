@@ -11,6 +11,7 @@
 [ext_resource type="PackedScene" path="res://maps/ice/models/ice_wall.glb" id="11_wall"]
 [ext_resource type="PackedScene" path="res://maps/ice/models/ice_gate.glb" id="12_gate"]
 [ext_resource type="PackedScene" path="res://maps/ice/models/ice_roof.glb" id="13_roof"]
+[ext_resource type="PackedScene" path="res://maps/ice/models/ice_block.glb" id="17_block"]
 [ext_resource type="Shader" path="res://maps/ice/materials/ice_roof.gdshader" id="14_roof_shader"]
 [ext_resource type="Texture2D" path="res://maps/ice/textures/ice_roof_albedo.png" id="15_roof_tile"]
 [ext_resource type="Texture2D" path="res://maps/ice/textures/ice_snow_albedo.png" id="16_snow_tile"]
@@ -24,12 +25,6 @@ ambient_light_source = 2
 ambient_light_color = Color(0.66, 0.8, 1, 1)
 ambient_light_energy = 0.7
 tonemap_mode = 1
-fog_enabled = true
-fog_light_color = Color(0.5, 0.7, 0.88, 1)
-fog_light_energy = 0.8
-fog_density = 0.003
-fog_height = 6.0
-fog_height_density = 0.06
 
 [sub_resource type="ShaderMaterial" id="RoofMat"]
 shader = ExtResource("14_roof_shader")
@@ -45,7 +40,7 @@ albedo_texture = ExtResource("16_snow_tile")
 disable_fog = true
 
 [node name="Ice" type="Node3D"]
-editor_description = "Map 4, the ice chamber: one sculpt in four chunks (ground, wall, gate, roof) at identity. Notes in docs/maps/ice.md."
+editor_description = "Map 4, the ice chamber: one sculpt in five chunks (ground, wall, block, gate, roof) at identity. Notes in docs/maps/ice.md."
 
 [node name="Environment" type="Node3D" parent="."]
 
@@ -53,8 +48,8 @@ editor_description = "Map 4, the ice chamber: one sculpt in four chunks (ground,
 environment = SubResource("Env")
 
 [node name="Sun" type="DirectionalLight3D" parent="Environment"]
-editor_description = "Cold daylight through the roof from bearing 150, 62 deg up."
-transform = Transform3D(0.5, 0.764655, -0.406574, 0, 0.469472, 0.882948, 0.866025, -0.441474, 0.234736, 0, 70, 0)
+editor_description = "Cold daylight straight down from the dome."
+transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, 0, 70, 0)
 light_color = Color(0.92, 0.97, 1, 1)
 light_energy = 0.55
 light_specular = 0.6
@@ -64,11 +59,25 @@ shadow_blur = 3.0
 directional_shadow_mode = 0
 directional_shadow_max_distance = 200.0
 
+[node name="PitLight" type="SpotLight3D" parent="Environment"]
+editor_description = "The dome's light down the pit (a straight-down sun leaves its upright walls unlit). Cone stops at the lip; the tower sits on layer 11, outside its mask."
+transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, 0, 58, 0)
+light_color = Color(0.92, 0.97, 1, 1)
+light_energy = 8.0
+light_specular = 0.0
+spot_range = 120.0
+spot_attenuation = 0.0
+spot_angle = 50.0
+spot_angle_attenuation = 0.5
+light_cull_mask = 4294966271
+
 [node name="MapBase" type="Node3D" parent="."]
 
 [node name="Ground" parent="MapBase" instance=ExtResource("10_ground")]
 
 [node name="Wall" parent="MapBase" instance=ExtResource("11_wall")]
+
+[node name="Block" parent="MapBase" instance=ExtResource("17_block")]
 
 [node name="Gate" parent="MapBase" instance=ExtResource("12_gate")]
 editor_description = "The ridge across the lane at 353 deg, between the finish (345) and the start (5)."
@@ -79,7 +88,7 @@ editor_description = "The ridge across the lane at 353 deg, between the finish (
 cast_shadow = 0
 surface_material_override/0 = SubResource("RoofMat")
 
-[node name="IceRoofOuter" parent="MapBase/Roof" index="3"]
+[node name="IceRoofOuter" parent="MapBase/Roof" index="2"]
 cast_shadow = 0
 surface_material_override/0 = SubResource("ShellMat")
 
@@ -171,7 +180,13 @@ script = ExtResource("8c_tower_variant")
 [node name="Rock" parent="Tower" instance=ExtResource("8_tower_model")]
 visible = false
 
+[node name="IceTower" parent="Tower/Rock" index="0"]
+layers = 1024
+
 [node name="RockArches" parent="Tower" instance=ExtResource("8_tower_model")]
+
+[node name="IceTower" parent="Tower/RockArches" index="0"]
+layers = 1024
 
 [node name="TowerSpawn" type="Marker3D" parent="Tower"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.95, 0)
@@ -189,3 +204,5 @@ script = ExtResource("3_tower_light")
 profile = ExtResource("4_tower_light_profile")
 
 [editable path="MapBase/Roof"]
+[editable path="Tower/Rock"]
+[editable path="Tower/RockArches"]

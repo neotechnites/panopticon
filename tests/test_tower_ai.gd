@@ -186,7 +186,7 @@ func test_guard_skill_replicates_like_any_rule() -> void:
 	assert_almost_eq(settings.guard_skill, 0.5, 1e-6, "the default is the middle of the dial")
 	settings.guard_skill = 7.0
 	settings.clamp_all()
-	assert_almost_eq(settings.guard_skill, GameSettings.MAX_GUARD_SKILL, 1e-6, "a wild value is clamped")
+	assert_almost_eq(settings.guard_skill, float(SniperKnobs.SPECS[SniperKnobs.Knob.GUARD_SKILL][3]), 1e-6, "a wild value is clamped")
 	settings.guard_skill = 0.2
 	var rules: MatchRules = MatchRules.new()
 	settings.apply_to_match_rules(rules)

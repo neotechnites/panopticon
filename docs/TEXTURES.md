@@ -98,6 +98,29 @@ slice is placed nearest-upscaled (chunkier, same UVs and density), each locked t
 | ice_glow_albedo | pale cyan-white light, a 32 px tile | the cells' light (albedo and glow) |
 | ice_portal_swirl_albedo | blue spiral on black | the portal's swirl |
 
+### Beach: `maps/beach/textures/` (`beach.ase`), placeholders for Ryan to repaint
+
+| Texture | Looks like | Worn by |
+|---|---|---|
+| beach_sand_albedo | cream sand, fine grain, faint ripples, shell flecks | the beach and jetties, the shelf, the outer beaches |
+| beach_rock_albedo | weathered coastal rock: relief lit from above, pits, open joints, salt specks | the wall's stones and core, boulders, the jetty heads, the portal arch |
+| beach_grass_albedo | pale grass strokes; the vertex colour carries the green | the island near the wall, the jetty strips |
+| beach_jungle_albedo | pale canopy crowns; the vertex colour carries the greens and the haze | the hills |
+| beach_bark_albedo | palm trunk rings | palm trunks |
+| beach_leaf_albedo | a frond's blade, midrib and slanting leaflets | palm fronds |
+| beach_water_albedo | near-white light net | the sea's caustics (`beach_water.gdshader`) |
+| beach_water_normal_albedo | ripple normal map | the sea's ripples and glint |
+| beach_foam_albedo | white lace on black | foam rings round rocks |
+| beach_reef_albedo | reef from above: rounded coral heads, dark gaps, pale sand pockets | the bay's few coral patches |
+| beach_wave_albedo | one wave's foam, white on black: a ragged roll line at the top, lace trailing below | the shore's wave strips (`beach_waves.gdshader`) |
+| beach_canvas_albedo | near-white woven cotton; the vertex colour paints the stripes | umbrellas, towels, cushions |
+| beach_plastic_albedo | near-white moulded plastic | coolers, umbrella poles |
+| beach_drift_albedo | silver-grey wood grain, checks, knots | driftwood, the tiki bar's posts |
+| beach_thatch_albedo | straw thatch in courses | the tiki bar's roof |
+| beach_shell_albedo | cream shell bands | shells on the sand |
+| beach_portal_swirl_albedo | turquoise and white spiral | the portal's swirl |
+| beach_hull_albedo, beach_glass_albedo, beach_teak_albedo | white gelcoat, blue tinted glass, teak planks | the yacht; teak also the loungers and the tiki bar's counter |
+
 ### Hub: `hub/textures/` (`hub.ase`)
 
 | Texture | Looks like | Worn by |

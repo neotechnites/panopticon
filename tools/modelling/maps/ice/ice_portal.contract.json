@@ -1,10 +1,10 @@
 {
-  "_comment": "ice_portal: Map 4's finish line. An iceberg arch: two leaning shards of fractured ice, broad at splayed feet (0.25 m into the lane ice), tapering in fracture steps; the taller left shard runs over the opening past an off-centre peak (x -0.5, z 4.0) and breaks off in a step onto the shorter right shard's head (shoulder z 3.3). Blue on whole facets (the inner reveal, two fracture planes), snow in small pockets on the ledges, two clusters of uneven icicles under the gable clear of the opening. The ice's own swirl (ice_portal_swirl_albedo, albedo and glow both) hangs inside as portal_disc's 264-tri waving see-through sheet. 4.5 x 4.0 x 0.8 m, origin at the base centre; the disc lies in local XY at z=0 so a runner passes through along local Z, exactly as portal.glb. ONE connected mesh: the disc is fanned off the frame's own inner-ridge row. Five materials (blue, deep, icicle, snow box-projected at texel.MPT; the swirl), one UV set plus Wave. IcePortalCollision is the jambs and head coarsened to a four-sided prism ring, shipped `-colonly`, leaving |x| <= 1.30 clear from the ground to z = 2.8; the disc has no collision.",
+  "_comment": "ice_portal: Map 4's finish line. An iceberg arch: two leaning shards of fractured ice, broad at splayed feet (0.25 m into the lane ice), tapering in fracture steps; the taller left shard runs over the opening past an off-centre peak (x -0.5, z 4.0) and breaks off in a step onto the shorter right shard's head (shoulder z 3.3). Blue on whole facets (the inner reveal, two fracture planes), snow in small pockets on the ledges. The ice's own swirl (ice_portal_swirl_albedo, albedo and glow both) hangs inside as portal_disc's 264-tri waving see-through sheet. 4.5 x 4.0 x 0.8 m, origin at the base centre; the disc lies in local XY at z=0 so a runner passes through along local Z, exactly as portal.glb. ONE connected mesh: the disc is fanned off the frame's own inner-ridge row. Four materials (blue, deep, snow box-projected at texel.MPT; the swirl), one UV set plus Wave. IcePortalCollision is the jambs and head coarsened to a four-sided prism ring, shipped `-colonly`, leaving |x| <= 1.30 clear from the ground to z = 2.8; the disc has no collision.",
   "node_paths": [
     "IcePortal",
     "IcePortalCollision",
     "IcePortalCollision/CollisionShape3D"
   ],
-  "surfaces": 5,
+  "surfaces": 4,
   "max_tris": 700
 }
