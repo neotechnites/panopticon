@@ -101,7 +101,8 @@ END_S = (RUN_S + 6.0, RUN_S + 17.0)    # the land drops away into the sea betwee
 
 # -- the sea (sRGB, from the refs)
 WATER_R = [0.0, 12.0, 26.0, 38.0, 48.0, 54.0]                           # rings in the bay (absolute)
-WATER_IN = [-8.5, -6.5, -5.0, -4.0, -3.4, -3.0, -2.5, -2.0, -1.5, -1.0, -0.55, -0.2, 0.0, 0.8]
+WATER_IN = [-8.5, -6.5, -5.0, -4.0, -3.4, -3.0, -2.5, -2.0, -1.5, -1.0, -0.55, -0.2, 0.0, 0.4, 0.8, 1.2, 1.6, 2.0, 2.4]
+#            metres off the waterline: out past the swash's run-up, so the moving water always meets the sand
 WATER_OUT = [77.0, 80.0, 83.0, 86.0, 89.0, 92.0, 96.0, 100.0, 105.0, 111.0]
 WATER_FAR = [(118.0, 180), (126.0, 180), (135.0, 180), (146.0, 180), (160.0, 180), (178.0, 180),
              (200.0, 180), (230.0, 180), (270.0, 120), (330.0, 120), (420.0, 120), (550.0, 90),
@@ -116,7 +117,7 @@ HORIZON = (0.64, 0.8, 0.9)             # the sky's horizon colour: the sea's las
 SKY_FADE = (700.0, 3000.0)
 
 # -- colours carried by the vertices (x the drawn tile; grass and canopy tiles are pale)
-WET_SAND = (0.88, 0.86, 0.79)
+WET_SAND = (0.95, 0.94, 0.9)        # a damp band at the waterline; the swash's wetting is the sand shader's
 GRASS_VC = (0.46, 0.74, 0.32)
 JUNGLE_VC = ((0.22, 0.48, 0.18), (0.3, 0.63, 0.23), (0.44, 0.73, 0.27))   # dark, mid and light canopy
 HAZE_VC = (0.6, 0.76, 0.8)
@@ -431,25 +432,29 @@ class Sculpt(object):
 # THE SEA -- flat, static, coloured by the depth under it
 # =============================================================================
 
-def sea_col(b, r):
+def sea_col(b, r, rocks=()):
+    """Data for beach_water.gdshader, not a colour: r = (depth + 2) / 14, g = the bay's pit, b = foam round rocks."""
     depth = WATER_Z - ground_z(b, r)
-    c = lerp3(SHORE_FOAM, SHALLOW, ramp(depth, 0.0, 0.16))
-    c = lerp3(c, TURQ, ramp(depth, SHELF_DEPTH * 0.9, 2.0))
-    x = r * math.cos(math.radians(b))                     # toward the mouth: the deep teal thins out through it
+    x = r * math.cos(math.radians(b))
     bay = ramp(x, PIT_FADE[1], PIT_FADE[0]) * ramp(r, WL_R + 2.0, WL_R - 2.0)
-    c = lerp3(c, PIT, bay * ramp(depth, 2.5, 7.5))
-    c = lerp3(c, OPEN_FAR, (1.0 - bay) * ramp(r, 110.0, 700.0))
-    c = lerp3(c, HORIZON, ramp(r, SKY_FADE[0], SKY_FADE[1]) ** 1.4)
-    return (c[0], c[1], c[2], 1.0)
+    px, py, _z = pol(b, r, 0.0)
+    ring = 0.0
+    for cx, cy, size in rocks:
+        d = math.hypot(px - cx, py - cy) - size * 0.45
+        if d < 1.6:
+            ring = max(ring, ramp(d, 1.5, 0.1))
+    return (clamp((depth + 2.0) / 14.0), bay, ring, 1.0)
 
 
-def build_sea():
+def build_sea(rocks=()):
+    """The sea's surface at still water; the shader moves it. rocks: (x, y, size) the foam rings round."""
     m = Mesh()
-    centre = m.v((0.0, 0.0, WATER_Z), sea_col(0.0, 0.0))
+    col = lambda b, r: sea_col(b, r, rocks)  # noqa: E731
+    centre = m.v((0.0, 0.0, WATER_Z), col(0.0, 0.0))
     inner = []
     for r in WATER_R[1:]:
-        inner.append([m.v(pol(i * 3.0, r, WATER_Z), sea_col(i * 3.0, r)) for i in range(120)])   # deep, one colour
-    shore = [[m.v(pol(float(i), wl(float(i)) + off, WATER_Z), sea_col(float(i), wl(float(i)) + off)) for i in range(NC)]
+        inner.append([m.v(pol(i * 3.0, r, WATER_Z), col(i * 3.0, r)) for i in range(120)])   # deep, one colour
+    shore = [[m.v(pol(float(i), wl(float(i)) + off, WATER_Z), col(float(i), wl(float(i)) + off)) for i in range(NC)]
              for off in WATER_IN]
     for i in range(120):
         m.tri(centre, inner[0][i], inner[0][(i + 1) % 120], UP, "water", "water")
@@ -458,16 +463,16 @@ def build_sea():
     m.grid(shore, UP, "water", "water")
     rings = [shore[-1]]
     for r in WATER_OUT:
-        ring = [m.v(pol(i * 1.5, r, WATER_Z), sea_col(i * 1.5, r)) for i in range(240)]
+        ring = [m.v(pol(i * 1.5, r, WATER_Z), col(i * 1.5, r)) for i in range(240)]
         m.stitch(rings[-1], ring, UP, "water", "water")
         rings.append(ring)
     prev = rings[-1]
     for r, n in WATER_FAR:
-        ring = [m.v(pol(j * 360.0 / n, r, WATER_Z), sea_col(j * 360.0 / n, r)) for j in range(n)]
+        ring = [m.v(pol(j * 360.0 / n, r, WATER_Z), col(j * 360.0 / n, r)) for j in range(n)]
         m.stitch(prev, ring, UP, "water", "water")
         prev = ring
     keep = [k for k, f in enumerate(m.faces)
-            if not all(ground_z(bearing_of(m.verts[v]), rad_of(m.verts[v])) > WATER_Z + 0.4 for v in f)]
+            if not all(ground_z(bearing_of(m.verts[v]), rad_of(m.verts[v])) > WATER_Z + 0.6 for v in f)]
     m.faces = [m.faces[k] for k in keep]
     m.zones = [m.zones[k] for k in keep]
     m.chunks = [m.chunks[k] for k in keep]
@@ -809,7 +814,7 @@ def build_geometry():
     m = s.build()
     rocks, placed = build_rocks()
     palms, uv, trunks = build_palms()
-    sea = build_sea()
+    sea = build_sea([p for p in placed if ground_z(bearing_of((p[0], p[1], 0.0)), math.hypot(p[0], p[1])) < WATER_Z + 0.3])
     cols = {"ground": build_ground_collider(), "rocks": build_rock_collider(placed),
             "palms": build_trunk_collider(trunks)}
     return s, m, rocks, palms, uv, sea, cols

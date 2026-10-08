@@ -10,6 +10,11 @@
 [ext_resource type="PackedScene" path="res://maps/beach/models/beach_palms.glb" id="13_palms"]
 [ext_resource type="PackedScene" path="res://maps/beach/models/beach_water.glb" id="14_water"]
 [ext_resource type="Texture2D" path="res://maps/beach/textures/beach_water_albedo.png" id="15_water_tile"]
+[ext_resource type="Shader" path="res://maps/beach/materials/beach_water.gdshader" id="16_water_shader"]
+[ext_resource type="Texture2D" path="res://maps/beach/textures/beach_water_normal_albedo.png" id="17_ripples"]
+[ext_resource type="Texture2D" path="res://maps/beach/textures/beach_foam_albedo.png" id="18_foam"]
+[ext_resource type="Shader" path="res://maps/beach/materials/beach_sand.gdshader" id="26_sand_shader"]
+[ext_resource type="Texture2D" path="res://maps/beach/textures/beach_sand_albedo.png" id="27_sand_tile"]
 [ext_resource type="PackedScene" path="res://maps/beach/props/beach_portal.tscn" id="19_portal"]
 [ext_resource type="Shader" path="res://maps/beach/materials/beach_sky.gdshader" id="20_sky_shader"]
 [ext_resource type="Texture2D" path="res://maps/beach/textures/beach_clouds_albedo.png" id="21_clouds"]
@@ -31,14 +36,16 @@ ambient_light_color = Color(0.9, 0.92, 0.95, 1)
 ambient_light_energy = 0.32
 tonemap_mode = 0
 
-[sub_resource type="StandardMaterial3D" id="WaterMat"]
-shading_mode = 0
-vertex_color_use_as_albedo = true
-albedo_color = Color(1.09, 1.09, 1.09, 1)
-albedo_texture = ExtResource("15_water_tile")
-cull_mode = 2
-texture_filter = 5
-disable_fog = true
+[sub_resource type="ShaderMaterial" id="WaterMat"]
+render_priority = 1
+shader = ExtResource("16_water_shader")
+shader_parameter/ripples = ExtResource("17_ripples")
+shader_parameter/caustics = ExtResource("15_water_tile")
+shader_parameter/foam_texture = ExtResource("18_foam")
+
+[sub_resource type="ShaderMaterial" id="SandMat"]
+shader = ExtResource("26_sand_shader")
+shader_parameter/albedo_texture = ExtResource("27_sand_tile")
 
 [sub_resource type="StandardMaterial3D" id="RockMat"]
 resource_name = "beach_rock"
@@ -80,12 +87,14 @@ directional_shadow_max_distance = 200.0
 [node name="BeachGround" parent="MapBase/Ground" index="0"]
 editor_description = "Surface 0 restated: the importer drops the first surface's vertex colour."
 surface_material_override/0 = SubResource("RockMat")
+surface_material_override/1 = SubResource("SandMat")
 
 [node name="Island" parent="MapBase" instance=ExtResource("11_island")]
 
 [node name="BeachIsland" parent="MapBase/Island" index="0"]
 editor_description = "Surface 0 restated: the importer drops the first surface's vertex colour."
 surface_material_override/0 = SubResource("GrassMat")
+surface_material_override/3 = SubResource("SandMat")
 
 [node name="Rocks" parent="MapBase" instance=ExtResource("12_rocks")]
 
