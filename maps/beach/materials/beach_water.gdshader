@@ -115,7 +115,7 @@ void fragment() {
 	// colour by depth: shallow over the shelf, turquoise, the bay's deep teal, the open sea
 	// (the shelf's colour spreads down the whole drop-off: no seam where the sand falls away)
 	vec3 col = mix(shallow_color, turquoise_color, smoothstep(0.05, 1.6, depth));
-	col = mix(col, pit_color, pit * smoothstep(1.8, 8.5, depth));          // deepens over the whole slope
+	col = mix(col, pit_color, pit * smoothstep(1.5, 6.5, depth));          // deepens over the whole slope
 	col = mix(col, open_color, (1.0 - pit) * smoothstep(110.0, 700.0, r) * smoothstep(2.0, 7.0, depth));
 
 	// caustics on the shallow bed: two scrolling copies of the light net, where they cross
