@@ -268,6 +268,11 @@ def _kill_profile(b, r):
     return sd + (floor - sd) * smooth(min(t / run, 1.0))
 
 
+def anchorage(x, y):
+    """Deeper water where the yacht lies: 5.5 m under it, gone by 24 m."""
+    return 5.5 * (1.0 - smooth(math.hypot(x, y) / 24.0))
+
+
 def mouth_floor(x):
     """The bay's floor depth by x alone: 2 m at the back, 5 to 6 between the jetty tips, 22 out at sea."""
     return 2.0 + 20.0 * smooth((x - 10.0) / 95.0)
@@ -279,8 +284,7 @@ def bed_depth(b, r):
     sd = shelf_d(b)
     t = wl(b) - r - shelf_w(b)
     x, y, _z = pol(b, r, 0.0)
-    anchorage = 5.5 * (1.0 - smooth(math.hypot(x, y) / 24.0))     # deeper water where the yacht lies
-    d = max(1.7, 2.5 + 0.7 * vnoise(x / 20.0, y / 20.0, SEED + 47), mouth_floor(x), anchorage)
+    d = max(1.7, 2.5 + 0.7 * vnoise(x / 20.0, y / 20.0, SEED + 47), mouth_floor(x), anchorage(x, y))
     run = lerp(3.0, 24.0, smooth((x + 10.0) / 60.0))            # out toward the mouth the slope is long
     old = _kill_profile(b, r)
     if old < 1.7:
@@ -319,7 +323,7 @@ def sand_z(b, r):
     km = ramp(s_of(b), HEAD_S - 1.0, HEAD_S + 7.0) * (1.0 - ramp(r, WL_R - 2.0, WL_R + 6.0))
     if km > 0.0:                       # across the mouth the floor just deepens seaward: no rim, no ridge
         x = pol(b, r, 0.0)[0]
-        z = lerp(z, WATER_Z - mouth_floor(x), km)
+        z = lerp(z, WATER_Z - max(mouth_floor(x), anchorage(x, pol(b, r, 0.0)[1])), km)
     return mouth_cap(b, r, z)
 
 
