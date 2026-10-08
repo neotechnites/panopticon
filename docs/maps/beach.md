@@ -20,16 +20,13 @@ the scene's markers (`pol(bearing, r, z)`); the mouth faces bearing 0.
 5. Island: the jetties carry a narrow grass strip; the big island behind the beach rises into ridged hills
    (40..105 m) under a canopy of crowns, three greens, valleys darker, haze far off. Palms: clusters along
    the wall, leaning palms on the sand at its foot, singles on the slopes.
-6. Sea: `beach_water.glb` carries depth, pit and rock-foam as vertex data; `materials/beach_water.gdshader`
-   draws 8 to 14 m of see-through bright teal shallows, closing over by ~3.5 m and deepening to teal down
-   the slope, with a gentle swell, sky fresnel, sun glint and sparkle. As Sunshine did, it samples the frame
-   (hint_screen_texture) bent by its ripples, so the bed wobbles through it; the sand shader draws the
-   crisp caustic net (beach_water_albedo, twice, scrolling) on the bed under water, fading with depth. The bed slopes unevenly from the shallows to a 7 to 11 m floor with sand lobes.
-   Waves, the GameCube way (refs: Gelato Beach, Emerald Coast): `beach_waves.glb` is one strip along the
-   whole waterline; `beach_waves.gdshader` runs two continuous trains on it, each line rolling in with a
-   soft wash and drawn lace (`beach_wave_albedo`), running up as a thin sheet, draining back and leaving
-   wet sand that dries; where it lands drifts along the shore, sets swell then lull. Below the surface,
-   five shells round the camera (`beach_underwater.gdshader`) fade to deep teal.
+6. Sea, after Hanauma Bay: 8 to 14 m of wadeable shallows, then reef flats (`beach_reef_albedo`, dark
+   heads with sand pockets, 55 low reef rock clusters) and pale sand channels 1.7 to 3.5 m deep across the
+   inner bay, deepening out through the mouth to 16 m and more (the yacht rides in 12 m). The water never
+   goes opaque in the bay: sand, reef and rock take the depth by absorption (`exp(-(0.3,0.07,0.055) m)`),
+   the surface thickens slowly, and deep blue takes over only out through the mouth. Refraction (screen
+   copy bent by ripples), bed caustics, swell, fresnel, glint and sparkle as before. The waves are
+   `beach_waves.glb` + `beach_waves.gdshader` (two continuous trains along one shore strip).
 7. Sky: `maps/beach/materials/beach_sky.gdshader`, a gradient and the drawn clouds (`beach_clouds_albedo.png`,
    RGBA). The sun (bearing 15, 35 deg up, the DirectionalLight's) is `beach_sun.gdshader`'s camera-square
    quad 2.5 km out, so the disc stays round at any FOV. Linear tonemap; GL Compatibility.
