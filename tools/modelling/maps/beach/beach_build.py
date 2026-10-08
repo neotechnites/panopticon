@@ -269,8 +269,8 @@ def _kill_profile(b, r):
 
 
 def mouth_floor(x):
-    """The bay's floor depth by x alone: about 4 m at the back, 12 at the jetty tips, 22 out at sea."""
-    return 2.0 + 20.0 * smooth((x + 20.0) / 100.0)
+    """The bay's floor depth by x alone: 2 m at the back, 5 to 6 between the jetty tips, 22 out at sea."""
+    return 2.0 + 20.0 * smooth((x - 10.0) / 95.0)
 
 
 def bed_depth(b, r):
@@ -279,7 +279,8 @@ def bed_depth(b, r):
     sd = shelf_d(b)
     t = wl(b) - r - shelf_w(b)
     x, y, _z = pol(b, r, 0.0)
-    d = max(1.7, 2.5 + 0.7 * vnoise(x / 20.0, y / 20.0, SEED + 47), mouth_floor(x))
+    anchorage = 5.5 * (1.0 - smooth(math.hypot(x, y) / 24.0))     # deeper water where the yacht lies
+    d = max(1.7, 2.5 + 0.7 * vnoise(x / 20.0, y / 20.0, SEED + 47), mouth_floor(x), anchorage)
     run = lerp(3.0, 24.0, smooth((x + 10.0) / 60.0))            # out toward the mouth the slope is long
     old = _kill_profile(b, r)
     if old < 1.7:
