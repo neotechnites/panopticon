@@ -70,7 +70,7 @@ WALL_H = (1.0, 1.25)      # the core's height wanders between these (the cap cou
 WALL_ROWS = ((0.0, 0.0), (0.2, 0.75), (0.45, 1.0), (0.7, 1.2), (0.9, 1.35), (1.0, 1.6))   # (share, metres back)
 CORE_SHADE = 0.42           # the core shows only in the gaps between boulders
 COURSES = (((0.2, 0.5), (0.0, 0.0), (1.2, 2.6), (0.75, 0.95), (0.3, 0.42), 0.0),
-           ((0.5, 0.85), (0.75, 1.05), (0.85, 1.6), (0.65, 0.85), (0.15, 0.3), 0.12))
+           ((0.5, 0.85), (0.85, 1.15), (0.9, 1.7), (0.65, 0.85), (0.15, 0.3), 0.12))
 #   (metres back of the foot, base over the sand, size, squash, sink, share left out): foot and cap courses
 ISLAND_LIFT = 1.45          # the island's ground behind the lip, over the deck
 
@@ -81,7 +81,7 @@ FAR_R = [(226.0, 360), (238.0, 360), (250.0, 360), (263.0, 360), (276.0, 360), (
          (320.0, 360), (336.0, 360), (353.0, 360), (371.0, 360), (390.0, 360), (412.0, 240), (436.0, 240),
          (462.0, 240), (492.0, 240), (528.0, 180), (570.0, 180), (620.0, 120), (690.0, 120), (780.0, 90),
          (900.0, 72)]                                                     # (r, columns): rows ~12 m apart over the hills
-RIDGE = (2.2, 4.5, 4.0)     # the jetty's hummock behind its wall: height, distance behind, half width
+RIDGE = (1.6, 6.0, 4.5)     # the jetty's hummock behind its wall: height, distance behind, half width
 ARM_W = (14.0, 7.0)         # the jetty's land behind its wall, at its root and near its head (metres)
 COAST_SLOPE = 0.42          # the coast's fall into the sea
 MAIN_COAST = (-26.0, 0.003, 71.0)   # the big island's coast: x at the jetty roots, curvature, |y| it bends from
@@ -227,9 +227,9 @@ def island_z(b, r):
     x, y, _z = pol(b, r, 0.0)
     s = s_of(b)
     base = DECK_Z + ISLAND_LIFT + 0.35 * fbm(x / 9.0, y / 9.0, SEED + 10)
-    hump = RIDGE[0] * (1.0 - ramp(s, 100.0, RUN_S + 6.0)) * bell((d - RIDGE[1]) / RIDGE[2])
-    arm = min(base + hump, WATER_Z + COAST_SLOPE * (arm_w(b) - d))
     inside = main_coast(x, y)
+    hump = RIDGE[0] * (1.0 - ramp(s, 100.0, RUN_S + 6.0)) * bell((d - RIDGE[1]) / RIDGE[2]) * ramp(inside, 10.0, -10.0)
+    arm = min(base + hump, WATER_Z + COAST_SLOPE * (arm_w(b) - d))
     land = base + min(d, 30.0) * 0.04 + hills(x, y) * ramp(d, 14.0, 90.0) * ramp(inside, 10.0, 90.0)
     jm = jungle_mask(x, y, d)
     if jm > 0.0:
