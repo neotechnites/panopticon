@@ -172,12 +172,9 @@ The game multiplies the texture by this colour (linear RGB). The recoloured look
 
 | Texture | Multiplier | Materials |
 |---|---|---|
-| maps/beach/textures/beach_hull_albedo.png | (0.55, 0.03, 0.04) | beach_yacht.glb: BeachYacht_stripe |
-| maps/beach/textures/beach_rock_albedo.png | (0.58, 0.56, 0.54) | beach_portal.glb: BeachPortal_wet |
-| maps/beach/textures/beach_rock_albedo.png | (0.7, 0.68, 0.66) | beach_portal.glb: BeachPortal_deep |
-| maps/bentham_ring/textures/hell_rock_albedo.png | (0.57, 0.269, 0.239) | map_base_cover_s2.glb: HellEmber; map_base_cover_s4.glb: HellEmber; map_base_s1.glb: HellEmber; map_base_s2.glb: HellEmber; map_base_s3.glb: HellEmber; map_base_s4.glb: HellEmber; map_base_s5.glb: HellEmber |
-| maps/bentham_ring/textures/hell_rock_albedo.png | (0.72, 0.34, 0.302) | map_base_cover_s2.glb: HellShade; map_base_cover_s4.glb: HellShade; map_base_gate.glb: HellShade.001; map_base_lip013.glb: HellShade; map_base_lip066.glb: HellShade; map_base_lip139.glb: HellShade; map_base_lip204.glb: HellShade; map_base_lip286.glb: HellShade; map_base_s1.glb: HellShade; map_base_s2.glb: HellShade; map_base_s3.glb: HellShade; map_base_s4.glb: HellShade; map_base_s5.glb: HellShade; rock_bars.glb: HellShade |
-| maps/bentham_ring/textures/hell_rock_albedo.png | (1, 0.471, 0.42) | map_base_gate.glb: HellRock.001; map_base_lip013.glb: HellRock; map_base_lip066.glb: HellRock; map_base_lip139.glb: HellRock; map_base_lip204.glb: HellRock; map_base_lip286.glb: HellRock; map_base_s1.glb: HellRock; map_base_s2.glb: HellRock; map_base_s3.glb: HellRock; map_base_s4.glb: HellRock; map_base_s5.glb: HellRock; rock_bars.glb: HellRock; tower.glb: HellRock; tower2.glb: HellRock; tower_arches.glb: HellRock; tower_arches_repaired.glb: HellRock; tower_hollow.glb: HellRock; tower_interior.glb: HellRock.001 |
+| maps/bentham_ring/textures/hell_rock_albedo.png | (0.036, 0.0296, 0.0361) | map_base_cover_s2.glb: HellEmber; map_base_cover_s4.glb: HellEmber; map_base_s1.glb: HellEmber; map_base_s2.glb: HellEmber; map_base_s3.glb: HellEmber; map_base_s4.glb: HellEmber; map_base_s5.glb: HellEmber |
+| maps/bentham_ring/textures/hell_rock_albedo.png | (0.116, 0.0847, 0.13) | map_base_cover_s2.glb: HellShade; map_base_cover_s4.glb: HellShade; map_base_gate.glb: HellShade.001; map_base_lip013.glb: HellShade; map_base_lip066.glb: HellShade; map_base_lip139.glb: HellShade; map_base_lip204.glb: HellShade; map_base_lip286.glb: HellShade; map_base_s1.glb: HellShade; map_base_s2.glb: HellShade; map_base_s3.glb: HellShade; map_base_s4.glb: HellShade; map_base_s5.glb: HellShade; rock_bars.glb: HellShade |
+| maps/bentham_ring/textures/hell_rock_albedo.png | (1, 0.471, 0.42) | map_base_gate.glb: HellRock.001; map_base_lip013.glb: HellRock; map_base_lip066.glb: HellRock; map_base_lip139.glb: HellRock; map_base_lip204.glb: HellRock; map_base_lip286.glb: HellRock; map_base_s1.glb: HellRock; map_base_s2.glb: HellRock; map_base_s3.glb: HellRock; map_base_s4.glb: HellRock; map_base_s5.glb: HellRock; rock_bars.glb: HellRock |
 | maps/forest/textures/forest_bark_albedo.png | (0.974, 0.978, 0.978) | forest_bush_low.glb: ForestBush_bark; forest_bush_tall.glb: ForestBush_bark; forest_canopy.glb: ForestCanopy_bark; forest_portal.glb: ForestPortal_bark; forest_tree.glb: ForestTree_bark; forest_tree_prop_a.glb: ForestTreeProp_bark; forest_tree_prop_b.glb: ForestTreeProp_bark; forest_tree_prop_c.glb: ForestTreeProp_bark |
 | maps/forest/textures/forest_bark_albedo.png | (1, 0.889, 0.801) | forest.glb: forest_root; forest_bars.glb: forest_root |
 | maps/forest/textures/forest_bark_albedo.png | (1, 0.9, 0.81) | forest_thorns.glb: ForestThorns_root; forest_tree.glb: ForestTree_root |
@@ -192,11 +189,12 @@ The game multiplies the texture by this colour (linear RGB). The recoloured look
 | maps/forest/textures/forest_sun_albedo.png | (0.249, 0.279, 0.554) | hub_base.glb: ForestLeaf |
 | maps/forest/textures/forest_sun_albedo.png | (0.273, 0.303, 0.576) | forest_portal.glb: ForestPortal_leaf |
 | maps/forest/textures/forest_sun_albedo.png | (0.6, 0.6, 0.6) | forest.glb: forest_shade; forest_bush_low.glb: ForestBush_shade; forest_bush_tall.glb: ForestBush_shade; forest_tree.glb: ForestTree_shade |
-| maps/ice/textures/ice_blue_albedo.png | (0.58, 0.74, 0.96) | ice_block.glb: ice_blue; ice_gate.glb: ice_blue; ice_ground.glb: ice_blue; ice_wall.glb: ice_blue |
+| maps/ice/textures/ice_blue_albedo.png | (0.58, 0.74, 0.96) | ice_gate.glb: ice_blue; ice_ground.glb: ice_blue; ice_wall.glb: ice_blue |
 | maps/ice/textures/ice_deep_albedo.png | (0.6, 0.7, 0.86) | ice_ground.glb: ice_floor |
 | maps/ice/textures/ice_lake_albedo.png | (0.55, 0.72, 0.92) | ice_ground.glb: ice_lane |
 | maps/ice/textures/ice_snow_albedo.png | (0.8, 0.88, 0.97) | ice_gate.glb: ice_snow; ice_ground.glb: ice_snow; ice_wall.glb: ice_snow |
 | maps/marble/textures/marble_brick_albedo.png | (0.028, 0.0329, 0.0643) | marble.glb: marble_cellin |
+| maps/marble/textures/marble_brick_albedo.png | (0.673, 0.549, 0.492) | marble_tower.glb: marble_tower_dome; marble_tower.glb: marble_tower_stone |
 | maps/marble/textures/marble_brick_albedo.png | (0.794, 0.792, 0.815) | marble_arch.glb: Marble_marble2; marble_bars.glb: marble_bars_marble2; marble_portal.glb: Marble_marble2; marble_tower.glb: marble_tower_marble2 |
 | maps/marble/textures/marble_brick_albedo.png | (0.811, 0.809, 0.837) | marble.glb: marble_plinth |
 | maps/marble/textures/marble_brick_albedo.png | (0.829, 0.829, 0.862) | marble_arch.glb: Marble_plinth; marble_bars.glb: marble_bars_plinth; marble_column.glb: Marble_plinth; marble_column_broken.glb: Marble_plinth; marble_portal.glb: Marble_plinth; marble_spikes.glb: MarbleSpikes_plinth; marble_spikes_strip.glb: MarbleSpikes_plinth; marble_tower.glb: marble_tower_plinth |
@@ -216,20 +214,12 @@ Up to four commonest colours and the share of vertices wearing each; many colour
 | hub/models/hub_base.glb | ForestFern | forest_sun_albedo.png | 1: (0.99, 0.99, 1) 100% |
 | hub/models/hub_base.glb | ForestGrass | forest_grass_albedo.png | 3: (1, 0.97, 1) 82%, (0.41, 0.43, 0.89) 10%, (1, 0.83, 1) 7% |
 | hub/models/hub_base.glb | ForestLeaf | forest_sun_albedo.png | 2: (0.68, 0.79, 0.75) 91%, (0.39, 0.48, 0.53) 8% |
-| maps/beach/models/beach_ground.glb | beach_rock | beach_rock_albedo.png | 36: (0.9, 0.9, 0.9) 11%, (0.39, 0.39, 0.39) 7%, (0.44, 0.44, 0.44) 7%, (1, 1, 1) 6% |
-| maps/beach/models/beach_ground.glb | beach_sand | beach_sand_albedo.png | 19: (1, 1, 1) 44%, (0.88, 0.86, 0.79) 35%, (0.89, 0.87, 0.81) 5%, (0.98, 0.97, 0.96) 5% |
-| maps/beach/models/beach_island.glb | beach_grass | beach_grass_albedo.png | 339: (0.42, 0.67, 0.29) 10%, (0.43, 0.69, 0.3) 10%, (0.42, 0.68, 0.29) 7%, (0.45, 0.72, 0.31) 5% |
-| maps/beach/models/beach_island.glb | beach_jungle | beach_jungle_albedo.png | 1883: (0.6, 0.76, 0.8) 0%, (0.29, 0.6, 0.22) 0%, (0.23, 0.48, 0.18) 0%, (0.3, 0.63, 0.23) 0% |
-| maps/beach/models/beach_island.glb | beach_rock | beach_rock_albedo.png | 19: (0.41, 0.66, 0.29) 25%, (0.42, 0.67, 0.29) 16%, (0.42, 0.68, 0.29) 14%, (0.83, 0.83, 0.83) 7% |
-| maps/beach/models/beach_island.glb | beach_sand | beach_sand_albedo.png | 146: (0.43, 0.69, 0.3) 10%, (0.42, 0.67, 0.29) 9%, (0.44, 0.71, 0.31) 9%, (0.43, 0.7, 0.3) 6% |
-| maps/beach/models/beach_rocks.glb | beach_rock | beach_rock_albedo.png | 125: (0.97, 0.99, 1.04) 2%, (0.94, 0.96, 1.01) 2%, (0.98, 0.95, 0.9) 2%, (0.95, 0.92, 0.87) 2% |
-| maps/beach/models/beach_water.glb | beach_water | beach_water_albedo.png | 165: (0.12, 0.78, 0.86) 26%, (0.62, 0.92, 0.86) 12%, (0.88, 0.98, 0.96) 9%, (0, 0.47, 0.6) 9% |
-| maps/bentham_ring/models/block.glb | HellRock | hell_rock_albedo.png | 1: (1, 0.47, 0.42) 100% |
-| maps/bentham_ring/models/boulder.glb | HellRock | hell_rock_albedo.png | 3: (0.72, 0.34, 0.3) 53%, (1, 0.47, 0.42) 28%, (0.57, 0.27, 0.24) 17% |
-| maps/bentham_ring/models/portal.glb | HellRock | hell_rock_albedo.png | 2: (1, 0.47, 0.42) 79%, (0.72, 0.34, 0.3) 20% |
+| maps/bentham_ring/models/block.glb | HellRock | hell_rock_albedo.png | 2: (1, 0.47, 0.42) 55%, (0.64, 1, 1) 44% |
+| maps/bentham_ring/models/boulder.glb | HellRock | hell_rock_albedo.png | 3: (0.12, 0.08, 0.13) 53%, (1, 0.47, 0.42) 28%, (0.04, 0.03, 0.04) 17% |
+| maps/bentham_ring/models/portal.glb | HellRock | hell_rock_albedo.png | 2: (1, 0.47, 0.42) 79%, (0.12, 0.08, 0.13) 20% |
 | maps/bentham_ring/models/rock_wall.glb | HellRock | hell_rock_albedo.png | 1: (1, 0.47, 0.42) 100% |
 | maps/bentham_ring/models/slab.glb | HellRock | hell_rock_albedo.png | 1: (1, 0.47, 0.42) 100% |
-| maps/bentham_ring/models/spire.glb | HellRock | hell_rock_albedo.png | 2: (1, 0.47, 0.42) 90%, (0.72, 0.34, 0.3) 9% |
+| maps/bentham_ring/models/spire.glb | HellRock | hell_rock_albedo.png | 2: (1, 0.47, 0.42) 90%, (0.12, 0.08, 0.13) 9% |
 | maps/forest/models/forest.glb | forest_bark | forest_bark_albedo.png | 14: (1, 1, 1) 74%, (0.97, 0.97, 0.97) 4%, (0.95, 0.95, 0.95) 3%, (0.85, 0.85, 0.85) 3% |
 | maps/forest/models/forest.glb | forest_cell | forest_rock_albedo.png | 15: (1, 1, 1) 62%, (0.97, 0.97, 0.97) 7%, (0.85, 0.85, 0.85) 5%, (0.98, 0.98, 0.98) 5% |
 | maps/forest/models/forest.glb | forest_edge | forest_grass_albedo.png | 5: (1, 1, 1) 81%, (0.88, 0.88, 0.88) 8%, (0.95, 0.95, 0.95) 5%, (0.96, 0.96, 0.96) 3% |
@@ -239,33 +229,33 @@ Up to four commonest colours and the share of vertices wearing each; many colour
 | maps/forest/models/forest.glb | forest_sun | forest_sun_albedo.png | 8: (1, 1, 1) 86%, (0.9, 0.9, 0.9) 5%, (0.93, 0.93, 0.93) 5%, (0.92, 0.92, 0.92) 1% |
 | maps/forest/models/forest_tree.glb | ForestTree_leaf | forest_sun_albedo.png | 9: (1, 1, 1) 31%, (1.15, 1.15, 1.15) 20%, (1.14, 1.14, 1.14) 7%, (1.05, 1.05, 1.05) 7% |
 | maps/forest/models/forest_tree.glb | ForestTree_under | forest_sun_albedo.png | 626: (0.85, 0.85, 0.85) 3%, (0.6, 0.6, 0.6) 2%, (0.87, 0.84, 0.79) 1%, (0.65, 0.61, 0.54) 1% |
-| maps/ice/models/ice_block.glb | ice_blue | ice_blue_albedo.png | 274: (0.72, 0.78, 0.8) 6%, (0.73, 0.79, 0.81) 3%, (0.74, 0.8, 0.82) 2%, (0.82, 0.88, 0.91) 2% |
-| maps/ice/models/ice_block.glb | ice_deep | ice_deep_albedo.png | 458: (0.72, 0.8, 0.9) 5%, (0.52, 0.56, 0.58) 3%, (0.58, 0.62, 0.64) 2%, (0.51, 0.55, 0.57) 2% |
-| maps/ice/models/ice_block.glb | ice_glow | ice_glow_albedo.png | 21: (0.72, 0.8, 0.9) 49%, (1, 1, 1) 12%, (0.83, 0.88, 0.94) 8%, (0.99, 0.99, 1) 4% |
-| maps/ice/models/ice_gate.glb | ice_blue | ice_blue_albedo.png | 99: (0.8, 0.86, 0.89) 5%, (0.82, 0.88, 0.91) 3%, (0.88, 0.95, 0.98) 3%, (0.89, 0.96, 0.99) 3% |
-| maps/ice/models/ice_gate.glb | ice_deep | ice_deep_albedo.png | 40: (0.71, 0.76, 0.79) 5%, (0.72, 0.78, 0.8) 5%, (0.71, 0.77, 0.79) 5%, (0.87, 0.94, 0.97) 5% |
-| maps/ice/models/ice_gate.glb | ice_snow | ice_snow_albedo.png | 76: (0.88, 0.95, 0.98) 5%, (0.85, 0.92, 0.95) 4%, (0.8, 0.86, 0.89) 4%, (0.95, 1.03, 1.06) 3% |
-| maps/ice/models/ice_ground.glb | ice_blue | ice_blue_albedo.png | 106: (0.59, 0.62, 0.64) 9%, (0.6, 0.63, 0.65) 7%, (0.56, 0.59, 0.61) 6%, (0.61, 0.64, 0.66) 6% |
-| maps/ice/models/ice_ground.glb | ice_deep | ice_deep_albedo.png | 166: (0.37, 0.39, 0.4) 5%, (0.34, 0.36, 0.37) 4%, (0.39, 0.41, 0.43) 3%, (0.39, 0.41, 0.42) 3% |
+| maps/ice/models/ice_gate.glb | ice_blue | ice_blue_albedo.png | 101: (0.8, 0.86, 0.89) 4%, (0.75, 0.81, 0.84) 3%, (0.76, 0.82, 0.84) 3%, (0.81, 0.87, 0.9) 3% |
+| maps/ice/models/ice_gate.glb | ice_deep | ice_deep_albedo.png | 42: (0.88, 0.95, 0.98) 6%, (0.71, 0.77, 0.79) 6%, (0.87, 0.94, 0.97) 5%, (0.72, 0.77, 0.8) 5% |
+| maps/ice/models/ice_gate.glb | ice_snow | ice_snow_albedo.png | 70: (0.72, 0.78, 0.8) 6%, (0.8, 0.86, 0.89) 5%, (0.67, 0.72, 0.74) 4%, (0.65, 0.7, 0.72) 4% |
+| maps/ice/models/ice_ground.glb | ice_blue | ice_blue_albedo.png | 169: (0.56, 0.59, 0.61) 4%, (0.59, 0.62, 0.64) 4%, (0.55, 0.58, 0.6) 3%, (0.58, 0.61, 0.63) 3% |
+| maps/ice/models/ice_ground.glb | ice_deep | ice_deep_albedo.png | 164: (0.5, 0.64, 0.84) 6%, (0.72, 0.8, 0.9) 6%, (0.42, 0.46, 0.5) 4%, (0.32, 0.34, 0.35) 3% |
 | maps/ice/models/ice_ground.glb | ice_floor | ice_deep_albedo.png | 2: (0.4, 0.44, 0.5) 85%, (0.42, 0.46, 0.5) 14% |
-| maps/ice/models/ice_ground.glb | ice_glow | ice_glow_albedo.png | 21: (0.72, 0.8, 0.9) 49%, (1, 1, 1) 13%, (0.83, 0.88, 0.94) 8%, (0.99, 0.99, 1) 5% |
-| maps/ice/models/ice_ground.glb | ice_lane | ice_lake_albedo.png | 391: (0.67, 0.67, 0.67) 9%, (0.68, 0.68, 0.68) 8%, (0.69, 0.69, 0.69) 8%, (0.66, 0.66, 0.66) 7% |
-| maps/ice/models/ice_ground.glb | ice_snow | ice_snow_albedo.png | 163: (0.59, 0.62, 0.64) 10%, (0.61, 0.64, 0.66) 5%, (0.6, 0.63, 0.65) 4%, (0.67, 0.67, 0.67) 3% |
-| maps/ice/models/ice_roof.glb | ice_roof | ice_roof_albedo.png | 187: (0.07, 0.2, 0.4) 12%, (0.9, 1, 1) 9%, (0.8, 0.9, 0.92) 1%, (0.15, 0.26, 0.42) 1% |
-| maps/ice/models/ice_roof.glb | ice_sky | ice_snow_albedo.png | 138: (0.82, 0.95, 1) 5%, (0.57, 0.7, 0.83) 2%, (0.45, 0.58, 0.75) 2%, (0.34, 0.48, 0.68) 1% |
-| maps/ice/models/ice_tower.glb | IceTower_blue | ice_blue_albedo.png | 407: (0.88, 0.97, 1) 19%, (0.93, 1, 1) 12%, (0.3, 0.44, 0.8) 4%, (0.72, 0.8, 0.82) 2% |
-| maps/ice/models/ice_tower.glb | IceTower_deep | ice_deep_albedo.png | 202: (0.7, 0.8, 0.98) 44%, (0.93, 1, 1) 24%, (0.3, 0.44, 0.8) 11%, (0.88, 0.97, 1) 1% |
+| maps/ice/models/ice_ground.glb | ice_glow | ice_glow_albedo.png | 20: (0.72, 0.8, 0.9) 50%, (1, 1, 1) 12%, (0.83, 0.88, 0.94) 10%, (0.99, 0.99, 1) 6% |
+| maps/ice/models/ice_ground.glb | ice_icicle | ice_icicle_albedo.png | 93: (0.92, 0.98, 1) 33%, (0.59, 0.62, 0.64) 3%, (0.56, 0.59, 0.61) 3%, (0.6, 0.63, 0.65) 3% |
+| maps/ice/models/ice_ground.glb | ice_lane | ice_lake_albedo.png | 479: (0.68, 0.68, 0.68) 7%, (0.67, 0.67, 0.67) 7%, (0.66, 0.66, 0.66) 6%, (0.69, 0.69, 0.69) 6% |
+| maps/ice/models/ice_ground.glb | ice_snow | ice_snow_albedo.png | 266: (0.72, 0.8, 0.9) 14%, (0.54, 0.57, 0.59) 4%, (0.55, 0.58, 0.6) 3%, (0.59, 0.62, 0.64) 2% |
+| maps/ice/models/ice_roof.glb | ice_roof | ice_roof_albedo.png | 200: (0.07, 0.2, 0.4) 7%, (0.05, 0.16, 0.34) 7%, (0.43, 0.54, 0.64) 4%, (0.1, 0.21, 0.38) 4% |
+| maps/ice/models/ice_roof.glb | ice_icicle | ice_icicle_albedo.png | 63: (0.92, 0.98, 1) 33%, (0.05, 0.16, 0.34) 32%, (0.08, 0.19, 0.36) 2%, (0.09, 0.2, 0.37) 2% |
+| maps/ice/models/ice_roof.glb | ice_sky | ice_snow_albedo.png | 130: (0.82, 0.95, 1) 5%, (0.37, 0.51, 0.7) 2%, (0.4, 0.54, 0.72) 2%, (0.36, 0.5, 0.69) 2% |
+| maps/ice/models/ice_tower.glb | IceTower_blue | ice_blue_albedo.png | 422: (0.88, 0.97, 1) 19%, (0.93, 1, 1) 12%, (0.3, 0.44, 0.8) 4%, (0.72, 0.8, 0.82) 2% |
+| maps/ice/models/ice_tower.glb | IceTower_deep | ice_deep_albedo.png | 200: (0.7, 0.8, 0.98) 33%, (0.93, 1, 1) 31%, (0.3, 0.44, 0.8) 10%, (0.62, 0.72, 0.9) 10% |
 | maps/ice/models/ice_tower.glb | IceTower_floor | ice_blue_albedo.png | 2: (0.8, 0.9, 1) 66%, (0.7, 0.8, 0.98) 33% |
-| maps/ice/models/ice_wall.glb | ice_blue | ice_blue_albedo.png | 396: (0.89, 0.96, 0.99) 3%, (0.9, 0.97, 1) 3%, (0.72, 0.78, 0.8) 2%, (0.88, 0.95, 0.98) 1% |
-| maps/ice/models/ice_wall.glb | ice_deep | ice_deep_albedo.png | 461: (0.72, 0.8, 0.9) 5%, (0.62, 0.67, 0.69) 3%, (0.07, 0.2, 0.4) 3%, (0.63, 0.68, 0.7) 3% |
-| maps/ice/models/ice_wall.glb | ice_glow | ice_glow_albedo.png | 21: (0.72, 0.8, 0.9) 49%, (1, 1, 1) 13%, (0.83, 0.88, 0.94) 9%, (0.99, 0.99, 1) 5% |
-| maps/ice/models/ice_wall.glb | ice_snow | ice_snow_albedo.png | 45: (0.71, 0.76, 0.79) 5%, (0.7, 0.76, 0.78) 5%, (0.72, 0.78, 0.8) 5%, (0.47, 0.57, 0.66) 4% |
-| tower/models/tower.glb | HellRock | hell_rock_albedo.png | 3: (1, 0.47, 0.42) 54%, (0.72, 0.34, 0.3) 44%, (0.57, 0.27, 0.24) 0% |
-| tower/models/tower2.glb | HellRock | hell_rock_albedo.png | 3: (1, 0.47, 0.42) 59%, (0.72, 0.34, 0.3) 39%, (0.57, 0.27, 0.24) 1% |
-| tower/models/tower_arches.glb | HellRock | hell_rock_albedo.png | 3: (1, 0.47, 0.42) 81%, (0.72, 0.34, 0.3) 18%, (0.57, 0.27, 0.24) 0% |
-| tower/models/tower_arches_repaired.glb | HellRock | hell_rock_albedo.png | 3: (1, 0.47, 0.42) 76%, (0.72, 0.34, 0.3) 22%, (0.57, 0.27, 0.24) 0% |
-| tower/models/tower_hollow.glb | HellRock | hell_rock_albedo.png | 3: (1, 0.47, 0.42) 85%, (0.72, 0.34, 0.3) 14%, (0.57, 0.27, 0.24) 0% |
-| tower/models/tower_interior.glb | HellRock.001 | hell_rock_albedo.png | 2: (1, 0.47, 0.42) 78%, (0.72, 0.34, 0.3) 21% |
+| maps/ice/models/ice_tower.glb | IceTower_icicle | ice_icicle_albedo.png | 24: (0.95, 1, 1) 33%, (0.62, 0.72, 0.9) 31%, (0.93, 1, 1) 29%, (0.9, 0.99, 1) 2% |
+| maps/ice/models/ice_wall.glb | ice_blue | ice_blue_albedo.png | 713: (0.82, 0.88, 0.91) 1%, (0.62, 0.67, 0.69) 1%, (0.66, 0.71, 0.73) 1%, (0.61, 0.66, 0.68) 1% |
+| maps/ice/models/ice_wall.glb | ice_deep | ice_deep_albedo.png | 544: (0.5, 0.64, 0.84) 17%, (0.72, 0.8, 0.9) 16%, (1, 1, 1) 6%, (0.07, 0.2, 0.4) 4% |
+| maps/ice/models/ice_wall.glb | ice_glow | ice_glow_albedo.png | 20: (0.72, 0.8, 0.9) 50%, (0.83, 0.88, 0.94) 12%, (1, 1, 1) 11%, (0.99, 0.99, 1) 4% |
+| maps/ice/models/ice_wall.glb | ice_icicle | ice_icicle_albedo.png | 522: (0.92, 0.98, 1) 33%, (0.6, 0.66, 0.7) 0%, (0.64, 0.69, 0.71) 0%, (0.75, 0.81, 0.84) 0% |
+| maps/ice/models/ice_wall.glb | ice_snow | ice_snow_albedo.png | 283: (0.72, 0.8, 0.9) 32%, (0.82, 0.88, 0.91) 1%, (0.8, 0.86, 0.89) 1%, (0.68, 0.68, 0.68) 1% |
+| tower/models/tower.glb | HellRock | hell_rock_albedo.png | 4: (1, 0.47, 0.42) 51%, (0.12, 0.08, 0.13) 44%, (0.64, 1, 1) 3%, (0.04, 0.03, 0.04) 0% |
+| tower/models/tower2.glb | HellRock | hell_rock_albedo.png | 4: (1, 0.47, 0.42) 43%, (0.12, 0.08, 0.13) 39%, (0.64, 1, 1) 15%, (0.04, 0.03, 0.04) 1% |
+| tower/models/tower_arches.glb | HellRock | hell_rock_albedo.png | 4: (1, 0.47, 0.42) 79%, (0.12, 0.08, 0.13) 18%, (0.64, 1, 1) 2%, (0.04, 0.03, 0.04) 0% |
+| tower/models/tower_hollow.glb | HellRock | hell_rock_albedo.png | 4: (1, 0.47, 0.42) 84%, (0.12, 0.08, 0.13) 14%, (0.64, 1, 1) 1%, (0.04, 0.03, 0.04) 0% |
+| tower/models/tower_interior.glb | HellRock.001 | hell_rock_albedo.png | 3: (1, 0.47, 0.42) 57%, (0.12, 0.08, 0.13) 21%, (0.64, 1, 1) 20% |
 
 ## Flat colours: materials with no texture
 
@@ -298,76 +288,58 @@ Up to four commonest colours and the share of vertices wearing each; many colour
 | hub/models/hub_base.glb | Marble_plinth | maps/marble/textures/marble_stone_albedo.png | marble.ase / marble_stone_albedo | (0.828, 0.829, 0.862) | - |
 | hub/models/hub_base.glb | Marble_shade | maps/marble/textures/marble_stone_albedo.png | marble.ase / marble_stone_albedo | (0.227, 0.255, 0.315) | - |
 | hub/models/hub_base.glb | MarbleDark | maps/marble/textures/marble_dark_albedo.png | NOT IN A SHEET | - | - |
-| maps/beach/models/beach_ground.glb | beach_rock | maps/beach/textures/beach_rock_albedo.png | beach.ase / beach_rock_albedo | - | - |
-| maps/beach/models/beach_ground.glb | beach_sand | maps/beach/textures/beach_sand_albedo.png | beach.ase / beach_sand_albedo | - | - |
-| maps/beach/models/beach_island.glb | beach_grass | maps/beach/textures/beach_grass_albedo.png | beach.ase / beach_grass_albedo | - | - |
-| maps/beach/models/beach_island.glb | beach_jungle | maps/beach/textures/beach_jungle_albedo.png | beach.ase / beach_jungle_albedo | - | - |
-| maps/beach/models/beach_island.glb | beach_rock | maps/beach/textures/beach_rock_albedo.png | beach.ase / beach_rock_albedo | - | - |
-| maps/beach/models/beach_island.glb | beach_sand | maps/beach/textures/beach_sand_albedo.png | beach.ase / beach_sand_albedo | - | - |
-| maps/beach/models/beach_palms.glb | beach_bark | maps/beach/textures/beach_bark_albedo.png | beach.ase / beach_bark_albedo | - | - |
-| maps/beach/models/beach_palms.glb | beach_leaf | maps/beach/textures/beach_leaf_albedo.png | beach.ase / beach_leaf_albedo | - | - |
-| maps/beach/models/beach_portal.glb | BeachPortal_deep | maps/beach/textures/beach_rock_albedo.png | beach.ase / beach_rock_albedo | (0.7, 0.68, 0.66) | - |
-| maps/beach/models/beach_portal.glb | BeachPortalSwirl | maps/beach/textures/beach_portal_swirl_albedo.png | beach.ase / beach_portal_swirl_albedo | - | beach_portal_swirl_albedo.png |
-| maps/beach/models/beach_portal.glb | BeachPortal_rock | maps/beach/textures/beach_rock_albedo.png | beach.ase / beach_rock_albedo | - | - |
-| maps/beach/models/beach_portal.glb | BeachPortal_wet | maps/beach/textures/beach_rock_albedo.png | beach.ase / beach_rock_albedo | (0.58, 0.56, 0.54) | - |
-| maps/beach/models/beach_rocks.glb | beach_rock | maps/beach/textures/beach_rock_albedo.png | beach.ase / beach_rock_albedo | - | - |
-| maps/beach/models/beach_water.glb | beach_water | maps/beach/textures/beach_water_albedo.png | beach.ase / beach_water_albedo | - | - |
-| maps/beach/models/beach_yacht.glb | BeachYacht_glass | maps/beach/textures/beach_glass_albedo.png | beach.ase / beach_glass_albedo | - | - |
-| maps/beach/models/beach_yacht.glb | BeachYacht_hull | maps/beach/textures/beach_hull_albedo.png | beach.ase / beach_hull_albedo | - | - |
-| maps/beach/models/beach_yacht.glb | BeachYacht_stripe | maps/beach/textures/beach_hull_albedo.png | beach.ase / beach_hull_albedo | (0.55, 0.03, 0.04) | - |
-| maps/beach/models/beach_yacht.glb | BeachYacht_teak | maps/beach/textures/beach_teak_albedo.png | beach.ase / beach_teak_albedo | - | - |
 | maps/bentham_ring/models/block.glb | HellRock | maps/bentham_ring/textures/hell_rock_albedo.png | hell.ase / hell_rock_albedo | - | - |
 | maps/bentham_ring/models/boulder.glb | HellRock | maps/bentham_ring/textures/hell_rock_albedo.png | hell.ase / hell_rock_albedo | - | - |
-| maps/bentham_ring/models/map_base_cover_s2.glb | HellEmber | maps/bentham_ring/textures/hell_rock_albedo.png | hell.ase / hell_rock_albedo | (0.57, 0.269, 0.239) | - |
-| maps/bentham_ring/models/map_base_cover_s2.glb | HellShade | maps/bentham_ring/textures/hell_rock_albedo.png | hell.ase / hell_rock_albedo | (0.72, 0.34, 0.302) | - |
-| maps/bentham_ring/models/map_base_cover_s4.glb | HellEmber | maps/bentham_ring/textures/hell_rock_albedo.png | hell.ase / hell_rock_albedo | (0.57, 0.269, 0.239) | - |
-| maps/bentham_ring/models/map_base_cover_s4.glb | HellShade | maps/bentham_ring/textures/hell_rock_albedo.png | hell.ase / hell_rock_albedo | (0.72, 0.34, 0.302) | - |
+| maps/bentham_ring/models/map_base_cover_s2.glb | HellEmber | maps/bentham_ring/textures/hell_rock_albedo.png | hell.ase / hell_rock_albedo | (0.036, 0.0296, 0.0361) | - |
+| maps/bentham_ring/models/map_base_cover_s2.glb | HellShade | maps/bentham_ring/textures/hell_rock_albedo.png | hell.ase / hell_rock_albedo | (0.116, 0.0847, 0.13) | - |
+| maps/bentham_ring/models/map_base_cover_s4.glb | HellEmber | maps/bentham_ring/textures/hell_rock_albedo.png | hell.ase / hell_rock_albedo | (0.036, 0.0296, 0.0361) | - |
+| maps/bentham_ring/models/map_base_cover_s4.glb | HellShade | maps/bentham_ring/textures/hell_rock_albedo.png | hell.ase / hell_rock_albedo | (0.116, 0.0847, 0.13) | - |
 | maps/bentham_ring/models/map_base_gate.glb | HellRock.001 | maps/bentham_ring/textures/hell_rock_albedo.png | hell.ase / hell_rock_albedo | (1, 0.472, 0.42) | - |
-| maps/bentham_ring/models/map_base_gate.glb | HellShade.001 | maps/bentham_ring/textures/hell_rock_albedo.png | hell.ase / hell_rock_albedo | (0.72, 0.34, 0.302) | - |
+| maps/bentham_ring/models/map_base_gate.glb | HellShade.001 | maps/bentham_ring/textures/hell_rock_albedo.png | hell.ase / hell_rock_albedo | (0.116, 0.0847, 0.13) | - |
 | maps/bentham_ring/models/map_base_lip013.glb | HellRock | maps/bentham_ring/textures/hell_rock_albedo.png | hell.ase / hell_rock_albedo | (1, 0.472, 0.42) | - |
-| maps/bentham_ring/models/map_base_lip013.glb | HellShade | maps/bentham_ring/textures/hell_rock_albedo.png | hell.ase / hell_rock_albedo | (0.72, 0.34, 0.302) | - |
+| maps/bentham_ring/models/map_base_lip013.glb | HellShade | maps/bentham_ring/textures/hell_rock_albedo.png | hell.ase / hell_rock_albedo | (0.116, 0.0847, 0.13) | - |
 | maps/bentham_ring/models/map_base_lip066.glb | HellRock | maps/bentham_ring/textures/hell_rock_albedo.png | hell.ase / hell_rock_albedo | (1, 0.472, 0.42) | - |
-| maps/bentham_ring/models/map_base_lip066.glb | HellShade | maps/bentham_ring/textures/hell_rock_albedo.png | hell.ase / hell_rock_albedo | (0.72, 0.34, 0.302) | - |
+| maps/bentham_ring/models/map_base_lip066.glb | HellShade | maps/bentham_ring/textures/hell_rock_albedo.png | hell.ase / hell_rock_albedo | (0.116, 0.0847, 0.13) | - |
 | maps/bentham_ring/models/map_base_lip139.glb | HellRock | maps/bentham_ring/textures/hell_rock_albedo.png | hell.ase / hell_rock_albedo | (1, 0.472, 0.42) | - |
-| maps/bentham_ring/models/map_base_lip139.glb | HellShade | maps/bentham_ring/textures/hell_rock_albedo.png | hell.ase / hell_rock_albedo | (0.72, 0.34, 0.302) | - |
+| maps/bentham_ring/models/map_base_lip139.glb | HellShade | maps/bentham_ring/textures/hell_rock_albedo.png | hell.ase / hell_rock_albedo | (0.116, 0.0847, 0.13) | - |
 | maps/bentham_ring/models/map_base_lip204.glb | HellRock | maps/bentham_ring/textures/hell_rock_albedo.png | hell.ase / hell_rock_albedo | (1, 0.472, 0.42) | - |
-| maps/bentham_ring/models/map_base_lip204.glb | HellShade | maps/bentham_ring/textures/hell_rock_albedo.png | hell.ase / hell_rock_albedo | (0.72, 0.34, 0.302) | - |
+| maps/bentham_ring/models/map_base_lip204.glb | HellShade | maps/bentham_ring/textures/hell_rock_albedo.png | hell.ase / hell_rock_albedo | (0.116, 0.0847, 0.13) | - |
 | maps/bentham_ring/models/map_base_lip286.glb | HellRock | maps/bentham_ring/textures/hell_rock_albedo.png | hell.ase / hell_rock_albedo | (1, 0.472, 0.42) | - |
-| maps/bentham_ring/models/map_base_lip286.glb | HellShade | maps/bentham_ring/textures/hell_rock_albedo.png | hell.ase / hell_rock_albedo | (0.72, 0.34, 0.302) | - |
-| maps/bentham_ring/models/map_base_s1.glb | HellEmber | maps/bentham_ring/textures/hell_rock_albedo.png | hell.ase / hell_rock_albedo | (0.57, 0.269, 0.239) | - |
+| maps/bentham_ring/models/map_base_lip286.glb | HellShade | maps/bentham_ring/textures/hell_rock_albedo.png | hell.ase / hell_rock_albedo | (0.116, 0.0847, 0.13) | - |
+| maps/bentham_ring/models/map_base_s1.glb | HellEmber | maps/bentham_ring/textures/hell_rock_albedo.png | hell.ase / hell_rock_albedo | (0.036, 0.0296, 0.0361) | - |
 | maps/bentham_ring/models/map_base_s1.glb | HellGlow | maps/bentham_ring/textures/crack_glow_albedo.png | hell.ase / crack_glow_albedo | - | crack_glow_albedo.png |
 | maps/bentham_ring/models/map_base_s1.glb | LavaSea | maps/bentham_ring/textures/lava_albedo.png | standalone PNG | - | map_base_lava_emissive.png |
 | maps/bentham_ring/models/map_base_s1.glb | HellRock | maps/bentham_ring/textures/hell_rock_albedo.png | hell.ase / hell_rock_albedo | (1, 0.472, 0.42) | - |
-| maps/bentham_ring/models/map_base_s1.glb | HellShade | maps/bentham_ring/textures/hell_rock_albedo.png | hell.ase / hell_rock_albedo | (0.72, 0.34, 0.302) | - |
-| maps/bentham_ring/models/map_base_s2.glb | HellEmber | maps/bentham_ring/textures/hell_rock_albedo.png | hell.ase / hell_rock_albedo | (0.57, 0.269, 0.239) | - |
+| maps/bentham_ring/models/map_base_s1.glb | HellShade | maps/bentham_ring/textures/hell_rock_albedo.png | hell.ase / hell_rock_albedo | (0.116, 0.0847, 0.13) | - |
+| maps/bentham_ring/models/map_base_s2.glb | HellEmber | maps/bentham_ring/textures/hell_rock_albedo.png | hell.ase / hell_rock_albedo | (0.036, 0.0296, 0.0361) | - |
 | maps/bentham_ring/models/map_base_s2.glb | HellGlow | maps/bentham_ring/textures/crack_glow_albedo.png | hell.ase / crack_glow_albedo | - | crack_glow_albedo.png |
 | maps/bentham_ring/models/map_base_s2.glb | LavaSea | maps/bentham_ring/textures/lava_albedo.png | standalone PNG | - | map_base_lava_emissive.png |
 | maps/bentham_ring/models/map_base_s2.glb | LavaRiver | maps/bentham_ring/textures/lava_albedo.png | standalone PNG | - | map_base_lava_emissive.png |
 | maps/bentham_ring/models/map_base_s2.glb | HellRock | maps/bentham_ring/textures/hell_rock_albedo.png | hell.ase / hell_rock_albedo | (1, 0.472, 0.42) | - |
-| maps/bentham_ring/models/map_base_s2.glb | HellShade | maps/bentham_ring/textures/hell_rock_albedo.png | hell.ase / hell_rock_albedo | (0.72, 0.34, 0.302) | - |
+| maps/bentham_ring/models/map_base_s2.glb | HellShade | maps/bentham_ring/textures/hell_rock_albedo.png | hell.ase / hell_rock_albedo | (0.116, 0.0847, 0.13) | - |
 | maps/bentham_ring/models/map_base_s3.glb | LavaCrack | maps/bentham_ring/textures/crack_glow_albedo.png | hell.ase / crack_glow_albedo | - | crack_glow_albedo.png |
-| maps/bentham_ring/models/map_base_s3.glb | HellEmber | maps/bentham_ring/textures/hell_rock_albedo.png | hell.ase / hell_rock_albedo | (0.57, 0.269, 0.239) | - |
+| maps/bentham_ring/models/map_base_s3.glb | HellEmber | maps/bentham_ring/textures/hell_rock_albedo.png | hell.ase / hell_rock_albedo | (0.036, 0.0296, 0.0361) | - |
 | maps/bentham_ring/models/map_base_s3.glb | HellGlow | maps/bentham_ring/textures/crack_glow_albedo.png | hell.ase / crack_glow_albedo | - | crack_glow_albedo.png |
 | maps/bentham_ring/models/map_base_s3.glb | LavaSea | maps/bentham_ring/textures/lava_albedo.png | standalone PNG | - | map_base_lava_emissive.png |
 | maps/bentham_ring/models/map_base_s3.glb | HellRock | maps/bentham_ring/textures/hell_rock_albedo.png | hell.ase / hell_rock_albedo | (1, 0.472, 0.42) | - |
-| maps/bentham_ring/models/map_base_s3.glb | HellShade | maps/bentham_ring/textures/hell_rock_albedo.png | hell.ase / hell_rock_albedo | (0.72, 0.34, 0.302) | - |
+| maps/bentham_ring/models/map_base_s3.glb | HellShade | maps/bentham_ring/textures/hell_rock_albedo.png | hell.ase / hell_rock_albedo | (0.116, 0.0847, 0.13) | - |
 | maps/bentham_ring/models/map_base_s4.glb | LavaCrack | maps/bentham_ring/textures/crack_glow_albedo.png | hell.ase / crack_glow_albedo | - | crack_glow_albedo.png |
-| maps/bentham_ring/models/map_base_s4.glb | HellEmber | maps/bentham_ring/textures/hell_rock_albedo.png | hell.ase / hell_rock_albedo | (0.57, 0.269, 0.239) | - |
+| maps/bentham_ring/models/map_base_s4.glb | HellEmber | maps/bentham_ring/textures/hell_rock_albedo.png | hell.ase / hell_rock_albedo | (0.036, 0.0296, 0.0361) | - |
 | maps/bentham_ring/models/map_base_s4.glb | HellGlow | maps/bentham_ring/textures/crack_glow_albedo.png | hell.ase / crack_glow_albedo | - | crack_glow_albedo.png |
 | maps/bentham_ring/models/map_base_s4.glb | LavaSea | maps/bentham_ring/textures/lava_albedo.png | standalone PNG | - | map_base_lava_emissive.png |
 | maps/bentham_ring/models/map_base_s4.glb | LavaRiver | maps/bentham_ring/textures/lava_albedo.png | standalone PNG | - | map_base_lava_emissive.png |
 | maps/bentham_ring/models/map_base_s4.glb | HellRock | maps/bentham_ring/textures/hell_rock_albedo.png | hell.ase / hell_rock_albedo | (1, 0.472, 0.42) | - |
-| maps/bentham_ring/models/map_base_s4.glb | HellShade | maps/bentham_ring/textures/hell_rock_albedo.png | hell.ase / hell_rock_albedo | (0.72, 0.34, 0.302) | - |
-| maps/bentham_ring/models/map_base_s5.glb | HellEmber | maps/bentham_ring/textures/hell_rock_albedo.png | hell.ase / hell_rock_albedo | (0.57, 0.269, 0.239) | - |
+| maps/bentham_ring/models/map_base_s4.glb | HellShade | maps/bentham_ring/textures/hell_rock_albedo.png | hell.ase / hell_rock_albedo | (0.116, 0.0847, 0.13) | - |
+| maps/bentham_ring/models/map_base_s5.glb | HellEmber | maps/bentham_ring/textures/hell_rock_albedo.png | hell.ase / hell_rock_albedo | (0.036, 0.0296, 0.0361) | - |
 | maps/bentham_ring/models/map_base_s5.glb | HellGlow | maps/bentham_ring/textures/crack_glow_albedo.png | hell.ase / crack_glow_albedo | - | crack_glow_albedo.png |
 | maps/bentham_ring/models/map_base_s5.glb | LavaSea | maps/bentham_ring/textures/lava_albedo.png | standalone PNG | - | map_base_lava_emissive.png |
 | maps/bentham_ring/models/map_base_s5.glb | LavaRiver | maps/bentham_ring/textures/lava_albedo.png | standalone PNG | - | map_base_lava_emissive.png |
 | maps/bentham_ring/models/map_base_s5.glb | HellRock | maps/bentham_ring/textures/hell_rock_albedo.png | hell.ase / hell_rock_albedo | (1, 0.472, 0.42) | - |
-| maps/bentham_ring/models/map_base_s5.glb | HellShade | maps/bentham_ring/textures/hell_rock_albedo.png | hell.ase / hell_rock_albedo | (0.72, 0.34, 0.302) | - |
+| maps/bentham_ring/models/map_base_s5.glb | HellShade | maps/bentham_ring/textures/hell_rock_albedo.png | hell.ase / hell_rock_albedo | (0.116, 0.0847, 0.13) | - |
 | maps/bentham_ring/models/portal.glb | HellRock | maps/bentham_ring/textures/hell_rock_albedo.png | hell.ase / hell_rock_albedo | - | - |
 | maps/bentham_ring/models/portal.glb | PortalGlow | maps/bentham_ring/textures/hell_props_albedo.png | hell.ase / hell_props_albedo | - | hell_props_albedo.png |
 | maps/bentham_ring/models/rock_bars.glb | HellRock | maps/bentham_ring/textures/hell_rock_albedo.png | hell.ase / hell_rock_albedo | (1, 0.472, 0.42) | - |
-| maps/bentham_ring/models/rock_bars.glb | HellShade | maps/bentham_ring/textures/hell_rock_albedo.png | hell.ase / hell_rock_albedo | (0.72, 0.34, 0.302) | - |
+| maps/bentham_ring/models/rock_bars.glb | HellShade | maps/bentham_ring/textures/hell_rock_albedo.png | hell.ase / hell_rock_albedo | (0.116, 0.0847, 0.13) | - |
 | maps/bentham_ring/models/rock_wall.glb | HellRock | maps/bentham_ring/textures/hell_rock_albedo.png | hell.ase / hell_rock_albedo | - | - |
 | maps/bentham_ring/models/slab.glb | HellRock | maps/bentham_ring/textures/hell_rock_albedo.png | hell.ase / hell_rock_albedo | - | - |
 | maps/bentham_ring/models/spire.glb | HellRock | maps/bentham_ring/textures/hell_rock_albedo.png | hell.ase / hell_rock_albedo | - | - |
@@ -427,9 +399,6 @@ Up to four commonest colours and the share of vertices wearing each; many colour
 | maps/forest/models/forest_tree_prop_b.glb | ForestTreeProp_leaf | maps/forest/textures/forest_sun_albedo.png | forest.ase / forest_sun_albedo | - | - |
 | maps/forest/models/forest_tree_prop_c.glb | ForestTreeProp_bark | maps/forest/textures/forest_bark_albedo.png | forest.ase / forest_bark_albedo | (0.974, 0.978, 0.978) | - |
 | maps/forest/models/forest_tree_prop_c.glb | ForestTreeProp_leaf | maps/forest/textures/forest_sun_albedo.png | forest.ase / forest_sun_albedo | - | - |
-| maps/ice/models/ice_block.glb | ice_blue | maps/ice/textures/ice_blue_albedo.png | ice.ase / ice_blue_albedo | (0.58, 0.74, 0.96) | - |
-| maps/ice/models/ice_block.glb | ice_deep | maps/ice/textures/ice_deep_albedo.png | ice.ase / ice_deep_albedo | - | - |
-| maps/ice/models/ice_block.glb | ice_glow | maps/ice/textures/ice_glow_albedo.png | ice.ase / ice_glow_albedo | - | ice_glow_albedo.png |
 | maps/ice/models/ice_gate.glb | ice_blue | maps/ice/textures/ice_blue_albedo.png | ice.ase / ice_blue_albedo | (0.58, 0.74, 0.96) | - |
 | maps/ice/models/ice_gate.glb | ice_deep | maps/ice/textures/ice_deep_albedo.png | ice.ase / ice_deep_albedo | - | - |
 | maps/ice/models/ice_gate.glb | ice_snow | maps/ice/textures/ice_snow_albedo.png | ice.ase / ice_snow_albedo | (0.8, 0.88, 0.97) | - |
@@ -437,27 +406,32 @@ Up to four commonest colours and the share of vertices wearing each; many colour
 | maps/ice/models/ice_ground.glb | ice_deep | maps/ice/textures/ice_deep_albedo.png | ice.ase / ice_deep_albedo | - | - |
 | maps/ice/models/ice_ground.glb | ice_floor | maps/ice/textures/ice_deep_albedo.png | ice.ase / ice_deep_albedo | (0.6, 0.7, 0.86) | - |
 | maps/ice/models/ice_ground.glb | ice_glow | maps/ice/textures/ice_glow_albedo.png | ice.ase / ice_glow_albedo | - | ice_glow_albedo.png |
+| maps/ice/models/ice_ground.glb | ice_icicle | maps/ice/textures/ice_icicle_albedo.png | ice.ase / ice_icicle_albedo | - | - |
 | maps/ice/models/ice_ground.glb | ice_lane | maps/ice/textures/ice_lake_albedo.png | ice.ase / ice_lake_albedo | (0.55, 0.72, 0.92) | - |
 | maps/ice/models/ice_ground.glb | ice_snow | maps/ice/textures/ice_snow_albedo.png | ice.ase / ice_snow_albedo | (0.8, 0.88, 0.97) | - |
 | maps/ice/models/ice_portal.glb | IcePortal_blue | maps/ice/textures/ice_blue_albedo.png | ice.ase / ice_blue_albedo | - | - |
 | maps/ice/models/ice_portal.glb | IcePortal_deep | maps/ice/textures/ice_deep_albedo.png | ice.ase / ice_deep_albedo | - | - |
 | maps/ice/models/ice_portal.glb | IcePortalSwirl | maps/ice/textures/ice_portal_swirl_albedo.png | ice.ase / ice_portal_swirl_albedo | - | ice_portal_swirl_albedo.png |
+| maps/ice/models/ice_portal.glb | IcePortal_icicle | maps/ice/textures/ice_icicle_albedo.png | ice.ase / ice_icicle_albedo | - | - |
 | maps/ice/models/ice_portal.glb | IcePortal_snow | maps/ice/textures/ice_snow_albedo.png | ice.ase / ice_snow_albedo | - | - |
 | maps/ice/models/ice_roof.glb | ice_roof | maps/ice/textures/ice_roof_albedo.png | ice.ase / ice_roof_albedo | - | - |
+| maps/ice/models/ice_roof.glb | ice_icicle | maps/ice/textures/ice_icicle_albedo.png | ice.ase / ice_icicle_albedo | - | - |
 | maps/ice/models/ice_roof.glb | ice_sky | maps/ice/textures/ice_snow_albedo.png | ice.ase / ice_snow_albedo | - | - |
 | maps/ice/models/ice_tower.glb | IceTower_blue | maps/ice/textures/ice_blue_albedo.png | ice.ase / ice_blue_albedo | - | - |
 | maps/ice/models/ice_tower.glb | IceTower_deep | maps/ice/textures/ice_deep_albedo.png | ice.ase / ice_deep_albedo | - | - |
 | maps/ice/models/ice_tower.glb | IceTower_floor | maps/ice/textures/ice_blue_albedo.png | ice.ase / ice_blue_albedo | - | - |
+| maps/ice/models/ice_tower.glb | IceTower_icicle | maps/ice/textures/ice_icicle_albedo.png | ice.ase / ice_icicle_albedo | - | - |
 | maps/ice/models/ice_tower.glb | IceTower_snow | maps/ice/textures/ice_snow_albedo.png | ice.ase / ice_snow_albedo | - | - |
 | maps/ice/models/ice_wall.glb | ice_blue | maps/ice/textures/ice_blue_albedo.png | ice.ase / ice_blue_albedo | (0.58, 0.74, 0.96) | - |
 | maps/ice/models/ice_wall.glb | ice_deep | maps/ice/textures/ice_deep_albedo.png | ice.ase / ice_deep_albedo | - | - |
 | maps/ice/models/ice_wall.glb | ice_glow | maps/ice/textures/ice_glow_albedo.png | ice.ase / ice_glow_albedo | - | ice_glow_albedo.png |
+| maps/ice/models/ice_wall.glb | ice_icicle | maps/ice/textures/ice_icicle_albedo.png | ice.ase / ice_icicle_albedo | - | - |
 | maps/ice/models/ice_wall.glb | ice_snow | maps/ice/textures/ice_snow_albedo.png | ice.ase / ice_snow_albedo | (0.8, 0.88, 0.97) | - |
-| maps/marble/models/marble.glb | marble_band | maps/marble/textures/marble_brick_albedo.png | marble.ase / marble_brick_albedo | - | - |
+| maps/marble/models/marble.glb | marble_band | maps/marble/textures/marble_column_albedo.png | marble.ase / marble_column_albedo | - | - |
 | maps/marble/models/marble.glb | marble_cellin | maps/marble/textures/marble_brick_albedo.png | marble.ase / marble_brick_albedo | (0.028, 0.0329, 0.0643) | - |
-| maps/marble/models/marble.glb | marble_column | maps/marble/textures/marble_brick_albedo.png | marble.ase / marble_brick_albedo | - | - |
+| maps/marble/models/marble.glb | marble_column | maps/marble/textures/marble_column_albedo.png | marble.ase / marble_column_albedo | - | - |
 | maps/marble/models/marble.glb | marble_dome | maps/marble/textures/marble_triangle_albedo.png | marble.ase / marble_triangle_albedo | - | - |
-| maps/marble/models/marble.glb | marble_field | maps/marble/textures/marble_pit_albedo.png | marble.ase / marble_pit_albedo | - | - |
+| maps/marble/models/marble.glb | marble_field | maps/marble/textures/marble_stone_albedo.png | marble.ase / marble_stone_albedo | - | - |
 | maps/marble/models/marble.glb | marble_floor | maps/marble/textures/marble_floor_albedo.png | marble.ase / marble_floor_albedo | - | - |
 | maps/marble/models/marble.glb | marble_frieze | maps/marble/textures/marble_stone_albedo.png | marble.ase / marble_stone_albedo | - | - |
 | maps/marble/models/marble.glb | marble_iron | maps/marble/textures/marble_stone_albedo.png | marble.ase / marble_stone_albedo | (0.0366, 0.0499, 0.204) | - |
@@ -466,34 +440,30 @@ Up to four commonest colours and the share of vertices wearing each; many colour
 | maps/marble/models/marble.glb | marble_shade | maps/marble/textures/marble_brick_albedo.png | marble.ase / marble_brick_albedo | (0.85, 0.85, 0.85) | - |
 | maps/marble/models/marble.glb | marble_spike | maps/marble/textures/marble_stone_albedo.png | marble.ase / marble_stone_albedo | - | - |
 | maps/marble/models/marble.glb | marble_vault | maps/marble/textures/marble_stone_albedo.png | marble.ase / marble_stone_albedo | - | - |
-| maps/marble/models/marble_arch.glb | Marble_band | maps/marble/textures/marble_brick_albedo.png | marble.ase / marble_brick_albedo | - | - |
-| maps/marble/models/marble_arch.glb | Marble_column | maps/marble/textures/marble_brick_albedo.png | marble.ase / marble_brick_albedo | - | - |
 | maps/marble/models/marble_arch.glb | Marble_marble | maps/marble/textures/marble_brick_albedo.png | marble.ase / marble_brick_albedo | - | - |
 | maps/marble/models/marble_arch.glb | Marble_marble2 | maps/marble/textures/marble_brick_albedo.png | marble.ase / marble_brick_albedo | (0.794, 0.792, 0.815) | - |
 | maps/marble/models/marble_arch.glb | Marble_plinth | maps/marble/textures/marble_brick_albedo.png | marble.ase / marble_brick_albedo | (0.828, 0.829, 0.862) | - |
 | maps/marble/models/marble_arch.glb | Marble_shade | maps/marble/textures/marble_brick_albedo.png | marble.ase / marble_brick_albedo | (0.85, 0.85, 0.85) | - |
-| maps/marble/models/marble_bars.glb | marble_bars_band | maps/marble/textures/marble_brick_albedo.png | marble.ase / marble_brick_albedo | - | - |
-| maps/marble/models/marble_bars.glb | marble_bars_column | maps/marble/textures/marble_brick_albedo.png | marble.ase / marble_brick_albedo | - | - |
+| maps/marble/models/marble_arch.glb | Marble_column | maps/marble/textures/marble_column_albedo.png | marble.ase / marble_column_albedo | - | - |
+| maps/marble/models/marble_bars.glb | marble_bars_band | maps/marble/textures/marble_column_albedo.png | marble.ase / marble_column_albedo | - | - |
+| maps/marble/models/marble_bars.glb | marble_bars_column | maps/marble/textures/marble_column_albedo.png | marble.ase / marble_column_albedo | - | - |
 | maps/marble/models/marble_bars.glb | marble_bars_iron | maps/marble/textures/marble_stone_albedo.png | marble.ase / marble_stone_albedo | (0.0366, 0.0499, 0.204) | - |
 | maps/marble/models/marble_bars.glb | marble_bars_marble | maps/marble/textures/marble_brick_albedo.png | marble.ase / marble_brick_albedo | - | - |
 | maps/marble/models/marble_bars.glb | marble_bars_marble2 | maps/marble/textures/marble_brick_albedo.png | marble.ase / marble_brick_albedo | (0.794, 0.792, 0.815) | - |
 | maps/marble/models/marble_bars.glb | marble_bars_plinth | maps/marble/textures/marble_brick_albedo.png | marble.ase / marble_brick_albedo | (0.828, 0.829, 0.862) | - |
 | maps/marble/models/marble_bars.glb | marble_bars_shade | maps/marble/textures/marble_brick_albedo.png | marble.ase / marble_brick_albedo | (0.85, 0.85, 0.85) | - |
-| maps/marble/models/marble_column.glb | Marble_band | maps/marble/textures/marble_brick_albedo.png | marble.ase / marble_brick_albedo | - | - |
-| maps/marble/models/marble_column.glb | Marble_column | maps/marble/textures/marble_brick_albedo.png | marble.ase / marble_brick_albedo | - | - |
 | maps/marble/models/marble_column.glb | Marble_plinth | maps/marble/textures/marble_brick_albedo.png | marble.ase / marble_brick_albedo | (0.828, 0.829, 0.862) | - |
 | maps/marble/models/marble_column.glb | Marble_shade | maps/marble/textures/marble_brick_albedo.png | marble.ase / marble_brick_albedo | (0.85, 0.85, 0.85) | - |
-| maps/marble/models/marble_column_broken.glb | Marble_band | maps/marble/textures/marble_brick_albedo.png | marble.ase / marble_brick_albedo | - | - |
-| maps/marble/models/marble_column_broken.glb | Marble_column | maps/marble/textures/marble_brick_albedo.png | marble.ase / marble_brick_albedo | - | - |
+| maps/marble/models/marble_column.glb | Marble_column | maps/marble/textures/marble_column_albedo.png | marble.ase / marble_column_albedo | - | - |
 | maps/marble/models/marble_column_broken.glb | Marble_plinth | maps/marble/textures/marble_brick_albedo.png | marble.ase / marble_brick_albedo | (0.828, 0.829, 0.862) | - |
 | maps/marble/models/marble_column_broken.glb | Marble_shade | maps/marble/textures/marble_brick_albedo.png | marble.ase / marble_brick_albedo | (0.85, 0.85, 0.85) | - |
+| maps/marble/models/marble_column_broken.glb | Marble_column | maps/marble/textures/marble_column_albedo.png | marble.ase / marble_column_albedo | - | - |
 | maps/marble/models/marble_column_broken.glb | Marble_stone | maps/marble/textures/marble_stone_albedo.png | marble.ase / marble_stone_albedo | - | - |
-| maps/marble/models/marble_portal.glb | Marble_band | maps/marble/textures/marble_brick_albedo.png | marble.ase / marble_brick_albedo | - | - |
-| maps/marble/models/marble_portal.glb | Marble_column | maps/marble/textures/marble_brick_albedo.png | marble.ase / marble_brick_albedo | - | - |
 | maps/marble/models/marble_portal.glb | Marble_marble | maps/marble/textures/marble_brick_albedo.png | marble.ase / marble_brick_albedo | - | - |
 | maps/marble/models/marble_portal.glb | Marble_marble2 | maps/marble/textures/marble_brick_albedo.png | marble.ase / marble_brick_albedo | (0.794, 0.792, 0.815) | - |
 | maps/marble/models/marble_portal.glb | Marble_plinth | maps/marble/textures/marble_brick_albedo.png | marble.ase / marble_brick_albedo | (0.828, 0.829, 0.862) | - |
 | maps/marble/models/marble_portal.glb | Marble_shade | maps/marble/textures/marble_brick_albedo.png | marble.ase / marble_brick_albedo | (0.85, 0.85, 0.85) | - |
+| maps/marble/models/marble_portal.glb | Marble_column | maps/marble/textures/marble_column_albedo.png | marble.ase / marble_column_albedo | - | - |
 | maps/marble/models/marble_portal.glb | MarbleGlow | maps/marble/textures/marble_portal_swirl_albedo.png | marble.ase / marble_portal_swirl_albedo | - | marble_portal_swirl_albedo.png |
 | maps/marble/models/marble_spikes.glb | MarbleSpikes_plinth | maps/marble/textures/marble_brick_albedo.png | marble.ase / marble_brick_albedo | (0.828, 0.829, 0.862) | - |
 | maps/marble/models/marble_spikes.glb | MarbleSpikes_shade | maps/marble/textures/marble_brick_albedo.png | marble.ase / marble_brick_albedo | (0.85, 0.85, 0.85) | - |
@@ -501,10 +471,10 @@ Up to four commonest colours and the share of vertices wearing each; many colour
 | maps/marble/models/marble_spikes_strip.glb | MarbleSpikes_plinth | maps/marble/textures/marble_brick_albedo.png | marble.ase / marble_brick_albedo | (0.828, 0.829, 0.862) | - |
 | maps/marble/models/marble_spikes_strip.glb | MarbleSpikes_shade | maps/marble/textures/marble_brick_albedo.png | marble.ase / marble_brick_albedo | (0.85, 0.85, 0.85) | - |
 | maps/marble/models/marble_spikes_strip.glb | MarbleSpikes_stone | maps/marble/textures/marble_stone_albedo.png | marble.ase / marble_stone_albedo | - | - |
-| maps/marble/models/marble_tower.glb | marble_tower_band | maps/marble/textures/marble_brick_albedo.png | marble.ase / marble_brick_albedo | - | - |
-| maps/marble/models/marble_tower.glb | marble_tower_coffer | maps/marble/textures/marble_tower_albedo.png | marble.ase / marble_tower_albedo | - | - |
-| maps/marble/models/marble_tower.glb | marble_tower_column | maps/marble/textures/marble_brick_albedo.png | marble.ase / marble_brick_albedo | - | - |
-| maps/marble/models/marble_tower.glb | marble_tower_dome | maps/marble/textures/marble_tower_albedo.png | marble.ase / marble_tower_albedo | - | - |
+| maps/marble/models/marble_tower.glb | marble_tower_band | maps/marble/textures/marble_column_albedo.png | marble.ase / marble_column_albedo | - | - |
+| maps/marble/models/marble_tower.glb | marble_tower_coffer | maps/marble/textures/marble_stone_albedo.png | marble.ase / marble_stone_albedo | - | - |
+| maps/marble/models/marble_tower.glb | marble_tower_column | maps/marble/textures/marble_column_albedo.png | marble.ase / marble_column_albedo | - | - |
+| maps/marble/models/marble_tower.glb | marble_tower_dome | maps/marble/textures/marble_brick_albedo.png | marble.ase / marble_brick_albedo | (0.673, 0.549, 0.492) | - |
 | maps/marble/models/marble_tower.glb | marble_tower_lamp_glow | none | - | (1, 0.9, 0.66) | - |
 | maps/marble/models/marble_tower.glb | marble_tower_floor | maps/marble/textures/marble_floor_albedo.png | marble.ase / marble_floor_albedo | - | - |
 | maps/marble/models/marble_tower.glb | marble_tower_iron | maps/marble/textures/marble_stone_albedo.png | marble.ase / marble_stone_albedo | (0.0366, 0.0499, 0.204) | - |
@@ -512,24 +482,23 @@ Up to four commonest colours and the share of vertices wearing each; many colour
 | maps/marble/models/marble_tower.glb | marble_tower_plain | maps/marble/textures/marble_stone_albedo.png | marble.ase / marble_stone_albedo | - | - |
 | maps/marble/models/marble_tower.glb | marble_tower_plinth | maps/marble/textures/marble_brick_albedo.png | marble.ase / marble_brick_albedo | (0.828, 0.829, 0.862) | - |
 | maps/marble/models/marble_tower.glb | marble_tower_shade | maps/marble/textures/marble_brick_albedo.png | marble.ase / marble_brick_albedo | (0.85, 0.85, 0.85) | - |
-| maps/marble/models/marble_tower.glb | marble_tower_stone | maps/marble/textures/marble_tower_albedo.png | marble.ase / marble_tower_albedo | - | - |
+| maps/marble/models/marble_tower.glb | marble_tower_stone | maps/marble/textures/marble_brick_albedo.png | marble.ase / marble_brick_albedo | (0.673, 0.549, 0.492) | - |
 | props/models/speed_orb.glb | SpeedOrb | props/textures/speed_orb_albedo.png | props.ase / speed_orb_albedo | - | speed_orb_albedo.png |
 | tower/models/eye.glb | M_Iris | tower/textures/eye_iris_albedo.png | eye.ase / eye_iris_albedo | - | eye_iris_emissive.png |
 | tower/models/eye.glb | M_Pupil | tower/textures/eye_pupil_albedo.png | eye.ase / eye_pupil_albedo | - | - |
 | tower/models/eye.glb | M_Sclera | tower/textures/eye_sclera_albedo.png | eye.ase / eye_sclera_albedo | - | - |
-| tower/models/tower.glb | HellRock | maps/bentham_ring/textures/hell_rock_albedo.png | hell.ase / hell_rock_albedo | (1, 0.471, 0.42) | - |
-| tower/models/tower2.glb | HellRock | maps/bentham_ring/textures/hell_rock_albedo.png | hell.ase / hell_rock_albedo | (1, 0.471, 0.42) | - |
-| tower/models/tower_arches.glb | HellRock | maps/bentham_ring/textures/hell_rock_albedo.png | hell.ase / hell_rock_albedo | (1, 0.471, 0.42) | - |
-| tower/models/tower_arches_repaired.glb | HellRock | maps/bentham_ring/textures/hell_rock_albedo.png | hell.ase / hell_rock_albedo | (1, 0.471, 0.42) | - |
-| tower/models/tower_hollow.glb | HellRock | maps/bentham_ring/textures/hell_rock_albedo.png | hell.ase / hell_rock_albedo | (1, 0.471, 0.42) | - |
-| tower/models/tower_interior.glb | HellRock.001 | maps/bentham_ring/textures/hell_rock_albedo.png | hell.ase / hell_rock_albedo | (1, 0.471, 0.42) | - |
+| tower/models/tower.glb | HellRock | maps/bentham_ring/textures/hell_rock_albedo.png | hell.ase / hell_rock_albedo | - | - |
+| tower/models/tower2.glb | HellRock | maps/bentham_ring/textures/hell_rock_albedo.png | hell.ase / hell_rock_albedo | - | - |
+| tower/models/tower_arches.glb | HellRock | maps/bentham_ring/textures/hell_rock_albedo.png | hell.ase / hell_rock_albedo | - | - |
+| tower/models/tower_hollow.glb | HellRock | maps/bentham_ring/textures/hell_rock_albedo.png | hell.ase / hell_rock_albedo | - | - |
+| tower/models/tower_interior.glb | HellRock.001 | maps/bentham_ring/textures/hell_rock_albedo.png | hell.ase / hell_rock_albedo | - | - |
 | weapons/models/rifle.glb | RifleWarden | weapons/textures/rifle_hell_albedo.png | rifle.ase / rifle_hell_albedo | - | - |
 | weapons/models/rifle_lowpoly.glb | RifleWarden | weapons/textures/rifle_hell_albedo.png | rifle.ase / rifle_hell_albedo | - | - |
 | weapons/models/rifle_n64.glb | RifleSide | weapons/textures/rifle_side_albedo.png | rifle.ase / rifle_side_albedo | - | - |
 
 ## Check
 
-- Materials: 246 in 71 models; 242 textured, 4 flat colour.
-- Textured materials with a multiplier other than white: 114 (33 distinct texture x multiplier).
-- Live textures: 52; missing or in no sheet (the three standalone PNGs aside): 5.
-- Drawn PNGs nothing uses: characters/textures/prisoner_sheet.png, characters/textures/prisoner_uv_guide.png, maps/ice/textures/ice_icicle_albedo.png, maps/marble/textures/marble_column_albedo.png, weapons/textures/rifle_metal_albedo.png, weapons/textures/rifle_wood_albedo.png.
+- Materials: 224 in 61 models; 217 textured, 7 flat colour.
+- Textured materials with a multiplier other than white: 106 (31 distinct texture x multiplier).
+- Live textures: 33; missing or in no sheet (the three standalone PNGs aside): 4.
+- Drawn PNGs nothing uses: characters/textures/prisoner_sheet.png, characters/textures/prisoner_uv_guide.png.
