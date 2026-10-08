@@ -13,8 +13,8 @@ the scene's markers (`pol(bearing, r, z)`); the mouth faces bearing 0.
 2. Lap: sand at y 23.0, lane r 68.5 from 60 to 300 deg (287 m, map 1's 299 m); start and portal at the
    jetty tips, a rock knoll beyond each. The mouth spans the other 120 deg.
 3. Shore: waterline r 63.5 (wandering 0.8), 8 to 14 m of wadeable shallows, ending in a drop-off ledge exactly
-   at the death line (`LEDGE` in `beach_build.py`: the shelf eases to 1.4 m, falls to 3.4 m over 0.7 m, and the
-   water turns deep there; `LEDGE = False` and a rebuild restores the soft slope, or revert 7362728f). KillBox: roof 1.6 m under the surface (y 21.0), 10 to 16 m out from the waterline past the shallows, r 600: the bay and the open sea are the pit.
+   at the death line (`LEDGE` in `beach_build.py`: the shelf eases to 1.4 m, falls to 3.4 m over 0.7 m, showing through
+   the water's soft gradient, no line drawn on it; `LEDGE = False` and a rebuild restores the soft slope, or revert 7362728f). KillBox: roof 1.6 m under the surface (y 21.0), 10 to 16 m out from the waterline past the shallows, r 600: the bay and the open sea are the pit.
 4. Wall: foot r 74.1, 10.6 m of sand from the waterline. Two courses of stones (each its own size, lean,
    broken faces and tone, darker and warmer at the foot) on a low core; tops 1.6..2.2 m; the island's ground behind sits at 1.55 m.
    Collider: a sheer face 3.4 m tall just in front of the stones.

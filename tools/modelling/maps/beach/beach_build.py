@@ -642,18 +642,18 @@ class Sculpt(object):
 # =============================================================================
 
 def sea_col(b, r, rocks=()):
-    """The water's baked look at (b, r): (linear colour, alpha, foam ring round rocks)."""
+    """The water's baked look at (b, r): (linear colour, alpha, foam ring round rocks). It reads the soft bed,
+    not the drop-off's ledge: the ledge shows through the water, never as a line drawn on it."""
+    global LEDGE
+    keep, LEDGE = LEDGE, False
     depth = WATER_Z - ground_z(b, r)
+    LEDGE = keep
     if r > 90.0 and depth > 8.5:       # the open sea reads deep all round, whatever sank where
         depth = 14.0
     d = max(depth, 0.0)
     col = lerp3(SEA_SHALLOW, SEA_TURQ, smooth((d - 0.05) / 1.05))
     x = pol(b, r, 0.0)[0]
     blue = max(smooth((d - 2.2) / 9.0), smooth((x + 36.0) / 44.0) * smooth((d - 0.8) / 1.4))
-    kd = kill_dist(b) if LEDGE else None
-    if kd is not None:                                        # the drop-off: deep colour starts at the ledge
-        u = (wl(b) - r) - kd
-        blue = max(blue, 0.8 * smooth((u + 0.2) / 0.9))
     col = lerp3(col, SEA_DEEP, blue)                          # deep: a 44 m fade, full 8 m mouth-side of the yacht
     col = lerp3(col, SEA_OPEN, smooth((r - 110.0) / 590.0))
     far = smooth((r - SKY_FADE[0]) / (SKY_FADE[1] - SKY_FADE[0])) ** 1.4
