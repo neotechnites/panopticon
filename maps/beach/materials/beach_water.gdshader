@@ -14,8 +14,8 @@ uniform sampler2D foam_texture : filter_linear_mipmap, repeat_enable;
 uniform sampler2D screen : hint_screen_texture, filter_linear_mipmap;   // the bed seen through the water, as Sunshine did
 
 group_uniforms colours;
-uniform vec3 shallow_color : source_color = vec3(0.36, 0.9, 0.84);    // refs: Emerald 99,203,189; Gelato 44,198,186
-uniform vec3 turquoise_color : source_color = vec3(0.06, 0.78, 0.76);
+uniform vec3 shallow_color : source_color = vec3(0.3, 0.97, 0.9);    // refs: Emerald 99,203,189; Gelato 44,198,186
+uniform vec3 turquoise_color : source_color = vec3(0.02, 0.86, 0.84);
 uniform vec3 pit_color : source_color = vec3(0.0, 0.47, 0.6);
 uniform vec3 open_color : source_color = vec3(0.0, 0.56, 0.8);
 uniform vec3 sky_top : source_color = vec3(0.26, 0.63, 1.0);
