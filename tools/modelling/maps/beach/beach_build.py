@@ -91,8 +91,8 @@ HILLS = ((180.0, 360.0, 78.0, 150.0), (143.0, 300.0, 52.0, 110.0), (216.0, 430.0
          (121.0, 255.0, 34.0, 80.0), (246.0, 290.0, 46.0, 95.0), (166.0, 570.0, 72.0, 200.0),
          (198.0, 205.0, 24.0, 70.0), (266.0, 370.0, 40.0, 120.0), (100.0, 400.0, 44.0, 130.0),
          (232.0, 620.0, 90.0, 220.0))   # (bearing, r, height, reach)
-RIDGES = (20.0, 95.0)       # ridged noise over the hills: metres, wavelength
-CROWN = (7.0, 4.4, 150.0)   # the canopy's crowns: cell metres near the beach, crown height, r where cells double
+RIDGES = (0.0, 95.0)        # no ridged noise: rolling cartoon hills
+CROWN = (11.0, 6.5, 150.0)  # the canopy's crowns: big round blobs: cell metres, crown height, r where cells double
 
 # -- the jetty heads: a rock knoll where the sand ends, beyond the start and the portal
 HEAD_S = RUN_S + 8.5        # s of the knoll's top
@@ -132,14 +132,27 @@ PALM_SAND = 6               # clusters on the sand, at the wall's foot
 PALM_SLOPE = 22             # single palms standing out of the canopy on the lower slopes
 PALM_H = (7.0, 12.0)
 PALM_SAND_H = (6.5, 9.5)
-TRUNK_R = (0.23, 0.16)      # base and top radius
-TRUNK_SEG = 0.85            # metres a trunk segment rises
-FRONDS = (9, 11)
-FROND_L = (3.8, 5.2)
-FROND_W = 0.52              # half width at the widest
+TRUNK_R = (0.42, 0.28)      # base and top radius: chunky, cartoon
+TRUNK_SEG = 1.15            # metres a trunk segment rises: fat, few rings
+FRONDS = (7, 8)
+FROND_L = (5.0, 6.6)
+FROND_W = 0.95              # half width at the widest: bold, simple blades
 
 TWO_PI = 2.0 * math.pi
 INFO = {}
+
+# -- the palette: a few deliberate steps per material, as the forest and hell maps (stylized, not gradients)
+PAL_SAND = ((1.0, 1.0, 1.0), (0.95, 0.93, 0.88), (0.86, 0.83, 0.77))          # dry, damp, the wall's foot
+PAL_GRASS = ((0.4, 0.7, 0.28), (0.5, 0.8, 0.33))
+PAL_JUNGLE = ((0.17, 0.4, 0.15), (0.26, 0.55, 0.2), (0.36, 0.68, 0.24), (0.5, 0.8, 0.3))   # shadow, mid, lit, crest
+PAL_HAZE = ((0.42, 0.62, 0.48), (0.55, 0.74, 0.74))                                  # two steps of distance haze
+PAL_ROCK = ((0.62, 0.56, 0.48), (0.8, 0.76, 0.69), (0.97, 0.95, 0.9))               # foot, flank, crown
+PAL_FROND = ((0.82, 0.92, 0.7), (1.0, 1.0, 1.0))                                     # under the crown, lit
+
+
+def step(v, n):
+    """v in 0..1 to one of n flat steps (0..n-1)."""
+    return min(n - 1, max(0, int(v * n)))
 
 # -- the water's baked look (GameCube style: per-vertex colour and alpha, linear values; beach_water.gdshader)
 SEA_SHALLOW = (0.36, 0.955, 0.82)       # teal, carrying the warmth the sand gave it when see-through
@@ -233,7 +246,7 @@ def hills(x, y):
     for b, r, hh, sp in HILLS:
         px, py, _z = pol(b, r, 0.0)
         d = math.hypot(x - px, y - py) / sp
-        h = max(h, hh * bell(d * 0.85) ** 0.8) + 0.25 * hh * bell(d * 0.6)
+        h = max(h, hh * bell(d * 0.8) ** 0.55) + 0.2 * hh * bell(d * 0.6)     # round domes
     ridge = 1.0 - abs(fbm(x / RIDGES[1], y / RIDGES[1], SEED + 9, 3))
     return h + RIDGES[0] * ridge * ridge * ramp(h, 4.0, 30.0)
 
@@ -250,7 +263,7 @@ def canopy(x, y):
             fy = (j + 0.2 + 0.6 * h2(i, j, SEED + 61)) * cell
             rad = cell * (0.62 + 0.3 * h2(i, j, SEED + 62))
             best = max(best, 1.0 - (math.hypot(x - fx, y - fy) / rad) ** 2)
-    return CROWN[1] * (cell / CROWN[0]) ** 0.5 * max(best, 0.0) ** 0.55, max(best, 0.0)
+    return CROWN[1] * (cell / CROWN[0]) ** 0.5 * max(best, 0.0) ** 0.4, max(best, 0.0)
 
 
 def jungle_mask(x, y, d):
@@ -394,26 +407,27 @@ def _jb(b, k, amp):
 
 
 def land_col(p):
-    """Grass near the wall; canopy beyond in patches of three greens, crowns lit on top and dark between,
-    valleys darker and ridges lighter; haze far off."""
+    """Grass near the wall; canopy beyond in flat palette steps: crowns lit on top and in shadow between,
+    valleys a step darker, ridges a step lighter; two steps of haze far off."""
     x, y = p[0], p[1]
     b, r = bearing_of(p), math.hypot(x, y)
     d = r - top_r(b)
     jm = jungle_mask(x, y, d)
-    t = 0.5 + 0.5 * fbm(x / 70.0, y / 70.0, SEED + 33, 3)
-    jungle = lerp3(JUNGLE_VC[0], JUNGLE_VC[1], ramp(t, 0.25, 0.5)) if t < 0.5 else \
-        lerp3(JUNGLE_VC[1], JUNGLE_VC[2], ramp(t, 0.55, 0.8))
-    c = lerp3(GRASS_VC, jungle, jm)
-    if jm > 0.0:
+    g = PAL_GRASS[step(0.5 + 0.5 * fbm(x / 24.0, y / 24.0, SEED + 33, 2), 2)]
+    if jm > 0.5:
         sh = canopy(x, y)[1]
         h0 = hills(x, y)
         rv = h0 - 0.25 * (hills(x + 18.0, y) + hills(x - 18.0, y) + hills(x, y + 18.0) + hills(x, y - 18.0))
-        f = lerp(1.0, lerp(0.6, 1.14, sh) * clamp(1.0 + rv / 8.0, 0.68, 1.28), jm)
-        c = (c[0] * f, c[1] * f, c[2] * f)
-    n = 0.94 + 0.08 * vnoise(x / 13.0, y / 13.0, SEED + 32)
-    c = (c[0] * n, c[1] * n, c[2] * n)
-    c = lerp3(c, HAZE_VC, ramp(r, HAZE_D[0], HAZE_D[1]) ** 0.75)
-    return (min(c[0], 1.0), min(c[1], 1.0), min(c[2], 1.0), 1.0)
+        v = 0.25 + 0.55 * sh + clamp(rv / 16.0, -0.25, 0.25) + 0.12 * fbm(x / 70.0, y / 70.0, SEED + 34, 2)
+        c = PAL_JUNGLE[step(v, 4)]
+    else:
+        c = g
+    hz = ramp(r, HAZE_D[0], HAZE_D[1]) ** 0.75
+    if hz > 0.66:
+        c = PAL_HAZE[1]
+    elif hz > 0.33:
+        c = PAL_HAZE[0] if jm > 0.5 else lerp3(c, PAL_HAZE[0], 0.5)
+    return (c[0], c[1], c[2], 1.0)
 
 
 class Sculpt(object):
@@ -432,10 +446,13 @@ class Sculpt(object):
         return i
 
     def _sand_col(self, b, r):
-        wet = 1.0 - ramp(r - wl(b), 0.25, WET)
-        c = lerp3((1.0, 1.0, 1.0), WET_SAND, wet)
-        foot = 1.0 - 0.1 * ramp(r, wf(b) - 1.4, wf(b))
-        return (c[0] * foot, c[1] * foot, c[2] * foot, 1.0)
+        if r < wl(b) + 0.6:
+            c = PAL_SAND[1]                                 # damp
+        elif r > wf(b) - 0.8:
+            c = PAL_SAND[2]                                 # the wall's foot
+        else:
+            c = PAL_SAND[0]
+        return (c[0], c[1], c[2], 1.0)
 
     def _core_col(self, p, hs):
         """Shadowed in the gaps low down; the core's top, seen between the cap stones, is plain rock."""
@@ -644,12 +661,12 @@ def boulder(m, cx, cy, size, seed, sink=0.3, squash=0.7, gz=None, nseg=6, lats=(
     first = len(m.verts)
     if gz is None:
         gz = ground_z(bearing_of((cx, cy, 0.0)), math.hypot(cx, cy))
-    nseg = max(5, nseg + r.i(-1, 1))
-    angular = r.f() < 0.45                                     # blocky, broken stone; else water-worn
+    nseg = max(6, nseg + r.i(0, 1))
+    angular = False                                            # bulbous, rounded: cartoon stone
     hz = size * 0.5 * squash * r.u(0.85, 1.15)
     cz = gz + hz * (1.0 - 2.0 * sink)
     yaw = r.u(0.0, TWO_PI)
-    tilt, tilt_dir = math.radians(r.u(0.0, 18.0)), r.u(0.0, TWO_PI)
+    tilt, tilt_dir = math.radians(r.u(0.0, 8.0)), r.u(0.0, TWO_PI)
     sx, sy = size * 0.5 * r.u(0.85, 1.3), size * 0.5 * r.u(0.6, 0.95)
     tone = r.u(0.9, 1.04)
     tint = (1.03, 1.0, 0.95) if r.f() < 0.5 else (0.96, 0.98, 1.03)
@@ -663,7 +680,7 @@ def boulder(m, cx, cy, size, seed, sink=0.3, squash=0.7, gz=None, nseg=6, lats=(
         ly2 = ly + ty_ * (lean * (math.cos(tilt) - 1.0) - lz * math.sin(tilt))
         return (cx + lx2 * math.cos(yaw) - ly2 * math.sin(yaw), cy + lx2 * math.sin(yaw) + ly2 * math.cos(yaw), cz + lz2)
 
-    jit = (0.62, 1.25) if angular else (0.8, 1.12)
+    jit = (0.62, 1.25) if angular else (0.94, 1.05)
     rings = []
     for la in lats:
         ring = []
@@ -677,7 +694,7 @@ def boulder(m, cx, cy, size, seed, sink=0.3, squash=0.7, gz=None, nseg=6, lats=(
     top = m.v(place(r.u(-0.12, 0.12) * size, r.u(-0.12, 0.12) * size, hz * (r.u(0.75, 0.9) if angular else r.u(0.95, 1.1))), col)
     bot = m.v(place(0.0, 0.0, -hz), col)
     # broken faces: two or three planes shear the stone flat, sideways and across the top
-    for k in range(r.i(2, 3)):
+    for k in range(0):                                         # (no broken faces: rounded)
         a, up = r.u(0.0, TWO_PI), (r.u(0.5, 0.95) if k == 0 else r.u(-0.1, 0.45))
         dv = il.unit((math.cos(a) * math.sqrt(1.0 - up * up), math.sin(a) * math.sqrt(1.0 - up * up), up))
         reach = max(abs(il.dot(il.sub(m.verts[i], (cx, cy, cz)), dv)) for i in range(first, len(m.verts)))
@@ -690,11 +707,9 @@ def boulder(m, cx, cy, size, seed, sink=0.3, squash=0.7, gz=None, nseg=6, lats=(
     hi_z = max(m.verts[i][2] for i in range(first, len(m.verts)))
     foot = max(lo_z, gz - 0.05)
     for i in range(first, len(m.verts)):
-        t = clamp((m.verts[i][2] - foot) / max(hi_z - foot, 0.1)) ** 0.8
-        shade = lerp(0.8, 1.0, t)
-        warm = lerp3((1.0, 0.93, 0.84), (0.98, 0.99, 1.0), t)
-        m.cols[i] = (min(1.0, col[0] * shade * warm[0]), min(1.0, col[1] * shade * warm[1]),
-                     min(1.0, col[2] * shade * warm[2]), 1.0)
+        t = clamp((m.verts[i][2] - foot) / max(hi_z - foot, 0.1))
+        k = PAL_ROCK[step(t * 1.05, 3)]                          # three flat bands: foot, flank, crown
+        m.cols[i] = (k[0], k[1], k[2], 1.0)
     for i in range(first, len(m.verts)):                       # baked: wet above still water, the weed band,
         h = m.verts[i][2] - WATER_Z                             # and the water's absorption below
         c = m.cols[i]
@@ -814,7 +829,7 @@ def palm(m, base, height, lean_b, lean, seed, uv, far=False):
         t = k / float(nseg)
         c = axis(t)
         rad = lerp(TRUNK_R[0], TRUNK_R[1], t) * (1.4 if k == 0 else 1.0)
-        for lip in (((0.0, 1.0), (0.12, 1.16)) if 0 < k < nseg and k % 3 == 0 and not far else ((0.0, 1.0),)):
+        for lip in (((0.0, 1.0), (0.16, 1.22)) if 0 < k < nseg and k % 2 == 0 and not far else ((0.0, 1.0),)):
             cz = c[2] - lip[0] * TRUNK_SEG
             rings.append(([m.v((c[0] + math.cos(j * TWO_PI / sides + k * 0.35) * rad * lip[1],
                                 c[1] + math.sin(j * TWO_PI / sides + k * 0.35) * rad * lip[1], cz))
@@ -858,9 +873,10 @@ def palm(m, base, height, lean_b, lean, seed, uv, far=False):
             w = max(0.07, FROND_W * (0.6 if young else 1.0) * math.sin(math.pi * min(0.97, 0.12 + t)) ** 0.6)
             c = (top[0] + ax * dist, top[1] + ay * dist, z)
             fold = 0.4 * w
-            spine.append(m.v(c))
-            left.append(m.v((c[0] + px * w, c[1] + py * w, c[2] - fold)))
-            right.append(m.v((c[0] - px * w, c[1] - py * w, c[2] - fold)))
+            fc = PAL_FROND[1] if (young or t < 0.5) else PAL_FROND[0]
+            spine.append(m.v(c, fc))
+            left.append(m.v((c[0] + px * w, c[1] + py * w, c[2] - fold), fc))
+            right.append(m.v((c[0] - px * w, c[1] - py * w, c[2] - fold), fc))
             ts.append((dist, w))
         for side, sign in ((left, 1.0), (right, -1.0)):
             for k in range(steps):
@@ -1401,8 +1417,8 @@ def build_rock_collider(placed):
 def build_trunk_collider(trunks):
     c = Mesh()
     for x, y, z in trunks:
-        lo = [c.v((x + math.cos(k * TWO_PI / 6) * 0.3, y + math.sin(k * TWO_PI / 6) * 0.3, z - 0.3)) for k in range(6)]
-        hi = [c.v((x + math.cos(k * TWO_PI / 6) * 0.3, y + math.sin(k * TWO_PI / 6) * 0.3, z + 3.0)) for k in range(6)]
+        lo = [c.v((x + math.cos(k * TWO_PI / 6) * 0.5, y + math.sin(k * TWO_PI / 6) * 0.5, z - 0.3)) for k in range(6)]
+        hi = [c.v((x + math.cos(k * TWO_PI / 6) * 0.5, y + math.sin(k * TWO_PI / 6) * 0.5, z + 3.0)) for k in range(6)]
         c.grid([lo, hi], lambda p, x=x, y=y: (p[0] - x, p[1] - y, 0.0), "c", "palms")
     return c
 

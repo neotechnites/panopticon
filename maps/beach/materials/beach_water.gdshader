@@ -22,12 +22,22 @@ uniform vec3 sky_top : source_color = vec3(0.02, 0.28, 0.95);      // the sky's 
 uniform vec3 sky_horizon : source_color = vec3(0.55, 0.78, 0.98);
 uniform float reflection = 0.45;     // the sky in the water at grazing angles, kept low so the teal stays teal
 uniform float extinction = 7.5;      // metres of water a line of sight passes through to lose ~63% of the bed
-uniform float swell = 0.07;          // metres: the vertex swell (the GameCube moved water vertices too)
+uniform float swell = 0.07;
+
+// BANDED: the stylized variant, off by default (the water as Ryan liked it). On: the colour and see-through come in
+// flat steps (shallow, teal, mid, deep) with soft edges, and painted foam curls ride the steps' edges.
+uniform bool banded = false;
+uniform vec3 band_shallow : source_color = vec3(0.55, 0.95, 0.88);
+uniform vec3 band_teal : source_color = vec3(0.16, 0.82, 0.8);
+uniform vec3 band_mid : source_color = vec3(0.05, 0.6, 0.64);
+uniform vec3 band_deep : source_color = vec3(0.02, 0.4, 0.46);
+uniform vec4 band_depths = vec4(0.5, 1.6, 4.0, 0.12);   // metres of depth at each step's edge; w: edge softness          // metres: the vertex swell (the GameCube moved water vertices too)
 
 varying vec3 world;
 varying float see;      // per vertex: how opaque the water is along this view (the GC's per-vertex fog)
 varying vec4 sky;
-varying float glint_w;      // per-vertex sky reflection (the GameCube's vertex lighting stage could do this much)
+varying float glint_w;
+varying float v_depth;      // per-vertex sky reflection (the GameCube's vertex lighting stage could do this much)
 
 void vertex() {
 	world = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
@@ -36,6 +46,7 @@ void vertex() {
 		* (1.0 - smoothstep(600.0, 1500.0, r));
 	float y = sin(dot(world.xz, vec2(-0.57, 0.1)) - TIME * 2.1) + 0.5 * sin(dot(world.xz, vec2(-0.7, -0.53)) - TIME * 2.6);
 	float depth = UV2.x * 30.0;
+	v_depth = depth;
 	VERTEX.y += y * amp * step(r, 1500.0) * smoothstep(0.5, 2.0, depth);
 	vec3 v = normalize(CAMERA_POSITION_WORLD - world);
 	float fres = 0.02 + 0.98 * pow(1.0 - clamp(v.y, 0.0, 1.0), 5.0);
@@ -56,6 +67,22 @@ void fragment() {
 	vec3 r2 = texture(ripples, world.xz / 5.3 - t * vec2(0.007, 0.017)).xyz - 0.5;
 	vec2 off = (r1.xy + r2.xy);
 	vec3 col = COLOR.rgb * (1.0 + 0.08 * (off.x + off.y) * near);
+	float band_edge = 0.0;
+	float band_alpha = 0.0;
+	if (banded) {
+		float d = v_depth + (off.x + off.y) * 0.25;                // the steps' edges wobble with the ripples
+		float w = band_depths.w;
+		float s1 = smoothstep(band_depths.x - w, band_depths.x + w, d);
+		float s2 = smoothstep(band_depths.y - w * 2.0, band_depths.y + w * 2.0, d);
+		float s3 = smoothstep(band_depths.z - w * 4.0, band_depths.z + w * 4.0, d);
+		vec3 bc = mix(mix(mix(band_shallow, band_teal, s1), band_mid, s2), band_deep, s3);
+		col = mix(bc, COLOR.rgb, smoothstep(0.85, 1.0, see) * step(band_depths.z * 2.0, d));   // far out: the sea's own
+		band_alpha = 0.18 + 0.27 * s1 + 0.3 * s2 + 0.25 * s3;
+		// painted foam curls along each step's edge
+		float e = max(max(1.0 - abs(d - band_depths.x) / 0.09, 1.0 - abs(d - band_depths.y) / 0.16), 0.0);
+		float curl = texture(foam_texture, world.xz / 2.4 + vec2(t * 0.015, -t * 0.01)).r;
+		band_edge = clamp(e, 0.0, 1.0) * smoothstep(0.35, 0.6, curl) * 0.85 * near;
+	}
 	col = mix(col, sky.rgb, sky.a);
 	// the sparkle layer, offset by the ripples (indirect texturing, as Sunshine's glints)
 	float sp = texture(caustics, world.xz / 1.6 + off * 0.25 + t * vec2(0.03, -0.02)).r;
@@ -66,8 +93,9 @@ void fragment() {
 	float lace = max(texture(foam_texture, world.xz / 3.1 + vec2(t * 0.02, 0.0)).r,
 		texture(foam_texture, world.xz / 1.7 - vec2(0.0, t * 0.03)).r);
 	float foam = UV2.y * smoothstep(0.2, 0.6, lace * (0.7 + 0.3 * sin(t * 1.3 + world.x * 0.7)));
+	foam = max(foam, band_edge);
 	col = mix(col, foam_color, foam);
-	float alpha = max(see, max(foam, glow));
+	float alpha = max(banded ? max(band_alpha, smoothstep(0.85, 1.0, see) * step(band_depths.z * 2.0, v_depth)) : see, max(foam, glow));
 	// the bed through the water: the frame copy, sampled through the ripple offset
 	vec3 bed = texture(screen, SCREEN_UV + off * 2.0 * refraction * near * smoothstep(0.12, 0.5, see)).rgb;
 	if (!FRONT_FACING) {
