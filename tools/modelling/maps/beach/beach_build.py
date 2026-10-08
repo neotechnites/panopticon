@@ -220,7 +220,7 @@ def sand_z(b, r):
     else:
         u = r - w
         z = WATER_Z + (DECK_Z - WATER_Z) * smooth(min(u / 2.6, 1.0)) + 0.16 * ramp(r, w + 2.6, f)
-        z += 0.03 * fbm(x / 2.5, y / 2.5, SEED + 12) * ramp(u, 0.5, 2.0)
+        z += 0.018 * fbm(x / 2.5, y / 2.5, SEED + 12) * ramp(u, 0.5, 2.0)
     return z + head(b, r) - drop(b)
 
 
@@ -232,6 +232,12 @@ def FACE(c):
     """Up, leaning toward the bay: the wall's upright faces look at the bay, every other face up."""
     r = math.hypot(c[0], c[1]) or 1.0
     return (-0.08 * c[0] / r, -0.08 * c[1] / r, 1.0)
+
+
+def INWARD(c):
+    """The wall's face: toward the bay, and up."""
+    r = math.hypot(c[0], c[1]) or 1.0
+    return (-c[0] / r, -c[1] / r, 0.35)
 
 
 def _jb(b, k, amp):
@@ -360,7 +366,8 @@ class Sculpt(object):
                 q = (lo[i], lo[j], hi[j], hi[i])
                 if self._hidden(q):
                     continue
-                m.quad(q[0], q[1], q[2], q[3], FACE, self._zone, chunk)
+                wall = any(self.kind.get(v) in ("wall", "lip") for v in q)
+                m.quad(q[0], q[1], q[2], q[3], INWARD if wall else FACE, self._zone, chunk)
 
     def _stitch(self, a, b_):
         before = len(self.m.faces)
