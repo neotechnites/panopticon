@@ -324,6 +324,68 @@ def mouth_floor(x):
     return 2.0 + 20.0 * smooth((x + 15.0) / 100.0)
 
 
+# -- the drop-off: the shallows end in a visible ledge exactly at the death line (where the bed, as it stood,
+# reaches the pit's roof 1.6 m down); the KillBox does not move, the bed and the colour are fitted to it
+LEDGE = True                 # False: the soft slope as before (commit before the drop-off: see docs/maps/beach.md)
+LEDGE_ROOF = 1.6             # the KillBox roof, metres under still water
+LEDGE_TOP = 1.4              # the shelf's depth at the lip
+LEDGE_FOOT = 3.4             # the depth the ledge falls to
+LEDGE_HALF = 0.35            # half the ledge's width, metres
+_KILL = {}
+
+
+def kill_dist(b):
+    """Metres from the waterline to the death line at bearing b (None where there is no shelf: the mouth)."""
+    if not _KILL:
+        global LEDGE
+        keep, LEDGE = LEDGE, False
+        for k in range(720):
+            bb = k * 0.5
+            if s_of(bb) > RUN_S + 4.0:
+                _KILL[k] = None
+                continue
+            d = 0.0
+            while WATER_Z - _sand_z(bb, wl(bb) - d) < LEDGE_ROOF and d < 40.0:
+                d += 0.05
+            _KILL[k] = d if d < 40.0 else None
+        LEDGE = keep
+    k0 = int(math.floor((b % 360.0) * 2.0)) % 720
+    k1 = (k0 + 1) % 720
+    a, c = _KILL[k0], _KILL[k1]
+    if a is None or c is None:
+        return None
+    f = (b % 360.0) * 2.0 - math.floor((b % 360.0) * 2.0)
+    return a + (c - a) * f
+
+
+def ledge_offs(b, base):
+    """base (offsets from the waterline, ascending) with three more rows on the ledge at bearing b, so every
+    column has len(base) + 3 rows; where there is no ledge the extras split the outermost gaps."""
+    kd = kill_dist(b) if LEDGE else None
+    if kd is None or -kd - 0.6 < base[0]:
+        extra = [lerp(base[i], base[i + 1], 0.5) for i in range(3)]
+    else:
+        extra = [-(kd + 0.21 + LEDGE_HALF), -(kd + 0.21), -(kd + 0.21 - LEDGE_HALF)]
+    out = sorted(list(base) + extra)
+    for i in range(1, len(out)):                        # never two rows on one spot
+        out[i] = max(out[i], out[i - 1] + 0.02)
+    return out
+
+
+def ledge_depth(b, r, depth):
+    """The bed's depth with the drop-off: the shelf eased to LEDGE_TOP at the lip, then a sharp fall."""
+    kd = kill_dist(b) if LEDGE else None
+    if kd is None:
+        return depth
+    u = (wl(b) - r) - kd - 0.21                # past the death line; the fall crosses 1.6 m exactly on it
+    if u < -LEDGE_HALF:
+        return min(depth, LEDGE_TOP * min(1.0, depth / LEDGE_ROOF))
+    if u > LEDGE_HALF:
+        return max(depth, LEDGE_FOOT)
+    f = smooth((u + LEDGE_HALF) / (2.0 * LEDGE_HALF))
+    return lerp(LEDGE_TOP, max(depth, LEDGE_FOOT), f)
+
+
 def bed_depth(b, r):
     """The bay's sandy bed past the shallows, 2.5 to 4 m deep at the back of the bay and deepening steadily
     out through the mouth (x toward 0 deg); every line toward the mouth only goes deeper."""
@@ -345,9 +407,10 @@ def _sand_z(b, r):
     if r < w:
         t = (w - r) / shelf_w(b)
         if t <= 1.0:
-            z = WATER_Z - shelf_d(b) * (0.3 * t + 0.7 * t ** 1.6)
+            dd = shelf_d(b) * (0.3 * t + 0.7 * t ** 1.6)
         else:
-            z = WATER_Z - bed_depth(b, r)
+            dd = bed_depth(b, r)
+        z = WATER_Z - (ledge_depth(b, r, dd) if LEDGE else dd)
     else:
         u = r - w
         z = WATER_Z + (DECK_Z - WATER_Z) * smooth(min(u / 2.6, 1.0)) + 0.16 * ramp(r, w + 2.6, f)
@@ -463,10 +526,12 @@ class Sculpt(object):
         rows = []
         shore = [-40.0, -37.0, -34.0, -31.0, -28.0, -25.5, -23.0, -21.0, -19.0, -17.0, -15.3, -13.7, -12.2, -10.8,
                  -9.4, -8.0, -6.6, -5.3, -4.1, -3.0, -2.0, -1.2, -0.55, -0.2, 0.0, 0.45, 1.0, 1.7, 2.6]
-        for k, off in enumerate(shore):
+        cols = [ledge_offs(float(i), shore) for i in range(NC)]
+        for k in range(len(shore) + 3):
             row = []
             for i in range(NC):
                 b = float(i)
+                off = cols[i][k]
                 r = wl(b) + off
                 z = sand_z(b, r) if off != 0.0 else mouth_cap(b, r, WATER_Z + head(b, r) - drop(b))
                 row.append(self.v(pol(b, r, z), self._sand_col(b, r), "shore" if off < 0.0 else "sand"))
@@ -517,7 +582,7 @@ class Sculpt(object):
         mid = self.v((0.0, 0.0, sand_z(0.0, 0.0)), self._sand_col(0.0, 0.0), "shore")
         for j in range(len(prev)):
             self.m.tri(prev[j], prev[(j + 1) % len(prev)], mid, FACE, self._zone, "ground")
-        n_ground = len(shore) + SAND_ROWS + len(WALL_ROWS)
+        n_ground = len(shore) + 3 + SAND_ROWS + len(WALL_ROWS)      # (+3: the ledge's rows)
         self._grid(rows[:n_ground], "ground")
         self._grid(rows[n_ground - 1:], "island")
         prev = rows[-1]
@@ -584,8 +649,12 @@ def sea_col(b, r, rocks=()):
     d = max(depth, 0.0)
     col = lerp3(SEA_SHALLOW, SEA_TURQ, smooth((d - 0.05) / 1.05))
     x = pol(b, r, 0.0)[0]
-    blue = max(smooth((d - 2.2) / 9.0), smooth((x + 36.0) / 44.0) * smooth((d - 0.8) / 1.4))   # a 44 m fade, full blue 8 m mouth-side of the yacht
-    col = lerp3(col, SEA_DEEP, blue)                          # darker blue over the bay's outer half
+    blue = max(smooth((d - 2.2) / 9.0), smooth((x + 36.0) / 44.0) * smooth((d - 0.8) / 1.4))
+    kd = kill_dist(b) if LEDGE else None
+    if kd is not None:                                        # the drop-off: deep colour starts at the ledge
+        u = (wl(b) - r) - kd
+        blue = max(blue, 0.8 * smooth((u + 0.2) / 0.9))
+    col = lerp3(col, SEA_DEEP, blue)                          # deep: a 44 m fade, full 8 m mouth-side of the yacht
     col = lerp3(col, SEA_OPEN, smooth((r - 110.0) / 590.0))
     far = smooth((r - SKY_FADE[0]) / (SKY_FADE[1] - SKY_FADE[0])) ** 1.4
     col = lerp3(col, SEA_HORIZON, far)
@@ -625,8 +694,9 @@ def build_sea(rocks=()):
     inner = []
     for r in WATER_R[1:]:
         inner.append([m.v(pol(i * 3.0, r, WATER_Z), col(i * 3.0, r)) for i in range(120)])   # deep, one colour
-    shore = [[m.v(pol(i * 2.0, wl(i * 2.0) + off, WATER_Z), col(i * 2.0, wl(i * 2.0) + off)) for i in range(180)]
-             for off in WATER_IN]                                  # 2 deg columns: the era's budget
+    wcols = [ledge_offs(i * 2.0, WATER_IN) for i in range(180)]
+    shore = [[m.v(pol(i * 2.0, wl(i * 2.0) + wcols[i][k], WATER_Z), col(i * 2.0, wl(i * 2.0) + wcols[i][k]))
+              for i in range(180)] for k in range(len(WATER_IN) + 3)]   # 2 deg columns: the era's budget
     for i in range(120):
         m.tri(centre, inner[0][i], inner[0][(i + 1) % 120], UP, "water", "water")
     m.grid(inner, UP, "water", "water")
@@ -1361,9 +1431,10 @@ def build_ground_collider():
     g = Mesh()
     step = 2
     offs = [-20.0, -17.0, -14.5, -12.0, -9.5, -7.0, -4.5, -2.0, 0.0, 1.3, 2.6]
+    gcols = {i: ledge_offs(float(i), offs) for i in range(0, NC, step)}
     rows = []
-    for off in offs:
-        rows.append([g.v(pol(float(i), wl(float(i)) + off, sand_z(float(i), wl(float(i)) + off) - 0.02))
+    for k in range(len(offs) + 3):
+        rows.append([g.v(pol(float(i), wl(float(i)) + gcols[i][k], sand_z(float(i), wl(float(i)) + gcols[i][k]) - 0.02))
                      for i in range(0, NC, step)])
     for t in (0.35, 0.7, 1.0):
         rows.append([g.v(pol(float(i), lerp(wl(float(i)) + 2.6, wf(float(i)) - 0.5, t),
