@@ -67,17 +67,17 @@ GLASS_PROUD = 0.03
 
 # the flybridge
 FLOOR_Z = 4.45                      # the guard's floor, exact
-RAIL_Z = 5.60                       # rail top, FLOOR_Z + 1.15, exact: nothing solid above this but the posts
+RAIL_TUBES = (0.45, 0.90)           # open rail: tube centres above FLOOR_Z, nothing solid round the edge
 ROOF = (-6.6, 3.2, 2.50, 4.25)      # x0, x1, half y, underside z (top is FLOOR_Z)
 RAIL_PATH = ((3.1, -1.5), (3.1, 1.5), (2.3, 2.42), (-6.5, 2.42), (-6.5, -2.42), (2.3, -2.42))
-COAMING_Z = FLOOR_Z + 0.40
-COAMING_T = 0.08
-TOPRAIL = 0.06
+TUBE = 0.04
 STANCHION = 0.05
-SCREEN_T = 0.03                     # the low forward windscreen, coaming to rail top
-POSTS = ((-3.6, 2.0), (-3.6, -2.0), (0.6, 2.0), (0.6, -2.0))
+SCREEN_Z = FLOOR_Z + 0.60           # the low forward windscreen's top
+SCREEN_T = 0.03
+SILL_Z = FLOOR_Z + 0.65             # the collider's rail wall top: the towers' sill height
+POSTS = ((-3.0, 1.75), (-3.0, -1.75), (0.2, 1.75), (0.2, -1.75))
 POST_W = 0.10
-HARDTOP = (-3.8, 0.8, 2.30, 6.85, 6.95)   # x0, x1, half y, underside, top
+HARDTOP = (-3.2, 0.4, 1.90, 7.35, 7.45)   # x0, x1, half y, underside, top
 RADOME = (-1.4, 0.32, 0.30, 0.25)         # x, radius, drum height, cone height
 TOP_LIMIT = 8.5
 
@@ -179,6 +179,13 @@ def _out_normal(a, b, cx, cy):
     return (nx, ny) if nx * mx + ny * my > 0.0 else (-nx, -ny)
 
 
+def _inward(p):
+    """Unit plan vector from a rail corner toward the rail path's centre."""
+    cx = sum(q[0] for q in RAIL_PATH) / len(RAIL_PATH)
+    cy = sum(q[1] for q in RAIL_PATH) / len(RAIL_PATH)
+    return ft.norm((cx - p[0], cy - p[1], 0.0))
+
+
 def _ring_wall(m, path, half_t, z0, z1, zone):
     """A closed band wall round a convex plan path: outer, inner, top and bottom faces."""
     outer, inner = _offset(path, half_t), _offset(path, -half_t)
@@ -260,8 +267,8 @@ def _hull(m):
             c = m.centroid(ids)
             if s == nr - 1:
                 want = UP
-            else:
-                want = (0.0, c[1], c[2] - 0.4)
+            else:                                  # outboard, forward at the bow: never vertical at the stem
+                want = (max(0.0, c[0] - 6.0) * 0.3, math.copysign(1.0, c[1]), (c[2] - 0.4) * 0.4)
             _face(m, ids, want, _hull_zone(k, s, nr, STATIONS[k], STATIONS[k + 1], c[0]))
     m.fan(rings[0], (-1.0, 0.0, 0.0), "hull")         # the transom
     x0, x1, hy, z0, z1 = PLATFORM
@@ -287,8 +294,9 @@ def _saloon(m):
 
 
 def _flybridge(m):
-    _ring_wall(m, RAIL_PATH, COAMING_T * 0.5, FLOOR_Z - 0.02, COAMING_Z, "hull")
-    _ring_wall(m, RAIL_PATH, TOPRAIL * 0.5, RAIL_Z - TOPRAIL, RAIL_Z, "hull")
+    for h in RAIL_TUBES:
+        _ring_wall(m, RAIL_PATH, TUBE * 0.5, FLOOR_Z + h - TUBE * 0.5, FLOOR_Z + h + TUBE * 0.5, "hull")
+    top = FLOOR_Z + RAIL_TUBES[-1] + TUBE * 0.5
     n = len(RAIL_PATH)
     for i in range(n):
         a, b = RAIL_PATH[i], RAIL_PATH[(i + 1) % n]
@@ -297,10 +305,11 @@ def _flybridge(m):
         for j in range(k):
             px, py = ft.lerp((a[0], a[1], 0.0), (b[0], b[1], 0.0), j / float(k))[:2]
             h = STANCHION * 0.5
-            _box(m, px - h, px + h, py - h, py + h, COAMING_Z - 0.02, RAIL_Z - TOPRAIL + 0.01)
+            _box(m, px - h, px + h, py - h, py + h, FLOOR_Z - 0.02, top - 0.01)
     for i in (5, 0, 1):                           # the forward three runs: the low windscreen
         a, b = RAIL_PATH[i], RAIL_PATH[(i + 1) % n]
-        _seg_box(m, a, b, SCREEN_T * 0.5, COAMING_Z - 0.02, RAIL_Z - TOPRAIL, "glass")
+        _seg_box(m, ft.add(a + (0.0,), _inward(a), 0.06)[:2], ft.add(b + (0.0,), _inward(b), 0.06)[:2],
+                 SCREEN_T * 0.5, FLOOR_Z - 0.02, SCREEN_Z, "glass")
     h = POST_W * 0.5
     x0, x1, hy, zu, zt = HARDTOP
     for (px, py) in POSTS:
@@ -349,7 +358,7 @@ def build_collider():
     _prism(c, s, p, "hull")
     x0, x1, hy, z0 = ROOF
     _box(c, x0, x1, -hy, hy, z0, FLOOR_Z)
-    _ring_wall(c, RAIL_PATH, COL_WALL_T * 0.5, FLOOR_Z, RAIL_Z, "hull")
+    _ring_wall(c, RAIL_PATH, COL_WALL_T * 0.5, FLOOR_Z, SILL_Z, "hull")
     return c.compact()
 
 
@@ -369,9 +378,9 @@ def build():
     coll.hide_render = True
     lo = [min(v[k] for v in m.verts) for k in range(3)]
     hi = [max(v[k] for v in m.verts) for k in range(3)]
-    print("MDL STATS visual_tris=%d collision_tris=%d lo=%s hi=%s floor_z=%.3f rail_z=%.3f (top <= %.1f)"
+    print("MDL STATS visual_tris=%d collision_tris=%d lo=%s hi=%s floor_z=%.3f sill_z=%.3f (top <= %.1f)"
           % (len(ob.data.polygons), len(coll.data.polygons), ["%.2f" % v for v in lo],
-             ["%.2f" % v for v in hi], FLOOR_Z, RAIL_Z, TOP_LIMIT))
+             ["%.2f" % v for v in hi], FLOOR_Z, SILL_Z, TOP_LIMIT))
     return [ob, coll]
 
 

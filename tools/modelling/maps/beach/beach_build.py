@@ -101,8 +101,8 @@ WATER_FAR = [(105.0, 180), (112.0, 180), (120.0, 180), (130.0, 180), (142.0, 180
 SHORE_FOAM = (0.86, 0.97, 0.95)        # sRGB at the waterline
 SHALLOW = (0.6, 0.91, 0.84)            # the wadeable band (refs: 150..160, 229..232, 208..216)
 TEAL = (0.22, 0.8, 0.8)                # over the drop-off (refs 55, 205, 203)
-DEEP = (0.05, 0.31, 0.55)              # the pit: dark water
-OPEN = (0.1, 0.5, 0.74)                # open sea, toward the horizon (refs 0..20, 139, 206)
+DEEP = (0.06, 0.38, 0.66)              # the pit: dark water
+OPEN = (0.02, 0.55, 0.81)              # open sea, toward the horizon (refs 0..20, 139, 206)
 HORIZON = (0.6, 0.77, 0.85)            # the sky's horizon colour: the sea's last ring
 SKY_FADE = (500.0, 3000.0)
 
@@ -203,7 +203,7 @@ def island_z(b, r):
     arm = min(base + hump, WATER_Z + COAST_SLOPE * (arm_w(b) - d))
     # the big island behind the beach: rising into hills
     inside = main_coast(x, y)
-    land = base + min(d, 30.0) * 0.04 + hills(x, y) * ramp(d, 6.0, 70.0) * ramp(inside, 10.0, 90.0)
+    land = base + min(d, 30.0) * 0.04 + hills(x, y) * ramp(d, 14.0, 90.0) * ramp(inside, 10.0, 90.0)
     big = min(land, WATER_Z + COAST_SLOPE * inside)
     z = max(arm, big)
     return max(z, WATER_Z - 9.0) - drop(b)
@@ -227,6 +227,12 @@ def sand_z(b, r):
 # =============================================================================
 # SCULPT
 # =============================================================================
+
+def FACE(c):
+    """Up, leaning toward the bay: the wall's upright faces look at the bay, every other face up."""
+    r = math.hypot(c[0], c[1]) or 1.0
+    return (-0.08 * c[0] / r, -0.08 * c[1] / r, 1.0)
+
 
 def _jb(b, k, amp):
     return amp * (2.0 * h2(int(round(b * 10.0)), k, SEED + 20) - 1.0)
@@ -354,11 +360,11 @@ class Sculpt(object):
                 q = (lo[i], lo[j], hi[j], hi[i])
                 if self._hidden(q):
                     continue
-                m.quad(q[0], q[1], q[2], q[3], UP, self._zone, chunk)
+                m.quad(q[0], q[1], q[2], q[3], FACE, self._zone, chunk)
 
     def _stitch(self, a, b_):
         before = len(self.m.faces)
-        self.m.stitch(a, b_, UP, self._zone, "island")
+        self.m.stitch(a, b_, FACE, self._zone, "island")
         keep = [k for k in range(before, len(self.m.faces)) if not self._hidden(self.m.faces[k])]
         drop_ = set(range(before, len(self.m.faces))) - set(keep)
         if drop_:
@@ -810,17 +816,12 @@ def _tint(mat):
         nt.links.new(res, sock)
 
 
-def _srgb_to_lin(c):
-    return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
-
-
 def _object(name, verts, cols, faces, zones, mats, face_uv=None):
     ob = mdl.mesh(name, verts, faces)
     tx.unwrap(ob, zones, SHEETS, seed=1, face_uv=face_uv)
     tx.finish(ob, zones, mats)
     attr = ob.data.color_attributes.new(name="Col", type="FLOAT_COLOR", domain="POINT")
-    attr.data.foreach_set("color", [_srgb_to_lin(c) if k % 4 != 3 else c
-                                    for rgba in cols for k, c in enumerate(rgba)])
+    attr.data.foreach_set("color", [c for rgba in cols for c in rgba])     # sRGB: Godot reads COLOR_0 so
     ob.data.color_attributes.active_color_index = 0
     ob.data.color_attributes.render_color_index = 0
     return ob
