@@ -1,5 +1,6 @@
 """
-PANOPTICON -- beach_yacht: Map 5's anchored flybridge motor yacht (the photo's Prestige 680, generic), the guard's tower.
+PANOPTICON -- beach_yacht: the beach's anchored Prestige 680 flybridge yacht, the guard's tower, in the map's
+stylized language (rounded, a little exaggerated: high flared bow, fat rolled gunwale, chunky rails).
 Origin = the guard's standing point on the flybridge, dropped to the waterline; bow toward +X.
 
     tools/modelling/model build beach_yacht --preview
@@ -47,22 +48,29 @@ BEAM = ((0.0, 0.94), (0.3, 1.0), (0.6, 1.0), (0.8, 0.84), (0.92, 0.52), (1.0, 0.
 ROWS = (
     ("keel", 0.00, -0.90, -1.50, 1.0),
     ("chine", 0.90, -0.45, -0.45, 1.7),
-    ("wl", 1.00, 0.08, 0.08, 1.4),
-    ("stripe", 1.00, 0.18, 0.18, 1.3),
-    ("winlo", 1.00, 0.80, 1.05, 1.1),
-    ("winhi", 1.00, 1.15, 1.55, 1.0),
-    ("sheer", 0.98, 1.70, 2.20, 0.9),
+    ("bilge", 0.97, -0.12, -0.10, 1.5),
+    ("wl", 1.00, 0.08, 0.10, 1.4),
+    ("stripe", 1.01, 0.20, 0.24, 1.3),
+    ("winlo", 1.03, 0.80, 1.20, 1.1),
+    ("winhi", 1.04, 1.15, 1.75, 1.0),
+    ("flare", 1.03, 1.52, 2.30, 0.95),
+    ("roll", 0.99, 1.74, 2.58, 0.9),
+    ("sheer", 0.93, 1.80, 2.64, 0.9),
 )
-STATIONS = (0.0, 0.08, 0.217, 0.36, 0.508, 0.561, 0.70, 0.80, 0.868, 0.93, 0.97, 1.0)
-HULL_WINDOWS = ((0.217, 0.508), (0.561, 0.868))     # t spans of the dark hull-window strips
+# the collider keeps the hull it always had (gameplay): keel, chine, sheer as before
+COL_ROW_DEFS = (("keel", 0.00, -0.90, -1.50, 1.0), ("chine", 0.90, -0.45, -0.45, 1.7), ("sheer", 0.98, 1.70, 2.20, 0.9))
+STATIONS = (0.0, 0.04, 0.1, 0.217, 0.29, 0.36, 0.43, 0.508, 0.561, 0.63, 0.70, 0.76, 0.82, 0.868, 0.91, 0.945, 0.975, 1.0)
+HULL_WINDOWS = ((0.217, 0.508), (0.561, 0.868))     # t spans of the dark hull-window slots (aft cabins, forward)
 TEAK_AFT_X = -5.9                                   # deck faces aft of this are teak
 
 PLATFORM = (-8.80, -7.55, 2.30, -0.25, 0.45)        # x0, x1, half y, z0, top: the bathing platform
 
 # the saloon: XZ profile, extruded across y
 SALOON_HALF_Y = 2.40
-SALOON = ((-6.0, 1.6), (5.0, 1.6), (5.0, 2.45), (2.2, 4.30), (-6.0, 4.30))
-SALOON_GLASS = ((-5.6, 2.50), (4.90, 2.50), (2.62, 4.05), (-5.6, 4.05))   # the side window band
+SALOON = ((-6.0, 1.6), (5.0, 1.6), (5.0, 2.45), (2.2, 4.30), (-6.0, 4.30))     # the collider's block, as always
+SALOON_VIS = ((-6.0, 1.6), (5.3, 1.6), (5.5, 2.15), (5.1, 2.6), (2.5, 4.12), (2.1, 4.3), (-5.75, 4.3), (-6.0, 4.05))
+SALOON_TAPER = 0.22                 # metres the saloon's sides lean in from deck to roof
+SALOON_GLASS = ((-5.5, 2.55), (4.85, 2.55), (2.55, 3.98), (-5.5, 3.98))   # the side window band
 GLASS_PROUD = 0.03
 
 # the flybridge
@@ -70,8 +78,8 @@ FLOOR_Z = 4.45                      # the guard's floor, exact
 RAIL_TUBES = (0.45, 0.90)           # open rail: tube centres above FLOOR_Z, nothing solid round the edge
 ROOF = (-6.6, 3.2, 2.50, 4.25)      # x0, x1, half y, underside z (top is FLOOR_Z)
 RAIL_PATH = ((3.1, -1.5), (3.1, 1.5), (2.3, 2.42), (-6.5, 2.42), (-6.5, -2.42), (2.3, -2.42))
-TUBE = 0.04
-STANCHION = 0.05
+TUBE = 0.06                         # chunky, cartoon rails
+STANCHION = 0.07
 SCREEN_Z = FLOOR_Z + 0.60           # the low forward windscreen's top
 SCREEN_T = 0.03
 SILL_Z = FLOOR_Z + 0.65             # the collider's rail wall top: the towers' sill height
@@ -85,12 +93,19 @@ COL_STATIONS = (0.0, 0.4, 0.75, 0.9, 1.0)
 COL_ROWS = ("keel", "chine", "sheer")
 COL_WALL_T = 0.10
 
+# the palette, a few flat steps: hull white, superstructure off-white, blue saloon glass, near-black hull slots,
+# teak, chrome rails, the red boot stripe, dark antifouling below it
 SHEETS = {
     "hull": tx.Sheet("hull", mode="box", stem="beach_hull", roughness=0.45),
+    "upper": tx.Sheet("upper", mode="box", stem="beach_hull", roughness=0.45, tint=(0.95, 0.95, 0.93)),
     "glass": tx.Sheet("glass", mode="box", stem="beach_glass", roughness=0.15),
+    "dark": tx.Sheet("dark", mode="box", stem="beach_glass", roughness=0.15, tint=(0.16, 0.17, 0.2)),
     "teak": tx.Sheet("teak", mode="box", stem="beach_teak"),
+    "chrome": tx.Sheet("chrome", mode="box", stem="beach_hull", roughness=0.3, tint=(0.7, 0.72, 0.76)),
     "stripe": tx.Sheet("stripe", mode="box", stem="beach_hull", tint=(0.55, 0.03, 0.04)),
+    "bottom": tx.Sheet("bottom", mode="box", stem="beach_hull", tint=(0.08, 0.12, 0.2)),
 }
+SMOOTH = ("hull", "upper", "bottom")       # the hull and cabin read rounded; trim stays crisp
 
 UP = (0.0, 0.0, 1.0)
 DOWN = (0.0, 0.0, -1.0)
@@ -250,8 +265,10 @@ def _hull_zone(k, s, nrows, t0, t1, x_mid):
     lower = names[seg]
     if lower == "wl":
         return "stripe"
+    if lower in ("keel", "chine", "bilge"):
+        return "bottom"
     if lower == "winlo" and any(a <= t0 and t1 <= b for (a, b) in HULL_WINDOWS):
-        return "glass"
+        return "dark"
     return "hull"
 
 
@@ -279,23 +296,46 @@ def _hull(m):
 # SUPERSTRUCTURE
 # =============================================================================
 
+def _sy(z):
+    """The saloon's half width at height z: leaning in toward the roof."""
+    return SALOON_HALF_Y - SALOON_TAPER * max(0.0, z - 1.6) / 2.7
+
+
 def _saloon(m):
-    s = [m.v((x, SALOON_HALF_Y, z)) for (x, z) in SALOON]
-    p = [m.v((x, -SALOON_HALF_Y, z)) for (x, z) in SALOON]
-    _prism(m, s, p, lambda i: "glass" if i == 2 else "hull")     # face 2 is the raked windscreen
+    s = [m.v((x, _sy(z), z)) for (x, z) in SALOON_VIS]
+    p = [m.v((x, -_sy(z), z)) for (x, z) in SALOON_VIS]
+    _prism(m, s, p, lambda i: "glass" if i in (3, 4) else "upper")     # the raked windscreen
     for sgn in (1.0, -1.0):
-        y0 = sgn * (SALOON_HALF_Y - 0.01)
-        y1 = sgn * (SALOON_HALF_Y + GLASS_PROUD)
-        a = [m.v((x, y0, z)) for (x, z) in SALOON_GLASS]
-        b = [m.v((x, y1, z)) for (x, z) in SALOON_GLASS]
+        a = [m.v((x, sgn * (_sy(z) - 0.01), z)) for (x, z) in SALOON_GLASS]
+        b = [m.v((x, sgn * (_sy(z) + GLASS_PROUD), z)) for (x, z) in SALOON_GLASS]
         _prism(m, a, b, "glass")
+    _fly_deck(m)
+
+
+def _fly_deck(m):
+    """The flybridge deck: an overhanging slab whose fascia rolls round, teak on top (floor exactly FLOOR_Z)."""
     x0, x1, hy, z0 = ROOF
-    _box(m, x0, x1, -hy, hy, z0, FLOOR_Z, "hull", top="teak")
+    k = 0.28                                        # the roll's chamfer
+    lo = [m.v((x0, -hy + k, z0)), m.v((x1 - k, -hy + k, z0)), m.v((x1, -hy * 0.6, z0 + k)),
+          m.v((x1, hy * 0.6, z0 + k)), m.v((x1 - k, hy - k, z0)), m.v((x0, hy - k, z0))]
+    mid = [m.v((x0, -hy, z0 + k)), m.v((x1 - k * 0.3, -hy, z0 + k)), m.v((x1 + k * 0.5, -hy * 0.6, FLOOR_Z - 0.1)),
+           m.v((x1 + k * 0.5, hy * 0.6, FLOOR_Z - 0.1)), m.v((x1 - k * 0.3, hy, z0 + k)), m.v((x0, hy, z0 + k))]
+    top = [m.v((x0, -hy, FLOOR_Z)), m.v((x1 - k * 0.3, -hy, FLOOR_Z)), m.v((x1 + k * 0.5, -hy * 0.6, FLOOR_Z)),
+           m.v((x1 + k * 0.5, hy * 0.6, FLOOR_Z)), m.v((x1 - k * 0.3, hy, FLOOR_Z)), m.v((x0, hy, FLOOR_Z))]
+    cx = (x0 + x1) * 0.5
+    for ring_a, ring_b in ((lo, mid), (mid, top)):
+        for i in range(5):
+            ids = (ring_a[i], ring_a[i + 1], ring_b[i + 1], ring_b[i])
+            c = m.centroid(ids)
+            m.quad(ids[0], ids[1], ids[2], ids[3], (c[0] - cx, c[1], 0.3), "upper")
+    m.fan(lo, DOWN, "upper")
+    m.fan(top, UP, "teak")
+    m.fan([lo[0], mid[0], top[0], top[5], mid[5], lo[5]], (-1.0, 0.0, 0.0), "upper")
 
 
 def _flybridge(m):
     for h in RAIL_TUBES:
-        _ring_wall(m, RAIL_PATH, TUBE * 0.5, FLOOR_Z + h - TUBE * 0.5, FLOOR_Z + h + TUBE * 0.5, "hull")
+        _ring_wall(m, RAIL_PATH, TUBE * 0.5, FLOOR_Z + h - TUBE * 0.5, FLOOR_Z + h + TUBE * 0.5, "chrome")
     top = FLOOR_Z + RAIL_TUBES[-1] + TUBE * 0.5
     n = len(RAIL_PATH)
     for i in range(n):
@@ -305,7 +345,7 @@ def _flybridge(m):
         for j in range(k):
             px, py = ft.lerp((a[0], a[1], 0.0), (b[0], b[1], 0.0), j / float(k))[:2]
             h = STANCHION * 0.5
-            _box(m, px - h, px + h, py - h, py + h, FLOOR_Z - 0.02, top - 0.01)
+            _box(m, px - h, px + h, py - h, py + h, FLOOR_Z - 0.02, top - 0.01, "chrome")
     for i in (5, 0, 1):                           # the forward three runs: the low windscreen
         a, b = RAIL_PATH[i], RAIL_PATH[(i + 1) % n]
         _seg_box(m, ft.add(a + (0.0,), _inward(a), 0.06)[:2], ft.add(b + (0.0,), _inward(b), 0.06)[:2],
@@ -313,8 +353,8 @@ def _flybridge(m):
     h = POST_W * 0.5
     x0, x1, hy, zu, zt = HARDTOP
     for (px, py) in POSTS:
-        _box(m, px - h, px + h, py - h, py + h, FLOOR_Z - 0.02, zu + 0.02)
-    _box(m, x0, x1, -hy, hy, zu, zt)
+        _box(m, px - h, px + h, py - h, py + h, FLOOR_Z - 0.02, zu + 0.02, "upper")
+    _hardtop(m, x0, x1, hy, zu, zt)
     rx, rr, dh, ch = RADOME
     seg = 8
     lo = [m.v((rx + rr * math.cos(2 * math.pi * i / seg), rr * math.sin(2 * math.pi * i / seg), zt - 0.01))
@@ -331,18 +371,67 @@ def _flybridge(m):
     m.fan(lo, DOWN, "hull")
 
 
+def _hardtop(m, x0, x1, hy, zu, zt):
+    """The hardtop: a thin wing, its front rounded to a point and its edges rolled, a little swept back."""
+    def ring(z, inset):
+        return [m.v(p) for p in ((x0 + inset, -hy + inset, z), (x1 - 0.5, -hy + inset, z), (x1 + 0.35 - inset, -hy * 0.45, z),
+                                   (x1 + 0.35 - inset, hy * 0.45, z), (x1 - 0.5, hy - inset, z), (x0 + inset, hy - inset, z))]
+    a, b, c = ring(zu, 0.08), ring(zu + 0.06, 0.0), ring(zt + 0.08, 0.12)
+    cx = (x0 + x1) * 0.5
+    for ra, rb in ((a, b), (b, c)):
+        for i in range(6):
+            q = (i + 1) % 6
+            ids = (ra[i], ra[q], rb[q], rb[i])
+            cc = m.centroid(ids)
+            m.quad(ids[0], ids[1], ids[2], ids[3], (cc[0] - cx, cc[1], 0.2), "upper")
+    m.fan(a, DOWN, "upper")
+    m.fan(c, UP, "upper")
+
+
+def _bow_rail(m):
+    """The bow rail: chunky stanchions along the foredeck's edge to the stem, one tube on top, chrome."""
+    pts = []
+    for t in (0.70, 0.76, 0.82, 0.868, 0.91, 0.945, 0.975):
+        x, y, z = _hull_point(ROWS[-1], t)
+        pts.append((x, y * 0.9, z))
+    tip = _hull_point(ROWS[-1], 1.0)
+    h = STANCHION * 0.5
+    for sgn in (1.0, -1.0):
+        line = [(x, sgn * y, z) for (x, y, z) in pts] + [(tip[0] - 0.3, 0.0, tip[2])]
+        for (x, y, z) in line[:-1]:
+            _box(m, x - h, x + h, y - h, y + h, z - 0.05, z + 0.62, "chrome")
+        for p0, p1 in zip(line, line[1:]):
+            d = ft.norm(ft.sub(p1, p0))
+            n = (-d[1] * TUBE * 0.5, d[0] * TUBE * 0.5)
+            quad = [(p0[0] + n[0], p0[1] + n[1], p0[2] + 0.62), (p1[0] + n[0], p1[1] + n[1], p1[2] + 0.62),
+                    (p1[0] - n[0], p1[1] - n[1], p1[2] + 0.62), (p0[0] - n[0], p0[1] - n[1], p0[2] + 0.62)]
+            lo = [m.v((x, y, z - TUBE * 0.5)) for (x, y, z) in quad]
+            hi = [m.v((x, y, z + TUBE * 0.5)) for (x, y, z) in quad]
+            _prism(m, lo, hi, "chrome")
+
+
+def _stern(m):
+    """The swim platform's step down and the transom garage's dark door."""
+    x0, x1, hy, z0, z1 = PLATFORM
+    _box(m, x0 - 0.0, x0 + 0.45, -hy * 0.9, hy * 0.9, z0 - 0.15, z0 + 0.1, "upper", top="teak")
+    _box(m, TRANSOM_X - 0.03, TRANSOM_X + 0.02, -1.5, 1.5, 0.55, 1.35, "dark")
+    _box(m, -6.05, -5.98, -1.75, 1.75, 1.75, 3.95, "glass")          # the saloon's glass aft doors
+
+
 def build_geometry():
     m = ft._Mesh()
     _hull(m)
     _saloon(m)
     _flybridge(m)
+    _bow_rail(m)
+    _stern(m)
     return m.compact()
 
 
 def build_collider():
     """Hull prism, saloon block, flybridge floor slab, and a rail ring wall to the rail top."""
     c = ft._Mesh()
-    rows = tuple(r for r in ROWS if r[0] in COL_ROWS)
+    rows = COL_ROW_DEFS
     rings = _hull_rings(c, COL_STATIONS, rows)
     n = len(rings[0])
     for k in range(len(rings) - 1):
@@ -374,6 +463,16 @@ def build():
     tx.unwrap(ob, zones, SHEETS, seed=1)
     mats = tx.materials("beach", SHEETS, names={k: "BeachYacht_" + k for k in SHEETS})
     tx.finish(ob, zones, mats)
+    me = ob.data
+    me.polygons.foreach_set("use_smooth", [z in SMOOTH for z in zones])
+    owner = {}
+    for pi, poly in enumerate(me.polygons):
+        for ek in poly.edge_keys:
+            owner.setdefault(ek, set()).add(zones[pi])
+    for e in me.edges:
+        if len(owner.get(e.key, ())) > 1:
+            e.use_edge_sharp = True
+    me.update()
     coll = c.object(COLLIDER_NAME)
     coll.hide_render = True
     lo = [min(v[k] for v in m.verts) for k in range(3)]
