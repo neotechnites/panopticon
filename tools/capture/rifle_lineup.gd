@@ -118,7 +118,7 @@ func _stand(row: Array, light: CharacterLight) -> PlayerController:
 	# The new rifle's scope draws as it does for the human at the keyboard, so a look out of it shows the vignette too.
 	(rifle.get_node(^"ScopeVignette") as ScopeVignette).set_local_holder(is_new)
 	var avatar: PrisonerAvatar = body.get_node(^"Avatar") as PrisonerAvatar
-	_dress(avatar.mesh, PALETTE.guard_color if is_guard else PALETTE.color_for_index(1), light)
+	_dress(avatar.mesh, PALETTE.color_for_index(0 if is_guard else 1), light)
 	# The old rifle stays as main draws it; the new one is lit as MatchController._light_weapon lights it.
 	if is_new:
 		for node: Node in rifle.get_node(^"ViewModel/Model").find_children("*", "MeshInstance3D", true, false):

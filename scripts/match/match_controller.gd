@@ -2515,12 +2515,6 @@ func _ghost_material_for(participant: MatchParticipant) -> Material:
 	return _tinted_material(participant, runner_color)
 
 
-## The colour the tower seat wears, distinct from every runner colour so the
-## guard reads as a role rather than as whichever runner is sitting there.
-func _guard_material_for(participant: MatchParticipant) -> Material:
-	return _tinted_material(participant, get_runner_palette().guard_color)
-
-
 ## The material the MODEL ships for [param participant]'s shirt -- or surface
 ## 0's on a body with no shirt. Never a tint this file painted over it.
 func _base_material_of(participant: MatchParticipant) -> BaseMaterial3D:
@@ -3028,10 +3022,8 @@ func _place_in_tower(participant: MatchParticipant) -> void:
 	# A ghost can take the tower: they were a prisoner when the seat changed
 	# hands, and the round restarts around them like anybody else.
 	_unmake_ghost(participant)
-	# The guard's own colour, distinct from every runner's -- see
-	# RunnerPalette.guard_color -- so the seat reads as a role and not as
-	# whichever runner happens to be sitting in it.
-	_tint_body(participant, _guard_material_for(participant))
+	# The guard keeps the shirt colour they wore as a runner.
+	_tint_body(participant, _runner_material_for(participant))
 	_hold_body(participant)
 	body.global_position = _tower_point
 	body.velocity = Vector3.ZERO
