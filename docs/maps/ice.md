@@ -28,7 +28,7 @@ corridor cut through a solid block of ice"). Pass 4's open ring room and its cre
 6. Block (`ice_block.glb`): the corridor's ceiling edge rises as the block's inner face, smooth cut ice
    on the lip's line, 12.3 m to the spring line at y 43.8, looking across the pit at the tower.
    Pit: smooth cut ice under the lip carrying its wander down, blue over dark ice (y 8 +- 5), the frozen
-   pool of pressure plates at y -11.05 under the fog.
+   pool of pressure plates at y -11.05.
 7. Roof: one smooth carved shell sprung from the block's top to y 61, a 2.2 m raised cupola over the
    tower (the oculus). COLOR_0 carries how thin the ice is: rgb the light through it, alpha how much of
    `IceRoofOuter` shows (a bright shell 4 m above); the cupola is the thinnest, brightest ice.
@@ -44,8 +44,8 @@ corridor cut through a solid block of ice"). Pass 4's open ring room and its cre
     (floor +1.70, eight arches at 25 + 45k, sill 2.35, crown 7.00) between unequal piers, a frozen ledge
     under the sill, a low dome of seven planes under a slumped snow cap.
 10. Portal, `ice_portal.glb` + `maps/ice/props/ice_portal.tscn`: an ice arch round portal.glb's opening.
-11. Light: flat cool ambient 0.7, one shadowed sun from bearing 150 at 62 deg (0.55), cool depth fog that
-    thickens in the pit, a cold glow in the tower's chamber (`ice_tower_light_profile.tres`). Players stay
+11. Light: flat cool ambient 0.7, one shadowed sun from bearing 150 at 62 deg (0.55), no fog, a cold glow in the
+    tower's chamber (`ice_tower_light_profile.tres`). Players stay
     unshaded. The lane's vertex colour carries the roof down the sun's line (`sun_pool`), and nine shafts
     (`maps/ice/props/ice_ray.tscn`, the forest streak's mesh and shader, cold tint) stand under the
     thinnest ice along the same line; they are scene nodes under `LightStreaks`, free to move.
