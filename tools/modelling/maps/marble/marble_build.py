@@ -268,7 +268,7 @@ def column_sheet():
 
 
 # Linear multipliers over the brick: each class's old mean colour.
-TINT_SHADE = (0.85, 0.68, 0.42)        # warm: the undersides see only the cool ambient
+TINT_SHADE = (0.85, 0.85, 0.85)
 TINT_PLINTH_WALL = (0.8106, 0.8086, 0.8369)
 TINT_PLINTH = (0.8285, 0.8293, 0.8617)
 TINT_MARBLE2 = (0.7939, 0.7923, 0.8147)
@@ -276,8 +276,8 @@ TOWER_STEM = "marble_tower"           # the tower's own tile: his brick pixels a
 TOWER_FLOOR_STEM = "marble_tower_floor"   # the guard room's paving: his floor pixels, under the lamp
 TOWER_PLAIN_STEM = "marble_tower_stone"   # the guard room's centre: his stone pixels, under the lamp
 TINT_BARS = None
-TINT_CELL = (0.143, 0.153, 0.159)        # the brick darkened to the drawing's warm ink, not navy
-TINT_IRON = (0.060, 0.065, 0.075)        # the plain stone darkened to the drawing's dark bars
+TINT_CELL = (0.078, 0.086, 0.086)        # the brick darkened to the drawing's warm ink, not navy
+TINT_IRON = (0.045, 0.055, 0.060)        # the plain stone darkened to the drawing's dark bars
 
 
 def iron_sheet():

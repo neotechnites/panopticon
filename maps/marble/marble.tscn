@@ -15,8 +15,8 @@
 background_mode = 1
 background_color = Color(0.20, 0.21, 0.23, 1)
 ambient_light_source = 2
-ambient_light_color = Color(0.56, 0.60, 0.64, 1)
-ambient_light_energy = 2.1
+ambient_light_color = Color(0.6, 0.6, 0.6, 1)
+ambient_light_energy = 4.3
 tonemap_mode = 1
 tonemap_white = 6.0
 
@@ -138,10 +138,10 @@ editor_description = "On the room floor's centre (1.70 over the origin), 0.25 m 
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.95, 0)
 
 [node name="TowerLight" type="OmniLight3D" parent="Tower"]
-editor_description = "The tower's own lamp under the arcade, UNSHADOWED since 2026-09-22: it hangs at 5.6 over the datum -- world 30.95, over the guard's head and under the arches' crowns -- as a warm room light, and because nothing occludes it, it reaches out through the shaft and the walkway slab to the three cell tiers under the lane (90 m) that the shadowed Skylight cannot light. It is a SOFT lamp (Ryan, 2026-09-16: \"it's way way harsh in the middle of the tower\"): 2.4 m wide, energy 4 over a nearly flat falloff (attenuation 0.35), so the room floor 3 m under it rolls off at the tonemap white instead of clipping. Every number is marble_tower_light_profile.tres'; the light_* properties here mirror it for the editor view."
+editor_description = "The tower's own lamp under the arcade, UNSHADOWED since 2026-09-22: it hangs at 5.6 over the datum -- world 30.95, over the guard's head and under the arches' crowns -- as a warm room light, and because nothing occludes it, it reaches out through the shaft and the walkway slab to the three cell tiers under the lane (90 m) that the shadowed Skylight cannot light. It is a SOFT lamp (Ryan, 2026-09-16: \"it's way way harsh in the middle of the tower\"): 2.4 m wide, energy 0.2 (2026-10-08, Ryan: \"the whole map should look like the cells\": the neutral ambient lights the map evenly) over a nearly flat falloff (attenuation 0.35), so the room floor 3 m under it rolls off at the tonemap white instead of clipping. Every number is marble_tower_light_profile.tres'; the light_* properties here mirror it for the editor view."
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5.6, 0)
 light_color = Color(1, 0.94, 0.8, 1)
-light_energy = 4.0
+light_energy = 0.2
 light_size = 2.4
 light_specular = 0.0
 shadow_enabled = false
@@ -157,7 +157,7 @@ editor_description = "Bentham's reflector lamps: one OmniLight3D at each lantern
 [node name="Lamp025" type="OmniLight3D" parent="Tower/Lamps"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6.9473, 6.0, 3.2396)
 light_color = Color(1, 0.86, 0.64, 1)
-light_energy = 3.6
+light_energy = 0.2
 light_specular = 0.0
 shadow_enabled = false
 omni_range = 75.0
@@ -166,7 +166,7 @@ omni_attenuation = 0.25
 [node name="Lamp070" type="OmniLight3D" parent="Tower/Lamps"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.6218, 6.0, 7.2032)
 light_color = Color(1, 0.86, 0.64, 1)
-light_energy = 3.6
+light_energy = 0.2
 light_specular = 0.0
 shadow_enabled = false
 omni_range = 75.0
@@ -175,7 +175,7 @@ omni_attenuation = 0.25
 [node name="Lamp115" type="OmniLight3D" parent="Tower/Lamps"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.2396, 6.0, 6.9473)
 light_color = Color(1, 0.86, 0.64, 1)
-light_energy = 3.6
+light_energy = 0.2
 light_specular = 0.0
 shadow_enabled = false
 omni_range = 75.0
@@ -184,7 +184,7 @@ omni_attenuation = 0.25
 [node name="Lamp160" type="OmniLight3D" parent="Tower/Lamps"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -7.2032, 6.0, 2.6218)
 light_color = Color(1, 0.86, 0.64, 1)
-light_energy = 3.6
+light_energy = 0.2
 light_specular = 0.0
 shadow_enabled = false
 omni_range = 75.0
@@ -193,7 +193,7 @@ omni_attenuation = 0.25
 [node name="Lamp205" type="OmniLight3D" parent="Tower/Lamps"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6.9473, 6.0, -3.2396)
 light_color = Color(1, 0.86, 0.64, 1)
-light_energy = 3.6
+light_energy = 0.2
 light_specular = 0.0
 shadow_enabled = false
 omni_range = 75.0
@@ -202,7 +202,7 @@ omni_attenuation = 0.25
 [node name="Lamp250" type="OmniLight3D" parent="Tower/Lamps"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.6218, 6.0, -7.2032)
 light_color = Color(1, 0.86, 0.64, 1)
-light_energy = 3.6
+light_energy = 0.2
 light_specular = 0.0
 shadow_enabled = false
 omni_range = 75.0
@@ -211,7 +211,7 @@ omni_attenuation = 0.25
 [node name="Lamp295" type="OmniLight3D" parent="Tower/Lamps"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.2396, 6.0, -6.9473)
 light_color = Color(1, 0.86, 0.64, 1)
-light_energy = 3.6
+light_energy = 0.2
 light_specular = 0.0
 shadow_enabled = false
 omni_range = 75.0
@@ -220,7 +220,7 @@ omni_attenuation = 0.25
 [node name="Lamp340" type="OmniLight3D" parent="Tower/Lamps"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7.2032, 6.0, -2.6218)
 light_color = Color(1, 0.86, 0.64, 1)
-light_energy = 3.6
+light_energy = 0.2
 light_specular = 0.0
 shadow_enabled = false
 omni_range = 75.0
