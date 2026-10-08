@@ -48,8 +48,8 @@ editor_description = "Map 4, the ice chamber: one sculpt in five chunks (ground,
 environment = SubResource("Env")
 
 [node name="Sun" type="DirectionalLight3D" parent="Environment"]
-editor_description = "Cold daylight through the roof from bearing 150, 62 deg up."
-transform = Transform3D(0.5, 0.764655, -0.406574, 0, 0.469472, 0.882948, 0.866025, -0.441474, 0.234736, 0, 70, 0)
+editor_description = "Cold daylight straight down from the dome."
+transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, 0, 70, 0)
 light_color = Color(0.92, 0.97, 1, 1)
 light_energy = 0.55
 light_specular = 0.6
