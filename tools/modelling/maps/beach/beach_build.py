@@ -1,17 +1,17 @@
 """
-PANOPTICON -- beach: Map 5 in the hub's order, the beach yacht map. A bay held between two curved
-jetties of sand that run out from a beach; the island rises behind a low rock wall; teal shallows,
-then dark deep water (the pit); a yacht anchored at the bay's centre is the tower. ONE sculpt
+PANOPTICON -- beach: the beach yacht map. A U-shaped bay held between two curved sand jetties that run
+out from a beach; the island rises behind a low wall of stacked beach rock; light turquoise sea, a
+wadeable shelf, then deep teal water (the pit); a yacht anchored in the bay is the tower. ONE sculpt
 (shared vertices where parts meet), exported per chunk:
 
-    beach_ground.glb   seabed edge, shallows, sand, the rock wall, the jetty heads     BeachGround
-    beach_island.glb   the island behind the wall: grass, headlands, hills, far coast  BeachIsland
-    beach_rocks.glb    boulders sunk into the sand, shallows, wall foot and heads      BeachRocks
-    beach_palms.glb    palms planted in the sand and on the island                     BeachPalms
-    beach_water.glb    the sea, flat and static, to the horizon (no collider)          BeachWater
+    beach_ground.glb   seabed edge, shallows, sand, the wall's core, the jetty heads    BeachGround
+    beach_island.glb   the island behind the wall: grass, canopy, hills, far coast      BeachIsland
+    beach_rocks.glb    the wall's stacked boulders, and rocks in sand, shallows, heads  BeachRocks
+    beach_palms.glb    palms planted in the sand and on the island                      BeachPalms
+    beach_water.glb    the sea, flat and static, to the horizon (no collider)           BeachWater
 
 World coordinates, instanced at identity (Blender +Z -> Godot +Y, +Y -> Godot -Z; bearings as the
-scene's markers, pol()). The mouth faces bearing 0; the lap runs 38 -> 322 deg at r 58.
+scene's markers, pol()). The mouth faces bearing 0; the lap runs 60 -> 300 deg at r 68.5.
 
     tools/modelling/model build beach [--chunk island]
     python3 tools/modelling/maps/beach/beach_build.py --check
@@ -35,8 +35,8 @@ for _root in (os.path.dirname(_HOME), os.path.dirname(os.path.dirname(_HOME))):
         break
 import texel as tx  # noqa: E402
 import beach_lib as il  # noqa: E402
-from beach_lib import (Mesh, Rng, UP, DOWN, pol, bearing_of, rad_of, lerp, lerp3, clamp, smooth, ramp,  # noqa: E402
-                     angdiff, h2, vnoise, fbm, ring_noise, add, sub, scale, dot, cross, unit)
+from beach_lib import (Mesh, Rng, UP, pol, bearing_of, rad_of, lerp, lerp3, clamp, smooth, ramp,  # noqa: E402
+                       angdiff, h2, vnoise, fbm, ring_noise)
 if bpy is not None:
     import mdl  # noqa: E402
 
@@ -47,82 +47,89 @@ if bpy is not None:
 NAME = "beach"
 SEED = 52817
 FACING_YAW = 0.0
-NC = 360                    # columns round the bay near the lane: 1 deg, 1.0 m at the lane
+NC = 360                    # columns round the bay: 1 deg, 1.2 m at the lane
 DECK_Z = 23.0               # the sand the lane runs on (every map's deck)
 WATER_Z = 22.6              # the sea's surface
-LANE_R = 58.0               # the lap: 38 -> 322 deg, 287 m
-ENTRY_B, EXIT_B = 38.0, 322.0
+LANE_R = 68.5               # the lap: 60 -> 300 deg, 287 m; the mouth spans the other 120 deg
+ENTRY_B, EXIT_B = 60.0, 300.0
+RUN_S = 180.0 - ENTRY_B     # s (degrees off the beach's centre) of the start and the portal
 
 # -- the bay shore: waterline, a narrow wadeable shelf, then the drop to deep water (the pit)
-WL_R = 53.0                 # waterline radius ...
-WL_WANDER = 0.7             # ... and how far it wanders
+WL_R = 63.5                 # waterline radius ...
+WL_WANDER = 0.8             # ... and how far it wanders
 SHELF = 3.0                 # metres of shallows inside the waterline
 SHELF_DEPTH = 0.5           # water depth at the shelf's edge
 DEEP_Z = 10.0               # the drop-off's foot, under opaque water
-SAND_ROWS = 6               # rows between the dry sand's first row and the wall foot
+SAND_ROWS = 7               # rows between the dry sand's first row and the wall foot
 WET = 1.3                   # metres of wet sand above the waterline
 
-# -- the beach rock wall: about 2 m, low enough to see the island over
-WALL_R = 63.6               # the wall's foot ...
+# -- the beach rock wall: about 2 m of stacked boulders on a rock core, low enough to see the island over
+WALL_R = 74.1               # the wall's foot (10.6 m of sand) ...
 WALL_WANDER = 0.6
-WALL_H = (1.75, 2.3)        # its height wanders between these
-WALL_ROWS = ((0.0, 0.0), (0.17, 0.06), (0.35, 0.16), (0.53, 0.28), (0.7, 0.4), (0.86, 0.55), (0.97, 0.78),
-             (1.0, 1.15))   # (share of the height, metres back); the last is the lip's top
-WALL_JIT = (0.2, 0.08)      # per-vertex wander: metres in/out, share of the height
+WALL_H = (1.8, 2.15)        # the core's height wanders between these
+WALL_ROWS = ((0.0, 0.0), (0.2, 0.25), (0.45, 0.45), (0.7, 0.62), (0.9, 0.85), (1.0, 1.25))   # (share, metres back)
+CORE_SHADE = 0.55           # the core shows only in the gaps between boulders
+COURSES = ((0.25, 0.0, (1.25, 1.85), 0.8, 0.3), (0.78, 1.05, (0.95, 1.45), 0.72, 0.25))
+#           (metres back of the foot, base over the sand, size range, squash, sink) for the two courses
 ISLAND_LIFT = 1.85          # the island's ground behind the lip, over the deck
 
 # -- the island behind the wall
-ISLAND_D = [0.6, 1.6, 3.0, 5.0, 7.5, 10.0, 13.0, 16.0, 19.0, 22.0, 25.0, 28.5, 32.0, 36.0, 41.0, 47.0,
-            54.0, 63.0, 74.0, 87.0, 102.0, 120.0]        # rows behind the wall's top, metres
-FAR_R = [(200.0, 180), (228.0, 180), (262.0, 180), (300.0, 180), (345.0, 120), (395.0, 120),
-         (450.0, 120), (515.0, 90), (590.0, 90), (680.0, 72), (790.0, 72), (920.0, 60)]   # (r, columns)
-RIDGE = (2.2, 4.5, 4.0)     # the jetty's hummock behind its wall: height, distance behind the wall, half width
-ARM_W = (12.0, 6.5)         # the jetty's land behind its wall, at its root and near its head (metres)
-MAIN_COAST = (-20.0, 0.0035, 58.0)   # the big island's coast: x at the jetty roots, curvature, |y| it bends from
+ISLAND_D = [0.6, 1.6, 3.0, 5.0, 7.5, 10.0, 13.0, 16.0, 19.0, 22.0, 25.0, 28.5, 32.0, 36.0, 40.5, 45.5,
+            51.0, 57.0, 64.0, 72.0, 81.0, 91.0, 102.0, 114.0, 127.0, 141.0]   # rows behind the wall's top
+FAR_R = [(232.0, 360), (252.0, 360), (274.0, 360), (298.0, 360), (325.0, 360), (355.0, 360),
+         (390.0, 240), (430.0, 240), (480.0, 180), (540.0, 180), (610.0, 120), (700.0, 120),
+         (810.0, 90), (950.0, 72)]                                       # (r, columns)
+RIDGE = (2.2, 4.5, 4.0)     # the jetty's hummock behind its wall: height, distance behind, half width
+ARM_W = (14.0, 7.0)         # the jetty's land behind its wall, at its root and near its head (metres)
 COAST_SLOPE = 0.42          # the coast's fall into the sea
-HILLS = ((180.0, 300.0, 66.0, 105.0), (146.0, 245.0, 44.0, 78.0), (214.0, 360.0, 84.0, 120.0),
-         (122.0, 205.0, 26.0, 58.0), (243.0, 238.0, 38.0, 68.0), (168.0, 470.0, 58.0, 150.0),
-         (196.0, 160.0, 18.0, 50.0), (262.0, 300.0, 30.0, 90.0), (100.0, 330.0, 34.0, 90.0))  # (bearing, r, h, spread)
+MAIN_COAST = (-26.0, 0.003, 71.0)   # the big island's coast: x at the jetty roots, curvature, |y| it bends from
+HILLS = ((180.0, 360.0, 78.0, 150.0), (143.0, 300.0, 52.0, 110.0), (216.0, 430.0, 104.0, 170.0),
+         (121.0, 255.0, 34.0, 80.0), (246.0, 290.0, 46.0, 95.0), (166.0, 570.0, 72.0, 200.0),
+         (198.0, 205.0, 24.0, 70.0), (266.0, 370.0, 40.0, 120.0), (100.0, 400.0, 44.0, 130.0),
+         (232.0, 620.0, 90.0, 220.0))   # (bearing, r, height, reach)
+RIDGES = (20.0, 95.0)       # ridged noise over the hills: metres, wavelength
+CROWN = (7.0, 3.6)          # the canopy's crowns: cell metres near the beach, crown height
 
 # -- the jetty heads: a rock knoll where the sand ends, beyond the start and the portal
-HEAD_S = 152.0              # s of the knoll's top
-HEAD_W = (5.5, 10.0)        # half extents: degrees along, metres across
-HEAD_H = 4.2
-HEAD_R = 60.5
-END_S = (149.0, 162.0)      # the land drops away into the sea between these s
+HEAD_S = RUN_S + 8.5        # s of the knoll's top
+HEAD_W = (4.6, 9.5)         # half extents: degrees along, metres across
+HEAD_H = 4.4
+HEAD_R = 70.5
+END_S = (RUN_S + 6.0, RUN_S + 17.0)    # the land drops away into the sea between these s
 
-# -- the sea
-WATER_R = [0.0, 8.0, 18.0, 28.0, 36.0, 42.0, 45.5]                     # rings in the bay (absolute)
-WATER_IN = [-7.5, -5.5, -4.3, -3.5, -3.0, -2.5, -2.0, -1.5, -1.0, -0.55, -0.2, 0.0, 0.8]   # metres off the waterline
-WATER_OUT = [66.0, 69.0, 72.0, 75.0, 78.0, 81.0, 84.0, 87.0, 90.0, 94.0, 99.0]   # absolute rings outside the wall
-WATER_FAR = [(105.0, 180), (112.0, 180), (120.0, 180), (130.0, 180), (142.0, 180), (156.0, 180), (172.0, 180),
-             (190.0, 180), (215.0, 180), (250.0, 180), (300.0, 120), (380.0, 120), (500.0, 90), (700.0, 72),
-             (1000.0, 60), (1500.0, 48), (2200.0, 36), (3000.0, 36)]
-SHORE_FOAM = (0.86, 0.97, 0.95)        # sRGB at the waterline
-SHALLOW = (0.6, 0.91, 0.84)            # the wadeable band (refs: 150..160, 229..232, 208..216)
-TEAL = (0.22, 0.8, 0.8)                # over the drop-off (refs 55, 205, 203)
-DEEP = (0.06, 0.38, 0.66)              # the pit: dark water
-OPEN = (0.02, 0.55, 0.81)              # open sea, toward the horizon (refs 0..20, 139, 206)
-HORIZON = (0.6, 0.77, 0.85)            # the sky's horizon colour: the sea's last ring
-SKY_FADE = (500.0, 3000.0)
+# -- the sea (sRGB, from the refs)
+WATER_R = [0.0, 12.0, 26.0, 38.0, 48.0, 54.0]                           # rings in the bay (absolute)
+WATER_IN = [-8.5, -6.5, -5.0, -4.0, -3.4, -3.0, -2.5, -2.0, -1.5, -1.0, -0.55, -0.2, 0.0, 0.8]
+WATER_OUT = [77.0, 80.0, 83.0, 86.0, 89.0, 92.0, 96.0, 100.0, 105.0, 111.0]
+WATER_FAR = [(118.0, 180), (126.0, 180), (135.0, 180), (146.0, 180), (160.0, 180), (178.0, 180),
+             (200.0, 180), (230.0, 180), (270.0, 120), (330.0, 120), (420.0, 120), (550.0, 90),
+             (750.0, 72), (1050.0, 60), (1500.0, 48), (2200.0, 36), (3000.0, 36)]
+SHORE_FOAM = (0.88, 0.98, 0.96)        # at the waterline
+SHALLOW = (0.62, 0.92, 0.86)           # the wadeable shelf (n64 refs 150..160, 229..232, 208..216)
+TURQ = (0.12, 0.78, 0.86)              # light turquoise sea (Sunshine 10, 189, 224; img1 30, 212, 197)
+PIT = (0.0, 0.47, 0.6)                 # the bay's deep water, the pit: deep teal
+PIT_FADE = (8.0, 60.0)                 # x (toward the mouth) where the deep teal starts to thin, and is gone
+OPEN_FAR = (0.0, 0.56, 0.8)            # open sea toward the horizon (Sunshine far 0, 139, 206)
+HORIZON = (0.64, 0.8, 0.9)             # the sky's horizon colour: the sea's last ring
+SKY_FADE = (700.0, 3000.0)
 
-# -- colours carried by the vertices (x the drawn tile)
-WET_SAND = (0.86, 0.85, 0.79)
-JUNGLE_NEAR = (0.33, 0.6, 0.27)        # x the pale canopy tile
-JUNGLE_HAZE = (0.5, 0.68, 0.7)
-HAZE_D = (60.0, 650.0)                 # distance from the bay's centre where the haze starts and is whole
-GRASS_EDGE = (28.0, 46.0)              # metres behind the wall where grass gives way to canopy
+# -- colours carried by the vertices (x the drawn tile; grass and canopy tiles are pale)
+WET_SAND = (0.88, 0.86, 0.79)
+GRASS_VC = (0.5, 0.8, 0.3)
+JUNGLE_VC = (0.3, 0.64, 0.24)
+HAZE_VC = (0.6, 0.76, 0.8)
+HAZE_D = (120.0, 800.0)                # distance from the bay's centre where the haze starts and is whole
 
-# -- palms and rocks
-PALM_ISLAND = 100
-PALM_SAND = 14
-PALM_H = (7.0, 11.5)
-PALM_SAND_H = (6.5, 9.0)
-TRUNK_R = (0.21, 0.15)      # base and top radius
+# -- palms
+PALM_CLUSTERS = 40
+PALM_SAND = 6               # clusters on the sand, at the wall's foot
+PALM_H = (7.0, 12.0)
+PALM_SAND_H = (6.5, 9.5)
+TRUNK_R = (0.23, 0.16)      # base and top radius
 TRUNK_SEG = 0.85            # metres a trunk segment rises
-FRONDS = (7, 9)
-FROND_L = (3.4, 4.6)
-FROND_W = 0.36              # half width at the widest
+FRONDS = (9, 11)
+FROND_L = (3.8, 5.2)
+FROND_W = 0.52              # half width at the widest
 
 TWO_PI = 2.0 * math.pi
 INFO = {}
@@ -166,30 +173,49 @@ def bell(x):
 
 def head(b, r):
     """The jetty head's rock knoll, metres over the land."""
-    s = s_of(b)
     lump = 0.15 * vnoise(b * 0.7, r * 0.5, SEED + 7)
-    return HEAD_H * (1.0 + lump) * bell((s - HEAD_S) / HEAD_W[0]) * bell((r - HEAD_R) / HEAD_W[1])
+    return HEAD_H * (1.0 + lump) * bell((s_of(b) - HEAD_S) / HEAD_W[0]) * bell((r - HEAD_R) / HEAD_W[1])
 
 
 def arm_w(b):
     """How far the jetty's land runs behind its wall before the outer coast: narrowing to the head."""
-    s = s_of(b)
-    return lerp(ARM_W[0], ARM_W[1], ramp(s, 80.0, 146.0)) + 2.0 * ring_noise(b, SEED + 8, ((9, 1.0), (19, 0.6)))
+    return lerp(ARM_W[0], ARM_W[1], ramp(s_of(b), 80.0, RUN_S + 4.0)) + 2.0 * ring_noise(b, SEED + 8, ((9, 1.0), (19, 0.6)))
 
 
 def main_coast(x, y):
     """Metres inside the big island's coast (negative: out at sea). The coast meets the jetties' roots."""
-    ay = abs(y)
-    xc = MAIN_COAST[0] - MAIN_COAST[1] * max(ay - MAIN_COAST[2], 0.0) ** 2 + 7.0 * fbm(y / 40.0, 3.0, SEED + 13, 3)
+    xc = MAIN_COAST[0] - MAIN_COAST[1] * max(abs(y) - MAIN_COAST[2], 0.0) ** 2 + 7.0 * fbm(y / 40.0, 3.0, SEED + 13, 3)
     return xc - x
 
 
 def hills(x, y):
+    """Distinct peaks with ridged flanks."""
     h = 0.0
     for b, r, hh, sp in HILLS:
         px, py, _z = pol(b, r, 0.0)
-        h += hh * math.exp(-((x - px) ** 2 + (y - py) ** 2) / (2.0 * sp * sp))
-    return h + 9.0 * fbm(x / 70.0, y / 70.0, SEED + 9, 3)
+        d = math.hypot(x - px, y - py) / sp
+        h = max(h, hh * bell(d * 0.85) ** 0.8) + 0.25 * hh * bell(d * 0.6)
+    ridge = 1.0 - abs(fbm(x / RIDGES[1], y / RIDGES[1], SEED + 9, 3))
+    return h + RIDGES[0] * ridge * ridge * ramp(h, 4.0, 30.0)
+
+
+def canopy(x, y):
+    """(height, shade) of the jungle's crowns: domes on a jittered grid, larger with distance."""
+    cell = CROWN[0] * (1.0 + math.hypot(x, y) / 260.0)
+    ci, cj = math.floor(x / cell), math.floor(y / cell)
+    best = 0.0
+    for dj in (-1, 0, 1):
+        for di in (-1, 0, 1):
+            i, j = ci + di, cj + dj
+            fx = (i + 0.2 + 0.6 * h2(i, j, SEED + 60)) * cell
+            fy = (j + 0.2 + 0.6 * h2(i, j, SEED + 61)) * cell
+            rad = cell * (0.62 + 0.3 * h2(i, j, SEED + 62))
+            best = max(best, 1.0 - (math.hypot(x - fx, y - fy) / rad) ** 2)
+    return CROWN[1] * (cell / CROWN[0]) ** 0.5 * max(best, 0.0) ** 0.55, max(best, 0.0)
+
+
+def jungle_mask(x, y, d):
+    return ramp(d, 20.0, 34.0) * ramp(main_coast(x, y), 14.0, 34.0)
 
 
 def island_z(b, r):
@@ -198,30 +224,39 @@ def island_z(b, r):
     x, y, _z = pol(b, r, 0.0)
     s = s_of(b)
     base = DECK_Z + ISLAND_LIFT + 0.35 * fbm(x / 9.0, y / 9.0, SEED + 10)
-    # the jetty: a low hummock of grass and rock behind its wall
-    hump = RIDGE[0] * (1.0 - ramp(s, 120.0, 148.0)) * bell((d - RIDGE[1]) / RIDGE[2])
+    hump = RIDGE[0] * (1.0 - ramp(s, 100.0, RUN_S + 6.0)) * bell((d - RIDGE[1]) / RIDGE[2])
     arm = min(base + hump, WATER_Z + COAST_SLOPE * (arm_w(b) - d))
-    # the big island behind the beach: rising into hills
     inside = main_coast(x, y)
     land = base + min(d, 30.0) * 0.04 + hills(x, y) * ramp(d, 14.0, 90.0) * ramp(inside, 10.0, 90.0)
+    jm = jungle_mask(x, y, d)
+    if jm > 0.0:
+        land += canopy(x, y)[0] * jm
     big = min(land, WATER_Z + COAST_SLOPE * inside)
-    z = max(arm, big)
-    return max(z, WATER_Z - 9.0) - drop(b)
+    return max(max(arm, big), WATER_Z - 9.0) - drop(b)
 
 
 def sand_z(b, r):
-    """The beach between the waterline and the wall foot."""
+    """The beach between the shelf's foot and the wall foot: smooth, no grain in the shape."""
     w, f = wl(b), wf(b)
-    x, y, _z = pol(b, r, 0.0)
     if r < w:
         t = (w - r) / SHELF
-        z = WATER_Z - SHELF_DEPTH * smooth(min(t, 1.0) * 0.5 + 0.5 * min(t, 1.0) ** 1.4) if t <= 1.0 else \
-            WATER_Z - SHELF_DEPTH - (WATER_Z - SHELF_DEPTH - DEEP_Z) * smooth(min((t - 1.0) * SHELF / 5.0, 1.0))
+        if t <= 1.0:
+            z = WATER_Z - SHELF_DEPTH * (0.5 * t + 0.5 * t ** 1.4)
+        else:
+            z = WATER_Z - SHELF_DEPTH - (WATER_Z - SHELF_DEPTH - DEEP_Z) * smooth(min((t - 1.0) * SHELF / 5.0, 1.0))
     else:
         u = r - w
         z = WATER_Z + (DECK_Z - WATER_Z) * smooth(min(u / 2.6, 1.0)) + 0.16 * ramp(r, w + 2.6, f)
-        z += 0.018 * fbm(x / 2.5, y / 2.5, SEED + 12) * ramp(u, 0.5, 2.0)
     return z + head(b, r) - drop(b)
+
+
+def ground_z(b, r):
+    """The ground's height anywhere (for planting and for the sea's colour)."""
+    if r < wf(b):
+        return sand_z(b, r)
+    if r < top_r(b):
+        return sand_z(b, wf(b)) + wall_h(b)
+    return island_z(b, r)
 
 
 # =============================================================================
@@ -229,7 +264,7 @@ def sand_z(b, r):
 # =============================================================================
 
 def FACE(c):
-    """Up, leaning toward the bay: the wall's upright faces look at the bay, every other face up."""
+    """Up, leaning toward the bay."""
     r = math.hypot(c[0], c[1]) or 1.0
     return (-0.08 * c[0] / r, -0.08 * c[1] / r, 1.0)
 
@@ -244,116 +279,103 @@ def _jb(b, k, amp):
     return amp * (2.0 * h2(int(round(b * 10.0)), k, SEED + 20) - 1.0)
 
 
+def land_col(p):
+    """Grass near the wall, canopy beyond (the crowns lit on top, dark between), haze far off."""
+    x, y = p[0], p[1]
+    b, r = bearing_of(p), math.hypot(x, y)
+    d = r - top_r(b)
+    jm = jungle_mask(x, y, d)
+    c = lerp3(GRASS_VC, JUNGLE_VC, jm)
+    if jm > 0.0:
+        sh = canopy(x, y)[1]
+        f = lerp(1.0, lerp(0.62, 1.14, sh), jm)
+        c = (c[0] * f, c[1] * f, c[2] * f)
+    n = 0.93 + 0.1 * vnoise(x / 13.0, y / 13.0, SEED + 32)
+    c = (c[0] * n, c[1] * n, c[2] * n)
+    c = lerp3(c, HAZE_VC, ramp(r, HAZE_D[0], HAZE_D[1]) ** 0.75)
+    return (c[0], c[1], c[2], 1.0)
+
+
 class Sculpt(object):
-    """The ground as one Mesh: rows from the drop-off out through sand, wall and island."""
+    """The ground as one Mesh: rows from the drop-off out through sand, the wall's core and the island."""
 
     def __init__(self):
         self.m = Mesh()
-        self.rows = []           # each NC long
-        self.kind = {}           # vertex id -> row kind
-        self.wall_top = None
+        self.kind = {}
 
     def v(self, p, col, kind):
         i = self.m.v(p, col)
         self.kind[i] = kind
         return i
 
-    # -- vertex colours --------------------------------------------------------
-    def _sand_col(self, b, r, z):
-        w = wl(b)
-        wet = 1.0 - ramp(r - w, 0.25, WET)
+    def _sand_col(self, b, r):
+        wet = 1.0 - ramp(r - wl(b), 0.25, WET)
         c = lerp3((1.0, 1.0, 1.0), WET_SAND, wet)
-        foot = 1.0 - 0.08 * ramp(r, wf(b) - 1.2, wf(b))
-        n = 0.97 + 0.03 * vnoise(b * 0.9, r * 0.6, SEED + 30)
-        return (c[0] * foot * n, c[1] * foot * n, c[2] * foot * n, 1.0)
+        foot = 1.0 - 0.1 * ramp(r, wf(b) - 1.4, wf(b))
+        return (c[0] * foot, c[1] * foot, c[2] * foot, 1.0)
 
-    def _rock_col(self, p):
-        n = 0.88 + 0.16 * h2(int(p[0] * 7.0), int(p[1] * 7.0 + p[2] * 13.0), SEED + 31)
-        wet = 1.0 - 0.28 * (1.0 - ramp(p[2], WATER_Z - 0.2, WATER_Z + 0.5))
-        return (n * wet, n * wet, n * wet * 1.01, 1.0)
+    def _core_col(self, p):
+        n = CORE_SHADE * (0.9 + 0.2 * h2(int(p[0] * 5.0), int(p[1] * 5.0 + p[2] * 9.0), SEED + 31))
+        return (n, n, n, 1.0)
 
-    def _land_col(self, p):
-        """Grass and canopy: near green, far toward the sky's haze."""
-        dist = math.hypot(p[0], p[1])
-        hz = ramp(dist, HAZE_D[0], HAZE_D[1]) ** 0.8
-        n = 0.92 + 0.12 * vnoise(p[0] / 13.0, p[1] / 13.0, SEED + 32)
-        c = lerp3(JUNGLE_NEAR, JUNGLE_HAZE, hz)
-        return (c[0] * n, c[1] * n, c[2] * n, 1.0)
-
-    # -- rows ------------------------------------------------------------------
     def build(self):
-        m = self.m
         rows = []
-        # the drop, the shelf and the sand: offsets from the waterline, then the dry sand
         shore = [-7.0, -5.0, -SHELF, -2.2, -1.4, -0.7, -0.25, 0.0, 0.45, 1.0, 1.7, 2.6]
         for k, off in enumerate(shore):
             row = []
             for i in range(NC):
                 b = float(i)
-                r = wl(b) + off + (0.0 if k < 2 else _jb(b, 40 + k, 0.12))
+                r = wl(b) + off
                 z = sand_z(b, r) if off != 0.0 else WATER_Z + head(b, r) - drop(b)
-                row.append(self.v(pol(b, r, z), self._sand_col(b, r, z), "shore" if off < 0.0 else "sand"))
+                row.append(self.v(pol(b, r, z), self._sand_col(b, r), "shore" if off < 0.0 else "sand"))
             rows.append(row)
         for k in range(1, SAND_ROWS + 1):
             row = []
             for i in range(NC):
                 b = float(i)
-                t = k / float(SAND_ROWS + 1)
-                r = lerp(wl(b) + 2.6, wf(b), t) + _jb(b, 60 + k, 0.25)
-                bj = b + _jb(b, 80 + k, 0.3)
-                z = sand_z(bj, r)
-                row.append(self.v(pol(bj, r, z), self._sand_col(bj, r, z), "sand"))
+                r = lerp(wl(b) + 2.6, wf(b), k / float(SAND_ROWS + 1))
+                row.append(self.v(pol(b, r, sand_z(b, r)), self._sand_col(b, r), "sand"))
             rows.append(row)
-        # the wall: from the foot (on the sand) up its battered, blocky face to the lip
-        for k, (hs, back_m) in enumerate(WALL_ROWS):
+        for k, (hs, back) in enumerate(WALL_ROWS):
             row = []
             for i in range(NC):
                 b = float(i)
                 foot_z = sand_z(b, wf(b))
-                h = wall_h(b)
                 if k == len(WALL_ROWS) - 1:
                     r = top_r(b)
                     z = island_z(b, r)
-                    z = max(z, foot_z + h * 0.93) if drop(b) < 0.5 else z
+                    z = max(z, foot_z + wall_h(b)) if drop(b) < 0.5 else z
                     kind = "lip"
+                elif k == 0:
+                    r, z, kind = wf(b), foot_z, "foot"
                 else:
-                    blk = vnoise(b * 0.55, hs * 3.0, SEED + 40)        # blocks standing proud or set back
-                    r = wf(b) + back_m + (0.0 if k == 0 else WALL_JIT[0] * blk + _jb(b, 100 + k, 0.08))
-                    z = foot_z + h * hs + (0.0 if k == 0 else _jb(b, 120 + k, WALL_JIT[1]) * h * 0.4)
-                    z += head(b, r) * (0.0 if k == 0 else 1.0) * 0.0
-                    kind = "foot" if k == 0 else "wall"
-                if k == 0:
-                    z = sand_z(b, r)
+                    r = wf(b) + back + _jb(b, 100 + k, 0.12)
+                    z = foot_z + wall_h(b) * hs + _jb(b, 120 + k, 0.06)
+                    kind = "wall"
                 p = pol(b, r, z)
-                row.append(self.v(p, self._rock_col(p) if k else self._sand_col(b, r, z), kind))
+                row.append(self.v(p, self._core_col(p) if k else self._sand_col(b, r), kind))
             rows.append(row)
-        self.wall_top = rows[-1]
-        # the island behind the wall
         for k, d in enumerate(ISLAND_D):
             row = []
             for i in range(NC):
                 b = float(i) + (_jb(float(i), 200 + k, 0.3) if k > 1 else 0.0)
                 r = top_r(b) + d + _jb(float(i), 220 + k, 0.2 * min(d, 4.0))
-                z = island_z(b, r)
-                p = pol(b, r, z)
-                row.append(self.v(p, self._land_col(p), "island"))
+                p = pol(b, r, island_z(b, r))
+                row.append(self.v(p, land_col(p), "island"))
             rows.append(row)
-        self.rows = rows
         n_ground = len(shore) + SAND_ROWS + len(WALL_ROWS)
         self._grid(rows[:n_ground], "ground")
         self._grid(rows[n_ground - 1:], "island")
-        # far rings: absolute radii, fewer columns, stitched to the last near row
         prev = rows[-1]
         for r, n in FAR_R:
             ring = []
             for j in range(n):
-                b = (j + 0.5 * (len(ring) % 2)) * 360.0 / n
-                z = island_z(b, r)
-                p = pol(b, r, z)
-                ring.append(self.v(p, self._land_col(p), "island"))
+                b = (j + 0.5 * (len(FAR_R) % 2)) * 360.0 / n
+                p = pol(b, r, island_z(b, r))
+                ring.append(self.v(p, land_col(p), "island"))
             self._stitch(prev, ring)
             prev = ring
-        return m
+        return self.m
 
     def _hidden(self, ids):
         return all(self.m.verts[v][2] < WATER_Z - 1.2 for v in ids)
@@ -370,14 +392,13 @@ class Sculpt(object):
                 m.quad(q[0], q[1], q[2], q[3], INWARD if wall else FACE, self._zone, chunk)
 
     def _stitch(self, a, b_):
-        before = len(self.m.faces)
-        self.m.stitch(a, b_, FACE, self._zone, "island")
-        keep = [k for k in range(before, len(self.m.faces)) if not self._hidden(self.m.faces[k])]
-        drop_ = set(range(before, len(self.m.faces))) - set(keep)
-        if drop_:
-            self.m.faces = [f for k, f in enumerate(self.m.faces) if k not in drop_]
-            self.m.zones = [z for k, z in enumerate(self.m.zones) if k not in drop_]
-            self.m.chunks = [c for k, c in enumerate(self.m.chunks) if k not in drop_]
+        m = self.m
+        before = len(m.faces)
+        m.stitch(a, b_, FACE, self._zone, "island")
+        keep = [k for k in range(before, len(m.faces)) if not self._hidden(m.faces[k])]
+        m.faces[before:] = [m.faces[k] for k in keep]
+        m.zones[before:] = [m.zones[k] for k in keep]
+        m.chunks[before:] = [m.chunks[k] for k in keep]
 
     def _zone(self, n, c, ids):
         kinds = [self.kind.get(v, "island") for v in ids]
@@ -389,24 +410,11 @@ class Sculpt(object):
             return "rock"
         if all(k in ("sand", "shore", "foot") for k in kinds):
             return "rock" if head(b, r) > 0.45 or steep > 0.55 else "sand"
-        if steep > 0.5 or (head(b, r) > 0.45 and c[2] > WATER_Z + 0.3):
+        if steep > 0.55 or (head(b, r) > 0.45 and c[2] > WATER_Z + 0.3):
             return "rock"
         if c[2] < WATER_Z + 0.9 and steep < 0.3:
             return "sand"
-        d = r - top_r(b)
-        edge = lerp(GRASS_EDGE[0], GRASS_EDGE[1], 0.5 + 0.5 * vnoise(c[0] / 17.0, c[1] / 17.0, SEED + 50))
-        if main_coast(c[0], c[1]) < 25.0:
-            edge = 1e9                                   # the jetties and the coast stay grass
-        return "grass" if d < edge else "jungle"
-
-
-def ground_z(b, r):
-    """The ground's height anywhere (for planting and for the sea's colour)."""
-    if r < wf(b):
-        return sand_z(b, r)
-    if r < top_r(b):
-        return sand_z(b, wf(b)) + wall_h(b)
-    return island_z(b, r)
+        return "jungle" if jungle_mask(c[0], c[1], r - top_r(b)) > 0.5 else "grass"
 
 
 # =============================================================================
@@ -416,11 +424,12 @@ def ground_z(b, r):
 def sea_col(b, r):
     depth = WATER_Z - ground_z(b, r)
     c = lerp3(SHORE_FOAM, SHALLOW, ramp(depth, 0.0, 0.16))
-    c = lerp3(c, TEAL, ramp(depth, SHELF_DEPTH * 0.9, 2.2))
-    c = lerp3(c, DEEP, ramp(depth, 2.2, 7.0))
-    open_ = ramp(r, 90.0, 400.0)
-    c = lerp3(c, OPEN, open_ * ramp(depth, 2.0, 7.0))
-    c = lerp3(c, HORIZON, ramp(r, SKY_FADE[0], SKY_FADE[1]) ** 1.3)
+    c = lerp3(c, TURQ, ramp(depth, SHELF_DEPTH * 0.9, 2.0))
+    x = r * math.cos(math.radians(b))                     # toward the mouth: the deep teal thins out through it
+    bay = ramp(x, PIT_FADE[1], PIT_FADE[0]) * ramp(r, WL_R + 2.0, WL_R - 2.0)
+    c = lerp3(c, PIT, bay * ramp(depth, 2.5, 7.5))
+    c = lerp3(c, OPEN_FAR, (1.0 - bay) * ramp(r, 110.0, 700.0))
+    c = lerp3(c, HORIZON, ramp(r, SKY_FADE[0], SKY_FADE[1]) ** 1.4)
     return (c[0], c[1], c[2], 1.0)
 
 
@@ -431,24 +440,16 @@ def build_sea():
     for r in WATER_R[1:]:
         rings.append([m.v(pol(i * 360.0 / NC, r, WATER_Z), sea_col(i * 360.0 / NC, r)) for i in range(NC)])
     for off in WATER_IN:
-        ring = []
-        for i in range(NC):
-            b = float(i)
-            r = wl(b) + off
-            ring.append(m.v(pol(b, r, WATER_Z), sea_col(b, r)))
-        rings.append(ring)
+        rings.append([m.v(pol(float(i), wl(float(i)) + off, WATER_Z), sea_col(float(i), wl(float(i)) + off))
+                      for i in range(NC)])
     for r in WATER_OUT:
         rings.append([m.v(pol(i * 360.0 / NC, r, WATER_Z), sea_col(i * 360.0 / NC, r)) for i in range(NC)])
-    first = rings[0]
     for i in range(NC):
-        m.tri(centre, first[i], first[(i + 1) % NC], UP, "water", "water")
+        m.tri(centre, rings[0][i], rings[0][(i + 1) % NC], UP, "water", "water")
     for lo, hi in zip(rings, rings[1:]):
         for i in range(NC):
             j = (i + 1) % NC
-            q = (lo[i], lo[j], hi[j], hi[i])
-            if all(ground_z(bearing_of(m.verts[v]), rad_of(m.verts[v])) > WATER_Z + 0.4 for v in q):
-                continue                              # under the land
-            m.quad(q[0], q[1], q[2], q[3], UP, "water", "water")
+            m.quad(lo[i], lo[j], hi[j], hi[i], UP, "water", "water")
     prev = rings[-1]
     for r, n in WATER_FAR:
         ring = [m.v(pol(j * 360.0 / n, r, WATER_Z), sea_col(j * 360.0 / n, r)) for j in range(n)]
@@ -466,95 +467,90 @@ def build_sea():
 # ROCKS -- faceted boulders, each sunk into what it stands on
 # =============================================================================
 
-def boulder(m, cx, cy, size, seed, sink=0.3, squash=0.7, chunk="rocks"):
-    """A faceted boulder of about `size` metres, its base `sink` of its height below the ground."""
+def boulder(m, cx, cy, size, seed, sink=0.3, squash=0.7, gz=None, nseg=6):
+    """A faceted boulder of about `size` metres, its base `sink` of its height below gz (the ground)."""
     r = Rng(seed)
-    gz = ground_z(bearing_of((cx, cy, 0.0)), math.hypot(cx, cy))
+    if gz is None:
+        gz = ground_z(bearing_of((cx, cy, 0.0)), math.hypot(cx, cy))
     hz = size * 0.5 * squash
     cz = gz + hz * (1.0 - 2.0 * sink)
     yaw = r.u(0.0, TWO_PI)
-    sx, sy = size * 0.5 * r.u(0.85, 1.2), size * 0.5 * r.u(0.7, 1.0)
-    lats = (-0.95, -0.45, 0.1, 0.6)
-    nseg = 7
+    sx, sy = size * 0.5 * r.u(0.9, 1.2), size * 0.5 * r.u(0.7, 0.95)
     rings = []
-    for la in lats:
+    for la in (-0.9, -0.3, 0.3, 0.72):
         ring = []
         for k in range(nseg):
-            a = (k + 0.5 * (len(rings) % 2)) * TWO_PI / nseg + r.u(-0.18, 0.18)
-            j = r.u(0.82, 1.12)
+            a = (k + 0.5 * (len(rings) % 2)) * TWO_PI / nseg + r.u(-0.2, 0.2)
+            j = r.u(0.8, 1.12)
             cl = math.cos(la * math.pi / 2.0)
             lx, ly = math.cos(a) * sx * cl * j, math.sin(a) * sy * cl * j
-            px = cx + lx * math.cos(yaw) - ly * math.sin(yaw)
-            py = cy + lx * math.sin(yaw) + ly * math.cos(yaw)
-            pz = cz + math.sin(la * math.pi / 2.0) * hz * r.u(0.85, 1.1)
-            ring.append(m.v((px, py, pz)))
+            ring.append(m.v((cx + lx * math.cos(yaw) - ly * math.sin(yaw), cy + lx * math.sin(yaw) + ly * math.cos(yaw),
+                             cz + math.sin(la * math.pi / 2.0) * hz * r.u(0.85, 1.1))))
         rings.append(ring)
-    top = m.v((cx + r.u(-0.1, 0.1) * size, cy + r.u(-0.1, 0.1) * size, cz + hz * r.u(0.95, 1.12)))
+    top = m.v((cx + r.u(-0.1, 0.1) * size, cy + r.u(-0.1, 0.1) * size, cz + hz * r.u(0.95, 1.1)))
     bot = m.v((cx, cy, cz - hz))
     out = lambda p: (p[0] - cx, p[1] - cy, p[2] - cz)
-    m.grid(rings, out, "rock", chunk)
+    m.grid(rings, out, "rock", "rocks")
     for k in range(nseg):
-        m.tri(rings[-1][k], rings[-1][(k + 1) % nseg], top, out, "rock", chunk)
-        m.tri(rings[0][k], rings[0][(k + 1) % nseg], bot, out, "rock", chunk)
+        m.tri(rings[-1][k], rings[-1][(k + 1) % nseg], top, out, "rock", "rocks")
+        m.tri(rings[0][k], rings[0][(k + 1) % nseg], bot, out, "rock", "rocks")
     return (cx, cy, size)
-
-
-def _in_lane(b, r, pad):
-    return abs(r - LANE_R) < 3.0 + pad
 
 
 def build_rocks():
     m = Mesh()
     placed = []
     rr = Rng(SEED + 300)
-    # at the wall's foot, on the sand
-    for k in range(34):
+    # the wall: two courses of boulders stacked against the core, the lower sunk in the sand
+    for c, (back, base, size_r, squash, sink) in enumerate(COURSES):
+        b = 0.0
+        while b < 360.0:
+            if s_of(b) <= HEAD_S - 1.0:
+                size = rr.u(*size_r)
+                r = wf(b) + back + rr.u(-0.15, 0.15)
+                x, y, _z = pol(b, r, 0.0)
+                gz = sand_z(b, wf(b)) + base + (rr.u(-0.12, 0.12) if c else 0.0)
+                boulder(m, x, y, size, SEED + 2000 + 1000 * c + int(b * 10), sink=sink, squash=squash, gz=gz)
+                if c == 0:
+                    placed.append((x, y, size))
+                b += size * rr.u(0.85, 1.05) / (math.radians(1.0) * r)
+            else:
+                b += 0.5
+    # low rocks in the shallows: never more than 0.5 m over the water
+    for k in range(12):
         b = rr.u(0.0, 360.0)
-        if s_of(b) > 146.0:
-            continue
-        size = rr.u(0.55, 1.5)
-        r = wf(b) - size * 0.25 + rr.u(-0.3, 0.2)
-        if r - size * 0.6 < LANE_R + 3.2:
-            r = LANE_R + 3.2 + size * 0.6
-        x, y, _z = pol(b, r, 0.0)
-        placed.append(boulder(m, x, y, size, SEED + 1000 + k, sink=0.3))
-    # low rocks in the shallows: never taller than 0.6 m over the water
-    for k in range(10):
-        b = rr.u(0.0, 360.0)
-        if s_of(b) > 140.0:
+        if s_of(b) > RUN_S - 6.0:
             continue
         r = wl(b) - rr.u(0.6, 2.4)
-        size = rr.u(0.45, 0.95)
+        size = rr.u(0.45, 0.9)
         x, y, _z = pol(b, r, 0.0)
         placed.append(boulder(m, x, y, size, SEED + 1100 + k, sink=0.15, squash=0.55))
     # the jetty heads: a pile of big rock on each knoll
     for side, hb in ((0, 180.0 - HEAD_S), (1, 180.0 + HEAD_S)):
-        for k in range(7):
-            b = hb + rr.u(-4.5, 4.5)
+        for k in range(8):
+            b = hb + rr.u(-3.8, 3.8)
             r = HEAD_R + rr.u(-6.5, 6.0)
-            size = rr.u(1.6, 3.4)
+            size = rr.u(1.6, 3.6)
             x, y, _z = pol(b, r, 0.0)
-            placed.append(boulder(m, x, y, size, SEED + 1200 + 10 * side + k, sink=0.35))
-    # the island: headland crests and the outer coast
-    for k in range(60):
+            placed.append(boulder(m, x, y, size, SEED + 1200 + 10 * side + k, sink=0.35, nseg=7))
+    # the island: outcrops on the jetty strips and along the coast
+    for k in range(50):
         b = rr.u(0.0, 360.0)
-        if s_of(b) > 150.0:
+        if s_of(b) > RUN_S + 2.0:
             continue
         x0, y0, _z = pol(b, top_r(b) + 20.0, 0.0)
         d = rr.u(2.0, 40.0 if main_coast(x0, y0) > 0.0 else arm_w(b) + 3.0)
         r = top_r(b) + d
-        z = ground_z(b, r)
-        if z < WATER_Z - 0.4:
+        if ground_z(b, r) < WATER_Z - 0.4:
             continue
-        size = rr.u(0.8, 2.6)
         x, y, _z = pol(b, r, 0.0)
-        placed.append(boulder(m, x, y, size, SEED + 1300 + k, sink=0.35))
-    INFO["rocks"] = len(placed)
+        boulder(m, x, y, rr.u(0.9, 2.6), SEED + 1300 + k, sink=0.35)
+    INFO["rocks"] = len(m.faces)
     return m, placed
 
 
 # =============================================================================
-# PALMS -- segmented trunks, drooping folded fronds
+# PALMS -- segmented trunks, full drooping crowns, planted in clusters
 # =============================================================================
 
 def palm(m, base, height, lean_b, lean, seed, uv):
@@ -565,28 +561,31 @@ def palm(m, base, height, lean_b, lean, seed, uv):
     tl = math.radians(lean)
     nseg = max(6, int(height / TRUNK_SEG))
     sides = 6
-    rings = []
 
     def axis(t):
-        bend = math.sin(tl) * height * (0.45 * t + 0.55 * t * t)     # curving more toward the top
-        return (base[0] + dirx * bend, base[1] + diry * bend, base[2] - 0.35 + (height + 0.35) * t * math.cos(tl * 0.6))
+        bend = math.sin(tl) * height * (0.45 * t + 0.55 * t * t)
+        return (base[0] + dirx * bend, base[1] + diry * bend,
+                base[2] - 0.35 + (height + 0.35) * t * math.cos(tl * 0.6))
 
+    rings = []
     for k in range(nseg + 1):
         t = k / float(nseg)
         c = axis(t)
-        rad = lerp(TRUNK_R[0], TRUNK_R[1], t) * (1.35 if k == 0 else 1.0)
-        for lip in ((0.0, 1.0), (0.12, 1.16)) if 0 < k < nseg and k % 2 == 0 else ((0.0, 1.0),):
-            ring = []
+        rad = lerp(TRUNK_R[0], TRUNK_R[1], t) * (1.4 if k == 0 else 1.0)
+        for lip in (((0.0, 1.0), (0.12, 1.16)) if 0 < k < nseg and k % 3 == 0 else ((0.0, 1.0),)):
             cz = c[2] - lip[0] * TRUNK_SEG
-            for j in range(sides):
-                a = j * TWO_PI / sides + k * 0.35
-                ring.append(m.v((c[0] + math.cos(a) * rad * lip[1], c[1] + math.sin(a) * rad * lip[1], cz)))
-            rings.append((ring, cz))
+            rings.append(([m.v((c[0] + math.cos(j * TWO_PI / sides + k * 0.35) * rad * lip[1],
+                                c[1] + math.sin(j * TWO_PI / sides + k * 0.35) * rad * lip[1], cz))
+                           for j in range(sides)], cz))
     rings.sort(key=lambda e: e[1])
     ring_ids = [e[0] for e in rings]
-    out = lambda p: (p[0] - axis(clamp((p[2] - base[2]) / height))[0], p[1] - axis(clamp((p[2] - base[2]) / height))[1], 0.0)
+
+    def outward(p):
+        c = axis(clamp((p[2] - base[2]) / height))
+        return (p[0] - c[0], p[1] - c[1], 0.0)
+
     f0 = len(m.faces)
-    m.grid(ring_ids, out, "bark", "palms")
+    m.grid(ring_ids, outward, "bark", "palms")
     for fi in range(f0, len(m.faces)):
         for vi in m.faces[fi]:
             p = m.verts[vi]
@@ -597,14 +596,15 @@ def palm(m, base, height, lean_b, lean, seed, uv):
     cap = m.v((top[0], top[1], top[2] + 0.25))
     for j in range(sides):
         m.tri(ring_ids[-1][j], ring_ids[-1][(j + 1) % sides], cap, UP, "bark", "palms")
-        for vi in (ring_ids[-1][j], ring_ids[-1][(j + 1) % sides], cap):
+        for vi in m.faces[-1]:
             uv[(len(m.faces) - 1, vi)] = (0.5, 0.0)
-    # fronds
     nf = r.i(*FRONDS)
-    for f in range(nf):
-        az = f * TWO_PI / nf + r.u(-0.25, 0.25)
-        length = r.u(*FROND_L)
-        up = r.u(0.25, 0.75)                 # the frond's rise before it droops
+    for f in range(nf + 3):
+        young = f >= nf                                     # three short fronds standing up in the middle
+        az = (f * TWO_PI / nf + r.u(-0.2, 0.2)) if not young else r.u(0.0, TWO_PI)
+        length = r.u(*FROND_L) * (0.45 if young else 1.0)
+        up = r.u(0.9, 1.3) if young else r.u(0.2, 0.7)
+        droop = 0.25 if young else r.u(0.75, 1.1)
         ax, ay = math.cos(az), math.sin(az)
         px, py = -ay, ax
         steps = 4
@@ -612,11 +612,10 @@ def palm(m, base, height, lean_b, lean, seed, uv):
         for k in range(steps + 1):
             t = k / float(steps)
             dist = length * t
-            z = top[2] + 0.1 + length * (up * t - (up + 0.55) * t * t)
-            w = max(0.06, FROND_W * math.sin(math.pi * min(0.97, t * 1.15)) ** 0.7)
-            w *= 1.0 if k % 2 == 0 else 0.82                                 # leaflets ragged along the edge
+            z = top[2] + 0.1 + length * (up * t - (up + droop) * t * t)
+            w = max(0.07, FROND_W * (0.6 if young else 1.0) * math.sin(math.pi * min(0.97, 0.12 + t)) ** 0.6)
             c = (top[0] + ax * dist, top[1] + ay * dist, z)
-            fold = 0.45 * w
+            fold = 0.4 * w
             spine.append(m.v(c))
             left.append(m.v((c[0] + px * w, c[1] + py * w, c[2] - fold)))
             right.append(m.v((c[0] - px * w, c[1] - py * w, c[2] - fold)))
@@ -624,16 +623,13 @@ def palm(m, base, height, lean_b, lean, seed, uv):
         for side, sign in ((left, 1.0), (right, -1.0)):
             for k in range(steps):
                 q = (spine[k], spine[k + 1], side[k + 1], side[k])
-                m.tri_as(q[0], q[1], q[2], "leaf", "palms")
-                fi = len(m.faces) - 1
-                m.tri_as(q[0], q[2], q[3], "leaf", "palms")
-                for fj, tri in ((fi, (q[0], q[1], q[2])), (fi + 1, (q[0], q[2], q[3]))):
+                for tri in ((q[0], q[1], q[2]), (q[0], q[2], q[3])):
+                    m.tri_as(tri[0], tri[1], tri[2], "leaf", "palms")
+                    fi = len(m.faces) - 1
                     for vi in tri:
                         kk = spine.index(vi) if vi in spine else side.index(vi)
                         d_, w_ = ts[kk]
-                        across = 0.0 if vi in spine else sign * w_
-                        uv[(fj, vi)] = (0.5 + across / 12.8, d_ / 12.8)
-    return top
+                        uv[(fi, vi)] = (0.5 + (0.0 if vi in spine else sign * w_) / 12.8, d_ / 12.8)
 
 
 def build_palms():
@@ -641,49 +637,56 @@ def build_palms():
     uv = {}
     rr = Rng(SEED + 500)
     spots = []
-    # on the sand, at the wall's foot, leaning out over the beach
+    # on the sand at the wall's foot, in twos and threes, leaning out over the beach
+    centres = []
     tries = 0
-    while len(spots) < PALM_SAND and tries < 400:
+    while len(centres) < PALM_SAND and tries < 500:
         tries += 1
         b = rr.u(0.0, 360.0)
-        if s_of(b) > 128.0 or any(abs(angdiff(b, sb)) < 9.0 for sb, _r, _k in spots if _k == "sand"):
+        if s_of(b) > RUN_S - 12.0 or any(abs(angdiff(b, c)) < 22.0 for c in centres):
             continue
-        r = wf(b) - rr.u(0.9, 1.4)
-        spots.append((b, r, "sand"))
-    # the island: thick along the wall, thinning back; none in the sea or on a cliff
-    tries = 0
-    while len([s for s in spots if s[2] == "island"]) < PALM_ISLAND and tries < 6000:
+        centres.append(b)
+        for k in range(rr.i(2, 3)):
+            bb = b + rr.u(-2.2, 2.2)
+            spots.append((bb, wf(bb) - rr.u(1.0, 1.6), "sand", b))
+    # the island: clusters thick along the wall, thinning back; none in the sea or on a cliff
+    made, tries = 0, 0
+    while made < PALM_CLUSTERS and tries < 4000:
         tries += 1
         b = rr.u(0.0, 360.0)
-        if s_of(b) > 147.0:
+        if s_of(b) > RUN_S + 3.0:
             continue
-        d = 1.5 + 45.0 * rr.f() ** 1.7
+        d = 1.5 + 34.0 * rr.f() ** 1.6
         r = top_r(b) + d
-        z = ground_z(b, r)
-        if z < WATER_Z + 0.8:
+        if ground_z(b, r) < WATER_Z + 0.8:
             continue
-        x, y, _z = pol(b, r, 0.0)
-        if any(math.hypot(x - pol(sb, sr, 0.0)[0], y - pol(sb, sr, 0.0)[1]) < 4.2 for sb, sr, _k in spots):
+        cx, cy, _z = pol(b, r, 0.0)
+        if any(math.hypot(cx - pol(sb, sr, 0.0)[0], cy - pol(sb, sr, 0.0)[1]) < 6.0 for sb, sr, _k, _c in spots):
             continue
-        z2 = ground_z(b + 0.6, r + 0.6)
-        if abs(z2 - z) > 0.9:
-            continue
-        spots.append((b, r, "island"))
+        made += 1
+        for k in range(rr.i(1, 4)):
+            a, rad = rr.u(0.0, TWO_PI), rr.u(0.0, 2.6)
+            x, y = cx + math.cos(a) * rad, cy + math.sin(a) * rad
+            pb, pr = bearing_of((x, y, 0.0)), math.hypot(x, y)
+            if pr < top_r(pb) + 1.0 or ground_z(pb, pr) < WATER_Z + 0.8:
+                continue
+            if abs(ground_z(pb + 0.6, pr + 0.6) - ground_z(pb, pr)) > 0.9:
+                continue
+            spots.append((pb, pr, "island", bearing_of((cx, cy, 0.0)) if rad < 0.3 else None))
     trunks = []
-    for k, (b, r, kind) in enumerate(spots):
+    for k, (b, r, kind, centre) in enumerate(spots):
         x, y, _z = pol(b, r, 0.0)
         z = ground_z(b, r)
         if kind == "sand":
             h = rr.u(*PALM_SAND_H)
-            lean_b = b + 180.0 + rr.u(-25.0, 25.0)     # toward the bay
-            lean = rr.u(12.0, 24.0)
+            lean_b = b + 180.0 + rr.u(-30.0, 30.0)                 # toward the bay
+            lean = rr.u(14.0, 28.0)
+            trunks.append((x, y, z))
         else:
             h = rr.u(*PALM_H)
             lean_b = rr.u(0.0, 360.0)
-            lean = rr.u(3.0, 16.0)
+            lean = rr.u(4.0, 20.0)
         palm(m, (x, y, z), h, lean_b, lean, SEED + 600 + k, uv)
-        if kind == "sand":
-            trunks.append((x, y, z))
     INFO["palms"] = len(spots)
     return m, uv, trunks
 
@@ -693,18 +696,18 @@ def build_palms():
 # =============================================================================
 
 def build_ground_collider():
-    """Shelf, shallows and sand at the sculpt's own heights (coarser), the wall as a sheer face 3.2 m
-    tall on its foot line, and the jetty heads' knolls."""
+    """Shelf, shallows and sand at the sculpt's own heights (coarser), the wall as a sheer face 3.4 m
+    tall in front of its boulders, and the jetty heads' knolls."""
     g = Mesh()
-    offs = [-SHELF - 0.6, -SHELF, -1.5, 0.0, 1.3, 2.6]
     step = 2
+    offs = [-SHELF - 0.6, -SHELF, -1.5, 0.0, 1.3, 2.6]
     rows = []
     for off in offs:
         rows.append([g.v(pol(float(i), wl(float(i)) + off, sand_z(float(i), wl(float(i)) + off) - 0.02))
                      for i in range(0, NC, step)])
     for t in (0.35, 0.7, 1.0):
-        rows.append([g.v(pol(float(i), lerp(wl(float(i)) + 2.6, wf(float(i)) + 0.15, t),
-                             sand_z(float(i), lerp(wl(float(i)) + 2.6, wf(float(i)) + 0.15, t)) - 0.02))
+        rows.append([g.v(pol(float(i), lerp(wl(float(i)) + 2.6, wf(float(i)) - 0.5, t),
+                             sand_z(float(i), lerp(wl(float(i)) + 2.6, wf(float(i)) - 0.5, t)) - 0.02))
                      for i in range(0, NC, step)])
     n = len(rows[0])
     for lo, hi in zip(rows, rows[1:]):
@@ -718,11 +721,10 @@ def build_ground_collider():
     hi = [g.v((g.verts[v][0], g.verts[v][1], g.verts[v][2] + 3.4)) for v in lo]
     inward = lambda c: (-c[0], -c[1], 0.0)
     for i in range(n):
-        j = (i + 1) % n
-        if s_of(i * step) > 160.0:
+        if s_of(i * step) > HEAD_S:
             continue
+        j = (i + 1) % n
         g.quad(lo[i], lo[j], hi[j], hi[i], inward, "c", "ground")
-    # the knolls: a coarse grid over each head
     for hb in (180.0 - HEAD_S, 180.0 + HEAD_S):
         grid = []
         for bi in range(9):
@@ -734,21 +736,18 @@ def build_ground_collider():
 
 
 def build_rock_collider(placed):
-    """Every boulder a runner can reach (sand, shallows, heads) as a squat octagonal prism."""
+    """Every boulder a runner can reach (shallows, the wall's foot course, the heads) as a squat prism."""
     c = Mesh()
     for cx, cy, size in placed:
         b, r = bearing_of((cx, cy, 0.0)), math.hypot(cx, cy)
-        if r > wf(b) + 1.0 and abs(angdiff(abs(angdiff(b, 180.0)), HEAD_S)) > 9.0:
-            continue
-        gz = ground_z(b, r)
+        gz = ground_z(b, min(r, wf(b) - 0.01))
         lo, hi = [], []
         rad = size * 0.45
         for k in range(8):
             a = k * TWO_PI / 8.0
             lo.append(c.v((cx + math.cos(a) * rad, cy + math.sin(a) * rad, gz - 0.3)))
             hi.append(c.v((cx + math.cos(a) * rad * 0.7, cy + math.sin(a) * rad * 0.7, gz + size * 0.32)))
-        out = lambda p, cx=cx, cy=cy: (p[0] - cx, p[1] - cy, 0.0)
-        c.grid([lo, hi], out, "c", "rocks")
+        c.grid([lo, hi], lambda p, cx=cx, cy=cy: (p[0] - cx, p[1] - cy, 0.0), "c", "rocks")
         t = c.v((cx, cy, gz + size * 0.38))
         for k in range(8):
             c.tri(hi[k], hi[(k + 1) % 8], t, UP, "c", "rocks")
@@ -792,6 +791,7 @@ SHEETS = {
     "leaf": tx.Sheet("leaf", mode="custom", roughness=0.9, cull=False),
     "water": tx.Sheet("water", mode="box", roughness=0.3, cull=False),
 }
+SMOOTH = ("sand", "grass", "jungle", "water")     # Gouraud like the refs' ground; rock and palms stay faceted
 CHUNKS = ["ground", "island", "rocks", "palms", "water"]
 VIS = {"ground": "BeachGround", "island": "BeachIsland", "rocks": "BeachRocks", "palms": "BeachPalms",
        "water": "BeachWater"}
@@ -823,10 +823,26 @@ def _tint(mat):
         nt.links.new(res, sock)
 
 
+def _shade(ob, zones):
+    """Smooth faces in SMOOTH classes; every edge between two classes sharp, so a smooth face never
+    bends toward a rock face beside it."""
+    me = ob.data
+    me.polygons.foreach_set("use_smooth", [z in SMOOTH for z in zones])
+    owner = {}
+    for pi, poly in enumerate(me.polygons):
+        for ek in poly.edge_keys:
+            owner.setdefault(ek, set()).add(zones[pi])
+    for e in me.edges:
+        if len(owner.get(e.key, ())) > 1:
+            e.use_edge_sharp = True
+    me.update()
+
+
 def _object(name, verts, cols, faces, zones, mats, face_uv=None):
     ob = mdl.mesh(name, verts, faces)
     tx.unwrap(ob, zones, SHEETS, seed=1, face_uv=face_uv)
     tx.finish(ob, zones, mats)
+    _shade(ob, zones)
     attr = ob.data.color_attributes.new(name="Col", type="FLOAT_COLOR", domain="POINT")
     attr.data.foreach_set("color", [c for rgba in cols for c in rgba])     # sRGB: Godot reads COLOR_0 so
     ob.data.color_attributes.active_color_index = 0
@@ -857,7 +873,7 @@ def _part(m, chunk, name, mats, uv=None):
 def build():
     s, m, rocks, palms, uv, sea, cols = build_geometry()
     mats = tx.materials(NAME, SHEETS)
-    for cls, mat in mats.items():
+    for mat in mats.values():
         _tint(mat)
     out = []
     parts = {"ground": _part(m, "ground", VIS["ground"], mats), "island": _part(m, "island", VIS["island"], mats),
@@ -875,7 +891,7 @@ def build():
             line += " collision_tris=%d" % len(cf)
         print(line)
     tx.report(SHEETS)
-    print("MDL STATS rocks=%d palms=%d" % (INFO.get("rocks", 0), INFO.get("palms", 0)))
+    print("MDL STATS palms=%d" % INFO.get("palms", 0))
     return out
 
 
@@ -920,8 +936,7 @@ def _check():
     il.report(sea, "water")
     for k, c in cols.items():
         il.report(c, k + "_collider")
-    print("rocks=%d palms=%d lane r=%.1f lap=%.0f m" % (INFO["rocks"], INFO["palms"], LANE_R,
-                                                         math.radians(EXIT_B - ENTRY_B) * LANE_R))
+    print("palms=%d lane r=%.1f lap=%.0f m" % (INFO["palms"], LANE_R, math.radians(EXIT_B - ENTRY_B) * LANE_R))
 
 
 if __name__ == "__main__":

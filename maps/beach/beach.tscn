@@ -11,16 +11,12 @@
 [ext_resource type="PackedScene" path="res://maps/beach/models/beach_water.glb" id="14_water"]
 [ext_resource type="Texture2D" path="res://maps/beach/textures/beach_water_albedo.png" id="15_water_tile"]
 [ext_resource type="PackedScene" path="res://maps/beach/props/beach_portal.tscn" id="19_portal"]
+[ext_resource type="Shader" path="res://maps/beach/materials/beach_sky.gdshader" id="20_sky_shader"]
+[ext_resource type="Texture2D" path="res://maps/beach/textures/beach_clouds_albedo.png" id="21_clouds"]
 
-[sub_resource type="ProceduralSkyMaterial" id="SkyMat"]
-sky_top_color = Color(0.27, 0.64, 1, 1)
-sky_horizon_color = Color(0.62, 0.77, 0.85, 1)
-sky_curve = 0.12
-ground_bottom_color = Color(0.1, 0.5, 0.74, 1)
-ground_horizon_color = Color(0.62, 0.77, 0.85, 1)
-ground_curve = 0.02
-sun_angle_max = 8.0
-sun_curve = 0.08
+[sub_resource type="ShaderMaterial" id="SkyMat"]
+shader = ExtResource("20_sky_shader")
+shader_parameter/clouds = ExtResource("21_clouds")
 
 [sub_resource type="Sky" id="Sky"]
 sky_material = SubResource("SkyMat")
@@ -51,10 +47,10 @@ editor_description = "The beach: a bay between two jetties, the island behind a 
 environment = SubResource("Env")
 
 [node name="Sun" type="DirectionalLight3D" parent="Environment"]
-editor_description = "The sky's sun: bearing 20 over the sea, 55 deg up."
-transform = Transform3D(0.342, -0.77, 0.539, 0, 0.5737, 0.819, -0.94, -0.28, 0.196, 0, 80, 0)
+editor_description = "The sun the sky draws: bearing 15 over the sea, 35 deg up."
+transform = Transform3D(0.2588, -0.554, 0.7913, 0, 0.8192, 0.5736, -0.9659, -0.1484, 0.212, 0, 80, 0)
 light_color = Color(1, 1, 0.97, 1)
-light_energy = 0.26
+light_energy = 0.37
 shadow_enabled = true
 shadow_bias = 0.06
 shadow_blur = 1.5
@@ -93,40 +89,40 @@ depth_metres = 30.0
 [node name="StartEnd" type="Node3D" parent="."]
 
 [node name="PrisonerStart" type="Marker3D" parent="StartEnd"]
-transform = Transform3D(-0.788011, 0, 0.615661, 0, 1, 0, -0.615661, 0, -0.788011, 45.7046, 23.1, 35.7084)
+transform = Transform3D(-0.5, 0, 0.866025, 0, 1, 0, -0.866025, 0, -0.5, 34.25, 23.1, 59.3227)
 
 [node name="PrisonerEnd" type="Marker3D" parent="StartEnd"]
-transform = Transform3D(0.788011, 0, 0.615661, 0, 1, 0, -0.615661, 0, 0.788011, 45.7046, 23.1, -35.7084)
+transform = Transform3D(0.5, 0, 0.866025, 0, 1, 0, -0.866025, 0, 0.5, 34.25, 23.1, -59.3227)
 
 [node name="Portal" parent="StartEnd" instance=ExtResource("19_portal")]
-transform = Transform3D(0.788011, 0, 0.615661, 0, 1, 0, -0.615661, 0, 0.788011, 45.7046, 23.05, -35.7084)
+transform = Transform3D(0.5, 0, 0.866025, 0, 1, 0, -0.866025, 0, 0.5, 34.25, 23.05, -59.3227)
 
 [node name="Sections" type="Node3D" parent="."]
 
 [node name="Watch" type="Node3D" parent="Sections"]
 editor_description = "Where the AI guard's scan rests: three points round the lane."
 
-[node name="Lane100" type="Marker3D" parent="Sections/Watch" groups=["guard_watch"]]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -10.07, 24, 57.12)
+[node name="Lane120" type="Marker3D" parent="Sections/Watch" groups=["guard_watch"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -34.25, 24, 59.32)
 
 [node name="Lane180" type="Marker3D" parent="Sections/Watch" groups=["guard_watch"]]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -58, 24, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -68.5, 24, 0)
 
-[node name="Lane260" type="Marker3D" parent="Sections/Watch" groups=["guard_watch"]]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -10.07, 24, -57.12)
+[node name="Lane240" type="Marker3D" parent="Sections/Watch" groups=["guard_watch"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -34.25, 24, -59.32)
 
 [node name="Route" type="Node3D" parent="."]
 script = ExtResource("5_ring_route")
 
 [node name="Level1" type="Node3D" parent="Route"]
-editor_description = "One lap from jetty tip to jetty tip: sand at y 23.0, shelf edge r 50 to wall foot r 63.5, lane r 58, 38 to 322 deg (287 m)."
+editor_description = "One lap from jetty tip to jetty tip: sand at y 23.0, shelf edge r 60.5 to the wall r 73.6, lane r 68.5, 60 to 300 deg (287 m)."
 script = ExtResource("6_ring_level")
 deck_height = 23.0
-inner_radius = 50.0
-outer_radius = 63.5
-lane_radius = 58.0
-entry_angle_degrees = 38.0
-exit_angle_degrees = 322.0
+inner_radius = 60.5
+outer_radius = 73.6
+lane_radius = 68.5
+entry_angle_degrees = 60.0
+exit_angle_degrees = 300.0
 
 [node name="Tower" type="Node3D" parent="."]
 editor_description = "The yacht at anchor, bow to the mouth; origin the guard datum at y 25.35 (flybridge floor +1.70)."
