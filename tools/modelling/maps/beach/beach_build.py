@@ -498,7 +498,7 @@ def boulder(m, cx, cy, size, seed, sink=0.3, squash=0.7, gz=None, nseg=6, lats=(
     yaw = r.u(0.0, TWO_PI)
     tilt, tilt_dir = math.radians(r.u(0.0, 18.0)), r.u(0.0, TWO_PI)
     sx, sy = size * 0.5 * r.u(0.85, 1.3), size * 0.5 * r.u(0.6, 0.95)
-    tone = r.u(0.8, 1.0)
+    tone = r.u(0.9, 1.04)
     tint = (1.03, 1.0, 0.95) if r.f() < 0.5 else (0.96, 0.98, 1.03)
     col = (tone * tint[0], tone * tint[1], tone * tint[2], 1.0)
     tx_, ty_ = math.cos(tilt_dir), math.sin(tilt_dir)
@@ -538,8 +538,8 @@ def boulder(m, cx, cy, size, seed, sink=0.3, squash=0.7, gz=None, nseg=6, lats=(
     foot = max(lo_z, gz - 0.05)
     for i in range(first, len(m.verts)):
         t = clamp((m.verts[i][2] - foot) / max(hi_z - foot, 0.1)) ** 0.8
-        shade = lerp(0.62, 1.0, t)
-        warm = lerp3((1.0, 0.9, 0.78), (0.97, 0.98, 1.0), t)
+        shade = lerp(0.8, 1.0, t)
+        warm = lerp3((1.0, 0.93, 0.84), (0.98, 0.99, 1.0), t)
         m.cols[i] = (min(1.0, col[0] * shade * warm[0]), min(1.0, col[1] * shade * warm[1]),
                      min(1.0, col[2] * shade * warm[2]), 1.0)
     out = lambda p: (p[0] - cx, p[1] - cy, p[2] - cz)

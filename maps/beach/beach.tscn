@@ -72,17 +72,29 @@ shader = ExtResource("32_under_shader")
 shader_parameter/radius = 34.0
 shader_parameter/opacity = 1.0
 
-[sub_resource type="ShaderMaterial" id="UnderMid"]
+[sub_resource type="ShaderMaterial" id="UnderOuter"]
 render_priority = 3
 shader = ExtResource("32_under_shader")
-shader_parameter/radius = 18.0
-shader_parameter/opacity = 0.55
+shader_parameter/radius = 22.0
+shader_parameter/opacity = 0.6
 
-[sub_resource type="ShaderMaterial" id="UnderNear"]
+[sub_resource type="ShaderMaterial" id="UnderMid"]
 render_priority = 4
 shader = ExtResource("32_under_shader")
-shader_parameter/radius = 8.0
-shader_parameter/opacity = 0.4
+shader_parameter/radius = 12.0
+shader_parameter/opacity = 0.45
+
+[sub_resource type="ShaderMaterial" id="UnderInner"]
+render_priority = 5
+shader = ExtResource("32_under_shader")
+shader_parameter/radius = 6.0
+shader_parameter/opacity = 0.35
+
+[sub_resource type="ShaderMaterial" id="UnderNear"]
+render_priority = 6
+shader = ExtResource("32_under_shader")
+shader_parameter/radius = 2.5
+shader_parameter/opacity = 0.3
 
 [sub_resource type="StandardMaterial3D" id="GrassMat"]
 resource_name = "beach_grass"
@@ -126,7 +138,7 @@ mesh = SubResource("SunQuad")
 surface_material_override/0 = SubResource("SunMat")
 
 [node name="Underwater" type="Node3D" parent="Environment"]
-editor_description = "Three shells round the camera, drawn only below the sea: the deep teal fade a sinking runner sees."
+editor_description = "Five shells round the camera, drawn only below the sea: the deep teal fade a sinking runner sees."
 
 [node name="Far" type="MeshInstance3D" parent="Environment/Underwater"]
 cast_shadow = 0
@@ -134,11 +146,23 @@ custom_aabb = AABB(-8192, -8192, -8192, 16384, 16384, 16384)
 mesh = SubResource("UnderSphere")
 surface_material_override/0 = SubResource("UnderFar")
 
+[node name="Outer" type="MeshInstance3D" parent="Environment/Underwater"]
+cast_shadow = 0
+custom_aabb = AABB(-8192, -8192, -8192, 16384, 16384, 16384)
+mesh = SubResource("UnderSphere")
+surface_material_override/0 = SubResource("UnderOuter")
+
 [node name="Mid" type="MeshInstance3D" parent="Environment/Underwater"]
 cast_shadow = 0
 custom_aabb = AABB(-8192, -8192, -8192, 16384, 16384, 16384)
 mesh = SubResource("UnderSphere")
 surface_material_override/0 = SubResource("UnderMid")
+
+[node name="Inner" type="MeshInstance3D" parent="Environment/Underwater"]
+cast_shadow = 0
+custom_aabb = AABB(-8192, -8192, -8192, 16384, 16384, 16384)
+mesh = SubResource("UnderSphere")
+surface_material_override/0 = SubResource("UnderInner")
 
 [node name="Near" type="MeshInstance3D" parent="Environment/Underwater"]
 cast_shadow = 0
