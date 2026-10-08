@@ -59,8 +59,8 @@ RUN_S = 180.0 - ENTRY_B     # s (degrees off the beach's centre) of the start an
 # -- the bay shore: waterline, a narrow wadeable shelf, then the drop to deep water (the pit)
 WL_R = 63.5                 # waterline radius ...
 WL_WANDER = 0.8             # ... and how far it wanders
-SHELF = 3.0                 # metres of shallows inside the waterline
-SHELF_DEPTH = 0.5           # water depth at the shelf's edge
+SHELF = 11.0                # metres of shallows inside the waterline (8 to 14 along the U)
+SHELF_DEPTH = 1.1           # water depth at the shallows' outer edge
 DEEP_Z = 10.0               # the drop-off's foot, under opaque water
 SAND_ROWS = 7               # rows between the dry sand's first row and the wall foot
 WET = 1.3                   # metres of wet sand above the waterline
@@ -242,21 +242,26 @@ def island_z(b, r):
 
 
 def shelf_w(b):
-    """The wadeable shelf's width along the U: 2.4 to 3.6 m, never a circle."""
-    return SHELF * (1.0 + 0.2 * ring_noise(b, SEED + 41, ((3, 1.0), (7, 0.7), (16, 0.4))))
+    """The wadeable shallows' width along the U: 8 to 14 m of see-through water before it deepens."""
+    return SHELF * (1.0 + 0.27 * ring_noise(b, SEED + 41, ((3, 1.0), (7, 0.7), (16, 0.4))))
+
+
+def shelf_d(b):
+    """The shallows' depth at their outer edge, 0.95 to 1.25 m (wadeable: the pit's roof is 1.6 m down)."""
+    return SHELF_DEPTH * (1.0 + 0.14 * ring_noise(b, SEED + 43, ((4, 1.0), (9, 0.6))))
 
 
 def bed_depth(b, r):
-    """The bay's bed under the shelf's edge: an uneven slope (11 to 21 m long) down to a floor 7 to 11 m deep,
-    with sand lobes on it that stay deeper than the pit's roof (2.4 m), so the deep water is no disk."""
-    sd = SHELF_DEPTH * (1.0 + 0.25 * ring_noise(b, SEED + 43, ((4, 1.0), (9, 0.6))))
+    """The bay's bed past the shallows: an uneven slope (10 to 16 m long) down to a floor 7 to 11 m deep,
+    with sand lobes on it that stay deeper than the pit's roof, so the deep water is no disk."""
+    sd = shelf_d(b)
     t = wl(b) - r - shelf_w(b)
     x, y, _z = pol(b, r, 0.0)
-    run = 16.0 + 5.0 * ring_noise(b, SEED + 45, ((2, 1.0), (5, 0.8), (11, 0.4)))
+    run = 13.0 + 3.0 * ring_noise(b, SEED + 45, ((2, 1.0), (5, 0.8), (11, 0.4)))
     floor = 9.0 + 2.0 * vnoise(x / 14.0, y / 14.0, SEED + 47)
     d = sd + (floor - sd) * smooth(min(t / run, 1.0))
     lobe = 2.2 * max(0.0, vnoise(x / 8.0, y / 8.0, SEED + 49)) ** 1.3
-    return max(d - lobe, min(d, 2.4))
+    return max(d - lobe, min(d, 2.2))
 
 
 def sand_z(b, r):
@@ -265,8 +270,7 @@ def sand_z(b, r):
     if r < w:
         t = (w - r) / shelf_w(b)
         if t <= 1.0:
-            sd = SHELF_DEPTH * (1.0 + 0.25 * ring_noise(b, SEED + 43, ((4, 1.0), (9, 0.6))))
-            z = WATER_Z - sd * (0.5 * t + 0.5 * t ** 1.4)
+            z = WATER_Z - shelf_d(b) * (0.3 * t + 0.7 * t ** 1.6)
         else:
             z = WATER_Z - bed_depth(b, r)
     else:
@@ -352,8 +356,8 @@ class Sculpt(object):
 
     def build(self):
         rows = []
-        shore = [-34.0, -27.0, -21.0, -16.5, -13.0, -10.5, -8.5, -7.0, -5.8, -4.7, -3.7, -SHELF, -2.2, -1.4, -0.7,
-                 -0.25, 0.0, 0.45, 1.0, 1.7, 2.6]
+        shore = [-36.0, -30.0, -25.0, -21.0, -18.0, -15.5, -13.5, -11.5, -9.5, -7.5, -5.8, -4.3, -3.0, -2.0, -1.2,
+                 -0.55, -0.2, 0.0, 0.45, 1.0, 1.7, 2.6]
         for k, off in enumerate(shore):
             row = []
             for i in range(NC):
@@ -1154,41 +1158,31 @@ def build_prop_collider(solids, poles, logs, hut):
 # WAVES -- the GameCube way: short foam strips laid on the shore, each its own wave (beach_waves.gdshader)
 # =============================================================================
 
-WAVE_LEN = (2.0, 6.0)        # metres of shore one wave strip spans
-WAVE_OFFS = (-1.4, -0.7, -0.25, 0.0, 0.45, 1.0, 1.7, 2.6, 3.6)   # metres up the sand from the waterline (sand's rows)
+WAVE_OFFS = (-3.0, -2.0, -1.2, -0.55, -0.2, 0.0, 0.45, 1.0, 1.7, 2.6, 3.6)   # metres up the sand from the waterline
 
 
 def build_waves():
-    """Strips 2 to 6 m long along the waterline, each overlapping the last by a third or so, from 1.4 m out in
-    the water to 3.6 m up the sand, 4 cm over whatever is under them. COLOR is data: r = the strip's phase (its
-    timing, reach, speed, angle), g = (metres up the sand + 1.5) / 5.5, b = 0..1 along the strip; UV.x is
-    metres along the shore / 12.8."""
+    """One continuous strip along the whole waterline, from 3 m out in the water to 3.6 m up the sand, 4 cm
+    over whatever is under it; beach_waves.gdshader runs the waves along it. COLOR is data: g = (metres up
+    the sand + 3) / 6.6, b = 0..1 along the strip; UV.x is metres along the shore / 12.8."""
     m = Mesh()
     uv = {}
-    rr = Rng(SEED + 1500)
-    b0, hi = ENTRY_B - 7.0, EXIT_B + 5.0
-    while b0 < hi:
-        length = rr.u(*WAVE_LEN)
-        span = length / (math.radians(1.0) * WL_R)
-        phase = rr.f()
-        n = max(3, int(round(length / 0.9)))
-        rows = []
-        for off in WAVE_OFFS:
-            row = []
-            for i in range(n + 1):
-                b = b0 + span * i / n
-                r = wl(b) + off
-                z = max(sand_z(b, r) if off != 0.0 else WATER_Z, WATER_Z) + 0.04
-                row.append(m.v(pol(b, r, z), (phase, (off + 1.5) / 5.5, i / float(n), 1.0)))
-            rows.append(row)
-        f0 = len(m.faces)
-        m.grid(rows, UP, "wave", "waves", closed=False)
-        for fi in range(f0, len(m.faces)):
-            for vi in m.faces[fi]:
-                b = bearing_of(m.verts[vi])
-                uv[(fi, vi)] = ((angdiff(b, b0) * math.radians(1.0) * WL_R + 13.0 * phase) / 12.8, m.cols[vi][1])
-        b0 += span * rr.u(0.55, 0.8)
-        INFO["wave_strips"] = INFO.get("wave_strips", 0) + 1
+    lo, hi = ENTRY_B - 7.0, EXIT_B + 5.0
+    n = int(hi - lo) * 2
+    rows = []
+    for off in WAVE_OFFS:
+        row = []
+        for i in range(n + 1):
+            b = lo + (hi - lo) * i / n
+            r = wl(b) + off
+            z = max(sand_z(b, r) if off != 0.0 else WATER_Z, WATER_Z) + 0.04
+            row.append(m.v(pol(b, r, z), (0.0, (off + 3.0) / 6.6, i / float(n), 1.0)))
+        rows.append(row)
+    m.grid(rows, UP, "wave", "waves", closed=False)
+    for fi in range(len(m.faces)):
+        for vi in m.faces[fi]:
+            along = ((bearing_of(m.verts[vi]) - lo) % 360.0) * math.radians(1.0) * WL_R
+            uv[(fi, vi)] = (along / 12.8, m.cols[vi][1])
     INFO["waves"] = len(m.faces)
     return m, uv
 
@@ -1202,7 +1196,7 @@ def build_ground_collider():
     tall in front of its boulders, and the jetty heads' knolls."""
     g = Mesh()
     step = 2
-    offs = [-8.0, -6.0, -4.6, -SHELF - 0.6, -SHELF, -1.5, 0.0, 1.3, 2.6]
+    offs = [-20.0, -17.0, -14.5, -12.0, -9.5, -7.0, -4.5, -2.0, 0.0, 1.3, 2.6]
     rows = []
     for off in offs:
         rows.append([g.v(pol(float(i), wl(float(i)) + off, sand_z(float(i), wl(float(i)) + off) - 0.02))

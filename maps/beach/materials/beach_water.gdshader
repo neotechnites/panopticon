@@ -13,8 +13,8 @@ uniform sampler2D caustics : filter_linear_mipmap, repeat_enable;
 uniform sampler2D foam_texture : filter_linear_mipmap, repeat_enable;
 
 group_uniforms colours;
-uniform vec3 shallow_color : source_color = vec3(0.4, 0.86, 0.8);
-uniform vec3 turquoise_color : source_color = vec3(0.12, 0.78, 0.86);
+uniform vec3 shallow_color : source_color = vec3(0.45, 0.95, 0.9);
+uniform vec3 turquoise_color : source_color = vec3(0.1, 0.84, 0.86);
 uniform vec3 pit_color : source_color = vec3(0.0, 0.47, 0.6);
 uniform vec3 open_color : source_color = vec3(0.0, 0.56, 0.8);
 uniform vec3 sky_top : source_color = vec3(0.26, 0.63, 1.0);
@@ -28,7 +28,7 @@ uniform vec3 sun_color : source_color = vec3(1.0, 0.98, 0.9);
 uniform float glint = 5.0;
 uniform float sparkle = 14.0;
 uniform float reflection = 0.7;
-uniform float caustic_strength = 0.45;
+uniform float caustic_strength = 0.6;
 group_uniforms;
 
 uniform float display_gain = 0.73;   // Ryan's HDR desktop shows SDR at 2x linear; unshaded output is undone by 2^(-1/2.2)
@@ -96,14 +96,14 @@ void fragment() {
 
 	// colour by depth: shallow over the shelf, turquoise, the bay's deep teal, the open sea
 	// (the shelf's colour spreads down the whole drop-off: no seam where the sand falls away)
-	vec3 col = mix(shallow_color, turquoise_color, smoothstep(0.05, 1.6, depth));
-	col = mix(col, pit_color, pit * smoothstep(1.5, 6.5, depth));          // deepens over the whole slope
+	vec3 col = mix(shallow_color, turquoise_color, smoothstep(0.05, 1.1, depth));
+	col = mix(col, pit_color, pit * smoothstep(1.6, 6.0, depth));          // deepens down the slope past the shallows
 	col = mix(col, open_color, (1.0 - pit) * smoothstep(110.0, 700.0, r) * smoothstep(2.0, 7.0, depth));
 
 	// caustics on the shallow bed: two scrolling copies of the light net, where they cross
 	float c1 = texture(caustics, world.xz / 4.2 + t * vec2(0.03, 0.011)).r;
 	float c2 = texture(caustics, world.xz / 5.9 - t * vec2(0.013, 0.027)).r;
-	float caustic = clamp((min(c1, c2) - 0.9) * 9.0, 0.0, 1.0) * (1.0 - smoothstep(0.3, 2.6, depth)) * near;
+	float caustic = clamp((min(c1, c2) - 0.9) * 9.0, 0.0, 1.0) * (1.0 - smoothstep(1.0, 2.2, depth)) * near;
 	col += caustic * caustic_strength;
 
 	// the sky at grazing angles, the sun's glint, and sparkle off the ripples
@@ -128,7 +128,9 @@ void fragment() {
 	float far = pow(smoothstep(horizon_fade.x, horizon_fade.y, r), 1.4);
 	col = mix(col, sky_horizon, far);
 
-	float alpha = 1.0 - 0.92 * exp(-2.2 * max(depth, 0.0));        // clear at the edge, turquoise fast, opaque by ~2 m
+	// the shallows stay see-through (the sand under bright teal) until they deepen, then close over by ~3 m
+	float alpha = mix(0.12, 0.5, smoothstep(0.0, 1.2, depth));
+	alpha = mix(alpha, 1.0, smoothstep(1.2, 3.2, depth));
 	alpha = max(alpha, max(foam, clamp(shine, 0.0, 1.0)));
 	alpha = mix(alpha, 1.0, far);
 	if (!FRONT_FACING) {                    // from under the water: the surface seen from below, deep teal
