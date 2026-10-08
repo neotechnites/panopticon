@@ -1,0 +1,10 @@
+{
+  "_comment": "beach_portal: Map 4's finish line. A natural sea arch of weathered beach rock: two leaning jambs on broad splayed feet (0.25 m into the sand), waisted, carrying a rough lintel with an off-centre crown (x -0.5, z 4.0) and a worn sag. Warm grey faceted rock (beach_rock box-projected at texel.MPT), the inner reveal tinted deep, the feet tinted wet. The sea's own swirl (beach_portal_swirl_albedo, albedo and glow both) hangs inside as portal_disc's 264-tri waving see-through sheet. 4.5 x 4.0 x 0.8 m, origin at the base centre; the disc lies in local XY at z=0 so a runner passes through along local Z, exactly as portal.glb. ONE connected mesh: the disc is fanned off the frame's own inner-ridge row. Four materials (rock, deep, wet; the swirl), one UV set plus Wave. BeachPortalCollision is the jambs and lintel coarsened to a four-sided prism ring, shipped `-colonly`, leaving |x| <= 1.30 clear from the ground to z = 2.8; the disc has no collision.",
+  "node_paths": [
+    "BeachPortal",
+    "BeachPortalCollision",
+    "BeachPortalCollision/CollisionShape3D"
+  ],
+  "surfaces": 4,
+  "max_tris": 700
+}
