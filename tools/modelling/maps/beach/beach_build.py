@@ -68,7 +68,7 @@ WALL_R = 74.1               # the wall's foot (10.6 m of sand) ...
 WALL_WANDER = 0.6
 WALL_H = (1.0, 1.25)      # the core's height wanders between these (the cap course stands proud of it)
 WALL_ROWS = ((0.0, 0.0), (0.2, 0.75), (0.45, 1.0), (0.7, 1.2), (0.9, 1.35), (1.0, 1.6))   # (share, metres back)
-CORE_SHADE = 0.42           # the core shows only in the gaps between boulders
+CORE_SHADE = 0.62           # the core shows only in the gaps between boulders
 COURSES = (((0.2, 0.5), (0.0, 0.0), (1.2, 2.6), (0.75, 0.95), (0.3, 0.42), 0.0),
            ((0.5, 0.85), (0.95, 1.25), (0.9, 1.7), (0.65, 0.85), (0.15, 0.3), 0.12))
 #   (metres back of the foot, base over the sand, size, squash, sink, share left out): foot and cap courses
