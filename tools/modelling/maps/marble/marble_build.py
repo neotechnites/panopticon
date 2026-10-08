@@ -260,11 +260,11 @@ def stone(name, mode="cyl", mpt=WALL_MPT, **kw):
 
 def band_sheet():
     """The column tile turned 90 deg: the flutes run along the band, the band's height fits across them."""
-    return tile("band", "marble_column", "fit_v", COL_H, COL_W, turn=True)
+    return brick("band", mode="box")      # TRIAL: the brick at its wall density
 
 
 def column_sheet():
-    return tile("column", "marble_column", "fit_u", COL_W, COL_H)        # v: 3.2 m a repeat
+    return brick("column", mode="box")    # TRIAL: the brick at its wall density
 
 
 # Linear multipliers over the brick: each class's old mean colour.
@@ -348,6 +348,8 @@ def prop_finish(ob, zones, name, atlas_index=None):
     me = ob.data
     uvl = me.uv_layers["UVMap"]
     sheets = {z: brick(z, PROP_MPT, PROP_MPT, t, mode="box") for z, t in PROP_BRICKS.items()}
+    for z in ("column", "band", "collar"):   # TRIAL: the column zones wear the brick at wall density
+        sheets[z] = brick(z, mode="box")
     faces, kind = {}, {}
     for pi, poly in enumerate(me.polygons):
         z = zones[pi]
