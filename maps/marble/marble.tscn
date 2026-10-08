@@ -27,7 +27,7 @@ editor_description = "MAP 2, MARBLE: the Bentham drawing in white marble, one cl
 
 A prisoner runs one 340 deg lap at r 52 from 5 deg to the portal at 345 deg. THE LANE IS BARE (Ryan, 2026-09-22: \"for the marble level, can you just get rid of all the elements on the ring? just so it looks good for screenshots and trailers and stuff\"): the obstacle course -- 71 placed instances, columns, broken columns, arches, spike patches and strips, pads, the orbs -- came off, and nothing stands on the 340 deg run now but the portal at the finish. The bars at 353 deg stayed, behind the finish and out of every shot of the lane, because the bake and the harness proved them structural rather than scenery: see the Bars node. The models the course used are still in maps/marble/models/; only this scene changed. Off the walkway there is nothing to stand on until the spikes, and SpikeFloor kills before a body reaches them; KillBox below the ground floor catches anything that fell through the world.
 
-The light (2026-09-30, Ryan: \"there's no light on the tower. it's dark.\") is Bentham's own: Tower/Lamps, eight shadowed reflector spotlights on the tower's arcade throwing warm pools out across the ring onto the cells, plus the TowerLight in the guard room and a flat ambient fill. No sun, no sky, no light from nowhere."
+The light (2026-09-30, Ryan: \"there's no light on the tower. it's dark.\") is Bentham's own: Tower/Lamps, eight shadowed reflector spotlights on the tower's arcade overlapping into one soft warm wash across the ring onto the cells, plus the TowerLight in the guard room and a flat ambient fill. No sun, no sky, no light from nowhere."
 
 [node name="Environment" type="Node3D" parent="."]
 
@@ -154,119 +154,119 @@ script = ExtResource("3_tower_light")
 profile = ExtResource("4_tower_light_profile")
 
 [node name="Lamps" type="Node3D" parent="Tower"]
-editor_description = "Bentham's reflector lamps: eight shadowed SpotLight3Ds just outside the lanterns (r 8.1, world y 31.35, bearings 25 + 45k), aimed out and 3 deg down across the pit.\nEach throws a warm pool on the cell wall and lane; nothing points back at the tower. Shadows need positional_shadow/atlas_16_bits off: 16-bit depth at 50 m shadowed every wall face."
+editor_description = "Bentham's reflector lamps: eight shadowed SpotLight3Ds just outside the lanterns (r 8.1, world y 31.35, bearings 25 + 45k), aimed out and 3 deg down across the pit.\nWide soft cones (60 deg half-angle, angle attenuation 0.5) overlap into one even warm wash on the cell wall and lane, no cone edges; nothing points back at the tower. Shadows need positional_shadow/atlas_16_bits off: 16-bit depth at 50 m shadowed every wall face."
 
 [node name="Lamp025" type="SpotLight3D" parent="Tower/Lamps"]
 transform = Transform3D(-0.422618, 0.047432, -0.905066, 0, 0.99863, 0.052336, 0.906308, 0.022118, -0.422039, 7.341093, 6, 3.423208)
 light_color = Color(1, 0.8, 0.56, 1)
-light_energy = 26.0
+light_energy = 18.0
 light_specular = 0.0
 shadow_enabled = true
 shadow_bias = 0.05
 shadow_normal_bias = 1.5
-shadow_blur = 1.5
+shadow_blur = 2.5
 spot_range = 72
 spot_attenuation = 0.3
-spot_angle = 22
-spot_angle_attenuation = 1.4
+spot_angle = 60
+spot_angle_attenuation = 0.5
 
 [node name="Lamp070" type="SpotLight3D" parent="Tower/Lamps"]
 transform = Transform3D(-0.939693, 0.0179, -0.341551, 0, 0.99863, 0.052336, 0.34202, 0.04918, -0.938405, 2.770363, 6, 7.61151)
 light_color = Color(1, 0.8, 0.56, 1)
-light_energy = 26.0
+light_energy = 18.0
 light_specular = 0.0
 shadow_enabled = true
 shadow_bias = 0.05
 shadow_normal_bias = 1.5
-shadow_blur = 1.5
+shadow_blur = 2.5
 spot_range = 72
 spot_attenuation = 0.3
-spot_angle = 22
-spot_angle_attenuation = 1.4
+spot_angle = 60
+spot_angle_attenuation = 0.5
 
 [node name="Lamp115" type="SpotLight3D" parent="Tower/Lamps"]
 transform = Transform3D(-0.906308, -0.022118, 0.422039, 0, 0.99863, 0.052336, -0.422618, 0.047432, -0.905066, -3.423208, 6, 7.341093)
 light_color = Color(1, 0.8, 0.56, 1)
-light_energy = 26.0
+light_energy = 18.0
 light_specular = 0.0
 shadow_enabled = true
 shadow_bias = 0.05
 shadow_normal_bias = 1.5
-shadow_blur = 1.5
+shadow_blur = 2.5
 spot_range = 72
 spot_attenuation = 0.3
-spot_angle = 22
-spot_angle_attenuation = 1.4
+spot_angle = 60
+spot_angle_attenuation = 0.5
 
 [node name="Lamp160" type="SpotLight3D" parent="Tower/Lamps"]
 transform = Transform3D(-0.34202, -0.04918, 0.938405, 0, 0.99863, 0.052336, -0.939693, 0.0179, -0.341551, -7.61151, 6, 2.770363)
 light_color = Color(1, 0.8, 0.56, 1)
-light_energy = 26.0
+light_energy = 18.0
 light_specular = 0.0
 shadow_enabled = true
 shadow_bias = 0.05
 shadow_normal_bias = 1.5
-shadow_blur = 1.5
+shadow_blur = 2.5
 spot_range = 72
 spot_attenuation = 0.3
-spot_angle = 22
-spot_angle_attenuation = 1.4
+spot_angle = 60
+spot_angle_attenuation = 0.5
 
 [node name="Lamp205" type="SpotLight3D" parent="Tower/Lamps"]
 transform = Transform3D(0.422618, -0.047432, 0.905066, 0, 0.99863, 0.052336, -0.906308, -0.022118, 0.422039, -7.341093, 6, -3.423208)
 light_color = Color(1, 0.8, 0.56, 1)
-light_energy = 26.0
+light_energy = 18.0
 light_specular = 0.0
 shadow_enabled = true
 shadow_bias = 0.05
 shadow_normal_bias = 1.5
-shadow_blur = 1.5
+shadow_blur = 2.5
 spot_range = 72
 spot_attenuation = 0.3
-spot_angle = 22
-spot_angle_attenuation = 1.4
+spot_angle = 60
+spot_angle_attenuation = 0.5
 
 [node name="Lamp250" type="SpotLight3D" parent="Tower/Lamps"]
 transform = Transform3D(0.939693, -0.0179, 0.341551, 0, 0.99863, 0.052336, -0.34202, -0.04918, 0.938405, -2.770363, 6, -7.61151)
 light_color = Color(1, 0.8, 0.56, 1)
-light_energy = 26.0
+light_energy = 18.0
 light_specular = 0.0
 shadow_enabled = true
 shadow_bias = 0.05
 shadow_normal_bias = 1.5
-shadow_blur = 1.5
+shadow_blur = 2.5
 spot_range = 72
 spot_attenuation = 0.3
-spot_angle = 22
-spot_angle_attenuation = 1.4
+spot_angle = 60
+spot_angle_attenuation = 0.5
 
 [node name="Lamp295" type="SpotLight3D" parent="Tower/Lamps"]
 transform = Transform3D(0.906308, 0.022118, -0.422039, 0, 0.99863, 0.052336, 0.422618, -0.047432, 0.905066, 3.423208, 6, -7.341093)
 light_color = Color(1, 0.8, 0.56, 1)
-light_energy = 26.0
+light_energy = 18.0
 light_specular = 0.0
 shadow_enabled = true
 shadow_bias = 0.05
 shadow_normal_bias = 1.5
-shadow_blur = 1.5
+shadow_blur = 2.5
 spot_range = 72
 spot_attenuation = 0.3
-spot_angle = 22
-spot_angle_attenuation = 1.4
+spot_angle = 60
+spot_angle_attenuation = 0.5
 
 [node name="Lamp340" type="SpotLight3D" parent="Tower/Lamps"]
 transform = Transform3D(0.34202, 0.04918, -0.938405, 0, 0.99863, 0.052336, 0.939693, -0.0179, 0.341551, 7.61151, 6, -2.770363)
 light_color = Color(1, 0.8, 0.56, 1)
-light_energy = 26.0
+light_energy = 18.0
 light_specular = 0.0
 shadow_enabled = true
 shadow_bias = 0.05
 shadow_normal_bias = 1.5
-shadow_blur = 1.5
+shadow_blur = 2.5
 spot_range = 72
 spot_attenuation = 0.3
-spot_angle = 22
-spot_angle_attenuation = 1.4
+spot_angle = 60
+spot_angle_attenuation = 0.5
 
 [node name="BaseFill" type="Node3D" parent="Tower"]
 editor_description = "Downward fill on the tower foot: four warm unshadowed omnis at r 10, world y 10, so the base reads its texture without a hot spot."
