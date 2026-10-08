@@ -143,7 +143,7 @@ INFO = {}
 
 # -- the water's baked look (GameCube style: per-vertex colour and alpha, linear values; beach_water.gdshader)
 SEA_SHALLOW = (0.3, 0.97, 0.9)
-SEA_TURQ = (0.02, 0.86, 0.84)
+SEA_TURQ = (0.02, 0.8, 0.86)
 SEA_DEEP = (0.0, 0.34, 0.62)
 SEA_OPEN = (0.0, 0.56, 0.8)
 SEA_HORIZON = (0.64, 0.8, 0.9)
@@ -566,7 +566,7 @@ def sea_col(b, r, rocks=()):
         depth = 14.0
     d = max(depth, 0.0)
     col = lerp3(SEA_SHALLOW, SEA_TURQ, smooth((d - 0.05) / 1.05))
-    col = lerp3(col, SEA_DEEP, smooth((d - 2.6) / 5.5))       # darker blue from mid-bay out
+    col = lerp3(col, SEA_DEEP, smooth((d - 2.2) / 4.0))       # darker blue from mid-bay out
     col = lerp3(col, SEA_OPEN, smooth((r - 110.0) / 590.0))
     far = smooth((r - SKY_FADE[0]) / (SKY_FADE[1] - SKY_FADE[0])) ** 1.4
     col = lerp3(col, SEA_HORIZON, far)
