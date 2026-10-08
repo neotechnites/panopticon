@@ -2,6 +2,7 @@
 // the bay's deep teal; a gentle swell, the sky in it at grazing angles, the sun's glint and sparkle,
 // caustics on the shallow bed, and the swash running up the sand with its foam (beach_swash.gdshaderinc).
 // COLOR carries data from beach_build.py: r = (depth + 2) / 14, g = the bay's pit, b = foam round rocks.
+// Colour uniforms are source_color: Godot hands them over already linear.
 shader_type spatial;
 render_mode unshaded, blend_mix, cull_disabled, depth_draw_always, fog_disabled;
 
@@ -74,7 +75,7 @@ void vertex() {
 
 vec3 sky(vec3 dir) {
 	float el = asin(clamp(dir.y, -1.0, 1.0));
-	return mix(srgb_to_linear(sky_horizon), srgb_to_linear(sky_top), pow(clamp(el / radians(75.0), 0.0, 1.0), 0.5));
+	return mix(sky_horizon, sky_top, pow(clamp(el / radians(75.0), 0.0, 1.0), 0.5));
 }
 
 void fragment() {
@@ -94,9 +95,9 @@ void fragment() {
 	}
 
 	// colour by depth: shallow over the shelf, turquoise, the bay's deep teal, the open sea
-	vec3 col = mix(srgb_to_linear(shallow_color), srgb_to_linear(turquoise_color), smoothstep(0.45, 2.0, depth));
-	col = mix(col, srgb_to_linear(pit_color), pit * smoothstep(2.5, 7.5, depth));
-	col = mix(col, srgb_to_linear(open_color), (1.0 - pit) * smoothstep(110.0, 700.0, r) * smoothstep(2.0, 7.0, depth));
+	vec3 col = mix(shallow_color, turquoise_color, smoothstep(0.45, 2.0, depth));
+	col = mix(col, pit_color, pit * smoothstep(2.5, 7.5, depth));
+	col = mix(col, open_color, (1.0 - pit) * smoothstep(110.0, 700.0, r) * smoothstep(2.0, 7.0, depth));
 
 	// caustics on the shallow bed: two scrolling copies of the light net, where they cross
 	float c1 = texture(caustics, world.xz / 4.2 + t * vec2(0.03, 0.011)).r;
@@ -109,8 +110,8 @@ void fragment() {
 	vec3 refl = reflect(-v, n);
 	col = mix(col, sky(refl), fresnel * reflection);
 	float s = max(dot(refl, normalize(sun_direction)), 0.0);
-	col += srgb_to_linear(sun_color) * (pow(s, 380.0) * glint + pow(s, 30.0) * 0.12);
-	col += srgb_to_linear(sun_color) * pow(s, 2600.0) * sparkle * near;
+	col += sun_color * (pow(s, 380.0) * glint + pow(s, 30.0) * 0.12);
+	col += sun_color * pow(s, 2600.0) * sparkle * near;
 
 	// foam: the swash's leading edge on the sand, lace in the run-up, rings round rocks
 	float sand_y = SEA_Y - depth;
@@ -120,17 +121,17 @@ void fragment() {
 	float run = shore * (1.0 - smoothstep(0.0, 0.22, thick)) * lace;
 	float ring = rock_foam * smoothstep(0.35, 0.8, lace * (0.65 + 0.35 * sin(t * 1.3 + world.x * 0.7)));
 	float foam = clamp(max(max(edge * (0.55 + 0.45 * lace), run), ring), 0.0, 1.0);
-	col = mix(col, srgb_to_linear(foam_color), foam);
+	col = mix(col, foam_color, foam);
 
 	// toward the horizon, the sky's own horizon colour, so sea and sky meet without an edge
 	float far = pow(smoothstep(horizon_fade.x, horizon_fade.y, r), 1.4);
-	col = mix(col, srgb_to_linear(sky_horizon), far);
+	col = mix(col, sky_horizon, far);
 
 	float alpha = mix(0.38, 0.97, smoothstep(0.12, 2.3, depth));
 	alpha = max(alpha, foam);
 	alpha = mix(alpha, 1.0, far);
 	if (!FRONT_FACING) {
-		col = srgb_to_linear(pit_color) * 0.8;
+		col = pit_color * 0.8;
 		alpha = 0.9;
 	}
 	ALBEDO = col;
