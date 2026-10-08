@@ -54,7 +54,7 @@ void fragment() {
 	// the sparkle layer, offset by the ripples (indirect texturing, as Sunshine's glints)
 	float sp = texture(caustics, world.xz / 1.6 + off * 0.25 + t * vec2(0.03, -0.02)).r;
 	float glow = smoothstep(0.988, 0.998, sp) * near * near
-		+ smoothstep(0.93, 0.99, sp) * glint_w * 4.0;              // the sun's path: the sparkle layer lit by the vertex glint
+		+ smoothstep(0.86, 0.97, sp) * glint_w * 3.0;              // the sun's path: the sparkle layer lit by the vertex glint
 	col += sun_color * glow * sparkle;
 	// foam rings round rocks
 	float lace = max(texture(foam_texture, world.xz / 3.1 + vec2(t * 0.02, 0.0)).r,

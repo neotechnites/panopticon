@@ -20,13 +20,23 @@ the scene's markers (`pol(bearing, r, z)`); the mouth faces bearing 0.
 5. Island: the jetties carry a narrow grass strip; the big island behind the beach rises into ridged hills
    (40..105 m) under a canopy of crowns, three greens, valleys darker, haze far off. Palms: clusters along
    the wall, leaning palms on the sand at its foot, singles on the slopes.
-6. Sea (Hanauma Bay was the reference for water behaviour only): 8 to 14 m of wadeable shallows, then a
-   sandy bed 2 to 3 m deep across the bay with a 5.5 m anchorage under the yacht and a few modest coral
-   patches (`beach_reef_albedo` on low heads in the rocks chunk), deepening only out past the jetty tips to
-   22 m at sea; every line toward the mouth only deepens. The water never goes opaque in the bay: sand and
-   rock take the depth by absorption (`exp(-(0.3,0.07,0.055) m)`) and deep blue takes over out through the
-   mouth. Refraction (screen copy bent by ripples), bed caustics, swell, fresnel, glint and sparkle. Waves:
-   `beach_waves.glb` + `beach_waves.gdshader`, two continuous trains along one shore strip, off the knolls.
+6. Sea (Hanauma Bay was the reference for water behaviour only): 8 to 14 m of wadeable shallows, a sandy
+   bed 2 to 3 m deep across the back half, deepening from mid-bay to 12 m between the jetty tips and 22 m
+   at sea, a 5.5 m anchorage under the yacht, a few coral patches (low heads, `beach_reef_albedo`).
+   Built the way the GameCube drew water (Flipper: fixed-function TEV, 8 stages, ~1 MB texture cache;
+   every texture here is 256 px or less):
+   - depth colour and see-through: vertex colour and alpha baked by `beach_build.py` (COLOR, alpha in
+     UV2.x), as Flipper's rasterised vertex colours; the bed's tint and absorption likewise baked into its
+     vertex colours, and its caustic weight into UV2.x.
+   - refraction: one copy of the frame (EFB copy; `hint_screen_texture`) read through a scrolling offset
+     texture (`beach_water_normal`), as Sunshine's indirect texturing.
+   - surface: two scrolling ripple layers; a sparkle layer (`beach_water`) offset by them (EMBM-style
+     glints), lit along the sun's path by a per-vertex glint and the sky by a per-vertex fresnel (the
+     transform unit's vertex lighting); a vertex swell (CPU vertex animation on the GameCube).
+   - caustics: two scrolling copies of `beach_water` on the bed at two scales, weighted per vertex.
+   - foam and waves: textured strips (`beach_waves.glb`, `beach_wave_albedo`) with animated UVs and
+     fades, a standing lace band (`beach_foam_albedo`) at the waterline, lace rings round rocks (UV2.y).
+   - geometry: 11.4k water triangles, 2 deg columns at the shore.
 7. Sky: `maps/beach/materials/beach_sky.gdshader`, a gradient and the drawn clouds (`beach_clouds_albedo.png`,
    RGBA). The sun (bearing 15, 35 deg up, the DirectionalLight's) is `beach_sun.gdshader`'s camera-square
    quad 2.5 km out, so the disc stays round at any FOV. Linear tonemap; GL Compatibility.
