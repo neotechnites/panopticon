@@ -13,6 +13,7 @@
 [ext_resource type="Texture2D" path="res://maps/beach/textures/beach_canvas_albedo.png" id="29_canvas_tile"]
 [ext_resource type="Shader" path="res://maps/beach/materials/beach_rock.gdshader" id="30_rock_shader"]
 [ext_resource type="Shader" path="res://maps/beach/materials/beach_sun.gdshader" id="31_sun_shader"]
+[ext_resource type="Shader" path="res://maps/beach/materials/beach_sun_glare.gdshader" id="37_glare_shader"]
 [ext_resource type="Shader" path="res://maps/beach/materials/beach_underwater.gdshader" id="32_under_shader"]
 [ext_resource type="PackedScene" path="res://maps/beach/models/beach_waves.glb" id="33_waves"]
 [ext_resource type="Shader" path="res://maps/beach/materials/beach_waves.gdshader" id="34_waves_shader"]
@@ -76,6 +77,10 @@ render_priority = 1
 shader = ExtResource("31_sun_shader")
 
 [sub_resource type="QuadMesh" id="SunQuad"]
+
+[sub_resource type="ShaderMaterial" id="GlareMat"]
+render_priority = 100
+shader = ExtResource("37_glare_shader")
 
 [sub_resource type="SphereMesh" id="UnderSphere"]
 radial_segments = 24
@@ -146,11 +151,18 @@ directional_shadow_mode = 0
 directional_shadow_max_distance = 200.0
 
 [node name="SunDisc" type="MeshInstance3D" parent="Environment"]
-editor_description = "The sun's round disc and glow, 2.5 km out toward the Sun, held square to the camera (beach_sun.gdshader)."
+editor_description = "The sun sprite: core, halo and star rays, 2.5 km out toward the Sun, square to the camera (beach_sun.gdshader)."
 cast_shadow = 0
 custom_aabb = AABB(-8192, -8192, -8192, 16384, 16384, 16384)
 mesh = SubResource("SunQuad")
 surface_material_override/0 = SubResource("SunMat")
+
+[node name="SunGlare" type="MeshInstance3D" parent="Environment"]
+editor_description = "The blinding wash and rays when looking at the sun, cut when it is hidden (beach_sun_glare.gdshader)."
+cast_shadow = 0
+custom_aabb = AABB(-8192, -8192, -8192, 16384, 16384, 16384)
+mesh = SubResource("SunQuad")
+surface_material_override/0 = SubResource("GlareMat")
 
 [node name="Underwater" type="Node3D" parent="Environment"]
 editor_description = "Five shells round the camera, drawn only below the sea: the deep teal fade a sinking runner sees."
