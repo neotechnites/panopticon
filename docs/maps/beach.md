@@ -12,8 +12,8 @@ the scene's markers (`pol(bearing, r, z)`); the mouth faces bearing 0.
    `python3 tools/modelling/maps/beach/beach_build.py --check` proves it without Blender.
 2. Lap: sand at y 23.0, lane r 68.5 from 60 to 300 deg (287 m, map 1's 299 m); start and portal at the
    jetty tips, a rock knoll beyond each. The mouth spans the other 120 deg.
-3. Shore: waterline r 63.5 (wandering 0.8), a 3 m wadeable shelf 0.5 m deep at its edge, then the drop to
-   deep water. KillBox: roof 1.5 m under the surface (y 21.1, chest deep on the slope), r 600: the bay and the open sea are the pit.
+3. Shore: waterline r 63.5 (wandering 0.8), 8 to 14 m of wadeable shallows about 1.1 m deep at their edge,
+   then the slope to deep water. KillBox: roof 1.6 m under the surface (y 21.0), 10 to 16 m out from the waterline past the shallows, r 600: the bay and the open sea are the pit.
 4. Wall: foot r 74.1, 10.6 m of sand from the waterline. Two courses of stones (each its own size, lean,
    broken faces and tone, darker and warmer at the foot) on a low core; tops 1.6..2.2 m; the island's ground behind sits at 1.55 m.
    Collider: a sheer face 3.4 m tall just in front of the stones.
@@ -21,14 +21,14 @@ the scene's markers (`pol(bearing, r, z)`); the mouth faces bearing 0.
    (40..105 m) under a canopy of crowns, three greens, valleys darker, haze far off. Palms: clusters along
    the wall, leaning palms on the sand at its foot, singles on the slopes.
 6. Sea: `beach_water.glb` carries depth, pit and rock-foam as vertex data; `materials/beach_water.gdshader`
-   draws one depth gradient (clear at the edge, turquoise fast, opaque by about 2 m, deep teal down the
-   slope) with a gentle swell, sky fresnel, sun glint and sparkle, caustics and foam round rocks. The bed
-   under it slopes unevenly from a 2.4 to 3.6 m shelf to a 7 to 11 m floor with sand lobes (no disk).
-   Waves, the GameCube way: `beach_waves.glb` is 106 strips of 2 to 6 m along the waterline, each a wave on
-   its own clock in `beach_waves.gdshader` (the drawn `beach_wave_albedo` foam slides up, thins, slides
-   back, leaves wet sand that dries; reach, speed and slant vary; sets of bigger waves roll along, then a
-   lull). Sand and rock are wet only at still water. Below the surface, five shells round the camera
-   (`beach_underwater.gdshader`) fade to deep teal.
+   draws 8 to 14 m of see-through bright teal shallows (the sand and caustics under them, to about 1.1 m
+   deep), closing over by ~3 m and deepening to teal down the slope, with a gentle swell, sky fresnel, sun
+   glint and sparkle. The bed slopes unevenly from the shallows to a 7 to 11 m floor with sand lobes.
+   Waves, the GameCube way (refs: Gelato Beach, Emerald Coast): `beach_waves.glb` is one strip along the
+   whole waterline; `beach_waves.gdshader` runs two continuous trains on it, each line rolling in with a
+   soft wash and drawn lace (`beach_wave_albedo`), running up as a thin sheet, draining back and leaving
+   wet sand that dries; where it lands drifts along the shore, sets swell then lull. Below the surface,
+   five shells round the camera (`beach_underwater.gdshader`) fade to deep teal.
 7. Sky: `maps/beach/materials/beach_sky.gdshader`, a gradient and the drawn clouds (`beach_clouds_albedo.png`,
    RGBA). The sun (bearing 15, 35 deg up, the DirectionalLight's) is `beach_sun.gdshader`'s camera-square
    quad 2.5 km out, so the disc stays round at any FOV. Linear tonemap; GL Compatibility.
