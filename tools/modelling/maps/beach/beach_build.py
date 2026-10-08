@@ -522,6 +522,8 @@ class Sculpt(object):
 def sea_col(b, r, rocks=()):
     """Data for beach_water.gdshader, not a colour: r = (depth + 2) / 14, g = the bay's pit, b = foam round rocks."""
     depth = WATER_Z - ground_z(b, r)
+    if r > 90.0:                       # the open sea reads one depth all round, whatever sank where
+        depth = min(depth, 9.0)
     x = r * math.cos(math.radians(b))
     bay = ramp(x, PIT_FADE[1], PIT_FADE[0]) * ramp(r, WL_R + 2.0, WL_R - 2.0)
     px, py, _z = pol(b, r, 0.0)
