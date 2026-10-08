@@ -1099,7 +1099,8 @@ func _wanted_participants() -> Array[MatchParticipant]:
 	for participant: MatchParticipant in _controller.get_participants():
 		if not participant.is_running or participant.is_ghost or participant.body == null:
 			continue
-		if not _on_the_lane(participant.body):
+		# The staged body is ridden wherever its lane is (the beach lane is r 68.5, outside LANE_BAND).
+		if not _on_the_lane(participant.body) and participant.body != _staged:
 			continue
 		running.append(participant)
 	# The one already going fastest: a body wedged in the pit wall reads as
