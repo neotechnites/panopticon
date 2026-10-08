@@ -144,9 +144,9 @@ INFO = {}
 # -- the water's baked look (GameCube style: per-vertex colour and alpha, linear values; beach_water.gdshader)
 SEA_SHALLOW = (0.36, 0.955, 0.82)       # teal, carrying the warmth the sand gave it when see-through
 SEA_TURQ = (0.045, 0.77, 0.73)
-SEA_DEEP = (0.0, 0.25, 0.3)             # deep teal (Gelato, Emerald), darker than the shallows
-SEA_OPEN = (0.0, 0.3, 0.36)
-SEA_HORIZON = (0.06, 0.36, 0.43)        # a teal haze at the sea's edge, distinct from the sky
+SEA_DEEP = (0.0, 0.3, 0.34)            # deep teal (Gelato, Emerald), darker than the shallows
+SEA_OPEN = (0.0, 0.34, 0.42)
+SEA_HORIZON = (0.04, 0.4, 0.5)        # a teal haze at the sea's edge, distinct from the sky
 BED_TINT = (0.2, 0.8, 0.95)       # the bed under water takes the sea's colour ...
 ABSORB = (0.3, 0.07, 0.055)         # ... and loses light with depth, red first
 
