@@ -98,7 +98,7 @@ void fragment() {
 	// colour by depth: shallow over the shelf, turquoise, the bay's deep teal, the open sea
 	// (the shelf's colour spreads down the whole drop-off: no seam where the sand falls away)
 	vec3 col = mix(shallow_color, turquoise_color, smoothstep(0.05, 1.1, depth));
-	col = mix(col, deep_color, smoothstep(3.0, 14.0, depth));             // deeper toward the open ocean
+	col = mix(col, deep_color, smoothstep(2.8, 11.0, depth));             // deeper from mid-bay toward the open ocean
 	col = mix(col, open_color, smoothstep(110.0, 700.0, r));
 
 	// the sky at grazing angles, the sun's glint, and sparkle off the ripples
@@ -116,7 +116,8 @@ void fragment() {
 
 	// foam rings round rocks in the water
 	float lace = texture(foam_texture, world.xz / 3.1 + vec2(t * 0.02, 0.0)).r;
-	float foam = rock_foam * smoothstep(0.35, 0.8, lace * (0.65 + 0.35 * sin(t * 1.3 + world.x * 0.7)));
+	float lace2 = texture(foam_texture, world.xz / 1.7 - vec2(0.0, t * 0.03)).r;
+	float foam = rock_foam * smoothstep(0.2, 0.6, max(lace, lace2) * (0.7 + 0.3 * sin(t * 1.3 + world.x * 0.7)));
 	col = mix(col, foam_color, foam);
 
 	// toward the horizon, the sky's own horizon colour, so sea and sky meet without an edge

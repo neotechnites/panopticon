@@ -274,8 +274,9 @@ def anchorage(x, y):
 
 
 def mouth_floor(x):
-    """The bay's floor depth by x alone: 2 m at the back, 5 to 6 between the jetty tips, 22 out at sea."""
-    return 2.0 + 20.0 * smooth((x - 10.0) / 95.0)
+    """The bay's floor depth by x alone: 2 m at the back half, deepening from mid-bay to 12 m between the
+    jetty tips and 22 out at sea."""
+    return 2.0 + 20.0 * smooth((x + 15.0) / 100.0)
 
 
 def bed_depth(b, r):
@@ -534,8 +535,8 @@ def sea_col(b, r, rocks=()):
     ring = 0.0
     for cx, cy, size in rocks:
         d = math.hypot(px - cx, py - cy) - size * 0.45
-        if d < 1.6:
-            ring = max(ring, ramp(d, 1.5, 0.1))
+        if d < 2.4:
+            ring = max(ring, ramp(d, 2.3, 0.1))
     return (clamp((depth + 2.0) / 14.0), bay, ring, 1.0)
 
 
