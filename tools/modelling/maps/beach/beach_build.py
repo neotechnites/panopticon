@@ -567,14 +567,13 @@ def sea_col(b, r, rocks=()):
     d = max(depth, 0.0)
     col = lerp3(SEA_SHALLOW, SEA_TURQ, smooth((d - 0.05) / 1.05))
     x = pol(b, r, 0.0)[0]
-    blue = max(smooth((d - 2.2) / 4.0), smooth((x + 6.0) / 30.0) * smooth((d - 0.8) / 1.4))
+    blue = max(smooth((d - 2.2) / 4.0), smooth((x + 22.0) / 34.0) * smooth((d - 0.8) / 1.4))   # in past the yacht
     col = lerp3(col, SEA_DEEP, blue)                          # darker blue over the bay's outer half
     col = lerp3(col, SEA_OPEN, smooth((r - 110.0) / 590.0))
     far = smooth((r - SKY_FADE[0]) / (SKY_FADE[1] - SKY_FADE[0])) ** 1.4
     col = lerp3(col, SEA_HORIZON, far)
     alpha = 0.14 + 0.5 * (1.0 - math.exp(-d / 6.0))
     alpha = lerp(alpha, 1.0, smooth((d - 6.0) / 8.0))
-    alpha = max(alpha, 0.78 * blue)                           # the blue reads as water, not as the bed
     alpha = lerp(alpha, 1.0, smooth((r - 84.0) / 14.0))
     px, py, _z = pol(b, r, 0.0)
     ring = 0.0
@@ -582,7 +581,9 @@ def sea_col(b, r, rocks=()):
         dd = math.hypot(px - cx, py - cy) - size * 0.45
         if dd < 2.4:
             ring = max(ring, ramp(dd, 2.3, 0.1))
-    return col + (1.0,), (alpha, 1.0 - ring)      # glTF flips v: the shader reads UV2.y as the ring
+    if r > 84.0:                                              # past the bay the bed ends: the sea is solid
+        d = lerp(d, 30.0, smooth((r - 84.0) / 14.0))
+    return col + (1.0,), (min(d, 30.0) / 30.0, 1.0 - ring)     # UV2: depth / 30; glTF flips v, so the ring is 1 - y
 
 
 def build_sea(rocks=()):

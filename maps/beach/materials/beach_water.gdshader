@@ -1,5 +1,5 @@
 // The beach's sea, built the way the GameCube drew water (Sunshine): the colour and see-through come baked in
-// the vertices (COLOR, UV2.x alpha) from beach_build.py; one copy of the frame is sampled through a scrolling
+// the vertices (COLOR; UV2.x depth, made per-vertex view-path alpha) from beach_build.py; one copy of the frame is sampled through a scrolling
 // offset texture (refraction); two scrolling ripple layers; a sparkle layer offset by the ripples (EMBM-style
 // glints); a foam texture in rings round rocks (UV2.y). No lighting maths. Mapping in docs/maps/beach.md.
 shader_type spatial;
@@ -21,9 +21,11 @@ uniform vec3 sun_direction = vec3(0.7913, 0.5736, 0.212);   // toward the sun: t
 uniform vec3 sky_top : source_color = vec3(0.26, 0.63, 1.0);
 uniform vec3 sky_horizon : source_color = vec3(0.64, 0.8, 0.9);
 uniform float reflection = 0.7;
+uniform float extinction = 6.0;      // metres of water a line of sight passes through to lose ~63% of the bed
 uniform float swell = 0.07;          // metres: the vertex swell (the GameCube moved water vertices too)
 
 varying vec3 world;
+varying float see;      // per vertex: how opaque the water is along this view (the GC's per-vertex fog)
 varying vec4 sky;
 varying float glint_w;      // per-vertex sky reflection (the GameCube's vertex lighting stage could do this much)
 
@@ -33,11 +35,15 @@ void vertex() {
 	float amp = swell * mix(1.0, 3.0, smoothstep(80.0, 220.0, r))
 		* (1.0 - smoothstep(600.0, 1500.0, r));
 	float y = sin(dot(world.xz, vec2(-0.57, 0.1)) - TIME * 2.1) + 0.5 * sin(dot(world.xz, vec2(-0.7, -0.53)) - TIME * 2.6);
-	VERTEX.y += y * amp * step(r, 1500.0) * smoothstep(0.2, 0.5, UV2.x);
+	float depth = UV2.x * 30.0;
+	VERTEX.y += y * amp * step(r, 1500.0) * smoothstep(0.5, 2.0, depth);
 	vec3 v = normalize(CAMERA_POSITION_WORLD - world);
 	float fres = 0.02 + 0.98 * pow(1.0 - clamp(v.y, 0.0, 1.0), 5.0);
 	vec3 c = mix(sky_horizon, sky_top, pow(clamp(asin(clamp(v.y, 0.0, 1.0)) / radians(75.0), 0.0, 1.0), 0.5));
 	sky = vec4(c, fres * reflection);
+	// view-path opacity (Beer-Lambert): the water the line of sight crosses to reach the bed under this vertex
+	float path = depth / max(v.y, 0.03);
+	see = mix(0.12, 1.0, 1.0 - exp(-path / extinction));
 	glint_w = pow(max(dot(reflect(-v, vec3(0.0, 1.0, 0.0)), normalize(sun_direction)), 0.0), 30.0);   // per-vertex specular
 }
 
@@ -61,9 +67,9 @@ void fragment() {
 		texture(foam_texture, world.xz / 1.7 - vec2(0.0, t * 0.03)).r);
 	float foam = UV2.y * smoothstep(0.2, 0.6, lace * (0.7 + 0.3 * sin(t * 1.3 + world.x * 0.7)));
 	col = mix(col, foam_color, foam);
-	float alpha = max(UV2.x, max(foam, glow));
+	float alpha = max(see, max(foam, glow));
 	// the bed through the water: the frame copy, sampled through the ripple offset
-	vec3 bed = texture(screen, SCREEN_UV + off * 2.0 * refraction * near * smoothstep(0.14, 0.5, UV2.x)).rgb;
+	vec3 bed = texture(screen, SCREEN_UV + off * 2.0 * refraction * near * smoothstep(0.12, 0.5, see)).rgb;
 	if (!FRONT_FACING) {
 		ALBEDO = under_color * display_gain;
 	} else {
