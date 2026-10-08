@@ -29,14 +29,14 @@ void vertex() {
 }
 
 void fragment() {
-	float period = 7.0 + 4.5 * hash(phase * 3.1);
+	float period = 6.0 + 6.0 * hash(phase * 3.1);
 	float clock = TIME / period + phase;
 	float q = fract(clock);
 	float n = floor(clock);
 	// this wave's reach up the sand: the strip's own, the set's swell, and a little luck
 	float set = 0.5 + 0.5 * sin(6.2832 * ((n - phase) * period / set_seconds + phase * 0.35));
-	float reach = (0.9 + 1.5 * hash(phase * 7.7)) * (0.45 + 0.8 * set * set) * (0.8 + 0.4 * hash(n + phase * 97.0));
-	float slant = (hash(phase * 5.3 + n) * 2.0 - 1.0) * 0.6 * reach * (along - 0.5);
+	float reach = (0.7 + 1.9 * hash(phase * 7.7)) * (0.45 + 0.8 * set * set) * (0.8 + 0.4 * hash(n + phase * 97.0));
+	float slant = (hash(phase * 5.3 + n) * 2.0 - 1.0) * 0.9 * reach * (along - 0.5);
 	float run = q < 0.3 ? 1.0 - (1.0 - q / 0.3) * (1.0 - q / 0.3) : 1.0 - smoothstep(0.3, 0.8, q);
 	float front = mix(back, reach, run) + slant;
 	float peak = (q < 0.3 ? front : reach + slant);

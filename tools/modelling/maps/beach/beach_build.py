@@ -1154,24 +1154,24 @@ def build_prop_collider(solids, poles, logs, hut):
 # WAVES -- the GameCube way: short foam strips laid on the shore, each its own wave (beach_waves.gdshader)
 # =============================================================================
 
-WAVE_STRIPS = 38
+WAVE_LEN = (2.0, 6.0)        # metres of shore one wave strip spans
 WAVE_OFFS = (-1.4, -0.7, -0.25, 0.0, 0.45, 1.0, 1.7, 2.6, 3.6)   # metres up the sand from the waterline (sand's rows)
 
 
 def build_waves():
-    """Strips 6 to 14 m long along the waterline, overlapping, from 1.4 m out in the water to 3.6 m up the sand,
-    4 cm over whatever is under them. COLOR is data: r = the strip's phase (its timing, reach, speed, angle),
-    g = (metres up the sand + 1.5) / 5.5, b = 0..1 along the strip; UV.x is metres along the shore / 12.8."""
+    """Strips 2 to 6 m long along the waterline, each overlapping the last by a third or so, from 1.4 m out in
+    the water to 3.6 m up the sand, 4 cm over whatever is under them. COLOR is data: r = the strip's phase (its
+    timing, reach, speed, angle), g = (metres up the sand + 1.5) / 5.5, b = 0..1 along the strip; UV.x is
+    metres along the shore / 12.8."""
     m = Mesh()
     uv = {}
     rr = Rng(SEED + 1500)
-    lo, hi = ENTRY_B - 7.0, EXIT_B + 5.0
-    for k in range(WAVE_STRIPS):
-        length = rr.u(6.0, 14.0)
+    b0, hi = ENTRY_B - 7.0, EXIT_B + 5.0
+    while b0 < hi:
+        length = rr.u(*WAVE_LEN)
         span = length / (math.radians(1.0) * WL_R)
-        b0 = lo + (hi - lo - span) * (k + rr.u(-0.4, 0.4)) / (WAVE_STRIPS - 1)
         phase = rr.f()
-        n = max(4, int(length / 1.1))
+        n = max(3, int(round(length / 0.9)))
         rows = []
         for off in WAVE_OFFS:
             row = []
@@ -1187,6 +1187,8 @@ def build_waves():
             for vi in m.faces[fi]:
                 b = bearing_of(m.verts[vi])
                 uv[(fi, vi)] = ((angdiff(b, b0) * math.radians(1.0) * WL_R + 13.0 * phase) / 12.8, m.cols[vi][1])
+        b0 += span * rr.u(0.55, 0.8)
+        INFO["wave_strips"] = INFO.get("wave_strips", 0) + 1
     INFO["waves"] = len(m.faces)
     return m, uv
 
