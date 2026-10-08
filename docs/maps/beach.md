@@ -23,7 +23,8 @@ the scene's markers (`pol(bearing, r, z)`); the mouth faces bearing 0.
 6. Sea: `beach_water.glb` carries depth, pit and rock-foam as vertex data; `materials/beach_water.gdshader`
    draws it see-through over the shelf, turquoise, then the bay's deep teal and the open sea, with a gentle
    swell, sky fresnel, sun glint and sparkle, caustics on the shallow bed and foam rings round rocks, fading
-   to the sky's horizon colour. The swash (`beach_swash.gdshaderinc`, 7.5 s) runs the waterline up and back;
+   to the sky's horizon colour. A low breaker crosses the shelf and breaks as the swash (`beach_swash.gdshaderinc`, 7.5 s) runs up with a
+   crisp ragged foam line, its lace draining into patches;
    `beach_sand.gdshader` darkens the sand it wets, `beach_rock.gdshader` the rock (splash 0.3 m, a weed band
    under the line). Close up the glint breaks into small sparkles. Below the surface, five shells round
    the camera (`beach_underwater.gdshader`) fade to deep teal. The KillBox stays flat: the swell is 7 cm.
@@ -39,6 +40,10 @@ the scene's markers (`pol(bearing, r, z)`); the mouth faces bearing 0.
     bar 7 m short of the portal. Collider: loungers, coolers, poles, posts, the counter, logs.
 11. Import: Godot drops the first surface's vertex colour on import, so `beach.tscn` restates surface 0 of
     the ground (rock), the island (grass) and the props (canvas).
+
+Display: Ryan plays on a Windows HDR desktop that shows SDR at 2x linear (`scripts/fx/mac_lift.gdshader`).
+Sun 0.185 and ambient 0.16 light for it; the unshaded sky, sea, sun and underwater shells scale by 0.73
+(`display_gain`). Judge captures through that lift, never raw.
 
 Textures: `maps/beach/textures/beach.ase`, 256 px tiles at 0.05 m per texel, placeholders for Ryan to
 repaint; the table is in `docs/TEXTURES.md`.
