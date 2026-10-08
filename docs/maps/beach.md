@@ -15,7 +15,7 @@ the scene's markers (`pol(bearing, r, z)`); the mouth faces bearing 0.
 3. Shore: waterline r 63.5 (wandering 0.8), a 3 m wadeable shelf 0.5 m deep at its edge, then the drop to
    deep water. KillBox: roof 2.2 m under the surface (y 20.4), r 600: the bay and the open sea are the pit.
 4. Wall: foot r 74.1, 10.6 m of sand from the waterline. Two courses of stones (each its own size, lean,
-   facets and tone) on a low core; tops 1.6..2.2 m; the island's ground behind sits at 1.55 m.
+   broken faces and tone, darker and warmer at the foot) on a low core; tops 1.6..2.2 m; the island's ground behind sits at 1.55 m.
    Collider: a sheer face 3.4 m tall just in front of the stones.
 5. Island: the jetties carry a narrow grass strip; the big island behind the beach rises into ridged hills
    (40..105 m) under a canopy of crowns, three greens, valleys darker, haze far off. Palms: clusters along
@@ -24,9 +24,12 @@ the scene's markers (`pol(bearing, r, z)`); the mouth faces bearing 0.
    draws it see-through over the shelf, turquoise, then the bay's deep teal and the open sea, with a gentle
    swell, sky fresnel, sun glint and sparkle, caustics on the shallow bed and foam rings round rocks, fading
    to the sky's horizon colour. The swash (`beach_swash.gdshaderinc`, 7.5 s) runs the waterline up and back;
-   `beach_sand.gdshader` darkens and glosses the sand it wets. The KillBox stays flat: the swell is 7 cm.
-7. Sky: `maps/beach/materials/beach_sky.gdshader`, a gradient, the drawn clouds (`beach_clouds_albedo.png`,
-   RGBA), and the sun drawn on the DirectionalLight (bearing 15, 35 deg up). Linear tonemap.
+   `beach_sand.gdshader` darkens the sand it wets, `beach_rock.gdshader` the rock (splash 0.3 m, a weed band
+   under the line). Close up the glint breaks into small sparkles. Below the surface, five shells round
+   the camera (`beach_underwater.gdshader`) fade to deep teal. The KillBox stays flat: the swell is 7 cm.
+7. Sky: `maps/beach/materials/beach_sky.gdshader`, a gradient and the drawn clouds (`beach_clouds_albedo.png`,
+   RGBA). The sun (bearing 15, 35 deg up, the DirectionalLight's) is `beach_sun.gdshader`'s camera-square
+   quad 2.5 km out, so the disc stays round at any FOV. Linear tonemap; GL Compatibility.
 8. Tower: the yacht (`beach_yacht_build.py`, a generic placeholder after the Prestige 680), broadside to
    the beach, static, no chain. Flybridge floor on the tower datum (y 27.05), an open rail with a 0.65 m
    collider (the towers' sill). `Tower` is a plain node: no window plugs.

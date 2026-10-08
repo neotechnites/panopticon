@@ -103,7 +103,7 @@ slice is placed nearest-upscaled (chunkier, same UVs and density), each locked t
 | Texture | Looks like | Worn by |
 |---|---|---|
 | beach_sand_albedo | cream sand, fine grain, faint ripples, shell flecks | the beach and jetties, the shelf, the outer beaches |
-| beach_rock_albedo | warm grey weathered stone | the wall's stones and core, boulders, the jetty heads, the portal arch |
+| beach_rock_albedo | weathered coastal rock: relief lit from above, pits, open joints, salt specks | the wall's stones and core, boulders, the jetty heads, the portal arch |
 | beach_grass_albedo | pale grass strokes; the vertex colour carries the green | the island near the wall, the jetty strips |
 | beach_jungle_albedo | pale canopy crowns; the vertex colour carries the greens and the haze | the hills |
 | beach_bark_albedo | palm trunk rings | palm trunks |
