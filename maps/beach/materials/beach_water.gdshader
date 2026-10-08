@@ -126,6 +126,7 @@ void fragment() {
 	// no opaque wall in the bay: the bed carries the depth by absorption (beach_sand.gdshader); the water only
 	// thickens slowly with depth, and closes over far out at sea where the bed ends (r 100)
 	float alpha = 0.14 + 0.5 * (1.0 - exp(-max(depth, 0.0) / 6.0));
+	alpha = mix(alpha, 1.0, smoothstep(6.0, 14.0, depth));        // out through the mouth the deep blue takes over
 	alpha = mix(alpha, 1.0, smoothstep(84.0, 98.0, r));
 	alpha = max(alpha, max(foam, clamp(shine, 0.0, 1.0)));
 	alpha = mix(alpha, 1.0, far);
