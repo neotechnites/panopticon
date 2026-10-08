@@ -1,5 +1,5 @@
-// The beach's sea, GameCube style: see-through over the shallows and fading with depth into turquoise, then
-// the bay's deep teal; a gentle swell, the sky in it at grazing angles, the sun's glint and sparkle,
+// The beach's sea, GameCube style, the bay after Hanauma: see-through everywhere in the bay, turquoise over
+// sand deepening to blue out through the mouth; a gentle swell, the sky in it at grazing angles, the sun's glint and sparkle,
 // the bed bent through it (the screen copy, as Sunshine), foam round rocks. Bed caustics are the sand's; waves beach_waves.
 // COLOR carries data from beach_build.py: r = (depth + 2) / 14, g = the bay's pit, b = foam round rocks.
 // Colour uniforms are source_color: Godot hands them over already linear.
@@ -16,7 +16,7 @@ uniform sampler2D screen : hint_screen_texture, filter_linear_mipmap;   // the b
 group_uniforms colours;
 uniform vec3 shallow_color : source_color = vec3(0.3, 0.97, 0.9);    // refs: Emerald 99,203,189; Gelato 44,198,186
 uniform vec3 turquoise_color : source_color = vec3(0.02, 0.86, 0.84);
-uniform vec3 pit_color : source_color = vec3(0.0, 0.47, 0.6);
+uniform vec3 deep_color : source_color = vec3(0.0, 0.34, 0.62);     // deep blue out through the mouth (Hanauma)
 uniform vec3 open_color : source_color = vec3(0.0, 0.56, 0.8);
 uniform vec3 sky_top : source_color = vec3(0.26, 0.63, 1.0);
 uniform vec3 sky_horizon : source_color = vec3(0.64, 0.8, 0.9);
@@ -98,8 +98,8 @@ void fragment() {
 	// colour by depth: shallow over the shelf, turquoise, the bay's deep teal, the open sea
 	// (the shelf's colour spreads down the whole drop-off: no seam where the sand falls away)
 	vec3 col = mix(shallow_color, turquoise_color, smoothstep(0.05, 1.1, depth));
-	col = mix(col, pit_color, pit * smoothstep(1.6, 6.0, depth));          // deepens down the slope past the shallows
-	col = mix(col, open_color, (1.0 - pit) * smoothstep(110.0, 700.0, r) * smoothstep(2.0, 7.0, depth));
+	col = mix(col, deep_color, smoothstep(3.0, 14.0, depth));             // deeper toward the open ocean
+	col = mix(col, open_color, smoothstep(110.0, 700.0, r));
 
 	// the sky at grazing angles, the sun's glint, and sparkle off the ripples
 	float fresnel = 0.02 + 0.98 * pow(1.0 - clamp(dot(n, v), 0.0, 1.0), 5.0);
@@ -123,13 +123,14 @@ void fragment() {
 	float far = pow(smoothstep(horizon_fade.x, horizon_fade.y, r), 1.4);
 	col = mix(col, sky_horizon, far);
 
-	// the shallows stay see-through (the sand under bright teal) until they deepen, then close over by ~3 m
-	float alpha = mix(0.15, 0.55, smoothstep(0.0, 1.2, depth));
-	alpha = mix(alpha, 1.0, smoothstep(1.5, 3.6, depth));
+	// no opaque wall in the bay: the bed carries the depth by absorption (beach_sand.gdshader); the water only
+	// thickens slowly with depth, and closes over far out at sea where the bed ends (r 100)
+	float alpha = 0.14 + 0.5 * (1.0 - exp(-max(depth, 0.0) / 6.0));
+	alpha = mix(alpha, 1.0, smoothstep(84.0, 98.0, r));
 	alpha = max(alpha, max(foam, clamp(shine, 0.0, 1.0)));
 	alpha = mix(alpha, 1.0, far);
 	if (!FRONT_FACING) {                    // from under the water: the surface seen from below, deep teal
-		col = mix(turquoise_color * 0.75, pit_color * 0.55, smoothstep(0.0, 40.0, dist));
+		col = mix(turquoise_color * 0.75, deep_color * 0.55, smoothstep(0.0, 40.0, dist));
 		alpha = 1.0;
 	}
 	// the bed through the water, bent by the ripples: the frame so far, sampled at an offset (Sunshine's

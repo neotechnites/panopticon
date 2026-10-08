@@ -17,6 +17,7 @@
 [ext_resource type="PackedScene" path="res://maps/beach/models/beach_waves.glb" id="33_waves"]
 [ext_resource type="Shader" path="res://maps/beach/materials/beach_waves.gdshader" id="34_waves_shader"]
 [ext_resource type="Texture2D" path="res://maps/beach/textures/beach_wave_albedo.png" id="35_wave_tile"]
+[ext_resource type="Texture2D" path="res://maps/beach/textures/beach_reef_albedo.png" id="36_reef_tile"]
 [ext_resource type="Texture2D" path="res://maps/beach/textures/beach_water_albedo.png" id="15_water_tile"]
 [ext_resource type="Shader" path="res://maps/beach/materials/beach_water.gdshader" id="16_water_shader"]
 [ext_resource type="Texture2D" path="res://maps/beach/textures/beach_water_normal_albedo.png" id="17_ripples"]
@@ -50,6 +51,11 @@ shader = ExtResource("16_water_shader")
 shader_parameter/ripples = ExtResource("17_ripples")
 shader_parameter/caustics = ExtResource("15_water_tile")
 shader_parameter/foam_texture = ExtResource("18_foam")
+
+[sub_resource type="ShaderMaterial" id="ReefMat"]
+shader = ExtResource("26_sand_shader")
+shader_parameter/albedo_texture = ExtResource("36_reef_tile")
+shader_parameter/caustics = ExtResource("15_water_tile")
 
 [sub_resource type="ShaderMaterial" id="SandMat"]
 shader = ExtResource("26_sand_shader")
@@ -184,9 +190,10 @@ surface_material_override/0 = SubResource("UnderNear")
 [node name="Ground" parent="MapBase" instance=ExtResource("10_ground")]
 
 [node name="BeachGround" parent="MapBase/Ground" index="0"]
-editor_description = "Surface 0 restated: the importer drops the first surface's vertex colour."
-surface_material_override/0 = SubResource("RockMat")
-surface_material_override/1 = SubResource("SandMat")
+editor_description = "Surface 0 restated: the importer drops the first surface's vertex colour (reef, rock, sand)."
+surface_material_override/0 = SubResource("ReefMat")
+surface_material_override/1 = SubResource("RockMat")
+surface_material_override/2 = SubResource("SandMat")
 
 [node name="Island" parent="MapBase" instance=ExtResource("11_island")]
 

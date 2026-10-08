@@ -20,7 +20,8 @@ void fragment() {
 	float wet = 1.0 - smoothstep(0.05, splash, world.y - SEA_Y);
 	float weed = 1.0 - smoothstep(-0.05, 0.08, world.y - SEA_Y);
 	albedo = mix(albedo, albedo * wet_tint, wet);
-	ALBEDO = mix(albedo, albedo * weed_tint, weed);
+	albedo = mix(albedo, albedo * weed_tint, weed);
+	ALBEDO = albedo * exp(-vec3(0.3, 0.07, 0.055) * max(SEA_Y - world.y, 0.0));   // the water's absorption, as the sand
 	ROUGHNESS = mix(0.9, 0.35, wet);
 	SPECULAR = mix(0.5, 0.65, wet);
 }
