@@ -39,7 +39,7 @@ void vertex() {
 	VERTEX.y += y * amp * step(r, 1500.0) * smoothstep(0.5, 2.0, depth);
 	vec3 v = normalize(CAMERA_POSITION_WORLD - world);
 	float fres = 0.02 + 0.98 * pow(1.0 - clamp(v.y, 0.0, 1.0), 5.0);
-	vec3 c = mix(sky_horizon, sky_top, pow(clamp(asin(clamp(v.y, 0.0, 1.0)) / radians(75.0), 0.0, 1.0), 0.5));
+	vec3 c = mix(sky_horizon, sky_top, pow(clamp(asin(clamp(v.y, 0.0, 1.0)) / radians(75.0), 0.0, 1.0), 0.35));
 	sky = vec4(c, fres * reflection);
 	// view-path opacity (Beer-Lambert): the water the line of sight crosses to reach the bed under this vertex
 	float path = depth / max(v.y, 0.03);
