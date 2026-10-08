@@ -220,12 +220,12 @@ def _dome_us(rad, rise, cls):
     return [0.5] * (DOME_RINGS + 1)
 
 
-def _shared(name, px=SHAFT_PX, ref_r=SHAFT_R, u0=U0_SHAFT, tint=None):
-    return mb.ashlar_sheet(name, px * MPT, tint, ref_r=ref_r, phase=(u0, V0))
+def _shared(name, px=SHAFT_PX, ref_r=SHAFT_R, u0=U0_SHAFT, tint=None, stem="marble_brick"):
+    return mb.ashlar_sheet(name, px * MPT, tint, ref_r=ref_r, phase=(u0, V0), stem=stem)
 
 
 SHEETS = {
-    "stone": _shared("stone", tint=mb.TINT_TOWER),                             # the shaft, the spandrels
+    "stone": _shared("stone", stem=mb.TOWER_STEM),                            # the shaft, the spandrels
     "plinth": _shared("plinth", tint=mb.TINT_PLINTH),                          # foot, steps, room floor band, dais
     "shade": mb.shade_sheet("shade", ref_r=SHAFT_R, phase=(U0_SHAFT, V0)),     # reveals, soffits, undersides
     "marble2": _shared("marble2", BAL_PX, BALCONY_R, U0_BAL, mb.TINT_MARBLE2),  # the ledge
@@ -234,8 +234,8 @@ SHEETS = {
     "iron": mb.iron_sheet(),
     "floor": mb.tile("floor", "marble_floor", "custom", 64, 64, mpt=2.7 / 64.0),   # one paving cell a ring band
     "plain": mb.stone("plain", mode="box"),                                    # the floor's centre
-    "coffer": mb.brick("coffer", tint=mb.TINT_TOWER, mode="custom"),           # the dome inside
-    "dome": mb.brick("dome", tint=mb.TINT_TOWER, mode="custom"),              # ... and outside
+    "coffer": mb.brick("coffer", stem=mb.TOWER_STEM, mode="custom"),           # the dome inside
+    "dome": mb.brick("dome", stem=mb.TOWER_STEM, mode="custom"),              # ... and outside
 }
 # Faces that wear a class their zone does not name, because their PROJECTION
 # differs, not their stone: the dome's skin (zone "shade") is "dome", and the

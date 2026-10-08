@@ -60,7 +60,7 @@ by the kill cylinder before it lands.
 Texture: one small tile per material, repeated by UV (lib/texel.py, SHEETS
 below): marble_brick (two bays by twelve 1 m courses, tinted per class, the
 cells and iron darkened), marble_stone, marble_floor, marble_triangle,
-marble_column, marble_portal_swirl.
+marble_column, marble_portal_swirl; marble_tower (the brick's size) on the tower.
 
     python3 tools/modelling/maps/marble/marble_build.py --check     # geometry + contiguity, no Blender
     tools/modelling/model build marble                  # the pipeline
@@ -272,7 +272,7 @@ TINT_SHADE = (0.85, 0.85, 0.85)
 TINT_PLINTH_WALL = (0.8106, 0.8086, 0.8369)
 TINT_PLINTH = (0.8285, 0.8293, 0.8617)
 TINT_MARBLE2 = (0.7939, 0.7923, 0.8147)
-TINT_TOWER = (0.6726, 0.5490, 0.4923)
+TOWER_STEM = "marble_tower"           # the tower's own tile: his brick pixels at the chapel's grey
 TINT_BARS = None
 TINT_CELL = (0.0280, 0.0329, 0.0643)     # the brick massively darkened: the old cell interiors' mean
 TINT_IRON = (0.0366, 0.0499, 0.2038)     # the plain stone darkened: the old iron's mean
@@ -282,10 +282,10 @@ def iron_sheet():
     return stone("iron", mode="box", tint=TINT_IRON)
 
 
-def brick(name, mpt_u=WALL_MPT, mpt_v=COURSE_MPT, tint=None, **kw):
-    """Class `name` wearing the brick at mpt_u across and mpt_v up."""
+def brick(name, mpt_u=WALL_MPT, mpt_v=COURSE_MPT, tint=None, stem="marble_brick", **kw):
+    """Class `name` wearing the brick (or a tile its size, `stem`) at mpt_u across and mpt_v up."""
     return tx.Sheet(name, mpt=mpt_v, mpt_u=mpt_u, size=BRICK_H, width=BRICK_W,
-                    roughness=ROUGHNESS, stem="marble_brick", tint=tint, **kw)
+                    roughness=ROUGHNESS, stem=stem, tint=tint, **kw)
 
 
 def ashlar_sheet(name, across, tint=None, **kw):
