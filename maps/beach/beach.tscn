@@ -13,6 +13,8 @@
 [ext_resource type="PackedScene" path="res://maps/beach/props/beach_portal.tscn" id="19_portal"]
 [ext_resource type="Shader" path="res://maps/beach/materials/beach_sky.gdshader" id="20_sky_shader"]
 [ext_resource type="Texture2D" path="res://maps/beach/textures/beach_clouds_albedo.png" id="21_clouds"]
+[ext_resource type="Texture2D" path="res://maps/beach/textures/beach_rock_albedo.png" id="22_rock_tile"]
+[ext_resource type="Texture2D" path="res://maps/beach/textures/beach_grass_albedo.png" id="23_grass_tile"]
 
 [sub_resource type="ShaderMaterial" id="SkyMat"]
 shader = ExtResource("20_sky_shader")
@@ -38,6 +40,20 @@ cull_mode = 2
 texture_filter = 5
 disable_fog = true
 
+[sub_resource type="StandardMaterial3D" id="RockMat"]
+resource_name = "beach_rock"
+vertex_color_use_as_albedo = true
+albedo_texture = ExtResource("22_rock_tile")
+roughness = 0.9
+texture_filter = 5
+
+[sub_resource type="StandardMaterial3D" id="GrassMat"]
+resource_name = "beach_grass"
+vertex_color_use_as_albedo = true
+albedo_texture = ExtResource("23_grass_tile")
+roughness = 0.95
+texture_filter = 5
+
 [node name="Beach" type="Node3D"]
 editor_description = "The beach: a bay between two jetties, the island behind a low rock wall, a yacht for the tower. Notes in docs/maps/beach.md."
 
@@ -61,7 +77,15 @@ directional_shadow_max_distance = 200.0
 
 [node name="Ground" parent="MapBase" instance=ExtResource("10_ground")]
 
+[node name="BeachGround" parent="MapBase/Ground" index="0"]
+editor_description = "Surface 0 restated: the importer drops the first surface's vertex colour."
+surface_material_override/0 = SubResource("RockMat")
+
 [node name="Island" parent="MapBase" instance=ExtResource("11_island")]
+
+[node name="BeachIsland" parent="MapBase/Island" index="0"]
+editor_description = "Surface 0 restated: the importer drops the first surface's vertex colour."
+surface_material_override/0 = SubResource("GrassMat")
 
 [node name="Rocks" parent="MapBase" instance=ExtResource("12_rocks")]
 
@@ -125,13 +149,15 @@ entry_angle_degrees = 60.0
 exit_angle_degrees = 300.0
 
 [node name="Tower" type="Node3D" parent="."]
-editor_description = "The yacht at anchor, bow to the mouth; origin the guard datum at y 25.35 (flybridge floor +1.70)."
+editor_description = "The yacht at anchor, broadside to the beach; origin the guard datum at y 25.35 (flybridge floor +1.70)."
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 25.35, 0)
 
 [node name="Yacht" parent="Tower" instance=ExtResource("8_yacht")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -2.75, 0)
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 0, -2.75, 0)
 
 [node name="TowerSpawn" type="Marker3D" parent="Tower"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.95, 0)
 
+[editable path="MapBase/Ground"]
+[editable path="MapBase/Island"]
 [editable path="MapBase/Water"]
