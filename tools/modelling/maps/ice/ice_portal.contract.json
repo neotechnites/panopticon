@@ -5,6 +5,6 @@
     "IcePortalCollision",
     "IcePortalCollision/CollisionShape3D"
   ],
-  "surfaces": 5,
+  "surfaces": 4,
   "max_tris": 700
 }
