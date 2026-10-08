@@ -5,11 +5,11 @@ render_mode unshaded, blend_mix, cull_disabled, depth_test_disabled, depth_draw_
 
 uniform sampler2D depth_tex : hint_depth_texture, filter_nearest, repeat_disable;
 uniform vec3 sun_direction = vec3(0.7913, 0.5736, 0.212);   // toward the sun: the scene's Sun (+Z)
-uniform vec3 glare_color : source_color = vec3(1.0, 0.97, 0.88);
+uniform vec3 glare_color : source_color = vec3(1.0, 1.0, 0.94);
 uniform float glare_strength = 0.7;   // the wash dead-on (0..1): how blinded you are looking straight at it
 uniform float glare_degrees = 22.0;   // off-angle where the wash has gone; it rises steeply only near dead-on
 uniform float ray_strength = 0.45;    // the star rays streaming from the sun across the screen
-uniform float display_gain = 0.73;
+uniform float display_gain = 1.0;    // the glare is meant to clip: no HDR compensation
 
 varying vec4 sun_clip;
 varying float facing;
@@ -34,7 +34,9 @@ void fragment() {
 		vec2 o = (i == 0) ? vec2(0.0) : vec2(cos(float(i) * 1.5708), sin(float(i) * 1.5708)) * 0.012;
 		vec2 p = sun_uv + o;
 		float on = step(0.0, p.x) * step(p.x, 1.0) * step(0.0, p.y) * step(p.y, 1.0);
-		vis += mix(1.0, step(0.99999, texture(depth_tex, p).r), on);
+		float z = texture(depth_tex, p).r;
+		float sky = max(step(z, 0.00001), step(0.99999, z));     // the sky sits at the far plane, either z convention
+		vis += mix(1.0, sky, on);
 	}
 	vis /= 5.0;
 	vec2 d = (SCREEN_UV - sun_uv) * vec2(VIEWPORT_SIZE.x / VIEWPORT_SIZE.y, 1.0);
