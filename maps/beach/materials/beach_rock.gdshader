@@ -7,7 +7,7 @@ shader_type spatial;
 uniform sampler2D albedo_texture : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
 uniform vec3 wet_tint = vec3(0.62, 0.6, 0.56);
 uniform vec3 weed_tint = vec3(0.48, 0.52, 0.42);
-uniform float splash = 0.3;            // metres the spray wets above the swash
+uniform float splash = 0.2;            // metres the spray wets above the swash (dry sand starts 0.2 over it)
 
 varying vec3 world;
 
