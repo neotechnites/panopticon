@@ -18,6 +18,6 @@ void fragment() {
 	float wet = 1.0 - smoothstep(0.0, 0.05, world.y - wet_level(world.xz, TIME));
 	wet *= 1.0 - smoothstep(0.7, 1.0, world.y - SEA_Y);
 	ALBEDO = mix(albedo, albedo * wet_tint, wet);
-	ROUGHNESS = mix(0.95, 0.3, wet);
-	SPECULAR = mix(0.5, 0.7, wet);
+	ROUGHNESS = mix(0.95, 0.45, wet);
+	SPECULAR = mix(0.15, 0.45, wet);           // dry sand barely shines; wet sand sheens
 }
