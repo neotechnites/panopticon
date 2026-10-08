@@ -108,9 +108,16 @@ slice is placed nearest-upscaled (chunkier, same UVs and density), each locked t
 | beach_jungle_albedo | pale canopy crowns; the vertex colour carries the greens and the haze | the hills |
 | beach_bark_albedo | palm trunk rings | palm trunks |
 | beach_leaf_albedo | a frond's blade, midrib and slanting leaflets | palm fronds |
-| beach_water_albedo | near-white light net; the vertex colour carries the sea's colours | the sea |
+| beach_water_albedo | near-white light net | the sea's caustics (`beach_water.gdshader`) |
+| beach_water_normal_albedo | ripple normal map | the sea's ripples and glint |
+| beach_foam_albedo | white lace on black | the swash's foam, rings round rocks |
+| beach_canvas_albedo | near-white woven cotton; the vertex colour paints the stripes | umbrellas, towels, cushions |
+| beach_plastic_albedo | near-white moulded plastic | coolers, umbrella poles |
+| beach_drift_albedo | silver-grey wood grain, checks, knots | driftwood, the tiki bar's posts |
+| beach_thatch_albedo | straw thatch in courses | the tiki bar's roof |
+| beach_shell_albedo | cream shell bands | shells on the sand |
 | beach_portal_swirl_albedo | turquoise and white spiral | the portal's swirl |
-| beach_hull_albedo, beach_glass_albedo, beach_teak_albedo | white gelcoat, blue tinted glass, teak planks | the yacht |
+| beach_hull_albedo, beach_glass_albedo, beach_teak_albedo | white gelcoat, blue tinted glass, teak planks | the yacht; teak also the loungers and the tiki bar's counter |
 | beach_clouds_albedo (PNG, RGBA) | soft cumulus on clear | the sky (`maps/beach/materials/beach_sky.gdshader`) |
 
 ### Hub: `hub/textures/` (`hub.ase`)
