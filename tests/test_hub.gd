@@ -86,7 +86,7 @@ func test_the_hub_scene_is_a_hub_and_not_a_match() -> void:
 	)
 
 
-## Ten wedges, five of which have maps on them (hell, marble, forest, ice, beach). The
+## Ten wedges, five of which have maps on them (hell, marble, forest, beach, ice). The
 ## other five are undecided, and the whole of undecided is a null scene --
 ## there is no second flag for it.
 func test_ten_wedges_five_maps_and_five_question_marks() -> void:
@@ -113,7 +113,7 @@ func test_ten_wedges_five_maps_and_five_question_marks() -> void:
 		if wedge.is_decided():
 			decided += 1
 			var expected: Dictionary = {
-				"W01_Hell": "bentham_ring", "W02_Marble": "marble", "W03_Forest": "forest", "W04_Ice": "ice", "W05_Beach": "beach",
+				"W01_Hell": "bentham_ring", "W02_Marble": "marble", "W03_Forest": "forest", "W04_Beach": "beach", "W05_Ice": "ice",
 			}
 			assert_true(expected.has(wedge.name), "%s is one of the decided wedges" % wedge.name)
 			assert_eq_string(String(wedge.map_id), String(expected.get(wedge.name, "")), "%s names its map" % wedge.name)
@@ -122,7 +122,7 @@ func test_ten_wedges_five_maps_and_five_question_marks() -> void:
 		else:
 			assert_eq_string(sign_label.text, "?", "%s is undecided" % wedge.name)
 			assert_eq_string(String(wedge.map_id), "", "and names no map")
-	assert_eq_int(decided, 5, "exactly five wedges have been decided: hell, marble, forest, ice, beach")
+	assert_eq_int(decided, 5, "exactly five wedges have been decided: hell, marble, forest, beach, ice")
 
 
 ## The spawns are spread. Two capsules in one cubic metre are thrown out of the
@@ -375,8 +375,8 @@ func test_a_tie_is_broken_by_the_seed() -> void:
 	var hell: MapWedge = hub.get_node("HubWorld/Wedges/W01_Hell") as MapWedge
 	var other: MapWedge = hub.get_node("HubWorld/Wedges/W02_Marble") as MapWedge
 	(hub.get_node("HubWorld/Wedges/W03_Forest") as MapWedge).map_scene = null   # a two-way tie
-	(hub.get_node("HubWorld/Wedges/W04_Ice") as MapWedge).map_scene = null
-	(hub.get_node("HubWorld/Wedges/W05_Beach") as MapWedge).map_scene = null
+	(hub.get_node("HubWorld/Wedges/W04_Beach") as MapWedge).map_scene = null
+	(hub.get_node("HubWorld/Wedges/W05_Ice") as MapWedge).map_scene = null
 	var wedges: Array[MapWedge] = [hell, other]
 	var started: Array[StringName] = []
 	lobby.match_starting.connect(func(map_id: StringName) -> void: started.append(map_id))

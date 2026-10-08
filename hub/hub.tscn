@@ -23,8 +23,8 @@
 [ext_resource type="PackedScene" path="res://maps/bentham_ring/bentham_ring.tscn" id="21_map1"]
 [ext_resource type="PackedScene" path="res://maps/marble/marble.tscn" id="22_map2"]
 [ext_resource type="PackedScene" path="res://maps/forest/forest.tscn" id="23_map3"]
-[ext_resource type="PackedScene" path="res://maps/ice/ice.tscn" id="24_map4"]
-[ext_resource type="PackedScene" path="res://maps/beach/beach.tscn" id="25_map5"]
+[ext_resource type="PackedScene" path="res://maps/ice/ice.tscn" id="24_ice"]
+[ext_resource type="PackedScene" path="res://maps/beach/beach.tscn" id="25_beach"]
 
 [sub_resource type="ProceduralSkyMaterial" id="SkyMat"]
 sky_top_color = Color(0.54, 0.110700026, 0.054000016, 1)
@@ -97,7 +97,7 @@ omni_range = 700.0
 omni_attenuation = 0.6
 
 [node name="Wedges" type="Node3D" parent="HubWorld"]
-editor_description = "Ten wedges of 36 degrees, W01 at bearings 0-36. Five hold maps (hell, marble, forest, ice, beach); the other five hold a question mark until Ryan decides what stands there."
+editor_description = "Ten wedges of 36 degrees, W01 at bearings 0-36. Five hold maps (hell, marble, forest, beach, ice); the other five hold a question mark until Ryan decides what stands there."
 
 [node name="W01_Hell" type="Node3D" parent="HubWorld/Wedges"]
 script = ExtResource("12_map_wedge")
@@ -195,17 +195,17 @@ collision_mask = 1
 [node name="Shape" type="CollisionShape3D" parent="HubWorld/Wedges/W03_Forest/Dais/StartTrigger"]
 shape = SubResource("DaisTrigger")
 
-[node name="W04_Ice" type="Node3D" parent="HubWorld/Wedges"]
+[node name="W04_Beach" type="Node3D" parent="HubWorld/Wedges"]
 script = ExtResource("12_map_wedge")
-map_scene = ExtResource("24_map4")
-map_id = &"ice"
+map_scene = ExtResource("25_beach")
+map_id = &"beach"
 title = "HUB_MAP_4"
 
-[node name="Dais" type="Marker3D" parent="HubWorld/Wedges/W04_Ice"]
+[node name="Dais" type="Marker3D" parent="HubWorld/Wedges/W04_Beach"]
 transform = Transform3D(-0.809017, 0, -0.587785, 0, 1, 0, 0.587785, 0, -0.809017, -21.1603, 0, -29.1246)
-editor_description = "Bearing 126 deg, r 36. Facing the tower. Map 4, the ice dome."
+editor_description = "Bearing 126 deg, r 36. Facing the tower. Map 4, the beach."
 
-[node name="Sign" type="Label3D" parent="HubWorld/Wedges/W04_Ice/Dais"]
+[node name="Sign" type="Label3D" parent="HubWorld/Wedges/W04_Beach/Dais"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.5, 0)
 billboard = 1
 no_depth_test = true
@@ -218,45 +218,45 @@ modulate = Color(1, 0.78, 0.55, 1)
 outline_modulate = Color(0, 0, 0, 0.85)
 text = ""
 
-[node name="StartTrigger" type="Area3D" parent="HubWorld/Wedges/W04_Ice/Dais"]
-editor_description = "Stand here as the host and the ice map is offered. Layer 0, mask 1: it monitors bodies and is solid to nothing."
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.5, 0)
-collision_layer = 0
-collision_mask = 1
-
-[node name="Shape" type="CollisionShape3D" parent="HubWorld/Wedges/W04_Ice/Dais/StartTrigger"]
-shape = SubResource("DaisTrigger")
-
-[node name="W05_Beach" type="Node3D" parent="HubWorld/Wedges"]
-script = ExtResource("12_map_wedge")
-map_scene = ExtResource("25_map5")
-map_id = &"beach"
-title = "HUB_MAP_5"
-
-[node name="Dais" type="Marker3D" parent="HubWorld/Wedges/W05_Beach"]
-transform = Transform3D(-0.309017, 0, -0.951057, 0, 1, 0, 0.951057, 0, -0.309017, -34.238, 0, -11.1246)
-editor_description = "Bearing 162 deg, r 36. Facing the tower. The beach."
-
-[node name="Sign" type="Label3D" parent="HubWorld/Wedges/W05_Beach/Dais"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.5, 0)
-billboard = 1
-no_depth_test = true
-fixed_size = false
-pixel_size = 0.02
-font_size = 64
-font = ExtResource("40_sign_font")
-outline_size = 12
-modulate = Color(1, 0.78, 0.55, 1)
-outline_modulate = Color(0, 0, 0, 0.85)
-text = ""
-
-[node name="StartTrigger" type="Area3D" parent="HubWorld/Wedges/W05_Beach/Dais"]
+[node name="StartTrigger" type="Area3D" parent="HubWorld/Wedges/W04_Beach/Dais"]
 editor_description = "Stand here as the host and the beach map is offered. Layer 0, mask 1: it monitors bodies and is solid to nothing."
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.5, 0)
 collision_layer = 0
 collision_mask = 1
 
-[node name="Shape" type="CollisionShape3D" parent="HubWorld/Wedges/W05_Beach/Dais/StartTrigger"]
+[node name="Shape" type="CollisionShape3D" parent="HubWorld/Wedges/W04_Beach/Dais/StartTrigger"]
+shape = SubResource("DaisTrigger")
+
+[node name="W05_Ice" type="Node3D" parent="HubWorld/Wedges"]
+script = ExtResource("12_map_wedge")
+map_scene = ExtResource("24_ice")
+map_id = &"ice"
+title = "HUB_MAP_5"
+
+[node name="Dais" type="Marker3D" parent="HubWorld/Wedges/W05_Ice"]
+transform = Transform3D(-0.309017, 0, -0.951057, 0, 1, 0, 0.951057, 0, -0.309017, -34.238, 0, -11.1246)
+editor_description = "Bearing 162 deg, r 36. Facing the tower. Map 5, the ice dome (unlockable)."
+
+[node name="Sign" type="Label3D" parent="HubWorld/Wedges/W05_Ice/Dais"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.5, 0)
+billboard = 1
+no_depth_test = true
+fixed_size = false
+pixel_size = 0.02
+font_size = 64
+font = ExtResource("40_sign_font")
+outline_size = 12
+modulate = Color(1, 0.78, 0.55, 1)
+outline_modulate = Color(0, 0, 0, 0.85)
+text = ""
+
+[node name="StartTrigger" type="Area3D" parent="HubWorld/Wedges/W05_Ice/Dais"]
+editor_description = "Stand here as the host and the ice map is offered. Layer 0, mask 1: it monitors bodies and is solid to nothing."
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.5, 0)
+collision_layer = 0
+collision_mask = 1
+
+[node name="Shape" type="CollisionShape3D" parent="HubWorld/Wedges/W05_Ice/Dais/StartTrigger"]
 shape = SubResource("DaisTrigger")
 
 [node name="W06" type="Node3D" parent="HubWorld/Wedges"]

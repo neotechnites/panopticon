@@ -1,4 +1,4 @@
-// The beach's sky: a painted gradient, the drawn clouds (beach_clouds_albedo, black = clear), and the sun
+// The beach's sky: a painted gradient, the drawn clouds (beach_clouds_albedo.png, RGBA), and the sun
 // drawn where the scene's DirectionalLight comes from, so the shadows agree with it. Static.
 shader_type sky;
 
@@ -24,9 +24,8 @@ void sky() {
 	}
 	vec2 uv = vec2(fract(atan(d.z, d.x) / TAU), 1.0 - el / radians(cloud_top_degrees));
 	if (uv.y >= 0.0 && uv.y <= 1.0) {
-		vec3 c = pow(texture(clouds, uv).rgb, vec3(1.0 / 2.2));        // back to the drawn values
-		float a = clamp(max(c.r, max(c.g, c.b)) / 0.9, 0.0, 1.0);      // black is clear: un-premultiply the edge
-		col = mix(col, pow(c / max(a, 0.001), vec3(2.2)), a);
+		vec4 c = texture(clouds, uv);
+		col = mix(col, c.rgb, c.a);
 	}
 	COLOR = d.y < 0.0 ? horizon_color : col;
 }
