@@ -232,8 +232,8 @@ SHEETS = {
     "band": mb.band_sheet(),                                                   # ring beam, slab edge
     "column": mb.column_sheet(),
     "iron": mb.iron_sheet(),
-    "floor": mb.tile("floor", "marble_floor", "custom", 64, 64, mpt=2.7 / 64.0),   # one paving cell a ring band
-    "plain": mb.stone("plain", mode="box"),                                    # the floor's centre
+    "floor": mb.tile("floor", mb.TOWER_FLOOR_STEM, "custom", 64, 64, mpt=2.7 / 64.0),   # one paving cell a ring band
+    "plain": mb.tile("plain", mb.TOWER_PLAIN_STEM, "box", mb.STONE_PX, mb.STONE_PX, mb.WALL_MPT),   # the floor's centre
     "coffer": mb.brick("coffer", stem=mb.TOWER_STEM, mode="custom"),           # the dome inside
     "dome": mb.brick("dome", stem=mb.TOWER_STEM, mode="custom"),              # ... and outside
 }
