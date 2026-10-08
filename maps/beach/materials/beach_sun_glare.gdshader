@@ -6,7 +6,7 @@ render_mode unshaded, blend_mix, cull_disabled, depth_test_disabled, depth_draw_
 uniform sampler2D depth_tex : hint_depth_texture, filter_nearest, repeat_disable;
 uniform vec3 sun_direction = vec3(0.7913, 0.5736, 0.212);   // toward the sun: the scene's Sun (+Z)
 uniform vec3 glare_color : source_color = vec3(1.0, 1.0, 0.94);
-uniform float glare_strength = 0.7;   // the wash dead-on (0..1): how blinded you are looking straight at it
+uniform float glare_strength = 0.55;  // the wash dead-on (0..1): how blinded you are looking straight at it
 uniform float glare_degrees = 22.0;   // off-angle where the wash has gone; it rises steeply only near dead-on
 uniform float ray_strength = 0.45;    // the star rays streaming from the sun across the screen
 uniform float display_gain = 1.0;    // the glare is meant to clip: no HDR compensation
@@ -43,7 +43,7 @@ void fragment() {
 	float r = length(d);
 	float ang = atan(d.y, d.x);
 	float rays = (pow(abs(cos(ang * 4.0)), 80.0) + 0.5 * pow(abs(cos(ang * 4.0 + 0.39)), 120.0)) * exp(-r * 2.2);
-	float wash = glare_strength * pow(near, 2.2) * (0.75 + 0.25 * exp(-r * 3.0));
+	float wash = glare_strength * pow(near, 3.0) * (0.75 + 0.25 * exp(-r * 3.0));
 	ALBEDO = glare_color * display_gain;
 	ALPHA = clamp((wash + rays * ray_strength * near) * vis, 0.0, 0.95);
 }
