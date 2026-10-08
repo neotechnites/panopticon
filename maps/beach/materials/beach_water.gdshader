@@ -32,6 +32,8 @@ uniform float reflection = 0.7;
 uniform float caustic_strength = 0.45;
 group_uniforms;
 
+uniform float display_gain = 0.5;      // Ryan's HDR desktop shows SDR at 2x linear: colours are what he sees
+
 group_uniforms swell;
 uniform float bay_swell = 0.07;        // metres in the bay ...
 uniform float sea_swell = 0.22;        // ... and out at sea
@@ -55,6 +57,20 @@ vec3 wave(vec2 p, vec2 dir, float length, float amp, float t) {
 	return vec3(amp * sin(ph), d.x, d.y);
 }
 
+// The breaker: a low roll that crosses the shelf in the last 30% of each swash cycle and breaks onto the sand
+// as the run-up starts. x: (height, breaking 0..1, signed depth from its crest; negative is shoreward).
+vec3 breaker(float d, vec2 xz, float t) {
+	float p = fract(swash_phase(xz, t));
+	if (p < 0.7) {
+		return vec3(0.0, 0.0, 9.0);
+	}
+	float db = 0.75 * (1.0 - (p - 0.7) / 0.3);
+	float a = 0.11 * (1.0 - smoothstep(0.42, 0.75, db)) * smoothstep(0.0, 0.18, db);
+	float x = d - db;
+	float h = a * exp(-pow(x / (x < 0.0 ? 0.06 : 0.22), 2.0));
+	return vec3(h, 1.0 - smoothstep(0.12, 0.42, db), x);
+}
+
 void vertex() {
 	world = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	depth = COLOR.r * 14.0 - 2.0;
@@ -67,7 +83,7 @@ void vertex() {
 	vec3 w = wave(world.xz, vec2(-1.0, 0.18), 11.0, 0.55, t) + wave(world.xz, vec2(-0.8, -0.6), 7.0, 0.3, t * 1.1)
 		+ wave(world.xz, vec2(-0.55, 0.85), 4.6, 0.15, t * 0.9);
 	shore = 1.0 - smoothstep(0.25, 2.2, depth);
-	float y = mix(SEA_Y + w.x * amp, swash_level(world.xz, TIME), shore);
+	float y = mix(SEA_Y + w.x * amp, swash_level(world.xz, TIME), shore) + breaker(depth, world.xz, TIME).x;
 	VERTEX.y += y - world.y;
 	world.y = y;
 	swell_normal = normalize(vec3(-w.y * amp, 1.0, -w.z * amp));
@@ -96,7 +112,8 @@ void fragment() {
 	}
 
 	// colour by depth: shallow over the shelf, turquoise, the bay's deep teal, the open sea
-	vec3 col = mix(shallow_color, turquoise_color, smoothstep(0.45, 2.0, depth));
+	// (the shelf's colour spreads down the whole drop-off: no seam where the sand falls away)
+	vec3 col = mix(shallow_color, turquoise_color, smoothstep(0.3, 9.0, depth));
 	col = mix(col, pit_color, pit * smoothstep(2.5, 7.5, depth));
 	col = mix(col, open_color, (1.0 - pit) * smoothstep(110.0, 700.0, r) * smoothstep(2.0, 7.0, depth));
 
@@ -119,27 +136,38 @@ void fragment() {
 		+ pow(s, 30.0) * 0.12 * (1.0 - 0.7 * near) + pow(sf, 2600.0) * sparkle * near;
 	col += sun_color * shine;
 
-	// foam: the swash's leading edge on the sand, lace in the run-up, rings round rocks
+	// the wave: the breaker's crest foam and white water, then the swash: a crisp ragged foam line at its
+	// front, lace on the thin sheet behind that breaks into patches and fades as it drains; rings round rocks
 	float sand_y = SEA_Y - depth;
 	float thick = world.y - sand_y;
 	float lace = texture(foam_texture, world.xz / 3.1 + vec2(t * 0.02, 0.0)).r;
-	float edge = (1.0 - smoothstep(0.0, 0.06, thick)) * shore;
-	float run = shore * (1.0 - smoothstep(0.0, 0.22, thick)) * lace;
+	float lace2 = texture(foam_texture, world.xz / 1.4 - vec2(0.0, t * 0.03)).r;
+	vec3 bk = breaker(depth, world.xz, t);
+	float crest = exp(-pow((bk.z + 0.015) / 0.03, 2.0)) * bk.y * smoothstep(0.15, 0.45, lace2 + 0.25);
+	float white = step(0.0, bk.z) * (1.0 - smoothstep(0.0, 0.18 * bk.y, bk.z)) * bk.y * smoothstep(0.35, 0.6, lace);
+	float sp = fract(swash_phase(world.xz, t));
+	float drain = smoothstep(0.3, 1.0, sp);
+	float front = (1.0 - smoothstep(0.012, 0.03, thick - 0.012 * lace2)) * shore * (1.0 - 0.6 * drain);
+	float sheet = shore * (1.0 - smoothstep(0.04, 0.16, thick))
+		* smoothstep(0.3 + 0.45 * drain, 0.42 + 0.45 * drain, lace) * (1.0 - 0.5 * drain);
 	float ring = rock_foam * smoothstep(0.35, 0.8, lace * (0.65 + 0.35 * sin(t * 1.3 + world.x * 0.7)));
-	float foam = clamp(max(max(edge * (0.55 + 0.45 * lace), run), ring), 0.0, 1.0);
+	float foam = clamp(max(max(max(front, sheet), max(crest, white)), ring), 0.0, 1.0);
 	col = mix(col, foam_color, foam);
+	col = mix(col, turquoise_color * 1.1, clamp(bk.x / 0.11, 0.0, 1.0) * step(bk.z, 0.0) * 0.5);   // the roll's face
 
 	// toward the horizon, the sky's own horizon colour, so sea and sky meet without an edge
 	float far = pow(smoothstep(horizon_fade.x, horizon_fade.y, r), 1.4);
 	col = mix(col, sky_horizon, far);
 
-	float alpha = mix(0.5, 0.97, smoothstep(0.12, 2.3, depth));
+	float alpha = mix(0.5, 0.97, smoothstep(0.12, 6.0, depth));
+	alpha = mix(alpha, 0.3, shore * (1.0 - smoothstep(0.02, 0.1, thick)));        // the swash's thin sheet
+	alpha = max(alpha, clamp(bk.x / 0.11, 0.0, 1.0) * 0.8);
 	alpha = max(alpha, max(foam, clamp(shine, 0.0, 1.0)));
 	alpha = mix(alpha, 1.0, far);
 	if (!FRONT_FACING) {                    // from under the water: the surface seen from below, deep teal
 		col = mix(turquoise_color * 0.75, pit_color * 0.55, smoothstep(0.0, 40.0, dist));
 		alpha = 1.0;
 	}
-	ALBEDO = col;
+	ALBEDO = col * display_gain;
 	ALPHA = clamp(alpha, 0.0, 1.0);
 }

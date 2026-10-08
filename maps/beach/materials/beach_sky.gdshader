@@ -7,6 +7,8 @@ uniform vec3 horizon_color : source_color = vec3(0.64, 0.8, 0.9);
 uniform float curve = 0.5;
 uniform sampler2D clouds : source_color, filter_linear, repeat_enable;
 uniform float cloud_top_degrees = 90.0;
+// Ryan's Windows HDR shows SDR at 2x linear (scripts/fx/mac_lift.gdshader): colours here are what he sees.
+uniform float display_gain = 0.5;
 uniform vec3 below_color : source_color = vec3(0.0, 0.3, 0.4);   // under the horizon: never seen but from the water
 
 void sky() {
@@ -19,5 +21,5 @@ void sky() {
 		col = mix(col, c.rgb, c.a);
 	}
 	vec3 below = mix(horizon_color, below_color, smoothstep(radians(2.0), radians(10.0), -el));
-	COLOR = d.y < 0.0 ? below : col;
+	COLOR = (d.y < 0.0 ? below : col) * display_gain;
 }

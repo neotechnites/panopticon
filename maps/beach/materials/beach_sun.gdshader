@@ -9,6 +9,7 @@ uniform float disc_degrees = 2.2;
 uniform float glow_degrees = 8.0;
 uniform float glow = 0.3;
 uniform float sun_distance = 2500.0;
+uniform float display_gain = 0.5;          // Ryan's HDR desktop shows SDR at 2x linear
 
 varying vec2 offset;
 
@@ -23,5 +24,5 @@ void fragment() {
 	float a = length(offset) * glow_degrees * 4.0;                 // degrees from the sun's centre
 	float disc = smoothstep(disc_degrees * 1.1, disc_degrees * 0.9, a);
 	float halo = glow * exp(-a / glow_degrees) * (1.0 - smoothstep(glow_degrees * 3.0, glow_degrees * 4.0, a));
-	ALBEDO = sun_color * (disc * 1.6 + halo);
+	ALBEDO = sun_color * (disc * 1.6 + halo) * display_gain;
 }
