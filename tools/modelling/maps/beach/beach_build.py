@@ -142,8 +142,8 @@ TWO_PI = 2.0 * math.pi
 INFO = {}
 
 # -- the water's baked look (GameCube style: per-vertex colour and alpha, linear values; beach_water.gdshader)
-SEA_SHALLOW = (0.36, 0.96, 0.86)       # teal, carrying the warmth the sand gave it when see-through
-SEA_TURQ = (0.04, 0.78, 0.78)
+SEA_SHALLOW = (0.36, 0.955, 0.82)       # teal, carrying the warmth the sand gave it when see-through
+SEA_TURQ = (0.045, 0.77, 0.73)
 SEA_DEEP = (0.0, 0.17, 0.44)
 SEA_OPEN = (0.0, 0.56, 0.8)
 SEA_HORIZON = (0.64, 0.8, 0.9)
