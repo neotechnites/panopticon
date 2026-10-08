@@ -27,7 +27,7 @@ the scene's markers (`pol(bearing, r, z)`); the mouth faces bearing 0.
    every texture here is 256 px or less):
    - depth colour: vertex colour baked by `beach_build.py` (COLOR; dark blue fading in over 44 m, full
      8 m mouth-side of the yacht). See-through: per vertex from the length of the view path through the water (depth in
-     UV2.x / sin of the view's elevation, Beer-Lambert; `extinction` = 6 m in `beach_water.gdshader`),
+     UV2.x / sin of the view's elevation, Beer-Lambert; `extinction` = 7.5 m in `beach_water.gdshader`),
      as the GameCube's per-vertex fog; the bed's tint and absorption likewise baked into its
      vertex colours, and its caustic weight into UV2.x.
    - refraction: one copy of the frame (EFB copy; `hint_screen_texture`) read through a scrolling offset

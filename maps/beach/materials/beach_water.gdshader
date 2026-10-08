@@ -21,7 +21,7 @@ uniform vec3 sun_direction = vec3(0.7913, 0.5736, 0.212);   // toward the sun: t
 uniform vec3 sky_top : source_color = vec3(0.26, 0.63, 1.0);
 uniform vec3 sky_horizon : source_color = vec3(0.64, 0.8, 0.9);
 uniform float reflection = 0.7;
-uniform float extinction = 6.0;      // metres of water a line of sight passes through to lose ~63% of the bed
+uniform float extinction = 7.5;      // metres of water a line of sight passes through to lose ~63% of the bed
 uniform float swell = 0.07;          // metres: the vertex swell (the GameCube moved water vertices too)
 
 varying vec3 world;
