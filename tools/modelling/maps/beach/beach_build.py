@@ -66,11 +66,11 @@ WET = 1.3                   # metres of wet sand above the waterline
 # -- the beach rock wall: about 2 m of stacked boulders on a rock core, low enough to see the island over
 WALL_R = 74.1               # the wall's foot (10.6 m of sand) ...
 WALL_WANDER = 0.6
-WALL_H = (1.55, 1.85)       # the core's height wanders between these (the cap course stands proud of it)
-WALL_ROWS = ((0.0, 0.0), (0.2, 0.55), (0.45, 0.75), (0.7, 0.9), (0.9, 1.05), (1.0, 1.35))   # (share, metres back)
+WALL_H = (1.4, 1.7)       # the core's height wanders between these (the cap course stands proud of it)
+WALL_ROWS = ((0.0, 0.0), (0.2, 0.75), (0.45, 1.0), (0.7, 1.2), (0.9, 1.35), (1.0, 1.6))   # (share, metres back)
 CORE_SHADE = 0.42           # the core shows only in the gaps between boulders
 COURSES = (((0.2, 0.5), (0.0, 0.0), (1.2, 2.6), (0.75, 0.95), (0.3, 0.42), 0.0),
-           ((0.6, 1.0), (0.75, 1.05), (0.85, 1.6), (0.65, 0.85), (0.15, 0.3), 0.18))
+           ((0.5, 0.85), (0.75, 1.05), (0.85, 1.6), (0.65, 0.85), (0.15, 0.3), 0.12))
 #   (metres back of the foot, base over the sand, size, squash, sink, share left out): foot and cap courses
 ISLAND_LIFT = 1.85          # the island's ground behind the lip, over the deck
 
@@ -90,7 +90,7 @@ HILLS = ((180.0, 360.0, 78.0, 150.0), (143.0, 300.0, 52.0, 110.0), (216.0, 430.0
          (198.0, 205.0, 24.0, 70.0), (266.0, 370.0, 40.0, 120.0), (100.0, 400.0, 44.0, 130.0),
          (232.0, 620.0, 90.0, 220.0))   # (bearing, r, height, reach)
 RIDGES = (20.0, 95.0)       # ridged noise over the hills: metres, wavelength
-CROWN = (7.0, 3.6, 150.0)   # the canopy's crowns: cell metres near the beach, crown height, r where cells double
+CROWN = (7.0, 4.4, 150.0)   # the canopy's crowns: cell metres near the beach, crown height, r where cells double
 
 # -- the jetty heads: a rock knoll where the sand ends, beyond the start and the portal
 HEAD_S = RUN_S + 8.5        # s of the knoll's top
@@ -297,7 +297,7 @@ def land_col(p):
         sh = canopy(x, y)[1]
         h0 = hills(x, y)
         rv = h0 - 0.25 * (hills(x + 18.0, y) + hills(x - 18.0, y) + hills(x, y + 18.0) + hills(x, y - 18.0))
-        f = lerp(1.0, lerp(0.66, 1.12, sh) * clamp(1.0 + rv / 9.0, 0.7, 1.25), jm)
+        f = lerp(1.0, lerp(0.6, 1.14, sh) * clamp(1.0 + rv / 8.0, 0.68, 1.28), jm)
         c = (c[0] * f, c[1] * f, c[2] * f)
     n = 0.94 + 0.08 * vnoise(x / 13.0, y / 13.0, SEED + 32)
     c = (c[0] * n, c[1] * n, c[2] * n)
