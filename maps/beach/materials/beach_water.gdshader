@@ -40,7 +40,7 @@ void vertex() {
 	vec3 v = normalize(CAMERA_POSITION_WORLD - world);
 	float fres = 0.02 + 0.98 * pow(1.0 - clamp(v.y, 0.0, 1.0), 5.0);
 	vec3 c = mix(sky_horizon, sky_top, pow(clamp(asin(clamp(v.y, 0.0, 1.0)) / radians(75.0), 0.0, 1.0), 0.35));
-	sky = vec4(c, fres * reflection);
+	sky = vec4(c, min(fres * reflection, 0.22));   // capped: at grazing angles the sky must not turn the teal blue
 	// view-path opacity (Beer-Lambert): the water the line of sight crosses to reach the bed under this vertex
 	float path = depth / max(v.y, 0.03);
 	see = mix(0.12, 1.0, 1.0 - exp(-path / extinction));
