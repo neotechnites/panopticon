@@ -39,9 +39,8 @@ the scene's markers (`pol(bearing, r, z)`); the mouth faces bearing 0.
    - foam and waves: textured strips (`beach_waves.glb`, `beach_wave_albedo`) with animated UVs and
      fades, a standing lace band (`beach_foam_albedo`) at the waterline, lace rings round rocks (UV2.y).
    - geometry: 11.4k water triangles, 2 deg columns at the shore.
-7. Sky: `maps/beach/materials/beach_sky.gdshader`, a gradient and the drawn clouds (`beach_clouds_albedo.png`,
-   RGBA). The sun (bearing 15, 35 deg up, the DirectionalLight's) is Sunshine's: `beach_sun.gdshader`, a
-   soft sprite (core, halo, star rays) square to the camera 2.5 km out, and `beach_sun_glare.gdshader`, a
+7. Sky: `maps/beach/materials/beach_sky.gdshader`, a gradient, no clouds. The sun (bearing 15, 35 deg up, the DirectionalLight's) is Sunshine's: `beach_sun.gdshader`, a
+   soft sprite (core, halo, star rays to ~11 deg, all tapering to nothing) square to the camera 2.5 km out, and `beach_sun_glare.gdshader`, a
    screen wash and rays that rise as the view turns to it (`glare_strength` 0.55 dead-on, gone by
    `glare_degrees` 22), cut by five depth taps at the sun's screen position when it is hidden. Linear tonemap; GL Compatibility.
 8. Tower: the yacht (`beach_yacht_build.py`, a generic placeholder after the Prestige 680), broadside to

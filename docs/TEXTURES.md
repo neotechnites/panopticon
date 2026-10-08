@@ -20,7 +20,7 @@ its watching eye has its own sheet. Map notes are in `docs/maps/`.
 2. Draw inside the slice. Do not move, resize or rename a slice: its name is the PNG's name.
 3. Save. `tools/pc_sync.sh` pulls the sheet back from the PC, runs `tools/textures/export_sheets.sh`
    (every slice to `<slice>.png` beside the sheet) and commits the PNGs.
-4. Four textures are plain PNGs with no sheet; edit the PNG itself: `beach_clouds_albedo.png` (RGBA), `lava_albedo.png`,
+4. Three textures are plain PNGs with no sheet; edit the PNG itself: `lava_albedo.png`,
    `map_base_lava_emissive.png`, `forest_mist_albedo.png`.
 
 A new texture is a new slice in the home's sheet. `python3 tools/textures/audit.py` rewrites the tables
@@ -120,7 +120,6 @@ slice is placed nearest-upscaled (chunkier, same UVs and density), each locked t
 | beach_shell_albedo | cream shell bands | shells on the sand |
 | beach_portal_swirl_albedo | turquoise and white spiral | the portal's swirl |
 | beach_hull_albedo, beach_glass_albedo, beach_teak_albedo | white gelcoat, blue tinted glass, teak planks | the yacht; teak also the loungers and the tiki bar's counter |
-| beach_clouds_albedo (PNG, RGBA) | soft cumulus on clear | the sky (`maps/beach/materials/beach_sky.gdshader`) |
 
 ### Hub: `hub/textures/` (`hub.ase`)
 

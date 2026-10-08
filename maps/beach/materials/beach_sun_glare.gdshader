@@ -42,7 +42,7 @@ void fragment() {
 	vec2 d = (SCREEN_UV - sun_uv) * vec2(VIEWPORT_SIZE.x / VIEWPORT_SIZE.y, 1.0);
 	float r = length(d);
 	float ang = atan(d.y, d.x);
-	float rays = (pow(abs(cos(ang * 4.0)), 80.0) + 0.5 * pow(abs(cos(ang * 4.0 + 0.39)), 120.0)) * exp(-r * 2.2);
+	float rays = (pow(abs(cos(ang * 4.0)), 80.0) + 0.5 * pow(abs(cos(ang * 4.0 + 0.39)), 120.0)) * exp(-r * 3.1);                                  // a third shorter
 	float wash = glare_strength * pow(near, 3.0) * (0.75 + 0.25 * exp(-r * 3.0));
 	ALBEDO = glare_color * display_gain;
 	ALPHA = clamp((wash + rays * ray_strength * near) * vis, 0.0, 0.95);

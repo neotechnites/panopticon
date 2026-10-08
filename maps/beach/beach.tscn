@@ -27,13 +27,11 @@
 [ext_resource type="Texture2D" path="res://maps/beach/textures/beach_sand_albedo.png" id="27_sand_tile"]
 [ext_resource type="PackedScene" path="res://maps/beach/props/beach_portal.tscn" id="19_portal"]
 [ext_resource type="Shader" path="res://maps/beach/materials/beach_sky.gdshader" id="20_sky_shader"]
-[ext_resource type="Texture2D" path="res://maps/beach/textures/beach_clouds_albedo.png" id="21_clouds"]
 [ext_resource type="Texture2D" path="res://maps/beach/textures/beach_rock_albedo.png" id="22_rock_tile"]
 [ext_resource type="Texture2D" path="res://maps/beach/textures/beach_grass_albedo.png" id="23_grass_tile"]
 
 [sub_resource type="ShaderMaterial" id="SkyMat"]
 shader = ExtResource("20_sky_shader")
-shader_parameter/clouds = ExtResource("21_clouds")
 
 [sub_resource type="Sky" id="Sky"]
 sky_material = SubResource("SkyMat")
