@@ -66,7 +66,7 @@ WET = 1.3                   # metres of wet sand above the waterline
 # -- the beach rock wall: about 2 m of stacked boulders on a rock core, low enough to see the island over
 WALL_R = 74.1               # the wall's foot (10.6 m of sand) ...
 WALL_WANDER = 0.6
-WALL_H = (1.4, 1.7)       # the core's height wanders between these (the cap course stands proud of it)
+WALL_H = (1.0, 1.25)      # the core's height wanders between these (the cap course stands proud of it)
 WALL_ROWS = ((0.0, 0.0), (0.2, 0.75), (0.45, 1.0), (0.7, 1.2), (0.9, 1.35), (1.0, 1.6))   # (share, metres back)
 CORE_SHADE = 0.42           # the core shows only in the gaps between boulders
 COURSES = (((0.2, 0.5), (0.0, 0.0), (1.2, 2.6), (0.75, 0.95), (0.3, 0.42), 0.0),
