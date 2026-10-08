@@ -102,7 +102,7 @@ HEAD_R = 70.5
 END_S = (RUN_S + 6.0, RUN_S + 17.0)    # the land drops away into the sea between these s
 
 # -- the sea (sRGB, from the refs)
-WATER_R = [0.0, 12.0, 24.0, 34.0, 42.0]                           # rings in the bay (absolute)
+WATER_R = [0.0, 1.5, 3.0, 4.5, 6.0, 7.5, 9.0, 10.5, 12.0, 13.5, 15.0, 24.0, 34.0, 42.0]   # fine round the yacht                           # rings in the bay (absolute)
 WATER_IN = [-17.0, -12.0, -8.5, -6.0, -4.0, -2.8, -1.8, -1.0, -0.4, 0.0, 0.6, 1.2, 1.8, 2.4]
 #            metres off the waterline: out past the swash's run-up, so the moving water always meets the sand
 WATER_OUT = [77.0, 80.0, 83.0, 86.0, 89.0, 92.0, 96.0, 100.0, 105.0, 111.0]
@@ -1423,6 +1423,19 @@ def build_trunk_collider(trunks):
     return c
 
 
+def yacht_foam():
+    """Lace round the yacht's waterline, as round the rocks: one circle per station, its edge on the hull side.
+    The yacht lies along Godot z, bow toward +z (Blender -y), beam 2.65 m half (beach_yacht_build.py)."""
+    out = []
+    for k in range(20):
+        lx = -7.6 + 19.8 * k / 19.0
+        t = (lx + 7.6) / 19.8
+        half = 2.65 * max(0.12, 1.0 - max(0.0, (t - 0.6) / 0.4) ** 1.6)
+        out.append((0.0, -lx, half / 0.45))
+    out.append((0.0, 8.2, 2.3 / 0.45))                    # the swim platform
+    return out
+
+
 def build_geometry():
     s = Sculpt()
     m = s.build()
@@ -1430,7 +1443,8 @@ def build_geometry():
     palms, uv, trunks = build_palms()
     props, puv, solids, poles, logs, hut = build_props()
     waves, wuv = build_waves()
-    sea = build_sea([p for p in placed if ground_z(bearing_of((p[0], p[1], 0.0)), math.hypot(p[0], p[1])) < WATER_Z + 0.3])
+    sea = build_sea([p for p in placed if ground_z(bearing_of((p[0], p[1], 0.0)), math.hypot(p[0], p[1])) < WATER_Z + 0.3]
+                    + yacht_foam())
     cols = {"ground": build_ground_collider(), "rocks": build_rock_collider(placed),
             "palms": build_trunk_collider(trunks), "props": build_prop_collider(solids, poles, logs, hut)}
     return s, m, rocks, palms, uv, sea, cols, props, puv, waves, wuv
