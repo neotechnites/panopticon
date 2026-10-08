@@ -70,9 +70,9 @@ WALL_H = (1.0, 1.25)      # the core's height wanders between these (the cap cou
 WALL_ROWS = ((0.0, 0.0), (0.2, 0.75), (0.45, 1.0), (0.7, 1.2), (0.9, 1.35), (1.0, 1.6))   # (share, metres back)
 CORE_SHADE = 0.42           # the core shows only in the gaps between boulders
 COURSES = (((0.2, 0.5), (0.0, 0.0), (1.2, 2.6), (0.75, 0.95), (0.3, 0.42), 0.0),
-           ((0.5, 0.85), (0.85, 1.15), (0.9, 1.7), (0.65, 0.85), (0.15, 0.3), 0.12))
+           ((0.5, 0.85), (0.95, 1.25), (0.9, 1.7), (0.65, 0.85), (0.15, 0.3), 0.12))
 #   (metres back of the foot, base over the sand, size, squash, sink, share left out): foot and cap courses
-ISLAND_LIFT = 1.45          # the island's ground behind the lip, over the deck
+ISLAND_LIFT = 1.55          # the island's ground behind the lip, over the deck
 
 # -- the island behind the wall
 ISLAND_D = [0.6, 1.6, 3.0, 5.0, 7.5, 10.0, 13.0, 16.0, 19.0, 22.0, 25.0, 28.5, 32.0, 36.0, 40.5, 45.5,
