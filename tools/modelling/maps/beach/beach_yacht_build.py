@@ -97,7 +97,7 @@ COL_WALL_T = 0.10
 # teak, chrome rails, the red boot stripe, dark antifouling below it
 SHEETS = {
     "hull": tx.Sheet("hull", mode="box", stem="beach_hull", roughness=0.45),
-    "upper": tx.Sheet("upper", mode="box", stem="beach_hull", roughness=0.45, tint=(0.88, 0.88, 0.86)),
+    "upper": tx.Sheet("upper", mode="box", stem="beach_hull", roughness=0.45, tint=(0.95, 0.95, 0.93)),
     "glass": tx.Sheet("glass", mode="box", stem="beach_glass", roughness=0.15),
     "dark": tx.Sheet("dark", mode="box", stem="beach_glass", roughness=0.15, tint=(0.16, 0.17, 0.2)),
     "teak": tx.Sheet("teak", mode="box", stem="beach_teak"),
@@ -415,6 +415,7 @@ def _stern(m):
     x0, x1, hy, z0, z1 = PLATFORM
     _box(m, x0 - 0.0, x0 + 0.45, -hy * 0.9, hy * 0.9, z0 - 0.15, z0 + 0.1, "upper", top="teak")
     _box(m, TRANSOM_X - 0.03, TRANSOM_X + 0.02, -1.5, 1.5, 0.55, 1.35, "dark")
+    _box(m, -6.05, -5.98, -1.75, 1.75, 1.75, 3.95, "glass")          # the saloon's glass aft doors
 
 
 def build_geometry():
