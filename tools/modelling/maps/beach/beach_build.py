@@ -147,7 +147,7 @@ SEA_TURQ = (0.04, 0.8, 0.94)
 SEA_DEEP = (0.0, 0.34, 0.62)
 SEA_OPEN = (0.0, 0.56, 0.8)
 SEA_HORIZON = (0.64, 0.8, 0.9)
-BED_TINT = (0.26, 0.84, 0.82)       # the bed under water takes the sea's colour ...
+BED_TINT = (0.2, 0.8, 0.95)       # the bed under water takes the sea's colour ...
 ABSORB = (0.3, 0.07, 0.055)         # ... and loses light with depth, red first
 
 
@@ -566,12 +566,15 @@ def sea_col(b, r, rocks=()):
         depth = 14.0
     d = max(depth, 0.0)
     col = lerp3(SEA_SHALLOW, SEA_TURQ, smooth((d - 0.05) / 1.05))
-    col = lerp3(col, SEA_DEEP, smooth((d - 2.2) / 4.0))       # darker blue from mid-bay out
+    x = pol(b, r, 0.0)[0]
+    blue = max(smooth((d - 2.2) / 4.0), smooth((x + 6.0) / 30.0) * smooth((d - 0.8) / 1.4))
+    col = lerp3(col, SEA_DEEP, blue)                          # darker blue over the bay's outer half
     col = lerp3(col, SEA_OPEN, smooth((r - 110.0) / 590.0))
     far = smooth((r - SKY_FADE[0]) / (SKY_FADE[1] - SKY_FADE[0])) ** 1.4
     col = lerp3(col, SEA_HORIZON, far)
     alpha = 0.14 + 0.5 * (1.0 - math.exp(-d / 6.0))
     alpha = lerp(alpha, 1.0, smooth((d - 6.0) / 8.0))
+    alpha = max(alpha, 0.78 * blue)                           # the blue reads as water, not as the bed
     alpha = lerp(alpha, 1.0, smooth((r - 84.0) / 14.0))
     px, py, _z = pol(b, r, 0.0)
     ring = 0.0
