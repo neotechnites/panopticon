@@ -220,20 +220,21 @@ def _dome_us(rad, rise, cls):
     return [0.5] * (DOME_RINGS + 1)
 
 
-def _shared(name, px=SHAFT_PX, ref_r=SHAFT_R, u0=U0_SHAFT, tint=None, stem="marble_brick"):
+def _shared(name, px=SHAFT_PX, ref_r=SHAFT_R, u0=U0_SHAFT, tint=None, stem=mb.TOWER_STEM):
     return mb.ashlar_sheet(name, px * MPT, tint, ref_r=ref_r, phase=(u0, V0), stem=stem)
 
 
-SHEETS = {
-    "stone": _shared("stone", stem=mb.TOWER_STEM),                            # the shaft, the spandrels
+SHEETS = {   # every stone class on the tower's own tile: the lamps do not light the tower (marble.tscn)
+    "stone": _shared("stone"),                                                 # the spandrels
+    "shaft": _shared("shaft"),                                                 # the shaft's outside
     "plinth": _shared("plinth", tint=mb.TINT_PLINTH),                          # foot, steps, room floor band, dais
-    "shade": mb.shade_sheet("shade", ref_r=SHAFT_R, phase=(U0_SHAFT, V0)),     # reveals, soffits, undersides
+    "shade": mb.brick("shade", ref_r=SHAFT_R, phase=(U0_SHAFT, V0), stem=mb.TOWER_STEM),   # reveals, soffits, undersides: untinted, the ambient is even
     "marble2": _shared("marble2", BAL_PX, BALCONY_R, U0_BAL, mb.TINT_MARBLE2),  # the ledge
-    "band": mb.band_sheet(),                                                   # ring beam, slab edge
-    "column": mb.column_sheet(),
+    "band": mb.band_sheet(mb.TOWER_COLUMN_STEM),                              # ring beam, slab edge: his column tile turned
+    "column": mb.column_sheet(mb.TOWER_COLUMN_STEM),                          # his column tile, at the tower's light
     "iron": mb.iron_sheet(),
-    "floor": mb.tile("floor", "marble_floor", "custom", 64, 64, mpt=2.7 / 64.0),   # one paving cell a ring band
-    "plain": mb.stone("plain", mode="box"),                                    # the floor's centre
+    "floor": mb.tile("floor", mb.TOWER_FLOOR_STEM, "custom", 64, 64, mpt=2.7 / 64.0),   # one paving cell a ring band
+    "plain": mb.tile("plain", mb.TOWER_PLAIN_STEM, "box", mb.STONE_PX, mb.STONE_PX, mb.WALL_MPT),   # the floor's centre
     "coffer": mb.brick("coffer", stem=mb.TOWER_STEM, mode="custom"),           # the dome inside
     "dome": mb.brick("dome", stem=mb.TOWER_STEM, mode="custom"),              # ... and outside
 }
@@ -628,7 +629,7 @@ def _shaft(m, cap=True):
     z = SHAFT_Z0
     for b in range(SHAFT_BANDS):
         z_next = SHAFT_Z0 + (SLAB_Z[0] - SHAFT_Z0) * (b + 1) / SHAFT_BANDS
-        _band(m, _ringz(m, SHAFT_R, z), _ringz(m, SHAFT_R, z_next), True, "stone")
+        _band(m, _ringz(m, SHAFT_R, z), _ringz(m, SHAFT_R, z_next), True, "shaft")
         z = z_next
 
 
