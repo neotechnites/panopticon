@@ -24,9 +24,9 @@ void sky() {
 	}
 	vec2 uv = vec2(fract(atan(d.z, d.x) / TAU), 1.0 - el / radians(cloud_top_degrees));
 	if (uv.y >= 0.0 && uv.y <= 1.0) {
-		vec3 c = texture(clouds, uv).rgb;
-		float a = clamp(max(c.r, max(c.g, c.b)) / 0.55, 0.0, 1.0);      // black is clear: un-premultiply the edge
-		col = mix(col, c / max(a, 0.001), a);
+		vec3 c = pow(texture(clouds, uv).rgb, vec3(1.0 / 2.2));        // back to the drawn values
+		float a = clamp(max(c.r, max(c.g, c.b)) / 0.9, 0.0, 1.0);      // black is clear: un-premultiply the edge
+		col = mix(col, pow(c / max(a, 0.001), vec3(2.2)), a);
 	}
 	COLOR = d.y < 0.0 ? horizon_color : col;
 }

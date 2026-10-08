@@ -66,10 +66,10 @@ WET = 1.3                   # metres of wet sand above the waterline
 # -- the beach rock wall: about 2 m of stacked boulders on a rock core, low enough to see the island over
 WALL_R = 74.1               # the wall's foot (10.6 m of sand) ...
 WALL_WANDER = 0.6
-WALL_H = (1.8, 2.15)        # the core's height wanders between these
+WALL_H = (1.55, 1.85)       # the core's height wanders between these (the cap course stands proud of it)
 WALL_ROWS = ((0.0, 0.0), (0.2, 0.55), (0.45, 0.75), (0.7, 0.9), (0.9, 1.05), (1.0, 1.35))   # (share, metres back)
 CORE_SHADE = 0.42           # the core shows only in the gaps between boulders
-COURSES = ((0.3, 0.0, (1.3, 1.9), 0.8, 0.3), (0.62, 0.8, (1.0, 1.5), 0.72, 0.25), (0.95, 1.45, (0.75, 1.15), 0.7, 0.2))
+COURSES = ((0.3, 0.0, (1.3, 1.9), 0.8, 0.3), (0.62, 0.8, (1.0, 1.5), 0.72, 0.25), (0.95, 1.5, (0.8, 1.2), 0.72, 0.2))
 #           (metres back of the foot, base over the sand, size range, squash, sink): foot, middle and cap courses
 ISLAND_LIFT = 1.85          # the island's ground behind the lip, over the deck
 
@@ -288,7 +288,7 @@ def land_col(p):
     c = lerp3(GRASS_VC, JUNGLE_VC, jm)
     if jm > 0.0:
         sh = canopy(x, y)[1]
-        f = lerp(1.0, lerp(0.62, 1.14, sh), jm)
+        f = lerp(1.0, lerp(0.62, 1.14, sh), jm * ramp(r, 260.0, 160.0))     # far crowns are below the grid's reach
         c = (c[0] * f, c[1] * f, c[2] * f)
     n = 0.93 + 0.1 * vnoise(x / 13.0, y / 13.0, SEED + 32)
     c = (c[0] * n, c[1] * n, c[2] * n)
@@ -314,8 +314,9 @@ class Sculpt(object):
         foot = 1.0 - 0.1 * ramp(r, wf(b) - 1.4, wf(b))
         return (c[0] * foot, c[1] * foot, c[2] * foot, 1.0)
 
-    def _core_col(self, p):
-        n = CORE_SHADE * (0.9 + 0.2 * h2(int(p[0] * 5.0), int(p[1] * 5.0 + p[2] * 9.0), SEED + 31))
+    def _core_col(self, p, hs):
+        """Shadowed in the gaps low down; the core's top, seen between the cap stones, is plain rock."""
+        n = lerp(CORE_SHADE, 0.92, ramp(hs, 0.7, 0.95)) * (0.9 + 0.2 * h2(int(p[0] * 5.0), int(p[1] * 5.0 + p[2] * 9.0), SEED + 31))
         return (n, n, n, 1.0)
 
     def build(self):
@@ -353,7 +354,7 @@ class Sculpt(object):
                     z = foot_z + wall_h(b) * hs + _jb(b, 120 + k, 0.06)
                     kind = "wall"
                 p = pol(b, r, z)
-                row.append(self.v(p, self._core_col(p) if k else self._sand_col(b, r), kind))
+                row.append(self.v(p, self._core_col(p, hs) if k else self._sand_col(b, r), kind))
             rows.append(row)
         for k, d in enumerate(ISLAND_D):
             row = []
