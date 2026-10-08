@@ -50,6 +50,7 @@ shader = ExtResource("16_water_shader")
 shader_parameter/ripples = ExtResource("17_ripples")
 shader_parameter/caustics = ExtResource("15_water_tile")
 shader_parameter/foam_texture = ExtResource("18_foam")
+shader_parameter/banded = true
 
 [sub_resource type="ShaderMaterial" id="SandMat"]
 shader = ExtResource("26_sand_shader")
