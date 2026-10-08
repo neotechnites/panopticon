@@ -9,6 +9,8 @@
 [ext_resource type="PackedScene" path="res://maps/beach/models/beach_rocks.glb" id="12_rocks"]
 [ext_resource type="PackedScene" path="res://maps/beach/models/beach_palms.glb" id="13_palms"]
 [ext_resource type="PackedScene" path="res://maps/beach/models/beach_water.glb" id="14_water"]
+[ext_resource type="PackedScene" path="res://maps/beach/models/beach_props.glb" id="28_props"]
+[ext_resource type="Texture2D" path="res://maps/beach/textures/beach_canvas_albedo.png" id="29_canvas_tile"]
 [ext_resource type="Texture2D" path="res://maps/beach/textures/beach_water_albedo.png" id="15_water_tile"]
 [ext_resource type="Shader" path="res://maps/beach/materials/beach_water.gdshader" id="16_water_shader"]
 [ext_resource type="Texture2D" path="res://maps/beach/textures/beach_water_normal_albedo.png" id="17_ripples"]
@@ -61,6 +63,14 @@ albedo_texture = ExtResource("23_grass_tile")
 roughness = 0.95
 texture_filter = 5
 
+[sub_resource type="StandardMaterial3D" id="CanvasMat"]
+resource_name = "beach_canvas"
+cull_mode = 2
+vertex_color_use_as_albedo = true
+albedo_texture = ExtResource("29_canvas_tile")
+roughness = 0.9
+texture_filter = 5
+
 [node name="Beach" type="Node3D"]
 editor_description = "The beach: a bay between two jetties, the island behind a low rock wall, a yacht for the tower. Notes in docs/maps/beach.md."
 
@@ -99,6 +109,12 @@ surface_material_override/3 = SubResource("SandMat")
 [node name="Rocks" parent="MapBase" instance=ExtResource("12_rocks")]
 
 [node name="Palms" parent="MapBase" instance=ExtResource("13_palms")]
+
+[node name="Props" parent="MapBase" instance=ExtResource("28_props")]
+
+[node name="BeachProps" parent="MapBase/Props" index="0"]
+editor_description = "Surface 0 restated: the importer drops the first surface's vertex colour."
+surface_material_override/0 = SubResource("CanvasMat")
 
 [node name="Water" parent="MapBase" instance=ExtResource("14_water")]
 
@@ -169,4 +185,5 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.95, 0)
 
 [editable path="MapBase/Ground"]
 [editable path="MapBase/Island"]
+[editable path="MapBase/Props"]
 [editable path="MapBase/Water"]

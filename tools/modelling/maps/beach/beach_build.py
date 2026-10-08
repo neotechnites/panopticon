@@ -8,7 +8,8 @@ wadeable shelf, then deep teal water (the pit); a yacht anchored in the bay is t
     beach_island.glb   the island behind the wall: grass, canopy, hills, far coast      BeachIsland
     beach_rocks.glb    the wall's stacked boulders, and rocks in sand, shallows, heads  BeachRocks
     beach_palms.glb    palms planted in the sand and on the island                      BeachPalms
-    beach_water.glb    the sea, flat and static, to the horizon (no collider)           BeachWater
+    beach_props.glb    beach sets, driftwood, shells, the tiki bar by the portal        BeachProps
+    beach_water.glb    the sea to the horizon, moved by its shader (no collider)        BeachWater
 
 World coordinates, instanced at identity (Blender +Z -> Godot +Y, +Y -> Godot -Z; bearings as the
 scene's markers, pol()). The mouth faces bearing 0; the lap runs 60 -> 300 deg at r 68.5.
@@ -738,6 +739,364 @@ def build_palms():
 
 
 # =============================================================================
+# PROPS -- beach sets (umbrella, towels, loungers, a cooler), driftwood, shells, the tiki hut by the portal
+# =============================================================================
+
+def frame(b, r, yaw=0.0):
+    """(origin on the ground, along, out): `along` the way bearings rise, `out` toward the wall, turned by yaw."""
+    a = math.radians(-b)
+    t, n = (math.sin(a), -math.cos(a), 0.0), (math.cos(a), math.sin(a), 0.0)
+    cy, sy = math.cos(math.radians(yaw)), math.sin(math.radians(yaw))
+    t, n = (t[0] * cy + n[0] * sy, t[1] * cy + n[1] * sy, 0.0), (n[0] * cy - t[0] * sy, n[1] * cy - t[1] * sy, 0.0)
+    x, y, _z = pol(b, r, 0.0)
+    return (x, y, ground_z(b, r)), t, n
+
+
+def at(o, t, n, a, d, h):
+    return (o[0] + t[0] * a + n[0] * d, o[1] + t[1] * a + n[1] * d, o[2] + h)
+
+
+def box(m, c, ax, ay, az, zone, col, bottom=False):
+    """An oriented box: centre c, half-extent vectors ax, ay, az; flat faces, its own colour."""
+    sgn = ((1, 1), (1, -1), (-1, -1), (-1, 1))
+    for e, (p, q) in ((az, (ax, ay)), (ax, (ay, az)), (ay, (az, ax))):
+        for s in ((1, -1) if bottom or e is not az else (1,)):
+            ctr = tuple(c[k] + s * e[k] for k in range(3))
+            vs = [m.v(tuple(ctr[k] + i * p[k] + j * q[k] for k in range(3)), col) for i, j in sgn]
+            m.quad(vs[0], vs[1], vs[2], vs[3], tuple(s * e[k] for k in range(3)), zone, "props")
+
+
+def tube(m, uv, pts, radii, sides, zone, col, caps=(True, True)):
+    """A tube along pts (each its radius), its UV unrolled: u round (metres), v along (metres)."""
+    rings, along = [], 0.0
+    for k, p in enumerate(pts):
+        q0, q1 = pts[max(0, k - 1)], pts[min(len(pts) - 1, k + 1)]
+        d = il.unit(il.sub(q1, q0))
+        side = il.unit(il.cross(d, UP if abs(d[2]) < 0.9 else (1.0, 0.0, 0.0)))
+        up = il.cross(side, d)
+        if k:
+            along += math.dist(pts[k - 1], p)
+        ring = []
+        for j in range(sides + 1):
+            a = j * TWO_PI / sides
+            ring.append((m.v(tuple(p[i] + radii[k] * (math.cos(a) * side[i] + math.sin(a) * up[i]) for i in range(3)), col),
+                         (j * TWO_PI * radii[0] / sides / 12.8, along / 12.8)))
+        rings.append(ring)
+    f0 = len(m.faces)
+    m.grid([[v for v, _uv in ring] for ring in rings],
+           lambda c: il.sub(c, pts[min(range(len(pts)), key=lambda i: math.dist(pts[i], c))]), zone, "props", closed=False)
+    lookup = {v: w for ring in rings for v, w in ring}
+    for fi in range(f0, len(m.faces)):
+        for vi in m.faces[fi]:
+            uv[(fi, vi)] = lookup[vi]
+    for cap, ring, sgn in ((caps[0], rings[0], -1.0), (caps[1], rings[-1], 1.0)):
+        if not cap:
+            continue
+        p = pts[0] if sgn < 0 else pts[-1]
+        q = pts[1] if sgn < 0 else pts[-2]
+        out = il.unit(il.sub(p, q))
+        mid = m.v(p, col)
+        for j in range(sides):
+            m.tri(ring[j][0], ring[j + 1][0], mid, out, zone, "props")
+            for vi in m.faces[-1]:
+                pp = m.verts[vi]
+                uv[(len(m.faces) - 1, vi)] = (0.5 + (pp[0] - p[0]) / 12.8, 0.5 + (pp[1] - p[1]) / 12.8)
+
+
+def umbrella(m, o, t, n, cols, lean, seed):
+    """A beach umbrella: a pole sunk in the sand, an eight-gore canopy (gores alternate cols), leaning `lean`."""
+    r = Rng(seed)
+    tilt = math.radians(lean)
+    axis = tuple(n[k] * -math.sin(tilt) + UP[k] * math.cos(tilt) for k in range(3))   # leaning toward the bay
+    pole = lambda h: tuple(o[k] + axis[k] * h for k in range(3))
+    side = il.unit(il.cross(axis, n))
+    fwd = il.cross(side, axis)
+    box(m, pole(1.0), tuple(side[k] * 0.03 for k in range(3)), tuple(fwd[k] * 0.03 for k in range(3)),
+        tuple(axis[k] * 1.35 for k in range(3)), "plastic", (0.94, 0.93, 0.9))
+    top = 2.42
+    apex = pole(top)
+    spin = r.u(0.0, TWO_PI)
+    ribs = []
+    for g in range(9):
+        a = spin + g * TWO_PI / 8.0
+        dirv = tuple(math.cos(a) * side[k] + math.sin(a) * fwd[k] for k in range(3))
+        ribs.append([tuple(apex[k] + dirv[k] * rad + axis[k] * -drop for k in range(3))
+                     for rad, drop in ((0.62, 0.16), (1.18, 0.42))])
+    for g in range(8):
+        col = cols[g % 2]
+        a0, a1 = ribs[g], ribs[g + 1]
+        mid = tuple((a0[1][k] + a1[1][k]) * 0.5 + axis[k] * 0.07 for k in range(3))
+        ap, m0, m1, r0, r1, sc = (m.v(p, col) for p in (apex, a0[0], a1[0], a0[1], a1[1], mid))
+        for tri in ((ap, m0, m1), (m0, r0, sc), (m0, sc, m1), (m1, sc, r1)):
+            m.tri(tri[0], tri[1], tri[2], axis, "canvas", "props")
+    box(m, pole(top + 0.05), tuple(side[k] * 0.045 for k in range(3)), tuple(fwd[k] * 0.045 for k in range(3)),
+        tuple(axis[k] * 0.06 for k in range(3)), "plastic", (0.94, 0.93, 0.9))
+    return (o[0], o[1], 0.06)
+
+
+def towel(m, b, r, length, width, yaw, stripes):
+    """A towel laid on the sand, following it, a thin hem down into it; striped across its length."""
+    o, t, n = frame(b, r, yaw)
+    bands = len(stripes)
+    pts = lambda a, d: (lambda q: (q[0], q[1], ground_z(bearing_of(q), math.hypot(q[0], q[1])) + 0.035))(at(o, t, n, a, d, 0.0))
+    for k in range(bands):
+        a0, a1 = -length / 2 + length * k / bands, -length / 2 + length * (k + 1) / bands
+        col = stripes[k]
+        q = [m.v(pts(a, d), col) for a, d in ((a0, -width / 2), (a1, -width / 2), (a1, width / 2), (a0, width / 2))]
+        m.quad(q[0], q[1], q[2], q[3], UP, "canvas", "props")
+        for (aa, dd), (ab, db) in ((((a0, -width / 2)), (a1, -width / 2)), ((a1, width / 2), (a0, width / 2))):
+            p0, p1 = pts(aa, dd), pts(ab, db)
+            h = [m.v(p0, col), m.v(p1, col), m.v((p1[0], p1[1], p1[2] - 0.08), col), m.v((p0[0], p0[1], p0[2] - 0.08), col)]
+            m.quad(h[0], h[1], h[2], h[3], tuple(n[i] * (1 if dd > 0 else -1) for i in range(3)), "canvas", "props")
+        if k in (0, bands - 1):
+            a = a0 if k == 0 else a1
+            p0, p1 = pts(a, -width / 2), pts(a, width / 2)
+            h = [m.v(p0, col), m.v(p1, col), m.v((p1[0], p1[1], p1[2] - 0.08), col), m.v((p0[0], p0[1], p0[2] - 0.08), col)]
+            m.quad(h[0], h[1], h[2], h[3], tuple(t[i] * (1 if k else -1) for i in range(3)), "canvas", "props")
+
+
+def lounger(m, b, r, yaw, cushion):
+    """A slatted teak sun lounger, its back raised, a cushion in the set's colour; 1.95 x 0.64 m."""
+    o, t, n = frame(b, r, yaw)
+    w = 0.32
+    T = lambda s: tuple(t[k] * s for k in range(3))
+    N = lambda s: tuple(n[k] * s for k in range(3))
+    Z = lambda s: (0.0, 0.0, s)
+    wood = (0.96, 0.9, 0.84)
+    for side in (-1, 1):
+        box(m, at(o, t, n, 0.0, side * (w - 0.03), 0.31), T(0.98), N(0.03), Z(0.05), "teak", wood, bottom=True)
+        for a in (-0.88, 0.62):
+            box(m, at(o, t, n, a, side * (w - 0.04), 0.14), T(0.035), N(0.035), Z(0.18), "teak", wood)
+    box(m, at(o, t, n, 0.25, 0.0, 0.37), T(0.72), N(w), Z(0.02), "teak", wood, bottom=True)
+    box(m, at(o, t, n, 0.25, 0.0, 0.43), T(0.69), N(w - 0.03), Z(0.04), "canvas", cushion)
+    ang = math.radians(38.0)
+    dirv = tuple(-t[k] * math.cos(ang) + UP[k] * math.sin(ang) for k in range(3))
+    hinge = at(o, t, n, -0.47, 0.0, 0.37)
+    nrm = tuple(t[k] * math.sin(ang) + UP[k] * math.cos(ang) for k in range(3))
+    c = tuple(hinge[k] + dirv[k] * 0.38 for k in range(3))
+    box(m, c, tuple(dirv[k] * 0.38 for k in range(3)), N(w), tuple(nrm[k] * 0.02 for k in range(3)), "teak", wood, bottom=True)
+    c = tuple(hinge[k] + dirv[k] * 0.37 + nrm[k] * 0.06 for k in range(3))
+    box(m, c, tuple(dirv[k] * 0.35 for k in range(3)), N(w - 0.03), tuple(nrm[k] * 0.04 for k in range(3)), "canvas", cushion)
+    strut = tuple(hinge[k] + dirv[k] * 0.5 + (-UP[k]) * 0.16 for k in range(3))
+    box(m, strut, T(0.03), N(w - 0.06), Z(0.15), "teak", wood)
+    return (o, t, n, (0.98, w + 0.02, 0.55))
+
+
+def cooler(m, b, r, yaw, body):
+    """A picnic cooler: a coloured tub, a white lid, a carry handle."""
+    o, t, n = frame(b, r, yaw)
+    T = lambda s: tuple(t[k] * s for k in range(3))
+    N = lambda s: tuple(n[k] * s for k in range(3))
+    Z = lambda s: (0.0, 0.0, s)
+    white = (0.95, 0.95, 0.93)
+    box(m, at(o, t, n, 0.0, 0.0, 0.16), T(0.28), N(0.19), Z(0.19), "plastic", body)
+    box(m, at(o, t, n, 0.0, 0.0, 0.385), T(0.3), N(0.21), Z(0.035), "plastic", white)
+    for a in (-0.17, 0.17):
+        box(m, at(o, t, n, a, 0.0, 0.45), T(0.02), N(0.03), Z(0.035), "plastic", white)
+    box(m, at(o, t, n, 0.0, 0.0, 0.49), T(0.19), N(0.03), Z(0.015), "plastic", white)
+    return (o, t, n, (0.3, 0.21, 0.42))
+
+
+def driftwood(m, uv, b, r, length, rad, yaw, seed):
+    """A bleached log half sunk in the sand, bent, tapering, a broken branch stub."""
+    rr = Rng(seed)
+    o, t, n = frame(b, r, yaw)
+    pts, radii = [], []
+    bend = rr.u(-0.25, 0.25)
+    for k in range(5):
+        s = k / 4.0
+        a = -length / 2 + length * s
+        p = at(o, t, n, a, bend * math.sin(math.pi * s) * length * 0.3, 0.0)
+        g = ground_z(bearing_of(p), math.hypot(p[0], p[1]))
+        rk = rad * lerp(1.0, 0.62, s) * rr.u(0.92, 1.08)
+        pts.append((p[0], p[1], g + rk * 0.35))
+        radii.append(rk)
+    tone = rr.u(0.9, 1.04)
+    col = (tone, tone * 0.98, tone * 0.95)
+    tube(m, uv, pts, radii, 6, "drift", col)
+    root = pts[1]
+    sd = rr.u(0.4, 0.8) * (1 if rr.f() < 0.5 else -1)
+    tip = at(root, t, n, 0.35, sd, rad * 1.6)
+    tube(m, uv, [root, tip], [radii[1] * 0.45, radii[1] * 0.3], 5, "drift", col, caps=(False, True))
+    return (pts[0], pts[-1], max(radii))
+
+
+def shell(m, b, r, seed):
+    """A scallop shell lying on the sand: a ribbed fan, a few centimetres."""
+    rr = Rng(seed)
+    o, t, n = frame(b, r, rr.u(0.0, 360.0))
+    size = rr.u(0.07, 0.12)
+    col = [(0.98, 0.9, 0.84), (0.98, 0.78, 0.74), (0.96, 0.84, 0.66), (0.95, 0.93, 0.9)][rr.i(0, 3)]
+    hinge = m.v(at(o, t, n, -size * 0.45, 0.0, -0.01), col)
+    rim = []
+    for k in range(7):
+        a = math.radians(-70.0 + 140.0 * k / 6.0)
+        rim.append(m.v(at(o, t, n, -size * 0.45 + math.cos(a) * size, math.sin(a) * size, -0.01 + (0.008 if k % 2 else 0.0)), col))
+    crown = m.v(at(o, t, n, size * 0.05, 0.0, size * 0.32), col)
+    for k in range(6):
+        m.tri(rim[k], rim[k + 1], crown, UP, "shell", "props")
+    m.tri(hinge, rim[0], crown, UP, "shell", "props")
+    m.tri(rim[-1], hinge, crown, UP, "shell", "props")
+
+
+def tiki_hut(m, uv, b, r):
+    """The tiki bar by the portal: four log posts, a thatched hip roof with a ragged fringe, a plank counter
+    facing the bay. Footprint 2.8 x 2.2 m against the wall; roof from 2.35 m to 4.3 m."""
+    o, t, n = frame(b, r)
+    half_a, half_d = 1.4, 1.1
+    post_col = (0.86, 0.66, 0.46)
+    posts = []
+    for a in (-half_a, half_a):
+        for d in (-half_d, half_d):
+            base = at(o, t, n, a, d, 0.0)
+            g = ground_z(bearing_of(base), math.hypot(base[0], base[1]))
+            tube(m, uv, [(base[0], base[1], g - 0.3), (base[0], base[1], o[2] + 2.5)], [0.11, 0.1], 6, "drift", post_col)
+            posts.append((base[0], base[1], 0.14))
+    eave, apex_h, over = 2.36, 4.3, 0.55
+    ea, ed = half_a + over, half_d + over
+    corners = [at(o, t, n, -ea, -ed, eave), at(o, t, n, ea, -ed, eave), at(o, t, n, ea, ed, eave), at(o, t, n, -ea, ed, eave)]
+    ridge = [at(o, t, n, -(ea - ed) - 0.05, 0.0, apex_h), at(o, t, n, (ea - ed) + 0.05, 0.0, apex_h)]
+    thatch = (1.0, 0.97, 0.9)
+
+    def face(e0, e1, r0, r1):
+        """One roof plane from its eave (e0, e1) to its ridge (r0, r1; one point on a hip) in three
+        overlapping courses of thatch, each course's foot standing proud of the one below."""
+        ed_ = il.unit(il.sub(e1, e0))
+        mid = lerp3(lerp3(e0, e1, 0.5), lerp3(r0, r1, 0.5), 0.5)
+        nrm = il.unit(il.cross(il.sub(e1, e0), il.sub(lerp3(r0, r1, 0.5), lerp3(e0, e1, 0.5))))
+        if il.dot(nrm, il.sub(mid, (o[0], o[1], o[2] + eave - 1.0))) < 0.0:
+            nrm = il.scale(nrm, -1.0)
+        ts = (0.0, 0.36, 0.68, 1.0)
+        for i in range(3):
+            lift = 0.0 if i == 0 else 0.08
+            lo = [il.add(lerp3(e, rr_, ts[i]), il.scale(nrm, lift)) for e, rr_ in ((e0, r0), (e1, r1))]
+            hi = [lerp3(e, rr_, ts[i + 1] + (0.04 if i < 2 else 0.0)) for e, rr_ in ((e0, r0), (e1, r1))]
+            vs = [m.v(p, thatch) for p in (lo[0], lo[1], hi[1], hi[0])]
+            f0 = len(m.faces)
+            if math.dist(hi[0], hi[1]) < 1e-6:
+                m.tri(vs[0], vs[1], vs[2], nrm, "thatch", "props")
+            else:
+                m.quad(vs[0], vs[1], vs[2], vs[3], nrm, "thatch", "props")
+            for fi in range(f0, len(m.faces)):
+                for vi in m.faces[fi]:
+                    q = m.verts[vi]
+                    u = il.dot(il.sub(q, e0), ed_)
+                    foot = tuple(e0[k] + ed_[k] * u for k in range(3))
+                    uv[(fi, vi)] = (u / 12.8, math.dist(q, foot) / 12.8)
+
+    face(corners[0], corners[1], ridge[0], ridge[1])
+    face(corners[2], corners[3], ridge[1], ridge[0])
+    face(corners[1], corners[2], ridge[1], ridge[1])
+    face(corners[3], corners[0], ridge[0], ridge[0])
+    # the ragged fringe hanging from the eave: a strip of straw tongues
+    rr = Rng(SEED + 990)
+    for k in range(4):
+        e0, e1 = corners[k], corners[(k + 1) % 4]
+        el = math.dist(e0, e1)
+        steps = int(el / 0.32)
+        for j in range(steps):
+            p0 = lerp3(e0, e1, j / float(steps))
+            p1 = lerp3(e0, e1, (j + 1) / float(steps))
+            tipp = lerp3(p0, p1, 0.5)
+            drop_ = rr.u(0.22, 0.36)
+            out = il.unit(il.sub((tipp[0], tipp[1], 0.0), (o[0], o[1], 0.0)))
+            tipp = (tipp[0] + out[0] * 0.04, tipp[1] + out[1] * 0.04, tipp[2] - drop_)
+            vs = [m.v(p0, thatch), m.v(p1, thatch), m.v(tipp, thatch)]
+            m.tri(vs[0], vs[1], vs[2], out, "thatch", "props")
+            fi = len(m.faces) - 1
+            for vi in m.faces[fi]:
+                p = m.verts[vi]
+                uv[(fi, vi)] = (math.dist(p, e0) / 12.8, (eave - (p[2] - o[2])) / 12.8 + 0.3)
+    # the counter along the bay side, between the front posts
+    T = lambda s: tuple(t[k] * s for k in range(3))
+    N = lambda s: tuple(n[k] * s for k in range(3))
+    Z = lambda s: (0.0, 0.0, s)
+    wood = (0.94, 0.86, 0.76)
+    box(m, at(o, t, n, 0.0, -half_d + 0.12, 0.5), T(half_a - 0.12), N(0.1), Z(0.56), "teak", wood)
+    box(m, at(o, t, n, 0.0, -half_d + 0.06, 1.1), T(half_a + 0.02), N(0.24), Z(0.04), "teak", (1.0, 0.92, 0.82), bottom=True)
+    return o, t, n, posts, (half_a, half_d)
+
+
+SETS = (     # (bearing, kind, canopy colour, towel/lounger offset, cooler)
+    (76.0, "loungers", (0.86, 0.2, 0.18), True),
+    (104.0, "towels", (0.18, 0.42, 0.8), False),
+    (138.0, "mixed", (0.98, 0.8, 0.22), True),
+    (178.0, "loungers", (0.24, 0.66, 0.38), False),
+    (214.0, "towels", (0.95, 0.45, 0.6), True),
+    (234.0, "mixed", (0.98, 0.55, 0.16), False),
+    (285.0, "towels", (0.86, 0.2, 0.18), False),
+)
+CANVAS_WHITE = (0.96, 0.95, 0.92)
+TOWELS = (((0.95, 0.45, 0.6), (0.96, 0.95, 0.92)), ((0.18, 0.62, 0.78), (0.98, 0.84, 0.3)),
+          ((0.96, 0.95, 0.92), (0.86, 0.2, 0.18)), ((0.98, 0.55, 0.16), (0.98, 0.84, 0.3)))
+HUT_B = 294.5               # the tiki bar, 7 m short of the portal on the wall side
+DRIFT = ((66.0, 1.4, 3.2), (99.0, 1.5, 2.4), (126.0, 1.3, 3.6), (150.0, 1.5, 2.2), (190.0, 1.4, 3.0),
+         (222.0, 1.5, 2.6), (247.0, 1.3, 3.4), (267.0, 1.5, 2.0))     # (bearing, metres in from the wall foot, length)
+DRIFT_SHORE = ((57.0, 2.0, 2.6), (303.5, 2.1, 2.2))                    # (bearing, metres above the waterline, length)
+SHELLS = 70
+
+
+def build_props():
+    """Every prop; returns (mesh, uv, solids) where solids are (centre, along, out, half extents) boxes."""
+    m = Mesh()
+    uv = {}
+    rr = Rng(SEED + 800)
+    solids, poles = [], []
+    edge = lambda b: wf(b) - 1.75          # the props' outer edge: clear of the wall's foot stones
+    for k, (b, kind, canopy, has_cooler) in enumerate(SETS):
+        rad = math.radians(1.0) * 72.0
+        stripes = [canopy if j % 2 == 0 else CANVAS_WHITE for j in range(2)]
+        uo, ut, un = frame(b, edge(b) - 1.1)
+        poles.append(umbrella(m, uo, ut, un, stripes, rr.u(4.0, 9.0), SEED + 810 + k))
+        lie = lambda: -90.0 + rr.u(-8.0, 8.0)          # radial, the head end toward the wall
+        if kind == "loungers":
+            for side in (-1.0, 1.0):
+                solids.append(lounger(m, b + side * 0.9 / rad, edge(b) - 1.0, lie(), canopy))
+        elif kind == "towels":
+            for j, side in enumerate((-1.0, 1.0)):
+                tw = TOWELS[(k + j) % len(TOWELS)]
+                towel(m, b + side * 0.78 / rad, edge(b) - 0.9, 1.75, 0.85, lie(), [tw[s % 2] for s in range(5)])
+        else:
+            solids.append(lounger(m, b - 0.95 / rad, edge(b) - 1.0, lie(), canopy))
+            tw = TOWELS[k % len(TOWELS)]
+            towel(m, b + 0.82 / rad, edge(b) - 0.9, 1.75, 0.85, lie(), [tw[s % 2] for s in range(5)])
+        if has_cooler:
+            cb = b + (2.25 if k % 2 else -2.25) / rad
+            solids.append(cooler(m, cb, edge(cb) - 0.25, rr.u(-25.0, 25.0), (0.2, 0.48, 0.82) if k % 3 else (0.86, 0.22, 0.2)))
+    logs = []
+    for k, (b, inset, length) in enumerate(DRIFT):
+        logs.append(driftwood(m, uv, b, wf(b) - inset, length, rr.u(0.12, 0.17), rr.u(-12.0, 12.0), SEED + 830 + k))
+    for k, (b, up, length) in enumerate(DRIFT_SHORE):
+        logs.append(driftwood(m, uv, b, wl(b) + up, length, rr.u(0.1, 0.14), rr.u(-20.0, 20.0), SEED + 850 + k))
+    for k in range(SHELLS):
+        b = rr.u(ENTRY_B - 4.0, EXIT_B + 4.0)
+        shell(m, b, lerp(wl(b) + 0.4, edge(b), rr.f()), SEED + 900 + k)
+    hut = tiki_hut(m, uv, HUT_B, edge(HUT_B) - 1.1)
+    INFO["props"] = len(m.faces)
+    return m, uv, solids, poles, logs, hut
+
+
+def build_prop_collider(solids, poles, logs, hut):
+    """Loungers, coolers and the counter as boxes, umbrella poles, hut posts and logs as prisms."""
+    c = Mesh()
+    for o, t, n, (ha, hd, h) in solids:
+        box(c, (o[0], o[1], o[2] + h / 2 - 0.05), tuple(t[k] * ha for k in range(3)), tuple(n[k] * hd for k in range(3)),
+            (0.0, 0.0, h / 2 + 0.05), "c", (1.0, 1.0, 1.0), bottom=True)
+    o, t, n, posts, (ha, hd) = hut
+    for x, y, rad in poles + posts:
+        g = ground_z(bearing_of((x, y, 0.0)), math.hypot(x, y))
+        box(c, (x, y, g + 1.1), (rad, 0.0, 0.0), (0.0, rad, 0.0), (0.0, 0.0, 1.4), "c", (1.0, 1.0, 1.0), bottom=True)
+    box(c, (lambda p: (p[0], p[1], p[2]))(at(o, t, n, 0.0, -hd + 0.06, 0.55)), tuple(t[k] * ha for k in range(3)),
+        tuple(n[k] * 0.24 for k in range(3)), (0.0, 0.0, 0.62), "c", (1.0, 1.0, 1.0), bottom=True)
+    for p0, p1, rad in logs:
+        mid = lerp3(p0, p1, 0.5)
+        along = il.scale(il.sub(p1, p0), 0.5)
+        side = il.scale(il.unit(il.cross(along, UP)), rad)
+        box(c, (mid[0], mid[1], mid[2]), along, side, (0.0, 0.0, rad), "c", (1.0, 1.0, 1.0), bottom=True)
+    return c
+
+
+# =============================================================================
 # COLLIDERS -- purpose-built
 # =============================================================================
 
@@ -814,10 +1173,11 @@ def build_geometry():
     m = s.build()
     rocks, placed = build_rocks()
     palms, uv, trunks = build_palms()
+    props, puv, solids, poles, logs, hut = build_props()
     sea = build_sea([p for p in placed if ground_z(bearing_of((p[0], p[1], 0.0)), math.hypot(p[0], p[1])) < WATER_Z + 0.3])
     cols = {"ground": build_ground_collider(), "rocks": build_rock_collider(placed),
-            "palms": build_trunk_collider(trunks)}
-    return s, m, rocks, palms, uv, sea, cols
+            "palms": build_trunk_collider(trunks), "props": build_prop_collider(solids, poles, logs, hut)}
+    return s, m, rocks, palms, uv, sea, cols, props, puv
 
 
 # =============================================================================
@@ -836,12 +1196,18 @@ SHEETS = {
     "bark": tx.Sheet("bark", mode="custom", roughness=0.95),
     "leaf": tx.Sheet("leaf", mode="custom", roughness=0.9, cull=False),
     "water": tx.Sheet("water", mode="box", roughness=0.3, cull=False),
+    "canvas": tx.Sheet("canvas", mode="box", roughness=0.9, cull=False),
+    "plastic": tx.Sheet("plastic", mode="box", roughness=0.5),
+    "teak": tx.Sheet("teak", mode="box", roughness=0.8),
+    "drift": tx.Sheet("drift", mode="custom", roughness=0.95),
+    "thatch": tx.Sheet("thatch", mode="custom", roughness=0.95, cull=False),
+    "shell": tx.Sheet("shell", mode="box", roughness=0.6),
 }
 SMOOTH = ("sand", "grass", "jungle", "water")     # Gouraud like the refs' ground; rock and palms stay faceted
-CHUNKS = ["ground", "island", "rocks", "palms", "water"]
+CHUNKS = ["ground", "island", "rocks", "palms", "props", "water"]
 VIS = {"ground": "BeachGround", "island": "BeachIsland", "rocks": "BeachRocks", "palms": "BeachPalms",
-       "water": "BeachWater"}
-COLLIDED = ("ground", "rocks", "palms")
+       "props": "BeachProps", "water": "BeachWater"}
+COLLIDED = ("ground", "rocks", "palms", "props")
 
 
 # =============================================================================
@@ -917,14 +1283,14 @@ def _part(m, chunk, name, mats, uv=None):
 
 
 def build():
-    s, m, rocks, palms, uv, sea, cols = build_geometry()
+    s, m, rocks, palms, uv, sea, cols, props, puv = build_geometry()
     mats = tx.materials(NAME, SHEETS)
     for mat in mats.values():
         _tint(mat)
     out = []
     parts = {"ground": _part(m, "ground", VIS["ground"], mats), "island": _part(m, "island", VIS["island"], mats),
              "rocks": _part(rocks, "rocks", VIS["rocks"], mats), "palms": _part(palms, "palms", VIS["palms"], mats, uv),
-             "water": _part(sea, "water", VIS["water"], mats)}
+             "props": _part(props, "props", VIS["props"], mats, puv), "water": _part(sea, "water", VIS["water"], mats)}
     for chunk in CHUNKS:
         vis = parts[chunk]
         out.append(vis)
@@ -966,7 +1332,7 @@ def _export_chunks(out_dir, objects, spec):
 
 
 def _check():
-    s, m, rocks, palms, uv, sea, cols = build_geometry()
+    s, m, rocks, palms, uv, sea, cols, props, puv = build_geometry()
     il.report(m, "sculpt")
     for chunk in ("ground", "island"):
         sub = Mesh()
@@ -979,6 +1345,7 @@ def _check():
         il.report(sub, chunk)
     il.report(rocks, "rocks")
     il.report(palms, "palms")
+    il.report(props, "props")
     il.report(sea, "water")
     for k, c in cols.items():
         il.report(c, k + "_collider")
