@@ -159,7 +159,7 @@ void fragment() {
 	float far = pow(smoothstep(horizon_fade.x, horizon_fade.y, r), 1.4);
 	col = mix(col, sky_horizon, far);
 
-	float alpha = mix(0.5, 0.97, smoothstep(0.12, 6.0, depth));
+	float alpha = mix(0.5, 0.97, smoothstep(0.12, 1.8, depth));
 	alpha = mix(alpha, 0.3, shore * (1.0 - smoothstep(0.02, 0.1, thick)));        // the swash's thin sheet
 	alpha = max(alpha, clamp(bk.x / 0.11, 0.0, 1.0) * 0.8);
 	alpha = max(alpha, max(foam, clamp(shine, 0.0, 1.0)));
