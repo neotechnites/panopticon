@@ -67,7 +67,8 @@ vec3 breaker(float d, vec2 xz, float t) {
 	float db = 0.75 * (1.0 - (p - 0.7) / 0.3);
 	float a = 0.11 * (1.0 - smoothstep(0.42, 0.75, db)) * smoothstep(0.0, 0.18, db);
 	float x = d - db;
-	float h = a * exp(-pow(x / (x < 0.0 ? 0.06 : 0.22), 2.0));
+	float q = x / (x < 0.0 ? 0.06 : 0.22);
+	float h = a * exp(-q * q);                 // (pow of a negative base is NaN in GLSL)
 	return vec3(h, 1.0 - smoothstep(0.12, 0.42, db), x);
 }
 
@@ -143,7 +144,8 @@ void fragment() {
 	float lace = texture(foam_texture, world.xz / 3.1 + vec2(t * 0.02, 0.0)).r;
 	float lace2 = texture(foam_texture, world.xz / 1.4 - vec2(0.0, t * 0.03)).r;
 	vec3 bk = breaker(depth, world.xz, t);
-	float crest = exp(-pow((bk.z + 0.015) / 0.03, 2.0)) * bk.y * smoothstep(0.15, 0.45, lace2 + 0.25);
+	float cq = (bk.z + 0.015) / 0.03;
+	float crest = exp(-cq * cq) * bk.y * smoothstep(0.15, 0.45, lace2 + 0.25);
 	float white = step(0.0, bk.z) * (1.0 - smoothstep(0.0, 0.18 * bk.y + 0.001, bk.z)) * bk.y * smoothstep(0.35, 0.6, lace);
 	float sp = fract(swash_phase(world.xz, t));
 	float drain = smoothstep(0.3, 1.0, sp);
