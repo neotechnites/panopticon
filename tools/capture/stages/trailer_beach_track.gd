@@ -6,7 +6,7 @@ extends "res://tools/capture/stages/stage.gd"
 const GUARD_HAND := preload("res://tools/capture/stages/guard_hand.gd")
 const HUMAN_RUN := preload("res://tools/capture/stages/human_run.gd")
 ## Where the lead starts (the dial "start").
-const START: float = 96.0
+const START: float = 150.0
 
 ## v26 (Ryan): "they look to robotic, because there all just following a line, they should look more like players
 ## runnign around." Per body, ahead to behind: degrees behind start, radius, seconds before he goes, then his own line.
@@ -24,29 +24,29 @@ const FLINCH_LATE: Array = [
 ]
 ## The lead: quick away with a look up at the tower, cuts in toward the columns, then a steady line (the hand's lead reads it).
 const LEAD_LEGS: Array = [
-	{"to": 103.0, "r": 67.8, "speed": 0.78, "weave": 0.04, "period": 1.35,
+	{"to": 157.0, "r": 67.8, "speed": 0.78, "weave": 0.04, "period": 1.35,
 		"glances": [{"t": 0.0, "right": 0.0, "pitch": -1.0}, {"t": 0.45, "right": 48.0, "pitch": 8.0}, {"t": 0.9, "right": 3.0, "pitch": -1.5}]},
-	{"to": 108.0, "r": 67.0, "speed": 0.74, "weave": 0.0,
+	{"to": 162.0, "r": 67.0, "speed": 0.74, "weave": 0.0,
 		"glances": [{"t": 0.0, "right": 8.0, "pitch": -2.0}, {"t": 0.5, "right": -3.0, "pitch": -1.0}]},
-	{"to": 160.0, "r": 67.4, "speed": 0.72, "weave": 0.03, "period": 1.35,
+	{"to": 214.0, "r": 67.4, "speed": 0.72, "weave": 0.03, "period": 1.35,
 		"glances": [{"t": 0.0, "right": 0.0, "pitch": -1.0}, {"t": 0.9, "right": 10.0, "pitch": -2.0}, {"t": 1.5, "right": -2.0, "pitch": -1.0}]},
 ]
 ## The man behind: tight along the columns, then out round the lead's heels and up his outside, quicker.
 const SECOND_LEGS: Array = [
-	{"to": 103.0, "r": 66.8, "speed": 0.76, "weave": 0.03, "period": 1.1,
+	{"to": 157.0, "r": 66.8, "speed": 0.76, "weave": 0.03, "period": 1.1,
 		"glances": [{"t": 0.0, "right": 0.0, "pitch": -1.0}, {"t": 0.7, "right": -12.0, "pitch": -2.0}]},
-	{"to": 109.0, "r": 68.0, "speed": 0.82, "weave": 0.0, "flinch_on": "hit", "flinch_glances": FLINCH,
+	{"to": 163.0, "r": 68.0, "speed": 0.82, "weave": 0.0, "flinch_on": "hit", "flinch_glances": FLINCH,
 		"glances": [{"t": 0.0, "right": -9.0, "pitch": -2.0}, {"t": 0.5, "right": 14.0, "pitch": 1.0}]},
-	{"to": 160.0, "r": 68.2, "speed": 0.78, "weave": 0.05, "period": 1.1, "flinch_on": "hit", "flinch_glances": FLINCH,
+	{"to": 214.0, "r": 68.2, "speed": 0.78, "weave": 0.05, "period": 1.1, "flinch_on": "hit", "flinch_glances": FLINCH,
 		"glances": [{"t": 0.0, "right": 4.0, "pitch": -1.0}, {"t": 0.8, "right": -4.0, "pitch": -1.0}]},
 ]
 ## The last: late off the mark on the outside, sprints to catch up, cuts in across behind the second with a look at the tower.
 const THIRD_LEGS: Array = [
-	{"to": 100.0, "r": 69.2, "speed": 0.84, "weave": 0.06, "period": 1.6,
+	{"to": 154.0, "r": 69.2, "speed": 0.84, "weave": 0.06, "period": 1.6,
 		"glances": [{"t": 0.0, "right": 0.0, "pitch": -1.0}, {"t": 0.6, "right": 7.0, "pitch": -2.0}]},
-	{"to": 107.0, "r": 68.4, "speed": 0.80, "weave": 0.0, "flinch_on": "hit", "flinch_glances": FLINCH_LATE,
+	{"to": 161.0, "r": 68.4, "speed": 0.80, "weave": 0.0, "flinch_on": "hit", "flinch_glances": FLINCH_LATE,
 		"glances": [{"t": 0.0, "right": 9.0, "pitch": -1.0}, {"t": 0.35, "right": 44.0, "pitch": 7.0}, {"t": 0.8, "right": 4.0, "pitch": -1.0}]},
-	{"to": 160.0, "r": 68.6, "speed": 0.75, "weave": 0.06, "period": 1.6, "flinch_on": "hit", "flinch_glances": FLINCH_LATE,
+	{"to": 214.0, "r": 68.6, "speed": 0.75, "weave": 0.06, "period": 1.6, "flinch_on": "hit", "flinch_glances": FLINCH_LATE,
 		"glances": [{"t": 0.0, "right": 0.0, "pitch": -1.0}, {"t": 0.7, "right": -8.0, "pitch": -1.0}, {"t": 1.3, "right": 3.0, "pitch": -1.0}]},
 ]
 ## The bodies the hand works: the lead first, then back to the man behind him. A shot (fire) is on the lead (v26, Ryan:
@@ -131,7 +131,7 @@ func _raise_the_hand() -> void:
 	if shooter == null or shooter.controller == null:
 		return
 	_guard = shooter.controller
-	LIB.guard_to_window(_guard, float(option("window", 108.0)), float(option("guard_r", 1.2)))
+	LIB.guard_to_window(_guard, float(option("guard_at", 200.0)), float(option("guard_r", 2.0)))  # aft of the helm posts, abeam
 	LIB.open_the_scope(_guard, float(option("clear", 0.74)))
 	_hand = GUARD_HAND.new()
 	_hand.name = "ClipGuardHand"
