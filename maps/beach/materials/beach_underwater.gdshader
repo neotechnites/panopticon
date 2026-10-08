@@ -15,6 +15,6 @@ void vertex() {
 }
 
 void fragment() {
-	ALBEDO = water_color * 0.5;             // Ryan's HDR desktop shows SDR at 2x linear
+	ALBEDO = water_color * 0.73;            // Ryan's HDR desktop: 2x SDR, 2^(-1/2.2) undoes it here
 	ALPHA = opacity;
 }

@@ -32,7 +32,7 @@ uniform float reflection = 0.7;
 uniform float caustic_strength = 0.45;
 group_uniforms;
 
-uniform float display_gain = 0.5;      // Ryan's HDR desktop shows SDR at 2x linear: colours are what he sees
+uniform float display_gain = 0.73;   // Ryan's HDR desktop shows SDR at 2x linear; unshaded output is undone by 2^(-1/2.2)
 
 group_uniforms swell;
 uniform float bay_swell = 0.07;        // metres in the bay ...

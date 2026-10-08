@@ -9,7 +9,7 @@ uniform float disc_degrees = 2.2;
 uniform float glow_degrees = 8.0;
 uniform float glow = 0.3;
 uniform float sun_distance = 2500.0;
-uniform float display_gain = 0.5;          // Ryan's HDR desktop shows SDR at 2x linear
+uniform float display_gain = 0.73;   // Ryan's HDR desktop shows SDR at 2x linear; unshaded output is undone by 2^(-1/2.2)
 
 varying vec2 offset;
 
