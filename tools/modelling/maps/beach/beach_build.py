@@ -101,8 +101,8 @@ HEAD_R = 70.5
 END_S = (RUN_S + 6.0, RUN_S + 17.0)    # the land drops away into the sea between these s
 
 # -- the sea (sRGB, from the refs)
-WATER_R = [0.0, 12.0, 26.0, 38.0, 48.0, 54.0]                           # rings in the bay (absolute)
-WATER_IN = [-8.5, -6.5, -5.0, -4.0, -3.4, -3.0, -2.5, -2.0, -1.5, -1.0, -0.55, -0.2, 0.0, 0.4, 0.8, 1.2, 1.6, 2.0, 2.4]
+WATER_R = [0.0, 12.0, 24.0, 34.0, 42.0]                           # rings in the bay (absolute)
+WATER_IN = [-17.0, -14.0, -11.5, -10.0, -8.5, -6.5, -5.0, -4.0, -3.4, -3.0, -2.5, -2.0, -1.5, -1.0, -0.55, -0.2, 0.0, 0.4, 0.8, 1.2, 1.6, 2.0, 2.4]
 #            metres off the waterline: out past the swash's run-up, so the moving water always meets the sand
 WATER_OUT = [77.0, 80.0, 83.0, 86.0, 89.0, 92.0, 96.0, 100.0, 105.0, 111.0]
 WATER_FAR = [(118.0, 180), (126.0, 180), (135.0, 180), (146.0, 180), (160.0, 180), (178.0, 180),
@@ -240,15 +240,34 @@ def island_z(b, r):
     return max(max(arm, big), WATER_Z - 9.0) - drop(b)
 
 
+def shelf_w(b):
+    """The wadeable shelf's width along the U: 2.4 to 3.6 m, never a circle."""
+    return SHELF * (1.0 + 0.2 * ring_noise(b, SEED + 41, ((3, 1.0), (7, 0.7), (16, 0.4))))
+
+
+def bed_depth(b, r):
+    """The bay's bed under the shelf's edge: an uneven slope (11 to 21 m long) down to a floor 7 to 11 m deep,
+    with sand lobes on it that stay deeper than the pit's roof (2.4 m), so the deep water is no disk."""
+    sd = SHELF_DEPTH * (1.0 + 0.25 * ring_noise(b, SEED + 43, ((4, 1.0), (9, 0.6))))
+    t = wl(b) - r - shelf_w(b)
+    x, y, _z = pol(b, r, 0.0)
+    run = 16.0 + 5.0 * ring_noise(b, SEED + 45, ((2, 1.0), (5, 0.8), (11, 0.4)))
+    floor = 9.0 + 2.0 * vnoise(x / 14.0, y / 14.0, SEED + 47)
+    d = sd + (floor - sd) * smooth(min(t / run, 1.0))
+    lobe = 2.2 * max(0.0, vnoise(x / 8.0, y / 8.0, SEED + 49)) ** 1.3
+    return max(d - lobe, min(d, 2.4))
+
+
 def sand_z(b, r):
-    """The beach between the shelf's foot and the wall foot: smooth, no grain in the shape."""
+    """The beach between the bay's floor and the wall foot: smooth, no grain in the shape."""
     w, f = wl(b), wf(b)
     if r < w:
-        t = (w - r) / SHELF
+        t = (w - r) / shelf_w(b)
         if t <= 1.0:
-            z = WATER_Z - SHELF_DEPTH * (0.5 * t + 0.5 * t ** 1.4)
+            sd = SHELF_DEPTH * (1.0 + 0.25 * ring_noise(b, SEED + 43, ((4, 1.0), (9, 0.6))))
+            z = WATER_Z - sd * (0.5 * t + 0.5 * t ** 1.4)
         else:
-            z = WATER_Z - SHELF_DEPTH - (WATER_Z - SHELF_DEPTH - DEEP_Z) * smooth(min((t - 1.0) * SHELF / 5.0, 1.0))
+            z = WATER_Z - bed_depth(b, r)
     else:
         u = r - w
         z = WATER_Z + (DECK_Z - WATER_Z) * smooth(min(u / 2.6, 1.0)) + 0.16 * ramp(r, w + 2.6, f)
@@ -332,7 +351,8 @@ class Sculpt(object):
 
     def build(self):
         rows = []
-        shore = [-7.0, -5.0, -SHELF, -2.2, -1.4, -0.7, -0.25, 0.0, 0.45, 1.0, 1.7, 2.6]
+        shore = [-34.0, -27.0, -21.0, -16.5, -13.0, -10.5, -8.5, -7.0, -5.8, -4.7, -3.7, -SHELF, -2.2, -1.4, -0.7,
+                 -0.25, 0.0, 0.45, 1.0, 1.7, 2.6]
         for k, off in enumerate(shore):
             row = []
             for i in range(NC):
@@ -375,6 +395,18 @@ class Sculpt(object):
                 p = pol(b, r, island_z(b, r))
                 row.append(self.v(p, land_col(p), "island"))
             rows.append(row)
+        # the bay's floor inside the innermost row, in coarser rings to its middle
+        prev = rows[0]
+        for rr_, n in ((22.0, 180), (13.0, 90), (5.0, 30)):
+            ring = []
+            for j in range(n):
+                b = j * 360.0 / n
+                ring.append(self.v(pol(b, rr_, sand_z(b, rr_)), self._sand_col(b, rr_), "shore"))
+            self.m.stitch(prev, ring, FACE, self._zone, "ground")
+            prev = ring
+        mid = self.v((0.0, 0.0, sand_z(0.0, 0.0)), self._sand_col(0.0, 0.0), "shore")
+        for j in range(len(prev)):
+            self.m.tri(prev[j], prev[(j + 1) % len(prev)], mid, FACE, self._zone, "ground")
         n_ground = len(shore) + SAND_ROWS + len(WALL_ROWS)
         self._grid(rows[:n_ground], "ground")
         self._grid(rows[n_ground - 1:], "island")
@@ -390,7 +422,8 @@ class Sculpt(object):
         return self.m
 
     def _hidden(self, ids):
-        return all(self.m.verts[v][2] < WATER_Z - 1.2 for v in ids)
+        """Under 2.5 m of water outside the bay the sea is opaque; the bay keeps its whole bed."""
+        return all(self.m.verts[v][2] < WATER_Z - 2.5 and rad_of(self.m.verts[v]) > WL_R + 3.0 for v in ids)
 
     def _grid(self, rows, chunk):
         m = self.m
@@ -1125,7 +1158,7 @@ def build_ground_collider():
     tall in front of its boulders, and the jetty heads' knolls."""
     g = Mesh()
     step = 2
-    offs = [-SHELF - 0.6, -SHELF, -1.5, 0.0, 1.3, 2.6]
+    offs = [-8.0, -6.0, -4.6, -SHELF - 0.6, -SHELF, -1.5, 0.0, 1.3, 2.6]
     rows = []
     for off in offs:
         rows.append([g.v(pol(float(i), wl(float(i)) + off, sand_z(float(i), wl(float(i)) + off) - 0.02))

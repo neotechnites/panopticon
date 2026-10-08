@@ -207,14 +207,14 @@ cast_shadow = 0
 surface_material_override/0 = SubResource("WaterMat")
 
 [node name="KillBox" type="Area3D" parent="."]
-editor_description = "The deep water: roof 2.6 m under the deck (2.2 m under the surface), out past the jetties."
+editor_description = "The deep water: roof 1.9 m under the deck (1.5 m under the surface, chest deep on the sloping bed)."
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 23, 0)
 collision_layer = 0
 collision_mask = 1048577
 monitorable = false
 script = ExtResource("1_kill_volume")
 radius_metres = 600.0
-roof_depth_metres = 2.6
+roof_depth_metres = 1.9
 depth_metres = 30.0
 
 [node name="Shape" type="CollisionShape3D" parent="KillBox"]

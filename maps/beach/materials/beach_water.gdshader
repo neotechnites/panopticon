@@ -114,8 +114,8 @@ void fragment() {
 
 	// colour by depth: shallow over the shelf, turquoise, the bay's deep teal, the open sea
 	// (the shelf's colour spreads down the whole drop-off: no seam where the sand falls away)
-	vec3 col = mix(shallow_color, turquoise_color, smoothstep(0.3, 9.0, depth));
-	col = mix(col, pit_color, pit * smoothstep(2.5, 7.5, depth));
+	vec3 col = mix(shallow_color, turquoise_color, smoothstep(0.05, 1.6, depth));
+	col = mix(col, pit_color, pit * smoothstep(1.8, 8.5, depth));          // deepens over the whole slope
 	col = mix(col, open_color, (1.0 - pit) * smoothstep(110.0, 700.0, r) * smoothstep(2.0, 7.0, depth));
 
 	// caustics on the shallow bed: two scrolling copies of the light net, where they cross
@@ -161,7 +161,7 @@ void fragment() {
 	float far = pow(smoothstep(horizon_fade.x, horizon_fade.y, r), 1.4);
 	col = mix(col, sky_horizon, far);
 
-	float alpha = mix(0.5, 1.0, smoothstep(0.12, 1.1, depth));      // opaque before the bed ends (1.2 m down)
+	float alpha = 1.0 - 0.92 * exp(-2.2 * max(depth, 0.0));        // clear at the edge, turquoise fast, opaque by ~2 m
 	alpha = mix(alpha, 0.3, shore * (1.0 - smoothstep(0.02, 0.1, thick)));        // the swash's thin sheet
 	alpha = max(alpha, clamp(bk.x / 0.11, 0.0, 1.0) * 0.8);
 	alpha = max(alpha, max(foam, clamp(shine, 0.0, 1.0)));
