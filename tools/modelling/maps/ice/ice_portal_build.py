@@ -5,8 +5,8 @@ the taller left one running over the opening past the peak onto the shorter's he
     envelope ...... 4.5 m wide (X) x 4.0 m tall (Z) x 0.8 m deep (Y), origin base centre
     clear hole .... |x| <= 1.30 from the ground to z 2.8 (portal.glb's hole, to the cm)
 
-One mesh: a faceted sweep round the opening (feet 0.25 m into the lane ice), two
-icicle clusters off the gable's soffit rails, the disc fanned off the inner ridge.
+One mesh: a faceted sweep round the opening (feet 0.25 m into the lane ice), the disc
+fanned off the inner ridge.
 
     tools/modelling/model build ice_portal --preview
 """
@@ -98,15 +98,11 @@ SECT_JIT_R = 0.10       # mid verts only: the outer edge is authored
 SECT_JIT_D = 0.18       # inward only: the envelope holds
 SECT_SKEW = 0.18        # per-station slide of the outer verts along y: facets
 
-ICICLE_BANDS = (7, 8, 9, 10, 14, 15, 16)   # two clusters under the gable
-ICICLE_L = (0.20, 0.70)  # drawn length; clipped so no tip enters the clear hole
-ICICLE_FLOOR = 2.83      # no tip inside |x| < CLEAR_HALF_W drops below this
 COL_SIDES = 4            # the collider's prism section
 
 SHEETS = {
     "blue": tx.Sheet("blue", mode="box", stem="ice_blue", roughness=0.4, cull=False),
     "deep": tx.Sheet("deep", mode="box", stem="ice_deep", roughness=0.4, cull=False),
-    "icicle": tx.Sheet("icicle", mode="custom", stem="ice_icicle", roughness=0.4, cull=False),
     "snow": tx.Sheet("snow", mode="box", stem="ice_snow", cull=False),
 }
 
@@ -183,19 +179,6 @@ class _Portal(object):
             return "snow" if n[2] / ln > SNOW_NZ else "blue"
         return z
 
-    def fringe(self):
-        """Spikes off the soffit rails (section verts 1 and 6), in two clusters."""
-        m, r = self.m, self.r
-        for side, want in ((1, (0.0, 1.0, 0.0)), (6, (0.0, -1.0, 0.0))):
-            for k in ICICLE_BANDS:
-                a, b = self.rings[k][side], self.rings[k + 1][side]
-                pa, pb = m.verts[a], m.verts[b]
-                mid = ft.lerp(pa, pb, r.u(0.35, 0.65))
-                tip_z = mid[2] - r.u(*ICICLE_L)
-                if min(abs(pa[0]), abs(pb[0]), abs(mid[0])) < CLEAR_HALF_W + 0.02:
-                    tip_z = max(tip_z, ICICLE_FLOOR)
-                m.tri(a, b, m.v((mid[0], mid[1] * 0.97, tip_z)), want, "icicle")
-
     def disc(self):
         """portal_disc's sheet at y = 0, its rim corners the frame's own ridge row."""
         m = self.m
@@ -207,7 +190,6 @@ class _Portal(object):
 
     def build(self):
         self.frame()
-        self.fringe()
         self.disc()
         return self.m
 
@@ -269,16 +251,6 @@ def _uv_custom(rim_xz):
     zs = [z for _x, z in rim_xz]
     lo_x, hi_x, lo_z, hi_z = min(xs), max(xs), min(zs), max(zs)
     span = 1.0 - 2.0 * SWIRL_PAD
-    period = SHEETS["icicle"].metres_u
-
-    def icicle(me, uvl, poly):
-        vs = [me.vertices[me.loops[li].vertex_index] for li in poly.loop_indices]
-        tip = min(vs, key=lambda v: v.co.z)
-        rail_z = max(v.co.z for v in vs)
-        drop = max(rail_z - tip.co.z, 1e-3) / ICICLE_L[1]
-        for li, v in zip(poly.loop_indices, vs):
-            vv = 1.0 if v.index != tip.index else 1.0 - 0.5 * min(drop, 1.0)
-            uvl.data[li].uv = (v.co.x / period, vv)
 
     def earth(me, uvl, poly):
         for li in poly.loop_indices:
@@ -286,7 +258,7 @@ def _uv_custom(rim_xz):
             s_ = min(max((co.x - lo_x) / (hi_x - lo_x), 0.0), 1.0)
             t_ = min(max((co.z - lo_z) / (hi_z - lo_z), 0.0), 1.0)
             uvl.data[li].uv = (SWIRL_PAD + s_ * span, SWIRL_PAD + t_ * span)
-    return {"icicle": icicle, "earth": earth}
+    return {"earth": earth}
 
 
 def build():

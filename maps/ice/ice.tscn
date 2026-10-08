@@ -79,7 +79,7 @@ editor_description = "The ridge across the lane at 353 deg, between the finish (
 cast_shadow = 0
 surface_material_override/0 = SubResource("RoofMat")
 
-[node name="IceRoofOuter" parent="MapBase/Roof" index="3"]
+[node name="IceRoofOuter" parent="MapBase/Roof" index="2"]
 cast_shadow = 0
 surface_material_override/0 = SubResource("ShellMat")
 
