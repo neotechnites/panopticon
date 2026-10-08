@@ -17,13 +17,15 @@ uniform vec3 under_color : source_color = vec3(0.02, 0.6, 0.62);    // the surfa
 uniform float refraction = 0.014;
 uniform float sparkle = 1.6;
 uniform float display_gain = 0.73;   // Ryan's HDR desktop shows SDR at 2x linear; unshaded output is undone by 2^(-1/2.2)
+uniform vec3 sun_direction = vec3(0.7913, 0.5736, 0.212);   // toward the sun: the scene's Sun
 uniform vec3 sky_top : source_color = vec3(0.26, 0.63, 1.0);
 uniform vec3 sky_horizon : source_color = vec3(0.64, 0.8, 0.9);
 uniform float reflection = 0.7;
 uniform float swell = 0.07;          // metres: the vertex swell (the GameCube moved water vertices too)
 
 varying vec3 world;
-varying vec4 sky;      // per-vertex sky reflection (the GameCube's vertex lighting stage could do this much)
+varying vec4 sky;
+varying float glint_w;      // per-vertex sky reflection (the GameCube's vertex lighting stage could do this much)
 
 void vertex() {
 	world = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
@@ -36,6 +38,7 @@ void vertex() {
 	float fres = 0.02 + 0.98 * pow(1.0 - clamp(v.y, 0.0, 1.0), 5.0);
 	vec3 c = mix(sky_horizon, sky_top, pow(clamp(asin(clamp(v.y, 0.0, 1.0)) / radians(75.0), 0.0, 1.0), 0.5));
 	sky = vec4(c, fres * reflection);
+	glint_w = pow(max(dot(reflect(-v, vec3(0.0, 1.0, 0.0)), normalize(sun_direction)), 0.0), 40.0);   // per-vertex specular
 }
 
 void fragment() {
@@ -50,7 +53,8 @@ void fragment() {
 	col = mix(col, sky.rgb, sky.a);
 	// the sparkle layer, offset by the ripples (indirect texturing, as Sunshine's glints)
 	float sp = texture(caustics, world.xz / 1.6 + off * 0.25 + t * vec2(0.03, -0.02)).r;
-	float glow = smoothstep(0.988, 0.998, sp) * near * near;
+	float glow = smoothstep(0.988, 0.998, sp) * near * near
+		+ smoothstep(0.93, 0.99, sp) * glint_w * 2.5;              // the sun's path: the sparkle layer lit by the vertex glint
 	col += sun_color * glow * sparkle;
 	// foam rings round rocks
 	float lace = max(texture(foam_texture, world.xz / 3.1 + vec2(t * 0.02, 0.0)).r,

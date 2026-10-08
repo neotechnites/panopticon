@@ -318,7 +318,7 @@ def bed_depth(b, r):
     t = wl(b) - r - shelf_w(b)
     x, y, _z = pol(b, r, 0.0)
     d = max(1.7, 2.5 + 0.7 * vnoise(x / 20.0, y / 20.0, SEED + 47), mouth_floor(x), anchorage(x, y))
-    run = lerp(3.0, 24.0, smooth((x + 10.0) / 60.0))            # out toward the mouth the slope is long
+    run = lerp(4.0, 34.0, smooth((x + 15.0) / 50.0))            # out toward the mouth the slope is long
     old = _kill_profile(b, r)
     if old < 1.7:
         return old                                             # the death line stays where it was
