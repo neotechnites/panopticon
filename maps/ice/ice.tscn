@@ -11,6 +11,7 @@
 [ext_resource type="PackedScene" path="res://maps/ice/models/ice_wall.glb" id="11_wall"]
 [ext_resource type="PackedScene" path="res://maps/ice/models/ice_gate.glb" id="12_gate"]
 [ext_resource type="PackedScene" path="res://maps/ice/models/ice_roof.glb" id="13_roof"]
+[ext_resource type="PackedScene" path="res://maps/ice/models/ice_block.glb" id="17_block"]
 [ext_resource type="Shader" path="res://maps/ice/materials/ice_roof.gdshader" id="14_roof_shader"]
 [ext_resource type="Texture2D" path="res://maps/ice/textures/ice_roof_albedo.png" id="15_roof_tile"]
 [ext_resource type="Texture2D" path="res://maps/ice/textures/ice_snow_albedo.png" id="16_snow_tile"]
@@ -45,7 +46,7 @@ albedo_texture = ExtResource("16_snow_tile")
 disable_fog = true
 
 [node name="Ice" type="Node3D"]
-editor_description = "Map 4, the ice chamber: one sculpt in four chunks (ground, wall, gate, roof) at identity. Notes in docs/maps/ice.md."
+editor_description = "Map 4, the ice chamber: one sculpt in five chunks (ground, wall, block, gate, roof) at identity. Notes in docs/maps/ice.md."
 
 [node name="Environment" type="Node3D" parent="."]
 
@@ -69,6 +70,8 @@ directional_shadow_max_distance = 200.0
 [node name="Ground" parent="MapBase" instance=ExtResource("10_ground")]
 
 [node name="Wall" parent="MapBase" instance=ExtResource("11_wall")]
+
+[node name="Block" parent="MapBase" instance=ExtResource("17_block")]
 
 [node name="Gate" parent="MapBase" instance=ExtResource("12_gate")]
 editor_description = "The ridge across the lane at 353 deg, between the finish (345) and the start (5)."
