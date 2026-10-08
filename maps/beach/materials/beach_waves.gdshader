@@ -2,7 +2,7 @@
 // (beach_waves.glb) carries two trains of waves. Each is a continuous line that rolls in, its soft white wash
 // and drawn lace (beach_wave_albedo) running up the sand on a thin sheet and draining back, leaving wet sand
 // that dries. Where it arrives drifts along the shore, its reach swells in sets and lulls.
-// COLOR is data (beach_build.py build_waves): g = (metres up the sand + 3) / 6.6, b = 0..1 along the strip.
+// COLOR is data (beach_build.py build_waves): r = 0 on the heads' rock, g = (metres up the sand + 3) / 6.6, b = 0..1 along the strip.
 shader_type spatial;
 render_mode unshaded, blend_mix, cull_disabled, depth_draw_never, fog_disabled, shadows_disabled;
 
@@ -15,6 +15,7 @@ uniform float back = -2.6;             // metres out in the water a wave rolls i
 uniform float display_gain = 0.73;     // Ryan's HDR desktop shows SDR at 2x linear (beach_water.gdshader)
 
 varying float up;
+varying float knoll;
 varying float along;
 
 float hash(float x) {
@@ -57,6 +58,7 @@ vec3 train(float s, float h, float t, float period, float travel, float seed, fl
 
 void vertex() {
 	up = COLOR.g * 6.6 - 3.0;
+	knoll = COLOR.r;
 	along = COLOR.b;
 }
 
@@ -71,5 +73,5 @@ void fragment() {
 	float al = 1.0 - (1.0 - wet) * (1.0 - sheet) * (1.0 - f);
 	vec3 col = ((wet_color * wet * (1.0 - sheet) + sheet_color * sheet) * (1.0 - f) + foam_color * f) / max(al, 0.001);
 	ALBEDO = col * display_gain;
-	ALPHA = al * ends;
+	ALPHA = al * ends * knoll;
 }

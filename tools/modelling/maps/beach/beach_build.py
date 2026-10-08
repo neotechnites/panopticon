@@ -119,9 +119,8 @@ HORIZON = (0.64, 0.8, 0.9)             # the sky's horizon colour: the sea's las
 SKY_FADE = (700.0, 3000.0)
 
 # -- colours carried by the vertices (x the drawn tile; grass and canopy tiles are pale)
-WET_SAND = (0.95, 0.94, 0.9)
-REEF_VC = (0.55, 0.5, 0.42)                   # the reef's patches, under the drawn reef tile
-REEF_CLUSTERS = 55        # a damp band at the waterline; the swash's wetting is the sand shader's
+WET_SAND = (0.95, 0.94, 0.9)        # a damp band at the waterline; the swash's wetting is the sand shader's
+REEF_PATCHES = 12                   # modest reef patches on the bay's sand, out past the shallows
 GRASS_VC = (0.46, 0.74, 0.32)
 JUNGLE_VC = ((0.22, 0.48, 0.18), (0.3, 0.63, 0.23), (0.44, 0.73, 0.27))   # dark, mid and light canopy
 HAZE_VC = (0.6, 0.76, 0.8)
@@ -254,11 +253,8 @@ def shelf_d(b):
 
 
 def reef(x, y):
-    """Hanauma's reef: dark patches across the inner bay, pale sand channels between, thinning to sand toward
-    the mouth. 0 = sand, 1 = reef."""
-    n = 0.65 * vnoise(x / 17.0, y / 17.0, SEED + 61) + 0.35 * vnoise(x / 6.5, y / 6.5, SEED + 62)
-    channel = 1.0 - ramp(abs(y + 6.0 * math.sin(x / 19.0)), 2.0, 7.0)        # the keyhole channel down the middle
-    return ramp(n, 0.02, 0.22) * (1.0 - ramp(x, 5.0, 30.0)) * (1.0 - 0.9 * channel)
+    """Where the bay's few reef patches may grow: 0 = sand, 1 = reef ground."""
+    return ramp(vnoise(x / 11.0, y / 11.0, SEED + 61), 0.35, 0.6)
 
 
 def _kill_profile(b, r):
@@ -273,13 +269,13 @@ def _kill_profile(b, r):
 
 
 def bed_depth(b, r):
-    """The bay's bed past the shallows, after Hanauma Bay: reef flats and sand channels 1.7 to 3.5 m deep across
-    the inner bay, deepening steadily out through the mouth (x toward 0 deg) to 16 m and more. Never shallower
+    """The bay's sandy bed past the shallows, 1.7 to 3.5 m deep across the inner bay, deepening steadily out
+    through the mouth (x toward 0 deg) to 16 m and more. Never shallower
     than 1.7 m past the shallows, so the pit's roof (1.6 m) still kills exactly where it did."""
     sd = shelf_d(b)
     t = wl(b) - r - shelf_w(b)
     x, y, _z = pol(b, r, 0.0)
-    base = 2.5 + 0.7 * vnoise(x / 20.0, y / 20.0, SEED + 47) - 0.5 * reef(x, y)
+    base = 2.5 + 0.7 * vnoise(x / 20.0, y / 20.0, SEED + 47)
     mouth = 16.0 * smooth((x + 25.0) / 75.0) ** 1.4
     d = max(1.7, base) + mouth
     run = lerp(3.0, 20.0, smooth((x + 10.0) / 60.0))            # out toward the mouth the slope is long
@@ -390,10 +386,6 @@ class Sculpt(object):
     def _sand_col(self, b, r):
         wet = 1.0 - ramp(r - wl(b), 0.25, WET)
         c = lerp3((1.0, 1.0, 1.0), WET_SAND, wet)
-        if r < wl(b) - shelf_w(b):                       # the bed: reef dark and mottled, the channels pale
-            x, y, _z = pol(b, r, 0.0)
-            k = reef(x, y) * (0.75 + 0.25 * vnoise(x / 2.3, y / 2.3, SEED + 63))
-            c = lerp3(c, REEF_VC, k)
         foot = 1.0 - 0.1 * ramp(r, wf(b) - 1.4, wf(b))
         return (c[0] * foot, c[1] * foot, c[2] * foot, 1.0)
 
@@ -503,7 +495,7 @@ class Sculpt(object):
         b, r = bearing_of(c), rad_of(c)
         steep = 1.0 - abs(n[2])
         if c[2] < WATER_Z - 0.7:
-            return "reef" if reef(c[0], c[1]) > 0.5 and r < wl(b) - shelf_w(b) - 1.5 else "sand"
+            return "sand"
         if "wall" in kinds or ("lip" in kinds and "island" not in kinds):
             return "rock"
         if all(k in ("sand", "shore", "foot") for k in kinds):
@@ -572,7 +564,7 @@ def build_sea(rocks=()):
 # ROCKS -- faceted boulders, each sunk into what it stands on
 # =============================================================================
 
-def boulder(m, cx, cy, size, seed, sink=0.3, squash=0.7, gz=None, nseg=6, lats=(-0.9, -0.3, 0.3, 0.72)):
+def boulder(m, cx, cy, size, seed, sink=0.3, squash=0.7, gz=None, nseg=6, lats=(-0.9, -0.3, 0.3, 0.72), zone="rock"):
     """A faceted boulder of about `size` metres, its base `sink` of its height below gz (the ground):
     its own proportions, lean, facet count, roundness, broken faces and tone, darker and warmer at its foot."""
     r = Rng(seed)
@@ -631,10 +623,10 @@ def boulder(m, cx, cy, size, seed, sink=0.3, squash=0.7, gz=None, nseg=6, lats=(
         m.cols[i] = (min(1.0, col[0] * shade * warm[0]), min(1.0, col[1] * shade * warm[1]),
                      min(1.0, col[2] * shade * warm[2]), 1.0)
     out = lambda p: (p[0] - cx, p[1] - cy, p[2] - cz)
-    m.grid(rings, out, "rock", "rocks")
+    m.grid(rings, out, zone, "rocks")
     for k in range(nseg):
-        m.tri(rings[-1][k], rings[-1][(k + 1) % nseg], top, out, "rock", "rocks")
-        m.tri(rings[0][k], rings[0][(k + 1) % nseg], bot, out, "rock", "rocks")
+        m.tri(rings[-1][k], rings[-1][(k + 1) % nseg], top, out, zone, "rocks")
+        m.tri(rings[0][k], rings[0][(k + 1) % nseg], bot, out, zone, "rocks")
     return (cx, cy, size)
 
 
@@ -689,23 +681,27 @@ def build_rocks():
             continue
         x, y, _z = pol(b, r, 0.0)
         boulder(m, x, y, rr.u(0.9, 2.6), SEED + 1300 + k, sink=0.35, lats=(-0.6, 0.15, 0.65))
-    # the reef's rock clusters on the bed: dark low heads in the reef patches, all well under the surface
+    # a few modest reef patches on the bay's sand, out past the shallows: low flattened coral heads, crowded
+    # in the middle of the patch and scattering out into the sand, all well under the surface
     made, tries = 0, 0
-    while made < REEF_CLUSTERS and tries < 4000:
+    while made < REEF_PATCHES and tries < 4000:
         tries += 1
         b = rr.u(0.0, 360.0)
-        r = rr.u(4.0, wl(b) - shelf_w(b) - 2.5)
+        r = rr.u(8.0, wl(b) - shelf_w(b) - 4.0)
         x, y, _z = pol(b, r, 0.0)
-        if reef(x, y) < 0.6:
+        depth = WATER_Z - ground_z(b, r)
+        if reef(x, y) < 0.7 or not 2.4 < depth < 9.0:
             continue
         made += 1
-        for k in range(rr.i(2, 4)):
-            cx, cy = x + rr.u(-2.0, 2.0), y + rr.u(-2.0, 2.0)
+        radius = rr.u(2.5, 4.5)
+        for k in range(rr.i(9, 16)):
+            a, d = rr.u(0.0, TWO_PI), radius * rr.f() ** 0.7
+            cx, cy = x + math.cos(a) * d, y + math.sin(a) * d
             gz = ground_z(bearing_of((cx, cy, 0.0)), math.hypot(cx, cy))
-            size = min(rr.u(0.8, 2.2), (WATER_Z - 0.7 - gz) / 0.4)
-            if size > 0.5:
-                boulder(m, cx, cy, size, SEED + 4000 + 10 * made + k, sink=0.5, squash=0.5, gz=gz, nseg=5,
-                        lats=(-0.6, 0.15, 0.65))
+            size = min(rr.u(0.6, 1.8) * (1.0 - 0.5 * d / radius), (WATER_Z - 0.9 - gz) / 0.35)
+            if size > 0.35:
+                boulder(m, cx, cy, size, SEED + 4000 + 20 * made + k, sink=0.45, squash=rr.u(0.4, 0.6), gz=gz,
+                        nseg=6, lats=(-0.6, 0.15, 0.65), zone="reef")
     INFO["rocks"] = len(m.faces)
     return m, placed
 
@@ -1234,7 +1230,7 @@ def build_waves():
     the sand + 3) / 6.6, b = 0..1 along the strip; UV.x is metres along the shore / 12.8."""
     m = Mesh()
     uv = {}
-    lo, hi = ENTRY_B - 7.0, EXIT_B + 5.0
+    lo, hi = ENTRY_B - 2.0, EXIT_B + 2.0
     n = int(hi - lo) * 2
     rows = []
     for off in WAVE_OFFS:
@@ -1243,7 +1239,8 @@ def build_waves():
             b = lo + (hi - lo) * i / n
             r = wl(b) + off
             z = max(sand_z(b, r) if off != 0.0 else WATER_Z, WATER_Z) + 0.04
-            row.append(m.v(pol(b, r, z), (0.0, (off + 3.0) / 6.6, i / float(n), 1.0)))
+            knoll = 1.0 - ramp(head(b, r), 0.05, 0.3)            # r: 0 where the head's rock rises
+            row.append(m.v(pol(b, r, z), (knoll, (off + 3.0) / 6.6, i / float(n), 1.0)))
         rows.append(row)
     m.grid(rows, UP, "wave", "waves", closed=False)
     for fi in range(len(m.faces)):
@@ -1361,10 +1358,10 @@ SHEETS = {
     "drift": tx.Sheet("drift", mode="custom", roughness=0.95),
     "thatch": tx.Sheet("thatch", mode="custom", roughness=0.95, cull=False),
     "shell": tx.Sheet("shell", mode="box", roughness=0.6),
-    "reef": tx.Sheet("reef", mode="box", roughness=0.95),
+    "reef": tx.Sheet("reef", mode="box", roughness=0.9),
     "wave": tx.Sheet("wave", mode="custom", roughness=0.4, cull=False),
 }
-SMOOTH = ("sand", "reef", "grass", "jungle", "water")     # Gouraud like the refs' ground; rock and palms stay faceted
+SMOOTH = ("sand", "grass", "jungle", "water")     # Gouraud like the refs' ground; rock and palms stay faceted
 CHUNKS = ["ground", "island", "rocks", "palms", "props", "water", "waves"]
 VIS = {"ground": "BeachGround", "island": "BeachIsland", "rocks": "BeachRocks", "palms": "BeachPalms",
        "props": "BeachProps", "water": "BeachWater",
