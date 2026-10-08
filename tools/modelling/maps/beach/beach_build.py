@@ -579,7 +579,7 @@ def sea_col(b, r, rocks=()):
         dd = math.hypot(px - cx, py - cy) - size * 0.45
         if dd < 2.4:
             ring = max(ring, ramp(dd, 2.3, 0.1))
-    return col + (1.0,), (alpha, ring)
+    return col + (1.0,), (alpha, 1.0 - ring)      # glTF flips v: the shader reads UV2.y as the ring
 
 
 def build_sea(rocks=()):
