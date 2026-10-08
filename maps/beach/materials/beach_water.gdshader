@@ -1,19 +1,18 @@
 // The beach's sea, GameCube style: see-through over the shallows and fading with depth into turquoise, then
 // the bay's deep teal; a gentle swell, the sky in it at grazing angles, the sun's glint and sparkle,
-// caustics on the shallow bed, and the swash running up the sand with its foam (beach_swash.gdshaderinc).
+// caustics on the shallow bed and foam round rocks. The shore's waves are strips of their own (beach_waves.gdshader).
 // COLOR carries data from beach_build.py: r = (depth + 2) / 14, g = the bay's pit, b = foam round rocks.
 // Colour uniforms are source_color: Godot hands them over already linear.
 shader_type spatial;
 render_mode unshaded, blend_mix, cull_disabled, depth_draw_always, fog_disabled;
 
-#include "res://maps/beach/materials/beach_swash.gdshaderinc"
+#include "res://maps/beach/materials/beach_sea.gdshaderinc"
 
 uniform sampler2D ripples : filter_linear_mipmap_anisotropic, repeat_enable;      // beach_water_normal: raw data
 uniform sampler2D caustics : filter_linear_mipmap, repeat_enable;
 uniform sampler2D foam_texture : filter_linear_mipmap, repeat_enable;
 
 group_uniforms colours;
-uniform vec3 foam_edge_color : source_color = vec3(0.88, 0.98, 0.96);
 uniform vec3 shallow_color : source_color = vec3(0.4, 0.86, 0.8);
 uniform vec3 turquoise_color : source_color = vec3(0.12, 0.78, 0.86);
 uniform vec3 pit_color : source_color = vec3(0.0, 0.47, 0.6);
@@ -46,7 +45,6 @@ varying vec3 swell_normal;
 varying float depth;
 varying float pit;
 varying float rock_foam;
-varying float shore;
 
 // One travelling wave: (height, d/dx, d/dz).
 vec3 wave(vec2 p, vec2 dir, float length, float amp, float t) {
@@ -55,21 +53,6 @@ vec3 wave(vec2 p, vec2 dir, float length, float amp, float t) {
 	float ph = k * dot(normalize(dir), p) - k * c * t;
 	vec2 d = normalize(dir) * k * amp * cos(ph);
 	return vec3(amp * sin(ph), d.x, d.y);
-}
-
-// The breaker: a low roll that crosses the shelf in the last 30% of each swash cycle and breaks onto the sand
-// as the run-up starts. x: (height, breaking 0..1, signed depth from its crest; negative is shoreward).
-vec3 breaker(float d, vec2 xz, float t) {
-	float p = fract(swash_phase(xz, t));
-	if (p < 0.7) {
-		return vec3(0.0, 0.0, 9.0);
-	}
-	float db = 0.75 * (1.0 - (p - 0.7) / 0.3);
-	float a = 0.11 * (1.0 - smoothstep(0.42, 0.75, db)) * smoothstep(0.0, 0.18, db);
-	float x = d - db;
-	float q = x / (x < 0.0 ? 0.06 : 0.22);
-	float h = a * exp(-q * q);                 // (pow of a negative base is NaN in GLSL)
-	return vec3(h, 1.0 - smoothstep(0.12, 0.42, db), x);
 }
 
 void vertex() {
@@ -83,8 +66,7 @@ void vertex() {
 		* (1.0 - smoothstep(600.0, 1500.0, r));
 	vec3 w = wave(world.xz, vec2(-1.0, 0.18), 11.0, 0.55, t) + wave(world.xz, vec2(-0.8, -0.6), 7.0, 0.3, t * 1.1)
 		+ wave(world.xz, vec2(-0.55, 0.85), 4.6, 0.15, t * 0.9);
-	shore = 1.0 - smoothstep(0.25, 2.2, depth);
-	float y = mix(SEA_Y + w.x * amp, swash_level(world.xz, TIME), shore) + breaker(depth, world.xz, TIME).x;
+	float y = SEA_Y + w.x * amp;
 	VERTEX.y += y - world.y;
 	world.y = y;
 	swell_normal = normalize(vec3(-w.y * amp, 1.0, -w.z * amp));
@@ -137,33 +119,16 @@ void fragment() {
 		+ pow(s, 30.0) * 0.12 * (1.0 - 0.7 * near) + pow(sf, 2600.0) * sparkle * near;
 	col += sun_color * shine;
 
-	// the wave: the breaker's crest foam and white water, then the swash: a crisp ragged foam line at its
-	// front, lace on the thin sheet behind that breaks into patches and fades as it drains; rings round rocks
-	float sand_y = SEA_Y - depth;
-	float thick = world.y - sand_y;
+	// foam rings round rocks in the water
 	float lace = texture(foam_texture, world.xz / 3.1 + vec2(t * 0.02, 0.0)).r;
-	float lace2 = texture(foam_texture, world.xz / 1.4 - vec2(0.0, t * 0.03)).r;
-	vec3 bk = breaker(depth, world.xz, t);
-	float cq = (bk.z + 0.015) / 0.03;
-	float crest = exp(-cq * cq) * bk.y * smoothstep(0.15, 0.45, lace2 + 0.25);
-	float white = step(0.0, bk.z) * (1.0 - smoothstep(0.0, 0.18 * bk.y + 0.001, bk.z)) * bk.y * smoothstep(0.35, 0.6, lace);
-	float sp = fract(swash_phase(world.xz, t));
-	float drain = smoothstep(0.3, 1.0, sp);
-	float front = (1.0 - smoothstep(0.012, 0.03, thick - 0.012 * lace2)) * shore * (1.0 - 0.6 * drain);
-	float sheet = shore * (1.0 - smoothstep(0.04, 0.16, thick))
-		* smoothstep(0.3 + 0.45 * drain, 0.42 + 0.45 * drain, lace) * (1.0 - 0.5 * drain);
-	float ring = rock_foam * smoothstep(0.35, 0.8, lace * (0.65 + 0.35 * sin(t * 1.3 + world.x * 0.7)));
-	float foam = clamp(max(max(max(front, sheet), max(crest, white)), ring), 0.0, 1.0);
+	float foam = rock_foam * smoothstep(0.35, 0.8, lace * (0.65 + 0.35 * sin(t * 1.3 + world.x * 0.7)));
 	col = mix(col, foam_color, foam);
-	col = mix(col, turquoise_color * 1.1, clamp(bk.x / 0.11, 0.0, 1.0) * step(bk.z, 0.0) * 0.5);   // the roll's face
 
 	// toward the horizon, the sky's own horizon colour, so sea and sky meet without an edge
 	float far = pow(smoothstep(horizon_fade.x, horizon_fade.y, r), 1.4);
 	col = mix(col, sky_horizon, far);
 
 	float alpha = 1.0 - 0.92 * exp(-2.2 * max(depth, 0.0));        // clear at the edge, turquoise fast, opaque by ~2 m
-	alpha = mix(alpha, 0.3, shore * (1.0 - smoothstep(0.02, 0.1, thick)));        // the swash's thin sheet
-	alpha = max(alpha, clamp(bk.x / 0.11, 0.0, 1.0) * 0.8);
 	alpha = max(alpha, max(foam, clamp(shine, 0.0, 1.0)));
 	alpha = mix(alpha, 1.0, far);
 	if (!FRONT_FACING) {                    // from under the water: the surface seen from below, deep teal

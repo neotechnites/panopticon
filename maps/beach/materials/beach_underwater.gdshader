@@ -3,7 +3,7 @@
 shader_type spatial;
 render_mode unshaded, blend_mix, depth_draw_never, cull_front, skip_vertex_transform, fog_disabled, shadows_disabled;
 
-#include "res://maps/beach/materials/beach_swash.gdshaderinc"
+#include "res://maps/beach/materials/beach_sea.gdshaderinc"
 
 uniform vec3 water_color : source_color = vec3(0.0, 0.32, 0.42);
 uniform float radius = 18.0;

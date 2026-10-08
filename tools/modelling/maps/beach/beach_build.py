@@ -10,6 +10,7 @@ wadeable shelf, then deep teal water (the pit); a yacht anchored in the bay is t
     beach_palms.glb    palms planted in the sand and on the island                      BeachPalms
     beach_props.glb    beach sets, driftwood, shells, the tiki bar by the portal        BeachProps
     beach_water.glb    the sea to the horizon, moved by its shader (no collider)        BeachWater
+    beach_waves.glb    the shore's wave strips, timed by beach_waves.gdshader            BeachWaves
 
 World coordinates, instanced at identity (Blender +Z -> Godot +Y, +Y -> Godot -Z; bearings as the
 scene's markers, pol()). The mouth faces bearing 0; the lap runs 60 -> 300 deg at r 68.5.
@@ -1150,6 +1151,47 @@ def build_prop_collider(solids, poles, logs, hut):
 
 
 # =============================================================================
+# WAVES -- the GameCube way: short foam strips laid on the shore, each its own wave (beach_waves.gdshader)
+# =============================================================================
+
+WAVE_STRIPS = 38
+WAVE_OFFS = (-1.4, -0.7, -0.25, 0.0, 0.45, 1.0, 1.7, 2.6, 3.6)   # metres up the sand from the waterline (sand's rows)
+
+
+def build_waves():
+    """Strips 6 to 14 m long along the waterline, overlapping, from 1.4 m out in the water to 3.6 m up the sand,
+    4 cm over whatever is under them. COLOR is data: r = the strip's phase (its timing, reach, speed, angle),
+    g = (metres up the sand + 1.5) / 5.5, b = 0..1 along the strip; UV.x is metres along the shore / 12.8."""
+    m = Mesh()
+    uv = {}
+    rr = Rng(SEED + 1500)
+    lo, hi = ENTRY_B - 7.0, EXIT_B + 5.0
+    for k in range(WAVE_STRIPS):
+        length = rr.u(6.0, 14.0)
+        span = length / (math.radians(1.0) * WL_R)
+        b0 = lo + (hi - lo - span) * (k + rr.u(-0.4, 0.4)) / (WAVE_STRIPS - 1)
+        phase = rr.f()
+        n = max(4, int(length / 1.1))
+        rows = []
+        for off in WAVE_OFFS:
+            row = []
+            for i in range(n + 1):
+                b = b0 + span * i / n
+                r = wl(b) + off
+                z = max(sand_z(b, r) if off != 0.0 else WATER_Z, WATER_Z) + 0.04
+                row.append(m.v(pol(b, r, z), (phase, (off + 1.5) / 5.5, i / float(n), 1.0)))
+            rows.append(row)
+        f0 = len(m.faces)
+        m.grid(rows, UP, "wave", "waves", closed=False)
+        for fi in range(f0, len(m.faces)):
+            for vi in m.faces[fi]:
+                b = bearing_of(m.verts[vi])
+                uv[(fi, vi)] = ((angdiff(b, b0) * math.radians(1.0) * WL_R + 13.0 * phase) / 12.8, m.cols[vi][1])
+    INFO["waves"] = len(m.faces)
+    return m, uv
+
+
+# =============================================================================
 # COLLIDERS -- purpose-built
 # =============================================================================
 
@@ -1227,10 +1269,11 @@ def build_geometry():
     rocks, placed = build_rocks()
     palms, uv, trunks = build_palms()
     props, puv, solids, poles, logs, hut = build_props()
+    waves, wuv = build_waves()
     sea = build_sea([p for p in placed if ground_z(bearing_of((p[0], p[1], 0.0)), math.hypot(p[0], p[1])) < WATER_Z + 0.3])
     cols = {"ground": build_ground_collider(), "rocks": build_rock_collider(placed),
             "palms": build_trunk_collider(trunks), "props": build_prop_collider(solids, poles, logs, hut)}
-    return s, m, rocks, palms, uv, sea, cols, props, puv
+    return s, m, rocks, palms, uv, sea, cols, props, puv, waves, wuv
 
 
 # =============================================================================
@@ -1255,11 +1298,13 @@ SHEETS = {
     "drift": tx.Sheet("drift", mode="custom", roughness=0.95),
     "thatch": tx.Sheet("thatch", mode="custom", roughness=0.95, cull=False),
     "shell": tx.Sheet("shell", mode="box", roughness=0.6),
+    "wave": tx.Sheet("wave", mode="custom", roughness=0.4, cull=False),
 }
 SMOOTH = ("sand", "grass", "jungle", "water")     # Gouraud like the refs' ground; rock and palms stay faceted
-CHUNKS = ["ground", "island", "rocks", "palms", "props", "water"]
+CHUNKS = ["ground", "island", "rocks", "palms", "props", "water", "waves"]
 VIS = {"ground": "BeachGround", "island": "BeachIsland", "rocks": "BeachRocks", "palms": "BeachPalms",
-       "props": "BeachProps", "water": "BeachWater"}
+       "props": "BeachProps", "water": "BeachWater",
+       "waves": "BeachWaves"}
 COLLIDED = ("ground", "rocks", "palms", "props")
 
 
@@ -1336,14 +1381,14 @@ def _part(m, chunk, name, mats, uv=None):
 
 
 def build():
-    s, m, rocks, palms, uv, sea, cols, props, puv = build_geometry()
+    s, m, rocks, palms, uv, sea, cols, props, puv, waves, wuv = build_geometry()
     mats = tx.materials(NAME, SHEETS)
     for mat in mats.values():
         _tint(mat)
     out = []
     parts = {"ground": _part(m, "ground", VIS["ground"], mats), "island": _part(m, "island", VIS["island"], mats),
              "rocks": _part(rocks, "rocks", VIS["rocks"], mats), "palms": _part(palms, "palms", VIS["palms"], mats, uv),
-             "props": _part(props, "props", VIS["props"], mats, puv), "water": _part(sea, "water", VIS["water"], mats)}
+             "props": _part(props, "props", VIS["props"], mats, puv), "waves": _part(waves, "waves", VIS["waves"], mats, wuv), "water": _part(sea, "water", VIS["water"], mats)}
     for chunk in CHUNKS:
         vis = parts[chunk]
         out.append(vis)
@@ -1385,7 +1430,7 @@ def _export_chunks(out_dir, objects, spec):
 
 
 def _check():
-    s, m, rocks, palms, uv, sea, cols, props, puv = build_geometry()
+    s, m, rocks, palms, uv, sea, cols, props, puv, waves, wuv = build_geometry()
     il.report(m, "sculpt")
     for chunk in ("ground", "island"):
         sub = Mesh()
@@ -1399,6 +1444,7 @@ def _check():
     il.report(rocks, "rocks")
     il.report(palms, "palms")
     il.report(props, "props")
+    il.report(waves, "waves")
     il.report(sea, "water")
     for k, c in cols.items():
         il.report(c, k + "_collider")

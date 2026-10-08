@@ -14,6 +14,9 @@
 [ext_resource type="Shader" path="res://maps/beach/materials/beach_rock.gdshader" id="30_rock_shader"]
 [ext_resource type="Shader" path="res://maps/beach/materials/beach_sun.gdshader" id="31_sun_shader"]
 [ext_resource type="Shader" path="res://maps/beach/materials/beach_underwater.gdshader" id="32_under_shader"]
+[ext_resource type="PackedScene" path="res://maps/beach/models/beach_waves.glb" id="33_waves"]
+[ext_resource type="Shader" path="res://maps/beach/materials/beach_waves.gdshader" id="34_waves_shader"]
+[ext_resource type="Texture2D" path="res://maps/beach/textures/beach_wave_albedo.png" id="35_wave_tile"]
 [ext_resource type="Texture2D" path="res://maps/beach/textures/beach_water_albedo.png" id="15_water_tile"]
 [ext_resource type="Shader" path="res://maps/beach/materials/beach_water.gdshader" id="16_water_shader"]
 [ext_resource type="Texture2D" path="res://maps/beach/textures/beach_water_normal_albedo.png" id="17_ripples"]
@@ -55,6 +58,11 @@ shader_parameter/albedo_texture = ExtResource("27_sand_tile")
 [sub_resource type="ShaderMaterial" id="RockMat"]
 shader = ExtResource("30_rock_shader")
 shader_parameter/albedo_texture = ExtResource("22_rock_tile")
+
+[sub_resource type="ShaderMaterial" id="WavesMat"]
+render_priority = 2
+shader = ExtResource("34_waves_shader")
+shader_parameter/foam = ExtResource("35_wave_tile")
 
 [sub_resource type="ShaderMaterial" id="SunMat"]
 render_priority = 1
@@ -206,6 +214,13 @@ surface_material_override/0 = SubResource("CanvasMat")
 cast_shadow = 0
 surface_material_override/0 = SubResource("WaterMat")
 
+[node name="Waves" parent="MapBase" instance=ExtResource("33_waves")]
+
+[node name="BeachWaves" parent="MapBase/Waves" index="0"]
+editor_description = "The shore's waves: strips on their own clocks (beach_waves.gdshader)."
+cast_shadow = 0
+surface_material_override/0 = SubResource("WavesMat")
+
 [node name="KillBox" type="Area3D" parent="."]
 editor_description = "The deep water: roof 1.9 m under the deck (1.5 m under the surface, chest deep on the sloping bed)."
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 23, 0)
@@ -272,3 +287,4 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.95, 0)
 [editable path="MapBase/Rocks"]
 [editable path="MapBase/Props"]
 [editable path="MapBase/Water"]
+[editable path="MapBase/Waves"]
