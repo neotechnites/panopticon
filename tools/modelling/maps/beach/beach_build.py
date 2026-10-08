@@ -304,7 +304,7 @@ def _sand_z(b, r):
 def mouth_cap(b, r, z):
     """Out through the bay's mouth (past the jetty heads) the sea floor deepens steadily with x toward the
     open ocean, whatever the sunk land under it would say; nothing on the run or the heads changes."""
-    k = ramp(abs(s_of(b)), HEAD_S + 5.5, HEAD_S + 16.0)
+    k = ramp(abs(s_of(b)), HEAD_S + 5.5, HEAD_S + 16.0) * ramp(r, WL_R - 6.0, WL_R + 4.0)   # outside the bay only
     if k <= 0.0:
         return z
     x = pol(b, r, 0.0)[0]
@@ -312,7 +312,12 @@ def mouth_cap(b, r, z):
 
 
 def sand_z(b, r):
-    return mouth_cap(b, r, _sand_z(b, r))
+    z = _sand_z(b, r)
+    km = ramp(s_of(b), HEAD_S + 2.0, HEAD_S + 14.0) * (1.0 - ramp(r, WL_R - 2.0, WL_R + 6.0))
+    if km > 0.0:                       # across the mouth the floor just deepens seaward: no rim, no ridge
+        x = pol(b, r, 0.0)[0]
+        z = lerp(z, WATER_Z - (2.0 + 20.0 * smooth((x + 20.0) / 100.0)), km)
+    return mouth_cap(b, r, z)
 
 
 def island_z(b, r):
