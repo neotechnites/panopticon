@@ -60,7 +60,7 @@ by the kill cylinder before it lands.
 Texture: one small tile per material, repeated by UV (lib/texel.py, SHEETS
 below): marble_brick (two bays by twelve 1 m courses, tinted per class, the
 cells and iron darkened), marble_stone, marble_floor, marble_triangle,
-marble_column, marble_portal_swirl; marble_tower (the brick's size) on the tower.
+marble_column, marble_portal_swirl; marble_tower (the brick's size), marble_tower_floor and marble_tower_stone on the tower.
 
     python3 tools/modelling/maps/marble/marble_build.py --check     # geometry + contiguity, no Blender
     tools/modelling/model build marble                  # the pipeline
@@ -268,14 +268,16 @@ def column_sheet():
 
 
 # Linear multipliers over the brick: each class's old mean colour.
-TINT_SHADE = (0.85, 0.85, 0.85)
+TINT_SHADE = (0.85, 0.68, 0.42)        # warm: the undersides see only the cool ambient
 TINT_PLINTH_WALL = (0.8106, 0.8086, 0.8369)
 TINT_PLINTH = (0.8285, 0.8293, 0.8617)
 TINT_MARBLE2 = (0.7939, 0.7923, 0.8147)
 TOWER_STEM = "marble_tower"           # the tower's own tile: his brick pixels at the chapel's grey
+TOWER_FLOOR_STEM = "marble_tower_floor"   # the guard room's paving: his floor pixels, under the lamp
+TOWER_PLAIN_STEM = "marble_tower_stone"   # the guard room's centre: his stone pixels, under the lamp
 TINT_BARS = None
-TINT_CELL = (0.0280, 0.0329, 0.0643)     # the brick massively darkened: the old cell interiors' mean
-TINT_IRON = (0.0366, 0.0499, 0.2038)     # the plain stone darkened: the old iron's mean
+TINT_CELL = (0.143, 0.153, 0.159)        # the brick darkened to the drawing's warm ink, not navy
+TINT_IRON = (0.060, 0.065, 0.075)        # the plain stone darkened to the drawing's dark bars
 
 
 def iron_sheet():
