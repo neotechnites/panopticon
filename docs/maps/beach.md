@@ -57,5 +57,10 @@ Display: Ryan plays on a Windows HDR desktop that shows SDR at 2x linear (`scrip
 Sun 0.185 and ambient 0.16 light for it; the unshaded sky, sea, sun and underwater shells scale by 0.73
 (`display_gain`). Judge captures through that lift, never raw.
 
+Style (after the forest map): chunky palms (fat ringed trunks, 7-8 broad fronds), bulbous rounded rocks, rolling
+round hills and blob canopy, and a stepped palette (`PAL_*` in `beach_build.py`: sand 3, grass 2, canopy 4, haze 2,
+rock 3 bands, fronds 2) instead of gradients. Banded water is a switch: `banded` on `WaterMat` in `beach.tscn`
+(default off; the water as it was is tagged `beach-water-pre-stylize`).
+
 Textures: `maps/beach/textures/beach.ase`, 256 px tiles at 0.05 m per texel, placeholders for Ryan to
 repaint; the table is in `docs/TEXTURES.md`.
