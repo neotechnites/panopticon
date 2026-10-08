@@ -43,9 +43,8 @@ the scene's markers (`pol(bearing, r, z)`); the mouth faces bearing 0.
    soft sprite (core, halo, star rays to ~11 deg, all tapering to nothing) square to the camera 2.5 km out, and `beach_sun_glare.gdshader`, a
    screen wash and rays that rise as the view turns to it (`glare_strength` 0.55 dead-on, gone by
    `glare_degrees` 22), cut by five depth taps at the sun's screen position when it is hidden. Linear tonemap; GL Compatibility.
-8. Tower: the yacht (`beach_yacht_build.py`), a stylized Prestige 680 (rounded flared hull, dark window slots,
-   red boot stripe, blue saloon glass, rolled flybridge, winged hardtop, chunky rails), broadside to the beach,
-   static, no chain, lace round its waterline (`yacht_foam` in `beach_build.py`); its collider is unchanged. Flybridge floor on the tower datum (y 27.05), an open rail with a 0.65 m
+8. Tower: the yacht (`beach_yacht_build.py`, a generic placeholder after the Prestige 680), broadside to
+   the beach, static, no chain. Flybridge floor on the tower datum (y 27.05), an open rail with a 0.65 m
    collider (the towers' sill). `Tower` is a plain node: no window plugs.
 9. Portal: `beach_portal.glb` + `maps/beach/props/beach_portal.tscn`, a sea arch of beach rock.
 10. Props (`beach_props.glb`): seven umbrella sets (loungers, towels, coolers) on the wall side of the
