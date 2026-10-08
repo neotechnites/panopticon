@@ -8,7 +8,7 @@ const MAP_TRACKS: Dictionary = {
 	&"bentham_ring": "spicy_miso.mp3",
 	&"marble": "xp1406.mp3",
 	&"forest": "regeneration.mp3",
-	&"beach": "koala_coast.mp3",
+	&"beach": "banana_split.mp3",
 }
 
 @export var track_file: String = ""
