@@ -111,7 +111,7 @@ slice is placed nearest-upscaled (chunkier, same UVs and density), each locked t
 | beach_water_albedo | near-white light net | the sea's caustics (`beach_water.gdshader`) |
 | beach_water_normal_albedo | ripple normal map | the sea's ripples and glint |
 | beach_foam_albedo | white lace on black | foam rings round rocks |
-| beach_reef_albedo | reef from above: rounded coral heads, dark gaps, pale sand pockets | the bay's reef flats |
+| beach_reef_albedo | reef from above: rounded coral heads, dark gaps, pale sand pockets | the bay's few coral patches |
 | beach_wave_albedo | one wave's foam, white on black: a ragged roll line at the top, lace trailing below | the shore's wave strips (`beach_waves.gdshader`) |
 | beach_canvas_albedo | near-white woven cotton; the vertex colour paints the stripes | umbrellas, towels, cushions |
 | beach_plastic_albedo | near-white moulded plastic | coolers, umbrella poles |

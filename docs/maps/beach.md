@@ -20,13 +20,13 @@ the scene's markers (`pol(bearing, r, z)`); the mouth faces bearing 0.
 5. Island: the jetties carry a narrow grass strip; the big island behind the beach rises into ridged hills
    (40..105 m) under a canopy of crowns, three greens, valleys darker, haze far off. Palms: clusters along
    the wall, leaning palms on the sand at its foot, singles on the slopes.
-6. Sea, after Hanauma Bay: 8 to 14 m of wadeable shallows, then reef flats (`beach_reef_albedo`, dark
-   heads with sand pockets, 55 low reef rock clusters) and pale sand channels 1.7 to 3.5 m deep across the
-   inner bay, deepening out through the mouth to 16 m and more (the yacht rides in 12 m). The water never
-   goes opaque in the bay: sand, reef and rock take the depth by absorption (`exp(-(0.3,0.07,0.055) m)`),
-   the surface thickens slowly, and deep blue takes over only out through the mouth. Refraction (screen
-   copy bent by ripples), bed caustics, swell, fresnel, glint and sparkle as before. The waves are
-   `beach_waves.glb` + `beach_waves.gdshader` (two continuous trains along one shore strip).
+6. Sea (Hanauma Bay was the reference for water behaviour only): 8 to 14 m of wadeable shallows, then a
+   sandy bed 2 to 3 m deep across the bay with a 5.5 m anchorage under the yacht and a few modest coral
+   patches (`beach_reef_albedo` on low heads in the rocks chunk), deepening only out past the jetty tips to
+   22 m at sea; every line toward the mouth only deepens. The water never goes opaque in the bay: sand and
+   rock take the depth by absorption (`exp(-(0.3,0.07,0.055) m)`) and deep blue takes over out through the
+   mouth. Refraction (screen copy bent by ripples), bed caustics, swell, fresnel, glint and sparkle. Waves:
+   `beach_waves.glb` + `beach_waves.gdshader`, two continuous trains along one shore strip, off the knolls.
 7. Sky: `maps/beach/materials/beach_sky.gdshader`, a gradient and the drawn clouds (`beach_clouds_albedo.png`,
    RGBA). The sun (bearing 15, 35 deg up, the DirectionalLight's) is `beach_sun.gdshader`'s camera-square
    quad 2.5 km out, so the disc stays round at any FOV. Linear tonemap; GL Compatibility.
