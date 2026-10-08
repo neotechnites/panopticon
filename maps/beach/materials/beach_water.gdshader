@@ -1,6 +1,6 @@
 // The beach's sea, GameCube style: see-through over the shallows and fading with depth into turquoise, then
 // the bay's deep teal; a gentle swell, the sky in it at grazing angles, the sun's glint and sparkle,
-// caustics on the shallow bed and foam round rocks. The shore's waves are strips of their own (beach_waves.gdshader).
+// the bed bent through it (the screen copy, as Sunshine), foam round rocks. Bed caustics are the sand's; waves beach_waves.
 // COLOR carries data from beach_build.py: r = (depth + 2) / 14, g = the bay's pit, b = foam round rocks.
 // Colour uniforms are source_color: Godot hands them over already linear.
 shader_type spatial;
@@ -11,6 +11,7 @@ render_mode unshaded, blend_mix, cull_disabled, depth_draw_always, fog_disabled;
 uniform sampler2D ripples : filter_linear_mipmap_anisotropic, repeat_enable;      // beach_water_normal: raw data
 uniform sampler2D caustics : filter_linear_mipmap, repeat_enable;
 uniform sampler2D foam_texture : filter_linear_mipmap, repeat_enable;
+uniform sampler2D screen : hint_screen_texture, filter_linear_mipmap;   // the bed seen through the water, as Sunshine did
 
 group_uniforms colours;
 uniform vec3 shallow_color : source_color = vec3(0.36, 0.9, 0.84);    // refs: Emerald 99,203,189; Gelato 44,198,186
@@ -28,7 +29,7 @@ uniform vec3 sun_color : source_color = vec3(1.0, 0.98, 0.9);
 uniform float glint = 5.0;
 uniform float sparkle = 14.0;
 uniform float reflection = 0.7;
-uniform float caustic_strength = 0.6;
+uniform float refraction = 0.014;     // how far the ripples bend the bed (screen units at 1 m deep)
 group_uniforms;
 
 uniform float display_gain = 0.73;   // Ryan's HDR desktop shows SDR at 2x linear; unshaded output is undone by 2^(-1/2.2)
@@ -100,12 +101,6 @@ void fragment() {
 	col = mix(col, pit_color, pit * smoothstep(1.6, 6.0, depth));          // deepens down the slope past the shallows
 	col = mix(col, open_color, (1.0 - pit) * smoothstep(110.0, 700.0, r) * smoothstep(2.0, 7.0, depth));
 
-	// caustics on the shallow bed: two scrolling copies of the light net, where they cross
-	float c1 = texture(caustics, world.xz / 4.2 + t * vec2(0.03, 0.011)).r;
-	float c2 = texture(caustics, world.xz / 5.9 - t * vec2(0.013, 0.027)).r;
-	float caustic = clamp((min(c1, c2) - 0.9) * 9.0, 0.0, 1.0) * (1.0 - smoothstep(1.0, 2.2, depth)) * near;
-	col += caustic * caustic_strength;
-
 	// the sky at grazing angles, the sun's glint, and sparkle off the ripples
 	float fresnel = 0.02 + 0.98 * pow(1.0 - clamp(dot(n, v), 0.0, 1.0), 5.0);
 	vec3 refl = reflect(-v, n);
@@ -129,14 +124,19 @@ void fragment() {
 	col = mix(col, sky_horizon, far);
 
 	// the shallows stay see-through (the sand under bright teal) until they deepen, then close over by ~3 m
-	float alpha = mix(0.22, 0.68, smoothstep(0.0, 1.0, depth));
-	alpha = mix(alpha, 1.0, smoothstep(1.2, 3.2, depth));
+	float alpha = mix(0.15, 0.55, smoothstep(0.0, 1.2, depth));
+	alpha = mix(alpha, 1.0, smoothstep(1.5, 3.6, depth));
 	alpha = max(alpha, max(foam, clamp(shine, 0.0, 1.0)));
 	alpha = mix(alpha, 1.0, far);
 	if (!FRONT_FACING) {                    // from under the water: the surface seen from below, deep teal
 		col = mix(turquoise_color * 0.75, pit_color * 0.55, smoothstep(0.0, 40.0, dist));
 		alpha = 1.0;
 	}
-	ALBEDO = col * display_gain;
-	ALPHA = clamp(alpha, 0.0, 1.0);
+	// the bed through the water, bent by the ripples: the frame so far, sampled at an offset (Sunshine's
+	// indirect texture), then the water laid over it ourselves
+	vec2 bend = (n1.xy + n2.xy) * refraction * clamp(depth, 0.0, 1.5) * near;
+	vec3 bed = texture(screen, SCREEN_UV + bend).rgb;
+	alpha = clamp(alpha, 0.0, 1.0);
+	ALBEDO = FRONT_FACING ? mix(bed, col * display_gain, alpha) : col * display_gain;
+	ALPHA = 1.0;
 }
