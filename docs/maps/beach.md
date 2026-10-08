@@ -21,9 +21,10 @@ the scene's markers (`pol(bearing, r, z)`); the mouth faces bearing 0.
    (40..105 m) under a canopy of crowns, three greens, valleys darker, haze far off. Palms: clusters along
    the wall, leaning palms on the sand at its foot, singles on the slopes.
 6. Sea: `beach_water.glb` carries depth, pit and rock-foam as vertex data; `materials/beach_water.gdshader`
-   draws 8 to 14 m of see-through bright teal shallows (the sand and caustics under them, to about 1.1 m
-   deep), closing over by ~3 m and deepening to teal down the slope, with a gentle swell, sky fresnel, sun
-   glint and sparkle. The bed slopes unevenly from the shallows to a 7 to 11 m floor with sand lobes.
+   draws 8 to 14 m of see-through bright teal shallows, closing over by ~3.5 m and deepening to teal down
+   the slope, with a gentle swell, sky fresnel, sun glint and sparkle. As Sunshine did, it samples the frame
+   (hint_screen_texture) bent by its ripples, so the bed wobbles through it; the sand shader draws the
+   crisp caustic net (beach_water_albedo, twice, scrolling) on the bed under water, fading with depth. The bed slopes unevenly from the shallows to a 7 to 11 m floor with sand lobes.
    Waves, the GameCube way (refs: Gelato Beach, Emerald Coast): `beach_waves.glb` is one strip along the
    whole waterline; `beach_waves.gdshader` runs two continuous trains on it, each line rolling in with a
    soft wash and drawn lace (`beach_wave_albedo`), running up as a thin sheet, draining back and leaving
