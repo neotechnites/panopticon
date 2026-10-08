@@ -146,7 +146,7 @@ SEA_SHALLOW = (0.36, 0.955, 0.82)       # teal, carrying the warmth the sand gav
 SEA_TURQ = (0.045, 0.77, 0.73)
 SEA_DEEP = (0.0, 0.17, 0.44)
 SEA_OPEN = (0.0, 0.56, 0.8)
-SEA_HORIZON = (0.64, 0.8, 0.9)
+SEA_HORIZON = (0.133, 0.393, 0.89)      # the sky's horizon (sRGB 0.4, 0.66, 0.95), linear
 BED_TINT = (0.2, 0.8, 0.95)       # the bed under water takes the sea's colour ...
 ABSORB = (0.3, 0.07, 0.055)         # ... and loses light with depth, red first
 

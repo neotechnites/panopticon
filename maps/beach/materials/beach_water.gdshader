@@ -18,9 +18,9 @@ uniform float refraction = 0.014;
 uniform float sparkle = 1.6;
 uniform float display_gain = 0.73;   // Ryan's HDR desktop shows SDR at 2x linear; unshaded output is undone by 2^(-1/2.2)
 uniform vec3 sun_direction = vec3(0.7913, 0.5736, 0.212);   // toward the sun: the scene's Sun
-uniform vec3 sky_top : source_color = vec3(0.26, 0.63, 1.0);
-uniform vec3 sky_horizon : source_color = vec3(0.64, 0.8, 0.9);
-uniform float reflection = 0.7;
+uniform vec3 sky_top : source_color = vec3(0.02, 0.28, 0.95);      // the sky's own (beach_sky.gdshader)
+uniform vec3 sky_horizon : source_color = vec3(0.4, 0.66, 0.95);
+uniform float reflection = 0.45;     // the sky in the water at grazing angles, kept low so the teal stays teal
 uniform float extinction = 7.5;      // metres of water a line of sight passes through to lose ~63% of the bed
 uniform float swell = 0.07;          // metres: the vertex swell (the GameCube moved water vertices too)
 
