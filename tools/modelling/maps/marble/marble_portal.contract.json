@@ -5,6 +5,6 @@
     "MarblePortalCollision",
     "MarblePortalCollision/CollisionShape3D"
   ],
-  "surfaces": 7,
+  "surfaces": 6,
   "max_tris": 480
 }
