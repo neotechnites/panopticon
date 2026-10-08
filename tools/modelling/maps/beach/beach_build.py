@@ -268,17 +268,19 @@ def _kill_profile(b, r):
     return sd + (floor - sd) * smooth(min(t / run, 1.0))
 
 
+def mouth_floor(x):
+    """The bay's floor depth by x alone: about 4 m at the back, 12 at the jetty tips, 22 out at sea."""
+    return 2.0 + 20.0 * smooth((x + 20.0) / 100.0)
+
+
 def bed_depth(b, r):
-    """The bay's sandy bed past the shallows, 1.7 to 3.5 m deep across the inner bay, deepening steadily out
-    through the mouth (x toward 0 deg) to 16 m and more. Never shallower
-    than 1.7 m past the shallows, so the pit's roof (1.6 m) still kills exactly where it did."""
+    """The bay's sandy bed past the shallows, 2.5 to 4 m deep at the back of the bay and deepening steadily
+    out through the mouth (x toward 0 deg); every line toward the mouth only goes deeper."""
     sd = shelf_d(b)
     t = wl(b) - r - shelf_w(b)
     x, y, _z = pol(b, r, 0.0)
-    base = 2.5 + 0.7 * vnoise(x / 20.0, y / 20.0, SEED + 47)
-    mouth = 16.0 * smooth((x + 25.0) / 75.0) ** 1.4 * smooth(t / 22.0)     # never a cliff off the jetty tips
-    d = max(1.7, base) + mouth
-    run = lerp(3.0, 20.0, smooth((x + 10.0) / 60.0))            # out toward the mouth the slope is long
+    d = max(1.7, 2.5 + 0.7 * vnoise(x / 20.0, y / 20.0, SEED + 47), mouth_floor(x))
+    run = lerp(3.0, 24.0, smooth((x + 10.0) / 60.0))            # out toward the mouth the slope is long
     old = _kill_profile(b, r)
     if old < 1.7:
         return old                                             # the death line stays where it was
@@ -313,10 +315,10 @@ def mouth_cap(b, r, z):
 
 def sand_z(b, r):
     z = _sand_z(b, r)
-    km = ramp(s_of(b), HEAD_S + 2.0, HEAD_S + 14.0) * (1.0 - ramp(r, WL_R - 2.0, WL_R + 6.0))
+    km = ramp(s_of(b), HEAD_S - 1.0, HEAD_S + 7.0) * (1.0 - ramp(r, WL_R - 2.0, WL_R + 6.0))
     if km > 0.0:                       # across the mouth the floor just deepens seaward: no rim, no ridge
         x = pol(b, r, 0.0)[0]
-        z = lerp(z, WATER_Z - (2.0 + 20.0 * smooth((x + 20.0) / 100.0)), km)
+        z = lerp(z, WATER_Z - mouth_floor(x), km)
     return mouth_cap(b, r, z)
 
 
