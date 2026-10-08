@@ -69,7 +69,7 @@ shader_parameter/albedo_texture = ExtResource("22_rock_tile")
 render_priority = 2
 shader = ExtResource("34_waves_shader")
 shader_parameter/foam = ExtResource("35_wave_tile")
-shader_parameter/lace = ExtResource("18_foam")
+shader_parameter/edge_lace = ExtResource("18_foam")
 
 [sub_resource type="ShaderMaterial" id="SunMat"]
 render_priority = 1

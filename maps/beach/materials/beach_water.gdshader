@@ -1,145 +1,59 @@
-// The beach's sea, GameCube style, the bay after Hanauma: see-through everywhere in the bay, turquoise over
-// sand deepening to blue out through the mouth; a gentle swell, the sky in it at grazing angles, the sun's glint and sparkle,
-// the bed bent through it (the screen copy, as Sunshine), foam round rocks. Bed caustics are the sand's; waves beach_waves.
-// COLOR carries data from beach_build.py: r = (depth + 2) / 14, g = the bay's pit, b = foam round rocks.
-// Colour uniforms are source_color: Godot hands them over already linear.
+// The beach's sea, built the way the GameCube drew water (Sunshine): the colour and see-through come baked in
+// the vertices (COLOR, UV2.x alpha) from beach_build.py; one copy of the frame is sampled through a scrolling
+// offset texture (refraction); two scrolling ripple layers; a sparkle layer offset by the ripples (EMBM-style
+// glints); a foam texture in rings round rocks (UV2.y). No lighting maths. Mapping in docs/maps/beach.md.
 shader_type spatial;
 render_mode unshaded, blend_mix, cull_disabled, depth_draw_always, fog_disabled;
 
 #include "res://maps/beach/materials/beach_sea.gdshaderinc"
 
-uniform sampler2D ripples : filter_linear_mipmap_anisotropic, repeat_enable;      // beach_water_normal: raw data
-uniform sampler2D caustics : filter_linear_mipmap, repeat_enable;
+uniform sampler2D ripples : filter_linear_mipmap, repeat_enable;      // beach_water_normal: the offset texture
+uniform sampler2D caustics : filter_linear_mipmap, repeat_enable;     // beach_water: the sparkle layer
 uniform sampler2D foam_texture : filter_linear_mipmap, repeat_enable;
-uniform sampler2D screen : hint_screen_texture, filter_linear_mipmap;   // the bed seen through the water, as Sunshine did
-
-group_uniforms colours;
-uniform vec3 shallow_color : source_color = vec3(0.3, 0.97, 0.9);    // refs: Emerald 99,203,189; Gelato 44,198,186
-uniform vec3 turquoise_color : source_color = vec3(0.02, 0.86, 0.84);
-uniform vec3 deep_color : source_color = vec3(0.0, 0.34, 0.62);     // deep blue out through the mouth (Hanauma)
-uniform vec3 open_color : source_color = vec3(0.0, 0.56, 0.8);
-uniform vec3 sky_top : source_color = vec3(0.26, 0.63, 1.0);
-uniform vec3 sky_horizon : source_color = vec3(0.64, 0.8, 0.9);
+uniform sampler2D screen : hint_screen_texture, filter_linear_mipmap;
 uniform vec3 foam_color : source_color = vec3(0.96, 0.99, 1.0);
-group_uniforms;
-
-group_uniforms light;
-uniform vec3 sun_direction = vec3(0.7913, 0.5736, 0.212);   // toward the sun: the scene's Sun
 uniform vec3 sun_color : source_color = vec3(1.0, 0.98, 0.9);
-uniform float glint = 5.0;
-uniform float sparkle = 14.0;
-uniform float reflection = 0.7;
-uniform float refraction = 0.014;     // how far the ripples bend the bed (screen units at 1 m deep)
-group_uniforms;
-
+uniform vec3 under_color : source_color = vec3(0.02, 0.6, 0.62);    // the surface seen from below
+uniform float refraction = 0.014;
+uniform float sparkle = 1.6;
 uniform float display_gain = 0.73;   // Ryan's HDR desktop shows SDR at 2x linear; unshaded output is undone by 2^(-1/2.2)
-
-group_uniforms swell;
-uniform float bay_swell = 0.07;        // metres in the bay ...
-uniform float sea_swell = 0.22;        // ... and out at sea
-uniform float swell_speed = 1.0;
-uniform vec2 horizon_fade = vec2(700.0, 3000.0);
-group_uniforms;
+uniform float swell = 0.07;          // metres: the vertex swell (the GameCube moved water vertices too)
 
 varying vec3 world;
-varying vec3 swell_normal;
-varying float depth;
-varying float pit;
-varying float rock_foam;
-
-// One travelling wave: (height, d/dx, d/dz).
-vec3 wave(vec2 p, vec2 dir, float length, float amp, float t) {
-	float k = 6.2832 / length;
-	float c = sqrt(9.8 / k);
-	float ph = k * dot(normalize(dir), p) - k * c * t;
-	vec2 d = normalize(dir) * k * amp * cos(ph);
-	return vec3(amp * sin(ph), d.x, d.y);
-}
 
 void vertex() {
 	world = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
-	depth = COLOR.r * 14.0 - 2.0;
-	pit = COLOR.g;
-	rock_foam = COLOR.b;
-	float t = TIME * swell_speed;
 	float r = length(world.xz);
-	float amp = mix(bay_swell, sea_swell, smoothstep(80.0, 220.0, r)) * smoothstep(0.4, 4.0, depth)
+	float amp = swell * mix(1.0, 3.0, smoothstep(80.0, 220.0, r))
 		* (1.0 - smoothstep(600.0, 1500.0, r));
-	vec3 w = wave(world.xz, vec2(-1.0, 0.18), 11.0, 0.55, t) + wave(world.xz, vec2(-0.8, -0.6), 7.0, 0.3, t * 1.1)
-		+ wave(world.xz, vec2(-0.55, 0.85), 4.6, 0.15, t * 0.9);
-	float y = SEA_Y + w.x * amp;
-	VERTEX.y += y - world.y;
-	world.y = y;
-	swell_normal = normalize(vec3(-w.y * amp, 1.0, -w.z * amp));
-}
-
-vec3 sky(vec3 dir) {
-	float el = asin(clamp(dir.y, -1.0, 1.0));
-	return mix(sky_horizon, sky_top, pow(clamp(el / radians(75.0), 0.0, 1.0), 0.5));
+	float y = sin(dot(world.xz, vec2(-0.57, 0.1)) - TIME * 2.1) + 0.5 * sin(dot(world.xz, vec2(-0.7, -0.53)) - TIME * 2.6);
+	VERTEX.y += y * amp * step(r, 1500.0) * smoothstep(0.2, 0.5, UV2.x);
 }
 
 void fragment() {
 	float t = TIME;
 	float dist = length(world.xz - CAMERA_POSITION_WORLD.xz);
-	float r = length(world.xz);
 	float near = 1.0 - smoothstep(40.0, 260.0, dist);
-
-	// ripples: two scrolling copies of the drawn normal tile, fading out with distance
-	vec3 n1 = texture(ripples, world.xz / 9.0 + t * vec2(0.021, 0.006)).xyz * 2.0 - 1.0;
-	vec3 n2 = texture(ripples, world.xz / 5.3 - t * vec2(0.007, 0.017)).xyz * 2.0 - 1.0;
-	vec3 n3 = texture(ripples, world.xz / 61.0 + t * vec2(0.004, 0.0015)).xyz * 2.0 - 1.0;   // far mottle
-	vec2 tilt = (n1.xy + n2.xy) * 0.22 * (0.25 + 0.75 * near) + n3.xy * 0.12 * (1.0 - near);
-	vec3 n = normalize(swell_normal + vec3(tilt.x, 0.0, tilt.y));
-	vec3 v = normalize(CAMERA_POSITION_WORLD - world);
-	if (!FRONT_FACING) {
-		n = -n;
-	}
-
-	// colour by depth: shallow over the shelf, turquoise, the bay's deep teal, the open sea
-	// (the shelf's colour spreads down the whole drop-off: no seam where the sand falls away)
-	vec3 col = mix(shallow_color, turquoise_color, smoothstep(0.05, 1.1, depth));
-	col = mix(col, deep_color, smoothstep(2.8, 11.0, depth));             // deeper from mid-bay toward the open ocean
-	col = mix(col, open_color, smoothstep(110.0, 700.0, r));
-
-	// the sky at grazing angles, the sun's glint, and sparkle off the ripples
-	float fresnel = 0.02 + 0.98 * pow(1.0 - clamp(dot(n, v), 0.0, 1.0), 5.0);
-	vec3 refl = reflect(-v, n);
-	col = mix(col, sky(refl), fresnel * reflection);
-	// close up the glint breaks into small sharp sparkles on a fine ripple net (Sunshine), far off it is whole
-	float s = max(dot(refl, normalize(sun_direction)), 0.0);
-	vec3 nf = texture(ripples, world.xz / 1.7 + t * vec2(0.05, -0.03)).xyz * 2.0 - 1.0;
-	float sf = max(dot(reflect(-v, normalize(n + vec3(nf.x, 0.0, nf.y) * 0.35 * near)), normalize(sun_direction)), 0.0);
-	float net = smoothstep(0.95, 0.985, texture(caustics, world.xz / 1.3 - t * vec2(0.04, 0.025)).r);
-	float shine = mix(pow(s, 380.0) * glint, pow(sf, 900.0) * glint * 2.5 * net, near)
-		+ pow(s, 30.0) * 0.12 * (1.0 - 0.7 * near) + pow(sf, 2600.0) * sparkle * near;
-	col += sun_color * shine;
-
-	// foam rings round rocks in the water
-	float lace = texture(foam_texture, world.xz / 3.1 + vec2(t * 0.02, 0.0)).r;
-	float lace2 = texture(foam_texture, world.xz / 1.7 - vec2(0.0, t * 0.03)).r;
-	float foam = rock_foam * smoothstep(0.2, 0.6, max(lace, lace2) * (0.7 + 0.3 * sin(t * 1.3 + world.x * 0.7)));
+	// two scrolling ripple layers: they make the offset (refraction, sparkle) and shade the colour a little
+	vec3 r1 = texture(ripples, world.xz / 9.0 + t * vec2(0.021, 0.006)).xyz - 0.5;
+	vec3 r2 = texture(ripples, world.xz / 5.3 - t * vec2(0.007, 0.017)).xyz - 0.5;
+	vec2 off = (r1.xy + r2.xy);
+	vec3 col = COLOR.rgb * (1.0 + 0.35 * (off.x + off.y));
+	// the sparkle layer, offset by the ripples (indirect texturing, as Sunshine's glints)
+	float sp = texture(caustics, world.xz / 1.6 + off * 0.25 + t * vec2(0.03, -0.02)).r;
+	col += sun_color * smoothstep(0.96, 0.99, sp) * sparkle * near;
+	// foam rings round rocks
+	float lace = max(texture(foam_texture, world.xz / 3.1 + vec2(t * 0.02, 0.0)).r,
+		texture(foam_texture, world.xz / 1.7 - vec2(0.0, t * 0.03)).r);
+	float foam = UV2.y * smoothstep(0.2, 0.6, lace * (0.7 + 0.3 * sin(t * 1.3 + world.x * 0.7)));
 	col = mix(col, foam_color, foam);
-
-	// toward the horizon, the sky's own horizon colour, so sea and sky meet without an edge
-	float far = pow(smoothstep(horizon_fade.x, horizon_fade.y, r), 1.4);
-	col = mix(col, sky_horizon, far);
-
-	// no opaque wall in the bay: the bed carries the depth by absorption (beach_sand.gdshader); the water only
-	// thickens slowly with depth, and closes over far out at sea where the bed ends (r 100)
-	float alpha = 0.14 + 0.5 * (1.0 - exp(-max(depth, 0.0) / 6.0));
-	alpha = mix(alpha, 1.0, smoothstep(6.0, 14.0, depth));        // out through the mouth the deep blue takes over
-	alpha = mix(alpha, 1.0, smoothstep(84.0, 98.0, r));
-	alpha = max(alpha, max(foam, clamp(shine, 0.0, 1.0)));
-	alpha = mix(alpha, 1.0, far);
-	if (!FRONT_FACING) {                    // from under the water: the surface seen from below, deep teal
-		col = mix(turquoise_color * 0.75, deep_color * 0.55, smoothstep(0.0, 40.0, dist));
-		alpha = 1.0;
+	float alpha = max(UV2.x, foam);
+	// the bed through the water: the frame copy, sampled through the ripple offset
+	vec3 bed = texture(screen, SCREEN_UV + off * 2.0 * refraction * near * smoothstep(0.14, 0.5, UV2.x)).rgb;
+	if (!FRONT_FACING) {
+		ALBEDO = under_color * display_gain;
+	} else {
+		ALBEDO = mix(bed, col * display_gain, clamp(alpha, 0.0, 1.0));
 	}
-	// the bed through the water, bent by the ripples: the frame so far, sampled at an offset (Sunshine's
-	// indirect texture), then the water laid over it ourselves
-	vec2 bend = (n1.xy + n2.xy) * refraction * clamp(depth, 0.0, 1.5) * near;
-	vec3 bed = texture(screen, SCREEN_UV + bend).rgb;
-	alpha = clamp(alpha, 0.0, 1.0);
-	ALBEDO = FRONT_FACING ? mix(bed, col * display_gain, alpha) : col * display_gain;
 	ALPHA = 1.0;
 }

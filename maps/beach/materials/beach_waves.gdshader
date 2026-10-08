@@ -7,7 +7,7 @@ shader_type spatial;
 render_mode unshaded, blend_mix, cull_disabled, depth_draw_never, fog_disabled, shadows_disabled;
 
 uniform sampler2D foam : filter_linear_mipmap, repeat_enable;
-uniform sampler2D lace : filter_linear_mipmap, repeat_enable;      // beach_foam_albedo: the standing lace at the edge
+uniform sampler2D edge_lace : filter_linear_mipmap, repeat_enable;   // beach_foam_albedo: the standing lace at the edge
 uniform vec3 foam_color : source_color = vec3(0.96, 0.99, 1.0);
 uniform vec3 sheet_color : source_color = vec3(0.62, 0.93, 0.9);
 uniform vec3 wet_color : source_color = vec3(0.62, 0.56, 0.45);
@@ -71,7 +71,7 @@ void fragment() {
 	// a thin band of lace always at the waterline, wandering a little, as Sunshine's shores
 	float w = 0.28 + 0.12 * sin(s * 0.21 + TIME * 0.4) + 0.08 * sin(s * 0.57 - TIME * 0.3);
 	float band = 1.0 - smoothstep(w * 0.5, w, abs(up + 0.05 + 0.06 * sin(TIME * 0.5 + s * 0.13)));
-	float l = texture(lace, vec2(UV.x * 4.0, up / 1.6 + TIME * 0.015)).r;
+	float l = texture(edge_lace, vec2(UV.x * 4.0, up / 1.6 + TIME * 0.015)).r;
 	f = max(f, band * smoothstep(0.25, 0.55, l) * 0.9);
 	float sheet = max(a.y, b.y);
 	float wet = max(a.z, b.z);

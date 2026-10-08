@@ -103,7 +103,7 @@ END_S = (RUN_S + 6.0, RUN_S + 17.0)    # the land drops away into the sea betwee
 
 # -- the sea (sRGB, from the refs)
 WATER_R = [0.0, 12.0, 24.0, 34.0, 42.0]                           # rings in the bay (absolute)
-WATER_IN = [-17.0, -14.0, -11.5, -10.0, -8.5, -6.5, -5.0, -4.0, -3.4, -3.0, -2.5, -2.0, -1.5, -1.0, -0.55, -0.2, 0.0, 0.4, 0.8, 1.2, 1.6, 2.0, 2.4]
+WATER_IN = [-17.0, -12.0, -8.5, -6.0, -4.0, -2.8, -1.8, -1.0, -0.4, 0.0, 0.6, 1.2, 1.8, 2.4]
 #            metres off the waterline: out past the swash's run-up, so the moving water always meets the sand
 WATER_OUT = [77.0, 80.0, 83.0, 86.0, 89.0, 92.0, 96.0, 100.0, 105.0, 111.0]
 WATER_FAR = [(118.0, 180), (126.0, 180), (135.0, 180), (146.0, 180), (160.0, 180), (178.0, 180),
@@ -140,6 +140,38 @@ FROND_W = 0.52              # half width at the widest
 
 TWO_PI = 2.0 * math.pi
 INFO = {}
+
+# -- the water's baked look (GameCube style: per-vertex colour and alpha, linear values; beach_water.gdshader)
+SEA_SHALLOW = (0.3, 0.97, 0.9)
+SEA_TURQ = (0.02, 0.86, 0.84)
+SEA_DEEP = (0.0, 0.34, 0.62)
+SEA_OPEN = (0.0, 0.56, 0.8)
+SEA_HORIZON = (0.64, 0.8, 0.9)
+BED_TINT = (0.26, 0.84, 0.82)       # the bed under water takes the sea's colour ...
+ABSORB = (0.3, 0.07, 0.055)         # ... and loses light with depth, red first
+
+
+def to_lin(c):
+    return tuple((v / 12.92) if v <= 0.04045 else ((v + 0.055) / 1.055) ** 2.4 for v in c[:3])
+
+
+def to_srgb(c):
+    return tuple(min(1.0, max(0.0, 12.92 * v if v <= 0.0031308 else 1.055 * v ** (1 / 2.4) - 0.055)) for v in c[:3])
+
+
+def under_water(c, depth):
+    """A bed vertex colour (sRGB) as seen through `depth` metres of water, baked (sRGB back)."""
+    if depth <= 0.0:
+        return c
+    lin = to_lin(c)
+    k = smooth(depth / 0.8)
+    lin = tuple(lin[i] * lerp(1.0, BED_TINT[i], k) * math.exp(-ABSORB[i] * depth) for i in range(3))
+    return to_srgb(lin) + (c[3] if len(c) > 3 else 1.0,)
+
+
+def caustic_w(depth):
+    """How strongly the caustic net lies on the bed at this depth (baked into the bed's UV2.x)."""
+    return smooth(depth / 0.15) * (1.0 - smooth((depth - 2.5) / 4.5)) if depth > 0.03 else 0.0
 
 
 # =============================================================================
@@ -389,10 +421,13 @@ class Sculpt(object):
 
     def __init__(self):
         self.m = Mesh()
+        self.m.uv2 = {}
         self.kind = {}
 
     def v(self, p, col, kind):
-        i = self.m.v(p, col)
+        depth = WATER_Z - p[2]
+        i = self.m.v(p, under_water(col, depth))
+        self.m.uv2[i] = (caustic_w(depth), 0.0)
         self.kind[i] = kind
         return i
 
@@ -525,31 +560,52 @@ class Sculpt(object):
 # =============================================================================
 
 def sea_col(b, r, rocks=()):
-    """Data for beach_water.gdshader, not a colour: r = (depth + 2) / 14, g = the bay's pit, b = foam round rocks."""
+    """The water's baked look at (b, r): (linear colour, alpha, foam ring round rocks)."""
     depth = WATER_Z - ground_z(b, r)
     if r > 90.0 and depth > 8.5:       # the open sea reads deep all round, whatever sank where
         depth = 14.0
-    x = r * math.cos(math.radians(b))
-    bay = ramp(x, PIT_FADE[1], PIT_FADE[0]) * ramp(r, WL_R + 2.0, WL_R - 2.0)
+    d = max(depth, 0.0)
+    col = lerp3(SEA_SHALLOW, SEA_TURQ, smooth((d - 0.05) / 1.05))
+    col = lerp3(col, SEA_DEEP, smooth((d - 2.8) / 8.2))
+    col = lerp3(col, SEA_OPEN, smooth((r - 110.0) / 590.0))
+    far = smooth((r - SKY_FADE[0]) / (SKY_FADE[1] - SKY_FADE[0])) ** 1.4
+    col = lerp3(col, SEA_HORIZON, far)
+    alpha = 0.14 + 0.5 * (1.0 - math.exp(-d / 6.0))
+    alpha = lerp(alpha, 1.0, smooth((d - 6.0) / 8.0))
+    alpha = lerp(alpha, 1.0, smooth((r - 84.0) / 14.0))
     px, py, _z = pol(b, r, 0.0)
     ring = 0.0
     for cx, cy, size in rocks:
-        d = math.hypot(px - cx, py - cy) - size * 0.45
-        if d < 2.4:
-            ring = max(ring, ramp(d, 2.3, 0.1))
-    return (clamp((depth + 2.0) / 14.0), bay, ring, 1.0)
+        dd = math.hypot(px - cx, py - cy) - size * 0.45
+        if dd < 2.4:
+            ring = max(ring, ramp(dd, 2.3, 0.1))
+    return col + (1.0,), (alpha, ring)
 
 
 def build_sea(rocks=()):
     """The sea's surface at still water; the shader moves it. rocks: (x, y, size) the foam rings round."""
     m = Mesh()
-    col = lambda b, r: sea_col(b, r, rocks)  # noqa: E731
+    m.uv2 = {}
+
+    def col(b, r):
+        c, data = sea_col(b, r, rocks)
+        col.last = data
+        return c
+
+    _v = m.v
+
+    def vtx(p, c):
+        i = _v(p, c)
+        m.uv2[i] = col.last
+        return i
+
+    m.v = vtx
     centre = m.v((0.0, 0.0, WATER_Z), col(0.0, 0.0))
     inner = []
     for r in WATER_R[1:]:
         inner.append([m.v(pol(i * 3.0, r, WATER_Z), col(i * 3.0, r)) for i in range(120)])   # deep, one colour
-    shore = [[m.v(pol(float(i), wl(float(i)) + off, WATER_Z), col(float(i), wl(float(i)) + off)) for i in range(NC)]
-             for off in WATER_IN]
+    shore = [[m.v(pol(i * 2.0, wl(i * 2.0) + off, WATER_Z), col(i * 2.0, wl(i * 2.0) + off)) for i in range(180)]
+             for off in WATER_IN]                                  # 2 deg columns: the era's budget
     for i in range(120):
         m.tri(centre, inner[0][i], inner[0][(i + 1) % 120], UP, "water", "water")
     m.grid(inner, UP, "water", "water")
@@ -635,6 +691,17 @@ def boulder(m, cx, cy, size, seed, sink=0.3, squash=0.7, gz=None, nseg=6, lats=(
         warm = lerp3((1.0, 0.93, 0.84), (0.98, 0.99, 1.0), t)
         m.cols[i] = (min(1.0, col[0] * shade * warm[0]), min(1.0, col[1] * shade * warm[1]),
                      min(1.0, col[2] * shade * warm[2]), 1.0)
+    for i in range(first, len(m.verts)):                       # baked: wet above still water, the weed band,
+        h = m.verts[i][2] - WATER_Z                             # and the water's absorption below
+        c = m.cols[i]
+        if 0.0 <= h < 0.35:
+            w = lerp(0.62, 1.0, smooth(h / 0.35))
+            c = (c[0] * w, c[1] * w * 0.98, c[2] * w * 0.95, 1.0)
+        elif h < 0.0:
+            weed = 1.0 - smooth((-h - 0.05) / 0.4)
+            c = (c[0] * lerp(1.0, 0.5, weed), c[1] * lerp(1.0, 0.54, weed), c[2] * lerp(1.0, 0.42, weed), 1.0)
+            c = under_water(c, -h)
+        m.cols[i] = c
     out = lambda p: (p[0] - cx, p[1] - cy, p[2] - cz)
     m.grid(rings, out, zone, "rocks")
     for k in range(nseg):
@@ -1422,9 +1489,15 @@ def _shade(ob, zones):
     me.update()
 
 
-def _object(name, verts, cols, faces, zones, mats, face_uv=None):
+def _object(name, verts, cols, faces, zones, mats, face_uv=None, uv2=None):
     ob = mdl.mesh(name, verts, faces)
     tx.unwrap(ob, zones, SHEETS, seed=1, face_uv=face_uv)
+    if uv2 is not None:                  # UV2 carries baked data (water alpha and foam, the bed's caustic weight)
+        me = ob.data
+        layer = me.uv_layers.new(name="UV2")
+        for li, loop in enumerate(me.loops):
+            layer.data[li].uv = uv2[loop.vertex_index]
+        me.uv_layers.active_index = 0
     tx.finish(ob, zones, mats)
     _shade(ob, zones)
     attr = ob.data.color_attributes.new(name="Col", type="FLOAT_COLOR", domain="POINT")
@@ -1451,7 +1524,11 @@ def _part(m, chunk, name, mats, uv=None):
         faces.append(tuple(g))
         zones.append(z)
     face_uv = {k: d for k, d in enumerate(fuv)} if uv is not None else None
-    return _object(name, verts, cols, faces, zones, mats, face_uv)
+    uv2 = None
+    if getattr(m, "uv2", None):
+        inv = {j: i for i, j in remap.items()}
+        uv2 = [m.uv2.get(inv[k], (0.0, 0.0)) for k in range(len(verts))]
+    return _object(name, verts, cols, faces, zones, mats, face_uv, uv2)
 
 
 def build():
