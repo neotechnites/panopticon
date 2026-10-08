@@ -7,7 +7,7 @@ render_mode unshaded, blend_mix, cull_disabled, depth_draw_always, fog_disabled;
 
 #include "res://maps/beach/materials/beach_sea.gdshaderinc"
 
-uniform sampler2D ripples : filter_linear_mipmap, repeat_enable;      // beach_water_normal: the offset texture
+uniform sampler2D ripples : filter_linear_mipmap_anisotropic, repeat_enable;      // beach_water_normal: the offset texture
 uniform sampler2D caustics : filter_linear_mipmap, repeat_enable;     // beach_water: the sparkle layer
 uniform sampler2D foam_texture : filter_linear_mipmap, repeat_enable;
 uniform sampler2D screen : hint_screen_texture, filter_linear_mipmap;
@@ -38,16 +38,17 @@ void fragment() {
 	vec3 r1 = texture(ripples, world.xz / 9.0 + t * vec2(0.021, 0.006)).xyz - 0.5;
 	vec3 r2 = texture(ripples, world.xz / 5.3 - t * vec2(0.007, 0.017)).xyz - 0.5;
 	vec2 off = (r1.xy + r2.xy);
-	vec3 col = COLOR.rgb * (1.0 + 0.35 * (off.x + off.y));
+	vec3 col = COLOR.rgb * (1.0 + 0.08 * (off.x + off.y) * near);
 	// the sparkle layer, offset by the ripples (indirect texturing, as Sunshine's glints)
 	float sp = texture(caustics, world.xz / 1.6 + off * 0.25 + t * vec2(0.03, -0.02)).r;
-	col += sun_color * smoothstep(0.96, 0.99, sp) * sparkle * near;
+	float glow = smoothstep(0.988, 0.998, sp) * near * near;
+	col += sun_color * glow * sparkle;
 	// foam rings round rocks
 	float lace = max(texture(foam_texture, world.xz / 3.1 + vec2(t * 0.02, 0.0)).r,
 		texture(foam_texture, world.xz / 1.7 - vec2(0.0, t * 0.03)).r);
 	float foam = UV2.y * smoothstep(0.2, 0.6, lace * (0.7 + 0.3 * sin(t * 1.3 + world.x * 0.7)));
 	col = mix(col, foam_color, foam);
-	float alpha = max(UV2.x, foam);
+	float alpha = max(UV2.x, max(foam, glow));
 	// the bed through the water: the frame copy, sampled through the ripple offset
 	vec3 bed = texture(screen, SCREEN_UV + off * 2.0 * refraction * near * smoothstep(0.14, 0.5, UV2.x)).rgb;
 	if (!FRONT_FACING) {
