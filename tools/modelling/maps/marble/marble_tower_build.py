@@ -227,11 +227,10 @@ def _shared(name, px=SHAFT_PX, ref_r=SHAFT_R, u0=U0_SHAFT, tint=None, stem=mb.TO
 SHEETS = {   # every stone class on the tower's own tile: the lamps do not light the tower (marble.tscn)
     "stone": _shared("stone"),                                                 # the spandrels
     "shaft": _shared("shaft"),                                                 # the shaft's outside
-    "shaftband": mb.brick("shaftband", mode="box", stem=mb.TOWER_STEM),       # steps, slab edge, beam outside
     "plinth": _shared("plinth", tint=mb.TINT_PLINTH),                          # foot, steps, room floor band, dais
     "shade": mb.brick("shade", ref_r=SHAFT_R, phase=(U0_SHAFT, V0), stem=mb.TOWER_STEM),   # reveals, soffits, undersides: untinted, the ambient is even
     "marble2": _shared("marble2", BAL_PX, BALCONY_R, U0_BAL, mb.TINT_MARBLE2),  # the ledge
-    "band": mb.brick("band", mode="box", stem=mb.TOWER_STEM),                 # ring beam, slab edge
+    "band": mb.band_sheet(mb.TOWER_COLUMN_STEM),                              # ring beam, slab edge: his column tile turned
     "column": mb.column_sheet(mb.TOWER_COLUMN_STEM),                          # his column tile, at the tower's light
     "iron": mb.iron_sheet(),
     "floor": mb.tile("floor", mb.TOWER_FLOOR_STEM, "custom", 64, 64, mpt=2.7 / 64.0),   # one paving cell a ring band
@@ -624,9 +623,9 @@ def _shaft(m, cap=True):
     if cap:
         m.fan(list(reversed(foot)), mb.DOWN, "plinth")       # the closed foot, on the spike floor
     for (rad, z0, z1) in STEPS:
-        _band(m, _ringz(m, rad, z0), _ringz(m, rad, z1), True, "shaftband")
-    _annulus(m, STEPS[1][0], STEPS[0][0], STEPS[0][2], True, "shaftband")
-    _annulus(m, SHAFT_R, STEPS[1][0], STEPS[1][2], True, "shaftband")
+        _band(m, _ringz(m, rad, z0), _ringz(m, rad, z1), True, "plinth")
+    _annulus(m, STEPS[1][0], STEPS[0][0], STEPS[0][2], True, "plinth")
+    _annulus(m, SHAFT_R, STEPS[1][0], STEPS[1][2], True, "plinth")
     z = SHAFT_Z0
     for b in range(SHAFT_BANDS):
         z_next = SHAFT_Z0 + (SLAB_Z[0] - SHAFT_Z0) * (b + 1) / SHAFT_BANDS
@@ -655,7 +654,7 @@ def _balcony(m, coll=False):
               False, "band")
         _zip(m, edge_pts(COLL_RAIL_R, z1), foot_pts, mb.UP, "marble2")
         return
-    _split_band(m, NB, POST_PHASE, BALCONY_R, POST_W, z0, z1, True, "shaftband", "top")   # the slab's edge
+    _split_band(m, NB, POST_PHASE, BALCONY_R, POST_W, z0, z1, True, "band", "top")   # the slab's edge
     line = _cut_band(m, NB, POST_PHASE, BALCONY_R, B_INSET, POST_W, z1, mb.UP, "marble2")
     _zip(m, line, foot_pts, mb.UP, "marble2")                                       # the ledge
 
@@ -723,7 +722,7 @@ def _crown(m, coll=False):
         return
     for ac in _centres():          # the arcade's head is solid corner to corner: NO soffit is exposed,
         f, fi = _Facet(ac, SHAFT_R), _Facet(ac, R_INSET)   # the beam's two faces carry the panel's top edge
-        _head_band(m, f, z0, z1, f.n_out, "shaftband")
+        _head_band(m, f, z0, z1, f.n_out, "band")
         _head_band(m, fi, z0, z1, fi.n_in, "band")
     # The two shells state their own UVs (SHEETS "dome" and "coffer" are
     # "custom"): u is the AZIMUTH, one repeat a facet, continuing the shaft's
