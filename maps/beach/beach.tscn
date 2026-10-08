@@ -11,6 +11,9 @@
 [ext_resource type="PackedScene" path="res://maps/beach/models/beach_water.glb" id="14_water"]
 [ext_resource type="PackedScene" path="res://maps/beach/models/beach_props.glb" id="28_props"]
 [ext_resource type="Texture2D" path="res://maps/beach/textures/beach_canvas_albedo.png" id="29_canvas_tile"]
+[ext_resource type="Shader" path="res://maps/beach/materials/beach_rock.gdshader" id="30_rock_shader"]
+[ext_resource type="Shader" path="res://maps/beach/materials/beach_sun.gdshader" id="31_sun_shader"]
+[ext_resource type="Shader" path="res://maps/beach/materials/beach_underwater.gdshader" id="32_under_shader"]
 [ext_resource type="Texture2D" path="res://maps/beach/textures/beach_water_albedo.png" id="15_water_tile"]
 [ext_resource type="Shader" path="res://maps/beach/materials/beach_water.gdshader" id="16_water_shader"]
 [ext_resource type="Texture2D" path="res://maps/beach/textures/beach_water_normal_albedo.png" id="17_ripples"]
@@ -49,12 +52,37 @@ shader_parameter/foam_texture = ExtResource("18_foam")
 shader = ExtResource("26_sand_shader")
 shader_parameter/albedo_texture = ExtResource("27_sand_tile")
 
-[sub_resource type="StandardMaterial3D" id="RockMat"]
-resource_name = "beach_rock"
-vertex_color_use_as_albedo = true
-albedo_texture = ExtResource("22_rock_tile")
-roughness = 0.9
-texture_filter = 5
+[sub_resource type="ShaderMaterial" id="RockMat"]
+shader = ExtResource("30_rock_shader")
+shader_parameter/albedo_texture = ExtResource("22_rock_tile")
+
+[sub_resource type="ShaderMaterial" id="SunMat"]
+render_priority = 1
+shader = ExtResource("31_sun_shader")
+
+[sub_resource type="QuadMesh" id="SunQuad"]
+
+[sub_resource type="SphereMesh" id="UnderSphere"]
+radial_segments = 24
+rings = 12
+
+[sub_resource type="ShaderMaterial" id="UnderFar"]
+render_priority = 2
+shader = ExtResource("32_under_shader")
+shader_parameter/radius = 34.0
+shader_parameter/opacity = 1.0
+
+[sub_resource type="ShaderMaterial" id="UnderMid"]
+render_priority = 3
+shader = ExtResource("32_under_shader")
+shader_parameter/radius = 18.0
+shader_parameter/opacity = 0.55
+
+[sub_resource type="ShaderMaterial" id="UnderNear"]
+render_priority = 4
+shader = ExtResource("32_under_shader")
+shader_parameter/radius = 8.0
+shader_parameter/opacity = 0.4
 
 [sub_resource type="StandardMaterial3D" id="GrassMat"]
 resource_name = "beach_grass"
@@ -90,6 +118,34 @@ shadow_blur = 1.5
 directional_shadow_mode = 0
 directional_shadow_max_distance = 200.0
 
+[node name="SunDisc" type="MeshInstance3D" parent="Environment"]
+editor_description = "The sun's round disc and glow, 2.5 km out toward the Sun, held square to the camera (beach_sun.gdshader)."
+cast_shadow = 0
+custom_aabb = AABB(-8192, -8192, -8192, 16384, 16384, 16384)
+mesh = SubResource("SunQuad")
+surface_material_override/0 = SubResource("SunMat")
+
+[node name="Underwater" type="Node3D" parent="Environment"]
+editor_description = "Three shells round the camera, drawn only below the sea: the deep teal fade a sinking runner sees."
+
+[node name="Far" type="MeshInstance3D" parent="Environment/Underwater"]
+cast_shadow = 0
+custom_aabb = AABB(-8192, -8192, -8192, 16384, 16384, 16384)
+mesh = SubResource("UnderSphere")
+surface_material_override/0 = SubResource("UnderFar")
+
+[node name="Mid" type="MeshInstance3D" parent="Environment/Underwater"]
+cast_shadow = 0
+custom_aabb = AABB(-8192, -8192, -8192, 16384, 16384, 16384)
+mesh = SubResource("UnderSphere")
+surface_material_override/0 = SubResource("UnderMid")
+
+[node name="Near" type="MeshInstance3D" parent="Environment/Underwater"]
+cast_shadow = 0
+custom_aabb = AABB(-8192, -8192, -8192, 16384, 16384, 16384)
+mesh = SubResource("UnderSphere")
+surface_material_override/0 = SubResource("UnderNear")
+
 [node name="MapBase" type="Node3D" parent="."]
 
 [node name="Ground" parent="MapBase" instance=ExtResource("10_ground")]
@@ -107,6 +163,10 @@ surface_material_override/0 = SubResource("GrassMat")
 surface_material_override/3 = SubResource("SandMat")
 
 [node name="Rocks" parent="MapBase" instance=ExtResource("12_rocks")]
+
+[node name="BeachRocks" parent="MapBase/Rocks" index="0"]
+editor_description = "Wet where the swash reaches: beach_rock.gdshader."
+surface_material_override/0 = SubResource("RockMat")
 
 [node name="Palms" parent="MapBase" instance=ExtResource("13_palms")]
 
@@ -185,5 +245,6 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.95, 0)
 
 [editable path="MapBase/Ground"]
 [editable path="MapBase/Island"]
+[editable path="MapBase/Rocks"]
 [editable path="MapBase/Props"]
 [editable path="MapBase/Water"]

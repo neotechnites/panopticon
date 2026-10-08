@@ -110,9 +110,14 @@ void fragment() {
 	float fresnel = 0.02 + 0.98 * pow(1.0 - clamp(dot(n, v), 0.0, 1.0), 5.0);
 	vec3 refl = reflect(-v, n);
 	col = mix(col, sky(refl), fresnel * reflection);
+	// close up the glint breaks into small sharp sparkles on a fine ripple net (Sunshine), far off it is whole
 	float s = max(dot(refl, normalize(sun_direction)), 0.0);
-	col += sun_color * (pow(s, 380.0) * glint + pow(s, 30.0) * 0.12);
-	col += sun_color * pow(s, 2600.0) * sparkle * near;
+	vec3 nf = texture(ripples, world.xz / 1.7 + t * vec2(0.05, -0.03)).xyz * 2.0 - 1.0;
+	float sf = max(dot(reflect(-v, normalize(n + vec3(nf.x, 0.0, nf.y) * 0.35 * near)), normalize(sun_direction)), 0.0);
+	float net = smoothstep(0.95, 0.985, texture(caustics, world.xz / 1.3 - t * vec2(0.04, 0.025)).r);
+	float shine = mix(pow(s, 380.0) * glint, pow(sf, 900.0) * glint * 2.5 * net, near)
+		+ pow(s, 30.0) * 0.12 * (1.0 - 0.7 * near) + pow(sf, 2600.0) * sparkle * near;
+	col += sun_color * shine;
 
 	// foam: the swash's leading edge on the sand, lace in the run-up, rings round rocks
 	float sand_y = SEA_Y - depth;
@@ -129,11 +134,11 @@ void fragment() {
 	col = mix(col, sky_horizon, far);
 
 	float alpha = mix(0.5, 0.97, smoothstep(0.12, 2.3, depth));
-	alpha = max(alpha, foam);
+	alpha = max(alpha, max(foam, clamp(shine, 0.0, 1.0)));
 	alpha = mix(alpha, 1.0, far);
-	if (!FRONT_FACING) {
-		col = pit_color * 0.8;
-		alpha = 0.9;
+	if (!FRONT_FACING) {                    // from under the water: the surface seen from below, deep teal
+		col = mix(turquoise_color * 0.75, pit_color * 0.55, smoothstep(0.0, 40.0, dist));
+		alpha = 1.0;
 	}
 	ALBEDO = col;
 	ALPHA = clamp(alpha, 0.0, 1.0);

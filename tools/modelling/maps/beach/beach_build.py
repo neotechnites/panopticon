@@ -486,8 +486,9 @@ def build_sea(rocks=()):
 
 def boulder(m, cx, cy, size, seed, sink=0.3, squash=0.7, gz=None, nseg=6, lats=(-0.9, -0.3, 0.3, 0.72)):
     """A faceted boulder of about `size` metres, its base `sink` of its height below gz (the ground):
-    its own proportions, lean, facet count, roundness and tone, so no two read alike."""
+    its own proportions, lean, facet count, roundness, broken faces and tone, darker and warmer at its foot."""
     r = Rng(seed)
+    first = len(m.verts)
     if gz is None:
         gz = ground_z(bearing_of((cx, cy, 0.0)), math.hypot(cx, cy))
     nseg = max(5, nseg + r.i(-1, 1))
@@ -497,7 +498,7 @@ def boulder(m, cx, cy, size, seed, sink=0.3, squash=0.7, gz=None, nseg=6, lats=(
     yaw = r.u(0.0, TWO_PI)
     tilt, tilt_dir = math.radians(r.u(0.0, 18.0)), r.u(0.0, TWO_PI)
     sx, sy = size * 0.5 * r.u(0.85, 1.3), size * 0.5 * r.u(0.6, 0.95)
-    tone = r.u(0.78, 1.06)
+    tone = r.u(0.8, 1.0)
     tint = (1.03, 1.0, 0.95) if r.f() < 0.5 else (0.96, 0.98, 1.03)
     col = (tone * tint[0], tone * tint[1], tone * tint[2], 1.0)
     tx_, ty_ = math.cos(tilt_dir), math.sin(tilt_dir)
@@ -509,7 +510,7 @@ def boulder(m, cx, cy, size, seed, sink=0.3, squash=0.7, gz=None, nseg=6, lats=(
         ly2 = ly + ty_ * (lean * (math.cos(tilt) - 1.0) - lz * math.sin(tilt))
         return (cx + lx2 * math.cos(yaw) - ly2 * math.sin(yaw), cy + lx2 * math.sin(yaw) + ly2 * math.cos(yaw), cz + lz2)
 
-    jit = (0.7, 1.18) if angular else (0.86, 1.08)
+    jit = (0.62, 1.25) if angular else (0.8, 1.12)
     rings = []
     for la in lats:
         ring = []
@@ -522,6 +523,25 @@ def boulder(m, cx, cy, size, seed, sink=0.3, squash=0.7, gz=None, nseg=6, lats=(
         rings.append(ring)
     top = m.v(place(r.u(-0.12, 0.12) * size, r.u(-0.12, 0.12) * size, hz * (r.u(0.75, 0.9) if angular else r.u(0.95, 1.1))), col)
     bot = m.v(place(0.0, 0.0, -hz), col)
+    # broken faces: two or three planes shear the stone flat, sideways and across the top
+    for k in range(r.i(2, 3)):
+        a, up = r.u(0.0, TWO_PI), (r.u(0.5, 0.95) if k == 0 else r.u(-0.1, 0.45))
+        dv = il.unit((math.cos(a) * math.sqrt(1.0 - up * up), math.sin(a) * math.sqrt(1.0 - up * up), up))
+        reach = max(abs(il.dot(il.sub(m.verts[i], (cx, cy, cz)), dv)) for i in range(first, len(m.verts)))
+        cut = reach * r.u(0.62, 0.82)
+        for i in range(first, len(m.verts)):
+            over = il.dot(il.sub(m.verts[i], (cx, cy, cz)), dv) - cut
+            if over > 0.0:
+                m.verts[i] = il.sub(m.verts[i], il.scale(dv, over))
+    lo_z = min(m.verts[i][2] for i in range(first, len(m.verts)))
+    hi_z = max(m.verts[i][2] for i in range(first, len(m.verts)))
+    foot = max(lo_z, gz - 0.05)
+    for i in range(first, len(m.verts)):
+        t = clamp((m.verts[i][2] - foot) / max(hi_z - foot, 0.1)) ** 0.8
+        shade = lerp(0.62, 1.0, t)
+        warm = lerp3((1.0, 0.9, 0.78), (0.97, 0.98, 1.0), t)
+        m.cols[i] = (min(1.0, col[0] * shade * warm[0]), min(1.0, col[1] * shade * warm[1]),
+                     min(1.0, col[2] * shade * warm[2]), 1.0)
     out = lambda p: (p[0] - cx, p[1] - cy, p[2] - cz)
     m.grid(rings, out, "rock", "rocks")
     for k in range(nseg):
