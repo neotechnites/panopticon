@@ -59,6 +59,18 @@ shadow_blur = 3.0
 directional_shadow_mode = 0
 directional_shadow_max_distance = 200.0
 
+[node name="PitLight" type="SpotLight3D" parent="Environment"]
+editor_description = "The dome's light down the pit (a straight-down sun leaves its upright walls unlit). Cone stops at the lip; the tower sits on layer 11, outside its mask."
+transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, 0, 58, 0)
+light_color = Color(0.92, 0.97, 1, 1)
+light_energy = 8.0
+light_specular = 0.0
+spot_range = 120.0
+spot_attenuation = 0.0
+spot_angle = 50.0
+spot_angle_attenuation = 0.5
+light_cull_mask = 4294966271
+
 [node name="MapBase" type="Node3D" parent="."]
 
 [node name="Ground" parent="MapBase" instance=ExtResource("10_ground")]
@@ -168,7 +180,13 @@ script = ExtResource("8c_tower_variant")
 [node name="Rock" parent="Tower" instance=ExtResource("8_tower_model")]
 visible = false
 
+[node name="IceTower" parent="Tower/Rock" index="0"]
+layers = 1024
+
 [node name="RockArches" parent="Tower" instance=ExtResource("8_tower_model")]
+
+[node name="IceTower" parent="Tower/RockArches" index="0"]
+layers = 1024
 
 [node name="TowerSpawn" type="Marker3D" parent="Tower"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.95, 0)
@@ -186,3 +204,5 @@ script = ExtResource("3_tower_light")
 profile = ExtResource("4_tower_light_profile")
 
 [editable path="MapBase/Roof"]
+[editable path="Tower/Rock"]
+[editable path="Tower/RockArches"]
