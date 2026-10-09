@@ -505,8 +505,8 @@ def land_tone(x, y, alt, steep, aspect, d):
 
 
 def aspect_lit(aspect):
-    """Whether a slope faces the sun's side (bearing 15) rather than away from it."""
-    return math.cos(math.radians(aspect - 15.0)) > -0.1
+    """Whether a slope faces the sun's side (bearing 15): its uphill bearing points away from the sun."""
+    return math.cos(math.radians(aspect - 15.0)) < 0.1
 
 
 def land_col(p):
