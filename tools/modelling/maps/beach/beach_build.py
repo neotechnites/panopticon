@@ -2281,7 +2281,7 @@ def _waterfall(m, uv, surf):
             a, t = along[vi]
             uv[(fi, vi)] = (0.75 + 0.25 * t, a / 12.8)
     # the stream: out through the rim's notch, then steepest descent (the gully's line where the pad is flat),
-    # 1.4 m wide, every vertex draped on the final terrain 0.4 m up, low rock banks sloping to the ground
+    # 1.2 m wide, every vertex draped on the final terrain 0.35 m up, soft banks 1.3 m wide easing to the ground
     f3 = len(m.faces)
     along = {}
     path = [(pcx + dx * (pr + 0.6), pcy + dy * (pr + 0.6))]
@@ -2297,19 +2297,20 @@ def _waterfall(m, uv, surf):
         q0, q1 = path[max(0, i - 1)], path[min(len(path) - 1, i + 1)]
         tx_, ty_ = q1[0] - q0[0], q1[1] - q0[1]
         ln = math.hypot(tx_, ty_) or 1.0
-        sx, sy = -ty_ / ln * 0.7, tx_ / ln * 0.7
+        sx, sy = -ty_ / ln * 0.6, tx_ / ln * 0.6
         if i:
             dist += math.dist(path[i - 1], (x, y))
         fade = 1.0 - ramp(i, 18.0, 27.0)
-        zl, zr_ = (z_pool - 0.03, z_pool - 0.03) if i == 0 else (surf.z(x - sx, y - sy) + 0.4, surf.z(x + sx, y + sy) + 0.4)
+        zl, zr_ = (z_pool - 0.03, z_pool - 0.03) if i == 0 else (surf.z(x - sx, y - sy) + 0.35, surf.z(x + sx, y + sy) + 0.35)
         srows.append((dist, [m.v((x - sx, y - sy, zl), (1.0, 1.0, 1.0, fade)), m.v((x + sx, y + sy, zr_), (1.0, 1.0, 1.0, fade))]))
-        banks.append([m.v((x - sx * 2.0, y - sy * 2.0, surf.z(x - sx * 2.0, y - sy * 2.0) + 0.05), (0.9, 0.86, 0.8, 1.0)),
-                      m.v((x + sx * 2.0, y + sy * 2.0, surf.z(x + sx * 2.0, y + sy * 2.0) + 0.05), (0.9, 0.86, 0.8, 1.0))])
+        bk = 3.2                                                 # the banks' outer edge, 1.9 m from the stream's line
+        banks.append([m.v((x - sx * bk, y - sy * bk, surf.z(x - sx * bk, y - sy * bk) + 0.05), (0.9, 0.86, 0.8, 1.0)),
+                      m.v((x + sx * bk, y + sy * bk, surf.z(x + sx * bk, y + sy * bk) + 0.05), (0.9, 0.86, 0.8, 1.0))])
     for a, r in srows:
         along[r[0]], along[r[1]] = (a, 0.0), (a, 1.0)
     for (a0, r0), (a1, r1) in zip(srows, srows[1:]):
         m.quad(r0[0], r0[1], r1[1], r1[0], UP, "fall", "resort")
-    _fall_uv(m, uv, f3, along, 1.4)
+    _fall_uv(m, uv, f3, along, 1.2)
     for i in range(len(srows) - 1):
         for c, sg in ((0, -1.0), (1, 1.0)):
             m.quad(srows[i][1][c], srows[i + 1][1][c], banks[i + 1][c], banks[i][c], (0.0, 0.0, 1.0), "crag", "resort")
