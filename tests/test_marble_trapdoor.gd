@@ -16,6 +16,8 @@ const STATIC_COLLIDER_MASK: int = 1
 const SETTLE_TICKS: int = 10
 ## Rattle 0.3 + swing 0.35 + a 1.4 m fall, with room to spare.
 const DROP_TICKS: int = 90
+## Under a placed door the map's floor is the pit's, at least this far down.
+const PIT_DEPTH_MIN: float = 1.0
 
 ## On the closed door: over leaf B, clear of the seam and the frame.
 const ON_DOOR_LOCAL: Vector3 = Vector3(0.6, 0.05, 0.6)
@@ -124,6 +126,36 @@ func test_the_lever_fires_from_the_guards_shot() -> void:
 	assert_true(_door.is_open(), "the hit threw the lever and the door is going")
 	remove_child(rifle)
 	rifle.free()
+
+
+## Every trapdoor in the scene stands over a hole the map cut for it: a ray down
+## its centre, past its own leaves, meets the pit floor 1.4 m down, not the deck.
+## A door off the bearings in marble_build.TRAPDOOR_BEARINGS fails here.
+func test_every_trapdoor_sits_over_a_cut_hole() -> void:
+	var doors: Array[TrapDoor] = []
+	for door: TrapDoor in TrapDoor.live:
+		if is_instance_valid(door) and _marble.is_ancestor_of(door):
+			doors.append(door)
+	assert_gt(float(doors.size()), 0.0, "the scene places at least one trapdoor")
+	var space: PhysicsDirectSpaceState3D = _marble.get_world_3d().direct_space_state
+	for door: TrapDoor in doors:
+		var exclude: Array[RID] = []
+		for child: Node in door.get_children():
+			var leaf: CollisionObject3D = child as CollisionObject3D
+			if leaf != null:
+				exclude.append(leaf.get_rid())
+		for probe: Vector3 in [Vector3(0.0, 0.0, 0.0), Vector3(1.5, 0.0, 0.4), Vector3(-1.5, 0.0, -0.4)]:
+			var top: Vector3 = door.global_transform * (probe + Vector3.UP * 0.5)
+			var query: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(
+				top, top + Vector3.DOWN * 3.0, STATIC_COLLIDER_MASK,
+			)
+			query.exclude = exclude
+			var hit: Dictionary = space.intersect_ray(query)
+			var floor_y: float = (hit.get("position", top) as Vector3).y
+			assert_lt(
+				floor_y, door.global_position.y - PIT_DEPTH_MIN,
+				"%s at %s: the map is cut under it (hit y %.2f)" % [door.name, probe, floor_y],
+			)
 
 
 # --- The body -------------------------------------------------------------------

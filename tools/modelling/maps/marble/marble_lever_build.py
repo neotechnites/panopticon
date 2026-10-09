@@ -50,17 +50,18 @@ POST_HW = 0.20              # 0.40 m square shaft
 POST_H = 0.90               # the shaft's top: the cap's foot
 CAP_HW = 0.26               # the cap, proud of the shaft
 PIVOT_Z = 1.00              # the cap's top, and the handle's pivot
-BOSS = (0.09, 0.07, 0.07)   # pivot boss half sizes (x along the axle, y, z)
-BAR_HW = 0.03               # the bar: 0.06 m square ...
-BAR_L = 0.80                # ... this long from the pivot
-KNOB_HW = 0.055             # the grip knob at its head
-KNOB_H = 0.10
+BOSS = (0.12, 0.09, 0.09)   # pivot boss half sizes (x along the axle, y, z)
+BAR_HW = 0.045              # the bar: 0.09 m square ...
+BAR_L = 0.95                # ... this long from the pivot
+KNOB_HW = 0.08             # the grip knob at its head
+KNOB_H = 0.14
 
+POST_TINT = (1.0, 0.9, 0.78)  # warmed: a post this small by the lip read blue-grey against the ashlar
 UP, DOWN = mb.UP, mb.DOWN
 
 SHEETS = {
-    "marble": mb.ashlar_sheet("marble", 2.991, None, mode="box", phase=(0.0, 0.0)),
-    "plinth": mb.ashlar_sheet("plinth", 2.991, mb.TINT_PLINTH, mode="box", phase=(0.0, 0.0)),
+    "marble": mb.ashlar_sheet("marble", 2.991, POST_TINT, mode="box", phase=(0.0, 0.0)),
+    "plinth": mb.ashlar_sheet("plinth", 2.991, POST_TINT, mode="box", phase=(0.0, 0.0)),
     "shade": mb.shade_sheet("shade", mode="box"),
     "iron": mb.iron_sheet(),
 }

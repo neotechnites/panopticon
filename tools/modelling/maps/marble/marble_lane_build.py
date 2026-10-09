@@ -256,7 +256,8 @@ def _deck(m):
 
 def _pits(m):
     """Under each trapdoor cell a closed pit welded to the deck's own hole: floor PIT_Z, the
-    inner side stepped out to PIT_STEP_R under the cornice so nothing shows below it."""
+    inner side stepped out to PIT_STEP_R under the cornice so nothing shows below it. Near-black
+    inside, the cells' back-wall tone, so the open pit reads as a drop."""
     ang = mb.lane_angles()
     n = len(ang)
     top, z0, zl = mb.DECK_Z, mb.PIT_Z, mb.PIT_LEDGE_Z
@@ -270,18 +271,18 @@ def _pits(m):
         def P(r, a, z):
             return m.v((r * math.cos(a), r * math.sin(a), z))
 
-        m.quad(P(r0, a0, top), P(r0, a1, top), P(r0, a1, zl), P(r0, a0, zl), er, "marble2")
-        m.quad(P(r0, a0, zl), P(r0, a1, zl), P(rs, a1, zl), P(rs, a0, zl), UP, "marble2")
-        m.quad(P(rs, a0, zl), P(rs, a1, zl), P(rs, a1, z0), P(rs, a0, z0), er, "marble2")
-        m.quad(P(r2, a0, top), P(r2, a1, top), P(r2, a1, z0), P(r2, a0, z0), inward, "marble2")
-        m.quad(P(rs, a0, z0), P(rs, a1, z0), P(r1, a1, z0), P(r1, a0, z0), UP, "field")
-        m.quad(P(r1, a0, z0), P(r1, a1, z0), P(r2, a1, z0), P(r2, a0, z0), UP, "field")
+        m.quad(P(r0, a0, top), P(r0, a1, top), P(r0, a1, zl), P(r0, a0, zl), er, "cellin")
+        m.quad(P(r0, a0, zl), P(r0, a1, zl), P(rs, a1, zl), P(rs, a0, zl), UP, "cellin")
+        m.quad(P(rs, a0, zl), P(rs, a1, zl), P(rs, a1, z0), P(rs, a0, z0), er, "cellin")
+        m.quad(P(r2, a0, top), P(r2, a1, top), P(r2, a1, z0), P(r2, a0, z0), inward, "cellin")
+        m.quad(P(rs, a0, z0), P(rs, a1, z0), P(r1, a1, z0), P(r1, a0, z0), UP, "cellin")
+        m.quad(P(r1, a0, z0), P(r1, a1, z0), P(r2, a1, z0), P(r2, a0, z0), UP, "cellin")
         for a, want in ((a0, _et(a0)), (a1, tuple(-c for c in _et(a1)))):
-            m.tri(P(r0, a, top), P(r0, a, zl), P(rs, a, zl), want, "marble2")
-            m.tri(P(r0, a, top), P(rs, a, zl), P(r1, a, top), want, "marble2")
-            m.tri(P(r1, a, top), P(rs, a, zl), P(rs, a, z0), want, "marble2")
-            m.tri(P(r1, a, top), P(rs, a, z0), P(r1, a, z0), want, "marble2")
-            m.quad(P(r1, a, top), P(r1, a, z0), P(r2, a, z0), P(r2, a, top), want, "marble2")
+            m.tri(P(r0, a, top), P(r0, a, zl), P(rs, a, zl), want, "cellin")
+            m.tri(P(r0, a, top), P(rs, a, zl), P(r1, a, top), want, "cellin")
+            m.tri(P(r1, a, top), P(rs, a, zl), P(rs, a, z0), want, "cellin")
+            m.tri(P(r1, a, top), P(rs, a, z0), P(r1, a, z0), want, "cellin")
+            m.quad(P(r1, a, top), P(r1, a, z0), P(r2, a, z0), P(r2, a, top), want, "cellin")
 
 
 def _stitch(m, a, b, want, zone):

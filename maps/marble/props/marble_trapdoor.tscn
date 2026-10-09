@@ -6,13 +6,13 @@
 [ext_resource type="Script" path="res://scripts/match/trap_volume.gd" id="4_trap_volume"]
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_handle"]
-size = Vector3(0.3, 0.95, 0.3)
+size = Vector3(0.4, 1.2, 0.4)
 
 [sub_resource type="SphereShape3D" id="SphereShape3D_reach"]
 radius = 1.8
 
 [node name="MarbleTrapdoor" type="Node3D"]
-editor_description = "Lever and trapdoor. Origin is the deck at r 49.4 on the hole's centre bearing (+X out, +Z the way the lap runs); the hole is cut into marble.glb at marble_build.TRAPDOOR_B, so place this only on one of those bearings. Shove beside the lever, or shoot its handle: 0.3 s rattle, both leaves drop into the spiked pit, open 4 s, close, re-arm 10 s after the pull. Move the lever with lever_offset / lever_yaw_degrees."
+editor_description = "Lever and trapdoor. Origin is the deck at r 49.4 on the hole's centre bearing (+X out, +Z the way the lap runs); the hole is cut into marble.glb from where these stand: place it (parent at identity), run python3 tools/modelling/maps/marble/marble_build.py --sync-trapdoors (it snaps you to a lane cell), then tools/modelling/model build marble --pc. Shove beside the lever, or shoot its handle: 0.3 s rattle, both leaves drop into the spiked pit, open 4 s, close, re-arm 10 s after the pull. Move the lever with lever_offset / lever_yaw_degrees."
 script = ExtResource("1_trap_door")
 
 [node name="Model" parent="." instance=ExtResource("2_trapdoor_model")]
@@ -35,7 +35,7 @@ transform = Transform3D(0.994094, 0, 0.108514, 0, 1, 0, -0.108514, 0, 0.994094, 
 
 [node name="HandleHitbox" type="StaticBody3D" parent="Lever"]
 editor_description = "What the rifle hits: re-parented under the handle on ready, so this transform is in the handle's frame (pivot at its foot, bar up +Y). Layer 18 only, nothing walks into it."
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.45, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.6, 0)
 collision_layer = 131072
 collision_mask = 0
 

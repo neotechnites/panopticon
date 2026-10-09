@@ -179,9 +179,10 @@ LANE_R = 52.0
 BARS_B = 353.0
 
 # ---- the trapdoor pits ----------------------------------------------------------
-# Game bearings of the trapdoors: each a lane cell's centre, the cell's inner two paving
-# bands (DECK_RS[0]..[2]) opened over a shallow pit the marble_trapdoor prop's leaves drop into.
-TRAPDOOR_B = (49.21875,)
+# Game bearings of the trapdoors: each a lane cell's centre (2.8125 * (k + 0.5)), the cell's inner
+# two paving bands (DECK_RS[0]..[2]) cut over a pit. WRITTEN FROM THE SCENE: drag marble_trapdoor.tscn
+# instances in maps/marble/marble.tscn, run `python3 marble_build.py --sync-trapdoors`, rebuild marble.
+TRAPDOOR_BEARINGS = (49.21875,)
 PIT_Z = 21.6                # the pit floor: over the lower tier's cell vaults (crown 21.5)
 PIT_LEDGE_Z = 22.05         # the inner side steps out under the cornice (bottom 22.0) ...
 PIT_STEP_R = 47.3           # ... to here, behind the inner tiers' face (47.15)
@@ -563,10 +564,10 @@ def lane_angles():
 
 
 def trapdoor_cells():
-    """Lane cell indices (between stations i and i+1, Blender angles) opened for TRAPDOOR_B."""
+    """Lane cell indices (between stations i and i+1, Blender angles) opened for TRAPDOOR_BEARINGS."""
     step = 360.0 / (NSIDE * DECK_SUB)
     out = set()
-    for b in TRAPDOOR_B:
+    for b in TRAPDOOR_BEARINGS:
         k = ((-b) % 360.0) / step - 0.5
         assert abs(k - round(k)) < 1e-9, "trapdoor bearing %r is not a lane cell centre" % b
         out.add(int(round(k)) % (NSIDE * DECK_SUB))
@@ -1246,7 +1247,46 @@ import marble_lane_build as ml  # noqa: E402
 import marble_wall_build as mw  # noqa: E402
 
 
+TRAPDOOR_SCENE = "maps/marble/marble.tscn"
+TRAPDOOR_PROP = "maps/marble/props/marble_trapdoor.tscn"
+
+
+def sync_trapdoors():
+    """--sync-trapdoors: TRAPDOOR_BEARINGS from the scene's trapdoor instances, each snapped to its
+    lane cell centre; prints the snapped transform for any instance that is off a cell."""
+    import re
+    repo = os.path.abspath(os.path.join(HERE, "..", "..", "..", ".."))
+    text = open(os.path.join(repo, TRAPDOOR_SCENE)).read()
+    ids = re.findall(r'\[ext_resource [^\]]*path="res://%s" id="([^"]+)"' % re.escape(TRAPDOOR_PROP), text)
+    step = 360.0 / (NSIDE * DECK_SUB)
+    found, ok = [], True
+    for block in re.split(r"\n(?=\[)", text):
+        if not ids or not any('instance=ExtResource("%s")' % i in block for i in ids):
+            continue
+        name = re.search(r'name="([^"]+)"', block).group(1)
+        t = re.search(r"transform = Transform3D\(([^)]*)\)", block)
+        v = [float(x) for x in t.group(1).split(",")] if t else [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0]
+        b = math.degrees(math.atan2(v[11], v[9])) % 360.0
+        snap = (math.floor(b / step) + 0.5) * step
+        found.append(round(snap, 6))
+        if abs(b - snap) > 0.01 or abs(math.hypot(v[9], v[11]) - DECK_RS[1]) > 0.01:
+            ok = False
+            a = math.radians(snap)
+            c, s_ = math.cos(a), math.sin(a)
+            print("%s is off its cell: set transform = Transform3D(%.6f, 0, %.6f, 0, 1, 0, %.6f, 0, %.6f, %.4f, %.1f, %.4f)"
+                  % (name, c, -s_, s_, c, DECK_RS[1] * c, DECK_Z, DECK_RS[1] * s_))
+        print("%s -> bearing %.5f" % (name, snap))
+    found = tuple(sorted(set(found)))
+    src = open(__file__).read()
+    src = re.sub(r"^TRAPDOOR_BEARINGS = .*$", "TRAPDOOR_BEARINGS = %r" % (found,), src, count=1, flags=re.M)
+    open(__file__, "w").write(src)
+    print("TRAPDOOR_BEARINGS = %r%s" % (found, "" if ok else "  (fix the transforms above)"))
+    return ok
+
+
 if __name__ == "__main__":
+    if "--sync-trapdoors" in sys.argv:
+        sys.exit(0 if sync_trapdoors() else 1)
     if bpy is None or "--check" in sys.argv:
         sys.exit(0 if _check() else 1)
     else:

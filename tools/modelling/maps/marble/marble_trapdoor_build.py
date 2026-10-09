@@ -1,6 +1,6 @@
 """
 marble_trapdoor -- the walkway's trapdoor: an iron frame lining one lane cell's
-hole (marble_build.TRAPDOOR_B, r 46.8..52.0, one 2.8125 deg station), two stone
+hole (marble_build.TRAPDOOR_BEARINGS, r 46.8..52.0, one 2.8125 deg station), two stone
 leaves that drop on iron hinges, and iron spikes on the pit floor 1.4 m down.
 
 ORIGIN: the deck point at r PIVOT_R on the hole's centre bearing, z 0 the deck.
@@ -58,28 +58,30 @@ PIVOT_R = mb.DECK_RS[1]                 # 49.4: the prop's origin radius
 R_IN, R_OUT = mb.DECK_RS[0], mb.DECK_RS[2]   # 46.8 .. 52.0: the hole the lane build cut
 DELTA = math.radians(180.0 / (mb.NSIDE * mb.DECK_SUB))   # half a lane station: 1.40625 deg
 PIT_D = mb.DECK_Z - mb.PIT_Z            # 1.4: the pit floor under the deck
-FRAME_W = 0.10                          # the iron rim, inside the hole
-FRAME_D = 0.30                          # ... this deep
+FRAME_W = 0.28                          # the iron rim, inside the hole: reads from 15 m
+FRAME_D = 0.35                          # ... this deep
 FRAME_SKIN = 0.002                      # its outer faces held off the pit's own walls
 LEAF_T = 0.15                           # the stone leaves' thickness
 GAP = 0.005                             # each leaf this far off the meeting line (1 cm between)
-STRAP_AT = (0.18, 0.82)                 # iron straps across each leaf, as fractions along the hinge
-STRAP_W = 0.12
-KNUCKLE_R = 0.04                        # hinge knuckles: proud of the frame by their radius
-KNUCKLE_L = 0.30
-KNUCKLE_AT = (0.15, 0.5, 0.85)
+STRAP_AT = (0.2, 0.8)                   # two heavy strap hinges across each leaf, fractions along the hinge
+STRAP_W = 0.24
+SEAM_W = 0.07                           # an iron lip on each free edge: the centre seam reads dark
+KNUCKLE_R = 0.07                        # hinge knuckles: proud of the frame by their radius
+KNUCKLE_L = 0.40
+KNUCKLE_AT = STRAP_AT                   # one knuckle at each strap
 KNUCKLE_SIDES = 6
-SPIKE_ROWS = (-0.25, 0.25)              # Blender y of the spike rows: clear of the hanging leaves
-SPIKE_X = (-1.7, -1.0, -0.3, 0.4, 1.1, 1.8)
+SPIKE_ROWS = (-0.5, -0.17, 0.17, 0.5)   # Blender y of the spike rows: clear of the hanging leaves
+SPIKE_X = tuple(-1.9 + 0.48 * k for k in range(10))
 SPIKE_HW = 0.09
-SPIKE_H = 0.75                          # tips at -1.4 + 0.75 = -0.65 under the deck
+SPIKE_H = (0.85, 1.1)                   # pale stone, tips -0.55 .. -0.3: under the closed leaves (-0.15)
+LEAF_TINT = (0.62, 0.58, 0.53)          # the leaves' flags darker and worn against the deck's
 SPIKE_PLATE = 0.04
 
 UP, DOWN = mb.UP, mb.DOWN
 
 SHEETS = {
-    "floor": mb.tile("floor", "marble_floor", "box", 64, 64, mpt=2.7 / 64.0),   # the paving's flags
-    "shade": mb.shade_sheet("shade", mode="box"),
+    "floor": mb.tile("floor", "marble_floor", "box", 64, 64, mpt=2.7 / 64.0, tint=LEAF_TINT),
+    "spike": mb.stone("spike", mode="box", mpt=tx.MPT),
     "iron": mb.iron_sheet(),
 }
 
@@ -270,20 +272,23 @@ def leaf(leafname):
     top, bot = LEAF_T, 0.0
     H = [hinge_at(t) for t in cuts]
     F = [free_at(t) for t in cuts]
+    S = [(f[0], f[1] + SEAM_W) for f in F]          # the seam lip's inner line (free edge is local -y)
     for k in range(len(cuts) - 1):
         zone_top = "iron" if k % 2 == 1 else "floor"
-        zone_side = "iron" if k % 2 == 1 else "shade"
         a, b, c, d = H[k], H[k + 1], F[k + 1], F[k]
+        sb, sa = S[k + 1], S[k]
         T = [m.v((p[0], p[1], top)) for p in (a, b, c, d)]
+        Ts = [m.v((p[0], p[1], top)) for p in (sb, sa)]
         B = [m.v((p[0], p[1], bot)) for p in (a, b, c, d)]
-        m.quad(T[0], T[1], T[2], T[3], UP, zone_top)
-        m.quad(B[0], B[1], B[2], B[3], DOWN, "shade")
-        m.quad(T[0], T[1], B[1], B[0], (0.0, 1.0, 0.0), zone_side)          # the hinge face
+        m.quad(T[0], T[1], Ts[0], Ts[1], UP, zone_top)
+        m.quad(Ts[1], Ts[0], T[2], T[3], UP, "iron")
+        m.quad(B[0], B[1], B[2], B[3], DOWN, "iron")
+        m.quad(T[0], T[1], B[1], B[0], (0.0, 1.0, 0.0), "iron")          # the hinge face
         e = (c[0] - d[0], c[1] - d[1])
-        m.quad(T[3], T[2], B[2], B[3], (e[1], -e[0], 0.0), zone_side)       # the free edge
-    for (a, d, out) in ((H[0], F[0], (-1.0, 0.0, 0.0)), (H[-1], F[-1], (1.0, 0.0, 0.0))):
-        m.quad(m.v((a[0], a[1], top)), m.v((d[0], d[1], top)), m.v((d[0], d[1], bot)),
-               m.v((a[0], a[1], bot)), out, "shade")
+        m.quad(T[3], T[2], B[2], B[3], (e[1], -e[0], 0.0), "iron")       # the free edge
+    for (a, sa, d, out) in ((H[0], S[0], F[0], (-1.0, 0.0, 0.0)), (H[-1], S[-1], F[-1], (1.0, 0.0, 0.0))):
+        m.poly([m.v((d[0], d[1], bot)), m.v((a[0], a[1], bot)), m.v((a[0], a[1], top)),
+                m.v((sa[0], sa[1], top)), m.v((d[0], d[1], top))], out, "iron")
     width = max(abs(F[0][1]), abs(F[-1][1]))
     return m, origin, rot, width
 
@@ -293,19 +298,22 @@ def leaf(leafname):
 # =============================================================================
 
 def spikes():
+    """Pale stone spikes in rows down the pit's middle, heights stepped by a fixed stream."""
     m = mb._Mesh()
+    r = mb._Rng(7711)
     z0 = -PIT_D
     for y in SPIKE_ROWS:
         for x in SPIKE_X:
+            h = SPIKE_H[0] + (SPIKE_H[1] - SPIKE_H[0]) * r.f()
             b = [m.v((x + sx * SPIKE_HW, y + sy * SPIKE_HW, z0 + 0.001))
                  for (sx, sy) in ((-1, -1), (1, -1), (1, 1), (-1, 1))]
-            apex = m.v((x, y, z0 + SPIKE_H))
-            m.quad(b[0], b[1], b[2], b[3], DOWN, "iron")
+            apex = m.v((x, y, z0 + h))
+            m.quad(b[0], b[1], b[2], b[3], DOWN, "spike")
             for k in range(4):
                 p, q = b[k], b[(k + 1) % 4]
                 mx = 0.5 * (m.verts[p][0] + m.verts[q][0]) - x
                 my = 0.5 * (m.verts[p][1] + m.verts[q][1]) - y
-                m.tri(p, q, apex, (mx, my, 0.3), "iron")
+                m.tri(p, q, apex, (mx, my, 0.3), "spike")
     return m
 
 
