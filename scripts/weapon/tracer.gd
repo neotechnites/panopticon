@@ -206,6 +206,10 @@ static func build_material(color: Color) -> ShaderMaterial:
 	var material: ShaderMaterial = ShaderMaterial.new()
 	material.shader = STREAK_SHADER
 	material.set_shader_parameter("albedo", color)
+	# Drawn after every transparent surface (the beach water is 1, its waves 2,
+	# the underwater spheres 2-6): a priority-0 streak over water was painted over
+	# by the water, which also reads a screen copy the streak is not in.
+	material.render_priority = 10
 	return material
 
 
