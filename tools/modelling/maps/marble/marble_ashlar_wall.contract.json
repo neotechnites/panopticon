@@ -1,0 +1,10 @@
+{
+  "_comment": "marble_ashlar_wall: one placeable straight wall of the rotunda's ashlar, 4.0 (X) x 2.0 (Y) x 0.5 (Z) m, origin the base centre. One closed mesh: the brick in 1 m courses to 1.80, a cornice cap 0.08 proud with a wash to 2.00 in the plinth tint. MarbleAshlarWallCollision: one -boxcol over the body, 4.0 x 2.0 x 0.5.",
+  "node_paths": [
+    "MarbleAshlarWall",
+    "MarbleAshlarWallCollision",
+    "MarbleAshlarWallCollision/MarbleAshlarWallCollisionShape"
+  ],
+  "surfaces": 3,
+  "max_tris": 60
+}
