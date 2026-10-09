@@ -152,7 +152,7 @@ PAL_JUNGLE = ((0.17, 0.4, 0.15), (0.26, 0.55, 0.2), (0.36, 0.68, 0.24), (0.5, 0.
 PAL_HAZE = ((0.42, 0.62, 0.48), (0.55, 0.74, 0.74))                                  # two steps of distance haze
 PAL_ROCK = ((0.62, 0.56, 0.48), (0.8, 0.76, 0.69), (0.97, 0.95, 0.9))               # foot, flank, crown
 PAL_PEAK = ((0.8, 0.52, 0.18), (0.92, 0.67, 0.3))                                    # (unused: the crag tile carries its ochre)
-PAL_CRAG = ((0.34, 0.3, 0.26), (0.58, 0.52, 0.44))                                   # the crag's shade and lit faces (x forest_rock): Wuhu's tan
+PAL_CRAG = ((0.38, 0.29, 0.19), (0.66, 0.52, 0.34))                                  # the crag's shade and lit faces (x forest_rock): Wuhu's tan, warm against the fog
 PAL_LAWN = ((0.86, 0.9, 0.72), (1.0, 1.0, 0.92), (1.12, 1.14, 0.98))                   # open grass x forest_grass: fold, mid, lit
 PAL_FROND = ((0.82, 0.92, 0.7), (1.0, 1.0, 1.0))                                     # under the crown, lit
 
@@ -635,7 +635,7 @@ class Sculpt(object):
                 p = pol(b, r, island_z(b, r))
                 if p[2] - WATER_Z > ROCK_LINE - 30.0:                 # the crag's faces: jittered, so cliffs facet
                     jx, jy = h2(j, int(r), SEED + 77) - 0.5, h2(j, int(r), SEED + 78) - 0.5
-                    p = (p[0] + 3.0 * jx, p[1] + 3.0 * jy, p[2] + 2.0 * (h2(j, int(r), SEED + 79) - 0.5))
+                    p = (p[0] + 9.0 * jx, p[1] + 9.0 * jy, p[2] + 5.0 * (h2(j, int(r), SEED + 79) - 0.5))
                 ring.append(self.v(p, land_col(p), "island"))
             self._stitch(prev, ring)
             prev = ring
