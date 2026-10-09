@@ -483,37 +483,51 @@ def _jb(b, k, amp):
 
 
 def land_tone(x, y, alt, steep, aspect, d):
-    """Flat palette steps for the island's ground: sand on the beaches themselves, the crag's rock above the tree line
-    and on cliffs, open grass in the forest map's greens everywhere else (lit, mid, a step darker in the folds)."""
-    inside, ds, _dr, _dc = plan.coast_fields(x, y)
-    if inside < 0.0:
+    """(colour, zone) of the island's ground: sand on the beaches themselves, else "terrain" (grass and the crag's
+    rock in one blended material, beach_terrain.gdshader) with the colour lerped grass->rock by the rock weight."""
+    inside, ds, _dr, dc = plan.coast_fields(x, y)
+    if inside < 0.0 and alt < 0.9:
         return PAL_SAND[1], "sand"
     if alt < 1.8 and inside < 14.0 and d > 12.0 and steep < 0.45:
         return PAL_SAND[0], "sand"
-    if is_rock(x, y, alt, steep, _dc):                                       # the crag, its ribs, cliffs, sea cliffs
-        c = PAL_CRAG[1] if aspect_lit(aspect) else PAL_CRAG[0]
-        v = 0.86 + 0.28 * h2(int(x * 0.7), int(y * 0.7), SEED + 91)
-        return (c[0] * v, c[1] * v, c[2] * v), "crag"
+    w = rock_w(x, y, alt, steep, dc, d)
+    cr = PAL_CRAG[1] if aspect_lit(aspect) else PAL_CRAG[0]
+    v = 0.86 + 0.28 * h2(int(x * 0.7), int(y * 0.7), SEED + 91)
+    cr = (cr[0] * v, cr[1] * v, cr[2] * v)
     if path_dist(x, y) < 1.7:                                               # worn paths up to the hotel and the village
-        return PAL_SAND[2], "sand"
-    e = 40.0
-    rv = plan.land_h(x, y) - 0.25 * (plan.land_h(x + e, y) + plan.land_h(x - e, y) + plan.land_h(x, y + e) + plan.land_h(x, y - e))
-    k = 2 if (aspect_lit(aspect) and steep > 0.12) else 1
-    if rv < -5.0 and steep > 0.1:
-        k = 0
-    if k == 1 and fbm(x / 55.0, y / 55.0, SEED + 38, 2) > 0.42:
-        k = 3                                                               # dry meadow patches
-    c = PAL_LAWN[k]
-    hx, hy = plan.HOTEL["x"], plan.HOTEL["y"]
-    if math.hypot(x - hx - 6.0, y - hy) < 64.0:
-        c = PAL_LAWN[2]                                                     # the hotel's lawn
-    px, py, _hh, _reach = plan.PEAK
-    if ROCK_LINE - 28.0 < alt < ROCK_LINE and math.hypot(x - px, y - py) < 330.0:
-        c = (c[0] * SCREE[0], c[1] * SCREE[1], c[2] * SCREE[2])            # scree under the crag
-    return c, "grass"
+        g = PAL_SAND[2]
+    else:
+        e = 40.0
+        rv = plan.land_h(x, y) - 0.25 * (plan.land_h(x + e, y) + plan.land_h(x - e, y) + plan.land_h(x, y + e) + plan.land_h(x, y - e))
+        k = 2 if (aspect_lit(aspect) and steep > 0.12) else 1
+        if rv < -5.0 and steep > 0.1:
+            k = 0
+        if k == 1 and fbm(x / 55.0, y / 55.0, SEED + 38, 2) > 0.42:
+            k = 3                                                           # dry meadow patches
+        g = PAL_LAWN[k]
+        hx, hy = plan.HOTEL["x"], plan.HOTEL["y"]
+        if math.hypot(x - hx - 16.0, y - hy) < 60.0:
+            g = PAL_LAWN[2]                                                 # the hotel's lawn
+        px, py, _hh, _reach = plan.PEAK
+        if w > 0.2 and math.hypot(x - px, y - py) < 330.0:
+            g = (g[0] * SCREE[0], g[1] * SCREE[1], g[2] * SCREE[2])        # scree under the crag
+    return lerp3(g, cr, w), "terrain"
 
 
-PATHS = (((-236.0, -92.0), (-170.0, -52.0), (-120.0, -22.0), (-86.0, 8.0)),      # the hotel's front down to the coast path
+def rock_w(x, y, alt, steep, dc, d):
+    """The vertex rock weight 0..1: soft over 50 m round the wandering rock line, cliffs over 45 deg high up, sea
+    cliffs; never within 30 m of the wall nor on a building bench and its cut banks."""
+    if d < 30.0:
+        return 0.0
+    w = smooth((alt - rock_line(x, y)) / 50.0 + 0.5)
+    w = max(w, ramp(steep, 0.7, 0.95) * ramp(alt, 20.0, 60.0))
+    w = max(w, ramp(dc, 50.0, 20.0) * ramp(alt, 2.0, 8.0))
+    for px, py, _ri, r_out, _pz, _gx, _gy in plan.pads():
+        w *= ramp(math.hypot(x - px, y - py), r_out, r_out + 25.0)
+    return w
+
+
+PATHS = (((-236.0, -92.0), (-170.0, -52.0), (-120.0, -22.0), (-86.0, 8.0)),      # the hotel's front down to the coast
          ((-238.0, 104.0), (-170.0, 72.0), (-120.0, 42.0), (-86.0, 22.0)))      # the village square down to it
 
 
@@ -532,10 +546,6 @@ def path_dist(x, y):
 def rock_line(x, y):
     """The rock line wanders +-22 m so the rock's edge is not a contour, and the peak's ribs carry rock lower."""
     return ROCK_LINE + 22.0 * fbm(x / 90.0, y / 90.0, SEED + 93, 2) - 80.0 * max(plan.crest(x, y) - 0.22, 0.0)
-
-
-def is_rock(x, y, alt, steep, dc):
-    return alt > rock_line(x, y) or (steep > 0.85 and alt > 30.0) or (dc < 40.0 and alt > 4.0)
 
 
 def aspect_lit(aspect):
@@ -886,7 +896,7 @@ def boulder(m, cx, cy, size, seed, sink=0.3, squash=0.7, gz=None, nseg=6, lats=(
     return (cx, cy, size)
 
 
-def build_rocks():
+def build_rocks(surf=None):
     m = Mesh()
     placed = []
     rr = Rng(SEED + 300)
@@ -943,7 +953,8 @@ def build_rocks():
 
     def crag_boulder(x, y, size, seed, h):
         first = len(m.verts)
-        boulder(m, x, y, size, seed, sink=0.45, squash=0.55, gz=WATER_Z + h, nseg=6, lats=(-0.6, 0.15, 0.65), zone="crag")
+        gz = surf.z(x, y) if surf is not None else WATER_Z + h      # on the sculpt's own triangles, a third sunk
+        boulder(m, x, y, size, seed, sink=0.34, squash=0.55, gz=gz, nseg=6, lats=(-0.6, 0.15, 0.65), zone="crag")
         lo = min(m.verts[i][2] for i in range(first, len(m.verts)))
         hi = max(m.verts[i][2] for i in range(first, len(m.verts)))
         for i in range(first, len(m.verts)):
@@ -1166,8 +1177,9 @@ def build_palms():
             h = rr.u(*PALM_H)
             lean_b = rr.u(0.0, 360.0)
             lean = rr.u(4.0, 20.0)
-        palm(m, (x, y, z), h, lean_b, lean, SEED + 600 + k, uv, far=kind == "slope")
+        palm(m, (x, y, z), h, lean_b, lean, SEED + 600 + k, uv)
     INFO["palms"] = len(spots)
+    INFO["palm_xy"] = [pol(b, r, 0.0)[:2] for b, r, _k, _c in spots]
     return m, uv, trunks
 
 
@@ -1662,8 +1674,13 @@ def _snap(z):
     return round(z * 2.0) / 2.0
 
 
+_HOUSES = []
+
+
 def _houses():
-    """The village: boxes clustered on the north spur's south flank, each turned along the contour."""
+    """The village: boxes clustered on the north spur's south flank, each turned along the contour (built once)."""
+    if _HOUSES:
+        return _HOUSES
     rr = Rng(SEED + 1500)
     vx, vy, rx, ry = plan.VILLAGE["x"], plan.VILLAGE["y"], plan.VILLAGE["rx"], plan.VILLAGE["ry"]
     tx_, ty_ = plan.CLOCK_TOWER["x"], plan.CLOCK_TOWER["y"]
@@ -1674,24 +1691,21 @@ def _houses():
         x, y = vx + math.cos(a) * q * rx, vy + math.sin(a) * q * ry
         w, d = rr.u(6.0, 9.0), rr.u(5.0, 7.0)
         h = plan.land_h(x, y, terraces=False)
-        if not 26.0 < h < 70.0 or any(math.hypot(x - o[0], y - o[1]) < 9.0 for o in out):
+        if not 26.0 < h < 70.0 or any(math.hypot(x - o[0], y - o[1]) < 11.0 for o in out):
             continue
         if _road_dist(x, y) < 8.0 or math.hypot(x - tx_, y - ty_) < 10.0:
             continue
         _steep, aspect = slope_of(x, y)
         out.append((x, y, w, d, -aspect + 90.0 + rr.u(-12.0, 12.0), FLOOR * rr.i(1, 2), rr.i(0, len(HOUSE_COLS) - 1)))
-    return out
+    _HOUSES.extend(out)
+    return _HOUSES
 
 
 def resort_pads():
-    """(x, y, r_in, r_out, h over the sea) terraces cut for the hotel, the square and each house."""
+    """Two benches the hill is cut to: the hotel's (near level) and the village's (a gentle bench on the spur)."""
     hx, hy = plan.HOTEL["x"], plan.HOTEL["y"]
-    out = [(hx + 16.0, hy, 40.0, 70.0, _footprint_z(hx + 16.0, hy, 0.0, HOTEL_TERRACE[0], HOTEL_TERRACE[1])[0])]
-    tx_, ty_ = plan.CLOCK_TOWER["x"], plan.CLOCK_TOWER["y"]
-    out.append((tx_, ty_, 12.0, 22.0, _footprint_z(tx_, ty_, 0.0, 14.0, 14.0)[0]))
-    for x, y, w, d, yaw, _h, _c in _houses():
-        out.append((x, y, 0.9 * max(w, d) + 2.0, 0.9 * max(w, d) + 9.0, _footprint_z(x, y, yaw, w + 6.0, d + 6.0)[0]))
-    return out
+    vx, vy = plan.VILLAGE["x"], plan.VILLAGE["y"]
+    return [_bench(hx + 16.0, hy, 56.0, 96.0, 0.04), _bench(vx, vy, 78.0, 118.0, 0.16)]
 
 
 _ROAD_PTS = []
@@ -1732,7 +1746,10 @@ def on_landmark(x, y):
     """Inside a terrace or on the road: nothing else is planted there."""
     if _road_dist(x, y) < plan.ROAD_W + 5.0:
         return True
-    return any(math.hypot(x - px, y - py) < ro for px, py, _ri, ro, _pz in plan.pads())
+    hx, hy = plan.HOTEL["x"], plan.HOTEL["y"]
+    if math.hypot(x - hx - 16.0, y - hy) < 34.0:
+        return True
+    return any(math.hypot(x - h[0], y - h[1]) < 0.7 * max(h[2], h[3]) + 5.0 for h in _houses())
 
 
 class Surface(object):
@@ -1769,40 +1786,61 @@ PAVING = (0.86, 0.82, 0.72, 1.0)                       # the road: pale dust x t
 
 
 def _footprint_z(x, y, yaw, w, d):
-    """(top, low) of a terrace for a footprint: the highest and lowest terrain under it (metres over the sea)."""
+    """(top, low) of a terrace for a footprint, metres over the sea: the bench plane's highest and lowest points
+    under it, so uphill the ground meets the top and downhill a wall no taller than the plane's fall shows."""
     fwd, side = _frame_xy(yaw)
     zs = []
-    for sa in (-1.0, -0.5, 0.0, 0.5, 1.0):
-        for sd in (-1.0, -0.5, 0.0, 0.5, 1.0):
+    for sa in (-1.0, 0.0, 1.0):
+        for sd in (-1.0, 0.0, 1.0):
             px, py = x + side[0] * sa * w / 2.0 + fwd[0] * sd * d / 2.0, y + side[1] * sa * w / 2.0 + fwd[1] * sd * d / 2.0
-            zs.append(plan.land_h(px, py, terraces=False))
-    return _snap(max(zs)) + 0.2, min(zs) - 1.5
+            zs.append(plan.bench_h(px, py))
+    return max(zs) + 0.3, min(zs) - 2.0
+
+
+def _bench(cx, cy, r_in, r_out, max_grade):
+    """A plane through the hill at (cx, cy) with the hill's own fall capped at max_grade: what a bench is cut to."""
+    e = 20.0
+    z0 = plan.land_h(cx, cy, terraces=False)
+    gx = (plan.land_h(cx + e, cy, terraces=False) - plan.land_h(cx - e, cy, terraces=False)) / (2.0 * e)
+    gy = (plan.land_h(cx, cy + e, terraces=False) - plan.land_h(cx, cy - e, terraces=False)) / (2.0 * e)
+    g = math.hypot(gx, gy)
+    if g > max_grade:
+        gx, gy = gx * max_grade / g, gy * max_grade / g
+    return (cx, cy, r_in, r_out, z0, gx, gy)
 
 
 HOTEL_TERRACE = (50.0, 56.0)           # the hotel's platform: across (y), deep (x): the body, the pool and its grounds
 
 
+def _ashlar(m, f0):
+    """The faces added since f0 that were stone become ashlar (the retaining-wall tile)."""
+    for fi in range(f0, len(m.faces)):
+        if m.zones[fi] == "rock":
+            m.zones[fi] = "ashlar"
+
+
 def _buildings(m, uv):
-    """The hotel, the village and the clock tower at true player scale (beach_buildings.py), each on a flat terrace
-    with a stone retaining skirt downhill."""
-    has_terrace = hasattr(bb, "terrace")
+    """The hotel, the village and the clock tower at true player scale (beach_buildings.py), each on a small
+    terrace with an ashlar skirt, on the benches the hill is cut to."""
     hx, hy = plan.HOTEL["x"], plan.HOTEL["y"]
     tw, td = HOTEL_TERRACE
     top, low = _footprint_z(hx + 16.0, hy, 0.0, tw, td)
     z0 = top + WATER_Z
-    tris = 0
-    if has_terrace:
-        tris += bb.terrace(m, uv, hx + 16.0, hy, 0.0, tw, td, z0, low + WATER_Z)
+    f0 = len(m.faces)
+    tris = bb.terrace(m, uv, hx + 16.0, hy, 0.0, tw, td, z0, low + WATER_Z)
+    _ashlar(m, f0)
     tris += bb.hotel(m, uv, hx, hy, plan.HOTEL["yaw"], z0, plan.HOTEL["body"], plan.HOTEL["tower"])
     tx_, ty_ = plan.CLOCK_TOWER["x"], plan.CLOCK_TOWER["y"]
     top, low = _footprint_z(tx_, ty_, 0.0, 14.0, 14.0)
-    if has_terrace:
-        tris += bb.terrace(m, uv, tx_, ty_, 0.0, 14.0, 14.0, top + WATER_Z, low + WATER_Z)
+    f0 = len(m.faces)
+    tris += bb.terrace(m, uv, tx_, ty_, 0.0, 14.0, 14.0, top + WATER_Z, low + WATER_Z)
+    _ashlar(m, f0)
     tris += bb.clock_tower(m, uv, tx_, ty_, top + WATER_Z, plan.CLOCK_TOWER["w"], plan.CLOCK_TOWER["h"])
     for k, (x, y, w, d, yaw, _h, _c) in enumerate(_houses()):
         top, low = _footprint_z(x, y, yaw, w + 6.0, d + 6.0)
-        if has_terrace:
-            tris += bb.terrace(m, uv, x, y, yaw, w + 6.0, d + 6.0, top + WATER_Z, low + WATER_Z)
+        f0 = len(m.faces)
+        tris += bb.terrace(m, uv, x, y, yaw, w + 6.0, d + 6.0, top + WATER_Z, low + WATER_Z)
+        _ashlar(m, f0)
         tris += bb.house(m, uv, x, y, yaw, top + WATER_Z, SEED + 1900 + k)[2]
     INFO["building_tris"] = tris
 
@@ -1817,15 +1855,15 @@ def _wall_run(m, p0, p1, z0, z1, h=0.9, t=0.4):
          m.v((p1[0] + nx, p1[1] + ny, z1 + h), col), m.v((p0[0] + nx, p0[1] + ny, z0 + h), col)]
     b = [m.v((p0[0] - nx, p0[1] - ny, z0 - 0.4), col), m.v((p1[0] - nx, p1[1] - ny, z1 - 0.4), col),
          m.v((p1[0] - nx, p1[1] - ny, z1 + h), col), m.v((p0[0] - nx, p0[1] - ny, z0 + h), col)]
-    m.quad(a[0], a[1], a[2], a[3], (nx, ny, 0.0), "rock", "resort")
-    m.quad(b[0], b[1], b[2], b[3], (-nx, -ny, 0.0), "rock", "resort")
-    m.quad(a[3], a[2], b[2], b[3], UP, "rock", "resort")
+    m.quad(a[0], a[1], a[2], a[3], (nx, ny, 0.0), "ashlar", "resort")
+    m.quad(b[0], b[1], b[2], b[3], (-nx, -ny, 0.0), "ashlar", "resort")
+    m.quad(a[3], a[2], b[2], b[3], UP, "ashlar", "resort")
 
 
 def _walls(m, surf):
     """Low stone walls: round the hotel's pool terrace (a gap on the bay side for the path), round six houses."""
     hx, hy = plan.HOTEL["x"], plan.HOTEL["y"]
-    z = plan.pads()[0][4] + WATER_Z
+    z = _footprint_z(hx + 16.0, hy, 0.0, HOTEL_TERRACE[0], HOTEL_TERRACE[1])[0] + WATER_Z
     _, d, _h = plan.HOTEL["body"]
     runs = [((hx + d / 2.0, hy - 25.0), (hx + 35.0, hy - 25.0)), ((hx + 35.0, hy - 25.0), (hx + 35.0, hy - 4.0)),
             ((hx + 35.0, hy + 4.0), (hx + 35.0, hy + 25.0)), ((hx + 35.0, hy + 25.0), (hx + d / 2.0, hy + 25.0))]
@@ -1839,7 +1877,7 @@ def _walls(m, surf):
             if k == 0:
                 continue                                                  # the front stays open
             p0, p1 = pts[k], pts[(k + 1) % 4]
-            _wall_run(m, p0, p1, surf.z(*p0) + 0.1, surf.z(*p1) + 0.1, h=0.8, t=0.35)
+            _wall_run(m, p0, p1, plan.bench_h(*p0) + WATER_Z + 0.1, plan.bench_h(*p1) + WATER_Z + 0.1, h=0.8, t=0.35)
 
 
 def _frame_xy(yaw):
@@ -1915,11 +1953,15 @@ def _grove_spots(rr, n, inner, outer, b0, b1, surf, kind, spots, per=(3, 6), spr
         steep, _a = slope_of(cx, cy)
         if steep > 0.6 or any(math.hypot(cx - q[0], cy - q[1]) < 2.2 * spread for q in spots):
             continue
+        if any(math.hypot(cx - q[0], cy - q[1]) < spread + 9.0 for q in INFO.get("palm_xy", ())):
+            continue
         made += 1
         for k in range(rr.i(*per)):
             a, rad = rr.u(0.0, TWO_PI), rr.u(0.0, spread)
             x, y = cx + math.cos(a) * rad, cy + math.sin(a) * rad
             if plan.land_h(x, y) < 2.0 or on_landmark(x, y) or any(math.hypot(x - q[0], y - q[1]) < 4.0 for q in spots):
+                continue
+            if any(math.hypot(x - q[0], y - q[1]) < 8.0 for q in INFO.get("palm_xy", ())):
                 continue
             spots.append((x, y, surf.z(x, y), kind))
 
@@ -1986,6 +2028,24 @@ def build_resort(m):
     return r, ruv, surf
 
 
+def bake_rock_weight(m):
+    """UV2.y of every island vertex = its rock weight (beach_terrain.gdshader blends grass and rock by it)."""
+    seen = set()
+    for fi, f in enumerate(m.faces):
+        if m.chunks[fi] != "island":
+            continue
+        for vi in f:
+            if vi in seen:
+                continue
+            seen.add(vi)
+            p = m.verts[vi]
+            b, r = bearing_of(p), rad_of(p)
+            steep, _a = slope_of(p[0], p[1])
+            dc = plan.coast_fields(p[0], p[1])[3]
+            w = rock_w(p[0], p[1], p[2] - WATER_Z, steep, dc, r - top_r(b))
+            m.uv2[vi] = (m.uv2.get(vi, (0.0, 0.0))[0], w)
+
+
 def grass_uvs(m, uv):
     """World-XY projection for every grass face, turned by 0/90/180/270 deg per 25.6 m cell so the repeat breaks."""
     for fi, z in enumerate(m.zones):
@@ -2022,12 +2082,11 @@ def build_geometry():
     plan._PADS[:] = resort_pads()
     s = Sculpt()
     m = s.build()
+    bake_rock_weight(m)
     resort, ruv, surf = build_resort(m)
     iuv = {}
-    grass_uvs(m, iuv)
-    crag_uvs(m, iuv)
     grass_uvs(resort, ruv)
-    rocks, placed = build_rocks()
+    rocks, placed = build_rocks(surf)
     rockuv = {}
     crag_uvs(rocks, rockuv)
     palms, uv, trunks = build_palms()
@@ -2053,6 +2112,8 @@ SHEETS = {
     "sand": tx.Sheet("sand", ref_r=_ref, roughness=0.95),
     "rock": tx.Sheet("rock", mode="box", roughness=0.9),
     "grass": tx.Sheet("grass", mode="custom", roughness=0.95),                    # world-XY, turned per 25.6 m cell (grass_uvs)
+    "terrain": tx.Sheet("terrain", stem="beach_grass", mode="box", roughness=0.95),   # the island: beach_terrain.gdshader in Godot
+    "ashlar": tx.Sheet("ashlar", mode="box", roughness=0.9),                      # terrace skirts, garden walls
     "jungle": tx.Sheet("jungle", mode="box", roughness=0.95),
     "bark": tx.Sheet("bark", mode="custom", roughness=0.95),
     "leaf": tx.Sheet("leaf", mode="custom", roughness=0.9, cull=False),

@@ -240,8 +240,16 @@ _PADS = []
 
 
 def pads():
-    """(x, y, r_in, r_out, h) terraces: the hotel's, the clock tower's, each house's (built lazily by the build)."""
+    """(x, y, r_in, r_out, z, gx, gy) benches: planes the hotel and the village sit on (built by beach_build)."""
     return _PADS
+
+
+def bench_h(x, y):
+    """The ground a building stands on: the bench's plane where one covers (x, y), else the hill itself."""
+    for px, py, r_in, _r_out, pz, gx, gy in _PADS:
+        if math.hypot(x - px, y - py) < r_in:
+            return pz + gx * (x - px) + gy * (y - py)
+    return land_h(x, y, terraces=False)
 
 
 def land_h(x, y, terraces=True):
@@ -251,9 +259,10 @@ def land_h(x, y, terraces=True):
         return max(0.25 * inside, -9.0)
     h = min(raw_h(x, y, inside), coast_cap(inside, ds, dr, dc))
     if terraces:
-        for px, py, r_in, r_out, ph in _PADS:
+        for px, py, r_in, r_out, pz, gx, gy in _PADS:          # a bench: a plane cut into the hill, blended out
             dd = math.hypot(x - px, y - py)
             if dd < r_out:
+                ph = pz + gx * (x - px) + gy * (y - py)
                 h = ph + (h - ph) * ramp(dd, r_in, r_out)
     return h
 

@@ -32,6 +32,8 @@
 [ext_resource type="Texture2D" path="res://maps/beach/textures/beach_grass_albedo.png" id="23_grass_tile"]
 [ext_resource type="Texture2D" path="res://maps/beach/textures/beach_crag_albedo.png" id="42_crag_tile"]
 [ext_resource type="Texture2D" path="res://maps/beach/textures/beach_horizon_albedo.png" id="43_horizon_sheet"]
+[ext_resource type="Shader" path="res://maps/beach/materials/beach_terrain.gdshader" id="44_terrain_shader"]
+[ext_resource type="Texture2D" path="res://maps/beach/textures/beach_ashlar_albedo.png" id="45_ashlar_tile"]
 [ext_resource type="Script" path="res://maps/beach/fish/beach_fish.gd" id="38_fish"]
 [ext_resource type="Shader" path="res://maps/beach/materials/beach_fish.gdshader" id="39_fish_shader"]
 [ext_resource type="Texture2D" path="res://maps/beach/textures/beach_fish_albedo.png" id="40_fish_sheet"]
@@ -149,6 +151,18 @@ uv1_scale = Vector3(1, 1, 1)
 roughness = 0.95
 texture_filter = 5
 
+[sub_resource type="ShaderMaterial" id="TerrainMat"]
+shader = ExtResource("44_terrain_shader")
+shader_parameter/grass_texture = ExtResource("23_grass_tile")
+shader_parameter/rock_texture = ExtResource("42_crag_tile")
+
+[sub_resource type="StandardMaterial3D" id="AshlarMat"]
+resource_name = "beach_ashlar"
+vertex_color_use_as_albedo = true
+albedo_texture = ExtResource("45_ashlar_tile")
+roughness = 0.9
+texture_filter = 5
+
 [sub_resource type="StandardMaterial3D" id="BackdropMat"]
 resource_name = "beach_backdrop"
 transparency = 1
@@ -243,9 +257,10 @@ surface_material_override/1 = SubResource("SandMat")
 [node name="Island" parent="MapBase" instance=ExtResource("11_island")]
 
 [node name="BeachIsland" parent="MapBase/Island" index="0"]
-editor_description = "Surface 0 (the crag) restated: the importer drops the first surface's vertex colour. Surfaces in class order: crag, grass, rock, sand."
-surface_material_override/0 = SubResource("CragMat")
-surface_material_override/3 = SubResource("SandMat")
+editor_description = "Surfaces in class order: rock (the wall's lip and heads; restated, the importer drops the first surface's vertex colour), sand (the beaches), terrain (grass and crag blended by the vertex rock weight: beach_terrain.gdshader)."
+surface_material_override/0 = SubResource("RockMat")
+surface_material_override/1 = SubResource("SandMat")
+surface_material_override/2 = SubResource("TerrainMat")
 
 [node name="Rocks" parent="MapBase" instance=ExtResource("12_rocks")]
 
@@ -266,8 +281,9 @@ surface_material_override/0 = SubResource("CanvasMat")
 [node name="Resort" parent="MapBase" instance=ExtResource("41_resort")]
 
 [node name="BeachResort" parent="MapBase/Resort" index="0"]
-editor_description = "Surface 0 (the horizon islands' painted backdrops) is unshaded and alpha-blended; surfaces in class order: backdrop, clock, grass, house, plaster, roof, sand."
-surface_material_override/0 = SubResource("BackdropMat")
+editor_description = "Surfaces in class order: ashlar (terrace skirts and garden walls; restated, the importer drops the first surface's vertex colour), backdrop (the horizon islands, unshaded and alpha-blended), clock, grass, house, plaster, roof, sand."
+surface_material_override/0 = SubResource("AshlarMat")
+surface_material_override/1 = SubResource("BackdropMat")
 
 [node name="Water" parent="MapBase" instance=ExtResource("14_water")]
 
