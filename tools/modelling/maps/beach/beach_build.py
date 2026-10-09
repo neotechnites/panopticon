@@ -1757,7 +1757,16 @@ def resort_pads():
     hx, hy = plan.HOTEL["x"], plan.HOTEL["y"]
     vx, vy = plan.VILLAGE["x"], plan.VILLAGE["y"]
     lx, ly, _lh = LIGHTHOUSE
-    return [_bench(hx + 16.0, hy, 56.0, 130.0, 0.04), _bench(vx, vy, 78.0, 150.0, 0.16), _bench(lx, ly, 7.0, 16.0, 0.0)]
+    pcx, pcy, dx, dy = pool_centre()
+    return [_bench(hx + 16.0, hy, 56.0, 130.0, 0.04), _bench(vx, vy, 78.0, 150.0, 0.16), _bench(lx, ly, 7.0, 16.0, 0.0),
+            _bench(pcx + dx * 4.0, pcy + dy * 4.0, 11.0, 24.0, 0.0)]
+
+
+def pool_centre():
+    """The plunge pool's centre, 6 m past the gully's foot, and the gully's direction (unit, Blender xy)."""
+    ang, _d0, d1, _w = WATERFALL
+    dx, dy = math.cos(math.radians(ang)), math.sin(math.radians(ang))
+    return plan.PEAK[0] + dx * (d1 + 6.0), plan.PEAK[1] + dy * (d1 + 6.0), dx, dy
 
 
 _ROAD_PTS = []
@@ -2199,11 +2208,13 @@ def _waterfall(m, uv, surf):
     dx, dy = math.cos(math.radians(ang)), math.sin(math.radians(ang))
     nx, ny = -dy, dx
     hw = width / 2.0
-    # the pool: cut into the slope at the gully's foot, its surface at the downhill rim's ground + 0.4
-    pcx, pcy = px + dx * (d1 + 6.0), py + dy * (d1 + 6.0)
+    # the pool: a rock-rimmed basin on the flat pad at the gully's foot, its water 0.3 over the highest ground inside
+    pcx, pcy, _dx, _dy = pool_centre()
     pr = 7.0
-    rim = [(pcx + math.cos(a) * pr, pcy + math.sin(a) * pr) for a in [j * TWO_PI / 12 for j in range(12)]]
-    z_pool = min(surf.z(x, y) for x, y in rim) + 0.4
+    angles = [j * TWO_PI / 12 for j in range(12)]
+    rim = [(pcx + math.cos(a) * pr, pcy + math.sin(a) * pr) for a in angles]
+    z_pool = max([surf.z(x, y) for x, y in rim] + [surf.z(pcx + math.cos(a) * pr * 0.5, pcy + math.sin(a) * pr * 0.5) for a in angles]
+                 + [surf.z(pcx, pcy)]) + 0.3
     f0 = len(m.faces)
     along = {}
     # the ribbon: a flat run on the ground above the cliff, the lip, then down the gully to the pool's surface
@@ -2232,11 +2243,17 @@ def _waterfall(m, uv, surf):
     mid = m.v((pcx, pcy, z_pool), (0.45, 0.78, 0.95, 1.0))
     for j in range(12):
         m.tri(ring[j], ring[(j + 1) % 12], mid, UP, "plastic", "resort")
-    skirt = [m.v((x, y, min(surf.z(x, y), z_pool) - 0.8), (0.9, 0.86, 0.8, 1.0)) for x, y in rim]
+    # the rim: a rock lip 0.35 over the water, notched where the stream leaves, falling outward into the ground
+    notch = {11, 0}                                           # the two rim corners either side of the gully's line
+    lip_z = [z_pool - 0.03 if j in notch else z_pool + 0.35 for j in range(12)]
+    lip = [m.v((pcx + math.cos(a) * (pr + 0.6), pcy + math.sin(a) * (pr + 0.6), lip_z[j]), (0.9, 0.86, 0.8, 1.0)) for j, a in enumerate(angles)]
+    skirt = [m.v((pcx + math.cos(a) * (pr + 1.8), pcy + math.sin(a) * (pr + 1.8),
+                  min(surf.z(pcx + math.cos(a) * (pr + 1.8), pcy + math.sin(a) * (pr + 1.8)), z_pool) - 0.8), (0.9, 0.86, 0.8, 1.0)) for a in angles]
     for j in range(12):
         k = (j + 1) % 12
         out = (rim[j][0] + rim[k][0] - 2 * pcx, rim[j][1] + rim[k][1] - 2 * pcy, 0.0)
-        m.quad(ring[j], ring[k], skirt[k], skirt[j], out, "crag", "resort")
+        m.quad(ring[j], ring[k], lip[k], lip[j], (-out[0], -out[1], 1.0), "crag", "resort")
+        m.quad(lip[j], lip[k], skirt[k], skirt[j], (out[0], out[1], 0.6), "crag", "resort")
     f1 = len(m.faces)
     along = {}
     inner = [m.v((pcx + (x - pcx) * 0.72, pcy + (y - pcy) * 0.72, z_pool + 0.06), (1.0, 1.0, 1.0, 1.0)) for x, y in rim]
@@ -2263,40 +2280,39 @@ def _waterfall(m, uv, surf):
         for vi in m.faces[fi]:
             a, t = along[vi]
             uv[(fi, vi)] = (0.75 + 0.25 * t, a / 12.8)
-    # the stream: steepest descent from the downhill rim, 1.6 m wide, 0.4 m up with rock banks, fading out
+    # the stream: out through the rim's notch, then steepest descent (the gully's line where the pad is flat),
+    # 1.4 m wide, every vertex draped on the final terrain 0.4 m up, low rock banks sloping to the ground
     f3 = len(m.faces)
     along = {}
-    ox, oy = pcx + dx * pr, pcy + dy * pr
-    path = [(ox, oy)]
+    path = [(pcx + dx * (pr + 0.6), pcy + dy * (pr + 0.6))]
     for i in range(28):
         x0, y0 = path[-1]
         gx = (plan.land_h(x0 + 2.0, y0) - plan.land_h(x0 - 2.0, y0)) / 4.0
         gy = (plan.land_h(x0, y0 + 2.0) - plan.land_h(x0, y0 - 2.0)) / 4.0
-        g = math.hypot(gx, gy) or 1.0
-        path.append((x0 - gx / g * 2.5, y0 - gy / g * 2.5))
+        g = math.hypot(gx, gy)
+        ux, uy = (-gx / g, -gy / g) if g > 0.04 else (dx, dy)
+        path.append((x0 + ux * 2.5, y0 + uy * 2.5))
     srows, banks, dist = [], [], 0.0
     for i, (x, y) in enumerate(path):
         q0, q1 = path[max(0, i - 1)], path[min(len(path) - 1, i + 1)]
         tx_, ty_ = q1[0] - q0[0], q1[1] - q0[1]
         ln = math.hypot(tx_, ty_) or 1.0
-        sx, sy = -ty_ / ln * 0.8, tx_ / ln * 0.8
-        z = max(surf.z(x, y), surf.z(x + sx, y + sy), surf.z(x - sx, y - sy)) + 0.4
-        if i == 0:
-            z = z_pool
+        sx, sy = -ty_ / ln * 0.7, tx_ / ln * 0.7
         if i:
             dist += math.dist(path[i - 1], (x, y))
         fade = 1.0 - ramp(i, 18.0, 27.0)
-        srows.append((dist, [m.v((x - sx, y - sy, z), (1.0, 1.0, 1.0, fade)), m.v((x + sx, y + sy, z), (1.0, 1.0, 1.0, fade))]))
-        banks.append([m.v((x - sx * 1.5, y - sy * 1.5, min(surf.z(x - sx * 1.5, y - sy * 1.5), z) - 0.6), (0.9, 0.86, 0.8, 1.0)),
-                      m.v((x + sx * 1.5, y + sy * 1.5, min(surf.z(x + sx * 1.5, y + sy * 1.5), z) - 0.6), (0.9, 0.86, 0.8, 1.0))])
+        zl, zr_ = (z_pool - 0.03, z_pool - 0.03) if i == 0 else (surf.z(x - sx, y - sy) + 0.4, surf.z(x + sx, y + sy) + 0.4)
+        srows.append((dist, [m.v((x - sx, y - sy, zl), (1.0, 1.0, 1.0, fade)), m.v((x + sx, y + sy, zr_), (1.0, 1.0, 1.0, fade))]))
+        banks.append([m.v((x - sx * 2.0, y - sy * 2.0, surf.z(x - sx * 2.0, y - sy * 2.0) + 0.05), (0.9, 0.86, 0.8, 1.0)),
+                      m.v((x + sx * 2.0, y + sy * 2.0, surf.z(x + sx * 2.0, y + sy * 2.0) + 0.05), (0.9, 0.86, 0.8, 1.0))])
     for a, r in srows:
         along[r[0]], along[r[1]] = (a, 0.0), (a, 1.0)
     for (a0, r0), (a1, r1) in zip(srows, srows[1:]):
         m.quad(r0[0], r0[1], r1[1], r1[0], UP, "fall", "resort")
-    _fall_uv(m, uv, f3, along, 1.6)
+    _fall_uv(m, uv, f3, along, 1.4)
     for i in range(len(srows) - 1):
         for c, sg in ((0, -1.0), (1, 1.0)):
-            m.quad(srows[i][1][c], srows[i + 1][1][c], banks[i + 1][c], banks[i][c], (0.0, 0.0, 0.3), "crag", "resort")
+            m.quad(srows[i][1][c], srows[i + 1][1][c], banks[i + 1][c], banks[i][c], (0.0, 0.0, 1.0), "crag", "resort")
     return len(m.faces) - f0
 
 
