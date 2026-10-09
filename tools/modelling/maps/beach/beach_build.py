@@ -523,7 +523,7 @@ def rock_w(x, y, alt, steep, dc, d):
     cliffs; never within 30 m of the wall nor on a building bench and its cut banks."""
     if d < 30.0:
         return 0.0
-    w = smooth((alt - rock_line(x, y)) / 25.0 + 0.5)
+    w = smooth((alt - rock_line(x, y)) / 18.0 + 0.5)
     w = max(w, ramp(steep, 0.7, 0.95) * ramp(alt, 20.0, 60.0))
     w = max(w, ramp(dc, 50.0, 20.0) * ramp(alt, 2.0, 8.0))
     for px, py, _ri, r_out, _pz, _gx, _gy in plan.pads():
@@ -531,7 +531,7 @@ def rock_w(x, y, alt, steep, dc, d):
     return w
 
 
-PATHS = (((-234.0, -58.0), (-170.0, -36.0), (-120.0, -16.0), (-86.0, 8.0)),      # the hotel's front down to the coast
+PATHS = (((-238.0, -18.0), (-170.0, -14.0), (-120.0, -6.0), (-86.0, 8.0)),      # the hotel's front down to the coast
          ((-238.0, 104.0), (-170.0, 72.0), (-120.0, 42.0), (-86.0, 22.0)))      # the village square down to it
 
 
@@ -963,7 +963,7 @@ def build_rocks(surf=None):
             m.cols[i] = (c[0], c[1], c[2], 1.0)
 
     made, tries = 0, 0
-    while made < 30 and tries < 8000:
+    while made < 44 and tries < 9000:
         tries += 1
         a, dist = rr.u(0.0, TWO_PI), rr.u(140.0, 330.0)
         x, y = px + math.cos(a) * dist, py + math.sin(a) * dist
@@ -2002,6 +2002,32 @@ def bush(m, x, y, z, r, rr):
             m.tri(rings[-1][j], rings[-1][(j + 1) % 6], top, UP, "tleaf", "palms")
 
 
+PLAY_EYES = ((34.25, -59.32, 24.6), (-34.25, 59.32, 24.6), (-68.5, 0.0, 24.6), (30.0, 61.6, 24.6), (0.0, 0.0, 28.9))
+
+
+def hides_belfry(x, y, z):
+    """Whether a tree at (x, y, z) would stand in front of the hotel's belfry from a play eye (the lane's ends and
+    middle, the portal end, the flybridge): the landmark's top stays readable."""
+    hx, hy = plan.HOTEL["x"], plan.HOTEL["y"]
+    fwd, side = _frame_xy(plan.HOTEL["yaw"])
+    tx, ty = hx + 3.0 * fwd[0] - 23.0 * side[0], hy + 3.0 * fwd[1] - 23.0 * side[1]
+    z0 = _footprint_z(hx + 16.0, hy, 0.0, *HOTEL_TERRACE)[0] + WATER_Z
+    for cx, cy, cz in PLAY_EYES:
+        dx, dy = tx - cx, ty - cy
+        ll = dx * dx + dy * dy
+        t = ((x - cx) * dx + (y - cy) * dy) / ll
+        if not 0.05 < t < 0.97:
+            continue
+        off = abs((x - cx) * dy - (y - cy) * dx) / math.sqrt(ll)
+        if off > 7.0:
+            continue
+        for zz in (24.0, 27.0, 30.0, 33.0):
+            rz = cz + (z0 + zz - cz) * t
+            if z - 1.0 < rz < z + 12.0:
+                return True
+    return False
+
+
 def build_trees(m, surf, uv):
     """Broadleafs into the palms chunk: a belt behind the wall's greenery and the beaches, the valley's first rise,
     scattered singles on the lower slopes, and low bushes (small broadleafs) behind the wall."""
@@ -2020,6 +2046,7 @@ def build_trees(m, surf, uv):
         if plan.land_h(x, y) > 1.5 and not on_landmark(x, y):
             spots.append((x, y, surf.z(x, y), "bush"))
         b += rr.u(4.5, 7.5) / (math.radians(1.0) * r)
+    spots = [sp for sp in spots if not hides_belfry(sp[0], sp[1], sp[2])]
     tris = 0
     for k, (x, y, z, kind) in enumerate(spots):
         if kind == "bush":

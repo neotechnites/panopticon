@@ -60,12 +60,11 @@ NOISE = (160.0, 7.0)                   # the cartoon hills' wobble: wavelength, 
 # LANDMARKS -- few, true scale, where distance makes them read
 # =============================================================================
 
-HOTEL = {"x": -250.0, "y": -70.0, "yaw": 40.0, "body": (40.0, 15.0, 13.0), "tower": (9.0, 9.0, 30.0)}
+HOTEL = {"x": -254.0, "y": -32.0, "yaw": 50.0, "body": (40.0, 15.0, 13.0), "tower": (9.0, 9.0, 30.0)}
 #   on the south spur's inner flank facing NE over the bay; the tower on its north end; the pool terrace in front
 VILLAGE = {"x": -256.0, "y": 112.0, "rx": 46.0, "ry": 30.0, "houses": 26}    # a clustered mass on the north spur's
 CLOCK_TOWER = {"x": -250.0, "y": 110.0, "w": 7.0, "h": 32.0}               # inner flank, facing SE over the bay
-ROAD = [(-276.0, -46.0), (-306.0, -28.0), (-326.0, -4.0), (-328.0, 24.0), (-312.0, 60.0), (-290.0, 90.0),
-        (-270.0, 104.0)]              # hotel terrace -> round the valley head on the 30 m contour -> the village square
+ROAD = [(-284.0, -8.0), (-310.0, 2.0), (-326.0, 24.0), (-312.0, 60.0), (-290.0, 90.0), (-270.0, 104.0)]              # hotel terrace -> round the valley head on the 30 m contour -> the village square
 ROAD_W = 3.0
 HORIZON_ISLES = [(352.0, 2900.0, 900.0, 150.0, 3), (28.0, 2750.0, 520.0, 110.0, 2), (300.0, 2950.0, 620.0, 80.0, 2)]
 #   (bearing, r, width, height, peaks): on the horizon line inside the sea mesh (3 km), fogged to the horizon band

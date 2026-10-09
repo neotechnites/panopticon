@@ -67,6 +67,29 @@ class Frame(object):
         self.poly([(a[0], a[1], zlo), (b[0], b[1], zlo), (b[0], b[1], zhi), (a[0], a[1], zhi)], out, zone, col,
                   [(u0, v0), (u1, v0), (u1, v1), (u0, v1)])
 
+    def door(self, a, b, along, zone, col, u_door, zlo=-0.5, depth=0.3, w=1.3, h=2.1, arched=False):
+        """A 2.1 m door recessed `depth` into the wall a->b, its left jamb `along` metres from a: the wall is drawn
+        round the opening (left, right, the strip above), the reveal's jambs and lintel, and the door leaf at the
+        back wearing the tile's door (u_door = the tile u of its left edge). Returns the door's centre (f, s)."""
+        ln = math.hypot(b[0] - a[0], b[1] - a[1])
+        ex, ey = (b[0] - a[0]) / ln, (b[1] - a[1]) / ln             # along the wall
+        nx, ny = -ey, ex                                             # into the building (left of a->b is outside? no: out is right)
+        nx, ny = ey, -ex                                             # outward normal of wall a->b (as wall() winds it)
+        nx, ny = -nx, -ny                                            # inward
+        p0 = (a[0] + ex * along, a[1] + ey * along)
+        p1 = (a[0] + ex * (along + w), a[1] + ey * (along + w))
+        q0 = (p0[0] + nx * depth, p0[1] + ny * depth)
+        q1 = (p1[0] + nx * depth, p1[1] + ny * depth)
+        top = zlo + 0.5 + h
+        # the leaf: the tile's door spans u_door..u_door + w/TILE at v 0..h/TILE (row 0)
+        self.poly([(q0[0], q0[1], zlo), (q1[0], q1[1], zlo), (q1[0], q1[1], top), (q0[0], q0[1], top)], (-nx, -ny, 0.0), zone, col,
+                  [(u_door, 0.0), (u_door + w / TILE, 0.0), (u_door + w / TILE, (top - zlo) / TILE), (u_door, (top - zlo) / TILE)])
+        jamb = FLAT[zone]
+        self.poly([(p0[0], p0[1], zlo), (q0[0], q0[1], zlo), (q0[0], q0[1], top), (p0[0], p0[1], top)], (ex, ey, 0.0), zone, STONE, [jamb] * 4)
+        self.poly([(q1[0], q1[1], zlo), (p1[0], p1[1], zlo), (p1[0], p1[1], top), (q1[0], q1[1], top)], (-ex, -ey, 0.0), zone, STONE, [jamb] * 4)
+        self.poly([(p0[0], p0[1], top), (q0[0], q0[1], top), (q1[0], q1[1], top), (p1[0], p1[1], top)], (0.0, 0.0, -1.0), zone, STONE, [jamb] * 4)
+        return ((p0[0] + p1[0]) / 2.0, (p0[1] + p1[1]) / 2.0)
+
     def box(self, f0, f1, s0, s1, z0, z1, zone, col, faces="fbltud"):
         """An axis-aligned box: f front, b back, l (-s), t (+s), u top, d bottom; flat texel."""
         P = self.poly
@@ -197,15 +220,41 @@ def _bands(z_top, start=-0.5):
     return out
 
 
-def _vfix(fr, a, b, bands, zone, col, u=(0.0, None)):
+def _vfix(fr, a, b, bands, zone, col, u=(0.0, None), opening=None):
+    """Walls a->b per storey band; opening = (along, width, height) cuts a door out of the ground band and the wall is
+    drawn round it (left, right, the strip above) with the tile continuous across."""
     for zlo, zhi, row, foot in bands:
-        fr.wall(a, b, zlo, zhi, zone, col, u, (row * STOREY + zlo - foot) / TILE)
+        v0 = (row * STOREY + zlo - foot) / TILE
+        if opening is None or row != 0:
+            fr.wall(a, b, zlo, zhi, zone, col, u, v0)
+            continue
+        along, w, h = opening
+        ln = math.hypot(b[0] - a[0], b[1] - a[1])
+        ex, ey = (b[0] - a[0]) / ln, (b[1] - a[1]) / ln
+        p0 = (a[0] + ex * along, a[1] + ey * along)
+        p1 = (a[0] + ex * (along + w), a[1] + ey * (along + w))
+        top = zlo + 0.5 + h
+        per = u[1] if u[1] is not None else max(1, round(ln / COL)) * COL / TILE
+        scale = per / ln                                            # tile u per metre along this wall
+        fr.wall(a, p0, zlo, zhi, zone, col, (u[0], along * scale), v0)
+        fr.wall(p1, b, zlo, zhi, zone, col, (u[0] + (along + w) * scale, (ln - along - w) * scale), v0)
+        fr.wall(p0, p1, top, zhi, zone, col, (u[0] + along * scale, w * scale), v0 + (top - zlo) / TILE)
+        fr.door(a, b, along, zone, col, u[0] + along * scale, zlo)
 
 
-def _outline(fr, pts, bands, zone, col):
-    """Walls round a CCW (f, s) outline, each from its left corner."""
+def _outline(fr, pts, bands, zone, col, front=None):
+    """Walls round a CCW (f, s) outline, each from its left corner; edge `front` gets a door at its middle, the tile
+    phased so its drawn door (u 116..140 of 256) lands on the opening."""
     for k in range(len(pts)):
-        _vfix(fr, pts[k], pts[(k + 1) % len(pts)], bands, zone, col)
+        a, b = pts[k], pts[(k + 1) % len(pts)]
+        if k != front:
+            _vfix(fr, a, b, bands, zone, col)
+            continue
+        ln = math.hypot(b[0] - a[0], b[1] - a[1])
+        along = ln / 2.0 - 0.65
+        scale = (max(1, round(ln / COL)) * COL / TILE) / ln
+        u0 = 116.0 / 256.0 - along * scale
+        _vfix(fr, a, b, bands, zone, col, (u0, None), (along, 1.3, 2.1))
 
 
 # =============================================================================
@@ -230,7 +279,10 @@ def hotel(m, uv, x, y, yaw, z0, body=(40.0, 15.0, 13.0), tower=(9.0, 9.0, 30.0))
     _vfix(fr, (-hd, hw), (-hd, -hw), _bands(h), "plaster", WHITE)
     _vfix(fr, (hd, hw), (-hd, hw), _bands(h), "plaster", WHITE)
     _vfix(fr, (-hd, -hw), (tf0, -hw), _bands(h), "plaster", WHITE)
-    _vfix(fr, (rec, tl), (rec, hw), [(gnd[0][0], 2.9, 0, 0.0)], "plaster", WHITE)
+    along = (0.0 - tl) - 0.65                                    # the entrance door centred on the portico (s = 0)
+    scale = (max(1, round((hw - tl) / COL)) * COL / TILE) / (hw - tl)
+    u0 = (160.0 - 12.0) / 256.0 - along * scale                  # the tile's arched door (col 2) lands on it
+    _vfix(fr, (rec, tl), (rec, hw), [(gnd[0][0], 2.9, 0, 0.0)], "plaster", WHITE, (u0, None), (along, 1.3, 2.1))
     _vfix(fr, (fF, tl), (fF, hw), [(2.9,) + up[0][1:]] + up[1:], "plaster", WHITE)
     fr.poly([(rec, tl, 2.9), (fF, tl, 2.9), (fF, hw, 2.9), (rec, hw, 2.9)], (0, 0, -1), "plaster", STONE)   # arcade ceiling
     fr.poly([(rec, hw, -0.5), (fF, hw, -0.5), (fF, hw, 2.9), (rec, hw, 2.9)], (0, -1, 0), "plaster", WHITE)  # arcade's right end
@@ -319,7 +371,7 @@ def house(m, uv, x, y, yaw, z0, seed):
         pts = [(mf1, -hw), (mf1, hw - ww), (hd0, hw - ww), (hd0, hw), (mf0, hw), (mf0, -hw)]
         if mirror < 0:
             pts = [(f, -s) for f, s in reversed(pts)]
-        _outline(fr, pts, bands, "house", tint)
+        _outline(fr, pts, bands, "house", tint, front=0)
         zf = fr.roof((mf0 + mf1) / 2.0, 0.0, hd, hw, H, pitch, 0.5, roof_col, kind, "house", tint)
         wf0 = (mf0 + mf1) / 2.0
         wsc = mirror * (hw - ww / 2.0)
@@ -329,7 +381,7 @@ def house(m, uv, x, y, yaw, z0, seed):
         main_fc = (mf0 + mf1) / 2.0
     else:
         pts = [(hd, -hw), (hd, hw), (-hd, hw), (-hd, -hw)]
-        _outline(fr, pts, bands, "house", tint)
+        _outline(fr, pts, bands, "house", tint, front=0)
         zf = fr.roof(0.0, 0.0, hd, hw, H, pitch, 0.5, roof_col, kind, "house", tint)
         porch = (hd, -hw + 0.6, hw - 0.6) if r.f() < 0.5 else None
         d_out = d
