@@ -39,6 +39,10 @@ for _root in (os.path.dirname(_HOME), os.path.dirname(os.path.dirname(_HOME))):
 import texel as tx  # noqa: E402
 import beach_lib as il  # noqa: E402
 import beach_island_plan as plan  # noqa: E402
+import forest_tree_build  # noqa: E402,F401  the forest map's tree library rides to the PC for beach_broadleaf
+import forest_tree_prop_build  # noqa: E402,F401
+import beach_broadleaf as bl  # noqa: E402  the broadleaf: the forest map's tree
+import beach_buildings as bb  # noqa: E402  the hotel, houses and clock tower at player scale
 from beach_lib import (Mesh, Rng, UP, pol, bearing_of, rad_of, lerp, lerp3, clamp, smooth, ramp,  # noqa: E402
                        angdiff, h2, vnoise, fbm, ring_noise)
 if bpy is not None:
@@ -148,7 +152,7 @@ PAL_JUNGLE = ((0.17, 0.4, 0.15), (0.26, 0.55, 0.2), (0.36, 0.68, 0.24), (0.5, 0.
 PAL_HAZE = ((0.42, 0.62, 0.48), (0.55, 0.74, 0.74))                                  # two steps of distance haze
 PAL_ROCK = ((0.62, 0.56, 0.48), (0.8, 0.76, 0.69), (0.97, 0.95, 0.9))               # foot, flank, crown
 PAL_PEAK = ((0.8, 0.52, 0.18), (0.92, 0.67, 0.3))                                    # (unused: the crag tile carries its ochre)
-PAL_CRAG = ((0.72, 0.7, 0.66), (1.0, 1.0, 0.98))                                     # the crag's shade and lit faces (x forest_rock)
+PAL_CRAG = ((0.46, 0.42, 0.37), (0.74, 0.68, 0.6))                                   # the crag's shade and lit faces (x forest_rock)
 PAL_LAWN = ((0.86, 0.9, 0.72), (1.0, 1.0, 0.92), (1.12, 1.14, 0.98))                   # open grass x forest_grass: fold, mid, lit
 PAL_FROND = ((0.82, 0.92, 0.7), (1.0, 1.0, 1.0))                                     # under the crown, lit
 
@@ -631,7 +635,7 @@ class Sculpt(object):
                 p = pol(b, r, island_z(b, r))
                 if p[2] - WATER_Z > ROCK_LINE - 30.0:                 # the crag's faces: jittered, so cliffs facet
                     jx, jy = h2(j, int(r), SEED + 77) - 0.5, h2(j, int(r), SEED + 78) - 0.5
-                    p = (p[0] + 7.0 * jx, p[1] + 7.0 * jy, p[2] + 5.0 * (h2(j, int(r), SEED + 79) - 0.5))
+                    p = (p[0] + 3.0 * jx, p[1] + 3.0 * jy, p[2] + 2.0 * (h2(j, int(r), SEED + 79) - 0.5))
                 ring.append(self.v(p, land_col(p), "island"))
             self._stitch(prev, ring)
             prev = ring
@@ -1685,16 +1689,11 @@ class Surface(object):
         return ground_z(bearing_of((x, y, 0.0)), math.hypot(x, y))
 
 
-PAVING = (0.64, 0.6, 0.52, 1.0)
+PAVING = (0.86, 0.82, 0.72, 1.0)                       # the road: pale dust x the sand tile
 
 
 def _buildings(m, uv):
     """The hotel, the village and the clock tower at true player scale (beach_buildings.py)."""
-    try:
-        import beach_buildings as bb
-    except ImportError:                       # not delivered yet: the terraces stay empty
-        INFO["building_tris"] = 0
-        return
     hx, hy = plan.HOTEL["x"], plan.HOTEL["y"]
     tris = bb.hotel(m, uv, hx, hy, plan.HOTEL["yaw"], plan.pads()[0][4] + WATER_Z + 0.3, plan.HOTEL["body"], plan.HOTEL["tower"])
     tx_, ty_ = plan.CLOCK_TOWER["x"], plan.CLOCK_TOWER["y"]
@@ -1722,7 +1721,7 @@ def _road(m, surf):
             if kind == "road":
                 row.append(m.v((x, y, zs[k] + 0.25), PAVING))
             else:
-                row.append(m.v((x, y, surf.z(x, y) + 0.12), PAL_JUNGLE[1] + (1.0,)))
+                row.append(m.v((x, y, surf.z(x, y) + 0.12), PAL_LAWN[1] + (1.0,)))
         rows.append(row)
     for k in range(len(rows) - 1):
         for c in range(3):
@@ -1776,11 +1775,6 @@ def _grove_spots(rr, n, inner, outer, b0, b1, surf, kind, spots, min_gap=14.0):
 def build_trees(m, surf, uv):
     """Broadleafs into the palms chunk: a belt behind the wall's greenery and the beaches, the valley's first rise,
     scattered singles on the lower slopes, and low bushes (small broadleafs) behind the wall."""
-    try:
-        import beach_broadleaf as bl
-    except ImportError:
-        INFO["trees"] = 0
-        return
     rr = Rng(SEED + 1700)
     spots = []
     _grove_spots(rr, BROADLEAF["wall"], 16.0, 40.0, 100.0, 262.0, surf, "near", spots, 9.0)        # behind the wall
