@@ -152,7 +152,7 @@ PAL_JUNGLE = ((0.17, 0.4, 0.15), (0.26, 0.55, 0.2), (0.36, 0.68, 0.24), (0.5, 0.
 PAL_HAZE = ((0.42, 0.62, 0.48), (0.55, 0.74, 0.74))                                  # two steps of distance haze
 PAL_ROCK = ((0.62, 0.56, 0.48), (0.8, 0.76, 0.69), (0.97, 0.95, 0.9))               # foot, flank, crown
 PAL_PEAK = ((0.8, 0.52, 0.18), (0.92, 0.67, 0.3))                                    # (unused: the crag tile carries its ochre)
-PAL_CRAG = ((0.6, 0.56, 0.5), (1.0, 0.98, 0.94))                                     # the crag's shade and lit faces (x beach_crag)
+PAL_CRAG = ((0.8, 0.77, 0.72), (1.0, 0.98, 0.94))                                    # the crag's shade and lit faces (x beach_crag)
 PAL_LAWN = ((0.7, 0.74, 0.6), (0.92, 0.94, 0.86), (1.08, 1.08, 0.98), (1.1, 1.04, 0.78))   # grass: fold, mid, lit crest, dry meadow
 SCREE = (0.84, 0.78, 0.66)             # the grass under the rock line, greyed by scree
 PAL_FROND = ((0.82, 0.92, 0.7), (1.0, 1.0, 1.0))                                     # under the crown, lit
@@ -507,10 +507,7 @@ def land_tone(x, y, alt, steep, aspect, d):
         hx, hy = plan.HOTEL["x"], plan.HOTEL["y"]
         if math.hypot(x - hx - 16.0, y - hy) < 60.0:
             g = PAL_LAWN[2]                                                 # the hotel's lawn
-        px, py, _hh, _reach = plan.PEAK
-        if w > 0.2 and math.hypot(x - px, y - py) < 330.0:
-            g = (g[0] * SCREE[0], g[1] * SCREE[1], g[2] * SCREE[2])        # scree under the crag
-    return lerp3(lerp3(g, cr, w), PAL_SAND[0], sw), "terrain"
+    return lerp3(lerp3(g, cr, smooth((w - 0.5) / 0.3 + 0.5)), PAL_SAND[0], sw), "terrain"   # the tone steps where the albedo does
 
 
 def sand_w(x, y, alt, steep, inside, d):
@@ -526,7 +523,7 @@ def rock_w(x, y, alt, steep, dc, d):
     cliffs; never within 30 m of the wall nor on a building bench and its cut banks."""
     if d < 30.0:
         return 0.0
-    w = smooth((alt - rock_line(x, y)) / 50.0 + 0.5)
+    w = smooth((alt - rock_line(x, y)) / 25.0 + 0.5)
     w = max(w, ramp(steep, 0.7, 0.95) * ramp(alt, 20.0, 60.0))
     w = max(w, ramp(dc, 50.0, 20.0) * ramp(alt, 2.0, 8.0))
     for px, py, _ri, r_out, _pz, _gx, _gy in plan.pads():
@@ -534,7 +531,7 @@ def rock_w(x, y, alt, steep, dc, d):
     return w
 
 
-PATHS = (((-236.0, -92.0), (-170.0, -52.0), (-120.0, -22.0), (-86.0, 8.0)),      # the hotel's front down to the coast
+PATHS = (((-234.0, -58.0), (-170.0, -36.0), (-120.0, -16.0), (-86.0, 8.0)),      # the hotel's front down to the coast
          ((-238.0, 104.0), (-170.0, 72.0), (-120.0, 42.0), (-86.0, 22.0)))      # the village square down to it
 
 
@@ -953,9 +950,10 @@ def build_rocks(surf=None):
     # crag's own tile and tones so they read as its rock, not as litter on the grass
     px, py, _hh, _reach = plan.PEAK
 
-    def crag_boulder(x, y, size, seed, h):
+    def crag_boulder(x, y, size, seed, h, steep=0.0):
         first = len(m.verts)
-        gz = surf.z(x, y) if surf is not None else WATER_Z + h      # on the sculpt's own triangles, a third sunk
+        gz = surf.z(x, y) if surf is not None else WATER_Z + h      # on the sculpt's own triangles, a third sunk,
+        gz -= size * 0.5 * steep                                    # and deeper on a slope so the downhill side sits in
         boulder(m, x, y, size, seed, sink=0.34, squash=0.55, gz=gz, nseg=6, lats=(-0.6, 0.15, 0.65), zone="crag")
         lo = min(m.verts[i][2] for i in range(first, len(m.verts)))
         hi = max(m.verts[i][2] for i in range(first, len(m.verts)))
@@ -973,12 +971,12 @@ def build_rocks(surf=None):
             continue
         h = plan.land_h(x, y)
         steep, _a = slope_of(x, y)
-        if not ROCK_LINE - 24.0 < h < ROCK_LINE + 10.0:
+        if not ROCK_LINE - 24.0 < h < ROCK_LINE + 10.0 or steep > 0.6:        # never on a face over 37 deg
             continue
         if rock_w(x, y, h, steep, plan.coast_fields(x, y)[3], 100.0) < 0.35:     # on the blend, never on plain grass
             continue
         made += 1
-        crag_boulder(x, y, rr.u(5.0, 10.0), SEED + 5200 + made, h)
+        crag_boulder(x, y, rr.u(5.0, 10.0), SEED + 5200 + made, h, steep)
     # a few modest reef patches on the bay's sand, out past the shallows: low flattened coral heads, crowded
     # in the middle of the patch and scattering out into the sand, all well under the surface
     made, tries = 0, 0
@@ -1093,6 +1091,12 @@ HOTEL_PALMS = ((31.0, -20.0), (31.0, 20.0), (12.0, -26.0), (12.0, 26.0), (36.0, 
 #   (metres toward the bay, across) from the hotel's centre: round the pool terrace
 
 
+def in_corridor(p):
+    """Whether a point is in the runners' eye corridor: over the lane (r 65.5..71.5) under 4.5 m."""
+    r = rad_of(p)
+    return 65.5 < r < 71.5 and p[2] < DECK_Z + 4.5 and s_of(bearing_of(p)) <= RUN_S + 2.0
+
+
 def build_palms(surf=None):
     m = Mesh()
     uv = {}
@@ -1168,10 +1172,19 @@ def build_palms(surf=None):
             lean = rr.u(14.0, 28.0)
             trunks.append((x, y, z))
         else:
-            h = rr.u(*PALM_H)
+            h = rr.u(9.5, 12.0)                                     # full size: the lane's own palms' height and more
             lean_b = rr.u(0.0, 360.0)
             lean = rr.u(4.0, 20.0)
-        palm(m, (x, y, z), h, lean_b, lean, SEED + 600 + k, uv)
+        while True:
+            v0 = len(m.verts)
+            f0 = len(m.faces)
+            palm(m, (x, y, z), h, lean_b, lean, SEED + 600 + k, uv)
+            if kind != "sand" or not any(in_corridor(m.verts[i]) for i in range(v0, len(m.verts))) or lean < 2.0:
+                break
+            del m.verts[v0:], m.cols[v0:], m.faces[f0:], m.zones[f0:], m.chunks[f0:]     # too far over the lane: stand straighter
+            for key in [key for key in uv if key[0] >= f0]:
+                del uv[key]
+            lean -= 3.0
     INFO["palms"] = len(spots)
     INFO["palm_xy"] = [pol(b, r, 0.0)[:2] for b, r, _k, _c in spots]
     return m, uv, trunks
@@ -1988,7 +2001,7 @@ def build_trees(m, surf, uv):
     _grove_spots(rr, BROADLEAF["south"], 40.0, 110.0, 60.0, 110.0, surf, "near", spots)           # behind the south beach
     _grove_spots(rr, BROADLEAF["north"], 40.0, 140.0, 250.0, 300.0, surf, "near", spots)          # behind the north cove
     _grove_spots(rr, BROADLEAF["slope"], 260.0, 520.0, 110.0, 250.0, surf, "near", spots, per=(1, 2), spread=6.0)  # slope singles
-    _grove_spots(rr, BROADLEAF["scrub"], 60.0, 420.0, 100.0, 262.0, surf, "bush", spots, per=(4, 8), spread=7.0)    # scrub patches
+    _grove_spots(rr, BROADLEAF["scrub"], 60.0, 180.0, 100.0, 262.0, surf, "bush", spots, per=(4, 8), spread=7.0)    # scrub patches
     b = 98.0
     while b < 264.0:                                                      # the hedge right behind the rocks
         r = top_r(b) + rr.u(3.5, 7.5)
