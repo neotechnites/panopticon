@@ -84,6 +84,7 @@ for _root in (os.path.dirname(_HOME), os.path.dirname(os.path.dirname(_HOME))): 
 
 import marble_build as mb  # noqa: E402
 import texel as tx  # noqa: E402  one tiling sheet per class, world-projected
+import vertex_ao  # noqa: E402  contact shadow baked into COLOR_0
 # marble_build imports its two part modules at its foot; they ride along to the
 # PC only when a column-0 `import x_build as y` names them in THIS script.
 import marble_lane_build as _ml  # noqa: E402, F401
@@ -893,6 +894,7 @@ def build():
         mat.diffuse_color = (0.78, 0.76, 0.72, 1.0)
     mats["flame"] = _flame_material()
     order = tx.finish(ob, classes, mats)
+    vertex_ao.apply(ob, vertex_ao.bake(ob), keep=("lamp_glow",))
     tx.report(SHEETS)
     print("MDL STATS surfaces=%d order=%s" % (len(ob.data.materials), ",".join(order)))
     coll_ob = coll.object(COLLIDER_NAME)
