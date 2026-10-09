@@ -280,7 +280,7 @@ def _island_z(b, r):
     arm = min(base + hump, shore_z(arm_w(b) - d, 0.1))
     big = WATER_Z + plan.land_h(x, y)
     z = max(max(arm, big), WATER_Z - 9.0)
-    k = ramp(d, 8.0, 14.0)
+    k = ramp(d, 8.0, 40.0)          # the plan's land eased in over 32 m: no fold where the spurs rise behind the wall
     if k < 1.0:                     # at the wall's lip the ground stays exactly as the lane's sculpt had it
         pin = main_coast(x, y, plain=True)
         h0 = RIDGE[0] * (1.0 - ramp(s, 100.0, RUN_S + 6.0)) * bell((d - RIDGE[1]) / RIDGE[2]) * ramp(pin, 10.0, -10.0)
@@ -1142,8 +1142,8 @@ def build_palms(surf=None):
         b = rr.u(b0, b1)
         r = top_r(b) + rr.u(d0, d1)
         cx, cy, _z = pol(b, r, 0.0)
-        if main_coast(cx, cy) < 18.0 or ground_z(b, r) < WATER_Z + 1.0 or on_landmark(cx, cy):
-            continue
+        if main_coast(cx, cy) < 18.0 or ground_z(b, r) < WATER_Z + 1.0 or on_landmark(cx, cy) or plan.land_h(cx, cy) > 10.0:
+            continue                                                 # groves on the flats only: never stacked up a hill
         if any(math.hypot(cx - pol(sb, sr, 0.0)[0], cy - pol(sb, sr, 0.0)[1]) < 26.0 for sb, sr, k, _c in spots if k == "slope"):
             continue
         made += 1
