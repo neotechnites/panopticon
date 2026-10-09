@@ -84,8 +84,8 @@ An oval 1.45 x 1.05 km with the bay in the middle of its east coast: the massif 
 bay with ONE peak dead centre (340 m at (-640, 10), 570 m from the lane, 28 deg up: a forested cone under a bare
 crag of spires with cliffs and two ledges, `PEAK`/`SPIRES`/`CROWN`, shoulders of 238 and 246 m on the spine, ribs
 and gullies down the cone); two spurs run east to the two headlands flanking the bay, so the bay valley is an
-amphitheatre with the HOTEL low in the valley on the south side (every play camera sees its whole pad) and the
-VILLAGE on the north spur's flank, both inside the headlands from the yacht, a road rounding the valley head between them on a cut shelf. The coast (`COAST`: one
+amphitheatre with the HOTEL low in the valley on the south side at (-254, -32), yaw 50 (chosen so every play eye
+sees its whole pad and no lane palm crosses its tower) and the VILLAGE on the north spur's flank, both inside the headlands from the yacht, a road rounding the valley head between them on a cut shelf. The coast (`COAST`: one
 closed outline, each point starting a sand, rock or cliff segment) carries South Beach, the north cove and Lookout
 Point (the capsule cam's view), a west beach and sea cliffs on the unseen side. The plan's land is eased in over 32 m
 behind the wall's lip, which stays exactly as the lane's sculpt had it.
@@ -93,22 +93,22 @@ behind the wall's lip, which stays exactly as the lane's sculpt had it.
 Ground: ONE blended material, `beach_terrain.gdshader`: sunlit stepped grass measured from Wuhu (`beach_grass`,
 triplanar at two scales), the crag's cliff rock (`beach_crag`, ledges, gullies and scree fans at 0.4 m/texel) and
 the beaches' sand (`beach_sand`), blended by per-vertex weights baked by the build (rock in UV2.y, sand in
-1 - COLOR.a: `rock_w`, `sand_w`) with noise-driven soft edges 25 m wide, albedo only (no tone darkening), so no rock/grass or sand/grass sawtooth exists
+1 - COLOR.a: `rock_w`, `sand_w`) with noise-driven soft edges 18 m wide, albedo only (no tone darkening), so no rock/grass or sand/grass sawtooth exists
 anywhere. Vertex tones: fold/mid/crest grass, dry-meadow patches, scree greying under the rock line, the hotel's
 lawn, worn paths from the hotel and the village down to the wall. Scree boulders (`crag_boulder`, the crag's tile
 and tones, a third sunk on the mesh and deeper on a slope, never on a face over 37 deg) cluster on the blend under
 the rock line; nothing on the open grass.
 
-Trees are few and the game's own: palms (the existing model, 9.5-12 m everywhere, on the mesh; no palm geometry enters the lane's eye corridor,
+No tree stands on a play eye's sightline to the hotel's belfry (`hides_belfry`). Trees are few and the game's own: palms (the existing model, 9.5-12 m everywhere, on the mesh; no palm geometry enters the lane's eye corridor,
 `in_corridor`: a palm stands straighter, then grows, then goes) in groves on the flats, and a
 tropical broadleaf derived from the forest map's tree (`beach_broadleaf.py`: its trunk, patches and clumps at a short
 trunk and full crown, wearing `beach_trunk` bark and the `beach_crown` leaf-cluster tile; 294 and 139 tris) in groves
 behind the wall, on the valley's first rise and behind the beaches, singles on the lower slopes; leaf-dome bushes
 (`bush`, 36 tris) as a hedge the whole length of the wall and in scrub patches within 180 m of it; ~165 trees and bushes, 14 m clear of
 palms, no cards anywhere. Buildings at true player scale (`beach_buildings.py`: doors 2.1 m, storeys 3.2 m, facades
-at 0.05 m/texel with UVs from each building's base): the hotel 40 x 15 x 13 m with an arcaded ground floor, balconies,
-a cornice, a tiled hip roof and a 9 x 9 x 30 m tower with a closed belfry; 26 houses (rectangles and L-shapes, 1-2
-storeys, shutters, doors, tiled roofs, chimneys); a 7 x 7 x 32 m clock tower with a face per side. The hill is cut
+at 0.05 m/texel with UVs from each building's base): the hotel 40 x 15 x 13 m with an arcaded ground floor, a recessed 2.1 m entrance
+door under the portico, balconies, a cornice, a tiled hip roof and a 9 x 9 x 30 m tower with a closed belfry; 26
+houses (rectangles and L-shapes, 1-2 storeys, shutters, a recessed 2.1 m door mid-front, tiled roofs, chimneys); a 7 x 7 x 32 m clock tower with a face per side. The hill is cut
 to two benches (`resort_pads`: planes with the hill's fall capped at 4 % and 16 %) and every building stands on its
 own terrace (`beach_buildings.terrace`: grass top, `beach_ashlar` retaining skirt and lip, a door gap); low ashlar
 walls round the hotel's pool terrace and six houses. Horizon islands are painted backdrops: one unshaded
