@@ -82,25 +82,35 @@ Designed top-down at real scale before it was modelled: `tools/modelling/maps/be
 imports it; `--diagram out.png` draws the plan with 25 m contours and the skylines from the lane and the flybridge).
 An oval 1.45 x 1.05 km with the bay in the middle of its east coast: the massif is a N-S ridge straight behind the
 bay with ONE peak dead centre (340 m at (-640, 10), 570 m from the lane, 28 deg up: a forested cone under a bare
-crag of spires with cliffs and two ledges, `PEAK`/`SPIRES`/`CROWN`, the forest map's rock tile in Wuhu's tan, 9 m
-facets); two spurs run east to the two headlands flanking the bay, so the bay valley is an amphitheatre with the
-HOTEL on the south spur's inner flank and the VILLAGE on the north spur's, both inside the headlands from the yacht,
-a road rounding the valley head between them on a cut shelf. The coast (`COAST`: one closed outline, each point
-starting a sand, rock or cliff segment) carries South Beach, the north cove and Lookout Point (the capsule cam's
-view), a west beach and sea cliffs on the unseen side. Ground: sunlit stepped grass measured from Wuhu
-(`beach_grass`; vertex steps fold/mid/crest, dry-meadow patches, scree under the rock line, the hotel's lawn), sand
-only on the beaches, worn paths from the hotel and the village down to a coast path behind the wall, rock only on
-the crag (`beach_crag`, cliff rock at 0.4 m/texel with ledges, gullies and scree fans; the fog starts at 400 m so
-it survives) with outcrops on the steep slopes and scree boulders along the rock line.
-Trees are few and the game's own: palms in groves (bay flat, South Beach, the north cove) and a broadleaf derived
-from the forest map's tree (`beach_broadleaf.py`: its trunk, patches and clumps, wearing the palms' bark and leaf tiles, trunks short and crowns full,
-294 and 139 tris; the same tree at 0.3-0.45 scale is the hedge and flowering scrub behind the wall and the scrub patches) in groves behind the wall, on the valley's first rise and behind the beaches, with
-singles on the lower slopes, a hedge the whole length of the wall, low stone walls round the hotel terrace and six
-houses: ~170 trees and bushes, no cards anywhere. Buildings at true player scale (`beach_buildings.py`:
-doors 2.1 m, storeys 3.2 m, textures at 0.05 m/texel with UVs from each building's base): the hotel 40 x 15 x 13 m
-with an arcaded ground floor, balconies, a cornice, a tiled hip roof and a 9 x 9 x 30 m tower with a belfry; 26
-houses (rectangles and L-shapes, 1-2 storeys, shutters, doors, tiled roofs, chimneys); a 7 x 7 x 32 m clock tower
-with a face per side. Horizon islands are painted backdrops: one unshaded alpha-blended quad each
-(`beach_horizon_albedo`, `BackdropMat`) at 2.75-2.95 km, sunk into the horizon band; the fog colour is the band's.
-Counts: island 12.4k tris, palms+broadleafs+scrub 40.7k, rocks 28.0k, resort (buildings, walls, road, backdrops)
-4.1k.
+crag of spires with cliffs and two ledges, `PEAK`/`SPIRES`/`CROWN`, shoulders of 238 and 246 m on the spine, ribs
+and gullies down the cone); two spurs run east to the two headlands flanking the bay, so the bay valley is an
+amphitheatre with the HOTEL on the south spur's inner flank and the VILLAGE on the north spur's, both inside the
+headlands from the yacht, a road rounding the valley head between them on a cut shelf. The coast (`COAST`: one
+closed outline, each point starting a sand, rock or cliff segment) carries South Beach, the north cove and Lookout
+Point (the capsule cam's view), a west beach and sea cliffs on the unseen side. The plan's land is eased in over 32 m
+behind the wall's lip, which stays exactly as the lane's sculpt had it.
+
+Ground: ONE blended material, `beach_terrain.gdshader`: sunlit stepped grass measured from Wuhu (`beach_grass`,
+triplanar at two scales), the crag's cliff rock (`beach_crag`, ledges, gullies and scree fans at 0.4 m/texel) and
+the beaches' sand (`beach_sand`), blended by per-vertex weights baked by the build (rock in UV2.y, sand in
+1 - COLOR.a: `rock_w`, `sand_w`) with noise-driven soft edges, so no rock/grass or sand/grass sawtooth exists
+anywhere. Vertex tones: fold/mid/crest grass, dry-meadow patches, scree greying under the rock line, the hotel's
+lawn, worn paths from the hotel and the village down to the wall. Scree boulders (`crag_boulder`, the crag's tile
+and tones, a third sunk on the mesh) cluster on the blend under the rock line; nothing on the open grass.
+
+Trees are few and the game's own: palms (the existing model, full size, on the mesh) in groves on the flats, and a
+tropical broadleaf derived from the forest map's tree (`beach_broadleaf.py`: its trunk, patches and clumps at a short
+trunk and full crown, wearing `beach_trunk` bark and the `beach_crown` leaf-cluster tile; 294 and 139 tris) in groves
+behind the wall, on the valley's first rise and behind the beaches, singles on the lower slopes; leaf-dome bushes
+(`bush`, 36 tris) as a hedge the whole length of the wall and in scrub patches; ~165 trees and bushes, 14 m clear of
+palms, no cards anywhere. Buildings at true player scale (`beach_buildings.py`: doors 2.1 m, storeys 3.2 m, facades
+at 0.05 m/texel with UVs from each building's base): the hotel 40 x 15 x 13 m with an arcaded ground floor, balconies,
+a cornice, a tiled hip roof and a 9 x 9 x 30 m tower with a closed belfry; 26 houses (rectangles and L-shapes, 1-2
+storeys, shutters, doors, tiled roofs, chimneys); a 7 x 7 x 32 m clock tower with a face per side. The hill is cut
+to two benches (`resort_pads`: planes with the hill's fall capped at 4 % and 16 %) and every building stands on its
+own terrace (`beach_buildings.terrace`: grass top, `beach_ashlar` retaining skirt and lip, a door gap); low ashlar
+walls round the hotel's pool terrace and six houses. Horizon islands are painted backdrops: one unshaded
+alpha-blended quad each (`beach_horizon_albedo`, hill feet on the sea line, the card 7 m under the sea; `BackdropMat`)
+at 2.75-2.95 km; the fog colour is the horizon band's, depth fog 400..3200 m.
+Counts: island 12.4k tris, palms+broadleafs+scrub 39k, rocks 23.3k, resort (buildings, terraces, walls, road,
+backdrops) 4.6k. Lane frame time on the PC at 1080p: 0.72 ms (main before this island: 0.91 ms).
