@@ -2043,7 +2043,7 @@ def bake_rock_weight(m):
             steep, _a = slope_of(p[0], p[1])
             dc = plan.coast_fields(p[0], p[1])[3]
             w = rock_w(p[0], p[1], p[2] - WATER_Z, steep, dc, r - top_r(b))
-            m.uv2[vi] = (m.uv2.get(vi, (0.0, 0.0))[0], w)
+            m.uv2[vi] = (m.uv2.get(vi, (0.0, 0.0))[0], 1.0 - w)         # glTF flips v: Godot reads 1 - y
 
 
 def grass_uvs(m, uv):
