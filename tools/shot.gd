@@ -25,6 +25,7 @@ extends SceneTree
 ##                       made testable: it is the one measurement that separates a
 ##                       geometry defect from a texture defect without guessing.
 ##   --fov=degrees       camera field of view (default 100)
+##   --avatar=x,y,z,yaw  stand one prisoner avatar (idle) there, facing yaw degrees: a 1.8 m scale reference
 
 func _arg(name: String, fallback: String) -> String:
 	for raw in OS.get_cmdline_user_args():
@@ -46,6 +47,7 @@ var _settle: float = 0.0
 var _settled: float = 0.0
 var _flat: bool = false
 var _fov: float = 100.0
+var _avatar: String = ""
 var _list_path: String = ""
 var _started: bool = false
 
@@ -59,6 +61,7 @@ func _initialize() -> void:
 	_flat = _arg("flat", "0") == "1"
 	_fov = maxf(1.0, float(_arg("fov", "100")))
 	_list_path = _arg("list", "")
+	_avatar = _arg("avatar", "")
 	if _scene_path.is_empty() or _out_path.is_empty():
 		push_error("shot.gd needs --scene= and --out=")
 		quit(1)
@@ -75,6 +78,8 @@ func _process(_delta: float) -> bool:
 		return true
 	var scene_root: Node = packed.instantiate()
 	root.add_child(scene_root)
+	if not _avatar.is_empty():
+		_stand_avatar(scene_root, _avatar)
 	if _flat:
 		_flatten(scene_root, flat_material())
 	var camera: Camera3D = build_camera(
@@ -106,6 +111,26 @@ func _capture_list(camera: Camera3D, list_path: String, out_dir: String) -> void
 		image.save_png(path)
 		print("SHOT %s %dx%d" % [path, image.get_width(), image.get_height()])
 	quit(0)
+
+
+## --avatar=x,y,z,yaw: one prisoner avatar standing still at that spot.
+func _stand_avatar(parent: Node, spec: String) -> void:
+	var parts: PackedStringArray = spec.split(",")
+	if parts.size() != 4:
+		push_error("shot.gd --avatar wants x,y,z,yaw")
+		return
+	var holder: Node3D = Node3D.new()
+	parent.add_child(holder)
+	holder.global_position = Vector3(float(parts[0]), float(parts[1]), float(parts[2]))
+	holder.rotation.y = deg_to_rad(float(parts[3]))
+	var avatar: Node = (load("res://characters/player/prisoner_avatar.tscn") as PackedScene).instantiate()
+	holder.add_child(avatar)
+	avatar.set_process(false)
+	var player: AnimationPlayer = avatar.get("animation") as AnimationPlayer
+	var idle: String = str(avatar.get("idle_clip"))
+	if player != null and player.has_animation(idle):
+		player.play(idle)
+		player.pause()
 
 
 ## The one grey every --flat shot wears: mid-grey, no texture, no vertex colour,
