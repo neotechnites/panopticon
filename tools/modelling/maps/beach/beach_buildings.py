@@ -97,9 +97,9 @@ class Frame(object):
             P([(F0, S0, z), (F1, S0, z), (f1, s0, z), (f0, s0, z)], out, zone, col)
             P([(F1, S1, z), (F0, S1, z), (f0, s1, z), (f1, s1, z)], out, zone, col)
 
-    def roof(self, fc, sc, hf, hs, h, pitch, eave, col, kind="hip", gable_zone=None, gable_col=WHITE):
+    def roof(self, fc, sc, hf, hs, h, pitch, eave, col, kind="hip", gable_zone=None, gable_col=WHITE, soffit=False):
         """A hip, gable or pyramid roof over walls of half extents hf x hs topped at h: the slopes meet the wall line at h,
-        eaves overhang `eave`, the underside closed; returns z(f, s) of the roof surface."""
+        eaves overhang; underside closed by back slopes, or (soffit) a flat stone ceiling. Returns z(f, s) on the roof."""
         ef, es = hf + eave, hs + eave
         along_s = hs >= hf                       # ridge axis
         half = ef if along_s else es             # half span across the ridge
@@ -117,9 +117,13 @@ class Frame(object):
             pts = [q for i, q in enumerate(pts) if q not in pts[:i]]     # a pyramid has no ridge
             o = L(out_a, out_b)
             P([L(a, b) + (z,) for a, b, z in pts], (o[0] - fc, o[1] - sc, 1.0), "roof", col)
-            P([L(a, b) + (z,) for a, b, z in reversed(pts)], (-(o[0] - fc), -(o[1] - sc), -1.0), "roof", col)
+            if not soffit:
+                P([L(a, b) + (z,) for a, b, z in reversed(pts)], (-(o[0] - fc), -(o[1] - sc), -1.0), "roof", col)
 
         alongE = es if along_s else ef
+        if soffit:
+            P([(fc - ef, sc - es, hb), (fc - ef, sc + es, hb), (fc + ef, sc + es, hb), (fc + ef, sc - es, hb)],
+              (0, 0, -1), "plaster", STONE)
         if kind == "gable":
             for sgn in (1, -1):
                 put([(sgn * half, -alongE, hb), (sgn * half, alongE, hb), (0.0, alongE, hr), (0.0, -alongE, hr)], sgn, 0.0)
@@ -276,7 +280,7 @@ def hotel(m, uv, x, y, yaw, z0, body=(40.0, 15.0, 13.0), tower=(9.0, 9.0, 30.0))
         k += 1
     fr.band(fc, sc, td / 2.0, tw / 2.0, zs - 0.4, zs, 0.3, "plaster", STONE)
     zt = fr.belfry(fc, sc, tw / 2.0, zs, 0.7, 0.3)
-    fr.roof(fc, sc, td / 2.0 + 0.3, tw / 2.0 + 0.3, zt, 1.1, 0.3, WHITE)
+    fr.roof(fc, sc, td / 2.0 + 0.3, tw / 2.0 + 0.3, zt, 1.1, 0.3, WHITE, soffit=True)
     apex = zt + 1.1 * (tw / 2.0 + 0.6)
     fr.spire(fc, sc, apex - 0.05, 0.22, 0.8)
     return len(m.faces) - n0
@@ -394,8 +398,32 @@ def clock_tower(m, uv, x, y, z0, w=7.0, h=32.0):
         fr.poly([blo + (zc1,), bhi + (zc1,), hi + (zc1,), lo + (zc1,)], (0, 0, 1), "plaster", STONE)
         fr.poly([lo + (zc0,), hi + (zc0,), bhi + (zc0,), blo + (zc0,)], (0, 0, -1), "plaster", STONE)
     zt = fr.belfry(0.0, 0.0, hw, zs, 0.6, 0.3)
-    fr.roof(0.0, 0.0, hw + 0.3, hw + 0.3, zt, 1.2, 0.3, WHITE)
+    fr.roof(0.0, 0.0, hw + 0.3, hw + 0.3, zt, 1.2, 0.3, WHITE, soffit=True)
     fr.spire(0.0, 0.0, zt + 1.2 * (hw + 0.6) - 0.05, 0.2, 0.8)
+    return len(m.faces) - n0
+
+
+# =============================================================================
+# TERRACE
+# =============================================================================
+
+def terrace(m, uv, x, y, yaw, w, d, z_top, z_low):
+    """A flat building platform: grass top at z_top, a stone skirt down to z_low, a 0.6 m lip round its edge with a
+    3 m gap mid-front (the door side)."""
+    n0 = len(m.faces)
+    fr = Frame(m, uv, x, y, yaw, 0.0)
+    hw, hd = w / 2.0, d / 2.0
+    ROCK, GRASS = (0.9, 0.86, 0.78, 1.0), (0.95, 1.0, 0.85, 1.0)
+    fr.poly([(-hd, -hw, z_top), (hd, -hw, z_top), (hd, hw, z_top), (-hd, hw, z_top)], (0, 0, 1), "grass", GRASS)
+    fr.box(-hd, hd, -hw, hw, z_low, z_top, "rock", ROCK, "fblt")
+    z1, t = z_top + 0.6, 0.4
+    fr.box(-hd, -hd + t, -hw, hw, z_top, z1, "rock", ROCK, "fbltu")                 # back
+    for sg in (-1, 1):
+        s0, s1 = sorted((sg * hw, sg * (hw - t)))
+        fr.box(-hd + t, hd, s0, s1, z_top, z1, "rock", ROCK, "fbltu")              # sides
+        s0, s1 = sorted((sg * (hw - t), sg * min(1.5, hw - t)))
+        if s1 - s0 > 0.05:
+            fr.box(hd - t, hd, s0, s1, z_top, z1, "rock", ROCK, "fbu" + ("t" if sg < 0 else "l"))   # front, gap mid
     return len(m.faces) - n0
 
 
@@ -598,6 +626,12 @@ def _check():
     uv_ok(m, uv)
     assert n <= 400
     clock_tower(total, tuv, -40.0, 0.0, 0.0)
+    m, uv = Mesh(), {}
+    n = terrace(m, uv, 0.0, 0.0, 30.0, 14.0, 10.0, 2.0, -3.0)
+    report(m, "terrace")
+    print("terrace tris=%d bbox=%s" % (n, bbox(m, 0)))
+    assert n <= 80
+    terrace(total, tuv, 0.0, 60.0, 30.0, 14.0, 10.0, 2.0, -3.0)
     report(total, "all")
     uv_ok(total, tuv)
     print("all bbox=%s" % (bbox(total, 0),))

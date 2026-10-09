@@ -41,8 +41,8 @@ SPIRES = ((0.0, 0.0, 1.0, 58.0), (44.0, -30.0, 0.9, 46.0), (-48.0, 26.0, 0.86, 4
 #   the crag's spires: offset from the summit, share of the crown's height, radius; notches between them
 CROWN = (0.66, 150.0, 100.0)           # the crag: share of the height where the cliffs start, radius, where the cliff tops out
 RIDGES = (5, 0.3, 0.55)                # radial rock ridges: count, amplitude at the crag, the share of the height they start at
-SPINE = [(-560.0, 430.0, 120.0, 150.0), (-600.0, 230.0, 190.0, 170.0), (-640.0, 10.0, 330.0, 150.0),
-         (-600.0, -200.0, 200.0, 170.0), (-520.0, -420.0, 110.0, 150.0), (-420.0, -580.0, 40.0, 90.0)]
+SPINE = [(-560.0, 430.0, 120.0, 150.0), (-590.0, 230.0, 238.0, 125.0), (-640.0, 10.0, 330.0, 150.0),
+         (-590.0, -200.0, 246.0, 125.0), (-520.0, -420.0, 110.0, 150.0), (-420.0, -580.0, 40.0, 90.0)]
 #   (x, y, height, half width): the massif's ridge line, N-S behind the bay, the peak in its middle
 SPUR_N = [(-600.0, 230.0, 190.0, 170.0), (-420.0, 210.0, 105.0, 150.0), (-250.0, 170.0, 56.0, 110.0),
           (-100.0, 120.0, 28.0, 70.0), (0.0, 104.0, 20.0, 40.0)]          # the bay valley's north wall, to the north headland
@@ -188,7 +188,7 @@ def peak_h(x, y):
     n, amp, _start = RIDGES
     crest = abs(math.sin(0.5 * n * a + 0.6)) ** 0.5 - 0.5
     share, r_out, r_in = CROWN
-    skirt = hh * share * (1.0 - d) ** 1.5 * (1.0 + amp * 0.35 * crest * (1.0 - d))
+    skirt = hh * share * (1.0 - d) ** 1.5 * (1.0 + amp * 0.9 * crest * (1.0 - d))      # ridges and gullies down the cone
     spire = 0.0
     for ox, oy, sh, rad in SPIRES:
         e = math.hypot(dx - ox, dy - oy) / rad
@@ -198,6 +198,16 @@ def peak_h(x, y):
     t = clamp((r_out - dist) / (r_out - r_in))
     mask = 0.5 * t + 0.5 * (math.floor(t * 3.0) + smooth((t * 3.0) % 1.0 * 4.0 - 1.5)) / 3.0   # two ledges in the cliff band
     return skirt + (crown - skirt) * mask
+
+
+def crest(x, y):
+    """The peak's radial ridging at (x, y): +0.5 on a rib, -0.5 in a gully, 0 off the cone."""
+    px, py, _hh, reach = PEAK
+    dx, dy = x - px, y - py
+    if math.hypot(dx, dy) >= reach:
+        return 0.0
+    n, _amp, _start = RIDGES
+    return abs(math.sin(0.5 * n * math.atan2(dy, dx) + 0.6)) ** 0.5 - 0.5
 
 
 def skeleton_h(x, y):
