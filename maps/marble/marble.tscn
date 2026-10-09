@@ -10,6 +10,44 @@
 [ext_resource type="PackedScene" path="res://maps/marble/models/marble.glb" id="10_map_model"]
 [ext_resource type="PackedScene" path="res://maps/marble/props/marble_portal.tscn" id="19_portal"]
 [ext_resource type="PackedScene" path="res://maps/marble/models/marble_bars.glb" id="20_marble_bars"]
+[ext_resource type="Shader" path="res://maps/marble/materials/skylight_shaft.gdshader" id="21_shaft_shader"]
+[ext_resource type="Shader" path="res://maps/marble/materials/skylight_pool.gdshader" id="22_pool_shader"]
+
+[sub_resource type="ShaderMaterial" id="ShaftMat"]
+render_priority = 0
+shader = ExtResource("21_shaft_shader")
+
+[sub_resource type="CylinderMesh" id="ShaftMesh"]
+material = SubResource("ShaftMat")
+top_radius = 6.2
+bottom_radius = 14.0
+height = 80.6
+radial_segments = 32
+rings = 1
+cap_top = false
+cap_bottom = false
+
+[sub_resource type="ShaderMaterial" id="PoolMat"]
+shader = ExtResource("22_pool_shader")
+
+[sub_resource type="PlaneMesh" id="PoolMesh"]
+material = SubResource("PoolMat")
+size = Vector2(32, 32)
+
+[sub_resource type="StandardMaterial3D" id="MoteMat"]
+transparency = 1
+blend_mode = 1
+shading_mode = 0
+vertex_color_use_as_albedo = true
+albedo_color = Color(1, 0.96, 0.88, 0.5)
+billboard_mode = 3
+particles_anim_h_frames = 1
+particles_anim_v_frames = 1
+particles_anim_loop = false
+
+[sub_resource type="QuadMesh" id="MoteMesh"]
+material = SubResource("MoteMat")
+size = Vector2(0.12, 0.12)
 
 [sub_resource type="Environment" id="Env"]
 background_mode = 1
@@ -36,6 +74,45 @@ environment = SubResource("Env")
 editor_description = "Energy 0: its presence stops the editor's preview sun so the editor matches the game."
 light_energy = 0.0
 shadow_enabled = false
+
+[node name="Skylight" type="Node3D" parent="."]
+editor_description = "The oculus (2026-10-08): daylight through the dome's glazed crown (marble.glb, r 6.3, glass at y 79.6). Key lights the tower alone (layer 11, no shadows), from straight above with a slight lean, so the shaft has a lit side and a dark underside; Shaft, Pool and Motes are the visible light, additive and cheap. The cells and lane are not lit by it."
+
+[node name="Key" type="DirectionalLight3D" parent="Skylight"]
+transform = Transform3D(0, 0.9659, 0.2588, 0, -0.2588, 0.9659, 1, 0, 0, 0, 60, 0)
+light_color = Color(1, 0.96, 0.88, 1)
+light_energy = 2.0
+light_specular = 0.0
+light_cull_mask = 1024
+shadow_enabled = false
+
+[node name="Shaft" type="MeshInstance3D" parent="Skylight"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 39.3, 0)
+cast_shadow = 0
+mesh = SubResource("ShaftMesh")
+
+[node name="Pool" type="MeshInstance3D" parent="Skylight"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.95, 0)
+cast_shadow = 0
+mesh = SubResource("PoolMesh")
+
+[node name="Motes" type="CPUParticles3D" parent="Skylight"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 59, 0)
+cast_shadow = 0
+amount = 160
+lifetime = 24.0
+preprocess = 24.0
+mesh = SubResource("MoteMesh")
+emission_shape = 6
+emission_ring_axis = Vector3(0, 1, 0)
+emission_ring_height = 38.0
+emission_ring_radius = 6.5
+emission_ring_inner_radius = 0.0
+direction = Vector3(0, -1, 0)
+spread = 180.0
+gravity = Vector3(0, -0.01, 0)
+initial_velocity_min = 0.02
+initial_velocity_max = 0.12
 
 [node name="MapBase" parent="." instance=ExtResource("10_map_model")]
 editor_description = "maps/marble/models/marble.glb: the whole rotunda, one contiguous mesh -- the spiked ground floor at y -1.0, the gallery walkway r 46.7..59.55 at y 23.0 with its open inner lip, the seven tiers of barred cells (bases -1/7/15/23/31/39/47), the wall top at 55, the dome from 57.8 to the apex at 84.8. Ships its own collision (MarbleCollision-colonly); the spikes are not in it, the volumes kill first."

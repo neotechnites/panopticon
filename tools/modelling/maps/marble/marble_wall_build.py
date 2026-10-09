@@ -73,6 +73,8 @@ RIB_PROUD = 0.85 * mb.DOME_K            # ... standing this far inward of the sh
 PANEL_FACETS = 6            # panel facets between two ribs: the panel is SMOOTH, its flutes drawn
 DOME_RING_F = (0.0, 0.30, 0.61, 0.89, 1.0)   # r1 .. r5, up the arc from the moulding's head to the
                             # cap: r1 is the moulding's head, r2 where the drawn flutes' points reach
+OCULUS_CURB = 0.9          # the skylight drum: the glass this far above the cap ring
+OCULUS_RING_F = (0.52, 0.47)   # the glazing's ring bar, as fractions of the cap radius
 SIDE_SPLITS = 1             # the frame's side margins, pilaster fronts and returns in this many stacked quads
 SIDE_SWITCH = 0.5           # head angle where the frame's fan moves from the middle side point to the top corner
 UP, DOWN = mb.UP, mb.DOWN
@@ -424,7 +426,7 @@ def _dome(m, coll=False):
     the cornice, a ring moulding, DOME_RIBS broad ribs standing proud INWARD
     of the shell with plain panels between them, the panels fluted low down
     where they stand on the ring, the ribs running up into the flat crown
-    medallion. One sheet, solid, no oculus.
+    medallion's ring, where a glazed oculus opens (2026-10-08).
 
     Every face is a regular quad or a deliberate triangle, and the only
     station change (the wall's 192 to the dome's 176) is on the moulding's
@@ -587,12 +589,25 @@ def _dome(m, coll=False):
         last = len(phis) - 1
         m.quad(S(last, s0), P(last, s0), P(last, s1), S(last, s1), down(phis[last], c, -1.0), "shade")
 
-    # THE MEDALLION: one flat fan over the cap ring's shell points
+    # THE OCULUS (Ryan, 2026-10-08: the skylight that lights the tower): a plain drum straight up
+    # from the cap ring, glazed flat across its head; the ribs run on over it as glazing bars
     last = len(phis) - 1
     cap = [S(last, s) for s in range(N)]
-    tv = m.v(top)
-    for i in range(N):
-        m.tri(tv, cap[i], cap[(i + 1) % N], DOWN, "shade")
+    z_g = top[2] + OCULUS_CURB
+    rim = [m.v((m.verts[v][0], m.verts[v][1], z_g)) for v in cap]
+    for s in range(N):
+        t2 = (s + 1) % N
+        a = 0.5 * (az[s][0] + az[t2][0] + (TWO_PI if t2 == 0 else 0.0))
+        m.quad(cap[s], cap[t2], rim[t2], rim[s], (-math.cos(a), -math.sin(a), 0.0), "shade")
+    rings = [rim] + [[m.v((m.verts[v][0] * f, m.verts[v][1] * f, z_g)) for v in cap] for f in OCULUS_RING_F]
+    for k in range(len(rings) - 1):
+        for s in range(N):
+            t2 = (s + 1) % N
+            bar = k == 1 or az[s][1] == "a0"
+            m.quad(rings[k][s], rings[k][t2], rings[k + 1][t2], rings[k + 1][s], DOWN, "iron" if bar else "glass")
+    tv = m.v((0.0, 0.0, z_g))
+    for s in range(N):
+        m.tri(tv, rings[-1][s], rings[-1][(s + 1) % N], DOWN, "iron" if az[s][1] == "a0" else "glass")
     return zc + R
 
 

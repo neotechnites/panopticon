@@ -84,6 +84,7 @@ for _root in (os.path.dirname(_HOME), os.path.dirname(os.path.dirname(_HOME))): 
         break
 import texel as tx  # noqa: E402  one tiling sheet per class, world-projected
 import glb_textures  # noqa: E402
+import vertex_ao  # noqa: E402  contact shadow baked into COLOR_0
 if bpy is not None:
     import mdl  # noqa: E402
     mdl.DEFAULTS["ground"] = False
@@ -158,7 +159,7 @@ DOME_Z0 = CORNICE_Z[1]      # 57.8
 DOME_K = WALL_IN_R / WALL_R # the dome scaled whole to the inner tiers' radius
 DOME_RISE = 27.0 * DOME_K
 DOME_RINGS = 8
-DOME_CAP_R = 4.2 * DOME_K   # flat medallion at the crown
+DOME_CAP_R = 8.0 * DOME_K   # the crown ring the oculus opens in (was 4.2: a flat medallion)
 
 # ---- the spike floor ------------------------------------------------------
 SPIKE_SEED = 7702141
@@ -279,6 +280,23 @@ TOWER_COLUMN_STEM = "marble_tower_column"   # the arcade's columns: his column p
 TINT_BARS = None
 TINT_CELL = (0.021, 0.026, 0.023)        # the back walls near black, as before the colour passes (Ryan, 2026-10-08)
 TINT_IRON = (0.060, 0.065, 0.075)        # the plain stone darkened to the drawing's dark bars
+
+
+OCULUS_RGB = (0.86, 0.88, 0.90)   # the skylight's glass: daylight, the brightest thing in the room
+
+
+def glass_material(name):
+    """The oculus glass: a flat daylight glow, albedo and emission, no texture."""
+    mat = bpy.data.materials.new(name)
+    mat.use_nodes = True
+    bsdf = mat.node_tree.nodes.get("Principled BSDF")
+    rgba = OCULUS_RGB + (1.0,)
+    bsdf.inputs["Base Color"].default_value = rgba
+    bsdf.inputs["Emission Color"].default_value = rgba
+    bsdf.inputs["Emission Strength"].default_value = 1.0   # exactly 1.0: no KHR warning
+    bsdf.inputs["Roughness"].default_value = ROUGHNESS
+    mat.diffuse_color = rgba
+    return mat
 
 
 def iron_sheet():
@@ -1152,11 +1170,15 @@ def build():
     a = audit(stone, "stone")
     ob = stone.object(OBJECT_NAME)
     classes = [_CLASS.get(z, z) for z in stone.zones]
-    tx.unwrap(ob, classes, SHEETS, seed=1, face_uv=stone.face_uv, groups=stone.groups)
+    tx.unwrap(ob, classes, SHEETS, seed=1, face_uv=stone.face_uv, groups=stone.groups,
+              custom={"glass": lambda me, uvl, poly: None})
     mats = tx.materials(NAME, SHEETS)
     for mat in mats.values():
         mat.diffuse_color = (0.78, 0.76, 0.72, 1.0)
+    mats["glass"] = glass_material(NAME + "_glass")
     order = tx.finish(ob, classes, mats)
+    vertex_ao.apply(ob, vertex_ao.bake(ob, dist=1.5, floor=0.6), keep=("glass",),
+                    only=("shade", "cellin", "iron", "field", "floor", "spike"))   # the cell fronts keep their grey
     tx.report(SHEETS)
     print("MDL STATS surfaces=%d order=%s" % (len(ob.data.materials), ",".join(order)))
     coll_ob = coll.object(COLLIDER_NAME)
