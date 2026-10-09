@@ -970,21 +970,13 @@ def build_rocks(surf=None):
         if x < -760.0:
             continue
         h = plan.land_h(x, y)
+        steep, _a = slope_of(x, y)
         if not ROCK_LINE - 24.0 < h < ROCK_LINE + 10.0:
+            continue
+        if rock_w(x, y, h, steep, plan.coast_fields(x, y)[3], 100.0) < 0.35:     # on the blend, never on plain grass
             continue
         made += 1
         crag_boulder(x, y, rr.u(5.0, 10.0), SEED + 5200 + made, h)
-    made, tries = 0, 0
-    while made < 10 and tries < 6000:
-        tries += 1
-        a, dist = rr.u(0.0, TWO_PI), rr.u(260.0, 400.0)
-        x, y = px + math.cos(a) * dist, py + math.sin(a) * dist
-        h = plan.land_h(x, y)
-        steep, _a = slope_of(x, y)
-        if x < -760.0 or not 40.0 < h < ROCK_LINE - 30.0 or steep < 0.5 or on_landmark(x, y):
-            continue
-        made += 1
-        crag_boulder(x, y, rr.u(5.0, 9.0), SEED + 5000 + made, h)
     # a few modest reef patches on the bay's sand, out past the shallows: low flattened coral heads, crowded
     # in the middle of the patch and scattering out into the sand, all well under the surface
     made, tries = 0, 0
@@ -1099,7 +1091,7 @@ HOTEL_PALMS = ((31.0, -20.0), (31.0, 20.0), (12.0, -26.0), (12.0, 26.0), (36.0, 
 #   (metres toward the bay, across) from the hotel's centre: round the pool terrace
 
 
-def build_palms():
+def build_palms(surf=None):
     m = Mesh()
     uv = {}
     rr = Rng(SEED + 500)
@@ -1167,7 +1159,7 @@ def build_palms():
     trunks = []
     for k, (b, r, kind, centre) in enumerate(spots):
         x, y, _z = pol(b, r, 0.0)
-        z = ground_z(b, r)
+        z = surf.z(x, y) if (surf is not None and kind != "sand") else ground_z(b, r)   # island palms on the mesh
         if kind == "sand":
             h = rr.u(*PALM_SAND_H)
             lean_b = b + 180.0 + rr.u(-30.0, 30.0)                 # toward the bay
@@ -1953,7 +1945,7 @@ def _grove_spots(rr, n, inner, outer, b0, b1, surf, kind, spots, per=(3, 6), spr
         steep, _a = slope_of(cx, cy)
         if steep > 0.6 or any(math.hypot(cx - q[0], cy - q[1]) < 2.2 * spread for q in spots):
             continue
-        if any(math.hypot(cx - q[0], cy - q[1]) < spread + 9.0 for q in INFO.get("palm_xy", ())):
+        if any(math.hypot(cx - q[0], cy - q[1]) < spread + 14.0 for q in INFO.get("palm_xy", ())):
             continue
         made += 1
         for k in range(rr.i(*per)):
@@ -1961,7 +1953,7 @@ def _grove_spots(rr, n, inner, outer, b0, b1, surf, kind, spots, per=(3, 6), spr
             x, y = cx + math.cos(a) * rad, cy + math.sin(a) * rad
             if plan.land_h(x, y) < 2.0 or on_landmark(x, y) or any(math.hypot(x - q[0], y - q[1]) < 4.0 for q in spots):
                 continue
-            if any(math.hypot(x - q[0], y - q[1]) < 8.0 for q in INFO.get("palm_xy", ())):
+            if any(math.hypot(x - q[0], y - q[1]) < 14.0 for q in INFO.get("palm_xy", ())):
                 continue
             spots.append((x, y, surf.z(x, y), kind))
 
@@ -2089,7 +2081,7 @@ def build_geometry():
     rocks, placed = build_rocks(surf)
     rockuv = {}
     crag_uvs(rocks, rockuv)
-    palms, uv, trunks = build_palms()
+    palms, uv, trunks = build_palms(surf)
     build_trees(palms, surf, uv)
     props, puv, solids, poles, logs, hut = build_props()
     waves, wuv = build_waves()
@@ -2135,7 +2127,7 @@ SHEETS = {
     "tleaf": tx.Sheet("tleaf", stem="beach_crown", mode="box", roughness=0.9),        # bark tile (the palms') and a leaf-cluster tile
     "wave": tx.Sheet("wave", mode="custom", roughness=0.4, cull=False),
 }
-SMOOTH = ("sand", "grass", "jungle", "water")     # Gouraud like the refs' ground; rock and palms stay faceted
+SMOOTH = ("sand", "grass", "jungle", "water", "terrain")     # Gouraud like the refs' ground; rock and palms stay faceted
 CHUNKS = ["ground", "island", "rocks", "palms", "props", "water", "waves", "resort"]
 VIS = {"ground": "BeachGround", "island": "BeachIsland", "rocks": "BeachRocks", "palms": "BeachPalms",
        "props": "BeachProps", "water": "BeachWater",
