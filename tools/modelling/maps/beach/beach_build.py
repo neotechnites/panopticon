@@ -148,9 +148,8 @@ PAL_JUNGLE = ((0.17, 0.4, 0.15), (0.26, 0.55, 0.2), (0.36, 0.68, 0.24), (0.5, 0.
 PAL_HAZE = ((0.42, 0.62, 0.48), (0.55, 0.74, 0.74))                                  # two steps of distance haze
 PAL_ROCK = ((0.62, 0.56, 0.48), (0.8, 0.76, 0.69), (0.97, 0.95, 0.9))               # foot, flank, crown
 PAL_PEAK = ((0.8, 0.52, 0.18), (0.92, 0.67, 0.3))                                    # (unused: the crag tile carries its ochre)
-PAL_CRAG = ((0.7, 0.66, 0.6), (1.0, 0.98, 0.95))                                     # the crag's shade and lit faces (x beach_crag)
-PAL_SCRUB = ((0.9, 0.86, 0.7), (0.8, 0.78, 0.58))                                    # the flats: dry sand, scrub
-PAL_CANOPY = ((0.42, 0.62, 0.3), (0.6, 0.82, 0.4), (0.78, 0.98, 0.5), (0.5, 0.6, 0.36))   # tree cards: fold, mid, lit, scrub
+PAL_CRAG = ((0.72, 0.7, 0.66), (1.0, 1.0, 0.98))                                     # the crag's shade and lit faces (x forest_rock)
+PAL_LAWN = ((0.86, 0.9, 0.72), (1.0, 1.0, 0.92), (1.12, 1.14, 0.98))                   # open grass x forest_grass: fold, mid, lit
 PAL_FROND = ((0.82, 0.92, 0.7), (1.0, 1.0, 1.0))                                     # under the crown, lit
 
 
@@ -479,29 +478,21 @@ def _jb(b, k, amp):
 
 
 def land_tone(x, y, alt, steep, aspect, d):
-    """Flat palette steps for the island's ground: sand on the flats behind beaches, grass on the flats and above
-    the tree line, forest tones by aspect (lit toward the sun) and fold (darker in the valleys), ochre on the peak."""
+    """Flat palette steps for the island's ground: sand on the beaches themselves, the crag's rock above the tree line
+    and on cliffs, open grass in the forest map's greens everywhere else (lit, mid, a step darker in the folds)."""
     inside, ds, _dr, _dc = plan.coast_fields(x, y)
     if inside < 0.0:
         return PAL_SAND[1], "sand"
-    if alt < 2.6 and ds < plan.BEACH_FLAT["sand"] + 6.0 and d > 2.0 and steep < 0.45:
+    if alt < 2.2 and ds < 26.0 and d > 2.0 and steep < 0.45:
         return PAL_SAND[0], "sand"
     if alt > ROCK_LINE or (steep > 0.85 and alt > 30.0) or (_dc < 40.0 and alt > 4.0):   # the crag, cliffs, sea cliffs
         return (PAL_CRAG[1] if aspect_lit(aspect) else PAL_CRAG[0]), "crag"
-    if alt > TREE_LINE:
-        return PAL_GRASS[1], "grass"
-    if alt < 7.0 and inside < 90.0 and d > -1.0:                      # the flats behind the beaches: sand and scrub
-        return PAL_SCRUB[step(0.5 + 0.5 * fbm(x / 40.0, y / 40.0, SEED + 33, 1), 2)], "sand"
-    if jungle_mask(x, y, d) < 0.5:
-        return PAL_GRASS[step(0.5 + 0.5 * fbm(x / 60.0, y / 60.0, SEED + 33, 1), 2)], "grass"
     e = 40.0
     rv = plan.land_h(x, y) - 0.25 * (plan.land_h(x + e, y) + plan.land_h(x - e, y) + plan.land_h(x, y + e) + plan.land_h(x, y - e))
-    k = 2 if aspect_lit(aspect) else 1
-    if rv < -5.0:
-        k -= 1                                                        # the folds a step darker
-    elif rv > 6.0 and k == 2:
-        k = 3                                                         # the crests a step lighter
-    return PAL_JUNGLE[k], "jungle"
+    k = 2 if (aspect_lit(aspect) and steep > 0.12) else 1
+    if rv < -5.0 and steep > 0.1:
+        k = 0
+    return PAL_LAWN[k], "grass"
 
 
 def aspect_lit(aspect):
@@ -638,6 +629,9 @@ class Sculpt(object):
             for j in range(n):
                 b = far_bearing(j / float(n))
                 p = pol(b, r, island_z(b, r))
+                if p[2] - WATER_Z > ROCK_LINE - 30.0:                 # the crag's faces: jittered, so cliffs facet
+                    jx, jy = h2(j, int(r), SEED + 77) - 0.5, h2(j, int(r), SEED + 78) - 0.5
+                    p = (p[0] + 7.0 * jx, p[1] + 7.0 * jy, p[2] + 5.0 * (h2(j, int(r), SEED + 79) - 0.5))
                 ring.append(self.v(p, land_col(p), "island"))
             self._stitch(prev, ring)
             prev = ring
@@ -1056,14 +1050,16 @@ def build_palms():
                 continue
             spots.append((pb, pr, "island", bearing_of((cx, cy, 0.0)) if rad < 0.3 else None))
     made, tries = 0, 0
-    while made < PALM_GROVES and tries < 3000:                     # groves on the flat behind the wall
+    groves = [(112.0, 250.0, 26.0, 120.0)] * PALM_GROVES + [(62.0, 100.0, 30.0, 90.0)] * 3 + [(262.0, 296.0, 40.0, 120.0)] * 2
+    while made < len(groves) and tries < 3000:                     # groves on the flat behind the wall, the beaches
         tries += 1
-        b = rr.u(112.0, 250.0)
-        r = top_r(b) + rr.u(26.0, 120.0)
+        b0, b1, d0, d1 = groves[made]
+        b = rr.u(b0, b1)
+        r = top_r(b) + rr.u(d0, d1)
         cx, cy, _z = pol(b, r, 0.0)
-        if main_coast(cx, cy) < 24.0 or ground_z(b, r) < WATER_Z + 1.0 or on_landmark(cx, cy):
+        if main_coast(cx, cy) < 18.0 or ground_z(b, r) < WATER_Z + 1.0 or on_landmark(cx, cy):
             continue
-        if any(math.hypot(cx - pol(sb, sr, 0.0)[0], cy - pol(sb, sr, 0.0)[1]) < 30.0 for sb, sr, k, _c in spots if k == "slope"):
+        if any(math.hypot(cx - pol(sb, sr, 0.0)[0], cy - pol(sb, sr, 0.0)[1]) < 26.0 for sb, sr, k, _c in spots if k == "slope"):
             continue
         made += 1
         for k in range(rr.i(3, 5)):
@@ -1579,11 +1575,7 @@ def yacht_foam():
 # =============================================================================
 
 HOUSE_COLS = ((0.96, 0.93, 0.86), (0.88, 0.82, 0.7))                 # two tones: one mass
-FLOOR = 3.2                            # one storey
-TERRACOTTA = (0.78, 0.4, 0.26, 1.0)
-WHITE = (0.97, 0.96, 0.93, 1.0)
-STONE = (0.9, 0.8, 0.64, 1.0)
-PAVING = (0.64, 0.6, 0.52, 1.0)
+FLOOR = 3.0                            # one storey
 
 
 def _snap(z):
@@ -1693,108 +1685,23 @@ class Surface(object):
         return ground_z(bearing_of((x, y, 0.0)), math.hypot(x, y))
 
 
-def _frame_xy(yaw):
-    a = math.radians(yaw)
-    return (math.cos(a), math.sin(a), 0.0), (-math.sin(a), math.cos(a), 0.0)
+PAVING = (0.64, 0.6, 0.52, 1.0)
 
 
-def block(m, c, yaw, w, d, h, z0, zone, col, chunk="resort", sink=4.0):
-    """An upright box: centre (x, y), its front facing `yaw` (deg, Blender), w across, d deep, walls from
-    sink metres under z0 (into the ground) to z0 + h; no top (a roof sits on it) and no bottom."""
-    fwd, side = _frame_xy(yaw)
-    pts = []
-    for sa, sd in ((1, 1), (-1, 1), (-1, -1), (1, -1)):
-        pts.append((c[0] + side[0] * sa * w / 2 + fwd[0] * sd * d / 2, c[1] + side[1] * sa * w / 2 + fwd[1] * sd * d / 2))
-    lo = [m.v((p[0], p[1], z0 - sink), col) for p in pts]
-    hi = [m.v((p[0], p[1], z0 + h), col) for p in pts]
-    for k in range(4):
-        j = (k + 1) % 4
-        mid = ((pts[k][0] + pts[j][0]) / 2, (pts[k][1] + pts[j][1]) / 2)
-        out = (mid[0] - c[0], mid[1] - c[1], 0.0)
-        m.quad(lo[k], lo[j], hi[j], hi[k], out, zone, chunk)
-    return [m.verts[v] for v in hi]
-
-
-def flat_top(m, corners, zone, col, chunk="resort"):
-    vs = [m.v(p, col) for p in corners]
-    m.quad(vs[0], vs[1], vs[2], vs[3], UP, zone, chunk)
-
-
-def hip_roof(m, corners, rise, zone, col, chunk="resort", eave=0.6):
-    """A hip roof over four eave corners (a pyramid when square): ridge along the longer side."""
-    cx = sum(p[0] for p in corners) / 4.0
-    cy = sum(p[1] for p in corners) / 4.0
-    z = corners[0][2]
-    ex = [(cx + (p[0] - cx) * (1.0 + eave / max(1.0, math.hypot(p[0] - cx, p[1] - cy))),
-           cy + (p[1] - cy) * (1.0 + eave / max(1.0, math.hypot(p[0] - cx, p[1] - cy))), z - 0.15) for p in corners]
-    a, b = math.dist(ex[0][:2], ex[1][:2]), math.dist(ex[1][:2], ex[2][:2])
-    want = lambda cen: (cen[0] - cx, cen[1] - cy, 2.0)
-    if abs(a - b) < 0.05 * max(a, b):          # square: a pyramid
-        e = [m.v(p, col) for p in ex]
-        apex = m.v((cx, cy, z + rise), col)
-        for k in range(4):
-            m.tri(e[k], e[(k + 1) % 4], apex, want, zone, chunk)
+def _buildings(m, uv):
+    """The hotel, the village and the clock tower at true player scale (beach_buildings.py)."""
+    try:
+        import beach_buildings as bb
+    except ImportError:                       # not delivered yet: the terraces stay empty
+        INFO["building_tris"] = 0
         return
-    if a >= b:      # ridge parallel to edge 0-1
-        m0 = lerp3(ex[0], ex[3], 0.5)
-        m1 = lerp3(ex[1], ex[2], 0.5)
-        k = 0.5 * b / a
-    else:
-        m0 = lerp3(ex[0], ex[1], 0.5)
-        m1 = lerp3(ex[3], ex[2], 0.5)
-        k = 0.5 * a / b
-    r0 = lerp3(m0, m1, k)
-    r1 = lerp3(m0, m1, 1.0 - k)
-    r0 = (r0[0], r0[1], z + rise)
-    r1 = (r1[0], r1[1], z + rise)
-    e = [m.v(p, col) for p in ex]
-    t0, t1 = m.v(r0, col), m.v(r1, col)
-    if a >= b:
-        m.quad(e[0], e[1], t1, t0, want, zone, chunk)
-        m.quad(e[2], e[3], t0, t1, want, zone, chunk)
-        m.tri(e[1], e[2], t1, want, zone, chunk)
-        m.tri(e[3], e[0], t0, want, zone, chunk)
-    else:
-        m.quad(e[1], e[2], t1, t0, want, zone, chunk)
-        m.quad(e[3], e[0], t0, t1, want, zone, chunk)
-        m.tri(e[0], e[1], t0, want, zone, chunk)
-        m.tri(e[2], e[3], t1, want, zone, chunk)
-
-
-def _hotel(m):
-    """A long low white body facing the bay, a sandstone ground storey, a terracotta hip roof, one tower on its
-    north end with a pyramid cap; a pool terrace in front. Flat tones: the silhouette does the work."""
     hx, hy = plan.HOTEL["x"], plan.HOTEL["y"]
-    w, d, h = plan.HOTEL["body"]
-    tw, td, th = plan.HOTEL["tower"]
-    z0 = plan.pads()[0][4] + WATER_Z + 0.3
-    block(m, (hx, hy), 0.0, w, d, FLOOR, z0, "plastic", STONE)
-    top = block(m, (hx, hy), 0.0, w - 0.4, d - 0.4, h - FLOOR, z0 + FLOOR, "plastic", WHITE, sink=0.0)
-    hip_roof(m, top, 3.2, "plastic", TERRACOTTA, eave=0.9)
-    ty = hy + w / 2.0 + td / 2.0 - 1.0
-    top = block(m, (hx, ty), 0.0, tw, td, th, z0, "plastic", WHITE)
-    hip_roof(m, top, 4.5, "plastic", TERRACOTTA, eave=0.7)
-    deck = [(hx + d / 2.0, hy - 24.0, z0 + 0.05), (hx + 34.0, hy - 24.0, z0 + 0.05), (hx + 34.0, hy + 24.0, z0 + 0.05),
-            (hx + d / 2.0, hy + 24.0, z0 + 0.05)]
-    flat_top(m, deck, "sand", PAVING)
-    pool = [(hx + 14.0, hy - 10.0, z0 + 0.1), (hx + 28.0, hy - 10.0, z0 + 0.1), (hx + 28.0, hy + 10.0, z0 + 0.1), (hx + 14.0, hy + 10.0, z0 + 0.1)]
-    flat_top(m, pool, "plastic", (0.2, 0.72, 0.95, 1.0))
-
-
-def _village(m):
-    for x, y, w, d, yaw, h, ci in _houses():
-        z0 = _snap(plan.land_h(x, y, terraces=False)) - 0.3 + WATER_Z + 0.3
-        col = HOUSE_COLS[ci] + (1.0,)
-        top = block(m, (x, y), yaw, w, d, h, z0, "plastic", col)
-        hip_roof(m, top, 2.4 if h > FLOOR else 2.0, "plastic", TERRACOTTA, eave=0.5)
-
-
-def _clock_tower(m):
-    tx_, ty_, w, h = plan.CLOCK_TOWER["x"], plan.CLOCK_TOWER["y"], plan.CLOCK_TOWER["w"], plan.CLOCK_TOWER["h"]
-    z0 = plan.pads()[1][4] + WATER_Z + 0.3
-    top = block(m, (tx_, ty_), 0.0, w, w, h - 2.5, z0, "plastic", (0.44, 0.38, 0.32, 1.0))
-    band = block(m, (tx_, ty_), 0.0, w + 0.4, w + 0.4, 2.5, z0 + h - 2.5, "plastic", (0.2, 0.18, 0.18, 1.0), sink=0.0)
-    hip_roof(m, band, 4.5, "plastic", (0.3, 0.2, 0.16, 1.0), eave=0.3)
+    tris = bb.hotel(m, uv, hx, hy, plan.HOTEL["yaw"], plan.pads()[0][4] + WATER_Z + 0.3, plan.HOTEL["body"], plan.HOTEL["tower"])
+    tx_, ty_ = plan.CLOCK_TOWER["x"], plan.CLOCK_TOWER["y"]
+    tris += bb.clock_tower(m, uv, tx_, ty_, plan.pads()[1][4] + WATER_Z + 0.3, plan.CLOCK_TOWER["w"], plan.CLOCK_TOWER["h"])
+    for k, (x, y, _w, _d, yaw, _h, _c) in enumerate(_houses()):
+        tris += bb.house(m, uv, x, y, yaw, _snap(plan.land_h(x, y, terraces=False)) - 0.3 + WATER_Z + 0.3, SEED + 1900 + k)[2]
+    INFO["building_tris"] = tris
 
 
 def _road(m, surf):
@@ -1822,140 +1729,103 @@ def _road(m, surf):
             m.quad(rows[k][c], rows[k][c + 1], rows[k + 1][c + 1], rows[k + 1][c], UP, "sand" if c == 1 else "grass", "resort")
 
 
-def _horizon(m):
-    """Islands on the horizon line, kilometres out, inside the sea mesh: dark blue-grey, jagged peaked outlines; the
-    fog carries them almost into the horizon band (Sunshine's)."""
-    rr = Rng(SEED + 1800)
-    col = (0.2, 0.27, 0.38, 1.0)
-    for b, r, width, h, peaks in plan.HORIZON_ISLES:
+def _horizon(m, uv):
+    """Islands on the horizon as painted backdrops: one quad each, facing the bay, wearing a soft silhouette
+    (beach_horizon_albedo, three rows), unshaded and alpha-blended in beach.tscn; sunk into the horizon band."""
+    for k, (b, r, width, h, _peaks) in enumerate(plan.HORIZON_ISLES):
         cx, cy, _z = pol(b, r, 0.0)
-        along = pol(b + 90.0, 1.0, 0.0)
-        across = pol(b, 1.0, 0.0)
-        n = 16
-        noise = [rr.u(0.8, 1.2) for _ in range(n)]
-
-        def at(u, v, z):
-            return m.v((cx + along[0] * u + across[0] * v, cy + along[1] * u + across[1] * v, z), col)
-
-        base, mid = [], []
-        for k in range(n):
-            a = k * TWO_PI / n
-            base.append(at(math.cos(a) * width * 0.5 * noise[k], math.sin(a) * width * 0.22 * noise[k], WATER_Z - 4.0))
-            mid.append(at(math.cos(a) * width * 0.3 * noise[(k + 3) % n], math.sin(a) * width * 0.13 * noise[(k + 5) % n],
-                          WATER_Z + h * rr.u(0.22, 0.55)))
-        m.grid([base, mid], lambda cen: (cen[0] - cx, cen[1] - cy, 40.0), "plastic", "resort")
-        tops = [(lerp(-0.3, 0.3, (i + 0.5) / peaks) * width * rr.u(0.8, 1.2), rr.u(-0.04, 0.04) * width,
-                 h * (1.0 if i == 0 else rr.u(0.6, 0.85))) for i in range(peaks)]
-        apex = [at(u, v, WATER_Z + z) for u, v, z in tops]
-        for k in range(n):
-            j = (k + 1) % n
-            a = (k + 0.5) * TWO_PI / n
-            u = math.cos(a) * width * 0.3
-            i = min(range(peaks), key=lambda q: abs(tops[q][0] - u))
-            m.tri(mid[k], mid[j], apex[i], UP, "plastic", "resort")
-        for i in range(peaks - 1):                       # a ridge between neighbouring spires
-            m.tri(apex[i], apex[i + 1], mid[(4 * i + 2) % n], UP, "plastic", "resort")
-
-
-# =============================================================================
-# TREES -- the forest as mass: crossed cards wearing one drawn canopy, three greens, shrinking up the slope
-# =============================================================================
-
-TREES = (9.0, 2400)              # placement grid metres, cap
-
-
-def tree_visible(x, y, steep, aspect):
-    """Only faces seen from the lane, the flybridge and the capsule camera: the W/NW coast is silhouette only."""
-    if x < -780.0 or (y > 540.0 and x < -420.0):
-        return False
-    if steep < 0.1:
-        return x > -620.0
-    return math.cos(math.radians(aspect + 180.0)) > -0.3
-
-
-def canopy_card(m, uv, x, y, z, size, yaw, col):
-    """Two crossed vertical quads, the canopy sprite on each (v up the card), foot sunk 0.6 m."""
-    for k in range(2):
-        a = math.radians(yaw + 90.0 * k)
-        dx, dy = math.cos(a) * size * 0.5, math.sin(a) * size * 0.5
-        lo0 = m.v((x - dx, y - dy, z - 0.6), col)
-        lo1 = m.v((x + dx, y + dy, z - 0.6), col)
-        hi1 = m.v((x + dx, y + dy, z + size * 1.1), col)
-        hi0 = m.v((x - dx, y - dy, z + size * 1.1), col)
-        for tri in ((lo0, lo1, hi1), (lo0, hi1, hi0)):
-            m.tri_as(tri[0], tri[1], tri[2], "canopy", "island")
+        ax, ay, _z = pol(b + 90.0, 1.0, 0.0)
+        lo, hi = WATER_Z - 3.0, WATER_Z + h * 1.35
+        col = (1.0, 1.0, 1.0, 1.0)
+        q = [m.v((cx - ax * width * 0.5, cy - ay * width * 0.5, lo), col), m.v((cx + ax * width * 0.5, cy + ay * width * 0.5, lo), col),
+             m.v((cx + ax * width * 0.5, cy + ay * width * 0.5, hi), col), m.v((cx - ax * width * 0.5, cy - ay * width * 0.5, hi), col)]
+        v0, v1 = 1.0 - (k + 1) / 3.0, 1.0 - k / 3.0                      # row k of three in the sheet
+        uvs = {q[0]: (0.0, v0), q[1]: (1.0, v0), q[2]: (1.0, v1), q[3]: (0.0, v1)}
+        for tri in ((q[0], q[1], q[2]), (q[0], q[2], q[3])):
+            m.tri_as(tri[0], tri[1], tri[2], "backdrop", "resort")
             fi = len(m.faces) - 1
             for vi in tri:
-                uv[(fi, vi)] = {lo0: (0.0, 0.0), lo1: (1.0, 0.0), hi1: (1.0, 1.0), hi0: (0.0, 1.0)}[vi]
+                uv[(fi, vi)] = uvs[vi]
+
+
+# =============================================================================
+# TREES -- few, where the composition wants them: groves on the flats, a belt behind the beaches, scattered on the
+# lower slopes; the broadleaf is the forest map's tree (beach_broadleaf.py), palms the beach's own
+# =============================================================================
+
+BROADLEAF = {"belt": 34, "rise": 30, "slope": 50, "wall": 22, "bush": 40}   # how many of each kind
+
+
+def _grove_spots(rr, n, inner, outer, b0, b1, surf, kind, spots, min_gap=14.0):
+    made, tries = 0, 0
+    while made < n and tries < 4000:
+        tries += 1
+        b = rr.u(b0, b1)
+        r = top_r(b) + rr.u(inner, outer)
+        x, y, _z = pol(b, r, 0.0)
+        h = plan.land_h(x, y)
+        if h < 2.5 or h > 120.0 or plan.coast_fields(x, y)[0] < 16.0 or on_landmark(x, y):
+            continue
+        steep, _a = slope_of(x, y)
+        if steep > 0.6 or any(math.hypot(x - q[0], y - q[1]) < min_gap for q in spots):
+            continue
+        spots.append((x, y, surf.z(x, y), kind))
+        made += 1
 
 
 def build_trees(m, surf, uv):
+    """Broadleafs into the palms chunk: a belt behind the wall's greenery and the beaches, the valley's first rise,
+    scattered singles on the lower slopes, and low bushes (small broadleafs) behind the wall."""
+    try:
+        import beach_broadleaf as bl
+    except ImportError:
+        INFO["trees"] = 0
+        return
     rr = Rng(SEED + 1700)
-    g, cap = TREES
-    made = 0
-    for j in range(int(-780.0 / g), int(880.0 / g)):
-        for i in range(int(-1120.0 / g), int(60.0 / g)):
-            if made >= cap:
-                break
-            x, y = (i + 0.5 + rr.u(-0.45, 0.45)) * g, (j + 0.5 + rr.u(-0.45, 0.45)) * g
-            h = plan.land_h(x, y)
-            if h < 3.0 or h > TREE_LINE:
-                continue
-            inside, ds, _dr, dc = plan.coast_fields(x, y)
-            if inside < 18.0 or dc < 45.0 or (ds < plan.BEACH_FLAT["sand"] + 4.0 and h < 3.0):
-                continue
-            b, r = bearing_of((x, y, 0.0)), math.hypot(x, y)
-            if r < top_r(b) + 16.0 or on_landmark(x, y):
-                continue
-            steep, aspect = slope_of(x, y)
-            if steep > 0.8 or not tree_visible(x, y, steep, aspect):
-                continue
-            scrub = h < 7.0 and inside < 90.0
-            p = 0.13 if scrub else 0.5 * (1.0 - 0.5 * ramp(h, 40.0, TREE_LINE))
-            if rr.f() > p:
-                continue
-            if scrub:
-                size, col = rr.u(2.4, 4.0), PAL_CANOPY[3]
-            else:
-                size = lerp(12.0, 6.0, ramp(h, 10.0, TREE_LINE)) * rr.u(0.8, 1.2)
-                e = 40.0
-                rv = h - 0.25 * (plan.land_h(x + e, y) + plan.land_h(x - e, y) + plan.land_h(x, y + e) + plan.land_h(x, y - e))
-                lit = aspect_lit(aspect)
-                col = PAL_CANOPY[0] if (rv < -4.0 or not lit) else PAL_CANOPY[2] if rv > 3.0 else PAL_CANOPY[1]
-            canopy_card(m, uv, x, y, surf.z(x, y), size, rr.u(0.0, 180.0), col + (1.0,))
-            made += 1
-    INFO["trees"] = made
+    spots = []
+    _grove_spots(rr, BROADLEAF["wall"], 16.0, 40.0, 100.0, 262.0, surf, "near", spots, 9.0)        # behind the wall
+    _grove_spots(rr, BROADLEAF["bush"], 12.0, 60.0, 96.0, 266.0, surf, "bush", spots, 5.0)        # bushes among them
+    _grove_spots(rr, BROADLEAF["rise"], 120.0, 260.0, 120.0, 245.0, surf, "near", spots, 12.0)    # the valley's first rise
+    _grove_spots(rr, BROADLEAF["belt"], 40.0, 110.0, 60.0, 110.0, surf, "near", spots, 12.0)      # behind the south beach
+    _grove_spots(rr, BROADLEAF["belt"] // 2, 40.0, 140.0, 250.0, 300.0, surf, "near", spots, 12.0)  # behind the north cove
+    _grove_spots(rr, BROADLEAF["slope"], 260.0, 520.0, 110.0, 250.0, surf, "far", spots, 18.0)    # the lower slopes
+    tris = 0
+    for k, (x, y, z, kind) in enumerate(spots):
+        if kind == "bush":
+            tris += bl.broadleaf(m, uv, x, y, z, rr.u(0.0, 360.0), rr.u(0.28, 0.4), "far", "palms")
+        else:
+            tris += bl.broadleaf(m, uv, x, y, z, rr.u(0.0, 360.0), rr.u(0.85, 1.25), kind, "palms")
+    INFO["trees"] = len(spots)
+    INFO["tree_tris"] = tris
 
 
 def build_resort(m):
-    """The landmarks into their own mesh (chunk resort)."""
+    """The landmarks into their own mesh (chunk resort): buildings, the road, the horizon backdrops."""
     surf = Surface(m)
     r = Mesh()
-    _hotel(r)
-    _village(r)
-    _clock_tower(r)
+    ruv = {}
+    _buildings(r, ruv)
     _road(r, surf)
-    _horizon(r)
+    _horizon(r, ruv)
     INFO["resort"] = len(r.faces)
-    tuv = {}
-    build_trees(m, surf, tuv)
-    return r, tuv
+    return r, ruv, surf
 
 
 def build_geometry():
     plan._PADS[:] = resort_pads()
     s = Sculpt()
     m = s.build()
-    resort, tuv = build_resort(m)
+    resort, ruv, surf = build_resort(m)
     rocks, placed = build_rocks()
     palms, uv, trunks = build_palms()
+    build_trees(palms, surf, uv)
     props, puv, solids, poles, logs, hut = build_props()
     waves, wuv = build_waves()
     sea = build_sea([p for p in placed if ground_z(bearing_of((p[0], p[1], 0.0)), math.hypot(p[0], p[1])) < WATER_Z + 0.3]
                     + yacht_foam())
     cols = {"ground": build_ground_collider(), "rocks": build_rock_collider(placed),
             "palms": build_trunk_collider(trunks), "props": build_prop_collider(solids, poles, logs, hut)}
-    return s, m, rocks, palms, uv, sea, cols, props, puv, waves, wuv, resort, tuv
+    return s, m, rocks, palms, uv, sea, cols, props, puv, waves, wuv, resort, ruv
 
 
 # =============================================================================
@@ -1969,7 +1839,7 @@ def _ref(centre):
 SHEETS = {
     "sand": tx.Sheet("sand", ref_r=_ref, roughness=0.95),
     "rock": tx.Sheet("rock", mode="box", roughness=0.9),
-    "grass": tx.Sheet("grass", mode="box", roughness=0.95),
+    "grass": tx.Sheet("grass", stem="forest_grass", mode="box", roughness=0.95),    # the forest map's greens
     "jungle": tx.Sheet("jungle", mode="box", roughness=0.95),
     "bark": tx.Sheet("bark", mode="custom", roughness=0.95),
     "leaf": tx.Sheet("leaf", mode="custom", roughness=0.9, cull=False),
@@ -1981,8 +1851,14 @@ SHEETS = {
     "thatch": tx.Sheet("thatch", mode="custom", roughness=0.95, cull=False),
     "shell": tx.Sheet("shell", mode="box", roughness=0.6),
     "reef": tx.Sheet("reef", mode="box", roughness=0.9),
-    "canopy": tx.Sheet("canopy", mode="custom", roughness=0.9, cull=False),       # tree cards (alpha-cut in beach.tscn)
-    "crag": tx.Sheet("crag", mpt=0.3, mode="box", roughness=0.95),                # the crag: 77 m repeat, 4-10 m strata, no grain at 800 m
+    "crag": tx.Sheet("crag", stem="forest_rock", size=64, mpt=0.12, mode="box", roughness=0.95),   # the forest's rock: grey-tan cliffs
+    "plaster": tx.Sheet("plaster", mode="custom", roughness=0.9),                 # the hotel and tower (beach_buildings.py)
+    "house": tx.Sheet("house", mode="custom", roughness=0.9),
+    "clock": tx.Sheet("clock", mode="custom", roughness=0.8),
+    "roof": tx.Sheet("roof", mode="box", roughness=0.85),                         # terracotta tiles
+    "backdrop": tx.Sheet("backdrop", stem="beach_horizon", size=512, mode="custom", roughness=1.0, cull=False),
+    "tbark": tx.Sheet("tbark", stem="forest_bark", mode="box", roughness=0.95),       # the forest map's tree, as it is
+    "tleaf": tx.Sheet("tleaf", stem="forest_sun", mode="box", roughness=0.9),
     "wave": tx.Sheet("wave", mode="custom", roughness=0.4, cull=False),
 }
 SMOOTH = ("sand", "grass", "jungle", "water")     # Gouraud like the refs' ground; rock and palms stay faceted
@@ -2076,15 +1952,15 @@ def _part(m, chunk, name, mats, uv=None):
 
 
 def build():
-    s, m, rocks, palms, uv, sea, cols, props, puv, waves, wuv, resort, tuv = build_geometry()
+    s, m, rocks, palms, uv, sea, cols, props, puv, waves, wuv, resort, ruv = build_geometry()
     mats = tx.materials(NAME, SHEETS)
     for mat in mats.values():
         _tint(mat)
     out = []
-    parts = {"ground": _part(m, "ground", VIS["ground"], mats), "island": _part(m, "island", VIS["island"], mats, tuv),
+    parts = {"ground": _part(m, "ground", VIS["ground"], mats), "island": _part(m, "island", VIS["island"], mats),
              "rocks": _part(rocks, "rocks", VIS["rocks"], mats), "palms": _part(palms, "palms", VIS["palms"], mats, uv),
              "props": _part(props, "props", VIS["props"], mats, puv), "waves": _part(waves, "waves", VIS["waves"], mats, wuv), "water": _part(sea, "water", VIS["water"], mats),
-             "resort": _part(resort, "resort", VIS["resort"], mats)}
+             "resort": _part(resort, "resort", VIS["resort"], mats, ruv)}
     for chunk in CHUNKS:
         vis = parts[chunk]
         out.append(vis)
@@ -2097,7 +1973,7 @@ def build():
             line += " collision_tris=%d" % len(cf)
         print(line)
     tx.report(SHEETS)
-    print("MDL STATS palms=%d trees=%d" % (INFO.get("palms", 0), INFO.get("trees", 0)))
+    print("MDL STATS palms=%d trees=%d tree_tris=%d building_tris=%d" % (INFO.get("palms", 0), INFO.get("trees", 0), INFO.get("tree_tris", 0), INFO.get("building_tris", 0)))
     return out
 
 
@@ -2126,7 +2002,7 @@ def _export_chunks(out_dir, objects, spec):
 
 
 def _check():
-    s, m, rocks, palms, uv, sea, cols, props, puv, waves, wuv, resort, tuv = build_geometry()
+    s, m, rocks, palms, uv, sea, cols, props, puv, waves, wuv, resort, ruv = build_geometry()
     il.report(m, "sculpt")
     for chunk in ("ground", "island"):
         sub = Mesh()
@@ -2145,7 +2021,7 @@ def _check():
     il.report(resort, "resort")
     for k, c in cols.items():
         il.report(c, k + "_collider")
-    print("palms=%d trees=%d lane r=%.1f lap=%.0f m" % (INFO["palms"], INFO.get("trees", 0), LANE_R, math.radians(EXIT_B - ENTRY_B) * LANE_R))
+    print("palms=%d trees=%d tree_tris=%d building_tris=%d lane r=%.1f lap=%.0f m" % (INFO["palms"], INFO.get("trees", 0), INFO.get("tree_tris", 0), INFO.get("building_tris", 0), LANE_R, math.radians(EXIT_B - ENTRY_B) * LANE_R))
 
 
 if __name__ == "__main__":

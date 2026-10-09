@@ -195,7 +195,8 @@ def peak_h(x, y):
         if e < 1.0:
             spire = max(spire, sh * (1.0 - e) ** 0.7)
     crown = hh * (share + (1.0 - share) * (0.3 + 0.7 * spire))
-    mask = ramp(dist, r_out, r_in)
+    t = clamp((r_out - dist) / (r_out - r_in))
+    mask = 0.5 * t + 0.5 * (math.floor(t * 3.0) + smooth((t * 3.0) % 1.0 * 4.0 - 1.5)) / 3.0   # two ledges in the cliff band
     return skirt + (crown - skirt) * mask
 
 
