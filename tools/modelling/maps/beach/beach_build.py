@@ -1982,7 +1982,7 @@ SHEETS = {
     "shell": tx.Sheet("shell", mode="box", roughness=0.6),
     "reef": tx.Sheet("reef", mode="box", roughness=0.9),
     "canopy": tx.Sheet("canopy", mode="custom", roughness=0.9, cull=False),       # tree cards (alpha-cut in beach.tscn)
-    "crag": tx.Sheet("crag", mode="box", roughness=0.95),                         # the peak's bare rock, cliffs
+    "crag": tx.Sheet("crag", mpt=0.3, mode="box", roughness=0.95),                # the crag: 77 m repeat, 4-10 m strata, no grain at 800 m
     "wave": tx.Sheet("wave", mode="custom", roughness=0.4, cull=False),
 }
 SMOOTH = ("sand", "grass", "jungle", "water")     # Gouraud like the refs' ground; rock and palms stay faceted

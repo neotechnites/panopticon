@@ -78,11 +78,22 @@ drawn where the sight line meets the surface so the water does not hide them. A 
 
 ## The island (Wuhu, Delfino, Destiny Islands)
 
-One peak behind the bay (`PEAK`, 400 m at 500 m out; concave flanks, fluted ridges, bare rock bands where it is
-steepest and above `ROCK_LINE`), lower foothills round it. Blob trees (8 triangles each) shrink and thin up to
-`TREE_LINE`. Landmarks in their own chunk, `beach_resort.glb` (visual only, all off the lane): the hotel on a
-terrace facing the bay (a low crescent stepping up to the middle: sandstone ground storey, white balconied storeys, a teal band, terracotta hips and flat roofs, a pool terrace with palms), a village of 16 houses above the second cove (`COVE`, up the coast past the portal's jetty),
-cabanas and a pier with boats in the cove, a road from the cove through the village to the hotel and switchbacking
-up the peak to a lookout. Three low islands on the horizon. Depth fog (Environment, `fog_mode` depth) hazes the
-island toward the horizon colour; the water and sky are not fogged. The island's far rings crowd their columns
-toward the peak (`far_bearing`); the mesh coarsens past the lip to pay for the landmarks. The island's coasts are sand beaches (`shore_z`), with a rocky headland beside each jetty's root (`HEADLAND`), a ridge from the peak into the sea (`RIDGE_SEA`) and a broad rise from the coast; the ground within 8 m of the wall's lip is pinned to the lane's sculpt.
+Designed top-down at real scale before it was modelled: `tools/modelling/maps/beach/beach_island_plan.py` (the build
+imports it; `--diagram out.png` draws the plan with 25 m contours and the skylines from the lane and the flybridge).
+A comma 1.75 x 1.35 km: a round head carrying ONE peak (340 m at (-680, 400), 780 m from the lane, 23 deg up: a
+forested concave cone under a bare crag of spires and cliffs, `PEAK`/`SPIRES`/`CROWN`) and a 300 m tail curving SE
+to a cape along a ridge line (`SPINE`); two spurs (`SPUR_N`, `SPUR_S`) run to the headlands flanking the bay, which is
+one cove of the island's coast (`COAST`: one closed outline, each point starting a sand, rock or cliff segment).
+Beaches wrap it in five places (the bay, South Beach, the north cove, the north shore, the west bay); flats behind
+the beaches are sand and scrub; folds between the spurs; sea cliffs on the unseen W/NW coast. Ground tones are flat
+palette steps (`land_tone`): sand, scrub, forest by aspect and fold, the crag's ochre (`beach_crag_albedo`, 0.3 m
+per texel). The forest is MASS: 2,258 crossed cards (`build_trees`, 4 tris each) wearing one drawn canopy sprite
+(`beach_canopy_albedo`, alpha-cut by `CanopyMat` in `beach.tscn`), three greens, 12 m by the coast shrinking to 6 m
+at the tree line (205 m), only on faces seen from the lane, the flybridge and the capsule camera. Landmarks
+(`beach_resort.glb`, flat tones, true scale): the hotel, a 40 x 15 x 13 m body with a 30 m tower on the first rise
+at (-300, 20); a village of 26 two-tone houses clustered on the north spur's flank above the north cove under a dark
+32 m clock tower; a 300 m road from the hotel to the square at 6.6 % on a cut shelf; three horizon islands at
+2.75-2.95 km (inside the sea mesh; the camera's far plane is 4 km), dark blue-grey and jagged, fogged toward the
+horizon band (`fog_light_color` is the band's colour; depth fog 120..3200 m). No palms behind the wall: groves on
+the flat instead. The island's far rings crowd their columns toward the peak (`far_bearing`, `PEAK_B`) with 28 m
+rows under the crag. Budget: island 21.6k tris (terrain 12.5k, cards 9.0k), resort 1.3k.
