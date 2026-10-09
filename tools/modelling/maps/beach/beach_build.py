@@ -43,6 +43,10 @@ import forest_tree_build  # noqa: E402,F401  the forest map's tree library rides
 import forest_tree_prop_build  # noqa: E402,F401
 import beach_broadleaf as bl  # noqa: E402  the broadleaf: the forest map's tree
 import beach_buildings as bb  # noqa: E402  the hotel, houses and clock tower at player scale
+try:
+    import beach_shore as sh  # noqa: E402  the shore strip behind the wall, the lighthouse
+except ImportError:                       # not delivered yet: the strip is skipped
+    sh = None
 from beach_lib import (Mesh, Rng, UP, pol, bearing_of, rad_of, lerp, lerp3, clamp, smooth, ramp,  # noqa: E402
                        angdiff, h2, vnoise, fbm, ring_noise)
 if bpy is not None:
@@ -1113,7 +1117,7 @@ def build_palms(surf=None):
         centres.append(b)
         for k in range(rr.i(2, 3)):
             bb = b + rr.u(-2.2, 2.2)
-            spots.append((bb, wf(bb) - rr.u(1.0, 1.6), "sand", b))
+            spots.append((bb, wf(bb) - rr.u(1.0, 1.6), "sand", b))     # Ryan's lane palms: untouched
     # the island: clusters thick along the wall, thinning back; none in the sea or on a cliff
     made, tries = 0, 0
     while made < PALM_CLUSTERS and tries < 4000:
@@ -1765,7 +1769,7 @@ def on_landmark(x, y):
     if _road_dist(x, y) < plan.ROAD_W + 5.0:
         return True
     hx, hy = plan.HOTEL["x"], plan.HOTEL["y"]
-    if math.hypot(x - hx - 16.0, y - hy) < 34.0:
+    if math.hypot(x - hx - 16.0, y - hy) < 34.0 or on_strip(x, y):
         return True
     return any(math.hypot(x - h[0], y - h[1]) < 0.7 * max(h[2], h[3]) + 5.0 for h in _houses())
 
@@ -2043,7 +2047,7 @@ def build_trees(m, surf, uv):
     while b < 264.0:                                                      # the hedge right behind the rocks
         r = top_r(b) + rr.u(3.5, 7.5)
         x, y, _z = pol(b, r, 0.0)
-        if plan.land_h(x, y) > 1.5 and not on_landmark(x, y):
+        if plan.land_h(x, y) > 1.5 and not on_landmark(x, y) and not on_strip(x, y):
             spots.append((x, y, surf.z(x, y), "bush"))
         b += rr.u(4.5, 7.5) / (math.radians(1.0) * r)
     spots = [sp for sp in spots if not hides_belfry(sp[0], sp[1], sp[2])]
@@ -2060,6 +2064,93 @@ def build_trees(m, surf, uv):
     INFO["tree_tris"] = tris
 
 
+# -- the shore strip a runner looks at over the wall: (bearing, kind, metres behind the lip); the boardwalk at d 10.5
+STRIP = ((104.0, "torch"), (110.0, "hut"), (122.0, "torch"), (128.0, "cabana"), (136.0, "torch"), (144.0, "lifeguard"),
+         (152.0, "torch"), (160.0, "bar"), (170.0, "torch"), (178.0, "hut"), (188.0, "torch"), (196.0, "cabana"),
+         (204.0, "torch"), (212.0, "hut"), (222.0, "torch"), (232.0, "cabana"), (240.0, "torch"), (248.0, "hut"),
+         (256.0, "torch"))
+STRIP_D = {"torch": 12.4, "hut": 16.0, "bar": 15.5, "cabana": 15.0, "lifeguard": 14.0}
+STRIP_R = {"torch": 1.0, "hut": 5.5, "bar": 6.5, "cabana": 4.0, "lifeguard": 3.5}
+WALK = (100.0, 260.0, 10.5, 2.4)      # the boardwalk: bearings, metres behind the lip, width
+LIGHTHOUSE = (-10.0, 104.0, 25.0)     # on the north headland's knoll: x, y, height
+WATERFALL = (-15.0, 122.0, 160.0, 6.0)   # down the crag's bay face: angle from the peak (deg, Blender), from d, to d, width
+
+
+def strip_spots():
+    """(x, y, yaw toward the bay, kind) of every piece of the shore strip."""
+    out = []
+    for b, kind in STRIP:
+        r = top_r(b) + STRIP_D[kind]
+        x, y, _z = pol(b, r, 0.0)
+        out.append((x, y, math.degrees(math.atan2(-y, -x)), kind))
+    return out
+
+
+def on_strip(x, y):
+    """Inside a strip piece's footprint or on the boardwalk: no hedge, bush, palm or grove there."""
+    b, r = bearing_of((x, y, 0.0)), math.hypot(x, y)
+    d = r - top_r(b)
+    if WALK[0] - 2.0 < b < WALK[1] + 2.0 and WALK[2] - 1.8 < d < WALK[2] + 1.8:
+        return True
+    return any(math.hypot(x - sx, y - sy) < STRIP_R[k] + 1.5 for sx, sy, _yaw, k in strip_spots())
+
+
+def _strip(m, uv, surf):
+    """The shore strip (beach_shore.py) on the sculpt's own ground, and the boardwalk along it."""
+    if sh is None:
+        return 0
+    tris = 0
+    for k, (x, y, yaw, kind) in enumerate(strip_spots()):
+        z0 = surf.z(x, y)
+        if kind == "torch":
+            tris += sh.torch(m, uv, x, y, z0)
+        elif kind == "hut":
+            tris += sh.tiki_hut(m, uv, x, y, yaw, z0, SEED + 2100 + k)
+        elif kind == "bar":
+            tris += sh.beach_bar(m, uv, x, y, yaw, z0)
+        elif kind == "cabana":
+            tris += sh.cabana(m, uv, x, y, yaw, z0, SEED + 2200 + k)
+        else:
+            tris += sh.lifeguard_tower(m, uv, x, y, yaw, z0)
+    pts = []
+    b = WALK[0]
+    while b <= WALK[1]:
+        r = top_r(b) + WALK[2]
+        pts.append(pol(b, r, 0.0)[:2])
+        b += 3.0 / (math.radians(1.0) * r)
+    tris += sh.boardwalk(m, uv, pts, surf.z, WALK[3])
+    x, y, h = LIGHTHOUSE
+    tris += sh.lighthouse(m, uv, x, y, surf.z(x, y) - 0.5, h)
+    return tris
+
+
+def _waterfall(m, surf):
+    """A white ribbon down the crag's bay face in its deepest gully, a plunge pool where it meets the grass."""
+    ang, d0, d1, width = WATERFALL
+    px, py = plan.PEAK[0], plan.PEAK[1]
+    dx, dy = math.cos(math.radians(ang)), math.sin(math.radians(ang))
+    nx, ny = -dy * width / 2.0, dx * width / 2.0
+    rows = []
+    n = 12
+    for k in range(n + 1):
+        d = lerp(d0, d1, k / float(n))
+        x, y = px + dx * d, py + dy * d
+        z = surf.z(x, y) + 0.6
+        w = 0.6 + 0.4 * (k / float(n))                             # widening as it falls
+        c = (0.9, 0.96, 1.0, 1.0) if k % 2 else (0.75, 0.88, 0.98, 1.0)
+        rows.append([m.v((x - nx * w, y - ny * w, z), c), m.v((x + nx * w, y + ny * w, z), c)])
+    for a, b in zip(rows, rows[1:]):
+        m.quad(a[0], a[1], b[1], b[0], (dx, dy, 0.6), "plastic", "resort")
+    cx, cy = px + dx * (d1 + 4.0), py + dy * (d1 + 4.0)
+    cz = surf.z(cx, cy) + 0.3
+    ring = [m.v((cx + math.cos(a) * 9.0 * (1.0 + 0.15 * math.sin(3 * a)), cy + math.sin(a) * 6.0, cz), (0.5, 0.82, 0.95, 1.0))
+            for a in [j * TWO_PI / 10 for j in range(10)]]
+    mid = m.v((cx, cy, cz), (0.85, 0.95, 1.0, 1.0))
+    for j in range(10):
+        m.tri(ring[j], ring[(j + 1) % 10], mid, UP, "plastic", "resort")
+    return 2 * n + 10
+
+
 def build_resort(m):
     """The landmarks into their own mesh (chunk resort): buildings, the road, the horizon backdrops."""
     surf = Surface(m)
@@ -2068,6 +2159,8 @@ def build_resort(m):
     _buildings(r, ruv)
     _walls(r, surf)
     _road(r, surf)
+    INFO["strip_tris"] = _strip(r, ruv, surf)
+    INFO["waterfall_tris"] = _waterfall(r, surf)
     _horizon(r, ruv)
     INFO["resort"] = len(r.faces)
     return r, ruv, surf
@@ -2162,6 +2255,10 @@ SHEETS = {
     "grass": tx.Sheet("grass", mode="custom", roughness=0.95),                    # world-XY, turned per 25.6 m cell (grass_uvs)
     "terrain": tx.Sheet("terrain", stem="beach_grass", mode="box", roughness=0.95),   # the island: beach_terrain.gdshader in Godot
     "ashlar": tx.Sheet("ashlar", mode="box", roughness=0.9),                      # terrace skirts, garden walls
+    "thatch2": tx.Sheet("thatch2", stem="beach_thatch", mode="box", roughness=0.95, cull=False),   # the shore strip
+    "timber": tx.Sheet("timber", stem="beach_drift", mode="box", roughness=0.95),             # (beach_shore.py)
+    "deck": tx.Sheet("deck", stem="beach_teak", mode="box", roughness=0.8),
+    "canvas2": tx.Sheet("canvas2", stem="beach_canvas", mode="box", roughness=0.9, cull=False),
     "jungle": tx.Sheet("jungle", mode="box", roughness=0.95),
     "bark": tx.Sheet("bark", mode="custom", roughness=0.95),
     "leaf": tx.Sheet("leaf", mode="custom", roughness=0.9, cull=False),
@@ -2295,7 +2392,7 @@ def build():
             line += " collision_tris=%d" % len(cf)
         print(line)
     tx.report(SHEETS)
-    print("MDL STATS palms=%d trees=%d tree_tris=%d building_tris=%d" % (INFO.get("palms", 0), INFO.get("trees", 0), INFO.get("tree_tris", 0), INFO.get("building_tris", 0)))
+    print("MDL STATS palms=%d trees=%d tree_tris=%d building_tris=%d strip_tris=%d waterfall_tris=%d" % (INFO.get("palms", 0), INFO.get("trees", 0), INFO.get("tree_tris", 0), INFO.get("building_tris", 0), INFO.get("strip_tris", 0), INFO.get("waterfall_tris", 0)))
     return out
 
 
@@ -2343,7 +2440,7 @@ def _check():
     il.report(resort, "resort")
     for k, c in cols.items():
         il.report(c, k + "_collider")
-    print("palms=%d trees=%d tree_tris=%d building_tris=%d lane r=%.1f lap=%.0f m" % (INFO["palms"], INFO.get("trees", 0), INFO.get("tree_tris", 0), INFO.get("building_tris", 0), LANE_R, math.radians(EXIT_B - ENTRY_B) * LANE_R))
+    print("palms=%d trees=%d tree_tris=%d building_tris=%d strip_tris=%d waterfall_tris=%d lane r=%.1f lap=%.0f m" % (INFO["palms"], INFO.get("trees", 0), INFO.get("tree_tris", 0), INFO.get("building_tris", 0), INFO.get("strip_tris", 0), INFO.get("waterfall_tris", 0), LANE_R, math.radians(EXIT_B - ENTRY_B) * LANE_R))
 
 
 if __name__ == "__main__":
