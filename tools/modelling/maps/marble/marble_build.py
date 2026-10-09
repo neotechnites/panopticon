@@ -178,6 +178,14 @@ LANE_R = 52.0
 # this bearing, and the lane's stations are even.
 BARS_B = 353.0
 
+# ---- the trapdoor pits ----------------------------------------------------------
+# Game bearings of the trapdoors: each a lane cell's centre, the cell's inner two paving
+# bands (DECK_RS[0]..[2]) opened over a shallow pit the marble_trapdoor prop's leaves drop into.
+TRAPDOOR_B = (49.21875,)
+PIT_Z = 21.6                # the pit floor: over the lower tier's cell vaults (crown 21.5)
+PIT_LEDGE_Z = 22.05         # the inner side steps out under the cornice (bottom 22.0) ...
+PIT_STEP_R = 47.3           # ... to here, behind the inner tiers' face (47.15)
+
 # ---- texture ------------------------------------------------------------------
 TEX_SEED = 9021131          # the window unwrap's random stream
 ROUGHNESS = 1.0
@@ -552,6 +560,17 @@ def lane_angles():
     """The lane system's stations, 128 even. Used by the deck, both podium
     walls, the trough's inner rings and the inner bed's outer band."""
     return [TWO_PI * i / (NSIDE * DECK_SUB) for i in range(NSIDE * DECK_SUB)]
+
+
+def trapdoor_cells():
+    """Lane cell indices (between stations i and i+1, Blender angles) opened for TRAPDOOR_B."""
+    step = 360.0 / (NSIDE * DECK_SUB)
+    out = set()
+    for b in TRAPDOOR_B:
+        k = ((-b) % 360.0) / step - 0.5
+        assert abs(k - round(k)) < 1e-9, "trapdoor bearing %r is not a lane cell centre" % b
+        out.add(int(round(k)) % (NSIDE * DECK_SUB))
+    return out
 
 
 def wall_stations(rad=WALL_R, n=NSIDE):

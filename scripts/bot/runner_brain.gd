@@ -57,6 +57,10 @@ const HUNT_FIRST_SHOVE_SECONDS: float = 0.6
 const SHOVE_THROW_METRES: float = 12.0
 const SHOVE_CLEARANCE_METRES: float = 2.0
 const EDGE_CHECK_TICKS: int = 6
+## Probes along the path for an open trapdoor: this many, this far apart, this much margin.
+const DOOR_PROBES: int = 3
+const DOOR_PROBE_METRES: float = 1.5
+const DOOR_MARGIN_METRES: float = 0.5
 
 enum State { RUN, TAKE_COVER, CROSS, RECOVER }
 enum Cross { LINE_UP, TAKEOFF, FLY }
@@ -418,7 +422,11 @@ func _tick_run(delta: float) -> void:
 		return
 	if is_playing_cover() and _wants_cover() and _find_cover():
 		return
-	_follow(delta)
+	if _door_open_ahead():
+		# An open trapdoor across the path: wait it out rather than run into the pit.
+		input.command.move_direction = Vector2.ZERO
+	else:
+		_follow(delta)
 	_tick_stuck(delta)
 
 
@@ -495,6 +503,22 @@ func _follow(delta: float) -> void:
 		return
 	_drive_towards(target, 0.0)
 	input.command.move_direction *= throttle
+
+
+## True when the next stretch of the path crosses a trapdoor that is open or rattling.
+func _door_open_ahead() -> bool:
+	if _bake == null or not _bake.has_doors():
+		return false
+	var here: Vector3 = controller.global_position
+	var ahead: Vector3 = _path.points[_path.cursor] if _has_path and _path.cursor < _path.size() else here + _tangent(_angle_of(here)) * 5.0
+	var flat: Vector3 = Vector3(ahead.x - here.x, 0.0, ahead.z - here.z)
+	if flat.length_squared() < 1e-4:
+		return false
+	flat = flat.normalized()
+	for step: int in DOOR_PROBES:
+		if _bake.is_hazard_live(here + flat * (DOOR_PROBE_METRES * float(step + 1)), DOOR_MARGIN_METRES):
+			return true
+	return false
 
 
 ## Begin a crossing when the path's next link start is within its approach distance.

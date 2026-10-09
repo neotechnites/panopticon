@@ -98,6 +98,11 @@ func _look_for_a_shove(delta: float) -> void:
 	if forward.length_squared() < 1e-6:
 		return
 	forward = forward.normalized()
+	if not TrapDoor.live.is_empty() and TrapDoor.bot_wants_pull(body, _rivals(body)):
+		# Beside a lever with a rival on the trapdoor ahead: the same tap throws it.
+		command.shove_pressed = true
+		_shove_rest = SHOVE_REST_SECONDS
+		return
 	var here: Vector3 = body.global_position
 	for node: Node in _rivals(body):
 		if not is_instance_valid(node):

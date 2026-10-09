@@ -1,0 +1,11 @@
+{
+  "_comment": "marble_trapdoor: the walkway trapdoor's moving parts, for a lane cell marble_build.TRAPDOOR_B opened over its 1.4 m pit. Origin the deck point at r 49.4 on the hole's centre bearing, y 0 the deck, +X radial out, +Z toward increasing bearing. TrapdoorFrame: near-black iron rim 0.10 m inside the hole, 0.30 deep, with hinge knuckles proud 0.04 on both hinge lines. TrapdoorLeafA/B: 0.15 m stone leaves (paving tile, iron straps) whose node origin is the hinge axis at the leaf's bottom arris, local +X along the hinge, local +Z toward the free edge: +90 deg about local X hangs it (1.32 m, inside the pit). TrapdoorSpikes: twelve iron spikes on the pit floor (y -1.4), tips at -0.65, down the middle clear of the hanging leaves. NO colliders: the scene gives the leaves their bodies.",
+  "node_paths": [
+    "TrapdoorFrame",
+    "TrapdoorLeafA",
+    "TrapdoorLeafB",
+    "TrapdoorSpikes"
+  ],
+  "surfaces": 8,
+  "max_tris": 400
+}

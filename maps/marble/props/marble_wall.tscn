@@ -1,0 +1,8 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="PackedScene" path="res://maps/marble/models/marble_ashlar_wall.glb" id="1_wall_model"]
+
+[node name="MarbleWall" type="Node3D"]
+editor_description = "One straight ashlar wall, 4.0 m along X, 2.0 m tall, 0.5 m thick, with a cornice cap; origin is the base centre on the floor it stands on. Cover: the collider ships in the .glb."
+
+[node name="Model" parent="." instance=ExtResource("1_wall_model")]

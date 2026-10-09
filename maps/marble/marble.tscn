@@ -12,6 +12,8 @@
 [ext_resource type="PackedScene" path="res://maps/marble/models/marble_bars.glb" id="20_marble_bars"]
 [ext_resource type="Shader" path="res://maps/marble/materials/skylight_shaft.gdshader" id="21_shaft_shader"]
 [ext_resource type="Shader" path="res://maps/marble/materials/skylight_pool.gdshader" id="22_pool_shader"]
+[ext_resource type="PackedScene" path="res://maps/marble/props/marble_trapdoor.tscn" id="23_trapdoor"]
+[ext_resource type="PackedScene" path="res://maps/marble/props/marble_wall.tscn" id="24_wall"]
 
 [sub_resource type="ShaderMaterial" id="ShaftMat"]
 render_priority = 0
@@ -362,3 +364,14 @@ light_specular = 0.0
 shadow_enabled = false
 omni_range = 30.0
 omni_attenuation = 1.0
+
+[node name="Elements" type="Node3D" parent="."]
+editor_description = "Placed lane elements (2026-10-08): one lever-and-trapdoor and one wall as examples in context; Ryan places the rest."
+
+[node name="Trapdoor049" parent="Elements" instance=ExtResource("23_trapdoor")]
+editor_description = "The trapdoor on the cell centred at 49.21875 deg (marble_build.TRAPDOOR_B), r 46.8..52.0; its lever ~4 m before it at r 47.5 by the lip."
+transform = Transform3D(0.653173, 0, -0.757209, 0, 1, 0, 0.757209, 0, 0.653173, 32.2667, 23, 37.4061)
+
+[node name="Wall070" parent="Elements" instance=ExtResource("24_wall")]
+editor_description = "A plain ashlar wall at 70 deg, r 53.5, long side along the lane: cover from the tower."
+transform = Transform3D(-0.939693, 0, -0.34202, 0, 1, 0, 0.34202, 0, -0.939693, 18.2981, 23, 50.2736)
