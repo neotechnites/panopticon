@@ -529,7 +529,7 @@ def rock_w(x, y, alt, steep, dc, d):
     w = max(w, ramp(dc, 50.0, 20.0) * ramp(alt, 2.0, 8.0))
     for kx, ky, _kh, kr in plan.KNOBS[:2]:                              # the headland knolls: crag on their steep faces
         if math.hypot(x - kx, y - ky) < kr:
-            w = max(w, ramp(steep, 0.4, 0.6) * ramp(alt, 5.0, 11.0))
+            w = max(w, ramp(steep, 0.6, 0.8) * ramp(alt, 13.0, 17.0))         # grass, rock only on the crest
     for px, py, _ri, r_out, _pz, _gx, _gy in plan.pads():
         w *= ramp(math.hypot(x - px, y - py), r_out, r_out + 25.0)
     return w
@@ -967,13 +967,13 @@ def build_rocks(surf=None):
             m.cols[i] = (c[0], c[1], c[2], 1.0)
 
     for kx, ky, _kh, kr in plan.KNOBS[:2]:                             # outcrops on the headland knolls
-        for k in range(5):
-            a, dist = rr.u(0.0, TWO_PI), rr.u(6.0, 0.7 * kr)
+        for k in range(9):
+            a, dist = rr.u(0.0, TWO_PI), rr.u(4.0, 0.8 * kr)
             x, y = kx + math.cos(a) * dist, ky + math.sin(a) * dist
             h = plan.land_h(x, y)
-            if h < 4.0 or plan.coast_fields(x, y)[0] < 4.0:
+            if h < 3.0 or plan.coast_fields(x, y)[0] < 3.0:
                 continue
-            crag_boulder(x, y, rr.u(3.0, 5.5), SEED + 5400 + int(ky) + k, h, slope_of(x, y)[0])
+            crag_boulder(x, y, rr.u(4.0, 7.5), SEED + 5400 + int(ky) + k, h, slope_of(x, y)[0])
     made, tries = 0, 0
     while made < 44 and tries < 9000:
         tries += 1
