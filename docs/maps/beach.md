@@ -118,10 +118,24 @@ Behind the wall a SHORE STRIP a runner looks at over the rocks (`beach_shore.py`
 drift, teak and canvas tiles): four tiki huts (2.1 m doorways, bamboo walls, thatch hips), a beach bar, three canvas
 cabanas (open timber frames, striped pyramids in the umbrellas' colours), a lifeguard tower, ten torches, and a
 2.4 m boardwalk the whole length at 10.5 m behind the lip (`STRIP`, `WALK`); hedge, bushes and groves keep off it.
+Every piece stands on a flat pad cut into the sculpt itself (`_island_z`: a disc of the piece's radius + 1 m at the
+piece's own ground, a 5 m ramp; terrain spread under the built pieces <= 0.32 m), huts on a plank floor 0.2 m up, every
+base skirted 0.5 m down. Thatch and canvas are single-sided per zone (`TWO_SIDED`): no coplanar doubled faces, the
+thatch underside 0.1 m under the course; cabana corner blocks and lifeguard rails are offset so no two faces share a
+plane (`scratchpad coplanar.py` scan: 0 same-facing pairs in every piece).
 Points of interest: a 25 m LIGHTHOUSE (white 12-sided tower, gallery, lantern, red cap) on the north headland's
 knoll (`LIGHTHOUSE`; the two headlands keep rock knolls the coast cap never flattens, grassed with crag outcrops),
-0 m hidden from every play eye; a WATERFALL down the crag's deepest bay-facing gully (`WATERFALL`), a white ribbon
-from the cliff top at 195 m to the grass with a foam fan, splash and mist at its foot. A marina in the north cove
+0 m hidden from every play eye. It stands on a flat pad (`resort_pads`, r 7 m) with a stepped ashlar plinth sized
+from the terrain under its footprint (24 samples at r 3.6 and 4.6: base at the lowest - 0.5, the plinth top 0.6 over
+the highest, so 1.5 m+ of foundation under the highest corner). A WATERFALL down the crag's deepest bay-facing gully
+(`WATERFALL`): a 6 m ribbon in the `fall` zone (`beach_fall.gdshader` scrolls `beach_fall_albedo`, white streaks on
+blue-white with alpha, down it) from a lip at the cliff top, 0.6 m off the gully, landing ON a round plunge pool: a
+rock-rimmed basin on its own pad at the gully's foot (water 0.3 over the highest ground inside, a foam ring, a rock lip
+notched where the stream leaves, mist cards fading up), and a 1.2 m stream draped on the terrain 0.35 m up with soft
+rock banks, fading out after 50 m. The pool's surface is above every play eye (130 m up): from the lane the fall, the
+rim and the stream read; the surface shows from the hill. The ROAD is a built bed (`_road`): its top 0.2 m over the
+highest terrain sample across its width at each station, an ashlar riser down 0.6 m into the ground each side (a
+retaining wall downhill, a kerb uphill), never below the ground, never dipping. A marina in the north cove
 was tried on paper and dropped: the headland hides it from every lane eye.
 Counts: island 12.4k tris, palms+broadleafs+scrub 39k, rocks 23.5k, resort (buildings, terraces, walls, road,
 backdrops, the shore strip, lighthouse, waterfall) 9.7k. Lane frame time on the PC at 1080p: 0.72 ms (main before this island: 0.91 ms).
