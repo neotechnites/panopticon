@@ -43,10 +43,7 @@ import forest_tree_build  # noqa: E402,F401  the forest map's tree library rides
 import forest_tree_prop_build  # noqa: E402,F401
 import beach_broadleaf as bl  # noqa: E402  the broadleaf: the forest map's tree
 import beach_buildings as bb  # noqa: E402  the hotel, houses and clock tower at player scale
-try:
-    import beach_shore as sh  # noqa: E402  the shore strip behind the wall, the lighthouse
-except ImportError:                       # not delivered yet: the strip is skipped
-    sh = None
+import beach_shore as sh  # noqa: E402  the shore strip behind the wall, the lighthouse (a top-level import: it rides to the PC)
 from beach_lib import (Mesh, Rng, UP, pol, bearing_of, rad_of, lerp, lerp3, clamp, smooth, ramp,  # noqa: E402
                        angdiff, h2, vnoise, fbm, ring_noise)
 if bpy is not None:
@@ -2097,8 +2094,6 @@ def on_strip(x, y):
 
 def _strip(m, uv, surf):
     """The shore strip (beach_shore.py) on the sculpt's own ground, and the boardwalk along it."""
-    if sh is None:
-        return 0
     tris = 0
     for k, (x, y, yaw, kind) in enumerate(strip_spots()):
         z0 = surf.z(x, y)
