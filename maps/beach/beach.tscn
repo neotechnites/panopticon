@@ -155,6 +155,7 @@ texture_filter = 5
 shader = ExtResource("44_terrain_shader")
 shader_parameter/grass_texture = ExtResource("23_grass_tile")
 shader_parameter/rock_texture = ExtResource("42_crag_tile")
+shader_parameter/sand_texture = ExtResource("27_sand_tile")
 
 [sub_resource type="StandardMaterial3D" id="AshlarMat"]
 resource_name = "beach_ashlar"

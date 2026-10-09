@@ -486,10 +486,9 @@ def land_tone(x, y, alt, steep, aspect, d):
     """(colour, zone) of the island's ground: sand on the beaches themselves, else "terrain" (grass and the crag's
     rock in one blended material, beach_terrain.gdshader) with the colour lerped grass->rock by the rock weight."""
     inside, ds, _dr, dc = plan.coast_fields(x, y)
-    if inside < 0.0 and alt < 0.9:
-        return PAL_SAND[1], "sand"
-    if alt < 1.8 and inside < 14.0 and d > 12.0 and steep < 0.45:
-        return PAL_SAND[0], "sand"
+    sw = sand_w(x, y, alt, steep, inside, d)
+    if sw > 0.55:
+        return PAL_SAND[1 if inside < 0.0 else 0], "sand"
     w = rock_w(x, y, alt, steep, dc, d)
     cr = PAL_CRAG[1] if aspect_lit(aspect) else PAL_CRAG[0]
     v = 0.86 + 0.28 * h2(int(x * 0.7), int(y * 0.7), SEED + 91)
@@ -511,7 +510,15 @@ def land_tone(x, y, alt, steep, aspect, d):
         px, py, _hh, _reach = plan.PEAK
         if w > 0.2 and math.hypot(x - px, y - py) < 330.0:
             g = (g[0] * SCREE[0], g[1] * SCREE[1], g[2] * SCREE[2])        # scree under the crag
-    return lerp3(g, cr, w), "terrain"
+    return lerp3(lerp3(g, cr, w), PAL_SAND[0], sw), "terrain"
+
+
+def sand_w(x, y, alt, steep, inside, d):
+    """The vertex sand weight 0..1: the beaches (low, flat, within 20 m of the coast, never within 16 m of the
+    wall) and the jetty arms' shores below 0.9 m; the terrain material blends sand in by it."""
+    if inside < 0.0:
+        return ramp(alt, 1.1, 0.7)
+    return ramp(alt, 2.0, 1.2) * ramp(inside, 20.0, 10.0) * ramp(d, 12.0, 16.0) * (1.0 - ramp(steep, 0.4, 0.55))
 
 
 def rock_w(x, y, alt, steep, dc, d):
@@ -731,7 +738,14 @@ class Sculpt(object):
         if c[2] < WATER_Z + 0.9 and steep < 0.3:
             return "sand"
         sl, aspect = slope_of(c[0], c[1])
-        return land_tone(c[0], c[1], c[2] - WATER_Z, sl, aspect, d)[1]
+        zone = land_tone(c[0], c[1], c[2] - WATER_Z, sl, aspect, d)[1]
+        if zone == "sand":                                         # a sand face only where every corner is sand
+            for v in ids:
+                p = self.m.verts[v]
+                st, _as = slope_of(p[0], p[1])
+                if sand_w(p[0], p[1], p[2] - WATER_Z, st, plan.coast_fields(p[0], p[1])[0], rad_of(p) - top_r(bearing_of(p))) < 0.55:
+                    return "terrain"
+        return zone
 
 
 # =============================================================================
@@ -935,18 +949,6 @@ def build_rocks(surf=None):
             size = rr.u(1.6, 3.6)
             x, y, _z = pol(b, r, 0.0)
             placed.append(boulder(m, x, y, size, SEED + 1200 + 10 * side + k, sink=0.35, nseg=7))
-    # the island: outcrops on the jetty strips and along the coast
-    for k in range(36):
-        b = rr.u(0.0, 360.0)
-        if s_of(b) > RUN_S + 2.0:
-            continue
-        x0, y0, _z = pol(b, top_r(b) + 20.0, 0.0)
-        d = rr.u(2.0, 40.0 if main_coast(x0, y0) > 0.0 else arm_w(b) + 3.0)
-        r = top_r(b) + d
-        if ground_z(b, r) < WATER_Z - 0.4:
-            continue
-        x, y, _z = pol(b, r, 0.0)
-        boulder(m, x, y, rr.u(0.9, 2.6), SEED + 1300 + k, sink=0.35, lats=(-0.6, 0.15, 0.65))
     # the island: scree boulders clustered under the crag's rock line, and a few outcrops on its steep skirt, in the
     # crag's own tile and tones so they read as its rock, not as litter on the grass
     px, py, _hh, _reach = plan.PEAK
@@ -1697,7 +1699,7 @@ def resort_pads():
     """Two benches the hill is cut to: the hotel's (near level) and the village's (a gentle bench on the spur)."""
     hx, hy = plan.HOTEL["x"], plan.HOTEL["y"]
     vx, vy = plan.VILLAGE["x"], plan.VILLAGE["y"]
-    return [_bench(hx + 16.0, hy, 56.0, 96.0, 0.04), _bench(vx, vy, 78.0, 118.0, 0.16)]
+    return [_bench(hx + 16.0, hy, 56.0, 130.0, 0.04), _bench(vx, vy, 78.0, 150.0, 0.16)]
 
 
 _ROAD_PTS = []
@@ -2021,7 +2023,7 @@ def build_resort(m):
 
 
 def bake_rock_weight(m):
-    """UV2.y of every island vertex = its rock weight (beach_terrain.gdshader blends grass and rock by it)."""
+    """UV2.y of every island vertex = its rock weight, COLOR.a = 1 - its sand weight (beach_terrain.gdshader)."""
     seen = set()
     for fi, f in enumerate(m.faces):
         if m.chunks[fi] != "island":
@@ -2036,6 +2038,9 @@ def bake_rock_weight(m):
             dc = plan.coast_fields(p[0], p[1])[3]
             w = rock_w(p[0], p[1], p[2] - WATER_Z, steep, dc, r - top_r(b))
             m.uv2[vi] = (m.uv2.get(vi, (0.0, 0.0))[0], 1.0 - w)         # glTF flips v: Godot reads 1 - y
+            sw = sand_w(p[0], p[1], p[2] - WATER_Z, steep, plan.coast_fields(p[0], p[1])[0], r - top_r(b))
+            c = m.cols[vi]
+            m.cols[vi] = (c[0], c[1], c[2], 1.0 - sw)                   # COLOR.a: the sand weight
 
 
 def grass_uvs(m, uv):
