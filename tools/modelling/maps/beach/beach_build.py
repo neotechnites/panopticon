@@ -478,21 +478,31 @@ def land_tone(x, y, alt, steep, aspect, d):
     """Flat palette steps for the island's ground: sand on the flats behind beaches, grass on the flats and above
     the tree line, forest tones by aspect (lit toward the sun) and fold (darker in the valleys), ochre on the peak."""
     inside, ds, _dr, _dc = plan.coast_fields(x, y)
+    if inside < 0.0:
+        return PAL_SAND[1], "sand"
     if alt < 2.6 and ds < plan.BEACH_FLAT["sand"] + 6.0 and d > 2.0 and steep < 0.45:
         return PAL_SAND[0], "sand"
-    if alt > ROCK_LINE or (steep > 0.62 and alt > 20.0) or (alt > 50.0 and steep > 0.5):
-        return PAL_PEAK[step(0.5 + 0.5 * fbm(x / 30.0, y / 30.0, SEED + 36, 2), 2)] if alt > ROCK_LINE - 25.0 else PAL_ROCK[1], "rock"
-    if steep > 0.62:
-        return PAL_ROCK[0], "rock"
+    if alt > ROCK_LINE:
+        return PAL_PEAK[1 if aspect_lit(aspect) else 0], "rock"
+    if steep > 0.76 or (_dc < 40.0 and alt > 4.0):                    # cliffs only: 50 deg and the sea cliffs
+        return PAL_ROCK[1], "rock"
     if alt > TREE_LINE:
         return PAL_GRASS[1], "grass"
     if jungle_mask(x, y, d) < 0.5 or (alt < 7.0 and inside < 90.0):
-        return PAL_GRASS[step(0.5 + 0.5 * fbm(x / 24.0, y / 24.0, SEED + 33, 2), 2)], "grass"
-    lit = 0.5 + 0.5 * math.cos(math.radians(aspect - 15.0)) * min(steep * 3.0, 1.0)
-    e = 30.0
+        return PAL_GRASS[step(0.5 + 0.5 * fbm(x / 60.0, y / 60.0, SEED + 33, 1), 2)], "grass"
+    e = 40.0
     rv = plan.land_h(x, y) - 0.25 * (plan.land_h(x + e, y) + plan.land_h(x - e, y) + plan.land_h(x, y + e) + plan.land_h(x, y - e))
-    v = 0.18 + 0.5 * lit + clamp(rv / 14.0, -0.25, 0.25) + 0.12 * fbm(x / 70.0, y / 70.0, SEED + 34, 2)
-    return PAL_JUNGLE[step(v, 4)], "jungle"
+    k = 2 if aspect_lit(aspect) else 1
+    if rv < -5.0:
+        k -= 1                                                        # the folds a step darker
+    elif rv > 6.0 and k == 2:
+        k = 3                                                         # the crests a step lighter
+    return PAL_JUNGLE[k], "jungle"
+
+
+def aspect_lit(aspect):
+    """Whether a slope faces the sun's side (bearing 15) rather than away from it."""
+    return math.cos(math.radians(aspect - 15.0)) > -0.1
 
 
 def land_col(p):
@@ -1561,7 +1571,7 @@ FLOOR = 3.2                            # one storey
 TERRACOTTA = (0.78, 0.4, 0.26, 1.0)
 WHITE = (0.97, 0.96, 0.93, 1.0)
 STONE = (0.9, 0.8, 0.64, 1.0)
-PAVING = (0.78, 0.75, 0.68, 1.0)
+PAVING = (0.64, 0.6, 0.52, 1.0)
 
 
 def _snap(z):
@@ -1793,7 +1803,7 @@ def _road(m, surf):
             if kind == "road":
                 row.append(m.v((x, y, zs[k] + 0.25), PAVING))
             else:
-                row.append(m.v((x, y, surf.z(x, y) + 0.12), (0.62, 0.56, 0.44, 1.0)))
+                row.append(m.v((x, y, surf.z(x, y) + 0.12), PAL_JUNGLE[1] + (1.0,)))
         rows.append(row)
     for k in range(len(rows) - 1):
         for c in range(3):
