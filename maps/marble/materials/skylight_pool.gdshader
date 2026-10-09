@@ -3,7 +3,7 @@ shader_type spatial;
 render_mode unshaded, blend_add, cull_back, depth_draw_never, shadows_disabled;
 
 uniform vec3 tint : source_color = vec3(1.0, 0.96, 0.88);
-uniform float strength = 0.22;
+uniform float strength = 0.10;
 
 void fragment() {
 	float d = length(UV - vec2(0.5)) * 2.0;

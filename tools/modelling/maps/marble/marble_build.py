@@ -159,7 +159,7 @@ DOME_Z0 = CORNICE_Z[1]      # 57.8
 DOME_K = WALL_IN_R / WALL_R # the dome scaled whole to the inner tiers' radius
 DOME_RISE = 27.0 * DOME_K
 DOME_RINGS = 8
-DOME_CAP_R = 8.0 * DOME_K   # the crown ring the oculus opens in (was 4.2: a flat medallion)
+DOME_CAP_R = 14.0 * DOME_K  # the crown ring the oculus opens in (was 4.2: a flat medallion)
 
 # ---- the spike floor ------------------------------------------------------
 SPIKE_SEED = 7702141
@@ -279,7 +279,7 @@ TOWER_PLAIN_STEM = "marble_tower_stone"   # the guard room's centre: his stone p
 TOWER_COLUMN_STEM = "marble_tower_column"   # the arcade's columns: his column pixels, lit by the ambient alone
 TINT_BARS = None
 TINT_CELL = (0.021, 0.026, 0.023)        # the back walls near black, as before the colour passes (Ryan, 2026-10-08)
-TINT_IRON = (0.060, 0.065, 0.075)        # the plain stone darkened to the drawing's dark bars
+TINT_IRON = (0.1557, 0.1445, 0.1382)       # the plain stone darkened to the drawing's dark bars
 
 
 OCULUS_RGB = (0.86, 0.88, 0.90)   # the skylight's glass: daylight, the brightest thing in the room
