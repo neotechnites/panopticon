@@ -30,7 +30,7 @@
 [ext_resource type="Shader" path="res://maps/beach/materials/beach_sky.gdshader" id="20_sky_shader"]
 [ext_resource type="Texture2D" path="res://maps/beach/textures/beach_rock_albedo.png" id="22_rock_tile"]
 [ext_resource type="Texture2D" path="res://maps/beach/textures/beach_grass_albedo.png" id="23_grass_tile"]
-[ext_resource type="Texture2D" path="res://maps/forest/textures/forest_rock_albedo.png" id="42_crag_tile"]
+[ext_resource type="Texture2D" path="res://maps/beach/textures/beach_crag_albedo.png" id="42_crag_tile"]
 [ext_resource type="Texture2D" path="res://maps/beach/textures/beach_horizon_albedo.png" id="43_horizon_sheet"]
 [ext_resource type="Script" path="res://maps/beach/fish/beach_fish.gd" id="38_fish"]
 [ext_resource type="Shader" path="res://maps/beach/materials/beach_fish.gdshader" id="39_fish_shader"]
@@ -145,6 +145,7 @@ texture_filter = 5
 resource_name = "beach_crag"
 vertex_color_use_as_albedo = true
 albedo_texture = ExtResource("42_crag_tile")
+uv1_scale = Vector3(1, 1, 1)
 roughness = 0.95
 texture_filter = 5
 
@@ -249,9 +250,10 @@ surface_material_override/3 = SubResource("SandMat")
 [node name="Rocks" parent="MapBase" instance=ExtResource("12_rocks")]
 
 [node name="BeachRocks" parent="MapBase/Rocks" index="0"]
-editor_description = "Rock and the bay's reef heads, wet where the waves reach: beach_rock.gdshader."
-surface_material_override/0 = SubResource("ReefMat")
-surface_material_override/1 = SubResource("RockMat")
+editor_description = "Surfaces in class order: crag (the island's scree, restated: the importer drops the first surface's vertex colour), reef, rock (wet where the waves reach: beach_rock.gdshader)."
+surface_material_override/0 = SubResource("CragMat")
+surface_material_override/1 = SubResource("ReefMat")
+surface_material_override/2 = SubResource("RockMat")
 
 [node name="Palms" parent="MapBase" instance=ExtResource("13_palms")]
 

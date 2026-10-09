@@ -929,30 +929,43 @@ def build_rocks():
             continue
         x, y, _z = pol(b, r, 0.0)
         boulder(m, x, y, rr.u(0.9, 2.6), SEED + 1300 + k, sink=0.35, lats=(-0.6, 0.15, 0.65))
-    # the island: outcrops on the steeper slopes seen from the bay, and scree boulders along the crag's rock line
+    # the island: scree boulders clustered under the crag's rock line, and a few outcrops on its steep skirt, in the
+    # crag's own tile and tones so they read as its rock, not as litter on the grass
     px, py, _hh, _reach = plan.PEAK
+
+    def crag_boulder(x, y, size, seed, h):
+        first = len(m.verts)
+        boulder(m, x, y, size, seed, sink=0.45, squash=0.55, gz=WATER_Z + h, nseg=6, lats=(-0.6, 0.15, 0.65), zone="crag")
+        lo = min(m.verts[i][2] for i in range(first, len(m.verts)))
+        hi = max(m.verts[i][2] for i in range(first, len(m.verts)))
+        for i in range(first, len(m.verts)):
+            t = clamp((m.verts[i][2] - lo) / max(hi - lo, 0.1))
+            c = PAL_CRAG[1] if t > 0.45 else PAL_CRAG[0]
+            m.cols[i] = (c[0], c[1], c[2], 1.0)
+
     made, tries = 0, 0
-    while made < 56 and tries < 6000:
-        tries += 1
-        x, y = rr.u(-700.0, -60.0), rr.u(-520.0, 520.0)
-        h = plan.land_h(x, y)
-        steep, _a = slope_of(x, y)
-        if not 12.0 < h < ROCK_LINE - 30.0 or steep < 0.42 or on_landmark(x, y) or math.hypot(x, y) < 120.0:
-            continue
-        made += 1
-        boulder(m, x, y, rr.u(3.0, 7.0), SEED + 5000 + made, sink=0.4, squash=0.6, gz=WATER_Z + h, nseg=6, lats=(-0.6, 0.15, 0.65))
-    made, tries = 0, 0
-    while made < 60 and tries < 8000:
+    while made < 30 and tries < 8000:
         tries += 1
         a, dist = rr.u(0.0, TWO_PI), rr.u(140.0, 330.0)
         x, y = px + math.cos(a) * dist, py + math.sin(a) * dist
         if x < -760.0:
             continue
         h = plan.land_h(x, y)
-        if not ROCK_LINE - 22.0 < h < ROCK_LINE + 16.0:
+        if not ROCK_LINE - 24.0 < h < ROCK_LINE + 10.0:
             continue
         made += 1
-        boulder(m, x, y, rr.u(4.0, 9.0), SEED + 5200 + made, sink=0.45, squash=0.55, gz=WATER_Z + h, nseg=6, lats=(-0.6, 0.15, 0.65))
+        crag_boulder(x, y, rr.u(5.0, 10.0), SEED + 5200 + made, h)
+    made, tries = 0, 0
+    while made < 10 and tries < 6000:
+        tries += 1
+        a, dist = rr.u(0.0, TWO_PI), rr.u(260.0, 400.0)
+        x, y = px + math.cos(a) * dist, py + math.sin(a) * dist
+        h = plan.land_h(x, y)
+        steep, _a = slope_of(x, y)
+        if x < -760.0 or not 40.0 < h < ROCK_LINE - 30.0 or steep < 0.5 or on_landmark(x, y):
+            continue
+        made += 1
+        crag_boulder(x, y, rr.u(5.0, 9.0), SEED + 5000 + made, h)
     # a few modest reef patches on the bay's sand, out past the shallows: low flattened coral heads, crowded
     # in the middle of the patch and scattering out into the sand, all well under the surface
     made, tries = 0, 0
@@ -1969,7 +1982,7 @@ SHEETS = {
     "roof": tx.Sheet("roof", mode="box", roughness=0.85),                         # terracotta tiles
     "backdrop": tx.Sheet("backdrop", stem="beach_horizon", size=512, mode="custom", roughness=1.0, cull=False),
     "tbark": tx.Sheet("tbark", stem="beach_bark", mode="box", roughness=0.95),        # the forest map's tree in the beach's own
-    "tleaf": tx.Sheet("tleaf", stem="beach_leaf", mode="box", roughness=0.9),         # bark and leaf tiles (the palms')
+    "tleaf": tx.Sheet("tleaf", stem="beach_crown", mode="box", roughness=0.9),        # bark tile (the palms') and a leaf-cluster tile
     "wave": tx.Sheet("wave", mode="custom", roughness=0.4, cull=False),
 }
 SMOOTH = ("sand", "grass", "jungle", "water")     # Gouraud like the refs' ground; rock and palms stay faceted
