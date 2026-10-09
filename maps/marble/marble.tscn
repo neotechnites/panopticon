@@ -19,9 +19,9 @@ shader = ExtResource("21_shaft_shader")
 
 [sub_resource type="CylinderMesh" id="ShaftMesh"]
 material = SubResource("ShaftMat")
-top_radius = 6.2
-bottom_radius = 14.0
-height = 80.6
+top_radius = 11.0
+bottom_radius = 20.0
+height = 79.95
 radial_segments = 32
 rings = 1
 cap_top = false
@@ -32,7 +32,7 @@ shader = ExtResource("22_pool_shader")
 
 [sub_resource type="PlaneMesh" id="PoolMesh"]
 material = SubResource("PoolMat")
-size = Vector2(32, 32)
+size = Vector2(44, 44)
 
 [sub_resource type="StandardMaterial3D" id="MoteMat"]
 transparency = 1
@@ -76,7 +76,7 @@ light_energy = 0.0
 shadow_enabled = false
 
 [node name="Skylight" type="Node3D" parent="."]
-editor_description = "The oculus (2026-10-08): daylight through the dome's glazed crown (marble.glb, r 6.3, glass at y 79.6). Key lights the tower alone (layer 11, no shadows), from straight above with a slight lean, so the shaft has a lit side and a dark underside; Shaft, Pool and Motes are the visible light, additive and cheap. The cells and lane are not lit by it."
+editor_description = "The oculus (2026-10-08): daylight through the dome's glazed crown (marble.glb, r 11, glass at y 78.9). Key lights the tower alone (layer 11, no shadows), from straight above with a slight lean, so the shaft has a lit side and a dark underside; Shaft, Pool and Motes are the visible light, additive and cheap. The cells and lane are not lit by it."
 
 [node name="Key" type="DirectionalLight3D" parent="Skylight"]
 transform = Transform3D(0, 0.9659, 0.2588, 0, -0.2588, 0.9659, 1, 0, 0, 0, 60, 0)
@@ -87,7 +87,7 @@ light_cull_mask = 1024
 shadow_enabled = false
 
 [node name="Shaft" type="MeshInstance3D" parent="Skylight"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 39.3, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 38.97, 0)
 cast_shadow = 0
 mesh = SubResource("ShaftMesh")
 
@@ -99,14 +99,14 @@ mesh = SubResource("PoolMesh")
 [node name="Motes" type="CPUParticles3D" parent="Skylight"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 59, 0)
 cast_shadow = 0
-amount = 160
+amount = 60
 lifetime = 24.0
 preprocess = 24.0
 mesh = SubResource("MoteMesh")
 emission_shape = 6
 emission_ring_axis = Vector3(0, 1, 0)
 emission_ring_height = 38.0
-emission_ring_radius = 6.5
+emission_ring_radius = 10.0
 emission_ring_inner_radius = 0.0
 direction = Vector3(0, -1, 0)
 spread = 180.0
@@ -214,12 +214,16 @@ editor_description = "maps/marble/models/marble_tower.glb: the live tower. Carri
 editor_description = "Visual layer 11 only (2026-10-08, Ryan: \"the lamps cast ugly shadows on it\"): the tower's lamps, fills and TowerLight leave layer 11 out of their light_cull_mask, so the ambient alone lights the tower, evenly, and its own tile (marble_tower) is set to read as the cells do."
 layers = 1024
 
+[node name="MarbleTowerRoom" parent="Tower/RockArches"]
+editor_description = "The guard room's floor (marble_tower.glb's second node) on visual layer 12, which no light here reaches: the skylight's Key (layer 11) stops at the tower roof, the lamps leave 11 and 12 out, so the floor is lit by the ambient alone."
+layers = 2048
+
 [node name="TowerSpawn" type="Marker3D" parent="Tower"]
 editor_description = "On the room floor's centre (1.70 over the origin), 0.25 m up so the capsule never starts inside the collision plane."
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.95, 0)
 
 [node name="TowerLight" type="OmniLight3D" parent="Tower"]
-light_cull_mask = 4294966271
+light_cull_mask = 4294964223
 editor_description = "The tower's own lamp under the arcade, UNSHADOWED since 2026-09-22: it hangs at 5.6 over the datum -- world 30.95, over the guard's head and under the arches' crowns -- as a warm room light, and because nothing occludes it, it reaches out through the shaft and the walkway slab to the three cell tiers under the lane (90 m) that the shadowed Skylight cannot light. It is a SOFT lamp (Ryan, 2026-09-16: \"it's way way harsh in the middle of the tower\"): 2.4 m wide, energy 4 over a nearly flat falloff (attenuation 0.35), so the room floor 3 m under it rolls off at the tonemap white instead of clipping. Every number is marble_tower_light_profile.tres'; the light_* properties here mirror it for the editor view."
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5.6, 0)
 light_color = Color(1, 0.94, 0.8, 1)
@@ -237,7 +241,7 @@ profile = ExtResource("4_tower_light_profile")
 editor_description = "Bentham's reflector lamps: one OmniLight3D at each lantern the tower model carries on the spandrels over its columns (bearings 25 + 45k, local y 6.0, world 31.35).\nWarm, unshadowed, no specular; range 75 reaches the cell wall at r 60 and spills back onto the arcade, balcony and dome."
 
 [node name="Lamp025" type="OmniLight3D" parent="Tower/Lamps"]
-light_cull_mask = 4294966271
+light_cull_mask = 4294964223
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6.9473, 6.0, 3.2396)
 light_color = Color(1, 0.86, 0.64, 1)
 light_energy = 3.6
@@ -247,7 +251,7 @@ omni_range = 75.0
 omni_attenuation = 0.25
 
 [node name="Lamp070" type="OmniLight3D" parent="Tower/Lamps"]
-light_cull_mask = 4294966271
+light_cull_mask = 4294964223
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.6218, 6.0, 7.2032)
 light_color = Color(1, 0.86, 0.64, 1)
 light_energy = 3.6
@@ -257,7 +261,7 @@ omni_range = 75.0
 omni_attenuation = 0.25
 
 [node name="Lamp115" type="OmniLight3D" parent="Tower/Lamps"]
-light_cull_mask = 4294966271
+light_cull_mask = 4294964223
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.2396, 6.0, 6.9473)
 light_color = Color(1, 0.86, 0.64, 1)
 light_energy = 3.6
@@ -267,7 +271,7 @@ omni_range = 75.0
 omni_attenuation = 0.25
 
 [node name="Lamp160" type="OmniLight3D" parent="Tower/Lamps"]
-light_cull_mask = 4294966271
+light_cull_mask = 4294964223
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -7.2032, 6.0, 2.6218)
 light_color = Color(1, 0.86, 0.64, 1)
 light_energy = 3.6
@@ -277,7 +281,7 @@ omni_range = 75.0
 omni_attenuation = 0.25
 
 [node name="Lamp205" type="OmniLight3D" parent="Tower/Lamps"]
-light_cull_mask = 4294966271
+light_cull_mask = 4294964223
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6.9473, 6.0, -3.2396)
 light_color = Color(1, 0.86, 0.64, 1)
 light_energy = 3.6
@@ -287,7 +291,7 @@ omni_range = 75.0
 omni_attenuation = 0.25
 
 [node name="Lamp250" type="OmniLight3D" parent="Tower/Lamps"]
-light_cull_mask = 4294966271
+light_cull_mask = 4294964223
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.6218, 6.0, -7.2032)
 light_color = Color(1, 0.86, 0.64, 1)
 light_energy = 3.6
@@ -297,7 +301,7 @@ omni_range = 75.0
 omni_attenuation = 0.25
 
 [node name="Lamp295" type="OmniLight3D" parent="Tower/Lamps"]
-light_cull_mask = 4294966271
+light_cull_mask = 4294964223
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.2396, 6.0, -6.9473)
 light_color = Color(1, 0.86, 0.64, 1)
 light_energy = 3.6
@@ -307,7 +311,7 @@ omni_range = 75.0
 omni_attenuation = 0.25
 
 [node name="Lamp340" type="OmniLight3D" parent="Tower/Lamps"]
-light_cull_mask = 4294966271
+light_cull_mask = 4294964223
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7.2032, 6.0, -2.6218)
 light_color = Color(1, 0.86, 0.64, 1)
 light_energy = 3.6
@@ -320,7 +324,7 @@ omni_attenuation = 0.25
 editor_description = "Downward fill on the tower foot: four warm unshadowed omnis at r 10, world y 10, so the base reads its texture without a hot spot."
 
 [node name="Fill045" type="OmniLight3D" parent="Tower/BaseFill"]
-light_cull_mask = 4294966271
+light_cull_mask = 4294964223
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7.0711, -15.35, 7.0711)
 light_color = Color(1, 0.86, 0.64, 1)
 light_energy = 0.8
@@ -330,7 +334,7 @@ omni_range = 30.0
 omni_attenuation = 1.0
 
 [node name="Fill135" type="OmniLight3D" parent="Tower/BaseFill"]
-light_cull_mask = 4294966271
+light_cull_mask = 4294964223
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7.0711, -15.35, -7.0711)
 light_color = Color(1, 0.86, 0.64, 1)
 light_energy = 0.8
@@ -340,7 +344,7 @@ omni_range = 30.0
 omni_attenuation = 1.0
 
 [node name="Fill225" type="OmniLight3D" parent="Tower/BaseFill"]
-light_cull_mask = 4294966271
+light_cull_mask = 4294964223
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -7.0711, -15.35, -7.0711)
 light_color = Color(1, 0.86, 0.64, 1)
 light_energy = 0.8
@@ -350,7 +354,7 @@ omni_range = 30.0
 omni_attenuation = 1.0
 
 [node name="Fill315" type="OmniLight3D" parent="Tower/BaseFill"]
-light_cull_mask = 4294966271
+light_cull_mask = 4294964223
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -7.0711, -15.35, 7.0711)
 light_color = Color(1, 0.86, 0.64, 1)
 light_energy = 0.8

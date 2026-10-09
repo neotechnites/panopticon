@@ -895,6 +895,7 @@ def build():
     mats["flame"] = _flame_material()
     order = tx.finish(ob, classes, mats)
     vertex_ao.apply(ob, vertex_ao.bake(ob), keep=("lamp_glow",))
+    room = _split_room(ob, ROOM_CLASSES)
     tx.report(SHEETS)
     print("MDL STATS surfaces=%d order=%s" % (len(ob.data.materials), ",".join(order)))
     coll_ob = coll.object(COLLIDER_NAME)
@@ -913,7 +914,39 @@ def build():
           % (FLOOR_Z, DAIS_H, GUARD_EYE, SHAFT_R, NS, COL_W, NS, SPRING_Z, span, rise, crown,
              COL_Z1 - crown, COL_Z1, BALCONY_Z, BALCONY_R, POST_TOP,
              sightline_clearance(), DOME_Z0, DOME_Z0 + DOME_RISE, FOOT_Z))
-    return [ob, coll_ob]
+    return [ob, room, coll_ob]
+
+
+ROOM_NAME = "MarbleTowerRoom"     # the guard room's floor on its own node: the skylight's key never reaches it
+ROOM_CLASSES = ("floor", "plain")
+
+
+def _split_room(ob, classes):
+    """The faces wearing `classes` move to a second object (ROOM_NAME), materials and COLOR_0 kept."""
+    import bmesh
+    room = ob.copy()
+    room.data = ob.data.copy()
+    room.name = room.data.name = ROOM_NAME
+    bpy.context.collection.objects.link(room)
+    names = [m.name for m in ob.data.materials]
+    for target, keep_room in ((ob, False), (room, True)):
+        bm = bmesh.new()
+        bm.from_mesh(target.data)
+        drop = [f for f in bm.faces if any(names[f.material_index].endswith("_" + c) for c in classes) != keep_room]
+        bmesh.ops.delete(bm, geom=drop, context="FACES")
+        bm.to_mesh(target.data)
+        bm.free()
+        used = sorted({p.material_index for p in target.data.polygons})
+        remap = {old: new for new, old in enumerate(used)}
+        mats = [target.data.materials[i] for i in used]
+        idx = [remap[poly.material_index] for poly in target.data.polygons]
+        target.data.materials.clear()
+        for m in mats:
+            target.data.materials.append(m)
+        for poly, i in zip(target.data.polygons, idx):
+            poly.material_index = i
+    print("MDL STATS room split: %s %d faces, %s %d faces" % (ob.name, len(ob.data.polygons), room.name, len(room.data.polygons)))
+    return room
 
 
 def _check():
