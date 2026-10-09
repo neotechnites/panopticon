@@ -678,11 +678,11 @@ class Sculpt(object):
             return "rock"
         if all(k in ("sand", "shore", "foot") for k in kinds):
             return "rock" if head(b, r) > 0.45 or steep > 0.55 else "sand"
-        if steep > 0.55 or (head(b, r) > 0.45 and c[2] > WATER_Z + 0.3):
-            return "rock"
+        d = r - top_r(b)
+        if (steep > 0.55 and d < 30.0) or (head(b, r) > 0.45 and c[2] > WATER_Z + 0.3):
+            return "rock"                                      # beach rock: the wall's lip, the heads, the jetty strips
         if c[2] < WATER_Z + 0.9 and steep < 0.3:
             return "sand"
-        d = r - top_r(b)
         sl, aspect = slope_of(c[0], c[1])
         return land_tone(c[0], c[1], c[2] - WATER_Z, sl, aspect, d)[1]
 
