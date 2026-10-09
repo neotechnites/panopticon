@@ -35,8 +35,12 @@ BEACH_FLAT = {"sand": 46.0, "rock": 0.0, "cliff": 0.0}    # metres of low backsh
 # THE RELIEF -- a spine with one peak, two spurs toward the bay, a broad dome under it all
 # =============================================================================
 
-PEAK = (-680.0, 400.0, 340.0, 440.0)   # summit x, y, height, reach (a concave cone, bare above ROCK_LINE)
-CRATER = (62.0, 26.0)                  # the summit's notch: radius, depth
+PEAK = (-680.0, 400.0, 340.0, 440.0)   # summit x, y, height, reach: a concave cone whose top is a bare rocky crag
+SPIRES = ((0.0, 0.0, 1.0, 58.0), (44.0, -30.0, 0.9, 46.0), (-48.0, 26.0, 0.86, 44.0), (22.0, 58.0, 0.78, 38.0),
+          (-22.0, -58.0, 0.82, 40.0), (76.0, 22.0, 0.7, 34.0), (-76.0, -18.0, 0.66, 34.0), (10.0, -92.0, 0.6, 30.0))
+#   the crag's spires: offset from the summit, share of the crown's height, radius; notches between them
+CROWN = (0.66, 150.0, 100.0)           # the crag: share of the height where the cliffs start, radius, where the cliff tops out
+RIDGES = (5, 0.3, 0.55)                # radial rock ridges: count, amplitude at the crag, the share of the height they start at
 SPINE = [(-680.0, 400.0, 330.0, 150.0), (-610.0, 190.0, 150.0, 170.0), (-560.0, -40.0, 140.0, 170.0),
          (-440.0, -230.0, 118.0, 150.0), (-340.0, -420.0, 90.0, 120.0), (-260.0, -590.0, 46.0, 90.0),
          (-220.0, -700.0, 10.0, 50.0)]     # (x, y, height, half width): the ridge line, peak to the south-east cape
@@ -49,8 +53,8 @@ DOME = [(-700.0, 420.0, 80.0, 400.0), (-580.0, 60.0, 56.0, 360.0), (-420.0, -300
 KNOBS = [(-6.0, 104.0, 20.0, 36.0), (-6.0, -104.0, 20.0, 36.0), (-50.0, 478.0, 30.0, 60.0),
          (-250.0, -690.0, 24.0, 60.0), (-980.0, 320.0, 60.0, 110.0), (-700.0, 780.0, 50.0, 90.0)]   # (x, y, height, radius)
 PLAIN = (1.9, 0.028, 10.0)             # the coastal flats: height at the coast, rise per metre, flat cap
-TREE_LINE = 215.0
-ROCK_LINE = 255.0
+TREE_LINE = 205.0
+ROCK_LINE = 212.0                      # rock from the tree line up: the crag
 NOISE = (160.0, 7.0)                   # the cartoon hills' wobble: wavelength, amplitude (grows with height)
 
 # =============================================================================
@@ -59,13 +63,13 @@ NOISE = (160.0, 7.0)                   # the cartoon hills' wobble: wavelength, 
 
 HOTEL = {"x": -300.0, "y": 20.0, "yaw": 90.0, "body": (40.0, 15.0, 13.0), "tower": (9.0, 9.0, 30.0)}
 #   the long low body runs N-S facing the bay; the tower on its north end; on the first rise behind the bay's flat
-VILLAGE = {"x": -250.0, "y": 350.0, "rx": 64.0, "ry": 44.0, "houses": 24}    # a clustered mass on the north spur's
-CLOCK_TOWER = {"x": -244.0, "y": 352.0, "w": 6.0, "h": 24.0}               # south flank, above the north cove
+VILLAGE = {"x": -250.0, "y": 350.0, "rx": 46.0, "ry": 30.0, "houses": 26}    # a clustered mass on the north spur's
+CLOCK_TOWER = {"x": -244.0, "y": 352.0, "w": 7.0, "h": 32.0}               # south flank, above the north cove
 ROAD = [(-282.0, 42.0), (-280.0, 100.0), (-278.0, 160.0), (-272.0, 220.0), (-268.0, 270.0), (-262.0, 312.0),
         (-252.0, 340.0)]               # hotel terrace -> along the flat's edge -> up the spur to the village square
 ROAD_W = 3.0
-HORIZON_ISLES = [(352.0, 3500.0, 1100.0, 170.0, 2), (28.0, 3300.0, 620.0, 120.0, 1), (300.0, 3600.0, 760.0, 90.0, 1)]
-#   (bearing, r, width, height, humps): on the horizon line, hazed; the camera's far plane is 4 km
+HORIZON_ISLES = [(352.0, 2900.0, 900.0, 150.0, 3), (28.0, 2750.0, 520.0, 110.0, 2), (300.0, 2950.0, 620.0, 80.0, 2)]
+#   (bearing, r, width, height, peaks): on the horizon line inside the sea mesh (3 km), fogged to the horizon band
 
 # =============================================================================
 # FIELDS
@@ -173,15 +177,27 @@ def _line_h(line, x, y, power=1.0):
 
 
 def peak_h(x, y):
+    """The peak: a concave forested cone carrying a bare rocky crag (Maka Wuhu): cliffs up to a crown of spires with
+    notches between them, and shallow radial ridges on the skirt."""
     px, py, hh, reach = PEAK
-    d = math.hypot(x - px, y - py)
-    if d >= reach:
+    dx, dy = x - px, y - py
+    dist = math.hypot(dx, dy)
+    d = dist / reach
+    if d >= 1.0:
         return 0.0
-    a = math.atan2(y - py, x - px)
-    flute = 1.0 + 0.06 * math.sin(5.0 * a + 0.7) * 4.0 * (d / reach) * (1.0 - d / reach)
-    h = hh * (1.0 - d / reach) ** 1.7 * flute
-    cr, cd = CRATER
-    return h - cd * bell(d / cr)
+    a = math.atan2(dy, dx)
+    n, amp, _start = RIDGES
+    crest = abs(math.sin(0.5 * n * a + 0.6)) ** 0.5 - 0.5
+    share, r_out, r_in = CROWN
+    skirt = hh * share * (1.0 - d) ** 1.5 * (1.0 + amp * 0.35 * crest * (1.0 - d))
+    spire = 0.0
+    for ox, oy, sh, rad in SPIRES:
+        e = math.hypot(dx - ox, dy - oy) / rad
+        if e < 1.0:
+            spire = max(spire, sh * (1.0 - e) ** 0.7)
+    crown = hh * (share + (1.0 - share) * (0.3 + 0.7 * spire))
+    mask = ramp(dist, r_out, r_in)
+    return skirt + (crown - skirt) * mask
 
 
 def skeleton_h(x, y):
