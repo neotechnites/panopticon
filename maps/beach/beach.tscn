@@ -289,11 +289,10 @@ surface_material_override/0 = SubResource("CanvasMat")
 [node name="Resort" parent="MapBase" instance=ExtResource("41_resort")]
 
 [node name="BeachResort" parent="MapBase/Resort" index="0"]
-editor_description = "Surfaces in class order: ashlar (terrace skirts, garden walls, road risers; restated, the importer drops the first surface's vertex colour), backdrop (the horizon islands, unshaded and alpha-blended), canvas2, clock, crag (the pool's basin and stream banks), deck, fall (the waterfall, scrolled by beach_fall.gdshader), grass, house, plaster, plastic, roof, sand, thatch2, timber."
+editor_description = "Surfaces in class order: ashlar (terrace skirts, garden walls, road risers; restated, the importer drops the first surface's vertex colour), backdrop (the horizon islands, unshaded and alpha-blended), canvas2, clock, deck, fall (the waterfall, scrolled by beach_fall.gdshader), grass, house, plaster, plastic, roof, sand, thatch2, timber."
 surface_material_override/0 = SubResource("AshlarMat")
 surface_material_override/1 = SubResource("BackdropMat")
-surface_material_override/4 = SubResource("CragMat")
-surface_material_override/6 = SubResource("FallMat")
+surface_material_override/5 = SubResource("FallMat")
 
 [node name="Water" parent="MapBase" instance=ExtResource("14_water")]
 
