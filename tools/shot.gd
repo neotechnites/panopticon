@@ -26,6 +26,7 @@ extends SceneTree
 ##                       geometry defect from a texture defect without guessing.
 ##   --fov=degrees       camera field of view (default 100)
 ##   --avatar=x,y,z,yaw  stand one prisoner avatar (idle) there, facing yaw degrees: a 1.8 m scale reference
+##   --traps=open        pull every TrapDoor's lever on load; with --settle past its drop, the shot shows the pit open
 
 func _arg(name: String, fallback: String) -> String:
 	for raw in OS.get_cmdline_user_args():
@@ -49,6 +50,7 @@ var _flat: bool = false
 var _fov: float = 100.0
 var _avatar: String = ""
 var _list_path: String = ""
+var _traps_open: bool = false
 var _started: bool = false
 
 
@@ -62,6 +64,7 @@ func _initialize() -> void:
 	_fov = maxf(1.0, float(_arg("fov", "100")))
 	_list_path = _arg("list", "")
 	_avatar = _arg("avatar", "")
+	_traps_open = _arg("traps", "") == "open"
 	if _scene_path.is_empty() or _out_path.is_empty():
 		push_error("shot.gd needs --scene= and --out=")
 		quit(1)
@@ -82,6 +85,9 @@ func _process(_delta: float) -> bool:
 		_stand_avatar(scene_root, _avatar)
 	if _flat:
 		_flatten(scene_root, flat_material())
+	if _traps_open:
+		for door: TrapDoor in TrapDoor.live:
+			door.pull()
 	var camera: Camera3D = build_camera(
 		root, _parse(_arg("pos", ""), Vector3(0, 1.9, 44)), _parse(_arg("look", ""), Vector3.ZERO), _fov
 	)
