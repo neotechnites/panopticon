@@ -1752,24 +1752,31 @@ def _horizon(m, uv):
 # lower slopes; the broadleaf is the forest map's tree (beach_broadleaf.py), palms the beach's own
 # =============================================================================
 
-BROADLEAF = {"belt": 34, "rise": 30, "slope": 50, "wall": 22, "bush": 40}   # how many of each kind
+BROADLEAF = {"wall": 7, "rise": 6, "south": 5, "north": 3, "slope": 22}   # groves (3-6 trees each) and slope singles
+LEAF_TINT = (0.6, 0.86, 0.48)          # the forest's sun-leaf tile pulled toward the game's greens under the beach's bright sun
 
 
-def _grove_spots(rr, n, inner, outer, b0, b1, surf, kind, spots, min_gap=14.0):
+def _grove_spots(rr, n, inner, outer, b0, b1, surf, kind, spots, per=(3, 6), spread=9.0):
+    """n groves of `per` trees each, their centres in the band d inner..outer behind the wall at bearings b0..b1."""
     made, tries = 0, 0
     while made < n and tries < 4000:
         tries += 1
         b = rr.u(b0, b1)
         r = top_r(b) + rr.u(inner, outer)
-        x, y, _z = pol(b, r, 0.0)
-        h = plan.land_h(x, y)
-        if h < 2.5 or h > 120.0 or plan.coast_fields(x, y)[0] < 16.0 or on_landmark(x, y):
+        cx, cy, _z = pol(b, r, 0.0)
+        h = plan.land_h(cx, cy)
+        if h < 2.5 or h > 120.0 or plan.coast_fields(cx, cy)[0] < 16.0 or on_landmark(cx, cy):
             continue
-        steep, _a = slope_of(x, y)
-        if steep > 0.6 or any(math.hypot(x - q[0], y - q[1]) < min_gap for q in spots):
+        steep, _a = slope_of(cx, cy)
+        if steep > 0.6 or any(math.hypot(cx - q[0], cy - q[1]) < 2.2 * spread for q in spots):
             continue
-        spots.append((x, y, surf.z(x, y), kind))
         made += 1
+        for k in range(rr.i(*per)):
+            a, rad = rr.u(0.0, TWO_PI), rr.u(0.0, spread)
+            x, y = cx + math.cos(a) * rad, cy + math.sin(a) * rad
+            if plan.land_h(x, y) < 2.0 or on_landmark(x, y) or any(math.hypot(x - q[0], y - q[1]) < 4.0 for q in spots):
+                continue
+            spots.append((x, y, surf.z(x, y), kind))
 
 
 def build_trees(m, surf, uv):
@@ -1777,18 +1784,21 @@ def build_trees(m, surf, uv):
     scattered singles on the lower slopes, and low bushes (small broadleafs) behind the wall."""
     rr = Rng(SEED + 1700)
     spots = []
-    _grove_spots(rr, BROADLEAF["wall"], 16.0, 40.0, 100.0, 262.0, surf, "near", spots, 9.0)        # behind the wall
-    _grove_spots(rr, BROADLEAF["bush"], 12.0, 60.0, 96.0, 266.0, surf, "bush", spots, 5.0)        # bushes among them
-    _grove_spots(rr, BROADLEAF["rise"], 120.0, 260.0, 120.0, 245.0, surf, "near", spots, 12.0)    # the valley's first rise
-    _grove_spots(rr, BROADLEAF["belt"], 40.0, 110.0, 60.0, 110.0, surf, "near", spots, 12.0)      # behind the south beach
-    _grove_spots(rr, BROADLEAF["belt"] // 2, 40.0, 140.0, 250.0, 300.0, surf, "near", spots, 12.0)  # behind the north cove
-    _grove_spots(rr, BROADLEAF["slope"], 260.0, 520.0, 110.0, 250.0, surf, "far", spots, 18.0)    # the lower slopes
+    _grove_spots(rr, BROADLEAF["wall"], 16.0, 48.0, 100.0, 262.0, surf, "near", spots)            # groves behind the wall
+    _grove_spots(rr, BROADLEAF["rise"], 120.0, 250.0, 120.0, 245.0, surf, "near", spots)          # the valley's first rise
+    _grove_spots(rr, BROADLEAF["south"], 40.0, 110.0, 60.0, 110.0, surf, "near", spots)           # behind the south beach
+    _grove_spots(rr, BROADLEAF["north"], 40.0, 140.0, 250.0, 300.0, surf, "near", spots)          # behind the north cove
+    _grove_spots(rr, BROADLEAF["slope"], 260.0, 520.0, 110.0, 250.0, surf, "far", spots, per=(1, 2), spread=6.0)   # slope singles
     tris = 0
+    first = len(m.verts)
     for k, (x, y, z, kind) in enumerate(spots):
-        if kind == "bush":
-            tris += bl.broadleaf(m, uv, x, y, z, rr.u(0.0, 360.0), rr.u(0.28, 0.4), "far", "palms")
-        else:
-            tris += bl.broadleaf(m, uv, x, y, z, rr.u(0.0, 360.0), rr.u(0.85, 1.25), kind, "palms")
+        tris += bl.broadleaf(m, uv, x, y, z, rr.u(0.0, 360.0), rr.u(1.3, 1.8), kind, "palms")
+    for fi in range(len(m.faces)):                              # the leaf tile toward the game's greens
+        if m.zones[fi] == "tleaf":
+            for vi in m.faces[fi]:
+                if vi >= first:
+                    c = m.cols[vi]
+                    m.cols[vi] = (c[0] * LEAF_TINT[0], c[1] * LEAF_TINT[1], c[2] * LEAF_TINT[2], 1.0)
     INFO["trees"] = len(spots)
     INFO["tree_tris"] = tris
 
