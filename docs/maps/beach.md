@@ -114,5 +114,14 @@ own terrace (`beach_buildings.terrace`: grass top, `beach_ashlar` retaining skir
 walls round the hotel's pool terrace and six houses. Horizon islands are painted backdrops: one unshaded
 alpha-blended quad each (`beach_horizon_albedo`, hill feet on the sea line, the card 7 m under the sea; `BackdropMat`)
 at 2.75-2.95 km; the fog colour is the horizon band's, depth fog 400..3200 m.
-Counts: island 12.4k tris, palms+broadleafs+scrub 39k, rocks 23.3k, resort (buildings, terraces, walls, road,
-backdrops) 4.6k. Lane frame time on the PC at 1080p: 0.72 ms (main before this island: 0.91 ms).
+Behind the wall a SHORE STRIP a runner looks at over the rocks (`beach_shore.py`, true scale, the beach's thatch,
+drift, teak and canvas tiles): four tiki huts (2.1 m doorways, bamboo walls, thatch hips), a beach bar, three canvas
+cabanas (open timber frames, striped pyramids in the umbrellas' colours), a lifeguard tower, ten torches, and a
+2.4 m boardwalk the whole length at 10.5 m behind the lip (`STRIP`, `WALK`); hedge, bushes and groves keep off it.
+Points of interest: a 25 m LIGHTHOUSE (white 12-sided tower, gallery, lantern, red cap) on the north headland's
+knoll (`LIGHTHOUSE`; the two headlands keep rock knolls the coast cap never flattens, grassed with crag outcrops),
+0 m hidden from every play eye; a WATERFALL down the crag's deepest bay-facing gully (`WATERFALL`), a white ribbon
+from the cliff top at 195 m to the grass with a foam fan, splash and mist at its foot. A marina in the north cove
+was tried on paper and dropped: the headland hides it from every lane eye.
+Counts: island 12.4k tris, palms+broadleafs+scrub 39k, rocks 23.5k, resort (buildings, terraces, walls, road,
+backdrops, the shore strip, lighthouse, waterfall) 9.7k. Lane frame time on the PC at 1080p: 0.72 ms (main before this island: 0.91 ms).

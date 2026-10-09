@@ -257,6 +257,10 @@ def land_h(x, y, terraces=True):
     if inside <= 0.0:
         return max(0.25 * inside, -9.0)
     h = min(raw_h(x, y, inside), coast_cap(inside, ds, dr, dc))
+    for kx, ky, kh, kr in KNOBS[:2]:                        # the two headlands: rock knolls the coast cap never flattens
+        e = math.hypot(x - kx, y - ky) / kr
+        if e < 1.0:
+            h = max(h, kh * bell(e) ** 0.7 * ramp(inside, 0.0, 6.0))
     if terraces:
         for px, py, r_in, r_out, pz, gx, gy in _PADS:          # a bench: a plane cut into the hill, blended out
             dd = math.hypot(x - px, y - py)
