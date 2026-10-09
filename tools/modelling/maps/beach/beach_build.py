@@ -522,11 +522,14 @@ def sand_w(x, y, alt, steep, inside, d):
 def rock_w(x, y, alt, steep, dc, d):
     """The vertex rock weight 0..1: soft over 50 m round the wandering rock line, cliffs over 45 deg high up, sea
     cliffs; never within 30 m of the wall nor on a building bench and its cut banks."""
-    if d < 30.0:
+    if d < 30.0 and not any(math.hypot(x - kx, y - ky) < kr for kx, ky, _kh, kr in plan.KNOBS[:2]):
         return 0.0
     w = smooth((alt - rock_line(x, y)) / 18.0 + 0.5)
     w = max(w, ramp(steep, 0.7, 0.95) * ramp(alt, 20.0, 60.0))
     w = max(w, ramp(dc, 50.0, 20.0) * ramp(alt, 2.0, 8.0))
+    for kx, ky, _kh, kr in plan.KNOBS[:2]:                              # the headland knolls: crag on their steep faces
+        if math.hypot(x - kx, y - ky) < kr:
+            w = max(w, ramp(steep, 0.4, 0.6) * ramp(alt, 5.0, 11.0))
     for px, py, _ri, r_out, _pz, _gx, _gy in plan.pads():
         w *= ramp(math.hypot(x - px, y - py), r_out, r_out + 25.0)
     return w
@@ -731,8 +734,8 @@ class Sculpt(object):
         if all(k in ("sand", "shore", "foot") for k in kinds):
             return "rock" if head(b, r) > 0.45 or steep > 0.55 else "sand"
         d = r - top_r(b)
-        if (steep > 0.55 and d < 30.0) or (head(b, r) > 0.45 and c[2] > WATER_Z + 0.3):
-            return "rock"                                      # beach rock: the wall's lip, the heads, the jetty strips
+        if (steep > 0.55 and d < 12.0) or (head(b, r) > 0.45 and c[2] > WATER_Z + 0.3):
+            return "rock"                                      # beach rock: the wall's lip and the jetty heads only
         if c[2] < WATER_Z + 0.9 and steep < 0.3:
             return "sand"
         sl, aspect = slope_of(c[0], c[1])
@@ -963,6 +966,14 @@ def build_rocks(surf=None):
             c = PAL_CRAG[1] if t > 0.45 else PAL_CRAG[0]
             m.cols[i] = (c[0], c[1], c[2], 1.0)
 
+    for kx, ky, _kh, kr in plan.KNOBS[:2]:                             # outcrops on the headland knolls
+        for k in range(5):
+            a, dist = rr.u(0.0, TWO_PI), rr.u(6.0, 0.7 * kr)
+            x, y = kx + math.cos(a) * dist, ky + math.sin(a) * dist
+            h = plan.land_h(x, y)
+            if h < 4.0 or plan.coast_fields(x, y)[0] < 4.0:
+                continue
+            crag_boulder(x, y, rr.u(3.0, 5.5), SEED + 5400 + int(ky) + k, h, slope_of(x, y)[0])
     made, tries = 0, 0
     while made < 44 and tries < 9000:
         tries += 1
@@ -2143,7 +2154,30 @@ def _waterfall(m, surf):
     mid = m.v((cx, cy, cz), (0.85, 0.95, 1.0, 1.0))
     for j in range(10):
         m.tri(ring[j], ring[(j + 1) % 10], mid, UP, "plastic", "resort")
-    return 2 * n + 10
+    # the base: a foam fan where the ribbon lands, jagged splash round it, two crossed mist cards
+    fx, fy = px + dx * d1, py + dy * d1
+    fz = surf.z(fx, fy) + 0.5
+    foam = (0.96, 0.99, 1.0, 1.0)
+    fan = [m.v((fx + dx * 4.0 * math.cos(t) * 1.2 - nx * 2.2 * math.sin(t), fy + dy * 4.0 * math.cos(t) * 1.2 - ny * 2.2 * math.sin(t), fz + 0.1), foam)
+           for t in (-1.2, -0.6, 0.0, 0.6, 1.2)]
+    foot = m.v((fx, fy, fz + 0.6), foam)
+    for a, b in zip(fan, fan[1:]):
+        m.tri(foot, a, b, UP, "plastic", "resort")
+    for j in range(8):
+        a = j * TWO_PI / 8.0 + 0.3
+        rr_ = 3.0 + 1.5 * (j % 2)
+        pa = m.v((fx + math.cos(a) * rr_, fy + math.sin(a) * rr_, fz + 0.2), foam)
+        pb = m.v((fx + math.cos(a + 0.5) * rr_ * 0.6, fy + math.sin(a + 0.5) * rr_ * 0.6, fz + 1.4 + 0.8 * (j % 2)), foam)
+        pc = m.v((fx + math.cos(a + 0.9) * rr_, fy + math.sin(a + 0.9) * rr_, fz + 0.2), foam)
+        m.tri(pa, pb, pc, (math.cos(a + 0.45), math.sin(a + 0.45), 0.3), "plastic", "resort")
+    mist = (0.9, 0.95, 1.0, 1.0)
+    for a in (0.3, 1.87):
+        ax, ay = math.cos(a) * 3.5, math.sin(a) * 3.5
+        q = [m.v((fx - ax, fy - ay, fz + 0.5), mist), m.v((fx + ax, fy + ay, fz + 0.5), mist),
+             m.v((fx + ax * 0.6, fy + ay * 0.6, fz + 6.5), mist), m.v((fx - ax * 0.6, fy - ay * 0.6, fz + 6.5), mist)]
+        m.quad(q[0], q[1], q[2], q[3], (-ay, ax, 0.0), "plastic", "resort")
+        m.quad(q[1], q[0], q[3], q[2], (ay, -ax, 0.0), "plastic", "resort")
+    return 2 * n + 10 + 4 + 8 + 8
 
 
 def build_resort(m):

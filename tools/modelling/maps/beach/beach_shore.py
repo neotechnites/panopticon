@@ -212,32 +212,43 @@ def beach_bar(m, uv, x, y, yaw, z0):
     return len(m.faces) - n0
 
 
+STRIPES = (((0.86, 0.2, 0.18), (0.96, 0.95, 0.92)), ((0.18, 0.42, 0.8), (0.96, 0.95, 0.92)), ((0.98, 0.8, 0.22), (0.96, 0.95, 0.92)),
+           ((0.24, 0.66, 0.38), (0.96, 0.95, 0.92)), ((0.95, 0.45, 0.6), (0.96, 0.95, 0.92)), ((0.98, 0.55, 0.16), (0.96, 0.95, 0.92)))
+#   the umbrellas' canopy colours, each paired with white: a cabana's roof alternates them gore by gore
+
+
 def cabana(m, uv, x, y, yaw, z0, seed):
-    """A 4 x 4 m canvas cabana on a deck: pyramid canvas roof with a coloured valance, back and one side wall,
-    a lounger."""
+    """A 4 x 4 m beach cabana: an open timber frame on a low deck under a striped canvas pyramid (eight gores
+    alternating a colour with white, as the umbrellas), a scalloped valance, a lounger inside; no walls."""
     fr, r, n0 = Frame(m, uv, x, y, yaw, z0), Rng(seed * 7919 + 23), len(m.faces)
-    canvas, accent = CANVAS_TINTS[r.i(0, 2)], ACCENTS[r.i(0, 3)]
-    side = 1.0 if r.f() < 0.5 else -1.0
+    col, white = STRIPES[r.i(0, len(STRIPES) - 1)]
+    col, white = col + (1.0,), white + (1.0,)
     zd, pl = 0.3, 1.85
-    zp = zd + 2.6
+    zp = zd + 2.5
     fr.box(-2.0, 2.0, -2.0, 2.0, -0.2, zd, "deck", DECK, "fbltu")
     for a in (-pl, pl):
         for b in (-pl, pl):
             fr.box(a - 0.1, a + 0.1, b - 0.1, b + 0.1, -0.5, zp, "timber", POST, "fblt")
-    pitch = 1.2 / pl
-    ee, ze, apex = pl + 0.5, zp - pitch * 0.5, (0.0, 0.0, zp + 1.2)
+    for a, b, c, d in ((-pl, -pl, pl, -pl), (pl, -pl, pl, pl), (pl, pl, -pl, pl), (-pl, pl, -pl, -pl)):    # head beams
+        fr.box(min(a, c) - 0.08, max(a, c) + 0.08, min(b, d) - 0.08, max(b, d) + 0.08, zp - 0.2, zp, "timber", POST, "fbltud")
+    ee, ze, apex = pl + 0.55, zp - 0.12, (0.0, 0.0, zp + 1.25)
     E = [(ee, -ee, ze), (ee, ee, ze), (-ee, ee, ze), (-ee, -ee, ze)]
     for k, h in enumerate(((1, 0), (0, 1), (-1, 0), (0, -1))):
         e0, e1 = E[k], E[(k + 1) % 4]
-        _two(fr, [e0, e1, apex], (h[0], h[1], 1.0), "canvas2", canvas, _shade(canvas, 0.82))
-        _two(fr, [e0, e1, (e1[0], e1[1], ze - 0.25), (e0[0], e0[1], ze - 0.25)], (h[0], h[1], 0.0), "canvas2", accent)
-    _two(fr, [(-pl, pl, zd), (-pl, -pl, zd), (-pl, -pl, zp), (-pl, pl, zp)], (-1, 0, 0), "canvas2", canvas)
-    sw = side * pl
-    _two(fr, [(-pl, sw, zd), (pl, sw, zd), (pl, sw, zp), (-pl, sw, zp)], (0, side, 0), "canvas2", canvas)
-    ls = side * 0.8
+        mid = ((e0[0] + e1[0]) / 2.0, (e0[1] + e1[1]) / 2.0, ze)
+        _two(fr, [e0, mid, apex], (h[0], h[1], 1.0), "canvas2", col, _shade(col, 0.82))            # two gores a face
+        _two(fr, [mid, e1, apex], (h[0], h[1], 1.0), "canvas2", white, _shade(white, 0.82))
+        for q in range(4):                                                                        # scalloped valance
+            t0, t1 = q / 4.0, (q + 1) / 4.0
+            a = (e0[0] + (e1[0] - e0[0]) * t0, e0[1] + (e1[1] - e0[1]) * t0)
+            b = (e0[0] + (e1[0] - e0[0]) * t1, e0[1] + (e1[1] - e0[1]) * t1)
+            c = ((a[0] + b[0]) / 2.0, (a[1] + b[1]) / 2.0)
+            _two(fr, [(a[0], a[1], ze), (b[0], b[1], ze), (c[0], c[1], ze - 0.32)], (h[0], h[1], 0.0), "canvas2",
+                 col if q % 2 else white)
+    ls = (1.0 if r.f() < 0.5 else -1.0) * 0.8
     fr.box(-0.95, 1.0, ls - 0.35, ls + 0.35, zd, zd + 0.35, "deck", DECK, "fbltu")
     _two(fr, [(-0.95, ls - 0.33, zd + 0.35), (-0.95, ls + 0.33, zd + 0.35), (-1.4, ls + 0.33, zd + 1.0),
-              (-1.4, ls - 0.33, zd + 1.0)], (1.0, 0.0, 0.7), "deck", DECK)
+              (-1.4, ls - 0.33, zd + 1.0)], (1.0, 0.0, 0.7), "canvas2", col)
     return len(m.faces) - n0
 
 
