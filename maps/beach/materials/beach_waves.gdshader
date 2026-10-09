@@ -8,12 +8,12 @@ render_mode unshaded, blend_mix, cull_disabled, depth_draw_never, fog_disabled, 
 
 uniform sampler2D foam : filter_linear_mipmap, repeat_enable;
 uniform sampler2D edge_lace : filter_linear_mipmap, repeat_enable;   // beach_foam_albedo: the standing lace at the edge
-uniform vec3 foam_color : source_color = vec3(0.96, 0.99, 1.0);
-uniform vec3 sheet_color : source_color = vec3(0.62, 0.93, 0.9);
-uniform vec3 wet_color : source_color = vec3(0.62, 0.56, 0.45);
+uniform vec3 foam_color : source_color = vec3(0.9, 0.74, 0.62);     // sunset: warm foam
+uniform vec3 sheet_color : source_color = vec3(0.36, 0.42, 0.44);
+uniform vec3 wet_color : source_color = vec3(0.42, 0.26, 0.2);
 uniform float set_seconds = 40.0;      // bigger waves come in sets, then a lull
 uniform float back = -2.6;             // metres out in the water a wave rolls in from and drains back to
-uniform float display_gain = 0.73;     // Ryan's HDR desktop shows SDR at 2x linear (beach_water.gdshader)
+uniform float display_gain = 0.7;      // unshaded: held to the sunset-lit sand's value
 
 varying float up;
 varying float knoll;

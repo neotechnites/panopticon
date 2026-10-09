@@ -4,9 +4,9 @@ shader_type spatial;
 render_mode unshaded, blend_mix, cull_disabled, depth_test_disabled, depth_draw_never, fog_disabled, shadows_disabled;
 
 uniform sampler2D depth_tex : hint_depth_texture, filter_nearest, repeat_disable;
-uniform vec3 sun_direction = vec3(0.7913, 0.5736, 0.212);   // toward the sun: the scene's Sun (+Z)
-uniform vec3 glare_color : source_color = vec3(1.0, 1.0, 0.94);
-uniform float glare_strength = 0.55;  // the wash dead-on (0..1): how blinded you are looking straight at it
+uniform vec3 sun_direction = vec3(0.9587, 0.1219, 0.2568);   // toward the sun: the scene's Sun (+Z)
+uniform vec3 glare_color : source_color = vec3(1.0, 0.72, 0.4);
+uniform float glare_strength = 0.45;  // the wash dead-on (0..1): how blinded you are looking straight at it
 uniform float glare_degrees = 22.0;   // off-angle where the wash has gone; it rises steeply only near dead-on
 uniform float ray_strength = 0.45;    // the star rays streaming from the sun across the screen
 uniform float display_gain = 1.0;    // the glare is meant to clip: no HDR compensation

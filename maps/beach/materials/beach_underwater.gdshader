@@ -5,7 +5,7 @@ render_mode unshaded, blend_mix, depth_draw_never, cull_front, skip_vertex_trans
 
 #include "res://maps/beach/materials/beach_sea.gdshaderinc"
 
-uniform vec3 water_color : source_color = vec3(0.0, 0.32, 0.42);
+uniform vec3 water_color : source_color = vec3(0.0, 0.16, 0.22);
 uniform float radius = 18.0;
 uniform float opacity = 0.5;
 
@@ -15,6 +15,6 @@ void vertex() {
 }
 
 void fragment() {
-	ALBEDO = water_color * 0.73;            // Ryan's HDR desktop: 2x SDR, 2^(-1/2.2) undoes it here
+	ALBEDO = water_color;
 	ALPHA = opacity;
 }

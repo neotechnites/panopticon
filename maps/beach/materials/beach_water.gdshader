@@ -11,15 +11,18 @@ uniform sampler2D ripples : filter_linear_mipmap_anisotropic, repeat_enable;    
 uniform sampler2D caustics : filter_linear_mipmap, repeat_enable;     // beach_water: the sparkle layer
 uniform sampler2D foam_texture : filter_linear_mipmap, repeat_enable;
 uniform sampler2D screen : hint_screen_texture, filter_linear_mipmap;
-uniform vec3 foam_color : source_color = vec3(0.96, 0.99, 1.0);
-uniform vec3 sun_color : source_color = vec3(1.0, 0.98, 0.9);
-uniform vec3 under_color : source_color = vec3(0.02, 0.6, 0.62);    // the surface seen from below
+uniform vec3 foam_color : source_color = vec3(0.86, 0.72, 0.62);     // sunset: warm-tinted, held under the sand's value
+uniform vec3 sun_color : source_color = vec3(1.0, 0.68, 0.3);
+uniform vec3 under_color : source_color = vec3(0.02, 0.22, 0.26);
+uniform vec3 body_tint = vec3(0.2, 0.28, 0.34);    // the baked colour graded for the low light: a darker teal
+uniform float path_strength = 0.9;   // the glitter path on the water toward the low sun    // the surface seen from below
 uniform float refraction = 0.014;
 uniform float sparkle = 1.6;
-uniform float display_gain = 0.73;   // Ryan's HDR desktop shows SDR at 2x linear; unshaded output is undone by 2^(-1/2.2)
-uniform vec3 sun_direction = vec3(0.7913, 0.5736, 0.212);   // toward the sun: the scene's Sun
-uniform vec3 sky_top : source_color = vec3(0.02, 0.28, 0.95);      // the sky's own (beach_sky.gdshader)
-uniform vec3 sky_horizon : source_color = vec3(0.55, 0.78, 0.98);
+uniform float display_gain = 1.0;    // tuned in plain SDR
+uniform vec3 sun_direction = vec3(0.9587, 0.1219, 0.2568);   // toward the sun: the scene's Sun
+uniform vec3 sky_top : source_color = vec3(0.2, 0.12, 0.28);        // the sky's own (beach_sky.gdshader), rose-violet
+uniform vec3 sky_horizon : source_color = vec3(0.6, 0.32, 0.28);
+uniform vec3 sky_sun_horizon : source_color = vec3(1.0, 0.56, 0.18);
 uniform float reflection = 0.45;     // the sky in the water at grazing angles, kept low so the teal stays teal
 uniform float extinction = 7.5;      // metres of water a line of sight passes through to lose ~63% of the bed
 uniform float swell = 0.07;
@@ -50,7 +53,9 @@ void vertex() {
 	VERTEX.y += y * amp * step(r, 1500.0) * smoothstep(0.5, 2.0, depth);
 	vec3 v = normalize(CAMERA_POSITION_WORLD - world);
 	float fres = 0.02 + 0.98 * pow(1.0 - clamp(v.y, 0.0, 1.0), 5.0);
-	vec3 c = mix(sky_horizon, sky_top, pow(clamp(asin(clamp(v.y, 0.0, 1.0)) / radians(75.0), 0.0, 1.0), 0.35));
+	vec3 sd = normalize(sun_direction);
+	float toward = clamp(dot(normalize(-v.xz + 1e-5), normalize(sd.xz)) * 0.5 + 0.5, 0.0, 1.0);
+	vec3 c = mix(mix(sky_horizon, sky_sun_horizon, pow(toward, 2.7)), sky_top, pow(clamp(asin(clamp(v.y, 0.0, 1.0)) / radians(75.0), 0.0, 1.0), 0.5));
 	sky = vec4(c, min(fres * reflection, 0.22));   // capped: at grazing angles the sky must not turn the teal blue
 	// view-path opacity (Beer-Lambert): the water the line of sight crosses to reach the bed under this vertex
 	float path = depth / max(v.y, 0.03);
@@ -66,7 +71,7 @@ void fragment() {
 	vec3 r1 = texture(ripples, world.xz / 9.0 + t * vec2(0.021, 0.006)).xyz - 0.5;
 	vec3 r2 = texture(ripples, world.xz / 5.3 - t * vec2(0.007, 0.017)).xyz - 0.5;
 	vec2 off = (r1.xy + r2.xy);
-	vec3 col = COLOR.rgb * (1.0 + 0.08 * (off.x + off.y) * near);
+	vec3 col = COLOR.rgb * body_tint * (1.0 + 0.08 * (off.x + off.y) * near);
 	float band_edge = 0.0;
 	float band_alpha = 0.0;
 	if (banded) {
@@ -89,6 +94,13 @@ void fragment() {
 	float glow = smoothstep(0.988, 0.998, sp) * near * near
 		+ smoothstep(0.9, 0.98, sp) * glint_w * 0.9;              // the sun's path: the sparkle layer lit by the vertex glint
 	col += sun_color * glow * sparkle;
+	// the glitter path toward the low sun: the view reflected off a ripple-tilted normal, broken by the sparkle layer
+	vec3 vf = normalize(CAMERA_POSITION_WORLD - world);
+	vec3 nf = normalize(vec3(off.x * 0.35, 1.0, off.y * 0.35));
+	float lane = max(dot(reflect(-vf, nf), normalize(sun_direction)), 0.0);
+	float path = pow(lane, 90.0) * smoothstep(0.55, 0.9, sp + 0.3 * lane) + 0.25 * pow(lane, 24.0);
+	col += sun_color * path * path_strength;
+	glow = max(glow, path * path_strength);
 	// foam rings round rocks
 	float lace = max(texture(foam_texture, world.xz / 3.1 + vec2(t * 0.02, 0.0)).r,
 		texture(foam_texture, world.xz / 1.7 - vec2(0.0, t * 0.03)).r);

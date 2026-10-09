@@ -66,3 +66,11 @@ rock 3 bands, fronds 2) instead of gradients. Banded water is a switch: `banded`
 
 Textures: `maps/beach/textures/beach.ase`, 256 px tiles at 0.05 m per texel, placeholders for Ryan to
 repaint; the table is in `docs/TEXTURES.md`.
+
+## Sunset trial (branch beach-sunset; midday is tag beach-midday)
+
+Golden hour, tuned in plain SDR (no HDR lift) against raw frames of hell, forest and marble. Sun 7 deg up at
+bearing 15 over the mouth, orange (1, 0.62, 0.34) at 1.5; ambient purple-blue (0.48, 0.45, 0.85) at 0.11.
+Sky violet to rose to orange-gold round the sun, no clouds. Water: the baked colour graded to dark teal
+(`body_tint`), warm sky in the reflection, a glitter path to the sun (`path_strength`). Sand graded warm tan
+(`grade`), caustics faint and warm, grass olive (GrassMat albedo_color), foam warm. Geometry untouched.
