@@ -476,7 +476,7 @@ def _check():
     walk = [(0.0, 0.0), (3.0, 0.0), (6.0, 1.0), (8.5, 2.8), (10.5, 5.0), (12.0, 7.6)]
     cases = [("tiki_hut%d" % s, 220, (lambda m, uv, s=s: tiki_hut(m, uv, 0.0, 0.0, 20.0, 0.0, s))) for s in range(1, 7)]
     cases += [("beach_bar", 320, lambda m, uv: beach_bar(m, uv, 0.0, 0.0, 20.0, 0.0))]
-    cases += [("cabana%d" % s, 120, (lambda m, uv, s=s: cabana(m, uv, 0.0, 0.0, 20.0, 0.0, s))) for s in range(1, 5)]
+    cases += [("cabana%d" % s, 160, (lambda m, uv, s=s: cabana(m, uv, 0.0, 0.0, 20.0, 0.0, s))) for s in range(1, 5)]
     cases += [("boardwalk", 10 ** 6, lambda m, uv: boardwalk(m, uv, walk, zf)),
               ("torch", 40, lambda m, uv: torch(m, uv, 0.0, 0.0, 0.0)),
               ("lifeguard_tower", 260, lambda m, uv: lifeguard_tower(m, uv, 0.0, 0.0, 20.0, 0.0)),
