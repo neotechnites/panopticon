@@ -30,6 +30,7 @@
 [ext_resource type="Shader" path="res://maps/beach/materials/beach_sky.gdshader" id="20_sky_shader"]
 [ext_resource type="Texture2D" path="res://maps/beach/textures/beach_rock_albedo.png" id="22_rock_tile"]
 [ext_resource type="Texture2D" path="res://maps/beach/textures/beach_grass_albedo.png" id="23_grass_tile"]
+[ext_resource type="Texture2D" path="res://maps/beach/textures/beach_canopy_albedo.png" id="42_canopy_tile"]
 [ext_resource type="Script" path="res://maps/beach/fish/beach_fish.gd" id="38_fish"]
 [ext_resource type="Shader" path="res://maps/beach/materials/beach_fish.gdshader" id="39_fish_shader"]
 [ext_resource type="Texture2D" path="res://maps/beach/textures/beach_fish_albedo.png" id="40_fish_sheet"]
@@ -49,12 +50,12 @@ ambient_light_energy = 0.16
 tonemap_mode = 0
 fog_enabled = true
 fog_mode = 1
-fog_light_color = Color(0.48, 0.68, 0.86, 1)
-fog_density = 0.65
+fog_light_color = Color(0.3, 0.47, 0.71, 1)
+fog_density = 0.72
 fog_sky_affect = 0.0
-fog_depth_curve = 0.5
-fog_depth_begin = 80.0
-fog_depth_end = 3500.0
+fog_depth_curve = 0.6
+fog_depth_begin = 120.0
+fog_depth_end = 3200.0
 
 [sub_resource type="ShaderMaterial" id="WaterMat"]
 render_priority = 1
@@ -137,6 +138,16 @@ resource_name = "beach_grass"
 vertex_color_use_as_albedo = true
 albedo_texture = ExtResource("23_grass_tile")
 roughness = 0.95
+texture_filter = 5
+
+[sub_resource type="StandardMaterial3D" id="CanopyMat"]
+resource_name = "beach_canopy"
+transparency = 2
+alpha_scissor_threshold = 0.5
+cull_mode = 2
+vertex_color_use_as_albedo = true
+albedo_texture = ExtResource("42_canopy_tile")
+roughness = 0.9
 texture_filter = 5
 
 [sub_resource type="StandardMaterial3D" id="CanvasMat"]
@@ -225,9 +236,9 @@ surface_material_override/1 = SubResource("SandMat")
 [node name="Island" parent="MapBase" instance=ExtResource("11_island")]
 
 [node name="BeachIsland" parent="MapBase/Island" index="0"]
-editor_description = "Surface 0 restated: the importer drops the first surface's vertex colour."
-surface_material_override/0 = SubResource("GrassMat")
-surface_material_override/3 = SubResource("SandMat")
+editor_description = "Surface 0 (the tree cards) restated with alpha scissor: the importer drops the first surface's vertex colour. Surfaces in class order: canopy, crag, grass, jungle, rock, sand."
+surface_material_override/0 = SubResource("CanopyMat")
+surface_material_override/5 = SubResource("SandMat")
 
 [node name="Rocks" parent="MapBase" instance=ExtResource("12_rocks")]
 
@@ -245,6 +256,10 @@ editor_description = "Surface 0 restated: the importer drops the first surface's
 surface_material_override/0 = SubResource("CanvasMat")
 
 [node name="Resort" parent="MapBase" instance=ExtResource("41_resort")]
+
+[node name="BeachResort" parent="MapBase/Resort" index="0"]
+editor_description = "Surface 0 (the road's banks, grass) restated: the importer drops the first surface's vertex colour."
+surface_material_override/0 = SubResource("GrassMat")
 
 [node name="Water" parent="MapBase" instance=ExtResource("14_water")]
 
@@ -333,3 +348,4 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.95, 0)
 [editable path="MapBase/Props"]
 [editable path="MapBase/Water"]
 [editable path="MapBase/Waves"]
+[editable path="MapBase/Resort"]
