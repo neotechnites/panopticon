@@ -66,3 +66,12 @@ rock 3 bands, fronds 2) instead of gradients. Banded water is a switch: `banded`
 
 Textures: `maps/beach/textures/beach.ase`, 256 px tiles at 0.05 m per texel, placeholders for Ryan to
 repaint; the table is in `docs/TEXTURES.md`.
+
+## Fish
+
+34 2D fish in 13 schools and singles swim loose loops under the bay (`maps/beach/fish/beach_fish.gd`, one MultiMesh,
+one draw call, no collision). Loops come from the sculpt's own bed, kept off the shore, the yacht and the coral:
+`python3 tools/modelling/maps/beach/beach_fish_paths.py` rewrites `beach_fish_paths.gd`. Each fish is a sprite card
+turned round its swim line to face the camera, a 3-frame tail wiggle from `beach_fish_albedo` (Ryan repaints).
+`beach_fish.gdshader` tints them by depth as the bed is and fades them by the water's own view-path see-through,
+drawn where the sight line meets the surface so the water does not hide them. A school swims off from a runner in the water within 5 m.

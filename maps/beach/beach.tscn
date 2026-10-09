@@ -29,6 +29,9 @@
 [ext_resource type="Shader" path="res://maps/beach/materials/beach_sky.gdshader" id="20_sky_shader"]
 [ext_resource type="Texture2D" path="res://maps/beach/textures/beach_rock_albedo.png" id="22_rock_tile"]
 [ext_resource type="Texture2D" path="res://maps/beach/textures/beach_grass_albedo.png" id="23_grass_tile"]
+[ext_resource type="Script" path="res://maps/beach/fish/beach_fish.gd" id="38_fish"]
+[ext_resource type="Shader" path="res://maps/beach/materials/beach_fish.gdshader" id="39_fish_shader"]
+[ext_resource type="Texture2D" path="res://maps/beach/textures/beach_fish_albedo.png" id="40_fish_sheet"]
 
 [sub_resource type="ShaderMaterial" id="SkyMat"]
 shader = ExtResource("20_sky_shader")
@@ -113,6 +116,12 @@ render_priority = 6
 shader = ExtResource("32_under_shader")
 shader_parameter/radius = 2.5
 shader_parameter/opacity = 0.3
+
+[sub_resource type="ShaderMaterial" id="FishMat"]
+render_priority = 2
+shader = ExtResource("39_fish_shader")
+shader_parameter/sheet = ExtResource("40_fish_sheet")
+shader_parameter/ripples = ExtResource("17_ripples")
 
 [sub_resource type="StandardMaterial3D" id="GrassMat"]
 resource_name = "beach_grass"
@@ -238,6 +247,13 @@ surface_material_override/0 = SubResource("WaterMat")
 editor_description = "The shore's waves: strips on their own clocks (beach_waves.gdshader)."
 cast_shadow = 0
 surface_material_override/0 = SubResource("WavesMat")
+
+[node name="Fish" type="MultiMeshInstance3D" parent="MapBase"]
+editor_description = "The bay's fish: 2D sprite cards swimming loops under the surface, one draw call, no collision (beach_fish.gd)."
+cast_shadow = 0
+custom_aabb = AABB(-80, 14, -80, 160, 10, 160)
+material_override = SubResource("FishMat")
+script = ExtResource("38_fish")
 
 [node name="KillBox" type="Area3D" parent="."]
 editor_description = "The deep water: roof 2.0 m under the deck (1.6 m under the surface, past the wadeable shallows)."

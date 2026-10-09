@@ -119,6 +119,7 @@ slice is placed nearest-upscaled (chunkier, same UVs and density), each locked t
 | beach_thatch_albedo | straw thatch in courses | the tiki bar's roof |
 | beach_shell_albedo | cream shell bands | shells on the sand |
 | beach_portal_swirl_albedo | turquoise and white spiral | the portal's swirl |
+| beach_fish_albedo | five tropical fish side on, rows by species (yellow tang, clownfish, blue tang, emperor angelfish, parrotfish), three tail frames each, on transparent | the bay's fish (`beach_fish.gdshader`) |
 | beach_hull_albedo, beach_glass_albedo, beach_teak_albedo | white gelcoat, blue tinted glass, teak planks | the yacht; teak also the loungers and the tiki bar's counter |
 
 ### Hub: `hub/textures/` (`hub.ase`)
