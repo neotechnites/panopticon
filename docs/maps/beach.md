@@ -75,3 +75,14 @@ one draw call, no collision). Loops come from the sculpt's own bed, kept off the
 turned round its swim line to face the camera, a 3-frame tail wiggle from `beach_fish_albedo` (Ryan repaints).
 `beach_fish.gdshader` tints them by depth as the bed is and fades them by the water's own view-path see-through,
 drawn where the sight line meets the surface so the water does not hide them. A school swims off from a runner in the water within 5 m.
+
+## The island (Wuhu, Delfino, Destiny Islands)
+
+One peak behind the bay (`PEAK`, 400 m at 500 m out; concave flanks, fluted ridges, bare rock bands where it is
+steepest and above `ROCK_LINE`), lower foothills round it. Blob trees (8 triangles each) shrink and thin up to
+`TREE_LINE`. Landmarks in their own chunk, `beach_resort.glb` (visual only, all off the lane): the hotel on a
+terrace facing the bay, a village of 16 houses above the second cove (`COVE`, up the coast past the portal's jetty),
+cabanas and a pier with boats in the cove, a road from the cove through the village to the hotel and switchbacking
+up the peak to a lookout. Three low islands on the horizon. Depth fog (Environment, `fog_mode` depth) hazes the
+island toward the horizon colour; the water and sky are not fogged. The island's far rings crowd their columns
+toward the peak (`far_bearing`); the mesh coarsens past the lip to pay for the landmarks.

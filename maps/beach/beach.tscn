@@ -10,6 +10,7 @@
 [ext_resource type="PackedScene" path="res://maps/beach/models/beach_palms.glb" id="13_palms"]
 [ext_resource type="PackedScene" path="res://maps/beach/models/beach_water.glb" id="14_water"]
 [ext_resource type="PackedScene" path="res://maps/beach/models/beach_props.glb" id="28_props"]
+[ext_resource type="PackedScene" path="res://maps/beach/models/beach_resort.glb" id="41_resort"]
 [ext_resource type="Texture2D" path="res://maps/beach/textures/beach_canvas_albedo.png" id="29_canvas_tile"]
 [ext_resource type="Shader" path="res://maps/beach/materials/beach_rock.gdshader" id="30_rock_shader"]
 [ext_resource type="Shader" path="res://maps/beach/materials/beach_sun.gdshader" id="31_sun_shader"]
@@ -46,6 +47,14 @@ ambient_light_source = 2
 ambient_light_color = Color(0.9, 0.92, 0.95, 1)
 ambient_light_energy = 0.16
 tonemap_mode = 0
+fog_enabled = true
+fog_mode = 1
+fog_light_color = Color(0.48, 0.68, 0.86, 1)
+fog_density = 0.8
+fog_sky_affect = 0.0
+fog_depth_curve = 0.35
+fog_depth_begin = 80.0
+fog_depth_end = 3500.0
 
 [sub_resource type="ShaderMaterial" id="WaterMat"]
 render_priority = 1
@@ -234,6 +243,8 @@ surface_material_override/1 = SubResource("RockMat")
 [node name="BeachProps" parent="MapBase/Props" index="0"]
 editor_description = "Surface 0 restated: the importer drops the first surface's vertex colour."
 surface_material_override/0 = SubResource("CanvasMat")
+
+[node name="Resort" parent="MapBase" instance=ExtResource("41_resort")]
 
 [node name="Water" parent="MapBase" instance=ExtResource("14_water")]
 

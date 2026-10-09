@@ -120,6 +120,9 @@ slice is placed nearest-upscaled (chunkier, same UVs and density), each locked t
 | beach_shell_albedo | cream shell bands | shells on the sand |
 | beach_portal_swirl_albedo | turquoise and white spiral | the portal's swirl |
 | beach_fish_albedo | five tropical fish side on, rows by species (yellow tang, clownfish, blue tang, emperor angelfish, parrotfish), three tail frames each, on transparent | the bay's fish (`beach_fish.gdshader`) |
+| beach_hotel_albedo | white stucco facade: four bays by four storeys (3.2 m), glass doors, teal shutters, balconies | the hotel, the lookout, the village houses (vertex colour tints them) |
+| beach_roof_albedo | terracotta tile courses | the resort's roofs |
+| beach_road_albedo | pale paving setts | the island road, the hotel's pool deck |
 | beach_hull_albedo, beach_glass_albedo, beach_teak_albedo | white gelcoat, blue tinted glass, teak planks | the yacht; teak also the loungers and the tiki bar's counter |
 
 ### Hub: `hub/textures/` (`hub.ase`)
