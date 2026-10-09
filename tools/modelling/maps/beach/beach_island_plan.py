@@ -17,17 +17,17 @@ SEA = 22.6                   # WATER_Z
 # =============================================================================
 
 COAST = [
-    # the tail's inner coast, south of the bay: the south headland, South Beach's long concave sweep, the SE cape
-    (-26.0, -78.0, "rock"), (6.0, -104.0, "rock"), (-10.0, -150.0, "rock"), (-30.0, -230.0, "sand"),
-    (-70.0, -320.0, "sand"), (-120.0, -420.0, "sand"), (-170.0, -520.0, "sand"), (-200.0, -620.0, "rock"),
-    (-230.0, -720.0, "rock"), (-360.0, -680.0, "rock"), (-470.0, -560.0, "sand"), (-560.0, -420.0, "rock"),
-    # the west bay in the armpit, then the head's long outer coast (unseen from play)
-    (-640.0, -350.0, "sand"), (-800.0, -250.0, "sand"), (-960.0, -100.0, "rock"), (-1060.0, 100.0, "cliff"),
-    (-1080.0, 330.0, "cliff"), (-980.0, 560.0, "cliff"), (-800.0, 740.0, "cliff"), (-600.0, 830.0, "rock"),
-    (-420.0, 800.0, "rock"), (-250.0, 650.0, "sand"), (-120.0, 560.0, "rock"),
-    # Lookout Point, the north cove behind it, the north headland
-    (-40.0, 480.0, "rock"), (-70.0, 410.0, "sand"), (-120.0, 330.0, "sand"), (-150.0, 250.0, "sand"),
-    (-100.0, 180.0, "sand"), (-30.0, 130.0, "rock"), (6.0, 104.0, "rock"), (-26.0, 78.0, "rock"),
+    # east coast south of the bay: the south headland, South Beach's concave sweep, the SE cape
+    (-26.0, -78.0, "rock"), (6.0, -104.0, "rock"), (-10.0, -150.0, "rock"), (-40.0, -230.0, "sand"),
+    (-80.0, -330.0, "sand"), (-130.0, -430.0, "sand"), (-200.0, -520.0, "rock"), (-300.0, -600.0, "rock"),
+    (-440.0, -640.0, "sand"), (-600.0, -620.0, "rock"),
+    # the west coast under the massif (unseen from play): sea cliffs
+    (-720.0, -560.0, "rock"), (-860.0, -420.0, "cliff"), (-880.0, -240.0, "sand"), (-840.0, -120.0, "sand"),
+    (-960.0, -20.0, "cliff"), (-1000.0, 160.0, "cliff"), (-1060.0, 330.0, "cliff"), (-960.0, 440.0, "rock"),
+    (-820.0, 520.0, "rock"), (-660.0, 640.0, "sand"), (-480.0, 700.0, "rock"),
+    # the north lobe: the north cape, Lookout Point, the north cove behind the north headland
+    (-300.0, 660.0, "rock"), (-160.0, 560.0, "sand"), (-80.0, 470.0, "rock"), (-110.0, 380.0, "sand"),
+    (-130.0, 280.0, "sand"), (-90.0, 190.0, "sand"), (-30.0, 130.0, "rock"), (6.0, 104.0, "rock"), (-26.0, 78.0, "rock"),
 ]
 BEACH_FLAT = {"sand": 46.0, "rock": 0.0, "cliff": 0.0}    # metres of low backshore behind a sand coast
 
@@ -35,23 +35,22 @@ BEACH_FLAT = {"sand": 46.0, "rock": 0.0, "cliff": 0.0}    # metres of low backsh
 # THE RELIEF -- a spine with one peak, two spurs toward the bay, a broad dome under it all
 # =============================================================================
 
-PEAK = (-680.0, 400.0, 340.0, 440.0)   # summit x, y, height, reach: a concave cone whose top is a bare rocky crag
+PEAK = (-640.0, 10.0, 340.0, 440.0)   # summit x, y, height, reach: centred behind the bay, a bare crag on a forested cone
 SPIRES = ((0.0, 0.0, 1.0, 58.0), (44.0, -30.0, 0.9, 46.0), (-48.0, 26.0, 0.86, 44.0), (22.0, 58.0, 0.78, 38.0),
           (-22.0, -58.0, 0.82, 40.0), (76.0, 22.0, 0.7, 34.0), (-76.0, -18.0, 0.66, 34.0), (10.0, -92.0, 0.6, 30.0))
 #   the crag's spires: offset from the summit, share of the crown's height, radius; notches between them
 CROWN = (0.66, 150.0, 100.0)           # the crag: share of the height where the cliffs start, radius, where the cliff tops out
 RIDGES = (5, 0.3, 0.55)                # radial rock ridges: count, amplitude at the crag, the share of the height they start at
-SPINE = [(-680.0, 400.0, 330.0, 150.0), (-610.0, 190.0, 150.0, 170.0), (-560.0, -40.0, 140.0, 170.0),
-         (-440.0, -230.0, 118.0, 150.0), (-340.0, -420.0, 90.0, 120.0), (-260.0, -590.0, 46.0, 90.0),
-         (-220.0, -700.0, 10.0, 50.0)]     # (x, y, height, half width): the ridge line, peak to the south-east cape
-SPUR_N = [(-610.0, 190.0, 150.0, 170.0), (-430.0, 300.0, 108.0, 160.0), (-280.0, 390.0, 62.0, 140.0),
-          (-150.0, 450.0, 40.0, 100.0), (-50.0, 478.0, 30.0, 60.0)]        # ends in Lookout Point
-SPUR_S = [(-560.0, -40.0, 140.0, 170.0), (-380.0, -90.0, 80.0, 140.0), (-220.0, -108.0, 42.0, 100.0),
-          (-90.0, -108.0, 24.0, 64.0), (0.0, -104.0, 20.0, 40.0)]          # ends in the south headland
-DOME = [(-700.0, 420.0, 80.0, 400.0), (-580.0, 60.0, 56.0, 360.0), (-420.0, -300.0, 40.0, 260.0),
-        (-280.0, -560.0, 18.0, 160.0)]   # the massif's broad foot: the valley floors rise on it
-KNOBS = [(-6.0, 104.0, 20.0, 36.0), (-6.0, -104.0, 20.0, 36.0), (-50.0, 478.0, 30.0, 60.0),
-         (-250.0, -690.0, 24.0, 60.0), (-980.0, 320.0, 60.0, 110.0), (-700.0, 780.0, 50.0, 90.0)]   # (x, y, height, radius)
+SPINE = [(-560.0, 430.0, 120.0, 150.0), (-600.0, 230.0, 190.0, 170.0), (-640.0, 10.0, 330.0, 150.0),
+         (-600.0, -200.0, 200.0, 170.0), (-520.0, -420.0, 110.0, 150.0), (-420.0, -580.0, 40.0, 90.0)]
+#   (x, y, height, half width): the massif's ridge line, N-S behind the bay, the peak in its middle
+SPUR_N = [(-600.0, 230.0, 190.0, 170.0), (-420.0, 210.0, 105.0, 150.0), (-250.0, 170.0, 56.0, 110.0),
+          (-100.0, 120.0, 28.0, 70.0), (0.0, 104.0, 20.0, 40.0)]          # the bay valley's north wall, to the north headland
+SPUR_S = [(-600.0, -200.0, 200.0, 170.0), (-420.0, -200.0, 110.0, 150.0), (-250.0, -175.0, 56.0, 110.0),
+          (-100.0, -125.0, 28.0, 70.0), (0.0, -104.0, 20.0, 40.0)]        # its south wall, to the south headland
+DOME = [(-560.0, 440.0, 50.0, 300.0), (-620.0, 10.0, 80.0, 400.0), (-540.0, -400.0, 50.0, 300.0)]   # the massif's foot
+KNOBS = [(-6.0, 104.0, 20.0, 36.0), (-6.0, -104.0, 20.0, 36.0), (-80.0, 470.0, 30.0, 60.0),
+         (-300.0, -600.0, 24.0, 60.0), (-480.0, 700.0, 40.0, 80.0), (-900.0, 100.0, 60.0, 110.0)]   # (x, y, height, radius)
 PLAIN = (1.9, 0.028, 10.0)             # the coastal flats: height at the coast, rise per metre, flat cap
 TREE_LINE = 205.0
 ROCK_LINE = 212.0                      # rock from the tree line up: the crag
@@ -61,12 +60,12 @@ NOISE = (160.0, 7.0)                   # the cartoon hills' wobble: wavelength, 
 # LANDMARKS -- few, true scale, where distance makes them read
 # =============================================================================
 
-HOTEL = {"x": -300.0, "y": 20.0, "yaw": 90.0, "body": (40.0, 15.0, 13.0), "tower": (9.0, 9.0, 30.0)}
-#   the long low body runs N-S facing the bay; the tower on its north end; on the first rise behind the bay's flat
-VILLAGE = {"x": -250.0, "y": 350.0, "rx": 46.0, "ry": 30.0, "houses": 26}    # a clustered mass on the north spur's
-CLOCK_TOWER = {"x": -244.0, "y": 352.0, "w": 7.0, "h": 32.0}               # south flank, above the north cove
-ROAD = [(-282.0, 42.0), (-280.0, 100.0), (-278.0, 160.0), (-272.0, 220.0), (-268.0, 270.0), (-262.0, 312.0),
-        (-252.0, 340.0)]               # hotel terrace -> along the flat's edge -> up the spur to the village square
+HOTEL = {"x": -252.0, "y": -104.0, "yaw": 40.0, "body": (40.0, 15.0, 13.0), "tower": (9.0, 9.0, 30.0)}
+#   on the south spur's inner flank facing NE over the bay; the tower on its north end; the pool terrace in front
+VILLAGE = {"x": -256.0, "y": 112.0, "rx": 46.0, "ry": 30.0, "houses": 26}    # a clustered mass on the north spur's
+CLOCK_TOWER = {"x": -250.0, "y": 110.0, "w": 7.0, "h": 32.0}               # inner flank, facing SE over the bay
+ROAD = [(-276.0, -80.0), (-306.0, -50.0), (-326.0, -14.0), (-328.0, 24.0), (-312.0, 60.0), (-290.0, 90.0),
+        (-270.0, 104.0)]              # hotel terrace -> round the valley head on the 30 m contour -> the village square
 ROAD_W = 3.0
 HORIZON_ISLES = [(352.0, 2900.0, 900.0, 150.0, 3), (28.0, 2750.0, 520.0, 110.0, 2), (300.0, 2950.0, 620.0, 80.0, 2)]
 #   (bearing, r, width, height, peaks): on the horizon line inside the sea mesh (3 km), fogged to the horizon band
@@ -289,7 +288,7 @@ def diagram(path):
     small = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 15)
     big = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 28)
     S = 0.68                                   # px per metre
-    X0, X1, Y0, Y1 = -1140.0, 460.0, -800.0, 900.0
+    X0, X1, Y0, Y1 = -1100.0, 460.0, -760.0, 800.0
     W, H = int((X1 - X0) * S), int((Y1 - Y0) * S)
     STRIP = 230
     img = Image.new("RGB", (W + 40, H + 2 * STRIP + 170), (14, 70, 110))
@@ -388,14 +387,14 @@ def diagram(path):
         dr.rectangle([qx - 3, qy - 2, qx + 3, qy + 2], fill=(255, 255, 255), outline=(0, 0, 0))
     cx, cy = P(CLOCK_TOWER["x"], CLOCK_TOWER["y"])
     dr.rectangle([cx - 4, cy - 4, cx + 4, cy + 4], fill=(230, 60, 30), outline=(0, 0, 0))
-    dr.text((P(vx, vy)[0] + vrx * S + 6, P(vx, vy)[1] - 10), "VILLAGE 24 houses, clock tower 24 m", fill=(0, 0, 0), font=small)
+    dr.text((P(vx, vy)[0] + vrx * S + 6, P(vx, vy)[1] - 10), "VILLAGE %d houses, clock tower %d m" % (VILLAGE["houses"], CLOCK_TOWER["h"]), fill=(0, 0, 0), font=small)
     dr.line([P(x, y) for x, y in ROAD], fill=(230, 200, 120), width=3)
     dr.text(P(-330, 150), "road 5% grade,\ncut shelf", fill=(60, 40, 0), font=small)
     # names
-    for text, (x, y) in (("SOUTH BEACH", (-90, -330)), ("north cove", (-130, 280)), ("Lookout Point", (-30, 500)),
-                         ("south headland", (-5, -125)), ("north headland", (-5, 118)), ("sea cliffs", (-1000, 450)),
-                         ("west bay", (-760, -330)), ("SE cape", (-330, -760)), ("the Hump", (-600, 10)),
-                         ("bay flat", (-200, -20)), ("south flat\n(palm grove)", (-230, -330)), ("north cape", (-520, 850))):
+    for text, (x, y) in (("SOUTH BEACH", (-100, -330)), ("north cove", (-170, 300)), ("Lookout Point", (-60, 490)),
+                         ("south headland", (-5, -125)), ("north headland", (-5, 118)), ("sea cliffs", (-1090, 60)),
+                         ("west beach", (-600, -690)), ("SE cape", (-330, -640)), ("north shore", (-700, 680)),
+                         ("bay valley", (-200, -20)), ("south flat\n(palm grove)", (-230, -330)), ("north cape", (-520, 740))):
         dr.text(P(x, y), text, fill=(0, 0, 0), font=font)
     # the views
     for (ex, ey), col, name in (((-68.5, 0.0), (255, 90, 90), "runner, lane 180"), ((0.0, 0.0), (255, 255, 120), "guard, yacht")):
