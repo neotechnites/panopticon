@@ -19,7 +19,7 @@ import forest_tree_prop_build as ftp  # noqa: E402  the forest's loose tree: tru
 # zone -> (forest zone, COLOR_0): the forest's TILES factor for that zone, carried per vertex
 ZONES = {"bark": ("tbark", tuple(ft.TILES["bark"][1]) + (1.0,)),
          "leaf": ("tleaf", tuple(ft.TILES["leaf"][1]) + (1.0,))}
-CROWN_MIN_Z = 3.0      # the forest prop's rule (the beach asks 2.5): the guard's look passes under
+CROWN_MIN_Z = 1.6      # a tropical broadleaf: short trunk, the crown low and full (off the lane, nothing to see under)
 SEED = 6630127
 
 # The forest prop's variant "a" cut down. out/up/r/clump as ftp._limb; bez = limb bends after the collar,
@@ -27,22 +27,22 @@ SEED = 6630127
 SPECS = {
     "near": {
         "sides": 6,
-        "path": [(0.00, 0.00, -0.35), (0.00, 0.00, 0.00), (0.03, 0.01, 1.40),
-                 (0.10, 0.00, 3.00), (0.18, -0.04, 4.40), (0.26, -0.07, 5.90)],
-        "radii": [0.62, 0.48, 0.43, 0.38, 0.31, 0.23],
-        "limbs": [ftp._limb(None, 3, 30.0, 0.90, 0.95, (0.17, 0.10), (1.10, 0.30), sides=4),
-                  ftp._limb(None, 4, 150.0, 0.95, 0.85, (0.16, 0.10), (1.15, 0.30), sides=4),
-                  ftp._limb(None, 4, 270.0, 0.85, 1.00, (0.15, 0.09), (1.05, 0.30), sides=4)],
-        "top_clump": (1.45, 0.95),
+        "path": [(0.00, 0.00, -0.35), (0.00, 0.00, 0.00), (0.03, 0.01, 0.90),
+                 (0.10, 0.00, 1.90), (0.18, -0.04, 2.80), (0.26, -0.07, 3.70)],
+        "radii": [0.68, 0.54, 0.48, 0.42, 0.34, 0.26],
+        "limbs": [ftp._limb(None, 3, 30.0, 1.15, 0.55, (0.17, 0.10), (1.75, 0.30), sides=4),
+                  ftp._limb(None, 4, 150.0, 1.2, 0.5, (0.16, 0.10), (1.85, 0.30), sides=4),
+                  ftp._limb(None, 4, 270.0, 1.1, 0.6, (0.15, 0.09), (1.7, 0.30), sides=4)],
+        "top_clump": (2.1, 0.95),
         "bez": 1, "lats": (-35.0, 5.0, 40.0, 68.0), "cap": True,
     },
     "far": {
         "sides": 5,
-        "path": [(0.00, 0.00, -0.35), (0.00, 0.00, 0.00), (0.08, 0.00, 2.90), (0.26, -0.07, 5.90)],
-        "radii": [0.62, 0.47, 0.37, 0.23],
-        "limbs": [ftp._limb(None, 2, 60.0, 0.90, 0.95, (0.17, 0.10), (1.20, 0.30), sides=4),
-                  ftp._limb(None, 2, 240.0, 0.90, 0.90, (0.16, 0.10), (1.20, 0.30), sides=4)],
-        "top_clump": (1.55, 0.95),
+        "path": [(0.00, 0.00, -0.35), (0.00, 0.00, 0.00), (0.08, 0.00, 1.80), (0.26, -0.07, 3.70)],
+        "radii": [0.68, 0.52, 0.4, 0.26],
+        "limbs": [ftp._limb(None, 2, 60.0, 1.15, 0.55, (0.17, 0.10), (1.9, 0.30), sides=4),
+                  ftp._limb(None, 2, 240.0, 1.15, 0.5, (0.16, 0.10), (1.9, 0.30), sides=4)],
+        "top_clump": (2.2, 0.95),
         "bez": 1, "lats": (-15.0, 40.0), "cap": False,
     },
 }

@@ -55,7 +55,7 @@ fog_light_color = Color(0.3, 0.47, 0.71, 1)
 fog_density = 0.72
 fog_sky_affect = 0.0
 fog_depth_curve = 0.6
-fog_depth_begin = 120.0
+fog_depth_begin = 400.0
 fog_depth_end = 3200.0
 
 [sub_resource type="ShaderMaterial" id="WaterMat"]
