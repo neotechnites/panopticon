@@ -1175,16 +1175,27 @@ def build_palms(surf=None):
             h = rr.u(9.5, 12.0)                                     # full size: the lane's own palms' height and more
             lean_b = rr.u(0.0, 360.0)
             lean = rr.u(4.0, 20.0)
+        dropped = False
         while True:
             v0 = len(m.verts)
             f0 = len(m.faces)
             palm(m, (x, y, z), h, lean_b, lean, SEED + 600 + k, uv)
-            if kind != "sand" or not any(in_corridor(m.verts[i]) for i in range(v0, len(m.verts))) or lean < 2.0:
+            if not any(in_corridor(m.verts[i]) for i in range(v0, len(m.verts))):
                 break
-            del m.verts[v0:], m.cols[v0:], m.faces[f0:], m.zones[f0:], m.chunks[f0:]     # too far over the lane: stand straighter
+            del m.verts[v0:], m.cols[v0:], m.faces[f0:], m.zones[f0:], m.chunks[f0:]     # over the lane's eye corridor:
             for key in [key for key in uv if key[0] >= f0]:
                 del uv[key]
-            lean -= 3.0
+            if lean > 3.0:
+                lean -= 3.0                                            # stand straighter,
+            elif h < 13.0:
+                h += 1.0                                               # then grow taller,
+            else:
+                dropped = True                                         # then go
+                break
+        if dropped:
+            if kind == "sand" and trunks:
+                trunks.pop()
+            continue
     INFO["palms"] = len(spots)
     INFO["palm_xy"] = [pol(b, r, 0.0)[:2] for b, r, _k, _c in spots]
     return m, uv, trunks
