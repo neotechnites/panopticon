@@ -129,11 +129,14 @@ knoll (`LIGHTHOUSE`; the two headlands keep rock knolls the coast cap never flat
 from the terrain under its footprint (24 samples at r 3.6 and 4.6: base at the lowest - 0.5, the plinth top 0.6 over
 the highest, so 1.5 m+ of foundation under the highest corner). A WATERFALL down the crag's deepest bay-facing gully
 (`WATERFALL`): a 6 m ribbon in the `fall` zone (`beach_fall.gdshader` scrolls `beach_fall_albedo`, white streaks on
-blue-white with alpha, down it) from a lip at the cliff top, 0.6 m off the gully, landing ON a round plunge pool: a
-rock-rimmed basin on its own pad at the gully's foot (water 0.3 over the highest ground inside, a foam ring, a rock lip
-notched where the stream leaves, mist cards fading up), and a 1.2 m stream draped on the terrain 0.35 m up with soft
-rock banks, fading out after 50 m. The pool's surface is above every play eye (130 m up): from the lane the fall, the
-rim and the stream read; the surface shows from the hill. The ROAD is a built bed (`_road`): its top 0.2 m over the
+blue-white with alpha, down it) from a lip at the cliff top, 0.6 m off the gully, its last row ON the water of a
+round plunge pool cut INTO the ground (`Sculpt._pool_patch`: the coarse far-ring triangles round the gully's foot
+come out and a fine Delaunay patch over the hole's rim goes in; a rock basin 2.4 m deep, its water 1 m under the
+lowest rim, the rim the ground itself with a 0.3 m lip on the cliff side, baked rock by `ROCK_VERTS`), a foam ring
+and a foam fan on the water, mist cards fading up, and a 1.2 m stream out through a notch at water level down a 0.7 m
+channel the same patch dips to (`CHANNEL`, `stream_path`), 0.3 m over the channel's floor, fading where the channel
+does. The pool's surface is above every play eye (125 m up): from the lane the fall, the notch and the stream read;
+the water shows from the hill. The ROAD is a built bed (`_road`): its top 0.2 m over the
 highest terrain sample across its width at each station, an ashlar riser down 0.6 m into the ground each side (a
 retaining wall downhill, a kerb uphill), never below the ground, never dipping. A marina in the north cove
 was tried on paper and dropped: the headland hides it from every lane eye.
