@@ -152,7 +152,7 @@ PAL_JUNGLE = ((0.17, 0.4, 0.15), (0.26, 0.55, 0.2), (0.36, 0.68, 0.24), (0.5, 0.
 PAL_HAZE = ((0.42, 0.62, 0.48), (0.55, 0.74, 0.74))                                  # two steps of distance haze
 PAL_ROCK = ((0.62, 0.56, 0.48), (0.8, 0.76, 0.69), (0.97, 0.95, 0.9))               # foot, flank, crown
 PAL_PEAK = ((0.8, 0.52, 0.18), (0.92, 0.67, 0.3))                                    # (unused: the crag tile carries its ochre)
-PAL_CRAG = ((0.46, 0.42, 0.37), (0.74, 0.68, 0.6))                                   # the crag's shade and lit faces (x forest_rock)
+PAL_CRAG = ((0.34, 0.3, 0.26), (0.58, 0.52, 0.44))                                   # the crag's shade and lit faces (x forest_rock): Wuhu's tan
 PAL_LAWN = ((0.86, 0.9, 0.72), (1.0, 1.0, 0.92), (1.12, 1.14, 0.98))                   # open grass x forest_grass: fold, mid, lit
 PAL_FROND = ((0.82, 0.92, 0.7), (1.0, 1.0, 1.0))                                     # under the crown, lit
 
@@ -1614,7 +1614,7 @@ def resort_pads():
     tx_, ty_ = plan.CLOCK_TOWER["x"], plan.CLOCK_TOWER["y"]
     out.append((tx_, ty_, 12.0, 22.0, _snap(plan.land_h(tx_, ty_, terraces=False)) - 0.3))
     for x, y, w, d, _yaw, _h, _c in _houses():
-        out.append((x, y, 0.7 * max(w, d), 0.7 * max(w, d) + 7.0, _snap(plan.land_h(x, y, terraces=False)) - 0.3))
+        out.append((x, y, 0.9 * max(w, d) + 2.0, 0.9 * max(w, d) + 9.0, _snap(plan.land_h(x, y, terraces=False)) - 0.3))
     return out
 
 
