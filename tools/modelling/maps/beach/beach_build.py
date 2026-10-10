@@ -270,7 +270,26 @@ def jungle_mask(x, y, d):
     return ramp(d, 20.0, 34.0) * ramp(main_coast(x, y), 14.0, 34.0)
 
 
+_STRIP_PADS = []
+
+
 def _island_z(b, r):
+    """The island's ground behind the wall, with a flat pad (5 m ramp) under every built piece of the shore strip."""
+    if not _STRIP_PADS:
+        for sx, sy, _yaw, kind in strip_spots():
+            sb = bearing_of((sx, sy, 0.0))
+            _STRIP_PADS.append((sx, sy, STRIP_R[kind] + (0.5 if kind == "torch" else 1.0), _island_raw(sb, math.hypot(sx, sy))))
+    z = _island_raw(b, r)
+    x, y, _z = pol(b, r, 0.0)
+    best = (0.0, z)                 # where two pads' ramps cross, the pad the point is deeper inside wins
+    for sx, sy, r_in, zp in _STRIP_PADS:
+        w = 1.0 - ramp(math.hypot(x - sx, y - sy), r_in, r_in + 5.0)
+        if w > best[0]:
+            best = (w, zp)
+    return lerp(z, best[1], best[0])
+
+
+def _island_raw(b, r):
     """The island's ground behind the wall: the jetty's strip, or the island of the plan, and their fall into the sea."""
     d = r - top_r(b)
     x, y, _z = pol(b, r, 0.0)
@@ -281,7 +300,9 @@ def _island_z(b, r):
     arm = min(base + hump, shore_z(arm_w(b) - d, 0.1))
     big = WATER_Z + plan.land_h(x, y)
     z = max(max(arm, big), WATER_Z - 9.0)
-    k = ramp(d, 8.0, 40.0)          # the plan's land eased in over 32 m: no fold where the spurs rise behind the wall
+    head_sector = min(abs(angdiff(b, 90.0)), abs(angdiff(b, 270.0))) < 25.0
+    k = ramp(d, 8.0, 24.0 if head_sector else 40.0)   # the plan's land eased in over 32 m (16 m at the headlands, so their
+                                                       # knolls stand whole); no fold where the spurs rise behind the wall
     if k < 1.0:                     # at the wall's lip the ground stays exactly as the lane's sculpt had it
         pin = main_coast(x, y, plain=True)
         h0 = RIDGE[0] * (1.0 - ramp(s, 100.0, RUN_S + 6.0)) * bell((d - RIDGE[1]) / RIDGE[2]) * ramp(pin, 10.0, -10.0)
@@ -696,7 +717,114 @@ class Sculpt(object):
                 ring.append(self.v(p, land_col(p), "island"))
             self._stitch(prev, ring)
             prev = ring
+        self._pool_patch()
         return self.m
+
+    def _pool_patch(self):
+        """The plunge pool cut INTO the ground: the coarse far-ring triangles round the gully's foot come out and a
+        fine Delaunay patch over the hole's rim goes in: a rock basin POOL_DEPTH deep whose water stands 1 m under
+        the lowest rim, a notch, and the stream's CHANNEL dipping down the slope; the rim is the ground itself."""
+        m = self.m
+        pcx, pcy, dx, dy = pool_centre()
+        path = stream_path()
+
+        def region(x, y):
+            if math.hypot(x - pcx, y - pcy) < 21.0:
+                return True
+            c, s_ = path_frame(path, x, y)
+            return c < 8.0 and s_ < CHANNEL[4] + 4.0
+        surf = Surface(m)
+        z_w = min(surf.z(pcx + math.cos(a) * 8.0, pcy + math.sin(a) * 8.0) for a in [j * TWO_PI / 12 for j in range(12)]) - 1.0
+        INFO["pool_z"] = round(z_w, 2)
+        rm = set()
+        for fi, f in enumerate(m.faces):
+            if m.chunks[fi] == "island" and any(region(m.verts[v][0], m.verts[v][1]) for v in f):
+                rm.add(fi)
+        cnt = {}
+        for fi in rm:
+            a, b, c = m.faces[fi]
+            for e in ((a, b), (b, c), (c, a)):
+                k = (min(e), max(e))
+                cnt[k] = cnt.get(k, 0) + 1
+        bedges = [k for k, n in cnt.items() if n == 1]
+        bverts = sorted({v for e in bedges for v in e})
+        pts = []
+        for rr, n in ((2.5, 12), (5.0, 18), (6.4, 24), (7.6, 24), (9.0, 24), (11.5, 24), (14.5, 24), (18.0, 24)):
+            for j in range(n):
+                a = TWO_PI * (j + (0.5 if rr in (5.0, 7.6, 11.5) else 0.0) + 0.3 * (h2(j, int(rr * 10.0), SEED + 5) - 0.5)) / n
+                r_ = rr * (1.0 + 0.04 * (h2(j, int(rr * 10.0), SEED + 6) - 0.5))   # jittered: no co-circular points for Delaunay
+                x, y = pcx + math.cos(a) * r_, pcy + math.sin(a) * r_
+                c, s_ = path_frame(path, x, y)
+                if rr >= 9.0 and c < 5.0 and s_ > 7.0:
+                    continue                                      # the channel's own rows cover this
+                pts.append((x, y))
+        pts.append((pcx, pcy))
+        for (x0, y0, s0), (x1, y1, s1) in zip(path, path[1:]):
+            if math.hypot(x1 - pcx, y1 - pcy) < 9.5:
+                continue
+            ex, ey = x1 - x0, y1 - y0
+            ln = math.hypot(ex, ey)
+            nx, ny = -ey / ln, ex / ln
+            for c in (-4.5, -2.4, -0.8, 0.0, 0.8, 2.4, 4.5):
+                pts.append((x1 + nx * c, y1 + ny * c))
+
+        def z_at(x, y):
+            g = surf.z(x, y)
+            e = math.hypot(x - pcx, y - pcy)
+            uphill = (x - pcx) * dx + (y - pcy) * dy < 0.0
+            lip = 0.3 if uphill else 0.0
+            if e < 2.5:
+                z = z_w - POOL_DEPTH
+            elif e < 5.0:
+                z = lerp(z_w - POOL_DEPTH, z_w - 1.6, (e - 2.5) / 2.5)
+            elif e < 6.4:
+                z = lerp(z_w - 1.6, z_w - 0.5, (e - 5.0) / 1.4)
+            elif e < 7.6:
+                z = lerp(z_w - 0.5, max(g, z_w + 1.0) + lip, (e - 6.4) / 1.2)
+            else:
+                z = max(g, z_w + 1.0 if e < 9.0 else g) + lip * (1.0 - ramp(e, 7.6, 11.5))
+            c, s_ = path_frame(path, x, y)
+            if e >= 6.4 and s_ >= 6.0:                             # the notch through the rim and the channel beyond
+                floor = min(g - CHANNEL[0], z_w - 0.3)
+                k = (1.0 - ramp(c, CHANNEL[1], CHANNEL[2])) * (1.0 - ramp(s_, CHANNEL[3], CHANNEL[4]))
+                z = lerp(z, min(z, floor), k)
+            return z
+        P = [(m.verts[v][0], m.verts[v][1]) for v in bverts] + pts
+        ids = list(bverts)
+        for x, y in pts:
+            z = z_at(x, y)
+            p = (x, y, z)
+            e = math.hypot(x - pcx, y - pcy)
+            col = land_col(p)
+            if e < 7.6:
+                v = 0.86 + 0.28 * h2(int(x * 0.7), int(y * 0.7), SEED + 91)
+                cr = PAL_CRAG[1] if e > 5.0 else PAL_CRAG[0]
+                col = (cr[0] * v, cr[1] * v, cr[2] * v, 1.0)
+            vi = self.v(p, col, "island")
+            if e < 7.6:
+                ROCK_VERTS.add(vi)
+            ids.append(vi)
+
+        def in_hole(x, y):
+            inside_ = False
+            for a, b in bedges:
+                x0, y0 = m.verts[a][0], m.verts[a][1]
+                x1, y1 = m.verts[b][0], m.verts[b][1]
+                if (y0 > y) != (y1 > y) and x0 + (y - y0) * (x1 - x0) / (y1 - y0) > x:
+                    inside_ = not inside_
+            return inside_
+        keep = [k for k in range(len(m.faces)) if k not in rm]
+        m.faces = [m.faces[k] for k in keep]
+        m.zones = [m.zones[k] for k in keep]
+        m.chunks = [m.chunks[k] for k in keep]
+        added = 0
+        for a, b, c in delaunay(P):
+            cx = (P[a][0] + P[b][0] + P[c][0]) / 3.0
+            cy = (P[a][1] + P[b][1] + P[c][1]) / 3.0
+            if in_hole(cx, cy):
+                m.tri(ids[a], ids[b], ids[c], FACE, self._zone, "island")
+                added += 1
+        INFO["pool_patch"] = (len(rm), added)
 
     def _hidden(self, ids):
         """Far out at sea (r > 100) the sea is opaque; the bay and its mouth keep their whole bed."""
@@ -1735,7 +1863,85 @@ def resort_pads():
     """Two benches the hill is cut to: the hotel's (near level) and the village's (a gentle bench on the spur)."""
     hx, hy = plan.HOTEL["x"], plan.HOTEL["y"]
     vx, vy = plan.VILLAGE["x"], plan.VILLAGE["y"]
-    return [_bench(hx + 16.0, hy, 56.0, 130.0, 0.04), _bench(vx, vy, 78.0, 150.0, 0.16)]
+    lx, ly, _lh = LIGHTHOUSE
+    pcx, pcy, dx, dy = pool_centre()
+    return [_bench(hx + 16.0, hy, 56.0, 130.0, 0.04), _bench(vx, vy, 78.0, 150.0, 0.16), _bench(lx, ly, 7.0, 16.0, 0.0),
+            _bench(pcx + dx * 4.0, pcy + dy * 4.0, 11.0, 24.0, 0.0)]
+
+
+def pool_centre():
+    """The plunge pool's centre, 6 m past the gully's foot, and the gully's direction (unit, Blender xy)."""
+    ang, _d0, d1, _w = WATERFALL
+    dx, dy = math.cos(math.radians(ang)), math.sin(math.radians(ang))
+    return plan.PEAK[0] + dx * (d1 + 6.0), plan.PEAK[1] + dy * (d1 + 6.0), dx, dy
+
+
+POOL_R = 7.0                 # the plunge pool's water radius
+POOL_DEPTH = 2.4             # its floor under the water
+CHANNEL = (0.7, 0.8, 3.0, 30.0, 42.0)   # the stream's channel: depth, flat half width, bank reach, fade from, to
+
+
+def stream_path():
+    """The stream's line: 6.5 m out of the pool along the gully's line, then steepest descent in 2.5 m steps
+    (the gully's line where the pad is flat); (x, y, s), s the distance from the pool's centre."""
+    pcx, pcy, dx, dy = pool_centre()
+    path = [(pcx + dx * 6.5, pcy + dy * 6.5, 6.5)]
+    for _i in range(16):
+        x0, y0, s0 = path[-1]
+        gx = (plan.land_h(x0 + 2.0, y0) - plan.land_h(x0 - 2.0, y0)) / 4.0
+        gy = (plan.land_h(x0, y0 + 2.0) - plan.land_h(x0, y0 - 2.0)) / 4.0
+        g = math.hypot(gx, gy)
+        ux, uy = (-gx / g, -gy / g) if g > 0.04 else (dx, dy)
+        path.append((x0 + ux * 2.5, y0 + uy * 2.5, s0 + 2.5))
+    return path
+
+
+def path_frame(path, x, y):
+    """(distance across, s along) of (x, y) against the stream's polyline."""
+    best = (1e9, 0.0)
+    for (x0, y0, s0), (x1, y1, s1) in zip(path, path[1:]):
+        ex, ey = x1 - x0, y1 - y0
+        t = clamp(((x - x0) * ex + (y - y0) * ey) / (ex * ex + ey * ey))
+        d = math.hypot(x - x0 - ex * t, y - y0 - ey * t)
+        if d < best[0]:
+            best = (d, s0 + (s1 - s0) * t)
+    return best
+
+
+def delaunay(P):
+    """Bowyer-Watson over 2-D points: (i, j, k) triangles."""
+    xs, ys = [q[0] for q in P], [q[1] for q in P]
+    cx, cy = (min(xs) + max(xs)) / 2.0, (min(ys) + max(ys)) / 2.0
+    R = 10.0 * max(max(xs) - min(xs), max(ys) - min(ys)) + 10.0
+    n = len(P)
+    pts = list(P) + [(cx - R, cy - R), (cx + R, cy - R), (cx, cy + R)]
+
+    def circum(t):
+        (ax, ay), (bx, by), (qx, qy) = pts[t[0]], pts[t[1]], pts[t[2]]
+        d = 2.0 * (ax * (by - qy) + bx * (qy - ay) + qx * (ay - by))
+        if abs(d) < 1e-12:
+            return (0.0, 0.0, -1.0)
+        a2, b2, q2 = ax * ax + ay * ay, bx * bx + by * by, qx * qx + qy * qy
+        ux = (a2 * (by - qy) + b2 * (qy - ay) + q2 * (ay - by)) / d
+        uy = (a2 * (qx - bx) + b2 * (ax - qx) + q2 * (bx - ax)) / d
+        return (ux, uy, (ax - ux) ** 2 + (ay - uy) ** 2)
+    tris = {(n, n + 1, n + 2): circum((n, n + 1, n + 2))}
+    for i in range(n):
+        px, py = pts[i]
+        bad = [t for t, (ux, uy, r2) in tris.items() if (px - ux) ** 2 + (py - uy) ** 2 < r2]
+        edges = {}
+        for t in bad:
+            for e in ((t[0], t[1]), (t[1], t[2]), (t[2], t[0])):
+                k = (min(e), max(e))
+                edges[k] = edges.get(k, 0) + 1
+            del tris[t]
+        for (a, b), c in edges.items():
+            if c == 1:
+                tris[(a, b, i)] = circum((a, b, i))
+    return [t for t in tris if max(t) < n]
+
+
+ROCK_VERTS = set()           # island vertices baked as bare rock whatever the plan's slope says (the pool's basin)
 
 
 _ROAD_PTS = []
@@ -1915,29 +2121,43 @@ def _frame_xy(yaw):
     return (math.cos(a), math.sin(a), 0.0), (-math.sin(a), math.cos(a), 0.0)
 
 
+ROAD_LIFT = 0.2        # over the highest terrain sample across the road's width: depth precision at the lane's 250-320 m is ~0.1 m
+
+
 def _road(m, surf):
-    """A cut shelf: the road flat across its width on a smoothed centre-line height, the ground met again 3 m out on
-    either side, so the uphill side shows a bank and the downhill side a fill."""
+    """The road as a built bed: flat across, its top ROAD_LIFT over the highest of the final terrain's samples under
+    its width at each station (never below the ground, never dipping), an ashlar riser down into the ground on each
+    side (a retaining wall downhill, a kerb uphill); nothing lies on the terrain's plane."""
     pts = road_line()
-    zc = [surf.z(x, y) for x, y in pts]
-    zs = [sum(zc[max(0, k - 4):k + 5]) / len(zc[max(0, k - 4):k + 5]) for k in range(len(zc))]
-    rows = []
+    nrm, raw = [], []
     for k, p in enumerate(pts):
         q0, q1 = pts[max(0, k - 1)], pts[min(len(pts) - 1, k + 1)]
         dx, dy = q1[0] - q0[0], q1[1] - q0[1]
         ln = math.hypot(dx, dy) or 1.0
         nx, ny = -dy / ln, dx / ln
-        row = []
-        for f, kind in ((plan.ROAD_W + 3.0, "ground"), (plan.ROAD_W, "road"), (-plan.ROAD_W, "road"), (-plan.ROAD_W - 3.0, "ground")):
+        nrm.append((nx, ny))
+        raw.append(max(surf.z(p[0] + nx * f, p[1] + ny * f) for f in (-plan.ROAD_W, -plan.ROAD_W / 2.0, 0.0, plan.ROAD_W / 2.0, plan.ROAD_W)))
+    zr = [max(raw[max(0, k - 1):k + 2]) + ROAD_LIFT for k in range(len(raw))]
+    top, foot = [], []
+    for k, p in enumerate(pts):
+        nx, ny = nrm[k]
+        row, fr_ = [], []
+        for f in (plan.ROAD_W, -plan.ROAD_W):
             x, y = p[0] + nx * f, p[1] + ny * f
-            if kind == "road":
-                row.append(m.v((x, y, zs[k] + 0.25), PAVING))
-            else:
-                row.append(m.v((x, y, surf.z(x, y) + 0.12), PAL_LAWN[1] + (1.0,)))
-        rows.append(row)
-    for k in range(len(rows) - 1):
-        for c in range(3):
-            m.quad(rows[k][c], rows[k][c + 1], rows[k + 1][c + 1], rows[k + 1][c], UP, "sand" if c == 1 else "grass", "resort")
+            row.append(m.v((x, y, zr[k]), PAVING))
+            fr_.append(m.v((x, y, min(surf.z(x, y), zr[k]) - 0.6), (0.9, 0.86, 0.78, 1.0)))
+        top.append(row)
+        foot.append(fr_)
+    for k in range(len(pts) - 1):
+        m.quad(top[k][0], top[k][1], top[k + 1][1], top[k + 1][0], UP, "sand", "resort")
+        for c, sg in ((0, 1.0), (1, -1.0)):
+            out = (nrm[k][0] * sg, nrm[k][1] * sg, 0.0)
+            m.quad(top[k][c], top[k + 1][c], foot[k + 1][c], foot[k][c], out, "ashlar", "resort")
+    for k, sg in ((0, -1.0), (-1, 1.0)):                                  # the ends closed
+        q0, q1 = pts[max(0, k - 1) if k == 0 else -2], pts[1 if k == 0 else -1]
+        dx, dy = q1[0] - q0[0], q1[1] - q0[1]
+        ln = math.hypot(dx, dy) or 1.0
+        m.quad(top[k][0], top[k][1], foot[k][1], foot[k][0], (dx / ln * sg, dy / ln * sg, 0.0), "ashlar", "resort")
 
 
 def _horizon(m, uv):
@@ -2084,6 +2304,10 @@ LIGHTHOUSE = (-10.0, 104.0, 25.0)     # on the north headland's knoll: x, y, hei
 WATERFALL = (-15.0, 122.0, 160.0, 6.0)   # down the crag's bay face: angle from the peak (deg, Blender), from d, to d, width
 
 
+def b_of(x, y):
+    return bearing_of((x, y, 0.0))
+
+
 def strip_spots():
     """(x, y, yaw toward the bay, kind) of every piece of the shore strip."""
     out = []
@@ -2106,12 +2330,16 @@ def on_strip(x, y):
 def _strip(m, uv, surf):
     """The shore strip (beach_shore.py) on the sculpt's own ground, and the boardwalk along it."""
     tris = 0
+    spreads = []
     for k, (x, y, yaw, kind) in enumerate(strip_spots()):
-        z0 = surf.z(x, y)
+        rad = STRIP_R[kind]
+        zs = [surf.z(x + math.cos(a) * rad, y + math.sin(a) * rad) for a in [j * TWO_PI / 8 for j in range(8)]] + [surf.z(x, y)]
+        z0, spread = min(zs), max(zs) - min(zs)              # the base under the lowest corner: nothing floats
+        spreads.append((round(spread, 2), kind, round(b_of(x, y))))
         if kind == "torch":
             tris += sh.torch(m, uv, x, y, z0)
         elif kind == "hut":
-            tris += sh.tiki_hut(m, uv, x, y, yaw, z0, SEED + 2100 + k)
+            tris += sh.tiki_hut(m, uv, x, y, yaw, z0, SEED + 2100 + k, floor=spread + 0.05)
         elif kind == "bar":
             tris += sh.beach_bar(m, uv, x, y, yaw, z0)
         elif kind == "cabana":
@@ -2125,59 +2353,126 @@ def _strip(m, uv, surf):
         pts.append(pol(b, r, 0.0)[:2])
         b += 3.0 / (math.radians(1.0) * r)
     tris += sh.boardwalk(m, uv, pts, surf.z, WALK[3])
+    INFO["strip_spread"] = sorted(spreads)[-3:]
     x, y, h = LIGHTHOUSE
-    tris += sh.lighthouse(m, uv, x, y, surf.z(x, y) - 0.5, h)
+    corners = [surf.z(x + math.cos(a) * r, y + math.sin(a) * r) for r in (3.6, 4.6) for a in [math.radians(15.0 + 30.0 * j) for j in range(12)]]
+    lo, hi = min(corners), max(corners)
+    base = min(lo - 0.5, hi - 1.5)                           # the foundation 0.5 m under the lowest corner, 1.5 m under the highest
+    INFO["lighthouse_base"] = (round(lo, 2), round(hi, 2), round(base, 2))
+    tris += sh.lighthouse(m, uv, x, y, base, h, plinth=hi + 0.6 - base, step=min(1.0, hi + 0.6 - base))
     return tris
 
 
-def _waterfall(m, surf):
-    """A white ribbon down the crag's bay face in its deepest gully, a plunge pool where it meets the grass."""
+def _fall_uv(m, uv, f0, along, width):
+    """Custom UVs for the fall faces added since f0: u across 0..0.75 (the texture's streak band), v = metres along
+    the flow / 12.8; the vertex's along/across come from `along`: vertex -> (metres along, 0..1 across)."""
+    for fi in range(f0, len(m.faces)):
+        for vi in m.faces[fi]:
+            a, t = along[vi]
+            uv[(fi, vi)] = (0.75 * t, a / 12.8)
+
+
+def _waterfall(m, uv, surf):
+    """Water that reads as water: a 3.5 m ribbon in the fall zone (beach_fall.gdshader scrolls white streaks down
+    it) that leaves the cliff over a lip, follows the gully 0.6 m off the rock, and lands ON a round pool cut into
+    the slope as a rock basin (a flat blue surface, a soft foam ring, a splash and mist at the foot), a stream
+    leaving the pool down the slope. Depth precision at the lane's 500-570 m is ~0.3 m, so nothing lies closer
+    than 0.4 m to the terrain's plane."""
     ang, d0, d1, width = WATERFALL
     px, py = plan.PEAK[0], plan.PEAK[1]
     dx, dy = math.cos(math.radians(ang)), math.sin(math.radians(ang))
-    nx, ny = -dy * width / 2.0, dx * width / 2.0
-    rows = []
-    n = 12
-    for k in range(n + 1):
-        d = lerp(d0, d1, k / float(n))
+    nx, ny = -dy, dx
+    hw = width / 2.0
+    # the pool: the sculpt's own basin (Sculpt._pool_patch); its water 1 m under the lowest rim
+    pcx, pcy, _dx, _dy = pool_centre()
+    pr = POOL_R
+    angles = [j * TWO_PI / 12 for j in range(12)]
+    rim = [(pcx + math.cos(a) * pr, pcy + math.sin(a) * pr) for a in angles]
+    z_pool = INFO["pool_z"]
+    f0 = len(m.faces)
+    along = {}
+    # the ribbon: a flat run on the ground above the cliff, the lip, down the gully to the basin's rim, then its last
+    # row ON the water 3 m inside the rim; nothing below the surface
+    d_rim = d1 + 6.0 - 8.5
+    stations = [(d0 - 6.0, 0.6), (d0 - 2.0, 0.6), (d0, 0.5)] + [(lerp(d0, d_rim, k / 13.0), 0.6) for k in range(1, 14)]
+    rows, dist = [], 0.0
+    prev = None
+    for d, lift in stations:
         x, y = px + dx * d, py + dy * d
-        z = surf.z(x, y) + 0.6
-        w = 0.6 + 0.4 * (k / float(n))                             # widening as it falls
-        c = (0.9, 0.96, 1.0, 1.0) if k % 2 else (0.75, 0.88, 0.98, 1.0)
-        rows.append([m.v((x - nx * w, y - ny * w, z), c), m.v((x + nx * w, y + ny * w, z), c)])
-    for a, b in zip(rows, rows[1:]):
-        m.quad(a[0], a[1], b[1], b[0], (dx, dy, 0.6), "plastic", "resort")
-    cx, cy = px + dx * (d1 + 4.0), py + dy * (d1 + 4.0)
-    cz = surf.z(cx, cy) + 0.3
-    ring = [m.v((cx + math.cos(a) * 9.0 * (1.0 + 0.15 * math.sin(3 * a)), cy + math.sin(a) * 6.0, cz), (0.5, 0.82, 0.95, 1.0))
-            for a in [j * TWO_PI / 10 for j in range(10)]]
-    mid = m.v((cx, cy, cz), (0.85, 0.95, 1.0, 1.0))
-    for j in range(10):
-        m.tri(ring[j], ring[(j + 1) % 10], mid, UP, "plastic", "resort")
-    # the base: a foam fan where the ribbon lands, jagged splash round it, two crossed mist cards
-    fx, fy = px + dx * d1, py + dy * d1
-    fz = surf.z(fx, fy) + 0.5
-    foam = (0.96, 0.99, 1.0, 1.0)
-    fan = [m.v((fx + dx * 4.0 * math.cos(t) * 1.2 - nx * 2.2 * math.sin(t), fy + dy * 4.0 * math.cos(t) * 1.2 - ny * 2.2 * math.sin(t), fz + 0.1), foam)
-           for t in (-1.2, -0.6, 0.0, 0.6, 1.2)]
-    foot = m.v((fx, fy, fz + 0.6), foam)
-    for a, b in zip(fan, fan[1:]):
-        m.tri(foot, a, b, UP, "plastic", "resort")
-    for j in range(8):
-        a = j * TWO_PI / 8.0 + 0.3
-        rr_ = 3.0 + 1.5 * (j % 2)
-        pa = m.v((fx + math.cos(a) * rr_, fy + math.sin(a) * rr_, fz + 0.2), foam)
-        pb = m.v((fx + math.cos(a + 0.5) * rr_ * 0.6, fy + math.sin(a + 0.5) * rr_ * 0.6, fz + 1.4 + 0.8 * (j % 2)), foam)
-        pc = m.v((fx + math.cos(a + 0.9) * rr_, fy + math.sin(a + 0.9) * rr_, fz + 0.2), foam)
-        m.tri(pa, pb, pc, (math.cos(a + 0.45), math.sin(a + 0.45), 0.3), "plastic", "resort")
-    mist = (0.9, 0.95, 1.0, 1.0)
-    for a in (0.3, 1.87):
-        ax, ay = math.cos(a) * 3.5, math.sin(a) * 3.5
-        q = [m.v((fx - ax, fy - ay, fz + 0.5), mist), m.v((fx + ax, fy + ay, fz + 0.5), mist),
-             m.v((fx + ax * 0.6, fy + ay * 0.6, fz + 6.5), mist), m.v((fx - ax * 0.6, fy - ay * 0.6, fz + 6.5), mist)]
-        m.quad(q[0], q[1], q[2], q[3], (-ay, ax, 0.0), "plastic", "resort")
-        m.quad(q[1], q[0], q[3], q[2], (ay, -ax, 0.0), "plastic", "resort")
-    return 2 * n + 10 + 4 + 8 + 8
+        z = surf.z(x, y) + lift
+        if prev is not None:
+            dist += math.dist(prev, (x, y, z))
+        prev = (x, y, z)
+        rows.append((dist, [m.v((x - nx * hw, y - ny * hw, z), (1.0, 1.0, 1.0, 1.0)), m.v((x + nx * hw, y + ny * hw, z), (1.0, 1.0, 1.0, 1.0))]))
+    ex, ey = pcx - dx * (pr - 3.0), pcy - dy * (pr - 3.0)
+    dist += math.dist(prev, (ex, ey, z_pool + 0.03))
+    rows.append((dist, [m.v((ex - nx * hw, ey - ny * hw, z_pool + 0.03), (1.0, 1.0, 1.0, 1.0)), m.v((ex + nx * hw, ey + ny * hw, z_pool + 0.03), (1.0, 1.0, 1.0, 1.0))]))
+    for a, r in rows:
+        along[r[0]], along[r[1]] = (a, 0.0), (a, 1.0)
+    for (a0, r0), (a1, r1) in zip(rows, rows[1:]):
+        m.quad(r0[0], r0[1], r1[1], r1[0], (dx, dy, 0.6), "fall", "resort")
+    _fall_uv(m, uv, f0, along, width)
+    # the water: a flat blue disc to the basin's wall
+    blue = (0.3, 0.68, 0.9, 1.0)
+    ring = [m.v((x, y, z_pool), blue) for x, y in rim]
+    mid = m.v((pcx, pcy, z_pool), (0.45, 0.78, 0.95, 1.0))
+    for j in range(12):
+        m.tri(ring[j], ring[(j + 1) % 12], mid, UP, "plastic", "resort")
+    # a soft foam ring inside the wall and a foam fan where the ribbon lands, both on the water
+    f1 = len(m.faces)
+    along = {}
+    inner = [m.v((pcx + (x - pcx) * 0.72, pcy + (y - pcy) * 0.72, z_pool + 0.06), (1.0, 1.0, 1.0, 1.0)) for x, y in rim]
+    outer = [m.v((x, y, z_pool + 0.06), (1.0, 1.0, 1.0, 0.0)) for x, y in rim]
+    for j in range(12):
+        along[inner[j]], along[outer[j]] = (j * 1.5, 0.3), (j * 1.5, 0.9)
+        k = (j + 1) % 12
+        m.quad(inner[j], inner[k], outer[k], outer[j], UP, "fall", "resort")
+    fan_c = m.v((ex, ey, z_pool + 0.08), (1.0, 1.0, 1.0, 1.0))
+    fan = [m.v((ex + math.cos(a) * 3.2, ey + math.sin(a) * 3.2, z_pool + 0.08), (1.0, 1.0, 1.0, 0.0)) for a in angles]
+    for j in range(12):
+        along[fan[j]] = (j * 1.5, 0.95)
+        m.tri(fan[j], fan[(j + 1) % 12], fan_c, UP, "fall", "resort")
+    along[fan_c] = (0.0, 0.1)
+    for fi in range(f1, len(m.faces)):
+        for vi in m.faces[fi]:
+            a, t = along[vi]
+            uv[(fi, vi)] = (0.75 + 0.25 * t, a / 12.8)
+    # the splash and mist at the foot: four crossed cards in the texture's mist band, fading up
+    f2 = len(m.faces)
+    along = {}
+    fx, fy = ex, ey
+    for a in (0.0, 0.785, 1.571, 2.356):
+        ax, ay = math.cos(a) * 3.0, math.sin(a) * 3.0
+        q = [m.v((fx - ax, fy - ay, z_pool + 0.1), (1.0, 1.0, 1.0, 1.0)), m.v((fx + ax, fy + ay, z_pool + 0.1), (1.0, 1.0, 1.0, 1.0)),
+             m.v((fx + ax * 0.7, fy + ay * 0.7, z_pool + 7.0), (1.0, 1.0, 1.0, 0.0)), m.v((fx - ax * 0.7, fy - ay * 0.7, z_pool + 7.0), (1.0, 1.0, 1.0, 0.0))]
+        along[q[0]], along[q[1]], along[q[2]], along[q[3]] = (0.0, 0.0), (0.0, 1.0), (7.0, 1.0), (7.0, 0.0)
+        m.quad(q[0], q[1], q[2], q[3], (-ay, ax, 0.0), "fall", "resort")
+    for fi in range(f2, len(m.faces)):
+        for vi in m.faces[fi]:
+            a, t = along[vi]
+            uv[(fi, vi)] = (0.75 + 0.25 * t, a / 12.8)
+    # the stream: out through the notch and down the channel the sculpt dips to, 1.2 m wide, every vertex 0.3 m
+    # over the channel's floor (under the banks), fading where the channel fades
+    f3 = len(m.faces)
+    along = {}
+    path = stream_path()
+    srows, dist = [], 0.0
+    for i, (x, y, s_) in enumerate(path):
+        q0, q1 = path[max(0, i - 1)], path[min(len(path) - 1, i + 1)]
+        tx_, ty_ = q1[0] - q0[0], q1[1] - q0[1]
+        ln = math.hypot(tx_, ty_) or 1.0
+        sx, sy = -ty_ / ln * 0.6, tx_ / ln * 0.6
+        if i:
+            dist += math.dist(path[i - 1][:2], (x, y))
+        fade = 1.0 - ramp(s_, CHANNEL[3] - 4.0, CHANNEL[4] - 4.0)
+        zl, zr_ = (z_pool - 0.02, z_pool - 0.02) if i == 0 else (surf.z(x - sx, y - sy) + 0.3, surf.z(x + sx, y + sy) + 0.3)
+        srows.append((dist, [m.v((x - sx, y - sy, zl), (1.0, 1.0, 1.0, fade)), m.v((x + sx, y + sy, zr_), (1.0, 1.0, 1.0, fade))]))
+    for a, r in srows:
+        along[r[0]], along[r[1]] = (a, 0.0), (a, 1.0)
+    for (a0, r0), (a1, r1) in zip(srows, srows[1:]):
+        m.quad(r0[0], r0[1], r1[1], r1[0], UP, "fall", "resort")
+    _fall_uv(m, uv, f3, along, 1.2)
+    return len(m.faces) - f0
 
 
 def build_resort(m):
@@ -2189,7 +2484,7 @@ def build_resort(m):
     _walls(r, surf)
     _road(r, surf)
     INFO["strip_tris"] = _strip(r, ruv, surf)
-    INFO["waterfall_tris"] = _waterfall(r, surf)
+    INFO["waterfall_tris"] = _waterfall(r, ruv, surf)
     _horizon(r, ruv)
     INFO["resort"] = len(r.faces)
     return r, ruv, surf
@@ -2209,7 +2504,7 @@ def bake_rock_weight(m):
             b, r = bearing_of(p), rad_of(p)
             steep, _a = slope_of(p[0], p[1])
             dc = plan.coast_fields(p[0], p[1])[3]
-            w = rock_w(p[0], p[1], p[2] - WATER_Z, steep, dc, r - top_r(b))
+            w = 1.0 if vi in ROCK_VERTS else rock_w(p[0], p[1], p[2] - WATER_Z, steep, dc, r - top_r(b))
             m.uv2[vi] = (m.uv2.get(vi, (0.0, 0.0))[0], 1.0 - w)         # glTF flips v: Godot reads 1 - y
             sw = sand_w(p[0], p[1], p[2] - WATER_Z, steep, plan.coast_fields(p[0], p[1])[0], r - top_r(b))
             c = m.cols[vi]
@@ -2256,6 +2551,7 @@ def build_geometry():
     resort, ruv, surf = build_resort(m)
     iuv = {}
     grass_uvs(resort, ruv)
+    crag_uvs(resort, ruv)
     rocks, placed = build_rocks(surf)
     rockuv = {}
     crag_uvs(rocks, rockuv)
@@ -2284,6 +2580,7 @@ SHEETS = {
     "grass": tx.Sheet("grass", mode="custom", roughness=0.95),                    # world-XY, turned per 25.6 m cell (grass_uvs)
     "terrain": tx.Sheet("terrain", stem="beach_grass", mode="box", roughness=0.95),   # the island: beach_terrain.gdshader in Godot
     "ashlar": tx.Sheet("ashlar", mode="box", roughness=0.9),                      # terrace skirts, garden walls
+    "fall": tx.Sheet("fall", mode="custom", roughness=0.3, cull=False),                # the waterfall: beach_fall.gdshader scrolls it
     "thatch2": tx.Sheet("thatch2", stem="beach_thatch", mode="box", roughness=0.95, cull=False),   # the shore strip
     "timber": tx.Sheet("timber", stem="beach_drift", mode="box", roughness=0.95),             # (beach_shore.py)
     "deck": tx.Sheet("deck", stem="beach_teak", mode="box", roughness=0.8),
@@ -2421,7 +2718,7 @@ def build():
             line += " collision_tris=%d" % len(cf)
         print(line)
     tx.report(SHEETS)
-    print("MDL STATS palms=%d trees=%d tree_tris=%d building_tris=%d strip_tris=%d waterfall_tris=%d" % (INFO.get("palms", 0), INFO.get("trees", 0), INFO.get("tree_tris", 0), INFO.get("building_tris", 0), INFO.get("strip_tris", 0), INFO.get("waterfall_tris", 0)))
+    print("MDL STATS palms=%d trees=%d tree_tris=%d building_tris=%d strip_tris=%d waterfall_tris=%d strip_spread=%s lighthouse_base=%s" % (INFO.get("palms", 0), INFO.get("trees", 0), INFO.get("tree_tris", 0), INFO.get("building_tris", 0), INFO.get("strip_tris", 0), INFO.get("waterfall_tris", 0), INFO.get("strip_spread"), INFO.get("lighthouse_base")))
     return out
 
 
@@ -2467,6 +2764,8 @@ def _check():
     il.report(waves, "waves")
     il.report(sea, "water")
     il.report(resort, "resort")
+    print("resort surfaces in order:", sorted(set(resort.zones)))
+    print("strip_spread=%s lighthouse_base=%s" % (INFO.get("strip_spread"), INFO.get("lighthouse_base")))
     for k, c in cols.items():
         il.report(c, k + "_collider")
     print("palms=%d trees=%d tree_tris=%d building_tris=%d strip_tris=%d waterfall_tris=%d lane r=%.1f lap=%.0f m" % (INFO["palms"], INFO.get("trees", 0), INFO.get("tree_tris", 0), INFO.get("building_tris", 0), INFO.get("strip_tris", 0), INFO.get("waterfall_tris", 0), LANE_R, math.radians(EXIT_B - ENTRY_B) * LANE_R))

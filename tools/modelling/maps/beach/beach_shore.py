@@ -38,10 +38,14 @@ def _shade(col, k):
     return (col[0] * k, col[1] * k, col[2] * k, 1.0)
 
 
+TWO_SIDED = ("thatch2", "canvas2")        # the pipeline draws these zones from both sides (cull=False)
+
+
 def _two(fr, pts, out, zone, col, back=None):
-    """A poly drawn from both sides (the back optionally shaded)."""
+    """A poly seen from both sides: one face for a two-sided zone (a second would z-fight), else a back face too."""
     fr.poly(pts, out, zone, col)
-    fr.poly(list(reversed(pts)), _neg(out), zone, back or col)
+    if zone not in TWO_SIDED:
+        fr.poly(list(reversed(pts)), _neg(out), zone, back or col)
 
 
 def _prism(fr, cf, cs, r0, r1, n, z0, z1, zone, col, rot=0.0, top=False, bottom=False, inward=False):
@@ -121,6 +125,7 @@ def _thatch(fr, ef, es, ze, rise, rng, fringe=0.6):
             else:
                 fr.poly([lo[0], lo[1], hi[1], hi[0]], out, "thatch2", THATCH)
         under = [e0, e1, r1] if r0 == r1 else [e0, e1, r1, r0]
+        under = [tuple(c - nrm[q] * 0.1 for q, c in enumerate(pt)) for pt in under]     # 0.1 m under the course
         fr.poly(under, (-h[0], -h[1], -1.0), "thatch2", THATCH_UNDER)
         el = math.dist(e0, e1)
         steps = max(1, int(round(el / fringe)))
@@ -151,8 +156,9 @@ def _strips(fr, p0, p1, out, zhi, gaps=()):
 # PIECES
 # =============================================================================
 
-def tiki_hut(m, uv, x, y, yaw, z0, seed):
-    """A bamboo hut 5-7 m square, open doorway on +f into a dark vestibule, thatched hip or pyramid roof."""
+def tiki_hut(m, uv, x, y, yaw, z0, seed, floor=0.05):
+    """A bamboo hut 5-7 m square, open doorway on +f into a dark vestibule, thatched hip or pyramid roof, a plank
+    floor whose top is `floor` over the base (the caller passes the terrain's spread + 0.05)."""
     fr, r, n0 = Frame(m, uv, x, y, yaw, z0), Rng(seed * 7919 + 11), len(m.faces)
     if r.f() < 0.5:
         hf = r.u(2.5, 3.0)
@@ -170,12 +176,15 @@ def tiki_hut(m, uv, x, y, yaw, z0, seed):
     d0, d1 = ds - 0.6, ds + 0.6
     P([(hf, -hs, -0.5), (hf, d0, -0.5), (hf, d0, zw), (hf, -hs, zw)], (1, 0, 0), "timber", BAMBOO)
     P([(hf, d1, -0.5), (hf, hs, -0.5), (hf, hs, zw), (hf, d1, zw)], (1, 0, 0), "timber", BAMBOO)
-    P([(hf, d0, 2.1), (hf, d1, 2.1), (hf, d1, zw), (hf, d0, zw)], (1, 0, 0), "timber", BAMBOO)
-    fi = hf - 1.0                                   # the dark vestibule a metre inside
-    P([(fi, d0, -0.5), (fi, d1, -0.5), (fi, d1, 2.1), (fi, d0, 2.1)], (1, 0, 0), "timber", DARK)
-    P([(fi, d0, -0.5), (hf, d0, -0.5), (hf, d0, 2.1), (fi, d0, 2.1)], (0, 1, 0), "timber", DARK)
-    P([(fi, d1, -0.5), (hf, d1, -0.5), (hf, d1, 2.1), (fi, d1, 2.1)], (0, -1, 0), "timber", DARK)
-    P([(fi, d0, 2.1), (hf, d0, 2.1), (hf, d1, 2.1), (fi, d1, 2.1)], (0, 0, -1), "timber", DARK)
+    P([(hf, d0, 2.1 + floor + 0.15), (hf, d1, 2.1 + floor + 0.15), (hf, d1, zw), (hf, d0, zw)], (1, 0, 0), "timber", BAMBOO)
+    fi = hf - 1.0                                   # the dark vestibule a metre inside, over the floor
+    zf = floor + 0.15
+    P([(fi, d0, zf), (fi, d1, zf), (fi, d1, 2.1 + zf), (fi, d0, 2.1 + zf)], (1, 0, 0), "timber", DARK)
+    P([(fi, d0, zf), (hf, d0, zf), (hf, d0, 2.1 + zf), (fi, d0, 2.1 + zf)], (0, 1, 0), "timber", DARK)
+    P([(fi, d1, zf), (hf, d1, zf), (hf, d1, 2.1 + zf), (fi, d1, 2.1 + zf)], (0, -1, 0), "timber", DARK)
+    P([(fi, d0, 2.1 + zf), (hf, d0, 2.1 + zf), (hf, d1, 2.1 + zf), (fi, d1, 2.1 + zf)], (0, 0, -1), "timber", DARK)
+    P([(fi, d0, zf), (hf + 0.05, d0, zf), (hf + 0.05, d1, zf), (fi, d1, zf)], (0, 0, 1), "deck", DECK)   # the floor in the door
+    P([(hf + 0.05, d0, floor - 0.15), (hf + 0.05, d1, floor - 0.15), (hf + 0.05, d1, zf), (hf + 0.05, d0, zf)], (1, 0, 0), "deck", DECK)   # its front edge
     for a in (-hf, hf):
         for b in (-hs, hs):
             fr.box(a - 0.125, a + 0.125, b - 0.125, b + 0.125, -0.5, zw, "timber", POST, "fblt")
@@ -229,8 +238,13 @@ def cabana(m, uv, x, y, yaw, z0, seed):
     for a in (-pl, pl):
         for b in (-pl, pl):
             fr.box(a - 0.1, a + 0.1, b - 0.1, b + 0.1, -0.5, zp, "timber", POST, "fblt")
-    for a, b, c, d in ((-pl, -pl, pl, -pl), (pl, -pl, pl, pl), (pl, pl, -pl, pl), (-pl, pl, -pl, -pl)):    # head beams
-        fr.box(min(a, c) - 0.08, max(a, c) + 0.08, min(b, d) - 0.08, max(b, d) + 0.08, zp - 0.2, zp, "timber", POST, "fbltud")
+    for a in (-pl, pl):                                                                    # corner blocks on the posts
+        for b in (-pl, pl):
+            fr.box(a - 0.16, a + 0.16, b - 0.16, b + 0.16, zp - 0.2, zp, "timber", POST, "fbltud")
+    fr.box(pl - 0.16, pl + 0.16, -pl + 0.16, pl - 0.16, zp - 0.2, zp, "timber", POST, "fbud")      # head beams between them
+    fr.box(-pl - 0.16, -pl + 0.16, -pl + 0.16, pl - 0.16, zp - 0.2, zp, "timber", POST, "fbud")
+    fr.box(-pl + 0.16, pl - 0.16, pl - 0.16, pl + 0.16, zp - 0.2, zp, "timber", POST, "ltud")
+    fr.box(-pl + 0.16, pl - 0.16, -pl - 0.16, -pl + 0.16, zp - 0.2, zp, "timber", POST, "ltud")
     ee, ze, apex = pl + 0.55, zp - 0.12, (0.0, 0.0, zp + 1.25)
     E = [(ee, -ee, ze), (ee, ee, ze), (-ee, ee, ze), (-ee, -ee, ze)]
     for k, h in enumerate(((1, 0), (0, 1), (-1, 0), (0, -1))):
@@ -274,7 +288,7 @@ def boardwalk(m, uv, pts, z_of, width=2.4):
         ml = math.hypot(*mv) or 1.0
         mv = (mv[0] / ml, mv[1] / ml)
         sc = 1.0 / max(0.5, mv[0] * na[0] + mv[1] * na[1])
-        top = z_of(p[0], p[1]) + 0.2
+        top = max(z_of(p[0], p[1]), z_of(p[0] + mv[0] * hw, p[1] + mv[1] * hw), z_of(p[0] - mv[0] * hw, p[1] - mv[1] * hw)) + 0.25
 
         def at(o):
             return (p[0] + mv[0] * o * sc, p[1] + mv[1] * o * sc)
@@ -369,12 +383,13 @@ def lifeguard_tower(m, uv, x, y, yaw, z0):
         fl = 3.4 - (z + 0.3) / 3.0
         _beam(fr, (fl, -0.35, z), (fl, 0.35, z), 0.05, 0.05, "timber", POST, "lud")
     a0, a1, sr = F0 + 0.05, F1 - 0.05, PS - 0.05
-    for pf, ps in ((a0, -sr), (a0, sr), (a1, -sr), (a1, sr), (a1, -0.45), (a1, 0.45)):
-        fr.box(pf - 0.04, pf + 0.04, ps - 0.04, ps + 0.04, zp, zp + 1.0, "timber", POST, "fblt")
     zr = zp + 1.0
-    for p, q in (((a0, -sr), (a0, sr)), ((a0, -sr), (a1, -sr)), ((a0, sr), (a1, sr)), ((a1, -sr), (a1, -0.45)),
-                 ((a1, 0.45), (a1, sr))):
-        _beam(fr, p + (zr,), q + (zr,), 0.08, 0.08, "timber", POST)
+    for pf, ps in ((a0, -sr), (a0, sr), (a1, -sr), (a1, sr), (a1, -0.45), (a1, 0.45)):
+        fr.box(pf - 0.04, pf + 0.04, ps - 0.04, ps + 0.04, zp, zr - 0.03, "timber", POST, "fblt")
+    si = sr - 0.06                                           # side rails stop short of the long rails: no shared top
+    for p, q in (((a0, -si), (a0, si)), ((a0, -sr), (a1, -sr)), ((a0, sr), (a1, sr)), ((a1, -si), (a1, -0.45)),
+                 ((a1, 0.45), (a1, si))):
+        _beam(fr, p + (zr,), q + (zr,), 0.06, 0.06, "timber", POST)
     return len(m.faces) - n0
 
 
@@ -409,34 +424,39 @@ def _facet(fr, a0, a1, rz, z_lo, z_hi, holes, col):
         P([at(0, cur), at(1, cur), at(1, z_hi), at(0, z_hi)], out, "plastic", col)
 
 
-def lighthouse(m, uv, x, y, z0, h=25.0):
-    """Wuhu's lighthouse: tapered white 12-sided tower on an ashlar plinth, door and two slits on +f, a railed
-    gallery, a glazed lantern, a red cap and finial."""
+def lighthouse(m, uv, x, y, z0, h=25.0, plinth=1.1, step=1.0):
+    """Wuhu's lighthouse: a wide ashlar foundation step (r 4.6, `step` tall) and plinth (r 3.6, to `plinth`) from
+    z0, the tapered white 12-sided tower on the plinth's top, door and two slits on +f, a railed gallery, a glazed
+    lantern, a red cap and finial. The caller sets z0 under the lowest terrain corner and plinth over the highest."""
     fr, n0 = Frame(m, uv, x, y, 0.0, z0), len(m.faces)
     zt, rb, rt, n = 0.8 * h, 3.2, 2.2, 12
+    _prism(fr, 0.0, 0.0, 4.6, 4.6, n, 0.0, step, "ashlar", STONE, rot=15.0)
+    _annulus(fr, 3.6, 4.6, n, step, (0, 0, 1), "ashlar", STONE, rot=15.0)
+    if plinth > step + 0.05:
+        _prism(fr, 0.0, 0.0, 3.6, 3.6, n, step, plinth, "ashlar", STONE, rot=15.0)
+    _annulus(fr, rb, 3.6, n, plinth, (0, 0, 1), "ashlar", STONE, rot=15.0)
+    ft = Frame(m, uv, x, y, 0.0, z0 + plinth)                   # the tower's own frame: its foot at the plinth's top
 
     def rz(z):
         return rb + (rt - rb) * z / zt
-    _prism(fr, 0.0, 0.0, 3.6, 3.6, n, -0.5, 0.6, "ashlar", STONE, rot=15.0)
-    _annulus(fr, rz(0.6), 3.6, n, 0.6, (0, 0, 1), "ashlar", STONE, rot=15.0)
     for k in range(n):
         holes = ()
         if k == 0:
-            holes = ((0.6, 2.7, 1.2, DOOR), (0.38 * h, 0.38 * h + 1.4, 0.5, GLASS), (0.6 * h, 0.6 * h + 1.4, 0.5, GLASS))
-        _facet(fr, 30.0 * k - 15.0, 30.0 * k + 15.0, rz, 0.6, zt, holes, LH_WHITE)
+            holes = ((0.0, 2.1, 1.2, DOOR), (0.38 * h, 0.38 * h + 1.4, 0.5, GLASS), (0.6 * h, 0.6 * h + 1.4, 0.5, GLASS))
+        _facet(ft, 30.0 * k - 15.0, 30.0 * k + 15.0, rz, 0.0, zt, holes, LH_WHITE)
     zg = zt + 0.3
-    _prism(fr, 0.0, 0.0, 3.0, 3.0, n, zt, zg, "plastic", LH_WHITE, rot=15.0)
-    _annulus(fr, rt, 3.0, n, zt, (0, 0, -1), "plastic", LH_WHITE, rot=15.0)
-    _annulus(fr, 1.6, 3.0, n, zg, (0, 0, 1), "plastic", LH_WHITE, rot=15.0)
+    _prism(ft, 0.0, 0.0, 3.0, 3.0, n, zt, zg, "plastic", LH_WHITE, rot=15.0)
+    _annulus(ft, rt, 3.0, n, zt, (0, 0, -1), "plastic", LH_WHITE, rot=15.0)
+    _annulus(ft, 1.6, 3.0, n, zg, (0, 0, 1), "plastic", LH_WHITE, rot=15.0)
     for k in range(n):
         a = math.radians(15.0 + 30.0 * k)
         pf, ps = 2.88 * math.cos(a), 2.88 * math.sin(a)
-        fr.box(pf - 0.05, pf + 0.05, ps - 0.05, ps + 0.05, zg, zg + 1.0, "plastic", LH_WHITE, "fblt")
+        ft.box(pf - 0.05, pf + 0.05, ps - 0.05, ps + 0.05, zg, zg + 1.0, "plastic", LH_WHITE, "fblt")
     zr = zg + 1.0
-    _prism(fr, 0.0, 0.0, 2.92, 2.92, n, zr, zr + 0.08, "plastic", LH_WHITE, rot=15.0)
-    _prism(fr, 0.0, 0.0, 2.84, 2.84, n, zr, zr + 0.08, "plastic", LH_WHITE, rot=15.0, inward=True)
-    _annulus(fr, 2.84, 2.92, n, zr + 0.08, (0, 0, 1), "plastic", LH_WHITE, rot=15.0)
-    _annulus(fr, 2.84, 2.92, n, zr, (0, 0, -1), "plastic", LH_WHITE, rot=15.0)
+    _prism(ft, 0.0, 0.0, 2.92, 2.92, n, zr, zr + 0.08, "plastic", LH_WHITE, rot=15.0)
+    _prism(ft, 0.0, 0.0, 2.84, 2.84, n, zr, zr + 0.08, "plastic", LH_WHITE, rot=15.0, inward=True)
+    _annulus(ft, 2.84, 2.92, n, zr + 0.08, (0, 0, 1), "plastic", LH_WHITE, rot=15.0)
+    _annulus(ft, 2.84, 2.92, n, zr, (0, 0, -1), "plastic", LH_WHITE, rot=15.0)
     zl = zg + 0.12 * h
     for k in range(n):
         a0, a1 = 30.0 * k - 15.0, 30.0 * k + 15.0
@@ -447,16 +467,16 @@ def lighthouse(m, uv, x, y, z0, h=25.0):
         def q(t0, t1, z0_, z1_, col):
             p0 = (c0[0] + (c1[0] - c0[0]) * t0, c0[1] + (c1[1] - c0[1]) * t0)
             p1 = (c0[0] + (c1[0] - c0[0]) * t1, c0[1] + (c1[1] - c0[1]) * t1)
-            fr.poly([p0 + (z0_,), p1 + (z0_,), p1 + (z1_,), p0 + (z1_,)], out, "plastic", col)
+            ft.poly([p0 + (z0_,), p1 + (z0_,), p1 + (z1_,), p0 + (z1_,)], out, "plastic", col)
         q(0.0, 1.0, zg, zg + 0.4, LH_WHITE)
         q(0.0, 1.0, zl - 0.25, zl, LH_WHITE)
         q(0.0, 0.12, zg + 0.4, zl - 0.25, LH_WHITE)
         q(0.12, 1.0, zg + 0.4, zl - 0.25, GLASS)
     zc = zl + 0.08 * h
-    _prism(fr, 0.0, 0.0, 1.9, 0.0, n, zl, zc, "plastic", RED, rot=15.0, bottom=True)
-    fr.box(-0.04, 0.04, -0.04, 0.04, zc - 0.2, zc + 0.6, "plastic", RED, "fblt")
-    _prism(fr, 0.0, 0.0, 0.18, 0.0, 4, zc + 0.75, zc + 1.0, "plastic", RED)
-    _prism(fr, 0.0, 0.0, 0.18, 0.0, 4, zc + 0.75, zc + 0.5, "plastic", RED)
+    _prism(ft, 0.0, 0.0, 1.9, 0.0, n, zl, zc, "plastic", RED, rot=15.0, bottom=True)
+    ft.box(-0.04, 0.04, -0.04, 0.04, zc - 0.2, zc + 0.6, "plastic", RED, "fblt")
+    _prism(ft, 0.0, 0.0, 0.18, 0.0, 4, zc + 0.75, zc + 1.0, "plastic", RED)
+    _prism(ft, 0.0, 0.0, 0.18, 0.0, 4, zc + 0.75, zc + 0.5, "plastic", RED)
     return len(m.faces) - n0
 
 
@@ -476,7 +496,7 @@ def _check():
     walk = [(0.0, 0.0), (3.0, 0.0), (6.0, 1.0), (8.5, 2.8), (10.5, 5.0), (12.0, 7.6)]
     cases = [("tiki_hut%d" % s, 220, (lambda m, uv, s=s: tiki_hut(m, uv, 0.0, 0.0, 20.0, 0.0, s))) for s in range(1, 7)]
     cases += [("beach_bar", 320, lambda m, uv: beach_bar(m, uv, 0.0, 0.0, 20.0, 0.0))]
-    cases += [("cabana%d" % s, 160, (lambda m, uv, s=s: cabana(m, uv, 0.0, 0.0, 20.0, 0.0, s))) for s in range(1, 5)]
+    cases += [("cabana%d" % s, 170, (lambda m, uv, s=s: cabana(m, uv, 0.0, 0.0, 20.0, 0.0, s))) for s in range(1, 5)]
     cases += [("boardwalk", 10 ** 6, lambda m, uv: boardwalk(m, uv, walk, zf)),
               ("torch", 40, lambda m, uv: torch(m, uv, 0.0, 0.0, 0.0)),
               ("lifeguard_tower", 260, lambda m, uv: lifeguard_tower(m, uv, 0.0, 0.0, 20.0, 0.0)),
