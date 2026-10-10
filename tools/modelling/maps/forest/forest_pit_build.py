@@ -23,8 +23,8 @@ at the end of it reaches the eye -- so the fog is built to a number rather than 
 a look: the bottom of the stack is one opaque slab and every ray from a stand point
 to the floor leaves under FOG_PROOF transmittance (the fraction of the floor's
 light that reaches the eye). It takes two things together. The slab is here; the other half is `fog_disabled` in
-maps/forest/materials/forest_mist.gdshader, without which the Environment's depth fog repaints these
-layers AND the floor behind them to one pale colour, and one colour spread over
+earlier fog_disabled kept the depth fog off the layers, but the opaque slab hides the floor on
+its own and the unfogged mist floated in front of the hazed bank). One pale colour spread over
 one flat plane is exactly what reads as a floor.
 
     python3 tools/modelling/maps/forest/forest_pit_build.py         the fog's own numbers
