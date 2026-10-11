@@ -155,6 +155,13 @@ func _build_phase() -> void:
 	elif multiplayer.is_server():
 		_build_net_bots()
 	_build_tower_choice(settings)
+	_toggle("DEBUG_TOWER_BRAWL", settings.tower_brawl, func(on: bool) -> void:
+		settings.tower_brawl = on
+		if on:
+			settings.skip_opening_race = false
+			rules.open_with_race = true
+		rules.open_with_tower_brawl = on
+		SettingsStore.instance().save_to_disk())
 	var clock: HBoxContainer = _row()
 	_toggle("DEBUG_PAUSE_CLOCK", _controller.debug_clock_paused, _pause_clock, clock)
 	_button(clock, "DEBUG_EXTEND_CLOCK", _extend_clock)

@@ -224,6 +224,17 @@ func start(velocity: Vector3, at: Vector3, direction: Vector3) -> void:
 	set_physics_process(true)
 
 
+## Collide with nothing for [param seconds], so a body thrown out of a closed room clears its walls.
+func pass_through(seconds: float) -> void:
+	for bone: PhysicalBone3D in _bones:
+		bone.collision_mask = 0
+	get_tree().create_timer(seconds, false, true).timeout.connect(func() -> void:
+		if not _active:
+			return
+		for bone: PhysicalBone3D in _bones:
+			bone.collision_mask = collision_mask)
+
+
 ## Hand the skeleton back to the animation; the parts stay where they fell, inert.
 func stop() -> void:
 	if not _active and _flop == Flop.NONE:

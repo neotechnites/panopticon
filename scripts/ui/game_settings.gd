@@ -387,6 +387,9 @@ var ghosts_enabled: bool = DEFAULT_GHOSTS_ENABLED
 ## a player cannot open a text editor to change a rule file.
 var skip_opening_race: bool = DEFAULT_SKIP_OPENING_RACE
 
+## Open with everybody in the tower and only the shove: the last one standing takes it.
+var tower_brawl: bool = false
+
 ## Which seat gets the tower when the race is skipped. 0 is the player; every
 ## higher index is a bot, numbered the way [method MatchRules.get_participant_name]
 ## numbers it and the way the HUD reports it.
@@ -613,6 +616,7 @@ func reset() -> void:
 	slide_enabled = DEFAULT_SLIDE_ENABLED
 	ghosts_enabled = DEFAULT_GHOSTS_ENABLED
 	skip_opening_race = DEFAULT_SKIP_OPENING_RACE
+	tower_brawl = false
 	tower_seat_index = DEFAULT_TOWER_SEAT_INDEX
 	reload_by_turn = DEFAULT_RELOAD_BY_TURN.duplicate()
 	prisoner_count = DEFAULT_PRISONER_COUNT
@@ -741,6 +745,7 @@ func copy_from(other: GameSettings) -> void:
 	slide_enabled = other.slide_enabled
 	ghosts_enabled = other.ghosts_enabled
 	skip_opening_race = other.skip_opening_race
+	tower_brawl = other.tower_brawl
 	tower_seat_index = other.tower_seat_index
 	reload_by_turn = other.reload_by_turn.duplicate()
 	prisoner_count = other.prisoner_count
@@ -790,6 +795,7 @@ func equals(other: GameSettings) -> bool:
 		and slide_enabled == other.slide_enabled
 		and ghosts_enabled == other.ghosts_enabled
 		and skip_opening_race == other.skip_opening_race
+		and tower_brawl == other.tower_brawl
 		and tower_seat_index == other.tower_seat_index
 		and _almost_equal(reload_by_turn, other.reload_by_turn)
 		and _almost_equal(sniper_by_visit, other.sniper_by_visit)
@@ -864,6 +870,7 @@ func write_to(config: ConfigFile) -> void:
 
 	config.set_value(SECTION_MATCH, "ghosts_enabled", ghosts_enabled)
 	config.set_value(SECTION_MATCH, "skip_opening_race", skip_opening_race)
+	config.set_value(SECTION_MATCH, "tower_brawl", tower_brawl)
 	config.set_value(SECTION_MATCH, "tower_seat_index", tower_seat_index)
 	config.set_value(SECTION_MATCH, "reload_by_turn", reload_by_turn)
 	config.set_value(SECTION_MATCH, "prisoner_count", prisoner_count)
@@ -925,6 +932,7 @@ func read_from(config: ConfigFile) -> void:
 	skip_opening_race = read_bool(
 		config, SECTION_MATCH, "skip_opening_race", skip_opening_race
 	)
+	tower_brawl = read_bool(config, SECTION_MATCH, "tower_brawl", tower_brawl)
 	tower_seat_index = read_int(config, SECTION_MATCH, "tower_seat_index", tower_seat_index)
 	reload_by_turn = read_packed_float32_array(
 		config, SECTION_MATCH, "reload_by_turn", reload_by_turn
@@ -1144,6 +1152,7 @@ func apply_to_match_rules(rules: MatchRules) -> void:
 		else MatchRules.GhostBehaviour.NONE
 	)
 	rules.open_with_race = not skip_opening_race
+	rules.open_with_tower_brawl = tower_brawl and not skip_opening_race
 	# Written whether or not the race is skipped, so that turning the skip back on
 	# uses the seat the player last chose rather than whatever the resource was
 	# left holding.

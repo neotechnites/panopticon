@@ -307,6 +307,11 @@ func _subscribe_server() -> void:
 		_rematch_peers.clear()
 		_event(&"_ev_match_started"))
 	controller.race_started.connect(func() -> void: _event(&"_ev_race_started"))
+	controller.brawl_started.connect(func() -> void: _event(&"_ev_brawl_started"))
+	controller.brawler_out.connect(
+		func(participant: MatchParticipant, throw: Vector3) -> void:
+			_event(&"_ev_brawl_out", [participant.index, throw])
+	)
 	controller.round_started.connect(_on_round_started)
 	controller.participant_converted.connect(
 		func(participant: MatchParticipant) -> void: _event(&"_ev_removed", [participant.index])
@@ -736,6 +741,18 @@ func _ev_kill_beat(guard_index: int, throw: Vector3) -> void:
 	if not _replays() or not throw.is_finite():
 		return
 	controller.net_kill_beat(guard_index, throw)
+
+
+@rpc("authority", "reliable", "call_remote", 0)
+func _ev_brawl_started() -> void:
+	if _replays():
+		controller.net_start_brawl()
+
+
+@rpc("authority", "reliable", "call_remote", 0)
+func _ev_brawl_out(index: int, throw: Vector3) -> void:
+	if _replays() and throw.is_finite():
+		controller.net_brawl_out(index, throw)
 
 
 @rpc("authority", "reliable", "call_remote", 0)

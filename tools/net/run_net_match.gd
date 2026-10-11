@@ -6,7 +6,7 @@ extends SceneTree
 ##
 ## Debug hooks, server only, seconds into the match: --arm-finisher hands the
 ## remote prisoner the second rifle without making it run a lap, and --kill-guard
-## lands a shot on the guard; --arm-host=true arms the host instead. Both exist to exercise what a CLIENT is shown.
+## lands a shot on the guard; --arm-host=true arms the host instead. --brawl=true opens with the tower fight. Both exist to exercise what a CLIENT is shown.
 ## --press-fire is when the scripted human first pulls the trigger.
 ## --map picks the map; --bind-delay holds this machine's match scene back that many
 ## seconds after launch; --stall-at/--stall-ms freeze this process once mid-match.
@@ -56,10 +56,13 @@ func _initialize() -> void:
 		"screen": false, "preset": "classic", "press-ability": 0, "press-at": 6.0, "press-every": 0.0,
 		"press-fire": 4.0, "arm-finisher": 0.0, "kill-guard": 0.0, "pitch-rate": 0.0,
 		"map": "", "bind-delay": 0.0, "stall-at": 0.0, "stall-ms": 0,
-		"loss": 0.0, "delay-ms": 0, "enet-throttle": false, "aim": false, "arm-host": false,
+		"loss": 0.0, "delay-ms": 0, "enet-throttle": false, "aim": false, "arm-host": false, "brawl": false,
 	})
 	Engine.max_fps = 60
 	_started_ms = Time.get_ticks_msec()
+	if bool(_o.get("brawl", false)):
+		SettingsStore.instance().settings.tower_brawl = true
+		SettingsStore.instance().settings.skip_opening_race = false
 	var log_path: String = String(_o.get("log", ""))
 	if not log_path.is_empty():
 		_log = FileAccess.open(log_path, FileAccess.WRITE)
@@ -356,6 +359,9 @@ func _hook_match(match_scene: Node) -> void:
 func _hook_controller() -> void:
 	_controller.match_started.connect(func(count: int) -> void: _line("EV match_started participants=%d" % count))
 	_controller.race_started.connect(func() -> void: _line("EV race_started"))
+	_controller.brawl_started.connect(func() -> void: _line("EV brawl_started"))
+	_controller.brawler_out.connect(func(p: MatchParticipant, throw: Vector3) -> void:
+		_line("EV brawl_out who=%s throw=%.1f" % [_who(p), throw.length()]))
 	_controller.round_started.connect(func() -> void:
 		_line("EV round_started round=%d seat=%s" % [_controller.get_round_number(), _who(_controller.get_seat_participant())]))
 	_controller.seat_changed.connect(func(p: MatchParticipant, turns: int) -> void:

@@ -148,6 +148,8 @@ enum Phase {
 	## The hub lobby. Bodies and shoves, no rounds, no tower, no clock. Only a
 	## controller in [member hub_mode] ever reaches it.
 	HUB,
+	## The tower shove fight that opens a match in place of the race; see [method start_brawl].
+	BRAWL,
 }
 
 ## What a round has come to, from the shooter's point of view. Exhaustive.
@@ -170,6 +172,10 @@ signal armed()
 
 ## Emitted when the opening race is armed: no shooter, everyone on the ring.
 signal race_started()
+## The opening tower shove fight began.
+signal brawl_started()
+## [param participant] was shoved out of the fight (thrown at [param throw]) or fell out of it.
+signal brawler_out(participant: MatchParticipant, throw: Vector3)
 
 ## Emitted when a round is armed, after the shooter is on the tower and the
 ## prisoners are on the start line. A seat change emits it again, because a seat
@@ -393,6 +399,15 @@ const DEFAULT_SHOOTER_PROFILE_PATH: String = "res://characters/bots/default_shoo
 
 ## The finale shove's force against an ordinary shove's: Ryan's "turned up 3x".
 const FINALE_SHOVE_SCALE: float = 2.0
+## The tower fight: the ring the brawlers start on, how far below the floor is out,
+## the beat before the winner's round, and how long a thrown body passes through walls.
+const BRAWL_RING_METRES: float = 1.3
+const BRAWL_FALL_METRES: float = 3.0
+const BRAWL_END_SECONDS: float = 1.5
+const BRAWL_THROUGH_SECONDS: float = 0.35
+## No shove lands for this long; each bot then joins in turn, this far apart.
+const BRAWL_GRACE_SECONDS: float = 1.5
+const BRAWL_BOT_STAGGER_SECONDS: float = 0.6
 
 ## Where the finale parks the tower's colliders: a layer no mask in the game
 ## reaches, so nothing collides with it, while the tracking shot can still see it.
@@ -564,6 +579,10 @@ var _centre: Vector3 = Vector3.ZERO
 var _start_point: Vector3 = Vector3.ZERO
 var _end_point: Vector3 = Vector3.ZERO
 var _tower_point: Vector3 = Vector3.ZERO
+## The tower fight's closing beat, or below zero while it is still being fought.
+var _brawl_end_remaining: float = -1.0
+var _brawl_winner: MatchParticipant = null
+var _brawl_elapsed: float = 0.0
 
 ## The route the field is running. Never null once [method _cache_geometry] has
 ## succeeded: either the arena's own, or a flat one built here and parented to
@@ -708,6 +727,7 @@ func _physics_process(delta: float) -> void:
 	_tick_respawn_holds(delta)
 	_tick_ghosts(delta)
 	_tick_shoves(delta)
+	_tick_brawl(delta)
 	# BEFORE the hold: a beat ending this tick resolves the round the killing
 	# shot already won, and a resolved round is not one the siege can also win.
 	_tick_kill_beat(delta)
@@ -854,7 +874,9 @@ func start_match() -> void:
 	if _mirror:
 		return
 
-	if active.open_with_race and _participants.size() > 1:
+	if active.open_with_tower_brawl and _participants.size() > 1:
+		start_brawl()
+	elif active.open_with_race and _participants.size() > 1:
 		start_race()
 	else:
 		# No race: the seat the rules name opens the match in the tower on turn
@@ -994,6 +1016,149 @@ func start_race() -> void:
 	var racers: Array[MatchParticipant] = _participants.duplicate()
 	_place_runners(racers)
 	race_started.emit()
+
+
+## Open with everybody in the tower room and only the shove. Whoever is shoved out or falls
+## is out; the last one standing takes the tower for the first round.
+func start_brawl() -> void:
+	_phase = Phase.BRAWL
+	_outcome = Outcome.IN_PROGRESS
+	_removed_count = 0
+	_hold_remaining = 0.0
+	_seat = null
+	_stow_rifle()
+	_disarm_finisher()
+	_silence_all_tower_brains()
+	_publish_the_seat()
+	_brawl_end_remaining = -1.0
+	_brawl_winner = null
+	_brawl_elapsed = 0.0
+	_settle_frames = SETTLE_PHYSICS_FRAMES
+	for index: int in _participants.size():
+		_place_in_brawl(_participants[index], index, _participants.size())
+	brawl_started.emit()
+
+
+func _place_in_brawl(participant: MatchParticipant, index: int, count: int) -> void:
+	var active: MatchRules = get_rules()
+	participant.is_shooter = false
+	participant.is_running = true
+	participant.is_finisher = false
+	participant.lives = 1
+	participant.health = 1
+	var body: PlayerController = participant.body
+	body.is_guard = false
+	_apply_runner_multipliers(body, active)
+	_unmake_ghost(participant)
+	_tint_body(participant, participant.home_body_material)
+	_hold_body(participant)
+	var ability: RunnerPower = RunnerPower.of(body)
+	if ability != null:
+		# Only the shove: no rules, no power.
+		ability.arm(null, self)
+	_silence_tower_brain(participant)
+	_silence_brain(participant)
+	participant.tracker.stop()
+	var angle: float = TAU * float(index) / float(maxi(count, 1))
+	var offset: Vector3 = Vector3(cos(angle), 0.0, sin(angle)) * BRAWL_RING_METRES
+	body.global_position = _tower_point + offset
+	body.velocity = Vector3.ZERO
+	# Facing out, so nobody starts with a shove lined up.
+	body.rotation = Vector3(0.0, _heading_of(offset), 0.0)
+	body.add_to_group(RUNNER_GROUP)
+
+
+## The host's tower fight, each tick: falls, the bots' shoving, and the end.
+func _tick_brawl(delta: float) -> void:
+	if _phase != Phase.BRAWL:
+		return
+	_brawl_elapsed += delta
+	if _brawl_end_remaining >= 0.0:
+		_brawl_end_remaining -= delta
+		if _brawl_end_remaining < 0.0:
+			_end_brawl()
+		return
+	var standing: Array[MatchParticipant] = []
+	for participant: MatchParticipant in _participants:
+		if not participant.is_running or participant.body == null:
+			continue
+		if participant.body.global_position.y < _tower_point.y - BRAWL_FALL_METRES:
+			_brawl_out(participant, Vector3.ZERO)
+			continue
+		standing.append(participant)
+	for participant: MatchParticipant in standing:
+		_drive_brawl_bot(participant, standing)
+	if standing.size() <= 1:
+		if standing.size() == 1:
+			_brawl_winner = standing[0]
+		_brawl_end_remaining = BRAWL_END_SECONDS
+
+
+## A bot in the tower fight turns to the nearest brawler and walks at them; its own
+## shove reflex ([BotIntentSource]) swings once one is in front.
+func _drive_brawl_bot(participant: MatchParticipant, standing: Array[MatchParticipant]) -> void:
+	if participant.is_human() or participant.brain == null or participant.brain.input == null:
+		return
+	var body: PlayerController = participant.body
+	var nearest: PlayerController = null
+	var best: float = INF
+	for other: MatchParticipant in standing:
+		if other == participant:
+			continue
+		var distance: float = other.body.global_position.distance_to(body.global_position)
+		if distance < best:
+			best = distance
+			nearest = other.body
+	var command: MoveIntent = participant.brain.input.command
+	command.move_direction = Vector2.ZERO
+	var joins_at: float = BRAWL_GRACE_SECONDS + BRAWL_BOT_STAGGER_SECONDS * float(participant.index)
+	if nearest == null or _brawl_elapsed < joins_at:
+		return
+	var forward: Vector3 = -body.global_transform.basis.z
+	var to: Vector3 = nearest.global_position - body.global_position
+	forward.y = 0.0
+	to.y = 0.0
+	if to.length_squared() < 1e-4 or forward.length_squared() < 1e-6:
+		return
+	var turn: float = forward.normalized().signed_angle_to(to.normalized(), Vector3.UP)
+	command.look_delta = Vector2(-clampf(turn, -0.2, 0.2), 0.0)
+	command.move_direction = Vector2(0.0, 1.0) if absf(turn) < 0.6 else Vector2.ZERO
+
+
+## [param participant] is out of the fight: held where it stood, dead, and thrown at
+## [param throw] (zero for a fall). Every machine's half; the host decides it.
+func _brawl_out(participant: MatchParticipant, throw: Vector3) -> void:
+	if participant == null or participant.body == null or not participant.is_running:
+		return
+	participant.is_running = false
+	_snapshot_death(participant)
+	_hold_body(participant)
+	participant.body.remove_from_group(RUNNER_GROUP)
+	_silence_brain(participant)
+	participant.body.died.emit()
+	var avatar: PrisonerAvatar = PrisonerAvatar.of(participant.body)
+	if avatar != null and throw != Vector3.ZERO:
+		avatar.throw_out(throw, BRAWL_THROUGH_SECONDS)
+	brawler_out.emit(participant, throw)
+
+
+## The fight is over: its winner takes the tower and the first round begins.
+func _end_brawl() -> void:
+	_brawl_end_remaining = -1.0
+	var winner: MatchParticipant = _brawl_winner if _brawl_winner != null else _participants[0]
+	_brawl_winner = null
+	take_seat(winner)
+	start_round()
+
+
+func net_start_brawl() -> void:
+	_applying = true
+	start_brawl()
+	_applying = false
+
+
+func net_brawl_out(index: int, throw: Vector3) -> void:
+	_brawl_out(_participant_at(index), throw)
 
 
 ## Arm a round with the current seat holder in the tower.
@@ -2036,7 +2201,7 @@ func _tick_shoves(delta: float) -> void:
 func apply_shove(shover: MatchParticipant) -> MatchParticipant:
 	if shover == null or is_resolved() or _refuses_local_decision():
 		return null
-	if _phase != Phase.RACE and _phase != Phase.ROUND and _phase != Phase.HUB:
+	if _phase != Phase.RACE and _phase != Phase.ROUND and _phase != Phase.HUB and _phase != Phase.BRAWL:
 		return null
 	if shover.body == null:
 		return null
@@ -2071,6 +2236,12 @@ func apply_shove(shover: MatchParticipant) -> MatchParticipant:
 		shove_camera_kick.strike(forward, SHOVE_KICK_SCALE)
 	if victim == null:
 		return null
+	if _phase == Phase.BRAWL:
+		# The tower fight: a landed shove is the finale's throw, out of the tower.
+		if _brawl_end_remaining < 0.0 and _brawl_elapsed >= BRAWL_GRACE_SECONDS:
+			_brawl_winner = shover
+			_brawl_out(victim, get_finale_throw(forward) + Vector3.UP * match_rules.shove_up_impulse)
+		return victim
 	# Like a boost pad: the launch replaces the victim's velocity, and air
 	# control is denied for the arc so they ride it.
 	victim.body.launch(
@@ -4062,7 +4233,8 @@ func debug_skip_phase(tower: int = GameSettings.DEBUG_TOWER_BOT) -> void:
 	if _mirror or hub_mode or _participants.is_empty():
 		return
 	match _phase:
-		Phase.RACE:
+		Phase.RACE, Phase.BRAWL:
+			_brawl_end_remaining = -1.0
 			take_seat(_debug_tower(tower, _opening_seat()))
 			start_round()
 		Phase.ROUND:

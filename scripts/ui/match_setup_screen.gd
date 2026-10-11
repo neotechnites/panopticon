@@ -87,6 +87,8 @@ enum Opening {
 	TOWER,
 	## Skip the race; a bot opens in the tower and the human opens on the ring.
 	RING,
+	## Everybody in the tower with only the shove; the last one standing takes it.
+	BRAWL,
 }
 
 ## The seat the tower is handed to for [constant Opening.RING].
@@ -293,6 +295,7 @@ func _fill_choices() -> void:
 	_opening_option.add_item(tr("SETUP_OPENING_RACE"), int(Opening.RACE))
 	_opening_option.add_item(tr("SETUP_OPENING_TOWER"), int(Opening.TOWER))
 	_opening_option.add_item(tr("SETUP_OPENING_RING"), int(Opening.RING))
+	_opening_option.add_item(tr("SETUP_OPENING_BRAWL"), int(Opening.BRAWL))
 
 	_lives_option.clear()
 	for lives: int in range(GameSettings.MIN_PRISONER_LIVES, GameSettings.MAX_PRISONER_LIVES + 1):
@@ -388,7 +391,11 @@ func _on_opening_selected(index: int) -> void:
 	if _syncing:
 		return
 	var settings: GameSettings = _store.settings
+	settings.tower_brawl = false
 	match _opening_option.get_item_id(index) as Opening:
+		Opening.BRAWL:
+			settings.skip_opening_race = false
+			settings.tower_brawl = true
 		Opening.RACE:
 			settings.skip_opening_race = false
 		Opening.TOWER:
@@ -515,6 +522,8 @@ func _update_readouts() -> void:
 	_prisoners_readout.text = tr("SETUP_IN_THE_MATCH").format({"count": _probe.get_participant_count()})
 
 	match _opening_of(settings):
+		Opening.BRAWL:
+			_opening_readout.text = tr("SETUP_READOUT_BRAWL")
 		Opening.RACE:
 			_opening_readout.text = tr("SETUP_READOUT_RACE")
 		Opening.TOWER:
@@ -564,7 +573,7 @@ func _update_note() -> void:
 ## Which of the three openings [param settings] describes.
 static func _opening_of(settings: GameSettings) -> Opening:
 	if not settings.skip_opening_race:
-		return Opening.RACE
+		return Opening.BRAWL if settings.tower_brawl else Opening.RACE
 	return Opening.TOWER if settings.tower_seat_index <= 0 else Opening.RING
 
 
