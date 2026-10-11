@@ -77,6 +77,9 @@ func _swim(school: Dictionary, delta: float) -> void:
 	var centre := _at(school, school.s)
 	var push := Vector3.ZERO
 	for r in _runners:
+		# A cached runner can be freed (a hologram ends); casting it is a crash in release.
+		if not is_instance_valid(r):
+			continue
 		var body := r as Node3D
 		if body == null or body.global_position.y > SEA_Y + 1.2:
 			continue                                   # only a runner in the water
