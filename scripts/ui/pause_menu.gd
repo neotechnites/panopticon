@@ -226,7 +226,7 @@ func _build() -> void:
 	_add_button(column, tr("PAUSE_SETTINGS"), _open_settings)
 	if OS.is_debug_build():
 		_add_button(column, tr("MENU_DEBUG"), _open_debug)
-	_hub_all_button = _add_button(column, tr("NET_ALL_TO_HUB"), _take_all_to_hub)
+	_hub_all_button = _add_button(column, tr("RESULT_ALL_TO_HUB"), _take_all_to_hub)
 	_hub_all_button.visible = false
 	_add_button(column, tr("PAUSE_LEAVE_MATCH"), return_to_main_menu)
 

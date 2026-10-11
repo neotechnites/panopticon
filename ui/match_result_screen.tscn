@@ -157,7 +157,7 @@ text = "RESULT_REMATCH"
 [node name="HubAllButton" type="Button" parent="Root/Frame/Dialog/Padding/Layout/NetButtons"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(200, 40)
-text = "NET_ALL_TO_HUB"
+text = "RESULT_ALL_TO_HUB"
 
 [node name="Buttons" type="HBoxContainer" parent="Root/Frame/Dialog/Padding/Layout"]
 theme_override_constants/separation = 12
