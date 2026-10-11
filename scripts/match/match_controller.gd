@@ -586,6 +586,7 @@ var _brawl_elapsed: float = 0.0
 ## The open tower's stand-in floor for the fight, and its top.
 var _brawl_floor: StaticBody3D = null
 var _brawl_floor_y: float = 0.0
+var _brawl_floor_radius: float = 0.0
 
 ## The route the field is running. Never null once [method _cache_geometry] has
 ## succeeded: either the arena's own, or a flat one built here and parented to
@@ -1064,7 +1065,9 @@ func _place_in_brawl(participant: MatchParticipant, index: int, count: int) -> v
 	_silence_brain(participant)
 	participant.tracker.stop()
 	var angle: float = TAU * float(index) / float(maxi(count, 1))
-	var offset: Vector3 = Vector3(cos(angle), 0.0, sin(angle)) * BRAWL_RING_METRES
+	# A body and a half apart round the ring, kept a body clear of the edge.
+	var ring: float = clampf(float(count) * 1.2 / TAU, BRAWL_RING_METRES, maxf(_brawl_floor_radius - 0.8, BRAWL_RING_METRES))
+	var offset: Vector3 = Vector3(cos(angle), 0.0, sin(angle)) * ring
 	body.global_position = _tower_point + offset
 	body.velocity = Vector3.ZERO
 	# Facing out, so nobody starts with a shove lined up.
@@ -1170,6 +1173,7 @@ func _open_for_brawl() -> void:
 	var shape: CollisionShape3D = CollisionShape3D.new()
 	var cylinder: CylinderShape3D = CylinderShape3D.new()
 	cylinder.radius = radius
+	_brawl_floor_radius = radius
 	cylinder.height = 0.4
 	shape.shape = cylinder
 	floor_body.add_child(shape)
@@ -3078,6 +3082,7 @@ func _participant_of_brain(brain: RunnerBrain) -> MatchParticipant:
 # --- Placement ----------------------------------------------------------------
 
 func _cache_geometry() -> void:
+	_start_places.clear()
 	var start_marker: Marker3D = arena.get_node_or_null(start_marker_path) as Marker3D
 	var end_marker: Marker3D = arena.get_node_or_null(end_marker_path) as Marker3D
 	var spawn_marker: Marker3D = arena.get_node_or_null(spawn_marker_path) as Marker3D
@@ -4187,6 +4192,72 @@ func _track_tangent(angle: float) -> Vector3:
 ## adding a body widens the line symmetrically instead of pushing everybody
 ## outward towards the wall.
 func _start_place_for(index: int, count: int) -> Vector3:
+	if _start_places.size() < count:
+		_start_places = _lay_out_start(count)
+	if index < _start_places.size():
+		return _start_places[index]
+	return _line_place_for(index, count)
+
+
+## Start places checked against the map: rows across the lane from its middle out, further
+## rows behind the line, each on floor, clear of walls and of the places before it.
+var _start_places: Array[Vector3] = []
+const START_ACROSS_METRES: float = 1.4
+const START_ROW_METRES: float = 1.6
+const START_ROWS: int = 6
+const START_ACROSS_STEPS: int = 2
+
+
+func _lay_out_start(count: int) -> Array[Vector3]:
+	var out: Array[Vector3] = []
+	if not _geometry_ready or arena == null or not arena.is_inside_tree():
+		return out
+	var space: PhysicsDirectSpaceState3D = arena.get_world_3d().direct_space_state
+	var exclude: Array[RID] = []
+	for participant: MatchParticipant in _participants:
+		if participant.body != null:
+			exclude.append(participant.body.get_rid())
+	var capsule: CapsuleShape3D = CapsuleShape3D.new()
+	capsule.radius = 0.4
+	capsule.height = 1.6
+	var angle: float = _angle_of(_start_point)
+	var back: Vector3 = -_track_tangent(angle)
+	var lane: float = _route.lane_radius(0)
+	var deck: float = _route.deck_height(0)
+	for row: int in START_ROWS:
+		for step: int in START_ACROSS_STEPS * 2 + 1:
+			# 0, +1, -1, +2, -2 ...: the middle of the lane first.
+			var across: float = float((step + 1) / 2) * (1.0 if step % 2 == 1 else -1.0) * START_ACROSS_METRES
+			var place: Vector3 = _point_on_track(lane + across, angle) + back * START_ROW_METRES * float(row)
+			place.y = deck
+			var ray: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(
+				place + Vector3.UP * 1.5, place + Vector3.DOWN * 1.5, 1, exclude)
+			var hit: Dictionary = space.intersect_ray(ray)
+			if hit.is_empty() or (hit["normal"] as Vector3).y < 0.7:
+				continue
+			place.y = (hit["position"] as Vector3).y
+			var query: PhysicsShapeQueryParameters3D = PhysicsShapeQueryParameters3D.new()
+			query.shape = capsule
+			query.transform = Transform3D(Basis.IDENTITY, place + Vector3.UP * 0.95)
+			query.collision_mask = 1
+			query.exclude = exclude
+			if not space.intersect_shape(query, 1).is_empty():
+				continue
+			var crowded: bool = false
+			for taken: Vector3 in out:
+				if taken.distance_to(place) < START_ACROSS_METRES - 0.05:
+					crowded = true
+					break
+			if crowded:
+				continue
+			out.append(place)
+			if out.size() >= count:
+				return out
+	return out
+
+
+## The old straight line across the lane: the fallback when the map gives no checked place.
+func _line_place_for(index: int, count: int) -> Vector3:
 	var active: MatchRules = get_rules()
 	var middle: float = float(maxi(count, 1) - 1) * 0.5
 	var offset: float = (float(index) - middle) * active.start_line_spacing_metres
