@@ -141,7 +141,7 @@ const BodyMotion: GDScript = preload("res://scripts/player/body_motion.gd")
 const RAGDOLL_WAIT_MSEC: int = 400
 const REUSED_DISTANCE: float = 1.5
 ## After a death, the replicated run (snapshots still in flight) cannot revive the body.
-const DEATH_SETTLE_MSEC: int = 600
+const DEATH_SETTLE_SECONDS: float = 0.6
 ## A shove lands on the drawn body nearest its point, within this, metres.
 const SHOVE_CLAIM_METRES: float = 2.5
 ## Metres above the feet the finale shove strikes a thrown body.
@@ -421,7 +421,7 @@ var _ragdoll: DeathRagdoll = null
 ## Waiting, after a death, for the rifle hit that caused it; see [constant RAGDOLL_WAIT_MSEC].
 var _ragdoll_pending: bool = false
 var _death_msec: int = 0
-var _died_at_msec: int = -100000
+var _dead_seconds: float = 0.0
 var _death_velocity: Vector3 = Vector3.ZERO
 var _death_position: Vector3 = Vector3.ZERO
 ## The body's velocity as drawn, so a mirror's kill carries its run too.
@@ -760,7 +760,11 @@ func _process(delta: float) -> void:
 	# again -- a respawned ghost picking the chase back up -- rather than on a
 	# timer, because nothing else here knows how long the respawn hold lasts.
 	if _has_death and _dead:
-		var settled: bool = Time.get_ticks_msec() - _died_at_msec >= DEATH_SETTLE_MSEC
+		_dead_seconds += delta
+		var settled: bool = _dead_seconds >= DEATH_SETTLE_SECONDS
+		if not settled:
+			# A mirror's body still slides on to where the authority froze it: that is where it died.
+			_death_position = body.global_position
 		if settled and (body.get_horizontal_speed() >= run_resume_speed or _is_reused()):
 			_dead = false
 			_in_death = false
@@ -966,7 +970,7 @@ func _on_body_jumped() -> void:
 ## is cleared.
 func _on_body_died() -> void:
 	_dead = true
-	_died_at_msec = Time.get_ticks_msec()
+	_dead_seconds = 0.0
 	_shove_remaining = 0.0
 	_flop_wait = -1.0
 	if _ragdoll == null or _ragdoll.is_active():
