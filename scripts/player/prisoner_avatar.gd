@@ -583,7 +583,7 @@ static func of(of_body: PlayerController) -> PrisonerAvatar:
 
 
 ## Dead and limp now, thrown at [param throw] (world m/s): the finale shove out of the tower.
-func throw_out(throw: Vector3, through_seconds: float = 0.0) -> void:
+func throw_out(throw: Vector3) -> void:
 	if _ragdoll == null or _ragdoll.is_active():
 		return
 	_ragdoll_pending = false
@@ -592,8 +592,6 @@ func throw_out(throw: Vector3, through_seconds: float = 0.0) -> void:
 	_restore_hidden_bones()
 	# Struck high along the throw, so he tumbles and flails rather than sailing out standing.
 	_ragdoll.start(throw, body.global_position + Vector3.UP * THROWN_STRIKE_HEIGHT, throw)
-	if through_seconds > 0.0:
-		_ragdoll.pass_through(through_seconds)
 
 
 ## Where the body is drawn: the ragdoll's pelvis while limp, else the capsule's middle.
