@@ -79,6 +79,9 @@ func _ready() -> void:
 		# decides nothing, so there is nothing for a client to wait for.
 		set_physics_process(false)
 		_build_bodies()
+		if _session.is_authority():
+			# A shove's flop is drawn off this cue; without it a client never sees a hub shove land.
+			controller.participant_shoved.connect(_on_participant_shoved)
 		controller.start_hub()
 		_started = true
 		_bind_placed()
@@ -496,7 +499,7 @@ func _on_rifle_hit(collider: Node3D, at: Vector3, normal: Vector3, which: int) -
 ## [method _catch_up] when it acknowledges the launch.
 func _event(method: StringName, args: Array = []) -> void:
 	for peer: int in _session.get_peer_ids():
-		if peer != NetTransport.AUTHORITY_PEER_ID and _lobby.has_launched(peer):
+		if peer != NetTransport.AUTHORITY_PEER_ID and (hub_mode or _lobby.has_launched(peer)):
 			callv(&"rpc_id", [peer, method] + args)
 
 

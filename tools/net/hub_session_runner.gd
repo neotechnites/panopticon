@@ -4,6 +4,7 @@ extends Node
 ## once --humans are in, --win ends it, --back returns to the hub, --again starts the next map from it.
 ## --relaunch-bots=3,1: at --win of match k the host relaunches with the k-th count, as the debug menu does.
 ## --relaunch-seats=2,5 / --relaunch-tower=seat: the first relaunch by seat, as the debug menu's Seats.
+## --shove-at=s: the host, in the hub, stands behind the client's body and shoves it, every 3 s from s.
 ## --rematch presses Rematch on the result; --hub-all makes the host's Back take everyone to the hub.
 ## --loss/--delay-ms condition the wire. Logs every body's position and snapshots taken. Stdout.
 
@@ -37,7 +38,7 @@ func _ready() -> void:
 	_o = BotHarness.parse_arguments({"role": "server", "address": "127.0.0.1", "port": 27960,
 		"seconds": 20.0, "humans": 2, "wait": 3.0, "limit": 120.0, "map": "", "walk": false, "name": "", "press": true, "press_key": true,
 		"win": -1.0, "back": -1.0, "hub_seconds": 6.0, "trace": 1.5, "guard": -1,
-		"again": false, "loss": 0.0, "delay-ms": 0, "rematch": false, "hub-all": false, "relaunch-bots": "", "matches": 2, "relaunch-seats": "", "relaunch-tower": -1})
+		"again": false, "loss": 0.0, "delay-ms": 0, "rematch": false, "hub-all": false, "relaunch-bots": "", "matches": 2, "relaunch-seats": "", "relaunch-tower": -1, "shove-at": -1.0})
 	_t0 = Time.get_ticks_msec()
 	_boot.call_deferred()
 
@@ -104,6 +105,8 @@ func _process(_delta: float) -> void:
 	var elapsed: float = (Time.get_ticks_msec() - _t0) / 1000.0
 	if bool(_o.walk):
 		_walk(elapsed)
+	if String(_o.role) == "server" and float(_o["shove-at"]) >= 0.0 and elapsed > float(_o["shove-at"]) and scene == "res://hub/hub.tscn":
+		_shove_client(scene_node, elapsed)
 	if String(_o.role) == "server" and not _started and scene_node != null:
 		var hub: HubLobby = null
 		for n: Node in scene_node.find_children("*", "Node", true, false):
@@ -262,3 +265,33 @@ func _trace() -> void:
 			" floor" if body.is_on_floor() else ""])
 	_line("POS %s%s epoch=%d snaps=%d %s" % [scene_node.scene_file_path.get_file(), " 3d-off" if get_viewport().disable_3d else "",
 		_session.replicator.get_scene(), _snaps, " ".join(parts)])
+
+
+var _next_shove: float = 0.0
+
+
+func _shove_client(scene_node: Node, elapsed: float) -> void:
+	var net: NetMatch = scene_node.get_node_or_null(^"NetMatch") as NetMatch
+	if net == null:
+		return
+	var mine: PlayerController = null
+	var theirs: PlayerController = null
+	for child: Node in net.get_children():
+		var link: PlayerNetLink = child as PlayerNetLink
+		if link == null or link.controller == null:
+			continue
+		if link.seat_index == 0:
+			mine = link.controller
+		else:
+			theirs = link.controller
+	if mine == null or theirs == null:
+		return
+	var press: bool = elapsed >= _next_shove
+	if press:
+		_next_shove = elapsed + 3.0
+		var ahead: Vector3 = -theirs.global_transform.basis.z
+		mine.global_position = theirs.global_position - Vector3(ahead.x, 0.0, ahead.z).normalized() * 1.0
+		mine.velocity = Vector3.ZERO
+		mine.look_at(theirs.global_position, Vector3.UP)
+		_line("SHOVE try")
+	_hold(&"shove", press)
