@@ -152,6 +152,8 @@ func _build_phase() -> void:
 	_button(row, "DEBUG_RESTART_MATCH", _act.bind(_controller.restart))
 	if multiplayer.multiplayer_peer == null or multiplayer.multiplayer_peer is OfflineMultiplayerPeer:
 		_build_bots(_controller)
+	elif multiplayer.is_server():
+		_build_net_bots()
 	_build_tower_choice(settings)
 	var clock: HBoxContainer = _row()
 	_toggle("DEBUG_PAUSE_CLOCK", _controller.debug_clock_paused, _pause_clock, clock)
@@ -225,6 +227,29 @@ func _build_bots(controller: MatchController) -> void:
 			_fill_tower_choice()
 			_refresh_readout())
 	row.add_child(spin)
+
+
+## Host of a networked match: a bot count applied by relaunching this map for everyone, via the hub.
+func _build_net_bots() -> void:
+	var net: NetMatch = get_tree().current_scene.get_node_or_null(^"NetMatch") as NetMatch
+	if net == null or not net.has_started():
+		return
+	var settings: GameSettings = SettingsStore.instance().settings
+	var row: HBoxContainer = _row()
+	row.add_child(_row_label("DEBUG_BOTS"))
+	var spin: SpinBox = SpinBox.new()
+	spin.min_value = GameSettings.MIN_PRISONER_COUNT
+	spin.max_value = GameSettings.MAX_PRISONER_COUNT
+	spin.step = 1.0
+	spin.value = settings.prisoner_count
+	spin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(spin)
+	_button(row, "DEBUG_BOTS_RELAUNCH", func() -> void:
+		DebugMenu.write_bot_count(settings, int(spin.value))
+		SettingsStore.instance().save_to_disk()
+		HubLobby.relaunch_on_arrival = true
+		closed.emit()
+		net.return_all_to_hub())
 
 
 ## Write [param count] bots as the prisoner count, clamped, with the shutout pulled under it.

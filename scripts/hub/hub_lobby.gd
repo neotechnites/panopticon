@@ -58,6 +58,8 @@ const OVERLAY_KEY: Key = KEY_TAB
 ## menu's direct match entry, which is the one way into a match that did not
 ## come through here.
 static var returns_to_hub: bool = false
+## Set by the host's in-match Bots change: back in the hub, relaunch the same map at once.
+static var relaunch_on_arrival: bool = false
 
 ## The hub's controller, in [member MatchController.hub_mode].
 @export var controller: MatchController
@@ -189,6 +191,16 @@ func _bind_lobby(lobby: NetLobby) -> void:
 			_lobby.return_to_lobby()
 	# So a client knows how the map gets picked before the host presses anything.
 	_publish_rules()
+	if relaunch_on_arrival:
+		relaunch_on_arrival = false
+		_relaunch.call_deferred()
+
+
+func _relaunch() -> void:
+	for wedge: MapWedge in _wedges:
+		if wedge.is_decided() and wedge.map_id == _store.settings.map_id:
+			_start_on(wedge)
+			return
 
 
 func _process(_delta: float) -> void:
@@ -523,6 +535,12 @@ func _start_on(wedge: MapWedge) -> bool:
 	for seat: LobbySeat in _lobby.get_occupied_seats():
 		_lobby.set_ready(seat.index, true)
 	_lobby.fill_with_bots(_store.settings.prisoner_count + 1)
+	# Fewer bots than last match: the seats left over from it are emptied.
+	for i: int in range(_lobby.seats.size() - 1, -1, -1):
+		if _lobby.get_occupant_count() <= _store.settings.prisoner_count + 1:
+			break
+		if _lobby.seats[i].is_bot():
+			_lobby.remove_occupant(i)
 	if _rules.open_with_race:
 		_lobby.clear_roles()
 	else:
