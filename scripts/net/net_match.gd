@@ -12,6 +12,9 @@ signal match_bound(authority: bool)
 ## is listening is being told the match is over, not asked to take it over.
 signal host_lost()
 
+## Who has asked for a rematch since the match ended, by display name.
+signal rematch_votes_changed(names: PackedStringArray)
+
 const SESSION_PATH: NodePath = ^"/root/NetSession"
 const LINK_SCENE_PATH: String = "res://match/net/player_net_link.tscn"
 
@@ -51,6 +54,8 @@ var _watched_rifles: Dictionary[int, bool] = {}
 var _bound: bool = false
 ## The lobby epoch this scene was loaded for, or 0 before the lobby has named it.
 var _epoch: int = 0
+## Authority: peers that have pressed Rematch on this result.
+var _rematch_peers: Dictionary[int, bool] = {}
 
 
 func _ready() -> void:
@@ -289,7 +294,9 @@ func _apply_opening() -> void:
 # --- Server -------------------------------------------------------------------
 
 func _subscribe_server() -> void:
-	controller.match_started.connect(func(_count: int) -> void: _event(&"_ev_match_started"))
+	controller.match_started.connect(func(_count: int) -> void:
+		_rematch_peers.clear()
+		_event(&"_ev_match_started"))
 	controller.race_started.connect(func() -> void: _event(&"_ev_race_started"))
 	controller.round_started.connect(_on_round_started)
 	controller.participant_converted.connect(
@@ -409,6 +416,59 @@ func _drive_trigger(who: MatchParticipant, weapon: Rifle, was_held: bool) -> boo
 func _on_round_started() -> void:
 	var seat: MatchParticipant = controller.get_seat_participant()
 	_event(&"_ev_round_started", [seat.index if seat != null else 0, controller.get_round_number()])
+
+
+## Ask for a rematch on this map; the host restarts once every human in the match has asked.
+func request_rematch() -> void:
+	if not _started or hub_mode:
+		return
+	if is_authority():
+		_vote_rematch(NetTransport.AUTHORITY_PEER_ID)
+	else:
+		rpc_id(NetTransport.AUTHORITY_PEER_ID, &"_rq_rematch")
+
+
+## Host only: every peer back to the hub together, still connected.
+func return_all_to_hub() -> void:
+	if not is_authority() or hub_mode:
+		return
+	if _lobby.get_phase() != NetLobby.Phase.POST_MATCH:
+		_lobby.conclude_match(-1)
+	_lobby.return_to_lobby()
+
+
+@rpc("any_peer", "reliable", "call_remote", 0)
+func _rq_rematch() -> void:
+	if is_authority():
+		_vote_rematch(multiplayer.get_remote_sender_id())
+
+
+func _vote_rematch(peer: int) -> void:
+	if not controller.is_match_over() or _rematch_peers.has(peer):
+		return
+	_rematch_peers[peer] = true
+	_send_rematch_votes()
+	for seat: LobbySeat in _lobby.seats:
+		if seat.is_human() and seat.peer_id > 0 and not _rematch_peers.has(seat.peer_id):
+			return
+	_rematch_peers.clear()
+	_lobby.resume_match()
+	controller.restart()
+
+
+func _send_rematch_votes() -> void:
+	var names: PackedStringArray = PackedStringArray()
+	for seat: LobbySeat in _lobby.seats:
+		if seat.is_human() and _rematch_peers.has(seat.peer_id):
+			names.append(seat.display_name)
+	_event(&"_ev_rematch_votes", [names])
+	rematch_votes_changed.emit(names)
+
+
+@rpc("authority", "reliable", "call_remote", 0)
+func _ev_rematch_votes(names: PackedStringArray) -> void:
+	if _replays():
+		rematch_votes_changed.emit(names)
 
 
 func _on_match_won(participant: MatchParticipant) -> void:

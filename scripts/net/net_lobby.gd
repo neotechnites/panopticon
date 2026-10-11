@@ -548,6 +548,16 @@ func conclude_match(winning_seat_index: int = -1) -> bool:
 	return true
 
 
+## A rematch: the finished match restarts on the same map. Authority only.
+func resume_match() -> bool:
+	if not _is_authority() or _phase != Phase.POST_MATCH:
+		return false
+	_last_winning_seat = -1
+	_set_phase(Phase.IN_MATCH)
+	_publish()
+	return true
+
+
 ## The winning seat of the match just played, or -1. Cleared on
 ## [method return_to_lobby].
 func get_last_winning_seat() -> int:

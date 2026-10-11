@@ -2,6 +2,7 @@ extends Node
 
 ## Host or client through the real MultiplayerScreen into the hub; the host starts the first decided wedge
 ## once --humans are in, --win ends it, --back returns to the hub, --again starts the next map from it.
+## --rematch presses Rematch on the result; --hub-all makes the host's Back take everyone to the hub.
 ## --loss/--delay-ms condition the wire. Logs every body's position and snapshots taken. Stdout.
 
 const SCREEN_SCENE: String = "res://ui/multiplayer_screen.tscn"
@@ -24,13 +25,15 @@ var _hub_again_ms: int = -1
 var _hub_visits: int = 0
 var _snaps: int = 0
 var _matches: int = 0
+var _rematched: int = 0
+var _was_showing: bool = false
 
 
 func _ready() -> void:
 	_o = BotHarness.parse_arguments({"role": "server", "address": "127.0.0.1", "port": 27960,
 		"seconds": 20.0, "humans": 2, "wait": 3.0, "limit": 120.0, "map": "", "walk": false, "name": "", "press": true, "press_key": true,
 		"win": -1.0, "back": -1.0, "hub_seconds": 6.0, "trace": 1.5, "guard": -1,
-		"again": false, "loss": 0.0, "delay-ms": 0})
+		"again": false, "loss": 0.0, "delay-ms": 0, "rematch": false, "hub-all": false})
 	_t0 = Time.get_ticks_msec()
 	_boot.call_deferred()
 
@@ -190,12 +193,26 @@ func _finish_match(scene_node: Node) -> void:
 			controller._win_match(controller.get_participants()[0])
 			_line("WIN forced")
 	var screen: MatchResultScreen = scene_node.get_node_or_null(^"ResultScreen") as MatchResultScreen
+	if screen != null and screen.is_showing() != _was_showing:
+		_was_showing = screen.is_showing()
+		var mc: MatchController = scene_node.get_node_or_null(^"MatchController") as MatchController
+		_line("RESULT showing=%s phase=%s votes=%s" % [str(_was_showing), mc.get_phase_name() if mc != null else "?",
+			screen.get_node(^"%RematchVotes").text])
+	if bool(_o.rematch) and screen != null and screen.is_showing() and _rematched < _matches:
+		_rematched = _matches
+		_line("REMATCH pressed")
+		screen.request_rematch()
+		return
 	if _back_ms == -1 and screen != null and screen.is_showing() and float(_o.back) >= 0.0:
 		_back_ms = now
 	if _back_ms >= 0 and screen != null and (now - _back_ms) / 1000.0 > float(_o.back):
 		_back_ms = -2
 		_line("BACK pressed")
-		screen.play_again()
+		if bool(_o["hub-all"]):
+			if String(_o.role) == "server":
+				screen._on_hub_all_pressed()
+		else:
+			screen.play_again()
 
 
 ## Every body this scene's NetMatch drives: seat, position, shown, simulating. Each physics
