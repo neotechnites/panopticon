@@ -1421,6 +1421,11 @@ func net_kill_beat(guard_index: int, throw: Vector3) -> void:
 		return
 	if _finisher != null and _finisher == get_human_participant():
 		net_shove_felt(Vector3(throw.x, 0.0, throw.z).normalized())
+	# Held here as on the host: a body this client predicts would fall through the opened tower.
+	_kill_beat_guard = guard
+	_kill_beat_scorer = _finisher
+	_freeze_for_kill_beat(guard)
+	_freeze_for_kill_beat(_finisher)
 	_throw_guard_out(guard, throw)
 	kill_beat_started.emit(guard, maxf(get_rules().kill_beat_seconds, 0.0), throw)
 

@@ -6,7 +6,7 @@ extends SceneTree
 ##
 ## Debug hooks, server only, seconds into the match: --arm-finisher hands the
 ## remote prisoner the second rifle without making it run a lap, and --kill-guard
-## lands a shot on the guard. Both exist to exercise what a CLIENT is shown.
+## lands a shot on the guard; --arm-host=true arms the host instead. Both exist to exercise what a CLIENT is shown.
 ## --press-fire is when the scripted human first pulls the trigger.
 ## --map picks the map; --bind-delay holds this machine's match scene back that many
 ## seconds after launch; --stall-at/--stall-ms freeze this process once mid-match.
@@ -56,7 +56,7 @@ func _initialize() -> void:
 		"screen": false, "preset": "classic", "press-ability": 0, "press-at": 6.0, "press-every": 0.0,
 		"press-fire": 4.0, "arm-finisher": 0.0, "kill-guard": 0.0, "pitch-rate": 0.0,
 		"map": "", "bind-delay": 0.0, "stall-at": 0.0, "stall-ms": 0,
-		"loss": 0.0, "delay-ms": 0, "enet-throttle": false, "aim": false,
+		"loss": 0.0, "delay-ms": 0, "enet-throttle": false, "aim": false, "arm-host": false,
 	})
 	Engine.max_fps = 60
 	_started_ms = Time.get_ticks_msec()
@@ -183,7 +183,7 @@ func _run_debug_hooks(in_match: float) -> void:
 	var arm_at: float = float(_o.get("arm-finisher", 0.0))
 	if arm_at > 0.0 and not _armed_finisher and in_match >= arm_at:
 		_armed_finisher = true
-		var who: MatchParticipant = _remote_prisoner()
+		var who: MatchParticipant = _controller.get_human_participant() if bool(_o.get("arm-host", false)) else _remote_prisoner()
 		if who == null:
 			_line("DEBUG arm-finisher: no remote prisoner to arm")
 		else:
