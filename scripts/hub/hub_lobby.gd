@@ -60,6 +60,8 @@ const OVERLAY_KEY: Key = KEY_TAB
 static var returns_to_hub: bool = false
 ## Set by the host's in-match Bots change: back in the hub, relaunch the same map at once.
 static var relaunch_on_arrival: bool = false
+## With the relaunch: the seats to fill with bots (the rest emptied), or null to go by the bot count.
+static var relaunch_bot_seats: Variant = null
 
 ## The hub's controller, in [member MatchController.hub_mode].
 @export var controller: MatchController
@@ -197,6 +199,14 @@ func _bind_lobby(lobby: NetLobby) -> void:
 
 
 func _relaunch() -> void:
+	if relaunch_bot_seats is PackedInt32Array and _lobby != null:
+		var wanted: PackedInt32Array = relaunch_bot_seats
+		for seat: LobbySeat in _lobby.seats:
+			_lobby.set_bot(seat.index, wanted.has(seat.index))
+		# The count the launch fills and trims to is the seats as they stand now.
+		_store.settings.prisoner_count = clampi(_lobby.get_occupant_count() - 1,
+				GameSettings.MIN_PRISONER_COUNT, GameSettings.MAX_PRISONER_COUNT)
+	relaunch_bot_seats = null
 	for wedge: MapWedge in _wedges:
 		if wedge.is_decided() and wedge.map_id == _store.settings.map_id:
 			_start_on(wedge)

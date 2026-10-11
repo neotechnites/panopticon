@@ -2,7 +2,8 @@ extends Node
 
 ## Host or client through the real MultiplayerScreen into the hub; the host starts the first decided wedge
 ## once --humans are in, --win ends it, --back returns to the hub, --again starts the next map from it.
-## --relaunch-bots=N: at --win the host relaunches the map with N bots, as the debug menu does.
+## --relaunch-bots=3,1: at --win of match k the host relaunches with the k-th count, as the debug menu does.
+## --relaunch-seats=2,5 / --relaunch-tower=seat: the first relaunch by seat, as the debug menu's Seats.
 ## --rematch presses Rematch on the result; --hub-all makes the host's Back take everyone to the hub.
 ## --loss/--delay-ms condition the wire. Logs every body's position and snapshots taken. Stdout.
 
@@ -28,14 +29,15 @@ var _snaps: int = 0
 var _matches: int = 0
 var _rematched: int = 0
 var _was_showing: bool = false
-var _relaunched: bool = false
+var _relaunched: int = 0
+var _last_frame_ms: int = 0
 
 
 func _ready() -> void:
 	_o = BotHarness.parse_arguments({"role": "server", "address": "127.0.0.1", "port": 27960,
 		"seconds": 20.0, "humans": 2, "wait": 3.0, "limit": 120.0, "map": "", "walk": false, "name": "", "press": true, "press_key": true,
 		"win": -1.0, "back": -1.0, "hub_seconds": 6.0, "trace": 1.5, "guard": -1,
-		"again": false, "loss": 0.0, "delay-ms": 0, "rematch": false, "hub-all": false, "relaunch-bots": -1})
+		"again": false, "loss": 0.0, "delay-ms": 0, "rematch": false, "hub-all": false, "relaunch-bots": "", "matches": 2, "relaunch-seats": "", "relaunch-tower": -1})
 	_t0 = Time.get_ticks_msec()
 	_boot.call_deferred()
 
@@ -77,6 +79,10 @@ func _boot() -> void:
 func _process(_delta: float) -> void:
 	if _lobby == null:
 		return
+	var frame_ms: int = Time.get_ticks_msec()
+	if _last_frame_ms > 0 and frame_ms - _last_frame_ms > 50:
+		_line("HITCH %d ms scene=%s" % [frame_ms - _last_frame_ms, _last_scene.get_file()])
+	_last_frame_ms = frame_ms
 	var tree: SceneTree = get_tree()
 	var scene_node: Node = tree.current_scene
 	var scene: String = scene_node.scene_file_path if scene_node != null else "<none>"
@@ -117,7 +123,7 @@ func _process(_delta: float) -> void:
 	var seconds: float = float(_o.hub_seconds) if float(_o.back) >= 0.0 else float(_o.seconds)
 	var since: int = _hub_again_ms if float(_o.back) >= 0.0 else _match_ms
 	if bool(_o.again):
-		since = _match_ms if _matches >= 2 else -1
+		since = _match_ms if _matches >= int(_o.matches) else -1
 	if since >= 0 and (Time.get_ticks_msec() - since) / 1000.0 > seconds:
 		_line("END ok phase=%s" % String(NetLobby.Phase.keys()[_lobby.get_phase()]))
 		tree.quit(0)
@@ -188,13 +194,19 @@ func _physics_process(_delta: float) -> void:
 ## Host: --win seconds into the match, seat 0 wins. Anyone: --back seconds after the win, Back to hub.
 func _finish_match(scene_node: Node) -> void:
 	var now: int = Time.get_ticks_msec()
-	if String(_o.role) == "server" and int(_o["relaunch-bots"]) >= 0 and float(_o.win) >= 0.0:
-		if not _relaunched and (now - _match_ms) / 1000.0 > float(_o.win):
-			_relaunched = true
-			DebugMenu.write_bot_count(SettingsStore.instance().settings, int(_o["relaunch-bots"]))
+	var counts: PackedStringArray = String(_o["relaunch-bots"]).split(",", false)
+	if String(_o.role) == "server" and not counts.is_empty() and float(_o.win) >= 0.0:
+		if _relaunched < _matches and _relaunched < counts.size() and (now - _match_ms) / 1000.0 > float(_o.win):
+			var count: int = int(counts[_relaunched])
+			_relaunched = _matches
+			DebugMenu.write_bot_count(SettingsStore.instance().settings, count)
 			HubLobby.relaunch_on_arrival = true
+			if _relaunched == 1 and not String(_o["relaunch-seats"]).is_empty():
+				HubLobby.relaunch_bot_seats = PackedInt32Array(Array(String(_o["relaunch-seats"]).split(",")).map(func(x: String) -> int: return int(x)))
+				SettingsStore.instance().settings.skip_opening_race = int(_o["relaunch-tower"]) >= 0
+				SettingsStore.instance().settings.tower_seat_index = maxi(int(_o["relaunch-tower"]), 0)
 			(scene_node.get_node(^"NetMatch") as NetMatch).return_all_to_hub()
-			_line("RELAUNCH bots=%d" % int(_o["relaunch-bots"]))
+			_line("RELAUNCH bots=%d" % count)
 		return
 	if String(_o.role) == "server" and not _won and float(_o.win) >= 0.0 and (now - _match_ms) / 1000.0 > float(_o.win):
 		var controller: MatchController = scene_node.get_node_or_null(^"MatchController") as MatchController
