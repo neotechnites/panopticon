@@ -1287,6 +1287,8 @@ func configure_net(
 ## themselves belong to [NetMatch], which frees them; this only drops the
 ## controller's hold on them.
 func release_roster() -> void:
+	# The caller frees these bodies next; the rifle must not go with one.
+	_stow_rifle()
 	# A body still held by an arming leaves with its authored collision, or the next roster reads 0 as home.
 	for participant: MatchParticipant in _participants:
 		if participant.body != null:
@@ -2681,6 +2683,8 @@ func _build_participants() -> void:
 	if _participants.size() == wanted:
 		return
 
+	# The rifle may sit on a bot's head; off it before that body is freed.
+	_stow_rifle()
 	for participant: MatchParticipant in _participants:
 		# The human's body belongs to the scene and is only borrowed.
 		if not participant.is_human() and participant.body != null:

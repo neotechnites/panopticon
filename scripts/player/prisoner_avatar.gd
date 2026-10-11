@@ -589,6 +589,7 @@ func throw_out(throw: Vector3) -> void:
 	_ragdoll_pending = false
 	_death_position = body.global_position
 	animation.pause()
+	_restore_hidden_bones()
 	# Struck high along the throw, so he tumbles and flails rather than sailing out standing.
 	_ragdoll.start(throw, body.global_position + Vector3.UP * THROWN_STRIKE_HEIGHT, throw)
 
@@ -983,6 +984,7 @@ func _try_ragdoll() -> void:
 	if slot >= 0:
 		_ragdoll_pending = false
 		animation.pause()
+		_restore_hidden_bones()
 		_ragdoll.start(_death_velocity, Rifle.recent_hit_point(slot), Rifle.recent_hit_direction(slot))
 	elif Time.get_ticks_msec() - _death_msec > RAGDOLL_WAIT_MSEC:
 		_ragdoll_pending = false
@@ -1081,6 +1083,20 @@ func tick_first_person() -> void:
 		_arms_hidden = hide_arms
 		for hider: FirstPersonHead in _arm_hiders:
 			hider.set_hidden(hide_arms)
+
+
+## Full-scale bones before the parts start simulating: a part posed at 0.001 scale is a degenerate body.
+func _restore_hidden_bones() -> void:
+	if _head_hider == null:
+		return
+	_first_person = false
+	_spine_hidden = false
+	_arms_hidden = false
+	_head_hider.set_hidden(false)
+	if _spine_hider != null:
+		_spine_hider.set_hidden(false)
+	for hider: FirstPersonHead in _arm_hiders:
+		hider.set_hidden(false)
 
 
 ## Hang a [FirstPersonHead] off the skeleton for each bone first person hides,

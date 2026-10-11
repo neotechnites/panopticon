@@ -341,6 +341,12 @@ func _start_now() -> void:
 		return
 	_started = true
 	controller.start_match()
+	# A seat that turned bot while LAUNCHING was skipped by the handover; its body gets a brain now.
+	for seat_index: int in _slot_of_seat:
+		var seat: LobbySeat = _lobby.get_seat(seat_index)
+		var link: PlayerNetLink = _link_for_seat(seat_index)
+		if seat != null and seat.is_bot() and link != null and link.owner_peer_id != 0:
+			_on_seat_occupancy_changed(seat_index, LobbySeat.Occupancy.BOT)
 	_bind_placed()
 	_begin_if_launched()
 	match_bound.emit(true)
