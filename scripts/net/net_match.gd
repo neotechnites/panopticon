@@ -52,6 +52,8 @@ var _fire_was_held: bool = false
 ## object every time, so [method Signal.is_connected] cannot answer this.
 var _watched_rifles: Dictionary[int, bool] = {}
 var _bound: bool = false
+## Over the scene until the world has drawn and frame times settle; null once lifted.
+var _cover: LoadingCover = null
 ## The lobby epoch this scene was loaded for, or 0 before the lobby has named it.
 var _epoch: int = 0
 ## Authority: peers that have pressed Rematch on this result.
@@ -71,6 +73,8 @@ func _ready() -> void:
 	controller.auto_start = false
 	_bound = true
 	# Nothing of this scene is drawn until this machine's body has been placed in it.
+	_cover = LoadingCover.new()
+	add_child(_cover)
 	_show_world(false)
 	_lobby.roster_changed.connect(_bind_epoch)
 	_bind_epoch()
@@ -139,6 +143,8 @@ func _show_world(shown: bool) -> void:
 	var viewport: Viewport = get_viewport()
 	if viewport != null:
 		viewport.disable_3d = not shown
+	if shown and is_instance_valid(_cover):
+		_cover.release()
 
 
 func _on_local_placed() -> void:
