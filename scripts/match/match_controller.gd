@@ -408,6 +408,16 @@ const BRAWL_EDGE_INSET_METRES: float = 0.3
 ## No shove lands for this long; each bot then joins in turn, this far apart.
 const BRAWL_GRACE_SECONDS: float = 1.5
 const BRAWL_BOT_STAGGER_SECONDS: float = 0.6
+## A brawling bot: where it stands off its target, how close it shoves from, how near the
+## edge it lets itself go, how fast it turns (rad/s) and how long it keeps one target.
+const BRAWL_STATION_METRES: float = 1.1
+const BRAWL_SHOVE_REACH: float = 1.8
+const BRAWL_BOT_EDGE_METRES: float = 0.9
+const BRAWL_BOT_TURN_RATE: float = 6.0
+const BRAWL_BOT_COMMIT_SECONDS: float = 2.0
+## Share of full run speed a brawling bot moves at: a walk in a small room, not a sprint.
+const BRAWL_BOT_SLOWEST: float = 0.2
+const BRAWL_BOT_FASTEST: float = 0.5
 
 ## Where the finale parks the tower's colliders: a layer no mask in the game
 ## reaches, so nothing collides with it, while the tracking shot can still see it.
@@ -583,6 +593,8 @@ var _tower_point: Vector3 = Vector3.ZERO
 var _brawl_end_remaining: float = -1.0
 var _brawl_winner: MatchParticipant = null
 var _brawl_elapsed: float = 0.0
+## Per bot in the tower fight: its target, how long it keeps it, and last tick's shove key.
+var _brawl_bots: Dictionary = {}
 ## The open tower's stand-in floor for the fight, and its top.
 var _brawl_floor: StaticBody3D = null
 var _brawl_floor_y: float = 0.0
@@ -1037,6 +1049,7 @@ func start_brawl() -> void:
 	_brawl_end_remaining = -1.0
 	_brawl_winner = null
 	_brawl_elapsed = 0.0
+	_brawl_bots.clear()
 	_open_for_brawl()
 	_settle_frames = SETTLE_PHYSICS_FRAMES
 	for index: int in _participants.size():
@@ -1063,6 +1076,9 @@ func _place_in_brawl(participant: MatchParticipant, index: int, count: int) -> v
 		ability.arm(null, self)
 	_silence_tower_brain(participant)
 	_silence_brain(participant)
+	if participant.brain != null and participant.brain.input != null:
+		# This fight's bots shove when lined up, not on the lap's reflex.
+		participant.brain.input.shove_enabled = false
 	participant.tracker.stop()
 	var angle: float = TAU * float(index) / float(maxi(count, 1))
 	# A body and a half apart round the ring, kept a body clear of the edge.
@@ -1102,41 +1118,115 @@ func _tick_brawl(delta: float) -> void:
 		_brawl_end_remaining = BRAWL_END_SECONDS
 
 
-## A bot in the tower fight turns to the nearest brawler and walks at them; its own
-## shove reflex ([BotIntentSource]) swings once one is in front.
+## A bot in the tower fight: it keeps one target a while (spread so the field does not all
+## pick one), circles to the middle side of it, faces it, and shoves once lined up to send it
+## at the nearest edge; it backs off the edge itself and keeps a body's room from the rest.
 func _drive_brawl_bot(participant: MatchParticipant, standing: Array[MatchParticipant]) -> void:
 	if participant.is_human() or participant.brain == null or participant.brain.input == null:
 		return
+	var input: BotIntentSource = participant.brain.input
+	var command: MoveIntent = input.command
+	command.move_direction = Vector2.ZERO
+	command.look_delta = Vector2.ZERO
+	var joins_at: float = BRAWL_GRACE_SECONDS + BRAWL_BOT_STAGGER_SECONDS * float(participant.index)
+	if _brawl_elapsed < joins_at or standing.size() < 2:
+		return
+	var state: Dictionary = _brawl_bots.get(participant.index, {})
+	_brawl_bots[participant.index] = state
 	var body: PlayerController = participant.body
-	var nearest: PlayerController = null
-	var best: float = INF
+	var here: Vector3 = _flat(body.global_position)
+	var centre: Vector3 = _flat(_tower_point)
+	var targets: Array[MatchParticipant] = []
+	for other: MatchParticipant in standing:
+		# Only somebody still standing on the floor: never chase a body already going over.
+		if other != participant and other.body.is_on_floor() \
+				and _flat(other.body.global_position).distance_to(centre) < _brawl_floor_radius - 0.2:
+			targets.append(other)
+	var target: MatchParticipant = _brawl_target(participant, targets, state)
+	if target == null:
+		# Nobody to go for: hold the middle.
+		var home: Vector3 = (centre - here) * 0.5
+		if home.length() > 0.3:
+			home = home.normalized() * 0.3
+			command.move_direction = Vector2(home.dot(_flat(body.global_transform.basis.x).normalized()), home.dot(_flat(-body.global_transform.basis.z).normalized()))
+		return
+	var there: Vector3 = _flat(target.body.global_position)
+	var outward: Vector3 = there - centre
+	outward = outward.normalized() if outward.length() > 0.2 else (there - here).normalized()
+	# Stand on the middle side of the target, so the shove carries it outward.
+	var station: Vector3 = there - outward * BRAWL_STATION_METRES
+	var to_station: Vector3 = station - here
+	var to_target: Vector3 = there - here
+	var want: Vector3 = to_station
+	if to_station.length() > 0.5 and to_target.length() < to_station.length():
+		# The target is in the way: go round it rather than into it.
+		var side: Vector3 = Vector3.UP.cross(to_target.normalized())
+		if side.dot(to_station) < 0.0:
+			side = -side
+		want = want.normalized() + side * 0.8
+	# Keep a body's room from everybody but the target.
+	for other: MatchParticipant in standing:
+		if other == participant or other == target:
+			continue
+		var away: Vector3 = here - _flat(other.body.global_position)
+		if away.length() < 1.0 and away.length() > 0.01:
+			want += away.normalized() * (1.0 - away.length()) * 1.5
+	var forward: Vector3 = _flat(-body.global_transform.basis.z).normalized()
+	var right: Vector3 = _flat(body.global_transform.basis.x).normalized()
+	var speed: float = clampf(to_station.length() / 2.0, BRAWL_BOT_SLOWEST, BRAWL_BOT_FASTEST)
+	if want.length() > 0.05:
+		want = want.normalized() * speed
+	# Off the edge before anything else: straight back toward the middle.
+	var from_centre: Vector3 = here - centre
+	var near_edge: bool = from_centre.length() > _brawl_floor_radius - BRAWL_BOT_EDGE_METRES
+	if near_edge:
+		want = -from_centre.normalized() * BRAWL_BOT_FASTEST
+	if want.length() > 0.05:
+		command.move_direction = Vector2(want.dot(right), want.dot(forward))
+	# Face the target, at a turn rate a hand could manage.
+	var turn: float = forward.signed_angle_to(to_target.normalized(), Vector3.UP)
+	var limit: float = BRAWL_BOT_TURN_RATE * get_physics_process_delta_time()
+	command.look_delta = Vector2(-clampf(turn, -limit, limit), 0.0)
+	# Shove once lined up: in reach, facing it, and the push points outward.
+	var lined_up: bool = (
+		to_target.length() <= BRAWL_SHOVE_REACH and absf(turn) < 0.3
+		and forward.dot(outward) > 0.3 and participant.shove_cooldown_remaining <= 0.0
+		and not near_edge
+	)
+	var pressed_last: bool = bool(state.get("pressed", false))
+	command.shove_pressed = lined_up and not pressed_last
+	state["pressed"] = command.shove_pressed
+
+
+## The bot's target: kept for a while once chosen, and chosen by distance plus how many
+## other bots are already on it.
+func _brawl_target(participant: MatchParticipant, standing: Array[MatchParticipant], state: Dictionary) -> MatchParticipant:
+	var kept: int = int(state.get("target", -1))
+	var until: float = float(state.get("until", 0.0))
+	for other: MatchParticipant in standing:
+		if other.index == kept and other != participant and _brawl_elapsed < until:
+			return other
+	var best: MatchParticipant = null
+	var best_score: float = INF
 	for other: MatchParticipant in standing:
 		if other == participant:
 			continue
-		var distance: float = other.body.global_position.distance_to(body.global_position)
-		if distance < best:
-			best = distance
-			nearest = other.body
-	var command: MoveIntent = participant.brain.input.command
-	command.move_direction = Vector2.ZERO
-	var joins_at: float = BRAWL_GRACE_SECONDS + BRAWL_BOT_STAGGER_SECONDS * float(participant.index)
-	if nearest == null or _brawl_elapsed < joins_at:
-		return
-	# Come at them from the middle, so the shove sends them toward the edge.
-	var inward: Vector3 = _tower_point - nearest.global_position
-	inward.y = 0.0
-	var goal: Vector3 = nearest.global_position
-	if inward.length() > 0.3:
-		goal += inward.normalized() * 1.2
-	var forward: Vector3 = -body.global_transform.basis.z
-	var to: Vector3 = (goal if body.global_position.distance_to(goal) > 0.6 else nearest.global_position) - body.global_position
-	forward.y = 0.0
-	to.y = 0.0
-	if to.length_squared() < 1e-4 or forward.length_squared() < 1e-6:
-		return
-	var turn: float = forward.normalized().signed_angle_to(to.normalized(), Vector3.UP)
-	command.look_delta = Vector2(-clampf(turn, -0.2, 0.2), 0.0)
-	command.move_direction = Vector2(0.0, 1.0) if absf(turn) < 0.6 else Vector2.ZERO
+		var crowd: int = 0
+		for index: int in _brawl_bots:
+			if index != participant.index and int(_brawl_bots[index].get("target", -1)) == other.index:
+				crowd += 1
+		var score: float = participant.body.global_position.distance_to(other.body.global_position) + 2.0 * float(crowd)
+		if score < best_score:
+			best_score = score
+			best = other
+	if best != null:
+		state["target"] = best.index
+		state["until"] = _brawl_elapsed + BRAWL_BOT_COMMIT_SECONDS
+	return best
+
+
+func _flat(point: Vector3) -> Vector3:
+	return Vector3(point.x, 0.0, point.z)
 
 
 ## [param participant] is out of the fight: held where it stood, dead, and thrown at
@@ -3230,6 +3320,8 @@ func _place_on_track(participant: MatchParticipant, start_point: Vector3) -> voi
 	# A body on the track runs; it does not play the tower. The outgoing shooter
 	# arrives here on every seat change with its tower brain still loaded.
 	_silence_tower_brain(participant)
+	if participant.brain != null and participant.brain.input != null:
+		participant.brain.input.shove_enabled = true
 	if participant.brain != null and not _mirror:
 		# The brain reads pace from the rules and geometry from its profile. The
 		# split is the seam: "walk or sprint" is a rule of the round, "how hard
