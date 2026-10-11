@@ -584,6 +584,8 @@ func _on_match_won(_participant: MatchParticipant) -> void:
 ## restart and the Play Again button all leave it in the same state.
 func _on_match_started(_participant_count: int) -> void:
 	hide_result()
+	# A rematch restarts under this screen: its claim on the cursor ends with it.
+	_restore_mouse()
 	_rematch_votes_label.visible = false
 	_rematch_button.disabled = false
 
