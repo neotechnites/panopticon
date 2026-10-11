@@ -486,7 +486,8 @@ func _on_match_won(participant: MatchParticipant) -> void:
 
 
 func _on_rifle_fired(origin: Vector3, end_point: Vector3, weapon: Rifle, which: int) -> void:
-	_event(&"_ev_rifle_fired", [which, origin, end_point, weapon.reload_seconds])
+	var gravity: float = weapon.profile.projectile_gravity if weapon.profile != null else -1.0
+	_event(&"_ev_rifle_fired", [which, origin, end_point, weapon.reload_seconds, weapon.get_last_launch_speed(), gravity])
 
 
 func _on_rifle_hit(collider: Node3D, at: Vector3, normal: Vector3, which: int) -> void:
@@ -685,12 +686,14 @@ func _ev_ghost_caught(ghost_index: int, caught_index: int) -> void:
 
 
 @rpc("authority", "reliable", "call_remote", 0)
-func _ev_rifle_fired(which: int, origin: Vector3, end_point: Vector3, reload: float) -> void:
+func _ev_rifle_fired(
+	which: int, origin: Vector3, end_point: Vector3, reload: float, speed: float, gravity: float
+) -> void:
 	if not _replays():
 		return
 	var weapon: Rifle = _weapon_of(which)
 	if weapon != null:
-		weapon.show_remote_shot(origin, end_point, reload)
+		weapon.show_remote_shot(origin, end_point, reload, speed, gravity)
 
 
 @rpc("authority", "reliable", "call_remote", 0)
