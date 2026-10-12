@@ -53,7 +53,16 @@ extends SceneTree
 ## --map=ID         a MapCatalog id (bentham_ring, marble, forest); the match
 ##                  is filmed on it instead of the map the saved rules name
 ## --out=DIR        directory the clip is destined for; created if missing
+## --record=PATH    write the take's tape (tools/capture/clip_tape.gd) to PATH
+## --tape=PATH      play a recorded tape: every input and trigger pull from it, no brains
+## --sync=N         real-time take: N white frames before the world is built, gone
+##                  on the take's first frame, so a screen recording finds t=0 by it
+## --tail-marker=N  N white frames after the take's last frame, so it finds the end too
+## --deny-look      refuse --look and any lighting a stage changes: the game's own light
 ## [/codeblock]
+##
+## Every take prints [code][light][/code] (the environment in effect, against the
+## shipped one) and [code][clip][/code] (the lens within twice its near plane of a body).
 ##
 ## The whole path always plays, stretched or squeezed to [code]--seconds[/code],
 ## so a three second smoke run covers the same ground the full take does.
@@ -78,6 +87,8 @@ extends SceneTree
 
 const SHOTS := preload("res://tools/capture/shot_paths.gd")
 const CHAIN_STAGE := preload("res://tools/capture/chain_stage.gd")
+const CLIP_TAPE := preload("res://tools/capture/clip_tape.gd")
+const LENS_PROBE := preload("res://tools/capture/lens_probe.gd")
 const STAGE_DRIVER := preload("res://tools/capture/stage_driver.gd")
 const STAGE_LIB := preload("res://tools/capture/stages/lib.gd")
 const STAGES_DIR: String = "res://tools/capture/stages/"
@@ -157,6 +168,15 @@ var _look_ahead_until: float = 0.0
 var _seconds: float = 0.0
 var _delay: float = 0.0
 var _elapsed: float = 0.0
+var _sync_frames: int = 0
+var _tail_frames: int = 0
+var _sync_cover: CanvasLayer = null
+var _tape: RefCounted = null
+var _deny_look: bool = false
+var _shipped_light: Dictionary = {}
+var _logged_light: Dictionary = {}
+var _clip_hit: String = ""
+var _lens: RefCounted = null
 var _camera: Camera3D = null
 var _controller: MatchController = null
 var _stage: String = ""
@@ -212,19 +232,69 @@ func _initialize() -> void:
 		"bots": 7,
 		"map": "",
 		"out": "",
+		"record": "",
+		"tape": "",
+		"sync": 0,
+		"tail-marker": 0,
+		"deny-look": false,
 	})
+	_deny_look = bool(_options.get("deny-look", false))
+	_tail_frames = int(_options.get("tail-marker", 0))
+	_sync_frames = int(_options.get("sync", 0))
+	if _sync_frames > 0:
+		GameSettings.window_held = true
+		_cover_in_white()
+
+
+## The white marker frames: a full-window cover above everything, white clear colour behind it.
+func _cover_in_white() -> void:
+	_sync_cover = CanvasLayer.new()
+	_sync_cover.name = "ClipMarker"
+	_sync_cover.layer = 128
+	var white := ColorRect.new()
+	white.color = Color.WHITE
+	white.set_anchors_preset(Control.PRESET_FULL_RECT)
+	RenderingServer.set_default_clear_color(Color.WHITE)
+	_sync_cover.add_child(white)
+	root.add_child(_sync_cover)
+
+
+## A real-time take holds the window it was asked for; saved settings never resize it.
+func _hold_window() -> void:
+	if int(_options.get("sync", 0)) <= 0:
+		return
+	var want := Vector2i(
+		int(ProjectSettings.get_setting("display/window/size/viewport_width")),
+		int(ProjectSettings.get_setting("display/window/size/viewport_height")))
+	if DisplayServer.window_get_size() != want:
+		DisplayServer.window_set_size(want)
+	if _sync_cover != null and _sync_cover.get_child_count() > 0:
+		var white: Control = _sync_cover.get_child(0) as Control
+		white.position = Vector2.ZERO
+		white.size = Vector2(want)
 
 
 ## The world is built on the first iteration rather than in
 ## [method _initialize], where nothing is in the tree yet and every
 ## global_position reads back as the origin.
 func _process(delta: float) -> bool:
+	_hold_window()
 	if _done:
 		quit(_exit_code)
 		return true
 	if not _built:
+		if _sync_frames > 0:
+			_sync_frames -= 1
+			return false
 		_built = true
 		_build()
+		return false
+	if _sync_cover != null:
+		_sync_cover.free()
+		_sync_cover = null
+		RenderingServer.set_default_clear_color(Color.BLACK)
+	if _tail_frames > 0 and _elapsed >= _delay + _seconds:
+		_end_on_white()
 		return false
 
 	_elapsed += delta
@@ -250,10 +320,85 @@ func _process(delta: float) -> bool:
 			var progress: float = clampf((_elapsed - _delay) / _seconds, 0.0, 1.0)
 			_aim_camera(_key_start + progress * _key_span)
 		_turn_the_eye(delta)
+	_watch_the_light()
+	_probe_the_lens()
 	if _elapsed >= _delay + _seconds:
-		_hush()
-		_done = true
+		_end_the_take()
 	return false
+
+
+## The light in effect: exposure, ambient, sky energy, the look asked for and any clip fill.
+func _light_values() -> Dictionary:
+	var env: Environment = null
+	var viewer: Camera3D = root.get_camera_3d()
+	if viewer != null and viewer.environment != null:
+		env = viewer.environment
+	elif root.find_world_3d() != null:
+		env = root.find_world_3d().environment
+	var fill: float = _fill.light_energy if _fill != null and is_instance_valid(_fill) else 0.0
+	return {
+		"exposure": snappedf(env.tonemap_exposure, 0.001) if env != null else -1.0,
+		"ambient": snappedf(env.ambient_light_energy, 0.001) if env != null else -1.0,
+		"sky": snappedf(env.background_energy_multiplier, 0.001) if env != null else -1.0,
+		"look": String(_options.get("look", "")) if String(_options.get("look", "")) != "" else "shipped",
+		"fill": snappedf(fill, 0.001),
+	}
+
+
+## Print [light] on the first take frame and whenever it changes; --deny-look ends a take whose light moved.
+func _watch_the_light() -> void:
+	var now: Dictionary = _light_values()
+	if now == _logged_light:
+		return
+	_logged_light = now
+	print("[light] %6.2f  exposure=%.3f ambient=%.3f sky=%.3f look=%s fill=%.3f  shipped exposure=%.3f ambient=%.3f sky=%.3f" % [
+		_elapsed, now["exposure"], now["ambient"], now["sky"], now["look"], now["fill"],
+		_shipped_light.get("exposure", -1.0), _shipped_light.get("ambient", -1.0), _shipped_light.get("sky", -1.0),
+	])
+	if not _deny_look:
+		return
+	for key: String in ["exposure", "ambient", "sky", "fill"]:
+		if not is_equal_approx(float(now[key]), float(_shipped_light.get(key, now[key]))):
+			_fail("--deny-look: the stage changed %s from %s to %s; the take is not the game's light." % [
+				key, _shipped_light.get(key), now[key]])
+			return
+
+
+## Print [clip] when the lens goes into or against geometry or a body, and when it comes out.
+func _probe_the_lens() -> void:
+	var viewer: Camera3D = root.get_camera_3d()
+	if viewer == null:
+		return
+	if _lens == null:
+		_lens = LENS_PROBE.new()
+		_lens.build(_controller.get_parent())
+		print("[clip] probe: %d meshes, %d triangles" % [_lens.meshes, _lens.triangles])
+	var hit: String = _lens.probe(viewer, _pov_body)
+	if hit != _clip_hit:
+		print("[clip] %6.2f  %s" % [_elapsed, hit if not hit.is_empty() else "clear"])
+		_clip_hit = hit
+
+
+## The take's last frame has played: write the tape, then end (on white, with --tail-marker).
+func _end_the_take() -> void:
+	if _tape != null:
+		_tape.finish()
+		_tape = null
+	print("[take] %6.2f  end" % _elapsed)
+	if _lens != null:
+		_lens.free_space()
+	_hush()
+	if _tail_frames <= 0:
+		_done = true
+
+
+## The tail marker: the world stops drawing behind a white cover for N frames, then quits.
+func _end_on_white() -> void:
+	if _sync_cover == null:
+		_cover_in_white()
+	_tail_frames -= 1
+	if _tail_frames <= 0:
+		_done = true
 
 
 # --- Setup --------------------------------------------------------------------
@@ -328,7 +473,12 @@ func _build() -> void:
 				node.set(&"strength", 0.0)
 				(node as Node3D).visible = false
 				print("[rs] heat shimmer off: %s" % node.name)
-	if String(_options.get("look", "")) == "social":
+	_shipped_light = _light_values()
+	var look: String = String(_options.get("look", ""))
+	if _deny_look and not look.is_empty():
+		_fail("--deny-look: --look=%s would change the game's lighting; nothing was filmed." % look)
+		return
+	if look == "social":
 		_light_for_social(match_root)
 	_take_the_eye(match_root)
 	_listen_to_audio()
@@ -363,6 +513,8 @@ func _build() -> void:
 	if _plugin != null:
 		_plugin.before_start()
 	_controller.start_match()
+	if not _install_the_tape(match_root):
+		return
 	# A guard only exists in a round: the race has nobody in the tower, so a
 	# POV clip that waits for one films an empty chamber for a minute, and a
 	# runner filmed in the race is never shot at.
@@ -378,6 +530,24 @@ func _build() -> void:
 	if _pov == "":
 		_aim_camera(_key_start)
 	_announce(shot)
+
+
+## --record or --tape: the take's inputs written to, or played from, a tape.
+func _install_the_tape(match_root: Node) -> bool:
+	var record: String = String(_options.get("record", ""))
+	var play: String = String(_options.get("tape", ""))
+	if record.is_empty() and play.is_empty():
+		return true
+	_tape = CLIP_TAPE.new()
+	_tape.header = {
+		"shot": _options.get("shot", ""), "stage": _stage, "map": _options.get("map", ""),
+		"bots": _options.get("bots", 7), "set": _options.get("set", ""),
+		"seed": _options.get("seed", 0), "seconds": _seconds,
+	}
+	if not _tape.install(root, match_root, _controller, play if not play.is_empty() else record, not play.is_empty()):
+		_fail("The tape %s would not load; nothing was filmed." % play)
+		return false
+	return true
 
 
 ## Take the human out of the roster and switch off the layers that serve one.
@@ -925,6 +1095,8 @@ func _hush() -> void:
 
 func _fail(message: String) -> void:
 	printerr(message)
+	if _lens != null:
+		_lens.free_space()
 	_exit_code = EXIT_BROKEN
 	_done = true
 
