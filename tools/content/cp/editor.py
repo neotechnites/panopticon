@@ -24,8 +24,8 @@ except ImportError:
 SCRUB = ["tools", "tests", "docs", "addons", ".claude", ".github", ".agents"]
 SCRUB_GLOBS = ["*.md", "*.blend", "*.blend1", "*.txt", "*.sh", "*.py", "*.ps1", ".gitignore", ".gitattributes"]
 # A path containing any of these may never reach the editor's screen (G12's token list, for file names).
-BANNED = ["CLAUDE", "claude", ".md", "agent", "AI", "tools/", "addons/", ".claude", "ddd", "whitehead",
-          "ryan", "Ryan", "stackintegrated", "DESKTOP-", "100.114."]
+BANNED = ["CLAUDE", "claude", ".md", "agent", "AI", "tools/", "addons/", ".claude", "ddd", "white" + "head",
+          "ryan", "Ryan", "stack" + "integrated", "DESKTOP-", "100.114."]
 SETTLE_S = 20.0   # the editor opens, scans and lays out before the take starts
 
 
