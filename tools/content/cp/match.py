@@ -34,13 +34,15 @@ def cos(a, b):
 
 class Matcher:
     def __init__(self, db_path=inv.DB_PATH, project=None, base=None, aspect=(1080, 1920), cutoff_date=None,
-                 fresh_dates=None, confirm=True):
+                 fresh_dates=None, confirm=True, repo=None):
         if not os.path.isfile(db_path): raise FileNotFoundError("inventory missing: %s (run `content inventory build`)" % db_path)
         self.c = inv.db(db_path)
         self.project, self.base, self.aspect, self.cutoff_date = project, base, aspect, cutoff_date
         self.fresh_dates = fresh_dates or {}
         self.confirm = confirm
         self._client = None
+        self.repo = repo
+        self._ref_dates = {}
         self.taken = set()  # clips this plan already gave a line: never the same shot twice in one cut
         self.own = {p for p in (project, base) if p}
         self.uses = {}
@@ -64,8 +66,22 @@ class Matcher:
         if (r["h"] > r["w"]) != portrait and not letterbox: return False
         return min(r["w"], r["h"]) >= min(w, h) if not letterbox else True
 
+    def sha(self, ref):
+        if ref not in self._ref_dates or not isinstance(self._ref_dates.get("sha:" + ref), str):
+            out = subprocess.run(["git", "-C", self.repo or ".", "rev-parse", "--verify", "-q", ref + "^{commit}"], capture_output=True, text=True)
+            self._ref_dates["sha:" + ref] = out.stdout.strip() or ""
+        return self._ref_dates["sha:" + ref]
+
     def era_ok(self, r, game):
         if self.cutoff_date and r["date"] and r["date"] > self.cutoff_date: return False
+        ref = (game or {}).get("ref") or "main"
+        if ref.startswith("era:") and "greybox" in ref and (r["map"] or "") != "greybox": return False
+        if ref not in ("main", "") and not ref.startswith("era:"):
+            if ref not in self._ref_dates: self._ref_dates[ref] = commit_date(self.repo, ref) if self.repo else None
+            d = self._ref_dates[ref]
+            if r["commit_"] and self.sha(r["commit_"]):
+                return self.sha(r["commit_"]) == self.sha(ref)
+            if d and r["date"] and r["date"][:10] > d[:10]: return False
         return True
 
     def cand(self, r, rule, fit, why, cin=0.0, ln=None, from_line=None):
@@ -173,9 +189,10 @@ class Matcher:
         jpg = os.path.join(inv.INV_DIR, "sheets", cand["sha1"] + ".jpg")
         if not os.path.isfile(jpg): return False, "no contact sheet"
         from google.genai import types
-        prompt = ("These are 6 frames sampled evenly from one video clip of a low-poly first-person game. "
-                  "Shot note: \"%s\". Would this clip, or a continuous part of it, serve as that shot? Judge only what is visible; "
-                  "on-screen text, POV, map and the action must fit. JSON: {\"yes\": true|false, \"why\": one sentence}" % note)
+        prompt = ("These are 6 frames sampled evenly (left to right, top to bottom) from one moving video clip of a low-poly first-person "
+                  "game; 6 stills cannot show every motion. Shot note: \"%s\". Would this clip, or a continuous part of it, serve as that shot? "
+                  "Yes when the map, POV, era and the kind of action match and nothing visible contradicts the note; no when the map, POV or era "
+                  "is wrong or the clip clearly shows something else. JSON: {\"yes\": true|false, \"why\": one sentence}" % note)
         try:
             resp = self.client().models.generate_content(model=CONFIRM_MODEL,
                 contents=[types.Part.from_bytes(data=open(jpg, "rb").read(), mime_type="image/jpeg"), prompt],
