@@ -43,7 +43,7 @@ captions_y: 0.72
 | l5a | cuts/s4_editor.mp4 | 0 |  | line |  | All I had to do was add a few lines to that shader |  |
 | l5b | cuts/s4_editor.mp4 | cont |  | line |  | that rotate the texture around its centre a little more every frame, so the whole swirl turns. |  |
 | l6 | cuts/s5_orbit.mp4 | 0 |  | line |  | What do you think? Should I keep this in or not? |  |
-| l7 | external/hell_runner_v8_06.mp4 | 0 |  | line |  | Let me know what else you think I should add in the comments, and it just might make it into the final game! |  |
+| l7 | external/forest_runner_haters03.mp4 | 0 |  | line |  | Let me know what else you think I should add in the comments, and it just might make it into the final game! |  |
 
 ## v1 as cut (2026-10-12)
 # Takes: real time, ddagrab 810x1440 scaled to 1080x1920; sync = the LAST white stretch in the window's top 600 px
@@ -74,3 +74,6 @@ captions_y: 0.72
 ## v6 (Ryan: reuse only)
 # L2/L3: haters_short cuts\02.mp4 (forest guard POV, scope on runners, 6.4 s); l3 is nohold so it ends with the clip, 0.07 s after the voice.
 # L7: ragdoll_short v8_06_pit_eye.mp4 (hell runner POV, today's build), its first 4.4 s.
+
+## v7 (Ryan: different gameplay, no refilm)
+# L7: haters_short cuts\03.mp4 (forest runner POV, today's build), its first 4.4 s; no eye in it.
