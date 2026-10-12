@@ -66,3 +66,7 @@ captions_y: 0.72
 # marble's swirl recoloured; swapped in by the stage / the editor tool script, never on main). Same cameras and timing.
 # L7: dash_shove on the S3 lane: the man ahead-right is sniped 1.3 s in (tracer past, flinch), we run down the lead and
 # shove him 2.0 s in. Not ending at the portal: the last stretch to it is the lava-lake parkour, which clipped in v1.
+
+## v5 (Ryan: L1 and L5 must wave AND spin)
+# The material was never replaced (only its two textures); the wave is a 0.3 m bulge off the disc's face, invisible
+# head-on. L1 and the editor camera now look from L4's oblique side and height, where the bulge reads.
