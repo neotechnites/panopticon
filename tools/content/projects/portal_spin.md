@@ -40,10 +40,10 @@ captions_y: 0.72
 | l2 | cuts/s2_scope.mp4 | 0 |  | line |  | This guy on my last two shorts asked the same thing: make the portal spin. | external/comment_placeholder.png w=900 y=0.33 in=0.35 out=0.30 |
 | l3 | cuts/s2_scope.mp4 | cont |  | line |  | And you know what? I think that's a great idea. |  |
 | l4 | cuts/s3_wave.mp4 | 0 |  | line |  | This was simple. I already had the portal waving, using a modified version of what I used to make the lava wave. |  |
-| l5a | cuts/s4_dial.mp4 | 0 |  | line |  | All I had to do was add a few lines to that shader | external/shader_lines.png w=980 y=0.2 in=0.25 out=0.25 |
-| l5b | cuts/s4_dial.mp4 | cont |  | line |  | that rotate the texture around its centre a little more every frame, so the whole swirl turns. |  |
+| l5a | cuts/s4_editor.mp4 | 0 |  | line |  | All I had to do was add a few lines to that shader |  |
+| l5b | cuts/s4_editor.mp4 | cont |  | line |  | that rotate the texture around its centre a little more every frame, so the whole swirl turns. |  |
 | l6 | cuts/s5_orbit.mp4 | 0 |  | line |  | What do you think? Should I keep this in or not? |  |
-| l7 | cuts/s6_runner.mp4 | 0 |  | line |  | Let me know what else you think I should add in the comments, and it just might make it into the final game! |  |
+| l7 | cuts/s6_forest.mp4 | 0 |  | line |  | Let me know what else you think I should add in the comments, and it just might make it into the final game! |  |
 
 ## v1 as cut (2026-10-12)
 # Takes: real time, ddagrab 810x1440 scaled to 1080x1920; sync = the LAST white stretch in the window's top 600 px
@@ -53,3 +53,10 @@ captions_y: 0.72
 # s4_dial: the live dial (portal_spin_dial.gdshader), spin 0 until take 4.3 s, which lands on "that rotate".
 # Code card: the commit's lines, the smoothstep rim factor left out so it fits on a phone.
 # Voice: edge-tts en-US-AndrewNeural +5% (PC system Python, endpoint patched). Music: shove's windmill_isle_day at -18.
+
+## v3 (Ryan's notes on v1)
+# L5: the real Godot editor, recorded in real time (ddagrab, 2560x1440, a 776x1380 portrait crop of the window):
+# a scrubbed copy C:\dev\portal_editor (no .git history shown, no tools, addons, docs, tests, *.md) opened on the hell
+# map; scenes/portal_spin.gd (@tool, editor/ here) frames the editor camera on the portal and turns the spin on when
+# res://spin.on appears, 10 s into the recording; the cut starts 2.8 s before it, so the spin starts on "that rotate". No code card.
+# L7: forest runner POV, stage forest_run (the clear corridor r 51.6-52.4, bearing 5-60).

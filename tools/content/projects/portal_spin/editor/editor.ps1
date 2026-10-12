@@ -24,13 +24,13 @@ do { Start-Sleep -Milliseconds 200; $g.Refresh() } until (($g.MainWindowHandle -
 Start-Sleep -Seconds 3
 [Win32.Wake]::ShowWindow($g.MainWindowHandle, 3) | Out-Null
 [Win32.Wake]::SetForegroundWindow($g.MainWindowHandle) | Out-Null
-Start-Sleep -Seconds 30
+Start-Sleep -Seconds 50
 try { $g.PriorityClass = 'BelowNormal' } catch {}
 $raw = "$D\takes\editor.avi"
-$fi = New-Object System.Diagnostics.ProcessStartInfo 'ffmpeg.exe', "-hide_banner -loglevel error -y -threads 4 -f lavfi -i ddagrab=output_idx=0:framerate=60:draw_mouse=0 -t 14 -vf hwdownload,format=bgra,format=gbrp -c:v utvideo $raw"
+$fi = New-Object System.Diagnostics.ProcessStartInfo 'ffmpeg.exe', "-hide_banner -loglevel error -y -threads 4 -f lavfi -i ddagrab=output_idx=0:framerate=60:draw_mouse=0 -t 20 -vf hwdownload,format=bgra,format=gbrp -c:v utvideo $raw"
 $fi.UseShellExecute = $false; $fi.CreateNoWindow = $true
 $fp = [System.Diagnostics.Process]::Start($fi)
-Start-Sleep -Seconds 6
+Start-Sleep -Seconds 10
 New-Item -ItemType File "$dst\spin.on" | Out-Null
 "spin on $(Get-Date -Format HH:mm:ss.fff)" | Out-File $log -Append
 $fp.WaitForExit(40000) | Out-Null
