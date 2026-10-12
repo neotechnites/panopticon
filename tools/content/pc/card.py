@@ -160,6 +160,79 @@ def overlay_args(card_w, card_h, y_frac, t_in, dur_in, t_out, dur_out,
     return "x='%s':y=%d:enable='between(t,%s,%s)'" % (x, y, _n(t_in), _n(t_out + dur_out))
 
 
+FONT_DIRS = [r"C:\Windows\Fonts", "/System/Library/Fonts/Supplemental", "/Library/Fonts",
+             "/usr/share/fonts/truetype/msttcorefonts"]
+FONT_FILES = {"regular": ["arial.ttf", "Arial.ttf"], "bold": ["arialbd.ttf", "Arial Bold.ttf"]}
+
+
+def font(kind):
+    """An Arial file on this machine (Windows or macOS), or a loud failure."""
+    for d in FONT_DIRS:
+        for name in FONT_FILES[kind]:
+            p = os.path.join(d, name)
+            if os.path.exists(p):
+                return p
+    raise SystemExit("card: no Arial %s font found in %s" % (kind, FONT_DIRS))
+
+
+def _esc(path):
+    """A path as a drawtext option value: forward slashes, ':' and quotes escaped."""
+    return path.replace("\\", "/").replace(":", "\\:").replace("'", "\\'")
+
+
+def _wrap(text, size, width):
+    """Greedy wrap at an Arial average advance of 0.52 em; the card is sized from it."""
+    per = max(8, int(width / (0.52 * size)))
+    lines, cur = [], ""
+    for word in text.split():
+        if cur and len(cur) + 1 + len(word) > per:
+            lines.append(cur)
+            cur = word
+        else:
+            cur = (cur + " " + word).strip()
+    if cur:
+        lines.append(cur)
+    return lines or [""]
+
+
+def comment_card(out_png, handle, text, ago="1 week ago", mark_placeholder=False, width=940, workdir=None):
+    """A YouTube-style comment card: handle in bold, age in grey, the comment below.
+
+    Drawn with ffmpeg drawtext on the placeholder shape (no PIL), then lifted with
+    shadowed(). Returns {png, w, h, body:(x, y, w, h)} where w, h is the canvas to
+    overlay and body is the white card inside it, for the layout engine.
+    """
+    pad, hs, ts, lh = 40, 38, 46, 58
+    body = _wrap(text, ts, width - 2 * pad)
+    h = pad + hs + 26 + lh * len(body) + (44 if mark_placeholder else 0) + pad - 12
+    work = workdir or os.path.dirname(os.path.abspath(out_png))
+    os.makedirs(work, exist_ok=True)
+    stem = os.path.splitext(os.path.basename(out_png))[0]
+    raw = os.path.join(work, stem + "_shape.png")
+    placeholder(raw, width, h, 28)
+    texts = [("bold", hs, "0x101010", pad, pad, handle),
+             ("regular", 30, "0x808080", None, pad + 6, ago)]
+    y = pad + hs + 26
+    for ln in body:
+        texts.append(("regular", ts, "0x161616", pad, y, ln))
+        y += lh
+    if mark_placeholder:
+        texts.append(("bold", 26, "0xD00000", pad, y + 6, "PLACEHOLDER: real handle and comment to come"))
+    filters = []
+    for i, (kind, size, col, x, yy, s) in enumerate(texts):
+        tf = os.path.join(work, "%s_t%d.txt" % (stem, i))
+        with open(tf, "w", encoding="utf-8") as f:
+            f.write(s)
+        xx = x if x is not None else "%d+%d" % (pad, int(len(handle) * hs * 0.6) + 22)
+        filters.append("drawtext=fontfile='%s':textfile='%s':fontsize=%d:fontcolor=%s:x=%s:y=%d"
+                       % (_esc(font(kind)), _esc(tf), size, col, xx, yy))
+    flat = os.path.join(work, stem + "_flat.png")
+    _run(FF + ["-i", raw, "-vf", ",".join(filters), "-frames:v", "1", flat])
+    cw, chh = shadowed(flat, out_png, width=width)
+    m = (cw - width) // 2
+    return {"png": out_png, "w": cw, "h": chh, "body": (m, m, width, h)}
+
+
 def _pgm_row(path):
     """The grey values of a 1-row P5 pgm ffmpeg wrote."""
     data = open(path, "rb").read()
@@ -288,7 +361,20 @@ def main():
         out = placeholder(sys.argv[2], a[0], a[1], a[2])
         print("placeholder %dx%d radius %d: %s" % (a[0], a[1], a[2], out))
         return
-    raise SystemExit("usage: card.py --selftest <outdir> | --placeholder <out.png> [w h radius]")
+    if len(sys.argv) >= 2 and sys.argv[1] == "comment":
+        import argparse
+        ap = argparse.ArgumentParser(prog="card.py comment")
+        ap.add_argument("--handle", required=True)
+        ap.add_argument("--text", required=True)
+        ap.add_argument("--out", required=True)
+        ap.add_argument("--ago", default="1 week ago")
+        ap.add_argument("--placeholder", action="store_true")
+        a = ap.parse_args(sys.argv[2:])
+        r = comment_card(a.out, a.handle, a.text, a.ago, a.placeholder)
+        print("comment card %dx%d body %s: %s" % (r["w"], r["h"], r["body"], r["png"]))
+        return
+    raise SystemExit("usage: card.py --selftest <outdir> | --placeholder <out.png> [w h radius]"
+                     " | comment --handle H --text T --out PNG [--placeholder]")
 
 
 if __name__ == "__main__":
