@@ -21,6 +21,26 @@ Add-Type -Namespace CP -Name Win -MemberDefinition @'
 [CP.Win]::mouse_event(1, -1, 0, 0, [UIntPtr]::Zero); Start-Sleep -Milliseconds 800
 
 $w = [int]$j.w; $h = [int]$j.h; $fps = [int]$j.fps
+if ($j.mode -eq 'final') {
+  # The virtual monitor carries both capture sizes; switch it to this job's (portrait short, landscape devlog).
+  Add-Type -Namespace CP -Name Disp -MemberDefinition @'
+[StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi)] public struct DEVMODE {
+  [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)] public string dmDeviceName; public short dmSpecVersion, dmDriverVersion, dmSize, dmDriverExtra;
+  public int dmFields, dmPositionX, dmPositionY, dmDisplayOrientation, dmDisplayFixedOutput; public short dmColor, dmDuplex, dmYResolution, dmTTOption, dmCollate;
+  [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)] public string dmFormName; public short dmLogPixels; public int dmBitsPerPel, dmPelsWidth, dmPelsHeight, dmDisplayFlags, dmDisplayFrequency;
+  public int dmICMMethod, dmICMIntent, dmMediaType, dmDitherType, dmReserved1, dmReserved2, dmPanningWidth, dmPanningHeight; }
+[DllImport("user32.dll", CharSet = CharSet.Ansi)] public static extern bool EnumDisplaySettings(string dev, int mode, ref DEVMODE dm);
+[DllImport("user32.dll", CharSet = CharSet.Ansi)] public static extern int ChangeDisplaySettingsEx(string dev, ref DEVMODE dm, IntPtr hwnd, int flags, IntPtr param);
+'@
+  $virt = [System.Windows.Forms.Screen]::AllScreens | Where-Object { -not $_.Primary -and (($_.Bounds.Width -eq 1080 -and $_.Bounds.Height -eq 1920) -or ($_.Bounds.Width -eq 1920 -and $_.Bounds.Height -eq 1080)) } | Select-Object -First 1
+  if ($virt -and ($virt.Bounds.Width -ne $w -or $virt.Bounds.Height -ne $h)) {
+    $dm = New-Object CP.Disp+DEVMODE; $dm.dmSize = [Runtime.InteropServices.Marshal]::SizeOf($dm)
+    [CP.Disp]::EnumDisplaySettings($virt.DeviceName, -1, [ref]$dm) | Out-Null
+    $dm.dmPelsWidth = $w; $dm.dmPelsHeight = $h; $dm.dmFields = 0x180000
+    $rc = [CP.Disp]::ChangeDisplaySettingsEx($virt.DeviceName, [ref]$dm, [IntPtr]::Zero, 1, [IntPtr]::Zero)
+    $res.mode_switch = "$($virt.DeviceName) -> ${w}x${h}: $rc"; Start-Sleep -Seconds 2
+  }
+}
 # rough: the main screen, as today. final: the capture-only virtual monitor at exactly w x h.
 $screen = $null
 foreach ($s in [System.Windows.Forms.Screen]::AllScreens) {

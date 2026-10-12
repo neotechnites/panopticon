@@ -102,7 +102,7 @@ def pc_project(ref: str) -> str:
     """The PC checkout a take is filmed in: C:\\dev\\verify for main, a detached worktree per other ref.
     An older ref gets today's tools/capture, so its takes carry markers, [light] and [clip] too."""
     if ref in ("", "main", "HEAD", "origin/main"):
-        return PC_VERIFY
+        return os.environ.get("CP_PC_PROJECT", PC_VERIFY)
     out = pc(f"""
 $ErrorActionPreference = 'Stop'
 $sha = (git -C C:/dev/verify rev-parse '{ref}^{{commit}}').Trim()
@@ -126,6 +126,9 @@ def parse_log(text: str) -> dict:
     for line in text.splitlines():
         if "SCRIPT ERROR" in line or line.startswith("--deny-look") or "would not load" in line:
             errors.append(line.strip())
+        if line.startswith("[clip] probe:"):
+            clips.append({"t": -1.0, "what": line[len("[clip] "):].strip()})
+            continue
         m = LOG_RE.match(line.strip())
         if not m:
             continue
@@ -136,7 +139,7 @@ def parse_log(text: str) -> dict:
             events.append({"t": t, "kind": EVENT_ALIAS.get(kind, kind), "who": parts[1] if len(parts) > 1 else "",
                            "raw": rest})
         elif tag == "light":
-            live, _, shipped = rest.partition("shipped")
+            live, _, shipped = rest.partition("  shipped ")
             d = {"t": t}
             for k, v in re.findall(r"(\w+)=(\S+)", live):
                 d[k] = v if k == "look" else float(v)
@@ -294,11 +297,11 @@ def capture_line(plan: dict, row: dict, mode: str, local_dir: Path, retakes: int
             json.dump(job, f)
         pc_push(f.name, f"{pc_dir}\\job.json")
         os.unlink(f.name)
-        pc(f"Remove-Item '{pc_dir}\\result.json', '{pc_dir}\\take.log' -EA SilentlyContinue")
+        pc(f"Remove-Item '{pc_dir}\\result.json', '{pc_dir}\\take.log' -EA SilentlyContinue", check=False)
         t_start = time.time()
         with pclock.lease("screen", f"{name}/{line}", seconds + 60):
             _run_task(f"{pc_dir}\\job.json", seconds, f"{name}/{line}")
-        res = json.loads(pc(f"Get-Content '{pc_dir}\\result.json' -Raw -EA SilentlyContinue").strip().lstrip("\ufeff")
+        res = json.loads(pc(f"Get-Content '{pc_dir}\\result.json' -Raw -EA SilentlyContinue", check=False).strip().lstrip("\ufeff")
                          or '{"ok": false, "error": "no result.json"}')
         try:
             pc_pull(f"{pc_dir}\\take.log", str(local_dir / "take.log"))
