@@ -53,6 +53,8 @@ extends SceneTree
 ## --map=ID         a MapCatalog id (bentham_ring, marble, forest); the match
 ##                  is filmed on it instead of the map the saved rules name
 ## --out=DIR        directory the clip is destined for; created if missing
+## --sync=N         real-time rough take: N white frames before the world is built, gone
+##                  on the take's first frame, so a screen recording finds t=0 by it
 ## [/codeblock]
 ##
 ## The whole path always plays, stretched or squeezed to [code]--seconds[/code],
@@ -157,6 +159,8 @@ var _look_ahead_until: float = 0.0
 var _seconds: float = 0.0
 var _delay: float = 0.0
 var _elapsed: float = 0.0
+var _sync_frames: int = 0
+var _sync_cover: CanvasLayer = null
 var _camera: Camera3D = null
 var _controller: MatchController = null
 var _stage: String = ""
@@ -212,20 +216,54 @@ func _initialize() -> void:
 		"bots": 7,
 		"map": "",
 		"out": "",
+		"sync": 0,
 	})
+	_sync_frames = int(_options.get("sync", 0))
+	if _sync_frames > 0:
+		_sync_cover = CanvasLayer.new()
+		_sync_cover.name = "ClipSync"
+		_sync_cover.layer = 128
+		var white := ColorRect.new()
+		white.color = Color.WHITE
+		white.set_anchors_preset(Control.PRESET_FULL_RECT)
+		RenderingServer.set_default_clear_color(Color.WHITE)
+		_sync_cover.add_child(white)
+		root.add_child(_sync_cover)
 
 
 ## The world is built on the first iteration rather than in
 ## [method _initialize], where nothing is in the tree yet and every
 ## global_position reads back as the origin.
+## The player's saved resolution resizes the window after boot; a take holds the size it was asked for.
+func _hold_window() -> void:
+	if _sync_frames <= 0 and _sync_cover == null and not _options.get("sync", 0):
+		return
+	var want: Vector2i = Vector2i(int(ProjectSettings.get_setting("display/window/size/viewport_width")), int(ProjectSettings.get_setting("display/window/size/viewport_height")))
+	if DisplayServer.window_get_size() != want:
+		DisplayServer.window_set_size(want)
+		DisplayServer.window_set_position(Vector2i.ZERO)
+	if _sync_cover != null and _sync_cover.get_child_count() > 0:
+		var white: Control = _sync_cover.get_child(0) as Control
+		white.position = Vector2.ZERO
+		white.size = Vector2(want)
+
+
 func _process(delta: float) -> bool:
+	_hold_window()
 	if _done:
 		quit(_exit_code)
 		return true
 	if not _built:
+		if _sync_frames > 0:
+			_sync_frames -= 1
+			return false
 		_built = true
 		_build()
 		return false
+	if _sync_cover != null:
+		_sync_cover.free()
+		_sync_cover = null
+		RenderingServer.set_default_clear_color(Color.BLACK)
 
 	_elapsed += delta
 	_log_the_rifle()

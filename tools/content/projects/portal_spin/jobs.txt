@@ -1,0 +1,7 @@
+# name|project|run_clip args|seconds|in   (project: verify = this branch; portal_before = 8120d577, ed473b24~1)
+s1_zoom|C:\dev\verify|--map=bentham_ring --shot=portal --stage=portal_spin --bots=1 --set=mode=zoom;push=5|7.5|1.5
+s2_scope|C:\dev\verify|--map=bentham_ring --shot=s3_open_lane --stage=scope_hunt --pov=guard --hud=crosshair --bots=7 --seed=20260922|10|1.5
+s3_wave|C:\dev\worktrees\portal_before|--map=bentham_ring --shot=portal --stage=portal_spin --bots=1 --set=mode=wave|8|1.5
+s4_dial|C:\dev\verify|--map=bentham_ring --shot=portal --stage=portal_spin --bots=1 --set=mode=dial;spin_at=4.3|10|1.5
+s5_orbit|C:\dev\verify|--map=bentham_ring --shot=portal --stage=portal_spin --bots=1 --set=mode=orbit|6.5|1.5
+s6_runner|C:\dev\verify|--map=bentham_ring --shot=lava_parkour --stage=lavaparkour --pov=runner --bots=4|8|1.5
