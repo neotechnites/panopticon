@@ -1,0 +1,101 @@
+{
+ "name": "ragdoll_vnext",
+ "kind": "short",
+ "aspect": [
+  1080,
+  1920
+ ],
+ "fps": 60,
+ "cutoff": null,
+ "base": "ragdoll_short",
+ "captions": "pop",
+ "lines": [
+  {
+   "id": "L1",
+   "text": "The death animation in my game was really bad.",
+   "note": "the old (pre-ragdoll) death from the sniper's POV in hell: a prisoner is shot and plays the stiff canned death",
+   "source": "reuse",
+   "action": "reuse",
+   "overlays": [],
+   "beats": []
+  },
+  {
+   "id": "M2",
+   "text": "",
+   "note": "no voice: the old canned death again, grey test map, close up, with a scared reaction gif",
+   "source": "reuse",
+   "action": "reuse",
+   "overlays": [],
+   "beats": []
+  },
+  {
+   "id": "L3",
+   "text": "Yeaeeeeeeeh I needed something better, but if my art didnt make it clear, I'm a programmer, not an animator",
+   "note": "slow zoom out over the hell pit with the old deaths",
+   "source": "reuse",
+   "action": "reuse",
+   "overlays": [],
+   "beats": []
+  },
+  {
+   "id": "L4",
+   "text": "Luckily my solution actually came from you guys, in an earlier short when i asked for suggestions, this guy gave me the exact solution to my problem. Ragdolls",
+   "note": "the zoom out continues, a YouTube-style comment card (placeholder) suggesting ragdolls, then the guard shoots a runner on the tower and he ragdolls with momentum ON the word Ragdolls",
+   "source": "reuse",
+   "action": "reuse",
+   "overlays": [
+    {
+     "kind": "comment_card",
+     "handle": "@commenter",
+     "text": "ragdolls",
+     "in": "word:this guy",
+     "out": "line_end",
+     "placeholder": true
+    }
+   ],
+   "beats": [
+    {
+     "word": "Ragdolls",
+     "event": "hit",
+     "tolerance_s": 0.034
+    }
+   ]
+  },
+  {
+   "id": "L5",
+   "text": "these are pretty janky, but im keeping it that way, because it doesnt effect gameplay, and i think makes it more entertaining",
+   "note": "a montage of sniper hits ragdolling prisoners, then one freaks out and flies",
+   "source": "reuse",
+   "action": "reuse",
+   "overlays": [],
+   "beats": []
+  },
+  {
+   "id": "L6",
+   "text": "Once i had this, i wanted to use it more. Now when you shove someone, they also ragdoll.",
+   "note": "melee shoves: a prisoner shoves another and the victim ragdolls",
+   "source": "reuse",
+   "action": "reuse",
+   "overlays": [],
+   "beats": []
+  },
+  {
+   "id": "L7",
+   "text": "And when you reach the tower, you can shove the guard out, and watch them go flying into the pit.",
+   "note": "runner POV at the tower: shoves the guard out and the guard flies into the pit",
+   "source": "reuse",
+   "action": "reuse",
+   "overlays": [],
+   "beats": []
+  },
+  {
+   "id": "L8",
+   "text": "Let me know what else I should add in the comments",
+   "note": "rides on the L7 picture",
+   "source": "reuse",
+   "action": "reuse",
+   "overlays": [],
+   "beats": []
+  }
+ ]
+}

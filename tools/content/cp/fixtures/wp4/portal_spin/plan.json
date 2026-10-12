@@ -1,0 +1,86 @@
+{
+ "name": "portal_spin",
+ "kind": "short",
+ "aspect": [
+  1080,
+  1920
+ ],
+ "fps": 60,
+ "cutoff": null,
+ "base": null,
+ "captions": "pop",
+ "lines": [
+  {
+   "id": "L1",
+   "text": "Do you think this change to my game is an improvement or should i scrap it?",
+   "note": "slow zoom on the portal, ALREADY SPINNING (current main)",
+   "source": "game",
+   "action": "capture",
+   "overlays": [],
+   "beats": []
+  },
+  {
+   "id": "L2",
+   "text": "This guy on my last two shorts asked the same thing, make the portal spin",
+   "note": "sniper-POV gameplay in the background, with a YouTube-style comment card on screen. Handle and text are a PLACEHOLDER (\"@commenter \u2014 make the portal spin\"), clearly marked.",
+   "source": "game",
+   "action": "capture",
+   "overlays": [
+    {
+     "kind": "comment_card",
+     "handle": "@commenter",
+     "text": "make the portal spin",
+     "in": "line_start",
+     "out": "line_end",
+     "placeholder": true
+    }
+   ],
+   "beats": []
+  },
+  {
+   "id": "L3",
+   "text": "And you know what? I think thats a great idea",
+   "note": "same shot; the comment card goes away",
+   "source": "game",
+   "action": "capture",
+   "overlays": [],
+   "beats": []
+  },
+  {
+   "id": "L4",
+   "text": "This was simple, i already had the portal waving using a modified version of what i used to make the lava wave",
+   "note": "the portal waving WITHOUT spinning, filmed from ed473b24~1; the lava wave can show too",
+   "source": "game",
+   "action": "capture",
+   "overlays": [],
+   "beats": []
+  },
+  {
+   "id": "L5",
+   "text": "All I had to do was add a few lines to that shader that rotate the texture around its centre a little more every frame, so the whole swirl turns.",
+   "note": "Godot-editor-style footage: the portal texture with the spin off, then turned on, holding a beat after it starts.",
+   "source": "game",
+   "action": "capture",
+   "overlays": [],
+   "beats": []
+  },
+  {
+   "id": "L6",
+   "text": "What do you think? should i keep this in or not?",
+   "note": "more shots of the spinning portal in game",
+   "source": "game",
+   "action": "capture",
+   "overlays": [],
+   "beats": []
+  },
+  {
+   "id": "L7",
+   "text": "Let me know what else you think i should add in the comments and it just might make it into the final game!",
+   "note": "runner-POV gameplay",
+   "source": "game",
+   "action": "capture",
+   "overlays": [],
+   "beats": []
+  }
+ ]
+}

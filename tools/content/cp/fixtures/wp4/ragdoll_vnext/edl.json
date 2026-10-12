@@ -1,0 +1,132 @@
+{
+ "lines": [
+  {
+   "id": "L1",
+   "start": 0.0,
+   "dur": 5.0,
+   "parts": [
+    {
+     "path": "C:\\Users\\ddd\\Desktop\\panopticon-renders\\content\\ragdoll_short\\01_old_death_sniper_hell.mp4",
+     "in": 6.5,
+     "len": 4.95,
+     "speed": 1.0
+    }
+   ]
+  },
+  {
+   "id": "M2",
+   "start": 5.0,
+   "dur": 1.8,
+   "parts": [
+    {
+     "path": "C:\\Users\\ddd\\Desktop\\panopticon-renders\\content\\ragdoll_short\\02_old_death_grey.mp4",
+     "in": 1.7,
+     "len": 1.8,
+     "speed": 1.0
+    }
+   ]
+  },
+  {
+   "id": "L3",
+   "start": 6.8,
+   "dur": 5.606021,
+   "parts": [
+    {
+     "path": "C:\\Users\\ddd\\Desktop\\panopticon-renders\\content\\ragdoll_short\\03_old_hell_zoomout.mp4",
+     "in": 0.0,
+     "len": 5.606021,
+     "speed": 1.0
+    }
+   ]
+  },
+  {
+   "id": "L4",
+   "start": 12.406021,
+   "dur": 9.270458,
+   "parts": [
+    {
+     "path": "C:\\Users\\ddd\\Desktop\\panopticon-renders\\content\\ragdoll_short\\03_old_hell_zoomout.mp4",
+     "in": 5.606021,
+     "len": 5.37,
+     "speed": 1.0
+    },
+    {
+     "path": "C:\\Users\\ddd\\Desktop\\panopticon-renders\\content\\ragdoll_short\\04_tower_runner_shot_momentum.mp4",
+     "in": 0.0,
+     "len": 3.900458,
+     "speed": 1.0
+    }
+   ],
+   "beats": [
+    {
+     "word": "Ragdolls",
+     "t_word": 20.776
+    }
+   ]
+  },
+  {
+   "id": "L5",
+   "start": 21.676479,
+   "dur": 6.795958,
+   "parts": [
+    {
+     "path": "C:\\Users\\ddd\\Desktop\\panopticon-renders\\content\\ragdoll_short\\05_hits_c.mp4",
+     "in": 1.4,
+     "len": 1.6,
+     "speed": 1.0
+    },
+    {
+     "path": "C:\\Users\\ddd\\Desktop\\panopticon-renders\\content\\ragdoll_short\\05_hits_c.mp4",
+     "in": 3.5,
+     "len": 1.5,
+     "speed": 1.0
+    },
+    {
+     "path": "C:\\Users\\ddd\\Desktop\\panopticon-renders\\content\\ragdoll_short\\05_hits_c.mp4",
+     "in": 5.5,
+     "len": 1.5,
+     "speed": 1.0
+    },
+    {
+     "path": "C:\\Users\\ddd\\Desktop\\panopticon-renders\\content\\ragdoll_short\\05_freakout_mild.mp4",
+     "in": 1.4,
+     "len": 2.195958,
+     "speed": 1.0
+    }
+   ]
+  },
+  {
+   "id": "L6",
+   "start": 28.472437,
+   "dur": 5.447208,
+   "parts": [
+    {
+     "path": "C:\\Users\\ddd\\Desktop\\panopticon-renders\\content\\ragdoll_short\\06a_melee4.mp4",
+     "in": 0.0,
+     "len": 5.447208,
+     "speed": 1.0
+    }
+   ]
+  },
+  {
+   "id": "L7",
+   "start": 33.919645,
+   "dur": 4.840896,
+   "parts": [
+    {
+     "path": "C:\\Users\\ddd\\Desktop\\panopticon-renders\\content\\ragdoll_short\\07_finale_runner_pov_cinematic.mp4",
+     "in": 0.0,
+     "len": 7.253313,
+     "speed": 1.0
+    }
+   ]
+  },
+  {
+   "id": "L8",
+   "start": 38.760541,
+   "dur": 2.412417,
+   "parts": []
+  }
+ ],
+ "final": "ragdoll_vnext_v1.mp4"
+}

@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# content short|devlog|trailer <spec.md> [--tag vN] [--ryan DIR] [--movie] | content <tool> args  (see cp/run.py)
+set -euo pipefail
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+VENV="${CONTENT_VENV:-$HOME/.venvs/panopticon-content}"
+if [ ! -x "$VENV/bin/python" ] || ! "$VENV/bin/python" -c "import google.genai, jsonschema" 2>/dev/null; then
+  python3 -m venv "$VENV" && "$VENV/bin/pip" install -q "google-genai==2.29.0" jsonschema
+fi
+PYTHONPATH="$HERE${PYTHONPATH:+:$PYTHONPATH}" exec "$VENV/bin/python" -m cp.run "$@"
