@@ -214,7 +214,8 @@ def line_parts(line, project, roots):
         info = probe(ab)
         end = info["dur"] if p.get("max_end") is None else min(info["dur"], p["max_end"])
         out.append({"path": ab, "key": p["path"], "in": float(p.get("in") or 0.0), "len": p.get("len"),
-                    "cont": bool(p.get("cont")), "end": end, "info": info, "events": events})
+                    "cont": bool(p.get("cont")), "end": end, "info": info, "events": events,
+                    "freeze_ok": p.get("freeze_ok")})
     return out
 
 
@@ -285,6 +286,7 @@ def place(line, parts, span_f, words, cont_pos):
         else:
             want = (span_f - t) if span_f is not None else avail
         segs.append({"path": p["path"], "key": p["key"], "in": p["in"], "start_f": t, "len_f": want, "avail": avail,
+                     "freeze_ok": p.get("freeze_ok"),
                      "info": p["info"]})
         if want is not None:
             t += want
@@ -351,8 +353,9 @@ def render_base(lp, out, W, H):
     fc.append("".join(labels) + "concat=n=%d:v=1:a=0[base]" % n)
     cur = "[base]"
     for j, ov in enumerate(lp["overlays"]):
-        args += ["-loop", "1", "-framerate", str(FPS), "-t", "%.4f" % (lp["span_f"] / FPS + 0.5), "-i", ov["png"]]
-        fc.append("[%d:v]format=rgba[o%d]" % (n + j, j))
+        still = ["-ignore_loop", "0"] if ov["png"].lower().endswith(".gif") else ["-loop", "1", "-framerate", str(FPS)]
+        args += still + ["-t", "%.4f" % (lp["span_f"] / FPS + 0.5), "-i", ov["png"]]
+        fc.append("[%d:v]%s[o%d]" % (n + j, ov.get("chain", "format=rgba"), j))
         fc.append("%s[o%d]overlay=%s:format=auto[ov%d]" % (cur, j, ov["args"], j))
         cur = "[ov%d]" % j
     fc.append("%sformat=yuv420p[vout]" % cur)
@@ -423,10 +426,13 @@ def run(project, tag=None, only=None, jobs=2, roots=None):
               "short_s": short_s, "beats": beats, "notes": notes, "words": words, "overlays": []}
         span_s = span_f / FPS
         for k, ov in enumerate(line.get("overlays") or []):
-            if ov["kind"] != "comment_card":
+            if ov["kind"] not in ("comment_card", "image"):
                 raise RuntimeError("%s: overlay kind %s is not built yet" % (line["id"], ov["kind"]))
             t_in = overlay_time(ov.get("in"), words, span_s)
             t_out = overlay_time(ov.get("out", "line_end"), words, span_s)
+            if ov["kind"] == "image":
+                lp["overlays"].append(_image_overlay(ov, resolve(ov["path"], project, roots), t_in, t_out, W, H))
+                continue
             png = os.path.join(card_dir, "%s_card%d.png" % (line["id"], k))
             c = card_mod.comment_card(png, ov.get("handle", "@commenter"), ov.get("text", ""),
                                       mark_placeholder=bool(ov.get("placeholder")), workdir=card_dir)
@@ -466,7 +472,7 @@ def run(project, tag=None, only=None, jobs=2, roots=None):
     def base_key(lp):
         body = {"v": VERSION, "W": W, "H": H, "span": lp["span_f"],
                 "segs": [[sha1(s["path"]), round(s["in"], 4), s["len_f"]] for s in lp["segs"]],
-                "ov": [[sha1(o["png"]), o["args"]] for o in lp["overlays"]]}
+                "ov": [[sha1(o["png"]), o["args"], o.get("chain", "")] for o in lp["overlays"]]}
         return hashlib.sha1(json.dumps(body, sort_keys=True).encode()).hexdigest()
 
     # 2. base clips + OCR
@@ -505,7 +511,8 @@ def run(project, tag=None, only=None, jobs=2, roots=None):
         obstacles = []
         for lp in lps:
             for o in _global_overlays(lp):
-                obstacles.append({"kind": "card", "text": o["text"], "box": o["band"], "t0": o["t0"], "t1": o["t1"]})
+                obstacles.append({"kind": "card" if o["kind"] == "comment_card" else o["kind"], "text": o["text"],
+                                  "box": o["band"], "t0": o["t0"], "t1": o["t1"]})
             obstacles.extend(lp.get("ocr") or cache.get(lp["id"], {}).get("ocr") or [])
         caps, unplaced = layout.solve(caps, obstacles, W, H)
         g11 = layout.gate_g11(caps, obstacles)
@@ -658,18 +665,39 @@ def gate_g8(final):
         nodes, ", ".join(os.path.basename(x) for x in lossy) or "none", ("; " + "; ".join(bad)) if bad else "")
 
 
+def _image_overlay(ov, path, t_in, t_out, W, H):
+    """A picture (gif or png) centred at y_frac, width_frac of the frame, alpha fading in over fade_s."""
+    info = probe(path)
+    w = int(round(W * float(ov.get("width_frac", 0.7)) / 2) * 2)
+    h = int(round(info["h"] * w / float(info["w"]) / 2) * 2)
+    y = int(round(H * float(ov.get("y_frac", 0.3))))
+    fade = float(ov.get("fade_s", 0.9 * (t_out - t_in)))
+    chain = "fps=%d,scale=%d:%d,format=rgba,fade=t=in:st=%.4f:d=%.4f:alpha=1" % (FPS, w, h, t_in, max(0.04, fade))
+    args = "x=%d:y=%d:enable='between(t,%.4f,%.4f)'" % ((W - w) // 2, y, t_in, t_out)
+    return {"kind": "image", "png": path, "chain": chain, "args": args, "t0": t_in, "t1": t_out,
+            "box": ((W - w) // 2, y, w, h), "band": ((W - w) // 2, y, w, h), "text": os.path.basename(path)}
+
+
 def gate_g9(lps):
-    bad = []
+    """Footage covers every line at 1.0x; no freeze or duplicates unless every part of the line carries a
+    plan waiver (freeze_ok: <why>, e.g. an old animation's own low frame rate). A waiver never covers a shortfall."""
+    bad, waived = [], []
     for lp in lps:
         fr, dup = lp.get("g9post", (0, 0.0))
         if lp["short_s"] > 1e-6:
             bad.append("%s needs footage +%.2f s" % (lp["id"], lp["short_s"]))
+        why = [s.get("freeze_ok") for s in lp["segs"]]
+        if all(why) and (fr or dup >= DUP_MAX):
+            waived.append("%s waived (%s): %d freeze, %.1f%% dup" % (lp["id"], why[0], fr, 100 * dup))
+            continue
         if fr:
             bad.append("%s %d frozen stretch(es)" % (lp["id"], fr))
         if dup >= DUP_MAX:
             bad.append("%s %.1f%% duplicate frames" % (lp["id"], 100 * dup))
-    worst = max((lp.get("g9post", (0, 0))[1] for lp in lps), default=0)
-    return (not bad), ("; ".join(bad) if bad else "every line covered at 1.0x; no freeze; max dup %.1f%%" % (100 * worst))
+    worst = max((lp.get("g9post", (0, 0))[1] for lp in lps if not all(s.get("freeze_ok") for s in lp["segs"])),
+                default=0)
+    msg = "; ".join(bad) if bad else "every line covered at 1.0x; no freeze; max dup %.1f%%" % (100 * worst)
+    return (not bad), msg + ("; " + "; ".join(waived) if waived else "")
 
 
 def gate_g10(edl):
