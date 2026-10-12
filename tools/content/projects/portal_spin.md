@@ -43,7 +43,7 @@ captions_y: 0.72
 | l5a | cuts/s4_editor.mp4 | 0 |  | line |  | All I had to do was add a few lines to that shader |  |
 | l5b | cuts/s4_editor.mp4 | cont |  | line |  | that rotate the texture around its centre a little more every frame, so the whole swirl turns. |  |
 | l6 | cuts/s5_orbit.mp4 | 0 |  | line |  | What do you think? Should I keep this in or not? |  |
-| l7 | cuts/s6_forest.mp4 | 0 |  | line |  | Let me know what else you think I should add in the comments, and it just might make it into the final game! |  |
+| l7 | cuts/s7_dash.mp4 | 0 |  | line |  | Let me know what else you think I should add in the comments, and it just might make it into the final game! |  |
 
 ## v1 as cut (2026-10-12)
 # Takes: real time, ddagrab 810x1440 scaled to 1080x1920; sync = the LAST white stretch in the window's top 600 px
@@ -60,3 +60,9 @@ captions_y: 0.72
 # map; scenes/portal_spin.gd (@tool, editor/ here) frames the editor camera on the portal and turns the spin on when
 # res://spin.on appears, 10 s into the recording; the cut starts 2.8 s before it, so the spin starts on "that rotate". No code card.
 # L7: forest runner POV, stage forest_run (the clear corridor r 51.6-52.4, bearing 5-60).
+
+## v4 (Ryan's notes on v3)
+# Every hell portal shot (L1, L4, L5, L6) refilmed with the other maps' spiral swirl in hell's colours (hell_swirl.png,
+# marble's swirl recoloured; swapped in by the stage / the editor tool script, never on main). Same cameras and timing.
+# L7: dash_shove on the S3 lane: the man ahead-right is sniped 1.3 s in (tracer past, flinch), we run down the lead and
+# shove him 2.0 s in. Not ending at the portal: the last stretch to it is the lava-lake parkour, which clipped in v1.
