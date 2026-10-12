@@ -222,7 +222,7 @@ def s_capture(b, only=None):
         return
     if not only and b.fresh("capture", ["plan.json"], [f"takes/{i}/take.json" for i in new]):
         return
-    ok, why, _ = preflight.run(capture=True, voice=False, log=lambda *_: None)
+    ok, why, _ = preflight.run(capture=True, voice=False, final=b.args.final, log=lambda *_: None)
     if not ok:
         raise Stop(EXIT_GATE, f"G0 (capture): {why}")
     editor = {l["id"] for l in b.lines({"editor"})}
@@ -379,6 +379,8 @@ def main(argv=None):
     ap.add_argument("--tag", help="vN; refused if that version exists")
     ap.add_argument("--ryan", help="dir of Ryan's per-line recordings (devlog)")
     ap.add_argument("--movie", action="store_true", help="trailer: frame-exact capture backend")
+    ap.add_argument("--final", action="store_true", help="final capture on the virtual portrait monitor (rough = "
+                    "real time on the console screen at 810x1440)")
     ap.add_argument("--concat", action="store_true", help="devlog: also deliver a concat mp4")
     ap.add_argument("--from", dest="from_stage", choices=STAGES, help="rerun from this stage")
     ap.add_argument("--gemini-review", action="store_true",

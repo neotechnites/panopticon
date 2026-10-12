@@ -1,5 +1,6 @@
 """G0 preflight: the Andrew voice works, the PC answers, ffmpeg can capture, locks are writable, review tools exist.
-Capture-only checks (virtual monitor, ddagrab, utvideo) run only when the plan films something."""
+Capture checks run only when the plan films: rough = ddagrab at 810x1440 on the console screen; --final adds the
+virtual portrait monitor (Ryan's ruling)."""
 import argparse
 import base64
 import os
@@ -101,12 +102,25 @@ def check_review_tools():
 
 
 BASE = [("pc", check_pc), ("voice", check_voice), ("locks", check_locks), ("review", check_review_tools)]
-CAPTURE = [("ffmpeg", check_ffmpeg_capture), ("monitor", check_monitor)]
+ROUGH_SIZE = (810, 1440)  # the tallest portrait the 2560x1440 console screen holds
 
 
-def run(capture=False, voice=True, log=print):
+def check_rough_screen():
+    rc, out = ssh("Get-CimInstance Win32_VideoController | Where-Object CurrentVerticalResolution | "
+                  "ForEach-Object { \"$($_.CurrentHorizontalResolution)x$($_.CurrentVerticalResolution)\" }")
+    sizes = [tuple(int(x) for x in s.split("x")) for s in out.split() if "x" in s and s.replace("x", "").isdigit()]
+    fits = [s for s in sizes if s[0] >= ROUGH_SIZE[0] and s[1] >= ROUGH_SIZE[1]]
+    return bool(fits), (f"console screen {fits[0][0]}x{fits[0][1]} holds a {ROUGH_SIZE[0]}x{ROUGH_SIZE[1]} rough take"
+                        if fits else f"no screen holds {ROUGH_SIZE[0]}x{ROUGH_SIZE[1]} ({out[:80]})")
+
+
+CAPTURE = [("ffmpeg", check_ffmpeg_capture), ("screen", check_rough_screen)]
+FINAL = [("monitor", check_monitor)]
+
+
+def run(capture=False, voice=True, final=False, log=print):
     """Returns (pass, reason, {check: [pass, reason]})."""
-    checks = [c for c in BASE if voice or c[0] != "voice"] + (CAPTURE if capture else [])
+    checks = [c for c in BASE if voice or c[0] != "voice"] + (CAPTURE if capture else []) + (FINAL if capture and final else [])
     res = {}
     for name, fn in checks:
         try:
@@ -120,9 +134,10 @@ def run(capture=False, voice=True, log=print):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(prog="content preflight")
-    ap.add_argument("--capture", action="store_true", help="also check the capture backend")
+    ap.add_argument("--capture", action="store_true", help="also check rough real-time capture (810x1440)")
+    ap.add_argument("--final", action="store_true", help="with --capture: also the virtual portrait monitor")
     a = ap.parse_args(argv)
-    ok, why, _ = run(capture=a.capture)
+    ok, why, _ = run(capture=a.capture, final=a.final)
     print(("G0 PASS: " if ok else "G0 FAIL: ") + why)
     return 0 if ok else 1
 

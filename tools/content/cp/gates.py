@@ -105,7 +105,7 @@ def _take_json(part_path):
 def g0(ctx):
     plan = ctx.load("plan.json") or {}
     capture = any(l.get("action") in ("capture", "editor") for l in plan.get("lines", []))
-    ok, why, _ = preflight.run(capture=capture, log=lambda *_: None)
+    ok, why, _ = preflight.run(capture=capture, final=bool(plan.get("final")), log=lambda *_: None)
     return ok, why
 
 
