@@ -7,11 +7,11 @@
 # then final\index.html (or final\NAME.html): the latest cut with its timing
 # table and script lines, the external footage with its credit lines from
 # external\SOURCES.md, every shot in the brief with a file: line in order (id,
-# Ryan's words, seconds), and any other take in final\. Every video is
-# preload="none" with a poster and a cache-busting ?v=<mtime>-<build> on its
-# src, so every one of them is new on every build. A brief with a `## dailies`
+# Ryan's words, seconds), and any other take in final\. Every video has
+# a poster and a cache-busting ?v=<mtime> on its src; the latest cut plays a
+# ~4.5 Mbps preview with preload="metadata" (full-quality link beside it). A brief with a `## dailies`
 # table is the cut and then that table. View it
-# through tools/content/serve.sh: http://127.0.0.1:8765/final/index.html
+# through tools/content/serve.sh: http://100.114.41.16:8765/final/index.html
 set -euo pipefail
 source "$(dirname "$0")/lib.sh"
 
@@ -30,4 +30,4 @@ pc <<PS
 \$ErrorActionPreference = 'Continue'
 & '${PC_PYTHON}' '${DIR}\\scripts\\dailies.py' '${DIR}' '${DIR}\\notes\\brief.md' '${DIR}\\final\\${OUT}' 2>&1
 PS
-echo "dailies: $(since "$T0")  http://127.0.0.1:${PC_SERVE_PORT}/final/${OUT}  (tools/content/serve.sh ${NAME})"
+echo "dailies: $(since "$T0")  http://${PC_SERVE_HOST}:${PC_SERVE_PORT}/final/${OUT}  (tools/content/serve.sh ${NAME})"

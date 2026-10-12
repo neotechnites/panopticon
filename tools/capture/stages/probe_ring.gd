@@ -23,6 +23,7 @@ extends SceneTree
 ## --los     for each deg:r:h, whether the tower's eye sees it, and what blocks it.
 ## --heights the floor height under each bearing in --heights at each radius in --radii.
 ## --aabb    every mesh's bounding box in ring coordinates (rocks, cover).
+## --map     bentham_ring (default), forest or marble; --eye=deg:r:h moves --los's eye off the tower.
 ##
 ## Every number a stage file quotes (a rock's shadow, a pad's edge, a lane's
 ## width) came off one of these.
@@ -40,14 +41,15 @@ var _ring: Node = null
 func _initialize() -> void:
 	_opts = BotHarness.parse_arguments({
 		"clear": false, "floor": false, "pads": false, "aabb": false,
-		"los": "", "heights": "", "radii": "47,49,51,53,55",
+		"los": "", "heights": "", "radii": "47,49,51,53,55", "map": "bentham_ring", "eye": "",
 	})
 
 
 func _process(_delta: float) -> bool:
 	_frames += 1
 	if _frames == 1:
-		_ring = (load(RING_SCENE) as PackedScene).instantiate()
+		var map_id: String = String(_opts.get("map", "bentham_ring"))
+		_ring = (load(RING_SCENE.replace("bentham_ring", map_id)) as PackedScene).instantiate()
 		root.add_child(_ring)
 		return false
 	if _frames < 6:
@@ -86,6 +88,10 @@ func _space() -> PhysicsDirectSpaceState3D:
 
 
 func _eye() -> Vector3:
+	var at: PackedStringArray = String(_opts.get("eye", "")).split(":")
+	if at.size() == 3:
+		var a: float = deg_to_rad(float(at[0]))
+		return Vector3(cos(a) * float(at[1]), DECK_Y + float(at[2]), sin(a) * float(at[1]))
 	var spawn: Node3D = _find(_ring, "TowerSpawn") as Node3D
 	return spawn.global_position + Vector3.UP * 1.6 if spawn != null else Vector3(0.0, 27.0, 0.0)
 

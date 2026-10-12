@@ -45,6 +45,7 @@ extends SceneTree
 ##                  --set=shover_wait=5.0;victim=198.5,49.4
 ## --pads=off       every boost pad switched off (a thrown body over one is relaunched)
 ## --traps=off      every trap volume switched off
+## --rifle=ID       the tower's whole gun from weapons/ID_weapon_profile.tres (projectile)
 ## --pov=guard      the same, down the eyes of whoever holds the tower
 ## --pov=ghost      the same, down the eyes of the staged ghost, through its catch
 ## --audio=near     only sounds made within AUDIO_NEAR_METRES of the camera
@@ -53,6 +54,10 @@ extends SceneTree
 ## --map=ID         a MapCatalog id (bentham_ring, marble, forest); the match
 ##                  is filmed on it instead of the map the saved rules name
 ## --out=DIR        directory the clip is destined for; created if missing
+## --record=PATH    write the take's tape (tools/capture/clip_tape.gd) to PATH
+## --tape=PATH      play a recorded tape: every input and trigger pull from it, no brains
+## --sync=N         real-time rough take: N white frames before the world is built, gone
+##                  on the take's first frame, so a screen recording finds t=0 by it
 ## [/codeblock]
 ##
 ## The whole path always plays, stretched or squeezed to [code]--seconds[/code],
@@ -78,6 +83,7 @@ extends SceneTree
 
 const SHOTS := preload("res://tools/capture/shot_paths.gd")
 const CHAIN_STAGE := preload("res://tools/capture/chain_stage.gd")
+const CLIP_TAPE := preload("res://tools/capture/clip_tape.gd")
 const STAGE_DRIVER := preload("res://tools/capture/stage_driver.gd")
 const STAGE_LIB := preload("res://tools/capture/stages/lib.gd")
 const STAGES_DIR: String = "res://tools/capture/stages/"
@@ -132,6 +138,8 @@ const STUCK_SPEED: float = 0.6
 ## in a clip, this -- the same whip, at the shove's own scale.
 const FEEDBACK_PROFILE_PATH: String = "res://match/feedback/default_feedback_profile.tres"
 const POV_SHOVED_KICK_SCALE: float = 1.0
+## The shover's own kick, at the scale the game gives a human who shoves (MatchController.SHOVE_KICK_SCALE).
+const POV_SHOVER_KICK_SCALE: float = 0.5
 
 ## The chase ghost runs this much faster than the prisoner it is after. The
 ## shipped ghost is three times faster and would be on them before a lens could
@@ -157,6 +165,8 @@ var _look_ahead_until: float = 0.0
 var _seconds: float = 0.0
 var _delay: float = 0.0
 var _elapsed: float = 0.0
+var _sync_frames: int = 0
+var _sync_cover: CanvasLayer = null
 var _camera: Camera3D = null
 var _controller: MatchController = null
 var _stage: String = ""
@@ -166,6 +176,8 @@ var _stuck_for: float = 0.0
 var _seat: BotTowerSeat = null
 var _fill: OmniLight3D = null
 var _eye: Node3D = null
+var _cross: CanvasItem = null
+var _eye_tracking: bool = false
 var _chain: Node = null
 var _driver: Node = null
 var _victim_driver: Node = null
@@ -183,6 +195,7 @@ var _staged: PlayerController = null
 var _plugin: RefCounted = null
 var _plugin_cast: bool = false
 var _dials: Dictionary = {}
+var _tape: RefCounted = null
 var _built: bool = false
 var _done: bool = false
 var _exit_code: int = EXIT_OK
@@ -194,6 +207,7 @@ func _initialize() -> void:
 	# Maker records the VIEWPORT. Disabling the stretch lets --resolution decide
 	# the recorded size. No UI is drawn in a clip, so nothing is scaled by it.
 	root.content_scale_mode = Window.CONTENT_SCALE_MODE_DISABLED
+	GameSettings.window_held = true
 	_options = BotHarness.parse_arguments({
 		"shot": "",
 		"seconds": 0.0,
@@ -204,6 +218,7 @@ func _initialize() -> void:
 		"hud": "",
 		"pads": "",
 		"traps": "",
+		"rifle": "",
 		"set": "",
 		"track": "",
 		"audio": "",
@@ -212,20 +227,54 @@ func _initialize() -> void:
 		"bots": 7,
 		"map": "",
 		"out": "",
+		"record": "",
+		"tape": "",
+		"sync": 0,
 	})
+	_sync_frames = int(_options.get("sync", 0))
+	if _sync_frames > 0:
+		_sync_cover = CanvasLayer.new()
+		_sync_cover.layer = 128
+		var white := ColorRect.new()
+		white.color = Color.WHITE
+		white.set_anchors_preset(Control.PRESET_FULL_RECT)
+		RenderingServer.set_default_clear_color(Color.WHITE)
+		_sync_cover.add_child(white)
+		root.add_child(_sync_cover)
 
 
 ## The world is built on the first iteration rather than in
 ## [method _initialize], where nothing is in the tree yet and every
 ## global_position reads back as the origin.
+## The player's saved resolution resizes the window after boot; a take holds the size it was asked for.
+func _hold_window() -> void:
+	var want: Vector2i = Vector2i(int(ProjectSettings.get_setting("display/window/size/viewport_width")), int(ProjectSettings.get_setting("display/window/size/viewport_height")))
+	if DisplayServer.window_get_size() != want:
+		DisplayServer.window_set_size(want)
+		DisplayServer.window_set_position(Vector2i.ZERO)
+	# The sync cover fills the held window, whatever size the window had when it was made.
+	if _sync_cover != null and _sync_cover.get_child_count() > 0:
+		var white: Control = _sync_cover.get_child(0) as Control
+		white.position = Vector2.ZERO
+		white.size = Vector2(want)
+
+
 func _process(delta: float) -> bool:
+	_hold_window()
 	if _done:
 		quit(_exit_code)
 		return true
 	if not _built:
+		if _sync_frames > 0:
+			_sync_frames -= 1
+			return false
 		_built = true
 		_build()
 		return false
+	if _sync_cover != null:
+		_sync_cover.free()
+		_sync_cover = null
+		RenderingServer.set_default_clear_color(Color.BLACK)
 
 	_elapsed += delta
 	_log_the_rifle()
@@ -245,12 +294,16 @@ func _process(delta: float) -> bool:
 		return false
 	if _pov != "":
 		_ride_a_body()
+		_meet_the_eye(delta)
+		_crosshair_only_through_the_eye()
 	else:
 		if _plugin == null or not _plugin.lens(delta):
 			var progress: float = clampf((_elapsed - _delay) / _seconds, 0.0, 1.0)
 			_aim_camera(_key_start + progress * _key_span)
 		_turn_the_eye(delta)
 	if _elapsed >= _delay + _seconds:
+		if _tape != null:
+			_tape.finish()
 		_hush()
 		_done = true
 	return false
@@ -331,6 +384,7 @@ func _build() -> void:
 	if String(_options.get("look", "")) == "social":
 		_light_for_social(match_root)
 	_take_the_eye(match_root)
+	_cool_the_shimmer(match_root)
 	_listen_to_audio()
 	if String(_options.get("audio", "")) == "near":
 		_keep_audio_near()
@@ -363,6 +417,8 @@ func _build() -> void:
 	if _plugin != null:
 		_plugin.before_start()
 	_controller.start_match()
+	if not _install_the_tape(match_root):
+		return
 	# A guard only exists in a round: the race has nobody in the tower, so a
 	# POV clip that waits for one films an empty chamber for a minute, and a
 	# runner filmed in the race is never shot at.
@@ -378,6 +434,24 @@ func _build() -> void:
 	if _pov == "":
 		_aim_camera(_key_start)
 	_announce(shot)
+
+
+## --record or --tape: the take's inputs written to, or played from, a tape.
+func _install_the_tape(match_root: Node) -> bool:
+	var record: String = String(_options.get("record", ""))
+	var play: String = String(_options.get("tape", ""))
+	if record.is_empty() and play.is_empty():
+		return true
+	_tape = CLIP_TAPE.new()
+	_tape.header = {
+		"shot": _options.get("shot", ""), "stage": _stage, "map": _options.get("map", ""),
+		"rifle": _options.get("rifle", ""), "bots": _options.get("bots", 7), "set": _options.get("set", ""),
+		"seed": _options.get("seed", 0), "seconds": _seconds,
+	}
+	if not _tape.install(root, match_root, _controller, play if not play.is_empty() else record, not play.is_empty()):
+		_fail("The tape %s would not load; nothing was filmed." % play)
+		return false
+	return true
 
 
 ## Take the human out of the roster and switch off the layers that serve one.
@@ -404,6 +478,9 @@ func _make_it_bots_only(match_root: Node, bots: int) -> void:
 		# The first shot is at a body still in the air; the second has to land
 		# before the beat is over.
 		rules.base_reload_seconds = 0.9
+	var rifle_id: String = String(_options.get("rifle", ""))
+	if not rifle_id.is_empty():
+		rules.weapon_profile = load("res://weapons/%s_weapon_profile.tres" % rifle_id) as WeaponProfile
 	_controller.rules = rules
 
 	# The placeholder music loop is still feeding the audio server when the
@@ -861,6 +938,8 @@ func _log_events() -> void:
 			])
 			if _pov != "" and victim.body == _pov_body:
 				_kick_the_ridden_camera(-shover.body.global_transform.basis.z)
+			elif _pov != "" and shover.body == _pov_body:
+				_kick_the_ridden_camera(-shover.body.global_transform.basis.z, POV_SHOVER_KICK_SCALE)
 			if _plugin != null:
 				_plugin.on_shove(shover, victim)
 			_flag_the_drivers("shove")
@@ -1069,6 +1148,17 @@ func _is_standing(body: Node3D) -> bool:
 	return absf(body.global_position.y - DECK_Y) <= 6.0
 
 
+## --hud=crosshair: the cross belongs to the ridden eye; while another camera has the screen (the finale's cinematic) it is off.
+func _crosshair_only_through_the_eye() -> void:
+	if String(_options.get("hud", "")) != "crosshair" or _pov_body == null or not is_instance_valid(_pov_body):
+		return
+	if _cross == null:
+		var hud: Node = STAGE_LIB.find_node(root, "HUD")
+		_cross = hud.get_node_or_null(^"Root/Crosshair") as CanvasItem if hud != null else null
+	if _cross != null:
+		_cross.visible = root.get_camera_3d() == _eye_of(_pov_body)
+
+
 ## Tell the game this bot is the body being looked out of.
 ##
 ## The one call that matters: [PrisonerAvatar] then collapses this body's head,
@@ -1088,7 +1178,7 @@ func _wear_the_body(body: PlayerController) -> void:
 
 ## Whip the ridden body's camera the way the game whips a player's: an
 ## [FxCameraKick] on its own camera, with the shipped feedback profile.
-func _kick_the_ridden_camera(direction: Vector3) -> void:
+func _kick_the_ridden_camera(direction: Vector3, scale: float = POV_SHOVED_KICK_SCALE) -> void:
 	var eye: Camera3D = _eye_of(_pov_body)
 	if eye == null:
 		return
@@ -1100,7 +1190,7 @@ func _kick_the_ridden_camera(direction: Vector3) -> void:
 		_pov_kick.camera = eye
 		_pov_kick.profile = load(FEEDBACK_PROFILE_PATH) as FeedbackProfile
 		root.add_child(_pov_kick)
-	_pov_kick.strike(direction, POV_SHOVED_KICK_SCALE)
+	_pov_kick.strike(direction, scale)
 	print("[pov] %5.2f kick" % _elapsed)
 
 
@@ -1172,6 +1262,16 @@ func _keep_audio_near() -> void:
 
 # --- The watcher --------------------------------------------------------------
 
+## --set=shimmer=S: hell's heat shimmer at strength S for this take only (v28, Ryan: the trailer reads it as a warp at the game's 0.2).
+func _cool_the_shimmer(match_root: Node) -> void:
+	if not _dials.has("shimmer"):
+		return
+	var shimmer: Node = _find_node(match_root, "HeatShimmer")
+	if shimmer != null:
+		shimmer.set(&"strength", float(_dials["shimmer"]))
+		print("[stage] heat shimmer strength %s" % _dials["shimmer"])
+
+
 ## Take the tower's eye off its own poll.
 ##
 ## [method WatchingEye._process] points the pupil at whatever camera is current,
@@ -1183,6 +1283,32 @@ func _take_the_eye(match_root: Node) -> void:
 		_eye = null
 		return
 	_eye.process_mode = Node.PROCESS_MODE_DISABLED
+
+
+## POV with --set=eye_at=T: the eye holds on eye_from (deg:r, the victim's spot) and only
+## at take T swings onto the POV's eyes over eye_swing s, after he has looked up at it.
+func _meet_the_eye(delta: float) -> void:
+	if _eye == null:
+		return
+	var viewer: Camera3D = root.get_camera_3d()
+	if viewer == null:
+		return
+	if not _dials.has("eye_at"):
+		# v28 (Ryan): the eye looks at the runner in every shot it is in: the game's own tracking, on from the first frame.
+		var wanted: Vector3 = _eye.call(&"gaze_direction_for", viewer.global_position)
+		_eye.call(&"turn_toward", wanted, delta if _eye_tracking else 0.0)
+		_eye_tracking = true
+		return
+	var from: PackedStringArray = String(_dials.get("eye_from", "%f:52" % EYE_ELSEWHERE_DEGREES)).split(":")
+	var elsewhere: Vector3 = SHOTS.ring_point(float(from[0]), float(from[1]) if from.size() > 1 else 52.0, 1.0)
+	var swing: float = clampf((_elapsed - float(_dials["eye_at"])) / maxf(float(_dials.get("eye_swing", 0.4)), 0.01), 0.0, 1.0)
+	var away: Vector3 = _eye.call(&"gaze_direction_for", elsewhere)
+	var onto: Vector3 = _eye.call(&"gaze_direction_for", viewer.global_position)
+	# eye_onto (0.93): a hair short of dead on, as the game's lagging eye is; dead on, its pupil and iris caps fight.
+	var share: float = smoothstep(0.0, 1.0, swing) * float(_dials.get("eye_onto", 0.93))
+	_eye.call(&"turn_toward", away.slerp(onto, share).normalized(), 0.0)
+	if OS.has_environment("STAGE_DEBUG") and Engine.get_physics_frames() % 6 == 0:
+		print("[eye] %5.2f swing %.2f away-onto %.1f deg gaze-viewer %.1f deg" % [_elapsed, swing, rad_to_deg(away.angle_to(onto)), rad_to_deg((_eye.call(&"gaze_direction") as Vector3).angle_to(viewer.global_position - _eye.global_position))])
 
 
 ## Look down the ring, then come round onto the camera as the pan settles.

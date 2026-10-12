@@ -17,11 +17,8 @@ clip. The page (default final\index.html):
      quoted, seconds, status;
   4. any other mp4 in final\ (takes made outside the brief), alphabetically.
 
-Every <video> is preload="none" with a poster frame and a cache-busting
-?v=<mtime>-<build> on its src, the three things Ryan asked for when the page
-kept reloading every clip. The build half is one int(time.time()) per run, so
-every ?v= on the page changes on every build even when the clip behind it did
-not. One inline <style>, no fonts fetched, dark.
+Every <video> has a poster frame and a cache-busting ?v=<mtime> on its src;
+the latest cut is preload="metadata", the rest preload="none", so the browser caches a clip until it changes. One inline <style>, no fonts fetched, dark.
 
 When the brief carries a `## dailies` pipe table (id | src | line | desc) the
 page is the latest cut (section 1 above) and then that table, in that order;
@@ -34,8 +31,8 @@ the page lives in final\, so anything outside final\ gets a ../ prefix; an
 empty src is a labelled pending row with no <video>. Posters are
 final\thumbs\<id>.jpg -- frames\<id>.png scaled to 360 wide when that png
 exists, else a frame of the clip at 40%. Everything is portrait 1080x1920,
-external footage included, so 9/16 throughout. A clip over 30 MB is served
-from a 720-wide copy at final\720\<id>.mp4. The page ends with one line naming
+external footage included, so 9/16 throughout. Clips are made faststart; a clip over ~5.5 Mbps plays
+from final\preview\<folder>\<name>.preview.mp4 with a full-quality link. The page ends with one line naming
 every other .mp4 in the project, so nothing is hidden by being left out.
 """
 import html
@@ -60,10 +57,15 @@ def dur(path):
     return float(out) if out else 0.0
 
 
-def is_landscape(path):
+def dims(path):
     out = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height",
                           "-of", "csv=p=0", path], capture_output=True, text=True).stdout.strip().split(",")
-    return len(out) == 2 and int(out[0]) > int(out[1])
+    return (int(out[0]), int(out[1])) if len(out) == 2 and out[0].isdigit() and out[1].isdigit() else None
+
+
+def is_landscape(path):
+    wh = dims(path)
+    return bool(wh) and wh[0] > wh[1]
 
 
 def thumb_from_clip(src, jpg):
@@ -127,17 +129,84 @@ def sources(project):
     return found
 
 
-def video(src_rel, poster_rel, mtime, landscape=False):
-    style = ' style="aspect-ratio:16/9"' if landscape else ""
+def is_faststart(path):
+    """True when the mp4's moov atom comes before its mdat."""
+    with open(path, "rb") as f:
+        while True:
+            head = f.read(8)
+            if len(head) < 8:
+                return False
+            size, kind = int.from_bytes(head[:4], "big"), head[4:]
+            if kind == b"moov":
+                return True
+            if kind == b"mdat":
+                return False
+            if size == 1:
+                size = int.from_bytes(f.read(8), "big") - 8
+                f.seek(size - 8, 1)
+            elif size < 8:
+                return False
+            else:
+                f.seek(size - 8, 1)
+
+
+def ensure_faststart(path):
+    """Remux in place with the moov up front, keeping the file's mtime."""
+    if is_faststart(path):
+        return
+    tmp = path + ".fs.mp4"
+    st = os.stat(path)
+    subprocess.run(["ffmpeg", "-nostdin", "-hide_banner", "-y", "-loglevel", "error", "-i", path,
+                    "-c", "copy", "-movflags", "+faststart", tmp])
+    if os.path.exists(tmp) and os.path.getsize(tmp) > 0:
+        os.replace(tmp, path)
+        os.utime(path, (st.st_atime, st.st_mtime))
+
+
+PREVIEW_BPS = 5.5e6
+
+
+def preview_for(project, path):
+    """final\\preview\\<folder>\\<name>.preview.mp4: ~5 Mbps 1080p H.264 faststart, made
+    once per source mtime. Returns its path, or "" when the source is already that light."""
+    dt = dur(path)
+    if dt <= 0 or os.path.getsize(path) * 8 / dt <= PREVIEW_BPS:
+        return ""
+    folder = os.path.basename(os.path.dirname(path))
+    out = os.path.join(project, "final", "preview", folder)
+    os.makedirs(out, exist_ok=True)
+    prev = os.path.join(out, os.path.splitext(os.path.basename(path))[0] + ".preview.mp4")
+    if not (os.path.exists(prev) and os.path.getmtime(prev) >= os.path.getmtime(path)):
+        scale = "scale='if(lt(iw,ih),min(1080,iw),-2)':'if(lt(iw,ih),-2,min(1080,ih))':out_range=tv:out_color_matrix=bt709"
+        subprocess.run(["ffmpeg", "-nostdin", "-hide_banner", "-y", "-loglevel", "error", "-i", path, "-vf", scale,
+                        "-c:v", "libx264", "-b:v", "4500k", "-maxrate", "5000k", "-bufsize", "10000k",
+                        "-preset", "medium", "-pix_fmt", "yuv420p", "-color_range", "tv", "-colorspace", "bt709",
+                        "-color_primaries", "bt709", "-color_trc", "bt709", "-c:a", "aac", "-b:a", "128k",
+                        "-movflags", "+faststart", prev])
+    return prev if os.path.exists(prev) and os.path.getsize(prev) > 0 else ""
+
+
+def video(src_rel, poster_rel, mtime, path=None, project=None, full=False, preload="none"):
+    """A <video> whose aspect-ratio is the file's own. With a path it plays the
+    light preview when there is one (never with full) and links the original."""
+    wh = dims(path) if path else None
+    style = ' style="aspect-ratio:%d/%d"' % wh if wh else ""
     poster = (' poster="%s"' % html.escape(poster_rel)) if poster_rel else ""
-    return ('<video controls preload="none" playsinline%s%s src="%s?v=%d-%d"></video>'
-            % (poster, style, html.escape(src_rel), int(mtime), BUILD))
+    play, link = src_rel, ""
+    if path:
+        ensure_faststart(path)
+        mtime = os.path.getmtime(path)
+        prev = "" if full else preview_for(project or os.path.dirname(os.path.dirname(path)), path)
+        if prev:
+            play = "preview/" + os.path.relpath(prev, os.path.join(project or os.path.dirname(os.path.dirname(path)), "final", "preview")).replace("\\", "/")
+            link = '<div class="meta"><a href="%s?v=%d" target="_blank">full quality</a></div>' % (html.escape(src_rel), int(mtime))
+    return ('<video controls preload="%s" playsinline%s%s src="%s?v=%d"></video>%s'
+            % (preload, poster, style, html.escape(play), int(mtime), link))
 
 
 # --- The `## dailies` page ------------------------------------------------------
 
 DAILIES_COLUMNS = ("id", "src", "line", "desc")
-BIG_BYTES = 30 * 1024 * 1024
 
 
 def dailies_table(brief_path):
@@ -199,22 +268,6 @@ def poster_for(project, clip_id, clip):
     return (rel, 1) if os.path.exists(jpg) else ("", 0)
 
 
-def small_copy(project, clip_id, clip):
-    """Anything over 30 MB is served from a 720-wide h264 copy at
-    final\\720\\<id>.mp4, made only when missing or stale. Returns that path as
-    the page sees it, or "" when the clip is small enough to serve as it is."""
-    if os.path.getsize(clip) <= BIG_BYTES:
-        return ""
-    out = os.path.join(project, "final", "720")
-    os.makedirs(out, exist_ok=True)
-    small = os.path.join(out, clip_id + ".mp4")
-    if not (os.path.exists(small) and os.path.getmtime(small) >= os.path.getmtime(clip)):
-        subprocess.run(["ffmpeg", "-nostdin", "-hide_banner", "-y", "-loglevel", "error", "-i", clip,
-                        "-vf", "scale=720:-2", "-c:v", "libx264", "-crf", "23", "-preset", "medium",
-                        "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart", small])
-    return "720/%s.mp4" % clip_id if os.path.exists(small) else ""
-
-
 def dailies_cards(project, rows, lines, esc):
     """One card per table row, in table order. Returns (cards, made, pending,
     the project-relative srcs the page shows)."""
@@ -244,15 +297,14 @@ def dailies_cards(project, rows, lines, esc):
             continue
         poster, hit = poster_for(project, clip_id, clip)
         made += hit
-        small = small_copy(project, clip_id, clip)
-        note = ("720-wide copy of %.0f MB" % (os.path.getsize(clip) / 1e6)) if small else src.rsplit("/", 1)[0]
-        cards.append(card(video(small or page_rel(src), poster, os.path.getmtime(clip)), "%.1f s" % dur(clip), note))
+        cards.append(card(video(page_rel(src), poster, os.path.getmtime(clip), clip, project), "%.1f s" % dur(clip),
+                          src.rsplit("/", 1)[0]))
     return cards, made, pending, shown
 
 
 def strays(project, shown):
     """Every other .mp4 in the project, so nothing is hidden by being left out
-    of the table. The 720-wide copies this script makes are not strays."""
+    of the table. The previews this script makes are not strays."""
     out = []
     for root, dirs, files in os.walk(project):
         dirs.sort()
@@ -260,7 +312,7 @@ def strays(project, shown):
             if not name.lower().endswith(".mp4"):
                 continue
             rel = os.path.relpath(os.path.join(root, name), project).replace("\\", "/")
-            if rel not in shown and not rel.startswith("final/720/"):
+            if rel not in shown and not rel.startswith("final/preview/"):
                 out.append(rel)
     return out
 
@@ -302,16 +354,16 @@ def cut_block(project, parsed, esc):
         timing = f.read()
     rows = ""
     lines_path = os.path.join(cuts, tag + "_lines.json")
-    script = parsed["script"]
+    script = parsed["scripts"].get(tag) or parsed["script"]   # an alternate cut's own table
     if script and os.path.exists(lines_path):
         with open(lines_path, encoding="utf-8") as f:
             starts = json.load(f)
         for r in script["rows"]:
             rows += "<tr><td>%s</td><td>%s</td><td>%s</td></tr>" % (
                 esc("%.1f" % starts.get(r["line"], 0.0)), esc(r.get("text", "")), esc(r.get("clip", "")))
-    parts = ['<h3>Latest cut</h3><div class="cut">%s<div><h2 style="margin:0 0 8px;font-size:1.1rem">%s</h2>'
+    parts = ['<h3>Latest cut</h3><div class="cut%s">%s<div><h2 style="margin:0 0 8px;font-size:1.1rem">%s</h2>'
              '<div class="meta"><span>%.1f s</span><span>%s</span></div>'
-             % (video(latest, poster_for(project, tag, src)[0], os.path.getmtime(src)), esc(tag), dur(src),
+             % (" wide" if is_landscape(src) else "", video(latest, poster_for(project, tag, src)[0], os.path.getmtime(src), src, project, preload="metadata"), esc(tag), dur(src),
                 time.strftime("%Y-%m-%d %H:%M", time.localtime(os.path.getmtime(src))))]
     if rows:
         parts.append("<table><tr><th>Start</th><th>Line</th><th>Clip</th></tr>%s</table>" % rows)
@@ -337,12 +389,14 @@ def main():
     parts.append("<title>%s dailies</title>" % esc(title))
     parts.append("""<style>
 :root{--bg:#141012;--panel:#1d1719;--ink:#efe6e2;--mute:#a4928c;--line:#3a2b2c;--acc:#ffb15c;--ok:#7fd48a}
-body{background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,sans-serif;padding:0 16px;padding-block:20px 60px;max-width:1100px;margin:0 auto}
+body{background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,sans-serif;padding:0 16px;padding-block:20px 60px;max-width:1952px;margin:0 auto}
 h1{font-size:2rem;text-transform:uppercase;letter-spacing:.02em;margin:0 0 4px}
 h3{text-transform:uppercase;letter-spacing:.04em;font-size:1.1rem;margin:26px 0 12px;color:var(--mute)}
 .sub{color:var(--mute);margin:0 0 22px;font-size:.95rem}
 .cut{display:grid;grid-template-columns:minmax(200px,300px) 1fr;gap:20px;align-items:start;background:var(--panel);border:1px solid var(--line);padding:16px;margin-bottom:28px}
-.cut video,.clip video{width:100%;aspect-ratio:9/16;background:#000;display:block}
+.cut video,.clip video{width:100%;height:auto;max-height:85vh;aspect-ratio:9/16;background:#000;display:block;margin:0 auto}
+.cut.wide{grid-template-columns:1fr}
+.cut.wide video{max-width:1920px}
 pre{font-size:.72rem;line-height:1.35;overflow-x:auto;color:var(--mute);margin:0}
 table{border-collapse:collapse;width:100%;font-size:.85rem;font-variant-numeric:tabular-nums}
 td,th{padding:5px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
@@ -354,6 +408,7 @@ th{color:var(--mute);font-weight:500;text-transform:uppercase;letter-spacing:.06
 .line{font-size:.86rem;line-height:1.4}
 .line q{color:var(--mute);font-style:italic}
 .desc{font-size:.8rem;color:var(--mute);line-height:1.4}
+.meta a{color:var(--acc)}
 .meta{display:flex;justify-content:space-between;font-size:.72rem;color:var(--mute);font-family:ui-monospace,Menlo,monospace}
 @media (max-width:560px){.cut{grid-template-columns:1fr}}
 </style>""")
@@ -401,7 +456,7 @@ th{color:var(--mute);font-weight:500;text-transform:uppercase;letter-spacing:.06
             info = creds.get(stem, {})
             parts.append('<div class="clip"><div class="id">%s</div>%s<div class="desc">%s</div>'
                          '<div class="meta"><span>%.1f s</span><span>%s</span></div></div>'
-                         % (esc(stem), video("../external/" + name, thumb(name), os.path.getmtime(src), landscape=True),
+                         % (esc(stem), video("../external/" + name, thumb(name), os.path.getmtime(src), src, project),
                             esc(info.get("credit") or info.get("title") or "no entry in SOURCES.md"), dur(src),
                             "credited" if info.get("credit") else "uncredited"))
         parts.append("</div>")
@@ -417,13 +472,13 @@ th{color:var(--mute);font-weight:500;text-transform:uppercase;letter-spacing:.06
         src = os.path.join(final, name)
         covered.add(name)
         if not os.path.exists(src):
-            cards.append('<div class="clip"><div class="id">%s</div><div class="desc">not rendered yet: tools/content/shot.sh %s %d</div></div>'
+            cards.append('<div class="clip"><div class="id">%s</div><div class="desc">not rendered yet: tools/content/shot.sh %s %s</div></div>'
                          % (esc(file_name), esc(title), shot["n"]))
             continue
         note = shot.get("note", "")
         cards.append('<div class="clip"><div class="id">%s</div>%s<div class="line"><q>%s</q></div>%s'
-                     '<div class="meta"><span>%.1f s</span><span>shot %d</span></div></div>'
-                     % (esc(file_name), video(name, thumb(name), os.path.getmtime(src)), esc(shot.get("said", "")),
+                     '<div class="meta"><span>%.1f s</span><span>shot %s</span></div></div>'
+                     % (esc(file_name), video(name, thumb(name), os.path.getmtime(src), src, project), esc(shot.get("said", "")),
                         ('<div class="desc">%s</div>' % esc(note)) if note else "", dur(src), shot["n"]))
     if cards:
         parts.append('<h3>Shots in brief order</h3><div class="grid">%s</div>' % "".join(cards))
@@ -437,7 +492,7 @@ th{color:var(--mute);font-weight:500;text-transform:uppercase;letter-spacing:.06
             continue
         src = os.path.join(final, name)
         others.append('<div class="clip"><div class="id">%s</div>%s<div class="meta"><span>%.1f s</span><span>%s</span></div></div>'
-                      % (esc(os.path.splitext(name)[0]), video(name, thumb(name), os.path.getmtime(src)), dur(src),
+                      % (esc(os.path.splitext(name)[0]), video(name, thumb(name), os.path.getmtime(src), src, project), dur(src),
                          time.strftime("%m-%d %H:%M", time.localtime(os.path.getmtime(src)))))
     if others:
         parts.append('<h3>Other takes in final\\</h3><div class="grid">%s</div>' % "".join(others))

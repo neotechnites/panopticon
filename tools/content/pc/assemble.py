@@ -7,7 +7,7 @@ Runs ON THE PC (tools/content/assemble.sh pushes it):
 The brief's ## script table maps every voice line to a clip and says how the
 clip fits the line (the v6 retime of the shove short, generalised):
 
-    | line | clip | in | len | fit | speed | text | card |
+    | line | clip | in | len | fit | speed | text | card | grade |
 
   clip   one clip, or several comma separated -- `path[@in[:len]]` each -- played
          back to back as one slot, so a line whose voice outlasts the first clip
@@ -44,12 +44,16 @@ clip fits the line (the v6 retime of the shove short, generalised):
          seconds at its last word, with the drop shadow baked in by card.py.
          Swapping the png is a one-file replacement.
 
+  grade  a grade named in the script header, applied to this line's picture only:
+         `grade_hell: lift 2.6 3` scales RGB by 1 + (2.6 - 1) * (1 - max)^3 --
+         shadows and mids up, hue and saturation kept, black and white fixed.
+
 A fit compares the clip's seconds ON SCREEN (source / speed) with the slot, so
 a slowed clip is measured as what it plays, not as what it holds.
 
 Script header: music: <path under the project>  music_db: -18  music_fade: 1 1.5
 pad: 0.2  captions: pop|none  captions_font: Impact  captions_size: 64
-captions_y: 0.72 (fraction of the height)  game: 0.25 (each take's own sound
+captions_y: 0.72 (fraction of the height)  size: 1920x1080 (default 1080x1920)  game: 0.25 (each take's own sound
 under the voice, linear, tempo-matched to a slowed picture; 0 or absent is
 silent)  copy_720: yes (also write final\<tag>_720.mp4).
 
@@ -77,6 +81,12 @@ import brief as brief_mod  # noqa: E402
 FPS = 60
 W, H = 1080, 1920
 FF = ["ffmpeg", "-nostdin", "-hide_banner", "-y", "-loglevel", "error"]
+# Every segment is lossless RGB, decoded by its source's own tags: the edit adds no generation.
+# final\\<tag>.mp4 is one H.264 4:2:0 encode of the lossless master (final\\master\\<tag>.mkv).
+TO_709 = "format=rgb24"
+TAIL = ",format=rgb24"
+LOSSLESS = ["-c:v", "libx264rgb", "-preset", "veryfast", "-qp", "0"]
+TAGS = ["-color_range", "tv", "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709"]
 MUSIC_DUCK = 0.3      # music ramp-down before a window's audio
 MUSIC_BACK = 0.5      # music ramp-up after it
 WINDOW_FADE = 0.3     # the window audio's own fade-out, ending at `end`
@@ -119,6 +129,28 @@ def fit_filter(path):
         return (f"split[a][b];[a]scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},boxblur=24:4[bg];"
                 f"[b]scale={W}:-2[fg];[bg][fg]overlay=(W-w)/2:(H-h)/2")
     return f"scale={W}:{H}"
+
+
+def grade_filter(spec, cache):
+    """`lift G P` as a lut3d over a .cube in the cache: RGB times 1 + (G - 1) * (1 - max)^P."""
+    kind, *numbers = spec.split()
+    if kind != "lift" or len(numbers) != 2:
+        raise SystemExit(f"assemble: unknown grade '{spec}' (lift <gain> <power>)")
+    gain, power = float(numbers[0]), float(numbers[1])
+    name = "grade_%s.cube" % sha("lift", gain, power)
+    path = os.path.join(cache, name)
+    if not os.path.exists(path):
+        size = 33
+        with open(path, "w", encoding="ascii") as f:
+            f.write(f"LUT_3D_SIZE {size}\n")
+            for b in range(size):
+                for g in range(size):
+                    for r in range(size):
+                        rgb = (r / (size - 1), g / (size - 1), b / (size - 1))
+                        k = 1.0 + (gain - 1.0) * (1.0 - max(rgb)) ** power
+                        f.write("%.6f %.6f %.6f\n" % tuple(min(c * k, 1.0) for c in rgb))
+    # Relative to the project folder (the segment encode runs there): a drive colon would end the filter option.
+    return "lut3d=file=cuts/_cache/%s:interp=tetrahedral" % name
 
 
 def snap(seconds):
@@ -228,10 +260,13 @@ def main():
     project, brief_path, tag = sys.argv[1], sys.argv[2], sys.argv[3]
     captions_wanted = "--no-captions" not in sys.argv[4:]
     parsed = brief_mod.parse(brief_path)
-    script = parsed["script"]
+    script = parsed["scripts"].get(tag) or parsed["script"]   # ## script <tag>: an alternate cut
     if not script:
         raise SystemExit("assemble: the brief has no ## script section")
     head = script["head"]
+    # size: 1920x1080 for a landscape cut (a Steam trailer); portrait by default.
+    global W, H
+    W, H = (int(v) for v in head.get("size", "%dx%d" % (W, H)).split("x"))
     pad = float(head.get("pad", 0.2))
     cache = os.path.join(project, "cuts", "_cache")
     work = os.path.join(project, "cuts", "_work", tag)
@@ -432,7 +467,13 @@ def main():
             vf = ""
             if abs(w["speed"] - 1.0) > 1e-9:
                 vf += "setpts={:.6f}*PTS,".format(1.0 / w["speed"])
-            vf += fit_filter(w["src"]) + f",fps={FPS},format=yuv420p"
+            vf += fit_filter(w["src"]) + f",fps={FPS}," + TO_709
+            grade = (row.get("grade", "") or "").strip()
+            if grade:
+                if not head.get("grade_" + grade):
+                    raise SystemExit(f"assemble: {key}: no grade_{grade}: line in the script header")
+                vf += "," + grade_filter(head["grade_" + grade], cache)
+            vf += TAIL
             if w["hold"] > 0.005:
                 vf += ",tpad=stop_mode=clone:stop_duration={:.4f}".format(w["hold"])
             out_len = w["out"] + w["hold"]
@@ -452,14 +493,14 @@ def main():
                 if card_over:
                     # the pixel format is set after the overlay, so the card's alpha
                     # is still there to blend with
-                    pic = vf[:-len(",format=yuv420p")] if vf.endswith(",format=yuv420p") else vf
+                    pic = vf.replace(TAIL, "", 1)
                     args += ["-loop", "1", "-i", card_png, "-filter_complex",
                              "[0:v]" + pic + "[pic];[1:v]format=rgba[card];[pic][card]overlay="
-                             + card_over + ",format=yuv420p[v]", "-map", "[v]"]
+                             + card_over + ":format=rgb" + TAIL + "[v]", "-map", "[v]"]
                 else:
                     args += ["-vf", vf]
-                args += ["-t", "%.4f" % out_len, "-an", "-c:v", "libx264", "-preset", "fast", "-crf", "18", seg]
-                run(args)
+                args += ["-t", "%.4f" % out_len, "-an"] + LOSSLESS + [seg]
+                run(args, cwd=project)
                 fit += "  [rendered]" if i == 0 else ""
             segments.append(seg)
             if game_vol > 0 and mode != "window" and has_audio(w["src"]):
@@ -504,8 +545,7 @@ def main():
         if not os.path.exists(captioned):
             # libass reads the path itself: relative, forward slashes, from the project dir.
             rel = os.path.relpath(ass_path, project).replace("\\", "/")
-            run(FF + ["-i", picture, "-vf", f"subtitles={rel}", "-an", "-c:v", "libx264", "-preset", "medium",
-                      "-crf", "18", "-pix_fmt", "yuv420p", captioned], cwd=project)
+            run(FF + ["-i", picture, "-vf", f"subtitles={rel}", "-an"] + LOSSLESS + [captioned], cwd=project)
             cap_info += "  [burned]"
         video_in = captioned
     t_captions = time.time() - t0
@@ -572,14 +612,20 @@ def main():
     if n_in == 0:
         raise SystemExit("assemble: nothing to mix (no voice, no music)")
     graph = ";".join(filters) + ";" + mix + "amix=inputs={}:normalize=0:duration=longest,atrim=0:{:.3f}[out]".format(n_in, total)
-    out = os.path.join(project, "final", f"{tag}.mp4")
+    # The lossless master is an archive file; the one file anyone plays is a standard H.264 made from it once.
+    os.makedirs(os.path.join(project, "final", "master"), exist_ok=True)
+    master = os.path.join(project, "final", "master", f"{tag}.mkv")
     run(FF + inputs + ["-filter_complex", graph, "-map", "0:v", "-map", "[out]", "-c:v", "copy", "-c:a", "aac",
-                       "-b:a", "192k", "-movflags", "+faststart", out])
+                       "-b:a", "192k", master])
+    out = os.path.join(project, "final", f"{tag}.mp4")
+    run(FF + ["-i", master, "-vf", "scale=out_range=tv:out_color_matrix=bt709:flags=lanczos,format=yuv420p", "-c:v", "libx264",
+              "-preset", "medium", "-crf", "12"] + TAGS + ["-c:a", "copy", "-movflags", "+faststart", out])
+    summary.append("master: %s" % master)
     small = ""
     if str(head.get("copy_720", "no")).strip().lower() in ("yes", "true", "1"):
         small = os.path.join(project, "final", f"{tag}_720.mp4")
         run(FF + ["-i", out, "-vf", "scale=720:-2", "-c:v", "libx264", "-preset", "medium", "-crf", "20",
-                  "-pix_fmt", "yuv420p", "-c:a", "copy", "-movflags", "+faststart", small])
+                  "-pix_fmt", "yuv420p"] + TAGS + ["-c:a", "copy", "-movflags", "+faststart", small])
         summary.append("720p copy: %s" % small)
     t_audio = time.time() - t0
 

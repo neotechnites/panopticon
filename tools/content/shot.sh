@@ -1,9 +1,15 @@
 #!/usr/bin/env bash
 # Capture and render ONE shot of a project on the PC, from its entry in the brief.
 #
-#   tools/content/shot.sh <project> <n> [--crosshair]
+#   tools/content/shot.sh <project> <n> [--crosshair] [--movie]
 #
-# Entry fields it reads: capture (run_clip args) or still (shot.gd args), seconds,
+# Rough (the default): the take plays at real speed and the screen is recorded
+# (lib.sh pc_rough), seconds of take plus load. --movie: Godot's Movie Maker
+# writes every frame offline, slow, for the final trailer.
+#
+# Entry fields it reads: capture (run_clip args) or still (shot.gd args), tape (a
+# recorded take, tools/content/tape.sh: every input played back, the same shot every
+# time), flash (take seconds and length of a white frame burned in), seconds,
 # in (seconds into the take the cut starts), gap, at (git ref for a before/after
 # pair), hold (seconds a still is held), takes, motion and freeze (gate
 # overrides: motion is the floor, freeze the stretches allowed, or "waive" for a
@@ -20,7 +26,7 @@
 # viewing port".
 # Output on the PC, under content\<project>\ (layout in lib.sh): cuts\NN.mp4, the
 # master cut to seconds+gap with game audio muted over the gap, plus final\<file>.mp4
-# when the entry has a file: line. Takes are captured to takes\NN_tK.avi and
+# when the entry has a file: line. Takes are captured to takes\NN_tK.mkv (.avi with --movie) and
 # gated; once the shot is cut the chosen take's gate report and log move to
 # notes\NN.gate.txt and notes\NN.take.log and every take of the shot is deleted.
 # Any scratch worktree left under panopticon-renders is removed at the end.
@@ -28,9 +34,12 @@
 set -euo pipefail
 source "$(dirname "$0")/lib.sh"
 
-PROJECT="${1:?usage: tools/content/shot.sh <project> <n> [--crosshair]}"
-N="${2:?usage: tools/content/shot.sh <project> <n> [--crosshair]}"
-CROSSHAIR=0; [ "${3:-}" = "--crosshair" ] && CROSSHAIR=1
+PROJECT="${1:?usage: tools/content/shot.sh <project> <n> [--crosshair] [--movie]}"
+N="${2:?usage: tools/content/shot.sh <project> <n> [--crosshair] [--movie]}"
+CROSSHAIR=0; MODE=${MODE:-rough}
+for flag in "${@:3}"; do
+  case "${flag}" in --crosshair) CROSSHAIR=1 ;; --movie) MODE=movie ;; *) die "unknown flag ${flag}" ;; esac
+done
 BRIEF=$(brief_path "${PROJECT}")
 NAME=$(basename "${BRIEF}" .md)
 KIND=$(brief_head "${BRIEF}" kind short)
@@ -51,9 +60,12 @@ TAKES_MAX=$(brief_field "${BRIEF}" "${N}" takes "${TAKES_MAX}")
 MOTION_MIN=$(brief_field "${BRIEF}" "${N}" motion "${MOTION_MIN}")
 FREEZE_ALLOWED=$(brief_field "${BRIEF}" "${N}" freeze 0)   # stretches frozen >= 0.75 s allowed; "waive" skips the gate
 HUD=$(brief_field "${BRIEF}" "${N}" hud)
+TAPE=$(brief_field "${BRIEF}" "${N}" tape)
+FLASH=$(brief_field "${BRIEF}" "${N}" flash)
 [ "${CROSSHAIR}" = 1 ] && HUD=crosshair
 SAID=$(brief_field "${BRIEF}" "${N}" said)
 FILE=$(brief_field "${BRIEF}" "${N}" file)      # also deliver this cut as final\<file>.mp4
+SIZE=$(brief_head "${BRIEF}" size "${SIZE}")   # a brief may pin its frame (16:9 1920x1080)
 ASPECT=$(brief_head "${BRIEF}" aspect "$([ "${KIND}" = devlog ] && echo 16:9 || echo 9:16)")
 # A 9:16 short is filmed 9:16: the viewport is a phone's, the lens composes for
 # it, and nothing is cropped afterwards. Ryan: "the frame should consider the
@@ -62,32 +74,62 @@ if [ "${ASPECT}" = 9:16 ]; then
   [ "${SIZE}" = 1280x720 ] && SIZE=1080x1920
   MASTER="scale=1080:1920"; GATE_SCALE="scale=90:160"
 else
-  MASTER="scale=1280:720"; GATE_SCALE="scale=160:90"
+  MASTER="scale=${SIZE%%x*}:${SIZE##*x}"; GATE_SCALE="scale=160:90"
 fi
+# The screen is 2560x1440: a portrait frame does not fit it, so a short films --movie.
+[ "${MODE}" = rough ] && [ "${SIZE##*x}" -gt 1440 ] && MODE=movie
+# Both modes leave a lossless RGB take: rough records it, movie packs Movie Maker's PNG frames.
+TAKE_EXT=mkv; IN_SPEC="in_range=pc"
+# The cut is lossless RGB (no generation loss): the take is decoded by its own tags.
+MASTER="${MASTER}:flags=lanczos,format=rgb24"
+VLOSSLESS="-c:v libx264rgb -preset veryfast -qp 0"
+TAGS="-color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709"
 [ -n "${CAPTURE}${STILL}" ] || die "shot ${N} of ${NAME} has no capture: or still: line"
+if [ -n "${TAPE}" ]; then CAPTURE="${CAPTURE} --tape=$(tape_res "${NAME}" "${TAPE}")"; fi
+if [ -n "${FLASH}" ]; then
+  read -r FLASH_AT FLASH_LEN <<< "${FLASH}"
+  MASTER="${MASTER},drawbox=c=white:t=fill:enable='between(t,$(python3 -c "print(${FLASH_AT} - ${IN})"),$(python3 -c "print(${FLASH_AT} - ${IN} + ${FLASH_LEN:-0.045})"))'"
+fi
 # No HUD on any shot unless the entry asks: hud: crosshair (a guard POV) or hud: on.
 if [ -n "${HUD}" ] && [[ "${CAPTURE}" != *--hud=* ]]; then CAPTURE="${CAPTURE} --hud=${HUD}"; fi
-echo "shot ${NN}: ${SAID}"
+echo "shot ${NN} (${MODE}): ${SAID}"
 
 pc_layout "${DIR}"
 pc_push "${BRIEF}" "$(ff "${DIR}")/notes/brief.md"
 
+# ss_ps <take-path> : PowerShell setting $ss, the cut's in-point in that take file
+# (IN, plus a rough take's sync offset).
+ss_ps() {
+  echo "\$off = if (Test-Path '$1.sync') { [double]::Parse((Get-Content '$1.sync' -Raw).Trim(), [Globalization.CultureInfo]::InvariantCulture) } else { 0.0 }"
+  echo "\$ss = ([double]${IN} + \$off).ToString([Globalization.CultureInfo]::InvariantCulture)"
+}
+
 # --- One take: godot, then the gate. Prints "motion=<f> freeze=<n>" last. -----
 take() {  # take <tag> <seed> <seconds>
   local tag="$1" seed="$2" secs="$3"
-  local avi="${DIR}\\takes\\${tag}.avi" log="${DIR}\\takes\\${tag}.log"
+  local avi="${DIR}\\takes\\${tag}.${TAKE_EXT}" log="${DIR}\\takes\\${tag}.log"
   local args="${CAPTURE}"
   [[ "${args}" == *--seed=* ]] || args="${args} --seed=${seed}"
   local t0; t0=$(now_ms)
-  pc_godot "--script res://tools/capture/run_clip.gd --write-movie ${avi} --fixed-fps ${FPS} --resolution ${SIZE} -- ${args} --seconds=${secs}" "${log}" | sed 's/^/  | /'
+  if [ "${MODE}" = rough ]; then
+    pc_rough "--script res://tools/capture/run_clip.gd -- ${args} --seconds=${secs} --sync=90" "${log}" "${avi}" | sed 's/^/  | /'
+  else
+    local frames="${DIR}\\takes\\${tag}_f"
+    pc_godot "--script res://tools/capture/run_clip.gd --write-movie ${frames}.png --fixed-fps ${FPS} --resolution ${SIZE} -- ${args} --seconds=${secs}" "${log}" | sed 's/^/  | /'
+    pc <<EOF
+ffmpeg -hide_banner -loglevel error -y -framerate ${FPS} -i '${frames}%08d.png' -i '${frames}.wav' -vf format=gbrp -c:v utvideo -c:a pcm_s16le '${avi}'
+Remove-Item '${frames}*.png', '${frames}.wav' -ErrorAction SilentlyContinue
+EOF
+  fi
   echo "  take ${tag}: godot $(since "$t0")" >&2
   t0=$(now_ms)
   # The gate reads the cut, not the take: the second held before a stage places
   # its bodies and the tail past the beat are never in the shot.
   pc <<EOF
-\$m = ffmpeg -hide_banner -nostats -ss ${IN} -t ${TOTAL} -i '${avi}' -an -vf "fps=10,${GATE_SCALE},format=gray,tblend=all_mode=difference,lutyuv=y='if(gt(val,24),255,0)',signalstats,metadata=print:key=lavfi.signalstats.YAVG:file=-" -f null - 2>\$null | Select-String 'YAVG=' | ForEach-Object { [double](\$_ -replace '.*YAVG=','') }
+$(ss_ps "${avi}")
+\$m = ffmpeg -hide_banner -nostats -ss \$ss -t ${TOTAL} -i '${avi}' -an -vf "fps=10,${GATE_SCALE},format=gray,tblend=all_mode=difference,lutyuv=y='if(gt(val,24),255,0)',signalstats,metadata=print:key=lavfi.signalstats.YAVG:file=-" -f null - 2>\$null | Select-String 'YAVG=' | ForEach-Object { [double](\$_ -replace '.*YAVG=','') }
 \$motion = if (\$m) { (\$m | Measure-Object -Average).Average / 255.0 } else { 0 }
-\$f = ffmpeg -hide_banner -nostats -ss ${IN} -t ${TOTAL} -i '${avi}' -an -vf "freezedetect=n=${FREEZE_NOISE_DB}dB:d=${FREEZE_MAX_SECONDS}" -f null - 2>&1 | Select-String 'freeze_duration' | Measure-Object
+\$f = ffmpeg -hide_banner -nostats -ss \$ss -t ${TOTAL} -i '${avi}' -an -vf "freezedetect=n=${FREEZE_NOISE_DB}dB:d=${FREEZE_MAX_SECONDS}" -f null - 2>&1 | Select-String 'freeze_duration' | Measure-Object
 \$line = ('motion={0:N4} freeze={1}' -f \$motion, \$f.Count)
 Set-Content -Path '${DIR}\\takes\\${tag}.txt' -Value \$line
 Write-Output \$line
@@ -129,10 +171,11 @@ EOF
 render_take() {  # render_take <tag> <out-mp4> <cut-seconds> <mute-from-seconds>  (from IN seconds in)
   local tag="$1" out="$2" cut="$3" mute="$4"
   pc <<EOF
-\$src = '${DIR}\\takes\\${tag}.avi'
+\$src = '${DIR}\\takes\\${tag}.${TAKE_EXT}'
+$(ss_ps "${DIR}\\takes\\${tag}.${TAKE_EXT}")
 \$audio = ffprobe -v error -select_streams a -show_entries stream=codec_type -of csv=p=0 \$src
 \$af = if (\$audio) { @('-af', "volume=enable='gte(t,${mute})':volume=0", '-c:a', 'aac', '-ar', '48000', '-b:a', '160k') } else { @('-f', 'lavfi', '-i', 'anullsrc=r=48000:cl=stereo', '-shortest', '-c:a', 'aac') }
-ffmpeg -hide_banner -loglevel error -y -ss ${IN} -i \$src @(\$af) -t ${cut} -c:v libx264 -preset veryfast -crf 18 -pix_fmt yuv420p -r ${FPS} -vf "${MASTER}" '${out}'
+ffmpeg -hide_banner -loglevel error -y -ss \$ss -i \$src @(\$af) -t ${cut} ${VLOSSLESS} -r ${FPS} -vf "${MASTER}" '${out}'
 Write-Output ('rendered ' + (Get-Item '${out}').Length)
 EOF
 }
@@ -142,11 +185,13 @@ deliver_take() {  # deliver_take <tag> <cut-seconds>
   [ -n "${FILE}" ] || return 0
   local tag="$1" cut="$2" out="${DIR}\\final\\${FILE}.mp4" geometry
   [ "${ASPECT}" = 9:16 ] && geometry="scale=1080:1920" || geometry="scale=1920:1080"
+  geometry="${geometry}:${IN_SPEC}:out_range=tv:out_color_matrix=bt709:flags=lanczos"
   pc <<EOF
-\$src = '${DIR}\\takes\\${tag}.avi'
+\$src = '${DIR}\\takes\\${tag}.${TAKE_EXT}'
+$(ss_ps "${DIR}\\takes\\${tag}.${TAKE_EXT}")
 \$audio = ffprobe -v error -select_streams a -show_entries stream=codec_type -of csv=p=0 \$src
 \$af = if (\$audio) { @('-c:a', 'aac', '-ar', '48000', '-b:a', '160k') } else { @('-f', 'lavfi', '-i', 'anullsrc=r=48000:cl=stereo', '-shortest', '-c:a', 'aac') }
-ffmpeg -hide_banner -loglevel error -y -ss ${IN} -i \$src @(\$af) -t ${cut} -c:v libx264 -preset veryfast -crf 18 -pix_fmt yuv420p -r ${FPS} -vf "${geometry}" -movflags +faststart '${out}'
+ffmpeg -hide_banner -loglevel error -y -ss \$ss -i \$src @(\$af) -t ${cut} -c:v libx264 -preset veryfast -crf 16 -pix_fmt yuv420p ${TAGS} -r ${FPS} -vf "${geometry}" -movflags +faststart '${out}'
 \$len = ffprobe -v error -show_entries format=duration -of csv=p=0 '${out}'
 Write-Output ('clip ' + '${out}' + ' ' + [math]::Round([double]\$len, 2) + ' s ' + (Get-Item '${out}').Length)
 EOF
@@ -161,7 +206,7 @@ if [ -n "${STILL}" ]; then
   echo "  still: godot $(since "$T0")"
   T0=$(now_ms)
   pc <<EOF
-ffmpeg -hide_banner -loglevel error -y -loop 1 -i '${DIR}\\frames\\${NN}.png' -f lavfi -i anullsrc=r=48000:cl=stereo -t ${HOLD} -r ${FPS} -vf "${MASTER}" -c:v libx264 -preset veryfast -crf 18 -pix_fmt yuv420p -c:a aac -shortest '${DIR}\\cuts\\${NN}.mp4'
+ffmpeg -hide_banner -loglevel error -y -loop 1 -i '${DIR}\\frames\\${NN}.png' -f lavfi -i anullsrc=r=48000:cl=stereo -t ${HOLD} -r ${FPS} -vf "${MASTER}" -c:v libx264 -preset veryfast -crf 16 -pix_fmt yuv420p ${TAGS} -c:a aac -shortest '${DIR}\\cuts\\${NN}.mp4'
 Write-Output ('rendered ' + (Get-Item '${DIR}\\cuts\\${NN}.mp4').Length)
 EOF
   echo "  still: render $(since "$T0")"

@@ -1,0 +1,19 @@
+[remap]
+
+importer="csv_translation"
+type="Translation"
+uid="uid://68co6ql370c2"
+
+[deps]
+
+files=["res://tools/content/projects/trailer_reveal.vivaldi_beats. Summer RV 315 III. Presto.translation", "res://tools/content/projects/trailer_reveal.vivaldi_beats. The Modena Chamber Orchestra (external/src/modena.translation", "res://tools/content/projects/trailer_reveal.vivaldi_beats. measured from the audio..translation"]
+
+source_file="res://tools/content/projects/trailer_reveal.vivaldi_beats.csv"
+dest_files=["res://tools/content/projects/trailer_reveal.vivaldi_beats. Summer RV 315 III. Presto.translation", "res://tools/content/projects/trailer_reveal.vivaldi_beats. The Modena Chamber Orchestra (external/src/modena.translation", "res://tools/content/projects/trailer_reveal.vivaldi_beats. measured from the audio..translation"]
+
+[params]
+
+compress=1
+delimiter=0
+unescape_keys=false
+unescape_translations=true

@@ -109,6 +109,9 @@ func _physics_process(delta: float) -> void:
 			_yaw = angles.x
 			_pitch = angles.y
 		_rate = Vector2.ZERO
+		# Parked, the eye still reads every man it is about to be on: a lead needs his speed from the first frame.
+		for waiting: Dictionary in beats:
+			_measure(waiting.get("body") as PlayerController, delta)
 		_apply_head()
 		return
 	while _last_aim.size() < beats.size():
@@ -121,6 +124,8 @@ func _physics_process(delta: float) -> void:
 		k += 1
 	var beat: Dictionary = beats[k]
 	var fire_at: float = float(beat.get("fire_at", -1.0))
+	# omega (HAND_OMEGA): how quick the hand is on this beat; a man who pops up is snapped onto.
+	var omega: float = float(beat.get("omega", HAND_OMEGA))
 	var body: PlayerController = beat.get("body") as PlayerController
 	# from ([]): a beat may name a pool of men instead of one. Until it fires,
 	# the hand keeps swinging onto whichever of them is in the open and nearest
@@ -146,7 +151,7 @@ func _physics_process(delta: float) -> void:
 		if entry != null:
 			body = _body_of(entry)
 	var aim: Vector3
-	if _spent(k, beat) and bool(beat.get("watch", false)) and body != null and is_instance_valid(body):
+	if _spent(k, beat) and bool(beat.get("watch", false)) and body != null and is_instance_valid(body) and body.is_visible_in_tree():
 		# watch (false): after the squeeze the hand stays ON the man and rides the
 		# kick back down, which is what a player does -- he takes the shot and
 		# watches it land. With a round that travels it is the difference between
@@ -164,8 +169,11 @@ func _physics_process(delta: float) -> void:
 		_last_aim[k] = aim
 		# Tracking a runner is aiming where he is going: the lead cancels the
 		# second-order lag, so once the hand has settled the crosshair sits on him.
-		var lag_seconds: float = 2.0 * HAND_ZETA / HAND_OMEGA
+		var lag_seconds: float = 2.0 * HAND_ZETA / omega
 		aim += Vector3(body.velocity.x, 0.0, body.velocity.z) * lag_seconds
+		# A round that flies is tracked on its own mark, ahead and above him: the lead and the drop read.
+		if _shot_speed() > 0.0:
+			aim = _mark_for(beat, body) + _velocity_of(body) * lag_seconds
 	# The lead is taken from a velocity MEASURED off the body between frames, not
 	# from PlayerController.velocity: read from outside the controller's own tick
 	# that field is zero on most frames, so a round led by it is led by nothing.
@@ -175,13 +183,18 @@ func _physics_process(delta: float) -> void:
 	_measure(body, delta)
 	for one: Variant in pool:
 		_measure(_body_of(one), delta)
+	# The men of the beats still to come are read too: a swing onto a man last read seconds ago leads him by that gap.
+	for later: int in range(k + 1, beats.size()):
+		var next_body: PlayerController = beats[later].get("body") as PlayerController
+		if next_body != body and (later == k + 1 or next_body != beats[later - 1].get("body")):
+			_measure(next_body, delta)
 	var wanted: Vector2 = _angles_to(aim)
 	if not _spent(k, beat):
 		var settling: float = 1.0 if fire_at < 0.0 else clampf((fire_at - into) / SETTLE_SECONDS, 0.0, 1.0)
 		var sway: float = deg_to_rad(SWAY_DEGREES) * settling
 		wanted += Vector2(sin(t * TAU * SWAY_HZ) * sway, sin(t * TAU * SWAY_HZ * 1.7 + 1.0) * sway * 0.6)
 	var error := Vector2(angle_difference(_yaw, wanted.x), wanted.y - _pitch)
-	var accel: Vector2 = error * (HAND_OMEGA * HAND_OMEGA) - _rate * (2.0 * HAND_ZETA * HAND_OMEGA)
+	var accel: Vector2 = error * (omega * omega) - _rate * (2.0 * HAND_ZETA * omega)
 	_rate += accel * delta
 	_rate = _rate.limit_length(HAND_MAX_RATE)
 	_yaw = wrapf(_yaw + _rate.x * delta, -PI, PI)
@@ -211,7 +224,8 @@ func _physics_process(delta: float) -> void:
 		_apply_head()
 		_fire(k)
 		# The kick lands the frame after the shot line is resolved.
-		_rate = Vector2(RECOIL_YAW_RATE * (1.0 if k % 2 == 0 else -1.0), RECOIL_PITCH_RATE)
+		# kick (1.0): the recoil's share, so a tight scope keeps the man in frame through the hit.
+		_rate = Vector2(RECOIL_YAW_RATE * (1.0 if k % 2 == 0 else -1.0), RECOIL_PITCH_RATE) * float(beat.get("kick", 1.0))
 		return
 	_apply_head()
 
@@ -222,6 +236,8 @@ func _fire(k: int) -> void:
 	var rifle: Rifle = _controller.rifle
 	if rifle == null:
 		printerr("[event] %6.2f  no rifle to fire on beat %d" % [_elapsed, k])
+		return
+	if Engine.get_meta(&"clip_tape_playing", false):
 		return
 	if not rifle.can_fire():
 		printerr("[event] %6.2f  rifle not ready (%s) on beat %d" % [_elapsed, rifle.get_state_name(), k])
@@ -261,8 +277,12 @@ func _mark_for(beat: Dictionary, body: PlayerController) -> Vector3:
 	# it, so it crosses behind him and the miss is one you can read. Only the
 	# squeeze is scaled; the tracking crosshair still sits on him.
 	var flight: float = mark.distance_to(_eye_position()) / shot_speed
-	var along: Vector3 = _velocity_of(body)
+	# now (false): lead off this frame's step, for a man flung the instant before the squeeze.
+	var along: Vector3 = _step_of(body) if bool(beat.get("now", false)) else _velocity_of(body)
+	flight = (mark + along * flight).distance_to(_eye_position()) / shot_speed
 	mark += along * flight * float(beat.get("lead", 1.0))
+	# The round falls 0.5 g t^2 in that flight: the squeeze holds over by it.
+	mark.y += 0.5 * _gravity() * flight * flight
 	# behind (0.0): metres the round is put behind him on purpose, along his own
 	# line of travel. A miss has to be a fixed size to be filmed: scaling the
 	# lead instead makes the miss whatever his gait happened to be doing at the
@@ -272,6 +292,15 @@ func _mark_for(beat: Dictionary, body: PlayerController) -> Vector3:
 	if behind != 0.0 and along.length_squared() > 0.0001:
 		mark -= along.normalized() * behind
 	return mark
+
+
+func _shot_speed() -> float:
+	return _controller.rifle.get_shot_speed() if _controller.rifle != null else 0.0
+
+
+func _gravity() -> float:
+	var rifle: Rifle = _controller.rifle
+	return rifle.profile.projectile_gravity if rifle != null and rifle.profile != null else 0.0
 
 
 ## Shots this beat has taken.
@@ -311,11 +340,12 @@ func _measure(body: PlayerController, delta: float) -> void:
 	var key: int = body.get_instance_id()
 	var here: Vector3 = body.global_position
 	if not _seen.has(key):
-		_seen[key] = {"at": here, "slow": Vector3.ZERO, "fast": Vector3.ZERO}
+		_seen[key] = {"at": here, "slow": Vector3.ZERO, "fast": Vector3.ZERO, "now": Vector3.ZERO}
 		return
 	var row: Dictionary = _seen[key]
 	var step: Vector3 = (here - row["at"]) / delta
 	row["at"] = here
+	row["now"] = step
 	row["slow"] = (row["slow"] as Vector3).lerp(step, clampf(delta / VELOCITY_WINDOW, 0.0, 1.0))
 	row["fast"] = (row["fast"] as Vector3).lerp(step, clampf(delta / FAST_WINDOW, 0.0, 1.0))
 
@@ -326,6 +356,14 @@ func _velocity_of(body: PlayerController) -> Vector3:
 		return Vector3.ZERO
 	var slow: Vector3 = _seen[body.get_instance_id()]["slow"]
 	return Vector3(slow.x, 0.0, slow.z)
+
+
+## The velocity of his last frame's step, flattened.
+func _step_of(body: PlayerController) -> Vector3:
+	if body == null or not _seen.has(body.get_instance_id()):
+		return Vector3.ZERO
+	var now: Vector3 = _seen[body.get_instance_id()].get("now", Vector3.ZERO)
+	return Vector3(now.x, 0.0, now.z)
 
 
 ## True when he is running the same way he was: the fast average and the slow
