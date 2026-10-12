@@ -64,7 +64,7 @@ shader_parameter/strength = 0.6
 material = SubResource("StreakMat")
 top_radius = 1.0
 bottom_radius = 1.15
-height = 76.500
+height = 66.740
 radial_segments = 12
 rings = 1
 cap_top = false
@@ -74,7 +74,7 @@ cap_bottom = false
 material = SubResource("StreakMat")
 top_radius = 1.0
 bottom_radius = 1.15
-height = 106.000
+height = 67.110
 radial_segments = 12
 rings = 1
 cap_top = false
@@ -88,7 +88,7 @@ size = Vector2(2, 2)
 material = SubResource("StreakMat")
 top_radius = 1.0
 bottom_radius = 1.15
-height = 70.250
+height = 67.130
 radial_segments = 12
 rings = 1
 cap_top = false
@@ -117,7 +117,8 @@ The light (2026-09-30, Ryan: \"there's no light on the tower. it's dark.\") is B
 environment = SubResource("Env")
 
 [node name="NoSun" type="DirectionalLight3D" parent="Environment"]
-editor_description = "Energy 0: its presence stops the editor's preview sun so the editor matches the game."
+editor_description = "Energy 0: its presence stops the editor's preview sun so the editor matches the game. Aimed down the one sun (bearing 205, 70 deg up) that every beam here follows."
+transform = Transform3D(-0.42262, 0.85165, -0.30998, 0.00000, 0.34202, 0.93969, 0.90631, 0.39713, -0.14454, 0.00000, 0.00000, 0.00000)
 light_energy = 0.0
 shadow_enabled = false
 
@@ -138,24 +139,24 @@ omni_attenuation = 0.5
 omni_shadow_mode = 1
 
 [node name="Shaft" type="MeshInstance3D" parent="Skylight"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 45.65, 0)
+transform = Transform3D(1.00000, -0.32987, 0.00000, 0.00000, 1.00000, 0.00000, 0.00000, -0.15382, 1.00000, 15.38841, 45.65000, 7.17568)
 cast_shadow = 0
 mesh = SubResource("ShaftMesh")
 
 [node name="Pool" type="MeshInstance3D" parent="Skylight"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.95, 0)
+transform = Transform3D(1.00000, 0.00000, 0.00000, 0.00000, 1.00000, 0.00000, 0.00000, 0.00000, 1.00000, 30.76033, -0.95000, 14.34367)
 cast_shadow = 0
 mesh = SubResource("PoolMesh")
 
 [node name="Motes" type="CPUParticles3D" parent="Skylight"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 66, 0)
+transform = Transform3D(1.00000, 0.00000, 0.00000, 0.00000, 1.00000, 0.00000, 0.00000, 0.00000, 1.00000, 8.67557, 66.00000, 4.04545)
 cast_shadow = 0
 amount = 60
 lifetime = 24.0
 preprocess = 24.0
 mesh = SubResource("MoteMesh")
 emission_shape = 6
-emission_ring_axis = Vector3(0, 1, 0)
+emission_ring_axis = Vector3(-0.30998, 0.93969, -0.14454)
 emission_ring_height = 52.0
 emission_ring_radius = 10.0
 emission_ring_inner_radius = 0.0
@@ -166,15 +167,15 @@ initial_velocity_min = 0.02
 initial_velocity_max = 0.12
 
 [node name="Streaks" type="Node3D" parent="Skylight"]
-editor_description = "A low sun through the drum's windows: one additive volume with dust per sunlit window, from its mouth to where the light lands."
+editor_description = "The sun through the drum's windows, parallel to the oculus Shaft (bearing 205, 70 deg up): one additive volume with dust per sunlit window, the window's outline carried along the sun to where the light lands on the pit floor, and a lit pool there."
 
 [node name="Streak248" type="MeshInstance3D" parent="Skylight/Streaks"]
-transform = Transform3D(0.00000, -0.84031, -1.84015, 0.00000, 0.37461, -4.12780, 1.68584, -0.39184, 0.00000, 14.1541, 47.7713, -28.4386)
+transform = Transform3D(2.77162, -0.30998, 0.00000, 0.00000, 0.93969, 5.00000, -1.14809, -0.14454, 0.00000, -7.64610, 30.74246, -38.60660)
 cast_shadow = 0
 mesh = SubResource("StreakMesh248")
 
 [node name="Motes248" type="CPUParticles3D" parent="Skylight/Streaks"]
-transform = Transform3D(0.00000, -0.84031, -0.37461, 0.00000, 0.37461, -0.84031, 1.00000, -0.39184, 0.00000, 14.1541, 47.7713, -28.4386)
+transform = Transform3D(0.42262, -0.30998, 0.85165, 0.00000, 0.93969, 0.34202, -0.90631, -0.14454, 0.39713, -7.64610, 30.74246, -38.60660)
 cast_shadow = 0
 amount = 24
 lifetime = 20.0
@@ -182,20 +183,25 @@ preprocess = 20.0
 local_coords = true
 mesh = SubResource("MoteMesh")
 emission_shape = 3
-emission_box_extents = Vector3(1.35, 34.43, 3.93)
+emission_box_extents = Vector3(1.77, 30.03, 2.13)
 direction = Vector3(0, -1, 0)
 spread = 180.0
 gravity = Vector3(0, -0.01, 0)
 initial_velocity_min = 0.02
 initial_velocity_max = 0.1
 
+[node name="Land248" type="MeshInstance3D" parent="Skylight/Streaks"]
+transform = Transform3D(3.18737, 0.00000, 1.89675, 0.00000, 1.00000, -0.00000, -1.32030, 0.00000, 0.88446, 2.69700, -0.95000, -33.78400)
+cast_shadow = 0
+mesh = SubResource("LandMesh202")
+
 [node name="Streak202" type="MeshInstance3D" parent="Skylight/Streaks"]
-transform = Transform3D(0.00000, -0.84031, -1.84015, 0.00000, 0.37461, -4.12780, 2.59051, -0.39184, 0.00000, 1.1100, 42.2459, 2.7799)
+transform = Transform3D(1.14809, -0.30998, 0.00000, 0.00000, 0.93969, 5.00000, -2.77162, -0.14454, 0.00000, -33.02876, 30.56861, -13.13986)
 cast_shadow = 0
 mesh = SubResource("StreakMesh202")
 
 [node name="Motes202" type="CPUParticles3D" parent="Skylight/Streaks"]
-transform = Transform3D(0.00000, -0.84031, -0.37461, 0.00000, 0.37461, -0.84031, 1.00000, -0.39184, 0.00000, 1.1100, 42.2459, 2.7799)
+transform = Transform3D(0.42262, -0.30998, 0.85165, 0.00000, 0.93969, 0.34202, -0.90631, -0.14454, 0.39713, -33.02876, 30.56861, -13.13986)
 cast_shadow = 0
 amount = 24
 lifetime = 20.0
@@ -203,7 +209,7 @@ preprocess = 20.0
 local_coords = true
 mesh = SubResource("MoteMesh")
 emission_shape = 3
-emission_box_extents = Vector3(2.07, 47.70, 3.93)
+emission_box_extents = Vector3(2.40, 30.20, 1.42)
 direction = Vector3(0, -1, 0)
 spread = 180.0
 gravity = Vector3(0, -0.01, 0)
@@ -211,17 +217,17 @@ initial_velocity_min = 0.02
 initial_velocity_max = 0.1
 
 [node name="Land202" type="MeshInstance3D" parent="Skylight/Streaks"]
-transform = Transform3D(2.34780, 0.00000, -5.54178, 0.00000, 1.00000, 0.00000, 1.09480, 0.00000, 11.88439, 44.3862, 23.0300, 22.9599)
+transform = Transform3D(1.32030, 0.00000, 1.89675, 0.00000, 1.00000, -0.00000, -3.18737, 0.00000, 0.88446, -22.62900, -0.95000, -8.29000)
 cast_shadow = 0
 mesh = SubResource("LandMesh202")
 
 [node name="Streak158" type="MeshInstance3D" parent="Skylight/Streaks"]
-transform = Transform3D(0.00000, -0.84031, -1.84015, 0.00000, 0.37461, -4.12780, 1.48944, -0.39184, 0.00000, -13.9106, 48.9419, 31.7515)
+transform = Transform3D(-1.14809, -0.30998, 0.00000, 0.00000, 0.93969, 5.00000, -2.77162, -0.14454, 0.00000, -33.02566, 30.55922, 22.84159)
 cast_shadow = 0
 mesh = SubResource("StreakMesh158")
 
 [node name="Motes158" type="CPUParticles3D" parent="Skylight/Streaks"]
-transform = Transform3D(0.00000, -0.84031, -0.37461, 0.00000, 0.37461, -0.84031, 1.00000, -0.39184, 0.00000, -13.9106, 48.9419, 31.7515)
+transform = Transform3D(0.42262, -0.30998, 0.85165, 0.00000, 0.93969, 0.34202, -0.90631, -0.14454, 0.39713, -33.02566, 30.55922, 22.84159)
 cast_shadow = 0
 amount = 24
 lifetime = 20.0
@@ -229,12 +235,17 @@ preprocess = 20.0
 local_coords = true
 mesh = SubResource("MoteMesh")
 emission_shape = 3
-emission_box_extents = Vector3(1.19, 31.61, 3.93)
+emission_box_extents = Vector3(1.62, 30.21, 2.20)
 direction = Vector3(0, -1, 0)
 spread = 180.0
 gravity = Vector3(0, -0.01, 0)
 initial_velocity_min = 0.02
 initial_velocity_max = 0.1
+[node name="Land158" type="MeshInstance3D" parent="Skylight/Streaks"]
+transform = Transform3D(-1.32030, 0.00000, 1.89675, 0.00000, 1.00000, -0.00000, -3.18737, 0.00000, 0.88446, -22.62300, -0.95000, 27.69300)
+cast_shadow = 0
+mesh = SubResource("LandMesh202")
+
 [node name="MapBase" parent="." instance=ExtResource("10_map_model")]
 editor_description = "maps/marble/models/marble.glb: the whole rotunda, one contiguous mesh -- the spiked ground floor at y -1.0, the gallery walkway r 46.7..59.55 at y 23.0 with its open inner lip, the seven tiers of barred cells (bases -1/7/15/23/31/39/47), the wall top at 55, a drum of eight glazed windows to 69.2, the dome from 70.2 to the apex at 91.4. Ships its own collision (MarbleCollision-colonly); the spikes are not in it, the volumes kill first."
 
