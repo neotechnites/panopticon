@@ -47,23 +47,29 @@ pic = []
 for lid, start, slot, clips in slots:
     if lid == "l8": pic[-1] = (pic[-1][0], pic[-1][1], pic[-1][2] + slot, pic[-1][3]); continue
     pic.append((lid, start, slot, clips))
-# l4 picture shorter than its line: the zoom-out carries on first
-segs = []
+# Measured (v2): L4 bursts by silencedetect -35 dB: "this guy" starts 5.37 s, "Ragdolls" 8.37 s; the 04 hit frame is 3.0 s.
+L4_THIS, L4_RAGDOLLS, HIT_04 = 5.37, 8.37, 3.0
+# L5 montage: hits_c windows round its hit markers (2.25, 4.25, 6.25 s), then the freakout flight (1.75 s on).
+L5_PARTS = [("05_hits_c.mp4", 1.4, 1.6), ("05_hits_c.mp4", 3.5, 1.5), ("05_hits_c.mp4", 5.5, 1.5), ("05_freakout_mild.mp4", 1.4, None)]
+segs, l3_end = [], 0.0
 for lid, start, slot, clips in pic:
     need, parts = slot, []
     if lid == "l4":
-        c4 = dur(os.path.join(SRC, clips[0][0]))
-        if c4 < slot:
-            parts.append(("03_old_hell_zoomout.mp4", dur(os.path.join(SRC, "03_old_hell_zoomout.mp4")) - (slot - c4) - 0.05, slot - c4))
-            need = c4
+        head = L4_RAGDOLLS - HIT_04
+        parts = [("03_old_hell_zoomout.mp4", l3_end, head), ("04_tower_runner_shot_momentum.mp4", 0.0, slot - head)]
+        segs.append((lid, parts)); continue
+    if lid == "l5":
+        for name, cin, take in L5_PARTS:
+            take = need if take is None else min(take, need)
+            parts.append((name, cin, take)); need -= take
+        segs.append((lid, parts)); continue
     for name, cin in clips:
         if need <= 0.01: break
         have = dur(os.path.join(SRC, name)) - cin - 0.05
         take = min(have, need)
         parts.append((name, cin, take)); need -= take
-    if need > 0.01:
-        name, cin, take = parts[-1]
-        print("WARN %s short by %.2f s" % (lid, need))
+    if lid == "l3": l3_end = parts[-1][1] + parts[-1][2]
+    if need > 0.01: print("WARN %s short by %.2f s" % (lid, need))
     segs.append((lid, parts))
 # 3. picture
 lst = os.path.join(W, "parts.txt"); k = 0
@@ -95,9 +101,8 @@ for lid, (vlen, cues) in words.items():
         for j, ch in enumerate(chunks):
             ca = a + (b - a) * (j * 3) / n; cb = a + (b - a) * min(n, (j + 1) * 3) / n
             ev.append((starts[lid] + ca, starts[lid] + cb, " ".join(ch)))
-        if lid == "l4" and "this guy" in text.lower() and card is None:
-            idx = [w.lower().strip(",.") for w in ws].index("this")
-            card = starts[lid] + a + (b - a) * idx / n
+        if lid == "l4":
+            card = starts[lid] + L4_THIS
 ev.sort()
 ev = [(a, min(b, ev[i + 1][0]) if i + 1 < len(ev) else b, s) for i, (a, b, s) in enumerate(ev)]
 ass = os.path.join(W, "captions.ass")
@@ -126,7 +131,7 @@ for i, (lid, (vlen, _)) in enumerate(words.items()):
 mix = ";".join(filt) + ";" + "".join("[a%d]" % i for i in range(len(words))) + "amix=inputs=%d:normalize=0,apad,loudnorm=I=-14:TP=-1.5[a]" % len(words)
 voice = os.path.join(W, "voice.wav")
 run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y"] + vin + ["-filter_complex", mix, "-map", "[a]", "-t", "%.3f" % total, "-ar", "48000", voice])
-final = os.path.join(F, "ragdoll_vnext_v1.mp4")
+final = os.path.join(F, "ragdoll_vnext_v2.mp4")
 os.chdir(W)
 run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y"] + LP + ["-i", pic_mp4, "-i", voice, "-vf", "ass=captions.ass", "-map", "0:v", "-map", "1:a", "-t", "%.3f" % total,
      "-c:v", "libx264", "-crf", "16", "-preset", "medium", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", final])
