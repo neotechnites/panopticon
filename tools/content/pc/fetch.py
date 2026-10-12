@@ -7,11 +7,14 @@ Runs ON THE PC (tools/content/fetch.sh pushes it):
   --find WORD      captions only (manual and auto, English) into external\src\,
                    then every cue containing WORD with its timestamp: the way
                    to find "a little after 6:50" without scrubbing the video.
-  --from T --to T  only that section (mm:ss or seconds) at up to 1080p mp4:
-                   external\src\<name>_<id>.mp4, and the cut re-encoded to
-                   external\<name>.mp4 (libx264 crf 18, aac) so it concatenates
-                   cleanly. Without them, the whole video lands in src\ and
-                   nothing is cut.
+  --from T --to T  the whole video at up to 1080p into external\src\<name>_<id>.mp4,
+                   then that section cut frame-exact and LOSSLESS to
+                   external\<name>.mkv (utvideo + pcm, no second lossy encode).
+                   Without them, the whole video lands in src\ and nothing is cut.
+
+yt-dlp must be 2026.08.19 or newer (Homebrew's 2026.01.29 gets HTTP 403): the
+python in ~/.venvs/content when present, else this interpreter, or $CP_YTDLP (a python with yt_dlp, or a
+yt-dlp executable). An older one stops the fetch; nothing falls back.
   --cc-search Q    the first 15 search results whose licence says Creative
                    Commons, printed, nothing downloaded.
 
@@ -27,7 +30,25 @@ import subprocess
 import sys
 import time
 
-YTDLP = [sys.executable, "-m", "yt_dlp"]
+MIN_YTDLP = "2026.08.19"
+TOOL_VERSION = "2"
+
+
+def _ytdlp():
+    exe = os.environ.get("CP_YTDLP")
+    if not exe:
+        venv = os.path.expanduser("~/.venvs/content/bin/python")
+        exe = venv if os.path.exists(venv) else sys.executable
+    cmd = [exe, "-m", "yt_dlp"] if os.path.basename(exe).lower().startswith("python") else [exe]
+    ver = subprocess.run(cmd + ["--version"], capture_output=True, text=True).stdout.strip()
+    norm = lambda v: tuple(int(x) for x in re.findall(r"\d+", v)[:3])
+    if not ver or norm(ver) < norm(MIN_YTDLP):
+        raise SystemExit("fetch: yt-dlp %s via %s is older than %s (2026.01.29 gets HTTP 403); "
+                         "set CP_YTDLP to a current one" % (ver or "missing", exe, MIN_YTDLP))
+    return cmd
+
+
+YTDLP = None
 
 
 def hms(seconds):
@@ -43,6 +64,8 @@ def to_seconds(t):
 
 
 def info(url):
+    global YTDLP
+    YTDLP = YTDLP or _ytdlp()
     out = subprocess.run(YTDLP + ["--skip-download", "--no-warnings", "--print",
                                   "%(id)s\t%(title)s\t%(uploader)s\t%(upload_date)s\t%(license)s\t%(duration)s\t%(webpage_url)s", url],
                          capture_output=True, text=True, encoding="utf-8")
@@ -62,6 +85,8 @@ def info(url):
 
 
 def cc_search(query):
+    global YTDLP
+    YTDLP = YTDLP or _ytdlp()
     out = subprocess.run(YTDLP + ["--skip-download", "--no-warnings", "--flat-playlist", "--match-filter",
                                   "license~='(?i)creative commons'", "--print",
                                   "%(id)s  %(duration)s s  %(uploader)s  |  %(title)s  |  %(license)s",
@@ -72,6 +97,21 @@ def cc_search(query):
         print("  " + l)
     if out.returncode != 0 and not lines:
         print(out.stderr[-800:])
+
+
+def _prov(out, src, meta):
+    """<out>.prov.json: the download is the source; the cut adds no lossy encode."""
+    import hashlib
+    def sha(p):
+        h = hashlib.sha1()
+        with open(p, "rb") as f:
+            for b in iter(lambda: f.read(1 << 22), b""):
+                h.update(b)
+        return h.hexdigest()
+    with open(out + ".prov.json", "w", encoding="utf-8") as f:
+        json.dump({"inputs": [sha(src)], "input_paths": [os.path.abspath(src)], "encoder": "utvideo yuv420p + pcm_s24le",
+                   "lossless": True, "tool": "fetch.py", "version": TOOL_VERSION, "sha1": sha(out),
+                   "url": meta.get("url"), "license": meta.get("license")}, f, indent=1)
 
 
 def find_word(project, url, word):
@@ -116,31 +156,32 @@ def download(project, url, name, t_from, t_to):
     os.makedirs(src, exist_ok=True)
     meta = info(url)
     target = os.path.join(src, "%s_%s.mp4" % (name, meta["id"]))
+    # The whole stream, never --download-sections: forcing keyframes at the cuts re-encodes it.
     args = YTDLP + ["--no-warnings", "-f", "bv*[height<=1080][ext=mp4]+ba[ext=m4a]/b[height<=1080][ext=mp4]/b",
-                    "--merge-output-format", "mp4", "-o", target]
-    if t_from is not None:
-        args += ["--download-sections", "*%s-%s" % (t_from, t_to), "--force-keyframes-at-cuts"]
-    args.append(url)
+                    "--merge-output-format", "mp4", "-o", target, url]
     t0 = time.time()
-    r = subprocess.run(args, capture_output=True, text=True, encoding="utf-8")
-    if r.returncode != 0 or not os.path.exists(target):
-        raise SystemExit("download failed:\n" + r.stderr[-1500:])
+    if not os.path.exists(target):
+        r = subprocess.run(args, capture_output=True, text=True, encoding="utf-8")
+        if r.returncode != 0 or not os.path.exists(target):
+            raise SystemExit("download failed:\n" + r.stderr[-1500:])
     got = time.time() - t0
     cut = None
     seconds = None
     if t_from is not None:
-        cut = os.path.join(ext, name + ".mp4")
-        subprocess.run(["ffmpeg", "-nostdin", "-hide_banner", "-y", "-loglevel", "error", "-i", target, "-c:v", "libx264",
-                        "-preset", "fast", "-crf", "18", "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", cut], check=True)
+        cut = os.path.join(ext, name + ".mkv")
         seconds = to_seconds(t_to) - to_seconds(t_from)
+        subprocess.run(["ffmpeg", "-nostdin", "-hide_banner", "-y", "-loglevel", "error", "-ss", "%.4f" % to_seconds(t_from),
+                        "-i", target, "-t", "%.4f" % seconds, "-c:v", "utvideo", "-pix_fmt", "yuv420p",
+                        "-c:a", "pcm_s24le", cut], check=True)
+        _prov(cut, target, meta)
     entry = []
-    head = "## %s.mp4  (%s)" % (name, ("%.1f s" % seconds) if seconds is not None else "full video in src\\")
+    head = "## %s.mkv  (%s)" % (name, ("%.1f s" % seconds) if seconds is not None else "full video in src\\")
     entry.append(head)
     entry.append("- URL: %s" % meta["url"])
     entry.append("- Title: %s  |  Uploader: %s  |  Upload date: %s" % (meta["title"], meta["uploader"], meta["upload_date"]))
     entry.append("- Licence: %s" % meta["license"])
     if t_from is not None:
-        entry.append("- In %s, out %s of the source (%s s long); cut re-encoded libx264 crf 18 / aac." % (
+        entry.append("- In %s, out %s of the source (%s s long); cut lossless (utvideo / pcm)." % (
             hms(to_seconds(t_from)), hms(to_seconds(t_to)), meta.get("duration", "?")))
     else:
         entry.append("- Whole video at src\\%s; nothing cut yet." % os.path.basename(target))
@@ -151,8 +192,8 @@ def download(project, url, name, t_from, t_to):
     sources = os.path.join(ext, "SOURCES.md")
     if not os.path.exists(sources):
         with open(sources, "w", encoding="utf-8") as f:
-            f.write("# External footage sources (%s)\n\nNothing here has been uploaded anywhere. Cuts are ffmpeg re-encodes of\n"
-                    "local yt-dlp downloads; src\\ holds the full downloads and can be deleted.\n" % os.path.basename(project))
+            f.write("# External footage sources (%s)\n\nNothing here has been uploaded anywhere. Cuts are lossless ffmpeg cuts of\n"
+                    "local yt-dlp downloads; src\\ holds the full downloads.\n" % os.path.basename(project))
     with open(sources, "a", encoding="utf-8") as f:
         f.write("\n" + "\n".join(entry) + "\n")
     print("\n".join(entry))
