@@ -43,8 +43,8 @@ func _process(delta: float) -> void:
 	var cam: Camera3D = EditorInterface.get_editor_viewport_3d(0).get_camera_3d()
 	if cam != null:
 		var side: Vector3 = _normal.cross(Vector3.UP).normalized()
-		cam.global_position = _centre + _normal * 8.0 + Vector3.UP * 0.4 + side * 0.6
-		cam.look_at(_centre + Vector3.UP * 0.2, Vector3.UP)
+		cam.global_position = _centre + _normal * 8.0 + Vector3.UP * 1.6 + side * 2.8
+		cam.look_at(_centre + Vector3.DOWN * 0.3, Vector3.UP)
 	if _t < 0.0 and FileAccess.file_exists("res://spin.on"):
 		_t = 0.0
 	if _t >= 0.0:

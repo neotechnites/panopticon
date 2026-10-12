@@ -129,7 +129,9 @@ func lens(_delta: float) -> bool:
 			var u: float = smoothstep(0.0, 1.0, clampf((t - 0.6) / float(option("push", 9.0)), 0.0, 1.0))
 			var far: float = float(option("far", 13.0))
 			var near: float = float(option("near", 6.5))
-			pos = _centre + _normal * lerpf(far, near, u) + Vector3.UP * lerpf(0.6, 0.1, u) + side * lerpf(1.2, 0.3, u)
+			# v5: from L4's side and height, so the wave's bulge off the disc reads while it spins.
+			pos = _centre + _normal * lerpf(far, near, u) + Vector3.UP * lerpf(1.8, 1.2, u) + side * lerpf(3.4, 2.4, u)
+			look = _centre + Vector3.DOWN * 0.4
 		"wave":
 			# Over the end of the S5 lava lake (292-338 deg), looking down past it: the lava wave and the swirl in one frame.
 			var u2: float = clampf((t - 0.6) / 10.0, 0.0, 1.0)
