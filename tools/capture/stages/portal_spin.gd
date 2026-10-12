@@ -9,6 +9,8 @@ const DIAL_SHADER: String = "res://tools/capture/stages/portal_spin_dial.gdshade
 const SPIN: float = 0.8
 ## Godot's editor viewport grey, near enough.
 const EDITOR_GREY := Color(0.27, 0.27, 0.29)
+## v4 (Ryan): the hell portal wears the other maps' spiral swirl, in hell's colours, for this short only.
+const SWIRL_PATH: String = "res://tools/content/projects/portal_spin/hell_swirl.png"
 
 var _mode: String = "zoom"
 var _portal: MeshInstance3D = null
@@ -34,8 +36,12 @@ func before_start() -> void:
 			var mat := mesh.get_active_material(s) as ShaderMaterial
 			if mat != null and mat.shader != null and mat.shader.resource_path == PORTAL_SHADER:
 				_portal = mesh
-				if _mode == "dial":
-					mesh.set_surface_override_material(s, _dial_copy(mat))
+				var worn: ShaderMaterial = _dial_copy(mat) if _mode == "dial" else mat.duplicate() as ShaderMaterial
+				if bool(option("swirl", true)):
+					var tex := ImageTexture.create_from_image(Image.load_from_file(ProjectSettings.globalize_path(SWIRL_PATH)))
+					worn.set_shader_parameter(&"albedo_texture", tex)
+					worn.set_shader_parameter(&"emission_texture", tex)
+				mesh.set_surface_override_material(s, worn)
 	if _portal == null:
 		say("no portal found")
 		return

@@ -11,6 +11,7 @@ robocopy $src $dst /E /NFL /NDL /NJH /NJS /XD .git tools addons docs tests .clau
 Remove-Item "$dst\spin.on" -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force "$dst\scenes" | Out-Null
 Copy-Item "$D\scripts\ped\portal_spin.gd" "$dst\scenes\portal_spin.gd"
+Copy-Item "$D\scripts\ped\hell_swirl.png" "$dst\scenes\hell_swirl.png"
 Copy-Item "$D\scripts\ped\portal_wave.gdshader" "$dst\maps\bentham_ring\materials\portal_wave.gdshader"
 Copy-Item "$D\scripts\ped\bentham_ring.tscn" "$dst\maps\bentham_ring\bentham_ring.tscn"
 New-Item -ItemType Directory -Force "$dst\.godot\editor" | Out-Null

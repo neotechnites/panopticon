@@ -26,6 +26,9 @@ func _process(delta: float) -> void:
 			for s: int in m.mesh.get_surface_count():
 				var mat := m.get_active_material(s) as ShaderMaterial
 				if mat != null and mat.shader != null and mat.shader.resource_path.ends_with("portal_wave.gdshader"):
+					var tex := ImageTexture.create_from_image(Image.load_from_file(ProjectSettings.globalize_path("res://scenes/hell_swirl.png")))
+					mat.set_shader_parameter(&"albedo_texture", tex)
+					mat.set_shader_parameter(&"emission_texture", tex)
 					_mats.append(mat)
 					var local: AABB = m.get_aabb()
 					_centre = (m.global_transform * local).get_center()
