@@ -43,7 +43,7 @@ captions_y: 0.72
 | l5a | cuts/s4_editor.mp4 | 0 |  | line |  | All I had to do was add a few lines to that shader |  |
 | l5b | cuts/s4_editor.mp4 | cont |  | line |  | that rotate the texture around its centre a little more every frame, so the whole swirl turns. |  |
 | l6 | cuts/s5_orbit.mp4 | 0 |  | line |  | What do you think? Should I keep this in or not? |  |
-| l7 | external/forest_runner_haters03.mp4 | 0 |  | line |  | Let me know what else you think I should add in the comments, and it just might make it into the final game! |  |
+| l7 | external/forest_runner_haters03.mp4 | 0 | 4.22 | nohold |  | Let me know what else you think I should add in the comments, and it just might make it into the final game! |  |
 
 ## v1 as cut (2026-10-12)
 # Takes: real time, ddagrab 810x1440 scaled to 1080x1920; sync = the LAST white stretch in the window's top 600 px
