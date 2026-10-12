@@ -15,9 +15,9 @@ in: 0.3
 
 ## 2
 said: Cut to gameplay in the of the runners in hell with these popping up on screen: Yeah... Thats kinda the point...
-capture: --shot=s3_open_lane --stage=scope_hunt --pov=runner --bots=7 --shimmer=0 --seed=20260922
+capture: --shot=s3_open_lane --pov=runner --bots=7 --shimmer=0 --look=social --seed=20260922
 seconds: 7.8
-in: 1.5
+in: 3.0
 
 ## script v1
 captions: stack
