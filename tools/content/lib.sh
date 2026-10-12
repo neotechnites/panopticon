@@ -36,9 +36,75 @@ die() { echo "content: $*" >&2; exit 2; }
 # `-Command -` parses stdin line by line and drops a block with no blank line after it.
 pc() {
   local encoded
-  encoded=$(python3 -c 'import sys,base64; print(base64.b64encode(sys.stdin.read().encode("utf-16-le")).decode())')
+  # Below-normal priority: the PC is shared; every ffmpeg and python a script starts inherits it.
+  encoded=$( (echo "(Get-Process -Id \$PID).PriorityClass = 'BelowNormal'"; cat) | python3 -c 'import sys,base64; print(base64.b64encode(sys.stdin.read().encode("utf-16-le")).decode())')
   ssh -i "${PC_KEY}" -o ConnectTimeout=20 "${PC_HOST}" "powershell -NoProfile -EncodedCommand ${encoded}" \
     2> >(grep -v '^#< CLIXML\|^<Objs' >&2)
+}
+
+# --- The PC lock ------------------------------------------------------------------
+# One lease for every capture, sync and assemble: C:\dev\locks\screen\owner.json
+# {owner, pid, host, token, expires} (the cp tools' format). Waiters queue by ticket
+# in C:\dev\locks\queue; a lease past expiry, or a ticket not refreshed in 60 s, is dead.
+PC_LOCK_TTL=${PC_LOCK_TTL:-120}
+pc_lock() {  # pc_lock <what> : wait in line, then hold the PC until this script exits
+  [ -n "${PC_LOCK_TOKEN:-}" ] && return 0
+  local what="$1" token ticket host t_wait last="" out
+  token=$(python3 -c 'import uuid; print(uuid.uuid4().hex)')
+  ticket="$(python3 -c 'import time; print(time.time_ns())')_${token}.t"
+  host=$(hostname -s)
+  t_wait=$(now_ms)
+  while :; do
+    out=$(pc <<EOF
+\$root = 'C:\\dev\\locks'; \$q = "\$root\\queue"; \$d = "\$root\\screen"
+New-Item -ItemType Directory -Force -Path \$q | Out-Null
+\$now = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+Set-Content -Path "\$q\\${ticket}" -Value '${what} (${host}:$$)'
+Get-ChildItem \$q -File | Where-Object { \$_.LastWriteTimeUtc -lt (Get-Date).ToUniversalTime().AddSeconds(-60) } | Remove-Item -Force -EA SilentlyContinue
+\$first = Get-ChildItem \$q -File | Sort-Object Name | Select-Object -First 1
+if (\$first.Name -ne '${ticket}') { Write-Output ('WAIT in line behind ' + (Get-Content \$first.FullName -Raw).Trim()); exit 0 }
+foreach (\$s in 'screen', 'heavy') {
+  \$o = Get-Content "\$root\\\$s\\owner.json" -Raw -EA SilentlyContinue | ConvertFrom-Json -EA SilentlyContinue
+  if (\$o -and \$o.expires -gt \$now) { Write-Output ('WAIT ' + \$s + ' lease held by ' + \$o.owner); exit 0 }
+  if ((Test-Path "\$root\\\$s") -and -not \$o -and ((Get-Item "\$root\\\$s").LastWriteTimeUtc -gt (Get-Date).ToUniversalTime().AddMinutes(-2))) { Write-Output ('WAIT ' + \$s + ' lease being written'); exit 0 }
+}
+\$busy = Get-CimInstance Win32_Process | Where-Object { (\$_.Name -like 'ffmpeg*') -or ((\$_.Name -like 'godot*') -and (\$_.CommandLine -match '--script|--write-movie|--headless')) }
+if (\$busy) { Write-Output ('WAIT running: ' + ((\$busy | ForEach-Object { \$_.Name + ' ' + \$_.ProcessId }) -join ', ')); exit 0 }
+if (Test-Path \$d) { Remove-Item -Recurse -Force \$d }
+try { New-Item -ItemType Directory -Path \$d -EA Stop | Out-Null } catch { Write-Output 'WAIT race'; exit 0 }
+\$lease = @{ owner = '${what}'; pid = $$; host = '${host}'; token = '${token}'; expires = \$now + ${PC_LOCK_TTL} } | ConvertTo-Json -Compress
+Set-Content -Path "\$d\\owner.json" -Value \$lease
+Remove-Item "\$q\\${ticket}" -Force
+Write-Output 'GOT'
+EOF
+)
+    case "${out}" in
+      *GOT*) break ;;
+      *WAIT*) [ "${out}" != "${last}" ] && echo "pc lock: ${out#*WAIT }" >&2; last="${out}"; sleep 10 ;;
+      *) echo "pc lock: no answer from the PC (${out}); retrying" >&2; sleep 15 ;;
+    esac
+  done
+  export PC_LOCK_TOKEN="${token}"
+  echo "pc lock: held for ${what} after $(since "${t_wait}") in line" >&2
+  ( while sleep 30; do pc <<EOF >/dev/null 2>&1 || true
+\$f = 'C:\\dev\\locks\\screen\\owner.json'
+\$o = Get-Content \$f -Raw -EA SilentlyContinue | ConvertFrom-Json -EA SilentlyContinue
+if (\$o -and \$o.token -eq '${token}') { \$o.expires = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds() + ${PC_LOCK_TTL}; Set-Content -Path \$f -Value (\$o | ConvertTo-Json -Compress) }
+EOF
+  done ) &
+  PC_LOCK_RENEWER=$!
+  trap pc_unlock EXIT
+}
+
+pc_unlock() {
+  [ -n "${PC_LOCK_RENEWER:-}" ] && kill "${PC_LOCK_RENEWER}" 2>/dev/null
+  [ -n "${PC_LOCK_TOKEN:-}" ] || return 0
+  pc <<EOF >/dev/null 2>&1 || true
+\$d = 'C:\\dev\\locks\\screen'
+\$o = Get-Content "\$d\\owner.json" -Raw -EA SilentlyContinue | ConvertFrom-Json -EA SilentlyContinue
+if (\$o -and \$o.token -eq '${PC_LOCK_TOKEN}') { Remove-Item -Recurse -Force \$d }
+EOF
+  unset PC_LOCK_TOKEN PC_LOCK_RENEWER
 }
 
 pc_pull() { scp -q -i "${PC_KEY}" "${PC_HOST}:$1" "$2"; }

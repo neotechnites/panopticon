@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 # Capture and render ONE shot of a project on the PC, from its entry in the brief.
 #
-#   tools/content/shot.sh <project> <n> [--crosshair] [--movie]
+#   tools/content/shot.sh <project> <n> [--crosshair] [--movie] [--name NAME]
 #
-# Rough (the default): the take plays at real speed and the screen is recorded
-# (lib.sh pc_rough), seconds of take plus load. --movie: Godot's Movie Maker
-# writes every frame offline, slow, for the final trailer.
+# Rough (the default): ONE take at real speed, the screen recorded (lib.sh pc_rough);
+# a portrait take is 810x1440, scaled to 1080x1920 at the cut. A failed gate prints why
+# and stops: no retry, no fallback. --movie (final only): Movie Maker, native 1080x1920.
+# --name: the cut is cuts\NAME.mp4 (default NN). A cut an earlier tag used is never overwritten.
 #
 # Entry fields it reads: capture (run_clip args) or still (shot.gd args), tape (a
 # recorded take, tools/content/tape.sh: every input played back, the same shot every
@@ -19,11 +20,8 @@
 # its own, in the brief's aspect, to final\<file>.mp4 -- a shot handed over as a
 # clip, not a timeline).
 #
-# A short is filmed PORTRAIT: the viewport is 1080x1920 through a temporary
-# override.cfg in the scratch checkout (C:\dev\verify, never the real repo) and
-# the lens composes for it (a Camera3D fov is the vertical one); nothing is
-# filmed landscape and cropped. Ryan: "the frame should consider the mobile
-# viewing port".
+# A short is filmed PORTRAIT through a temporary override.cfg in C:\dev\verify; the
+# lens composes for it (Camera3D fov is vertical). Nothing is filmed landscape and cropped.
 # Output on the PC, under content\<project>\ (layout in lib.sh): cuts\NN.mp4, the
 # master cut to seconds+gap with game audio muted over the gap, plus final\<file>.mp4
 # when the entry has a file: line. Takes are captured to takes\NN_tK.mkv (.avi with --movie) and
@@ -34,17 +32,21 @@
 set -euo pipefail
 source "$(dirname "$0")/lib.sh"
 
-PROJECT="${1:?usage: tools/content/shot.sh <project> <n> [--crosshair] [--movie]}"
-N="${2:?usage: tools/content/shot.sh <project> <n> [--crosshair] [--movie]}"
-CROSSHAIR=0; MODE=${MODE:-rough}
-for flag in "${@:3}"; do
-  case "${flag}" in --crosshair) CROSSHAIR=1 ;; --movie) MODE=movie ;; *) die "unknown flag ${flag}" ;; esac
+USAGE="usage: tools/content/shot.sh <project> <n> [--crosshair] [--movie] [--name NAME]"
+PROJECT="${1:?${USAGE}}"
+N="${2:?${USAGE}}"
+CROSSHAIR=0; MODE=rough; OUT=""
+set -- "${@:3}"
+while [ $# -gt 0 ]; do
+  case "$1" in --crosshair) CROSSHAIR=1 ;; --movie) MODE=movie ;; --name) OUT="$2"; shift ;; *) die "unknown flag $1" ;; esac
+  shift
 done
 BRIEF=$(brief_path "${PROJECT}")
 NAME=$(basename "${BRIEF}" .md)
 KIND=$(brief_head "${BRIEF}" kind short)
 DIR=$(project_dir "${NAME}")
 NN=$(pad2 "${N}")
+OUT="${OUT:-${NN}}"
 
 CAPTURE=$(brief_field "${BRIEF}" "${N}" capture)
 STILL=$(brief_field "${BRIEF}" "${N}" still)
@@ -55,8 +57,9 @@ AT=$(brief_field "${BRIEF}" "${N}" at)
 REF=$(brief_field "${BRIEF}" "${N}" ref)   # capture this one shot at a git ref, with that ref's own tools
 HOLD=$(brief_field "${BRIEF}" "${N}" hold 3)
 TAKES_MAX=$(brief_field "${BRIEF}" "${N}" takes "${TAKES_MAX}")
-# A pinned seed plays the same take every time; retrying it buys nothing.
+# A pinned seed plays the same take every time; retrying it buys nothing. Rough is one take.
 [[ "${CAPTURE}" == *--seed=* ]] && TAKES_MAX=1
+[ "${MODE}" = rough ] && TAKES_MAX=1
 MOTION_MIN=$(brief_field "${BRIEF}" "${N}" motion "${MOTION_MIN}")
 FREEZE_ALLOWED=$(brief_field "${BRIEF}" "${N}" freeze 0)   # stretches frozen >= 0.75 s allowed; "waive" skips the gate
 HUD=$(brief_field "${BRIEF}" "${N}" hud)
@@ -67,17 +70,15 @@ SAID=$(brief_field "${BRIEF}" "${N}" said)
 FILE=$(brief_field "${BRIEF}" "${N}" file)      # also deliver this cut as final\<file>.mp4
 SIZE=$(brief_head "${BRIEF}" size "${SIZE}")   # a brief may pin its frame (16:9 1920x1080)
 ASPECT=$(brief_head "${BRIEF}" aspect "$([ "${KIND}" = devlog ] && echo 16:9 || echo 9:16)")
-# A 9:16 short is filmed 9:16: the viewport is a phone's, the lens composes for
-# it, and nothing is cropped afterwards. Ryan: "the frame should consider the
-# mobile viewing port". The master and the gate follow the same frame.
+# 9:16 is filmed 9:16 (Ryan: "the frame should consider the mobile viewing port"). The
+# screen is 2560x1440: rough portrait is 810x1440 real time; only --movie is native 1080x1920.
 if [ "${ASPECT}" = 9:16 ]; then
-  [ "${SIZE}" = 1280x720 ] && SIZE=1080x1920
+  [ "${MODE}" = movie ] && SIZE=1080x1920 || SIZE=810x1440
   MASTER="scale=1080:1920"; GATE_SCALE="scale=90:160"
 else
   MASTER="scale=${SIZE%%x*}:${SIZE##*x}"; GATE_SCALE="scale=160:90"
 fi
-# The screen is 2560x1440: a portrait frame does not fit it, so a short films --movie.
-[ "${MODE}" = rough ] && [ "${SIZE##*x}" -gt 1440 ] && MODE=movie
+[ "${MODE}" = rough ] && [ "${SIZE##*x}" -gt 1440 ] && die "a ${SIZE} take does not fit the 2560x1440 screen in real time; only a final films --movie"
 # Both modes leave a lossless RGB take: rough records it, movie packs Movie Maker's PNG frames.
 TAKE_EXT=mkv; IN_SPEC="in_range=pc"
 # The cut is lossless RGB (no generation loss): the take is decoded by its own tags.
@@ -92,9 +93,19 @@ if [ -n "${FLASH}" ]; then
 fi
 # No HUD on any shot unless the entry asks: hud: crosshair (a guard POV) or hud: on.
 if [ -n "${HUD}" ] && [[ "${CAPTURE}" != *--hud=* ]]; then CAPTURE="${CAPTURE} --hud=${HUD}"; fi
-echo "shot ${NN} (${MODE}): ${SAID}"
+echo "shot ${NN} -> cuts\\${OUT}.mp4 (${MODE} ${SIZE}): ${SAID}"
 
+pc_lock "shot ${NAME} ${NN}"
+# The scratch checkout is shared: film only from this branch's own commit.
+if [ "$(pc <<< 'git -C C:/dev/verify rev-parse HEAD' | tr -d '\r')" != "$(git -C "${REPO_DIR}" rev-parse HEAD)" ]; then
+  "${CONTENT_DIR}/sync.sh"
+fi
 pc_layout "${DIR}"
+USED=$(pc <<EOF
+Select-String -Path '${DIR}\\cuts\\*_used.txt' -SimpleMatch -Pattern 'cuts/${OUT}.mp4' -List -EA SilentlyContinue | ForEach-Object { \$_.Filename }
+EOF
+)
+[ -z "${USED}" ] || die "cuts\\${OUT}.mp4 is in an earlier cut (${USED//$'\n'/ }); film it under a new --name"
 pc_push "${BRIEF}" "$(ff "${DIR}")/notes/brief.md"
 
 # ss_ps <take-path> : PowerShell setting $ss, the cut's in-point in that take file
@@ -112,7 +123,9 @@ take() {  # take <tag> <seed> <seconds>
   [[ "${args}" == *--seed=* ]] || args="${args} --seed=${seed}"
   local t0; t0=$(now_ms)
   if [ "${MODE}" = rough ]; then
-    pc_rough "--script res://tools/capture/run_clip.gd -- ${args} --seconds=${secs} --sync=90" "${log}" "${avi}" | sed 's/^/  | /'
+    if ! pc_rough "--script res://tools/capture/run_clip.gd -- ${args} --seconds=${secs} --sync=90" "${log}" "${avi}" | sed 's/^/  | /' >&2; then
+      echo "FAILED: the recording has no sync frames (Godot log ${log})"; return
+    fi
   else
     local frames="${DIR}\\takes\\${tag}_f"
     pc_godot "--script res://tools/capture/run_clip.gd --write-movie ${frames}.png --fixed-fps ${FPS} --resolution ${SIZE} -- ${args} --seconds=${secs}" "${log}" | sed 's/^/  | /'
@@ -137,12 +150,13 @@ EOF
   echo "  take ${tag}: gate $(since "$t0")" >&2
 }
 
-# --- A movie take with retries; echoes the chosen take's tag. ------------------
+# --- Takes (rough: one, a failed gate stops; movie: retries); echoes the tag. ---
 best_take() {  # best_take <prefix> <seconds>
   local prefix="$1" secs="$2" seed="${SEED:-20260930}" chosen="" chosen_motion=0 k
   for k in $(seq 1 "${TAKES_MAX}"); do
     local tag="${prefix}_t${k}" report
     report=$(take "${tag}" "$((seed + k - 1))" "${secs}" | tee /dev/stderr | tail -1)
+    [[ "${report}" == FAILED* ]] && die "shot ${NN}: ${report}"
     local motion freeze
     motion=$(echo "${report}" | sed -n 's/.*motion=\([0-9.]*\).*/\1/p')
     freeze=$(echo "${report}" | sed -n 's/.*freeze=\([0-9]*\).*/\1/p')
@@ -157,6 +171,7 @@ EOF
     if [ "${freeze:-1}" -le "${FREEZE_ALLOWED}" ] && python3 -c "import sys; sys.exit(0 if float('${motion:-0}') >= ${MOTION_MIN} else 1)"; then
       echo "${tag}"; return
     fi
+    [ "${MODE}" = rough ] && die "shot ${NN} failed the gate: ${report} (needs motion >= ${MOTION_MIN}, freezes <= ${FREEZE_ALLOWED}); take kept at ${DIR}\\takes\\${tag}.${TAKE_EXT}"
     if [ "${freeze:-1}" -le "${FREEZE_ALLOWED}" ] && python3 -c "import sys; sys.exit(0 if float('${motion:-0}') > ${chosen_motion} else 1)"; then
       chosen="${tag}"; chosen_motion="${motion}"
     fi
@@ -206,8 +221,8 @@ if [ -n "${STILL}" ]; then
   echo "  still: godot $(since "$T0")"
   T0=$(now_ms)
   pc <<EOF
-ffmpeg -hide_banner -loglevel error -y -loop 1 -i '${DIR}\\frames\\${NN}.png' -f lavfi -i anullsrc=r=48000:cl=stereo -t ${HOLD} -r ${FPS} -vf "${MASTER}" -c:v libx264 -preset veryfast -crf 16 -pix_fmt yuv420p ${TAGS} -c:a aac -shortest '${DIR}\\cuts\\${NN}.mp4'
-Write-Output ('rendered ' + (Get-Item '${DIR}\\cuts\\${NN}.mp4').Length)
+ffmpeg -hide_banner -loglevel error -y -loop 1 -i '${DIR}\\frames\\${NN}.png' -f lavfi -i anullsrc=r=48000:cl=stereo -t ${HOLD} -r ${FPS} -vf "${MASTER}" -c:v libx264 -preset veryfast -crf 16 -pix_fmt yuv420p ${TAGS} -c:a aac -shortest '${DIR}\\cuts\\${OUT}.mp4'
+Write-Output ('rendered ' + (Get-Item '${DIR}\\cuts\\${OUT}.mp4').Length)
 EOF
   echo "  still: render $(since "$T0")"
   pc_promote "${DIR}" "${NN}" "${NN}" | sed 's/^/  | /'
@@ -222,12 +237,12 @@ elif [ -n "${AT}" ]; then
   echo "  after: checkout+import $(since "$T0")"
   AFTER=$(best_take "${NN}_after" "$(python3 -c "print(${IN} + ${TOTAL})")")
   T0=$(now_ms)
-  render_take "${BEFORE}" "${DIR}\\cuts\\${NN}_before.mp4" "${SECONDS_WANTED}" "${SECONDS_WANTED}" | sed 's/^/  | /'
-  render_take "${AFTER}" "${DIR}\\cuts\\${NN}_after.mp4" "${TOTAL}" "${SECONDS_WANTED}" | sed 's/^/  | /'
+  render_take "${BEFORE}" "${DIR}\\cuts\\${OUT}_before.mp4" "${SECONDS_WANTED}" "${SECONDS_WANTED}" | sed 's/^/  | /'
+  render_take "${AFTER}" "${DIR}\\cuts\\${OUT}_after.mp4" "${TOTAL}" "${SECONDS_WANTED}" | sed 's/^/  | /'
   pc <<EOF
-Set-Content -Path '${DIR}\\cuts\\${NN}_pair.txt' -Value @("file '${NN}_before.mp4'", "file '${NN}_after.mp4'")
-ffmpeg -hide_banner -loglevel error -y -f concat -safe 0 -i '${DIR}\\cuts\\${NN}_pair.txt' -c copy '${DIR}\\cuts\\${NN}.mp4'
-Write-Output ('rendered ' + (Get-Item '${DIR}\\cuts\\${NN}.mp4').Length)
+Set-Content -Path '${DIR}\\cuts\\${OUT}_pair.txt' -Value @("file '${OUT}_before.mp4'", "file '${OUT}_after.mp4'")
+ffmpeg -hide_banner -loglevel error -y -f concat -safe 0 -i '${DIR}\\cuts\\${OUT}_pair.txt' -c copy '${DIR}\\cuts\\${OUT}.mp4'
+Write-Output ('rendered ' + (Get-Item '${DIR}\\cuts\\${OUT}.mp4').Length)
 EOF
   echo "  pair: render $(since "$T0")"
   pc_promote "${DIR}" "${NN}_before" "${BEFORE}" | sed 's/^/  | /'
@@ -247,10 +262,10 @@ else
     echo "  back to ${PC_BRANCH}: checkout+import $(since "$T0")"
   fi
   T0=$(now_ms)
-  render_take "${TAG}" "${DIR}\\cuts\\${NN}.mp4" "${TOTAL}" "${SECONDS_WANTED}" | sed 's/^/  | /'
+  render_take "${TAG}" "${DIR}\\cuts\\${OUT}.mp4" "${TOTAL}" "${SECONDS_WANTED}" | sed 's/^/  | /'
   deliver_take "${TAG}" "${SECONDS_WANTED}" | sed 's/^/  | /'
   echo "  render: $(since "$T0")"
   pc_promote "${DIR}" "${NN}" "${TAG}" | sed 's/^/  | /'
 fi
 pc_worktrees_clean | sed 's/^/  | /'
-echo "shot ${NN} done in $(since "$T_ALL"): ${DIR}\\cuts\\${NN}.mp4"
+echo "shot ${NN} done in $(since "$T_ALL"): ${DIR}\\cuts\\${OUT}.mp4"

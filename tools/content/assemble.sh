@@ -6,8 +6,8 @@
 #
 # With a `## script` table in the brief (the format is in README.md and in
 # tools/content/pc/assemble.py), every voice line maps to a clip and a fit:
-# the voice decides each slot's length, the picture is trimmed, held, slowed
-# or waited for to match, an external clip can carry its own sound in a
+# the voice decides each slot's length, the picture is trimmed or waited for
+# (never held or slowed: a short picture fails the cut), an external clip can carry its own sound in a
 # window the music ducks under, and the word captions pop in from
 # voice\words.json. Segments are cached per source and per number in
 # cuts\_cache\, so re-cutting after a caption, music or voice change encodes
@@ -39,6 +39,7 @@ while [ $# -gt 0 ]; do
 done
 if grep -q '^## script' "${BRIEF}"; then
   T_ALL=$(now_ms)
+  pc_lock "assemble ${NAME} ${TAG}"
   pc_layout "${DIR}"
   pc_push "${BRIEF}" "$(ff "${DIR}")/notes/brief.md"
   pc_push "${CONTENT_DIR}/pc/brief.py" "$(ff "${DIR}")/scripts/brief.py"
@@ -47,6 +48,7 @@ if grep -q '^## script' "${BRIEF}"; then
   pc <<EOF
 \$ErrorActionPreference = 'Continue'
 & '${PC_PYTHON}' '${DIR}\\scripts\\assemble.py' '${DIR}' '${DIR}\\notes\\brief.md' '${TAG}' ${CAPTIONS} 2>&1
+exit \$LASTEXITCODE
 EOF
   echo "assemble done in $(since "$T_ALL"): ${DIR}\\final\\${TAG}.mp4"
   exit 0

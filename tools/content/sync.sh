@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 # Put this branch on the PC's scratch worktree (C:\dev\verify) and import it.
-# Never touches C:\dev\panopticon.
+# Never touches C:\dev\panopticon. Holds the PC lock (lib.sh pc_lock) while it runs.
 #
 #   tools/content/sync.sh [branch]
 set -euo pipefail
 source "$(dirname "$0")/lib.sh"
 BRANCH="${1:-$(git -C "${REPO_DIR}" branch --show-current)}"
 T0=$(now_ms)
+pc_lock "sync ${BRANCH}"
 git -C "${REPO_DIR}" push -q pc "${BRANCH}:refs/heads/content-incoming" -f
 pc <<PS
 \$ErrorActionPreference = 'Stop'
