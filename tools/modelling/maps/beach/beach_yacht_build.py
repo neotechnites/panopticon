@@ -96,14 +96,14 @@ COL_WALL_T = 0.10
 # the palette, a few flat steps: hull white, superstructure off-white, blue saloon glass, near-black hull slots,
 # teak, chrome rails, the red boot stripe, dark antifouling below it
 SHEETS = {
-    "hull": tx.Sheet("hull", mode="box", stem="beach_hull", roughness=0.45),
-    "upper": tx.Sheet("upper", mode="box", stem="beach_hull", roughness=0.45, tint=(0.95, 0.95, 0.93)),
-    "glass": tx.Sheet("glass", mode="box", stem="beach_glass", roughness=0.15),
-    "dark": tx.Sheet("dark", mode="box", stem="beach_glass", roughness=0.15, tint=(0.16, 0.17, 0.2)),
-    "teak": tx.Sheet("teak", mode="box", stem="beach_teak"),
-    "chrome": tx.Sheet("chrome", mode="box", stem="beach_hull", roughness=0.3, tint=(0.7, 0.72, 0.76)),
-    "stripe": tx.Sheet("stripe", mode="box", stem="beach_hull", tint=(0.55, 0.03, 0.04)),
-    "bottom": tx.Sheet("bottom", mode="box", stem="beach_hull", tint=(0.08, 0.12, 0.2)),
+    "hull": tx.Sheet("hull", mode="box", stem="beach_plastic", roughness=0.45),
+    "upper": tx.Sheet("upper", mode="box", stem="beach_plastic", roughness=0.45, tint=(0.95, 0.95, 0.93)),
+    "glass": tx.Sheet("glass", mode="box", stem="beach_plastic", tint=(0.051, 0.132, 0.289), roughness=0.15),
+    "dark": tx.Sheet("dark", mode="box", stem="beach_plastic", roughness=0.15, tint=(0.008, 0.022, 0.058)),
+    "teak": tx.Sheet("teak", mode="box", stem="beach_wood", tint=(0.813, 0.428, 0.185)),
+    "chrome": tx.Sheet("chrome", mode="box", stem="beach_plastic", roughness=0.3, tint=(0.7, 0.72, 0.76)),
+    "stripe": tx.Sheet("stripe", mode="box", stem="beach_plastic", tint=(0.55, 0.03, 0.04)),
+    "bottom": tx.Sheet("bottom", mode="box", stem="beach_plastic", tint=(0.08, 0.12, 0.2)),
 }
 SMOOTH = ("hull", "upper", "bottom")       # the hull and cabin read rounded; trim stays crisp
 

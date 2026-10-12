@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dywscmc248sjk"
-path="res://.godot/imported/beach_hotel_albedo.png-10658c1571c79b58702d3279d364b604.ctex"
+uid="uid://bqbd7omi7ewfc"
+path="res://.godot/imported/beach_horizon_albedo.png-0c29c2e39b0122f1134075e7f74ecb81.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://maps/beach/textures/beach_hotel_albedo.png"
-dest_files=["res://.godot/imported/beach_hotel_albedo.png-10658c1571c79b58702d3279d364b604.ctex"]
+source_file="res://maps/beach/textures/beach_horizon_albedo.png"
+dest_files=["res://.godot/imported/beach_horizon_albedo.png-0c29c2e39b0122f1134075e7f74ecb81.ctex"]
 
 [params]
 

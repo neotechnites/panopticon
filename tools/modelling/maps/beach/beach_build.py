@@ -2574,6 +2574,9 @@ def _ref(centre):
     return max(30.0, math.hypot(centre[0], centre[1]))
 
 
+# One photo tile per family (wood, foliage, rock, roof, plastic); tint = old tile / family tile, linear.
+TEAK = (0.813, 0.428, 0.185)
+CANVAS = (1.0, 0.964, 0.894)
 SHEETS = {
     "sand": tx.Sheet("sand", ref_r=_ref, roughness=0.95),
     "rock": tx.Sheet("rock", mode="box", roughness=0.9),
@@ -2581,32 +2584,31 @@ SHEETS = {
     "terrain": tx.Sheet("terrain", stem="beach_grass", mode="box", roughness=0.95),   # the island: beach_terrain.gdshader in Godot
     "ashlar": tx.Sheet("ashlar", mode="box", roughness=0.9),                      # terrace skirts, garden walls
     "fall": tx.Sheet("fall", mode="custom", roughness=0.3, cull=False),                # the waterfall: beach_fall.gdshader scrolls it
-    "thatch2": tx.Sheet("thatch2", stem="beach_thatch", mode="box", roughness=0.95, cull=False),   # the shore strip
-    "timber": tx.Sheet("timber", stem="beach_drift", mode="box", roughness=0.95),             # (beach_shore.py)
-    "deck": tx.Sheet("deck", stem="beach_teak", mode="box", roughness=0.8),
-    "canvas2": tx.Sheet("canvas2", stem="beach_canvas", mode="box", roughness=0.9, cull=False),
-    "jungle": tx.Sheet("jungle", mode="box", roughness=0.95),
-    "bark": tx.Sheet("bark", mode="custom", roughness=0.95),
-    "leaf": tx.Sheet("leaf", mode="custom", roughness=0.9, cull=False),
+    "thatch2": tx.Sheet("thatch2", stem="beach_roof", mode="box", roughness=0.95, cull=False),   # the shore strip
+    "timber": tx.Sheet("timber", stem="beach_wood", mode="box", roughness=0.95),             # (beach_shore.py)
+    "deck": tx.Sheet("deck", stem="beach_wood", tint=TEAK, mode="box", roughness=0.8),
+    "canvas2": tx.Sheet("canvas2", stem="beach_plastic", tint=CANVAS, mode="box", roughness=0.9, cull=False),
+    "bark": tx.Sheet("bark", stem="beach_wood", tint=(0.589, 0.373, 0.193), mode="custom", roughness=0.95),
+    "leaf": tx.Sheet("leaf", stem="beach_foliage", mode="custom", roughness=0.9, cull=False),
     "water": tx.Sheet("water", mode="box", roughness=0.3, cull=False),
-    "canvas": tx.Sheet("canvas", mode="box", roughness=0.9, cull=False),
+    "canvas": tx.Sheet("canvas", stem="beach_plastic", tint=CANVAS, mode="box", roughness=0.9, cull=False),
     "plastic": tx.Sheet("plastic", mode="box", roughness=0.5),
-    "teak": tx.Sheet("teak", mode="box", roughness=0.8),
-    "drift": tx.Sheet("drift", mode="custom", roughness=0.95),
-    "thatch": tx.Sheet("thatch", mode="custom", roughness=0.95, cull=False),
-    "shell": tx.Sheet("shell", mode="box", roughness=0.6),
-    "reef": tx.Sheet("reef", mode="box", roughness=0.9),
-    "crag": tx.Sheet("crag", mpt=0.4, mode="custom", roughness=0.95),             # cliff rock, box-projected and turned per face (crag_uvs)
+    "teak": tx.Sheet("teak", stem="beach_wood", tint=TEAK, mode="box", roughness=0.8),
+    "drift": tx.Sheet("drift", stem="beach_wood", mode="custom", roughness=0.95),
+    "thatch": tx.Sheet("thatch", stem="beach_roof", mode="custom", roughness=0.95, cull=False),
+    "shell": tx.Sheet("shell", stem="beach_plastic", tint=(0.988, 0.792, 0.662), mode="box", roughness=0.6),
+    "reef": tx.Sheet("reef", stem="beach_rock", tint=(0.831, 0.806, 0.604), mode="box", roughness=0.9),
+    "crag": tx.Sheet("crag", stem="beach_rock", tint=(0.998, 0.839, 0.422), mpt=0.4, mode="custom", roughness=0.95),             # cliff rock, box-projected and turned per face (crag_uvs)
     "plaster": tx.Sheet("plaster", mode="custom", roughness=0.9),                 # the hotel and tower (beach_buildings.py)
     "house": tx.Sheet("house", mode="custom", roughness=0.9),
-    "clock": tx.Sheet("clock", mode="custom", roughness=0.8),
-    "roof": tx.Sheet("roof", mode="box", roughness=0.85),                         # terracotta tiles
+    "clock": tx.Sheet("clock", stem="beach_house", mode="custom", roughness=0.8),
+    "roof": tx.Sheet("roof", stem="beach_roof", tint=(1.0, 0.397, 0.432), mode="box", roughness=0.85),                         # terracotta tiles
     "backdrop": tx.Sheet("backdrop", stem="beach_horizon", size=512, mode="custom", roughness=1.0, cull=False),
-    "tbark": tx.Sheet("tbark", stem="beach_trunk", mode="box", roughness=0.95),       # the forest map's tree in the beach's own
-    "tleaf": tx.Sheet("tleaf", stem="beach_crown", mode="box", roughness=0.9),        # bark tile (the palms') and a leaf-cluster tile
+    "tbark": tx.Sheet("tbark", stem="beach_wood", tint=(0.582, 0.322, 0.156), mode="box", roughness=0.95),       # the forest map's tree in the beach's own
+    "tleaf": tx.Sheet("tleaf", stem="beach_foliage", mode="box", roughness=0.9),        # bark tile (the palms') and a leaf-cluster tile
     "wave": tx.Sheet("wave", mode="custom", roughness=0.4, cull=False),
 }
-SMOOTH = ("sand", "grass", "jungle", "water", "terrain")     # Gouraud like the refs' ground; rock and palms stay faceted
+SMOOTH = ("sand", "grass", "water", "terrain")     # Gouraud like the refs' ground; rock and palms stay faceted
 CHUNKS = ["ground", "island", "rocks", "palms", "props", "water", "waves", "resort"]
 VIS = {"ground": "BeachGround", "island": "BeachIsland", "rocks": "BeachRocks", "palms": "BeachPalms",
        "props": "BeachProps", "water": "BeachWater",

@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://coeneam70jdac"
-path="res://.godot/imported/beach_leaf_albedo.png-deda7dfcc25534737cf028d23a02728a.ctex"
+uid="uid://c6at53ph43fas"
+path="res://.godot/imported/beach_ashlar_albedo.png-7fe2b5e63695cd28c4e130029a04a2b4.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://maps/beach/textures/beach_leaf_albedo.png"
-dest_files=["res://.godot/imported/beach_leaf_albedo.png-deda7dfcc25534737cf028d23a02728a.ctex"]
+source_file="res://maps/beach/textures/beach_ashlar_albedo.png"
+dest_files=["res://.godot/imported/beach_ashlar_albedo.png-7fe2b5e63695cd28c4e130029a04a2b4.ctex"]
 
 [params]
 
@@ -23,7 +23,7 @@ compress/rdo_quality_loss=0.0
 compress/hdr_compression=1
 compress/normal_map=0
 compress/channel_pack=0
-mipmaps/generate=true
+mipmaps/generate=false
 mipmaps/limit=-1
 roughness/mode=0
 roughness/src_normal=""
@@ -37,4 +37,4 @@ process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
 process/size_limit=0
-detect_3d/compress_to=0
+detect_3d/compress_to=1

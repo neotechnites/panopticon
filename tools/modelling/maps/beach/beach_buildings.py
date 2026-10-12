@@ -16,7 +16,7 @@ WHITE = (1.0, 1.0, 1.0, 1.0)
 STONE = (0.9, 0.84, 0.7, 1.0)
 RAIL = (1.0, 1.0, 1.0, 1.0)
 BRONZE = (0.55, 0.42, 0.22, 1.0)
-FLAT = {"plaster": (63.5 / 256.0, 30.0 / 256.0), "house": (0.5, 0.75), "clock": (0.75, 0.25)}
+FLAT = {"plaster": (63.5 / 256.0, 30.0 / 256.0), "house": (0.75, 0.75), "clock": (0.75, 0.75)}   # clock wears the house sheet
 TEXTURED = ("plaster", "house", "clock")
 HOUSE_TINTS = ((1.0, 0.93, 0.82), (0.98, 0.86, 0.78), (1.0, 0.97, 0.9), (0.86, 0.92, 0.98), (1.0, 0.9, 0.86),
                (0.92, 0.96, 0.86))
@@ -614,9 +614,9 @@ def _paint():
     for cx in (43, 128, 213):
         window(dr, 1, cx, 16, 44, 11, SHUT_H, SHUT_HD)
     R(dr, 1, 0, 0, 255, 1, LINE)
-    im.save(os.path.join(out, "beach_house_albedo.png"))
+    house_im = im
 
-    # ---- clock: one face in the top-left quarter, plaster elsewhere
+    # ---- clock: one face in the house sheet's top-left quarter (the houses use only its bottom half)
     S = 4
     big = Image.new("RGB", (128 * S, 128 * S), (206, 188, 152))
     bd = ImageDraw.Draw(big)
@@ -633,9 +633,8 @@ def _paint():
         a = math.radians(ang)
         bd.line((c, c, c + math.sin(a) * ln * S, c - math.cos(a) * ln * S), fill=(30, 28, 26), width=wd * S)
     bd.ellipse((c - 5 * S, c - 5 * S, c + 5 * S, c + 5 * S), fill=(30, 28, 26))
-    im, dr = canvas()
-    im.paste(big.resize((128, 128), Image.LANCZOS), (0, 0))
-    im.save(os.path.join(out, "beach_clock_albedo.png"))
+    house_im.paste(big.resize((128, 128), Image.LANCZOS), (0, 0))
+    house_im.save(os.path.join(out, "beach_house_albedo.png"))
     print("textures ->", out)
 
 

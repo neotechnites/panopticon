@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://chyradgfivi7f"
-path="res://.godot/imported/beach_crag_albedo.png-3add32d100202c0dc61a6586ce164390.ctex"
+uid="uid://bkamd8uex1qsk"
+path="res://.godot/imported/beach_fall_albedo.png-5d072373856eeecc35cffdc48443f205.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://maps/beach/textures/beach_crag_albedo.png"
-dest_files=["res://.godot/imported/beach_crag_albedo.png-3add32d100202c0dc61a6586ce164390.ctex"]
+source_file="res://maps/beach/textures/beach_fall_albedo.png"
+dest_files=["res://.godot/imported/beach_fall_albedo.png-5d072373856eeecc35cffdc48443f205.ctex"]
 
 [params]
 

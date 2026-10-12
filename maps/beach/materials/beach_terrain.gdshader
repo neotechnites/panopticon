@@ -8,6 +8,7 @@ shader_type spatial;
 uniform sampler2D grass_texture : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
 uniform sampler2D rock_texture : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
 uniform sampler2D sand_texture : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
+uniform vec3 rock_tint : source_color = vec3(1.0);   // the rock tile in the crag's colour
 uniform float grass_metres = 12.8;
 uniform float rock_metres = 102.4;
 uniform float edge_noise = 0.4;
@@ -34,7 +35,7 @@ void fragment() {
 	vec3 g1 = triplanar(grass_texture, wpos, wnrm, grass_metres);
 	vec3 g2 = triplanar(grass_texture, wpos + vec3(37.0, 0.0, 11.0), wnrm, grass_metres * 3.1);
 	vec3 grass = mix(g1, g2, 0.45);
-	vec3 rock = triplanar(rock_texture, wpos, wnrm, rock_metres);
+	vec3 rock = triplanar(rock_texture, wpos, wnrm, rock_metres) * rock_tint;
 	float n = texture(rock_texture, wpos.xz / 61.0).r;
 	float k = smoothstep(0.42, 0.58, rock_w + edge_noise * (n - 0.55));
 	vec3 sand = triplanar(sand_texture, wpos, wnrm, grass_metres);

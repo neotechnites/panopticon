@@ -11,7 +11,6 @@
 [ext_resource type="PackedScene" path="res://maps/beach/models/beach_water.glb" id="14_water"]
 [ext_resource type="PackedScene" path="res://maps/beach/models/beach_props.glb" id="28_props"]
 [ext_resource type="PackedScene" path="res://maps/beach/models/beach_resort.glb" id="41_resort"]
-[ext_resource type="Texture2D" path="res://maps/beach/textures/beach_canvas_albedo.png" id="29_canvas_tile"]
 [ext_resource type="Shader" path="res://maps/beach/materials/beach_rock.gdshader" id="30_rock_shader"]
 [ext_resource type="Shader" path="res://maps/beach/materials/beach_sun.gdshader" id="31_sun_shader"]
 [ext_resource type="Shader" path="res://maps/beach/materials/beach_sun_glare.gdshader" id="37_glare_shader"]
@@ -19,7 +18,6 @@
 [ext_resource type="PackedScene" path="res://maps/beach/models/beach_waves.glb" id="33_waves"]
 [ext_resource type="Shader" path="res://maps/beach/materials/beach_waves.gdshader" id="34_waves_shader"]
 [ext_resource type="Texture2D" path="res://maps/beach/textures/beach_wave_albedo.png" id="35_wave_tile"]
-[ext_resource type="Texture2D" path="res://maps/beach/textures/beach_reef_albedo.png" id="36_reef_tile"]
 [ext_resource type="Texture2D" path="res://maps/beach/textures/beach_water_albedo.png" id="15_water_tile"]
 [ext_resource type="Shader" path="res://maps/beach/materials/beach_water.gdshader" id="16_water_shader"]
 [ext_resource type="Texture2D" path="res://maps/beach/textures/beach_water_normal_albedo.png" id="17_ripples"]
@@ -29,8 +27,8 @@
 [ext_resource type="PackedScene" path="res://maps/beach/props/beach_portal.tscn" id="19_portal"]
 [ext_resource type="Shader" path="res://maps/beach/materials/beach_sky.gdshader" id="20_sky_shader"]
 [ext_resource type="Texture2D" path="res://maps/beach/textures/beach_rock_albedo.png" id="22_rock_tile"]
+[ext_resource type="Texture2D" path="res://maps/beach/textures/beach_plastic_albedo.png" id="29_plastic_tile"]
 [ext_resource type="Texture2D" path="res://maps/beach/textures/beach_grass_albedo.png" id="23_grass_tile"]
-[ext_resource type="Texture2D" path="res://maps/beach/textures/beach_crag_albedo.png" id="42_crag_tile"]
 [ext_resource type="Texture2D" path="res://maps/beach/textures/beach_horizon_albedo.png" id="43_horizon_sheet"]
 [ext_resource type="Shader" path="res://maps/beach/materials/beach_terrain.gdshader" id="44_terrain_shader"]
 [ext_resource type="Texture2D" path="res://maps/beach/textures/beach_ashlar_albedo.png" id="45_ashlar_tile"]
@@ -76,7 +74,8 @@ shader_parameter/caustics = ExtResource("15_water_tile")
 
 [sub_resource type="ShaderMaterial" id="ReefMat"]
 shader = ExtResource("30_rock_shader")
-shader_parameter/albedo_texture = ExtResource("36_reef_tile")
+shader_parameter/albedo_texture = ExtResource("22_rock_tile")
+shader_parameter/tint = Color(0.922, 0.91, 0.8, 1)
 
 [sub_resource type="ShaderMaterial" id="RockMat"]
 shader = ExtResource("30_rock_shader")
@@ -148,7 +147,8 @@ texture_filter = 5
 [sub_resource type="StandardMaterial3D" id="CragMat"]
 resource_name = "beach_crag"
 vertex_color_use_as_albedo = true
-albedo_texture = ExtResource("42_crag_tile")
+albedo_color = Color(0.999, 0.926, 0.682, 1)
+albedo_texture = ExtResource("22_rock_tile")
 uv1_scale = Vector3(1, 1, 1)
 roughness = 0.95
 texture_filter = 5
@@ -156,7 +156,8 @@ texture_filter = 5
 [sub_resource type="ShaderMaterial" id="TerrainMat"]
 shader = ExtResource("44_terrain_shader")
 shader_parameter/grass_texture = ExtResource("23_grass_tile")
-shader_parameter/rock_texture = ExtResource("42_crag_tile")
+shader_parameter/rock_texture = ExtResource("22_rock_tile")
+shader_parameter/rock_tint = Color(0.999, 0.926, 0.682, 1)
 shader_parameter/sand_texture = ExtResource("27_sand_tile")
 
 [sub_resource type="StandardMaterial3D" id="AshlarMat"]
@@ -183,7 +184,8 @@ texture_filter = 3
 resource_name = "beach_canvas"
 cull_mode = 2
 vertex_color_use_as_albedo = true
-albedo_texture = ExtResource("29_canvas_tile")
+albedo_color = Color(1, 0.984, 0.952, 1)
+albedo_texture = ExtResource("29_plastic_tile")
 roughness = 0.9
 texture_filter = 5
 

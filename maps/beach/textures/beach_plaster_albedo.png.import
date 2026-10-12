@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cn2yjhlaupdbb"
-path="res://.godot/imported/beach_glass_albedo.png-ae3cb6e1ae05ef04ab9533fb29313b12.ctex"
+uid="uid://c0xeohbqbsq1m"
+path="res://.godot/imported/beach_plaster_albedo.png-7836838fc1b2cd9f21749ff250c83906.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://maps/beach/textures/beach_glass_albedo.png"
-dest_files=["res://.godot/imported/beach_glass_albedo.png-ae3cb6e1ae05ef04ab9533fb29313b12.ctex"]
+source_file="res://maps/beach/textures/beach_plaster_albedo.png"
+dest_files=["res://.godot/imported/beach_plaster_albedo.png-7836838fc1b2cd9f21749ff250c83906.ctex"]
 
 [params]
 
@@ -23,7 +23,7 @@ compress/rdo_quality_loss=0.0
 compress/hdr_compression=1
 compress/normal_map=0
 compress/channel_pack=0
-mipmaps/generate=true
+mipmaps/generate=false
 mipmaps/limit=-1
 roughness/mode=0
 roughness/src_normal=""
@@ -37,4 +37,4 @@ process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
 process/size_limit=0
-detect_3d/compress_to=0
+detect_3d/compress_to=1
