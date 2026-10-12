@@ -4,17 +4,17 @@ extends RefCounted
 ## VISUAL meshes as trimeshes, so a camera in rock is caught even where the collider is not.
 
 ## Meshes the lens passes through by design (portals, sky, effects); matched on node name.
-const SKIP := ["portal", "swirl", "shimmer", "sky", "water", "fog", "ray", "beam", "glow", "particle", "dust", "ember"]
+const SKIP := ["haze", "portal", "swirl", "shimmer", "sky", "water", "fog", "ray", "beam", "glow", "particle", "dust", "ember"]
 ## The probe sphere: twice the lens's near plane, never under the shipped 0.3 m near plane
 ## (clip cameras run at 0.05 m, where twice that would only catch a lens already in the rock).
 const NEAR_FLOOR_METRES: float = 0.3
-## Wall test: rays over the frame; wall (not floor) nearer than WALL_METRES over WALL_SHARE of the view
-## reads on a phone as the camera in the rock (portal_spin L7: S5 bank and pillars at 1-2 m, falls bulging 0.75 m).
-const WALL_METRES: float = 2.0
-const WALL_SHARE: float = 0.3
+## Wall test: wall (not floor) nearer than WALL_METRES over WALL_SHARE of a 9x16 ray grid: the lens
+## shoved against rock. Running a cave lane (S1, rock at 1-2 m) must stay clear of it.
+const WALL_METRES: float = 1.5
+const WALL_SHARE: float = 0.4
 ## A hit facing up this much is floor: looking down at it is not being in it.
 const FLOOR_NORMAL_Y: float = 0.7
-const WALL_GRID := Vector2i(5, 9)
+const WALL_GRID := Vector2i(9, 16)
 ## Inside test: a ray this long whose first hit is a back face means the lens is in the mesh.
 const INSIDE_RAY_METRES: float = 3.0
 
