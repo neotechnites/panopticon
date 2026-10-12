@@ -56,7 +56,8 @@
      "type": "string",
      "enum": [
       "andrew",
-      "ryan"
+      "ryan",
+      "none"
      ]
     },
     "tag": {

@@ -50,6 +50,7 @@
         "type": "string",
         "enum": [
          "guard",
+         "runner",
          "prisoner",
          "free",
          "spectator",
