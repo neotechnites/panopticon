@@ -83,8 +83,15 @@ void fragment() {
 	vec3 n = normalize(cross(dFdx(VERTEX), dFdy(VERTEX)));
 	NORMAL = dot(n, NORMAL) < 0.0 ? -n : n;
 #ifdef WAVE_SEE_THROUGH
-	vec4 albedo_tex = texture(albedo_texture, UV);
-	vec3 emission_tex = texture(emission_texture, UV).rgb;
+	vec2 uv = UV;
+#ifdef WAVE_SPIN
+	// The swirl turns rigidly about its file's centre; the dark corners past the circle stay put.
+	vec2 d = UV - vec2(0.5);
+	float a = TIME * WAVE_SPIN * (1.0 - smoothstep(0.44, 0.5, length(d)));
+	uv = vec2(0.5) + mat2(vec2(cos(a), sin(a)), vec2(-sin(a), cos(a))) * d;
+#endif
+	vec4 albedo_tex = texture(albedo_texture, uv);
+	vec3 emission_tex = texture(emission_texture, uv).rgb;
 	ALPHA = albedo_tex.a * albedo_color.a;
 #else
 	// two drifting layers of the one tile, turned and scaled apart so the repeat never lines up
