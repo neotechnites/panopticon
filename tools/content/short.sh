@@ -23,6 +23,7 @@ ${V} has "${BRIEF}" "${TAG}" || "${CONTENT_DIR}/version.sh" "${BRIEF}" "${TAG}"
 T_ALL=$(now_ms); TIMES=()
 stage() { TIMES+=("$1 $(since "$2")"); echo "== $1: $(since "$2")"; }
 
+pc_lock "short ${NAME}"   # one short owns C:\dev\verify from sync to assemble
 T0=$(now_ms); "${CONTENT_DIR}/sync.sh"; stage sync "${T0}"
 
 if python3 -c "import sys; sys.path.insert(0, '${CONTENT_DIR}/pc'); import brief as b; p = b.parse('${BRIEF}'); s = p['scripts'].get('${TAG}') or p['script']; sys.exit(0 if b.voice_rows(s) else 1)"; then
