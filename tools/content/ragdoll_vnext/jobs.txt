@@ -1,0 +1,11 @@
+# name|project|godot args|seconds (L1-L3 at the pre-ragdoll ref c1068a6b, L4-L7 on main)
+a1_old_snipe|C:\dev\worktrees\ragdoll_vnext_old|--script res://tools/capture/run_clip.gd -- --shot=s3_open_lane --stage=rs_snipe --pov=guard --hud=crosshair --bots=4 --seed=20261012 --seconds=9 --set=plan=0m,1m,2h;beat=1.3;fire_at=1.0|
+a2_old_grey|C:\dev\worktrees\ragdoll_vnext_old|--script res://tools/content/ragdoll_vnext/grey_death_old.gd|
+a3_old_zoomout|C:\dev\worktrees\ragdoll_vnext_old|--script res://tools/capture/run_clip.gd -- --shot=pit_orbit --stage=zoomout_old --bots=7 --seed=20261012 --seconds=13 --set=span=11|
+b4_tower|C:\dev\worktrees\ragdoll_vnext|--script res://tools/capture/run_clip.gd -- --shot=s3_open_lane --stage=rs_tower --pov=guard --hud=crosshair --bots=2 --seed=20261012 --seconds=8 --set=cross=1|
+b5_hits|C:\dev\worktrees\ragdoll_vnext|--script res://tools/capture/run_clip.gd -- --shot=s3_open_lane --stage=rs_snipe --pov=guard --hud=crosshair --bots=4 --seed=20261012 --seconds=9 --set=plan=0h,1h,2h;beat=1.5;fire_at=1.1|
+b5_hunt|C:\dev\worktrees\ragdoll_vnext|--script res://tools/capture/run_clip.gd -- --shot=s3_open_lane --stage=scope_hunt --pov=guard --hud=crosshair --bots=7 --seed=20261012 --seconds=11|
+b6_face|C:\dev\worktrees\ragdoll_vnext|--script res://tools/capture/run_clip.gd -- --shot=s3_face_side --stage=faceshove --bots=2 --seed=20261012 --seconds=8|
+b6_melee|C:\dev\worktrees\ragdoll_vnext|--script res://tools/capture/run_clip.gd -- --shot=s3_melee --stage=melee --bots=5 --seed=20261012 --seconds=8|
+b6_pov|C:\dev\worktrees\ragdoll_vnext|--script res://tools/capture/run_clip.gd -- --shot=s3_face_side --stage=faceshove --pov=runner --bots=2 --seed=20261012 --seconds=8|
+b7_finale|C:\dev\worktrees\ragdoll_vnext|--script res://tools/capture/run_clip.gd -- --shot=s3_open_lane --stage=finale --pov=runner --bots=3 --seed=20261012 --seconds=20|
