@@ -711,6 +711,31 @@ def gate_g10(edl):
     return (not bad), ("; ".join(bad) if bad else "%d beat(s) on their words" % n)
 
 
+def _framemd5(path, stream):
+    r = subprocess.run(["ffmpeg", "-nostdin", "-v", "error", "-i", path, "-map", "0:%s" % stream, "-f", "framemd5",
+                        "-"], capture_output=True, text=True, check=True)
+    return [ln.split(",")[-1].strip() for ln in r.stdout.splitlines() if ln and not ln.startswith("#")]
+
+
+def gate_gdiff(prev, new, changed, fps=FPS):
+    """G-diff: version N+1 may change only what the notes name. Every video frame outside the
+    noted ranges [(t0, t1) seconds] decodes identical to version N, and so does all audio unless a
+    range is marked audio. Lengths must match frame for frame."""
+    a, b = _framemd5(prev, "v:0"), _framemd5(new, "v:0")
+    if len(a) != len(b):
+        return False, "frame count %d vs %d" % (len(a), len(b))
+    hit = lambda i: any(int(round(t0 * fps)) <= i < int(round(t1 * fps)) for t0, t1, *_ in changed)
+    diff = [i for i in range(len(a)) if not hit(i) and a[i] != b[i]]
+    audio_free = not any(len(c) > 2 and c[2] == "audio" for c in changed)
+    aud_ok = (not audio_free) or _framemd5(prev, "a:0") == _framemd5(new, "a:0")
+    if diff or not aud_ok:
+        return False, "%d frame(s) outside the notes differ (first at %.3f s)%s" % (
+            len(diff), (diff[0] / fps) if diff else 0, "" if aud_ok else "; audio differs")
+    kept = sum(1 for i in range(len(a)) if not hit(i))
+    return True, "%d of %d frames outside the notes identical to %s; audio identical" % (
+        kept, len(a), os.path.basename(prev))
+
+
 def run_gates(project, edl=None, lps=None, g11=None, manifest=None, plan=None):
     """G7-G11 and G13 for a rendered project; written to render_gates.json (the WP4 runner reads it)."""
     W, H = edl["w"], edl["h"]
@@ -734,12 +759,23 @@ def run_gates(project, edl=None, lps=None, g11=None, manifest=None, plan=None):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("project")
+    ap.add_argument("project", nargs="?")
+    ap.add_argument("--gdiff", nargs=2, metavar=("PREV", "NEW"))
+    ap.add_argument("--changed", action="append", default=[], help="t0-t1[:audio] seconds a note changes")
     ap.add_argument("--tag")
     ap.add_argument("--only")
     ap.add_argument("--jobs", type=int, default=2)
     ap.add_argument("--content-root", action="append")
     a = ap.parse_args()
+    if a.gdiff:
+        ch = []
+        for c in a.changed:
+            rng, _, kind = c.partition(":")
+            t0, t1 = (float(x) for x in rng.split("-"))
+            ch.append((t0, t1, kind) if kind else (t0, t1))
+        ok, why = gate_gdiff(a.gdiff[0], a.gdiff[1], ch)
+        print("G-diff %s  %s" % ("pass" if ok else "FAIL", why))
+        return 0 if ok else 1
     only = set(x.strip() for x in a.only.split(",")) if a.only else None
     g = run(a.project, a.tag, only, a.jobs, a.content_root)
     return 0 if (g is None or g["pass"]) else 1
