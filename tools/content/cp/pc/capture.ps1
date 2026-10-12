@@ -7,6 +7,7 @@ $j = Get-Content $Job -Raw | ConvertFrom-Json
 $res = [ordered]@{ ok = $false; error = ''; mode = $j.mode }
 function Done { $res | ConvertTo-Json -Depth 6 | Set-Content -Path $j.result -Encoding UTF8; exit 0 }
 function F([double]$x) { $x.ToString('0.######', $inv) }
+trap { $res.error = "capture.ps1 line $($_.InvocationInfo.ScriptLineNumber): $_"; Remove-Item "$($j.project)\override.cfg" -EA SilentlyContinue; Done }
 
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -Namespace CP -Name Win -MemberDefinition @'

@@ -59,6 +59,7 @@ extends SceneTree
 ##                  on the take's first frame, so a screen recording finds t=0 by it
 ## --tail-marker=N  N white frames after the take's last frame, so it finds the end too
 ## --deny-look      refuse --look and any lighting a stage changes: the game's own light
+## --final          allow --write-movie (offline frames): the final pass only, never a rough take
 ## [/codeblock]
 ##
 ## Every take prints [code][light][/code] (the environment in effect, against the
@@ -237,7 +238,11 @@ func _initialize() -> void:
 		"sync": 0,
 		"tail-marker": 0,
 		"deny-look": false,
+		"final": false,
 	})
+	if OS.has_feature("movie") and not bool(_options.get("final", false)):
+		_fail("--write-movie without --final: rough takes are real time only (decision 195); nothing was filmed.")
+		return
 	_deny_look = bool(_options.get("deny-look", false))
 	_tail_frames = int(_options.get("tail-marker", 0))
 	_sync_frames = int(_options.get("sync", 0))

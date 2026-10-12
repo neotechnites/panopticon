@@ -90,6 +90,8 @@ def run_clip_args(row: dict) -> list[str]:
     if g.get("tape"):
         tape = g["tape"]
         args.append(f"--tape={tape if tape.startswith('res://') else 'res://' + tape.lstrip('/')}")
+    if any(a.startswith(("--write-movie", "--final")) for a in g.get("args", [])):
+        raise SystemExit(f"capture {row['id']}: offline capture (--write-movie/--final) is refused: takes are real time (decision 195)")
     args += [a for a in g.get("args", []) if not a.startswith(("--seconds", "--sync", "--tail-marker", "--deny-look"))]
     if any(a.startswith("--look") for a in args) and not g.get("look_override"):
         raise SystemExit(f"capture {row['id']}: --look in the row without look_override: yes")
@@ -251,14 +253,44 @@ def g6_light(res: dict, log: dict, row: dict) -> dict:
     return gate(True, f"[light] = shipped, luma {d * 100:+.0f}% of the reference")
 
 
-GATES = {"G3": g3_desktop, "G4": g4_alive, "G5": g5_clipping, "G6": g6_light}
+def g3b_realtime(take: dict) -> dict:
+    """No offline frames in a rough take: real time ddagrab only, never Movie Maker (decision 195)."""
+    offline = take.get("capture") != "realtime-ddagrab" or any(
+        a.startswith(("--write-movie", "--final")) for a in take.get("args", []))
+    if offline and take.get("mode") != "final":
+        return gate(False, f"offline capture in a rough take ({take.get('capture')}): refused")
+    return gate(True, f"{take.get('capture')}, {take.get('mode')}")
+
+
+def _arg(args: list[str], key: str) -> str:
+    for a in args:
+        if a.startswith(f"--{key}="):
+            return a.split("=", 1)[1]
+    return ""
+
+
+def g6b_matches_plan(take: dict, row: dict, expected_commit: str) -> dict:
+    """The take is the row: map, POV, stage and commit in take.json equal the plan's."""
+    g = row.get("game") or {}
+    args = take.get("args", [])
+    want = {"map": g.get("map", ""), "pov": POV_ARG.get(g.get("pov", ""), g.get("pov_arg", "")),
+            "stage": g.get("stage", "") if g.get("stage") not in ("none", "free") else ""}
+    bad = [f"{k} {_arg(args, k)!r} != plan {v!r}" for k, v in want.items() if _arg(args, k) != v]
+    bad += [f"{k} {take.get(k)!r} != plan {g.get(k)!r}" for k in ("map", "stage") if take.get(k) != g.get(k, "")]
+    if take.get("commit") != expected_commit:
+        bad.append(f"commit {take.get('commit', '')[:10]} != plan ref {g.get('ref', 'main')} {expected_commit[:10]}")
+    return gate(not bad, "; ".join(bad) if bad else f"map/pov/stage/commit = plan ({expected_commit[:10]})")
+
+
+GATES = {"G3": g3_desktop, "G3b": g3b_realtime, "G4": g4_alive, "G5": g5_clipping, "G6": g6_light,
+         "G6b": g6b_matches_plan}
 
 
 # --- One take on the PC ----------------------------------------------------------------------
 
-def _run_task(job_pc: str, seconds: float, owner: str) -> None:
+def _run_task(job_pc: str, seconds: float, owner: str) -> str:
     task = f"cp_capture_{os.getpid()}_{int(time.time())}"
-    pc(f"""
+    return pc(f"""
 $ErrorActionPreference = 'Stop'
 $a = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument '-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File {PC_TOOLS}\\capture.ps1 -Job "{job_pc}"'
 $p = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive
@@ -268,6 +300,7 @@ try {{
   Start-Sleep -Seconds 2
   $deadline = (Get-Date).AddSeconds({int(seconds + 600)})
   while ((Get-ScheduledTask -TaskName '{task}').State -eq 'Running' -and (Get-Date) -lt $deadline) {{ Start-Sleep -Seconds 1 }}
+  Write-Output ('task result ' + (Get-ScheduledTaskInfo -TaskName '{task}').LastTaskResult)
 }} finally {{ Unregister-ScheduledTask -TaskName '{task}' -Confirm:$false -EA SilentlyContinue }}
 """, timeout=seconds + 900)
 
@@ -281,6 +314,9 @@ def capture_line(plan: dict, row: dict, mode: str, local_dir: Path, retakes: int
     args = run_clip_args(row) + [f"--seconds={seconds}"]
     project = pc_project(g.get("ref", "main"))
     commit = pc(f"git -C '{project}' rev-parse HEAD").strip()
+    ref = g.get("ref", "main")
+    expected = commit if ref in ("", "main", "HEAD", "origin/main") else pc(
+        f"(git -C C:/dev/verify rev-parse '{ref}^{{commit}}').Trim()").strip()
     pc_dir = f"{PC_CONTENT}\\{name}\\takes\\{line}"
     local_dir.mkdir(parents=True, exist_ok=True)
     pc(f"New-Item -ItemType Directory -Force -Path '{pc_dir}', '{PC_TOOLS}' | Out-Null")
@@ -300,9 +336,9 @@ def capture_line(plan: dict, row: dict, mode: str, local_dir: Path, retakes: int
         pc(f"Remove-Item '{pc_dir}\\result.json', '{pc_dir}\\take.log' -EA SilentlyContinue", check=False)
         t_start = time.time()
         with pclock.lease("screen", f"{name}/{line}", seconds + 60):
-            _run_task(f"{pc_dir}\\job.json", seconds, f"{name}/{line}")
+            task_out = _run_task(f"{pc_dir}\\job.json", seconds, f"{name}/{line}").strip()
         res = json.loads(pc(f"Get-Content '{pc_dir}\\result.json' -Raw -EA SilentlyContinue", check=False).strip().lstrip("\ufeff")
-                         or '{"ok": false, "error": "no result.json"}')
+                         or json.dumps({"ok": False, "error": f"no result.json ({task_out})"}))
         try:
             pc_pull(f"{pc_dir}\\take.log", str(local_dir / "take.log"))
             log_text = (local_dir / "take.log").read_text(errors="replace")
@@ -325,10 +361,12 @@ def capture_line(plan: dict, row: dict, mode: str, local_dir: Path, retakes: int
             "measure": {k: res.get(k) for k in ("duration", "bytes", "frames", "black", "freeze", "motion",
                                                  "magenta_max", "luma_median", "head_full_white", "tail_full_white",
                                                  "white_runs", "screen", "output_idx", "error", "godot_exit")},
-            "gates": gates,
+            "capture": "realtime-ddagrab", "gates": gates,
         }
+        gates["G3b"] = g3b_realtime(take)
+        gates["G6b"] = g6b_matches_plan(take, row, expected)
         retry = not (gates["G3"]["pass"] and gates["G4"]["pass"])
-        if not retry or not (gates["G5"]["pass"] and gates["G6"]["pass"]):
+        if not retry or not all(gates[k]["pass"] for k in ("G3b", "G5", "G6", "G6b")):
             break   # G5/G6 are restaged, never retaken blindly
     (local_dir / "take.json").write_text(json.dumps(take, indent=1))
     prov = {"inputs": [], "encoder": "utvideo", "lossless": True, "tool": "cp.capture", "version": VERSION,
